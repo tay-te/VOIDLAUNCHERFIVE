@@ -61,7 +61,7 @@ import net.minecraft.world.level.block.Blocks;
  */
 public final class MarketHall implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("commerce/market_hall"), ArchetypeCategory.COMMERCE, Set.of(JobType.MERCHANT), 0,
-		11, 17, 13, 21, 12, 24, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.CENTRAL), List.of(), 1, 1.0);
+		11, 17, 13, 21, 12, 28, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.CENTRAL), List.of(), 1, 1.0);
 
 	@Override
 	public ArchetypeInfo info() {
@@ -76,9 +76,12 @@ public final class MarketHall implements Archetype {
 		int maxH = d.maxHeight();
 		Habits h = d.habits();
 		Tradition t = Tradition.of(d);
-		Arches.Kind arch = Arches.kind(t);
+		// a Bohemian market house: an arcade of pointed arches rendered with the walls under a jettied timber hall
+		boolean boh = t == Tradition.TIMBER;
+		Arches.Kind arch = boh ? Arches.Kind.POINTED : Arches.kind(t);
 		boolean timber = Arches.timber(arch);
-		boolean jetty = t == Tradition.TIMBER || t == Tradition.LOG;
+		// (the Bohemian house sets its framed hall flush on the arcade, so the arches read from the square)
+		boolean jetty = t == Tradition.LOG;
 
 		// --- the plan: an arcaded body, the back bay enclosed
 		int x0 = 1;
@@ -87,7 +90,8 @@ public final class MarketHall implements Archetype {
 		int z0 = zF + (jetty ? 1 : 0);
 		int z1 = dp - 2;
 		int cx = (x0 + x1) / 2;
-		int h0 = 5;
+		// a lofty arcade where the back bay is wide enough for the longer flight up beside the stores
+		int h0 = boh && maxH >= 22 && x1 - x0 - 1 >= 9 ? 6 : 5;
 		int h1 = maxH >= 20 ? 5 : 4;
 		int base = t.raised() ? 0 : Grounds.raisedBase(d, x0, x1, z0);
 		Body body = new Body(x0, z0, x1, z1, base, new int[]{h0, h1}, false, false);
@@ -108,7 +112,7 @@ public final class MarketHall implements Archetype {
 
 		// --- the arcades on three sides, the back bay walled
 		int zb = z1 - 3;
-		Paint pier = Arches.pierPaint(d, arch);
+		Paint pier = boh ? d.mat(Role.WALL).full() : Arches.pierPaint(d, arch);
 		int pitch = timber ? 3 : 4;
 		int top = base + h0 - 1;
 		Side front = Side.of(x0, z0, x1, z1, Dirs.FRONT);
@@ -121,7 +125,9 @@ public final class MarketHall implements Archetype {
 		// the back bay: the walls of the style (or stone) round the stair and the stores
 		Body backBay = new Body(x0, zb, x1, z1, base, new int[]{h0}, false, false);
 		Facade bf = new Facade();
-		if (timber) {
+		if (boh) {
+			Walls.storey(d, backBay, 0, bf, Habits.WallKind.STONE);
+		} else if (timber) {
 			Walls.storey(d, backBay, 0, bf);
 		} else {
 			Storeys.stoneStorey(d, backBay, 0);
@@ -169,11 +175,16 @@ public final class MarketHall implements Archetype {
 		}
 
 		// --- the roof and the cupola
-		RoofForm form = roofForm(d, t);
-		Direction.Axis ridge = form == RoofForm.GABLE && d.chance(Math.max(0.4, h.roof().frontGable())) ? Direction.Axis.Z
+		RoofForm form = boh && d.param("roof", "").isEmpty() ? RoofForm.GABLE : roofForm(d, t);
+		// the Bohemian house turns a tall framed gable to the square
+		Direction.Axis ridge = boh && form == RoofForm.GABLE ? Direction.Axis.Z
+			: form == RoofForm.GABLE && d.chance(Math.max(0.4, h.roof().frontGable())) ? Direction.Axis.Z
 			: up[2] - up[0] >= up[3] - up[1] ? Direction.Axis.X : Direction.Axis.Z;
 		boolean cupola = d.param("cupola", true) && form != RoofForm.FLAT;
-		Storeys.Top roofTop = Storeys.roof(d, body, form, ridge, Math.max(h.roof().pitch(), 1.0), cupola ? 8 : 1, true);
+		Storeys.Top roofTop = Storeys.roof(d, body, form, ridge, boh ? 2.0 : Math.max(h.roof().pitch(), 1.0), cupola ? 8 : 1, true);
+		if (boh && ridge == Direction.Axis.Z && roofTop.roof() != null) {
+			loft(d, up, plate, roofTop.roof());
+		}
 		int skyline = roofTop.ridge();
 		int cz = (z0 + z1) / 2;
 		if (form == RoofForm.FLAT) {
@@ -268,6 +279,35 @@ public final class MarketHall implements Archetype {
 			Signs.wallBanner(d, upFront.outX(upFront.index(cx), 1), bannerY + 1, upFront.outZ(upFront.index(cx), 1), Dirs.FRONT, arms.field(), arms.layers());
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+	}
+
+	/**
+	 * The loft in a market house's front gable: a door high in the gable under a hoist beam carried out over the square,
+	 * its rope a chain with a lantern at the end (sacks came up this way), where the gable is tall enough.
+	 */
+	static void loft(Draft d, int[] up, int plate, Roofs.Roof roof) {
+		int cx = (up[0] + up[2]) / 2;
+		int z = up[1];
+		int under = roof.bottomY(cx, z);
+		if (under == Integer.MIN_VALUE || under - (plate + 1) < 4) {
+			return;
+		}
+		int y = plate + 2;
+		d.inStage(StageKind.OPENINGS, () -> d.door(cx, y, z, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
+			net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+		int by = Math.min(under - 1, y + 2);
+		if (by < y + 2) {
+			return;
+		}
+		try (var s = d.stage(StageKind.FRAME)) {
+			d.set(cx, by, z, d.mat(Role.BEAM).log(Direction.Axis.Z));
+			if (z - 1 >= 0 || by >= 3) {
+				d.set(cx, by, z - 1, d.mat(Role.BEAM).log(Direction.Axis.Z));
+			}
+		}
+		if (z - 1 >= 0 || by - 1 >= 3) {
+			dev.voidmc.hearth.build.kit.Furniture.hangingLantern(d, cx, by, z - 1, 1);
+		}
 	}
 
 	/** The roof a culture raises over its market. */
