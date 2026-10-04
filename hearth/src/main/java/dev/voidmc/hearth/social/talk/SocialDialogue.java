@@ -110,7 +110,7 @@ public final class SocialDialogue implements DialogueProvider {
 		}
 		if (cfg.wages().enabled() && w != null && money) {
 			WageTask task = WageTasks.task(player);
-			int minute = SocialTime.minute(SocialTime.now(w));
+			int minute = SocialTime.minute(TownLife.now(w, s));
 			boolean daytime = minute >= 7 * 60 && minute < 18 * 60;
 			if (task == null && daytime) {
 				if (ServiceSites.farmhand(s, r)) {
@@ -135,13 +135,13 @@ public final class SocialDialogue implements DialogueProvider {
 			TownEvent market = TownLife.current(s, TownEvent.Kind.MARKET);
 			if (market != null && (StallKeeperBehaviour.stallOf(s, market, r) >= 0 || ServiceSites.workPath(s, r).startsWith("commerce/market")
 				|| r.job == dev.voidmc.hearth.api.JobType.MERCHANT)) {
-				VisitingWares.Visit visit = VisitingWares.visit(w, s, w.day());
+				VisitingWares.Visit visit = VisitingWares.visit(w, s, TownLife.today(w, s));
 				if (visit != null) {
 					SocialLedger ledger = s.data(SocialModule.LEDGER);
 					for (int i = 0; i < visit.wares().size(); i++) {
 						VisitingWares.Ware ware = visit.wares().get(i);
 						long price = VisitingWares.price(s, ware, cfg.market());
-						if (price > 0 && VisitingWares.stock(ledger, w.day(), ware, cfg.market()) > 0) {
+						if (price > 0 && VisitingWares.stock(ledger, TownLife.today(w, s), ware, cfg.market()) > 0) {
 							out.add(new Option(WARE + i, Component.translatable("hearth.social.talk.ware", ware.count(), new ItemStack(ware.item()).getHoverName(),
 								Hooks.coins(price)), 120 + i));
 						}
@@ -362,7 +362,7 @@ public final class SocialDialogue implements DialogueProvider {
 
 	private static boolean buyWare(ServerPlayer player, HearthWorld w, Settlement s, Resident r, String index) {
 		SocialConfig cfg = SocialModule.config();
-		VisitingWares.Visit visit = VisitingWares.visit(w, s, w.day());
+		VisitingWares.Visit visit = VisitingWares.visit(w, s, TownLife.today(w, s));
 		int i;
 		try {
 			i = Integer.parseInt(index);
@@ -375,7 +375,7 @@ public final class SocialDialogue implements DialogueProvider {
 		VisitingWares.Ware ware = visit.wares().get(i);
 		SocialLedger ledger = s.data(SocialModule.LEDGER);
 		long price = VisitingWares.price(s, ware, cfg.market());
-		if (price <= 0 || VisitingWares.stock(ledger, w.day(), ware, cfg.market()) <= 0) {
+		if (price <= 0 || VisitingWares.stock(ledger, TownLife.today(w, s), ware, cfg.market()) <= 0) {
 			return false;
 		}
 		if (!Hooks.charge(player, price, r, s)) {
@@ -406,8 +406,8 @@ public final class SocialDialogue implements DialogueProvider {
 	/** Today's doings, the next market and feast, and the latest notices. */
 	static Component whatsOn(HearthWorld w, Settlement s) {
 		SocialConfig cfg = SocialModule.config();
-		long today = w.day();
-		long now = SocialTime.now(w);
+		long today = TownLife.today(w, s);
+		long now = TownLife.now(w, s);
 		MutableComponent out = Component.empty();
 		List<Component> parts = new ArrayList<>();
 		for (TownEvent e : TownLife.events(s)) {
@@ -466,7 +466,7 @@ public final class SocialDialogue implements DialogueProvider {
 	/** What neighbouring towns have on this week: markets and feasts. */
 	static Component roadNews(HearthWorld w, Settlement s) {
 		SocialConfig cfg = SocialModule.config();
-		long today = w.day();
+		long today = TownLife.today(w, s);
 		MutableComponent out = Component.empty();
 		int told = 0;
 		for (HearthWorld.SiteInfo site : w.knownSites(s.center(), 1500)) {
@@ -574,7 +574,7 @@ public final class SocialDialogue implements DialogueProvider {
 	}
 
 	static Component ritesReport(HearthWorld w, Settlement s) {
-		long today = w.day();
+		long today = TownLife.today(w, s);
 		MutableComponent out = Component.empty();
 		int n = 0;
 		for (SocialLedger.FamilyEvent e : s.data(SocialModule.LEDGER).family) {

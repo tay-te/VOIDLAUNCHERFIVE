@@ -104,7 +104,7 @@ public final class SocialCommands {
 		Settlement s = here(c);
 		HearthWorld w = HearthWorld.of(c.getSource().getLevel());
 		SocialConfig cfg = SocialModule.config();
-		long today = w == null ? 0 : w.day();
+		long today = w == null ? 0 : TownLife.today(w, s);
 		long now = TownLife.now(s);
 		CommandSourceStack src = c.getSource();
 		src.sendSuccess(() -> Component.translatable("hearth.social.command.events", s.name(), today, SocialConfig.formatClock(SocialTime.minute(now)),
@@ -124,7 +124,7 @@ public final class SocialCommands {
 	private static int notices(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
 		Settlement s = here(c);
 		HearthWorld w = HearthWorld.of(c.getSource().getLevel());
-		long today = w == null ? 0 : w.day();
+		long today = w == null ? 0 : TownLife.today(w, s);
 		List<SocialLedger.Notice> list = Notices.current(s.data(SocialModule.LEDGER), today);
 		c.getSource().sendSuccess(() -> Component.translatable("hearth.social.command.notices", s.name(), list.size()).withStyle(ChatFormatting.GOLD), false);
 		for (SocialLedger.Notice n : list) {
@@ -163,7 +163,7 @@ public final class SocialCommands {
 	private static int wedding(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
 		Settlement s = here(c);
 		HearthWorld w = HearthWorld.of(c.getSource().getLevel());
-		long day = w == null ? 0 : w.day();
+		long day = w == null ? 0 : TownLife.today(w, s);
 		Matchmaker.Match m = Matchmaker.find(s.residents(), new HashSet<>(), false, 0, new SplittableRandom(c.getSource().getLevel().getGameTime()));
 		if (m == null) {
 			c.getSource().sendFailure(Component.translatable("hearth.social.command.no_match"));

@@ -6,6 +6,7 @@ import dev.voidmc.hearth.api.Poi;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
+import dev.voidmc.hearth.social.life.TownLife;
 import dev.voidmc.hearth.social.Hooks;
 import dev.voidmc.hearth.social.SocialConfig;
 import dev.voidmc.hearth.social.SocialLedger;
@@ -51,7 +52,7 @@ public final class Inn {
 			return Result.NO_INN;
 		}
 		SocialLedger ledger = s.data(SocialModule.LEDGER);
-		long now = SocialTime.now(world);
+		long now = TownLife.now(world, s);
 		ledger.beds.removeIf(r -> r.until() <= now);
 		PlayerLife life = PlayerLife.of(player);
 		if (life.bed().isPresent() && life.bed().get().settlementId() == s.id() && life.bed().get().checkout() > now) {
@@ -80,7 +81,7 @@ public final class Inn {
 	}
 
 	/** The town tick of the next checkout time after {@code now}. */
-	static long checkout(long now, int checkoutMinute) {
+	public static long checkout(long now, int checkoutMinute) {
 		long day = SocialTime.day(now);
 		long t = SocialTime.at(day, checkoutMinute);
 		// the checkout belongs to the morning after the night; a bed taken in the small hours is kept until that morning
@@ -125,7 +126,7 @@ public final class Inn {
 			return Result.NO_INN;
 		}
 		SocialLedger ledger = s.data(SocialModule.LEDGER);
-		long today = world.day();
+		long today = TownLife.today(world, s);
 		for (int i = 0; i < ledger.rooms.size(); i++) {
 			SocialLedger.Rental r = ledger.rooms.get(i);
 			if (r.player().equals(player.getUUID())) {

@@ -29,7 +29,8 @@ public final class SocialLedger {
 		DiceTally.CODEC.listOf().optionalFieldOf("dice", List.of()).forGetter(l -> l.dice),
 		Codec.LONG.optionalFieldOf("wares_day", Long.MIN_VALUE).forGetter(l -> l.waresDay),
 		Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("wares_sold", Map.of()).forGetter(l -> l.waresSold),
-		Codec.LONG.optionalFieldOf("feast_day", Long.MIN_VALUE).forGetter(l -> l.feastDay)
+		Codec.LONG.optionalFieldOf("feast_day", Long.MIN_VALUE).forGetter(l -> l.feastDay),
+		Codec.LONG.optionalFieldOf("last_day", Long.MIN_VALUE).forGetter(l -> l.lastDay)
 	).apply(i, SocialLedger::new));
 
 	public final List<Notice> notices;
@@ -47,13 +48,18 @@ public final class SocialLedger {
 	public final Map<String, Integer> waresSold;
 	/** The last day whose feasts (food eaten, stall fees) were settled, so a day is never counted twice. */
 	public long feastDay;
+	/**
+	 * The last sim day the settlement lived through (its {@code DAY_PASSED}); ahead of the world's day only for a settlement
+	 * fast-forwarded by command, whose own calendar town life then follows.
+	 */
+	public long lastDay;
 
 	public SocialLedger() {
-		this(List.of(), List.of(), Map.of(), Optional.empty(), List.of(), List.of(), List.of(), List.of(), Long.MIN_VALUE, Map.of(), Long.MIN_VALUE);
+		this(List.of(), List.of(), Map.of(), Optional.empty(), List.of(), List.of(), List.of(), List.of(), Long.MIN_VALUE, Map.of(), Long.MIN_VALUE, Long.MIN_VALUE);
 	}
 
 	private SocialLedger(List<Notice> notices, List<FamilyEvent> family, Map<String, UUID> offices, Optional<UUID> lastLord, List<Dressing> dressings,
-		List<Rental> rooms, List<Rental> beds, List<DiceTally> dice, long waresDay, Map<String, Integer> waresSold, long feastDay) {
+		List<Rental> rooms, List<Rental> beds, List<DiceTally> dice, long waresDay, Map<String, Integer> waresSold, long feastDay, long lastDay) {
 		this.notices = new ArrayList<>(notices);
 		this.family = new ArrayList<>(family);
 		this.offices = new HashMap<>(offices);
@@ -65,6 +71,7 @@ public final class SocialLedger {
 		this.waresDay = waresDay;
 		this.waresSold = new HashMap<>(waresSold);
 		this.feastDay = feastDay;
+		this.lastDay = lastDay;
 	}
 
 	/** What the folk lost or won at dice against players today (bits, positive = the folk won). */

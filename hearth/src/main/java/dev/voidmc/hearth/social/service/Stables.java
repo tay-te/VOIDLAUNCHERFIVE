@@ -6,6 +6,7 @@ import dev.voidmc.hearth.api.Poi;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
+import dev.voidmc.hearth.social.life.TownLife;
 import dev.voidmc.hearth.social.Hooks;
 import dev.voidmc.hearth.social.SocialConfig;
 import dev.voidmc.hearth.social.SocialModule;
@@ -71,7 +72,7 @@ public final class Stables {
 		horse.addTag(HIRED_TAG);
 		s.deposit(cost);
 		s.markDirty();
-		PlayerLife.set(player, life.withHire(new PlayerLife.Hire(horse.getUUID(), s.id(), cfg.deposit(), world.day(), 1)));
+		PlayerLife.set(player, life.withHire(new PlayerLife.Hire(horse.getUUID(), s.id(), cfg.deposit(), TownLife.today(world, s), 1)));
 		return Result.OK;
 	}
 
@@ -110,7 +111,7 @@ public final class Stables {
 		if (horse.distanceToSqr(player) > (double) cfg.returnRadius() * cfg.returnRadius()) {
 			return Result.TOO_FAR;
 		}
-		long overdue = Math.max(0, world.day() - hire.day() - hire.paidDays() + 1);
+		long overdue = Math.max(0, TownLife.today(world, s) - hire.day() - hire.paidDays() + 1);
 		long refund = Math.max(0, hire.deposit() - overdue * cfg.hirePerDay());
 		refund = Math.min(refund, s.treasury());
 		if (refund > 0 && s.withdraw(refund)) {

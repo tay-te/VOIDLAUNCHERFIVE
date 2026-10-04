@@ -137,9 +137,11 @@ public final class SocialModule {
 		}
 		if (gt % 100 == 0) {
 			for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-				if (PlayerLife.of(p).bed().isPresent() && p.level() instanceof ServerLevel level) {
+				var bed = PlayerLife.of(p).bed();
+				if (bed.isPresent() && p.level() instanceof ServerLevel level) {
 					HearthWorld w = HearthWorld.of(server.overworld());
-					Inn.checkouts(p, w == null ? SocialTime.now(level) : SocialTime.now(w));
+					Settlement s = w == null ? null : w.settlement(bed.get().settlementId());
+					Inn.checkouts(p, s != null ? TownLife.now(w, s) : w != null ? SocialTime.now(w) : SocialTime.now(level));
 				}
 			}
 		}

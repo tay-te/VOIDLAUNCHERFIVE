@@ -96,8 +96,9 @@ public final class TownLife {
 
 		SettlementEvents.DAY_PASSED.register(TownLife::dayPassed);
 		SettlementEvents.RESIDENT_ADDED.register((w, s, r) -> {
-			if (r.age == AgeStage.CHILD && r.bornDay >= w.day() - 1 && w.day() - s.foundedDay() > 0) {
-				FamilyLife.born(s, r, w.day(), cfg().family(), p -> post(w, s, p));
+			long today = today(w, s);
+			if (r.age == AgeStage.CHILD && r.bornDay >= today - 1 && today - s.foundedDay() > 0) {
+				FamilyLife.born(s, r, today, cfg().family(), p -> post(w, s, p));
 			}
 		});
 		SettlementEvents.RESIDENT_REMOVED.register(TownLife::residentRemoved);
@@ -133,7 +134,7 @@ public final class TownLife {
 				STALLS.remove(s.id());
 			}
 		});
-		SettlementEvents.TIER_CHANGED.register((w, s, from, to) -> offices(w, s, w.day(), true));
+		SettlementEvents.TIER_CHANGED.register((w, s, from, to) -> offices(w, s, today(w, s), true));
 		SettlementEvents.BUILDING_COMPLETED.register((w, s, plot) -> {
 			Day d = DAYS.get(s.id());
 			if (d != null) {
@@ -143,7 +144,7 @@ public final class TownLife {
 			}
 			String path = plot.spec().archetype().getPath();
 			if (path.startsWith("law/") || path.startsWith("noble/") || path.equals("civic/town_hall")) {
-				offices(w, s, w.day(), true);
+				offices(w, s, today(w, s), true);
 			}
 		});
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
@@ -173,7 +174,23 @@ public final class TownLife {
 	/** Now, in town ticks, for a settlement. */
 	public static long now(Settlement s) {
 		HearthWorld w = world(s);
-		return w == null ? 0 : SocialTime.now(w);
+		return w == null ? 0 : now(w, s);
+	}
+
+	/** The settlement's today: the world's day, or its own if it has been fast-forwarded ahead. */
+	public static long today(HearthWorld w, Settlement s) {
+		return Math.max(w.day(), s.data(SocialModule.LEDGER).lastDay);
+	}
+
+	/** The settlement's today, or 0 without a running world. */
+	public static long today(Settlement s) {
+		HearthWorld w = world(s);
+		return w == null ? 0 : today(w, s);
+	}
+
+	/** Now in town ticks on the settlement's own calendar. */
+	public static long now(HearthWorld w, Settlement s) {
+		return today(w, s) * SocialTime.DAY_TICKS + Math.floorMod(w.level().getOverworldClockTime(), (long) SocialTime.DAY_TICKS);
 	}
 
 	/** Today's events of a settlement. */
@@ -217,7 +234,7 @@ public final class TownLife {
 	}
 
 	private static Day day(HearthWorld w, Settlement s) {
-		long today = w.day();
+		long today = today(w, s);
 		Day d = DAYS.get(s.id());
 		if (d == null || d.day != today) {
 			List<TownEvent> events = new ArrayList<>(Agenda.of(s, s.data(SocialModule.LEDGER), today, cfg()));
@@ -240,8 +257,10 @@ public final class TownLife {
 			return;
 		}
 		SocialLedger ledger = s.data(SocialModule.LEDGER);
+		boolean live = day >= today(w, s) - 2;
+		ledger.lastDay = Math.max(ledger.lastDay, day);
 		FamilyLife.day(s, ledger, day, cfg.family(), p -> post(w, s, p, day));
-		offices(w, s, day, w.day() - day <= 2);
+		offices(w, s, day, live);
 		settleFeasts(s, ledger, day, cfg);
 		// a feast day three days off is announced
 		Festival f = TownCalendar.festivalOn(day + 3, s.culture(), s.foundedDay(), s.tier(), cfg.festivals());
@@ -311,19 +330,19 @@ public final class TownLife {
 			cause = "left";
 		}
 		if (!cause.equals("settlers")) {
-			FamilyLife.gone(s, ledger, r, cause, w.day(), cfg.family(), p -> post(w, s, p));
+			FamilyLife.gone(s, ledger, r, cause, today(w, s), cfg.family(), p -> post(w, s, p));
 		}
 		Office held = Officials.officeOf(ledger, r.id);
 		if (held != null) {
 			ledger.offices.remove(held.id());
 			r.extra("social").remove("office");
-			offices(w, s, w.day(), true);
+			offices(w, s, today(w, s), true);
 		}
 		s.markDirty();
 	}
 
 	private static void post(HearthWorld w, Settlement s, FamilyLife.Posting p) {
-		post(w, s, p, w.day());
+		post(w, s, p, today(w, s));
 	}
 
 	/** Puts a notice up (once) and tells players in the settlement, unless the day is long past (catch-up). */
@@ -334,8 +353,9 @@ public final class TownLife {
 		}
 		SocialLedger.Notice n = Notices.post(ledger, p.kind(), day, p.eventDay(), p.key(), p.args(), cfg().life().maxNotices());
 		s.markDirty();
-		if (cfg().life().announceInChat() && w.day() - day <= 1 && s.embodied()) {
-			Component text = Component.translatable("hearth.social.notice.posted", s.name(), Notices.text(n, w.day())).withStyle(ChatFormatting.YELLOW);
+		long today = today(w, s);
+		if (cfg().life().announceInChat() && today - day <= 1 && s.embodied()) {
+			Component text = Component.translatable("hearth.social.notice.posted", s.name(), Notices.text(n, today)).withStyle(ChatFormatting.YELLOW);
 			for (ServerPlayer player : w.level().players()) {
 				if (s == w.settlementAt(player.blockPosition())) {
 					player.sendSystemMessage(text);
@@ -370,7 +390,7 @@ public final class TownLife {
 
 	private static void pass(HearthWorld w, Settlement s, SocialConfig cfg) {
 		ServerLevel level = w.level();
-		long now = SocialTime.now(w);
+		long now = now(w, s);
 		Day d = day(w, s);
 		SocialLedger ledger = s.data(SocialModule.LEDGER);
 
@@ -453,7 +473,7 @@ public final class TownLife {
 		if (ledger.dressings.isEmpty()) {
 			return;
 		}
-		if (Dressings.takeDown(w.level(), ledger, SocialTime.now(w), false, null) > 0) {
+		if (Dressings.takeDown(w.level(), ledger, now(w, s), false, null) > 0) {
 			s.markDirty();
 		}
 	}
@@ -521,7 +541,7 @@ public final class TownLife {
 		if (w == null) {
 			return null;
 		}
-		long now = SocialTime.now(w);
+		long now = now(w, s);
 		long dayEnd = (SocialTime.day(now) + 1) * SocialTime.DAY_TICKS - 1;
 		long start = Math.min(now + delayHours * 1000L, dayEnd - 1);
 		long end = Math.min(start + hours * 1000L, dayEnd);
@@ -536,7 +556,7 @@ public final class TownLife {
 		HearthWorld w = world(s);
 		if (w != null) {
 			s.data(SocialModule.LEDGER).feastDay = Long.MIN_VALUE;
-			dayPassed(w, s, w.day());
+			dayPassed(w, s, today(w, s));
 		}
 	}
 

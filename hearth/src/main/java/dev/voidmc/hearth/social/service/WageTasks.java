@@ -7,6 +7,7 @@ import dev.voidmc.hearth.api.LawService;
 import dev.voidmc.hearth.api.PlotView;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
+import dev.voidmc.hearth.social.life.TownLife;
 import dev.voidmc.hearth.social.Hooks;
 import dev.voidmc.hearth.social.SocialConfig;
 import dev.voidmc.hearth.social.SocialModule;
@@ -130,7 +131,7 @@ public final class WageTasks {
 		if (TASKS.containsKey(player.getUUID())) {
 			return Result.BUSY;
 		}
-		if (takenToday(player.getUUID(), s.id(), w.day()) >= cfg.perDay()) {
+		if (takenToday(player.getUUID(), s.id(), TownLife.today(w, s)) >= cfg.perDay()) {
 			return Result.LIMIT;
 		}
 		return Result.OK;
@@ -138,7 +139,7 @@ public final class WageTasks {
 
 	private static void start(ServerPlayer player, Settlement s, HearthWorld w, WageTask t) {
 		TASKS.put(player.getUUID(), t);
-		TAKEN.merge(player.getUUID() + "/" + s.id() + "/" + w.day(), 1, Integer::sum);
+		TAKEN.merge(player.getUUID() + "/" + s.id() + "/" + TownLife.today(w, s), 1, Integer::sum);
 		if (TAKEN.size() > 2048) {
 			TAKEN.clear();
 		}

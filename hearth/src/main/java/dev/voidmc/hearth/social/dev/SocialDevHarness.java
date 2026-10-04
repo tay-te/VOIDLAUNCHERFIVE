@@ -27,7 +27,8 @@ import org.slf4j.LoggerFactory;
  * founding towns, e.g. {@code -Dhearth.dev.found=2 -Dhearth.dev.simulate=40}), once a live settlement exists it is
  * held embodied, its day's social business run, a market and a festival held, the bell rung, and the stalls and
  * dressings counted block by block in the world; after {@code SECONDS} it is let go and the harness checks that every
- * dressing came down. Everything is logged with the prefix {@code [hearth-social]}.
+ * dressing came down ({@code -Dhearth.dev.social.stop=true} then stops the server). Everything is logged with the prefix
+ * {@code [hearth-social]}.
  */
 public final class SocialDevHarness {
 	private static final Logger LOG = LoggerFactory.getLogger("hearth");
@@ -35,6 +36,9 @@ public final class SocialDevHarness {
 	private static long started = -1;
 	private static int phase;
 	private static Settlement town;
+	private static long firstSeen = -1;
+	private static long heldSince;
+	private static final List<long[]> FORCED = new ArrayList<>();
 
 	private SocialDevHarness() {
 	}
@@ -59,11 +63,29 @@ public final class SocialDevHarness {
 		try {
 			switch (phase) {
 				case 0 -> {
-					// wait for the sim's harness to found towns
+					// wait for the sim's harness to found towns and fast-forward them
 					if (w.settlements().isEmpty() || t % 100 != 0) {
 						return;
 					}
+					if (firstSeen < 0) {
+						firstSeen = t;
+					}
+					if (t - firstSeen < Integer.getInteger("hearth.dev.social.delay", 1200)) {
+						return;
+					}
 					town = w.settlements().stream().max((a, b) -> Integer.compare(a.population(), b.population())).orElseThrow();
+					// load the town's chunks (at most 24 x 24 round its heart), then hold it embodied
+					var b = town.bounds();
+					int cx0 = Math.max(b.minX() >> 4, (town.center().getX() >> 4) - 12);
+					int cx1 = Math.min(b.maxX() >> 4, (town.center().getX() >> 4) + 12);
+					int cz0 = Math.max(b.minZ() >> 4, (town.center().getZ() >> 4) - 12);
+					int cz1 = Math.min(b.maxZ() >> 4, (town.center().getZ() >> 4) + 12);
+					for (int cx = cx0; cx <= cx1; cx++) {
+						for (int cz = cz0; cz <= cz1; cz++) {
+							level.setChunkForced(cx, cz, true);
+							FORCED.add(new long[] {cx, cz});
+						}
+					}
 					run(server, level, town.center(), "hearth sim embody " + town.id());
 					started = t;
 					phase = 1;
@@ -83,6 +105,7 @@ public final class SocialDevHarness {
 						bell);
 					phase = 2;
 					started = before;
+					heldSince = before;
 				}
 				case 2 -> {
 					if (t - started < 100) {
@@ -111,12 +134,12 @@ public final class SocialDevHarness {
 					for (String line : TownLife.stats()) {
 						LOG.info("[hearth-social] {}", line);
 					}
-					if (t - started >= seconds * 20L) {
+					if (t - heldSince >= seconds * 20L) {
 						run(server, level, town.center(), "hearth sim embody " + town.id());
 						phase = 3;
 						started = t;
 					} else {
-						started = t - 100 + 400; // report again in 20 s
+						started = t + 300; // report again in 20 s
 					}
 				}
 				case 3 -> {
@@ -133,7 +156,13 @@ public final class SocialDevHarness {
 					}
 					LOG.info("[hearth-social] let go: embodied={}, {} dressing records left, {} dressing blocks still standing", town.embodied(),
 						ledger.dressings.size(), left);
+					for (long[] c : FORCED) {
+						level.setChunkForced((int) c[0], (int) c[1], false);
+					}
 					phase = 4;
+					if (Boolean.getBoolean("hearth.dev.social.stop")) {
+						server.halt(false);
+					}
 				}
 				default -> {
 				}
@@ -147,7 +176,7 @@ public final class SocialDevHarness {
 	private static void report(HearthWorld w, String when) {
 		SocialLedger ledger = town.data(SocialModule.LEDGER);
 		long now = TownLife.now(town);
-		LOG.info("[hearth-social] {} — {} day {} {}:", town.name(), when, w.day(), dev.voidmc.hearth.social.SocialConfig.formatClock(SocialTime.minute(now)));
+		LOG.info("[hearth-social] {} — {} day {} {}:", town.name(), when, TownLife.today(w, town), dev.voidmc.hearth.social.SocialConfig.formatClock(SocialTime.minute(now)));
 		for (Office o : Office.values()) {
 			Resident r = Officials.holder(town, ledger, o);
 			if (r != null) {
@@ -157,8 +186,8 @@ public final class SocialDevHarness {
 		for (TownEvent e : TownLife.events(town)) {
 			LOG.info("[hearth-social]   event {} {}-{}", e.key(), SocialTime.minute(e.start()), SocialTime.minute(e.end()));
 		}
-		for (SocialLedger.Notice n : Notices.current(ledger, w.day())) {
-			LOG.info("[hearth-social]   notice: {}", Notices.text(n, w.day()).getString());
+		for (SocialLedger.Notice n : Notices.current(ledger, TownLife.today(w, town))) {
+			LOG.info("[hearth-social]   notice: {}", Notices.text(n, TownLife.today(w, town)).getString());
 		}
 		for (SocialLedger.FamilyEvent f : ledger.family) {
 			LOG.info("[hearth-social]   {} on day {}: {}", f.kind().getSerializedName(), f.day(), f.names());
