@@ -1,0 +1,28 @@
+{
+  "wares": [
+    {
+      "item": "expanse:reindeer_lichen",
+      "count": 8
+    },
+    {
+      "item": "minecraft:packed_ice",
+      "count": 8
+    },
+    {
+      "item": "minecraft:sweet_berries",
+      "count": 4
+    },
+    {
+      "item": "minecraft:cooked_cod",
+      "count": 8
+    },
+    {
+      "item": "minecraft:leather",
+      "count": 4
+    },
+    {
+      "item": "expanse:cooked_venison",
+      "count": 6
+    }
+  ]
+}

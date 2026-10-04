@@ -1,0 +1,28 @@
+{
+  "wares": [
+    {
+      "item": "expanse:olive_planks",
+      "count": 16
+    },
+    {
+      "item": "minecraft:sweet_berries",
+      "count": 16
+    },
+    {
+      "item": "minecraft:glass_bottle",
+      "count": 6
+    },
+    {
+      "item": "minecraft:terracotta",
+      "count": 16
+    },
+    {
+      "item": "expanse:lavender",
+      "count": 8
+    },
+    {
+      "item": "minecraft:honey_bottle",
+      "count": 2
+    }
+  ]
+}

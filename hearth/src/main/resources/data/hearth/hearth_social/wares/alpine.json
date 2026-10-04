@@ -1,0 +1,28 @@
+{
+  "wares": [
+    {
+      "item": "expanse:edelweiss",
+      "count": 4
+    },
+    {
+      "item": "minecraft:milk_bucket",
+      "count": 1
+    },
+    {
+      "item": "minecraft:cooked_mutton",
+      "count": 6
+    },
+    {
+      "item": "minecraft:spruce_planks",
+      "count": 16
+    },
+    {
+      "item": "minecraft:white_wool",
+      "count": 8
+    },
+    {
+      "item": "minecraft:bell",
+      "count": 1
+    }
+  ]
+}

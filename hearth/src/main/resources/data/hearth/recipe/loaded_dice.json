@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:bone",
+    "minecraft:bone",
+    "minecraft:iron_nugget"
+  ],
+  "result": {
+    "id": "hearth:loaded_dice"
+  }
+}
