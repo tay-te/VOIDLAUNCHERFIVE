@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
  * A batch takes {@code labour} worker-days and turns the inputs into the outputs. With {@code workplace} the recipe is
  * followed only by workers whose workplace is that archetype; with no {@code job}, by every worker there.
  *
- * @param tools    tools worn per batch (negative: the config's default per worker-day)
+ * @param tools    tools worn per worker-day spent on it (negative: the trade's own rate; 0 for hand work)
  * @param share    the most of a worker's day this recipe may take (hand work done between other work: 0.3)
  * @param target   the recipe runs while each output is below this share of the stores' capacity for it
  * @param priority higher is tried first among a worker's recipes
@@ -43,26 +43,5 @@ public record Recipe(Identifier id, @Nullable JobType job, @Nullable Identifier 
 		if (job == null && workplace == null) {
 			throw new IllegalArgumentException("recipe " + id + " names neither a job nor a workplace");
 		}
-	}
-
-	/** Whether every output is already at its target share of the stores. */
-	boolean satisfied(int[] stock, int[] capacity) {
-		for (int g = 0; g < this.outputs.length; g++) {
-			if (this.outputs[g] > 0 && stock[g] < capacity[g] * this.target) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	/** How badly the outputs are wanted: the lowest fill of any output (0 empty, 1 full). Lower goes first. */
-	double fill(int[] stock, int[] capacity) {
-		double fill = 1;
-		for (int g = 0; g < this.outputs.length; g++) {
-			if (this.outputs[g] > 0 && capacity[g] > 0) {
-				fill = Math.min(fill, stock[g] / (double) capacity[g]);
-			}
-		}
-		return fill;
 	}
 }

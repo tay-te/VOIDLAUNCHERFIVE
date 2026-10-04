@@ -1,0 +1,25 @@
+{
+  "job": "builder",
+  "split": false,
+  "sites": [
+    {
+      "kind": "woods",
+      "yields": {
+        "logs": 40
+      }
+    },
+    {
+      "kind": "stone",
+      "yields": {
+        "stone": 40
+      }
+    },
+    {
+      "kind": "fertile",
+      "yields": {
+        "stone": 30
+      },
+      "wear": 0
+    }
+  ]
+}

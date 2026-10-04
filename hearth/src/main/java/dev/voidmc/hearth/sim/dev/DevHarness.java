@@ -51,6 +51,12 @@ import org.slf4j.LoggerFactory;
  *                               step as it accrues
  *   -Dhearth.dev.report=true    log per-subsystem timings and settlement figures, and sample the LOD footprints
  *   -Dhearth.dev.commands=a;b   run these commands as the server (at the first settlement found; + for spaces) and log the replies
+ *   -Dhearth.dev.sim.excavate=DAYS  stake out a stand-in quarry pit (or mine) at each town's nearest stone (or ore) site,
+ *                               run DAYS sim days and log its progress, the yield credited and the site's stock (before
+ *                               {@code generate}, which then writes the cuts into the world)
+ *   -Dhearth.dev.sim.fell=SECONDS  load the chunks of each town's woods that owe trees and let the woodcutter fell for
+ *                               SECONDS, then log what came down
+ *   -Dhearth.dev.sim.underground=RADIUS  sample the underground probe over a grid round spawn: realms found, floors
  *   -Dhearth.dev.stop=true      then shut the server down
  * </pre>
  */
@@ -102,6 +108,12 @@ public final class DevHarness {
 						String.format(Locale.ROOT, "%.1f", nanos / 1e6), before, s.population(), s.plots().size(), s.plotCounts(), s.stockpile());
 				}
 			}
+			String excavate = System.getProperty("hearth.dev.sim.excavate");
+			if (excavate != null) {
+				for (SimSettlement s : towns) {
+					LOG.info("[hearth-dev] {}", server.submit(() -> excavate(w, s, Integer.parseInt(excavate))).join());
+				}
+			}
 			if (Boolean.getBoolean("hearth.dev.bench")) {
 				for (SimSettlement s : towns) {
 					bench(server, w, s);
@@ -125,6 +137,18 @@ public final class DevHarness {
 				}
 				for (SimSettlement s : towns) {
 					embody(server, level, w, s, Integer.parseInt(embody));
+				}
+			}
+			String under = System.getProperty("hearth.dev.sim.underground");
+			if (under != null) {
+				for (String line : underground(w, Integer.parseInt(under))) {
+					LOG.info("[hearth-dev] {}", line);
+				}
+			}
+			String fell = System.getProperty("hearth.dev.sim.fell");
+			if (fell != null) {
+				for (SimSettlement s : towns) {
+					fell(server, level, w, s, Integer.parseInt(fell));
 				}
 			}
 			String atlas = System.getProperty("hearth.dev.atlas");
@@ -177,6 +201,147 @@ public final class DevHarness {
 		return String.format(Locale.ROOT, "#%d %s: %s %s at %s, %d souls, %d beds, %d plots %s, treasury %d, stores %s", s.id(), s.name(),
 			s.culture().getSerializedName(), s.tier().getSerializedName(), s.center().toShortString(), s.population(), s.beds(), s.plots().size(),
 			s.plotCounts(), s.treasury(), s.stockpile());
+	}
+
+	/**
+	 * Stakes out a stand-in excavation at the town's nearest stone or ore site (the planner will open real ones), runs the
+	 * town {@code days} days, and reports how far it got and what it yielded.
+	 */
+	private static String excavate(SimWorld w, SimSettlement s, int days) {
+		dev.voidmc.hearth.sim.land.SimSite best = null;
+		for (var site : s.land().sites()) {
+			if ((site.kind() == dev.voidmc.hearth.api.ResourceSite.Kind.STONE || site.kind() == dev.voidmc.hearth.api.ResourceSite.Kind.ORE)
+				&& (best == null || site.distanceTo(s.center()) < best.distanceTo(s.center()))) {
+				best = site;
+			}
+		}
+		if (best == null) {
+			return s.name() + ": no stone or ore in its territory to excavate";
+		}
+		boolean mine = best.kind() == dev.voidmc.hearth.api.ResourceSite.Kind.ORE;
+		net.minecraft.nbt.CompoundTag params = new net.minecraft.nbt.CompoundTag();
+		params.putInt("site", best.id());
+		params.putString("kind", best.kind().getSerializedName());
+		if (best.material() != null) {
+			params.putString("rock", best.material().toString());
+		}
+		params.putInt("depth", 6);
+		int x = best.center().getX();
+		int z = best.center().getZ();
+		// a mine's floor a few blocks under the lowest ground of its footprint, so its galleries are in rock
+		int y = w.probe().groundY(x, z);
+		if (mine) {
+			for (int dx = -6; dx <= 0; dx++) {
+				for (int dz = -6; dz <= 24; dz += 3) {
+					y = Math.min(y, w.probe().groundY(x + dx, z + dz));
+				}
+			}
+			y -= 5;
+		}
+		var spec = new dev.voidmc.hearth.api.PlotSpec(mine ? PlaceholderExcavations.MINE : PlaceholderExcavations.QUARRY_PIT,
+			HearthServices.blueprints().style(s.culture()), x * 31L ^ z, new BlockPos(x - 6, y, z - 6), mine ? 7 : 13, mine ? 30 : 13,
+			net.minecraft.core.Direction.SOUTH, 8, 1, params);
+		var plot = s.addPlot(spec, -1, "dev harness excavation");
+		var f = s.facts(plot);
+		int cuts = 0;
+		for (int c : f.cuts()) {
+			cuts += c;
+		}
+		double fillBefore = best.fill();
+		int stone = s.stockpile().get(dev.voidmc.hearth.api.Goods.STONE);
+		int ore = s.stockpile().get(dev.voidmc.hearth.api.Goods.ORE);
+		long nanos = w.simulate(s, days);
+		return String.format(Locale.ROOT,
+			"excavation at %s's %s site #%d (%s): %s plot #%d, %d stages, %d cuts; after %d days (%.0f ms) stage %d/%d %s, site %.1f%% -> %.1f%%, "
+				+ "stone %d -> %d, ore %d -> %d; quarriers/miners at it: %d",
+			s.name(), best.kind().getSerializedName(), best.id(), best.material(), spec.archetype().getPath(), plot.id(), f.stageCount(), cuts, days,
+			nanos / 1e6, plot.stage(), f.stageCount(), plot.state().getSerializedName(), fillBefore * 100, best.fill() * 100, stone,
+			s.stockpile().get(dev.voidmc.hearth.api.Goods.STONE), ore, s.stockpile().get(dev.voidmc.hearth.api.Goods.ORE),
+			s.residents().stream().filter(r -> r.work == plot.id()).count());
+	}
+
+	/** The underground probe over a grid round spawn: how often a column has a realm under it, the realms, and timings. */
+	private static List<String> underground(SimWorld w, int radius) {
+		List<String> out = new ArrayList<>();
+		var u = w.underground();
+		if (u == null) {
+			out.add("underground: no cavern model in this world");
+			return out;
+		}
+		long t0 = System.nanoTime();
+		int columns = 0;
+		int inRealm = 0;
+		int floors = 0;
+		for (int x = -radius; x <= radius; x += 64) {
+			for (int z = -radius; z <= radius; z += 64) {
+				columns++;
+				if (u.realm(x, z) != null) {
+					inRealm++;
+				}
+				if (u.floorY(x, z, 0) != Integer.MIN_VALUE) {
+					floors++;
+				}
+			}
+		}
+		long t1 = System.nanoTime();
+		var realms = u.realmsNear(0, 0, radius);
+		out.add(String.format(Locale.ROOT, "underground: %d columns sampled in %.1f ms (%.1f µs each): %d under a realm, %d over some open space; %d realms within %d of spawn",
+			columns, (t1 - t0) / 1e6, (t1 - t0) / 1e3 / Math.max(1, columns), inRealm, floors, realms.size(), radius));
+		for (int i = 0; i < Math.min(8, realms.size()); i++) {
+			var r = realms.get(i);
+			out.add(String.format(Locale.ROOT, "  realm %s at %d, %d: radius %d, floor %d, vault %d, ground over it %d", r.character(), r.center().getX(),
+				r.center().getZ(), r.radius(), r.floorY(), r.ceilingY(), w.probe().groundY(r.center().getX(), r.center().getZ())));
+		}
+		return out;
+	}
+
+	/** Loads the chunks of the town's woods that owe trees and lets the woodcutter work for a while. */
+	private static void fell(MinecraftServer server, ServerLevel level, SimWorld w, SimSettlement s, int seconds) {
+		var owed = server.submit(() -> {
+			dev.voidmc.hearth.sim.land.SimSite best = null;
+			for (var site : s.land().sites()) {
+				if (site.kind() == dev.voidmc.hearth.api.ResourceSite.Kind.WOODS && (best == null || site.fellingDebt() > best.fellingDebt())) {
+					best = site;
+				}
+			}
+			return best;
+		}).join();
+		if (owed == null || owed.fellingDebt() < 4) {
+			LOG.info("[hearth-dev] {}: no woods owe trees (foresters work woodlots, or none felled yet)", s.name());
+			return;
+		}
+		var a = owed.area();
+		int c0x = Math.max(a.minX() >> 4, (owed.center().getX() >> 4) - 4);
+		int c1x = Math.min(a.maxX() >> 4, (owed.center().getX() >> 4) + 4);
+		int c0z = Math.max(a.minZ() >> 4, (owed.center().getZ() >> 4) - 4);
+		int c1z = Math.min(a.maxZ() >> 4, (owed.center().getZ() >> 4) + 4);
+		double before = owed.fellingDebt();
+		try {
+			List<CompletableFuture<?>> loading = server.submit(() -> {
+				List<CompletableFuture<?>> futures = new ArrayList<>();
+				for (int cx = c0x; cx <= c1x; cx++) {
+					for (int cz = c0z; cz <= c1z; cz++) {
+						level.setChunkForced(cx, cz, true);
+						futures.add(level.getChunkSource().getChunkFuture(cx, cz, ChunkStatus.FULL, true));
+					}
+				}
+				return futures;
+			}).join();
+			CompletableFuture.allOf(loading.toArray(CompletableFuture[]::new)).get();
+		} catch (Exception e) {
+			LOG.warn("[hearth-dev] loading the woods failed", e);
+		}
+		sleep(seconds * 1000L);
+		server.submit(() -> {
+			for (int cx = c0x; cx <= c1x; cx++) {
+				for (int cz = c0z; cz <= c1z; cz++) {
+					level.setChunkForced(cx, cz, false);
+				}
+			}
+		}).join();
+		LOG.info("[hearth-dev] felling in {}'s {} wood #{} ({} chunks loaded, {} s): {} logs owed -> {}; {}", s.name(), owed.material(), owed.id(),
+			(c1x - c0x + 1) * (c1z - c0z + 1), seconds, String.format(Locale.ROOT, "%.0f", before), String.format(Locale.ROOT, "%.0f",
+				owed.fellingDebt()), server.submit(w::landStats).join());
 	}
 
 	/** A town's land and fortunes: territory, sites by kind and how much is left, prosperity, capacity, stations, trades. */

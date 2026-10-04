@@ -31,6 +31,9 @@ import net.minecraft.util.RandomSource;
  * {@code PROSPERITY_CHANGED} fires when the fortunes turn, with a short why.
  */
 public final class Prosperity {
+	/** A camp or a young hamlet does not lose households to decline (hunger still drives folk away). */
+	static final int EMIGRATION_FROM = 12;
+
 	private Prosperity() {
 	}
 
@@ -63,7 +66,7 @@ public final class Prosperity {
 			// back to ordinary times: quietly
 			land.setMood(0, land.why());
 		}
-		if (land.mood() < 0 && pop > 0) {
+		if (land.mood() < 0 && pop > EMIGRATION_FROM && s.clock.daysLived() > 30) {
 			double depth = Math.max(0, (cfg.declineBelow() - p) / Math.max(0.01, cfg.declineBelow()));
 			if (random.nextDouble() < cfg.emigration() * (0.3 + depth)) {
 				leave(s, random);

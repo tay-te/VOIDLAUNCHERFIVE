@@ -376,7 +376,8 @@ public final class SettlementClock {
 				s.treasury -= bought * price;
 				// then barter what overflows the stores, at a loss
 				for (int o = 0; o < need.length && bought < missing; o++) {
-					int spare = s.stockpile.get(Goods.VALUES[o]) - Math.max(need[o], s.stockpile.capacity(Goods.VALUES[o]) / 2);
+					// what a town has plenty of goes in barter (it keeps a fifth of its room of everything)
+					int spare = s.stockpile.get(Goods.VALUES[o]) - Math.max(need[o], s.stockpile.capacity(Goods.VALUES[o]) / 5);
 					if (o == g || spare <= 0 || r.prices[o] <= 0) {
 						continue;
 					}
@@ -805,7 +806,9 @@ public final class SettlementClock {
 				// embodied folk do their work as entities, not as numbers
 				if (res.age == AgeStage.ADULT && !s.isResidentEmbodied(res.id)) {
 					w.workers[res.job.ordinal()]++;
-					w.crews.counts[Production.crewOf(w.crews, s, res.job, res.work, data, r)]++;
+					// (the crew is found first: finding a new one may grow the counts array)
+					int crew = Production.crewOf(w.crews, s, res.job, res.work, data, r);
+					w.crews.counts[crew]++;
 				} else if (res.age == AgeStage.ADULT && res.job == JobType.BUILDER) {
 					w.embodiedBuilders++;
 				}

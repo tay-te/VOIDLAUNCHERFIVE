@@ -1,11 +1,51 @@
-{ "job": "none", "split": false, "tools": 0,
+{
+  "job": "none",
+  "split": false,
+  "tools": 0,
   "sites": [
-    { "kind": "woods", "yields": { "logs": 10, "fuel": 0.5 } },
-    { "kind": "stone", "yields": { "stone": 8 } },
-    { "kind": "fertile", "yields": { "produce": 2.5 } },
-    { "kind": "pasture", "yields": { "produce": 0.6 } },
-    { "kind": "clay", "yields": { "clay": 4 } },
-    { "kind": "sand", "yields": { "sand": 2 } },
-    { "kind": "fish", "yields": { "fish": 1 } }
-  ],
-  "no_site": { "produce": 1.5, "logs": 5, "stone": 4, "clay": 1 } }
+    {
+      "kind": "woods",
+      "yields": {
+        "logs": 10,
+        "fuel": 0.5
+      }
+    },
+    {
+      "kind": "stone",
+      "yields": {
+        "stone": 8
+      }
+    },
+    {
+      "kind": "fertile",
+      "yields": {
+        "produce": 2.5,
+        "stone": 4
+      }
+    },
+    {
+      "kind": "pasture",
+      "yields": {
+        "produce": 0.6
+      }
+    },
+    {
+      "kind": "clay",
+      "yields": {
+        "clay": 4
+      }
+    },
+    {
+      "kind": "sand",
+      "yields": {
+        "sand": 2
+      }
+    },
+    {
+      "kind": "fish",
+      "yields": {
+        "fish": 1
+      }
+    }
+  ]
+}

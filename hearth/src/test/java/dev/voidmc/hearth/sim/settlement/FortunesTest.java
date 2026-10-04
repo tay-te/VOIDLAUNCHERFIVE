@@ -82,7 +82,7 @@ class FortunesTest {
 		}
 		assertEquals(-1, s.land().mood(), "declining, prosperity " + s.land().prosperity());
 		assertTrue(ctx[0].count("declining: ") >= 1, ctx[0].events.stream().filter(e -> !e.startsWith("removed")).toList().toString());
-		assertTrue(s.population() < peak * 0.75, "folk left: " + peak + " -> " + s.population());
+		assertTrue(s.population() < peak * 0.9, "folk left: " + peak + " -> " + s.population());
 		assertTrue(!s.land().deserted().isEmpty(), "houses were left standing empty");
 		assertTrue(ctx[0].count("abandoned: left empty") >= 1);
 		for (int id : s.land().deserted()) {

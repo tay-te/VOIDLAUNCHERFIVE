@@ -48,6 +48,14 @@ public final class TestSupport {
 
 	private static boolean realPlanner;
 
+	/** The real planner over the build module's archetypes, stand-ins for the rest (as the dev harness's fillCatalogue). */
+	public static synchronized void useRealCatalogue() {
+		boot();
+		HearthServices.setBlueprints(new dev.voidmc.hearth.sim.dev.DevCatalogue(dev.voidmc.hearth.build.BuildModule.standalone()));
+		HearthServices.setPlanner(new dev.voidmc.hearth.plan.HearthPlanner(dev.voidmc.hearth.plan.PlanModule.STATE, dev.voidmc.hearth.plan.PlanConfig.DEFAULTS));
+		realPlanner = true;
+	}
+
 	public static SimRules rules() {
 		return SimRules.defaults();
 	}

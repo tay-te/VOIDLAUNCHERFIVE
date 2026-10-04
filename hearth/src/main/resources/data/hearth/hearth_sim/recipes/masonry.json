@@ -1,8 +1,72 @@
-{ "recipes": [
-  { "job": "mason", "inputs": { "stone": 20 }, "outputs": { "dressed_stone": 16 }, "priority": 2, "target": 0.6 },
-  { "job": "mason", "inputs": { "clay": 20, "fuel": 2 }, "outputs": { "brick": 18 }, "priority": 1, "target": 0.5 },
-  { "job": "mason", "inputs": { "sand": 16, "fuel": 2 }, "outputs": { "glass": 12 }, "target": 0.4 },
-  { "job": "kiln_worker", "inputs": { "clay": 30, "fuel": 3 }, "outputs": { "brick": 28 } },
-  { "job": "glassmaker", "inputs": { "sand": 24, "fuel": 3 }, "outputs": { "glass": 18 } },
-  { "job": "builder", "inputs": { "stone": 8 }, "outputs": { "dressed_stone": 4 }, "share": 0.1, "target": 0.3, "tools": 0 }
-] }
+{
+  "recipes": [
+    {
+      "job": "mason",
+      "inputs": {
+        "stone": 20
+      },
+      "outputs": {
+        "dressed_stone": 16
+      },
+      "priority": 2,
+      "target": 0.12
+    },
+    {
+      "job": "mason",
+      "inputs": {
+        "clay": 20,
+        "fuel": 2
+      },
+      "outputs": {
+        "brick": 18
+      },
+      "priority": 1,
+      "target": 0.2
+    },
+    {
+      "job": "mason",
+      "inputs": {
+        "sand": 16,
+        "fuel": 2
+      },
+      "outputs": {
+        "glass": 12
+      },
+      "target": 0.15
+    },
+    {
+      "job": "kiln_worker",
+      "inputs": {
+        "clay": 30,
+        "fuel": 3
+      },
+      "outputs": {
+        "brick": 28
+      },
+      "target": 0.4
+    },
+    {
+      "job": "glassmaker",
+      "inputs": {
+        "sand": 24,
+        "fuel": 3
+      },
+      "outputs": {
+        "glass": 18
+      },
+      "target": 0.4
+    },
+    {
+      "job": "builder",
+      "inputs": {
+        "stone": 20
+      },
+      "outputs": {
+        "dressed_stone": 16
+      },
+      "share": 0.5,
+      "target": 0.2,
+      "tools": 0
+    }
+  ]
+}

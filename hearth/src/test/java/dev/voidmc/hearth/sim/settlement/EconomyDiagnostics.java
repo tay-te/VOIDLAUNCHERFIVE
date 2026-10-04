@@ -16,13 +16,19 @@ class EconomyDiagnostics {
 	@Test
 	void printGrowth() {
 		Assumptions.assumeTrue(System.getenv("HEARTH_DIAG") != null);
+		if ("full".equals(System.getenv("HEARTH_DIAG"))) {
+			TestSupport.useRealCatalogue();
+		} else if ("real".equals(System.getenv("HEARTH_DIAG"))) {
+			TestSupport.boot();
+			TestSupport.useRealPlanner();
+		}
 		for (String terrain : new String[] {"flat", "hills", "river"}) {
 			SimSettlement s = TestSupport.founded(terrain, 3);
 			System.out.println("== " + terrain + ": " + s.land().sites().size() + " sites, territory " + s.land().territory());
 			for (SimSite site : s.land().sites()) {
 				System.out.println("   " + site);
 			}
-			for (int d = 1; d <= 240; d++) {
+			for (int d = 1; d <= 300; d++) {
 				SettlementClock.advance(s, d * SimRules.DAY);
 				if (d % 30 == 0) {
 					Map<JobType, Integer> jobs = new EnumMap<>(JobType.class);
@@ -39,6 +45,22 @@ class EconomyDiagnostics {
 					System.out.printf("day %d: pop %d beds %d tier %s cap %d prosp %.2f mood %d plots %s treasury %d%n   jobs %s%n   stock %s%n", d,
 						s.population(), s.beds(), s.tier(), s.land().capacity(), s.land().prosperity(), s.land().mood(), s.plotCounts(), s.treasury(),
 						jobs, stock);
+					for (SimPlot p : s.plots()) {
+						if (p.isActive()) {
+							PlotFacts f = s.facts(p);
+							StringBuilder need = new StringBuilder();
+							if (p.stage() < f.stageCount()) {
+								int[] g = f.goods()[p.stage()];
+								for (Goods x : Goods.VALUES) {
+									if (g[x.ordinal()] > 0) {
+										need.append(x.getSerializedName()).append('=').append(g[x.ordinal()]).append(' ');
+									}
+								}
+							}
+							System.out.printf("   plot %d %s stage %d/%d funded %s stalled %s held %s needs %s%n", p.id(), p.spec().archetype().getPath(),
+								p.stage(), f.stageCount(), p.funded(), p.stalledOn(), p.heldBack, need);
+						}
+					}
 				}
 			}
 		}

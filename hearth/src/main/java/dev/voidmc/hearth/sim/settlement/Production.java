@@ -89,11 +89,31 @@ public final class Production {
 		return idx;
 	}
 
+	/**
+	 * What construction is about to need: the goods of every plot's stage that has not started yet (capped at the store
+	 * room). Workshops do not turn these into something else — the mason leaves the rough stone the next foundation needs.
+	 */
+	static int[] reserved(SimSettlement s) {
+		int n = Goods.VALUES.length;
+		int[] keep = new int[n];
+		for (SimPlot p : s.plots.values()) {
+			if (!p.isActive() || p.funded || p.facts == null || p.stage >= p.facts.stageCount()) {
+				continue;
+			}
+			int[] need = p.facts.goods()[p.stage];
+			for (int g = 0; g < n && g < need.length; g++) {
+				keep[g] += need[g];
+			}
+		}
+		return keep;
+	}
+
 	/** One slice of production and eating. */
 	static void produce(SimSettlement s, SettlementClock.Workforce wf, double days, SimRules r, SimContext c) {
 		SimData data = c.data();
 		double[] frac = s.clock.fractions;
 		SimStockpile stock = s.stockpile();
+		int[] reserved = reserved(s);
 		int[] amounts = stock.amounts();
 		int[] caps = stock.capacities();
 		SimConfig.Chains chains = r.resources.chains();
@@ -125,7 +145,7 @@ public final class Production {
 			}
 			Crew crew = wf.crews.crews.get(k);
 			double workerDays = n * days * (crew.toolWear() > 0 ? toolFactor : 1);
-			work(s, crew, workerDays, frac, amounts, caps, data, r, c, haulCover, true);
+			work(s, crew, workerDays, frac, amounts, caps, data, r, c, haulCover, true, reserved);
 			if (!economyWages) {
 				// the town's own income from its trades; with the economy module its taxes and wages take this place
 				coin += r.coin[crew.job().ordinal()] * n * days;
@@ -144,7 +164,7 @@ public final class Production {
 	 *            days: the entity felled real trees)
 	 */
 	static void work(SimSettlement s, Crew crew, double workerDays, double[] frac, int[] amounts, int[] caps, SimData data, SimRules r,
-		SimContext c, double haulCover, boolean owe) {
+		SimContext c, double haulCover, boolean owe, int[] reserved) {
 		JobType job = crew.job();
 		double left = workerDays;
 		if (job == JobType.BUILDER) {
@@ -153,10 +173,7 @@ public final class Production {
 		}
 		double total = left;
 		if (!crew.recipes().isEmpty()) {
-			left = recipes(crew.recipes(), left, total, frac, amounts, caps);
-		}
-		if (job == JobType.BUILDER) {
-			return;
+			left = recipes(crew.recipes(), left, total, frac, amounts, caps, crew.toolWear(), reserved);
 		}
 		if (crew.digs() != null && left > 1e-6) {
 			left = Extraction.dig(s, crew.digs(), left, r, c);
@@ -186,6 +203,15 @@ public final class Production {
 
 	/** Runs a crew's recipes, the most wanted first; returns the worker-days left over. */
 	static double recipes(List<Recipe> list, double left, double total, double[] frac, int[] amounts, int[] caps) {
+		return recipes(list, left, total, frac, amounts, caps, 0, new int[amounts.length]);
+	}
+
+	/**
+	 * As above; {@code crewWear} is the tools a worker-day of this crew was already charged, which a recipe with its own
+	 * rate ({@code tools}, per worker-day) corrects for the time spent on it (hand work wears no tools).
+	 */
+	static double recipes(List<Recipe> list, double left, double total, double[] frac, int[] amounts, int[] caps, double crewWear,
+		int[] reserved) {
 		Recipe[] order = list.toArray(Recipe[]::new);
 		if (order.length > 1) {
 			// the recipe whose outputs are scarcest first; priority breaks ties
@@ -207,7 +233,7 @@ public final class Production {
 			double factor = 1;
 			for (int g = 0; g < in.length; g++) {
 				if (in[g] > 0) {
-					double have = amounts[g] + frac[g];
+					double have = amounts[g] + frac[g] - reserved[g];
 					factor = Math.min(factor, Math.max(0, have) / (in[g] * batches));
 				}
 			}
@@ -219,7 +245,11 @@ public final class Production {
 			for (int g = 0; g < in.length; g++) {
 				frac[g] += out[g] * batches - in[g] * batches;
 			}
-			left -= batches * rec.labour();
+			double used = batches * rec.labour();
+			if (rec.tools() >= 0) {
+				frac[Goods.TOOLS.ordinal()] -= (rec.tools() - crewWear) * used;
+			}
+			left -= used;
 		}
 		return Math.max(0, left);
 	}
@@ -284,6 +314,27 @@ public final class Production {
 			}
 		}
 		double specialShare = special == null ? 0 : 0.25 * Math.max(1, shares);
+		if (!g.split()) {
+			// an odd-job labourer's day: every kind of land gives at once, and where the territory has none of a kind,
+			// a little of it is scraped together anyway (deadwood, a few stones, berries by the path)
+			double k = r.resources.chains().noSiteFactor() * SCROUNGE;
+			for (int e = 0; e < g.sites().size(); e++) {
+				SimData.Gathering.Entry entry = g.sites().get(e);
+				if (present[e]) {
+					work(s, entry.kind(), null, entry.yields(), entry.wearPerDay(), workerDays, frac, r, c, haulCover, sites, owe);
+				} else {
+					for (int i = 0; i < frac.length; i++) {
+						frac[i] += entry.yields()[i] * workerDays * k;
+					}
+				}
+			}
+			if (special != null) {
+				for (SimSite site : special) {
+					work(s, site.kind(), site, site.yieldsView(), -1, workerDays * 0.25 / special.size(), frac, r, c, haulCover, sites, owe);
+				}
+			}
+			return;
+		}
 		if (shares <= 0 && special == null) {
 			double k = chains.noSiteFactor();
 			for (int i = 0; i < frac.length; i++) {
@@ -291,17 +342,17 @@ public final class Production {
 			}
 			return;
 		}
-		double whole = g.split() ? shares + specialShare : 0;
+		double whole = shares + specialShare;
 		for (int e = 0; e < g.sites().size(); e++) {
 			if (!present[e]) {
 				continue;
 			}
 			SimData.Gathering.Entry entry = g.sites().get(e);
-			double days = g.split() ? workerDays * entry.share() / whole : workerDays;
+			double days = workerDays * entry.share() / whole;
 			work(s, entry.kind(), null, entry.yields(), entry.wearPerDay(), days, frac, r, c, haulCover, sites, owe);
 		}
 		if (special != null) {
-			double days = g.split() ? workerDays * specialShare / whole : workerDays * 0.25;
+			double days = workerDays * specialShare / whole;
 			double each = days / special.size();
 			for (SimSite site : special) {
 				work(s, site.kind(), site, site.yieldsView(), -1, each, frac, r, c, haulCover, sites, owe);
@@ -359,7 +410,7 @@ public final class Production {
 			double dist = site.distanceTo(s.center());
 			double haul = dist <= range / 2.0 ? 1 : Math.max(0.5, 1 - (dist - range / 2.0) / range * (1 - haulCover));
 			// a rarity's yields are already scaled to its density; a kind's are per full-density site
-			double factor = (only != null ? 1 : site.density()) * yieldFactor(site) * haul;
+			double factor = (only != null ? 1 : densityFactor(site)) * yieldFactor(site) * haul;
 			double logs = 0;
 			for (int g = 0; g < yields.length; g++) {
 				if (yields[g] != 0) {
@@ -385,6 +436,19 @@ public final class Production {
 	static double yieldFactor(SimSite site) {
 		return site.renewable() ? Math.max(RENEWABLE_FLOOR, site.richness()) : site.richness();
 	}
+
+	/**
+	 * How a site's density scales a worker-day: ore and stone by their grade outright; land that is worked (fields,
+	 * pasture, woods, waters) much less — poor soil is mostly less of it (the site's capacity), and a farmer on it still
+	 * brings in a harvest.
+	 */
+	static double densityFactor(SimSite site) {
+		double d = Math.min(1.5, site.density());
+		return site.renewable() ? 0.4 + 0.6 * Math.min(1, d) : d;
+	}
+
+	/** What an odd-job labourer scrapes together of a kind of land the territory has no site of, as a share of its yield. */
+	static final double SCROUNGE = 0.4;
 
 	/** What a worn-out renewable site still yields, as a share of a full one. */
 	static final double RENEWABLE_FLOOR = 0.35;
@@ -479,7 +543,7 @@ public final class Production {
 		Crew crew = crews.crews.get(k);
 		double[] frac = s.clock.fractions;
 		SimStockpile stock = s.stockpile();
-		work(s, crew, workerDays, frac, stock.amounts(), stock.capacities(), data, r, c, 1, false);
+		work(s, crew, workerDays, frac, stock.amounts(), stock.capacities(), data, r, c, 1, false, reserved(s));
 		double coin = c.economyHandlesWages() ? 0 : r.coin[job.ordinal()] * workerDays;
 		settle(s, r, frac, coin);
 		s.markDirty();

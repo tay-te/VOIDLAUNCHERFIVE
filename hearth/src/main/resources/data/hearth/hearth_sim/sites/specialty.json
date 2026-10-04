@@ -1,1 +1,8 @@
-{ "kind": "specialty", "per_cell": 800, "regen": 0, "primary": "none", "max_cells": 8, "max_sites": 6 }
+{
+  "kind": "specialty",
+  "per_cell": 400,
+  "regen": 0,
+  "primary": "none",
+  "max_cells": 8,
+  "max_sites": 6
+}

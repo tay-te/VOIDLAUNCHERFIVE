@@ -197,7 +197,6 @@
     "minecraft:amethyst_cluster",
     "minecraft:rooted_dirt",
     "minecraft:hanging_roots",
-    "minecraft:glow_berries",
     {
       "id": "expanse:amber",
       "required": false

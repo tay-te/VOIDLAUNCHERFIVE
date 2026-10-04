@@ -606,6 +606,7 @@ public final class SimSettlement implements Settlement {
 	/** Takes the stage's goods if they are in store (or anyway, if forced: an embodied builder already started). */
 	boolean startStage(SimPlot p, PlotFacts f, boolean force) {
 		int[] need = f.goods()[p.stage];
+		provision(need);
 		if (!force && !this.stockpile.has(need)) {
 			int worst = this.stockpile.worstShortfall(need);
 			if (worst >= 0 && (p.stalledOn == null || p.heldBack)) {
@@ -647,6 +648,41 @@ public final class SimSettlement implements Settlement {
 		}
 		return true;
 	}
+
+	/**
+	 * A stage's provisions (food in a bill: sacks and crates, a larder, a feast laid out) come from whatever is edible in
+	 * store when there is no prepared food: grain, fruit, fish and meat count at what they are worth eaten.
+	 */
+	private void provision(int[] need) {
+		int food = Goods.FOOD.ordinal();
+		if (need.length <= food || need[food] <= 0 || this.ctx == null) {
+			return;
+		}
+		int want = Math.min(need[food], this.stockpile.capacity(Goods.FOOD)) - this.stockpile.get(Goods.FOOD);
+		if (want <= 0) {
+			return;
+		}
+		double[] value = this.ctx.data().edible();
+		for (int g : PROVISIONS) {
+			if (want <= 0) {
+				break;
+			}
+			if (value[g] <= 0) {
+				continue;
+			}
+			int units = Math.min(this.stockpile.get(Goods.VALUES[g]), (int) Math.ceil(want / value[g]));
+			if (units > 0) {
+				this.stockpile.takeQuiet(g, units);
+				int made = (int) Math.floor(units * value[g]);
+				this.stockpile.addQuiet(food, made);
+				want -= made;
+			}
+		}
+	}
+
+	/** What a bill's food may be made up from, the most plentiful kinds first. */
+	private static final int[] PROVISIONS = {Goods.GRAIN.ordinal(), Goods.PRODUCE.ordinal(), Goods.FLOUR.ordinal(), Goods.FISH.ordinal(),
+		Goods.MEAT.ordinal()};
 
 	/**
 	 * The goods {@code p} would take from the first plot ahead of it (in plot order, the order labour goes round) already
