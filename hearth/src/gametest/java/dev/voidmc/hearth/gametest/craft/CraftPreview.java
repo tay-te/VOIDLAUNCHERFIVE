@@ -125,7 +125,13 @@ public final class CraftPreview {
 					if (!params.contains("facing")) {
 						params.putString("facing", "south");
 					}
+					int height = params.getIntOr("height", 0);
+					params.remove("height");
 					PlotSpec spec = BlueprintPreview.spec(info, style, seed, s, probe, params);
+					if (height > 0) {
+						spec = new PlotSpec(spec.archetype(), spec.style(), spec.seed(), spec.origin(), spec.sizeX(), spec.sizeZ(), spec.facing(), height,
+							spec.tier(), spec.params());
+					}
 					BlueprintImpl bp = service.compiled(spec, probe);
 					List<String> problems = BlueprintChecks.all(bp, probe);
 					if (!problems.isEmpty()) {
@@ -147,7 +153,7 @@ public final class CraftPreview {
 					}
 					String base = culture.getSerializedName() + "_s" + s + "_" + terrain;
 					ImageIO.write(renderer.render(world, new View(yaw + 35, 28), scale, 2, BG), "png", dir.resolve(base + "_close.png").toFile());
-					ImageIO.write(renderer.render(world, new View(yaw - 30, 14), scale, 2, BG), "png", dir.resolve(base + "_street.png").toFile());
+					ImageIO.write(renderer.render(world, new View(yaw + 15, 12), scale, 2, BG), "png", dir.resolve(base + "_street.png").toFile());
 					ImageIO.write(renderer.render(world, new View(yaw + 160, 32), Math.max(12, scale * 2 / 3), 2, BG), "png",
 						dir.resolve(base + "_back.png").toFile());
 					ImageIO.write(renderer.render(world, new View(yaw + 25, 8), 4, 4, BG), "png", dir.resolve(base + "_far.png").toFile());

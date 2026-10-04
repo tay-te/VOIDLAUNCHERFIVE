@@ -1,4 +1,8 @@
 {
   "hearth.archetype.work.tannery": "Tannery",
-  "hearth.sign.tannery": "Tanner"
+  "hearth.sign.tannery": "Tanner",
+  "hearth.archetype.work.butcher": "Butcher",
+  "hearth.sign.butcher": "Butcher",
+  "hearth.archetype.work.chandler": "Chandler",
+  "hearth.sign.chandler": "Chandler"
 }

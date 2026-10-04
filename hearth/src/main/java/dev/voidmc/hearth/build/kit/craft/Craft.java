@@ -2,6 +2,7 @@ package dev.voidmc.hearth.build.kit.craft;
 
 import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.StageKind;
+import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.kit.Garden;
@@ -173,5 +174,28 @@ public final class Craft {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * A back door into the yard behind a hall: in the back wall of the ground storey, away from the stair well against
+	 * {@code wellWall} (whose run {@code well} the door must not open onto), the first column that takes a door and has
+	 * the floor inside it free. Returns its column, or MIN_VALUE where none fits.
+	 */
+	public static int backDoor(Draft d, Hall hall, Direction wellWall, int[] well) {
+		int[] in = hall.inner(0);
+		boolean fromRight = wellWall == Dirs.LEFT;
+		for (int k = 0; k <= in[2] - in[0]; k++) {
+			int x = fromRight ? in[2] - k : in[0] + k;
+			if (well != null && x >= well[4] && x <= well[6] && in[3] >= well[5] && in[3] <= well[7]) {
+				continue;
+			}
+			if (!d.isEmpty(x, 0, in[3]) || !d.isEmpty(x, 1, in[3])) {
+				continue;
+			}
+			if (hall.door(0, Dirs.BACK, x, 1, false, false)) {
+				return x;
+			}
+		}
+		return Integer.MIN_VALUE;
 	}
 }
