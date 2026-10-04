@@ -107,8 +107,23 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
     biome's own mix: `BiomeLooks` reads each tree feature's foliage placer (spruce, pine, mega pine) or,
     for a modded tree, the names of its placers (Expanse's redwoods shape their crowns in the trunk
     placer). In snowy forests the crowns' tops are white with the snow on the boughs, their flanks not.
-  * A one-block grain in the shader, as the block textures give the chunks, fading out before it
-    could shimmer.
+  * The block textures themselves, from the atlas the chunks draw with, so the seam with the chunks
+    holds up close. Every face carries what it is made of, an id in the world's material registry (the
+    grass top, the grass side, dirt, stone, sand, snow, each band of terracotta, the trees' leaves,
+    Expanse's salt and basalt), and a small table on the GPU (`render/MaterialTable`) says where that
+    face's sprites are in the atlas. The texture is divided by its own average, so the vertex colour
+    stays the truth (the biome's tint, snow, shading, occlusion) and only the pattern is added; a grass
+    block's side is its two layers, the dirt and the tinted fringe cut out over it; tops the block model
+    turns at random (grass, sand, dirt) turn a quarter per block. Sampled the way vanilla samples
+    terrain (crisp texels up close, trilinear mipmaps further off, through vanilla's own sampler), it
+    gives way to the old one-block grain as a block shrinks from three pixels to one and a half, where
+    the mipmaps have melted it to about that anyway: nothing shimmers, and the tiles further out look
+    exactly as they did. A textured pixel reads the table once and the atlas once (twice on a grass
+    side); no varying is added, the material rides in a spare component. Faces with no texture
+    (water) keep the grain. Just past the chunks through a 30° lens, before and after (the chunks
+    begin at the bottom edge):
+
+    ![blocky tiles before and after block textures](docs/seam_textures.jpg)
 * **Smooth tiles, everywhere else** (`core/Smooth`, level 2 and up, where a block is under a pixel or
   two). A blocky mesh with 64-block cells is giant stair-steps; these tiles are a continuous heightfield
   instead, and each vertex says what a stair of blocks *averages* to there:
@@ -190,7 +205,8 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
   is timed in seconds, not frames, so it behaves the same at 30 fps and at 2000.
 * **Few draws** (`render/LodRenderer`):
   * Meshes live in Mojang's TLSF `UberGpuBuffer` heaps, the same allocator the chunk renderer uses.
-    Vertices are 16 bytes: tile-relative 16-bit position, flags, two RGBA8 colours.
+    Vertices are 16 bytes: tile-relative 16-bit position, flags, two RGBA8 colours (on a blocky face,
+    its colour and its material id).
   * Each frame, the visible tiles (frustum-culled per tile against their real height range) become one
     instance buffer and one `drawIndexedIndirect` per heap and kind of tile.
   * Only tiles in the seam with the chunks, or fading, use the shader variant with `discard`; the rest
@@ -422,9 +438,9 @@ model, but only loads it when Expanse is installed.
 * **Shader-pack lighting on the LOD.** With a pack on, the LOD draws over the pack's picture in its own
   style. Lighting it the pack's way needs a program in the pack for the LOD's vertices, as packs carry
   for Distant Horizons.
-* **Block textures on the blocky tiles.** Their colours are the textures' own averages and a grain stands
-  in for the detail; sampling the block atlas itself would make the seam with the chunks vanish
-  entirely at close range.
+* **Block textures from the real blocks.** The textures follow what the generator puts on the surface;
+  loaded chunks could put their own blocks' ids on the faces through the same registry. A grass
+  block's fringe takes the default grass tint against the biome's (the face's colour is the biome's).
 * **A disk cache of built tiles.** The seen land is kept, and Expanse terrain builds faster than a mesh
   would load; the generic generator path could still gain from caching the tiles themselves.
 * **Faster void worlds.** The End goes through the generic generator path, which sets up a noise chunk

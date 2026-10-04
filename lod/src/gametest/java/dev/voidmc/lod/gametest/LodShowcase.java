@@ -61,7 +61,7 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final String SEED = System.getProperty("lod.show.seed", "8675309");
 	private static final int DISTANCE = Integer.getInteger("lod.show.distance", 8);
 	private static final long SETTLE_MS = Long.getLong("lod.show.settle", 30_000L);
-	private static final int VIEWS = Integer.getInteger("lod.show.views", 10);
+	private static final int VIEWS = Integer.getInteger("lod.show.views", 16);
 	/** Only the views with these names, comma separated (all when unset). */
 	private static final String ONLY = System.getProperty("lod.show.only", "");
 	private static final int WIDTH = Integer.getInteger("lod.show.width", 1600);
@@ -178,6 +178,12 @@ public class LodShowcase implements FabricClientGameTest {
 				found.add(new Spot("far0", bx, top + 24, bz, 90, 4, 30));
 				found.add(new Spot("far1", lx, lowTop + 12, lz, toPeak, 2, 30));
 				found.add(new Spot("far2", bx, top + 24, bz, 0, 3, 30));
+				// the seam with the chunks: the blocky tiles just past the render distance, through a long lens and a
+				// normal one
+				found.add(seam("seam0", model, lx, lowTop + 12, lz, toPeak + 90, 150, 30));
+				found.add(seam("seam1", model, bx, top + 24, bz, 90, 150, 30));
+				found.add(seam("seam2", model, lx, lowTop + 12, lz, toPeak + 90, 110, 70));
+				found.add(seam("seam3", model, lx, lowTop + 60, lz, toPeak + 90, 170, 30));
 				System.out.printf(Locale.ROOT, "[lod] high point %d,%d at y=%d; low point %d,%d at y=%d%n", bx, bz, top, lx, lz, lowTop);
 
 				// the peak looking west, into the sunset, and east, away from it; the valley at night and in the rain
@@ -515,6 +521,14 @@ public class LodShowcase implements FabricClientGameTest {
 			}
 		}
 		throw new AssertionError("no options list in " + screen);
+	}
+
+	/** A view along {@code yaw} aimed down at the ground {@code reach} blocks out. */
+	private static Spot seam(String name, TerrainModel model, int x, int y, int z, float yaw, int reach, int fov) {
+		double a = Math.toRadians(yaw);
+		float ground = model.sample((int) Math.round(x - Math.sin(a) * reach), (int) Math.round(z + Math.cos(a) * reach)).height;
+		float pitch = (float) Math.toDegrees(Math.atan2(y + 1.62 - ground, reach));
+		return new Spot(name, x, y, z, yaw, pitch, fov);
 	}
 
 	private void shoot(ClientGameTestContext context, String name) {

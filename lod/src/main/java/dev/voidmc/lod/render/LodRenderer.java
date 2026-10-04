@@ -23,6 +23,7 @@ import com.mojang.renderpearl.api.pipeline.UniformType;
 import com.mojang.renderpearl.api.textures.FilterMode;
 import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.api.textures.GpuSampler;
 import com.mojang.renderpearl.api.vertex.VertexFormat;
 import dev.voidmc.lod.core.Fades;
 import dev.voidmc.lod.core.Horizon;
@@ -31,6 +32,8 @@ import dev.voidmc.lod.core.LongList;
 import dev.voidmc.lod.core.Tile;
 import dev.voidmc.lod.core.TileBuilder;
 import dev.voidmc.lod.core.TileKey;
+import dev.voidmc.lod.mixin.LevelRendererAccessor;
+import dev.voidmc.lod.source.WorldgenSource;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -69,6 +72,10 @@ import org.lwjgl.system.MemoryUtil;
  *   <li><b>No discard where it is not needed.</b> Only tiles in the seam with vanilla's chunks, or
  *       cross-fading between levels ({@link Fades}), use the shader variant with {@code discard}; the rest
  *       keep early depth testing.</li>
+ *   <li><b>Block textures only where blocks are pixels wide.</b> The blocky tiles next to the chunks sample the
+ *       block atlas through a small material table ({@link MaterialTable}): a table read and an atlas fetch per
+ *       textured pixel (two on a grass block's side), none where a block is under a pixel or two; the smooth
+ *       far field never binds them.</li>
  *   <li><b>Frustum and horizon culling per tile</b> on the CPU: against the tile's real height range, then
  *       against the land in front of it ({@link Horizon}), so the valleys behind a ridge are not drawn.</li>
  *   <li><b>Bounded uploads.</b> Meshes reach the GPU through a fixed staging buffer; what does not fit
@@ -86,6 +93,11 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		.addAttribute("LodTile", GpuFormat.RGBA32_SINT)
 		.build();
 	public static final BindGroupLayout LOD_INFO = BindGroupLayout.builder().withUniform("LodInfo", UniformType.UNIFORM_BUFFER).build();
+	/** What the blocky tiles draw their textures with: the block atlas, and the table of where each material is in it. */
+	public static final BindGroupLayout LOD_MATERIALS = BindGroupLayout.builder()
+		.withUniform("Sampler0", UniformType.COMBINED_IMAGE_SAMPLER)
+		.withUniform("LodMaterials", UniformType.TEXEL_BUFFER, GpuFormat.RGBA32_UINT)
+		.build();
 	private static final int LOD_INFO_SIZE = 64 + 16 + 16 + 16;
 	private static final int INSTANCE_BYTES = 16;
 	private static final int COMMAND_BYTES = 20;
@@ -103,10 +115,13 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		.withDepthStencilState(DepthStencilState.DEFAULT)
 		.withColorTargetState(ColorTargetState.DEFAULT)
 		.buildSnippet();
-	public static final RenderPipeline PIPELINE = RenderPipeline.builder(SNIPPET)
+	private static final RenderPipeline.Snippet BLOCKY_SNIPPET = RenderPipeline.builder(SNIPPET)
+		.withBindGroupLayout(LOD_MATERIALS)
+		.buildSnippet();
+	public static final RenderPipeline PIPELINE = RenderPipeline.builder(BLOCKY_SNIPPET)
 		.withLocation(Identifier.fromNamespaceAndPath("void_lod", "pipeline/lod"))
 		.build();
-	public static final RenderPipeline PIPELINE_CLIPPED = RenderPipeline.builder(SNIPPET)
+	public static final RenderPipeline PIPELINE_CLIPPED = RenderPipeline.builder(BLOCKY_SNIPPET)
 		.withLocation(Identifier.fromNamespaceAndPath("void_lod", "pipeline/lod_clipped"))
 		.withShaderDefine("LOD_CLIP")
 		.build();
@@ -160,6 +175,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private final Horizon horizon = new Horizon();
 	/** The engine's readiness test, made once: a method reference built every frame is an allocation every frame. */
 	private final LongPredicate ready;
+	private final MaterialTable materials;
 	private double viewX;
 	private double viewY;
 	private double viewZ;
@@ -258,6 +274,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		this.indirect = this.maxIndirect > 0 && info.features().drawIndirect() && info.features().multiDrawIndirect()
 			&& this.firstInstance && !info.hintsAndWorkarounds().multiDrawIndirectHasKnownIssues();
 		this.gridIndices = this.device.createBuffer(() -> "VOID LOD grid indices", GpuBuffer.USAGE_INDEX, TileBuilder.smoothIndices());
+		this.materials = new MaterialTable(this.device);
 		GpuQueryPool timer = null;
 		try {
 			timer = this.device.createTimestampQueryPool(TIMER_SLOTS * 2);
@@ -350,6 +367,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		try (StagingBuffer.Uploader uploader = this.staging.startUploading(encoder)) {
 			this.arena.uploadStagedAllocations(this.device, uploader);
 		}
+		// after the uploads: every id a tile just uploaded was handed out before it was built
+		this.materials.update(this.engine.source() instanceof WorldgenSource w ? w.materials() : null, encoder);
 		long t3 = System.nanoTime();
 		this.lastStagingNanos = t3 - t2;
 
@@ -542,6 +561,10 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		}
 		pass.setUniform("LodInfo", this.infoSlice);
 		pass.setUniform("Sampler2", Minecraft.getInstance().gameRenderer.lightmap(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+		// the block atlas as the chunks sample it, for the blocky tiles' textures
+		GpuSampler blocks = ((LevelRendererAccessor) Minecraft.getInstance().levelRenderer).voidLod$chunkLayerSampler();
+		pass.setUniform("Sampler0", this.materials.atlas(), blocks != null ? blocks : RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR, true));
+		pass.setUniform("LodMaterials", this.materials.buffer());
 		pass.setVertexBuffer(1, this.instanceSlice);
 		for (Group group : this.order) {
 			if (group.count == 0) {
@@ -604,6 +627,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			this.timer.close();
 		}
 		this.gridIndices.close();
+		this.materials.close();
 		this.arena.close();
 		this.staging.close();
 		MemoryUtil.memFree(this.instances);
