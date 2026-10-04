@@ -237,10 +237,21 @@ final class ExcavationWork implements WorkBehaviour {
 			folk.setFolkPose(FolkPose.NONE);
 			if (this.stand == null) {
 				this.stand = standFor(level, bp, step.pos(), folk);
+				if (this.stand == null && standingOn(folk, step.pos())) {
+					// nowhere better within reach: at least step off the block
+					for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+						BlockPos side = folk.blockPosition().relative(d);
+						if (FolkSpots.standable(level, side)) {
+							this.stand = side;
+							break;
+						}
+					}
+				}
 			}
 			this.doing = "walking to the face";
 			BlockPos goal = this.stand != null ? this.stand : step.pos();
-			boolean arrived = brain.walk(level, goal, 1.0, 0.65);
+			// to a chosen stand exactly (a stand beside the cut is no use if they stop half over it); else near the work
+			boolean arrived = brain.walk(level, goal, this.stand != null ? 0.45 : 1.5, 0.65);
 			if ((arrived && (!BuilderWork.canReach(folk, step.pos()) || standingOn(folk, step.pos()))) || brain.walkFailed() || this.stepTicks > 400) {
 				brain.resetWalk();
 				// After a fair try, cut it from where they are (never from far away): a pit never stalls on one awkward block.

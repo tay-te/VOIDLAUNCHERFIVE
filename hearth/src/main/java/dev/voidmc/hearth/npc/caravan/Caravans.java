@@ -145,10 +145,9 @@ public final class Caravans {
 
 	private static double nearestPlayer(ServerLevel level, BlockPos at) {
 		double best = Double.MAX_VALUE;
+		// spectators count, as they do for embodiment: an admin watching the road should see the caravan
 		for (ServerPlayer p : level.players()) {
-			if (!p.isSpectator()) {
-				best = Math.min(best, Math.sqrt(p.distanceToSqr(at.getX() + 0.5, p.getY(), at.getZ() + 0.5)));
-			}
+			best = Math.min(best, Math.sqrt(p.distanceToSqr(at.getX() + 0.5, p.getY(), at.getZ() + 0.5)));
 		}
 		return best;
 	}

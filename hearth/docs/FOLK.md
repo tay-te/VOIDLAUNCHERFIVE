@@ -220,7 +220,7 @@ pays once. With no excavation open the trade falls back to its old work (quarrie
 workplace, clay diggers at the bank, salters raking the pans: `DiggerWork`), whose time is credited as labour.
 
 **Foresters fell real trees** (`ForesterWork`, `Trees`). A tree is found in a woods site of the territory
-(`Settlement.sites()`), or in a ring just beyond the town's edge: a few sample spots, each a 9×9 patch of columns read
+(`Settlement.sites()`), or in a ring just beyond the town's edge: a few sample spots, each a 17×17 patch (every other column) read
 from the heightmap, then down the trunk to a stump on natural soil. It must be a body of logs with a natural crown
 (non-persistent leaves: a log cabin or a hedge of placed leaves is never a tree), no larger than
 `gathering.max_tree_logs` (the redwood giants stay standing), touched by nothing built (planks, glass, lanterns, any

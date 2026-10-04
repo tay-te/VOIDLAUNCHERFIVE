@@ -62,7 +62,7 @@ public final class Trees {
 
 	/**
 	 * Looks for a tree to fell for a settlement: in a woods site of its territory if the survey found one, else in a
-	 * ring just beyond the town's edge. A few sample spots are tried, each a 9×9 patch of columns.
+	 * ring just beyond the town's edge. A few sample spots are tried, each a 17×17 patch read every other column.
 	 */
 	public static @Nullable Tree find(ServerLevel level, Settlement s, RandomSource random, int maxLogs, int keepClearOfDeeds, Set<Long> claimed) {
 		List<ResourceSite> woods = new ArrayList<>();
@@ -76,10 +76,13 @@ public final class Trees {
 			if (sample == null || !level.isLoaded(sample)) {
 				continue;
 			}
+			// a 17x17 patch read every other column (crowns are wider than that), starting at a random corner so
+			// neighbouring foresters do not converge on one tree
+			int flipX = random.nextBoolean() ? 1 : -1;
+			int flipZ = random.nextBoolean() ? 1 : -1;
 			for (int i = 0; i < 81; i++) {
-				// spiral-ish: a random walk over the 9x9 patch, so neighbouring foresters do not converge on one tree
-				int dx = random.nextInt(9) - 4;
-				int dz = random.nextInt(9) - 4;
+				int dx = (i % 9 * 2 - 8) * flipX;
+				int dz = (i / 9 * 2 - 8) * flipZ;
 				BlockPos column = sample.offset(dx, 0, dz);
 				if (!level.isLoaded(column)) {
 					continue;

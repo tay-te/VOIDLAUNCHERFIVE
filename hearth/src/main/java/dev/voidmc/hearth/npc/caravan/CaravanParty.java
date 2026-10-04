@@ -287,14 +287,12 @@ public final class CaravanParty implements Folk.Controller {
 		return p == null ? Double.MAX_VALUE : p.distanceTo(m);
 	}
 
-	/** Distance from the party to the nearest player (not spectators), for folding. */
+	/** Distance from the party to the nearest player (spectators too), for folding. */
 	double nearestPlayer(ServerLevel level) {
 		double best = Double.MAX_VALUE;
 		for (Folk f : this.people) {
 			for (ServerPlayer p : level.players()) {
-				if (!p.isSpectator()) {
-					best = Math.min(best, p.distanceTo(f));
-				}
+				best = Math.min(best, p.distanceTo(f));
 			}
 		}
 		return best;
