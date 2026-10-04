@@ -95,9 +95,31 @@ class TileBuilderTest {
 		}
 	}
 
+	/** Runs {@code body} with the far field drawn smooth from level 2, as it was by default before. */
+	private static void smoothFar(Runnable body) {
+		int was = TileBuilder.smoothFrom;
+		TileBuilder.smoothFrom = 2;
+		try {
+			body.run();
+		} finally {
+			TileBuilder.smoothFrom = was;
+		}
+	}
+
+	@Test
+	void everyLevelIsBlockyByDefault() {
+		for (int level = 0; level <= TileKey.MAX_LEVEL; level += 3) {
+			assertFalse(builder().build(flat(70), TileKey.of(level, 1, -1)).smooth(), "level " + level);
+		}
+	}
+
 	@Test
 	void smoothTilesAreTheSharedGrid() {
-		TileBuilder.Mesh mesh = builder().build(flat(70), TileKey.of(TileBuilder.smoothFrom + 1, 2, 5));
+		smoothFar(this::smoothTilesAreTheSharedGridAtLevel3);
+	}
+
+	private void smoothTilesAreTheSharedGridAtLevel3() {
+		TileBuilder.Mesh mesh = builder().build(flat(70), TileKey.of(3, 2, 5));
 		assertTrue(mesh.smooth());
 		assertEquals(65 * 65 + 4 * 65, mesh.vertexCount());
 		assertEquals(TileBuilder.smoothIndexCount(), mesh.indexCount());
@@ -111,6 +133,10 @@ class TileBuilderTest {
 
 	@Test
 	void smoothGridTrianglesFaceUpAndStayInRange() {
+		smoothFar(this::smoothGridTrianglesFaceUp);
+	}
+
+	private void smoothGridTrianglesFaceUp() {
 		TerrainSource hills = (x, z, cell, out) -> out.ground = 64 + (float) (30 * Math.sin(x / 700.0) * Math.cos(z / 500.0));
 		TileBuilder.Mesh mesh = builder().build(hills, TileKey.of(4, 0, 0));
 		ByteBuffer v = vertices(mesh);
@@ -136,8 +162,11 @@ class TileBuilderTest {
 		// close in, individual crowns: as tall as the trees, give or take a quarter
 		int crowns = builder().build(forest, TileKey.of(0, 0, 0)).maxY();
 		assertTrue(crowns >= 78 && crowns <= 86, "crowns top out at " + crowns);
-		// far out, a canopy as high as a dense forest stands
-		assertEquals(70 + Math.round(Smooth.blanket(12, 1)), builder().build(forest, TileKey.of(6, 0, 0)).maxY(), 1);
+		// far out too, crowns, as tall as the trees
+		int far = builder().build(forest, TileKey.of(6, 0, 0)).maxY();
+		assertTrue(far >= 78 && far <= 86, "far crowns top out at " + far);
+		// and drawn smooth, a canopy as high as a dense forest stands
+		smoothFar(() -> assertEquals(70 + Math.round(Smooth.blanket(12, 1)), builder().build(forest, TileKey.of(6, 0, 0)).maxY(), 1));
 	}
 
 	@Test

@@ -86,8 +86,11 @@ public final class LodSettings {
 	public double farDetail;
 	/** How far the air carries at sea level, in blocks; 0 for three quarters of the reach. */
 	public int haze;
-	/** The first level drawn smooth; the levels below it are blocky. */
-	public int smoothFrom = 2;
+	/**
+	 * The first level drawn smooth; the levels below it are blocky. Past the top level (the default) every level is
+	 * blocky: real blocks at every distance, as the chunks are.
+	 */
+	public int smoothFrom = BLOCKY_EVERYWHERE;
 	public int threads;
 	/** MB of GPU memory before the least recently used tiles are evicted. */
 	public int budget;
@@ -96,6 +99,11 @@ public final class LodSettings {
 	/** Auto-tune's targets, in milliseconds a frame: the LOD's GPU time, and its render-thread time. */
 	public double gpuTarget = 1.5;
 	public double prepareTarget = 0.5;
+
+	/** {@link #smoothFrom} for no smooth levels at all. */
+	public static final int BLOCKY_EVERYWHERE = 10;
+	/** Files from before this version drew the far field smooth by default; their smoothFrom is not a choice. */
+	private static final int VERSION = 2;
 
 	public LodSettings() {
 		this.apply(Preset.HIGH);
@@ -181,7 +189,9 @@ public final class LodSettings {
 		this.detail = number(json.get("detail"), this.detail, MIN_DETAIL, MAX_DETAIL);
 		this.farDetail = number(json.get("farDetail"), this.detail, MIN_DETAIL, MAX_DETAIL);
 		this.haze = haze(number(json.get("haze"), this.haze, 0, MAX_HAZE));
-		this.smoothFrom = (int) number(json.get("smoothFrom"), this.smoothFrom, 0, 10);
+		if (number(json.get("version"), 1, 1, 1000) >= VERSION) {
+			this.smoothFrom = (int) number(json.get("smoothFrom"), this.smoothFrom, 0, BLOCKY_EVERYWHERE);
+		}
 		this.threads = (int) number(json.get("threads"), this.threads, 1, MAX_THREADS);
 		this.budget = (int) number(json.get("budget"), this.budget, MIN_BUDGET, MAX_BUDGET);
 		this.autoTune = bool(json.get("autoTune"), this.autoTune);
@@ -199,6 +209,7 @@ public final class LodSettings {
 	/** Writes the settings to {@code file}, through a temporary file so a crash never leaves half of one. */
 	public void save(Path file) {
 		JsonObject json = new JsonObject();
+		json.addProperty("version", VERSION);
 		json.addProperty("preset", this.preset.serializedName());
 		json.addProperty("enabled", this.enabled);
 		json.addProperty("radius", this.radius);
@@ -246,7 +257,7 @@ public final class LodSettings {
 		this.detail = number(detail, this.detail, MIN_DETAIL, MAX_DETAIL);
 		this.farDetail = number(farDetail != null ? farDetail : detail, this.farDetail, MIN_DETAIL, MAX_DETAIL);
 		this.haze = haze(number(properties.apply("void.lod.haze"), this.haze, 0, MAX_HAZE));
-		this.smoothFrom = (int) number(properties.apply("void.lod.smoothFrom"), this.smoothFrom, 0, 10);
+		this.smoothFrom = (int) number(properties.apply("void.lod.smoothFrom"), this.smoothFrom, 0, BLOCKY_EVERYWHERE);
 		this.threads = (int) number(properties.apply("void.lod.threads"), this.threads, 1, MAX_THREADS);
 		this.budget = (int) number(properties.apply("void.lod.budget"), this.budget, MIN_BUDGET, MAX_BUDGET);
 		this.enabled = bool(properties.apply("void.lod.enabled"), this.enabled);

@@ -53,9 +53,9 @@ final class Horizons {
 				this.sinSum[k] = 0;
 			}
 		}
-		// beyond the tile's own samples, grids at least a level coarser: built before it, or sampled once for all
+		// beyond the tile's own samples, grids at least a level coarser, which were built before it
 		int coarsest = TileKey.MAX_LEVEL;
-		int first = Math.min(coarsest, Math.max(level + 1, TileBuilder.smoothFrom));
+		int first = Math.min(coarsest, level + 1);
 		for (int dir = 0; dir < 4; dir++) {
 			for (int line = 0; line < inner; line++) {
 				this.sweep(s, heights, dir, line, inner, first, coarsest);

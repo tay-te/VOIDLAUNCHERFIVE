@@ -50,7 +50,7 @@ public final class TileBuilder {
 	public static final java.util.concurrent.atomic.AtomicLong LIGHT_NANOS = new java.util.concurrent.atomic.AtomicLong();
 
 	/** The first level drawn smooth; the levels below it are blocky. */
-	public static volatile int smoothFrom = Integer.getInteger("void.lod.smoothFrom", 2);
+	public static volatile int smoothFrom = Integer.getInteger("void.lod.smoothFrom", TileKey.MAX_LEVEL + 1);
 
 	private final Samples samples;
 	private final SampleCache cache;
@@ -108,9 +108,7 @@ public final class TileBuilder {
 		SAMPLES.addAndGet((long) this.samples.size * this.samples.size);
 		this.lit = heights != null;
 		if (this.lit) {
-			if (smooth) {
-				heights.put(key, this.cornerGrid());
-			}
+			heights.put(key, this.grid(smooth));
 			long t1 = System.nanoTime();
 			this.horizons.compute(this.samples, heights, level, smooth ? TileKey.TILE + 1 : TileKey.TILE);
 			LIGHT_NANOS.addAndGet(System.nanoTime() - t1);
@@ -167,17 +165,22 @@ public final class TileBuilder {
 		return this.samples;
 	}
 
-	/** This smooth tile's surface on its corners, for {@link Heights}. */
-	private short[] cornerGrid() {
+	/**
+	 * This tile's surface, for {@link Heights}: a smooth tile's corners, or a blocky tile's cell centres with the ring
+	 * of one beyond them, so the grid covers the tile edge to edge.
+	 */
+	private Heights.Grid grid(boolean corners) {
 		Samples s = this.samples;
-		short[] grid = new short[Heights.V * Heights.V];
-		for (int j = 0; j < Heights.V; j++) {
-			for (int i = 0; i < Heights.V; i++) {
-				int k = s.at(i, j);
-				grid[i + j * Heights.V] = s.empty[k] ? Heights.NONE : Heights.clamp(Heights.surface(s.ground[k], s.water[k], s.canopy[k], s.cover[k]));
+		int first = corners ? 0 : -1;
+		int n = corners ? TileKey.TILE + 1 : TileKey.TILE + 2;
+		short[] grid = new short[n * n];
+		for (int j = 0; j < n; j++) {
+			for (int i = 0; i < n; i++) {
+				int k = s.at(first + i, first + j);
+				grid[i + j * n] = s.empty[k] ? Heights.NONE : Heights.clamp(Heights.surface(s.ground[k], s.water[k], s.canopy[k], s.cover[k]));
 			}
 		}
-		return grid;
+		return new Heights.Grid(grid, n, corners ? 0 : -0.5);
 	}
 
 	/**

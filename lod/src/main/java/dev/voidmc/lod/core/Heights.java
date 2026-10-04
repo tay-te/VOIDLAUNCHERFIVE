@@ -5,9 +5,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * How high the land stands, at every level of the quadtree, for the lighting: a grid of surface heights on
- * each tile's cell corners, the same columns the smooth mesh is built on. A tile's lighting looks past its
- * own samples out to the horizon through these grids, coarser the further it looks.
+ * How high the land stands, at every level of the quadtree, for the lighting: each built tile's surface heights,
+ * on the columns it sampled. A tile's lighting looks past its own samples out to the horizon through these grids,
+ * coarser the further it looks.
  *
  * <p>Grids come only from the tiles as they are built: sampling one nobody built costs as much as building the
  * tile (thousands of columns), and lighting a tile must cost a fraction of building it. Where a level's grid is
@@ -29,7 +29,14 @@ public final class Heights {
 	/** Lookups no grid at the asked level could answer, which a coarser one did (or none). */
 	public final AtomicLong coarser = new AtomicLong();
 
-	private final ConcurrentHashMap<Long, short[]> grids = new ConcurrentHashMap<>();
+	/**
+	 * One tile's surface: {@code n x n} heights a cell apart, the first {@code origin} cells from the tile's corner
+	 * along both axes (0 for a smooth tile's corners, -0.5 for a blocky tile's cell centres, border included).
+	 */
+	record Grid(short[] heights, int n, double origin) {
+	}
+
+	private final ConcurrentHashMap<Long, Grid> grids = new ConcurrentHashMap<>();
 	/** The fine grids, oldest first: only these are let go. The coarse ones carry every long shadow, and are few. */
 	private final ConcurrentLinkedQueue<Long> fine = new ConcurrentLinkedQueue<>();
 
@@ -41,8 +48,8 @@ public final class Heights {
 		return ground + Smooth.blanket(canopy, cover);
 	}
 
-	/** Takes a built tile's corner grid, row by row ({@code V x V}, in blocks). */
-	void put(long key, short[] grid) {
+	/** Takes a built tile's grid. */
+	void put(long key, Grid grid) {
 		if (this.grids.putIfAbsent(key, grid) == null && TileKey.level(key) < COARSE) {
 			this.fine.add(key);
 			this.trim();
@@ -62,7 +69,7 @@ public final class Heights {
 				g[i + j * V] = s.empty ? NONE : clamp(surface(s.ground, s.water, s.canopy, s.cover));
 			}
 		}
-		this.put(key, g);
+		this.put(key, new Grid(g, V, 0));
 	}
 
 	/**
@@ -74,7 +81,7 @@ public final class Heights {
 		for (int l = level; l <= TileKey.MAX_LEVEL; l++) {
 			int span = TileKey.span(l);
 			int tx = Math.floorDiv(bx, span), tz = Math.floorDiv(bz, span);
-			short[] g = this.grids.get(TileKey.of(l, tx, tz));
+			Grid g = this.grids.get(TileKey.of(l, tx, tz));
 			if (g != null) {
 				return interpolate(g, x, z, l, tx, tz);
 			}
@@ -85,15 +92,17 @@ public final class Heights {
 		return Float.NaN;
 	}
 
-	private static float interpolate(short[] g, double x, double z, int level, int tx, int tz) {
+	private static float interpolate(Grid grid, double x, double z, int level, int tx, int tz) {
 		int span = TileKey.span(level);
 		int cell = TileKey.cell(level);
-		double fx = (x - (double) tx * span) / cell;
-		double fz = (z - (double) tz * span) / cell;
-		int i = Math.min(V - 2, Math.max(0, (int) fx));
-		int j = Math.min(V - 2, Math.max(0, (int) fz));
-		double u = fx - i, w = fz - j;
-		short a = g[i + j * V], b = g[i + 1 + j * V], c = g[i + (j + 1) * V], d = g[i + 1 + (j + 1) * V];
+		int n = grid.n();
+		short[] g = grid.heights();
+		double fx = (x - (double) tx * span) / cell - grid.origin();
+		double fz = (z - (double) tz * span) / cell - grid.origin();
+		int i = Math.min(n - 2, Math.max(0, (int) Math.floor(fx)));
+		int j = Math.min(n - 2, Math.max(0, (int) Math.floor(fz)));
+		double u = Math.max(0, Math.min(1, fx - i)), w = Math.max(0, Math.min(1, fz - j));
+		short a = g[i + j * n], b = g[i + 1 + j * n], c = g[i + (j + 1) * n], d = g[i + 1 + (j + 1) * n];
 		if (a == NONE || b == NONE || c == NONE || d == NONE) {
 			return Float.NaN;
 		}

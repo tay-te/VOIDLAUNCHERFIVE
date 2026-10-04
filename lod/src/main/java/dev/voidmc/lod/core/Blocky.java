@@ -265,15 +265,31 @@ final class Blocky {
 			this.band(dir, edge, a0, a1, t, Math.max(b, under), floor, this.crown[k]);
 			this.band(dir, edge, a0, a1, under, Math.max(b, g), floor, Colors.scale(this.crown[k], 0.45F) & COLOR_MASK);
 		}
-		this.band(dir, edge, a0, a1, Math.min(t, g), Math.max(b, g - 1), floor, this.side[k]);
+		// Bands thinner than about a quarter of a cell are under a pixel where the cells are a few pixels across:
+		// past that they only cost quads. The one-block rim of the surface block goes first, then the soil, then
+		// rock strata, and what is left is drawn in one quad, in the colour of the rock it spans.
+		int cell = this.s.cell;
+		int soilTop = g;
+		if (cell < 8) {
+			this.band(dir, edge, a0, a1, Math.min(t, g), Math.max(b, g - 1), floor, this.side[k]);
+			soilTop = g - 1;
+		}
 		int soilBottom = g - 1 - this.s.soilDepth[k];
-		this.band(dir, edge, a0, a1, Math.min(t, g - 1), Math.max(b, soilBottom), floor, this.soil[k]);
-		int hi = Math.min(t, soilBottom);
+		int rockTop = soilTop;
+		if ((soilTop - soilBottom) * 4 >= cell) {
+			this.band(dir, edge, a0, a1, Math.min(t, soilTop), Math.max(b, soilBottom), floor, this.soil[k]);
+			rockTop = soilBottom;
+		}
+		int hi = Math.min(t, rockTop);
 		if (hi <= b) {
 			return;
 		}
 		if (this.s.bands[k] == null) {
 			this.band(dir, edge, a0, a1, hi, b, floor, this.rock[k]);
+			return;
+		}
+		if (this.s.bandHeight[k] * 4 < cell) {
+			this.band(dir, edge, a0, a1, hi, b, floor, this.s.rockBetween(k, b, hi) & COLOR_MASK);
 			return;
 		}
 		int bh = this.s.bandHeight[k];
