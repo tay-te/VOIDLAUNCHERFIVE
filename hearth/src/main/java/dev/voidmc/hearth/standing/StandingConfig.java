@@ -93,10 +93,12 @@ public record StandingConfig(Titles titles, Town town, Opinion opinion, Gossip g
 	 * @param witnessRadius     blocks within which embodied folk can witness a deed
 	 * @param maxWitnesses      witnesses remembered per deed
 	 * @param familyShare       a deed against someone also touches their family, at this share (times the deed table's family factor)
+	 * @param hearsayPerDay     times a day someone in a town passes what they remember of a player on to a friend
+	 * @param hearsayShare      how much of the memory the friend takes from hearing it
 	 */
 	public record Opinion(int memories, double halfLifeDays, int strongThreshold, double strongMultiplier, double townInfluence, int mergeDays,
-		int witnessRadius, int maxWitnesses, double familyShare) {
-		public static final Opinion DEFAULTS = new Opinion(12, 20, 40, 4, 0.25, 1, 24, 12, 1.0);
+		int witnessRadius, int maxWitnesses, double familyShare, int hearsayPerDay, double hearsayShare) {
+		public static final Opinion DEFAULTS = new Opinion(12, 20, 40, 4, 0.25, 1, 24, 12, 1.0, 3, 0.3);
 		public static final Codec<Opinion> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.intRange(1, 64).optionalFieldOf("memories", DEFAULTS.memories).forGetter(Opinion::memories),
 			Codec.doubleRange(0.5, 3650).optionalFieldOf("half_life_days", DEFAULTS.halfLifeDays).forGetter(Opinion::halfLifeDays),
@@ -106,7 +108,9 @@ public record StandingConfig(Titles titles, Town town, Opinion opinion, Gossip g
 			Codec.intRange(0, 30).optionalFieldOf("merge_days", DEFAULTS.mergeDays).forGetter(Opinion::mergeDays),
 			Codec.intRange(1, 96).optionalFieldOf("witness_radius", DEFAULTS.witnessRadius).forGetter(Opinion::witnessRadius),
 			Codec.intRange(0, 64).optionalFieldOf("max_witnesses", DEFAULTS.maxWitnesses).forGetter(Opinion::maxWitnesses),
-			Codec.doubleRange(0, 2).optionalFieldOf("family_share", DEFAULTS.familyShare).forGetter(Opinion::familyShare)
+			Codec.doubleRange(0, 2).optionalFieldOf("family_share", DEFAULTS.familyShare).forGetter(Opinion::familyShare),
+			Codec.intRange(0, 64).optionalFieldOf("hearsay_per_day", DEFAULTS.hearsayPerDay).forGetter(Opinion::hearsayPerDay),
+			Codec.doubleRange(0, 1).optionalFieldOf("hearsay_share", DEFAULTS.hearsayShare).forGetter(Opinion::hearsayShare)
 		).apply(i, Opinion::new));
 	}
 
@@ -128,7 +132,7 @@ public record StandingConfig(Titles titles, Town town, Opinion opinion, Gossip g
 	 */
 	public record Gossip(boolean enabled, int threshold, int radius, int blocksPerDay, int minDelayDays, int linkDistance, int neighbours, double hopFade,
 		double standingFactor, int maxQueue, int heldDays, boolean tellPlayer) {
-		public static final Gossip DEFAULTS = new Gossip(true, 20, 3000, 1500, 1, 1400, 4, 0.85, 0.5, 2048, 60, true);
+		public static final Gossip DEFAULTS = new Gossip(true, 20, 6000, 1500, 1, 3000, 4, 0.85, 0.5, 2048, 60, true);
 		public static final Codec<Gossip> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Gossip::enabled),
 			Codec.intRange(1, 100).optionalFieldOf("threshold", DEFAULTS.threshold).forGetter(Gossip::threshold),

@@ -200,11 +200,11 @@ class StandingEngineTest {
 	void badNamesHealSlowly() {
 		this.engine.set(this.ashbrook, ALEX, -10);
 		for (int i = 0; i < 20; i++) {
-			this.engine.dayPassed(this.ashbrook);
+			this.engine.dayPassed(this.ashbrook, this.host.day);
 		}
 		assertEquals(-5, this.engine.standing(1, ALEX));
 		this.engine.set(this.ashbrook, ALEX, 30);
-		this.engine.dayPassed(this.ashbrook);
+		this.engine.dayPassed(this.ashbrook, this.host.day);
 		assertEquals(30, this.engine.standing(1, ALEX), "good names keep by default");
 	}
 
@@ -229,6 +229,27 @@ class StandingEngineTest {
 		assertTrue(this.host.events.contains("Ashbrook:known->burgher"));
 		this.host.outlaws.add(ALEX + "@1");
 		assertEquals(Title.OUTLAW, this.engine.title(1, ALEX));
+	}
+
+	@Test
+	void storiesSpreadBetweenFriendsWithoutEchoing() {
+		Resident edda = StandingTestKit.resident("Edda", JobType.BAKER);
+		Resident friend = StandingTestKit.resident("Hild", JobType.TAILOR);
+		edda.extra("npc").store("friends", net.minecraft.core.UUIDUtil.CODEC.listOf(), java.util.List.of(friend.id));
+		this.ashbrook.addResident(edda);
+		this.ashbrook.addResident(friend);
+		this.engine.deed(deed("law:assault", -40, edda, false));
+		for (int d = 0; d < 7; d++) {
+			this.engine.hearsay(this.ashbrook, this.host.day + d);
+		}
+		java.util.List<Memories.Memory> heard = Memories.of(friend).all();
+		assertEquals(1, heard.size(), "the friend heard it: " + heard);
+		assertEquals("hearsay:law:assault", heard.getFirst().kind());
+		assertEquals(-24, heard.getFirst().weight(), "-40 x 2.0 (victim) x 0.3");
+		for (int d = 7; d < 14; d++) {
+			this.engine.hearsay(this.ashbrook, this.host.day + d);
+		}
+		assertTrue(Memories.of(edda).all().stream().noneMatch(m -> m.kind().startsWith("hearsay:")), "hearsay is not passed back");
 	}
 
 	@Test

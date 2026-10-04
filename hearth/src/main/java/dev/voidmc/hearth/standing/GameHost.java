@@ -44,7 +44,8 @@ final class GameHost implements StandingHost {
 		if (s == null) {
 			return null;
 		}
-		HearthWorld w = HearthWorld.of(s.overworld());
+		ServerLevel overworld = s.overworld();
+		HearthWorld w = overworld == null ? null : HearthWorld.of(overworld);
 		if (w != null) {
 			return w;
 		}
@@ -66,6 +67,12 @@ final class GameHost implements StandingHost {
 		return level == null ? null : HearthWorld.of(level);
 	}
 
+	/** The player if online (null early in server start, before the player list exists). */
+	@Nullable ServerPlayer online(UUID player) {
+		MinecraftServer s = this.server;
+		return s == null || s.getPlayerList() == null ? null : s.getPlayerList().getPlayer(player);
+	}
+
 	@Override
 	public long day() {
 		HearthWorld w = main();
@@ -73,7 +80,8 @@ final class GameHost implements StandingHost {
 			return w.day();
 		}
 		MinecraftServer s = this.server;
-		return s == null ? 0 : s.overworld().getOverworldClockTime() / 24000L;
+		ServerLevel overworld = s == null ? null : s.overworld();
+		return overworld == null ? 0 : overworld.getOverworldClockTime() / 24000L;
 	}
 
 	@Override
@@ -137,7 +145,7 @@ final class GameHost implements StandingHost {
 		if (npc == null || s == null) {
 			return List.of();
 		}
-		ServerPlayer player = s.getPlayerList().getPlayer(deed.player());
+		ServerPlayer player = online(deed.player());
 		Settlement town = settlement(deed.settlementId());
 		if (player == null || town == null || !town.embodied() || player.level().dimension() != town.dimension()) {
 			return List.of();
@@ -164,8 +172,7 @@ final class GameHost implements StandingHost {
 
 	@Override
 	public void gossipArrived(UUID player, Settlement town, String from, int delta) {
-		MinecraftServer s = this.server;
-		ServerPlayer p = s == null ? null : s.getPlayerList().getPlayer(player);
+		ServerPlayer p = online(player);
 		if (p == null) {
 			return;
 		}
@@ -179,7 +186,7 @@ final class GameHost implements StandingHost {
 		if (s == null) {
 			return "";
 		}
-		ServerPlayer p = s.getPlayerList().getPlayer(player);
+		ServerPlayer p = online(player);
 		if (p != null) {
 			return p.nameAndId().name();
 		}
@@ -194,8 +201,7 @@ final class GameHost implements StandingHost {
 
 	@Override
 	public void action(StandingService.Deed deed, DeedRule rule) {
-		MinecraftServer s = this.server;
-		ServerPlayer p = s == null ? null : s.getPlayerList().getPlayer(deed.player());
+		ServerPlayer p = online(deed.player());
 		if (p != null && rule.washes()) {
 			Appearances.bathe(p);
 		}

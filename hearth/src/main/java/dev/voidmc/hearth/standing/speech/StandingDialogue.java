@@ -229,7 +229,7 @@ public final class StandingDialogue implements DialogueProvider {
 			}
 		}
 		Memories.Memory own = Memories.of(resident).strongest(id, engine.host().day(), engine.config().opinion());
-		if (own != null && Math.abs(own.weight()) >= 10 && !own.kind().startsWith(PREFIX)) {
+		if (own != null && Math.abs(own.weight()) >= 10 && !own.kind().startsWith(PREFIX) && !own.kind().startsWith(StandingEngine.HEARSAY)) {
 			String mine = rules.keyed(own.weight() > 0 ? "memory_good" : "memory_bad", name, settlement.name(), random);
 			if (mine != null) {
 				out.append(" ").append(mine);

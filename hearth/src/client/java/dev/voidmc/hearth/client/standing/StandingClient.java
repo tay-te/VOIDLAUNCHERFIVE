@@ -46,6 +46,7 @@ public final class StandingClient {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientStanding.reset());
 		HudElementRegistry.addLast(Hearth.id("standing/arrival"), StandingHud::extract);
 		ScreenLine.install();
+		StandingClientTour.install();
 	}
 
 	static boolean isReputationKey(KeyEvent event) {

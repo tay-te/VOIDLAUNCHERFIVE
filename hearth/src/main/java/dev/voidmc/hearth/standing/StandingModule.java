@@ -52,7 +52,7 @@ public final class StandingModule {
 		HearthServices.setStanding(e);
 		DialogueProvider.register(new StandingDialogue());
 
-		SettlementEvents.DAY_PASSED.register((world, settlement, day) -> e.dayPassed(settlement));
+		SettlementEvents.DAY_PASSED.register((world, settlement, day) -> e.dayPassed(settlement, day));
 		SettlementEvents.FOUNDED.register((world, settlement) -> e.settled(settlement));
 		SettlementEvents.STANDING_CHANGED.register((world, settlement, player, from, to) -> {
 			MinecraftServer server = HOST.server();
@@ -62,7 +62,7 @@ public final class StandingModule {
 			}
 		});
 
-		ServerLifecycleEvents.SERVER_STARTED.register(HOST::setServer);
+		ServerLifecycleEvents.SERVER_STARTING.register(HOST::setServer);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			HOST.setServer(null);
 			TRACKER.reset();
@@ -74,6 +74,7 @@ public final class StandingModule {
 		});
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> PlayerTracker.afterDamage(entity, source, taken));
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> StandingCommands.register(dispatcher));
+		StandingDevHarness.install();
 	}
 
 	public static StandingConfig config() {

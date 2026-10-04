@@ -35,6 +35,11 @@ public final class FolkFacts {
 		return npc(r).getIntOr("mood", 0);
 	}
 
+	/** Friends (who they visit and chat with). */
+	public static List<UUID> friends(Resident r) {
+		return npc(r).read("friends", UUIDS).orElse(List.of());
+	}
+
 	/** Spouse, children and parents (whoever of them is recorded). */
 	public static List<UUID> family(Resident r) {
 		CompoundTag tag = npc(r);

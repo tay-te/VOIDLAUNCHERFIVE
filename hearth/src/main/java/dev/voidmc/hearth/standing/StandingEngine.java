@@ -54,6 +54,8 @@ public final class StandingEngine implements StandingService {
 			return size() > 4096;
 		}
 	};
+	/** The prefix of memories heard from others rather than lived. */
+	public static final String HEARSAY = "hearsay:";
 	private boolean seeding;
 	private boolean mirroring;
 
@@ -449,8 +451,12 @@ public final class StandingEngine implements StandingService {
 	 * talk about. News for towns not settled yet waits for them. Cheap when nothing is due (one comparison).
 	 */
 	public int deliver() {
+		return deliver(this.host.day());
+	}
+
+	/** Delivers what has arrived by {@code today} (the dev harness looks ahead with it). */
+	public int deliver(long today) {
 		RegionData region = this.host.region();
-		long today = this.host.day();
 		if (!region.anyArrived(today)) {
 			return 0;
 		}
@@ -505,7 +511,8 @@ public final class StandingEngine implements StandingService {
 	 * A day passed in a town: bad names slowly heal (and good ones fade, if the server wants that). Only entries whose
 	 * rounded number changes announce anything, so catch-up over many days stays cheap.
 	 */
-	public void dayPassed(Settlement s) {
+	public void dayPassed(Settlement s, long day) {
+		hearsay(s, day);
 		StandingConfig.Town cfg = config().town();
 		if (cfg.negativeDriftPerDay() <= 0 && cfg.positiveDriftPerDay() <= 0) {
 			return;
@@ -526,6 +533,62 @@ public final class StandingEngine implements StandingService {
 					mirror(s, e.player, after - before);
 					announce(s, e, true);
 				}
+			}
+		}
+		if (dirty) {
+			s.markDirty();
+		}
+	}
+
+	/**
+	 * Gossip between folk: a few times a day someone passes the strongest thing they recently saw or suffered at a
+	 * player's hands on to a friend (or a neighbour), who remembers a share of it as hearsay. Hearsay is not passed on
+	 * again, so a story spreads through a town over days without echoing. Seeded by town and day, so catch-up is
+	 * repeatable; a handful of record reads per town per day.
+	 */
+	void hearsay(Settlement s, long day) {
+		StandingConfig.Opinion cfg = config().opinion();
+		if (cfg.hearsayPerDay() <= 0 || cfg.hearsayShare() <= 0) {
+			return;
+		}
+		List<Resident> folk = new ArrayList<>(s.residents());
+		if (folk.size() < 2) {
+			return;
+		}
+		java.util.Random random = new java.util.Random(s.id() * 0x9E3779B97F4A7C15L + day);
+		boolean dirty = false;
+		for (int i = 0; i < cfg.hearsayPerDay(); i++) {
+			Resident teller = folk.get(random.nextInt(folk.size()));
+			Memories.Memory story = null;
+			for (Memories.Memory m : Memories.of(teller).all()) {
+				if (day - m.day() <= 7 && Math.abs(m.weight()) >= 15 && !m.kind().startsWith(HEARSAY) && !m.kind().startsWith("standing:")
+					&& (story == null || Math.abs(m.weight()) > Math.abs(story.weight()))) {
+					story = m;
+				}
+			}
+			if (story == null) {
+				continue;
+			}
+			Resident listener = null;
+			for (UUID f : FolkFacts.friends(teller)) {
+				Resident r = s.resident(f);
+				if (r != null) {
+					listener = r;
+					break;
+				}
+			}
+			if (listener == null) {
+				listener = folk.get(random.nextInt(folk.size()));
+			}
+			if (listener == teller) {
+				continue;
+			}
+			int w = Curves.clampInt(Curves.round(story.weight() * cfg.hearsayShare()), -100, 100);
+			Memories heard = Memories.of(listener);
+			if (w != 0 && !heard.has(story.player(), HEARSAY + story.kind(), Long.MIN_VALUE)) {
+				heard.add(new Memories.Memory(story.player(), HEARSAY + story.kind(), w, day), cfg);
+				heard.save(listener);
+				dirty = true;
 			}
 		}
 		if (dirty) {
