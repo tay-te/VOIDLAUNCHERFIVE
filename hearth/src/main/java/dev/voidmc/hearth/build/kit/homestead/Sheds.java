@@ -319,6 +319,56 @@ public final class Sheds {
 		return roof;
 	}
 
+	/**
+	 * A ramada on a flat roof (standing level {@code deck}) over [x0..x1] × [z0..z1]: four poles, beams across their
+	 * heads along x, slats and poles laid between them; hay stacked beneath it where {@code hay}. Needs three free rows
+	 * over the deck. Answers whether it was built.
+	 */
+	public static boolean ramada(Draft d, int x0, int z0, int x1, int z1, int deck, boolean hay) {
+		if (deck == Integer.MIN_VALUE || deck + 3 >= d.maxHeight() || x1 - x0 < 1 || z1 - z0 < 1) {
+			return false;
+		}
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				for (int y = deck; y <= deck + 2; y++) {
+					if (!d.isEmpty(x, y, z)) {
+						return false;
+					}
+				}
+			}
+		}
+		Mat fence = d.mat(Role.FENCE).has(Form.FENCE) ? d.mat(Role.FENCE) : d.mat(Role.FRAME);
+		Mat frame = d.mat(Role.FRAME);
+		Mat beam = d.mat(Role.BEAM);
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			if (hay) {
+				for (int z = z0; z <= z1; z++) {
+					for (int x = x0; x <= x1; x++) {
+						double u = dev.voidmc.hearth.build.draft.Noise.unit(d.seed() ^ 0x4AF, x, 0, z);
+						if (u < 0.6) {
+							d.set(x, deck, z, Blocks.HAY_BLOCK.defaultBlockState());
+							if (u < 0.2 && x > x0 && x < x1 && z > z0 && z < z1) {
+								d.set(x, deck + 1, z, Blocks.HAY_BLOCK.defaultBlockState());
+							}
+						}
+					}
+				}
+			}
+			for (int[] p : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
+				d.set(p[0], deck, p[1], fence.fence());
+				d.set(p[0], deck + 1, p[1], fence.fence());
+			}
+			for (int x = x0; x <= x1; x++) {
+				d.set(x, deck + 2, z0, beam.log(Direction.Axis.X));
+				d.set(x, deck + 2, z1, beam.log(Direction.Axis.X));
+				for (int z = z0 + 1; z < z1; z++) {
+					d.set(x, deck + 2, z, (x - x0) % 2 == 0 ? frame.trapdoor(Dirs.FRONT, Half.TOP, false) : beam.log(Direction.Axis.Z));
+				}
+			}
+		}
+		return true;
+	}
+
 	/** The cells a {@link #coop} at (x, z) takes: its four legs' cells, then the cell of the ramp before its hatch. */
 	public static List<int[]> coopCells(int x, int z, Direction facing) {
 		Direction across = Dirs.right(facing);

@@ -94,6 +94,8 @@ public final class Barn implements Archetype {
 		}
 		yard(d, hall, w, z0, base);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, (hall.roof() != null ? hall.roof().ridgeY : hall.plateY() + 3) + 2));
+		// log walls peeled, the corner posts left in their bark
+		dev.voidmc.hearth.build.kit.homestead.Logs.peelAll(d, d.maxHeight() - 1);
 	}
 
 	private static RoofForm roofParam(Draft d, RoofForm chosen) {
@@ -122,38 +124,9 @@ public final class Barn implements Archetype {
 			return;
 		}
 		var fence = d.mat(Role.FENCE).has(dev.voidmc.hearth.build.style.Form.FENCE) ? d.mat(Role.FENCE) : d.mat(Role.FRAME);
-		var frame = d.mat(Role.FRAME);
 		var beam = d.mat(Role.BEAM);
-		int x0 = h.x0() + 1;
-		int x1 = h.x1() - 1;
 		int z0 = (h.z0() + h.z1()) / 2;
-		int z1 = Math.min(h.z1() - 1, z0 + 3);
-		try (var s = d.stage(StageKind.EXTERIOR)) {
-			for (int z = z0; z <= z1; z++) {
-				for (int x = x0; x <= x1; x++) {
-					double u = Noise.unit(d.seed() ^ 0x4AF, x, 0, z);
-					if (u < 0.6) {
-						d.set(x, deck, z, Blocks.HAY_BLOCK.defaultBlockState());
-						if (u < 0.2 && x > x0 && x < x1 && z > z0 && z < z1) {
-							d.set(x, deck + 1, z, Blocks.HAY_BLOCK.defaultBlockState());
-						}
-					}
-				}
-			}
-			for (int[] p : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
-				d.set(p[0], deck, p[1], fence.fence());
-				d.set(p[0], deck + 1, p[1], fence.fence());
-			}
-			// the beams across the poles, the slats between them
-			for (int x = x0; x <= x1; x++) {
-				d.set(x, deck + 2, z0, beam.log(net.minecraft.core.Direction.Axis.X));
-				d.set(x, deck + 2, z1, beam.log(net.minecraft.core.Direction.Axis.X));
-				for (int z = z0 + 1; z < z1; z++) {
-					d.set(x, deck + 2, z, (x - x0) % 2 == 0 ? frame.trapdoor(Dirs.FRONT, net.minecraft.world.level.block.state.properties.Half.TOP, false)
-						: beam.log(net.minecraft.core.Direction.Axis.Z));
-				}
-			}
-		}
+		dev.voidmc.hearth.build.kit.homestead.Sheds.ramada(d, h.x0() + 1, z0, h.x1() - 1, Math.min(h.z1() - 1, z0 + 3), deck, true);
 		// the roof beams' ends through the side walls under the parapet (an adobe roof shows them already)
 		if (d.habits().walls().kind() != dev.voidmc.hearth.build.style.Habits.WallKind.ADOBE) {
 			try (var s = d.stage(StageKind.FRAME)) {

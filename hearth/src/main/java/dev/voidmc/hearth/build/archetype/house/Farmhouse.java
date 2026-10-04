@@ -107,6 +107,8 @@ public final class Farmhouse implements Archetype {
 		d.air(gateX, 1, 1);
 		Bounds.around(d, 0, 0, w - 1, dp - 1, layout == Layout.COURT ? Bounds.Kind.NONE : Bounds.kind(d), List.of(new int[]{gateX, 0}));
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
+		// log walls peeled, the corner posts left in their bark
+		dev.voidmc.hearth.build.kit.homestead.Logs.peelAll(d, d.maxHeight() - 1);
 	}
 
 	/** The culture's layout (or the param's). */
@@ -384,6 +386,25 @@ public final class Farmhouse implements Archetype {
 		FarmParts.House house = FarmParts.house(d, hx0, hz0, hx1, hz1, 0, storeys, form, Direction.Axis.X, w / 2, false);
 		keepDoor(d, house);
 		int top = house.roof() != null ? house.roof().ridgeY : house.deck() + 3;
+		// on a flat roof, a ramada in a back corner of the terrace: shade for the evening, pots in it
+		if (house.roof() == null && house.deck() != Integer.MIN_VALUE) {
+			int deck = house.deck();
+			boolean first = d.chance(0.5);
+			int rz1 = hz1 - 1;
+			int rz0 = Math.max(hz0 + 1, rz1 - 2);
+			// a back corner, the other, or the middle: wherever the terrace is clear (the stair head, the chimney)
+			for (int k = 0; k < 3; k++) {
+				boolean right = k == 2 ? false : (k == 0) == first;
+				int rx0 = k == 2 ? Math.max(hx0 + 1, (hx0 + hx1) / 2 - 2) : right ? Math.max(hx0 + 1, hx1 - 4) : hx0 + 1;
+				int rx1 = k == 2 ? Math.min(hx1 - 1, rx0 + 4) : right ? hx1 - 1 : Math.min(hx1 - 1, hx0 + 4);
+				if (rx1 - rx0 >= 2 && dev.voidmc.hearth.build.kit.homestead.Sheds.ramada(d, rx0, rz0, rx1, rz1, deck, false)) {
+					top = Math.max(top, deck + 3);
+					int px = (rx0 + rx1) / 2;
+					d.inStage(StageKind.EXTERIOR, () -> d.set(px, deck, rz1, States.of(Blocks.DECORATED_POT)));
+					break;
+				}
+			}
+		}
 		// the side ranges: a stable on one side, a store on the other, one storey, opening onto the court
 		int sw = 3;
 		int sz0 = 2;
