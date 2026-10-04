@@ -424,8 +424,19 @@ final class LivingLegs {
 		}
 		stand(chest);
 		BlockPos here = this.world.getServer().computeOnServer(server -> player(server).blockPosition());
-		spawnNear(folk[0], here.relative(Direction.NORTH, 3));
-		spawnNear(folk[1], here.relative(Direction.SOUTH, 10));
+		BlockPos beside = this.world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			for (Direction d : Direction.Plane.HORIZONTAL) {
+				BlockPos q = here.relative(d, 2);
+				if (level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir() && level.getBlockState(q.below()).isSolid()) {
+					return q;
+				}
+			}
+			return here.relative(Direction.NORTH, 2);
+		});
+		spawnNear(folk[0], beside);
+		BlockPos c = this.world.getServer().computeOnServer(server -> town(server).center());
+		spawnNear(folk[1], c);
 		settle(3_000);
 		this.world.getServer().runOnServer(server -> {
 			Folk w = NpcModule.embodiment().entityOf(folk[0]);
@@ -560,7 +571,9 @@ final class LivingLegs {
 			if (r != null) {
 				r.job = JobType.FENCE;
 				r.work = Resident.NO_PLOT;
-				Shop shop = Shops.keptBy(s, r.id, server.overworld().getGameTime() / 24000L);
+				long day = HearthWorld.of(server.overworld()).day();
+				Shops.sync(s, day);
+				Shop shop = Shops.keptBy(s, r.id, day);
 				log("fence: " + r.fullName() + (shop == null ? " (keeps no back room yet)" : " keeps a back room (fence " + shop.fence + ")"));
 			}
 			return r == null ? null : r.id;
@@ -586,7 +599,7 @@ final class LivingLegs {
 		int row = this.world.getServer().computeOnServer(server -> {
 			ServerPlayer p = player(server);
 			SimSettlement s = town(server);
-			MarketView v = new Market(s, Shops.keptBy(s, fence, server.overworld().getGameTime() / 24000L)).view(p);
+			MarketView v = new Market(s, Shops.keptBy(s, fence, HearthWorld.of(server.overworld()).day())).view(p);
 			for (MarketView.Offer o : v.buys()) {
 				if ((o.flags() & MarketView.STOLEN) != 0 && o.owned() > 0) {
 					return o.id();
@@ -612,7 +625,7 @@ final class LivingLegs {
 	private String marketLine(MinecraftServer server, UUID keeper) {
 		ServerPlayer p = player(server);
 		SimSettlement s = town(server);
-		Shop shop = Shops.keptBy(s, keeper, server.overworld().getGameTime() / 24000L);
+		Shop shop = Shops.keptBy(s, keeper, HearthWorld.of(server.overworld()).day());
 		MarketView v = new Market(s, shop).view(p);
 		StringBuilder b = new StringBuilder();
 		for (MarketView.Offer o : v.buys()) {
@@ -851,8 +864,22 @@ final class LivingLegs {
 				}
 			}
 			// an official's line starts with its first quest (the board may only show later ones): post the guard's first
+			if (!took.contains("contract")) {
+				for (String c : List.of("contract/standing_order", "contract/smithy", "contract/sawmill", "contract/mill")) {
+					var tmpl = dev.voidmc.hearth.quest.template.QuestTemplates.get(dev.voidmc.hearth.Hearth.id(c));
+					var board = QuestStore.board(s);
+					QuestInstance q = tmpl == null ? null : dev.voidmc.hearth.quest.gen.QuestGenerator.bind(tmpl,
+						QuestManager.generationContext(server.overworld(), s, board), null);
+					if (q != null) {
+						board.offers.add(q);
+						boolean ok = QuestManager.accept(p, s, q.id);
+						took += c + " '" + q.text.title() + "' from " + q.giver.name() + " accepted " + ok + "; ";
+						break;
+					}
+				}
+			}
 			for (String first : List.of("official/guard/night_patrol", "official/reeve/tithe_rolls", "official/priest/altar_candles")) {
-				if (took.contains("accepted true")) {
+				if (took.contains("official") && took.contains("accepted true")) {
 					break;
 				}
 				var tmpl = dev.voidmc.hearth.quest.template.QuestTemplates.get(dev.voidmc.hearth.Hearth.id(first));
@@ -932,7 +959,9 @@ final class LivingLegs {
 			}
 			Folk f = NpcModule.embodiment().entityOf(resident);
 			ServerLevel level = server.overworld();
-			int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, near.getX(), near.getZ());
+			// a spot in a room stays where it is (the heightmap would put them on the roof); else the ground there
+			boolean room = level.getBlockState(near).isAir() && level.getBlockState(near.above()).isAir() && level.getBlockState(near.below()).isSolid();
+			int y = room ? near.getY() : level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, near.getX(), near.getZ());
 			if (f != null && !f.isFolded()) {
 				f.teleportTo(near.getX() + 0.5, y, near.getZ() + 0.5);
 			} else {

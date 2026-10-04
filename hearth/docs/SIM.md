@@ -385,7 +385,14 @@ builds it into the world, then walks a player in and photographs the arrival ban
 a folk close up, builders on the plot with the most work left (progress counter and "a builder placed a step N ticks
 ago" logged), a merchant's conversation and the market (stockpile and treasury before and after a sale), a resident's
 quest offers, the notice board (the plaza's, or one placed by the well) and a supply quest for a real stalled build,
-handed in, and the build resuming. Every check is printed as `[hearth tour]`; screenshots go to
+handed in, and the build resuming. Then the living world's legs (`gametest/LivingLegs`; `-Dhearth.tour.livingonly=true`
+runs only these after the arrival, `-Dhearth.dev.fillCatalogue=true` gives the stand-in workings and workshops): a
+forester felling and replanting (the town's logs rising as they reach the yard), a quarrier carving a staked quarry pit's
+steps, a hauler, a caravan of the sim met on the road, a theft unseen (a locked household chest opened with the family's
+key) and seen (witness, guard, the fine), the merchant refusing the stolen goods and a fence buying them, the lockpicking
+and pickpocketing screens, standing and title moving, a broken window mended by a builder, a supply contract and an
+official's quest, and the conversation's speech checks. `gametest/LivingRun` (`-Dhearth.tour=living`) runs this harness's
+server checks in the client's integrated server. Every check is printed as `[hearth tour]`; screenshots go to
 `build/run/clientGameTest/screenshots/*hearth_int_*.png`.
 
 ## 13. LOD footprints
@@ -567,6 +574,11 @@ for their family (`household.head`), then families into free homes whose `statio
 free bed; up to two households a day move from another station's home into an empty one of their own. Workers hired into
 a player's business (`EconomyService.businessOwner`) keep their places in `assignJobs`, and plots players paid toward
 (`EconomyService.fundedPlots`) are built first, by records and entities alike.
+
+**The trades' income under the economy**: with the economy module the sim's coin for work (`production.coin`) still
+reaches the treasury, which the economy pays wages out of into the purses. Without it the treasuries ran dry, wages
+stopped and every household fell to poor by the purse rule (integration 3). Stations still mostly read poor in young,
+poor towns: the purse rule needs savings to climb, and households that cannot pay for their food fall a rung.
 
 **Builder labour for repairs**: `Settlement.takeBuilderLabour(units)` grants up to a step's builder pool, which the next
 construction step does not spend (repairs come first). **Real yields**: `Settlement.creditYield(resident, goods, units)`

@@ -450,6 +450,10 @@ if the player is gone (logged off, dead, another dimension, spectating) for `esc
 or is folded. The outcome is kept ten minutes: `NpcServiceImpl.escortStatus(resident)` / `Escorts.FINISHED` (an api form
 is in the api as `NpcService.escort(resident)` and the event `SettlementEvents.ESCORT_ENDED`).
 
+**A change of trade.** When the sim gives an embodied resident another trade (the daily job assignment, a player's hire),
+the brain lets the old work's claims go and takes up the new trade's work at the next plan; before, the entity kept its
+first trade until it was folded.
+
 **Waking.** `FolkHandle.wake()` gets a sleeping folk up and keeps them up for two minutes (the repair module's brigade
 wakes the town for a fire). `NpcService.traits(resident)` gives the trait names other modules read.
 
