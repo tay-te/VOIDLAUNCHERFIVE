@@ -27,19 +27,23 @@ public record PlayerLaw(Optional<Sentence> sentence, int lockpicking, int pickpo
 		Codec.INT.optionalFieldOf("pickpocketing", 0).forGetter(PlayerLaw::pickpocketing)
 	).apply(i, PlayerLaw::new));
 
-	public static final AttachmentType<PlayerLaw> TYPE = AttachmentRegistry.create(Hearth.id("law/player"),
-		b -> b.persistent(CODEC).copyOnDeath().initializer(() -> EMPTY));
+	/** The attachment, in its own class so the record's logic loads without Fabric (tests). */
+	private static final class Attachment {
+		static final AttachmentType<PlayerLaw> TYPE = AttachmentRegistry.create(Hearth.id("law/player"),
+			b -> b.persistent(CODEC).copyOnDeath().initializer(() -> EMPTY));
+	}
 
-	/** Loads the class (registers the attachment). */
+	/** Registers the attachment. */
 	public static void init() {
+		Hearth.LOG.debug("law player attachment {}", Attachment.TYPE.identifier());
 	}
 
 	public static PlayerLaw of(Player player) {
-		return player.getAttachedOrElse(TYPE, EMPTY);
+		return player.getAttachedOrElse(Attachment.TYPE, EMPTY);
 	}
 
 	public static void set(Player player, PlayerLaw law) {
-		player.setAttached(TYPE, law);
+		player.setAttached(Attachment.TYPE, law);
 	}
 
 	/** Skill from practice: 0–20, quickly at first, then slowly (a hundred locks make a master). */
