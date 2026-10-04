@@ -1,0 +1,19 @@
+{
+	"_comment": "The dye colours of each culture's everyday dress: dyed leather in these colours is local dress (charming), in others foreign. Colours are Minecraft dye names.",
+	"cultures": {
+		"temperate":     ["brown", "green", "white", "red", "light_gray"],
+		"wisteria":      ["purple", "magenta", "pink", "white", "light_blue"],
+		"northern":      ["brown", "gray", "red", "black", "green"],
+		"alpine":        ["red", "white", "green", "brown", "black"],
+		"tundra":        ["white", "light_gray", "blue", "gray", "light_blue"],
+		"moorland":      ["brown", "green", "gray", "purple", "light_gray"],
+		"maritime":      ["blue", "light_blue", "white", "gray", "yellow"],
+		"tropical":      ["yellow", "orange", "lime", "cyan", "white"],
+		"desert":        ["yellow", "orange", "white", "brown", "red"],
+		"mediterranean": ["white", "blue", "light_blue", "orange", "black"],
+		"steppe":        ["orange", "red", "yellow", "brown", "black"],
+		"karst":         ["green", "cyan", "red", "white", "black"],
+		"bayou":         ["green", "brown", "lime", "gray", "light_gray"],
+		"mesa":          ["orange", "red", "brown", "yellow", "white"]
+	}
+}

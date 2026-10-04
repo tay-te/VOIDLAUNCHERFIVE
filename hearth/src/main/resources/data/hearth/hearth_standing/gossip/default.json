@@ -1,0 +1,139 @@
+{
+	"_comment": "What folk say about deeds and about the player. Keys: a deed kind, default_good / default_bad for kinds without lines, title_<title> for what a town thinks of the player, memory_good / memory_bad for what someone remembers. {player} and {town} are filled in. Files add to each other's lines unless they say \"replace\": true.",
+	"lines": {
+		"default_good": [
+			"They say {player} did right by the folk of {town}.",
+			"Folk in {town} speak well of {player}.",
+			"I hear {player} has been a help to {town}."
+		],
+		"default_bad": [
+			"They say {player} did wrong by the folk of {town}.",
+			"Folk in {town} have nothing good to say of {player}.",
+			"I hear {player} brought trouble to {town}."
+		],
+
+		"quest:completed": [
+			"They say {player} did what {town} asked, and more.",
+			"In {town} they say {player} can be counted on.",
+			"{player} saw a job through for {town}, I hear."
+		],
+		"quest:failed": [
+			"They say {player} let {town} down.",
+			"{player} promised {town} a thing and never delivered, I hear."
+		],
+		"economy:donation": [
+			"They say {player} gave freely to {town}.",
+			"{player} put coin in {town}'s coffers, so I hear. Generous."
+		],
+		"economy:property": [
+			"They say {player} has bought property in {town}.",
+			"{player} owns a house in {town} now, I'm told."
+		],
+		"repair:helped": [
+			"They say {player} helped put {town} to rights after the damage.",
+			"{player} lent a hand mending {town}, I hear."
+		],
+		"repair:funded": [
+			"They say {player} paid for {town}'s repairs out of their own purse."
+		],
+		"npc:rescue": [
+			"They say {player} saved a life in {town}.",
+			"In {town} they'll tell you {player} pulled someone from death's door."
+		],
+		"defense:monster_slain": [
+			"They say {player} cut down the beasts that troubled {town}.",
+			"{player} kept {town} safe from the things in the dark, I hear."
+		],
+		"defense:raid_repelled": [
+			"They say {player} stood with {town} when the raiders came.",
+			"Without {player}, {town} would have burned. That's what they say."
+		],
+		"social:festival": [
+			"They say {player} was the life of {town}'s festival."
+		],
+
+		"law:theft": [
+			"Watch your purse: they say {player} is a thief. Ask anyone in {town}.",
+			"Something went missing in {town}, and they say {player} took it.",
+			"In {town} they lock their doors when {player} passes."
+		],
+		"law:pickpocketing": [
+			"They say {player} has quick fingers. Folk in {town} found their purses lighter.",
+			"Keep your hand on your coin if {player} is about. {town} learned the hard way."
+		],
+		"law:lockpicking": [
+			"They say {player} was caught at a lock in {town}.",
+			"No lock in {town} stopped {player}, so I hear."
+		],
+		"law:trespass": [
+			"They say {player} was found where they had no business in {town}."
+		],
+		"law:poaching": [
+			"They say {player} took what wasn't theirs from {town}'s pastures."
+		],
+		"law:vandalism": [
+			"They say {player} smashed up part of {town}. Some fool."
+		],
+		"law:assault": [
+			"They say {player} beat someone bloody in {town}.",
+			"{player} is quick with their fists, so they say in {town}. Keep clear."
+		],
+		"law:murder": [
+			"Have you heard? They say {player} killed someone in {town}.",
+			"There's blood on {player}'s hands. {town} is still burying its dead.",
+			"In {town} they say {player} is a murderer. They want to see them hang."
+		],
+		"law:robbery": [
+			"They say {player} robbed travellers on the road by {town}.",
+			"{player} held up a caravan near {town}, so they say."
+		],
+		"law:jailbreak": [
+			"They say {player} broke out of {town}'s jail."
+		],
+		"law:resisting_arrest": [
+			"They say {player} fought the guard in {town} rather than face justice."
+		],
+		"law:pillory": [
+			"They put {player} in the pillory in {town}. I'd have liked to see that.",
+			"{player} spent a day in {town}'s stocks, I hear. Rotten cabbages and all."
+		],
+
+		"title_outlaw": [
+			"Here they say you're an outlaw. If I were you I'd not linger.",
+			"Folk here want you gone, or hanged. I'd keep my hood up."
+		],
+		"title_distrusted": [
+			"Folk here don't trust you. Can't say I blame them.",
+			"People keep an eye on you here, and not a kind one."
+		],
+		"title_stranger": [
+			"Folk here don't know you. You're just a face passing through.",
+			"Nobody here has much to say about you, good or bad."
+		],
+		"title_known": [
+			"Folk know your face here. That's a start.",
+			"People here have heard your name. Nothing bad."
+		],
+		"title_friend": [
+			"Folk here count you a friend of {town}.",
+			"You're well liked in {town}. People say your name kindly."
+		],
+		"title_burgher": [
+			"You're one of us now, a burgher of {town}, with your own roof here.",
+			"Folk here count you a neighbour. You own property in {town}, after all."
+		],
+		"title_hero": [
+			"You're the hero of {town}. Folk will be telling stories of you for years.",
+			"Children here play at being you. The hero of {town}!"
+		],
+
+		"memory_good": [
+			"And I'll not forget what you did for me.",
+			"For my part, I owe you."
+		],
+		"memory_bad": [
+			"And I've not forgotten what you did to me.",
+			"For my part, I remember what you did."
+		]
+	}
+}

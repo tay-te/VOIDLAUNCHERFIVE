@@ -1,0 +1,47 @@
+{
+	"_comment": "What each kind of deed does to standing. Every factor multiplies the deed's signed weight (+1 a small kindness, +25 saving the town, -30 a theft, -100 a murder). settlement: the town's standing; victim: the resident most affected; witness: each folk who saw it; family: the victim's spouse, children and parents; gossip: how much travels to other towns; fame: how much it makes the player known around the place; violent: adds to their name for violence; news: folk talk about it; action: 'wash' for a bath. Kinds not listed use '<namespace>:default', then 'default'. See docs/STANDING.md.",
+	"deeds": {
+		"default":                { "settlement": 1.0, "victim": 1.0, "witness": 0.5, "family": 0.0, "gossip": 1.0, "fame": 1.0 },
+
+		"quest:completed":        { "settlement": 1.0, "victim": 1.5, "witness": 0.3, "gossip": 0.8, "fame": 0.8 },
+		"quest:failed":           { "settlement": 1.0, "victim": 1.5, "witness": 0.0, "gossip": 0.3, "fame": 0.0 },
+		"quest:abandoned":        { "settlement": 1.0, "victim": 1.0, "witness": 0.0, "gossip": 0.0, "fame": 0.0, "news": false },
+
+		"economy:trade":          { "settlement": 1.0, "victim": 0.5, "witness": 0.0, "gossip": 0.0, "fame": 0.0, "news": false },
+		"economy:donation":       { "settlement": 1.0, "victim": 0.0, "witness": 0.5, "gossip": 0.6, "fame": 0.5 },
+		"economy:property":       { "settlement": 1.0, "victim": 0.0, "witness": 0.0, "gossip": 0.3, "fame": 0.2 },
+		"economy:haggle_soured":  { "settlement": 0.2, "victim": 1.5, "witness": 0.0, "gossip": 0.0, "fame": 0.0, "news": false },
+		"economy:default":        { "settlement": 1.0, "victim": 0.5, "witness": 0.2, "gossip": 0.3, "fame": 0.2 },
+
+		"law:theft":              { "settlement": 1.0, "victim": 1.5, "witness": 0.6, "family": 0.5, "gossip": 0.6, "fame": 0.4 },
+		"law:pickpocketing":      { "settlement": 1.0, "victim": 1.5, "witness": 0.6, "family": 0.5, "gossip": 0.6, "fame": 0.4 },
+		"law:lockpicking":        { "settlement": 0.8, "victim": 1.2, "witness": 0.5, "family": 0.3, "gossip": 0.5, "fame": 0.3 },
+		"law:trespass":           { "settlement": 0.6, "victim": 1.2, "witness": 0.4, "family": 0.4, "gossip": 0.3, "fame": 0.1 },
+		"law:poaching":           { "settlement": 0.8, "victim": 1.0, "witness": 0.4, "gossip": 0.4, "fame": 0.3 },
+		"law:vandalism":          { "settlement": 1.0, "victim": 1.0, "witness": 0.5, "family": 0.3, "gossip": 0.5, "fame": 0.3 },
+		"law:assault":            { "settlement": 1.0, "victim": 2.0, "witness": 0.8, "family": 0.8, "gossip": 0.8, "fame": 0.8, "violent": true },
+		"law:murder":             { "settlement": 1.0, "victim": 0.0, "witness": 1.0, "family": 1.5, "gossip": 1.0, "fame": 1.0, "violent": true },
+		"law:robbery":            { "settlement": 1.0, "victim": 1.5, "witness": 0.6, "family": 0.5, "gossip": 1.0, "fame": 1.0, "violent": true },
+		"law:jailbreak":          { "settlement": 1.0, "victim": 0.0, "witness": 0.5, "gossip": 0.8, "fame": 0.6 },
+		"law:resisting_arrest":   { "settlement": 1.0, "victim": 1.0, "witness": 0.6, "gossip": 0.6, "fame": 0.5, "violent": true },
+		"law:fine_paid":          { "settlement": 1.0, "victim": 0.5, "witness": 0.2, "gossip": 0.0, "fame": 0.0, "news": false },
+		"law:jail_served":        { "settlement": 1.0, "victim": 0.0, "witness": 0.0, "gossip": 0.0, "fame": 0.0, "news": false },
+		"law:pillory":            { "settlement": 1.0, "victim": 0.0, "witness": 1.0, "gossip": 0.5, "fame": 0.3 },
+
+		"repair:helped":          { "settlement": 1.0, "victim": 1.0, "witness": 0.5, "gossip": 0.5, "fame": 0.5 },
+		"repair:funded":          { "settlement": 1.0, "victim": 0.5, "witness": 0.3, "gossip": 0.5, "fame": 0.4 },
+
+		"social:bathed":          { "settlement": 0.0, "victim": 0.0, "witness": 0.0, "gossip": 0.0, "fame": 0.0, "news": false, "action": "wash" },
+		"social:festival":        { "settlement": 1.0, "victim": 0.0, "witness": 0.5, "gossip": 0.3, "fame": 0.2 },
+		"social:wedding_gift":    { "settlement": 0.5, "victim": 1.5, "witness": 0.3, "family": 1.0, "gossip": 0.2, "fame": 0.1 },
+
+		"npc:gift":               { "settlement": 0.2, "victim": 1.5, "witness": 0.2, "family": 0.3, "gossip": 0.0, "fame": 0.0, "news": false },
+		"npc:insult":             { "settlement": 0.2, "victim": 1.5, "witness": 0.3, "gossip": 0.0, "fame": 0.0, "news": false },
+		"npc:rescue":             { "settlement": 1.0, "victim": 2.0, "witness": 0.8, "family": 1.0, "gossip": 1.0, "fame": 1.0 },
+
+		"defense:monster_slain":  { "settlement": 1.0, "victim": 0.5, "witness": 0.6, "gossip": 0.6, "fame": 0.6 },
+		"defense:raid_repelled":  { "settlement": 1.0, "victim": 1.0, "witness": 1.0, "gossip": 1.2, "fame": 1.2 },
+
+		"standing:amends":        { "settlement": 1.0, "victim": 0.0, "witness": 0.0, "gossip": 0.0, "fame": 0.0, "news": false }
+	}
+}
