@@ -162,7 +162,8 @@ public final class CourtyardHouse implements Archetype {
 		rooms(d, w, dp, wd, cx0, cz0, cx1, cz1, gate, inner, sh, upper, roof);
 		// the kitchen's chimney over the hearth in the front corner
 		if (roof != null && roof.covers(1, 1) && roof.surfaceY(1, 1) + 3 < maxH) {
-			dev.voidmc.hearth.build.kit.Chimneys.stack(d, 1, 1, 2, roof, Math.min(roof.ridgeY + 1, maxH - 1));
+			// as high as the wing's own ridge, not the whole house's (the corner sits under the low front wing)
+			dev.voidmc.hearth.build.kit.Chimneys.stack(d, 1, 1, 2, roof, Math.min(roof.surfaceY(1, 1) + 3, maxH - 1));
 		} else if (deck != Integer.MIN_VALUE && deck + 2 < maxH) {
 			Mat stone = d.mat(Role.CHIMNEY);
 			try (var s = d.stage(StageKind.ROOF)) {
