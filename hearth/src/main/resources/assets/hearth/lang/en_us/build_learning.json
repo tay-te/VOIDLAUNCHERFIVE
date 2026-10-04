@@ -1,1 +1,8 @@
-{}
+{
+  "hearth.archetype.civic.monastery": "Monastery",
+  "hearth.archetype.civic.convent": "Convent",
+  "hearth.archetype.civic.shrine": "Shrine",
+  "hearth.archetype.civic.university": "University",
+  "hearth.archetype.civic.observatory": "Observatory",
+  "hearth.archetype.work.alchemist_tower": "Alchemist's Tower"
+}
