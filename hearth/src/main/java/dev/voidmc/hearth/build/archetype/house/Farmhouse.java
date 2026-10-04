@@ -681,22 +681,31 @@ public final class Farmhouse implements Archetype {
 			Spots.job(d, (int) Math.round(gcx), gz, Dirs.BACK, JobType.HERDER);
 		}
 		// a cooking fire in a ring of stones between the house and the gate
-		int fx = (int) Math.round(hcx);
-		int fz = Math.max(2, ring.z0() - 2);
-		if (FarmParts.freeYard(d, fx, 0, fz) && Math.abs(fx - gateX) > 1) {
-			d.inStage(StageKind.EXTERIOR, () -> d.set(fx, 0, fz, States.lit(Blocks.CAMPFIRE, true).trySetValue(
-				net.minecraft.world.level.block.state.properties.BlockStateProperties.SIGNAL_FIRE, false)));
-			for (Direction dir : Dirs.HORIZONTAL) {
-				int sx = fx + Dirs.dx(dir);
-				int sz = fz + Dirs.dz(dir);
-				if (FarmParts.freeYard(d, sx, 0, sz) && Noise.unit(d.seed(), sx, 0, sz) < 0.6 && !(sx == door[0] && sz == door[1] - 1)) {
-					d.inStage(StageKind.EXTERIOR, () -> d.set(sx, 0, sz, d.mat(Role.FOUNDATION).slab(SlabType.BOTTOM).orElse(d.mat(Role.FOUNDATION).full())));
-				}
-			}
-			d.poi(PoiType.HEARTH, fx, 0, fz + 1 == door[1] - 1 ? fz - 1 : fz + 1, Dirs.FRONT);
-		}
+		cookingFire(d, (int) Math.round(hcx), Math.max(2, ring.z0() - 2), gateX, door[0], door[1] - 1);
 		yard(d, w, dp, gateX, 1, 1, w - 2, dp - 2);
 		return top;
+	}
+
+	/**
+	 * A cooking fire in a ring of stones on the yard at (fx, fz), clear of the gate's column and of the cell (kx, kz)
+	 * (the way to a door); the hearth's place beside it.
+	 */
+	private static void cookingFire(Draft d, int fx, int fz, int gateX, int kx, int kz) {
+		if (!FarmParts.freeYard(d, fx, 0, fz) || Math.abs(fx - gateX) <= 1 || fx == kx && fz == kz) {
+			return;
+		}
+		d.inStage(StageKind.EXTERIOR, () -> d.set(fx, 0, fz, States.lit(Blocks.CAMPFIRE, true).trySetValue(
+			net.minecraft.world.level.block.state.properties.BlockStateProperties.SIGNAL_FIRE, false)));
+		int px = fx;
+		int pz = fz + 1 == kz && fx == kx ? fz - 1 : fz + 1;
+		for (Direction dir : Dirs.HORIZONTAL) {
+			int sx = fx + Dirs.dx(dir);
+			int sz = fz + Dirs.dz(dir);
+			if (FarmParts.freeYard(d, sx, 0, sz) && Noise.unit(d.seed(), sx, 0, sz) < 0.6 && !(sx == kx && sz == kz) && !(sx == px && sz == pz)) {
+				d.inStage(StageKind.EXTERIOR, () -> d.set(sx, 0, sz, d.mat(Role.FOUNDATION).slab(SlabType.BOTTOM).orElse(d.mat(Role.FOUNDATION).full())));
+			}
+		}
+		Spots.at(d, PoiType.HEARTH, px, 0, pz, Dirs.FRONT, null);
 	}
 
 	/** Footings and a floor under a ring at standing level y. */
@@ -758,7 +767,8 @@ public final class Farmhouse implements Archetype {
 				top = Math.max(top, g.ridgeY + 1);
 			}
 		}
-		// the garden and a pen in the yard below
+		// the cooking fire out in the yard (no fire in a house of boards on posts), the garden and a pen
+		cookingFire(d, houseLeft ? hx1 - 1 : hx0 + 1, Math.max(2, hz0 - 4), gateX, dx, hz0 - 3);
 		yard(d, w, dp, gateX, 1, 1, w - 2, hz0 - 3);
 		int px0 = houseLeft ? w - 6 : 1;
 		pen(d, px0, 2, px0 + 4, Math.min(5, hz0 - 4));
