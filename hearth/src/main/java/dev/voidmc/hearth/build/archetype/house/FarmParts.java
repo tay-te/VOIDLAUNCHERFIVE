@@ -59,7 +59,8 @@ final class FarmParts {
 		int[] heights = new int[storeys + (attic ? 1 : 0)];
 		java.util.Arrays.fill(heights, sh);
 		if (attic) {
-			heights[storeys] = 1;
+			// (a two-course knee wall under a steep Bohemian roof, so the loft stair comes up clear of the eave)
+			heights[storeys] = dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d) ? 2 : 1;
 		}
 		Body body = new Body(x0, z0, x1, z1, y, heights, false, false);
 		if (storeys >= 2 && d.chance(h.walls().jetty()) && z0 >= 1) {
@@ -87,6 +88,12 @@ final class FarmParts {
 			HouseBuilder.dryDress(d, body, facade, deck, Integer.MIN_VALUE, door, storeys);
 		} else {
 			roof = HouseBuilder.pitchedRoof(d, body, form, ridge, facade, body.storeys() - 1);
+			if (dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d) && form != RoofForm.HIP && form != RoofForm.PAGODA) {
+				dev.voidmc.hearth.build.kit.homestead.Bohemia.gables(d, roof, ridge, body.topRect(), body.plateY());
+			}
+		}
+		if (dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d)) {
+			dev.voidmc.hearth.build.kit.homestead.Bohemia.fieldstone(d, x0, z0, x1, z1, y, y + Math.max(0, h.walls().plinth() - 1));
 		}
 		// the hearth on a gable end (or the back wall), its stack through the roof
 		Direction chimneySide = ridge == Direction.Axis.X ? (d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT) : Dirs.BACK;
@@ -185,6 +192,10 @@ final class FarmParts {
 
 	/** The roof form a farm house takes in this culture (a gambrel and a saltbox are farmhouse forms too). */
 	static RoofForm form(Draft d) {
+		if (dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d)) {
+			// the Bohemian farmhouse: a steep gable or half-hip (no gambrels or saltboxes in this countryside)
+			return HouseBuilder.roofParam(d, dev.voidmc.hearth.build.kit.homestead.Bohemia.form(d));
+		}
 		RoofForm f = HouseBuilder.roofParam(d, d.habits().roof().pick(d.random(), FORMS));
 		return f;
 	}

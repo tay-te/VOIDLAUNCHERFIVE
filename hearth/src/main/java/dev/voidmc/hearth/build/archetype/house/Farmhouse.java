@@ -106,6 +106,10 @@ public final class Farmhouse implements Archetype {
 		d.air(gateX, 0, 1);
 		d.air(gateX, 1, 1);
 		Bounds.around(d, 0, 0, w - 1, dp - 1, layout == Layout.COURT ? Bounds.Kind.NONE : Bounds.kind(d), List.of(new int[]{gateX, 0}));
+		if (dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d) && (layout == Layout.STEADING || layout == Layout.LAITHE)) {
+			// the Bohemian farm's gate under its own little roof
+			top = Math.max(top, dev.voidmc.hearth.build.kit.homestead.Bohemia.roofedGate(d, gateX, 0) ? 5 : 0);
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
 		// log walls peeled, the corner posts left in their bark
 		dev.voidmc.hearth.build.kit.homestead.Logs.peelAll(d, d.maxHeight() - 1);
@@ -273,24 +277,33 @@ public final class Farmhouse implements Archetype {
 		int hx1 = hx0 + houseLen - 1;
 		int bx0 = houseLeft ? hx1 + 1 : x0;
 		int bx1 = houseLeft ? x1 : hx0 - 1;
-		RoofForm form = d.habits().roof().pick(d.random(), RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.HIP);
+		boolean bohemian = dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d);
+		RoofForm form = bohemian ? dev.voidmc.hearth.build.kit.homestead.Bohemia.form(d)
+			: d.habits().roof().pick(d.random(), RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.HIP);
 		form = HouseBuilder.roofParam(d, form);
 		if (form != RoofForm.GABLE && form != RoofForm.HALF_HIP && form != RoofForm.HIP) {
 			form = RoofForm.GABLE;
 		}
 		int sh = Math.max(4, d.habits().walls().storeyHeight());
-		int storeys = Barn.ridge(d, RoofForm.GABLE, depth, 2 * sh - 1) + 2 < d.maxHeight() ? 2 : 1;
-		int plate = storeys * sh - 1;
+		// (a Bohemian range is one long low storey and a loft over a knee wall under a steep roof: house, byre and barn
+		// in a row)
+		int storeys = !bohemian && Barn.ridge(d, RoofForm.GABLE, depth, 2 * sh - 1) + 2 < d.maxHeight() ? 2 : 1;
+		int knee = bohemian ? 2 : 0;
+		int plate = storeys * sh - 1 + knee;
 		// the barn end first (its wall against the house is redrawn by the house)
 		Barns.Hall barn = null;
 		if (bx1 - bx0 + 1 >= 5) {
 			int groundH = storeys == 2 ? sh + 1 : sh;
+			// (a loft at least two high over the byre)
 			barn = Barns.shell(d, bx0, z0, bx1, z1, 0, groundH, plate - groundH + 1, null, 3, houseLeft, !houseLeft);
 			Barns.cartDoor(d, Side.of(bx0, z0, bx1, z1, Dirs.FRONT), 0, (bx1 - bx0 + 1) >= 7 ? 3 : 1);
 		}
 		// the house end
-		int[] heights = new int[storeys];
+		int[] heights = new int[storeys + (knee > 0 ? 1 : 0)];
 		java.util.Arrays.fill(heights, sh);
+		if (knee > 0) {
+			heights[storeys] = knee;
+		}
 		Body body = new Body(hx0, z0, hx1, z1, 0, heights, !houseLeft && barn != null, houseLeft && barn != null);
 		d.body(x0, z0, x1, z1);
 		d.eave(plate);
@@ -300,13 +313,23 @@ public final class Farmhouse implements Archetype {
 		HouseBuilder.openings(d, body, facade, true);
 		// one roof over the whole range
 		Roofs.Opts o = Roofs.Opts.of(d);
+		if (bohemian) {
+			o = o.withPitch(dev.voidmc.hearth.build.kit.homestead.Bohemia.pitch(d, o.pitch(), plate, depth / 2.0, form));
+		}
 		Roofs.Plan plan = Roofs.plan(d, x0, z0, x1, z1, plate, form, Direction.Axis.X, o, false, false);
-		if (storeys == 1 && depth >= 7 && d.chance(0.6)) {
+		if (storeys == 1 && depth >= 7 && !bohemian && d.chance(0.6)) {
 			// a dormer lighting the attic over the house end
 			Side front = body.side(0, Dirs.FRONT);
 			plan.dormer(front, (hx0 + hx1) / 2 + (houseLeft ? -1 : 1), 1, plate + 1);
 		}
 		Roofs.Roof roof = plan.draw(d).roof();
+		if (bohemian) {
+			dev.voidmc.hearth.build.kit.homestead.Bohemia.carryRidge(d, roof);
+			if (form != RoofForm.HIP) {
+				dev.voidmc.hearth.build.kit.homestead.Bohemia.gables(d, roof, Direction.Axis.X, new int[]{x0, z0, x1, z1}, plate);
+			}
+			dev.voidmc.hearth.build.kit.homestead.Bohemia.fieldstone(d, hx0, z0, hx1, z1, 0, Math.max(0, d.habits().walls().plinth() - 1));
+		}
 		// the barn end's gable boarded or walled as the barn is
 		if (barn != null && form != RoofForm.HIP) {
 			int gx = houseLeft ? x1 : x0;
@@ -347,7 +370,7 @@ public final class Farmhouse implements Archetype {
 			Furniture.hearth(d, hearth[0], 0, hearth[1], hearth[2] == 0 ? Dirs.RIGHT : hearth[2] == 1 ? Dirs.LEFT : Dirs.FRONT, false);
 			Chimneys.stack(d, hearth[0], hearth[1], 2, roof, roof.ridgeY + 1);
 		}
-		HouseBuilder.interior(d, body, facade, storeys >= 2 ? null : roof, hearth, null, FarmParts.stairRunsRight(d, body, hearth));
+		HouseBuilder.interior(d, body, facade, storeys >= 2 && knee == 0 ? null : roof, hearth, null, FarmParts.stairRunsRight(d, body, hearth));
 		Integer door = HouseBuilder.doorColumn(facade);
 		FarmParts.ensureBeds(d, body, door, 2);
 		FarmParts.House house = new FarmParts.House(body, facade, roof, Integer.MIN_VALUE, door);

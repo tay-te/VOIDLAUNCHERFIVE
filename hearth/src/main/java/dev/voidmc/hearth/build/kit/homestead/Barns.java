@@ -539,7 +539,8 @@ public final class Barns {
 			if (p[0] > stairFoot + 1 && d.isEmpty(p[0], h.y, p[1]) && d.isEmpty(p[0], h.y, p[1] - 1)) {
 				Furniture.workstation(d, JobType.HERDER, p[0], h.y, p[1], Dirs.FRONT);
 				placed = true;
-				if (d.isEmpty(p[0] - 1, h.y, p[1]) && p[0] - 1 > stairFoot + 1) {
+				// the chest beside it, where the cell before it (the herder's place at it) is free floor
+				if (d.isEmpty(p[0] - 1, h.y, p[1]) && d.isEmpty(p[0] - 1, h.y, p[1] - 1) && p[0] - 1 > stairFoot + 1) {
 					Furniture.chest(d, p[0] - 1, h.y, p[1], Dirs.FRONT, List.of(new Object[]{"minecraft:wheat", 32}, new Object[]{"minecraft:lead", 3},
 						new Object[]{"minecraft:shears", 1}, new Object[]{"minecraft:bucket", 1}));
 				}
