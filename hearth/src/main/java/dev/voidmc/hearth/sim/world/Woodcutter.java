@@ -179,7 +179,8 @@ final class Woodcutter {
 		List<BlockPos> leaves = new ArrayList<>();
 		LongOpenHashSet leafSeen = new LongOpenHashSet();
 		for (BlockPos p : logs) {
-			for (BlockPos q : BlockPos.betweenClosed(p.offset(-3, -1, -3), p.offset(3, 3, 3))) {
+			// the crown round the felled logs (not so wide that a neighbour's crown goes with it)
+			for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, -1, -2), p.offset(2, 3, 2))) {
 				if (leaves.size() >= MAX_LEAVES) {
 					break;
 				}
