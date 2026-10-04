@@ -1,0 +1,63 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/priest/altar_candles"
+		],
+		"min_title": "known",
+		"requires": [
+			"declining"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"priest"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:bread",
+				"minecraft:baked_potato",
+				"minecraft:cooked_cod"
+			],
+			"count": [
+				20,
+				32
+			],
+			"label": "Bring {count} × {item} for the alms table"
+		}
+	],
+	"text": {
+		"title": [
+			"The alms table",
+			"Bread for the poor"
+		],
+		"summary": [
+			"Times are hard in {settlement}. The priest keeps an alms table and needs {count} × {item}."
+		],
+		"offer": [
+			"Since the work dried up, the line at the alms table reaches the well. {count} × {item}, and nobody goes hungry this week."
+		],
+		"progress": [
+			"The line grows longer."
+		],
+		"complete": [
+			"They will eat tonight, all of them. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			0,
+			20
+		],
+		"reputation": 8,
+		"deed": "hearth:quest/official_priest"
+	},
+	"deadline_days": 0,
+	"cooldown_days": 2,
+	"repeatable": false
+}

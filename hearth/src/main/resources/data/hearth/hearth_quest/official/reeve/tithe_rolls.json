@@ -1,0 +1,48 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"reeve",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "courier",
+			"label": "Carry the tithe rolls to {target}"
+		}
+	],
+	"text": {
+		"title": [
+			"The tithe rolls",
+			"Errand for the reeve"
+		],
+		"summary": [
+			"{giver} of {settlement} needs the tithe rolls carried to {target}, {distance} to the {direction}."
+		],
+		"offer": [
+			"Every season the rolls go to {target} to be checked against theirs, and every season my courier finds a reason to be ill. Will you carry them? {distance}, {direction}."
+		],
+		"progress": [
+			"Have the rolls reached {target}?"
+		],
+		"complete": [
+			"Delivered and signed for. You are a reliable sort — I may have more for you."
+		]
+	},
+	"reward": {
+		"coin": [
+			30,
+			50
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/official_reeve"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 2,
+	"repeatable": false
+}

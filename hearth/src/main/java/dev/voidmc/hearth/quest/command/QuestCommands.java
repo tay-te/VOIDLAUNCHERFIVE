@@ -60,13 +60,22 @@ import org.jspecify.annotations.Nullable;
  *   pressure &lt;amount&gt;                 add night monster pressure here (a bounty follows at the threshold)
  *   standing &lt;amount&gt;                 set your standing here
  *   talk &lt;resident&gt; [option]          converse through the dialogue providers in chat (the npc module's screen stands in)
+ *   happen &lt;kind&gt;                     something happens to the settlement here (fire, collapse, caravan_robbed...)
+ *   crime &lt;amount&gt;                    add recent crime here (the guard captain's line and thief-taking follow)
+ *   contracts                         the workshops here short of inputs
  * </pre>
+ *
+ * <p>And for every player: {@code /hearth heed <offer>}, the link in a town's call for help (a fire, a collapse).
  */
 public final class QuestCommands {
 	private QuestCommands() {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+		dispatcher.register(Commands.literal("hearth").then(Commands.literal("heed")
+			.then(Commands.argument("offer", net.minecraft.commands.arguments.UuidArgument.uuid())
+				.executes(c -> dev.voidmc.hearth.quest.service.LivingQuests.heed(c.getSource().getPlayerOrException(),
+					net.minecraft.commands.arguments.UuidArgument.getUuid(c, "offer")) ? 1 : 0))));
 		dispatcher.register(Commands.literal("hearth").then(Commands.literal("quest")
 			.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 			.then(Commands.literal("list")
@@ -102,6 +111,13 @@ public final class QuestCommands {
 				.then(Commands.argument("amount", IntegerArgumentType.integer(1, 1000)).executes(QuestCommands::pressure)))
 			.then(Commands.literal("standing")
 				.then(Commands.argument("amount", IntegerArgumentType.integer(-100, 100)).executes(QuestCommands::standing)))
+			.then(Commands.literal("happen")
+				.then(Commands.argument("kind", StringArgumentType.word())
+					.suggests((c, b) -> SharedSuggestionProvider.suggest(SettlementQuests.Happening.KINDS, b))
+					.executes(QuestCommands::happen)))
+			.then(Commands.literal("crime")
+				.then(Commands.argument("amount", IntegerArgumentType.integer(1, 100)).executes(QuestCommands::crime)))
+			.then(Commands.literal("contracts").executes(QuestCommands::contracts))
 			.then(Commands.literal("talk")
 				.then(Commands.argument("resident", StringArgumentType.string())
 					.suggests((c, b) -> {
@@ -169,8 +185,19 @@ public final class QuestCommands {
 					.withStyle(ChatFormatting.GRAY)), false);
 		}
 		for (SettlementQuests.StalledNeed n : data.needs) {
-			c.getSource().sendSuccess(() -> Component.literal("  need: " + n.missing() + " " + n.goods().getSerializedName() + " for plot " + n.plot()
-				+ " (" + n.place() + ")").withStyle(ChatFormatting.DARK_AQUA), false);
+			c.getSource().sendSuccess(() -> Component.literal("  " + (n.contract() ? "contract: " : "need: ") + n.missing() + " "
+				+ n.goods().getSerializedName() + " for " + (n.contract() ? n.source() : "plot " + n.plot()) + " (" + n.place() + ")")
+				.withStyle(ChatFormatting.DARK_AQUA), false);
+		}
+		for (SettlementQuests.Happening h : data.happenings) {
+			if (!h.resolved()) {
+				c.getSource().sendSuccess(() -> Component.literal("  happening #" + h.id() + ": " + h.kind() + " (day " + h.day() + ", plot " + h.plot()
+					+ (h.detail().isEmpty() ? "" : ", " + h.detail()) + ")").withStyle(ChatFormatting.LIGHT_PURPLE), false);
+			}
+		}
+		if (data.crime > 0 || data.declining()) {
+			c.getSource().sendSuccess(() -> Component.literal("  crime " + data.crime + (data.declining() ? ", declining since day " + data.decliningSince : ""))
+				.withStyle(ChatFormatting.LIGHT_PURPLE), false);
 		}
 		return data.offers.size();
 	}
@@ -184,12 +211,36 @@ public final class QuestCommands {
 		Settlement s = requireHere(c.getSource());
 		ServerLevel level = c.getSource().getLevel();
 		SettlementQuests data = QuestManager.board(level, s, false);
-		SettlementQuests.StalledNeed need = data.needs.isEmpty() ? null : data.needs.getFirst();
-		if (t.when().trigger() == QuestType.Trigger.STALLED && need == null) {
-			need = new SettlementQuests.StalledNeed(-1, t.when().goods().isEmpty() ? Goods.WOOD : t.when().goods().iterator().next(), 64,
-				QuestWorlds.day(level), "new building");
+		SettlementQuests.StalledNeed need = null;
+		SettlementQuests.Happening happening = null;
+		QuestType.Trigger trigger = t.when().trigger();
+		if (trigger == QuestType.Trigger.STALLED || trigger == QuestType.Trigger.SHORTAGE) {
+			boolean contract = trigger == QuestType.Trigger.SHORTAGE;
+			for (SettlementQuests.StalledNeed n : data.needs) {
+				if (n.contract() == contract && (t.when().goods().isEmpty() || t.when().goods().contains(n.goods())) && need == null) {
+					need = n;
+				}
+			}
+			if (need == null) {
+				Goods goods = t.when().goods().isEmpty() ? Goods.WOOD : t.when().goods().iterator().next();
+				need = new SettlementQuests.StalledNeed(-1, goods, 64, QuestWorlds.day(level), contract ? "workshop" : "new building",
+					contract ? "smith" : "");
+			}
+		} else if (trigger == QuestType.Trigger.EVENT) {
+			for (SettlementQuests.Happening h : data.happenings) {
+				if (!h.resolved() && t.when().events().contains(h.kind()) && happening == null) {
+					happening = h;
+				}
+			}
+			if (happening == null) {
+				happening = synthesize(level, s, data, t.when().events().getFirst(), net.minecraft.core.BlockPos.containing(c.getSource().getPosition()));
+			}
+			if (happening == null) {
+				c.getSource().sendFailure(Component.literal("Template " + id + " answers " + t.when().events() + ", which cannot happen here"));
+				return 0;
+			}
 		}
-		QuestInstance q = QuestGenerator.bind(t, QuestManager.generationContext(level, s, data), need);
+		QuestInstance q = QuestGenerator.bind(t, QuestManager.generationContext(level, s, data), need, happening);
 		if (q == null) {
 			c.getSource().sendFailure(Component.literal("Template " + id + " cannot be bound here now (no destination, landmark or resident?)"));
 			return 0;
@@ -274,6 +325,97 @@ public final class QuestCommands {
 		s.markDirty();
 		c.getSource().sendSuccess(() -> Component.literal("Standing in " + s.name() + ": " + s.reputation(player.getUUID())), false);
 		return 1;
+	}
+
+	private static int happen(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		Settlement s = requireHere(c.getSource());
+		ServerLevel level = c.getSource().getLevel();
+		String kind = StringArgumentType.getString(c, "kind");
+		if (!SettlementQuests.Happening.KINDS.contains(kind)) {
+			throw new com.mojang.brigadier.exceptions.SimpleCommandExceptionType(Component.literal("Unknown happening " + kind + " (one of "
+				+ SettlementQuests.Happening.KINDS + ")")).create();
+		}
+		SettlementQuests.Happening h = synthesize(level, s, QuestStore.board(s), kind, net.minecraft.core.BlockPos.containing(c.getSource().getPosition()));
+		if (h == null) {
+			c.getSource().sendFailure(Component.literal(kind + " cannot happen here (no other settlement for a caravan?)"));
+			return 0;
+		}
+		return board(c, false);
+	}
+
+	/**
+	 * Makes a happening for the dev commands as the events would: a fire or collapse at the plot nearest the player (a mine
+	 * for a collapse when there is one), a caravan to or from the nearest other settlement, a site of the kind most like
+	 * the land spent. Returns the happening (and its offer is posted), or null if it cannot happen here.
+	 */
+	private static SettlementQuests.@Nullable Happening synthesize(ServerLevel level, Settlement s, SettlementQuests data, String kind,
+		net.minecraft.core.BlockPos at) {
+		dev.voidmc.hearth.api.PlotView plot = null;
+		double best = Double.MAX_VALUE;
+		for (dev.voidmc.hearth.api.PlotView p : s.plots()) {
+			boolean mine = p.spec().archetype().getPath().startsWith("extract/");
+			double d = p.spec().origin().distSqr(at) - (kind.equals(SettlementQuests.Happening.COLLAPSE) && mine ? 1e12 : 0);
+			if (d < best) {
+				best = d;
+				plot = p;
+			}
+		}
+		net.minecraft.core.BlockPos pos = plot == null ? at : dev.voidmc.hearth.quest.gen.QuestGenerator.plotPlace(s, plot);
+		int plotId = plot == null ? -1 : plot.id();
+		Settlement other = null;
+		for (Settlement o : QuestWorlds.all(level)) {
+			if (o.id() != s.id() && (other == null || o.center().distSqr(s.center()) < other.center().distSqr(s.center()))) {
+				other = o;
+			}
+		}
+		String victims = s.residents().stream().filter(r -> r.age != dev.voidmc.hearth.api.AgeStage.CHILD).limit(2).map(Resident::fullName)
+			.reduce((a, b) -> a + " and " + b).orElse("");
+		switch (kind) {
+			case SettlementQuests.Happening.CARAVAN_DEPARTED, SettlementQuests.Happening.CARAVAN_ROBBED, SettlementQuests.Happening.CARAVAN_LOST -> {
+				if (other == null) {
+					return null;
+				}
+				net.minecraft.core.BlockPos mid = kind.equals(SettlementQuests.Happening.CARAVAN_DEPARTED) ? s.center()
+					: new net.minecraft.core.BlockPos((s.center().getX() + other.center().getX()) / 2, dev.voidmc.hearth.quest.model.Objective.SURFACE_Y,
+					(s.center().getZ() + other.center().getZ()) / 2);
+				dev.voidmc.hearth.quest.service.LivingQuests.happen(level, s, kind, -1, mid, other.id(), 96, Goods.ORE.getSerializedName(), "ore and timber",
+					false);
+			}
+			case SettlementQuests.Happening.DEPLETED -> dev.voidmc.hearth.quest.service.LivingQuests.happen(level, s, kind, -1,
+				new net.minecraft.core.BlockPos(at.getX(), dev.voidmc.hearth.quest.model.Objective.SURFACE_Y, at.getZ()), -1, 400,
+				Goods.STONE.getSerializedName(), "stone", false);
+			case SettlementQuests.Happening.COLLAPSE -> dev.voidmc.hearth.quest.service.LivingQuests.happen(level, s, kind, plotId, pos, -1, 2,
+				Goods.ORE.getSerializedName(), victims, true);
+			case SettlementQuests.Happening.FIRE -> dev.voidmc.hearth.quest.service.LivingQuests.happen(level, s, kind, plotId, pos, -1, 12, "", "", true);
+			case SettlementQuests.Happening.DECLINING -> {
+				data.decliningSince = QuestWorlds.day(level);
+				dev.voidmc.hearth.quest.service.LivingQuests.happen(level, s, kind, -1, s.center(), -1, 1, "", "the mine is spent", false);
+			}
+			default -> dev.voidmc.hearth.quest.service.LivingQuests.happen(level, s, kind, plotId, pos, -1, 6, "", "", false);
+		}
+		SettlementQuests.Happening made = data.happenings.isEmpty() ? null : data.happenings.getFirst();
+		return made != null && made.kind().equals(kind) ? made : null;
+	}
+
+	private static int crime(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		Settlement s = requireHere(c.getSource());
+		SettlementQuests data = QuestStore.board(s);
+		data.crime = Math.min(100, data.crime + IntegerArgumentType.getInteger(c, "amount"));
+		s.markDirty();
+		QuestManager.board(c.getSource().getLevel(), s, true);
+		return board(c, false);
+	}
+
+	private static int contracts(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		Settlement s = requireHere(c.getSource());
+		List<SettlementQuests.StalledNeed> shortages = dev.voidmc.hearth.quest.gen.Chains.shortages(s, QuestManager.config().living().contractStock(),
+			QuestWorlds.day(c.getSource().getLevel()));
+		c.getSource().sendSuccess(() -> Component.literal(s.name() + ": " + shortages.size() + " workshops short").withStyle(ChatFormatting.GOLD), false);
+		for (SettlementQuests.StalledNeed n : shortages) {
+			c.getSource().sendSuccess(() -> Component.literal("  " + n.place() + " (" + n.source() + "): short " + n.missing() + " "
+				+ n.goods().getSerializedName() + ", " + s.stockpile().get(n.goods()) + " in store").withStyle(ChatFormatting.DARK_AQUA), false);
+		}
+		return shortages.size();
 	}
 
 	/** A conversation in chat: every provider's options for the resident, clickable; an option picks it. */

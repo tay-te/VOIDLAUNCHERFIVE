@@ -1,0 +1,76 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/builder/scaffold_timber"
+		],
+		"min_title": "friend",
+		"requires": [
+			"stalled"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason",
+			"carpenter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "minecraft:glass",
+			"count": [
+				24,
+				32
+			],
+			"label": "Bring {count} × {item} for the windows"
+		},
+		{
+			"kind": "deliver",
+			"item": "minecraft:iron_ingot",
+			"count": [
+				8,
+				12
+			],
+			"label": "Bring {count} × {item} for the fittings"
+		}
+	],
+	"text": {
+		"title": [
+			"The finishing work",
+			"Glass and iron"
+		],
+		"summary": [
+			"The master builder wants the finest work of {settlement} finished properly: {giver} needs glass and iron."
+		],
+		"offer": [
+			"Any fool can raise a wall. Finishing is what makes a building — glass in the windows, iron on the doors. Bring them, and I will show this town what a builder can do."
+		],
+		"progress": [
+			"Still short of the finishing stuff."
+		],
+		"complete": [
+			"Look at that. Come and see it lit tonight; you helped build it."
+		]
+	},
+	"reward": {
+		"coin": [
+			90,
+			150
+		],
+		"reputation": 8,
+		"deed": "hearth:quest/official_builder",
+		"items": [
+			{
+				"item": "minecraft:lantern",
+				"count": 2
+			}
+		]
+	},
+	"deadline_days": 0,
+	"cooldown_days": 2,
+	"repeatable": false
+}

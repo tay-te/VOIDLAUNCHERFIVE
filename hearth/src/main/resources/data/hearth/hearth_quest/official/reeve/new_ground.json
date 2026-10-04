@@ -1,0 +1,60 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/reeve/charter"
+		],
+		"min_title": "friend",
+		"requires": [
+			"depleted"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"reeve",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "prospect",
+			"resource": "stone",
+			"distance": [
+				64,
+				380
+			],
+			"label": "Survey new stone {distance} from {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"New ground",
+			"The reeve's survey"
+		],
+		"summary": [
+			"The quarry of {settlement} is spent. The reeve wants new stone found, {distance} out, before the builders lay down their tools."
+		],
+		"offer": [
+			"Our quarry is done and the builders are idle. I trust you more than the surveyors I can afford: walk the country {distance} round and find us a rock face worth cutting."
+		],
+		"progress": [
+			"Found anything?"
+		],
+		"complete": [
+			"Good ground. I will have the quarrymen out by the end of the week."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			110
+		],
+		"reputation": 10,
+		"deed": "hearth:quest/official_reeve"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 2,
+	"repeatable": false
+}

@@ -3,7 +3,7 @@
 	"weight": 10,
 	"when": {
 		"goods": [
-			"clay"
+			"brick"
 		],
 		"cultures": {
 			"*": 1.0,
@@ -14,6 +14,7 @@
 	"giver": {
 		"jobs": [
 			"builder",
+			"kiln_worker",
 			"mason"
 		]
 	},

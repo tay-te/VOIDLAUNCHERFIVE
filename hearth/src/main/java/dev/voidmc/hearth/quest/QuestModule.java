@@ -30,8 +30,9 @@ import net.minecraft.server.packs.PackType;
  * The quest module: quests and side quests that come from what settlements need, the notice board, the journal, and
  * reputation. See docs/QUESTS.md.
  *
- * <p>Wiring: templates load from data packs; settlement events (stalls, finished buildings, departures) feed the
- * boards; a bounded per-tick tracker and the death event drive objectives; the notice board, the conversation
+ * <p>Wiring: templates load from data packs; settlement events (stalls, finished buildings, departures, and in phase 3
+ * fires, collapses, caravans, spent sites, decline and crime through {@link dev.voidmc.hearth.quest.service.LivingQuests})
+ * feed the boards; a bounded per-tick tracker and the death event drive objectives; the notice board, the conversation
  * ({@link QuestDialogue}), the journal and commands are how players act; {@link QuestMarkers} is the
  * {@link dev.voidmc.hearth.api.QuestService} the NPC module asks for markers.
  */
@@ -68,12 +69,18 @@ public final class QuestModule {
 			}
 		});
 
+		dev.voidmc.hearth.quest.service.LivingQuests.register();
+		dev.voidmc.hearth.quest.service.HueAndCry.register();
+		ServerLifecycleEvents.SERVER_STARTING.register(dev.voidmc.hearth.quest.service.GameFactsImpl::setServer);
+
 		ServerTickEvents.END_SERVER_TICK.register(QuestTracker::tick);
 		ServerLivingEntityEvents.AFTER_DEATH.register(QuestTracker::onDeath);
 		ServerPlayerEvents.LEAVE.register(player -> QuestDialogue.forget(player.getUUID()));
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			SandboxSettlements.clear();
 			StructureLocator.clear();
+			dev.voidmc.hearth.quest.service.LivingQuests.clear();
+			dev.voidmc.hearth.quest.service.GameFactsImpl.setServer(null);
 		});
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> QuestCommands.register(dispatcher));
 		QuestDevHarness.install();
@@ -81,7 +88,6 @@ public final class QuestModule {
 
 	/** {@code hearth:house/cottage} → {@code cottage}, for quest text. */
 	static String readable(Identifier archetype) {
-		String path = archetype.getPath();
-		return path.substring(path.lastIndexOf('/') + 1).replace('_', ' ');
+		return dev.voidmc.hearth.quest.gen.QuestGenerator.readable(archetype);
 	}
 }

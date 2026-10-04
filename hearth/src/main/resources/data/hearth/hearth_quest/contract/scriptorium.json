@@ -1,0 +1,59 @@
+{
+	"type": "contract",
+	"weight": 10,
+	"when": {
+		"trigger": "shortage",
+		"goods": [
+			"paper",
+			"books",
+			"wood"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"papermaker",
+			"priest"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Standing order: {goods} for the {workshop}",
+			"Ink and paper"
+		],
+		"summary": [
+			"The {workshop} of {settlement} buys {item}: {count} wanted now.",
+			"{giver} has a standing order for {count} × {item}."
+		],
+		"offer": [
+			"Learning eats {goods}. {count} × {item} for the {workshop}, and more whenever you pass this way.",
+			"Bring {count} × {item}. The order stands."
+		],
+		"progress": [
+			"Still short.",
+			"The order stands."
+		],
+		"complete": [
+			"Splendid. The copyists can work again.",
+			"Thank you. Come back with more."
+		]
+	},
+	"reward": {
+		"coin": [
+			6,
+			14
+		],
+		"market_premium": 1.3,
+		"reputation": 2,
+		"deed": "hearth:quest/contract_filled"
+	},
+	"cooldown_days": 0,
+	"repeatable": true
+}

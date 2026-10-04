@@ -1,0 +1,54 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"fish"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"fisher",
+			"innkeeper",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Fish for {settlement}",
+			"The nets came up empty"
+		],
+		"summary": [
+			"The fishers of {settlement} have had a poor week, and the {place} has a crew to feed. Bring {count} × {item}.",
+			"{settlement} needs {count} × {item} for its table."
+		],
+		"offer": [
+			"The nets came up empty three days running. {count} × {item}, and the builders of the {place} eat tonight.",
+			"Fish, friend. {count} × {item}, fresh as you can."
+		],
+		"progress": [
+			"Nothing in the nets yet.",
+			"Any fish?"
+		],
+		"complete": [
+			"Lovely and fresh. Thank you.",
+			"That will salt down nicely."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

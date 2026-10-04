@@ -1,0 +1,54 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"wool"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"tailor",
+			"herder",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Wool for the {place}",
+			"Fleece for the looms"
+		],
+		"summary": [
+			"The {place} in {settlement} wants hangings and bedding, and the looms have no wool. Bring {count} × {item}.",
+			"{settlement} needs {count} × {item} for its weavers."
+		],
+		"offer": [
+			"The shearing was poor and the {place} needs its bedding. {count} × {item}?",
+			"Wool for the looms: {count} × {item}. The {place} will be warm by winter."
+		],
+		"progress": [
+			"The looms are idle.",
+			"Still waiting on that wool."
+		],
+		"complete": [
+			"Soft and clean. That will weave well.",
+			"Thank you. The weavers can start tonight."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

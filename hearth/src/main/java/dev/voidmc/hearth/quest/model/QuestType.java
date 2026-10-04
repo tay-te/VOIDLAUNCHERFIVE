@@ -22,7 +22,20 @@ public enum QuestType implements StringRepresentable {
 	/** Bring local or rare goods: mammoth wool, venison, crab, amethyst. */
 	GATHERING("gathering", Trigger.NONE, false),
 	/** A resident's own request: a gift, a lost keepsake, a word to a friend. */
-	PERSONAL("personal", Trigger.NONE, true);
+	PERSONAL("personal", Trigger.NONE, true),
+	// ---- phase 3, the living world (docs/LIVING_WORLD.md §4–§7)
+	/** A standing contract from a workshop short of its inputs: ore for the smelter, wax for the chandler, logs for the saw. */
+	CONTRACT("contract", Trigger.SHORTAGE, false),
+	/** The roads between towns: ride with a caravan, run down the bandits who robbed one, bring back its cargo. */
+	CARAVAN("caravan", Trigger.EVENT, false),
+	/** The law's work: outlaws wanted dead or alive, thief-taking, clearing your own name. */
+	LAW("law", Trigger.NONE, false),
+	/** When something goes wrong: a fire, a mine collapse, wolves at the pasture, a spent quarry, a town in decline. */
+	DISASTER("disaster", Trigger.EVENT, false),
+	/** Work for the town's officials: short lines from the reeve, the guard captain, the priest, the master builder, the lord. */
+	OFFICIAL("official", Trigger.NONE, false),
+	/** Shady work from a fence (robbing a caravan): a crime, reported to the law. */
+	CRIME("crime", Trigger.NONE, true);
 
 	public static final StringRepresentable.EnumCodec<QuestType> CODEC = StringRepresentable.fromEnum(QuestType::values);
 
@@ -62,7 +75,11 @@ public enum QuestType implements StringRepresentable {
 		/** Only while a construction is stalled for goods the template covers. */
 		STALLED("stalled"),
 		/** Only while monsters press on the town at night. */
-		PRESSURE("pressure");
+		PRESSURE("pressure"),
+		/** Only while a workshop of the town is short of its inputs (a standing contract). */
+		SHORTAGE("shortage"),
+		/** Only after something happened to the town: a fire, a collapse, a caravan robbed, a site spent ({@code when.events}). */
+		EVENT("event");
 
 		public static final StringRepresentable.EnumCodec<Trigger> CODEC = StringRepresentable.fromEnum(Trigger::values);
 

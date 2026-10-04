@@ -1,0 +1,78 @@
+{
+	"type": "caravan",
+	"weight": 10,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_lost"
+		],
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"trader",
+			"merchant",
+			"courier"
+		]
+	},
+	"sequential": true,
+	"objectives": [
+		{
+			"kind": "reach",
+			"place": "route",
+			"along": 0.5,
+			"radius": 24,
+			"target_name": "the lost caravan",
+			"grant": {
+				"item": "minecraft:writable_book",
+				"name": "The drover's ledger",
+				"lore": "The caravan's cargo, signed for in {settlement}",
+				"required": true
+			}
+		},
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:zombie",
+				"minecraft:skeleton"
+			],
+			"count": [
+				2,
+				4
+			],
+			"place": "route",
+			"along": 0.5,
+			"night": false,
+			"target_name": "the dead that took them",
+			"label": "Clear the creatures from the wreck"
+		}
+	],
+	"text": {
+		"title": [
+			"The caravan that never came",
+			"Lost on the {other} road"
+		],
+		"summary": [
+			"The caravan between {settlement} and {other} never arrived. Find what became of it, {distance} to the {direction}, and bring back the drover's ledger."
+		],
+		"offer": [
+			"The caravan with our {cargo} should have reached {other} two days ago. Something took it on the road. Find it — and the ledger, so we know what was lost."
+		],
+		"progress": [
+			"Have you found them?"
+		],
+		"complete": [
+			"So that is how it ended. Thank you for bringing them home, in a manner of speaking."
+		]
+	},
+	"reward": {
+		"coin": [
+			50,
+			90
+		],
+		"reputation": 5,
+		"deed": "hearth:quest/caravan_found"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 2
+}

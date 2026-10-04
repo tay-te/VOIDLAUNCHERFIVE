@@ -1,0 +1,63 @@
+{
+	"type": "crime",
+	"weight": 6,
+	"when": {
+		"min_tier": "village",
+		"wanted": "allow",
+		"min_title": "stranger"
+	},
+	"giver": {
+		"jobs": [
+			"fence"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:llama"
+			],
+			"count": [
+				2,
+				3
+			],
+			"cargo": true,
+			"crime": "robbery",
+			"distance": [
+				140,
+				280
+			],
+			"radius": 32,
+			"target_name": "the merchant's pack train",
+			"label": "Rob the pack train {direction} of {settlement}, {distance} out"
+		}
+	],
+	"text": {
+		"title": [
+			"A quiet job on the road",
+			"A pack train, lightly guarded"
+		],
+		"summary": [
+			"{giver} knows of a merchant's pack train resting {distance} to the {direction}, heavy with goods and lightly watched. A crime, if anyone sees."
+		],
+		"offer": [
+			"There is a merchant's train camped {distance} {direction} of here. Nobody watching but the llamas. Take what they carry and I'll pay for the trouble — and I never heard of you."
+		],
+		"progress": [
+			"Done it yet? Keep your voice down."
+		],
+		"complete": [
+			"Lovely. I'll move it on before anyone asks. Here's your cut."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			120
+		],
+		"reputation": 1,
+		"deed": "hearth:quest/fence_job"
+	},
+	"deadline_days": 3,
+	"cooldown_days": 4
+}

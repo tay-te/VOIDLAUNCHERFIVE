@@ -1,0 +1,93 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "village",
+		"prerequisites": [
+			"hearth:official/guard/night_patrol"
+		],
+		"min_title": "friend"
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"jailer"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "apprehend",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"names": [
+				"Black Aldous",
+				"Red Wenna",
+				"Corvin the Knife",
+				"Gerta Ironhand"
+			],
+			"distance": [
+				180,
+				320
+			],
+			"health": 3.0,
+			"lethal": true,
+			"radius": 40,
+			"label": "Bring in {name}, chief of the outlaws, dead or alive"
+		},
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				2,
+				3
+			],
+			"distance": [
+				180,
+				320
+			],
+			"radius": 40,
+			"target_name": "the chief's guard",
+			"label": "Cut down the chief's guard"
+		}
+	],
+	"text": {
+		"title": [
+			"The outlaw chief",
+			"The head of the snake"
+		],
+		"summary": [
+			"The guard captain trusts you with the hardest warrant: {name}, chief of the outlaws who plague the roads of {settlement}."
+		],
+		"offer": [
+			"Every band we break, {name} raises another. I will not send my own people — they would never come back. You I trust. Alive, the court pays double."
+		],
+		"progress": [
+			"{name} lives yet."
+		],
+		"complete": [
+			"With {name} gone the bands will scatter. The town owes you more than this purse."
+		]
+	},
+	"reward": {
+		"coin": [
+			200,
+			320
+		],
+		"reputation": 14,
+		"deed": "hearth:quest/official_guard",
+		"items": [
+			{
+				"item": "minecraft:iron_sword",
+				"count": 1
+			}
+		]
+	},
+	"deadline_days": 6,
+	"cooldown_days": 2,
+	"repeatable": false
+}

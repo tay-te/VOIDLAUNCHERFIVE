@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.Nullable;
 
@@ -35,7 +36,8 @@ public final class QuestInstance {
 		Codec.LONG.optionalFieldOf("escrow", 0L).forGetter(q -> q.escrow),
 		Timing.CODEC.fieldOf("timing").forGetter(q -> q.timing),
 		Rules.CODEC.fieldOf("rules").forGetter(q -> q.rules),
-		UUIDUtil.CODEC.listOf().optionalFieldOf("taken_by", List.of()).forGetter(q -> List.copyOf(q.takenBy))
+		UUIDUtil.CODEC.listOf().optionalFieldOf("taken_by", List.of()).forGetter(q -> List.copyOf(q.takenBy)),
+		CompoundTag.CODEC.optionalFieldOf("extra", new CompoundTag()).forGetter(q -> q.extra)
 	).apply(i, QuestInstance::new));
 
 	public final UUID id;
@@ -56,10 +58,19 @@ public final class QuestInstance {
 	public final Rules rules;
 	/** On a board: players who have taken a copy (each player takes an offer once). */
 	public final Set<UUID> takenBy;
+	/** Quest-wide details under the keys in {@link Extra} (the deed it reports, the happening it answers). */
+	public final CompoundTag extra;
 
 	public QuestInstance(UUID id, Identifier template, QuestType type, QuestStatus status, Text text, Giver giver, long settlementId,
 		String settlementName, BlockPos turnInPos, List<Objective> objectives, QuestReward reward, long escrow, Timing timing, Rules rules,
 		List<UUID> takenBy) {
+		this(id, template, type, status, text, giver, settlementId, settlementName, turnInPos, objectives, reward, escrow, timing, rules, takenBy,
+			new CompoundTag());
+	}
+
+	public QuestInstance(UUID id, Identifier template, QuestType type, QuestStatus status, Text text, Giver giver, long settlementId,
+		String settlementName, BlockPos turnInPos, List<Objective> objectives, QuestReward reward, long escrow, Timing timing, Rules rules,
+		List<UUID> takenBy, CompoundTag extra) {
 		this.id = id;
 		this.template = template;
 		this.type = type;
@@ -78,12 +89,13 @@ public final class QuestInstance {
 		this.timing = timing;
 		this.rules = rules;
 		this.takenBy = new HashSet<>(takenBy);
+		this.extra = extra.copy();
 	}
 
 	/** A deep copy (a player's own copy of a board offer). */
 	public QuestInstance copy() {
 		return new QuestInstance(this.id, this.template, this.type, this.status, this.text, this.giver, this.settlementId, this.settlementName,
-			this.turnInPos, this.objectives, this.reward, this.escrow, this.timing, this.rules, List.copyOf(this.takenBy));
+			this.turnInPos, this.objectives, this.reward, this.escrow, this.timing, this.rules, List.copyOf(this.takenBy), this.extra);
 	}
 
 	/** The objectives the player can make progress on now: all of them, or for a sequential quest the first not done. */
@@ -126,6 +138,21 @@ public final class QuestInstance {
 
 	public boolean hasDeadline() {
 		return this.timing.deadlineTick > 0;
+	}
+
+	/** Keys used in {@link #extra}. */
+	public static final class Extra {
+		/** The deed reported to the standing service on completion ({@code quest:rescued_miners}). */
+		public static final String DEED = "deed";
+		/** Apprehend: the coin is for the culprit alive; killed, it is divided by this. */
+		public static final String ALIVE_BONUS = "alive_bonus";
+		/** The happening the quest answers. */
+		public static final String HAPPENING = "happening";
+		/** Prospect/caravan: the settlement whose stores or sites the outcome feeds. */
+		public static final String FEEDS = "feeds";
+
+		private Extra() {
+		}
 	}
 
 	@Override

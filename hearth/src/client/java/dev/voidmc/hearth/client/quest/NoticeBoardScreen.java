@@ -19,13 +19,17 @@ import org.jspecify.annotations.Nullable;
 /**
  * A settlement's notice board, up close: a timber board with the offers pinned to it as papers, each with its title,
  * who asks and what it pays. Click a paper to read it in full and take it. A hand-in button appears when the player
- * carries something for this town. Everything shown came from the server; buttons send intents back.
+ * carries something for this town. Wanted posters (players the law wants here) hang in a column of their own at the
+ * board's right. Everything shown came from the server; buttons send intents back.
  */
 public class NoticeBoardScreen extends Screen {
 	private static final int W = 336;
 	private static final int H = 220;
 	private static final int CARD_W = 96;
 	private static final int CARD_H = 70;
+	/** The poster column's width, when the board has wanted posters. */
+	private static final int POSTERS_W = 92;
+	private static final int POSTER_H = 46;
 	private QuestPayloads.Board board;
 	private QuestPayloads.Board.@Nullable Entry reading;
 	private int left;
@@ -57,9 +61,14 @@ public class NoticeBoardScreen extends Screen {
 		}
 	}
 
+	/** The board's full width: the offers, and the poster column when there are posters. */
+	private int boardWidth() {
+		return W + (this.board.posters().isEmpty() ? 0 : POSTERS_W);
+	}
+
 	@Override
 	protected void init() {
-		this.left = (this.width - W) / 2;
+		this.left = (this.width - this.boardWidth()) / 2;
 		this.top = (this.height - H) / 2;
 		int by = this.top + H - 26;
 		if (this.reading == null) {
@@ -93,9 +102,13 @@ public class NoticeBoardScreen extends Screen {
 	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractBackground(g, mouseX, mouseY, a);
 		// Frame of dark oak round a spruce board, a little roof strip on top: the board as it stands in the plaza.
-		g.fill(this.left - 3, this.top - 3, this.left + W + 3, this.top + H + 3, 0xAA000000);
-		QuestUi.wood(g, QuestUi.FRAME, this.left, this.top, W, H);
+		int bw = this.boardWidth();
+		g.fill(this.left - 3, this.top - 3, this.left + bw + 3, this.top + H + 3, 0xAA000000);
+		QuestUi.wood(g, QuestUi.FRAME, this.left, this.top, bw, H);
 		QuestUi.wood(g, QuestUi.PLANKS, this.left + 8, this.top + 24, W - 16, H - 56);
+		if (bw > W) {
+			QuestUi.wood(g, QuestUi.PLANKS, this.left + W - 4, this.top + 24, POSTERS_W - 4, H - 56);
+		}
 		g.fill(this.left + 8, this.top + 24, this.left + W - 8, this.top + 25, 0x55000000);
 		g.fill(this.left + 8, this.top + H - 33, this.left + W - 8, this.top + H - 32, 0x33FFFFFF);
 	}
@@ -104,8 +117,10 @@ public class NoticeBoardScreen extends Screen {
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractRenderState(g, mouseX, mouseY, a);
 		g.centeredText(this.font, Component.literal(this.board.settlementName()).withStyle(s -> s.withBold(true)), this.width / 2, this.top + 8, 0xFFF1E3C0);
-		String standing = Component.translatable("hearth.quest.board.standing", standingName(this.board.reputation()), this.board.reputation()).getString();
-		g.text(this.font, standing, this.left + W - 12 - this.font.width(standing), this.top + 8, 0xFFCDB88E, false);
+		String title = this.board.title().isEmpty() ? standingName(this.board.reputation()) : this.board.title();
+		String standing = Component.translatable("hearth.quest.board.standing", title, this.board.reputation()).getString();
+		g.text(this.font, standing, this.left + this.boardWidth() - 12 - this.font.width(standing), this.top + 8, 0xFFCDB88E, false);
+		this.drawPosters(g);
 		g.text(this.font, Component.translatable("hearth.quest.tier." + this.board.tier()), this.left + 12, this.top + 8, 0xFFCDB88E, false);
 		if (this.reading != null) {
 			this.drawReading(g, this.reading);
@@ -117,6 +132,25 @@ public class NoticeBoardScreen extends Screen {
 		}
 		for (int i = 0; i < entries.size() && i < 6; i++) {
 			this.drawCard(g, entries.get(i), i, mouseX, mouseY);
+		}
+	}
+
+	/** Wanted posters, one under another: WANTED in red, the name, what they owe (or OUTLAW). */
+	private void drawPosters(GuiGraphicsExtractor g) {
+		List<QuestPayloads.Board.Poster> posters = this.board.posters();
+		int x = this.left + W;
+		for (int i = 0; i < posters.size() && i < 3; i++) {
+			QuestPayloads.Board.Poster p = posters.get(i);
+			int y = this.top + 30 + i * (POSTER_H + 6);
+			int w = POSTERS_W - 16;
+			QuestUi.paper(g, x, y, w, POSTER_H);
+			QuestUi.pin(g, x + w / 2, y + 3, true);
+			Component head = Component.translatable(p.outlaw() ? "hearth.quest.poster.outlaw" : "hearth.quest.poster.wanted").withStyle(st -> st.withBold(true));
+			g.centeredText(this.font, head, x + w / 2, y + 7, QuestUi.INK_RED);
+			g.centeredText(this.font, Component.literal(this.font.plainSubstrByWidth(p.name(), w - 6)), x + w / 2, y + 19, QuestUi.INK);
+			if (!p.owed().isEmpty()) {
+				g.centeredText(this.font, Component.literal(this.font.plainSubstrByWidth(p.owed(), w - 6)), x + w / 2, y + 31, QuestUi.INK_GOLD);
+			}
 		}
 	}
 

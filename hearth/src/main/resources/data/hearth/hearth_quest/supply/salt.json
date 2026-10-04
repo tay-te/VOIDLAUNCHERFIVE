@@ -1,0 +1,58 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"salt"
+		],
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"salter",
+			"butcher",
+			"fisher",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Salt for the stores",
+			"Nothing to cure the meat"
+		],
+		"summary": [
+			"{settlement} cannot lay down meat for the winter without salt. Bring {count} × {item} for the {place}.",
+			"The salt barrels of {settlement} are empty: {count} × {item}."
+		],
+		"offer": [
+			"Without salt the catch rots before the {place} is half built. {count} × {item}, please.",
+			"Salt, friend: {count} × {item}. The pans are flooded."
+		],
+		"progress": [
+			"The barrels are still empty.",
+			"Any salt?"
+		],
+		"complete": [
+			"That will keep the larder through the winter.",
+			"Thank you. Not a fish will spoil."
+		]
+	},
+	"reward": {
+		"coin": [
+			12,
+			22
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

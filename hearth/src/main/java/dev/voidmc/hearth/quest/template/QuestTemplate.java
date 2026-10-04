@@ -4,12 +4,15 @@ import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.Goods;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.SettlementTier;
+import dev.voidmc.hearth.api.StandingService;
 import dev.voidmc.hearth.quest.model.QuestType;
 import dev.voidmc.hearth.quest.model.TurnIn;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.StringRepresentable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A kind of quest, as data ({@code data/<ns>/hearth_quest/<name>.json}): what it asks, when a settlement offers it, what
@@ -41,17 +44,32 @@ public record QuestTemplate(Identifier id, QuestType type, double weight, Condit
 	/**
 	 * @param cultures     culture → weight multiplier; empty means every culture at 1. Unlisted cultures get
 	 *                     {@code otherCultures} (0 unless the file gives {@code "*"}).
-	 * @param goods        supply: the goods this template covers (empty: any)
+	 * @param goods        supply and contracts: the goods this template covers (empty: any)
 	 * @param requiresMods mod ids that must be loaded (e.g. {@code expanse})
+	 * @param minTitle     the standing title a player needs to take it (null: any), e.g. {@code friend}
+	 * @param wanted       how it treats players the law wants in the town
+	 * @param requires     the town's state it needs ({@code stalled}, {@code crime}, {@code job:miner}, {@code site:ore},
+	 *                     {@code !declining}...; see {@code TownState})
+	 * @param events       trigger {@code event}: the happenings it answers ({@code fire}, {@code caravan_robbed}...)
 	 */
 	public record Conditions(QuestType.Trigger trigger, Map<Culture, Double> cultures, double otherCultures, SettlementTier minTier,
-		SettlementTier maxTier, int minReputation, List<Identifier> prerequisites, List<String> requiresMods, Set<Goods> goods) {
+		SettlementTier maxTier, int minReputation, List<Identifier> prerequisites, List<String> requiresMods, Set<Goods> goods,
+		StandingService.@Nullable Title minTitle, Wanted wanted, List<String> requires, List<String> events) {
 
 		public Conditions {
 			cultures = Map.copyOf(cultures);
 			prerequisites = List.copyOf(prerequisites);
 			requiresMods = List.copyOf(requiresMods);
 			goods = Set.copyOf(goods);
+			requires = List.copyOf(requires);
+			events = List.copyOf(events);
+		}
+
+		/** The phase 2 shape: no title, wanted players refused, no state or events. */
+		public Conditions(QuestType.Trigger trigger, Map<Culture, Double> cultures, double otherCultures, SettlementTier minTier,
+			SettlementTier maxTier, int minReputation, List<Identifier> prerequisites, List<String> requiresMods, Set<Goods> goods) {
+			this(trigger, cultures, otherCultures, minTier, maxTier, minReputation, prerequisites, requiresMods, goods, null, Wanted.REFUSE, List.of(),
+				List.of());
 		}
 
 		public double cultureWeight(Culture culture) {
@@ -63,6 +81,27 @@ public record QuestTemplate(Identifier id, QuestType type, double weight, Condit
 
 		public boolean allowsTier(SettlementTier tier) {
 			return tier.ordinal() >= this.minTier.ordinal() && tier.ordinal() <= this.maxTier.ordinal();
+		}
+	}
+
+	/** How a template treats a player the law wants in the town (docs/LIVING_WORLD.md §4: wanted players are refused work). */
+	public enum Wanted implements StringRepresentable {
+		/** Not offered to wanted players (the default). */
+		REFUSE("refuse"),
+		/** Offered to anyone (a fence's work). */
+		ALLOW("allow"),
+		/** Only for wanted players: clearing your name. */
+		ONLY("only");
+
+		private final String name;
+
+		Wanted(String name) {
+			this.name = name;
+		}
+
+		@Override
+		public String getSerializedName() {
+			return this.name;
 		}
 	}
 
@@ -83,10 +122,18 @@ public record QuestTemplate(Identifier id, QuestType type, double weight, Condit
 	 * @param marketPremium deliver objectives also pay this times the market price of what is brought (0: not)
 	 * @param items         item rewards
 	 * @param reputation    standing gained on completion (0: the config default)
+	 * @param deed          the deed reported to the standing service on completion ({@code quest:rescued_miners}); empty for
+	 *                      {@code quest:<type>}
+	 * @param aliveBonus    apprehend: the coin is multiplied by this when the culprit is brought in alive (and divided by it
+	 *                      when killed)
 	 */
-	public record RewardSpec(int coinMin, int coinMax, double marketPremium, List<ItemSpec> items, int reputation) {
+	public record RewardSpec(int coinMin, int coinMax, double marketPremium, List<ItemSpec> items, int reputation, String deed, double aliveBonus) {
 		public RewardSpec {
 			items = List.copyOf(items);
+		}
+
+		public RewardSpec(int coinMin, int coinMax, double marketPremium, List<ItemSpec> items, int reputation) {
+			this(coinMin, coinMax, marketPremium, items, reputation, "", 1.5);
 		}
 	}
 

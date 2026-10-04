@@ -32,6 +32,23 @@ public interface GameFacts {
 	/** How a coin reward reads: the economy's coin names, or emeralds without the economy. */
 	String coinText(long bits);
 
+	/** Blocks of the settlement waiting for repair (the repair service's count; 0 without it). */
+	default int damagedBlocks(Settlement settlement) {
+		return 0;
+	}
+
+	/**
+	 * Players the law wants as outlaws in the settlement's region who are online now, for bounty quests on players
+	 * (only where the server allows them; empty otherwise).
+	 */
+	default java.util.List<Outlaw> outlaws(Settlement settlement) {
+		return java.util.List.of();
+	}
+
+	/** A wanted player: who, and the bounty on them in bits. */
+	record Outlaw(java.util.UUID player, String name, long bounty) {
+	}
+
 	/** Every id exists, names are the id's path made readable, no economy. */
 	GameFacts PLAIN = new GameFacts() {
 		@Override

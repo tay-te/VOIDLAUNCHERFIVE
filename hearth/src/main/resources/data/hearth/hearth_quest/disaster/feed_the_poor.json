@@ -1,0 +1,56 @@
+{
+	"type": "disaster",
+	"weight": 6,
+	"when": {
+		"trigger": "none",
+		"requires": [
+			"declining"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"priest",
+			"healer",
+			"innkeeper"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:bread",
+				"minecraft:baked_potato",
+				"minecraft:cooked_cod"
+			],
+			"count": [
+				16,
+				32
+			],
+			"label": "Bring {count} × {item} for the hungry"
+		}
+	],
+	"text": {
+		"title": [
+			"Bread for the hungry",
+			"Alms for {settlement}"
+		],
+		"summary": [
+			"Hard times in {settlement}: {giver} feeds the hungry and needs {count} × {item}."
+		],
+		"offer": [
+			"Since the work dried up there are children at my door every evening. {count} × {item}, and they eat tonight."
+		],
+		"progress": [
+			"There were more at the door this morning."
+		],
+		"complete": [
+			"Bless you. They will eat tonight."
+		]
+	},
+	"reward": {
+		"reputation": 8,
+		"deed": "hearth:quest/alms_given"
+	},
+	"deadline_days": 0,
+	"cooldown_days": 3
+}

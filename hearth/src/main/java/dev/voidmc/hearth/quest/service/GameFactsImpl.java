@@ -113,6 +113,34 @@ public final class GameFactsImpl implements GameFacts {
 		return emeralds == 1 ? "1 emerald" : emeralds + " emeralds";
 	}
 
+	/** The running server, for the outlaws online (set while a server runs). */
+	private static volatile net.minecraft.server.@org.jspecify.annotations.Nullable MinecraftServer server;
+
+	public static void setServer(net.minecraft.server.@org.jspecify.annotations.Nullable MinecraftServer running) {
+		server = running;
+	}
+
+	@Override
+	public int damagedBlocks(Settlement settlement) {
+		dev.voidmc.hearth.api.RepairService repairs = HearthServices.repairs();
+		return repairs == null ? 0 : repairs.damaged(settlement);
+	}
+
+	@Override
+	public java.util.List<Outlaw> outlaws(Settlement settlement) {
+		net.minecraft.server.MinecraftServer running = server;
+		if (running == null || !QuestManager.config().living().playerBounties() || HearthServices.law() == null) {
+			return java.util.List.of();
+		}
+		java.util.List<Outlaw> out = new java.util.ArrayList<>();
+		for (net.minecraft.server.level.ServerPlayer p : running.getPlayerList().getPlayers()) {
+			if (!p.isCreative() && !p.isSpectator() && LawBridge.outlaw(p.getUUID(), settlement)) {
+				out.add(new Outlaw(p.getUUID(), p.getName().getString(), LawBridge.bounty(p.getUUID(), settlement)));
+			}
+		}
+		return out;
+	}
+
 	@Override
 	public long marketPrice(Settlement settlement, Identifier item, int count) {
 		EconomyService economy = HearthServices.economy();

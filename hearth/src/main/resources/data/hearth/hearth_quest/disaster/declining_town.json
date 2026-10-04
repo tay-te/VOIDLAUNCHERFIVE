@@ -1,0 +1,61 @@
+{
+	"type": "disaster",
+	"weight": 10,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"declining"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"reeve",
+			"steward",
+			"lord",
+			"priest"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "pay",
+			"count": [
+				150,
+				320
+			],
+			"label": "Give {count} to the treasury of {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"{settlement} is failing",
+			"A town in need"
+		],
+		"summary": [
+			"{settlement} is in decline — trade dries up and folk are leaving. {giver} asks those who can to give to the treasury."
+		],
+		"offer": [
+			"You have seen the empty houses. The mine gave out and trade went with it; families leave every week. Give what you can to the treasury, and we may yet hold on until better days."
+		],
+		"progress": [
+			"Every coin helps."
+		],
+		"complete": [
+			"You have done more for this town than you know. We will not forget it."
+		]
+	},
+	"reward": {
+		"reputation": 14,
+		"items": [
+			{
+				"item": "minecraft:bread",
+				"count": [
+					3,
+					5
+				]
+			}
+		],
+		"deed": "hearth:quest/town_aided"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 0
+}

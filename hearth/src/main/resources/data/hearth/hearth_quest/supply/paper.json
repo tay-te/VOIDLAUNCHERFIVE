@@ -1,0 +1,54 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"paper"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"papermaker",
+			"scholar",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Paper for the {place}",
+			"Not a sheet left"
+		],
+		"summary": [
+			"The {place} in {settlement} wants its plans drawn and its accounts kept, and there is no paper. Bring {count} × {item}.",
+			"{settlement} needs {count} × {item}."
+		],
+		"offer": [
+			"I cannot draw the {place} on my thumbnail. {count} × {item}, please.",
+			"The scribes have nothing to write on. {count} × {item}?"
+		],
+		"progress": [
+			"Still no paper.",
+			"I've been writing on the walls."
+		],
+		"complete": [
+			"Good, smooth sheets.",
+			"Thank you. The ledgers can be brought up to date."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

@@ -1,0 +1,60 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"requires": [
+			"stalled"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason",
+			"carpenter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:cobblestone",
+				"minecraft:stone"
+			],
+			"count": [
+				48,
+				64
+			],
+			"label": "Haul {count} × {item} to the works"
+		}
+	],
+	"text": {
+		"title": [
+			"Stone for the works",
+			"The master builder's yard"
+		],
+		"summary": [
+			"The works of {settlement} are stalled. The master builder needs {count} × {item} hauled to the yard."
+		],
+		"offer": [
+			"Half my builds are standing still for want of stone, and the carters want paying in gold. Haul {count} × {item} to the yard, and I pay fair."
+		],
+		"progress": [
+			"The yard is still bare."
+		],
+		"complete": [
+			"That gets two builds moving again. Come back — there is always work in a growing town."
+		]
+	},
+	"reward": {
+		"coin": [
+			25,
+			45
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/official_builder"
+	},
+	"deadline_days": 0,
+	"cooldown_days": 2,
+	"repeatable": false
+}

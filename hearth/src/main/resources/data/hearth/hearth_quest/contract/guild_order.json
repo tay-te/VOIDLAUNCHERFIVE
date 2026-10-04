@@ -1,0 +1,58 @@
+{
+	"type": "contract",
+	"weight": 4,
+	"when": {
+		"trigger": "shortage",
+		"goods": [],
+		"min_title": "friend",
+		"min_tier": "village"
+	},
+	"giver": {
+		"jobs": [
+			"merchant",
+			"trader",
+			"reeve",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing*2"
+		}
+	],
+	"text": {
+		"title": [
+			"A guild contract: {item} for the {workshop}",
+			"The guild's big order"
+		],
+		"summary": [
+			"The guild of {settlement} offers its trusted suppliers a large contract: {count} × {item} for the {workshop}, at the guild's price.",
+			"A guild contract for a friend of {settlement}: {count} × {item}."
+		],
+		"offer": [
+			"The guild only gives its big contracts to folk it trusts — and you are one. {count} × {item} for the {workshop}, at a price the market never pays.",
+			"You have done right by this town. The guild wants {count} × {item}, and it pays handsomely."
+		],
+		"progress": [
+			"The guild is waiting.",
+			"Is the order coming along?"
+		],
+		"complete": [
+			"The guild will remember this.",
+			"A fine delivery. The guild thanks you."
+		]
+	},
+	"reward": {
+		"coin": [
+			20,
+			40
+		],
+		"market_premium": 1.8,
+		"reputation": 4,
+		"deed": "hearth:quest/contract_filled"
+	},
+	"cooldown_days": 3,
+	"repeatable": true
+}

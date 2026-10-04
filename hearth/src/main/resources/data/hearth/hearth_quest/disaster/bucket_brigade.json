@@ -1,0 +1,55 @@
+{
+	"type": "disaster",
+	"weight": 10,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"fire"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"builder",
+			"reeve"
+		],
+		"council_only": false
+	},
+	"turn_in": "auto",
+	"objectives": [
+		{
+			"kind": "extinguish",
+			"place": "event",
+			"label": "Join the bucket brigade and put out the fire at the {place}"
+		}
+	],
+	"text": {
+		"title": [
+			"Fire at the {place}!",
+			"The bucket brigade"
+		],
+		"summary": [
+			"The {place} in {settlement} is burning. Every hand to the buckets!"
+		],
+		"offer": [
+			"Fire! The {place} is alight and the wind is up — grab a bucket and run!"
+		],
+		"progress": [
+			"Keep the water coming!"
+		],
+		"complete": [
+			"It's out. The {place} will need mending, but the street is saved. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			30,
+			60
+		],
+		"reputation": 8,
+		"deed": "hearth:quest/fire_fought"
+	},
+	"deadline_days": 1,
+	"cooldown_days": 0,
+	"repeatable": true
+}

@@ -1,0 +1,55 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"wax"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"chandler",
+			"beekeeper",
+			"builder",
+			"priest"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Wax for the chandler",
+			"Comb for the candles"
+		],
+		"summary": [
+			"The chandler of {settlement} has no wax for the candles of the {place}. Bring {count} × {item}.",
+			"Without wax the {place} in {settlement} will stand dark. {count} × {item}, please."
+		],
+		"offer": [
+			"A new house wants light, and light wants wax. {count} × {item}, and the {place} will glow.",
+			"The hives were poor this year. {count} × {item}?"
+		],
+		"progress": [
+			"The moulds are empty.",
+			"Any comb yet?"
+		],
+		"complete": [
+			"Sweet and golden. That will make good candles.",
+			"The {place} will be lit by the feast."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

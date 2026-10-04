@@ -1,0 +1,67 @@
+{
+	"type": "disaster",
+	"weight": 10,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"collapse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"miner",
+			"quarrier",
+			"reeve"
+		]
+	},
+	"sequential": true,
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:oak_log",
+				"minecraft:spruce_log",
+				"minecraft:birch_log",
+				"minecraft:dark_oak_log"
+			],
+			"count": 8,
+			"label": "Bring {count} × {item} for pit props"
+		},
+		{
+			"kind": "rescue",
+			"place": "event",
+			"hold": 40,
+			"radius": 6,
+			"label": "Dig out {victims} — a pickaxe or shovel in hand"
+		}
+	],
+	"text": {
+		"title": [
+			"Collapse in the mine!",
+			"Trapped below"
+		],
+		"summary": [
+			"The mine at {settlement} has fallen in, and {victims} are trapped. Props first, then dig."
+		],
+		"offer": [
+			"The gallery came down an hour ago and {victims} are behind it. We need timber for props before anyone goes in — bring logs, then dig with us. Hurry!"
+		],
+		"progress": [
+			"Can you hear them? Keep digging!"
+		],
+		"complete": [
+			"They are out — bruised, coughing, alive. You have friends for life in this town."
+		]
+	},
+	"reward": {
+		"coin": [
+			100,
+			160
+		],
+		"reputation": 15,
+		"deed": "hearth:quest/miners_rescued"
+	},
+	"deadline_days": 1,
+	"cooldown_days": 0,
+	"repeatable": true
+}

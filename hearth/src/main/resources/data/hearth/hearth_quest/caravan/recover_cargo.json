@@ -1,0 +1,68 @@
+{
+	"type": "caravan",
+	"weight": 8,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_robbed"
+		],
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"trader",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				2,
+				4
+			],
+			"place": "route",
+			"along": 0.5,
+			"target_name": "the robbers",
+			"label": "Take back the {cargo} from the robbers on the {other} road",
+			"grant": {
+				"item": "minecraft:chest",
+				"name": "The stolen cargo",
+				"lore": "Marked with the seal of {settlement}",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The stolen {cargo}",
+			"Take back what was ours"
+		],
+		"summary": [
+			"Robbers took a load of {cargo} on the road between {settlement} and {other}. Get it back for {giver}."
+		],
+		"offer": [
+			"A season's {cargo}, gone to robbers on the {other} road, {distance} out. Bring it back and you will have your share of it."
+		],
+		"progress": [
+			"Any sign of the cargo?"
+		],
+		"complete": [
+			"That is ours, seal and all. Into the stores it goes — and this is yours."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			110
+		],
+		"reputation": 7,
+		"deed": "hearth:quest/cargo_recovered"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 2
+}

@@ -1,0 +1,57 @@
+{
+	"type": "disaster",
+	"weight": 4,
+	"when": {
+		"trigger": "none",
+		"requires": [
+			"!site:ore"
+		],
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"smith",
+			"smelter",
+			"miner"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "prospect",
+			"resource": "ore",
+			"distance": [
+				48,
+				400
+			],
+			"label": "Find a {site} {distance} from {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"An ore vein for {settlement}",
+			"Find us ore"
+		],
+		"summary": [
+			"{settlement} has no {site} of its own. {giver} wants one found, {distance} from the town."
+		],
+		"offer": [
+			"Every ingot I work has come a long way at a high price. Find ore showing in a cave or a cliff, {distance} out, and the town will dig its own."
+		],
+		"progress": [
+			"Any luck?"
+		],
+		"complete": [
+			"That will do very well. We open it this season."
+		]
+	},
+	"reward": {
+		"coin": [
+			50,
+			100
+		],
+		"reputation": 6,
+		"deed": "hearth:quest/site_prospected"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 6
+}

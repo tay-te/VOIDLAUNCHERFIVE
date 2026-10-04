@@ -1,0 +1,69 @@
+{
+	"type": "law",
+	"weight": 5,
+	"when": {
+		"min_tier": "village",
+		"requires": []
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"merchant",
+			"jailer"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "apprehend",
+			"entity": "minecraft:wandering_trader",
+			"names": [
+				"Pick the cutpurse",
+				"Nell Quickfingers",
+				"the Magpie",
+				"Wat the Weasel",
+				"Silent Ada",
+				"Jory Lightfoot"
+			],
+			"place": "poi:market_stall",
+			"night": true,
+			"radius": 28,
+			"label": "Watch the market of {settlement} at night and catch {name}",
+			"grant": {
+				"item": "minecraft:bundle",
+				"name": "The stolen purse",
+				"lore": "Taken from the stalls of {settlement}",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"Thief-taker",
+			"The market thief"
+		],
+		"summary": [
+			"Things go missing from the stalls of {settlement} after dark. {giver} wants the thief caught — alive."
+		],
+		"offer": [
+			"Every morning the stallholders find something gone: a purse, a bolt of cloth, a ham. Watch the market tonight, catch the thief, and bring back what they took. Alive, mind — the court wants a word."
+		],
+		"progress": [
+			"Any sign of the thief?",
+			"Another stall robbed last night."
+		],
+		"complete": [
+			"Caught at last. The stallholders will sleep tonight."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			110
+		],
+		"alive_bonus": 1.5,
+		"reputation": 6,
+		"deed": "hearth:quest/thief_taken"
+	},
+	"deadline_days": 3,
+	"cooldown_days": 3
+}

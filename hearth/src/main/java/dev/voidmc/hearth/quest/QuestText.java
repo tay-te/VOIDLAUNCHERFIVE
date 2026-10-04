@@ -27,7 +27,12 @@ public final class QuestText {
 		"days",         // days allowed
 		"recipient",    // who receives a letter or parcel
 		"culture",      // the settlement's culture ("alpine")
-		"tier"          // the settlement's size ("village")
+		"tier",         // the settlement's size ("village")
+		"other",        // another settlement a happening involves (a caravan's other end)
+		"cargo",        // what a caravan carried ("ore and timber")
+		"site",         // the kind of resource site ("quarry", "ore vein")
+		"victims",      // the folk in trouble (trapped miners' names)
+		"workshop"      // the workshop a contract supplies ("smelter")
 	);
 
 	private QuestText() {

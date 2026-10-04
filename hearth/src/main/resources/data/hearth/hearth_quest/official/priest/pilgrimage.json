@@ -1,0 +1,70 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/priest/altar_candles"
+		],
+		"min_title": "known",
+		"requires": [
+			"!declining"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"priest"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "reach",
+			"distance": [
+				300,
+				700
+			],
+			"radius": 8,
+			"names": [
+				"the old wayside shrine",
+				"the hermit's cross",
+				"the holy spring"
+			],
+			"grant": {
+				"item": "minecraft:poppy",
+				"name": "A flower from {target}",
+				"lore": "Picked at {target}, for the chapel of {settlement}",
+				"required": true
+			},
+			"label": "Make the pilgrimage to {target}, {direction} of {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"A pilgrimage",
+			"The road to {target}"
+		],
+		"summary": [
+			"The priest of {settlement} asks a pilgrim to walk to {target}, {distance} to the {direction}, and bring back a flower for the chapel."
+		],
+		"offer": [
+			"I am too old for the road now. Walk to {target} for me — {distance}, {direction} — and bring back a flower from beside it. The chapel has kept one every year since it was built."
+		],
+		"progress": [
+			"Have you been to {target}?"
+		],
+		"complete": [
+			"The chapel keeps its custom another year. Go with my blessing."
+		]
+	},
+	"reward": {
+		"coin": [
+			40,
+			80
+		],
+		"reputation": 6,
+		"deed": "hearth:quest/official_priest"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 2,
+	"repeatable": false
+}

@@ -84,6 +84,12 @@ final class QuestUi {
 			case SCOUTING -> Items.SPYGLASS;
 			case GATHERING -> Items.WHEAT;
 			case PERSONAL -> Items.POPPY;
+			case CONTRACT -> Items.WRITABLE_BOOK;
+			case CARAVAN -> Items.CHEST;
+			case LAW -> Items.IRON_BARS;
+			case DISASTER -> Items.WATER_BUCKET;
+			case OFFICIAL -> Items.BELL;
+			case CRIME -> Items.IRON_SWORD;
 		});
 	}
 
@@ -133,8 +139,8 @@ final class QuestUi {
 			return q.turnInPos;
 		}
 		return switch (o.kind) {
-			case DELIVER -> q.turnInPos;
-			case KILL, BIOME, SCOUT -> null;
+			case DELIVER, PAY -> q.turnInPos;
+			case KILL, BIOME, SCOUT, PROSPECT, HUNT -> null;
 			default -> o.pos;
 		};
 	}

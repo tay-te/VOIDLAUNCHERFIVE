@@ -23,7 +23,28 @@ public enum ObjectiveKind implements StringRepresentable {
 	/** Find a good site for a new hamlet at a distance band from the settlement. */
 	SCOUT("scout", false),
 	/** Speak with a particular resident (a message to pass on). */
-	TALK("talk", false);
+	TALK("talk", false),
+	// ---- phase 3
+	/**
+	 * A band (bandits, wolves, a robbed caravan's raiders) raised at a place when the player comes near — or partway along
+	 * the road to an escort's destination — to be killed to the last. Target: comma-separated entity ids.
+	 */
+	AMBUSH("ambush", false),
+	/**
+	 * A named culprit (a market thief, an outlaw) raised at a place, at night if asked: beaten into surrender it is taken
+	 * alive (the better reward); killed, it counts only if the quest allows it. Target: the entity id.
+	 */
+	APPREHEND("apprehend", false),
+	/** Reach trapped folk (miners under a collapse) and dig them out: stay at the place for a while. */
+	RESCUE("rescue", false),
+	/** Join the bucket brigade: every fire near the place is out while the player is there. */
+	EXTINGUISH("extinguish", false),
+	/** Find ground with a resource (exposed rock, an ore vein, a clay bank, a stand of timber) in a distance band. */
+	PROSPECT("prospect", false),
+	/** Hand coin to the town's treasury (a donation, a fine paid off). Target: empty; count: bits. */
+	PAY("pay", true),
+	/** A wanted player, killed by the hunter (only where the server allows bounties on players). */
+	HUNT("hunt", false);
 
 	public static final StringRepresentable.EnumCodec<ObjectiveKind> CODEC = StringRepresentable.fromEnum(ObjectiveKind::values);
 

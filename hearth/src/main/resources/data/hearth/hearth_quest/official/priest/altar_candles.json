@@ -1,0 +1,52 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"priest"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "minecraft:candle",
+			"count": [
+				8,
+				16
+			],
+			"label": "Bring {count} × {item} for the altar"
+		}
+	],
+	"text": {
+		"title": [
+			"Candles for the altar",
+			"Light for the chapel"
+		],
+		"summary": [
+			"The priest of {settlement} needs {count} × {item} for the altar."
+		],
+		"offer": [
+			"The feast is coming and the chapel is half dark. {count} × {item} for the altar — the chandler gives me what he can, but it is never enough."
+		],
+		"progress": [
+			"The chapel waits."
+		],
+		"complete": [
+			"Look how it glows. Bless you."
+		]
+	},
+	"reward": {
+		"coin": [
+			20,
+			40
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/official_priest"
+	},
+	"deadline_days": 0,
+	"cooldown_days": 2,
+	"repeatable": false
+}

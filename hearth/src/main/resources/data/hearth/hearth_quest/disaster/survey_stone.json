@@ -1,0 +1,58 @@
+{
+	"type": "disaster",
+	"weight": 4,
+	"when": {
+		"trigger": "none",
+		"requires": [
+			"job:mason",
+			"!site:stone"
+		],
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"mason",
+			"builder",
+			"quarrier"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "prospect",
+			"resource": "stone",
+			"distance": [
+				48,
+				400
+			],
+			"label": "Find a {site} {distance} from {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"Stone for {settlement}",
+			"Find us a quarry"
+		],
+		"summary": [
+			"{settlement} has no {site} of its own. {giver} wants one found, {distance} from the town."
+		],
+		"offer": [
+			"We buy every stone we build with, and it costs us dear. Find a good rock face near the town — {distance} out — and we will open our own quarry."
+		],
+		"progress": [
+			"Any luck?"
+		],
+		"complete": [
+			"That will do very well. We open it this season."
+		]
+	},
+	"reward": {
+		"coin": [
+			50,
+			100
+		],
+		"reputation": 6,
+		"deed": "hearth:quest/site_prospected"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 6
+}

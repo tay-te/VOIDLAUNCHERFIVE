@@ -1,0 +1,57 @@
+{
+	"type": "disaster",
+	"weight": 10,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"depleted"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"quarrier",
+			"miner",
+			"mason",
+			"forester",
+			"reeve"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "prospect",
+			"distance": [
+				48,
+				420
+			],
+			"label": "Find a new {site} {distance} from {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"A new {site} for {settlement}",
+			"The {site} is spent"
+		],
+		"summary": [
+			"The {site} of {settlement} is worked out. {giver} needs someone to find a new one, {distance} from the town."
+		],
+		"offer": [
+			"There is nothing left in the old {site} but dust and puddles. Find us another — walk the country round, and when you stand on good ground, you will know. {distance} out."
+		],
+		"progress": [
+			"Found anything?"
+		],
+		"complete": [
+			"A good find. The crew goes out tomorrow to open it. This town owes you its living."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			120
+		],
+		"reputation": 8,
+		"deed": "hearth:quest/site_prospected"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 0
+}

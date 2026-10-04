@@ -1,0 +1,55 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"meat"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"butcher",
+			"hunter",
+			"innkeeper",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Meat for the workers",
+			"An empty larder"
+		],
+		"summary": [
+			"The larders of {settlement} are empty and the {place} has a crew to feed. Bring {count} × {item}.",
+			"{settlement} wants {count} × {item} for its builders' table."
+		],
+		"offer": [
+			"Builders work on meat, not porridge. {count} × {item}, and the {place} goes on.",
+			"The hunters came back with nothing. Could you bring {count} × {item}?"
+		],
+		"progress": [
+			"The pot is thin tonight.",
+			"Still no meat?"
+		],
+		"complete": [
+			"That will make a fine stew.",
+			"The crew will cheer you at supper."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

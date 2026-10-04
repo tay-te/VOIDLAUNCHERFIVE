@@ -1,0 +1,54 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"flour"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"baker",
+			"farmer",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Wheat for the mill",
+			"No bread on the scaffold"
+		],
+		"summary": [
+			"The baker of {settlement} has no flour, and the crew on the {place} has no bread. Bring {count} × {item} to be milled.",
+			"{settlement} needs {count} × {item} for the mill."
+		],
+		"offer": [
+			"The millstones are turning on nothing. {count} × {item}, and I will have loaves for the {place} by morning.",
+			"No flour, no bread, no work on the {place}. {count} × {item}?"
+		],
+		"progress": [
+			"The mill is grinding air.",
+			"Wheat, please. The crew are grumbling."
+		],
+		"complete": [
+			"That will mill to a fine white flour.",
+			"Bread tomorrow, then. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

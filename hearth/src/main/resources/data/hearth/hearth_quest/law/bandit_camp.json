@@ -1,0 +1,71 @@
+{
+	"type": "law",
+	"weight": 6,
+	"when": {
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"hunter",
+			"reeve"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				3,
+				5
+			],
+			"distance": [
+				120,
+				260
+			],
+			"radius": 36,
+			"target_name": "bandits",
+			"label": "Break the bandit camp {direction} of {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"The bandit camp",
+			"Bandits on the road"
+		],
+		"summary": [
+			"Bandits have made camp {distance} to the {direction} of {settlement} and rob whoever passes. {giver} wants them gone."
+		],
+		"offer": [
+			"There is smoke on the hill {direction} of here most nights, and carts come in robbed. Bandits — {distance} out. Clear them off."
+		],
+		"progress": [
+			"Still robbing the carts, they are."
+		],
+		"complete": [
+			"The road is clear. Well fought."
+		]
+	},
+	"reward": {
+		"coin": [
+			90,
+			160
+		],
+		"items": [
+			{
+				"item": "minecraft:arrow",
+				"count": [
+					8,
+					16
+				]
+			}
+		],
+		"reputation": 7,
+		"deed": "hearth:quest/bandits_routed"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 4
+}

@@ -1,0 +1,54 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"specialty"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"merchant",
+			"builder",
+			"trader"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"A rarity for the {place}",
+			"Something of the land"
+		],
+		"summary": [
+			"The {place} in {settlement} is to be finished with something of the land: {count} × {item}.",
+			"{settlement} wants {count} × {item}, the pride of its country, for the {place}."
+		],
+		"offer": [
+			"Every town has its treasure, and ours goes into the {place}. {count} × {item}, if you can find them.",
+			"A finer touch for the {place}: {count} × {item}."
+		],
+		"progress": [
+			"Have you found any yet?",
+			"Still looking?"
+		],
+		"complete": [
+			"Exactly what we wanted. The {place} will be talked of.",
+			"Wonderful. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			14,
+			28
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

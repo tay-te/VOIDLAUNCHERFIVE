@@ -1,0 +1,58 @@
+{
+	"type": "contract",
+	"weight": 10,
+	"when": {
+		"trigger": "shortage",
+		"goods": [
+			"ore",
+			"fuel"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"smelter",
+			"smith",
+			"miner"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Standing order: {item} for the {workshop}",
+			"The furnace wants feeding"
+		],
+		"summary": [
+			"The {workshop} of {settlement} keeps a standing order for {goods}: {count} × {item}, paid above market, every time.",
+			"{giver} takes all the {item} anyone brings to the {workshop}: {count} wanted now."
+		],
+		"offer": [
+			"A furnace eats day and night, and our {goods} is nearly gone. Bring me {count} × {item} and there is coin in it — today, next week, whenever the stack runs low.",
+			"I will take {count} × {item} off your hands at a good price, and the same again whenever the bins run low."
+		],
+		"progress": [
+			"The furnace is banked low.",
+			"The order still stands."
+		],
+		"complete": [
+			"That will keep the fire going a while. Come back when the bins run low.",
+			"Good. The order stands, if you find more."
+		]
+	},
+	"reward": {
+		"coin": [
+			6,
+			14
+		],
+		"market_premium": 1.3,
+		"reputation": 2,
+		"deed": "hearth:quest/contract_filled"
+	},
+	"cooldown_days": 0,
+	"repeatable": true
+}

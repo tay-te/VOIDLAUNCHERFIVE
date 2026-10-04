@@ -1,0 +1,55 @@
+{
+	"type": "contract",
+	"weight": 3,
+	"when": {
+		"trigger": "shortage",
+		"goods": []
+	},
+	"giver": {
+		"jobs": [
+			"merchant",
+			"trader",
+			"reeve"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Standing order: {item}",
+			"The {workshop} is short"
+		],
+		"summary": [
+			"The {workshop} of {settlement} is short of {goods}: {count} × {item}, paid above market.",
+			"{settlement} keeps a standing order for {count} × {item} for its {workshop}."
+		],
+		"offer": [
+			"The {workshop} is short of {goods}, and the town will pay well for {count} × {item}. The order stands.",
+			"Bring {count} × {item} for the {workshop}, and come back when they run short again."
+		],
+		"progress": [
+			"Still short.",
+			"The order stands."
+		],
+		"complete": [
+			"That will do for now. Thank you.",
+			"Good. Come back when they run short."
+		]
+	},
+	"reward": {
+		"coin": [
+			6,
+			14
+		],
+		"market_premium": 1.3,
+		"reputation": 2,
+		"deed": "hearth:quest/contract_filled"
+	},
+	"cooldown_days": 0,
+	"repeatable": true
+}

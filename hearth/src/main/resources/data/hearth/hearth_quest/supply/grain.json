@@ -1,0 +1,55 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"grain"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"farmer",
+			"baker",
+			"brewer",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Grain for {settlement}",
+			"The granary is bare"
+		],
+		"summary": [
+			"The granary of {settlement} is nearly bare, and the builders of the {place} eat like horses. Bring {count} × {item}.",
+			"{settlement} needs {count} × {item} to feed the workers on its {place}."
+		],
+		"offer": [
+			"The harvest was thin and the {place} has a hungry crew. {count} × {item} would see them through.",
+			"We cannot build on empty bellies. {count} × {item}, if you have it."
+		],
+		"progress": [
+			"The bins are still empty.",
+			"Any grain yet?"
+		],
+		"complete": [
+			"That will keep the crew fed for a week.",
+			"Bless you. The granary breathes again."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

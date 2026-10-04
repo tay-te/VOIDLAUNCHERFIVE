@@ -1,0 +1,55 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"clay"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason",
+			"kiln_worker",
+			"clay_digger"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Clay for the kiln",
+			"Clay from the river bank"
+		],
+		"summary": [
+			"The brick kiln of {settlement} has burned the last of its clay. Dig {count} × {item} for the {place}.",
+			"{settlement} needs {count} × {item} for the bricks of its {place}."
+		],
+		"offer": [
+			"The kiln is hot and the moulds are empty. {count} × {item} from the river bank, and the {place} will have its bricks.",
+			"Clay — good, sticky clay. {count} × {item}. The banks downstream are thick with it."
+		],
+		"progress": [
+			"The kiln is cooling while we wait.",
+			"Any luck at the river?"
+		],
+		"complete": [
+			"Lovely and fat. It will fire well.",
+			"That will make a good many bricks. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

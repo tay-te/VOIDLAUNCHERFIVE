@@ -1,0 +1,69 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/guard/night_patrol"
+		],
+		"min_title": "known",
+		"requires": [
+			"!crime"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"jailer"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				3,
+				5
+			],
+			"distance": [
+				140,
+				280
+			],
+			"radius": 36,
+			"target_name": "bandits",
+			"label": "Clear the bandits from the road {direction} of {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"The road {direction}",
+			"Clear the road"
+		],
+		"summary": [
+			"The guard captain wants the road {direction} of {settlement} cleared of bandits."
+		],
+		"offer": [
+			"Quiet in town, thank the gods, but the road {direction} of here is another matter. There is a band of cutthroats camped {distance} out. Clear them."
+		],
+		"progress": [
+			"Still out there, are they?"
+		],
+		"complete": [
+			"The road is safe again. Good work."
+		]
+	},
+	"reward": {
+		"coin": [
+			80,
+			140
+		],
+		"reputation": 7,
+		"deed": "hearth:quest/official_guard"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 2,
+	"repeatable": false
+}

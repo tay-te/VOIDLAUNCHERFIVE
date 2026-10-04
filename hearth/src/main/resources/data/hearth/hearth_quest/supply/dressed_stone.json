@@ -1,0 +1,53 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"dressed_stone"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Cut stone for the {place}",
+			"Ashlar for the walls"
+		],
+		"summary": [
+			"The masons of {settlement} have laid their last cut stone into the {place}. {count} × {item} are needed.",
+			"The {place} in {settlement} wants dressed stone: {count} × {item}."
+		],
+		"offer": [
+			"Rubble will do for the footings, but the walls of the {place} must be square. {count} × {item}, and I pay well above market.",
+			"Our banker mason has nothing left to set. Bring {count} × {item} for the {place}?"
+		],
+		"progress": [
+			"The mortar is going off in the tub.",
+			"Still no cut stone?"
+		],
+		"complete": [
+			"Clean edges, square faces. That is proper work.",
+			"The {place} rises again tomorrow. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			10,
+			22
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

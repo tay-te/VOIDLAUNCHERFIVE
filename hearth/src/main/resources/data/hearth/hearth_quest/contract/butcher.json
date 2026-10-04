@@ -1,0 +1,60 @@
+{
+	"type": "contract",
+	"weight": 10,
+	"when": {
+		"trigger": "shortage",
+		"goods": [
+			"meat",
+			"salt",
+			"fish"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"butcher",
+			"innkeeper",
+			"tanner",
+			"fisher"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Standing order: {goods} for the {workshop}",
+			"The larder runs low"
+		],
+		"summary": [
+			"The {workshop} of {settlement} keeps a standing order for {goods}: {count} × {item}.",
+			"{giver} buys {item} for the {workshop}: {count} wanted now."
+		],
+		"offer": [
+			"Folk eat every day, and the {workshop} has little to give them. {count} × {item}, please, and come back when you have more.",
+			"I will take {count} × {item} today and the same again next week."
+		],
+		"progress": [
+			"The hooks are bare.",
+			"The order stands."
+		],
+		"complete": [
+			"That will fill the hooks a while.",
+			"Thank you. Come again."
+		]
+	},
+	"reward": {
+		"coin": [
+			6,
+			14
+		],
+		"market_premium": 1.3,
+		"reputation": 2,
+		"deed": "hearth:quest/contract_filled"
+	},
+	"cooldown_days": 0,
+	"repeatable": true
+}
