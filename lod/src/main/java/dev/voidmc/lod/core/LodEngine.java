@@ -415,7 +415,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			int z0 = TileKey.minZ(tile.key);
 			if (!src.covers(x0, z0, x0 + span, z0 + span)) {
 				// nothing known there (a server's world, away from where the player has been): nothing to draw
-				this.built.add(new Built(tile, NOTHING, new TileBuilder.Mesh(NOTHING, 0, 0, level >= TileBuilder.smoothFrom, 0, 0, 0, HIDES_NOTHING, false), ver));
+				this.built.add(new Built(tile, NOTHING, new TileBuilder.Mesh(NOTHING, 0, 0, level >= TileBuilder.smoothFrom, 0, 0, 0, HIDES_NOTHING, false, false), ver));
 				this.tilesEmpty.incrementAndGet();
 				continue;
 			}
@@ -481,6 +481,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			tile.indices = mesh.indexCount();
 			tile.firstIndex = mesh.firstIndex();
 			tile.smooth = mesh.smooth();
+			tile.compact = mesh.compact();
 			tile.minY = mesh.minY();
 			tile.maxY = mesh.maxY();
 			tile.occluders = mesh.occluders();

@@ -33,6 +33,16 @@ import java.nio.ByteOrder;
  */
 public final class TileBuilder {
 	public static final int VERTEX_BYTES = 16;
+	/**
+	 * A far blocky tile's vertex ({@link Mesh#compact}): two 32-bit words. The first is x and z (7 bits each), the
+	 * face and water flag (4 bits) and y in whole blocks (14 bits, signed); the second the colour (5 bits a channel),
+	 * the corner occlusion level (2 bits), and the light (the sun's horizon east and west, the sky's occlusion: 5 bits
+	 * each). Out there a block texture is under a pixel and so is the lowest block of a wall, so the near tiles'
+	 * material id and per-block floor shading go, and so does half the memory.
+	 */
+	public static final int COMPACT_BYTES = 8;
+	/** The first level whose blocky tiles are compact. */
+	public static final int COMPACT_FROM = 2;
 	public static final int UP = 0;
 	public static final int SMOOTH = 1;
 	/** The underside of land floating over the void. */
@@ -67,6 +77,8 @@ public final class TileBuilder {
 	private int lightX;
 	private int lightZ;
 	private int lightFlags;
+	/** Whether this build writes compact vertices ({@link #COMPACT_BYTES}). */
+	private boolean compact;
 	private ByteBuffer out = ByteBuffer.allocateDirect(128 * 1024).order(ByteOrder.nativeOrder());
 	private int vertices;
 	private int minY;
@@ -105,6 +117,7 @@ public final class TileBuilder {
 		int level = TileKey.level(key);
 		this.begin();
 		boolean smooth = level >= smoothFrom;
+		this.compact = !smooth && level >= COMPACT_FROM;
 		int indices;
 		int firstIndex = 0;
 		boolean holes = false;
@@ -131,7 +144,7 @@ public final class TileBuilder {
 			this.minY = this.maxY = 0;
 		}
 		this.out.flip();
-		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes);
+		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes, this.compact);
 	}
 
 	/**
@@ -237,6 +250,10 @@ public final class TileBuilder {
 	}
 
 	void vertex(int x, float y, int z, int flags, int top, int topAlpha, int side, int sideAlpha) {
+		if (this.compact) {
+			this.compactVertex(x, y, z, flags, top, topAlpha);
+			return;
+		}
 		if (this.out.remaining() < VERTEX_BYTES) {
 			ByteBuffer bigger = ByteBuffer.allocateDirect(this.out.capacity() * 2).order(ByteOrder.nativeOrder());
 			this.out.flip();
@@ -259,6 +276,65 @@ public final class TileBuilder {
 		}
 	}
 
+	private void compactVertex(int x, float y, int z, int flags, int top, int topAlpha) {
+		if (this.out.remaining() < COMPACT_BYTES) {
+			ByteBuffer bigger = ByteBuffer.allocateDirect(this.out.capacity() * 2).order(ByteOrder.nativeOrder());
+			this.out.flip();
+			bigger.put(this.out);
+			this.out = bigger;
+		}
+		// blocky surfaces stand on whole blocks
+		int yb = Math.max(-8192, Math.min(8191, Math.round(y)));
+		int face = flags & 15;
+		int w0 = x & 127 | (z & 127) << 7 | face << 14 | yb << 18;
+		// tops carry the corner occlusion's level; walls have no floor shading out here
+		int ao = (flags & 7) == UP ? aoLevel(topAlpha) : 0;
+		int rgb = (top >> 19 & 31) | (top >> 11 & 31) << 5 | (top >> 3 & 31) << 10;
+		int east = this.lightX >> 11 & 31, west = this.lightZ >> 11 & 31, occ = this.lightFlags >> 11 & 31;
+		int w1 = rgb | ao << 15 | east << 17 | west << 22 | occ << 27;
+		this.out.putInt(w0).putInt(w1);
+		this.vertices++;
+		if (yb < this.minY) {
+			this.minY = yb;
+		}
+		if (yb > this.maxY) {
+			this.maxY = yb;
+		}
+	}
+
+	/**
+	 * Reads vertex {@code i} of {@code mesh} back, whichever way it is packed, into {@code out}: x and z in cells, y in
+	 * eighths of a block, and the flags (face, water, void). For tests and tools.
+	 */
+	public static void decode(Mesh mesh, int i, int[] out) {
+		ByteBuffer v = mesh.vertices();
+		if (mesh.compact()) {
+			int w0 = v.getInt(i * COMPACT_BYTES);
+			out[0] = w0 & 127;
+			out[1] = (w0 >> 18) * 8;
+			out[2] = w0 >> 7 & 127;
+			out[3] = w0 >> 14 & 15;
+			return;
+		}
+		int o = i * VERTEX_BYTES;
+		out[0] = v.getShort(o) & 255;
+		out[1] = v.getShort(o + 2);
+		out[2] = v.getShort(o + 4) & 255;
+		out[3] = v.getShort(o + 6) & 255;
+	}
+
+	/** The occlusion level (0 open .. 3 darkest) whose shade {@code alpha} (255ths) is. */
+	private static int aoLevel(int alpha) {
+		int best = 0;
+		float a = alpha / 255.0F;
+		for (int l = 1; l < Colors.AO.length; l++) {
+			if (Math.abs(Colors.AO[l] - a) < Math.abs(Colors.AO[best] - a)) {
+				best = l;
+			}
+		}
+		return best;
+	}
+
 	/**
 	 * A built mesh. {@code vertices} is the builder's own buffer: copy it before building another tile.
 	 * Blocky meshes are quads drawn with the shared sequential quad index buffer; smooth meshes all share
@@ -270,15 +346,20 @@ public final class TileBuilder {
 	 * {@code holes}: a smooth mesh with void in it, which only the shader variant that discards can draw.
 	 */
 	public record Mesh(ByteBuffer vertices, int vertexCount, int indexCount, boolean smooth, int minY, int maxY, int firstIndex,
-		short[] occluders, boolean holes) {
+		short[] occluders, boolean holes, boolean compact) {
 		/** The same mesh over other vertices: the copy handed to the renderer. */
 		public Mesh withVertices(ByteBuffer vertices) {
 			return new Mesh(vertices, this.vertexCount, this.indexCount, this.smooth, this.minY, this.maxY, this.firstIndex, this.occluders,
-				this.holes);
+				this.holes, this.compact);
+		}
+
+		/** Bytes a vertex of this mesh takes. */
+		public int vertexBytes() {
+			return this.compact ? COMPACT_BYTES : VERTEX_BYTES;
 		}
 
 		public int bytes() {
-			return this.vertexCount * VERTEX_BYTES;
+			return this.vertexCount * this.vertexBytes();
 		}
 
 		/** Quads, or quad-equivalents for a smooth mesh: what the statistics count. */

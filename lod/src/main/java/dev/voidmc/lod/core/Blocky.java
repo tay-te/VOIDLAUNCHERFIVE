@@ -70,6 +70,10 @@ final class Blocky {
 	private boolean cells() {
 		Samples s = this.s;
 		double centre = s.cell == 1 ? 0.5 : 0;
+		// Heights in steps of a quarter of a cell: where cells are a few pixels across, a smaller step is under a
+		// pixel, and neighbours that come out level need no wall between them and merge their tops. Rounded up,
+		// so the surface never sinks below the ground it stands for.
+		int q = Math.max(1, s.cell / 4);
 		boolean floating = false;
 		for (int j = -1; j <= N; j++) {
 			for (int i = -1; i <= N; i++) {
@@ -81,6 +85,7 @@ final class Blocky {
 					continue;
 				}
 				int g = (int) Math.ceil(s.ground[k] - 1e-3F);
+				g = Math.ceilDiv(g, q) * q;
 				this.ground[k] = g;
 				this.base[k] = Float.isInfinite(s.bottom[k]) ? DEEP : Math.min(g - 1, (int) Math.floor(s.bottom[k]));
 				floating |= this.base[k] != DEEP && i >= 0 && j >= 0 && i < N && j < N;
@@ -99,8 +104,12 @@ final class Blocky {
 				this.color[k] = s.top[k] & COLOR_MASK;
 				if (s.canopy[k] > 0) {
 					float h = Trees.crown(s.x(i) + centre, s.z(j) + centre, s.canopy[k], s.cover[k], s.crown[k], s.conifer[k], this.shade);
-					if (h >= 1) {
-						this.top[k] = g + Math.max(1, Math.round(h));
+					int height = q == 1 ? Math.max(1, Math.round(h)) : Math.round(h / q) * q;
+					if (h >= 1 && height == 0) {
+						// a crown lower than a step: the forest's roof, flat, in its leaves' colour
+						this.color[k] = Colors.scale(s.leaves[k], this.shade[0] * 1.15F) & COLOR_MASK;
+					} else if (h >= 1) {
+						this.top[k] = g + height;
 						// one tree's leaves in full light: the looks' colour is a whole crown's, self-shading included
 						int leaves = Colors.scale(s.leaves[k], this.shade[0] * 1.15F);
 						// its top as it is from above: in a cold forest, the snow on the boughs

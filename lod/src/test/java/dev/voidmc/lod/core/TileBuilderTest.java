@@ -330,9 +330,9 @@ class TileBuilderTest {
 		// close in, individual crowns: as tall as the trees, give or take a quarter
 		int crowns = builder().build(forest, TileKey.of(0, 0, 0)).maxY();
 		assertTrue(crowns >= 78 && crowns <= 86, "crowns top out at " + crowns);
-		// far out too, crowns, as tall as the trees
+		// far out too, crowns, as tall as the trees within a step (a quarter of a 64-block cell, heights rounded up)
 		int far = builder().build(forest, TileKey.of(6, 0, 0)).maxY();
-		assertTrue(far >= 78 && far <= 86, "far crowns top out at " + far);
+		assertTrue(far >= 78 && far <= 70 + 12 + 2 * 16, "far crowns top out at " + far);
 		// and drawn smooth, a canopy as high as a dense forest stands
 		smoothFar(() -> assertEquals(70 + Math.round(Smooth.blanket(12, 1)), builder().build(forest, TileKey.of(6, 0, 0)).maxY(), 1));
 	}

@@ -90,65 +90,73 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private static final int INSTANCE_BYTES = 16;
 	private static final int COMMAND_BYTES = 20;
 
-	private static final RenderPipeline.Snippet SNIPPET = RenderPipeline.builder(RenderPipelines.GLOBALS_SNIPPET)
-		.withBindGroupLayout(BindGroupLayouts.PROJECTION)
-		.withBindGroupLayout(BindGroupLayouts.FOG)
-		.withBindGroupLayout(BindGroupLayouts.SAMPLER2)
-		.withBindGroupLayout(LOD_INFO)
-		.withVertexShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"))
-		.withFragmentShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"))
-		.withVertexBinding(0, VERTEX)
-		.withVertexBinding(1, INSTANCE)
-		.withPrimitiveTopology(PrimitiveTopology.QUADS)
-		.withDepthStencilState(DepthStencilState.DEFAULT)
-		.withColorTargetState(ColorTargetState.DEFAULT)
-		.buildSnippet();
-	public static final RenderPipeline PIPELINE = RenderPipeline.builder(SNIPPET)
-		.withLocation(Identifier.fromNamespaceAndPath("void_lod", "pipeline/lod"))
+	/** A far blocky tile's vertex: two packed words ({@link TileBuilder#COMPACT_BYTES}). */
+	public static final VertexFormat COMPACT = VertexFormat.builder(0)
+		.addAttribute("LodPacked", GpuFormat.RG32_UINT)
 		.build();
-	public static final RenderPipeline PIPELINE_CLIPPED = RenderPipeline.builder(SNIPPET)
-		.withLocation(Identifier.fromNamespaceAndPath("void_lod", "pipeline/lod_clipped"))
-		.withShaderDefine("LOD_CLIP")
-		.build();
-	public static final RenderPipeline PIPELINE_SMOOTH = RenderPipeline.builder(SNIPPET)
-		.withLocation(Identifier.fromNamespaceAndPath("void_lod", "pipeline/lod_smooth"))
-		.withShaderDefine("LOD_SMOOTH")
-		.withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
-		.build();
-	public static final RenderPipeline PIPELINE_SMOOTH_CLIPPED = RenderPipeline.builder(SNIPPET)
-		.withLocation(Identifier.fromNamespaceAndPath("void_lod", "pipeline/lod_smooth_clipped"))
-		.withShaderDefine("LOD_SMOOTH")
-		.withShaderDefine("LOD_CLIP")
-		.withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
-		.build();
+
+	/** Kinds of tile, each its own vertex layout or topology: near blocky, smooth, far blocky (compact). */
+	private static final int BLOCKY = 0, SMOOTH = 1, COMPACT_KIND = 2;
+
+	private static RenderPipeline.Snippet snippet(VertexFormat vertices) {
+		return RenderPipeline.builder(RenderPipelines.GLOBALS_SNIPPET)
+			.withBindGroupLayout(BindGroupLayouts.PROJECTION)
+			.withBindGroupLayout(BindGroupLayouts.FOG)
+			.withBindGroupLayout(BindGroupLayouts.SAMPLER2)
+			.withBindGroupLayout(LOD_INFO)
+			.withVertexShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"))
+			.withFragmentShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"))
+			.withVertexBinding(0, vertices)
+			.withVertexBinding(1, INSTANCE)
+			.withPrimitiveTopology(PrimitiveTopology.QUADS)
+			.withDepthStencilState(DepthStencilState.DEFAULT)
+			.withColorTargetState(ColorTargetState.DEFAULT)
+			.buildSnippet();
+	}
 
 	/**
-	 * The same four variants for drawing over a shader pack's finished picture: haze fades into what the pack
-	 * drew behind each pixel (Sampler1, a copy of its picture) instead of into vanilla's fog colour.
+	 * Every variant, by kind of tile, whether it is dithered (in the seam with the chunks, fading, or with void in
+	 * it: the only variants with {@code discard}) and whether it draws over a shader pack's finished picture (haze
+	 * fading into what the pack drew behind each pixel, Sampler1, instead of into vanilla's fog colour).
 	 */
-	private static final RenderPipeline[] OVER_PACK = {
-		overPack("lod", false, false), overPack("lod_clipped", false, true),
-		overPack("lod_smooth", true, false), overPack("lod_smooth_clipped", true, true),
-	};
+	private static final RenderPipeline[] PIPELINES = new RenderPipeline[12];
 
-	private static RenderPipeline overPack(String name, boolean smooth, boolean clipped) {
-		RenderPipeline.Builder builder = RenderPipeline.builder(SNIPPET)
-			.withLocation(Identifier.fromNamespaceAndPath("void_lod", "pipeline/" + name + "_over_pack"))
-			.withBindGroupLayout(BindGroupLayouts.SAMPLER1)
-			.withShaderDefine("LOD_OVER_PACK");
-		if (smooth) {
-			builder.withShaderDefine("LOD_SMOOTH").withPrimitiveTopology(PrimitiveTopology.TRIANGLES);
+	static {
+		RenderPipeline.Snippet full = snippet(VERTEX), compact = snippet(COMPACT);
+		String[] names = {"lod", "lod_smooth", "lod_compact"};
+		for (int kind = 0; kind < 3; kind++) {
+			for (int variant = 0; variant < 4; variant++) {
+				boolean clipped = (variant & 2) != 0, overPack = (variant & 1) != 0;
+				RenderPipeline.Builder b = RenderPipeline.builder(kind == COMPACT_KIND ? compact : full)
+					.withLocation(Identifier.fromNamespaceAndPath("void_lod",
+						"pipeline/" + names[kind] + (clipped ? "_clipped" : "") + (overPack ? "_over_pack" : "")));
+				if (kind == SMOOTH) {
+					b.withShaderDefine("LOD_SMOOTH").withPrimitiveTopology(PrimitiveTopology.TRIANGLES);
+				}
+				if (kind == COMPACT_KIND) {
+					b.withShaderDefine("LOD_COMPACT");
+				}
+				if (clipped) {
+					b.withShaderDefine("LOD_CLIP");
+				}
+				if (overPack) {
+					b.withBindGroupLayout(BindGroupLayouts.SAMPLER1).withShaderDefine("LOD_OVER_PACK");
+				}
+				PIPELINES[kind * 4 + variant] = b.build();
+			}
 		}
-		if (clipped) {
-			builder.withShaderDefine("LOD_CLIP");
-		}
-		return builder.build();
+	}
+
+	static RenderPipeline pipeline(int kind, boolean clipped, boolean overPack) {
+		return PIPELINES[kind * 4 + (clipped ? 2 : 0) + (overPack ? 1 : 0)];
 	}
 
 	private final LodEngine engine;
 	private final GpuDevice device;
 	private final StagingBuffer staging;
 	private final UberGpuBuffer<Tile> arena;
+	/** The far blocky tiles' meshes, in compact vertices: heaps of their own, since a heap has one vertex size. */
+	private final UberGpuBuffer<Tile> compactArena;
 	private final boolean indirect;
 	private final boolean firstInstance;
 	private final int maxIndirect;
@@ -213,16 +221,16 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		static final int DRAW_INTS = 4;
 
 		final GpuBuffer heap;
-		final boolean smooth;
+		final int kind;
 		final boolean clipped;
 		/** This frame's draws, {@value #DRAW_INTS} ints each: index count, first index, base vertex, instance. */
 		int[] draws = new int[DRAW_INTS * 64];
 		int count;
 		int firstCommand;
 
-		Group(GpuBuffer heap, boolean smooth, boolean clipped) {
+		Group(GpuBuffer heap, int kind, boolean clipped) {
 			this.heap = heap;
-			this.smooth = smooth;
+			this.kind = kind;
 			this.clipped = clipped;
 		}
 
@@ -239,10 +247,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		}
 
 		RenderPipeline pipeline(boolean overPack) {
-			if (overPack) {
-				return OVER_PACK[(this.smooth ? 2 : 0) + (this.clipped ? 1 : 0)];
-			}
-			return this.smooth ? (this.clipped ? PIPELINE_SMOOTH_CLIPPED : PIPELINE_SMOOTH) : (this.clipped ? PIPELINE_CLIPPED : PIPELINE);
+			return LodRenderer.pipeline(this.kind, this.clipped, overPack);
 		}
 	}
 
@@ -252,6 +257,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		this.device = RenderSystem.getDevice();
 		this.staging = StagingBuffer.create("VOID LOD", this.device, 16 << 20);
 		this.arena = new UberGpuBuffer<>("VOID LOD", GpuBuffer.USAGE_VERTEX, 64 << 20, TileBuilder.VERTEX_BYTES, this.staging);
+		this.compactArena = new UberGpuBuffer<>("VOID LOD far", GpuBuffer.USAGE_VERTEX, 64 << 20, TileBuilder.COMPACT_BYTES, this.staging);
 		DeviceInfo info = this.device.getDeviceInfo();
 		this.maxIndirect = info.limits().maxDrawIndirectDrawCount();
 		this.firstInstance = info.features().nonZeroFirstInstance();
@@ -295,7 +301,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 
 	@Override
 	public boolean upload(Tile tile, ByteBuffer vertices) {
-		if (!this.arena.addAllocation(tile, this.engine::uploaded, vertices)) {
+		if (!this.arena(tile).addAllocation(tile, this.engine::uploaded, vertices)) {
 			return false;
 		}
 		// marks the tile as holding arena space, so eviction and resets give it back
@@ -305,8 +311,16 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 
 	@Override
 	public void free(Tile tile) {
-		this.arena.removeAllocation(tile);
+		this.arena(tile).removeAllocation(tile);
 		tile.gpu = null;
+	}
+
+	private UberGpuBuffer<Tile> arena(Tile tile) {
+		return tile.compact ? this.compactArena : this.arena;
+	}
+
+	private static int kind(Tile tile) {
+		return tile.smooth ? SMOOTH : tile.compact ? COMPACT_KIND : BLOCKY;
 	}
 
 	// ---- per frame ----------------------------------------------------------------------------------------
@@ -349,6 +363,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		long t2 = System.nanoTime();
 		try (StagingBuffer.Uploader uploader = this.staging.startUploading(encoder)) {
 			this.arena.uploadStagedAllocations(this.device, uploader);
+			this.compactArena.uploadStagedAllocations(this.device, uploader);
 		}
 		long t3 = System.nanoTime();
 		this.lastStagingNanos = t3 - t2;
@@ -370,7 +385,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			if (tile == null || tile.quads == 0) {
 				continue;
 			}
-			TlsfAllocator.Allocation alloc = this.arena.getAllocation(tile);
+			TlsfAllocator.Allocation alloc = this.arena(tile).getAllocation(tile);
 			if (alloc == null) {
 				continue;
 			}
@@ -417,12 +432,13 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 				continue;
 			}
 			int level = TileKey.level(tile.key);
-			GpuBuffer heap = this.arena.getGpuBuffer(alloc);
-			Group group = this.group(heap, tile.smooth, this.inViewClipped[c]);
+			GpuBuffer heap = this.arena(tile).getGpuBuffer(alloc);
+			Group group = this.group(heap, kind(tile), this.inViewClipped[c]);
 			int instance = this.lastTiles++;
 			this.ensureInstances(instance + 1);
 			this.instances.putInt(TileKey.minX(tile.key)).putInt(TileKey.minZ(tile.key)).putInt(level).putInt(this.inViewFade[c]);
-			group.add(tile.indices, tile.firstIndex, (int) (alloc.getOffsetFromHeap() / TileBuilder.VERTEX_BYTES), instance);
+			int stride = tile.compact ? TileBuilder.COMPACT_BYTES : TileBuilder.VERTEX_BYTES;
+			group.add(tile.indices, tile.firstIndex, (int) (alloc.getOffsetFromHeap() / stride), instance);
 			if (!tile.smooth) {
 				maxQuads = Math.max(maxQuads, tile.quads);
 			}
@@ -474,14 +490,14 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	 * Groups are kept from frame to frame, so only a new heap or variant makes one; the groups left empty go
 	 * then, so a heap the arena has let go of is not held.
 	 */
-	private Group group(GpuBuffer heap, boolean smooth, boolean clipped) {
+	private Group group(GpuBuffer heap, int kind, boolean clipped) {
 		for (Group g : this.order) {
-			if (g.heap == heap && g.smooth == smooth && g.clipped == clipped) {
+			if (g.heap == heap && g.kind == kind && g.clipped == clipped) {
 				return g;
 			}
 		}
 		this.order.removeIf(g -> g.count == 0);
-		Group g = new Group(heap, smooth, clipped);
+		Group g = new Group(heap, kind, clipped);
 		this.order.add(g);
 		return g;
 	}
@@ -548,7 +564,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 				continue;
 			}
 			pass.setPipeline(RenderSystem.getCompiledPipeline(group.pipeline(overPack)));
-			if (group.smooth) {
+			if (group.kind == SMOOTH) {
 				pass.setIndexBuffer(this.gridIndices, IndexType.SHORT);
 			} else {
 				pass.setIndexBuffer(this.indexBuffer, this.indexType);
@@ -605,6 +621,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		}
 		this.gridIndices.close();
 		this.arena.close();
+		this.compactArena.close();
 		this.staging.close();
 		MemoryUtil.memFree(this.instances);
 		MemoryUtil.memFree(this.commands);

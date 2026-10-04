@@ -26,6 +26,8 @@ public final class Tile {
 	/** Where the tile's indices start in the index buffer it is drawn with: a flat smooth tile's are past the grid's. */
 	public int firstIndex;
 	public boolean smooth;
+	/** A far blocky tile with compact vertices ({@link TileBuilder#COMPACT_BYTES}). */
+	public boolean compact;
 	/** A smooth tile with void in it (between End islands): drawn with the shader variant that cuts it out. */
 	public boolean holes;
 	public int minY;
@@ -57,6 +59,6 @@ public final class Tile {
 	}
 
 	public int bytes() {
-		return this.vertices * TileBuilder.VERTEX_BYTES;
+		return this.vertices * (this.compact ? TileBuilder.COMPACT_BYTES : TileBuilder.VERTEX_BYTES);
 	}
 }

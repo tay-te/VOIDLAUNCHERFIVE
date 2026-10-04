@@ -95,20 +95,21 @@ class HorizonTest {
 				this.grid = TileKey.TILE;
 				this.heights = new float[TileKey.TILE * TileKey.TILE];
 				java.util.Arrays.fill(this.heights, Float.NaN);
+				int[] d = new int[4];
 				for (int q = 0; q < mesh.vertexCount() / 4; q++) {
-					int o = q * 4 * TileBuilder.VERTEX_BYTES;
-					if ((v.getShort(o + 6) & 7) != TileBuilder.UP) {
+					TileBuilder.decode(mesh, q * 4, d);
+					if ((d[3] & 7) != TileBuilder.UP) {
 						continue;
 					}
+					float y = d[1] / 8.0F;
 					int x0 = Integer.MAX_VALUE, x1 = Integer.MIN_VALUE, z0 = Integer.MAX_VALUE, z1 = Integer.MIN_VALUE;
 					for (int c = 0; c < 4; c++) {
-						int p = o + c * TileBuilder.VERTEX_BYTES;
-						x0 = Math.min(x0, v.getShort(p));
-						x1 = Math.max(x1, v.getShort(p));
-						z0 = Math.min(z0, v.getShort(p + 4));
-						z1 = Math.max(z1, v.getShort(p + 4));
+						TileBuilder.decode(mesh, q * 4 + c, d);
+						x0 = Math.min(x0, d[0]);
+						x1 = Math.max(x1, d[0]);
+						z0 = Math.min(z0, d[2]);
+						z1 = Math.max(z1, d[2]);
 					}
-					float y = v.getShort(o + 2) / 8.0F;
 					for (int j = z0; j < z1; j++) {
 						for (int i = x0; i < x1; i++) {
 							this.heights[i + j * TileKey.TILE] = y;

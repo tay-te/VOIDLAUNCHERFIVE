@@ -13,12 +13,19 @@
 // in 255ths of a right angle, and how much of the sky the land around hides. Blocky faces use the first colour,
 // with ambient occlusion (tops) or height above the floor (walls) in its alpha. Smooth vertices carry the colour of
 // the tops and of the risers, with the slope along x and z in the two alphas.
+// Far blocky tiles (LOD_COMPACT) pack the same in two words (TileBuilder.COMPACT_BYTES): x, z, face and water, y in
+// whole blocks; then the colour in 5 bits a channel, the corner occlusion level and the light in 5 bits each.
 // Per tile (one instance each): its corner in blocks, its level, and its cross-fade (Fades: 0 solid, +n fading in,
 // -n fading out, in 255ths).
+#ifdef LOD_COMPACT
+layout(location = 0) in uvec2 LodPacked;
+layout(location = 1) in ivec4 LodTile;
+#else
 layout(location = 0) in ivec4 LodPos;
 layout(location = 1) in vec4 LodTop;
 layout(location = 2) in vec4 LodSide;
 layout(location = 3) in ivec4 LodTile;
+#endif
 
 uniform sampler2D Sampler2;
 
@@ -57,22 +64,50 @@ float haze(vec3 pos, float worldY) {
 }
 
 void main() {
+    // The vertex, whichever way it is packed: cell x and z, y in eighths, flags; the colours; the light (the sun's
+    // horizon east and west, in radians, and the share of the sky the land hides).
+    ivec4 vpos;
+    vec4 top;
+    vec4 side;
+    float horizonEast, horizonWest, skyHidden;
+#ifdef LOD_COMPACT
+    uint w0 = LodPacked.x, w1 = LodPacked.y;
+    vpos = ivec4(int(w0 & 127u), (int(w0) >> 18) * 8, int((w0 >> 7) & 127u), int((w0 >> 14) & 15u));
+    // a top's alpha is its corner occlusion, one of vanilla's four shades; a wall's floor shading is under a pixel
+    const float AO[4] = float[4](1.0, 0.8, 0.62, 0.48);
+    top = vec4(vec3(float(w1 & 31u), float((w1 >> 5) & 31u), float((w1 >> 10) & 31u)) / 31.0,
+        (vpos.w & 7) == 0 ? AO[(w1 >> 15) & 3u] : 1.0);
+    side = vec4(0.0);
+    // 5 bits of what was 8: the middle of each step, and none for none
+    uint e = (w1 >> 17) & 31u, w = (w1 >> 22) & 31u, o = w1 >> 27;
+    horizonEast = e == 0u ? 0.0 : float(e * 8u + 4u) * (1.5707963 / 255.0);
+    horizonWest = w == 0u ? 0.0 : float(w * 8u + 4u) * (1.5707963 / 255.0);
+    skyHidden = o == 0u ? 0.0 : float(o * 8u + 4u) / 255.0;
+#else
+    vpos = ivec4(LodPos.x & 255, LodPos.y, LodPos.z & 255, LodPos.w & 255);
+    top = LodTop;
+    side = LodSide;
+    horizonEast = float((LodPos.x >> 8) & 255) * (1.5707963 / 255.0);
+    horizonWest = float((LodPos.z >> 8) & 255) * (1.5707963 / 255.0);
+    skyHidden = float((LodPos.w >> 8) & 255) / 255.0;
+#endif
+
     // Integer arithmetic until the camera is subtracted, so the far edge of the world keeps its precision.
     int cell = 1 << LodTile.z;
-    float worldY = float(LodPos.y) * 0.125;
-    ivec2 rel = ivec2(LodTile.x + (LodPos.x & 255) * cell, LodTile.y + (LodPos.z & 255) * cell) - CameraBlockPos.xz;
+    float worldY = float(vpos.y) * 0.125;
+    ivec2 rel = ivec2(LodTile.x + vpos.x * cell, LodTile.y + vpos.z * cell) - CameraBlockPos.xz;
     vec3 pos = vec3(float(rel.x), worldY - float(CameraBlockPos.y), float(rel.y)) + CameraOffset;
     gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
     vec3 toCamera = normalize(-pos);
 
-    int face = LodPos.w & 7;
+    int face = vpos.w & 7;
     vec3 color;
     vec3 light = sample_lightmap(Sampler2, ivec2(0, 240)).rgb;
 #ifdef LOD_SMOOTH
     // A stair of blocks seen from afar: tops in the top colour, risers in the side colour, each weighted by the
     // area it shows the camera. From above a hillside is its grass, from across the valley mostly its risers,
     // and a slope above the eye shows no tops at all. The fragment shader lays these out as columns of blocks.
-    vec2 slope = vec2(decodeSlope(LodTop.a), decodeSlope(LodSide.a));
+    vec2 slope = vec2(decodeSlope(top.a), decodeSlope(side.a));
     vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
     float wt = n.y * max(toCamera.y, 0.0) + 0.002;
     float wx = abs(n.x) * max(sign(n.x) * toCamera.x, 0.0);
@@ -83,22 +118,22 @@ void main() {
     // it fades in past the first kilometre or so, where relief is all a range shows.
     float toward = clamp(dot(n, LodSun.xyz) - LodSun.y, -0.6, 0.6);
     float relief = 1.0 + 0.35 * LodSun.w * smoothstep(400.0, 1800.0, length(pos.xz)) * toward;
-    color = LodTop.rgb * relief;
-    sideColor = LodSide.rgb * light * relief;
+    color = top.rgb * relief;
+    sideColor = side.rgb * light * relief;
     stair = vec4(wx / w, wz / w, slope);
     surfaceY = worldY;
 #ifdef LOD_CLIP
-    solid = (LodPos.w & 16) != 0 ? 0.0 : 1.0;
+    solid = (vpos.w & 16) != 0 ? 0.0 : 1.0;
 #endif
 #else
     // Minecraft's own directional shading: tops full, north and south a little darker, east and west more,
     // undersides (of End islands) darkest.
-    color = LodTop.rgb * (face == 0 ? 1.0 : (face <= 3 ? 0.8 : (face <= 5 ? 0.6 : 0.5)));
+    color = top.rgb * (face == 0 ? 1.0 : (face <= 3 ? 0.8 : (face <= 5 ? 0.6 : 0.5)));
     vec3 normal = face == 0 ? vec3(0.0, 1.0, 0.0) : face == 2 ? vec3(0.0, 0.0, -1.0) : face == 3 ? vec3(0.0, 0.0, 1.0)
         : face == 4 ? vec3(-1.0, 0.0, 0.0) : face == 5 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, -1.0, 0.0);
     // just inside the block the face belongs to, so floor() names that block
     blockPos = vec3(float(rel.x), worldY - float(CameraBlockPos.y), float(rel.y)) - 0.5 * normal;
-    occlusion = face == 0 ? vec2(LodTop.a, 64.0) : vec2(1.0, LodTop.a * 255.0);
+    occlusion = face == 0 ? vec2(top.a, 64.0) : vec2(1.0, top.a * 255.0);
 #endif
 
     // Full sky light, through the lightmap: the LOD darkens at dusk and night exactly as the chunks do.
@@ -110,12 +145,11 @@ void main() {
     // as wide as the sun and the haze make it.
     float beyond = smoothstep(LodClip.x, LodClip.x + 384.0, length(pos.xz));
     float sunElevation = asin(clamp(LodSun.y, -1.0, 1.0));
-    float horizon = float(((LodSun.x > 0.0 ? LodPos.x : LodPos.z) >> 8) & 255) * (1.5707963 / 255.0);
+    float horizon = LodSun.x > 0.0 ? horizonEast : horizonWest;
     float sunlit = smoothstep(horizon - 0.03, horizon + 0.03, sunElevation);
-    float skyHidden = float((LodPos.w >> 8) & 255) / 255.0;
     color *= mix(1.0, mix(0.55, 1.0, sunlit), LodSun.w * beyond) * (1.0 - 0.6 * skyHidden * beyond);
 
-    if ((LodPos.w & 8) != 0) {
+    if ((vpos.w & 8) != 0) {
         // Water at a low angle mirrors the sky, right up to the seam: vanilla's own water there, seen as low,
         // shows the sky through it (its bed is out of the chunks' reach), so the two meet in the same colour.
         // Walls of water (the skirts under a tile's edge) too, as they show through vanilla's water. At night
