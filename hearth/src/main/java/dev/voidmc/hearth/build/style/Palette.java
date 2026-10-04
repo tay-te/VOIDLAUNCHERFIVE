@@ -17,12 +17,26 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Palette {
 	private final List<Entry> entries;
+	/** Patches laid over the main mix in clusters (a hovel's mended roof), whatever material was chosen; may be empty. */
+	private final List<Entry> patches;
+	/** The share of positions the patches take (0–1). */
+	private final double patchShare;
 
 	public Palette(List<Entry> entries) {
+		this(entries, List.of(), 0);
+	}
+
+	/**
+	 * A palette with patches: materials laid over the main mix in clusters on about {@code patchShare} of the positions,
+	 * kept through {@link #chooseOne} (a mended roof is mended whichever shingle the house chose).
+	 */
+	public Palette(List<Entry> entries, List<Entry> patches, double patchShare) {
 		if (entries.isEmpty()) {
 			throw new IllegalArgumentException("a palette needs at least one material");
 		}
 		this.entries = List.copyOf(entries);
+		this.patches = List.copyOf(patches);
+		this.patchShare = patches.isEmpty() ? 0 : Math.clamp(patchShare, 0, 1);
 	}
 
 	public static Palette of(Material material) {
@@ -33,12 +47,57 @@ public final class Palette {
 		return this.entries;
 	}
 
+	public List<Entry> patches() {
+		return this.patches;
+	}
+
+	public double patchShare() {
+		return this.patchShare;
+	}
+
+	/** This palette with patches laid over it (see {@link #Palette(List, List, double)}). */
+	public Palette withPatches(List<Entry> patches, double share) {
+		return new Palette(this.entries, patches, share);
+	}
+
+	/**
+	 * This palette weathered more ({@code factor > 1}) or less: entries with a ground or north bias (moss, cracks, damp
+	 * stone) gain or lose weight and bias by the factor, entries with an eaves bias (clean, dressed) the other way. A
+	 * lord's walls come out clean, a hovel's green with moss.
+	 */
+	public Palette weathered(double factor) {
+		if (Math.abs(factor - 1) < 1e-6 || this.entries.size() == 1) {
+			return this;
+		}
+		List<Entry> out = new java.util.ArrayList<>();
+		for (int i = 0; i < this.entries.size(); i++) {
+			Entry e = this.entries.get(i);
+			boolean weather = e.low() > 0 || e.north() > 0;
+			if (weather && i > 0) {
+				out.add(new Entry(e.material(), e.weight() * factor, e.low() * factor, e.high(), e.north() * factor, e.corner()));
+			} else if (e.high() > 0 && i > 0) {
+				double f = Math.sqrt(1 / factor);
+				out.add(new Entry(e.material(), e.weight() * f, e.low(), e.high() * f, e.north(), e.corner()));
+			} else {
+				out.add(e);
+			}
+		}
+		return new Palette(out, this.patches, this.patchShare);
+	}
+
 	/**
 	 * This palette with one material chosen by weight (deterministically from {@code seed}) put first and the others
 	 * kept only as fallbacks for forms the chosen one cannot cut.
 	 */
 	public Palette chooseOne(long seed) {
 		if (this.entries.size() == 1) {
+			return this;
+		}
+		double sum = 0;
+		for (Entry e : this.entries) {
+			sum += Math.max(0, e.weight());
+		}
+		if (sum <= 0) {
 			return this;
 		}
 		double total = 0;
@@ -63,7 +122,7 @@ public final class Palette {
 				out.add(new Entry(e.material(), 0, 0, 0, 0, 0));
 			}
 		}
-		return new Palette(out);
+		return new Palette(out, this.patches, this.patchShare);
 	}
 
 	/** The first material, the role's main one (what a single-block decision such as a door uses). */
@@ -97,6 +156,21 @@ public final class Palette {
 
 	/** {@link #pick} with the share of patch noise (0 = block by block, 1 = in patches). */
 	public @Nullable Block pick(Form form, long seed, int x, int y, int z, double low, double high, double north, double corner, double patchiness) {
+		if (!this.patches.isEmpty()) {
+			// patches come in clusters of a few blocks, on their own noise
+			double patch = Noise.value(seed ^ 0x9A7C4E5L, x / 1.8, y / 1.4, z / 1.8);
+			double grain = Noise.unit(seed ^ 0x9A7C4E7L, x, y, z);
+			double n = uniform(0.8 * patch + 0.2 * grain, 0.8);
+			if (n < this.patchShare) {
+				int i = (int) (Noise.unit(seed ^ 0x9A7C4E6L, x >> 1, y >> 1, z >> 1) * this.patches.size());
+				for (int k = 0; k < this.patches.size(); k++) {
+					Block b = this.patches.get((i + k) % this.patches.size()).material().block(form);
+					if (b != null) {
+						return b;
+					}
+				}
+			}
+		}
 		if (this.entries.size() == 1) {
 			return this.entries.get(0).material().block(form);
 		}

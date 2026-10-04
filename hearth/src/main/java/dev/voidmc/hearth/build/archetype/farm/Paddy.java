@@ -245,6 +245,10 @@ public final class Paddy implements Archetype {
 			int ma = (t.plantFrom(big) + t.plantTo(big)) / 2;
 			int mc = (t.acrossMin() + t.acrossMax()) / 2 + (t.access() <= 1 ? 1 : -1);
 			int[] m = t.cell(ma, mc);
+			// not on the shelter's pad, where its arms would bar the way in
+			if (shed != null && m[0] + 1 >= shed[0] && m[0] - 1 <= shed[2] && m[1] >= shed[1] - 2 && m[1] <= shed[3]) {
+				return;
+			}
 			try (var s = d.stage(StageKind.EXTERIOR)) {
 				d.set(m[0], big.level() - 1, m[1], Blocks.MUD.defaultBlockState());
 				d.remove(m[0], big.level(), m[1]);

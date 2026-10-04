@@ -1,0 +1,30 @@
+// Gradle init script: registers `styleSheets` (the style bible's reference renders) without touching the shared build
+// files. From hearth/:
+//
+//   ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=dress -Pstyle=temperate
+//   ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=stations -Pstyle=all
+//   ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=regions -Pstyle=all
+//   ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=local -Pstyle=temperate "-Pparams=wood=minecraft:birch,stone=expanse:limestone"
+//   ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=street -Pstyle=temperate
+//
+// Optional: -Pvariants=-1,0,4 (dress mode), -Pterrain=slope, -Pparams=tier=3,... Output: build/previews/styles/*.png.
+// See dev.voidmc.hearth.gametest.styles.StyleSheets.
+rootProject { p ->
+	p.afterEvaluate {
+		p.tasks.register('styleSheets', JavaExec) {
+			group = 'hearth'
+			description = 'Renders the style bible sheets to build/previews/styles/*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.styles.StyleSheets'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx3g'
+			args = [
+				p.findProperty('mode') ?: 'dress',
+				p.findProperty('style') ?: 'temperate',
+				p.layout.buildDirectory.dir('previews/styles').get().asFile.path,
+				p.findProperty('variants') ?: 'all',
+				p.findProperty('terrain') ?: 'flat',
+				p.findProperty('params') ?: ''
+			]
+		}
+	}
+}

@@ -1,6 +1,7 @@
 {
 	"culture": "moorland",
 	"name": "Moorland: rubble-stone cottages under slate, coped gables, dry-stone walls and heather",
+	"base_name": "rubble cottage",
 	"roles": {
 		"foundation": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 2, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1}],
 		"plinth": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}],
@@ -15,7 +16,7 @@
 		"gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 2}],
 		"window": ["minecraft:stone_bricks"],
 		"glass": ["minecraft:glass_pane"],
-		"door": ["wood:minecraft:spruce"],
+		"door": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:warped", "w": 0.5}, {"m": "wood:minecraft:mangrove", "w": 0.5}],
 		"shutter": ["wood:minecraft:spruce"],
 		"fence": ["wood:minecraft:spruce"],
 		"railing": ["wood:minecraft:spruce"],
@@ -34,12 +35,82 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:spruce"],
-		"thatch": ["minecraft:hay_block"]
+		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}, {"m": "minecraft:moss_block", "patch": 0.08}],
+		"sheet": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
+		"masonry": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 2}]
+	},
+	"tiers": {
+		"0": {"roof": [{"m": "minecraft:cobbled_deepslate", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.12}], "window": ["minecraft:cobblestone"]},
+		"3": {"wall": [{"m": "minecraft:stone", "w": 3}, {"m": "minecraft:cobblestone", "w": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:stone_bricks", "w": 1}], "chimney": ["minecraft:stone_bricks"]}
 	},
 	"base_weight": 2,
+	"base_when": {"not": [{"stations": ["gentry", "lord"]}, {"categories": ["religious"]}]},
 	"variants": [
-		{"name": "whitewashed", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:calcite", "w": 1}], "gable": ["minecraft:smooth_quartz"]}, "habits": {"walls": {"kind": "plaster", "plinth": 1}}},
-		{"name": "thatched", "w": 1, "roles": {"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]}, "habits": {"roof": {"thatch": true, "ridge": "full", "forms": {"gable": 3, "half_hip": 2}}}}
+		{"name": "whitewashed", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:calcite", "w": 1}], "gable": ["minecraft:smooth_quartz"]}, "habits": {"walls": {"kind": "plaster", "plinth": 1}},
+			"tiers": {"3": {"wall": [{"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:calcite", "w": 1}]}}},
+		{"name": "thatched", "w": 1, "roles": {"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}]}, "habits": {"roof": {"thatch": true, "ridge": "full", "forms": {"gable": 3, "half_hip": 2}}}}
+	],
+	"substyles": [
+		{
+			"name": "harled laird's house",
+			"w": 8,
+			"when": [{"stations": ["merchant", "official", "gentry", "lord"]}, {"archetypes": ["civic/town_hall", "house/manor", "noble/*"]}, {"categories": ["fort"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:diorite", "w": 0.4, "low": 1.5}],
+				"gable": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 1}],
+				"wall_accent": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 0.4, "north": 1}],
+				"plinth": ["minecraft:stone_bricks"],
+				"window": ["minecraft:stone_bricks"],
+				"roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:cobbled_deepslate", "w": 0.3}],
+				"roof_trim": ["minecraft:stone_bricks"],
+				"door": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:mangrove", "w": 1}],
+				"accent": ["minecraft:chiseled_stone_bricks"]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "plinth": 1, "beam_ends": 0},
+				"roof": {"forms": {"gable": 6, "cross_gable": 1}, "pitch": 1.0, "eaves": 0, "gable_overhang": 0, "ridge": "trim", "dormers": 0.4, "front_gable": 0.4},
+				"windows": {"shutters": 0.0, "boxes": 0.0, "bay": 0.1, "tall": true},
+				"plan": {"tower": 0.4}
+			}
+		},
+		{
+			"name": "blackhouse",
+			"w": 4,
+			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 2, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1.5}, {"m": "minecraft:tuff", "w": 0.6}],
+				"gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
+				"wall_accent": [{"m": "minecraft:mossy_cobblestone", "w": 1}, {"m": "minecraft:cobblestone", "w": 1}],
+				"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.15}],
+				"window": ["minecraft:cobblestone"],
+				"door": ["wood:minecraft:spruce"]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "plinth": 0, "beam_ends": 0},
+				"roof": {"forms": {"hip": 3, "half_hip": 2, "gable": 1}, "thatch": true, "pitch": 1.0, "eaves": 1, "gable_overhang": 0, "ridge": "full", "dormers": 0.0},
+				"windows": {"shutters": 0.0, "boxes": 0.0, "bay": 0.0, "tall": false},
+				"chimney": 0.3
+			}
+		},
+		{
+			"name": "kirk",
+			"w": 6,
+			"when": {"categories": ["religious"]},
+			"roles": {
+				"wall": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 2}, {"m": "minecraft:cracked_stone_bricks", "w": 0.4, "low": 1}],
+				"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 0.6, "north": 1.5}],
+				"wall_accent": ["minecraft:polished_andesite"],
+				"plinth": ["minecraft:stone_bricks"],
+				"roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:cracked_deepslate_tiles", "w": 0.4}],
+				"roof_trim": ["minecraft:deepslate_bricks"],
+				"door": ["wood:minecraft:dark_oak"]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "plinth": 1, "beam_ends": 0},
+				"roof": {"pitch": 1.0, "eaves": 0, "gable_overhang": 0, "ridge": "trim"},
+				"windows": {"arched": 0.8, "shutters": 0.0, "boxes": 0.0, "tall": true}
+			}
+		}
 	],
 	"habits": {
 		"walls": {"kind": "stone", "storey_height": 4, "plinth": 0, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0},

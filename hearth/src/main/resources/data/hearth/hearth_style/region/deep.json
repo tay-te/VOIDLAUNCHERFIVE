@@ -1,0 +1,32 @@
+{
+	"name": "Deep: deepslate halls cut into the realm walls, amber set in the stone, glowcaps in every pot (underground towns)",
+	"base_name": "deep",
+	"region": {"when": {"landforms": ["underground"]}, "priority": 100},
+	"roles": {
+		"wall": [{"m": "minecraft:deepslate_bricks", "w": 3}, {"m": "minecraft:cobbled_deepslate", "w": 1.5}, {"m": "minecraft:polished_deepslate", "w": 1}, {"m": "minecraft:cracked_deepslate_bricks", "w": 0.5, "low": 1}],
+		"gable": [{"m": "minecraft:deepslate_bricks", "w": 3}, {"m": "minecraft:cobbled_deepslate", "w": 1}],
+		"wall_accent": [{"m": "minecraft:polished_tuff", "w": 2}, {"m": "minecraft:tuff_bricks", "w": 1}],
+		"plinth": [{"m": "minecraft:polished_deepslate", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}],
+		"foundation": [{"m": "minecraft:cobbled_deepslate", "w": 2}, {"m": "minecraft:tuff", "w": 1}],
+		"frame": [{"m": "wood:minecraft:dark_oak", "log": "expanse:deeproot"}],
+		"beam": [{"m": "wood:minecraft:dark_oak", "log": "expanse:deeproot"}],
+		"roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:cracked_deepslate_tiles", "w": 0.5}],
+		"roof_trim": ["minecraft:polished_deepslate"],
+		"window": ["minecraft:polished_tuff"],
+		"chimney": [{"m": "minecraft:deepslate_bricks", "w": 2}, {"m": "minecraft:tuff_bricks", "w": 1}],
+		"paving": [{"m": "minecraft:deepslate_tiles", "w": 2}, {"m": "minecraft:polished_deepslate", "w": 1}, {"m": "minecraft:polished_tuff", "w": 1}],
+		"path": [{"m": "minecraft:gravel", "w": 1}, {"m": "minecraft:tuff", "w": 1}],
+		"accent": ["expanse:amber|minecraft:shroomlight"],
+		"light": ["minecraft:lantern"],
+		"cloth": ["dye:orange", "dye:brown", "dye:yellow"],
+		"garden": ["expanse:glowcap|minecraft:brown_mushroom", "minecraft:brown_mushroom", "minecraft:red_mushroom"],
+		"masonry": [{"m": "minecraft:deepslate_bricks", "w": 3}, {"m": "minecraft:cobbled_deepslate", "w": 1}],
+		"sheet": [{"m": "minecraft:deepslate_tiles", "w": 2}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}]
+	},
+	"habits": {
+		"walls": {"kind": "stone", "plinth": 1, "beam_ends": 0.5},
+		"roof": {"forms": {"flat": 3, "gable": 2, "hip": 1}, "parapet": true},
+		"windows": {"shutters": 0.2, "boxes": 0.0, "tall": false},
+		"chimney": 0.4
+	}
+}

@@ -1,0 +1,27 @@
+{
+	"name": "Glade: honey-coloured oak frames and white plaster among flower gardens and flowering hedges, all in nature's colours (Woodland Glades)",
+	"base_name": "glade",
+	"region": {"when": {"biomes": ["expanse:woodland_glades", "minecraft:flower_forest"]}, "priority": 8, "aliases": ["wisteria_vale", "woodland_glades"]},
+	"roles": {
+		"frame": [{"m": "wood:minecraft:oak", "log": "minecraft:stripped_oak_log"}],
+		"beam": [{"m": "wood:minecraft:oak", "log": "minecraft:stripped_oak_log"}],
+		"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1.5}, {"m": "minecraft:mushroom_stem", "w": 1, "low": 1}],
+		"window": ["wood:minecraft:oak"],
+		"door": [{"m": "wood:minecraft:oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}],
+		"fence": ["wood:minecraft:oak"],
+		"railing": ["wood:minecraft:oak"],
+		"floor": [{"m": "wood:minecraft:oak", "w": 3}, {"m": "wood:minecraft:birch", "w": 1}],
+		"path": [{"m": "minecraft:dirt_path", "w": 3}, {"m": "minecraft:gravel", "w": 1}, {"m": "minecraft:coarse_dirt", "w": 0.6}],
+		"cloth": ["dye:white", "dye:yellow", "dye:green"],
+		"garden": ["minecraft:poppy", "minecraft:cornflower", "minecraft:oxeye_daisy", "minecraft:azure_bluet", "minecraft:allium", "minecraft:lily_of_the_valley",
+			"minecraft:peony", "minecraft:rose_bush", "minecraft:lilac", "expanse:lavender|minecraft:allium", "minecraft:dandelion"],
+		"hedge": [{"m": "minecraft:flowering_azalea_leaves", "w": 2}, {"m": "minecraft:oak_leaves", "w": 1}, {"m": "minecraft:azalea_leaves", "w": 1}],
+		"tree_log": [{"m": "minecraft:oak_log", "w": 2}, {"m": "minecraft:birch_log", "w": 1}],
+		"tree_leaves": [{"m": "minecraft:oak_leaves", "w": 2}, {"m": "minecraft:birch_leaves", "w": 1}]
+	},
+	"habits": {
+		"windows": {"boxes": 0.8},
+		"yard": {"garden": "cottage", "fence": "hedge", "hedge": 0.7, "woodpile": 0.3},
+		"porch": 0.5
+	}
+}

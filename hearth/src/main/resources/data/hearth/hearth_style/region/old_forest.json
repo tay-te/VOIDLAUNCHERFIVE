@@ -1,0 +1,56 @@
+{
+	"name": "Old forest: oak and dark oak houses on mossy fieldstone, boarded gables under deep shingle eaves green with moss (Ancient Oakwood)",
+	"base_name": "old forest",
+	"region": {"when": {"biomes": ["expanse:ancient_oakwood", "minecraft:dark_forest"]}, "priority": 10, "aliases": ["lumen", "ancient_oakwood"]},
+	"roles": {
+		"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1.6, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:tuff", "w": 0.6}, {"m": "minecraft:stone", "w": 0.5, "high": 1}],
+		"gable": ["wood:minecraft:oak"],
+		"wall_accent": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 1.2}],
+		"plinth": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1.5}, {"m": "minecraft:andesite", "w": 0.5}],
+		"foundation": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:tuff", "w": 0.5}],
+		"frame": [{"m": "wood:minecraft:dark_oak", "w": 4}, {"m": "wood:minecraft:oak", "w": 1}],
+		"beam": ["wood:minecraft:dark_oak"],
+		"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1.2}, {"m": "minecraft:moss_block", "patch": 0.16}],
+		"roof_trim": ["wood:minecraft:dark_oak"],
+		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.22}],
+		"window": ["wood:minecraft:dark_oak"],
+		"door": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}],
+		"shutter": [{"m": "wood:minecraft:oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}],
+		"floor": [{"m": "wood:minecraft:oak", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}],
+		"ceiling": ["wood:minecraft:dark_oak"],
+		"fence": ["wood:minecraft:dark_oak"],
+		"railing": ["wood:minecraft:dark_oak"],
+		"furniture": ["wood:minecraft:dark_oak"],
+		"stilt": ["wood:minecraft:dark_oak"],
+		"chimney": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
+		"paving": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1.5}, {"m": "minecraft:mossy_stone_bricks", "w": 1}],
+		"path": [{"m": "minecraft:coarse_dirt", "w": 2}, {"m": "minecraft:podzol", "w": 1}, {"m": "minecraft:dirt_path", "w": 1.5}, {"m": "minecraft:rooted_dirt", "w": 0.5}],
+		"light": ["minecraft:lantern"],
+		"cloth": ["dye:brown", "dye:green", "dye:red"],
+		"garden": ["minecraft:fern", "minecraft:lily_of_the_valley", "minecraft:brown_mushroom", "minecraft:oxeye_daisy", "minecraft:large_fern"],
+		"hedge": [{"m": "minecraft:dark_oak_leaves", "w": 2}, {"m": "minecraft:oak_leaves", "w": 1}],
+		"tree_log": ["minecraft:dark_oak_log"],
+		"tree_leaves": ["minecraft:dark_oak_leaves"],
+		"masonry": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}]
+	},
+	"base_weight": 3,
+	"variants": [
+		{"name": "oak frame", "w": 1.5, "when": {"not": {"categories": ["religious", "fort", "grand"]}},
+			"roles": {"wall": ["wood:minecraft:oak"], "gable": ["wood:minecraft:oak"]},
+			"habits": {"walls": {"kind": "timber_frame", "upper": "timber_frame", "braces": 0.5, "jetty": 0.3}}},
+		{"name": "great hall", "w": 1, "when": [{"categories": ["religious", "grand", "public", "fort"]}, {"stations": ["gentry", "lord", "scholar"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 2, "low": 2, "north": 2}, {"m": "minecraft:cracked_stone_bricks", "w": 0.4, "low": 1}],
+				"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 1.5}],
+				"wall_accent": ["minecraft:mossy_stone_bricks"],
+				"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.12}],
+				"accent": ["minecraft:chiseled_stone_bricks"]},
+			"habits": {"walls": {"kind": "stone", "upper": "stone"}}}
+	],
+	"habits": {
+		"walls": {"kind": "stone", "upper": "plank", "plinth": 1, "beam_ends": 0.7},
+		"roof": {"eaves": 2, "gable_overhang": 1, "brackets": true, "ridge": "trim"},
+		"windows": {"shutters": 0.6, "boxes": 0.1, "tall": false},
+		"yard": {"garden": "cottage", "fence": "fence", "hedge": 0.4, "woodpile": 0.9}
+	}
+}

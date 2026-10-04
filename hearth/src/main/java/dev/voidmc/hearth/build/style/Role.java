@@ -72,7 +72,17 @@ public enum Role {
 	/** Stilts and piles over water or steep ground. */
 	STILT(StageKind.FOUNDATION),
 	/** Thatch for thatched roofs (hay, dried kelp...). */
-	THATCH(StageKind.ROOF);
+	THATCH(StageKind.ROOF),
+	/**
+	 * The sheathing of domes, spires, onions and turret caps where the roof's own covering would not do (a wooden onion
+	 * reads as a pinecone): patinated copper, lead-grey slate, glazed tile.
+	 */
+	SHEET(StageKind.ROOF),
+	/**
+	 * The culture's building stone for masonry works its houses may not be built of (a lighthouse, a bridge's piers, a
+	 * cathedral in a timber town): never wood, so styles whose houses are all timber still say what their stone is.
+	 */
+	MASONRY(StageKind.WALLS);
 
 	private final StageKind stage;
 
@@ -91,7 +101,7 @@ public enum Role {
 	 */
 	public double patchiness() {
 		return switch (this) {
-			case ROOF, ROOF_TRIM, FLOOR, CEILING, PATH, PAVING, THATCH, GROUND -> 0.15;
+			case ROOF, ROOF_TRIM, FLOOR, CEILING, PATH, PAVING, THATCH, GROUND, SHEET -> 0.15;
 			default -> 0.6;
 		};
 	}
@@ -103,7 +113,7 @@ public enum Role {
 	public boolean perBuilding() {
 		return switch (this) {
 			case ROOF, ROOF_TRIM, FRAME, BEAM, DOOR, SHUTTER, WINDOW, FENCE, RAILING, FURNITURE, CHIMNEY, STILT, LIGHT, FLOOR, CEILING, TREE_LOG,
-				TREE_LEAVES, HEDGE -> true;
+				TREE_LEAVES, HEDGE, SHEET -> true;
 			default -> false;
 		};
 	}

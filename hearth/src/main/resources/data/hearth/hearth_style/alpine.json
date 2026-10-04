@@ -1,6 +1,7 @@
 {
 	"culture": "alpine",
 	"name": "Alpine: chalets of dark timber on a whitewashed stone storey, low slab roofs with deep eaves, balconies and flower boxes",
+	"base_name": "chalet",
 	"roles": {
 		"foundation": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}],
 		"plinth": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
@@ -34,12 +35,81 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:spruce"],
-		"thatch": ["minecraft:hay_block"]
+		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}, {"m": "minecraft:moss_block", "patch": 0.08}],
+		"sheet": [{"m": "minecraft:waxed_oxidized_cut_copper", "w": 3}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
+		"masonry": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 0.6, "low": 2}]
+	},
+	"tiers": {
+		"0": {"wall": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.6, "low": 2}], "roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "minecraft:cobbled_deepslate", "patch": 0.15}]},
+		"3": {"roof": [{"m": "minecraft:deepslate_tiles", "w": 2}, {"m": "wood:minecraft:dark_oak", "w": 2}], "roof_trim": ["wood:minecraft:dark_oak"]}
 	},
 	"base_weight": 2,
+	"base_when": {"not": [{"stations": ["gentry", "lord"]}, {"categories": ["religious"]}]},
 	"variants": [
 		{"name": "dark boards", "w": 1, "roles": {"gable": ["wood:minecraft:dark_oak"], "roof": ["wood:minecraft:spruce"]}},
 		{"name": "slate roof", "w": 1, "roles": {"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "minecraft:cobbled_deepslate", "w": 0.4}], "roof_trim": ["minecraft:polished_deepslate"]}}
+	],
+	"substyles": [
+		{
+			"name": "patrician stone house",
+			"w": 8,
+			"when": [{"stations": ["merchant", "official", "gentry", "lord"]}, {"categories": ["trade", "public"], "not": {"categories": ["religious"]}}],
+			"roles": {
+				"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1.5, "low": 1}],
+				"gable": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1}],
+				"wall_accent": [{"m": "minecraft:polished_andesite", "w": 3}, {"m": "minecraft:andesite", "w": 1}],
+				"plinth": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 0.5, "low": 2}],
+				"window": ["minecraft:polished_andesite"],
+				"shutter": [{"m": "wood:minecraft:dark_oak", "w": 1}, {"m": "wood:minecraft:spruce", "w": 1}],
+				"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "minecraft:cobbled_deepslate", "w": 0.5}],
+				"roof_trim": ["minecraft:polished_deepslate"],
+				"accent": ["minecraft:chiseled_stone_bricks"]
+			},
+			"habits": {
+				"walls": {"kind": "plaster", "upper": "plaster", "plinth": 1, "jetty": 0, "beam_ends": 0.3},
+				"roof": {"forms": {"gable": 5, "half_hip": 2}, "pitch": 0.5, "eaves": 1, "gable_overhang": 1, "ridge": "trim", "front_gable": 0.7},
+				"windows": {"shutters": 0.6, "boxes": 0.8, "arched": 0.3, "bay": 0.2, "tall": false},
+				"balcony": 0.3
+			}
+		},
+		{
+			"name": "baroque church",
+			"w": 6,
+			"when": {"categories": ["religious"]},
+			"roles": {
+				"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 1}],
+				"gable": ["minecraft:smooth_quartz"],
+				"wall_accent": [{"m": "minecraft:polished_andesite", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
+				"plinth": ["minecraft:stone_bricks"],
+				"window": ["minecraft:polished_andesite"],
+				"roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}],
+				"roof_trim": ["wood:minecraft:dark_oak"],
+				"accent": ["minecraft:chiseled_quartz_block"],
+				"door": ["wood:minecraft:dark_oak"]
+			},
+			"habits": {
+				"walls": {"kind": "plaster", "upper": "plaster", "plinth": 1, "beam_ends": 0},
+				"roof": {"pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "trim"},
+				"windows": {"shutters": 0.0, "boxes": 0.0, "arched": 0.9, "tall": true}
+			}
+		},
+		{
+			"name": "hayloft barn",
+			"w": 4,
+			"when": [{"categories": ["farmstead", "storage"]}, {"stations": ["poor"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 1.5}],
+				"gable": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}],
+				"wall_accent": ["minecraft:stone"],
+				"roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "minecraft:cobbled_deepslate", "patch": 0.12}],
+				"window": ["wood:minecraft:spruce"]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "upper": "plank", "plinth": 0, "beam_ends": 0.6},
+				"windows": {"shutters": 0.9, "boxes": 0.3, "tall": false},
+				"balcony": 0.4
+			}
+		}
 	],
 	"habits": {
 		"walls": {"kind": "plaster", "upper": "plank", "storey_height": 4, "plinth": 1, "jetty": 0.3, "post_spacing": 3, "braces": 0, "beam_ends": 0.8},

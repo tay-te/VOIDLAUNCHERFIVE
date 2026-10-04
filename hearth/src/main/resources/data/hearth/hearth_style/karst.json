@@ -1,6 +1,7 @@
 {
 	"culture": "karst",
 	"name": "Jade Karst: bamboo and dark timber on limestone sills, sweeping green-tiled roofs with lifted corners, lattices",
+	"base_name": "bamboo house",
 	"roles": {
 		"foundation": [{"m": "expanse:limestone_bricks|minecraft:polished_diorite", "w": 3}, {"m": "expanse:mossy_limestone|minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}],
 		"plinth": [{"m": "expanse:limestone_bricks|minecraft:polished_diorite", "w": 3}, {"m": "expanse:mossy_limestone|minecraft:mossy_stone_bricks", "w": 1, "low": 2}],
@@ -24,7 +25,7 @@
 		"light": ["minecraft:lantern"],
 		"chimney": ["expanse:limestone_bricks|minecraft:stone_bricks"],
 		"furniture": ["wood:minecraft:dark_oak"],
-		"cloth": ["dye:green", "dye:lime", "dye:white"],
+		"cloth": ["dye:green", "dye:lime", "dye:white", "dye:red"],
 		"accent": ["expanse:chiseled_limestone|minecraft:chiseled_stone_bricks"],
 		"garden": ["minecraft:fern", "minecraft:azure_bluet", "minecraft:lily_of_the_valley", "minecraft:pink_tulip"],
 		"crops": ["minecraft:wheat", "minecraft:carrots"],
@@ -34,13 +35,74 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:dark_oak"],
-		"thatch": ["minecraft:hay_block"]
+		"thatch": ["minecraft:hay_block"],
+		"sheet": [{"m": "minecraft:dark_prismarine", "w": 3}, {"m": "minecraft:waxed_oxidized_cut_copper", "w": 1}],
+		"masonry": [{"m": "expanse:limestone_bricks|minecraft:polished_diorite", "w": 3}, {"m": "expanse:limestone|minecraft:diorite", "w": 1}, {"m": "expanse:mossy_limestone|minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}]
+	},
+	"tiers": {
+		"0": {"wall": [{"m": "minecraft:bamboo_planks", "w": 2}, {"m": "minecraft:bamboo_block", "w": 1}], "roof": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}], "roof_trim": ["wood:minecraft:bamboo"]},
+		"3": {"railing": ["wood:minecraft:dark_oak"], "accent": ["expanse:chiseled_limestone|minecraft:chiseled_stone_bricks"]}
 	},
 	"base_weight": 2,
+	"base_when": {"not": [{"stations": ["gentry", "lord", "scholar"]}, {"categories": ["religious"]}]},
 	"variants": [
 		{"name": "white walls, grey tiles", "w": 1.2, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 0.5}], "gable": ["minecraft:smooth_quartz"], "roof": ["minecraft:deepslate_tiles"], "roof_trim": ["minecraft:polished_deepslate"]}, "habits": {"walls": {"kind": "timber_frame", "braces": 0}}},
-		{"name": "red lacquer", "w": 1, "roles": {"frame": ["wood:minecraft:mangrove"], "beam": ["wood:minecraft:mangrove"], "railing": ["wood:minecraft:mangrove"], "window": ["wood:minecraft:mangrove"]}},
+		{"name": "red lacquer", "w": 1, "roles": {"frame": [{"m": "wood:minecraft:mangrove", "log": "minecraft:stripped_mangrove_log"}], "beam": [{"m": "wood:minecraft:mangrove", "log": "minecraft:stripped_mangrove_log"}], "railing": ["wood:minecraft:mangrove"], "window": ["wood:minecraft:mangrove"]}},
 		{"name": "teak boards", "w": 0.8, "roles": {"wall": ["wood:minecraft:jungle"], "gable": ["wood:minecraft:jungle"], "roof": ["minecraft:deepslate_tiles"], "roof_trim": ["minecraft:polished_deepslate"]}, "habits": {"walls": {"kind": "plank"}}}
+	],
+	"substyles": [
+		{
+			"name": "scholar's courtyard",
+			"w": 8,
+			"when": [{"stations": ["scholar", "gentry", "lord", "official", "merchant"]}, {"archetypes": ["house/courtyard_house", "civic/library", "civic/school", "civic/town_hall"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 1, "low": 1.5}],
+				"gable": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 1}],
+				"wall_accent": ["minecraft:smooth_quartz"],
+				"plinth": [{"m": "expanse:limestone_bricks|minecraft:stone_bricks", "w": 3}, {"m": "minecraft:polished_andesite", "w": 1}],
+				"roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:cracked_deepslate_tiles", "w": 0.3}],
+				"roof_trim": ["minecraft:polished_deepslate"],
+				"frame": ["wood:minecraft:dark_oak"],
+				"beam": ["wood:minecraft:dark_oak"],
+				"window": ["wood:minecraft:dark_oak"],
+				"door": ["wood:minecraft:dark_oak"],
+				"shutter": ["wood:minecraft:dark_oak"],
+				"floor": ["wood:minecraft:dark_oak"],
+				"paving": [{"m": "minecraft:polished_andesite", "w": 2}, {"m": "expanse:limestone_bricks|minecraft:stone_bricks", "w": 1}],
+				"cloth": ["dye:white", "dye:gray", "dye:green"]
+			},
+			"habits": {
+				"walls": {"kind": "brick", "upper": "brick", "plinth": 1, "jetty": 0, "beam_ends": 0.2},
+				"roof": {"forms": {"gable": 4, "hip": 1}, "pitch": 1.0, "eaves": 1, "gable_overhang": 0, "ridge": "full", "flare": false, "front_gable": 0.0},
+				"windows": {"shutters": 0.0, "boxes": 0.0, "lattice": true, "tall": true},
+				"plan": {"courtyard": 0.8}
+			},
+			"base_weight": 3,
+			"variants": [
+				{"name": "academy", "w": 2, "when": {"categories": ["public"]}, "habits": {"roof": {"forms": {"hip": 3, "pagoda": 2}, "flare": true, "eaves": 2, "brackets": true}}}
+			]
+		},
+		{
+			"name": "temple",
+			"w": 8,
+			"when": {"categories": ["religious"]},
+			"roles": {
+				"wall": [{"m": "minecraft:red_terracotta", "w": 3}, {"m": "minecraft:terracotta", "w": 0.5, "low": 1}],
+				"gable": ["minecraft:red_terracotta"],
+				"wall_accent": ["expanse:polished_limestone|minecraft:polished_diorite"],
+				"frame": [{"m": "wood:minecraft:mangrove", "log": "minecraft:stripped_mangrove_log"}],
+				"beam": [{"m": "wood:minecraft:mangrove", "log": "minecraft:stripped_mangrove_log"}],
+				"railing": ["wood:minecraft:mangrove"],
+				"window": ["wood:minecraft:mangrove"],
+				"roof": [{"m": "minecraft:dark_prismarine", "w": 4}, {"m": "minecraft:prismarine_bricks", "w": 0.4}],
+				"accent": ["minecraft:yellow_glazed_terracotta"],
+				"cloth": ["dye:red", "dye:yellow", "dye:green"]
+			},
+			"habits": {
+				"walls": {"kind": "plaster", "plinth": 1, "beam_ends": 0.6},
+				"roof": {"forms": {"pagoda": 6, "hip": 1}, "flare": true, "eaves": 2, "brackets": true}
+			}
+		}
 	],
 	"habits": {
 		"walls": {"kind": "bamboo", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 2, "braces": 0, "beam_ends": 0.5},

@@ -41,6 +41,8 @@ final class StyleDefaults {
 		put(Role.FILL, "minecraft:dirt");
 		put(Role.STILT, "wood:minecraft:spruce");
 		put(Role.THATCH, "minecraft:hay_block");
+		put(Role.SHEET, "minecraft:waxed_oxidized_cut_copper");
+		put(Role.MASONRY, "minecraft:stone_bricks");
 	}
 
 	private StyleDefaults() {

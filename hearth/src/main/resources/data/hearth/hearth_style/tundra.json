@@ -1,10 +1,11 @@
 {
 	"culture": "tundra",
-	"name": "Tundra: low spruce longhouses banked in snow, steep dark roofs, smoke and lantern light",
+	"name": "Tundra: low spruce longhouses banked in snow, steep dark roofs, white trim, smoke and lantern light",
+	"base_name": "longhouse",
 	"roles": {
 		"foundation": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:andesite", "w": 1}],
 		"plinth": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
-		"wall": ["wood:minecraft:spruce"],
+		"wall": [{"m": "wood:minecraft:spruce", "w": 4}, {"m": "wood:minecraft:poplar", "log": "minecraft:stripped_poplar_log", "w": 0.7, "high": 1}],
 		"wall_accent": ["minecraft:stone_bricks"],
 		"frame": ["wood:minecraft:dark_oak"],
 		"beam": ["wood:minecraft:dark_oak"],
@@ -12,11 +13,11 @@
 		"ceiling": ["wood:minecraft:spruce"],
 		"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 0.6}],
 		"roof_trim": ["wood:minecraft:spruce"],
-		"gable": ["wood:minecraft:spruce"],
-		"window": ["wood:minecraft:spruce"],
+		"gable": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:poplar", "w": 1}],
+		"window": ["wood:minecraft:pale_oak"],
 		"glass": ["minecraft:glass_pane"],
 		"door": ["wood:minecraft:spruce"],
-		"shutter": ["wood:minecraft:spruce"],
+		"shutter": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:pale_oak", "w": 1}],
 		"fence": ["wood:minecraft:spruce"],
 		"railing": ["wood:minecraft:spruce"],
 		"path": [{"m": "minecraft:gravel", "w": 2}, {"m": "minecraft:coarse_dirt", "w": 1}],
@@ -24,9 +25,9 @@
 		"light": ["minecraft:lantern"],
 		"chimney": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
 		"furniture": ["wood:minecraft:spruce"],
-		"cloth": ["dye:light_blue", "dye:white", "dye:cyan"],
+		"cloth": ["dye:light_blue", "dye:white", "dye:red"],
 		"accent": ["minecraft:packed_ice"],
-		"garden": ["expanse:frostbloom|minecraft:blue_orchid", "minecraft:fern", "expanse:reindeer_lichen|minecraft:short_grass"],
+		"garden": ["minecraft:oxeye_daisy", "minecraft:poppy", "minecraft:fern", "expanse:reindeer_lichen|minecraft:short_grass"],
 		"crops": ["minecraft:potatoes", "minecraft:beetroots"],
 		"hedge": ["minecraft:spruce_leaves"],
 		"tree_log": ["minecraft:spruce_log"],
@@ -34,12 +35,60 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:spruce"],
-		"thatch": ["minecraft:hay_block"]
+		"thatch": [{"m": "minecraft:moss_block", "stairs": "minecraft:green_wool_stairs", "slab": "minecraft:green_wool_slab"}],
+		"sheet": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
+		"masonry": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:andesite", "w": 1}]
+	},
+	"tiers": {
+		"0": {"roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "minecraft:moss_block", "patch": 0.2}], "window": ["wood:minecraft:spruce"]},
+		"3": {"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}], "roof_trim": ["minecraft:polished_deepslate"], "chimney": ["minecraft:stone_bricks"]}
 	},
 	"base_weight": 2,
+	"base_when": {"not": [{"stations": ["gentry", "lord"]}, {"categories": ["religious", "grand"]}]},
 	"variants": [
-		{"name": "pale logs", "w": 1, "roles": {"wall": ["wood:minecraft:pale_oak"], "gable": ["wood:minecraft:pale_oak"]}},
+		{"name": "pale logs", "w": 1, "roles": {"wall": ["wood:minecraft:pale_oak"], "gable": ["wood:minecraft:pale_oak"], "window": ["wood:minecraft:dark_oak"]}},
 		{"name": "dark logs", "w": 1, "roles": {"wall": ["wood:minecraft:dark_oak"], "gable": ["wood:minecraft:dark_oak"], "roof": ["wood:minecraft:spruce"]}}
+	],
+	"substyles": [
+		{
+			"name": "sod longhouse",
+			"w": 3,
+			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1.5, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1}],
+				"wall_accent": ["minecraft:mossy_cobblestone"],
+				"gable": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:pale_oak", "w": 1}],
+				"roof": [{"m": "minecraft:moss_block", "stairs": "minecraft:green_wool_stairs", "slab": "minecraft:green_wool_slab"}],
+				"roof_trim": ["wood:minecraft:spruce"]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "plinth": 0, "beam_ends": 0},
+				"roof": {"forms": {"gable": 5, "half_hip": 2}, "pitch": 1.0, "eaves": 1, "gable_overhang": 0, "ridge": "full", "dormers": 0.0}
+			}
+		},
+		{
+			"name": "fire hall",
+			"w": 6,
+			"when": [{"categories": ["religious", "grand", "public"]}, {"stations": ["gentry", "lord", "official"]}],
+			"roles": {
+				"wall": [{"m": "wood:minecraft:dark_oak", "log": "minecraft:dark_oak_log"}],
+				"gable": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:dark_oak", "w": 1}],
+				"frame": ["wood:minecraft:spruce"],
+				"beam": ["wood:minecraft:spruce"],
+				"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cracked_stone_bricks", "w": 0.5, "low": 1}],
+				"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "minecraft:cobbled_deepslate", "w": 0.4}],
+				"roof_trim": ["wood:minecraft:spruce"],
+				"window": ["wood:minecraft:spruce"],
+				"door": ["wood:minecraft:dark_oak"],
+				"accent": ["minecraft:chiseled_stone_bricks"],
+				"cloth": ["dye:red", "dye:white", "dye:light_blue"]
+			},
+			"habits": {
+				"walls": {"kind": "log", "plinth": 2, "beam_ends": 0.9},
+				"roof": {"forms": {"gable": 4, "half_hip": 2}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "trim", "dormers": 0.0, "front_gable": 0.5},
+				"porch": 0.8
+			}
+		}
 	],
 	"habits": {
 		"walls": {"kind": "log", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0.5},

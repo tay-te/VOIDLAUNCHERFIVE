@@ -3,7 +3,9 @@ package dev.voidmc.hearth.build.style;
 import dev.voidmc.hearth.api.Culture;
 import java.io.Reader;
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.resources.Identifier;
@@ -23,10 +25,14 @@ public final class StyleRegistry {
 	/** The data folder styles live in. */
 	public static final String DIRECTORY = "hearth_style";
 
+	/** The regional styles shipped in the jar ({@code hearth_style/region/<name>.json}). */
+	public static final List<String> BUILTIN_REGIONS = List.of("old_forest", "glade", "cloud_forest", "volcanic", "fjord", "tepui", "deep");
+
 	private volatile Map<Identifier, Style> styles = Map.of();
+	private volatile List<Style> regions = List.of();
 	private final AtomicInteger generation = new AtomicInteger();
 
-	/** A registry holding the built-in style of every culture. */
+	/** A registry holding the built-in style of every culture and the built-in regions. */
 	public static StyleRegistry builtin() {
 		StyleRegistry r = new StyleRegistry();
 		Map<Identifier, Style> m = new HashMap<>();
@@ -39,8 +45,41 @@ public final class StyleRegistry {
 				LOG.warn("no built-in style for culture {}", c.getSerializedName());
 			}
 		}
-		r.styles = Map.copyOf(m);
+		for (String name : BUILTIN_REGIONS) {
+			Identifier id = Identifier.fromNamespaceAndPath("hearth", "region/" + name);
+			Style s = StyleLoader.fromClasspath(id);
+			if (s != null && s.region() != null) {
+				m.put(id, s);
+			} else {
+				LOG.warn("no built-in region {}", name);
+			}
+		}
+		r.install(m);
 		return r;
+	}
+
+	/** Splits regions from styles and lets every style wear every region. */
+	private void install(Map<Identifier, Style> all) {
+		List<Style> regions = new ArrayList<>();
+		for (Style s : all.values()) {
+			if (s.region() != null) {
+				regions.add(s);
+			}
+		}
+		Map<Identifier, Style> m = new HashMap<>();
+		for (Map.Entry<Identifier, Style> e : all.entrySet()) {
+			if (e.getValue().region() == null) {
+				m.put(e.getKey(), e.getValue().withRegions(regions));
+			}
+		}
+		regions.sort(java.util.Comparator.comparing(s -> s.id().toString()));
+		this.regions = List.copyOf(regions);
+		this.styles = Map.copyOf(m);
+	}
+
+	/** The regional overlays (sorted by id). */
+	public List<Style> regions() {
+		return this.regions;
 	}
 
 	/** The id of a culture's default style, {@code hearth:<culture>}. */
@@ -86,7 +125,14 @@ public final class StyleRegistry {
 
 	/** Replaces the styles with those of a data reload (built-ins stay for any culture the data no longer has). */
 	public void reload(ResourceManager manager) {
-		Map<Identifier, Style> m = new HashMap<>(builtin().styles);
+		StyleRegistry b = builtin();
+		Map<Identifier, Style> m = new HashMap<>();
+		for (Style s : b.styles.values()) {
+			m.put(s.id(), s.root());
+		}
+		for (Style s : b.regions) {
+			m.put(s.id(), s);
+		}
 		Map<Identifier, Resource> found = manager.listResources(DIRECTORY, id -> id.getPath().endsWith(".json"));
 		for (Map.Entry<Identifier, Resource> e : found.entrySet()) {
 			Identifier file = e.getKey();
@@ -98,8 +144,8 @@ public final class StyleRegistry {
 				LOG.error("style {} could not be loaded: {}", id, ex.getMessage());
 			}
 		}
-		this.styles = Map.copyOf(m);
+		install(m);
 		this.generation.incrementAndGet();
-		LOG.info("loaded {} building styles", m.size());
+		LOG.info("loaded {} building styles and {} regions", this.styles.size(), this.regions.size());
 	}
 }

@@ -1,13 +1,18 @@
 package dev.voidmc.hearth.build.draft;
 
+import dev.voidmc.hearth.api.ArchetypeCategory;
+import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.StageKind;
+import dev.voidmc.hearth.api.Station;
 import dev.voidmc.hearth.build.blueprint.LocalFrame;
 import dev.voidmc.hearth.build.style.Habits;
+import dev.voidmc.hearth.build.style.LocalMaterials;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.style.Style;
+import dev.voidmc.hearth.build.style.StyleContext;
 import dev.voidmc.hearth.build.terrain.Site;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -58,14 +63,19 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Draft {
 	private final PlotSpec spec;
+	/** The style as this building wears it (see {@link Style#dress}). */
 	private final Style style;
 	private final Site site;
 	private final LocalFrame frame;
 	private final int tier;
 	private final RandomSource random;
 	private final CompoundTag params;
+	/** Who and where the building is, for choosing its dress. */
+	private final StyleContext context;
 	/** The style variant this building wears (-1 the base dressing). */
-	private final int variant;
+	private int variant;
+	/** Whether the building wears its town's dressing (walls and towers that must match), not its own. */
+	private boolean pinned;
 	private final Long2ObjectOpenHashMap<Cell> cells = new Long2ObjectOpenHashMap<>();
 	private final List<LocalPoi> pois = new ArrayList<>();
 	private final List<int[]> entrances = new ArrayList<>();
@@ -85,13 +95,24 @@ public final class Draft {
 
 	public Draft(PlotSpec spec, Style style, Site site) {
 		this.spec = spec;
-		this.style = style;
 		this.site = site;
 		this.frame = site.frame();
 		this.tier = Math.clamp(spec.tier(), 0, 4);
 		this.random = new LegacyRandomSource(Noise.hash(spec.seed(), 0x5EED));
 		this.params = spec.params();
-		this.variant = this.params.contains("variant") ? this.params.getIntOr("variant", -1) : style.pickVariant(Noise.hash(spec.seed(), 0x7A1A));
+		// the dress: the culture's style chosen for who and where the building is, its region, local materials and station
+		Style root = style.root();
+		this.context = StyleContext.of(spec, site, root.culture());
+		String pin = this.params.getStringOr("pin", "");
+		this.pinned = pin.equals("town") || pin.isEmpty() && this.context.category() == ArchetypeCategory.DEFENSE;
+		if (this.params.contains("variant")) {
+			this.variant = this.params.getIntOr("variant", -1);
+		} else if (this.pinned) {
+			this.variant = townVariant(root);
+		} else {
+			this.variant = root.pickVariant(Noise.hash(spec.seed(), 0x7A1A), this.context);
+		}
+		this.style = root.dress(this.context, spec.seed(), LocalMaterials.of(this.params.getCompoundOrEmpty("local")));
 		this.bodyX0 = 0;
 		this.bodyZ0 = 0;
 		this.bodyX1 = frontage() - 1;
@@ -104,6 +125,11 @@ public final class Draft {
 		return this.spec;
 	}
 
+	/**
+	 * The style as this building wears it: its culture's style with the building's region worn, its territory's
+	 * materials blended in and its station applied ({@link Style#dress}). {@code style().root()} is the culture's style
+	 * undressed.
+	 */
 	public Style style() {
 		return this.style;
 	}
@@ -112,9 +138,118 @@ public final class Draft {
 		return this.style.habits(this.variant);
 	}
 
-	/** The style variant (-1 the base dressing); forced with the param {@code variant}. */
+	/**
+	 * The style variant (-1 the base dressing): a fashion or a sub-style chosen for the building's station, category,
+	 * tier, place and seed ({@link Style#pickVariant(long, StyleContext)}); forced with the param {@code variant}.
+	 */
 	public int variant() {
 		return this.variant;
+	}
+
+	/** Who and where the building is, as its dress sees it (station, purposes, biome, landforms...). */
+	public StyleContext context() {
+		return this.context;
+	}
+
+	/** The household's station (the {@code station} param, else the one the archetype or district implies), or null. */
+	public @Nullable Station station() {
+		return this.context.station();
+	}
+
+	/**
+	 * The tier the building's materials are chosen at: its tier moved by an explicit station's finish (a merchant's house
+	 * at tier 2 dresses at 3, a hovel at 0). Sizes and plans keep reading {@link #tier()}.
+	 */
+	public int finish() {
+		Station s = this.context.station();
+		return this.context.explicitStation() && s != null ? this.style.station(s).tier(this.tier) : this.tier;
+	}
+
+	/** The regional style the building wears ({@code lumen}, {@code volcanic}...), or null. */
+	public @Nullable String region() {
+		Style r = this.style.worn();
+		return r == null || r.region() == null ? null : r.region().name();
+	}
+
+	/** A label for the dress: the dressing's name and the region worn ("burgher · limewashed / lumen"). */
+	public String dressing() {
+		Style r = this.style.worn();
+		String name = this.style.dressingName(this.variant);
+		if (r == null || r.region() == null) {
+			return name;
+		}
+		int wv = this.style.wornVariant();
+		return name + " / " + r.region().name() + (wv >= 0 ? " " + r.dressingName(wv) : "");
+	}
+
+	/** Whether the building wears its town's dressing (see {@link #pinToTown()}). */
+	public boolean pinned() {
+		return this.pinned;
+	}
+
+	/**
+	 * Wears the town's dressing instead of the building's own: the variant every pinned plot of the settlement wears and
+	 * per-building materials chosen by the settlement's seed, so a town's walls, towers and gates agree, roof for roof.
+	 * Defence archetypes are pinned unless the param {@code pin} is {@code none}; any plot is with {@code pin=town}; an
+	 * archetype may ask for it by calling this first thing in {@code draw}. Does nothing once a material has been taken or
+	 * when the param {@code variant} forces one. Returns whether the building is pinned.
+	 */
+	public boolean pinToTown() {
+		if (this.pinned || !this.mats.isEmpty() || this.params.contains("variant")) {
+			return this.pinned;
+		}
+		this.pinned = true;
+		this.variant = townVariant(this.style.root());
+		return true;
+	}
+
+	/**
+	 * The settlement's seed for what it chooses once (its walls' dress): the param {@code town_seed} when the planner
+	 * gives one, else one per culture.
+	 */
+	public long townSeed() {
+		return townSeed(this.style.root());
+	}
+
+	private long townSeed(Style root) {
+		Culture c = root.culture();
+		return this.params.getLongOr("town_seed", 0xF0A7L + (c == null ? 0 : c.ordinal()) * 131L);
+	}
+
+	/**
+	 * The dressing the settlement's pinned works wear (the param {@code town_variant} forces it): drawn from the
+	 * {@code town_seed} when the planner gives one, else the culture's most likely dress for its works (a temperate town
+	 * without a seed walls itself in Bohemian rubble, not in whichever manner a fixed seed happens to land on).
+	 */
+	public int townVariant() {
+		return townVariant(this.style.root());
+	}
+
+	private int townVariant(Style root) {
+		if (this.params.contains("town_variant")) {
+			return this.params.getIntOr("town_variant", -1);
+		}
+		StyleContext c = this.context;
+		StyleContext town = new StyleContext(c.culture(), "defense/wall", ArchetypeCategory.DEFENSE, Set.of("fort", "public"), c.tier(), Station.OFFICIAL,
+			false, null, null, Set.of(), c.region());
+		if (this.params.contains("town_seed")) {
+			return root.pickVariant(Noise.hash(townSeed(root), 0x7A1A), town);
+		}
+		int best = -1;
+		double bestW = dev.voidmc.hearth.build.style.When.holds(root.baseWhen(), town) ? root.baseWeight() : 0;
+		double[] w = root.weights(town);
+		for (int i = 0; i < w.length; i++) {
+			if (w[i] > bestW + 1e-9) {
+				bestW = w[i];
+				best = i;
+			}
+		}
+		return best;
+	}
+
+	/** A role as the settlement's pinned works wear it (its town dressing, chosen and mixed by the town's seed). */
+	public Mat townMat(Role role) {
+		return mat(role, townVariant(), Noise.hash(townSeed(), 0xA11 + role.ordinal()));
 	}
 
 	public Site site() {
@@ -202,10 +337,13 @@ public final class Draft {
 		return this.params.copy();
 	}
 
-	/** A style role bound to this draft (mixes by position, seeded per building and role). */
+	/**
+	 * A style role bound to this draft (mixes by position, seeded per building and role). The palette is the dressed
+	 * style's for the building's variant at its tier: sub-style, region, local materials and station all resolved there.
+	 */
 	public Mat mat(Role role) {
 		return this.mats.computeIfAbsent(role, r -> {
-			long seed = Noise.hash(this.spec.seed(), 0xA11 + r.ordinal());
+			long seed = Noise.hash(this.pinned ? townSeed() : this.spec.seed(), 0xA11 + r.ordinal());
 			// a thatched roof is laid in the thatch, its ridge too
 			Role source = (r == Role.ROOF || r == Role.ROOF_TRIM) && habits().roof().thatch() ? Role.THATCH : r;
 			var palette = this.style.palette(source, this.tier, this.variant);
