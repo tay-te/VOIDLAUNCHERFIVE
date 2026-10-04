@@ -281,6 +281,14 @@ public final class Bank implements Archetype {
 			}
 			press.block(ax, az);
 			press.block(ax, az + 1);
+			// the coin press itself: a die block under a piston's head
+			if (az + 2 < up[3] && d.isEmpty(ax, py, az + 2) && d.isEmpty(ax, py + 1, az + 2) && d.isEmpty(ax + (vaultLeft ? -1 : 1), py, az + 2)) {
+				try (var s = d.stage(StageKind.INTERIOR)) {
+					d.set(ax, py, az + 2, Blocks.SMOOTH_STONE.defaultBlockState());
+					d.set(ax, py + 1, az + 2, States.facing(Blocks.PISTON, net.minecraft.core.Direction.DOWN));
+				}
+				press.block(ax, az + 2);
+			}
 		}
 		if (twoStoreys) {
 			int lx = vaultLeft ? up[0] + 1 : up[2] - 1;
