@@ -55,7 +55,8 @@ A tall single-storey hall that opens to the street through a wide bay. Against a
 lava cauldron hearth, lit blast furnace and a hood, its breast and broad stack built outside the wall in masonry and
 smoking past the ridge. Anvil(s) before the fire with the quench trough, tool racks, coal and iron bins; the eave runs
 on over the street front as a pentice on posts (a cloth awning on poles where roofs are flat) over the grindstone and a
-customers' bench; a side yard of charcoal, scrap and a woodpile; tie beams across the hall.
+customers' bench; a side yard of charcoal, scrap and a woodpile, with a cart of raw iron by the street where the yard
+is three wide (a heap of ore and coal where it is narrower); tie beams across the hall.
 **POIs:** DOOR, JOB_SITE SMITH ×3–4 (anvils, blast furnace, smithing table, grindstone), STORAGE ×2, SEAT (bench, some).
 **Params:** `roof`, `variant`.
 
@@ -106,9 +107,9 @@ STORAGE (cloth chest), TABLE (cutting tables), VIEWPOINT (balcony/terrace, some)
 ### `work/sawmill` (Sawmill.java)
 A long saw shed on posts across the back of the yard, boarded at the back: the saw bench on the front row (a
 stonecutter for the blade, the log carriage on rails), an aisle, stores along the back row. Logs on bearers in
-pyramids up to three high with their ends to the street (the style's tree logs: baobab on the steppe, birch in the
-north), a loaded log cart, a chopping block, stickered boards, a fence and wide gate. Where water runs at the back of
-the plot a water wheel on the shed's end drives the saw.
+pyramids up to three high either side of the gate, lying front to back so the street sees their sawn ends stacked (the
+style's tree logs: baobab on the steppe, birch in the north), a loaded log cart, a chopping block, stickered boards, a
+fence and wide gate. Where water runs at the back of the plot a water wheel on the shed's end drives the saw.
 **POIs:** JOB_SITE FORESTER ×2 (log carriage, log piles), JOB_SITE CARPENTER ×2 (saw, bench), STORAGE.
 **Params:** `roof`, `variant`.
 
@@ -131,11 +132,19 @@ jetty reaches water: never on dry land), STORAGE ×3 (salt barrels, chest).
 **Params:** `storeys` (1–3), `roof`, `variant`.
 
 ### `work/windmill` (Windmill.java)
-**Tower mill:** a round tower on an integer centre (r 3–3.4) tapering as it climbs, a skirt, a band, a reefing stage,
-a spiral stair; a smock mill's boarded upper body over a stone base where the culture builds in timber; a boat-shaped
-cap in the north and west or a cone of thatch/tile in the south; framed sails (cloth from the third bay, hemlath on the
-trailing edge), or the Mediterranean star of eight spars with cloth triangles. **Post mill** (log/snow/plank cultures,
-about two in three, plots 9+ deep): the plank body on a post and trestle, the stair down behind, sails on its breast.
+**Tower mill:** a round tower on an integer centre (r 3–3.4) standing forward in its plot, plumb through its ground
+storey and tapering by most of a block above it, a skirt, a band, a reefing stage (boards out a block and a half on raking
+braces, a railing, a sack on the deck), a spiral stair; a smock mill's upper body boarded in timber (the gable boards, or
+the floor's where the gables are rendered) between corner posts over a stone base where the culture builds in timber; a
+boat-shaped bonnet in the north and west (a hull upturned over a curb on brackets, its sides rounding to the ridge, its
+back end rounded, the breast boarded between battens where the windshaft comes through) or a cone of thatch/tile in the
+south. The cap is turned to the wind by a fantail on a masonry tower's bonnet (a post off the curb carrying a little
+wheel of spokes and vanes) or a tail pole down to the stage with its winding wheel (smock mills, cones). Common sails are
+lattices: a whip from the hub, a hemlath along the trailing edge, and, by pairs, cloth spread from whip to hemlath or
+the bare frame of sail bars showing against the sky; the Mediterranean star has eight spars with triangles of cloth
+widening to their tips. No sail sweeps lower than a man's height over the yard. **Post mill** (log/snow/plank cultures,
+about two in three, plots 9+ deep): the plank body high on its post and trestle (two storeys where the height allows),
+the stair down behind with the tail pole beside it to the ground, sails on its breast.
 **POIs:** DOOR, JOB_SITE BAKER (millstones), JOB_SITE FARMER (grain bin), STORAGE (flour chest; a barrel by the door
 when the floor is too cramped). Ground-floor pieces move outside by the door when the tower is too small.
 **Params:** `kind` (`tower`, `post`), `sails` (`cross`, `saltire`, `star`), `variant`.

@@ -50,7 +50,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  */
 public final class Statue implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("landscape/statue"), ArchetypeCategory.LANDSCAPE, Set.of(), 0,
-		5, 7, 5, 7, 7, 11, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.CENTRAL), List.of(), 0, 1.0);
+		5, 7, 5, 7, 7, 14, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.CENTRAL), List.of(), 0, 1.0);
 
 	@Override
 	public ArchetypeInfo info() {
@@ -146,11 +146,16 @@ public final class Statue implements Archetype {
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
 	}
 
-	/** The stepped plinth: a step all round, a pedestal with a cap, the lettered sign. Returns the figure's base y. */
+	/**
+	 * The stepped plinth: a step all round, a base moulding, on a tall plot a die of two courses
+	 * carrying the lettered sign, and a cornice overhanging it. Low monuments (rune stone, stele, tiki) stand on the step
+	 * alone. Returns the monument's base y.
+	 */
 	private static int plinth(Draft d, int cx, int cz, Monument kind) {
 		Mat mas = Manner.masonry(d);
 		Mat accent = Paving.band(d);
 		boolean low = kind == Monument.RUNESTONE || kind == Monument.STELE || kind == Monument.TIKI;
+		boolean tall = !low && d.maxHeight() >= 13;
 		try (var s = d.stage(StageKind.FOUNDATION)) {
 			for (int z = cz - 2; z <= cz + 2; z++) {
 				for (int x = cx - 2; x <= cx + 2; x++) {
@@ -167,21 +172,35 @@ public final class Statue implements Archetype {
 			if (low) {
 				return 1;
 			}
+			int capY = 1;
+			if (tall) {
+				// the base moulding, then the die, two courses high
+				for (int z = cz - 1; z <= cz + 1; z++) {
+					for (int x = cx - 1; x <= cx + 1; x++) {
+						d.set(x, 1, z, accent.full());
+						for (int y = 2; y <= 3; y++) {
+							d.set(x, y, z, mas.full());
+						}
+					}
+				}
+				capY = 4;
+			}
+			// the cornice: the edge stones overhanging as upside-down stairs, a block in the middle
 			for (int z = cz - 1; z <= cz + 1; z++) {
 				for (int x = cx - 1; x <= cx + 1; x++) {
 					boolean edge = x != cx || z != cz;
 					boolean corner = x != cx && z != cz;
 					if (corner || !edge || !accent.has(Form.STAIRS)) {
-						d.set(x, 1, z, accent.full());
+						d.set(x, capY, z, accent.full());
 					} else {
 						Direction in = Dirs.nearest(cx - x, cz - z);
-						d.set(x, 1, z, accent.stairs(in, Half.TOP));
+						d.set(x, capY, z, accent.stairs(in, Half.TOP));
 					}
 				}
 			}
+			Inscriptions.wallSign(d, cx, tall ? 2 : 1, cz - 2, Dirs.FRONT, inscription(d, kind));
+			return capY + 1;
 		}
-		Inscriptions.wallSign(d, cx, 1, cz - 2, Dirs.FRONT, inscription(d, kind));
-		return 2;
 	}
 
 	private static List<String[]> inscription(Draft d, Monument kind) {
@@ -207,7 +226,11 @@ public final class Statue implements Archetype {
 		return d.param("figure", kinds[(int) Math.floorMod(h, 4L)]);
 	}
 
-	/** A figure some three times a man's height facing the front, its base on y. Returns its top. */
+	/**
+	 * A figure some three times a man's height facing the front, its base on y: legs apart (or a robe to the ground),
+	 * hips and a broad chest three blocks across, the breast a little proud, sloping shoulders, the head with a cap of
+	 * slab, the arms hanging, bent forward or raised; a cloak falling behind the founder. Returns its top.
+	 */
 	private static int figure(Draft d, int cx, int y, int cz, Stone st) {
 		String kind = figureKind(d);
 		BlockState full = st.full().defaultBlockState();
@@ -215,59 +238,98 @@ public final class Statue implements Archetype {
 		BlockState head = headOf(st);
 		BlockState rod = States.block("minecraft:waxed_lightning_rod", Blocks.END_ROD).defaultBlockState();
 		boolean robed = kind.equals("keeper") || kind.equals("scholar");
-		int top = y + 4;
+		int top = y + 6;
 		try (var s = d.stage(StageKind.EXTERIOR)) {
-			// legs (or a robe flaring at the hem), hips, chest, head
-			d.set(cx, y, cz, robed ? full : limb);
-			d.set(cx, y + 1, cz, robed ? full : limb);
-			if (robed) {
-				d.set(cx - 1, y, cz, st.stair(Dirs.RIGHT, Half.BOTTOM));
-				d.set(cx + 1, y, cz, st.stair(Dirs.LEFT, Half.BOTTOM));
+			// rows 0-1: the legs apart, or the robe to the ground with its hem forward
+			for (int r = 0; r <= 1; r++) {
+				if (robed) {
+					for (int x = cx - 1; x <= cx + 1; x++) {
+						d.set(x, y + r, cz, full);
+					}
+				} else {
+					d.set(cx - 1, y + r, cz, limb);
+					d.set(cx + 1, y + r, cz, limb);
+				}
 			}
-			d.set(cx, y + 2, cz, full);
-			d.set(cx, y + 3, cz, full);
-			d.set(cx, y + 4, cz, head);
-			// shoulders
-			d.set(cx - 1, y + 3, cz, st.stair(Dirs.RIGHT, Half.TOP));
-			d.set(cx + 1, y + 3, cz, st.stair(Dirs.LEFT, Half.TOP));
+			if (robed) {
+				d.set(cx, y, cz - 1, st.stair(Dirs.BACK, Half.BOTTOM));
+			}
+			// row 2: the hips; rows 3-4: the chest, the breast a little proud
+			for (int r = 2; r <= 4; r++) {
+				for (int x = cx - 1; x <= cx + 1; x++) {
+					d.set(x, y + r, cz, full);
+				}
+			}
+			d.set(cx, y + 4, cz - 1, st.stair(Dirs.BACK, Half.TOP));
+			// row 5: the shoulders sloping to the neck, the head; a cap over it
+			d.set(cx - 1, y + 5, cz, st.stair(Dirs.RIGHT, Half.BOTTOM));
+			d.set(cx + 1, y + 5, cz, st.stair(Dirs.LEFT, Half.BOTTOM));
+			d.set(cx, y + 5, cz, head);
+			d.set(cx, y + 6, cz, st.slabState(SlabType.BOTTOM));
 			switch (kind) {
 				case "keeper" -> {
-					// the left hand holds a lantern up beside the head, the right arm at the side
-					d.set(cx - 1, y + 4, cz, limb);
-					d.set(cx - 1, y + 5, cz, States.lantern(Lamps.lantern(d), false));
-					d.set(cx + 1, y + 2, cz, limb);
-					top = y + 5;
+					// the left arm hangs, the right holds a lantern high beside the head
+					arm(d, cx - 2, y + 2, cz, st, false, Dirs.RIGHT);
+					d.set(cx + 2, y + 4, cz, st.stair(Dirs.LEFT, Half.TOP));
+					d.set(cx + 2, y + 5, cz, limb);
+					d.set(cx + 2, y + 6, cz, limb);
+					d.set(cx + 2, y + 7, cz, States.lantern(Lamps.lantern(d), false));
+					top = y + 7;
 				}
 				case "elder" -> {
-					d.set(cx - 1, y + 2, cz, limb);
-					// the staff in the right hand, from the plinth to above the head
-					BlockState staff = d.mat(Role.FENCE).has(Form.FENCE) ? d.mat(Role.FENCE).fence().at(cx + 1, y, cz - 1)
-						: Lamps.post(d).at(cx + 1, y, cz - 1);
-					for (int k = 0; k <= 5; k++) {
-						d.set(cx + 1, y + k, cz - 1, staff);
+					arm(d, cx - 2, y + 2, cz, st, false, Dirs.RIGHT);
+					arm(d, cx + 2, y + 2, cz, st, true, Dirs.LEFT);
+					// the staff in the right hand, from the plinth to over the head
+					BlockState staff = d.mat(Role.FENCE).has(Form.FENCE) ? d.mat(Role.FENCE).fence().at(cx + 2, y, cz - 2)
+						: Lamps.post(d).at(cx + 2, y, cz - 2);
+					for (int k = 0; k <= 7; k++) {
+						if (d.allowed(cx + 2, y + k, cz - 2)) {
+							d.set(cx + 2, y + k, cz - 2, staff);
+						}
 					}
-					top = y + 5;
+					top = y + 7;
 				}
 				case "scholar" -> {
-					d.set(cx - 1, y + 2, cz, limb);
-					d.set(cx + 1, y + 2, cz, limb);
+					arm(d, cx - 2, y + 2, cz, st, true, Dirs.RIGHT);
+					arm(d, cx + 2, y + 2, cz, st, true, Dirs.LEFT);
 					// the open book held before the chest
-					d.set(cx, y + 3, cz - 1, d.mat(Role.FURNITURE).trapdoor(Dirs.BACK, Half.BOTTOM, false).at(cx, y + 3, cz - 1));
+					d.set(cx, y + 3, cz - 1, d.mat(Role.FURNITURE).trapdoor(Dirs.BACK, Half.TOP, false).at(cx, y + 3, cz - 1));
 				}
 				default -> {
-					// the founder: a cloak behind, the left arm at the side, the right raised with a sword
-					d.set(cx, y + 3, cz + 1, st.stair(Dirs.FRONT, Half.TOP));
-					d.set(cx, y + 2, cz + 1, st.stair(Dirs.FRONT, Half.TOP));
-					d.set(cx, y + 1, cz + 1, st.stair(Dirs.FRONT, Half.BOTTOM));
-					d.set(cx - 1, y + 2, cz, limb);
-					d.set(cx + 1, y + 3, cz, full);
-					d.set(cx + 1, y + 4, cz, limb);
-					d.set(cx + 1, y + 5, cz, rod);
-					top = y + 5;
+					// the founder: a cloak falling behind from the shoulders, the left arm at the side, the right raised
+					// with a sword
+					for (int r = 1; r <= 4; r++) {
+						for (int x = cx - 1; x <= cx + 1; x++) {
+							d.set(x, y + r, cz + 1, r == 1 ? st.stair(Dirs.FRONT, Half.BOTTOM) : st.stair(Dirs.FRONT, Half.TOP));
+						}
+					}
+					arm(d, cx - 2, y + 2, cz, st, false, Dirs.RIGHT);
+					d.set(cx + 2, y + 4, cz, st.stair(Dirs.LEFT, Half.TOP));
+					d.set(cx + 2, y + 5, cz, limb);
+					d.set(cx + 2, y + 6, cz, full);
+					d.set(cx + 2, y + 7, cz, rod);
+					d.set(cx + 2, y + 8, cz, rod);
+					top = y + 8;
 				}
 			}
 		}
 		return top;
+	}
+
+	/**
+	 * An arm at the figure's side from row y: a shoulder stair at the top leaning into the chest ({@code toChest}), the arm,
+	 * and the hand: hanging, or bent forward with the forearm out before the body.
+	 */
+	private static void arm(Draft d, int x, int y, int z, Stone st, boolean forward, Direction toChest) {
+		BlockState limb = st.wall().defaultBlockState();
+		d.set(x, y + 2, z, st.stair(toChest, Half.TOP));
+		d.set(x, y + 1, z, limb);
+		if (forward) {
+			d.set(x, y, z, st.full().defaultBlockState());
+			d.set(x, y, z - 1, st.slabState(SlabType.TOP));
+		} else {
+			d.set(x, y, z, limb);
+		}
 	}
 
 	/** The head: a finer block of the same stone where there is one (chiseled, cut, smooth). */
@@ -285,7 +347,7 @@ public final class Statue implements Archetype {
 	private static int obelisk(Draft d, int cx, int y, int cz) {
 		Mat stone = Manner.masonry(d);
 		Mat accent = Paving.inlay(d);
-		int h = Math.min(6, d.maxHeight() - y - 2);
+		int h = Math.min(8, d.maxHeight() - y - 2);
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int k = 0; k < h; k++) {
 				d.set(cx, y + k, cz, k == h / 2 ? accent.full() : stone.full());

@@ -186,13 +186,14 @@ public final class Sawmill implements Archetype {
 		Mat logs = tree.has(dev.voidmc.hearth.build.style.Form.LOG) ? tree : log;
 		int ll = Math.min(4, gate - 2);
 		if (ll >= 2) {
-			Props.logPile(d, 1, 0, 1, Direction.Axis.X, ll, deep, 3, logs);
+			// the logs lie front to back, so the street sees their sawn ends stacked in a pyramid
+			Props.logPile(d, 1, 0, 1, Direction.Axis.Z, deep, ll, 3, logs);
 			Props.site(d, ll + 1, 0, 1 + deep / 2, Dirs.LEFT, JobType.FORESTER);
 		}
 		int rx = gate + 2;
 		int rl = Math.min(4, w - 2 - rx);
 		if (rl >= 1) {
-			Props.logPile(d, rx, 0, 1, Direction.Axis.X, rl, deep, 3, logs);
+			Props.logPile(d, rx, 0, 1, Direction.Axis.Z, deep, rl, 3, logs);
 		}
 		// a log cart on the track before the shed
 		int cz = sz0 - 2;

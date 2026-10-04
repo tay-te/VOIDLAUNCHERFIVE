@@ -7,7 +7,7 @@ learn, bathe and keep watch. Nine archetypes, each built in the manner of every 
 | id | class | for | size (frontage × depth) | height | jobs, beds |
 |---|---|---|---|---|---|
 | `hearth:commerce/market_hall` | `archetype/commerce/MarketHall` | town+, CENTRAL | 11–17 × 13–21 | 12–24 | MERCHANT |
-| `hearth:commerce/inn` | `archetype/commerce/Inn` | village+ | 11–15 × 11–15 | 11–17 | INNKEEPER, 4 beds |
+| `hearth:commerce/inn` | `archetype/commerce/Inn` | village+ | 11–15 × 11–17 | 11–22 | INNKEEPER, 4–8 beds |
 | `hearth:commerce/bank` | `archetype/commerce/Bank` | village+, CENTRAL | 9–13 × 9–13 | 9–16 | MINTER |
 | `hearth:civic/chapel` | `archetype/civic/Chapel` (+ `Chapel*`) | village+, VERTICAL | 9–13 × 13–19 | 12–30 | PRIEST |
 | `hearth:civic/town_hall` | `archetype/civic/TownHall` | town+, CENTRAL, max 1 | 13–19 × 13–19 | 14–32 | — |
@@ -28,14 +28,23 @@ place behind each; a back bay closed in for the stores and the stair; the hall u
 the roof; a cupola on the ridge with a bell and, in towns of standing, clock faces (front and back). Flat-roofed
 traditions put little domes on drums over the roof instead (the souk). Dormers light the deepest pitched roofs.
 
-**Inn.** A coaching inn: a stone carriage arch (voussoirs and keystone) through one side of the ground floor to the
-stable yard behind, a side door from the passage into the tap room; the tap room with its bar (kegs racked behind the
-innkeeper), tables and chairs, the hearth and its chimney; the stair up to a corridor along the back and guest rooms
-along the street with beds and chests; a settle and casks of ale with a lantern by the door; the hanging sign over
-the door with one of 16 names (translatable: "The Red Lion", "The Wheatsheaf"...); a bay window to the street;
-balconies (alpine, karst, raised), a vine pergola (mediterranean), a roof terrace, latticed screens, a striped awning
-and a palm in the yard (desert, mesa); behind, the stable with stalls and hay and a gallery along the yard. Raised
-traditions (bayou, tropical) lift it on stilts with a stair down to the street and no carriage arch.
+**Inn.** A coaching inn, the broadest front in the street: its range runs the whole width of the plot, two storeys over
+a lofty ground floor (three on plots 13+ wide and 13+ deep where the height allows), the ground floor in stone wherever
+the culture builds in timber, the top storey jettied over the street in timber towns with a five-wide cross gable over
+the tap-room door (dormers instead on unjettied roofs), a stack at each gable end. Through one side runs the carriage
+arch (voussoirs, keystone, guard stones at its foot, the yard's gates folded back inside, a lantern under the boarded
+vault) to the stable yard; a side door from the passage into the tap room. The tap room shows itself to the street:
+tall windows, a bay, the door under the inn's painted sign hung from a wrought bracket (two fence posts out from the
+wall, a stair brace, the hanging sign on its chains; a wall hanging sign where the forecourt is one row), the name
+painted along the front on a board of wall signs (one of 16, translatable), a settle and casks with a lantern, a barrel
+table with stools in the forecourt's outer row; within, the bar with its kegs racked behind, tables and chairs, the
+hearth, lanterns hung from the joists over the tables and the bar. Upstairs, on every floor, a corridor along the back
+with a runner and lanterns, guest rooms along the street (a second flight beside the first on three-storey inns); the
+gallery looks over the yard, and across it stands a gabled stable (stalls behind half doors, hay and water, a hay door
+over the middle, a lantern). Alpine and karst inns carry a balcony across the upper front, the mediterranean a vine
+pergola, the dry south a flat roof with a shaded terrace, latticed screens, a striped awning and a palm in the yard;
+raised traditions (bayou, tropical) lift it on stilts with a stair down to the street and no carriage arch. Params:
+`arch_right`, `name`, `storeys` (2–3).
 
 **Bank.** A rusticated stone storey whatever the culture (or a stone base under a karst hall), barred windows, a
 portico of columns and a pediment where the plot allows (a karst gate roof, an adobe crest), and on smaller plots an
@@ -140,7 +149,7 @@ it registers the NOTICE_BOARD POI on the cell in front, facing the board.
 | class | what it builds |
 |---|---|
 | `Arches` | arcades: piers, pad stones, round, pointed, braced, bracketed, posted and flat heads |
-| `Towers` | shafts, belfries, bells, caps (spire, pyramid, onion, dome, pagoda, cone, battlements, hip), lathed domes, clocks, bell-cotes, bell walls, lookouts, flagpoles, finials |
+| `Towers` | shafts, belfries, bells, caps (spire, pyramid, onion, dome, pagoda, cone, battlements, hip), lathed domes, clocks, bell-cotes, bell walls, lookouts, flagpoles, finials; spires, domes, onions and every lathe course are laid from the octagon ladder of `kit/landmark/Shapes` (clean octagons drawn in a cell at a time, not rasterised circles), so a three- or five-wide dome is round-shouldered and an onion swells past its drum |
 | `Signs` | wall banners, the settlement's arms, hanging and post signs with translatable lines, the notice board |
 | `Grounds` | gentle-street checks, raised and stilt bases, forecourts, stair flights with footings, cuts into slopes |
 | `Halls` | floors, portals, iwans, double doors, lychgates, string courses, cornices, hanging lanterns, lamps, roof terraces |
@@ -150,7 +159,7 @@ it registers the NOTICE_BOARD POI on the cell in front, facing the board.
 | `Portico` | stylobate, columns, entablature, pediment (karst gate roof, adobe crest) |
 | `Baths` | pools, rock pools, steam grates, mosaics, benches |
 | `Eaves` | pent roofs skirting a raised core, lifted eave tips |
-| `Adobe` | the dry south's flat roofs (raised corners, crests, beam ends, spouts), latticed screens, awnings, domes on drums, palms |
+| `Adobe` | the dry south's flat roofs (raised corners and crest in the `wall_accent`, a frieze of the `accent` along the wall head, beam ends, spouts), latticed screens, awnings, domes on drums in the accent where it cuts stairs, palms |
 | `Fam` | block families recut from a role's material (stairs, slabs, walls of the same stone) |
 
 ## Previews
