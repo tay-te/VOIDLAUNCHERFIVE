@@ -6,8 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import org.junit.jupiter.api.Test;
 
 class TileBuilderTest {
@@ -146,6 +149,157 @@ class TileBuilderTest {
 			float back = Smooth.decode(Smooth.encode(g));
 			assertEquals(g, back, Math.max(0.006F, Math.abs(g) * 0.12F), "slope " + g);
 		}
+	}
+
+	@Test
+	void facesCarryWhatTheyAreMadeOf() {
+		TerrainSource grassy = (x, z, cell, out) -> {
+			out.ground = 70;
+			out.top = 0x40A040;
+			out.topMaterial = 5;
+			out.sideMaterial = 6;
+			out.soilMaterial = 7;
+			out.rockMaterial = 300;
+		};
+		TileBuilder.Mesh mesh = builder().build(grassy, TileKey.of(0, 0, 0));
+		ByteBuffer v = vertices(mesh);
+		for (int q = 0; q < mesh.vertexCount() / 4; q++) {
+			int base = q * 4;
+			int face = v.getShort(base * TileBuilder.VERTEX_BYTES + 6) & 7;
+			int material = material(v, base);
+			for (int i = 1; i < 4; i++) {
+				assertEquals(material, material(v, base + i), "one material per quad");
+			}
+			if (face == TileBuilder.UP) {
+				assertEquals(5, material);
+				continue;
+			}
+			// the skirt's bands, top down: the grass side, the soil, the rock (an id past one byte)
+			int top = v.getShort(base * TileBuilder.VERTEX_BYTES + 2) / 8;
+			assertEquals(top == 70 ? 6 : top == 69 ? 7 : 300, material, "band from y " + top);
+		}
+	}
+
+	@Test
+	void topsMergeOnlyWithinOneMaterial() {
+		// the same colour everywhere, but two blocks: half the tile is one, half the other
+		TerrainSource halves = (x, z, cell, out) -> {
+			out.ground = 70;
+			out.topMaterial = x < 32 ? 3 : 4;
+		};
+		TileBuilder.Mesh mesh = builder().build(halves, TileKey.of(0, 0, 0));
+		ByteBuffer v = vertices(mesh);
+		List<Integer> tops = new ArrayList<>();
+		for (int q = 0; q < mesh.vertexCount() / 4; q++) {
+			if ((v.getShort(q * 4 * TileBuilder.VERTEX_BYTES + 6) & 7) == TileBuilder.UP) {
+				tops.add(material(v, q * 4));
+			}
+		}
+		assertEquals(List.of(3, 4), tops);
+	}
+
+	@Test
+	void wallsBreakWhereTheirMaterialsDo() {
+		// a step facing +x along the whole tile, made of one colour throughout; its sides are one block for z < 32
+		// and another beyond
+		TerrainSource step = (x, z, cell, out) -> {
+			out.ground = x < 32 ? 80 : 64;
+			out.sideMaterial = z < 32 ? 1 : 2;
+		};
+		// the step's three bands (side, soil, rock) twice over, plus the tile border's skirt in two runs as well
+		assertEquals(12, faces(builder().build(step, TileKey.of(0, 0, 0))).get(5));
+		TerrainSource plain = (x, z, cell, out) -> out.ground = x < 32 ? 80 : 64;
+		assertEquals(6, faces(builder().build(plain, TileKey.of(0, 0, 0))).get(5));
+	}
+
+	@Test
+	void bandedRockIsABandPerMaterial() {
+		// strata of one colour but alternating blocks: each band its own quad, made of its own block
+		int[] bands = {0x9A5A3A, 0x9A5A3A, 0x9A5A3A, 0x9A5A3A};
+		int[] blocks = {11, 12, 13, 14};
+		TerrainSource canyon = (x, z, cell, out) -> {
+			out.ground = x < 32 ? 80 : 64;
+			out.soilDepth = 0;
+			out.bands = bands;
+			out.bandMaterials = blocks;
+			out.bandHeight = 1;
+		};
+		TileBuilder.Mesh mesh = builder().build(canyon, TileKey.of(0, 0, 0));
+		ByteBuffer v = vertices(mesh);
+		Map<Integer, Integer> wall = new TreeMap<>();
+		for (int q = 0; q < mesh.vertexCount() / 4; q++) {
+			int o = q * 4 * TileBuilder.VERTEX_BYTES;
+			if ((v.getShort(o + 6) & 7) == 5 && v.getShort(o) == 32) {
+				int top = v.getShort(o + 2) / 8;
+				int bottom = v.getShort(o + 2 * TileBuilder.VERTEX_BYTES + 2) / 8;
+				if (top < 79) {
+					assertEquals(1, top - bottom, "one band a block");
+				}
+				wall.put(top, material(v, q * 4));
+			}
+		}
+		// the surface block's side on top, then one quad per block of rock down to the floor
+		assertEquals(16, wall.size());
+		for (int y = 65; y < 80; y++) {
+			assertEquals(blocks[Math.floorMod(y - 1, 4)], wall.get(y), "band under y " + y);
+		}
+		// without the materials, the one colour is one quad
+		TerrainSource plain = (x, z, cell, out) -> {
+			out.ground = x < 32 ? 80 : 64;
+			out.soilDepth = 0;
+			out.bands = bands;
+			out.bandHeight = 1;
+		};
+		ByteBuffer p = vertices(builder().build(plain, TileKey.of(0, 0, 0)));
+		int quads = 0;
+		for (int q = 0; q < p.limit() / TileBuilder.VERTEX_BYTES / 4; q++) {
+			int o = q * 4 * TileBuilder.VERTEX_BYTES;
+			if ((p.getShort(o + 6) & 7) == 5 && p.getShort(o) == 32) {
+				quads++;
+			}
+		}
+		assertEquals(2, quads);
+	}
+
+	@Test
+	void crownsAreTheirLeavesAndWaterIsUntextured() {
+		TerrainSource forest = (x, z, cell, out) -> {
+			out.ground = 70;
+			out.topMaterial = 2;
+			out.canopy = 12;
+			out.cover = 1;
+			out.leavesMaterial = 9;
+		};
+		TileBuilder.Mesh mesh = builder().build(forest, TileKey.of(0, 0, 0));
+		ByteBuffer v = vertices(mesh);
+		boolean sawCrown = false;
+		for (int q = 0; q < mesh.vertexCount() / 4; q++) {
+			int o = q * 4 * TileBuilder.VERTEX_BYTES;
+			if ((v.getShort(o + 6) & 7) == TileBuilder.UP && v.getShort(o + 2) / 8 > 70) {
+				assertEquals(9, material(v, q * 4));
+				sawCrown = true;
+			}
+		}
+		assertTrue(sawCrown);
+
+		TerrainSource lake = (x, z, cell, out) -> {
+			out.ground = 50;
+			out.water = 63;
+			out.topMaterial = 4;
+			out.sideMaterial = 4;
+		};
+		mesh = builder().build(lake, TileKey.of(0, 0, 0));
+		v = vertices(mesh);
+		for (int i = 0; i < mesh.vertexCount(); i++) {
+			assertEquals(0, material(v, i), "water has no block texture");
+		}
+	}
+
+	/** The material id a blocky vertex carries in its second colour. */
+	private static int material(ByteBuffer v, int i) {
+		int o = i * TileBuilder.VERTEX_BYTES;
+		assertEquals(0, v.get(o + 14), "the material's spare bytes stay clear");
+		return (v.get(o + 12) & 0xFF) | (v.get(o + 13) & 0xFF) << 8;
 	}
 
 	private static ByteBuffer vertices(TileBuilder.Mesh mesh) {

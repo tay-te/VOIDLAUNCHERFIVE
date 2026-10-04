@@ -39,6 +39,7 @@ final class Samples {
 	final int[] soilMaterial = new int[MAX * MAX];
 	final int[] rockMaterial = new int[MAX * MAX];
 	final int[] leavesMaterial = new int[MAX * MAX];
+	final int[][] bandMaterials = new int[MAX * MAX][];
 	final boolean[] empty = new boolean[MAX * MAX];
 
 	private final ColumnSample sample = new ColumnSample();
@@ -93,6 +94,7 @@ final class Samples {
 				this.soilMaterial[k] = s.soilMaterial;
 				this.rockMaterial[k] = s.rockMaterial;
 				this.leavesMaterial[k] = s.leavesMaterial;
+				this.bandMaterials[k] = s.bands == null ? null : s.bandMaterials;
 				this.empty[k] = s.empty;
 
 				if (!this.variation) {
@@ -145,6 +147,10 @@ final class Samples {
 
 	int rockAt(int k, int y) {
 		return ColumnSample.rockAt(this.bands[k], this.bandHeight[k], this.rock[k], y + this.bandOffset[k]);
+	}
+
+	int rockMaterialAt(int k, int y) {
+		return ColumnSample.rockMaterialAt(this.bandMaterials[k], this.bandHeight[k], this.rockMaterial[k], y + this.bandOffset[k]);
 	}
 
 	int rockBetween(int k, int y0, int y1) {

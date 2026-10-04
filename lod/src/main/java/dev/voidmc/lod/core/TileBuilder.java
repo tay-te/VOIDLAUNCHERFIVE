@@ -26,8 +26,9 @@ import java.nio.ByteOrder;
  * are in cells from the tile's corner (0..TILE), y in eighths of a block. The low three bits of flags are
  * the face ({@link #UP}, {@link #SMOOTH}, or a wall: 2 north, 3 south, 4 west, 5 east), and {@link #WATER} marks
  * water. A blocky face carries its colour in the first RGBA (alpha: ambient occlusion on tops, height
- * above the floor on walls); a smooth vertex carries the colour of the tops and of the risers, with the
- * surface's slope in the two alphas.
+ * above the floor on walls) and what it is made of in the second: a 16-bit id in the world's material
+ * registry, low byte first, 0 for untextured ({@link #material}). A smooth vertex carries the colour of the
+ * tops and of the risers, with the surface's slope in the two alphas.
  */
 public final class TileBuilder {
 	public static final int VERTEX_BYTES = 16;
@@ -101,6 +102,11 @@ public final class TileBuilder {
 		this.vertices = 0;
 		this.minY = Integer.MAX_VALUE;
 		this.maxY = Integer.MIN_VALUE;
+	}
+
+	/** A blocky face's material id, as the {@code side} colour of {@link #vertex}: low byte in red, high byte in green. */
+	static int material(int id) {
+		return (id & 0xFF) << 16 | id & 0xFF00;
 	}
 
 	void vertex(int x, float y, int z, int flags, int top, int topAlpha, int side, int sideAlpha) {

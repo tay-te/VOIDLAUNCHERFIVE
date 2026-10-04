@@ -5,6 +5,7 @@
 	"client": [
 		"CameraMixin",
 		"FogRendererMixin",
+		"LevelRendererAccessor",
 		"LevelRendererMixin",
 		"MaterialSystemAccessor",
 		"SpriteContentsAccessor"

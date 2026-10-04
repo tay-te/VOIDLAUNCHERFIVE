@@ -53,6 +53,8 @@ public final class ColumnSample {
 	public int soilMaterial;
 	public int rockMaterial;
 	public int leavesMaterial;
+	/** The material of each of {@link #bands}, parallel to it; null leaves banded rock {@link #rockMaterial}. */
+	public int[] bandMaterials;
 	/** No ground at all in this column: the void between End islands. Nothing is drawn over it. */
 	public boolean empty;
 
@@ -79,12 +81,18 @@ public final class ColumnSample {
 		this.soilMaterial = 0;
 		this.rockMaterial = 0;
 		this.leavesMaterial = 0;
+		this.bandMaterials = null;
 		this.empty = false;
 	}
 
 	/** The rock at height {@code y} (already shifted by the band offset): the band there, or the plain rock. */
 	public static int rockAt(int[] bands, int bandHeight, int rock, int y) {
 		return bands == null ? rock : bands[Math.floorMod(Math.floorDiv(y, bandHeight), bands.length)];
+	}
+
+	/** What the rock at height {@code y} is made of, band by band as {@link #rockAt} colours it. */
+	public static int rockMaterialAt(int[] bandMaterials, int bandHeight, int rockMaterial, int y) {
+		return bandMaterials == null ? rockMaterial : bandMaterials[Math.floorMod(Math.floorDiv(y, bandHeight), bandMaterials.length)];
 	}
 
 	/** The average colour of the bands from {@code y0} up to {@code y1}: what a stack of them is from afar. */

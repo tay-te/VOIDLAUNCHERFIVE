@@ -38,6 +38,8 @@ public class WorldgenSource implements TerrainSource {
 	protected final int seaLevel;
 	/** The world's own badlands strata, one colour per block of height, and the noise that shifts them. */
 	protected final int[] strata;
+	/** The strata's blocks, as material ids. */
+	protected final int[] strataMaterials;
 	private final Noise strataOffset;
 	private final long version;
 	/**
@@ -58,10 +60,11 @@ public class WorldgenSource implements TerrainSource {
 		this.randomState = level.getChunkSource().randomState();
 		this.biomes = this.generator.getBiomeSource();
 		this.resolvers = ThreadLocal.withInitial(() -> this.biomes.createCachingResolver(this.randomState));
-		this.looks = new BiomeLooks(level);
+		this.looks = new BiomeLooks(level, materials);
 		this.seaLevel = this.generator.getSeaLevel();
 		this.version = version;
 		int[] strata = null;
+		int[] strataMaterials = null;
 		Noise offset = null;
 		try {
 			MaterialSystemAccessor system = (MaterialSystemAccessor) this.randomState.surfaceSystem();
@@ -70,11 +73,13 @@ public class WorldgenSource implements TerrainSource {
 			for (int i = 0; i < bands.length; i++) {
 				strata[i] = this.looks.colorOf(bands[i]);
 			}
+			strataMaterials = this.looks.materials(bands, false);
 			offset = system.voidLod$clayBandsOffsetNoise();
 		} catch (RuntimeException e) {
 			// a generator without vanilla's material system: the looks' own strata stand in
 		}
 		this.strata = strata;
+		this.strataMaterials = strataMaterials;
 		this.strataOffset = offset;
 	}
 
@@ -158,6 +163,7 @@ public class WorldgenSource implements TerrainSource {
 	protected void strata(int x, int z, ColumnSample out) {
 		if (out.bands != null && this.strata != null) {
 			out.bands = this.strata;
+			out.bandMaterials = this.strataMaterials;
 			out.bandHeight = 1;
 			out.bandOffset = this.strataOffset == null ? 0 : Math.round((float) this.strataOffset.get(x, 0, z) * 4);
 		}
@@ -180,16 +186,25 @@ public class WorldgenSource implements TerrainSource {
 		}
 		if (out.bands != null) {
 			out.side = ColumnSample.rockAt(out.bands, out.bandHeight, out.rock, ground - 1 + out.bandOffset);
+			out.sideMaterial = ColumnSample.rockMaterialAt(out.bandMaterials, out.bandHeight, out.rockMaterial, ground - 1 + out.bandOffset);
 		}
 		float snow = look.ground() == BiomeLooks.Ground.SNOWCAP ? 0 : this.snow(biome, x, ground, z, cell);
 		if (snow > 0) {
 			out.top = Colors.mix(out.top, this.looks.snowTop, snow);
+			if (snow >= 0.5F) {
+				out.topMaterial = this.looks.snowTopMaterial;
+			}
 			if (look.ground() == BiomeLooks.Ground.GRASS) {
 				out.side = Colors.mix(out.side, this.looks.snowSide, snow);
+				if (snow >= 0.5F) {
+					out.sideMaterial = this.looks.snowSideMaterial;
+				}
 			}
 		} else if (ground <= this.seaLevel + 1 && look.ground() == BiomeLooks.Ground.GRASS) {
 			// most shores are sand, whatever the biome inland
 			out.top = out.side = out.soil = this.looks.sand;
+			out.topMaterial = this.looks.sandTopMaterial;
+			out.sideMaterial = out.soilMaterial = this.looks.sandSideMaterial;
 		}
 	}
 }
