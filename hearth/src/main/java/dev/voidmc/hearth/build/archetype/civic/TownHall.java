@@ -386,7 +386,8 @@ public final class TownHall implements Archetype {
 		int hz = (up[1] + up[3]) / 2 + 1;
 		if (d.isEmpty(hx, fy, hz) && top.roof() != null) {
 			Furniture.hearth(d, hx, fy, hz, stairLeft ? Dirs.LEFT : Dirs.RIGHT, false);
-			Chimneys.stack(d, stairLeft ? up[2] : up[0], hz, fy + 1, top.roof(), top.roof().ridgeY);
+			// (a rendered hall carries its flue inside, up through the roof, not as a brick stripe on its white gable)
+			Chimneys.stack(d, boh ? hx : stairLeft ? up[2] : up[0], hz, fy + 1, top.roof(), top.roof().ridgeY);
 		}
 		if (h.snow()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, entryX);
