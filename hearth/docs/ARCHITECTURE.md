@@ -414,6 +414,14 @@ Aim the planner's layouts and the architects' styles at these; they are what mak
 
 ## 11. Partners
 
+**Who builds what (decided with the user, 2026-10-04).** Hearth owns the villages, towns, castles and keeps and every
+working building — mills, charcoal kilns, quarries, mines, smithies, worked farms — and the roads within and between
+settlements. Expanse owns the land between settlements: terrain, foliage and understory, hedgerows, fishponds, wild
+features, ruins and small wayside sights. The surface stays natural (no glowing or coloured fantasy above ground;
+underground may stay fantastical), and the temperate culture carries the KCD II Bohemian village look Expanse's
+landscapes are built for. Hearth keeps its planned land clear of Expanse's structures and Expanse keeps its sights small
+and unpeopled.
+
 - **Expanse** (optional, `compileOnly` + `localRuntime`; guard with `FabricLoader.isModLoaded("expanse")` and keep
   Expanse classes behind a separate class that is only loaded then). Cultures cover every Expanse biome; styles use
   Expanse woods and stones (wisteria, redwood, palm, baobab planks; limestone, opal sandstone) with vanilla fallbacks;
