@@ -94,6 +94,10 @@ public final class Curtain {
 					Mason.merlon(d, m, man.merlon(), ox, walk + 1, oz, i, along, out, i == 0 || i == n - 1);
 				} else {
 					Mason.merlon(d, m, man.merlon(), x, walk + 1, z, i, along, out, i == 0 || i == n - 1);
+					// a drip course under the parapet: a shadow line along the wall head
+					if (!timber) {
+						Mason.corbel(d, m.dress, x + Dirs.dx(out), walk - 1, z + Dirs.dz(out), in);
+					}
 				}
 			}
 			// a talus where the field falls away under the wall
@@ -110,6 +114,61 @@ public final class Curtain {
 					Mason.loop(d, x, ly, z, 1);
 				}
 			}
+		}
+	}
+
+	/**
+	 * Covers the walk of a stretch (drawn by {@link #run} with the same arguments) under a timber pentice, as the walls
+	 * of central Europe's castles are: the parapet raised solid to the roof with loops every third cell, timber posts on
+	 * the court edge of the walk carrying a lean-to roof that rises to the parapet and oversails the court by a block.
+	 */
+	public static void covered(Draft d, Dress m, Manner man, int ax, int az, int bx, int bz, Direction out, int thick, int walk) {
+		Direction along = ax == bx ? (bz >= az ? Dirs.BACK : Dirs.FRONT) : (bx >= ax ? Dirs.RIGHT : Dirs.LEFT);
+		int n = Math.abs(bx - ax) + Math.abs(bz - az) + 1;
+		Direction in = out.getOpposite();
+		BlockState air = Blocks.AIR.defaultBlockState();
+		for (int i = 0; i < n; i++) {
+			int x = ax + Dirs.dx(along) * i;
+			int z = az + Dirs.dz(along) * i;
+			if (!Mason.inPlot(d, x, z)) {
+				continue;
+			}
+			// the parapet raised two courses over the walk, loops every third cell
+			try (var s = d.stage(StageKind.WALLS)) {
+				if (d.isSolid(x, walk, z)) {
+					for (int y = walk + 1; y <= walk + 2; y++) {
+						boolean loop = y == walk + 1 && i % 3 == 1;
+						d.set(x, y, z, loop ? air : m.wall.full().at(x, y, z));
+					}
+				}
+			}
+			// the posts on the court edge of the walk
+			int px = x + Dirs.dx(in) * (thick - 1);
+			int pz = z + Dirs.dz(in) * (thick - 1);
+			if (i % 3 == 0 && d.isEmpty(px, walk, pz) && d.isSolid(px, walk - 1, pz)) {
+				try (var s = d.stage(StageKind.FRAME)) {
+					d.set(px, walk, pz, Mason.post(m.frame));
+					d.set(px, walk + 1, pz, Mason.post(m.frame));
+				}
+			}
+		}
+		// the roof: from a block over the court down... rising from the court edge to the parapet head
+		int x0 = Math.min(ax, bx);
+		int x1 = Math.max(ax, bx);
+		int z0 = Math.min(az, bz);
+		int z1 = Math.max(az, bz);
+		int ox0 = Math.min(x0, x0 + Dirs.dx(in) * thick);
+		int ox1 = Math.max(x1, x1 + Dirs.dx(in) * thick);
+		int oz0 = Math.min(z0, z0 + Dirs.dz(in) * thick);
+		int oz1 = Math.max(z1, z1 + Dirs.dz(in) * thick);
+		ox0 = Math.max(0, ox0);
+		oz0 = Math.max(0, oz0);
+		ox1 = Math.min(d.frontage() - 1, ox1);
+		oz1 = Math.min(d.depth() - 1, oz1);
+		dev.voidmc.hearth.build.kit.Roofs.Field f = dev.voidmc.hearth.build.kit.Roofs.shed(ox0, oz0, ox1, oz1, out,
+			dev.voidmc.hearth.build.kit.Roofs.Profile.straight(0.5));
+		try (var s = d.stage(StageKind.ROOF)) {
+			dev.voidmc.hearth.build.kit.Roofs.raster(d, f, walk + 2, ox0, oz0, ox1, oz1, m.roof, m.trim, dev.voidmc.hearth.build.style.Habits.Ridge.SLAB);
 		}
 	}
 

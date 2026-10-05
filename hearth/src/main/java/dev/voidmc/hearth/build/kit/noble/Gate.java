@@ -146,33 +146,47 @@ public final class Gate {
 	}
 
 	/**
-	 * A twin-towered gatehouse: the gate block over the box (x0..x1, z0..z1) and two towers of diameter {@code td}
-	 * standing out of its front corners into the field (round where the manner builds round towers, else square), the
-	 * gate hall over the passage, a guard room in the gate block beside the passage reached from the court, the GUARD's
-	 * grindstone and a chest in it.
+	 * A twin-towered gatehouse: the gate block over the box (x0..x1, z0..z1), the passage {@code pw} wide through its
+	 * middle, and two towers of diameter {@code td} centred on its front corners, standing out into the field (round where
+	 * the manner builds round towers, else square): their ground floors are guard rooms entered from the passage (the
+	 * GUARD's grindstone in one), their stairs climb past the gate hall (which they open into) to their heads.
+	 * Returns the gate; the two towers are {@code towers[0]} (left) and {@code towers[1]}.
 	 */
 	public static Built gatehouse(Draft d, Dress m, Manner man, int x0, int z0, int x1, int z1, int pw, int level, int hall, int top, int maxTop,
-		boolean roundTowers, int td) {
+		boolean roundTowers, int td, Tower[] towers) {
 		Built b = tower(d, m, man, x0, z0, x1, z1, pw, level, hall, top, maxTop);
 		int r = td / 2;
-		int towerTop = Math.min(top + 2, maxTop - Tower.headRows(man.cap(), td, man));
-		towerTop = Math.max(hall + 3, towerTop);
+		int towerTop = Math.min(top + 2, maxTop - Math.min(9, Tower.headRows(flankCap(man), td, man)));
+		towerTop = Math.max(hall + 4, towerTop);
 		for (int side : new int[]{-1, 1}) {
-			int cx = side < 0 ? x0 + r - 1 : x1 - r + 1;
+			int cx = side < 0 ? x0 : x1;
 			int cz = z0;
 			Tower t = roundTowers ? Tower.round(cx, cz, td, level, towerTop, flankCap(man))
 				: Tower.square(cx - r, cz - r, cx + r, cz + r, level, towerTop, flankCap(man));
 			t.footings(d, m);
 			t.shell(d, m, towerTop - 1, hall);
-			t.stair(d, m, man.timberTops(), null);
+			t.stair(d, m, man.timberTops(), side < 0 ? Dirs.LEFT : Dirs.BACK);
 			t.floors(d, m, towerTop, hall);
-			// into the gate hall from the tower
-			Direction toGate = side < 0 ? Dirs.RIGHT : Dirs.LEFT;
-			t.door(d, m, toGate, hall, 1, false);
+			// the guard room's door from the passage
+			Direction toPassage = side < 0 ? Dirs.RIGHT : Dirs.LEFT;
+			int[] f = t.face(toPassage);
+			if (f[0] >= b.px0() - 1 && f[0] <= b.px1() + 1) {
+				t.door(d, m, toPassage, level, 1, true);
+			}
 			t.loops(d, java.util.Set.of(Dirs.FRONT, side < 0 ? Dirs.LEFT : Dirs.RIGHT), level + 1, towerTop);
+			t.window(d, m, side < 0 ? Dirs.LEFT : Dirs.RIGHT, hall + 1, 2);
 			t.head(d, m, man, maxTop);
+			var room = t.room(level);
+			if (side < 0) {
+				dev.voidmc.hearth.build.kit.Rooms.furnish(d, room, dev.voidmc.hearth.build.kit.Rooms.Type.WORKSHOP, 0, JobType.GUARD);
+			} else {
+				dev.voidmc.hearth.build.kit.Rooms.furnish(d, room, dev.voidmc.hearth.build.kit.Rooms.Type.BEDROOM, 2, JobType.NONE);
+			}
 			t.light(d, towerTop - 1);
 			t.watch(d, Dirs.FRONT);
+			if (towers != null) {
+				towers[side < 0 ? 0 : 1] = t;
+			}
 		}
 		return b;
 	}
@@ -281,8 +295,10 @@ public final class Gate {
 		for (int side : new int[]{-1, 1}) {
 			int tx = side < 0 ? x0 + 1 : x1 - 1;
 			int tz = zf + 1;
-			Tower t = roundTurrets ? Tower.round(tx, tz, td, walk, Math.max(walk + 1, tt), man.cap() == Manner.Cap.HOARD ? Manner.Cap.PYRAMID : man.cap())
-				: Tower.square(tx - 2, tz - 2, tx + 2, tz + 2, walk, Math.max(walk + 1, tt), man.cap() == Manner.Cap.HOARD ? Manner.Cap.PYRAMID : man.cap());
+			// the barbican's turrets stand open behind their battlements (a dome on a garita, a curved roof in the karst)
+			Manner.Cap tc = man.cap() == Manner.Cap.DOME || man.cap() == Manner.Cap.PAGODA ? man.cap() : Manner.Cap.CRENEL;
+			Tower t = roundTurrets ? Tower.round(tx, tz, td, walk, Math.max(walk + 1, tt), tc)
+				: Tower.square(tx - 2, tz - 2, tx + 2, tz + 2, walk, Math.max(walk + 1, tt), tc);
 			// solid below the walk: a turret is a bastion carrying a lookout
 			try (var s = d.stage(StageKind.WALLS)) {
 				for (int[] c : t.cells()) {

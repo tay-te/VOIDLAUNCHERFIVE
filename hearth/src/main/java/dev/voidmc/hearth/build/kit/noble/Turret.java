@@ -124,12 +124,31 @@ public final class Turret {
 	 * {@code top}: a shell of the walling with slit lights up its face, a spiral inside (a ladder in a five-wide one), a
 	 * cap over it. Doors into it are the caller's ({@link Tower#door}). Returns the tower so the caller can cut them.
 	 */
-	public static Tower stair(Draft d, Dress m, Manner man, int cx, int cz, int diam, int base, int top, int maxTop, boolean timber) {
-		Tower t = Tower.round(cx, cz, diam, base, top, man.cap() == Manner.Cap.CRENEL ? Manner.Cap.CRENEL : Manner.Cap.CONE);
+	public static Tower stair(Draft d, Dress m, Manner man, int cx, int cz, int diam, int base, int top, int maxTop, boolean timber, int... levels) {
+		return stair(d, m, man, cx, cz, diam, base, top, timber, true, null, levels);
+	}
+
+	/**
+	 * {@link #stair}, round or square. A round one of diameter 7 has a ring round its spiral broken by the wall at the
+	 * corners, so each landing is reached only from the tread that arrives on it: where the doorways' side is fixed (a
+	 * palace's storeys) give it in {@code arrive} and the spiral is turned to arrive on that side at the {@code levels}.
+	 */
+	public static Tower stair(Draft d, Dress m, Manner man, int cx, int cz, int diam, int base, int top, boolean timber, boolean round,
+		@org.jspecify.annotations.Nullable Direction arrive, int... levels) {
+		Manner.Cap cap = switch (man.cap()) {
+			case CRENEL, DOME -> Manner.Cap.CRENEL;
+			case PAGODA -> Manner.Cap.PAGODA;
+			default -> round ? Manner.Cap.CONE : Manner.Cap.PYRAMID;
+		};
+		int r = diam / 2;
+		Tower t = round ? Tower.round(cx, cz, diam, base, top, cap) : Tower.square(cx - r, cz - r, cx + r, cz + r, base, top, cap);
 		t.footings(d, m);
 		t.shell(d, m, top - 1);
+		if (arrive != null) {
+			t.arriveToward(arrive, levels);
+		}
 		t.stair(d, m, timber, null);
-		t.floors(d, m, top);
+		t.floors(d, m, top, levels);
 		return t;
 	}
 
@@ -140,7 +159,14 @@ public final class Turret {
 	 * Returns the highest row used.
 	 */
 	public static int wall(Draft d, Dress m, Manner man, int cx, int cz, int diam, int walk, int maxTop, java.util.Set<Direction> doors) {
-		Manner.Cap cap = man.cap() == Manner.Cap.HOARD ? Manner.Cap.PYRAMID : man.cap() == Manner.Cap.ONION ? Manner.Cap.PYRAMID : man.cap();
+		return wall(d, m, man, cx, cz, diam, walk, maxTop, doors, null);
+	}
+
+	/** {@link #wall} under a given cap (null: the manner's). */
+	public static int wall(Draft d, Dress m, Manner man, int cx, int cz, int diam, int walk, int maxTop, java.util.Set<Direction> doors,
+		Manner.@org.jspecify.annotations.Nullable Cap given) {
+		Manner.Cap cap = given != null ? given
+			: man.cap() == Manner.Cap.HOARD ? Manner.Cap.PYRAMID : man.cap() == Manner.Cap.ONION ? Manner.Cap.PYRAMID : man.cap();
 		int rows = Tower.headRows(cap, diam, man);
 		int top = Math.min(walk + 3, maxTop - Math.min(rows, 6));
 		top = Math.max(walk + 1, top);
@@ -165,7 +191,7 @@ public final class Turret {
 		t.noPlinth().shell(d, m, top - 1);
 		t.floors(d, m, top);
 		for (Direction dir : doors) {
-			t.door(d, m, dir, walk, 1, false);
+			t.doorToward(d, m, dir, walk, false);
 		}
 		java.util.Set<Direction> look = new java.util.HashSet<>(Tower.all());
 		look.removeAll(doors);

@@ -238,6 +238,12 @@ public final class Mason {
 
 	/** An upside-down stair of the dressing under a projecting cell (a sill, a cornice), facing back into the wall. */
 	public static void sill(Draft d, Dress m, int x, int y, int z, Direction toWall) {
+		// never at head height over ground folk walk along the wall on
+		boolean overPlaced = d.isSolid(x, y - 2, z) && d.isEmpty(x, y - 1, z);
+		boolean overGround = d.isAbsent(x, y - 2, z) && d.isAbsent(x, y - 1, z) && d.site().ground(x, z) == y - 1;
+		if (overPlaced || overGround) {
+			return;
+		}
 		if (ok(d, x, y, z) && d.isEmpty(x, y, z)) {
 			d.set(x, y, z, m.dress.stairsOrSlab(toWall, Half.TOP));
 		}

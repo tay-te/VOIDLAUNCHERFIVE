@@ -58,6 +58,8 @@ public final class Tower {
 	private int stairX = Integer.MIN_VALUE;
 	private int stairZ;
 	private int stairStart;
+	/** The spiral's start forced by {@link #arriveToward} (-1: seeded). */
+	private int forcedStart = -1;
 	private boolean ladder;
 	/** The highest row the head used, after {@link #head}. */
 	public int highest = Integer.MIN_VALUE;
@@ -205,8 +207,8 @@ public final class Tower {
 		return switch (man.culture()) {
 			case STEPPE -> 1.0;
 			case NORTHERN, TUNDRA -> 1.5;
-			case ALPINE, WISTERIA -> diam <= 7 ? 2.5 : 2.0;
-			default -> diam <= 7 ? 2.2 : 1.8;
+			case ALPINE, WISTERIA -> diam <= 5 ? 2.5 : diam <= 7 ? 2.0 : 1.7;
+			default -> diam <= 5 ? 2.0 : diam <= 7 ? 1.75 : 1.5;
 		};
 	}
 
@@ -400,7 +402,7 @@ public final class Tower {
 				this.stairX = iw >= 6 ? (right ? ix1 - 2 : ix0 + 2) : (ix0 + ix1) / 2;
 				this.stairZ = id >= 6 ? (back ? iz1 - 2 : iz0 + 2) : (iz0 + iz1) / 2;
 			}
-			this.stairStart = Math.floorMod((int) (d.seed() & 7), 8);
+			this.stairStart = this.forcedStart >= 0 ? this.forcedStart : Math.floorMod((int) (d.seed() & 7), 8);
 			this.ladder = false;
 			Mason.spiral(d, m, this.stairX, this.stairZ, this.base, rise, this.stairStart, timber);
 		} else if (inner >= 1) {
@@ -419,6 +421,32 @@ public final class Tower {
 				}
 			}
 		}
+		return this;
+	}
+
+	/**
+	 * Turns the spiral (call before {@link #stair}) so it arrives at as many of the standing {@code levels} as can be on
+	 * the side toward {@code dir}: in a round tower of seven the landing round the spiral is cut into four by the wall,
+	 * and only the quarter the spiral arrives on is reached at each floor, so doorways on a fixed side need this.
+	 */
+	public Tower arriveToward(Direction dir, int... levels) {
+		int[][] ring = {{-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}};
+		int best = 0;
+		int bestScore = -1;
+		for (int start = 0; start < 8; start++) {
+			int score = 0;
+			for (int l : levels) {
+				int[] c = ring[Math.floorMod(start + 2 * (l - this.base), 8)];
+				if (c[0] * Dirs.dx(dir) + c[1] * Dirs.dz(dir) == 1) {
+					score++;
+				}
+			}
+			if (score > bestScore) {
+				bestScore = score;
+				best = start;
+			}
+		}
+		this.forcedStart = best;
 		return this;
 	}
 
@@ -494,6 +522,49 @@ public final class Tower {
 	public int[] door(Draft d, Dress m, Direction dir, int level, int width, boolean door) {
 		int[] f = face(dir);
 		return doorAt(d, m, f[0], f[1], dir, level, width, door);
+	}
+
+	/**
+	 * A doorway at standing level {@code level} out toward {@code dir} wherever the way beyond is open: the wall cell whose
+	 * outside neighbour that way can be stood on (empty two high over something solid) and whose inside neighbour is the
+	 * tower's floor, the nearest to the face's middle. Onto a wall walk that runs past the tower off its axis, or a court
+	 * in the angle of two curtains. Returns the outside cell, or null when nothing beyond is open.
+	 */
+	public int @Nullable [] doorToward(Draft d, Dress m, Direction dir, int level, boolean door) {
+		int[] best = null;
+		int bestScore = Integer.MAX_VALUE;
+		int[] f = face(dir);
+		for (int[] c : cells()) {
+			if (!wall(c[0], c[1])) {
+				continue;
+			}
+			int ox = c[0] + Dirs.dx(dir);
+			int oz = c[1] + Dirs.dz(dir);
+			if (in(ox, oz)) {
+				continue;
+			}
+			int ix = c[0];
+			int iz = c[1];
+			for (int t = 0; t < this.thick; t++) {
+				ix -= Dirs.dx(dir);
+				iz -= Dirs.dz(dir);
+			}
+			if (!inside(ix, iz) || stairCell(ix, iz)) {
+				continue;
+			}
+			if (!d.isEmpty(ox, level, oz) || !d.isEmpty(ox, level + 1, oz) || !d.isSolid(ox, level - 1, oz)) {
+				continue;
+			}
+			int score = Math.abs(c[0] - f[0]) + Math.abs(c[1] - f[1]);
+			if (score < bestScore) {
+				bestScore = score;
+				best = c;
+			}
+		}
+		if (best == null) {
+			return null;
+		}
+		return doorAt(d, m, best[0], best[1], dir, level, 1, door);
 	}
 
 	/** A doorway through the wall at a given wall cell, the passage running {@code dir} outward. */

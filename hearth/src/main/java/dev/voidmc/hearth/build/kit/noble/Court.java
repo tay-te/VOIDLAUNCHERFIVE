@@ -10,6 +10,7 @@ import dev.voidmc.hearth.build.draft.Noise;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
+import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.style.Form;
@@ -235,5 +236,126 @@ public final class Court {
 			d.set(x, y, z, Blocks.WATER_CAULDRON.defaultBlockState().setValue(BlockStateProperties.LEVEL_CAULDRON, 3));
 		}
 		d.poi(PoiType.JOB_SITE, x + Dirs.dx(facing), y, z + Dirs.dz(facing), facing.getOpposite(), JobType.STABLEMASTER);
+	}
+
+	/**
+	 * A lean-to range against a curtain toward {@code wall}: walls of the seat's walling on the three open sides of
+	 * (x0..x1, z0..z1) (the side toward the wall stands against the curtain's face), standing level y, {@code eave} rows
+	 * of wall at the front, a shed roof rising from the front's eave to the curtain, a door in the middle of the front
+	 * (and a second for a long one), small windows. Returns the room inside for the caller to furnish; {@code door[0..1]}
+	 * receives the cell outside the main door.
+	 */
+	public static dev.voidmc.hearth.build.kit.Rooms.Room leanTo(Draft d, Dress m, Manner man, int x0, int z0, int x1, int z1, int y, Direction wall,
+		int eave, int[] door) {
+		int ax = Math.min(x0, x1);
+		int bx = Math.max(x0, x1);
+		int az = Math.min(z0, z1);
+		int bz = Math.max(z0, z1);
+		Direction front = wall.getOpposite();
+		java.util.function.BiPredicate<Integer, Integer> isWall = (x, z) -> {
+			boolean edgeX = x == ax || x == bx;
+			boolean edgeZ = z == az || z == bz;
+			boolean wallRow = wall == Dirs.RIGHT ? x == bx : wall == Dirs.LEFT ? x == ax : wall == Dirs.BACK ? z == bz : z == az;
+			boolean onWallRowOnly = wallRow && !(wall.getAxis() == Direction.Axis.X ? edgeZ : edgeX);
+			return (edgeX || edgeZ) && !onWallRowOnly;
+		};
+		for (int z = az; z <= bz; z++) {
+			for (int x = ax; x <= bx; x++) {
+				Mason.footing(d, m, x, z, y - 2);
+			}
+		}
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int z = az; z <= bz; z++) {
+				for (int x = ax; x <= bx; x++) {
+					boolean w = isWall.test(x, z);
+					boolean corner = (x == ax || x == bx) && (z == az || z == bz);
+					for (int yy = y - 1; yy < y + eave + 3; yy++) {
+						if (w) {
+							if (yy < y + eave) {
+								d.set(x, yy, z, yy <= y - 1 ? m.plinth.full() : corner ? m.dress.full() : m.wall.full());
+							}
+						} else if (yy >= y && yy < y + eave + 3) {
+							d.set(x, yy, z, Blocks.AIR.defaultBlockState());
+						}
+					}
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.FLOORS)) {
+			for (int z = az; z <= bz; z++) {
+				for (int x = ax; x <= bx; x++) {
+					if (!isWall.test(x, z)) {
+						d.set(x, y - 1, z, m.paving.full());
+					}
+				}
+			}
+		}
+		// the shed roof rising to the curtain: half a block a cell, from the front's eave
+		Roofs.Field f = Roofs.shed(ax - (wall == Dirs.RIGHT || front == Dirs.LEFT ? 1 : 0) + (wall == Dirs.LEFT ? 0 : 0), az, bx, bz, wall, Roofs.Profile.straight(0.5));
+		int ex0 = front == Dirs.LEFT ? ax - 1 : ax;
+		int ex1 = front == Dirs.RIGHT ? bx + 1 : bx;
+		int ez0 = front == Dirs.FRONT ? az - 1 : az;
+		int ez1 = front == Dirs.BACK ? bz + 1 : bz;
+		ex0 = Math.max(0, ex0);
+		ez0 = Math.max(0, ez0);
+		ex1 = Math.min(d.frontage() - 1, ex1);
+		ez1 = Math.min(d.depth() - 1, ez1);
+		f = Roofs.shed(ex0, ez0, ex1, ez1, wall, Roofs.Profile.straight(0.5));
+		Roofs.Roof roof;
+		try (var s = d.stage(StageKind.ROOF)) {
+			roof = Roofs.raster(d, f, y + eave, ex0, ez0, ex1, ez1, d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), Habits.Ridge.SLAB);
+		}
+		// the side walls carried up under the roof
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int z = az; z <= bz; z++) {
+				for (int x = ax; x <= bx; x++) {
+					if (!isWall.test(x, z) || !roof.covers(x, z)) {
+						continue;
+					}
+					for (int yy = y + eave; yy < roof.bottomY(x, z); yy++) {
+						d.set(x, yy, z, m.wall.full());
+					}
+				}
+			}
+		}
+		// doors and windows in the front
+		dev.voidmc.hearth.build.kit.Side fs = dev.voidmc.hearth.build.kit.Side.of(ax, az, bx, bz, front);
+		int mid = fs.middle();
+		int[] doors = fs.length() >= 12 ? new int[]{fs.length() / 3, fs.length() * 2 / 3} : new int[]{mid};
+		var doorBlock = d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR);
+		for (int k = 0; k < doors.length; k++) {
+			int i = doors[k];
+			int dx = fs.x(i);
+			int dz = fs.z(i);
+			d.inStage(StageKind.OPENINGS, () -> d.door(dx, y, dz, doorBlock, front, net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+			try (var s = d.stage(StageKind.WALLS)) {
+				d.set(dx, y + 2, dz, m.dress.full());
+			}
+			if (k == 0 && door != null && door.length >= 2) {
+				door[0] = fs.outX(i, 1);
+				door[1] = fs.outZ(i, 1);
+			}
+			int lx = fs.outX(i + 1, 1);
+			int lz = fs.outZ(i + 1, 1);
+			if (Mason.inPlot(d, lx, lz) && eave >= 3) {
+				Lighting.doorLamp(d, lx, y + 2, lz, front.getOpposite());
+			}
+		}
+		for (int i = 2; i < fs.length() - 2; i += 3) {
+			boolean nearDoor = false;
+			for (int dc : doors) {
+				nearDoor |= Math.abs(dc - i) <= 1;
+			}
+			if (!nearDoor && eave >= 3 && Openings.isWallBlock(d, fs.x(i), y + 1, fs.z(i))) {
+				Range.window(d, m, man.window() == Manner.Window.LANCET ? Manner.Window.MULLION : man.window(), fs, i, y + 1, 1);
+			}
+		}
+		var room = new dev.voidmc.hearth.build.kit.Rooms.Room(
+			wall == Dirs.LEFT ? ax : ax + 1, wall == Dirs.FRONT ? az : az + 1,
+			wall == Dirs.RIGHT ? bx : bx - 1, wall == Dirs.BACK ? bz : bz - 1, y, 3);
+		for (int i : doors) {
+			room.keep(fs.x(i) - Dirs.dx(front), fs.z(i) - Dirs.dz(front));
+		}
+		return room;
 	}
 }

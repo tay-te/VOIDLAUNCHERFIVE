@@ -33,7 +33,7 @@ public final class Chambers {
 	}
 
 	/** Claims a cell of the room for a piece (true if it is free and taking it cuts nobody off). */
-	static boolean take(Rooms.Room r, int x, int z) {
+	public static boolean take(Rooms.Room r, int x, int z) {
 		return r.inside(x, z) && r.claim(x, z);
 	}
 

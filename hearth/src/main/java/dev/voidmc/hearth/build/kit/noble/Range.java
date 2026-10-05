@@ -138,9 +138,24 @@ public final class Range {
 
 	/** Footings under the walls to the ground, the ground floor's floor course over the inside. */
 	public Range footings(Draft d, Dress m) {
+		return footings(d, m, false);
+	}
+
+	/**
+	 * Footings: under the walls down to the ground; under the rooms too unless {@code wallsOnly}, where the rooms stand
+	 * on made ground (a levelled terrace) and only a course of footing under the floor is laid over it, carried by the
+	 * walls where the ground falls away.
+	 */
+	public Range footings(Draft d, Dress m, boolean wallsOnly) {
 		for (int z = this.z0; z <= this.z1; z++) {
 			for (int x = this.x0; x <= this.x1; x++) {
-				Mason.footing(d, m, x, z, this.level - 2);
+				if (!wallsOnly || wall(x, z)) {
+					Mason.footing(d, m, x, z, this.level - 2);
+				} else {
+					try (var s = d.stage(StageKind.FOUNDATION)) {
+						d.set(x, this.level - 2, z, m.footing.full());
+					}
+				}
 			}
 		}
 		return this;
