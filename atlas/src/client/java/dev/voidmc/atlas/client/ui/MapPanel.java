@@ -331,9 +331,17 @@ public final class MapPanel {
 		List<Marker> out = new ArrayList<>();
 		AtlasSettings settings = this.atlas.settings();
 		boolean under = this.kind == Kind.UNDERGROUND;
+		int band = this.kind == Kind.SURFACE ? 0 : this.band(this.kind);
 		for (Marker m : this.atlas.collect(q)) {
 			if (!settings.layerVisible(m.layer()) || !m.dimension().equals(dim) || !q.contains(m.x(), m.z())) {
 				continue;
+			}
+			if (m.style() == Marker.Style.LABEL && this.kind != Kind.SURFACE) {
+				// a cave's name only on its own slice
+				dev.voidmc.atlas.api.Place p = AtlasClient.get().placeOf(m);
+				if (p == null || dev.voidmc.atlas.client.data.DimensionData.bandOf(p.y()) != band) {
+					continue;
+				}
 			}
 			if (shows(m, this.kind == Kind.NETHER ? null : under, this.zoom)) {
 				out.add(m);
@@ -345,12 +353,18 @@ public final class MapPanel {
 	/**
 	 * Whether a marker shows at a zoom (physical pixels per block) on a view, by the design's thresholds: from 1:8 out
 	 * only major tiles (and the larger names); from 1:4 the minor tiles and the sighted "?"s too; names of the land up
-	 * to 2:1 (they fade out from 1:1). Underground places only on the underground view and the land's names and
-	 * surface places only on the surface; {@code underground} null: a view with a roof (the Nether), where all show.
+	 * to 2:1 (they fade out from 1:1). Underground places and the caves' names only on the underground view, the
+	 * land's names and surface places only on the surface; {@code underground} null: a view with a roof (the Nether), where all show.
 	 */
 	public static boolean shows(Marker m, @Nullable Boolean underground, double zoom) {
 		if (m.style() == Marker.Style.LABEL) {
-			return zoom < 2 && !Boolean.TRUE.equals(underground);
+			if (zoom >= 2) {
+				return false;
+			}
+			// the land's names on the surface, the caves' names (cave biomes seen down there) underground
+			dev.voidmc.atlas.api.Place p = AtlasClient.get().placeOf(m);
+			boolean cave = p != null && p.underground();
+			return underground == null ? cave : cave == underground;
 		}
 		if (m.style() == Marker.Style.STRUCTURE && zoom < 0.25
 			&& (m.tier() == dev.voidmc.atlas.api.Tier.MINOR || m.glyph() == dev.voidmc.atlas.api.MarkerGlyph.UNKNOWN)) {

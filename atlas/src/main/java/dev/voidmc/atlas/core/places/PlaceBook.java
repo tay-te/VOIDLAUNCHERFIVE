@@ -61,6 +61,8 @@ public final class PlaceBook {
 	private static final int MAX_WEIGHT = 24;
 	/** The group of the named areas (regions, lakes, rivers) of a dimension. */
 	public static final long AREAS = Long.MAX_VALUE;
+	/** The group of the named cave areas (cave biomes seen underground) of a dimension. */
+	public static final long CAVES = Long.MAX_VALUE - 1;
 	/** The group of places reported by other mods and servers. */
 	public static final long REPORTS = Long.MIN_VALUE;
 

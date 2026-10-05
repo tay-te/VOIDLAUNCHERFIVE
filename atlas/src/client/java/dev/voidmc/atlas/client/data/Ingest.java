@@ -165,6 +165,7 @@ public final class Ingest {
 				Perf.REVEAL_WALK_NANOS.addAndGet(System.nanoTime() - t0);
 				Reveal.Result before = ++this.walks % 10 == 0 ? null : this.lastWalk;
 				Underground.apply(this.dimension, r, before, blocks, scanner);
+				this.session.landmarks.caveSeen(this.dimension, r, this.level);
 				this.lastWalk = r;
 				Perf.REVEAL_NANOS.addAndGet(System.nanoTime() - t0);
 				Perf.REVEALS.incrementAndGet();

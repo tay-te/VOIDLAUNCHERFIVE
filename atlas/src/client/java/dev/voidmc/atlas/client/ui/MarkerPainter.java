@@ -139,16 +139,26 @@ public final class MarkerPainter {
 		}
 		// the land's names go down before any tile, and only where nothing else is
 		if (!compact) {
+			// the biggest areas first; a name already on the map nearby is not written again (plain biome names repeat:
+			// two forests either side of a river are both "Forest")
+			List<Marker> names = new ArrayList<>();
 			for (Marker m : order) {
-				if (m.style() == Marker.Style.LABEL) {
-					float ax = f.screenX(m.x(), m.z());
-					float ay = f.screenY(m.x(), m.z());
-					if (f.inside(ax, ay)) {
-						Placed p = landName(ui, m, ax, ay, taken, small, zoom);
-						if (p != null) {
-							placed.add(p);
-						}
-					}
+				if (m.style() == Marker.Style.LABEL && f.inside(f.screenX(m.x(), m.z()), f.screenY(m.x(), m.z()))) {
+					names.add(m);
+				}
+			}
+			names.sort(Comparator.comparingDouble((Marker m) -> -extent(m)).thenComparing(Marker::id));
+			List<Placed> written = new ArrayList<>();
+			for (Marker m : names) {
+				float ax = f.screenX(m.x(), m.z());
+				float ay = f.screenY(m.x(), m.z());
+				if (repeats(written, m.name(), ax, ay)) {
+					continue;
+				}
+				Placed p = landName(ui, m, ax, ay, taken, small, zoom);
+				if (p != null) {
+					placed.add(p);
+					written.add(p);
 				}
 			}
 		}
@@ -505,6 +515,19 @@ public final class MarkerPainter {
 			}
 		}
 		return null;
+	}
+
+	/** How far apart (px) two of the same name must be to both be written. */
+	private static final float REPEAT_PX = 360;
+
+	/** Whether the same name is already written within {@link #REPEAT_PX} of a point. */
+	private static boolean repeats(List<Placed> written, String name, float ax, float ay) {
+		for (Placed p : written) {
+			if (p.marker().name().equalsIgnoreCase(name) && Math.hypot((p.x0() + p.x1()) / 2 - ax, (p.y0() + p.y1()) / 2 - ay) < REPEAT_PX) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** How far across a named area is, from the marker's place (the label markers carry it in their detail-less id). */

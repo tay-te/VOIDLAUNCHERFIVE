@@ -79,10 +79,16 @@ what it finds beside it (`r.x.z.feat`):
   it grows.
 * **Cave mouths** come from the chunk scan (above).
 
-**Names** are generated deterministically from the world's seed hash, the feature, the biome family and where it was
-first found (`NameGen`: "Larkspur Meadow", "Greytooth Range", "Lake Merrow"), unless a mod supplies one: a
-`RegionNameProvider` registered through `AtlasPlugin.onAtlasPlaces` is asked first (VOID Expanse gives its lands their
-real names this way). Names are kept with the world.
+**Names** are the plain names of the land, as the game gives them (`PlainNames`): a region is its biome in the
+player's language ("Forest", "Deep Ocean"), water its ocean or river biome or "Lake", a landmark what it is ("Peak",
+"Waterfall"). A `RegionNameProvider` registered through `AtlasPlugin.onAtlasPlaces` is asked first and its names win
+(VOID Expanse and VOID servers give their lands real names this way). On the map the biggest area's name is written
+first and the same name is not written again within 360 px, so neighbouring forests do not repeat "Forest".
+
+**Cave names.** As the underground reveal walks, the biome of the floors it saw is noted (one column in four), and the
+cave biomes ("Dripstone Caves", "Lush Caves", "Deep Dark") are joined per 8-block slice into areas of 16-block cells
+(`CaveAreas`, three cells at least, kept in `caves.txt`). Each is named on its own slice of the underground map, by
+the same rules as the land's names (never over a tile, a size smaller or none at all where there is no room).
 
 ## The underground: what you have seen, never what is loaded
 

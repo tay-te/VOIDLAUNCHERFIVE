@@ -8,8 +8,7 @@ import dev.voidmc.atlas.api.RegionNameProvider;
 import dev.voidmc.atlas.api.RegionNameQuery;
 import dev.voidmc.atlas.api.Source;
 import dev.voidmc.atlas.client.data.MapSession;
-import dev.voidmc.atlas.core.names.BiomeFamily;
-import dev.voidmc.atlas.core.names.NameGen;
+import dev.voidmc.atlas.core.names.PlainNames;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -140,14 +139,12 @@ public final class AtlasPlacesImpl implements AtlasPlaces {
 	}
 
 	/**
-	 * A name for a natural place or a region: the first provider's that has one, or Atlas's own generated name. Worker
-	 * thread.
+	 * A name for a natural place or a region: the first provider's that has one (VOID Expanse, a VOID server), else the
+	 * plain name of the land in the player's language ("Forest", "Deep Ocean", "Lake", "Peak"). Worker thread.
 	 */
-	String name(MapSession session, String dimension, String kind, int biome, int x, int z, long area) {
-		String biomeName = session.biomeNames.name(biome);
-		String biomeId = biomeName == null ? "minecraft:plains" : biomeName;
+	String name(MapSession session, String dimension, String kind, String biomeId, int x, int z, long area) {
 		if (!this.namers.isEmpty()) {
-			RegionNameQuery q = new RegionNameQuery(dimension, kind, biomeId, x, z, area, session.seedHash);
+			RegionNameQuery q = new RegionNameQuery(dimension, kind, biomeId == null ? "minecraft:plains" : biomeId, x, z, area, session.seedHash);
 			for (Entry<RegionNameProvider> e : this.namers) {
 				if (e.failures[0] >= AtlasMarkers.MAX_FAILURES) {
 					continue;
@@ -165,17 +162,14 @@ public final class AtlasPlacesImpl implements AtlasPlaces {
 				}
 			}
 		}
-		NameGen.Feature feature = switch (kind) {
-			case Place.LAKE -> NameGen.Feature.LAKE;
-			case Place.RIVER -> NameGen.Feature.RIVER;
-			case Place.PEAK -> NameGen.Feature.PEAK;
-			case Place.WATERFALL -> NameGen.Feature.WATERFALL;
-			case Place.CAVE_MOUTH -> NameGen.Feature.CAVE;
-			case Place.RAVINE -> NameGen.Feature.RAVINE;
-			default -> NameGen.Feature.REGION;
-		};
-		// the id of a place is where it was first found: a stable seed for its name
-		long id = (long) x * 0x9E3779B97F4A7C15L ^ (long) z * 0xC2B2AE3D27D4EB4FL ^ kind.hashCode() ^ (long) dimension.hashCode() << 32;
-		return NameGen.name(session.seedHash, feature, BiomeFamily.of(biomeId), id);
+		return PlainNames.name(kind, biomeId, AtlasPlacesImpl::translatedBiome);
+	}
+
+	/** The game's name for a biome in the player's language ("biome.minecraft.forest"), or null if it has none. */
+	static String translatedBiome(String biomeId) {
+		int colon = biomeId.indexOf(':');
+		String key = "biome." + (colon < 0 ? "minecraft" : biomeId.substring(0, colon)) + "." + biomeId.substring(colon + 1).replace('/', '.');
+		net.minecraft.locale.Language language = net.minecraft.locale.Language.getInstance();
+		return language.has(key) ? language.getOrDefault(key) : null;
 	}
 }

@@ -34,14 +34,15 @@ public final class Landmarks {
 	private static final long QUIET_MS = 8_000;
 	private static final long AREAS_DELAY_MS = 1_500;
 
-	/** Names places: Atlas's generator, unless another mod has a name for it. */
+	/** Names places: a mod's name for it if one has one, else the plain name of the land. */
 	public interface Namer {
-		String name(String dimension, String kind, int biome, int x, int z, long area);
+		String name(String dimension, String kind, String biomeId, int x, int z, long area);
 	}
 
 	private final MapSession session;
 	private final Map<Long, Long> due = new ConcurrentHashMap<>();
 	private final Set<String> areasDue = ConcurrentHashMap.newKeySet();
+	private final Set<String> cavesDue = ConcurrentHashMap.newKeySet();
 	private final Map<Integer, Boolean> leaves = new ConcurrentHashMap<>();
 	private final Map<Integer, BiomeFamily> families = new ConcurrentHashMap<>();
 	private volatile Namer namer;
@@ -100,6 +101,16 @@ public final class Landmarks {
 					}
 				} catch (IOException ignored) {
 					// nothing analysed yet
+				}
+			}
+			// the cave biomes seen before
+			Path caves = cavesFile(d);
+			if (Files.isRegularFile(caves)) {
+				try {
+					d.caves.load(Files.readString(caves));
+					this.rebuildCaves(d);
+				} catch (IOException | RuntimeException e) {
+					// seen again as the player goes back underground
 				}
 			}
 			// the areas named last time keep their ids (so their names) as the land is joined up again
@@ -179,12 +190,13 @@ public final class Landmarks {
 	}
 
 	private String name(DimensionData d, String id, String kind, int biome, int x, int z, long area) {
-		Place known = this.session.places.get(id);
-		if (known != null && !known.name().isEmpty()) {
-			return known.name();
-		}
+		return this.name(d, kind, this.session.biomeNames.name(biome), x, z, area);
+	}
+
+	/** A place's name, asked afresh each time (it is the same every time: a provider's, or the land's plain name). */
+	private String name(DimensionData d, String kind, String biomeId, int x, int z, long area) {
 		Namer n = this.namer;
-		return n == null ? "" : n.name(d.id, kind, biome, x, z, area);
+		return n == null ? "" : n.name(d.id, kind, biomeId, x, z, area);
 	}
 
 	private void publishPoints(DimensionData d, RegionFeatures f) {
@@ -220,6 +232,66 @@ public final class Landmarks {
 		}
 		this.session.places.replaceGroup(d.id, PlaceBook.AREAS, places, now);
 		Perf.AREA_NANOS.addAndGet(System.nanoTime() - t0);
+	}
+
+	private static Path cavesFile(DimensionData d) {
+		return d.files.root().resolve("caves.txt");
+	}
+
+	/**
+	 * The underground reveal walked round the player (worker thread): notes the cave biomes of the floors it saw, one
+	 * column in four each way (biomes come in 4-block cells), so the caves can carry their names.
+	 */
+	public void caveSeen(DimensionData d, dev.voidmc.atlas.core.under.Reveal.Result r, net.minecraft.world.level.Level level) {
+		boolean changed = false;
+		net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+		for (int b = 0; b < r.bands; b++) {
+			int band = r.band0 + b;
+			for (int dz = 0; dz < r.size; dz += 4) {
+				for (int dx = 0; dx < r.size; dx += 4) {
+					int top = r.top[r.index(dx, dz, b)];
+					if (top == dev.voidmc.atlas.core.under.Reveal.NOTHING) {
+						continue;
+					}
+					int x = r.x0 + dx;
+					int z = r.z0 + dz;
+					String id = level.getBiome(pos.set(x, top, z)).unwrapKey().map(k -> k.identifier().toString()).orElse(null);
+					if (id != null && BiomeFamily.of(id) == BiomeFamily.CAVE) {
+						changed |= d.caves.put(band, x, z, id);
+					}
+				}
+			}
+		}
+		if (changed && this.cavesDue.add(d.id)) {
+			this.session.workers.schedule(() -> {
+				this.cavesDue.remove(d.id);
+				this.rebuildCaves(d);
+			}, AREAS_DELAY_MS, TimeUnit.MILLISECONDS);
+		}
+	}
+
+	/** Names the cave areas again and keeps what was seen (worker thread). */
+	public void rebuildCaves(DimensionData d) {
+		List<dev.voidmc.atlas.core.under.CaveAreas.Area> areas = d.caves.areas();
+		List<Place> places = new ArrayList<>(areas.size());
+		long now = System.currentTimeMillis();
+		int cell = dev.voidmc.atlas.core.under.CaveAreas.CELL;
+		for (dev.voidmc.atlas.core.under.CaveAreas.Area a : areas) {
+			long blocks = (long) a.cells() * cell * cell;
+			int radius = (int) Math.round(Math.sqrt(blocks) / 2);
+			int y = a.band() * DimensionData.BAND + DimensionData.BAND / 2;
+			places.add(new Place(a.id(), Place.REGION, this.name(d, Place.REGION, a.biome(), a.x(), a.z(), blocks), "REGION", Tier.MAJOR,
+				DiscoveryState.SIGHTED, Source.seen(), a.x(), y, a.z(), d.id, true, radius, now, 0));
+		}
+		this.session.places.replaceGroup(d.id, PlaceBook.CAVES, places, now);
+		String text = d.caves.save();
+		this.session.io.execute(() -> {
+			try {
+				RegionStore.write(cavesFile(d), text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+			} catch (IOException e) {
+				this.session.warn("Atlas: could not save the caves seen: " + e);
+			}
+		});
 	}
 
 	/** Analyses every region of a dimension whose findings are missing (for the tour, after a flight). */

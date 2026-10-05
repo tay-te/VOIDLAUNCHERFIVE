@@ -24,6 +24,8 @@ public final class DimensionData {
 	public final boolean ceiling;
 	public final Detections detections = new Detections();
 	public final AreaIndex areas = new AreaIndex();
+	/** The cave biomes seen underground, for their names on the underground map. */
+	public final dev.voidmc.atlas.core.under.CaveAreas caves = new dev.voidmc.atlas.core.under.CaveAreas();
 	private final ConcurrentHashMap<String, LayerData> layers = new ConcurrentHashMap<>();
 	/** The underground bands with anything explored in them, on disk or this session. */
 	private final NavigableSet<Integer> bands = new ConcurrentSkipListSet<>();

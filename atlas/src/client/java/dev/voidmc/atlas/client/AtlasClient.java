@@ -27,7 +27,7 @@ import dev.voidmc.atlas.core.Coords;
 import dev.voidmc.atlas.core.MarkerRegistry;
 import dev.voidmc.atlas.core.RegionRaw;
 import dev.voidmc.atlas.core.StructureNames;
-import dev.voidmc.atlas.core.names.NameGen;
+import dev.voidmc.atlas.core.names.WorldSeed;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -429,7 +429,7 @@ public final class AtlasClient implements ClientModInitializer {
 			this.closeSession();
 			Path dir = mc.gameDirectory.toPath().resolve("atlas").resolve(key);
 			long seed = ((BiomeManagerAccessor) next.getBiomeManager()).atlas$biomeZoomSeed();
-			this.session = new MapSession(key, dir, this.settings.workerThreads, NameGen.seedHash(key.startsWith("sp/") ? "sp" : key, seed), change -> {
+			this.session = new MapSession(key, dir, this.settings.workerThreads, WorldSeed.hash(key.startsWith("sp/") ? "sp" : key, seed), change -> {
 				TileCache cache = this.tiles;
 				if (cache != null) {
 					cache.regionChanged(change);
