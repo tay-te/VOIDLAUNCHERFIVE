@@ -390,4 +390,26 @@ final class StationHomes {
 	static boolean cuts(Draft d, Role role, Form form) {
 		return d.mat(role).has(form);
 	}
+
+	/**
+	 * A town house's door column: the row's pairing (away from a lone neighbour) where the street meets the floor there,
+	 * else the column nearest the middle whose street meets it best (on a steep street the plot's floor is set where the
+	 * street meets its middle, and a door at the corner would stand a storey off it).
+	 */
+	static int townDoor(Draft d, int x0, int x1, boolean pl, boolean pr) {
+		int door = TownHouses.doorColumn(d, x0, x1, pl, pr);
+		if (TownHouses.misfit(d, door) == 0) {
+			return door;
+		}
+		int mid = (x0 + x1) / 2;
+		int best = door;
+		for (int k = 0; k <= (x1 - x0) / 2; k++) {
+			for (int x : new int[]{mid - k, mid + k}) {
+				if (x > x0 && x < x1 && TownHouses.misfit(d, x) < TownHouses.misfit(d, best)) {
+					best = x;
+				}
+			}
+		}
+		return best;
+	}
 }

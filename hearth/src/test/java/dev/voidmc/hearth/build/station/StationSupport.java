@@ -39,7 +39,12 @@ final class StationSupport {
 	/** The registered station homes (only those built so far). */
 	static List<ArchetypeInfo> registered() {
 		List<ArchetypeInfo> out = new ArrayList<>();
+		// HEARTH_STATION_ONLY=merchant_house,rectory narrows the run while iterating on a few homes
+		String only = System.getenv("HEARTH_STATION_ONLY");
 		for (String h : HOMES) {
+			if (only != null && !only.isBlank() && !java.util.Arrays.asList(only.split(",")).contains(h.substring(h.indexOf('/') + 1))) {
+				continue;
+			}
 			ArchetypeInfo info = SERVICE.archetype(Hearth.id(h));
 			if (info != null) {
 				out.add(info);
