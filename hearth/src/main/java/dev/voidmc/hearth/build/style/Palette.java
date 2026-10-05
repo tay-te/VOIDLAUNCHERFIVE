@@ -9,7 +9,8 @@ import org.jspecify.annotations.Nullable;
  * The materials that play one role in a style, with weights and placement biases. A pick is deterministic per position:
  * each entry scores {@code weight × biases × (0.6·patch + 0.4·grain)} where {@code patch} is smooth noise with a
  * two-to-three block grain (so accents come in small clusters, as a builder lays them) and {@code grain} is per-block,
- * and the best score wins.
+ * and the best score wins. Patchier roles ({@link Role#patchiness}: a wall's fabric) lean on the patch noise and lay it
+ * broader, four to five blocks.
  *
  * <p>Biases raise an entry's weight where it belongs: {@code low} near the ground (moss, weathered and cracked
  * stone), {@code high} toward the eaves (clean, dressed), {@code north} on the north faces (moss), {@code corner} at
@@ -191,7 +192,9 @@ public final class Palette {
 				continue;
 			}
 			long s = seed + i * 0x5851F42D4C957F2DL;
-			double patch = Noise.value(s, x / 2.3, y / 1.7, z / 2.3);
+			// patchier roles lay broader patches (a wall's second material in patches of four or more blocks)
+			double scale = 1 + Math.max(0, patchiness - 0.6) * 3.5;
+			double patch = Noise.value(s, x / (2.3 * scale), y / (1.7 * scale), z / (2.3 * scale));
 			double grain = Noise.unit(s ^ 0x2545F4914F6CDD1DL, x, y, z);
 			// weight through the exponent: a 3:1 palette gives roughly 3:1 counts, clustered
 			double u = uniform(patchiness * patch + (1 - patchiness) * grain, patchiness);

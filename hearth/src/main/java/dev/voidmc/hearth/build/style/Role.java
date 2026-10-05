@@ -97,23 +97,27 @@ public enum Role {
 
 	/**
 	 * How much a role's materials come in patches rather than block by block: walls weather in patches, roofs and
-	 * floors are laid shingle by shingle and board by board (patches there read as streaks along the slope).
+	 * floors are laid shingle by shingle and board by board (patches there read as streaks along the slope). The fabric
+	 * of a wall (render, stone, brick) takes its second material in broad patches of four or more blocks, as a mason
+	 * patches a wall, never salted block by block (salt reads as camouflage or damage at town distance).
 	 */
 	public double patchiness() {
 		return switch (this) {
 			case ROOF, ROOF_TRIM, FLOOR, CEILING, PATH, PAVING, THATCH, GROUND, SHEET -> 0.15;
+			case WALL, GABLE, PLINTH, FOUNDATION, MASONRY -> 0.9;
 			default -> 0.6;
 		};
 	}
 
 	/**
 	 * Whether a role's materials are chosen once per building rather than mixed block by block: one house is roofed in
-	 * spruce and the next in dark oak, but no roof is speckled with both. Walls, footings, paths and gardens mix.
+	 * spruce and the next in dark oak, but no roof is speckled with both. A house's cloth is one colour (its awnings,
+	 * beds and banners in one dye, or undyed), so a street is not a carnival. Walls, footings, paths and gardens mix.
 	 */
 	public boolean perBuilding() {
 		return switch (this) {
 			case ROOF, ROOF_TRIM, FRAME, BEAM, DOOR, SHUTTER, WINDOW, FENCE, RAILING, FURNITURE, CHIMNEY, STILT, LIGHT, FLOOR, CEILING, TREE_LOG,
-				TREE_LEAVES, HEDGE, SHEET -> true;
+				TREE_LEAVES, HEDGE, SHEET, CLOTH -> true;
 			default -> false;
 		};
 	}

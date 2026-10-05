@@ -41,9 +41,10 @@ import org.jspecify.annotations.Nullable;
  *   <li>Some of the culture's own material stays in the mix (the station's {@link StationFinish#localShare}: a hovel is
  *   all local, a lord's house mostly bought in), and per-building choices (one frame wood per house) take the local
  *   wood on most houses, not all.</li>
- *   <li>Walls are built of hewn logs (the local wood's stripped log), not of bark; a light local timber (birch, pale
- *   oak, aspen...) never becomes frames and beams, which keep the culture's darker wood so a house keeps its lines (a
- *   frame against light infill, the corners of a log house).</li>
+ *   <li>Walls are built of hewn logs (the local wood's stripped log), not of bark, and so are a light timber's posts and
+ *   stakes (no birch bark on the surface); a light local timber (birch, pale oak, aspen...) never becomes frames and
+ *   beams, which keep the culture's darker wood so a house keeps its lines (a frame against light infill, the corners
+ *   of a log house).</li>
  *   <li>The culture's habits may refuse a kind or a role ({@link Habits.Local}).</li>
  * </ul>
  */
@@ -140,11 +141,16 @@ public final class LocalMaterials {
 		return MATERIALS.computeIfAbsent(spec, MaterialFamilies::material);
 	}
 
-	/** A wood as walls are built of it: logs hewn of their bark (a birch wall is pale timber, not bark). */
+	/**
+	 * A wood as walls are built of it: logs hewn of their bark (a birch wall is pale timber, not bark). A light timber's
+	 * posts, columns and stakes are hewn too: birch bark (white with black flecks) on a post reads as a painted pole.
+	 */
 	static Material hewn(Local l) {
 		String w = l.wood;
-		String stripped = w.substring(0, w.indexOf(':') + 1) + "stripped_" + w.substring(w.indexOf(':') + 1) + "_log";
-		return MATERIALS.computeIfAbsent(l.spec + "#hewn", k -> Material.of(l.spec, Map.of(Form.LOG, stripped)));
+		String ns = w.substring(0, w.indexOf(':') + 1);
+		String name = w.substring(w.indexOf(':') + 1);
+		return MATERIALS.computeIfAbsent(l.spec + "#hewn", k -> Material.of(l.spec,
+			Map.of(Form.LOG, ns + "stripped_" + name + "_log", Form.WOOD, ns + "stripped_" + name + "_wood")));
 	}
 
 	/**
@@ -242,7 +248,7 @@ public final class LocalMaterials {
 		switch (l.kind) {
 			case WOOD -> {
 				if (k == Kind.WOOD || main && explicit) {
-					return walling ? hewn(l) : material(l.spec);
+					return walling || MaterialFamilies.tone(l.wood) == MaterialFamilies.Tone.LIGHT ? hewn(l) : material(l.spec);
 				}
 				return null;
 			}

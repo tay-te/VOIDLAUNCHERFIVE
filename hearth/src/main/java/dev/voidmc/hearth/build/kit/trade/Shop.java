@@ -80,10 +80,10 @@ public final class Shop {
 		return new int[]{start, w};
 	}
 
-	/** A cloth awning of stairs (striped with white now and then) over columns c0..c1 of a wall at height y. */
+	/** A cloth awning of stairs (striped with white now and then, where the style stripes) over columns c0..c1 of a wall at height y. */
 	public static void awning(Draft d, Side wall, int c0, int c1, int y) {
 		Mat cloth = d.mat(Role.CLOTH);
-		boolean stripes = Noise.unit(d.seed(), c0, y, c1) < 0.5;
+		boolean stripes = d.habits().stripes() && Noise.unit(d.seed(), c0, y, c1) < 0.5;
 		var white = Blocks.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE);
 		var whiteStairs = Props.block("minecraft:white_wool_stairs", white);
 		try (var s = d.stage(StageKind.EXTERIOR)) {

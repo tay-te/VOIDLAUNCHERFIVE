@@ -90,7 +90,7 @@ public final class Style {
 
 	/**
 	 * Roles a culture dresses its own way for some purposes or places, whatever dressing the building wears (debarked
-	 * stakes for the steppe's palisades, stained glass in every chapel): applied over the dressing, under a region.
+	 * stakes for the steppe's palisades, stained glass in every chapel): applied over the dressing and over a region.
 	 *
 	 * @param when  where it applies
 	 * @param roles the roles it changes

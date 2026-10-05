@@ -112,7 +112,7 @@ public final class Pentice {
 					if (!d.allowed(x, top, z) || !d.isAbsent(x, top, z)) {
 						continue;
 					}
-					boolean stripe = stripes && (i - ia) % 2 == 1;
+					boolean stripe = stripes && d.habits().stripes() && (i - ia) % 2 == 1;
 					if (stripe) {
 						d.set(x, top, z, whiteSlab.defaultBlockState().trySetValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SLAB_TYPE,
 							SlabType.BOTTOM));
