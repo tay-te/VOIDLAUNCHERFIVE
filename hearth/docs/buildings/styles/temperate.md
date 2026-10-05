@@ -99,7 +99,7 @@ The market town (Kuttenberg, Rattay): houses of rendered masonry with their gabl
 
 ### Bohemian church
 
-The parish church: white lime render over stone, quoins, buttresses and window tracery in pale dressed stone (polished diorite) going to grey stone brick at the foot, arched windows, a plinth of mossy stone brick, a dark shingle roof and spire (the tower's cap is the archetype's: Hearth's temperate towers take needle spires). Fashions: **fieldstone** (bare rubble walls with grey stone-brick dressings), **slate** (deepslate roof) and, from tier 3, **red tile**.
+The parish church: white lime render over stone, quoins, buttresses and window tracery in pale dressed stone (polished diorite) going to grey stone brick at the foot, arched windows, a plinth of mossy stone brick, a dark shingle roof and tower cap (the tower is the archetype's: a squat west tower under a pyramidal helm or an onion in a village, a tall one with a timber gallery under a helm or an onion in a town, the caps dark shingle or slate whatever the nave wears). Fashions: **fieldstone** (bare rubble walls with grey stone-brick dressings), **slate** (deepslate roof) and, from tier 3, **red tile**.
 
 ![temperate bohemian church: cottage, town house, chapel and a street](img/temperate_v26_bohemian_church.webp)
 
@@ -119,7 +119,7 @@ Timber and stone of the territory go into the village: a birch wood gives hewn b
 
 ## Still weak
 
-The renders force each dressing on every archetype; in play a manner only dresses what its condition allows (no village manner on a town house, no castle manner on a cottage). Tower caps are the archetypes' (spires; onion domes are the alpine culture's), and stepped gables and arcades are geometry the stage B town houses still have to build: the town manner gives them the materials. Small cottages in the stone manners show a lot of quoin for their size.
+The renders force each dressing on every archetype; in play a manner only dresses what its condition allows (no village manner on a town house, no castle manner on a cottage). Tower caps are the archetypes' (`kit/civic/Bohemian`: dark helms and onions, no copper needles), and stepped gables and arcades are geometry the stage B town houses still have to build: the town manner gives them the materials. Small cottages in the stone manners show a lot of quoin for their size.
 
 ---
 
