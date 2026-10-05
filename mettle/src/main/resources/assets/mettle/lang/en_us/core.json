@@ -1,0 +1,10 @@
+{
+	"attribute.name.mettle.carry_capacity": "Carry Capacity",
+	"key.mettle.character": "Character",
+	"key.category.mettle.character": "VOID Mettle",
+	"mettle.command.info": "%s · %s · %s",
+	"mettle.command.undecided": "No background yet",
+	"mettle.command.reset": "Reset the background of %s player(s); the picker is open again",
+	"mettle.command.set": "Set the background of %s player(s) to %s",
+	"mettle.command.unknown_background": "Unknown background: %s"
+}

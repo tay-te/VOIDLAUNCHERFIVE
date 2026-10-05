@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:mining",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "a",
+	"name": {
+		"translate": "mettle.perk.mining.deep_delver"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.deep_delver.description"
+	},
+	"order": 10
+}

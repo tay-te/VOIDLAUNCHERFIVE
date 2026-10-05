@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.scholarship"
+	},
+	"attribute": "wits",
+	"order": 9,
+	"released": false
+}

@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.defense"
+	},
+	"attribute": "vitality",
+	"order": 3,
+	"released": true
+}

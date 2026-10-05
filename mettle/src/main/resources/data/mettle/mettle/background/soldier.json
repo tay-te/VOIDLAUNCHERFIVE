@@ -1,0 +1,44 @@
+{
+	"name": {
+		"translate": "mettle.background.soldier"
+	},
+	"tagline": {
+		"translate": "mettle.background.soldier.tagline"
+	},
+	"order": 0,
+	"attributes": {
+		"strength": 2,
+		"vitality": 2
+	},
+	"favoured": [
+		"mettle:blades",
+		"mettle:defense"
+	],
+	"signature": {
+		"perk": "mettle:rally",
+		"name": {
+			"translate": "mettle.perk.rally"
+		},
+		"description": {
+			"translate": "mettle.perk.rally.description"
+		}
+	},
+	"kit": [
+		{
+			"id": "minecraft:iron_sword"
+		},
+		{
+			"id": "minecraft:shield"
+		},
+		{
+			"id": "minecraft:leather_chestplate"
+		},
+		{
+			"id": "minecraft:bread",
+			"count": 4
+		}
+	],
+	"kit_summary": {
+		"translate": "mettle.background.soldier.kit"
+	}
+}

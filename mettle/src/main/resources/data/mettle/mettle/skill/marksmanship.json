@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.marksmanship"
+	},
+	"attribute": "agility",
+	"order": 2,
+	"released": true
+}

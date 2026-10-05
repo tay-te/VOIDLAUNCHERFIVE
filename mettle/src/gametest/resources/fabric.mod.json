@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "mettle-gametest",
+	"version": "1.0.0",
+	"name": "VOID Mettle client tour",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.voidmc.mettle.gametest.MettleTour"]
+	},
+	"depends": {"mettle": "*"}
+}

@@ -1,0 +1,89 @@
+# Requests from VOID Mettle
+
+VOID Mettle (`mettle/`, branch `mettle`) is the classes, skills and weight mod: backgrounds, attributes, learn-by-doing
+skills with perk trees, and inventory weight with backpack, belt and quiver slots. Its design is in
+`mettle/docs/` (start with ARCHITECTURE.md; the Hearth side is INTEGRATION.md §1).
+
+**The split, agreed with the user on 2026-10-03:** Mettle provides the numbers (skill levels, perks, attributes,
+check odds). Hearth owns how the world reacts (prices, standing, opinion, law, the lockpicking and pickpocketing
+minigames, witnesses, crime). Mettle never compiles against Hearth internals; it uses the api only, from its own
+`compat.hearth` package, and only when Hearth is loaded.
+
+None of these block Hearth's own work. Mettle's Hearth features wait for them.
+
+## 1. A player price hook
+
+**What.** In `api/`:
+
+```java
+public interface PriceModifier { double factor(ServerPlayer player, Settlement settlement, ItemStack one, boolean playerBuys); }
+EconomyService.addPriceModifier(PriceModifier)
+```
+
+Applied in `PriceModel.buy` / `sell` (through `MarketPricer.quote`) after reputation. Product of all factors,
+clamped to 0.5–1.5. `EconomyServiceImpl.price` would then need the player too (an overload with `ServerPlayer`).
+
+**Why.** Speech perks, Presence and the Merchant background change prices. Today only `int reputation` enters the
+formula, and `EconomyServiceImpl.price` passes no player at all.
+
+## 2. Dialogue option state and replies
+
+**What.**
+
+```java
+record Option(String id, Component label, int order, boolean locked, @Nullable Component hint, @Nullable Component tooltip)
+// keep the 3-arg constructor
+@Nullable Component DialogueProvider.reply(ServerPlayer, Settlement, Resident, String optionId)  // default null
+```
+
+- Carry `locked`, `hint` and `tooltip` on `TalkPayloads.Option`.
+- After `select`, if `reply` returns non-null, show it as the folk's new speech (typewriter as today).
+- The conversation screen draws a locked option dim, with its hint at the right ("Persuade · 65 %", "Needs Speech 5").
+
+**Why.** KCD2-style speech checks need the odds shown before choosing and the NPC answering the outcome. Today the
+wire option is `(id, label)`, `select`'s result is ignored, and only the npc module can set a new line.
+
+## 3. Quest events in the api
+
+**What.** Move `QuestEvents.COMPLETED` to `api/` (e.g. `api/QuestEvents`), and add `FAILED` and `ABANDONED`. Payload:
+`(ServerPlayer, @Nullable Settlement, QuestType type, Identifier template, SettlementTier tier)` or a small
+`QuestView` record.
+
+**Why.** Mettle grants skill and character XP by quest type when a quest completes. It may only depend on the api.
+
+## 4. A player-skills service slot
+
+**What.**
+
+```java
+public interface PlayerSkills {
+	int level(ServerPlayer player, String skill);            // "mettle:speech" etc.; 0 when unknown
+	int attribute(ServerPlayer player, String attribute);    // "presence"…; 3 when unknown
+	boolean hasPerk(ServerPlayer player, Identifier perk);
+	Check check(ServerPlayer player, String skill, int difficulty);  // odds 0–1 and the roll
+	PlayerSkills NONE = ...;                                 // neutral fallback
+}
+HearthServices.setPlayerSkills(PlayerSkills) / playerSkills()
+```
+
+Plus one call the other way: `PlayerSkills.award(ServerPlayer, String skill, float xp, String reason)` (no-op in
+`NONE`), so Hearth's law module can report a picked lock or a lifted purse.
+
+**Why.**
+- `StandingService.charisma` / `menace` and the law module's sneaking, lockpicking and pickpocketing odds should read the player's Presence, Speech, Stealth and Thievery.
+- This keeps Hearth free of any Mettle types: Mettle registers the implementation, and absent Mettle everything is neutral.
+
+## 5. A dialogue order band for training
+
+**What.** Reserve 300–399 for training options in `DialogueProvider`'s documented bands.
+
+**Why.** Trainers ("Train Blades · 40 bits") come from Mettle's provider, keyed on `Resident.job`, and should sort
+after quests and before "bye".
+
+## 6. A market trade event
+
+**What.** An api event fired by `Market.trade` / `buyFromTown` / `sellToTown`:
+`(ServerPlayer, Settlement, ItemStack item, int count, long bits, boolean playerBuys)`.
+
+**Why.** Speech XP per crown of business, and Mettle's stats. `Standing.earn` already measures the same thing
+internally.

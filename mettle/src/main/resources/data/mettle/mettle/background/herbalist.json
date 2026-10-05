@@ -1,0 +1,46 @@
+{
+	"name": {
+		"translate": "mettle.background.herbalist"
+	},
+	"tagline": {
+		"translate": "mettle.background.herbalist.tagline"
+	},
+	"order": 4,
+	"attributes": {
+		"wits": 3,
+		"vitality": 1
+	},
+	"favoured": [
+		"mettle:alchemy",
+		"mettle:husbandry"
+	],
+	"signature": {
+		"perk": "mettle:herb_lore",
+		"name": {
+			"translate": "mettle.perk.herb_lore"
+		},
+		"description": {
+			"translate": "mettle.perk.herb_lore.description"
+		}
+	},
+	"kit": [
+		{
+			"id": "minecraft:brewing_stand"
+		},
+		{
+			"id": "minecraft:glass_bottle",
+			"count": 4
+		},
+		{
+			"id": "minecraft:nether_wart",
+			"count": 6
+		},
+		{
+			"id": "minecraft:blaze_powder",
+			"count": 2
+		}
+	],
+	"kit_summary": {
+		"translate": "mettle.background.herbalist.kit"
+	}
+}

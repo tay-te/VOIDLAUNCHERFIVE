@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.blades"
+	},
+	"attribute": "agility",
+	"order": 0,
+	"released": true
+}

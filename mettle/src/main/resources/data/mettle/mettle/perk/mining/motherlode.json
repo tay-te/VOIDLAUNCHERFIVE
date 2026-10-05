@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:mining",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "any",
+	"name": {
+		"translate": "mettle.perk.mining.motherlode"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.motherlode.description"
+	},
+	"order": 11
+}

@@ -1,0 +1,16 @@
+{
+	"name": {
+		"translate": "mettle.skill.mining"
+	},
+	"attribute": "strength",
+	"order": 5,
+	"released": true,
+	"paths": {
+		"a": {
+			"translate": "mettle.path.mining.a"
+		},
+		"b": {
+			"translate": "mettle.path.mining.b"
+		}
+	}
+}

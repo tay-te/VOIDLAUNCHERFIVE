@@ -1,0 +1,42 @@
+{
+	"name": {
+		"translate": "mettle.background.merchant"
+	},
+	"tagline": {
+		"translate": "mettle.background.merchant.tagline"
+	},
+	"order": 5,
+	"attributes": {
+		"presence": 3,
+		"wits": 1
+	},
+	"favoured": [
+		"mettle:speech",
+		"mettle:riding"
+	],
+	"signature": {
+		"perk": "mettle:coin_sense",
+		"name": {
+			"translate": "mettle.perk.coin_sense"
+		},
+		"description": {
+			"translate": "mettle.perk.coin_sense.description"
+		}
+	},
+	"kit": [
+		{
+			"id": "minecraft:emerald",
+			"count": 6
+		},
+		{
+			"id": "minecraft:lead"
+		},
+		{
+			"id": "minecraft:bread",
+			"count": 4
+		}
+	],
+	"kit_summary": {
+		"translate": "mettle.background.merchant.kit"
+	}
+}

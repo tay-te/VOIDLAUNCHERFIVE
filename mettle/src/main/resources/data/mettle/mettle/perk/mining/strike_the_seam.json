@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:mining",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.mining.strike_the_seam"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.strike_the_seam.description"
+	},
+	"order": 8
+}

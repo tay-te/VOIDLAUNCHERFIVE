@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:mining",
+	"kind": "teaching",
+	"name": {
+		"translate": "mettle.perk.mining.stonesense"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.stonesense.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.mining.stonesense.hint"
+	},
+	"order": 16
+}

@@ -1,0 +1,45 @@
+{
+	"name": {
+		"translate": "mettle.background.homesteader"
+	},
+	"tagline": {
+		"translate": "mettle.background.homesteader.tagline"
+	},
+	"order": 7,
+	"attributes": {
+		"vitality": 3,
+		"strength": 1
+	},
+	"favoured": [
+		"mettle:husbandry",
+		"mettle:survival"
+	],
+	"signature": {
+		"perk": "mettle:green_thumb",
+		"name": {
+			"translate": "mettle.perk.green_thumb"
+		},
+		"description": {
+			"translate": "mettle.perk.green_thumb.description"
+		}
+	},
+	"kit": [
+		{
+			"id": "minecraft:iron_hoe"
+		},
+		{
+			"id": "minecraft:wheat_seeds",
+			"count": 16
+		},
+		{
+			"id": "minecraft:lead"
+		},
+		{
+			"id": "minecraft:bread",
+			"count": 4
+		}
+	],
+	"kit_summary": {
+		"translate": "mettle.background.homesteader.kit"
+	}
+}

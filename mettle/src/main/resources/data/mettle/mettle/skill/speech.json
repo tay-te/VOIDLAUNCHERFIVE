@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.speech"
+	},
+	"attribute": "presence",
+	"order": 13,
+	"released": false
+}

@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "mettle",
+	"version": "${version}",
+	"name": "VOID Mettle",
+	"description": "Who you become: a background you start from, five attributes, skills that grow by doing them, perk trees that change how you play, and an inventory where everything weighs.",
+	"authors": [
+		"VOID"
+	],
+	"license": "All-Rights-Reserved",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.voidmc.mettle.Mettle"
+		],
+		"client": [
+			"dev.voidmc.mettle.client.MettleClient"
+		]
+	},
+	"mixins": [
+		"mettle-character.mixins.json",
+		{
+			"config": "mettle-character.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"hearth": "*",
+		"expanse": "*"
+	}
+}

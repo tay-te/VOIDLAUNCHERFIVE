@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.stealth"
+	},
+	"attribute": "agility",
+	"order": 12,
+	"released": false
+}

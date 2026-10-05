@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:mining",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.mining.forgemaster"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.forgemaster.description"
+	},
+	"synergy": {
+		"mettle:mining": 10,
+		"mettle:smithing": 10
+	},
+	"order": 15
+}

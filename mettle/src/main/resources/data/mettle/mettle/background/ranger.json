@@ -1,0 +1,45 @@
+{
+	"name": {
+		"translate": "mettle.background.ranger"
+	},
+	"tagline": {
+		"translate": "mettle.background.ranger.tagline"
+	},
+	"order": 1,
+	"attributes": {
+		"agility": 3,
+		"vitality": 1
+	},
+	"favoured": [
+		"mettle:marksmanship",
+		"mettle:survival"
+	],
+	"signature": {
+		"perk": "mettle:field_dressing",
+		"name": {
+			"translate": "mettle.perk.field_dressing"
+		},
+		"description": {
+			"translate": "mettle.perk.field_dressing.description"
+		}
+	},
+	"kit": [
+		{
+			"id": "minecraft:bow"
+		},
+		{
+			"id": "minecraft:arrow",
+			"count": 32
+		},
+		{
+			"id": "minecraft:leather_helmet"
+		},
+		{
+			"id": "minecraft:cooked_mutton",
+			"count": 4
+		}
+	],
+	"kit_summary": {
+		"translate": "mettle.background.ranger.kit"
+	}
+}

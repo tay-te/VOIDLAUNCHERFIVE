@@ -1,0 +1,50 @@
+{
+	"name": {
+		"translate": "mettle.background.rogue"
+	},
+	"tagline": {
+		"translate": "mettle.background.rogue.tagline"
+	},
+	"order": 2,
+	"attributes": {
+		"agility": 2,
+		"presence": 2
+	},
+	"favoured": [
+		"mettle:stealth",
+		"mettle:thievery"
+	],
+	"signature": {
+		"perk": "mettle:backstab",
+		"name": {
+			"translate": "mettle.perk.backstab"
+		},
+		"description": {
+			"translate": "mettle.perk.backstab.description"
+		}
+	},
+	"kit": [
+		{
+			"id": "minecraft:stone_sword"
+		},
+		{
+			"id": "minecraft:leather_chestplate",
+			"components": {
+				"minecraft:dyed_color": 3880500
+			}
+		},
+		{
+			"id": "minecraft:leather_boots",
+			"components": {
+				"minecraft:dyed_color": 3880500
+			}
+		},
+		{
+			"id": "minecraft:bread",
+			"count": 4
+		}
+	],
+	"kit_summary": {
+		"translate": "mettle.background.rogue.kit"
+	}
+}

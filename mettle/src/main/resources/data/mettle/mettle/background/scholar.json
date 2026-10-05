@@ -1,0 +1,44 @@
+{
+	"name": {
+		"translate": "mettle.background.scholar"
+	},
+	"tagline": {
+		"translate": "mettle.background.scholar.tagline"
+	},
+	"order": 6,
+	"attributes": {
+		"wits": 3,
+		"presence": 1
+	},
+	"favoured": [
+		"mettle:scholarship",
+		"mettle:alchemy"
+	],
+	"signature": {
+		"perk": "mettle:well_read",
+		"name": {
+			"translate": "mettle.perk.well_read"
+		},
+		"description": {
+			"translate": "mettle.perk.well_read.description"
+		}
+	},
+	"kit": [
+		{
+			"id": "minecraft:book",
+			"count": 3
+		},
+		{
+			"id": "minecraft:writable_book"
+		},
+		{
+			"id": "minecraft:map"
+		},
+		{
+			"id": "minecraft:lantern"
+		}
+	],
+	"kit_summary": {
+		"translate": "mettle.background.scholar.kit"
+	}
+}

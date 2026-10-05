@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:mining",
+	"kind": "root",
+	"tier": 1,
+	"ranks": 3,
+	"cost": 1,
+	"name": {
+		"translate": "mettle.perk.mining.quarryman"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.quarryman.description"
+	},
+	"rank_values": [
+		"10",
+		"20",
+		"30"
+	],
+	"order": 0
+}

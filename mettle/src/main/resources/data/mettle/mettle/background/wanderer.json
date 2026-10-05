@@ -1,0 +1,23 @@
+{
+	"name": {
+		"translate": "mettle.background.wanderer"
+	},
+	"tagline": {
+		"translate": "mettle.background.wanderer.tagline"
+	},
+	"order": 8,
+	"free_points": 4,
+	"free_favoured": 2,
+	"kit": [
+		{
+			"id": "minecraft:white_bed"
+		},
+		{
+			"id": "minecraft:bread",
+			"count": 4
+		}
+	],
+	"kit_summary": {
+		"translate": "mettle.background.wanderer.kit"
+	}
+}

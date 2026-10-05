@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.husbandry"
+	},
+	"attribute": "vitality",
+	"order": 10,
+	"released": false
+}

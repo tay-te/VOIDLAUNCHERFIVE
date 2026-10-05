@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.survival"
+	},
+	"attribute": "vitality",
+	"order": 6,
+	"released": true
+}

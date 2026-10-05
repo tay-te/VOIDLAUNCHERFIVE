@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:mining",
+	"kind": "path",
+	"tier": 3,
+	"path": "a",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.mining.ore_sense"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.ore_sense.description"
+	},
+	"order": 5
+}

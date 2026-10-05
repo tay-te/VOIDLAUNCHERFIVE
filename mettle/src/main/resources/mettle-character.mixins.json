@@ -1,0 +1,18 @@
+{
+	"required": true,
+	"package": "dev.voidmc.mettle.mixin.character",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"AnvilMenuMixin",
+		"BlockItemMixin",
+		"BrewingStandBlockEntityMixin",
+		"ItemCombinerMenuAccessor",
+		"ItemStackMixin",
+		"LivingEntityMixin",
+		"PlayerMixin",
+		"VillagerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

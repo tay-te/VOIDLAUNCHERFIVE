@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:mining",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.mining.down_there"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.down_there.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.mining.down_there.hint"
+	},
+	"feat": {
+		"counter": "ticks_below_zero",
+		"target": 72000
+	},
+	"order": 14
+}

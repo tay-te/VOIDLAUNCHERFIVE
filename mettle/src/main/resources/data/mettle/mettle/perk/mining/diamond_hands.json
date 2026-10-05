@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:mining",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.mining.diamond_hands"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.diamond_hands.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.mining.diamond_hands.hint"
+	},
+	"feat": {
+		"counter": "mine_diamond_ore",
+		"target": 64
+	},
+	"order": 13
+}

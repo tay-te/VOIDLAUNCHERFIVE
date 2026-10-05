@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:mining",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "b",
+	"name": {
+		"translate": "mettle.perk.mining.mountain_breaker"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.mountain_breaker.description"
+	},
+	"order": 12
+}

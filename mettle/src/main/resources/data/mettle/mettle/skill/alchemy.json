@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.alchemy"
+	},
+	"attribute": "wits",
+	"order": 8,
+	"released": false
+}

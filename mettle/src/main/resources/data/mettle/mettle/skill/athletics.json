@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.athletics"
+	},
+	"attribute": "vitality",
+	"order": 4,
+	"released": true
+}

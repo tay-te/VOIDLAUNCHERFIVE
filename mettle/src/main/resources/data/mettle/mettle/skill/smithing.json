@@ -1,0 +1,8 @@
+{
+	"name": {
+		"translate": "mettle.skill.smithing"
+	},
+	"attribute": "strength",
+	"order": 7,
+	"released": true
+}
