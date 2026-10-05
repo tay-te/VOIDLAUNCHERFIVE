@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:natural/tree/dark_oak_tall/plain",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.35,
+      "feature": {
+        "feature": "expanse:natural/tree/dark_oak_old/plain",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.2,
+      "feature": {
+        "feature": "expanse:natural/tree/dark_oak_young/plain",
+        "placement": []
+      }
+    }
+  ]
+}

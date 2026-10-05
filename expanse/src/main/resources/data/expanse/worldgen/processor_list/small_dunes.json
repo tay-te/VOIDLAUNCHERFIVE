@@ -27,25 +27,25 @@
         },
         {
           "input_predicate": {
-            "block": "expanse:smooth_opal_sandstone",
+            "block": "minecraft:smooth_red_sandstone",
             "predicate_type": "minecraft:random_block_match",
             "probability": 0.1
           },
           "location_predicate": {
             "predicate_type": "minecraft:always_true"
           },
-          "output_state": "expanse:opal_sandstone"
+          "output_state": "minecraft:red_sandstone"
         },
         {
           "input_predicate": {
-            "block": "expanse:cut_opal_sandstone",
+            "block": "minecraft:cut_red_sandstone",
             "predicate_type": "minecraft:random_block_match",
             "probability": 0.08
           },
           "location_predicate": {
             "predicate_type": "minecraft:always_true"
           },
-          "output_state": "expanse:opal_sandstone"
+          "output_state": "minecraft:red_sandstone"
         },
         {
           "input_predicate": {
@@ -92,7 +92,7 @@
               "loot_table": "expanse:chests/sand_colossus_archaeology"
             },
             "input_predicate": {
-              "block": "expanse:opal_sand",
+              "block": "minecraft:red_sand",
               "predicate_type": "minecraft:block_match"
             },
             "location_predicate": {

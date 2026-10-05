@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:natural/tree/spruce/spruce",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.3,
+      "feature": {
+        "feature": "expanse:natural/tree/spruce_young/spruce",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.25,
+      "feature": {
+        "feature": "expanse:natural/tree/spruce_tall/spruce",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.03,
+      "feature": {
+        "feature": "expanse:natural/tree/spruce_snag",
+        "placement": []
+      }
+    }
+  ]
+}

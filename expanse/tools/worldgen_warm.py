@@ -133,7 +133,7 @@ def _trees(W, jar):
             'buttress_count': W.uniform(2, 4), 'buttress_length': W.uniform(1, 2), 'limb_count': W.uniform(3, 5),
             'limb_length': W.uniform(2, 4)},
            'kapok_leaves', _pads(2, 0.3), decorators=kapok_decor)
-    W.selector('kapok_canopy', 'minecraft:jungle_tree', ('minecraft:mega_jungle_tree', 0.3), ('minecraft:fallen_jungle_tree', 0.04))
+    W.selector('kapok_canopy', W.e('natural/jungle_wood/plain'), (W.e('natural/jungle_giant/plain'), 0.3), ('minecraft:fallen_jungle_tree', 0.04))
     oxbow = json.loads(jar.read('data/minecraft/worldgen/feature/lake_lava.json'))
     oxbow['barrier'] = v('mud')
     oxbow['fluid'] = v('water', level=0)
@@ -296,7 +296,7 @@ def biomes(W, jar):
 
     A['ghost_gum_outback'] = W.biome('ghost_gum_outback', 'savanna', jar,
         effects={'grass_color': '#b5a957', 'foliage_color': '#93a37f', 'dry_foliage_color': '#b57745', 'water_color': '#4a9ec0'},
-        attributes={'visual/sky_color': '#6fb0ff', 'visual/fog_color': '#f0c8a0', 'visual/water_fog_color': '#2a6f8a',
+        attributes={'visual/sky_color': '#6fb0ff', 'visual/fog_color': '#ead2b4', 'visual/water_fog_color': '#2a6f8a',
                     'audio/background_music': music('minecraft:music.overworld.badlands')},
         drop=['minecraft:trees_savanna', 'minecraft:flower_warm', 'minecraft:patch_tall_grass', 'minecraft:patch_grass_savanna'],
         add=['outback_tors', 'outback_termite_mounds', 'outback_trees', 'outback_snags', 'outback_mulga', 'outback_spinifex',
@@ -307,7 +307,7 @@ def biomes(W, jar):
 
     A['saguaro_flats'] = W.biome('saguaro_flats', 'desert', jar,
         effects={'grass_color': '#c2b26a', 'foliage_color': '#a2ad5a', 'water_color': '#3fa6c4'},
-        attributes={'visual/sky_color': '#7cb2ff', 'visual/fog_color': '#f6d8b4', 'visual/water_fog_color': '#2a7f99',
+        attributes={'visual/sky_color': '#7cb2ff', 'visual/fog_color': '#eedcc0', 'visual/water_fog_color': '#2a7f99',
                     'audio/background_music': music('minecraft:music.overworld.desert')},
         drop=['minecraft:flower_default', 'minecraft:patch_cactus_desert'],
         add=['saguaro_rocks', 'saguaro_hoodoos', 'saguaro_cacti', 'saguaro_mesquite', 'saguaro_barrel_cacti', 'saguaro_ocotillo',
@@ -318,7 +318,7 @@ def biomes(W, jar):
     A['kapok_rainforest'] = W.biome('kapok_rainforest', 'jungle', jar,
         temperature=0.95, downfall=0.95,
         effects={'grass_color': '#45a83a', 'foliage_color': '#2f9a33', 'dry_foliage_color': '#6b5232', 'water_color': '#3e8a6a'},
-        attributes={'visual/sky_color': '#9fcfc4', 'visual/fog_color': '#c4dccc', 'visual/water_fog_color': '#2f5d46',
+        attributes={'visual/sky_color': '#a6c6d8', 'visual/fog_color': '#c4dccc', 'visual/water_fog_color': '#2f5d46',
                     'visual/fog_start_distance': 6.0, 'visual/fog_end_distance': 115.0,
                     'audio/background_music': music('minecraft:music.overworld.jungle')},
         drop=['minecraft:trees_jungle', 'minecraft:bamboo_light', 'minecraft:flower_warm', 'minecraft:patch_melon'],
@@ -330,8 +330,8 @@ def biomes(W, jar):
 
     A['coral_coast'] = W.biome('coral_coast', 'beach', jar,
         temperature=0.95, downfall=0.7,
-        effects={'water_color': '#2ee6c8', 'grass_color': '#84d35c', 'foliage_color': '#5ec244'},
-        attributes={'visual/sky_color': '#66c6ff', 'visual/fog_color': '#dff7f2', 'visual/water_fog_color': '#12a896'},
+        effects={'water_color': '#38c8d0', 'grass_color': '#84d35c', 'foliage_color': '#5ec244'},
+        attributes={'visual/sky_color': '#66c6ff', 'visual/fog_color': '#e2f0f0', 'visual/water_fog_color': '#1894a4'},
         drop=['minecraft:flower_default'],
         add=['coral_sea_almonds', 'coral_reef', 'coral_beach_grass', 'coral_nests', 'coral_washed_up', 'coral_driftwood',
              'river_clay', 'river_reeds_arid', 'river_seagrass'],

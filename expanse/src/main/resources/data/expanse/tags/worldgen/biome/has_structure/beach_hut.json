@@ -1,5 +1,7 @@
 {
   "values": [
-    "expanse:palm_coast"
+    "expanse:palm_coast",
+    "expanse:coral_coast",
+    "minecraft:beach"
   ]
 }

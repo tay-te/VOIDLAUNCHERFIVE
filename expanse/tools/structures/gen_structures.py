@@ -52,6 +52,11 @@ MODULES += ["cavern_mine_camp", "deepstone_ruins", "cavern_landing"]
 # share the "villages" set below and are #minecraft:village
 MODULES += ["village_wisteria", "village_redwood", "village_coast", "village_steppe", "village_moor", "village_karst",
             "village_tundra"]
+# regional palettes of the small sights for the vanilla biomes and the newer Expanse biomes (shared sets, so their
+# place in this list sets no salt; appended all the same)
+MODULES += ["wayside_shrine_meadow", "campsite_meadow", "campsite_snowfield", "old_well_meadow", "treehouse_oak",
+            "treehouse_spruce", "treehouse_jungle", "miners_camp_mesa", "sand_colossus_desert", "windpump_prairie",
+            "mammoth_dig_snowfield"]
 # Shared random_spread sets: a design joins one with STRUCTURE["set"] (and optional "weight"). Vanilla tries a
 # set's structures in weighted random order until one suits the biome (cf. minecraft:abandoned_camp), so each
 # grid cell gets at most one of them. The wayside set keeps 2 chunks clear of the biome-sights grid.
@@ -65,6 +70,15 @@ SHARED_SETS = {
 # villages: vanilla's spacing (structure_set/villages: 34/8) with a salt of our own. avoid_radius makes the
 # small sights keep that far from a grid point where a village could stand, as they do from big structures.
 SHARED_SETS["villages"] = dict(spacing=34, separation=8, salt=930417419, avoid_radius=112)
+# Vanilla's random-spread sets whose structures stand on the surface, and how far (blocks) a small sight keeps from
+# a grid point of theirs where one could stand: the structure's own reach plus a margin. The small sights share
+# vanilla's biomes (and vanilla's structures come into the Expanse biomes through their biome tags), so a well must
+# not land in a village or a campsite on top of an abandoned camp. Buildings that opt in with avoid_vanilla=True keep
+# half their own reach further off.
+VANILLA_AVOID = [("minecraft:villages", 112), ("minecraft:pillager_outposts", 80), ("minecraft:woodland_mansions", 112),
+                 ("minecraft:desert_pyramids", 48), ("minecraft:jungle_temples", 48), ("minecraft:swamp_huts", 40),
+                 ("minecraft:igloos", 32), ("minecraft:trail_ruins", 40), ("minecraft:abandoned_camp", 48),
+                 ("minecraft:ruined_portals", 24), ("minecraft:shipwrecks", 32)]
 
 FILL = {"stone", "dirt", "andesite", "tuff", "granite", "diorite", "gravel", "coarse_dirt", "sand", "sandstone",
         "deepslate", "cobblestone", "snow_block", "packed_ice", "clay", "mud", "rooted_dirt"}
@@ -97,9 +111,9 @@ def write_json(rel, obj):
 def structure_json(name, s):
     return {
         # expanse:sited_jigsaw is minecraft:jigsaw that picks its site like a builder: not under water,
-        # not on a cliff edge or in a pit, and (small sights) not where a big structure could stand
-        # (world/SitedJigsawStructure.java). Structures that belong on water opt out of the water check
-        # with sited=False, as does anything placed on the sea floor.
+        # not on a cliff edge or in a pit, and (small sights) not where a big structure, a village or one of
+        # vanilla's surface structures could stand (world/SitedJigsawStructure.java). Structures that belong on
+        # water opt out of the water check with sited=False, as does anything placed on the sea floor.
         "type": "expanse:sited_jigsaw",
         "biomes": f"#expanse:has_structure/{name}",
         "max_distance_from_center": s.get("max_distance", 80),
@@ -114,8 +128,8 @@ def structure_json(name, s):
         **({"max_relief": s["max_relief"]} if "max_relief" in s else {}),
         **({} if sited(s) else {"allow_water": True}),
         **({"avoid": [{"other_set": f"expanse:{n}", "radius": min(256, avoid_radius(S) + s.get("avoid_extra", 0))}
-                      for n, S in big_structures()] + shared_avoid(s)}
-           if "set" in s and not s.get("cavern") else {}),
+                      for n, S in big_structures()] + shared_avoid(s) + vanilla_avoid(s)}
+           if "set" in s and not s.get("cavern") else {"avoid": vanilla_avoid(s)} if s.get("avoid_vanilla") else {}),
         # cavern structures stand on the floor of a deep hall, wherever the hall is (CavernModel)
         **({"in_cavern": True} if s.get("cavern") else {}),
     }
@@ -164,6 +178,12 @@ def shared_avoid(s):
     """avoid entries for the shared sets with an avoid_radius (the villages), for structures not in them."""
     return [{"other_set": f"expanse:{n}", "radius": c["avoid_radius"]} for n, c in SHARED_SETS.items()
             if c.get("avoid_radius") and s.get("set") != n and shared_set_members(n)]
+
+
+def vanilla_avoid(s):
+    """avoid entries for vanilla's surface structure sets (VANILLA_AVOID); a building adds half its own reach."""
+    extra = 0 if "set" in s else s.get("max_distance", 80) // 2
+    return [{"other_set": n, "radius": min(256, r + extra)} for n, r in VANILLA_AVOID]
 
 
 def shared_set_members(set_name):

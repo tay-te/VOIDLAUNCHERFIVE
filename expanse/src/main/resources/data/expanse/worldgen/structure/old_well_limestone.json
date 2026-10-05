@@ -64,6 +64,50 @@
     {
       "other_set": "expanse:villages",
       "radius": 112
+    },
+    {
+      "other_set": "minecraft:villages",
+      "radius": 112
+    },
+    {
+      "other_set": "minecraft:pillager_outposts",
+      "radius": 80
+    },
+    {
+      "other_set": "minecraft:woodland_mansions",
+      "radius": 112
+    },
+    {
+      "other_set": "minecraft:desert_pyramids",
+      "radius": 48
+    },
+    {
+      "other_set": "minecraft:jungle_temples",
+      "radius": 48
+    },
+    {
+      "other_set": "minecraft:swamp_huts",
+      "radius": 40
+    },
+    {
+      "other_set": "minecraft:igloos",
+      "radius": 32
+    },
+    {
+      "other_set": "minecraft:trail_ruins",
+      "radius": 40
+    },
+    {
+      "other_set": "minecraft:abandoned_camp",
+      "radius": 48
+    },
+    {
+      "other_set": "minecraft:ruined_portals",
+      "radius": 24
+    },
+    {
+      "other_set": "minecraft:shipwrecks",
+      "radius": 32
     }
   ],
   "biomes": "#expanse:has_structure/old_well_limestone",

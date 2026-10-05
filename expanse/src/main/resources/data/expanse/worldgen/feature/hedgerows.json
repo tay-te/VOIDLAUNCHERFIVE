@@ -1,0 +1,18 @@
+{
+  "type": "expanse:hedgerow",
+  "shrub": {
+    "feature": "expanse:shrubs_broadleaf",
+    "placement": []
+  },
+  "tree": {
+    "feature": "expanse:natural/tree/oak_spreading/plain",
+    "placement": []
+  },
+  "biomes": [
+    "minecraft:plains",
+    "minecraft:sunflower_plains"
+  ],
+  "field": 64,
+  "missing": 0.22,
+  "trees": 0.3
+}

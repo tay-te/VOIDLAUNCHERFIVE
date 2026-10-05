@@ -1,4 +1,6 @@
-"""The mammoth dig of the frostbloom tundra.
+"""Mammoth digs of the snowlands. One design, two flower palettes (separate structures):
+  mammoth_dig            - lichen tundra (ferns and dead grass round the dig)
+  mammoth_dig_snowfield  - snowy plains, ice spikes, snowy taiga, grove, larch taiga (deeper snow)
 
 start pool (3 variants)
   tusks : a mammoth skull with great curling tusks coming out of a gridded dig,
@@ -18,13 +20,19 @@ from pieces import Piece
 from small_data import BOOKS, data_for
 from smallkit import a_tent, book, clear, flora, ground_item, meal_fire, pick, ring, trail
 
-NAME = "mammoth_dig"
-STRUCTURE = dict(biomes=["frostbloom_tundra"], size=1, max_distance=32, set="biome_sights")
-LOOT = f"expanse:chests/{NAME}"
-HIDDEN = f"expanse:chests/{NAME}_hidden"
 GROUND = ["snow_block", "snow_block", "dirt", "coarse_dirt"]
 SPOIL = [("gravel", 3), ("coarse_dirt", 3), ("dirt", 2), ("snow_block", 2)]
 PATH = [("snow_block", 3), ("coarse_dirt", 2), ("gravel", 2), ("packed_ice", 1)]
+PALETTES = {
+    # the Lichen Tundra's own: ferns and dead grass come up round the dig
+    "tundra": dict(name="mammoth_dig", biomes=["lichen_tundra"], procs=("small_dig", "small_tundra"), seed=0,
+                   books=("mammoth_dig", "mammoth_dig_ribs", "mammoth_dig_pond")),
+    # vanilla's snowlands: the same dig, only the odd fern through the snow
+    "snowfield": dict(name="mammoth_dig_snowfield", procs=("small_dig_snowfield", "small_snowfield"), seed=80,
+                      biomes=["minecraft:snowy_plains", "minecraft:ice_spikes", "minecraft:snowy_taiga",
+                              "minecraft:grove", "larch_taiga"],
+                      books=("mammoth_dig_snowfield", "mammoth_dig_ribs", "mammoth_dig_pond")),
+}
 
 
 def bone(axis="y"):
@@ -91,8 +99,8 @@ def skull(b, x0, z0, rng):
     tusk(b, x0 + 3, z0 + 4, 1, rng)
 
 
-def tusks():
-    b = Build(f"{NAME}_tusks", 17, 9, 17, seed=1907411)
+def tusks(p):
+    b = Build(f"{p['name']}_tusks", 17, 9, 17, seed=1907411 + p["seed"])
     rng = b.rng
     # the dig: a gridded floor of gravel and frozen earth, stakes at the grid corners
     for x in range(3, 14):
@@ -110,7 +118,7 @@ def tusks():
     # spoil heaps on the dig's edges (the finds were buried in the big one)
     spoil_heap(b, rng, 14.5, 2.5, 2.6, 3)
     spoil_heap(b, rng, 1.5, 9, 2.2, 2)
-    b.chest(15, 0, 2, "west", HIDDEN)
+    b.chest(15, 0, 2, "west", f"expanse:chests/{p['name']}_hidden")
     # sieve (scaffolding frame), finds table with brushes and a tray of bits, crates
     b.set(11, 1, 12, B("scaffolding", distance=0, bottom=False))
     b.set(11, 0, 12, B("gravel"))
@@ -120,7 +128,7 @@ def tusks():
     ground_item(b, 9, 2, 13, item("bone"), rotation=3)
     b.set(10, 1, 13, B("spruce_fence"))
     b.set(10, 2, 13, B("lantern"))
-    b.barrel(12, 1, 13, "up", LOOT)
+    b.barrel(12, 1, 13, "up", f"expanse:chests/{p['name']}")
     b.set(12, 1, 14, B("barrel", facing="north"))
     # the diggers' tent and fire to the south-west
     a_tent(b, 0, 12, 4, "z", "white", wide=True)
@@ -130,15 +138,15 @@ def tusks():
     meal_fire(b, 6, 1, 15, ["cod", "expanse:venison"], lit=False, done=(400, 250, 0, 0))
     b.set(5, 1, 16, B("spruce_log", axis="x"))
     b.set(7, 1, 16, B("spruce_log", axis="x"))
-    ground_item(b, 4, 1, 11, book(BOOKS[NAME]), rotation=0)
+    ground_item(b, 4, 1, 11, book(BOOKS[p["books"][0]]), rotation=0)
     trail(b, [(8, 15), (9, 16)], rng, PATH, width=1, fade=0.5)
     drift(b, rng, [(x, z) for x in range(17) for z in range(17) if (x < 3 or x > 13 or z < 3) and rng.random() < 0.3])
     flora(b, ring(8, 8, 8.2, 12, (17, 17)), rng, 0.3, GROUND)
     return b
 
 
-def ribs():
-    b = Build(f"{NAME}_ribs", 17, 8, 13, seed=1907413)
+def ribs(p):
+    b = Build(f"{p['name']}_ribs", 17, 8, 13, seed=1907413 + p["seed"])
     rng = b.rng
     sz = 6
     for x in range(2, 15):                             # the spine, half buried
@@ -183,18 +191,18 @@ def ribs():
         b.set(2, 1, 8 + i, AIR)
     b.bed(2, 1, 9, "south", "straw")
     b.campfire(4, 1, 11, lit=False)
-    ground_item(b, 5, 1, 11, book(BOOKS[f"{NAME}_ribs"]), rotation=2)
-    b.barrel(1, 1, 11, "up", LOOT)
+    ground_item(b, 5, 1, 11, book(BOOKS[p["books"][1]]), rotation=2)
+    b.barrel(1, 1, 11, "up", f"expanse:chests/{p['name']}")
     # strongbox under the drift against the ribs (windward, north)
-    b.chest(8, 0, 2, "south", HIDDEN)
+    b.chest(8, 0, 2, "south", f"expanse:chests/{p['name']}_hidden")
     drift(b, rng, [(x, z) for x in range(2, 15) for z in (1, 2, 3)], lo=2, hi=5)
     drift(b, rng, [(x, z) for x in range(17) for z in range(13) if rng.random() < 0.25])
     flora(b, ring(8, 6, 7, 10, (17, 13)), rng, 0.25, GROUND)
     return b
 
 
-def pond():
-    b = Build(f"{NAME}_pond", 13, 7, 13, seed=1907415)
+def pond(p):
+    b = Build(f"{p['name']}_pond", 13, 7, 13, seed=1907415 + p["seed"])
     rng = b.rng
     cx, cz = 6, 6
     for (x, z) in ring(cx, cz, 0, 5.2, (13, 13)):     # the frozen pond
@@ -226,7 +234,7 @@ def pond():
     b.set(3, 0, 5, B("water", level=0))                # the hole in the floor
     b.set(3, 1, 4, stairs("spruce", "north"))          # stool
     b.item_frame(4, 2, hz0 + 1, "south", item("fishing_rod"), rotation=1)
-    b.barrel(4, 1, 6, "up", LOOT)
+    b.barrel(4, 1, 6, "up", f"expanse:chests/{p['name']}")
     b.set(3, 1, 6, B("smoker", facing="east"))
     b.set(3, 4, 6, B("lightning_rod", facing="up"))    # stovepipe
     b.set(3, 3, 6, B("spruce_planks"))
@@ -242,17 +250,23 @@ def pond():
         b.set(8, 1, z, slab("spruce", "bottom"))
     b.set(8, 1, 12, B("spruce_fence"))                 # the sled's handle
     # the chest frozen into the pond: you can see it under the ice
-    b.chest(9, 0, 8, "north", HIDDEN)
+    b.chest(9, 0, 8, "north", f"expanse:chests/{p['name']}_hidden")
     b.set(9, 1, 8, B("ice"))
-    ground_item(b, 6, 1, 8, book(BOOKS[f"{NAME}_pond"]), rotation=1)
+    ground_item(b, 6, 1, 8, book(BOOKS[p["books"][2]]), rotation=1)
     trail(b, [(hx1 + 1, 5), (10, 6), (12, 8)], rng, PATH, width=1, fade=0.4)
     flora(b, ring(cx, cz, 6.3, 9, (13, 13)), rng, 0.35, GROUND)
     return b
 
 
-def pools():
-    return {"start": [Piece(tusks(), 3, "small_dig"), Piece(ribs(), 2, "small_dig"),
-                      Piece(pond(), 2, "small_tundra")]}
+def variant_module(key):
+    p = PALETTES[key]
+    name = p["name"]
+    dig, hut = p["procs"]
+    structure = dict(biomes=p["biomes"], size=1, max_distance=32, set="biome_sights")
+
+    def pools():
+        return {"start": [Piece(tusks(p), 3, dig), Piece(ribs(p), 2, dig), Piece(pond(p), 2, hut)]}
+    return name, structure, data_for(name, [dig, hut]), pools
 
 
-DATA = data_for(NAME, ["small_dig", "small_tundra"])
+NAME, STRUCTURE, DATA, pools = variant_module("tundra")

@@ -191,7 +191,8 @@
       "minecraft:patch_pumpkin",
       "minecraft:patch_cactus_decorated",
       "minecraft:patch_firefly_bush_near_water",
-      "expanse:river_reeds_arid"
+      "expanse:river_reeds_arid",
+      "expanse:kcd_dry_grass"
     ],
     [
       "minecraft:freeze_top_layer"

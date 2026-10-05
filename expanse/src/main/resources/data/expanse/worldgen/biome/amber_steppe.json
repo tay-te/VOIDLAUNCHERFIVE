@@ -220,7 +220,8 @@
       "expanse:steppe_dead_bushes",
       "expanse:steppe_wildflowers",
       "expanse:river_reeds_warm",
-      "expanse:river_seagrass"
+      "expanse:river_seagrass",
+      "expanse:kcd_dry_grass"
     ],
     [
       "minecraft:freeze_top_layer"

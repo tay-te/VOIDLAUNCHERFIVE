@@ -22,6 +22,10 @@
     {
       "data": "expanse:micro/spring_ring",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/vine_boulder",
+      "weight": 3
     }
   ]
 }

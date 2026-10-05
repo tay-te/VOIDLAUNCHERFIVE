@@ -42,13 +42,14 @@ public class BiomeTour implements FabricClientGameTest {
 	/** Camera height over distance for structure shots: 0.58 is about 30 degrees down. */
 	private static final float STEEP = Float.parseFloat(System.getProperty("expanse.tour.steep", "0.58"));
 	private static final List<String> BIOMES = List.of(System.getProperty("expanse.tour.biomes",
-		"wisteria_vale,lumen_grove,redwood_giants,jade_karst,opal_dunes,willow_bayou,amber_steppe,heather_moor,"
-			+ "frostbloom_tundra,cloud_forest,verdant_peaks,prismatic_peaks,palm_coast,"
+		"woodland_glades,ancient_oakwood,redwood_giants,jade_karst,red_dunes,willow_bayou,amber_steppe,heather_moor,"
+			+ "lichen_tundra,cloud_forest,verdant_peaks,dolomite_peaks,palm_coast,"
 			+ "pine_heath,larch_taiga,boreal_muskeg,maple_highlands,bluebell_woods,aspen_parkland,"
 			+ "olive_groves,monsoon_forest,ghost_gum_outback,saguaro_flats,kapok_rainforest,coral_coast,"
 			+ "volcanic_highlands,painted_canyons,salt_flats,tepui,fjordlands").split(","));
-	private static final Set<String> GLOWING = Set.of("lumen_grove", "prismatic_peaks", "frostbloom_tundra");
-	private static final Set<String> MOUNTAINS = Set.of("verdant_peaks", "prismatic_peaks");
+	/** Biomes worth a night shot too (none on the surface glows now; -Dexpanse.tour.night=a,b adds some). */
+	private static final Set<String> GLOWING = Set.of(System.getProperty("expanse.tour.night", "").split(","));
+	private static final Set<String> MOUNTAINS = Set.of("verdant_peaks", "dolomite_peaks");
 	/** How far round spawn the biome map reaches, and its grid. */
 	private static final int MAP_RADIUS = Integer.getInteger("expanse.tour.map_radius", 6000);
 	private static final int MAP_STEP = 64;
@@ -76,10 +77,31 @@ public class BiomeTour implements FabricClientGameTest {
 			world.getServer().runCommand("gamerule advance_weather false");
 			world.getServer().runCommand("weather clear");
 			world.getServer().runCommand("gamemode spectator @a");
+			// -Dexpanse.tour.views=name:x,y,z,yaw,pitch;... photographs exactly those views first
+			for (String view : System.getProperty("expanse.tour.views", "").split(";")) {
+				if (!view.isBlank()) {
+					this.view(context, world, view.trim());
+				}
+			}
 			for (String name : BIOMES) {
 				if (!name.isBlank()) {
 					this.visit(context, world, name.trim());
 				}
+			}
+			System.out.println("[tour] hedgerows: " + dev.voidmc.expanse.world.feature.HedgerowFeature.CHUNKS.get() + " chunks, "
+				+ dev.voidmc.expanse.world.feature.HedgerowFeature.LINES.get() + " columns on a field edge, "
+				+ dev.voidmc.expanse.world.feature.HedgerowFeature.PLACED.get() + " shrubs and trees, "
+				+ dev.voidmc.expanse.world.feature.HedgerowFeature.NANOS.get() / 1_000_000 + " ms; skipped (biome, ground, slope, building, no growth) "
+				+ dev.voidmc.expanse.world.feature.HedgerowFeature.SKIPPED);
+			System.out.println("[tour] fishponds: " + dev.voidmc.expanse.world.feature.FishpondFeature.DUG.get() + " dug of "
+				+ dev.voidmc.expanse.world.feature.FishpondFeature.TRIES.get() + " tries, at " + dev.voidmc.expanse.world.feature.FishpondFeature.WHERE);
+			int ponds = 0;
+			for (BlockPos pond : List.copyOf(dev.voidmc.expanse.world.feature.FishpondFeature.WHERE)) {   // (a synchronised copy)
+				if (ponds++ >= 2) {
+					break;
+				}
+				world.getServer().runCommand("time set noon");
+				this.shoot(context, world, "fishpond_" + ponds, pond.getX() - 16, pond.getY() + 14, pond.getZ() - 16, -45.0F, 32.0F);
 			}
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.structures", "true"))) {
 				this.structures(context, world);
@@ -89,6 +111,12 @@ public class BiomeTour implements FabricClientGameTest {
 			}
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.caverns", "true"))) {
 				this.caverns(context, world);
+			}
+			if (Boolean.parseBoolean(System.getProperty("expanse.tour.systems", "true"))) {
+				this.caveSystems(context, world);
+			}
+			if (Boolean.parseBoolean(System.getProperty("expanse.tour.cavethings", "true"))) {
+				this.caveThings(context, world);
 			}
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.mountains", "true"))) {
 				this.mountains(context, world);
@@ -105,8 +133,10 @@ public class BiomeTour implements FabricClientGameTest {
 	private record Spot(BlockPos heart, BlockPos clearing, int ceiling) {
 	}
 
-	private void visit(ClientGameTestContext context, TestSingleplayerContext world, String name) {
-		ResourceKey<Biome> key = ResourceKey.create(Registries.BIOME, Identifier.fromNamespaceAndPath("expanse", name));
+	/** One biome: an Expanse biome by its name, any other by its full id (minecraft:forest). */
+	private void visit(ClientGameTestContext context, TestSingleplayerContext world, String id) {
+		ResourceKey<Biome> key = ResourceKey.create(Registries.BIOME, id.contains(":") ? Identifier.parse(id) : Identifier.fromNamespaceAndPath("expanse", id));
+		String name = id.replace(':', '_');
 		boolean mountain = MOUNTAINS.contains(name);
 		Spot spot = world.getServer().computeOnServer(server -> {
 			ServerLevel level = server.overworld();
@@ -457,7 +487,7 @@ public class BiomeTour implements FabricClientGameTest {
 				int tz = bz + (int) Math.round(Math.sin(a) * 155);
 				var b = biomes.getNoiseBiome(tx >> 2, by >> 2, tz >> 2);
 				boolean foggy = b.unwrapKey().map(k -> k.identifier().getNamespace().equals("expanse")
-					&& Set.of("cloud_forest", "lumen_grove", "willow_bayou", "heather_moor", "redwood_giants", "jade_karst").contains(k.identifier().getPath())).orElse(false);
+					&& Set.of("cloud_forest", "ancient_oakwood", "willow_bayou", "heather_moor", "redwood_giants", "jade_karst").contains(k.identifier().getPath())).orElse(false);
 				if (!foggy) {
 					cx = tx;
 					cz = tz;
@@ -922,6 +952,260 @@ public class BiomeTour implements FabricClientGameTest {
 		}
 		world.getServer().runCommand("effect clear @a minecraft:night_vision");
 		context.runOnClient(mc -> mc.options.renderDistance().set(DISTANCE));
+	}
+
+	/**
+	 * The things set on the cave floors ({@code expanse:cave_template}): the ground under spawn and round the
+	 * nearest realm of each character is generated, then the first of each kind that went in is photographed
+	 * from a few blocks off in the same cave, under night vision, and the ones that bring a light also as they
+	 * are. Needs -Dexpanse.dev.caves=true, which makes the feature note where it put things.
+	 */
+	private void caveThings(ClientGameTestContext context, TestSingleplayerContext world) {
+		if (!Boolean.getBoolean("expanse.dev.caves")) {
+			System.out.println("[tour] cave things: run with -Dexpanse.dev.caves=true");
+			return;
+		}
+		int spawnRadius = Integer.getInteger("expanse.tour.cave_radius", 10);
+		List<int[]> shots = world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			List<int[]> centres = new java.util.ArrayList<>();
+			centres.add(new int[]{0, 0, spawnRadius});
+			if (level.getChunkSource().getGenerator() instanceof dev.voidmc.expanse.world.terrain.EarthChunkGenerator earth) {
+				var caverns = earth.model(level.getChunkSource().randomState()).caverns();
+				List<dev.voidmc.expanse.world.terrain.CavernModel.Hall> realms = new java.util.ArrayList<>();
+				for (int hx = -4; hx <= 4; hx++) {
+					for (int hz = -4; hz <= 4; hz++) {
+						var h = caverns.hall(hx, hz);
+						if (h.exists() && h.radius() > 80 && caverns.info(h.x(), h.z()).hall) {
+							realms.add(h);
+						}
+					}
+				}
+				realms.sort(java.util.Comparator.comparingDouble(h -> Math.hypot(h.x(), h.z())));
+				java.util.Set<Integer> themes = new java.util.HashSet<>();
+				for (var h : realms) {
+					if (themes.add(h.theme())) {
+						centres.add(new int[]{h.x(), h.z(), 6});
+					}
+				}
+			}
+			long start = System.currentTimeMillis();
+			for (int[] c : centres) {
+				for (int dx = -c[2]; dx <= c[2]; dx++) {
+					for (int dz = -c[2]; dz <= c[2]; dz++) {
+						level.getChunk((c[0] >> 4) + dx, (c[1] >> 4) + dz);
+					}
+				}
+			}
+			System.out.println("[tour] cave things: generated round " + centres.size() + " places in "
+				+ (System.currentTimeMillis() - start) / 1000 + " s; " + dev.voidmc.expanse.world.feature.CaveTemplateFeature.CALLS.get()
+				+ " tries took " + dev.voidmc.expanse.world.feature.CaveTemplateFeature.NANOS.get() / 1_000_000 + " ms");
+			List<int[]> picked = new java.util.ArrayList<>();
+			var where = new java.util.TreeMap<>(dev.voidmc.expanse.world.feature.CaveTemplateFeature.WHERE);
+			int index = 0;
+			for (var e : where.entrySet()) {
+				System.out.println("[tour] cave thing " + e.getKey() + " x" + dev.voidmc.expanse.world.feature.CaveTemplateFeature.PLACED
+					.get(e.getKey()) + " at " + e.getValue());
+				BlockPos at = e.getValue().getFirst();
+				// a camera spot in the same cave: open air with room to stand, a clear line to the thing, far enough off
+				BlockPos best = null;
+				double bestScore = -1;
+				for (int r = 4; r <= 9; r++) {
+					for (int a = 0; a < 16; a++) {
+						double ang = a * Math.PI / 8;
+						for (int dy = 1; dy <= 4; dy++) {
+							BlockPos eye = at.offset((int) Math.round(Math.cos(ang) * r), dy, (int) Math.round(Math.sin(ang) * r));
+							if (!level.getBlockState(eye).isAir() || !level.getBlockState(eye.above()).isAir() || !level.getFluidState(eye).isEmpty()) {
+								continue;
+							}
+							if (blockedAlongAll(level, eye, at.above()) > 0) {
+								continue;
+							}
+							double score = r - Math.abs(dy - 2) * 0.5;
+							if (score > bestScore) {
+								bestScore = score;
+								best = eye;
+							}
+						}
+					}
+				}
+				if (best == null) {
+					best = at.above(2);
+				}
+				picked.add(new int[]{best.getX(), best.getY(), best.getZ(), at.getX(), at.getY(), at.getZ(), index++});
+			}
+			return picked;
+		});
+		var names = new java.util.ArrayList<>(new java.util.TreeMap<>(dev.voidmc.expanse.world.feature.CaveTemplateFeature.WHERE).keySet());
+		context.runOnClient(mc -> mc.options.renderDistance().set(6));
+		for (int[] s : shots) {
+			String name = names.get(s[6]).getPath().replace('/', '_');
+			BlockPos from = new BlockPos(s[0], s[1], s[2]);
+			BlockPos to = new BlockPos(s[3], s[4], s[5]);
+			float pitch = (float) -Math.toDegrees(Math.atan2(to.getY() - from.getY(), Math.max(1, Math.hypot(to.getX() - from.getX(), to.getZ() - from.getZ()))));
+			System.out.println("[tour] " + name + " at " + to.toShortString() + " from " + from.toShortString());
+			world.getServer().runCommand("effect give @a minecraft:night_vision infinite 0 true");
+			this.settleShot(context, world, "cave_" + name, from, yawToward(from, to), pitch, Long.getLong("expanse.tour.cave_settle", 6_000L));
+			if (Boolean.parseBoolean(System.getProperty("expanse.tour.cave_dark", "true"))) {
+				world.getServer().runCommand("effect clear @a minecraft:night_vision");
+				this.settleShot(context, world, "cave_" + name + "_dark", from, yawToward(from, to), pitch, 2_000L);
+			}
+		}
+		world.getServer().runCommand("effect clear @a minecraft:night_vision");
+		context.runOnClient(mc -> mc.options.renderDistance().set(DISTANCE));
+	}
+
+	/**
+	 * The cave systems of their own (lava tubes, mazes, abysses, rift halls, geodes): the nearest of each to
+	 * spawn, photographed from inside along the way the open space runs furthest, under night vision and as
+	 * it is; an abyss from over its lip and from its pool, looking up.
+	 */
+	private void caveSystems(ClientGameTestContext context, TestSingleplayerContext world) {
+		String[] kinds = {"lava_tube", "maze", "abyss", "rift_hall", "geode"};
+		List<float[]> shots = world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			if (!(level.getChunkSource().getGenerator() instanceof dev.voidmc.expanse.world.terrain.EarthChunkGenerator earth)) {
+				return List.<float[]>of();
+			}
+			var caverns = earth.model(level.getChunkSource().randomState()).caverns();
+			float[][] found = new float[kinds.length][];
+			double[] nearest = {1e18, 1e18, 1e18, 1e18, 1e18};
+			int reach = Integer.getInteger("expanse.tour.systems_reach", 4000);
+			for (int x = -reach; x <= reach; x += 8) {
+				for (int z = -reach; z <= reach; z += 8) {
+					var c = caverns.info(x, z);
+					if (!c.systems) {
+						continue;
+					}
+					double d = (double) x * x + (double) z * z;
+					float[][] at = {
+						c.tube && c.skylight && c.skylightDist < 2 && c.tubeDist < 1 ? new float[]{x, c.tubeFloor + 2, z} : null,
+						c.maze && c.mazeDist < 0.6F ? new float[]{x, c.mazeFloor + 2, z} : null,
+						c.abyss && c.abyssDist < 6 ? new float[]{c.abyssX, c.abyssLip, c.abyssZ, c.abyssRadius, c.abyssBottom} : null,
+						c.rift && c.riftDist < 1 && Math.abs(c.riftAlong) < 30 ? new float[]{x, c.riftBottom + 4, z} : null,
+						c.geode && Math.hypot(x - c.geodeX, z - c.geodeZ) < 3 ? new float[]{c.geodeX, c.geodeY, c.geodeZ} : null};
+					for (int k = 0; k < kinds.length; k++) {
+						if (at[k] != null && d < nearest[k]) {
+							nearest[k] = d;
+							found[k] = at[k];
+						}
+					}
+				}
+			}
+			List<float[]> out = new java.util.ArrayList<>();
+			for (int k = 0; k < kinds.length; k++) {
+				float[] f = found[k];
+				if (f == null) {
+					System.out.println("[tour] no " + kinds[k] + " within " + reach);
+					continue;
+				}
+				for (int cx = -4; cx <= 4; cx++) {
+					for (int cz = -4; cz <= 4; cz++) {
+						level.getChunk(((int) f[0] >> 4) + cx, ((int) f[2] >> 4) + cz);
+					}
+				}
+				if (k == 2) {
+					// over the lip, looking down the shaft; then from just above the pool, looking up
+					out.add(new float[]{k, f[0] - f[3] - 6, f[1] + 14, f[2], -90, 62});
+					out.add(new float[]{k, f[0], f[4] + 10, f[2], 0, -85});
+					continue;
+				}
+				// what lines it: the exposed blocks round the spot
+				java.util.Map<String, Integer> lining = new java.util.TreeMap<>();
+				BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos();
+				for (int dx = -8; dx <= 8; dx++) {
+					for (int dy = -6; dy <= 10; dy++) {
+						for (int dz = -8; dz <= 8; dz++) {
+							BlockPos b = new BlockPos((int) f[0] + dx, (int) f[1] + dy, (int) f[2] + dz);
+							var state = level.getBlockState(b);
+							boolean open = false;
+							for (var dir : net.minecraft.core.Direction.values()) {
+								open |= level.getBlockState(q.setWithOffset(b, dir)).isAir();
+							}
+							if (state.isAir() || !open) {
+								continue;
+							}
+							lining.merge(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath(), 1, Integer::sum);
+						}
+					}
+				}
+				System.out.println("[tour] " + kinds[k] + " lining " + lining);
+				// the way the open space runs furthest from here (a geode: across the hollow, not out along a cave
+				// that broke into it)
+				float bestYaw = 0;
+				int bestRun = -1;
+				for (int a = 0; a < 16; a++) {
+					double ang = a * Math.PI / 8;
+					int run = 0;
+					while (run < 40 && caverns.inside((int) Math.floor(f[0] - Math.sin(ang) * run), (int) f[1], (int) Math.floor(f[2] + Math.cos(ang) * run)) > 0.8F) {
+						run++;
+					}
+					if (k == 4 && run >= 26) {
+						continue;
+					}
+					if (run > bestRun) {
+						bestRun = run;
+						bestYaw = (float) Math.toDegrees(ang);
+					}
+				}
+				// stand back from the spot against the way it runs, so the spot is in view
+				double ang = Math.toRadians(bestYaw);
+				int back = 0;
+				while (back < 10 && caverns.inside((int) Math.floor(f[0] + Math.sin(ang) * (back + 1)), (int) f[1], (int) Math.floor(f[2] - Math.cos(ang) * (back + 1))) > 0.8F) {
+					back++;
+				}
+				out.add(new float[]{k, (float) (f[0] + Math.sin(ang) * back), f[1], (float) (f[2] - Math.cos(ang) * back), bestYaw, k == 4 ? 10 : 4});
+			}
+			return out;
+		});
+		context.runOnClient(mc -> mc.options.renderDistance().set(8));
+		int i = 0;
+		for (float[] s : shots) {
+			String name = kinds[(int) s[0]] + "_" + i++;
+			BlockPos at = new BlockPos(Mth.floor(s[1]), Mth.floor(s[2]), Mth.floor(s[3]));
+			System.out.println("[tour] system " + name + " at " + at.toShortString());
+			world.getServer().runCommand("effect give @a minecraft:night_vision infinite 0 true");
+			this.settleShot(context, world, "system_" + name, at, s[4], s[5], Long.getLong("expanse.tour.cave_settle", 7_000L));
+			world.getServer().runCommand("effect clear @a minecraft:night_vision");
+			this.settleShot(context, world, "system_" + name + "_dark", at, s[4], s[5], 2_000L);
+		}
+		context.runOnClient(mc -> mc.options.renderDistance().set(DISTANCE));
+	}
+
+	/** Anything but air on the straight line between two points (the whole way: a cave thing is small). */
+	private static int blockedAlongAll(ServerLevel level, BlockPos from, BlockPos to) {
+		double len = Math.sqrt(from.distSqr(to));
+		int blocked = 0;
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (double t = 1; t < len - 2; t += 0.5) {
+			double f = t / len;
+			p.set(Mth.floor(Mth.lerp(f, from.getX(), to.getX()) + 0.5), Mth.floor(Mth.lerp(f, from.getY(), to.getY()) + 0.5),
+				Mth.floor(Mth.lerp(f, from.getZ(), to.getZ()) + 0.5));
+			if (level.getBlockState(p).isSolidRender()) {
+				blocked++;
+			}
+		}
+		return blocked;
+	}
+
+	/** One view, {@code name:x,y,z,yaw,pitch}: the ground round it generated first, at noon. */
+	private void view(ClientGameTestContext context, TestSingleplayerContext world, String spec) {
+		String[] parts = spec.split(":");
+		String[] v = parts[1].split(",");
+		int x = Integer.parseInt(v[0].trim());
+		int y = Integer.parseInt(v[1].trim());
+		int z = Integer.parseInt(v[2].trim());
+		world.getServer().runOnServer(server -> {
+			ServerLevel level = server.overworld();
+			for (int dx = -DISTANCE - 1; dx <= DISTANCE + 1; dx++) {
+				for (int dz = -DISTANCE - 1; dz <= DISTANCE + 1; dz++) {
+					level.getChunk((x >> 4) + dx, (z >> 4) + dz);
+				}
+			}
+		});
+		world.getServer().runCommand("time set noon");
+		System.out.println("[tour] view " + parts[0] + " at " + x + ", " + y + ", " + z);
+		this.shoot(context, world, "view_" + parts[0], x, y, z, Float.parseFloat(v[3].trim()), Float.parseFloat(v[4].trim()));
 	}
 
 	private void zoo(ClientGameTestContext context, TestSingleplayerContext world) {

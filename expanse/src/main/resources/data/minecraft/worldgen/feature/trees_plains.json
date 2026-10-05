@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:random_selector",
+  "default": "expanse:natural/open_oak/oak_bees_005",
+  "features": [
+    {
+      "chance": 0.33333334,
+      "feature": "expanse:natural/big_open_oak/fancy_oak_bees_005"
+    },
+    {
+      "chance": 0.0125,
+      "feature": "minecraft:fallen_oak_tree"
+    }
+  ]
+}

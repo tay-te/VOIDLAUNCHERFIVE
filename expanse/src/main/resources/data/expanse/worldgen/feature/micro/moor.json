@@ -47,6 +47,22 @@
     {
       "data": "expanse:micro/spring_ring",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/erratic",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/standing_stones",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/standing_stones_small",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/dolmen",
+      "weight": 1
     }
   ]
 }

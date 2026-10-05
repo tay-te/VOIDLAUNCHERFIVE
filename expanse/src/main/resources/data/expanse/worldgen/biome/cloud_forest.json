@@ -232,7 +232,9 @@
       "expanse:river_reeds_temperate",
       "expanse:river_lily_pads",
       "expanse:river_wet_bank",
-      "expanse:river_seagrass"
+      "expanse:river_seagrass",
+      "expanse:kcd_tropic_bushes",
+      "expanse:kcd_tropic_floor"
     ],
     [
       "minecraft:freeze_top_layer"

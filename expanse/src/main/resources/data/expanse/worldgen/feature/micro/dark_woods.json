@@ -18,6 +18,14 @@
     {
       "data": "expanse:micro/mossy_rocks",
       "weight": 2
+    },
+    {
+      "data": "expanse:micro/log_dark_oak",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/toadstools",
+      "weight": 2
     }
   ]
 }

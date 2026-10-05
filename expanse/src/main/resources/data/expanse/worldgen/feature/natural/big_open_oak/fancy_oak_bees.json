@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:natural/tree/oak_spreading/fancy_oak_bees",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.35,
+      "feature": {
+        "feature": "expanse:natural/tree/oak_veteran/fancy_oak_bees",
+        "placement": []
+      }
+    }
+  ]
+}

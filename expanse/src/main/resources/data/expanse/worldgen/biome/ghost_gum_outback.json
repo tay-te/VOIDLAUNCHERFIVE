@@ -129,7 +129,7 @@
     },
     "minecraft:gameplay/snow_golem_melts": true,
     "minecraft:visual/sky_color": "#6fb0ff",
-    "minecraft:visual/fog_color": "#f0c8a0",
+    "minecraft:visual/fog_color": "#ead2b4",
     "minecraft:visual/water_fog_color": "#2a6f8a",
     "minecraft:audio/background_music": {
       "default": {
@@ -215,6 +215,7 @@
       "minecraft:patch_firefly_bush_near_water",
       "expanse:river_reeds_arid",
       "expanse:river_seagrass",
+      "expanse:kcd_dry_grass",
       "expanse:outback_trees",
       "expanse:outback_snags",
       "expanse:outback_mulga",

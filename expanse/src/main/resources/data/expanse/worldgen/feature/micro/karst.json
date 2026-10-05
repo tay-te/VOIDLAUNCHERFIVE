@@ -35,6 +35,10 @@
     {
       "data": "expanse:micro/spring_ring",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/karst_pinnacle",
+      "weight": 3
     }
   ]
 }

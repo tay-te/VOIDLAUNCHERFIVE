@@ -35,6 +35,10 @@
     {
       "data": "expanse:micro/bones",
       "weight": 2
+    },
+    {
+      "data": "expanse:micro/dry_wash",
+      "weight": 1
     }
   ]
 }

@@ -1,0 +1,48 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:sand"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:terracotta"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:substrate_overworld"
+      },
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "minecraft:sandstone",
+          "minecraft:red_sandstone",
+          "expanse:opal_sandstone"
+        ]
+      }
+    ]
+  },
+  "max_relief": 1,
+  "processors": "expanse:micro/outback",
+  "templates": [
+    {
+      "data": "expanse:micro/swag_camp",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/stockyard",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/ranch_gate_acacia",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/lost_cache_dry",
+      "weight": 1
+    }
+  ]
+}

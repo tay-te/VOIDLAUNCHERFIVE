@@ -18,8 +18,9 @@ import net.minecraft.world.level.levelgen.synth.SimplexNoise;
  * valleys and river networks ({@link PlateTerrain}), sampled one column at a time.
  *
  * <p>A column's height comes from its plate's eroded node grid, smoothly interpolated, with finer detail
- * on top: rough on mountains, calm on valley floors. Near a plate border the two plates' landscapes are
- * blended, mirrored across the border, so they meet without a seam. Near a river the ground is shaped
+ * on top: rough on mountains, calm on valley floors. Near a plate border the plates' landscapes are
+ * blended, mirrored across the border, so they meet without a seam (where three plates meet, with each
+ * neighbour by how near its border is). Near a river the ground is shaped
  * into a valley floor a block above the water, and the river's channel and water are cut and poured by
  * the chunk generator. From the same column come the climate values the biome source reads: inland or
  * coastal (distance from the sea), mountainous or flat (uplift), valley or peak (height above the
@@ -49,7 +50,10 @@ public final class TerrainModel {
 	static final int N_LANDFORM = 14;
 	static final int N_TEPUI = 15;
 	static final int N_PAN = 16;
-	private static final int NOISES = 17;
+	static final int N_LAKE = 17;
+	private static final int NOISES = 18;
+	/** One lake at most in each cell this wide. */
+	private static final int LAKE_CELL = 560;
 
 	private final long seed;
 	private final PlateMap plates;
@@ -81,7 +85,37 @@ public final class TerrainModel {
 		final PlateTerrain.Raw a = new PlateTerrain.Raw();
 		final PlateTerrain.Raw b = new PlateTerrain.Raw();
 		final PlateTerrain.Raw c = new PlateTerrain.Raw();
+		final PlateTerrain.Raw e = new PlateTerrain.Raw();
+		/** (seams) A neighbouring plate's river here, and how much each neighbour counts (1 on the border). */
+		final PlateTerrain.Raw n = new PlateTerrain.Raw();
+		final float[] nearWeight = new float[24];
+		/** (tepuis) Per 900-block cell: its key, and its tepui's wetness and the height of the ground at its centre. */
+		final long[] tepuiKey = new long[64];
+		final float[] tepuiTropical = new float[64];
+		final float[] tepuiGround = new float[64];
 		final PlateMap.Hit hitC = new PlateMap.Hit();
+		/** (lakes) Per lake cell: its key and its lake; the sampler for its site; how far inside the shore. */
+		final long[] lakeKey = new long[64];
+		final Lake[] lakes = new Lake[64];
+		final PlateTerrain.Raw l = new PlateTerrain.Raw();
+		final PlateMap.Hit hitL = new PlateMap.Hit();
+		float lakeEdge;
+
+		Scratch() {
+			java.util.Arrays.fill(this.tepuiKey, Long.MIN_VALUE);
+			java.util.Arrays.fill(this.lakeKey, Long.MIN_VALUE);
+		}
+
+		/** (tepuis) How high the talus stands over the ground here, at the foot of the nearest cliff. */
+		float apron;
+	}
+
+	/**
+	 * A lake: its centre and radius, the y of its top water block, the depth of its bowl, whether it has
+	 * islands, and a seed for its shape.
+	 */
+	record Lake(boolean exists, float x, float z, float r, float level, float depth, boolean islands, long seed) {
+		static final Lake NONE = new Lake(false, 0, 0, 0, 0, 0, false, 0);
 	}
 
 	private TerrainModel(long seed) {
@@ -195,19 +229,38 @@ public final class TerrainModel {
 		float uplift = a.uplift;
 		float coast = a.coast;
 		float base = a.drainBase;
-		if (hit.across != null && hit.border < BLEND) {
-			// Mirror the point across the border into the neighbouring plate and blend toward it, so the two
-			// meet at the border at the same height from either side.
+		// Near a border, mirror the point across it into the neighbouring plate and blend toward that, so the
+		// two meet at the border at the same height from either side. Every neighbour within reach takes part,
+		// each by how near its border is (half and half on a border, as before between two plates): where three
+		// plates meet, blending toward only the nearest would jump from one to the other along a line.
+		float weight = 1;
+		float sumHeight = height;
+		float sumUplift = uplift;
+		float sumCoast = coast;
+		float sumBase = base;
+		for (int n = 0; n < hit.nearCount; n++) {
+			double border = hit.nearBorder[n];
+			s.nearWeight[n] = 0;
+			if (border >= BLEND) {
+				continue;
+			}
 			PlateTerrain.Raw b = s.b;
-			double rx = x + 2 * hit.border * hit.normalX;
-			double rz = z + 2 * hit.border * hit.normalZ;
-			this.terrain(hit.across).sample(rx, rz, rx, rz, false, b);
-			float t = 0.5F * (1 - Mth.smoothstep((float) (hit.border / BLEND)));
-			height = Mth.lerp(t, height, b.height);
-			uplift = Mth.lerp(t, uplift, b.uplift);
-			coast = Mth.lerp(t, coast, b.coast);
-			base = Mth.lerp(t, base, b.drainBase);
+			double rx = x + 2 * border * hit.nearNormalX[n];
+			double rz = z + 2 * border * hit.nearNormalZ[n];
+			this.terrain(hit.near[n]).sample(rx, rz, rx, rz, false, b);
+			float t = 0.5F * (1 - Mth.smoothstep((float) (Math.max(0, border) / BLEND)));
+			s.nearWeight[n] = 2 * t;
+			float q = t / (1 - t);
+			weight += q;
+			sumHeight += q * b.height;
+			sumUplift += q * b.uplift;
+			sumCoast += q * b.coast;
+			sumBase += q * b.drainBase;
 		}
+		height = sumHeight / weight;
+		uplift = sumUplift / weight;
+		coast = sumCoast / weight;
+		base = sumBase / weight;
 
 		// A river is not a canal: it narrows and broadens along its course.
 		boolean river = !Float.isNaN(a.riverWater);
@@ -261,12 +314,16 @@ public final class TerrainModel {
 			}
 		}
 
-		// Tepuis: in the wet tropics, sheer-sided table mountains standing out of the forest.
-		float tropical = smooth((humidity - 0.0F) / 0.2F) * smooth((temperature - 0.3F) / 0.2F);
-		if (land && tropical > 0.4F) {
-			float tepui = this.tepui(x, z, s, tropical);
+		// Tepuis: in the wet tropics, sheer-sided table mountains standing out of the forest, the lower part of
+		// every cliff buried in the talus that has fallen from it.
+		if (land) {
+			float ground = height;
+			float tepui = this.tepui(x, z, s, ground);
+			if (s.apron > 0) {
+				height = Math.max(height, ground + s.apron);
+			}
 			if (tepui > 0) {
-				height = Math.max(height, Mth.lerp(tepui, height, s.c.height));
+				height = Math.max(height, Mth.lerp(tepui, ground, s.c.height));
 				if (tepui > 0.5F) {
 					out.landform = Landform.TEPUI;
 				}
@@ -310,18 +367,61 @@ public final class TerrainModel {
 			}
 		}
 
-		// The river valley: a floor a block above the water, rising smoothly into the land round it.
+		// Lakes: quiet hollows of open country holding still water, a bowl shelving from the shore, islands in
+		// the bigger ones; small deep tarns high up. The land round each comes down to a block above the water,
+		// and holds it in.
+		out.lake = -999;
+		out.lakeEdge = -999;
+		float dry = height;
+		if (land) {
+			Lake lake = this.lakeNear(x, z, s);
+			float shore = lake == null ? 0 : 5 + 0.12F * lake.r();
+			if (lake != null && s.lakeEdge > -shore) {
+				float edge = s.lakeEdge;
+				float level = lake.level();
+				if (edge > 0) {
+					float t = smooth(edge / Math.max(6, 0.4F * lake.r()));
+					float bed = level - 0.6F - lake.depth() * t + 1.2F * t * (float) this.noise(N_LAKE, x / 17.0, z / 17.0);
+					height = Math.min(height, bed);
+					if (lake.islands() && edge > 8) {
+						// islands, each shoaling into the water round it
+						float isl = (float) this.noise(N_LAKE, x / 38.0 + (lake.seed() & 1023), z / 38.0 - 300);
+						if (isl > 0.45F) {
+							height = Math.max(height, level - 2 + 9 * (isl - 0.45F) / 0.35F);
+						}
+					}
+				} else {
+					float t = smooth(-edge / shore);
+					height = Math.max(level + 1, Mth.lerp(t, level + 1.2F, height));
+				}
+				out.lake = level;
+				out.lakeEdge = edge;
+			}
+		}
+
+		// The river valley: a floor a block above the water, rising smoothly into the land round it. The
+		// deeper the river lies below the land, the wider its valley sides spread, so they climb at a slope a
+		// walker can take rather than standing as walls over the floor.
 		if (river) {
-			float water = a.riverWater;
-			float floor = water + 1;
-			float hw = a.riverHalfWidth;
-			// in canyon country the valley is a canyon: the walls stand straight up from the banks
-			float plain = Mth.lerp(canyon, hw + 3 + hw * 0.8F + 10, hw + 2.5F);
-			if (a.riverDist < hw) {
-				height = floor;
-			} else if (a.riverDist < plain) {
-				float t = Mth.smoothstep((a.riverDist - hw) / (plain - hw));
-				height = Math.max(floor, Mth.lerp(t, floor, height));
+			height = valley(height, a.riverDist, a.riverHalfWidth, a.riverWater, canyon);
+		}
+		// A river of the plate next door runs near the border: its valley comes across too, fully on the border
+		// and fading out over the blend, and only ever down into the land. Otherwise the valley's side stops dead
+		// where the plates meet, and stands there as a wall over the valley floor.
+		if (!river || a.riverDist > a.riverHalfWidth + 3) {
+			for (int n = 0; n < hit.nearCount; n++) {
+				float w = s.nearWeight[n];
+				if (w < 0.02F) {
+					continue;
+				}
+				PlateTerrain.Raw nr = s.n;
+				this.terrain(hit.near[n]).sample(x, z, mx, mz, true, nr);
+				if (Float.isNaN(nr.riverWater) || nr.riverDist > 3 * nr.riverHalfWidth + 60) {
+					continue;
+				}
+				float hw = nr.riverHalfWidth * (float) (0.8 + 0.35 * this.noise(N_BED, x / 160.0 + 40, z / 160.0));
+				float carved = valley(height, Math.max(nr.riverDist, hw + 1), hw, nr.riverWater, canyon);
+				height = Math.min(height, Mth.lerp(w, height, carved));
 			}
 		}
 
@@ -353,7 +453,9 @@ public final class TerrainModel {
 		// Climate for the biome source.
 		out.coast = coast;
 		out.uplift = uplift;
-		out.aboveRiver = height - base;
+		// (the climate reads the land as it lay before a lake filled its hollow, so a lake takes its biome
+		// from the country round it)
+		out.aboveRiver = (out.lake > -900 ? Math.max(height, dry) : height) - base;
 		out.continentalness = continentalness(coast);
 		// Erosion, as the biome source reads it: low on mountains, high on plains. Lowlands sit mostly in
 		// vanilla's plains-and-forest band, reaching its swamp band only here and there.
@@ -376,16 +478,163 @@ public final class TerrainModel {
 	}
 
 	/**
-	 * How far (x, z) is up onto a tepui (0 off it, 1 on its top), with the top's height left in
-	 * {@code s.c.height}. Tepuis stand one at most in each 900-block cell where the tropics are wet: a ragged
-	 * outline a few hundred blocks across, cliffs a handful of blocks wide, a top 70 to 120 blocks over the
-	 * land at its foot.
+	 * Ground shaped by a river valley: the channel's floor a block above the water, rising smoothly into the land
+	 * round it. The deeper the river lies below the land, the wider its valley sides spread, so they climb at a
+	 * slope a walker can take; in canyon country the walls stand straight up from the banks.
 	 */
-	private float tepui(int x, int z, Scratch s, float tropical) {
+	private static float valley(float height, float dist, float hw, float water, float canyon) {
+		float floor = water + 1;
+		float depth = Math.max(0, height - floor);
+		float plain = Mth.lerp(canyon, hw + 3 + hw * 0.8F + 10 + Math.min(40, depth), hw + 2.5F);
+		if (dist < hw) {
+			return floor;
+		}
+		if (dist < plain) {
+			float t = Mth.smoothstep((dist - hw) / (plain - hw));
+			return Math.max(floor, Mth.lerp(t, floor, height));
+		}
+		return height;
+	}
+
+	/**
+	 * The lake whose water or shore reaches (x, z), with how far inside its shoreline (x, z) is left in
+	 * {@code s.lakeEdge} (negative outside); null if none. The shoreline wanders: the radius is bent by a
+	 * broad noise into deep bays and long points, and ruffled by a finer one.
+	 */
+	private Lake lakeNear(int x, int z, Scratch s) {
+		int lx = Math.floorDiv(x, LAKE_CELL);
+		int lz = Math.floorDiv(z, LAKE_CELL);
+		Lake best = null;
+		float bestEdge = -Float.MAX_VALUE;
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				Lake lake = this.lake(lx + dx, lz + dz, s);
+				if (!lake.exists()) {
+					continue;
+				}
+				double d = Math.hypot(x - lake.x(), z - lake.z());
+				if (d > lake.r() * 1.6 + 30) {
+					continue;
+				}
+				double bent = d + 0.42 * lake.r() * this.noise(N_LAKE, x / (lake.r() * 0.9) + 70, z / (lake.r() * 0.9))
+					+ 0.09 * lake.r() * this.noise(N_LAKE, x / 23.0 - 40, z / 23.0);
+				float edge = (float) (lake.r() - bent);
+				if (edge > bestEdge) {
+					bestEdge = edge;
+					best = lake;
+				}
+			}
+		}
+		s.lakeEdge = bestEdge;
+		return best;
+	}
+
+	private Lake lake(int lx, int lz, Scratch s) {
+		long key = (long) lx << 32 ^ lz & 0xFFFF_FFFFL;
+		int slot = (int) (PlateMap.mix(2, lx, lz) & 63);
+		if (s.lakeKey[slot] != key) {
+			s.lakes[slot] = this.makeLake(lx, lz, s);
+			s.lakeKey[slot] = key;
+		}
+		return s.lakes[slot];
+	}
+
+	/**
+	 * Three cells in five have a lake, where one of a few tries finds a quiet hollow of open land: well inland,
+	 * no river, volcano or plate border near, not in the dry country (its basins are salt flats) or the wet
+	 * tropics (their tepuis), and the ground round it within a dozen blocks of level. The water stands a block
+	 * under the lowest point of the rim, so the lake holds itself in. Down in the lowlands a lake is broad,
+	 * the biggest with islands; high up it is a small deep tarn.
+	 */
+	private Lake makeLake(int lx, int lz, Scratch s) {
+		long h = PlateMap.mix(this.seed ^ 0x4C41_4B45L, lx, lz);
+		if (PlateMap.unit(h) > 0.6) {
+			return Lake.NONE;
+		}
+		PlateTerrain.Raw raw = s.l;
+		for (int i = 0; i < 6; i++) {
+			long hi = PlateMap.mix(h, i, 11);
+			double px = (lx + 0.15 + 0.7 * PlateMap.unit(hi)) * LAKE_CELL;
+			double pz = (lz + 0.15 + 0.7 * PlateMap.unit(hi >>> 21)) * LAKE_CELL;
+			this.plates.locate(px, pz, s.hitL);
+			if (s.hitL.border < BLEND + 120) {
+				continue;
+			}
+			PlateTerrain plate = this.terrain(s.hitL.own);
+			plate.sample(px, pz, px, pz, true, raw);
+			float ground = raw.height;
+			if (ground < PlateTerrain.SEA + 8 || raw.coast < 300) {
+				continue;
+			}
+			double sx = this.offset.get(px * 0.25, 0, pz * 0.25) * 4;
+			double sz = this.offset.get(pz * 0.25, px * 0.25, 0) * 4;
+			float temperature = (float) this.temperature.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
+			float humidity = (float) this.vegetation.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
+			if (humidity < -0.15F || smooth(humidity / 0.2F) * smooth((temperature - 0.3F) / 0.2F) > 0.3F) {
+				continue;
+			}
+			float alpine = smooth((ground - 150) / 60);
+			float r = Mth.lerp(alpine, 22 + 48 * (float) PlateMap.unit(hi >>> 9), 10 + 14 * (float) PlateMap.unit(hi >>> 9));
+			if (!Float.isNaN(raw.riverWater) && raw.riverDist < r + 48) {
+				continue;
+			}
+			boolean volcano = false;
+			for (PlateTerrain.Volcano v : plate.volcanoes()) {
+				volcano |= Math.hypot(px - v.x(), pz - v.z()) < v.radius() + r + 40;
+			}
+			if (volcano) {
+				continue;
+			}
+			// the rim: the lowest and highest ground round it; and further out, where its longest bays can reach,
+			// the lowest ground again, which the water may stand at most a couple of blocks over (the shore is
+			// built up that much to hold it)
+			float lo = ground;
+			float top = ground;
+			float far = Float.MAX_VALUE;
+			for (int k = 0; k < 32; k++) {
+				double a = k * Math.PI / 8;
+				double reach = k < 16 ? r + 4 : r * 1.5 + 4;
+				plate.sample(px + Math.cos(a) * reach, pz + Math.sin(a) * reach, 0, 0, false, raw);
+				if (k < 16) {
+					lo = Math.min(lo, raw.height);
+					top = Math.max(top, raw.height);
+				} else {
+					far = Math.min(far, raw.height);
+				}
+			}
+			if (top - lo > Mth.lerp(alpine, 10, 18)) {
+				continue;
+			}
+			float level = Mth.floor(Math.min(lo, far + 2)) - 1;
+			if (level < PlateTerrain.SEA + 4) {
+				continue;
+			}
+			float depth = Mth.lerp(alpine, 5 + 6 * (float) PlateMap.unit(hi >>> 23), 7 + 8 * (float) PlateMap.unit(hi >>> 23));
+			boolean islands = r > 42 && PlateMap.unit(hi >>> 31) < 0.6;
+			return new Lake(true, (float) px, (float) pz, r, level, depth, islands, hi);
+		}
+		return Lake.NONE;
+	}
+
+	/**
+	 * How far (x, z) is up onto a tepui (0 off it, 1 on its top), with the top's height left in
+	 * {@code s.c.height} and the talus at its foot in {@code s.apron}. Tepuis stand one at most in each
+	 * 900-block cell whose centre lies in the wet tropics: a ragged outline a few hundred blocks across, cliffs
+	 * a handful of blocks wide, a top 70 to 120 blocks over the land at its centre. Each is made whole from the
+	 * climate at its centre, so it has one level top, and where that climate is only just wet enough it is a
+	 * smaller, lower mesa; the climate of the ground it stands on never cuts one off along a line.
+	 *
+	 * <p>A cliff that high sheds rock, and what falls piles up against its foot: a talus apron, steepest
+	 * where it meets the wall (about the angle loose rock rests at) and spreading out concave into the forest,
+	 * its top a fifth to a half of the way up the cliff as it stands there. Along the wall it rises into spurs
+	 * where buttresses have fallen and dips into gullies between them, so the forest climbs the apron in ribs.
+	 */
+	private float tepui(int x, int z, Scratch s, float ground) {
 		int cell = 900;
 		int cx = Math.floorDiv(x, cell);
 		int cz = Math.floorDiv(z, cell);
 		float best = 0;
+		s.apron = 0;
 		for (int dx = -1; dx <= 1; dx++) {
 			for (int dz = -1; dz <= 1; dz++) {
 				long h = PlateMap.mix(0x54455055L, cx + dx, cz + dz);
@@ -395,25 +644,65 @@ public final class TerrainModel {
 				double px = (cx + dx + 0.25 + 0.5 * PlateMap.unit(h >>> 21)) * cell;
 				double pz = (cz + dz + 0.25 + 0.5 * PlateMap.unit(h >>> 42)) * cell;
 				double r = 150 + 150 * PlateMap.unit(h >>> 7);
-				double d = Math.hypot(x - px, z - pz) + 0.32 * r * this.noise(N_TEPUI, x / 160.0, z / 160.0)
-					+ 0.1 * r * this.noise(N_TEPUI, x / 41.0 + 9, z / 41.0);
-				float edge = (float) (r - d);
-				if (edge <= -2) {
+				double centre = Math.hypot(x - px, z - pz);
+				if (centre > r * 1.4 + TALUS_REACH + 4) {
+					continue;  // beyond its widest outline and talus
+				}
+				int slot = this.tepuiCell(cx + dx, cz + dz, px, pz, s);
+				float tropical = s.tepuiTropical[slot];
+				if (tropical <= 0.4F) {
 					continue;
 				}
-				// full height wherever it stands; a little smaller where the tropics are drier
-				float t = smooth((edge + 2 - (float) r * 0.35F * (1 - smooth((tropical - 0.4F) / 0.4F))) / 7);
+				float top = s.tepuiGround[slot] + 70 + 50 * (float) PlateMap.unit(h >>> 29);
+				// smaller where the tropics are drier: the cliff's foot moves in
+				float inset = (float) r * 0.35F * (1 - smooth((tropical - 0.4F) / 0.4F));
+				double d = centre + 0.32 * r * this.noise(N_TEPUI, x / 160.0, z / 160.0) + 0.05 * r * this.noise(N_TEPUI, x / 41.0 + 9, z / 41.0);
+				float edge = (float) (r - d);
+				float outside = inset - 2 - edge;     // how far out from the foot of the cliff
+				if (outside < TALUS_REACH) {
+					float cliff = top - ground;      // the cliff as it stands here
+					float share = 0.36F + 0.14F * (float) this.noise(N_TEPUI, x / 46.0 + 71, z / 46.0)
+						+ 0.03F * (float) this.noise(N_TEPUI, x / 19.0 - 30, z / 19.0);
+					float talus = share * cliff;
+					float spread = Math.min(TALUS_REACH, talus / 0.5F);
+					if (talus > 0 && outside < spread) {
+						float u = outside <= 0 ? 1 : 1 - outside / spread;
+						s.apron = Math.max(s.apron, talus * u * (float) Math.sqrt(u));
+					}
+				}
+				float t = smooth((edge + 2 - inset) / 7);
 				if (t > best) {
 					best = t;
-					this.plates.locate(px, pz, s.hitC);
-					this.terrain(s.hitC.own).sample(px, pz, px, pz, false, s.c);
-					float rise = 70 + 50 * (float) PlateMap.unit(h >>> 29);
-					s.c.height = s.c.height + rise + 3 * (float) this.noise(N_DETAIL_A, x / 37.0, z / 37.0);
+					s.c.height = top + 3 * (float) this.noise(N_DETAIL_A, x / 37.0, z / 37.0);
 				}
 			}
 		}
 		return best;
 	}
+
+	/**
+	 * The slot in the per-thread cache holding a tepui cell's centre: how wet its tropics are there (0 to 1;
+	 * tepuis need more than 0.4) and the eroded ground's height.
+	 */
+	private int tepuiCell(int cellX, int cellZ, double px, double pz, Scratch s) {
+		long key = (long) cellX << 32 ^ cellZ & 0xFFFF_FFFFL;
+		int slot = (int) (PlateMap.mix(1, cellX, cellZ) & 63);
+		if (s.tepuiKey[slot] != key) {
+			double sx = this.offset.get(px * 0.25, 0, pz * 0.25) * 4;
+			double sz = this.offset.get(pz * 0.25, px * 0.25, 0) * 4;
+			float temperature = (float) this.temperature.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
+			float humidity = (float) this.vegetation.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
+			s.tepuiTropical[slot] = smooth(humidity / 0.2F) * smooth((temperature - 0.3F) / 0.2F);
+			this.plates.locate(px, pz, s.hitC);
+			this.terrain(s.hitC.own).sample(px, pz, px, pz, false, s.e);
+			s.tepuiGround[slot] = s.e.height;
+			s.tepuiKey[slot] = key;
+		}
+		return slot;
+	}
+
+	/** How far the talus at a tepui's foot spreads into the forest at most. */
+	private static final float TALUS_REACH = 110;
 
 	private static float smooth(float t) {
 		t = Mth.clamp(t, 0, 1);

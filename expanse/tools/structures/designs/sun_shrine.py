@@ -1,6 +1,6 @@
-"""Temple of the Pink Sun - a stepped sun temple half swallowed by the opal dunes (LANDMARK).
+"""Temple of the Red Sun - a stepped sun temple half swallowed by the red dunes (LANDMARK).
 
-start  ziggurat : five opal-sandstone tiers (37x37 base) with orange and blue bands,
+start  ziggurat : five red-sandstone tiers (37x37 base) with orange and pale bands,
                   a twenty-step grand stair with brazier landings, and on top the sun
                   sanctum - portico, sun mosaic, lore lectern, offering pots - crowned by
                   a great standing sun disc (~31 high). Dunes bury the west and back faces.
@@ -28,7 +28,7 @@ from pieces import Empty, Piece
 from terrain_paths import connector, path_piece, piece_in
 
 NAME = "sun_shrine"
-STRUCTURE = dict(biomes=["opal_dunes"], spacing=54, separation=20, size=4, max_distance=76)
+STRUCTURE = dict(biomes=["red_dunes"], spacing=54, separation=20, size=4, max_distance=76)
 LOOT = "expanse:chests/sun_shrine"
 HIDDEN = "expanse:chests/sun_shrine_hidden"
 ARCH = "expanse:chests/sun_shrine_archaeology"
@@ -40,13 +40,13 @@ J_UNDER = "expanse:sun_undercroft"
 J_AVENUE = "expanse:sun_avenue"
 PROC = "sun_shrine"
 
-OS = "expanse:opal_sandstone"          # stairs / slab / wall
-SOS = "expanse:smooth_opal_sandstone"
-COS = "expanse:cut_opal_sandstone"
-CHOS = "expanse:chiseled_opal_sandstone"
-SAND = "expanse:opal_sand"
+OS = "red_sandstone"          # stairs / slab / wall
+SOS = "smooth_red_sandstone"
+COS = "cut_red_sandstone"
+CHOS = "chiseled_red_sandstone"
+SAND = "red_sand"
 BAND_A = "orange_terracotta"
-BAND_B = "light_blue_terracotta"
+BAND_B = "white_terracotta"
 
 
 def book():
@@ -59,7 +59,7 @@ def body(rng):
 
 
 def dune_fill(b, rng, height_fn, y0=1, ymax=None, region=None):
-    """Pile opal sand on empty cells up to height_fn(x, z) (bottom-up, so every grain is supported)."""
+    """Pile red sand on empty cells up to height_fn(x, z) (bottom-up, so every grain is supported)."""
     sx, sy, sz = b.size
     ymax = ymax or sy - 1
     for x in range(sx):
@@ -321,7 +321,7 @@ def undercroft():
     for x in range(19):
         for z in range(19):
             for y in range(9):
-                b.set(x, y, z, B(rng.choice([OS, OS, SAND, "sandstone"])))
+                b.set(x, y, z, B(rng.choice([OS, OS, SAND, COS])))
     b.air(2, 1, 2, 16, 5, 16)
     for x in range(2, 17):
         for z in range(2, 17):
@@ -539,7 +539,7 @@ def ground_fallen_obelisk():
 
 def pools():
     rp = random.Random(1847941)
-    mats = ((COS, 2), (SAND, 3), ("expanse:opal_sandstone", 1))
+    mats = ((COS, 2), (SAND, 3), (OS, 1))
     return {
         "start": [Piece(ziggurat(), 1, PROC)],
         "undercroft": [Piece(undercroft(), 1, PROC)],

@@ -1,0 +1,31 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:matching_block_tag",
+    "tag": "minecraft:substrate_overworld"
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/monsoon",
+  "templates": [
+    {
+      "data": "expanse:micro/stump_teak",
+      "weight": 5
+    },
+    {
+      "data": "expanse:micro/termite_mound",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/mossy_rocks",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/vine_boulder",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/mushroom_ring",
+      "weight": 1
+    }
+  ]
+}

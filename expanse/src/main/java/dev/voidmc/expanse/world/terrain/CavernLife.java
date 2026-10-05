@@ -138,6 +138,10 @@ final class CavernLife {
 					tunnel(level, c, x, z, h, temperature, humidity, p);
 					small(level, c, x, z, h, temperature, humidity, p);
 				}
+				c = caverns.info(x, z);
+				if (c.systems) {
+					CaveSystemsLife.decorate(level, caverns, c, pos, x, z, h, p);
+				}
 			}
 		}
 		mushrooms(level, pos, caverns, p);
@@ -204,7 +208,7 @@ final class CavernLife {
 	}
 
 	/** One cave's floor and roof in a column, between about {@code low} and {@code high}. */
-	private static void cave(WorldGenLevel level, int x, int z, float low, float high, long h, float temperature, float humidity,
+	static void cave(WorldGenLevel level, int x, int z, float low, float high, long h, float temperature, float humidity,
 		BlockPos.MutableBlockPos p) {
 		int floor = Integer.MIN_VALUE;
 		for (int y = Math.round(low) + 2; y >= Math.round(low) - 4 && y > LAVA + 1; y--) {
@@ -1458,7 +1462,7 @@ final class CavernLife {
 	// ------------------------------------------------------------------ pieces
 
 	/** A speleothem of {@code block} (pointed dripstone, an icicle...), pointing {@code tip}, {@code length} long from (x, y, z). */
-	private static void speleothem(WorldGenLevel level, int x, int y, int z, Direction tip, int length, Block block, BlockPos.MutableBlockPos p) {
+	static void speleothem(WorldGenLevel level, int x, int y, int z, Direction tip, int length, Block block, BlockPos.MutableBlockPos p) {
 		for (int k = 0; k < length; k++) {
 			if (!level.getBlockState(p.set(x, y + (tip == Direction.UP ? k : -k), z)).isAir()) {
 				length = k;
@@ -1522,7 +1526,7 @@ final class CavernLife {
 	}
 
 	/** Rock and earth as the land (or this decoration) made them, never anything built. */
-	private static boolean natural(BlockState s) {
+	static boolean natural(BlockState s) {
 		return s.is(BlockTags.BASE_STONE_OVERWORLD) || s.is(BlockTags.DIRT) || s.is(BlockTags.SAND) || s.is(Blocks.GRAVEL) || s.is(Blocks.CLAY)
 			|| s.is(Blocks.DRIPSTONE_BLOCK) || s.is(Blocks.CALCITE) || s.is(Blocks.SMOOTH_BASALT) || s.is(Blocks.BASALT) || s.is(Blocks.SANDSTONE)
 			|| s.is(Blocks.RED_SANDSTONE) || s.is(Blocks.SNOW_BLOCK) || s.is(Blocks.PACKED_ICE) || s.is(Blocks.SULFUR) || s.is(Blocks.MAGMA_BLOCK)

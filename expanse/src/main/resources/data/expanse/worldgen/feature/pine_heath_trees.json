@@ -15,7 +15,7 @@
     {
       "chance": 0.08,
       "feature": {
-        "feature": "minecraft:birch",
+        "feature": "expanse:natural/birch/plain",
         "placement": []
       }
     },

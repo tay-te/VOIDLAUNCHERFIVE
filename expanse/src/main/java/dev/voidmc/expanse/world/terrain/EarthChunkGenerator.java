@@ -145,8 +145,10 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 			.thenApply(built -> {
 				this.pourRivers(built, m);
 				this.pourCraters(built, m);
+				this.pourLakes(built, m);
 				this.pourUndergroundRivers(built, m.caverns());
 				this.pourRealmLakes(built, m.caverns());
+				this.pourAbysses(built, m.caverns());
 				return built;
 			});
 	}
@@ -288,6 +290,42 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 	}
 
 	/**
+	 * Lakes: water from the lake's level down to the bed, and on the shore round it the land made solid up to
+	 * the water's level wherever the ground dips under it, so the lake holds itself in.
+	 */
+	private void pourLakes(ChunkAccess chunk, TerrainModel m) {
+		ChunkPos pos = chunk.getPos();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int minY = chunk.getMinY();
+		for (int lz = 0; lz < 16; lz++) {
+			for (int lx = 0; lx < 16; lx++) {
+				int x = pos.getMinBlockX() + lx;
+				int z = pos.getMinBlockZ() + lz;
+				Column c = m.sample(x, z);
+				if (c.lake < -900 || c.lakeEdge < -3) {
+					continue;
+				}
+				int top = net.minecraft.util.Mth.floor(c.lake);
+				if (c.lakeEdge > 0) {
+					for (int y = top; y > minY; y--) {
+						if (!chunk.getBlockState(p.set(x, y, z)).isAir()) {
+							break;
+						}
+						chunk.setBlockState(p, WATER);
+					}
+				} else {
+					for (int y = top; y >= top - 3 && y > minY; y--) {
+						BlockState s = chunk.getBlockState(p.set(x, y, z));
+						if (s.isAir() || !s.getFluidState().isEmpty()) {
+							chunk.setBlockState(p, BANK);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/**
 	 * The lakes of the realms (lava in the ember realms) and the plunge pools under their waterfalls, filled
 	 * to the level the model gives wherever the realm is open above that level.
 	 */
@@ -313,6 +351,33 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 						break;
 					}
 					chunk.setBlockState(p, fill);
+				}
+			}
+		}
+	}
+
+	/** The pool at the bottom of each abyss, filled wherever the shaft is open at its level. */
+	private void pourAbysses(ChunkAccess chunk, CavernModel caverns) {
+		ChunkPos pos = chunk.getPos();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int minY = chunk.getMinY();
+		for (int lz = 0; lz < 16; lz++) {
+			for (int lx = 0; lx < 16; lx++) {
+				int x = pos.getMinBlockX() + lx;
+				int z = pos.getMinBlockZ() + lz;
+				CavernModel.Info c = caverns.info(x, z);
+				if (!c.abyss || c.abyssDist > c.abyssRadius + 8) {
+					continue;
+				}
+				int top = net.minecraft.util.Mth.floor(CaveSystems.abyssPool(c));
+				if (!chunk.getBlockState(p.set(x, top + 1, z)).isAir()) {
+					continue;
+				}
+				for (int y = top; y > minY; y--) {
+					if (!chunk.getBlockState(p.set(x, y, z)).isAir()) {
+						break;
+					}
+					chunk.setBlockState(p, WATER);
 				}
 			}
 		}

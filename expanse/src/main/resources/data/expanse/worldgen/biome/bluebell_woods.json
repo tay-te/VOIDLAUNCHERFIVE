@@ -125,7 +125,7 @@
       "modifier": "overlay"
     },
     "minecraft:visual/sky_color": "#84adff",
-    "minecraft:visual/fog_color": "#ccd5f2",
+    "minecraft:visual/fog_color": "#d0d8e6",
     "minecraft:visual/water_fog_color": "#2f5ab0"
   },
   "carvers": [
@@ -206,6 +206,9 @@
       "expanse:river_lily_pads",
       "expanse:river_wet_bank",
       "expanse:river_seagrass",
+      "expanse:kcd_woodland_shrubs",
+      "expanse:kcd_bank_trees",
+      "expanse:kcd_brambles",
       "expanse:bluebell_trees",
       "expanse:bluebell_carpet",
       "expanse:bluebell_undergrowth",

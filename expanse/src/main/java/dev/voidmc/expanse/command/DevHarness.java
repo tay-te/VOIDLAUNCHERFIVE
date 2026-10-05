@@ -24,6 +24,8 @@ import net.minecraft.world.level.biome.Biomes;
  *   -Dexpanse.dev.structures=CHUNKS     locate each Expanse structure (and, with .generate, build it)
  *   -Dexpanse.dev.generate=true         generate full chunks round each biome/structure found
  *   -Dexpanse.dev.visit=X,Z[;X,Z...]     generate full chunks round each of these places
+ *   -Dexpanse.dev.area=X,Z,R            generate the (2R+1)^2 chunks round X,Z; with -Dexpanse.dev.caves=true log
+ *                                       how many of each cave thing went in, and where the first few are
  *   -Dexpanse.dev.stop=true             then shut the server down
  * </pre>
  *
@@ -37,7 +39,8 @@ public final class DevHarness {
 	public static void install() {
 		String atlas = System.getProperty("expanse.dev.atlas");
 		String locate = System.getProperty("expanse.dev.locate");
-		if (atlas == null && locate == null && System.getProperty("expanse.dev.structures") == null && System.getProperty("expanse.dev.visit") == null) {
+		if (atlas == null && locate == null && System.getProperty("expanse.dev.structures") == null && System.getProperty("expanse.dev.visit") == null
+			&& System.getProperty("expanse.dev.area") == null) {
 			return;
 		}
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
@@ -100,6 +103,36 @@ public final class DevHarness {
 			}
 		});
 		Expanse.LOG.info("[dev]   generated round {}: {}", key.identifier(), done.get());
+	}
+
+	/**
+	 * Generates every chunk within {@code r} chunks of (x, z) to full status, a row at a time, then logs what
+	 * the cave things placed there ({@code CaveTemplateFeature.PLACED}, counted with -Dexpanse.dev.caves=true).
+	 */
+	private static void generateArea(MinecraftServer server, ServerLevel level, int x, int z, int r) throws Exception {
+		long start = System.nanoTime();
+		int cx = x >> 4;
+		int cz = z >> 4;
+		for (int dz = -r; dz <= r; dz++) {
+			int row = cz + dz;
+			java.util.List<java.util.concurrent.CompletableFuture<?>> loading = server.submit(() -> {
+				java.util.List<java.util.concurrent.CompletableFuture<?>> futures = new java.util.ArrayList<>();
+				for (int dx = -r; dx <= r; dx++) {
+					futures.add(level.getChunkSource().getChunkFuture(cx + dx, row, net.minecraft.world.level.chunk.status.ChunkStatus.FULL, true));
+				}
+				return futures;
+			}).join();
+			java.util.concurrent.CompletableFuture.allOf(loading.toArray(java.util.concurrent.CompletableFuture[]::new)).get();
+		}
+		int side = 2 * r + 1;
+		Expanse.LOG.info("[dev] area {} x {} chunks round {}, {} in {} s", side, side, x, z, (System.nanoTime() - start) / 1_000_000_000);
+		int total = 0;
+		for (var e : new java.util.TreeMap<>(dev.voidmc.expanse.world.feature.CaveTemplateFeature.PLACED).entrySet()) {
+			total += e.getValue().get();
+			Expanse.LOG.info("[dev]   cave thing {} x{} at {}", e.getKey(), e.getValue().get(),
+				dev.voidmc.expanse.world.feature.CaveTemplateFeature.WHERE.getOrDefault(e.getKey(), java.util.List.of()));
+		}
+		Expanse.LOG.info("[dev]   {} cave things in {} chunks", total, side * side);
 	}
 
 	private static void run(MinecraftServer server, String atlas, String locate) {
@@ -165,6 +198,11 @@ public final class DevHarness {
 					Expanse.LOG.info("[dev] visit {}, {}, {} ({})", x, y, z, key.identifier());
 					generateAround(server, level, new BlockPos(x, y, z), key);
 				}
+			}
+			String area = System.getProperty("expanse.dev.area");
+			if (area != null) {
+				String[] p = area.split(",");
+				generateArea(server, level, Integer.parseInt(p[0].trim()), Integer.parseInt(p[1].trim()), Integer.parseInt(p[2].trim()));
 			}
 			if (atlas != null) {
 				String[] parts = atlas.split(":");

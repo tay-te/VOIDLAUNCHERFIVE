@@ -35,6 +35,14 @@ public final class StructureClearance {
 	 * buildings, and clearing all of that would leave a bald square in the forest.
 	 */
 	public static List<BoundingBox> nearbyBoxes(WorldGenLevel level) {
+		return nearbyBoxes(level, false);
+	}
+
+	/**
+	 * As {@link #nearbyBoxes(WorldGenLevel)}, or with {@code everyStep} the pieces of every structure, the
+	 * underground ones too (mineshafts, strongholds, the cavern structures), for things set into the caves.
+	 */
+	public static List<BoundingBox> nearbyBoxes(WorldGenLevel level, boolean everyStep) {
 		List<BoundingBox> boxes = new ArrayList<>();
 		if (!(level instanceof WorldGenRegion region)) {
 			return boxes;
@@ -47,7 +55,7 @@ public final class StructureClearance {
 					continue;
 				}
 				for (Map.Entry<Structure, LongSet> refs : chunk.getAllReferences().entrySet()) {
-					if (refs.getKey().step() != GenerationStep.Decoration.SURFACE_STRUCTURES) {
+					if (!everyStep && refs.getKey().step() != GenerationStep.Decoration.SURFACE_STRUCTURES) {
 						continue;
 					}
 					for (long packed : refs.getValue()) {

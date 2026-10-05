@@ -38,9 +38,11 @@ VANILLA_ITEMS = os.path.join(MC_RES, "assets", "minecraft", "items")
 VANILLA_TEMPLATES = os.path.join(VDATA, "structure")
 MOD_ASSETS = os.path.normpath(os.path.join(HERE, "..", "..", "src", "main", "resources", "assets", "expanse"))
 DATA_VERSION = 5023
-MOD_BIOMES = {"expanse:" + b for b in ("frostbloom_tundra heather_moor wisteria_vale redwood_giants lumen_grove "
-                                        "willow_bayou amber_steppe opal_dunes jade_karst cloud_forest verdant_peaks "
-                                        "prismatic_peaks palm_coast").split()}
+MOD_BIOMES = {"expanse:" + b for b in ("lichen_tundra heather_moor woodland_glades redwood_giants ancient_oakwood "
+                                        "willow_bayou amber_steppe red_dunes jade_karst cloud_forest verdant_peaks "
+                                        "dolomite_peaks palm_coast").split()}
+# vanilla's cave biomes: in #minecraft:is_overworld, but no place for a structure that stands on the surface
+VANILLA_UNDERGROUND = {"dripstone_caves", "lush_caves", "deep_dark", "sulfur_caves"}
 DYES = {"white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple",
         "blue", "brown", "green", "red", "black"}
 
@@ -601,7 +603,7 @@ def check_loot(ctx, path):
     rel = os.path.relpath(path, ctx.data)
     if not lt:
         return
-    name = os.path.relpath(path, os.path.join(ctx.data, "loot_table"))[:-5]
+    name = os.path.relpath(path, os.path.join(ctx.data, "loot_table"))[:-5].replace(os.sep, "/")
     if lt.get("type") not in ("minecraft:chest", "minecraft:archaeology"):
         ctx.err(f"{rel}: type {lt.get('type')}")
     if lt.get("random_sequence") != f"expanse:{name}":
@@ -751,6 +753,17 @@ def run(data):
     for v in sorted(villages):                     # our additions to vanilla's #minecraft:village
         if not os.path.exists(ctx.res(v, "worldgen/structure") or ""):
             ctx.err(f"tags/worldgen/structure/village.json (minecraft): unknown structure {v}")
+    # biomes a structure's has_structure tag may name: the Expanse surface biomes (#expanse:all) and vanilla's
+    # overworld biomes less the cave biomes
+    surface_biomes = set(MOD_BIOMES)
+    all_tag = os.path.join(data, "tags", "worldgen", "biome", "all.json")
+    if os.path.exists(all_tag):
+        surface_biomes |= set((load_json(ctx, all_tag) or {}).get("values", []))
+    ow_tag = os.path.join(VDATA, "tags", "worldgen", "biome", "is_overworld.json")
+    if os.path.exists(ow_tag):
+        with open(ow_tag) as f:
+            surface_biomes |= {b for b in json.load(f).get("values", [])
+                               if b.startswith("minecraft:") and b.split(":")[1] not in VANILLA_UNDERGROUND}
     salts = {}
     shared = {}     # structure id -> shared set file (sets listing structures other than their namesake)
     for sp_ in sorted(glob.glob(os.path.join(data, "worldgen", "structure_set", "*.json"))):
@@ -771,10 +784,19 @@ def run(data):
                                  "dimension_padding", "liquid_settings"}
         if s.get("type") == "expanse:sited_jigsaw":
             extra -= {"max_relief", "allow_water", "avoid", "in_cavern"}
+            seen_sets = set()
             for z in s.get("avoid", []):
-                if not 1 <= z.get("radius", 0) <= 256 or not os.path.exists(
-                        ctx.res(z.get("other_set", "x:x"), "worldgen/structure_set") or ""):
+                sp_avoid = ctx.res(z.get("other_set", "x:x"), "worldgen/structure_set") or ""
+                if not 1 <= z.get("radius", 0) <= 256 or not os.path.exists(sp_avoid):
                     ctx.err(f"{rel}: bad avoid entry {z}")
+                    continue
+                if z["other_set"] in seen_sets:
+                    ctx.err(f"{rel}: avoid lists {z['other_set']} twice")
+                seen_sets.add(z["other_set"])
+                # SitedJigsawStructure reads the other set's grid, so only a random_spread set can be avoided
+                # (vanilla's or ours); anything else would be skipped without a word
+                if ((load_json(ctx, sp_avoid) or {}).get("placement", {}).get("type") != "minecraft:random_spread"):
+                    ctx.err(f"{rel}: avoid entry {z['other_set']} is not a random_spread set")
         if missing or extra:
             ctx.err(f"{rel}: missing {sorted(missing)} extra {sorted(extra)}")
         if s.get("type") not in ("minecraft:jigsaw", "expanse:sited_jigsaw"):
@@ -796,9 +818,12 @@ def run(data):
         if t is None:
             ctx.err(f"{rel}: biome tag missing")
         else:
-            for b in t.get("values", []):
-                if b not in MOD_BIOMES and b != "#minecraft:is_overworld":
-                    ctx.err(f"{os.path.relpath(tag, data)}: unknown biome {b}")
+            vals = t.get("values", [])
+            if len(set(vals)) != len(vals):
+                ctx.err(f"{os.path.relpath(tag, data)}: a biome is listed twice")
+            for b in vals:
+                if b not in surface_biomes and b != "#minecraft:is_overworld":
+                    ctx.err(f"{os.path.relpath(tag, data)}: unknown or underground biome {b}")
         sp = s.get("start_pool", "x:x")
         if sp not in pools:
             ctx.err(f"{rel}: start_pool {sp} missing")

@@ -87,14 +87,14 @@ def _trees(W):
     W.fallen('fallen_pine', 'pine_log', W.uniform(5, 9), stump_decorators=[])
 
     W.selector('maple_highlands_trees', W.e('maple'), (W.e('orange_maple'), 0.4), (W.e('mottled_maple'), 0.25),
-               ('minecraft:spruce', 0.06), ('minecraft:birch', 0.05), (W.e('fallen_maple'), 0.04))
+               (W.e('natural/spruce_forest/plain'), 0.06), (W.e('natural/birch/plain'), 0.05), (W.e('fallen_maple'), 0.04))
     W.selector('aspen_grove', W.e('aspen'), (W.e('aspen_bees'), 0.08), (W.e('fallen_aspen'), 0.05))
-    W.selector('larch_taiga_trees', W.e('larch'), ('minecraft:spruce', 0.35), ('minecraft:pine', 0.08),
+    W.selector('larch_taiga_trees', W.e('larch'), (W.e('natural/spruce_forest/plain'), 0.35), (W.e('natural/pine_forest/plain'), 0.08),
                ('minecraft:fallen_spruce_tree', 0.04))
     W.selector('muskeg_trees', W.e('black_spruce'), (W.e('tall_black_spruce'), 0.3), (W.e('larch'), 0.2))
-    W.selector('bluebell_woods_trees', W.e('beech'), (W.e('beech_bees'), 0.05), ('minecraft:oak', 0.12), ('minecraft:birch', 0.06),
-               ('minecraft:fancy_oak', 0.04), (W.e('fallen_beech'), 0.04))
-    W.selector('pine_heath_trees', W.e('scots_pine'), (W.e('young_pine'), 0.22), ('minecraft:birch', 0.08), (W.e('fallen_pine'), 0.05))
+    W.selector('bluebell_woods_trees', W.e('beech'), (W.e('beech_bees'), 0.05), (W.e('natural/forest_oak/plain'), 0.12),
+               (W.e('natural/birch/plain'), 0.06), (W.e('natural/big_oak/plain'), 0.04), (W.e('fallen_beech'), 0.04))
+    W.selector('pine_heath_trees', W.e('scots_pine'), (W.e('young_pine'), 0.22), (W.e('natural/birch/plain'), 0.08), (W.e('fallen_pine'), 0.05))
 
 
 def features(W, jar):
@@ -253,7 +253,7 @@ def biomes(W, jar):
     A['bluebell_woods'] = W.biome('bluebell_woods', 'forest', jar,
         temperature=0.6, downfall=0.85,
         effects={'grass_color': '#6db54d', 'foliage_color': '#5aa73f', 'dry_foliage_color': '#8b6a3c', 'water_color': '#3f7ad8'},
-        attributes={'visual/sky_color': '#84adff', 'visual/fog_color': '#ccd5f2', 'visual/water_fog_color': '#2f5ab0',
+        attributes={'visual/sky_color': '#84adff', 'visual/fog_color': '#d0d8e6', 'visual/water_fog_color': '#2f5ab0',
                     'audio/background_music': music('minecraft:music.overworld.forest')},
         drop=['minecraft:trees_birch_and_oak_leaf_litter', 'minecraft:forest_flowers', 'minecraft:flower_default'],
         add=['bluebell_boulders', 'bluebell_trees', 'bluebell_carpet', 'bluebell_undergrowth', 'bluebell_moss', 'bluebell_leaf_litter'] + BANKS,

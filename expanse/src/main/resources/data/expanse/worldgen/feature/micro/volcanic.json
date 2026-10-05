@@ -1,0 +1,49 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:substrate_overworld"
+      },
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "expanse:volcanic_ash",
+          "minecraft:basalt",
+          "minecraft:blackstone",
+          "minecraft:gravel"
+        ]
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:base_stone_overworld"
+      }
+    ]
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/volcanic",
+  "templates": [
+    {
+      "data": "expanse:micro/lava_bomb",
+      "weight": 4
+    },
+    {
+      "data": "expanse:micro/obsidian_shards",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/fumarole_crust",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/charred_snag",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/boulders_scattered",
+      "weight": 1
+    }
+  ]
+}

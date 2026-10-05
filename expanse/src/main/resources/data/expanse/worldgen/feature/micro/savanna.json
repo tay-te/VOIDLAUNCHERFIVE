@@ -43,6 +43,10 @@
     {
       "data": "expanse:micro/bones",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/termite_mound",
+      "weight": 3
     }
   ]
 }

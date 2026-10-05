@@ -225,7 +225,9 @@
       "expanse:cloud_forest_trees",
       "expanse:cloud_forest_floor",
       "expanse:cloud_forest_moss",
-      "expanse:cloud_forest_ferns"
+      "expanse:cloud_forest_ferns",
+      "expanse:kcd_tropic_bushes",
+      "expanse:kcd_tropic_floor"
     ],
     [
       "minecraft:freeze_top_layer"

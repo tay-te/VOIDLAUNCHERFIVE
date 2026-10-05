@@ -573,7 +573,7 @@ def habitats():
         # Owls: woods of every kind, and the open snow for the snowy owl.
         'owls': ['#minecraft:is_forest', '#minecraft:is_taiga', '#minecraft:is_jungle', 'minecraft:swamp', 'minecraft:mangrove_swamp',
                  'minecraft:snowy_plains', opt('expanse:willow_bayou'), opt('expanse:jade_karst'), opt('expanse:cloud_forest'),
-                 opt('expanse:frostbloom_tundra'), opt('expanse:heather_moor')],
+                 opt('expanse:lichen_tundra'), opt('expanse:heather_moor')],
         # Deer: broadleaf and mixed woods (the elk has the taiga and the moors).
         'deer': ['#minecraft:is_forest', 'minecraft:plains', 'minecraft:sunflower_plains', 'minecraft:cherry_grove'],
         # Where frogs live anywhere, not only beside water (everywhere else, a frog spawns within a few blocks of it).

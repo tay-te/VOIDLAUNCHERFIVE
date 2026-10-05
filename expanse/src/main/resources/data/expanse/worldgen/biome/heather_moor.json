@@ -145,7 +145,8 @@
     [],
     [
       "minecraft:lake_lava_underground",
-      "minecraft:lake_lava_surface"
+      "minecraft:lake_lava_surface",
+      "expanse:kcd_fishponds"
     ],
     [
       "minecraft:amethyst_geode",
@@ -207,7 +208,9 @@
       "expanse:moor_bracken",
       "expanse:moor_scrub",
       "expanse:river_reeds_temperate",
-      "expanse:river_lily_pads"
+      "expanse:river_lily_pads",
+      "expanse:kcd_open_shrubs",
+      "expanse:kcd_meadow_grass"
     ],
     [
       "minecraft:freeze_top_layer"

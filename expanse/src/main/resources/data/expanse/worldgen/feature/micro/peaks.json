@@ -39,6 +39,14 @@
     {
       "data": "expanse:micro/mossy_rocks_low",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/erratic",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/scree",
+      "weight": 3
     }
   ]
 }
