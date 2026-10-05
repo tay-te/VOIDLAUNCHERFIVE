@@ -74,7 +74,9 @@ public final class ThievesDen implements Archetype {
 		Body body = new Body(0, zF, w - 1, zM, base, new int[]{h0}, false, false);
 		d.body(0, zF, w - 1, zM);
 		d.eave(body.plateY());
-		Grounds.forecourt(d, 0, w - 1, zF - 1, false);
+		// the lane before it levelled to the street the whole width (a den's door is off the middle, where the lane's ground
+		// may stand higher or lower on a hillside)
+		Groundwork.level(d, 0, 0, w - 1, zF - 1, base, true);
 		int doorCol = d.chance(0.5) ? 2 : w - 3;
 		Shell.Built sh = Shell.build(d, body, Direction.Axis.X, Dirs.FRONT, doorCol, 1, 0.45, false, false, false);
 		doorCol = sh.doorCol();
