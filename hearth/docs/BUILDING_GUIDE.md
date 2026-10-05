@@ -655,10 +655,14 @@ Lighting.post(d, x, y, z);                      // the culture's yard light on t
 Lighting.underRug(d, x, y, z);                  // glow under the floor at y - 1, a carpet over it (ground floors only)
 ```
 
-The fittings check nothing (the archetype knows its plan); `room` does, like the pass.
+The fittings check nothing (the archetype knows its plan); `room` does, like the pass. A sconce's bracket goes at y + 1:
+where a floor board, a beam or a wall course is already drawn there (a gallery under a floor, an arcade) the lantern
+hangs from it and no bracket replaces it, so draw what is above first. Props and lamp posts drawn piece by piece can
+land on a doorstep: keep the cells outside your doors free yourself (the industry kit's `Works.keepDoors`).
 
-The last resort is a failure of design: seal the voids nobody can reach (`build/kit/refine/Voids.finish(d)` at the end of
-`draw`, `Voids.seal` for a box such as a spire's hollow), give a loft a ladder (`Lofts.ladder`) or open it to the rafters,
+The last resort is a failure of design: seal the voids nobody can reach (the compiler runs `build/kit/refine/Voids.finish(d)`
+over every drawing before the pass; call it, or `Voids.seal` for a box such as a spire's hollow, yourself where a later
+step of your own needs it), give a loft a ladder (`Lofts.ladder`) or open it to the rafters,
 and hang lamps where the pass cannot (`Lamps.byWalls` for narrow round floors). `HiddenLightsTest` lists every hidden
 light left, spec by spec (docs/buildings/refine.md).
 

@@ -31,3 +31,10 @@ What the nobility (`docs/buildings/noble.md`) needs from files it does not own. 
 - `noble/hunting_lodge` carries `OUTSKIRTS`; it is placed by `Nobility.lodge` near the woods anyway.
 - The castle raises nine campaigns (≈ 9 × 8 stages): it is a long build, as it should be; the planner may want to
   queue it with a lower priority than the town's needs.
+
+## Integration (hearth-integrate-4)
+
+- Refine §1 done: temperate's `bohemian castle` has two fashions for the noble seats, `lime over rubble` and `ochre and tile` (render over a rubble accent under red tile), and Norman stone no longer takes the keep or the castle.
+- Refine §2 open: the stripped-log `roof_trim`/`gable` fallbacks only warn; left.
+- Shared machinery: campaigns are `Draft.campaign(n)` now, one mechanism with the excavations' parts (BUILDING_GUIDE §2 "Campaigns"); what the light pass adds goes with the campaign it hangs from.
+- Planner: `DefaultCatalogue` = registered infos (the palace's three cultures included); the castle's need (240) already ranks under housing, food and jobs.

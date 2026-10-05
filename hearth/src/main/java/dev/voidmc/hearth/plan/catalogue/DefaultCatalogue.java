@@ -189,7 +189,7 @@ public final class DefaultCatalogue {
 		l.add(info(Archetypes.STABLES, N, jobs(JobType.STABLEMASTER), 1, 17, 25, 15, 21, 12, 20, SettlementTier.TOWN, cultures(), flags(), List.of(), 1, 1.0));
 
 		ArchetypeCategory V = ArchetypeCategory.CIVIC;
-		l.add(info(Archetypes.MONASTERY, V, jobs(JobType.PRIEST, JobType.SCHOLAR, JobType.BREWER), 10, 21, 31, 21, 31, 12, 22, SettlementTier.TOWN, cultures(),
+		l.add(info(Archetypes.MONASTERY, V, jobs(JobType.PRIEST, JobType.SCHOLAR, JobType.BREWER), 10, 21, 31, 21, 31, 12, 26, SettlementTier.TOWN, cultures(),
 			flags(OUTSKIRTS), List.of(), 1, 1.0));
 		l.add(info(Archetypes.CONVENT, V, jobs(JobType.PRIEST, JobType.HEALER), 8, 17, 27, 17, 27, 10, 18, SettlementTier.TOWN, cultures(), flags(OUTSKIRTS),
 			List.of(), 1, 1.0));

@@ -397,36 +397,15 @@ final class StationHomes {
 	 * street meets its middle, and a door at the corner would stand a storey off it).
 	 */
 	static int townDoor(Draft d, int x0, int x1, boolean pl, boolean pr) {
-		int door = TownHouses.doorColumn(d, x0, x1, pl, pr);
-		if (TownHouses.misfit(d, door) == 0) {
-			return door;
-		}
-		int mid = (x0 + x1) / 2;
-		int best = door;
-		for (int k = 0; k <= (x1 - x0) / 2; k++) {
-			for (int x : new int[]{mid - k, mid + k}) {
-				if (x > x0 && x < x1 && TownHouses.misfit(d, x) < TownHouses.misfit(d, best)) {
-					best = x;
-				}
-			}
-		}
-		return best;
+		// the kit's own rule now (TownHouses.doorColumn moves off a corner the street does not meet)
+		return TownHouses.doorColumn(d, x0, x1, pl, pr);
 	}
 
 	/**
-	 * Keeps a town stair free in a room of storey k ({@link dev.voidmc.hearth.build.kit.townhome.StairCore#keep}) and, for
-	 * a straight stair, the row in front of its well too: its flight is otherwise entered only from the passage beside its
-	 * first step, which a hearth's mantel or a shelf in a narrow house can shut.
+	 * Keeps a town stair free in a room of storey k ({@link dev.voidmc.hearth.build.kit.townhome.StairCore#keep}, which
+	 * now keeps a straight stair's approach row too, as this family first did for itself).
 	 */
 	static void keepCore(dev.voidmc.hearth.build.kit.townhome.StairCore core, dev.voidmc.hearth.build.kit.Rooms.Room room, int k) {
 		core.keep(room, k);
-		if (core.isStraight() && k >= core.fromK() && k < core.toK()) {
-			int[] zr = core.zRange();
-			for (int x = core.x0(); x <= core.x1(); x++) {
-				if (room.inside(x, zr[0] - 1)) {
-					room.keep(x, zr[0] - 1);
-				}
-			}
-		}
 	}
 }

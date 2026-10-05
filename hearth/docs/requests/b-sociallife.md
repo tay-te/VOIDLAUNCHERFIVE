@@ -41,3 +41,12 @@ What the social-life buildings (`docs/buildings/sociallife.md`) need from files 
 7. **`Lighting.sconce` puts its bracket a block above the lantern**: on a gallery under a floor (an arcade) the bracket
    replaces the floor board above and the floor becomes unwalkable; I hang lanterns from the boards instead. A note in
    §13 of the guide would save the next architect the hunt.
+
+## Integration (hearth-integrate-4)
+
+- §1 done: `DefaultCatalogue` = registered infos.
+- §2 partly: `Program` already sites the caravanserai at a gateway, the tilt yard at the edge in the castle district and the den hidden in the poor quarter; level ground is not enforced.
+- §3 done: the festival ground carries the town's `banner` too, and the tilt yard and the festival ground fly its colours when it has one.
+- §4, §5 nothing to wire.
+- §6 done: `Carving.hornsAtGables` puts no horns on a roof falling two or more a row off its ridge.
+- §7 done: `Lighting.sconce` hangs the lantern from a full block already drawn above it instead of replacing it with a bracket (noted in BUILDING_GUIDE §13).

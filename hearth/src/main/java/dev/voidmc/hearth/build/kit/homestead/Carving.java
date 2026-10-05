@@ -62,7 +62,7 @@ public final class Carving {
 
 	/**
 	 * Horns over both gables of a pitched roof whose ridge runs along {@code ridge}: at the roof's outermost rows (or
-	 * columns) across the ridge, from its highest cells.
+	 * columns) across the ridge, from its highest cells; none on a roof steeper than one in one at the ridge.
 	 */
 	public static void hornsAtGables(Draft d, Roofs.Roof roof, Direction.Axis ridge) {
 		boolean alongX = ridge == Direction.Axis.X;
@@ -83,9 +83,17 @@ public final class Carving {
 					b = c;
 				}
 			}
-			if (best != Integer.MIN_VALUE) {
-				horns(d, roof, a, b, e, alongX ? Direction.Axis.Z : Direction.Axis.X);
+			if (best == Integer.MIN_VALUE) {
+				continue;
 			}
+			// on a steep roof (falling two or more a row off the ridge) horns would stand off it in the air: none
+			// (requests/b-sociallife.md §6)
+			int before = a - 1 >= lo ? (alongX ? roof.surfaceY(e, a - 1) : roof.surfaceY(a - 1, e)) : Integer.MIN_VALUE;
+			int after = b + 1 <= hi ? (alongX ? roof.surfaceY(e, b + 1) : roof.surfaceY(b + 1, e)) : Integer.MIN_VALUE;
+			if (before != Integer.MIN_VALUE && best - before >= 2 || after != Integer.MIN_VALUE && best - after >= 2) {
+				continue;
+			}
+			horns(d, roof, a, b, e, alongX ? Direction.Axis.Z : Direction.Axis.X);
 		}
 	}
 

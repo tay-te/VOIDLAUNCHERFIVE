@@ -129,6 +129,17 @@ tasks.register('blueprintPreview', JavaExec) {
 	]
 }
 
+// The building families' previews as tasks of this build (agePreview, ageTown, craftPreview, deepPreview, deepTown,
+// extractionPreview, industryPreview, socialPreview, stationPreview, streetPreview...): each docs/buildings/*_preview.gradle
+// (and townhome_street.gradle) is applied here as it would be as an init script; one passed with -I registers its own
+// tasks and is skipped here. See the family pages in docs/buildings/ for their arguments.
+def familyInitScripts = gradle.startParameter.initScripts.collect { it.name }
+fileTree('docs/buildings') { include '*_preview.gradle', 'townhome_street.gradle' }.files.sort { it.name }.each { f ->
+	if (!familyInitScripts.contains(f.name)) {
+		apply from: f, to: gradle
+	}
+}
+
 // Plans a settlement on synthetic or generator terrain, grows it for some days, and renders it (plan + isometric).
 //   ./gradlew settlementPreview -Pculture=temperate -Pdays=200 -Pterrain=hills -Pseed=1
 tasks.register('settlementPreview', JavaExec) {

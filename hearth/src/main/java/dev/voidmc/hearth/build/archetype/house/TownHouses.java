@@ -78,12 +78,27 @@ final class TownHouses {
 
 	/**
 	 * The front door's column: toward the side away from a lone neighbour (doors of a row pair up), else by seed, moved
-	 * to the other side when the street meets the floor better there.
+	 * to the other side when the street meets the floor better there; where the street meets neither corner (a steep
+	 * street across the front: the plot's floor is set where the street meets its middle), the column nearest the middle
+	 * whose street meets it best (requests/b-station.md §5).
 	 */
 	static int doorColumn(Draft d, int x0, int x1, boolean pl, boolean pr) {
 		int pref = pl && !pr ? x1 - 1 : pr && !pl ? x0 + 1 : d.chance(0.5) ? x0 + 1 : x1 - 1;
 		int alt = pref == x0 + 1 ? x1 - 1 : x0 + 1;
-		return misfit(d, alt) < misfit(d, pref) ? alt : pref;
+		int door = misfit(d, alt) < misfit(d, pref) ? alt : pref;
+		if (misfit(d, door) == 0) {
+			return door;
+		}
+		int mid = (x0 + x1) / 2;
+		int best = door;
+		for (int k = 0; k <= (x1 - x0) / 2; k++) {
+			for (int x : new int[]{mid - k, mid + k}) {
+				if (x > x0 && x < x1 && misfit(d, x) < misfit(d, best)) {
+					best = x;
+				}
+			}
+		}
+		return best;
 	}
 
 	/** Storey heights: {@code full} storeys of {@code sh}, the ground one {@code ground}, and a roof knee on top. */

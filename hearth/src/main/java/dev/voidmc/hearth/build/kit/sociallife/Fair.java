@@ -489,7 +489,11 @@ public final class Fair {
 	 */
 	public static void bannerPost(Draft d, int x, int y, int z, Direction facing, int k) {
 		Mat post = d.mat(Role.FRAME);
-		List<String> colours = Signs.clothColours(d);
+		// the town's colours where it has arms (the planner's banner param), else the style's cloth
+		List<String> colours = Signs.armsColours(d);
+		if (colours.isEmpty()) {
+			colours = Signs.clothColours(d);
+		}
 		String col = colours.isEmpty() ? "red" : colours.get(Math.floorMod(k, colours.size()));
 		Block banner = States.block("minecraft:" + col + "_banner", States.block("minecraft:white_banner", Blocks.AIR));
 		int rot = switch (facing) {

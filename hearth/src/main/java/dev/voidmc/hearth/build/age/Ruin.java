@@ -704,7 +704,7 @@ final class Ruin {
 			}
 			for (int[] o : N18) {
 				int j = at(this.xs[i] + o[0], this.ys[i] + o[1], this.zs[i] + o[2]);
-				if (j < 0 || !holdsBy(this.hold[j], -o[0], -o[1], -o[2])) {
+				if (j < 0 || !holdsBy(this.hold[j], -o[0], -o[1], -o[2]) || !holds(i, j)) {
 					continue;
 				}
 				double cand = Math.min(this.life[j], this.eff[i]);
@@ -723,6 +723,19 @@ final class Ruin {
 				this.eff[j] = m;
 			}
 		}
+	}
+
+	/**
+	 * Whether block {@code i} can hold block {@code j} up. Plants, carpets, pots and snow hold nothing (weathering turns a
+	 * garden to weeds and takes the pots, and what they seemed to hold would stand on in the air), and leaves hold only
+	 * leaves (a hedge); everything else holds what its place allows ({@link #holdsBy}).
+	 */
+	private boolean holds(int i, int j) {
+		Block b = this.st[i].getBlock();
+		if (b instanceof LeavesBlock) {
+			return this.st[j].getBlock() instanceof LeavesBlock;
+		}
+		return !(b instanceof VegetationBlock || b instanceof CarpetBlock || b instanceof FlowerPotBlock || b instanceof SnowLayerBlock);
 	}
 
 	private static double quant(double v) {
@@ -822,7 +835,7 @@ final class Ruin {
 			int i = q.dequeueInt();
 			for (int[] o : N18) {
 				int j = at(this.xs[i] + o[0], this.ys[i] + o[1], this.zs[i] + o[2]);
-				if (j >= 0 && this.alive[j] && !reached[j] && holdsBy(this.hold[j], -o[0], -o[1], -o[2])) {
+				if (j >= 0 && this.alive[j] && !reached[j] && holdsBy(this.hold[j], -o[0], -o[1], -o[2]) && holds(i, j)) {
 					reached[j] = true;
 					q.enqueue(j);
 				}
@@ -1231,7 +1244,8 @@ final class Ruin {
 				}
 				continue;
 			}
-			if (!p.structural()) {
+			if (!p.structural() || this.decay < Decay.ABANDONED) {
+				// (a house still lived in is kept: what falls off it is cleared away, it lies in nobody's path)
 				continue;
 			}
 			BlockState s = this.st[i];

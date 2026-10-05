@@ -40,3 +40,13 @@ the sim should know. Nothing here blocks: each item has a workaround inside the 
 7. **Shafts into realms.** A shaft with `realm_below` is sunk to `depth` and stops there; it does not build stairs or
    a lift into the realm (that is `deep/lift`). The station at every lift is where a crosscut into the realm could be
    driven later.
+
+## Integration (hearth-integrate-4)
+
+- §1 done: `DefaultCatalogue` says what the registered infos say (`CatalogueMatchesBuildTest`).
+- §2 done: `Extraction.place` keeps asking for the rise (unchanged).
+- §3 done: the planner passes `length = depth - 5` (unchanged).
+- §4 done: the planner's `depth` for the soft pits is 3–4 (unchanged).
+- §5 done: parts are campaigns now (`Draft.campaign`, `Blueprint.campaign(stage)` in the api); gatherers go to the work face nearest the cut being made (`npc.work.Extraction.faceNear`); POIs still carry no campaign (not needed for that).
+- §6 done: the woodlot yields what is felled above the ground (`above_ground`) and 24 logs per finished coupe (`campaign_yields`, credited as each campaign ends); pits and mines count air below the ground as before.
+- §7 noted: nothing to change.

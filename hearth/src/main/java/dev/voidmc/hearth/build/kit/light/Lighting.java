@@ -97,7 +97,8 @@ public final class Lighting {
 	/**
 	 * A wall light in the cell (x, y, z) against the wall toward {@code toWall}: a lantern hung from a bracket (a post
 	 * against the wall at y + 1), or a torch on the wall where the culture burns torches. {@code y} is the light's own
-	 * row: two above the floor is right in a room four high.
+	 * row: two above the floor is right in a room four high. Where something is already drawn at y + 1 (a floor board
+	 * over a gallery, a beam) the lantern hangs from it and no bracket replaces it, so call it after what is above.
 	 */
 	public static void sconce(Draft d, int x, int y, int z, Direction toWall) {
 		Manner m = new Manner(d);
@@ -199,7 +200,13 @@ public final class Lighting {
 		if (m.torches) {
 			d.set(x, y, z, States.wallTorch(m.torch, toWall.getOpposite()));
 		} else {
-			d.set(x, y + 1, z, fence(m, x, y + 1, z));
+			// the bracket only where nothing is drawn over the light: under a floor or a beam (a gallery, an arcade) the lantern
+			// hangs from that instead, and the board over it stays (requests/b-sociallife.md §7)
+			BlockState over = d.get(x, y + 1, z);
+			if (over == null || over.isAir()
+				|| !over.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)) {
+				d.set(x, y + 1, z, fence(m, x, y + 1, z));
+			}
 			d.set(x, y, z, States.lantern(m.lantern, true));
 		}
 	}

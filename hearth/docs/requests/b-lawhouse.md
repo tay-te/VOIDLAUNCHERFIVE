@@ -9,3 +9,9 @@
    7–11 × 5–7 vs 11–13 × 6–8). Please align them with `build/archetype/law/*` INFO so fallback plots fit.
 3. **law**: the jail's cells carry `CELL` POIs inside iron doors; prisoners need to be teleported/led in by the guard
    (doors are iron, opened only by the law code, not by hand).
+
+## Integration (hearth-integrate-4)
+
+- §1 done (already in `Program` before this merge): the jail beside the courthouse, the gallows by the market, law on.
+- §2 done: `DefaultCatalogue` = registered infos.
+- §3 open: leading prisoners in is the law module's behaviour.

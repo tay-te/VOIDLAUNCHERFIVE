@@ -52,3 +52,14 @@ item has a fallback inside the deep package.
    accents (keystones, planters, the market's finials) with vanilla stand-ins where Expanse is absent. The light rule is
    met by vanilla light alone (lanterns, shroomlight, froglights, sea lanterns), so nothing depends on Expanse's light
    levels.
+
+## Integration (hearth-integrate-4)
+
+- §1 done: every deep plot gets `ceiling_y` (the lowest vault over its footprint, `RealmTerrain.ceilingOver`) and its height capped at `ceiling_y - floorY - 1` (`PlanContext.withLocal`); the lift gets `ceiling_y` over its shaft.
+- §2 done: every deep plot gets the realm's `character`.
+- §3 done: the deep square already takes in the cell outside the lower door (`DeepTown.found`).
+- §4 good as is.
+- §5 done: `DefaultCatalogue` = registered infos (`CatalogueMatchesBuildTest`).
+- §6, §7 merged as they were.
+- §8 done: `build.gradle` applies every `docs/buildings/*_preview.gradle`, so `deepPreview` and `deepTown` are tasks of the build (`-I` still works).
+- §9 nothing to do.

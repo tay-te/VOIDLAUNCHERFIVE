@@ -34,3 +34,13 @@ See `docs/buildings/age.md` for the params and the API.
 6. Nothing blocking. Accretion builds in the plot's own roles (`WALL`, `GABLE`, `FRAME`, `ROOF`, `ROOF_TRIM`,
    `WALL_ACCENT` for annex copings, `FLOOR`, `GLASS`, `DOOR`, `BEAM`, `SHUTTER`, `RAILING`). A culture whose
    `WALL_ACCENT` has no slab gets its copings in `WALL` slabs.
+
+## Integration (hearth-integrate-4)
+
+- §1 done in part: `Build.building` gives `additions: 0` to every new house with a yard to grow into (3 rows past its least depth or 4 columns past its least frontage; not on a terrace, on water, or a hermit's hut), and `plan/growth/Additions` counts it up one at a time (a household that fills its beds first, then about one addition per four folk past a dozen, up to 1 + the tier). The sim builds an addition over the standing, lived-in house (`SimSettlement.inPlace`, costing only the steps that change). Open: parcels are not yet sized 3–4 rows deeper on purpose; houses whose parcel happens to have the room grow.
+- §2 done: the sim weathers a house a decline leaves empty (`SimSettlement.weather`): `decay` 0.25 the day it is left, +0.25 every `decay_step_days` (24) to 1; the applier rewrites it in place; folk coming back rebuild it whole.
+- §3 open: there is no town-preview similarity check in the code to teach.
+- §4 done: `BlueprintService.dressing` (api) serves `Dressings.steps`; the social module dresses the fronts round the square on market days, the town's fronts for a festival, the couple's and their families' houses for a wedding, the bereaved house and its neighbours for a funeral (recorded and taken down with its own dressings). Winter is open: the social calendar has no first-snow event.
+- §5 done: weathered plots are `ABANDONED` (nobody housed, no work).
+- §6 nothing to do.
+- Fixed while merging: the decay pass no longer lets plants, carpets, pots or snow hold blocks up (a shrine's cap stood on a peony that weathering took), leaves hold only leaves, and no rubble falls in a house still lived in (below 0.25); awnings go up from a board the wall holds.

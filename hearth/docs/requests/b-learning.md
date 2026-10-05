@@ -38,3 +38,11 @@ What the learning architect needs from other owners, and what the family's build
 
 - `archetype/civic/ChapelBohemian`: `eastEnd`, `interior`, `eastWalls`, `buttress`, `apseLights`, `eastRoof` made
   package-private (were private) so the precinct church builds its apse the same way. No behaviour change.
+
+## Integration (hearth-integrate-4)
+
+- §1 done: temperate's Norman stone leaves monasteries and convents to the Bohemian church manner.
+- §2 done: the university (and the scribe's house) take the Bohemian town manner in temperate; no new sub-style.
+- §3 done: `Monastery.INFO` and the catalogue offer up to 26.
+- §4 open: parcels are sized within the registered range by seed; not forced wide.
+- §5–§7 nothing to wire: the sim and social modules use the registered POIs.

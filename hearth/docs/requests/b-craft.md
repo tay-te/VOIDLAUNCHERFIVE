@@ -23,3 +23,9 @@ What the craft workshops (`docs/buildings/craft.md`) need from files they do not
 
 1. The counting house's strongbox is an ordinary chest (gold ingots, nuggets, emeralds, paper) under a STRONGBOX POI;
    if theft or the law module wants it locked, that is behaviour, not a block.
+
+## Integration (hearth-integrate-4)
+
+- Plan §1 done: `DefaultCatalogue` = registered infos (the paper mill's one per settlement included).
+- Plan §2 done: the counting house's jobs and limit match.
+- Economy §1 open: locking the strongbox is behaviour for the law and economy modules.

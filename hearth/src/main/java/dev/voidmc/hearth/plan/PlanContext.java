@@ -310,7 +310,7 @@ public final class PlanContext {
 	static boolean flies(net.minecraft.resources.Identifier archetype) {
 		String path = archetype.getPath();
 		return path.startsWith("civic/") || path.startsWith("commerce/") || path.startsWith("defense/") || path.startsWith("law/")
-			|| path.startsWith("noble/") || path.startsWith("landmark/") || path.equals("landscape/plaza");
+			|| path.startsWith("noble/") || path.startsWith("landmark/") || path.equals("landscape/plaza") || path.equals("landscape/festival_ground");
 	}
 
 	private static final String[] FIELDS = {"blue", "red", "green", "yellow", "white", "black", "purple", "orange", "light_blue", "brown"};

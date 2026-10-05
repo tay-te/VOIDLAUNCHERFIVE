@@ -246,6 +246,13 @@ public final class TiltYard implements Archetype {
 
 	/** The town's colours for the day: two for the champions, one for the cloth between. */
 	private static DyeColor[] colours(Draft d) {
+		// the town's own colours where it has arms (the planner's banner param), else the day's by seed
+		List<String> arms = dev.voidmc.hearth.build.kit.civic.Signs.armsColours(d);
+		if (!arms.isEmpty()) {
+			DyeColor a = DyeColor.byName(arms.get(0), DyeColor.RED);
+			DyeColor b = arms.size() > 1 ? DyeColor.byName(arms.get(1), DyeColor.WHITE) : a == DyeColor.WHITE ? DyeColor.RED : DyeColor.WHITE;
+			return new DyeColor[]{a, b, DyeColor.WHITE};
+		}
 		DyeColor[][] sets = {{DyeColor.RED, DyeColor.BLUE, DyeColor.WHITE}, {DyeColor.RED, DyeColor.YELLOW, DyeColor.WHITE},
 			{DyeColor.BLUE, DyeColor.YELLOW, DyeColor.WHITE}, {DyeColor.GREEN, DyeColor.RED, DyeColor.WHITE}, {DyeColor.BLACK, DyeColor.YELLOW, DyeColor.WHITE}};
 		return sets[(int) (Noise.unit(d.seed(), 4, 4, 4) * sets.length)];

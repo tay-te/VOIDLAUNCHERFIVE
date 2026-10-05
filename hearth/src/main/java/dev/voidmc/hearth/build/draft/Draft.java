@@ -1026,6 +1026,11 @@ public final class Draft {
 	 * Marks the draft as lit by the lighting pass, which runs once per draft (the compiler runs it; a test or a preview
 	 * that ran it first is not lit twice). Returns whether it was already lit.
 	 */
+	/** Whether the lighting pass has run over this draft, or it was marked so (a ruin nobody lights). */
+	public boolean lit() {
+		return this.lit;
+	}
+
 	public boolean markLit() {
 		boolean was = this.lit;
 		this.lit = true;

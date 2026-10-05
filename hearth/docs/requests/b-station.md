@@ -47,3 +47,11 @@ What the homes by station (`docs/buildings/station.md`) need from files they do 
 
 No shared machinery, style JSON, `Role`, Gradle file or other module was edited. The debug test helpers live in this
 family's test package.
+
+## Integration (hearth-integrate-4)
+
+- §1 done: `DefaultCatalogue` = registered infos.
+- §2 done: the rectory is a home, not `religious` (`StyleContext.purposes`), so it dresses as a village or town house.
+- §3 done: temperate's scribe's house takes the Bohemian town manner.
+- §4 done: `StairCore.keep` keeps a straight stair's approach row (`StationHomes.keepCore` just calls it).
+- §5 done: `TownHouses.doorColumn` moves off a corner the street does not meet (`StationHomes.townDoor` just calls it).

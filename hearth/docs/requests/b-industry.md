@@ -31,3 +31,10 @@ item has a workaround inside the industry package.
 
 1. Logging camp bunks and the charcoal burner's bed are furnishing only (`beds` 0); if workers should sleep on site,
    the info can carry beds.
+
+## Integration (hearth-integrate-4)
+
+- Plan §1 done: `DefaultCatalogue` = registered infos.
+- Plan §2 answered: `Parcels` refuses a plot needing a retaining wall past `terraceMaxHeight`.
+- Build §1 open: no doorstep reservation in `Draft`; `Works.keepDoors` stands (noted in BUILDING_GUIDE §13).
+- Sim §1 noted: beds stay 0.

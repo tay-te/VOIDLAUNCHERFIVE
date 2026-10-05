@@ -178,11 +178,22 @@ public final class StairCore {
 		return null;
 	}
 
-	/** Keeps the well and its landing row free in a room of storey k, the foot and the arrival reachable. */
+	/**
+	 * Keeps the well and its landing row free in a room of storey k, the foot and the arrival reachable. A straight
+	 * flight is entered from the row in front of its well, so that row is kept too on the storeys it rises from (a
+	 * hearth's mantel or a shelf there would shut the stair and the floor above; requests/b-station.md §4).
+	 */
 	public void keep(Rooms.Room room, int k) {
 		int[] zr = zRange();
 		room.keepArea(x0(), zr[0], x1(), zr[1]);
 		if (this.straight) {
+			if (k >= this.fromK && k < this.toK) {
+				for (int x = x0(); x <= x1(); x++) {
+					if (room.inside(x, zr[0] - 1)) {
+						room.keep(x, zr[0] - 1);
+					}
+				}
+			}
 			return;
 		}
 		if (k >= this.fromK && k < this.toK) {

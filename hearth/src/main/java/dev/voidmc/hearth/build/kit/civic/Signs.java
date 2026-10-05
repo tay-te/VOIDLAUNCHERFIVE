@@ -91,6 +91,25 @@ public final class Signs {
 	public record Arms(String field, List<String[]> layers) {
 	}
 
+	/**
+	 * The town's colours when the plot carries its arms (the planner's {@code banner} param): the field's, then each
+	 * charge's, without repeats; empty without the param.
+	 */
+	public static List<String> armsColours(Draft d) {
+		List<String> out = new ArrayList<>();
+		if (d.param("banner", "").isEmpty()) {
+			return out;
+		}
+		Arms a = arms(d);
+		out.add(a.field());
+		for (String[] l : a.layers()) {
+			if (l.length == 2 && !out.contains(l[1])) {
+				out.add(l[1]);
+			}
+		}
+		return out;
+	}
+
 	/** The dye colours of the style's cloth, in order (white if none). */
 	public static List<String> clothColours(Draft d) {
 		List<String> out = new ArrayList<>();

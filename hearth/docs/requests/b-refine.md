@@ -29,3 +29,10 @@ What the refined buildings, palettes and light pass would like from files they d
   quoins on long walls only; fashions' fabric surviving tier overrides.
 - `build/kit/light/{Grid,LightField,Session,Spaces,AutoLighter}.java`, `build/draft/Draft.java`,
   `build/blueprint/ShapeResolver.java` (earlier commit): the cheaper light pass, same output.
+
+## Integration (hearth-integrate-4)
+
+- §1 done: the compiler runs `Voids.finish` over every drawing not yet lit, before the light pass (every family, phase 3 included).
+- §2 not changed: the pass hangs only from a sturdy centre (`Session.sturdyBelow`), which is stricter than the check's rule (something above); no failing case remains since the temple's vault.
+- §3 done: the planner passes `district` on every building (`Build.building`).
+- §4 done: `GARDEN_TOWN` landmarks are the pagoda (the garden tower) and then the cathedral.

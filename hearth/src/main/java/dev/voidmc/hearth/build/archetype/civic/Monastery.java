@@ -37,7 +37,7 @@ import java.util.Set;
  */
 public final class Monastery implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("civic/monastery"), ArchetypeCategory.CIVIC,
-		Set.of(JobType.PRIEST, JobType.SCHOLAR, JobType.BREWER), 10, 21, 31, 21, 31, 12, 22, SettlementTier.TOWN, Set.of(),
+		Set.of(JobType.PRIEST, JobType.SCHOLAR, JobType.BREWER), 10, 21, 31, 21, 31, 12, 26, SettlementTier.TOWN, Set.of(),
 		Set.of(ArchetypeInfo.SiteFlag.OUTSKIRTS), List.of(), 1, 1.0);
 
 	@Override
