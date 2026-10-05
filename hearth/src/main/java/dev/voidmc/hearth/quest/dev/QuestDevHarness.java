@@ -19,6 +19,7 @@ import dev.voidmc.hearth.quest.service.QuestItems;
 import dev.voidmc.hearth.quest.service.QuestManager;
 import dev.voidmc.hearth.quest.service.QuestStore;
 import dev.voidmc.hearth.quest.service.QuestTracker;
+import dev.voidmc.hearth.quest.service.Standings;
 import dev.voidmc.hearth.quest.template.QuestTemplate;
 import dev.voidmc.hearth.quest.template.QuestTemplates;
 import dev.voidmc.hearth.quest.world.QuestSandbox;
@@ -178,12 +179,15 @@ public final class QuestDevHarness {
 				check(dev.voidmc.hearth.api.HearthServices.economy().balance(player) > 0, "paid in coin through the economy module: "
 					+ dev.voidmc.hearth.api.HearthServices.economy().balance(player));
 			}
-			check(t.reputation(player.getUUID()) > 0, "standing rose: " + t.reputation(player.getUUID()));
+			check(Standings.standing(t, player.getUUID()) > 0, "standing rose: " + Standings.standing(t, player.getUUID()));
 		}
 
-		// Courier: a parcel to the neighbouring hamlet and back.
-		Settlement neighbour = QuestWorlds.all(level).stream().filter(x -> x.id() != t.id()).findFirst().orElse(null);
+		// Courier: a parcel to whichever town the quest named (the sandbox's hamlet, or a sim town nearer) and back.
 		QuestInstance courier = give(level, t, player, "courier/parcel");
+		Settlement neighbour = courier == null ? null : destination(s, player, courier);
+		if (courier != null) {
+			check(neighbour != null && neighbour.id() != t.id(), "the parcel is bound for another town: " + (neighbour == null ? "none" : neighbour.name()));
+		}
 		if (courier != null && neighbour != null) {
 			check(QuestItems.count(player, courier.id, QuestItems.ROLE_PARCEL) == 1, "the parcel is in the player's pack");
 			QuestManager.handIn(player, neighbour, null);
@@ -199,10 +203,10 @@ public final class QuestDevHarness {
 		if (honey != null) {
 			long held = QuestStore.get(player).get(honey.id).escrow;
 			long before = t.treasury();
-			int rep = t.reputation(player.getUUID());
+			int rep = Standings.standing(t, player.getUUID());
 			QuestManager.abandon(player, honey.id);
 			check(t.treasury() == before + held, "abandoning returns " + held + " bits to the treasury");
-			check(t.reputation(player.getUUID()) < rep, "abandoning costs standing");
+			check(Standings.standing(t, player.getUUID()) < rep, "abandoning costs standing");
 		}
 
 		// Bounty: real spiders, really killed.
@@ -262,13 +266,32 @@ public final class QuestDevHarness {
 	private static void escortStart(MinecraftServer s) {
 		ServerLevel level = s.overworld();
 		SimpleSettlement t = town;
-		Settlement neighbour = QuestWorlds.all(level).stream().filter(x -> t != null && x.id() != t.id()).findFirst().orElse(null);
-		if (t == null || neighbour == null) {
+		if (t == null) {
 			return;
 		}
-		escortDest = neighbour;
-		level.setChunkForced(neighbour.center().getX() >> 4, neighbour.center().getZ() >> 4, true);
-		escortQuest = give(level, t, FakePlayer.get(level), "escort/pack_mule");
+		FakePlayer player = FakePlayer.get(level);
+		QuestInstance q = give(level, t, player, "escort/pack_mule");
+		Settlement dest = q == null ? null : destination(s, player, q);
+		if (q == null) {
+			return;
+		}
+		check(dest != null && dest.id() != t.id(), "the escort is bound for another town: " + (dest == null ? "none" : dest.name()));
+		if (dest == null) {
+			return;
+		}
+		escortQuest = q;
+		escortDest = dest;
+		level.setChunkForced(dest.center().getX() >> 4, dest.center().getZ() >> 4, true);
+	}
+
+	/** The town a courier or escort quest was bound to, from its objective (not whichever other town comes first). */
+	private static @Nullable Settlement destination(MinecraftServer s, FakePlayer player, QuestInstance q) {
+		QuestInstance mine = QuestStore.get(player).get(q.id);
+		if (mine == null) {
+			return null;
+		}
+		return mine.objectives.stream().filter(o -> o.kind == ObjectiveKind.COURIER || o.kind == ObjectiveKind.ESCORT)
+			.map(o -> QuestWorlds.byId(s, o.settlement)).filter(java.util.Objects::nonNull).findFirst().orElse(null);
 	}
 
 	private static void escortMove(MinecraftServer s) {

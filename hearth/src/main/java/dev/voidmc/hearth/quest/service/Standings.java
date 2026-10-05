@@ -5,6 +5,7 @@ import dev.voidmc.hearth.api.PlotView;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.api.StandingService;
 import dev.voidmc.hearth.api.StandingService.Title;
+import dev.voidmc.hearth.quest.world.SandboxSettlements;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import org.jspecify.annotations.Nullable;
@@ -13,7 +14,7 @@ import org.jspecify.annotations.Nullable;
  * The quest module's view of reputation (docs/LIVING_WORLD.md §3): through the standing service when it is present, else
  * the settlement's own numbers. Every completion, failure and abandonment is reported as a {@link StandingService.Deed},
  * so the standing module moves the town's standing, the giver's opinion and the gossip; without it the settlement's
- * standing is moved directly, as in phase 2.
+ * standing is moved directly, as in phase 2. The dev sandbox's settlements always use their own numbers.
  */
 public final class Standings {
 	private Standings() {
@@ -21,13 +22,13 @@ public final class Standings {
 
 	/** The player's standing in a settlement, −100 to 100. */
 	public static int standing(Settlement s, UUID player) {
-		StandingService st = HearthServices.standing();
+		StandingService st = service(s);
 		return st != null ? st.standing(s.id(), player) : s.reputation(player);
 	}
 
 	/** The player's title in a settlement: the standing service's, or one read from the standing and property. */
 	public static Title title(Settlement s, UUID player) {
-		StandingService st = HearthServices.standing();
+		StandingService st = service(s);
 		if (st != null) {
 			return st.title(s.id(), player);
 		}
@@ -79,6 +80,15 @@ public final class Standings {
 		};
 	}
 
+	/**
+	 * The standing service for this settlement, or null to use the settlement's own numbers. The dev sandbox's in-memory
+	 * settlements ({@link SandboxSettlements}) are unknown to the standing module, which would read them as strangers
+	 * forever and drop their deeds, so they always keep their own.
+	 */
+	private static @Nullable StandingService service(Settlement s) {
+		return SandboxSettlements.get(s.id()) != null ? null : HearthServices.standing();
+	}
+
 	private static boolean owns(Settlement s, UUID player) {
 		for (PlotView p : s.plots()) {
 			if (player.equals(p.owner())) {
@@ -95,7 +105,7 @@ public final class Standings {
 	 * @param resident the resident most touched (the giver, the rescued), or null
 	 */
 	public static void deed(Settlement s, UUID player, String kind, int weight, @Nullable UUID resident, BlockPos pos, boolean useService) {
-		StandingService st = HearthServices.standing();
+		StandingService st = service(s);
 		if (useService && st != null) {
 			st.deed(new StandingService.Deed(player, s.id(), kind, weight, resident, pos, true));
 		} else if (weight != 0) {
