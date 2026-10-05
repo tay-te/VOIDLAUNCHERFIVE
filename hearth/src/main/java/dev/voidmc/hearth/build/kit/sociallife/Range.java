@@ -41,12 +41,22 @@ public final class Range {
 	 * where the culture builds so ({@code stoneBase}).
 	 */
 	public static Built build(Draft d, int depth, boolean stoneBase, double density) {
+		return build(d, depth, stoneBase, density, -1);
+	}
+
+	/**
+	 * {@link #build(Draft, int, boolean, double)} with the range's front wall in row {@code at} (an almshouse's range across
+	 * the back of its court, the archetype laying the court out), or after the forecourt where {@code at} is negative or
+	 * the house stands on posts.
+	 */
+	public static Built build(Draft d, int depth, boolean stoneBase, double density, int at) {
 		int w = d.frontage();
 		int dp = d.depth();
 		Tradition t = Tradition.of(d);
 		boolean raised = t.raised();
-		int md = Math.min(depth, dp - 2);
-		int zF = raised ? Math.max(2, Math.min(dp - md, 1 + Grounds.stiltBase(d, 0, 1, w - 1, md))) : 2;
+		boolean placed = at >= 0 && !raised;
+		int md = placed ? Math.min(depth, dp - at) : Math.min(depth, dp - 2);
+		int zF = raised ? Math.max(2, Math.min(dp - md, 1 + Grounds.stiltBase(d, 0, 1, w - 1, md))) : placed ? at : 2;
 		int zM = Math.min(dp - 1, zF + md - 1);
 		int base = raised ? Grounds.stiltBase(d, 0, zF, w - 1, zM) : 0;
 		int[] heights = d.maxHeight() - base >= 10 ? new int[]{4, 4} : new int[]{4, 3};
@@ -54,7 +64,9 @@ public final class Range {
 		d.body(0, zF, w - 1, zM);
 		d.eave(body.plateY());
 		int doorCol = d.chance(0.5) ? w / 2 - 1 : w / 2 + 1;
-		Grounds.forecourt(d, 0, w - 1, zF - 1, !raised);
+		if (!placed) {
+			Grounds.forecourt(d, 0, w - 1, zF - 1, !raised);
+		}
 		Shell.Built sh = Shell.build(d, body, Direction.Axis.X, Dirs.FRONT, doorCol, 1, density, stoneBase, t.masonry(), false);
 		doorCol = sh.doorCol();
 		int ix0 = 1;
