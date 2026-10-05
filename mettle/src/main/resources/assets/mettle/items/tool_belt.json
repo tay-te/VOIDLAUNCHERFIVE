@@ -1,0 +1,25 @@
+{
+	"model": {
+		"type": "minecraft:condition",
+		"property": "minecraft:has_component",
+		"component": "minecraft:dyed_color",
+		"on_true": {
+			"type": "minecraft:model",
+			"model": "mettle:item/tool_belt_dyed",
+			"tints": [
+				{
+					"type": "minecraft:dye",
+					"default": -1
+				},
+				{
+					"type": "minecraft:constant",
+					"value": -1
+				}
+			]
+		},
+		"on_false": {
+			"type": "minecraft:model",
+			"model": "mettle:item/tool_belt"
+		}
+	}
+}

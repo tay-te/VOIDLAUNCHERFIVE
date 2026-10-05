@@ -40,8 +40,18 @@
 			}
 		},
 		{
-			"id": "minecraft:bread",
-			"count": 4
+			"id": "mettle:satchel",
+			"components": {
+				"mettle:pockets": [
+					{
+						"slot": 0,
+						"item": {
+							"id": "minecraft:bread",
+							"count": 4
+						}
+					}
+				]
+			}
 		}
 	],
 	"kit_summary": {

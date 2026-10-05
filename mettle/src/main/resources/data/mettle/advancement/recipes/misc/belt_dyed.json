@@ -1,0 +1,32 @@
+{
+	"parent": "minecraft:recipes/root",
+	"criteria": {
+		"has_belt": {
+			"conditions": {
+				"items": [
+					{
+						"items": "mettle:belt"
+					}
+				]
+			},
+			"trigger": "minecraft:inventory_changed"
+		},
+		"has_the_recipe": {
+			"conditions": {
+				"recipes": "mettle:belt_dyed"
+			},
+			"trigger": "minecraft:recipe_unlocked"
+		}
+	},
+	"requirements": [
+		[
+			"has_the_recipe",
+			"has_belt"
+		]
+	],
+	"rewards": {
+		"recipes": [
+			"mettle:belt_dyed"
+		]
+	}
+}

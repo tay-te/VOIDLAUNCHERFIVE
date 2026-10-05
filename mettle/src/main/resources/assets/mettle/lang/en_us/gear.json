@@ -1,1 +1,26 @@
-{}
+{
+	"item.mettle.satchel": "Satchel",
+	"item.mettle.leather_pack": "Leather Pack",
+	"item.mettle.frame_pack": "Frame Pack",
+	"item.mettle.belt": "Belt",
+	"item.mettle.tool_belt": "Tool Belt",
+	"item.mettle.quiver": "Quiver",
+	"item.mettle.hunters_quiver": "Hunter's Quiver",
+
+	"mettle.gear.tooltip.back": "Backpack · +%s kg · %s pockets",
+	"mettle.gear.tooltip.belt": "Belt · +%s kg · %s pockets for small things",
+	"mettle.gear.tooltip.quiver": "Quiver · %s pockets for arrows",
+	"mettle.gear.tooltip.wear": "Right-click to wear it",
+	"mettle.gear.tooltip.item": "%s ×%s",
+	"mettle.gear.tooltip.more": "and %s more…",
+
+	"mettle.gear.panel.back": "Backpack",
+	"mettle.gear.panel.belt": "Belt",
+	"mettle.gear.panel.quiver": "Quiver",
+
+	"key.mettle.belt_use": "Use belt pocket (last)",
+	"key.mettle.belt_pocket_1": "Belt pocket 1",
+	"key.mettle.belt_pocket_2": "Belt pocket 2",
+	"key.mettle.belt_pocket_3": "Belt pocket 3",
+	"key.mettle.belt_pocket_4": "Belt pocket 4"
+}

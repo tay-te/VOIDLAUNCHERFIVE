@@ -28,8 +28,18 @@
 			"id": "minecraft:bow"
 		},
 		{
-			"id": "minecraft:arrow",
-			"count": 32
+			"id": "mettle:quiver",
+			"components": {
+				"mettle:pockets": [
+					{
+						"slot": 0,
+						"item": {
+							"id": "minecraft:arrow",
+							"count": 32
+						}
+					}
+				]
+			}
 		},
 		{
 			"id": "minecraft:leather_helmet"

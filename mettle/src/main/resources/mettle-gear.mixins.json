@@ -2,7 +2,12 @@
 	"required": true,
 	"package": "dev.voidmc.mettle.mixin.gear",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"GearCreativeSlotMixin",
+		"GearInventoryMenuMixin",
+		"GearPlayerInventoryMixin",
+		"GearPlayerMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

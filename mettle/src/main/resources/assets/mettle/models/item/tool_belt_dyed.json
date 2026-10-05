@@ -1,0 +1,7 @@
+{
+	"parent": "minecraft:item/generated",
+	"textures": {
+		"layer0": "mettle:item/tool_belt_dye",
+		"layer1": "mettle:item/tool_belt_dye_overlay"
+	}
+}

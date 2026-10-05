@@ -1,0 +1,16 @@
+{
+	"type": "mettle:gear_upgrade",
+	"category": "equipment",
+	"pattern": [
+		"LBL",
+		"N N"
+	],
+	"key": {
+		"L": "minecraft:leather",
+		"B": "mettle:belt",
+		"N": "minecraft:iron_nugget"
+	},
+	"result": {
+		"id": "mettle:tool_belt"
+	}
+}

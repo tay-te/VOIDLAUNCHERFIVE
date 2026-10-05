@@ -1,0 +1,12 @@
+{
+	"replace": false,
+	"values": [
+		"mettle:satchel",
+		"mettle:leather_pack",
+		"mettle:frame_pack",
+		"mettle:belt",
+		"mettle:tool_belt",
+		"mettle:quiver",
+		"mettle:hunters_quiver"
+	]
+}

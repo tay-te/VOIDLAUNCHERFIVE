@@ -1,0 +1,32 @@
+{
+	"parent": "minecraft:recipes/root",
+	"criteria": {
+		"has_quiver": {
+			"conditions": {
+				"items": [
+					{
+						"items": "mettle:quiver"
+					}
+				]
+			},
+			"trigger": "minecraft:inventory_changed"
+		},
+		"has_the_recipe": {
+			"conditions": {
+				"recipes": "mettle:quiver_dyed"
+			},
+			"trigger": "minecraft:recipe_unlocked"
+		}
+	},
+	"requirements": [
+		[
+			"has_the_recipe",
+			"has_quiver"
+		]
+	],
+	"rewards": {
+		"recipes": [
+			"mettle:quiver_dyed"
+		]
+	}
+}

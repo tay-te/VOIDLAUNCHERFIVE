@@ -1,0 +1,9 @@
+{
+	"type": "minecraft:crafting_dye",
+	"group": "dyed_gear",
+	"target": "mettle:satchel",
+	"dye": "#minecraft:dyes",
+	"result": {
+		"id": "mettle:satchel"
+	}
+}

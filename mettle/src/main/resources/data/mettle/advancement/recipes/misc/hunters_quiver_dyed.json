@@ -1,0 +1,32 @@
+{
+	"parent": "minecraft:recipes/root",
+	"criteria": {
+		"has_hunters_quiver": {
+			"conditions": {
+				"items": [
+					{
+						"items": "mettle:hunters_quiver"
+					}
+				]
+			},
+			"trigger": "minecraft:inventory_changed"
+		},
+		"has_the_recipe": {
+			"conditions": {
+				"recipes": "mettle:hunters_quiver_dyed"
+			},
+			"trigger": "minecraft:recipe_unlocked"
+		}
+	},
+	"requirements": [
+		[
+			"has_the_recipe",
+			"has_hunters_quiver"
+		]
+	],
+	"rewards": {
+		"recipes": [
+			"mettle:hunters_quiver_dyed"
+		]
+	}
+}
