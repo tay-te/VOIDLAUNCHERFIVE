@@ -3,6 +3,7 @@ package dev.voidmc.mettle.character.skill.survival;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.voidmc.mettle.Mettle;
+import dev.voidmc.mettle.api.MettleEvents;
 import dev.voidmc.mettle.character.FeatCounters;
 import dev.voidmc.mettle.character.Perks;
 import dev.voidmc.mettle.character.skill.SurvivalSkill;
@@ -136,6 +137,7 @@ public final class Discovery {
 			FeatCounters.add(player, SurvivalSkill.BIOMES_VISITED, 1);
 			SurvivalSkill.chip(player, FEEDBACK, "discovered.biome", net.minecraft.network.chat.Component.translatable(
 				net.minecraft.util.Util.makeDescriptionId("biome", biome)));
+			MettleEvents.DISCOVERED.invoker().discovered(player, MettleEvents.DiscoveryKind.BIOME, biome, pos);
 		}
 
 		if (!level.structureManager().getAllStructuresAt(pos).isEmpty()) {
@@ -157,6 +159,8 @@ public final class Discovery {
 						if (landmark) {
 							seenItAll(player, next.kinds().size());
 						}
+						MettleEvents.DISCOVERED.invoker().discovered(player, landmark ? MettleEvents.DiscoveryKind.LANDMARK : MettleEvents.DiscoveryKind.STRUCTURE,
+							id, start.getBoundingBox().getCenter());
 					}
 				}
 			}

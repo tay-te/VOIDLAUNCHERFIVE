@@ -2,6 +2,8 @@ package dev.voidmc.mettle.api;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -67,7 +69,26 @@ public final class MettleEvents {
 		}
 	});
 
+	/**
+	 * A first visit: a biome, or a structure instance (a landmark when it is in {@code #mettle:landmarks}, or Expanse's
+	 * {@code #expanse:landmarks}). {@code id} is the biome or structure id. Fired by Survival's discovery, every 2 s.
+	 */
+	public static final Event<Discovered> DISCOVERED = EventFactory.createArrayBacked(Discovered.class, listeners -> (player, kind, id, pos) -> {
+		for (Discovered l : listeners) {
+			l.discovered(player, kind, id, pos);
+		}
+	});
+
 	private MettleEvents() {
+	}
+
+	public enum DiscoveryKind {
+		BIOME, STRUCTURE, LANDMARK
+	}
+
+	@FunctionalInterface
+	public interface Discovered {
+		void discovered(ServerPlayer player, DiscoveryKind kind, Identifier id, BlockPos pos);
 	}
 
 	@FunctionalInterface

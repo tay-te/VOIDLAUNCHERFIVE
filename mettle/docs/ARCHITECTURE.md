@@ -178,6 +178,7 @@ learned perks, unspent attribute and perk points, character level and XP.
 | `PERK_LEARNED` / `RESPEC` | `(player, perk, rank)` / `(player, attributes)` | earned perks fire `PERK_LEARNED` too, rank 1 |
 | `BACKGROUND_CHOSEN` | `(player, background)` | kits, Hearth greeting lines |
 | `LOAD_BAND_CHANGED` | `(player, from, to)` | HUD, compat |
+| `DISCOVERED` | `(player, kind, id, pos)` | first visit to a biome, structure or landmark (Hearth, Expanse compat) |
 
 **Attribute**: `mettle:carry_capacity` (base 40, range 0–10 000, syncable, POSITIVE), added to the player through
 `FabricDefaultAttributeRegistry.MODIFY` on both sides. Anything may add modifiers to it (gear does, perks do, a
