@@ -151,11 +151,15 @@ class LandmarkTest {
 			BlueprintImpl bell = build("bell_tower", c, 99L, 9, 9, "flat", new CompoundTag(), 3);
 			assertTrue(count(bell, Blocks.BELL) >= 1, "no bell in the " + c + " bell tower");
 			BlueprintImpl clock = build("clock_tower", c, 99L, 9, 9, "flat", new CompoundTag(), 4);
+			if (c == Culture.DESERT) {
+				// the dry lands keep the hours from a minaret: no bell, no dials, a lantern to call from
+				assertTrue(clock.pois().stream().anyMatch(p -> p.type() == PoiType.VIEWPOINT), "the desert minaret has no lantern to call from");
+				continue;
+			}
 			assertTrue(count(clock, Blocks.BELL) >= 1, "no bell in the " + c + " clock tower");
-			// four dials of black hands on white faces
-			int white = count(clock, Blocks.CONCRETE.pick(net.minecraft.world.item.DyeColor.WHITE));
-			int black = count(clock, Blocks.CONCRETE.pick(net.minecraft.world.item.DyeColor.BLACK));
-			assertTrue(white >= 4 * 9 && black >= 4 * 2, "the " + c + " clock tower has no dials (" + white + " white, " + black + " black)");
+			// a dial of one block on each of the four faces: gilded on light walls, white on dark ones
+			int dials = count(clock, Blocks.GILDED_BLACKSTONE) + count(clock, Blocks.CHISELED_QUARTZ_BLOCK);
+			assertTrue(dials >= 4, "the " + c + " clock tower has no dials (" + dials + ")");
 		}
 	}
 
