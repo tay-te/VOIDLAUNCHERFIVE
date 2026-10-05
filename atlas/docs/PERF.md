@@ -7,7 +7,10 @@ Atlas must never be the reason a frame is late. The budgets, and how they are he
 | Minimap ≤ 0.3 ms per frame | One mesh per atlas page (tiles clipped to the rounded square on the CPU, a few dozen vertices each), markers culled to the square, text from pre-rasterised Outfit sizes. |
 | Map screen avg frame ≤ 4 ms (≥ 250 fps), p99 ≤ 8 ms while panning and zooming | The world behind the map is drawn once and kept as a still (`Backdrop`), so the frame only draws the map; tiles live in four 2048² atlas pages (one draw per page); mip levels keep the visible tile count near a dozen at any zoom. |
 | Chunk ingest ≤ 1 ms of client-thread time in any frame | The client thread only queues chunks (400 µs budget per frame); reading columns, drawing regions, assembling and dithering tiles all happen on worker threads; uploads are time-boxed (1.2 ms) and patch only the changed rectangle of a tile. |
-| No hitch > 33 ms | No disk I/O, no texture reads, no allocation of big buffers on the client thread; the block colour table is built once per world join (and resource reload). |
+| No hitch > 33 ms | No disk I/O, no texture reads, no allocation of big buffers on the client thread; the block colour table is built once per world join (and resource reload); the GPU pages are made while the world loads; a layer lists its region files on a worker. |
+| Underground map avg frame ≤ 4 ms, p99 ≤ 8 ms | Slices are layers like the surface: the same atlas pages, mip levels and time-boxed uploads. |
+| Structure detection ≤ 0.5 ms per chunk (worker) | Palette counts per section; only sections with an anchor (a bell, a spawner...) are walked, a handful of anchors per chunk judged. |
+| Underground reveal ≤ 12 ms per walk (worker) | A breadth-first walk of at most 60,000 open blocks in a 24-block sphere, run when the player has moved 3 blocks, one at a time. |
 
 ## How it is measured
 
@@ -18,10 +21,14 @@ Atlas must never be the reason a frame is late. The budgets, and how they are he
 1. **Flight**: the player flies (spectator, sprinting) over freshly generated land for 12 s with the minimap on;
    chunks stream in and Atlas reads them. Recorded per frame: frame time, minimap cost (`MinimapHud.extract`, CPU),
    client-thread ingest time.
-2. **Map**: 256 regions (16 × 16, 8192 × 8192 blocks) of synthetic land are drawn into the map, then the full map
+2. **Cave**: the player is taken through a real cave near spawn, stop by stop; the underground reveal is timed on the
+   workers. Structure detection is timed during the flight.
+3. **Map**: 256 regions (16 × 16, 8192 × 8192 blocks) of synthetic land are drawn into the map, then the full map
    is opened and a script pans across it while zooming from 4 px/block out to 1/32 px/block and back, twice, for
    12 s — every mip level and a few hundred tiles pass through the view. Recorded per frame: frame time, Atlas's map
    CPU time, tiles drawn; and the tile uploads.
+4. **Underground map**: 256 regions of a synthetic cave slice, panned and zoomed the same way on the Underground
+   view.
 
 The run writes `build/perf/<backend>.json`, rewrites the table below, and **fails the build** if any budget is
 exceeded (`atlasPerf` in `build.gradle` holds the budgets).

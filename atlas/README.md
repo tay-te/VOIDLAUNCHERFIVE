@@ -23,13 +23,21 @@ other mods (Hearth's settlements) add their markers through a small API.
 - **Minimap** (N toggles; = and − zoom): a rounded square in a corner of your choice, north-up or turning with you,
   with your arrow, nearby markers, the north mark on its rim and a biome and coordinates readout under it. Hidden
   with F1, under any screen and under the debug overlay. Underground and in the Nether it shows the slice you are in.
-- **Layers**: the surface; the **underground**, a horizontal slice at your height showing the cave floors (with the
-  walls dark); the **Nether**, drawn below its roof the same way.
+- **Places, as an open-world map marks them** (see [docs/DISCOVERY.md](docs/DISCOVERY.md)): structures worked out
+  from the blocks the client is sent, on any server with only Atlas installed (villages, ruined portals, shipwrecks,
+  temples, monuments, mansions, outposts, igloos, dungeons, mineshafts, ancient cities, trial chambers, strongholds,
+  geodes, trail and ocean ruins, fortresses, bastions, end cities, cave mouths), the game's own structure data in
+  singleplayer (it wins), peaks by prominence, lakes, rivers, waterfalls and ravines from the map, and named regions
+  of one biome ("Larkspur Meadow"). Each is **sighted** (a hollow "?") until you come within 24 blocks, then
+  **discovered** (a toast, once). Major landmarks show at every zoom, minor places from 1:4 (labelled from 1:1).
+- **Layers**: the surface; the **underground** in 8-block slices, drawn only from what you have been near (a
+  connected-air reveal round you — no x-ray), with a depth scrubber, a side view and the places at that depth; the
+  **Nether**, drawn the same way.
 - **Markers**: you (violet), waypoints (name, one of eight muted colours, distance; edit and delete from the card),
-  your last three death points per dimension, other players the client can see, and **discovered structures**: in
-  singleplayer Atlas asks the integrated server which structures stand within 48 blocks of you and keeps them
-  (vanilla's and Expanse's: Karst temple, Frostwatch Citadel, the villages...). On a server it shows nothing it could
-  not know.
+  your last three death points per dimension, other players the client can see, the places above with their detail
+  card (status, distance, level, day, what is known, the source chip, Track, Set waypoint), and other mods' markers.
+- **HUD**: the discovery toast, the minimap's edge markers for sighted and tracked places, and an optional compass
+  strip with the places on it.
 - **Data**: maps live in `<game dir>/atlas/<sp/save | mp/address/seed>/<dimension>/<layer>/`: per 512 × 512-block
   region a raw file (what is known of each column) and an image file (the region drawn, every mip level apart). Files
   are checksummed and written atomically; a damaged one is set aside and the region mapped afresh.
@@ -44,7 +52,8 @@ other mods (Hearth's settlements) add their markers through a small API.
 | = / − | minimap zoom |
 | (unbound) | Atlas settings (also the gear on the map) |
 
-In the map: drag, scroll, arrows, space (recentre), B, Ctrl+F (search), Esc (close the card, then the map).
+In the map: drag, scroll, arrows, space (recentre), B, Ctrl+F (search), T (track the selected place), W (a waypoint
+on it), Esc (close the card, then the map); underground, Shift+scroll changes the depth and F follows your height.
 
 ## Install (and the VOID launcher)
 
@@ -71,9 +80,9 @@ classpath, so the map, the tour and the perf gate can run over an Expanse Earth 
 
 | Command | What it does |
 |---|---|
-| `./gradlew test` | Unit tests, no game: the palette and tone curve, hillshade quantisation, elevation bands, water depth steps and shoreline, the dithered edge, and **golden images** of three small synthetic worlds (an island with a river, beach, forest and snow-capped mountain; stepped ramps; a cave slice); tile maths (block ↔ region ↔ pixel ↔ mip level, negative coordinates); the tile store (write/read round trip, single-level reads, corrupt, truncated and foreign files recovered); waypoint and discovery persistence (incl. a corrupt file); the marker-provider API (ordering, replacement, a throwing provider fenced off and switched off after three failures in a row). After a deliberate change of look: `./gradlew test -Patlas.golden.update=true`, then review `src/test/resources/golden/*.png` (6× copies in `build/test-images`). |
-| `./gradlew atlasTour` | The screenshot tour (a client game test): makes a world, flies from spawn to the nearest coast and on to the nearest mountains, then photographs the full map at three zooms, the coast and mountains, the underground layer, the Nether, the minimap (north-up and turning), a marker's detail card and the waypoint editor with the list, into `build/tour/` (with an `index.md`). `-Patlas.test.only=quick,map_0,...` runs a short version; `-Patlas.test.seed=` picks the world. |
-| `./gradlew atlasPerf -Pbackend=opengl` / `-Pbackend=vulkan` | The performance gate (see [docs/PERF.md](docs/PERF.md)): uncapped, scripted flight with the minimap on, then a scripted pan and zoom over a few hundred tiles with the map open; writes `build/perf/<backend>.json`, updates `docs/PERF.md` and **fails** if the minimap averages over 0.3 ms/frame, the map screen averages over 4 ms (under 250 fps) or its p99 is over 8 ms, chunk ingest takes over 1 ms of client-thread time in any frame, or any frame takes over 33 ms. |
+| `./gradlew test` | Unit tests, no game: every structure detector with positive and look-alike negative cases on synthetic chunks (`StructureScanTest`), the underground reveal's no-x-ray guarantees (`RevealTest`), the place book's states, merging, exact-data folding, persistence and migration (`PlaceBookTest`), peaks, waterfalls, ravines and patches (`RegionAnalysisTest`), areas joined across regions and their ids (`AreaIndexTest`), the name generator and biome families (`NameGenTest`, `BiomeFamilyTest`); the palette and tone curve, hillshade quantisation, elevation bands, water depth steps and shoreline, the dithered edge, and **golden images** of three small synthetic worlds (an island with a river, beach, forest and snow-capped mountain; stepped ramps; a cave slice); tile maths (block ↔ region ↔ pixel ↔ mip level, negative coordinates); the tile store (write/read round trip, single-level reads, corrupt, truncated and foreign files recovered); waypoint and discovery persistence (incl. a corrupt file); the marker-provider API (ordering, replacement, a throwing provider fenced off and switched off after three failures in a row). After a deliberate change of look: `./gradlew test -Patlas.golden.update=true`, then review `src/test/resources/golden/*.png` (6× copies in `build/test-images`). |
+| `./gradlew atlasTour` | The screenshot tour (a client game test): makes a world, flies from spawn to the nearest coast and on to the nearest mountains, analyses the land, then photographs the full map at three zooms, the coast and mountains, the surface zoomed out with region names and "?"s, the legend, a sighted and a discovered place's cards, sighted and discovered side by side, the region labels, the embeddable map widget, the HUD toast with the minimap's edge markers and the compass, the underground at two depths (walked through real caves), the Nether, the minimap (north-up and turning), into `build/tour/` (with an `index.md` that also reports how the block heuristics did against the game's own structure data). `-Patlas.test.only=quick,map_0,...` runs a short version; `-Patlas.test.seed=` picks the world. |
+| `./gradlew atlasPerf -Pbackend=opengl` / `-Pbackend=vulkan` | The performance gate (see [docs/PERF.md](docs/PERF.md)): uncapped, scripted flight with the minimap on, a walk through a real cave, then a scripted pan and zoom over a few hundred tiles with the map open, on the surface and underground; writes `build/perf/<backend>.json`, updates `docs/PERF.md` and **fails** if the minimap averages over 0.3 ms/frame, the map screen (surface or underground) averages over 4 ms or its p99 is over 8 ms, chunk ingest takes over 1 ms of client-thread time in any frame, structure detection takes over 0.5 ms a chunk or the underground reveal over 12 ms a walk on the workers, or any frame takes over 33 ms. |
 
 Both game tasks open a game window (1920 × 1080 by default, `-Patlas.test.width/height`); add
 `-Patlas.withExpanse=true` to run them over an Expanse world.
@@ -103,6 +112,12 @@ public final class MyAtlasPlugin implements AtlasPlugin {
 }
 ```
 
+**Places and names** — the same plugin can implement `onAtlasPlaces(AtlasPlaces places)`: `registerPlaceProvider`
+(landmarks and discoveries of your own), `registerNameProvider` (names for regions, lakes, rivers, peaks — Expanse's
+real names), `report(place)` for places a server tells the client about (`Source.voidServer()` gives them the "from
+the VOID server" chip). Every marker carries a `Source` (the provider's id unless it says otherwise) and a `Tier`. See
+[docs/DISCOVERY.md](docs/DISCOVERY.md).
+
 Providers are called on the client thread each time a map draws (with the area it shows) and should only hand over
 what they already know. A provider that throws loses its markers for that call; after three failures in a row it is
 switched off and logged once. `MarkerDetail` fills the detail card: up to three big readouts, an optional cell meter
@@ -115,7 +130,8 @@ switched off and logged once. `MarkerDetail` fills the detail card: up to three 
 | `markers()` | the `AtlasMarkers` registry above |
 | `collect(MarkerQuery)` | every marker (Atlas's waypoints, discoveries, players, and every provider's) as plain data |
 | `waypoints()`, `addWaypoint(...)`, `removeWaypoint(id)` | the current world's waypoints (`Waypoint` records) |
-| `discoveries()` | the structures found in this world (`Discovery` records; singleplayer only) |
+| `discoveries()` | the structures discovered in this world (`Discovery` records) |
+| `places()` | `AtlasPlaces`: every place sighted or discovered (`Place` records, with state, tier and source), place and region-name providers, `report` for a VOID server's places, listeners |
 | `playerView()` | a `MapView` centred on the player at the map's zoom |
 | `renderMap(graphics, x, y, w, h, MapView)` | draws a map view (tiles, markers, the player) into any rectangle, rounded |
 | `createMapWidget()` | the whole interactive map page as a `MapWidget` for a screen of your own: `render(graphics, x, y, w, h, mouseX, mouseY)` and the mouse and key methods; this is what the VOID Hub's *Map* page hosts inside its shell |
