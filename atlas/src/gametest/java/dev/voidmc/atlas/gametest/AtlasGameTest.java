@@ -613,6 +613,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 		context.getInput().releaseKey(o -> o.keyUp);
 		context.getInput().releaseKey(o -> o.keySprint);
 		Perf.Recording flight = context.computeOnClient(mc -> Perf.stopRecording());
+		long[] spike = context.computeOnClient(mc -> Perf.MINIMAP_SPIKE.clone()); // the worst minimap frame of the flight
 		long flightUploads = context.computeOnClient(mc -> Perf.uploads) - uploads0;
 		long flightBytes = context.computeOnClient(mc -> Perf.uploadBytes) - bytes0;
 		long scanned = Perf.SCANNED.get() - scanned0;
@@ -707,7 +708,6 @@ public class AtlasGameTest implements FabricClientGameTest {
 		log(String.format(Locale.ROOT, "underground map: %d frames, avg %.2f ms, p99 %.2f ms, max %.2f ms, atlas %.3f ms/frame, %d uploads",
 			under.count(), Perf.Recording.avgMs(under.frames()), Perf.Recording.percentileMs(under.frames(), 0.99), Perf.Recording.maxMs(under.frames()),
 			Perf.Recording.avgMs(under.map()), underUploads));
-		long[] spike = Perf.MINIMAP_SPIKE.clone();
 
 		String gpu = context.computeOnClient(mc -> {
 			var info = com.mojang.blaze3d.systems.RenderSystem.getDevice().getDeviceInfo();
