@@ -43,16 +43,28 @@ final class Soak {
 		String idA = null;
 		String idB = null;
 		String idA2 = null;
-		// 1. two worlds behind one address
+		// 1. two worlds behind one address (a dedicated server needs its EULA accepted: that is the player's to do, in
+		// build/run/atlasSoak/eula.txt; without it this part is skipped and says so)
+		boolean eula = eulaAccepted();
+		if (!eula) {
+			this.note("dedicated servers skipped: the Minecraft EULA is not accepted in build/run/atlasSoak/eula.txt");
+		}
 		try {
+			if (!eula) {
+				throw new SkipServers();
+			}
 			idA = this.serverWorld(context, "atlas-soak-a", 0);
 			idB = this.serverWorld(context, "atlas-soak-b", 1);
 			idA2 = this.serverWorld(context, "atlas-soak-a", 2);
+		} catch (SkipServers e) {
+			// noted above
 		} catch (RuntimeException e) {
 			this.failures.add("dedicated server part failed: " + e);
 		}
 		this.note("worlds: first " + idA + ", second " + idB + ", first again " + idA2);
-		if (idA == null || idB == null || idA2 == null) {
+		if (!eula) {
+			// nothing to judge
+		} else if (idA == null || idB == null || idA2 == null) {
 			this.failures.add("a server world was never told apart");
 		} else {
 			if (idA.equals(idB)) {
@@ -65,6 +77,18 @@ final class Soak {
 		// 2. a long singleplayer session
 		this.singleplayer(context);
 		this.write();
+	}
+
+	private static final class SkipServers extends RuntimeException {
+	}
+
+	private static boolean eulaAccepted() {
+		try {
+			Path eula = Path.of("eula.txt");
+			return Files.isRegularFile(eula) && Files.readString(eula).contains("eula=true");
+		} catch (IOException e) {
+			return false;
+		}
 	}
 
 	/** Joins a dedicated server with a seed, flies a little, leaves; returns the map Atlas chose. */
@@ -156,8 +180,11 @@ final class Soak {
 				}
 				Perf.Recording r = context.computeOnClient(mc -> Perf.stopRecording());
 				for (int i = 0; i < r.count(); i++) {
-					double atlas = (r.ingest()[i] + r.minimap()[i] + r.map()[i] + r.beams()[i] + r.radar()[i]) / 1e6;
+					// Atlas's own CPU time on the render thread (wall time also counts the machine holding the thread up)
+					double atlas = (r.ingest()[i] + r.cpu()[i]) / 1e6;
 					worstAtlas = Math.max(worstAtlas, atlas);
+					double wall = (r.ingest()[i] + r.minimap()[i] + r.map()[i] + r.beams()[i]) / 1e6;
+					this.worstWall = Math.max(this.worstWall, wall);
 				}
 				frames += r.count();
 				this.note("session " + session + ": " + step + " stops, " + r.count() + " frames");
@@ -167,8 +194,8 @@ final class Soak {
 		System.gc();
 		heap[1] = rt.totalMemory() - rt.freeMemory();
 		long growth = (heap[1] - heap[0]) >> 20;
-		this.note(String.format(Locale.ROOT, "heap after the second session %d MB (grew %d MB); worst Atlas frame %.2f ms of %d", heap[1] >> 20, growth, worstAtlas,
-			frames));
+		this.note(String.format(Locale.ROOT, "heap after the second session %d MB (grew %d MB); worst Atlas frame %.2f ms CPU (%.2f ms wall) of %d", heap[1] >> 20,
+			growth, worstAtlas, this.worstWall, frames));
 		if (growth > 400) {
 			this.failures.add("memory grew " + growth + " MB over a session (more than 400 MB)");
 		}
@@ -181,6 +208,7 @@ final class Soak {
 	}
 
 	private double worstAtlas;
+	private double worstWall;
 	private long heapMb;
 	private long growthMb;
 

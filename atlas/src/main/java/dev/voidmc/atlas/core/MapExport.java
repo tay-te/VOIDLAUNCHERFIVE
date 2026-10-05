@@ -39,16 +39,46 @@ public final class MapExport {
 		return level;
 	}
 
-	/** Writes the area from (x0, z0) to (x1, z1) in blocks (inclusive, exclusive) to {@code file}. */
+	/** Writes the area from (x0, z0) to (x1, z1) in blocks (inclusive, exclusive) to {@code file}, a pixel a block or less. */
 	public static Result export(Pixels pixels, int x0, int z0, int x1, int z1, Path file) throws IOException {
+		return export(pixels, x0, z0, x1, z1, file, 1, 0);
+	}
+
+	/** The size in pixels an area comes out at with {@code pixelsPerBlock} (1, 2 or 4), kept under {@link #MAX_SIDE}. */
+	public static int[] size(int x0, int z0, int x1, int z1, int pixelsPerBlock) {
+		int up = upscale(x1 - x0, z1 - z0, pixelsPerBlock);
+		if (up > 1) {
+			return new int[]{(x1 - x0) * up, (z1 - z0) * up};
+		}
+		int scale = 1 << levelFor(x1 - x0, z1 - z0);
+		return new int[]{Math.max(1, (x1 - x0) / scale), Math.max(1, (z1 - z0) / scale)};
+	}
+
+	private static int upscale(int w, int h, int pixelsPerBlock) {
+		int up = Math.max(1, pixelsPerBlock);
+		while (up > 1 && (long) Math.max(w, h) * up > MAX_SIDE) {
+			up /= 2;
+		}
+		return up;
+	}
+
+	/**
+	 * Writes an area at {@code pixelsPerBlock} (1, 2 or 4: each block a square of pixels; less than one if the area is
+	 * too big for {@link #MAX_SIDE}), the unexplored filled with {@code background} (ARGB; 0 for transparent).
+	 */
+	public static Result export(Pixels pixels, int x0, int z0, int x1, int z1, Path file, int pixelsPerBlock, int background) throws IOException {
 		if (x1 <= x0 || z1 <= z0) {
 			throw new IllegalArgumentException("an empty area");
 		}
-		int level = levelFor(x1 - x0, z1 - z0);
+		int up = upscale(x1 - x0, z1 - z0, pixelsPerBlock);
+		int level = up > 1 ? 0 : levelFor(x1 - x0, z1 - z0);
 		int scale = 1 << level;
 		int w = Math.max(1, (x1 - x0) / scale);
 		int h = Math.max(1, (z1 - z0) / scale);
 		int[] out = new int[w * h];
+		if (background != 0) {
+			java.util.Arrays.fill(out, background);
+		}
 		int size = Coords.regionImageSize(level);
 		int rx0 = Math.floorDiv(x0, Coords.REGION_SIZE);
 		int rz0 = Math.floorDiv(z0, Coords.REGION_SIZE);
@@ -67,10 +97,27 @@ public final class MapExport {
 					int src = py * size;
 					int dst = (oz + py) * w;
 					for (int px = Math.max(0, -ox); px < size && ox + px < w; px++) {
-						out[dst + ox + px] = region[src + px];
+						int c = region[src + px];
+						if (c >>> 24 != 0 || background == 0) {
+							out[dst + ox + px] = c;
+						}
 					}
 				}
 			}
+		}
+		if (up > 1) {
+			// each block a square of pixels
+			int[] big = new int[w * up * h * up];
+			for (int y = 0; y < h * up; y++) {
+				int srcRow = (y / up) * w;
+				int dstRow = y * w * up;
+				for (int x = 0; x < w * up; x++) {
+					big[dstRow + x] = out[srcRow + x / up];
+				}
+			}
+			out = big;
+			w *= up;
+			h *= up;
 		}
 		Files.createDirectories(file.toAbsolutePath().getParent());
 		Path tmp = file.resolveSibling(file.getFileName() + ".tmp");

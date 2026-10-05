@@ -339,6 +339,7 @@ public final class AtlasClient implements ClientModInitializer {
 		LocalPlayer p = mc.player;
 		if (this.ingest != null && p != null && mc.level == this.level) {
 			this.underground = isUnderground(p);
+			this.caveView(p);
 			this.ingest.frame(p.getX(), p.getY(), p.getZ(), this.underground);
 			if (this.ingest.band() != Integer.MIN_VALUE) {
 				this.bands.put(this.ingest.dimension().id, this.ingest.band());
@@ -350,6 +351,33 @@ public final class AtlasClient implements ClientModInitializer {
 	 * Whether the player is under the ground: in a dimension with a roof, or with at least a few blocks of something
 	 * that is not leaves over their head (under a tree, or a roof, is not underground).
 	 */
+	private boolean caveView;
+	private boolean caveRaw;
+	private long caveSince;
+
+	/**
+	 * The minimap's cave view (the design's): on once there has been no sky for a second (ground at least 8 blocks
+	 * above the player, or a roof over the world), off again after a second of sky.
+	 */
+	private void caveView(LocalPlayer p) {
+		ClientLevel level = (ClientLevel) p.level();
+		boolean raw = level.dimensionType().hasCeiling()
+			|| level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, p.getBlockX(), p.getBlockZ()) > p.getEyeY() + 8;
+		long now = System.nanoTime();
+		if (raw != this.caveRaw) {
+			this.caveRaw = raw;
+			this.caveSince = now;
+		}
+		if (raw != this.caveView && now - this.caveSince >= 1_000_000_000L) {
+			this.caveView = raw;
+		}
+	}
+
+	/** Whether the minimap shows the cave view now (see {@link #caveView}). */
+	public boolean minimapCaveView() {
+		return this.caveView;
+	}
+
 	private static boolean isUnderground(LocalPlayer p) {
 		ClientLevel level = (ClientLevel) p.level();
 		if (level.dimensionType().hasCeiling()) {

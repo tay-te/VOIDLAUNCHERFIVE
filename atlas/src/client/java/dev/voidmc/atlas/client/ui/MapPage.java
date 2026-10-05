@@ -86,6 +86,37 @@ public final class MapPage {
 	private record Menu(float x, float y, double mapX, double mapZ) {
 	}
 
+	/** The world picker's list is open. */
+	private boolean pickerOpen;
+	/** The search's results, by group, made again when the query changes (or every half second). */
+	private record SearchHit(int group, String id, MarkerGlyph glyph, boolean hollow, String title, String sub, String right, double x, double z,
+		String dimension) {
+	}
+
+	private List<SearchHit> searchHits = List.of();
+	private String searchHitsFor = "";
+	private long searchHitsAt;
+	private int[] searchCounts = new int[3];
+	private int searchGroup;
+	/** Waypoints found in other map mods' files for this world, offered once (null: none, or not offered). */
+	private @Nullable List<dev.voidmc.atlas.core.waypoints.ImportedWaypoint> importOffer;
+	private boolean importKeepColours = true;
+	private boolean importLooked;
+	/** The export dialog, while open. */
+	private @Nullable Export export;
+
+	private static final class Export {
+		int area = 1;
+		int scale = 2;
+		boolean markers = true;
+		boolean transparent = true;
+		double bx0, bz0, bx1, bz1;
+		boolean dragging;
+		double dragX, dragZ;
+		MapPanel preview;
+		float px, py, pw, ph;
+	}
+
 	/** A row in the right-hand list. */
 	private record Row(String id, MarkerGlyph glyph, boolean hollow, String title, String subtitle, String right, String rightSub, double x, double z,
 		String dimension) {
@@ -132,6 +163,8 @@ public final class MapPage {
 
 		this.segments(ui, wx + ww / 2, wy + 31, mouseX, mouseY);
 		this.searchBox(ui, wx + ww - PAD - 42, wy + 31, mouseX, mouseY);
+		this.worldPicker(ui, wx + PAD, wy + 34, mouseX, mouseY);
+		this.lookForImports();
 
 		boolean overCard = this.overCard(mouseX, mouseY);
 		boolean interactive = this.menu == null && !overCard;
@@ -163,8 +196,20 @@ public final class MapPage {
 				this.card(ui, m, this.mapX + 16, this.mapY + 88, mouseX, mouseY);
 			}
 		}
+		if (this.importOffer != null && this.map.kind != MapPanel.Kind.UNDERGROUND && this.editing == null) {
+			this.importCard(ui, this.listX, this.listY, LIST_W, mouseX, mouseY);
+		}
+		if (this.searching && !this.search.text.isBlank()) {
+			this.searchResults(ui, wx + ww - PAD - 380, wy + 31 + 48, 380, mouseX, mouseY);
+		}
+		if (this.pickerOpen) {
+			this.pickerList(ui, wx + PAD, wy + 34 + 44, mouseX, mouseY);
+		}
 		if (this.menu != null) {
 			this.contextMenu(ui, mouseX, mouseY);
+		}
+		if (this.export != null) {
+			this.exportDialog(ui, wx, wy, ww, wh, mouseX, mouseY);
 		}
 	}
 
@@ -234,7 +279,7 @@ public final class MapPage {
 			});
 			return;
 		}
-		float w = 260;
+		float w = 380;
 		float bx = x + 42 - w;
 		ui.panel(bx, y, w, 42, 21, Theme.WELL, this.search.focused ? Theme.HAIR_16 : Theme.HAIR_6);
 		Icons.search(ui, bx + 15, y + 13.5F, Theme.INK_3);
@@ -1043,6 +1088,11 @@ public final class MapPage {
 	 * Delete; another mod's marker shows its own readouts, meter and sections.
 	 */
 	private void card(Ui ui, Marker m, float x, float y, float mx, float my) {
+		Waypoint wp = this.atlas.waypointFor(m.id());
+		if (wp != null) {
+			this.waypointCard(ui, wp, x, y, mx, my);
+			return;
+		}
 		float w = 296;
 		LocalPlayer p = Minecraft.getInstance().player;
 		double px = p == null ? m.x() : p.getX();
@@ -1331,37 +1381,58 @@ public final class MapPage {
 		}
 	}
 
+	/** The right-click menu (the design's 248 px, at the cursor): the spot's coordinates, then its four actions. */
 	private void contextMenu(Ui ui, float mx, float my) {
 		Menu m = this.menu;
 		if (m == null) {
 			return;
 		}
-		List<String> items = new ArrayList<>(List.of("Waypoint here", "Copy coordinates", "Track", "Centre here", "Export view as PNG"));
 		String dimHere = this.map.dimensionOf(this.map.kind);
-		if (dimHere.equals("minecraft:overworld")) {
-			items.add(2, "Show in the Nether");
-		} else if (dimHere.equals("minecraft:the_nether")) {
-			items.add(2, "Show in the Overworld");
+		boolean nether = dimHere.equals("minecraft:the_nether");
+		List<String> items = new ArrayList<>(List.of("Waypoint here", "Copy coordinates"));
+		if (nether || dimHere.equals("minecraft:overworld")) {
+			items.add(nether ? "Show in Overworld" : "Show in Nether");
 		}
+		items.add("Track");
 		if (this.atlas.canTeleport()) {
-			items.add(1, "Teleport here");
+			items.add("Teleport here");
 		}
-		float w = 188;
-		float h = 12 + items.size() * 34;
+		String[] keys = {"W", "C", nether || dimHere.equals("minecraft:overworld") ? (nether ? "O" : "N") : "T", "T", ""};
+		MarkerGlyph[] glyphs = {MarkerGlyph.PIN, MarkerGlyph.DOT, MarkerGlyph.PORTAL, MarkerGlyph.TRACK, MarkerGlyph.REALM};
+		if (items.size() >= 3 && items.get(2).equals("Track")) {
+			glyphs = new MarkerGlyph[]{MarkerGlyph.PIN, MarkerGlyph.DOT, MarkerGlyph.TRACK, MarkerGlyph.REALM};
+			keys = new String[]{"W", "C", "T", ""};
+		}
+		int bx = (int) Math.floor(m.mapX);
+		int bz = (int) Math.floor(m.mapZ);
+		int by = this.atlas.heightAt(this.map.layer(this.map.kind), bx, bz);
+		String head = "X " + minus(bx) + "  ·  Y " + minus(by) + "  ·  Z " + minus(bz);
+		float w = 248;
+		float h = 8 + 26 + items.size() * 32 + 8;
 		float x = Math.min(m.x, this.mapX + this.mapW - w - 8);
 		float y = Math.min(m.y, this.mapY + this.mapH - h - 8);
 		// a click anywhere else closes the menu (registered first, so the items win)
 		this.hit(this.mapX - 2000, this.mapY - 2000, 8000, 8000, () -> this.menu = null);
 		ui.panel(x, y, w, h, 14, Theme.ISLAND, Theme.HAIR_10);
+		ui.text(head, x + 14, y + 12, Ui.Font.F85, 1, Theme.INK_4);
 		for (int i = 0; i < items.size(); i++) {
-			float iy = y + 6 + i * 34;
-			boolean hover = mx >= x + 6 && mx <= x + w - 6 && my >= iy && my <= iy + 32;
-			if (hover) {
-				ui.round(x + 6, iy, w - 12, 32, 10, Theme.RAISED);
+			float iy = y + 8 + 26 + i * 32;
+			boolean hover = mx >= x + 6 && mx <= x + w - 6 && my >= iy && my <= iy + 30;
+			if (i == 3 || i == items.size() - 1 && items.get(i).equals("Track")) {
+				ui.rect(x + 12, iy - 1, w - 24, 1, Theme.HAIR_6);
 			}
-			ui.text(items.get(i), x + 16, iy + 9, Ui.Font.F12, hover ? Theme.INK : Theme.INK_2);
+			if (hover) {
+				ui.round(x + 6, iy, w - 12, 30, 9, Theme.RAISED);
+			}
+			int ink = hover ? Theme.INK : Theme.INK_2;
+			ui.glyph(glyphs[Math.min(i, glyphs.length - 1)], x + 18, iy + 9, 12, ink, ink);
+			ui.text(items.get(i), x + 40, iy + 7.5F, Ui.Font.F13, ink);
+			String key = i < keys.length ? keys[i] : "";
+			if (!key.isEmpty()) {
+				ui.textRight(key, x + w - 18, iy + 10, Ui.Font.F9, 0.6F, Theme.INK_4);
+			}
 			String item = items.get(i);
-			this.hit(x + 6, iy, w - 12, 32, () -> this.menuAction(item, m));
+			this.hit(x + 6, iy, w - 12, 30, () -> this.menuAction(item, m));
 		}
 	}
 
@@ -1375,12 +1446,12 @@ public final class MapPage {
 			case "Waypoint here" -> this.edit(Waypoint.create("Waypoint", bx, by, bz, dim, 0), true);
 			case "Teleport here" -> this.atlas.teleport(dim, bx, by, bz);
 			case "Copy coordinates" -> Minecraft.getInstance().keyboardHandler.setClipboard(bx + " " + by + " " + bz);
-			case "Show in the Nether" -> {
+			case "Show in Nether", "Show in the Nether" -> {
 				// the same spot in the other dimension: an eighth of the way out from the middle of the world
 				this.map.setKind(MapPanel.Kind.NETHER);
 				this.map.centreOn(Math.floorDiv(bx, 8) + 0.5, Math.floorDiv(bz, 8) + 0.5);
 			}
-			case "Show in the Overworld" -> {
+			case "Show in Overworld", "Show in the Overworld" -> {
 				this.map.setKind(MapPanel.Kind.SURFACE);
 				this.map.centreOn(bx * 8.0 + 4, bz * 8.0 + 4);
 			}
@@ -1394,18 +1465,8 @@ public final class MapPage {
 					this.track(dev.voidmc.atlas.client.AtlasClient.waypointMarkerId(w));
 				}
 			}
-			case "Export view as PNG" -> this.exportView();
 			default -> this.map.centreOn(m.mapX, m.mapZ);
 		}
-	}
-
-	/** Opens the export dialog. */
-	public void openExport() {
-		this.exportView();
-	}
-
-	/** Shows the import card (waypoints found in other map mods' files). */
-	public void offerImport() {
 	}
 
 	/** The map as shown, to a PNG in {@code <world map>/exports/}, on a worker; the result in the chat. */
@@ -1429,6 +1490,674 @@ public final class MapPage {
 				message = "Atlas: the map was saved as " + r.file().getFileName() + " (" + r.width() + " x " + r.height() + ")";
 			} catch (java.io.IOException | RuntimeException e) {
 				message = "Atlas: the map could not be saved: " + e.getMessage();
+			}
+			String text = message;
+			Minecraft.getInstance().execute(() -> {
+				if (Minecraft.getInstance().player != null) {
+					Minecraft.getInstance().player.sendSystemMessage(net.minecraft.network.chat.Component.literal(text));
+				}
+			});
+		});
+	}
+
+	// --- the waypoint card ------------------------------------------------------------------------------------------
+
+	/**
+	 * A waypoint's card (the design's 355:14024): its pin and name, then where it is in its own dimension and in the
+	 * other one (the Nether's X and Z an eighth, the Overworld's eight times, Y kept), how to use that, and Show in
+	 * Nether (or Overworld) and Track. The name opens the editor.
+	 */
+	private void waypointCard(Ui ui, Waypoint wp, float x, float y, float mx, float my) {
+		float w = 296;
+		String dim = wp.dimension();
+		boolean overworld = dim.equals("minecraft:overworld");
+		boolean nether = dim.equals("minecraft:the_nether");
+		dev.voidmc.atlas.core.waypoints.NetherScale.Point other = overworld || nether
+			? dev.voidmc.atlas.core.waypoints.NetherScale.convert(wp.x(), wp.y(), wp.z(), dim, overworld ? "minecraft:the_nether" : "minecraft:overworld") : null;
+		String note = other == null ? null : overworld ? "Build a portal at these Nether coordinates to come out near " + wp.name() + "."
+			: "Build a portal at these Overworld coordinates to come out near " + wp.name() + ".";
+		float h = 17 + 40 + 14 + 64 + (other != null ? 8 + 64 + 12 + 30 : 0) + 14 + 40 + 17;
+		ui.panel(x, y, w, h, 20, Theme.ISLAND, Theme.HAIR_8);
+		float cx = x + 17;
+		float cy = y + 17;
+		ui.round(cx, cy, 40, 40, 12, Theme.WELL);
+		ui.border(cx, cy, 40, 40, 12, 0, Theme.HAIR_10);
+		PinShapes.pin(ui, cx + 20, cy + 32, 16, wp.colour(), this.atlas.settings().shapeMarkers, wp.rgb(), 1);
+		ui.text(ui.fit(wp.name(), Ui.Font.F16, w - 34 - 52 - 30), cx + 52, cy + 1, Ui.Font.F16, Theme.INK);
+		String kind = (wp.kind() == Waypoint.Kind.DEATH ? "DEATH" : wp.kind() == Waypoint.Kind.TEMPORARY ? "TEMPORARY" : "WAYPOINT") + "  ·  "
+			+ dimensionName(dim).toUpperCase(Locale.ROOT);
+		ui.text(kind, cx + 52, cy + 24, Ui.Font.F85, 1, Theme.INK_4);
+		Waypoint editTarget = wp;
+		this.hit(cx + 52, cy, w - 34 - 52 - 30, 40, () -> this.edit(editTarget, false));
+		Icons.close(ui, x + w - 30, cy + 4, Theme.INK_3);
+		this.hit(x + w - 38, cy - 4, 30, 30, () -> this.map.selected = null);
+		cy += 40 + 14;
+		this.coordBlock(ui, cx, cy, w - 34, dimensionName(dim).toUpperCase(Locale.ROOT) + "  ·  WHERE IT IS", wp.x(), wp.y(), wp.z());
+		cy += 64;
+		if (other != null) {
+			cy += 8;
+			this.coordBlock(ui, cx, cy, w - 34, overworld ? "NETHER  ·  X AND Z DIVIDED BY 8" : "OVERWORLD  ·  X AND Z TIMES 8", other.x(), other.y(), other.z());
+			cy += 64 + 12;
+			ui.text(ui.fit(note.substring(0, Math.min(note.length(), 62)), Ui.Font.F11, w - 34), cx, cy, Ui.Font.F11, Theme.INK_3);
+			if (note.length() > 62) {
+				ui.text(ui.fit(note.substring(62).strip(), Ui.Font.F11, w - 34), cx, cy + 15, Ui.Font.F11, Theme.INK_3);
+			}
+			cy += 30;
+		}
+		cy += 14;
+		boolean tracking = AtlasClient.waypointMarkerId(wp).equals(this.atlas.settings().tracked);
+		if (other != null) {
+			String label = overworld ? "Show in Nether" : "Show in Overworld";
+			this.button(ui, cx, cy, 127, true, label, MarkerGlyph.PORTAL, mx, my, () -> {
+				this.map.setKind(overworld ? MapPanel.Kind.NETHER : MapPanel.Kind.SURFACE);
+				this.map.centreOn(other.x() + 0.5, other.z() + 0.5);
+			});
+			this.button(ui, cx + 135, cy, 127, false, tracking ? "Tracking" : "Track", MarkerGlyph.TRACK, mx, my, () -> this.track(AtlasClient.waypointMarkerId(wp)));
+		} else {
+			this.button(ui, cx, cy, w - 34, false, tracking ? "Tracking" : "Track", MarkerGlyph.TRACK, mx, my, () -> this.track(AtlasClient.waypointMarkerId(wp)));
+		}
+	}
+
+	/** A well with a caps line over X, Y and Z. */
+	private void coordBlock(Ui ui, float x, float y, float w, String caps, int bx, int by, int bz) {
+		ui.round(x, y, w, 64, 12, Theme.WELL);
+		ui.border(x, y, w, 64, 12, 0, Theme.HAIR_6);
+		ui.text(caps, x + 12, y + 12, Ui.Font.F85, 1, Theme.INK_4);
+		float tx = x + 12;
+		String[] axes = {"X", "Y", "Z"};
+		int[] v = {bx, by, bz};
+		for (int i = 0; i < 3; i++) {
+			ui.text(axes[i], tx, y + 35, Ui.Font.F11, Theme.INK_4);
+			ui.text(minus(v[i]), tx + 11, y + 32, Ui.Font.F15, Theme.INK);
+			tx += 11 + ui.width(minus(v[i]), Ui.Font.F15) + 20;
+		}
+	}
+
+	// --- the world picker ------------------------------------------------------------------------------------------
+
+	/** The world picker (where the gear was): the map shown, a violet dot, a chevron; opens the list of maps. */
+	private void worldPicker(Ui ui, float x, float y, float mx, float my) {
+		var worlds = this.atlas.worlds;
+		var current = worlds.current();
+		String label;
+		if (current.isPresent()) {
+			var c = current.get();
+			label = c.server().equals("singleplayer") ? c.name() : shortServer(c.server()) + "  ·  " + c.name();
+		} else {
+			label = worlds.finding() ? "Finding this world..." : "This world";
+		}
+		float w = 16 + 6 + 10 + ui.width(label, Ui.Font.F13) + 12 + 10 + 14;
+		boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + 36;
+		ui.panel(x, y, w, 36, 18, hover || this.pickerOpen ? Theme.ISLAND : Theme.WELL, Theme.HAIR_8);
+		ui.circle(x + 16 + 3, y + 18, 3, Theme.VIOLET);
+		ui.text(label, x + 16 + 6 + 10, y + 9, Ui.Font.F13, Theme.INK);
+		float chx = x + w - 14 - 8;
+		ui.line(chx, y + 16, chx + 4, y + 20, 1.4F, Theme.INK_2);
+		ui.line(chx + 4, y + 20, chx + 8, y + 16, 1.4F, Theme.INK_2);
+		if (worlds.question().isPresent()) {
+			ui.circle(x + w - 4, y + 4, 4, Theme.VIOLET);
+		}
+		this.hit(x, y, w, 36, () -> this.pickerOpen = !this.pickerOpen);
+	}
+
+	private static String shortServer(String address) {
+		String a = address.replaceFirst(":\\d+$", "");
+		String[] parts = a.split("\\.");
+		if (parts.length >= 2 && !a.matches("[0-9.]+")) {
+			String name = parts[parts.length - 2];
+			return name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1);
+		}
+		return a;
+	}
+
+	/** The picker's list: every map of this server (this one marked), the open question, the note. */
+	private void pickerList(Ui ui, float x, float y, float mx, float my) {
+		var worlds = this.atlas.worlds;
+		var list = worlds.list();
+		var question = worlds.question().orElse(null);
+		float w = 272;
+		float h = 12 + 20 + list.size() * 46 + (question != null ? 96 : 0) + 34 + 6;
+		this.hit(this.mapX - 2000, this.mapY - 2000, 8000, 8000, () -> this.pickerOpen = false);
+		ui.panel(x, y, w, h, 14, Theme.ISLAND, Theme.HAIR_10);
+		String server = list.isEmpty() ? "" : list.get(0).server();
+		String caps = (server.equals("singleplayer") ? "SINGLEPLAYER" : server.toUpperCase(Locale.ROOT)) + "  ·  " + list.size() + (list.size() == 1 ? " MAP" : " MAPS");
+		ui.text(caps, x + 16, y + 14, Ui.Font.F85, 1, Theme.INK_4);
+		float ry = y + 12 + 20;
+		long now = System.currentTimeMillis();
+		for (var info : list) {
+			if (info.current()) {
+				ui.round(x + 6, ry, w - 12, 44, 10, Theme.RAISED);
+			}
+			ui.circle(x + 18, ry + 15, 3, info.current() ? Theme.VIOLET : Theme.INK_4);
+			ui.text(ui.fit(info.name(), Ui.Font.F13, w - 60), x + 30, ry + 6, Ui.Font.F13, info.current() ? Theme.INK : Theme.INK_2);
+			String sub = info.current() ? "YOU ARE HERE" : seen(now - info.lastUsed());
+			if (info.places() >= 0) {
+				sub += "  ·  " + info.places() + " PLACES";
+			}
+			ui.text(sub, x + 30, ry + 26, Ui.Font.F85, 1, Theme.INK_4);
+			ry += 46;
+		}
+		if (question != null) {
+			ui.rect(x + 12, ry + 2, w - 24, 1, Theme.HAIR_6);
+			ui.text("Same map as " + ui.fit(question.candidateName(), Ui.Font.F12, 150) + "?", x + 16, ry + 14, Ui.Font.F12, Theme.INK);
+			ui.text("A new world was found here", x + 16, ry + 32, Ui.Font.F11, Theme.INK_4);
+			this.button(ui, x + 12, ry + 50, 120, true, "Keep separate", null, mx, my, () -> {
+				worlds.answer(false);
+				this.pickerOpen = false;
+			});
+			this.button(ui, x + 140, ry + 50, 120, false, "Same as before", null, mx, my, () -> {
+				worlds.answer(true);
+				this.pickerOpen = false;
+			});
+			ry += 96;
+		}
+		ui.rect(x + 12, ry + 2, w - 24, 1, Theme.HAIR_6);
+		ui.text("Merge or rename maps in Atlas settings", x + 16, ry + 14, Ui.Font.F11, Theme.INK_4);
+	}
+
+	private static String seen(long ago) {
+		long days = ago / 86_400_000L;
+		if (ago < 0 || days < 1) {
+			return "SEEN TODAY";
+		}
+		return days == 1 ? "SEEN YESTERDAY" : "SEEN " + days + " DAYS AGO";
+	}
+
+	// --- search ----------------------------------------------------------------------------------------------------
+
+	private static final String[] GROUPS = {"PLACES", "BIOMES", "WAYPOINTS"};
+
+	private void refreshSearch() {
+		String q = this.search.text.strip();
+		long now = System.currentTimeMillis();
+		if (q.equals(this.searchHitsFor) && now - this.searchHitsAt < 500) {
+			return;
+		}
+		this.searchHitsFor = q;
+		this.searchHitsAt = now;
+		MapSession session = this.atlas.session();
+		List<SearchHit> out = new ArrayList<>();
+		int[] counts = new int[3];
+		if (session == null) {
+			this.searchHits = out;
+			return;
+		}
+		LocalPlayer p = Minecraft.getInstance().player;
+		double px = p == null ? 0 : p.getX();
+		double pz = p == null ? 0 : p.getZ();
+		String here = p == null ? "" : p.level().dimension().identifier().toString();
+		String dim = this.map.dimensionOf(this.map.kind);
+		Place regionHere = this.atlas.regionHere();
+		List<SearchHit>[] groups = new List[]{new ArrayList<>(), new ArrayList<>(), new ArrayList<>()};
+		List<Integer>[] scores = new List[]{new ArrayList<>(), new ArrayList<>(), new ArrayList<>()};
+		for (Place pl : session.places.visible(dim)) {
+			boolean biome = pl.kind().equals(Place.REGION);
+			int g = biome ? 1 : 0;
+			counts[g]++;
+			String kind = biome ? "BIOME" : Kinds.of(pl).word;
+			boolean inside = biome && regionHere != null && regionHere.id().equals(pl.id());
+			String sub = kind + "  ·  " + (inside ? "YOU ARE HERE" : biome ? (pl.underground() ? "UNDERGROUND" : "NEAREST EDGE") : Kinds.origin(pl));
+			int score = dev.voidmc.atlas.core.Search.score(q, pl.name(), sub);
+			if (score == dev.voidmc.atlas.core.Search.NONE) {
+				continue;
+			}
+			boolean same = pl.dimension().equals(here);
+			double d = Math.max(0, Math.hypot(pl.x() + 0.5 - px, pl.z() + 0.5 - pz) - (biome ? pl.radius() : 0));
+			String right = inside ? "here" : same ? MarkerPainter.distance(d) : dimensionName(pl.dimension());
+			MarkerGlyph glyph = biome ? MarkerGlyph.DOT : Kinds.sighted(pl) ? MarkerGlyph.UNKNOWN : Kinds.of(pl).glyph;
+			groups[g].add(new SearchHit(g, AtlasClient.placeMarkerId(pl), glyph, Kinds.sighted(pl) && !biome, pl.name(), sub, right, pl.x() + 0.5, pl.z() + 0.5,
+				pl.dimension()));
+			scores[g].add(score * 100_000 - (int) Math.min(99_999, d));
+		}
+		for (Waypoint w : session.waypoints.all()) {
+			counts[2]++;
+			String sub = "WAYPOINT  ·  " + (w.expires() > 0 ? "GONE IN " + Math.max(1, (w.expires() - now) / 60_000) + " MIN" : dimensionName(w.dimension()).toUpperCase(Locale.ROOT));
+			int score = dev.voidmc.atlas.core.Search.score(q, w.name(), sub);
+			if (score == dev.voidmc.atlas.core.Search.NONE) {
+				continue;
+			}
+			boolean same = w.dimension().equals(here);
+			double d = w.distance(px, 0, pz);
+			groups[2].add(new SearchHit(2, AtlasClient.waypointMarkerId(w), w.glyph(), false, w.name(), sub, same ? MarkerPainter.distance(d) : dimensionName(w.dimension()),
+				w.x() + 0.5, w.z() + 0.5, w.dimension()));
+			scores[2].add(score * 100_000 - (int) Math.min(99_999, d));
+		}
+		for (int g = 0; g < 3; g++) {
+			List<Integer> sc = scores[g];
+			List<SearchHit> hits = groups[g];
+			List<Integer> idx = new ArrayList<>();
+			for (int i = 0; i < hits.size(); i++) {
+				idx.add(i);
+			}
+			idx.sort((a, b) -> Integer.compare(sc.get(b), sc.get(a)));
+			for (int i = 0; i < Math.min(6, idx.size()); i++) {
+				out.add(hits.get(idx.get(i)));
+			}
+		}
+		this.searchHits = out;
+		this.searchCounts = counts;
+	}
+
+	/** What the search found, by group (up to 6 each), under the search box; Enter centres on the first. */
+	private void searchResults(Ui ui, float x, float y, float w, float mx, float my) {
+		this.refreshSearch();
+		List<SearchHit> hits = this.searchHits;
+		int[] per = new int[3];
+		for (SearchHit h : hits) {
+			per[h.group]++;
+		}
+		int groups = (per[0] > 0 ? 1 : 0) + (per[1] > 0 ? 1 : 0) + (per[2] > 0 ? 1 : 0);
+		float h = 10 + groups * 24 + hits.size() * 46 + 34 + (hits.isEmpty() ? 40 : 0);
+		this.hit(x, y, w, h, () -> {
+		});
+		ui.panel(x, y, w, h, 16, Theme.ISLAND, Theme.HAIR_10);
+		float ry = y + 10;
+		if (hits.isEmpty()) {
+			ui.text("Nothing found", x + 16, ry + 12, Ui.Font.F13, Theme.INK_3);
+			ry += 40;
+		}
+		int lastGroup = -1;
+		boolean first = true;
+		for (SearchHit hit : hits) {
+			if (hit.group != lastGroup) {
+				lastGroup = hit.group;
+				ui.text(GROUPS[hit.group] + "  ·  " + per[hit.group], x + 16, ry + 8, Ui.Font.F85, 1, Theme.INK_4);
+				ry += 24;
+			}
+			boolean focused = first && (this.searchGroup == hit.group || per[this.searchGroup] == 0);
+			boolean hover = mx >= x + 6 && mx <= x + w - 6 && my >= ry && my <= ry + 44;
+			if (focused || hover) {
+				ui.round(x + 6, ry, w - 12, 44, 10, Theme.RAISED);
+			}
+			if (this.searchGroup == hit.group) {
+				first = false;
+			}
+			MarkerPainter.placeTile(ui, x + 14, ry + 8, 28, 8, hit.glyph, hit.hollow, 16, 0.9F);
+			ui.text(ui.fit(hit.title, Ui.Font.F13, w - 140), x + 52, ry + 6, Ui.Font.F13, Theme.INK);
+			ui.text(ui.fit(hit.sub, Ui.Font.F85, 1, w - 140), x + 52, ry + 26, Ui.Font.F85, 1, Theme.INK_4);
+			ui.textRight(hit.right, x + w - 18, ry + 15, Ui.Font.F11, 0, Theme.INK_2);
+			SearchHit target = hit;
+			this.hit(x + 6, ry, w - 12, 44, () -> this.goTo(target));
+			ry += 46;
+		}
+		ui.text("Enter centres the map on it  ·  Tab moves between groups", x + 16, ry + 10, Ui.Font.F11, Theme.INK_4);
+	}
+
+	/** Centres the map on a search result and selects it. */
+	private void goTo(SearchHit hit) {
+		if (hit.dimension.equals("minecraft:the_nether")) {
+			this.map.setKind(MapPanel.Kind.NETHER);
+		} else if (this.map.kind == MapPanel.Kind.NETHER) {
+			this.map.setKind(MapPanel.Kind.SURFACE);
+		}
+		this.map.centreOn(hit.x, hit.z);
+		this.map.selected = hit.id;
+		this.searching = false;
+		this.search.set("");
+		this.search.focused = false;
+	}
+
+	/** Enter in the search: the focused group's best result. */
+	private boolean searchEnter() {
+		this.refreshSearch();
+		for (SearchHit h : this.searchHits) {
+			if (h.group == this.searchGroup) {
+				this.goTo(h);
+				return true;
+			}
+		}
+		if (!this.searchHits.isEmpty()) {
+			this.goTo(this.searchHits.get(0));
+			return true;
+		}
+		return false;
+	}
+
+	/** Tab: the next group that has results. */
+	private void searchTab() {
+		for (int i = 1; i <= 3; i++) {
+			int g = (this.searchGroup + i) % 3;
+			for (SearchHit h : this.searchHits) {
+				if (h.group == g) {
+					this.searchGroup = g;
+					return;
+				}
+			}
+		}
+	}
+
+	// --- import from other map mods --------------------------------------------------------------------------------
+
+	/** Once per world: looks (on a worker) for waypoints of this world in Xaero's and JourneyMap's files. */
+	private void lookForImports() {
+		if (this.importLooked || this.atlas.settings().importOffered || this.atlas.session() == null) {
+			return;
+		}
+		this.importLooked = true;
+		Minecraft mc = Minecraft.getInstance();
+		java.nio.file.Path game = mc.gameDirectory.toPath();
+		String key = this.atlas.session().worldKey;
+		this.atlas.session().workers.execute(() -> {
+			List<dev.voidmc.atlas.core.waypoints.ImportedWaypoint> found = new ArrayList<>();
+			try {
+				found.addAll(dev.voidmc.atlas.core.waypoints.XaeroImport.scan(game));
+				found.addAll(dev.voidmc.atlas.core.waypoints.JourneyMapImport.scan(game));
+			} catch (RuntimeException e) {
+				return;
+			}
+			List<dev.voidmc.atlas.core.waypoints.ImportedWaypoint> mine = found.stream().filter(w -> sameWorld(w.world(), key)).toList();
+			if (!mine.isEmpty()) {
+				mc.execute(() -> this.importOffer = mine);
+			}
+		});
+	}
+
+	/** Whether another mod's world folder name is this world (the server's address, or the save's folder). */
+	static boolean sameWorld(String folder, String key) {
+		String f = folder.toLowerCase(Locale.ROOT).replace('~', '.').replace("multiplayer_", "").replace("mp/", "").replace("sp/", "");
+		String[] parts = key.split("/");
+		String name = parts.length > 1 ? parts[1] : key;
+		String plain = name.replace('_', '.');
+		return !f.isBlank() && (f.contains(name) || f.contains(plain) || name.contains(f.replaceAll("[^a-z0-9._-]", "_")));
+	}
+
+	/** Offers the import again (from the settings). */
+	public void offerImport() {
+		this.importLooked = false;
+		this.atlas.settings().importOffered = false;
+	}
+
+	/** The one-time import card, over the right panel (the design's 355:14293). */
+	private void importCard(Ui ui, float x, float y, float w, float mx, float my) {
+		var found = this.importOffer;
+		if (found == null) {
+			return;
+		}
+		long xaero = found.stream().filter(i -> i.source() == dev.voidmc.atlas.core.waypoints.ImportedWaypoint.Source.XAERO).count();
+		long jm = found.size() - xaero;
+		int shown = Math.min(4, found.size());
+		float h = 18 + 14 + 26 + 36 + 8 + shown * 35 + (found.size() > shown ? 22 : 4) + 12 + 56 + 14 + 40 + 12 + 30 + 14;
+		this.hit(x, y, w, h, () -> {
+		});
+		ui.panel(x, y, w, h, 20, Theme.ISLAND, Theme.HAIR_8);
+		float cx = x + 17;
+		float cy = y + 18;
+		ui.text("ONE TIME  ·  FROM OTHER MAP MODS", cx, cy, Ui.Font.F85, 1, Theme.INK_4);
+		cy += 14;
+		ui.text("Found " + found.size() + " waypoints", cx, cy, Ui.Font.F16, Theme.INK);
+		cy += 26;
+		String from = (xaero > 0 ? "Xaero's Minimap (" + xaero + ")" : "") + (xaero > 0 && jm > 0 ? " and " : "") + (jm > 0 ? "JourneyMap (" + jm + ")" : "");
+		String line = "In this instance: " + from + ".";
+		ui.text(ui.fit(line.substring(0, Math.min(line.length(), 46)), Ui.Font.F11, w - 34), cx, cy, Ui.Font.F11, Theme.INK_3);
+		if (line.length() > 46) {
+			ui.text(ui.fit(line.substring(46).strip(), Ui.Font.F11, w - 34), cx, cy + 15, Ui.Font.F11, Theme.INK_3);
+		}
+		cy += 36 + 8;
+		boolean shapes = this.atlas.settings().shapeMarkers;
+		for (int i = 0; i < shown; i++) {
+			var iw = found.get(i);
+			ui.round(cx, cy, w - 34, 32, 9, Theme.WELL);
+			int colour = this.importKeepColours ? iw.colour() : 0;
+			PinShapes.pin(ui, cx + 14, cy + 25, 12, colour, shapes, Waypoint.COLOURS[Math.floorMod(colour, 8)], 1);
+			ui.text(ui.fit(iw.name(), Ui.Font.F12, w - 34 - 120), cx + 30, cy + 9, Ui.Font.F12, Theme.INK);
+			ui.textRight(iw.source() == dev.voidmc.atlas.core.waypoints.ImportedWaypoint.Source.XAERO ? "XAERO'S" : "JOURNEYMAP", cx + w - 34 - 10, cy + 12, Ui.Font.F85, 1,
+				Theme.INK_4);
+			cy += 35;
+		}
+		if (found.size() > shown) {
+			ui.text("and " + (found.size() - shown) + " more", cx, cy + 2, Ui.Font.F11, Theme.INK_3);
+			cy += 22;
+		} else {
+			cy += 4;
+		}
+		cy += 12;
+		ui.round(cx, cy, w - 34, 56, 12, Theme.WELL);
+		ui.text("Keep their colours", cx + 16, cy + 12, Ui.Font.F12, Theme.INK);
+		ui.text("Matched to the nearest of the 8", cx + 16, cy + 30, Ui.Font.F11, Theme.INK_4);
+		float tx = cx + w - 34 - 16 - 32;
+		ui.round(tx, cy + 19, 32, 18, 9, this.importKeepColours ? Theme.INK_2 : Theme.RAISED);
+		ui.circle(this.importKeepColours ? tx + 23 : tx + 9, cy + 28, 6, this.importKeepColours ? Theme.SHELL : Theme.INK_3);
+		this.hit(cx, cy, w - 34, 56, () -> this.importKeepColours = !this.importKeepColours);
+		cy += 56 + 14;
+		float bw = (w - 34 - 8) / 2;
+		this.button(ui, cx, cy, bw, true, "Import " + found.size(), null, mx, my, () -> this.doImport(found));
+		this.button(ui, cx + bw + 8, cy, bw, false, "Not now", null, mx, my, () -> {
+			this.importOffer = null;
+			this.atlas.settings().importOffered = true;
+			this.atlas.settings().save();
+		});
+		cy += 40 + 12;
+		ui.text("Their files are only read, never changed. Later:", cx, cy, Ui.Font.F11, Theme.INK_4);
+		ui.text("Settings, Data, Import.", cx, cy + 15, Ui.Font.F11, Theme.INK_4);
+	}
+
+	private void doImport(List<dev.voidmc.atlas.core.waypoints.ImportedWaypoint> found) {
+		MapSession session = this.atlas.session();
+		if (session != null) {
+			long now = System.currentTimeMillis();
+			for (var iw : found) {
+				Waypoint w = iw.toWaypoint(64, now);
+				if (!this.importKeepColours) {
+					w = w.withColour(0);
+				}
+				session.waypoints.put(w);
+			}
+			session.saveSoon(false);
+		}
+		this.importOffer = null;
+		this.atlas.settings().importOffered = true;
+		this.atlas.settings().save();
+	}
+
+	// --- export ----------------------------------------------------------------------------------------------------
+
+	/** Opens the export dialog on what the map shows. */
+	public void openExport() {
+		MapRenderer.Frame f = this.map.frame();
+		Export e = new Export();
+		e.preview = new MapPanel(this.atlas);
+		e.preview.setKind(this.map.kind);
+		if (f != null) {
+			e.bx0 = Math.min(f.mapX(f.x, f.y), f.mapX(f.x + f.w, f.y + f.h));
+			e.bz0 = Math.min(f.mapZ(f.x, f.y), f.mapZ(f.x + f.w, f.y + f.h));
+			e.bx1 = Math.max(f.mapX(f.x, f.y), f.mapX(f.x + f.w, f.y + f.h));
+			e.bz1 = Math.max(f.mapZ(f.x, f.y), f.mapZ(f.x + f.w, f.y + f.h));
+		}
+		this.export = e;
+		this.setExportArea(e, 1);
+	}
+
+	private void setExportArea(Export e, int area) {
+		e.area = area;
+		var layer = this.map.layer(this.map.kind);
+		if (area == 0) {
+			MapRenderer.Frame f = this.map.frame();
+			if (f != null) {
+				e.bx0 = Math.min(f.mapX(f.x, f.y), f.mapX(f.x + f.w, f.y + f.h));
+				e.bz0 = Math.min(f.mapZ(f.x, f.y), f.mapZ(f.x + f.w, f.y + f.h));
+				e.bx1 = Math.max(f.mapX(f.x, f.y), f.mapX(f.x + f.w, f.y + f.h));
+				e.bz1 = Math.max(f.mapZ(f.x, f.y), f.mapZ(f.x + f.w, f.y + f.h));
+			}
+		} else if (area == 1 && layer != null) {
+			long[] keys = layer.regionKeys();
+			if (keys.length > 0) {
+				int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+				for (long k : keys) {
+					minX = Math.min(minX, dev.voidmc.atlas.core.Coords.unpackX(k));
+					minZ = Math.min(minZ, dev.voidmc.atlas.core.Coords.unpackZ(k));
+					maxX = Math.max(maxX, dev.voidmc.atlas.core.Coords.unpackX(k));
+					maxZ = Math.max(maxZ, dev.voidmc.atlas.core.Coords.unpackZ(k));
+				}
+				int rs = dev.voidmc.atlas.core.Coords.REGION_SIZE;
+				e.bx0 = (double) minX * rs;
+				e.bz0 = (double) minZ * rs;
+				e.bx1 = (double) (maxX + 1) * rs;
+				e.bz1 = (double) (maxZ + 1) * rs;
+			}
+		}
+	}
+
+	/** The export dialog (the design's 355:14426): a preview with the box, the area, the scale, two toggles, Save. */
+	private void exportDialog(Ui ui, float wx, float wy, float ww, float wh, float mx, float my) {
+		Export e = this.export;
+		float w = 580;
+		float h = 796;
+		float x = wx + (ww - w) / 2;
+		float y = wy + Math.max(-60, (wh - h) / 2);
+		// everything behind is out of reach while it is open
+		this.hit(wx - 4000, wy - 4000, 9000, 9000, () -> {
+		});
+		ui.rect(wx - 4000, wy - 4000, 9000, 9000, 0x8C000000);
+		ui.panel(x, y, w, h, 24, Theme.ISLAND, Theme.HAIR_10);
+		String caps = this.map.kind.label.toUpperCase(Locale.ROOT) + "  ·  " + this.atlas.worlds.current().map(c -> c.name().toUpperCase(Locale.ROOT)).orElse("");
+		ui.text(caps, x + 20, y + 22, Ui.Font.F85, 1, Theme.INK_4);
+		ui.text("Export map as image", x + 20, y + 36, Ui.Font.F18, Theme.INK);
+		float ex = x + w - 20 - 38;
+		ui.panel(ex, y + 26, 38, 26, 8, Theme.WELL, Theme.HAIR_10);
+		ui.text("Esc", ex + 9, y + 31, Ui.Font.F11, Theme.INK_2);
+		this.hit(ex, y + 26, 38, 26, () -> this.export = null);
+		// the preview: the whole area, the box over it
+		e.px = x + 20;
+		e.py = y + 74;
+		e.pw = w - 40;
+		e.ph = 300;
+		double bw = Math.max(16, e.bx1 - e.bx0);
+		double bh = Math.max(16, e.bz1 - e.bz0);
+		if (!e.dragging) {
+			e.preview.centreOn((e.bx0 + e.bx1) / 2, (e.bz0 + e.bz1) / 2);
+			e.preview.setZoom(Math.min(e.pw * ui.unit / bw, e.ph * ui.unit / bh) * 0.82);
+		}
+		MapRenderer.Frame f = e.preview.render(ui, e.px, e.py, e.pw, e.ph, 16, mx, my, false);
+		float sx0 = f.screenX(e.bx0, e.bz0);
+		float sy0 = f.screenY(e.bx0, e.bz0);
+		float sx1 = f.screenX(e.bx1, e.bz1);
+		float sy1 = f.screenY(e.bx1, e.bz1);
+		ui.border(sx0, sy0, sx1 - sx0, sy1 - sy0, 0, 1.5F, 0xE6EDEEEF);
+		for (float[] c : new float[][]{{sx0, sy0}, {sx1, sy0}, {sx0, sy1}, {sx1, sy1}}) {
+			ui.round(c[0] - 4, c[1] - 4, 8, 8, 1.5F, Theme.INK);
+		}
+		String blocks = Math.round(bw) + " × " + Math.round(bh) + " blocks";
+		ui.panel(sx0 + 8, sy0 + 8, ui.width(blocks, Ui.Font.F85, 0.5F) + 16, 20, 6, 0xD90B0B0C, Theme.HAIR_8);
+		ui.text(blocks, sx0 + 16, sy0 + 13, Ui.Font.F85, 0.5F, Theme.INK_2);
+		if (e.area == 2) {
+			this.hit(e.px, e.py, e.pw, e.ph, () -> {
+				e.dragging = true;
+				e.dragX = f.mapX(mx, my);
+				e.dragZ = f.mapZ(mx, my);
+				e.bx0 = e.bx1 = e.dragX;
+				e.bz0 = e.bz1 = e.dragZ;
+			});
+			if (e.dragging) {
+				double cx = f.mapX(mx, my);
+				double cz = f.mapZ(mx, my);
+				e.bx0 = Math.min(e.dragX, cx);
+				e.bx1 = Math.max(e.dragX, cx);
+				e.bz0 = Math.min(e.dragZ, cz);
+				e.bz1 = Math.max(e.dragZ, cz);
+			}
+		}
+		float cy = e.py + e.ph + 22;
+		ui.text("AREA", x + 20, cy, Ui.Font.F85, 1, Theme.INK_4);
+		cy += 16;
+		this.segmented(ui, x + 20, cy, w - 40, new String[]{"What you see", "Everything explored", "Draw a box"}, e.area, i -> this.setExportArea(e, i), mx, my);
+		cy += 40 + 22;
+		ui.text("SCALE", x + 20, cy, Ui.Font.F85, 1, Theme.INK_4);
+		cy += 16;
+		int scaleIndex = e.scale == 1 ? 0 : e.scale == 2 ? 1 : 2;
+		this.segmented(ui, x + 20, cy, w - 40, new String[]{"1 px a block", "2 px", "4 px"}, scaleIndex, i -> e.scale = i == 0 ? 1 : i == 1 ? 2 : 4, mx, my);
+		cy += 40 + 10;
+		int[] size = dev.voidmc.atlas.core.MapExport.size((int) Math.floor(e.bx0), (int) Math.floor(e.bz0), (int) Math.ceil(e.bx1), (int) Math.ceil(e.bz1), e.scale);
+		double mb = size[0] * (double) size[1] * 4 * 0.3 / 1e6;
+		ui.text(String.format(Locale.ROOT, "%,d × %,d px  ·  about %d MB", size[0], size[1], Math.max(1, Math.round(mb))).replace(',', ' '), x + 20, cy, Ui.Font.F11,
+			Theme.INK_3);
+		cy += 26;
+		this.toggleRow(ui, x + 20, cy, w - 40, "Markers and names", "As on screen", e.markers, () -> e.markers = !e.markers, mx, my);
+		cy += 56 + 16;
+		this.toggleRow(ui, x + 20, cy, w - 40, "Transparent outside explored land", "Off: the map well colour", e.transparent, () -> e.transparent = !e.transparent, mx,
+			my);
+		cy += 56 + 16;
+		float half = (w - 40 - 8) / 2;
+		this.button(ui, x + 20, cy, half, true, "Save PNG", null, mx, my, this::saveExport);
+		this.button(ui, x + 20 + half + 8, cy, half, false, "Cancel", null, mx, my, () -> this.export = null);
+		cy += 40 + 14;
+		ui.text("Saves to screenshots/atlas/" + this.exportName() + " and opens the folder.", x + 20, cy, Ui.Font.F11, Theme.INK_4);
+	}
+
+	private void segmented(Ui ui, float x, float y, float w, String[] labels, int active, java.util.function.IntConsumer pick, float mx, float my) {
+		ui.panel(x, y, w, 40, 12, Theme.WELL, Theme.HAIR_6);
+		float sw = (w - 8) / labels.length;
+		for (int i = 0; i < labels.length; i++) {
+			float sx = x + 4 + i * sw;
+			boolean on = i == active;
+			boolean hover = !on && mx >= sx && mx <= sx + sw && my >= y + 4 && my <= y + 36;
+			if (on) {
+				ui.panel(sx, y + 4, sw, 32, 9, Theme.RAISED, Theme.HAIR_8);
+			} else if (hover) {
+				ui.round(sx, y + 4, sw, 32, 9, Theme.ISLAND);
+			}
+			ui.text(labels[i], sx + 14, y + 12, Ui.Font.F13, on ? Theme.INK : Theme.INK_2);
+			int index = i;
+			this.hit(sx, y + 4, sw, 32, () -> pick.accept(index));
+		}
+	}
+
+	private void toggleRow(Ui ui, float x, float y, float w, String title, String sub, boolean on, Runnable flip, float mx, float my) {
+		ui.panel(x, y, w, 56, 12, Theme.WELL, Theme.HAIR_6);
+		ui.text(title, x + 16, y + 11, Ui.Font.F13, Theme.INK);
+		ui.text(sub, x + 16, y + 31, Ui.Font.F11, Theme.INK_4);
+		float tx = x + w - 16 - 32;
+		ui.round(tx, y + 19, 32, 18, 9, on ? Theme.INK_2 : Theme.RAISED);
+		ui.circle(on ? tx + 23 : tx + 9, y + 28, 6, on ? Theme.SHELL : Theme.INK_3);
+		this.hit(x, y, w, 56, flip);
+	}
+
+	private String exportName() {
+		String world = this.atlas.worlds.current().map(c -> c.name()).orElse("map").toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-")
+			.replaceAll("(^-|-$)", "");
+		return (world.isEmpty() ? "map" : world) + "-" + java.time.LocalDate.now() + ".png";
+	}
+
+	/** Opens a folder in the system's file browser (best effort). */
+	private static void openFolder(java.nio.file.Path dir) {
+		String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+		String[] cmd = os.contains("win") ? new String[]{"explorer", dir.toString()} : os.contains("mac") ? new String[]{"open", dir.toString()}
+			: new String[]{"xdg-open", dir.toString()};
+		try {
+			new ProcessBuilder(cmd).start();
+		} catch (java.io.IOException | RuntimeException ignored) {
+			// no file browser: the path is in the chat
+		}
+	}
+
+	/** Saves the export on a worker, then opens the folder. */
+	private void saveExport() {
+		Export e = this.export;
+		MapSession session = this.atlas.session();
+		var layer = this.map.layer(this.map.kind);
+		if (e == null || session == null || layer == null) {
+			return;
+		}
+		this.export = null;
+		java.nio.file.Path dir = Minecraft.getInstance().gameDirectory.toPath().resolve("screenshots").resolve("atlas");
+		java.nio.file.Path file = dir.resolve(this.exportName());
+		if (java.nio.file.Files.exists(file)) {
+			file = dir.resolve(this.exportName().replace(".png", "-" + System.currentTimeMillis() % 100000 + ".png"));
+		}
+		java.nio.file.Path target = file;
+		int x0 = (int) Math.floor(e.bx0);
+		int z0 = (int) Math.floor(e.bz0);
+		int x1 = (int) Math.ceil(e.bx1);
+		int z1 = (int) Math.ceil(e.bz1);
+		int scale = e.scale;
+		int background = e.transparent ? 0 : Theme.MAP_WELL;
+		session.workers.execute(() -> {
+			String message;
+			try {
+				var r = dev.voidmc.atlas.core.MapExport.export(layer::levelPixels, x0, z0, x1, z1, target, scale, background);
+				message = "Atlas: saved " + r.file().getFileName() + " (" + r.width() + " x " + r.height() + ")";
+				openFolder(dir);
+			} catch (java.io.IOException | RuntimeException ex) {
+				message = "Atlas: the map could not be saved: " + ex.getMessage();
 			}
 			String text = message;
 			Minecraft.getInstance().execute(() -> {
@@ -1514,6 +2243,10 @@ public final class MapPage {
 			this.scrubbing = false;
 			return true;
 		}
+		if (this.export != null) {
+			this.export.dragging = false;
+			return true;
+		}
 		boolean dragged = this.map.release();
 		if (dragged || !this.map.inside(x, y)) {
 			return dragged;
@@ -1589,6 +2322,34 @@ public final class MapPage {
 	/** Returns true if the key was used. Escape: closes the topmost card or the search first. */
 	public boolean keyPressed(KeyEvent event) {
 		int key = event.key();
+		if (this.export != null) {
+			if (key == InputConstants.KEY_ESCAPE) {
+				this.export = null;
+			} else if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
+				this.saveExport();
+			}
+			return true;
+		}
+		Menu open = this.menu;
+		if (open != null) {
+			// the menu's keys: W, C, N (or O in the Nether), T
+			String item = switch (key) {
+				case InputConstants.KEY_W -> "Waypoint here";
+				case InputConstants.KEY_C -> "Copy coordinates";
+				case InputConstants.KEY_N -> "Show in Nether";
+				case InputConstants.KEY_O -> "Show in Overworld";
+				case InputConstants.KEY_T -> "Track";
+				default -> null;
+			};
+			if (item != null) {
+				this.menuAction(item, open);
+				return true;
+			}
+		}
+		if (this.pickerOpen && key == InputConstants.KEY_ESCAPE) {
+			this.pickerOpen = false;
+			return true;
+		}
 		if (this.editing != null) {
 			if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
 				this.saveEdit();
@@ -1610,14 +2371,12 @@ public final class MapPage {
 				return true;
 			}
 			if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
-				for (String section : new String[]{"sighted", "discovered", "settlements", "waypoints"}) {
-					List<Row> rows = this.rows(section);
-					if (!rows.isEmpty()) {
-						this.select(rows.get(0));
-						break;
-					}
-				}
-				this.search.focused = false;
+				// the best result of the group in focus: the map centres on it
+				this.searchEnter();
+				return true;
+			}
+			if (key == InputConstants.KEY_TAB) {
+				this.searchTab();
 				return true;
 			}
 			if (this.search.keyPressed(event)) {

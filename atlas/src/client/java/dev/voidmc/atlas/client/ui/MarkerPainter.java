@@ -566,6 +566,13 @@ public final class MarkerPainter {
 			hair = major ? Theme.HAIR_16 : Theme.HAIR_12;
 			ink = major ? Theme.INK : Theme.ink(0.62F);
 		}
+		double night = dev.voidmc.atlas.client.render.MapLight.night();
+		if (night > 0.05 && m.glyph() == MarkerGlyph.VILLAGE) {
+			// by night lit places stay warm: a soft glow under a village
+			for (int i = 3; i >= 1; i--) {
+				ui.circle(ax, ay, t * 0.55F * i, Theme.alpha(0xFFC9A66B, (float) (0.07 * night)));
+			}
+		}
 		ui.round(x, y, t, t, r, fill);
 		ui.border(x, y, t, t, r, 0, hair);
 		float g = (major ? 16 : 10) * s;
@@ -603,7 +610,15 @@ public final class MarkerPainter {
 		if (sel) {
 			ui.ring(x + w / 2, y + w / 2, w / 2 + 3 * s, 1.5F, Theme.ink(0.6F));
 		}
-		ui.circle(x + w / 2, y + w / 2, w / 2, head);
+		// the head: the colour's own shape when colour-blind shapes are on (the design's 355:14556)
+		int index = 0;
+		for (int i = 0; i < dev.voidmc.atlas.api.Waypoint.COLOURS.length; i++) {
+			if (dev.voidmc.atlas.api.Waypoint.COLOURS[i] == (colour & 0xFFFFFF)) {
+				index = i;
+			}
+		}
+		boolean shapes = dev.voidmc.atlas.client.AtlasClient.get().settings().shapeMarkers;
+		PinShapes.head(ui, x + w / 2, y + w / 2, w * 0.9F, index, shapes, head);
 		ui.round(x + 7 * s, y + 7 * s, 6 * s, 6 * s, 2 * s, Theme.SHELL);
 		ui.round(x + 9 * s, y + 21 * s, 2 * s, 8 * s, 1 * s, head);
 		float x1 = x + w;

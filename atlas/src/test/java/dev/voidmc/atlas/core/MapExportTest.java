@@ -37,6 +37,27 @@ class MapExportTest {
 	}
 
 	@Test
+	void pixelsPerBlockScaleUpAndTheUnexploredCanBeFilled() throws IOException {
+		int size = Coords.REGION_SIZE;
+		MapExport.Pixels pixels = (rx, rz, level) -> {
+			if (rx != 0 || rz != 0) {
+				return null;
+			}
+			int[] p = new int[size * size];
+			java.util.Arrays.fill(p, 0xFF00FF00);
+			return p;
+		};
+		MapExport.Result r = MapExport.export(pixels, -4, 0, 4, 4, this.dir.resolve("big.png"), 4, 0xFF0E0F11);
+		assertEquals(32, r.width());
+		assertEquals(16, r.height());
+		BufferedImage img = ImageIO.read(r.file().toFile());
+		assertEquals(0xFF0E0F11, img.getRGB(3, 3), "west of x=0 was never seen: the well's colour");
+		assertEquals(0xFF00FF00, img.getRGB(20, 3), "each block four pixels wide");
+		org.junit.jupiter.api.Assertions.assertArrayEquals(new int[]{32, 16}, MapExport.size(-4, 0, 4, 4, 4));
+		org.junit.jupiter.api.Assertions.assertArrayEquals(new int[]{8192, 4}, MapExport.size(0, 0, 8192, 4, 4), "too wide for 4 px a block: 1");
+	}
+
+	@Test
 	void aBigAreaIsExportedAtACoarserLevel() {
 		assertEquals(0, MapExport.levelFor(8192, 100));
 		assertEquals(1, MapExport.levelFor(8193, 100));

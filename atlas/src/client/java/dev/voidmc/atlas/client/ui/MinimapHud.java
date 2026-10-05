@@ -48,6 +48,7 @@ public final class MinimapHud {
 			|| settings.minimapHideWithDebug && mc.getDebugOverlay().showDebugScreen() || this.atlas.session() == null || !this.atlas.minimapAllowed()) {
 			return;
 		}
+		long c0 = Perf.cpuNow();
 		long t0 = System.nanoTime();
 		Ui ui = new Ui(graphics, hudUnit());
 		ui.begin();
@@ -71,7 +72,7 @@ public final class MinimapHud {
 		boolean ceiling = mc.level.dimensionType().hasCeiling();
 		DimensionData data = this.atlas.session().dimension(dim, ceiling);
 		// underground, the slice round the player (if wanted, and where the server allows it)
-		boolean underground = ceiling || settings.minimapAutoCave && this.atlas.underground() && this.atlas.caveViewAllowed(ceiling);
+		boolean underground = ceiling || settings.minimapAutoCave && this.atlas.minimapCaveView() && this.atlas.caveViewAllowed(ceiling);
 		LayerData layer = underground ? data.under(this.atlas.sliceBand(dim)) : data.layer(DimensionData.SURFACE);
 		long t1 = System.nanoTime();
 		double target = AtlasSettings.ZOOMS[settings.minimapZoom];
@@ -146,36 +147,59 @@ public final class MinimapHud {
 		ui.end();
 		long t4 = System.nanoTime();
 		Perf.minimap(t4 - t0);
+		Perf.cpu(Perf.cpuNow() - c0);
 		if (t4 - t0 > 3_000_000L) {
 			// a slow minimap frame: say where the time went (the perf gate looks at the worst frame)
 			Perf.minimapSpike(t1 - t0, t2 - t1, t3 - t2, t4 - t3);
 		}
 	}
 
-	/** Most dots the radar draws in a frame. */
-	private static final int RADAR_MAX = 96;
+	/** The radar (the design's): at most 40 within 64 blocks, the list made again four times a second. */
+	private static final int RADAR_MAX = 40;
+	private static final double RADAR_RANGE = 64;
+	private final net.minecraft.world.entity.LivingEntity[] radarSeen = new net.minecraft.world.entity.LivingEntity[RADAR_MAX];
+	private int radarCount;
+	private long radarAt;
 
 	/**
-	 * The radar: other players (a ring with a dot) and, if wanted, mobs (small dots: warm for hostile ones, cool for the
-	 * rest), from the entities the client already has, where the settings and the server allow. Fainter the further
-	 * above or below the player they are.
+	 * The radar: other players as 14 px face tiles, hostile mobs as 6 px filled squares, the rest as 6 px hollow
+	 * circles, all in the ink (no red: shape tells them apart), fainter the further above or below; from the entities
+	 * the client already has, where the settings and the server allow.
 	 */
 	private void radar(Ui ui, MapRenderer.Frame f, Minecraft mc, LocalPlayer self, double px, double pz) {
 		AtlasSettings settings = this.atlas.settings();
 		boolean players = settings.radarPlayers && this.atlas.radarAllowed(false);
 		boolean mobs = settings.radarMobs && this.atlas.radarAllowed(true);
 		if (!players && !mobs || mc.level == null) {
+			this.radarCount = 0;
 			return;
 		}
 		long t0 = System.nanoTime();
-		int drawn = 0;
-		double py = self.getY();
-		for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
-			if (e == self || e.isInvisible() || !(e instanceof net.minecraft.world.entity.LivingEntity living) || !living.isAlive()) {
-				continue;
+		if (t0 - this.radarAt > 250_000_000L) {
+			this.radarAt = t0;
+			int n = 0;
+			for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+				if (n >= RADAR_MAX) {
+					break;
+				}
+				if (e == self || e.isInvisible() || !(e instanceof net.minecraft.world.entity.LivingEntity living) || !living.isAlive()
+					|| Math.abs(e.getX() - px) > RADAR_RANGE || Math.abs(e.getZ() - pz) > RADAR_RANGE) {
+					continue;
+				}
+				boolean isPlayer = e instanceof net.minecraft.world.entity.player.Player;
+				if (isPlayer ? players : mobs) {
+					this.radarSeen[n++] = living;
+				}
 			}
-			boolean isPlayer = e instanceof net.minecraft.world.entity.player.Player;
-			if (isPlayer ? !players : !mobs) {
+			for (int i = n; i < this.radarCount; i++) {
+				this.radarSeen[i] = null;
+			}
+			this.radarCount = n;
+		}
+		double py = self.getY();
+		for (int i = 0; i < this.radarCount; i++) {
+			var e = this.radarSeen[i];
+			if (e == null || e.isRemoved()) {
 				continue;
 			}
 			float sx = f.screenX(e.getX(), e.getZ());
@@ -184,17 +208,19 @@ public final class MinimapHud {
 				continue;
 			}
 			float alpha = (float) Math.max(0.35, 1 - Math.abs(e.getY() - py) / 40);
-			if (isPlayer) {
-				ui.circle(sx, sy, 4.5F, Theme.alpha(Theme.SHELL, alpha));
-				ui.circle(sx, sy, 3.5F, Theme.ink(0.9F * alpha));
-				ui.circle(sx, sy, 1.6F, Theme.alpha(Theme.SHELL, alpha));
+			if (e instanceof net.minecraft.client.player.AbstractClientPlayer player) {
+				ui.round(sx - 8, sy - 8, 16, 16, 4, Theme.alpha(Theme.SHELL, alpha));
+				ui.border(sx - 8, sy - 8, 16, 16, 4, 0, Theme.alpha(Theme.HAIR_16, alpha));
+				ui.flush();
+				ui.g.pose().pushMatrix();
+				ui.g.pose().translate(sx - 7, sy - 7);
+				net.minecraft.client.gui.components.PlayerFaceExtractor.extractRenderState(ui.g, player.getSkin(), 0, 0, 14);
+				ui.g.pose().popMatrix();
+			} else if (e instanceof net.minecraft.world.entity.monster.Enemy) {
+				ui.round(sx - 4, sy - 4, 8, 8, 1.5F, Theme.alpha(Theme.SHELL, alpha * 0.8F));
+				ui.round(sx - 3, sy - 3, 6, 6, 1, Theme.ink(0.85F * alpha));
 			} else {
-				int colour = e instanceof net.minecraft.world.entity.monster.Enemy ? 0xFFC98F7A : 0xFF8FB8A0;
-				ui.circle(sx, sy, 2.5F, Theme.alpha(Theme.SHELL, alpha * 0.8F));
-				ui.circle(sx, sy, 1.8F, Theme.alpha(colour, alpha));
-			}
-			if (++drawn >= RADAR_MAX) {
-				break;
+				ui.ring(sx, sy, 3, 1.4F, Theme.ink(0.8F * alpha));
 			}
 		}
 		Perf.radar(System.nanoTime() - t0);
@@ -231,6 +257,15 @@ public final class MinimapHud {
 		long day = p.level().getOverworldClockTime() / 24000 + 1;
 		String line = MapPage.minus(p.getBlockX()) + "  ·  " + MapPage.minus(p.getBlockY()) + "  ·  " + MapPage.minus(p.getBlockZ()) + "  ·  DAY " + day;
 		ui.text(ui.fit(line, Ui.Font.F85, 1, w - 24), x + 12, y + 24, Ui.Font.F85, 1, Theme.INK_4);
+		// the quiet note after a server rule: what is off here
+		String off = this.atlas.multiplayer() ? this.atlas.rules().turnedOff() : null;
+		if (off != null) {
+			String note = Character.toUpperCase(off.charAt(0)) + off.substring(1) + " off here";
+			float nw = Math.min(w, 26 + ui.width(note, Ui.Font.F11) + 14);
+			ui.panel(x, y + 48, nw, 24, 12, Theme.ISLAND, Theme.HAIR_8);
+			ui.ring(x + 13, y + 60, 2.5F, 1.1F, Theme.INK_4);
+			ui.text(ui.fit(note, Ui.Font.F11, w - 40), x + 24, y + 53, Ui.Font.F11, Theme.INK_3);
+		}
 	}
 
 	/**

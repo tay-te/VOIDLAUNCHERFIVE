@@ -116,11 +116,13 @@ public final class HudOverlays {
 	}
 
 	public void extract(GuiGraphicsExtractor graphics, DeltaTracker delta) {
+		long c0 = dev.voidmc.atlas.client.Perf.cpuNow();
 		long t0 = System.nanoTime();
 		try {
 			this.extractInner(graphics, delta);
 		} finally {
 			dev.voidmc.atlas.client.Perf.hud(System.nanoTime() - t0);
+			dev.voidmc.atlas.client.Perf.cpu(dev.voidmc.atlas.client.Perf.cpuNow() - c0);
 		}
 	}
 
