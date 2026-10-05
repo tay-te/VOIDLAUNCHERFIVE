@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:blades",
+	"kind": "teaching",
+	"name": {
+		"translate": "mettle.perk.blades.master_strike"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.master_strike.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.blades.master_strike.hint"
+	},
+	"order": 17
+}

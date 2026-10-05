@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:blades",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.blades.cut_and_run"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.cut_and_run.description"
+	},
+	"order": 9
+}

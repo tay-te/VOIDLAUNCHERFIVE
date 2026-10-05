@@ -2,7 +2,12 @@
 	"required": true,
 	"package": "dev.voidmc.mettle.mixin.blades",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"BladesLivingAccess",
+		"BladesLivingEntityMixin",
+		"BladesPiercingWeaponMixin",
+		"BladesPlayerMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

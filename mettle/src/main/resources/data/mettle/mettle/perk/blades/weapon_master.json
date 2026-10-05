@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:blades",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.blades.weapon_master"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.weapon_master.description"
+	},
+	"synergy": {
+		"mettle:blades": 10,
+		"mettle:heavy_weapons": 10
+	},
+	"order": 16
+}

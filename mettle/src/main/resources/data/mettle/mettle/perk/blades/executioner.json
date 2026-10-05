@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:blades",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "b",
+	"name": {
+		"translate": "mettle.perk.blades.executioner"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.executioner.description"
+	},
+	"order": 12
+}

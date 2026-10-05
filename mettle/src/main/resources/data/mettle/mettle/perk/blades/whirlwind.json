@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:blades",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "any",
+	"name": {
+		"translate": "mettle.perk.blades.whirlwind"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.whirlwind.description"
+	},
+	"order": 11
+}

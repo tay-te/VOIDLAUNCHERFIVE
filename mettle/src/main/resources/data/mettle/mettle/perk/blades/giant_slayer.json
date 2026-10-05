@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:blades",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.blades.giant_slayer"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.giant_slayer.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.blades.giant_slayer.hint"
+	},
+	"feat": {
+		"counter": "blades_large_kills",
+		"target": 25
+	},
+	"order": 14
+}

@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:blades",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.blades.sword_and_board"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.sword_and_board.description"
+	},
+	"synergy": {
+		"mettle:blades": 10,
+		"mettle:defense": 10
+	},
+	"order": 15
+}
