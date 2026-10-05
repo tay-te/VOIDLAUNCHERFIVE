@@ -1050,7 +1050,7 @@ public final class MapPage {
 		if (place != null && session != null) {
 			DimensionData d = session.dimensionIfOpen(place.dimension());
 			String id = d == null ? null : d.areas.regionAt(place.x(), place.z());
-			Place r = id == null ? null : session.places.get(id);
+			Place r = id == null ? null : session.places.peek(id);
 			region = r == null ? null : r.name();
 		}
 		// what goes in
@@ -1066,7 +1066,7 @@ public final class MapPage {
 			readouts.add(new MarkerDetail.Readout(minus((int) Math.round(m.y())), "LEVEL"));
 		}
 		if (readouts.size() < 3 && place != null && session != null) {
-			long[] days = session.places.days(place.id());
+			long[] days = session.places.peekDays(place.id());
 			long day = sighted ? days[0] : days[1];
 			if (day > 0) {
 				readouts.add(new MarkerDetail.Readout("Day " + day, sighted ? "SIGHTED" : "FOUND"));
@@ -1140,7 +1140,7 @@ public final class MapPage {
 			if (sighted) {
 				status = "Sighted " + MarkerPainter.distance(distance) + " away  ·  not visited yet";
 			} else {
-				long[] days = session == null ? new long[]{-1, -1} : session.places.days(place.id());
+				long[] days = session == null ? new long[]{-1, -1} : session.places.peekDays(place.id());
 				status = days[1] > 0 ? "Visited on day " + days[1]
 					: place.discovered() != 0 ? "Visited " + DATE.format(Instant.ofEpochMilli(place.discovered())) : "Visited";
 			}

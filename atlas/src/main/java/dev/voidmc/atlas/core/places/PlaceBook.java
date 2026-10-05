@@ -108,6 +108,9 @@ public final class PlaceBook {
 	private volatile long gameDay = -1;
 	private volatile Map<String, List<Place>> visible = Map.of();
 	private volatile long visibleVersion = -1;
+	/** Every place and its days by id, published with {@link #visible}: what the render thread reads, never waiting. */
+	private volatile Map<String, Place> byIdSnapshot = Map.of();
+	private volatile Map<String, long[]> daysSnapshot = Map.of();
 	/** Sightings folded into exact data of the same family (the heuristics were right) and of another (they were not). */
 	private int confirmed;
 	private int contradicted;
@@ -139,6 +142,17 @@ public final class PlaceBook {
 	}
 
 	// --- reading ---------------------------------------------------------------------------------------------------
+
+	/** A place by id as last published: never waits (for the render thread). */
+	public Place peek(String id) {
+		return this.byIdSnapshot.get(id);
+	}
+
+	/** {@link #days} as last published: never waits (for the render thread). */
+	public long[] peekDays(String id) {
+		long[] d = this.daysSnapshot.get(id);
+		return d == null ? new long[]{-1, -1} : d.clone();
+	}
 
 	public synchronized List<Place> all() {
 		List<Place> out = new ArrayList<>(this.entries.size());
@@ -181,13 +195,21 @@ public final class PlaceBook {
 
 	private synchronized Map<String, List<Place>> rebuildVisible() {
 		Map<String, List<Place>> byDim = new HashMap<>();
+		Map<String, Place> byId = new HashMap<>(this.entries.size() * 2);
+		Map<String, long[]> days = new HashMap<>(this.entries.size() * 2);
 		for (Entry e : this.entries.values()) {
+			byId.put(e.place.id(), e.place);
+			if (e.sightedDay >= 0 || e.discoveredDay >= 0) {
+				days.put(e.place.id(), new long[]{e.sightedDay, e.discoveredDay});
+			}
 			if (e.place.state().atLeast(DiscoveryState.SIGHTED)) {
 				byDim.computeIfAbsent(e.place.dimension(), d -> new ArrayList<>()).add(e.place);
 			}
 		}
 		Map<String, List<Place>> frozen = new HashMap<>();
 		byDim.forEach((k, v) -> frozen.put(k, Collections.unmodifiableList(v)));
+		this.byIdSnapshot = byId;
+		this.daysSnapshot = days;
 		this.visible = frozen;
 		this.visibleVersion = this.version;
 		return frozen;

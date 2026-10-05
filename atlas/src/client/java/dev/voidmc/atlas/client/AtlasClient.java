@@ -118,6 +118,8 @@ public final class AtlasClient implements ClientModInitializer {
 	 */
 	public static final boolean BASELINE = Boolean.getBoolean("atlas.baseline");
 
+	private final java.util.concurrent.atomic.AtomicBoolean proximityRunning = new java.util.concurrent.atomic.AtomicBoolean();
+
 	public static AtlasClient get() {
 		return instance;
 	}
@@ -353,20 +355,32 @@ public final class AtlasClient implements ClientModInitializer {
 			if (this.ticks % 40 == 0) {
 				this.discover(mc, p);
 			}
-			if (this.ticks % 10 == 0) {
+			if (this.ticks % 10 == 0 && this.proximityRunning.compareAndSet(false, true)) {
+				// on a worker: the book may be busy with a worker's batch, and the client thread must not wait for it
 				long now = System.currentTimeMillis();
 				int view = mc.options.getEffectiveRenderDistance() * 16;
-				session.places.proximity(dim, p.getX(), p.getEyeY(), p.getZ(), view, now);
+				double x = p.getX();
+				double y = p.getEyeY();
+				double z = p.getZ();
 				DimensionData d = session.dimensionIfOpen(dim);
-				if (d != null) {
-					String region = d.areas.regionAt(p.getBlockX(), p.getBlockZ());
-					if (region != null) {
-						session.places.enter(region, now);
-					}
-					String water = d.areas.waterAt(p.getBlockX(), p.getBlockZ());
-					if (water != null) {
-						session.places.enter(water, now);
-					}
+				String region = d == null ? null : d.areas.regionAt(p.getBlockX(), p.getBlockZ());
+				String water = d == null ? null : d.areas.waterAt(p.getBlockX(), p.getBlockZ());
+				try {
+					session.workers.execute(() -> {
+						try {
+							session.places.proximity(dim, x, y, z, view, now);
+							if (region != null) {
+								session.places.enter(region, now);
+							}
+							if (water != null) {
+								session.places.enter(water, now);
+							}
+						} finally {
+							this.proximityRunning.set(false);
+						}
+					});
+				} catch (RuntimeException e) {
+					this.proximityRunning.set(false);
 				}
 			}
 			if (this.ticks % 20 == 5) {
@@ -509,7 +523,7 @@ public final class AtlasClient implements ClientModInitializer {
 		if (this.session == null || !markerId.startsWith("atlas:place:")) {
 			return null;
 		}
-		return this.session.places.get(markerId.substring("atlas:place:".length()));
+		return this.session.places.peek(markerId.substring("atlas:place:".length()));
 	}
 
 	private void waypointMarkers(MarkerQuery q, Consumer<Marker> out) {
@@ -799,7 +813,7 @@ public final class AtlasClient implements ClientModInitializer {
 		this.regionHereVersion = version;
 		DimensionData d = session.dimensionIfOpen(p.level().dimension().identifier().toString());
 		String id = d == null ? null : d.areas.regionAt(p.getBlockX(), p.getBlockZ());
-		this.regionHere = id == null ? null : session.places.get(id);
+		this.regionHere = id == null ? null : session.places.peek(id);
 		return this.regionHere;
 	}
 
