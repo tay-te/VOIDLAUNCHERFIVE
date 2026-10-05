@@ -84,7 +84,9 @@ public final class MarkerPainter {
 				}
 			}
 		}
-		// every tile claims its square first, so no label covers a tile
+		// every tile claims its square first, so no label covers a tile (the land's names give way to every tile but the
+		// small ones, which a quiet name may pass over)
+		List<float[]> small = new ArrayList<>();
 		for (Marker m : order) {
 			if (m.style() == Marker.Style.LABEL) {
 				continue;
@@ -92,8 +94,9 @@ public final class MarkerPainter {
 			float ax = f.screenX(m.x(), m.z());
 			float ay = f.screenY(m.x(), m.z());
 			if (f.inside(ax, ay)) {
-				float r = (m.tier() == Tier.MAJOR || m.style() != Marker.Style.STRUCTURE ? 13 : 8) * s;
-				taken.add(new float[]{ax - r, ay - r, ax + r, ay + r});
+				boolean minor = m.tier() == Tier.MINOR && m.style() == Marker.Style.STRUCTURE;
+				float r = (minor ? 8 : 13) * s;
+				(minor ? small : taken).add(new float[]{ax - r, ay - r, ax + r, ay + r});
 			}
 		}
 		// tiles and their labels: minors under majors, labels of majors placed before those of minors
@@ -113,7 +116,7 @@ public final class MarkerPainter {
 				float ax = f.screenX(m.x(), m.z());
 				float ay = f.screenY(m.x(), m.z());
 				Chip chip = labelBox(ui, m, ax, ay, s, zoom, force, playerX, playerZ);
-				if (chip != null && free(taken, chip.x0, chip.y0, chip.x1, chip.y1, force)) {
+				if (chip != null && (force || free(small, chip.x0, chip.y0, chip.x1, chip.y1, false, false)) && free(taken, chip.x0, chip.y0, chip.x1, chip.y1, force)) {
 					chips.put(m.id(), chip);
 				}
 			}
@@ -161,6 +164,11 @@ public final class MarkerPainter {
 	}
 
 	private static boolean free(List<float[]> taken, float x0, float y0, float x1, float y1, boolean force) {
+		return free(taken, x0, y0, x1, y1, force, true);
+	}
+
+	/** Whether a box overlaps nothing taken; {@code claim}: take it if so (or if forced). */
+	private static boolean free(List<float[]> taken, float x0, float y0, float x1, float y1, boolean force, boolean claim) {
 		if (!force) {
 			for (float[] r : taken) {
 				if (x0 < r[2] && x1 > r[0] && y0 < r[3] && y1 > r[1]) {
@@ -168,7 +176,9 @@ public final class MarkerPainter {
 				}
 			}
 		}
-		taken.add(new float[]{x0 - 2, y0 - 2, x1 + 2, y1 + 2});
+		if (claim) {
+			taken.add(new float[]{x0 - 2, y0 - 2, x1 + 2, y1 + 2});
+		}
 		return true;
 	}
 
@@ -281,7 +291,16 @@ public final class MarkerPainter {
 		float h = font.size * 1.26F;
 		float x0 = ax - w / 2;
 		float y0 = ay - h / 2;
-		if (!free(taken, x0, y0, x0 + w, y0 + h, false)) {
+		// where it would cover a landmark or a label, a step above or below will do; failing that it gives way
+		boolean placed = false;
+		for (float dy : new float[]{0, -h * 1.4F, h * 1.4F}) {
+			if (free(taken, x0, ay - h / 2 + dy, x0 + w, ay + h / 2 + dy, false)) {
+				y0 = ay - h / 2 + dy;
+				placed = true;
+				break;
+			}
+		}
+		if (!placed) {
 			return null;
 		}
 		ui.text(text, x0, y0, font, tracking, water ? Theme.alpha(WATER_INK, alpha) : Theme.ink(alpha));

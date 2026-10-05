@@ -368,8 +368,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 				left.append("\n- ").append(place.kind()).append(" at ").append(place.x()).append(", ").append(place.y()).append(", ").append(place.z());
 			}
 		}
-		return "Heuristics against exact data: " + p[0] + " sightings confirmed, " + p[1] + " inside another structure, " + leftover
-			+ " structure sightings with no exact structure" + left;
+		return "Heuristics against exact data: " + p[0] + " sightings confirmed, " + p[1] + " inside another structure "
+			+ session.places.contradictions() + ", " + leftover + " structure sightings with no exact structure" + left;
 	}
 
 	/** Surface places: zoomed out with names and "?"s, the legend, a sighted place's card, a discovered place's card. */

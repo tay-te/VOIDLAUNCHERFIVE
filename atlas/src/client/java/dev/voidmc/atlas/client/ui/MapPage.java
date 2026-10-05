@@ -459,7 +459,7 @@ public final class MapPage {
 						if (!d.underground() || Math.abs(d.y() - (band * DimensionData.BAND + DimensionData.BAND / 2)) > 16) {
 							continue;
 						}
-					} else if (Kinds.sighted(d) == wantDiscovered || this.map.kind != MapPanel.Kind.NETHER && d.underground()) {
+					} else if ((wantDiscovered ? !d.isDiscovered() : !Kinds.sighted(d)) || this.map.kind != MapPanel.Kind.NETHER && d.underground()) {
 						continue;
 					}
 					boolean same = d.dimension().equals(here);
@@ -897,7 +897,11 @@ public final class MapPage {
 			}
 			left += "  ·  ONLY CAVES YOU HAVE SEEN ARE DRAWN";
 		} else if (selected != null) {
-			left = selected.name() + "  ·  " + Kinds.of(selected).word + "  ·  " + (Kinds.sighted(selected) ? "NOT VISITED" : "VISITED");
+			String seen = "";
+			if (p != null && selected.dimension().equals(p.level().dimension().identifier().toString())) {
+				seen = "  ·  " + (Kinds.sighted(selected) ? "SIGHTED " : "") + MarkerPainter.distance(selected.distanceTo(p.getX(), p.getZ())) + " AWAY";
+			}
+			left = selected.name() + seen + "  ·  " + (Kinds.sighted(selected) ? "NOT VISITED" : "VISITED");
 		} else {
 			int places = this.placeCount(this.map.kind);
 			int sighted = 0;

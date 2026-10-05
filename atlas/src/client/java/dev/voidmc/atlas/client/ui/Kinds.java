@@ -141,8 +141,12 @@ public final class Kinds {
 		return sighted(p) ? MarkerGlyph.UNKNOWN : of(p).glyph;
 	}
 
+	/**
+	 * Whether a place shows as sighted, a hollow "?": a structure seen and not yet visited. Natural landmarks are never
+	 * a "?" — the map itself shows the peak, the lake, the falls — so they keep their glyph until they are visited.
+	 */
 	public static boolean sighted(Place p) {
-		return p.state() != DiscoveryState.DISCOVERED && !p.isLabel();
+		return p.state() != DiscoveryState.DISCOVERED && !p.isNatural();
 	}
 
 	/**
@@ -150,7 +154,7 @@ public final class Kinds {
 	 * toggle), its kind once it is.
 	 */
 	public static Kind legend(Place p) {
-		return sighted(p) && !p.isNatural() ? Kind.SIGHTED : of(p);
+		return sighted(p) ? Kind.SIGHTED : of(p);
 	}
 
 	/** Whether a place is a major landmark on the map (the design's tiers), whatever its own tier says. */

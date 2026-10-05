@@ -100,7 +100,7 @@ public final class MinimapHud {
 			}
 		}
 		MarkerPainter.paint(ui, f, markers, null, null, true, px, pz, this.zoom);
-		this.edgeMarkers(ui, f, x, y, side, dim, px, pz, underground, ceiling);
+		this.edgeMarkers(ui, f, x, y, side, dim, px, pz, underground, ceiling, rotation);
 		long t3 = System.nanoTime();
 		// waypoints beyond the edge: a small dot on the rim, in the direction to walk
 		var session = this.atlas.session();
@@ -180,7 +180,7 @@ public final class MinimapHud {
 	 * with a three-cell chevron pointing out. The nearest place per direction only.
 	 */
 	private void edgeMarkers(Ui ui, MapRenderer.Frame f, float x, float y, float side, String dim, double px, double pz, boolean underground,
-		boolean ceiling) {
+		boolean ceiling, double rotation) {
 		var session = this.atlas.session();
 		if (session == null) {
 			return;
@@ -216,6 +216,7 @@ public final class MinimapHud {
 		float cx = x + side / 2;
 		float cy = y + side / 2;
 		float reach = side / 2 - 14 - 8;
+		int northOctant = Math.floorMod((int) Math.round((-Math.PI / 2 + rotation) / (Math.PI / 4)), 8);
 		for (int o = 0; o < 8; o++) {
 			Place pl = chosen[o];
 			if (pl == null) {
@@ -227,6 +228,11 @@ public final class MinimapHud {
 			float k = reach / Math.max(Math.abs(dx), Math.abs(dy));
 			float tx = cx + dx * k;
 			float ty = cy + dy * k;
+			if (o == northOctant) {
+				// the north mark sits there: step aside along the rim
+				tx += dy != 0 ? 22 : 0;
+				ty += dx != 0 ? 22 : 0;
+			}
 			boolean isTracked = pl == trackedPlace;
 			if (isTracked) {
 				ui.round(tx - 8, ty - 8, 16, 16, 5, Theme.ISLAND);

@@ -383,7 +383,7 @@ public final class StructureScan {
 	// --- cave mouths -----------------------------------------------------------------------------------------------
 
 	/** How far into the hill an opening must run, roofed, to be a cave mouth and not an overhang. */
-	static final int MOUTH_DEPTH = 4;
+	static final int MOUTH_DEPTH = 6;
 
 	private static boolean earth(int code) {
 		int s = Sig.signal(code);
@@ -430,7 +430,8 @@ public final class StructureScan {
 								break;
 							}
 						}
-						if (at == Integer.MIN_VALUE || c.surface(x, z) < at + 4) {
+						// under the hill: at least five blocks of it over the passage's floor (an overhang is not a cave)
+						if (at == Integer.MIN_VALUE || c.surface(x, z) < at + 6) {
 							break;
 						}
 						floor = at;

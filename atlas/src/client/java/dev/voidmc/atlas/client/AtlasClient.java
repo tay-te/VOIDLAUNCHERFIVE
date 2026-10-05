@@ -670,7 +670,9 @@ public final class AtlasClient implements ClientModInitializer {
 		int cz = (bb.minZ() + bb.maxZ()) / 2;
 		boolean village = registry.wrapAsHolder(structure).is(StructureTags.VILLAGE);
 		int surface = level.getHeight(Heightmap.Types.WORLD_SURFACE, cx, cz);
-		boolean underground = !level.dimensionType().hasCeiling() && bb.maxY() < surface - 4;
+		// underground when its middle lies well under the ground (a mineshaft's bounds may reach a ravine's floor or the
+		// surface, but it is a thing of the deep)
+		boolean underground = !level.dimensionType().hasCeiling() && ((bb.minY() + bb.maxY()) / 2 < surface - 10 || bb.maxY() < surface - 4);
 		double dx = Math.max(Math.max(bb.minX() - px, 0), px - bb.maxX());
 		double dz = Math.max(Math.max(bb.minZ() - pz, 0), pz - bb.maxZ());
 		double dy = Math.max(Math.max(bb.minY() - py, 0), py - bb.maxY());

@@ -37,7 +37,7 @@ public final class RegionAnalysis {
 	public static final int SEA = 63;
 	public static final int PEAK_MIN_HEIGHT = 24;
 	public static final int PEAK_MIN_PROMINENCE = 30;
-	public static final int FALL_MIN_DROP = 6;
+	public static final int FALL_MIN_DROP = 8;
 	public static final int RAVINE_MIN_DEPTH = 14;
 	public static final int RAVINE_SPAN = 6;
 	private static final int PEAK_CELL = 4;

@@ -106,6 +106,7 @@ public final class PlaceBook {
 	/** Sightings folded into exact data of the same family (the heuristics were right) and of another (they were not). */
 	private int confirmed;
 	private int contradicted;
+	private final Map<String, Integer> contradictions = new java.util.TreeMap<>();
 
 	public PlaceBook(Path file, Consumer<String> warn) {
 		this.file = file;
@@ -202,6 +203,11 @@ public final class PlaceBook {
 			}
 		}
 		return out;
+	}
+
+	/** Which sightings exact data contradicted, by kind and the structure they were inside ("minecraft:shipwreck in minecraft:ocean_ruin"). */
+	public synchronized Map<String, Integer> contradictions() {
+		return new java.util.TreeMap<>(this.contradictions);
 	}
 
 	/** How many sightings exact data confirmed (same kind) and contradicted (inside another structure). */
@@ -301,6 +307,10 @@ public final class PlaceBook {
 				continue;
 			}
 			boolean sameFamily = family.equals(o.family);
+			if (!sameFamily && (o.family.equals("atlas:dungeon") || o.family.equals("atlas:geode"))) {
+				// features the game has no structure for: a dungeon inside a mineshaft's bounds is still a dungeon
+				continue;
+			}
 			boolean inside = inBox(box, o.place.x(), o.place.y(), o.place.z(), EXACT_MARGIN);
 			boolean close = sameFamily && Math.hypot(o.place.x() - cx, o.place.z() - cz) <= mergeRadius(family);
 			if (inside || close) {
@@ -308,6 +318,7 @@ public final class PlaceBook {
 					this.confirmed++;
 				} else {
 					this.contradicted++;
+					this.contradictions.merge(o.family + " in " + family, 1, Integer::sum);
 				}
 				carried = DiscoveryState.max(carried, o.place.state());
 				sighted = sighted == 0 ? o.place.sighted() : o.place.sighted() == 0 ? sighted : Math.min(sighted, o.place.sighted());
