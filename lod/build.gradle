@@ -137,7 +137,7 @@ tasks.register('lodBench', JavaExec) {
 	jvmArgs '-Xmx3g'
 	args = [project.findProperty('seed') ?: '8675309']
 	// -Pvoid.lod.smoothFrom=99, -Plod.bench.detail=4, -Plod.bench.trees=true
-	['void.lod.smoothFrom', 'lod.bench.detail', 'lod.bench.trees', 'lod.bench.faces', 'lod.bench.light'].each { key ->
+	['void.lod.smoothFrom', 'lod.bench.detail', 'lod.bench.trees', 'lod.bench.faces', 'lod.bench.light', 'lod.bench.radii'].each { key ->
 		if (project.hasProperty(key)) {
 			systemProperty key, project.property(key).toString()
 		}

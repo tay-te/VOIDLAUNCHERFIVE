@@ -52,7 +52,10 @@ public final class LodBench {
 		};
 		double camX = 0, camY = 120, camZ = 0;
 		double detail = Double.parseDouble(System.getProperty("lod.bench.detail", "5"));
-		for (double radius : new double[]{4096, 8192, 16384}) {
+		// -Plod.bench.radii=8192,16384,32768 picks the radii
+		double[] radii = java.util.Arrays.stream(System.getProperty("lod.bench.radii", "4096,8192,16384").split(","))
+			.mapToDouble(Double::parseDouble).toArray();
+		for (double radius : radii) {
 			LodSelector.Store all = new LodSelector.Store() {
 				@Override
 				public boolean ready(long key) {
