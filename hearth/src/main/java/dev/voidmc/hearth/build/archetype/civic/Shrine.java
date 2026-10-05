@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BellAttachType;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
@@ -126,6 +127,18 @@ public final class Shrine implements Archetype {
 			return;
 		}
 		Mat path = d.mat(Role.PATH);
+		// the way to the prayer spot through any parapet the levelling raised on a bank (a river's edge)
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int zz = 0; zz < z; zz++) {
+				BlockState at = d.get(x, y, zz);
+				if (at != null && !at.isAir() && at.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE,
+					net.minecraft.core.BlockPos.ZERO)) {
+					d.set(x, y, zz, Blocks.AIR.defaultBlockState());
+					d.set(x, y + 1, zz, Blocks.AIR.defaultBlockState());
+					d.set(x, y - 1, zz, path.full());
+				}
+			}
+		}
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int zz = 0; zz <= z; zz++) {
 				if (Groundwork.surface(d, x, zz) == 0 && d.isEmpty(x, 0, zz) && d.isEmpty(x, 1, zz) && !d.site().isWater(x, zz)) {

@@ -243,6 +243,8 @@ final class Precinct {
 	Range far;
 	Range near;
 	final Set<Long> keep = new HashSet<>();
+	/** The apex row of the gable over the gate (where a bell-cote can stand), or MIN_VALUE. */
+	int gateApex = Integer.MIN_VALUE;
 	/** A gable over the gate on the street face (off where a tower stands there). */
 	boolean gateGable = true;
 	/** Sickbeds registered, and the feet of the other beds (for a sickbed where no infirmary had room). */
@@ -1000,6 +1002,12 @@ final class Precinct {
 		}
 		Roofs.Built b = plan.draw(this.d);
 		this.roof = b.roof();
+		if (this.gateGable && main == this.front && this.front.gate != Integer.MIN_VALUE && !this.rite.curved() && p >= 1.0) {
+			int apex = this.roof.surfaceY(this.front.gate, this.front.z0);
+			if (apex != Integer.MIN_VALUE && apex + 5 <= this.top) {
+				this.gateApex = apex;
+			}
+		}
 		// chimneys: the kitchen's and the brewhouse's stacks up the outer wall through the eaves
 		for (Range r : this.ranges) {
 			for (Room room : r.rooms.get(0)) {
@@ -1306,7 +1314,19 @@ final class Precinct {
 		if (x1 - x0 >= 8 && z1 - z0 >= 8) {
 			int tx = cx + (x1 - cx) / 2 + 1;
 			int tz = cz + (z1 - cz) / 2 + 1;
-			Garden.tree(this.d, tx, 0, tz, Math.min(5, this.plate));
+			int th = Math.min(5, this.plate);
+			// the levelling left air over the garth: free those cells so the crown can take them
+			for (int y = th - 2; y <= th + 1; y++) {
+				for (int dz = -2; dz <= 2; dz++) {
+					for (int dx = -2; dx <= 2; dx++) {
+						BlockState st = this.d.get(tx + dx, y, tz + dz);
+						if (st != null && st.isAir()) {
+							this.d.remove(tx + dx, y, tz + dz);
+						}
+					}
+				}
+			}
+			Garden.tree(this.d, tx, 0, tz, th);
 		}
 	}
 

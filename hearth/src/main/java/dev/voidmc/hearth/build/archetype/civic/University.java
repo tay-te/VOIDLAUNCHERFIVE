@@ -134,14 +134,29 @@ public final class University implements Archetype {
 		if (d.style().culture() == dev.voidmc.hearth.api.Culture.TUNDRA) {
 			cap = Towers.Cap.ONION;
 		}
-		int capRoom = cap == Towers.Cap.SPIRE ? 8 : cap == Towers.Cap.ONION ? 6 : 4;
+		// the belfry clear of the roofs, the cap taking what height is left (it flattens to fit)
 		int bh = 4;
-		int yb = Math.max(ridge + 2, plate + 4);
-		if (yb + bh + capRoom > top) {
-			yb = Math.max(plate + 2, top - bh - capRoom);
+		int yb = Math.max(ridge + 1, plate + 4);
+		if (yb + bh + 3 > top) {
+			bh = Math.max(3, top - 3 - yb);
 		}
-		if (yb + bh + 2 > top) {
-			bh = Math.max(3, top - 2 - yb);
+		if (yb + bh + 3 > top) {
+			yb = Math.max(plate + 2, top - 3 - bh);
+		}
+		// the tower reads from the ground: dressed quoins up its front corners, toothed out into the range's wall
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int y = 0; y <= plate; y++) {
+				d.set(x0, y, z0, dress.full());
+				d.set(x1, y, z0, dress.full());
+				if ((y & 1) == 0) {
+					if (dev.voidmc.hearth.build.kit.Openings.isWallBlock(d, x0 - 1, y, z0)) {
+						d.set(x0 - 1, y, z0, dress.full());
+					}
+					if (dev.voidmc.hearth.build.kit.Openings.isWallBlock(d, x1 + 1, y, z0)) {
+						d.set(x1 + 1, y, z0, dress.full());
+					}
+				}
+			}
 		}
 		try (var s = d.stage(StageKind.WALLS)) {
 			for (int[] c : dev.voidmc.hearth.build.draft.Draft.ring(x0, z0, x1, z1)) {

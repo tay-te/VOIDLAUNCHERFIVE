@@ -95,28 +95,36 @@ final class PrecinctChurch {
 				: new double[]{Math.max(0.5, Math.min(1.0, r.pitch)), 0.5};
 			hn = -1;
 			pitch = 0.5;
-			// a turret only on a church that still rises well over the ranges; else as tall as the bell-cote allows
-			for (int pass = 0; pass < 3 && hn < 0; pass++) {
-				int budget = pass == 0 ? top - 7 : pass == 1 ? top - 5 : top - 1;
-				int least = pass < 2 ? rangeTop + 3 : 0;
-				turret = pass == 0 && turret;
-				if (pass == 0 && !turret) {
+			// the best of the shapes the plot's height allows: the church rising well over the ranges counts most, a steep
+			// Gothic roof in the timber lands and a turret on the ridge count for something; with no room for a bell on the
+			// church's own gable, the gate's gable carries the cote
+			double best = Double.NEGATIVE_INFINITY;
+			boolean wantTurret = turret;
+			boolean bestTurret = false;
+			for (int pass = 0; pass < 3; pass++) {
+				boolean tur = pass == 0;
+				if (tur && !wantTurret) {
 					continue;
 				}
+				int budget = pass == 0 ? top - 7 : pass == 1 ? (p.gateApex != Integer.MIN_VALUE ? top - 1 : top - 5) : top - 1;
 				for (double pt : pitches) {
 					for (int h = Math.min(13, p.plate + 6); h >= Math.max(6, Math.min(p.plate + 2, 9)); h--) {
 						double ridge = h - 1 + 1 + pt * run;
-						if (ridge <= budget && ridge >= least) {
+						if (ridge > budget) {
+							continue;
+						}
+						double score = ridge - rangeTop + (tur ? 3 : 0) + (pt >= 2 ? 2 : 0) - (pass == 2 ? 4 : 0);
+						if (score > best) {
+							best = score;
 							hn = h;
 							pitch = pt;
-							break;
+							bestTurret = tur;
 						}
-					}
-					if (hn > 0) {
 						break;
 					}
 				}
 			}
+			turret = bestTurret;
 			if (hn < 0) {
 				hn = 6;
 				pitch = 0.5;
@@ -283,8 +291,12 @@ final class PrecinctChurch {
 				skyline = Math.max(skyline, ChapelWestern.turret(d, t, cx, zN0 + 1, plate, ridge, maxH));
 			} else {
 				int apex = roof.surfaceY(cx, zN0);
-				if (apex != Integer.MIN_VALUE) {
+				if (apex != Integer.MIN_VALUE && apex + 5 <= top) {
 					skyline = Math.max(skyline, Towers.bellCote(d, front, front.index(cx), apex, maxH));
+				} else if (p.gateApex != Integer.MIN_VALUE) {
+					// the bell rings from a cote on the gate's gable
+					Side gf = p.front.outerSide(p.storeys() - 1);
+					skyline = Math.max(skyline, Towers.bellCote(d, gf, gf.index(p.front.gate), p.gateApex, maxH));
 				}
 			}
 		}
