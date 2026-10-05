@@ -191,8 +191,17 @@ public final class DeepMarket implements Archetype {
 				// the outer wall
 				int ox = alongZ ? outer : u;
 				int oz = alongZ ? u : outer;
+				// pilasters of the dressing behind the arcade's piers, a window high in each bay where the wall stands free
+				int kk = Math.floorMod(u - (alongZ ? b0 : a0), 3);
+				int outX = alongZ ? ox + Integer.signum(outer - line) : ox;
+				int outZ = alongZ ? oz : oz + Integer.signum(outer - line);
+				boolean free = d.site().ground(outX, outZ) <= 1;
 				for (int y = -1; y < eave; y++) {
-					d.set(ox, y, oz, y == -1 ? plinth.full() : y <= 1 ? rough.full() : wall.full());
+					Paint pt = y == -1 ? plinth.full() : kk == 0 ? dress.full() : y <= 1 ? rough.full() : wall.full();
+					if (kk == 1 && free && (y == 2 || y == 3) && u != (alongZ ? b0 : a0) + 1) {
+						pt = d.mat(Role.GLASS).pane();
+					}
+					d.set(ox, y, oz, pt);
 				}
 				// the arcade line: a pier every third cell, arches between
 				int lx = alongZ ? line : u;

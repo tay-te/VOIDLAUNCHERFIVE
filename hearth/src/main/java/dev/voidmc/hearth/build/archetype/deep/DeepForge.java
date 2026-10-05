@@ -180,6 +180,7 @@ public final class DeepForge implements Archetype {
 			d.set(fx + 1, 1, zb - 1, Blocks.LAVA_CAULDRON.defaultBlockState());
 		}
 		d.poi(PoiType.JOB_SITE, fx, 0, zb - 2, Dirs.BACK, JobType.SMELTER);
+		d.poi(PoiType.JOB_SITE, fx + 1, 0, zb - 2, Dirs.BACK, JobType.SMELTER);
 		Forge.stack(d, new int[][]{{fx, zb}, {fx + 1, zb}, {fx, zb - 1}, {fx + 1, zb - 1}}, 3, h - 1, roof);
 		// the smith's place: anvils, the smithing table (his job site), a grindstone, the quench trough
 		int sz = zf + 2;
@@ -190,6 +191,8 @@ public final class DeepForge implements Archetype {
 			d.set(w - 2, 0, sz + 2, States.attached(Blocks.GRINDSTONE, AttachFace.FLOOR, Dirs.FRONT));
 		}
 		Furniture.workstation(d, JobType.SMITH, w - 2, 0, sz + 1, Dirs.LEFT);
+		// the striker's place between the anvils
+		d.poi(PoiType.JOB_SITE, cx, 0, sz + 1, Dirs.RIGHT, JobType.SMITH);
 		// ore in bins along the left wall, the rail line in from the street to them
 		ore(d, 1, zf + 1, vz - 2, g);
 		rails(d, 2, 0, Math.max(zf + 2, vz - 3));

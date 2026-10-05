@@ -174,8 +174,30 @@ public final class DeepDwelling implements Archetype {
 		chimney(d, p);
 		interior(d, p);
 		life(d, p);
+		cut(d, p);
 		if (!stacked) {
 			Groundwork.clear(d, 0, 0, p.w - 1, p.dp - 1, Math.min(d.maxHeight() - 1, p.deck + 3));
+		}
+	}
+
+	/**
+	 * Where the house is cut into the realm's wall, the rock left standing round it is cut back: the forecourt and the
+	 * stair open to their headroom, the roof terrace a ledge hewn into the rock (where a dwelling stacked on this one
+	 * stands, and folk walk to its door).
+	 */
+	private static void cut(Draft d, Plan p) {
+		int top = Math.min(d.maxHeight() - 1, p.deck + 3);
+		try (var s = d.stage(StageKind.EARTHWORK)) {
+			for (int z = 0; z <= p.zb; z++) {
+				for (int x = 0; x < p.w; x++) {
+					int g = d.site().ground(x, z);
+					for (int y = 0; y <= top && y < g; y++) {
+						if (d.isAbsent(x, y, z)) {
+							d.set(x, y, z, Blocks.AIR.defaultBlockState());
+						}
+					}
+				}
+			}
 		}
 	}
 

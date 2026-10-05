@@ -1,0 +1,167 @@
+# Deep buildings: towns in the realms
+
+The deep architect's archetypes: the six buildings of a town on a realm's floor (LIVING_WORLD.md §8.2, §8.5),
+registered in `build/archetype/DeepArchetypes.java`. Classes live in `build/archetype/deep/`, the deep kit in
+`build/kit/deep/`, names in `assets/hearth/lang/en_us/build_deep.json`. Tests beyond the shared invariants:
+`src/test/java/dev/voidmc/hearth/build/deep/DeepArchetypesTest.java`. Previews: `docs/buildings/deep_preview.gradle`
+(`deepPreview` for single buildings on a synthetic realm, `deepTown` for a street); classes
+`gametest/deep/DeepPreview`, `DeepTown`, `DeepScene`.
+
+A deep town is the mining town gone underground: when a settlement's mine breaks into a realm the planner
+(`plan/deep/DeepTown`) sinks a lift from the street to the realm's floor, lays a little square at its foot with the
+hall on it, runs streets along the foot of the realm's wall and out across the floor, and fills them with dwellings cut
+into the wall, a forge, a market and glow gardens. The look is the Bohemian silver town (Kutná Hora, Jihlava, Telč)
+carried below: arcades (*loubí*) under jettied upper storeys, steep halls with towers, copper gone green in the damp,
+and — the one licence the surface never gets — the realm's own glow set in the stone and grown in the planters.
+
+## How the deep town reads its realm
+
+- **`origin.y` is the realm's floor** where the plot meets its street; `realm` (the `UndergroundProbe.Realm` id) marks a
+  deep plot. The terrain probe should be the realm's floor as the planner sees it (`plan/deep/RealmTerrain`: where the
+  realm's wall stands, the rock rises as ground to the vault). If a caller hands a deep plot the surface's probe instead
+  (the ground along the plot's front six or more over its floor), `DeepSite.probeFor` swaps in a flat floor at the plot's
+  level through `Archetype.terrain` (a small default method added to the shared interface), so the building stands on
+  its floor instead of digging for the sky.
+- **`ceiling_y`** (world y, the underside of the vault over the plot, the lowest over its footprint): nothing is built
+  into it. Every deep building keeps one clear of it (`DeepSite.top()`); the hall's towers and the market's pavilions
+  shorten, a dwelling loses its upper storey and becomes a one-room house under a pent. Absent: only the plot's height
+  limits. **Requested from the planner** (`docs/requests/b-deep.md`).
+- **`character`** (the realm's character as Expanse's underground probe names it: `wilds`, `lush`, `dripstone`,
+  `crystal`, `ember`, `mere`, `frozen`, `roots`, `fossil`, `tidal`, `amber`, `brimstone`) picks the realm's glow
+  (`Glow`): the lamp heads, the accent set in the stone, the soil and plants of the planters and beds. Absent: read
+  from the `local` light the planner gives deep plots, else the glowcap wilds.
+- **`local`**: the realm's rock and glow (`Materials.realm`), preferred where the deep region's habits allow.
+- **The rock round a plot.** Dwellings stand with their backs cut into the rubble at the wall's foot or into the wall
+  itself; the forecourt, the stair and the roof terrace are cut back out of the rock (`DeepDwelling.cut`), so a terrace
+  is a ledge hewn into the wall, where a dwelling stacked on it stands.
+
+**Light.** Every walkable room cell is at block light ≥ 8 and none at 0, and outside every entrance ≥ 8
+(`BlueprintInvariantsTest`), counted on vanilla light only: Expanse's glowing blocks fall back to stand-ins outside
+the game and glow differently, so they are the accent, never what the rule counts on (`Glow` javadoc). In the game a
+realm has no sky light: the previews' lit renders seal the vault and show the town by its own light.
+
+**Style.** The `deep` region (`hearth_style/region/deep.json`, owned by refine) dresses every culture's deep town in
+deepslate, tuff and copper; what keeps a Bohemian deep town from a karst one is how the culture shapes that stone and
+the timber it brings down (`DeepManner`): pointed or round arches, galleries, oriels, lattice screens, the hall's roof
+(steep, gable, flared, hip, dome, flat), its own doors, shutters, floors, railings and furniture, and its own finish
+for the upper storeys it raises on the realm's stone (`DeepManner.home`: the lime plaster and timber of Bohemia, the
+sandstone render of the desert, bamboo boards in the karst). Copper roofs weather in patches by noise (`Rock.copper`).
+
+## The catalogue
+
+| id | frontage × depth | height | jobs | beds | tier | flags | max |
+|---|---|---|---|---|---|---|---|
+| `deep/hall` | 15–23 × 17–27 | 12–20 | REEVE | — | village | | 1 |
+| `deep/dwelling` | 7–11 × 7–11 | 7–11 | — | 4 (4–6) | village | HILLSIDE, STACKABLE, ATTACHABLE | |
+| `deep/market` | 11–17 × 11–17 | 8–12 | MERCHANT | — | village | CENTRAL | 1 |
+| `deep/forge` | 9–13 × 9–13 | 8–14 | SMITH, SMELTER | — | village | | |
+| `deep/glow_garden` | 11–19 × 11–19 | 6–9 | FARMER | — | village | | |
+| `deep/lift` | 9–11 × 9–11 | 12–320 | HAULER | — | village | VERTICAL | 2 |
+
+All are `UNDERGROUND`, any culture. Measured over 28 plots each (14 cultures × the realm's open floor and the foot of
+its wall, the planner's params, the lift 64 deep): the largest single stage asks for 1,569 goods (the hall's walls),
+the lift's shaft 1,436; whole buildings average 2,600 (hall), 2,300 (lift), 920 (market), 640 (dwelling), 600 (forge,
+garden). Every building passes the shared invariants on the six surface terrains (built by hand, no realm) and on the
+four realm grounds (`floor`, `rubble`, `wall`, `ledge`; the lift on the open floor the planner stands it on).
+
+## Archetypes
+
+### `deep/hall` (DeepHall.java)
+The moot hall where the reeve sits: a basilica of the realm's stone. A tall nave on tie beams under a roof by the
+culture, lower aisles under copper lean-tos, an arcade of dressed piers between them, a clerestory over the aisle roofs,
+buttresses down the sides; at the front two towers (a stair of slabs to a lookout in the broader halls) and between
+them a frontispiece standing proud — a deep arched porch, a carved tympanum with the realm's glow at its heart, a rose
+window in a gable of the culture's own finish. Domed halls (desert, steppe) stand their dome on a drum over a flat
+deck behind a parapet. Inside: a runner from the doors to the dais, the reeve's high table, his chair and lectern on
+it, the town chest beside him, long tables and benches down the nave, a great hearth in an aisle with its stack
+through the lean-to, chests and shelves of the town's records, wheels of lanterns from the tie beams, sconces on the
+piers. A notice board by the porch where there is room.
+**POIs:** DOOR, MEETING_POINT (the nave), JOB_SITE REEVE + LECTERN (the lectern), TABLE ×2–3, SEAT ×4–29, THRONE (the
+reeve's chair), STRONGBOX (the town chest), STORAGE ×2–3 (record chests), HEARTH, VIEWPOINT ×2 (the towers' lookouts),
+NOTICE_BOARD (some). **Params:** `realm`, `ceiling_y`, `character`, `local`, `variant`.
+
+### `deep/dwelling` (DeepDwelling.java)
+A miner's house built the way the silver towns built theirs: a ground storey of rough-cut stone, and over it, on stone
+piers and arches that make a covered arcade along the street (*loubí*), a jettied upper storey — timber-framed with the
+culture's own infill in the timber traditions, dressed stone in the south's. A cornice and a parapet close a flat roof
+terrace at the top of the plot's height. In front runs the house's stair, a flight of the realm's stone on its own
+soffit, rising past the arcade to the upper door and on to the terrace (a ladder on up the front where the frontage is
+too short). An arched street door with a fanlight and a keystone of the realm's glow; framed windows; planters of the
+realm's plants; glow lichen in the damp corners, glow berries hanging from the cornice; a chimney pot smoking on the
+terrace. Lower houses keep their piers to the cornice and wear a pent roof or a timber oriel; under a low vault the
+house becomes one room. Inside: the hearth and table below, beds above, the household's tools on a shelf (picks for a
+miner). Where the ground rises behind, the back is cut into it and the rock round the forecourt and terrace is cut
+back.
+**POIs:** DOOR ×2 (street and upper door), BED ×4–6, HEARTH, TABLE, SEAT, STORAGE ×1–5.
+**Params:** `stacked` (with `stacked_on`, `level`: the front rows stand on the terrace below; nothing is founded through
+it), `party_left`, `party_right` (no windows, no parapet over a shared wall), `station`, `household` (`job`),
+`realm`, `ceiling_y`, `character`, `local`, `variant`. The terrace's standing level is the plot's height minus one, so a
+dwelling stacked on it (floor at `floorY + maxHeight`) stands one step up from it.
+
+### `deep/market` (DeepMarket.java)
+A paved court open to the street, closed on its other three sides by arcaded wings of stalls: dressed piers and arches,
+a counter in every bay (a barrel of stock and a slab of the furniture's wood) with the merchant behind it, a cloth
+awning out over the court, wares by stall (the deep's own glow berries, mushrooms, ore, iron and the realm's minerals,
+and what comes down the lift: bread, wool, candles). The outer walls have pilasters behind the piers and a window high
+in each bay. The wings are roofed in the culture's own covering; at the back corners two pavilions rise over them under
+copper pyramid roofs with a glow at the finial. In the court a lantern tree — a stone pillar with iron arms hung with
+lanterns over a basin or benches — and festoons of lanterns on chains strung across the court. The merchants' doors go
+through the first pier of each side wing, into the walk behind the counters.
+**POIs:** COUNTER, MARKET_STALL, JOB_SITE MERCHANT and STORAGE ×7–10 (one of each per stall), DOOR ×2, MEETING_POINT,
+SEAT ×4. **Params:** `realm`, `ceiling_y`, `character`, `local`, `variant`.
+
+### `deep/forge` (DeepForge.java)
+The deep town's forge on a vent of the realm's fire: a smithy hall of soot-dark rough stone open to the street under a
+great timber beam on corbels. Set in the floor at a back corner a pool of lava rimmed with magma and fenced with iron
+bars; against the back wall the smelting furnace — blast furnaces between stone cheeks under a hood, a lava crucible,
+its broad stack through the roof; down the hall the anvils, the smithing table, a grindstone and the quench trough; ore
+heaped in bins along the side wall with a rail line running in to them from the street; a chest, tools on a shelf. A
+gable roof with a louvre along its ridge, tie beams with lanterns.
+**POIs:** DOOR, JOB_SITE SMITH ×2 (smithing table, the striker's place between the anvils), JOB_SITE SMELTER ×2 (the
+furnace), STORAGE. **Params:** `realm`, `ceiling_y`, `character`, `local`, `variant`.
+
+### `deep/glow_garden` (GlowGarden.java)
+Where the deep grows its food under the vault: a low wall of the realm's stone, a gate to the street, four raised beds
+of the realm's soil in dressed kerbs with a rill down each, planted in rows with the realm's glowcaps and mushrooms
+(azalea and ferns in the lush realms, crimson roots in the ember realms); down the main walk a timber pergola dripping
+with glow berries; at the crossing a giant mushroom over benches (a lamp post under a low vault); lamp posts of the
+realm's glow at the corners; a potting shed in a back corner (on larger plots) with the composter, a chest and a lantern,
+else the composter and chest at the head of the main walk.
+**POIs:** GATE, DOOR (the shed), JOB_SITE FARMER (composter), STORAGE, SEAT ×2–4. **Params:** `realm`, `ceiling_y`,
+`character`, `local`, `variant`.
+
+### `deep/lift` (DeepLift.java)
+The shaft that joins a surface town to its deep town — the link that makes the deep reachable. A seven-wide stone
+shaft from the realm's floor to the street. Inside, a stair climbs round and round an open lightwell, a step a cell, a
+rail post on the well's side of every step; down the well hangs the hoist's chain with a lantern every six blocks, from
+the winding beam at the head to the cage at the foot. In the realm the shaft stands as a tower on a stepped plinth, slit
+windows up its faces, string courses every eight blocks with lanterns on brackets, and meets the vault on a ring of
+corbels; above the vault it is a lined shaft through the rock. At the head the winding house on the street — the
+surface town's own walls and roof — with a timber headframe and its sheave through the roof, a paved yard with lamps.
+Built by hand (no `top_y`): a pit-head over a shaft sunk `depth` (default 24) to a landing chamber.
+**POIs:** DOOR ×2 (the street and the deep square), JOB_SITE HAULER ×2 (the windlass at the head, the cage at the
+foot), STORAGE, SEAT. **Params** (the planner's): `top_y`/`street_y` (the street at the head), `bottom_y` (= `origin.y`),
+`deep_street_y` (the deep square at the lower door), `deep_facing` (world direction of the lower door; default the
+plot's facing), `ceiling_y` (where the tower meets the rock; default sixteen under the street), `character`, `local`,
+`realm`; without `top_y`: `depth`. The main entrance is the door on the level the caller's probe reads (the realm's
+floor or the street).
+
+## The kit (`build/kit/deep/`)
+
+- `DeepSite`: the realm a plot stands in (`ceiling_y`, `character`, `top()`), the surface-probe fallback (`probeFor`).
+- `DeepTerrain`: synthetic realm ground for tests and previews (`floor`, `rubble`, `wall`, `ledge`) and its vault
+  (`ceilingY`, `ceilingOver`).
+- `DeepManner`: what each culture keeps underground (arches, galleries, oriels, lattices, hall roof) and its own
+  finish (`home`).
+- `Glow`: the realm's lamp, accent, mineral, soil and plants; glow-berry vines.
+- `Rock`: the masonry vocabulary — dressing, piers with capitals, arched door heads with a glowing keystone, framed and
+  arched windows, parapets, planters, lamp posts, benches, copper sheathing weathered by noise.
+
+## What is weak (next passes)
+
+- The dwellings differ between cultures mostly by materials and the upper storey's finish; the karst's galleries and
+  lattices and the desert's screens read only at close range.
+- The hall is one plan (towers, nave, aisles) in every culture; the roof changes but the silhouette is always a
+  basilica. A karst hall should be a raised timber hall on a terrace, a northern one a stave hall.
+- The glow garden's pergola and mushroom are small on the minimum plots; the market's court is narrow at 11 wide.
+- The lift's tower is a plain shaft between its string courses: it could carry a gallery at the vault or buttresses.

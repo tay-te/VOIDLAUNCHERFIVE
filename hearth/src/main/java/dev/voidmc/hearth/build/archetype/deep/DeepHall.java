@@ -665,6 +665,7 @@ public final class DeepHall implements Archetype {
 				d.set(c, 1, tz + 1, furniture.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
 			}
 			d.poi(PoiType.SEAT, c, 1, tz + 1, Dirs.FRONT);
+			d.poi(PoiType.THRONE, c, 1, tz + 1, Dirs.FRONT);
 		}
 		// the reeve's lectern beside the table, where he keeps the town's book
 		int lx = c + th + 1 < p.xb ? c + th + 1 : c - th - 1;
@@ -673,6 +674,15 @@ public final class DeepHall implements Archetype {
 		}
 		d.poi(PoiType.JOB_SITE, lx, 1, tz - 1, Dirs.BACK, JobType.REEVE);
 		d.poi(PoiType.LECTERN, lx, 1, tz - 1, Dirs.BACK);
+		// the town chest on the dais beside the reeve's chair: the deep's dues and the miners' tallies
+		int ox = lx > c ? c - th - 1 : c + th + 1;
+		if (tz + 1 < p.zb && ox > p.xa && ox < p.xb) {
+			try (var s = d.stage(StageKind.INTERIOR)) {
+				d.set(ox, 1, tz + 1, States.facing(Blocks.CHEST, Dirs.FRONT), BlockEntities.container(List.of(new Object[]{"minecraft:gold_ingot", 6},
+					new Object[]{"minecraft:raw_gold", 9}, new Object[]{"minecraft:emerald", 4}, new Object[]{"minecraft:paper", 8})));
+			}
+			d.poi(PoiType.STRONGBOX, ox, 1, tz, Dirs.BACK);
+		}
 		Lighting.candles(d, c - th, 2, tz, 3);
 		Lighting.candles(d, c + th, 2, tz, 2);
 		// banners of the house's cloth behind the dais

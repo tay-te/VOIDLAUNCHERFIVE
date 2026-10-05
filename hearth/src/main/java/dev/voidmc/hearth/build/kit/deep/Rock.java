@@ -293,13 +293,21 @@ public final class Rock {
 				}
 			}
 		}
-		String w = weathering.isEmpty() ? "" : weathering + "_";
-		Block full = States.block("minecraft:waxed_" + w + "cut_copper", Blocks.AIR);
-		Block stairs = States.block("minecraft:waxed_" + w + "cut_copper_stairs", Blocks.AIR);
-		Block slab = States.block("minecraft:waxed_" + w + "cut_copper_slab", Blocks.AIR);
-		if (full == Blocks.AIR || stairs == Blocks.AIR || slab == Blocks.AIR) {
-			return;
+		// copper weathers in patches: the roof's own stage, streaks a stage on where the drip runs
+		String[] stages = {"", "exposed", "weathered", "oxidized"};
+		int k = Math.max(0, java.util.Arrays.asList(stages).indexOf(weathering));
+		Block[][] forms = new Block[stages.length][];
+		for (int i = 0; i < stages.length; i++) {
+			String w = stages[i].isEmpty() ? "" : stages[i] + "_";
+			forms[i] = new Block[]{States.block("minecraft:waxed_" + w + "cut_copper", Blocks.AIR), States.block("minecraft:waxed_" + w + "cut_copper_stairs",
+				Blocks.AIR), States.block("minecraft:waxed_" + w + "cut_copper_slab", Blocks.AIR)};
+			for (Block b : forms[i]) {
+				if (b == Blocks.AIR) {
+					return;
+				}
+			}
 		}
+		long seed = Noise.hash(d.seed(), 0xC0BB);
 		for (int y = y0; y <= y1; y++) {
 			for (int z = z0; z <= z1; z++) {
 				for (int x = x0; x <= x1; x++) {
@@ -307,6 +315,13 @@ public final class Rock {
 					if (s == null || !mine.contains(s.getBlock())) {
 						continue;
 					}
+					double u = Noise.value(seed, x / 3.0, y / 2.0, z / 3.0) + 0.25 * (Noise.unit(seed, x, y, z) - 0.5);
+					// streaks a stage further on; a fully green roof keeps patches of the weathered stage (never back to the
+					// bright metal, which reads as rust spots)
+					int stage = Math.clamp(k + (u > 0.68 ? 1 : u < 0.3 && k == 3 ? -1 : 0), 0, stages.length - 1);
+					Block full = forms[stage][0];
+					Block stairs = forms[stage][1];
+					Block slab = forms[stage][2];
 					BlockState n;
 					if (s.getBlock() instanceof net.minecraft.world.level.block.StairBlock) {
 						n = stairs.withPropertiesOf(s);
