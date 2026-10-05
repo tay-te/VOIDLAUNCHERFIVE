@@ -69,8 +69,13 @@ Food eaten: adult 2, child 1, elder 1.5 a day. Fractions carry over between slic
 (`SimContext.economyHandlesWages`), so a town is not paid twice. Histories fire no events and keep the clock's coin;
 adoption trims an adopted town's treasury to 60 bits a head when the economy runs. **Trade** keeps a town from stalling forever on goods it cannot make: what the
 stores cannot hold is sold to passing traders at `export_share` (0.1) of its price; a stalled stage buys what it lacks
-(`import_per_day`, 96 units of each) at `import_markup` (1.5) × price, with coin first, then by bartering whatever
-overflows the stores at half value. Deliberately slow and dear: a player bringing the goods is faster. Phase 3 adds
+(`import_per_day`, 96 units of each) at `import_markup` (1.5) × price, with coin first, then by **bartering what the town
+has in plenty** at half value: whatever it holds beyond what every waiting or unstarted stage wants and a fortnight's
+eating of each thing it eats (w6; it used to keep a fifth of its store room, which in a village with a storehouse is two
+thousand of everything, so a granary of grain sat unbartered while a house waited a month for a dozen bolts of cloth).
+A young town's coin is a few bits a worker a day; its grain, logs and stone are what pay for its glass, iron and cloth.
+The sim's imports run in the day's business before the economy's books (`DAY_PASSED`), so wages never take the coin a
+stalled build was waiting for. Deliberately slow and dear: a player bringing the goods is faster. Phase 3 adds
 the necessities (a town down to a few days' tools buys a cartload, a starving one a few days' food, coin permitting)
 and the trade between towns (caravans, §16.6).
 
@@ -84,6 +89,25 @@ no event). So goods a player sells or supplies reach the build that asked for th
 follow labour (`step = steps × labour / work`); when a stage's labour is done the next stage starts; when the last is
 done the plot is `BUILT`, its beds and jobs count, a plot it replaced is removed, and `BUILDING_COMPLETED` fires.
 
+**Where a young town's building goods come from** (w6, requests/w5-tour.md §4). Real blueprints bill one unit of goods
+per block: a cottage asks about 400 (timber 190, rough stone 90, logs 60, clay, glass, iron, cloth, candles, dye), a
+croft 600, a chapel 1 400, against about as many units of labour (less than one builder-day). So goods, not labour, set
+the pace, and before w6 a town left alone averaged 7 souls after 30–200 days in the live tour. Three things now carry it:
+
+- **The founders' plots come provisioned**: the plots `found` lays out (reason `founding`) take nothing from the stores;
+  the settlers came with what their first houses, well and field cost — an endowment exactly the size of those
+  buildings, which needs no blueprint at founding (live, blueprints are still being made then).
+- **Idle builders fetch**: labour left over when no stage can be worked (every one waits for goods, or nothing is
+  planned) becomes `labour.fetch_share` (0.4) of as many builder-days of the builders' own trade at full time
+  (`Production.fetch`): they hew the logs in store into timber and dress stone, then cut wood, break stone and dig
+  clay and sand on the town's sites (`gathering/builder.json`; the sites lose what is taken, so it is the land round
+  the town that pays). The rest of the time goes on the walk and the haul. What they win beyond the next stages is what
+  the town barters for the rest (above).
+- **Barter of plenty** (above).
+
+The share was tuned against the growth targets with `RealGrowthTest` (§18): 0.2 gives a village on day 70–80 and a town
+on day 190–220, 0.6 on day 50 and 140, all of the idle time (1.0) on day 40–50 and 110.
+
 **The day** (once per day crossed, also in catch-up): ageing (children grow up after 48 days, adults become elders
 after 240 more and retire), elder deaths (1/60 a day, ×4 while starving), hunger (no food → `hunger_days`),
 overcrowding (more people than beds + 4 tent places → `overcrowd_days`), emigration (one adult may leave a day after
@@ -91,7 +115,12 @@ overcrowding (more people than beds + 4 tent places → `overcrowd_days`), emigr
 chance of 0.6 a day while beds are free; they bring 10 days of food; an empty town can be resettled), trade imports,
 homes (the homeless move into standing houses with free beds), jobs (builders first — base 2 + 1 per 10 residents +
 yard job sites, but never more than 2 in 5 adults, 1 while food is short — then food trades when short, then every
-workplace's trade; everyone else gathers), the tier (`TIER_CHANGED`), then `DAY_PASSED`.
+workplace's trade; everyone else gathers), the tier (`TIER_CHANGED`), then `DAY_PASSED`. A plot's job sites count only
+for the trades its archetype lists (`PlotFacts.listed`, w6): a tenement's or townhouse's workshop bench, a farmhouse's
+hay, a builders' yard's banker mason are furnishing. Counted as places, every city tenement hired carpenters the planner
+(which counts places by the trades an archetype lists) then found nowhere to work, and it asked for a carpentry for them
+again and again: 69 in a city of 441 (requests/w5-tour.md §2). A trade is never given more workers than the places its
+workplaces offer.
 
 **Growth**: after every slice, if builders are idle (fewer active plots than they can work; builders walking about as
 entities count) the clock asks `planner.next(settlement, terrain, random)` — up to 4 proposals in a row, while at most
@@ -193,7 +222,12 @@ through `Blueprint.forEachInChunk` — strictly inside the chunk — and records
 **The guard** (`FeaturePlacerMixin` + `WorldgenGuard`): every top-level placed feature tells the guard its decoration
 step (read once from the biomes after biome modifications); in the surface steps (lakes, local modifications, surface
 structures, springs, vegetation) a feature whose origin is a planned column at or above the probe's ground (−4) is not
-placed. Ores, caves and everything underground are untouched; so are top-layer features (snow, ice, ours).
+placed. Ores, caves and everything underground are untouched; so are top-layer features (snow, ice, ours). A **tree**
+(any `TreeFeature`, Expanse's species included, which use their own trunk and foliage placers; huge mushrooms and fungi
+too), nested in a selector or not, must also have no planned column on a ring `atlas.tree_reach` (5) blocks round its
+origin (eight points; the mask's own `guard_margin` closes the gaps, so a trunk keeps 5–8 blocks off a plot or road).
+A crown reaches 3–7 blocks from its trunk: rooted just outside the margin, big broadleaf and old-growth crowns roofed
+over squares and lanes (requests/w5-tour.md §5). Nine bitmask reads per tree placement.
 
 ## 5. Adoption (§5.1)
 
@@ -226,6 +260,13 @@ chunk whose blueprints are still being made waits (above).
   the blueprint, only when a step meets something not plainly replaceable). Never a player's blocks, never block
   entities that are not its own. A plot meeting more than 16 refusals and a quarter of its steps is abandoned (the
   planner chooses other ground).
+- **The canopy over a plot** (w6): the first time a plot is written into a chunk, the natural trees' overhang comes off
+  its columns there first (`ChunkApplier.clearCanopy`): non-persistent leaves and the natural logs among them, from the
+  top of each column (heightmap) down to the plot's floor, stopping at the first block that is neither (a roof, anything
+  a player built, the ground). A trunk standing on the plot goes down to its foot; a tree beside it keeps its trunk and
+  the rest of its crown. Not for excavations (a woodlot fells its own) or plots down in a realm. Found first and cleared
+  after, so a log is still told to be a tree's by its leaves. This is what clears a live town's square in a wood: the
+  guard only helps chunks generated after the plan.
 - **Demolition**: before writing a chunk, the applier clears what a `DEMOLISHING` plot (or the plot a started rebuild
   replaces) left there — every block above its floor still exactly as placed becomes air (containers drop their
   contents; foundations stay for the rebuild; a player's changes stay) — and sets its ledger cursor to zero.
@@ -304,7 +345,9 @@ Written with the defaults on first run; every field optional. (Delete it to pick
 | `atlas.max_age_days` / `age_skew` | 400 / 2.2 | |
 | `atlas.village_clearance` / `structure_clearance` | 20 / {expanse landmarks 12, buildings 7, outposts 10} | chunks |
 | `atlas.guard_margin` / `adopt_margin` / `plan_cache` | 3 / 96 / 256 | |
+| `atlas.tree_reach` | 5 | §4: trees' trunks keep this much further off planned ground |
 | `labour.*` | 33 per hour, 16 h a day, 2 base builders, +1 per 10, 2 per plot | §2 |
+| `labour.fetch_share` | 0.4 | §2: share of idle builder time that fetches materials |
 | `production.per_day` / `food_*` / `coin_per_day` | table above | |
 | `production.prices` / `export_share` / `import_markup` / `import_per_day` | food 0.5 … tools 6 bits / 0.1 / 1.5 / 96 | trade |
 | `population.*` | 48 / 240 days, 1/60, 1/30, 0.6, 4 tents, 3 / 4 days | §2 |
@@ -683,7 +726,7 @@ the dedicated server needs its EULA accepted in `hearth/run/eula.txt` first. Sam
 `-Dhearth.live.scale`, `-Dhearth.live.nopatron`) in the client's integrated server, real blueprints only (134
 archetypes, no stand-ins). It founds a temperate town near spawn and 54 settlements on a 640-block grid round it, aged
 30–200 days, every other one with a **patron** topping its stores and purse up between 20-day spells (on their own, real
-buildings stall small towns: requests/w5-tour.md §4); then a minute with everything abstract, 200 hour steps of the four
+buildings stalled small towns then: requests/w5-tour.md §4, fixed in w6, §18); then a minute with everything abstract, 200 hour steps of the four
 largest towns, the arrival at the largest temperate town (Thornley, a city of 452 with a keep, a cathedral, walls and
 798 plots, all written into the world as the player comes), 30 s embodied, and the photographs. A watchdog prints the
 server thread's stack whenever a tick runs past 60 ms (`-Dhearth.live.hitch`). Whole server ticks are timed from
@@ -752,3 +795,31 @@ a forester walking out to a tree, the night town and three lit interiors (block 
 tavern, an inn, a townhouse), a moorland hamlet's house left empty in a decline. No builder was caught up on scaffolding
 (the city had nothing under way, the busiest other town finished what it had while the camera waited). No settlement opened a mine or any other working, so there is no mining town, miner or deep town to show
 (requests/w5-tour.md §3).
+
+## 18. A town left alone (w6, requests/w5-tour.md §4)
+
+`RealGrowthTest` (`sim/settlement`, with `GrowthHarness`) founds a temperate town on synthetic ground with the real
+planner and the build module's real blueprints, steps it hour by hour as a live town nobody is near, and runs the economy
+module's daily books every day (wages from the treasury, purses, poll tax, upkeep; the shipped prices), so the clock's
+coin goes to the economy as live. No patron, player or caravan. `aTownLeftAloneGrowsOnTheRealCatalogue` asserts a village
+by day 25–100 and a town by day 100–280 (flat ground, seed 3); `printGrowth` prints the table
+(`HEARTH_GROWTH_LIVE=flat,hills,river`, `HEARTH_FETCH=0.2,0.4`, `--rerun`); `printCatalogue` (`HEARTH_CATALOGUE=1`)
+prints each archetype's work, goods and worth.
+
+Souls (treasury) by day, seed 3:
+
+| | 30 | 60 | 90 | 120 | 150 | 180 | 200 | 240 | 300 | village / town on day |
+|---|---|---|---|---|---|---|---|---|---|---|
+| before, flat | 4 (0) | 6 (0) | 11 (8) | 15 (9) | 21 (7) | 21 (0) | 24 (14) | 31 (14) | | 150 / — |
+| before, hills | 7 (8) | 7 (0) | 10 (8) | 16 (10) | 19 (11) | 19 (0) | 21 (1) | 23 (0) | | 200 / — |
+| before, river | 4 (0) | 7 (0) | 10 (11) | 15 (0) | 15 (0) | 18 (0) | 20 (0) | 22 (0) | | 200 / — |
+| after, flat | 14 (10) | 19 (19) | 26 (4) | 33 (0) | 47 (17) | 65 (20) | 82 (386) | 120 (1 588) | 197 (4 648) | 70 / 170 |
+| after, hills | 15 (0) | 21 (0) | 27 (8) | 32 (8) | 44 (11) | 64 (23) | 66 (561) | 97 (19) | 118 (920) | 50 / 180 |
+| after, river | 14 (4) | 20 (8) | 25 (0) | 31 (18) | 44 (17) | 62 (19) | 78 (12) | 111 (976) | 152 (6 436) | 60 / 180 |
+
+Before, every stage waited on something (logs and clay in the first month, then cloth, glass, iron, brick) with the
+treasury at nothing and the builders idle; the stores meanwhile held 1 800 grain, 2 500 stone and 2 400 logs the barter
+rule would not touch. After, the stalls are short and mostly on the finishing goods (iron, candles, cloth) a village does
+not make; the treasury fills once the town has workshops and trade. Histories grow the same way (they keep the clock's
+coin), so an old historic town is now a town, not a hamlet: about 4 s of history for 300 days at the most (12 s for the
+three towns above, blueprints included), against 0.4 s measured with the stand-ins (§16.11).
