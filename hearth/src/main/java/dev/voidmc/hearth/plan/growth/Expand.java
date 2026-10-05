@@ -11,6 +11,8 @@ import dev.voidmc.hearth.plan.road.Polyline;
 import dev.voidmc.hearth.plan.road.Roads;
 import dev.voidmc.hearth.plan.road.Router;
 import dev.voidmc.hearth.plan.terrain.Ground;
+import java.util.ArrayList;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -157,7 +159,10 @@ public final class Expand {
 		}
 		LayoutType layout = ctx.state.layout;
 		double core = ctx.coreRadius();
-		Branch branch = bestBranch(ctx, false);
+		// the best few places for a lane, not only the best: a mouth whose lane will not walk (it runs into a plot a few
+		// blocks on) must not stop every other from being tried, call after call (requests/w5-tour.md §1)
+		List<Branch> branches = branches(ctx, false, 4);
+		Branch branch = branches.isEmpty() ? null : branches.get(0);
 		RoadEdge arm = shortestArm(ctx);
 		double armDist = arm == null ? Double.MAX_VALUE : armFrontier(ctx, arm);
 		double laneReach = switch (layout) {
@@ -176,8 +181,10 @@ public final class Expand {
 		if (planned != null) {
 			return buildLane(ctx, planned);
 		}
-		if (branch != null && branch.distance < core * laneReach && walkBranch(ctx, branch)) {
-			return true;
+		for (Branch b : branches) {
+			if (b.distance < core * laneReach && walkBranch(ctx, b)) {
+				return true;
+			}
 		}
 		// a dead-end lane near the heart runs on into open ground
 		if (extendLane(ctx, core * laneReach + 16)) {
@@ -186,8 +193,10 @@ public final class Expand {
 		if (arm != null && armDist < core * armReach && extendArm(ctx, arm, "road: the main street grows outward")) {
 			return true;
 		}
-		if (branch != null && (arm == null || branch.distance <= armDist) && walkBranch(ctx, branch)) {
-			return true;
+		for (Branch b : branches) {
+			if ((arm == null || b.distance <= armDist) && walkBranch(ctx, b)) {
+				return true;
+			}
 		}
 		planned = Grid.nearestPlanned(ctx, Double.MAX_VALUE);
 		if (planned != null && (arm == null || ctx.distanceToHeart(planned.dense().xs()[0], planned.dense().zs()[0]) < armDist)) {
@@ -196,7 +205,22 @@ public final class Expand {
 		if (arm != null && extendArm(ctx, arm, "road: the main street grows outward")) {
 			return true;
 		}
-		return extendLane(ctx, Double.MAX_VALUE);
+		if (extendLane(ctx, Double.MAX_VALUE)) {
+			return true;
+		}
+		// the town has filled the streets it was given: it grows a new quarter beyond them — a lane off a street out past
+		// the built-up town, else the main road runs on into the country and the houses follow it
+		for (Branch b : branches(ctx, true, 4)) {
+			if (walkBranch(ctx, b)) {
+				return true;
+			}
+		}
+		if (continueArm(ctx)) {
+			return true;
+		}
+		Growth.why("no road could grow (" + (branch == null ? "no lane mouth" : "a lane mouth at " + (int) branch.distance + " would not walk") + ", "
+			+ (arm == null ? "the main streets built out" : "the main street would not run on") + ", no dead end to run on)");
+		return false;
 	}
 
 	/**
@@ -349,7 +373,13 @@ public final class Expand {
 
 	/** The best place to branch a new lane, near the heart (or, {@code outward}, beyond the built-up town). */
 	static @Nullable Branch bestBranch(PlanContext ctx, boolean outward) {
-		Branch best = null;
+		List<Branch> b = branches(ctx, outward, 1);
+		return b.isEmpty() ? null : b.get(0);
+	}
+
+	/** The best {@code max} places to branch a new lane, best first, at most one per street (see {@link #bestBranch}). */
+	static List<Branch> branches(PlanContext ctx, boolean outward, int max) {
+		java.util.Map<Integer, Branch> perEdge = new java.util.HashMap<>();
 		double core = ctx.coreRadius();
 		Ground g = ctx.ground;
 		LayoutType layout = ctx.state.layout;
@@ -416,13 +446,16 @@ public final class Expand {
 						score -= 40;
 					}
 					score += ctx.hash(d.xs()[i], d.zs()[i], 11) * 6;
+					Branch best = perEdge.get(e.id);
 					if (best == null || score > best.score) {
-						best = new Branch(e, i, heading, dist, score, contour);
+						perEdge.put(e.id, new Branch(e, i, heading, dist, score, contour));
 					}
 				}
 			}
 		}
-		return best;
+		List<Branch> out = new ArrayList<>(perEdge.values());
+		out.sort(java.util.Comparator.comparingDouble((Branch b) -> -b.score).thenComparingInt(b -> b.edge.id));
+		return out.size() > max ? out.subList(0, max) : out;
 	}
 
 	/** Free columns ahead of a road column along a heading, after skipping the road's own corridor. */

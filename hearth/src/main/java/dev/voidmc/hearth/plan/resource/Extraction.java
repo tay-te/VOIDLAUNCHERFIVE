@@ -10,6 +10,7 @@ import dev.voidmc.hearth.plan.PlanModule;
 import dev.voidmc.hearth.plan.catalogue.Archetypes;
 import dev.voidmc.hearth.plan.catalogue.Catalogue;
 import dev.voidmc.hearth.plan.growth.Build;
+import dev.voidmc.hearth.plan.growth.Growth;
 import dev.voidmc.hearth.plan.growth.Parcels;
 import dev.voidmc.hearth.plan.growth.Parcels.Placement;
 import dev.voidmc.hearth.plan.growth.Siting;
@@ -110,6 +111,7 @@ public final class Extraction {
 	public static boolean place(PlanContext ctx, ArchetypeInfo info) {
 		ResourceSite site = site(ctx, info.id());
 		if (site == null) {
+			Growth.why("no workable site");
 			return false;
 		}
 		Identifier id = info.id();
@@ -121,6 +123,7 @@ public final class Extraction {
 				// ore under flat ground: a shaft with its headframe instead of an adit
 				ArchetypeInfo shaft = ctx.catalogue.info(Archetypes.SHAFT);
 				if (shaft == null || !Catalogue.allowed(shaft, ctx.culture, ctx.tier)) {
+					Growth.why("no hillside for an adit, and no shaft allowed");
 					return false;
 				}
 				use = shaft;
@@ -129,6 +132,7 @@ public final class Extraction {
 		int[] target = target(ctx, use, site, face);
 		if (target == null) {
 			// all of the site lies under the town
+			Growth.why("the site lies under the town");
 			return false;
 		}
 		Siting siting = Siting.near(target[0], target[1], reach(use)).withHeight(id.equals(Archetypes.QUARRY_PIT) ? 0.3 : 0);
@@ -160,7 +164,12 @@ public final class Extraction {
 		if (best == null) {
 			// no road out there yet: a cart track to the site (no stairs; carts and haulers use it); if a road already comes
 			// near, the site is simply full for now
-			if (ctx.distanceToHeart(target[0], target[1]) > ctx.config.living().haulMaxDistance() || accessNear(ctx, target[0], target[1], 14)) {
+			if (ctx.distanceToHeart(target[0], target[1]) > ctx.config.living().haulMaxDistance()) {
+				Growth.why("the site is beyond hauling");
+				return false;
+			}
+			if (accessNear(ctx, target[0], target[1], 14)) {
+				Growth.why("no plot fits at the site (" + found.size() + " places by the track)");
 				return false;
 			}
 			String what = site.kind() == ResourceSite.Kind.ORE ? "ore" : site.kind().getSerializedName();
@@ -170,8 +179,12 @@ public final class Extraction {
 			}
 			// too steep for carts all the way: a track with steps where it must (pack animals and porters)
 			ctx.routed = false;
-			return Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, true,
-				"road: a track with steps up to the " + what + " for the " + Build.shortName(use)) != null;
+			if (Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, true,
+				"road: a track with steps up to the " + what + " for the " + Build.shortName(use)) != null) {
+				return true;
+			}
+			Growth.why(ctx.haulMayGrow() ? "no track could reach the site" : "cart tracks at their budget");
+			return false;
 		}
 		Build.building(ctx, use, best, reason(use, site), params(ctx, use, site, best));
 		return true;

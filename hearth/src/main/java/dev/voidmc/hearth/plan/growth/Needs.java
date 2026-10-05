@@ -32,6 +32,15 @@ public final class Needs {
 	public final Map<ArchetypeCategory, Integer> categories = new EnumMap<>(ArchetypeCategory.class);
 	public final Map<JobType, Integer> workers = new EnumMap<>(JobType.class);
 	public final Map<JobType, Integer> slots = new EnumMap<>(JobType.class);
+	/**
+	 * Workers of a trade with nowhere to work: no workplace, or one that is not standing. The sim gives a trade only as
+	 * many workers as its standing buildings have job sites, and a townhouse's workshop is a carpenter's place as much as
+	 * a carpentry is, so counting every worker against the planner's own guess of the slots asked for a carpentry per
+	 * townhouse (69 in a city of 441, requests/w5-tour.md §2).
+	 */
+	public final Map<JobType, Integer> unplaced = new EnumMap<>(JobType.class);
+	/** Job slots in workplaces planned or under way (not yet standing): where the unplaced will work. */
+	public final Map<JobType, Integer> plannedSlots = new EnumMap<>(JobType.class);
 	/** Food production in mouths fed (built, under way and queued). */
 	public int food;
 	public int unbuilt;
@@ -48,6 +57,12 @@ public final class Needs {
 			}
 			if (r.job != JobType.NONE) {
 				this.workers.merge(r.job, 1, Integer::sum);
+				PlotView work = r.work >= 0 ? ctx.settlement.plot(r.work) : null;
+				// a level's view does not show the other level's plots: a miner working down in the deep town has a place
+				boolean elsewhere = work == null && r.work >= 0 && ctx.state.deep != null;
+				if (!elsewhere && (work == null || work.state() != PlotState.BUILT)) {
+					this.unplaced.merge(r.job, 1, Integer::sum);
+				}
 			}
 		}
 		this.adults = a;
@@ -87,6 +102,9 @@ public final class Needs {
 		int s = jobSlots(info, spec);
 		for (JobType j : info.jobs()) {
 			this.slots.merge(j, s, Integer::sum);
+			if (!built) {
+				this.plannedSlots.merge(j, s, Integer::sum);
+			}
 		}
 		this.food += foodOf(id, info, spec);
 	}

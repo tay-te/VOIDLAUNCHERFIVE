@@ -86,6 +86,7 @@ public final class Housing {
 		Home home = home(ctx, station);
 		ArchetypeInfo probe = probe(ctx, station);
 		if (probe == null) {
+			Growth.why("no house of the culture");
 			return false;
 		}
 		Parcels.Request req = request(probe, home, station);
@@ -105,7 +106,19 @@ public final class Housing {
 				req = request(probe, home, station);
 				site = Parcels.best(ctx, req, null);
 			}
+			if (site == null && home.placement != Placement.CROFTS && home.placement != Placement.HOVELS) {
+				// the streets are full and will not grow: newcomers settle along the roads out of town, by the fields, and the
+				// town spreads along them (a town that answered nothing here stalled at pop = beds, requests/w5-tour.md §1)
+				home = new Home(Placement.CROFTS, home.district, null);
+				req = request(probe, home, station);
+				site = Parcels.best(ctx, req, null);
+				if (site == null && Expand.toward(ctx, Placement.CROFTS)) {
+					grew = true;
+					site = Parcels.best(ctx, req, null);
+				}
+			}
 			if (site == null) {
+				Growth.why(grew ? "no frontage by the new road" : ctx.roadsMayGrow() ? "no frontage, and no road could grow" : "no frontage, roads at their budget");
 				return grew;
 			}
 		}
@@ -139,6 +152,7 @@ public final class Housing {
 			info = choose(ctx, site, front, null);
 		}
 		if (info == null) {
+			Growth.why("no house suits the place");
 			return grew;
 		}
 		Resident next = ledger == null || station == null ? null : ledger.head(station);
@@ -157,6 +171,7 @@ public final class Housing {
 			p = Parcels.best(ctx, placed, null);
 		}
 		if (p == null) {
+			Growth.why("the house does not fit");
 			return grew;
 		}
 		Build.building(ctx, info, p, reason, homeParams(ctx, station, ledger));
@@ -299,7 +314,8 @@ public final class Housing {
 			} else if (id.equals(Archetypes.STILT_HOUSE) || id.equals(Archetypes.HERMIT_HUT)) {
 				w = 0;
 			} else if (id.equals(Archetypes.TOWER_HOUSE)) {
-				w *= zone <= 1 ? 0.4 + (raised > 5 ? 1.5 : 0) * vertical : 0.1;
+				// a tower to live in is a rare thing (a merchant's on a crag): the skyline is the church's and the hall's
+				w *= zone <= 1 ? 0.3 + (raised > 5 ? 0.6 : 0) * vertical : 0.05;
 			} else if (id.equals(Archetypes.CLIFF_DWELLING)) {
 				w *= slope > 0.45 || layout == LayoutType.CLIFF ? 3.5 : slope > 0.25 ? 1.2 : 0.05;
 			} else if (id.equals(Archetypes.HOVEL) || id.equals(Archetypes.SHACK)) {

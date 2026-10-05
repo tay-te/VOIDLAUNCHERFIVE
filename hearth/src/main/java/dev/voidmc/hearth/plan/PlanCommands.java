@@ -15,7 +15,8 @@ import net.minecraft.network.chat.Component;
 
 /**
  * {@code /hearth plan info}: what the planner knows about the nearest settlement — its layout and signature, the land
- * it read, its roads, districts and the projects it has decided on but not handed out yet.
+ * it read, its roads, districts and the projects it has decided on but not handed out yet; {@code /hearth plan stats}:
+ * why the planner answered nothing, counted by reason ({@link PlanStats}).
  */
 final class PlanCommands {
 	private PlanCommands() {
@@ -25,7 +26,16 @@ final class PlanCommands {
 		dispatcher.register(Commands.literal("hearth")
 			.then(Commands.literal("plan")
 				.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-				.then(Commands.literal("info").executes(PlanCommands::info))));
+				.then(Commands.literal("info").executes(PlanCommands::info))
+				.then(Commands.literal("stats").executes(PlanCommands::stats))));
+	}
+
+	/** {@code /hearth plan stats}: why the planner answered nothing, by reason, since the server started. */
+	private static int stats(CommandContext<CommandSourceStack> c) {
+		for (String line : PlanStats.lines()) {
+			c.getSource().sendSuccess(() -> Component.literal(line), false);
+		}
+		return 1;
 	}
 
 	private static int info(CommandContext<CommandSourceStack> c) {
@@ -106,6 +116,10 @@ final class PlanCommands {
 			src.sendSuccess(() -> Component.translatable("hearth.plan.command.deep", st.deep.heartX, st.deep.heartY, st.deep.heartZ, dp), false);
 		}
 		src.sendSuccess(() -> Component.translatable("hearth.plan.command.queue", st.queue.size()), false);
+		String why = PlanStats.last(s.id());
+		if (why != null) {
+			src.sendSuccess(() -> Component.literal(" planner.next last answered nothing: " + why), false);
+		}
 		int n = 0;
 		for (QueuedProject q : st.queue) {
 			if (n++ >= 5) {

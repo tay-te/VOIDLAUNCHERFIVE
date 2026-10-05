@@ -36,7 +36,8 @@ import net.minecraft.util.RandomSource;
 public final class MiniSim {
 	private static final int UNITS_PER_BUILDER_DAY = 330;
 	private static final double GROWTH_RATE = 0.028;
-	private static final int CAPACITY = 220;
+	/** The population growth levels off toward (a city of about 220); {@link #capacity(int)} raises it to grow a big city. */
+	private int capacity = 220;
 	private static final String[] NAMES = {"Ada", "Bram", "Cora", "Dain", "Edda", "Finn", "Gwen", "Hal", "Ivy", "Jory", "Kit", "Lene"};
 
 	public final SurveyedSettlement settlement;
@@ -58,6 +59,16 @@ public final class MiniSim {
 	}
 
 	public MiniSim(Culture culture, TerrainProbe terrain, long seed, SettlementPlanner planner, BlockPos center) {
+		this(culture, terrain, seed, planner, center, (heart, radius) -> MiniSurvey.survey(terrain, heart, radius));
+	}
+
+	/**
+	 * With a survey of its own: {@code surveyor} gives the sites round a heart within a radius (the sim's own survey, so the
+	 * planner's tests see the sites the game gives a town).
+	 */
+	public MiniSim(Culture culture, TerrainProbe terrain, long seed, SettlementPlanner planner, BlockPos center,
+		java.util.function.BiFunction<BlockPos, Integer, List<dev.voidmc.hearth.api.ResourceSite>> surveyor) {
+		this.surveyor = surveyor;
 		this.terrain = terrain;
 		this.planner = planner;
 		this.random = RandomSource.create(seed);
@@ -74,6 +85,12 @@ public final class MiniSim {
 			this.settlement.addPlot(spec);
 		}
 		this.log.add("day 0: founded with " + first.size() + " plots");
+	}
+
+	/** Grows toward this many souls instead of about 220 (to see what a city of four or five hundred plans). */
+	public MiniSim capacity(int souls) {
+		this.capacity = souls;
+		return this;
 	}
 
 	public int day() {
@@ -145,11 +162,12 @@ public final class MiniSim {
 			case CITY -> 288;
 		};
 		this.settlement.setTerritoryRadius(radius);
-		this.settlement.setSites(MiniSurvey.survey(this.terrain, this.settlement.center(), radius));
+		this.settlement.setSites(this.surveyor.apply(this.settlement.center(), radius));
 		this.surveyedTier = tier;
 	}
 
 	private SettlementTier surveyedTier = SettlementTier.CAMP;
+	private final java.util.function.BiFunction<BlockPos, Integer, List<dev.voidmc.hearth.api.ResourceSite>> surveyor;
 
 	/**
 	 * Moves households into homes as the sim is asked to (docs/requests/p3-plan.md): the household a home was planned for
@@ -271,7 +289,7 @@ public final class MiniSim {
 	private void grow() {
 		int pop = this.settlement.population();
 		int free = this.settlement.beds() - pop;
-		this.growth += Math.max(0.15, GROWTH_RATE * pop * (1 - pop / (double) CAPACITY));
+		this.growth += Math.max(0.15, GROWTH_RATE * pop * (1 - pop / (double) this.capacity));
 		int arrivals = Math.min(free, (int) this.growth);
 		if (arrivals <= 0) {
 			this.growth = Math.min(this.growth, 3);
@@ -333,6 +351,7 @@ public final class MiniSim {
 				}
 			}
 		}
+		place();
 		// the purse moves some households up, as the npc module's stations follow wealth: a few craftsmen prosper into
 		// merchants, and in a town a few old merchant families count as gentry
 		SettlementTier tier = this.settlement.tier();
@@ -344,6 +363,56 @@ public final class MiniSim {
 				r.station = Station.GENTRY;
 			}
 		}
+	}
+
+	/**
+	 * Gives each worker a workplace with a free place for the trade, as the sim does (keeping the one they have while it
+	 * stands); builders past the yards' places, and anyone whose trade has no place left, work from home (none).
+	 */
+	private void place() {
+		Map<Long, Integer> used = new java.util.HashMap<>();
+		List<Resident> residents = new ArrayList<>(this.settlement.residents());
+		residents.sort(java.util.Comparator.comparing(r -> r.id));
+		for (int pass = 0; pass < 2; pass++) {
+			for (Resident r : residents) {
+				if (r.job == JobType.NONE) {
+					r.work = Resident.NO_PLOT;
+					continue;
+				}
+				if (pass == 0) {
+					// keep a place that still stands and still has room
+					if (r.work >= 0 && !take(r.work, r.job, used)) {
+						r.work = Resident.NO_PLOT;
+					}
+					continue;
+				}
+				if (r.work >= 0) {
+					continue;
+				}
+				for (SimpleSettlement.SimplePlot p : this.settlement.plots()) {
+					if (take(p.id(), r.job, used)) {
+						r.work = p.id();
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	/** Takes a place for a trade at a plot if it stands, employs the trade and has one free. */
+	private boolean take(int plot, JobType job, Map<Long, Integer> used) {
+		SimpleSettlement.SimplePlot p = this.settlement.plot(plot);
+		ArchetypeInfo info = p == null ? null : this.catalogue.info(p.spec().archetype());
+		if (p == null || p.state != PlotState.BUILT || info == null || !info.jobs().contains(job)) {
+			return false;
+		}
+		long key = (long) plot << 8 | job.ordinal();
+		int n = used.getOrDefault(key, 0);
+		if (n >= Needs.jobSlots(info, p.spec())) {
+			return false;
+		}
+		used.put(key, n + 1);
+		return true;
 	}
 
 	private void addResident(JobType job) {

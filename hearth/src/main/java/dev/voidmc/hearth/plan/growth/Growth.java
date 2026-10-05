@@ -49,8 +49,33 @@ public final class Growth {
 
 	/** Plans the most urgent need that can be met; true if anything was queued. */
 	public static boolean step(PlanContext ctx) {
+		return plan(ctx) == null;
+	}
+
+	/**
+	 * Why a need could not be met, as the need's planner says it (Housing: "no frontage, roads at their budget"), read by
+	 * {@link #plan} when the need fails. Cleared before each need.
+	 */
+	private static final ThreadLocal<@Nullable String> WHY = new ThreadLocal<>();
+
+	/** Says why the need being planned could not be met (the first reason said wins). */
+	public static void why(String reason) {
+		if (WHY.get() == null) {
+			WHY.set(reason);
+		}
+	}
+
+	/**
+	 * Plans the most urgent need that can be met: null if anything was queued, else why nothing was — nothing wanted,
+	 * every need resting, the call out of time, or the most urgent need tried and what stopped it (for the planner's
+	 * stats, {@code /hearth plan stats}).
+	 */
+	public static @Nullable String plan(PlanContext ctx) {
 		Needs needs = Needs.of(ctx);
 		List<Need> list = needs(ctx, needs);
+		if (list.isEmpty()) {
+			return "nothing wanted";
+		}
 		// a little chance in the order, so towns differ even with the same needs
 		List<double[]> order = new ArrayList<>();
 		for (int i = 0; i < list.size(); i++) {
@@ -58,10 +83,11 @@ public final class Growth {
 		}
 		order.sort(Comparator.comparingDouble((double[] o) -> -o[0]).thenComparingDouble(o -> o[1]));
 		int attempts = 0;
+		String first = null;
 		for (double[] o : order) {
 			if (ctx.pastDeadline()) {
 				// a live call out of time: the other needs wait for the next call
-				break;
+				return first != null ? first + " (then out of time)" : "out of time";
 			}
 			Need need = list.get((int) o[1]);
 			Long until = ctx.state.cooldowns.get(need.key);
@@ -71,10 +97,13 @@ public final class Growth {
 			long t0 = System.nanoTime();
 			int before = ctx.state.queue.size();
 			ctx.buildings = 0;
+			WHY.remove();
 			boolean met = need.plan.test(ctx);
+			String why = WHY.get();
+			WHY.remove();
 			if (trace) {
 				dev.voidmc.hearth.Hearth.LOG.info("[plan] {} pop {} {}: {} ({}) {} us", ctx.settlement.name(), ctx.population, need.key,
-					met ? "planned" : "no room", (int) o[0], (System.nanoTime() - t0) / 1000);
+					met ? "planned" : why == null ? "no room" : why, (int) o[0], (System.nanoTime() - t0) / 1000);
 			}
 			if (met) {
 				ctx.state.failures.remove(need.key);
@@ -84,7 +113,17 @@ public final class Growth {
 					// only a road came of it: the need rests a little so roads do not run on without anything to build
 					ctx.state.cooldowns.put(need.key, ctx.state.calls + (farOff(need.key) ? 12 : 4));
 				}
-				return true;
+				return null;
+			}
+			if (ctx.pastDeadline()) {
+				// cut short by the call's time limit, not refused by the land: it rests a call or two so the needs after it get
+				// their turn, but does not count as a failure, so a city whose searches run out of time does not shelve its
+				// workings and workshops for ever (requests/w5-tour.md §3)
+				ctx.state.cooldowns.put(need.key, ctx.state.calls + 1 + ctx.random.nextInt(2));
+				return (first != null ? first + "; then " : "") + group(need.key) + ": out of time";
+			}
+			if (first == null) {
+				first = group(need.key) + ": " + (why == null ? "no room" : why);
 			}
 			// a need that keeps finding no room rests longer each time (up to eight times as long), so a town that has no
 			// place for its observatory does not search for one on every other call
@@ -95,7 +134,13 @@ public final class Growth {
 				break;
 			}
 		}
-		return false;
+		return first != null ? first : "every need resting";
+	}
+
+	/** A need's key without the archetype (program/smithy → program), so the stats count reasons, not buildings. */
+	private static String group(String key) {
+		int slash = key.indexOf('/');
+		return slash < 0 || key.startsWith("short/") || key.startsWith("job/") ? key : key.substring(0, slash);
 	}
 
 	/** Needs whose buildings stand apart (a landmark on the summit, a monastery on quiet ground): their roads are long. */
@@ -147,12 +192,13 @@ public final class Growth {
 		if (busy) {
 			return list;
 		}
-		// jobs held by residents with nowhere to work
+		// jobs held by residents with nowhere to work, beyond the places in workplaces already planned, while the trade's
+		// workplaces are fewer than the town wants of them
 		for (JobType job : JobType.values()) {
-			int w = needs.workers.getOrDefault(job, 0);
-			int s = needs.slots.getOrDefault(job, 0);
-			if (job != JobType.NONE && job != JobType.COURIER && w > s) {
-				list.add(new Need("job/" + job.getSerializedName(), 300 + 12 * (w - s), c -> workplace(c, job)));
+			int w = needs.unplaced.getOrDefault(job, 0);
+			int s = needs.plannedSlots.getOrDefault(job, 0);
+			if (job != JobType.NONE && job != JobType.COURIER && w > s && roomFor(ctx, needs, job)) {
+				list.add(new Need("job/" + job.getSerializedName(), 300 + 12 * Math.min(25, w - s), c -> workplace(c, job)));
 			}
 		}
 		for (Program.Entry e : Program.ENTRIES) {
@@ -287,8 +333,33 @@ public final class Growth {
 		return placeBuilding(c, req, reasonFor(info, req.placement()), params);
 	}
 
+	/**
+	 * How many of a workplace a town of its size wants: its program entry's count (a carpentry for every 120 souls), else
+	 * one for every forty souls; never past the archetype's own limit. However many workers a trade has, it gets no more
+	 * workshops than this (each takes several, and the sim finds them places at home and in other trades' buildings).
+	 */
+	static int wanted(PlanContext ctx, ArchetypeInfo info) {
+		Program.Entry e = Program.entry(info.id());
+		int want = e != null ? Math.max(1, e.count().applyAsInt(ctx.population)) : 1 + ctx.population / 40;
+		return info.maxPerSettlement() > 0 ? Math.min(want, info.maxPerSettlement()) : want;
+	}
+
+	/** Whether a trade has a workplace the town may still add (a field always; a workshop under {@link #wanted}). */
+	static boolean roomFor(PlanContext ctx, Needs needs, JobType job) {
+		for (ArchetypeInfo info : ctx.catalogue.forJob(job, ctx.culture, ctx.tier)) {
+			if (info.category() == ArchetypeCategory.FARM) {
+				return true;
+			}
+			if (info.category() != ArchetypeCategory.UNDERGROUND && info.category() != ArchetypeCategory.HOUSING && needs.count(info.id()) < wanted(ctx, info)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** A workplace for a trade whose workers have nowhere to work. */
 	static boolean workplace(PlanContext ctx, JobType job) {
+		Needs counts = Needs.of(ctx);
 		for (ArchetypeInfo info : ctx.catalogue.forJob(job, ctx.culture, ctx.tier)) {
 			if (info.category() == ArchetypeCategory.FARM) {
 				return Farms.place(ctx, info, null);
@@ -297,7 +368,8 @@ public final class Growth {
 			if (info.category() == ArchetypeCategory.UNDERGROUND) {
 				continue;
 			}
-			if (info.maxPerSettlement() > 0 && Needs.of(ctx).count(info.id()) >= info.maxPerSettlement()) {
+			if (info.category() == ArchetypeCategory.HOUSING || counts.count(info.id()) >= wanted(ctx, info)) {
+				// a home is not built for its workshop; a trade's workshops stop at what the town's size wants
 				continue;
 			}
 			if (info.category() == ArchetypeCategory.NOBLE && dev.voidmc.hearth.plan.society.Nobility.isSeat(info.id())) {
@@ -372,6 +444,7 @@ public final class Growth {
 			}
 		}
 		if (p == null) {
+			why(grew ? "no frontage by the new road" : ctx.roadsMayGrow() ? "no frontage, and no road could grow" : "no frontage, roads at their budget");
 			return grew;
 		}
 		if (trace) {

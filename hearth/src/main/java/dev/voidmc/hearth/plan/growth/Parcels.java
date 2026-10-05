@@ -255,15 +255,29 @@ public final class Parcels {
 		positions.sort(Comparator.comparingDouble((Pos p) -> -p.pre));
 		List<Parcel> found = new ArrayList<>();
 		int budget = ctx.config.searchBudget();
-		for (Pos pos : positions) {
-			if (budget-- <= 0 || ctx.pastDeadline()) {
-				break;
-			}
-			Parcel p = place(ctx, req, pos);
+		int i = 0;
+		for (; i < positions.size() && budget > 0 && !ctx.pastDeadline(); i++, budget--) {
+			Parcel p = place(ctx, req, positions.get(i));
 			if (p != null) {
 				found.add(p);
 				if (found.size() >= enough) {
-					break;
+					return found;
+				}
+			}
+		}
+		if (found.isEmpty() && i < positions.size()) {
+			// a city's best-ranked places (near the heart, on the main street) can all be leftover gaps too small for
+			// anything: the budget spent on them would leave the frontage of its newer streets unseen and the town stalled
+			// (requests/w5-tour.md §1), so a spread sample of the rest gets half a budget more
+			int more = Math.max(1, ctx.config.searchBudget() / 2);
+			int step = Math.max(1, (positions.size() - i) / more);
+			for (int k = i; k < positions.size() && !ctx.pastDeadline(); k += step) {
+				Parcel p = place(ctx, req, positions.get(k));
+				if (p != null) {
+					found.add(p);
+					if (found.size() >= enough) {
+						break;
+					}
 				}
 			}
 		}

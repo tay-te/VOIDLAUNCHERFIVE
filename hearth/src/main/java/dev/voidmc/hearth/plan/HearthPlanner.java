@@ -36,6 +36,9 @@ import org.jspecify.annotations.Nullable;
  * random or from stable hashes, collections are walked in id order, and nothing reads the world, only the probe.
  */
 public final class HearthPlanner implements SettlementPlanner {
+	/** {@code -Dhearth.dev.plan.deadlineMs}: a live call's time limit for every call (offline previews and tests). */
+	public static double DEV_DEADLINE_MS = Double.parseDouble(System.getProperty("hearth.dev.plan.deadlineMs", "0"));
+
 	private final HearthDataKey<PlanState> key;
 	private final PlanConfig config;
 
@@ -96,6 +99,9 @@ public final class HearthPlanner implements SettlementPlanner {
 		PlanContext ctx = new PlanContext(view, state, terrain, random, Catalogue.current(), this.config);
 		if (PlanModule.isServerThread() && this.config.liveTimeLimitMs() > 0) {
 			ctx.deadline = System.nanoTime() + this.config.liveTimeLimitMs() * 1_000_000L;
+		} else if (DEV_DEADLINE_MS > 0) {
+			// a live call's time limit off the server thread, to see offline what a city's 20 ms do to its plan
+			ctx.deadline = System.nanoTime() + (long) (DEV_DEADLINE_MS * 1_000_000L);
 		}
 		if (!state.founded) {
 			// a settlement the planner never laid out (an old save, a record made by hand): lay it out now
@@ -113,8 +119,9 @@ public final class HearthPlanner implements SettlementPlanner {
 			onTier(ctx, state.lastTier, tier);
 			state.lastTier = tier;
 		}
+		String why = null;
 		if (state.queue.isEmpty() && (state.deep == null || state.deep.queue.isEmpty())) {
-			Growth.step(ctx);
+			why = Growth.plan(ctx);
 		}
 		QueuedProject project = poll(ctx);
 		state.issued.clear();
@@ -125,9 +132,16 @@ public final class HearthPlanner implements SettlementPlanner {
 			project = state.deep.queue.poll();
 			deep = true;
 		}
+		boolean live = ctx.deadline != Long.MAX_VALUE || PlanStats.everyCall;
 		if (project == null) {
+			if (live) {
+				PlanStats.nothing(settlement.id(), settlement.name(), settlement.population(), why == null ? "the queue held nothing worth building" : why);
+			}
 			settlement.markDirty();
 			return null;
+		}
+		if (live) {
+			PlanStats.planned(settlement.id());
 		}
 		if (deep) {
 			state.deep.issued.add(project.spec());
