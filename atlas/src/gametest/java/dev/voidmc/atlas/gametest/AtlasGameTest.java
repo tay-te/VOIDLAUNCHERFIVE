@@ -77,6 +77,12 @@ public class AtlasGameTest implements FabricClientGameTest {
 			s.minimapZoom = 5;
 			s.mapZoom = 6;
 		});
+		if (MODE.equals("soak")) {
+			new Soak().run(context);
+			log("finished soak");
+			watchdog(90_000L, 0);
+			return;
+		}
 		try {
 			Files.createDirectories(MODE.equals("perf") ? OUT.getParent() : OUT);
 		} catch (IOException e) {

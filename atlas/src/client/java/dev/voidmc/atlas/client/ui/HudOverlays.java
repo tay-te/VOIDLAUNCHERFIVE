@@ -21,14 +21,85 @@ import net.minecraft.client.player.LocalPlayer;
 public final class HudOverlays {
 	private static final long HOLD_NANOS = 4_000_000_000L;
 	private static final long SLIDE_NANOS = 220_000_000L;
+	/** How long an info island stays, a prompt waits, and the first-run hint shows. */
+	public static final long INFO_NANOS = 6_000_000_000L;
+	public static final long PROMPT_NANOS = 30_000_000_000L;
+	public static final long FIRST_RUN_NANOS = 8_000_000_000L;
 
-	private record Toast(String kind, String name, MarkerGlyph glyph, boolean region) {
+	/**
+	 * One island (the design's quiet island, top centre, one at a time): a tile, a small caps line over a title, and
+	 * either a key cap with a hint ("M on the map") or a prompt's two buttons (answered on the map; unanswered it goes
+	 * after its time, and the default stands).
+	 */
+	public record Toast(String kind, String name, MarkerGlyph glyph, boolean region, String key, String keyText, String[] buttons, long hold) {
+		Toast(String kind, String name, MarkerGlyph glyph, boolean region) {
+			this(kind, name, glyph, region, region ? null : "M", region ? null : "on the map", null, HOLD_NANOS);
+		}
 	}
 
 	private final AtlasClient atlas;
 	private final ArrayDeque<Toast> queue = new ArrayDeque<>();
 	private Toast showing;
 	private long shownAt;
+
+	/** Queues an island (client thread): an info line, a prompt, a notice. */
+	public void island(Toast t) {
+		if (this.queue.size() >= 6) {
+			this.queue.pollFirst();
+		}
+		this.queue.add(t);
+	}
+
+	/** The info island: "ATLAS · NEW WORLD" over its title, 6 s. */
+	public void info(String kind, String title) {
+		this.island(new Toast(kind, title, MarkerGlyph.DOT, true, null, null, null, INFO_NANOS));
+	}
+
+	/** A prompt with two answers, shown up to 30 s (answered on the map). */
+	public void prompt(String kind, String title, String first, String second) {
+		this.island(new Toast(kind, title, MarkerGlyph.DOT, true, null, null, new String[]{first, second}, PROMPT_NANOS));
+	}
+
+	private long deathAt;
+	private int deathMinutes;
+
+	/** The player is back from death: "Death waypoint clears itself in N min", bottom left, 6 s. */
+	public void death(int minutes) {
+		this.deathAt = System.nanoTime();
+		this.deathMinutes = minutes;
+	}
+
+	/** The death island, bottom left (the design's 355:14018). */
+	private void deathIsland(Ui ui, long now) {
+		long age = now - this.deathAt;
+		if (this.deathAt == 0 || age > INFO_NANOS) {
+			return;
+		}
+		float a = Math.min(1, Math.min(age / (float) SLIDE_NANOS, (INFO_NANOS - age) / (float) SLIDE_NANOS));
+		String kind = "DEATH  ·  JUST NOW";
+		String title = this.deathMinutes > 0 ? "Death waypoint clears itself in " + this.deathMinutes + " min" : "Death waypoint kept until you delete it";
+		float w = 8 + 38 + 14 + Math.max(ui.width(kind, Ui.Font.F85, 1), ui.width(title, Ui.Font.F13)) + 18;
+		float h = 54;
+		float x = 24;
+		float y = ui.height() - 24 - h;
+		ui.round(x, y, w, h, 26, Theme.alpha(Theme.ISLAND, a));
+		ui.border(x, y, w, h, 26, 0, Theme.alpha(Theme.HAIR_10, a));
+		ui.round(x + 8, y + 8, 38, 38, 13, Theme.alpha(Theme.WELL, a));
+		ui.glyph(MarkerGlyph.CROSS, x + 8 + 11, y + 8 + 11, 16, Theme.ink(a), Theme.ink(a));
+		ui.text(kind, x + 60, y + 11, Ui.Font.F85, 1, Theme.alpha(Theme.INK_4, a));
+		ui.text(title, x + 60, y + 26, Ui.Font.F13, Theme.ink(a));
+	}
+
+	/** The island showing now, if any (the tour photographs it). */
+	public Toast showingIsland() {
+		return this.showing;
+	}
+
+	/** Drops what is queued and showing (the tour, between shots). */
+	public void clearIslands() {
+		this.queue.clear();
+		this.showing = null;
+	}
 
 	public HudOverlays(AtlasClient atlas) {
 		this.atlas = atlas;
@@ -61,14 +132,16 @@ public final class HudOverlays {
 		}
 		boolean compass = this.atlas.settings().compass && mc.gui.screen() == null;
 		long now = System.nanoTime();
-		if (this.showing != null && now - this.shownAt > HOLD_NANOS) {
+		if (this.showing != null && (now - this.shownAt > this.showing.hold
+			|| this.showing.buttons != null && this.atlas.worlds.question().isEmpty())) {
 			this.showing = null;
 		}
 		if (this.showing == null && !this.queue.isEmpty()) {
 			this.showing = this.queue.pollFirst();
 			this.shownAt = now;
 		}
-		if (!compass && this.showing == null) {
+		boolean death = this.deathAt != 0 && now - this.deathAt < INFO_NANOS;
+		if (!compass && this.showing == null && !death) {
 			return;
 		}
 		Ui ui = new Ui(graphics, MinimapHud.hudUnit());
@@ -81,9 +154,12 @@ public final class HudOverlays {
 		if (this.showing != null && mc.gui.screen() == null) {
 			long age = now - this.shownAt;
 			float slide = Math.min(1, age / (float) SLIDE_NANOS);
-			float out = Math.max(0, (age - (HOLD_NANOS - SLIDE_NANOS)) / (float) SLIDE_NANOS);
+			float out = Math.max(0, (age - (this.showing.hold - SLIDE_NANOS)) / (float) SLIDE_NANOS);
 			float t = slide - out;
 			this.toast(ui, this.showing, ui.width() / 2, top - 8 * (1 - t), t);
+		}
+		if (death && mc.gui.screen() == null) {
+			this.deathIsland(ui, now);
 		}
 		ui.end();
 	}
@@ -91,8 +167,16 @@ public final class HudOverlays {
 	/** The toast island: tile, "DISCOVERED · SHIPWRECK" over the name, and "M on the map". */
 	private void toast(Ui ui, Toast toast, float centreX, float y, float alpha) {
 		float nameW = Math.max(ui.width(toast.kind, Ui.Font.F85, 1), ui.width(toast.name, Ui.Font.F15));
-		float hintW = toast.region ? 0 : 14 + 1 + 14 + ui.width("M", Ui.Font.F12) + 16 + 8 + ui.width("on the map", Ui.Font.F11) + 10;
-		float w = 8 + 38 + 14 + nameW + hintW + (toast.region ? 14 : 0);
+		boolean hint = toast.key != null;
+		float hintW = !hint ? 0 : 14 + 1 + 14 + ui.width(toast.key, Ui.Font.F12) + 16 + 8 + ui.width(toast.keyText, Ui.Font.F11) + 10;
+		float buttonsW = 0;
+		if (toast.buttons != null) {
+			buttonsW = 14 + 1 + 6;
+			for (String b : toast.buttons) {
+				buttonsW += ui.width(b, Ui.Font.F12) + 30 + 6;
+			}
+		}
+		float w = 8 + 38 + 14 + nameW + hintW + buttonsW + (hint || toast.buttons != null ? 0 : 14);
 		float x = centreX - w / 2;
 		float h = 54;
 		float a = Math.max(0, Math.min(1, alpha));
@@ -100,19 +184,43 @@ public final class HudOverlays {
 		ui.border(x, y, w, h, 26, 0, Theme.alpha(Theme.HAIR_10, a));
 		ui.round(x + 8, y + 8, 38, 38, 13, Theme.alpha(Theme.WELL, a));
 		ui.border(x + 8, y + 8, 38, 38, 13, 0, Theme.alpha(Theme.HAIR_16, a));
-		ui.glyph(toast.glyph, x + 8 + 11, y + 8 + 11, 16, Theme.ink(a), Theme.ink(a));
+		if (toast.glyph == MarkerGlyph.DOT) {
+			// Atlas's own mark: a small grid
+			for (int gy = 0; gy < 3; gy++) {
+				for (int gx = 0; gx < 3; gx++) {
+					ui.round(x + 8 + 14 + gx * 4, y + 8 + 14 + gy * 4, 2.6F, 2.6F, 0.6F, Theme.ink(a * 0.9F));
+				}
+			}
+		} else {
+			ui.glyph(toast.glyph, x + 8 + 11, y + 8 + 11, 16, Theme.ink(a), Theme.ink(a));
+		}
 		float tx = x + 8 + 38 + 14;
 		ui.text(toast.kind, tx, y + 11, Ui.Font.F85, 1, Theme.alpha(Theme.INK_4, a));
 		ui.text(toast.name, tx, y + 25, Ui.Font.F15, Theme.ink(a));
-		if (!toast.region) {
+		if (toast.buttons != null) {
+			float bx = tx + nameW + 14;
+			ui.rect(bx, y + 13, 1, 28, Theme.alpha(Theme.HAIR_8, a));
+			bx += 1 + 6;
+			for (int i = 0; i < toast.buttons.length; i++) {
+				String b = toast.buttons[i];
+				float bw = ui.width(b, Ui.Font.F12) + 30;
+				if (i == 0) {
+					ui.round(bx, y + 9, bw, 36, 18, Theme.alpha(Theme.RAISED, a));
+					ui.border(bx, y + 9, bw, 36, 18, 0, Theme.alpha(Theme.HAIR_10, a));
+				}
+				ui.text(b, bx + 15, y + 18, Ui.Font.F12, Theme.alpha(i == 0 ? Theme.INK : Theme.INK_2, a));
+				bx += bw + 6;
+			}
+		}
+		if (hint) {
 			float sx = tx + nameW + 14;
 			ui.rect(sx, y + 13, 1, 28, Theme.alpha(Theme.HAIR_8, a));
 			float kx = sx + 1 + 14;
-			float kw = ui.width("M", Ui.Font.F12) + 16;
+			float kw = ui.width(toast.key, Ui.Font.F12) + 16;
 			ui.round(kx, y + 15, kw, 24, 7, Theme.alpha(0x0FFFFFFF, a));
 			ui.border(kx, y + 15, kw, 24, 7, 0, Theme.alpha(Theme.HAIR_10, a));
-			ui.text("M", kx + 8, y + 19, Ui.Font.F12, Theme.alpha(Theme.INK_2, a));
-			ui.text("on the map", kx + kw + 8, y + 20, Ui.Font.F11, Theme.alpha(Theme.INK_2, a));
+			ui.text(toast.key, kx + 8, y + 19, Ui.Font.F12, Theme.alpha(Theme.INK_2, a));
+			ui.text(toast.keyText, kx + kw + 8, y + 20, Ui.Font.F11, Theme.alpha(Theme.INK_2, a));
 		}
 	}
 

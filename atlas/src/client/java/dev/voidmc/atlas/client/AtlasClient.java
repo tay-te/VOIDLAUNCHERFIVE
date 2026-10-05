@@ -99,6 +99,7 @@ public final class AtlasClient implements ClientModInitializer {
 	private boolean deathRecorded;
 	private final MinimapHud minimap = new MinimapHud(this);
 	private final dev.voidmc.atlas.client.ui.HudOverlays overlays = new dev.voidmc.atlas.client.ui.HudOverlays(this);
+	private int rulesSeen;
 	/** The last band the player was in underground, per dimension (for the underground and Nether views). */
 	private final ConcurrentHashMap<String, Integer> bands = new ConcurrentHashMap<>();
 	private final boolean logStats = Boolean.getBoolean("atlas.logStats");
@@ -153,6 +154,15 @@ public final class AtlasClient implements ClientModInitializer {
 
 		ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 		ChatCoordinates.register();
+		// the worlds' notices become islands (on the client thread)
+		this.worlds.addListener(n -> Minecraft.getInstance().execute(() -> {
+			switch (n.kind()) {
+				case NEW_WORLD -> this.overlays.info("ATLAS  ·  NEW WORLD", n.title());
+				case UNSURE_WORLD -> this.overlays.prompt("ATLAS  ·  NEW WORLD", n.title(), "Keep separate", "Same as before");
+				case RESTORED -> this.overlays.info("ATLAS  ·  RECOVERY", "Map restored from backup");
+				default -> this.overlays.info("ATLAS", n.title());
+			}
+		}));
 		// what the server allows: reset on every connection, read from its MOTD and its system messages
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
 			this.rules.reset();
@@ -171,9 +181,9 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 		});
 		ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> this.closeSession());
-		net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "beams"), (g, d) -> {
 			if (!BASELINE) {
-				this.beams.collect(ctx);
+				this.beams.extract(g, d);
 			}
 		});
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "minimap"), (g, d) -> {
@@ -396,6 +406,20 @@ public final class AtlasClient implements ClientModInitializer {
 				this.worldFound(mc, found);
 			}
 		}
+		if (this.rules.version() != this.rulesSeen) {
+			// the server turned something off: one quiet island (and a note under the minimap's readout)
+			this.rulesSeen = this.rules.version();
+			String off = this.rules.turnedOff();
+			if (off != null && this.multiplayer()) {
+				this.overlays.info("ATLAS  ·  SERVER RULES", "This server turns off " + off);
+			}
+		}
+		if (this.session != null && !this.settings.firstRunHintShown && mc.player != null && this.ticks > 100) {
+			this.settings.firstRunHintShown = true;
+			this.settings.save();
+			this.overlays.island(new dev.voidmc.atlas.client.ui.HudOverlays.Toast("ATLAS  ·  FIRST TIME", "Your map is ready", MarkerGlyph.DOT, true, "M",
+				"opens your map", null, dev.voidmc.atlas.client.ui.HudOverlays.FIRST_RUN_NANOS));
+		}
 		if (this.session != null && this.modelSet != mc.getModelManager().getBlockStateModelSet()) {
 			// resources reloaded: read the textures again
 			this.rebuildLooks(mc);
@@ -416,7 +440,10 @@ public final class AtlasClient implements ClientModInitializer {
 			this.settings.minimapZoom = Math.max(0, this.settings.minimapZoom - 1);
 		}
 		while (this.dropWaypoint.consumeClick()) {
-			this.dropWaypointHere(mc);
+			// B: the quick-add dialog at the player's feet
+			if (mc.gui.screen() == null) {
+				dev.voidmc.atlas.client.ui.QuickAddScreen.open();
+			}
 		}
 		while (this.openSettings.consumeClick()) {
 			if (mc.gui.screen() == null) {
@@ -436,6 +463,10 @@ public final class AtlasClient implements ClientModInitializer {
 					session.saveSoon(false);
 				}
 			} else {
+				if (this.deathRecorded) {
+					// back from death: the death point's island, bottom left
+					this.overlays.death(this.settings.deathMinutes);
+				}
 				this.deathRecorded = false;
 			}
 			String dim = p.level().dimension().identifier().toString();

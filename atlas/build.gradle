@@ -128,6 +128,17 @@ loom {
 			programArgs '--width', testWidth, '--height', testHeight, '--graphicsBackend', backend
 			vmArgs '-Xmx3G'
 		}
+		atlasSoak {
+			inherit clientGameTest
+			configName = 'Atlas soak and world-switch test'
+			runDir = 'build/run/atlasSoak'
+			property 'atlas.test', 'soak'
+			property 'atlas.test.out', file('build/soak/soak.json').absolutePath
+			property 'atlas.soak.seconds', (findProperty('atlas.soak.seconds') ?: '240').toString()
+			property 'atlas.test.watchdogMinutes', '40'
+			programArgs '--width', testWidth, '--height', testHeight, '--graphicsBackend', backend
+			vmArgs '-Xmx3G'
+		}
 		atlasPerf {
 			inherit clientGameTest
 			configName = 'Atlas performance gate'
@@ -146,11 +157,29 @@ loom {
 
 // Every tour and perf run makes new worlds; the last run's worlds and maps are deleted first, so they never pile up
 // (a few hundred MB each).
-['runAtlasTour': 'atlasTour', 'runAtlasPerf': 'atlasPerf'].each { task, dir ->
+['runAtlasTour': 'atlasTour', 'runAtlasPerf': 'atlasPerf', 'runAtlasSoak': 'atlasSoak'].each { task, dir ->
 	tasks.matching { it.name == task }.configureEach {
 		doFirst {
 			delete file("build/run/${dir}/saves"), file("build/run/${dir}/atlas")
 		}
+	}
+}
+
+tasks.register('atlasSoak') {
+	group = 'atlas'
+	description = 'Plays for a long while: two dedicated servers behind one address, many dimension changes; fails on mixed worlds, memory growth or an Atlas hitch'
+	dependsOn 'runAtlasSoak'
+	doLast {
+		def json = file('build/soak/soak.json')
+		if (!json.isFile()) {
+			throw new GradleException('The soak test wrote no results to build/soak/soak.json')
+		}
+		def r = new groovy.json.JsonSlurper().parse(json)
+		r.notes.each { println "Atlas soak: ${it}" }
+		if (!r.passed) {
+			throw new GradleException('Atlas soak failed: ' + r.failures.join('; '))
+		}
+		println "Atlas soak: passed (worst Atlas frame ${r.worstAtlasFrameMs} ms, heap ${r.heapMb} MB, grew ${r.heapGrowthMb} MB)"
 	}
 }
 

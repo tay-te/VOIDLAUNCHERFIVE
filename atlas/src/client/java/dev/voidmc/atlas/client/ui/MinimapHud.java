@@ -44,7 +44,7 @@ public final class MinimapHud {
 		Minecraft mc = Minecraft.getInstance();
 		AtlasSettings settings = this.atlas.settings();
 		LocalPlayer p = mc.player;
-		if (!settings.minimap || p == null || mc.level == null || mc.gui.screen() != null || mc.gui.hud.isHidden()
+		if (!settings.minimap || p == null || mc.level == null || mc.gui.screen() != null && !SettingsScreen.previewing() || mc.gui.hud.isHidden()
 			|| settings.minimapHideWithDebug && mc.getDebugOverlay().showDebugScreen() || this.atlas.session() == null || !this.atlas.minimapAllowed()) {
 			return;
 		}
