@@ -35,6 +35,8 @@ public final class RegionAnalysis {
 	}
 
 	public static final int SEA = 63;
+	/** How deep inside an area a cell on the region's border counts as, in 8-block cells (the area goes on beyond). */
+	static final int BORDER_DEPTH = 12;
 	public static final int PEAK_MIN_HEIGHT = 24;
 	public static final int PEAK_MIN_PROMINENCE = 30;
 	public static final int FALL_MIN_DROP = 8;
@@ -531,8 +533,10 @@ public final class RegionAnalysis {
 					}
 				}
 			}
-			// the label cell: the one deepest inside the patch (city-block distance to its edge, by a breadth-first walk
-			// in from every edge cell)
+			// the label cell: the one deepest inside the patch, its pole of inaccessibility on the 8-block grid (city-block
+			// distance to its edge, by a breadth-first walk in from every edge cell). The region's own border is not an
+			// edge — the land goes on into the next region — so a cell on it counts as BORDER_DEPTH cells deep: an area
+			// across a region corner is named in its middle, not pushed away from the corner.
 			int label = members[0];
 			int labelDepth = 0;
 			int head = 0;
@@ -542,21 +546,37 @@ public final class RegionAnalysis {
 				dist[c] = 0;
 				int cx = c % n;
 				int cz = c / n;
-				if (cx == 0 || cz == 0 || cx == n - 1 || cz == n - 1 || (cells[c + 1] & 0xFF) != id || (cells[c - 1] & 0xFF) != id
-					|| (cells[c + n] & 0xFF) != id || (cells[c - n] & 0xFF) != id) {
+				if (cx > 0 && (cells[c - 1] & 0xFF) != id || cx < n - 1 && (cells[c + 1] & 0xFF) != id
+					|| cz > 0 && (cells[c - n] & 0xFF) != id || cz < n - 1 && (cells[c + n] & 0xFF) != id) {
 					dist[c] = 1;
 					stack[tail++] = c;
 				}
 			}
-			while (head < tail) {
-				int c = stack[head++];
-				int cx = c % n;
-				int cz = c / n;
-				int[] ns = {cx + 1 < n ? c + 1 : -1, cx > 0 ? c - 1 : -1, cz + 1 < n ? c + n : -1, cz > 0 ? c - n : -1};
-				for (int o : ns) {
-					if (o >= 0 && (cells[o] & 0xFF) == id && dist[o] == 0) {
-						dist[o] = dist[c] + 1;
-						stack[tail++] = o;
+			for (int pass = 0; pass < 2; pass++) {
+				if (pass == 1) {
+					// then the region's border, as far in as it is not already nearer a real edge
+					head = 0;
+					tail = 0;
+					for (int k = 0; k < count; k++) {
+						int c = members[k];
+						int cx = c % n;
+						int cz = c / n;
+						if ((cx == 0 || cz == 0 || cx == n - 1 || cz == n - 1) && (dist[c] == 0 || dist[c] > BORDER_DEPTH)) {
+							dist[c] = BORDER_DEPTH;
+							stack[tail++] = c;
+						}
+					}
+				}
+				while (head < tail) {
+					int c = stack[head++];
+					int cx = c % n;
+					int cz = c / n;
+					int[] ns = {cx + 1 < n ? c + 1 : -1, cx > 0 ? c - 1 : -1, cz + 1 < n ? c + n : -1, cz > 0 ? c - n : -1};
+					for (int o : ns) {
+						if (o >= 0 && (cells[o] & 0xFF) == id && (dist[o] == 0 || dist[o] > dist[c] + 1)) {
+							dist[o] = dist[c] + 1;
+							stack[tail++] = o;
+						}
 					}
 				}
 			}

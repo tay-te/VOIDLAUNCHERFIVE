@@ -112,6 +112,12 @@ public final class AtlasClient implements ClientModInitializer {
 	private String markersDim = "";
 	private int markersLegend = -1;
 
+	/**
+	 * The performance gate's vanilla baseline ({@code -Datlas.baseline=true}): Atlas loads but does nothing — no
+	 * session, no chunk reading, no HUD — so a run measures the game alone.
+	 */
+	public static final boolean BASELINE = Boolean.getBoolean("atlas.baseline");
+
 	public static AtlasClient get() {
 		return instance;
 	}
@@ -148,8 +154,16 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 		});
 		ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> this.closeSession());
-		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "minimap"), this.minimap::extract);
-		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "discoveries"), this.overlays::extract);
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "minimap"), (g, d) -> {
+			if (!BASELINE) {
+				this.minimap.extract(g, d);
+			}
+		});
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "discoveries"), (g, d) -> {
+			if (!BASELINE) {
+				this.overlays.extract(g, d);
+			}
+		});
 
 		for (var container : FabricLoader.getInstance().getEntrypointContainers("atlas", AtlasPlugin.class)) {
 			String mod = container.getProvider().getMetadata().getId();
@@ -279,6 +293,9 @@ public final class AtlasClient implements ClientModInitializer {
 	}
 
 	private void tick(Minecraft mc) {
+		if (BASELINE) {
+			return;
+		}
 		long t0 = System.nanoTime();
 		try {
 			this.tickInner(mc);

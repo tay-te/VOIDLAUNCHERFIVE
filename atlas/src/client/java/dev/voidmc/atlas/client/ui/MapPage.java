@@ -1458,7 +1458,10 @@ public final class MapPage {
 			this.edit(Waypoint.create("Waypoint", bx, by, bz, this.map.dimensionOf(this.map.kind), 0), true);
 			return true;
 		}
-		if (m != null) {
+		if (m != null && MarkerPainter.isCluster(m)) {
+			// a count tile opens up: two steps in, round it
+			this.map.zoomBy(2, x, y);
+		} else if (m != null) {
 			// a name on the land selects its place
 			this.map.selected = m.id().startsWith("atlas:label:") ? "atlas:place:" + m.id().substring("atlas:label:".length()) : m.id();
 			this.editing = null;

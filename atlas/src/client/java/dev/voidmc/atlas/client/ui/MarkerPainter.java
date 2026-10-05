@@ -66,7 +66,7 @@ public final class MarkerPainter {
 	 */
 	public static List<Placed> paint(Ui ui, MapRenderer.Frame f, List<Marker> markers, String selected, String hovered, boolean compact,
 		double playerX, double playerZ, double zoom) {
-		List<Marker> order = new ArrayList<>(markers);
+		List<Marker> order = new ArrayList<>(compact ? markers : declutter(ui, f, markers, selected, hovered, zoom, playerX, playerZ));
 		order.sort(Comparator.comparingInt(MarkerPainter::rank));
 		List<float[]> taken = new ArrayList<>();
 		List<Placed> placed = new ArrayList<>();
@@ -96,7 +96,8 @@ public final class MarkerPainter {
 			if (f.inside(ax, ay)) {
 				boolean minor = m.tier() == Tier.MINOR && m.style() == Marker.Style.STRUCTURE;
 				float r = (minor ? 8 : 13) * s;
-				(minor ? small : taken).add(new float[]{ax - r, ay - r, ax + r, ay + r});
+				float rx = isCluster(m) ? clusterWidth(ui, m.name()) / 2 : r;
+				(minor ? small : taken).add(new float[]{ax - rx, ay - r, ax + rx, ay + r});
 			}
 		}
 		// tiles and their labels: minors under majors, labels of majors placed before those of minors
@@ -137,7 +138,7 @@ public final class MarkerPainter {
 					float ax = f.screenX(m.x(), m.z());
 					float ay = f.screenY(m.x(), m.z());
 					if (f.inside(ax, ay)) {
-						Placed p = landName(ui, m, ax, ay, taken, zoom);
+						Placed p = landName(ui, m, ax, ay, taken, small, zoom);
 						if (p != null) {
 							placed.add(p);
 						}
@@ -151,7 +152,7 @@ public final class MarkerPainter {
 			boolean sel = m.id().equals(selected);
 			Chip chip = chips.get(m.id());
 			placed.add(switch (m.style()) {
-				case STRUCTURE -> tile(ui, m, ax, ay, s, sel, chip);
+				case STRUCTURE -> isCluster(m) ? cluster(ui, m, ax, ay) : tile(ui, m, ax, ay, s, sel, chip);
 				case SETTLEMENT -> settlement(ui, m, ax, ay, s, sel, chip);
 				case WAYPOINT -> waypoint(ui, m, ax, ay, s, sel, chip);
 				case PLAYER -> player(ui, m, ax, ay, s, chip);
@@ -182,11 +183,187 @@ public final class MarkerPainter {
 		return true;
 	}
 
+	// --- decluttering -----------------------------------------------------------------------------------------------
+
+	/** The id prefix of a count tile: it stands for the minor places and "?"s too close together to show one by one. */
+	public static final String CLUSTER = "atlas:cluster:";
+
+	public static boolean isCluster(Marker m) {
+		return m.id().startsWith(CLUSTER);
+	}
+
+	private static final class Cluster {
+		final List<Marker> members = new ArrayList<>();
+		float x0, y0, x1, y1;
+	}
+
+	/**
+	 * The markers as they can be shown without any two tiles touching: waypoints, players, settlements and the selected
+	 * or hovered place first; then the major landmarks (structures before peaks, lakes and waterfalls, nearest first), a
+	 * landmark that would touch one already down joining the minor places; then the minor places and the "?"s, nearest
+	 * first. Zoomed out (below 1:1) those are gathered on a screen grid (56 px from 1:4 out, 40 px in to 1:1): a cell with one place shows it, a cell
+	 * with more shows a count tile at their middle. Zoomed in, a place shows unless it would touch another. Whatever
+	 * touches something joins the count tile it touches, or else lives in the list only. So the land shows through, the
+	 * landmarks stay, and the "?"s thin out.
+	 */
+	static List<Marker> declutter(Ui ui, MapRenderer.Frame f, List<Marker> markers, String selected, String hovered, double zoom, double px,
+		double pz) {
+		List<Marker> out = new ArrayList<>();
+		List<float[]> taken = new ArrayList<>();
+		List<Marker> majors = new ArrayList<>();
+		List<Marker> pool = new ArrayList<>();
+		for (Marker m : markers) {
+			if (m.style() == Marker.Style.LABEL) {
+				out.add(m);
+				continue;
+			}
+			float ax = f.screenX(m.x(), m.z());
+			float ay = f.screenY(m.x(), m.z());
+			if (!f.inside(ax, ay)) {
+				continue;
+			}
+			boolean pinned = m.id().equals(selected) || m.id().equals(hovered);
+			if (m.style() != Marker.Style.STRUCTURE || pinned) {
+				out.add(m);
+				float[] b = box(m, ax, ay);
+				free(taken, b[0], b[1], b[2], b[3], true);
+			} else if (m.glyph() == MarkerGlyph.UNKNOWN || m.tier() == Tier.MINOR) {
+				pool.add(m);
+			} else {
+				majors.add(m);
+			}
+		}
+		majors.sort(Comparator.comparingInt(MarkerPainter::landmarkRank).thenComparingDouble(m -> m.distanceTo(px, pz)));
+		for (Marker m : majors) {
+			float[] b = box(m, f.screenX(m.x(), m.z()), f.screenY(m.x(), m.z()));
+			if (free(taken, b[0], b[1], b[2], b[3], false)) {
+				out.add(m);
+			} else {
+				pool.add(m);
+			}
+		}
+		pool.sort(Comparator.comparingDouble(m -> m.distanceTo(px, pz)));
+		java.util.Map<Long, List<Marker>> groups = new java.util.LinkedHashMap<>();
+		float cell = zoom <= 0.25 ? 56 : 40;
+		long unique = 0;
+		for (Marker m : pool) {
+			long key;
+			if (zoom < 1) {
+				long gx = (long) Math.floor((f.screenX(m.x(), m.z()) - f.x) / cell);
+				long gy = (long) Math.floor((f.screenY(m.x(), m.z()) - f.y) / cell);
+				key = gx << 32 ^ (gy & 0xFFFFFFFFL);
+			} else {
+				key = Long.MIN_VALUE + unique++;
+			}
+			groups.computeIfAbsent(key, k -> new ArrayList<>()).add(m);
+		}
+		List<Cluster> clusters = new ArrayList<>();
+		for (List<Marker> g : groups.values()) {
+			float[] b;
+			if (g.size() == 1) {
+				Marker m = g.get(0);
+				b = box(m, f.screenX(m.x(), m.z()), f.screenY(m.x(), m.z()));
+				if (free(taken, b[0], b[1], b[2], b[3], false)) {
+					out.add(m);
+					continue;
+				}
+			} else {
+				double mx = 0;
+				double mz = 0;
+				for (Marker m : g) {
+					mx += m.x();
+					mz += m.z();
+				}
+				float ax = f.screenX(mx / g.size(), mz / g.size());
+				float ay = f.screenY(mx / g.size(), mz / g.size());
+				float hw = clusterWidth(ui, String.valueOf(g.size())) / 2;
+				b = new float[]{ax - hw, ay - 9, ax + hw, ay + 9};
+				if (free(taken, b[0], b[1], b[2], b[3], false, false)) {
+					Cluster c = new Cluster();
+					c.members.addAll(g);
+					c.x0 = b[0];
+					c.y0 = b[1];
+					c.x1 = b[2];
+					c.y1 = b[3];
+					clusters.add(c);
+					// room for the count to grow a digit
+					taken.add(new float[]{b[0] - 5, b[1] - 2, b[2] + 5, b[3] + 2});
+					continue;
+				}
+			}
+			// it touches something: it joins the count tile it touches, if any; if not it is in the list only
+			for (Cluster c : clusters) {
+				if (b[0] < c.x1 + 5 && b[2] > c.x0 - 5 && b[1] < c.y1 + 2 && b[3] > c.y0 - 2) {
+					c.members.addAll(g);
+					break;
+				}
+			}
+		}
+		int n = 0;
+		for (Cluster c : clusters) {
+			boolean allSighted = true;
+			for (Marker m : c.members) {
+				allSighted &= m.glyph() == MarkerGlyph.UNKNOWN;
+			}
+			// the tile stays where it was first put: its members may have grown, its place on screen not
+			double cx = f.mapX((c.x0 + c.x1) / 2, (c.y0 + c.y1) / 2);
+			double cz = f.mapZ((c.x0 + c.x1) / 2, (c.y0 + c.y1) / 2);
+			Marker first = c.members.get(0);
+			out.add(new Marker(CLUSTER + n++, first.layer(), String.valueOf(c.members.size()), "", "", cx, first.y(), cz, first.dimension(),
+				allSighted ? MarkerGlyph.UNKNOWN : MarkerGlyph.DOT, Marker.Style.STRUCTURE, 0, null, null, Tier.MINOR));
+		}
+		return out;
+	}
+
+	/** Which landmarks keep their place first when two would touch: structures, then peaks, lakes, waterfalls. */
+	private static int landmarkRank(Marker m) {
+		return switch (m.glyph()) {
+			case PEAK -> 1;
+			case LAKE -> 2;
+			case WATERFALL -> 3;
+			default -> 0;
+		};
+	}
+
+	/** A marker's tile on screen, as a box. */
+	private static float[] box(Marker m, float ax, float ay) {
+		return switch (m.style()) {
+			case STRUCTURE -> {
+				float r = m.tier() == Tier.MINOR ? 8 : 13;
+				yield new float[]{ax - r, ay - r, ax + r, ay + r};
+			}
+			case WAYPOINT -> new float[]{ax - 10, ay - 30, ax + 10, ay + 2};
+			case SETTLEMENT -> new float[]{ax - 13, ay - 13, ax + 13, ay + 13};
+			default -> new float[]{ax - 11, ay - 11, ax + 11, ay + 11};
+		};
+	}
+
+	private static float clusterWidth(Ui ui, String count) {
+		return Math.max(18, ui.width(count, Ui.Font.F10) + 10);
+	}
+
+	/**
+	 * A count tile, in the house style of a minor tile: 18 px high, as wide as its number needs, the well's fill with a
+	 * 12% hairline (hollow with a 24% hairline when everything in it is only sighted), the number at 62%.
+	 */
+	private static Placed cluster(Ui ui, Marker m, float ax, float ay) {
+		boolean sighted = m.glyph() == MarkerGlyph.UNKNOWN;
+		float w = clusterWidth(ui, m.name());
+		float h = 18;
+		float x = ax - w / 2;
+		float y = ay - h / 2;
+		ui.round(x, y, w, h, 6, sighted ? HOLLOW : Theme.WELL);
+		ui.border(x, y, w, h, 6, 0, sighted ? HAIR_24 : Theme.HAIR_12);
+		float tw = ui.width(m.name(), Ui.Font.F10);
+		ui.text(m.name(), ax - tw / 2, y + (h - Ui.Font.F10.size * 1.26F) / 2, Ui.Font.F10, Theme.ink(0.62F));
+		return new Placed(m, ax, ay, x, y, x + w, y + h);
+	}
+
 	// --- labels ----------------------------------------------------------------------------------------------------
 
 	/** What a marker's label chip says: its name and a dim meta (a height, a distance). Null for no label. */
 	private static String[] labelText(Marker m, double zoom, boolean force, double px, double pz) {
-		if (m.name().isEmpty()) {
+		if (m.name().isEmpty() || isCluster(m)) {
 			return null;
 		}
 		boolean sighted = m.glyph() == MarkerGlyph.UNKNOWN;
@@ -251,60 +428,58 @@ public final class MarkerPainter {
 	 * Regular, tracking 6. Shown from far out to 1:1 (only XL and L from 1:8 out), fading to nothing by 2:1. Left off
 	 * where it would cover a tile or a label.
 	 */
-	private static Placed landName(Ui ui, Marker m, float ax, float ay, List<float[]> taken, double zoom) {
+	private static Placed landName(Ui ui, Marker m, float ax, float ay, List<float[]> taken, List<float[]> small, double zoom) {
 		if (m.name().isEmpty() || zoom >= 2) {
 			return null;
 		}
 		boolean water = m.subtitle().startsWith("LAKE") || m.subtitle().startsWith("RIVER");
 		double across = m.subtitle().isEmpty() ? 0 : extent(m);
-		Ui.Font font;
-		float tracking;
-		float alpha;
-		if (water) {
-			font = Ui.Font.R13;
-			tracking = 6;
-			alpha = 0.40F;
-		} else if (across > 600) {
-			font = Ui.Font.F24;
-			tracking = 10;
-			alpha = 0.42F;
-		} else if (across > 250) {
-			font = Ui.Font.F16;
-			tracking = 7;
-			alpha = 0.36F;
-		} else {
-			if (zoom <= 1.0 / 8) {
-				return null;
-			}
-			font = Ui.Font.F115;
-			tracking = 4.5F;
-			alpha = 0.34F;
-		}
-		if (water && zoom <= 1.0 / 8 && across <= 250) {
-			return null;
-		}
-		if (zoom > 1) {
-			alpha *= (float) (2 - zoom);
-		}
+		// the sizes to try, largest first: the area's own size, then a step down (a name that cannot find room at its
+		// size may still fit a size smaller); M and the small water size only from 1:8 in
+		int size = water ? (across > 250 ? 3 : 4) : across > 600 ? 0 : across > 250 ? 1 : 2;
+		int last = water ? 4 : 2;
 		String text = m.name().toUpperCase(Locale.ROOT);
-		float w = ui.width(text, font, tracking);
-		float h = font.size * 1.26F;
-		float x0 = ax - w / 2;
-		float y0 = ay - h / 2;
-		// where it would cover a landmark or a label, a step above or below will do; failing that it gives way
-		boolean placed = false;
-		for (float dy : new float[]{0, -h * 1.4F, h * 1.4F}) {
-			if (free(taken, x0, ay - h / 2 + dy, x0 + w, ay + h / 2 + dy, false)) {
-				y0 = ay - h / 2 + dy;
-				placed = true;
+		for (int k = size; k <= last; k++) {
+			if ((k == 2 || k == 4) && zoom <= 1.0 / 8) {
 				break;
 			}
+			Ui.Font font = switch (k) {
+				case 0 -> Ui.Font.F24;
+				case 1 -> Ui.Font.F16;
+				case 2 -> Ui.Font.F115;
+				case 3 -> Ui.Font.R13;
+				default -> Ui.Font.R11;
+			};
+			float tracking = switch (k) {
+				case 0 -> 10;
+				case 1 -> 7;
+				case 2 -> 4.5F;
+				case 3 -> 6;
+				default -> 5;
+			};
+			float alpha = switch (k) {
+				case 0 -> 0.42F;
+				case 1 -> 0.36F;
+				case 2 -> 0.34F;
+				default -> 0.40F;
+			};
+			if (zoom > 1) {
+				alpha *= (float) (2 - zoom);
+			}
+			float w = ui.width(text, font, tracking);
+			float h = font.size * 1.26F;
+			float x0 = ax - w / 2;
+			// where it would cover a tile or a label, a step above or below will do; failing that a size smaller; failing
+			// that it gives way. A name never passes over a tile, however small.
+			for (float dy : new float[]{0, -h * 1.4F, h * 1.4F}) {
+				float y0 = ay - h / 2 + dy;
+				if (free(small, x0, y0, x0 + w, y0 + h, false, false) && free(taken, x0, y0, x0 + w, y0 + h, false)) {
+					ui.text(text, x0, y0, font, tracking, water ? Theme.alpha(WATER_INK, alpha) : Theme.ink(alpha));
+					return new Placed(m, ax, ay, x0, y0, x0 + w, y0 + h);
+				}
+			}
 		}
-		if (!placed) {
-			return null;
-		}
-		ui.text(text, x0, y0, font, tracking, water ? Theme.alpha(WATER_INK, alpha) : Theme.ink(alpha));
-		return new Placed(m, ax, ay, x0, y0, x0 + w, y0 + h);
+		return null;
 	}
 
 	/** How far across a named area is, from the marker's place (the label markers carry it in their detail-less id). */

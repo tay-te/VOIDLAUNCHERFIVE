@@ -101,6 +101,8 @@ fabricApi {
 }
 
 def backend = (findProperty('backend') ?: 'opengl').toString()
+// -Patlas.baseline=true: the perf flight with Atlas doing nothing (the game alone), into build/perf-baseline/
+def baseline = (findProperty('atlas.baseline') ?: 'false').toString() == 'true'
 def testWidth = (findProperty('atlas.test.width') ?: '1920').toString()
 def testHeight = (findProperty('atlas.test.height') ?: '1080').toString()
 def passThrough = ['atlas.test.seed', 'atlas.test.settle', 'atlas.test.only', 'atlas.test.distance', 'atlas.test.frames',
@@ -132,7 +134,8 @@ loom {
 			runDir = 'build/run/atlasPerf'
 			property 'atlas.test', 'perf'
 			property 'atlas.test.backend', backend
-			property 'atlas.test.out', file("build/perf/${backend}.json").absolutePath
+			property 'atlas.test.out', file(baseline ? "build/perf-baseline/${backend}.json" : "build/perf/${backend}.json").absolutePath
+			property 'atlas.baseline', baseline.toString()
 			property 'atlas.test.withExpanse', withExpanse.toString()
 			programArgs '--width', testWidth, '--height', testHeight, '--graphicsBackend', backend
 			vmArgs '-Xmx3G'
@@ -171,6 +174,11 @@ tasks.register('atlasPerf') {
 	description = 'Runs the scripted pan/zoom and minimap flight, writes build/perf/<backend>.json and docs/PERF.md, fails over budget'
 	dependsOn 'runAtlasPerf'
 	doLast {
+		if (baseline) {
+			def b = new groovy.json.JsonSlurper().parse(file("build/perf-baseline/${backend}.json"))
+			println "Vanilla baseline (${backend}), Atlas idle: flight avg ${b.flight.avgFrameMs} ms, p99 ${b.flight.p99FrameMs} ms, worst ${b.flight.maxFrameMs} ms"
+			return
+		}
 		def json = file("build/perf/${backend}.json")
 		if (!json.isFile()) {
 			throw new GradleException("The perf run wrote no results to ${json}")

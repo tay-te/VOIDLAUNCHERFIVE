@@ -614,6 +614,27 @@ public class AtlasGameTest implements FabricClientGameTest {
 		context.getInput().releaseKey(o -> o.keySprint);
 		Perf.Recording flight = context.computeOnClient(mc -> Perf.stopRecording());
 		long[] spike = context.computeOnClient(mc -> Perf.MINIMAP_SPIKE.clone()); // the worst minimap frame of the flight
+		if (AtlasClient.BASELINE) {
+			// the vanilla baseline: the same flight with Atlas doing nothing, for comparison; nothing else to time
+			String json = String.format(Locale.ROOT, """
+				{
+				  "backend": "%s",
+				  "baseline": true,
+				  "flight": {"frames": %d, "avgFrameMs": %.3f, "avgFps": %.0f, "p99FrameMs": %.3f, "maxFrameMs": %.3f}
+				}
+				""", backend, flight.count(), Perf.Recording.avgMs(flight.frames()), 1000 / Math.max(1e-6, Perf.Recording.avgMs(flight.frames())),
+				Perf.Recording.percentileMs(flight.frames(), 0.99), Perf.Recording.maxMs(flight.frames()));
+			try {
+				Path out = Path.of(System.getProperty("atlas.test.out"));
+				Files.createDirectories(out.getParent());
+				Files.writeString(out, json, StandardCharsets.UTF_8);
+			} catch (IOException e) {
+				log("could not write the baseline: " + e);
+			}
+			log(String.format(Locale.ROOT, "baseline flight: %d frames, avg %.2f ms, p99 %.2f ms, max %.2f ms", flight.count(),
+				Perf.Recording.avgMs(flight.frames()), Perf.Recording.percentileMs(flight.frames(), 0.99), Perf.Recording.maxMs(flight.frames())));
+			return;
+		}
 		long flightUploads = context.computeOnClient(mc -> Perf.uploads) - uploads0;
 		long flightBytes = context.computeOnClient(mc -> Perf.uploadBytes) - bytes0;
 		long scanned = Perf.SCANNED.get() - scanned0;
