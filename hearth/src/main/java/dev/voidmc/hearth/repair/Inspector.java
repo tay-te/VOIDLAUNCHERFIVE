@@ -129,7 +129,14 @@ public final class Inspector {
 			long p = r.cells.getLong(i);
 			n++;
 			BlockPos pos = BlockPos.of(p);
-			if (!level.isLoaded(pos) || !r.trustChunks && now - rt.chunkLoadedAt(level, SectionPos.blockToSectionCoord(pos.getX()), SectionPos.blockToSectionCoord(pos.getZ())) < SETTLE_TICKS) {
+			if (!level.isLoaded(pos)) {
+				continue;
+			}
+			int cx = SectionPos.blockToSectionCoord(pos.getX());
+			int cz = SectionPos.blockToSectionCoord(pos.getZ());
+			// the sim says whether its applier has caught up with this chunk (requests/p3-repair.md §5); the settle time
+			// stays as a guard for anything else still settling there
+			if (!r.trustChunks && (!world.written(s, r.plotId, cx, cz) || now - rt.chunkLoadedAt(level, cx, cz) < SETTLE_TICKS / 4)) {
 				continue;
 			}
 			r.checked++;

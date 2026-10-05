@@ -87,7 +87,7 @@ public final class LayoutChooser {
 				case "willow_bayou", "boreal_muskeg" -> {
 					return Signature.STILT_TOWN;
 				}
-				case "opal_dunes", "saguaro_flats" -> {
+				case "opal_dunes", "red_dunes", "saguaro_flats" -> {
 					return Signature.OASIS;
 				}
 				case "painted_canyons" -> {
@@ -111,7 +111,7 @@ public final class LayoutChooser {
 				case "wisteria_vale" -> {
 					return Signature.GARDEN_TOWN;
 				}
-				case "frostbloom_tundra" -> {
+				case "frostbloom_tundra", "lichen_tundra" -> {
 					return Signature.STEADING;
 				}
 				case "palm_coast", "coral_coast" -> {

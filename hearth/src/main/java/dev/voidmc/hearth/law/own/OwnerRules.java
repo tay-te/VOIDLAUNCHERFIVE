@@ -43,6 +43,12 @@ public final class OwnerRules {
 			case HOUSING, NOBLE -> household(settlement, plot);
 			case UNDERGROUND -> archetype.getPath().contains("dwelling") ? household(settlement, plot) : settlementOwned(settlement, plot);
 			case WORKPLACE, FARM, COMMERCE, EXTRACTION -> {
+				// a business a player bought is the player's property; its folk still work its stock (p3-economy.md §7)
+				dev.voidmc.hearth.api.EconomyService eco = dev.voidmc.hearth.api.HearthServices.economy();
+				java.util.UUID owner = eco == null ? null : eco.businessOwner(settlement, plot.id());
+				if (owner != null) {
+					yield new Owner(settlement.id(), null, owner, Owner.Kind.PLAYER);
+				}
 				Resident worker = head(settlement, plot.id(), r -> r.work);
 				if (worker != null) {
 					yield new Owner(settlement.id(), worker.id, null, Owner.Kind.WORKPLACE);

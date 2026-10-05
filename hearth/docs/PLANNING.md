@@ -407,8 +407,8 @@ room to spare), are rebuilt for the station that suits the new house and is shor
 `household`.
 
 Every home carries `station` and, when the ledger knows one, `household`: `job` (the family's trade, or the station's
-commonest), and, when a family is waiting for a home of its station, `head` (its resident id) and `name`. The sim is
-asked to move families into homes of their station (requests/p3-plan.md).
+commonest), and, when a family is waiting for a home of its station, `head` (its resident id) and `name`. The sim moves
+families into homes of their station (`SettlementClock.assignHomes`, SIM.md §16.7).
 
 ### 14.2 The lord and his seat (`society/Nobility`)
 
@@ -504,5 +504,27 @@ slopes). Its projects are handed out when the surface has none waiting. Every de
 realm floor (`origin.y`), and its `local` is the realm's (`Materials.realm`: its rock, and its glow — glowcaps,
 amber, prismite — for `light`).
 
-The planner reaches the underground through the terrain probe (`PlanModule.underground`); see requests/p3-plan.md.
+The planner reaches the underground through the terrain probe (`TerrainProbe.underground()`, which the sim's probe
+answers; `PlanModule.underground` falls back to probes paired by hand). A lift is sunk only where its head's street stands
+30 blocks or more above the realm floor (rock overhead, not open sky).
+
+### 14.6 Integration (phase 3)
+
+- **Walls**: gatehouses and towers are planned before the stretches; a gatehouse may stand on WALL cells (its intended
+  overlap), and every stretch gets `keep` (the towers' and gatehouses' footprints on it), `join_start`/`join_end` where it
+  runs on into the next stretch, `heart` (the town side) and, on the towers and gates, `wall_height`.
+- **Landmarks**: a reserved close makes the city's second landmark the cathedral or temple; with no signature the most
+  particular landmark of the culture comes first; big landmarks (11 × 11 and up, not the lighthouse) are never placed on
+  a terrace or on ground steeper than the slope tolerance + 1; the close is kept at the cathedral's middle size where the
+  land allows.
+- **Heights**: OUTSKIRTS buildings, the brewery, warehouse, market hall and inn keep at least three quarters of their
+  height range anywhere; OUTSKIRTS housing is told 2 storeys when its max height is 11 or more; the heart plaza gets its
+  info's max height.
+- **Params**: every civic, commercial, defensive, law, noble and landmark plot and the plaza carry the town's `banner`.
+- **Roads**: a lane's first four columns take the junction's level where they are within a block of it; spans are issued
+  at the road's width + 2 (at least 5 for streets); piers start at the road's edge, never beside a bridge.
+- **The sim's land**: the carrying capacity is the sim's (`Settlement.carryingCapacity`), `rock` comes from the site's
+  `material`, deserted and player-funded plots are never rebuilt (`Upgrades.replacing`), desert towns get pastures.
+- **The default catalogue** carries the build module's registered sizes, heights, beds and cultures for the 71 phase 1–2
+  archetypes (the registered infos still win at runtime).
 

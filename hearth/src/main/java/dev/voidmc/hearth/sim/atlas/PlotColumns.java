@@ -56,8 +56,24 @@ public final class PlotColumns {
 		}
 	}
 
-	/** Marks the plot's columns in per-chunk 256-bit masks. */
+	/**
+	 * Whether a plot stands down in a realm under the surface town (a deep town's {@code deep/*} plots, roads with a
+	 * {@code realm}): its columns are not surface ground, so the worldgen guard leaves the surface over it alone
+	 * (requests/p3-plan.md §6). {@code deep/lift} reaches the surface and stays marked.
+	 */
+	public static boolean underground(PlotSpec spec) {
+		String path = spec.archetype().getPath();
+		if (path.equals("deep/lift")) {
+			return false;
+		}
+		return path.startsWith("deep/") || spec.params().contains("realm");
+	}
+
+	/** Marks the plot's columns in per-chunk 256-bit masks (surface plots only: see {@link #underground}). */
 	public static void mark(PlotSpec spec, int margin, Long2ObjectMap<long[]> masks) {
+		if (underground(spec)) {
+			return;
+		}
 		forEach(spec, margin, (x, z) -> {
 			long[] mask = masks.computeIfAbsent(ChunkPos.pack(x >> 4, z >> 4), k -> new long[4]);
 			int bit = (z & 15) << 4 | x & 15;

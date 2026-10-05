@@ -103,6 +103,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		SimRules rules = server.rules();
 		this.probe = Probes.create(level, rules.config.probeCorrection());
 		this.underground = Undergrounds.create(level);
+		this.probe.setUnderground(this.underground);
 		StructureAvoidance avoidance = null;
 		try {
 			avoidance = new StructureAvoidance(level, rules.config.atlas());
@@ -186,6 +187,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 	}
 
 	/** The overworld clock: what sim time follows (sleeping through the night moves it, and the towns, forward). */
+	@Override
 	public long clock() {
 		return this.level.getServer().overworld().getOverworldClockTime();
 	}
@@ -708,8 +710,56 @@ public final class SimWorld implements HearthWorld, SimContext {
 	}
 
 	/** Caravans on the roads of this world. */
-	public Caravans caravans() {
+	public Caravans caravanTrade() {
 		return this.caravans;
+	}
+
+	@Override
+	public List<HearthWorld.CaravanView> caravans() {
+		List<Caravans.Caravan> active = this.caravans.active();
+		List<HearthWorld.CaravanView> out = new ArrayList<>(active.size());
+		for (Caravans.Caravan c : active) {
+			out.add(Caravans.view(c));
+		}
+		return out;
+	}
+
+	@Override
+	public HearthWorld.@Nullable CaravanView caravan(long id) {
+		Caravans.Caravan c = this.caravans.caravan(id);
+		return c == null ? null : Caravans.view(c);
+	}
+
+	@Override
+	public boolean escortCaravan(long id) {
+		return this.caravans.escort(id);
+	}
+
+	@Override
+	public int @Nullable [] robCaravan(long id) {
+		return this.caravans.rob(id);
+	}
+
+	@Override
+	public void caravanLost(long id, java.util.@Nullable UUID robbedBy) {
+		this.caravans.lose(id, robbedBy != null);
+	}
+
+	@Override
+	public boolean written(Settlement settlement, int plotId, int chunkX, int chunkZ) {
+		if (!(settlement instanceof SimSettlement s)) {
+			return true;
+		}
+		SimPlot p = s.plot(plotId);
+		if (p == null) {
+			return true;
+		}
+		var reach = p.reach();
+		if (chunkX < reach.minX() >> 4 || chunkX > reach.maxX() >> 4 || chunkZ < reach.minZ() >> 4 || chunkZ > reach.maxZ() >> 4) {
+			return true;
+		}
+		net.minecraft.world.level.chunk.LevelChunk chunk = this.level.getChunkSource().getChunkNow(chunkX, chunkZ);
+		return chunk != null && dev.voidmc.hearth.sim.apply.ChunkLedgers.of(chunk).get(s.id(), plotId) >= s.applicable(p);
 	}
 
 	@Override
@@ -774,8 +824,39 @@ public final class SimWorld implements HearthWorld, SimContext {
 		return out;
 	}
 
+	private boolean reputationHanded;
+
+	/**
+	 * Once a session, on the first tick: the sim's stored reputation numbers go to the standing module as seeds
+	 * ({@code hearth:seed}, ignored for a player it already knows), so worlds from before it keep their standing
+	 * (requests/p3-standing.md §2). Harmless to repeat.
+	 */
+	private void handReputationOver() {
+		this.reputationHanded = true;
+		dev.voidmc.hearth.api.StandingService standing = HearthServices.standing();
+		if (standing == null) {
+			return;
+		}
+		int seeds = 0;
+		for (SimSettlement s : this.settlements.values()) {
+			for (java.util.UUID player : List.copyOf(s.reputationHolders())) {
+				int v = s.rawReputation(player);
+				if (v != 0) {
+					standing.deed(new dev.voidmc.hearth.api.StandingService.Deed(player, s.id(), "hearth:seed", v, null, s.center(), false));
+					seeds++;
+				}
+			}
+		}
+		if (seeds > 0) {
+			LOG.info("hearth: handed {} reputation numbers to the standing module", seeds);
+		}
+	}
+
 	/** Caravans that are due, and trees owed to the world felled in loaded woods (from the server tick). */
 	public void tickLand(long fellBudgetNanos) {
+		if (!this.reputationHanded) {
+			handReputationOver();
+		}
 		this.caravans.tick(clock());
 		this.woodcutter.tick(fellBudgetNanos);
 	}

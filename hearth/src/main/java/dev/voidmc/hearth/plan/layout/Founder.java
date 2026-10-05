@@ -153,7 +153,12 @@ public final class Founder {
 		if (well == null) {
 			return;
 		}
+		// the build module's well is 5 wide and up: where the heart is tight (a boardwalk past it in a stilt town) it
+		// shrinks to what fits, down to 3, rather than stand on a road
 		int s = well.minFrontage();
+		while (s > 3 && touchesRoad(ctx, ctx.heartX() - s / 2, ctx.heartZ() - s / 2, s)) {
+			s -= 2;
+		}
 		int x0 = ctx.heartX() - s / 2;
 		int z0 = ctx.heartZ() - s / 2;
 		CompoundTag params = new CompoundTag();
@@ -163,6 +168,19 @@ public final class Founder {
 		PlotSpec spec = new PlotSpec(well.id(), ctx.style, ctx.nextSeed(), new BlockPos(x0, ctx.state.heartY, z0), s, s, Direction.SOUTH,
 			well.maxHeight(), Build.finish(ctx, well, 0, null), params);
 		Roads.issue(ctx, spec, "heart: the well the settlement gathers round");
+	}
+
+	private static boolean touchesRoad(PlanContext ctx, int x0, int z0, int s) {
+		for (int z = z0; z < z0 + s; z++) {
+			for (int x = x0; x < x0 + s; x++) {
+				byte c = ctx.occ.get(x, z);
+				if (c == dev.voidmc.hearth.plan.grid.Cell.ROAD || c == dev.voidmc.hearth.plan.grid.Cell.BRIDGE
+					|| c == dev.voidmc.hearth.plan.grid.Cell.PLANNED_ROAD || c == dev.voidmc.hearth.plan.grid.Cell.DOCK) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** Plans the layout's main roads and builds their first stretches. */

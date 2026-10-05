@@ -62,7 +62,7 @@ public final class BrigadeBehaviour implements FolkBehaviour {
 	public boolean wants(FolkHandle f) {
 		RepairConfig.Fire cfg = RepairModule.config().fire();
 		RepairRuntime rt = RepairRuntime.current();
-		if (rt == null || !cfg.enabled() || !cfg.brigade() || f.resident().age == AgeStage.CHILD || !f.awake()) {
+		if (rt == null || !cfg.enabled() || !cfg.brigade() || f.resident().age == AgeStage.CHILD) {
 			return false;
 		}
 		Settlement s = f.settlement();
@@ -71,9 +71,16 @@ public final class BrigadeBehaviour implements FolkBehaviour {
 			return false;
 		}
 		if (e.inBrigade(f.resident().id)) {
-			return true;
+			return f.awake();
 		}
-		return e.brigadeSize() < cfg.maxFolk() && f.entity().blockPosition().distSqr(e.origin) <= (double) cfg.radius() * cfg.radius();
+		if (e.brigadeSize() >= cfg.maxFolk() || f.entity().blockPosition().distSqr(e.origin) > (double) cfg.radius() * cfg.radius()) {
+			return false;
+		}
+		if (!f.awake()) {
+			// fire wakes the town (requests/p3-repair.md §4): up they get, and the next poll takes them
+			f.wake();
+		}
+		return f.awake();
 	}
 
 	@Override

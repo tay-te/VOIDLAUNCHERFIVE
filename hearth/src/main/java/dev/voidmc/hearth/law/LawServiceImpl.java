@@ -76,6 +76,50 @@ public final class LawServiceImpl implements LawService {
 		}
 	}
 
+	@Override
+	public List<Wanted> wanted(long settlementId) {
+		MinecraftServer s = server;
+		HearthWorld world = s == null ? null : HearthWorld.of(s.overworld());
+		Settlement settlement = world == null ? null : world.settlement(settlementId);
+		if (settlement == null) {
+			return List.of();
+		}
+		List<Wanted> out = new ArrayList<>();
+		for (Poster p : posters(settlement)) {
+			out.add(new Wanted(p.player(), p.name(), p.bounty(), p.worst(), p.outlaw(), p.origin()));
+		}
+		return out;
+	}
+
+	@Override
+	public void pardon(UUID player, long settlementId, String reason) {
+		MinecraftServer s = server;
+		HearthWorld world = s == null ? null : HearthWorld.of(s.overworld());
+		Settlement settlement = world == null ? null : world.settlement(settlementId);
+		if (settlement != null) {
+			dev.voidmc.hearth.law.justice.Justice.pardon(settlement, player);
+			dev.voidmc.hearth.Hearth.LOG.debug("[hearth law] {} pardoned in {}: {}", player, settlement.name(), reason);
+		}
+	}
+
+	@Override
+	public void markStolen(ItemStack stack, Owner owner, @Nullable UUID thief) {
+		if (stack.isEmpty()) {
+			return;
+		}
+		MinecraftServer s = server;
+		HearthWorld world = s == null ? null : HearthWorld.of(s.overworld());
+		Settlement settlement = world == null || owner.settlementId() == 0 ? null : world.settlement(owner.settlementId());
+		String ownerName = settlement == null ? "" : settlement.name();
+		if (settlement != null && owner.resident() != null) {
+			dev.voidmc.hearth.api.Resident r = settlement.resident(owner.resident());
+			if (r != null) {
+				ownerName = r.fullName();
+			}
+		}
+		StolenGoods.mark(stack, owner, ownerName, settlement == null ? "" : settlement.name(), today(), thief == null ? new UUID(0, 0) : thief);
+	}
+
 	/**
 	 * The wanted posters a settlement's notice board shows (the quest module may draw them; docs/requests/p3-law.md):
 	 * every player wanted there, worst first.

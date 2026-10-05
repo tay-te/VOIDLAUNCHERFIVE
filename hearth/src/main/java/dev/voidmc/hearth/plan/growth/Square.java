@@ -39,6 +39,12 @@ public final class Square {
 		return false;
 	}
 
+	/** The plaza's own height: room for trees in its planters and a lamp's arm (arch-landscape.md §6). */
+	private static int plazaHeight(PlanContext ctx) {
+		var info = ctx.catalogue.info(Archetypes.PLAZA);
+		return info == null ? 10 : Math.max(4, info.maxHeight());
+	}
+
 	/** Paves the square as the heart plaza, keeping whatever already stands in it. */
 	public static boolean pave(PlanContext ctx) {
 		Reservation r = ctx.state.reservation("square");
@@ -49,7 +55,7 @@ public final class Square {
 		params.putBoolean("heart", true);
 		params.put("keep", new IntArrayTag(keep(ctx, r)));
 		PlotSpec spec = new PlotSpec(Archetypes.PLAZA, ctx.style, ctx.nextSeed(), new BlockPos(r.x0(), ctx.state.heartY, r.z0()), r.x1() - r.x0() + 1,
-			r.z1() - r.z0() + 1, Direction.SOUTH, 4, Build.finish(ctx, ctx.catalogue.info(Archetypes.PLAZA), 0, null), params);
+			r.z1() - r.z0() + 1, Direction.SOUTH, plazaHeight(ctx), Build.finish(ctx, ctx.catalogue.info(Archetypes.PLAZA), 0, null), params);
 		Roads.issue(ctx, spec, "heart: the square is paved as a plaza");
 		return true;
 	}

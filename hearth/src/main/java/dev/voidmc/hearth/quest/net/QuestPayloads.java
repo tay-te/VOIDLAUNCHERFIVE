@@ -64,12 +64,18 @@ public final class QuestPayloads {
 		 *
 		 * @param owed   the fine and bounty, as words, or empty
 		 * @param outlaw an outlaw of the region (attacked on sight), not merely wanted
+		 * @param crime  the worst offence's translation key ({@code hearth.offence.theft}), or empty
 		 */
-		public record Poster(String name, String owed, boolean outlaw) {
+		public record Poster(String name, String owed, boolean outlaw, String crime) {
+			public Poster(String name, String owed, boolean outlaw) {
+				this(name, owed, outlaw, "");
+			}
+
 			static final Codec<Poster> CODEC = RecordCodecBuilder.create(i -> i.group(
 				Codec.STRING.fieldOf("name").forGetter(Poster::name),
 				Codec.STRING.optionalFieldOf("owed", "").forGetter(Poster::owed),
-				Codec.BOOL.optionalFieldOf("outlaw", false).forGetter(Poster::outlaw)
+				Codec.BOOL.optionalFieldOf("outlaw", false).forGetter(Poster::outlaw),
+				Codec.STRING.optionalFieldOf("crime", "").forGetter(Poster::crime)
 			).apply(i, Poster::new));
 		}
 

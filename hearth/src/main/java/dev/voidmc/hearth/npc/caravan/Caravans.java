@@ -43,7 +43,7 @@ public final class Caravans {
 	private long ticks;
 
 	/** The sim's caravan news. */
-	public void onCaravan(HearthWorld world, Settlement from, Settlement to, SettlementEvents.CaravanEvent.Kind kind, int[] cargo) {
+	public void onCaravan(HearthWorld world, Settlement from, Settlement to, SettlementEvents.CaravanEvent.Kind kind, long caravanId, int[] cargo) {
 		if (kind == SettlementEvents.CaravanEvent.Kind.DEPARTED) {
 			NpcConfig.Caravans cfg = NpcModule.config().caravans();
 			if (cfg.maxActive() == 0 || from.dimension() != to.dimension()) {
@@ -52,13 +52,19 @@ public final class Caravans {
 			while (this.journeys.size() >= cfg.maxActive()) {
 				end(world.level().getServer(), this.journeys.get(0));
 			}
+			HearthWorld.CaravanView view = caravanId > 0 ? world.caravan(caravanId) : null;
+			long now = world.level().getGameTime();
+			// the sim's ticks are on its own clock (the day clock, which /time moves); the party walks on game time, so
+			// the journey is carried over to game time once, here
+			long departed = view == null ? now : now - Math.max(0, world.clock() - view.departTick());
+			long arrives = view == null ? 0 : departed + Math.max(1, view.arriveTick() - view.departTick());
 			this.journeys.add(new Journey(this.nextId++, from.dimension(), from.id(), to.id(), to.name(), from.center(), to.center(), cargo.clone(),
-				world.level().getGameTime()));
+				departed, caravanId, arrives));
 			return;
 		}
-		// arrived, robbed or lost: the oldest caravan on that road ends
+		// arrived, robbed or lost: that caravan (or, for one without an id, the oldest on that road) ends
 		for (Journey j : this.journeys) {
-			if (j.fromId() == from.id() && j.toId() == to.id()) {
+			if (caravanId > 0 ? j.simId() == caravanId : j.fromId() == from.id() && j.toId() == to.id()) {
 				end(world.level().getServer(), j);
 				return;
 			}
@@ -100,10 +106,18 @@ public final class Caravans {
 					this.parties.remove(j.id());
 					if (party.robbed()) {
 						it.remove();
+						// the sim's books: the cargo is gone, the buyer pays nothing (requests/p3-npc.md §4)
+						HearthWorld world = HearthWorld.of(level);
+						if (world != null && j.simId() > 0) {
+							world.caravanLost(j.simId(), party.robber());
+						}
 					}
 					continue;
 				}
-				if (party.nearestPlayer(level) > emb.despawnRadius()) {
+				HearthWorld hw = HearthWorld.of(level);
+				HearthWorld.CaravanView view = hw == null || j.simId() <= 0 ? null : hw.caravan(j.simId());
+				if (party.nearestPlayer(level) > emb.despawnRadius() || view != null && view.escorted()) {
+					// out of sight, or an escort quest's own train has taken this caravan's road
 					party.fold();
 					this.parties.remove(j.id());
 				}
@@ -114,6 +128,12 @@ public final class Caravans {
 				continue;
 			}
 			if (!cfg.embodied() || spawned) {
+				continue;
+			}
+			HearthWorld w = HearthWorld.of(level);
+			HearthWorld.CaravanView sim = w == null || j.simId() <= 0 ? null : w.caravan(j.simId());
+			if (sim != null && sim.escorted()) {
+				// an escort quest's own train is this caravan on the road: no second party
 				continue;
 			}
 			// a party counts against the server's folk cap like any other embodied people
@@ -206,6 +226,6 @@ public final class Caravans {
 
 	/** Starts a caravan by hand (the dev command), as if the sim had sent one. */
 	public void depart(HearthWorld world, Settlement from, Settlement to, int[] cargo) {
-		onCaravan(world, from, to, SettlementEvents.CaravanEvent.Kind.DEPARTED, cargo);
+		onCaravan(world, from, to, SettlementEvents.CaravanEvent.Kind.DEPARTED, 0, cargo);
 	}
 }

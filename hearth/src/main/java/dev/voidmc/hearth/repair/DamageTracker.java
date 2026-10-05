@@ -30,7 +30,7 @@ public final class DamageTracker {
 	private record Context(Cause cause, @Nullable ServerPlayer player) {
 	}
 
-	private record BatchKey(long settlement, int plot, Cause cause) {
+	private record BatchKey(long settlement, int plot, Cause cause, @Nullable UUID player) {
 	}
 
 	private static final class Batch {
@@ -147,12 +147,18 @@ public final class DamageTracker {
 		this.runtime.withDamage.add(s.id());
 		s.markDirty();
 		this.recorded++;
-		this.batches.computeIfAbsent(new BatchKey(s.id(), plot.id(), cause), k -> new Batch(world)).blocks++;
+		this.batches.computeIfAbsent(new BatchKey(s.id(), plot.id(), cause, who), k -> new Batch(world)).blocks++;
 		if (cause == Cause.FIRE) {
 			this.runtime.fires.burned(level, s, pos);
 		}
 		if (player != null && !found && (cause == Cause.PLAYER || cause == Cause.EXPLOSION)) {
-			this.runtime.vandalism.note(level, s, player, pos, RepairBill.worth(s, hit.expected()));
+			if (cause == Cause.PLAYER && dev.voidmc.hearth.api.HearthServices.law() != null) {
+				// the law module judges a player's breaks itself as they happen (witnesses, noise, forced locks): one
+				// crime, not two. TNT and fire a player set are ours to report.
+				d.set(Damage.REPORTED, true);
+			} else {
+				this.runtime.vandalism.note(level, s, player, pos, RepairBill.worth(s, hit.expected()));
+			}
 		}
 		return true;
 	}
@@ -221,7 +227,7 @@ public final class DamageTracker {
 			PlotView plot = s == null ? null : s.plot(k.plot);
 			if (plot != null) {
 				try {
-					SettlementEvents.DAMAGED.invoker().onDamaged(b.world, s, plot, k.cause, b.blocks);
+					SettlementEvents.DAMAGED.invoker().onDamaged(b.world, s, plot, k.cause, b.blocks, k.player);
 				} catch (RuntimeException e) {
 					RepairModule.LOG.warn("a DAMAGED listener failed", e);
 				}

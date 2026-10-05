@@ -135,7 +135,7 @@ public final class LandCommands {
 		}
 		int from = 0;
 		int to = 0;
-		for (Caravans.Caravan k : w.caravans().active()) {
+		for (Caravans.Caravan k : w.caravanTrade().active()) {
 			from += k.from() == s.id() ? 1 : 0;
 			to += k.to() == s.id() ? 1 : 0;
 		}
@@ -154,8 +154,8 @@ public final class LandCommands {
 	private static int caravans(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
 		SimWorld w = world(c.getSource());
 		long now = w.clock();
-		say(c.getSource(), w.caravans().describe());
-		for (Caravans.Caravan k : w.caravans().active()) {
+		say(c.getSource(), w.caravanTrade().describe());
+		for (Caravans.Caravan k : w.caravanTrade().active()) {
 			SimSettlement from = w.settlement(k.from());
 			SimSettlement to = w.settlement(k.to());
 			StringBuilder cargo = new StringBuilder();
@@ -169,7 +169,7 @@ public final class LandCommands {
 				from == null ? "?" : from.name(), to == null ? "?" : to.name(), cargo, k.value(), at.getX(), at.getZ(),
 				(k.arriveTick() - now) / (double) SimRules.DAY));
 		}
-		return w.caravans().active().size();
+		return w.caravanTrade().active().size();
 	}
 
 	private static int underground(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {

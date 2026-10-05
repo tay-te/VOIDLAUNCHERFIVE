@@ -64,7 +64,8 @@ public final class PlanModule {
 		if (terrain instanceof UndergroundProbe u) {
 			return u;
 		}
-		return UNDERGROUND.get(terrain);
+		UndergroundProbe own = terrain.underground();
+		return own != null ? own : UNDERGROUND.get(terrain);
 	}
 
 	/** Pairs a terrain probe with the underground probe of the same world (tests, previews, a sim that wires its own). */

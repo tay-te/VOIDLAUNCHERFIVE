@@ -247,10 +247,18 @@ inspection round and mends what it finds. `-Dhearth.dev.repair.nofolk=true` skip
 - **Behaviours** are registered with `NpcService.registerBehaviour` in `init()` if the NPC module has registered its service,
   otherwise at `SERVER_STARTING`. Without an NPC module every repair is abstract (records' labour mends in the record and
   the applier writes it), whether or not the settlement is embodied.
-- **Construction labour.** Abstract repair labour is on top of construction's (docs/requests/p3-repair.md §1).
+- **Construction labour.** Abstract repair asks the sim for builder labour (`Settlement.takeBuilderLabour`): what it
+  takes comes out of the next construction step (repairs first). Without a sim granting it (tests), it is as before.
+- **Events** are the api's: `SettlementEvents.FIRE_STARTED`, `FIRE_OUT`, `REPAIRED`, `REPAIR_STALLED` (fired once when
+  abstract repair is held up for goods), and `DAMAGED` carries the player when a player did it.
+- **Vandalism**: with a law module, a player's breaks are judged by the law module alone (it sees them happen); this module
+  reports to the law only the TNT and fire a player set, and damage found later. One crime per window.
+- **Inspections** ask `HearthWorld.written(settlement, plot, cx, cz)` whether the applier has caught up in a chunk before
+  comparing it (a short settle time stays as a guard).
+- **The bill**: `RepairBill` uses `BlueprintService.goodsOf` when the build module answers it (not yet), else its own table.
 - **Partial stages.** Only finished stages of a plot under construction are tracked; a block of the stage being built that
   is broken is not mended (the builder's next pass over the plot does not revisit it either).
-- **Fires at night** get no brigade while folk sleep (`FolkHandle.awake()`; requests §4).
+- **Fires at night**: the brigade wakes sleepers within its radius (`FolkHandle.wake()`).
 - **Abandoned plots** are not mended: they decay (LIVING_WORLD.md §7.2), the build module's decay pass.
 - Not saved: claims, deferrals, fire episodes (a fire still burning after a restart starts a new episode on its next flame),
   sprees (reported or dropped at shutdown), the index.

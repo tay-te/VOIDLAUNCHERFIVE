@@ -65,6 +65,11 @@ public final class FolkHandleImpl implements NpcService.FolkHandle {
 	}
 
 	@Override
+	public void wake() {
+		this.brain.wake(20 * 120);
+	}
+
+	@Override
 	public boolean canSee(Entity target) {
 		Folk f = this.brain.folk;
 		if (!awake() || target.level() != f.level() || target == f || target.isRemoved()) {

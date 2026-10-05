@@ -115,6 +115,57 @@ public interface Settlement {
 		return List.of();
 	}
 
+	/** 0 (ruin) to 1 (boom): a slow average of the town's sites, food, work, trade, coin and housing (LIVING_WORLD.md §7.2). */
+	default double prosperity() {
+		return 0.5;
+	}
+
+	/** -1 declining, 0 steady, +1 rising, as the last {@link SettlementEvents#PROSPERITY_CHANGED} said. */
+	default int fortunes() {
+		return 0;
+	}
+
+	/** Why the fortunes last turned ("the iron ore at 412, -96 is worked out"), or "". */
+	default String fortunesWhy() {
+		return "";
+	}
+
+	/** People the territory's food sites and the town's trade can feed ({@link Integer#MAX_VALUE}: not reckoned). */
+	default int carryingCapacity() {
+		return Integer.MAX_VALUE;
+	}
+
+	/** Whether an ABANDONED plot was left standing empty in a decline (folk may move back in; it decays meanwhile). */
+	default boolean deserted(int plotId) {
+		return false;
+	}
+
+	/**
+	 * Takes up to {@code units} of today's abstract builder labour (work units, as construction) for other work — repairs —
+	 * before the clock spends it on construction; returns how much was granted. Only labour of builders who are records.
+	 */
+	default int takeBuilderLabour(int units) {
+		return units;
+	}
+
+	/**
+	 * An embodied resident gathered real goods (a felled tree's logs, a catch of fish, shorn wool): the sim adds them to the
+	 * stockpile and depletes the site, instead of the labour-derived yield for that work. Report the time with
+	 * {@link #creditLabour} as usual; the sim does not credit the same goods twice.
+	 */
+	default void creditYield(UUID resident, Goods goods, int units) {
+		stockpile().add(goods, units);
+	}
+
+	/**
+	 * A player found a resource of this kind at {@code pos} for the settlement (a prospecting quest): the sim surveys round
+	 * it and adds a site if the land bears it out (firing {@link SettlementEvents#SITE_FOUND}), which the planner may then
+	 * work. Returns the site, or null if the land does not bear it out.
+	 */
+	default @Nullable ResourceSite reportSite(ResourceSite.Kind kind, BlockPos pos, String reason) {
+		return null;
+	}
+
 	/** A module's own data for this settlement, created from the key's factory on first use and saved with it. */
 	<T> T data(HearthDataKey<T> key);
 

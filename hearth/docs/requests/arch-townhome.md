@@ -10,18 +10,23 @@ What the town homes (`docs/buildings/townhome.md`) need from files they do not o
    corner post. `HouseBuilder.openings` has the same mistake. The town homes work round it (`TownHouses.firstCell`
    picks the first cell by the side's direction); a fix in `Openings` (or a `Side.span(at, width)` helper) would let
    everyone drop their workarounds.
+   Open (build module): shared kit fixes.
 2. **`Stairs.straight` clears three blocks over every step.** Two are enough to walk (feet and head) and a third only
    where the next step's climb needs it; the third cuts through a low roof or a floor laid before the stair. The town
    homes check the roof before building (`StairCore.clears`) and stop the stair a storey short of an attic it would
    cut. A `headroom` argument (default 3) would let a stair climb under a slope.
+   Open (build module).
 3. **`Facade.plan` moves the door** to the bay nearest the column asked for. Builders that must have the door where
    the street meets the floor read it back (`HouseBuilder.doorColumn`) or replan without it and add it
    (`TownHouses.planWithDoor`). An option to pin the door would save that.
+   Open (build module).
 4. **`Facade` braces cannot be copied.** A filtered copy of a plan (`TownHouses.filtered`) keeps openings and posts but
    loses the braces, because there is no public way to add one. A public `brace(...)` adder, or `Facade.copy(filter)`,
    would keep timber fronts braced after filtering.
+   Open (build module).
 5. **`Roofs.fillUnder` and the bracket helpers are package-private**; town homes that draw roofs over party walls
    reimplement small parts of them. Making them public would remove that duplication.
+   Open (build module).
 
 Nothing in the shared build machinery was edited by this family.
 
@@ -29,6 +34,7 @@ Nothing in the shared build machinery was edited by this family.
 
 6. **Registered infos differ from `DefaultCatalogue`** (the registered ones replace it when the build module is
    loaded; the placeholders matter only for the sim's own tests and dev tools):
+   **Done** (integration 3): the catalogue's beds, heights and sizes match the registered infos.
 
    | archetype | beds (registered / catalogue) | height | size | upgrades |
    |---|---|---|---|---|
@@ -47,21 +53,26 @@ Nothing in the shared build machinery was edited by this family.
 7. **Cliff dwellings: plot height 5–6.** The stacking contract holds as `Stacks` has it (the upper floor at
    `floorY + maxHeight` of the plot below, set back half the depth): the roof deck's walking level is exactly that.
    A taller plot only makes a taller single room; keep the base plot at 5–6.
+   Noted.
 8. **`storeys` is a suggestion.** Attached houses move a storey up or down now and then by seed so a row steps its
    eaves, and every house drops storeys (then flattens its roof, then goes flat) to fit the plot's height. A planner
    that wants an even row should pass `storeys` and a height that fits it (about `storeys × 4 + 1` plus 4–6 for a
    pitched roof).
+   Noted.
 9. **Params the family reads** beyond the shared ones: `shop`, `terrace`, `walkway_y` (townhouse); `garden`,
    `outshot` (rowhouse); `arcade`, `trade` (shophouse); `shops`, `walkway_y` (tenement); `stacked` (cliff dwelling).
    `cut_into_slope` and `level` are not needed: the cliff dwelling reads the ground itself. `street_y` is not read: the
    houses grade their own front strip and steps from the natural ground in front, so `origin.y` at the street's
    walking level gives the best fronts.
+   Noted.
 10. **Upgrading a shophouse keeps its trade only as a tenement with `shops`.** A shophouse upgraded to a townhouse
     loses its MERCHANT job site (a townhouse's `shop` is a CARPENTER workroom). When the merchant matters, upgrade it
     to a tenement with `shops=true`, or leave it.
+   Noted.
 11. **Party walls on corners.** Corner plots read best with `corner_left`/`corner_right` set: the house then gets
     windows on that side, a hipped end where the culture hips, a corner oriel (townhouse) or a shop front round the
     corner (shophouse).
+   Noted.
 
 ## For the npc / economy modules
 
@@ -69,6 +80,7 @@ Nothing in the shared build machinery was edited by this family.
     side), MARKET_STALL (customers' side), MERCHANT JOB_SITE; manor LECTERN, GATE, HEARTH and 6 beds at its largest;
     courtyard house MEETING_POINT; tower house VIEWPOINT or GUARD_POST on its top; tenement ≥ 6 beds; every home a bed.
     Roof gardens and loggias carry VIEWPOINTs.
+   Noted.
 
 ## For the lead
 
@@ -78,3 +90,4 @@ Nothing in the shared build machinery was edited by this family.
     (`gametest/townhome/StreetPreview`, run through the init script `docs/buildings/townhome_street.gradle` so the
     shared Gradle files stay untouched) and tests in `test/.../build/townhome/`. If the street preview is wanted
     permanently, register `streetPreview` in `hearth/build.gradle` the way the init script does.
+   Noted.

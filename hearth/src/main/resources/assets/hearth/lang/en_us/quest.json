@@ -121,6 +121,7 @@
 	"hearth.quest.heed.answer": "[I'll help]",
 	"hearth.quest.poster.wanted": "WANTED",
 	"hearth.quest.poster.outlaw": "OUTLAW",
+	"hearth.quest.poster.for": "for %s",
 	"hearth.quest.cry.fire.0": "Fire! Fire! Bring water!",
 	"hearth.quest.cry.fire.1": "Buckets! Get buckets, it's spreading!",
 	"hearth.quest.cry.fire.2": "Help! The roof's alight!",

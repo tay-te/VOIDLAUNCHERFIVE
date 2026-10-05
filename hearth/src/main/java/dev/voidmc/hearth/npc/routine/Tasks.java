@@ -248,6 +248,14 @@ public final class Tasks {
 		@Override
 		public Status tick(FolkBrain brain, ServerLevel level, int elapsed) {
 			Folk folk = brain.folk;
+			if (brain.woken()) {
+				// woken by a fire or an alarm: stay up until it is over
+				if (folk.isSleeping()) {
+					folk.stopSleeping();
+				}
+				this.asleep = false;
+				return Status.RUNNING;
+			}
 			if (this.asleep) {
 				if (!folk.isSleeping()) {
 					this.asleep = false;

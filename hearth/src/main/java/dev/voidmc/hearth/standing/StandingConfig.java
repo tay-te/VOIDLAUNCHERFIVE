@@ -65,7 +65,7 @@ public record StandingConfig(Titles titles, Town town, Opinion opinion, Gossip g
 	 */
 	public record Town(double softCap, double negativeDriftPerDay, double positiveDriftPerDay, double unwitnessedBad, double unwitnessedGood,
 		boolean seedFromSettlement, boolean mirrorToSettlement, int newsPerTown, int newsMinWeight, boolean arrivalLine, int trackInterval) {
-		public static final Town DEFAULTS = new Town(0.5, 0.25, 0.0, 0.0, 1.0, true, true, 12, 5, true, 20);
+		public static final Town DEFAULTS = new Town(0.5, 0.25, 0.0, 0.0, 1.0, true, false, 12, 5, true, 20);
 		public static final Codec<Town> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.doubleRange(0, 0.95).optionalFieldOf("soft_cap", DEFAULTS.softCap).forGetter(Town::softCap),
 			Codec.doubleRange(0, 10).optionalFieldOf("negative_drift_per_day", DEFAULTS.negativeDriftPerDay).forGetter(Town::negativeDriftPerDay),

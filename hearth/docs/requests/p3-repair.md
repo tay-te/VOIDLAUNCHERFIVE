@@ -5,6 +5,8 @@ signatures. Numbered by how much they matter.
 
 ## 1. Builders' repair time should come out of construction (sim)
 
+**Done** (integration 3): `Settlement.takeBuilderLabour`. The sim offers each step's builder pool, and what repairs take is not spent on construction; abstract repair now asks for its blocks instead of accruing its own labour.
+
 **Why.** LIVING_WORLD.md §2 puts repairs *ahead of* new construction. Embodied builders already do that (mending is a
 behaviour at priority 150, so a builder who mends is not building). Abstract repair cannot: the sim's clock spends all
 of a builder's hours on construction, and the repair module accrues its own repair labour on top
@@ -27,6 +29,8 @@ The repair module would then ask for its blocks each accrual and stop accruing i
 
 ## 2. One material bill for construction and repairs (build → api)
 
+**Done** in the api (integration 3): `BlueprintService.goodsOf(BlockState)`, used by `RepairBill` when it answers. Open: the build module does not implement it yet (the default returns null, and repair keeps its own table).
+
 **Why.** A repaired block should cost what the build module's bill says it cost to build. The repair module keeps its own
 copy (`RepairBill`, already on the phase 3 goods: planks are WOOD, logs LOGS, stone bricks DRESSED_STONE, bricks BRICK,
 lanterns METAL + CANDLES, torches and candles CANDLES) which can drift from `build/blueprint/MaterialBill` (still on the
@@ -40,6 +44,8 @@ Goods[] goodsOf(BlockState state);
 ```
 
 ## 3. Fire and repair events in the api (api ← repair; quest, social, standing listen)
+
+**Done** (integration 3): `FIRE_STARTED`, `FIRE_OUT`, `REPAIRED` and `REPAIR_STALLED` are in `SettlementEvents` (`RepairEvents` was removed), and repair fires `REPAIR_STALLED` once per stall.
 
 **Why.** Quests to help after a fire (LIVING_WORLD.md §2), town news and gossip ("the inn burned last week"), and the
 social module's mood all want to know when a fire breaks out, when it is out, and when a building is whole again.
@@ -63,6 +69,8 @@ The repair module already knows when a repair is deferred for goods (`RepairBill
 
 ## 4. Fire wakes the town (npc)
 
+**Done** (integration 3): `FolkHandle.wake()`. The brigade wakes sleepers near a fire, who stay up two minutes.
+
 **Why.** `FolkHandle.awake()` is false for sleeping folk, and the brigade (priority 250) only takes awake folk, so a fire
 at night burns with nobody fighting it.
 
@@ -75,6 +83,8 @@ void wake();   // on NpcService.FolkHandle
 ```
 
 ## 5. Whether the applier has written a plot's chunk (sim)
+
+**Done** (integration 3): `HearthWorld.written(settlement, plot, cx, cz)` reads the chunk's ledger against the applicable cursor. Inspections ask it first (a short settle time stays as a guard).
 
 **Why.** Inspections compare a built plot with the world. If the sim's applier has not yet written a plot's recorded
 stages into a chunk (it just loaded), every block looks missing, and mending them would build the house twice.
@@ -90,6 +100,8 @@ boolean written(Settlement settlement, int plotId, int chunkX, int chunkZ);
 ```
 
 ## 6. Notes for the modules that consume repair output
+
+**Done** (integration 3): one vandalism report per break (§6 of p3-law). The standing table has `repair:fire_brigade`, `repair:rebuilt` and `repair:vandalism`.
 
 - **law.** The repair module reports `Offence.VANDALISM` through `LawService.report`: witnessed sprees (one crime per
   player per settlement per 5 s, worth summed from `EconomyService.price`), and unwitnessed damage when builders find it

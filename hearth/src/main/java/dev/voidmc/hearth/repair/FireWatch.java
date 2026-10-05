@@ -28,7 +28,7 @@ import org.jspecify.annotations.Nullable;
  * Fires as events (docs/LIVING_WORLD.md §2): a fire that takes hold in a settlement's buildings becomes an episode — the
  * flames it knows of, the blocks lost, the players who fought it, the folk in the bucket brigade, the water they carry
  * from — from the first flame until no flame has been seen for {@code quiet_ticks}. Then it is out: players who helped
- * earn standing ({@code repair:fire_brigade}), {@link RepairEvents#FIRE_OUT} fires, and the builders rebuild from the
+ * earn standing ({@code repair:fire_brigade}), {@link dev.voidmc.hearth.api.SettlementEvents#FIRE_OUT} fires, and the builders rebuild from the
  * repair queue the fire filled.
  *
  * <p>Fed by the fire block's own tick (a mixin) and by fire damage, so it costs nothing where nothing burns. Fires in
@@ -207,7 +207,7 @@ public final class FireWatch {
 		this.started++;
 		RepairModule.LOG.info("Fire in {} at {}", s.name(), pos.toShortString());
 		try {
-			RepairEvents.FIRE_STARTED.invoker().onFireStarted(world, s, pos.immutable());
+			dev.voidmc.hearth.api.SettlementEvents.FIRE_STARTED.invoker().onFireStarted(world, s, pos.immutable());
 		} catch (RuntimeException ex) {
 			RepairModule.LOG.warn("a FIRE_STARTED listener failed", ex);
 		}
@@ -302,7 +302,7 @@ public final class FireWatch {
 			}
 		}
 		try {
-			RepairEvents.FIRE_OUT.invoker().onFireOut(at.world(), at.settlement(), e.burned, Set.copyOf(e.helpers.keySet()));
+			dev.voidmc.hearth.api.SettlementEvents.FIRE_OUT.invoker().onFireOut(at.world(), at.settlement(), e.burned, Set.copyOf(e.helpers.keySet()));
 		} catch (RuntimeException ex) {
 			RepairModule.LOG.warn("a FIRE_OUT listener failed", ex);
 		}

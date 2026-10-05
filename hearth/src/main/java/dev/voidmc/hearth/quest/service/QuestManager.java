@@ -181,18 +181,17 @@ public final class QuestManager {
 	 */
 	public static List<QuestPayloads.Board.Poster> posters(ServerLevel level, Settlement s) {
 		List<QuestPayloads.Board.Poster> out = new ArrayList<>();
-		if (dev.voidmc.hearth.api.HearthServices.law() == null) {
+		dev.voidmc.hearth.api.LawService law = dev.voidmc.hearth.api.HearthServices.law();
+		if (law == null) {
 			return out;
 		}
 		dev.voidmc.hearth.api.EconomyService economy = dev.voidmc.hearth.api.HearthServices.economy();
-		for (ServerPlayer p : level.getServer().getPlayerList().getPlayers()) {
-			if (!LawBridge.wanted(p.getUUID(), s)) {
-				continue;
-			}
-			long bounty = LawBridge.bounty(p.getUUID(), s);
+		// everyone the law wants here, worst first, online or not (word of a crime elsewhere arrives with the gossip)
+		for (dev.voidmc.hearth.api.LawService.Wanted w : law.wanted(s.id())) {
+			long bounty = w.bounty();
 			String owed = bounty <= 0 ? "" : economy != null ? economy.format(bounty).getString()
 				: Component.translatable("hearth.quest.reward.emeralds", Rewards.emeralds(bounty, config.bitsPerEmerald())).getString();
-			out.add(new QuestPayloads.Board.Poster(p.getName().getString(), owed, LawBridge.outlaw(p.getUUID(), s)));
+			out.add(new QuestPayloads.Board.Poster(w.name(), owed, w.outlaw(), w.worst().translationKey()));
 			if (out.size() >= 6) {
 				break;
 			}
@@ -270,6 +269,7 @@ public final class QuestManager {
 			QuestItems.give(player, new net.minecraft.world.item.ItemStack(dev.voidmc.hearth.quest.QuestRegistry.JOURNAL));
 			player.sendSystemMessage(Component.translatable("hearth.quest.journal.given").withStyle(ChatFormatting.GRAY));
 		}
+		LivingQuests.accepted(level, s, player, q);
 		say(player, q, q.text.offer());
 		player.sendSystemMessage(Component.translatable("hearth.quest.accepted", Component.literal(q.text.title()).withStyle(ChatFormatting.YELLOW))
 			.withStyle(ChatFormatting.GOLD));

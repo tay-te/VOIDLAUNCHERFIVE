@@ -111,11 +111,11 @@ and **confronts** them (`ConfrontScreen`: the guard's figure, the charge and bou
 
 | Choice | Effect |
 |---|---|
-| Pay the fine | coin to the treasury (`EconomyService.charge`, `Settlement.deposit`); this town's stolen goods handed back |
+| Pay the fine | coin to the treasury (`EconomyService.fine`); this town's stolen goods handed back |
 | Come quietly | stolen goods confiscated (all, by default); the cell for `bounty / jail_bits_per_minute` minutes (2–30; murder 30) |
 | Ask for the pillory | lesser crimes (bounty ≤ 60, nothing violent): 3 minutes in the pillory, jeered at, −8 standing |
 | Talk my way out | odds from standing, the guard's opinion, charisma, the crime's severity: small matters let go, others halved; failing adds 10 % |
-| Slip them coin | 60 % of the bounty; greedy guards take it, honest ones add 25 % and keep nothing |
+| Slip them coin | 60 % of the bounty, into the guard's own purse (`EconomyService.bribe`); greedy guards take it, honest ones add 25 % and keep nothing |
 | Run / Draw your weapon | resisting arrest (fine and −15 standing); a murderer who does is an outlaw; the guards give chase |
 
 Guards chase and strike (`doHurtTarget`) until the player is down to `yield_health` (6), then take them in; a player who
@@ -135,6 +135,18 @@ place. No cell: a public reprimand (standing) settles it. Sentences survive deat
 taken up by every settlement within `spread_radius` (1500) at `spread_fraction` (½) of the bounty; outlawry goes with
 it. An unpaid murder makes an outlaw after `outlaw_after_days` (1). Suspicion fades 10 a day; picked locks are locked
 again by their owners after half a day; forced locks are mended within days.
+
+### Integration (phase 3)
+
+- Money goes through the api: fines to the treasury (`EconomyService.fine`), bribes and hush money into the resident's
+  purse (`bribe`), a picked pocket's coin out of the mark's real purse (`takeFromPurse`, paid on with `pay`). The
+  innkeeper-fence pays from their own purse; a FENCE resident keeps the economy's fence shop instead of this dialogue.
+- A business a player bought is the player's property (`OwnerRules`, from `EconomyService.businessOwner`).
+- Vandalism is judged once: this module judges a player's breaks as they happen; the repair module reports the TNT and
+  fire a player set (it sees them as `DAMAGED` with the player) and damage found later.
+- `LawService.wanted(settlementId)` feeds the notice board's posters (offence and bounty, online or not);
+  `pardon(player, town, why)` clears a warrant when a clear-your-name quest is done; `markStolen` marks a robbed
+  caravan's loot as stolen from its town.
 
 ## 5. Stealth
 

@@ -7,6 +7,7 @@ import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.plan.PlanContext;
 import dev.voidmc.hearth.plan.catalogue.Archetypes;
+import net.minecraft.resources.Identifier;
 import dev.voidmc.hearth.plan.model.District;
 import dev.voidmc.hearth.plan.model.RoadKind;
 import dev.voidmc.hearth.plan.road.Roads;
@@ -157,7 +158,20 @@ public final class Build {
 		if (ctx.state.layout.dense) {
 			t = Math.min(1, t + 0.2);
 		}
+		if (keepsItsHeight(info)) {
+			// the skyline cap is for streets: a barn or farmhouse alone in the fields keeps its loft (arch-homestead.md §1),
+			// the brewery its oast, the warehouse its hoist gable, the market hall its cupola (arch-trade.md §4,
+			// arch-civic.md §4) wherever they stand
+			t = Math.max(t, 0.75);
+		}
 		return min + (int) Math.round((max - min) * t);
+	}
+
+	/** Buildings that look their part only near the top of their height range, wherever they are placed. */
+	static boolean keepsItsHeight(ArchetypeInfo info) {
+		Identifier id = info.id();
+		return info.flags().contains(SiteFlag.OUTSKIRTS) || id.equals(Archetypes.BREWERY) || id.equals(Archetypes.WAREHOUSE)
+			|| id.equals(Archetypes.MARKET_HALL) || id.equals(Archetypes.INN);
 	}
 
 	/** Wealth and finish 0–4 from the settlement's tier, the district and the kind of building. */
@@ -183,6 +197,11 @@ public final class Build {
 	}
 
 	public static int storeys(PlanContext ctx, ArchetypeInfo info, int zone) {
+		if (info.flags().contains(SiteFlag.OUTSKIRTS)) {
+			// a farmhouse in the fields: the steading and laithe houses of the timber and stone cultures are two storeys
+			// (arch-homestead.md §2); the archetype drops one where its plot's height says so
+			return info.maxHeight() >= 11 ? 2 : 1;
+		}
 		if (info.flags().contains(SiteFlag.VERTICAL)) {
 			int s = 3 + (zone == 0 ? 1 : 0) + (ctx.tier == SettlementTier.CITY ? 1 : 0);
 			return Math.max(3, Math.min(s, info.maxHeight() / 4));

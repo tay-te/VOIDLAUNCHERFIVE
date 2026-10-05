@@ -16,6 +16,13 @@ public final class Deeds {
 	 * {@code Settlement.addReputation} becomes once the sim delegates it here.
 	 */
 	public static final String ADJUST = "hearth:adjust";
+	/** What the sim's {@code Settlement.addReputation} reports while this module is the authority: a plain adjustment. */
+	public static final String REPUTATION = "hearth:reputation";
+
+	/** Whether a deed kind moves standing by exactly its weight and nothing else. */
+	public static boolean isAdjust(String kind) {
+		return kind.equals(ADJUST) || kind.equals(REPUTATION);
+	}
 
 	// Reported by other modules (see the default table for what each does).
 	public static final String QUEST_COMPLETED = "quest:completed";

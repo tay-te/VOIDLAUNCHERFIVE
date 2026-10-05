@@ -385,7 +385,14 @@ builds it into the world, then walks a player in and photographs the arrival ban
 a folk close up, builders on the plot with the most work left (progress counter and "a builder placed a step N ticks
 ago" logged), a merchant's conversation and the market (stockpile and treasury before and after a sale), a resident's
 quest offers, the notice board (the plaza's, or one placed by the well) and a supply quest for a real stalled build,
-handed in, and the build resuming. Every check is printed as `[hearth tour]`; screenshots go to
+handed in, and the build resuming. Then the living world's legs (`gametest/LivingLegs`; `-Dhearth.tour.livingonly=true`
+runs only these after the arrival, `-Dhearth.dev.fillCatalogue=true` gives the stand-in workings and workshops): a
+forester felling and replanting (the town's logs rising as they reach the yard), a quarrier carving a staked quarry pit's
+steps, a hauler, a caravan of the sim met on the road, a theft unseen (a locked household chest opened with the family's
+key) and seen (witness, guard, the fine), the merchant refusing the stolen goods and a fence buying them, the lockpicking
+and pickpocketing screens, standing and title moving, a broken window mended by a builder, a supply contract and an
+official's quest, and the conversation's speech checks. `gametest/LivingRun` (`-Dhearth.tour=living`) runs this harness's
+server checks in the client's integrated server. Every check is printed as `[hearth tour]`; screenshots go to
 `build/run/clientGameTest/screenshots/*hearth_int_*.png`.
 
 ## 13. LOD footprints
@@ -457,8 +464,9 @@ settlement data key `hearth:sim/land` (`LandState`); phase 2 saves start without
 - **When**: at founding (a history at once; the live world on the `hearth-survey` thread, merged on the server thread),
   when the tier grows the territory, every `resurvey_days`, on `/hearth settlement survey`. A site found again keeps its
   id, what was taken from it and its excavation; a new one fires `SITE_FOUND`.
-- `Settlement.territoryRadius()` and `Settlement.sites()` (the api's `ResourceSite` views; until the api has a
-  `material` field, `speciality` carries every site's material — see requests/p3-sim.md §1).
+- `Settlement.territoryRadius()` and `Settlement.sites()`: the api's `ResourceSite` views, with each site's `material`, its
+  `oreGrade` and `coalGrade` (`speciality` only on SPECIALTY sites). `Settlement.reportSite(kind, pos, why)` runs a small
+  survey (48 blocks, 4-block cells) round a spot a player prospected and adds the best site of that kind (`SITE_FOUND`).
 
 ### 16.2 Goods and production chains (§7.4, §7.5)
 
@@ -542,10 +550,12 @@ wait for) to the town within `max_distance` that wants it most — value to the 
 up to three times), nearness, kin. Travel time from the distance and the road's roughness (water to ford, climbing:
 sampled along the way) at `speed`; the risk (`risk` per 1000 blocks × roughness, less with guards) decides at departure
 whether it will be lost. On arrival the buyer's stores fill and its treasury pays the seller (between the two prices,
-`margin`); trade feeds both towns' prosperity. `CARAVAN` fires DEPARTED, ARRIVED, ROBBED or LOST. The npc module can
-place a caravan on its road (`Caravans.positionAt`), the quest module escort it (`escort`: it arrives) or rob it
-(`rob`: cargo gone, ROBBED) — see requests/p3-sim.md §3 for the api asked for. Arrivals are a queue checked by its head
-each tick.
+`margin`); trade feeds both towns' prosperity. `CARAVAN` fires DEPARTED, ARRIVED, ROBBED or LOST with the caravan's id.
+Through the api (`HearthWorld.caravans()`, `caravan(id)`, `CaravanView.positionAt`) the npc module puts the party on its
+road at the sim's own pace and reports it overcome (`caravanLost`); an escort quest protects it (`escortCaravan`: it
+arrives; the view's `escorted` tells the npc module not to put a second party there) and a failed escort loses it;
+`robCaravan` takes the cargo. Arrivals follow the world clock (a fast-forward does not move them), a queue checked by its
+head each tick. `Caravans.dispatch(from, to)` sends one now (dev tools and the client tour).
 
 ### 16.7 Stations by the purse (§8.1)
 
@@ -555,7 +565,25 @@ without one, what its trades earn × (0.5 + prosperity), against their usual (ho
 it moves up a station (poor → peasant → artisan → merchant; a merchant household at `gentry_at` in a town or city →
 gentry), under `down_at` down one, but only after two looks in a row agree — slow, as the design asks. When the
 household's trades change (a labourer becomes a smith), it takes the station they bring at once. Callings stay
-(clergy, scholars, officials, the lord). The planner reads `Resident.station` for class-aware housing.
+(clergy, scholars, officials, the lord). The planner reads `Resident.station` for class-aware housing. **While an economy
+module is registered this stands aside**: the economy's purse rule (`economy/purse/StationRule`) is the one that moves
+stations, so they never fight.
+
+**Housing by station** (`SettlementClock.assignHomes`, requests/p3-plan.md §5): the homeless move first into a home built
+for their family (`household.head`), then families into free homes whose `station` param is theirs, then anyone into any
+free bed; up to two households a day move from another station's home into an empty one of their own. Workers hired into
+a player's business (`EconomyService.businessOwner`) keep their places in `assignJobs`, and plots players paid toward
+(`EconomyService.fundedPlots`) are built first, by records and entities alike.
+
+**The trades' income under the economy**: with the economy module the sim's coin for work (`production.coin`) still
+reaches the treasury, which the economy pays wages out of into the purses. Without it the treasuries ran dry, wages
+stopped and every household fell to poor by the purse rule (integration 3). Stations still mostly read poor in young,
+poor towns: the purse rule needs savings to climb, and households that cannot pay for their food fall a rung.
+
+**Builder labour for repairs**: `Settlement.takeBuilderLabour(units)` grants up to a step's builder pool, which the next
+construction step does not spend (repairs come first). **Real yields**: `Settlement.creditYield(resident, goods, units)`
+adds what an embodied gatherer really brought in (a forester's felled logs) and depletes the nearest site that gives it;
+when that resident's labour is credited, the same goods are taken back off it, so nothing is counted twice.
 
 ### 16.8 Settlement reputation
 
@@ -609,3 +637,21 @@ model.json             { "edible": {...}, "perishable": {...}, "cool": [archetyp
 | stand-in mine | 10 stages, 270 cuts; with two miners built in 20 days, 269 ore and stone credited, its site down 26 % |
 | world generation | 99.4–99.6 % of written positions hold their block (with the excavations' cuts) |
 | unit test (placeholder catalogue) | 124 souls, 28 sites: 0.02–0.08 ms per hour step (`StepCostTest`) |
+
+### 16.12 Measured in integration 3 (seed 20261003, Expanse Earth terrain, every phase 3 module, stand-ins for the phase 3 archetypes the build module lacks, 2026-10-04)
+
+Run in the client's integrated server (`gametest/LivingRun`, `-Dhearth.tour=living` with the harness flags), because
+the dedicated server needs its EULA accepted in `hearth/run/eula.txt` first. Same harness, same numbers it would log.
+
+| | |
+|---|---|
+| world | 69 live settlements (6 adopted, 57 founded by `scale=80` and aged 30–300 days, 6 daughter hamlets), 741 souls, 2 210 plots, 2 185 resource sites |
+| the sim's tick work | 0.115 ms per server tick averaged over a minute with 65 settlements (server 0.62 ms/tick); 0.069 ms over the first run's 37 |
+| clock, hour steps (bench, 200 steps) | 0.0056 ms (camp, 4 souls) … 0.0353 ms (32 souls, with planner calls), 0.024–0.040 ms for a 103-soul village (151 plots, 61 sites) |
+| settlement-days | 0.40–0.58 ms per settlement per sim day run a day at a time, planner calls included (6 towns × 20 days) |
+| surveys | 132 live surveys, 4.7 ms avg, all off-thread |
+| chains (6 towns, 20 days) | timber, dressed stone, brick, glass, metal, cloth and fuel made, and construction's bills drew on them (e.g. Tidequay: wood +634 made, 292 built with; dressed stone +132, 134 built with; metal +15, 13 built with) |
+| caravans | 17 sent; on the world clock 14 arrived within three days, 0 lost |
+| decline | Tidequay declined on its own ("the fertile at -1628, 2513 is running out"), 3–5 houses left empty; Thornfield declined at 103 souls ("the treasury is empty"), 6 houses empty. Emptying every site of a 21-soul village at once did not turn it: renewable sites regrew (11 % → 74 % in 180 days) and prosperity bottomed at 0.46 |
+| daughter hamlets | 6 founded 617–1 991 blocks from their parents, e.g. "settlers from Torheim, gone for the stone and ore it lacked" |
+| a town of 150 | not reached: the largest grew to 103 souls in 720 more days (capacity 339, held back by an empty treasury). For a bigger town see §16.11 (0.088 ms for 242 souls) |

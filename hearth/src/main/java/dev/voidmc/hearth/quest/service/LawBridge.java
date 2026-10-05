@@ -23,6 +23,24 @@ public final class LawBridge {
 	private LawBridge() {
 	}
 
+	/**
+	 * Marks what a robbed caravan's animal dropped as stolen from its town (requests/p3-quest.md §2), so that town's
+	 * merchants refuse it and a fence takes it. The drops are the fresh item entities round the body.
+	 */
+	public static void markLoot(ServerLevel level, net.minecraft.world.entity.Entity victim, Settlement s, ServerPlayer thief) {
+		LawService law = HearthServices.law();
+		if (law == null) {
+			return;
+		}
+		LawService.Owner owner = new LawService.Owner(s.id(), null, null, LawService.Owner.Kind.SETTLEMENT);
+		for (net.minecraft.world.entity.item.ItemEntity item : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+			victim.getBoundingBox().inflate(2.5), e -> e.tickCount < 5)) {
+			net.minecraft.world.item.ItemStack stack = item.getItem().copy();
+			law.markStolen(stack, owner, thief.getUUID());
+			item.setItem(stack);
+		}
+	}
+
 	/** Whether the law wants the player in the settlement (a crime unpaid for, or an outlaw of its region). */
 	public static boolean wanted(UUID player, Settlement s) {
 		LawService law = HearthServices.law();

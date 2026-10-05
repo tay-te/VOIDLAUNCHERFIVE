@@ -20,4 +20,13 @@ public interface BlueprintService {
 
 	/** The style id a settlement of this culture builds in (variants within it are the archetype's business). */
 	Identifier style(Culture culture);
+
+	/**
+	 * The goods one block of this state costs to place, as the blueprints' material bill reckons it (empty for free blocks:
+	 * air, plants, natural ground), so repairs cost what building did; null where the build module does not say (callers
+	 * keep their own table).
+	 */
+	default Goods @Nullable [] goodsOf(net.minecraft.world.level.block.state.BlockState state) {
+		return null;
+	}
 }

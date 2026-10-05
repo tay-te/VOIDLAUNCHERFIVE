@@ -104,19 +104,22 @@ Rules that keep parallel work mergeable:
 ```
 blueprints  BlueprintService   build    required    blueprint(spec, terrain), archetypes, style(culture)
 planner     SettlementPlanner  plan     required    found(ctx), next(settlement, terrain, random)
-worlds      HearthWorld        sim      required    settlements of a level, terrain probe, day, world data
+worlds      HearthWorld        sim      required    settlements of a level, terrain probe, day, world data, caravans, written()
 culture     biome → Culture    sim      required
 residents   ResidentFactory    sim default; npc replaces it (names, looks, personality)
-economy     EconomyService     economy  optional    balance/charge/pay/format/price
+economy     EconomyService     economy  optional    balance/charge/pay/format/price; purses, services, fines, bribes, funded plots, owners
 quests      QuestService       quest    optional    NPC quest markers
-npc         NpcService         npc      optional    folk lookups, perception, FolkBehaviours other modules add
-standing    StandingService    standing optional    reputation layers, deeds, gossip, charisma
-law         LawService         law      optional    ownership, stolen goods, wanted status, crime reports
+npc         NpcService         npc      optional    folk lookups, perception, FolkBehaviours other modules add, escorts, traits, wake
+standing    StandingService    standing optional    reputation layers, deeds, gossip, charisma, speech checks, renown
+law         LawService         law      optional    ownership, stolen goods, wanted status and posters, crime reports, pardons
 repairs     RepairService      repair   optional    damage against blueprints, repair claims
 ```
 
 Plus `DialogueProvider.register(...)` (economy and quest add conversation options; npc owns the screen) and
-`SettlementEvents` (sim fires; everyone may listen).
+`SettlementEvents` (sim fires; everyone may listen). Phase 3 adds the law's `CRIME_COMMITTED`, standing's `STANDING_CHANGED`,
+the sim's `SITE_DEPLETED`/`SITE_FOUND`/`PROSPERITY_CHANGED`/`CARAVAN` (with the caravan id), the repair module's `DAMAGED`
+(with the player), `FIRE_STARTED`, `FIRE_OUT`, `REPAIRED` and `REPAIR_STALLED`, and the npc module's `ESCORT_ENDED`.
+The living world's integration points are listed in `docs/requests/p3-*.md`, each marked with how it was resolved.
 
 ---
 
@@ -268,7 +271,7 @@ The planner may only rely on archetypes in this list; architects implement them 
 
 **Workplaces** (`hearth:work/...`): `builders_yard` (BUILDER — the first workplace any settlement builds), `smithy`
 (SMITH), `carpentry` (CARPENTER), `masonry` (MASON), `bakery` (BAKER), `brewery` (BREWER), `tailor` (TAILOR),
-`sawmill` (FORESTER, WATERFRONT if water-powered), `quarry` (QUARRIER, OUTSKIRTS), `fishery` (FISHER, WATERFRONT),
+`sawmill` (FORESTER, CARPENTER, OUTSKIRTS; a water wheel where water runs behind), `quarry` (QUARRIER, OUTSKIRTS), `fishery` (FISHER, WATERFRONT),
 `windmill` (FARMER/BAKER, VERTICAL), `watermill` (FARMER/BAKER, WATERFRONT), `barn` (HERDER), `hunters_lodge` (HUNTER).
 
 **Farms** (`hearth:farm/...`): `field` (FARMER), `orchard`, `pasture` (HERDER), `paddy` (karst, tropical),
@@ -334,6 +337,12 @@ The planner turns needs into plots that make a place: a heart, streets that foll
 
 ### 7.1 Signature settlements on Expanse land
 
+Expanse renamed five biomes for a natural surface (2026-10): `wisteria_vale` → `woodland_glades`, `lumen_grove` →
+`ancient_oakwood`, `opal_dunes` → `red_dunes`, `prismatic_peaks` → `dolomite_peaks`, `frostbloom_tundra` → `lichen_tundra`.
+Hearth reads both ids everywhere (the sim's culture map and land table, the planner's signatures and materials); the new
+ones are natural lands (woodland glades and ancient oakwood are temperate, with oak and dark oak), and nothing Hearth
+places on the surface glows (lumen wood is read as birch; glowcaps, amber and prismite light only the deep towns).
+
 Aim the planner's layouts and the architects' styles at these; they are what make Hearth feel made for Expanse:
 
 | Land | Settlement |
@@ -341,15 +350,15 @@ Aim the planner's layouts and the architects' styles at these; they are what mak
 | Jade Karst | **cliff town**: houses on limestone sills climbing stone stacks the town builds itself, bamboo walkways and bridges between them, a pagoda landmark |
 | Redwood Giants | **forest hall town**: log halls among the giants, raised walkways on trestles, a great hall |
 | Willow Bayou, Boreal Muskeg | **stilt town** on boardwalks over the water, docks and punts |
-| Opal Dunes, Saguaro Flats | **oasis town**: courtyard houses, flat roofs stacked as terraces, domes, a market in the shade |
+| Opal Dunes (now Red Dunes), Saguaro Flats | **oasis town**: courtyard houses, flat roofs stacked as terraces, domes, a market in the shade |
 | Painted Canyons, badlands | **pueblo** stacked up the canyon wall, ladders and roof terraces |
 | Olive Groves | **hill town**: dense, tall, stair streets, a bell tower at the top |
 | Fjordlands, cool coasts | **harbour town**: quays, boathouses, net lofts, a lighthouse |
 | Verdant Peaks, meadows | **alpine village**: chalets on terraces, switchback road, a chapel spire |
 | Heather Moor | **moor village**: stone cottages, dry-stone walled fields fanning out |
 | Amber Steppe | **ring town**: round houses in rings round a market ring |
-| Wisteria Vale | **garden town**: timber-and-plaster lanes under blossom, canals and arched bridges |
-| Frostbloom Tundra | **longhouse steading** round a fire hall |
+| Wisteria Vale (Expanse now: Woodland Glades, a temperate town) | **garden town**: timber-and-plaster lanes under blossom, canals and arched bridges |
+| Frostbloom Tundra (now Lichen Tundra) | **longhouse steading** round a fire hall |
 | Palm and Coral Coast | **lagoon village** on stilts with jetties |
 
 ---

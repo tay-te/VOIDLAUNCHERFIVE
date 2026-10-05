@@ -74,7 +74,8 @@ public final class Farms {
 			} else if (id.equals(Archetypes.TERRACE_FIELD)) {
 				w *= ctx.state.layout.terraces || slope > 0.15 ? 3 : 0.2;
 			}
-			if (c == Culture.DESERT && !id.equals(Archetypes.FIELD) && !id.equals(Archetypes.ORCHARD)) {
+			// desert towns keep walled pastures too now (arch-homestead.md §6); terraces and paddies stay rare there
+			if (c == Culture.DESERT && !id.equals(Archetypes.FIELD) && !id.equals(Archetypes.ORCHARD) && !id.equals(Archetypes.PASTURE)) {
 				w *= 0.3;
 			}
 			items.add(info);

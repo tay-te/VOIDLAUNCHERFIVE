@@ -4,6 +4,8 @@ What the law module needs from outside its package, what it does meanwhile, and 
 
 ## 1. Wanted posters on the notice board (quest module)
 
+**Done** (integration 3): `LawService.wanted(settlementId)` and the `Wanted` record. The notice board shows everyone the law wants there, online or not, with the offence ("for theft") and what they owe.
+
 **Why.** LIVING_WORLD.md §4: wanted status spreads to neighbouring towns "with wanted posters on their notice boards".
 The board and its screen are the quest module's.
 
@@ -25,6 +27,8 @@ bounty-hunter quest for outlaws later.
 
 ## 2. Merchants refuse stolen goods (economy module)
 
+**Done** (economy, checked in integration 3): the market refuses goods stolen in its own town (`StolenGoods.judge`). The law's FENCE dialogue gives way to the economy's fence shop.
+
 **Why.** §4: "That town's merchants will not buy them; a fence will". The market is the economy's.
 
 **Meanwhile.** The law module's fence (a `FENCE` resident, or the innkeeper in one town in three of village size and
@@ -37,6 +41,8 @@ where that came from"). Stolen marks fade after `stolen_fade_days` (7), which `s
 
 ## 3. Resident traits (npc module) — a data contract, not an api change
 
+**Done** (integration 3): `NpcService.traits(Resident)` is in the api, and the names are unchanged.
+
 **Why.** Witness reactions, sharpness and speech checks use traits (brave, cautious, greedy, generous, pious, curious,
 dreamy, lazy, shy).
 
@@ -46,6 +52,8 @@ module's classes. If the npc module renames or moves them, please keep the names
 **Proposed (optional).** `Set<String> NpcService.traits(Resident)` or a `Resident.traits()` accessor in the api.
 
 ## 4. Jail cells and the pillory in blueprints (build module)
+
+Open (build architects): CELL, PILLORY and STRONGBOX POIs in the guardhouse, jail and pillory blueprints are the build module's to add.
 
 **Why.** Submitting to the guard means the guardhouse cell (`PoiType.CELL`); lesser crimes may take the pillory
 (`PoiType.PILLORY`) in the square. Phase 2's `civic/guardhouse` has no `CELL` POI.
@@ -60,6 +68,8 @@ at tier 5).
 
 ## 5. Telling the npc module a folk is busy with the law (npc module)
 
+**Done** (integration 3): `FolkHandle.wake()` is in the api; `busy()` was not needed, since behaviour priority already holds the folk.
+
 **Why.** Guards confronting a player, witnesses running to the guard and pickpocketing all assume the folk stays put
 or follows the behaviour. The `FolkBehaviour` contract covers that (priority 250 witness, 320 guard).
 
@@ -70,6 +80,8 @@ reactions (fleeing when hurt). A pickpocketing session ends when the mark walks 
 wake them unless they notice), and `FolkHandle.wake()` so a caught pickpocket wakes a sleeper.
 
 ## 6. Vandalism against the repair module's damage (repair module)
+
+**Done** (integration 3): `DAMAGED` carries the player. The repair module reports TNT and fire a player set to the law; the law module alone judges a player's breaks (repair marks those REPORTED), so a window is fined once.
 
 **Why.** "The repair module tracks the damage; you judge the crime."
 

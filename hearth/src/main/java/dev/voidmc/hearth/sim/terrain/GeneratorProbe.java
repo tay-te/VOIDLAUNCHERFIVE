@@ -36,6 +36,17 @@ public class GeneratorProbe implements TerrainProbe {
 	private final long seed;
 	private final ThreadLocal<BiomeResolver> resolvers;
 	private final ThreadLocal<Cache> caches = ThreadLocal.withInitial(Cache::new);
+	/** The open spaces under this ground (Expanse realms), paired by the sim when it makes the world. */
+	private volatile dev.voidmc.hearth.api.@org.jspecify.annotations.Nullable UndergroundProbe underground;
+
+	public void setUnderground(dev.voidmc.hearth.api.@org.jspecify.annotations.Nullable UndergroundProbe underground) {
+		this.underground = underground;
+	}
+
+	@Override
+	public dev.voidmc.hearth.api.@org.jspecify.annotations.Nullable UndergroundProbe underground() {
+		return this.underground;
+	}
 
 	public GeneratorProbe(ServerLevel level) {
 		this.generator = level.getChunkSource().getGenerator();

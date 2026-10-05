@@ -188,10 +188,16 @@ the oldest member does; the last to leave disbands it. `companies.enabled` false
 ## 9. Working with the other modules
 
 - **Reporting**: every module reports deeds rather than moving numbers (`Deeds` lists the kinds the table knows).
-- **The sim's reputation numbers**: until the sim delegates `Settlement.reputation/addReputation` to this service
-  (docs/requests/p3-standing.md 1–2), a player's first standing in a town is seeded from the sim's number and every
-  change is mirrored back into it (`town.mirror_to_settlement`). Once it delegates, the seeding read comes back here and
-  is answered without recursion, and the mirror's echo (an `hearth:adjust` deed during the mirror) is ignored.
+- **The sim's reputation numbers**: the sim delegates `Settlement.reputation/addReputation` here; a plain
+  `addReputation` arrives as a `hearth:reputation` deed, which (like `hearth:adjust`) moves standing by exactly its weight
+  and nothing else. Its old numbers come over once a session as `hearth:seed` deeds (ignored for a player already known).
+  Mirroring back (`town.mirror_to_settlement`) is off by default.
+- **Speech checks, renown and small memories in the api**: `StandingService.odds/attempt/expectedBribe` (with the
+  `Speech` kinds), `renown` (signed fame) and `remember` (an opinion without town effects).
+- **Deed kinds other modules send** all have rules in the shipped table: the economy's (`bought_property`,
+  `bought_business`, `funded_project`, `contract_fulfilled`, `contract_failed`), the quests' (`hearth:default`,
+  `hearth:quest/failed`, `hearth:quest/abandoned`), the repairs' (`fire_brigade`, `rebuilt`, `vandalism`), and the npc
+  module's `hurt`/`killed` and `law:default`.
 - **Reads**: `standing`, `title`, `opinion`, `fame`, `charisma`, `menace`, `company` through the api. `charisma` and
   `menace` read the player's inventory and body state; cheap.
 - **npc fields read** (by name, from `Resident.extra("npc")`): `traits`, `mood`, `spouse`, `children`, `parents`,

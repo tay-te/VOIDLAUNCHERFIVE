@@ -13,7 +13,13 @@ import net.minecraft.world.level.Level;
  * @param cargo units by {@link dev.voidmc.hearth.api.Goods#ordinal()}
  */
 public record Journey(long id, ResourceKey<Level> dimension, long fromId, long toId, String toName, BlockPos from, BlockPos to, int[] cargo,
-	long departed) {
+	long departed, long simId, long arrives) {
+
+	/** A journey of the npc module's own (the dev command): it moves at the configured pace. */
+	public Journey(long id, ResourceKey<Level> dimension, long fromId, long toId, String toName, BlockPos from, BlockPos to, int[] cargo,
+		long departed) {
+		this(id, dimension, fromId, toId, toName, from, to, cargo, departed, 0, 0);
+	}
 
 	/** The length of the road, in blocks (straight line, horizontally). */
 	public double length() {
@@ -24,6 +30,10 @@ public record Journey(long id, ResourceKey<Level> dimension, long fromId, long t
 
 	/** How far along the road it is, 0 to 1, at a pace of {@code speed} blocks per second. */
 	public double progress(long gameTime, double speed) {
+		if (this.arrives > this.departed) {
+			// the sim's own caravan: where the sim says it is, so the party meets the books (HearthWorld.CaravanView)
+			return Mth.clamp((gameTime - this.departed) / (double) (this.arrives - this.departed), 0.0, 1.0);
+		}
 		double len = length();
 		if (len < 1.0) {
 			return 1.0;

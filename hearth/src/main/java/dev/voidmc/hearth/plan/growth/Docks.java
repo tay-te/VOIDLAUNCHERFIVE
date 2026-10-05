@@ -44,6 +44,10 @@ public final class Docks {
 			Polyline.Dense d = e.dense();
 			int lim = Math.min(e.built, d.length());
 			for (int i = 0; i < lim; i += 2) {
+				if (e.typeAt(i) != RoadEdge.GRADE) {
+					// beside a bridge the parapet would cut the pier off (requests/arch-infra.md §3)
+					continue;
+				}
 				int x = d.xs()[i];
 				int z = d.zs()[i];
 				for (int h = 0; h < 8; h += 2) {
@@ -90,7 +94,9 @@ public final class Docks {
 					double score = -ctx.distanceToHeart(x, z) + len * 0.5 + ctx.hash(x, z, 23) * 4;
 					if (score > bestScore) {
 						bestScore = score;
-						best = new int[]{x + dx * (start - 1), z + dz * (start - 1), ex, ez, d.ys()[i]};
+						// the pier starts on the road's edge column: no unpaved strip between road and pier (arch-infra.md §3)
+						int edge = e.width / 2;
+						best = new int[]{x + dx * edge, z + dz * edge, ex, ez, d.ys()[i]};
 					}
 				}
 			}

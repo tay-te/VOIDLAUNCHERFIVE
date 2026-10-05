@@ -54,12 +54,39 @@ public final class Roads {
 			return null;
 		}
 		int[] ys = prof.ys;
-		Polyline line = Polyline.fromDense(Arrays.copyOf(xs, n), ys, Arrays.copyOf(zs, n), 0, n - 1);
 		RoadGraph g = ctx.state.graph;
+		pinToJunction(g.node(fromNode), ys, n, prof.runs);
+		Polyline line = Polyline.fromDense(Arrays.copyOf(xs, n), ys, Arrays.copyOf(zs, n), 0, n - 1);
 		RoadGraph.Node end = g.addNode(xs[n - 1], ys[n - 1], zs[n - 1], RoadGraph.NodeKind.END);
 		RoadEdge e = g.addEdge(fromNode, end.id(), role, kind, width, line, prof.runs);
 		reserve(ctx, e);
 		return e;
+	}
+
+	/** Columns from a junction a lane keeps its parent's walking level for (inside the parent's corridor and a little beyond). */
+	private static final int JUNCTION_PIN = 4;
+
+	/**
+	 * A lane walked out from a junction starts at the parent's level: its first few columns lie inside the parent's
+	 * corridor, where graded from the smoothed ground they could sit a block above or below the parent's surface — a step
+	 * at the mouth, or a pothole in a dirt lane (requests/arch-infra.md §1). Only small mismatches are pinned (a lane that
+	 * really climbs away keeps its grade), and only on a graded run.
+	 */
+	static void pinToJunction(RoadGraph.Node from, int[] ys, int n, int[] runs) {
+		if (from.kind() != RoadGraph.NodeKind.JUNCTION || runs.length >= 3 && runs[0] == 0 && runs[1] != RoadEdge.GRADE) {
+			return;
+		}
+		int pin = Math.min(n, JUNCTION_PIN);
+		// only the one-block steps: the column after the pinned stretch must still meet the junction's level within a
+		// block, so the lane's grade is kept
+		for (int k = 0; k <= pin && k < n; k++) {
+			if (Math.abs(ys[k] - from.y()) > 1) {
+				return;
+			}
+		}
+		for (int k = 0; k < pin; k++) {
+			ys[k] = from.y();
+		}
 	}
 
 	/** Shows an edge's unbuilt corridor as planned road, so plots keep off it. */
@@ -147,7 +174,10 @@ public final class Roads {
 					int cEnd = Math.min(b, c + maxLen);
 					int[] pts = points(d, c, cEnd, e.runDeck(r), boardwalk);
 					int water = waterLevel(ctx.ground, d, c, cEnd);
-					out.add(Specs.bridge(ctx, pts, e.width, e.runDeck(r), water, boardwalk, e.kind));
+					// a span's parapets stand outside the walking width (requests/arch-infra.md §2): the road's width plus
+					// one each side, at least five for streets and highways; boardwalks keep the road's width
+					int span = boardwalk ? e.width : Math.max(e.width + 2, e.kind == RoadKind.STREET || e.kind == RoadKind.HIGHWAY ? 5 : 0);
+					out.add(Specs.bridge(ctx, pts, span, e.runDeck(r), water, boardwalk, e.kind));
 				}
 				continue;
 			}

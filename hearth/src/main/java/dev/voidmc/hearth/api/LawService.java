@@ -37,6 +37,30 @@ public interface LawService {
 	/** Reports a crime committed where the law module cannot see it; it then goes through witnesses and justice as usual. */
 	void report(Crime crime);
 
+	/** Every player wanted in a settlement, worst first, for notice boards and town criers. */
+	default java.util.List<Wanted> wanted(long settlementId) {
+		return java.util.List.of();
+	}
+
+	/** Clears the player's wanted status (and bounty) in a settlement, as by a pardon or work done in place of the fine. */
+	default void pardon(UUID player, long settlementId, String reason) {
+	}
+
+	/**
+	 * Marks goods as stolen from {@code owner} (loot of a robbed caravan, say), so that town's merchants refuse them and a
+	 * fence takes them. {@code thief} may be null when nobody in particular took them.
+	 */
+	default void markStolen(ItemStack stack, Owner owner, @Nullable UUID thief) {
+	}
+
+	/**
+	 * A wanted player, as a poster shows them.
+	 *
+	 * @param origin the settlement the crime was committed in when word came from elsewhere (0: here)
+	 */
+	record Wanted(UUID player, String name, long bounty, Offence worst, boolean outlaw, long origin) {
+	}
+
 	/**
 	 * @param settlementId the settlement whose property it is (or whose law applies), or 0 for none
 	 * @param resident     the resident who owns it (a household, a workplace's worker), or null for the settlement itself

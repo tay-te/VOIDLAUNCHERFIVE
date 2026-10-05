@@ -71,6 +71,24 @@ public interface NpcService {
 		void swing();
 
 		long gameTime();
+
+		/** Wakes a sleeping folk (a fire, an alarm bell, a thief caught at their bedside); they stay up a while. */
+		default void wake() {
+		}
+	}
+
+	/** How an escort started with {@link #follow} stands, or null if there is none (outcomes are kept ten minutes). */
+	default @Nullable EscortStatus escort(UUID resident) {
+		return null;
+	}
+
+	/** A resident's traits by name ({@code brave}, {@code greedy}, {@code shy}...), from the npc module's personality. */
+	default java.util.Set<String> traits(Resident resident) {
+		return java.util.Set.of();
+	}
+
+	enum EscortStatus {
+		ACTIVE, ARRIVED, LOST
 	}
 
 	/**

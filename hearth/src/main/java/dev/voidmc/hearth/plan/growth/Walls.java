@@ -153,14 +153,17 @@ public final class Walls {
 		}
 		ArchetypeInfo tower = ctx.catalogue.resolve(Archetypes.WATCHTOWER, ctx.culture, ctx.tier);
 		ArchetypeInfo gate = stone ? ctx.catalogue.resolve(Archetypes.GATEHOUSE, ctx.culture, ctx.tier) : null;
-		int segments = 0;
+		// first the stretches, gates and towers as positions; then the gates and towers; then the stretches, which leave
+		// the towers' and gatehouses' footprints to them (keep) and continue into each other (join_*)
+		List<int[]> runs = new ArrayList<>();
+		List<Integer> gateAt = new ArrayList<>();
 		int i = 0;
 		int sinceTower = 0;
 		List<int[]> towers = new ArrayList<>();
 		while (i < n) {
 			if (!wallOk[i]) {
 				if (road[i] && gate != null) {
-					placeGate(ctx, gate, dense, i);
+					gateAt.add(i);
 				}
 				i++;
 				continue;
@@ -170,17 +173,7 @@ public final class Walls {
 				j++;
 			}
 			if (j - i >= 4) {
-				int[] xs = new int[j - i];
-				int[] ys = new int[j - i];
-				int[] zs = new int[j - i];
-				for (int k = i; k < j; k++) {
-					xs[k - i] = dense[0][k];
-					zs[k - i] = dense[1][k];
-					ys[k - i] = ctx.ground.ground(dense[0][k], dense[1][k]);
-				}
-				int[] pts = Polyline.fromDense(xs, ys, zs, 0, xs.length - 1).points();
-				Roads.issue(ctx, Specs.wall(ctx, archetype, pts, width, height), stone ? "defence: the town wall" : "defence: a palisade round the village");
-				segments++;
+				runs.add(new int[]{i, j});
 				sinceTower += j - i;
 				if (tower != null && stone && sinceTower >= 36) {
 					towers.add(new int[]{dense[0][j - 1], dense[1][j - 1]});
@@ -189,8 +182,36 @@ public final class Walls {
 			}
 			i = j;
 		}
+		List<int[]> keep = new ArrayList<>();
+		for (int g : gateAt) {
+			int[] rect = placeGate(ctx, gate, dense, g, height);
+			if (rect != null) {
+				keep.add(rect);
+			}
+		}
 		for (int[] t : towers) {
-			placeTower(ctx, tower, t[0], t[1]);
+			int[] rect = placeTower(ctx, tower, t[0], t[1], height);
+			if (rect != null) {
+				keep.add(rect);
+			}
+		}
+		int segments = 0;
+		for (int k = 0; k < runs.size(); k++) {
+			int[] run = runs.get(k);
+			int[] xs = new int[run[1] - run[0]];
+			int[] ys = new int[xs.length];
+			int[] zs = new int[xs.length];
+			for (int m = run[0]; m < run[1]; m++) {
+				xs[m - run[0]] = dense[0][m];
+				zs[m - run[0]] = dense[1][m];
+				ys[m - run[0]] = ctx.ground.ground(dense[0][m], dense[1][m]);
+			}
+			int[] pts = Polyline.fromDense(xs, ys, zs, 0, xs.length - 1).points();
+			boolean joinStart = k > 0 && runs.get(k - 1)[1] == run[0];
+			boolean joinEnd = k + 1 < runs.size() && runs.get(k + 1)[0] == run[1];
+			PlotSpec spec = dressed(Specs.wall(ctx, archetype, pts, width, height), keep, joinStart, joinEnd, hx, hz);
+			Roads.issue(ctx, spec, stone ? "defence: the town wall" : "defence: a palisade round the village");
+			segments++;
 		}
 		if (segments == 0) {
 			return false;
@@ -267,7 +288,8 @@ public final class Walls {
 		ArchetypeInfo wallInfo = ctx.catalogue.info(Archetypes.WALL);
 		boolean stone = ctx.population >= 60 && wallInfo != null && Catalogue.allowed(wallInfo, ctx.culture, ctx.tier);
 		if (stone && ctx.state.wallStage == 1) {
-			// the palisade is rebuilt in stone, segment by segment
+			// the palisade is rebuilt in stone, segment by segment, the gatehouses and towers planned first
+			List<int[]> keep = gatesAndTowers(ctx, line, 8);
 			int n = 0;
 			for (PlotView p : ctx.settlement.plots()) {
 				PlotSpec s = p.spec();
@@ -278,7 +300,7 @@ public final class Walls {
 				if (pts == null) {
 					continue;
 				}
-				PlotSpec wall = Specs.wall(ctx, Archetypes.WALL, pts, 3, 8);
+				PlotSpec wall = dressed(Specs.wall(ctx, Archetypes.WALL, pts, 3, 8), keep, false, false, ctx.heartX(), ctx.heartZ());
 				CompoundTag params = wall.params();
 				params.putInt("replaces", p.id());
 				wall = new PlotSpec(wall.archetype(), wall.style(), wall.seed(), wall.origin(), wall.sizeX(), wall.sizeZ(), wall.facing(),
@@ -286,7 +308,6 @@ public final class Walls {
 				ctx.queue(wall, p.id(), "defence: the palisade is rebuilt as a stone wall");
 				n++;
 			}
-			gatesAndTowers(ctx, line);
 			ctx.state.wallStage = 2;
 			return n > 0;
 		}
@@ -294,7 +315,10 @@ public final class Walls {
 		int n = d.length();
 		Identifier archetype = stone ? Archetypes.WALL : Archetypes.PALISADE;
 		int width = stone ? 3 : 1;
-		int segments = 0;
+		int height = stone ? 8 : 5;
+		// gatehouses and towers first, so the stretches can leave their footprints to them
+		List<int[]> keep = stone ? gatesAndTowers(ctx, line, height) : List.of();
+		List<int[]> runs = new ArrayList<>();
 		int i = 0;
 		while (i < n) {
 			if (ctx.occ.get(d.xs()[i], d.zs()[i]) != Cell.WALL) {
@@ -306,15 +330,19 @@ public final class Walls {
 				j++;
 			}
 			if (j - i >= 3) {
-				int[] pts = Polyline.fromDense(d.xs(), d.ys(), d.zs(), i, j - 1).points();
-				ctx.queue(Specs.wall(ctx, archetype, pts, width, stone ? 8 : 5), -1,
-					stone ? "defence: the town wall" : "defence: a palisade on the town's wall line");
-				segments++;
+				runs.add(new int[]{i, j});
 			}
 			i = j;
 		}
-		if (stone) {
-			gatesAndTowers(ctx, line);
+		int segments = 0;
+		for (int k = 0; k < runs.size(); k++) {
+			int[] run = runs.get(k);
+			int[] pts = Polyline.fromDense(d.xs(), d.ys(), d.zs(), run[0], run[1] - 1).points();
+			boolean joinStart = k > 0 && runs.get(k - 1)[1] == run[0];
+			boolean joinEnd = k + 1 < runs.size() && runs.get(k + 1)[0] == run[1];
+			ctx.queue(dressed(Specs.wall(ctx, archetype, pts, width, height), keep, joinStart, joinEnd, ctx.heartX(), ctx.heartZ()), -1,
+				stone ? "defence: the town wall" : "defence: a palisade on the town's wall line");
+			segments++;
 		}
 		ctx.state.wallStage = stone ? 2 : 1;
 		double sum = 0;
@@ -325,8 +353,12 @@ public final class Walls {
 		return segments > 0;
 	}
 
-	/** Gatehouses where main roads cross the wall line, towers along it about every forty blocks. */
-	private static void gatesAndTowers(PlanContext ctx, RoadEdge line) {
+	/**
+	 * Gatehouses where main roads cross the wall line, towers along it about every forty blocks. Returns their
+	 * footprints ({@code x0, z0, x1, z1}, inclusive) for the stretches' {@code keep}.
+	 */
+	private static List<int[]> gatesAndTowers(PlanContext ctx, RoadEdge line, int wallHeight) {
+		List<int[]> keep = new ArrayList<>();
 		ArchetypeInfo tower = ctx.catalogue.resolve(Archetypes.WATCHTOWER, ctx.culture, ctx.tier);
 		ArchetypeInfo gate = ctx.catalogue.resolve(Archetypes.GATEHOUSE, ctx.culture, ctx.tier);
 		Polyline.Dense d = line.dense();
@@ -337,16 +369,57 @@ public final class Walls {
 			byte c = ctx.occ.get(d.xs()[i], d.zs()[i]);
 			boolean road = Cell.isAccess(c) || c == Cell.PLANNED_ROAD;
 			if (road && !wasRoad && gate != null) {
-				placeGate(ctx, gate, dense, i);
+				int[] rect = placeGate(ctx, gate, dense, i, wallHeight);
+				if (rect != null) {
+					keep.add(rect);
+				}
 				since = 0;
 			}
 			wasRoad = road;
 			since++;
 			if (tower != null && since >= 40 && c == Cell.WALL) {
-				placeTower(ctx, tower, d.xs()[i], d.zs()[i]);
+				int[] rect = placeTower(ctx, tower, d.xs()[i], d.zs()[i], wallHeight);
+				if (rect != null) {
+					keep.add(rect);
+				}
 				since = 0;
 			}
 		}
+		return keep;
+	}
+
+	/**
+	 * A wall stretch with what the landscape architect's wall reads (requests/arch-landscape.md §2-4): {@code keep}, the
+	 * footprints of the towers and gatehouses on it (it builds nothing there; its walk runs into their flank doors),
+	 * {@code join_start}/{@code join_end} where it runs straight on into the next stretch (no pier and stair at the cut),
+	 * and {@code heart}, the town side.
+	 */
+	static PlotSpec dressed(PlotSpec wall, List<int[]> keep, boolean joinStart, boolean joinEnd, int hx, int hz) {
+		CompoundTag params = wall.params();
+		int x0 = wall.origin().getX();
+		int z0 = wall.origin().getZ();
+		int x1 = x0 + wall.sizeX() - 1;
+		int z1 = z0 + wall.sizeZ() - 1;
+		List<Integer> mine = new ArrayList<>();
+		for (int[] r : keep) {
+			if (r[0] <= x1 && r[2] >= x0 && r[1] <= z1 && r[3] >= z0) {
+				for (int v : r) {
+					mine.add(v);
+				}
+			}
+		}
+		if (!mine.isEmpty()) {
+			params.putIntArray("keep", mine.stream().mapToInt(Integer::intValue).toArray());
+		}
+		if (joinStart) {
+			params.putBoolean("join_start", true);
+		}
+		if (joinEnd) {
+			params.putBoolean("join_end", true);
+		}
+		params.putIntArray("heart", new int[]{hx, hz});
+		return new PlotSpec(wall.archetype(), wall.style(), wall.seed(), wall.origin(), wall.sizeX(), wall.sizeZ(), wall.facing(), wall.maxHeight(),
+			wall.tier(), params);
 	}
 
 	private static int sector(int dx, int dz) {
@@ -371,16 +444,16 @@ public final class Walls {
 	}
 
 	/** A gatehouse across a main road where the ring crosses it (the road runs through its passage). */
-	private static void placeGate(PlanContext ctx, ArchetypeInfo gate, int[][] dense, int i) {
+	private static int @Nullable [] placeGate(PlanContext ctx, ArchetypeInfo gate, int[][] dense, int i, int wallHeight) {
 		int x = dense[0][i];
 		int z = dense[1][i];
 		int[] at = Roads.edgeAt(ctx, x, z);
 		if (at == null) {
-			return;
+			return null;
 		}
 		var e = ctx.state.graph.edge(at[0]);
 		if (e.role != RoadEdge.Role.ARM) {
-			return;
+			return null;
 		}
 		Polyline.Dense d = e.dense();
 		int a = Math.max(0, at[1] - 2);
@@ -402,12 +475,15 @@ public final class Walls {
 		for (int zz = z0; zz < z0 + sizeZ; zz++) {
 			for (int xx = x0; xx < x0 + sizeX; xx++) {
 				byte c = ctx.occ.get(xx, zz);
-				if (!(Cell.isAccess(c) || Cell.isBuildable(c) || c == Cell.PLANNED_ROAD)) {
-					return;
+				// a gatehouse straddles the wall line beside the road: WALL cells are its intended overlap (PLANNING.md §4;
+				// requests/arch-landscape.md §1: without this no gate was ever placed in a walled layout)
+				if (!(Cell.isAccess(c) || Cell.isBuildable(c) || c == Cell.PLANNED_ROAD || c == Cell.WALL)) {
+					return null;
 				}
 			}
 		}
 		CompoundTag params = new CompoundTag();
+		params.putInt("wall_height", wallHeight);
 		params.putInt("passage_width", e.width);
 		params.putBoolean("over_road", true);
 		params.putInt("street_y", d.ys()[at[1]]);
@@ -422,9 +498,10 @@ public final class Walls {
 				}
 			}
 		}
+		return new int[]{x0, z0, x0 + sizeX - 1, z0 + sizeZ - 1};
 	}
 
-	private static void placeTower(PlanContext ctx, ArchetypeInfo tower, int x, int z) {
+	private static int @Nullable [] placeTower(PlanContext ctx, ArchetypeInfo tower, int x, int z, int wallHeight) {
 		int s = tower.minFrontage();
 		int x0 = x - s / 2;
 		int z0 = z - s / 2;
@@ -432,17 +509,19 @@ public final class Walls {
 			for (int xx = x0; xx < x0 + s; xx++) {
 				byte c = ctx.occ.get(xx, zz);
 				if (!(c == Cell.WALL || Cell.isBuildable(c))) {
-					return;
+					return null;
 				}
 			}
 		}
 		CompoundTag params = new CompoundTag();
 		params.putBoolean("on_wall", true);
+		params.putInt("wall_height", wallHeight);
 		int y = ctx.ground.ground(x, z);
 		Direction facing = Math.abs(x - ctx.heartX()) >= Math.abs(z - ctx.heartZ()) ? (x > ctx.heartX() ? Direction.WEST : Direction.EAST)
 			: (z > ctx.heartZ() ? Direction.NORTH : Direction.SOUTH);
 		PlotSpec spec = new PlotSpec(tower.id(), ctx.style, ctx.nextSeed(), new BlockPos(x0, y, z0), s, s, facing, tower.maxHeight(),
 			Build.finish(ctx, tower, 2, null), params);
 		Roads.issue(ctx, spec, "defence: a tower on the wall");
+		return new int[]{x0, z0, x0 + s - 1, z0 + s - 1};
 	}
 }

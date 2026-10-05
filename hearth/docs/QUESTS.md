@@ -423,7 +423,7 @@ per happening; at most `event_offers` at a time; forgotten after `happening_days
 
 Fires and collapses are urgent: the players in or near the town hear a bell and a call with an **[I'll help]** link
 (`/hearth heed <offer>`). A completed quest resolves its happening (its untaken offers come down); recovered cargo goes
-back into the stores; a prospected site fires `QuestEvents.SITE_PROSPECTED` for the sim. A failed rescue kills the trapped
+back into the stores; a prospected site fires `QuestEvents.SITE_PROSPECTED` and is reported to the sim (`Settlement.reportSite`), which surveys round it and adds the site (`SITE_FOUND`). A failed rescue kills the trapped
 miners only with `rescue_failure_kills`.
 
 ### 13.3 Caravans
@@ -433,15 +433,20 @@ cargo; the leader must arrive (a follower lost costs its share of the reward). H
 once the player is past half way along the road and within 160 blocks of it, a little ahead; if the caravan arrives and
 they never sprang, the road was safe. Killing a caravan's animals — your own escort's or a target's — is robbery, reported
 with `LawService.report` (witnessed if an embodied folk near can see it, or the robbed train's drover survives).
-A fence's work (`crime/rob_caravan`) sends you to rob a pack train: the loot is what its chests carried.
+A fence's work (`crime/rob_caravan`) sends you to rob a pack train: the loot is what its chests carried, and what the
+animals drop is marked stolen from their town (`LawService.markStolen`), so its merchants refuse it.
+
+**The sim's caravans**: an escort answering a departing caravan carries that caravan's id (in the happening's plot field).
+Taking it calls `HearthWorld.escortCaravan` (the caravan arrives whatever the road held, and the npc module puts no
+second party on the road: the quest's own train is the caravan); failing it loses the caravan (`caravanLost`).
 
 ### 13.4 The law
 
 - **Wanted players are refused work** (`refuse_wanted`), except templates marked `wanted: allow` (a fence) and `only`
   (clearing your name: a night on the walls or labour for the town's works; completing one fires
-  `QuestEvents.NAME_CLEARED` for the law module).
-- **Wanted posters**: the board shows, beside the offers, the players online whom the law wants in the town and what they
-  owe (WANTED, or OUTLAW).
+  `QuestEvents.NAME_CLEARED` and calls `LawService.pardon`, which clears the warrant in that town).
+- **Wanted posters**: the board shows, beside the offers, everyone the law wants in the town (`LawService.wanted`, online
+  or not), worst first, with the offence ("for theft") and what they owe (WANTED, or OUTLAW).
 - **Bounty hunting**: outlaws wanted dead or alive (`apprehend`, `lethal`: alive pays the full price, dead the price
   without the alive bonus); bandit camps; and, where `player_bounties` is on, bounties on outlaw players (`hunt`).
 - **Thief-taking**: a thief working the market at night (`apprehend` at a `MARKET_STALL`, alive only): beaten down to a

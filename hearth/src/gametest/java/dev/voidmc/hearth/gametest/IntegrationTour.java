@@ -104,6 +104,12 @@ public class IntegrationTour implements FabricClientGameTest {
 			world.getServer().runOnServer(server -> forceChunks(server, town, false));
 
 			arrive(context, world, town);
+			if (Boolean.getBoolean("hearth.tour.livingonly")) {
+				// only the living world's legs (a quicker rerun)
+				settle(context, 8_000);
+				new LivingLegs(context, world, town.id).run();
+				return;
+			}
 			embodied(context, world, town);
 			builder(context, world, town, "builder");
 			questOffer(context, world, town);
@@ -113,6 +119,9 @@ public class IntegrationTour implements FabricClientGameTest {
 			night(context, world, town);
 			merchant(context, world, town);
 			builder(context, world, town, "builder_next_day");
+			if (!Boolean.getBoolean("hearth.tour.nolife")) {
+				new LivingLegs(context, world, town.id).run();
+			}
 			log("done: " + world.getServer().computeOnServer(server -> {
 				SimSettlement s = town(server, t(town));
 				return s.name() + " " + s.population() + " souls, plots " + s.plotCounts() + ", stores " + s.stockpile() + ", treasury " + s.treasury()

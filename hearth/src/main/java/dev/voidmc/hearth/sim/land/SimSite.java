@@ -209,7 +209,8 @@ public final class SimSite {
 	/** The api's view. */
 	public ResourceSite view() {
 		return new ResourceSite(this.id, this.kind, this.center, this.area, (int) Math.round(this.capacity), (int) Math.floor(Math.max(0, this.remaining)),
-			(float) this.regen, this.yields.clone(), this.material, this.plot);
+			(float) this.regen, this.yields.clone(), this.material, this.kind == ResourceSite.Kind.SPECIALTY ? this.material : null, this.plot, this.ore,
+			this.fuel);
 	}
 
 	@Override

@@ -302,7 +302,7 @@ standing earned. Contracts refuse goods stolen in their town too.
   or the builders' yard, "I'd like to pay toward the town's works." lists planned and rising public buildings (not homes
   or extraction plots) with their materials' worth (from the blueprint's remaining bill at the town's prices), what
   players have given and the player's own share. Gifts of a crown, ten, or "the rest" go into the project's fund: the
-  planner and the sim put **funded plots** first (docs/requests/p3-economy.md §2), and whenever its construction stalls
+  planner and the sim put **funded plots** first (the sim builds them first; the planner never rebuilds them), and whenever its construction stalls
   the fund buys the missing goods from passing traders at the town's price × `works.import_markup` (1.25), straight
   into the stores. Finished, the town keeps the change; abandoned, the givers are repaid into their bank accounts, by
   share. A gift is an `economy:funded_project` deed (`fund_weight_per_crown`, up to 25).
@@ -317,10 +317,11 @@ standing earned. Contracts refuse goods stolen in their town too.
 
 `Tariff` prices services other modules sell — `inn_bed`, `inn_room_week`, `meal`, `ale`, `bath`, `stable_hire_day`,
 `stable_keep_day`, `horse`, `tailor_dye`, `healer`, `dice_stake` — from `services` in the config (village prices),
-× town size (camp 0.6 … city 1.6) × standing (±20 %). `EconomyServiceImpl` (through `EconomyAccess.get()` until the api
-carries them, docs/requests/p3-economy.md §1) adds `servicePrice`, `chargeService` (coin to the vendor's till or purse),
-`fine` (to the treasury), `bribe` (to a resident's purse), `takeFromPurse` (pickpocketing, confiscation), `purse`,
-`householdWealth`, `fundedPlots` and `businessOwner`.
+× town size (camp 0.6 … city 1.6) × standing (±20 %). The api's `EconomyService` carries `servicePrice`, `chargeService`
+(coin to the vendor's till or purse), `fine` (to the treasury), `bribe` and `payResident` (to a resident's purse),
+`takeFromPurse` (pickpocketing, confiscation), `purse`, `householdWealth`, `fundedPlots` and `businessOwner`. The law
+pays fines and bribes through them, and a pickpocket takes the mark's real purse coin. While this module runs it alone
+moves stations (the sim's own rule stands aside).
 
 ## Banks and the mint
 
