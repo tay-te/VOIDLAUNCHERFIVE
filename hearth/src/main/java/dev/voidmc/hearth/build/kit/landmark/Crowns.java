@@ -191,6 +191,74 @@ public final class Crowns {
 	}
 
 	/**
+	 * What an onion or a helm is sheeted in, one material laid crisp (a mottled sheet reads as moss or a tree crown): in
+	 * a Bohemian town dark slate, copper only on the odd baroque onion; in the mountains copper on half of them, else the
+	 * roof's dark shingles; elsewhere the sheet asked for (copper unmixed), else the roof where it cuts stairs, else slate.
+	 */
+	public static Stone bulbSkin(Draft d, @org.jspecify.annotations.Nullable Stone sheet) {
+		dev.voidmc.hearth.api.Culture c = d.style().culture();
+		Stone slate = Stone.fixed(d, StageKind.ROOF, "minecraft:deepslate_tiles");
+		Stone copper = Stone.copper(d).crisp();
+		long h = dev.voidmc.hearth.build.draft.Noise.hash(d.seed(), 0x0410);
+		double roll = (h >>> 11) * 0x1.0p-53;
+		if (c == dev.voidmc.hearth.api.Culture.TEMPERATE || c == dev.voidmc.hearth.api.Culture.WISTERIA) {
+			return roll < 0.12 && d.tier() >= 4 ? copper : slate;
+		}
+		Stone roof = Stone.of(d, Role.ROOF);
+		boolean roofCuts = roof.has(Form.STAIRS) && !d.habits().roof().thatch();
+		if (c == dev.voidmc.hearth.api.Culture.ALPINE) {
+			return roll < 0.5 || !roofCuts ? copper : roof.crisp();
+		}
+		if (sheet != null) {
+			return coppery(sheet) ? copper : sheet.crisp();
+		}
+		return roofCuts ? roof.crisp() : slate;
+	}
+
+	/** Whether a sheet is copper. */
+	static boolean coppery(Stone s) {
+		Block b = s.main(Form.FULL);
+		return b != null && net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).getPath().contains("copper");
+	}
+
+	/**
+	 * The lantern on the point of an onion or a helm at (x, y, z): a neck of wall post, a little bulb of the sheet, a
+	 * gilded ball and the rod, as many as fit under {@code top}. Returns the highest row drawn.
+	 */
+	public static int lantern(Draft d, int x, int y, int z, int top, Stone sheet, Stone dress) {
+		if (y + 3 <= top) {
+			d.set(x, y, z, sheet.has(Form.WALL) ? sheet.wall() : dress.wallOrFull());
+			d.set(x, y + 1, z, sheet.full());
+			return Details.finial(d, x, y + 2, z, true);
+		}
+		if (y + 1 <= top) {
+			return Details.finial(d, x, y, z, y + 1 <= top);
+		}
+		return y - 1;
+	}
+
+	/**
+	 * A helm on a small square (three to seven wide) from row y: a bell-cast cap of the sheet ({@link Shapes#helmRows})
+	 * with its lantern and gilded ball. Returns the highest row used.
+	 */
+	public static int helm(Draft d, double cx, double cz, double r, int y, int top, Stone sheet, Stone dress) {
+		List<Set<Long>> rows = Shapes.helmRows(cx, cz, r);
+		while (rows.size() > 2 && y + rows.size() + 1 > top) {
+			rows.remove(1);
+		}
+		int yt;
+		try (var s = d.stage(StageKind.ROOF)) {
+			yt = Shapes.stack(d, cx, cz, y, rows, sheet.full(), sheet);
+			Set<Long> last = rows.get(rows.size() - 1);
+			long c = last.iterator().next();
+			if (last.size() == 1) {
+				return Math.max(yt, lantern(d, (int) (c >> 32), yt + 1, (int) c, top, sheet, dress));
+			}
+		}
+		return yt;
+	}
+
+	/**
 	 * A band round a broad octagonal needle a third of the way up, in the dressing (or the trim): the course a mason lays
 	 * where a spire's ribs are tied, which reads from far away as a ring of light on a dark slope.
 	 */
@@ -308,7 +376,7 @@ public final class Crowns {
 		double cx = (x0 + x1) / 2.0;
 		double cz = (z0 + z1) / 2.0;
 		double r = (x1 - x0) / 2.0;
-		Stone sheet = m.sheet != null ? m.sheet : Stone.sheet(d);
+		Stone sheet = bulbSkin(d, m.sheet != null ? m.sheet : Stone.sheet(d));
 		if (r <= 3.5 && r >= 1.5) {
 			return smallOnion(d, cx, cz, Shapes.snap(cx, r), y, top, m, sheet);
 		}
@@ -372,18 +440,19 @@ public final class Crowns {
 			}
 		}
 		List<Set<Long>> rows = Shapes.onionRows(cx, cz, r);
-		int room = top - (y + drumH) - 2;
+		int room = top - (y + drumH) - 3;
 		while (rows.size() > room && rows.size() > 4) {
-			// short of height: drop a held row of the bulb before its point
-			rows.remove(rows.size() > 6 ? 3 : rows.size() - 1);
+			// short of height: the point a cell shorter first, then a held row of the bulb
+			int n = rows.size();
+			rows.remove(rows.get(n - 1).equals(rows.get(n - 2)) ? n - 1 : n > 6 ? 3 : n - 1);
 		}
 		int yt = Shapes.stack(d, cx, cz, y + drumH, rows, sheet.full(), sheet);
 		Set<Long> last = rows.get(rows.size() - 1);
 		long c = last.iterator().next();
 		int fx = (int) (c >> 32);
 		int fz = (int) c;
-		if (last.size() == 1 && yt + 2 <= top) {
-			return Details.finial(d, fx, yt + 1, fz, true);
+		if (last.size() == 1) {
+			return Math.max(yt, lantern(d, fx, yt + 1, fz, top, sheet, m.dress));
 		}
 		return Math.max(yt, Details.finial(d, fx, yt + 1, fz, false));
 	}

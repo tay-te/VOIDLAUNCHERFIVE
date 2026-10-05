@@ -209,32 +209,77 @@ public final class Adobe {
 		return c == null ? DyeColor.WHITE : c;
 	}
 
+	/** The drafts that have their dome already: a building of the dry south raises one, never a cluster of them. */
+	private static final java.util.Map<Draft, Boolean> DOMED = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
 	/**
-	 * A dome lifted on a drum: a square drum {@code 2r + 1} wide (r 1 or 2) rising two blocks off the deck with lights
-	 * in its faces, then the dome of the roof's stone. Returns its top.
+	 * A dome lifted on a drum over the deck, centred on (cx, cz): a round drum {@code 2r + 3} wide (r 1 or 2) of the
+	 * walls' render rising two blocks off the deck, lights in its four faces and a cornice of the dressing round its
+	 * head, then the dome springing flush off the drum (no lip: a dome wider than its drum reads as whipped cream), laid
+	 * outline by outline with stairs at every step, in a lime plaster or the style's glazed tile ({@link #domeSheet}),
+	 * and a gilded finial. One to a building: a second call draws nothing and returns the deck. Returns the top.
 	 */
 	public static int dome(Draft d, int cx, int cz, int deck, int r, int maxH) {
-		// the dome in the style's accent where it cuts into stairs (glazed and coloured where the style says so), else the
-		// dressed stone, else the roof's
 		Fam fam = domeSheet(d);
-		if (fam == null) {
+		if (fam == null || DOMED.putIfAbsent(d, Boolean.TRUE) != null) {
 			return deck;
 		}
-		int size = 2 * r + 1;
-		Towers.shaft(d, cx - r, cz - r, size, deck, deck + 1, Tradition.ADOBE, deck + 1);
-		for (Side s : Side.of(cx - r, cz - r, cx + r, cz + r)) {
-			int mid = s.middle();
-			d.inStage(StageKind.OPENINGS, () -> d.set(s.x(mid), deck, s.z(mid), Blocks.GLASS.defaultBlockState()));
+		int rd = r + 1;
+		java.util.Set<Long> drum = dev.voidmc.hearth.build.kit.landmark.Shapes.oct(cx, cz, rd, rd >= 3 ? 2 : 1);
+		Mat wall = d.mat(Role.WALL);
+		Mat dress = d.mat(Role.WALL_ACCENT);
+		int drumH = 2;
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (long k : drum) {
+				int x = (int) (k >> 32);
+				int z = (int) k;
+				if (!rim(drum, x, z)) {
+					continue;
+				}
+				boolean axis = x == cx || z == cz;
+				for (int y = deck; y < deck + drumH; y++) {
+					if (inPlot(d, x, y, z)) {
+						d.set(x, y, z, axis && y == deck ? Paint.of(Blocks.GLASS.defaultBlockState()) : wall.full());
+					}
+				}
+			}
+			// the cornice: a course of upside-down stairs round the drum's head, the dome standing just inside it
+			for (int[] c : dev.voidmc.hearth.build.kit.landmark.Shapes.around(drum)) {
+				int y = deck + drumH - 1;
+				if (!inPlot(d, c[0], y, c[1]) || !d.isEmpty(c[0], y, c[1])) {
+					continue;
+				}
+				for (Direction dir : Dirs.HORIZONTAL) {
+					if (drum.contains(dev.voidmc.hearth.build.kit.landmark.Shapes.cell(c[0] + Dirs.dx(dir), c[1] + Dirs.dz(dir)))) {
+						d.set(c[0], y, c[1], dress.stairsOrSlab(dir, Half.TOP));
+						break;
+					}
+				}
+			}
 		}
-		// the dome a cell wider than its drum all round, laid outline by outline
-		int top = Towers.stack(d, cx, cz, deck + 2, dev.voidmc.hearth.build.kit.landmark.Shapes.domeRows(cx, cz, r + 1), fam, maxH);
-		return Math.max(top, Towers.finial(d, cx, top + 1, cz, maxH, false));
+		int top = Towers.stack(d, cx, cz, deck + drumH, dev.voidmc.hearth.build.kit.landmark.Shapes.domeRows(cx, cz, rd), fam, maxH);
+		if (top + 2 <= maxH - 1) {
+			// a gilded ball on a rod, as the domes of the oases carry
+			try (var s = d.stage(StageKind.ROOF)) {
+				return Math.max(top, dev.voidmc.hearth.build.kit.landmark.Details.finial(d, cx, top + 1, cz, true));
+			}
+		}
+		return Math.max(top, Towers.finial(d, cx, top + 1, cz, maxH, true));
+	}
+
+	private static boolean rim(java.util.Set<Long> s, int x, int z) {
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (!s.contains(dev.voidmc.hearth.build.kit.landmark.Shapes.cell(x + Dirs.dx(dir), z + Dirs.dz(dir)))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
 	 * What the dry south covers its domes in: the accent where it cuts stairs (a glazed or coloured tile), else the dressed
-	 * stone where that does; else lime: whitewashed domes over walls of the earth's own colour, as the oases and missions
-	 * build them (a dome in the walls' own stone vanishes against them). Null only where nothing at all cuts.
+	 * stone where that does; else lime plaster: lime-washed domes over walls of the earth's own colour, as the oases and
+	 * missions build them (a dome in the walls' own stone vanishes against them). Null only where nothing at all cuts.
 	 */
 	public static Fam domeSheet(Draft d) {
 		for (Role role : new Role[]{Role.ACCENT, Role.WALL_ACCENT}) {
@@ -243,7 +288,8 @@ public final class Adobe {
 				return f;
 			}
 		}
-		Fam lime = Fam.of("minecraft:smooth_quartz", StageKind.ROOF);
+		// a lime plaster, warm off-white (Expanse's limestone; polished diorite without it), never the pure white of quartz
+		Fam lime = Fam.of("expanse:limestone|minecraft:polished_diorite", StageKind.ROOF);
 		if (lime != null && lime.has(Form.STAIRS)) {
 			return lime;
 		}

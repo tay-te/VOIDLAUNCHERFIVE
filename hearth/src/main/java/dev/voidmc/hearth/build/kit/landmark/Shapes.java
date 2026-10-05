@@ -311,8 +311,9 @@ public final class Shapes {
 					continue;
 				}
 				Paint p = body;
-				if (row.size() == 1) {
-					// the point: a whole block, whatever comes over it
+				boolean axis = i + 1 == rows.size() && Math.abs(x - cx) < 0.25 && Math.abs(z - cz) < 0.25;
+				if (row.size() == 1 || axis) {
+					// the point (or the middle of a dome's cap): a whole block, whatever comes over it
 					p = body;
 				} else if (stairs && !above.contains(k)) {
 					p = steps.stairs(inward(row, x, z, cx, cz), Half.BOTTOM);
@@ -340,6 +341,28 @@ public final class Shapes {
 			rows.add(oct(cx, cz, r, 1));
 			rows.add(oct(cx, cz, r - 1, 0));
 			rows.add(oct(cx, cz, r - 1, 0));
+			return rows;
+		}
+		boolean whole = Math.abs(r - Math.floor(r)) < 0.25;
+		if (whole) {
+			// a waist a cell in from the bulb, then the bulb laid as a lens: its rounder outline (corners cut to a diamond)
+			// under and over its widest octagon, so every step of it in and out is a stair, never a held wall of blocks;
+			// the shoulder drawn in to a plus and a slender point two cells tall (the lantern over it is the caller's)
+			int k = (int) Math.round(r);
+			rows.add(oct(cx, cz, k - 1, k - 1));
+			rows.add(oct(cx, cz, k, k));
+			rows.add(oct(cx, cz, k, k - 1));
+			if (k >= 4) {
+				rows.add(oct(cx, cz, k, k - 1));
+			}
+			rows.add(oct(cx, cz, k, k));
+			if (k >= 3) {
+				rows.add(oct(cx, cz, k - 1, k - 1));
+			}
+			rows.add(oct(cx, cz, 1, 1));
+			Set<Long> point = oct(cx, cz, 0, 0);
+			rows.add(point);
+			rows.add(point);
 			return rows;
 		}
 		double n = r - 1;
@@ -370,8 +393,40 @@ public final class Shapes {
 	}
 
 	/**
-	 * The rows of a dome of half-width r: the springing outline held two rows, then the ladder drawn in one outline a
-	 * row, so a dome is a little taller than half its width and round-shouldered at any size.
+	 * The rows of a helm (a bell-cast cap with a waist, the Bohemian and Bavarian little tower's crown) over a square of
+	 * half-width r: the square kicked out as an eave of stairs, a belly a cell in held a row (two on a broad helm), a
+	 * shoulder drawn in, the point. The lantern and the finial over it are the caller's. Three, five or seven wide.
+	 */
+	public static List<Set<Long>> helmRows(double cx, double cz, double r) {
+		List<Set<Long>> rows = new ArrayList<>();
+		boolean half = Math.abs(r - Math.floor(r)) > 0.25;
+		double tip = half ? 0.5 : 0;
+		if (r < 1.49) {
+			rows.add(oct(cx, cz, r, 0));
+			rows.add(oct(cx, cz, tip, 0));
+			return rows;
+		}
+		rows.add(oct(cx, cz, r, 0));
+		double belly = r - 1;
+		rows.add(oct(cx, cz, belly, belly >= 1.49 ? 1 : 0));
+		if (belly >= 1.49) {
+			rows.add(oct(cx, cz, belly, 1));
+			rows.add(oct(cx, cz, belly - 1, belly - 1 >= 0.99 ? 1 : 0));
+		} else {
+			rows.add(oct(cx, cz, belly, 0));
+		}
+		Set<Long> point = oct(cx, cz, tip, 0);
+		if (!rows.get(rows.size() - 1).equals(point)) {
+			rows.add(point);
+		}
+		return rows;
+	}
+
+	/**
+	 * The rows of a dome of half-width r, laid to a hemisphere's profile rather than a cone's: each row the round outline
+	 * (an octagon cut to the circle) nearest the sphere's section at that height, so the springing holds near-vertical
+	 * for a row or two and the crown flattens; it ends in a three-wide cap whose middle is a whole block for the finial.
+	 * A dome of half-width r is about r + 1 rows tall: half its width, not a heap of cream or a stepped pyramid.
 	 */
 	public static List<Set<Long>> domeRows(double cx, double cz, double r) {
 		List<Set<Long>> rows = new ArrayList<>();
@@ -382,17 +437,45 @@ public final class Shapes {
 			rows.add(oct(cx, cz, r - 1, 0));
 			return rows;
 		}
-		// the springing outline held two rows (the drum's line carried up), then an octagon a cell smaller each row: a
-		// round-shouldered dome, a little taller than half its width, never a stepped pyramid
+		boolean half = Math.abs(r - Math.floor(r)) > 0.25;
+		if (!half) {
+			int big = (int) Math.round(r);
+			double sphere = big + 0.5;
+			int last = big + 1;
+			for (int i = 0; ; i++) {
+				double h = i + 0.5;
+				double rr = sphere * sphere - h * h;
+				if (rr <= 0) {
+					break;
+				}
+				int k = Math.min(big, (int) Math.round(Math.sqrt(rr) - 0.5));
+				if (k < 2) {
+					break;
+				}
+				rows.add(oct(cx, cz, k, round(k)));
+				last = k;
+			}
+			// down to the cap a cell at a time, so the crown never steps in by two
+			for (int k = last - 1; k >= 2; k--) {
+				rows.add(oct(cx, cz, k, round(k)));
+			}
+			rows.add(oct(cx, cz, 1, 0));
+			return rows;
+		}
+		// an even width: the springing outline held two rows, then an octagon a cell smaller each row
 		Set<Long> spring = oct(cx, cz, r, r >= 2.49 ? 2 : 1);
 		rows.add(spring);
 		rows.add(spring);
 		for (double rr = r - 1; rr >= 0.99; rr -= 1) {
 			rows.add(oct(cx, cz, rr, 1));
 		}
-		double last = Math.abs(r - Math.floor(r)) > 0.25 ? 0.5 : 0;
-		rows.add(oct(cx, cz, last, 0));
+		rows.add(oct(cx, cz, 0.5, 0));
 		return rows;
+	}
+
+	/** The corner cut that brings an octagon of half-width k nearest a circle (about 0.6 k, at least 1). */
+	static int round(int k) {
+		return Math.max(1, (int) Math.round(0.6 * k));
 	}
 
 	/** The way from a rim cell toward the axis: toward a neighbour in the outline, the nearest to the centre. */

@@ -259,24 +259,25 @@ public final class Towers {
 				return finial(d, (int) Math.floor(cx), top + 1, (int) Math.floor(cz), maxTop, false);
 			}
 			case ONION -> {
-				// copper on alpine towers, shingles of the roof elsewhere (the wooden onions of the north)
-				Fam onion = Tradition.of(d) == Tradition.ALPINE ? Fam.of("minecraft:oxidized_cut_copper", StageKind.ROOF)
-					: Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
-				if (onion == null) {
-					onion = Fam.of("minecraft:oxidized_cut_copper", StageKind.ROOF);
+				// one sheet laid crisp: slate in Bohemia, copper or shingle in the mountains, the roof's shingles in the
+				// north (the wooden onions); see Crowns.bulbSkin
+				dev.voidmc.hearth.build.kit.landmark.Stone skin = dev.voidmc.hearth.build.kit.landmark.Crowns.bulbSkin(d, null);
+				dev.voidmc.hearth.build.kit.landmark.Stone dress = dev.voidmc.hearth.build.kit.landmark.Stone.dressing(d);
+				double r = dev.voidmc.hearth.build.kit.landmark.Shapes.snap(cx, size / 2.0 - 0.4);
+				var rows = dev.voidmc.hearth.build.kit.landmark.Shapes.onionRows(cx, cz, r);
+				if (size <= 3 || room < rows.size() + 3) {
+					// a small tower (or a short one) takes a helm: an onion on a turret three wide swells into a blob
+					return dev.voidmc.hearth.build.kit.landmark.Crowns.helm(d, cx, cz, r, baseY + 1, maxTop - 1, skin, dress);
 				}
-				// the bulb swells a cell past the drum it stands on
-				// a small turret's onion swells out past its drum; a broad one keeps within its square
-				var rows = dev.voidmc.hearth.build.kit.landmark.Shapes.onionRows(cx, cz, dev.voidmc.hearth.build.kit.landmark.Shapes.snap(cx, size <= 3 ? size / 2.0 + 0.6
-					: size / 2.0 - 0.4));
-				int top = stack(d, cx, cz, baseY + 1, rows, onion, maxTop);
-				if (top + 2 <= maxTop - 1) {
-					int fx = (int) Math.floor(cx);
-					int fz = (int) Math.floor(cz);
-					d.inStage(StageKind.ROOF, () -> d.set(fx, top + 1, fz, Blocks.GOLD_BLOCK.defaultBlockState()));
-					return finial(d, fx, top + 2, fz, maxTop, true);
+				int top;
+				try (var st = d.stage(StageKind.ROOF)) {
+					top = dev.voidmc.hearth.build.kit.landmark.Shapes.stack(d, cx, cz, baseY + 1, rows, skin.full(), skin);
 				}
-				return finial(d, (int) Math.floor(cx), top + 1, (int) Math.floor(cz), maxTop, true);
+				var last = rows.get(rows.size() - 1);
+				long c = last.iterator().next();
+				try (var st = d.stage(StageKind.ROOF)) {
+					return Math.max(top, dev.voidmc.hearth.build.kit.landmark.Crowns.lantern(d, (int) (c >> 32), top + 1, (int) c, maxTop - 1, skin, dress));
+				}
 			}
 			case BATTLEMENT -> {
 				battlements(d, x0, z0, x1, z1, baseY + 1);
@@ -356,27 +357,6 @@ public final class Towers {
 		}
 	}
 
-	/** Radii per course of a dome over a square of {@code size}. */
-	static double[] domeRadii(int size) {
-		double r = size / 2.0;
-		if (size <= 3) {
-			return new double[]{1.2, 0.6};
-		}
-		if (size <= 5) {
-			return new double[]{r, r - 0.3, r - 1.0, 0.8};
-		}
-		return new double[]{r, r - 0.2, r - 0.7, r - 1.5, r - 2.6, 0.8};
-	}
-
-	/** Radii per course of an onion dome over a drum of {@code size}: swelling out, then drawn up to a point. */
-	static double[] onionRadii(int size) {
-		double r = size / 2.0;
-		if (size <= 3) {
-			return new double[]{1.6, 2.1, 1.6, 0.8, 0.4};
-		}
-		return new double[]{r + 0.4, r + 1.0, r + 0.9, r, r - 1.2, 0.8, 0.4};
-	}
-
 	/**
 	 * A solid of revolution about (cx, cz) from {@code y0}: one course per radius, full blocks inside, stairs on the rims
 	 * where the next course draws in (bottom stairs) or the last swelled out (upside-down stairs), all facing the axis.
@@ -389,8 +369,14 @@ public final class Towers {
 		for (double r : radii) {
 			rmax = Math.max(rmax, r);
 		}
-		java.util.List<java.util.Set<Long>> ladder = dev.voidmc.hearth.build.kit.landmark.Shapes.ladder(cx, cz,
-			dev.voidmc.hearth.build.kit.landmark.Shapes.snap(cx, rmax + 0.3));
+		// only the round members of the ladder (octagons, no squares: a square course's corners stand out as lumps)
+		java.util.List<java.util.Set<Long>> ladder = new java.util.ArrayList<>();
+		for (java.util.Set<Long> o : dev.voidmc.hearth.build.kit.landmark.Shapes.ladder(cx, cz,
+			dev.voidmc.hearth.build.kit.landmark.Shapes.snap(cx, rmax + 0.3))) {
+			if (o.size() <= 4 || !squareSet(o)) {
+				ladder.add(o);
+			}
+		}
 		java.util.List<java.util.Set<Long>> rows = new java.util.ArrayList<>();
 		for (double r : radii) {
 			int want = Math.max(1, Draft.ellipseCells(cx, cz, Math.max(0.1, r - 0.35), Math.max(0.1, r - 0.35), true).size());
@@ -435,6 +421,23 @@ public final class Towers {
 			}
 		}
 		return top;
+	}
+
+	/** Whether a cell set fills its bounding box (a square course). */
+	private static boolean squareSet(java.util.Set<Long> o) {
+		int x0 = Integer.MAX_VALUE;
+		int x1 = Integer.MIN_VALUE;
+		int z0 = Integer.MAX_VALUE;
+		int z1 = Integer.MIN_VALUE;
+		for (long k : o) {
+			int x = (int) (k >> 32);
+			int z = (int) k;
+			x0 = Math.min(x0, x);
+			x1 = Math.max(x1, x);
+			z0 = Math.min(z0, z);
+			z1 = Math.max(z1, z);
+		}
+		return (long) (x1 - x0 + 1) * (z1 - z0 + 1) == o.size();
 	}
 
 	/**
