@@ -4,5 +4,13 @@
 	},
 	"attribute": "vitality",
 	"order": 4,
-	"released": true
+	"released": true,
+	"paths": {
+		"a": {
+			"translate": "mettle.path.athletics.a"
+		},
+		"b": {
+			"translate": "mettle.path.athletics.b"
+		}
+	}
 }

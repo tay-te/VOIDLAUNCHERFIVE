@@ -1,0 +1,26 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.athletics.mountain_goat"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.mountain_goat.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.athletics.mountain_goat.hint"
+	},
+	"feat": {
+		"counter": "athletics_peaks",
+		"target": 10
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:safe_fall_distance",
+			"amounts": [
+				3.0
+			]
+		}
+	],
+	"order": 14
+}

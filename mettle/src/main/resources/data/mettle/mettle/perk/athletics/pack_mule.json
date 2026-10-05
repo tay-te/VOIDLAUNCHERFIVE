@@ -1,0 +1,29 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "root",
+	"tier": 1,
+	"ranks": 3,
+	"cost": 1,
+	"name": {
+		"translate": "mettle.perk.athletics.pack_mule"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.pack_mule.description"
+	},
+	"rank_values": [
+		"3",
+		"5",
+		"8"
+	],
+	"effects": [
+		{
+			"attribute": "mettle:carry_capacity",
+			"amounts": [
+				3.0,
+				5.0,
+				8.0
+			]
+		}
+	],
+	"order": 0
+}

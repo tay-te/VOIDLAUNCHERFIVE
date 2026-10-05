@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "teaching",
+	"name": {
+		"translate": "mettle.perk.athletics.couriers_stride"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.couriers_stride.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.athletics.couriers_stride.hint"
+	},
+	"order": 16
+}

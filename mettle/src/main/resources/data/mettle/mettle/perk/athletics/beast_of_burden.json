@@ -1,0 +1,22 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "path",
+	"tier": 3,
+	"path": "a",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.athletics.beast_of_burden"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.beast_of_burden.description"
+	},
+	"effects": [
+		{
+			"attribute": "mettle:carry_capacity",
+			"amounts": [
+				15.0
+			]
+		}
+	],
+	"order": 4
+}

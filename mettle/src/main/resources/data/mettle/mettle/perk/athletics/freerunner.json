@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "b",
+	"name": {
+		"translate": "mettle.perk.athletics.freerunner"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.freerunner.description"
+	},
+	"order": 12
+}

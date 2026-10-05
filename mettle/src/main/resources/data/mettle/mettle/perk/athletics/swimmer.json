@@ -1,0 +1,22 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "path",
+	"tier": 2,
+	"path": "b",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.athletics.swimmer"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.swimmer.description"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:oxygen_bonus",
+			"amounts": [
+				0.5
+			]
+		}
+	],
+	"order": 6
+}

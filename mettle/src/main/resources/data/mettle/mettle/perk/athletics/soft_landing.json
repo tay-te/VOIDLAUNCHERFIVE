@@ -1,0 +1,22 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "path",
+	"tier": 2,
+	"path": "b",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.athletics.soft_landing"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.soft_landing.description"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:safe_fall_distance",
+			"amounts": [
+				3.0
+			]
+		}
+	],
+	"order": 7
+}
