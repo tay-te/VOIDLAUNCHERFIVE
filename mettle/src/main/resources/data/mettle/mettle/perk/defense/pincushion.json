@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:defense",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.defense.pincushion"
+	},
+	"description": {
+		"translate": "mettle.perk.defense.pincushion.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.defense.pincushion.hint"
+	},
+	"feat": {
+		"counter": "block_projectile",
+		"target": 300
+	},
+	"order": 13
+}

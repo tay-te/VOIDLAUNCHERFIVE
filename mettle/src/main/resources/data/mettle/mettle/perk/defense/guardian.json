@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:defense",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "a",
+	"name": {
+		"translate": "mettle.perk.defense.guardian"
+	},
+	"description": {
+		"translate": "mettle.perk.defense.guardian.description"
+	},
+	"order": 10
+}

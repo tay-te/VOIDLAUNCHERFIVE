@@ -2,7 +2,12 @@
 	"required": true,
 	"package": "dev.voidmc.mettle.mixin.defense",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"ItemStackMixin",
+		"LivingEntityInvoker",
+		"LivingEntityMixin",
+		"PlayerMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

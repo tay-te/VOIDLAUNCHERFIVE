@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:defense",
+	"kind": "teaching",
+	"name": {
+		"translate": "mettle.perk.defense.roll_with_the_blow"
+	},
+	"description": {
+		"translate": "mettle.perk.defense.roll_with_the_blow.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.defense.roll_with_the_blow.hint"
+	},
+	"order": 15
+}
