@@ -1,6 +1,8 @@
 package dev.voidmc.hearth.build;
 
 import dev.voidmc.hearth.api.ArchetypeInfo;
+import dev.voidmc.hearth.api.PlotSpec;
+import dev.voidmc.hearth.api.TerrainProbe;
 import dev.voidmc.hearth.build.draft.Draft;
 
 /**
@@ -17,4 +19,13 @@ public interface Archetype {
 
 	/** Draws the building. Called once per blueprint, on any thread. */
 	void draw(Draft d);
+
+	/**
+	 * The ground this archetype draws on, given the probe it was asked for: the probe itself, unless the archetype reads
+	 * its ground differently (the deep town's buildings stand on a realm's floor however the caller probed it). Pure: the
+	 * same spec and probe give the same ground.
+	 */
+	default TerrainProbe terrain(PlotSpec spec, TerrainProbe probe) {
+		return probe;
+	}
 }

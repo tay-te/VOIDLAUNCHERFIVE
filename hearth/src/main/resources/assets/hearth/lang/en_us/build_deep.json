@@ -1,1 +1,8 @@
-{}
+{
+	"hearth.archetype.deep.hall": "Deep Hall",
+	"hearth.archetype.deep.dwelling": "Deep Dwelling",
+	"hearth.archetype.deep.market": "Deep Market",
+	"hearth.archetype.deep.lift": "Deep Lift",
+	"hearth.archetype.deep.forge": "Deep Forge",
+	"hearth.archetype.deep.glow_garden": "Glow Garden"
+}

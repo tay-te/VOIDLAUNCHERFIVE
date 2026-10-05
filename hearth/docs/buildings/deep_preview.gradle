@@ -1,0 +1,40 @@
+// Gradle init script: registers `deepPreview` (the deep town's buildings in a synthetic realm, by day and lit by their
+// own light under the vault) without touching the shared build files. From hearth/:
+//
+//   ./gradlew -I docs/buildings/deep_preview.gradle deepPreview -Parchetype=deep/dwelling -Pstyle=temperate,karst -Pseeds=3 -Pterrain=wall
+//   ./gradlew -I docs/buildings/deep_preview.gradle deepPreview -Parchetype=deep/lift -Pstyle=alpine -Pseeds=2 "-Pterrain=floor;depthbelow=80"
+//   ./gradlew -I docs/buildings/deep_preview.gradle deepTown -Pstyle=temperate -Pseed=3
+//
+// Output: build/previews/deep/. See dev.voidmc.hearth.gametest.deep.DeepPreview and DeepTown for the arguments.
+rootProject { p ->
+	p.afterEvaluate {
+		p.tasks.register('deepPreview', JavaExec) {
+			group = 'hearth'
+			description = 'Renders the deep town buildings in a synthetic realm to build/previews/deep/*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.deep.DeepPreview'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx4g'
+			args = [
+				p.findProperty('archetype') ?: 'all',
+				p.findProperty('style') ?: 'temperate',
+				p.findProperty('seeds') ?: '2',
+				p.findProperty('terrain') ?: 'floor',
+				p.layout.buildDirectory.dir('previews/deep').get().asFile.path
+			]
+		}
+		p.tasks.register('deepTown', JavaExec) {
+			group = 'hearth'
+			description = 'Renders a deep town street in a synthetic realm to build/previews/deep/town_*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.deep.DeepTown'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx6g'
+			args = [
+				p.findProperty('style') ?: 'temperate',
+				p.findProperty('seed') ?: '1',
+				p.findProperty('character') ?: 'wilds',
+				p.layout.buildDirectory.dir('previews/deep').get().asFile.path,
+				p.findProperty('params') ?: ''
+			]
+		}
+	}
+}

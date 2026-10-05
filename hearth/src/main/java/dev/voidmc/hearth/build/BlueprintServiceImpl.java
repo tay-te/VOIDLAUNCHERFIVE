@@ -100,7 +100,7 @@ public final class BlueprintServiceImpl implements BlueprintService {
 			throw new IllegalArgumentException("unknown archetype " + spec.archetype());
 		}
 		Style style = this.styles.getOrDefault(spec.style());
-		Site site = new Site(spec, terrain);
+		Site site = new Site(spec, a.terrain(spec, terrain));
 		Draft d = new Draft(spec, style, site);
 		try {
 			a.draw(d);
