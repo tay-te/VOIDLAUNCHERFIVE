@@ -117,6 +117,15 @@ final class Samples {
 		this.x0 = TileKey.minX(key) + offset;
 		this.z0 = TileKey.minZ(key) + offset;
 		Arrays.fill(this.known, 0, this.size * this.size, false);
+		source.beginTile(key, this.x0, this.z0, this.cell, border, this.size);
+		try {
+			this.sampleGrid(source, key, corners, border, cache, inner);
+		} finally {
+			source.endTile();
+		}
+	}
+
+	private void sampleGrid(TerrainSource source, long key, boolean corners, int border, SampleCache cache, int inner) {
 		int found = cache == null ? 0 : cache.fill(this, source, key, corners);
 		ColumnSample s = this.sample;
 		for (int j = -border; j < inner + border; j++) {

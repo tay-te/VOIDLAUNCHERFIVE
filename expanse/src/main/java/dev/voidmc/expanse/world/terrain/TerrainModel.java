@@ -56,6 +56,8 @@ public final class TerrainModel {
 	private final SimplexNoise[] noises = new SimplexNoise[NOISES];
 	private final ConcurrentHashMap<Long, Entry> terrains = new ConcurrentHashMap<>();
 	private final AtomicLong clock = new AtomicLong();
+	/** How many built plates are kept: {@link #MAX_PLATES}, or more while a far view asks for it ({@link #reservePlates}). */
+	private volatile int maxPlates = Integer.getInteger("expanse.maxPlates", MAX_PLATES);
 	private final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
 	private final CavernModel caverns;
 	/** Vanilla's climate noises, made from the same parameters (so the biomes come out in the same proportions). */
@@ -149,9 +151,20 @@ public final class TerrainModel {
 		return entry.terrain.join();
 	}
 
+	/**
+	 * Keeps up to {@code plates} built plates (never fewer than the default). A far view samples hundreds of plates, as
+	 * VOID LOD's horizon does; with room for only a few dozen, each is built again every time the others push it out
+	 * (on a 32 km horizon, 38 times over), where building each once is seven times faster. Asking for fewer again
+	 * lets the least recently used go at once.
+	 */
+	public void reservePlates(int plates) {
+		this.maxPlates = Math.max(MAX_PLATES, plates);
+		this.evict();
+	}
+
 	/** Drops the least recently used plates once there are too many: each holds a few megabytes. */
 	private void evict() {
-		while (this.terrains.size() > MAX_PLATES) {
+		while (this.terrains.size() > this.maxPlates) {
 			Map.Entry<Long, Entry> oldest = null;
 			for (Map.Entry<Long, Entry> e : this.terrains.entrySet()) {
 				if (e.getValue().terrain.isDone() && (oldest == null || e.getValue().used < oldest.getValue().used)) {

@@ -142,7 +142,8 @@ public final class TileBuilder {
 		int firstIndex = 0;
 		boolean holes = false;
 		long t0 = System.nanoTime();
-		this.samples.sample(source, key, smooth, smooth ? 2 : 1, this.cache);
+		// a source that keeps its answers is asked every sample, so all of them are kept
+		this.samples.sample(source, key, smooth, smooth ? 2 : 1, source.keepsAnswers() ? null : this.cache);
 		SAMPLE_NANOS.addAndGet(System.nanoTime() - t0);
 		SAMPLES.addAndGet((long) this.samples.size * this.samples.size);
 		this.lit = heights != null;

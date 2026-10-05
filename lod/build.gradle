@@ -94,7 +94,7 @@ loom {
 		configureEach {
 			property 'void.lod.logStats', 'true'
 			['void.lod.radius', 'void.lod.detail', 'void.lod.farDetail', 'void.lod.threads', 'void.lod.budget', 'void.lod.enabled', 'void.lod.haze', 'void.lod.smoothFrom',
-			 'void.lod.preset', 'void.lod.autoTune', 'void.lod.overPack', 'void.lod.packShadows', 'void.lod.occlusion', 'void.lod.ingest', 'lod.show.compare',
+			 'void.lod.preset', 'void.lod.autoTune', 'void.lod.overPack', 'void.lod.packShadows', 'void.lod.generatorCache', 'void.lod.occlusion', 'void.lod.ingest', 'lod.show.compare',
 			 'lod.show.seed', 'lod.show.distance', 'lod.show.settle', 'lod.show.views', 'lod.show.width', 'lod.show.height', 'lod.show.off', 'lod.show.only', 'lod.show.trace',
 			 'lod.show.settings', 'lod.show.ingest', 'lod.show.town', 'lod.show.mp', 'lod.show.time'].each { key ->
 				if (project.hasProperty(key)) {
@@ -127,6 +127,20 @@ fabricApi {
 	}
 }
 
+// What the generator cache costs on a first visit and saves on the next (four threads, plates prebuilt).
+//   ./gradlew cacheBench -Plod.bench.radii=32768
+tasks.register('cacheBench', JavaExec) {
+	group = 'lod'
+	description = 'Benchmarks the generator cache: straight from the model, through a fresh cache, from disk'
+	classpath = sourceSets.gametest.runtimeClasspath
+	mainClass = 'dev.voidmc.lod.gametest.CacheBench'
+	jvmArgs '-Xmx4g'
+	args = [project.findProperty('seed') ?: '8675309']
+	if (project.hasProperty('lod.bench.radii')) {
+		systemProperty 'lod.bench.radii', project.property('lod.bench.radii').toString()
+	}
+}
+
 // Times tile generation and meshing against the Earth terrain model without starting the game.
 //   ./gradlew lodBench -Pseed=8675309
 tasks.register('lodBench', JavaExec) {
@@ -134,10 +148,14 @@ tasks.register('lodBench', JavaExec) {
 	description = 'Benchmarks LOD tile generation and meshing on the Earth terrain model'
 	classpath = sourceSets.gametest.runtimeClasspath
 	mainClass = 'dev.voidmc.lod.gametest.LodBench'
-	jvmArgs '-Xmx3g'
+	jvmArgs "-Xmx${project.findProperty('lod.bench.xmx') ?: '3g'}"
+	// -Plod.bench.jfr=out.jfr records a flight recording to profile the build
+	if (project.hasProperty('lod.bench.jfr')) {
+		jvmArgs "-XX:StartFlightRecording=filename=${project.property('lod.bench.jfr')},settings=default"
+	}
 	args = [project.findProperty('seed') ?: '8675309']
 	// -Pvoid.lod.smoothFrom=99, -Plod.bench.detail=4, -Plod.bench.trees=true
-	['void.lod.smoothFrom', 'lod.bench.detail', 'lod.bench.trees', 'lod.bench.faces', 'lod.bench.light', 'lod.bench.radii'].each { key ->
+	['void.lod.smoothFrom', 'lod.bench.detail', 'lod.bench.trees', 'lod.bench.faces', 'lod.bench.light', 'lod.bench.radii', 'expanse.maxPlates'].each { key ->
 		if (project.hasProperty(key)) {
 			systemProperty key, project.property(key).toString()
 		}

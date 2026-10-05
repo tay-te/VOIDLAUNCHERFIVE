@@ -221,6 +221,33 @@ a fraction of the cost.
   plane moves out to the LOD's reach for free. The LOD draws right after the opaque chunks, so every
   LOD fragment hidden by nearby terrain is rejected before it is shaded.
 
+## Building the far land fast
+
+The far land is never generated as chunks. Distant Horizons runs the world generator for every far chunk (all of
+its noise, caves, structures and light, to keep the top layer); the LOD asks the terrain model for the surface
+alone, a column at a time (`source/ExpanseSource`), so a 64 x 64-column tile costs what one chunk costs it, and a
+far tile covers thousands of blocks a cell. What is left is made cheap three ways:
+
+* **Every plate built once.** Expanse's Earth is drawn on tectonic plates about 4 km across, each worked out
+  (rivers, erosion, uplift) the first time something samples it. The model kept 40; a 32 km horizon samples about
+  313, so each was built 38 times over as the workers pushed each other's out. The LOD now asks the model to keep
+  as many as its reach covers, half as many again for slack, up to a sixth of the heap, and lets them go once the
+  horizon is built (`TerrainModel.reservePlates`). On 16 threads a 32 km horizon builds in 0.64 s instead of 3.9,
+  a 64 km one in 5.7 s instead of 28.7 (`./gradlew lodBench -Plod.bench.radii=32768,65536`).
+* **The generator's answers kept** (`core/GeneratorCache`). Every sample a tile asks of the generator goes into a
+  page per tile, saved in the world's folder (`void_lod/<dimension>/generated`), and read back the next time
+  that tile is built: joining a world again, its horizon comes off the disk and the generator is not asked at all.
+  Pages are stamped with what the generator is (the seed, the game's, VOID LOD's and Expanse's versions, the
+  resource packs that colour the land) and dropped when that changes; the folder is trimmed to 256 MB, least
+  recently used first. It costs nothing on a first visit (two runs each way, 32.3 and 29.7 s without it, 32.1 and
+  29.9 s with it), and on a rejoin the 32 km horizon was whole in 1.7 s instead of 6.9 s, every sample from the
+  disk (`./gradlew cacheBench`; `-Dvoid.lod.generatorCache=false` turns it off).
+* **Built ahead.** Moving faster than 8 blocks a second, the engine also selects the horizon three seconds ahead,
+  every eighth frame, and queues its missing tiles after everything the view needs now, so a fast flight finds
+  its land built when it gets there.
+
+The log says how long each world's horizon took: `VOID LOD: horizon built in 1.7 s, 455 tiles, radius 32768`.
+
 ## Real chunks, kept
 
 The generator only knows the world as it was generated. Everything players do to it, and everything placed
@@ -373,6 +400,7 @@ override the file for the session without being written back (dev runs and the g
 | `gpuTarget`, `prepareTarget` | | `1.5`, `0.5` | auto-tune's targets, in ms a frame |
 | `smoothFrom` | `void.lod.smoothFrom` | `10` (none) | the first level drawn as the smooth far field instead of blocks (read at start) |
 | | `void.lod.ingest` | `true` | read the chunks the client loads into the far view, and keep them on disk |
+| | `void.lod.generatorCache` | `true` | keep the generator's answers in the world's folder (`false`: sample it every time) |
 | | `void.lod.packShadows` | `false` | put the LOD into the shadow map of packs with a `dh_shadow` program (Bliss) |
 | | `void.lod.overPack` | `true` | with a shader pack that has no Distant Horizons programs, draw over its picture (`false`: inside its buffers, unlit, to compare) |
 
@@ -485,8 +513,9 @@ model, but only loads it when Expanse is installed.
 * **Block textures from the real blocks.** The textures follow what the generator puts on the surface;
   loaded chunks could put their own blocks' ids on the faces through the same registry. A grass
   block's fringe takes the default grass tint against the biome's (the face's colour is the biome's).
-* **A disk cache of built tiles.** The seen land is kept, and Expanse terrain builds faster than a mesh
-  would load; the generic generator path could still gain from caching the tiles themselves.
+* **Faster first visits in a brand-new world.** The first horizon of a fresh world builds while the game is
+  still generating its spawn area on every core, and the terrain model costs about three times what it does in
+  the benchmark there (71 against 27 ms a tile); the workers run at minimum priority so the game comes first.
 * **Faster void worlds.** The End goes through the generic generator path, which sets up a noise chunk
   for every column it reads, so an End tile takes several times as long to build as an Earth tile (150
   to 260 ms against 40 to 70 in the showcase runs; the horizon fills in about 40 s). Reading a tile's

@@ -38,6 +38,28 @@ class LodEngineTest {
 	};
 
 	@Test
+	void aMovingCameraAsksForTheLandAheadAndAStillOneDoesNot() throws InterruptedException {
+		LodEngine engine = new LodEngine(2, 512L << 20);
+		InstantGpu gpu = new InstantGpu();
+		gpu.engine = engine;
+		engine.reset(HILLS, gpu);
+		for (int frame = 0; frame < 40; frame++) {
+			engine.update(gpu, 0, 150, 0, 4096, 150, 771, 5);
+			Thread.sleep(5);
+		}
+		assertEquals(0, engine.aheadWanted, "standing still, nothing is built ahead");
+		// flying east at about 400 blocks a second (frames 5 ms apart, 2 blocks each)
+		double x = 0;
+		for (int frame = 0; frame < 80; frame++) {
+			x += 2;
+			engine.update(gpu, x, 150, 0, 4096, 150, 771, 5);
+			Thread.sleep(5);
+		}
+		assertTrue(engine.aheadWanted > 0, "the land ahead is asked for");
+		engine.close();
+	}
+
+	@Test
 	void aStillCameraBuildsEachTileOnce() throws InterruptedException {
 		LodEngine engine = new LodEngine(2, 512L << 20);
 		InstantGpu gpu = new InstantGpu();

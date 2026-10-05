@@ -114,6 +114,13 @@ public class WorldgenSource implements TerrainSource {
 		return "";
 	}
 
+	/**
+	 * How far the LOD reaches, in blocks, and whether it is building: a source with caches of its own sizes them to the
+	 * reach while there is work, and lets them go when there is none.
+	 */
+	public void reach(double radius, boolean building) {
+	}
+
 	protected Holder<Biome> biome(int x, int y, int z) {
 		return this.resolvers.get().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z));
 	}

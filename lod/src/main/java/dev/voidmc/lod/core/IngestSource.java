@@ -49,6 +49,25 @@ public final class IngestSource implements TerrainSource {
 	}
 
 	@Override
+	public void beginTile(long key, int x0, int z0, int cell, int border, int size) {
+		if (this.fallback != null) {
+			this.fallback.beginTile(key, x0, z0, cell, border, size);
+		}
+	}
+
+	@Override
+	public void endTile() {
+		if (this.fallback != null) {
+			this.fallback.endTile();
+		}
+	}
+
+	@Override
+	public boolean keepsAnswers() {
+		return this.fallback != null && this.fallback.keepsAnswers();
+	}
+
+	@Override
 	public boolean covers(int minX, int minZ, int maxX, int maxZ) {
 		return this.fallback != null || this.store.any(minX, minZ, maxX, maxZ);
 	}

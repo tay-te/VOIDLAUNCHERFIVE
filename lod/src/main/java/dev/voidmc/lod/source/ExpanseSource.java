@@ -49,6 +49,39 @@ public final class ExpanseSource extends WorldgenSource {
 		this.basaltSideMaterial = this.materials.id(Blocks.BASALT.defaultBlockState(), false);
 	}
 
+	/** A built plate's size in memory, about: its terrain grids at 32-block cells, 4 km and more across. */
+	private static final long PLATE_BYTES = 2L << 20;
+	/** How far apart plates are, about (Expanse's plate spacing). */
+	private static final double PLATE_SPACING = 4096;
+
+	/**
+	 * Keeps every plate the horizon samples built at once, as far as a sixth of the heap allows: the plates within the
+	 * reach and a ring of them past it, which its borders blend with. Building a tile then never waits for a plate
+	 * that another tile pushed out a moment before. Once the horizon is built they go back to the model's default, a
+	 * few dozen: the meshes are on the GPU, and only new tiles need the plates again.
+	 */
+	@Override
+	public void reach(double radius, boolean building) {
+		int plates = building ? platesFor(radius) : 0;
+		if (plates != this.reserved) {
+			this.reserved = plates;
+			org.slf4j.LoggerFactory.getLogger("VOID LOD").debug("VOID LOD: keeping {} of Expanse's plates built (heap {} MB)", Math.max(40, plates),
+				Runtime.getRuntime().maxMemory() >> 20);
+		}
+		this.model.reservePlates(plates);
+	}
+
+	private int reserved = -1;
+
+	/** How many plates to keep built for a horizon {@code radius} blocks out (see {@link #reach}). */
+	public static int platesFor(double radius) {
+		double r = radius + 2 * PLATE_SPACING;
+		// half as many again: plates are not a regular grid, and the game's own chunk generation shares the cache
+		int plates = (int) Math.ceil(1.5 * Math.PI * r * r / (PLATE_SPACING * PLATE_SPACING));
+		int affordable = (int) (Runtime.getRuntime().maxMemory() / 6 / PLATE_BYTES);
+		return Math.min(plates, affordable);
+	}
+
 	@Override
 	public String diagnostics() {
 		return ", Earth plates built " + TerrainModel.BUILDS.get();

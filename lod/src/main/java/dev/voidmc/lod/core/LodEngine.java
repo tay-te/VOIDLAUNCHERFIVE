@@ -104,6 +104,50 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private final ConcurrentLinkedQueue<Built> built = new ConcurrentLinkedQueue<>();
 	private final ArrayDeque<Built> waiting = new ArrayDeque<>();
 	private final LodSelector selector = new LodSelector();
+	/**
+	 * Building ahead: on the move, the horizon a few seconds ahead is selected too, now and then, its missing tiles
+	 * queued after everything the view needs now, so a fast flight finds its land built when it gets there.
+	 */
+	private final LodSelector ahead = new LodSelector();
+	private static final double AHEAD_SECONDS = 3;
+	/** Slower than this (blocks a second), the horizon barely changes and nothing is built ahead. */
+	private static final double AHEAD_SPEED = 8;
+	private static final int AHEAD_FRAMES = 8;
+	private static final float AHEAD_PRIORITY = 5e3F;
+	private double lastX = Double.NaN;
+	private double lastZ;
+	private long lastNanos;
+	private double velocityX;
+	private double velocityZ;
+	/** Tiles the look ahead asked for (statistics). */
+	public long aheadWanted;
+	private final LodSelector.Store aheadStore = new LodSelector.Store() {
+		@Override
+		public boolean ready(long key) {
+			return LodEngine.this.ready(key);
+		}
+
+		@Override
+		public boolean heightRange(long key, int[] out) {
+			return LodEngine.this.heightRange(key, out);
+		}
+
+		@Override
+		public void want(long key, float priority) {
+			Tile tile = LodEngine.this.tiles.get(key);
+			if (tile != null && tile.wantedFrame == LodEngine.this.frame) {
+				// the view wants it now: its own priority stands
+				return;
+			}
+			LodEngine.this.aheadWanted++;
+			LodEngine.this.want(key, priority + AHEAD_PRIORITY);
+		}
+
+		@Override
+		public void touch(long key) {
+			LodEngine.this.touch(key);
+		}
+	};
 	/** The edges of recently built tiles, which their neighbours copy instead of sampling again. */
 	private final SampleCache samples = new SampleCache();
 	private final List<Worker> workers = new ArrayList<>();
@@ -282,6 +326,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			: this.selector.select(this, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell, visibility, outOfView);
 		this.selecting = false;
 		this.asked = null;
+		this.lookAhead(nanos, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell);
 		if (!this.invalidated.isEmpty()) {
 			this.markDirty();
 		}
@@ -302,6 +347,33 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			this.evict(gpu);
 		}
 		return draw;
+	}
+
+	/** Follows the camera's ground speed, and on the move selects the horizon {@value #AHEAD_SECONDS} s ahead. */
+	private void lookAhead(long nanos, double cx, double cy, double cz, double radius, double clip, double scale, double pixelsPerCell,
+		double farPixelsPerCell) {
+		if (!Double.isNaN(this.lastX) && nanos > this.lastNanos) {
+			double dt = (nanos - this.lastNanos) / 1e9;
+			double vx = (cx - this.lastX) / dt;
+			double vz = (cz - this.lastZ) / dt;
+			// a teleport is not a flight
+			if (vx * vx + vz * vz > 1e6) {
+				vx = vz = 0;
+			}
+			double k = Math.min(1, dt * 2);
+			this.velocityX += (vx - this.velocityX) * k;
+			this.velocityZ += (vz - this.velocityZ) * k;
+		}
+		this.lastX = cx;
+		this.lastZ = cz;
+		this.lastNanos = nanos;
+		double speed = Math.hypot(this.velocityX, this.velocityZ);
+		if (this.source == null || speed < AHEAD_SPEED || this.frame % AHEAD_FRAMES != 0) {
+			return;
+		}
+		// every direction there, at the detail a normal field of view gives it: where the camera will look is unknown
+		this.ahead.select(this.aheadStore, cx + this.velocityX * AHEAD_SECONDS, cy, cz + this.velocityZ * AHEAD_SECONDS, radius, clip, scale,
+			pixelsPerCell, farPixelsPerCell, null, 1);
 	}
 
 	/** The tile under {@code key}, or null. Render thread only. */

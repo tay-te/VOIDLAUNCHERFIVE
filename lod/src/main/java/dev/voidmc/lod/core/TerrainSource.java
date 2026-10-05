@@ -23,4 +23,24 @@ public interface TerrainSource {
 	default boolean covers(int minX, int minZ, int maxX, int maxZ) {
 		return true;
 	}
+
+	/**
+	 * Tile {@code key}'s samples are about to be asked, on this thread, until {@link #endTile}: a {@code size} x
+	 * {@code size} grid {@code cell} apart whose sample (0, 0), the first inside its {@code border}, stands at
+	 * (x0, z0). A source that keeps its answers per tile ({@link GeneratorCache}) fetches them here.
+	 */
+	default void beginTile(long key, int x0, int z0, int cell, int border, int size) {
+	}
+
+	/** The tile begun on this thread is sampled. */
+	default void endTile() {
+	}
+
+	/**
+	 * Whether this source keeps its answers, so every sample of a tile should be asked of it rather than copied from a
+	 * neighbour ({@link SampleCache}): a copied sample would be missing from what it keeps.
+	 */
+	default boolean keepsAnswers() {
+		return false;
+	}
 }

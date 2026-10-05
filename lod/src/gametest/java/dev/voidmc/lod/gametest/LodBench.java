@@ -56,6 +56,10 @@ public final class LodBench {
 		double[] radii = java.util.Arrays.stream(System.getProperty("lod.bench.radii", "4096,8192,16384").split(","))
 			.mapToDouble(Double::parseDouble).toArray();
 		for (double radius : radii) {
+			// the plates kept built, as the game sizes them to the reach (-Dexpanse.maxPlates fixes the number instead)
+			if (System.getProperty("expanse.maxPlates") == null) {
+				model.reservePlates(dev.voidmc.lod.source.ExpanseSource.platesFor(radius));
+			}
 			LodSelector.Store all = new LodSelector.Store() {
 				@Override
 				public boolean ready(long key) {
@@ -162,9 +166,9 @@ public final class LodBench {
 				}
 			}
 			System.out.printf(Locale.ROOT,
-				"radius %5.0f m: %4d tiles (%s), select %.2f ms | %,d quads = %.1f MB, %d flat | build on 1 thread %.0f ms CPU (%.2f ms/tile),"
+				"plates built so far %d | radius %5.0f m: %4d tiles (%s), select %.2f ms | %,d quads = %.1f MB, %d flat | build on 1 thread %.0f ms CPU (%.2f ms/tile),"
 					+ " reusing edges %.0f ms (%.0f%% of samples reused) | on %d: %.0f ms, reusing edges %.0f ms%n",
-				radius, tiles.size(), perLevel.toString().trim(), selectNanos / 1e6, quads.get(), bytes.get() / 1048576.0, flat,
+				dev.voidmc.expanse.world.terrain.TerrainModel.BUILDS.get(), radius, tiles.size(), perLevel.toString().trim(), selectNanos / 1e6, quads.get(), bytes.get() / 1048576.0, flat,
 				single / 1e6, single / 1e6 / tiles.size(), singleReused / 1e6, reused, threads, parallel / 1e6, parallelReused / 1e6);
 		}
 		engineOrder(source, camX, camY, camZ, detail);

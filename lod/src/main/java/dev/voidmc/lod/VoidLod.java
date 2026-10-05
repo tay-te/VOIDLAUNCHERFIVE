@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.VideoMode;
 import com.mojang.renderpearl.api.commands.RenderPass;
 import dev.voidmc.lod.compat.Shaders;
+import dev.voidmc.lod.core.GeneratorCache;
 import dev.voidmc.lod.core.AutoTune;
 import dev.voidmc.lod.core.ColumnFiles;
 import dev.voidmc.lod.core.ColumnStore;
@@ -185,6 +186,8 @@ public final class VoidLod implements ClientModInitializer {
 			this.waiting = null;
 			this.loading = null;
 			this.engine.reset(null, this.gpu());
+			this.joinedNanos = System.nanoTime();
+			this.horizonReported = false;
 			TerrainSource source = this.createSource(mc);
 			if (this.files != null && mc.player != null) {
 				// read the saved land around the player first, for at most a few seconds
@@ -198,6 +201,8 @@ public final class VoidLod implements ClientModInitializer {
 			this.apply();
 		}
 		long now = System.nanoTime();
+		this.sizeGeneratorCaches(now);
+		this.reportHorizon(now);
 		if (this.loading != null && (this.loading.isDone() || now - this.loadingSince > LOAD_WAIT_NANOS)) {
 			this.loading = null;
 			this.engine.reset(this.waiting, this.gpu());
@@ -289,6 +294,55 @@ public final class VoidLod implements ClientModInitializer {
 		this.engine.setThreads(s.threads);
 		this.engine.setBudget((long) s.budget << 20);
 		this.tuner.setTargets(s.gpuTarget, s.prepareTarget);
+		this.generatorBusy = false;
+		this.idleSince = System.nanoTime();
+	}
+
+	/** When this level was joined, and whether the time its horizon took to build has been logged. */
+	private long joinedNanos;
+	private boolean horizonReported;
+
+	/** Logs, once a level, how long its horizon took to build from joining: what a player waits to see it whole. */
+	private void reportHorizon(long now) {
+		LodEngine e = this.engine;
+		if (this.horizonReported || this.waiting != null || e.source() == null || e.tileCount() == 0 || e.queued() > 0 || !e.idle()) {
+			return;
+		}
+		this.horizonReported = true;
+		GeneratorCache cache = this.generatorCache;
+		LOGGER.info(String.format(Locale.ROOT, "VOID LOD: horizon built in %.1f s, %d tiles, radius %d%s", (now - this.joinedNanos) / 1e9,
+			e.tileCount(), (int) this.radius, cache == null ? "" : " (" + cache.stats() + ")"));
+	}
+
+	/** Whether the generator's caches are sized for building (see {@link WorldgenSource#reach}), and since when the queue is empty. */
+	private boolean generatorBusy;
+	private long idleSince;
+
+	/**
+	 * Sizes the generator's caches to the reach while tiles are being built, and lets them go once the queue has been
+	 * empty for a few seconds: on a long horizon they hold hundreds of megabytes that nothing needs once it is built.
+	 */
+	private void sizeGeneratorCaches(long now) {
+		TerrainSource source = this.waiting != null ? this.waiting : this.engine.source();
+		if (source instanceof IngestSource seen) {
+			source = seen.fallback();
+		}
+		if (source instanceof GeneratorCache cache) {
+			source = cache.generator();
+		}
+		if (!(source instanceof WorldgenSource generator)) {
+			return;
+		}
+		// still building: work queued, or this level's horizon not built once yet (joining, loading the saved land)
+		boolean queued = this.engine.queued() > 0 || this.waiting != null || !this.horizonReported;
+		if (queued) {
+			this.idleSince = now;
+		}
+		boolean busy = queued || now - this.idleSince < 5_000_000_000L;
+		if (busy != this.generatorBusy) {
+			this.generatorBusy = busy;
+			generator.reach(this.radius, busy);
+		}
 	}
 
 	/**
@@ -303,6 +357,12 @@ public final class VoidLod implements ClientModInitializer {
 		Materials materials = new Materials();
 		TileBuilder.packMaterials = new dev.voidmc.lod.source.PackMaterials(materials);
 		TerrainSource generator = this.createGenerator(mc, materials);
+		Path dir = this.saveDir(mc);
+		if (generator != null && dir != null && GENERATOR_CACHE) {
+			// the generator's answers kept in the world's folder: a horizon seen before is read, not generated
+			this.generatorCache = new GeneratorCache(generator, dir.resolve("generated"), new MaterialNames(materials), this.generatorIdentity);
+			generator = this.generatorCache;
+		}
 		if (!this.ingestChunks) {
 			return generator;
 		}
@@ -313,7 +373,6 @@ public final class VoidLod implements ClientModInitializer {
 			// chunks that arrived before this world's LOD was set up
 			this.ingest.loadedAround(mc.player.chunkPosition().x(), mc.player.chunkPosition().z(), mc.options.getEffectiveRenderDistance() + 2);
 		}
-		Path dir = this.saveDir(mc);
 		if (dir != null) {
 			this.files = new ColumnFiles(dir, store, new MaterialNames(materials));
 		}
@@ -334,6 +393,7 @@ public final class VoidLod implements ClientModInitializer {
 			return null;
 		}
 		long version = ++this.sourceVersion;
+		this.generatorIdentity = identity(mc, serverLevel);
 		if (FabricLoader.getInstance().isModLoaded("expanse")) {
 			WorldgenSource earth = dev.voidmc.lod.source.ExpanseSource.tryCreate(serverLevel, version, materials);
 			if (earth != null) {
@@ -376,6 +436,16 @@ public final class VoidLod implements ClientModInitializer {
 		if (files != null) {
 			files.close();
 		}
+		GeneratorCache cache = this.generatorCache;
+		this.generatorCache = null;
+		CompletableFuture<Void> cacheSaved = cache == null ? CompletableFuture.completedFuture(null) : cache.close();
+		if (wait) {
+			try {
+				cacheSaved.get(15, TimeUnit.SECONDS);
+			} catch (Exception e) {
+				LOGGER.warn("VOID LOD: could not finish saving the generator's answers", e);
+			}
+		}
 		if (wait) {
 			try {
 				ColumnFiles.flush().get(15, TimeUnit.SECONDS);
@@ -383,6 +453,33 @@ public final class VoidLod implements ClientModInitializer {
 				LOGGER.warn("VOID LOD: could not finish saving the far view", e);
 			}
 		}
+	}
+
+	/** {@code -Dvoid.lod.generatorCache=false} samples the generator every time, as before the cache. */
+	private static final boolean GENERATOR_CACHE = !"false".equals(System.getProperty("void.lod.generatorCache"));
+	/** Bumped whenever the sources' answers change for the same generator, seed and mods (the cache's pages then go). */
+	private static final int SAMPLING_VERSION = 1;
+	private GeneratorCache generatorCache;
+	private long generatorIdentity;
+
+	/**
+	 * What the generator is, as far as its answers go: the seed, the dimension and its generator, the versions of the
+	 * game and of the mods that shape and colour the land, and the resource packs, whose textures colour it.
+	 */
+	private static long identity(Minecraft mc, ServerLevel level) {
+		StringBuilder b = new StringBuilder();
+		b.append(SAMPLING_VERSION).append('|').append(level.getSeed()).append('|').append(level.dimension().identifier())
+			.append('|').append(level.getChunkSource().getGenerator().getClass().getName());
+		for (String mod : new String[]{"minecraft", ID, "expanse"}) {
+			FabricLoader.getInstance().getModContainer(mod).ifPresent(c -> b.append('|').append(mod).append(' ')
+				.append(c.getMetadata().getVersion().getFriendlyString()));
+		}
+		b.append('|').append(String.join(",", mc.getResourcePackRepository().getSelectedIds()));
+		long h = 1125899906842597L;
+		for (int i = 0; i < b.length(); i++) {
+			h = 31 * h + b.charAt(i);
+		}
+		return h;
 	}
 
 	/** A block changed in a client level: from the client level mixin. */
@@ -578,6 +675,10 @@ public final class VoidLod implements ClientModInitializer {
 		TerrainSource source = e.source();
 		if (source instanceof IngestSource seen) {
 			source = seen.fallback();
+		}
+		if (source instanceof GeneratorCache cache) {
+			out.append(" | ").append(cache.stats());
+			source = cache.generator();
 		}
 		if (source instanceof WorldgenSource w) {
 			out.append(w.diagnostics());
