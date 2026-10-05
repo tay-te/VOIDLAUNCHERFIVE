@@ -36,7 +36,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  *   <li><b>A basin with a jet</b> (temperate, wisteria, maritime, alpine, moorland, steppe): a square, octagonal or round
  *   basin whose rim is a ring of stone seats looking out, a column in the water carrying a bowl the jet spills over
  *   (a second, wider bowl on the bigger plots), lamps at the corners of the larger fountains.</li>
- *   <li><b>A Moorish fountain</b> (desert, mediterranean, mesa): a low octagonal basin rimmed in tiles, a short spout in
+ *   <li><b>A Moorish fountain</b> (desert, mediterranean, mesa): a low octagonal basin, its rim inlaid in a second stone, a short spout in
  *   the middle, pots of flowers round it.</li>
  *   <li><b>A spring pool</b> (karst, tropical, bayou): an irregular pool edged with mossy stones (palm or cypress logs
  *   in the timber cultures), lily pads, a bamboo spout pouring into a stone bowl, a stone lantern or torches.</li>
@@ -182,7 +182,7 @@ public final class Fountain implements Archetype {
 	/** The classic basin: seats round the rim, a column and bowls, a jet. */
 	private static int basin(Draft d, int w, int dp, int cx, int cz) {
 		Mat rimMat = Manner.masonry(d);
-		Mat accent = Paving.inlay(d);
+		Mat accent = carved(d);
 		int m = w >= 7 && dp >= 7 ? 1 : 0;
 		String fallback = Manner.culture(d) == dev.voidmc.hearth.api.Culture.STEPPE || Manner.culture(d) == dev.voidmc.hearth.api.Culture.WISTERIA
 			? "round" : w >= 7 ? (d.chance(0.5) ? "octagon" : "square") : "square";
@@ -207,7 +207,8 @@ public final class Fountain implements Archetype {
 				}
 				d.set(cx, 3, cz, shaft);
 				d.set(cx, 4, cz, accent.full());
-				d.set(cx, 5, cz, Blocks.WATER.defaultBlockState());
+				// a stone finial over the jet's mouth, not a block of water standing in the air
+				d.set(cx, 5, cz, shaft);
 				top = 5;
 			} else if (d.maxHeight() >= 7) {
 				// a small basin still stands its column tall: a tazza over the water spilling into it, a finial with the jet
@@ -222,13 +223,14 @@ public final class Fountain implements Archetype {
 				}
 				d.set(cx, 3, cz, shaft);
 				d.set(cx, 4, cz, accent.full());
-				d.set(cx, 5, cz, Blocks.WATER.defaultBlockState());
+				// a stone finial over the jet's mouth, not a block of water standing in the air
+				d.set(cx, 5, cz, shaft);
 				top = 5;
 			} else {
 				d.set(cx, 0, cz, col.full());
 				d.set(cx, 1, cz, shaft);
 				d.set(cx, 2, cz, accent.full());
-				d.set(cx, 3, cz, Blocks.WATER.defaultBlockState());
+				d.set(cx, 3, cz, shaft);
 				top = 3;
 			}
 			}
@@ -268,9 +270,19 @@ public final class Fountain implements Archetype {
 		}
 	}
 
-	/** A low octagon rimmed in tiles, a short spout, pots round it. */
+	/**
+	 * The carved stone of the column's capitals and the rim's inlay: the paving's inlay where it is a stone, else its
+	 * band (glazed tiles, terracotta and concrete read as coloured plastic on a fountain; it is all stone).
+	 */
+	private static Mat carved(Draft d) {
+		Mat a = Paving.inlay(d);
+		String path = Manner.path(a, Form.FULL);
+		return path.contains("glazed") || path.contains("terracotta") || path.contains("concrete") || path.contains("wool") ? Paving.band(d) : a;
+	}
+
+	/** A low octagon, its rim inlaid every other stone, a short spout, pots round it. */
 	private static int moorish(Draft d, int w, int dp, int cx, int cz) {
-		Mat tile = Paving.inlay(d);
+		Mat tile = carved(d);
 		Mat stone = Manner.masonry(d);
 		int m = w >= 7 && dp >= 7 ? 1 : 0;
 		String shape = shape(d, w, "octagon");
@@ -291,10 +303,10 @@ public final class Fountain implements Archetype {
 			d.set(cx, 1, cz, stone.has(Form.WALL) ? stone.wall() : stone.full());
 			if (w >= 7 && d.maxHeight() >= 6) {
 				d.set(cx, 2, cz, tile.full());
-				d.set(cx, 3, cz, Blocks.WATER.defaultBlockState());
+				d.set(cx, 3, cz, stone.has(Form.SLAB) ? stone.slab(SlabType.BOTTOM) : stone.full());
 				top = 3;
 			} else {
-				d.set(cx, 2, cz, Blocks.WATER.defaultBlockState());
+				d.set(cx, 2, cz, stone.has(Form.SLAB) ? stone.slab(SlabType.BOTTOM) : stone.full());
 				top = 2;
 			}
 		}

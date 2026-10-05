@@ -30,7 +30,11 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * The furniture of a festival green: the culture's centrepiece (the Bohemian maypole, a stripped spruce with its green
  * crown and garland and the town's ribbons; the north's midsummer pole with its crossbar and hoops; a beacon on its stone
  * stand; a field of lantern poles; the steppe's horsetail standard over a wrestling ring; a wine vat under a pergola; a
- * bonfire), the musicians' stage under its canopy, booths with striped awnings, a garlanded arch over the way in.
+ * bonfire), the musicians' stage under its canopy, booths under canvas awnings, a garlanded arch over the way in.
+ *
+ * <p>Colour: a fair is undyed canvas with one colour of the house that holds it (a valance, the ribbons, the banners),
+ * dyed as cloth was dyed, in madder, woad or weld ({@link #natural}); awnings are striped only where the south stripes
+ * them (the mediterranean and the desert).
  */
 public final class Fair {
 	private Fair() {
@@ -117,7 +121,7 @@ public final class Fair {
 						}
 					}
 				}
-				List<String> colours = Signs.clothColours(d);
+				List<String> colours = naturalColours(d);
 				int k = 0;
 				for (Direction dir : Dirs.HORIZONTAL) {
 					String col = colours.isEmpty() ? "red" : colours.get(k++ % colours.size());
@@ -313,8 +317,8 @@ public final class Fair {
 	}
 
 	/**
-	 * A booth: a counter with wares across its front (the keeper behind it) between two posts, a striped awning of the
-	 * culture's cloth over it, a crate and a barrel at the back. {@code x, z} is the front-left corner seen from the
+	 * A booth: a counter with wares across its front (the keeper behind it) between two posts, a canvas awning over it
+	 * with a valance of the fair's colour (striped canvas and colour in the south), a crate and a barrel at the back. {@code x, z} is the front-left corner seen from the
 	 * customers, {@code toCustomers} the way the booth faces; three wide, three deep. Registers COUNTER and MARKET_STALL.
 	 */
 	public static void booth(Draft d, int x, int y, int z, Direction toCustomers) {
@@ -344,8 +348,11 @@ public final class Fair {
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			d.set(stock[0], y, stock[1], States.facing(Blocks.BARREL, toCustomers));
 		}
-		// the awning: a lean-to of cloth rising toward the back, striped in white
-		boolean stripes = !d.habits().roof().thatch() && cloth.has(Form.SLAB);
+		// the awning: a lean-to of canvas rising toward the back, its front edge a valance of the fair's one colour
+		// (canvas and colour in stripes where the south stripes its awnings)
+		boolean stripes = striped(d);
+		net.minecraft.world.item.DyeColor canvas = net.minecraft.world.item.DyeColor.WHITE;
+		net.minecraft.world.item.DyeColor dyed = net.minecraft.world.item.DyeColor.byName(houseColour(d), net.minecraft.world.item.DyeColor.RED);
 		try (var s = d.stage(StageKind.ROOF)) {
 			for (int i = -1; i <= 3; i++) {
 				for (int k = 0; k <= 2; k++) {
@@ -354,14 +361,15 @@ public final class Fair {
 						continue;
 					}
 					int ry = y + 3;
-					Paint m = stripes && (i & 1) == 0 ? Paint.of(Blocks.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE).defaultBlockState()) : cloth.full();
-					Paint slab = stripes && (i & 1) == 0 ? Paint.of(States.slab(Blocks.WOOL_SLAB.pick(net.minecraft.world.item.DyeColor.WHITE), SlabType.BOTTOM)) : cloth.slab(SlabType.BOTTOM);
+					net.minecraft.world.item.DyeColor dye = stripes ? ((i & 1) == 0 ? canvas : dyed) : k == 0 ? dyed : canvas;
+					Paint m = Paint.of(Blocks.WOOL.pick(dye).defaultBlockState());
+					Paint slab = Paint.of(States.slab(Blocks.WOOL_SLAB.pick(dye), SlabType.BOTTOM));
 					if (k == 0) {
-						d.set(p[0], ry, p[1], slab.at(p[0], ry, p[1]) != null ? slab : m);
+						d.set(p[0], ry, p[1], slab);
 					} else {
 						d.set(p[0], ry, p[1], m);
 						if (k == 2 && i >= 0 && i <= 2) {
-							d.set(p[0], ry + 1, p[1], slab.at(p[0], ry + 1, p[1]) != null ? slab : m);
+							d.set(p[0], ry + 1, p[1], slab);
 						}
 					}
 				}
@@ -443,6 +451,14 @@ public final class Fair {
 		} else {
 			Mat cloth = d.mat(Role.CLOTH);
 			r = Roofs.raster(d, Roofs.shed(rx0, rz0, rx1, rz1, back, Roofs.Profile.straight(0.5)), ry, rx0, rz0, rx1, rz1, cloth, cloth, Habits.Ridge.SLAB);
+			// canvas, the low edge toward the audience a valance of the fair's colour
+			String colour = houseColour(d);
+			int lowX = Dirs.dx(toAudience);
+			int lowZ = Dirs.dz(toAudience);
+			int ex = lowX > 0 ? rx1 : rx0;
+			int ez = lowZ > 0 ? rz1 : rz0;
+			Roofs.Roof canopy = r;
+			recloth(d, rx0, rz0, rx1, rz1, canopy, (cx, cz) -> lowX != 0 && cx == ex || lowZ != 0 && cz == ez ? colour : "white");
 		}
 		// lanterns under the roof over the front corners
 		for (int[] p : new int[][]{fl, fr}) {
@@ -474,7 +490,7 @@ public final class Fair {
 				d.set(x, top, z, (x - x0) % 2 == 0 ? Blocks.FLOWERING_AZALEA_LEAVES.defaultBlockState() : leaf);
 			}
 		}
-		List<String> colours = Signs.clothColours(d);
+		List<String> colours = naturalColours(d);
 		int k = 0;
 		for (int x : new int[]{x0, x1}) {
 			String col = colours.isEmpty() ? "red" : colours.get(k++ % colours.size());
@@ -492,7 +508,7 @@ public final class Fair {
 		// the town's colours where it has arms (the planner's banner param), else the style's cloth
 		List<String> colours = Signs.armsColours(d);
 		if (colours.isEmpty()) {
-			colours = Signs.clothColours(d);
+			colours = naturalColours(d);
 		}
 		String col = colours.isEmpty() ? "red" : colours.get(Math.floorMod(k, colours.size()));
 		Block banner = States.block("minecraft:" + col + "_banner", States.block("minecraft:white_banner", Blocks.AIR));
@@ -531,6 +547,86 @@ public final class Fair {
 				d.set(px, y, pz, u < 0.6 ? Blocks.HAY_BLOCK.defaultBlockState() : States.facing(Blocks.BARREL, Direction.UP));
 			}
 		}
+	}
+
+	/**
+	 * A dye colour as cloth was dyed before the bright synthetics: madder red, woad blue, weld yellow, their green, the
+	 * undyed and the dark colours stand; light blue and cyan go to woad, lime to green, magenta, pink, purple and orange to
+	 * madder.
+	 */
+	public static String natural(String colour) {
+		return switch (colour) {
+			case "light_blue", "cyan" -> "blue";
+			case "lime" -> "green";
+			case "magenta", "pink", "purple", "orange" -> "red";
+			default -> colour;
+		};
+	}
+
+	/** The style's cloth colours made natural, in order, without repeats (white if none). */
+	public static List<String> naturalColours(Draft d) {
+		List<String> out = new java.util.ArrayList<>();
+		for (String c : Signs.clothColours(d)) {
+			String n = natural(c);
+			if (!out.contains(n)) {
+				out.add(n);
+			}
+		}
+		return out;
+	}
+
+	/** The one dyed colour a fair or a stall wears: the first of the style's cloth that is dyed, made natural; else madder. */
+	public static String houseColour(Draft d) {
+		for (String c : naturalColours(d)) {
+			if (!c.equals("white") && !c.equals("light_gray") && !c.equals("gray")) {
+				return c;
+			}
+		}
+		return "red";
+	}
+
+	/** Whether the culture's markets stripe their awnings: the mediterranean and the desert do; everywhere else is canvas. */
+	public static boolean striped(Draft d) {
+		var c = d.style().culture();
+		return c == dev.voidmc.hearth.api.Culture.MEDITERRANEAN || c == dev.voidmc.hearth.api.Culture.DESERT;
+	}
+
+	/**
+	 * Restates a cloth roof's wool over x0..x1 × z0..z1 in the colour {@code colour} names for each column (keeping every
+	 * block's shape: slab, stair or full block), so a canopy rastered in the style's cloth becomes canvas, a valance or a
+	 * stripe. Columns the function answers null for are left as they are.
+	 */
+	public static void recloth(Draft d, int x0, int z0, int x1, int z1, Roofs.Roof roof, java.util.function.BiFunction<Integer, Integer, String> colour) {
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				if (!roof.covers(x, z)) {
+					continue;
+				}
+				String c = colour.apply(x, z);
+				if (c == null) {
+					continue;
+				}
+				net.minecraft.world.item.DyeColor dye = net.minecraft.world.item.DyeColor.byName(c, net.minecraft.world.item.DyeColor.WHITE);
+				for (int y = roof.bottomY(x, z); y <= roof.surfaceY(x, z); y++) {
+					BlockState st = d.get(x, y, z);
+					if (st == null || st.isAir() || !net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath().contains("wool")) {
+						continue;
+					}
+					d.restate(x, y, z, wool(st, dye));
+				}
+			}
+		}
+	}
+
+	/** Wool of a colour in the shape of {@code like} (a slab, a stair or a full block). */
+	public static BlockState wool(BlockState like, net.minecraft.world.item.DyeColor dye) {
+		if (like.hasProperty(BlockStateProperties.SLAB_TYPE)) {
+			return Blocks.WOOL_SLAB.pick(dye).withPropertiesOf(like);
+		}
+		if (like.hasProperty(BlockStateProperties.STAIRS_SHAPE)) {
+			return Blocks.WOOL_STAIRS.pick(dye).withPropertiesOf(like);
+		}
+		return Blocks.WOOL.pick(dye).defaultBlockState();
 	}
 
 	/** Whether the culture's festival is held at night (the light matters more). */

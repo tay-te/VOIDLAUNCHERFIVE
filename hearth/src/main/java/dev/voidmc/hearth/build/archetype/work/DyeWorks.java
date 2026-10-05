@@ -41,8 +41,8 @@ import net.minecraft.world.level.block.Blocks;
  * {@code hearth:work/dye_works}: the dyers' house by the water at the edge of town, the most colourful place in it. Its
  * gable to the street, the dye house stands down one side of the plot: below, the coppers steaming over their fires
  * and the great vats of woad, madder and weld, opening to the yard through a wide bay; above, the drying loft, open to
- * the yard between its posts and hung with lengths of cloth in every colour, and its street gable carrying a gallery hung
- * the same. In the yard, a stream led along a stone channel for the rinsing, tall tenter frames strung with bright cloth
+ * the yard between its posts and hung with lengths of cloth in madder, woad and weld, and its street gable carrying a gallery hung
+ * the same. In the yard, a stream led along a stone channel for the rinsing, tall tenter frames strung with dyed cloth
  * that show over the roofs, tubs of dye, bales of white wool waiting, a bed of dye plants by the fence. Where roofs are
  * flat the cloth dries on rails on the terrace and the vats are round and sunk in the yard, as in the dyers' quarters
  * of the south.
@@ -57,7 +57,8 @@ public final class DyeWorks implements Archetype {
 
 	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.GAMBREL, RoofForm.PAGODA, RoofForm.FLAT};
 
-	private static final Vats.Liquor[] DYES = {Vats.Liquor.BLUE, Vats.Liquor.RED, Vats.Liquor.YELLOW, Vats.Liquor.GREEN, Vats.Liquor.PURPLE};
+	// woad, madder and weld: the three dyes a town dyer works (greens and purples are dipped twice, not vatted apart)
+	private static final Vats.Liquor[] DYES = {Vats.Liquor.BLUE, Vats.Liquor.RED, Vats.Liquor.YELLOW};
 
 	@Override
 	public ArchetypeInfo info() {

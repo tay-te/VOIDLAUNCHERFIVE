@@ -27,8 +27,8 @@ public final class Hangs {
 	public static final String[] HIDES = {"white", "brown", "white", "light_gray", "orange", "white", "brown"};
 	/** Paper drying: white sheets, a few greyed. */
 	public static final String[] PAPER = {"white", "white", "white", "light_gray"};
-	/** The dyers' colours: woad, madder, weld and their mixtures, all strong and bright. */
-	public static final String[] DYED = {"red", "blue", "yellow", "green", "purple", "orange", "light_blue", "magenta", "cyan", "lime", "black", "red", "blue"};
+	/** The dyers' colours: woad blue, madder red, weld yellow and the undyed cloth between, the colours of a real dye works. */
+	public static final String[] DYED = {"red", "blue", "yellow", "red", "blue", "white", "yellow", "red", "blue", "brown"};
 
 	/** A wall banner block of a colour by name. */
 	public static Block banner(String colour) {

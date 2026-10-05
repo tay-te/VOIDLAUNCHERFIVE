@@ -45,7 +45,7 @@ import net.minecraft.world.level.block.Blocks;
  * roof in the karst), a window over the road each way to watch it. The road passes under it through arched mouths
  * (timber-lintelled in the timber traditions), lanterns hung in the passage, the setts kerbed. In the left pier the
  * toll booth: the keeper's counter at a hatch on the road, his strongbox, a door at the back; in the right pier the
- * ladder up to his room. Across the road's mouth on the field side the barrier: a boom striped in the town's colours,
+ * ladder up to his room. Across the road's mouth on the field side the barrier: a boom banded red and white,
  * pivoted on the booth's pier at head height, with its counterweight. A sign of the toll on the pier.
  *
  * <p>POIs: GATE in the passage, JOB_SITE (GUARD: the toll keeper) at the counter, GUARD_POST at the barrier, BED, STORAGE,
@@ -218,18 +218,15 @@ public final class TollGate implements Archetype {
 	}
 
 	/**
-	 * The barrier: a boom across the road's mouth at row z, its pole at height y striped in the town's two colours (the
-	 * cloth's), its counterweight a block of the masonry on the pier's side.
+	 * The barrier: a boom across the road's mouth at row z, its pole at height y painted in bands as booms are, red and
+	 * white (black and white where the town's cloth is black and not red, or now and then by seed), its counterweight a
+	 * block of the masonry on the pier's side.
 	 */
 	static void boom(Draft d, int px0, int px1, int y, int z, int pierX) {
 		List<String> colours = Signs.clothColours(d);
-		String a = colours.get(0);
-		String b = colours.size() > 1 ? colours.get(1) : "white";
-		if (a.equals(b)) {
-			b = a.equals("white") ? "red" : "white";
-		}
-		Paint pa = Paint.of(dev.voidmc.hearth.build.draft.States.block("minecraft:" + a + "_wool", Blocks.WOOL.pick(net.minecraft.world.item.DyeColor.RED)).defaultBlockState());
-		Paint pb = Paint.of(dev.voidmc.hearth.build.draft.States.block("minecraft:" + b + "_wool", Blocks.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE)).defaultBlockState());
+		boolean black = colours.contains("black") && !colours.contains("red") || !colours.contains("red") && !colours.contains("black") && d.chance(0.3);
+		Paint pa = Paint.of(Blocks.WOOL.pick(black ? net.minecraft.world.item.DyeColor.BLACK : net.minecraft.world.item.DyeColor.RED).defaultBlockState());
+		Paint pb = Paint.of(Blocks.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE).defaultBlockState());
 		try (var st = d.stage(StageKind.EXTERIOR)) {
 			for (int x = px0; x <= px1; x++) {
 				d.set(x, y, z, ((x - px0) & 1) == 0 ? pa : pb);
