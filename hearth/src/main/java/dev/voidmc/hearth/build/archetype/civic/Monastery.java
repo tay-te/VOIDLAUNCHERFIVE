@@ -70,7 +70,7 @@ public final class Monastery implements Archetype {
 		p.rooms();
 		p.beds(Kind.DORMITORY, 10);
 		p.beds(Kind.GUESTS, 2);
-		p.skyline = p.roofs();
+		p.skyline = Math.max(p.skyline, p.roofs());
 		PrecinctChurch.Built church = PrecinctChurch.draw(p, false);
 		p.skyline = Math.max(p.skyline, church.skyline());
 		p.walk();

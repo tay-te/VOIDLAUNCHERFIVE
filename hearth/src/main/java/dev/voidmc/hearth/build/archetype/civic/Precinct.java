@@ -243,6 +243,11 @@ final class Precinct {
 	Range far;
 	Range near;
 	final Set<Long> keep = new HashSet<>();
+	/** A gable over the gate on the street face (off where a tower stands there). */
+	boolean gateGable = true;
+	/** Sickbeds registered, and the feet of the other beds (for a sickbed where no infirmary had room). */
+	int sickbeds;
+	final List<int[]> bedFeet = new ArrayList<>();
 	/** The jobs whose places have been furnished. */
 	final Set<JobType> jobs = java.util.EnumSet.noneOf(JobType.class);
 	int skyline;
@@ -393,6 +398,7 @@ final class Precinct {
 			Storeys.ground(this.d, r.body, false);
 			Facade f = facade(r);
 			Storeys.walls(this.d, r.body, f, 0, storeys() - 1, kinds, true);
+			groundFloor(r.x0 + 1, r.z0 + 1, r.x1 - 1, r.z1 - 1);
 			windows(r, f);
 		}
 		int qx0 = Math.min(this.church ? Math.min(this.nx0, this.bx0) : 0, this.bx0);
@@ -421,6 +427,21 @@ final class Precinct {
 					}
 					dev.voidmc.hearth.build.kit.Openings.window(this.d, s, o.at(), r.body.floorY(k) + 1, o.width(), h + (k == 0 ? 0 : 0), style,
 						new dev.voidmc.hearth.build.kit.Openings.WindowOpts(false, false, true, true));
+				}
+			}
+		}
+	}
+
+	/**
+	 * The ground floor over a rectangle at row -1, laid over whatever the levelling left there (flags of the paving, boards
+	 * in the timber traditions).
+	 */
+	void groundFloor(int x0, int z0, int x1, int z1) {
+		Paint p = this.rite.timber() ? this.d.mat(Role.FLOOR).full() : this.d.mat(Role.PAVING).full();
+		try (var s = this.d.stage(StageKind.FLOORS)) {
+			for (int z = z0; z <= z1; z++) {
+				for (int x = x0; x <= x1; x++) {
+					this.d.set(x, -1, z, p);
 				}
 			}
 		}
@@ -484,6 +505,8 @@ final class Precinct {
 
 	/** Divides every range into its rooms, builds the partitions, the gate, the doors to the walk and the stairs. */
 	void rooms() {
+		// the main entrance is the gate, declared before any door declares its own
+		this.d.entrance(courtX(), 0, this.zF - 1);
 		for (Range r : this.ranges) {
 			for (int k = 0; k < storeys(); k++) {
 				List<Want> wants = k < r.wants.size() ? r.wants.get(k) : List.of(Want.of(Kind.STORE, 1));
@@ -660,14 +683,19 @@ final class Precinct {
 			this.d.inStage(StageKind.OPENINGS, () -> this.d.door(dx, y0, dz, door, r.plus(), DoorHingeSide.LEFT));
 			keepAround(dx, y0, dz, r.plus());
 		}
-		// a door from the gate passage into the room on its high side (the porter's lodge)
+		// doors from the gate passage into the rooms either side (the porter's lodge, and whatever lies beyond the court)
 		if (k == 0 && r.gate != Integer.MIN_VALUE) {
-			int a = r.gate + 2;
-			int c = r.courtC();
-			int dx = r.x(a, c);
-			int dz = r.z(a, c);
-			this.d.inStage(StageKind.OPENINGS, () -> this.d.door(dx, y0, dz, door, r.plus(), DoorHingeSide.LEFT));
-			keepAround(dx, y0, dz, r.plus());
+			for (int side : new int[]{-1, 1}) {
+				int a = r.gate + 2 * side;
+				if (a <= r.a0() - 1 || a >= r.a1() + 1) {
+					continue;
+				}
+				int c = r.courtC();
+				int dx = r.x(a, c);
+				int dz = r.z(a, c);
+				this.d.inStage(StageKind.OPENINGS, () -> this.d.door(dx, y0, dz, door, r.plus(), DoorHingeSide.LEFT));
+				keepAround(dx, y0, dz, r.plus());
+			}
 		}
 	}
 
@@ -702,6 +730,7 @@ final class Precinct {
 			}
 		}
 		if (host == null) {
+			ladder(r);
 			return;
 		}
 		// climbing toward dir, the rail (on the climber's right) faces the court; by the gate, climbing away from it
@@ -764,6 +793,47 @@ final class Precinct {
 					up.remove(i + 1);
 					i--;
 				}
+			}
+		}
+	}
+
+	/**
+	 * Where no ground room is long enough for a flight: a ladder against the outer wall of the longest room up through a
+	 * hatch in the floor above.
+	 */
+	private void ladder(Range r) {
+		List<Room> rs = new ArrayList<>(r.rooms.get(0));
+		rs.removeIf(x -> x.kind == Kind.GATE);
+		rs.sort((a, b) -> Integer.compare(b.length(), a.length()));
+		int y1 = r.body.floorY(1) - 1;
+		int up = r.body.floorY(1);
+		int c = r.outerC();
+		int cin = c + (r.courtC() > c ? 1 : -1);
+		int cw = c + (r.courtC() > c ? -1 : 1);
+		for (Room room : rs) {
+			for (int a = room.a0; a <= room.a1; a++) {
+				int x = r.x(a, c);
+				int z = r.z(a, c);
+				int fx = r.x(a, cin);
+				int fz = r.z(a, cin);
+				int wx = r.x(a, cw);
+				int wz = r.z(a, cw);
+				boolean ok = !kept(x, 0, z) && !kept(fx, 0, fz) && this.d.isEmpty(fx, 0, fz) && this.d.isEmpty(fx, up, fz) && this.d.isEmpty(x, up, z)
+					&& this.d.isEmpty(x, up + 1, z) && towerWall(r, a) == false;
+				for (int y = 0; y <= y1 && ok; y++) {
+					ok = (y == y1 || this.d.isEmpty(x, y, z)) && dev.voidmc.hearth.build.kit.Openings.isWallBlock(this.d, wx, y, wz);
+				}
+				if (!ok) {
+					continue;
+				}
+				dev.voidmc.hearth.build.kit.Stairs.ladder(this.d, x, z, 0, y1, r.court);
+				r.stairA = a;
+				for (int y = 0; y <= up + 1; y++) {
+					keep(x, y, z);
+				}
+				keep(fx, 0, fz);
+				keep(fx, up, fz);
+				return;
 			}
 		}
 	}
@@ -832,11 +902,13 @@ final class Precinct {
 			if (blockedDoor(r, at)) {
 				continue;
 			}
+
 			Openings_door(s, at);
 			int cx = r.x(at, r.courtC());
 			int cz = r.z(at, r.courtC());
+			// the cells inside the door and the walk outside it stay free
 			keep(cx, 0, cz);
-			keep(cx + Dirs.dx(r.court), 0, cz + Dirs.dz(r.court));
+			keep(cx - Dirs.dx(r.court), 0, cz - Dirs.dz(r.court));
 			keep(cx + 2 * Dirs.dx(r.court), 0, cz + 2 * Dirs.dz(r.court));
 		}
 	}
@@ -904,10 +976,15 @@ final class Precinct {
 		}
 		o = o.withPitch(p);
 		Roofs.Profile profile = this.rite.curved() ? Roofs.Profile.curved(Math.max(1, p)) : Roofs.Profile.straight(p);
-		Range main = this.back;
+		Range main = this.front != null ? this.front : this.back;
 		boolean pl = this.church && this.left;
 		boolean pr = this.church && !this.left;
 		Roofs.Plan plan = Roofs.plan(this.d, main.x0, main.z0, main.x1, main.z1, this.plate, form, Direction.Axis.X, o, pl, pr);
+		// a gable over the gate on the street face, so the way in reads from the road
+		if (this.gateGable && main == this.front && this.front.gate != Integer.MIN_VALUE && !this.rite.curved() && p >= 1.0) {
+			Side face = this.front.outerSide(storeys() - 1);
+			plan.crossGable(face, this.front.gate - 2, 5, this.d);
+		}
 		for (Range r : this.ranges) {
 			if (r == main) {
 				continue;
@@ -923,6 +1000,22 @@ final class Precinct {
 		}
 		Roofs.Built b = plan.draw(this.d);
 		this.roof = b.roof();
+		// chimneys: the kitchen's and the brewhouse's stacks up the outer wall through the eaves
+		for (Range r : this.ranges) {
+			for (Room room : r.rooms.get(0)) {
+				if (room.kind != Kind.KITCHEN && room.kind != Kind.BREWHOUSE && room.kind != Kind.INFIRMARY) {
+					continue;
+				}
+				int a = (room.a0 + room.a1) / 2;
+				int oc = r.outerC() + (r.outerC() < r.courtC() ? -1 : 1);
+				int x = r.x(a, oc);
+				int z = r.z(a, oc);
+				if (this.roof.covers(x, z)) {
+					this.skyline = Math.max(this.skyline, dev.voidmc.hearth.build.kit.Chimneys.stack(this.d, x, z, this.plate + 1, this.roof,
+						Math.min(this.top, this.roof.ridgeY + 1)));
+				}
+			}
+		}
 		// the walls under the merged surface where it rose over another range's plate (the inner corners)
 		for (Range r : this.ranges) {
 			if (r == main) {
@@ -1403,7 +1496,12 @@ final class Precinct {
 						int fx = c[0] + Dirs.dx(in);
 						int fz = c[1] + Dirs.dz(in);
 						if (free(c[0], y, c[1]) && this.d.isEmpty(fx, y, fz) && this.d.isSolid(fx, y - 1, fz) && !kept(c[0], y, c[1])) {
-							Furniture.workstation(this.d, job, c[0], y, c[1], in);
+							if (job == JobType.HEALER) {
+								Studies.counter(this.d, c[0], y, c[1], in, 0);
+								this.d.poi(PoiType.JOB_SITE, fx, y, fz, in.getOpposite(), job);
+							} else {
+								Furniture.workstation(this.d, job, c[0], y, c[1], in);
+							}
 							keep(fx, y, fz);
 							this.jobs.add(job);
 							return;
@@ -1414,7 +1512,7 @@ final class Precinct {
 		}
 	}
 
-	/** Furnishes every room for what it is. */
+	/** Furnishes every room for what it is, then lights it to the rule. */
 	void furnish() {
 		for (Range r : this.ranges) {
 			for (List<Room> storey : r.rooms) {
@@ -1423,9 +1521,36 @@ final class Precinct {
 				}
 			}
 		}
+		for (Range r : this.ranges) {
+			for (List<Room> storey : r.rooms) {
+				for (Room room : storey) {
+					int[] q = room.rect();
+					dev.voidmc.hearth.build.kit.light.Lighting.room(this.d, q[0], q[1], q[2], q[3], room.y());
+				}
+			}
+		}
+	}
+
+	/** At least one sickbed: where the infirmary had no room for one, the first bed of the dormitory serves. */
+	void ensureSickbed() {
+		if (this.sickbeds > 0 || this.bedFeet.isEmpty()) {
+			return;
+		}
+		int[] f = this.bedFeet.get(0);
+		this.d.poi(PoiType.SICKBED, f[0], f[1], f[2], Direction.values()[f[3]]);
+		this.sickbeds++;
 	}
 
 	private void furnish(Room room) {
+		this.cur = plan(room);
+		try {
+			furnishKind(room);
+		} finally {
+			this.cur = null;
+		}
+	}
+
+	private void furnishKind(Room room) {
 		switch (room.kind) {
 			case GATE, TOWER -> {
 			}
@@ -1458,17 +1583,67 @@ final class Precinct {
 		Rooms.Room rr = new Rooms.Room(r[0], r[1], r[2], r[3], room.y(), 3);
 		for (int z = r[1]; z <= r[3]; z++) {
 			for (int x = r[0]; x <= r[2]; x++) {
-				if (kept(x, room.y(), z)) {
-					rr.keepArea(x, z, x, z);
+				if (kept(x, room.y(), z) && this.d.isEmpty(x, room.y(), z)) {
+					rr.keep(x, z);
 				}
 			}
 		}
 		Rooms.furnish(this.d, rr, type, beds, job);
 	}
 
-	/** A free cell to stand furniture on: inside, empty, on a floor, not kept for a way. */
+	/** The room being furnished, as a plan of what stays reachable (null outside furnishing). */
+	private Rooms.Room cur;
+
+	/**
+	 * A free cell to stand furniture on: empty, on a floor, not kept for a way, and (while a room is being furnished)
+	 * taken for good only if every door and kept cell of the room can still be walked to with it gone.
+	 */
 	boolean free(int x, int y, int z) {
-		return !kept(x, y, z) && this.d.isEmpty(x, y, z) && this.d.isSolid(x, y - 1, z) && this.d.isEmpty(x, y + 1, z);
+		if (kept(x, y, z) || !this.d.isEmpty(x, y, z) || !this.d.isSolid(x, y - 1, z) || !this.d.isEmpty(x, y + 1, z)) {
+			return false;
+		}
+		return this.cur == null || !this.cur.inside(x, z) || this.cur.claim(x, z);
+	}
+
+	/** The reach plan of a room: what is already built is taken, holes are taken, kept cells must stay reachable. */
+	private Rooms.Room plan(Room room) {
+		int[] q = room.rect();
+		int y = room.y();
+		Rooms.Room rr = new Rooms.Room(q[0], q[1], q[2], q[3], y, 3);
+		for (int z = q[1]; z <= q[3]; z++) {
+			for (int x = q[0]; x <= q[2]; x++) {
+				if (kept(x, y, z) && this.d.isEmpty(x, y, z)) {
+					rr.keep(x, z);
+				} else if (!this.d.isEmpty(x, y, z) && !(this.d.get(x, y, z) != null && this.d.get(x, y, z).getBlock() instanceof net.minecraft.world.level.block.LadderBlock)
+					|| !this.d.isSolid(x, y - 1, z)) {
+					rr.block(x, z);
+				}
+			}
+		}
+		// the doors in the room's walls: their inside cells must stay reachable
+		Range r = room.range;
+		for (int a = room.a0; a <= room.a1; a++) {
+			for (int c : new int[]{r.c0(), r.c1()}) {
+				int wc = c == r.c0() ? c - 1 : c + 1;
+				if (isDoor(r.x(a, wc), y, r.z(a, wc)) && this.d.isEmpty(r.x(a, c), y, r.z(a, c))) {
+					rr.keep(r.x(a, c), r.z(a, c));
+				}
+			}
+		}
+		for (int c = r.c0(); c <= r.c1(); c++) {
+			for (int a : new int[]{room.a0, room.a1}) {
+				int wa = a == room.a0 ? a - 1 : a + 1;
+				if (isDoor(r.x(wa, c), y, r.z(wa, c)) && this.d.isEmpty(r.x(a, c), y, r.z(a, c))) {
+					rr.keep(r.x(a, c), r.z(a, c));
+				}
+			}
+		}
+		return rr;
+	}
+
+	private boolean isDoor(int x, int y, int z) {
+		BlockState s = this.d.get(x, y, z);
+		return s != null && (s.getBlock() instanceof net.minecraft.world.level.block.DoorBlock || s.isAir());
 	}
 
 	/** The cells along the room's walls, each with the direction into the room; outer wall first, then the ends, the court wall. */
@@ -1545,6 +1720,9 @@ final class Precinct {
 			keep(wx, y, wz);
 			if (sick) {
 				this.d.poi(PoiType.SICKBED, fx, y, fz, in.getOpposite());
+				this.sickbeds++;
+			} else {
+				this.bedFeet.add(new int[]{fx, y, fz, in.getOpposite().ordinal()});
 			}
 			placed++;
 			k++;
@@ -1577,13 +1755,9 @@ final class Precinct {
 			Studies.counter(this.d, c[0], y, c[1], in, 0);
 			this.d.poi(PoiType.JOB_SITE, fx, y, fz, in.getOpposite(), JobType.HEALER);
 			keep(fx, y, fz);
+			this.jobs.add(JobType.HEALER);
 			station = true;
 			break;
-		}
-		if (!station) {
-			int a = room.a0;
-			int c = r.courtC();
-			this.d.poi(PoiType.JOB_SITE, r.x(a, c), y, r.z(a, c), r.court.getOpposite(), JobType.HEALER);
 		}
 		for (int[] c : along(room, false, false, true)) {
 			if (free(c[0], y, c[1])) {

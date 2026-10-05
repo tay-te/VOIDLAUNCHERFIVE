@@ -95,15 +95,18 @@ final class PrecinctChurch {
 				: new double[]{Math.max(0.5, Math.min(1.0, r.pitch)), 0.5};
 			hn = -1;
 			pitch = 0.5;
-			for (int pass = 0; pass < 2 && hn < 0; pass++) {
-				int budget = top - (turret ? 7 : 5);
-				if (pass == 1) {
-					turret = false;
-					budget = top - 1;
+			// a turret only on a church that still rises well over the ranges; else as tall as the bell-cote allows
+			for (int pass = 0; pass < 3 && hn < 0; pass++) {
+				int budget = pass == 0 ? top - 7 : pass == 1 ? top - 5 : top - 1;
+				int least = pass < 2 ? rangeTop + 3 : 0;
+				turret = pass == 0 && turret;
+				if (pass == 0 && !turret) {
+					continue;
 				}
 				for (double pt : pitches) {
-					for (int h = Math.min(13, p.plate + 5); h >= Math.max(6, Math.min(p.plate + 2, 9)); h--) {
-						if (h - 1 + 1 + pt * run <= budget) {
+					for (int h = Math.min(13, p.plate + 6); h >= Math.max(6, Math.min(p.plate + 2, 9)); h--) {
+						double ridge = h - 1 + 1 + pt * run;
+						if (ridge <= budget && ridge >= least) {
 							hn = h;
 							pitch = pt;
 							break;
@@ -132,7 +135,7 @@ final class PrecinctChurch {
 		};
 		Body nave = new Body(x0, zN0, x1, zN1, 0, new int[]{hn}, false, false);
 		Groundwork.footings(d, x0, zN0, x1, zN1, -1);
-		Halls.floor(d, x0 + 1, zN0 + 1, x1 - 1, zN1 - 1, -1, true);
+		p.groundFloor(x0 + 1, zN0 + 1, x1 - 1, zN1 - 1);
 		Walls.storey(d, nave, 0, new Facade(), kind);
 		d.carve(x0 + 1, 0, zN0 + 1, x1 - 1, plate + 14, zN1 - 1);
 		Set<Long> east = karst ? Set.of() : ChapelBohemian.eastEnd(cx, zN1, zA, ra, apse, zC1);
@@ -146,7 +149,7 @@ final class PrecinctChurch {
 			for (long k : ChapelBohemian.interior(east)) {
 				int x = (int) (k >> 32);
 				int z = (int) k;
-				Halls.floor(d, x, z, x, z, -1, true);
+				p.groundFloor(x, z, x, z);
 				d.carve(x, 0, z, x, plateC + 6, z);
 			}
 			// the slot between the chancel and the back range filled solid (no dead pocket between the walls)
@@ -266,6 +269,7 @@ final class PrecinctChurch {
 		if (westTower) {
 			int ridge = roof != null ? roof.ridgeY : plate + 2;
 			skyline = Math.max(skyline, ChapelWestern.tower(d, t, cx - 2, zFront, 0, plate, ridge, maxH, tier, true));
+			p.groundFloor(cx - 1, zFront + 1, cx + 1, zFront + 3);
 			boolean masonry = t.masonry() || kind == WallKind.STONE || kind == WallKind.PLASTER;
 			Arches.arcade(d, front, new int[]{front.index(cx - 2), front.index(cx + 2)}, 0, 3, masonry ? Arches.Kind.ROUND : Arches.Kind.BRACED,
 				masonry ? d.mat(Role.WALL_ACCENT).full() : d.mat(Role.FRAME).log(Direction.Axis.Y), null);

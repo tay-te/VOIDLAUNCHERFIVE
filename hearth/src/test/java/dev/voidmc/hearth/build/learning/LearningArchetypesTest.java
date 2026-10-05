@@ -64,6 +64,9 @@ class LearningArchetypesTest {
 		REQUIRED.put("civic/observatory", EnumSet.of(PoiType.JOB_SITE, PoiType.LECTERN, PoiType.VIEWPOINT, PoiType.STORAGE, PoiType.DOOR));
 		REQUIRED.put("civic/monastery", EnumSet.of(PoiType.JOB_SITE, PoiType.ALTAR, PoiType.LECTERN, PoiType.BED, PoiType.SEAT, PoiType.STORAGE, PoiType.DOOR,
 			PoiType.GATE));
+		REQUIRED.put("civic/convent", EnumSet.of(PoiType.JOB_SITE, PoiType.ALTAR, PoiType.BED, PoiType.SICKBED, PoiType.SEAT, PoiType.STORAGE, PoiType.DOOR,
+			PoiType.GATE));
+		REQUIRED.put("civic/university", EnumSet.of(PoiType.JOB_SITE, PoiType.LECTERN, PoiType.BED, PoiType.SEAT, PoiType.STORAGE, PoiType.DOOR, PoiType.GATE));
 		REQUIRED.put("work/alchemist_tower", EnumSet.of(PoiType.JOB_SITE, PoiType.LECTERN, PoiType.BED, PoiType.STORAGE, PoiType.VIEWPOINT, PoiType.DOOR));
 	}
 
