@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.smithing.hundred_hammers"
+	},
+	"description": {
+		"translate": "mettle.perk.smithing.hundred_hammers.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.smithing.hundred_hammers.hint"
+	},
+	"feat": {
+		"counter": "smithing_iron_pieces",
+		"target": 100
+	},
+	"order": 13
+}

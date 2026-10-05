@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.smithing.black_iron"
+	},
+	"description": {
+		"translate": "mettle.perk.smithing.black_iron.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.smithing.black_iron.hint"
+	},
+	"feat": {
+		"counter": "smithing_netherite_upgrades",
+		"target": 9
+	},
+	"order": 14
+}

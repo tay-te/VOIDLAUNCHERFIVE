@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "path",
+	"tier": 3,
+	"path": "a",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.smithing.proofed"
+	},
+	"description": {
+		"translate": "mettle.perk.smithing.proofed.description"
+	},
+	"order": 4
+}

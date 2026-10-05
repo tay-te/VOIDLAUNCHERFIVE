@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "teaching",
+	"name": {
+		"translate": "mettle.perk.smithing.folded_steel"
+	},
+	"description": {
+		"translate": "mettle.perk.smithing.folded_steel.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.smithing.folded_steel.hint"
+	},
+	"order": 16
+}

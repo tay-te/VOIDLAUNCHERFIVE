@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "a",
+	"name": {
+		"translate": "mettle.perk.smithing.reforge"
+	},
+	"description": {
+		"translate": "mettle.perk.smithing.reforge.description"
+	},
+	"order": 10
+}
