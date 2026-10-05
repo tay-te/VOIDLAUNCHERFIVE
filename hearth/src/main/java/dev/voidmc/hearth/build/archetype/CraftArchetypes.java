@@ -1,6 +1,13 @@
 package dev.voidmc.hearth.build.archetype;
 
 import dev.voidmc.hearth.build.ArchetypeRegistry;
+import dev.voidmc.hearth.build.archetype.commerce.CountingHouse;
+import dev.voidmc.hearth.build.archetype.work.Apiary;
+import dev.voidmc.hearth.build.archetype.work.Butcher;
+import dev.voidmc.hearth.build.archetype.work.Chandler;
+import dev.voidmc.hearth.build.archetype.work.DyeWorks;
+import dev.voidmc.hearth.build.archetype.work.PaperMill;
+import dev.voidmc.hearth.build.archetype.work.Tannery;
 
 /** Craft workshops of the chains: tannery, butcher, chandler, dye works, paper mill, apiary, counting house. Owned by the craft architect (stage B); see docs/LIVING_WORLD.md §8.5. */
 public final class CraftArchetypes {
@@ -8,5 +15,12 @@ public final class CraftArchetypes {
 	}
 
 	public static void register(ArchetypeRegistry registry) {
+		registry.register(new Tannery());
+		registry.register(new Butcher());
+		registry.register(new Chandler());
+		registry.register(new DyeWorks());
+		registry.register(new PaperMill());
+		registry.register(new Apiary());
+		registry.register(new CountingHouse());
 	}
 }

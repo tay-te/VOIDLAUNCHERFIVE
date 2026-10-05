@@ -1,0 +1,26 @@
+// Gradle init script: registers `craftPreview` (large close, street, back and far views of the craft workshops, and a
+// grid sheet per archetype) without touching the shared build files. From hearth/:
+//
+//   ./gradlew -I docs/buildings/craft_preview.gradle craftPreview -Parchetype=work/tannery -Pstyle=temperate,desert -Pseeds=2 -Pterrain=flat
+//   ./gradlew -I docs/buildings/craft_preview.gradle craftPreview -Parchetype=work/chandler -Pstyle=all -Pseeds=1 -Pparams="grid_only=true"
+//
+// Output: build/previews/craft/. See dev.voidmc.hearth.gametest.craft.CraftPreview for the arguments.
+rootProject { p ->
+	p.afterEvaluate {
+		p.tasks.register('craftPreview', JavaExec) {
+			group = 'hearth'
+			description = 'Renders the craft workshops to build/previews/craft/*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.craft.CraftPreview'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx3g'
+			args = [
+				p.findProperty('archetype') ?: 'work/tannery',
+				p.findProperty('style') ?: 'temperate',
+				p.findProperty('seeds') ?: '2',
+				p.findProperty('terrain') ?: 'flat',
+				p.layout.buildDirectory.dir('previews/craft').get().asFile.path,
+				p.findProperty('params') ?: ''
+			]
+		}
+	}
+}
