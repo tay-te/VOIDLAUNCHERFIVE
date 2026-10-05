@@ -148,7 +148,7 @@ public final class Observatory implements Archetype {
 
 		// --- the heights: the dome over the observing room, the floors under it
 		int domeR = p.r;
-		int domeRows = domeR >= 5 ? 8 : domeR >= 4 ? 7 : domeR >= 3 ? 5 : 3;
+		int domeRows = domeRows(0, 0, domeR).size();
 		p.wallTop = top - domeRows - 1;
 		int ft = p.wallTop - 3;
 		List<Integer> fl = new ArrayList<>();
@@ -191,6 +191,11 @@ public final class Observatory implements Archetype {
 		}
 		for (int k = 1; k < p.floors.length; k++) {
 			course(d, p.foot, p.floors[k] - 1, dress);
+		}
+		if (p.cut == 0) {
+			// the observing room a round drum on the square tower's head (the dome springs from a drum, not off a box's
+			// corners): the square's corners outside it open to the walk round the drum
+			drum(d, p, body, dress, ft);
 		}
 		// the floors
 		for (int k = 0; k < p.floors.length; k++) {
@@ -388,7 +393,8 @@ public final class Observatory implements Archetype {
 					}
 				}
 				if (edge) {
-					boolean pier = angleOf(all, x, z) || ((x + z) & 1) == 0;
+					// a balustrade, piers only at its angles (piers every other block read as battlements)
+					boolean pier = angleOf(all, x, z);
 					d.set(x, ft, z, pier ? dress.full() : baluster);
 					if (angleOf(all, x, z)) {
 						d.set(x, ft + 1, z, dress.has(Form.SLAB) ? dress.slab(SlabType.BOTTOM) : dress.full());
@@ -418,19 +424,11 @@ public final class Observatory implements Archetype {
 			d.inStage(StageKind.OPENINGS, () -> d.door(p.cx, ft, fz, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
 				DoorHingeSide.LEFT));
 		}
-		// the dome: copper (the roof's terracotta in the south), springing from the walls' last course
-		Stone sheet = t == Tradition.MEDITERRANEAN && Stone.stony(d, Role.ROOF) ? Stone.of(d, Role.ROOF) : Stone.copper(d);
+		// the dome: a smooth hemisphere of one sheet, springing from the drum's last course
+		Stone sheet = sheet(d);
 		List<Set<Long>> rows = domeRows(p.cx, p.cz, rr);
 		int domeTop = Shapes.stack(d, p.cx, p.cz, p.wallTop + 1, rows, sheet.full(), sheet);
 		peak = Math.max(peak, domeTop);
-		// on a square tower the dome's springing leaves the corners: a pinnacle on each
-		if (p.cut == 0) {
-			for (int[] c : new int[][]{{p.cx - rr, p.cz - rr}, {p.cx + rr, p.cz - rr}, {p.cx - rr, p.cz + rr}, {p.cx + rr, p.cz + rr}}) {
-				if (d.isEmpty(c[0], p.wallTop + 1, c[1])) {
-					peak = Math.max(peak, Details.pinnacle(d, c[0], p.wallTop + 1, c[1], 1, dress, false));
-				}
-			}
-		}
 		// the slit: the front of the dome opened from its springing nearly to the crown
 		try (var s = d.stage(StageKind.ROOF)) {
 			for (int y = p.wallTop + 1; y <= domeTop - 1; y++) {
@@ -474,32 +472,68 @@ public final class Observatory implements Archetype {
 	}
 
 	/**
-	 * The rows of a dome over half-width r, laid to a hemisphere's profile: the springing held, the shoulder rounded by
-	 * cutting the octagon's corners further before it draws in, the crown flattened.
+	 * The rows of a dome over half-width r, laid to a hemisphere's profile ({@link Shapes#domeRows}: as tall as half its
+	 * width, not a heap), springing in the drum's round outline. Every step is a stair (the stack's smoothing), so the
+	 * dome reads as one smooth shell.
 	 */
 	static List<Set<Long>> domeRows(int cx, int cz, int r) {
-		List<Set<Long>> rows = new ArrayList<>();
-		if (r >= 5) {
-			rows.add(Shapes.oct(cx, cz, 5, 3));
-			rows.add(Shapes.oct(cx, cz, 5, 4));
-			rows.add(Shapes.oct(cx, cz, 4, 3));
-			rows.add(Shapes.oct(cx, cz, 4, 4));
-			rows.add(Shapes.oct(cx, cz, 3, 3));
-			rows.add(Shapes.oct(cx, cz, 2, 2));
-			rows.add(Shapes.oct(cx, cz, 1, 0));
-			rows.add(Shapes.oct(cx, cz, 0, 0));
-		} else if (r == 4) {
-			rows.add(Shapes.oct(cx, cz, 4, 2));
-			rows.add(Shapes.oct(cx, cz, 4, 3));
-			rows.add(Shapes.oct(cx, cz, 3, 2));
-			rows.add(Shapes.oct(cx, cz, 3, 3));
-			rows.add(Shapes.oct(cx, cz, 2, 1));
-			rows.add(Shapes.oct(cx, cz, 1, 0));
-			rows.add(Shapes.oct(cx, cz, 0, 0));
-		} else {
-			rows.addAll(Shapes.domeRows(cx, cz, r));
+		return Shapes.domeRows(cx, cz, r);
+	}
+
+	/** The round outline of the observing room's drum (the octagon the round towers stand on). */
+	static Set<Long> drumOutline(Plan p) {
+		return Shapes.oct(p.cx, p.cz, p.r, p.r >= 5 ? 3 : 2);
+	}
+
+	/**
+	 * The observing room's walls on a square tower redrawn as a round drum from its floor {@code ft} to the walls' top: the
+	 * square's corner cells outside the drum cleared to the deck, a balustrade on the square's edge where no gallery
+	 * runs round it.
+	 */
+	private static void drum(Draft d, Plan p, Stone body, Stone dress, int ft) {
+		Set<Long> drum = drumOutline(p);
+		Mat rail = d.mat(Role.RAILING);
+		// the drum in the light render where the style has one, so the lead or copper of the dome reads off it
+		Stone render = Stone.stony(d, Role.WALL) ? Stone.of(d, Role.WALL).crisp() : body;
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (long c : p.foot) {
+				int x = (int) (c >> 32);
+				int z = (int) c;
+				boolean inDrum = drum.contains(c);
+				boolean drumWall = inDrum && onRim(drum, x, z);
+				for (int y = ft; y <= p.wallTop; y++) {
+					if (!inDrum) {
+						d.set(x, y, z, Blocks.AIR.defaultBlockState());
+					} else if (drumWall) {
+						d.set(x, y, z, angleOf(drum, x, z) ? dress.full() : render.full());
+					}
+				}
+				// the corners' deck: the walls' last course under them is solid; a rail on their outer edge
+				if (!inDrum && !p.outer && p.wall(x, z)) {
+					d.set(x, ft, z, rail.has(Form.FENCE) ? rail.fence() : dress.wallOrFull());
+				}
+			}
 		}
-		return rows;
+	}
+
+	private static boolean onRim(Set<Long> s, int x, int z) {
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (!s.contains(Shapes.cell(x + Dirs.dx(dir), z + Dirs.dz(dir)))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * What the dome is sheeted in, one material laid crisp: lead in the cool, slated north and in Bohemia (where teal
+	 * copper on every dome would turn a skyline turquoise), patinated copper in the mountains, on the coasts and in the
+	 * tropics.
+	 */
+	static Stone sheet(Draft d) {
+		Culture c = d.style().culture();
+		boolean copper = c == Culture.ALPINE || c == Culture.MARITIME || c == Culture.BAYOU || c == Culture.TROPICAL;
+		return copper ? Stone.copper(d).crisp() : Stone.fixed(d, StageKind.ROOF, "minecraft:polished_andesite");
 	}
 
 	/** A cell of a shape at a turn of its outline. */
