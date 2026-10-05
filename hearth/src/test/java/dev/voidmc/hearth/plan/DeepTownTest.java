@@ -68,7 +68,15 @@ class DeepTownTest {
 			assertTrue(f == Integer.MIN_VALUE || Math.abs(s.floorY() - f) <= 12, "a deep plot stands on the realm floor: " + s.archetype() + " at "
 				+ s.origin() + " floor " + f);
 			assertTrue(s.params().contains("local"), "deep plots build in the realm's own materials");
+			if (!s.archetype().getPath().startsWith("infra/")) {
+				// the realm's character and the vault over the plot (requests/b-deep.md §1-2)
+				assertEquals(caved.theRealm().character(), s.params().getStringOr("character", ""), "a deep plot knows its realm: " + s.archetype());
+				int ceiling = s.params().getIntOr("ceiling_y", Integer.MIN_VALUE);
+				assertTrue(ceiling > s.floorY(), "a deep plot knows the vault over it: " + s.archetype() + " " + s.params());
+				assertTrue(s.maxHeight() <= Math.max(1, ceiling - s.floorY() - 1), "a deep plot stays under its vault: " + s.archetype());
+			}
 		}
+		assertTrue(lift.params().contains("ceiling_y"), "the lift knows where its tower meets the rock");
 		assertTrue(deep >= 6, "the deep town has streets and buildings: " + deep);
 		assertTrue(sim.settlement.plots().stream().anyMatch(p -> p.spec().archetype().equals(Archetypes.DEEP_HALL)), "the deep hall");
 		assertTrue(sim.settlement.plots().stream().anyMatch(p -> p.spec().archetype().equals(Archetypes.DEEP_DWELLING)), "deep dwellings");
