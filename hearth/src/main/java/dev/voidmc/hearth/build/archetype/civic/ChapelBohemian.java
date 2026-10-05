@@ -43,11 +43,12 @@ import net.minecraft.world.level.block.state.properties.Half;
  * runs back under a steep roof to a narrower chancel that ends in a three-sided apse (a buttress at each angle, a light
  * in each face) under its own lower hipped roof.
  *
- * <p>A town's church (and some villages') raises a tall west tower in front of the nave, half-engaged in it: a portal
- * in its foot, string courses over little arched corbel tables between its stages, a clock under the belfry, an open
- * belfry of arches with its bell, and a slender needle spire with a pinnacle at each corner, the crown Bohemian towers
- * carry. Where the plot is too short for that it stands beside the nave's front; a village's church carries a slender
- * shingled turret on the ridge over its west gable instead, and its portal and a round window are in the gable.
+ * <p>Every church with the room raises a west tower in front of the nave, half-engaged in it, a portal in its foot
+ * ({@link Bohemian}): a town's (and some villages') tall, with a clock under the belfry and a timber gallery under a dark
+ * helm or an onion; a village's squat, its belfry on the nave's ridge under a broad pyramidal helm or an onion, as the
+ * village churches of Bohemia stand. Where the plot is too short the tower stands beside the nave's front, or, on the
+ * shortest plots, a three-square turret with a squat helm rides the ridge over the west gable, and the portal and a round
+ * window are in the gable. The roof is a block per cell, a true gable over the render.
  *
  * <p>Inside: pews either side of a runner to the chancel arch, the font by the door, lanterns from tie beams, the altar
  * in the apse with candles and the priest's lectern, banners of the church's colours between the windows; a churchyard
@@ -68,17 +69,24 @@ final class ChapelBohemian {
 		int maxH = d.maxHeight();
 
 		// --- the plan: nave width, a tower or a turret, the chancel and its apse
-		boolean wantTower = d.param("tower", tier >= 3 || d.chance(0.3));
+		// a town's church raises a tall tower with a gallery; a village's a squat one (Bohemia's village churches nearly all
+		// have their west tower); only a plot too short or too low for either falls back to a turret on the ridge
+		boolean tall = d.param("tower", tier >= 3 || d.chance(0.3));
 		int zF = dp >= 16 ? 2 : 1;
 		int zC1 = dp - 2;
 		Bell bell = Bell.TURRET;
 		int nw = w >= 11 ? 9 : 7;
 		boolean apse = true;
 		int zN1 = naveEnd(dp, zC1, nw, true);
-		if (wantTower && maxH >= 24) {
-			if (zN1 - 1 - (zF + 5) + 1 >= 3) {
+		// rows of nave the tower must leave behind it (a squat tower makes do with a shorter nave)
+		int behind = tall ? 3 : 2;
+		if (tall && maxH < 24 || maxH < 20) {
+			tall = false;
+		}
+		if (maxH >= 20) {
+			if (zN1 - 1 - (zF + 5) + 1 >= behind) {
 				bell = Bell.FRONT;
-			} else if (naveEnd(dp, zC1, nw, false) - 1 - (zF + 5) + 1 >= 3) {
+			} else if (naveEnd(dp, zC1, nw, false) - 1 - (zF + 5) + 1 >= behind) {
 				bell = Bell.FRONT;
 				apse = false;
 				zN1 = naveEnd(dp, zC1, nw, false);
@@ -111,27 +119,20 @@ final class ChapelBohemian {
 
 		// --- heights: walls, then the steepest roof that leaves the tower its belfry and its crown
 		int base = Grounds.raisedBase(d, nx0, nx1, bell == Bell.FRONT ? zF : zN0);
-		int hn = tier <= 2 ? 7 : tier == 3 ? 8 : 9;
+		int hn = tier <= 2 ? 6 : tier == 3 ? 7 : 8;
 		int eaves = 1;
 		double run = nw / 2.0 + eaves - 0.5;
-		int ridgeMax = bell == Bell.TURRET ? maxH - 1 - 7 : maxH - 1 - 10 - 6;
-		// a whole block or two per cell lays clean courses; a pitch between them terraces the roof in lips. The steep
-		// Gothic roof (two per cell) where the plot's height allows it, a course or two off the walls if that buys it;
-		// else a plain one, and only at the lowest heights a flatter one
-		int hn0 = hn;
-		double pitch = 2.0;
-		while (base + hn - 1 + 1 + pitch * run > ridgeMax && hn > hn0 - 2) {
+		// the tower's belfry and cap (or the turret's) want this much over the nave's ridge
+		int ridgeMax = bell == Bell.TURRET ? maxH - 1 - 7 : tall ? maxH - 1 - 10 - 6 : maxH - 1 - 13;
+		// a block a cell lays the roof in clean stairs with a true gable over the render; two a cell lays every course as a
+		// stair on a block and reads, gable on, as a stepped stack of slabs. Walls a course or two lower before a flatter
+		// pitch, and only at the lowest heights one between
+		double pitch = 1.0;
+		while (base + hn - 1 + 1 + pitch * run > ridgeMax && hn > 5) {
 			hn--;
 		}
 		if (base + hn - 1 + 1 + pitch * run > ridgeMax) {
-			hn = hn0;
-			pitch = 1.0;
-			while (base + hn - 1 + 1 + pitch * run > ridgeMax && hn > 5) {
-				hn--;
-			}
-			if (base + hn - 1 + 1 + pitch * run > ridgeMax) {
-				pitch = Math.max(0.75, (ridgeMax - (base + hn - 1) - 1) / run);
-			}
+			pitch = Math.max(0.75, (ridgeMax - (base + hn - 1) - 1) / run);
 		}
 		int plate = base + hn - 1;
 		int hc = hn - 1;
@@ -259,10 +260,10 @@ final class ChapelBohemian {
 		// --- the bell
 		int skyline = Math.max(ridge, eastTop);
 		switch (bell) {
-			case FRONT -> skyline = Math.max(skyline, tower(d, cx - 2, zF, base, plate, ridge, maxH, tier, null));
+			case FRONT -> skyline = Math.max(skyline, tower(d, cx - 2, zF, base, plate, ridge, maxH, tier, null, tall));
 			case SIDE -> {
 				int tx0 = right ? nx1 : nx0 - 4;
-				skyline = Math.max(skyline, tower(d, tx0, zF, base, plate, ridge, maxH, tier, right ? Dirs.LEFT : Dirs.RIGHT));
+				skyline = Math.max(skyline, tower(d, tx0, zF, base, plate, ridge, maxH, tier, right ? Dirs.LEFT : Dirs.RIGHT, tall));
 				// the way from the nave into the tower's foot
 				int wx = right ? nx1 : nx0;
 				for (int y = base; y < base + 3; y++) {
@@ -271,7 +272,7 @@ final class ChapelBohemian {
 			}
 			case TURRET -> {
 				if (roof.covers(cx, zN0 + 2) && ridge + 7 <= maxH - 1) {
-					skyline = Math.max(skyline, ChapelWestern.turret(d, Tradition.TIMBER, cx, zN0 + 1, plate, ridge, maxH));
+					skyline = Math.max(skyline, Bohemian.turret(d, cx, zN0 + 1, plate, ridge, maxH));
 				} else {
 					int apex = roof.surfaceY(cx, zN0);
 					if (apex != Integer.MIN_VALUE) {
@@ -540,14 +541,23 @@ final class ChapelBohemian {
 	 * through its back face into the nave; a side tower's face against the nave left blind. Clocks toward the street and
 	 * over the roof behind. Returns the top.
 	 */
-	static int tower(Draft d, int x0, int z0, int base, int plate, int ridge, int maxH, int tier, Direction shared) {
+	static int tower(Draft d, int x0, int z0, int base, int plate, int ridge, int maxH, int tier, Direction shared, boolean tall) {
 		boolean west = shared == null;
-		int yb = Bohemian.belfryFloor(plate, ridge, maxH);
 		int doorTop = Math.max(base + 5, Math.min(plate + 1, base + 7));
 		Side fr = Side.of(x0, z0, x0 + 4, z0 + 4, Dirs.FRONT);
 		Set<Direction> blind = west ? Set.of(Dirs.BACK) : Set.of(shared);
-		Set<Direction> clocks = tier >= 3 || d.chance(0.4) ? (yb - 3 > ridge ? Set.of(Dirs.FRONT, Dirs.BACK) : Set.of(Dirs.FRONT)) : Set.of();
-		int top = Bohemian.tower(d, x0, z0, base, doorTop, yb, maxH, tier, blind, clocks, new int[]{x0 + 3, z0 + 1}, Dirs.BACK);
+		int top;
+		if (tall) {
+			int yb = Bohemian.belfryFloor(plate, ridge, maxH);
+			Set<Direction> clocks = tier >= 3 || d.chance(0.4) ? (yb - 3 > ridge ? Set.of(Dirs.FRONT, Dirs.BACK) : Set.of(Dirs.FRONT)) : Set.of();
+			top = Bohemian.tower(d, x0, z0, base, doorTop, yb, maxH, tier, blind, clocks, new int[]{x0 + 3, z0 + 1}, Dirs.BACK);
+		} else {
+			// the village's squat tower: its belfry on the nave's ridge, a low belfry, the cap straight off the cornice
+			int yb = Math.max(Math.max(plate + 3, doorTop + 2), Math.min(ridge, maxH - 1 - 13));
+			Set<Direction> clocks = d.chance(0.3) && yb - 2 > doorTop + 1 ? Set.of(Dirs.FRONT) : Set.of();
+			Bohemian.Cap cap = maxH - 1 - (yb + 5) >= 12 ? Bohemian.villageCap(d) : Bohemian.Cap.PYRAMID;
+			top = Bohemian.tower(d, x0, z0, base, doorTop, yb, 5, maxH, tier, blind, clocks, new int[]{x0 + 3, z0 + 1}, Dirs.BACK, false, cap, false);
+		}
 		Stone dress = Stone.dressing(d);
 		Paint glass = d.mat(Role.GLASS).pane();
 		if (west) {
