@@ -42,7 +42,7 @@ public interface MapWidget {
 	default void showLayer(String layer) {
 	}
 
-	/** Shows the underground at height {@code y} (the 16-block band holding it). */
+	/** Shows the underground at height {@code y} (the 8-block slice holding it). */
 	default void showDepth(int y) {
 	}
 }

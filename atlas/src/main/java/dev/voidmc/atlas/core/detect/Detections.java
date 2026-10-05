@@ -3,14 +3,13 @@ package dev.voidmc.atlas.core.detect;
 import dev.voidmc.atlas.core.Coords;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
 /**
  * Weighs what several chunks hold together, for the structures one chunk cannot show alone. A village: a bell with at
- * least two beds and a job site within {@value #VILLAGE_REACH} blocks of it. A bell whose neighbours have not arrived
+ * least two beds (four bed blocks) and a job site within {@value #VILLAGE_REACH} blocks of it. A bell whose neighbours have not arrived
  * yet waits, and is judged again as they do. One per dimension; thread-safe.
  */
 public final class Detections {
@@ -40,20 +39,25 @@ public final class Detections {
 			}
 		}
 		// judge every waiting bell this chunk is in reach of
-		for (Iterator<int[]> it = this.pending.iterator(); it.hasNext(); ) {
-			int[] bell = it.next();
+		List<int[]> villages = new ArrayList<>();
+		for (int[] bell : this.pending) {
 			int bcx = bell[0] >> 4;
 			int bcz = bell[2] >> 4;
 			if (Math.abs(bcx - cx) > WINDOW || Math.abs(bcz - cz) > WINDOW) {
 				continue;
 			}
-			if (this.isVillage(bell[0], bell[2])) {
-				it.remove();
-				out.accept(new Sighting(StructureKind.VILLAGE, bell[0], bell[1], bell[2], bell[3] == 1));
-				// the village's other bells are part of it
-				this.pending.removeIf(o -> Math.hypot(o[0] - bell[0], o[2] - bell[2]) <= StructureKind.VILLAGE.mergeRadius);
-				return;
+			boolean near = false;
+			for (int[] v : villages) {
+				near |= Math.hypot(v[0] - bell[0], v[2] - bell[2]) <= StructureKind.VILLAGE.mergeRadius;
 			}
+			if (!near && this.isVillage(bell[0], bell[2])) {
+				villages.add(bell);
+				out.accept(new Sighting(StructureKind.VILLAGE, bell[0], bell[1], bell[2], bell[3] == 1));
+			}
+		}
+		// a village's other bells are part of it
+		for (int[] v : villages) {
+			this.pending.removeIf(o -> Math.hypot(o[0] - v[0], o[2] - v[2]) <= StructureKind.VILLAGE.mergeRadius);
 		}
 	}
 
@@ -91,7 +95,8 @@ public final class Detections {
 				jobs += t.jobs();
 			}
 		}
-		return beds >= 2 && jobs >= 1;
+		// a bed is two blocks: two beds (and somewhere to work) make a village, one is a player's camp
+		return beds >= 4 && jobs >= 1;
 	}
 
 	public synchronized int pendingBells() {

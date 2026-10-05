@@ -26,7 +26,7 @@ public record MapView(String layer, double centerX, double centerZ, double pixel
 	}
 
 	/**
-	 * A north-up view of the underground at height {@code y} (the 16-block band holding it), centred on a point. Only
+	 * A north-up view of the underground at height {@code y} (the 8-block slice holding it), centred on a point. Only
 	 * what the player has explored there is drawn.
 	 */
 	public static MapView underground(double centerX, double centerZ, double pixelsPerBlock, int y) {

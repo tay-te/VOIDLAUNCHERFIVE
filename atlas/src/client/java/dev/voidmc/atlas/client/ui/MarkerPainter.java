@@ -1,18 +1,30 @@
 package dev.voidmc.atlas.client.ui;
 
-import dev.voidmc.atlas.api.DiscoveryState;
 import dev.voidmc.atlas.api.Marker;
 import dev.voidmc.atlas.api.MarkerGlyph;
 import dev.voidmc.atlas.api.Place;
+import dev.voidmc.atlas.api.Source;
+import dev.voidmc.atlas.api.Tier;
 import dev.voidmc.atlas.client.render.MapRenderer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 /**
- * Draws markers the way the design does: structures as small dark tiles with a dim label, settlements as larger tiles
- * with a label chip, waypoints as pins whose tip is the spot, players as a ring with an initial. Labels that would
- * overlap a label already placed are left off (the selected and hovered marker always keep theirs).
+ * Draws markers as the design does ({@code atlas/marker}, {@code atlas/region label}):
+ *
+ * <ul>
+ *   <li><b>major</b> places on a 26 px tile, labelled from 1:4 inwards; <b>minor</b> places on a 16 px tile with the
+ *   glyph at 62%, labelled from 1:1 inwards or when hovered;</li>
+ *   <li><b>sighted</b> places as a hollow tile with a "?", labelled "Sighted" and their distance from 1:1;</li>
+ *   <li>the <b>selected</b> place as an ink tile with a dark glyph, and a hairline from the player to it;</li>
+ *   <li>the <b>names</b> of regions, lakes and rivers as quiet caps over the land, sized by the region, never boxed,
+ *   fading out between 1:1 and 2:1;</li>
+ *   <li>settlements, waypoints and other players as before (a pin whose tip is the spot, a ring with an initial).</li>
+ * </ul>
+ *
+ * Labels never overlap: majors are placed first, then minors, and the land's names give way to everything.
  */
 public final class MarkerPainter {
 	/** Where a marker ended up on screen: its anchor and the box that answers clicks. */
@@ -22,178 +34,323 @@ public final class MarkerPainter {
 		}
 	}
 
+	/** The names of water: a cool grey, Regular weight. */
+	public static final int WATER_INK = 0xFFB4BDC6;
+	/** A sighted tile's fill: the shell at 55%. */
+	private static final int HOLLOW = 0x8C0B0B0C;
+	private static final int HAIR_24 = 0x3DFFFFFF;
+	private static final int HAIR_30 = 0x4DFFFFFF;
+	private static final int HAIR_14 = 0x24FFFFFF;
+
+	private MarkerPainter() {
+	}
+
+	/** A label chip's box and words. */
+	private record Chip(float x0, float y0, float x1, float y1, boolean minor, String name, String meta) {
+	}
+
 	private static int rank(Marker m) {
 		return switch (m.style()) {
-			case LABEL -> -1;
-			case STRUCTURE -> m.glyph() == MarkerGlyph.UNKNOWN ? 0 : 1;
-			case SETTLEMENT -> 2;
-			case WAYPOINT -> 3;
-			case PLAYER -> 4;
+			case LABEL -> 0;
+			case STRUCTURE -> m.tier() == Tier.MAJOR ? 2 : 1;
+			case SETTLEMENT -> 3;
+			case WAYPOINT -> 4;
+			case PLAYER -> 5;
 		};
 	}
 
-	/** Water names are a muted blue; everything else on the land is ink. */
-	public static final int WATER_INK = 0xFF8095A6;
-
 	/**
-	 * Draws the markers over a drawn map; {@code compact} for the minimap (tiles only, smaller, no labels but the
-	 * hovered one).
+	 * Draws the markers over a drawn map at a zoom (physical pixels per block); {@code compact} for the minimap (tiles
+	 * only, a little smaller, no labels but the hovered one). {@code playerX/Z} for distances and the hairline to the
+	 * selected place.
 	 */
 	public static List<Placed> paint(Ui ui, MapRenderer.Frame f, List<Marker> markers, String selected, String hovered, boolean compact,
-		double playerX, double playerZ) {
+		double playerX, double playerZ, double zoom) {
 		List<Marker> order = new ArrayList<>(markers);
-		// labels first (they give way to the markers drawn over them), then by rank, major before minor
-		order.sort(Comparator.<Marker>comparingInt(m -> m.id().equals(selected) ? 9 : rank(m)).thenComparing(m -> m.tier().ordinal()));
-		List<float[]> labels = new ArrayList<>();
+		order.sort(Comparator.comparingInt(MarkerPainter::rank));
+		List<float[]> taken = new ArrayList<>();
 		List<Placed> placed = new ArrayList<>();
-		float s = compact ? 0.72F : 1;
-		// markers first claim their tiles, so the land's names keep clear of them
-		for (Marker m : order) {
-			if (m.style() == Marker.Style.LABEL) {
-				continue;
-			}
-			float ax = f.screenX(m.x(), m.z());
-			float ay = f.screenY(m.x(), m.z());
-			if (f.inside(ax, ay)) {
-				labels.add(new float[]{ax - 11 * s, ay - 11 * s, ax + 11 * s, ay + 11 * s});
-			}
-		}
-		for (Marker m : order) {
-			if (m.style() != Marker.Style.LABEL || compact) {
-				continue;
-			}
-			float ax = f.screenX(m.x(), m.z());
-			float ay = f.screenY(m.x(), m.z());
-			if (f.inside(ax, ay)) {
-				Placed p = label(ui, m, ax, ay, labels, m.id().equals(selected) || m.id().equals(hovered));
-				if (p != null) {
-					placed.add(p);
+		float s = compact ? 0.8F : 1;
+		// the hairline from the player to the selected place, under everything
+		if (selected != null) {
+			for (Marker m : order) {
+				if (m.id().equals(selected) && m.style() != Marker.Style.LABEL) {
+					float ax = f.screenX(m.x(), m.z());
+					float ay = f.screenY(m.x(), m.z());
+					float px = f.screenX(playerX, playerZ);
+					float py = f.screenY(playerX, playerZ);
+					ui.line(px, py, ax, ay, ui.hairline(), 0x38FFFFFF);
+					break;
 				}
 			}
 		}
-		labels.clear();
+		// every tile claims its square first, so no label covers a tile
 		for (Marker m : order) {
 			if (m.style() == Marker.Style.LABEL) {
 				continue;
 			}
 			float ax = f.screenX(m.x(), m.z());
 			float ay = f.screenY(m.x(), m.z());
-			if (!f.inside(ax, ay)) {
-				continue;
+			if (f.inside(ax, ay)) {
+				float r = (m.tier() == Tier.MAJOR || m.style() != Marker.Style.STRUCTURE ? 13 : 8) * s;
+				taken.add(new float[]{ax - r, ay - r, ax + r, ay + r});
 			}
+		}
+		// tiles and their labels: minors under majors, labels of majors placed before those of minors
+		List<Marker> tiles = new ArrayList<>();
+		for (Marker m : order) {
+			if (m.style() != Marker.Style.LABEL && f.inside(f.screenX(m.x(), m.z()), f.screenY(m.x(), m.z()))) {
+				tiles.add(m);
+			}
+		}
+		List<Marker> labelOrder = new ArrayList<>(tiles);
+		labelOrder.sort(Comparator.comparingInt((Marker m) -> m.id().equals(selected) || m.id().equals(hovered) ? 0 : 1)
+			.thenComparingInt(m -> -rank(m)));
+		java.util.Map<String, Chip> chips = new java.util.HashMap<>();
+		if (!compact) {
+			for (Marker m : labelOrder) {
+				boolean force = m.id().equals(selected) || m.id().equals(hovered);
+				float ax = f.screenX(m.x(), m.z());
+				float ay = f.screenY(m.x(), m.z());
+				Chip chip = labelBox(ui, m, ax, ay, s, zoom, force, playerX, playerZ);
+				if (chip != null && free(taken, chip.x0, chip.y0, chip.x1, chip.y1, force)) {
+					chips.put(m.id(), chip);
+				}
+			}
+		} else if (hovered != null) {
+			for (Marker m : tiles) {
+				if (m.id().equals(hovered)) {
+					Chip chip = labelBox(ui, m, f.screenX(m.x(), m.z()), f.screenY(m.x(), m.z()), s, zoom, true, playerX, playerZ);
+					if (chip != null) {
+						chips.put(m.id(), chip);
+					}
+				}
+			}
+		}
+		// the land's names go down before any tile, and only where nothing else is
+		if (!compact) {
+			for (Marker m : order) {
+				if (m.style() == Marker.Style.LABEL) {
+					float ax = f.screenX(m.x(), m.z());
+					float ay = f.screenY(m.x(), m.z());
+					if (f.inside(ax, ay)) {
+						Placed p = landName(ui, m, ax, ay, taken, zoom);
+						if (p != null) {
+							placed.add(p);
+						}
+					}
+				}
+			}
+		}
+		for (Marker m : tiles) {
+			float ax = f.screenX(m.x(), m.z());
+			float ay = f.screenY(m.x(), m.z());
 			boolean sel = m.id().equals(selected);
-			boolean hov = m.id().equals(hovered);
-			boolean label = !compact || hov || sel;
-			switch (m.style()) {
-				case STRUCTURE -> placed.add(structure(ui, m, ax, ay, s, sel, label, labels, sel || hov));
-				case SETTLEMENT -> placed.add(settlement(ui, m, ax, ay, s, sel, label, labels, sel || hov));
-				case WAYPOINT -> placed.add(waypoint(ui, m, ax, ay, s, sel, label, labels, sel || hov, playerX, playerZ));
-				case PLAYER -> placed.add(player(ui, m, ax, ay, s, label, labels, sel || hov));
-				case LABEL -> {
-				}
-			}
+			Chip chip = chips.get(m.id());
+			placed.add(switch (m.style()) {
+				case STRUCTURE -> tile(ui, m, ax, ay, s, sel, chip);
+				case SETTLEMENT -> settlement(ui, m, ax, ay, s, sel, chip);
+				case WAYPOINT -> waypoint(ui, m, ax, ay, s, sel, chip);
+				case PLAYER -> player(ui, m, ax, ay, s, chip);
+				case LABEL -> null;
+			});
 		}
+		placed.removeIf(java.util.Objects::isNull);
 		ui.flush();
 		return placed;
 	}
 
-	private static boolean free(List<float[]> labels, float x0, float y0, float x1, float y1, boolean force) {
+	private static boolean free(List<float[]> taken, float x0, float y0, float x1, float y1, boolean force) {
 		if (!force) {
-			for (float[] r : labels) {
+			for (float[] r : taken) {
 				if (x0 < r[2] && x1 > r[0] && y0 < r[3] && y1 > r[1]) {
 					return false;
 				}
 			}
 		}
-		labels.add(new float[]{x0 - 2, y0 - 2, x1 + 2, y1 + 2});
+		taken.add(new float[]{x0 - 2, y0 - 2, x1 + 2, y1 + 2});
 		return true;
 	}
 
-	/**
-	 * A name on the land: a region's in spaced caps, a lake's or river's in a muted blue, centred on its label point;
-	 * left off where it would cover a marker or another name.
-	 */
-	private static Placed label(Ui ui, Marker m, float ax, float ay, List<float[]> labels, boolean force) {
+	// --- labels ----------------------------------------------------------------------------------------------------
+
+	/** What a marker's label chip says: its name and a dim meta (a height, a distance). Null for no label. */
+	private static String[] labelText(Marker m, double zoom, boolean force, double px, double pz) {
 		if (m.name().isEmpty()) {
 			return null;
 		}
-		boolean region = m.subtitle().contains("REGION");
-		boolean sighted = m.subtitle().startsWith("SIGHTED");
-		Ui.Font font = region && m.tier() == dev.voidmc.atlas.api.Tier.MAJOR ? Ui.Font.F11 : Ui.Font.F10;
-		String text = region ? m.name().toUpperCase(java.util.Locale.ROOT) : m.name();
-		float tracking = region ? 1.6F : 0.2F;
-		float w = ui.width(text, font, tracking);
-		float h = font.size + 4;
-		float x0 = ax - w / 2;
-		float y0 = ay - h / 2;
-		if (!free(labels, x0 - 4, y0 - 2, x0 + w + 4, y0 + h + 2, force)) {
+		boolean sighted = m.glyph() == MarkerGlyph.UNKNOWN;
+		boolean major = m.tier() == Tier.MAJOR;
+		if (m.style() == Marker.Style.STRUCTURE && !force) {
+			if (sighted && zoom < 1 || !major && zoom < 1 || major && zoom < 0.25) {
+				return null;
+			}
+		}
+		String meta = m.meta();
+		if (meta.isEmpty() && (sighted || zoom >= 1 || m.style() == Marker.Style.WAYPOINT)) {
+			meta = distance(m.distanceTo(px, pz));
+		}
+		return new String[]{m.name(), meta};
+	}
+
+	/** Where a marker's label chip goes, and what it says; null for none. */
+	private static Chip labelBox(Ui ui, Marker m, float ax, float ay, float s, double zoom, boolean force, double px, double pz) {
+		String[] text = labelText(m, zoom, force, px, pz);
+		if (text == null) {
 			return null;
 		}
-		int ink = region ? (sighted ? Theme.ink(0.30F) : Theme.ink(0.46F)) : Theme.alpha(WATER_INK, sighted ? 0.6F : 0.9F);
-		ui.text(text, x0, y0 + 1, font, tracking, ink);
+		boolean minor = m.style() == Marker.Style.STRUCTURE && m.tier() == Tier.MINOR;
+		Ui.Font font = minor ? Ui.Font.F10 : Ui.Font.F11;
+		float pad = minor ? 7 : 8;
+		float h = minor ? 19 : 22;
+		float w = ui.width(text[0], font) + (text[1].isEmpty() ? 0 : 6 + ui.width(text[1], Ui.Font.F9, 0.6F)) + pad * 2;
+		float half = switch (m.style()) {
+			case STRUCTURE -> (minor ? 8 : 13) * s;
+			case SETTLEMENT -> 13 * s;
+			case WAYPOINT -> 10 * s;
+			default -> 11 * s;
+		};
+		float x0 = ax + half + (minor ? 4 : 5);
+		float y0 = m.style() == Marker.Style.WAYPOINT ? ay - 29 * s : ay - h / 2;
+		return new Chip(x0, y0, x0 + w, y0 + h, minor, text[0], text[1]);
+	}
+
+	private static void chip(Ui ui, Marker m, Chip box, boolean sel) {
+		boolean minor = box.minor;
+		boolean sighted = m.glyph() == MarkerGlyph.UNKNOWN;
+		Ui.Font font = minor ? Ui.Font.F10 : Ui.Font.F11;
+		float pad = minor ? 7 : 8;
+		float w = box.x1 - box.x0;
+		float h = box.y1 - box.y0;
+		float r = minor ? 6 : 8;
+		int fill = sel ? Theme.RAISED : minor ? Theme.WELL : Theme.ISLAND;
+		int hair = sel ? HAIR_14 : minor ? Theme.HAIR_7 : Theme.HAIR_8;
+		ui.round(box.x0, box.y0, w, h, r, fill);
+		ui.border(box.x0, box.y0, w, h, r, 0, hair);
+		int ink = minor || sighted ? Theme.INK_2 : Theme.INK;
+		float top = box.y0 + (h - font.size * 1.26F) / 2;
+		ui.text(box.name, box.x0 + pad, top, font, ink);
+		if (!box.meta.isEmpty()) {
+			ui.text(box.meta, box.x0 + pad + ui.width(box.name, font) + 6, top + (font.size - 9) / 2 + 0.5F, Ui.Font.F9, 0.6F, Theme.INK_4);
+		}
+	}
+
+	/**
+	 * A name on the land, as the design's region label: XL (24, tracking 10, ink 42%) for regions over 600 blocks
+	 * across, L (16, tracking 7, 36%) over 250, M (11.5, tracking 4.5, 34%) below; water names a cool grey at 40%,
+	 * Regular, tracking 6. Shown from far out to 1:1 (only XL and L from 1:8 out), fading to nothing by 2:1. Left off
+	 * where it would cover a tile or a label.
+	 */
+	private static Placed landName(Ui ui, Marker m, float ax, float ay, List<float[]> taken, double zoom) {
+		if (m.name().isEmpty() || zoom >= 2) {
+			return null;
+		}
+		boolean water = m.subtitle().startsWith("LAKE") || m.subtitle().startsWith("RIVER");
+		double across = m.subtitle().isEmpty() ? 0 : extent(m);
+		Ui.Font font;
+		float tracking;
+		float alpha;
+		if (water) {
+			font = Ui.Font.R13;
+			tracking = 6;
+			alpha = 0.40F;
+		} else if (across > 600) {
+			font = Ui.Font.F24;
+			tracking = 10;
+			alpha = 0.42F;
+		} else if (across > 250) {
+			font = Ui.Font.F16;
+			tracking = 7;
+			alpha = 0.36F;
+		} else {
+			if (zoom <= 1.0 / 8) {
+				return null;
+			}
+			font = Ui.Font.F115;
+			tracking = 4.5F;
+			alpha = 0.34F;
+		}
+		if (water && zoom <= 1.0 / 8 && across <= 250) {
+			return null;
+		}
+		if (zoom > 1) {
+			alpha *= (float) (2 - zoom);
+		}
+		String text = m.name().toUpperCase(Locale.ROOT);
+		float w = ui.width(text, font, tracking);
+		float h = font.size * 1.26F;
+		float x0 = ax - w / 2;
+		float y0 = ay - h / 2;
+		if (!free(taken, x0, y0, x0 + w, y0 + h, false)) {
+			return null;
+		}
+		ui.text(text, x0, y0, font, tracking, water ? Theme.alpha(WATER_INK, alpha) : Theme.ink(alpha));
 		return new Placed(m, ax, ay, x0, y0, x0 + w, y0 + h);
 	}
 
-	private static Placed structure(Ui ui, Marker m, float ax, float ay, float s, boolean sel, boolean label, List<float[]> labels, boolean force) {
-		float t = 20 * s;
+	/** How far across a named area is, from the marker's place (the label markers carry it in their detail-less id). */
+	private static double extent(Marker m) {
+		Place p = dev.voidmc.atlas.client.AtlasClient.get().placeOf(m);
+		return p == null ? 0 : p.radius() * 2.0;
+	}
+
+	// --- tiles -----------------------------------------------------------------------------------------------------
+
+	/**
+	 * A place's tile: major 26 px (fill #191A1C, hairline 16%), minor 16 px (fill #131315, hairline 12%, glyph at 62%),
+	 * sighted hollow (shell at 55%, hairline 30% (24% minor), the "?" at 70% (60%)), selected ink with a dark glyph.
+	 */
+	private static Placed tile(Ui ui, Marker m, float ax, float ay, float s, boolean sel, Chip chip) {
+		boolean major = m.tier() == Tier.MAJOR;
+		boolean sighted = m.glyph() == MarkerGlyph.UNKNOWN;
+		float t = (major ? 26 : 16) * s;
+		float r = (major ? 8 : 5) * s;
 		float x = ax - t / 2;
 		float y = ay - t / 2;
-		// a place only sighted is a dimmer tile with a "?": something to come back to
-		boolean unknown = m.glyph() == MarkerGlyph.UNKNOWN;
-		ui.round(x, y, t, t, 6 * s, sel ? Theme.INK : unknown ? Theme.alpha(Theme.WELL, 0.85F) : Theme.WELL);
-		ui.border(x, y, t, t, 6 * s, 0, sel ? Theme.HAIR_16 : unknown ? Theme.HAIR_8 : Theme.HAIR_12);
-		ui.glyph(m.glyph(), x + 3.5F * s, y + 3.5F * s, 13 * s, sel ? Theme.SHELL : Theme.ink(unknown ? 0.42F : 0.6F), sel ? Theme.SHELL : Theme.ink(0.95F));
+		int fill;
+		int hair;
+		int ink;
+		if (sel) {
+			fill = Theme.ink(0.92F);
+			hair = Theme.ink(0.9F);
+			ink = Theme.SHELL;
+		} else if (sighted) {
+			fill = HOLLOW;
+			hair = major ? HAIR_30 : HAIR_24;
+			ink = Theme.ink(major ? 0.70F : 0.60F);
+		} else {
+			fill = major ? Theme.ISLAND : Theme.WELL;
+			hair = major ? Theme.HAIR_16 : Theme.HAIR_12;
+			ink = major ? Theme.INK : Theme.ink(0.62F);
+		}
+		ui.round(x, y, t, t, r, fill);
+		ui.border(x, y, t, t, r, 0, hair);
+		float g = (major ? 16 : 10) * s;
+		ui.glyph(m.glyph(), ax - g / 2, ay - g / 2, g, ink, ink);
 		float x1 = x + t;
-		if (label && !m.name().isEmpty()) {
-			float tw = ui.width(m.name(), Ui.Font.F10);
-			float cx = x + t + 4;
-			float cw = tw + 14;
-			float ch = 19;
-			float cy = ay - ch / 2;
-			if (free(labels, cx, cy, cx + cw, cy + ch, force)) {
-				ui.round(cx, cy, cw, ch, 7, Theme.WELL);
-				ui.border(cx, cy, cw, ch, 7, 0, Theme.HAIR_7);
-				ui.text(m.name(), cx + 7, cy + 3, Ui.Font.F10, Theme.INK_2);
-				x1 = cx + cw;
-			}
+		if (chip != null) {
+			chip(ui, m, chip, sel);
+			x1 = chip.x1;
 		}
 		return new Placed(m, ax, ay, x, y, x1, y + t);
 	}
 
-	private static Placed settlement(Ui ui, Marker m, float ax, float ay, float s, boolean sel, boolean label, List<float[]> labels, boolean force) {
+	private static Placed settlement(Ui ui, Marker m, float ax, float ay, float s, boolean sel, Chip chip) {
 		float t = 26 * s;
 		float x = ax - t / 2;
 		float y = ay - t / 2;
-		ui.round(x, y, t, t, 8 * s, sel ? Theme.INK : Theme.ISLAND);
-		ui.border(x, y, t, t, 8 * s, 0, Theme.HAIR_16);
-		ui.glyph(m.glyph(), x + 4.5F * s, y + 4.5F * s, 17 * s, sel ? Theme.SHELL : Theme.ink(0.85F), sel ? Theme.SHELL : Theme.INK);
+		ui.round(x, y, t, t, 8 * s, sel ? Theme.ink(0.92F) : Theme.ISLAND);
+		ui.border(x, y, t, t, 8 * s, 0, sel ? Theme.ink(0.9F) : Theme.HAIR_16);
+		ui.glyph(m.glyph(), ax - 8 * s, ay - 8 * s, 16 * s, sel ? Theme.SHELL : Theme.INK, sel ? Theme.SHELL : Theme.INK);
 		float x1 = x + t;
-		if (label && !m.name().isEmpty()) {
-			x1 = chip(ui, m.name(), m.meta(), x + t + 5, ay - 11, labels, force, x1);
+		if (chip != null) {
+			chip(ui, m, chip, sel);
+			x1 = chip.x1;
 		}
 		return new Placed(m, ax, ay, x, y, x1, y + t);
 	}
 
-	/** A label chip with an optional dim meta; returns its right edge (or {@code fallback} if it did not fit). */
-	private static float chip(Ui ui, String name, String meta, float cx, float cy, List<float[]> labels, boolean force, float fallback) {
-		float nw = ui.width(name, Ui.Font.F11);
-		float mw = meta.isEmpty() ? 0 : ui.width(meta, Ui.Font.F9, 0.6F) + 6;
-		float cw = nw + mw + 16;
-		float ch = 22;
-		if (!free(labels, cx, cy, cx + cw, cy + ch, force)) {
-			return fallback;
-		}
-		ui.round(cx, cy, cw, ch, 8, Theme.ISLAND);
-		ui.border(cx, cy, cw, ch, 8, 0, Theme.HAIR_8);
-		ui.text(name, cx + 8, cy + 4, Ui.Font.F11, Theme.INK);
-		if (!meta.isEmpty()) {
-			ui.text(meta, cx + 8 + nw + 6, cy + 6.5F, Ui.Font.F9, 0.6F, Theme.INK_4);
-		}
-		return cx + cw;
-	}
-
-	private static Placed waypoint(Ui ui, Marker m, float ax, float ay, float s, boolean sel, boolean label, List<float[]> labels, boolean force,
-		double px, double pz) {
+	private static Placed waypoint(Ui ui, Marker m, float ax, float ay, float s, boolean sel, Chip chip) {
 		// the tip of the stem is the spot
 		float w = 20 * s;
 		float x = ax - w / 2;
@@ -201,31 +358,32 @@ public final class MarkerPainter {
 		int colour = m.colour() == 0 ? 0xEDEEEF : m.colour();
 		int head = Theme.alpha(0xFF000000 | colour, 0.92F);
 		if (sel) {
-			ui.ring(x + w / 2, y + w / 2, w / 2 + 3 * s, 1.5F, Theme.VIOLET);
+			ui.ring(x + w / 2, y + w / 2, w / 2 + 3 * s, 1.5F, Theme.ink(0.6F));
 		}
 		ui.circle(x + w / 2, y + w / 2, w / 2, head);
 		ui.round(x + 7 * s, y + 7 * s, 6 * s, 6 * s, 2 * s, Theme.SHELL);
 		ui.round(x + 9 * s, y + 21 * s, 2 * s, 8 * s, 1 * s, head);
 		float x1 = x + w;
-		if (label && !m.name().isEmpty()) {
-			String meta = m.meta().isEmpty() ? distance(m.distanceTo(px, pz)) : m.meta();
-			x1 = chip(ui, m.name(), meta, x + w + 5, y, labels, force, x1);
+		if (chip != null) {
+			chip(ui, m, chip, sel);
+			x1 = chip.x1;
 		}
 		return new Placed(m, ax, ay, x, y, x1, ay);
 	}
 
-	private static Placed player(Ui ui, Marker m, float ax, float ay, float s, boolean label, List<float[]> labels, boolean force) {
+	private static Placed player(Ui ui, Marker m, float ax, float ay, float s, Chip chip) {
 		float d = 22 * s;
 		int ring = m.colour() == 0 ? Theme.GREEN : 0xE6000000 | m.colour();
 		ui.circle(ax, ay, d / 2, Theme.ISLAND);
 		ui.ring(ax, ay, d / 2, 1.5F, ring);
-		String initial = m.name().isEmpty() ? "?" : m.name().substring(0, 1).toUpperCase(java.util.Locale.ROOT);
+		String initial = m.name().isEmpty() ? "?" : m.name().substring(0, 1).toUpperCase(Locale.ROOT);
 		if (s >= 1) {
 			ui.textCentred(initial, ax, ay - 6.5F, Ui.Font.F10, 0, Theme.INK);
 		}
 		float x1 = ax + d / 2;
-		if (label && !m.name().isEmpty()) {
-			x1 = chip(ui, m.name(), m.meta(), ax + d / 2 + 5, ay - 11, labels, force, x1);
+		if (chip != null) {
+			chip(ui, m, chip, false);
+			x1 = chip.x1;
 		}
 		return new Placed(m, ax, ay, ax - d / 2, ay - d / 2, x1, ay + d / 2);
 	}
@@ -259,9 +417,43 @@ public final class MarkerPainter {
 		ui.convex(new float[]{p[0], p[1], p[4], p[5], p[6], p[7]}, Theme.VIOLET);
 	}
 
+	// --- shared bits -----------------------------------------------------------------------------------------------
+
+	/**
+	 * A hollow or filled place tile of any size with its glyph, for lists, cards, the toast and the compass: hollow
+	 * (sighted) is the shell at 55% with a 30% hairline and the "?" at 75%.
+	 */
+	public static void placeTile(Ui ui, float x, float y, float size, float radius, MarkerGlyph glyph, boolean hollow, float glyphSize, float glyphAlpha) {
+		ui.round(x, y, size, size, radius, hollow ? HOLLOW : Theme.WELL);
+		ui.border(x, y, size, size, radius, 0, hollow ? HAIR_30 : Theme.HAIR_8);
+		ui.glyph(glyph, x + (size - glyphSize) / 2, y + (size - glyphSize) / 2, glyphSize, Theme.ink(glyphAlpha), Theme.ink(glyphAlpha));
+	}
+
+	/**
+	 * A source chip (the design's {@code source chip}): a small mod mark and the source in words ("Seen by you", "from
+	 * the VOID server", "from Hearth") in a well pill. Returns its width.
+	 */
+	public static float sourceChip(Ui ui, Source source, float x, float y) {
+		String text = source.phrase();
+		float w = sourceChipWidth(ui, source);
+		ui.round(x, y, w, 26, 12, Theme.WELL);
+		ui.border(x, y, w, 26, 12, 0, Theme.HAIR_8);
+		// the mod mark: six cells of a 3 x 3 grid
+		int[][] cells = {{0, 0}, {1, 0}, {0, 1}, {2, 1}, {1, 2}, {2, 2}};
+		for (int[] c : cells) {
+			ui.round(x + 8 + c[0] * 4, y + 7.5F + c[1] * 4, 3, 3, 1, Theme.ink(0.55F));
+		}
+		ui.text(text, x + 8 + 11 + 7, y + 6, Ui.Font.F11, Theme.INK_2);
+		return w;
+	}
+
+	public static float sourceChipWidth(Ui ui, Source source) {
+		return 8 + 11 + 7 + ui.width(source.phrase(), Ui.Font.F11) + 11;
+	}
+
 	public static String distance(double blocks) {
 		if (blocks >= 1000) {
-			return String.format(java.util.Locale.ROOT, "%.1f km", blocks / 1000);
+			return String.format(Locale.ROOT, "%.1f km", blocks / 1000);
 		}
 		return Math.round(blocks) + " m";
 	}
@@ -280,48 +472,10 @@ public final class MarkerPainter {
 
 	/** The glyph for a place, by what it is. */
 	public static MarkerGlyph glyphFor(Place p) {
-		return switch (p.kind()) {
-			case Place.PEAK -> MarkerGlyph.PEAK;
-			case Place.LAKE, Place.RIVER, Place.WATERFALL -> MarkerGlyph.WATER;
-			case Place.CAVE_MOUTH, Place.RAVINE -> MarkerGlyph.CAVE;
-			case "minecraft:ruined_portal" -> MarkerGlyph.PORTAL;
-			case "minecraft:shipwreck" -> MarkerGlyph.SHIP;
-			case "atlas:geode" -> MarkerGlyph.GEM;
-			default -> {
-				String k = p.kind();
-				if (k.startsWith("minecraft:ruined_portal")) {
-					yield MarkerGlyph.PORTAL;
-				}
-				if (k.startsWith("minecraft:shipwreck")) {
-					yield MarkerGlyph.SHIP;
-				}
-				yield glyphFor(p.category(), p.underground());
-			}
-		};
+		return Kinds.glyph(p);
 	}
 
-	/** Whether a place is only sighted (drawn as a "?"). */
-	public static boolean sighted(Place p) {
-		return p.state() != DiscoveryState.DISCOVERED;
-	}
-
-	/**
-	 * A source chip: the source's caps label in a hairline pill ("SEEN", "EXACT", "VOID SERVER", "HEARTH"). Returns its
-	 * width.
-	 */
-	public static float sourceChip(Ui ui, dev.voidmc.atlas.api.Source source, float x, float y) {
-		String text = source.label();
-		float w = ui.width(text, Ui.Font.F85, 1) + 12;
-		ui.border(x, y, w, 15, 7.5F, 0, Theme.HAIR_10);
-		ui.text(text, x + 6, y + 2.5F, Ui.Font.F85, 1, Theme.INK_3);
-		return w;
-	}
-
-	public static float sourceChipWidth(Ui ui, dev.voidmc.atlas.api.Source source) {
-		return ui.width(source.label(), Ui.Font.F85, 1) + 12;
-	}
-
-	/** The glyph for a structure category. */
+	/** The glyph for a structure category (other mods' markers, old discoveries). */
 	public static MarkerGlyph glyphFor(String category, boolean underground) {
 		if (underground) {
 			return MarkerGlyph.REALM;

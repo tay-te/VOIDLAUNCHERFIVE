@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
- * One dimension's map: its folder, its layers (the surface, and the underground in 16-block bands), what its chunks
+ * One dimension's map: its folder, its layers (the surface, and the underground in 8-block slices), what its chunks
  * hold of villages ({@link Detections}), and its named areas ({@link AreaIndex}).
  */
 public final class DimensionData {
@@ -53,9 +53,9 @@ public final class DimensionData {
 	}
 
 	public static final String SURFACE = "surface";
-	/** Underground bands: {@code under_<band>}, the 16 blocks from {@code band * 16} up. */
+	/** Underground slices: {@code under_<band>}, the {@value #BAND} blocks from {@code band * BAND} up. */
 	public static final String UNDER = "under_";
-	public static final int BAND = 16;
+	public static final int BAND = dev.voidmc.atlas.core.under.Reveal.BAND;
 
 	public static String underLayer(int band) {
 		return UNDER + band;

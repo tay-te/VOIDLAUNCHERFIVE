@@ -107,7 +107,7 @@ public final class Ingest {
 		long start = System.nanoTime();
 		if (underground) {
 			int band = DimensionData.bandOf((int) Math.floor(playerY));
-			if (this.band == Integer.MIN_VALUE || band != this.band && (playerY < this.band * 16 - 3 || playerY >= this.band * 16 + 19)) {
+			if (this.band == Integer.MIN_VALUE || band != this.band && (playerY < this.band * DimensionData.BAND - 3 || playerY >= this.band * DimensionData.BAND + DimensionData.BAND + 3)) {
 				// a little hysteresis: walking along a band's edge must not flip the view every step
 				this.band = band;
 			}

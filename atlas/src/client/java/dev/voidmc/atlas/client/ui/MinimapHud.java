@@ -98,7 +98,7 @@ public final class MinimapHud {
 				markers.add(m);
 			}
 		}
-		MarkerPainter.paint(ui, f, markers, null, null, true, px, pz);
+		MarkerPainter.paint(ui, f, markers, null, null, true, px, pz, this.zoom);
 		long t3 = System.nanoTime();
 		// waypoints beyond the edge: a small dot on the rim, in the direction to walk
 		var session = this.atlas.session();

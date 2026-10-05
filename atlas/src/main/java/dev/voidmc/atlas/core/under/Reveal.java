@@ -14,7 +14,7 @@ import java.util.Arrays;
  * a passage the player stands in is revealed, as a torch-lit look round would. Lava is seen (its surface bounds the
  * walk) but not walked through. Run as the player moves underground, on a worker, a few milliseconds each.
  *
- * <p>The walk's result is per column and per 16-block band: the highest open block seen in that band (the slice's
+ * <p>The walk's result is per column and per {@value #BAND}-block band: the highest open block seen in that band (the slice's
  * view starts there and looks down to the floor), or that only wall was seen.
  */
 public final class Reveal {
@@ -22,7 +22,7 @@ public final class Reveal {
 	public static final int NETHER_RADIUS = 32;
 	/** At most this many open blocks are walked (a huge cavern is revealed in part, from where the player stands). */
 	public static final int MAX_OPEN = 60_000;
-	public static final int BAND = 16;
+	public static final int BAND = 8;
 	/** In {@link Result#top}: nothing open seen in that band of that column. */
 	public static final short NOTHING = Short.MIN_VALUE;
 

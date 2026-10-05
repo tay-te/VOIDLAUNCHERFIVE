@@ -43,6 +43,10 @@ public final class TileRenderer {
 	private static final byte WATER = 1;
 	private static final byte ROCK = 2;
 	private static final byte NONE = 3;
+	/** Grid pixels kept round a drawn rectangle. */
+	public static final int MARGIN = 3;
+	/** Whether underground water and lava are drawn (the "Water & lava" layer); off, water shows its bed. */
+	public boolean fluids = true;
 
 	public TileRenderer(Looks looks) {
 		this.looks = looks;
@@ -79,9 +83,10 @@ public final class TileRenderer {
 		}
 		int w = x1 - x0;
 		int h = z1 - z0;
-		// a grid over the rectangle and two pixels round it
-		int gw = w + 4;
-		int gh = h + 4;
+		// a grid over the rectangle and three pixels round it (the dither and the cave walls reach that far)
+		int m = MARGIN;
+		int gw = w + 2 * m;
+		int gh = h + 2 * m;
 		int gn = gw * gh;
 		if (this.known.length < gn) {
 			this.known = new boolean[gn];
@@ -90,8 +95,8 @@ public final class TileRenderer {
 		}
 		for (int gz = 0; gz < gh; gz++) {
 			for (int gx = 0; gx < gw; gx++) {
-				int lx = x0 + gx - 2;
-				int lz = z0 + gz - 2;
+				int lx = x0 + gx - m;
+				int lz = z0 + gz - m;
 				RegionRaw r = regionAt(around, lx, lz);
 				int g = gz * gw + gx;
 				if (r == null) {
@@ -110,13 +115,18 @@ public final class TileRenderer {
 					this.kinds[g] = r.depth(i) > 0 ? WATER : LAND;
 				}
 				this.heights[g] = r.height[i];
+				if (mode == Mode.CAVE && !this.fluids && this.kinds[g] == WATER) {
+					// water hidden: its bed shows
+					this.kinds[g] = LAND;
+					this.heights[g] = (short) (r.height[i] - r.depth(i));
+				}
 			}
 		}
 		RegionRaw centre = around[4];
 		int[] out = image.levelOrCreate(0);
 		for (int z = z0; z < z1; z++) {
 			for (int x = x0; x < x1; x++) {
-				int g = (z - z0 + 2) * gw + (x - x0 + 2);
+				int g = (z - z0 + m) * gw + (x - x0 + m);
 				int p = z * Coords.REGION_SIZE + x;
 				if (!this.known[g]) {
 					out[p] = 0;
@@ -127,7 +137,17 @@ public final class TileRenderer {
 				int rgb;
 				byte kind = this.kinds[g];
 				if (kind == ROCK) {
-					rgb = Palette.ROCK;
+					if (mode == Mode.CAVE) {
+						// the wall: a rim, a step darker, then rock; rock further from seen air is not known at all
+						int d = this.distanceToOpen(g, gw);
+						if (d > 3) {
+							out[p] = 0;
+							continue;
+						}
+						rgb = d == 1 ? Palette.CAVE_RIM : d == 2 ? Palette.CAVE_WALL : Palette.ROCK;
+					} else {
+						rgb = Palette.ROCK;
+					}
 				} else if (kind == WATER) {
 					boolean shore = this.isLand(g - 1) || this.isLand(g + 1) || this.isLand(g - gw) || this.isLand(g + gw);
 					rgb = mode == Mode.CAVE ? Palette.caveWater(centre.depth(i), shore, this.water(centre.biome[i]))
@@ -144,7 +164,7 @@ public final class TileRenderer {
 							step = Math.min(step, -1);
 						}
 						int below = caveTop == Integer.MIN_VALUE ? 0 : Math.max(0, caveTop - this.heights[g]);
-						rgb = Palette.caveFloor(tone, material, step, below);
+						rgb = !this.fluids && material == Material.LAVA ? Palette.CAVE_WALL : Palette.caveFloor(tone, material, step, below);
 					} else {
 						rgb = Palette.land(tone, material, step, Palette.band(this.heights[g]));
 					}
@@ -154,6 +174,24 @@ public final class TileRenderer {
 		}
 		image.downsample(x0, z0, x1, z1);
 		image.touch();
+	}
+
+	/** Chebyshev distance from a wall pixel to the nearest open (floor or water) pixel, up to 4 ("far"). */
+	private int distanceToOpen(int g, int gw) {
+		for (int r = 1; r <= 3; r++) {
+			for (int dz = -r; dz <= r; dz++) {
+				for (int dx = -r; dx <= r; dx++) {
+					if (Math.abs(dx) != r && Math.abs(dz) != r) {
+						continue;
+					}
+					int o = g + dz * gw + dx;
+					if (this.known[o] && this.kinds[o] != ROCK) {
+						return r;
+					}
+				}
+			}
+		}
+		return 4;
 	}
 
 	private boolean isLand(int g) {

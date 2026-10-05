@@ -24,9 +24,10 @@ public final class Ui {
 	public static final float[] UNITS = {0.75F, 1.0F, 1.25F, 1.5F, 1.75F, 2.0F, 2.5F, 3.0F};
 	private static final String[] UNIT_KEYS = {"75", "100", "125", "150", "175", "200", "250", "300"};
 
-	/** Outfit Medium in the design's sizes. */
+	/** Outfit in the design's sizes: Medium ({@code F}), and Regular ({@code R}) for the names of water. */
 	public enum Font {
-		F85(8.5F, "85"), F9(9, "9"), F10(10, "10"), F11(11, "11"), F12(12, "12"), F13(13, "13"), F16(16, "16"), F20(20, "20");
+		F85(8.5F, "o85"), F9(9, "o9"), F95(9.5F, "o95"), F10(10, "o10"), F105(10.5F, "o105"), F11(11, "o11"), F115(11.5F, "o115"), F12(12, "o12"),
+		F13(13, "o13"), F15(15, "o15"), F16(16, "o16"), F17(17, "o17"), F18(18, "o18"), F20(20, "o20"), F24(24, "o24"), R11(11, "r11"), R13(13, "r13");
 
 		public final float size;
 		final String key;
@@ -36,7 +37,7 @@ public final class Ui {
 			this.size = size;
 			this.key = key;
 			for (int i = 0; i < UNITS.length; i++) {
-				this.styles[i] = Style.EMPTY.withFont(new FontDescription.Resource(Identifier.fromNamespaceAndPath("atlas", "o" + key + "_" + UNIT_KEYS[i])));
+				this.styles[i] = Style.EMPTY.withFont(new FontDescription.Resource(Identifier.fromNamespaceAndPath("atlas", key + "_" + UNIT_KEYS[i])));
 			}
 		}
 	}
@@ -307,16 +308,27 @@ public final class Ui {
 	}
 
 	/**
-	 * A 5 x 5 glyph in a {@code size} square: cells {@code size * 0.175} with even gaps, snapped to physical pixels
-	 * so they stay crisp pixel art; accent cells in {@code accent}.
+	 * A 5 x 5 glyph in a {@code size} square, as the design draws them: cells on a pitch of 3.1/16 of the square, 2.8/16
+	 * wide, with corners rounded 0.8/16 (square, snapped to physical pixels, when a cell is under three pixels, where a
+	 * rounded corner would only blur it); accent cells in {@code accent}.
 	 */
 	public void glyph(MarkerGlyph glyph, float x, float y, float size, int argb, int accent) {
-		float pitch = size / 5.16F;
-		float cellSize = pitch * 0.9F;
+		float k = size / 16;
+		float pitch = 3.1F * k;
+		float cellSize = 2.8F * k;
+		float r = 0.8F * k;
+		boolean round = cellSize * this.unit >= 3;
 		for (int cy = 0; cy < 5; cy++) {
 			for (int cx = 0; cx < 5; cx++) {
 				if (glyph.cell(cx, cy)) {
-					this.cell(x + cx * pitch + pitch * 0.13F, y + cy * pitch + pitch * 0.13F, cellSize, cellSize, glyph.accent(cx, cy) ? accent : argb);
+					int c = glyph.accent(cx, cy) ? accent : argb;
+					float gx = x + 0.4F * k + cx * pitch;
+					float gy = y + 0.4F * k + cy * pitch;
+					if (round) {
+						this.round(this.snap(gx), this.snap(gy), cellSize, cellSize, r, c);
+					} else {
+						this.cell(gx, gy, cellSize, cellSize, c);
+					}
 				}
 			}
 		}

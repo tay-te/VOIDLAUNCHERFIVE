@@ -277,7 +277,7 @@ public final class MapPanel {
 				}
 			}
 		}
-		this.placed = MarkerPainter.paint(ui, f, this.markers, this.selected, this.hovered, false, px, pz);
+		this.placed = MarkerPainter.paint(ui, f, this.markers, this.selected, this.hovered, false, px, pz, this.zoom);
 		if (p != null) {
 			float sx = f.screenX(px, pz);
 			float sy = f.screenY(px, pz);
@@ -336,31 +336,30 @@ public final class MapPanel {
 	}
 
 	/**
-	 * Whether a marker shows at a zoom (physical pixels per block) on a view: minor places only when zoomed in to a
-	 * pixel a block or closer; the names of regions, lakes and rivers only from far to middling zooms (minor ones not
-	 * from the farthest); underground places only on the underground view, and the land's names and surface landmarks
-	 * only on the surface. {@code underground} null: a view with a roof (the Nether), where everything is shown.
+	 * Whether a marker shows at a zoom (physical pixels per block) on a view, by the design's thresholds: from 1:8 out
+	 * only major tiles (and the larger names); from 1:4 the minor tiles and the sighted "?"s too; names of the land up
+	 * to 2:1 (they fade out from 1:1). Underground places only on the underground view and the land's names and
+	 * surface places only on the surface; {@code underground} null: a view with a roof (the Nether), where all show.
 	 */
 	public static boolean shows(Marker m, @Nullable Boolean underground, double zoom) {
-		boolean label = m.style() == Marker.Style.LABEL;
-		if (label) {
-			if (zoom > 4 || m.tier() == dev.voidmc.atlas.api.Tier.MINOR && zoom < 0.25) {
-				return false;
-			}
-		} else if (m.tier() == dev.voidmc.atlas.api.Tier.MINOR && zoom < 1) {
+		if (m.style() == Marker.Style.LABEL) {
+			return zoom < 2 && !Boolean.TRUE.equals(underground);
+		}
+		if (m.style() == Marker.Style.STRUCTURE && zoom < 0.25
+			&& (m.tier() == dev.voidmc.atlas.api.Tier.MINOR || m.glyph() == dev.voidmc.atlas.api.MarkerGlyph.UNKNOWN)) {
 			return false;
 		}
 		if (underground == null) {
 			return true;
 		}
-		boolean below = m.subtitle().endsWith("UNDERGROUND");
-		if (m.layer().equals(MapLayer.STRUCTURES) || m.layer().equals(MapLayer.LANDMARKS)) {
-			if (underground) {
-				return below || m.glyph() == dev.voidmc.atlas.api.MarkerGlyph.CAVE;
-			}
-			return !below;
+		dev.voidmc.atlas.api.Place p = AtlasClient.get().placeOf(m);
+		if (p == null) {
+			return true;
 		}
-		return true;
+		if (underground) {
+			return p.underground() || p.kind().equals(dev.voidmc.atlas.api.Place.CAVE_MOUTH);
+		}
+		return !p.underground();
 	}
 
 	// --- input -----------------------------------------------------------------------------------------------------

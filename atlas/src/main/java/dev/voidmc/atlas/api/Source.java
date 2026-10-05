@@ -60,6 +60,24 @@ public record Source(Kind kind, String id) {
 		return new Source(Kind.PLUGIN, providerId);
 	}
 
+	/**
+	 * The source chip's words: "Seen by you", "From the world" (exact data), "from the VOID server", "from Hearth" (the
+	 * providing mod), "Made by you".
+	 */
+	public String phrase() {
+		return switch (this.kind) {
+			case SEEN -> "Seen by you";
+			case EXACT -> "From the world";
+			case SERVER -> this.id.equals(VOID_SERVER) ? "from the VOID server" : "from " + this.id;
+			case PLUGIN -> {
+				int colon = this.id.indexOf(':');
+				String mod = colon > 0 ? this.id.substring(0, colon) : this.id;
+				yield "from " + (mod.isEmpty() ? mod : Character.toUpperCase(mod.charAt(0)) + mod.substring(1));
+			}
+			case PLAYER -> "Made by you";
+		};
+	}
+
 	/** The chip's text: SEEN, EXACT, VOID SERVER, a server's tag, the providing mod's id ("HEARTH"), YOU. */
 	public String label() {
 		return switch (this.kind) {

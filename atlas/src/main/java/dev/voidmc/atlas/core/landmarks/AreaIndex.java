@@ -95,6 +95,8 @@ public final class AreaIndex {
 	/** Joins the patches into areas again (after regions were added or analysed again). */
 	public synchronized List<Area> rebuild() {
 		List<Long> keys = new ArrayList<>(this.regions.keySet());
+		// in a fixed order, so ties (two label cells as deep) fall the same way whatever order the regions came in
+		keys.sort(null);
 		Map<Long, Integer> landBase = new HashMap<>();
 		Map<Long, Integer> waterBase = new HashMap<>();
 		int nodes = 0;

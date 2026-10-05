@@ -54,6 +54,7 @@ public final class MapSession {
 	private final ThreadLocal<Reveal> reveals = ThreadLocal.withInitial(Reveal::new);
 	private final Consumer<RegionChange> changes;
 	private volatile boolean closed;
+	private volatile boolean caveFluids = true;
 
 	/** A drawn rectangle of a region changed (region pixels, level 0). */
 	public record RegionChange(LayerData layer, int rx, int rz, int[] rect) {
@@ -173,6 +174,26 @@ public final class MapSession {
 		Perf.RENDERS.incrementAndGet();
 		this.changes.accept(new RegionChange(layer, rx, rz, rect));
 		this.landmarks.regionDrawn(layer, rx, rz);
+	}
+
+	/** Whether underground water and lava are drawn (the "Water & lava" layer). */
+	public boolean caveFluids() {
+		return this.caveFluids;
+	}
+
+	/** Shows or hides underground water and lava: every underground image is drawn again. Render thread. */
+	public void setCaveFluids(boolean show) {
+		if (show == this.caveFluids) {
+			return;
+		}
+		this.caveFluids = show;
+		for (DimensionData d : this.dimensions.values()) {
+			for (LayerData l : d.layers()) {
+				if (l.mode == TileRenderer.Mode.CAVE) {
+					l.forgetImages();
+				}
+			}
+		}
 	}
 
 	public boolean closed() {

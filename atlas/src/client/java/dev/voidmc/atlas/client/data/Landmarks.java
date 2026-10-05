@@ -106,9 +106,12 @@ public final class Landmarks {
 			List<AreaIndex.Area> before = new ArrayList<>();
 			for (Place p : this.session.places.all()) {
 				if (p.dimension().equals(d.id) && p.isLabel()) {
-					before.add(new AreaIndex.Area(p.id(), p.kind(), 0, 0, p.x(), p.z(), p.tier() == Tier.MAJOR));
+					long cells = (long) (4.0 * p.radius() * p.radius() / (RegionFeatures.CELL * RegionFeatures.CELL));
+					before.add(new AreaIndex.Area(p.id(), p.kind(), 0, cells, p.x(), p.z(), p.tier() == Tier.MAJOR));
 				}
 			}
+			// the biggest first: when areas have grown together, the biggest keeps its id (and its name)
+			before.sort((a, b) -> Long.compare(b.cells(), a.cells()));
 			d.areas.remember(before);
 			this.rebuildAreas(d);
 		});
@@ -194,7 +197,7 @@ public final class Landmarks {
 				case RAVINE -> Place.RAVINE;
 			};
 			String id = kind + "@" + p.x() + "," + p.z();
-			Tier tier = p.kind() == RegionFeatures.PointKind.PEAK && p.size() >= 80 ? Tier.MAJOR : Tier.MINOR;
+			Tier tier = p.kind() == RegionFeatures.PointKind.RAVINE ? Tier.MINOR : Tier.MAJOR;
 			String category = p.kind() == RegionFeatures.PointKind.WATERFALL ? "WATER" : "NATURAL";
 			int radius = p.kind() == RegionFeatures.PointKind.RAVINE ? p.length() / 2 : 0;
 			Place place = new Place(id, kind, this.name(d, id, kind, p.biome(), p.x(), p.z(), 0), category, tier, DiscoveryState.SIGHTED, Source.seen(), p.x(),

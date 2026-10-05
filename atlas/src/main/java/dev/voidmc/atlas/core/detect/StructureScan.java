@@ -83,7 +83,9 @@ public final class StructureScan {
 				for (int lz = 0; lz < 16; lz++) {
 					for (int lx = 0; lx < 16; lx++) {
 						int sig = Sig.signal(c.code(lx, y, lz));
-						if (sig != Sig.NONE && Sig.isAnchor(sig)) {
+						if (sig != Sig.NONE && Sig.isAnchor(sig) && ++this.anchorsSeen[sig] <= 8) {
+							// a handful of each kind of anchor per chunk is plenty (a geode has hundreds of buds, a pyramid
+							// nine TNT); only those judged count against the chunk's budget
 							anchors++;
 							this.anchor(sig, x0 + lx, y, z0 + lz, c, world, ceiling, out);
 						}
@@ -118,10 +120,6 @@ public final class StructureScan {
 	// --- anchors ---------------------------------------------------------------------------------------------------
 
 	private void anchor(int sig, int x, int y, int z, ChunkBlocks c, BlockSource w, boolean ceiling, Consumer<Sighting> out) {
-		// a handful of each kind of anchor per chunk is plenty: a geode has hundreds of buds, a pyramid nine TNT
-		if (++this.anchorsSeen[sig] > 8) {
-			return;
-		}
 		switch (sig) {
 			case Sig.BELL -> {
 				if (this.bellCount * 4 + 4 > this.bells.length) {
@@ -130,7 +128,7 @@ public final class StructureScan {
 				this.bells[this.bellCount * 4] = x;
 				this.bells[this.bellCount * 4 + 1] = y;
 				this.bells[this.bellCount * 4 + 2] = z;
-				this.bells[this.bellCount * 4 + 3] = !ceiling && y < c.surface(x & 15, z & 15) - UNDERGROUND_DEPTH ? 1 : 0;
+				this.bells[this.bellCount * 4 + 3] = !ceiling && underground(c, x & 15, y, z & 15) ? 1 : 0;
 				this.bellCount++;
 			}
 			case Sig.CRYING_OBSIDIAN -> {
@@ -152,7 +150,8 @@ public final class StructureScan {
 				}
 				// ...part of a frame of at least a few blocks, and not a bastion's treasure room
 				this.box(w, x - 4, y - 4, z - 4, x + 4, y + 4, z + 4);
-				if (this.box[Sig.OBSIDIAN] + this.box[Sig.CRYING_OBSIDIAN] < 5 || this.box[Sig.BLACKSTONE_BRICKS] > 0
+				// (a Nether portal's frame stands among a few polished blackstone bricks; a bastion is many, and gilded)
+				if (this.box[Sig.OBSIDIAN] + this.box[Sig.CRYING_OBSIDIAN] < 5 || this.box[Sig.BLACKSTONE_BRICKS] >= 24
 					|| this.box[Sig.GILDED_BLACKSTONE] > 0) {
 					return;
 				}
@@ -341,8 +340,29 @@ public final class StructureScan {
 	}
 
 	private void emit(StructureKind kind, int x, int y, int z, ChunkBlocks c, boolean ceiling, Consumer<Sighting> out) {
-		int ground = c.surface(x & 15, z & 15);
-		this.emitAt(kind, x, y, z, !ceiling && y < ground - UNDERGROUND_DEPTH, out);
+		this.emitAt(kind, x, y, z, !ceiling && underground(c, x & 15, y, z & 15), out);
+	}
+
+	/**
+	 * Whether a block lies under the ground: at least {@value #UNDERGROUND_DEPTH} blocks of natural earth over it (a
+	 * structure's own roof, planks or purpur or sandstone, does not count: a mansion is on the surface, however tall).
+	 */
+	static boolean underground(ChunkBlocks c, int lx, int y, int lz) {
+		int top = c.surface(lx, lz);
+		if (top - y < UNDERGROUND_DEPTH) {
+			return false;
+		}
+		int earth = 0;
+		for (int yy = y + 1; yy <= top; yy++) {
+			int code = c.code(lx, yy, lz);
+			if (Sig.signal(code) == Sig.EARTH) {
+				earth++;
+				if (earth >= UNDERGROUND_DEPTH - 4) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** Whether this chunk already saw {@code kind} close to (x, z). */
@@ -395,6 +415,7 @@ public final class StructureScan {
 					int depth = 0;
 					int floor = g;
 					int earthFloors = 0;
+					int earthRoofs = 0;
 					for (int k = 1; k <= MOUTH_DEPTH + 2; k++) {
 						int x = lx + d[0] * k;
 						int z = lz + d[1] * k;
@@ -417,8 +438,18 @@ public final class StructureScan {
 						if (earth(c.code(x, at, z))) {
 							earthFloors++;
 						}
+						// the roof over the passage: the first solid block above head height
+						for (int ry = at + 3; ry <= Math.min(c.surface(x, z), at + 8); ry++) {
+							int code = c.code(x, ry, z);
+							if (Sig.solid(code)) {
+								if (earth(code)) {
+									earthRoofs++;
+								}
+								break;
+							}
+						}
 					}
-					if (depth >= MOUTH_DEPTH && earthFloors * 4 >= depth * 3 && depth > bestDepth) {
+					if (depth >= MOUTH_DEPTH && earthFloors * 4 >= depth * 3 && earthRoofs * 4 >= depth * 3 && depth > bestDepth) {
 						bestDepth = depth;
 						bx = (c.chunkX() << 4) + lx + d[0];
 						by = g + 1;

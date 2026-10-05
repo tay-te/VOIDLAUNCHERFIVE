@@ -17,24 +17,46 @@ public enum MarkerGlyph {
 	CROSS(rows("10001", "01010", "00100", "01010", "10001"), 0),
 	/** A camp, a well, a small sight. */
 	DOT(rows("00000", "01110", "01110", "01110", "00000"), 0),
-	/** A village. */
-	VILLAGE(rows("01010", "11111", "01010", "11111", "01010"), 0),
-	/** A ruin, a dungeon, a vault. */
-	VAULT(rows("11111", "10001", "10101", "10001", "11111"), rows("00000", "00000", "00100", "00000", "00000")),
-	/** Somewhere seen but not yet visited. */
-	UNKNOWN(rows("01110", "10001", "00110", "00000", "00100"), 0),
+	/** A village (the design's glyph/village). */
+	VILLAGE(rows("00100", "01110", "11111", "01010", "11111"), 0),
+	/** A dungeon, a vault. */
+	VAULT(rows("11111", "10001", "10101", "10001", "11111"), 0),
+	/** Somewhere seen but not yet visited: a "?". */
+	UNKNOWN(rows("01110", "00001", "00110", "00000", "00100"), 0),
 	/** A peak. */
-	PEAK(rows("00100", "01110", "01110", "11011", "11111"), rows("00100", "00000", "00000", "00000", "00000")),
-	/** A lake, a river, a waterfall. */
-	WATER(rows("00000", "01001", "10110", "00000", "11011"), 0),
-	/** A cave mouth or a ravine: a dark opening. */
-	CAVE(rows("01110", "11111", "11011", "10001", "10001"), 0),
+	PEAK(rows("00100", "01110", "01110", "11111", "11111"), 0),
+	/** A temple (desert, jungle). */
+	TEMPLE(rows("01110", "11111", "01010", "01010", "11111"), 0),
+	/** An ocean monument. */
+	MONUMENT(rows("01110", "10101", "11111", "10101", "11111"), 0),
+	/** A woodland mansion. */
+	MANSION(rows("01010", "11111", "10101", "11111", "11011"), 0),
+	/** An ancient city. */
+	ANCIENT_CITY(rows("11111", "10001", "10001", "11011", "11011"), 0),
+	/** A lake. */
+	LAKE(rows("00000", "01100", "10011", "01100", "10011"), 0),
+	/** A waterfall. */
+	WATERFALL(rows("11111", "00100", "00100", "00100", "01110"), 0),
 	/** A ruined portal. */
-	PORTAL(rows("11111", "10101", "10001", "10101", "11111"), 0),
+	PORTAL(rows("11110", "10010", "10000", "10010", "11010"), 0),
 	/** A shipwreck. */
-	SHIP(rows("00100", "00110", "00100", "11111", "01110"), 0),
-	/** A geode, a gem. */
-	GEM(rows("01110", "11111", "10101", "01110", "00100"), rows("00000", "00100", "00000", "00100", "00000"));
+	WRECK(rows("00100", "00110", "00100", "11111", "01110"), 0),
+	/** A cave mouth, a ravine. */
+	CAVE(rows("01110", "11111", "11011", "10001", "10001"), 0),
+	/** Trail ruins. */
+	TRAIL(rows("01110", "00100", "01110", "11111", "01110"), 0),
+	/** A mineshaft. */
+	MINESHAFT(rows("11111", "01010", "01010", "01010", "01010"), 0),
+	/** Lush caves. */
+	LUSH(rows("00011", "00111", "01110", "11100", "10000"), 0),
+	/** The deep dark. */
+	SCULK(rows("10101", "01110", "11011", "01110", "10101"), 0),
+	/** A tracked place. */
+	TRACK(rows("00100", "00000", "10101", "00000", "00100"), 0),
+	/** A geode. */
+	GEM(rows("00100", "01010", "10101", "01010", "00100"), 0),
+	/** A pillager outpost, a stronghold, a fortress: a fortified tower. */
+	KEEP(rows("10101", "11111", "01110", "01110", "11111"), 0);
 
 	public final int mask;
 	public final int accent;

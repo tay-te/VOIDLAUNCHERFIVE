@@ -50,6 +50,14 @@ public final class AtlasSettings {
 	public int gpuPages = 4;
 	public int mapZoom = 5; // 2 px per block
 	public Set<String> hiddenLayers = new HashSet<>();
+	/** Kinds of place switched off in the legend (by {@code Kinds.Kind} name). */
+	public Set<String> hiddenKinds = new HashSet<>();
+	/** The compass strip at the top of the HUD (off by default; it and the minimap can both be on). */
+	public boolean compass = false;
+	/** The place being tracked (its marker id), shown on the compass and the minimap's rim; null for none. */
+	public String tracked;
+	/** Bumped whenever the legend changes, so the place markers are made again. */
+	public transient int legendVersion;
 
 	private transient Path file;
 
@@ -80,6 +88,9 @@ public final class AtlasSettings {
 		if (this.hiddenLayers == null) {
 			this.hiddenLayers = new HashSet<>();
 		}
+		if (this.hiddenKinds == null) {
+			this.hiddenKinds = new HashSet<>();
+		}
 		this.minimapZoom = Math.max(0, Math.min(ZOOMS.length - 1, this.minimapZoom));
 		this.mapZoom = Math.max(0, Math.min(ZOOMS.length - 1, this.mapZoom));
 		this.workerThreads = Math.max(1, Math.min(8, this.workerThreads));
@@ -104,6 +115,17 @@ public final class AtlasSettings {
 
 	public boolean layerVisible(String id) {
 		return !this.hiddenLayers.contains(id);
+	}
+
+	public boolean kindVisible(String kind) {
+		return !this.hiddenKinds.contains(kind);
+	}
+
+	public void toggleKind(String kind) {
+		if (!this.hiddenKinds.remove(kind)) {
+			this.hiddenKinds.add(kind);
+		}
+		this.legendVersion++;
 	}
 
 	public void toggleLayer(String id) {

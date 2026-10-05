@@ -53,7 +53,7 @@ import java.util.function.Consumer;
  * above a dungeon is not finding it). A region is discovered by walking into it ({@link #enter}).
  */
 public final class PlaceBook {
-	public static final int SURFACE_REACH = 48;
+	public static final int SURFACE_REACH = 24;
 	public static final int UNDERGROUND_SIGHT = 32;
 	public static final int UNDERGROUND_REACH = 16;
 	/** How far round an exact structure's bounds a sighting still counts as part of it. */
@@ -82,6 +82,9 @@ public final class PlaceBook {
 		String family;
 		/** The group a natural place belongs to (a region's key, or the dimension's areas), or 0. */
 		long group;
+		/** The game day it was sighted and discovered on (-1 if not, or not known). */
+		long sightedDay = -1;
+		long discoveredDay = -1;
 
 		Entry(Place place, String family) {
 			this.place = place;
@@ -96,6 +99,8 @@ public final class PlaceBook {
 	private long version;
 	private long savedVersion;
 	private volatile boolean exactAvailable;
+	/** Today's game day, for the days places are sighted and discovered on. */
+	private volatile long gameDay = -1;
 	private volatile Map<String, List<Place>> visible = Map.of();
 	private volatile long visibleVersion = -1;
 	/** Sightings folded into exact data of the same family (the heuristics were right) and of another (they were not). */
@@ -114,6 +119,17 @@ public final class PlaceBook {
 
 	public boolean exactAvailable() {
 		return this.exactAvailable;
+	}
+
+	/** The game's day now (the client tells the book as the days pass). */
+	public void setGameDay(long day) {
+		this.gameDay = day;
+	}
+
+	/** The game days a place was sighted and discovered on, -1 where not (or from before days were kept). */
+	public synchronized long[] days(String id) {
+		Entry e = this.entries.get(id);
+		return e == null ? new long[]{-1, -1} : new long[]{e.sightedDay, e.discoveredDay};
 	}
 
 	// --- reading ---------------------------------------------------------------------------------------------------
@@ -244,6 +260,8 @@ public final class PlaceBook {
 		e.sz = s.z();
 		e.weight = 1;
 		this.entries.put(p.id(), e);
+		// a new place is a change even while it stays unknown (set() alone would not count it)
+		this.version++;
 		this.set(e, s.underground() ? p : p.withState(DiscoveryState.SIGHTED, now));
 		return e.place;
 	}
@@ -270,6 +288,7 @@ public final class PlaceBook {
 			this.version++;
 		} else if (e.box == null) {
 			e.box = box.clone();
+			this.version++;
 		}
 		// fold in the sightings it explains, keeping how far the player had come with them
 		DiscoveryState carried = DiscoveryState.UNKNOWN;
@@ -335,6 +354,13 @@ public final class PlaceBook {
 			}
 		}
 		List<Entry> kept = new ArrayList<>();
+		// places still there by id claim their entries first, so a new place close by cannot take one's state
+		for (Place p : places) {
+			Entry same = this.entries.get(p.id());
+			if (same != null && same.group == group) {
+				kept.add(same);
+			}
+		}
 		for (Place p : places) {
 			Entry match = this.entries.get(p.id());
 			if (match == null || match.group != group) {
@@ -365,6 +391,7 @@ public final class PlaceBook {
 			if (e == null) {
 				e = new Entry(merged, p.kind());
 				e.group = group;
+				this.stamp(e);
 				this.entries.put(p.id(), e);
 				this.version++;
 				if (merged.state().atLeast(DiscoveryState.SIGHTED) && (match == null || !match.place.state().atLeast(merged.state()))) {
@@ -399,6 +426,7 @@ public final class PlaceBook {
 			// a reported place starts where the report says (or unknown, for Atlas to judge by distance)
 			e = new Entry(p.state() == DiscoveryState.UNKNOWN ? p : p.withState(p.state(), now), p.kind());
 			e.group = REPORTS;
+			this.stamp(e);
 			this.entries.put(p.id(), e);
 			this.version++;
 			if (e.place.state().atLeast(DiscoveryState.SIGHTED)) {
@@ -504,6 +532,16 @@ public final class PlaceBook {
 		return v * v;
 	}
 
+	/** Notes today as the day a new entry was sighted (and discovered), as far as it has come. */
+	private void stamp(Entry e) {
+		if (e.place.state().atLeast(DiscoveryState.SIGHTED)) {
+			e.sightedDay = this.gameDay;
+		}
+		if (e.place.state() == DiscoveryState.DISCOVERED) {
+			e.discoveredDay = this.gameDay;
+		}
+	}
+
 	/** Replaces an entry's place, queueing it for the listeners if it moved on. */
 	private void set(Entry e, Place next) {
 		Place before = e.place;
@@ -512,6 +550,12 @@ public final class PlaceBook {
 		}
 		e.place = next;
 		this.version++;
+		if (next.state().atLeast(DiscoveryState.SIGHTED) && e.sightedDay < 0) {
+			e.sightedDay = this.gameDay;
+		}
+		if (next.state() == DiscoveryState.DISCOVERED && e.discoveredDay < 0) {
+			e.discoveredDay = this.gameDay;
+		}
 		if (next.state().ordinal() > before.state().ordinal() && next.state().atLeast(DiscoveryState.SIGHTED)) {
 			this.changes.add(next);
 		}
@@ -586,6 +630,8 @@ public final class PlaceBook {
 		e.sy = p.y();
 		e.sz = p.z();
 		e.group = o.has("group") ? o.get("group").getAsLong() : 0;
+		e.sightedDay = o.has("sightedDay") ? o.get("sightedDay").getAsLong() : -1;
+		e.discoveredDay = o.has("discoveredDay") ? o.get("discoveredDay").getAsLong() : -1;
 		this.entries.put(p.id(), e);
 	}
 
@@ -630,6 +676,12 @@ public final class PlaceBook {
 				}
 				if (e.group != 0) {
 					o.addProperty("group", e.group);
+				}
+				if (e.sightedDay >= 0) {
+					o.addProperty("sightedDay", e.sightedDay);
+				}
+				if (e.discoveredDay >= 0) {
+					o.addProperty("discoveredDay", e.discoveredDay);
 				}
 				list.add(o);
 			}

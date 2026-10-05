@@ -107,7 +107,9 @@ public final class AtlasClient implements ClientModInitializer {
 	/** The place markers last made, and the snapshot they were made from (remade only when it changes). */
 	private List<Place> markersFrom = List.of();
 	private List<Marker> placeMarkers = List.of();
+	private java.util.Map<String, Place> markerPlaces = java.util.Map.of();
 	private String markersDim = "";
+	private int markersLegend = -1;
 
 	public static AtlasClient get() {
 		return instance;
@@ -118,10 +120,12 @@ public final class AtlasClient implements ClientModInitializer {
 		instance = this;
 		this.settings = AtlasSettings.load(FabricLoader.getInstance().getConfigDir().resolve("atlas.json"));
 		this.markers.registerLayer(new MapLayer(MapLayer.TERRAIN, "Terrain", true, 0));
-		this.markers.registerLayer(new MapLayer(MapLayer.STRUCTURES, "Structures", true, 10));
-		this.markers.registerLayer(new MapLayer(MapLayer.LANDMARKS, "Landmarks", true, 12));
+		this.markers.registerLayer(new MapLayer(MapLayer.NAMES, "Names", true, 5));
+		this.markers.registerLayer(new MapLayer(MapLayer.LANDMARKS, "Landmarks", true, 10));
+		this.markers.registerLayer(new MapLayer(MapLayer.PLACES, "Places", true, 12));
 		this.markers.registerLayer(new MapLayer(MapLayer.WAYPOINTS, "Waypoints", true, 20));
-		this.markers.registerLayer(new MapLayer(MapLayer.PLAYERS, "Players", true, 30));
+		this.markers.registerLayer(new MapLayer(MapLayer.PLAYERS, "Friends", true, 30));
+		this.markers.registerLayer(new MapLayer(MapLayer.FLUIDS, "Water & lava", true, 31));
 		this.markers.registerProvider("atlas:places", -30, this::placeMarkers);
 		this.markers.registerProvider("atlas:waypoints", 20, this::waypointMarkers);
 		this.markers.registerProvider("atlas:players", 30, this::playerMarkers);
@@ -486,9 +490,10 @@ public final class AtlasClient implements ClientModInitializer {
 	}
 
 	/**
-	 * The places the player knows of, as markers: a structure only sighted is a "?" with no name; a natural landmark
-	 * shows its name once on the map; regions, lakes and rivers are labels on the land. Made again only when the places
-	 * change (the map and minimap ask every frame).
+	 * The places the player knows of, as markers: a place only sighted is a "?" tile labelled "Sighted"; a landmark is a
+	 * major tile, a place to explore a minor one; regions, lakes and rivers are names on the land (a lake is also a
+	 * landmark tile once zoomed in). Kinds switched off in the legend are left out. Made again only when the places or
+	 * the legend change (the map and minimap ask every frame).
 	 */
 	private void placeMarkers(MarkerQuery q, Consumer<Marker> out) {
 		MapSession session = this.session;
@@ -498,14 +503,26 @@ public final class AtlasClient implements ClientModInitializer {
 		List<Place> visible = session.places.visible(q.dimension());
 		List<Marker> made;
 		synchronized (this) {
-			if (visible != this.markersFrom || !q.dimension().equals(this.markersDim)) {
+			if (visible != this.markersFrom || !q.dimension().equals(this.markersDim) || this.markersLegend != this.settings.legendVersion) {
 				List<Marker> list = new ArrayList<>(visible.size());
+				java.util.Map<String, Place> byId = new java.util.HashMap<>();
+				DimensionData d = session.dimensionIfOpen(q.dimension());
 				for (Place p : visible) {
-					list.add(placeMarker(p));
+					if (!this.settings.kindVisible(dev.voidmc.atlas.client.ui.Kinds.legend(p).name())) {
+						continue;
+					}
+					String region = d == null || p.isLabel() ? null : d.areas.regionAt(p.x(), p.z());
+					Place regionPlace = region == null ? null : session.places.get(region);
+					for (Marker m : placeMarkers(p, regionPlace == null ? null : regionPlace.name())) {
+						list.add(m);
+						byId.put(m.id(), p);
+					}
 				}
 				this.markersFrom = visible;
 				this.markersDim = q.dimension();
+				this.markersLegend = this.settings.legendVersion;
 				this.placeMarkers = list;
+				this.markerPlaces = byId;
 			}
 			made = this.placeMarkers;
 		}
@@ -517,33 +534,47 @@ public final class AtlasClient implements ClientModInitializer {
 		}
 	}
 
-	public static Marker placeMarker(Place p) {
-		boolean structure = !p.isNatural();
-		boolean sighted = p.state() != DiscoveryState.DISCOVERED;
-		boolean unknown = sighted && structure;
-		String layer = structure ? MapLayer.STRUCTURES : MapLayer.LANDMARKS;
-		String name = unknown ? "" : p.name();
-		MarkerGlyph glyph = unknown ? MarkerGlyph.UNKNOWN : MarkerPainter.glyphFor(p);
-		Marker.Style style = p.isLabel() ? Marker.Style.LABEL : Marker.Style.STRUCTURE;
-		String meta = p.kind().equals(Place.PEAK) ? MapPage.minus(p.y()) : "";
-		return new Marker(placeMarkerId(p), layer, name, meta, subtitle(p), p.x() + 0.5, p.y(), p.z() + 0.5, p.dimension(), glyph, style, 0, null,
-			p.source(), p.tier());
+	/** The place a marker of Atlas's own stands for, or null. */
+	public @Nullable Place placeOf(Marker m) {
+		return this.markerPlaces.get(m.id());
 	}
 
-	/** The caps line of a place: what it is (or that it was only sighted) and where. */
+	/** A place's markers: its tile, its name on the land, or both (a lake). */
+	public static List<Marker> placeMarkers(Place p, @Nullable String region) {
+		List<Marker> out = new ArrayList<>(2);
+		String subtitle = subtitle(p, region);
+		if (p.isLabel()) {
+			out.add(new Marker("atlas:label:" + p.id(), MapLayer.NAMES, p.name(), "", subtitle, p.x() + 0.5, p.y(), p.z() + 0.5, p.dimension(),
+				MarkerGlyph.DOT, Marker.Style.LABEL, 0, null, p.source(), p.tier()));
+			if (!p.kind().equals(Place.LAKE)) {
+				return out;
+			}
+		}
+		boolean sighted = dev.voidmc.atlas.client.ui.Kinds.sighted(p);
+		boolean major = dev.voidmc.atlas.client.ui.Kinds.major(p);
+		String name = sighted ? "Sighted" : p.name();
+		String meta = p.kind().equals(Place.PEAK) ? String.valueOf(p.y()) : "";
+		out.add(new Marker(placeMarkerId(p), major ? MapLayer.LANDMARKS : MapLayer.PLACES, name, meta, subtitle, p.x() + 0.5, p.y(), p.z() + 0.5,
+			p.dimension(), dev.voidmc.atlas.client.ui.Kinds.glyph(p), Marker.Style.STRUCTURE, 0, null, p.source(), major ? Tier.MAJOR : Tier.MINOR));
+		return out;
+	}
+
+	public static Marker placeMarker(Place p) {
+		List<Marker> all = placeMarkers(p, null);
+		return all.get(all.size() - 1);
+	}
+
+	/** The caps line of a place: what it is, and where (its region, or its height underground). */
+	public static String subtitle(Place p, @Nullable String region) {
+		String what = dev.voidmc.atlas.client.ui.Kinds.of(p).word;
+		if (p.underground()) {
+			return what + "  ·  Y " + MapPage.minus(p.y());
+		}
+		return region == null || region.isEmpty() ? what : what + "  ·  " + region.toUpperCase(Locale.ROOT);
+	}
+
 	public static String subtitle(Place p) {
-		String what = switch (p.kind()) {
-			case Place.PEAK -> "PEAK";
-			case Place.LAKE -> "LAKE";
-			case Place.RIVER -> "RIVER";
-			case Place.WATERFALL -> "WATERFALL";
-			case Place.CAVE_MOUTH -> "CAVE";
-			case Place.RAVINE -> "RAVINE";
-			case Place.REGION -> "REGION";
-			default -> p.category();
-		};
-		String s = p.state() == DiscoveryState.DISCOVERED ? what : "SIGHTED  ·  " + (p.isNatural() ? what : "UNEXPLORED");
-		return p.underground() ? s + "  ·  UNDERGROUND" : s;
+		return subtitle(p, null);
 	}
 
 	private void playerMarkers(MarkerQuery q, Consumer<Marker> out) {

@@ -22,7 +22,7 @@ public final class Palette {
 	 * The palette's version: images on disk drawn with another are drawn again from their raw regions. It hashes the
 	 * tables below and the materials' anchors; bump {@link #CODE} when the drawing itself changes.
 	 */
-	private static final int CODE = 4;
+	private static final int CODE = 5;
 	public static final int SEA_LEVEL = 63;
 	public static final int BAND_HEIGHT = 10;
 	public static final int MAX_BANDS = 12;
@@ -30,6 +30,9 @@ public final class Palette {
 	public static final float MAX_CHROMA = 0.052F;
 	/** Rock with no air in the slice (underground and Nether layers). */
 	public static final int ROCK = 0x141517;
+	/** A cave wall's rim against the air seen, the step behind it (then {@link #ROCK}). */
+	public static final int CAVE_RIM = 0x2A2C31;
+	public static final int CAVE_WALL = 0x1D1F22;
 	/** What unexplored land shows: the map's well. */
 	public static final int UNEXPLORED = 0x0E0F11;
 
@@ -165,18 +168,16 @@ public final class Palette {
 		return caveFloor(toned, material, shadeStep, 0);
 	}
 
-	/** How many blocks below the top of a slice a floor may lie before it is drawn darkest. */
-	public static final int CAVE_DEPTH_RANGE = 28;
-	/** The lightness a floor loses, stepped, from the top of the slice to {@link #CAVE_DEPTH_RANGE} below it. */
-	private static final float CAVE_DEPTH_FADE = 0.13F;
+	/** The lightness a floor loses for every 4 blocks it lies below the slice it is seen from. */
+	private static final float CAVE_DEPTH_STEP = 0.016F;
 
 	/**
-	 * A cave floor {@code below} blocks under the top of the slice it is seen from: stepped darker the deeper it lies (in
-	 * four flat steps, never a gradient), so a ledge reads above the pit beside it.
+	 * A cave floor {@code below} blocks under the top of the slice it is seen from: the cave floor lifted a little
+	 * (0.04 L, so the explored caves read against the rock), then stepped 0.016 L darker for every 4 blocks it lies
+	 * deeper (flat steps, never a gradient), so a ledge reads above the pit beside it.
 	 */
 	public static int caveFloor(float[] toned, Material material, int shadeStep, int below) {
-		int step = Math.max(0, Math.min(4, below * 4 / CAVE_DEPTH_RANGE));
-		float L = toned[0] * 0.92F + 0.02F + shadeStep * material.shade * 1.2F - step * (CAVE_DEPTH_FADE / 4);
+		float L = toned[0] * 0.92F + 0.02F + 0.04F + shadeStep * material.shade * 1.2F - (below / 4) * CAVE_DEPTH_STEP;
 		return Oklab.toRgb(Math.max(0.08F, Math.min(0.7F, L)), toned[1] * 0.9F, toned[2] * 0.9F);
 	}
 

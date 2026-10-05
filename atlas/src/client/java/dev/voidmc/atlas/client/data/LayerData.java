@@ -64,6 +64,31 @@ public final class LayerData {
 		});
 	}
 
+	/**
+	 * The version of the look this layer's images are drawn with: the palette's, and for the underground whether water
+	 * and lava are shown (images drawn the other way are drawn again).
+	 */
+	public int paletteVersion() {
+		int v = this.dimension.session.paletteVersion();
+		return this.mode == TileRenderer.Mode.CAVE && !this.dimension.session.caveFluids() ? v ^ 0x51F1D5 : v;
+	}
+
+	private TileRenderer renderer() {
+		TileRenderer r = this.dimension.session.renderer();
+		r.fluids = this.mode != TileRenderer.Mode.CAVE || this.dimension.session.caveFluids();
+		return r;
+	}
+
+	/** Lets go of every drawn image (the look changed): they are drawn again from the raw regions as needed. */
+	public void forgetImages() {
+		this.images.clear();
+		synchronized (this.levelCache) {
+			this.levelCache.clear();
+			this.levelCacheBytes = 0;
+		}
+		this.version++;
+	}
+
 	/** Whether the layer knows which regions it has on disk yet. */
 	public boolean listed() {
 		return this.listed;
@@ -153,14 +178,15 @@ public final class LayerData {
 	}
 
 	/**
-	 * Marks the blocks {@code [x0, x1) x [z0, z1)} as changed: their pixels, and the two round them (the hillshade
-	 * and the dithered edge reach that far), are drawn again shortly.
+	 * Marks the blocks {@code [x0, x1) x [z0, z1)} as changed: their pixels, and the three round them (the hillshade,
+	 * the dithered edge and the cave walls reach that far), are drawn again shortly.
 	 */
 	public void dirty(int x0, int z0, int x1, int z1) {
-		x0 -= 2;
-		z0 -= 2;
-		x1 += 2;
-		z1 += 2;
+		int m = TileRenderer.MARGIN;
+		x0 -= m;
+		z0 -= m;
+		x1 += m;
+		z1 += m;
 		for (int rz = Coords.region(z0); rz <= Coords.region(z1 - 1); rz++) {
 			for (int rx = Coords.region(x0); rx <= Coords.region(x1 - 1); rx++) {
 				if (!this.regionExists(rx, rz)) {
@@ -192,7 +218,7 @@ public final class LayerData {
 			return;
 		}
 		synchronized (image) {
-			this.dimension.session.renderer().render(this.around(rx, rz), image, rect[0], rect[1], rect[2], rect[3], this.mode, this.caveTop);
+			this.renderer().render(this.around(rx, rz), image, rect[0], rect[1], rect[2], rect[3], this.mode, this.caveTop);
 		}
 		this.version++;
 		this.dropLevels(rx, rz);
@@ -214,16 +240,16 @@ public final class LayerData {
 			return null;
 		}
 		image = this.images.computeIfAbsent(key, k -> {
-			RegionImage loaded = this.dimension.files.loadImage(this.name, rx, rz, (1 << RegionImage.LEVELS) - 1, this.dimension.session.paletteVersion());
+			RegionImage loaded = this.dimension.files.loadImage(this.name, rx, rz, (1 << RegionImage.LEVELS) - 1, this.paletteVersion());
 			if (loaded != null && loaded.complete()) {
 				return loaded;
 			}
-			RegionImage fresh = new RegionImage(rx, rz, this.dimension.session.paletteVersion());
+			RegionImage fresh = new RegionImage(rx, rz, this.paletteVersion());
 			for (int level = 0; level < RegionImage.LEVELS; level++) {
 				fresh.levelOrCreate(level);
 			}
 			synchronized (fresh) {
-				this.dimension.session.renderer().render(this.around(rx, rz), fresh, 0, 0, Coords.REGION_SIZE, Coords.REGION_SIZE, this.mode, this.caveTop);
+				this.renderer().render(this.around(rx, rz), fresh, 0, 0, Coords.REGION_SIZE, Coords.REGION_SIZE, this.mode, this.caveTop);
 			}
 			return fresh;
 		});
@@ -256,7 +282,7 @@ public final class LayerData {
 			RegionImage full = this.imageForUpdate(rx, rz);
 			return full == null ? null : full.level(0);
 		}
-		RegionImage loaded = this.dimension.files.loadImage(this.name, rx, rz, 1 << level, this.dimension.session.paletteVersion());
+		RegionImage loaded = this.dimension.files.loadImage(this.name, rx, rz, 1 << level, this.paletteVersion());
 		if (loaded != null && loaded.hasLevel(level)) {
 			pixels = loaded.level(level);
 		} else {
@@ -297,13 +323,13 @@ public final class LayerData {
 	 * and image files, and keeps neither in memory; tiles over it are then assembled from disk like any revisited map.
 	 */
 	public void importRegion(RegionRaw raw) throws java.io.IOException {
-		RegionImage image = new RegionImage(raw.x, raw.z, this.dimension.session.paletteVersion());
+		RegionImage image = new RegionImage(raw.x, raw.z, this.paletteVersion());
 		for (int level = 0; level < RegionImage.LEVELS; level++) {
 			image.levelOrCreate(level);
 		}
 		RegionRaw[] around = new RegionRaw[9];
 		around[4] = raw;
-		this.dimension.session.renderer().render(around, image, 0, 0, Coords.REGION_SIZE, Coords.REGION_SIZE, this.mode, this.caveTop);
+		this.renderer().render(around, image, 0, 0, Coords.REGION_SIZE, Coords.REGION_SIZE, this.mode, this.caveTop);
 		this.dimension.files.saveRaw(this.name, raw);
 		this.dimension.files.saveImage(this.name, image);
 		this.markExisting(raw.x, raw.z);

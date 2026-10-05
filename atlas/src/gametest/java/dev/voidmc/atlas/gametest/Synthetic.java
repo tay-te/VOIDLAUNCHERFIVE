@@ -73,6 +73,62 @@ final class Synthetic {
 		}
 	}
 
+	/**
+	 * Cave land for the underground map's performance test: a band of {@code n x n} regions of winding caverns (stone
+	 * and deepslate floors stepping down, pools of water, a little lava, rock between), imported like any explored
+	 * band.
+	 */
+	static void fillCaves(AtlasClient atlas, String dimension, int rx0, int rz0, int n, int band) {
+		MapSession session = atlas.session();
+		LayerData layer = session.dimension(dimension, false).under(band);
+		int stone = session.blockNames.id("minecraft:stone");
+		int deepslate = session.blockNames.id("minecraft:deepslate");
+		int gravel = session.blockNames.id("minecraft:gravel");
+		int tuff = session.blockNames.id("minecraft:tuff");
+		int lava = session.blockNames.id("minecraft:lava");
+		int dripstone = session.biomeNames.id("minecraft:dripstone_caves");
+		int lush = session.biomeNames.id("minecraft:lush_caves");
+		int top = DimensionData.bandTop(band);
+		for (int rz = rz0; rz < rz0 + n; rz++) {
+			for (int rx = rx0; rx < rx0 + n; rx++) {
+				int frx = rx;
+				int frz = rz;
+				session.workers.execute(() -> {
+					RegionRaw raw = new RegionRaw(frx, frz);
+					for (int lz = 0; lz < Coords.REGION_SIZE; lz++) {
+						for (int lx = 0; lx < Coords.REGION_SIZE; lx++) {
+							int x = (frx << Coords.REGION_SHIFT) + lx;
+							int z = (frz << Coords.REGION_SHIFT) + lz;
+							double cave = Math.abs(noise(x * 0.012 + 7, z * 0.012 - 3)) + Math.abs(noise(x * 0.03 - 11, z * 0.03 + 5)) * 0.35;
+							if (cave > 0.32) {
+								// rock, seen as wall where it meets a cave, unknown deeper in
+								if (cave < 0.36) {
+									raw.set(lx, lz, top, 0, 0, 0, RegionRaw.KNOWN | RegionRaw.ROCK);
+								}
+								continue;
+							}
+							int floor = top - 2 - (int) (cave * 40) - (int) (hash(x >> 2, z >> 2) * 2);
+							double pool = noise(x * 0.05 + 30, z * 0.05 + 30);
+							int biome = noise(x * 0.004, z * 0.004) > 0 ? dripstone : lush;
+							if (pool > 0.55) {
+								raw.set(lx, lz, floor + 2, gravel, 3, biome, RegionRaw.KNOWN);
+							} else if (pool < -0.7) {
+								raw.set(lx, lz, floor, lava, 0, biome, RegionRaw.KNOWN);
+							} else {
+								raw.set(lx, lz, floor, floor < top - 12 ? deepslate : hash(x, z) > 0.8 ? tuff : stone, 0, biome, RegionRaw.KNOWN);
+							}
+						}
+					}
+					try {
+						layer.importRegion(raw);
+					} catch (java.io.IOException e) {
+						throw new java.io.UncheckedIOException(e);
+					}
+				});
+			}
+		}
+	}
+
 	private static double height(int x, int z) {
 		double h = 70;
 		h += noise(x * 0.0009, z * 0.0009) * 70;

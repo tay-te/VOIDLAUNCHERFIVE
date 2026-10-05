@@ -116,7 +116,7 @@ public final class Sig {
 	 */
 	public static final long ANCHORS = bits(BELL, CRYING_OBSIDIAN, SPAWNER, END_PORTAL_FRAME, TRIAL_SPAWNER, VAULT, BUDDING_AMETHYST, AMETHYST_CLUSTER,
 		SUSPICIOUS_GRAVEL, SUSPICIOUS_SAND, BLUE_TERRACOTTA, TNT, DISPENSER, TRIPWIRE_HOOK, STICKY_PISTON, WHITE_BANNER, FURNACE, CHEST);
-	/** {@link #ANCHORS} past bit 63 (none yet: the signals that matter are all below 64). */
+	/** {@link #ANCHORS} past bit 63: the white banner, the furnace and the chest. */
 	public static final long ANCHORS_HIGH = bitsHigh(WHITE_BANNER, FURNACE, CHEST);
 
 	private static final String[] NAMES = new String[COUNT];

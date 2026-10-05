@@ -142,7 +142,7 @@ public final class AtlasApiImpl implements AtlasApi {
 					shown.add(m);
 				}
 			}
-			MarkerPainter.paint(ui, f, shown, null, null, Math.min(dw, dh) < 240, px, pz);
+			MarkerPainter.paint(ui, f, shown, null, null, Math.min(dw, dh) < 240, px, pz, view.pixelsPerBlock());
 		}
 		if (view.player() && p != null && mc.level != null && mc.level.dimension().identifier().toString().equals(dim)) {
 			float sx = f.screenX(p.getX(), p.getZ());
