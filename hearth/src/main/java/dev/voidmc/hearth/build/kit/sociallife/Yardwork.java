@@ -182,4 +182,53 @@ public final class Yardwork {
 		}
 		d.inStage(StageKind.OPENINGS, () -> d.door(doorX, y, pz, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), opens, DoorHingeSide.LEFT));
 	}
+
+	/**
+	 * A bell-cote on the ridge of a roof running along x, at column x: two posts of the frame timber either side of the
+	 * ridge's top, a beam across them with the bell hung under it, a cap of the roofing; the poor house's call to prayer
+	 * and to meals. Answers whether it fitted under the plot's height.
+	 */
+	public static boolean bellcote(Draft d, dev.voidmc.hearth.build.kit.Roofs.Roof roof, int x) {
+		if (roof == null || x - 1 < roof.x0 || x + 1 > roof.x1) {
+			return false;
+		}
+		int top = Integer.MIN_VALUE;
+		int rz = 0;
+		// the ridge as drawn: the highest block over the roof's span in this column
+		for (int z = roof.z0; z <= roof.z1; z++) {
+			int y = d.maxHeight() - 1;
+			while (y > roof.y0 && d.isEmpty(x, y, z)) {
+				y--;
+			}
+			if (y > top && !d.isEmpty(x, y, z)) {
+				top = y;
+				rz = z;
+			}
+		}
+		if (top == Integer.MIN_VALUE || top + 3 >= d.maxHeight()) {
+			return false;
+		}
+		Mat frame = d.mat(Role.FRAME);
+		Mat cap = d.mat(Role.ROOF);
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int k : new int[]{-1, 1}) {
+				d.set(x + k, top + 1, rz, frame.fence());
+			}
+			for (int k = -1; k <= 1; k++) {
+				d.set(x + k, top + 2, rz, frame.log(Direction.Axis.X));
+			}
+			d.set(x, top + 1, rz, Blocks.BELL.defaultBlockState().setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.BELL_ATTACHMENT,
+				net.minecraft.world.level.block.state.properties.BellAttachType.CEILING).setValue(
+				net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, net.minecraft.core.Direction.SOUTH));
+			// a little gable of the roofing over it, its slopes the main roof's
+			for (int k = -1; k <= 1; k++) {
+				if (cap.has(Form.STAIRS)) {
+					d.set(x + k, top + 2, rz - 1, cap.stairs(net.minecraft.core.Direction.SOUTH, net.minecraft.world.level.block.state.properties.Half.BOTTOM));
+					d.set(x + k, top + 2, rz + 1, cap.stairs(net.minecraft.core.Direction.NORTH, net.minecraft.world.level.block.state.properties.Half.BOTTOM));
+				}
+				d.set(x + k, top + 3, rz, cap.has(Form.SLAB) ? cap.slab(SlabType.BOTTOM) : frame.fence());
+			}
+		}
+		return true;
+	}
 }

@@ -65,6 +65,9 @@ class SocialLifeTest {
 		REQUIRED.put("civic/orphanage", EnumSet.of(PoiType.BED, PoiType.LECTERN, PoiType.TABLE, PoiType.SEAT, PoiType.HEARTH, PoiType.STORAGE, PoiType.DOOR));
 		REQUIRED.put("commerce/thieves_den", EnumSet.of(PoiType.COUNTER, PoiType.STRONGBOX, PoiType.STORAGE, PoiType.HEARTH, PoiType.DOOR));
 		REQUIRED.put("civic/playhouse", EnumSet.of(PoiType.STAGE, PoiType.SEAT, PoiType.STORAGE, PoiType.MEETING_POINT, PoiType.DOOR));
+		REQUIRED.put("commerce/caravanserai", EnumSet.of(PoiType.BED, PoiType.COUNTER, PoiType.MARKET_STALL, PoiType.HITCHING_POST, PoiType.STORAGE,
+			PoiType.HEARTH, PoiType.TABLE, PoiType.MEETING_POINT, PoiType.DOOR));
+		REQUIRED.put("civic/tilt_yard", EnumSet.of(PoiType.SEAT, PoiType.THRONE, PoiType.MEETING_POINT, PoiType.STORAGE, PoiType.DOOR));
 		REQUIRED.put("landscape/festival_ground", EnumSet.of(PoiType.STAGE, PoiType.MEETING_POINT, PoiType.TABLE, PoiType.SEAT));
 	}
 

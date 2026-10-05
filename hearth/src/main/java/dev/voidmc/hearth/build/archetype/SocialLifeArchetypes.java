@@ -6,6 +6,8 @@ import dev.voidmc.hearth.build.archetype.civic.Cemetery;
 import dev.voidmc.hearth.build.archetype.civic.Infirmary;
 import dev.voidmc.hearth.build.archetype.civic.Orphanage;
 import dev.voidmc.hearth.build.archetype.civic.Playhouse;
+import dev.voidmc.hearth.build.archetype.civic.TiltYard;
+import dev.voidmc.hearth.build.archetype.commerce.Caravanserai;
 import dev.voidmc.hearth.build.archetype.commerce.Hostel;
 import dev.voidmc.hearth.build.archetype.commerce.Tavern;
 import dev.voidmc.hearth.build.archetype.commerce.ThievesDen;
@@ -26,5 +28,7 @@ public final class SocialLifeArchetypes {
 		registry.register(new Orphanage());
 		registry.register(new ThievesDen());
 		registry.register(new Playhouse());
+		registry.register(new Caravanserai());
+		registry.register(new TiltYard());
 	}
 }

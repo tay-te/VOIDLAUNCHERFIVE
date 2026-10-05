@@ -117,6 +117,8 @@ public final class Almshouse implements Archetype {
 				}
 			}
 		}
+		// the bell-cote on the ridge over the middle of the range
+		Yardwork.bellcote(d, r.shell().roof(), w / 2);
 		List<String[]> name = Signboard.name(d, "almshouse", Signboard.ALMSHOUSES);
 		for (int k : new int[]{2, -2, 3, -3}) {
 			int i = di + k;
