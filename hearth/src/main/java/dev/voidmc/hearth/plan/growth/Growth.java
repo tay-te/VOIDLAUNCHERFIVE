@@ -96,6 +96,7 @@ public final class Growth {
 			}
 			long t0 = System.nanoTime();
 			int before = ctx.state.queue.size();
+			int deepBefore = ctx.state.deep == null ? 0 : ctx.state.deep.queue.size();
 			ctx.buildings = 0;
 			WHY.remove();
 			boolean met = need.plan.test(ctx);
@@ -105,11 +106,17 @@ public final class Growth {
 				dev.voidmc.hearth.Hearth.LOG.info("[plan] {} pop {} {}: {} ({}) {} us", ctx.settlement.name(), ctx.population, need.key,
 					met ? "planned" : why == null ? "no room" : why, (int) o[0], (System.nanoTime() - t0) / 1000);
 			}
+			if (met && ctx.buildings == 0 && ctx.state.queue.size() == before && (ctx.state.deep == null || ctx.state.deep.queue.size() <= deepBefore)) {
+				// said it was met but queued nothing (a seat already planned, a rebuild already asked for): it rests, or it
+				// would be "met" on every call and nothing after it ever planned (a city of 447 answered nothing for good)
+				ctx.state.cooldowns.put(need.key, ctx.state.calls + 4 + ctx.random.nextInt(5));
+				continue;
+			}
 			if (met) {
 				ctx.state.failures.remove(need.key);
 				if (ctx.buildings > 0) {
 					ctx.state.cooldowns.remove(need.key);
-				} else if (ctx.state.queue.size() > before) {
+				} else {
 					// only a road came of it: the need rests a little so roads do not run on without anything to build
 					ctx.state.cooldowns.put(need.key, ctx.state.calls + (farOff(need.key) ? 12 : 4));
 				}

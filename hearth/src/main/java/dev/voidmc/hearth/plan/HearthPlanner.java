@@ -123,6 +123,7 @@ public final class HearthPlanner implements SettlementPlanner {
 		if (state.queue.isEmpty() && (state.deep == null || state.deep.queue.isEmpty())) {
 			why = Growth.plan(ctx);
 		}
+		boolean queued = !state.queue.isEmpty();
 		QueuedProject project = poll(ctx);
 		state.issued.clear();
 		state.occupancy = ctx.occ;
@@ -135,7 +136,8 @@ public final class HearthPlanner implements SettlementPlanner {
 		boolean live = ctx.deadline != Long.MAX_VALUE || PlanStats.everyCall;
 		if (project == null) {
 			if (live) {
-				PlanStats.nothing(settlement.id(), settlement.name(), settlement.population(), why == null ? "the queue held nothing worth building" : why);
+				PlanStats.nothing(settlement.id(), settlement.name(), settlement.population(), why != null ? why
+					: queued ? "the queued rebuilds' old plots were gone" : "a need was met with nothing to build");
 			}
 			settlement.markDirty();
 			return null;
