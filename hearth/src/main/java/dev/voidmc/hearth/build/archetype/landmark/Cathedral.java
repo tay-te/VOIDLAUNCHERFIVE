@@ -566,6 +566,11 @@ public final class Cathedral implements Archetype {
 		int peak = roof.ridgeY;
 		Stone base = Stone.stony(d, Role.PLINTH) ? Stone.of(d, Role.PLINTH) : Stone.footing(d);
 		Crowns.Mats mats = p.manner == Manner.ROMANESQUE ? Crowns.Mats.of(d, dress) : Crowns.Mats.coppered(d, dress, 0.35);
+		if (d.style().culture() == dev.voidmc.hearth.api.Culture.TEMPERATE && p.manner != Manner.BAROQUE) {
+			// Bohemia's spires are dark shingle or slate, never a turquoise needle (copper only on the odd baroque onion)
+			mats = new Crowns.Mats(d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), dress, d.mat(Role.FRAME),
+				dev.voidmc.hearth.build.kit.civic.Bohemian.shingle(d));
+		}
 		Crowns.Kind westCrown = switch (p.manner) {
 			case GOTHIC -> p.towers == Towers.CROSSING ? Crowns.Kind.PARAPET : d.chance(0.5) ? Crowns.Kind.SPIRE : Crowns.Kind.OCTAGON;
 			case BAROQUE -> Crowns.Kind.ONION;
