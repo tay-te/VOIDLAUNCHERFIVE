@@ -600,8 +600,8 @@ never where anyone walks or bumps their head (lanterns hang above head height), 
 something. They are drawn in stage INTERIOR inside and EXTERIOR outside, supports first. When a pass puts up something
 with a body (a bracket, a post, a brazier's stand) it runs again on what that made (at most three passes). A road is
 never touched; a linear work is lit only in columns it already builds in. `lighting=none` in the params skips the
-pass (previews and timing only). The pass costs a few milliseconds for a house, 20 to 30 for a hall and about 165 for
-a cathedral, once per blueprint (the service caches them).
+pass (previews and timing only). The pass costs a few milliseconds for a house, 20 to 30 for a hall and about 50 (warm)
+for a cathedral, once per blueprint (the service caches them).
 
 How each culture lights (`Manner`): the iron lantern on an iron chain everywhere on the surface (a copper lantern's
 flame is green, a soul lantern's blue); torches on the walls in the north, the tundra and the tropics; candles
@@ -630,6 +630,11 @@ Lighting.underRug(d, x, y, z);                  // glow under the floor at y - 1
 ```
 
 The fittings check nothing (the archetype knows its plan); `room` does, like the pass.
+
+The last resort is a failure of design: seal the voids nobody can reach (`build/kit/refine/Voids.finish(d)` at the end of
+`draw`, `Voids.seal` for a box such as a spire's hollow), give a loft a ladder (`Lofts.ladder`) or open it to the rafters,
+and hang lamps where the pass cannot (`Lamps.byWalls` for narrow round floors). `HiddenLightsTest` lists every hidden
+light left, spec by spec (docs/buildings/refine.md).
 
 ### Looking at it
 

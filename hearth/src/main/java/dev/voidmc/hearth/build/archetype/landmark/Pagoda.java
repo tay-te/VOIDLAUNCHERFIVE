@@ -406,6 +406,33 @@ public final class Pagoda implements Archetype {
 		int dp = d.depth();
 		int outer = 9;
 		int ox = (w - outer) / 2;
+		// a clipped hedge round the garden, open to the street at the walk
+		var hedge = d.mat(dev.voidmc.hearth.build.style.Role.HEDGE);
+		int gate = (w - 1) / 2;
+		try (var st = d.stage(StageKind.EXTERIOR)) {
+			for (int[] c : Draft.ring(0, 0, w - 1, dp - 1)) {
+				if (c[1] == 0 && Math.abs(c[0] - gate) <= 2) {
+					continue;
+				}
+				int y = Garden.groundAt(d, c[0], c[1]);
+				if (d.isEmpty(c[0], y, c[1]) && Garden.groundLike(d, c[0], y - 1, c[1])) {
+					d.set(c[0], y, c[1], hedge.leaves());
+				}
+			}
+		}
+		// little trees in the garden's corners
+		for (int[] c : new int[][]{{2, 2}, {w - 3, 2}, {2, dp - 3}, {w - 3, dp - 3}}) {
+			int y = Garden.groundAt(d, c[0], c[1]);
+			boolean free = true;
+			for (int dx = -1; dx <= 1 && free; dx++) {
+				for (int dz = -1; dz <= 1 && free; dz++) {
+					free = d.isEmpty(c[0] + dx, y, c[1] + dz) && d.isEmpty(c[0] + dx, y + 2, c[1] + dz);
+				}
+			}
+			if (free && Garden.groundLike(d, c[0], y - 1, c[1])) {
+				Garden.tree(d, c[0], y, c[1], 3);
+			}
+		}
 		int[][] strips = {{1, ox - 2}, {ox + outer + 1, w - 2}};
 		for (int[] st : strips) {
 			if (st[1] - st[0] < 1) {
@@ -424,7 +451,7 @@ public final class Pagoda implements Archetype {
 					if ((z - 2) % 6 == 3 && x == (st[0] + st[1]) / 2 && st[1] - st[0] >= 2) {
 						dev.voidmc.hearth.build.kit.Garden.tree(d, x, y, z, 3);
 					} else {
-						dev.voidmc.hearth.build.kit.Garden.flowerBed(d, List.of(new int[]{x, z}), y, 0.6);
+						dev.voidmc.hearth.build.kit.Garden.flowerBed(d, List.of(new int[]{x, z}), y, 0.9);
 					}
 				}
 			}

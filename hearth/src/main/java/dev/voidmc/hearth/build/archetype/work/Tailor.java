@@ -152,7 +152,7 @@ public final class Tailor implements Archetype {
 			ridge = Direction.Axis.Z;
 		}
 		hall.roof(form, ridge, 1, plan -> {
-			if (plan.axis == Direction.Axis.X && w >= 6 && form != RoofForm.GAMBREL && form != RoofForm.MANSARD) {
+			if (plan.axis == Direction.Axis.X && w >= 6 && form != RoofForm.GAMBREL && form != RoofForm.MANSARD && hall.storeys() >= 2) {
 				Side top = hall.side(hall.storeys() - 1, Dirs.FRONT);
 				plan.dormer(top, top.column(top.middle()), 1, hall.floorY(hall.storeys() - 1));
 			}

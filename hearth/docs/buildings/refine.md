@@ -7,9 +7,9 @@ Stage B "refine" owns the phase 2 families' archetypes and kits, the style JSONs
 ## Light by design (no invisible light)
 
 The light pass's last resort is vanilla's invisible `light` block. Over the catalogue (71 archetypes x 14 cultures x 6
-terrains x 2 seeds, 11,928 blueprints) it put up **about 9,300** of them; it now puts up **about 1,500** (the cathedral
-alone went from 2,784 to about 130, the temple from 656 to 11, the warehouse from 630 to 2, the windmill from 526 to
-about 90, the manor from 421 to 30). Almost all were *pockets*: sealed voids under roofs, inside spires and turrets, over
+terrains x 2 seeds, 11,928 blueprints) it put up **about 9,300** of them; it now puts up **about 1,250** (the cathedral
+alone went from 2,784 to about 125, the temple from 656 to 11, the warehouse from 630 to 2, the windmill from 526 to
+18, the manor from 421 to 30, the cliff dwelling from 92 to none). Almost all were *pockets*: sealed voids under roofs, inside spires and turrets, over
 knee walls and lofts nobody could reach, which the rule (rightly) keeps from going dark. The fixes, from the most
 general:
 
@@ -20,6 +20,7 @@ general:
 | `Hall.sealedKnee` (in `Hall.roof`) | a knee attic (two rows or less under a pitched roof) that no stair reaches is opened to the room below (`openLoft`): a store open to its rafters instead of a dark loft | the bakery, tailor, warehouse, watermill, granary, storehouse, smithy, carpentry and every other `Hall` building |
 | `Lofts.ladder(d, x, z, yFrom, yTo, toWall, roof)` | a ladder against a wall up through a hatch into a loft a stair cannot reach (checks the wall behind every rung and headroom under the roof) | the manor's garret, now a box room |
 | `Lamps.byWalls(d, cx, cz, floorY, n)` | lanterns hung under the joists against the walls of a narrow round room, looking out along the axes from the middle | the windmill's floors |
+| `Lighting.lamp` (existing) | a lantern stood where the light belongs: the miller's lamp in an open windmill cap, the library's glazed roof lantern (it glows over the roofs at night), the cliff dwellings' roof terraces | windmill, library, cliff dwelling |
 | `Lighting.wheel` / `sconce` / `chandelier` | (existing kit) | the cathedral, the temple's dome hall |
 
 Designed lighting where the pass was guessing:
@@ -34,9 +35,10 @@ Designed lighting where the pass was guessing:
 - **Windmill**: a lantern under the joists on every floor; the bonnet's hollow boarded shut.
 - **Manor**: the garret is reached by a ladder from the landing and furnished as a box room.
 
-What is left (about 1,500 over the catalogue): the library's gallery void (165), the town hall's tower top (149),
-pockets in the stave cathedral and the Gothic cathedral's alpine roof walks, town wall and terrace ground cells where
-the street's lamps do not reach, the cliff dwelling's ledges, the quarry, and single pockets here and there.
+What is left (about 1,250 over the catalogue): the town hall's tower (149), pockets in the stave cathedral and the
+Gothic cathedral's alpine roof walks (124), town wall and terrace ground cells where the street's lamps do not reach
+(101, 52), the quarry's pit (67), bell tower stages (63), the crawl spaces under stilted tropical and bayou houses,
+banks, schools and chapels (a room two high where no lamp may hang), and single pockets here and there.
 `HiddenLightsTest` lists them spec by spec.
 
 ## A cheaper light pass

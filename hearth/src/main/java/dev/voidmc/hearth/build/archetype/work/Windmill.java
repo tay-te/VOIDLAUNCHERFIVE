@@ -274,6 +274,13 @@ public final class Windmill implements Archetype {
 		// the cap's hollow over the curb, boarded shut: a core of the floor's timber, not a dark void
 		dev.voidmc.hearth.build.kit.refine.Voids.seal(d, (int) Math.floor(cx - rc) - 2, yt + 2, (int) Math.floor(cz - rc) - 2,
 			(int) Math.ceil(cx + rc) + 2, capTop, (int) Math.ceil(cz + rc) + 2, d.mat(Role.FLOOR).full());
+		// what stays open in the cap (round the windshaft's way out) gets the miller's lamp, stood on the curb
+		for (int[] c : new int[][]{{icx + 1, icz}, {icx - 1, icz}, {icx, icz + 1}}) {
+			if (d.isEmpty(c[0], yt + 2, c[1]) && d.isEmpty(c[0], yt + 3, c[1]) && d.isSolid(c[0], yt + 1, c[1])) {
+				dev.voidmc.hearth.build.kit.light.Lighting.lamp(d, c[0], yt + 2, c[1]);
+				break;
+			}
+		}
 		interior(d, cx, cz, r0, icx, icz, fdz);
 		yard(d, w, dp, icx, ez);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(capTop + 3, hubY + len) + 1);
