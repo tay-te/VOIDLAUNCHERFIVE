@@ -36,9 +36,10 @@ liquors tinted water over a concrete or terracotta bed, never exposed coloured b
 - **Chandler**: the row house whose window glows: lit candles on the sill and the stall board, lanterns either side,
   the tallow kettle under its hood, the dipping rack, a rendering lean-to in the yard.
 - **Dye works**: the dye house down one side of the plot, gable to the street: coppers by a back-wall chimney and a
-  woad vat below, a wide bay to the yard; above, the loft open to the yard and hung with cloth in every colour, a
-  gallery of cloth across the street gable. The yard: a rinsing channel, tall tenter frames of bright cloth that show
-  over the roofs, vats of dye (round tubs, or sunk in the paving in the south), a bed of dye plants.
+  woad vat below, a wide bay to the yard; above, the loft open to the yard and hung with cloth in madder, woad and weld
+  (with undyed lengths between, `Hangs.DYED`), a gallery of cloth across the street gable. The yard: a rinsing channel,
+  tall tenter frames of dyed cloth that show
+  over the roofs, vats of woad, madder and weld (round tubs, or sunk in the paving in the south), a bed of dye plants.
 - **Paper mill**: on the race beside the water, the wheel turning a camshaft along the wall that drops a row of
   hammers into their troughs; the vat of white pulp, the finishing table (cartography table), the paper chest and the
   rag barrel; above, the drying loft whose long walls are ladders of louvres, rails of drying sheets inside, a ridge

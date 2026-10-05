@@ -120,7 +120,8 @@ flower boxes, a broad low roof with eaves three deep, a balcony across the gable
 
 ### Lighthouse
 A round tower on a mound of weathered rock: a flared plinth, the livery (the style's masonry walls, or white render, in
-bands of the town's strongest cloth colour as concrete on 75 %, red before blue before the rest: param `bands`), a door
+day-mark bands on 75 %: red on white, or black on white where the town's cloth is black and not red or now and then by
+seed; a stone tower is banded red: param `bands`), a door
 under a hood, little windows climbing it, a course at mid-height, the watch room's windows under a corbelled
 gallery with an iron railing round a glazed lantern room (sea lanterns), a cap and a vane. The gallery deck is on a whole
 turn of the spiral so the last step lands by the lantern room's door (VIEWPOINT). The keeper's cottage in front (bed,

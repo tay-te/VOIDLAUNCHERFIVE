@@ -56,8 +56,9 @@ company's flag, costume chests inside; out of it by two doors the thrust stage w
 double doors under the board. POIs STAGE + ENTERTAINER, SEATs, STORAGE, MEETING_POINT, DOOR.
 
 **Tilt yard.** The lists outside the walls: a fenced field, the tilt barrier down the track with painted end posts and
-banners; on one side three tiers of benches, the lord's box in the middle under a striped canopy with a valance, the
-THRONE at its top; on the other side two knights' pavilions (striped tents, pennant, arms chest = STORAGE, hung lantern);
+banners; on one side three tiers of benches, the lord's box in the middle under a canvas canopy with a valance, the
+THRONE at its top; on the other side two knights' pavilions (undyed canvas banded in the colour of the house that holds
+the tilt, the challenger's pennant, arms chest = STORAGE, hung lantern); colours are natural dyes (`Fair.natural`);
 the quintain at the far end; lamps; a wide gate from the street.
 
 **Infirmary.** One lofty storey under tie beams: down both long walls the cots of the sick (`Wards.cot`: a white bolster,
@@ -77,7 +78,9 @@ mortuary chapel with a bell-cote at the back; terraced on hillsides.
 
 **Festival ground.** The culture's centrepiece on a dance floor (maypole, midsummer pole, beacon, lantern poles,
 horsetail standard, vine pergola, obelisk, bonfire), the stage, booths, trestles, banner posts, bonfire pit, hay, trees,
-the garlanded arch. The front rows meet the street; the green lies on one level within a two-blocks-a-band climb of it
+the garlanded arch. Booths and the stage canopy are undyed canvas with a valance of the fair's one colour
+(`Fair.houseColour`, madder, woad or weld), striped only in the mediterranean and the desert; ribbons and banners take
+the same natural dyes. The front rows meet the street; the green lies on one level within a two-blocks-a-band climb of it
 and under the plot's height.
 
 ## The kit (`build/kit/sociallife/`)
