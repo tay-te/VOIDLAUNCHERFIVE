@@ -1,5 +1,6 @@
 package dev.voidmc.mettle.mixin.character;
 
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
 import dev.voidmc.mettle.character.skill.MiningSkill;
 import net.minecraft.network.chat.Component;
@@ -10,7 +11,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -19,9 +19,10 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 @Mixin(Player.class)
 abstract class PlayerMixin {
-	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
-	private void mettle$miningSpeed(BlockState state, CallbackInfoReturnable<Float> cir) {
-		cir.setReturnValue(MiningSkill.destroySpeed((Player) (Object) this, state, cir.getReturnValueF()));
+	// ModifyReturnValue chains with other trees' dig-speed hooks; a cancellable inject would end the method early.
+	@ModifyReturnValue(method = "getDestroySpeed", at = @At("RETURN"))
+	private float mettle$miningSpeed(float speed, BlockState state) {
+		return MiningSkill.destroySpeed((Player) (Object) this, state, speed);
 	}
 
 	@Inject(method = "onEnchantmentPerformed", at = @At("TAIL"))
