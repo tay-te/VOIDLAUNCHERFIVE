@@ -1399,6 +1399,15 @@ public final class MapPage {
 		}
 	}
 
+	/** Opens the export dialog. */
+	public void openExport() {
+		this.exportView();
+	}
+
+	/** Shows the import card (waypoints found in other map mods' files). */
+	public void offerImport() {
+	}
+
 	/** The map as shown, to a PNG in {@code <world map>/exports/}, on a worker; the result in the chat. */
 	private void exportView() {
 		var session = this.atlas.session();

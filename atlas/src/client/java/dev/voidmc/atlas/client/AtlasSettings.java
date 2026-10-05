@@ -22,7 +22,7 @@ public final class AtlasSettings {
 	}
 
 	public enum Size {
-		SMALL("Small", 136), MEDIUM("Medium", 168), LARGE("Large", 208);
+		SMALL("S", 144), MEDIUM("M", 200), LARGE("L", 256);
 
 		public final String label;
 		/** Side of the minimap's map, in design pixels. */
@@ -72,8 +72,8 @@ public final class AtlasSettings {
 	public boolean minimapAutoCave = true;
 	/** Hide the minimap with the debug screen (F3) as well as with the HUD (F1). */
 	public boolean minimapHideWithDebug = true;
-	/** Other players on the minimap (on a server only where it opts in to radar; see docs/SERVER_RULES.md). */
-	public boolean radarPlayers = true;
+	/** Other players on the minimap (off by default; on a server only where it opts in to radar; see docs/SERVER_RULES.md). */
+	public boolean radarPlayers = false;
 	/** Mobs on the minimap (likewise). */
 	public boolean radarMobs = false;
 
@@ -83,23 +83,40 @@ public final class AtlasSettings {
 	/** Beams fade out to nothing by this distance (blocks); 0 for no limit. */
 	public int beamDistance = 3000;
 	/** Death points go after this many minutes (0: kept until deleted or reached). */
-	public int deathMinutes = 60;
-	/** Death points go once the player is back within 6 blocks of them. */
+	public int deathMinutes = 10;
+	/** Death points go once the player is back within {@link #DEATH_REACH} blocks of them. */
 	public boolean deathClearsOnReach = true;
-	/** How long a temporary waypoint (from chat, a share) lasts, in minutes. */
-	public int temporaryMinutes = 30;
+	public static final int DEATH_REACH = 8;
+	/** How long a temporary waypoint (from chat, a share, quick-add) lasts, in minutes: 5, 10, 30 or 60. */
+	public int temporaryMinutes = 10;
+	/** Quick-add's "Within N m": 64, 128, 256 or 512. */
+	public int quickAddWithin = 256;
+	/** The colour quick-add starts with: the last one used. */
+	public int lastColour = 0;
 	/** Coordinates in chat become clickable (a temporary waypoint). */
 	public boolean chatCoordinates = true;
 
 	// --- storage, look ---------------------------------------------------------------------------------------------
 	/** The most disk Atlas's maps may take, in MB (0: no cap); least recently viewed far regions go first. */
 	public int diskCapMb = 4096;
-	/** Day and night on the map: it darkens and cools with the time of day. */
-	public boolean mapLighting = false;
-	/** Markers told apart by shape as well as glyph (colour-blind safe). */
-	public boolean shapeMarkers = false;
+	/** The map's look: following the world's time of day (night from 12,500 ticks), always day, or always night. */
+	public enum MapLook {
+		FOLLOW("Follow time"), DAY("Always day"), NIGHT("Always night");
+
+		public final String label;
+
+		MapLook(String label) {
+			this.label = label;
+		}
+	}
+
+	public MapLook mapLook = MapLook.FOLLOW;
+	/** Every waypoint colour has its own pin head shape (colour-blind safe); on by default. */
+	public boolean shapeMarkers = true;
 	/** The first-run hint has been shown. */
 	public boolean firstRunHintShown = false;
+	/** The import from other map mods has been offered (it is offered once). */
+	public boolean importOffered = false;
 
 	/** Bumped whenever the legend changes, so the place markers are made again. */
 	public transient int legendVersion;
@@ -135,6 +152,13 @@ public final class AtlasSettings {
 		}
 		if (this.hiddenKinds == null) {
 			this.hiddenKinds = new HashSet<>();
+		}
+		if (this.mapLook == null) {
+			this.mapLook = MapLook.FOLLOW;
+		}
+		this.lastColour = Math.floorMod(this.lastColour, 8);
+		if (this.quickAddWithin != 64 && this.quickAddWithin != 128 && this.quickAddWithin != 256 && this.quickAddWithin != 512) {
+			this.quickAddWithin = 256;
 		}
 		if (this.minimapShape == null) {
 			this.minimapShape = Shape.SQUARE;

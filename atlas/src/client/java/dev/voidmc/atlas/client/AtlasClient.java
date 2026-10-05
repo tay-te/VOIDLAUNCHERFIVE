@@ -270,6 +270,27 @@ public final class AtlasClient implements ClientModInitializer {
 		return !this.multiplayer() || this.rules.radarAllowed(mobs);
 	}
 
+	/** Opens the export dialog on the map (from the settings' Data tab). */
+	public void openExport() {
+		this.openMapWith(page -> page.openExport());
+	}
+
+	/** Offers the import from other map mods again (the settings' Data tab): the card on the map. */
+	public void offerImport() {
+		this.settings.importOffered = false;
+		this.openMapWith(page -> page.offerImport());
+	}
+
+	private void openMapWith(java.util.function.Consumer<dev.voidmc.atlas.client.ui.MapPage> then) {
+		Minecraft mc = Minecraft.getInstance();
+		if (this.session == null) {
+			return;
+		}
+		dev.voidmc.atlas.client.ui.AtlasScreen screen = new dev.voidmc.atlas.client.ui.AtlasScreen(this);
+		mc.gui.setScreen(screen);
+		then.accept(screen.page);
+	}
+
 	/** What the current server allows and forbids (see docs/SERVER_RULES.md). */
 	public dev.voidmc.atlas.client.ServerRulesState rules() {
 		return this.rules;
@@ -396,7 +417,7 @@ public final class AtlasClient implements ClientModInitializer {
 			String dim = p.level().dimension().identifier().toString();
 			if (this.ticks % 20 == 7 && !p.isDeadOrDying()) {
 				// temporary waypoints and old death points go; a death point goes once the player is back at it
-				if (!session.waypoints.expire(System.currentTimeMillis(), dim, p.getX(), p.getY(), p.getZ(), this.settings.deathClearsOnReach ? 6 : 0).isEmpty()) {
+				if (!session.waypoints.expire(System.currentTimeMillis(), dim, p.getX(), p.getY(), p.getZ(), this.settings.deathClearsOnReach ? AtlasSettings.DEATH_REACH : 0).isEmpty()) {
 					session.saveSoon(false);
 				}
 			}

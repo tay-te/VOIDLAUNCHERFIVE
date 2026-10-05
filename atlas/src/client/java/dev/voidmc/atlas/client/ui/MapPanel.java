@@ -264,10 +264,11 @@ public final class MapPanel {
 		LayerData layer = this.atlas.settings().layerVisible(MapLayer.TERRAIN) ? this.layer(this.kind) : null;
 		ui.round(x, y, w, h, radius, Theme.MAP_WELL);
 		MapRenderer.View view = new MapRenderer.View(this.cx, this.cz, this.zoom, 0);
-		// day and night on the map (if wanted): the surface of a world with a sky, lit as the time of day
+		// day and night on the map: the surface of a world with a sky, lit as the setting and the time of day say
 		net.minecraft.client.multiplayer.ClientLevel lightLevel = net.minecraft.client.Minecraft.getInstance().level;
-		boolean lit = this.atlas.settings().mapLighting && this.kind == Kind.SURFACE && lightLevel != null && !lightLevel.dimensionType().hasCeiling();
-		this.renderer.setTint(lit ? MapRenderer.daylight(lightLevel.getOverworldClockTime()) : 0xFFFFFF);
+		boolean sky = this.kind == Kind.SURFACE && lightLevel != null && !lightLevel.dimensionType().hasCeiling();
+		dev.voidmc.atlas.client.render.MapLight.update(this.atlas.settings().mapLook, lightLevel == null ? 0 : lightLevel.getOverworldClockTime(), sky);
+		this.renderer.setTint(sky ? dev.voidmc.atlas.client.render.MapLight.tint() : 0xFFFFFF);
 		MapRenderer.Frame f = this.renderer.draw(ui, this.atlas.tiles(), layer, x, y, w, h, radius, view, true);
 		this.frame = f;
 		// markers and the player, clipped to the map's box

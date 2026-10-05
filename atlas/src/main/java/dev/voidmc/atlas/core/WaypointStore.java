@@ -143,7 +143,10 @@ public final class WaypointStore {
 					o.has("kind") ? Waypoint.Kind.valueOf(o.get("kind").getAsString()) : Waypoint.Kind.USER,
 					o.has("created") ? o.get("created").getAsLong() : 0L,
 					!o.has("visible") || o.get("visible").getAsBoolean(),
-					o.has("expires") ? o.get("expires").getAsLong() : 0L));
+					o.has("expires") ? o.get("expires").getAsLong() : 0L,
+					o.has("icon") ? o.get("icon").getAsString() : "PIN",
+					o.has("within") ? o.get("within").getAsInt() : 0,
+					o.has("shared") && o.get("shared").getAsBoolean()));
 			}
 		} catch (IOException | RuntimeException e) {
 			this.waypoints.clear();
@@ -174,6 +177,13 @@ public final class WaypointStore {
 			o.addProperty("visible", w.visible());
 			if (w.expires() > 0) {
 				o.addProperty("expires", w.expires());
+			}
+			o.addProperty("icon", w.icon());
+			if (w.within() > 0) {
+				o.addProperty("within", w.within());
+			}
+			if (w.shared()) {
+				o.addProperty("shared", true);
 			}
 			list.add(o);
 		}

@@ -329,33 +329,12 @@ public final class MapRenderer {
 		mesh.vertex(f.screenX(mx, mz), f.screenY(mx, mz), Math.max(u0, Math.min(u1, u)), Math.max(v0, Math.min(v1, v)), alpha << 24 | this.tint);
 	}
 
-	/** The colour the tiles are multiplied by (0xRRGGBB): white, or the time of day's light (see {@link #daylight}). */
+	/** The colour the tiles are multiplied by (0xRRGGBB): white, or the time of day's light ({@link MapLight}). */
 	private int tint = 0xFFFFFF;
 
 	public void setTint(int rgb) {
 		this.tint = rgb & 0xFFFFFF;
 	}
 
-	/**
-	 * The map's light at a time of day (ticks, 0 = sunrise... 24000): white by day, a cool dark blue at night (the
-	 * land at about 55%, kept readable), blending through dusk and dawn over the game's own 1,800-tick twilights.
-	 */
-	public static int daylight(long dayTime) {
-		long t = Math.floorMod(dayTime, 24000L);
-		double night;
-		if (t < 12000) {
-			night = 0;
-		} else if (t < 13800) {
-			night = (t - 12000) / 1800.0;
-		} else if (t < 22200) {
-			night = 1;
-		} else {
-			night = 1 - (t - 22200) / 1800.0;
-		}
-		night = night * night * (3 - 2 * night);
-		int r = (int) Math.round(255 * (1 - night * 0.47));
-		int g = (int) Math.round(255 * (1 - night * 0.42));
-		int b = (int) Math.round(255 * (1 - night * 0.24));
-		return r << 16 | g << 8 | b;
-	}
+
 }
