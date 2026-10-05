@@ -121,7 +121,7 @@ public final class Perf {
 		if (SLOW.size() < 40) {
 			SLOW.add(line);
 		}
-		AtlasClient.LOGGER.info("Atlas perf: slow {}", line);
+		AtlasClient.LOGGER.info("Atlas perf: slow {} (jvm uptime {} s)", line, java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime() / 1000.0);
 	}
 
 	public static long lastFrameNanos() {

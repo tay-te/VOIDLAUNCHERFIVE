@@ -138,7 +138,8 @@ loom {
 			property 'atlas.baseline', baseline.toString()
 			property 'atlas.test.withExpanse', withExpanse.toString()
 			programArgs '--width', testWidth, '--height', testHeight, '--graphicsBackend', backend
-			vmArgs '-Xmx3G'
+			// every pause of the whole JVM (GC or not) with its time to reach it, for a long frame that is no phase's fault
+			vmArgs '-Xmx3G', '-Xlog:safepoint=info,gc=info:file=safepoints.log:uptime,tags'
 		}
 	}
 }
