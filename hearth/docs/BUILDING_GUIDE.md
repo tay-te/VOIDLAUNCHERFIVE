@@ -309,7 +309,7 @@ Per-form overrides go on an entry: `{"m": "minecraft:hay_block", "stairs": "mine
 patches, not salt-and-pepper); biases shift weights by position: `low` (near the ground), `high`, `north` (north
 faces: moss), `corner`. Roles that should be one thing per building (`roof`, `roof_trim`, `frame`, `beam`, `door`,
 `shutter`, `window`, `fence`, `railing`, `furniture`, `chimney`, `stilt`, `light`, `floor`, `ceiling`, `tree_log`,
-`tree_leaves`, `hedge`) choose one entry per building by seed instead, so a street of houses varies roof to roof while
+`tree_leaves`, `hedge`, `sheet`, `cloth`) choose one entry per building by seed instead, so a street of houses varies roof to roof while
 each roof is whole.
 
 **Tiers.** The base roles are tier 2 (an ordinary village house). `tiers` overrides roles for other tiers; a tier
@@ -328,7 +328,7 @@ replaced whole). A tier's own overrides win over a variant's. Force one with the
 | `windows` | `shutters`, `boxes`, `arched`, `bay` (chances), `lattice`, `tall` |
 | `plan` | `round`, `courtyard`, `tower` (chances), `stilts` (never, water, always), `stilt_height`, `terraces` |
 | `yard` | `garden` (kind), `fence` (fence, wall, hedge, none), `hedge`, `woodpile` (chances) |
-| top level | `chimney`, `porch`, `balcony` (chances), `snow` |
+| top level | `chimney`, `porch`, `balcony` (chances), `snow`, `stripes` (white-striped awnings: mediterranean and desert only) |
 
 Check a style with `./gradlew test` (`StylesTest` verifies every role of every tier and variant resolves to blocks and
 can be cut in the forms the kit asks of it) and look at it with the preview.
