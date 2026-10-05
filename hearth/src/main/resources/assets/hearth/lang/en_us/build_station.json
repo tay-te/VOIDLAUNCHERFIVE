@@ -1,1 +1,10 @@
-{}
+{
+  "hearth.archetype.house.hovel": "Hovel",
+  "hearth.archetype.house.shack": "Shack",
+  "hearth.archetype.house.croft": "Croft",
+  "hearth.archetype.house.merchant_house": "Merchant's House",
+  "hearth.archetype.house.reeve_house": "Reeve's House",
+  "hearth.archetype.house.rectory": "Rectory",
+  "hearth.archetype.house.scribe_house": "Scribe's House",
+  "hearth.archetype.house.hermit_hut": "Hermit's Hut"
+}

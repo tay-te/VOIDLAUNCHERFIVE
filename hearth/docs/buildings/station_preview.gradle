@@ -1,0 +1,29 @@
+// Gradle init script: registers `stationPreview` (contact sheets of the homes by station at a readable scale, one row
+// per culture, front and back corners and a cut through the ground floor per seed) without touching the shared build
+// files. From hearth/:
+//
+//   ./gradlew -I docs/buildings/station_preview.gradle stationPreview -Parchetype=hovel,croft -Pstyle=temperate,desert -Pseeds=2 -Pterrain="slope;station=poor"
+//   ./gradlew -I docs/buildings/station_preview.gradle stationPreview -Parchetype=merchant_house -Pstyle=all -Pseeds=1 -Pscale=14 -Pcuts=false
+//
+// Terrain params after semicolons go to the spec (frontage, depth, tier, height, seed, facing, and any archetype param).
+// Output: build/previews/station/station_*.png. See dev.voidmc.hearth.gametest.station.StationPreview.
+rootProject { p ->
+	p.afterEvaluate {
+		p.tasks.register('stationPreview', JavaExec) {
+			group = 'hearth'
+			description = 'Renders contact sheets of the homes by station to build/previews/station/*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.station.StationPreview'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx3g', '-Dhearth.station.out=' + p.layout.buildDirectory.dir('previews/station').get().asFile.path
+			args = [
+				p.findProperty('archetype') ?: 'hovel',
+				p.findProperty('style') ?: 'temperate',
+				p.findProperty('seeds') ?: '2',
+				p.findProperty('terrain') ?: 'flat',
+				p.layout.buildDirectory.dir('previews/station').get().asFile.path,
+				p.findProperty('scale') ?: '20',
+				p.findProperty('cuts') ?: 'true'
+			]
+		}
+	}
+}
