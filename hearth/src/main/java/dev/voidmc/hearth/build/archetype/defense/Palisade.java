@@ -24,7 +24,8 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * {@code hearth:defense/palisade}: a young settlement's stockade along the planner's line: stakes of the local tree
- * driven a block into the ground, their heights ragged by a block and many sharpened to a point, a heavier post every
+ * driven a block into the ground, set up in panels of three to five whose tops step down a slope panel by panel (not
+ * stake by stake into a saw-tooth), their heights ragged by a block and many sharpened to a point, a heavier post every
  * eight or so, and tall gate posts with a lantern where the stretch ends (a lane or a road passes there). A palisade is
  * the line itself, one stake thick; it follows the ground up and down and stands in shallow water on its own feet.
  *
@@ -55,6 +56,18 @@ public final class Palisade implements Archetype {
 		Paint point = fence.has(Form.FENCE) ? fence.fence() : frame.has(Form.FENCE) ? frame.fence() : null;
 		boolean capStart = !c.open(true);
 		boolean capEnd = !c.open(false);
+		// the panels: the ground under each step, taken in runs whose tops are level, stepping with the slope
+		int[] ground = new int[n];
+		java.util.Arrays.fill(ground, Integer.MIN_VALUE);
+		for (Corridor.Cell cell : c.cells) {
+			ground[cell.index()] = Math.max(ground[cell.index()], d.site().ground(cell.x(), cell.z()));
+		}
+		for (int i = 0; i < n; i++) {
+			if (ground[i] == Integer.MIN_VALUE) {
+				ground[i] = c.ground[i];
+			}
+		}
+		int[] panel = TownWall.crest(ground, 2);
 		int top = 0;
 		try (var s = d.stage(StageKind.FRAME)) {
 			for (Corridor.Cell cell : c.cells) {
@@ -69,7 +82,7 @@ public final class Palisade implements Archetype {
 				boolean end = capStart && i <= 0 || capEnd && i >= n - 1;
 				boolean heavy = !end && Math.floorMod(Math.round(cell.t()), 8) == 3;
 				double u = Noise.unit(d.seed() ^ 0x5A1E, x, 0, z);
-				int height = end ? h + 1 : heavy ? h : h - 1 + (u < 0.45 ? 1 : 0);
+				int height = (end ? h + 1 : heavy ? h : h - 1 + (u < 0.45 ? 1 : 0)) + panel[i] - g;
 				height = Math.min(height, d.maxHeight() - 2 - g);
 				Paint p = end || heavy ? post : u < 0.12 ? stripped : stake;
 				for (int y = g - 1; y < g + height; y++) {

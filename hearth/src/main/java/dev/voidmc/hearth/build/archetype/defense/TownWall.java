@@ -90,12 +90,51 @@ public final class TownWall implements Archetype {
 		return p;
 	}
 
+	/**
+	 * The coping's level at each step of the line: the walk's levels taken in runs of three to five steps (a half bay to
+	 * almost a bay, broken at the half bays where it can), each run level at its highest step, so on sloping ground the
+	 * crest steps down the hill run by run as a mason builds it and not column by column into a saw-tooth. A run is cut
+	 * short where the levels under it would spread more than {@code spread} (so the parapet never stands much above the
+	 * walk); flat ground makes one level.
+	 */
+	public static int[] crest(int[] level, int spread) {
+		int n = level.length;
+		int[] out = new int[n];
+		int i = 0;
+		while (i < n) {
+			int lo = level[i];
+			int hi = level[i];
+			int end = i;
+			while (end + 1 < n && end - i + 1 < 5) {
+				int nlo = Math.min(lo, level[end + 1]);
+				int nhi = Math.max(hi, level[end + 1]);
+				if (nhi - nlo > spread) {
+					break;
+				}
+				// a run of three or more ends at a half bay when the next step changes the level
+				if (end - i + 1 >= 3 && (end + 1) % 3 == 0 && level[end + 1] != level[end]) {
+					break;
+				}
+				lo = nlo;
+				hi = nhi;
+				end++;
+			}
+			for (int k = i; k <= end; k++) {
+				out[k] = hi;
+			}
+			i = end + 1;
+		}
+		return out;
+	}
+
 	@Override
 	public void draw(Draft d) {
 		Corridor c = new Corridor(d, 3);
 		int n = c.length();
 		int h = Math.clamp(d.param("height", 8), 5, 16);
 		int[] p = walkLevels(d, c, h);
+		// the coping steps in runs; the walk behind it climbs a step at a time
+		int[] q = crest(p, 2);
 		boolean timber = Manner.timberForts(d);
 		boolean capStart = !c.open(true);
 		boolean capEnd = !c.open(false);
@@ -112,7 +151,8 @@ public final class TownWall implements Archetype {
 			int x = cell.x();
 			int z = cell.z();
 			int g = d.site().ground(x, z);
-			int top = p[cell.index()];
+			int top = q[cell.index()];
+			int floor = p[cell.index()];
 			boolean pier = capStart && (cell.beyond() < 0 || cell.index() == 0) || capEnd && (cell.beyond() > 0 || cell.index() == n - 1);
 			// footings into the ground
 			try (var s = d.stage(StageKind.FOUNDATION)) {
@@ -122,7 +162,7 @@ public final class TownWall implements Archetype {
 			}
 			try (var s = d.stage(StageKind.WALLS)) {
 				if (timber) {
-					timberColumn(d, cell, g, top, pier, log, fence, walk);
+					timberColumn(d, cell, g, top, floor, pier, log, fence, walk);
 					continue;
 				}
 				if (pier) {
@@ -135,12 +175,12 @@ public final class TownWall implements Archetype {
 					continue;
 				}
 				if (cell.onLine()) {
-					for (int y = g; y <= top - 2; y++) {
+					for (int y = g; y <= floor - 2; y++) {
 						d.set(x, y, z, y == g ? found.full() : body.full());
 					}
-					d.set(x, top - 1, z, walk.full());
-					d.set(x, top, z, Blocks.AIR.defaultBlockState());
-					d.set(x, top + 1, z, Blocks.AIR.defaultBlockState());
+					d.set(x, floor - 1, z, walk.full());
+					d.set(x, floor, z, Blocks.AIR.defaultBlockState());
+					d.set(x, floor + 1, z, Blocks.AIR.defaultBlockState());
 				} else if (cell.field()) {
 					long along = Math.round(cell.t());
 					boolean straight = cell.straightness() > 0.97;
@@ -216,7 +256,7 @@ public final class TownWall implements Archetype {
 		// lanterns along the town parapet
 		for (Corridor.Cell cell : c.cells) {
 			if (cell.town() && !isPier(cell, capStart, capEnd, n) && Math.floorMod(Math.round(cell.t()), 9) == 4 && !timber) {
-				Lamps.lanternOn(d, cell.x(), p[cell.index()] + 1, cell.z());
+				Lamps.lanternOn(d, cell.x(), q[cell.index()] + 1, cell.z());
 			}
 		}
 		// stairs up from the town side: at the end nearer the street, and at the start too on a long stretch
@@ -250,7 +290,7 @@ public final class TownWall implements Archetype {
 			for (Corridor.Cell cell : c.cells) {
 				int g = d.site().ground(cell.x(), cell.z());
 				int w = d.site().water(cell.x(), cell.z());
-				for (int y = w == dev.voidmc.hearth.build.terrain.Site.NONE ? g : w; y <= Math.min(d.maxHeight() - 1, p[cell.index()] + 3); y++) {
+				for (int y = w == dev.voidmc.hearth.build.terrain.Site.NONE ? g : w; y <= Math.min(d.maxHeight() - 1, q[cell.index()] + 3); y++) {
 					if (d.isAbsent(cell.x(), y, cell.z())) {
 						d.set(cell.x(), y, cell.z(), air);
 					}
@@ -279,7 +319,7 @@ public final class TownWall implements Archetype {
 	}
 
 	/** A column of the timber rampart: log faces, earth between, a boarded walk, a railing, sharpened tops outside. */
-	private static void timberColumn(Draft d, Corridor.Cell cell, int g, int top, boolean pier, Mat log, Mat fence, Mat walk) {
+	private static void timberColumn(Draft d, Corridor.Cell cell, int g, int top, int floor, boolean pier, Mat log, Mat fence, Mat walk) {
 		int x = cell.x();
 		int z = cell.z();
 		Paint logs = log.log(Direction.Axis.Y).orElse(log.full());
@@ -292,12 +332,12 @@ public final class TownWall implements Archetype {
 			return;
 		}
 		if (cell.onLine()) {
-			for (int y = g; y <= top - 2; y++) {
+			for (int y = g; y <= floor - 2; y++) {
 				d.set(x, y, z, fill);
 			}
-			d.set(x, top - 1, z, walk.full());
-			d.set(x, top, z, Blocks.AIR.defaultBlockState());
-			d.set(x, top + 1, z, Blocks.AIR.defaultBlockState());
+			d.set(x, floor - 1, z, walk.full());
+			d.set(x, floor, z, Blocks.AIR.defaultBlockState());
+			d.set(x, floor + 1, z, Blocks.AIR.defaultBlockState());
 		} else if (cell.field()) {
 			for (int y = g; y <= top; y++) {
 				d.set(x, y, z, logs);

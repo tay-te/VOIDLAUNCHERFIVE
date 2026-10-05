@@ -42,9 +42,10 @@ post, a long pole with a stone counterweight, the bucket on a chain); a wrought-
 
 **Fountain.** Built on top of the paving, never dug into it, so one set into a paved plaza keeps the plaza's floor as
 its basin's bed: a basin whose rim is a ring of stone seats, a column carrying a tazza over the water (three wide even in
-a five-wide basin, where lanterns stand on the rim's corner stones) and a finial with the jet (a second, wider bowl on 7+
-plots), the jet spilling when the game first updates it (temperate, wisteria, maritime, alpine, moorland; round on the
-steppe and in the vale); a low octagon rimmed in alternating tiles with a short spout and pots (desert, mediterranean,
+a five-wide basin, where lanterns stand on the rim's corner stones) and a stone finial over the jet (a second, wider bowl on
+7+ plots); all stone, capitals and inlay in the paving's carved stone, never glazed tile or a block of water in the air
+(temperate, wisteria, maritime, alpine, moorland; round on the
+steppe and in the vale); a low octagon, its rim inlaid every other stone in a second stone, with a short stone spout and pots (desert, mediterranean,
 mesa); a spring pool with a mossy (or log) edge, lilies, a bamboo spout into a stone bowl and a stone lantern (karst,
 tropical, bayou); a stone trough with a timber pump and a bucket (northern, tundra).
 
@@ -81,14 +82,17 @@ reeds in one quarter, clumps of the culture's trees in the others (`Trees`: broa
 olive, acacia, willow with hanging moss; crowns of several lumps, pruned so nothing floats), borders by the gate,
 benches and lamps along the walk, and at city tier a bandstand (a pavilion) where the walks meet.
 
-**Palisade.** One stake thick along the planner's line, stakes of the local tree a block into the ground, ragged heights,
+**Palisade.** One stake thick along the planner's line, stakes of the local tree a block into the ground, set in panels
+of three to five whose tops step down a slope panel by panel (`TownWall.crest`), ragged heights,
 many sharpened, a heavier post every eight or so, tall gate posts with lanterns where the stretch ends.
 
 **Town wall.** Three thick along the line (`Corridor` reads the planner's polyline by the dense-centreline and corridor
 rules of PLANNING.md §7). Footings; a darker plinth course; the field face crenellated, and on straight runs of stone
 walls pilasters every six blocks with the face between them set back under a corbel table and a sloping talus at the
 foot; a wall walk along the middle at `height − 2`, stepping with the ground a block at a time (raised, never lowered,
-where the land drops); a low parapet on the town side with lanterns; flights of steps cut into the town face near the
+where the land drops); the coping (field parapet and merlons, town parapet) steps in runs of three to five, level along
+each run at its highest walk step and broken at half bays, so a sloping wall's crest steps like a mason's and not
+column by column into a saw-tooth (`TownWall.crest`; a run's walk never sits more than two below its coping); a low parapet on the town side with lanterns; flights of steps cut into the town face near the
 ends (a niche at the foot), two on long stretches; on straight runs a blind arcade of round-headed niches along the
 town face, a lantern hung in every other one; square piers closing the walk where the stretch ends, unless it runs
 on (`join_*`, or into a `keep` rectangle). Bayou and tropical walls are timber ramparts (two rows of logs, earth
