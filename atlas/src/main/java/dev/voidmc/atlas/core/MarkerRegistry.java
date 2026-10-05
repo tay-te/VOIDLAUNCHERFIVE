@@ -5,6 +5,7 @@ import dev.voidmc.atlas.api.MapLayer;
 import dev.voidmc.atlas.api.Marker;
 import dev.voidmc.atlas.api.MarkerProvider;
 import dev.voidmc.atlas.api.MarkerQuery;
+import dev.voidmc.atlas.api.Source;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -106,8 +107,11 @@ public final class MarkerRegistry implements AtlasMarkers {
 				}
 				continue;
 			}
-			// only a provider that finished delivers: half a provider's markers would be worse than none
-			mine.forEach(out);
+			// only a provider that finished delivers: half a provider's markers would be worse than none; a marker that
+			// does not say where it comes from is credited to its provider (its source chip)
+			for (Marker m : mine) {
+				out.accept(m.source() == null ? m.withSource(Source.plugin(e.id)) : m);
+			}
 		}
 	}
 }

@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * <ul>
  *   <li><b>Markers:</b> {@link #markers()} registers providers and layers; {@link #collect} returns every marker
  *   (Atlas's own and every provider's) as plain data.</li>
- *   <li><b>Data:</b> {@link #waypoints()} and {@link #discoveries()} for the current world.</li>
+ *   <li><b>Data:</b> {@link #waypoints()}, {@link #discoveries()} and {@link #places()} for the current world.</li>
  *   <li><b>Drawing:</b> {@link #renderMap} draws a map view anywhere (a thumbnail, a card); {@link #createMapWidget}
  *   gives the whole interactive map page for a screen of your own (the VOID Hub).</li>
  * </ul>
@@ -51,8 +51,14 @@ public interface AtlasApi {
 
 	boolean removeWaypoint(String id);
 
-	/** The structures found in the current world (singleplayer only; empty on servers). */
+	/** The structures discovered in the current world (on any server: what was worked out from the blocks counts too). */
 	List<Discovery> discoveries();
+
+	/**
+	 * The current world's places (structures, landmarks, named regions, each sighted or discovered) and the hooks for
+	 * other mods' places and names.
+	 */
+	AtlasPlaces places();
 
 	/** A surface view centred on the player at the map's current zoom (or on 0, 0 outside a world). */
 	MapView playerView();

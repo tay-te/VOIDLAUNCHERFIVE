@@ -2,7 +2,7 @@ package dev.voidmc.atlas.api;
 
 /**
  * A layer of markers the player can switch on and off with a chip in the map's layer row. Atlas has its own
- * ({@link #TERRAIN}, {@link #STRUCTURES}, {@link #WAYPOINTS}, {@link #PLAYERS}); another mod adds its own with
+ * ({@link #TERRAIN}, {@link #STRUCTURES}, {@link #LANDMARKS}, {@link #WAYPOINTS}, {@link #PLAYERS}); another mod adds its own with
  * {@link AtlasMarkers#registerLayer} (a Hearth "Settlements" layer).
  *
  * @param id       stable id, like {@code hearth:settlements}
@@ -13,6 +13,8 @@ package dev.voidmc.atlas.api;
 public record MapLayer(String id, String label, boolean visible, int order) {
 	public static final String TERRAIN = "atlas:terrain";
 	public static final String STRUCTURES = "atlas:structures";
+	/** Natural landmarks and the names of regions, lakes and rivers. */
+	public static final String LANDMARKS = "atlas:landmarks";
 	public static final String WAYPOINTS = "atlas:waypoints";
 	public static final String PLAYERS = "atlas:players";
 }

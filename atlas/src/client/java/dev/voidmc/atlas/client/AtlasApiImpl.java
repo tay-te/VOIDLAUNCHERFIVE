@@ -2,6 +2,7 @@ package dev.voidmc.atlas.client;
 
 import dev.voidmc.atlas.api.AtlasApi;
 import dev.voidmc.atlas.api.AtlasMarkers;
+import dev.voidmc.atlas.api.AtlasPlaces;
 import dev.voidmc.atlas.api.Discovery;
 import dev.voidmc.atlas.api.MapLayer;
 import dev.voidmc.atlas.api.MapView;
@@ -83,7 +84,12 @@ public final class AtlasApiImpl implements AtlasApi {
 	@Override
 	public List<Discovery> discoveries() {
 		var session = this.atlas.session();
-		return session == null ? List.of() : session.discoveries.all();
+		return session == null ? List.of() : session.places.discoveries();
+	}
+
+	@Override
+	public AtlasPlaces places() {
+		return this.atlas.places();
 	}
 
 	@Override
@@ -106,11 +112,9 @@ public final class AtlasApiImpl implements AtlasApi {
 		if (this.atlas.session() == null || width <= 0 || height <= 0) {
 			return;
 		}
-		MapPanel.Kind kind = switch (view.layer()) {
-			case MapView.UNDERGROUND -> MapPanel.Kind.UNDERGROUND;
-			case MapView.NETHER -> MapPanel.Kind.NETHER;
-			default -> MapPanel.Kind.SURFACE;
-		};
+		MapPanel.Kind kind = view.layer().startsWith(MapView.UNDERGROUND) ? MapPanel.Kind.UNDERGROUND
+			: view.layer().equals(MapView.NETHER) ? MapPanel.Kind.NETHER : MapPanel.Kind.SURFACE;
+		Integer depth = view.depth();
 		Ui ui = new Ui(graphics, Ui.pick((float) mc.getWindow().getGuiScale()));
 		ui.begin();
 		float dx = ui.design(x);
@@ -119,7 +123,7 @@ public final class AtlasApiImpl implements AtlasApi {
 		float dh = ui.design(height);
 		float r = ui.design(view.cornerRadius());
 		ui.round(dx, dy, dw, dh, r, Theme.MAP_WELL);
-		var layer = this.panel().layer(kind);
+		var layer = depth == null ? this.panel().layer(kind) : this.panel().layerAtBand(kind, dev.voidmc.atlas.client.data.DimensionData.bandOf(depth));
 		String dim = this.panel().dimensionOf(kind);
 		MapRenderer.Frame f = this.renderer.draw(ui, this.atlas.tiles(), layer, dx, dy, dw, dh, r,
 			new MapRenderer.View(view.centerX(), view.centerZ(), view.pixelsPerBlock(), view.rotation()), true);
@@ -229,6 +233,17 @@ public final class AtlasApiImpl implements AtlasApi {
 		@Override
 		public boolean typing() {
 			return this.page.typing();
+		}
+
+		@Override
+		public void showLayer(String layer) {
+			this.page.map.setKind(layer.startsWith(MapView.UNDERGROUND) ? MapPanel.Kind.UNDERGROUND
+				: layer.equals(MapView.NETHER) ? MapPanel.Kind.NETHER : MapPanel.Kind.SURFACE);
+		}
+
+		@Override
+		public void showDepth(int y) {
+			this.page.map.setBand(dev.voidmc.atlas.client.data.DimensionData.bandOf(y));
 		}
 
 		@Override

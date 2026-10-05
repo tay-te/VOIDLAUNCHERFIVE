@@ -62,6 +62,14 @@ public final class TileRenderer {
 	 * neighbours' heights for the hillshade and their explored edge for the dither.
 	 */
 	public void render(RegionRaw[] around, RegionImage image, int x0, int z0, int x1, int z1, Mode mode) {
+		this.render(around, image, x0, z0, x1, z1, mode, Integer.MIN_VALUE);
+	}
+
+	/**
+	 * As {@link #render(RegionRaw[], RegionImage, int, int, int, int, Mode)}; a cave slice ({@link Mode#CAVE}) seen from
+	 * height {@code caveTop} has its floors stepped darker the further below that they lie.
+	 */
+	public void render(RegionRaw[] around, RegionImage image, int x0, int z0, int x1, int z1, Mode mode, int caveTop) {
 		x0 = Math.max(0, x0);
 		z0 = Math.max(0, z0);
 		x1 = Math.min(Coords.REGION_SIZE, x1);
@@ -122,7 +130,8 @@ public final class TileRenderer {
 					rgb = Palette.ROCK;
 				} else if (kind == WATER) {
 					boolean shore = this.isLand(g - 1) || this.isLand(g + 1) || this.isLand(g - gw) || this.isLand(g + gw);
-					rgb = Palette.water(centre.depth(i), shore, this.water(centre.biome[i]));
+					rgb = mode == Mode.CAVE ? Palette.caveWater(centre.depth(i), shore, this.water(centre.biome[i]))
+						: Palette.water(centre.depth(i), shore, this.water(centre.biome[i]));
 				} else {
 					int block = centre.block[i];
 					int biome = centre.biome[i];
@@ -134,7 +143,8 @@ public final class TileRenderer {
 							// the floor at the foot of a cave wall: in the wall's shadow
 							step = Math.min(step, -1);
 						}
-						rgb = Palette.caveFloor(tone, material, step);
+						int below = caveTop == Integer.MIN_VALUE ? 0 : Math.max(0, caveTop - this.heights[g]);
+						rgb = Palette.caveFloor(tone, material, step, below);
 					} else {
 						rgb = Palette.land(tone, material, step, Palette.band(this.heights[g]));
 					}

@@ -169,6 +169,22 @@ public final class TileCache {
 		return null;
 	}
 
+	/**
+	 * Makes every GPU page now (render thread). Called while a world loads: making a 2048 x 2048 texture in the middle
+	 * of play is a hitch, and the minimap's first tiles would pay for it.
+	 */
+	public void reserve() {
+		while (this.pages.size() < this.maxPages) {
+			Page page = new Page(this.pages.size(), this.sampler);
+			this.pages.add(page);
+			for (int y = 0; y < PER_SIDE; y++) {
+				for (int x = 0; x < PER_SIDE; x++) {
+					this.slots.add(new Slot(page, x * SLOT, y * SLOT));
+				}
+			}
+		}
+	}
+
 	private Slot allocate() {
 		for (Slot s : this.slots) {
 			if (s.key == -1) {

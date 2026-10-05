@@ -13,6 +13,18 @@ public final class Perf {
 	public static final AtomicLong SCAN_NANOS = new AtomicLong();
 	public static final AtomicLong SCANNED = new AtomicLong();
 	public static final AtomicInteger RENDERS = new AtomicInteger();
+	/** Structure detection on the workers: time and chunks. */
+	public static final AtomicLong DETECT_NANOS = new AtomicLong();
+	public static final AtomicLong DETECTED = new AtomicLong();
+	/** Underground reveals on the workers: time, walks, open blocks walked, columns written. */
+	public static final AtomicLong REVEAL_NANOS = new AtomicLong();
+	public static final AtomicLong REVEALS = new AtomicLong();
+	public static final AtomicLong REVEAL_OPENED = new AtomicLong();
+	public static final AtomicLong REVEALED_COLUMNS = new AtomicLong();
+	/** Landmark analysis on the workers: time per region, regions, and the joining of areas. */
+	public static final AtomicLong ANALYSE_NANOS = new AtomicLong();
+	public static final AtomicLong ANALYSED = new AtomicLong();
+	public static final AtomicLong AREA_NANOS = new AtomicLong();
 	public static long uploads;
 	public static long uploadBytes;
 	public static long tilesDrawn;
@@ -76,6 +88,24 @@ public final class Perf {
 
 	public static void minimap(long nanos) {
 		minimapNanos += nanos;
+	}
+
+	/** The worst minimap frame's phases (setup, tiles, markers, rest), in nanoseconds. */
+	public static final long[] MINIMAP_SPIKE = new long[5];
+
+	public static void minimapSpike(long setup, long tiles, long markers, long rest) {
+		long total = setup + tiles + markers + rest;
+		if (total > MINIMAP_SPIKE[0]) {
+			MINIMAP_SPIKE[0] = total;
+			MINIMAP_SPIKE[1] = setup;
+			MINIMAP_SPIKE[2] = tiles;
+			MINIMAP_SPIKE[3] = markers;
+			MINIMAP_SPIKE[4] = rest;
+		}
+		if (Boolean.getBoolean("atlas.logStats")) {
+			dev.voidmc.atlas.client.AtlasClient.LOGGER.info("Atlas: slow minimap frame {} ms (setup {}, tiles {}, markers {}, rest {})", total / 1e6, setup / 1e6,
+				tiles / 1e6, markers / 1e6, rest / 1e6);
+		}
 	}
 
 	public static void map(long nanos) {

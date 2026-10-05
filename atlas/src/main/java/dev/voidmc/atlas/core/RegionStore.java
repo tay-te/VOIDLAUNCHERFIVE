@@ -130,7 +130,8 @@ public final class RegionStore {
 		}
 	}
 
-	static void write(Path file, byte[] data) throws IOException {
+	/** Writes a file whole: to a temporary file first, then moved into place. */
+	public static void write(Path file, byte[] data) throws IOException {
 		Files.createDirectories(file.getParent());
 		Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
 		Files.write(tmp, data);

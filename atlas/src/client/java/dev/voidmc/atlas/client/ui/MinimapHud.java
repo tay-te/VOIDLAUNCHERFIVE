@@ -65,9 +65,9 @@ public final class MinimapHud {
 		String dim = mc.level.dimension().identifier().toString();
 		boolean ceiling = mc.level.dimensionType().hasCeiling();
 		DimensionData data = this.atlas.session().dimension(dim, ceiling);
-		boolean underground = ceiling || p.getBlockY() < mc.level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, p.getBlockX(), p.getBlockZ()) - 8
-			&& mc.level.getBrightness(net.minecraft.world.level.LightLayer.SKY, p.blockPosition()) == 0;
-		LayerData layer = underground ? data.layer("cave_" + this.atlas.sliceBand(dim)) : data.layer(DimensionData.SURFACE);
+		boolean underground = ceiling || this.atlas.underground();
+		LayerData layer = underground ? data.under(this.atlas.sliceBand(dim)) : data.layer(DimensionData.SURFACE);
+		long t1 = System.nanoTime();
 		double target = AtlasSettings.ZOOMS[settings.minimapZoom];
 		if (Double.isNaN(this.zoom)) {
 			this.zoom = target;
@@ -86,18 +86,20 @@ public final class MinimapHud {
 		ui.border(x - 1.5F, y - 1.5F, side + 3, side + 3, radius + 1.5F, 1.5F, 0x8C0B0B0C);
 		ui.round(x, y, side, side, radius, Theme.MAP_WELL);
 		MapRenderer.Frame f = this.renderer.draw(ui, this.atlas.tiles(), layer, x, y, side, side, radius, new MapRenderer.View(px, pz, this.zoom, rotation), true);
+		long t2 = System.nanoTime();
 		ui.flush();
 		ui.g.enableScissor((int) Math.floor(x), (int) Math.floor(y), (int) Math.ceil(x + side), (int) Math.ceil(y + side));
 		List<Marker> markers = new ArrayList<>();
 		double reach = side / f.k;
 		MarkerQuery q = new MarkerQuery(dim, px - reach, pz - reach, px + reach, pz + reach, px, pz, MarkerQuery.Purpose.MINIMAP);
 		for (Marker m : this.atlas.collect(q)) {
-			if (settings.layerVisible(m.layer()) && m.dimension().equals(dim)
-				&& (!m.layer().equals(MapLayer.STRUCTURES) || underground == (m.glyph() == dev.voidmc.atlas.api.MarkerGlyph.REALM) || ceiling)) {
+			if (settings.layerVisible(m.layer()) && m.dimension().equals(dim) && m.style() != Marker.Style.LABEL
+				&& MapPanel.shows(m, ceiling ? null : underground, this.zoom)) {
 				markers.add(m);
 			}
 		}
 		MarkerPainter.paint(ui, f, markers, null, null, true, px, pz);
+		long t3 = System.nanoTime();
 		// waypoints beyond the edge: a small dot on the rim, in the direction to walk
 		var session = this.atlas.session();
 		float cx = x + side / 2;
@@ -129,7 +131,12 @@ public final class MinimapHud {
 			this.info(ui, p, x, y + side + 6, side, underground);
 		}
 		ui.end();
-		Perf.minimap(System.nanoTime() - t0);
+		long t4 = System.nanoTime();
+		Perf.minimap(t4 - t0);
+		if (t4 - t0 > 3_000_000L) {
+			// a slow minimap frame: say where the time went (the perf gate looks at the worst frame)
+			Perf.minimapSpike(t1 - t0, t2 - t1, t3 - t2, t4 - t3);
+		}
 	}
 
 	/** The north mark: a small disc on the rim, where north is. */
@@ -157,7 +164,9 @@ public final class MinimapHud {
 		ui.panel(x, y, w, 40, 12, Theme.ISLAND, Theme.HAIR_8);
 		String facing = MapPage.facing(p.getYRot());
 		float fw = ui.width(facing, Ui.Font.F10) + 11;
-		String name = underground ? "Underground  ·  " + biome[0] : biome[0];
+		var region = this.atlas.regionHere();
+		String place = region != null && region.isDiscovered() ? region.name() : biome[0];
+		String name = underground ? "Underground  ·  " + place : place;
 		ui.text(ui.fit(name, Ui.Font.F11, w - 24 - fw - 6), x + 11, y + 6, Ui.Font.F11, Theme.INK);
 		ui.round(x + w - 11 - fw, y + 11, 5, 5, 1.5F, Theme.alpha(Theme.VIOLET, 0.95F));
 		ui.text(facing, x + w - 11 - fw + 10, y + 7, Ui.Font.F10, Theme.INK_2);

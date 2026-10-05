@@ -81,8 +81,31 @@ public final class MapPanel {
 		};
 	}
 
+	/** The band the underground view shows: chosen with the depth control, or (null) the player's. */
+	private @Nullable Integer band;
+
 	/** The layer a kind shows. */
 	public @Nullable LayerData layer(Kind kind) {
+		return this.layerAtBand(kind, this.band(kind));
+	}
+
+	/** The band the underground (or Nether) view shows. */
+	public int band(Kind kind) {
+		String dim = this.dimensionOf(kind);
+		return this.band != null && kind != Kind.SURFACE ? this.band : this.atlas.sliceBand(dim);
+	}
+
+	/** Shows a band underground (null: follow the player). */
+	public void setBand(@Nullable Integer band) {
+		this.band = band;
+	}
+
+	public boolean followsPlayer() {
+		return this.band == null;
+	}
+
+	/** The layer a kind shows at a band (the band is ignored on the surface). */
+	public @Nullable LayerData layerAtBand(Kind kind, int band) {
 		String dim = this.dimensionOf(kind);
 		var session = this.atlas.session();
 		if (session == null) {
@@ -92,7 +115,16 @@ public final class MapPanel {
 		if (kind == Kind.SURFACE && !data.ceiling) {
 			return data.layer(DimensionData.SURFACE);
 		}
-		return data.layer("cave_" + this.atlas.sliceBand(dim));
+		return data.under(band);
+	}
+
+	/** The explored bands of the dimension a kind shows, lowest first. */
+	public java.util.NavigableSet<Integer> bands(Kind kind) {
+		var session = this.atlas.session();
+		if (session == null) {
+			return new java.util.TreeSet<>();
+		}
+		return session.dimension(this.dimensionOf(kind), kind == Kind.NETHER).bands();
 	}
 
 	/** Scale between the player's dimension and the shown one (8 between the Overworld and the Nether). */
@@ -119,6 +151,7 @@ public final class MapPanel {
 		this.cz = this.cz / before * after;
 		this.kind = kind;
 		this.selected = null;
+		this.band = null;
 	}
 
 	public void centreOnPlayer() {
@@ -292,18 +325,42 @@ public final class MapPanel {
 		AtlasSettings settings = this.atlas.settings();
 		boolean under = this.kind == Kind.UNDERGROUND;
 		for (Marker m : this.atlas.collect(q)) {
-			if (!settings.layerVisible(m.layer()) || !m.dimension().equals(dim)) {
+			if (!settings.layerVisible(m.layer()) || !m.dimension().equals(dim) || !q.contains(m.x(), m.z())) {
 				continue;
 			}
-			if (m.layer().equals(MapLayer.STRUCTURES) && m.glyph() == dev.voidmc.atlas.api.MarkerGlyph.REALM && !under && this.kind != Kind.NETHER) {
-				// underground structures belong to the underground layer
-				continue;
-			}
-			if (q.contains(m.x(), m.z())) {
+			if (shows(m, this.kind == Kind.NETHER ? null : under, this.zoom)) {
 				out.add(m);
 			}
 		}
 		return out;
+	}
+
+	/**
+	 * Whether a marker shows at a zoom (physical pixels per block) on a view: minor places only when zoomed in to a
+	 * pixel a block or closer; the names of regions, lakes and rivers only from far to middling zooms (minor ones not
+	 * from the farthest); underground places only on the underground view, and the land's names and surface landmarks
+	 * only on the surface. {@code underground} null: a view with a roof (the Nether), where everything is shown.
+	 */
+	public static boolean shows(Marker m, @Nullable Boolean underground, double zoom) {
+		boolean label = m.style() == Marker.Style.LABEL;
+		if (label) {
+			if (zoom > 4 || m.tier() == dev.voidmc.atlas.api.Tier.MINOR && zoom < 0.25) {
+				return false;
+			}
+		} else if (m.tier() == dev.voidmc.atlas.api.Tier.MINOR && zoom < 1) {
+			return false;
+		}
+		if (underground == null) {
+			return true;
+		}
+		boolean below = m.subtitle().endsWith("UNDERGROUND");
+		if (m.layer().equals(MapLayer.STRUCTURES) || m.layer().equals(MapLayer.LANDMARKS)) {
+			if (underground) {
+				return below || m.glyph() == dev.voidmc.atlas.api.MarkerGlyph.CAVE;
+			}
+			return !below;
+		}
+		return true;
 	}
 
 	// --- input -----------------------------------------------------------------------------------------------------

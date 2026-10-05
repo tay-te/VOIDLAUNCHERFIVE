@@ -3,11 +3,14 @@ package dev.voidmc.atlas.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.atlas.api.AtlasApi;
 import dev.voidmc.atlas.api.AtlasPlugin;
-import dev.voidmc.atlas.api.Discovery;
+import dev.voidmc.atlas.api.DiscoveryState;
 import dev.voidmc.atlas.api.MapLayer;
 import dev.voidmc.atlas.api.Marker;
 import dev.voidmc.atlas.api.MarkerGlyph;
 import dev.voidmc.atlas.api.MarkerQuery;
+import dev.voidmc.atlas.api.Place;
+import dev.voidmc.atlas.api.Source;
+import dev.voidmc.atlas.api.Tier;
 import dev.voidmc.atlas.api.Waypoint;
 import dev.voidmc.atlas.client.data.DimensionData;
 import dev.voidmc.atlas.client.data.Ingest;
@@ -24,11 +27,13 @@ import dev.voidmc.atlas.core.Coords;
 import dev.voidmc.atlas.core.MarkerRegistry;
 import dev.voidmc.atlas.core.RegionRaw;
 import dev.voidmc.atlas.core.StructureNames;
+import dev.voidmc.atlas.core.names.NameGen;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -64,8 +69,10 @@ import org.slf4j.LoggerFactory;
 
 /**
  * VOID Atlas, on the client: a map of everything the player has seen, kept per world and dimension, drawn in a muted
- * hand-toned palette with stepped relief; a minimap; waypoints; the structures found in singleplayer; and an API
- * ({@link AtlasApi}) for other mods' markers and for embedding the map (the VOID Hub).
+ * hand-toned palette with stepped relief; a minimap; waypoints; the places it finds (structures from their blocks on
+ * any server and from the game's data in singleplayer, peaks, lakes, rivers, waterfalls, cave mouths, ravines, named
+ * regions), each unknown, sighted or discovered; an underground map of only what the player has been near; and an API
+ * ({@link AtlasApi}) for other mods' markers, places and names, and for embedding the map (the VOID Hub).
  *
  * <p>Keys: M opens the map, N toggles the minimap, B drops a waypoint, = and - zoom the minimap; the settings key is
  * unbound (the map has a settings button).
@@ -91,10 +98,16 @@ public final class AtlasClient implements ClientModInitializer {
 	private int ticks;
 	private boolean deathRecorded;
 	private final MinimapHud minimap = new MinimapHud(this);
-	/** The last slice band the player was in, per dimension (for the underground and Nether views). */
+	/** The last band the player was in underground, per dimension (for the underground and Nether views). */
 	private final ConcurrentHashMap<String, Integer> bands = new ConcurrentHashMap<>();
 	private final boolean logStats = Boolean.getBoolean("atlas.logStats");
 	private AtlasApiImpl api;
+	private AtlasPlacesImpl places;
+	private boolean underground;
+	/** The place markers last made, and the snapshot they were made from (remade only when it changes). */
+	private List<Place> markersFrom = List.of();
+	private List<Marker> placeMarkers = List.of();
+	private String markersDim = "";
 
 	public static AtlasClient get() {
 		return instance;
@@ -106,11 +119,13 @@ public final class AtlasClient implements ClientModInitializer {
 		this.settings = AtlasSettings.load(FabricLoader.getInstance().getConfigDir().resolve("atlas.json"));
 		this.markers.registerLayer(new MapLayer(MapLayer.TERRAIN, "Terrain", true, 0));
 		this.markers.registerLayer(new MapLayer(MapLayer.STRUCTURES, "Structures", true, 10));
+		this.markers.registerLayer(new MapLayer(MapLayer.LANDMARKS, "Landmarks", true, 12));
 		this.markers.registerLayer(new MapLayer(MapLayer.WAYPOINTS, "Waypoints", true, 20));
 		this.markers.registerLayer(new MapLayer(MapLayer.PLAYERS, "Players", true, 30));
-		this.markers.registerProvider("atlas:discoveries", -30, this::discoveryMarkers);
+		this.markers.registerProvider("atlas:places", -30, this::placeMarkers);
 		this.markers.registerProvider("atlas:waypoints", 20, this::waypointMarkers);
 		this.markers.registerProvider("atlas:players", 30, this::playerMarkers);
+		this.places = new AtlasPlacesImpl(this);
 		this.api = new AtlasApiImpl(this);
 
 		KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(ID, "atlas"));
@@ -131,11 +146,14 @@ public final class AtlasClient implements ClientModInitializer {
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "minimap"), this.minimap::extract);
 
 		for (var container : FabricLoader.getInstance().getEntrypointContainers("atlas", AtlasPlugin.class)) {
+			String mod = container.getProvider().getMetadata().getId();
 			try {
-				container.getEntrypoint().onAtlasReady(this.markers);
-				LOGGER.info("VOID Atlas: {} added its markers", container.getProvider().getMetadata().getId());
+				AtlasPlugin plugin = container.getEntrypoint();
+				plugin.onAtlasReady(this.markers);
+				plugin.onAtlasPlaces(this.places);
+				LOGGER.info("VOID Atlas: {} added its markers and places", mod);
 			} catch (Throwable t) {
-				LOGGER.warn("VOID Atlas: {}'s atlas entrypoint failed: {}", container.getProvider().getMetadata().getId(), t.toString());
+				LOGGER.warn("VOID Atlas: {}'s atlas entrypoint failed: {}", mod, t.toString());
 			}
 		}
 		LOGGER.info("VOID Atlas ready: M opens the map, N toggles the minimap, B drops a waypoint ({} worker threads)", this.settings.workerThreads);
@@ -149,6 +167,10 @@ public final class AtlasClient implements ClientModInitializer {
 
 	public MarkerRegistry markersRegistry() {
 		return this.markers;
+	}
+
+	public AtlasPlacesImpl places() {
+		return this.places;
 	}
 
 	public @Nullable MapSession session() {
@@ -175,16 +197,21 @@ public final class AtlasClient implements ClientModInitializer {
 		return this.markers.collect(query);
 	}
 
-	/** Work still waiting: chunks to read, regions to draw, tiles to upload. */
+	/** Work still waiting: chunks to read, regions to draw and analyse, tiles to upload. */
 	public int busy() {
 		int n = this.ingest == null ? 0 : this.ingest.backlog();
 		if (this.session != null) {
-			n += this.session.workers.getQueue().size();
+			n += this.session.workers.getQueue().size() + this.session.workers.getActiveCount();
 		}
 		if (this.tiles != null) {
 			n += this.tiles.queued();
 		}
 		return n;
+	}
+
+	/** Whether the player is under the ground (or in a dimension with a roof), as of this frame. */
+	public boolean underground() {
+		return this.underground;
 	}
 
 	// --- the frame and the tick ------------------------------------------------------------------------------------
@@ -198,34 +225,49 @@ public final class AtlasClient implements ClientModInitializer {
 		}
 		LocalPlayer p = mc.player;
 		if (this.ingest != null && p != null && mc.level == this.level) {
-			this.ingest.frame(p.getX(), this.scanY(p), p.getZ());
-			this.bands.put(this.ingest.dimension().id, this.ingest.band());
+			this.underground = isUnderground(p);
+			this.ingest.frame(p.getX(), p.getY(), p.getZ(), this.underground);
+			if (this.ingest.band() != Integer.MIN_VALUE) {
+				this.bands.put(this.ingest.dimension().id, this.ingest.band());
+			}
 		}
 	}
 
 	/**
-	 * The height whose slice is read and shown underground: the player's feet when they are underground (or in the
-	 * Nether); otherwise a little below the surface they stand on, so the underground view shows the caves beneath.
+	 * Whether the player is under the ground: in a dimension with a roof, or with at least a few blocks of something
+	 * that is not leaves over their head (under a tree, or a roof, is not underground).
 	 */
-	private double scanY(LocalPlayer p) {
+	private static boolean isUnderground(LocalPlayer p) {
 		ClientLevel level = (ClientLevel) p.level();
-		double y = p.getY();
-		if (!level.dimensionType().hasCeiling()) {
-			int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, p.getBlockX(), p.getBlockZ());
-			if (y > surface - 6) {
-				y = surface - 24;
-			}
+		if (level.dimensionType().hasCeiling()) {
+			return true;
 		}
-		return y;
+		int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, p.getBlockX(), p.getBlockZ());
+		return p.getY() < surface - 6;
 	}
 
-	/** The slice band shown for a dimension's underground view. */
+	/** The band shown by a dimension's underground view: the player's, or the last one they were in. */
 	public int sliceBand(String dimension) {
 		Integer band = this.bands.get(dimension);
 		if (band != null) {
 			return band;
 		}
+		if (this.session != null) {
+			DimensionData d = this.session.dimensionIfOpen(dimension);
+			if (d != null && !d.bands().isEmpty()) {
+				// the explored band nearest the player's height
+				LocalPlayer p = Minecraft.getInstance().player;
+				int at = DimensionData.bandOf(p == null ? 0 : p.getBlockY());
+				Integer below = d.bands().floor(at);
+				return below != null ? below : d.bands().first();
+			}
+		}
 		return dimension.equals("minecraft:the_nether") ? 4 : 2;
+	}
+
+	/** Shows a band in a dimension's underground view (the map's depth control). */
+	public void showBand(String dimension, int band) {
+		this.bands.put(dimension, band);
 	}
 
 	private void tick(Minecraft mc) {
@@ -261,29 +303,64 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 		}
 		LocalPlayer p = mc.player;
-		if (p != null && this.session != null) {
+		MapSession session = this.session;
+		if (p != null && session != null) {
 			if (p.isDeadOrDying()) {
 				if (!this.deathRecorded) {
 					this.deathRecorded = true;
-					this.session.waypoints.addDeath(p.getBlockX(), p.getBlockY(), p.getBlockZ(), p.level().dimension().identifier().toString(),
+					session.waypoints.addDeath(p.getBlockX(), p.getBlockY(), p.getBlockZ(), p.level().dimension().identifier().toString(),
 						System.currentTimeMillis());
-					this.session.saveSoon(false);
+					session.saveSoon(false);
 				}
 			} else {
 				this.deathRecorded = false;
 			}
+			String dim = p.level().dimension().identifier().toString();
 			if (this.ticks % 40 == 0) {
 				this.discover(mc, p);
 			}
+			if (this.ticks % 10 == 0) {
+				long now = System.currentTimeMillis();
+				int view = mc.options.getEffectiveRenderDistance() * 16;
+				session.places.proximity(dim, p.getX(), p.getEyeY(), p.getZ(), view, now);
+				DimensionData d = session.dimensionIfOpen(dim);
+				if (d != null) {
+					String region = d.areas.regionAt(p.getBlockX(), p.getBlockZ());
+					if (region != null) {
+						session.places.enter(region, now);
+					}
+					String water = d.areas.waterAt(p.getBlockX(), p.getBlockZ());
+					if (water != null) {
+						session.places.enter(water, now);
+					}
+				}
+			}
+			if (this.ticks % 20 == 5) {
+				this.places.poll(dim);
+			}
+			for (Place changed : session.places.drainChanges()) {
+				this.places.notify(changed);
+				if (changed.isDiscovered() && (changed.tier() == Tier.MAJOR || changed.kind().equals(Place.REGION)) && changed.dimension().equals(dim)) {
+					p.sendOverlayMessage(Component.literal("Discovered  ·  " + changed.name()));
+				}
+				session.saveSoon(false);
+			}
 		}
-		if (this.session != null && this.ticks % (20 * 30) == 0) {
-			this.session.saveSoon(false);
+		if (session != null && this.ticks % (20 * 30) == 0) {
+			session.saveSoon(false);
 		}
-		if (this.logStats && this.ticks % 100 == 0 && this.session != null) {
-			LOGGER.info("Atlas: {} chunks read ({} ms each), {} regions drawn, {} tiles resident in {} pages, {} uploads ({} MB), backlog {}",
-				Perf.SCANNED.get(), String.format(Locale.ROOT, "%.3f", Perf.SCAN_NANOS.get() / 1e6 / Math.max(1, Perf.SCANNED.get())), Perf.RENDERS.get(),
-				this.tiles == null ? 0 : this.tiles.residentTiles(), this.tiles == null ? 0 : this.tiles.pages(), Perf.uploads, Perf.uploadBytes >> 20, this.busy());
+		if (this.logStats && this.ticks % 100 == 0 && session != null) {
+			LOGGER.info("Atlas: {} chunks read ({} ms each), {} detected ({} ms each), {} reveals ({} ms each), {} regions drawn, {} analysed, {} places, "
+					+ "{} tiles resident in {} pages, {} uploads ({} MB), backlog {}",
+				Perf.SCANNED.get(), ms(Perf.SCAN_NANOS.get(), Perf.SCANNED.get()), Perf.DETECTED.get(), ms(Perf.DETECT_NANOS.get(), Perf.DETECTED.get()),
+				Perf.REVEALS.get(), ms(Perf.REVEAL_NANOS.get(), Perf.REVEALS.get()), Perf.RENDERS.get(), Perf.ANALYSED.get(), session.places.size(),
+				this.tiles == null ? 0 : this.tiles.residentTiles(), this.tiles == null ? 0 : this.tiles.pages(), Perf.uploads, Perf.uploadBytes >> 20,
+				this.busy());
 		}
+	}
+
+	private static String ms(long nanos, long n) {
+		return String.format(Locale.ROOT, "%.3f", nanos / 1e6 / Math.max(1, n));
 	}
 
 	private void levelChanged(Minecraft mc) {
@@ -298,13 +375,19 @@ public final class AtlasClient implements ClientModInitializer {
 		if (this.session == null || !this.session.worldKey.equals(key)) {
 			this.closeSession();
 			Path dir = mc.gameDirectory.toPath().resolve("atlas").resolve(key);
-			this.session = new MapSession(key, dir, this.settings.workerThreads, change -> {
+			long seed = ((BiomeManagerAccessor) next.getBiomeManager()).atlas$biomeZoomSeed();
+			this.session = new MapSession(key, dir, this.settings.workerThreads, NameGen.seedHash(key.startsWith("sp/") ? "sp" : key, seed), change -> {
 				TileCache cache = this.tiles;
 				if (cache != null) {
 					cache.regionChanged(change);
 				}
 			});
+			MapSession s = this.session;
+			s.places.setExactAvailable(mc.getSingleplayerServer() != null);
+			s.landmarks.setNamer((dimension, kind, biome, x, z, area) -> this.places.name(s, dimension, kind, biome, x, z, area));
 			this.rebuildLooks(mc);
+			// the GPU pages are made now, with the world loading, rather than in the middle of a frame later
+			this.tiles().reserve();
 			LOGGER.info("VOID Atlas: mapping {} into {}", key, dir);
 		}
 		this.ingest = new Ingest(this.session, next);
@@ -330,6 +413,8 @@ public final class AtlasClient implements ClientModInitializer {
 			this.session = null;
 		}
 		this.ingest = null;
+		this.markersFrom = List.of();
+		this.placeMarkers = List.of();
 		if (this.tiles != null) {
 			this.tiles.clear();
 		}
@@ -367,8 +452,8 @@ public final class AtlasClient implements ClientModInitializer {
 		return "atlas:wp:" + w.id();
 	}
 
-	public static String discoveryMarkerId(Discovery d) {
-		return "atlas:disc:" + d.id();
+	public static String placeMarkerId(Place p) {
+		return "atlas:place:" + p.id();
 	}
 
 	public @Nullable Waypoint waypointFor(String markerId) {
@@ -378,20 +463,14 @@ public final class AtlasClient implements ClientModInitializer {
 		return this.session.waypoints.get(markerId.substring("atlas:wp:".length()));
 	}
 
-	public @Nullable Discovery discoveryFor(String markerId) {
-		if (this.session == null || !markerId.startsWith("atlas:disc:")) {
+	public @Nullable Place placeFor(String markerId) {
+		if (this.session == null || !markerId.startsWith("atlas:place:")) {
 			return null;
 		}
-		String id = markerId.substring("atlas:disc:".length());
-		for (Discovery d : this.session.discoveries.all()) {
-			if (d.id().equals(id)) {
-				return d;
-			}
-		}
-		return null;
+		return this.session.places.get(markerId.substring("atlas:place:".length()));
 	}
 
-	private void waypointMarkers(MarkerQuery q, java.util.function.Consumer<Marker> out) {
+	private void waypointMarkers(MarkerQuery q, Consumer<Marker> out) {
 		if (this.session == null) {
 			return;
 		}
@@ -402,25 +481,72 @@ public final class AtlasClient implements ClientModInitializer {
 			boolean death = w.kind() == Waypoint.Kind.DEATH;
 			out.accept(new Marker(waypointMarkerId(w), MapLayer.WAYPOINTS, w.name(), w.y() < 40 ? "Y " + MapPage.minus(w.y()) : "",
 				death ? "DEATH POINT" : "WAYPOINT", w.x() + 0.5, w.y(), w.z() + 0.5, w.dimension(), death ? MarkerGlyph.CROSS : MarkerGlyph.PIN,
-				Marker.Style.WAYPOINT, w.rgb(), null));
+				Marker.Style.WAYPOINT, w.rgb(), null, Source.player(), Tier.MAJOR));
 		}
 	}
 
-	private void discoveryMarkers(MarkerQuery q, java.util.function.Consumer<Marker> out) {
-		if (this.session == null) {
+	/**
+	 * The places the player knows of, as markers: a structure only sighted is a "?" with no name; a natural landmark
+	 * shows its name once on the map; regions, lakes and rivers are labels on the land. Made again only when the places
+	 * change (the map and minimap ask every frame).
+	 */
+	private void placeMarkers(MarkerQuery q, Consumer<Marker> out) {
+		MapSession session = this.session;
+		if (session == null) {
 			return;
 		}
-		for (Discovery d : this.session.discoveries.all()) {
-			if (!d.dimension().equals(q.dimension())) {
-				continue;
+		List<Place> visible = session.places.visible(q.dimension());
+		List<Marker> made;
+		synchronized (this) {
+			if (visible != this.markersFrom || !q.dimension().equals(this.markersDim)) {
+				List<Marker> list = new ArrayList<>(visible.size());
+				for (Place p : visible) {
+					list.add(placeMarker(p));
+				}
+				this.markersFrom = visible;
+				this.markersDim = q.dimension();
+				this.placeMarkers = list;
 			}
-			String subtitle = d.source() + "  ·  " + d.category() + (d.underground() ? "  ·  UNDERGROUND" : "");
-			out.accept(new Marker(discoveryMarkerId(d), MapLayer.STRUCTURES, d.name(), "", subtitle, d.x() + 0.5, d.y(), d.z() + 0.5, d.dimension(),
-				MarkerPainter.glyphFor(d.category(), d.underground()), Marker.Style.STRUCTURE, 0, null));
+			made = this.placeMarkers;
+		}
+		boolean all = q.purpose() == MarkerQuery.Purpose.LIST;
+		for (Marker m : made) {
+			if (all || q.contains(m.x(), m.z())) {
+				out.accept(m);
+			}
 		}
 	}
 
-	private void playerMarkers(MarkerQuery q, java.util.function.Consumer<Marker> out) {
+	public static Marker placeMarker(Place p) {
+		boolean structure = !p.isNatural();
+		boolean sighted = p.state() != DiscoveryState.DISCOVERED;
+		boolean unknown = sighted && structure;
+		String layer = structure ? MapLayer.STRUCTURES : MapLayer.LANDMARKS;
+		String name = unknown ? "" : p.name();
+		MarkerGlyph glyph = unknown ? MarkerGlyph.UNKNOWN : MarkerPainter.glyphFor(p);
+		Marker.Style style = p.isLabel() ? Marker.Style.LABEL : Marker.Style.STRUCTURE;
+		String meta = p.kind().equals(Place.PEAK) ? MapPage.minus(p.y()) : "";
+		return new Marker(placeMarkerId(p), layer, name, meta, subtitle(p), p.x() + 0.5, p.y(), p.z() + 0.5, p.dimension(), glyph, style, 0, null,
+			p.source(), p.tier());
+	}
+
+	/** The caps line of a place: what it is (or that it was only sighted) and where. */
+	public static String subtitle(Place p) {
+		String what = switch (p.kind()) {
+			case Place.PEAK -> "PEAK";
+			case Place.LAKE -> "LAKE";
+			case Place.RIVER -> "RIVER";
+			case Place.WATERFALL -> "WATERFALL";
+			case Place.CAVE_MOUTH -> "CAVE";
+			case Place.RAVINE -> "RAVINE";
+			case Place.REGION -> "REGION";
+			default -> p.category();
+		};
+		String s = p.state() == DiscoveryState.DISCOVERED ? what : "SIGHTED  ·  " + (p.isNatural() ? what : "UNEXPLORED");
+		return p.underground() ? s + "  ·  UNDERGROUND" : s;
+	}
+
+	private void playerMarkers(MarkerQuery q, Consumer<Marker> out) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null || mc.player == null || !mc.level.dimension().identifier().toString().equals(q.dimension())) {
 			return;
@@ -430,15 +556,18 @@ public final class AtlasClient implements ClientModInitializer {
 				continue;
 			}
 			out.accept(new Marker("atlas:player:" + other.getUUID(), MapLayer.PLAYERS, other.getName().getString(), "", "PLAYER", other.getX(), other.getY(),
-				other.getZ(), q.dimension(), MarkerGlyph.DOT, Marker.Style.PLAYER, 0, null));
+				other.getZ(), q.dimension(), MarkerGlyph.DOT, Marker.Style.PLAYER, 0, null, Source.seen(), Tier.MAJOR));
 		}
 	}
 
-	// --- discoveries (singleplayer) ---------------------------------------------------------------------------------
+	// --- exact structure data (singleplayer) ------------------------------------------------------------------------
 
-	/** How close the player must come to a structure's bounds to discover it. */
-	private static final int DISCOVER_REACH = 48;
-
+	/**
+	 * In singleplayer the integrated server knows exactly where every structure is: every structure start in the chunks
+	 * round the player (as far as they can see) is filed with its bounds. One on the surface is sighted within view
+	 * and discovered within reach; one underground stays unknown until the player is near (no x-ray). Exact data wins
+	 * over what was worked out from the blocks ({@link dev.voidmc.atlas.core.places.PlaceBook#exact}).
+	 */
 	private void discover(Minecraft mc, LocalPlayer p) {
 		var server = mc.getSingleplayerServer();
 		MapSession session = this.session;
@@ -448,7 +577,9 @@ public final class AtlasClient implements ClientModInitializer {
 		var dimension = p.level().dimension();
 		String dimId = dimension.identifier().toString();
 		int px = p.getBlockX();
+		int py = p.getBlockY();
 		int pz = p.getBlockZ();
+		int view = mc.options.getEffectiveRenderDistance();
 		server.execute(() -> {
 			ServerLevel level = server.getLevel(dimension);
 			if (level == null) {
@@ -457,10 +588,10 @@ public final class AtlasClient implements ClientModInitializer {
 			var registry = level.registryAccess().lookupOrThrow(Registries.STRUCTURE);
 			int pcx = px >> 4;
 			int pcz = pz >> 4;
-			int r = (DISCOVER_REACH >> 4) + 1;
 			java.util.Set<Long> seenStarts = new java.util.HashSet<>();
-			for (int dz = -r; dz <= r; dz++) {
-				for (int dx = -r; dx <= r; dx++) {
+			long now = System.currentTimeMillis();
+			for (int dz = -view; dz <= view; dz++) {
+				for (int dx = -view; dx <= view; dx++) {
 					LevelChunk chunk = level.getChunkSource().getChunkNow(pcx + dx, pcz + dz);
 					if (chunk == null) {
 						continue;
@@ -479,7 +610,7 @@ public final class AtlasClient implements ClientModInitializer {
 							if (start == null || !start.isValid()) {
 								continue;
 							}
-							this.consider(level, registry, structure, start, px, pz, dimId, session);
+							this.consider(level, registry, structure, start, px, py, pz, view * 16, dimId, session, now);
 						}
 					}
 				}
@@ -487,14 +618,8 @@ public final class AtlasClient implements ClientModInitializer {
 		});
 	}
 
-	private void consider(ServerLevel level, net.minecraft.core.Registry<Structure> registry, Structure structure, StructureStart start, int px, int pz,
-		String dimId, MapSession session) {
-		BoundingBox bb = start.getBoundingBox();
-		double dx = Math.max(Math.max(bb.minX() - px, 0), px - bb.maxX());
-		double dz = Math.max(Math.max(bb.minZ() - pz, 0), pz - bb.maxZ());
-		if (Math.hypot(dx, dz) > DISCOVER_REACH) {
-			return;
-		}
+	private void consider(ServerLevel level, net.minecraft.core.Registry<Structure> registry, Structure structure, StructureStart start, int px, int py,
+		int pz, int viewBlocks, String dimId, MapSession session, long now) {
 		var key = registry.getResourceKey(structure);
 		if (key.isEmpty()) {
 			return;
@@ -503,17 +628,31 @@ public final class AtlasClient implements ClientModInitializer {
 		if (StructureNames.hidden(id)) {
 			return;
 		}
+		BoundingBox bb = start.getBoundingBox();
 		int cx = (bb.minX() + bb.maxX()) / 2;
 		int cz = (bb.minZ() + bb.maxZ()) / 2;
-		int cy = (bb.minY() + bb.maxY()) / 2;
 		boolean village = registry.wrapAsHolder(structure).is(StructureTags.VILLAGE);
 		int surface = level.getHeight(Heightmap.Types.WORLD_SURFACE, cx, cz);
 		boolean underground = !level.dimensionType().hasCeiling() && bb.maxY() < surface - 4;
-		Discovery d = new Discovery(id, StructureNames.name(id), StructureNames.category(id, village), cx, underground ? cy : Math.max(cy, bb.minY()),
-			cz, dimId, System.currentTimeMillis(), underground);
-		if (session.discoveries.add(d)) {
-			LOGGER.info("VOID Atlas: discovered {} ({}) at {}, {}", d.name(), id, cx, cz);
-			session.saveSoon(false);
+		double dx = Math.max(Math.max(bb.minX() - px, 0), px - bb.maxX());
+		double dz = Math.max(Math.max(bb.minZ() - pz, 0), pz - bb.maxZ());
+		double dy = Math.max(Math.max(bb.minY() - py, 0), py - bb.maxY());
+		double flat = Math.hypot(dx, dz);
+		DiscoveryState state;
+		if (underground) {
+			double d = Math.sqrt(flat * flat + dy * dy);
+			state = d <= dev.voidmc.atlas.core.places.PlaceBook.UNDERGROUND_REACH ? DiscoveryState.DISCOVERED
+				: d <= dev.voidmc.atlas.core.places.PlaceBook.UNDERGROUND_SIGHT ? DiscoveryState.SIGHTED : DiscoveryState.UNKNOWN;
+		} else {
+			state = flat <= dev.voidmc.atlas.core.places.PlaceBook.SURFACE_REACH ? DiscoveryState.DISCOVERED
+				: flat <= viewBlocks ? DiscoveryState.SIGHTED : DiscoveryState.UNKNOWN;
+		}
+		String family = village ? "minecraft:village" : StructureNames.family(id);
+		int[] box = {bb.minX(), bb.minY(), bb.minZ(), bb.maxX(), bb.maxY(), bb.maxZ()};
+		var before = session.places.get(id + "@" + cx + "," + cz + (dimId.equals("minecraft:overworld") ? "" : "@" + dimId));
+		var place = session.places.exact(dimId, id, family, box, underground, state, now);
+		if (place != null && (before == null || before.state() != place.state()) && place.isDiscovered()) {
+			LOGGER.info("VOID Atlas: discovered {} ({}) at {}, {}", place.name(), id, place.x(), place.z());
 		}
 	}
 
@@ -533,6 +672,21 @@ public final class AtlasClient implements ClientModInitializer {
 		String name = titleCase(id.getPath());
 		String source = id.getNamespace().equals("minecraft") ? "" : id.getNamespace().toUpperCase(Locale.ROOT);
 		return new String[]{name, source};
+	}
+
+	/** The named region the player stands in ("Larkspur Meadow"), or null. */
+	public @Nullable Place regionHere() {
+		MapSession session = this.session;
+		LocalPlayer p = Minecraft.getInstance().player;
+		if (session == null || p == null) {
+			return null;
+		}
+		DimensionData d = session.dimensionIfOpen(p.level().dimension().identifier().toString());
+		if (d == null) {
+			return null;
+		}
+		String id = d.areas.regionAt(p.getBlockX(), p.getBlockZ());
+		return id == null ? null : session.places.get(id);
 	}
 
 	/** "woodland_glades" to "Woodland Glades". */

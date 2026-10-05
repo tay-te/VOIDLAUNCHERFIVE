@@ -1,7 +1,9 @@
 package dev.voidmc.atlas.client.ui;
 
+import dev.voidmc.atlas.api.DiscoveryState;
 import dev.voidmc.atlas.api.Marker;
 import dev.voidmc.atlas.api.MarkerGlyph;
+import dev.voidmc.atlas.api.Place;
 import dev.voidmc.atlas.client.render.MapRenderer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,12 +24,16 @@ public final class MarkerPainter {
 
 	private static int rank(Marker m) {
 		return switch (m.style()) {
-			case STRUCTURE -> 0;
-			case SETTLEMENT -> 1;
-			case WAYPOINT -> 2;
-			case PLAYER -> 3;
+			case LABEL -> -1;
+			case STRUCTURE -> m.glyph() == MarkerGlyph.UNKNOWN ? 0 : 1;
+			case SETTLEMENT -> 2;
+			case WAYPOINT -> 3;
+			case PLAYER -> 4;
 		};
 	}
+
+	/** Water names are a muted blue; everything else on the land is ink. */
+	public static final int WATER_INK = 0xFF8095A6;
 
 	/**
 	 * Draws the markers over a drawn map; {@code compact} for the minimap (tiles only, smaller, no labels but the
@@ -36,11 +42,40 @@ public final class MarkerPainter {
 	public static List<Placed> paint(Ui ui, MapRenderer.Frame f, List<Marker> markers, String selected, String hovered, boolean compact,
 		double playerX, double playerZ) {
 		List<Marker> order = new ArrayList<>(markers);
-		order.sort(Comparator.<Marker>comparingInt(m -> m.id().equals(selected) ? 9 : rank(m)));
+		// labels first (they give way to the markers drawn over them), then by rank, major before minor
+		order.sort(Comparator.<Marker>comparingInt(m -> m.id().equals(selected) ? 9 : rank(m)).thenComparing(m -> m.tier().ordinal()));
 		List<float[]> labels = new ArrayList<>();
 		List<Placed> placed = new ArrayList<>();
 		float s = compact ? 0.72F : 1;
+		// markers first claim their tiles, so the land's names keep clear of them
 		for (Marker m : order) {
+			if (m.style() == Marker.Style.LABEL) {
+				continue;
+			}
+			float ax = f.screenX(m.x(), m.z());
+			float ay = f.screenY(m.x(), m.z());
+			if (f.inside(ax, ay)) {
+				labels.add(new float[]{ax - 11 * s, ay - 11 * s, ax + 11 * s, ay + 11 * s});
+			}
+		}
+		for (Marker m : order) {
+			if (m.style() != Marker.Style.LABEL || compact) {
+				continue;
+			}
+			float ax = f.screenX(m.x(), m.z());
+			float ay = f.screenY(m.x(), m.z());
+			if (f.inside(ax, ay)) {
+				Placed p = label(ui, m, ax, ay, labels, m.id().equals(selected) || m.id().equals(hovered));
+				if (p != null) {
+					placed.add(p);
+				}
+			}
+		}
+		labels.clear();
+		for (Marker m : order) {
+			if (m.style() == Marker.Style.LABEL) {
+				continue;
+			}
 			float ax = f.screenX(m.x(), m.z());
 			float ay = f.screenY(m.x(), m.z());
 			if (!f.inside(ax, ay)) {
@@ -54,6 +89,8 @@ public final class MarkerPainter {
 				case SETTLEMENT -> placed.add(settlement(ui, m, ax, ay, s, sel, label, labels, sel || hov));
 				case WAYPOINT -> placed.add(waypoint(ui, m, ax, ay, s, sel, label, labels, sel || hov, playerX, playerZ));
 				case PLAYER -> placed.add(player(ui, m, ax, ay, s, label, labels, sel || hov));
+				case LABEL -> {
+				}
 			}
 		}
 		ui.flush();
@@ -72,13 +109,40 @@ public final class MarkerPainter {
 		return true;
 	}
 
+	/**
+	 * A name on the land: a region's in spaced caps, a lake's or river's in a muted blue, centred on its label point;
+	 * left off where it would cover a marker or another name.
+	 */
+	private static Placed label(Ui ui, Marker m, float ax, float ay, List<float[]> labels, boolean force) {
+		if (m.name().isEmpty()) {
+			return null;
+		}
+		boolean region = m.subtitle().contains("REGION");
+		boolean sighted = m.subtitle().startsWith("SIGHTED");
+		Ui.Font font = region && m.tier() == dev.voidmc.atlas.api.Tier.MAJOR ? Ui.Font.F11 : Ui.Font.F10;
+		String text = region ? m.name().toUpperCase(java.util.Locale.ROOT) : m.name();
+		float tracking = region ? 1.6F : 0.2F;
+		float w = ui.width(text, font, tracking);
+		float h = font.size + 4;
+		float x0 = ax - w / 2;
+		float y0 = ay - h / 2;
+		if (!free(labels, x0 - 4, y0 - 2, x0 + w + 4, y0 + h + 2, force)) {
+			return null;
+		}
+		int ink = region ? (sighted ? Theme.ink(0.30F) : Theme.ink(0.46F)) : Theme.alpha(WATER_INK, sighted ? 0.6F : 0.9F);
+		ui.text(text, x0, y0 + 1, font, tracking, ink);
+		return new Placed(m, ax, ay, x0, y0, x0 + w, y0 + h);
+	}
+
 	private static Placed structure(Ui ui, Marker m, float ax, float ay, float s, boolean sel, boolean label, List<float[]> labels, boolean force) {
 		float t = 20 * s;
 		float x = ax - t / 2;
 		float y = ay - t / 2;
-		ui.round(x, y, t, t, 6 * s, sel ? Theme.INK : Theme.WELL);
-		ui.border(x, y, t, t, 6 * s, 0, sel ? Theme.HAIR_16 : Theme.HAIR_12);
-		ui.glyph(m.glyph(), x + 3.5F * s, y + 3.5F * s, 13 * s, sel ? Theme.SHELL : Theme.ink(0.6F), sel ? Theme.SHELL : Theme.ink(0.95F));
+		// a place only sighted is a dimmer tile with a "?": something to come back to
+		boolean unknown = m.glyph() == MarkerGlyph.UNKNOWN;
+		ui.round(x, y, t, t, 6 * s, sel ? Theme.INK : unknown ? Theme.alpha(Theme.WELL, 0.85F) : Theme.WELL);
+		ui.border(x, y, t, t, 6 * s, 0, sel ? Theme.HAIR_16 : unknown ? Theme.HAIR_8 : Theme.HAIR_12);
+		ui.glyph(m.glyph(), x + 3.5F * s, y + 3.5F * s, 13 * s, sel ? Theme.SHELL : Theme.ink(unknown ? 0.42F : 0.6F), sel ? Theme.SHELL : Theme.ink(0.95F));
 		float x1 = x + t;
 		if (label && !m.name().isEmpty()) {
 			float tw = ui.width(m.name(), Ui.Font.F10);
@@ -212,6 +276,49 @@ public final class MarkerPainter {
 		double angle = Math.toDegrees(Math.atan2(dx, -dz));
 		String[] names = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
 		return names[(int) Math.floorMod(Math.round(angle / 45), 8)];
+	}
+
+	/** The glyph for a place, by what it is. */
+	public static MarkerGlyph glyphFor(Place p) {
+		return switch (p.kind()) {
+			case Place.PEAK -> MarkerGlyph.PEAK;
+			case Place.LAKE, Place.RIVER, Place.WATERFALL -> MarkerGlyph.WATER;
+			case Place.CAVE_MOUTH, Place.RAVINE -> MarkerGlyph.CAVE;
+			case "minecraft:ruined_portal" -> MarkerGlyph.PORTAL;
+			case "minecraft:shipwreck" -> MarkerGlyph.SHIP;
+			case "atlas:geode" -> MarkerGlyph.GEM;
+			default -> {
+				String k = p.kind();
+				if (k.startsWith("minecraft:ruined_portal")) {
+					yield MarkerGlyph.PORTAL;
+				}
+				if (k.startsWith("minecraft:shipwreck")) {
+					yield MarkerGlyph.SHIP;
+				}
+				yield glyphFor(p.category(), p.underground());
+			}
+		};
+	}
+
+	/** Whether a place is only sighted (drawn as a "?"). */
+	public static boolean sighted(Place p) {
+		return p.state() != DiscoveryState.DISCOVERED;
+	}
+
+	/**
+	 * A source chip: the source's caps label in a hairline pill ("SEEN", "EXACT", "VOID SERVER", "HEARTH"). Returns its
+	 * width.
+	 */
+	public static float sourceChip(Ui ui, dev.voidmc.atlas.api.Source source, float x, float y) {
+		String text = source.label();
+		float w = ui.width(text, Ui.Font.F85, 1) + 12;
+		ui.border(x, y, w, 15, 7.5F, 0, Theme.HAIR_10);
+		ui.text(text, x + 6, y + 2.5F, Ui.Font.F85, 1, Theme.INK_3);
+		return w;
+	}
+
+	public static float sourceChipWidth(Ui ui, dev.voidmc.atlas.api.Source source) {
+		return ui.width(source.label(), Ui.Font.F85, 1) + 12;
 	}
 
 	/** The glyph for a structure category. */

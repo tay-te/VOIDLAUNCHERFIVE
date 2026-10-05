@@ -2,7 +2,7 @@ package dev.voidmc.atlas.gametest;
 
 import com.mojang.datafixers.util.Pair;
 import dev.voidmc.atlas.api.AtlasApi;
-import dev.voidmc.atlas.api.Discovery;
+import dev.voidmc.atlas.api.Place;
 import dev.voidmc.atlas.api.Waypoint;
 import dev.voidmc.atlas.client.AtlasClient;
 import dev.voidmc.atlas.client.AtlasSettings;
@@ -318,10 +318,10 @@ public class AtlasGameTest implements FabricClientGameTest {
 		// the detail card of a discovery if there is one (a waypoint if not), and the list beside it
 		String selected = context.computeOnClient(mc -> {
 			AtlasClient atlas = AtlasClient.get();
-			List<Discovery> found = atlas.session().discoveries.all();
-			if (!found.isEmpty()) {
-				Discovery d = found.get(0);
-				return AtlasClient.discoveryMarkerId(d) + "|" + d.x() + "|" + d.z();
+			for (Place d : atlas.session().places.visible("minecraft:overworld")) {
+				if (d.isDiscovered() && !d.isNatural()) {
+					return AtlasClient.placeMarkerId(d) + "|" + d.x() + "|" + d.z();
+				}
 			}
 			Waypoint w = atlas.session().waypoints.all().get(0);
 			return AtlasClient.waypointMarkerId(w) + "|" + w.x() + "|" + w.z();

@@ -37,4 +37,12 @@ public interface MapWidget {
 
 	/** Selects a marker by id and centres on it. */
 	void select(String markerId);
+
+	/** Shows a layer: {@link MapView#SURFACE}, {@link MapView#UNDERGROUND} or {@link MapView#NETHER}. */
+	default void showLayer(String layer) {
+	}
+
+	/** Shows the underground at height {@code y} (the 16-block band holding it). */
+	default void showDepth(int y) {
+	}
 }

@@ -3,8 +3,14 @@ package dev.voidmc.atlas.client.data;
 import dev.voidmc.atlas.core.Coords;
 import dev.voidmc.atlas.core.NamePalette;
 import dev.voidmc.atlas.core.RegionRaw;
+import dev.voidmc.atlas.core.detect.BlockSource;
+import dev.voidmc.atlas.core.detect.ChunkBlocks;
+import dev.voidmc.atlas.core.detect.Sig;
+import dev.voidmc.atlas.core.detect.Sighting;
+import dev.voidmc.atlas.core.detect.StructureScan;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 import net.minecraft.core.Holder;
 import net.minecraft.core.QuartPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -27,15 +33,15 @@ import net.minecraft.world.level.material.MapColor;
  *
  * <p>The surface: each column is followed down from its highest block, past plants, torches and thin snow (which
  * only colours the ground), to the canopy, a fluid's surface, or the first solid block; under water, on down to the
- * bed, for the depth. A slice (underground, the Nether): from the top of the slice down to the first open space, and
- * from there down to its floor; a column with no open space in the slice is rock.
+ * bed, for the depth. The underground is never read this way (that would show caves nobody has seen): only what the
+ * reveal walked through ({@link #underColumn}).
  *
  * <p>Not thread-safe: one per worker thread.
  */
 public final class ChunkScanner {
 	/** How far down a water column is followed to its bed. */
 	private static final int MAX_DEPTH = 96;
-	/** How far below a slice its floors are looked for. */
+	/** How far below the open space seen underground its floor is looked for. */
 	private static final int FLOOR_REACH = 24;
 
 	private final NamePalette blockNames;
@@ -170,81 +176,173 @@ public final class ChunkScanner {
 		return changed;
 	}
 
+	// --- signals, for the structure scan and the underground reveal -------------------------------------------------
+
+	private final Map<BlockState, Integer> codes = new IdentityHashMap<>();
+	private final Map<Block, Integer> signals = new IdentityHashMap<>();
+	private final StructureScan structures = new StructureScan();
+	private final View view = new View();
+
+	/** A block state's {@link Sig} code: its signal, and whether it is open, solid, water or lava. */
+	public int code(BlockState state) {
+		Integer c = this.codes.get(state);
+		if (c == null) {
+			int base;
+			FluidState fluid = state.getFluidState();
+			if (!fluid.isEmpty() && fluid.is(FluidTags.LAVA)) {
+				base = Sig.LAVA;
+			} else if (!fluid.isEmpty()) {
+				base = Sig.WATER;
+			} else if (state.isAir() || !state.isSolid()) {
+				base = Sig.OPEN;
+			} else {
+				base = Sig.SOLID;
+			}
+			c = Sig.code(this.signal(state.getBlock()), base);
+			this.codes.put(state, c);
+		}
+		return c;
+	}
+
+	private int signal(Block block) {
+		Integer s = this.signals.get(block);
+		if (s == null) {
+			s = Sig.of(BuiltInRegistries.BLOCK.getKey(block).toString());
+			this.signals.put(block, s);
+		}
+		return s;
+	}
+
+	/** The block's id in the world's palette (for the underground layers' floors). */
+	public int blockIdOf(BlockState state) {
+		return this.blockId(state.getBlock());
+	}
+
+	public int biomeIdOf(Holder<Biome> holder) {
+		return this.biomeId(holder);
+	}
+
 	/**
-	 * Reads the slice {@code [band * 16, band * 16 + 15]} of a chunk: each column's first open space from the top of
-	 * the slice, and the floor under it. Returns whether any column changed.
+	 * Looks for structures in a chunk (see {@link StructureScan}): sightings go to {@code out}; returns what the chunk
+	 * holds of a village, for the wider look.
 	 */
-	public boolean slice(LevelChunk chunk, RegionRaw raw, int band) {
+	public StructureScan.Tally detect(LevelChunk chunk, BlockSource world, boolean ceiling, Consumer<Sighting> out) {
+		this.view.chunk = chunk;
+		try {
+			return this.structures.scan(this.view, world, ceiling, out);
+		} finally {
+			this.view.chunk = null;
+		}
+	}
+
+	/** A client chunk, as the structure scan reads it. */
+	private final class View implements ChunkBlocks {
+		LevelChunk chunk;
+		private int[] into;
+		private final net.minecraft.world.level.chunk.PalettedContainer.CountConsumer<BlockState> counter = (state, n) -> this.into[ChunkScanner.this.signalOf(state)] += n;
+
+		@Override
+		public int chunkX() {
+			return this.chunk.getPos().x();
+		}
+
+		@Override
+		public int chunkZ() {
+			return this.chunk.getPos().z();
+		}
+
+		@Override
+		public int minY() {
+			return this.chunk.getMinY();
+		}
+
+		@Override
+		public int sections() {
+			return this.chunk.getSections().length;
+		}
+
+		@Override
+		public boolean count(int s, int[] counts) {
+			LevelChunkSection section = this.chunk.getSections()[s];
+			if (section.hasOnlyAir()) {
+				return false;
+			}
+			this.into = counts;
+			section.getStates().count(this.counter);
+			return true;
+		}
+
+		@Override
+		public boolean mayHaveAnchor(int s) {
+			return this.chunk.getSections()[s].maybeHas(state -> Sig.isAnchor(ChunkScanner.this.signalOf(state)));
+		}
+
+		@Override
+		public int code(int lx, int y, int lz) {
+			return ChunkScanner.this.code(state(this.chunk.getSections(), this.chunk.getMinY(), lx, y, lz));
+		}
+
+		@Override
+		public int surface(int lx, int lz) {
+			return this.chunk.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, lx, lz);
+		}
+	}
+
+	private int signalOf(BlockState state) {
+		return Sig.signal(this.code(state));
+	}
+
+	/**
+	 * Writes one column of an underground band from what the reveal saw: from the highest open block seen in the band,
+	 * down to the floor (through water, to lava or the first solid block, at most {@value #FLOOR_REACH} blocks).
+	 * Returns whether the column changed.
+	 */
+	public boolean underColumn(LevelBlocks world, int x, int z, int openTop, RegionRaw raw) {
+		LevelChunk chunk = world.chunk(x >> 4, z >> 4);
+		if (chunk == null) {
+			return false;
+		}
 		LevelChunkSection[] sections = chunk.getSections();
 		int minY = chunk.getMinY();
-		int maxY = minY + chunk.getHeight() - 1;
-		int sliceTop = Math.min(maxY, band * 16 + 15);
-		int sliceBottom = Math.max(minY, band * 16);
-		int baseX = chunk.getPos().getMinBlockX();
-		int baseZ = chunk.getPos().getMinBlockZ();
-		boolean changed = false;
-		for (int z = 0; z < 16; z++) {
-			for (int x = 0; x < 16; x++) {
-				int lx = Coords.inRegion(baseX + x);
-				int lz = Coords.inRegion(baseZ + z);
-				int open = Integer.MIN_VALUE;
-				for (int y = sliceTop; y >= sliceBottom; y--) {
-					BlockState state = state(sections, minY, x, y, z);
-					if (state.isAir() || (!state.isSolid() && state.getFluidState().isEmpty())) {
-						open = y;
-						break;
-					}
-					if (!state.getFluidState().isEmpty() && !state.isSolid()) {
-						open = y;
-						break;
-					}
-				}
-				int biome = this.biomeId(chunk.getNoiseBiome(QuartPos.fromBlock(baseX + x), QuartPos.fromBlock(Math.max(sliceBottom, minY)), QuartPos.fromBlock(baseZ + z)));
-				if (open == Integer.MIN_VALUE) {
-					changed |= raw.set(lx, lz, sliceTop, NamePalette.NONE, 0, biome, RegionRaw.KNOWN | RegionRaw.ROCK);
-					continue;
-				}
-				int waterTop = Integer.MIN_VALUE;
-				BlockState ground = null;
-				int groundY = open;
-				int bottom = Math.max(minY, sliceBottom - FLOOR_REACH);
-				for (int y = open; y >= bottom; y--) {
-					BlockState state = state(sections, minY, x, y, z);
-					if (state.isAir()) {
-						continue;
-					}
-					FluidState fluid = state.getFluidState();
-					if (!fluid.isEmpty() && !state.isSolid()) {
-						if (fluid.is(FluidTags.LAVA)) {
-							ground = Blocks.LAVA.defaultBlockState();
-							groundY = y;
-							break;
-						}
-						if (waterTop == Integer.MIN_VALUE) {
-							waterTop = y;
-						}
-						continue;
-					}
-					if (!state.isSolid() || !this.visible(state)) {
-						continue;
-					}
-					ground = state;
+		int waterTop = Integer.MIN_VALUE;
+		BlockState ground = null;
+		int groundY = openTop;
+		int bottom = Math.max(minY, openTop - FLOOR_REACH);
+		for (int y = openTop; y >= bottom; y--) {
+			BlockState state = state(sections, minY, x & 15, y, z & 15);
+			if (state.isAir()) {
+				continue;
+			}
+			FluidState fluid = state.getFluidState();
+			if (!fluid.isEmpty() && !state.isSolid()) {
+				if (fluid.is(FluidTags.LAVA)) {
+					ground = Blocks.LAVA.defaultBlockState();
 					groundY = y;
 					break;
 				}
-				if (ground == null) {
-					// open all the way down past the slice: a shaft or a ravine, drawn as its deepest point
-					changed |= raw.set(lx, lz, bottom, NamePalette.NONE, 0, biome, RegionRaw.KNOWN);
-					continue;
+				if (waterTop == Integer.MIN_VALUE) {
+					waterTop = y;
 				}
-				int block = this.blockId(ground.getBlock());
-				if (waterTop != Integer.MIN_VALUE) {
-					changed |= raw.set(lx, lz, waterTop, block, Math.max(1, waterTop - groundY), biome, RegionRaw.KNOWN);
-				} else {
-					changed |= raw.set(lx, lz, groundY, block, 0, biome, RegionRaw.KNOWN);
-				}
+				continue;
 			}
+			if (!state.isSolid() || !this.visible(state)) {
+				continue;
+			}
+			ground = state;
+			groundY = y;
+			break;
 		}
-		return changed;
+		int lx = Coords.inRegion(x);
+		int lz = Coords.inRegion(z);
+		int biome = this.biomeId(chunk.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(groundY), QuartPos.fromBlock(z)));
+		if (ground == null) {
+			// open all the way down past the reach: a shaft, drawn as its deepest point seen
+			return raw.set(lx, lz, bottom, NamePalette.NONE, 0, biome, RegionRaw.KNOWN);
+		}
+		int block = this.blockId(ground.getBlock());
+		if (waterTop != Integer.MIN_VALUE) {
+			return raw.set(lx, lz, waterTop, block, Math.max(1, waterTop - groundY), biome, RegionRaw.KNOWN);
+		}
+		return raw.set(lx, lz, groundY, block, 0, biome, RegionRaw.KNOWN);
 	}
 }

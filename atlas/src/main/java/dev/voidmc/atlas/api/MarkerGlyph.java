@@ -20,7 +20,21 @@ public enum MarkerGlyph {
 	/** A village. */
 	VILLAGE(rows("01010", "11111", "01010", "11111", "01010"), 0),
 	/** A ruin, a dungeon, a vault. */
-	VAULT(rows("11111", "10001", "10101", "10001", "11111"), rows("00000", "00000", "00100", "00000", "00000"));
+	VAULT(rows("11111", "10001", "10101", "10001", "11111"), rows("00000", "00000", "00100", "00000", "00000")),
+	/** Somewhere seen but not yet visited. */
+	UNKNOWN(rows("01110", "10001", "00110", "00000", "00100"), 0),
+	/** A peak. */
+	PEAK(rows("00100", "01110", "01110", "11011", "11111"), rows("00100", "00000", "00000", "00000", "00000")),
+	/** A lake, a river, a waterfall. */
+	WATER(rows("00000", "01001", "10110", "00000", "11011"), 0),
+	/** A cave mouth or a ravine: a dark opening. */
+	CAVE(rows("01110", "11111", "11011", "10001", "10001"), 0),
+	/** A ruined portal. */
+	PORTAL(rows("11111", "10101", "10001", "10101", "11111"), 0),
+	/** A shipwreck. */
+	SHIP(rows("00100", "00110", "00100", "11111", "01110"), 0),
+	/** A geode, a gem. */
+	GEM(rows("01110", "11111", "10101", "01110", "00100"), rows("00000", "00100", "00000", "00100", "00000"));
 
 	public final int mask;
 	public final int accent;

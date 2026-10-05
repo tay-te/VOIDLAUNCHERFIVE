@@ -3,7 +3,8 @@ package dev.voidmc.atlas.api;
 /**
  * What {@link AtlasApi#renderMap} draws: a layer, a centre, a zoom and a turn.
  *
- * @param layer           {@link #SURFACE}, {@link #UNDERGROUND} or {@link #NETHER}
+ * @param layer           {@link #SURFACE}, {@link #UNDERGROUND} or {@link #NETHER}; {@code underground:<y>} (see
+ *                        {@link #underground}) shows the underground at a chosen height instead of the player's
  * @param centerX         the block at the middle (in the shown dimension's coordinates)
  * @param centerZ         the block at the middle
  * @param pixelsPerBlock  screen (physical) pixels per block: whole numbers are pixel-crisp; below 1 the mip levels are
@@ -22,6 +23,26 @@ public record MapView(String layer, double centerX, double centerZ, double pixel
 	public MapView {
 		layer = layer == null ? SURFACE : layer;
 		pixelsPerBlock = Math.max(1.0 / 32, Math.min(32, pixelsPerBlock));
+	}
+
+	/**
+	 * A north-up view of the underground at height {@code y} (the 16-block band holding it), centred on a point. Only
+	 * what the player has explored there is drawn.
+	 */
+	public static MapView underground(double centerX, double centerZ, double pixelsPerBlock, int y) {
+		return new MapView(UNDERGROUND + ":" + y, centerX, centerZ, pixelsPerBlock, 0, true, true, 12);
+	}
+
+	/** The height an {@code underground:<y>} view shows, or null for the player's own. */
+	public Integer depth() {
+		if (!this.layer.startsWith(UNDERGROUND + ":")) {
+			return null;
+		}
+		try {
+			return Integer.parseInt(this.layer.substring(UNDERGROUND.length() + 1));
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	/** A north-up surface view centred on a point. */

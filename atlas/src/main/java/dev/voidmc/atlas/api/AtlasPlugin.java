@@ -16,10 +16,18 @@ package dev.voidmc.atlas.api;
  *             }
  *         });
  *     }
+ *
+ *     public void onAtlasPlaces(AtlasPlaces places) {
+ *         places.registerNameProvider("expanse:names", 0, q -> ExpanseNames.of(q.biome(), q.x(), q.z()));
+ *     }
  * }
  * }</pre>
  */
 @FunctionalInterface
 public interface AtlasPlugin {
 	void onAtlasReady(AtlasMarkers markers);
+
+	/** Called after {@link #onAtlasReady}: landmark and discovery providers, region names, places a server sends. */
+	default void onAtlasPlaces(AtlasPlaces places) {
+	}
 }

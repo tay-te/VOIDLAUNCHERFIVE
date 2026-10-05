@@ -22,7 +22,7 @@ public final class Palette {
 	 * The palette's version: images on disk drawn with another are drawn again from their raw regions. It hashes the
 	 * tables below and the materials' anchors; bump {@link #CODE} when the drawing itself changes.
 	 */
-	private static final int CODE = 3;
+	private static final int CODE = 4;
 	public static final int SEA_LEVEL = 63;
 	public static final int BAND_HEIGHT = 10;
 	public static final int MAX_BANDS = 12;
@@ -162,8 +162,29 @@ public final class Palette {
 
 	/** A cave floor (underground and Nether layers): darker than the surface, so the slice reads as below ground. */
 	public static int caveFloor(float[] toned, Material material, int shadeStep) {
-		float L = toned[0] * 0.92F + 0.02F + shadeStep * material.shade * 1.2F;
+		return caveFloor(toned, material, shadeStep, 0);
+	}
+
+	/** How many blocks below the top of a slice a floor may lie before it is drawn darkest. */
+	public static final int CAVE_DEPTH_RANGE = 28;
+	/** The lightness a floor loses, stepped, from the top of the slice to {@link #CAVE_DEPTH_RANGE} below it. */
+	private static final float CAVE_DEPTH_FADE = 0.13F;
+
+	/**
+	 * A cave floor {@code below} blocks under the top of the slice it is seen from: stepped darker the deeper it lies (in
+	 * four flat steps, never a gradient), so a ledge reads above the pit beside it.
+	 */
+	public static int caveFloor(float[] toned, Material material, int shadeStep, int below) {
+		int step = Math.max(0, Math.min(4, below * 4 / CAVE_DEPTH_RANGE));
+		float L = toned[0] * 0.92F + 0.02F + shadeStep * material.shade * 1.2F - step * (CAVE_DEPTH_FADE / 4);
 		return Oklab.toRgb(Math.max(0.08F, Math.min(0.7F, L)), toned[1] * 0.9F, toned[2] * 0.9F);
+	}
+
+	/** Cave water: the water palette, a step darker, so it reads as underground water. */
+	public static int caveWater(int depth, boolean shore, int biomeWaterRgb) {
+		int rgb = water(depth, shore, biomeWaterRgb);
+		float[] lab = Oklab.fromRgb(rgb);
+		return Oklab.toRgb(Math.max(0.06F, lab[0] - 0.02F), lab[1], lab[2]);
 	}
 
 	/**

@@ -43,6 +43,10 @@ public final class StructureNames {
 		Map.entry("minecraft:ruined_portal_mountain", "Ruined portal"),
 		Map.entry("minecraft:ruined_portal_ocean", "Ruined portal"),
 		Map.entry("minecraft:ruined_portal_nether", "Ruined portal"),
+		Map.entry("minecraft:village", "Village"),
+		Map.entry("minecraft:ocean_ruin", "Ocean ruin"),
+		Map.entry("atlas:dungeon", "Dungeon"),
+		Map.entry("atlas:geode", "Amethyst geode"),
 		Map.entry("expanse:karst_pagoda", "Karst temple"),
 		Map.entry("expanse:cloud_monastery", "Cloud monastery"),
 		Map.entry("expanse:sun_shrine", "Temple of the Pink Sun"),
@@ -86,12 +90,38 @@ public final class StructureNames {
 	private static final Set<String> BUILDINGS = Set.of("expanse:stone_circle", "expanse:ruined_watchtower", "expanse:woodland_lodge",
 		"expanse:stilt_hamlet", "expanse:lighthouse", "expanse:lumen_shrine", "expanse:nomad_camp", "minecraft:pillager_outpost",
 		"minecraft:jungle_pyramid", "minecraft:desert_pyramid", "minecraft:igloo", "minecraft:swamp_hut", "minecraft:trail_ruins");
-	private static final Set<String> DUNGEONS = Set.of("minecraft:trial_chambers", "minecraft:mineshaft", "minecraft:mineshaft_mesa",
+	private static final Set<String> DUNGEONS = Set.of("atlas:dungeon", "minecraft:trial_chambers", "minecraft:mineshaft", "minecraft:mineshaft_mesa",
 		"minecraft:fortress", "minecraft:bastion_remnant", "expanse:cavern_mine_camp", "expanse:deepstone_ruins", "expanse:cavern_landing");
 	/** Never shown: finding these is the point of a treasure map. */
 	private static final Set<String> HIDDEN = Set.of("minecraft:buried_treasure");
 
 	private StructureNames() {
+	}
+
+	/**
+	 * The family a structure id belongs to, for matching what was seen in the blocks against the game's own data: every
+	 * vanilla village is {@code minecraft:village}, every ruined portal {@code minecraft:ruined_portal}, and so on.
+	 */
+	public static String family(String id) {
+		if (!id.startsWith("minecraft:")) {
+			return id;
+		}
+		String p = id.substring(10);
+		for (String f : new String[]{"village", "ruined_portal", "shipwreck", "mineshaft", "ocean_ruin"}) {
+			if (p.equals(f) || p.startsWith(f + "_")) {
+				return "minecraft:" + f;
+			}
+		}
+		return id;
+	}
+
+	/** Whether a structure is a major landmark (shown at every zoom) or a minor place. */
+	public static dev.voidmc.atlas.api.Tier tier(String id, String category) {
+		var kind = dev.voidmc.atlas.core.detect.StructureKind.byId(family(id));
+		if (kind != null) {
+			return kind.tier;
+		}
+		return category.equals("LANDMARK") || category.equals("VILLAGE") ? dev.voidmc.atlas.api.Tier.MAJOR : dev.voidmc.atlas.api.Tier.MINOR;
 	}
 
 	public static boolean hidden(String id) {

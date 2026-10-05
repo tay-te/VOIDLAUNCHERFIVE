@@ -26,6 +26,10 @@ public final class LayerData {
 	public final TileRenderer.Mode mode;
 	/** A small number unique to this layer in the session, for the GPU tile keys. */
 	public final int uid;
+	/** For an underground band: the height its view looks down from (floors are stepped darker below it). */
+	public final int caveTop;
+	/** Whether the regions on disk have been listed (on the IO thread); until then no tile is asked for. */
+	private volatile boolean listed;
 
 	private final ConcurrentHashMap<Long, RegionRaw> raws = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<Long, RegionImage> images = new ConcurrentHashMap<>();
@@ -41,17 +45,28 @@ public final class LayerData {
 	private static final long LEVEL_CACHE_BYTES = 48L << 20;
 	private volatile long version;
 
-	LayerData(DimensionData dimension, String name, TileRenderer.Mode mode, int uid) {
+	LayerData(DimensionData dimension, String name, TileRenderer.Mode mode, int caveTop, int uid) {
 		this.dimension = dimension;
 		this.name = name;
 		this.mode = mode;
+		this.caveTop = caveTop;
 		this.uid = uid;
 		for (int i = 0; i < this.existingTiles.length; i++) {
 			this.existingTiles[i] = new LongOpenHashSet();
 		}
-		for (long key : dimension.files.regions(name)) {
-			this.markExisting(Coords.unpackX(key), Coords.unpackZ(key));
-		}
+		// listing a folder is disk work: never on the render thread (a layer is often first wanted by the minimap)
+		dimension.session.workers.execute(() -> {
+			for (long key : dimension.files.regions(name)) {
+				this.markExisting(Coords.unpackX(key), Coords.unpackZ(key));
+			}
+			this.listed = true;
+			this.version++;
+		});
+	}
+
+	/** Whether the layer knows which regions it has on disk yet. */
+	public boolean listed() {
+		return this.listed;
 	}
 
 	/** Bumped whenever any of the layer's pixels change. */
@@ -77,8 +92,18 @@ public final class LayerData {
 
 	/** Whether any region of a tile has ever been seen: if not, the tile need not be drawn or made. */
 	public boolean tileExists(int level, int tx, int tz) {
+		if (!this.listed) {
+			return false;
+		}
 		synchronized (this.existing) {
 			return this.existingTiles[level].contains(Coords.pack(tx, tz));
+		}
+	}
+
+	/** Every region of the layer that has been seen, as packed keys. */
+	public long[] regionKeys() {
+		synchronized (this.existing) {
+			return this.existing.toLongArray();
 		}
 	}
 
@@ -167,7 +192,7 @@ public final class LayerData {
 			return;
 		}
 		synchronized (image) {
-			this.dimension.session.renderer().render(this.around(rx, rz), image, rect[0], rect[1], rect[2], rect[3], this.mode);
+			this.dimension.session.renderer().render(this.around(rx, rz), image, rect[0], rect[1], rect[2], rect[3], this.mode, this.caveTop);
 		}
 		this.version++;
 		this.dropLevels(rx, rz);
@@ -198,7 +223,7 @@ public final class LayerData {
 				fresh.levelOrCreate(level);
 			}
 			synchronized (fresh) {
-				this.dimension.session.renderer().render(this.around(rx, rz), fresh, 0, 0, Coords.REGION_SIZE, Coords.REGION_SIZE, this.mode);
+				this.dimension.session.renderer().render(this.around(rx, rz), fresh, 0, 0, Coords.REGION_SIZE, Coords.REGION_SIZE, this.mode, this.caveTop);
 			}
 			return fresh;
 		});
@@ -278,7 +303,7 @@ public final class LayerData {
 		}
 		RegionRaw[] around = new RegionRaw[9];
 		around[4] = raw;
-		this.dimension.session.renderer().render(around, image, 0, 0, Coords.REGION_SIZE, Coords.REGION_SIZE, this.mode);
+		this.dimension.session.renderer().render(around, image, 0, 0, Coords.REGION_SIZE, Coords.REGION_SIZE, this.mode, this.caveTop);
 		this.dimension.files.saveRaw(this.name, raw);
 		this.dimension.files.saveImage(this.name, image);
 		this.markExisting(raw.x, raw.z);

@@ -2,11 +2,14 @@ package dev.voidmc.atlas.client.data;
 
 import dev.voidmc.atlas.client.BlockLooks;
 import dev.voidmc.atlas.client.Perf;
-import dev.voidmc.atlas.core.DiscoveryStore;
+import dev.voidmc.atlas.api.Place;
 import dev.voidmc.atlas.core.NamePalette;
 import dev.voidmc.atlas.core.Palette;
 import dev.voidmc.atlas.core.TileRenderer;
 import dev.voidmc.atlas.core.WaypointStore;
+import dev.voidmc.atlas.core.detect.Sighting;
+import dev.voidmc.atlas.core.places.PlaceBook;
+import dev.voidmc.atlas.core.under.Reveal;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,8 +25,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Everything Atlas keeps for one world (a singleplayer save, or a server): its folder, the block and biome names its
- * region files use, its waypoints and discoveries, its dimensions' maps, and the worker threads that read chunks and
- * draw tiles. Made when a world is joined, closed (and saved) when it is left.
+ * region files use, its waypoints and places ({@link PlaceBook}), its dimensions' maps and landmarks, and the worker
+ * threads that read chunks, reveal the underground, analyse the land and draw tiles. Made when a world is joined, closed
+ * (and saved) when it is left.
  */
 public final class MapSession {
 	public static final Logger LOGGER = LoggerFactory.getLogger("VOID Atlas");
@@ -33,7 +37,10 @@ public final class MapSession {
 	public final NamePalette blockNames;
 	public final NamePalette biomeNames;
 	public final WaypointStore waypoints;
-	public final DiscoveryStore discoveries;
+	public final PlaceBook places;
+	public final Landmarks landmarks;
+	/** A hash of the world's seed (and key): the same every session, for names. */
+	public final long seedHash;
 	public final ScheduledThreadPoolExecutor workers;
 	/** Saves happen here, one at a time, so a slow disk never stalls the workers. */
 	public final ExecutorService io;
@@ -44,6 +51,7 @@ public final class MapSession {
 	private final ThreadLocal<TileRenderer> renderers = new ThreadLocal<>();
 	private final ThreadLocal<Integer> rendererVersion = new ThreadLocal<>();
 	private final ThreadLocal<ChunkScanner> scanners;
+	private final ThreadLocal<Reveal> reveals = ThreadLocal.withInitial(Reveal::new);
 	private final Consumer<RegionChange> changes;
 	private volatile boolean closed;
 
@@ -51,8 +59,9 @@ public final class MapSession {
 	public record RegionChange(LayerData layer, int rx, int rz, int[] rect) {
 	}
 
-	public MapSession(String worldKey, Path dir, int threads, Consumer<RegionChange> changes) {
+	public MapSession(String worldKey, Path dir, int threads, long seedHash, Consumer<RegionChange> changes) {
 		this.worldKey = worldKey;
+		this.seedHash = seedHash;
 		this.dir = dir;
 		this.changes = changes;
 		NamePalette blocks;
@@ -69,8 +78,9 @@ public final class MapSession {
 		this.biomeNames = biomes;
 		this.waypoints = new WaypointStore(dir.resolve("waypoints.json"), this::warn);
 		this.waypoints.load();
-		this.discoveries = new DiscoveryStore(dir.resolve("discoveries.json"), this::warn);
-		this.discoveries.load();
+		this.places = new PlaceBook(dir.resolve("places.json"), this::warn);
+		this.places.load();
+		this.landmarks = new Landmarks(this);
 		this.scanners = ThreadLocal.withInitial(() -> new ChunkScanner(this.blockNames, this.biomeNames));
 		this.workers = new ScheduledThreadPoolExecutor(Math.max(1, threads), daemon("Atlas worker", Thread.MIN_PRIORITY + 1));
 		this.workers.setRemoveOnCancelPolicy(true);
@@ -125,8 +135,30 @@ public final class MapSession {
 		return this.scanners.get();
 	}
 
+	/** This worker's underground reveal. */
+	public Reveal reveal() {
+		return this.reveals.get();
+	}
+
+	/** A structure seen in a chunk's blocks (worker thread). */
+	public void sight(String dimension, Sighting s) {
+		this.places.sight(dimension, s, System.currentTimeMillis());
+	}
+
 	public DimensionData dimension(String id, boolean ceiling) {
-		return this.dimensions.computeIfAbsent(id, d -> new DimensionData(this, d, this.dir.resolve(d.replace(':', '/')), ceiling));
+		DimensionData d = this.dimensions.get(id);
+		if (d != null) {
+			return d;
+		}
+		boolean[] made = {false};
+		d = this.dimensions.computeIfAbsent(id, k -> {
+			made[0] = true;
+			return new DimensionData(this, k, this.dir.resolve(k.replace(':', '/')), ceiling);
+		});
+		if (made[0]) {
+			this.landmarks.opened(d);
+		}
+		return d;
 	}
 
 	public DimensionData dimensionIfOpen(String id) {
@@ -140,6 +172,7 @@ public final class MapSession {
 	void regionChanged(LayerData layer, int rx, int rz, int[] rect) {
 		Perf.RENDERS.incrementAndGet();
 		this.changes.accept(new RegionChange(layer, rx, rz, rect));
+		this.landmarks.regionDrawn(layer, rx, rz);
 	}
 
 	public boolean closed() {
@@ -169,8 +202,8 @@ public final class MapSession {
 				this.biomeNames.save(this.dir.resolve("biomes.txt"));
 			}
 			this.waypoints.save();
-			if (this.discoveries.dirty()) {
-				this.discoveries.save();
+			if (this.places.dirty()) {
+				this.places.save();
 			}
 		} catch (IOException e) {
 			this.warn("Atlas: could not save " + this.dir + ": " + e);
