@@ -16,7 +16,11 @@ final class Underground {
 	private Underground() {
 	}
 
-	static void apply(DimensionData d, Reveal.Result r, LevelBlocks world, ChunkScanner scanner) {
+	/**
+	 * Writes a walk's result. {@code before}: the previous walk's, or null: a column it saw exactly the same (the same
+	 * highest open block, or the same wall) is not read again — walks a few blocks apart overlap almost wholly.
+	 */
+	static void apply(DimensionData d, Reveal.Result r, Reveal.Result before, LevelBlocks world, ChunkScanner scanner) {
 		for (int b = 0; b < r.bands; b++) {
 			int band = r.band0 + b;
 			int bandTop = DimensionData.bandTop(band);
@@ -37,6 +41,9 @@ final class Underground {
 					}
 					int x = r.x0 + dx;
 					int z = r.z0 + dz;
+					if (before != null && before.topAt(x, z, band) == top && before.wallAt(x, z, band) == wall) {
+						continue;
+					}
 					if (layer == null) {
 						layer = d.under(band);
 					}

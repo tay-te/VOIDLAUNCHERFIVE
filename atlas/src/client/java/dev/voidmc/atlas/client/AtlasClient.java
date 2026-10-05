@@ -349,7 +349,8 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 			for (Place changed : session.places.drainChanges()) {
 				this.places.notify(changed);
-				if (changed.isDiscovered() && changed.dimension().equals(dim) && !changed.kind().equals(Place.RIVER)) {
+				if (changed.isDiscovered() && changed.dimension().equals(dim) && !changed.kind().equals(Place.RIVER)
+					&& !changed.kind().equals(Place.CAVE_MOUTH) && !changed.kind().equals(Place.RAVINE)) {
 					// the design's toast, once, as the player comes within reach (or walks into a region)
 					this.overlays.discovered(changed);
 				}
@@ -513,12 +514,18 @@ public final class AtlasClient implements ClientModInitializer {
 				List<Marker> list = new ArrayList<>(visible.size());
 				java.util.Map<String, Place> byId = new java.util.HashMap<>();
 				DimensionData d = session.dimensionIfOpen(q.dimension());
+				java.util.Map<String, Place> names = new java.util.HashMap<>();
+				for (Place p : visible) {
+					if (p.kind().equals(Place.REGION)) {
+						names.put(p.id(), p);
+					}
+				}
 				for (Place p : visible) {
 					if (!this.settings.kindVisible(dev.voidmc.atlas.client.ui.Kinds.legend(p).name())) {
 						continue;
 					}
 					String region = d == null || p.isLabel() ? null : d.areas.regionAt(p.x(), p.z());
-					Place regionPlace = region == null ? null : session.places.get(region);
+					Place regionPlace = region == null ? null : names.get(region);
 					for (Marker m : placeMarkers(p, regionPlace == null ? null : regionPlace.name())) {
 						list.add(m);
 						byId.put(m.id(), p);
@@ -713,19 +720,28 @@ public final class AtlasClient implements ClientModInitializer {
 		return new String[]{name, source};
 	}
 
-	/** The named region the player stands in ("Larkspur Meadow"), or null. */
+	private long regionHereKey = Long.MIN_VALUE;
+	private long regionHereVersion = -1;
+	private @Nullable Place regionHere;
+
+	/** The named region the player stands in ("Larkspur Meadow"), or null (looked up again when they move a block). */
 	public @Nullable Place regionHere() {
 		MapSession session = this.session;
 		LocalPlayer p = Minecraft.getInstance().player;
 		if (session == null || p == null) {
 			return null;
 		}
-		DimensionData d = session.dimensionIfOpen(p.level().dimension().identifier().toString());
-		if (d == null) {
-			return null;
+		long key = Coords.pack(p.getBlockX(), p.getBlockZ()) ^ p.level().dimension().hashCode();
+		long version = session.places.version();
+		if (key == this.regionHereKey && version == this.regionHereVersion) {
+			return this.regionHere;
 		}
-		String id = d.areas.regionAt(p.getBlockX(), p.getBlockZ());
-		return id == null ? null : session.places.get(id);
+		this.regionHereKey = key;
+		this.regionHereVersion = version;
+		DimensionData d = session.dimensionIfOpen(p.level().dimension().identifier().toString());
+		String id = d == null ? null : d.areas.regionAt(p.getBlockX(), p.getBlockZ());
+		this.regionHere = id == null ? null : session.places.get(id);
+		return this.regionHere;
 	}
 
 	/** "woodland_glades" to "Woodland Glades". */

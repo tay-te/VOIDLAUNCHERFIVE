@@ -28,6 +28,8 @@ public final class MinimapHud {
 	private final AtlasClient atlas;
 	private final MapRenderer renderer = new MapRenderer();
 	private double zoom = Double.NaN;
+	private List<Place> edgeFrom = List.of();
+	private List<Place> edgeCandidates = List.of();
 
 	public MinimapHud(AtlasClient atlas) {
 		this.atlas = atlas;
@@ -49,6 +51,7 @@ public final class MinimapHud {
 		long t0 = System.nanoTime();
 		Ui ui = new Ui(graphics, hudUnit());
 		ui.begin();
+		ui.prewarm();
 		float side = settings.minimapSize.side;
 		float margin = 16;
 		float info = settings.minimapCoordinates ? 46 : 0;
@@ -190,7 +193,23 @@ public final class MinimapHud {
 		java.util.Arrays.fill(best, Double.MAX_VALUE);
 		String tracked = this.atlas.settings().tracked;
 		Place trackedPlace = tracked == null ? null : this.atlas.placeFor(tracked);
-		for (Place pl : session.places.visible(dim)) {
+		List<Place> visible = session.places.visible(dim);
+		if (visible != this.edgeFrom) {
+			// the places that can be edge markers, worked out again only when the places change
+			List<Place> candidates = new ArrayList<>();
+			for (Place pl : visible) {
+				if (Kinds.sighted(pl) && !pl.isLabel()) {
+					candidates.add(pl);
+				}
+			}
+			this.edgeFrom = visible;
+			this.edgeCandidates = candidates;
+		}
+		List<Place> pool = new ArrayList<>(this.edgeCandidates);
+		if (trackedPlace != null && !pool.contains(trackedPlace)) {
+			pool.add(trackedPlace);
+		}
+		for (Place pl : pool) {
 			boolean isTracked = pl == trackedPlace;
 			if (!isTracked && (!Kinds.sighted(pl) || pl.isLabel() || !ceiling && pl.underground() != underground
 				|| !this.atlas.settings().kindVisible(Kinds.Kind.SIGHTED.name()))) {

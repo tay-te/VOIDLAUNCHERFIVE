@@ -63,6 +63,12 @@ public final class Perf {
 					map = Arrays.copyOf(map, size);
 					tiles = Arrays.copyOf(tiles, size);
 				}
+				long[] gc = gcTotals();
+				if (lastFrameNanos > 25_000_000L) {
+					slowFrame(lastFrameNanos, gc[0] - gcCount, gc[1] - gcMillis);
+				}
+				gcCount = gc[0];
+				gcMillis = gc[1];
 				frames[n] = lastFrameNanos;
 				ingest[n] = ingestNanos;
 				minimap[n] = minimapNanos;
@@ -76,6 +82,30 @@ public final class Perf {
 		minimapNanos = 0;
 		mapNanos = 0;
 		frameTiles = 0;
+	}
+
+	private static long gcCount;
+	private static long gcMillis;
+	public static final java.util.List<String> SLOW = new java.util.ArrayList<>();
+
+	private static long[] gcTotals() {
+		long count = 0;
+		long millis = 0;
+		for (var gc : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+			count += Math.max(0, gc.getCollectionCount());
+			millis += Math.max(0, gc.getCollectionTime());
+		}
+		return new long[]{count, millis};
+	}
+
+	/** A slow frame while recording: where the time went (Atlas's parts, and the garbage collector's). */
+	private static void slowFrame(long nanos, long collections, long gcMillis) {
+		String line = String.format(java.util.Locale.ROOT, "%.1f ms frame: ingest %.2f, minimap %.2f, map %.2f, gc %d (%d ms)", nanos / 1e6,
+			ingestNanos / 1e6, minimapNanos / 1e6, mapNanos / 1e6, collections, gcMillis);
+		if (SLOW.size() < 40) {
+			SLOW.add(line);
+		}
+		AtlasClient.LOGGER.info("Atlas perf: slow {}", line);
 	}
 
 	public static long lastFrameNanos() {
@@ -119,6 +149,9 @@ public final class Perf {
 
 	public static void startRecording() {
 		n = 0;
+		long[] gc = gcTotals();
+		gcCount = gc[0];
+		gcMillis = gc[1];
 		recording = true;
 	}
 

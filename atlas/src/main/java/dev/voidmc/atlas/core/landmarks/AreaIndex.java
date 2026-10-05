@@ -46,6 +46,12 @@ public final class AreaIndex {
 	private final Map<Long, int[]> landArea = new HashMap<>();
 	private final Map<Long, int[]> waterArea = new HashMap<>();
 
+	/** What the map asks every frame ("which area is the player in"), published whole after each rebuild: no lock. */
+	private record Snapshot(Map<Long, RegionFeatures> regions, Map<Long, int[]> land, Map<Long, int[]> water, List<Area> areas) {
+	}
+
+	private volatile Snapshot snapshot = new Snapshot(Map.of(), Map.of(), Map.of(), List.of());
+
 	public synchronized void put(RegionFeatures f) {
 		this.regions.put(Coords.pack(f.rx, f.rz), f);
 	}
@@ -67,29 +73,29 @@ public final class AreaIndex {
 		return new ArrayList<>(this.regions.values());
 	}
 
-	/** The id of the named region of one biome at a block, or null. */
-	public synchronized String regionAt(int x, int z) {
-		return this.at(x, z, true);
+	/** The id of the named region of one biome at a block, or null. Lock-free (from the last rebuild). */
+	public String regionAt(int x, int z) {
+		return at(this.snapshot, x, z, true);
 	}
 
-	/** The id of the named lake or river at a block, or null. */
-	public synchronized String waterAt(int x, int z) {
-		return this.at(x, z, false);
+	/** The id of the named lake or river at a block, or null. Lock-free (from the last rebuild). */
+	public String waterAt(int x, int z) {
+		return at(this.snapshot, x, z, false);
 	}
 
-	private String at(int x, int z, boolean land) {
+	private static String at(Snapshot s, int x, int z, boolean land) {
 		long key = Coords.pack(Coords.region(x), Coords.region(z));
-		RegionFeatures f = this.regions.get(key);
-		int[] map = (land ? this.landArea : this.waterArea).get(key);
+		RegionFeatures f = s.regions.get(key);
+		int[] map = (land ? s.land : s.water).get(key);
 		if (f == null || map == null) {
 			return null;
 		}
 		int cell = (Coords.inRegion(z) / RegionFeatures.CELL) * RegionFeatures.CELLS + Coords.inRegion(x) / RegionFeatures.CELL;
 		int patch = land ? f.landAt(cell) : f.waterAt(cell);
-		if (patch == RegionFeatures.NONE || patch >= map.length || map[patch] < 0) {
+		if (patch == RegionFeatures.NONE || patch >= map.length || map[patch] < 0 || map[patch] >= s.areas.size()) {
 			return null;
 		}
-		return this.areas.get(map[patch]).id();
+		return s.areas.get(map[patch]).id();
 	}
 
 	/** Joins the patches into areas again (after regions were added or analysed again). */
@@ -230,6 +236,7 @@ public final class AreaIndex {
 			next.add(new Area(id, kindName, (int) s[4], s[0], (int) s[2], (int) s[3], major));
 		}
 		this.areas = List.copyOf(next);
+		this.snapshot = new Snapshot(new HashMap<>(this.regions), new HashMap<>(this.landArea), new HashMap<>(this.waterArea), this.areas);
 		return this.areas;
 	}
 

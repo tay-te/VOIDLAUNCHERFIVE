@@ -70,6 +70,7 @@ public final class AtlasScreen extends Screen {
 		this.unit = ui.unit;
 		this.scale = ui.scale;
 		ui.begin();
+		ui.prewarm();
 		float sw = ui.width();
 		float sh = ui.height();
 		float ww = Math.min(WINDOW_W, sw - MARGIN);

@@ -708,6 +708,16 @@ public final class MapPage {
 		this.list(ui, y + 390, this.listY + this.listH, mx, my, List.of("depth"), List.of("AT THIS DEPTH"));
 	}
 
+	/** The surface's height at a column from what is in memory (never a disk read on the render thread), or a default. */
+	private int loadedHeight(int x, int z, int fallback) {
+		MapSession session = this.atlas.session();
+		DimensionData d = session == null ? null : session.dimensionIfOpen(this.map.dimensionOf(MapPanel.Kind.SURFACE));
+		LayerData surface = d == null ? null : d.layerIfOpen(DimensionData.SURFACE);
+		RegionRaw raw = surface == null ? null : surface.rawIfLoaded(Coords.region(x), Coords.region(z));
+		int i = RegionRaw.index(Coords.inRegion(x), Coords.inRegion(z));
+		return raw == null || !raw.known(i) ? fallback : raw.height[i] + 1;
+	}
+
 	private float scrubCellY(float y, int cellY) {
 		return y + 35 + (SCRUB_TOP - cellY) / 8F * 12.5F;
 	}
@@ -724,7 +734,7 @@ public final class MapPage {
 		int slice = this.map.band(this.map.kind);
 		LocalPlayer p = Minecraft.getInstance().player;
 		int you = p == null ? Integer.MIN_VALUE : DimensionData.bandOf(p.getBlockY());
-		int surface = p == null ? 64 : this.atlas.heightAt(this.map.layerAtBand(MapPanel.Kind.SURFACE, 0), p.getBlockX(), p.getBlockZ());
+		int surface = p == null ? 64 : this.loadedHeight(p.getBlockX(), p.getBlockZ(), 64);
 		int surfaceBand = DimensionData.bandOf(surface);
 		for (int cy = SCRUB_TOP; cy >= SCRUB_BOTTOM; cy -= 8) {
 			int band = DimensionData.bandOf(cy);
@@ -849,7 +859,7 @@ public final class MapPage {
 		ui.flush();
 		ui.g.disableScissor();
 		if (surface != null && p != null) {
-			int s = this.atlas.heightAt(surface, cx, z);
+			int s = this.loadedHeight(cx, z, 64);
 			ui.textRight("surface " + s, x + 158, top + (SCRUB_TOP - s) * k - 14, Ui.Font.F85, 0.6F, Theme.INK_4);
 		}
 		ui.text(d.ceiling ? "lava sea" : "bedrock", x + 14, y + 356, Ui.Font.F85, 0.6F, Theme.INK_4);

@@ -241,6 +241,8 @@ public final class ChunkScanner {
 		private int[] into;
 		private final net.minecraft.world.level.chunk.PalettedContainer.CountConsumer<BlockState> counter = (state, n) -> this.into[ChunkScanner.this.signalOf(state)] += n;
 
+		private final java.util.function.Predicate<BlockState> countable = state -> Sig.counted(ChunkScanner.this.signalOf(state));
+
 		@Override
 		public int chunkX() {
 			return this.chunk.getPos().x();
@@ -264,7 +266,8 @@ public final class ChunkScanner {
 		@Override
 		public boolean count(int s, int[] counts) {
 			LevelChunkSection section = this.chunk.getSections()[s];
-			if (section.hasOnlyAir()) {
+			// counting walks the whole section: only sections whose palette holds something worth counting
+			if (section.hasOnlyAir() || !section.maybeHas(this.countable)) {
 				return false;
 			}
 			this.into = counts;

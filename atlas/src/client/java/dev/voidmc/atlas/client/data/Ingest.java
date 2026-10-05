@@ -49,6 +49,8 @@ public final class Ingest {
 	private double revealY;
 	private double revealZ;
 	private long revealAt;
+	private volatile Reveal.Result lastWalk;
+	private int walks;
 
 	public Ingest(MapSession session, ClientLevel level) {
 		this.session = session;
@@ -157,8 +159,12 @@ public final class Ingest {
 				long t0 = System.nanoTime();
 				ChunkScanner scanner = this.session.scanner();
 				LevelBlocks blocks = new LevelBlocks(this.level, scanner);
+				// the previous walk is kept to skip what it already saw; every tenth walk
+				// writes everything again, so blocks mined or placed since are caught
 				Reveal.Result r = this.session.reveal().walk(blocks, px, py, pz, radius);
-				Underground.apply(this.dimension, r, blocks, scanner);
+				Reveal.Result before = ++this.walks % 10 == 0 ? null : this.lastWalk;
+				Underground.apply(this.dimension, r, before, blocks, scanner);
+				this.lastWalk = r;
 				Perf.REVEAL_NANOS.addAndGet(System.nanoTime() - t0);
 				Perf.REVEALS.incrementAndGet();
 				Perf.REVEAL_OPENED.addAndGet(r.opened);

@@ -96,7 +96,7 @@ public final class PlaceBook {
 	private final Consumer<String> warn;
 	private final LinkedHashMap<String, Entry> entries = new LinkedHashMap<>();
 	private final ConcurrentLinkedQueue<Place> changes = new ConcurrentLinkedQueue<>();
-	private long version;
+	private volatile long version;
 	private long savedVersion;
 	private volatile boolean exactAvailable;
 	/** Today's game day, for the days places are sighted and discovered on. */
@@ -165,7 +165,7 @@ public final class PlaceBook {
 		return list == null ? List.of() : list;
 	}
 
-	private synchronized long versionNow() {
+	private long versionNow() {
 		return this.version;
 	}
 
@@ -578,7 +578,7 @@ public final class PlaceBook {
 		return this.version != this.savedVersion;
 	}
 
-	public synchronized long version() {
+	public long version() {
 		return this.version;
 	}
 

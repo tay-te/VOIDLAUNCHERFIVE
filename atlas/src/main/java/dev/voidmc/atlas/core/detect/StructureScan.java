@@ -408,7 +408,17 @@ public final class StructureScan {
 		for (int lz = 0; lz < 16; lz++) {
 			for (int lx = 0; lx < 16; lx++) {
 				int g = c.surface(lx, lz);
-				if (g < c.minY() || !walkable(c, lx, g + 1, lz) || !earth(c.code(lx, g, lz))) {
+				if (g < c.minY()) {
+					continue;
+				}
+				// the cheap test first: is there a hill beside it at all (heightmaps only)?
+				boolean hill = false;
+				for (int[] d : dirs) {
+					int nx = lx + d[0];
+					int nz = lz + d[1];
+					hill |= nx >= 0 && nz >= 0 && nx < 16 && nz < 16 && c.surface(nx, nz) >= g + 6;
+				}
+				if (!hill || !walkable(c, lx, g + 1, lz) || !earth(c.code(lx, g, lz))) {
 					continue;
 				}
 				for (int[] d : dirs) {
@@ -420,6 +430,9 @@ public final class StructureScan {
 						int x = lx + d[0] * k;
 						int z = lz + d[1] * k;
 						if (x < 0 || z < 0 || x > 15 || z > 15) {
+							break;
+						}
+						if (c.surface(x, z) < floor + 5) {
 							break;
 						}
 						// the passage may climb or drop a block a step

@@ -119,6 +119,33 @@ public final class Sig {
 	/** {@link #ANCHORS} past bit 63: the white banner, the furnace and the chest. */
 	public static final long ANCHORS_HIGH = bitsHigh(WHITE_BANNER, FURNACE, CHEST);
 
+	/**
+	 * The signals the palette counts are taken for (the counted rules and the village tallies), and the anchors: a
+	 * section with none of them (stone, dirt, ores, water...) is not counted at all.
+	 */
+	private static final boolean[] COUNTED = new boolean[COUNT];
+
+	static {
+		int[] counted = {BED, PRISMARINE, DARK_PRISMARINE, SEA_LANTERN, DARK_OAK_PLANKS, COBBLE, BIRCH_PLANKS, DARK_OAK_LOG, REINFORCED_DEEPSLATE,
+			DEEPSLATE_TILES, DEEPSLATE_BRICKS, SCULK, SCULK_SHRIEKER, SCULK_SENSOR, RAIL, WOOD_FENCE, PLANKS, COBWEB, STONE_BRICKS, MOSSY_STONE_BRICKS,
+			CRACKED_STONE_BRICKS, INFESTED_BRICKS, BOOKSHELF, IRON_BARS, TUFF_BRICKS, COPPER_BUILT, NETHER_BRICKS, NETHER_BRICK_FENCE, NETHER_WART,
+			BLACKSTONE_BRICKS, GILDED_BLACKSTONE, PURPUR};
+		for (int s : counted) {
+			COUNTED[s] = true;
+		}
+		for (int s = FIRST_JOB; s <= LAST_JOB; s++) {
+			COUNTED[s] = true;
+		}
+		for (int s = 0; s < COUNT; s++) {
+			COUNTED[s] |= isAnchor(s);
+		}
+	}
+
+	/** Whether a section holding this signal is counted (see {@link #COUNTED}). */
+	public static boolean counted(int signal) {
+		return signal > 0 && signal < COUNT && COUNTED[signal];
+	}
+
 	private static final String[] NAMES = new String[COUNT];
 
 	static {

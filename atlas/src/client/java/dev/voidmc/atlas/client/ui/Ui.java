@@ -415,6 +415,23 @@ public final class Ui {
 		return Math.round(font.size * 1.26F);
 	}
 
+	private static final boolean[] WARM = new boolean[UNITS.length];
+	private static final String GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ·–—'?.,:/()+-&%";
+
+	/**
+	 * Draws every glyph Atlas uses in every size, invisibly, once per scale: the game rasterises a glyph the first time
+	 * it is drawn, and doing that for a new size in the middle of play (a toast's name, a card's title) is a hitch.
+	 */
+	public void prewarm() {
+		if (WARM[this.unitIndex]) {
+			return;
+		}
+		WARM[this.unitIndex] = true;
+		for (Font font : Font.values()) {
+			this.text(GLYPHS, 0, 0, font, 0x01FFFFFF);
+		}
+	}
+
 	/** Cuts text to fit {@code max} design pixels, with an ellipsis. */
 	public String fit(String text, Font font, float max) {
 		return this.fit(text, font, 0, max);
