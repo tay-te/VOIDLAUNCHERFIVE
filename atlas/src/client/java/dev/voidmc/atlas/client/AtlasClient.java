@@ -1032,6 +1032,16 @@ public final class AtlasClient implements ClientModInitializer {
 	// --- helpers for the screens -------------------------------------------------------------------------------------
 
 	/** The biome's readable name and its source tag ("EXPANSE"; empty for vanilla). */
+	/** The plain name of the biome at a block, in the player's language ("Forest", "Dripstone Caves"). */
+	public String biomeNameAt(BlockPos pos) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null) {
+			return "";
+		}
+		var key = mc.level.getBiome(pos).unwrapKey();
+		return key.isEmpty() ? "Unknown" : dev.voidmc.atlas.core.names.PlainNames.biome(key.get().identifier().toString(), AtlasPlacesImpl::translatedBiome);
+	}
+
 	public String[] biomeAt(BlockPos pos) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null) {

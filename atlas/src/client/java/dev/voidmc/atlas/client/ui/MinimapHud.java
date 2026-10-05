@@ -130,15 +130,35 @@ public final class MinimapHud {
 			this.rimVersion = wv;
 			this.rimDim = dim;
 		}
-		for (var w : this.rim) {
-			if (!settings.layerVisible(MapLayer.WAYPOINTS)) {
-				break;
-			}
+		// the nearest few beyond the edge only (each a dot on the rim): more would crowd the rim and cost every frame
+		int shown = 0;
+		int count = 0;
+		for (int i = 0; i < this.rim.size() && count < this.rimNear.length; i++) {
+			var w = this.rim.get(i);
 			float sx = f.screenX(w.x() + 0.5, w.z() + 0.5);
 			float sy = f.screenY(w.x() + 0.5, w.z() + 0.5);
 			if (f.inside(sx, sy)) {
 				continue;
 			}
+			double d = Math.hypot(w.x() + 0.5 - px, w.z() + 0.5 - pz);
+			// insertion into the nearest RIM_DOTS so far
+			int at = Math.min(shown, RIM_DOTS - 1);
+			if (shown == RIM_DOTS && d >= this.rimDist[RIM_DOTS - 1]) {
+				continue;
+			}
+			while (at > 0 && this.rimDist[at - 1] > d) {
+				this.rimDist[at] = this.rimDist[at - 1];
+				this.rimNear[at] = this.rimNear[at - 1];
+				at--;
+			}
+			this.rimDist[at] = d;
+			this.rimNear[at] = i;
+			shown = Math.min(RIM_DOTS, shown + 1);
+		}
+		for (int j = 0; j < shown && settings.layerVisible(MapLayer.WAYPOINTS); j++) {
+			var w = this.rim.get(this.rimNear[j]);
+			float sx = f.screenX(w.x() + 0.5, w.z() + 0.5);
+			float sy = f.screenY(w.x() + 0.5, w.z() + 0.5);
 			float dx = sx - cx;
 			float dy = sy - cy;
 			float rim = side / 2 - 8;
@@ -159,6 +179,7 @@ public final class MinimapHud {
 		ui.end();
 		long t4 = System.nanoTime();
 		Perf.minimap(t4 - t0);
+		Perf.minimapPhases(t1 - t0, t2 - t1, t3 - t2, t4 - t3);
 		Perf.cpu(Perf.cpuNow() - c0);
 		if (t4 - t0 > 3_000_000L) {
 			// a slow minimap frame: say where the time went (the perf gate looks at the worst frame)
@@ -166,6 +187,9 @@ public final class MinimapHud {
 		}
 	}
 
+	private static final int RIM_DOTS = 6;
+	private final int[] rimNear = new int[256];
+	private final double[] rimDist = new double[RIM_DOTS];
 	private List<dev.voidmc.atlas.api.Waypoint> rim = List.of();
 	private long rimVersion = -1;
 	private String rimDim = "";
@@ -263,16 +287,33 @@ public final class MinimapHud {
 	}
 
 	/** Under the minimap: the named region (or biome) and the position and day, quietly ("300 · 64 · 536 · DAY 34"). */
+	private long infoKey = Long.MIN_VALUE;
+	private Object infoRegion;
+	private boolean infoUnder;
+	private float infoWidth;
+	private String infoName = "";
+	private String infoLine = "";
+
 	private void info(Ui ui, LocalPlayer p, float x, float y, float w, boolean underground) {
-		String[] biome = this.atlas.biomeAt(p.blockPosition());
 		ui.panel(x, y, w, 40, 12, Theme.ISLAND, Theme.HAIR_8);
 		var region = this.atlas.regionHere();
-		String place = region != null && region.isDiscovered() && !underground ? region.name() : biome[0];
-		String name = underground ? "Underground  ·  " + place : place;
-		ui.text(ui.fit(name, Ui.Font.F12, w - 24), x + 12, y + 6, Ui.Font.F12, Theme.INK);
 		long day = p.level().getOverworldClockTime() / 24000 + 1;
-		String line = MapPage.minus(p.getBlockX()) + "  ·  " + MapPage.minus(p.getBlockY()) + "  ·  " + MapPage.minus(p.getBlockZ()) + "  ·  DAY " + day;
-		ui.text(ui.fit(line, Ui.Font.F85, 1, w - 24), x + 12, y + 24, Ui.Font.F85, 1, Theme.INK_4);
+		long key = (long) p.getBlockX() * 0x9E3779B97F4A7C15L ^ (long) p.getBlockY() * 0xC2B2AE3D27D4EB4FL ^ p.getBlockZ() ^ day << 48;
+		if (key != this.infoKey || region != this.infoRegion || underground != this.infoUnder || w != this.infoWidth) {
+			// made again only when the player moves a block (or the day, the region or the view changes)
+			String biome = this.atlas.biomeNameAt(p.blockPosition());
+			String place = region != null && region.isDiscovered() && !underground ? region.name() : biome;
+			String name = underground ? "Underground  ·  " + place : place;
+			this.infoName = ui.fit(name, Ui.Font.F12, w - 24);
+			String line = MapPage.minus(p.getBlockX()) + "  ·  " + MapPage.minus(p.getBlockY()) + "  ·  " + MapPage.minus(p.getBlockZ()) + "  ·  DAY " + day;
+			this.infoLine = ui.fit(line, Ui.Font.F85, 1, w - 24);
+			this.infoKey = key;
+			this.infoRegion = region;
+			this.infoUnder = underground;
+			this.infoWidth = w;
+		}
+		ui.text(this.infoName, x + 12, y + 6, Ui.Font.F12, Theme.INK);
+		ui.text(this.infoLine, x + 12, y + 24, Ui.Font.F85, 1, Theme.INK_4);
 		// the quiet note after a server rule: what is off here
 		String off = this.atlas.multiplayer() ? this.atlas.rules().turnedOff() : null;
 		if (off != null) {

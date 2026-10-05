@@ -644,6 +644,10 @@ public class AtlasGameTest implements FabricClientGameTest {
 		context.getInput().releaseKey(o -> o.keySprint);
 		Perf.Recording flight = context.computeOnClient(mc -> Perf.stopRecording());
 		long[] spike = context.computeOnClient(mc -> Perf.MINIMAP_SPIKE.clone()); // the worst minimap frame of the flight
+		long[] phases = context.computeOnClient(mc -> Perf.MINIMAP_PHASES.clone());
+		double nph = Math.max(1, phases[4]) * 1e6;
+		log(String.format(Locale.ROOT, "minimap phases (avg ms): setup %.4f, tiles %.4f, markers %.4f, rest %.4f", phases[0] / nph, phases[1] / nph,
+			phases[2] / nph, phases[3] / nph));
 		if (AtlasClient.BASELINE) {
 			// the vanilla baseline: the same flight with Atlas doing nothing, for comparison; nothing else to time
 			String json = String.format(Locale.ROOT, """

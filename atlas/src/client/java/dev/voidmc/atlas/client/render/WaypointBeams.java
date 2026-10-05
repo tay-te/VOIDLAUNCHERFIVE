@@ -51,6 +51,10 @@ public final class WaypointBeams {
 	private final int[] order = new int[256];
 	private final float[] boxes = new float[MAX_BEAMS * 4];
 	private final String[] metaText = new String[256];
+	private final String[] widthFor = new String[256];
+	private final boolean[] widthNear = new boolean[256];
+	private final float[] nameW = new float[256];
+	private final float[] metaW = new float[256];
 	private final long[] metaKey = new long[256];
 
 	public WaypointBeams(AtlasClient atlas) {
@@ -91,6 +95,7 @@ public final class WaypointBeams {
 			this.shownDimension = dim;
 			this.shownSession = session;
 			java.util.Arrays.fill(this.metaKey, Long.MIN_VALUE);
+			java.util.Arrays.fill(this.widthFor, null);
 		}
 		if (this.shown.isEmpty()) {
 			return;
@@ -171,11 +176,19 @@ public final class WaypointBeams {
 			float y0;
 			float bw;
 			float bh;
+			int index = this.order[k];
+			if (this.widthFor[index] != meta || this.widthNear[index] != near) {
+				// widths measured again only when the words change
+				this.nameW[index] = ui.width(w.name(), near ? Ui.Font.F13 : Ui.Font.F11);
+				this.metaW[index] = ui.width(meta, Ui.Font.F9, 0.6F);
+				this.widthFor[index] = meta;
+				this.widthNear[index] = near;
+			}
 			if (near) {
-				bw = 16 + 28 + 10 + Math.max(ui.width(w.name(), Ui.Font.F13), ui.width(meta, Ui.Font.F9, 0.6F)) + 16;
+				bw = 16 + 28 + 10 + Math.max(this.nameW[index], this.metaW[index]) + 16;
 				bh = 50;
 			} else {
-				bw = 10 + 6 + 7 + ui.width(w.name(), Ui.Font.F11) + 7 + ui.width(meta, Ui.Font.F9, 0.6F) + 10;
+				bw = 10 + 6 + 7 + this.nameW[index] + 7 + this.metaW[index] + 10;
 				bh = 22;
 			}
 			// kept on screen: a label at the edge still says where and how far
@@ -202,7 +215,7 @@ public final class WaypointBeams {
 				PinShapes.head(ui, x0 + 10 + 3, y0 + bh / 2, 6, w.colour(), this.atlas.settings().shapeMarkers, Theme.alpha(0xFF000000 | w.rgb(), fade));
 				float tx = x0 + 10 + 6 + 7;
 				ui.text(w.name(), tx, y0 + 4.5F, Ui.Font.F11, ink);
-				ui.text(meta, tx + ui.width(w.name(), Ui.Font.F11) + 7, y0 + 7, Ui.Font.F9, 0.6F, dim4);
+				ui.text(meta, tx + this.nameW[this.order[k]] + 7, y0 + 7, Ui.Font.F9, 0.6F, dim4);
 			}
 		}
 		ui.end();

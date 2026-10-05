@@ -173,6 +173,19 @@ public final class Perf {
 		minimapNanos += nanos;
 	}
 
+	/** The minimap's phases summed while recording (setup, tiles, markers, rest) and the frames counted. */
+	public static final long[] MINIMAP_PHASES = new long[5];
+
+	public static void minimapPhases(long setup, long tiles, long markers, long rest) {
+		if (recording) {
+			MINIMAP_PHASES[0] += setup;
+			MINIMAP_PHASES[1] += tiles;
+			MINIMAP_PHASES[2] += markers;
+			MINIMAP_PHASES[3] += rest;
+			MINIMAP_PHASES[4]++;
+		}
+	}
+
 	/** The worst minimap frame's phases while recording (total, setup, tiles, markers, rest), in nanoseconds. */
 	public static final long[] MINIMAP_SPIKE = new long[5];
 
@@ -228,6 +241,7 @@ public final class Perf {
 	public static void startRecording() {
 		n = 0;
 		java.util.Arrays.fill(MINIMAP_SPIKE, 0);
+		java.util.Arrays.fill(MINIMAP_PHASES, 0);
 		long[] gc = gcTotals();
 		gcCount = gc[0];
 		gcMillis = gc[1];
