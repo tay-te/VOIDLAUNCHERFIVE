@@ -286,6 +286,7 @@ public final class Library implements Archetype {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, cx);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** A glazed lantern on the ridge: a shaft of three through the roof, glass all round, a little cap. Returns its top. */
@@ -303,7 +304,18 @@ public final class Library implements Archetype {
 				d.inStage(StageKind.OPENINGS, () -> d.set(s.x(1), yy, s.z(1), d.mat(Role.GLASS).pane()));
 			}
 		}
-		d.carve(x0 + 1, plate + 1, z0 + 1, x0 + 1, ridge + 1, z0 + 1);
+		// a lamp kept burning in the glazed lantern, so it glows over the roofs at night; a core of the walls under it
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int y = plate + 1; y < ridge; y++) {
+				if (d.isEmpty(x0 + 1, y, z0 + 1)) {
+					d.set(x0 + 1, y, z0 + 1, d.mat(Role.WALL).full());
+				}
+			}
+		}
+		if (d.isSolid(x0 + 1, ridge - 1, z0 + 1)) {
+			dev.voidmc.hearth.build.kit.light.Lighting.lamp(d, x0 + 1, ridge, z0 + 1);
+		}
+		d.carve(x0 + 1, ridge + 1, z0 + 1, x0 + 1, ridge + 1, z0 + 1);
 		return Towers.cap(d, x0, z0, 3, ridge + 2, Towers.cap(t, false) == Towers.Cap.SPIRE ? Towers.Cap.PYRAMID : Towers.cap(t, false), maxH);
 	}
 }

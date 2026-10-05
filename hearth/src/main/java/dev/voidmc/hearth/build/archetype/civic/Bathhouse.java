@@ -183,6 +183,7 @@ public final class Bathhouse implements Archetype {
 			Halls.lanternUnder(d, ix1 - 2, base, z, 2);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	// ------------------------------------------------------------------------------------------------ hammam
@@ -298,6 +299,7 @@ public final class Bathhouse implements Archetype {
 		Furniture.chest(d, ix0, base, iz0, Dirs.RIGHT, List.<Object[]>of(new Object[]{"minecraft:white_wool", 16}));
 		Halls.lanternUnder(d, cx, base, hcz, 4);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	// ------------------------------------------------------------------------------------------------ onsen
@@ -373,6 +375,7 @@ public final class Bathhouse implements Archetype {
 		}
 		Garden.garden(d, 1, 1, 2, hz0 - 2, base);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	// ------------------------------------------------------------------------------------------------ sauna
@@ -454,5 +457,6 @@ public final class Bathhouse implements Archetype {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, cx);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top.ridge() + 3);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 }

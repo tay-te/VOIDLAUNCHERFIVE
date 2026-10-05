@@ -121,8 +121,18 @@ public final class Warehouse implements Archetype {
 		int top = hall.storeys() - 1;
 		Side g = hall.side(top, Dirs.FRONT);
 		int hi = g.index(door);
-		int beamY = hall.roof != null ? Math.min(hall.roof.bottomY(g.x(hi), g.z(hi)) - 1, d.maxHeight() - 2) : hall.top;
-		if (beamY > hall.floorY(top)) {
+		// the highest row where the beam can stand out of the gable wall under the verge
+		int beamY = hall.top;
+		if (hall.roof != null) {
+			beamY = Integer.MIN_VALUE;
+			for (int y = Math.min(hall.roof.ridgeY, d.maxHeight() - 2); y > hall.floorY(top) + 1; y--) {
+				if (d.isSolid(g.x(hi), y, g.z(hi)) && d.isEmpty(g.outX(hi, 1), y, g.outZ(hi, 1)) && d.isEmpty(g.outX(hi, 2), y, g.outZ(hi, 2))) {
+					beamY = y;
+					break;
+				}
+			}
+		}
+		if (beamY != Integer.MIN_VALUE && beamY > hall.floorY(top)) {
 			Lifts.hoist(d, g, hi, beamY, 2, 3, States.facing(Blocks.BARREL, Direction.UP));
 		}
 
@@ -140,6 +150,7 @@ public final class Warehouse implements Archetype {
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Racks of barrels along the walls, crates in the middle aisle, stores on every floor round the stair. */

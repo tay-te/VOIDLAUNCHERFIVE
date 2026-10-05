@@ -219,6 +219,7 @@ public final class Quarry implements Archetype {
 		}
 		Signs.post(d, gate + 2, 0, 0, Dirs.LEFT, 3, "quarry", "Quarry");
 		Groundwork.clear(d, 0, 0, w - 1, fz, (roof != null ? roof.ridgeY : 4) + 3);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** The rock the face is cut in: the culture's footing stone, or stone where its footings are timber. */

@@ -174,6 +174,7 @@ public final class ClockTower implements Archetype {
 
 		Grounds.forecourt(d, shaft.outer(), fr.x(door), 0, fr.outZ(door, 1));
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(top, peak + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** The direction from a ring cell of a tower's outline toward the shaft inside it (null at a corner). */

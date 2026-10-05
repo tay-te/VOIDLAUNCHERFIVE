@@ -200,6 +200,7 @@ public final class Park implements Archetype {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** A walk's surface at a cell (over ground only; a terrace's coping or a step is left as it is). */

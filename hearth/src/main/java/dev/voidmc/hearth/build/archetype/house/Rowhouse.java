@@ -280,6 +280,7 @@ public final class Rowhouse implements Archetype {
 		}
 		int top = roof != null ? roof.ridgeY : deck + 4;
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**

@@ -188,6 +188,7 @@ public final class RoundHouse implements Archetype {
 		}
 		outside(d, veranda ? deck : ring, base, doorX, veranda);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roof.ridgeY + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Whether the plot is tall enough for a five-course wall under the cone. */

@@ -26,6 +26,7 @@ import dev.voidmc.hearth.build.kit.landmark.Grounds;
 import dev.voidmc.hearth.build.kit.landmark.Shapes;
 import dev.voidmc.hearth.build.kit.landmark.Stone;
 import dev.voidmc.hearth.build.kit.landmark.Tower;
+import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Role;
@@ -113,6 +114,7 @@ public final class Cathedral implements Archetype {
 		int clX1;
 		int clZ0;
 		int clZ1;
+		Roofs.Roof[] aisleRoofs = new Roofs.Roof[2];
 
 		boolean inCrossing(int z) {
 			return z >= this.zX0 && z <= this.zX1;
@@ -143,12 +145,13 @@ public final class Cathedral implements Archetype {
 		int peak = towers(d, p, body, dress, roof);
 		buttressTops(d, p, dress);
 		openings(d, p, body, dress);
-		interior(d, p, dress);
+		interior(d, p, dress, roof);
 		if (p.cloister) {
 			cloister(d, p, body, dress);
 		}
 		exterior(d, p, dress);
 		Groundwork.clear(d, 0, 0, p.w - 1, p.dp - 1, Math.min(p.top, Math.max(peak, roof.ridgeY) + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	// ------------------------------------------------------------------------------------------------ the plan
@@ -465,7 +468,8 @@ public final class Cathedral implements Archetype {
 
 	private static void floors(Draft d, Plan p, Stone body, Stone dress) {
 		Mat paving = d.mat(Role.PAVING);
-		Mat ceiling = d.mat(Role.CEILING);
+		// no flat ceilings: the nave, the transept and the choir rise open to their roofs, the aisles to their lean-tos, so
+		// no sealed void hangs over the church (and the nave reads as tall inside as it stands outside)
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int z = p.zF + 1; z <= p.dp - 1; z++) {
 				for (int x = p.bL + 1; x <= p.bR - 1; x++) {
@@ -474,8 +478,6 @@ public final class Cathedral implements Archetype {
 					}
 					boolean nave = x > p.nL && x < p.nR;
 					d.set(x, -1, z, nave ? ((x + z & 1) == 0 ? dress.full() : body.full()) : paving.full());
-					int ceil = nave || p.inCrossing(z) && x > p.bL && x < p.bR || z > p.zA ? p.yN : p.yA;
-					d.set(x, ceil, z, ceiling.full());
 				}
 			}
 		}
@@ -542,7 +544,8 @@ public final class Cathedral implements Archetype {
 			Direction up = side == 0 ? Dirs.RIGHT : Dirs.LEFT;
 			Roofs.Field shed = Roofs.shed(lo, Math.max(-1, zs), hi, p.zA + 1, up, Roofs.Profile.straight(1.0));
 			Roofs.Field gap = (x, z) -> p.inCrossing(z) ? Double.NaN : shed.h(x, z);
-			Roofs.raster(d, gap, p.yA, Math.max(0, lo), Math.max(-1, zs), Math.min(p.w - 1, hi), Math.min(p.dp - 1, p.zA + 1), roof, trim, Habits.Ridge.SLAB);
+			p.aisleRoofs[side] = Roofs.raster(d, gap, p.yA, Math.max(0, lo), Math.max(-1, zs), Math.min(p.w - 1, hi), Math.min(p.dp - 1, p.zA + 1), roof,
+				trim, Habits.Ridge.SLAB);
 		}
 		return r;
 	}
@@ -602,8 +605,18 @@ public final class Cathedral implements Archetype {
 						d.set(c[0], y, c[1], dress.full());
 					}
 				}
-				for (int[] c : Shapes.disc(cx, cz, rr)) {
+				// the drum's footing ring; the crossing rises open into the dome, the roofs cut back from inside the drum
+				java.util.Set<Long> ring = new java.util.HashSet<>();
+				for (int[] c : Shapes.ring(cx, cz, rr)) {
 					d.set(c[0], p.yN, c[1], dress.full());
+					ring.add(net.minecraft.core.BlockPos.asLong(c[0], 0, c[1]));
+				}
+				for (int[] c : Shapes.disc(cx, cz, rr)) {
+					if (!ring.contains(net.minecraft.core.BlockPos.asLong(c[0], 0, c[1]))) {
+						for (int y = p.yN; y < drumTop; y++) {
+							d.set(c[0], y, c[1], Blocks.AIR.defaultBlockState());
+						}
+					}
 				}
 			}
 			peak = Math.max(peak, Crowns.crown(d, Crowns.Kind.DOME, cx0, cz0, cx1, cz1, drumTop, p.top, mats));
@@ -612,10 +625,20 @@ public final class Cathedral implements Archetype {
 			int ycT = Math.min(p.top - Math.max(12, (int) Math.round(p.top * 0.4)), roof.ridgeY + 8);
 			ycT = Math.max(ycT, roof.ridgeY + 3);
 			ct.shaft(d, p.yN + 1, ycT - 1);
+			// the roofs cut back from inside the tower: the crossing rises open to the deck under the spire
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int y = p.yN; y < ycT; y++) {
+					for (int z = cz0 + 1; z < cz1; z++) {
+						for (int x = cx0 + 1; x < cx1; x++) {
+							d.set(x, y, z, Blocks.AIR.defaultBlockState());
+						}
+					}
+				}
+			}
 			ct.openings(d, ycT - 5, 4, ct.size >= 9 ? Tower.Opening.TRIFORA : Tower.Opening.BIFORA, true, null);
 			ct.band(d, ycT - 1);
 			ct.cornice(d, ycT);
-			ct.floor(d, p.yN, dress.full());
+			// no floor over the crossing: it rises open into the tower, a lantern lit by the belfry's lights
 			peak = Math.max(peak, Crowns.crown(d, Crowns.Kind.SPIRE, cx0, cz0, cx1, cz1, ycT + 1, p.top, mats));
 		} else if (p.manner == Manner.GOTHIC) {
 			// a flèche: a louvred lantern astride the crossing's ridge, a slender needle over it
@@ -963,7 +986,7 @@ public final class Cathedral implements Archetype {
 
 	// ------------------------------------------------------------------------------------------------ interior
 
-	private static void interior(Draft d, Plan p, Stone dress) {
+	private static void interior(Draft d, Plan p, Stone dress, Roofs.Roof roof) {
 		int zAlt = p.zA;
 		// the altar at the head of the choir: a dressed block between stair ends, candles, and the steps of the sanctuary
 		try (var s = d.stage(StageKind.INTERIOR)) {
@@ -1012,21 +1035,7 @@ public final class Cathedral implements Archetype {
 			Details.wallBanner(d, p.nR - 1, p.yA + 1, z, Dirs.LEFT, k + 1);
 			k++;
 		}
-		int links = Math.max(0, p.yN - 1 - 7);
-		for (int z = p.zF + 3; z < p.zA; z += p.bay * 2) {
-			if (!p.inCrossing(z)) {
-				Furniture.hangingLantern(d, p.xc, p.yN, z, links);
-			}
-		}
-		Furniture.hangingLantern(d, p.xc, p.yN, (p.zX0 + p.zX1) / 2, Math.max(0, links - 1));
-		// lanterns in the aisles, side altars at the aisle ends, a font by the door
-		for (int z = p.zT1 + 2; z < p.zA; z += p.bay * 2) {
-			if (p.inCrossing(z)) {
-				continue;
-			}
-			Furniture.hangingLantern(d, (p.aL + p.nL) / 2, p.yA, z, 0);
-			Furniture.hangingLantern(d, (p.nR + p.aR) / 2, p.yA, z, 0);
-		}
+		light(d, p, roof);
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			for (int x : new int[]{(p.aL + p.nL) / 2, (p.nR + p.aR) / 2}) {
 				d.set(x, 0, p.zA - 1, dress.full());
@@ -1040,6 +1049,80 @@ public final class Cathedral implements Archetype {
 		}
 		d.poi(PoiType.MEETING_POINT, p.xc, 0, (p.zF + p.zX0) / 2, Dirs.BACK);
 		d.poi(PoiType.SEAT, p.xc - 1, 0, pz0, Dirs.BACK);
+	}
+
+	/**
+	 * Light by design: a wheel of lanterns on a long chain from the roof's ridge in every bay of the nave and the choir
+	 * and over the crossing, a lantern on a bracket on every pier facing into the nave, and a lantern hung from the
+	 * lean-to in every bay of the aisles.
+	 */
+	private static void light(Draft d, Plan p, Roofs.Roof roof) {
+		int hub = Math.min(6, Math.max(4, p.yA - 1));
+		List<Integer> bounds = new ArrayList<>();
+		bounds.add(p.zF);
+		for (int z : p.piers) {
+			if (z > p.zF + 1 && !p.inCrossing(z)) {
+				bounds.add(z);
+			}
+		}
+		bounds.add(p.zX0);
+		bounds.add(p.zX1);
+		bounds.add(p.zA);
+		bounds.sort(Integer::compare);
+		List<Integer> bays = new ArrayList<>();
+		for (int k = 0; k + 1 < bounds.size(); k++) {
+			int z0 = bounds.get(k);
+			int z1 = bounds.get(k + 1);
+			if (z0 == p.zX0 && z1 == p.zX1 || z1 - z0 < 3) {
+				continue;
+			}
+			bays.add((z0 + z1) / 2);
+		}
+		bays.add((p.zX0 + p.zX1) / 2);
+		for (int z : bays) {
+			int ceil = above(d, p, p.xc, hub + 2, z);
+			if (ceil > hub + 2) {
+				Lighting.wheel(d, p.xc, z, ceil, hub);
+			}
+		}
+		// a bracket lantern on the nave face of every pier, over the pews' heads
+		for (int z : p.piers) {
+			if (z <= p.zF + 1 || p.inCrossing(z) || z >= p.zA) {
+				continue;
+			}
+			for (int side = 0; side < 2; side++) {
+				int x = side == 0 ? p.nL + 1 : p.nR - 1;
+				int wx = side == 0 ? p.nL : p.nR;
+				if (!d.isEmpty(wx, 3, z) && d.isEmpty(x, 3, z) && d.isEmpty(x, 2, z)) {
+					Lighting.sconce(d, x, 3, z, side == 0 ? Dirs.LEFT : Dirs.RIGHT);
+				}
+			}
+		}
+		// the aisles: a lantern under the lean-to in every bay
+		for (int side = 0; side < 2; side++) {
+			Roofs.Roof lean = p.aisleRoofs[side];
+			int x = side == 0 ? (p.aL + p.nL) / 2 : (p.nR + p.aR) / 2;
+			for (int z : bays) {
+				if (p.inCrossing(z) || z <= p.zT1 && p.towers == Towers.TWIN || z >= p.zA || lean == null || !lean.covers(x, z)) {
+					continue;
+				}
+				int ceil = above(d, p, x, 3, z);
+				int lantern = 3;
+				if (ceil > lantern) {
+					Lighting.chandelier(d, x, z, ceil, lantern);
+				}
+			}
+		}
+	}
+
+	/** The first block drawn over (x, from, z): what a chain can hang from, or -1. */
+	private static int above(Draft d, Plan p, int x, int from, int z) {
+		for (int y = from; y <= p.top; y++) {
+			if (!d.isEmpty(x, y, z)) {
+				return d.isSolid(x, y, z) ? y : -1;
+			}
+		}
+		return -1;
 	}
 
 	// ------------------------------------------------------------------------------------------------ cloister

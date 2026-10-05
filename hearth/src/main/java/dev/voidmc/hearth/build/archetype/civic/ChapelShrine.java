@@ -237,6 +237,7 @@ final class ChapelShrine {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	private static boolean isIn(int[] a, int v) {

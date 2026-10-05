@@ -238,6 +238,10 @@ public final class Windmill implements Archetype {
 		d.poi(PoiType.DOOR, icx, 0, fdz - 1, Dirs.BACK);
 		d.entrance(icx, 0, fdz - 1);
 		windows(d, cx, cz, rad, icx, icz, yt);
+		// a lantern hung under the joists against the wall on every floor the stair climbs to
+		for (int fy : floors) {
+			dev.voidmc.hearth.build.kit.refine.Lamps.byWalls(d, icx, icz, fy, 2);
+		}
 		boolean staged = yt >= 10;
 		if (staged) {
 			stage(d, cx, cz, rad.applyAsDouble(split), split, icx);
@@ -267,9 +271,13 @@ public final class Windmill implements Archetype {
 		} else if (staged) {
 			tailPole(d, icx, yt + 1, capBox[2], split + 1, rad.applyAsDouble(split) + 1.0, cz);
 		}
+		// the cap's hollow over the curb, boarded shut: a core of the floor's timber, not a dark void
+		dev.voidmc.hearth.build.kit.refine.Voids.seal(d, (int) Math.floor(cx - rc) - 2, yt + 2, (int) Math.floor(cz - rc) - 2,
+			(int) Math.ceil(cx + rc) + 2, capTop, (int) Math.ceil(cz + rc) + 2, d.mat(Role.FLOOR).full());
 		interior(d, cx, cz, r0, icx, icz, fdz);
 		yard(d, w, dp, icx, ez);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(capTop + 3, hubY + len) + 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Small windows up the tower, turning round it as the stair climbs, set in the tapering wall. */
@@ -701,6 +709,7 @@ public final class Windmill implements Archetype {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, 0, cx);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, hubY + len) + 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	private static boolean containsCell(List<int[]> cells, int[] c) {

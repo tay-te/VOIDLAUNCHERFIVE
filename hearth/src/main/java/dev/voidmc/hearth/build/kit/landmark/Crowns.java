@@ -80,7 +80,7 @@ public final class Crowns {
 	 */
 	public static int crown(Draft d, Kind kind, int x0, int z0, int x1, int z1, int y, int top, Mats m) {
 		try (var s = d.stage(StageKind.ROOF)) {
-			return switch (kind) {
+			int peak = switch (kind) {
 				case SPIRE -> spire(d, x0, z0, x1, z1, y, top, m, false);
 				case OCTAGON -> spire(d, x0, z0, x1, z1, y, top, m, true);
 				case BROACH -> broach(d, x0, z0, x1, z1, y, top, m);
@@ -92,6 +92,11 @@ public final class Crowns {
 				case STAVE -> stave(d, x0, z0, x1, z1, y, top, m);
 				case PAGODA -> pagoda(d, x0, z0, x1, z1, y, top, m);
 			};
+			// the hollow inside a spire, a dome or a cap, sealed off over the deck: a rubble core, not a dark void
+			if (kind != Kind.PARAPET) {
+				dev.voidmc.hearth.build.kit.refine.Voids.seal(d, x0 - 2, y, z0 - 2, x1 + 2, peak, z1 + 2, Stone.footing(d).full());
+			}
+			return peak;
 		}
 	}
 

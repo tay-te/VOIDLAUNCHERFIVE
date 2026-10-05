@@ -195,5 +195,6 @@ final class ChapelMission {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top, deck + 2) + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 }

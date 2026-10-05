@@ -291,6 +291,7 @@ final class HouseBuilder {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, base, door);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : plate + 2) + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**

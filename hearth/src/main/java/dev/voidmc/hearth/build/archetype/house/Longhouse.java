@@ -130,6 +130,7 @@ public final class Longhouse implements Archetype {
 		interior(d, h, roof, door);
 		outside(d, h, door, logs);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roof.ridgeY + 3));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	private static Cover cover(Draft d, boolean stone) {

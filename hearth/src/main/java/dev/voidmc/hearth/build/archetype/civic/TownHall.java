@@ -393,6 +393,7 @@ public final class TownHall implements Archetype {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, entryX);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	// ------------------------------------------------------------------------------------------------ the Bohemian hall

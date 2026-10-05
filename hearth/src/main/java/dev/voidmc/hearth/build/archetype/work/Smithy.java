@@ -124,6 +124,7 @@ public final class Smithy implements Archetype {
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, forge[4]) + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Inside: the anvil before the fire, the quench trough, the smithing table, stores, racks of tools, lanterns. */

@@ -87,5 +87,6 @@ public final class LampPost implements Archetype {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 }

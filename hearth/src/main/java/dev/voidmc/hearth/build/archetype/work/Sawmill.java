@@ -99,6 +99,7 @@ public final class Sawmill implements Archetype {
 		Yard.enclose(d, 0, 0, w - 1, sz0, gaps, Dirs.BACK);
 		Signs.post(d, gate + 2, 0, 0, Dirs.LEFT, 3, "sawmill", "Sawmill");
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : 6) + 3);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**

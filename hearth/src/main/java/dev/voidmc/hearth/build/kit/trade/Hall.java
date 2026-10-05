@@ -344,7 +344,29 @@ public final class Hall {
 		}
 		this.roof = plan.draw(this.d).roof();
 		this.top = this.roof.ridgeY;
+		sealedKnee();
 		return this;
+	}
+
+	/**
+	 * A knee attic (two rows or less under a pitched roof) no stair climbs to is opened to the room below, its rafters
+	 * over it: a floor nobody could reach would leave a dark void under the roof.
+	 */
+	private void sealedKnee() {
+		int k = this.body.storeys() - 1;
+		if (k < 1 || this.body.height(k) > 2) {
+			return;
+		}
+		int[] up = inner(k);
+		int fy = this.body.floorY(k) - 1;
+		for (int x = up[0]; x <= up[2]; x++) {
+			for (int z = up[1]; z <= up[3]; z++) {
+				if (this.d.isEmpty(x, fy, z)) {
+					return;
+				}
+			}
+		}
+		openLoft(k);
 	}
 
 	/** The y of the highest block a roof plan would draw (see {@link Roofs.Plan}). */

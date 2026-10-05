@@ -279,6 +279,7 @@ public final class MarketHall implements Archetype {
 			Signs.wallBanner(d, upFront.outX(upFront.index(cx), 1), bannerY + 1, upFront.outZ(upFront.index(cx), 1), Dirs.FRONT, arms.field(), arms.layers());
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**

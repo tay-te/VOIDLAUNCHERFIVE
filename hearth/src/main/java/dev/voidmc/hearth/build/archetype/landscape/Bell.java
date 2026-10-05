@@ -67,6 +67,7 @@ public final class Bell implements Archetype {
 		Paving.lay(d, 0, 0, w - 1, dp - 1, 0, Paving.paint(d, Paving.Pattern.RINGS, cx, cz, 2, false));
 		int top = w >= 5 && dp >= 5 ? pavilion(d, w, dp, cx, cz) : frame(d, w, dp, cx, cz);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	private static BlockState bell(Direction facing, BellAttachType attach) {

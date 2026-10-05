@@ -108,6 +108,7 @@ public final class Masonry implements Archetype {
 		wall(d, w, sz0, gaps);
 		Signs.post(d, gate + 1, 0, 0, Dirs.LEFT, 3, "masonry", "Mason");
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : 6) + 3);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	private static void yard(Draft d, int w, int sz0, int gate, Mat ashlar, Mat stone) {

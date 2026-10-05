@@ -277,6 +277,7 @@ public final class TowerHouse implements Archetype {
 		}
 		int top = roof != null ? roof.ridgeY : deck + 5;
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Whether a flight from a landing at the first floor along the front row, away from the door, ends where the street can be stepped onto. */

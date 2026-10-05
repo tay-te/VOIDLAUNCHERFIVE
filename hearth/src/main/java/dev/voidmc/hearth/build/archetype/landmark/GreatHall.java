@@ -317,6 +317,7 @@ public final class GreatHall implements Archetype {
 			Garden.snowBanks(d, hx0, hz0, hx1, hz1, 0, xc);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(top, ridge + 4));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**

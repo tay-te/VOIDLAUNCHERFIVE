@@ -167,6 +167,7 @@ public final class CliffDwelling implements Archetype {
 			Garden.snowBanks(d, 0, zb0, w - 1, bz1, 0, door);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, deck + 4));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**

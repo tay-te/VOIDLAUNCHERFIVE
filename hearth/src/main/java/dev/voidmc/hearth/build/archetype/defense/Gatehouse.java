@@ -225,6 +225,7 @@ public final class Gatehouse implements Archetype {
 		d.poi(PoiType.GUARD_POST, w - 2, tt, 1, Dirs.FRONT);
 		d.poi(PoiType.VIEWPOINT, rx0 + 1, tt, 1, Dirs.FRONT);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, d.maxHeight() - 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Setts down the passage: the paving with a kerb of the masonry along each side. */

@@ -143,6 +143,7 @@ public final class GardenPlot implements Archetype {
 			top = Math.max(top, Lamps.standard(d, cx + 1, level[1], 1, 4, Manner.lamp(d), null));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	private static void ground(Draft d, Kind kind, int w, int dp, int[] level) {
