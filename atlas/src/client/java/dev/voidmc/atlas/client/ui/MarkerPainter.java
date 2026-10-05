@@ -612,9 +612,11 @@ public final class MarkerPainter {
 		}
 		// the head: the colour's own shape when colour-blind shapes are on (the design's 355:14556)
 		int index = 0;
-		for (int i = 0; i < dev.voidmc.atlas.api.Waypoint.COLOURS.length; i++) {
-			if (dev.voidmc.atlas.api.Waypoint.COLOURS[i] == (colour & 0xFFFFFF)) {
+		int[] palette = dev.voidmc.atlas.api.Waypoint.COLOURS;
+		for (int i = 1; i < palette.length; i++) {
+			if (palette[i] == (colour & 0xFFFFFF)) {
 				index = i;
+				break;
 			}
 		}
 		boolean shapes = dev.voidmc.atlas.client.AtlasClient.get().settings().shapeMarkers;

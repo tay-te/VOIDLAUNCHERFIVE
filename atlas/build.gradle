@@ -180,7 +180,7 @@ loom {
 ['runAtlasTour': 'atlasTour', 'runAtlasPerf': 'atlasPerf', 'runAtlasSoak': 'atlasSoak'].each { task, dir ->
 	tasks.matching { it.name == task }.configureEach {
 		doFirst {
-			delete file("build/run/${dir}/saves"), file("build/run/${dir}/atlas")
+			delete file("build/run/${dir}/saves"), file("build/run/${dir}/atlas"), file("build/run/${dir}/xaero")
 		}
 	}
 }

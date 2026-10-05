@@ -118,9 +118,21 @@ public final class MinimapHud {
 		var session = this.atlas.session();
 		float cx = x + side / 2;
 		float cy = y + side / 2;
-		for (var w : session.waypoints.in(dim)) {
-			if (!w.visible() || !settings.layerVisible(MapLayer.WAYPOINTS)) {
-				continue;
+		long wv = session.waypoints.version();
+		if (wv != this.rimVersion || !dim.equals(this.rimDim)) {
+			List<dev.voidmc.atlas.api.Waypoint> visible = new ArrayList<>();
+			for (var w : session.waypoints.in(dim)) {
+				if (w.visible()) {
+					visible.add(w);
+				}
+			}
+			this.rim = visible;
+			this.rimVersion = wv;
+			this.rimDim = dim;
+		}
+		for (var w : this.rim) {
+			if (!settings.layerVisible(MapLayer.WAYPOINTS)) {
+				break;
 			}
 			float sx = f.screenX(w.x() + 0.5, w.z() + 0.5);
 			float sy = f.screenY(w.x() + 0.5, w.z() + 0.5);
@@ -153,6 +165,10 @@ public final class MinimapHud {
 			Perf.minimapSpike(t1 - t0, t2 - t1, t3 - t2, t4 - t3);
 		}
 	}
+
+	private List<dev.voidmc.atlas.api.Waypoint> rim = List.of();
+	private long rimVersion = -1;
+	private String rimDim = "";
 
 	/** The radar (the design's): at most 40 within 64 blocks, the list made again four times a second. */
 	private static final int RADAR_MAX = 40;

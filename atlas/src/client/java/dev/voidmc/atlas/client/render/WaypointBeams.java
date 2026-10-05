@@ -178,8 +178,9 @@ public final class WaypointBeams {
 				bw = 10 + 6 + 7 + ui.width(w.name(), Ui.Font.F11) + 7 + ui.width(meta, Ui.Font.F9, 0.6F) + 10;
 				bh = 22;
 			}
-			x0 = top[0] - bw / 2;
-			y0 = top[1] - bh;
+			// kept on screen: a label at the edge still says where and how far
+			x0 = Math.max(8, Math.min(sw - bw - 8, top[0] - bw / 2));
+			y0 = Math.max(8, Math.min(sh - bh - 8, top[1] - bh));
 			if (this.clashes(placed, x0, y0, bw, bh)) {
 				continue;
 			}

@@ -760,18 +760,38 @@ public final class AtlasClient implements ClientModInitializer {
 		return this.session.places.peek(markerId.substring("atlas:place:".length()));
 	}
 
+	private List<Marker> wpMarkers = List.of();
+	private long wpVersion = -1;
+	private String wpDim = "";
+	private MapSession wpSession;
+
+	/** The waypoints as markers: made again only when the waypoints (or the dimension) change, as the places are. */
 	private void waypointMarkers(MarkerQuery q, Consumer<Marker> out) {
-		if (this.session == null) {
+		MapSession session = this.session;
+		if (session == null) {
 			return;
 		}
-		for (Waypoint w : this.session.waypoints.in(q.dimension())) {
-			if (!w.visible()) {
-				continue;
+		long version = session.waypoints.version();
+		if (version != this.wpVersion || !q.dimension().equals(this.wpDim) || session != this.wpSession) {
+			List<Marker> list = new ArrayList<>();
+			for (Waypoint w : session.waypoints.in(q.dimension())) {
+				if (!w.visible()) {
+					continue;
+				}
+				boolean death = w.kind() == Waypoint.Kind.DEATH;
+				list.add(new Marker(waypointMarkerId(w), MapLayer.WAYPOINTS, w.name(), w.y() < 40 ? "Y " + MapPage.minus(w.y()) : "",
+					death ? "DEATH POINT" : "WAYPOINT", w.x() + 0.5, w.y(), w.z() + 0.5, w.dimension(), death ? MarkerGlyph.CROSS : MarkerGlyph.PIN,
+					Marker.Style.WAYPOINT, w.rgb(), null, Source.player(), Tier.MAJOR));
 			}
-			boolean death = w.kind() == Waypoint.Kind.DEATH;
-			out.accept(new Marker(waypointMarkerId(w), MapLayer.WAYPOINTS, w.name(), w.y() < 40 ? "Y " + MapPage.minus(w.y()) : "",
-				death ? "DEATH POINT" : "WAYPOINT", w.x() + 0.5, w.y(), w.z() + 0.5, w.dimension(), death ? MarkerGlyph.CROSS : MarkerGlyph.PIN,
-				Marker.Style.WAYPOINT, w.rgb(), null, Source.player(), Tier.MAJOR));
+			this.wpMarkers = list;
+			this.wpVersion = version;
+			this.wpDim = q.dimension();
+			this.wpSession = session;
+		}
+		for (Marker m : this.wpMarkers) {
+			if (q.contains(m.x(), m.z())) {
+				out.accept(m);
+			}
 		}
 	}
 
