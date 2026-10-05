@@ -19,8 +19,28 @@
 	},
 	"mixins": [
 		"mettle-character.mixins.json",
+		"mettle-blades.mixins.json",
+		"mettle-heavyweapons.mixins.json",
+		"mettle-marksmanship.mixins.json",
+		"mettle-defense.mixins.json",
 		{
 			"config": "mettle-character.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "mettle-blades.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "mettle-heavyweapons.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "mettle-marksmanship.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "mettle-defense.client.mixins.json",
 			"environment": "client"
 		}
 	],

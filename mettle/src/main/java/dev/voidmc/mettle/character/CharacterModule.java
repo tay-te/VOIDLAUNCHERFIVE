@@ -1,6 +1,11 @@
 package dev.voidmc.mettle.character;
 
 import dev.voidmc.mettle.character.signature.SignaturePerks;
+import dev.voidmc.mettle.character.skill.BladesSkill;
+import dev.voidmc.mettle.character.skill.Combat;
+import dev.voidmc.mettle.character.skill.DefenseSkill;
+import dev.voidmc.mettle.character.skill.HeavyWeaponsSkill;
+import dev.voidmc.mettle.character.skill.MarksmanshipSkill;
 import dev.voidmc.mettle.character.skill.MiningSkill;
 import net.minecraft.network.chat.Component;
 import dev.voidmc.mettle.core.CharacterStore;
@@ -35,6 +40,11 @@ public final class CharacterModule {
 		FeatCounters.init();
 		Progress.init();
 		MiningSkill.init();
+		Combat.init();
+		BladesSkill.init();
+		HeavyWeaponsSkill.init();
+		MarksmanshipSkill.init();
+		DefenseSkill.init();
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> {
 			CharacterCommands.register(dispatcher, context);
 			TreeCommands.register(dispatcher);

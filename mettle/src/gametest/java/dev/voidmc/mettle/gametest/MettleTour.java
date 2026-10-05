@@ -102,6 +102,10 @@ public class MettleTour implements FabricClientGameTest {
 
 			signaturePerks(world);
 			miningJourney(world);
+			BladesJourney.run(world);
+			HeavyWeaponsJourney.run(world);
+			MarksmanshipJourney.run(world);
+			DefenseJourney.run(world);
 
 			context.setScreen(CharacterScreen::new);
 			context.waitTicks(5);
