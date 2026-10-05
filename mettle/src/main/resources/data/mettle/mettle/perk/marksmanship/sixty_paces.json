@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.marksmanship.sixty_paces"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.sixty_paces.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.marksmanship.sixty_paces.hint"
+	},
+	"feat": {
+		"counter": "marksmanship_hit_from_60",
+		"target": 1
+	},
+	"order": 13
+}

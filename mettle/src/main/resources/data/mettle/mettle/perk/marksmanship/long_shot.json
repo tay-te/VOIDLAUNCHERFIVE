@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "path",
+	"tier": 2,
+	"path": "a",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.marksmanship.long_shot"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.long_shot.description"
+	},
+	"order": 2
+}

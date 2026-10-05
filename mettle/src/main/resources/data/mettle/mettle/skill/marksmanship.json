@@ -4,5 +4,13 @@
 	},
 	"attribute": "agility",
 	"order": 2,
-	"released": true
+	"released": true,
+	"paths": {
+		"a": {
+			"translate": "mettle.path.marksmanship.a"
+		},
+		"b": {
+			"translate": "mettle.path.marksmanship.b"
+		}
+	}
 }

@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "root",
+	"tier": 1,
+	"ranks": 3,
+	"cost": 1,
+	"name": {
+		"translate": "mettle.perk.marksmanship.steady_aim"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.steady_aim.description"
+	},
+	"rank_values": [
+		"10",
+		"20",
+		"30"
+	],
+	"order": 0
+}

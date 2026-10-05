@@ -2,7 +2,13 @@
 	"required": true,
 	"package": "dev.voidmc.mettle.client.mixin.marksmanship",
 	"compatibilityLevel": "JAVA_25",
-	"client": [],
+	"client": [
+		"AbstractClientPlayerMixin",
+		"EntityRendererMixin",
+		"FirstPersonHandsAndItemsRendererMixin",
+		"MinecraftMixin",
+		"UseDurationMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "b",
+	"name": {
+		"translate": "mettle.perk.marksmanship.arrowstorm"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.arrowstorm.description"
+	},
+	"order": 12
+}
