@@ -792,6 +792,13 @@ public final class SimWorld implements HearthWorld, SimContext {
 	@Override
 	public void survey(SimSettlement s) {
 		LandState land = s.land();
+		if (this.fastForward) {
+			// a fast-forward holds the server thread, so a survey made off it could not merge before the spell ends and the
+			// town would grow all of it without its land: no workings, no carrying capacity (requests/w5-tour.md §3)
+			Lands.surveyNow(s, this);
+			land.setSurveying(false);
+			return;
+		}
 		if (land.isSurveying()) {
 			return;
 		}
@@ -810,7 +817,8 @@ public final class SimWorld implements HearthWorld, SimContext {
 				LOG.warn("hearth: surveying the land of {} failed", s.name(), t);
 				return;
 			}
-			if (s.context() == this) {
+			if (s.context() == this && land.surveyed() <= q.radius()) {
+				// (not when the land was surveyed wider meanwhile, at once in a fast-forward)
 				this.surveys++;
 				Lands.merge(s, q.radius(), Survey.step(q.radius(), q.params()), found, day(), this);
 			}
@@ -996,6 +1004,10 @@ public final class SimWorld implements HearthWorld, SimContext {
 		long target = simNow(s);
 		this.fastForward = true;
 		try {
+			if (s.land().isSurveying()) {
+				// the founders' survey is still out: make it now (see survey)
+				survey(s);
+			}
 			while (s.simTick() < target) {
 				if (SettlementClock.advance(s, target) <= 0) {
 					break;
