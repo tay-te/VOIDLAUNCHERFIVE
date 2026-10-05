@@ -3,6 +3,7 @@ package dev.voidmc.mettle.character;
 import dev.voidmc.mettle.Mettle;
 import dev.voidmc.mettle.api.Background;
 import dev.voidmc.mettle.api.MettleRegistries;
+import dev.voidmc.mettle.api.MettleServices;
 import dev.voidmc.mettle.api.Skill;
 import dev.voidmc.mettle.core.CharacterState;
 import dev.voidmc.mettle.core.CharacterStore;
@@ -72,6 +73,10 @@ public final class Backgrounds {
 	private static void giveKit(ServerPlayer player, Background background) {
 		for (ItemStackTemplate template : background.kit()) {
 			ItemStack stack = template.create();
+			// Kit gear goes straight onto the character, so a new Ranger's bow can use the quiver at once.
+			if (MettleServices.gear().isGear(stack) && MettleServices.gear().wear(player, stack)) {
+				continue;
+			}
 			if (!player.getInventory().add(stack) && !stack.isEmpty()) {
 				player.drop(stack, false, Prediction.SERVER_ONLY);
 			}

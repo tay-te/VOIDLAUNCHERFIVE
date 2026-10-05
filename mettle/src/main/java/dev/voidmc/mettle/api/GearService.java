@@ -13,4 +13,14 @@ public interface GearService {
 	List<ItemStack> pockets(Player player, GearSlot slot);
 
 	boolean isGear(ItemStack stack);
+
+	/** Puts gear on if its slot is free (kits); the stack is consumed when worn. Returns whether it was worn. */
+	default boolean wear(Player player, ItemStack stack) {
+		return false;
+	}
+
+	/** Whether this arrow stack sits in the player's worn quiver (Quiverwise). */
+	default boolean isInQuiver(Player player, ItemStack arrows) {
+		return false;
+	}
 }

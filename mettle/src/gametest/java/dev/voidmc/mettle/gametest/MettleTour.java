@@ -93,6 +93,12 @@ public class MettleTour implements FabricClientGameTest {
 				if (!player.getInventory().contains(Items.BOW.getDefaultInstance())) {
 					return "kit missing a bow";
 				}
+				// Kit gear is worn, not carried: the Ranger starts with the quiver on. Take it off so later journeys
+				// count arrows from the inventory as they expect.
+				if (!dev.voidmc.mettle.api.MettleServices.gear().worn(player, dev.voidmc.mettle.api.GearSlot.QUIVER).is(dev.voidmc.mettle.gear.GearItems.QUIVER)) {
+					return "kit quiver not worn";
+				}
+				dev.voidmc.mettle.gear.GearInventory.of(player).takeAll();
 				double capacity = player.getAttributeValue(dev.voidmc.mettle.core.MettleAttributes.CARRY_CAPACITY);
 				if (capacity != 49.0) {
 					return "carry capacity " + capacity + ", expected 49";

@@ -52,6 +52,16 @@ public final class GearModule {
 		public boolean isGear(ItemStack stack) {
 			return stack.has(GearComponents.GEAR);
 		}
+
+		@Override
+		public boolean wear(Player player, ItemStack stack) {
+			return GearModule.wear(player, stack);
+		}
+
+		@Override
+		public boolean isInQuiver(Player player, ItemStack arrows) {
+			return GearModule.fromQuiver(player, arrows);
+		}
 	};
 
 	private GearModule() {
