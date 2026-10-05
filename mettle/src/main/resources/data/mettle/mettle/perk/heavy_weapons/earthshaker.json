@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "b",
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.earthshaker"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.earthshaker.description"
+	},
+	"order": 12
+}

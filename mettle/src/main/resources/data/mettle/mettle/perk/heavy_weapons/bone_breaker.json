@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "path",
+	"tier": 2,
+	"path": "b",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.bone_breaker"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.bone_breaker.description"
+	},
+	"order": 7
+}

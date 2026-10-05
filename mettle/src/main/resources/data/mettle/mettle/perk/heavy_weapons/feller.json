@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "root",
+	"tier": 1,
+	"ranks": 3,
+	"cost": 1,
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.feller"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.feller.description"
+	},
+	"rank_values": [
+		"15",
+		"30",
+		"45"
+	],
+	"order": 1
+}

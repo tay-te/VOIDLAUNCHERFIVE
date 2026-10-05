@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.headhunter"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.headhunter.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.heavy_weapons.headhunter.hint"
+	},
+	"feat": {
+		"counter": "axe_hostile_kills",
+		"target": 100
+	},
+	"order": 13
+}

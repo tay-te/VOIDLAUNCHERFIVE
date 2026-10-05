@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "any",
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.berserker"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.berserker.description"
+	},
+	"order": 11
+}

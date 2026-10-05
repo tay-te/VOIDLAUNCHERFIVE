@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.stagger"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.stagger.description"
+	},
+	"order": 9
+}

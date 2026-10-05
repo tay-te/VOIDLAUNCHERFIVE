@@ -4,5 +4,13 @@
 	},
 	"attribute": "strength",
 	"order": 1,
-	"released": true
+	"released": true,
+	"paths": {
+		"a": {
+			"translate": "mettle.path.heavy_weapons.a"
+		},
+		"b": {
+			"translate": "mettle.path.heavy_weapons.b"
+		}
+	}
 }

@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "a",
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.timber"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.timber.description"
+	},
+	"order": 10
+}

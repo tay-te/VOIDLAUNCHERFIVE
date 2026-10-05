@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.old_growth"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.old_growth.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.heavy_weapons.old_growth.hint"
+	},
+	"feat": {
+		"counter": "chop_natural_log",
+		"target": 2000
+	},
+	"order": 14
+}
