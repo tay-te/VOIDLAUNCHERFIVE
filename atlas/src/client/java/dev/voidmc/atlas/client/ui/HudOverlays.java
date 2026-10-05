@@ -45,6 +45,15 @@ public final class HudOverlays {
 	}
 
 	public void extract(GuiGraphicsExtractor graphics, DeltaTracker delta) {
+		long t0 = System.nanoTime();
+		try {
+			this.extractInner(graphics, delta);
+		} finally {
+			dev.voidmc.atlas.client.Perf.hud(System.nanoTime() - t0);
+		}
+	}
+
+	private void extractInner(GuiGraphicsExtractor graphics, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer p = mc.player;
 		if (p == null || mc.gui.hud.isHidden() || mc.getDebugOverlay().showDebugScreen() || this.atlas.session() == null) {

@@ -227,7 +227,9 @@ public final class AtlasClient implements ClientModInitializer {
 		Minecraft mc = Minecraft.getInstance();
 		if (this.tiles != null) {
 			this.tiles.beginFrame();
+			long t0 = System.nanoTime();
 			this.tiles.upload(1_200_000L);
+			Perf.upload(System.nanoTime() - t0);
 		}
 		LocalPlayer p = mc.player;
 		if (this.ingest != null && p != null && mc.level == this.level) {
@@ -277,6 +279,15 @@ public final class AtlasClient implements ClientModInitializer {
 	}
 
 	private void tick(Minecraft mc) {
+		long t0 = System.nanoTime();
+		try {
+			this.tickInner(mc);
+		} finally {
+			Perf.tick(System.nanoTime() - t0);
+		}
+	}
+
+	private void tickInner(Minecraft mc) {
 		this.ticks++;
 		if (mc.level != this.level) {
 			this.levelChanged(mc);

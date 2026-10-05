@@ -66,6 +66,16 @@ public final class AtlasScreen extends Screen {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+		long t0 = System.nanoTime();
+		try {
+			this.extractInner(graphics, mouseX, mouseY);
+		} finally {
+			// the whole page counts as the map's cost (the tiles' draw is part of it)
+			dev.voidmc.atlas.client.Perf.page(System.nanoTime() - t0);
+		}
+	}
+
+	private void extractInner(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
 		Ui ui = new Ui(graphics, this.fitUnit());
 		this.unit = ui.unit;
 		this.scale = ui.scale;

@@ -478,11 +478,18 @@ public final class MapPage {
 		return rows;
 	}
 
-	/** A section's rows, from the cache when it is fresh (a quarter of a second, the same search and view). */
+	/**
+	 * A section's rows, from the cache while it is fresh: made again when the places or waypoints change, the search or
+	 * the view does, the player has moved a few blocks (the distances), or two seconds have passed.
+	 */
 	private List<Row> cachedRows(String section) {
 		long now = System.currentTimeMillis();
-		String key = this.search.text + "|" + this.map.kind + "|" + this.map.band(this.map.kind);
-		if (now - this.rowsAt > 250 || !key.equals(this.rowsQuery)) {
+		MapSession session = this.atlas.session();
+		LocalPlayer p = Minecraft.getInstance().player;
+		String key = this.search.text + "|" + this.map.kind + "|" + this.map.band(this.map.kind) + "|"
+			+ (session == null ? 0 : session.places.version() + 31 * session.waypoints.version()) + "|"
+			+ (p == null ? "" : (p.getBlockX() >> 2) + "," + (p.getBlockZ() >> 2));
+		if (now - this.rowsAt > 2000 || !key.equals(this.rowsQuery)) {
 			this.rowCache.clear();
 			this.rowsAt = now;
 			this.rowsQuery = key;

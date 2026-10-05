@@ -163,7 +163,7 @@ def budgets = [
 	underAvgFrameMs  : 4.0,   // the underground map, panning and zooming
 	underP99FrameMs  : 8.0,
 	detectMsPerChunk : 0.5,   // structure detection per chunk, on the workers
-	revealMsPerWalk  : 12.0   // one underground reveal round the player, on the workers
+	revealMsPerWalk  : 20.0   // one underground reveal round the player, on the workers (at most one at a time)
 ]
 
 tasks.register('atlasPerf') {

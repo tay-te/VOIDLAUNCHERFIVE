@@ -36,6 +36,12 @@ public final class Perf {
 	private static long ingestNanos;
 	private static long minimapNanos;
 	private static long mapNanos;
+	private static long tickNanos;
+	private static long hudNanos;
+	private static long pageNanos;
+	private static long uploadNanos;
+	private static long frameUploads;
+	private static long frameUploadBytes;
 	private static int frameTiles;
 
 	// recording
@@ -83,6 +89,12 @@ public final class Perf {
 		ingestNanos = 0;
 		minimapNanos = 0;
 		mapNanos = 0;
+		tickNanos = 0;
+		hudNanos = 0;
+		pageNanos = 0;
+		uploadNanos = 0;
+		frameUploads = uploads;
+		frameUploadBytes = uploadBytes;
 		frameTiles = 0;
 	}
 
@@ -102,8 +114,10 @@ public final class Perf {
 
 	/** A slow frame while recording: where the time went (Atlas's parts, and the garbage collector's). */
 	private static void slowFrame(long nanos, long collections, long gcMillis) {
-		String line = String.format(java.util.Locale.ROOT, "%.1f ms frame: ingest %.2f, minimap %.2f, map %.2f, gc %d (%d ms)", nanos / 1e6,
-			ingestNanos / 1e6, minimapNanos / 1e6, mapNanos / 1e6, collections, gcMillis);
+		String line = String.format(java.util.Locale.ROOT,
+			"%.1f ms frame: ingest %.2f, minimap %.2f, map %.2f (page %.2f), uploads %.2f (%d, %d KB), tick %.2f, hud %.2f, gc %d (%d ms)", nanos / 1e6,
+			ingestNanos / 1e6, minimapNanos / 1e6, mapNanos / 1e6, pageNanos / 1e6, uploadNanos / 1e6, uploads - frameUploads,
+			(uploadBytes - frameUploadBytes) >> 10, tickNanos / 1e6, hudNanos / 1e6, collections, gcMillis);
 		if (SLOW.size() < 40) {
 			SLOW.add(line);
 		}
@@ -138,6 +152,28 @@ public final class Perf {
 			dev.voidmc.atlas.client.AtlasClient.LOGGER.info("Atlas: slow minimap frame {} ms (setup {}, tiles {}, markers {}, rest {})", total / 1e6, setup / 1e6,
 				tiles / 1e6, markers / 1e6, rest / 1e6);
 		}
+	}
+
+	/** Atlas's client tick (places moving on, providers, the exact data's request). */
+	public static void tick(long nanos) {
+		tickNanos += nanos;
+	}
+
+	/** The whole map page, built (not counting the GPU's work). */
+	public static void page(long nanos) {
+		pageNanos += nanos;
+		// the page holds the tiles' draw: the map's cost this frame is the whole page
+		mapNanos = Math.max(mapNanos, pageNanos);
+	}
+
+	/** Tile uploads at the start of the frame. */
+	public static void upload(long nanos) {
+		uploadNanos += nanos;
+	}
+
+	/** The toast and the compass. */
+	public static void hud(long nanos) {
+		hudNanos += nanos;
 	}
 
 	public static void map(long nanos) {
