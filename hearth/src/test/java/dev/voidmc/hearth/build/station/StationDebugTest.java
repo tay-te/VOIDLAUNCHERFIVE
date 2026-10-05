@@ -78,6 +78,9 @@ class StationDebugTest {
 			for (String ys : plan.split(",")) {
 				int y = Integer.parseInt(ys.trim());
 				System.out.println("-- level " + y);
+				if (System.getenv("HEARTH_STATION_REACH") != null) {
+					System.out.println(BlueprintChecks.reachMap(bp, probe, spec.floorY() + y));
+				}
 				for (int z = f.depth() - 1; z >= -1; z--) {
 					StringBuilder sb = new StringBuilder(String.format("%3d ", z));
 					for (int x = f.frontage() - 1; x >= 0; x--) {

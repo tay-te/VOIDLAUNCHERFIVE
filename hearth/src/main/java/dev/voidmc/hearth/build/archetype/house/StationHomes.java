@@ -412,4 +412,21 @@ final class StationHomes {
 		}
 		return best;
 	}
+
+	/**
+	 * Keeps a town stair free in a room of storey k ({@link dev.voidmc.hearth.build.kit.townhome.StairCore#keep}) and, for
+	 * a straight stair, the row in front of its well too: its flight is otherwise entered only from the passage beside its
+	 * first step, which a hearth's mantel or a shelf in a narrow house can shut.
+	 */
+	static void keepCore(dev.voidmc.hearth.build.kit.townhome.StairCore core, dev.voidmc.hearth.build.kit.Rooms.Room room, int k) {
+		core.keep(room, k);
+		if (core.isStraight() && k >= core.fromK() && k < core.toK()) {
+			int[] zr = core.zRange();
+			for (int x = core.x0(); x <= core.x1(); x++) {
+				if (room.inside(x, zr[0] - 1)) {
+					room.keep(x, zr[0] - 1);
+				}
+			}
+		}
+	}
 }

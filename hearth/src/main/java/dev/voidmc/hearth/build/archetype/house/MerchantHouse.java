@@ -340,7 +340,7 @@ public final class MerchantHouse implements Archetype {
 	}
 
 	/** What stands out from the upper storeys, the culture's way (a trimmed {@link Townhouse} character). */
-	private static void character(Draft d, Body b, Facade f, Traits t, int full, boolean jetties, boolean cornerL, boolean cornerR, int door) {
+	static void character(Draft d, Body b, Facade f, Traits t, int full, boolean jetties, boolean cornerL, boolean cornerR, int door) {
 		Habits h = d.habits();
 		int w = d.frontage();
 		if (t.eastern()) {
@@ -489,7 +489,7 @@ public final class MerchantHouse implements Archetype {
 				room = new Rooms.Room(room.x0, shopZ0, room.x1, room.z1, room.y, room.height);
 			}
 			if (reached) {
-				core.keep(room, k);
+				StationHomes.keepCore(core, room, k);
 			}
 			TownHouses.keepDoors(d, room, r, b.floorY(k));
 			if (k == 0) {
@@ -602,7 +602,12 @@ public final class MerchantHouse implements Archetype {
 	 * middle column, under the ridge where the loft has head room, through a hatch in the loft's floor. Answers whether
 	 * the loft can be reached.
 	 */
-	private static boolean loftLadder(Draft d, Body b, StairCore core, Rooms.Room loft) {
+	static boolean loftLadder(Draft d, Body b, StairCore core, Rooms.Room loft) {
+		return loftLadder(d, b, core, loft, null);
+	}
+
+	/** {@link #loftLadder} that also takes the ladder's cell out of the room below (not yet furnished) and keeps its foot free. */
+	static boolean loftLadder(Draft d, Body b, StairCore core, Rooms.Room loft, Rooms.@org.jspecify.annotations.Nullable Room below) {
 		int k = b.storeys() - 2;
 		if (k < 0 || !TownHouses.reached(core, k)) {
 			return false;
@@ -631,6 +636,12 @@ public final class MerchantHouse implements Archetype {
 			ok &= !(d.get(x, y0, z) != null && d.get(x, y0, z).getBlock() instanceof DoorBlock);
 			if (!ok) {
 				continue;
+			}
+			if (below != null) {
+				below.keep(fx, fz);
+				if (!below.claim(x, z)) {
+					continue;
+				}
 			}
 			Stairs.ladder(d, x, z, y0, yl, facing);
 			loft.keep(x + Dirs.dx(facing), z + Dirs.dz(facing));
