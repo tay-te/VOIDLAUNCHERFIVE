@@ -394,6 +394,12 @@ final class Precinct {
 
 	/** Levels the precinct and builds every range's walls, floors and windows. */
 	void shell() {
+		for (Range r : this.ranges) {
+			for (int k = 0; k < storeys(); k++) {
+				List<Want> wants = k < r.wants.size() ? r.wants.get(k) : List.of(Want.of(Kind.STORE, 1));
+				r.rooms.add(split(r, k, wants));
+			}
+		}
 		Groundwork.level(this.d, 0, 0, this.w - 1, this.dp - 1, 0, true);
 		WallKind[] kinds = rangeKinds();
 		for (Range r : this.ranges) {
@@ -455,11 +461,10 @@ final class Precinct {
 		for (int i = 0; i < k.length; i++) {
 			k[i] = this.rite.ranges;
 		}
-		if (this.t == Tradition.TIMBER && k.length > 1) {
-			k[1] = this.d.habits().walls().kind(1);
-		}
-		if (this.t == Tradition.ALPINE && k.length > 1) {
-			k[1] = this.d.habits().walls().kind(1);
+		// a framed upper storey over the stone where the culture frames its upper storeys (not boards: a house of the
+		// orders is no barn)
+		if ((this.t == Tradition.TIMBER || this.t == Tradition.ALPINE) && k.length > 1 && this.d.habits().walls().kind(1) == WallKind.TIMBER_FRAME) {
+			k[1] = WallKind.TIMBER_FRAME;
 		}
 		return k;
 	}
@@ -469,19 +474,29 @@ final class Precinct {
 	 * court is before it, and on ends open to the air.
 	 */
 	Facade facade(Range r) {
-		Facade plan = Facade.plan(this.d, r.body, -1, 1, 1, 0.55);
 		Facade f = new Facade();
+		Set<Integer> parts = new HashSet<>();
+		for (List<Room> st : r.rooms) {
+			for (Room room : st) {
+				parts.add(room.a0 - 1);
+				parts.add(room.a1 + 1);
+			}
+		}
 		for (Side s : r.body.sides(0)) {
 			Direction out = s.out();
-			for (int p : plan.posts(out)) {
-				f.post(out, p);
+			boolean alongRange = s.axis() == r.axis;
+			int c0 = Math.min(s.column(0), s.column(s.last()));
+			int c1 = Math.max(s.column(0), s.column(s.last()));
+			// a post every fourth column, a light in the middle of each bay between
+			for (int c = c0 + 4; c < c1; c += 4) {
+				f.post(out, c);
 			}
-			for (Facade.Opening o : plan.openings(out)) {
-				if (o.kind() != Facade.Kind.WINDOW) {
+			for (int c = c0 + 2; c < c1 - 1; c += 4) {
+				if (alongRange && (parts.contains(c) || r.gate != Integer.MIN_VALUE && Math.abs(c - r.gate) <= 2)) {
 					continue;
 				}
-				if (windowAllowed(r, out, o.at()) && windowAllowed(r, out, o.at() + o.width() - 1)) {
-					f.add(out, o);
+				if (windowAllowed(r, out, c)) {
+					f.add(out, new Facade.Opening(Facade.Kind.WINDOW, c, 1));
 				}
 			}
 		}
@@ -509,12 +524,6 @@ final class Precinct {
 	void rooms() {
 		// the main entrance is the gate, declared before any door declares its own
 		this.d.entrance(courtX(), 0, this.zF - 1);
-		for (Range r : this.ranges) {
-			for (int k = 0; k < storeys(); k++) {
-				List<Want> wants = k < r.wants.size() ? r.wants.get(k) : List.of(Want.of(Kind.STORE, 1));
-				r.rooms.add(split(r, k, wants));
-			}
-		}
 		for (Range r : this.ranges) {
 			if (storeys() > 1) {
 				stair(r);
