@@ -60,6 +60,9 @@ public interface AtlasApi {
 	 */
 	AtlasPlaces places();
 
+	/** The maps kept for the server the player is on (worlds behind one address told apart), and notices about them. */
+	AtlasWorlds worlds();
+
 	/** A surface view centred on the player at the map's current zoom (or on 0, 0 outside a world). */
 	MapView playerView();
 

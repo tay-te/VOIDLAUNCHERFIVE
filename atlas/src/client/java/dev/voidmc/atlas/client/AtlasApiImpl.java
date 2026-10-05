@@ -39,6 +39,11 @@ public final class AtlasApiImpl implements AtlasApi {
 	}
 
 	@Override
+	public dev.voidmc.atlas.api.AtlasWorlds worlds() {
+		return AtlasClient.get().worlds;
+	}
+
+	@Override
 	public String version() {
 		return FabricLoader.getInstance().getModContainer(AtlasClient.ID).map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("dev");
 	}

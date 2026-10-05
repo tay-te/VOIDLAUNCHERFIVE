@@ -166,6 +166,8 @@ public final class AtlasClient implements ClientModInitializer {
 		ClientChunkEvents.CHUNK_LOAD.register((level, chunk) -> {
 			if (this.ingest != null && level == this.level) {
 				this.ingest.loaded(chunk);
+			} else if (level == this.level && this.worlds.finding()) {
+				this.worlds.chunk(chunk);
 			}
 		});
 		ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> this.closeSession());
@@ -388,6 +390,12 @@ public final class AtlasClient implements ClientModInitializer {
 		if (mc.level != this.level) {
 			this.levelChanged(mc);
 		}
+		if (mc.level != null && mc.getSingleplayerServer() == null) {
+			String found = this.worlds.tick();
+			if (found != null) {
+				this.worldFound(mc, found);
+			}
+		}
 		if (this.session != null && this.modelSet != mc.getModelManager().getBlockStateModelSet()) {
 			// resources reloaded: read the textures again
 			this.rebuildLooks(mc);
@@ -416,7 +424,8 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 		}
 		LocalPlayer p = mc.player;
-		MapSession session = this.session;
+		// while the world is being told apart, the map open may be another world's: leave its places alone
+		MapSession session = this.worlds.finding() ? null : this.session;
 		if (p != null && session != null) {
 			if (p.isDeadOrDying()) {
 				if (!this.deathRecorded) {
@@ -500,15 +509,67 @@ public final class AtlasClient implements ClientModInitializer {
 		return String.format(Locale.ROOT, "%.3f", nanos / 1e6 / Math.max(1, n));
 	}
 
+	/** The maps of the server the player is on, and which one this level is. */
+	public final Worlds worlds = new Worlds(this);
+	private @Nullable String levelDim;
+
 	private void levelChanged(Minecraft mc) {
 		ClientLevel next = mc.level;
 		this.level = next;
 		this.ingest = null;
 		if (next == null) {
 			this.closeSession();
+			this.worlds.disconnected();
+			this.levelDim = null;
 			return;
 		}
-		String key = worldKey(mc);
+		String previousDim = this.levelDim;
+		this.levelDim = next.dimension().identifier().toString();
+		if (mc.getSingleplayerServer() != null) {
+			this.openFor(mc, next, worldKey(mc));
+			return;
+		}
+		// a server: which of its worlds is this? Nothing is mapped until that is known
+		ServerData data = mc.getCurrentServer();
+		String address = data == null || data.ip == null || data.ip.isBlank() ? "unknown" : data.ip.trim();
+		long seed = ((BiomeManagerAccessor) next.getBiomeManager()).atlas$biomeZoomSeed();
+		this.worlds.levelChanged(mc, next, address, seed, this.session == null ? null : this.session.worldKey, previousDim);
+		LocalPlayer p = mc.player;
+		if (p != null) {
+			int r = mc.options.getEffectiveRenderDistance() + 1;
+			for (int dz = -r; dz <= r; dz++) {
+				for (int dx = -r; dx <= r; dx++) {
+					var chunk = next.getChunkSource().getChunk((p.getBlockX() >> 4) + dx, (p.getBlockZ() >> 4) + dz,
+						net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+					if (chunk != null) {
+						this.worlds.chunk(chunk);
+					}
+				}
+			}
+		}
+	}
+
+	/** The world was told apart: its map opens and mapping starts (client thread). */
+	private void worldFound(Minecraft mc, String key) {
+		if (mc.level != null && mc.level == this.level) {
+			this.openFor(mc, mc.level, key);
+		}
+	}
+
+	/** Closes the map for a merge (see {@link Worlds#answer}). */
+	void closeSessionForMerge() {
+		this.closeSession();
+	}
+
+	/** Opens a map again after a merge. */
+	void reopen(String key) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level != null) {
+			this.openFor(mc, mc.level, key);
+		}
+	}
+
+	private void openFor(Minecraft mc, ClientLevel next, String key) {
 		if (this.session == null || !this.session.worldKey.equals(key)) {
 			this.closeSession();
 			Path dir = mc.gameDirectory.toPath().resolve("atlas").resolve(key);
@@ -573,7 +634,7 @@ public final class AtlasClient implements ClientModInitializer {
 		return "mp/" + sanitise(address) + "/" + Long.toHexString(seed);
 	}
 
-	private static String sanitise(String s) {
+	static String sanitise(String s) {
 		String out = s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9._-]", "_");
 		return out.isEmpty() ? "_" : out;
 	}
