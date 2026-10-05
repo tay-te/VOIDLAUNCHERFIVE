@@ -5,6 +5,8 @@ import dev.voidmc.hearth.build.archetype.house.Croft;
 import dev.voidmc.hearth.build.archetype.house.HermitHut;
 import dev.voidmc.hearth.build.archetype.house.Hovel;
 import dev.voidmc.hearth.build.archetype.house.MerchantHouse;
+import dev.voidmc.hearth.build.archetype.house.Rectory;
+import dev.voidmc.hearth.build.archetype.house.ReeveHouse;
 import dev.voidmc.hearth.build.archetype.house.ScribeHouse;
 import dev.voidmc.hearth.build.archetype.house.Shack;
 
@@ -20,5 +22,7 @@ public final class StationHomeArchetypes {
 		registry.register(new Croft());
 		registry.register(new MerchantHouse());
 		registry.register(new ScribeHouse());
+		registry.register(new ReeveHouse());
+		registry.register(new Rectory());
 	}
 }
