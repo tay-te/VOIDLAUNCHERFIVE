@@ -77,8 +77,11 @@ public final class Hut implements Archetype {
 		boolean stilted = h.plan().stilts() == Habits.Stilts.ALWAYS || water;
 		// a stilted hut wants a porch in front; on a shallow plot it gets a stair along its front instead
 		int front = dp >= 7 ? 2 : dp >= 6 || stilted ? 1 : 0;
-		int bx0 = w >= 7 ? 1 : 0;
-		int bx1 = w >= 7 ? w - 2 : w - 1;
+		// a mud cell keeps to one side of its plot, a yard beside it under a lean-to
+		boolean yard = flat && !stilted && w >= 6;
+		boolean yardLeft = yard && d.chance(0.5);
+		int bx0 = yard ? (yardLeft ? w - 5 : 0) : w >= 7 ? 1 : 0;
+		int bx1 = yard ? bx0 + 4 : w >= 7 ? w - 2 : w - 1;
 		int bz0 = front;
 		int bz1 = dp - 1;
 		int base = 0;
@@ -128,12 +131,12 @@ public final class Hut implements Archetype {
 		}
 		furnish(d, bx0 + 1, bz0 + 1, bx1 - 1, bz1 - 1, base, door, roof, h);
 		// a woodpile or a log store against the side, a path to the door
-		if (bx0 >= 1 && d.chance(h.yard().woodpile())) {
+		if (bx0 >= 1 && !yard && d.chance(h.yard().woodpile())) {
 			Garden.woodpile(d, bx0 - 1, 0, bz1 - 1, Dirs.FRONT, Math.min(3, bz1 - bz0));
 		}
 		if (front >= 1 && !stilted) {
 			Garden.path(d, Garden.line(door, bz0 - 1, door, 0), 0);
-			if (front >= 2 && d.chance(0.6)) {
+			if (front >= 2 && !flat && d.chance(0.6)) {
 				Garden.garden(d, door + 1, 0, Math.min(w - 1, door + 2), bz0 - 1, 0);
 			}
 		}
@@ -145,8 +148,9 @@ public final class Hut implements Archetype {
 	}
 
 	/**
-	 * What keeps a flat-roofed hut from being a box: the parapet's corners raised a course and capped (the soft massing of
-	 * mud building), a shade of poles and slabs before the door, a bread oven against a side wall, pots at the door.
+	 * What keeps a flat-roofed hut from being a box: the parapet rounded over (the soft massing of mud building), a yard
+	 * wall and a lean-to of poles and reeds beside the cell ({@link #compound}), a shade of poles and reeds before the
+	 * door, a bread oven against a side wall under the lean-to, jars at the door.
 	 */
 	private static void flatDress(Draft d, int x0, int z0, int x1, int z1, int base, int deck, int door, boolean stilted) {
 		// a mud cell's parapet is rounded over (pinnacles on a hut five wide would make it a tower)
@@ -154,7 +158,8 @@ public final class Hut implements Archetype {
 		if (stilted) {
 			return;
 		}
-		// a shade of poles, slats and palm fronds before the door
+		compound(d, x0, z0, x1, z1, base, door);
+		// a shade of poles, reeds and palm fronds before the door
 		if (z0 - 2 >= 0 && dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, door - 1, z0 - 2, door + 1, z0 - 1, base)) {
 			Mat wall = d.mat(Role.WALL);
 			flatDressOven(d, x0, z0, x1, z1, base, wall);
@@ -166,40 +171,49 @@ public final class Hut implements Archetype {
 			dev.voidmc.hearth.build.kit.homestead.Adobe.threshold(d, door, base, z0 - 1);
 			return;
 		}
-		// the shade: two poles before the door, a roof of slabs back to the wall
-		Mat pole = d.mat(Role.FRAME);
-		int zf = z0 - 2;
-		if (zf >= 0 && door - 1 > x0 - 1 && door + 1 < x1 + 1 && base + 3 < d.maxHeight()) {
-			boolean clear = true;
-			for (int x = door - 1; x <= door + 1; x++) {
-				for (int z = zf; z < z0; z++) {
-					clear &= dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z) && d.isAbsent(x, base, z);
-				}
-			}
-			if (clear) {
-				try (var s = d.stage(StageKind.FRAME)) {
-					for (int x : new int[]{door - 1, door + 1}) {
-						d.set(x, base, zf, pole.log(Direction.Axis.Y));
-						d.set(x, base + 1, zf, pole.log(Direction.Axis.Y));
-						d.set(x, base + 2, zf, pole.log(Direction.Axis.Y));
-					}
-				}
-				try (var s = d.stage(StageKind.ROOF)) {
-					for (int x = door - 1; x <= door + 1; x++) {
-						for (int z = zf; z < z0; z++) {
-							d.set(x, base + 3, z, pole.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM).orElse(pole.full()));
-						}
-					}
-				}
-			}
-		}
+		// on a shallow plot, a shade of reeds over the doorway alone
+		dev.voidmc.hearth.build.kit.homestead.Adobe.doorShade(d, door, z0, base);
 		flatDressOven(d, x0, z0, x1, z1, base, d.mat(Role.WALL));
 		// pots either side of the door
 		for (int x : new int[]{door - 1, door + 1}) {
 			int z = z0 - 1;
-			if (z >= 0 && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z) && d.isAbsent(x, base, z)) {
+			if (z >= 0 && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z) && d.isEmpty(x, base, z)) {
 				d.inStage(StageKind.EXTERIOR, () -> d.set(x, base, z, States.of(Blocks.DECORATED_POT)));
 			}
+		}
+	}
+
+	/**
+	 * The yard of a mud cell: a wall of mud along the street (a gap at the door, the shade's poles its gateposts) and down
+	 * the plot's side to the yard beside the cell where that yard is two wide; a lean-to of poles and reeds against the
+	 * cell's side wall over that yard, sheltering the oven, the firewood and the jars.
+	 */
+	private static void compound(Draft d, int x0, int z0, int x1, int z1, int base, int door) {
+		int w = d.frontage();
+		boolean left = x0 > 0;
+		int yw = left ? x0 : w - 1 - x1;
+		int edge = left ? 0 : w - 1;
+		List<int[]> wall = new java.util.ArrayList<>();
+		if (z0 >= 2) {
+			for (int x = 0; x < w; x++) {
+				if (x != door) {
+					wall.add(new int[]{x, 0});
+				}
+			}
+			for (int z = 1; z < z0; z++) {
+				wall.add(new int[]{0, z});
+				wall.add(new int[]{w - 1, z});
+			}
+		}
+		if (yw >= 2) {
+			for (int z = z0 >= 2 ? 1 : 0; z <= z1; z++) {
+				wall.add(new int[]{edge, z});
+			}
+		}
+		dev.voidmc.hearth.build.kit.homestead.Adobe.yardWall(d, wall, base);
+		if (yw >= 1 && x1 - x0 >= 2) {
+			flatDressOven(d, x0, z0, x1, z1, base, d.mat(Role.WALL));
+			dev.voidmc.hearth.build.kit.homestead.Adobe.leanTo(d, left ? 0 : x1 + 1, z0 + 1, left ? x0 - 1 : w - 1, z1, base, left ? Dirs.RIGHT : Dirs.LEFT);
 		}
 	}
 
@@ -209,8 +223,8 @@ public final class Hut implements Archetype {
 		Mat clay = d.mat(Role.CHIMNEY);
 		for (int x : new int[]{x0 - 1, x1 + 1}) {
 			int z = (z0 + z1) / 2;
-			if (x >= 0 && x < d.frontage() && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z) && d.isAbsent(x, base, z)
-				&& dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z + 1) && d.isAbsent(x, base, z + 1) && z + 1 < z1) {
+			if (x >= 0 && x < d.frontage() && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z) && d.isEmpty(x, base, z)
+				&& dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z + 1) && d.isEmpty(x, base, z + 1) && z + 1 < z1) {
 				try (var s = d.stage(StageKind.EXTERIOR)) {
 					d.set(x, base, z, States.facing(Blocks.SMOKER, x < x0 ? Dirs.LEFT : Dirs.RIGHT));
 					d.set(x, base, z + 1, clay.full());

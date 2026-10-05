@@ -421,8 +421,9 @@ public final class Hovel implements Archetype {
 
 	/**
 	 * The dry lands' hovel: an adobe cell under a flat roof of poles and mud (a rounded coping, the poles' ends through
-	 * the wall head), a lower store against its side, mended with mud; a shade of poles and fronds before the door over
-	 * the cooking fire; jars by the door.
+	 * the wall head), a lower store or a lean-to of poles and reeds against its side; a yard before it walled from the
+	 * street, a shade of poles and reeds before the door over the cooking fire (over the doorway alone on a shallow
+	 * plot); jars by the door.
 	 */
 	private static void flat(Draft d) {
 		int w = d.frontage();
@@ -462,9 +463,32 @@ public final class Hovel implements Archetype {
 		}
 		int deck = Roofs.flat(d, bx0, bz0, bx1, bz1, plate, false);
 		Adobe.parapet(d, bx0, bz0, bx1, bz1, deck - 1, Adobe.Parapet.ROUNDED);
-		// the store: a lower cell against the side (the house wall its end), a door to the front
+		// the store: a lower cell against the side (the house wall its end), a door to the front; or a lean-to of poles and
+		// reeds open to the yard
 		if (!raised && w - bw >= 2) {
-			store(d, storeLeft ? 0 : bx1, bz0 + 1, storeLeft ? bx0 : w - 1, bz1, base, storeLeft);
+			if (d.chance(0.5)) {
+				store(d, storeLeft ? 0 : bx1, bz0 + 1, storeLeft ? bx0 : w - 1, bz1, base, storeLeft);
+			} else {
+				Adobe.leanTo(d, storeLeft ? 0 : bx1 + 1, bz0 + 1, storeLeft ? bx0 - 1 : w - 1, bz1, base, storeLeft ? Dirs.RIGHT : Dirs.LEFT);
+			}
+		}
+		// the yard before the door walled from the street, the gap at the door; a shade of reeds over the door where the
+		// yard is too shallow for the fire's
+		if (!raised && bz0 >= 2) {
+			java.util.List<int[]> wall = new java.util.ArrayList<>();
+			for (int x = 0; x < w; x++) {
+				if (x != door) {
+					wall.add(new int[]{x, 0});
+				}
+			}
+			for (int z = 1; z < bz0; z++) {
+				wall.add(new int[]{0, z});
+				wall.add(new int[]{w - 1, z});
+			}
+			Adobe.yardWall(d, wall, base);
+		}
+		if (!raised && !yardFire) {
+			Adobe.doorShade(d, door, bz0, base);
 		}
 		if (raised) {
 			Groundwork.approach(d, door, base, bz0 - 1);

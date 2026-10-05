@@ -11,7 +11,8 @@ the extra params are listed per archetype. Every building fits its roof under th
 down before the roof is flattened), grounds itself on any terrain, keeps its main entrance on the street row, and
 keeps every job site and store reachable from a door (`BlueprintChecks`). A flat-roofed building (desert, mesa, and
 anywhere the roof param asks for `flat`) makes its roof a terrace: an outside stair up a side wall to a gap in the
-parapet (VIEWPOINT at its head), a little room set back at a back corner, a cloth awning on poles and pots.
+parapet (VIEWPOINT at its head), a little room set back at a back corner, an awning of plain canvas on poles and pots; `Hall.crown` eases the
+parapet's corners round (no pinnacles on a workshop).
 
 ## The catalogue
 
