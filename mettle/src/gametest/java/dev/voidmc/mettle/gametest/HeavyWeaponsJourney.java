@@ -199,8 +199,9 @@ final class HeavyWeaponsJourney {
 	private static void throwingAxe(TestSingleplayerContext world, TestServerContext server, Vec3 home) {
 		ensureRenderer(server);
 		dummy(server, "hw_throw", 7, 0, 0);
-		server.runCommand("execute as @p at @p run tp @s ~ ~ ~ facing entity @e[tag=hw_throw,limit=1] eyes");
 		check(server.computeOnServer(s -> {
+			// Aim from the eyes: "tp … facing" aims from the feet, which throws high over the target.
+			player(s).lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, mob(s, "hw_throw").getEyePosition());
 			ItemStack axe = new ItemStack(Items.IRON_AXE);
 			axe.set(DataComponents.CUSTOM_NAME, Component.literal("Hurled"));
 			player(s).setItemInHand(InteractionHand.MAIN_HAND, axe);
@@ -223,7 +224,12 @@ final class HeavyWeaponsJourney {
 		}));
 		server.waitFor(s -> axes(s).isEmpty() || axes(s).getFirst().tickCount >= 2, 40);
 		screenshot(server, "mettle_heavy_throw_flight.png");
-		server.waitFor(s -> mob(s, "hw_throw").getHealth() < 200, 60);
+		for (int i = 0; i < 60 && server.computeOnServer(s -> mob(s, "hw_throw").getHealth() >= 200); i++) {
+			ticks(server, 1);
+		}
+		check(server.computeOnServer(s -> mob(s, "hw_throw").getHealth() < 200 ? null
+			: "Throwing Axe never hit: axe " + (axes(s).isEmpty() ? "gone" : axes(s).getFirst().position() + " landed=" + axes(s).getFirst().landed())
+				+ ", husk at " + mob(s, "hw_throw").position() + ", player at " + player(s).position() + " looking " + player(s).getXRot() + "/" + player(s).getYRot()));
 		server.waitFor(s -> !axes(s).isEmpty() && axes(s).getFirst().landed(), 100);
 		screenshot(server, "mettle_heavy_throw_landed.png");
 		server.runCommand("execute as @p at @e[type=mettle:thrown_axe,limit=1] run tp @s ~2.5 ~0.8 ~1.5 facing entity @e[type=mettle:thrown_axe,limit=1] feet");
