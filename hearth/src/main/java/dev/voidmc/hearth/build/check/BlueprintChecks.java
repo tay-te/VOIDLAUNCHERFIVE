@@ -482,10 +482,16 @@ public final class BlueprintChecks {
 		}
 	}
 
-	/** Stages in StageKind order; structural blocks laid bottom-up within each building stage. */
+	/**
+	 * Stages in StageKind order (within each construction campaign, campaigns in order); structural blocks laid
+	 * bottom-up within each building stage.
+	 */
 	public static void order(BlueprintImpl bp, List<String> out) {
 		for (int s = 1; s < bp.stageCount(); s++) {
-			if (bp.stageKind(s).ordinal() <= bp.stageKind(s - 1).ordinal()) {
+			if (bp.phase(s) < bp.phase(s - 1)) {
+				out.add("campaign " + bp.phase(s) + " comes after campaign " + bp.phase(s - 1));
+			}
+			if (bp.phase(s) == bp.phase(s - 1) && bp.stageKind(s).ordinal() <= bp.stageKind(s - 1).ordinal()) {
 				out.add("stage " + bp.stageKind(s) + " comes after " + bp.stageKind(s - 1));
 			}
 		}

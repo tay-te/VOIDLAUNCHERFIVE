@@ -47,10 +47,12 @@ public final class BlueprintImpl implements Blueprint {
 	private final List<BlockPos> entrances;
 	private final int beds;
 	private final Silhouette silhouette;
+	/** The construction campaign of each stage (see {@code Draft.phase}); all 0 for a building raised in one. */
+	private final int[] phases;
 
 	BlueprintImpl(PlotSpec spec, BoundingBox bounds, StageKind[] kinds, int[][] positions, int[][] states, BlockState[] palette,
 		Int2ObjectMap<CompoundTag>[] tags, Long2ObjectMap<int[][]> chunks, int[] work, int[][] goods, List<Poi> pois, List<BlockPos> entrances,
-		int beds, Silhouette silhouette) {
+		int beds, Silhouette silhouette, int[] phases) {
 		this.spec = spec;
 		this.bounds = bounds;
 		this.kinds = kinds;
@@ -65,6 +67,12 @@ public final class BlueprintImpl implements Blueprint {
 		this.entrances = List.copyOf(entrances);
 		this.beds = beds;
 		this.silhouette = silhouette;
+		this.phases = phases.length == kinds.length ? phases : new int[kinds.length];
+	}
+
+	/** The construction campaign a stage belongs to: stage kinds run in order within a campaign, then start again. */
+	public int phase(int stage) {
+		return this.phases[stage];
 	}
 
 	static int pack(int dx, int dy, int dz) {

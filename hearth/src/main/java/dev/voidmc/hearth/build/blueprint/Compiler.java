@@ -79,11 +79,17 @@ public final class Compiler {
 		LocalFrame frame = d.frame();
 		// light what the archetype left dark (docs/LIVING_WORLD.md §1), before shapes are final and steps ordered (the pass
 		// resolves the archetype's shapes to read light through them; resolving again settles its own fixtures)
+		// (what the pass adds goes in with the last construction campaign: the lamps come with the furnishing)
+		d.toLastPhase();
 		dev.voidmc.hearth.build.kit.light.AutoLighter.light(d);
 		ShapeResolver.resolve(d, site);
 
 		int[] main = d.entrances().isEmpty() ? new int[]{d.frontage() / 2, 0, -1} : d.entrances().get(0);
-		EnumMap<StageKind, List<Step>> byStage = new EnumMap<>(StageKind.class);
+		// steps grouped by construction campaign (Draft.phase), then by stage kind within it
+		List<EnumMap<StageKind, List<Step>>> byPhase = new ArrayList<>();
+		for (int ph = 0; ph <= d.maxPhase(); ph++) {
+			byPhase.add(new EnumMap<>(StageKind.class));
+		}
 		List<Poi> pois = new ArrayList<>();
 		int[] beds = {0};
 		d.forEach((x, y, z, c) -> {
@@ -92,7 +98,7 @@ public final class Compiler {
 			int rank = rank(s);
 			int dx = x - main[0];
 			int dz = z - main[2];
-			byStage.computeIfAbsent(c.stage(), k -> new ArrayList<>())
+			byPhase.get(Math.min(d.phaseOf(x, y, z), d.maxPhase())).computeIfAbsent(c.stage(), k -> new ArrayList<>())
 				.add(new Step(x, y, z, s, c.tag(), c.stage(), support, rank, dx * dx + dz * dz, c.sequence()));
 			if (s.getBlock() instanceof BedBlock && s.getValue(BedBlock.PART) == BedPart.HEAD) {
 				beds[0]++;
@@ -109,14 +115,18 @@ public final class Compiler {
 
 		List<StageKind> kinds = new ArrayList<>();
 		List<List<Step>> stages = new ArrayList<>();
-		for (StageKind k : StageKind.values()) {
-			List<Step> list = byStage.get(k);
-			if (list == null || list.isEmpty()) {
-				continue;
+		it.unimi.dsi.fastutil.ints.IntArrayList phaseOfStage = new it.unimi.dsi.fastutil.ints.IntArrayList();
+		for (int ph = 0; ph < byPhase.size(); ph++) {
+			for (StageKind k : StageKind.values()) {
+				List<Step> list = byPhase.get(ph).get(k);
+				if (list == null || list.isEmpty()) {
+					continue;
+				}
+				list.sort(order(k));
+				kinds.add(k);
+				stages.add(list);
+				phaseOfStage.add(ph);
 			}
-			list.sort(order(k));
-			kinds.add(k);
-			stages.add(list);
 		}
 
 		int minX = Integer.MAX_VALUE;
@@ -215,7 +225,7 @@ public final class Compiler {
 
 		Silhouette silhouette = silhouette(d, frame);
 		return new BlueprintImpl(d.spec(), bounds, kinds.toArray(StageKind[]::new), positions, stateIdx, palette.toArray(BlockState[]::new), tags,
-			chunks, work, goods, pois, entrances, beds[0], silhouette);
+			chunks, work, goods, pois, entrances, beds[0], silhouette, phaseOfStage.toIntArray());
 	}
 
 	private static Comparator<Step> order(StageKind kind) {

@@ -33,10 +33,17 @@ public final class BlueprintServiceImpl implements BlueprintService {
 	private static final Logger LOG = LoggerFactory.getLogger("hearth");
 	/** Default number of blueprints kept (a few towns' worth; a large house is ~30 KB). */
 	public static final int DEFAULT_CACHE = 512;
+	/**
+	 * The most steps the cache holds in all: a castle has a hundred times a cottage's steps, so a count alone lets a cache
+	 * of great buildings outgrow the heap.
+	 */
+	public static final long STEP_BUDGET = 3_000_000L;
 
 	private final ArchetypeRegistry archetypes;
 	private final StyleRegistry styles;
 	private final int capacity;
+	/** Steps held by the cached blueprints. */
+	private long cachedSteps;
 	private final Map<Key, BlueprintImpl> cache;
 	private final Set<String> reported = ConcurrentHashMap.newKeySet();
 
@@ -48,12 +55,7 @@ public final class BlueprintServiceImpl implements BlueprintService {
 		this.archetypes = archetypes;
 		this.styles = styles;
 		this.capacity = capacity;
-		this.cache = new LinkedHashMap<>(64, 0.75F, true) {
-			@Override
-			protected boolean removeEldestEntry(Map.Entry<Key, BlueprintImpl> eldest) {
-				return size() > BlueprintServiceImpl.this.capacity;
-			}
-		};
+		this.cache = new LinkedHashMap<>(64, 0.75F, true);
 	}
 
 	private record Key(PlotSpec spec, TerrainProbe probe, int generation) {
@@ -84,7 +86,18 @@ public final class BlueprintServiceImpl implements BlueprintService {
 		}
 		BlueprintImpl b = Compiler.compile(draw(spec, terrain));
 		synchronized (this.cache) {
-			this.cache.put(key, b);
+			BlueprintImpl old = this.cache.put(key, b);
+			this.cachedSteps += b.totalSteps() - (old == null ? 0 : old.totalSteps());
+			// evict the least recently used past the count or the step budget (keeping the newest)
+			var it = this.cache.values().iterator();
+			while (this.cache.size() > 1 && (this.cache.size() > this.capacity || this.cachedSteps > STEP_BUDGET) && it.hasNext()) {
+				BlueprintImpl eldest = it.next();
+				if (eldest == b) {
+					continue;
+				}
+				this.cachedSteps -= eldest.totalSteps();
+				it.remove();
+			}
 		}
 		return b;
 	}
@@ -124,6 +137,7 @@ public final class BlueprintServiceImpl implements BlueprintService {
 	public void clearCache() {
 		synchronized (this.cache) {
 			this.cache.clear();
+			this.cachedSteps = 0;
 		}
 	}
 
