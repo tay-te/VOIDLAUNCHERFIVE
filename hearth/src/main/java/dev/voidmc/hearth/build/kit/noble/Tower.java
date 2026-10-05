@@ -254,6 +254,8 @@ public final class Tower {
 	 * row under each).
 	 */
 	public Tower shell(Draft d, Dress m, int wallTop, int... courses) {
+		// the quoins tooth into the faces only in a tonal dressing (a contrasting one reads as a checkerboard: Walls.tonal)
+		boolean toothed = dev.voidmc.hearth.build.kit.Walls.tonal(m.wall.main(Form.FULL), m.dress.main(Form.FULL));
 		try (var s = d.stage(StageKind.WALLS)) {
 			for (int[] c : cells()) {
 				int x = c[0];
@@ -262,7 +264,7 @@ public final class Tower {
 					continue;
 				}
 				boolean corner = corner(x, z);
-				boolean nearCorner = !this.round && !corner && (Math.abs(x - this.x0) + Math.abs(z - this.z0) == 1 || Math.abs(x - this.x1) + Math.abs(z - this.z0) == 1
+				boolean nearCorner = toothed && !this.round && !corner && (Math.abs(x - this.x0) + Math.abs(z - this.z0) == 1 || Math.abs(x - this.x1) + Math.abs(z - this.z0) == 1
 					|| Math.abs(x - this.x0) + Math.abs(z - this.z1) == 1 || Math.abs(x - this.x1) + Math.abs(z - this.z1) == 1);
 				for (int y = this.base - 1; y <= wallTop; y++) {
 					Paint p;

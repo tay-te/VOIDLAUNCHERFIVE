@@ -206,11 +206,13 @@ public final class Storeys {
 		Mat found = d.mat(Role.FOUNDATION);
 		int ya = Walls.bottom(b, k);
 		int yg = b.floorY(k + 1) - 1;
+		// toothed only in a tonal accent on a building of some size (Walls.quoined, Walls.tonal): else a corner strip
+		boolean toothed = Walls.quoined(d, b, k) && Walls.tonal(body.main(dev.voidmc.hearth.build.style.Form.FULL), accent.main(dev.voidmc.hearth.build.style.Form.FULL));
 		try (var st = d.stage(StageKind.WALLS)) {
 			for (Side s : b.sides(k)) {
 				for (int i = 0; i < s.length(); i++) {
 					boolean corner = s.isCorner(i);
-					boolean next = i == 1 || i == s.length() - 2;
+					boolean next = toothed && (i == 1 || i == s.length() - 2);
 					for (int y = ya; y <= yg; y++) {
 						boolean quoin = corner || next && ((y - ya) & 1) == 0;
 						d.set(s.x(i), y, s.z(i), y == yg || quoin ? accent.full() : k == 0 && y == ya ? found.full() : body.full());
