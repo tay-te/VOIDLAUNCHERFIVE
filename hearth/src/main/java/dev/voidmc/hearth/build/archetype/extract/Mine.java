@@ -57,7 +57,7 @@ public final class Mine implements Archetype {
 		Rock rock = Rock.of(d);
 		int ex = Yard.entrance(d);
 		int c = Math.clamp(ex, 2, w - 3);
-		int yd = Pithead.yardDepth(d, ex, 3);
+		int yd = Pithead.yardDepth(d, ex, dp >= 24 ? 5 : 4);
 		int[] base;
 		try (var p = d.part(0)) {
 			base = Pithead.levelYard(d, yd, ex);
@@ -81,10 +81,15 @@ public final class Mine implements Archetype {
 			if (!yardOk) {
 				head.keep(c - 1, 0, c + 1, yd);
 			}
-			head.shed(JobType.MINER);
+			if (yardOk) {
+				head.shed(JobType.MINER);
+			}
 			head.lamp();
-			oreHeap(d, head, rock, ore, yd);
-			head.cart(ore.defaultBlockState());
+			if (yardOk) {
+				// (where the cutting runs from the street through the yard, the yard's pieces would be cut off from the gate)
+				oreHeap(d, head, rock, ore, yd);
+				head.cart(ore.defaultBlockState());
+			}
 		}
 		boolean shedLeft = head.shed != null && head.shed[0] < c;
 		boolean tipLeft = head.shed == null ? d.chance(0.5) : !shedLeft;
@@ -125,7 +130,7 @@ public final class Mine implements Archetype {
 		}
 		if (count >= 4 && !segs.isEmpty()) {
 			double sx = tipLeft ? Math.max(1, (c - 2 + 1) / 2.0) : Math.min(w - 2, (c + 2 + w - 2) / 2.0);
-			Spoil tip = new Spoil(d, rock, sx, yd + 1.5, sx, 1.5, 2.6, 0.9, tipCells);
+			Spoil tip = new Spoil(d, rock, sx, yd + 1.5, sx, 1.5, 3.4, 0.85, tipCells);
 			for (int k = 0; k < parts.length; k++) {
 				tip.grow(k + 1, parts.length, parts[k]);
 			}
@@ -243,6 +248,7 @@ public final class Mine implements Archetype {
 				head.reserve(x, z, x + 1, z);
 				if (z - 1 >= 1 && head.free(x, z - 1)) {
 					head.store(x, z - 1, Dirs.BACK);
+					head.reserve(x, z - 1, x, z - 1);
 				}
 				return;
 			}

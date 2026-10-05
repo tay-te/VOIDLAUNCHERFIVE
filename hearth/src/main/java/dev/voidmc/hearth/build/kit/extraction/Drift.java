@@ -150,6 +150,14 @@ public final class Drift {
 							int g = this.d.site().ground(x, z);
 							// in the open the cutting is cleared to the sky (of the yard's trodden floor too, where it runs through it)
 							int top = under(z) ? l + (x == this.c ? SIDE + 1 : SIDE) : Math.max(g, l + SIDE + 1);
+							if (!under(z)) {
+								for (int y = top; y < this.d.maxHeight(); y++) {
+									BlockState was = this.d.get(x, y, z);
+									if (was != null && !was.isAir()) {
+										top = y + 1;
+									}
+								}
+							}
 							top = Math.min(top, this.d.maxHeight());
 							for (int y = top - 1; y >= l; y--) {
 								if (y < g || this.d.get(x, y, z) != null) {
@@ -249,13 +257,38 @@ public final class Drift {
 			return;
 		}
 		int l = level(this.portal);
+		int out = this.portal - 1;
+		boolean outer = out >= 0 && level(out) == l && (out >= this.z0 || free(out, l));
 		try (var st = this.d.stage(StageKind.FRAME)) {
 			timberSet(frame, beam, this.portal);
-			int out = this.portal - 1;
-			if (out >= this.z0 && level(out) == l) {
+			if (outer) {
 				timberSet(frame, beam, out);
-				for (int x = this.c - 1; x <= this.c + 1; x++) {
-					if (this.d.allowed(x, l + SIDE + 1, out)) {
+			}
+		}
+		if (outer) {
+			// the headwall: dry stone laid up against the hill's face either side of the portal, the hood resting on it
+			try (var st = this.d.stage(StageKind.FOUNDATION)) {
+				for (int x = Math.max(this.lo, this.c - 3); x <= Math.min(this.hi, this.c + 3); x++) {
+					// in the yard's back row only where the bank stands over the yard, never on anyone's standing place
+					if (Math.abs(x - this.c) <= 1 || out < this.z0 && this.d.site().ground(x, out) <= l || standing(x, out)) {
+						continue;
+					}
+					int top = Math.clamp(this.d.site().ground(x, this.portal), l + SIDE + 1, l + SIDE + 3);
+					// on its footing: down to the land where the land beside the portal lies lower than the floor
+					int foot = Math.min(l - 1, this.d.site().ground(x, out));
+					for (int y = foot; y < top && y < this.d.maxHeight(); y++) {
+						BlockState was = this.d.get(x, y, out);
+						if (was != null && !was.isAir()) {
+							continue;
+						}
+						double u = Noise.unit(this.d.seed() ^ 0xD5A2, x, y, out);
+						this.d.set(x, y, out, (u < 0.75 ? this.rock.rough() : this.rock.natural()).defaultBlockState());
+					}
+				}
+			}
+			try (var st = this.d.stage(StageKind.ROOF)) {
+				for (int x = this.c - 2; x <= this.c + 2; x++) {
+					if (this.d.allowed(x, l + SIDE + 1, out) && x >= this.lo && x <= this.hi && this.d.isEmpty(x, l + SIDE + 1, out)) {
 						this.d.set(x, l + SIDE + 1, out, beam.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
 					}
 				}
@@ -279,6 +312,29 @@ public final class Drift {
 		try (var st = this.d.stage(StageKind.EXTERIOR)) {
 			this.d.set(this.c, l + 2, this.portal, States.lantern(lantern, true));
 		}
+	}
+
+	/** Whether a POI stands in a column, or in front of one (where folk stand to use it). */
+	private boolean standing(int x, int z) {
+		for (Draft.LocalPoi p : this.d.pois()) {
+			if (Math.abs(p.x() - x) + Math.abs(p.z() - z) <= 1) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Whether the yard row in front of the portal is free for the outer set (the gallery's three columns, its height). */
+	private boolean free(int z, int l) {
+		for (int x = this.c - 1; x <= this.c + 1; x++) {
+			for (int y = l; y <= l + SIDE; y++) {
+				BlockState was = this.d.get(x, y, z);
+				if (was != null && !was.isAir()) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	/**

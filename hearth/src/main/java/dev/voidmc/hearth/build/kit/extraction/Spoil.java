@@ -31,6 +31,9 @@ public final class Spoil {
 	 * @param slope    height lost per block out from the spine (0.7–1 for gravel)
 	 * @param allowed  columns the tip may cover (w × dp, by z then x)
 	 */
+	/** The standing level each column was heaped on. */
+	private final int[] base;
+
 	public Spoil(Draft d, Rock rock, double ax, double az, double bx, double bz, double top, double slope, boolean[] allowed) {
 		this.d = d;
 		this.rock = rock;
@@ -38,6 +41,7 @@ public final class Spoil {
 		this.dp = d.depth();
 		this.height = new double[this.w * this.dp];
 		this.along = new double[this.w * this.dp];
+		this.base = new int[this.w * this.dp];
 		double best = 0;
 		for (int z = 0; z < this.dp; z++) {
 			for (int x = 0; x < this.w; x++) {
@@ -52,7 +56,9 @@ public final class Spoil {
 				// a little lumpiness so the flanks are not a perfect cone
 				double lump = 0.6 * Noise.value(d.seed() ^ 0x71B, x / 2.5, 0, z / 2.5);
 				double h = top - dist * slope + lump;
-				int g = d.site().ground(x, z);
+				// on the ground as the working left it (a levelled yard, a cut), else the land
+				int g = dev.voidmc.hearth.build.terrain.Groundwork.surface(d, x, z);
+				this.base[z * this.w + x] = g;
 				h = Math.min(h, d.maxHeight() - 1 - g);
 				if (h >= 0.45) {
 					this.height[z * this.w + x] = h;
@@ -100,7 +106,7 @@ public final class Spoil {
 					if (hf < 0.45 || t <= from && k > 1 || t > to) {
 						continue;
 					}
-					int g = this.d.site().ground(x, z);
+					int g = this.base[z * this.w + x];
 					int toY = (int) Math.round(hf);
 					for (int y = 0; y < toY; y++) {
 						Block b = this.rock.spoilAt(this.d.seed(), x, g + y, z);
