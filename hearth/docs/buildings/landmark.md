@@ -39,12 +39,29 @@ a share of the rest. Spiral stair from the door to the belfry (VIEWPOINT); a for
 Params: `crown` (a `Crowns.Kind` name), `clock` (boolean).
 
 ### Clock tower
-A shaft on a plinth (deep blind arches and lancets), a clock stage corbelled out a block wider with a dial laid in blocks
-on each face (white face, black hands each at its own hour; on 9- and 11-wide stages a rim of the roof trim and gold
-marks), pinnacles at its corners, the bell chamber over it (behind a walkable gallery on 11-wide plots), and a crown:
-steep spires, open cupolas with a dome, domes, onions, curved hips. The spiral climbs past the clock room (grindstones for
-the works, the keeper's lectern, a chest) to the bells. VIEWPOINT, LECTERN, MEETING_POINT.
-Params: `crown`.
+Raised in the culture's own manner (art review item 16: one Big Ben with 3 × 3 gold faces everywhere read as a theme
+park). Every dial is one block (gilded blackstone on a light wall, chiseled quartz on a dark one) in a round frame of
+four dressed stones: the clock a town reads from its square.
+- **Town hall tower** (temperate, wisteria, alpine): a square shaft in the white render (lime, calcite, where the
+  variant walls in stone) between whole corner stones, courses at its stages, a dial on each face under a gallery
+  corbelled out on the belfry's floor (walkable, VIEWPOINTs on it), paired lights, and a dark onion with its lantern:
+  slate in Bohemia, copper on half the mountain towns' (`Crowns.bulbSkin`). No crenellations, no corner spirelets.
+- **Campanile** (mediterranean, mesa): a slender brick (where the town roofs in brick) or rendered shaft between clasping
+  piers, Lombard bands under its courses, a dial on each face under the open belfry, a low tiled pyramid; the mesa's
+  mission tower takes a little lime dome.
+- **Minaret** (desert, steppe: no clock tower; the timekeeper keeps the hours from the minaret): a square base with the
+  keeper's room, a round shaft banded flush in the dressing, a corbelled balcony with a balustrade, an arcaded lantern
+  at the head where the stair comes out (VIEWPOINT: the hours are called from it), a small lime dome and a gilded
+  finial, a sundial in the forecourt. No bell, no dials.
+- **Drum tower** (karst): a podium of dressed stone with an arched gate and a parapet round its deck, a timber pavilion
+  of posts and lattices on it under a skirt with lifted corners, a stepped-in loft under the crowning curved hip, the
+  great drum (a barrel on a stand beside a note block) and a bell inside.
+- **Civic clock tower** (northern, tundra, moorland, maritime, bayou, tropical): a shaft on a plinth (deep blind arches
+  and lancets), a low clock stage corbelled out a block wider, pinnacles at its corners, the bell chamber over it (behind
+  a walkable gallery on 11-wide plots), and a crown: spires, stave caps, cupolas, pyramids, curved hips.
+
+The spiral climbs past the clock room (the works, the keeper's lectern) to the bells or the lantern. VIEWPOINT, LECTERN,
+MEETING_POINT. Params: `manner` (`town_hall`, `campanile`, `minaret`, `drum`, `civic`), `crown` (civic and campanile).
 
 ### Cathedral
 Planned in bays: a west front on the street, nave and aisles, a transept, a choir and a round apse; aisles under lean-to
@@ -140,9 +157,9 @@ then its roofs and spires. Goods per stage at the largest sizes stay under about
 |---|---|
 | `Stone` | a material with the cuts masonry needs; `masonry`, `ashlar`, `dressing` (crisp: main material only), `panel`, `footing` pick the style's best stone; `sheet` (roof stone, or copper over shingle towns), `copper`, `fixed`; a weathered stone-brick fallback for styles without stone |
 | `Tower` | a square tower raised stage by stage: plinth with chamfer, shaft with clasping piers or alternating quoins (corner stones alone on a five-wide core, so its render reads), courses round any outline, Lombard bands, deep blind arches (`recess`), openings (slit, single, bifora, trifora, arch, louvre), floors, cornice and deck, spiral stair, bells |
-| `Crowns` | spire, octagon, broach (with lucarnes and pinnacles), pyramid on brackets, onion (drum, ogee bulb, lantern), dome (drum, lantern), open cupola, crenellated parapet with a flag, stave caps, curved hip with lifted tips; `rows` estimates a crown's height for laying out stages |
+| `Crowns` | spire, octagon, broach (with lucarnes and pinnacles), pyramid on brackets, onion (drum, a waist, a lens-shaped bulb whose every step is a stair, a slender point, a lantern of post, little bulb, gilded ball and rod), `helm` (the bell-cast cap of a small tower), dome (drum, lantern), open cupola, crenellated parapet with a flag, stave caps, curved hip with lifted tips; `bulbSkin` sheets onions and helms in one material laid crisp (slate in Bohemia, copper only on a tier-4 town's odd onion; copper or the roof's shingle in the Alps; a mottled sheet reads as moss or a tree crown); `rows` estimates a crown's height for laying out stages |
 | `Details` | string courses, corbel tables, corbels, round-headed arches with voussoirs and jambs, paired and triple lights, slits, pinnacles, finials and rods, bells, clock dials, stone lanterns, banners, candles, ring courses |
-| `Shapes` | the octagon ladder (`oct`, `ladder`: square, octagons, the square a size smaller... down to the plus and the point) and forms stacked from it (`stack`: stairs where a row draws in, upside-down stairs under a swell): `needle` (a tapering spire held on a concave profile, a shaft of wall posts and a rod), `domeRows`, `onionRows`; spire fields (octagon, broach, pyramid, bell-cast), capped and outside fields, solids of revolution (`turned`), a walkable spiral stair in any stone, roof `support` (no floating apexes or ridges), `reclad` |
+| `Shapes` | the octagon ladder (`oct`, `ladder`: square, octagons, the square a size smaller... down to the plus and the point) and forms stacked from it (`stack`: stairs where a row draws in, upside-down stairs under a swell): `needle` (a tapering spire held on a concave profile, a shaft of wall posts and a rod), `domeRows` (a hemisphere: each row the round octagon nearest the sphere's section, ending in a three-wide cap with a whole block for the finial; about r + 1 rows), `onionRows` (waist, lens bulb, point), `helmRows` (eave kick, belly, shoulder, point); spire fields (octagon, broach, pyramid, bell-cast), capped and outside fields, solids of revolution (`turned`), a walkable spiral stair in any stone, roof `support` (no floating apexes or ridges), `reclad` |
 | `Grounds` | footings, podiums, arched doorways, forecourts (approach, apron, bench, lamp, pots), robust trees (every leaf joined to the trunk) |
 | `Wooden` | timber belfry towers (stone base, pent skirt, framed stages, jettied louvred belfry) |
 | `Eaves` | curved skirts with lifted corners and brackets, hipped tops with a spire of rings |

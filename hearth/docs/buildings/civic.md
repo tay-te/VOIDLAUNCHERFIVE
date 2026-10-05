@@ -171,7 +171,7 @@ it registers the NOTICE_BOARD POI on the cell in front, facing the board.
 | class | what it builds |
 |---|---|
 | `Arches` | arcades: piers, pad stones, round, pointed, braced, bracketed, posted and flat heads |
-| `Towers` | shafts, belfries, bells, caps (spire, pyramid, onion, dome, pagoda, cone, battlements, hip), lathed domes, clocks, bell-cotes, bell walls, lookouts, flagpoles, finials; spires, domes, onions and every lathe course are laid from the octagon ladder of `kit/landmark/Shapes` (clean octagons drawn in a cell at a time, not rasterised circles), so a three- or five-wide dome is round-shouldered and an onion swells past its drum |
+| `Towers` | shafts, belfries, bells, caps (spire, pyramid, onion, dome, pagoda, cone, battlements, hip), lathed domes, clocks, bell-cotes, bell walls, lookouts, flagpoles, finials; spires, domes, onions and every lathe course are laid from the octagon ladder of `kit/landmark/Shapes` (clean octagons drawn in a cell at a time, not rasterised circles; the lathe takes only the round members, never a square course whose corners stand out as lumps), so a dome is a hemisphere. The `ONION` cap is a dark onion with a lantern on a five-wide tower and a helm on a three-wide one or where the height is short (an onion on a turret three wide swells into a blob); its sheet is `Crowns.bulbSkin`'s |
 | `Signs` | wall banners, the settlement's arms, hanging and post signs with translatable lines, the notice board |
 | `Grounds` | gentle-street checks, raised and stilt bases, forecourts, stair flights with footings, cuts into slopes |
 | `Halls` | floors, portals, iwans, double doors, lychgates, string courses, cornices, hanging lanterns, lamps, roof terraces |
@@ -182,7 +182,7 @@ it registers the NOTICE_BOARD POI on the cell in front, facing the board.
 | `Baths` | pools, rock pools, steam grates, mosaics, benches |
 | `Eaves` | pent roofs skirting a raised core, lifted eave tips |
 | `Bohemian` | the Bohemian towers of the timber traditions' churches and halls: five square, render between corner stones, stage courses, slits, clocks, a belfry of paired lights, the corbelled gallery with corner pinnacles round a needle spire; the pointed portal under a little gable |
-| `Adobe` | the dry south's flat roofs (raised corners and crest in the `wall_accent`, a frieze of the `accent` along the wall head, beam ends, spouts), latticed screens, awnings, domes on drums in the accent where it cuts stairs (else lime-washed: white domes over walls of the earth's colour, `domeSheet`, also used by the towers', library's and hammam's domes), palms |
+| `Adobe` | the dry south's flat roofs (raised corners and crest in the `wall_accent`, a frieze of the `accent` along the wall head, beam ends, spouts), latticed screens, awnings, `dome`: one to a building (a second call draws nothing), a round drum of the walls' render with lights and a cornice, the dome springing flush off it (a dome wider than its drum reads as whipped cream), a gilded finial; its sheet the accent where it cuts stairs, else lime plaster, warm off-white (`expanse:limestone`, polished diorite without Expanse; never the pure white of quartz) (`domeSheet`, also used by the towers', library's, hammam's and the minaret's domes), palms |
 | `Fam` | block families recut from a role's material (stairs, slabs, walls of the same stone) |
 
 ## Previews
