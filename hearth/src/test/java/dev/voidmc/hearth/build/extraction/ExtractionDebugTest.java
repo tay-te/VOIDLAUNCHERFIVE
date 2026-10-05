@@ -73,6 +73,33 @@ class ExtractionDebugTest {
 		for (String p : BlueprintChecks.all(bp, probe)) {
 			System.out.println("PROBLEM " + p);
 		}
+		for (var fx : dev.voidmc.hearth.build.kit.light.AutoLighter.lightLogged(ExtractionArchetypesTest.SERVICE.draw(spec, probe))) {
+			try {
+				var fk = fx.getClass().getDeclaredField("kind");
+				var fp = fx.getClass().getDeclaredField("parts");
+				var fw = fx.getClass().getDeclaredField("why");
+				fk.setAccessible(true);
+				fp.setAccessible(true);
+				fw.setAccessible(true);
+				System.out.println("FIXTURE " + fk.get(fx) + " " + fw.get(fx) + " " + fp.get(fx));
+			} catch (ReflectiveOperationException e) {
+				System.out.println("FIXTURE " + fx);
+			}
+		}
+		for (int s = 0; s < bp.stageCount(); s++) {
+			int cuts = 0;
+			int air = 0;
+			for (int i = 0; i < bp.stepCount(s); i++) {
+				var q = bp.pos(s, i);
+				if (bp.state(s, i).isAir()) {
+					air++;
+					if (q.getY() < probe.groundY(q.getX(), q.getZ())) {
+						cuts++;
+					}
+				}
+			}
+			System.out.println("STAGE " + s + " part " + bp.part(s) + " " + bp.stageKind(s) + " steps " + bp.stepCount(s) + " air " + air + " cuts " + cuts);
+		}
 		LocalFrame f = new LocalFrame(spec);
 		// the standing surface: the highest walkable-looking level per column (relative to the floor)
 		StringBuilder sb = new StringBuilder("surface (local x across, z down; relative to floor)\n");

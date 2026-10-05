@@ -43,7 +43,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 class ExtractionArchetypesTest {
 	static final BlueprintServiceImpl SERVICE;
-	static final String[] IDS = {"extract/quarry_pit"};
+	static final String[] IDS = {"extract/quarry_pit", "extract/mine", "extract/shaft", "extract/clay_pit", "extract/sand_pit", "extract/plantation"};
 	private static final String[] TERRAINS = {"flat", "slope", "steep", "hills", "cliff", "river", "coast", "lake"};
 	private static final Direction[] FACINGS = {Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST};
 

@@ -161,7 +161,26 @@ public final class Pithead {
 				}
 			}
 		}
-		this.head = hx;
+		List<Integer> heads = new ArrayList<>();
+		heads.add(hx);
+		for (int x = 0; x < this.w; x++) {
+			if (pit.rimOpen(x) && !heads.contains(x)) {
+				heads.add(x);
+			}
+		}
+		ways(heads);
+	}
+
+	/**
+	 * The way in for a working that is not a pit (a mine's adit, a shaft's house): from the gate along the front of the
+	 * yard and straight back to column {@code hx} at the rim, kept clear; the whole yard trodden. Call first.
+	 */
+	public void way(int hx) {
+		ways(new ArrayList<>(List.of(hx)));
+	}
+
+	private void ways(List<Integer> heads) {
+		this.head = heads.get(0);
 		// in from the gate, along the front of the yard, then straight back to every opening of the rim (the head of the
 		// flight down, where the ground runs on or a stair goes down)
 		int along = Math.min(1, this.rim);
@@ -171,13 +190,6 @@ public final class Pithead {
 		// the lane along the front of the yard, from side to side: everything opens onto it
 		for (int x = 1; x < this.w - 1; x++) {
 			keepClear(x, along);
-		}
-		List<Integer> heads = new ArrayList<>();
-		heads.add(hx);
-		for (int x = 0; x < this.w; x++) {
-			if (pit.rimOpen(x) && !heads.contains(x)) {
-				heads.add(x);
-			}
 		}
 		for (int h : heads) {
 			for (int x = Math.min(this.gate, h); x <= Math.max(this.gate, h); x++) {
@@ -454,6 +466,26 @@ public final class Pithead {
 		if (best != Integer.MAX_VALUE) {
 			Lighting.post(this.d, bestX, bestY, bestZ);
 			take(bestX, bestZ);
+			return;
+		}
+		// the street at the foot of a bank: a lantern set on the bank's top beside the gate
+		for (int k = 1; k <= 3 && best == Integer.MAX_VALUE; k++) {
+			for (int x : new int[]{this.gate - k, this.gate + k}) {
+				int y = standing(x, 0);
+				if (y == Integer.MIN_VALUE || this.clear[x < 0 || x >= this.w ? 0 : x] || !this.d.isEmpty(x, y, 0)) {
+					continue;
+				}
+				int dist = k + 1 + Math.abs(y - Yard.street(this.d, this.gate));
+				if (dist <= 7 && dist < best) {
+					best = dist;
+					bestX = x;
+					bestY = y;
+				}
+			}
+		}
+		if (best != Integer.MAX_VALUE) {
+			Lighting.lamp(this.d, bestX, bestY, 0);
+			take(bestX, 0);
 		}
 	}
 
@@ -585,6 +617,20 @@ public final class Pithead {
 	/** The rig's hook, if one stands. */
 	public Rigs.@Nullable Hook hook() {
 		return this.hook;
+	}
+
+	/** Keeps yard cells clear of everything, the lamp and the sign included (a cutting runs through them). */
+	public void keep(int x0, int z0, int x1, int z1) {
+		for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+			for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+				keepClear(x, z);
+			}
+		}
+	}
+
+	/** Keeps yard cells from the other pieces (a working's own works stand there). */
+	public void reserve(int x0, int z0, int x1, int z1) {
+		takeRect(x0, z0, x1, z1);
 	}
 
 	/** Registers a store at a cell (the stacks, a heap). */

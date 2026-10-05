@@ -733,7 +733,7 @@ public final class Benches {
 		}
 		debris(i, part, rock);
 		// a ladder up a wall of the bench now and then (a quicker way up than the flights)
-		if (i > 0 && this.d.chance(0.55)) {
+		if (i > 0 && this.ladders && this.d.chance(0.55)) {
 			ladder(i, part);
 		}
 		faces(i, part, job);
@@ -776,6 +776,9 @@ public final class Benches {
 			}
 		}
 	}
+
+	/** Whether a ladder goes up a bench's wall now and then (not in a pit dug a spit at a time). */
+	public boolean ladders = true;
 
 	/** Whether benches are strewn with grit and spalls (quarries; a clay or sand pit is cleaner). */
 	public boolean debris = true;

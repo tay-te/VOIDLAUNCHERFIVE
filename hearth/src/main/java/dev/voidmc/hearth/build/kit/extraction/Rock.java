@@ -49,6 +49,17 @@ public record Rock(Block natural, Block rough, Block dressed, Block stairs, Bloc
 		String p = id.substring(id.indexOf(':') + 1).toLowerCase(Locale.ROOT);
 		Block gravel = Blocks.GRAVEL;
 		Block coarse = Blocks.COARSE_DIRT;
+		if (p.equals("clay")) {
+			// the bank's clay under its overburden: the spoil is the topsoil and the stones thrown out of it
+			return new Rock(Blocks.CLAY, Blocks.CLAY, Blocks.BRICKS, Blocks.MUD_BRICK_STAIRS, Blocks.MUD_BRICK_SLAB,
+				new Block[]{Blocks.DIRT, coarse, Blocks.DIRT, gravel, Blocks.ROOTED_DIRT}, "clay");
+		}
+		if (p.equals("sand") || p.equals("red_sand")) {
+			boolean red = p.startsWith("red");
+			return new Rock(red ? Blocks.RED_SAND : Blocks.SAND, red ? Blocks.RED_SAND : Blocks.SAND, red ? Blocks.CUT_RED_SANDSTONE : Blocks.CUT_SANDSTONE,
+				red ? Blocks.RED_SANDSTONE_STAIRS : Blocks.SANDSTONE_STAIRS, red ? Blocks.RED_SANDSTONE_SLAB : Blocks.SANDSTONE_SLAB,
+				new Block[]{Blocks.DIRT, coarse, gravel, Blocks.DIRT, red ? Blocks.RED_SAND : Blocks.SAND}, red ? "red sand" : "sand");
+		}
 		if (p.contains("red_sandstone") || p.contains("terracotta")) {
 			return new Rock(Blocks.RED_SANDSTONE, Blocks.RED_SANDSTONE, Blocks.CUT_RED_SANDSTONE, Blocks.RED_SANDSTONE_STAIRS, Blocks.RED_SANDSTONE_SLAB,
 				new Block[]{Blocks.RED_SAND, Blocks.RED_SAND, coarse, Blocks.RED_SANDSTONE, Blocks.TERRACOTTA}, "red sandstone");
