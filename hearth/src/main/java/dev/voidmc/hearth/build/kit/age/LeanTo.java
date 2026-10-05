@@ -39,7 +39,10 @@ public final class LeanTo {
 	 * to seven at the back end of the side. Returns whether one was built.
 	 */
 	public static boolean add(HouseScan h, Direction out, boolean across) {
-		return add(h, out, across, h.flat);
+		// a flat-roofed house, or a house of a flat-roofing manner, adds under a flat deck
+		// (unless this house itself wears a pitched roof: then its lean-to slopes in the same tiles)
+		boolean flatManner = h.d.habits().roof().forms().getOrDefault(Habits.RoofForm.FLAT, 0.0) > 0.5;
+		return add(h, out, across, h.flat || flatManner && !pitched(h));
 	}
 
 	/**
@@ -276,6 +279,24 @@ public final class LeanTo {
 		JobType job = household(d);
 		Rooms.furnish(d, room, job != JobType.NONE && (ix1 - ix0 + 1) * (iz1 - iz0 + 1) >= 6 ? Rooms.Type.WORKSHOP : Rooms.Type.STORAGE, 0, job);
 		Lighting.room(d, room);
+	}
+
+	/** Whether the house's own roof is pitched: most of its roof over the body is stairs. */
+	static boolean pitched(HouseScan h) {
+		int roof = 0;
+		int stairs = 0;
+		for (var e : h.d.cells().long2ObjectEntrySet()) {
+			int x = Draft.keyX(e.getLongKey());
+			int z = Draft.keyZ(e.getLongKey());
+			if (e.getValue().stage() != StageKind.ROOF || x < h.x0 || x > h.x1 || z < h.z0 || z > h.z1 || e.getValue().state().isAir()) {
+				continue;
+			}
+			roof++;
+			if (e.getValue().state().getBlock() instanceof net.minecraft.world.level.block.StairBlock) {
+				stairs++;
+			}
+		}
+		return roof > 0 && stairs * 10 >= roof * 3;
 	}
 
 	/** The household's trade (the {@code household} param's {@code job}), for what a lean-to is used for. */

@@ -217,6 +217,15 @@ public final class Accretion {
 				case ROOF_ROOM, ANNEX -> flatStyle ? 2.5 : 0;
 			};
 		}
+		// what this manner of house never does is never tried
+		for (int i = pool.size() - 1; i >= 0; i--) {
+			if (w[i] <= 0) {
+				pool.remove(i);
+				for (int j = i; j < w.length - 1; j++) {
+					w[j] = w[j + 1];
+				}
+			}
+		}
 		List<Kind> out = new ArrayList<>();
 		long seed = Noise.hash(d.seed(), 0xACC2);
 		while (!pool.isEmpty()) {

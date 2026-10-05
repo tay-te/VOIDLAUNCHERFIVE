@@ -429,7 +429,8 @@ public final class Trimmings {
 				break;
 			}
 			double u = unit(0x600D, s[0], 0, s[2]);
-			if (u < 0.25) {
+			// (a gap here and there along a long front; where there is little room, every place is used)
+			if (u < 0.25 && spots.size() > 4) {
 				continue;
 			}
 			BlockState base = u < 0.7 ? States.facing(Blocks.BARREL, Direction.UP) : Blocks.HAY_BLOCK.defaultBlockState();

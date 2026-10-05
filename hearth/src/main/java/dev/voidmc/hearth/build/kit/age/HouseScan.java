@@ -135,11 +135,32 @@ public final class HouseScan {
 			}
 		}
 		int mode = 0;
-		for (int v : tops.values()) {
-			mode = Math.max(mode, v);
+		int modeY = Integer.MIN_VALUE;
+		for (var e : tops.int2IntEntrySet()) {
+			if (e.getIntValue() > mode) {
+				mode = e.getIntValue();
+				modeY = e.getIntKey();
+			}
 		}
-		boolean flatHabit = d.habits().roof().forms().getOrDefault(dev.voidmc.hearth.build.style.Habits.RoofForm.FLAT, 0.0) >= 0.3;
-		boolean flat = roofTops[0] != Integer.MAX_VALUE && cols > 0 && mode * 10 >= cols * 7 && (cols >= 8 || flatHabit);
+		// against the walls: a deck lies at or below the head of every wall (its parapet), a pitched roof rises above the
+		// eaves of at least two of them
+		int lowestSide = Integer.MAX_VALUE;
+		for (Side side : Side.of(b[0], b[1], b[2], b[3])) {
+			List<Integer> heads = new ArrayList<>();
+			for (int i = 1; i < side.last(); i++) {
+				for (int y = top; y >= 0; y--) {
+					if (!d.isEmpty(side.x(i), y, side.z(i))) {
+						heads.add(y);
+						break;
+					}
+				}
+			}
+			if (!heads.isEmpty()) {
+				java.util.Collections.sort(heads);
+				lowestSide = Math.min(lowestSide, heads.get(heads.size() / 2));
+			}
+		}
+		boolean flat = cols > 0 && mode * 10 >= cols * 7 && modeY <= lowestSide;
 		List<Integer> floors = new ArrayList<>();
 		int interior = (b[2] - b[0] - 1) * (b[3] - b[1] - 1);
 		for (int y = 0; y <= top; y++) {
