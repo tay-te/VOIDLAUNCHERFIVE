@@ -1,0 +1,32 @@
+{
+	"parent": "minecraft:recipes/root",
+	"criteria": {
+		"has_satchel": {
+			"conditions": {
+				"items": [
+					{
+						"items": "mettle:satchel"
+					}
+				]
+			},
+			"trigger": "minecraft:inventory_changed"
+		},
+		"has_the_recipe": {
+			"conditions": {
+				"recipes": "mettle:satchel_dyed"
+			},
+			"trigger": "minecraft:recipe_unlocked"
+		}
+	},
+	"requirements": [
+		[
+			"has_the_recipe",
+			"has_satchel"
+		]
+	],
+	"rewards": {
+		"recipes": [
+			"mettle:satchel_dyed"
+		]
+	}
+}

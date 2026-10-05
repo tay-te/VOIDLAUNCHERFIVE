@@ -1,0 +1,7 @@
+{
+	"parent": "minecraft:item/generated",
+	"textures": {
+		"layer0": "mettle:item/leather_pack_dye",
+		"layer1": "mettle:item/leather_pack_dye_overlay"
+	}
+}

@@ -2,7 +2,14 @@
 	"required": true,
 	"package": "dev.voidmc.mettle.client.mixin.gear",
 	"compatibilityLevel": "JAVA_25",
-	"client": [],
+	"client": [
+		"GearContainerScreenMixin",
+		"GearCreativeScreenMixin",
+		"GearInventoryScreenMixin",
+		"GearMinecraftMixin",
+		"GearRecipeBookScreenMixin",
+		"GearSlotAccessor"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

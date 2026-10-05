@@ -1,0 +1,15 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"category": "equipment",
+	"pattern": [
+		"LLL",
+		" N "
+	],
+	"key": {
+		"L": "minecraft:leather",
+		"N": "minecraft:iron_nugget"
+	},
+	"result": {
+		"id": "mettle:belt"
+	}
+}

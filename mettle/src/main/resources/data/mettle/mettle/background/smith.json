@@ -32,8 +32,18 @@
 			"count": 6
 		},
 		{
-			"id": "minecraft:bread",
-			"count": 4
+			"id": "mettle:belt",
+			"components": {
+				"mettle:pockets": [
+					{
+						"slot": 0,
+						"item": {
+							"id": "minecraft:bread",
+							"count": 4
+						}
+					}
+				]
+			}
 		}
 	],
 	"kit_summary": {

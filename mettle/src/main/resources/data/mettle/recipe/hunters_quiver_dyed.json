@@ -1,0 +1,9 @@
+{
+	"type": "minecraft:crafting_dye",
+	"group": "dyed_gear",
+	"target": "mettle:hunters_quiver",
+	"dye": "#minecraft:dyes",
+	"result": {
+		"id": "mettle:hunters_quiver"
+	}
+}

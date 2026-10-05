@@ -1,0 +1,16 @@
+{
+	"type": "mettle:gear_upgrade",
+	"category": "equipment",
+	"pattern": [
+		"HSH",
+		" Q "
+	],
+	"key": {
+		"H": "minecraft:rabbit_hide",
+		"S": "minecraft:string",
+		"Q": "mettle:quiver"
+	},
+	"result": {
+		"id": "mettle:hunters_quiver"
+	}
+}
