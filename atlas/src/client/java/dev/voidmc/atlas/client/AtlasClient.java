@@ -430,6 +430,9 @@ public final class AtlasClient implements ClientModInitializer {
 	}
 
 	private void closeSession() {
+		this.exactStarts.clear();
+		this.exactStates.clear();
+		this.exactChunks.clear();
 		if (this.session != null) {
 			this.session.close();
 			this.session = null;
@@ -623,6 +626,15 @@ public final class AtlasClient implements ClientModInitializer {
 	 * and discovered within reach; one underground stays unknown until the player is near (no x-ray). Exact data wins
 	 * over what was worked out from the blocks ({@link dev.voidmc.atlas.core.places.PlaceBook#exact}).
 	 */
+	/** A structure start the integrated server knows of: its bounds, and how far the player has come with it. */
+	private record ExactStart(String dimension, String id, String family, int[] box, boolean underground) {
+	}
+
+	/** The structure starts found so far this session, by dimension and id; and the chunks already read for them. */
+	private final ConcurrentHashMap<String, ExactStart> exactStarts = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, DiscoveryState> exactStates = new ConcurrentHashMap<>();
+	private final java.util.Set<Long> exactChunks = ConcurrentHashMap.newKeySet();
+
 	private void discover(Minecraft mc, LocalPlayer p) {
 		var server = mc.getSingleplayerServer();
 		MapSession session = this.session;
@@ -635,6 +647,8 @@ public final class AtlasClient implements ClientModInitializer {
 		int py = p.getBlockY();
 		int pz = p.getBlockZ();
 		int view = mc.options.getEffectiveRenderDistance();
+		long dimSalt = (long) dimId.hashCode() << 40;
+		// on the server: read only the chunks not read before (a few new ones as the player moves), for new starts
 		server.execute(() -> {
 			ServerLevel level = server.getLevel(dimension);
 			if (level == null) {
@@ -643,74 +657,91 @@ public final class AtlasClient implements ClientModInitializer {
 			var registry = level.registryAccess().lookupOrThrow(Registries.STRUCTURE);
 			int pcx = px >> 4;
 			int pcz = pz >> 4;
-			java.util.Set<Long> seenStarts = new java.util.HashSet<>();
-			long now = System.currentTimeMillis();
 			for (int dz = -view; dz <= view; dz++) {
 				for (int dx = -view; dx <= view; dx++) {
+					long chunkKey = dimSalt ^ ChunkPos.pack(pcx + dx, pcz + dz);
+					if (this.exactChunks.contains(chunkKey)) {
+						continue;
+					}
 					LevelChunk chunk = level.getChunkSource().getChunkNow(pcx + dx, pcz + dz);
 					if (chunk == null) {
 						continue;
 					}
+					this.exactChunks.add(chunkKey);
 					for (var e : chunk.getAllReferences().entrySet()) {
 						Structure structure = e.getKey();
+						var key = registry.getResourceKey(structure);
+						if (key.isEmpty()) {
+							continue;
+						}
+						String id = key.get().identifier().toString();
+						if (StructureNames.hidden(id)) {
+							continue;
+						}
 						for (long startKey : e.getValue()) {
-							if (!seenStarts.add(startKey * 31 + System.identityHashCode(structure))) {
+							String startId = dimId + "|" + id + "|" + startKey;
+							if (this.exactStarts.containsKey(startId)) {
 								continue;
 							}
 							ChunkAccess startChunk = level.getChunk(ChunkPos.getX(startKey), ChunkPos.getZ(startKey), ChunkStatus.STRUCTURE_STARTS, false);
-							if (startChunk == null) {
-								continue;
-							}
-							StructureStart start = startChunk.getStartForStructure(structure);
+							StructureStart start = startChunk == null ? null : startChunk.getStartForStructure(structure);
 							if (start == null || !start.isValid()) {
 								continue;
 							}
-							this.consider(level, registry, structure, start, px, py, pz, view * 16, dimId, session, now);
+							this.exactStarts.put(startId, this.exactStart(level, registry, structure, start, id, dimId));
 						}
 					}
 				}
 			}
 		});
+		// on the client: move the known starts on by distance, telling the place book only when something changed
+		long now = System.currentTimeMillis();
+		int viewBlocks = view * 16;
+		for (var entry : this.exactStarts.entrySet()) {
+			ExactStart s = entry.getValue();
+			if (!s.dimension.equals(dimId)) {
+				continue;
+			}
+			DiscoveryState state = exactState(s, px, py, pz, viewBlocks);
+			DiscoveryState before = this.exactStates.get(entry.getKey());
+			if (before != null && !state.atLeast(before) || before == state) {
+				continue;
+			}
+			this.exactStates.put(entry.getKey(), before == null ? state : DiscoveryState.max(before, state));
+			Place place = session.places.exact(dimId, s.id, s.family, s.box, s.underground, state, now);
+			if (place != null && state == DiscoveryState.DISCOVERED) {
+				LOGGER.info("VOID Atlas: discovered {} ({}) at {}, {}", place.name(), s.id, place.x(), place.z());
+			}
+		}
 	}
 
-	private void consider(ServerLevel level, net.minecraft.core.Registry<Structure> registry, Structure structure, StructureStart start, int px, int py,
-		int pz, int viewBlocks, String dimId, MapSession session, long now) {
-		var key = registry.getResourceKey(structure);
-		if (key.isEmpty()) {
-			return;
-		}
-		String id = key.get().identifier().toString();
-		if (StructureNames.hidden(id)) {
-			return;
-		}
+	/** A start's bounds and family, and whether it lies underground (by its middle: a mineshaft is a thing of the deep). Server thread. */
+	private ExactStart exactStart(ServerLevel level, net.minecraft.core.Registry<Structure> registry, Structure structure, StructureStart start, String id,
+		String dimId) {
 		BoundingBox bb = start.getBoundingBox();
 		int cx = (bb.minX() + bb.maxX()) / 2;
 		int cz = (bb.minZ() + bb.maxZ()) / 2;
 		boolean village = registry.wrapAsHolder(structure).is(StructureTags.VILLAGE);
 		int surface = level.getHeight(Heightmap.Types.WORLD_SURFACE, cx, cz);
-		// underground when its middle lies well under the ground (a mineshaft's bounds may reach a ravine's floor or the
-		// surface, but it is a thing of the deep)
 		boolean underground = !level.dimensionType().hasCeiling() && ((bb.minY() + bb.maxY()) / 2 < surface - 10 || bb.maxY() < surface - 4);
-		double dx = Math.max(Math.max(bb.minX() - px, 0), px - bb.maxX());
-		double dz = Math.max(Math.max(bb.minZ() - pz, 0), pz - bb.maxZ());
-		double dy = Math.max(Math.max(bb.minY() - py, 0), py - bb.maxY());
-		double flat = Math.hypot(dx, dz);
-		DiscoveryState state;
-		if (underground) {
-			double d = Math.sqrt(flat * flat + dy * dy);
-			state = d <= dev.voidmc.atlas.core.places.PlaceBook.UNDERGROUND_REACH ? DiscoveryState.DISCOVERED
-				: d <= dev.voidmc.atlas.core.places.PlaceBook.UNDERGROUND_SIGHT ? DiscoveryState.SIGHTED : DiscoveryState.UNKNOWN;
-		} else {
-			state = flat <= dev.voidmc.atlas.core.places.PlaceBook.SURFACE_REACH ? DiscoveryState.DISCOVERED
-				: flat <= viewBlocks ? DiscoveryState.SIGHTED : DiscoveryState.UNKNOWN;
-		}
 		String family = village ? "minecraft:village" : StructureNames.family(id);
-		int[] box = {bb.minX(), bb.minY(), bb.minZ(), bb.maxX(), bb.maxY(), bb.maxZ()};
-		var before = session.places.get(id + "@" + cx + "," + cz + (dimId.equals("minecraft:overworld") ? "" : "@" + dimId));
-		var place = session.places.exact(dimId, id, family, box, underground, state, now);
-		if (place != null && (before == null || before.state() != place.state()) && place.isDiscovered()) {
-			LOGGER.info("VOID Atlas: discovered {} ({}) at {}, {}", place.name(), id, place.x(), place.z());
+		return new ExactStart(dimId, id, family, new int[]{bb.minX(), bb.minY(), bb.minZ(), bb.maxX(), bb.maxY(), bb.maxZ()}, underground);
+	}
+
+	/** How far the player has come with a structure: as for every place (sighted in view or near underground, discovered within reach). */
+	private static DiscoveryState exactState(ExactStart s, int px, int py, int pz, int viewBlocks) {
+		int[] b = s.box;
+		double dx = Math.max(Math.max(b[0] - px, 0), px - b[3]);
+		double dz = Math.max(Math.max(b[2] - pz, 0), pz - b[5]);
+		double dy = Math.max(Math.max(b[1] - py, 0), py - b[4]);
+		double flat = Math.hypot(dx, dz);
+		if (s.underground) {
+			double d = Math.sqrt(flat * flat + dy * dy);
+			return d <= dev.voidmc.atlas.core.places.PlaceBook.UNDERGROUND_REACH ? DiscoveryState.DISCOVERED
+				: d <= dev.voidmc.atlas.core.places.PlaceBook.UNDERGROUND_SIGHT ? DiscoveryState.SIGHTED : DiscoveryState.UNKNOWN;
 		}
+		return flat <= dev.voidmc.atlas.core.places.PlaceBook.SURFACE_REACH ? DiscoveryState.DISCOVERED
+			: flat <= viewBlocks ? DiscoveryState.SIGHTED : DiscoveryState.UNKNOWN;
 	}
 
 	// --- helpers for the screens -------------------------------------------------------------------------------------
