@@ -116,8 +116,8 @@ final class GearJourney {
 		ItemStack n = new ItemStack(Items.IRON_NUGGET);
 		ItemStack e = ItemStack.EMPTY;
 		check(server, craft(List.of(s, e, s, l, e, l, l, l, l), 3), GearItems.SATCHEL, "satchel");
-		check(server, craft(List.of(l, l, l, e, n, e), 2), GearItems.BELT, "belt");
-		check(server, craft(List.of(l, s, l, l, e, l), 2), GearItems.QUIVER, "quiver");
+		check(server, craft(List.of(l, l, l, e, n, e), 3), GearItems.BELT, "belt");
+		check(server, craft(List.of(l, s, l, l, e, l), 3), GearItems.QUIVER, "quiver");
 
 		// An upgrade keeps the pockets and the dye.
 		on(server, p -> {
@@ -441,6 +441,7 @@ final class GearJourney {
 		if (placed != null) {
 			throw new AssertionError(placed);
 		}
+		context.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));
 		context.takeScreenshot("mettle_gear_creative_inventory");
 		context.setScreen(() -> null);
 		server.runCommand("gamemode survival @a");
@@ -469,6 +470,7 @@ final class GearJourney {
 			return null;
 		});
 		server.runCommand("execute as @p at @s run tp @s ~ ~ ~ 30 12");
+		context.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));
 		context.waitTicks(3);
 		context.setScreen(() -> new InventoryScreen(Minecraft.getInstance().player));
 		context.waitTicks(3);
