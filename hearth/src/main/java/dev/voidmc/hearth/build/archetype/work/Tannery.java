@@ -3,6 +3,7 @@ package dev.voidmc.hearth.build.archetype.work;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
+import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.api.StageKind;
@@ -20,6 +21,7 @@ import dev.voidmc.hearth.build.kit.craft.Relief;
 import dev.voidmc.hearth.build.kit.craft.Vats;
 import dev.voidmc.hearth.build.kit.homestead.Bohemia;
 import dev.voidmc.hearth.build.kit.light.Lighting;
+import dev.voidmc.hearth.build.kit.townhome.Proportions;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Props;
@@ -76,14 +78,18 @@ public final class Tannery implements Archetype {
 		boolean flat = form == RoofForm.FLAT;
 		boolean south = Craft.southern(d);
 
-		// the tannery across the back of the plot, the yard before it
-		int bd = Math.clamp(dp - 6, 5, 7);
+		// the tannery across the back of the plot, the yard before it; in the hot wet lands a deeper shed under a broad
+		// roof, its loft only where it leaves the shed no taller than half again its narrow side (art review 22)
+		Culture c = d.style().culture();
+		boolean wet = c == Culture.TROPICAL || c == Culture.BAYOU;
+		int bd = wet ? Math.clamp(dp - 4, 6, 9) : Math.clamp(dp - 6, 5, 7);
 		int hz1 = dp - 1;
 		int hz0 = dp - bd;
 		int ex = Yard.entrance(d);
 		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
 		int sh = Math.max(4, h.walls().storeyHeight());
-		int[] heights = Hall.budget(d, 0, hz0, w - 1, hz1, 0, new int[]{sh, 4}, false, form, 1, Direction.Axis.X);
+		int[] want = wet && 2 * sh + Proportions.rise(d, bd) > Proportions.tallest(Math.min(w, bd)) ? new int[]{sh + 1} : new int[]{sh, 4};
+		int[] heights = Hall.budget(d, 0, hz0, w - 1, hz1, 0, want, false, form, 1, Direction.Axis.X);
 		boolean loft = heights.length >= 2;
 		Hall hall = Hall.of(d, 0, hz0, w - 1, hz1, 0, heights, false, false);
 		if (loft && !flat && d.chance(0.7)) {
