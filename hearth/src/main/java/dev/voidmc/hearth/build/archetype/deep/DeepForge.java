@@ -79,7 +79,9 @@ public final class DeepForge implements Archetype {
 		d.body(0, zf, w - 1, zb);
 		d.eave(wallTop + 1);
 
-		Groundwork.level(d, 0, 0, w - 1, zf - 1, 0, true);
+		// the yard and the open front's row levelled together: a cut into rising ground is retained inside the walls (where
+		// the footings dig it out), not across the open front
+		Groundwork.level(d, 0, 0, w - 1, zf, 0, true);
 		Groundwork.footings(d, 0, zf, w - 1, zb, -1);
 		Mat rough = d.mat(Role.FOUNDATION);
 		Mat wall = d.mat(Role.WALL);

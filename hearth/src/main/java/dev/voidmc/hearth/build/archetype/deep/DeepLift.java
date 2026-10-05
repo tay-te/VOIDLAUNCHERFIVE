@@ -475,10 +475,20 @@ public final class DeepLift implements Archetype {
 		int ez = z + Dirs.dz(out);
 		d.entrance(ex, y, ez);
 		d.poi(PoiType.DOOR, ex, y, ez, out.getOpposite());
-		if (Rock.inPlot(d, ex, ez)) {
+		// the way out to the square cut level through any rise of the floor, paved, out to the plot's edge
+		for (int k = 1; Rock.inPlot(d, x + Dirs.dx(out) * k, z + Dirs.dz(out) * k); k++) {
+			int wx = x + Dirs.dx(out) * k;
+			int wz = z + Dirs.dz(out) * k;
 			try (var s = d.stage(StageKind.EXTERIOR)) {
-				d.set(ex, y - 1, ez, d.mat(Role.PAVING).full());
+				d.set(wx, y - 1, wz, d.mat(Role.PAVING).full());
 			}
+			for (int hh = 0; hh <= 2; hh++) {
+				if (d.isAbsent(wx, y + hh, wz)) {
+					d.air(wx, y + hh, wz);
+				}
+			}
+		}
+		if (Rock.inPlot(d, ex, ez)) {
 			Direction along = Dirs.right(out.getOpposite());
 			int lx = ex + Dirs.dx(along) * 2;
 			int lz = ez + Dirs.dz(along) * 2;
@@ -525,6 +535,19 @@ public final class DeepLift implements Archetype {
 						continue;
 					}
 					d.set(x, h - 1, z, d.mat(Role.PAVING).full());
+				}
+			}
+		}
+		// the yard cut level into any rise of the ground round the head
+		for (int x = 0; x < p.w; x++) {
+			for (int z = 0; z < p.dp; z++) {
+				if (x >= p.sx0 && x <= p.sx1 && z >= p.sz0 && z <= p.sz1) {
+					continue;
+				}
+				for (int y = h; y <= h + 3; y++) {
+					if (d.isAbsent(x, y, z) && d.site().ground(x, z) >= y) {
+						d.air(x, y, z);
+					}
 				}
 			}
 		}

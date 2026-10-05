@@ -341,7 +341,9 @@ public final class DeepDwelling implements Archetype {
 				Groundwork.footings(d, 0, Math.max(p.zf, onDeck + 1), p.w - 1, p.zb, -1);
 			}
 		} else {
-			Groundwork.level(d, 0, 0, p.w - 1, p.zf - 1, 0, true);
+			// the forecourt and the front wall's row: a dyke against standing water then runs under the front wall, not
+			// across the door
+			Groundwork.level(d, 0, 0, p.w - 1, p.zf, 0, true);
 			Groundwork.footings(d, 0, p.zf, p.w - 1, p.zb, -1);
 		}
 		Mat paving = d.mat(Role.PAVING);
@@ -699,13 +701,15 @@ public final class DeepDwelling implements Archetype {
 					d.set(x, i - 1, 0, stone.stairsOrSlab(dir.getOpposite(), Half.TOP));
 				}
 			}
-			// a pier under the flight's middle where it stands high, the soffit resting on it
+			// a pier under the flight's middle where it stands high, the soffit resting on it — its foot an arch of steps
+			// over the front row, which is the way along the front between the arcade's piers
 			int mid = p.xs + p.sx * (p.rise / 2 + 1);
 			int midH = p.stepAt(mid);
-			if (midH >= 5 && mid != p.dc) {
-				for (int y = 0; y < midH - 1; y++) {
+			if (midH >= 6 && mid != p.dc) {
+				for (int y = 3; y < midH - 1; y++) {
 					d.set(mid, y, 0, stone.full());
 				}
+				d.set(mid, 2, 0, stone.stairsOrSlab(dir.getOpposite(), Half.TOP));
 			}
 		}
 		int zp = p.zf - 1;
@@ -921,7 +925,8 @@ public final class DeepDwelling implements Archetype {
 				for (Direction dir : Dirs.HORIZONTAL) {
 					int wx = x + Dirs.dx(dir);
 					int wz = z + Dirs.dz(dir);
-					if (r.inside(wx, wz) || !d.isSolid(wx, r.y + 1, wz) || !d.isEmpty(x, r.y + 1, z) || !d.isEmpty(x, r.y, z)) {
+					// a cell the room can spare: not a door's inside cell nor a stair's foot, the room still connected
+					if (r.inside(wx, wz) || !d.isSolid(wx, r.y + 1, wz) || !d.isEmpty(x, r.y + 1, z) || !d.isEmpty(x, r.y, z) || !r.claim(x, z)) {
 						continue;
 					}
 					try (var s = d.stage(StageKind.INTERIOR)) {

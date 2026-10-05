@@ -36,6 +36,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
 
@@ -100,6 +101,23 @@ public final class DeepMarket implements Archetype {
 		List<int[]> stalls = new ArrayList<>();
 		wingX(d, 0, wd - 1, 0, cz1, Dirs.RIGHT, arch, stalls);
 		wingX(d, w - 1, w - wd, 0, cz1, Dirs.LEFT, arch, stalls);
+		// the merchants' doors: through the first pier of each side wing from the court's mouth into the walk behind the
+		// counters, a lantern over each on a bracket
+		Block door = d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR);
+		for (int side = 0; side < 2; side++) {
+			int line = side == 0 ? wd - 1 : w - wd;
+			Direction toCourt = side == 0 ? Dirs.RIGHT : Dirs.LEFT;
+			int walk = line - Dirs.dx(toCourt);
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int y = 0; y <= 1; y++) {
+					d.air(line, y, 0);
+					d.air(walk, y, 0);
+				}
+			}
+			d.inStage(StageKind.OPENINGS, () -> d.door(line, 0, 0, door, toCourt, DoorHingeSide.LEFT));
+			d.poi(PoiType.DOOR, line + Dirs.dx(toCourt), 0, 0, toCourt.getOpposite());
+			Lighting.doorLamp(d, line + Dirs.dx(toCourt), 2, 0, toCourt.getOpposite());
+		}
 		wingZ(d, 0, w - 1, cz1 + 1, dp - 1, Dirs.FRONT, arch, stalls);
 		roofs(d, w, dp, wd, eave, h);
 		pavilions(d, w, dp, wd, eave, h, g);
@@ -113,12 +131,7 @@ public final class DeepMarket implements Archetype {
 		ring(d, w, dp, tx, tz);
 		lanternTree(d, tx, tz, Math.min(h - 2, eave + 3), cx1 - cx0 >= 6 && cz1 >= 7, g);
 		festoons(d, cx0, cx1, cz1, eave, tx, tz);
-		// the way in: a lamp post either side of the court's mouth, a notice board on the front pier
-		for (int x : new int[]{cx0, cx1}) {
-			if (d.isAbsent(x, 0, 0)) {
-				Rock.lampPost(d, x, 0, 0, true, g);
-			}
-		}
+		// the way in
 		d.entrance(w / 2, 0, -1);
 		d.poi(PoiType.MEETING_POINT, tx, 0, Math.max(0, tz - 2), Dirs.BACK);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, h));
@@ -385,6 +398,8 @@ public final class DeepMarket implements Archetype {
 		int czs = cells[1][1] + dz;
 		d.poi(PoiType.COUNTER, mx, 0, mz, toCourt);
 		d.poi(PoiType.MARKET_STALL, cxs, 0, czs, back);
+		// the counter's barrel holds the stall's stock: the merchant reaches it from behind
+		d.poi(PoiType.STORAGE, mx, 0, mz, toCourt);
 		// stock against the outer wall behind the merchant: the job site's barrel, a chest
 		int ox = st[4];
 		int[] stock = alongZ ? new int[]{ox + dx, cells[1][1]} : new int[]{cells[1][0], ox + dz};

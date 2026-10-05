@@ -301,7 +301,22 @@ public final class DeepHall implements Archetype {
 				double rad = Math.min((p.xb - p.xa) / 2.0 - 0.5, 4.5);
 				int rise = Math.max(2, Math.min(p.h - 2 - eave, (int) Math.round(rad)));
 				Roofs.Field dome = Roofs.dome(p.c, cz, rad, rise / (rad + 0.5));
-				Roofs.raster(d, dome, eave + 1, p.xa + 1, cz - 5, p.xb - 1, cz + 5, sheet, trim, Habits.Ridge.SLAB);
+				Roofs.Roof dr = Roofs.raster(d, dome, eave + 1, p.xa + 1, cz - 5, p.xb - 1, cz + 5, sheet, trim, Habits.Ridge.SLAB);
+				// the drum the dome stands on: its rim walled down to the deck
+				Mat dress = Rock.dressing(d);
+				try (var s = d.stage(StageKind.ROOF)) {
+					for (int z = dr.z0; z <= dr.z1; z++) {
+						for (int x = dr.x0; x <= dr.x1; x++) {
+							if (!dr.covers(x, z)) {
+								continue;
+							}
+							boolean rim = !dr.covers(x + 1, z) || !dr.covers(x - 1, z) || !dr.covers(x, z + 1) || !dr.covers(x, z - 1);
+							for (int y = eave + 1; rim && y < dr.bottomY(x, z); y++) {
+								d.set(x, y, z, dress.full());
+							}
+						}
+					}
+				}
 			}
 		} else {
 			Roofs.Profile prof = p.roof.equals("flared") ? Roofs.Profile.curved(p.pitch) : Roofs.Profile.straight(p.pitch);

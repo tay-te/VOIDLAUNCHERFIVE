@@ -123,6 +123,11 @@ public final class GlowGarden implements Archetype {
 		}
 		if (shed) {
 			shed(d, shedX0, shedZ0, inX1 + 1, inZ1 + 1, g);
+		} else {
+			// no room for a shed: the gardener's composter and his chest stand at the head of the main walk
+			Furniture.workstation(d, JobType.FARMER, cx, 0, dp - 2, Dirs.FRONT);
+			Furniture.chest(d, cx + 2, 0, dp - 2, Dirs.LEFT, List.of(new Object[]{"minecraft:glow_berries", 16},
+				new Object[]{"minecraft:brown_mushroom", 12}, new Object[]{"minecraft:bone_meal", 8}));
 		}
 		// the pergola down the main walk, glow berries hanging from it
 		pergola(d, cx, 1, dp - 2, cz, Math.min(3, h - 3), g);
@@ -297,25 +302,44 @@ public final class GlowGarden implements Archetype {
 		}
 		Mat sheet = d.mat(Role.SHEET).has(Form.STAIRS) ? d.mat(Role.SHEET) : d.mat(Role.ROOF);
 		Roofs.Field f = Roofs.shed(x0 - 1, z0, x1, z1, Dirs.RIGHT, Roofs.Profile.straight(0.5));
-		Roofs.raster(d, f, 3, x0, z0, x1, z1, sheet, d.mat(Role.ROOF_TRIM), Habits.Ridge.SLAB);
+		Roofs.Roof roof = Roofs.raster(d, f, 3, x0, z0, x1, z1, sheet, d.mat(Role.ROOF_TRIM), Habits.Ridge.SLAB);
 		if (!DeepManner.thatches(d)) {
 			DeepMarket.homeCovering(d, x0, 3, z0, x1, 6, z1, sheet);
 		}
-		// the door on the walk side (toward the garden's middle), a window
+		// the walls carried up under the roof's slope (its gable ends and high side)
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int x = x0; x <= x1; x++) {
+				for (int z = z0; z <= z1; z++) {
+					boolean edge = x == x0 || x == x1 || z == z0 || z == z1;
+					for (int y = 3; edge && roof.covers(x, z) && y < roof.bottomY(x, z); y++) {
+						d.set(x, y, z, home);
+					}
+				}
+			}
+		}
+		// the door toward the cross walk (the pergola's posts stand along the main walk), a window to the pergola
 		Block door = d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR);
+		int dx = (x0 + x1) / 2;
 		int dz = (z0 + z1) / 2;
-		d.air(x0, 0, dz);
-		d.air(x0, 1, dz);
-		d.inStage(StageKind.OPENINGS, () -> d.door(x0, 0, dz, door, Dirs.LEFT, DoorHingeSide.LEFT));
-		d.poi(PoiType.DOOR, x0 - 1, 0, dz, Dirs.RIGHT);
+		d.air(dx, 0, z0);
+		d.air(dx, 1, z0);
+		d.inStage(StageKind.OPENINGS, () -> d.door(dx, 0, z0, door, Dirs.FRONT, DoorHingeSide.LEFT));
+		d.poi(PoiType.DOOR, dx, 0, z0 - 1, Dirs.BACK);
 		try (var s = d.stage(StageKind.OPENINGS)) {
-			d.set((x0 + x1) / 2, 1, z0, d.mat(Role.GLASS).pane());
+			d.set(x0, 1, dz, d.mat(Role.GLASS).pane());
 		}
 		// inside: the composter (the gardener's job site), a chest of seed and spawn, barrels, a lantern
 		Furniture.workstation(d, JobType.FARMER, x1 - 1, 0, z1 - 1, Dirs.LEFT);
 		Furniture.chest(d, x1 - 1, 0, z0 + 1, Dirs.LEFT, List.of(new Object[]{"minecraft:glow_berries", 16}, new Object[]{"minecraft:brown_mushroom", 12},
 			new Object[]{"minecraft:bone_meal", 8}));
-		Lighting.chandelier(d, x0 + 1, z0 + 1, 3, 2);
-		Lighting.doorLamp(d, x0 - 1, 2, dz + 1, Dirs.RIGHT);
+		// a lantern hung from the roof where it is low enough, else stood on the chest
+		if (d.isSolid(x0 + 1, 3, z0 + 1)) {
+			Lighting.chandelier(d, x0 + 1, z0 + 1, 3, 2);
+		} else if (d.isAbsent(x1 - 1, 1, z0 + 1)) {
+			Lighting.lamp(d, x1 - 1, 1, z0 + 1);
+		}
+		if (d.isAbsent(dx + 1, 2, z0 - 1)) {
+			Lighting.doorLamp(d, dx + 1, 2, z0 - 1, Dirs.BACK);
+		}
 	}
 }
