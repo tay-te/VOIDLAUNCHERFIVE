@@ -1,0 +1,255 @@
+plugins {
+	// 26.x ships unobfuscated, so there is no mappings line: the code is written against Mojang's own names, and
+	// Loom has nothing to remap.
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+	archivesName = 'void-atlas'
+}
+
+repositories {
+	mavenCentral()
+}
+
+// -Patlas.withExpanse=true: the dev runs and game tests also load ../expanse (see settings.gradle).
+def withExpanse = (findProperty('atlas.withExpanse') ?: 'false').toString().toBoolean()
+
+loom {
+	// The pure map logic (palette, tiles, stores, the marker registry) lives in main and is unit tested without the
+	// game; everything that touches the client (screens, HUD, textures, chunk reading) lives in client.
+	splitEnvironmentSourceSets()
+
+	mods {
+		"atlas" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	if (withExpanse) {
+		// Only for the dev runs: Atlas reads whatever world it is in, it never calls Expanse.
+		localRuntime 'dev.voidmc:void-expanse'
+	}
+
+	testImplementation platform('org.junit:junit-bom:5.13.4')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+// The Mod Menu API stand-ins are only for compiling ModMenuCompat; the real ones come with Mod Menu, if installed.
+tasks.withType(Jar).configureEach {
+	exclude 'com/terraformersmc/**'
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+test {
+	useJUnitPlatform()
+	// golden images that fail are written here, next to what they should have been
+	systemProperty 'atlas.test.out', layout.buildDirectory.dir('test-images').get().asFile.absolutePath
+	// ./gradlew test -Patlas.golden.update=true rewrites the golden images after a deliberate change of look
+	systemProperty 'atlas.golden.update', (findProperty('atlas.golden.update') ?: 'false').toString()
+	systemProperty 'atlas.golden.dir', file('src/test/resources/golden').absolutePath
+	outputs.upToDateWhen { false }
+	testLogging {
+		events 'failed'
+		exceptionFormat 'full'
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Client game tests: a screenshot tour and a performance gate, each in its own run so they can be started alone.
+//   ./gradlew atlasTour                      screenshots for review          -> build/tour/
+//   ./gradlew atlasPerf -Pbackend=opengl     timings, fails over budget      -> build/perf/opengl.json, docs/PERF.md
+//   ./gradlew atlasPerf -Pbackend=vulkan
+// Add -Patlas.withExpanse=true to fly over an Expanse Earth world instead of a vanilla one.
+// ---------------------------------------------------------------------------------------------------------------
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "atlas-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+		clearRunDirectory = false
+	}
+}
+
+def backend = (findProperty('backend') ?: 'opengl').toString()
+def testWidth = (findProperty('atlas.test.width') ?: '1920').toString()
+def testHeight = (findProperty('atlas.test.height') ?: '1080').toString()
+def passThrough = ['atlas.test.seed', 'atlas.test.settle', 'atlas.test.only', 'atlas.test.distance', 'atlas.test.frames',
+				   'atlas.test.watchdogMinutes', 'atlas.logStats']
+
+loom {
+	runs {
+		configureEach {
+			passThrough.each { key ->
+				if (project.hasProperty(key)) {
+					property key, project.property(key).toString()
+				}
+			}
+		}
+		atlasTour {
+			inherit clientGameTest
+			configName = 'Atlas screenshot tour'
+			runDir = 'build/run/atlasTour'
+			property 'atlas.test', 'tour'
+			property 'atlas.dumpLooks', 'true'
+			property 'atlas.test.out', file('build/tour').absolutePath
+			property 'atlas.test.withExpanse', withExpanse.toString()
+			programArgs '--width', testWidth, '--height', testHeight, '--graphicsBackend', backend
+			vmArgs '-Xmx3G'
+		}
+		atlasPerf {
+			inherit clientGameTest
+			configName = 'Atlas performance gate'
+			runDir = 'build/run/atlasPerf'
+			property 'atlas.test', 'perf'
+			property 'atlas.test.backend', backend
+			property 'atlas.test.out', file("build/perf/${backend}.json").absolutePath
+			property 'atlas.test.withExpanse', withExpanse.toString()
+			programArgs '--width', testWidth, '--height', testHeight, '--graphicsBackend', backend
+			vmArgs '-Xmx3G'
+		}
+	}
+}
+
+tasks.register('atlasTour') {
+	group = 'atlas'
+	description = 'Flies over a world, lets Atlas build its tiles and photographs the map, minimap and cards into build/tour'
+	dependsOn 'runAtlasTour'
+	doLast {
+		def shots = file('build/tour').listFiles()?.findAll { it.name.endsWith('.png') } ?: []
+		if (shots.isEmpty()) {
+			throw new GradleException('The tour wrote no screenshots to build/tour')
+		}
+		println "Atlas tour: ${shots.size()} screenshots in ${file('build/tour')}"
+	}
+}
+
+// The budgets the performance gate holds Atlas to (see docs/PERF.md).
+def budgets = [
+	minimapAvgMs     : 0.30,  // minimap extract cost, average per frame while flying
+	mapAvgFrameMs    : 4.0,   // whole frame with the map open, panning and zooming (>= 250 fps)
+	mapP99FrameMs    : 8.0,
+	ingestMaxFrameMs : 1.0,   // client-thread time spent on chunk ingest in any one frame
+	hitchMs          : 33.0   // no frame longer than this while panning, zooming or flying
+]
+
+tasks.register('atlasPerf') {
+	group = 'atlas'
+	description = 'Runs the scripted pan/zoom and minimap flight, writes build/perf/<backend>.json and docs/PERF.md, fails over budget'
+	dependsOn 'runAtlasPerf'
+	doLast {
+		def json = file("build/perf/${backend}.json")
+		if (!json.isFile()) {
+			throw new GradleException("The perf run wrote no results to ${json}")
+		}
+		def r = new groovy.json.JsonSlurper().parse(json)
+		def failures = []
+		if (r.minimap.avgMs > budgets.minimapAvgMs) failures << "minimap ${r.minimap.avgMs} ms/frame > ${budgets.minimapAvgMs}"
+		if (r.map.avgFrameMs > budgets.mapAvgFrameMs) failures << "map screen avg frame ${r.map.avgFrameMs} ms > ${budgets.mapAvgFrameMs}"
+		if (r.map.p99FrameMs > budgets.mapP99FrameMs) failures << "map screen p99 frame ${r.map.p99FrameMs} ms > ${budgets.mapP99FrameMs}"
+		if (r.ingest.maxFrameMs > budgets.ingestMaxFrameMs) failures << "chunk ingest ${r.ingest.maxFrameMs} ms in one frame > ${budgets.ingestMaxFrameMs}"
+		if (r.map.maxFrameMs > budgets.hitchMs) failures << "hitch while panning/zooming: ${r.map.maxFrameMs} ms > ${budgets.hitchMs}"
+		if (r.flight.maxFrameMs > budgets.hitchMs) failures << "hitch while flying: ${r.flight.maxFrameMs} ms > ${budgets.hitchMs}"
+		updatePerfDoc(file('docs/PERF.md'), file('build/perf'), budgets)
+		if (!failures.isEmpty()) {
+			throw new GradleException("Atlas is over budget on ${backend}:\n  " + failures.join('\n  '))
+		}
+		println "Atlas perf (${backend}): within budget. map ${r.map.avgFps} fps avg (${r.map.avgFrameMs} ms, p99 ${r.map.p99FrameMs} ms), " +
+			"minimap ${r.minimap.avgMs} ms, ingest max ${r.ingest.maxFrameMs} ms/frame"
+	}
+}
+
+/** Rewrites the generated table in docs/PERF.md (between the perf:begin and perf:end markers) from every result file. */
+static void updatePerfDoc(File doc, File dir, Map budgets) {
+	def results = (dir.listFiles() ?: []).findAll { it.name.endsWith('.json') }.sort { it.name }.collect { new groovy.json.JsonSlurper().parse(it) }
+	if (results.isEmpty() || !doc.isFile()) {
+		return
+	}
+	def rows = []
+	rows << '| | ' + results.collect { "${it.backend}" }.join(' | ') + ' | budget |'
+	rows << '|---|' + results.collect { '---' }.join('|') + '|---|'
+	def row = { String label, Closure value, String budget -> rows << "| ${label} | " + results.collect { value(it) }.join(' | ') + " | ${budget} |" }
+	row('Map screen, panning/zooming: avg frame', { "${it.map.avgFrameMs} ms (${it.map.avgFps} fps)" }, "≤ ${budgets.mapAvgFrameMs} ms")
+	row('Map screen: p99 / worst frame', { "${it.map.p99FrameMs} / ${it.map.maxFrameMs} ms" }, "≤ ${budgets.mapP99FrameMs} / ${budgets.hitchMs} ms")
+	row('Map screen: Atlas CPU per frame', { "${it.map.atlasAvgMs} ms" }, '—')
+	row('Map screen: tiles drawn / uploaded', { "${it.map.tilesDrawnAvg} avg / ${it.map.uploads} uploads (${it.map.uploadMb} MB)" }, '—')
+	row('Flying, minimap on: avg / worst frame', { "${it.flight.avgFrameMs} ms (${it.flight.avgFps} fps) / ${it.flight.maxFrameMs} ms" }, "worst ≤ ${budgets.hitchMs} ms")
+	row('Minimap cost per frame (avg / max)', { "${it.minimap.avgMs} / ${it.minimap.maxMs} ms" }, "avg ≤ ${budgets.minimapAvgMs} ms")
+	row('Chunk ingest, client thread: max per frame', { "${it.ingest.maxFrameMs} ms" }, "≤ ${budgets.ingestMaxFrameMs} ms")
+	row('Chunk scan (worker): per chunk', { "${it.ingest.scanMsPerChunk} ms (${it.ingest.chunks} chunks)" }, '—')
+	row('Tile uploads while flying', { "${it.flight.uploads} (${it.flight.uploadMb} MB)" }, '—')
+	row('Machine', { "${it.gpu}" }, '')
+	def text = doc.getText('UTF-8')
+	def begin = '<!-- perf:begin -->'
+	def end = '<!-- perf:end -->'
+	int a = text.indexOf(begin)
+	int b = text.indexOf(end)
+	if (a < 0 || b < a) {
+		return
+	}
+	def stamp = "_Generated by `./gradlew atlasPerf` on ${new Date().format('yyyy-MM-dd HH:mm')}._"
+	doc.setText(text.substring(0, a + begin.length()) + '\n' + stamp + '\n\n' + rows.join('\n') + '\n' + text.substring(b), 'UTF-8')
+}
+
+// Draws a real map offline from a world's Atlas folder with today's palette (block colours from the looks.tsv the
+// tour leaves there), for tuning the look without starting the game:
+//   ./gradlew atlasPreview -Pworld=build/run/atlasTour/atlas/sp/<save> -Pcx=0 -Pcz=0 -Pw=1024 -Ph=640 -Pscale=2
+tasks.register('atlasPreview', JavaExec) {
+	group = 'atlas'
+	description = 'Draws a map from a world folder offline into build/preview.png'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'dev.voidmc.atlas.core.PreviewTool'
+	jvmArgs '-Xmx3g', '-Djava.awt.headless=true'
+	args = [
+		(findProperty('world') ?: 'build/run/atlasTour/atlas/sp/world').toString(),
+		(findProperty('dim') ?: 'minecraft/overworld').toString(),
+		(findProperty('layer') ?: 'surface').toString(),
+		(findProperty('cx') ?: '0').toString(),
+		(findProperty('cz') ?: '0').toString(),
+		(findProperty('w') ?: '1024').toString(),
+		(findProperty('h') ?: '640').toString(),
+		(findProperty('scale') ?: '2').toString(),
+		(findProperty('out') ?: 'build/preview.png').toString()
+	]
+}
+
+// A made-up landscape drawn with the palette, to judge the look against the design without the game:
+//   ./gradlew atlasSynthetic   ->   build/test-images/synthetic.png
+tasks.register('atlasSynthetic', JavaExec) {
+	group = 'atlas'
+	description = 'Draws a made-up landscape with the palette into build/test-images/synthetic.png'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'dev.voidmc.atlas.core.SyntheticPreview'
+	jvmArgs '-Djava.awt.headless=true'
+	systemProperty 'atlas.test.out', file('build/test-images').absolutePath
+	args = [(findProperty('scale') ?: '1').toString()]
+}

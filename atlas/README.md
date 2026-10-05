@@ -1,0 +1,136 @@
+# VOID Atlas
+
+A beautiful world map and minimap for Minecraft 26.3 (Fabric, client side). Atlas maps what you have seen, in a
+muted, hand-toned palette made to sit on VOID's dark UI: deep teal-navy water stepped by depth with a lighter
+shoreline, soft greens, a forest canopy with texture, warm muted sand and red dunes, grey stepped mountains with snow
+caps, all lit from the north-west by a flat-stepped hillshade that reads as crafted pixel art. Unexplored land fades
+out through a two-pixel dither, never a gradient.
+
+It works on any server and in singleplayer, alone or with the rest of VOID: the VOID Hub embeds its map page, and
+other mods (Hearth's settlements) add their markers through a small API.
+
+![The map](docs/tour/map_zoom2.png)
+
+## Features
+
+- **The map** (M): the design's map window (Figma `Hub · Map`): Surface · Underground · Nether segments, search,
+  a rounded map with the position and biome readout, north mark, layer chips (Terrain · Structures · Waypoints ·
+  Players, plus any a mod adds), zoom ± with the scale, and the list of waypoints, settlements and discoveries.
+  Drag to pan, scroll to zoom round the cursor (smooth, and pixel-crisp when it settles on whole pixels per block),
+  arrows pan, space recentres. Double-click (or B) adds a waypoint; right-click for *Add waypoint here*,
+  *Teleport here* (creative/spectator with operator rights or cheats) and *Centre here*. Click a marker or a list row
+  for its detail card (Figma `Hub · Map · settlement selected`).
+- **Minimap** (N toggles; = and − zoom): a rounded square in a corner of your choice, north-up or turning with you,
+  with your arrow, nearby markers, the north mark on its rim and a biome and coordinates readout under it. Hidden
+  with F1, under any screen and under the debug overlay. Underground and in the Nether it shows the slice you are in.
+- **Layers**: the surface; the **underground**, a horizontal slice at your height showing the cave floors (with the
+  walls dark); the **Nether**, drawn below its roof the same way.
+- **Markers**: you (violet), waypoints (name, one of eight muted colours, distance; edit and delete from the card),
+  your last three death points per dimension, other players the client can see, and **discovered structures**: in
+  singleplayer Atlas asks the integrated server which structures stand within 48 blocks of you and keeps them
+  (vanilla's and Expanse's: Karst temple, Frostwatch Citadel, the villages...). On a server it shows nothing it could
+  not know.
+- **Data**: maps live in `<game dir>/atlas/<sp/save | mp/address/seed>/<dimension>/<layer>/`: per 512 × 512-block
+  region a raw file (what is known of each column) and an image file (the region drawn, every mip level apart). Files
+  are checksummed and written atomically; a damaged one is set aside and the region mapped afresh.
+
+## Keys
+
+| Key | |
+|---|---|
+| M | open / close the map |
+| N | minimap on / off |
+| B | drop a waypoint where you stand |
+| = / − | minimap zoom |
+| (unbound) | Atlas settings (also the gear on the map) |
+
+In the map: drag, scroll, arrows, space (recentre), B, Ctrl+F (search), Esc (close the card, then the map).
+
+## Install (and the VOID launcher)
+
+Atlas is a normal Fabric mod: `build/libs/void-atlas-<version>.jar` goes in a Fabric 26.3 instance's `mods/` folder
+next to Fabric API. The VOID launcher keeps its instances under `%APPDATA%\void-launcher\instances\<uuid>\mods`, so
+dropping the jar there (or letting the launcher install it as part of a modpack) is all it takes. It needs nothing
+else; with VOID Expanse installed it names Expanse's structures and biomes.
+
+## Building and running
+
+Java 25 is in `.tools/jdk-25` (`scripts/setup-dev.ps1` puts it there).
+
+```
+cd atlas
+JAVA_HOME=../.tools/jdk-25 ./gradlew build               # the jar, and the unit tests
+JAVA_HOME=../.tools/jdk-25 ./gradlew runClient           # a dev client with Atlas
+JAVA_HOME=../.tools/jdk-25 ./gradlew runClient -Patlas.withExpanse=true   # ... and Expanse (composite build of ../expanse)
+```
+
+`-Patlas.withExpanse=true` includes `../expanse` as a composite build (as `lod/` does) and puts it on the dev runs'
+classpath, so the map, the tour and the perf gate can run over an Expanse Earth world. Atlas never calls Expanse.
+
+## Tests
+
+| Command | What it does |
+|---|---|
+| `./gradlew test` | Unit tests, no game: the palette and tone curve, hillshade quantisation, elevation bands, water depth steps and shoreline, the dithered edge, and **golden images** of three small synthetic worlds (an island with a river, beach, forest and snow-capped mountain; stepped ramps; a cave slice); tile maths (block ↔ region ↔ pixel ↔ mip level, negative coordinates); the tile store (write/read round trip, single-level reads, corrupt, truncated and foreign files recovered); waypoint and discovery persistence (incl. a corrupt file); the marker-provider API (ordering, replacement, a throwing provider fenced off and switched off after three failures in a row). After a deliberate change of look: `./gradlew test -Patlas.golden.update=true`, then review `src/test/resources/golden/*.png` (6× copies in `build/test-images`). |
+| `./gradlew atlasTour` | The screenshot tour (a client game test): makes a world, flies from spawn to the nearest coast and on to the nearest mountains, then photographs the full map at three zooms, the coast and mountains, the underground layer, the Nether, the minimap (north-up and turning), a marker's detail card and the waypoint editor with the list, into `build/tour/` (with an `index.md`). `-Patlas.test.only=quick,map_0,...` runs a short version; `-Patlas.test.seed=` picks the world. |
+| `./gradlew atlasPerf -Pbackend=opengl` / `-Pbackend=vulkan` | The performance gate (see [docs/PERF.md](docs/PERF.md)): uncapped, scripted flight with the minimap on, then a scripted pan and zoom over a few hundred tiles with the map open; writes `build/perf/<backend>.json`, updates `docs/PERF.md` and **fails** if the minimap averages over 0.3 ms/frame, the map screen averages over 4 ms (under 250 fps) or its p99 is over 8 ms, chunk ingest takes over 1 ms of client-thread time in any frame, or any frame takes over 33 ms. |
+
+Both game tasks open a game window (1920 × 1080 by default, `-Patlas.test.width/height`); add
+`-Patlas.withExpanse=true` to run them over an Expanse world.
+
+## API (for the VOID Hub and other mods)
+
+Everything is in `dev.voidmc.atlas.api`; it only ever grows.
+
+**Markers from another mod** — an `"atlas"` entrypoint in your `fabric.mod.json`:
+
+```json
+"entrypoints": { "atlas": ["com.example.MyAtlasPlugin"] }
+```
+
+```java
+public final class MyAtlasPlugin implements AtlasPlugin {
+    public void onAtlasReady(AtlasMarkers markers) {
+        markers.registerLayer(new MapLayer("hearth:settlements", "Settlements", true, 15));
+        markers.registerProvider("hearth:settlements", 0, (query, out) -> {
+            for (var s : Settlements.near(query)) {
+                out.accept(new Marker("hearth:" + s.id(), "hearth:settlements", s.name(), String.valueOf(s.folk()),
+                    "HEARTH  ·  VILLAGE", s.x(), s.y(), s.z(), query.dimension(), MarkerGlyph.HOUSE,
+                    Marker.Style.SETTLEMENT, 0, s.detail()));
+            }
+        });
+    }
+}
+```
+
+Providers are called on the client thread each time a map draws (with the area it shows) and should only hand over
+what they already know. A provider that throws loses its markers for that call; after three failures in a row it is
+switched off and logged once. `MarkerDetail` fills the detail card: up to three big readouts, an optional cell meter
+(a standing), and sections of rows with tags (the design's "What the town needs").
+
+**The client API** — `AtlasApi.get()` (or `AtlasApi.available()` first, if Atlas is optional for you):
+
+| | |
+|---|---|
+| `markers()` | the `AtlasMarkers` registry above |
+| `collect(MarkerQuery)` | every marker (Atlas's waypoints, discoveries, players, and every provider's) as plain data |
+| `waypoints()`, `addWaypoint(...)`, `removeWaypoint(id)` | the current world's waypoints (`Waypoint` records) |
+| `discoveries()` | the structures found in this world (`Discovery` records; singleplayer only) |
+| `playerView()` | a `MapView` centred on the player at the map's zoom |
+| `renderMap(graphics, x, y, w, h, MapView)` | draws a map view (tiles, markers, the player) into any rectangle, rounded |
+| `createMapWidget()` | the whole interactive map page as a `MapWidget` for a screen of your own: `render(graphics, x, y, w, h, mouseX, mouseY)` and the mouse and key methods; this is what the VOID Hub's *Map* page hosts inside its shell |
+| `openMap()`, `openSettings(parent)` | Atlas's own screens |
+
+`MapView` is a record: layer (`surface`, `underground`, `nether`), centre, zoom in pixels per block (whole numbers
+are pixel-crisp), rotation, whether to draw markers and the player, and the corner radius.
+
+## How it draws
+
+Chunks are read on worker threads (the client thread only queues them) into raw regions; dirty rectangles are drawn
+(tone, hillshade, bands, depth, shoreline, dither coverage) into each region's image and mip levels; a composer
+thread assembles 512 × 512 tiles at the right level from region images and patches only the changed rectangle of a
+tile when a region is drawn again; the render thread uploads within a time budget into four 2048 × 2048 atlas pages
+(least recently drawn tiles give up their slots). The map and minimap are textured meshes clipped to their rounded
+shape on the CPU with an anti-aliased edge made of the same tiles fading out, through the stock GUI pipelines only —
+so Atlas draws the same on OpenGL and Vulkan. Text is Outfit (SIL Open Font License, `assets/atlas/font/OFL.txt`),
+rasterised by the game at each of Atlas's UI scales so it lands pixel for pixel.

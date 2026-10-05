@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "atlas-gametest",
+	"version": "1.0.0",
+	"name": "VOID Atlas tour and performance gate",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.voidmc.atlas.gametest.AtlasGameTest"]
+	},
+	"depends": {"atlas": "*"}
+}

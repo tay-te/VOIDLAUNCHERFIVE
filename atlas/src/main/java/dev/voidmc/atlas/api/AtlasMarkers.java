@@ -1,0 +1,32 @@
+package dev.voidmc.atlas.api;
+
+import java.util.List;
+
+/**
+ * Where other mods hook their markers into the map. Usually reached through the {@code "atlas"} entrypoint
+ * ({@link AtlasPlugin}), or {@code AtlasApi.get().markers()} on the client.
+ */
+public interface AtlasMarkers {
+	/** Consecutive failures after which a provider is switched off. */
+	int MAX_FAILURES = 3;
+
+	/**
+	 * Registers (or replaces, by id) a provider. Providers are asked in order of {@code priority} (lower first), then
+	 * id; markers from later providers are drawn above earlier ones.
+	 *
+	 * @param id       stable id, like {@code hearth:settlements}
+	 * @param priority draw order
+	 */
+	void registerProvider(String id, int priority, MarkerProvider provider);
+
+	void unregisterProvider(String id);
+
+	/** Adds (or replaces, by id) a layer chip. */
+	void registerLayer(MapLayer layer);
+
+	/** Every layer, in chip order. */
+	List<MapLayer> layers();
+
+	/** Every marker every provider has for a query, in draw order. Never throws for a provider's sake. */
+	List<Marker> collect(MarkerQuery query);
+}

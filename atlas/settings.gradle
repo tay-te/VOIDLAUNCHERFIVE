@@ -1,0 +1,19 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'void-atlas'
+
+// Expanse is an optional partner, not a dependency. With -Patlas.withExpanse=true the dev runs (runClient and the
+// game tests) put ../expanse on the classpath, so the map can be shown over an Earth world and its structures.
+// Atlas itself compiles against nothing of Expanse's: it reads the world the client has, whatever made it.
+if (providers.gradleProperty('atlas.withExpanse').getOrElse('false').toBoolean()) {
+	includeBuild('../expanse')
+}

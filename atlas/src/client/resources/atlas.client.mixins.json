@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "dev.voidmc.atlas.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"BiomeManagerAccessor",
+		"ClientLevelMixin",
+		"GameRendererMixin",
+		"MinecraftMixin",
+		"SpriteContentsAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

@@ -1,0 +1,11 @@
+{
+	"key.category.atlas.atlas": "VOID Atlas",
+	"key.atlas.map": "Open the map",
+	"key.atlas.minimap": "Show or hide the minimap",
+	"key.atlas.waypoint": "Drop a waypoint here",
+	"key.atlas.zoom_in": "Minimap: zoom in",
+	"key.atlas.zoom_out": "Minimap: zoom out",
+	"key.atlas.settings": "Atlas settings",
+	"atlas.map.title": "Map",
+	"atlas.settings.title": "Atlas settings"
+}
