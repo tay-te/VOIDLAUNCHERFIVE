@@ -78,7 +78,12 @@ public final class WaypointStore {
 
 	/** Records a death point, keeping only the latest {@value #DEATHS_KEPT} per dimension. Returns it. */
 	public synchronized Waypoint addDeath(int x, int y, int z, String dimension, long when) {
-		Waypoint death = new Waypoint(java.util.UUID.randomUUID().toString(), "Death", x, y, z, dimension, 5, Waypoint.Kind.DEATH, when, true);
+		return this.addDeath(x, y, z, dimension, when, 0);
+	}
+
+	/** Records a death point that goes at {@code expires} (0: never), keeping the latest {@value #DEATHS_KEPT} per dimension. */
+	public synchronized Waypoint addDeath(int x, int y, int z, String dimension, long when, long expires) {
+		Waypoint death = new Waypoint(java.util.UUID.randomUUID().toString(), "Death", x, y, z, dimension, 5, Waypoint.Kind.DEATH, when, true, expires);
 		this.waypoints.add(death);
 		List<Waypoint> deaths = this.waypoints.stream()
 			.filter(w -> w.kind() == Waypoint.Kind.DEATH && w.dimension().equals(dimension))
@@ -90,6 +95,27 @@ public final class WaypointStore {
 		}
 		this.version++;
 		return death;
+	}
+
+	/**
+	 * Lets waypoints go that should: expired ones, and death points (if {@code clearDeathsWithin} &gt; 0) the player has
+	 * come back to within that many blocks in {@code dimension} (not in the first ten seconds, while they respawn).
+	 * Returns those removed.
+	 */
+	public synchronized List<Waypoint> expire(long now, String dimension, double px, double py, double pz, double clearDeathsWithin) {
+		List<Waypoint> gone = new ArrayList<>();
+		for (Waypoint w : this.waypoints) {
+			boolean reached = clearDeathsWithin > 0 && w.kind() == Waypoint.Kind.DEATH && w.dimension().equals(dimension)
+				&& w.distance(px, py, pz) <= clearDeathsWithin && Math.abs(w.y() - py) <= clearDeathsWithin + 4 && now - w.created() > 10_000;
+			if (w.expired(now) || reached) {
+				gone.add(w);
+			}
+		}
+		if (!gone.isEmpty()) {
+			this.waypoints.removeAll(gone);
+			this.version++;
+		}
+		return gone;
 	}
 
 	public synchronized long version() {
@@ -116,7 +142,8 @@ public final class WaypointStore {
 					o.has("colour") ? o.get("colour").getAsInt() : 0,
 					o.has("kind") ? Waypoint.Kind.valueOf(o.get("kind").getAsString()) : Waypoint.Kind.USER,
 					o.has("created") ? o.get("created").getAsLong() : 0L,
-					!o.has("visible") || o.get("visible").getAsBoolean()));
+					!o.has("visible") || o.get("visible").getAsBoolean(),
+					o.has("expires") ? o.get("expires").getAsLong() : 0L));
 			}
 		} catch (IOException | RuntimeException e) {
 			this.waypoints.clear();
@@ -145,6 +172,9 @@ public final class WaypointStore {
 			o.addProperty("kind", w.kind().name());
 			o.addProperty("created", w.created());
 			o.addProperty("visible", w.visible());
+			if (w.expires() > 0) {
+				o.addProperty("expires", w.expires());
+			}
 			list.add(o);
 		}
 		root.add("waypoints", list);

@@ -56,6 +56,51 @@ public final class AtlasSettings {
 	public boolean compass = false;
 	/** The place being tracked (its marker id), shown on the compass and the minimap's rim; null for none. */
 	public String tracked;
+	// --- minimap ---------------------------------------------------------------------------------------------------
+	public enum Shape {
+		SQUARE("Square"), ROUND("Round");
+
+		public final String label;
+
+		Shape(String label) {
+			this.label = label;
+		}
+	}
+
+	public Shape minimapShape = Shape.SQUARE;
+	/** Underground, the minimap shows the slice round the player (where the server allows it). */
+	public boolean minimapAutoCave = true;
+	/** Hide the minimap with the debug screen (F3) as well as with the HUD (F1). */
+	public boolean minimapHideWithDebug = true;
+	/** Other players on the minimap (on a server only where it opts in to radar; see docs/SERVER_RULES.md). */
+	public boolean radarPlayers = true;
+	/** Mobs on the minimap (likewise). */
+	public boolean radarMobs = false;
+
+	// --- waypoints -------------------------------------------------------------------------------------------------
+	/** A beam of light and a distance label over each visible waypoint, in the world. */
+	public boolean waypointBeams = true;
+	/** Beams fade out to nothing by this distance (blocks); 0 for no limit. */
+	public int beamDistance = 3000;
+	/** Death points go after this many minutes (0: kept until deleted or reached). */
+	public int deathMinutes = 60;
+	/** Death points go once the player is back within 6 blocks of them. */
+	public boolean deathClearsOnReach = true;
+	/** How long a temporary waypoint (from chat, a share) lasts, in minutes. */
+	public int temporaryMinutes = 30;
+	/** Coordinates in chat become clickable (a temporary waypoint). */
+	public boolean chatCoordinates = true;
+
+	// --- storage, look ---------------------------------------------------------------------------------------------
+	/** The most disk Atlas's maps may take, in MB (0: no cap); least recently viewed far regions go first. */
+	public int diskCapMb = 4096;
+	/** Day and night on the map: it darkens and cools with the time of day. */
+	public boolean mapLighting = false;
+	/** Markers told apart by shape as well as glyph (colour-blind safe). */
+	public boolean shapeMarkers = false;
+	/** The first-run hint has been shown. */
+	public boolean firstRunHintShown = false;
+
 	/** Bumped whenever the legend changes, so the place markers are made again. */
 	public transient int legendVersion;
 
@@ -91,6 +136,13 @@ public final class AtlasSettings {
 		if (this.hiddenKinds == null) {
 			this.hiddenKinds = new HashSet<>();
 		}
+		if (this.minimapShape == null) {
+			this.minimapShape = Shape.SQUARE;
+		}
+		this.beamDistance = Math.max(0, Math.min(100_000, this.beamDistance));
+		this.deathMinutes = Math.max(0, Math.min(7 * 24 * 60, this.deathMinutes));
+		this.temporaryMinutes = Math.max(1, Math.min(7 * 24 * 60, this.temporaryMinutes));
+		this.diskCapMb = Math.max(0, this.diskCapMb);
 		this.minimapZoom = Math.max(0, Math.min(ZOOMS.length - 1, this.minimapZoom));
 		this.mapZoom = Math.max(0, Math.min(ZOOMS.length - 1, this.mapZoom));
 		this.workerThreads = Math.max(1, Math.min(8, this.workerThreads));

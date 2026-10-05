@@ -23,6 +23,43 @@ class WaypointStoreTest {
 	Path dir;
 
 	@Test
+	void temporaryWaypointsAndDeathPointsGoByThemselves() throws IOException {
+		WaypointStore store = new WaypointStore(this.dir.resolve("waypoints.json"), s -> {
+		});
+		long now = 1_000_000L;
+		Waypoint home = Waypoint.create("Home", 0, 64, 0, "minecraft:overworld", 0);
+		Waypoint chat = new Waypoint("t", "From chat", 100, 64, 100, "minecraft:overworld", 0, Waypoint.Kind.TEMPORARY, now, true, now + 60_000);
+		store.put(home);
+		store.put(chat);
+		Waypoint death = store.addDeath(500, 30, 500, "minecraft:overworld", now, now + 3_600_000);
+		store.save();
+		WaypointStore again = new WaypointStore(this.dir.resolve("waypoints.json"), s -> {
+		});
+		again.load();
+		assertEquals(now + 60_000, again.get("t").expires(), "the expiry is kept");
+		assertEquals(now + 3_600_000, again.get(death.id()).expires());
+
+		assertTrue(again.expire(now + 30_000, "minecraft:overworld", 0, 64, 0, 6).isEmpty(), "nothing is due yet");
+		assertEquals(List.of("t"), again.expire(now + 61_000, "minecraft:overworld", 0, 64, 0, 6).stream().map(Waypoint::id).toList());
+		// back at the death point: it goes (not while respawning, in the first ten seconds)
+		assertTrue(again.expire(now + 5_000, "minecraft:overworld", 501, 31, 500, 6).isEmpty());
+		assertEquals(List.of(death.id()), again.expire(now + 120_000, "minecraft:overworld", 501, 31, 500, 6).stream().map(Waypoint::id).toList());
+		assertNotNull(again.get(home.id()), "the player's own waypoints never expire");
+		assertEquals(1, again.all().size());
+	}
+
+	@Test
+	void anOldFileWithoutExpiriesStillLoads() throws IOException {
+		Path file = this.dir.resolve("waypoints.json");
+		Files.writeString(file, "{\"version\":1,\"waypoints\":[{\"id\":\"a\",\"name\":\"Old\",\"x\":1,\"y\":2,\"z\":3,\"dimension\":\"minecraft:overworld\"}]}");
+		WaypointStore store = new WaypointStore(file, s -> {
+		});
+		store.load();
+		assertEquals(0, store.get("a").expires());
+		assertFalse(store.get("a").expired(Long.MAX_VALUE));
+	}
+
+	@Test
 	void waypointsRoundTrip() throws IOException {
 		WaypointStore store = new WaypointStore(this.dir.resolve("waypoints.json"), s -> {
 		});

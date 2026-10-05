@@ -144,6 +144,16 @@ loom {
 	}
 }
 
+// Every tour and perf run makes new worlds; the last run's worlds and maps are deleted first, so they never pile up
+// (a few hundred MB each).
+['runAtlasTour': 'atlasTour', 'runAtlasPerf': 'atlasPerf'].each { task, dir ->
+	tasks.matching { it.name == task }.configureEach {
+		doFirst {
+			delete file("build/run/${dir}/saves"), file("build/run/${dir}/atlas")
+		}
+	}
+}
+
 tasks.register('atlasTour') {
 	group = 'atlas'
 	description = 'Flies over a world, lets Atlas build its tiles and photographs the map, minimap and cards into build/tour'

@@ -344,14 +344,21 @@ public final class AtlasClient implements ClientModInitializer {
 			if (p.isDeadOrDying()) {
 				if (!this.deathRecorded) {
 					this.deathRecorded = true;
-					session.waypoints.addDeath(p.getBlockX(), p.getBlockY(), p.getBlockZ(), p.level().dimension().identifier().toString(),
-						System.currentTimeMillis());
+					long now = System.currentTimeMillis();
+					long expires = this.settings.deathMinutes > 0 ? now + this.settings.deathMinutes * 60_000L : 0;
+					session.waypoints.addDeath(p.getBlockX(), p.getBlockY(), p.getBlockZ(), p.level().dimension().identifier().toString(), now, expires);
 					session.saveSoon(false);
 				}
 			} else {
 				this.deathRecorded = false;
 			}
 			String dim = p.level().dimension().identifier().toString();
+			if (this.ticks % 20 == 7 && !p.isDeadOrDying()) {
+				// temporary waypoints and old death points go; a death point goes once the player is back at it
+				if (!session.waypoints.expire(System.currentTimeMillis(), dim, p.getX(), p.getY(), p.getZ(), this.settings.deathClearsOnReach ? 6 : 0).isEmpty()) {
+					session.saveSoon(false);
+				}
+			}
 			if (this.ticks % 40 == 0) {
 				this.discover(mc, p);
 			}
