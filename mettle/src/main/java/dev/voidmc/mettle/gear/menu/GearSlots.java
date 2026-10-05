@@ -40,6 +40,18 @@ public final class GearSlots {
 		for (GearSlot slot : GearSlot.values()) {
 			add.accept(new WornSlot(worn, gear, slot, WORN_X, WORN_Y[slot.ordinal()]));
 		}
+		addPockets(gear, add);
+	}
+
+	/**
+	 * Adds the 37 pocket slots (27 back, 6 belt, 4 quiver) after a container menu's own slots, so looting can go straight
+	 * into the pack (BURDEN.md §6). The menu's quick-move must then stop at its old end, not {@code slots.size()}.
+	 */
+	public static void addPockets(Player player, Consumer<Slot> add) {
+		addPockets(GearInventory.of(player), add);
+	}
+
+	private static void addPockets(GearInventory gear, Consumer<Slot> add) {
 		for (GearSlot slot : GearSlot.values()) {
 			PocketContainer pockets = new PocketContainer(gear, slot);
 			for (int i = 0; i < GearRules.maxPockets(slot); i++) {
@@ -47,6 +59,11 @@ public final class GearSlots {
 				add.accept(new PocketSlot(pockets, gear, slot, i, at[0], at[1]));
 			}
 		}
+	}
+
+	/** Where a group's pockets start, counted from the first back pocket. */
+	public static int pocketOffset(GearSlot slot) {
+		return GearRules.pocketStart(slot) - GearRules.BACK_POCKETS;
 	}
 
 	/** A pocket's position in the fallback panel: backpack rows of 9, then the belt row, then the quiver row. */

@@ -3,7 +3,6 @@ package dev.voidmc.mettle.client.mixin.gear;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import dev.voidmc.mettle.client.gear.GearPanel;
 import net.minecraft.client.gui.screens.inventory.AbstractRecipeBookScreen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
@@ -12,6 +11,6 @@ import org.spongepowered.asm.mixin.injection.At;
 abstract class GearRecipeBookScreenMixin {
 	@ModifyReturnValue(method = "hasClickedOutside", at = @At("RETURN"))
 	private boolean mettle$panelIsInside(boolean outside, double mouseX, double mouseY, int left, int top) {
-		return outside && !((Object) this instanceof InventoryScreen && GearPanel.contains(mouseX, mouseY, left, top));
+		return outside && !GearPanel.contains(this, mouseX, mouseY, left, top);
 	}
 }

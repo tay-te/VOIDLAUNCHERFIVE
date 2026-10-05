@@ -3,6 +3,7 @@
 	"package": "dev.voidmc.mettle.client.mixin.gear",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"GearContainerScreenMixin",
 		"GearCreativeScreenMixin",
 		"GearInventoryScreenMixin",
 		"GearMinecraftMixin",

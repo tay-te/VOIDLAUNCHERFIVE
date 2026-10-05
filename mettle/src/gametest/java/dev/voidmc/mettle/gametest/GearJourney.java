@@ -88,6 +88,7 @@ final class GearJourney {
 		belt(context, server);
 		creativeCheck(context, server);
 		screenshots(context, server);
+		containers(context, server);
 		death(context, server, base);
 		keepInventory(context, server, base);
 
@@ -494,6 +495,70 @@ final class GearJourney {
 			GearInventory.of(p).takeAll();
 			return null;
 		});
+	}
+
+	// ---------------------------------------------------------------- containers
+
+	/** A chest carries the pockets too: looting into a full inventory spills into the pack, and back out by shift-click. */
+	private static void containers(ClientGameTestContext context, TestServerContext server) {
+		BlockPos[] at = new BlockPos[1];
+		net.minecraft.world.level.block.state.BlockState[] was = new net.minecraft.world.level.block.state.BlockState[1];
+		on(server, p -> {
+			GearInventory.of(p).setWorn(GearSlot.BACK, new ItemStack(GearItems.LEATHER_PACK));
+			for (int i = 0; i < 36; i++) {
+				p.getInventory().setItem(i, new ItemStack(Items.DIRT, 64));
+			}
+			at[0] = p.blockPosition().offset(2, 0, 0);
+			was[0] = p.level().getBlockState(at[0]);
+			p.level().setBlock(at[0], net.minecraft.world.level.block.Blocks.CHEST.defaultBlockState(), 3);
+			if (!(p.level().getBlockEntity(at[0]) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity chest)) {
+				return "no chest to open";
+			}
+			chest.setItem(0, new ItemStack(Items.IRON_INGOT, 10));
+			p.openMenu(chest);
+			return null;
+		});
+		context.waitTicks(5);
+		on(server, p -> {
+			if (!(p.containerMenu instanceof net.minecraft.world.inventory.ChestMenu menu)) {
+				return "the chest did not open: " + p.containerMenu;
+			}
+			int vanillaEnd = 27 + 36;
+			if (menu.slots.size() != vanillaEnd + 37) {
+				return "a chest menu has " + menu.slots.size() + " slots, expected " + (vanillaEnd + 37);
+			}
+			GearInventory gear = GearInventory.of(p);
+			menu.clicked(0, 0, ContainerInput.QUICK_MOVE, p);
+			if (!gear.pocket(GearSlot.BACK, 0).is(Items.IRON_INGOT) || !menu.getSlot(0).getItem().isEmpty()) {
+				return "looting into a full inventory did not reach the pack: " + gear.pockets(GearSlot.BACK);
+			}
+			menu.clicked(vanillaEnd, 0, ContainerInput.QUICK_MOVE, p);
+			if (!menu.getSlot(0).getItem().is(Items.IRON_INGOT) || !gear.pocket(GearSlot.BACK, 0).isEmpty()) {
+				return "shift-clicking a pocket did not put the ingots back in the chest";
+			}
+			menu.clicked(0, 0, ContainerInput.QUICK_MOVE, p);
+			return null;
+		});
+		String client = context.computeOnClient(mc -> mc.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen screen
+			&& screen.getMenu().slots.size() == 100 ? null : "the client's chest screen has no pockets: " + mc.gui.screen());
+		if (client != null) {
+			throw new AssertionError("Gear: " + client);
+		}
+		context.waitTicks(2);
+		context.takeScreenshot("mettle_gear_chest");
+		on(server, p -> {
+			p.closeContainer();
+			if (p.level().getBlockEntity(at[0]) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity chest) {
+				chest.clearContent();
+			}
+			p.level().setBlock(at[0], was[0], 3);
+			GearInventory.of(p).takeAll();
+			for (int i = 0; i < 36; i++) {
+				p.getInventory().setItem(i, ItemStack.EMPTY);
+			}
+			return null;
+		});
+		context.waitTicks(2);
 	}
 
 	// ---------------------------------------------------------------- death
