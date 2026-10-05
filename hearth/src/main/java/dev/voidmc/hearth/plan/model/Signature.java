@@ -32,8 +32,8 @@ public enum Signature implements StringRepresentable {
 	MOOR("moor", List.of(Archetypes.GREAT_HALL, Archetypes.BELL_TOWER), false, false, true, false),
 	/** Amber Steppe: round houses in rings round a market ring. */
 	RING_TOWN("ring_town", List.of(Archetypes.TEMPLE), false, false, true, false),
-	/** Wisteria Vale: timber-and-plaster lanes under blossom, canals and arched bridges, gardens. */
-	GARDEN_TOWN("garden_town", List.of(Archetypes.PAGODA, Archetypes.BELL_TOWER), true, false, false, true),
+	/** Wisteria Vale: timber-and-plaster lanes under blossom, canals and arched bridges, gardens; its pagoda is a garden tower, so its second landmark is no tower (requests/b-refine.md §4). */
+	GARDEN_TOWN("garden_town", List.of(Archetypes.PAGODA, Archetypes.CATHEDRAL), true, false, false, true),
 	/** Frostbloom Tundra: a longhouse steading round a fire hall. */
 	STEADING("steading", List.of(Archetypes.GREAT_HALL), false, false, true, false),
 	/** Palm and Coral Coast: a lagoon village on stilts with jetties. */

@@ -116,6 +116,41 @@ public final class Extraction {
 		return out;
 	}
 
+	/**
+	 * The work face nearest the cut being made, step {@code (stage, step)}: a blueprint registers the faces of every bench,
+	 * gallery and coupe (each a campaign of its own, {@code Blueprint#campaign}), and a finished bench's faces are still
+	 * listed while a later one is cut, so gatherers go to the face by the current cut (requests/b-extraction.md §5). Null
+	 * without faces; any face when the step is out of range.
+	 */
+	public static @Nullable Poi faceNear(Blueprint blueprint, int stage, int step) {
+		List<Poi> faces = workFaces(blueprint);
+		if (faces.isEmpty()) {
+			return null;
+		}
+		if (stage < 0 || stage >= blueprint.stageCount() || step < 0 || step >= blueprint.stepCount(stage)) {
+			return faces.get(faces.size() - 1);
+		}
+		int[] at = new int[3];
+		blueprint.step(stage, step, (x, y, z, state, tag) -> {
+			at[0] = x;
+			at[1] = y;
+			at[2] = z;
+		});
+		Poi best = null;
+		long bestD = Long.MAX_VALUE;
+		for (Poi p : faces) {
+			long dx = p.pos().getX() - at[0];
+			long dy = p.pos().getY() - at[1];
+			long dz = p.pos().getZ() - at[2];
+			long d = dx * dx + 4 * dy * dy + dz * dz;
+			if (d < bestD) {
+				bestD = d;
+				best = p;
+			}
+		}
+		return best;
+	}
+
 	/** The excavation's store (a spoil heap, a crate at the pit head), if its blueprint has one. */
 	public static @Nullable Poi storage(Blueprint blueprint) {
 		for (Poi p : blueprint.pois()) {

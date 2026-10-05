@@ -128,7 +128,7 @@
 		{
 			"name": "norman stone",
 			"w": 6,
-			"when": [{"categories": ["religious", "fort"]}, {"archetypes": ["noble/keep", "noble/castle", "landmark/*"]}],
+			"when": [{"categories": ["religious", "fort"], "not": {"archetypes": ["civic/monastery", "civic/convent", "noble/keep", "noble/castle"]}}, {"archetypes": ["landmark/*"]}],
 			"roles": {
 				"wall": [{"m": "minecraft:stone_bricks", "w": 5}, {"m": "minecraft:stone", "w": 0.6}, {"m": "minecraft:cracked_stone_bricks", "w": 0.5, "low": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 0.8, "low": 2, "north": 1.5}],
 				"gable": [{"m": "minecraft:stone_bricks", "w": 5}, {"m": "minecraft:mossy_stone_bricks", "w": 0.5, "north": 1}],
@@ -203,7 +203,7 @@
 			"name": "bohemian village",
 			"w": 20,
 			"when": {"not": [{"stations": ["gentry", "lord", "merchant"]}, {"categories": ["religious", "fort", "noble"]},
-				{"archetypes": ["house/townhouse", "house/rowhouse", "house/tenement", "house/shophouse", "civic/town_hall", "storage/warehouse"]}]},
+				{"archetypes": ["house/townhouse", "house/rowhouse", "house/tenement", "house/shophouse", "civic/town_hall", "storage/warehouse", "house/scribe_house", "civic/university"]}]},
 			"roles": {
 				"foundation": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1.2, "low": 2, "north": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:tuff", "w": 0.5}, {"m": "minecraft:stone", "w": 0.5}],
 				"plinth": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 1.5}, {"m": "minecraft:andesite", "w": 0.8}],
@@ -278,7 +278,7 @@
 			"name": "bohemian town",
 			"w": 30,
 			"when": [{"stations": ["merchant", "official"], "not": {"categories": ["fort", "religious"]}}, {"categories": ["trade"], "tiers": {"min": 2}},
-				{"archetypes": ["civic/town_hall", "storage/warehouse", "commerce/counting_house", "commerce/market_hall", "commerce/bank", "house/townhouse", "house/rowhouse", "house/tenement", "house/shophouse"]}],
+				{"archetypes": ["civic/town_hall", "storage/warehouse", "commerce/counting_house", "commerce/market_hall", "commerce/bank", "house/townhouse", "house/rowhouse", "house/tenement", "house/shophouse", "house/scribe_house", "civic/university"]}],
 			"roles": {
 				"foundation": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:andesite", "w": 1}],
 				"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 0.6, "low": 2, "north": 1}],
@@ -409,7 +409,16 @@
 					"wall_accent": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 1}], "window": ["minecraft:stone_bricks"],
 					"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}},
 				{"name": "shingled", "w": 0.8, "roles": {"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}},
-				{"name": "ochre render", "w": 0.6, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.4, "low": 1.5}], "gable": ["minecraft:smooth_sandstone"]}}
+				{"name": "ochre render", "w": 0.6, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.4, "low": 1.5}], "gable": ["minecraft:smooth_sandstone"]}},
+				{"name": "lime over rubble", "w": 1.6, "when": {"categories": ["noble"]}, "roles": {
+					"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 1}, {"m": "minecraft:smooth_sandstone", "w": 0.8}],
+					"gable": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1}],
+					"wall_accent": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.6, "low": 2}],
+					"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}], "roof_trim": ["minecraft:bricks"]}},
+				{"name": "ochre and tile", "w": 1.2, "when": {"categories": ["noble"]}, "roles": {
+					"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.4, "low": 1.5}], "gable": ["minecraft:smooth_sandstone"],
+					"wall_accent": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1}],
+					"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}], "roof_trim": ["minecraft:bricks"]}}
 			]
 		}
 	],

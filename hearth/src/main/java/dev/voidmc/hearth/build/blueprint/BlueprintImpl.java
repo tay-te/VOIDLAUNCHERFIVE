@@ -100,6 +100,7 @@ public final class BlueprintImpl implements Blueprint {
 	 * terraces and keep are campaign 0, its curtains and towers later ones; an excavation's opening works are campaign 0
 	 * and each bench, gallery or lift after it a campaign of its own.
 	 */
+	@Override
 	public int campaign(int stage) {
 		return this.campaigns[stage];
 	}

@@ -118,8 +118,8 @@ final class ExcavationWork implements WorkBehaviour {
 	/** With terrain changes switched off: work the face in pantomime, the loop running as numbers. */
 	private static Task mime(FolkBrain brain, ServerLevel level, PlotView plot) {
 		Blueprint bp = BlueprintSource.of(level, brain.settlement, plot);
-		List<Poi> faces = bp == null ? List.of() : Extraction.workFaces(bp);
-		Poi face = faces.isEmpty() ? null : faces.get(brain.random.nextInt(faces.size()));
+		// the face by the cut being made (a finished bench's faces stay listed while a later one is cut)
+		Poi face = bp == null ? null : Extraction.faceNear(bp, plot.stage(), plot.step());
 		BlockPos stand = face != null ? face.pos() : ResidentPlaces.centre(plot.spec());
 		BlockPos look = face != null ? face.pos().relative(face.facing()) : stand.below();
 		BlockState rock = level.isLoaded(look) ? level.getBlockState(look) : net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();

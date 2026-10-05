@@ -556,6 +556,122 @@ public final class SimSettlement implements Settlement {
 		}
 	}
 
+	/** The plot param the build module reads time's work from (docs/buildings/age.md, {@code build.age.Decay}). */
+	public static final String DECAY = "decay";
+	/** The plot param a growing household's additions are counted in (docs/buildings/age.md, {@code build.age.Accretion}). */
+	public static final String ADDITIONS = "additions";
+
+	/**
+	 * Whether a plot replacing another changes it in place rather than rebuilding it: the same building on the same ground
+	 * (archetype, style, seed, footprint, facing, height, finish and every other param), differing only in what time does
+	 * to it: the additions a growing household builds on, the decay of a house left empty (docs/buildings/age.md). Such a
+	 * building is never taken down: the new drawing is written over the old one, which stands (and is lived in) until it
+	 * is done.
+	 */
+	public static boolean inPlace(@Nullable PlotSpec old, PlotSpec now) {
+		if (old == null || !old.archetype().equals(now.archetype()) || !old.style().equals(now.style()) || old.seed() != now.seed()
+			|| !old.origin().equals(now.origin()) || old.sizeX() != now.sizeX() || old.sizeZ() != now.sizeZ() || old.facing() != now.facing()
+			|| old.maxHeight() != now.maxHeight() || old.tier() != now.tier()) {
+			return false;
+		}
+		CompoundTag a = old.params().copy();
+		CompoundTag b = now.params().copy();
+		for (String k : new String[]{DECAY, ADDITIONS, "replaces"}) {
+			a.remove(k);
+			b.remove(k);
+		}
+		return a.equals(b);
+	}
+
+	/**
+	 * What a building changed in place may have stood as before (for the applier: blocks any of them put in the world are
+	 * the plot's own): as first built and with each addition before its current count (a house grows while lived in), then
+	 * at each step of decay below its current one (it weathers with the additions it had).
+	 */
+	public static List<PlotSpec> earlierSelves(PlotSpec now) {
+		List<PlotSpec> out = new ArrayList<>();
+		CompoundTag params = now.params();
+		int additions = params.contains(ADDITIONS) ? params.getIntOr(ADDITIONS, -1) : -1;
+		for (int k = 0; k < additions; k++) {
+			CompoundTag p = params.copy();
+			p.putInt(ADDITIONS, k);
+			p.remove(DECAY);
+			out.add(withParams(now, p));
+		}
+		double decay = decay(now);
+		if (decay > 0) {
+			CompoundTag whole = params.copy();
+			whole.remove(DECAY);
+			out.add(withParams(now, whole));
+			for (double d = 0.25; d < decay - 1e-6; d += 0.25) {
+				CompoundTag p = params.copy();
+				p.putDouble(DECAY, d);
+				out.add(withParams(now, p));
+			}
+		}
+		return out;
+	}
+
+	private static PlotSpec withParams(PlotSpec s, CompoundTag params) {
+		return new PlotSpec(s.archetype(), s.style(), s.seed(), s.origin(), s.sizeX(), s.sizeZ(), s.facing(), s.maxHeight(), s.tier(), params);
+	}
+
+	/** The spec of the building a plot replaces (standing, or remembered once it is gone), or null. */
+	public @Nullable PlotSpec replacedSpec(SimPlot p) {
+		if (p.replaces == SimPlot.NONE) {
+			return p.replacedSpec;
+		}
+		SimPlot old = this.plots.get(p.replaces);
+		return old != null ? old.spec() : p.replacedSpec;
+	}
+
+	/** How far time has worked on a plot: its {@code decay} param, 0 to 1. */
+	public static double decay(PlotSpec spec) {
+		CompoundTag params = spec.params();
+		if (!params.contains(DECAY)) {
+			return 0;
+		}
+		double v = params.getDoubleOr(DECAY, params.getFloatOr(DECAY, 0));
+		return Math.clamp(v, 0, 1);
+	}
+
+	/**
+	 * Time works on a building left standing empty (docs/buildings/age.md, LIVING_WORLD.md §7.2): it is drawn again with
+	 * {@code decay} (0.25 the day it is left, then holes in the roof, then a ruin). The weathered building takes the old
+	 * one's place in the record as a new plot ({@code ABANDONED}, finished, remembering the spec it replaced), and in the
+	 * world as its chunks are next written: what still stands as built comes down and the weathered drawing goes in
+	 * (identical blocks come back; nothing a player changed is touched). Returns the new plot, or the old one when the
+	 * decay would not rise.
+	 */
+	public SimPlot weather(SimPlot old, double decay) {
+		double level = Math.clamp(decay, 0, 1);
+		if (level <= decay(old.spec()) || old.state != PlotState.ABANDONED || !this.plots.containsKey(old.id())) {
+			return old;
+		}
+		PlotSpec o = old.spec();
+		CompoundTag params = o.params().copy();
+		params.putDouble(DECAY, Math.round(level * 100) / 100.0);
+		PlotSpec spec = new PlotSpec(o.archetype(), o.style(), o.seed(), o.origin(), o.sizeX(), o.sizeZ(), o.facing(), o.maxHeight(), o.tier(), params);
+		SimPlot p = new SimPlot(this.nextPlotId++, spec);
+		p.state = PlotState.ABANDONED;
+		p.replaces = old.id();
+		p.replacedSpec = o;
+		p.reason = old.reason;
+		p.owner = old.owner;
+		this.plots.remove(old.id());
+		this.plots.put(p.id(), p);
+		p.stage = facts(p).stageCount();
+		p.completedDay = Math.floorDiv(this.clock.simTick, SimRules.DAY);
+		this.bounds = null;
+		this.derivedDirty = true;
+		markDirty();
+		if (this.ctx != null) {
+			this.ctx.plotsChanged(this);
+			this.ctx.progressed(this, p);
+		}
+		return p;
+	}
+
 	/** Gives up on a plot (its ground was built over); its finished stages stay as they are. */
 	public void abandonPlot(SimPlot p) {
 		abandonPlot(p, "built over");
@@ -656,7 +772,9 @@ public final class SimSettlement implements Settlement {
 		PlotFacts f = p.facts;
 		if (f == null) {
 			try {
-				f = PlotFacts.of(p.spec(), ctx().blueprints(), ctx().terrain(), ctx().data().extraction(p.spec().archetype()));
+				// a building changed in place (an addition) costs what changes, not the whole house again
+				PlotSpec over = p.isActive() && p.replaces != SimPlot.NONE && inPlace(replacedSpec(p), p.spec()) ? replacedSpec(p) : null;
+				f = PlotFacts.of(p.spec(), ctx().blueprints(), ctx().terrain(), ctx().data().extraction(p.spec().archetype()), over);
 			} catch (RuntimeException e) {
 				LOG.warn("settlement {} plot {} ({}): no blueprint ({}); abandoning it", this.id, p.id(), p.spec().archetype(), e.toString());
 				f = new PlotFacts(0, new int[0], new int[0], new int[0][], 0, new int[JobType.values().length], false, null);
@@ -735,8 +853,9 @@ public final class SimSettlement implements Settlement {
 		if (p.state == PlotState.PLANNED) {
 			p.state = PlotState.BUILDING;
 			SimPlot old = this.plots.get(p.replaces);
-			if (old != null && old.state == PlotState.BUILT) {
+			if (old != null && old.state == PlotState.BUILT && !inPlace(old.spec(), p.spec())) {
 				// the old building comes down as the new one goes up: its beds and workplaces stop counting
+				// (not a house growing in place: it stands, lived in, while its addition goes up over it)
 				old.state = PlotState.DEMOLISHING;
 				this.derivedDirty = true;
 				// the applier clears it from loaded chunks before the new one's first blocks go in

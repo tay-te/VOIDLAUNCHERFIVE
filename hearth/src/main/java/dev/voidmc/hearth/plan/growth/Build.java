@@ -77,6 +77,11 @@ public final class Build {
 			int storeys = storeys(ctx, info, p.zone);
 			params.putInt("storeys", station == null ? storeys : Math.max(1, Math.min(storeys(ctx, info, 0) + 1, Stations.storeys(station, storeys))));
 		}
+		if (info.category() == ArchetypeCategory.HOUSING && !params.contains("additions") && grows(info, p)) {
+			// a household that may grow: the house is first built leaving a yard to grow into, and the planner counts its
+			// additions up as the household grows (Additions; docs/buildings/age.md)
+			params.putInt("additions", 0);
+		}
 		int finish = finish(ctx, info, p.zone, d);
 		if (station != null) {
 			finish = Math.max(0, Math.min(4, finish + Stations.finish(station)));
@@ -85,6 +90,18 @@ public final class Build {
 			height(ctx, info, p.zone), finish, params);
 		Roads.issue(ctx, spec, reason);
 		return spec;
+	}
+
+	/**
+	 * Whether a new house gets room to grow (the {@code additions} param from its first build): a household's house with a
+	 * yard behind it (3 rows past the archetype's least depth) or beside it (4 columns past its least frontage), not on a
+	 * terrace deck, on water or stacked, and not a hermit's hut.
+	 */
+	static boolean grows(ArchetypeInfo info, Parcels.Parcel p) {
+		if (p.terrace || info.flags().contains(SiteFlag.ON_WATER) || info.id().equals(Archetypes.HERMIT_HUT) || info.beds() <= 1) {
+			return false;
+		}
+		return p.depth() >= info.minDepth() + 3 || p.frontage() >= info.minFrontage() + 4;
 	}
 
 	/** The station a plot's params name, or null. */

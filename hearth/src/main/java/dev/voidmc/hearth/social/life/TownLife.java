@@ -440,6 +440,16 @@ public final class TownLife {
 				Dressings.setUpFestival(level, s, ledger, e, v.anchor(), 4 + 2 * Math.max(0, s.tier().ordinal() - 1));
 				standing.put(e.key(), List.of()); // tried: do not search for room again
 				changed = true;
+			} else if ((e.kind() == TownEvent.Kind.WEDDING || e.kind() == TownEvent.Kind.FUNERAL) && cfg.festivals().decorations()
+				&& !standing.containsKey(e.key())) {
+				// the couple's houses in ribbons and blossom, the bereaved house and its neighbours in black (docs/buildings/age.md)
+				if (Dressings.isUp(ledger, e.key())) {
+					Dressings.takeDownEvent(level, ledger, e.key());
+				}
+				boolean wedding = e.kind() == TownEvent.Kind.WEDDING;
+				Dressings.dressHomes(level, s, ledger, e, wedding ? "wedding" : "mourning", !wedding);
+				standing.put(e.key(), List.of());
+				changed = true;
 			}
 		}
 		if (!ledger.dressings.isEmpty() && Dressings.takeDown(level, ledger, now, false, on) > 0) {

@@ -69,11 +69,21 @@ public final class Extraction {
 		SimContext c = s.ctx();
 		SimData data = c.data();
 		SimData.Extraction x = data.extraction(p.spec().archetype());
-		int cuts = f.cuts()[stage];
-		if (x == null || cuts <= 0) {
+		if (x == null) {
 			return;
 		}
 		double[] frac = s.clock.fractions;
+		if (x.yieldsByCampaign() && f.endsCampaign(stage)) {
+			// a campaign finished (a woodlot's coupe felled and replanted): what it gives over its rotation
+			for (int g = 0; g < x.campaignYields().length; g++) {
+				frac[g] += x.campaignYields()[g];
+			}
+			s.markDirty();
+		}
+		int cuts = f.cuts() == null ? 0 : f.cuts()[stage];
+		if (cuts <= 0) {
+			return;
+		}
 		for (int g = 0; g < x.yields().length; g++) {
 			frac[g] += x.yields()[g] * cuts;
 		}

@@ -82,8 +82,15 @@ public final class Inspector {
 		PlotView best = null;
 		double bestScore = Double.MAX_VALUE;
 		double r2 = (double) radius * radius;
+		// a house whose addition is going up over it (a plot replacing it is being built) is not mended back as it was
+		it.unimi.dsi.fastutil.ints.IntOpenHashSet changing = new it.unimi.dsi.fastutil.ints.IntOpenHashSet();
 		for (PlotView p : s.plots()) {
-			if (p.state() != PlotState.BUILT || p.owner() != null || PlotLocator.isExtraction(p.spec())) {
+			if (p.state() == PlotState.BUILDING && p.spec().params().contains("replaces")) {
+				changing.add(p.spec().params().getIntOr("replaces", -1));
+			}
+		}
+		for (PlotView p : s.plots()) {
+			if (p.state() != PlotState.BUILT || p.owner() != null || PlotLocator.isExtraction(p.spec()) || changing.contains(p.id())) {
 				continue;
 			}
 			double d2 = p.spec().origin().distSqr(near);

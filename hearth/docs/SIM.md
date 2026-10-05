@@ -305,6 +305,7 @@ Written with the defaults on first run; every field optional. (Delete it to pick
 | `resources.spoilage.enabled` / `rate` / `cool` / `salted` | true / 1 / 0.1 / 0.4 | |
 | `resources.prosperity.enabled` / `capacity_limits_growth` / `decline_below` / `rise_above` | true / true / 0.35 / 0.7 | §16.4 |
 | `resources.prosperity.finish_tier` / `emigration` / `abandon_slack` / `smoothing` | true / 0.25 / 6 / 0.05 | |
+| `resources.prosperity.decay_step_days` | 24 (0: empty houses do not weather) | §16.4 |
 | `resources.caravans.enabled` / `max_distance` / `interval_days` / `cargo` | true / 3200 / 4 / 640 | §16.6 |
 | `resources.caravans.speed` / `risk` / `min_value` / `margin` | 1800 blocks a day / 0.03 per 1000 blocks / 60 / 0.5 | |
 | `resources.stations.enabled` / `period_days` / `up_at` / `down_at` / `gentry_at` | true / 10 / 2.2 / 0.5 / 5 | §16.7 |
@@ -532,8 +533,13 @@ owed again.
   settlers (×1.4) and raises the finish tier of new buildings by one (`finish_tier`; roads as planned); a decline keeps
   settlers away (×0.2), halves births, lowers the finish, and households leave (`emigration` × how deep; a household is
   everyone who shares a home). With more empty beds than `abandon_slack`, a house at the edge of town is left standing
-  empty: `ABANDONED` (its blocks stay; the build module's decay look applies to it), listed in `LandState.deserted`,
-  `PLOT_ABANDONED` "left empty: <why>". When folk need beds again, they move back in before anything new is built.
+  empty: `ABANDONED`, listed in `LandState.deserted`, `PLOT_ABANDONED` "left empty: <why>". Time works on it
+  (`SimSettlement.weather`, docs/buildings/age.md): the plot param `decay` is 0.25 the day it is left (lamps, bedding and
+  pots taken; no beds or workplaces) and rises by 0.25 every `decay_step_days` to 1 (holes in the roof, then the roof
+  gone, then a roofless shell). Each step is a new plot record replacing the last (`replaces`, `replaced_spec`), and the
+  applier rewrites it in place as its chunks load: what still stands as built comes down, the weathered drawing goes in.
+  When folk need beds again, they move back in before anything new is built: a weathered house is first rebuilt whole
+  (a planned plot replacing the ruin, "repaired: folk came back").
 
 ### 16.5 Daughter hamlets at the resources the parent lacks (§7.2)
 

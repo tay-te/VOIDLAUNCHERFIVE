@@ -1,6 +1,7 @@
 package dev.voidmc.hearth.social.life;
 
 import dev.voidmc.hearth.api.Culture;
+import dev.voidmc.hearth.api.PlotView;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.social.SocialLedger;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -38,8 +40,11 @@ public final class Dressings {
 	public record Stall(BlockPos keeper, BlockPos counter, BlockPos customer, int index) {
 	}
 
-	/** One block of a dressing, in placing order. */
-	record Part(BlockPos pos, BlockState state) {
+	/** One block of a dressing, in placing order; {@code tag} is block-entity data (a banner's pattern) or null. */
+	record Part(BlockPos pos, BlockState state, net.minecraft.nbt.@Nullable CompoundTag tag) {
+		Part(BlockPos pos, BlockState state) {
+			this(pos, state, null);
+		}
 	}
 
 	/** Whether anything is standing for this event. */
@@ -82,8 +87,106 @@ public final class Dressings {
 			all.addAll(parts);
 			stalls.add(new Stall(keeper, ground, customer, stalls.size()));
 		}
+		// the houses and shops round the square put out their awnings and wares too
+		all.addAll(fronts(level, s, taken, e, "market", near(s, anchor, 32, 14)));
 		place(level, ledger, e, all);
 		return stalls;
+	}
+
+	/**
+	 * Dresses households' houses for an event: the couple's and their families' for a wedding ({@code wedding}), the
+	 * bereaved house and its neighbours for a funeral ({@code mourning}). Recorded and taken down like the square's
+	 * dressings.
+	 */
+	public static void dressHomes(ServerLevel level, Settlement s, SocialLedger ledger, TownEvent e, String kind, boolean neighbours) {
+		java.util.Set<Integer> homes = new java.util.LinkedHashSet<>();
+		java.util.Set<UUID> who = new java.util.LinkedHashSet<>(e.principals());
+		who.addAll(e.family());
+		for (dev.voidmc.hearth.api.Resident r : s.residents()) {
+			if (who.contains(r.id) && r.home != dev.voidmc.hearth.api.Resident.NO_PLOT) {
+				homes.add(r.home);
+			}
+		}
+		List<PlotView> plots = new ArrayList<>();
+		for (int id : homes) {
+			PlotView p = s.plot(id);
+			if (p != null && p.state() == dev.voidmc.hearth.api.PlotState.BUILT) {
+				plots.add(p);
+				if (neighbours) {
+					BlockPos c = centre(p);
+					for (PlotView q : near(s, c, 14, 3)) {
+						if (!plots.contains(q)) {
+							plots.add(q);
+						}
+					}
+				}
+			}
+		}
+		place(level, ledger, e, fronts(level, s, new HashSet<>(), e, kind, plots));
+	}
+
+	/**
+	 * What the build module puts up on these plots' fronts for the day (BlueprintService#dressing: awnings and wares,
+	 * garlands, banners, ribbons, black cloth), each plot's whole dressing or none of it: every block in a loaded chunk, in
+	 * air, clear of what else is going up.
+	 */
+	static List<Part> fronts(ServerLevel level, Settlement s, Set<Long> taken, TownEvent e, String kind, List<PlotView> plots) {
+		List<Part> out = new ArrayList<>();
+		if (plots.isEmpty() || !dev.voidmc.hearth.api.HearthServices.hasBlueprints()) {
+			return out;
+		}
+		dev.voidmc.hearth.api.HearthWorld world = dev.voidmc.hearth.api.HearthWorld.of(level);
+		if (world == null) {
+			return out;
+		}
+		dev.voidmc.hearth.api.BlueprintService bs = dev.voidmc.hearth.api.HearthServices.blueprints();
+		dev.voidmc.hearth.api.TerrainProbe terrain = world.terrain();
+		long day = Math.floorDiv(e.start(), 24000L);
+		for (PlotView p : plots) {
+			List<dev.voidmc.hearth.api.BlueprintService.Dressing> steps;
+			try {
+				steps = bs.dressing(p.spec(), terrain, kind, day);
+			} catch (RuntimeException ex) {
+				continue;
+			}
+			List<Part> parts = new ArrayList<>(steps.size());
+			boolean ok = !steps.isEmpty();
+			for (var st : steps) {
+				BlockPos pos = st.pos();
+				if (!level.isLoaded(pos) || taken.contains(pos.asLong()) || !level.getBlockState(pos).isAir()) {
+					ok = false;
+					break;
+				}
+				parts.add(new Part(pos, st.state(), st.tag()));
+			}
+			if (!ok) {
+				continue;
+			}
+			for (Part part : parts) {
+				taken.add(part.pos().asLong());
+			}
+			out.addAll(parts);
+		}
+		return out;
+	}
+
+	/** Built plots (not roads) nearest a point, within a radius, the nearest first. */
+	static List<PlotView> near(Settlement s, BlockPos at, int radius, int most) {
+		List<PlotView> out = new ArrayList<>();
+		double r2 = (double) radius * radius;
+		for (PlotView p : s.plots()) {
+			if (p.state() == dev.voidmc.hearth.api.PlotState.BUILT && !p.spec().archetype().getPath().startsWith("infra/")
+				&& centre(p).distSqr(at) <= r2) {
+				out.add(p);
+			}
+		}
+		out.sort(java.util.Comparator.comparingDouble(p -> centre(p).distSqr(at)));
+		return out.size() > most ? new ArrayList<>(out.subList(0, most)) : out;
+	}
+
+	private static BlockPos centre(PlotView p) {
+		var o = p.spec().origin();
+		return new BlockPos(o.getX() + p.spec().sizeX() / 2, o.getY(), o.getZ() + p.spec().sizeZ() / 2);
 	}
 
 	/** Sets up a festival's dressings round the square. */
@@ -135,6 +238,8 @@ public final class Dressings {
 				placed++;
 			}
 		}
+		// and the town dresses its fronts: garlands over the doors, banners, lanterns under the eaves
+		all.addAll(fronts(level, s, taken, e, "festival", near(s, anchor, 96, 40)));
 		place(level, ledger, e, all);
 	}
 
@@ -179,6 +284,14 @@ public final class Dressings {
 		}
 		for (Part p : parts) {
 			level.setBlock(p.pos, p.state, FLAGS);
+			if (p.tag != null) {
+				net.minecraft.world.level.block.entity.BlockEntity be = level.getBlockEntity(p.pos);
+				if (be != null) {
+					be.loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(net.minecraft.util.ProblemReporter.DISCARDING,
+						level.registryAccess(), p.tag));
+					be.setChanged();
+				}
+			}
 		}
 	}
 

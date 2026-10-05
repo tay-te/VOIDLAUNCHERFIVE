@@ -43,6 +43,28 @@ public final class RealmTerrain implements TerrainProbe {
 		return this.surface;
 	}
 
+	/**
+	 * The lowest underside of the vault over a footprint (world x/z, inclusive), sampled every other block and at the
+	 * corners, above {@code floorY}: where a deep building must stop (its {@code ceiling_y} param, requests/b-deep.md §1).
+	 * The realm's own ceiling where the probe reads none.
+	 */
+	public int ceilingOver(int x0, int z0, int x1, int z1, int floorY) {
+		int low = Integer.MAX_VALUE;
+		for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x += 2) {
+			for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z += 2) {
+				low = Math.min(low, ceilingAt(x, z, floorY));
+			}
+		}
+		low = Math.min(low, Math.min(ceilingAt(x1, z0, floorY), ceilingAt(x0, z1, floorY)));
+		low = Math.min(low, ceilingAt(x1, z1, floorY));
+		return low == Integer.MAX_VALUE ? this.realm.ceilingY() : low;
+	}
+
+	private int ceilingAt(int x, int z, int floorY) {
+		int c = this.under.ceilingY(x, z, floorY);
+		return c == Integer.MIN_VALUE ? this.realm.ceilingY() : c;
+	}
+
 	/** Whether (x, z) has the realm's open floor over it (not its walls, not a pillar). */
 	public boolean open(int x, int z) {
 		UndergroundProbe.Realm r = this.under.realm(x, z);

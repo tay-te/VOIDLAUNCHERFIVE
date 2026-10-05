@@ -177,6 +177,8 @@ public final class DeepTown {
 		params.putInt("deep_street_y", d.heartY);
 		params.putString("deep_facing", in.getSerializedName());
 		params.putString("character", realm.character());
+		// where the lift's tower meets the rock of the vault (requests/b-deep.md §1)
+		params.putInt("ceiling_y", rt.ceilingOver(head.x0, head.z0, head.x0 + head.sizeX - 1, head.z0 + head.sizeZ - 1, bottom));
 		PlotSpec spec = new PlotSpec(lift.id(), ctx.style, ctx.nextSeed(), new BlockPos(head.x0, bottom, head.z0), head.sizeX, head.sizeZ, head.facing,
 			Math.max(lift.minHeight(), head.streetY - bottom + 10), Build.finish(ctx, lift, 2, null), params);
 		Roads.issue(ctx, spec, "the deep: a lift down to the " + realm.character().replace('_', ' ') + " realm, where the miners broke through");

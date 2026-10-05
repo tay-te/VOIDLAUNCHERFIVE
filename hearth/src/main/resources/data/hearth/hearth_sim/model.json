@@ -62,7 +62,10 @@
       "yields": {
         "logs": 1
       },
-      "any_height": true
+      "above_ground": true,
+      "campaign_yields": {
+        "logs": 24
+      }
     }
   }
 }

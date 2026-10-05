@@ -530,10 +530,17 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 	 * @param emigration     the chance a day, in deep decline, that a household leaves
 	 * @param abandonSlack   empty beds a declining town keeps before it leaves a house standing empty
 	 * @param smoothing      how much of a day's fortunes moves the slow average (0.05: about three weeks)
+	 * @param decayStepDays  days between the steps of time's work on a house a decline left empty (decay 0.25 the day it is left, a ruin after three steps; 0: houses do not weather)
 	 */
 	public record Prosperity(boolean enabled, boolean capacityLimits, double declineBelow, double riseAbove, boolean finishTier, double emigration,
-		int abandonSlack, double smoothing) {
-		public static final Prosperity DEFAULTS = new Prosperity(true, true, 0.35, 0.7, true, 0.25, 6, 0.05);
+		int abandonSlack, double smoothing, int decayStepDays) {
+		public static final Prosperity DEFAULTS = new Prosperity(true, true, 0.35, 0.7, true, 0.25, 6, 0.05, 24);
+
+		public Prosperity(boolean enabled, boolean capacityLimits, double declineBelow, double riseAbove, boolean finishTier, double emigration,
+			int abandonSlack, double smoothing) {
+			this(enabled, capacityLimits, declineBelow, riseAbove, finishTier, emigration, abandonSlack, smoothing, DEFAULTS.decayStepDays);
+		}
+
 		public static final Codec<Prosperity> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Prosperity::enabled),
 			Codec.BOOL.optionalFieldOf("capacity_limits_growth", DEFAULTS.capacityLimits).forGetter(Prosperity::capacityLimits),
@@ -542,7 +549,8 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 			Codec.BOOL.optionalFieldOf("finish_tier", DEFAULTS.finishTier).forGetter(Prosperity::finishTier),
 			Codec.doubleRange(0, 1).optionalFieldOf("emigration", DEFAULTS.emigration).forGetter(Prosperity::emigration),
 			Codec.intRange(0, 1000).optionalFieldOf("abandon_slack", DEFAULTS.abandonSlack).forGetter(Prosperity::abandonSlack),
-			Codec.doubleRange(0.001, 1).optionalFieldOf("smoothing", DEFAULTS.smoothing).forGetter(Prosperity::smoothing)
+			Codec.doubleRange(0.001, 1).optionalFieldOf("smoothing", DEFAULTS.smoothing).forGetter(Prosperity::smoothing),
+			Codec.intRange(0, 100000).optionalFieldOf("decay_step_days", DEFAULTS.decayStepDays).forGetter(Prosperity::decayStepDays)
 		).apply(i, Prosperity::new));
 	}
 

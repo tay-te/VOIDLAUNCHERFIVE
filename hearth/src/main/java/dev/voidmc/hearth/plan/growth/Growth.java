@@ -199,6 +199,11 @@ public final class Growth {
 		if (ctx.state.signature.stacks && tier.ordinal() >= SettlementTier.HAMLET.ordinal()) {
 			list.add(new Need("stack", 120, Stacks::plan));
 		}
+		// households that outgrew their houses build on (docs/buildings/age.md)
+		Need additions = Additions.need(ctx);
+		if (additions != null) {
+			list.add(additions);
+		}
 		if (deficit <= 0 && needs.food >= mouths && tier.ordinal() >= SettlementTier.HAMLET.ordinal()) {
 			int beauty = needs.category(ArchetypeCategory.LANDSCAPE);
 			if (beauty < 2 + pop / 15) {

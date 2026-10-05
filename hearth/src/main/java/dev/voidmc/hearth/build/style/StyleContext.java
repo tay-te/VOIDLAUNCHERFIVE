@@ -22,7 +22,7 @@ import org.jspecify.annotations.Nullable;
  * only chooses the dress.
  *
  * <p><b>Purposes</b> group archetypes across categories: {@code home} (housing), {@code workshop} (workplaces, extraction),
- * {@code religious} (chapels, temples, cathedral, pagoda, monastery, convent, shrine, rectory, cemetery), {@code noble}
+ * {@code religious} (chapels, temples, cathedral, pagoda, monastery, convent, shrine, cemetery; the rectory is a home), {@code noble}
  * (the noble category and the manor), {@code fort} (defence, keeps and castles, guardhouse, jail, watch house),
  * {@code public} (civic, law, landmarks), {@code trade} (commerce), {@code farmstead} (farms, barns, granaries),
  * {@code grand} (landmarks, noble seats, the manor, the town hall), {@code underground} (the deep category).
@@ -117,7 +117,7 @@ public record StyleContext(@Nullable Culture culture, String archetype, @Nullabl
 			out.add("workshop");
 		}
 		if (any(path, "civic/chapel*", "civic/monastery", "civic/convent", "civic/shrine", "civic/cemetery", "landmark/cathedral", "landmark/temple",
-			"landmark/pagoda", "house/rectory")) {
+			"landmark/pagoda")) {
 			out.add("religious");
 		}
 		if (c == ArchetypeCategory.NOBLE || path.equals("house/manor")) {

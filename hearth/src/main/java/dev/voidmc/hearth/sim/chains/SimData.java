@@ -343,14 +343,34 @@ public final class SimData {
 	 * @param yields  goods per cut block below the natural ground (a plantation: per felled block, any height); ore and
 	 *                fuel on top of these come from the site's survey estimate
 	 * @param anyHeight whether cuts above the natural ground count too (trees felled in a woodlot)
+	 * @param aboveGround whether only cuts at or above the natural ground count (a woodlot: the trees felled, not the
+	 *                earth of its banks' ditches); implies {@code anyHeight}
+	 * @param campaignYields goods credited as each campaign after the opening one finishes ({@code Blueprint#campaign}): a
+	 *                woodlot's coupe, whose wood is grown in later rotations the blueprint cannot show (requests/b-extraction.md §6)
 	 */
-	public record Extraction(JobType job, ResourceSite.Kind kind, double[] yields, boolean anyHeight) {
+	public record Extraction(JobType job, ResourceSite.Kind kind, double[] yields, boolean anyHeight, boolean aboveGround, double[] campaignYields) {
 		public static final Codec<Extraction> CODEC = RecordCodecBuilder.create(i -> i.group(
 			JobType.CODEC.fieldOf("job").forGetter(Extraction::job),
 			ResourceSite.Kind.CODEC.fieldOf("kind").forGetter(Extraction::kind),
 			GOODS.optionalFieldOf("yields", new double[Goods.VALUES.length]).forGetter(Extraction::yields),
-			Codec.BOOL.optionalFieldOf("any_height", false).forGetter(Extraction::anyHeight)
+			Codec.BOOL.optionalFieldOf("any_height", false).forGetter(Extraction::anyHeight),
+			Codec.BOOL.optionalFieldOf("above_ground", false).forGetter(Extraction::aboveGround),
+			GOODS.optionalFieldOf("campaign_yields", new double[Goods.VALUES.length]).forGetter(Extraction::campaignYields)
 		).apply(i, Extraction::new));
+
+		public Extraction(JobType job, ResourceSite.Kind kind, double[] yields, boolean anyHeight) {
+			this(job, kind, yields, anyHeight, false, new double[Goods.VALUES.length]);
+		}
+
+		/** Whether anything is credited per finished campaign. */
+		public boolean yieldsByCampaign() {
+			for (double v : this.campaignYields) {
+				if (v > 0) {
+					return true;
+				}
+			}
+			return false;
+		}
 	}
 
 	// ---------------------------------------------------------------- loading

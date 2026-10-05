@@ -60,18 +60,40 @@ public final class StepWriter {
 		@Nullable BlockState at(long pos);
 
 		void put(long pos, BlockState state);
+
+		/**
+		 * Whether what stands at a position is ours: a state this plot (or a plot it replaces, or what it changes in place)
+		 * put there.
+		 */
+		default boolean owns(long pos, BlockState current) {
+			return at(pos) == current;
+		}
 	}
 
-	/** An owned map filled on first use by {@code filler}. */
+	/**
+	 * An owned map filled on first use by {@code filler}. Where the filler names several states for one position (the
+	 * stages of a building changed in place: as first built, with its first addition...), each of them counts as ours;
+	 * {@link Owned#at} gives the last.
+	 */
 	public static Owned lazyOwned(java.util.function.Consumer<StepSink> filler) {
 		return new Owned() {
 			private @Nullable Long2ObjectOpenHashMap<BlockState> map;
+			private @Nullable Long2ObjectOpenHashMap<java.util.List<BlockState>> earlier;
 
 			private Long2ObjectOpenHashMap<BlockState> map() {
 				if (this.map == null) {
 					Long2ObjectOpenHashMap<BlockState> m = new Long2ObjectOpenHashMap<>();
 					this.map = m;
-					filler.accept((x, y, z, state, tag) -> m.put(BlockPos.asLong(x, y, z), state));
+					filler.accept((x, y, z, state, tag) -> {
+						long k = BlockPos.asLong(x, y, z);
+						BlockState was = m.put(k, state);
+						if (was != null && was != state) {
+							if (this.earlier == null) {
+								this.earlier = new Long2ObjectOpenHashMap<>();
+							}
+							this.earlier.computeIfAbsent(k, q -> new java.util.ArrayList<>(2)).add(was);
+						}
+					});
 				}
 				return this.map;
 			}
@@ -79,6 +101,15 @@ public final class StepWriter {
 			@Override
 			public @Nullable BlockState at(long pos) {
 				return map().get(pos);
+			}
+
+			@Override
+			public boolean owns(long pos, BlockState current) {
+				if (map().get(pos) == current) {
+					return true;
+				}
+				java.util.List<BlockState> e = this.earlier == null ? null : this.earlier.get(pos);
+				return e != null && e.contains(current);
 			}
 
 			@Override
@@ -142,7 +173,7 @@ public final class StepWriter {
 				owned.put(key, state);
 				return;
 			}
-			if (!replaceable(current, x, y, z, world) && owned.at(key) != current) {
+			if (!replaceable(current, x, y, z, world) && !owned.owns(key, current)) {
 				r.conflicts++;
 				return;
 			}

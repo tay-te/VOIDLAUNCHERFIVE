@@ -156,13 +156,20 @@ public final class ChunkApplier {
 			if (p.state() == PlotState.DEMOLISHING) {
 				oldId = p.id();
 				oldSpec = p.spec();
-			} else if (p.replaces() != SimPlot.NONE && (p.state() == PlotState.BUILDING || p.state() == PlotState.BUILT)) {
+			} else if (p.replaces() != SimPlot.NONE && (p.state() == PlotState.BUILDING || p.state() == PlotState.BUILT || p.state() == PlotState.ABANDONED)) {
+				// (an abandoned plot replacing another is a building weathered in place, SimSettlement#weather: what stood of
+				// it comes down where it is still as built, and the weathered drawing goes in)
 				oldId = p.replaces();
 				SimPlot standing = s.plot(oldId);
 				if (standing != null && standing.state() != PlotState.DEMOLISHING) {
 					continue;
 				}
 				oldSpec = standing != null ? standing.spec() : p.replacedSpec();
+				if (SimSettlement.inPlace(oldSpec, p.spec())) {
+					// changed in place (an addition, time's decay): nothing comes down, the new drawing is written over what
+					// stands, which counts as the plot's own (owned) until it is done
+					continue;
+				}
 			} else {
 				continue;
 			}
@@ -283,6 +290,18 @@ public final class ChunkApplier {
 						StepWriter.forApplied(this.blueprints.blueprint(spec, this.terrain), cx, cz, oldCursor, sink);
 					} catch (IllegalArgumentException ignored) {
 						// its archetype is gone; nothing of it counts as ours
+					}
+				}
+				if (SimSettlement.inPlace(spec, p.spec())) {
+					// a building changed in place may stand here as any of its earlier selves (a chunk unloaded while it grew
+					// twice, or weathered a step further): what each of them put here is ours too
+					for (PlotSpec earlier : SimSettlement.earlierSelves(p.spec())) {
+						try {
+							Blueprint e = this.blueprints.blueprint(earlier, this.terrain);
+							StepWriter.forApplied(e, cx, cz, dev.voidmc.hearth.sim.settlement.Cursor.pack(e.stageCount(), 0), sink);
+						} catch (RuntimeException ignored) {
+							// nothing of it counts
+						}
 					}
 				}
 			}

@@ -24,19 +24,47 @@ import org.jspecify.annotations.Nullable;
  * @param cuts      for an excavation ({@code hearth:extract/*}), the blocks each stage cuts out of the natural land (air
  *                  steps below the probe's ground; a woodlot's felled blocks at any height), else null
  */
-public record PlotFacts(int stageCount, int[] stepCount, int[] work, int[][] goods, int beds, int[] jobs, boolean storage, int @Nullable [] cuts) {
+public record PlotFacts(int stageCount, int[] stepCount, int[] work, int[][] goods, int beds, int[] jobs, boolean storage, int @Nullable [] cuts,
+	int[] campaigns) {
+	public PlotFacts(int stageCount, int[] stepCount, int[] work, int[][] goods, int beds, int[] jobs, boolean storage, int @Nullable [] cuts) {
+		this(stageCount, stepCount, work, goods, beds, jobs, storage, cuts, new int[stageCount]);
+	}
+
+	/**
+	 * Whether a stage is the last of a campaign after the opening one ({@code Blueprint#campaign}): a bench, a gallery, a
+	 * woodlot's coupe finished.
+	 */
+	public boolean endsCampaign(int stage) {
+		if (stage < 0 || stage >= this.campaigns.length || this.campaigns[stage] <= 0) {
+			return false;
+		}
+		return stage == this.campaigns.length - 1 || this.campaigns[stage + 1] != this.campaigns[stage];
+	}
+
 	public static PlotFacts of(PlotSpec spec, BlueprintService blueprints, TerrainProbe terrain) {
 		return of(spec, blueprints, terrain, null);
 	}
 
 	/** As above; {@code extraction} (if the archetype is an excavation) says which cuts count. */
 	public static PlotFacts of(PlotSpec spec, BlueprintService blueprints, TerrainProbe terrain, SimData.@Nullable Extraction extraction) {
+		return of(spec, blueprints, terrain, extraction, null);
+	}
+
+	/**
+	 * As above, for a building written over another in place ({@code over}: the spec it changes, {@code
+	 * SimSettlement#inPlace}): each stage's labour and goods are only its share of the steps that change what stands
+	 * (an addition costs the lean-to, not the house again).
+	 */
+	public static PlotFacts of(PlotSpec spec, BlueprintService blueprints, TerrainProbe terrain, SimData.@Nullable Extraction extraction,
+		@Nullable PlotSpec over) {
 		Blueprint bp = blueprints.blueprint(spec, terrain);
 		int n = bp.stageCount();
 		int[] steps = new int[n];
 		int[] work = new int[n];
 		int[][] goods = new int[n][];
+		int[] campaigns = new int[n];
 		for (int s = 0; s < n; s++) {
+			campaigns[s] = bp.campaign(s);
 			steps[s] = bp.stepCount(s);
 			work[s] = Math.max(0, bp.work(s));
 			int[] g = bp.goods(s);
@@ -61,13 +89,15 @@ public record PlotFacts(int stageCount, int[] stepCount, int[] work, int[][] goo
 		int[] cuts = null;
 		if (extraction != null) {
 			cuts = new int[n];
-			boolean any = extraction.anyHeight();
+			boolean any = extraction.anyHeight() || extraction.aboveGround();
+			boolean above = extraction.aboveGround();
 			for (int s = 0; s < n; s++) {
 				int[] count = {0};
 				for (int i = 0; i < steps[s]; i++) {
 					bp.step(s, i, (x, y, z, state, tag) -> {
-						// air below the natural ground is rock or earth taken out; a woodlot's air steps are felled trees
-						if (state.isAir() && (any || y < terrain.groundY(x, z))) {
+						// air below the natural ground is rock or earth taken out; a woodlot's air steps over it are felled trees
+						int ground = terrain.groundY(x, z);
+						if (state.isAir() && (above ? y >= ground : any || y < ground)) {
 							count[0]++;
 						}
 					});
@@ -75,7 +105,35 @@ public record PlotFacts(int stageCount, int[] stepCount, int[] work, int[][] goo
 				cuts[s] = count[0];
 			}
 		}
-		return new PlotFacts(n, steps, work, goods, bp.beds(), jobs, storage, cuts);
+		if (over != null) {
+			discount(bp, blueprints.blueprint(over, terrain), steps, work, goods);
+		}
+		return new PlotFacts(n, steps, work, goods, bp.beds(), jobs, storage, cuts, campaigns);
+	}
+
+	/** Scales each stage's labour and goods to the share of its steps that differ from what the old building put there. */
+	private static void discount(Blueprint bp, Blueprint old, int[] steps, int[] work, int[][] goods) {
+		it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<net.minecraft.world.level.block.state.BlockState> stood = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
+		for (int s = 0; s < old.stageCount(); s++) {
+			for (int i = 0; i < old.stepCount(s); i++) {
+				old.step(s, i, (x, y, z, state, tag) -> stood.put(net.minecraft.core.BlockPos.asLong(x, y, z), state));
+			}
+		}
+		for (int s = 0; s < steps.length; s++) {
+			int[] changed = {0};
+			for (int i = 0; i < steps[s]; i++) {
+				bp.step(s, i, (x, y, z, state, tag) -> {
+					if (stood.get(net.minecraft.core.BlockPos.asLong(x, y, z)) != state) {
+						changed[0]++;
+					}
+				});
+			}
+			double share = steps[s] == 0 ? 0 : changed[0] / (double) steps[s];
+			work[s] = (int) Math.ceil(work[s] * share);
+			for (int g = 0; g < goods[s].length; g++) {
+				goods[s][g] = (int) Math.ceil(goods[s][g] * share);
+			}
+		}
 	}
 
 	public long complete() {

@@ -26,6 +26,16 @@ public interface Blueprint {
 
 	StageKind stageKind(int stage);
 
+	/**
+	 * The campaign a stage belongs to: a building raised over months (a castle) or a working dug over weeks (a quarry's
+	 * benches, a mine's galleries, a woodlot's coupes) is built in campaigns, each a whole run of stages in
+	 * {@link StageKind} order; the next campaign starts the kinds again. Never decreases with the stage index; 0 for a
+	 * building raised in one (the default).
+	 */
+	default int campaign(int stage) {
+		return 0;
+	}
+
 	int stepCount(int stage);
 
 	/** Emits step {@code index} of {@code stage}. */

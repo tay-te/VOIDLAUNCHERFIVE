@@ -74,6 +74,42 @@ public final class Prosperity {
 		}
 		abandonEmpty(s, cfg, c, land);
 		resettle(s, land, c);
+		weather(s, cfg, land, day);
+	}
+
+	/** The decay of a house the day it is left (the build module's {@code Decay.ABANDONED}), and of each step after. */
+	static final double LEFT = 0.25;
+
+	/**
+	 * Time's work on the houses a decline left empty (docs/buildings/age.md): a quarter of the way to a ruin the day a house
+	 * is left (lamps and bedding gone), then a quarter more every {@code decay_step_days} (holes in the roof, the roof
+	 * gone, a roofless shell). A house folk move back into is rebuilt whole ({@link #resettle}).
+	 */
+	static void weather(SimSettlement s, SimConfig.Prosperity cfg, LandState land, long day) {
+		if (cfg.decayStepDays() <= 0 || land.deserted().isEmpty()) {
+			return;
+		}
+		for (int id : List.copyOf(land.deserted())) {
+			SimPlot p = s.plots.get(id);
+			if (p == null || p.state != PlotState.ABANDONED || p.owner != null) {
+				land.resettle(id);
+				continue;
+			}
+			double decay = SimSettlement.decay(p.spec());
+			double next;
+			if (decay < LEFT) {
+				next = LEFT;
+			} else if (decay < 1 && day - p.completedDay >= cfg.decayStepDays()) {
+				next = Math.min(1, decay + LEFT);
+			} else {
+				continue;
+			}
+			SimPlot w = s.weather(p, next);
+			if (w != p) {
+				land.resettle(id);
+				land.desert(w.id());
+			}
+		}
 	}
 
 	/**
@@ -300,6 +336,15 @@ public final class Prosperity {
 		for (int id : List.copyOf(land.deserted())) {
 			SimPlot p = s.plots.get(id);
 			land.resettle(id);
+			if (p != null && p.state == PlotState.ABANDONED && SimSettlement.decay(p.spec()) > 0) {
+				// time has worked on it: lowering the decay is a rebuild, the house comes back whole (docs/buildings/age.md)
+				net.minecraft.nbt.CompoundTag params = p.spec().params().copy();
+				params.remove(SimSettlement.DECAY);
+				PlotSpec o = p.spec();
+				s.addPlot(new PlotSpec(o.archetype(), o.style(), o.seed(), o.origin(), o.sizeX(), o.sizeZ(), o.facing(), o.maxHeight(), o.tier(), params),
+					p.id(), "repaired: folk came back");
+				return;
+			}
 			if (p != null && p.state == PlotState.ABANDONED && p.stage >= s.facts(p).stageCount()) {
 				p.state = PlotState.BUILT;
 				s.invalidateDerived();
@@ -317,6 +362,12 @@ public final class Prosperity {
 	static PlotSpec finish(SimSettlement s, PlotSpec spec, SimRules r) {
 		SimConfig.Prosperity cfg = r.resources.prosperity();
 		if (!cfg.enabled() || !cfg.finishTier() || SettlementClock.isRoad(spec)) {
+			return spec;
+		}
+		int replaces = spec.params().getIntOr("replaces", -1);
+		SimPlot old = replaces >= 0 ? s.plots.get(replaces) : null;
+		if (old != null && SimSettlement.inPlace(old.spec(), spec)) {
+			// an addition to a standing house keeps the house's finish
 			return spec;
 		}
 		double p = s.land().prosperity();

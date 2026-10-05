@@ -29,4 +29,21 @@ public interface BlueprintService {
 	default Goods @Nullable [] goodsOf(net.minecraft.world.level.block.state.BlockState state) {
 		return null;
 	}
+
+	/**
+	 * What a built plot puts up for a special day (docs/buildings/age.md): {@code kind} is {@code market} (awnings, wares
+	 * before the front), {@code festival} (garlands, banners, lanterns, pots), {@code wedding}, {@code mourning} or
+	 * {@code winter} (snow on the ledges, cold cultures only). World positions in placing order, supports first, only
+	 * where the blueprint places air or nothing, never in a doorway; deterministic in (spec, kind, day). Place them in
+	 * order and take them down after (each position back to air if it still holds the step's block). Empty where the
+	 * build module does not dress (the default) or the kind does not apply.
+	 */
+	default java.util.List<Dressing> dressing(PlotSpec spec, TerrainProbe terrain, String kind, long day) {
+		return java.util.List.of();
+	}
+
+	/** One block of a dressing; {@code tag} is block-entity data (a banner's pattern) or null. */
+	record Dressing(net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.state.BlockState state,
+		net.minecraft.nbt.@Nullable CompoundTag tag) {
+	}
 }

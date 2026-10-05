@@ -157,6 +157,24 @@ public final class BlueprintServiceImpl implements BlueprintService {
 	}
 
 	@Override
+	public java.util.List<Dressing> dressing(PlotSpec spec, TerrainProbe terrain, String kind, long day) {
+		dev.voidmc.hearth.build.age.Dressings.Kind k;
+		try {
+			k = dev.voidmc.hearth.build.age.Dressings.Kind.byName(kind);
+		} catch (IllegalArgumentException e) {
+			return java.util.List.of();
+		}
+		if (this.archetypes.get(spec.archetype()) == null || !dev.voidmc.hearth.build.age.Dressings.applies(spec, k)) {
+			return java.util.List.of();
+		}
+		java.util.List<Dressing> out = new java.util.ArrayList<>();
+		for (var s : dev.voidmc.hearth.build.age.Dressings.steps(spec, blueprint(spec, terrain), k, day, terrain)) {
+			out.add(new Dressing(s.pos(), s.state(), s.tag()));
+		}
+		return out;
+	}
+
+	@Override
 	public Collection<ArchetypeInfo> archetypes() {
 		return this.archetypes.infos();
 	}

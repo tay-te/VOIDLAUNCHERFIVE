@@ -347,6 +347,8 @@ public final class Trimmings {
 		int[] zs = new int[w];
 		int[] ys = new int[w];
 		boolean[] ok = new boolean[w];
+		// held by the wall right behind it (not only by the course above, which is a corner away)
+		boolean[] held = new boolean[w];
 		for (int x = 0; x < w; x++) {
 			int zf = face(x, 1);
 			if (zf == Integer.MIN_VALUE) {
@@ -363,6 +365,8 @@ public final class Trimmings {
 			zs[x] = z;
 			ys[x] = y;
 			ok[x] = true;
+			BlockState back = this.v.get(x, y, zf);
+			held[x] = back != null && !back.isAir();
 		}
 		int placed = 0;
 		int x = 0;
@@ -375,11 +379,19 @@ public final class Trimmings {
 			while (x1 + 1 < w && ok[x1 + 1] && zs[x1 + 1] == zs[x] && ys[x1 + 1] == ys[x]) {
 				x1++;
 			}
-			if (x1 - x >= 1) {
-				for (int k = x; k <= x1; k++) {
-					BlockState frame = board.defaultBlockState().setValue(TrapDoorBlock.FACING, Dirs.BACK).setValue(TrapDoorBlock.HALF, Half.TOP)
-						.setValue(TrapDoorBlock.OPEN, false);
-					if (put(k, ys[k], zs[k], frame, null)) {
+			int h = x;
+			while (h <= x1 && !held[h]) {
+				h++;
+			}
+			if (x1 - x >= 1 && h <= x1) {
+				// from a board the wall holds outward both ways, so each board goes up beside one already up
+				BlockState frame = board.defaultBlockState().setValue(TrapDoorBlock.FACING, Dirs.BACK).setValue(TrapDoorBlock.HALF, Half.TOP)
+					.setValue(TrapDoorBlock.OPEN, false);
+				for (int dir : new int[]{1, -1}) {
+					for (int k = dir > 0 ? h : h - 1; k >= x && k <= x1; k += dir) {
+						if (!put(k, ys[k], zs[k], frame, null)) {
+							break;
+						}
 						put(k, ys[k] + 1, zs[k], dyed(Math.floorMod(k, 2) == 0 ? a : b, "_carpet").defaultBlockState(), null);
 						placed++;
 					}

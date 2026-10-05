@@ -267,6 +267,22 @@ public final class PlanContext {
 		}
 		net.minecraft.nbt.CompoundTag params = spec.params();
 		boolean changed = false;
+		int maxHeight = spec.maxHeight();
+		if (this.ground.probe() instanceof dev.voidmc.hearth.plan.deep.RealmTerrain realm && !spec.archetype().getPath().startsWith("infra/")) {
+			// a deep plot: the realm's character, and the vault over it, which the building keeps one clear of
+			// (requests/b-deep.md §1-2)
+			if (!params.contains("character")) {
+				params.putString("character", realm.realm().character());
+				changed = true;
+			}
+			if (!params.contains("ceiling_y")) {
+				int ceiling = realm.ceilingOver(spec.origin().getX(), spec.origin().getZ(), spec.origin().getX() + spec.sizeX() - 1,
+					spec.origin().getZ() + spec.sizeZ() - 1, spec.floorY());
+				params.putInt("ceiling_y", ceiling);
+				maxHeight = Math.max(1, Math.min(maxHeight, ceiling - spec.floorY() - 1));
+				changed = true;
+			}
+		}
 		if (arms && !params.contains("banner")) {
 			params.putString("banner", banner());
 			changed = true;
@@ -286,7 +302,7 @@ public final class PlanContext {
 		if (!changed) {
 			return spec;
 		}
-		return new PlotSpec(spec.archetype(), spec.style(), spec.seed(), spec.origin(), spec.sizeX(), spec.sizeZ(), spec.facing(), spec.maxHeight(),
+		return new PlotSpec(spec.archetype(), spec.style(), spec.seed(), spec.origin(), spec.sizeX(), spec.sizeZ(), spec.facing(), maxHeight,
 			spec.tier(), params);
 	}
 

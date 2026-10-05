@@ -88,6 +88,10 @@ java {
 
 test {
 	useJUnitPlatform()
+	// every building family's tests in one JVM, each holding a blueprint service and its cache: room for them, and a
+	// fresh JVM every hundred test classes so their caches do not pile up
+	maxHeapSize = '3g'
+	forkEvery = 100
 	testLogging {
 		events 'failed'
 		exceptionFormat 'full'
