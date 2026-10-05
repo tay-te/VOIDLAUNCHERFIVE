@@ -62,6 +62,5 @@ side. `GATE`, `GUARD_POST`, GUARD job site, `STRONGBOX`-style storage, `BED`.
 
 ## Weak spots
 
-- Gallows at the minimum 7-wide plot: the uprights stand one cell apart, so the frame reads as a solid T from afar.
 - Jail roofs are low hips; the building is a plain cube in several cultures.
 - Toll gate booms use coloured wool stripes (the town's colours) — intended, but loud in pale palettes.

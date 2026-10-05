@@ -68,6 +68,14 @@ public final class Gallows implements Archetype {
 		// the frame and its ropes
 		int a = x0 + 1;
 		int b = x1 - 1;
+		// on a narrow deck the upright away from the stair stands on the deck's edge, so the frame opens wide enough to read
+		if (b - a < 3) {
+			if (stairLeft) {
+				b = x1;
+			} else {
+				a = x0;
+			}
+		}
 		int span = b - a - 1;
 		int ropes = Math.clamp(d.param("ropes", span >= 3 && d.chance(0.6) ? 2 : 1), 1, span >= 3 ? 2 : 1);
 		int[] at = ropes == 2 ? new int[]{a + 1, b - 1} : new int[]{(a + b) / 2};
