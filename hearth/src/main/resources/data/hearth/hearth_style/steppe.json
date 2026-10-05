@@ -11,7 +11,7 @@
 		"beam": [{"m": "wood:expanse:baobab|wood:minecraft:jungle", "log": "minecraft:dark_oak_log"}],
 		"floor": ["wood:expanse:baobab|wood:minecraft:jungle"],
 		"ceiling": ["wood:expanse:baobab|wood:minecraft:jungle"],
-		"roof": [{"m": "minecraft:light_gray_wool", "w": 2}, {"m": "minecraft:white_wool", "w": 1}, {"m": "minecraft:brown_wool", "w": 1}],
+		"roof": [{"m": "minecraft:light_gray_wool", "w": 2}, {"m": "minecraft:brown_wool", "w": 1.5}],
 		"roof_trim": ["wood:minecraft:dark_oak"],
 		"gable": ["minecraft:packed_mud"],
 		"window": ["wood:expanse:baobab|wood:minecraft:jungle"],
@@ -46,7 +46,7 @@
 	"base_weight": 2,
 	"base_when": {"not": [{"stations": ["gentry", "lord"]}, {"categories": ["religious", "grand"]}]},
 	"variants": [
-		{"name": "felt yurt", "w": 1.4, "roles": {"wall": [{"m": "minecraft:white_wool", "w": 4}, {"m": "minecraft:light_gray_wool", "w": 0.32}], "gable": ["minecraft:white_wool"], "wall_accent": ["wood:minecraft:dark_oak"], "roof": [{"m": "minecraft:light_gray_wool", "w": 2}, {"m": "minecraft:white_wool", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}, "habits": {"plan": {"round": 1.0}, "roof": {"forms": {"cone": 1}}}},
+		{"name": "felt yurt", "w": 1.4, "roles": {"wall": [{"m": "minecraft:white_wool", "w": 4}, {"m": "minecraft:light_gray_wool", "w": 0.32}], "gable": ["minecraft:white_wool"], "wall_accent": ["wood:minecraft:dark_oak"], "roof": ["minecraft:light_gray_wool"], "roof_trim": ["wood:minecraft:dark_oak"]}, "habits": {"plan": {"round": 1.0}, "roof": {"forms": {"cone": 1}}}},
 		{"name": "mud brick", "w": 1, "roles": {"wall": [{"m": "minecraft:mud_bricks", "w": 4}, {"m": "minecraft:packed_mud", "w": 0.32}], "gable": ["minecraft:mud_bricks"], "wall_accent": ["minecraft:packed_mud"]}, "habits": {"walls": {"kind": "brick"}}},
 		{"name": "timber", "w": 0.8, "roles": {"wall": [{"m": "wood:minecraft:dark_oak", "log": "minecraft:stripped_dark_oak_log"}], "gable": ["wood:minecraft:dark_oak"]}, "habits": {"walls": {"kind": "plank"}}},
 		{"name": "lime white", "w": 0.6, "roles": {"wall": [{"m": "minecraft:white_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 2}, {"m": "minecraft:smooth_sandstone", "w": 0.16}], "gable": ["minecraft:white_terracotta"]}},

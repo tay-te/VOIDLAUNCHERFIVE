@@ -8,8 +8,8 @@ The savanna, the steppe and the Sahel: round houses of mud plaster and dark timb
 
 | dressing | worn by | walls | roof | built as |
 |---|---|---|---|---|
-| **round house** (common manner, w 2) | not (station gentry / lord or category religious / grand) | packed mud, mud bricks, coarse dirt at the foot | grey, white or brown felt (wool), dark oak trim | plaster |
-| · felt yurt (w 1.4) | as the common manner | white felt, light grey felt | grey or white felt | plaster, always round, cone roof |
+| **round house** (common manner, w 2) | not (station gentry / lord or category religious / grand) | packed mud, mud bricks, coarse dirt at the foot | grey or brown felt (wool), dark oak trim | plaster |
+| · felt yurt (w 1.4) | as the common manner | white felt, light grey felt | grey felt | plaster, always round, cone roof |
 | · mud brick (w 1) | as the common manner | mud bricks, packed mud | · | brick |
 | · timber (w 0.8) | as the common manner | dark oak boards | · | plank |
 | · lime white (w 0.6) | as the common manner | white terracotta, smooth sandstone | · | plaster |
@@ -21,7 +21,7 @@ A dash (·) keeps the material of the manner above. Weights compete among the dr
 
 ### Round house
 
-Mud plaster (packed mud, a patch of mud brick, earth at the foot) on mud-brick footings, dark timber, cone and hip roofs of felt (light grey, white or brown wool, one per house). Baobab timber falls back to jungle wood (pale brown, as baobab is) without Expanse, not to orange acacia. Fashions: **felt yurt** (felt walls and roof, round), **mud brick**, **timber** (dark boards), **lime white**, **thatched** (grass thatch).
+Mud plaster (packed mud, a patch of mud brick, earth at the foot) on mud-brick footings, dark timber, cone and hip roofs of felt (light grey or brown wool, one per house: white felt on a roof reads as snow). Baobab timber falls back to jungle wood (pale brown, as baobab is) without Expanse, not to orange acacia. Fashions: **felt yurt** (felt walls and roof, round), **mud brick**, **timber** (dark boards), **lime white**, **thatched** (grass thatch).
 
 ![steppe round house: cottage, town house, chapel and a street](img/steppe_base_round_house.webp)
 
