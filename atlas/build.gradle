@@ -177,7 +177,9 @@ def budgets = [
 	underAvgFrameMs  : 4.0,   // the underground map, panning and zooming
 	underP99FrameMs  : 8.0,
 	detectMsPerChunk : 0.5,   // structure detection per chunk, on the workers
-	revealMsPerWalk  : 20.0   // one underground reveal round the player, on the workers (at most one at a time)
+	revealMsPerWalk  : 20.0,  // one underground reveal round the player, on the workers (at most one at a time)
+	beamsAvgMs       : 0.15,  // the waypoint beams and labels in the world, per frame while flying (48 waypoints)
+	radarAvgMs       : 0.10   // the minimap's radar, per frame while flying
 ]
 
 tasks.register('atlasPerf') {
@@ -206,6 +208,8 @@ tasks.register('atlasPerf') {
 		if (r.underMap.p99FrameMs > budgets.underP99FrameMs) failures << "underground map p99 frame ${r.underMap.p99FrameMs} ms > ${budgets.underP99FrameMs}"
 		if (r.underMap.maxFrameMs > budgets.hitchMs) failures << "hitch on the underground map: ${r.underMap.maxFrameMs} ms > ${budgets.hitchMs}"
 		if (r.detect.msPerChunk > budgets.detectMsPerChunk) failures << "structure detection ${r.detect.msPerChunk} ms/chunk > ${budgets.detectMsPerChunk}"
+		if (r.beams && r.beams.avgMs > budgets.beamsAvgMs) failures << "waypoint beams ${r.beams.avgMs} ms/frame > ${budgets.beamsAvgMs}"
+		if (r.radar && r.radar.avgMs > budgets.radarAvgMs) failures << "radar ${r.radar.avgMs} ms/frame > ${budgets.radarAvgMs}"
 		if (r.reveal.walks > 0 && r.reveal.msPerWalk > budgets.revealMsPerWalk) failures << "underground reveal ${r.reveal.msPerWalk} ms/walk > ${budgets.revealMsPerWalk}"
 		updatePerfDoc(file('docs/PERF.md'), file('build/perf'), budgets)
 		if (!failures.isEmpty()) {
@@ -232,6 +236,8 @@ static void updatePerfDoc(File doc, File dir, Map budgets) {
 	row('Map screen: tiles drawn / uploaded', { "${it.map.tilesDrawnAvg} avg / ${it.map.uploads} uploads (${it.map.uploadMb} MB)" }, '—')
 	row('Flying, minimap on: avg / worst frame', { "${it.flight.avgFrameMs} ms (${it.flight.avgFps} fps) / ${it.flight.maxFrameMs} ms" }, "worst ≤ ${budgets.hitchMs} ms")
 	row('Minimap cost per frame (avg / max)', { "${it.minimap.avgMs} / ${it.minimap.maxMs} ms" }, "avg ≤ ${budgets.minimapAvgMs} ms")
+	row('Waypoint beams (48 waypoints): avg / p99 / max per frame', { it.beams ? "${it.beams.avgMs} / ${it.beams.p99Ms} / ${it.beams.maxMs} ms" : '—' }, "avg ≤ ${budgets.beamsAvgMs} ms")
+	row('Minimap radar: avg / p99 / max per frame', { it.radar ? "${it.radar.avgMs} / ${it.radar.p99Ms} / ${it.radar.maxMs} ms" : '—' }, "avg ≤ ${budgets.radarAvgMs} ms")
 	row('Chunk ingest, client thread: max per frame', { "${it.ingest.maxFrameMs} ms" }, "≤ ${budgets.ingestMaxFrameMs} ms")
 	row('Chunk scan (worker): per chunk', { "${it.ingest.scanMsPerChunk} ms (${it.ingest.chunks} chunks)" }, '—')
 	row('Tile uploads while flying', { "${it.flight.uploads} (${it.flight.uploadMb} MB)" }, '—')

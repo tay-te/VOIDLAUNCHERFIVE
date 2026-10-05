@@ -606,6 +606,22 @@ public class AtlasGameTest implements FabricClientGameTest {
 		long scanNanos0 = Perf.SCAN_NANOS.get();
 		long detected0 = Perf.DETECTED.get();
 		long detectNanos0 = Perf.DETECT_NANOS.get();
+		// the beams and the radar on, with 48 waypoints round the route (the nearest 32 drawn), so their costs are timed
+		int sx = this.spawn.getX();
+		int sz = this.spawn.getZ();
+		context.runOnClient(mc -> {
+			var settings = AtlasClient.get().settings();
+			settings.waypointBeams = true;
+			settings.radarPlayers = true;
+			settings.radarMobs = true;
+			var session = AtlasClient.get().session();
+			for (int i = 0; i < 48; i++) {
+				double a = i * Math.PI * 2 / 48;
+				int r = 60 + (i % 6) * 250;
+				session.waypoints.put(dev.voidmc.atlas.api.Waypoint.create("Beam " + i, sx - 600 + (int) (Math.cos(a) * r), 80, sz + (int) (Math.sin(a) * r),
+					"minecraft:overworld", i));
+			}
+		});
 		context.runOnClient(mc -> Perf.startRecording());
 		context.getInput().holdKey(o -> o.keyUp);
 		context.getInput().holdKey(o -> o.keySprint);
@@ -746,6 +762,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 			  "map": {"frames": %d, "avgFrameMs": %.3f, "avgFps": %.0f, "p99FrameMs": %.3f, "maxFrameMs": %.3f, "atlasAvgMs": %.3f, "tilesDrawnAvg": %.1f, "tilesVisited": %d, "uploads": %d, "uploadMb": %.1f},
 			  "flight": {"frames": %d, "avgFrameMs": %.3f, "avgFps": %.0f, "p99FrameMs": %.3f, "maxFrameMs": %.3f, "uploads": %d, "uploadMb": %.1f},
 			  "minimap": {"avgMs": %.3f, "maxMs": %.3f, "p99Ms": %.3f},
+			  "beams": {"avgMs": %.4f, "maxMs": %.3f, "p99Ms": %.3f},
+			  "radar": {"avgMs": %.4f, "maxMs": %.3f, "p99Ms": %.3f},
 			  "ingest": {"maxFrameMs": %.3f, "avgFrameMs": %.4f, "chunks": %d, "scanMsPerChunk": %.3f},
 			  "detect": {"chunks": %d, "msPerChunk": %.3f},
 			  "reveal": {"walks": %d, "msPerWalk": %.3f, "openPerWalk": %d},
@@ -760,6 +778,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 			flight.count(), Perf.Recording.avgMs(flight.frames()), 1000 / Math.max(1e-6, Perf.Recording.avgMs(flight.frames())),
 			Perf.Recording.percentileMs(flight.frames(), 0.99), Perf.Recording.maxMs(flight.frames()), flightUploads, flightBytes / 1048576.0,
 			Perf.Recording.avgMs(flight.minimap()), Perf.Recording.maxMs(flight.minimap()), Perf.Recording.percentileMs(flight.minimap(), 0.99),
+			Perf.Recording.avgMs(flight.beams()), Perf.Recording.maxMs(flight.beams()), Perf.Recording.percentileMs(flight.beams(), 0.99),
+			Perf.Recording.avgMs(flight.radar()), Perf.Recording.maxMs(flight.radar()), Perf.Recording.percentileMs(flight.radar(), 0.99),
 			Math.max(Math.max(Perf.Recording.maxMs(flight.ingest()), Perf.Recording.maxMs(map.ingest())), Perf.Recording.maxMs(under.ingest())),
 			Perf.Recording.avgMs(flight.ingest()), scanned, scanNanos / 1e6 / Math.max(1, scanned),
 			detected, detectMs,
