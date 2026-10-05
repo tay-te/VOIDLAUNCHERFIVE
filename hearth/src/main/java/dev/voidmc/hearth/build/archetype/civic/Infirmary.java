@@ -14,6 +14,7 @@ import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Furniture;
+import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
@@ -29,6 +30,7 @@ import dev.voidmc.hearth.build.kit.sociallife.Wards;
 import dev.voidmc.hearth.build.kit.sociallife.Yardwork;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.style.Role;
+import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.terrain.Groundwork;
 import java.util.List;
 import java.util.Set;
@@ -38,11 +40,14 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:civic/infirmary}: the hospital where the healer tends the sick. One lofty storey, a long ward under tie
- * beams with the ridge along the street: down both long walls the cots of the sick (a white bolster, a blanket in the
- * house's cloth), the healer's stand of physic between each pair; at the far end of the ward a little altar so the sick
- * may see the candles from their beds; a stove for warmth. Beside the door, behind a partition, the healer's
- * dispensary: the brewing stand where the remedies are made, shelves of jars and a chest of herbs. Outside, the
- * hospital's board over the door, a bench, and behind it the physic garden of herb beds and a well.
+ * beams with the ridge along the street and a louvre on the ridge to let the foul air out; it stands back across the rear
+ * of its plot behind the physic garden, so that from the street one sees the herb beds either side of the path behind
+ * a low wall, the long roof and its louvre over them. Inside, down both long walls the cots of the sick (a white
+ * bolster, a blanket in the house's cloth), the healer's stand of physic between each pair; at the far end of the ward a
+ * little altar so the sick may see the candles from their beds; a stove for warmth. Beside the door, behind a partition,
+ * the healer's dispensary: the brewing stand where the remedies are made, shelves of jars and a chest of herbs. The
+ * hospital's board by the door, a bench, a well in the garden's corner. Where the ground before it is not gentle enough to
+ * garden, or the house stands on posts, the ward keeps to the front and the garden lies behind it.
  *
  * <p>Not housing: cots, not beds. POIs: SICKBEDs, the HEALER's JOB_SITE, STORAGE, the ALTAR, the HEARTH, SEATs, the
  * DOOR. Params: {@code variant} (int).
@@ -64,9 +69,12 @@ public final class Infirmary implements Archetype {
 		Tradition t = Tradition.of(d);
 		boolean raised = t.raised();
 
-		// --- the plan: the ward across the front, the physic garden behind
-		int md = Math.min(dp - 2, dp >= 15 ? 10 : 9);
-		int zF = raised ? Math.max(2, Math.min(dp - md, 1 + Grounds.stiltBase(d, 0, 1, w - 1, md))) : 2;
+		// --- the plan: the ward across the back behind the physic garden (on rough ground or posts, across the front with
+		// the garden behind)
+		int wd = dp >= 15 ? 9 : 8;
+		boolean back = !raised && dp - wd >= 3 && Grounds.gentle(d, 0, 0, w - 1, dp - wd - 1, 0);
+		int md = back ? wd : Math.min(dp - 2, dp >= 15 ? 10 : 9);
+		int zF = raised ? Math.max(2, Math.min(dp - md, 1 + Grounds.stiltBase(d, 0, 1, w - 1, md))) : back ? dp - md : 2;
 		int zM = Math.min(dp - 1, zF + md - 1);
 		int base = raised ? Grounds.stiltBase(d, 0, zF, w - 1, zM) : 0;
 		int h0 = maxH - base >= 9 ? 5 : 4;
@@ -76,8 +84,13 @@ public final class Infirmary implements Archetype {
 		boolean dispLeft = d.chance(0.5);
 		// the door near one end, into the corridor before the dispensary
 		int doorCol = dispLeft ? 4 : w - 5;
-		Grounds.forecourt(d, 0, w - 1, zF - 1, !raised);
+		if (back) {
+			Groundwork.level(d, 0, 0, w - 1, zF - 1, base);
+		} else {
+			Grounds.forecourt(d, 0, w - 1, zF - 1, !raised);
+		}
 		Shell.Built sh = Shell.build(d, body, Direction.Axis.X, Dirs.FRONT, doorCol, 1, 0.75, false, true, false);
+		louvre(d, sh.roof(), w / 2);
 		doorCol = sh.doorCol();
 		int ix0 = 1;
 		int ix1 = w - 2;
@@ -221,6 +234,9 @@ public final class Infirmary implements Archetype {
 				break;
 			}
 		}
+		if (back) {
+			physic(d, sh, doorCol, zF, base, dispLeft);
+		}
 		Grounds.approach(d, sh.outside()[0], base, sh.outside()[1]);
 		if (!raised) {
 			Bohemia.bench(d, doorCol, zF, base);
@@ -228,7 +244,7 @@ public final class Infirmary implements Archetype {
 
 		// --- behind: the physic garden and a well
 		int yz0 = zM + 1;
-		if (dp - 1 - yz0 >= 3 && !raised && Grounds.gentle(d, 0, yz0, w - 1, dp - 1, base)) {
+		if (!back && dp - 1 - yz0 >= 3 && !raised && Grounds.gentle(d, 0, yz0, w - 1, dp - 1, base)) {
 			Groundwork.level(d, 0, yz0, w - 1, dp - 1, base);
 			int gx0 = dispLeft ? 4 : 1;
 			int gx1 = dispLeft ? w - 2 : w - 5;
@@ -239,6 +255,99 @@ public final class Infirmary implements Archetype {
 			Garden.snowBanks(d, 0, zF, w - 1, zM, base, doorCol);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, sh.skyline() + 3));
+	}
+
+	/**
+	 * The physic garden before the ward over rows 0 .. zF - 1: a low wall along the street with its gate on the path,
+	 * the path from the gate to the door, the herb beds either side of it in rows, a well in a corner where there is room,
+	 * a lamp by the gate.
+	 */
+	private static void physic(Draft d, Shell.Built sh, int doorCol, int zF, int base, boolean dispLeft) {
+		int w = d.frontage();
+		int px = sh.outside()[0];
+		// the wall and the gate
+		Mat stone = d.mat(Role.PLINTH);
+		Mat cap = d.mat(Role.WALL_ACCENT);
+		boolean walled = zF >= 4;
+		if (walled) {
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int x = 0; x <= w - 1; x++) {
+					if (Math.abs(x - px) <= 0 || !d.isEmpty(x, base, 0)) {
+						continue;
+					}
+					for (int y = Math.min(base, d.site().ground(x, 0)) - 1; y <= base; y++) {
+						d.set(x, y, 0, stone.full());
+					}
+					d.set(x, base + 1, 0, cap.has(Form.SLAB) ? cap.slab(SlabType.BOTTOM) : stone.full());
+				}
+			}
+		}
+		// the path
+		Mat path = d.mat(Role.PATH);
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int z = 0; z <= zF - 1; z++) {
+				if (d.isEmpty(px, base, z)) {
+					d.set(px, base - 1, z, path.full());
+				}
+			}
+		}
+		// the beds either side, a walk along the wall's foot and before the ward
+		int z0 = walled ? 1 : 0;
+		int z1 = zF - 2;
+		if (z1 >= z0) {
+			if (px - 2 >= 0) {
+				Yardwork.herbBeds(d, 0, z0, px - 2, z1, base, Dirs.FRONT);
+			}
+			if (px + 2 <= w - 1) {
+				Yardwork.herbBeds(d, px + 2, z0, w - 1, z1, base, Dirs.FRONT);
+			}
+		}
+		// the lamp by the path
+		int lx = px + (px + 1 <= w - 1 ? 1 : -1);
+		if (walled && Venue.standable(d, lx, base, 1)) {
+			Lighting.post(d, lx, base, 1);
+		}
+	}
+
+	/**
+	 * The louvre on the ridge of a roof running along x at column x: a little turret of the frame timber, slatted with
+	 * open trapdoors to let the ward's foul air out, under a cap of the roofing. Answers whether it fitted.
+	 */
+	private static boolean louvre(Draft d, Roofs.Roof roof, int x) {
+		if (roof == null || x - 1 < roof.x0 || x + 1 > roof.x1) {
+			return false;
+		}
+		int top = Integer.MIN_VALUE;
+		int rz = 0;
+		for (int z = roof.z0; z <= roof.z1; z++) {
+			int y = d.maxHeight() - 1;
+			while (y > roof.y0 && d.isEmpty(x, y, z)) {
+				y--;
+			}
+			if (y > top && !d.isEmpty(x, y, z)) {
+				top = y;
+				rz = z;
+			}
+		}
+		if (top == Integer.MIN_VALUE || top + 3 >= d.maxHeight()) {
+			return false;
+		}
+		Mat frame = d.mat(Role.FRAME);
+		Mat cap = d.mat(Role.ROOF);
+		try (var s = d.stage(StageKind.ROOF)) {
+			d.set(x - 1, top + 1, rz, frame.log(Direction.Axis.Y));
+			d.set(x + 1, top + 1, rz, frame.log(Direction.Axis.Y));
+			d.set(x, top + 1, rz, frame.has(Form.TRAPDOOR) ? frame.trapdoor(Dirs.FRONT, net.minecraft.world.level.block.state.properties.Half.BOTTOM, true)
+				: frame.fence());
+			for (int k = -1; k <= 1; k++) {
+				if (cap.has(Form.STAIRS)) {
+					d.set(x + k, top + 2, rz - 1, cap.stairs(Direction.SOUTH, net.minecraft.world.level.block.state.properties.Half.BOTTOM));
+					d.set(x + k, top + 2, rz + 1, cap.stairs(Direction.NORTH, net.minecraft.world.level.block.state.properties.Half.BOTTOM));
+				}
+				d.set(x + k, top + 2, rz, cap.has(Form.SLAB) ? cap.slab(SlabType.BOTTOM) : frame.log(Direction.Axis.X));
+			}
+		}
+		return true;
 	}
 
 	private static int[] freeBeside(Floorplan p, int x, int z) {
