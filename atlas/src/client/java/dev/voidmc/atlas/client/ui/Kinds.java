@@ -130,6 +130,9 @@ public final class Kinds {
 		if (path.equals("trail_ruins")) {
 			return Kind.TRAIL_RUINS;
 		}
+		if (path.contains("ocean_ruin") || path.contains("ruin") && !path.contains("portal")) {
+			return Kind.RUINS;
+		}
 		if (p.category().equals("DUNGEON")) {
 			return Kind.DUNGEONS;
 		}

@@ -350,6 +350,12 @@ public final class PlaceBook {
 			}
 		}
 		Place p = e.place;
+		if (p.underground() != underground) {
+			// the game's data says where it lies better than a guess made before
+			p = new Place(p.id(), p.kind(), p.name(), p.category(), p.tier(), p.state(), p.source(), p.x(), underground ? cy : Math.max(cy, box[1]), p.z(),
+				p.dimension(), underground, p.radius(), p.sighted(), p.discovered());
+			this.set(e, p);
+		}
 		DiscoveryState next = DiscoveryState.max(p.state(), DiscoveryState.max(state, carried));
 		if (next != p.state()) {
 			Place q = p.withState(next, now);
