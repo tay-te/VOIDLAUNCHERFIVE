@@ -58,7 +58,7 @@
 			"roles": {
 				"wall": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 0.16}, {"m": "minecraft:mossy_cobblestone", "w": 0.06, "low": 12}],
 				"gable": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 0.16}],
-				"wall_accent": [{"m": "minecraft:smooth_sandstone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
+				"wall_accent": ["minecraft:stone_bricks"],
 				"window": ["minecraft:smooth_sandstone"],
 				"shutter": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:warped", "w": 1}],
 				"roof": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:mud_bricks", "w": 0.6}, {"m": "minecraft:mossy_cobblestone", "patch": 0.06}],
@@ -78,7 +78,7 @@
 			"roles": {
 				"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.12, "low": 12}],
 				"gable": ["minecraft:smooth_sandstone"],
-				"wall_accent": [{"m": "minecraft:smooth_stone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
+				"wall_accent": ["minecraft:cut_sandstone"],
 				"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:polished_andesite", "w": 1}],
 				"window": ["minecraft:smooth_quartz"],
 				"shutter": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:warped", "w": 1}],
