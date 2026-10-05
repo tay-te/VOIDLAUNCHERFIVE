@@ -81,7 +81,10 @@ public final class Openings {
 				if (o.box) {
 					box(d, ox, y - 1, oz, out);
 				} else if (d.isAbsent(ox, y - 1, oz)) {
-					d.set(ox, y - 1, oz, frame.stairsOrSlab(in, Half.TOP));
+					// a log or board wall's sill is a thin board in its trim (never a white step), a masonry wall's a stone step
+					Paint board = kind == WallKind.LOG || kind == WallKind.PLANK ? dev.voidmc.hearth.build.kit.homestead.Carving.board(
+						dev.voidmc.hearth.build.kit.homestead.Carving.trim(d), Half.TOP) : null;
+					d.set(ox, y - 1, oz, board != null ? board : frame.stairsOrSlab(in, Half.TOP));
 				}
 			}
 		}
@@ -118,7 +121,10 @@ public final class Openings {
 							d.set(x, top, z, d.mat(Role.WALL_ACCENT).full());
 						}
 					}
-					case LOG, TIMBER_FRAME, BAMBOO, PLANK -> {
+					// a log wall's head is its next course (a dark beam set in it would dot the wall over every window)
+					case LOG -> {
+					}
+					case TIMBER_FRAME, BAMBOO, PLANK -> {
 						if (c >= 0 && c < width) {
 							d.set(x, top, z, d.mat(Role.BEAM).log(s.axis()));
 						}

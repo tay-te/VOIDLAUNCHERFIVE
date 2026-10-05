@@ -243,10 +243,7 @@ final class HouseBuilder {
 			int[] r0 = body.rect(0);
 			dev.voidmc.hearth.build.kit.homestead.Bohemia.fieldstone(d, r0[0], r0[1], r0[2], r0[3], base, base + Math.max(0, h.walls().plinth() - 1));
 		}
-		if (roof != null && logs && (form == RoofForm.GABLE || form == RoofForm.CROSS_GABLE || form == RoofForm.SALTBOX)) {
-			// carved horns over the gables, drip caps over the windows
-			dev.voidmc.hearth.build.kit.homestead.Carving.hornsAtGables(d, roof, ridge);
-		}
+		// window trim on log and board cottages (a cottage's gables carry no horns: those are for halls)
 		if (logs || h.walls().kind() == WallKind.PLANK) {
 			int[] r0 = body.rect(0);
 			dev.voidmc.hearth.build.kit.homestead.Carving.dripCaps(d, r0[0], r0[1], r0[2], r0[3], base, body.plateY());

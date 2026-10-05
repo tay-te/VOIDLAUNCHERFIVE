@@ -91,8 +91,8 @@ FARMER and HERDER job sites in the yard. Params: `layout` (`steading|laithe|cour
 `storeys` (1–2).
 
 **`house/longhouse`** (northern, tundra, moorland). Gable to the street behind a gabled entry porch, long walls bowed
-out amidships under a level ridge, shingle, turf (grass and moss over a wooden eave board) or thatch, crossing carved
-barge-board horns over the gables; peeled logs notched at the corners in log country, rubble with hipped ends (a
+out amidships under a level ridge, shingle, turf (grass and moss over a wooden eave board) or thatch, carved barge
+boards crossing one block over each gable's peak (horns, kept short: two blocks read as antlers); peeled logs notched at the corners in log country, rubble with hipped ends (a
 blackhouse) in the moorland. Inside: aisle posts and tie beams, a kerbed fire pit down the middle under a louvre, box
 beds between the posts, the high seat and table at the far end, chests and banners, stores by the door; woodpile and
 snow banks outside. POIs: BED, HEARTH (both sides of the fire), SEAT, TABLE, STORAGE, DOOR. Params: `roof`
@@ -132,8 +132,10 @@ SEAT, VIEWPOINT, DOCK (the landing over water). Params: `roof` (`gable|hip|half_
 **`house/cottage`** (refined). The shared cottage (`HouseBuilder.cottage`) with: log walls peeled (stripped logs, corner
 posts left in bark) and a stone sill course in log cultures without a plinth, so northern cottages read warm rather than
 dark; in log cultures on grass, often (45%) a **turf roof**: a low gable of sods with flowers in them, barge boards at the
-rakes and an eave board, the house one storey under it; **crossed horns** over the gables of log houses and **drip caps**
-over the windows of log and board houses (the window joinery, white where the culture paints its trim); in flat-roofed
+rakes and an eave board, the house one storey under it; **window trim** on log and board houses: a thin board over each
+window and door and a thin sill board under each window (`Carving.dripCaps`, trapdoors or slabs, never full blocks), in
+the frame's timber, white joinery only on the better station's houses (`Carving.trim`); no horns on a cottage (they are
+for halls and stave buildings); log corners show their ends in a clean column at the four corners only; in flat-roofed
 cultures the **dry-land dressing** (`HouseBuilder.dryDress`): rounded-over parapets in the pueblos, corner pinnacles
 elsewhere, a **wind tower** with latticed vents rising from a back corner of the roof (desert), a latticed screen boxed out
 over the window above the door on a two-storey house, the door in a painted surround with a tile at its sill, jars, a
@@ -194,7 +196,7 @@ courtyard houses).
   fieldstone, gables to the street, wattle and benches; long low ranges and roofed farm gates.
 - **Moorland**: stone laithe steadings and blackhouse longhouses inside dry-stone walls, fields of dry-stone banks.
 - **Tundra / northern**: longhouses with turf or shingle roofs and crossing horns round a fire; tun farmsteads of log
-  buildings and a granary on staddles; peeled-log cottages under flowered turf or shingle, with horns and drip caps.
+  buildings and a granary on staddles; peeled-log cottages under flowered turf or shingle, with thin window trim.
 - **Steppe**: painted rondavels under steep cones with smoke holes; compounds (round house, round granary, kraal).
 - **Bayou / tropical / maritime**: stilt houses over the water with porches, side galleries, hammocks, boat landings and
   punts; raised farmsteads; tropical round houses under one sweeping cone over a veranda.
@@ -227,7 +229,8 @@ courtyard houses).
 - `Beds` – beds placed first and on purpose (heads to walls, a way in kept beside each, claimed through the room).
 - `Household` – the household's station and trade read from the spec, and the things that say so.
 - `RoofDress` – barge boards (a roof row or column restated in the trim).
-- `Carving` – crossed horns over gables, drip caps over openings.
+- `Carving` – horns over a hall's gables (one block past the ridge), window trim (thin caps and sills in the frame's
+  timber, `trim`/`board`).
 - `Adobe` – parapets (rounded or crested), wind towers, palm-frond ramadas, tiled thresholds, jars, roof-terrace life.
 - `Bohemia` – the Bohemian village: roof forms and steep pitches, the carried ridge, boarded gables with their pent,
   fieldstone plinths, benches, wattle, roofed gates, log hives.
@@ -268,7 +271,8 @@ piles; longhouses with a central fire and HEARTH POI; split-level cottages openi
 - Laithe and steading barns read best on deep plots (15+); at 13 deep the barn end of a laithe is easy to miss.
 - The court farmstead's arcade wants a court five deep; on a shallower one it is left out.
 - Northern timber stays brown in the base palette (spruce and dark oak): the silvered-and-tarred contrast and white trim
-  come with the style's variants (pale oak, birch); the drip caps and horns use the roles that carry them.
+  come with the style's variants (pale oak, birch); horns use the beam, window trim the frame (the window joinery on the
+  better station's houses).
 - The mesa's terracotta has no stairs, so its parapets cannot be rounded over; pueblo walls stay square-topped.
 - Offline renders show vanilla stand-ins for Expanse woods (willow, palm, baobab, redwood).
 - Steep roofs in Minecraft step in courses (a stair on a block); a Bohemian roof under a low plot height falls back to
