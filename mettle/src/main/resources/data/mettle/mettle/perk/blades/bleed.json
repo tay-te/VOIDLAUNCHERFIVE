@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:blades",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.blades.bleed"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.bleed.description"
+	},
+	"order": 8
+}

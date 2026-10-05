@@ -4,5 +4,13 @@
 	},
 	"attribute": "agility",
 	"order": 0,
-	"released": true
+	"released": true,
+	"paths": {
+		"a": {
+			"translate": "mettle.path.blades.a"
+		},
+		"b": {
+			"translate": "mettle.path.blades.b"
+		}
+	}
 }

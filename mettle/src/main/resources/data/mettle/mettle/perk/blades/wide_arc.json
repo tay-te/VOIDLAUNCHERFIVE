@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:blades",
+	"kind": "path",
+	"tier": 2,
+	"path": "b",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.blades.wide_arc"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.wide_arc.description"
+	},
+	"order": 7
+}

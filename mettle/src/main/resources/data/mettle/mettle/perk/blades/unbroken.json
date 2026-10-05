@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:blades",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.blades.unbroken"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.unbroken.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.blades.unbroken.hint"
+	},
+	"feat": {
+		"counter": "blades_flawless_streak",
+		"target": 10
+	},
+	"order": 13
+}
