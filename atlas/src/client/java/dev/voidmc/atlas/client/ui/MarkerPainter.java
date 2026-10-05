@@ -547,11 +547,7 @@ public final class MarkerPainter {
 		boolean sighted = m.glyph() == MarkerGlyph.UNKNOWN;
 		float t = (major ? 26 : 16) * s;
 		float r = (major ? 8 : 5) * s;
-		if (dev.voidmc.atlas.client.AtlasClient.get().settings().shapeMarkers) {
-			// told apart by shape as well as glyph (a placeholder set until the design's shapes land): landmarks square,
-			// places round
-			r = major ? 2 * s : t / 2;
-		}
+
 		float x = ax - t / 2;
 		float y = ay - t / 2;
 		int fill;

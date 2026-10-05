@@ -29,9 +29,10 @@ class WorldMatcherTest {
 
 	/** Rolling hills, different for every seed. */
 	static IntBinaryOperator hills(long seed) {
-		double a = (seed % 97) * 0.13;
-		double b = (seed % 89) * 0.29;
-		return (x, z) -> 70 + (int) Math.round(12 * Math.sin(x * 0.09 + a) + 9 * Math.cos(z * 0.07 + b) + 4 * Math.sin((x + z) * 0.31 + a * b));
+		double a = Math.floorMod(seed * 7919, 1000) / 1000.0 * 2 * Math.PI;
+		double b = Math.floorMod(seed * 104729, 1000) / 1000.0 * 2 * Math.PI;
+		double f = 0.07 + Math.floorMod(seed * 31, 7) * 0.01;
+		return (x, z) -> 70 + (int) Math.round(12 * Math.sin(x * f + a) + 9 * Math.cos(z * 0.08 + b) + 4 * Math.sin((x + z) * 0.31 + a + b));
 	}
 
 	static int[] chunk(IntBinaryOperator terrain, int cx, int cz) {
@@ -207,7 +208,7 @@ class WorldMatcherTest {
 		Maps maps = new Maps().map("a", original, -5, 5, -5, 5);
 		// a tenth of every chunk dug out or built up, and one chunk levelled flat for a big build
 		IntBinaryOperator changed = (x, z) -> {
-			if (Math.floorDiv(x, 16) == 1 && Math.floorDiv(z, 16) == 0) {
+			if (Math.floorDiv(x, 16) == -1 && Math.floorDiv(z, 16) == 0) {
 				return 200;
 			}
 			int h = original.applyAsInt(x, z);
