@@ -92,6 +92,9 @@ public final class JourneyMapImport {
 			return out;
 		}
 		collect(root, world, where, warn, out, 0);
+		if (out.isEmpty()) {
+			warn.accept("Skipped " + where + ": no waypoints Atlas can read");
+		}
 		return out;
 	}
 

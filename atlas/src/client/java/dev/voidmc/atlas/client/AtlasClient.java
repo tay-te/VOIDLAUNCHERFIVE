@@ -152,6 +152,7 @@ public final class AtlasClient implements ClientModInitializer {
 		this.openSettings = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.atlas.settings", InputConstants.UNKNOWN.getValue(), category));
 
 		ClientTickEvents.END_CLIENT_TICK.register(this::tick);
+		ChatCoordinates.register();
 		ClientChunkEvents.CHUNK_LOAD.register((level, chunk) -> {
 			if (this.ingest != null && level == this.level) {
 				this.ingest.loaded(chunk);

@@ -27,7 +27,8 @@ import java.util.regex.Pattern;
  * another number by a hyphen with no space ({@code 10-2}, {@code 2026-10-05}) or by a colon ({@code 12:30}). Numbers
  * are joined into a run when only spaces, or one comma, or one slash (with optional spaces) stand between them; a run
  * is used only when it holds two or three numbers, all joined the same way. So {@code tp 1 2 3 4} gives nothing
- * rather than a guess. On top of that:
+ * rather than a guess. An unusable number with a short unit after it ({@code 50% 64 -200}, {@code 100k 64 -200})
+ * still joins the run, so it spoils the numbers that follow too. On top of that:
  * <ul>
  * <li>x and z must be within {@value #XZ_LIMIT} and y within {@value #Y_LIMIT} either way of zero.</li>
  * <li>Without a keyword (below) three numbers must hold at least {@value #MIN_DIGITS} digits between them and two
@@ -90,6 +91,7 @@ public final class CoordParser {
 	private static final Pattern LABELLED_XZ = Pattern.compile(
 		"(?<![\\w])x\\s*[:=]\\s*" + NUM + LABEL_SEP + "z\\s*[:=]\\s*" + NUM, Pattern.CASE_INSENSITIVE);
 	private static final Pattern DIGITS = Pattern.compile("\\d+(?:\\.\\d+)*");
+	private static final Pattern UNIT_GAP = Pattern.compile("[^\\s\\d,/]{1,3}\\s+");
 	private static final Pattern KEYWORD = Pattern.compile(
 		"(?i)(?<![\\w])(?:coords?|coordinates|xyz|pos|position|location|loc|tp|teleport|goto|waypoint)\\s*[:=]?\\s*$");
 	private static final Pattern DIM_WORD = Pattern.compile(
@@ -274,6 +276,11 @@ public final class CoordParser {
 					String gap = text.substring(prev.end, ts);
 					t.sepBefore = separator(gap);
 					t.tightBefore = gap.strip().equals(gap);
+					if (t.sepBefore == null && prev.bad && UNIT_GAP.matcher(gap).matches()) {
+						// "50% 64 -200", "100k 64 -200": the spoiled number with its unit still belongs to the run, so
+						// the numbers after it are not read on their own
+						t.sepBefore = Sep.SPACE;
+					}
 				}
 			}
 			tokens.add(t);
