@@ -96,6 +96,11 @@ public final class PlaceBook {
 	private final Consumer<String> warn;
 	private final LinkedHashMap<String, Entry> entries = new LinkedHashMap<>();
 	private final ConcurrentLinkedQueue<Place> changes = new ConcurrentLinkedQueue<>();
+	/** Bumped when places are added or removed (or gain bounds): the sightings' index is made again. */
+	private long structure;
+	private long indexed = -1;
+	private final Map<String, List<Entry>> byFamily = new HashMap<>();
+	private final List<Entry> boxes = new ArrayList<>();
 	private volatile long version;
 	private long savedVersion;
 	private volatile boolean exactAvailable;
@@ -225,16 +230,29 @@ public final class PlaceBook {
 	public synchronized Place sight(String dimension, Sighting s, long now) {
 		StructureKind kind = s.kind();
 		String family = kind.id;
+		if (this.indexed != this.structure) {
+			// what a sighting is matched against: structures with bounds, and places by family
+			this.byFamily.clear();
+			this.boxes.clear();
+			for (Entry e : this.entries.values()) {
+				if (e.box != null) {
+					this.boxes.add(e);
+				} else {
+					this.byFamily.computeIfAbsent(e.family, f -> new ArrayList<>()).add(e);
+				}
+			}
+			this.indexed = this.structure;
+		}
 		// exact data wins: a sighting inside a known structure is part of it, or a mistake
-		for (Entry e : this.entries.values()) {
-			if (e.box != null && e.place.dimension().equals(dimension) && inBox(e.box, s.x(), s.y(), s.z(), EXACT_MARGIN)) {
+		for (Entry e : this.boxes) {
+			if (e.place.dimension().equals(dimension) && inBox(e.box, s.x(), s.y(), s.z(), EXACT_MARGIN)) {
 				return null;
 			}
 		}
 		Entry best = null;
 		double bestD = Double.MAX_VALUE;
-		for (Entry e : this.entries.values()) {
-			if (e.box == null && family.equals(e.family) && e.place.dimension().equals(dimension)) {
+		for (Entry e : this.byFamily.getOrDefault(family, List.of())) {
+			if (e.box == null && e.place.dimension().equals(dimension)) {
 				double d = Math.hypot(e.place.x() - s.x(), e.place.z() - s.z());
 				if (d <= kind.mergeRadius && d < bestD) {
 					best = e;
@@ -266,6 +284,7 @@ public final class PlaceBook {
 		e.sz = s.z();
 		e.weight = 1;
 		this.entries.put(p.id(), e);
+		this.structure++;
 		// a new place is a change even while it stays unknown (set() alone would not count it)
 		this.version++;
 		this.set(e, s.underground() ? p : p.withState(DiscoveryState.SIGHTED, now));
@@ -291,10 +310,12 @@ public final class PlaceBook {
 			e = new Entry(p, family);
 			e.box = box.clone();
 			this.entries.put(id, e);
+			this.structure++;
 			this.version++;
 		} else if (e.box == null) {
 			e.box = box.clone();
 			this.version++;
+			this.structure++;
 		}
 		// fold in the sightings it explains, keeping how far the player had come with them
 		DiscoveryState carried = DiscoveryState.UNKNOWN;
@@ -324,6 +345,7 @@ public final class PlaceBook {
 				sighted = sighted == 0 ? o.place.sighted() : o.place.sighted() == 0 ? sighted : Math.min(sighted, o.place.sighted());
 				discovered = discovered == 0 ? o.place.discovered() : o.place.discovered() == 0 ? discovered : Math.min(discovered, o.place.discovered());
 				it.remove();
+				this.structure++;
 				this.version++;
 			}
 		}
@@ -396,6 +418,7 @@ public final class PlaceBook {
 				kept.add(match);
 				if (!match.place.id().equals(p.id())) {
 					this.entries.remove(match.place.id());
+					this.structure++;
 				}
 			}
 			Entry e = this.entries.get(p.id());
@@ -404,6 +427,7 @@ public final class PlaceBook {
 				e.group = group;
 				this.stamp(e);
 				this.entries.put(p.id(), e);
+				this.structure++;
 				this.version++;
 				if (merged.state().atLeast(DiscoveryState.SIGHTED) && (match == null || !match.place.state().atLeast(merged.state()))) {
 					this.changes.add(merged);
@@ -424,6 +448,7 @@ public final class PlaceBook {
 				}
 				if (!stillWanted) {
 					this.entries.remove(o.place.id());
+					this.structure++;
 					this.version++;
 				}
 			}
@@ -439,6 +464,7 @@ public final class PlaceBook {
 			e.group = REPORTS;
 			this.stamp(e);
 			this.entries.put(p.id(), e);
+			this.structure++;
 			this.version++;
 			if (e.place.state().atLeast(DiscoveryState.SIGHTED)) {
 				this.changes.add(e.place);
@@ -455,6 +481,7 @@ public final class PlaceBook {
 
 	public synchronized boolean forget(String id) {
 		if (this.entries.remove(id) != null) {
+			this.structure++;
 			this.version++;
 			return true;
 		}
@@ -606,6 +633,7 @@ public final class PlaceBook {
 						StructureNames.tier(structure, category), DiscoveryState.DISCOVERED, Source.exact(), x, o.get("y").getAsInt(), z, dim,
 						o.get("underground").getAsBoolean(), 0, when, when);
 					this.entries.put(p.id(), new Entry(p, StructureNames.family(structure)));
+					this.structure++;
 				}
 				this.version++;
 			}
@@ -644,6 +672,7 @@ public final class PlaceBook {
 		e.sightedDay = o.has("sightedDay") ? o.get("sightedDay").getAsLong() : -1;
 		e.discoveredDay = o.has("discoveredDay") ? o.get("discoveredDay").getAsLong() : -1;
 		this.entries.put(p.id(), e);
+		this.structure++;
 	}
 
 	public void save() throws IOException {

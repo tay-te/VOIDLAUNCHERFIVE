@@ -162,6 +162,7 @@ public final class Ingest {
 				// the previous walk is kept to skip what it already saw; every tenth walk
 				// writes everything again, so blocks mined or placed since are caught
 				Reveal.Result r = this.session.reveal().walk(blocks, px, py, pz, radius);
+				Perf.REVEAL_WALK_NANOS.addAndGet(System.nanoTime() - t0);
 				Reveal.Result before = ++this.walks % 10 == 0 ? null : this.lastWalk;
 				Underground.apply(this.dimension, r, before, blocks, scanner);
 				this.lastWalk = r;

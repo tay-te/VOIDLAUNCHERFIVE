@@ -626,6 +626,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 		long reveals0 = Perf.REVEALS.get();
 		long revealNanos0 = Perf.REVEAL_NANOS.get();
 		long opened0 = Perf.REVEAL_OPENED.get();
+		long walkNanos0 = Perf.REVEAL_WALK_NANOS.get();
 		List<BlockPos> cave = world.getServer().computeOnServer(server -> Caves.path(server.overworld(), this.spawn, -48, 40));
 		for (BlockPos stop : cave) {
 			world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", stop.getX(), stop.getY(), stop.getZ()));
@@ -635,7 +636,9 @@ public class AtlasGameTest implements FabricClientGameTest {
 		long reveals = Perf.REVEALS.get() - reveals0;
 		double revealMs = (Perf.REVEAL_NANOS.get() - revealNanos0) / 1e6 / Math.max(1, reveals);
 		long opened = (Perf.REVEAL_OPENED.get() - opened0) / Math.max(1, reveals);
-		log(String.format(Locale.ROOT, "reveal: %d walks at %.3f ms, %d open blocks each, through %d stops", reveals, revealMs, opened, cave.size()));
+		double walkMs = (Perf.REVEAL_WALK_NANOS.get() - walkNanos0) / 1e6 / Math.max(1, reveals);
+		log(String.format(Locale.ROOT, "reveal: %d walks at %.3f ms (%.3f ms walking), %d open blocks each, through %d stops", reveals, revealMs, walkMs,
+			opened, cave.size()));
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d -90 20", this.spawn.getX(), 150, this.spawn.getZ()));
 		context.waitTicks(20);
 		log(String.format(Locale.ROOT, "flight: %d frames, avg %.2f ms, max %.2f ms, minimap avg %.3f ms, ingest max %.3f ms/frame, %d chunks at %.3f ms",

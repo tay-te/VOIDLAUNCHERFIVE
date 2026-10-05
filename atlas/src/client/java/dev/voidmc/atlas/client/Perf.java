@@ -18,6 +18,8 @@ public final class Perf {
 	public static final AtomicLong DETECTED = new AtomicLong();
 	/** Underground reveals on the workers: time, walks, open blocks walked, columns written. */
 	public static final AtomicLong REVEAL_NANOS = new AtomicLong();
+	/** Of which the walk itself (the rest is writing the slices). */
+	public static final AtomicLong REVEAL_WALK_NANOS = new AtomicLong();
 	public static final AtomicLong REVEALS = new AtomicLong();
 	public static final AtomicLong REVEAL_OPENED = new AtomicLong();
 	public static final AtomicLong REVEALED_COLUMNS = new AtomicLong();
