@@ -162,16 +162,21 @@ public final class PlaceBook {
 	 * when something changed, so the map can ask every frame.
 	 */
 	public List<Place> visible(String dimension) {
-		Map<String, List<Place>> snapshot = this.visible;
-		if (this.visibleVersion != this.versionNow()) {
-			snapshot = this.rebuildVisible();
-		}
-		List<Place> list = snapshot.get(dimension);
+		// never waits: the writers publish a new snapshot as they finish (a render thread must not queue behind a
+		// worker joining up hundreds of areas)
+		List<Place> list = this.visible.get(dimension);
 		return list == null ? List.of() : list;
 	}
 
 	private long versionNow() {
 		return this.version;
+	}
+
+	/** Publishes the visible snapshot again if anything changed (the writers call it as they finish, holding the lock). */
+	private void publish() {
+		if (this.visibleVersion != this.version) {
+			this.rebuildVisible();
+		}
 	}
 
 	private synchronized Map<String, List<Place>> rebuildVisible() {
@@ -228,67 +233,71 @@ public final class PlaceBook {
 
 	/** A structure seen in the blocks; returns its place (null if exact data already has it). */
 	public synchronized Place sight(String dimension, Sighting s, long now) {
-		StructureKind kind = s.kind();
-		String family = kind.id;
-		if (this.indexed != this.structure) {
-			// what a sighting is matched against: structures with bounds, and places by family
-			this.byFamily.clear();
-			this.boxes.clear();
-			for (Entry e : this.entries.values()) {
-				if (e.box != null) {
-					this.boxes.add(e);
-				} else {
-					this.byFamily.computeIfAbsent(e.family, f -> new ArrayList<>()).add(e);
+		try {
+			StructureKind kind = s.kind();
+			String family = kind.id;
+			if (this.indexed != this.structure) {
+				// what a sighting is matched against: structures with bounds, and places by family
+				this.byFamily.clear();
+				this.boxes.clear();
+				for (Entry e : this.entries.values()) {
+					if (e.box != null) {
+						this.boxes.add(e);
+					} else {
+						this.byFamily.computeIfAbsent(e.family, f -> new ArrayList<>()).add(e);
+					}
+				}
+				this.indexed = this.structure;
+			}
+			// exact data wins: a sighting inside a known structure is part of it, or a mistake
+			for (Entry e : this.boxes) {
+				if (e.place.dimension().equals(dimension) && inBox(e.box, s.x(), s.y(), s.z(), EXACT_MARGIN)) {
+					return null;
 				}
 			}
-			this.indexed = this.structure;
-		}
-		// exact data wins: a sighting inside a known structure is part of it, or a mistake
-		for (Entry e : this.boxes) {
-			if (e.place.dimension().equals(dimension) && inBox(e.box, s.x(), s.y(), s.z(), EXACT_MARGIN)) {
-				return null;
-			}
-		}
-		Entry best = null;
-		double bestD = Double.MAX_VALUE;
-		for (Entry e : this.byFamily.getOrDefault(family, List.of())) {
-			if (e.box == null && e.place.dimension().equals(dimension)) {
-				double d = Math.hypot(e.place.x() - s.x(), e.place.z() - s.z());
-				if (d <= kind.mergeRadius && d < bestD) {
-					best = e;
-					bestD = d;
+			Entry best = null;
+			double bestD = Double.MAX_VALUE;
+			for (Entry e : this.byFamily.getOrDefault(family, List.of())) {
+				if (e.box == null && e.place.dimension().equals(dimension)) {
+					double d = Math.hypot(e.place.x() - s.x(), e.place.z() - s.z());
+					if (d <= kind.mergeRadius && d < bestD) {
+						best = e;
+						bestD = d;
+					}
 				}
 			}
-		}
-		if (best != null) {
-			Entry e = best;
-			int w = Math.min(MAX_WEIGHT, e.weight);
-			e.sx = (e.sx * w + s.x()) / (w + 1);
-			e.sy = (e.sy * w + s.y()) / (w + 1);
-			e.sz = (e.sz * w + s.z()) / (w + 1);
-			e.weight = w + 1;
-			Place p = e.place;
-			boolean underground = p.underground() && s.underground();
-			DiscoveryState state = underground ? p.state() : DiscoveryState.max(p.state(), DiscoveryState.SIGHTED);
-			Place moved = new Place(p.id(), p.kind(), p.name(), p.category(), p.tier(), p.state(), p.source(), (int) Math.round(e.sx),
-				(int) Math.round(e.sy), (int) Math.round(e.sz), p.dimension(), underground, Math.max(p.radius(), (int) Math.round(bestD)), p.sighted(),
-				p.discovered());
-			this.set(e, moved.withState(state, now));
+			if (best != null) {
+				Entry e = best;
+				int w = Math.min(MAX_WEIGHT, e.weight);
+				e.sx = (e.sx * w + s.x()) / (w + 1);
+				e.sy = (e.sy * w + s.y()) / (w + 1);
+				e.sz = (e.sz * w + s.z()) / (w + 1);
+				e.weight = w + 1;
+				Place p = e.place;
+				boolean underground = p.underground() && s.underground();
+				DiscoveryState state = underground ? p.state() : DiscoveryState.max(p.state(), DiscoveryState.SIGHTED);
+				Place moved = new Place(p.id(), p.kind(), p.name(), p.category(), p.tier(), p.state(), p.source(), (int) Math.round(e.sx),
+					(int) Math.round(e.sy), (int) Math.round(e.sz), p.dimension(), underground, Math.max(p.radius(), (int) Math.round(bestD)), p.sighted(),
+					p.discovered());
+				this.set(e, moved.withState(state, now));
+				return e.place;
+			}
+			Place p = new Place(idFor(family, s.x(), s.z(), dimension), family, kind.label, kind.category, kind.tier, DiscoveryState.UNKNOWN,
+				Source.seen(), s.x(), s.y(), s.z(), dimension, s.underground(), 0, 0, 0);
+			Entry e = new Entry(p, family);
+			e.sx = s.x();
+			e.sy = s.y();
+			e.sz = s.z();
+			e.weight = 1;
+			this.entries.put(p.id(), e);
+			this.structure++;
+			// a new place is a change even while it stays unknown (set() alone would not count it)
+			this.version++;
+			this.set(e, s.underground() ? p : p.withState(DiscoveryState.SIGHTED, now));
 			return e.place;
+		} finally {
+			this.publish();
 		}
-		Place p = new Place(idFor(family, s.x(), s.z(), dimension), family, kind.label, kind.category, kind.tier, DiscoveryState.UNKNOWN,
-			Source.seen(), s.x(), s.y(), s.z(), dimension, s.underground(), 0, 0, 0);
-		Entry e = new Entry(p, family);
-		e.sx = s.x();
-		e.sy = s.y();
-		e.sz = s.z();
-		e.weight = 1;
-		this.entries.put(p.id(), e);
-		this.structure++;
-		// a new place is a change even while it stays unknown (set() alone would not count it)
-		this.version++;
-		this.set(e, s.underground() ? p : p.withState(DiscoveryState.SIGHTED, now));
-		return e.place;
 	}
 
 	/**
@@ -297,75 +306,79 @@ public final class PlaceBook {
 	 */
 	public synchronized Place exact(String dimension, String structureId, String family, int[] box, boolean underground, DiscoveryState state,
 		long now) {
-		int cx = (box[0] + box[3]) / 2;
-		int cy = (box[1] + box[4]) / 2;
-		int cz = (box[2] + box[5]) / 2;
-		String id = idFor(structureId, cx, cz, dimension);
-		Entry e = this.entries.get(id);
-		if (e == null) {
-			String category = StructureNames.category(structureId, family.equals("minecraft:village"));
-			int radius = (int) Math.round(Math.hypot(box[3] - box[0], box[5] - box[2]) / 2);
-			Place p = new Place(id, structureId, StructureNames.name(structureId), category, StructureNames.tier(structureId, category),
-				DiscoveryState.UNKNOWN, Source.exact(), cx, underground ? cy : Math.max(cy, box[1]), cz, dimension, underground, radius, 0, 0);
-			e = new Entry(p, family);
-			e.box = box.clone();
-			this.entries.put(id, e);
-			this.structure++;
-			this.version++;
-		} else if (e.box == null) {
-			e.box = box.clone();
-			this.version++;
-			this.structure++;
-		}
-		// fold in the sightings it explains, keeping how far the player had come with them
-		DiscoveryState carried = DiscoveryState.UNKNOWN;
-		long sighted = 0;
-		long discovered = 0;
-		for (Iterator<Entry> it = this.entries.values().iterator(); it.hasNext(); ) {
-			Entry o = it.next();
-			if (o == e || o.box != null || o.group != 0 || !o.place.source().kind().equals(Source.Kind.SEEN) || !o.place.dimension().equals(dimension)
-				|| o.place.isNatural()) {
-				continue;
-			}
-			boolean sameFamily = family.equals(o.family);
-			if (!sameFamily && (o.family.equals("atlas:dungeon") || o.family.equals("atlas:geode"))) {
-				// features the game has no structure for: a dungeon inside a mineshaft's bounds is still a dungeon
-				continue;
-			}
-			boolean inside = inBox(box, o.place.x(), o.place.y(), o.place.z(), EXACT_MARGIN);
-			boolean close = sameFamily && Math.hypot(o.place.x() - cx, o.place.z() - cz) <= mergeRadius(family);
-			if (inside || close) {
-				if (sameFamily) {
-					this.confirmed++;
-				} else {
-					this.contradicted++;
-					this.contradictions.merge(o.family + " in " + family, 1, Integer::sum);
-				}
-				carried = DiscoveryState.max(carried, o.place.state());
-				sighted = sighted == 0 ? o.place.sighted() : o.place.sighted() == 0 ? sighted : Math.min(sighted, o.place.sighted());
-				discovered = discovered == 0 ? o.place.discovered() : o.place.discovered() == 0 ? discovered : Math.min(discovered, o.place.discovered());
-				it.remove();
+		try {
+			int cx = (box[0] + box[3]) / 2;
+			int cy = (box[1] + box[4]) / 2;
+			int cz = (box[2] + box[5]) / 2;
+			String id = idFor(structureId, cx, cz, dimension);
+			Entry e = this.entries.get(id);
+			if (e == null) {
+				String category = StructureNames.category(structureId, family.equals("minecraft:village"));
+				int radius = (int) Math.round(Math.hypot(box[3] - box[0], box[5] - box[2]) / 2);
+				Place p = new Place(id, structureId, StructureNames.name(structureId), category, StructureNames.tier(structureId, category),
+					DiscoveryState.UNKNOWN, Source.exact(), cx, underground ? cy : Math.max(cy, box[1]), cz, dimension, underground, radius, 0, 0);
+				e = new Entry(p, family);
+				e.box = box.clone();
+				this.entries.put(id, e);
 				this.structure++;
 				this.version++;
+			} else if (e.box == null) {
+				e.box = box.clone();
+				this.version++;
+				this.structure++;
 			}
-		}
-		Place p = e.place;
-		if (p.underground() != underground) {
-			// the game's data says where it lies better than a guess made before
-			p = new Place(p.id(), p.kind(), p.name(), p.category(), p.tier(), p.state(), p.source(), p.x(), underground ? cy : Math.max(cy, box[1]), p.z(),
-				p.dimension(), underground, p.radius(), p.sighted(), p.discovered());
-			this.set(e, p);
-		}
-		DiscoveryState next = DiscoveryState.max(p.state(), DiscoveryState.max(state, carried));
-		if (next != p.state()) {
-			Place q = p.withState(next, now);
-			if (sighted != 0 && (q.sighted() == 0 || sighted < q.sighted())) {
-				q = new Place(q.id(), q.kind(), q.name(), q.category(), q.tier(), q.state(), q.source(), q.x(), q.y(), q.z(), q.dimension(), q.underground(),
-					q.radius(), sighted, discovered != 0 && q.discovered() != 0 ? Math.min(discovered, q.discovered()) : q.discovered());
+			// fold in the sightings it explains, keeping how far the player had come with them
+			DiscoveryState carried = DiscoveryState.UNKNOWN;
+			long sighted = 0;
+			long discovered = 0;
+			for (Iterator<Entry> it = this.entries.values().iterator(); it.hasNext(); ) {
+				Entry o = it.next();
+				if (o == e || o.box != null || o.group != 0 || !o.place.source().kind().equals(Source.Kind.SEEN) || !o.place.dimension().equals(dimension)
+					|| o.place.isNatural()) {
+					continue;
+				}
+				boolean sameFamily = family.equals(o.family);
+				if (!sameFamily && (o.family.equals("atlas:dungeon") || o.family.equals("atlas:geode"))) {
+					// features the game has no structure for: a dungeon inside a mineshaft's bounds is still a dungeon
+					continue;
+				}
+				boolean inside = inBox(box, o.place.x(), o.place.y(), o.place.z(), EXACT_MARGIN);
+				boolean close = sameFamily && Math.hypot(o.place.x() - cx, o.place.z() - cz) <= mergeRadius(family);
+				if (inside || close) {
+					if (sameFamily) {
+						this.confirmed++;
+					} else {
+						this.contradicted++;
+						this.contradictions.merge(o.family + " in " + family, 1, Integer::sum);
+					}
+					carried = DiscoveryState.max(carried, o.place.state());
+					sighted = sighted == 0 ? o.place.sighted() : o.place.sighted() == 0 ? sighted : Math.min(sighted, o.place.sighted());
+					discovered = discovered == 0 ? o.place.discovered() : o.place.discovered() == 0 ? discovered : Math.min(discovered, o.place.discovered());
+					it.remove();
+					this.structure++;
+					this.version++;
+				}
 			}
-			this.set(e, q);
+			Place p = e.place;
+			if (p.underground() != underground) {
+				// the game's data says where it lies better than a guess made before
+				p = new Place(p.id(), p.kind(), p.name(), p.category(), p.tier(), p.state(), p.source(), p.x(), underground ? cy : Math.max(cy, box[1]), p.z(),
+					p.dimension(), underground, p.radius(), p.sighted(), p.discovered());
+				this.set(e, p);
+			}
+			DiscoveryState next = DiscoveryState.max(p.state(), DiscoveryState.max(state, carried));
+			if (next != p.state()) {
+				Place q = p.withState(next, now);
+				if (sighted != 0 && (q.sighted() == 0 || sighted < q.sighted())) {
+					q = new Place(q.id(), q.kind(), q.name(), q.category(), q.tier(), q.state(), q.source(), q.x(), q.y(), q.z(), q.dimension(), q.underground(),
+						q.radius(), sighted, discovered != 0 && q.discovered() != 0 ? Math.min(discovered, q.discovered()) : q.discovered());
+				}
+				this.set(e, q);
+			}
+			return e.place;
+		} finally {
+			this.publish();
 		}
-		return e.place;
 	}
 
 	private static int mergeRadius(String family) {
@@ -386,119 +399,135 @@ public final class PlaceBook {
 	 * nearest of the same kind within 32 blocks).
 	 */
 	public synchronized void replaceGroup(String dimension, long group, List<Place> places, long now) {
-		List<Entry> old = new ArrayList<>();
-		for (Entry e : this.entries.values()) {
-			if (e.group == group && e.place.dimension().equals(dimension)) {
-				old.add(e);
+		try {
+			List<Entry> old = new ArrayList<>();
+			for (Entry e : this.entries.values()) {
+				if (e.group == group && e.place.dimension().equals(dimension)) {
+					old.add(e);
+				}
 			}
-		}
-		List<Entry> kept = new ArrayList<>();
-		// places still there by id claim their entries first, so a new place close by cannot take one's state
-		for (Place p : places) {
-			Entry same = this.entries.get(p.id());
-			if (same != null && same.group == group) {
-				kept.add(same);
+			List<Entry> kept = new ArrayList<>();
+			// places still there by id claim their entries first, so a new place close by cannot take one's state
+			for (Place p : places) {
+				Entry same = this.entries.get(p.id());
+				if (same != null && same.group == group) {
+					kept.add(same);
+				}
 			}
-		}
-		for (Place p : places) {
-			Entry match = this.entries.get(p.id());
-			if (match == null || match.group != group) {
-				match = null;
-				double best = 32;
-				for (Entry o : old) {
-					if (o.place.kind().equals(p.kind()) && !kept.contains(o)) {
-						double d = Math.hypot(o.place.x() - p.x(), o.place.z() - p.z());
-						if (d <= best) {
-							best = d;
-							match = o;
+			for (Place p : places) {
+				Entry match = this.entries.get(p.id());
+				if (match == null || match.group != group) {
+					match = null;
+					double best = 32;
+					for (Entry o : old) {
+						if (o.place.kind().equals(p.kind()) && !kept.contains(o)) {
+							double d = Math.hypot(o.place.x() - p.x(), o.place.z() - p.z());
+							if (d <= best) {
+								best = d;
+								match = o;
+							}
 						}
 					}
 				}
-			}
-			Place merged = p;
-			if (match != null) {
-				Place q = match.place;
-				merged = new Place(p.id(), p.kind(), q.name().isEmpty() ? p.name() : q.name(), p.category(), p.tier(), DiscoveryState.max(q.state(), p.state()),
-					p.source(), p.x(), p.y(), p.z(), p.dimension(), p.underground(), p.radius(), q.sighted() != 0 ? q.sighted() : p.sighted(),
-					q.discovered() != 0 ? q.discovered() : p.discovered());
-				kept.add(match);
-				if (!match.place.id().equals(p.id())) {
-					this.entries.remove(match.place.id());
-					this.structure++;
-				}
-			}
-			Entry e = this.entries.get(p.id());
-			if (e == null) {
-				e = new Entry(merged, p.kind());
-				e.group = group;
-				this.stamp(e);
-				this.entries.put(p.id(), e);
-				this.structure++;
-				this.version++;
-				if (merged.state().atLeast(DiscoveryState.SIGHTED) && (match == null || !match.place.state().atLeast(merged.state()))) {
-					this.changes.add(merged);
-				}
-			} else {
-				e.group = group;
-				this.set(e, merged);
-			}
-		}
-		for (Entry o : old) {
-			if (!kept.contains(o) && this.entries.get(o.place.id()) == o) {
-				boolean stillWanted = false;
-				for (Place p : places) {
-					if (p.id().equals(o.place.id())) {
-						stillWanted = true;
-						break;
+				Place merged = p;
+				if (match != null) {
+					Place q = match.place;
+					merged = new Place(p.id(), p.kind(), q.name().isEmpty() ? p.name() : q.name(), p.category(), p.tier(), DiscoveryState.max(q.state(), p.state()),
+						p.source(), p.x(), p.y(), p.z(), p.dimension(), p.underground(), p.radius(), q.sighted() != 0 ? q.sighted() : p.sighted(),
+						q.discovered() != 0 ? q.discovered() : p.discovered());
+					kept.add(match);
+					if (!match.place.id().equals(p.id())) {
+						this.entries.remove(match.place.id());
+						this.structure++;
 					}
 				}
-				if (!stillWanted) {
-					this.entries.remove(o.place.id());
+				Entry e = this.entries.get(p.id());
+				if (e == null) {
+					e = new Entry(merged, p.kind());
+					e.group = group;
+					this.stamp(e);
+					this.entries.put(p.id(), e);
 					this.structure++;
 					this.version++;
+					if (merged.state().atLeast(DiscoveryState.SIGHTED) && (match == null || !match.place.state().atLeast(merged.state()))) {
+						this.changes.add(merged);
+					}
+				} else {
+					e.group = group;
+					this.set(e, merged);
 				}
 			}
+			for (Entry o : old) {
+				if (!kept.contains(o) && this.entries.get(o.place.id()) == o) {
+					boolean stillWanted = false;
+					for (Place p : places) {
+						if (p.id().equals(o.place.id())) {
+							stillWanted = true;
+							break;
+						}
+					}
+					if (!stillWanted) {
+						this.entries.remove(o.place.id());
+						this.structure++;
+						this.version++;
+					}
+				}
+			}
+		} finally {
+			this.publish();
 		}
 	}
 
 	/** A place from another mod or a server; its state only moves forward. */
 	public synchronized Place report(Place p, long now) {
-		Entry e = this.entries.get(p.id());
-		if (e == null) {
-			// a reported place starts where the report says (or unknown, for Atlas to judge by distance)
-			e = new Entry(p.state() == DiscoveryState.UNKNOWN ? p : p.withState(p.state(), now), p.kind());
-			e.group = REPORTS;
-			this.stamp(e);
-			this.entries.put(p.id(), e);
-			this.structure++;
-			this.version++;
-			if (e.place.state().atLeast(DiscoveryState.SIGHTED)) {
-				this.changes.add(e.place);
+		try {
+			Entry e = this.entries.get(p.id());
+			if (e == null) {
+				// a reported place starts where the report says (or unknown, for Atlas to judge by distance)
+				e = new Entry(p.state() == DiscoveryState.UNKNOWN ? p : p.withState(p.state(), now), p.kind());
+				e.group = REPORTS;
+				this.stamp(e);
+				this.entries.put(p.id(), e);
+				this.structure++;
+				this.version++;
+				if (e.place.state().atLeast(DiscoveryState.SIGHTED)) {
+					this.changes.add(e.place);
+				}
+				return e.place;
 			}
+			Place q = e.place;
+			Place merged = new Place(p.id(), p.kind(), p.name(), p.category(), p.tier(), DiscoveryState.max(q.state(), p.state()), p.source(), p.x(), p.y(),
+				p.z(), p.dimension(), p.underground(), p.radius(), q.sighted() != 0 ? q.sighted() : p.sighted(), q.discovered() != 0 ? q.discovered() : p.discovered());
+			e.group = REPORTS;
+			this.set(e, merged.state() == q.state() ? merged : merged.withState(merged.state(), now));
 			return e.place;
+		} finally {
+			this.publish();
 		}
-		Place q = e.place;
-		Place merged = new Place(p.id(), p.kind(), p.name(), p.category(), p.tier(), DiscoveryState.max(q.state(), p.state()), p.source(), p.x(), p.y(),
-			p.z(), p.dimension(), p.underground(), p.radius(), q.sighted() != 0 ? q.sighted() : p.sighted(), q.discovered() != 0 ? q.discovered() : p.discovered());
-		e.group = REPORTS;
-		this.set(e, merged.state() == q.state() ? merged : merged.withState(merged.state(), now));
-		return e.place;
 	}
 
 	public synchronized boolean forget(String id) {
-		if (this.entries.remove(id) != null) {
-			this.structure++;
-			this.version++;
-			return true;
+		try {
+			if (this.entries.remove(id) != null) {
+				this.structure++;
+				this.version++;
+				return true;
+			}
+			return false;
+		} finally {
+			this.publish();
 		}
-		return false;
 	}
 
 	/** Renames a place (a provider's name arrived); names are kept with the world. */
 	public synchronized void rename(String id, String name) {
-		Entry e = this.entries.get(id);
-		if (e != null && !e.place.name().equals(name)) {
-			this.set(e, e.place.withName(name));
+		try {
+			Entry e = this.entries.get(id);
+			if (e != null && !e.place.name().equals(name)) {
+				this.set(e, e.place.withName(name));
+			}
+		} finally {
+			this.publish();
 		}
 	}
 
@@ -509,44 +538,52 @@ public final class PlaceBook {
 	 * Returns the places that changed.
 	 */
 	public synchronized List<Place> proximity(String dimension, double px, double py, double pz, int viewBlocks, long now) {
-		List<Place> changed = new ArrayList<>();
-		for (Entry e : this.entries.values()) {
-			Place p = e.place;
-			if (p.state() == DiscoveryState.DISCOVERED || !p.dimension().equals(dimension) || p.kind().equals(Place.REGION)) {
-				continue;
-			}
-			DiscoveryState next = p.state();
-			if (p.underground()) {
-				double d = this.distance3d(e, px, py, pz);
-				if (d <= UNDERGROUND_REACH) {
-					next = DiscoveryState.DISCOVERED;
-				} else if (d <= UNDERGROUND_SIGHT) {
-					next = DiscoveryState.max(next, DiscoveryState.SIGHTED);
+		try {
+			List<Place> changed = new ArrayList<>();
+			for (Entry e : this.entries.values()) {
+				Place p = e.place;
+				if (p.state() == DiscoveryState.DISCOVERED || !p.dimension().equals(dimension) || p.kind().equals(Place.REGION)) {
+					continue;
 				}
-			} else {
-				double d = this.distance2d(e, px, pz);
-				if (d <= SURFACE_REACH) {
-					next = DiscoveryState.DISCOVERED;
-				} else if (d <= viewBlocks) {
-					next = DiscoveryState.max(next, DiscoveryState.SIGHTED);
+				DiscoveryState next = p.state();
+				if (p.underground()) {
+					double d = this.distance3d(e, px, py, pz);
+					if (d <= UNDERGROUND_REACH) {
+						next = DiscoveryState.DISCOVERED;
+					} else if (d <= UNDERGROUND_SIGHT) {
+						next = DiscoveryState.max(next, DiscoveryState.SIGHTED);
+					}
+				} else {
+					double d = this.distance2d(e, px, pz);
+					if (d <= SURFACE_REACH) {
+						next = DiscoveryState.DISCOVERED;
+					} else if (d <= viewBlocks) {
+						next = DiscoveryState.max(next, DiscoveryState.SIGHTED);
+					}
+				}
+				if (next != p.state()) {
+					this.set(e, p.withState(next, now));
+					changed.add(e.place);
 				}
 			}
-			if (next != p.state()) {
-				this.set(e, p.withState(next, now));
-				changed.add(e.place);
-			}
+			return changed;
+		} finally {
+			this.publish();
 		}
-		return changed;
 	}
 
 	/** The player walked into a place (a region): it is discovered. */
 	public synchronized Place enter(String id, long now) {
-		Entry e = this.entries.get(id);
-		if (e == null || e.place.state() == DiscoveryState.DISCOVERED) {
-			return null;
+		try {
+			Entry e = this.entries.get(id);
+			if (e == null || e.place.state() == DiscoveryState.DISCOVERED) {
+				return null;
+			}
+			this.set(e, e.place.withState(DiscoveryState.DISCOVERED, now));
+			return e.place;
+		} finally {
+			this.publish();
 		}
-		this.set(e, e.place.withState(DiscoveryState.DISCOVERED, now));
-		return e.place;
 	}
 
 	/** Horizontal distance from the player to a place: to its bounds, or to its middle less its reach. */
@@ -617,42 +654,46 @@ public final class PlaceBook {
 
 	/** Reads {@code places.json}; with none, the structures of an older Atlas's {@code discoveries.json} next to it. */
 	public synchronized void load() {
-		this.entries.clear();
-		Path legacy = this.file.resolveSibling("discoveries.json");
 		try {
-			if (Files.isRegularFile(this.file)) {
-				JsonObject root = JsonParser.parseString(Files.readString(this.file, StandardCharsets.UTF_8)).getAsJsonObject();
-				for (JsonElement el : root.getAsJsonArray("places")) {
-					this.read(el.getAsJsonObject());
-				}
-			} else if (Files.isRegularFile(legacy)) {
-				JsonObject root = JsonParser.parseString(Files.readString(legacy, StandardCharsets.UTF_8)).getAsJsonObject();
-				for (JsonElement el : root.getAsJsonArray("discoveries")) {
-					JsonObject o = el.getAsJsonObject();
-					String structure = o.get("structure").getAsString();
-					int x = o.get("x").getAsInt();
-					int z = o.get("z").getAsInt();
-					String dim = o.get("dimension").getAsString();
-					String category = o.get("category").getAsString();
-					long when = o.get("discovered").getAsLong();
-					Place p = new Place(idFor(structure, x, z, dim), structure, o.get("name").getAsString(), category,
-						StructureNames.tier(structure, category), DiscoveryState.DISCOVERED, Source.exact(), x, o.get("y").getAsInt(), z, dim,
-						o.get("underground").getAsBoolean(), 0, when, when);
-					this.entries.put(p.id(), new Entry(p, StructureNames.family(structure)));
-					this.structure++;
-				}
-				this.version++;
-			}
-		} catch (IOException | RuntimeException ex) {
 			this.entries.clear();
-			this.warn.accept("Atlas: " + this.file + " is unreadable (" + ex.getMessage() + "); kept as .corrupt");
+			Path legacy = this.file.resolveSibling("discoveries.json");
 			try {
-				Files.move(this.file, this.file.resolveSibling(this.file.getFileName() + ".corrupt"), StandardCopyOption.REPLACE_EXISTING);
-			} catch (IOException ignored) {
-				// replaced by the next save
+				if (Files.isRegularFile(this.file)) {
+					JsonObject root = JsonParser.parseString(Files.readString(this.file, StandardCharsets.UTF_8)).getAsJsonObject();
+					for (JsonElement el : root.getAsJsonArray("places")) {
+						this.read(el.getAsJsonObject());
+					}
+				} else if (Files.isRegularFile(legacy)) {
+					JsonObject root = JsonParser.parseString(Files.readString(legacy, StandardCharsets.UTF_8)).getAsJsonObject();
+					for (JsonElement el : root.getAsJsonArray("discoveries")) {
+						JsonObject o = el.getAsJsonObject();
+						String structure = o.get("structure").getAsString();
+						int x = o.get("x").getAsInt();
+						int z = o.get("z").getAsInt();
+						String dim = o.get("dimension").getAsString();
+						String category = o.get("category").getAsString();
+						long when = o.get("discovered").getAsLong();
+						Place p = new Place(idFor(structure, x, z, dim), structure, o.get("name").getAsString(), category,
+							StructureNames.tier(structure, category), DiscoveryState.DISCOVERED, Source.exact(), x, o.get("y").getAsInt(), z, dim,
+							o.get("underground").getAsBoolean(), 0, when, when);
+						this.entries.put(p.id(), new Entry(p, StructureNames.family(structure)));
+						this.structure++;
+					}
+					this.version++;
+				}
+			} catch (IOException | RuntimeException ex) {
+				this.entries.clear();
+				this.warn.accept("Atlas: " + this.file + " is unreadable (" + ex.getMessage() + "); kept as .corrupt");
+				try {
+					Files.move(this.file, this.file.resolveSibling(this.file.getFileName() + ".corrupt"), StandardCopyOption.REPLACE_EXISTING);
+				} catch (IOException ignored) {
+					// replaced by the next save
+				}
 			}
+			this.savedVersion = Files.isRegularFile(this.file) ? this.version : this.version - 1;
+		} finally {
+			this.publish();
 		}
-		this.savedVersion = Files.isRegularFile(this.file) ? this.version : this.version - 1;
 	}
 
 	private void read(JsonObject o) {
