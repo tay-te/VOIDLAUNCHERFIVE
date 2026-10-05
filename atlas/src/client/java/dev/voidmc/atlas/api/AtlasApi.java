@@ -60,6 +60,15 @@ public interface AtlasApi {
 	 */
 	AtlasPlaces places();
 
+	/**
+	 * A share code for waypoints ({@code atlas-wp:1:...}): copy-paste safe, versioned; what VOID friends (or a chat
+	 * message) carry to another player's Atlas.
+	 */
+	String shareCode(List<Waypoint> waypoints);
+
+	/** Offers a shared waypoint code to the player as a card (Accept / Ignore); nothing is added without Accept. */
+	void offerShared(String code, String from);
+
 	/** The maps kept for the server the player is on (worlds behind one address told apart), and notices about them. */
 	AtlasWorlds worlds();
 

@@ -154,6 +154,19 @@ public final class AtlasClient implements ClientModInitializer {
 
 		ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 		ChatCoordinates.register();
+		dev.voidmc.atlas.client.ui.ShareCards.register();
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "shares"), (g, d) -> {
+			if (!BASELINE) {
+				dev.voidmc.atlas.client.ui.ShareCards.hud(g, d);
+			}
+		});
+		// a damaged file restored from a backup: the recovery island
+		MapSession.STORAGE_EVENTS = e -> {
+			if (e.kind() == dev.voidmc.atlas.core.store.StorageEvent.Kind.RESTORED) {
+				this.worlds.notice(new dev.voidmc.atlas.api.AtlasWorlds.Notice(dev.voidmc.atlas.api.AtlasWorlds.Notice.Kind.RESTORED, "Map restored from backup",
+					e.file().getFileName().toString()));
+			}
+		};
 		// the worlds' notices become islands (on the client thread)
 		this.worlds.addListener(n -> Minecraft.getInstance().execute(() -> {
 			switch (n.kind()) {
@@ -271,8 +284,11 @@ public final class AtlasClient implements ClientModInitializer {
 	/** Whether this is a world on a server (not one Atlas's player runs). */
 	public boolean multiplayer() {
 		Minecraft mc = Minecraft.getInstance();
-		return mc.level != null && mc.getSingleplayerServer() == null;
+		return mc.level != null && (mc.getSingleplayerServer() == null || this.actAsServer);
 	}
+
+	/** For the tour: behave as on a server (the server rules' islands and notes), in a singleplayer world. */
+	public volatile boolean actAsServer;
 
 	/** Whether the server lets the minimap show (singleplayer: always). */
 	public boolean minimapAllowed() {
@@ -498,6 +514,13 @@ public final class AtlasClient implements ClientModInitializer {
 				this.deathRecorded = false;
 			}
 			String dim = p.level().dimension().identifier().toString();
+			if (this.ticks % 100 == 3) {
+				// for the disk cap at close: the cap, and where the player is
+				session.diskCapBytes = this.settings.diskCapMb * 1024L * 1024L;
+				session.lastDimension = dim;
+				session.lastRx = dev.voidmc.atlas.core.Coords.region(p.getBlockX());
+				session.lastRz = dev.voidmc.atlas.core.Coords.region(p.getBlockZ());
+			}
 			if (this.ticks % 20 == 7 && !p.isDeadOrDying()) {
 				// temporary waypoints and old death points go; a death point goes once the player is back at it
 				if (!session.waypoints.expire(System.currentTimeMillis(), dim, p.getX(), p.getY(), p.getZ(), this.settings.deathClearsOnReach ? AtlasSettings.DEATH_REACH : 0).isEmpty()) {

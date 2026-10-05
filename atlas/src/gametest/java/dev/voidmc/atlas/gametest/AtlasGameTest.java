@@ -278,6 +278,10 @@ public class AtlasGameTest implements FabricClientGameTest {
 		if (this.want("underground")) {
 			this.undergroundShots(context, world);
 		}
+		if (this.want("parity")) {
+			context.runOnClient(mc -> mc.gui.setScreen(null));
+			new ParityShots(this, context, world, this.spawn).run();
+		}
 		if (this.want("nether")) {
 			context.runOnClient(mc -> mc.gui.setScreen(null));
 			world.getServer().runCommand("execute in minecraft:the_nether run tp @a 0 70 0");
@@ -567,6 +571,10 @@ public class AtlasGameTest implements FabricClientGameTest {
 		this.shoot(context, "waypoint_editor");
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		context.waitTicks(2);
+	}
+
+	void shootPublic(ClientGameTestContext context, String name) {
+		this.shoot(context, name);
 	}
 
 	private void shoot(ClientGameTestContext context, String name) {

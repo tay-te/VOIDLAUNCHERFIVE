@@ -37,6 +37,11 @@ public final class MapLight {
 		last = now;
 	}
 
+	/** Jumps to what the setting wants now, with no easing (the tour). */
+	public static void settle(AtlasSettings.MapLook look, long dayTime) {
+		night = look == AtlasSettings.MapLook.NIGHT ? 1 : look == AtlasSettings.MapLook.DAY ? 0 : isNight(dayTime) ? 1 : 0;
+	}
+
 	/** Whether it is night at a time of day (ticks). */
 	public static boolean isNight(long dayTime) {
 		long t = Math.floorMod(dayTime, 24000L);

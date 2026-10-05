@@ -14,6 +14,7 @@ abstract class ChatComponentMixin {
 		at = @At("HEAD"), argsOnly = true, ordinal = 0)
 	private Component atlas$coordinates(Component message) {
 		try {
+			dev.voidmc.atlas.client.ui.ShareCards.scan(message);
 			return ChatCoordinates.decorate(message);
 		} catch (RuntimeException e) {
 			// never lose a chat line to Atlas

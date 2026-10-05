@@ -677,13 +677,34 @@ public final class PlaceBook {
 	}
 
 	/** Reads {@code places.json}; with none, the structures of an older Atlas's {@code discoveries.json} next to it. */
+	private dev.voidmc.atlas.core.store.SafeFile files;
+
+	/** Keeps places.json through {@link dev.voidmc.atlas.core.store.SafeFile} (checked, backed up, restored). */
+	public PlaceBook withSafeFile(dev.voidmc.atlas.core.store.SafeFile files) {
+		this.files = files;
+		return this;
+	}
+
 	public synchronized void load() {
 		try {
 			this.entries.clear();
 			Path legacy = this.file.resolveSibling("discoveries.json");
 			try {
-				if (Files.isRegularFile(this.file)) {
-					JsonObject root = JsonParser.parseString(Files.readString(this.file, StandardCharsets.UTF_8)).getAsJsonObject();
+				String text = null;
+				if (this.files != null) {
+					var r = this.files.read(this.file, "places", 2, s -> {
+						try {
+							return JsonParser.parseString(s).getAsJsonObject().has("places");
+						} catch (RuntimeException e) {
+							return false;
+						}
+					});
+					text = r.present() ? r.payload() : null;
+				} else if (Files.isRegularFile(this.file)) {
+					text = Files.readString(this.file, StandardCharsets.UTF_8);
+				}
+				if (text != null) {
+					JsonObject root = JsonParser.parseString(text).getAsJsonObject();
 					for (JsonElement el : root.getAsJsonArray("places")) {
 						this.read(el.getAsJsonObject());
 					}
@@ -798,7 +819,13 @@ public final class PlaceBook {
 			}
 		}
 		root.add("places", list);
-		RegionStore.write(this.file, new GsonBuilder().create().toJson(root).getBytes(StandardCharsets.UTF_8));
+		String json = new GsonBuilder().create().toJson(root);
+		if (this.files != null) {
+			this.files.backup(this.file);
+			this.files.write(this.file, "places", 2, json);
+		} else {
+			RegionStore.write(this.file, json.getBytes(StandardCharsets.UTF_8));
+		}
 		synchronized (this) {
 			this.savedVersion = version;
 		}

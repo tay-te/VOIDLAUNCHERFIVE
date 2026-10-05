@@ -77,9 +77,16 @@ public final class MapSession {
 		}
 		this.blockNames = blocks;
 		this.biomeNames = biomes;
-		this.waypoints = new WaypointStore(dir.resolve("waypoints.json"), this::warn);
+		this.files = new dev.voidmc.atlas.core.store.SafeFile(e -> {
+			this.warn("Atlas: " + e.kind() + " " + e.file() + (e.detail() == null ? "" : " (" + e.detail() + ")"));
+			var listener = STORAGE_EVENTS;
+			if (listener != null) {
+				listener.accept(e);
+			}
+		});
+		this.waypoints = new WaypointStore(dir.resolve("waypoints.json"), this::warn).withSafeFile(this.files);
 		this.waypoints.load();
-		this.places = new PlaceBook(dir.resolve("places.json"), this::warn);
+		this.places = new PlaceBook(dir.resolve("places.json"), this::warn).withSafeFile(this.files);
 		this.places.load();
 		this.landmarks = new Landmarks(this);
 		this.scanners = ThreadLocal.withInitial(() -> new ChunkScanner(this.blockNames, this.biomeNames));
@@ -96,6 +103,118 @@ public final class MapSession {
 			t.setPriority(priority);
 			return t;
 		};
+	}
+
+	/** Hears about damaged files set aside and files restored from a backup (the client turns them into islands). */
+	public static volatile Consumer<dev.voidmc.atlas.core.store.StorageEvent> STORAGE_EVENTS;
+	/** The files kept safe: waypoints, places, the region index. */
+	public final dev.voidmc.atlas.core.store.SafeFile files;
+	/** When each region was last on screen: (layer path, packed region) to epoch millis, for the disk cap. */
+	private final java.util.concurrent.ConcurrentHashMap<String, Long> views = new java.util.concurrent.ConcurrentHashMap<>();
+	/** The disk cap in bytes (0: none) and where the player was last, for {@link #close}. */
+	public volatile long diskCapBytes;
+	public volatile String lastDimension = "minecraft:overworld";
+	public volatile int lastRx;
+	public volatile int lastRz;
+
+	/** A region of a layer was on screen (any thread; cheap: kept once a minute per region). */
+	public void viewed(DimensionData d, String layer, int rx, int rz) {
+		String key = d.id.replace(':', '/') + "/" + layer + "|" + rx + "|" + rz;
+		long now = System.currentTimeMillis();
+		Long before = this.views.get(key);
+		if (before == null || now - before > 60_000) {
+			this.views.put(key, now);
+		}
+	}
+
+	/**
+	 * Keeps the map under the disk cap (IO thread, at close, when nothing of it is in memory): the region index is
+	 * brought up to date from the files and the views, and the least recently viewed regions far from where the player
+	 * was go first (never within 4 regions of the player, never one viewed in the last ten minutes).
+	 */
+	private void enforceDiskCap() {
+		Path indexFile = this.dir.resolve("regions.idx");
+		var index = dev.voidmc.atlas.core.store.RegionIndex.load(this.files, indexFile);
+		long now = System.currentTimeMillis();
+		java.util.Map<String, Path[]> filesOf = new java.util.HashMap<>();
+		try (var walk = java.nio.file.Files.walk(this.dir)) {
+			for (Path p : (Iterable<Path>) walk::iterator) {
+				String name = p.getFileName().toString();
+				if (!name.startsWith("r.") || !(name.endsWith(".raw") || name.endsWith(".img") || name.endsWith(".feat"))) {
+					continue;
+				}
+				String[] parts = name.split("\\.");
+				if (parts.length < 4) {
+					continue;
+				}
+				String layer = this.dir.relativize(p.getParent()).toString().replace('\\', '/');
+				int rx;
+				int rz;
+				try {
+					rx = Integer.parseInt(parts[1]);
+					rz = Integer.parseInt(parts[2]);
+				} catch (NumberFormatException e) {
+					continue;
+				}
+				String key = layer + "|" + rx + "|" + rz;
+				Path[] list = filesOf.computeIfAbsent(key, k -> new Path[3]);
+				list[name.endsWith(".raw") ? 0 : name.endsWith(".img") ? 1 : 2] = p;
+			}
+		} catch (IOException e) {
+			return;
+		}
+		for (var e : filesOf.entrySet()) {
+			String[] k = e.getKey().split("\\|");
+			long bytes = 0;
+			long modified = 0;
+			for (Path p : e.getValue()) {
+				if (p != null) {
+					try {
+						bytes += java.nio.file.Files.size(p);
+						modified = Math.max(modified, java.nio.file.Files.getLastModifiedTime(p).toMillis());
+					} catch (IOException ignored) {
+						// gone meanwhile
+					}
+				}
+			}
+			int rx = Integer.parseInt(k[1]);
+			int rz = Integer.parseInt(k[2]);
+			var known = index.get(k[0], rx, rz);
+			index.sized(k[0], rx, rz, bytes, known == null ? modified : known.lastViewed());
+		}
+		for (var v : this.views.entrySet()) {
+			String[] k = v.getKey().split("\\|");
+			index.viewed(k[0], Integer.parseInt(k[1]), Integer.parseInt(k[2]), v.getValue());
+		}
+		if (this.diskCapBytes > 0) {
+			String playerDim = this.lastDimension.replace(':', '/');
+			var plan = dev.voidmc.atlas.core.store.DiskCap.plan(index, this.diskCapBytes,
+				layer -> layer.startsWith(playerDim + "/") ? new dev.voidmc.atlas.core.store.DiskCap.Region(this.lastRx, this.lastRz) : null, 4, now);
+			for (var entry : plan) {
+				Path[] list = filesOf.get(entry.layer() + "|" + entry.rx() + "|" + entry.rz());
+				if (list != null) {
+					for (Path p : list) {
+						try {
+							if (p != null) {
+								java.nio.file.Files.deleteIfExists(p);
+							}
+						} catch (IOException ignored) {
+							// left for next time
+						}
+					}
+				}
+				index.remove(entry.layer(), entry.rx(), entry.rz());
+			}
+			if (!plan.isEmpty()) {
+				LOGGER.info("Atlas: {} far regions of {} let go to stay under the disk cap", plan.size(), this.worldKey);
+			}
+		}
+		try {
+			this.files.backup(indexFile);
+			index.save(this.files, indexFile);
+		} catch (IOException e) {
+			this.warn("Atlas: could not save the region index: " + e);
+		}
 	}
 
 	public void warn(String message) {
@@ -251,6 +370,7 @@ public final class MapSession {
 			Thread.currentThread().interrupt();
 		}
 		this.io.execute(() -> this.saveNow(true));
+		this.io.execute(this::enforceDiskCap);
 		this.io.shutdown();
 		try {
 			if (!this.io.awaitTermination(8, TimeUnit.SECONDS)) {

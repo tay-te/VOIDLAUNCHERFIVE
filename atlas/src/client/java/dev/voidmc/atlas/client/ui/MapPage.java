@@ -1861,6 +1861,37 @@ public final class MapPage {
 		return !f.isBlank() && (f.contains(name) || f.contains(plain) || name.contains(f.replaceAll("[^a-z0-9._-]", "_")));
 	}
 
+	// --- for the tour ----------------------------------------------------------------------------------------------
+
+	/** Opens the right-click menu at a point of the map (screen design pixels). */
+	public void openMenuAt(float x, float y) {
+		MapRenderer.Frame f = this.map.frame();
+		if (f != null) {
+			this.menu = new Menu(x, y, f.mapX(x, y), f.mapZ(x, y));
+		}
+	}
+
+	public void closeMenu() {
+		this.menu = null;
+	}
+
+	/** The map's rectangle on screen: x, y, w, h (design pixels). */
+	public float[] mapRect() {
+		return new float[]{this.mapX, this.mapY, this.mapW, this.mapH};
+	}
+
+	/** Types a search. */
+	public void searchFor(String text) {
+		this.searching = true;
+		this.search.focused = true;
+		this.search.set(text);
+	}
+
+	/** Opens or closes the world picker's list. */
+	public void showPicker(boolean open) {
+		this.pickerOpen = open;
+	}
+
 	/** Offers the import again (from the settings). */
 	public void offerImport() {
 		this.importLooked = false;

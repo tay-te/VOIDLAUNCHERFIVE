@@ -39,6 +39,18 @@ public final class AtlasApiImpl implements AtlasApi {
 	}
 
 	@Override
+	public String shareCode(List<Waypoint> waypoints) {
+		return dev.voidmc.atlas.core.waypoints.WaypointShare.encode(waypoints.stream().map(dev.voidmc.atlas.core.waypoints.SharedWaypoint::from).toList());
+	}
+
+	@Override
+	public void offerShared(String code, String from) {
+		for (var w : dev.voidmc.atlas.core.waypoints.WaypointShare.decode(code)) {
+			dev.voidmc.atlas.client.ui.ShareCards.offer(w, from, "from the VOID server");
+		}
+	}
+
+	@Override
 	public dev.voidmc.atlas.api.AtlasWorlds worlds() {
 		return AtlasClient.get().worlds;
 	}

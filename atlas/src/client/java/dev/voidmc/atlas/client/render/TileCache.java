@@ -136,6 +136,13 @@ public final class TileCache {
 		Slot s = this.byKey.get(k);
 		if (s != null) {
 			s.lastUsed = this.frame;
+			if (s.ready && (this.frame & 63) == 0) {
+				// on screen: noted now and then, for the disk cap (least recently viewed far regions go first)
+				int block = dev.voidmc.atlas.core.Coords.tileOrigin(tx, level);
+				int blockZ = dev.voidmc.atlas.core.Coords.tileOrigin(tz, level);
+				layer.dimension.session.viewed(layer.dimension, layer.name, dev.voidmc.atlas.core.Coords.region(block),
+					dev.voidmc.atlas.core.Coords.region(blockZ));
+			}
 			return s.ready ? s : null;
 		}
 		if (!request || this.empty.contains(k) || !layer.tileExists(level, tx, tz)) {

@@ -28,10 +28,20 @@ public final class WaypointStore {
 	private final Consumer<String> warn;
 	private final List<Waypoint> waypoints = new ArrayList<>();
 	private long version;
+	private dev.voidmc.atlas.core.store.SafeFile files;
 
 	public WaypointStore(Path file, Consumer<String> warn) {
 		this.file = file;
 		this.warn = warn;
+	}
+
+	/**
+	 * Keeps the file through {@link dev.voidmc.atlas.core.store.SafeFile}: a checked header, rolling backups, and the
+	 * newest good backup restored if the file is damaged. An older plain file is read once and written the new way.
+	 */
+	public WaypointStore withSafeFile(dev.voidmc.atlas.core.store.SafeFile files) {
+		this.files = files;
+		return this;
 	}
 
 	public Path file() {
@@ -118,17 +128,34 @@ public final class WaypointStore {
 		return gone;
 	}
 
+	private static boolean parses(String json) {
+		try {
+			return JsonParser.parseString(json).getAsJsonObject().has("waypoints");
+		} catch (RuntimeException e) {
+			return false;
+		}
+	}
+
 	public synchronized long version() {
 		return this.version;
 	}
 
 	public synchronized void load() {
 		this.waypoints.clear();
-		if (!Files.isRegularFile(this.file)) {
+		String text = null;
+		if (this.files != null) {
+			var r = this.files.read(this.file, "waypoints", VERSION, WaypointStore::parses);
+			if (!r.present()) {
+				return;
+			}
+			text = r.payload();
+		} else if (!Files.isRegularFile(this.file)) {
 			return;
 		}
 		try {
-			String text = Files.readString(this.file, StandardCharsets.UTF_8);
+			if (text == null) {
+				text = Files.readString(this.file, StandardCharsets.UTF_8);
+			}
 			JsonObject root = JsonParser.parseString(text).getAsJsonObject();
 			for (JsonElement e : root.getAsJsonArray("waypoints")) {
 				JsonObject o = e.getAsJsonObject();
@@ -188,6 +215,12 @@ public final class WaypointStore {
 			list.add(o);
 		}
 		root.add("waypoints", list);
-		RegionStore.write(this.file, new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(root).getBytes(StandardCharsets.UTF_8));
+		String json = new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(root);
+		if (this.files != null) {
+			this.files.backup(this.file);
+			this.files.write(this.file, "waypoints", VERSION, json);
+		} else {
+			RegionStore.write(this.file, json.getBytes(StandardCharsets.UTF_8));
+		}
 	}
 }
