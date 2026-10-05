@@ -4,5 +4,13 @@
 	},
 	"attribute": "strength",
 	"order": 7,
-	"released": true
+	"released": true,
+	"paths": {
+		"a": {
+			"translate": "mettle.path.smithing.a"
+		},
+		"b": {
+			"translate": "mettle.path.smithing.b"
+		}
+	}
 }

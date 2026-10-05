@@ -8,6 +8,7 @@ import dev.voidmc.mettle.character.skill.DefenseSkill;
 import dev.voidmc.mettle.character.skill.HeavyWeaponsSkill;
 import dev.voidmc.mettle.character.skill.MarksmanshipSkill;
 import dev.voidmc.mettle.character.skill.MiningSkill;
+import dev.voidmc.mettle.character.skill.SmithingSkill;
 import dev.voidmc.mettle.character.skill.SurvivalSkill;
 import net.minecraft.network.chat.Component;
 import dev.voidmc.mettle.core.CharacterStore;
@@ -49,6 +50,7 @@ public final class CharacterModule {
 		DefenseSkill.init();
 		AthleticsSkill.init();
 		SurvivalSkill.init();
+		SmithingSkill.init();
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> {
 			CharacterCommands.register(dispatcher, context);
 			TreeCommands.register(dispatcher);

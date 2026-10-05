@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "path",
+	"tier": 3,
+	"path": "a",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.smithing.shieldwright"
+	},
+	"description": {
+		"translate": "mettle.perk.smithing.shieldwright.description"
+	},
+	"order": 5
+}
