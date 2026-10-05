@@ -91,6 +91,10 @@ public final class MinimapHud {
 		// a dark hairline outside, so the map's edge reads over bright snow and sky
 		ui.border(x - 1.5F, y - 1.5F, side + 3, side + 3, radius + 1.5F, 1.5F, 0x8C0B0B0C);
 		ui.round(x, y, side, side, radius, Theme.MAP_WELL);
+		// day and night on the map (if wanted): the surface of a world with a sky, lit as the time of day
+		net.minecraft.client.multiplayer.ClientLevel lightLevel = net.minecraft.client.Minecraft.getInstance().level;
+		boolean lit = this.atlas.settings().mapLighting && !underground && lightLevel != null && !lightLevel.dimensionType().hasCeiling();
+		this.renderer.setTint(lit ? MapRenderer.daylight(lightLevel.getOverworldClockTime()) : 0xFFFFFF);
 		MapRenderer.Frame f = this.renderer.draw(ui, this.atlas.tiles(), layer, x, y, side, side, radius, new MapRenderer.View(px, pz, this.zoom, rotation), true);
 		long t2 = System.nanoTime();
 		ui.flush();

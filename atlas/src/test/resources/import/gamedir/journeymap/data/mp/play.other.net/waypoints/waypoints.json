@@ -1,0 +1,6 @@
+{
+  "waypoints": {
+    "a1b2": {"guid": "a1b2", "name": "Market", "pos": {"x": 300, "y": 72, "z": 300}, "color": 5592575, "enabled": true, "primaryDimension": "minecraft:overworld"},
+    "c3d4": {"guid": "c3d4", "name": "Bastion", "x": -800, "y": 50, "z": 160, "color": 16733525, "enabled": true, "dimensions": ["minecraft:the_nether"]}
+  }
+}

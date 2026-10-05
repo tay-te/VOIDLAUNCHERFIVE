@@ -1,0 +1,16 @@
+{
+  "id": "Death_-30,40,77",
+  "name": "Death 2026-10-01 21:14",
+  "icon": "waypoint-death.png",
+  "x": -30,
+  "y": 40,
+  "z": 77,
+  "r": 170,
+  "g": 170,
+  "b": 170,
+  "enable": true,
+  "type": "Death",
+  "origin": "journeymap",
+  "dimensions": ["minecraft:the_nether"],
+  "persistent": true
+}

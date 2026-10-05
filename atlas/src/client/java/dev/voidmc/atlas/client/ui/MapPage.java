@@ -1336,7 +1336,7 @@ public final class MapPage {
 		if (m == null) {
 			return;
 		}
-		List<String> items = new ArrayList<>(List.of("Waypoint here", "Copy coordinates", "Track", "Centre here"));
+		List<String> items = new ArrayList<>(List.of("Waypoint here", "Copy coordinates", "Track", "Centre here", "Export view as PNG"));
 		String dimHere = this.map.dimensionOf(this.map.kind);
 		if (dimHere.equals("minecraft:overworld")) {
 			items.add(2, "Show in the Nether");
@@ -1394,8 +1394,40 @@ public final class MapPage {
 					this.track(dev.voidmc.atlas.client.AtlasClient.waypointMarkerId(w));
 				}
 			}
+			case "Export view as PNG" -> this.exportView();
 			default -> this.map.centreOn(m.mapX, m.mapZ);
 		}
+	}
+
+	/** The map as shown, to a PNG in {@code <world map>/exports/}, on a worker; the result in the chat. */
+	private void exportView() {
+		var session = this.atlas.session();
+		MapRenderer.Frame f = this.map.frame();
+		var layer = this.map.layer(this.map.kind);
+		if (session == null || f == null || layer == null) {
+			return;
+		}
+		int x0 = (int) Math.floor(Math.min(f.mapX(f.x, f.y), f.mapX(f.x + f.w, f.y + f.h)));
+		int z0 = (int) Math.floor(Math.min(f.mapZ(f.x, f.y), f.mapZ(f.x + f.w, f.y + f.h)));
+		int x1 = (int) Math.ceil(Math.max(f.mapX(f.x, f.y), f.mapX(f.x + f.w, f.y + f.h)));
+		int z1 = (int) Math.ceil(Math.max(f.mapZ(f.x, f.y), f.mapZ(f.x + f.w, f.y + f.h)));
+		String name = "atlas-" + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".png";
+		java.nio.file.Path file = session.dir.resolve("exports").resolve(name);
+		session.workers.execute(() -> {
+			String message;
+			try {
+				var r = dev.voidmc.atlas.core.MapExport.export(layer::levelPixels, x0, z0, x1, z1, file);
+				message = "Atlas: the map was saved as " + r.file().getFileName() + " (" + r.width() + " x " + r.height() + ")";
+			} catch (java.io.IOException | RuntimeException e) {
+				message = "Atlas: the map could not be saved: " + e.getMessage();
+			}
+			String text = message;
+			Minecraft.getInstance().execute(() -> {
+				if (Minecraft.getInstance().player != null) {
+					Minecraft.getInstance().player.sendSystemMessage(net.minecraft.network.chat.Component.literal(text));
+				}
+			});
+		});
 	}
 
 	// --- waypoints -------------------------------------------------------------------------------------------------

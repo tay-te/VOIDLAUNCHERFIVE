@@ -1,0 +1,2 @@
+sets:gui.xaero_default
+waypoint:Home:H:100:64:-200:6:false:0:gui.xaero_default:false:0:false

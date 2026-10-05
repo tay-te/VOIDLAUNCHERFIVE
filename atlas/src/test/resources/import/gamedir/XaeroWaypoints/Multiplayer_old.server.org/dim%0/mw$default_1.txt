@@ -1,0 +1,6 @@
+#
+#waypoint:name:initials:x:y:z:color:disabled:type:set:rotate_on_tp:tp_yaw:global
+#
+sets:gui.xaero_default
+waypoint:Spawn:S:0:70:0:15:false:0:gui.xaero_default
+waypoint:Village:V:-320:68:512:2:false:0:gui.xaero_default:false:0:false

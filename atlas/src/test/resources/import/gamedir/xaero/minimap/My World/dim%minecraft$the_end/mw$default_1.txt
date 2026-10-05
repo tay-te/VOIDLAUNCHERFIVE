@@ -1,0 +1,2 @@
+sets:gui.xaero_default
+waypoint:End city:E:1200:90:-800:13:false:0:gui.xaero_default:false:0:0:false

@@ -1,0 +1,2 @@
+sets:gui.xaero_default
+waypoint:Portal hub:P:12:70:-25:4:false:0:gui.xaero_default:false:0:0:false
