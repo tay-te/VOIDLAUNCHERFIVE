@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "type": "minecraft:weighted",
+    "entries": [
+      {
+        "data": {
+          "id": "minecraft:pale_moss_carpet",
+          "properties": {
+            "bottom": "true",
+            "north": "none",
+            "east": "none",
+            "south": "none",
+            "west": "none"
+          }
+        },
+        "weight": 5
+      },
+      {
+        "data": {
+          "id": "minecraft:moss_carpet"
+        },
+        "weight": 2
+      },
+      {
+        "data": {
+          "id": "minecraft:short_grass"
+        },
+        "weight": 2
+      }
+    ]
+  }
+}

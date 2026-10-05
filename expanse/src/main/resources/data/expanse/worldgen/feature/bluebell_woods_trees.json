@@ -15,21 +15,21 @@
     {
       "chance": 0.12,
       "feature": {
-        "feature": "minecraft:oak",
+        "feature": "expanse:natural/forest_oak/plain",
         "placement": []
       }
     },
     {
       "chance": 0.06,
       "feature": {
-        "feature": "minecraft:birch",
+        "feature": "expanse:natural/birch/plain",
         "placement": []
       }
     },
     {
       "chance": 0.04,
       "feature": {
-        "feature": "minecraft:fancy_oak",
+        "feature": "expanse:natural/big_oak/plain",
         "placement": []
       }
     },

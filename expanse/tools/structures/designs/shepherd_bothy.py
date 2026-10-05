@@ -1,4 +1,5 @@
-"""Shepherd's bothies of the heather moor.
+"""Shepherd's bothies of the moors and upland pastures (heather moor, verdant peaks, pine heath,
+fjordlands, boreal muskeg, volcanic highlands, meadow, windswept hills).
 
 start pool (3 variants)
   bothy : a drystone bothy under a slate roof with a smoking chimney, a round
@@ -18,12 +19,15 @@ from builder import Build, item, slab, stairs, trapdoor
 from furnish import chair
 from kit import roof_gable
 from pieces import Piece
+from regions import mc
 from small_data import BOOKS, data_for
 from common import vines_on
 from smallkit import book, clear, flora, ground_item, pick, plant, ring, rubble, trail
 
 NAME = "shepherd_bothy"
-STRUCTURE = dict(biomes=["heather_moor"], size=1, max_distance=32, set="biome_sights")
+STRUCTURE = dict(biomes=["heather_moor", "verdant_peaks", "pine_heath", "fjordlands", "boreal_muskeg",
+                         "volcanic_highlands", *mc("meadow", "windswept_hills", "windswept_gravelly_hills")],
+                 size=1, max_distance=32, set="biome_sights")
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"
 STONE = [("cobblestone", 5), ("mossy_cobblestone", 3), ("stone", 2), ("andesite", 2)]

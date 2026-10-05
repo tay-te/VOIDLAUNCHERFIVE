@@ -1,0 +1,64 @@
+{
+  "type": "expanse:cave_template",
+  "biomes": [
+    "minecraft:deep_dark",
+    "expanse:echoing_depths"
+  ],
+  "clearance": 4,
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:base_stone_overworld"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:dirt"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:sand"
+      },
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "minecraft:gravel",
+          "minecraft:clay",
+          "minecraft:calcite",
+          "minecraft:dripstone_block",
+          "minecraft:smooth_basalt",
+          "minecraft:basalt",
+          "minecraft:blackstone",
+          "minecraft:sandstone",
+          "minecraft:red_sandstone",
+          "minecraft:snow_block",
+          "minecraft:packed_ice",
+          "minecraft:sulfur",
+          "minecraft:amethyst_block",
+          "expanse:amber",
+          "expanse:limestone",
+          "expanse:salt_block",
+          "expanse:volcanic_ash"
+        ]
+      }
+    ]
+  },
+  "max_relief": 1,
+  "min_depth": 10,
+  "processors": "expanse:cave/echo",
+  "templates": [
+    {
+      "data": "expanse:cave/echo_arch",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/soul_altar",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/candle_cairn_deep",
+      "weight": 2
+    }
+  ]
+}

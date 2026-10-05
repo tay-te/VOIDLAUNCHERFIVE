@@ -1,7 +1,7 @@
 {
   "type": "minecraft:random_selector",
   "default": {
-    "feature": "minecraft:birch",
+    "feature": "expanse:natural/birch/plain",
     "placement": []
   },
   "features": [

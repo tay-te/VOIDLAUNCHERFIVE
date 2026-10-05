@@ -152,9 +152,9 @@
       },
       "modifier": "overlay"
     },
-    "minecraft:visual/sky_color": "#9ccac2",
-    "minecraft:visual/fog_color": "#c4e0d6",
-    "minecraft:visual/water_fog_color": "#1f8a74",
+    "minecraft:visual/sky_color": "#9cbcd2",
+    "minecraft:visual/fog_color": "#cfdcd6",
+    "minecraft:visual/water_fog_color": "#2a6e66",
     "minecraft:visual/fog_end_distance": 190.0
   },
   "carvers": [
@@ -164,7 +164,7 @@
   ],
   "downfall": 0.85,
   "effects": {
-    "water_color": "#3fc2a2",
+    "water_color": "#4a9e8c",
     "grass_color": "#62b85a",
     "foliage_color": "#4fa84a"
   },
@@ -241,7 +241,9 @@
       "expanse:river_reeds_warm",
       "expanse:river_lily_pads",
       "expanse:river_wet_bank",
-      "expanse:river_seagrass"
+      "expanse:river_seagrass",
+      "expanse:kcd_tropic_bushes",
+      "expanse:kcd_tropic_floor"
     ],
     [
       "minecraft:freeze_top_layer"

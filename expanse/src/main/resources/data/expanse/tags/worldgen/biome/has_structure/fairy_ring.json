@@ -1,5 +1,9 @@
 {
   "values": [
-    "expanse:lumen_grove"
+    "expanse:ancient_oakwood",
+    "expanse:bluebell_woods",
+    "minecraft:dark_forest",
+    "minecraft:pale_garden",
+    "minecraft:flower_forest"
   ]
 }

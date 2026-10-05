@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:random_selector",
+  "default": "expanse:natural/jungle_wood/jungle_tree",
+  "features": [
+    {
+      "chance": 0.1,
+      "feature": "expanse:natural/big_open_oak/fancy_oak_checked"
+    },
+    {
+      "chance": 0.5,
+      "feature": "minecraft:jungle_bush"
+    },
+    {
+      "chance": 0.33333334,
+      "feature": "expanse:natural/jungle_giant/mega_jungle_tree_checked"
+    },
+    {
+      "chance": 0.0125,
+      "feature": "minecraft:fallen_jungle_tree"
+    }
+  ]
+}

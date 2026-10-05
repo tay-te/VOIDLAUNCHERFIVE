@@ -157,7 +157,8 @@
     [],
     [
       "minecraft:lake_lava_underground",
-      "minecraft:lake_lava_surface"
+      "minecraft:lake_lava_surface",
+      "expanse:kcd_fishponds"
     ],
     [
       "minecraft:amethyst_geode",
@@ -215,6 +216,10 @@
       "expanse:river_lily_pads",
       "expanse:river_wet_bank",
       "expanse:river_seagrass",
+      "expanse:kcd_woodland_shrubs",
+      "expanse:kcd_bank_trees",
+      "expanse:kcd_woodland_floor",
+      "expanse:kcd_brambles",
       "expanse:maple_trees",
       "expanse:maple_floor",
       "expanse:maple_leaf_litter",

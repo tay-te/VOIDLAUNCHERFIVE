@@ -1,4 +1,4 @@
-"""Shore life on the palm coast.
+"""Shore life on the warm coasts (palm coast, coral coast, beaches).
 
 start pool (3 variants)
   hut      : a frond-thatched hut on palm posts above the tide line, steps down to the
@@ -19,7 +19,8 @@ from small_data import BOOKS, data_for
 from smallkit import book, clear, flora, ground_item, hip_cap, meal_fire, pick, raft, trail
 
 NAME = "beach_hut"
-STRUCTURE = dict(biomes=["palm_coast"], size=1, max_distance=32, set="biome_sights", sited=False)
+STRUCTURE = dict(biomes=["palm_coast", "coral_coast", "minecraft:beach"], size=1, max_distance=32, set="biome_sights",
+                 sited=False)
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"
 P = "expanse:palm"

@@ -22,14 +22,14 @@
     {
       "chance": 0.06,
       "feature": {
-        "feature": "minecraft:spruce",
+        "feature": "expanse:natural/spruce_forest/plain",
         "placement": []
       }
     },
     {
       "chance": 0.05,
       "feature": {
-        "feature": "minecraft:birch",
+        "feature": "expanse:natural/birch/plain",
         "placement": []
       }
     },

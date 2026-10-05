@@ -35,6 +35,10 @@
     {
       "data": "expanse:micro/cairn",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/prismite_geode",
+      "weight": 3
     }
   ]
 }

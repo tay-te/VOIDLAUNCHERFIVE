@@ -1,7 +1,19 @@
 {
   "values": [
     "expanse:amber_steppe",
-    "expanse:opal_dunes",
-    "expanse:palm_coast"
+    "expanse:red_dunes",
+    "expanse:palm_coast",
+    "minecraft:desert",
+    "minecraft:savanna",
+    "minecraft:savanna_plateau",
+    "minecraft:windswept_savanna",
+    "minecraft:badlands",
+    "minecraft:eroded_badlands",
+    "minecraft:wooded_badlands",
+    "expanse:coral_coast",
+    "expanse:ghost_gum_outback",
+    "expanse:saguaro_flats",
+    "expanse:painted_canyons",
+    "expanse:salt_flats"
   ]
 }

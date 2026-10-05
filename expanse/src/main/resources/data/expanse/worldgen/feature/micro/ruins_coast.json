@@ -1,0 +1,35 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:sand"
+      },
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "minecraft:gravel",
+          "minecraft:sandstone"
+        ]
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:substrate_overworld"
+      }
+    ]
+  },
+  "max_relief": 1,
+  "processors": "expanse:micro/coast",
+  "templates": [
+    {
+      "data": "expanse:micro/ruin_wreck_palm",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/ruin_wreck",
+      "weight": 1
+    }
+  ]
+}

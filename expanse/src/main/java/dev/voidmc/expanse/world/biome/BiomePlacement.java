@@ -22,17 +22,17 @@ import net.minecraft.world.level.biome.Climate;
  *
  * <pre>
  *  vanilla biome (weirdness > 0)            climate cell                    becomes
- *  snowy plains                             T0                              Frostbloom Tundra
+ *  snowy plains                             T0                              Lichen Tundra
  *  plains / meadow                          T1 H1                           Heather Moor
- *  forest                                   T2 H2                           Wisteria Vale
+ *  forest                                   T2 H2                           Woodland Glades
  *  taiga                                    T1 H3                           Redwood Giants
- *  dark forest                              T2 H4                           Lumen Grove
+ *  dark forest                              T2 H4                           Ancient Oakwood
  *  swamp                                    any                             Willow Bayou
  *  savanna / savanna plateau                any                             Amber Steppe
- *  desert                                   T4 H0-2                         Opal Dunes
+ *  desert                                   T4 H0-2                         Red Dunes
  *  desert                                   T4 H3-4                         Jade Karst
  *  forest / jungle (plateau)                T3                              Cloud Forest
- *  stony peaks                              T3                              Prismatic Peaks
+ *  stony peaks                              T3                              Dolomite Peaks
  *  jagged / frozen peaks (either sign)      T2                              Verdant Peaks
  *  beach (negative weirdness; warm coasts)  T3, and T4's desert beaches     Palm Coast
  *  snowy taiga                              T0 H2                           Pine Heath
@@ -46,7 +46,7 @@ import net.minecraft.world.level.biome.Climate;
  *  plains, eroded uplands (erosion 0-3)     T3 H2                           Monsoon Forest
  *  savanna / savanna plateau                T3 H0 (Amber Steppe keeps H1)   Ghost Gum Outback
  *  badlands / wooded badlands               T4 H2-4                         Saguaro Flats
- *  desert, inland (not the coast)           T4 H0 (Opal Dunes keeps H1-2)   Saguaro Flats
+ *  desert, inland (not the coast)           T4 H0 (Red Dunes keeps H1-2)   Saguaro Flats
  *  mangrove swamp                           T3-4 (erosion 6)                Kapok Rainforest
  *  beach (positive weirdness, low slice)    T3                              Coral Coast
  * </pre>
@@ -98,7 +98,7 @@ public final class BiomePlacement {
 			return b;
 		}
 		// --- cold & temperate biomes ---
-		// The boreal belt runs dry to wet across T0: Frostbloom Tundra (H0-1), Pine Heath, Larch Taiga, Boreal
+		// The boreal belt runs dry to wet across T0: Lichen Tundra (H0-1), Pine Heath, Larch Taiga, Boreal
 		// Muskeg. Snowy taiga keeps its negative-weirdness half, taiga everything but T0 H4's variant half.
 		if (b == Biomes.SNOWY_TAIGA && t == 0) {
 			return h <= 2 ? ExpanseBiomes.PINE_HEATH : ExpanseBiomes.LARCH_TAIGA;
@@ -121,19 +121,19 @@ public final class BiomePlacement {
 		}
 		// --- end cold & temperate biomes ---
 		if (b == Biomes.SNOWY_PLAINS) {
-			return ExpanseBiomes.FROSTBLOOM_TUNDRA;
+			return ExpanseBiomes.LICHEN_TUNDRA;
 		}
 		if ((b == Biomes.PLAINS || b == Biomes.MEADOW) && t == 1 && h == 1) {
 			return ExpanseBiomes.HEATHER_MOOR;
 		}
 		if (b == Biomes.FOREST && t == 2 && h == 2) {
-			return ExpanseBiomes.WISTERIA_VALE;
+			return ExpanseBiomes.WOODLAND_GLADES;
 		}
 		if (b == Biomes.TAIGA && t == 1 && h == 3) {
 			return ExpanseBiomes.REDWOOD_GIANTS;
 		}
 		if (b == Biomes.DARK_FOREST) {
-			return ExpanseBiomes.LUMEN_GROVE;
+			return ExpanseBiomes.ANCIENT_OAKWOOD;
 		}
 		if (b == Biomes.SWAMP) {
 			return ExpanseBiomes.WILLOW_BAYOU;
@@ -152,7 +152,7 @@ public final class BiomePlacement {
 		}
 		// Saguaros: the badlands' free variant half (badlands H2, wooded badlands H3-4; eroded badlands lives
 		// only in this half and keeps it), and the driest inland desert (T4 H0, not the coast). The desert
-		// part must stay ahead of the desert branch below, which keeps H1-2 for Opal Dunes.
+		// part must stay ahead of the desert branch below, which keeps H1-2 for Red Dunes.
 		if ((b == Biomes.BADLANDS || b == Biomes.WOODED_BADLANDS) && t == 4
 			|| b == Biomes.DESERT && t == 4 && h == 0 && band(p.continentalness(), -0.19F, -0.11F) != 1) {
 			return ExpanseBiomes.SAGUARO_FLATS;
@@ -170,7 +170,7 @@ public final class BiomePlacement {
 			return ExpanseBiomes.AMBER_STEPPE;
 		}
 		if (b == Biomes.DESERT && t == 4) {
-			return h <= 2 ? ExpanseBiomes.OPAL_DUNES : ExpanseBiomes.JADE_KARST;
+			return h <= 2 ? ExpanseBiomes.RED_DUNES : ExpanseBiomes.JADE_KARST;
 		}
 		if ((b == Biomes.FOREST || b == Biomes.JUNGLE) && t == 3) {
 			// At T3 with positive weirdness the middle picker gives plains and sparse/bamboo jungle, so a
@@ -178,7 +178,7 @@ public final class BiomePlacement {
 			return ExpanseBiomes.CLOUD_FOREST;
 		}
 		if (b == Biomes.STONY_PEAKS && t == 3) {
-			return ExpanseBiomes.PRISMATIC_PEAKS;
+			return ExpanseBiomes.DOLOMITE_PEAKS;
 		}
 		return b;
 	}

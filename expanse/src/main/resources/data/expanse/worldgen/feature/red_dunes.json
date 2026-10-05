@@ -1,0 +1,7 @@
+{
+  "type": "expanse:dunes",
+  "sand": "minecraft:red_sand",
+  "biomes": "expanse:red_dunes",
+  "max_height": 9,
+  "wavelength": 34.0
+}

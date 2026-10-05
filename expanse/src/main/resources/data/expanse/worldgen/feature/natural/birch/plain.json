@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:natural/tree/birch/plain",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.35,
+      "feature": {
+        "feature": "expanse:natural/tree/birch_young/plain",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.03,
+      "feature": {
+        "feature": "expanse:natural/tree/birch_snag",
+        "placement": []
+      }
+    }
+  ]
+}

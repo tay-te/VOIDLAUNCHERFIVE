@@ -148,7 +148,7 @@
       },
       "modifier": "overlay"
     },
-    "minecraft:visual/sky_color": "#9fcfc4",
+    "minecraft:visual/sky_color": "#a6c6d8",
     "minecraft:visual/fog_color": "#c4dccc",
     "minecraft:visual/water_fog_color": "#2f5d46",
     "minecraft:visual/fog_start_distance": 6.0,
@@ -232,6 +232,8 @@
       "expanse:river_lily_pads",
       "expanse:river_wet_bank",
       "expanse:river_seagrass",
+      "expanse:kcd_tropic_bushes",
+      "expanse:kcd_tropic_floor",
       "expanse:kapok_emergents",
       "expanse:kapok_canopy_trees",
       "expanse:kapok_bushes",

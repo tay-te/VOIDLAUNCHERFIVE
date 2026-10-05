@@ -1,0 +1,35 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:matching_block_tag",
+    "tag": "minecraft:substrate_overworld"
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/bluebell",
+  "templates": [
+    {
+      "data": "expanse:micro/stump_beech",
+      "weight": 5
+    },
+    {
+      "data": "expanse:micro/beech_hollow",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/uprooted_beech",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/boulder_field",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/mossy_rocks",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/mushroom_ring",
+      "weight": 1
+    }
+  ]
+}

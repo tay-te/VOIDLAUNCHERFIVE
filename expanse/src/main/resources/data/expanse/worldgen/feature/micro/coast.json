@@ -30,6 +30,10 @@
     {
       "data": "expanse:micro/sandstone_rocks",
       "weight": 2
+    },
+    {
+      "data": "expanse:micro/tide_pool",
+      "weight": 2
     }
   ]
 }

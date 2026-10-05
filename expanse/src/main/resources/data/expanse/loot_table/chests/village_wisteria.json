@@ -51,7 +51,7 @@
               "min": 1
             }
           },
-          "name": "expanse:wisteria_sapling",
+          "name": "minecraft:oak_sapling",
           "weight": 5
         },
         {
@@ -90,7 +90,7 @@
               "min": 1
             }
           },
-          "name": "minecraft:allium",
+          "name": "minecraft:poppy",
           "weight": 2
         },
         {

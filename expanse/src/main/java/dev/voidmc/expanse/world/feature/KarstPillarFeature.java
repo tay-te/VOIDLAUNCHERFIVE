@@ -1,5 +1,6 @@
 package dev.voidmc.expanse.world.feature;
 
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Optional;
@@ -27,10 +28,12 @@ import net.minecraft.world.level.levelgen.placement.PlacedFeature;
  * two towers share a silhouette), leans a little with the square of height, and rounds into a dome
  * over its top tenth. Below the origin it keeps going until it meets solid ground, so a tower on a
  * slope does not stand on a lip of air.
+ *
+ * <p>With {@code vines} off it stands bare, as the dolomite spires of the high pasture do.
  */
 public record KarstPillarFeature(
 	Holder<BlockStateProvider> stone, BlockState cap, BlockState soil, IntProvider height, IntProvider radius,
-	Optional<Holder<PlacedFeature>> topFeature
+	Optional<Holder<PlacedFeature>> topFeature, boolean vines
 ) implements Feature {
 	public static final MapCodec<KarstPillarFeature> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
 		BlockStateProvider.CODEC.fieldOf("stone").forGetter(KarstPillarFeature::stone),
@@ -38,7 +41,8 @@ public record KarstPillarFeature(
 		BlockState.CODEC.fieldOf("soil").forGetter(KarstPillarFeature::soil),
 		IntProviders.codec(4, 96).fieldOf("height").forGetter(KarstPillarFeature::height),
 		IntProviders.codec(1, 8).fieldOf("radius").forGetter(KarstPillarFeature::radius),
-		PlacedFeature.CODEC.optionalFieldOf("top_feature").forGetter(KarstPillarFeature::topFeature)
+		PlacedFeature.CODEC.optionalFieldOf("top_feature").forGetter(KarstPillarFeature::topFeature),
+		Codec.BOOL.optionalFieldOf("vines", true).forGetter(KarstPillarFeature::vines)
 	).apply(i, KarstPillarFeature::new));
 
 	@Override
@@ -117,7 +121,9 @@ public record KarstPillarFeature(
 			}
 		}
 
-		this.drapeVines(level, random, origin, h);
+		if (this.vines) {
+			this.drapeVines(level, random, origin, h);
+		}
 
 		BlockPos top = origin.above(summit + 1);
 		this.topFeature.ifPresent(f -> f.value().place(level, generator, random, top));

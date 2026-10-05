@@ -94,6 +94,10 @@ public record SurfaceTemplateFeature(
 			return false;
 		}
 		BlockPos low = origin.offset(-size.getX() / 2, 0, -size.getZ() / 2);
+		// never on land a settlement has planned (VOID Hearth's plots and roads)
+		if (dev.voidmc.expanse.api.LandClaims.anyClaimed(level, low.getX(), low.getZ(), low.getX() + size.getX() - 1, low.getZ() + size.getZ() - 1, 4)) {
+			return false;
+		}
 
 		// Survey the footprint: every column must be dry, natural ground, and the whole no steeper than allowed.
 		int lowest = Integer.MAX_VALUE;
@@ -146,8 +150,9 @@ public record SurfaceTemplateFeature(
 	 * fall inside the bank. Stones and logs belong there (bedded in the hillside); a flower, a fern or a moss
 	 * carpet would sit at the bottom of a little pit instead, so those are left out and the bank stays whole.
 	 * Runs after the weathering list, on what it made of the markers. Used only while placing, never saved.
+	 * The things set into cave floors ({@link CaveTemplateFeature}) settle the same way.
 	 */
-	private record Settle(BlockPos low, int sizeZ, int zeroY, int[] surfaces) implements StructureProcessor {
+	record Settle(BlockPos low, int sizeZ, int zeroY, int[] surfaces) implements StructureProcessor {
 		@Override
 		public StructureTemplate.@Nullable StructureBlockInfo processBlock(LevelReader level, BlockPos targetPosition, BlockPos referencePos,
 			BlockPos templateRelativePos, StructureTemplate.StructureBlockInfo info, StructurePlaceSettings settings) {

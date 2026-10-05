@@ -1,4 +1,4 @@
-"""Camp of the Amber Road - a nomad camp of the amber steppe.
+"""Camp of the Amber Road - a nomad camp of the amber steppe and the savannas.
 
 start  (two layouts)
   firepit : a beaten-earth plaza round a fire with a roasting spit, log benches and
@@ -26,7 +26,8 @@ from pieces import Empty, Piece
 from terrain_paths import connector, path_piece, piece_in
 
 NAME = "nomad_camp"
-STRUCTURE = dict(biomes=["amber_steppe"], spacing=26, separation=9, size=2, max_distance=48)
+STRUCTURE = dict(biomes=["amber_steppe", "minecraft:savanna", "minecraft:savanna_plateau"], spacing=26, separation=9,
+                 size=2, max_distance=48, avoid_vanilla=True)
 LOOT = "expanse:chests/nomad_camp"
 HIDDEN = "expanse:chests/nomad_camp_hidden"
 SUPPLIES = "expanse:chests/nomad_camp_supplies"

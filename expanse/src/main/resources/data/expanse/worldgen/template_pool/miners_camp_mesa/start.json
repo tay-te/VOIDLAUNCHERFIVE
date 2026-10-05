@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:miners_camp_mesa/miners_camp_mesa_adit",
+        "processors": "expanse:small_mesa",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:miners_camp_mesa/miners_camp_mesa_sluice",
+        "processors": "expanse:small_mesa_dig",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:miners_camp_mesa/miners_camp_mesa_collapse",
+        "processors": "expanse:small_mesa",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

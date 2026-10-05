@@ -61,6 +61,22 @@
     {
       "structure": "expanse:graveyard",
       "weight": 2
+    },
+    {
+      "structure": "expanse:wayside_shrine_meadow",
+      "weight": 3
+    },
+    {
+      "structure": "expanse:campsite_meadow",
+      "weight": 3
+    },
+    {
+      "structure": "expanse:campsite_snowfield",
+      "weight": 3
+    },
+    {
+      "structure": "expanse:old_well_meadow",
+      "weight": 2
     }
   ]
 }

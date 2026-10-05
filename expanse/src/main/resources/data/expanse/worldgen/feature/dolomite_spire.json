@@ -1,0 +1,49 @@
+{
+  "type": "expanse:karst_pillar",
+  "stone": {
+    "type": "minecraft:weighted",
+    "entries": [
+      {
+        "data": "expanse:limestone",
+        "weight": 7
+      },
+      {
+        "data": "minecraft:calcite",
+        "weight": 2
+      },
+      {
+        "data": "minecraft:diorite",
+        "weight": 1
+      }
+    ]
+  },
+  "cap": "minecraft:grass_block",
+  "soil": "minecraft:dirt",
+  "vines": false,
+  "height": {
+    "type": "minecraft:weighted_list",
+    "distribution": [
+      {
+        "data": 14,
+        "weight": 3
+      },
+      {
+        "data": 22,
+        "weight": 3
+      },
+      {
+        "data": 32,
+        "weight": 2
+      },
+      {
+        "data": 44,
+        "weight": 1
+      }
+    ]
+  },
+  "radius": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 3,
+    "max_inclusive": 6
+  }
+}

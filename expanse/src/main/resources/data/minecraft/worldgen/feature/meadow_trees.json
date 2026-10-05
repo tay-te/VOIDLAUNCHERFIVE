@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:random_selector",
+  "default": "expanse:natural/tall_birch/super_birch_bees",
+  "features": [
+    {
+      "chance": 0.5,
+      "feature": "expanse:natural/big_open_oak/fancy_oak_bees"
+    }
+  ]
+}

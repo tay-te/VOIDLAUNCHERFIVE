@@ -188,7 +188,9 @@
       "expanse:alpine_shrubs",
       "expanse:alpine_tufts",
       "expanse:river_reeds_temperate",
-      "expanse:river_seagrass"
+      "expanse:river_seagrass",
+      "expanse:kcd_meadow_grass",
+      "expanse:kcd_meadow_flowers"
     ],
     [
       "minecraft:freeze_top_layer"

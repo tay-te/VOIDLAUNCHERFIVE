@@ -1,9 +1,9 @@
 {
   "replace": false,
   "values": [
+    "expanse:ancient_oakwood",
     "expanse:bluebell_woods",
-    "expanse:lumen_grove",
     "expanse:maple_highlands",
-    "expanse:wisteria_vale"
+    "expanse:woodland_glades"
   ]
 }

@@ -1,0 +1,39 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "expanse:salt_block",
+          "minecraft:gravel"
+        ]
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:sand"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:substrate_overworld"
+      }
+    ]
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/salt",
+  "templates": [
+    {
+      "data": "expanse:micro/salt_ridges",
+      "weight": 4
+    },
+    {
+      "data": "expanse:micro/brine_pool",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/bones",
+      "weight": 1
+    }
+  ]
+}

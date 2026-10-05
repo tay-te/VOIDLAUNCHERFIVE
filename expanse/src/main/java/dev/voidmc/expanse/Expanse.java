@@ -42,6 +42,7 @@ public class Expanse implements ModInitializer {
 		dev.voidmc.expanse.world.tree.ExpanseTreePlacers.init();
 		dev.voidmc.expanse.world.feature.ExpanseFeatures.init();
 		dev.voidmc.expanse.world.feature.LittleThings.init();
+		dev.voidmc.expanse.world.feature.CaveThings.init();   // the little things underground: camps, props, shrines, realm sights
 		dev.voidmc.expanse.world.feature.Foliage.init();
 		dev.voidmc.expanse.world.SitedJigsawStructure.init();
 		dev.voidmc.expanse.world.ExpanseVillagers.init();

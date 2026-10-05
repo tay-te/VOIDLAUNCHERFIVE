@@ -2,6 +2,16 @@
   "values": [
     "expanse:heather_moor",
     "expanse:redwood_giants",
-    "expanse:verdant_peaks"
+    "expanse:verdant_peaks",
+    "minecraft:taiga",
+    "minecraft:old_growth_pine_taiga",
+    "minecraft:old_growth_spruce_taiga",
+    "minecraft:windswept_hills",
+    "minecraft:windswept_gravelly_hills",
+    "minecraft:windswept_forest",
+    "expanse:pine_heath",
+    "expanse:fjordlands",
+    "expanse:boreal_muskeg",
+    "expanse:volcanic_highlands"
   ]
 }

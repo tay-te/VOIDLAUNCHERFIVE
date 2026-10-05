@@ -1,5 +1,51 @@
 {
   "type": "expanse:sited_jigsaw",
+  "avoid": [
+    {
+      "other_set": "minecraft:villages",
+      "radius": 136
+    },
+    {
+      "other_set": "minecraft:pillager_outposts",
+      "radius": 104
+    },
+    {
+      "other_set": "minecraft:woodland_mansions",
+      "radius": 136
+    },
+    {
+      "other_set": "minecraft:desert_pyramids",
+      "radius": 72
+    },
+    {
+      "other_set": "minecraft:jungle_temples",
+      "radius": 72
+    },
+    {
+      "other_set": "minecraft:swamp_huts",
+      "radius": 64
+    },
+    {
+      "other_set": "minecraft:igloos",
+      "radius": 56
+    },
+    {
+      "other_set": "minecraft:trail_ruins",
+      "radius": 64
+    },
+    {
+      "other_set": "minecraft:abandoned_camp",
+      "radius": 72
+    },
+    {
+      "other_set": "minecraft:ruined_portals",
+      "radius": 48
+    },
+    {
+      "other_set": "minecraft:shipwrecks",
+      "radius": 56
+    }
+  ],
   "biomes": "#expanse:has_structure/woodland_lodge",
   "max_distance_from_center": 48,
   "project_start_to_heightmap": "WORLD_SURFACE_WG",

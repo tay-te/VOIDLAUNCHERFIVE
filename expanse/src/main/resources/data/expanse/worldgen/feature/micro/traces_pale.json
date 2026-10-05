@@ -1,0 +1,23 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:matching_block_tag",
+    "tag": "minecraft:substrate_overworld"
+  },
+  "max_relief": 1,
+  "processors": "expanse:micro/pale",
+  "templates": [
+    {
+      "data": "expanse:micro/wayside_cross",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/lantern_post",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/lost_cache",
+      "weight": 1
+    }
+  ]
+}

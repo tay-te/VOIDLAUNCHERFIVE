@@ -92,6 +92,15 @@ public final class SitedJigsawStructure extends Structure {
 		if (this.inCavern) {
 			return this.inHall(context);
 		}
+		// A shared grid tries its members one after another until one suits the place, and vanilla assembles the
+		// whole jigsaw before it asks the biome; with a dozen or more regional members in a set, most of that work
+		// would be thrown away. So ask first, where the start piece will be (at the chunk's corner, centred within
+		// a piece's width of it).
+		var chunk = context.chunkPos();
+		if (!context.couldValidBiomeExistInTerrainColumn(chunk.getMinBlockX(), chunk.getMinBlockZ())
+			&& !context.couldValidBiomeExistInTerrainColumn(chunk.getMiddleBlockX(), chunk.getMiddleBlockZ())) {
+			return Optional.empty();
+		}
 		return this.jigsaw.findGenerationPoint(context).filter(stub -> {
 			int x = stub.position().getX();
 			int z = stub.position().getZ();
@@ -162,7 +171,10 @@ public final class SitedJigsawStructure extends Structure {
 					ChunkPos at = grid.getPotentialStructureChunk(context.seed(), gx * grid.spacing(), gz * grid.spacing());
 					int ax = at.getMiddleBlockX();
 					int az = at.getMiddleBlockZ();
-					if (Math.max(Math.abs(ax - x), Math.abs(az - z)) <= a.radius() && couldStand(context, set.get().value(), ax, az)) {
+					// (a set that skips some of its grid points, as the pillager outposts skip four in five, only
+					// counts the ones it keeps)
+					if (Math.max(Math.abs(ax - x), Math.abs(az - z)) <= a.radius() && grid.applyAdditionalChunkRestrictions(at.x(), at.z(), context.seed())
+						&& couldStand(context, set.get().value(), ax, az)) {
 						return false;
 					}
 				}

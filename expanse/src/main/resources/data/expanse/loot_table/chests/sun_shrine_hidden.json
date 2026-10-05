@@ -142,7 +142,7 @@
               "type": "minecraft:set_written_book_pages",
               "mode": "replace_all",
               "pages": [
-                "When the dunes were young the sun rose rose-coloured over the opal sand, and we built it a house of the same stone so it would know where to return each morning.",
+                "When the dunes were young the sun rose red over the red sand, and we built it a house of the same stone so it would know where to return each morning.",
                 "The offerings were sealed under the sun disc in the sanctum floor. The disc lifts for the faithful. For everyone else, there is a pickaxe.",
                 "The wind buries the courtyard a little more every year. Brush the sand gently - our names are written in what lies beneath."
               ]
@@ -151,7 +151,7 @@
               "type": "minecraft:set_book_cover",
               "author": "The last priestess",
               "generation": 2,
-              "title": "Hymn to the Pink Sun"
+              "title": "Hymn to the Red Sun"
             }
           ],
           "name": "minecraft:written_book",

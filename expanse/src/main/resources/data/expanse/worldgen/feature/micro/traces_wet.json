@@ -18,6 +18,18 @@
     {
       "data": "expanse:micro/campfire_spruce",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/sunken_skiff",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/stilt_stubs",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/lost_cache",
+      "weight": 1
     }
   ]
 }
