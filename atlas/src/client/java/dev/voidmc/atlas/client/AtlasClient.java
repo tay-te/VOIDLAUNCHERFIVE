@@ -98,6 +98,7 @@ public final class AtlasClient implements ClientModInitializer {
 	private int ticks;
 	private boolean deathRecorded;
 	private final MinimapHud minimap = new MinimapHud(this);
+	private final dev.voidmc.atlas.client.ui.HudOverlays overlays = new dev.voidmc.atlas.client.ui.HudOverlays(this);
 	/** The last band the player was in underground, per dimension (for the underground and Nether views). */
 	private final ConcurrentHashMap<String, Integer> bands = new ConcurrentHashMap<>();
 	private final boolean logStats = Boolean.getBoolean("atlas.logStats");
@@ -148,6 +149,7 @@ public final class AtlasClient implements ClientModInitializer {
 		});
 		ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> this.closeSession());
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "minimap"), this.minimap::extract);
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "discoveries"), this.overlays::extract);
 
 		for (var container : FabricLoader.getInstance().getEntrypointContainers("atlas", AtlasPlugin.class)) {
 			String mod = container.getProvider().getMetadata().getId();
@@ -342,10 +344,14 @@ public final class AtlasClient implements ClientModInitializer {
 			if (this.ticks % 20 == 5) {
 				this.places.poll(dim);
 			}
+			if (this.ticks % 20 == 0) {
+				session.places.setGameDay(p.level().getOverworldClockTime() / 24000 + 1);
+			}
 			for (Place changed : session.places.drainChanges()) {
 				this.places.notify(changed);
-				if (changed.isDiscovered() && (changed.tier() == Tier.MAJOR || changed.kind().equals(Place.REGION)) && changed.dimension().equals(dim)) {
-					p.sendOverlayMessage(Component.literal("Discovered  ·  " + changed.name()));
+				if (changed.isDiscovered() && changed.dimension().equals(dim) && !changed.kind().equals(Place.RIVER)) {
+					// the design's toast, once, as the player comes within reach (or walks into a region)
+					this.overlays.discovered(changed);
 				}
 				session.saveSoon(false);
 			}
@@ -799,6 +805,10 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 		}
 		return out;
+	}
+
+	public dev.voidmc.atlas.client.ui.HudOverlays overlays() {
+		return this.overlays;
 	}
 
 	public @Nullable Ingest ingest() {

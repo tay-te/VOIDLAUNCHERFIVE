@@ -1,17 +1,19 @@
 package dev.voidmc.atlas.client.ui;
 
-import dev.voidmc.atlas.api.DiscoveryState;
-import dev.voidmc.atlas.api.Place;
-import dev.voidmc.atlas.api.Source;
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.atlas.api.MapLayer;
 import dev.voidmc.atlas.api.Marker;
 import dev.voidmc.atlas.api.MarkerDetail;
 import dev.voidmc.atlas.api.MarkerGlyph;
 import dev.voidmc.atlas.api.MarkerQuery;
+import dev.voidmc.atlas.api.Place;
+import dev.voidmc.atlas.api.Source;
 import dev.voidmc.atlas.api.Waypoint;
 import dev.voidmc.atlas.client.AtlasClient;
 import dev.voidmc.atlas.client.AtlasSettings;
+import dev.voidmc.atlas.client.data.DimensionData;
 import dev.voidmc.atlas.client.data.LayerData;
+import dev.voidmc.atlas.client.data.MapSession;
 import dev.voidmc.atlas.client.render.MapRenderer;
 import dev.voidmc.atlas.core.Coords;
 import dev.voidmc.atlas.core.RegionRaw;
@@ -20,21 +22,25 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.NavigableSet;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.player.LocalPlayer;
 import org.jspecify.annotations.Nullable;
-import com.mojang.blaze3d.platform.InputConstants;
 
 /**
- * The map window's contents (the design's "Hub · Map" page): the Surface / Underground / Nether segments, search,
- * the rounded map with its readout, north mark, layer chips, zoom and scale, the list of waypoints, settlements and
- * discoveries on the right, the footer, and the cards (a marker's detail, the waypoint editor, the right-click menu).
- * Laid out in design pixels inside whatever rectangle it is given, so the full map screen and the VOID Hub can both
- * show it.
+ * The map window's contents, as the design draws them (Figma section "6 · Atlas map — discovery, landmarks,
+ * underground"): the Surface / Underground / Nether segments with their counts, search, the rounded map with its
+ * readout, north mark, layer chips, zoom and scale; on the right the Places and Legend tabs (places sighted and
+ * discovered, the legend's toggles, the marker states) or, underground, the depth scrubber, the side view through the
+ * player and the places at that depth; the footer; and the cards over the map (a place's detail card, the waypoint
+ * editor, the right-click menu). Laid out in design pixels inside whatever rectangle it is given, so the full map
+ * screen and the VOID Hub can both show it.
  */
 public final class MapPage {
 	private static final float LIST_W = 304;
@@ -42,6 +48,9 @@ public final class MapPage {
 	private static final int KEY_NUMPAD_MINUS = 86;
 	private static final float PAD = 28;
 	private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMM", Locale.ROOT).withZone(ZoneId.systemDefault());
+	/** The depth scrubber's range, one cell per slice. */
+	private static final int SCRUB_TOP = 128;
+	private static final int SCRUB_BOTTOM = -64;
 
 	private final AtlasClient atlas;
 	public final MapPanel map;
@@ -62,7 +71,11 @@ public final class MapPage {
 	private long lastClick;
 	private float lastClickX;
 	private float lastClickY;
-	private final Runnable onSettings;
+	/** The right panel's tab: places (false) or the legend (true). */
+	public boolean legendTab;
+	private boolean scrubbing;
+	private float scrubY0;
+	private float pressY;
 
 	private record Hit(float x, float y, float w, float h, Runnable action) {
 		boolean contains(float px, float py) {
@@ -74,29 +87,34 @@ public final class MapPage {
 	}
 
 	/** A row in the right-hand list. */
-	private record Row(String id, MarkerGlyph glyph, String title, String subtitle, String right, String rightSub, double x, double z, String dimension,
-		@Nullable Marker marker, @Nullable Source source) {
+	private record Row(String id, MarkerGlyph glyph, boolean hollow, String title, String subtitle, String right, String rightSub, double x, double z,
+		String dimension) {
 	}
 
 	/** The list's rows, made again at most a few times a second (or when the search changes), not every frame. */
-	private final java.util.Map<String, List<Row>> rowCache = new java.util.HashMap<>();
+	private final Map<String, List<Row>> rowCache = new java.util.HashMap<>();
 	private long rowsAt;
 	private String rowsQuery = "";
 
 	public MapPage(AtlasClient atlas, Runnable onSettings) {
 		this.atlas = atlas;
 		this.map = new MapPanel(atlas);
-		this.onSettings = onSettings;
-		this.search.placeholder = "Search waypoints and places";
+		this.search.placeholder = "Search places and waypoints";
 		this.name.placeholder = "Name";
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level != null && mc.level.dimension().identifier().toString().equals("minecraft:the_nether")) {
 			this.map.kind = MapPanel.Kind.NETHER;
+		} else if (atlas.underground()) {
+			this.map.kind = MapPanel.Kind.UNDERGROUND;
 		}
 	}
 
 	private void hit(float x, float y, float w, float h, Runnable action) {
 		this.hits.add(new Hit(x, y, w, h, action));
+	}
+
+	private boolean under() {
+		return this.map.kind != MapPanel.Kind.SURFACE;
 	}
 
 	// --- drawing ---------------------------------------------------------------------------------------------------
@@ -114,34 +132,35 @@ public final class MapPage {
 
 		this.segments(ui, wx + ww / 2, wy + 31, mouseX, mouseY);
 		this.searchBox(ui, wx + ww - PAD - 42, wy + 31, mouseX, mouseY);
-		this.iconButton(ui, wx + PAD, wy + 31, mouseX, mouseY, () -> Icons.gear(ui, wx + PAD + 13, wy + 31 + 13, Theme.INK_2), this.onSettings);
 
 		boolean overCard = this.overCard(mouseX, mouseY);
 		boolean interactive = this.menu == null && !overCard;
 		MapRenderer.Frame f = this.map.render(ui, this.mapX, this.mapY, this.mapW, this.mapH, 20, mouseX, mouseY, interactive);
 		this.hoverX = interactive && f.inside(mouseX, mouseY) ? mouseX : Float.NaN;
 		this.hoverY = mouseY;
+		this.aboveOrBelow(ui, f);
 		this.readout(ui, this.mapX + 16, this.mapY + 16);
 		this.north(ui, this.mapX + this.mapW - 48, this.mapY + 16);
 		this.layers(ui, this.mapX + 16, this.mapY + this.mapH - 55, mouseX, mouseY);
 		this.zoomControl(ui, this.mapX + this.mapW - 52, this.mapY + this.mapH - 116, mouseX, mouseY);
-		if (this.map.kind != MapPanel.Kind.SURFACE) {
-			this.depthControl(ui, this.mapX + this.mapW - 52, this.mapY + this.mapH - 116 - 108, mouseX, mouseY);
-		}
 		this.scaleBar(ui, this.mapX + this.mapW - 62, this.mapY + this.mapH - 43, f);
 
-		this.list(ui, mouseX, mouseY);
+		if (this.map.kind == MapPanel.Kind.UNDERGROUND) {
+			this.depthPanel(ui, mouseX, mouseY);
+		} else {
+			this.placesPanel(ui, mouseX, mouseY);
+		}
 		this.footer(ui, wx, wy + wh - 36, ww);
 
 		if (this.editing != null) {
-			this.editor(ui, this.mapX + 16, this.mapY + 120, mouseX, mouseY);
+			this.editor(ui, this.mapX + 16, this.mapY + 88, mouseX, mouseY);
 		} else if (this.map.selected != null) {
 			Marker m = this.map.marker(this.map.selected);
 			if (m == null) {
 				m = this.findAnywhere(this.map.selected);
 			}
 			if (m != null) {
-				this.card(ui, m, this.mapX + 16, this.mapY + 120, mouseX, mouseY);
+				this.card(ui, m, this.mapX + 16, this.mapY + 88, mouseX, mouseY);
 			}
 		}
 		if (this.menu != null) {
@@ -150,9 +169,24 @@ public final class MapPage {
 	}
 
 	private boolean overCard(float x, float y) {
-		boolean card = (this.editing != null || this.map.selected != null) && x >= this.mapX + 16 && x <= this.mapX + 16 + 288 && y >= this.mapY + 120
+		return (this.editing != null || this.map.selected != null) && x >= this.mapX + 16 && x <= this.mapX + 16 + 296 && y >= this.mapY + 88
 			&& y <= this.mapY + this.mapH - 64;
-		return card;
+	}
+
+	/** The places on a view: the count on its segment. */
+	private int placeCount(MapPanel.Kind kind) {
+		MapSession session = this.atlas.session();
+		if (session == null) {
+			return 0;
+		}
+		String dim = this.map.dimensionOf(kind);
+		int n = 0;
+		for (Place p : session.places.visible(dim)) {
+			if (!p.isLabel() && (kind == MapPanel.Kind.NETHER || p.underground() == (kind == MapPanel.Kind.UNDERGROUND))) {
+				n++;
+			}
+		}
+		return n;
 	}
 
 	private void segments(Ui ui, float centreX, float y, float mx, float my) {
@@ -161,7 +195,7 @@ public final class MapPage {
 		String[] counts = new String[kinds.length];
 		float total = 8;
 		for (int i = 0; i < kinds.length; i++) {
-			counts[i] = String.valueOf(this.discoveryCount(kinds[i]));
+			counts[i] = String.valueOf(this.placeCount(kinds[i]));
 			widths[i] = 28 + ui.width(kinds[i].label, Ui.Font.F13) + 6 + ui.width(counts[i], Ui.Font.F11);
 			total += widths[i] + (i > 0 ? 2 : 0);
 		}
@@ -183,22 +217,6 @@ public final class MapPage {
 			this.hit(sx, y + 5, w, 32, () -> this.map.setKind(k));
 			sx += w + 2;
 		}
-	}
-
-	/** The places discovered on a view: the count on its segment. */
-	private int discoveryCount(MapPanel.Kind kind) {
-		var session = this.atlas.session();
-		if (session == null) {
-			return 0;
-		}
-		String dim = this.map.dimensionOf(kind);
-		int n = 0;
-		for (Place p : session.places.visible(dim)) {
-			if (p.isDiscovered() && !p.isLabel() && (kind == MapPanel.Kind.NETHER || p.underground() == (kind == MapPanel.Kind.UNDERGROUND))) {
-				n++;
-			}
-		}
-		return n;
 	}
 
 	private void iconButton(Ui ui, float x, float y, float mx, float my, Runnable icon, Runnable action) {
@@ -234,6 +252,7 @@ public final class MapPage {
 		this.hit(bx, y, w - 34, 42, () -> this.search.focused = true);
 	}
 
+	/** The readout: the named region (or biome) the player is in, its source, the position and the heading. */
 	private void readout(Ui ui, float x, float y) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer p = mc.player;
@@ -241,19 +260,21 @@ public final class MapPage {
 			return;
 		}
 		String[] biome = this.atlas.biomeAt(p.blockPosition());
-		String bx = String.valueOf(p.getBlockX());
-		String by = String.valueOf(p.getBlockY());
+		Place region = this.atlas.regionHere();
+		String name = region != null && this.map.kind == MapPanel.Kind.SURFACE ? region.name() : biome[0];
+		String tag = region != null && region.source().kind() == Source.Kind.PLUGIN ? region.source().label() : biome[1];
+		String bx = minus(p.getBlockX());
+		String by = minus(p.getBlockY());
 		String bz = minus(p.getBlockZ());
-		bx = minus(p.getBlockX());
 		String facing = facing(p.getYRot());
-		float w1 = ui.width(biome[0], Ui.Font.F13) + (biome[1].isEmpty() ? 0 : 8 + ui.width(biome[1], Ui.Font.F85, 1));
+		float w1 = ui.width(name, Ui.Font.F13) + (tag.isEmpty() ? 0 : 8 + ui.width(tag, Ui.Font.F85, 1));
 		float w2 = 8 + 5 + ui.width(bx, Ui.Font.F12) + 12 + 8 + 5 + ui.width(by, Ui.Font.F12) + 12 + 7 + 5 + ui.width(bz, Ui.Font.F12) + 12 + 6 + 5
 			+ ui.width(facing, Ui.Font.F11);
-		float w = Math.max(w1, w2) + 28;
+		float w = Math.max(w1, w2) + 30;
 		ui.panel(x, y, w, 59, 14, Theme.ISLAND, Theme.HAIR_8);
-		ui.text(biome[0], x + 15, y + 11, Ui.Font.F13, Theme.INK);
-		if (!biome[1].isEmpty()) {
-			ui.text(biome[1], x + 15 + ui.width(biome[0], Ui.Font.F13) + 8, y + 14, Ui.Font.F85, 1, Theme.INK_4);
+		ui.text(name, x + 15, y + 11, Ui.Font.F13, Theme.INK);
+		if (!tag.isEmpty()) {
+			ui.text(tag, x + 15 + ui.width(name, Ui.Font.F13) + 8, y + 14, Ui.Font.F85, 1, Theme.INK_4);
 		}
 		float cx = x + 15;
 		float ty = y + 33;
@@ -276,10 +297,42 @@ public final class MapPage {
 		ui.textCentred("N", x + 16, y + 8, Ui.Font.F11, 0, Theme.INK);
 	}
 
+	/** Underground: how far the player is above or below the slice shown, beside their arrow ("13 above"). */
+	private void aboveOrBelow(Ui ui, MapRenderer.Frame f) {
+		LocalPlayer p = Minecraft.getInstance().player;
+		if (!this.under() || p == null || !this.map.dimensionOf(this.map.kind).equals(p.level().dimension().identifier().toString())) {
+			return;
+		}
+		int bottom = this.map.band(this.map.kind) * DimensionData.BAND;
+		int y = p.getBlockY();
+		int off = y >= bottom + DimensionData.BAND ? y - (bottom + DimensionData.BAND - 1) : y < bottom ? y - bottom : 0;
+		if (off == 0) {
+			return;
+		}
+		float sx = f.screenX(p.getX(), p.getZ());
+		float sy = f.screenY(p.getX(), p.getZ());
+		if (!f.inside(sx, sy)) {
+			return;
+		}
+		String text = Math.abs(off) + (off > 0 ? " above" : " below");
+		float w = ui.width(text, Ui.Font.F10) + 16;
+		ui.panel(sx + 26, sy - 10.5F, w, 21, 8, Theme.ISLAND, Theme.HAIR_8);
+		ui.text(text, sx + 34, sy - 6, Ui.Font.F10, Theme.INK_2);
+	}
+
+	/** The layer chips: Terrain, Names, Landmarks, Places, (other mods'), Waypoints, and Friends or, underground, Water & lava. */
 	private void layers(Ui ui, float x, float y, float mx, float my) {
-		List<MapLayer> layers = this.atlas.markersRegistry().layers();
+		List<MapLayer> all = this.atlas.markersRegistry().layers();
+		List<MapLayer> layers = new ArrayList<>();
+		for (MapLayer l : all) {
+			if (l.id().equals(MapLayer.FLUIDS) && !this.under() || l.id().equals(MapLayer.PLAYERS) && this.under()
+				|| l.id().equals(MapLayer.STRUCTURES)) {
+				continue;
+			}
+			layers.add(l);
+		}
 		AtlasSettings settings = this.atlas.settings();
-		float w = 12 + ui.width("LAYERS", Ui.Font.F85, 1) + 6 + 4;
+		float w = 12 + ui.width("LAYERS", Ui.Font.F85, 1) + 10 + 4;
 		float[] cw = new float[layers.size()];
 		for (int i = 0; i < layers.size(); i++) {
 			cw[i] = 9 + 8 + 7 + ui.width(layers.get(i).label(), Ui.Font.F12) + 12;
@@ -287,7 +340,7 @@ public final class MapPage {
 		}
 		ui.panel(x, y, w, 39, 18, Theme.ISLAND, Theme.HAIR_8);
 		ui.text("LAYERS", x + 13, y + 14, Ui.Font.F85, 1, Theme.INK_4);
-		float cx = x + 12 + ui.width("LAYERS", Ui.Font.F85, 1) + 6;
+		float cx = x + 12 + ui.width("LAYERS", Ui.Font.F85, 1) + 10;
 		for (int i = 0; i < layers.size(); i++) {
 			MapLayer l = layers.get(i);
 			boolean on = settings.layerVisible(l.id());
@@ -306,7 +359,7 @@ public final class MapPage {
 	}
 
 	private void zoomControl(Ui ui, float x, float y, float mx, float my) {
-		ui.panel(x, y + 0, 38, 100, 18, Theme.ISLAND, Theme.HAIR_8);
+		ui.panel(x, y, 38, 100, 18, Theme.ISLAND, Theme.HAIR_8);
 		boolean hIn = mx >= x && mx <= x + 38 && my >= y && my <= y + 37;
 		boolean hOut = mx >= x && mx <= x + 38 && my >= y + 63 && my <= y + 100;
 		if (hIn) {
@@ -317,55 +370,13 @@ public final class MapPage {
 		}
 		Icons.plus(ui, x + 11, y + 12, 16, 1.17F, Theme.INK);
 		ui.rect(x + 1, y + 37, 36, ui.hairline(), Theme.HAIR_6);
-		String level = scaleLabel(this.map.targetZoom());
-		ui.textCentred(level, x + 19, y + 44, Ui.Font.F9, 0.6F, Theme.INK_2);
+		ui.textCentred(scaleLabel(this.map.targetZoom()), x + 19, y + 44, Ui.Font.F9, 0.6F, Theme.INK_2);
 		ui.rect(x + 1, y + 62, 36, ui.hairline(), Theme.HAIR_6);
 		Icons.minus(ui, x + 11, y + 72, 16, 1.17F, Theme.INK);
 		float cx = this.mapX + this.mapW / 2;
 		float cy = this.mapY + this.mapH / 2;
 		this.hit(x, y, 38, 37, () -> this.map.zoomBy(1, cx, cy));
 		this.hit(x, y + 63, 38, 37, () -> this.map.zoomBy(-1, cx, cy));
-	}
-
-	/**
-	 * The underground's depth: the band shown (its lowest block's height), and steps up and down through the bands the
-	 * player has explored. A violet dot while it follows the player (a live value); stepping lets go of the player.
-	 */
-	private void depthControl(Ui ui, float x, float y, float mx, float my) {
-		java.util.NavigableSet<Integer> bands = this.map.bands(this.map.kind);
-		int band = this.map.band(this.map.kind);
-		Integer up = bands.higher(band);
-		Integer down = bands.lower(band);
-		ui.panel(x, y, 38, 100, 18, Theme.ISLAND, Theme.HAIR_8);
-		boolean hUp = up != null && mx >= x && mx <= x + 38 && my >= y && my <= y + 37;
-		boolean hDown = down != null && mx >= x && mx <= x + 38 && my >= y + 63 && my <= y + 100;
-		if (hUp) {
-			ui.round(x + 3, y + 3, 32, 32, 15, Theme.RAISED);
-		}
-		if (hDown) {
-			ui.round(x + 3, y + 65, 32, 32, 15, Theme.RAISED);
-		}
-		int upInk = up != null ? Theme.INK : Theme.INK_4;
-		int downInk = down != null ? Theme.INK : Theme.INK_4;
-		ui.convex(new float[]{x + 19, y + 14, x + 25, y + 22, x + 13, y + 22}, upInk);
-		ui.convex(new float[]{x + 13, y + 78, x + 25, y + 78, x + 19, y + 86}, downInk);
-		ui.rect(x + 1, y + 37, 36, ui.hairline(), Theme.HAIR_6);
-		ui.textCentred("Y", x + 19, y + 40, Ui.Font.F9, 0.6F, Theme.INK_4);
-		ui.textCentred(minus(band * 16), x + 19, y + 49, Ui.Font.F9, 0.6F, Theme.INK);
-		if (this.map.followsPlayer()) {
-			ui.round(x + 17, y + 58.5F, 4, 4, 1.2F, Theme.alpha(Theme.VIOLET, 0.95F));
-		}
-		ui.rect(x + 1, y + 62, 36, ui.hairline(), Theme.HAIR_6);
-		if (up != null) {
-			int to = up;
-			this.hit(x, y, 38, 37, () -> this.map.setBand(to));
-		}
-		if (down != null) {
-			int to = down;
-			this.hit(x, y + 63, 38, 37, () -> this.map.setBand(to));
-		}
-		// the middle: back to following the player
-		this.hit(x, y + 38, 38, 24, () -> this.map.setBand(null));
 	}
 
 	/** "1:4" when a pixel is four blocks, "4:1" when a block is four pixels. */
@@ -399,10 +410,10 @@ public final class MapPage {
 		ui.text(label, x + 10 + barW + 8, y + 8, Ui.Font.F85, 1, Theme.INK_2);
 	}
 
-	// --- the list --------------------------------------------------------------------------------------------------
+	// --- the places panel ------------------------------------------------------------------------------------------
 
 	private List<Row> rows(String section) {
-		var session = this.atlas.session();
+		MapSession session = this.atlas.session();
 		List<Row> rows = new ArrayList<>();
 		if (session == null) {
 			return rows;
@@ -412,15 +423,16 @@ public final class MapPage {
 		double pz = p == null ? 0 : p.getZ();
 		String here = Minecraft.getInstance().level == null ? "" : Minecraft.getInstance().level.dimension().identifier().toString();
 		String query = this.search.text.strip().toLowerCase(Locale.ROOT);
+		String dim = this.map.dimensionOf(this.map.kind);
 		switch (section) {
 			case "waypoints" -> {
 				for (Waypoint w : session.waypoints.all()) {
 					String sub = w.kind() == Waypoint.Kind.DEATH ? "DEATH  ·  " + DATE.format(Instant.ofEpochMilli(w.created())).toUpperCase(Locale.ROOT)
 						: "WAYPOINT" + (w.y() < 40 ? "  ·  Y " + minus(w.y()) : "");
 					boolean same = w.dimension().equals(here);
-					rows.add(new Row(AtlasClient.waypointMarkerId(w), w.kind() == Waypoint.Kind.DEATH ? MarkerGlyph.CROSS : MarkerGlyph.PIN, w.name(),
+					rows.add(new Row(AtlasClient.waypointMarkerId(w), w.kind() == Waypoint.Kind.DEATH ? MarkerGlyph.CROSS : MarkerGlyph.PIN, false, w.name(),
 						same ? sub : sub + "  ·  " + dimensionName(w.dimension()), same ? MarkerPainter.distance(w.distance(px, 0, pz)) : "—",
-						same ? MarkerPainter.direction(px, pz, w.x() + 0.5, w.z() + 0.5) : "", w.x() + 0.5, w.z() + 0.5, w.dimension(), null, null));
+						same ? MarkerPainter.direction(px, pz, w.x() + 0.5, w.z() + 0.5) : "", w.x() + 0.5, w.z() + 0.5, w.dimension()));
 				}
 				rows.sort(Comparator.comparingDouble(r -> r.dimension.equals(here) ? Math.hypot(r.x - px, r.z - pz) : 1e12));
 			}
@@ -428,28 +440,34 @@ public final class MapPage {
 				MarkerQuery q = new MarkerQuery(here, -3e7, -3e7, 3e7, 3e7, px, pz, MarkerQuery.Purpose.LIST);
 				for (Marker m : this.atlas.collect(q)) {
 					if (m.style() == Marker.Style.SETTLEMENT) {
-						rows.add(new Row(m.id(), m.glyph(), m.name(), m.subtitle(), MarkerPainter.distance(m.distanceTo(px, pz)),
-							MarkerPainter.direction(px, pz, m.x(), m.z()), m.x(), m.z(), m.dimension(), m, m.source()));
+						rows.add(new Row(m.id(), m.glyph(), false, m.name(), m.subtitle(), MarkerPainter.distance(m.distanceTo(px, pz)),
+							MarkerPainter.direction(px, pz, m.x(), m.z()), m.x(), m.z(), m.dimension()));
 					}
 				}
 				rows.sort(Comparator.comparingDouble(r -> Math.hypot(r.x - px, r.z - pz)));
 			}
 			default -> {
-				// discovered: everything the player has been to; sighted: what they have seen and not yet visited
+				// sighted: seen and not visited yet; discovered: been there; depth: underground places at the slice shown
+				boolean depth = section.equals("depth");
 				boolean wantDiscovered = section.equals("discovered");
-				for (Place d : session.places.all()) {
-					if (d.state() == DiscoveryState.UNKNOWN || d.isDiscovered() != wantDiscovered || !wantDiscovered && d.isLabel()) {
+				int band = this.map.band(this.map.kind);
+				for (Place d : session.places.visible(dim)) {
+					if (d.isLabel() && !d.kind().equals(Place.LAKE)) {
+						continue;
+					}
+					if (depth) {
+						if (!d.underground() || Math.abs(d.y() - (band * DimensionData.BAND + DimensionData.BAND / 2)) > 16) {
+							continue;
+						}
+					} else if (Kinds.sighted(d) == wantDiscovered || this.map.kind != MapPanel.Kind.NETHER && d.underground()) {
 						continue;
 					}
 					boolean same = d.dimension().equals(here);
-					boolean unknown = !wantDiscovered && !d.isNatural();
-					String title = unknown ? "Unexplored place" : d.name();
-					String sub = AtlasClient.subtitle(d);
-					MarkerGlyph glyph = unknown ? MarkerGlyph.UNKNOWN : MarkerPainter.glyphFor(d);
-					rows.add(new Row(AtlasClient.placeMarkerId(d), glyph, title, sub,
-						same ? MarkerPainter.distance(Math.hypot(d.x() - px, d.z() - pz)) : dimensionName(d.dimension()),
-						same ? (d.underground() && p != null ? "↓ " + Math.max(0, p.getBlockY() - d.y()) : MarkerPainter.direction(px, pz, d.x(), d.z())) : "",
-						d.x() + 0.5, d.z() + 0.5, d.dimension(), null, d.source()));
+					String kind = Kinds.of(d).word;
+					String sub = depth ? kind + "  ·  Y " + minus(d.y()) : kind + "  ·  " + Kinds.origin(d);
+					rows.add(new Row(AtlasClient.placeMarkerId(d), Kinds.sighted(d) ? MarkerGlyph.UNKNOWN : Kinds.of(d).glyph, Kinds.sighted(d), d.name(), sub,
+						same ? MarkerPainter.distance(Math.hypot(d.x() + 0.5 - px, d.z() + 0.5 - pz)) : dimensionName(d.dimension()),
+						same ? MarkerPainter.direction(px, pz, d.x() + 0.5, d.z() + 0.5) : "", d.x() + 0.5, d.z() + 0.5, d.dimension()));
 				}
 				rows.sort(Comparator.comparingDouble(r -> r.dimension.equals(here) ? Math.hypot(r.x - px, r.z - pz) : 1e12));
 			}
@@ -460,61 +478,119 @@ public final class MapPage {
 		return rows;
 	}
 
-	/** A section's rows, from the cache when it is fresh (a quarter of a second, the same search). */
+	/** A section's rows, from the cache when it is fresh (a quarter of a second, the same search and view). */
 	private List<Row> cachedRows(String section) {
 		long now = System.currentTimeMillis();
-		String query = this.search.text;
-		if (now - this.rowsAt > 250 || !query.equals(this.rowsQuery)) {
+		String key = this.search.text + "|" + this.map.kind + "|" + this.map.band(this.map.kind);
+		if (now - this.rowsAt > 250 || !key.equals(this.rowsQuery)) {
 			this.rowCache.clear();
 			this.rowsAt = now;
-			this.rowsQuery = query;
+			this.rowsQuery = key;
 		}
 		return this.rowCache.computeIfAbsent(section, this::rows);
 	}
 
-	private void list(Ui ui, float mx, float my) {
-		List<Row> waypoints = this.cachedRows("waypoints");
-		List<Row> settlements = this.cachedRows("settlements");
-		List<Row> discovered = this.cachedRows("discovered");
-		List<Row> sighted = this.cachedRows("sighted");
+	/** The right panel above ground: the Places and Legend tabs. */
+	private void placesPanel(Ui ui, float mx, float my) {
 		float x = this.listX;
+		float y = this.listY;
+		ui.panel(x, y, LIST_W, 42, 14, Theme.WELL, Theme.HAIR_6);
+		int total = this.placeCount(this.map.kind);
+		String[] labels = {"Places", "Legend"};
+		for (int i = 0; i < 2; i++) {
+			boolean active = (i == 1) == this.legendTab;
+			float sx = x + 5 + i * 149;
+			float sw = i == 0 ? 147 : 145;
+			if (active) {
+				ui.panel(sx, y + 5, sw, 32, 10, Theme.RAISED, Theme.HAIR_8);
+			} else if (mx >= sx && mx <= sx + sw && my >= y + 5 && my <= y + 37) {
+				ui.round(sx, y + 5, sw, 32, 10, Theme.ISLAND);
+			}
+			ui.text(labels[i], sx + 14, y + 12, Ui.Font.F13, active ? Theme.INK : Theme.INK_2);
+			if (i == 0) {
+				ui.text(String.valueOf(total), sx + 14 + ui.width(labels[0], Ui.Font.F13) + 6, y + 14, Ui.Font.F11, active ? Theme.INK_2 : Theme.INK_4);
+			}
+			boolean legend = i == 1;
+			this.hit(sx, y + 5, sw, 32, () -> {
+				this.legendTab = legend;
+				this.listScroll = 0;
+			});
+		}
+		float top = y + 48;
+		float bottom = this.listY + this.listH;
+		if (this.legendTab) {
+			this.legend(ui, x, top, bottom, mx, my);
+			return;
+		}
+		// the marker states key, at the foot of the panel
+		float keyH = 97;
+		this.statesKey(ui, x, bottom - keyH);
+		this.list(ui, top, bottom - keyH - 6, mx, my, List.of("sighted", "discovered", "settlements", "waypoints"),
+			List.of("SIGHTED  ·  NOT VISITED", "DISCOVERED", "SETTLEMENTS", "WAYPOINTS"));
+	}
+
+	/** The design's "marker states" key: a discovered major and minor tile, and their sighted hollow twins. */
+	private void statesKey(Ui ui, float x, float y) {
+		ui.panel(x, y, LIST_W, 97, 14, Theme.ISLAND, Theme.HAIR_7);
+		ui.text("MARKER STATES", x + 15, y + 13, Ui.Font.F85, 1, Theme.INK_4);
+		for (int i = 0; i < 2; i++) {
+			boolean sighted = i == 1;
+			float sx = x + 15 + i * 143;
+			float sy = y + 34;
+			MarkerGlyph g = sighted ? MarkerGlyph.UNKNOWN : MarkerGlyph.VILLAGE;
+			ui.round(sx, sy, 26, 26, 8, sighted ? 0x8C0B0B0C : Theme.ISLAND);
+			ui.border(sx, sy, 26, 26, 8, 0, sighted ? 0x4DFFFFFF : Theme.HAIR_16);
+			ui.glyph(g, sx + 5, sy + 5, 16, Theme.ink(sighted ? 0.7F : 1), Theme.ink(sighted ? 0.7F : 1));
+			MarkerGlyph small = sighted ? MarkerGlyph.UNKNOWN : MarkerGlyph.WRECK;
+			ui.round(sx + 34, sy + 5, 16, 16, 5, sighted ? 0x8C0B0B0C : Theme.WELL);
+			ui.border(sx + 34, sy + 5, 16, 16, 5, 0, sighted ? 0x3DFFFFFF : Theme.HAIR_12);
+			ui.glyph(small, sx + 37, sy + 8, 10, Theme.ink(sighted ? 0.6F : 0.62F), Theme.ink(sighted ? 0.6F : 0.62F));
+			ui.text(sighted ? "Sighted, not visited" : "Discovered", sx, sy + 34, Ui.Font.F11, Theme.INK_2);
+		}
+	}
+
+	/** A scrolling list of sections between {@code top} and {@code bottom}. */
+	private void list(Ui ui, float top, float bottom, float mx, float my, List<String> sections, List<String> headings) {
+		float x = this.listX;
+		float h = bottom - top;
 		ui.flush();
-		ui.g.enableScissor((int) x - 2, (int) this.listY, (int) (x + LIST_W + 2), (int) (this.listY + this.listH));
-		float y = this.listY - this.listScroll;
-		y = this.section(ui, "WAYPOINTS", waypoints, x, y, mx, my, true);
-		if (!settlements.isEmpty()) {
-			y = this.section(ui, "SETTLEMENTS", settlements, x, y + 8, mx, my, false);
+		ui.g.enableScissor((int) x - 2, (int) top, (int) (x + LIST_W + 2), (int) bottom);
+		float y = top - this.listScroll;
+		boolean first = true;
+		for (int i = 0; i < sections.size(); i++) {
+			List<Row> rows = this.cachedRows(sections.get(i));
+			if (rows.isEmpty() && !(sections.get(i).equals("discovered") || sections.get(i).equals("depth"))) {
+				continue;
+			}
+			y = this.section(ui, headings.get(i), rows, x, first ? y : y + 8, top, bottom, mx, my, sections.get(i).equals("waypoints"));
+			first = false;
 		}
-		y = this.section(ui, "DISCOVERED", discovered, x, y + 8, mx, my, false);
-		if (!sighted.isEmpty()) {
-			y = this.section(ui, "SIGHTED", sighted, x, y + 8, mx, my, false);
-		}
-		this.listContent = y + this.listScroll - this.listY;
+		this.listContent = y + this.listScroll - top;
 		ui.flush();
 		ui.g.disableScissor();
-		float max = Math.max(0, this.listContent - this.listH);
+		float max = Math.max(0, this.listContent - h);
 		this.listScroll = Math.max(0, Math.min(max, this.listScroll));
 		if (max > 0) {
 			// a slim, rounded scroll thumb
-			float th = Math.max(24, this.listH * this.listH / this.listContent);
-			float ty = this.listY + (this.listH - th) * (this.listScroll / max);
+			float th = Math.max(24, h * h / this.listContent);
+			float ty = top + (h - th) * (this.listScroll / max);
 			ui.round(x + LIST_W + 8, ty, 3, th, 1.5F, Theme.HAIR_16);
 		}
 	}
 
-	private float section(Ui ui, String label, List<Row> rows, float x, float y, float mx, float my, boolean add) {
-		ui.text(label + "  ·  " + rows.size(), x + 4, y + 6, Ui.Font.F9, 1.1F, Theme.INK_4);
+	private float section(Ui ui, String label, List<Row> rows, float x, float y, float top, float bottom, float mx, float my, boolean add) {
+		ui.text(label + "  ·  " + rows.size(), x + 4, y + 8, Ui.Font.F85, 1, Theme.INK_4);
 		if (add) {
-			boolean hover = mx >= x + 282 && mx <= x + 304 && my >= y && my <= y + 22;
-			ui.panel(x + 282, y, 22, 22, 11, hover ? Theme.ISLAND : Theme.WELL, Theme.HAIR_6);
-			Icons.plus(ui, x + 287, y + 5, 12, 1.1F, Theme.INK_2);
-			this.hit(x + 282, y, 22, 22, this::newWaypointAtPlayer);
+			boolean hover = mx >= x + 282 && mx <= x + 304 && my >= y + 2 && my <= y + 24;
+			ui.panel(x + 282, y + 2, 22, 22, 11, hover ? Theme.ISLAND : Theme.WELL, Theme.HAIR_6);
+			Icons.plus(ui, x + 287, y + 7, 12, 1.1F, Theme.INK_2);
+			this.hit(x + 282, y + 2, 22, 22, this::newWaypointAtPlayer);
 		}
 		y += 28;
 		if (rows.isEmpty()) {
 			String empty = switch (label) {
-				case "WAYPOINTS" -> "Press B or double-click the map";
 				case "DISCOVERED" -> "Explore to find places";
+				case "AT THIS DEPTH" -> "Nothing found at this depth yet";
 				default -> "None yet";
 			};
 			ui.panel(x, y, LIST_W, 40, 14, 0, Theme.HAIR_6);
@@ -522,36 +598,264 @@ public final class MapPage {
 			return y + 46;
 		}
 		for (Row r : rows) {
-			if (y + 52 < this.listY || y > this.listY + this.listH) {
+			if (y + 52 < top || y > bottom) {
 				// off the list's window: only its space is counted (a long list costs nothing to scroll)
 				y += 58;
 				continue;
 			}
 			boolean selected = r.id.equals(this.map.selected);
-			boolean hover = mx >= x && mx <= x + LIST_W && my >= y && my <= y + 52 && my >= this.listY && my <= this.listY + this.listH;
+			boolean hover = mx >= x && mx <= x + LIST_W && my >= y && my <= y + 52 && my >= top && my <= bottom;
 			ui.panel(x, y, LIST_W, 52, 14, selected ? 0xFF1F2023 : hover ? 0xFF1C1D20 : Theme.ISLAND, selected ? Theme.HAIR_16 : Theme.HAIR_7);
-			ui.panel(x + 10, y + 10, 32, 32, 10, Theme.WELL, Theme.HAIR_5);
-			ui.glyph(r.glyph, x + 17.5F, y + 17.5F, 17, Theme.ink(0.7F), Theme.INK);
-			float rw = Math.max(ui.width(r.right, Ui.Font.F12), ui.width(r.rightSub, Ui.Font.F85, 1));
-			float tw = LIST_W - 10 - 32 - 12 - 14 - rw - 10;
-			ui.text(ui.fit(r.title, Ui.Font.F13, tw), x + 54, y + 9, Ui.Font.F13, Theme.INK);
-			float chip = r.source == null ? 0 : MarkerPainter.sourceChipWidth(ui, r.source) + 6;
-			String sub = ui.fit(r.subtitle, Ui.Font.F85, 1, Math.max(24, tw - chip));
-			ui.text(sub, x + 54, y + 31, Ui.Font.F85, 1, Theme.INK_4);
-			float subW = ui.width(sub, Ui.Font.F85, 1);
-			if (r.source != null && subW + chip <= tw) {
-				MarkerPainter.sourceChip(ui, r.source, x + 54 + subW + 6, y + 28.5F);
+			if (r.hollow) {
+				MarkerPainter.placeTile(ui, x + 10, y + 10, 32, 10, r.glyph, true, 16, 0.75F);
+			} else {
+				ui.panel(x + 10, y + 10, 32, 32, 10, Theme.WELL, Theme.HAIR_5);
+				ui.glyph(r.glyph, x + 18, y + 18, 16, Theme.ink(0.85F), Theme.INK);
 			}
+			// the right column first: the kind line is cut to fit before it, never under it
+			float rw = Math.max(ui.width(r.right, Ui.Font.F12), ui.width(r.rightSub, Ui.Font.F85, 1));
+			float tw = LIST_W - 54 - 14 - rw - 10;
+			ui.text(ui.fit(r.title, Ui.Font.F13, tw), x + 54, y + 9, Ui.Font.F13, Theme.INK);
+			ui.text(ui.fit(r.subtitle, Ui.Font.F85, 1, tw), x + 54, y + 31, Ui.Font.F85, 1, Theme.INK_4);
 			ui.textRight(r.right, x + LIST_W - 14, y + 10, Ui.Font.F12, 0, Theme.INK_2);
 			ui.textRight(r.rightSub, x + LIST_W - 14, y + 31, Ui.Font.F85, 1, Theme.INK_4);
-			if (y + 52 > this.listY && y < this.listY + this.listH) {
+			if (y + 52 > top && y < bottom) {
 				Row row = r;
-				this.hit(x, Math.max(y, this.listY), LIST_W, Math.min(y + 52, this.listY + this.listH) - Math.max(y, this.listY), () -> this.select(row));
+				this.hit(x, Math.max(y, top), LIST_W, Math.min(y + 52, bottom) - Math.max(y, top), () -> this.select(row));
 			}
 			y += 58;
 		}
 		return y;
 	}
+
+	/** The Legend tab: every kind of place on this map with its count and a toggle, in the design's three groups. */
+	private void legend(Ui ui, float x, float top, float bottom, float mx, float my) {
+		MapSession session = this.atlas.session();
+		Map<Kinds.Kind, Integer> counts = new EnumMap<>(Kinds.Kind.class);
+		if (session != null) {
+			for (Place p : session.places.visible(this.map.dimensionOf(this.map.kind))) {
+				if (!p.isLabel() || p.kind().equals(Place.LAKE)) {
+					counts.merge(Kinds.legend(p), 1, Integer::sum);
+				}
+			}
+		}
+		// the kinds the design always lists, and any other with places on this map
+		java.util.Set<Kinds.Kind> always = java.util.EnumSet.of(Kinds.Kind.VILLAGES, Kinds.Kind.TEMPLES, Kinds.Kind.MONUMENTS, Kinds.Kind.MANSIONS,
+			Kinds.Kind.PEAKS, Kinds.Kind.LAKES, Kinds.Kind.WATERFALLS, Kinds.Kind.PORTALS, Kinds.Kind.WRECKS, Kinds.Kind.CAVES, Kinds.Kind.GEODES,
+			Kinds.Kind.DUNGEONS, Kinds.Kind.TRAIL_RUINS, Kinds.Kind.SIGHTED);
+		AtlasSettings settings = this.atlas.settings();
+		ui.flush();
+		ui.g.enableScissor((int) x - 2, (int) top, (int) (x + LIST_W + 2), (int) bottom);
+		float y = top - this.listScroll;
+		for (Kinds.Group group : Kinds.Group.values()) {
+			ui.text(group.heading, x + 4, y + 6, Ui.Font.F85, 1, Theme.INK_4);
+			y += 22;
+			for (Kinds.Kind k : Kinds.Kind.values()) {
+				if (k.group != group || k == Kinds.Kind.REGIONS || k == Kinds.Kind.RIVERS || !always.contains(k) && !counts.containsKey(k)) {
+					continue;
+				}
+				boolean on = settings.kindVisible(k.name());
+				float rx = x;
+				float ry = y;
+				boolean hover = mx >= rx && mx <= rx + LIST_W && my >= ry && my <= ry + 30 && my >= top && my <= bottom;
+				if (hover) {
+					ui.round(rx, ry, LIST_W, 30, 8, Theme.ISLAND);
+				}
+				ui.panel(rx + 4, ry + 3, 24, 24, 7, Theme.WELL, Theme.HAIR_8);
+				ui.glyph(k.glyph, rx + 10, ry + 9, 12, Theme.ink(on ? 0.95F : 0.35F), Theme.ink(on ? 0.95F : 0.35F));
+				ui.text(k.label, rx + 38, ry + 7.5F, Ui.Font.F12, on ? Theme.INK : Theme.INK_4);
+				String n = String.valueOf(counts.getOrDefault(k, 0));
+				ui.textRight(n, rx + LIST_W - 4 - 32 - 10, ry + 8, Ui.Font.F105, 0, on ? Theme.INK_3 : Theme.INK_4);
+				toggle(ui, rx + LIST_W - 4 - 32, ry + 6, on);
+				if (ry + 30 > top && ry < bottom) {
+					this.hit(rx, Math.max(ry, top), LIST_W, Math.min(ry + 30, bottom) - Math.max(ry, top), () -> settings.toggleKind(k.name()));
+				}
+				y += 32;
+			}
+			y += 6;
+		}
+		this.listContent = y + this.listScroll - top;
+		ui.flush();
+		ui.g.disableScissor();
+		this.listScroll = Math.max(0, Math.min(Math.max(0, this.listContent - (bottom - top)), this.listScroll));
+	}
+
+	/** The design's cell-grip toggle (32 x 18). */
+	private static void toggle(Ui ui, float x, float y, boolean on) {
+		if (on) {
+			ui.round(x, y, 32, 18, 6, Theme.ink(0.88F));
+			ui.round(x + 17, y + 3, 12, 12, 4, Theme.SHELL);
+			for (int i = 0; i < 3; i++) {
+				ui.round(x + 18.5F + i * 3.5F, y + 8, 2, 2, 1, Theme.ink(0.3F));
+			}
+		} else {
+			ui.panel(x, y, 32, 18, 6, Theme.WELL, Theme.HAIR_16);
+			ui.round(x + 3, y + 3, 12, 12, 4, Theme.INK_4);
+			for (int i = 0; i < 3; i++) {
+				ui.round(x + 4.5F + i * 3.5F, y + 8, 2, 2, 1, 0x4D0B0B0C);
+			}
+		}
+	}
+
+	// --- the underground panel -------------------------------------------------------------------------------------
+
+	/** Underground: the depth scrubber, the side view through the player, and the places at this depth. */
+	private void depthPanel(Ui ui, float mx, float my) {
+		float x = this.listX;
+		float y = this.listY;
+		this.scrubber(ui, x, y, mx, my);
+		this.sideView(ui, x + 132, y);
+		this.list(ui, y + 390, this.listY + this.listH, mx, my, List.of("depth"), List.of("AT THIS DEPTH"));
+	}
+
+	private float scrubCellY(float y, int cellY) {
+		return y + 35 + (SCRUB_TOP - cellY) / 8F * 12.5F;
+	}
+
+	/**
+	 * The design's depth scrubber: a cell for every 8 blocks from 128 down to -64, brighter where the player has
+	 * explored, violet for the slice shown (live), outlined for the player's own height; click or drag to choose a slice,
+	 * the handle beside it shows its height.
+	 */
+	private void scrubber(Ui ui, float x, float y, float mx, float my) {
+		ui.panel(x, y, 124, 380, 18, Theme.ISLAND, Theme.HAIR_8);
+		ui.text("DEPTH  ·  Y", x + 13, y + 13, Ui.Font.F85, 1, Theme.INK_4);
+		NavigableSet<Integer> explored = this.map.bands(this.map.kind);
+		int slice = this.map.band(this.map.kind);
+		LocalPlayer p = Minecraft.getInstance().player;
+		int you = p == null ? Integer.MIN_VALUE : DimensionData.bandOf(p.getBlockY());
+		int surface = p == null ? 64 : this.atlas.heightAt(this.map.layerAtBand(MapPanel.Kind.SURFACE, 0), p.getBlockX(), p.getBlockZ());
+		int surfaceBand = DimensionData.bandOf(surface);
+		for (int cy = SCRUB_TOP; cy >= SCRUB_BOTTOM; cy -= 8) {
+			int band = DimensionData.bandOf(cy);
+			float ty = this.scrubCellY(y, cy);
+			int fill;
+			if (band == slice) {
+				fill = Theme.alpha(Theme.VIOLET, 0.95F);
+			} else if (explored.contains(band)) {
+				fill = Theme.ink(0.24F);
+			} else {
+				fill = band > surfaceBand ? Theme.ink(0.05F) : Theme.ink(0.10F);
+			}
+			ui.round(x + 45, ty, 30, 8, 3, fill);
+			if (band == you && band != slice) {
+				ui.border(x + 45, ty, 30, 8, 3, 0, Theme.ink(0.85F));
+			}
+			if (cy % 32 == 0) {
+				ui.textRight(minus(cy), x + 37, ty - 0.76F, Ui.Font.F9, 0.6F, Theme.INK_4);
+			}
+		}
+		if (surfaceBand * 8 <= SCRUB_TOP && surfaceBand * 8 >= SCRUB_BOTTOM) {
+			ui.text("surface", x + 81, this.scrubCellY(y, surfaceBand * 8) - 0.76F, Ui.Font.F85, 0.6F, Theme.INK_4);
+		}
+		if (p != null && you != slice && you * 8 <= SCRUB_TOP && you * 8 >= SCRUB_BOTTOM) {
+			ui.text("you " + minus(p.getBlockY()), x + 81, this.scrubCellY(y, you * 8) - 1.26F, Ui.Font.F9, 0.4F, Theme.INK_2);
+		}
+		// the handle: the slice's height
+		float hy = this.scrubCellY(y, Math.max(SCRUB_BOTTOM, Math.min(SCRUB_TOP, slice * 8))) - 5.5F;
+		String label = minus(slice * DimensionData.BAND);
+		float hw = ui.width(label, Ui.Font.F105) + 14;
+		ui.panel(x + 81, hy, hw, 19, 7, Theme.RAISED, 0x24FFFFFF);
+		ui.text(label, x + 88, hy + 3, Ui.Font.F105, Theme.INK);
+		ui.text("SHIFT + SCROLL", x + 13, y + 355, Ui.Font.F85, 1, Theme.INK_4);
+		this.scrubY0 = y;
+		this.hit(x + 30, y + 30, 90, 315, () -> {
+			this.scrubbing = true;
+			this.scrubTo(this.pressY);
+		});
+	}
+
+	private void scrubTo(float my) {
+		float cells = (my - (this.scrubY0 + 35 + 4)) / 12.5F;
+		int cy = SCRUB_TOP - Math.round(cells) * 8;
+		cy = Math.max(SCRUB_BOTTOM, Math.min(SCRUB_TOP, cy));
+		this.map.setBand(DimensionData.bandOf(cy));
+	}
+
+	/**
+	 * The side view: a cross-section through the player along the x axis, square pixels of 1.5 design pixels per block:
+	 * rock as a quiet fill, the air the player has seen cut out of it, the surface line, the slice shown as a band with
+	 * its violet line, and the player as a small square.
+	 */
+	private void sideView(Ui ui, float x, float y) {
+		LocalPlayer p = Minecraft.getInstance().player;
+		ui.panel(x, y, 172, 380, 18, Theme.ISLAND, Theme.HAIR_8);
+		int z = p == null ? (int) this.map.centreZ() : p.getBlockZ();
+		ui.text("SIDE VIEW  ·  Z " + minus(z), x + 14, y + 14, Ui.Font.F85, 1, Theme.INK_4);
+		float top = y + 48.5F;
+		float h = 287.5F;
+		float k = h / (SCRUB_TOP - SCRUB_BOTTOM);
+		int cx = p == null ? (int) this.map.centreX() : p.getBlockX();
+		int half = (int) (172 / k / 2);
+		MapSession session = this.atlas.session();
+		if (session == null) {
+			return;
+		}
+		DimensionData d = session.dimension(this.map.dimensionOf(this.map.kind), this.map.kind == MapPanel.Kind.NETHER);
+		LayerData surface = d.ceiling ? null : d.layerIfOpen(DimensionData.SURFACE);
+		ui.flush();
+		ui.g.enableScissor((int) x + 1, (int) top, (int) (x + 171), (int) (top + h));
+		int step = 2;
+		for (int bx = cx - half; bx < cx + half; bx += step) {
+			float sx = x + 86 + (bx - cx) * k;
+			float sw = step * k + 0.01F;
+			int ground = d.ceiling ? SCRUB_TOP : Integer.MIN_VALUE;
+			if (surface != null) {
+				RegionRaw raw = surface.rawIfLoaded(Coords.region(bx), Coords.region(z));
+				int i = RegionRaw.index(Coords.inRegion(bx), Coords.inRegion(z));
+				if (raw != null && raw.known(i)) {
+					ground = Math.min(SCRUB_TOP, raw.height[i] - raw.depth(i));
+				}
+			}
+			if (ground != Integer.MIN_VALUE) {
+				// the rock under the ground, a quiet fill
+				float gy = top + (SCRUB_TOP - ground) * k;
+				ui.rect(sx, gy, sw, top + h - gy, Theme.ink(0.07F));
+				if (!d.ceiling) {
+					ui.rect(sx, gy, sw, 1.5F, Theme.ink(0.22F));
+				}
+			}
+			// the air seen underground, cut out of it
+			for (int band : d.bands()) {
+				int by0 = band * DimensionData.BAND;
+				if (by0 > SCRUB_TOP || by0 < SCRUB_BOTTOM) {
+					continue;
+				}
+				LayerData layer = d.layerIfOpen(DimensionData.underLayer(band));
+				if (layer == null) {
+					continue;
+				}
+				RegionRaw raw = layer.rawIfLoaded(Coords.region(bx), Coords.region(z));
+				int i = RegionRaw.index(Coords.inRegion(bx), Coords.inRegion(z));
+				if (raw == null || !raw.known(i) || (raw.flags[i] & RegionRaw.ROCK) != 0) {
+					continue;
+				}
+				int floor = Math.max(raw.height[i], by0 - 24);
+				int roof = by0 + DimensionData.BAND - 1;
+				float fy = top + (SCRUB_TOP - roof) * k;
+				float fh = Math.max(k, (roof - floor + 1) * k);
+				ui.rect(sx, fy, sw, fh, Theme.MAP_WELL);
+			}
+		}
+		// the slice, and the player
+		int slice = this.map.band(this.map.kind);
+		float sy = top + (SCRUB_TOP - (slice * DimensionData.BAND + DimensionData.BAND)) * k;
+		ui.rect(x, sy, 172, DimensionData.BAND * k, Theme.ink(0.05F));
+		ui.rect(x, sy + DimensionData.BAND * k / 2 - 1, 172, 2, Theme.alpha(Theme.VIOLET, 0.9F));
+		if (p != null) {
+			float py = top + (SCRUB_TOP - p.getBlockY()) * k;
+			ui.round(x + 86 - 3.5F, py - 3.5F, 7, 7, 1.5F, Theme.INK);
+		}
+		ui.flush();
+		ui.g.disableScissor();
+		if (surface != null && p != null) {
+			int s = this.atlas.heightAt(surface, cx, z);
+			ui.textRight("surface " + s, x + 158, top + (SCRUB_TOP - s) * k - 14, Ui.Font.F85, 0.6F, Theme.INK_4);
+		}
+		ui.text(d.ceiling ? "lava sea" : "bedrock", x + 14, y + 356, Ui.Font.F85, 0.6F, Theme.INK_4);
+	}
+
+	// --- selection and the footer ----------------------------------------------------------------------------------
 
 	private void select(Row r) {
 		Minecraft mc = Minecraft.getInstance();
@@ -570,7 +874,11 @@ public final class MapPage {
 
 	private void footer(Ui ui, float wx, float y, float ww) {
 		String left;
-		if (!Float.isNaN(this.hoverX) && this.map.frame() != null) {
+		String right;
+		MapSession session = this.atlas.session();
+		Place selected = this.map.selected == null ? null : this.atlas.placeFor(this.map.selected);
+		LocalPlayer p = Minecraft.getInstance().player;
+		if (!Float.isNaN(this.hoverX) && this.map.frame() != null && this.map.selected == null) {
 			MapRenderer.Frame f = this.map.frame();
 			int bx = (int) Math.floor(f.mapX(this.hoverX, this.hoverY));
 			int bz = (int) Math.floor(f.mapZ(this.hoverX, this.hoverY));
@@ -579,19 +887,43 @@ public final class MapPage {
 			if (place != null) {
 				left += "  ·  " + place;
 			}
+		} else if (this.map.kind == MapPanel.Kind.UNDERGROUND) {
+			int bottom = this.map.band(this.map.kind) * DimensionData.BAND;
+			left = "SLICE Y " + minus(bottom);
+			if (p != null) {
+				int dy = p.getBlockY() - bottom;
+				left += dy >= DimensionData.BAND ? "  ·  YOU ARE " + (p.getBlockY() - (bottom + DimensionData.BAND - 1)) + " ABOVE IT"
+					: dy < 0 ? "  ·  YOU ARE " + (-dy) + " BELOW IT" : "  ·  YOU ARE IN IT";
+			}
+			left += "  ·  ONLY CAVES YOU HAVE SEEN ARE DRAWN";
+		} else if (selected != null) {
+			left = selected.name() + "  ·  " + Kinds.of(selected).word + "  ·  " + (Kinds.sighted(selected) ? "NOT VISITED" : "VISITED");
 		} else {
-			var session = this.atlas.session();
-			int d = session == null ? 0 : (int) session.places.all().stream().filter(pl -> pl.isDiscovered() && !pl.isLabel()).count();
-			int w = session == null ? 0 : session.waypoints.all().size();
-			left = d + " DISCOVERED  ·  " + w + " WAYPOINTS";
+			int places = this.placeCount(this.map.kind);
+			int sighted = 0;
+			int regions = 0;
+			if (session != null) {
+				for (Place pl : session.places.visible(this.map.dimensionOf(this.map.kind))) {
+					sighted += Kinds.sighted(pl) && !pl.isLabel() && !pl.underground() ? 1 : 0;
+					regions += pl.kind().equals(Place.REGION) ? 1 : 0;
+				}
+			}
+			left = places + " PLACES  ·  " + sighted + " SIGHTED, NOT VISITED  ·  " + regions + " REGIONS";
 			if (this.atlas.busy() > 0) {
 				left += "  ·  MAPPING " + this.atlas.busy();
 			}
 		}
-		ui.text(left.toUpperCase(Locale.ROOT), wx + PAD, y, Ui.Font.F9, 1.1F, Theme.INK_4);
-		String right = this.editing != null ? "ENTER SAVES  ·  ESC CANCELS"
-			: this.map.selected != null ? "ESC CLEARS THE SELECTION" : "SCROLL TO ZOOM  ·  DRAG TO PAN  ·  DOUBLE-CLICK ADDS A WAYPOINT";
-		ui.textRight(right, wx + ww - PAD, y, Ui.Font.F9, 1.1F, Theme.INK_4);
+		if (this.editing != null) {
+			right = "ENTER SAVES  ·  ESC CANCELS";
+		} else if (this.map.selected != null) {
+			right = "T TRACKS  ·  W SETS A WAYPOINT  ·  ESC CLEARS THE SELECTION";
+		} else if (this.map.kind == MapPanel.Kind.UNDERGROUND) {
+			right = "SHIFT + SCROLL CHANGES DEPTH  ·  F FOLLOWS YOUR Y";
+		} else {
+			right = "SCROLL TO ZOOM  ·  DRAG TO PAN  ·  CLICK A PLACE FOR DETAILS";
+		}
+		ui.text(left.toUpperCase(Locale.ROOT), wx + PAD, y, Ui.Font.F85, 1, Theme.INK_4);
+		ui.textRight(right, wx + ww - PAD, y, Ui.Font.F85, 1, Theme.INK_4);
 	}
 
 	/** What the map knows of a block column: "Y 64, sand". */
@@ -623,12 +955,12 @@ public final class MapPage {
 		return text;
 	}
 
-	// --- cards -----------------------------------------------------------------------------------------------------
+	// --- the detail card -------------------------------------------------------------------------------------------
 
 	private @Nullable Marker findAnywhere(String id) {
-		var session = this.atlas.session();
-		if (session == null) {
-			return null;
+		Place place = this.atlas.placeFor(id);
+		if (place != null) {
+			return AtlasClient.placeMarker(place);
 		}
 		LocalPlayer p = Minecraft.getInstance().player;
 		double px = p == null ? 0 : p.getX();
@@ -644,15 +976,66 @@ public final class MapPage {
 		return null;
 	}
 
+	/** The facts a card lists under WHAT'S KNOWN: what was seen, where, and what is still unknown. */
+	private List<String> facts(Place place, @Nullable String region) {
+		List<String> out = new ArrayList<>();
+		String seen = switch (Kinds.of(place)) {
+			case VILLAGES -> "A bell, beds and places of work";
+			case WRECKS -> "A drowned hull of planks round a chest";
+			case PORTALS -> "Crying obsidian set in an obsidian frame";
+			case DUNGEONS -> "A spawner in a room of mossy cobblestone";
+			case GEODES -> "Amethyst in a shell of calcite";
+			case TRAIL_RUINS -> "Suspicious gravel among old terracotta";
+			case MINESHAFTS -> "Rails, fences and cobwebs in the rock";
+			case CAVES -> "An opening that runs into the hill";
+			case PEAKS -> "A summit at " + place.y() + ", well above the land round it";
+			case WATERFALLS -> "Water falling from a ledge";
+			case LAKES -> "Standing water, about " + Math.max(1, place.radius() * 2) + " blocks across";
+			case RAVINES -> "A deep, narrow cut in the ground";
+			default -> place.source().kind() == Source.Kind.EXACT ? "Known from the world itself" : "Seen in the land";
+		};
+		out.add(seen);
+		if (place.underground()) {
+			out.add("Under the ground, at Y " + minus(place.y()));
+		} else if (region != null) {
+			out.add("In " + region);
+		}
+		if (Kinds.sighted(place)) {
+			out.add(place.isNatural() ? "Not visited yet" : "Chests and loot stay unknown until you go");
+		} else if (place.discovered() != 0) {
+			out.add("Visited " + DATE.format(Instant.ofEpochMilli(place.discovered())));
+		}
+		return out;
+	}
+
+	/**
+	 * The detail card (the design's {@code atlas/detail card}): glyph tile (hollow while only sighted), name and kind ·
+	 * region, close; the status ("Sighted 212 m away · not visited yet", or visited); three stats (metres and bearing,
+	 * level, the day sighted or found); what is known; the source chip; Track and Set waypoint. Waypoints keep Edit and
+	 * Delete; another mod's marker shows its own readouts, meter and sections.
+	 */
 	private void card(Ui ui, Marker m, float x, float y, float mx, float my) {
-		float w = 288;
+		float w = 296;
 		LocalPlayer p = Minecraft.getInstance().player;
 		double px = p == null ? m.x() : p.getX();
 		double pz = p == null ? m.z() : p.getZ();
 		boolean sameDim = Minecraft.getInstance().level != null && Minecraft.getInstance().level.dimension().identifier().toString().equals(m.dimension());
+		Waypoint waypoint = this.atlas.waypointFor(m.id());
+		Place place = this.atlas.placeFor(m.id());
+		MapSession session = this.atlas.session();
+		boolean sighted = place != null && Kinds.sighted(place);
+		double distance = m.distanceTo(px, pz);
+		String region = null;
+		if (place != null && session != null) {
+			DimensionData d = session.dimensionIfOpen(place.dimension());
+			String id = d == null ? null : d.areas.regionAt(place.x(), place.z());
+			Place r = id == null ? null : session.places.get(id);
+			region = r == null ? null : r.name();
+		}
+		// what goes in
 		List<MarkerDetail.Readout> readouts = new ArrayList<>();
 		if (sameDim) {
-			readouts.add(new MarkerDetail.Readout(String.valueOf(Math.round(m.distanceTo(px, pz))), "METRES " + MarkerPainter.direction(px, pz, m.x(), m.z())));
+			readouts.add(new MarkerDetail.Readout(String.valueOf(Math.round(distance)), "METRES  " + MarkerPainter.direction(px, pz, m.x(), m.z())));
 		}
 		MarkerDetail detail = m.detail();
 		if (detail != null) {
@@ -661,13 +1044,16 @@ public final class MapPage {
 		if (readouts.size() < 3) {
 			readouts.add(new MarkerDetail.Readout(minus((int) Math.round(m.y())), "LEVEL"));
 		}
-		Waypoint waypoint = this.atlas.waypointFor(m.id());
-		Place place = this.atlas.placeFor(m.id());
-		if (readouts.size() < 3 && place != null) {
-			if (place.isDiscovered()) {
-				readouts.add(new MarkerDetail.Readout(DATE.format(Instant.ofEpochMilli(place.discovered())), "FOUND"));
-			} else if (place.sighted() != 0) {
-				readouts.add(new MarkerDetail.Readout(DATE.format(Instant.ofEpochMilli(place.sighted())), "SIGHTED"));
+		if (readouts.size() < 3 && place != null && session != null) {
+			long[] days = session.places.days(place.id());
+			long day = sighted ? days[0] : days[1];
+			if (day > 0) {
+				readouts.add(new MarkerDetail.Readout("Day " + day, sighted ? "SIGHTED" : "FOUND"));
+			} else {
+				long when = sighted ? place.sighted() : place.discovered();
+				if (when != 0) {
+					readouts.add(new MarkerDetail.Readout(DATE.format(Instant.ofEpochMilli(when)), sighted ? "SIGHTED" : "FOUND"));
+				}
 			}
 		}
 		if (readouts.size() < 3 && waypoint != null) {
@@ -676,8 +1062,14 @@ public final class MapPage {
 		while (readouts.size() > 3) {
 			readouts.remove(readouts.size() - 1);
 		}
-		// height first, to size the card
-		float h = 16 + 40 + 14 + 55;
+		List<String> facts = place == null ? List.of() : this.facts(place, region);
+		Source source = place != null ? place.source() : m.source();
+		// the height first, to size the card
+		float h = 17 + 40;
+		if (place != null) {
+			h += 14 + 14;
+		}
+		h += 14 + 60;
 		if (detail != null && detail.meter() != null) {
 			h += 14 + 51;
 		}
@@ -686,45 +1078,70 @@ public final class MapPage {
 				h += 14 + 11 + s.rows().size() * 42;
 			}
 		}
-		h += 14 + 40 + 16;
-		h = Math.min(h, this.mapH - 120 - 64);
-		ui.panel(x, y, w, h, 20, Theme.ISLAND, Theme.HAIR_10);
-		float cx = x + 16;
-		float cy = y + 16;
-		// head
-		ui.panel(cx, cy, 40, 40, 12, Theme.WELL, Theme.HAIR_6);
-		ui.glyph(m.glyph(), cx + 9.5F, cy + 9.5F, 21, Theme.ink(0.8F), Theme.INK);
-		String title = m.name().isEmpty() ? (place != null && !place.isDiscovered() ? "Unexplored place" : "Place") : m.name();
-		ui.text(ui.fit(title, Ui.Font.F16, w - 32 - 52 - 30), cx + 52, cy + 3, Ui.Font.F16, Theme.INK);
-		String subtitle = m.subtitle().isEmpty() ? (waypoint != null ? "WAYPOINT" : "PLACE") : m.subtitle();
-		// where it comes from, as a chip after the caps line (seen, exact, a VOID server, the mod that added it)
-		Source source = m.source();
-		float chip = source == null ? 0 : MarkerPainter.sourceChipWidth(ui, source) + 6;
-		String sub = ui.fit(subtitle, Ui.Font.F85, 1, w - 32 - 52 - 30 - chip);
-		ui.text(sub, cx + 52, cy + 26, Ui.Font.F85, 1, Theme.INK_4);
-		if (source != null) {
-			MarkerPainter.sourceChip(ui, source, cx + 52 + ui.width(sub, Ui.Font.F85, 1) + 6, cy + 23.5F);
+		if (!facts.isEmpty()) {
+			h += 14 + 11 + 8 + facts.size() * 22 - 8;
 		}
-		boolean hClose = mx >= cx + 230 && mx <= cx + 254 && my >= cy + 8 && my <= cy + 32;
-		ui.panel(cx + 230, cy + 8, 24, 24, 12, hClose ? Theme.ISLAND : Theme.WELL, Theme.HAIR_6);
-		Icons.close(ui, cx + 236, cy + 14, Theme.INK_2);
-		this.hit(cx + 230, cy + 8, 24, 24, () -> this.map.selected = null);
-		cy += 40 + 14;
-		// readouts
-		float rw = (254 - 8 * (readouts.size() - 1)) / Math.max(1, readouts.size());
+		if (source != null) {
+			h += 14 + 26;
+		}
+		h += 14 + 40 + 17;
+		h = Math.min(h, this.mapH - 88 - 64);
+		ui.panel(x, y, w, h, 20, Theme.ISLAND, Theme.HAIR_8);
+		float cx = x + 17;
+		float cy = y + 17;
+		// header: the tile, the name and kind, the close button
+		MarkerGlyph glyph = place != null ? Kinds.glyph(place) : m.glyph();
+		if (sighted) {
+			MarkerPainter.placeTile(ui, cx, cy, 40, 12, glyph, true, 16, 0.75F);
+		} else {
+			ui.panel(cx, cy, 40, 40, 12, Theme.WELL, Theme.HAIR_16);
+			ui.glyph(glyph, cx + 12, cy + 12, 16, Theme.INK, Theme.INK);
+		}
+		String title = place != null ? place.name() : m.name();
+		String type = place != null ? (Kinds.of(place).word + (region != null && !place.underground() ? "  ·  " + region.toUpperCase(Locale.ROOT) : ""))
+			: (m.subtitle().isEmpty() ? (waypoint != null ? "WAYPOINT" : "PLACE") : m.subtitle());
+		ui.text(ui.fit(title, Ui.Font.F17, 176), cx + 52, cy + 2.5F, Ui.Font.F17, Theme.INK);
+		ui.text(ui.fit(type, Ui.Font.F85, 1, 176), cx + 52, cy + 26.5F, Ui.Font.F85, 1, Theme.INK_4);
+		boolean hClose = mx >= cx + 240 && mx <= cx + 262 && my >= cy + 9 && my <= cy + 31;
+		ui.panel(cx + 240, cy + 9, 22, 22, 11, hClose ? Theme.ISLAND : Theme.WELL, Theme.HAIR_6);
+		Icons.close(ui, cx + 246, cy + 15, Theme.INK_2);
+		this.hit(cx + 240, cy + 9, 22, 22, () -> this.map.selected = null);
+		cy += 40;
+		// the status
+		if (place != null) {
+			cy += 14;
+			if (sighted) {
+				ui.border(cx, cy + 3, 8, 8, 2.5F, 0, Theme.ink(0.45F));
+			} else {
+				ui.round(cx, cy + 3, 8, 8, 2.5F, Theme.ink(0.45F));
+			}
+			String status;
+			if (sighted) {
+				status = "Sighted " + MarkerPainter.distance(distance) + " away  ·  not visited yet";
+			} else {
+				long[] days = session == null ? new long[]{-1, -1} : session.places.days(place.id());
+				status = days[1] > 0 ? "Visited on day " + days[1]
+					: place.discovered() != 0 ? "Visited " + DATE.format(Instant.ofEpochMilli(place.discovered())) : "Visited";
+			}
+			ui.text(status, cx + 16, cy - 0.5F, Ui.Font.F115, Theme.INK_2);
+			cy += 14;
+		}
+		// the stats
+		cy += 14;
+		float rw = (262 - 8 * (readouts.size() - 1)) / Math.max(1, readouts.size());
 		for (int i = 0; i < readouts.size(); i++) {
 			MarkerDetail.Readout r = readouts.get(i);
 			float rx = cx + i * (rw + 8);
-			ui.panel(rx, cy, rw, 55, 12, Theme.WELL, Theme.HAIR_5);
-			ui.text(ui.fit(r.value(), Ui.Font.F20, rw - 20), rx + 11, cy + 8, Ui.Font.F20, Theme.INK);
-			ui.text(ui.fit(r.label(), Ui.Font.F85, 1, rw - 20), rx + 11, cy + 36, Ui.Font.F85, 1, Theme.INK_4);
+			ui.panel(rx, cy, rw, 60, 12, Theme.WELL, Theme.HAIR_5);
+			ui.text(ui.fit(r.value(), Ui.Font.F18, rw - 20), rx + 13, cy + 10.5F, Ui.Font.F18, Theme.INK);
+			ui.text(ui.fit(r.label(), Ui.Font.F85, 1, rw - 20), rx + 13, cy + 38, Ui.Font.F85, 1, Theme.INK_4);
 		}
-		cy += 55;
+		cy += 60;
 		if (detail != null && detail.meter() != null) {
 			cy += 14;
 			MarkerDetail.Meter meter = detail.meter();
 			ui.text(meter.label().toUpperCase(Locale.ROOT), cx, cy + 2, Ui.Font.F85, 1, Theme.INK_4);
-			ui.textRight(meter.valueText(), cx + 254, cy, Ui.Font.F12, 0, Theme.INK);
+			ui.textRight(meter.valueText(), cx + 262, cy, Ui.Font.F12, 0, Theme.INK);
 			int cells = 20;
 			double t = (meter.value() - meter.min()) / Math.max(1e-9, meter.max() - meter.min());
 			int at = (int) Math.round(t * (cells - 1));
@@ -732,7 +1149,7 @@ public final class MapPage {
 			for (int i = 0; i < cells; i++) {
 				boolean filled = at >= mid ? i >= mid && i < at : i < mid && i > at;
 				int c = i == at ? Theme.alpha(Theme.VIOLET, 0.95F) : filled ? Theme.ink(0.42F) : Theme.ink(0.1F);
-				ui.round(cx + i * 12.35F + (i >= mid ? 2.8F : 0), cy + 23, 9.3F, 9, 2.7F, c);
+				ui.round(cx + i * 12.75F + (i >= mid ? 2.8F : 0), cy + 23, 9.6F, 9, 2.7F, c);
 			}
 			ui.text(meter.caption().toUpperCase(Locale.ROOT), cx, cy + 40, Ui.Font.F85, 1, Theme.INK_2);
 			cy += 51;
@@ -743,12 +1160,12 @@ public final class MapPage {
 				ui.text(s.label().toUpperCase(Locale.ROOT), cx, cy, Ui.Font.F85, 1, Theme.INK_4);
 				cy += 17;
 				for (MarkerDetail.Row row : s.rows()) {
-					ui.panel(cx, cy, 254, 36, 12, Theme.WELL, Theme.HAIR_5);
+					ui.panel(cx, cy, 262, 36, 12, Theme.WELL, Theme.HAIR_5);
 					ui.text(ui.fit(row.text(), Ui.Font.F12, 180), cx + 11, cy + 10.5F, Ui.Font.F12, row.active() ? Theme.INK : Theme.INK_2);
 					if (row.tag() != null && !row.tag().isEmpty()) {
 						String tag = row.tag().toUpperCase(Locale.ROOT);
 						float tw = ui.width(tag, Ui.Font.F85, 1) + 14;
-						float tx = cx + 254 - 10 - tw;
+						float tx = cx + 262 - 10 - tw;
 						if (row.active()) {
 							ui.panel(tx, cy + 9, tw, 18, 8, Theme.ink(0.1F), Theme.HAIR_8);
 						} else {
@@ -761,48 +1178,71 @@ public final class MapPage {
 				cy -= 6;
 			}
 		}
+		// what is known
+		if (!facts.isEmpty()) {
+			cy += 14;
+			ui.text("WHAT'S KNOWN", cx, cy, Ui.Font.F85, 1, Theme.INK_4);
+			cy += 19;
+			for (String fact : facts) {
+				ui.round(cx, cy + 4.5F, 5, 5, 1.5F, Theme.ink(0.35F));
+				ui.text(ui.fit(fact, Ui.Font.F11, 248), cx + 14, cy, Ui.Font.F11, Theme.INK_2);
+				cy += 22;
+			}
+			cy -= 8;
+		}
+		// where it comes from
+		if (source != null) {
+			cy += 14;
+			ui.text("SOURCE", cx, cy + 7.5F, Ui.Font.F85, 1, Theme.INK_4);
+			MarkerPainter.sourceChip(ui, source, cx + 49, cy);
+			cy += 26;
+		}
 		cy += 14;
 		// actions
 		if (waypoint != null) {
-			this.button(ui, cx, cy, 163, true, "Edit", mx, my, () -> this.edit(waypoint, false), true);
-			this.button(ui, cx + 171, cy, 83, false, "Delete", mx, my, () -> {
-				var session = this.atlas.session();
+			this.button(ui, cx, cy, 127, true, "Edit", MarkerGlyph.PIN, mx, my, () -> this.edit(waypoint, false));
+			this.button(ui, cx + 135, cy, 127, false, "Delete", null, mx, my, () -> {
 				if (session != null) {
 					session.waypoints.remove(waypoint.id());
 					session.saveSoon(false);
 				}
 				this.map.selected = null;
-			}, false);
+			});
 		} else {
 			Marker marker = m;
-			this.button(ui, cx, cy, 163, true, "Set waypoint", mx, my, () -> {
-				Waypoint w2 = Waypoint.create(marker.name(), (int) Math.floor(marker.x()), (int) Math.round(marker.y()), (int) Math.floor(marker.z()),
-					marker.dimension(), 0);
-				this.edit(w2, true);
-			}, true);
-			this.button(ui, cx + 171, cy, 83, false, "Centre", mx, my, () -> {
-				if (marker.dimension().equals(this.map.dimensionOf(this.map.kind))) {
-					this.map.centreOn(marker.x(), marker.z());
-				}
-			}, false);
+			boolean tracking = m.id().equals(this.atlas.settings().tracked);
+			this.button(ui, cx, cy, 127, true, tracking ? "Tracking" : "Track", MarkerGlyph.TRACK, mx, my, () -> this.track(marker.id()));
+			this.button(ui, cx + 135, cy, 127, false, "Set waypoint", MarkerGlyph.PIN, mx, my, () -> this.waypointAt(marker, place));
 		}
 	}
 
-	private void button(Ui ui, float x, float y, float w, boolean primary, String label, float mx, float my, Runnable action, boolean pin) {
+	private void track(String id) {
+		AtlasSettings settings = this.atlas.settings();
+		settings.tracked = id.equals(settings.tracked) ? null : id;
+		settings.save();
+	}
+
+	private void waypointAt(Marker marker, @Nullable Place place) {
+		String n = place != null ? place.name() : marker.name();
+		this.edit(Waypoint.create(n, (int) Math.floor(marker.x()), (int) Math.round(marker.y()), (int) Math.floor(marker.z()), marker.dimension(), 0), true);
+	}
+
+	/** A card button: primary (raised) or secondary (well), with an optional 12 px glyph before its label. */
+	private void button(Ui ui, float x, float y, float w, boolean primary, String label, @Nullable MarkerGlyph glyph, float mx, float my, Runnable action) {
 		boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + 40;
 		if (primary) {
-			ui.panel(x, y, w, 40, 20, hover ? 0xFF2A2B2F : Theme.BUTTON, Theme.HAIR_8);
-			float tw = ui.width(label, Ui.Font.F13) + (pin ? 24 : 0);
-			float tx = x + (w - tw) / 2;
-			if (pin) {
-				Icons.pin(ui, tx, y + 12, Theme.INK);
-				tx += 24;
-			}
-			ui.text(label, tx, y + 12, Ui.Font.F13, Theme.INK);
+			ui.panel(x, y, w, 40, 19, hover ? 0xFF2C2D31 : Theme.RAISED, Theme.HAIR_10);
 		} else {
-			ui.panel(x, y, w, 40, 20, hover ? Theme.ISLAND : Theme.WELL, Theme.HAIR_8);
-			ui.textCentred(label, x + w / 2, y + 12, Ui.Font.F13, 0, Theme.INK_2);
+			ui.panel(x, y, w, 40, 19, hover ? Theme.ISLAND : Theme.WELL, Theme.HAIR_7);
 		}
+		float tw = ui.width(label, Ui.Font.F13) + (glyph != null ? 20 : 0);
+		float tx = x + (w - tw) / 2;
+		if (glyph != null) {
+			int ink = primary ? Theme.INK : Theme.ink(0.7F);
+			ui.glyph(glyph, tx, y + 14, 12, ink, ink);
+			tx += 20;
+		}
+		ui.text(label, tx, y + 12, Ui.Font.F13, primary ? Theme.INK : Theme.INK_2);
 		this.hit(x, y, w, 40, action);
 	}
 
@@ -811,27 +1251,27 @@ public final class MapPage {
 		if (w == null) {
 			return;
 		}
-		float cw = 288;
-		float h = 16 + 40 + 14 + 36 + 14 + 11 + 8 + 24 + 14 + 40 + 16;
-		ui.panel(x, y, cw, h, 20, Theme.ISLAND, Theme.HAIR_10);
-		float cx = x + 16;
-		float cy = y + 16;
-		ui.panel(cx, cy, 40, 40, 12, Theme.WELL, Theme.HAIR_6);
-		ui.glyph(MarkerGlyph.PIN, cx + 9.5F, cy + 9.5F, 21, Theme.alpha(0xFF000000 | Waypoint.COLOURS[w.colour()], 0.9F), Theme.INK);
-		ui.text(this.editingIsNew ? "New waypoint" : "Edit waypoint", cx + 52, cy + 3, Ui.Font.F16, Theme.INK);
-		ui.text("X " + minus(w.x()) + "  ·  Y " + minus(w.y()) + "  ·  Z " + minus(w.z()), cx + 52, cy + 26, Ui.Font.F85, 1, Theme.INK_4);
-		boolean hClose = mx >= cx + 230 && mx <= cx + 254 && my >= cy + 8 && my <= cy + 32;
-		ui.panel(cx + 230, cy + 8, 24, 24, 12, hClose ? Theme.ISLAND : Theme.WELL, Theme.HAIR_6);
-		Icons.close(ui, cx + 236, cy + 14, Theme.INK_2);
-		this.hit(cx + 230, cy + 8, 24, 24, this::cancelEdit);
+		float cw = 296;
+		float h = 17 + 40 + 14 + 36 + 14 + 11 + 8 + 24 + 14 + 40 + 17;
+		ui.panel(x, y, cw, h, 20, Theme.ISLAND, Theme.HAIR_8);
+		float cx = x + 17;
+		float cy = y + 17;
+		ui.panel(cx, cy, 40, 40, 12, Theme.WELL, Theme.HAIR_16);
+		ui.glyph(MarkerGlyph.PIN, cx + 12, cy + 12, 16, Theme.alpha(0xFF000000 | Waypoint.COLOURS[w.colour()], 0.9F), Theme.INK);
+		ui.text(this.editingIsNew ? "New waypoint" : "Edit waypoint", cx + 52, cy + 2.5F, Ui.Font.F17, Theme.INK);
+		ui.text("X " + minus(w.x()) + "  ·  Y " + minus(w.y()) + "  ·  Z " + minus(w.z()), cx + 52, cy + 26.5F, Ui.Font.F85, 1, Theme.INK_4);
+		boolean hClose = mx >= cx + 240 && mx <= cx + 262 && my >= cy + 9 && my <= cy + 31;
+		ui.panel(cx + 240, cy + 9, 22, 22, 11, hClose ? Theme.ISLAND : Theme.WELL, Theme.HAIR_6);
+		Icons.close(ui, cx + 246, cy + 15, Theme.INK_2);
+		this.hit(cx + 240, cy + 9, 22, 22, this::cancelEdit);
 		cy += 54;
-		ui.panel(cx, cy, 254, 36, 12, Theme.WELL, this.name.focused ? Theme.HAIR_16 : Theme.HAIR_5);
+		ui.panel(cx, cy, 262, 36, 12, Theme.WELL, this.name.focused ? Theme.HAIR_16 : Theme.HAIR_5);
 		ui.flush();
-		ui.g.enableScissor((int) cx + 8, (int) cy, (int) (cx + 246), (int) (cy + 36));
-		this.name.draw(ui, cx + 11, cy + 10, 232, Ui.Font.F13, Theme.INK, Theme.INK_4);
+		ui.g.enableScissor((int) cx + 8, (int) cy, (int) (cx + 254), (int) (cy + 36));
+		this.name.draw(ui, cx + 11, cy + 10, 240, Ui.Font.F13, Theme.INK, Theme.INK_4);
 		ui.flush();
 		ui.g.disableScissor();
-		this.hit(cx, cy, 254, 36, () -> this.name.focused = true);
+		this.hit(cx, cy, 262, 36, () -> this.name.focused = true);
 		cy += 36 + 14;
 		ui.text("COLOUR", cx, cy, Ui.Font.F85, 1, Theme.INK_4);
 		cy += 19;
@@ -846,12 +1286,12 @@ public final class MapPage {
 			this.hit(sx - 2, cy - 2, 26, 26, () -> this.editing = this.editing == null ? null : this.editing.withColour(index));
 		}
 		cy += 24 + 14;
-		this.button(ui, cx, cy, 163, true, "Save", mx, my, this::saveEdit, true);
+		this.button(ui, cx, cy, 127, true, "Save", MarkerGlyph.PIN, mx, my, this::saveEdit);
 		if (this.editingIsNew) {
-			this.button(ui, cx + 171, cy, 83, false, "Cancel", mx, my, this::cancelEdit, false);
+			this.button(ui, cx + 135, cy, 127, false, "Cancel", null, mx, my, this::cancelEdit);
 		} else {
 			Waypoint target = w;
-			this.button(ui, cx + 171, cy, 83, false, "Delete", mx, my, () -> {
+			this.button(ui, cx + 135, cy, 127, false, "Delete", null, mx, my, () -> {
 				var session = this.atlas.session();
 				if (session != null) {
 					session.waypoints.remove(target.id());
@@ -859,7 +1299,7 @@ public final class MapPage {
 				}
 				this.editing = null;
 				this.map.selected = null;
-			}, false);
+			});
 		}
 	}
 
@@ -948,6 +1388,7 @@ public final class MapPage {
 
 	public boolean mouseClicked(float x, float y, int button) {
 		if (button == InputConstants.MOUSE_BUTTON_LEFT) {
+			this.pressY = y;
 			for (int i = this.hits.size() - 1; i >= 0; i--) {
 				Hit h = this.hits.get(i);
 				if (h.contains(x, y)) {
@@ -974,6 +1415,10 @@ public final class MapPage {
 		if (button != InputConstants.MOUSE_BUTTON_LEFT) {
 			return false;
 		}
+		if (this.scrubbing) {
+			this.scrubbing = false;
+			return true;
+		}
 		boolean dragged = this.map.release();
 		if (dragged || !this.map.inside(x, y)) {
 			return dragged;
@@ -993,7 +1438,8 @@ public final class MapPage {
 			return true;
 		}
 		if (m != null) {
-			this.map.selected = m.id();
+			// a name on the land selects its place
+			this.map.selected = m.id().startsWith("atlas:label:") ? "atlas:place:" + m.id().substring("atlas:label:".length()) : m.id();
 			this.editing = null;
 		} else if (!doubleClick) {
 			this.map.selected = null;
@@ -1002,20 +1448,44 @@ public final class MapPage {
 	}
 
 	public boolean mouseDragged(float x, float y) {
+		if (this.scrubbing) {
+			this.scrubTo(y);
+			return true;
+		}
 		this.map.drag(x, y);
 		return this.map.isDragging();
 	}
 
 	public boolean mouseScrolled(float x, float y, double amount) {
 		if (x >= this.listX && x <= this.listX + LIST_W + 12 && y >= this.listY && y <= this.listY + this.listH) {
+			if (this.map.kind == MapPanel.Kind.UNDERGROUND && y < this.listY + 380) {
+				this.stepBand(amount > 0 ? 1 : -1);
+				return true;
+			}
 			this.listScroll -= (float) (amount * 40);
 			return true;
 		}
 		if (this.map.inside(x, y)) {
+			if (this.under() && shiftDown()) {
+				this.stepBand(amount > 0 ? 1 : -1);
+				return true;
+			}
 			this.map.zoomBy(amount > 0 ? 1 : -1, x, y);
 			return true;
 		}
 		return false;
+	}
+
+	private static boolean shiftDown() {
+		return Minecraft.getInstance().hasShiftDown();
+	}
+
+	/** Moves the underground slice a step (8 blocks) up or down; the view stops following the player. */
+	private void stepBand(int steps) {
+		int band = this.map.band(this.map.kind) + steps;
+		int top = DimensionData.bandOf(SCRUB_TOP);
+		int bottom = DimensionData.bandOf(SCRUB_BOTTOM);
+		this.map.setBand(Math.max(bottom, Math.min(top, band)));
 	}
 
 	/** Returns true if the key was used. Escape: closes the topmost card or the search first. */
@@ -1042,7 +1512,7 @@ public final class MapPage {
 				return true;
 			}
 			if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
-				for (String section : new String[]{"waypoints", "settlements", "discovered", "sighted"}) {
+				for (String section : new String[]{"sighted", "discovered", "settlements", "waypoints"}) {
 					List<Row> rows = this.rows(section);
 					if (!rows.isEmpty()) {
 						this.select(rows.get(0));
@@ -1084,10 +1554,28 @@ public final class MapPage {
 			case InputConstants.KEY_DOWN -> this.map.pan(0, step);
 			case InputConstants.KEY_SPACE, InputConstants.KEY_C -> this.map.centreOnPlayer();
 			case InputConstants.KEY_B -> this.newWaypointAtPlayer();
+			case InputConstants.KEY_T -> {
+				if (this.map.selected == null) {
+					return false;
+				}
+				this.track(this.map.selected);
+			}
+			case InputConstants.KEY_W -> {
+				Marker m = this.map.selected == null ? null : this.map.marker(this.map.selected);
+				if (m == null && this.map.selected != null) {
+					m = this.findAnywhere(this.map.selected);
+				}
+				if (m == null || this.atlas.waypointFor(m.id()) != null) {
+					return false;
+				}
+				this.waypointAt(m, this.atlas.placeFor(m.id()));
+			}
 			case InputConstants.KEY_F -> {
 				if (event.hasControlDown()) {
 					this.searching = true;
 					this.search.focused = true;
+				} else if (this.under()) {
+					this.map.setBand(null);
 				} else {
 					return false;
 				}

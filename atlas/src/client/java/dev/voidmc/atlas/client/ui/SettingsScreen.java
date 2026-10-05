@@ -88,6 +88,8 @@ public final class SettingsScreen extends Screen {
 			v -> s.minimapRotates = v));
 		rows.add(new Choice<>("Readout", "Biome and coordinates under the minimap", new Boolean[]{true, false}, v -> v ? "On" : "Off",
 			() -> s.minimapCoordinates, v -> s.minimapCoordinates = v));
+		rows.add(new Choice<>("Compass", "A strip at the top with the places you have sighted", new Boolean[]{false, true}, v -> v ? "On" : "Off",
+			() -> s.compass, v -> s.compass = v));
 		rows.add(new Choice<>("Map backdrop", "A still costs nothing; live redraws the world", new Boolean[]{false, true}, v -> v ? "Live" : "Still",
 			() -> s.liveBackdrop, v -> s.liveBackdrop = v));
 		rows.add(new Choice<>("Map workers", "Threads that read chunks and draw tiles (next world)", new Integer[]{1, 2, 3, 4}, String::valueOf,

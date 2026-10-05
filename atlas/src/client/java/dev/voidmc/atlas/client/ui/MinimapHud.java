@@ -3,6 +3,7 @@ package dev.voidmc.atlas.client.ui;
 import dev.voidmc.atlas.api.MapLayer;
 import dev.voidmc.atlas.api.Marker;
 import dev.voidmc.atlas.api.MarkerQuery;
+import dev.voidmc.atlas.api.Place;
 import dev.voidmc.atlas.client.AtlasClient;
 import dev.voidmc.atlas.client.AtlasSettings;
 import dev.voidmc.atlas.client.Perf;
@@ -99,6 +100,7 @@ public final class MinimapHud {
 			}
 		}
 		MarkerPainter.paint(ui, f, markers, null, null, true, px, pz, this.zoom);
+		this.edgeMarkers(ui, f, x, y, side, dim, px, pz, underground, ceiling);
 		long t3 = System.nanoTime();
 		// waypoints beyond the edge: a small dot on the rim, in the direction to walk
 		var session = this.atlas.session();
@@ -159,27 +161,91 @@ public final class MinimapHud {
 		ui.textCentred("N", nx, ny - 6.5F, Ui.Font.F9, 0, Theme.INK);
 	}
 
+	/** Under the minimap: the named region (or biome) and the position and day, quietly ("300 · 64 · 536 · DAY 34"). */
 	private void info(Ui ui, LocalPlayer p, float x, float y, float w, boolean underground) {
 		String[] biome = this.atlas.biomeAt(p.blockPosition());
 		ui.panel(x, y, w, 40, 12, Theme.ISLAND, Theme.HAIR_8);
-		String facing = MapPage.facing(p.getYRot());
-		float fw = ui.width(facing, Ui.Font.F10) + 11;
 		var region = this.atlas.regionHere();
-		String place = region != null && region.isDiscovered() ? region.name() : biome[0];
+		String place = region != null && region.isDiscovered() && !underground ? region.name() : biome[0];
 		String name = underground ? "Underground  ·  " + place : place;
-		ui.text(ui.fit(name, Ui.Font.F11, w - 24 - fw - 6), x + 11, y + 6, Ui.Font.F11, Theme.INK);
-		ui.round(x + w - 11 - fw, y + 11, 5, 5, 1.5F, Theme.alpha(Theme.VIOLET, 0.95F));
-		ui.text(facing, x + w - 11 - fw + 10, y + 7, Ui.Font.F10, Theme.INK_2);
-		float cx = x + 11;
-		float cy = y + 22;
-		String[] axes = {"X", "Y", "Z"};
-		int[] values = {p.getBlockX(), p.getBlockY(), p.getBlockZ()};
-		for (int i = 0; i < 3; i++) {
-			ui.text(axes[i], cx, cy + 0.5F, Ui.Font.F10, Theme.INK_4);
-			cx += ui.width(axes[i], Ui.Font.F10) + 4;
-			String v = MapPage.minus(values[i]);
-			ui.text(v, cx, cy, Ui.Font.F11, Theme.INK);
-			cx += ui.width(v, Ui.Font.F11) + 10;
+		ui.text(ui.fit(name, Ui.Font.F12, w - 24), x + 12, y + 6, Ui.Font.F12, Theme.INK);
+		long day = p.level().getOverworldClockTime() / 24000 + 1;
+		String line = MapPage.minus(p.getBlockX()) + "  ·  " + MapPage.minus(p.getBlockY()) + "  ·  " + MapPage.minus(p.getBlockZ()) + "  ·  DAY " + day;
+		ui.text(ui.fit(line, Ui.Font.F85, 1, w - 24), x + 12, y + 24, Ui.Font.F85, 1, Theme.INK_4);
+	}
+
+	/**
+	 * Places sighted (and the tracked one) beyond the minimap's rim, as the design's edge markers: the hollow "?" tile
+	 * (the track glyph, filled, for the tracked place) pinned 14 px inside the rim in the nearest of eight directions,
+	 * with a three-cell chevron pointing out. The nearest place per direction only.
+	 */
+	private void edgeMarkers(Ui ui, MapRenderer.Frame f, float x, float y, float side, String dim, double px, double pz, boolean underground,
+		boolean ceiling) {
+		var session = this.atlas.session();
+		if (session == null) {
+			return;
+		}
+		double[] best = new double[8];
+		Place[] chosen = new Place[8];
+		java.util.Arrays.fill(best, Double.MAX_VALUE);
+		String tracked = this.atlas.settings().tracked;
+		Place trackedPlace = tracked == null ? null : this.atlas.placeFor(tracked);
+		for (Place pl : session.places.visible(dim)) {
+			boolean isTracked = pl == trackedPlace;
+			if (!isTracked && (!Kinds.sighted(pl) || pl.isLabel() || !ceiling && pl.underground() != underground
+				|| !this.atlas.settings().kindVisible(Kinds.Kind.SIGHTED.name()))) {
+				continue;
+			}
+			double d = Math.hypot(pl.x() + 0.5 - px, pl.z() + 0.5 - pz);
+			if (d > 1024 && !isTracked) {
+				continue;
+			}
+			float sx = f.screenX(pl.x() + 0.5, pl.z() + 0.5);
+			float sy = f.screenY(pl.x() + 0.5, pl.z() + 0.5);
+			if (f.inside(sx, sy)) {
+				continue;
+			}
+			double angle = Math.atan2(sy - (y + side / 2), sx - (x + side / 2));
+			int octant = Math.floorMod((int) Math.round(angle / (Math.PI / 4)), 8);
+			double rank = isTracked ? -1 : d;
+			if (rank < best[octant]) {
+				best[octant] = rank;
+				chosen[octant] = pl;
+			}
+		}
+		float cx = x + side / 2;
+		float cy = y + side / 2;
+		float reach = side / 2 - 14 - 8;
+		for (int o = 0; o < 8; o++) {
+			Place pl = chosen[o];
+			if (pl == null) {
+				continue;
+			}
+			double a = o * Math.PI / 4;
+			float dx = (float) Math.cos(a);
+			float dy = (float) Math.sin(a);
+			float k = reach / Math.max(Math.abs(dx), Math.abs(dy));
+			float tx = cx + dx * k;
+			float ty = cy + dy * k;
+			boolean isTracked = pl == trackedPlace;
+			if (isTracked) {
+				ui.round(tx - 8, ty - 8, 16, 16, 5, Theme.ISLAND);
+				ui.border(tx - 8, ty - 8, 16, 16, 5, 0, Theme.HAIR_16);
+				ui.glyph(dev.voidmc.atlas.api.MarkerGlyph.TRACK, tx - 5, ty - 5, 10, Theme.INK, Theme.INK);
+			} else {
+				ui.round(tx - 8, ty - 8, 16, 16, 5, 0xBF0B0B0C);
+				ui.border(tx - 8, ty - 8, 16, 16, 5, 0, 0x4DFFFFFF);
+				ui.glyph(dev.voidmc.atlas.api.MarkerGlyph.UNKNOWN, tx - 5, ty - 5, 10, Theme.ink(0.75F), Theme.ink(0.75F));
+			}
+			// the chevron: three cells pointing out along the bearing
+			float ox = tx + dx * 13;
+			float oy = ty + dy * 13;
+			float nx = -dy;
+			float ny = dx;
+			int ink = Theme.ink(0.75F);
+			ui.round(ox + dx * 1.25F - 1.25F, oy + dy * 1.25F - 1.25F, 2.5F, 2.5F, 0.8F, ink);
+			ui.round(ox - dx * 1.25F + nx * 2.5F - 1.25F, oy - dy * 1.25F + ny * 2.5F - 1.25F, 2.5F, 2.5F, 0.8F, ink);
+			ui.round(ox - dx * 1.25F - nx * 2.5F - 1.25F, oy - dy * 1.25F - ny * 2.5F - 1.25F, 2.5F, 2.5F, 0.8F, ink);
 		}
 	}
 }

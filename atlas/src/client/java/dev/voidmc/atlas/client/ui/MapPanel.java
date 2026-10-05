@@ -253,6 +253,13 @@ public final class MapPanel {
 			this.script = null;
 		}
 		this.animateZoom(dt, ui, x, y, w, h);
+		// the "Water & lava" chip: underground images are drawn again with or without them
+		var session = this.atlas.session();
+		boolean fluids = this.atlas.settings().layerVisible(MapLayer.FLUIDS);
+		if (session != null && session.caveFluids() != fluids) {
+			session.setCaveFluids(fluids);
+			this.atlas.tiles().clear();
+		}
 		// the Terrain chip switches the land itself off, leaving the markers on the bare well
 		LayerData layer = this.atlas.settings().layerVisible(MapLayer.TERRAIN) ? this.layer(this.kind) : null;
 		ui.round(x, y, w, h, radius, Theme.MAP_WELL);

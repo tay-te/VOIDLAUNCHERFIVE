@@ -159,7 +159,11 @@ def budgets = [
 	mapAvgFrameMs    : 4.0,   // whole frame with the map open, panning and zooming (>= 250 fps)
 	mapP99FrameMs    : 8.0,
 	ingestMaxFrameMs : 1.0,   // client-thread time spent on chunk ingest in any one frame
-	hitchMs          : 33.0   // no frame longer than this while panning, zooming or flying
+	hitchMs          : 33.0,  // no frame longer than this while panning, zooming or flying
+	underAvgFrameMs  : 4.0,   // the underground map, panning and zooming
+	underP99FrameMs  : 8.0,
+	detectMsPerChunk : 0.5,   // structure detection per chunk, on the workers
+	revealMsPerWalk  : 12.0   // one underground reveal round the player, on the workers
 ]
 
 tasks.register('atlasPerf') {
@@ -179,6 +183,11 @@ tasks.register('atlasPerf') {
 		if (r.ingest.maxFrameMs > budgets.ingestMaxFrameMs) failures << "chunk ingest ${r.ingest.maxFrameMs} ms in one frame > ${budgets.ingestMaxFrameMs}"
 		if (r.map.maxFrameMs > budgets.hitchMs) failures << "hitch while panning/zooming: ${r.map.maxFrameMs} ms > ${budgets.hitchMs}"
 		if (r.flight.maxFrameMs > budgets.hitchMs) failures << "hitch while flying: ${r.flight.maxFrameMs} ms > ${budgets.hitchMs}"
+		if (r.underMap.avgFrameMs > budgets.underAvgFrameMs) failures << "underground map avg frame ${r.underMap.avgFrameMs} ms > ${budgets.underAvgFrameMs}"
+		if (r.underMap.p99FrameMs > budgets.underP99FrameMs) failures << "underground map p99 frame ${r.underMap.p99FrameMs} ms > ${budgets.underP99FrameMs}"
+		if (r.underMap.maxFrameMs > budgets.hitchMs) failures << "hitch on the underground map: ${r.underMap.maxFrameMs} ms > ${budgets.hitchMs}"
+		if (r.detect.msPerChunk > budgets.detectMsPerChunk) failures << "structure detection ${r.detect.msPerChunk} ms/chunk > ${budgets.detectMsPerChunk}"
+		if (r.reveal.walks > 0 && r.reveal.msPerWalk > budgets.revealMsPerWalk) failures << "underground reveal ${r.reveal.msPerWalk} ms/walk > ${budgets.revealMsPerWalk}"
 		updatePerfDoc(file('docs/PERF.md'), file('build/perf'), budgets)
 		if (!failures.isEmpty()) {
 			throw new GradleException("Atlas is over budget on ${backend}:\n  " + failures.join('\n  '))
@@ -207,6 +216,11 @@ static void updatePerfDoc(File doc, File dir, Map budgets) {
 	row('Chunk ingest, client thread: max per frame', { "${it.ingest.maxFrameMs} ms" }, "≤ ${budgets.ingestMaxFrameMs} ms")
 	row('Chunk scan (worker): per chunk', { "${it.ingest.scanMsPerChunk} ms (${it.ingest.chunks} chunks)" }, '—')
 	row('Tile uploads while flying', { "${it.flight.uploads} (${it.flight.uploadMb} MB)" }, '—')
+	row('Underground map, panning/zooming: avg frame', { it.underMap ? "${it.underMap.avgFrameMs} ms (${it.underMap.avgFps} fps)" : '—' }, "≤ ${budgets.underAvgFrameMs} ms")
+	row('Underground map: p99 / worst frame', { it.underMap ? "${it.underMap.p99FrameMs} / ${it.underMap.maxFrameMs} ms" : '—' }, "≤ ${budgets.underP99FrameMs} / ${budgets.hitchMs} ms")
+	row('Structure detection (worker): per chunk', { it.detect ? "${it.detect.msPerChunk} ms (${it.detect.chunks} chunks)" : '—' }, "≤ ${budgets.detectMsPerChunk} ms")
+	row('Underground reveal (worker): per walk', { it.reveal ? "${it.reveal.msPerWalk} ms (${it.reveal.walks} walks, ${it.reveal.openPerWalk} open blocks)" : '—' }, "≤ ${budgets.revealMsPerWalk} ms")
+	row('Worst minimap frame: setup / tiles / markers / rest', { it.minimapSpike ? "${it.minimapSpike.setupMs} / ${it.minimapSpike.tilesMs} / ${it.minimapSpike.markersMs} / ${it.minimapSpike.restMs} ms" : '—' }, '—')
 	row('Machine', { "${it.gpu}" }, '')
 	def text = doc.getText('UTF-8')
 	def begin = '<!-- perf:begin -->'
