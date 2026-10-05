@@ -1,0 +1,20 @@
+{
+	"values": [
+		"minecraft:village_plains",
+		"minecraft:village_desert",
+		"minecraft:village_savanna",
+		"minecraft:village_snowy",
+		"minecraft:village_taiga",
+		"minecraft:pillager_outpost",
+		"minecraft:desert_pyramid",
+		"minecraft:jungle_pyramid",
+		"minecraft:swamp_hut",
+		"minecraft:igloo",
+		"minecraft:mansion",
+		"minecraft:monument",
+		"minecraft:trail_ruins",
+		"minecraft:trial_chambers",
+		"minecraft:ancient_city",
+		"#minecraft:abandoned_camp"
+	]
+}

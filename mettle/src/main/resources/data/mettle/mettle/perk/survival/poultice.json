@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:survival",
+	"kind": "teaching",
+	"name": {
+		"translate": "mettle.perk.survival.poultice"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.poultice.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.survival.poultice.hint"
+	},
+	"order": 16
+}

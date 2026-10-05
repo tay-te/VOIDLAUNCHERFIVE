@@ -1,0 +1,67 @@
+{
+	"values": [
+		"#minecraft:small_flowers",
+		"minecraft:sunflower",
+		"minecraft:lilac",
+		"minecraft:peony",
+		"minecraft:rose_bush",
+		"minecraft:pitcher_plant",
+		"minecraft:pink_petals",
+		"minecraft:wildflowers",
+		"minecraft:cactus_flower",
+		"minecraft:spore_blossom",
+		"minecraft:brown_mushroom",
+		"minecraft:red_mushroom",
+		"minecraft:sweet_berry_bush",
+		"minecraft:cave_vines",
+		"minecraft:cave_vines_plant",
+		{
+			"id": "expanse:heather",
+			"required": false
+		},
+		{
+			"id": "expanse:edelweiss",
+			"required": false
+		},
+		{
+			"id": "expanse:lavender",
+			"required": false
+		},
+		{
+			"id": "expanse:fireweed",
+			"required": false
+		},
+		{
+			"id": "expanse:frostbloom",
+			"required": false
+		},
+		{
+			"id": "expanse:desert_pea",
+			"required": false
+		},
+		{
+			"id": "expanse:moth_orchid",
+			"required": false
+		},
+		{
+			"id": "expanse:desert_marigold",
+			"required": false
+		},
+		{
+			"id": "expanse:reindeer_lichen",
+			"required": false
+		},
+		{
+			"id": "expanse:bluebells",
+			"required": false
+		},
+		{
+			"id": "expanse:cotton_grass",
+			"required": false
+		},
+		{
+			"id": "expanse:cranberry_bush",
+			"required": false
+		}
+	]
+}

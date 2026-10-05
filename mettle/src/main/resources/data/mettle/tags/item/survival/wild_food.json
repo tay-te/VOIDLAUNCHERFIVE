@@ -1,0 +1,16 @@
+{
+	"values": [
+		{
+			"id": "#c:foods/berry",
+			"required": false
+		},
+		"minecraft:sweet_berries",
+		"minecraft:glow_berries",
+		"minecraft:apple",
+		"minecraft:chorus_fruit",
+		{
+			"id": "expanse:cranberries",
+			"required": false
+		}
+	]
+}

@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:survival",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "a",
+	"name": {
+		"translate": "mettle.perk.survival.tracker"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.tracker.description"
+	},
+	"order": 10
+}

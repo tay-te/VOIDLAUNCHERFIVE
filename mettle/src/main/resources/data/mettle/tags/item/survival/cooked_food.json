@@ -1,0 +1,46 @@
+{
+	"values": [
+		{
+			"id": "#c:foods/cooked_meat",
+			"required": false
+		},
+		{
+			"id": "#c:foods/cooked_fish",
+			"required": false
+		},
+		{
+			"id": "#c:foods/soup",
+			"required": false
+		},
+		{
+			"id": "#c:foods/bread",
+			"required": false
+		},
+		{
+			"id": "#c:foods/pie",
+			"required": false
+		},
+		"minecraft:cooked_beef",
+		"minecraft:cooked_porkchop",
+		"minecraft:cooked_chicken",
+		"minecraft:cooked_mutton",
+		"minecraft:cooked_rabbit",
+		"minecraft:cooked_cod",
+		"minecraft:cooked_salmon",
+		"minecraft:baked_potato",
+		"minecraft:dried_kelp",
+		"minecraft:bread",
+		"minecraft:mushroom_stew",
+		"minecraft:rabbit_stew",
+		"minecraft:beetroot_soup",
+		"minecraft:pumpkin_pie",
+		{
+			"id": "expanse:cooked_venison",
+			"required": false
+		},
+		{
+			"id": "expanse:cooked_crab",
+			"required": false
+		}
+	]
+}
