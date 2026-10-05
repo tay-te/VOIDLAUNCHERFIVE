@@ -472,8 +472,56 @@ Citadel, Palm Harbour, the Logging Camp...) stay: remote, unpeopled places to ex
 
 ## 14. Phases
 
-1. **Foundations, in parallel**: sim core, build foundation (format, styles, previews, first archetypes), planner,
-   npc, economy, quests — each in its own worktree against this api.
-2. **Architecture, in parallel** (after the build foundation merges): residential, civic and commercial, infrastructure
-   and landscape archetypes for every culture.
-3. **Integration**: merge, wire end to end, dev harness and in-game tour, performance pass, LOD silhouettes.
+Status (October 2026): phases 1–3 and architecture stages A and B are merged into `hearth` and the build is green (2,000+
+tests). What remains is a short list of open items, below.
+
+1. **Foundations, in parallel** (merged): sim core, build foundation (format, styles, previews, first archetypes),
+   planner, npc, economy, quests — each in its own worktree against this api.
+2. **Architecture** (merged). *Stage A*: residential, civic and commercial, infrastructure, landscape and landmark
+   archetypes for every culture (`arch-*`), then the polish passes (`a2-*`: lighting, styles, homes, civic). *Stage B*:
+   the buildings for the living world, ahead of the systems that use them (`b-*`): the age of a town (additions, decay,
+   dressings), crafts, refining, industry, extraction (campaigns and parts), learning, nobility and stations, the law
+   house, social life and the underground towns. About 140 building types in 14 cultures, with the light rule
+   (interiors ≥ 8) held by tests.
+3. **The living world** (merged; designed in `docs/LIVING_WORLD.md`): light, repairs, reputation (standing), law and
+   stealth, the resource economy (territory and survey, excavations, gatherers, chains, caravans, purses and shops),
+   social life, and integration with the in-game tour. Modules: standing, law, repair and social join the six of
+   phase 1 (§3).
+
+### What's left
+
+From the open items in `docs/requests/*.md` (each file says who owns it); everything else in those files is done.
+
+**Planner and sim**
+- Pastures are not stocked with animals (`PoiType.PEN` exists for it) — `arch-homestead.md`.
+- No re-issue (`replaces`) of timber bridges as stone arches at town tier, of road plots repaved at village and town
+  tier, or lamp posts on lanes — `arch-infra.md`.
+- The lighthouse parcel does not prefer water in its back third — `arch-landmark.md`.
+- Square furniture placement (benches, notice board, corner lamps) has not been reviewed — `arch-landscape.md`.
+- Parcels are not sized deeper on purpose for houses that will grow additions, and learning buildings are not forced
+  wide — `b-age.md`, `b-learning.md`.
+- Gossip approximates the roads between towns; `HearthWorld.roads(...)` is not exposed — `p3-standing.md`.
+- Carts, a caravan master who rides along, and an escort that is a resident rather than a mule — `p3-npc.md`,
+  `p3-quest.md`, `quest.md`.
+- No first-snow event in the social calendar (winter dressings) — `b-age.md`.
+
+**Build module**
+- Shared kit fixes: `Openings.window` of width 2 or more lands off target on the back and left walls; no `headroom`
+  argument for `StairCore`; `Facade.plan` cannot pin the door; `Facade` braces cannot be copied; `Roofs.fillUnder` and
+  the bracket helpers are package-private — `arch-townhome.md`.
+- No doorstep reservation in `Draft` (`Works.keepDoors` stands in); the stripped-log `roof_trim`/`gable` fallbacks only
+  warn — `b-industry.md`, `b-noble.md`.
+- `BlueprintService.goodsOf(BlockState)` is not implemented by the build module, so repair keeps its own goods table
+  — `p3-repair.md`.
+- No check that a town's buildings are not near-copies of each other — `b-age.md`.
+
+**Other modules and partners**
+- The arrival banner has no hook for the standing line (it draws just under it) — `p3-standing.md`.
+- The social module does not yet report a bath as the `social:bathed` deed — `p3-standing.md`.
+- No client formatter for coin names — `quest.md`.
+- Expanse: `UndergroundProbe.waterY` is not answered by Expanse's implementation (deep towns keep to the floor the
+  probe reports), and Hearth does not yet read Expanse's lakes or register with Expanse's `LandClaims`; both wait on
+  that Expanse work reaching `main` — `p3-plan.md`, `expanse.md`.
+- VOID LOD does not yet draw settlements; the read-only `sim/LodFootprints` is ready for it (§11).
+- `SyntheticTerrain`'s brim-full river leaves banks below the water line, so approach roads dip below it in the
+  previews — `arch-infra.md`.
