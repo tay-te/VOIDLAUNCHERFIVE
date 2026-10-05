@@ -869,6 +869,47 @@ public final class Draft {
 		this.pois.removeIf(p -> !keep.test(p));
 	}
 
+	/**
+	 * Takes in everything drawn on another draft whose plot lies inside this one with the same facing, its local origin
+	 * at {@code (ox, oz)} here: cells (stage, order and block entity kept), points of interest, entrances, the declared
+	 * body, the eave and what the style lacked. For a building drawn on part of its plot ({@code build.age.Accretion}:
+	 * a house that will grow keeps a yard to grow into). Meant for an empty draft.
+	 */
+	public void absorb(Draft inner, int ox, int oz) {
+		for (Long2ObjectMap.Entry<Cell> e : inner.cells.long2ObjectEntrySet()) {
+			long k = e.getLongKey();
+			int x = keyX(k) + ox;
+			int y = keyY(k);
+			int z = keyZ(k) + oz;
+			if (!allowed(x, y, z)) {
+				this.clipped++;
+				continue;
+			}
+			Cell c = e.getValue();
+			this.cells.put(key(x, y, z), new Cell(c.state, c.tag, c.stage, this.sequence + c.sequence));
+		}
+		this.sequence += inner.sequence;
+		for (LocalPoi p : inner.pois) {
+			this.pois.add(new LocalPoi(p.type(), p.x() + ox, p.y(), p.z() + oz, p.facing(), p.job()));
+		}
+		for (int[] e : inner.entrances) {
+			this.entrances.add(new int[]{e[0] + ox, e[1], e[2] + oz});
+		}
+		boolean declared = !(inner.bodyX0 == 0 && inner.bodyZ0 == 0 && inner.bodyX1 == inner.frontage() - 1 && inner.bodyZ1 == inner.depth() - 1);
+		if (declared) {
+			body(inner.bodyX0 + ox, inner.bodyZ0 + oz, inner.bodyX1 + ox, inner.bodyZ1 + oz);
+		}
+		if (inner.eaveY != Integer.MIN_VALUE) {
+			this.eaveY = inner.eaveY;
+		}
+		for (long k : inner.drained) {
+			this.drained.add(key(keyX(k) + ox, 0, keyZ(k) + oz));
+		}
+		this.missing.addAll(inner.missing);
+		this.clipped += inner.clipped;
+		this.lit |= inner.lit;
+	}
+
 	/** The y where the walls meet the roof (for the far-away silhouette and the material mix). */
 	public void eave(int y) {
 		this.eaveY = y;

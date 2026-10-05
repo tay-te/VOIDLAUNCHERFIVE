@@ -17,6 +17,75 @@ import org.junit.jupiter.api.Test;
  * prints the checks, the way in found on the drawing and walk maps at the given floor-relative heights.
  */
 class AgeDebugTest {
+	/** {@code HEARTH_AGE_SCAN=archetype,culture,terrain,seed,facing}: what accretion reads of a house. */
+	@Test
+	void scan() {
+		String env = System.getenv("HEARTH_AGE_SCAN");
+		if (env == null) {
+			return;
+		}
+		String[] a = env.split(",");
+		ArchetypeInfo info = AgeSupport.SERVICE.archetype(Hearth.id(a[0]));
+		Culture c = Culture.valueOf(a[1].toUpperCase(java.util.Locale.ROOT));
+		SyntheticTerrain probe = SyntheticTerrain.named(a[2], 42);
+		CompoundTag params = new CompoundTag();
+		if (a.length > 5) {
+			params.putString(Accretion.PARAM, a[5].replace(';', ','));
+		}
+		PlotSpec spec = AgeSupport.spec(info, StyleRegistry.styleId(c), Long.parseLong(a[3]), Direction.byName(a[4]), probe, params);
+		var d = AgeSupport.SERVICE.draw(spec, probe);
+		var route = Access.route(d);
+		var h = dev.voidmc.hearth.build.kit.age.HouseScan.of(d, route);
+		System.out.println("plot " + d.frontage() + "x" + d.depth() + " body " + h.x0 + "," + h.z0 + " .. " + h.x1 + "," + h.z1 + " eave " + h.eave
+			+ " floors " + h.floors + " flat " + h.flat + " top " + h.top + " route " + route.size());
+		for (Direction out : dev.voidmc.hearth.build.draft.Dirs.HORIZONTAL) {
+			var s = h.side(out);
+			StringBuilder sb = new StringBuilder(out + " party " + h.party(out) + " depths:");
+			for (int i = 0; i <= s.last(); i++) {
+				sb.append(' ').append(h.depthOut(s, i, 5, Math.min(h.eave - 1, 4)));
+			}
+			System.out.println(sb);
+		}
+		int ya = a.length > 6 ? Integer.parseInt(a[6]) : 0;
+		int yb = a.length > 7 ? Integer.parseInt(a[7]) : 4;
+		for (int y = ya; y <= yb; y++) {
+			System.out.println("y=" + y);
+			for (int z = d.depth() - 1; z >= -1; z--) {
+				StringBuilder sb = new StringBuilder(String.format("%3d ", z));
+				for (int x = 0; x < d.frontage(); x++) {
+					var cell = d.cell(x, y, z);
+					sb.append(cell == null ? ' ' : cell.state().isAir() ? '.' : cell.stage().name().charAt(0));
+				}
+				System.out.println(sb);
+			}
+		}
+	}
+
+	/** {@code HEARTH_AGE_STATS=1} (with HEARTH_AGE_LOG=1): every housing archetype in every culture grown by 8. */
+	@Test
+	void stats() {
+		if (System.getenv("HEARTH_AGE_STATS") == null) {
+			return;
+		}
+		SyntheticTerrain probe = SyntheticTerrain.named(System.getenv().getOrDefault("HEARTH_AGE_TERRAIN", "flat"), 42);
+		for (ArchetypeInfo info : AgeSupport.SERVICE.archetypes()) {
+			if (info.category() != dev.voidmc.hearth.api.ArchetypeCategory.HOUSING) {
+				continue;
+			}
+			for (Culture c : Culture.values()) {
+				if (!info.suits(c)) {
+					continue;
+				}
+				for (long seed = 1; seed <= 3; seed++) {
+					CompoundTag params = new CompoundTag();
+					params.putInt(Accretion.PARAM, 8);
+					PlotSpec spec = AgeSupport.spec(info, StyleRegistry.styleId(c), seed * 131, AgeSupport.FACINGS[(int) seed % 4], probe, params);
+					AgeSupport.SERVICE.draw(spec, probe);
+				}
+			}
+		}
+	}
+
 	@Test
 	void debug() {
 		String env = System.getenv("HEARTH_AGE_DEBUG");
