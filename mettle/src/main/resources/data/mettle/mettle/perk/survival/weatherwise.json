@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.survival.weatherwise"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.weatherwise.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.survival.weatherwise.hint"
+	},
+	"feat": {
+		"counter": "biomes_visited",
+		"target": 40
+	},
+	"order": 13
+}

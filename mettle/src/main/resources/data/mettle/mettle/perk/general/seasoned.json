@@ -1,0 +1,26 @@
+{
+	"skill": "mettle:survival",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.general.seasoned"
+	},
+	"description": {
+		"translate": "mettle.perk.general.seasoned.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.general.seasoned.hint"
+	},
+	"feat": {
+		"counter": "life_ticks",
+		"target": 720000
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:max_health",
+			"amounts": [
+				2.0
+			]
+		}
+	],
+	"order": 23
+}

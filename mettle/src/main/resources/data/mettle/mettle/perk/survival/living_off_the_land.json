@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:survival",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "b",
+	"name": {
+		"translate": "mettle.perk.survival.living_off_the_land"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.living_off_the_land.description"
+	},
+	"order": 12
+}

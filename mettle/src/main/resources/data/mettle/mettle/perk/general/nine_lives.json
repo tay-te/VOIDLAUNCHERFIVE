@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.general.nine_lives"
+	},
+	"description": {
+		"translate": "mettle.perk.general.nine_lives.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.general.nine_lives.hint"
+	},
+	"feat": {
+		"counter": "near_deaths",
+		"target": 9
+	},
+	"order": 20
+}

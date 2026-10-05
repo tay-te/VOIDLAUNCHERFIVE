@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:survival",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.survival.self_sufficient"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.self_sufficient.description"
+	},
+	"order": 9
+}

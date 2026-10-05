@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.general.jack_of_all_trades"
+	},
+	"description": {
+		"translate": "mettle.perk.general.jack_of_all_trades.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.general.jack_of_all_trades.hint"
+	},
+	"feat": {
+		"counter": "skills_at_five",
+		"target": 8
+	},
+	"order": 24
+}

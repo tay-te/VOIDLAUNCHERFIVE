@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:survival",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.survival.trailblazer"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.trailblazer.description"
+	},
+	"synergy": {
+		"mettle:survival": 10,
+		"mettle:athletics": 10
+	},
+	"order": 15
+}

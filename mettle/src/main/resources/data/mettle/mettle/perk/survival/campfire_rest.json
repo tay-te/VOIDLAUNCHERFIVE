@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:survival",
+	"kind": "path",
+	"tier": 2,
+	"path": "b",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.survival.campfire_rest"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.campfire_rest.description"
+	},
+	"order": 7
+}

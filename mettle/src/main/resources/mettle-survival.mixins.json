@@ -2,7 +2,21 @@
 	"required": true,
 	"package": "dev.voidmc.mettle.mixin.survival",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"SurvivalApplyStatusEffectsMixin",
+		"SurvivalAvoidEntityGoalMixin",
+		"SurvivalBlockItemMixin",
+		"SurvivalCampfireBlockEntityMixin",
+		"SurvivalFoodDataAccess",
+		"SurvivalFoodPropertiesMixin",
+		"SurvivalFurnaceResultSlotMixin",
+		"SurvivalLivingEntityMixin",
+		"SurvivalMobMixin",
+		"SurvivalPerksMixin",
+		"SurvivalPlayerMixin",
+		"SurvivalProgressMixin",
+		"SurvivalSweetBerryBushMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

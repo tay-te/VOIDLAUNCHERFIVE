@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.survival.big_game"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.big_game.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.survival.big_game.hint"
+	},
+	"feat": {
+		"counter": "big_game_kills",
+		"target": 30
+	},
+	"order": 14
+}

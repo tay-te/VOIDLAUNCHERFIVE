@@ -1,0 +1,19 @@
+{
+	"values": [
+		"minecraft:polar_bear",
+		"minecraft:hoglin",
+		"minecraft:goat",
+		{
+			"id": "expanse:elk",
+			"required": false
+		},
+		{
+			"id": "expanse:deer",
+			"required": false
+		},
+		{
+			"id": "expanse:mammoth",
+			"required": false
+		}
+	]
+}

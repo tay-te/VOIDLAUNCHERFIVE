@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.general.seen_it_all"
+	},
+	"description": {
+		"translate": "mettle.perk.general.seen_it_all.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.general.seen_it_all.hint"
+	},
+	"feat": {
+		"counter": "landmark_kinds",
+		"target": 8
+	},
+	"order": 21
+}

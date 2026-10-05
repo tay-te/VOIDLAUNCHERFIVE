@@ -1,0 +1,26 @@
+{
+	"skill": "mettle:survival",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.general.pack_horse"
+	},
+	"description": {
+		"translate": "mettle.perk.general.pack_horse.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.general.pack_horse.hint"
+	},
+	"feat": {
+		"counter": "overburdened_metres",
+		"target": 1000
+	},
+	"effects": [
+		{
+			"attribute": "mettle:carry_capacity",
+			"amounts": [
+				5.0
+			]
+		}
+	],
+	"order": 22
+}

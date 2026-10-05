@@ -1,0 +1,49 @@
+{
+	"values": [
+		"#minecraft:small_flowers",
+		{
+			"id": "expanse:heather",
+			"required": false
+		},
+		{
+			"id": "expanse:edelweiss",
+			"required": false
+		},
+		{
+			"id": "expanse:lavender",
+			"required": false
+		},
+		{
+			"id": "expanse:fireweed",
+			"required": false
+		},
+		{
+			"id": "expanse:frostbloom",
+			"required": false
+		},
+		{
+			"id": "expanse:desert_pea",
+			"required": false
+		},
+		{
+			"id": "expanse:moth_orchid",
+			"required": false
+		},
+		{
+			"id": "expanse:desert_marigold",
+			"required": false
+		},
+		{
+			"id": "expanse:reindeer_lichen",
+			"required": false
+		},
+		{
+			"id": "expanse:bluebells",
+			"required": false
+		},
+		{
+			"id": "expanse:cotton_grass",
+			"required": false
+		}
+	]
+}

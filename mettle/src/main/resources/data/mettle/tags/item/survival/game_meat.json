@@ -1,0 +1,21 @@
+{
+	"values": [
+		"#minecraft:meat",
+		{
+			"id": "expanse:venison",
+			"required": false
+		},
+		{
+			"id": "expanse:cooked_venison",
+			"required": false
+		},
+		{
+			"id": "expanse:crab_meat",
+			"required": false
+		},
+		{
+			"id": "expanse:cooked_crab",
+			"required": false
+		}
+	]
+}

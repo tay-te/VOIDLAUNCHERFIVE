@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:survival",
+	"kind": "root",
+	"tier": 1,
+	"ranks": 3,
+	"cost": 1,
+	"name": {
+		"translate": "mettle.perk.survival.gatherer"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.gatherer.description"
+	},
+	"rank_values": [
+		"10",
+		"20",
+		"30"
+	],
+	"order": 0
+}
