@@ -490,6 +490,15 @@ final class GearJourney {
 		context.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
 		context.waitTicks(5);
 		context.takeScreenshot("mettle_gear_worn_satchel_dyed");
+		// "Show my gear" off: a cosmetic flag every client hears.
+		server.runCommand("execute as @p run mettle gear hide");
+		context.waitTicks(3);
+		if (!context.computeOnClient(mc -> dev.voidmc.mettle.gear.GearVisibility.hidden(mc.player))) {
+			throw new AssertionError("Gear: /mettle gear hide did not reach the client");
+		}
+		context.takeScreenshot("mettle_gear_worn_hidden");
+		server.runCommand("execute as @p run mettle gear show");
+		context.waitTicks(2);
 		context.runOnClient(mc -> mc.options.setCameraType(CameraType.FIRST_PERSON));
 		on(server, p -> {
 			GearInventory.of(p).takeAll();

@@ -5,6 +5,7 @@ import dev.voidmc.mettle.Mettle;
 import dev.voidmc.mettle.gear.BeltUse;
 import dev.voidmc.mettle.gear.GearComponents;
 import dev.voidmc.mettle.gear.GearSpec;
+import dev.voidmc.mettle.gear.GearVisibility;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -101,9 +102,9 @@ public final class GearClient {
 			&& mc.player.getUseItem().getUseDuration(mc.player) < 1200;
 	}
 
-	/** Whether to leave this player's gear off the model (reserved for the "show my gear" option, UI.md §10). */
+	/** Whether to leave this player's gear off the model ("show my gear on my character" turned off, UI.md §10). */
 	static boolean hidden(Player player) {
-		return false;
+		return GearVisibility.hidden(player);
 	}
 
 	private static void tooltip(ItemStack stack, List<Component> lines) {

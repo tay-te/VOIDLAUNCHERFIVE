@@ -64,6 +64,7 @@ public final class GearModule {
 		// Loads the attachment type so it registers during init.
 		Mettle.LOGGER.debug("gear attachment {}", WornGear.TYPE.identifier());
 		MettleServices.setGear(SERVICE);
+		GearVisibility.init();
 
 		PayloadTypeRegistry.serverboundPlay().register(BeltUse.Request.TYPE, BeltUse.Request.STREAM_CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(BeltUse.Request.TYPE, (payload, context) -> BeltUse.use(context.player(), payload.pocket()));

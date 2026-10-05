@@ -14,6 +14,9 @@
 	"mettle.gear.tooltip.item": "%s ×%s",
 	"mettle.gear.tooltip.more": "and %s more…",
 
+	"mettle.gear.hidden": "Your gear is hidden on your character (cosmetic; it still works).",
+	"mettle.gear.shown": "Your gear shows on your character again.",
+
 	"mettle.gear.panel.back": "Backpack",
 	"mettle.gear.panel.belt": "Belt",
 	"mettle.gear.panel.quiver": "Quiver",
