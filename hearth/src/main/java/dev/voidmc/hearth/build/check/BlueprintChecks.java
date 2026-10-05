@@ -129,7 +129,8 @@ public final class BlueprintChecks {
 	/** Blocks allowed to hang from what is above them. */
 	private static boolean hangs(BlockState s) {
 		Block b = s.getBlock();
-		return b instanceof LanternBlock && s.getValue(LanternBlock.HANGING) || b instanceof ChainBlock || b instanceof net.minecraft.world.level.block.CeilingHangingSignBlock
+		return b instanceof LanternBlock && s.getValue(LanternBlock.HANGING) || b instanceof ChainBlock && s.getValue(BlockStateProperties.AXIS) == Direction.Axis.Y
+			|| b instanceof net.minecraft.world.level.block.CeilingHangingSignBlock
 			|| b instanceof net.minecraft.world.level.block.VineBlock || b instanceof net.minecraft.world.level.block.HangingRootsBlock;
 	}
 
