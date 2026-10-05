@@ -17,7 +17,8 @@ import net.minecraft.world.level.block.state.properties.Half;
  * Curtain walls: straight stretches of wall between towers, footed in the ground wherever it lies (so a wall on a hill
  * shows its full height to the field and stands its walk height over the court), with a plinth and a battered talus at
  * the foot where the ground falls away, a wall walk behind a parapet cut in the culture's merlons (corbelled out over a
- * course of machicolation brackets where the manner has them), and flights of steps up from the court.
+ * course of machicolation brackets where the manner has them), and flights of steps up from the court. A ward that is
+ * not a rectangle is walled whole along its {@link Outline} ({@link #enclose}).
  */
 public final class Curtain {
 	private Curtain() {
@@ -169,6 +170,107 @@ public final class Curtain {
 			dev.voidmc.hearth.build.kit.Roofs.Profile.straight(0.5));
 		try (var s = d.stage(StageKind.ROOF)) {
 			dev.voidmc.hearth.build.kit.Roofs.raster(d, f, walk + 2, ox0, oz0, ox1, oz1, m.roof, m.trim, dev.voidmc.hearth.build.style.Habits.Ridge.SLAB);
+		}
+	}
+
+	/**
+	 * The whole curtain round an {@link Outline}, {@code thick} deep inside it, its walk at standing level {@code walk}:
+	 * the same wall as {@link #run} (footed to the lowest ground under it, a plinth, a talus where the field falls away,
+	 * loops, the culture's merlons on the field face with a drip course under them), but laid along whatever line the
+	 * outline takes, diagonals stepped as a mason steps them, so a ward can follow its hill. Cells outside the plot are
+	 * left out.
+	 */
+	public static void enclose(Draft d, Dress m, Manner man, Outline o, int thick, int walk, Opts opts) {
+		enclose(d, m, man, o, thick, walk, opts, null);
+	}
+
+	/**
+	 * {@link #enclose}, leaving out the cells {@code skip} names: where a range stands on the curtain's line and is the
+	 * curtain there, or the half of a long curtain another campaign raises.
+	 */
+	public static void enclose(Draft d, Dress m, Manner man, Outline o, int thick, int walk, Opts opts,
+		java.util.function.@org.jspecify.annotations.Nullable BiPredicate<Integer, Integer> skip) {
+		BlockState air = Blocks.AIR.defaultBlockState();
+		boolean timber = man.merlon() == Manner.Merlon.TIMBER;
+		List<int[]> face = new java.util.ArrayList<>();
+		for (int z = o.z0; z <= o.z1; z++) {
+			for (int x = o.x0; x <= o.x1; x++) {
+				if (!o.wall(x, z, thick) || !Mason.inPlot(d, x, z) || skip != null && skip.test(x, z)) {
+					continue;
+				}
+				boolean field = false;
+				int lo = d.site().ground(x, z);
+				for (Direction dir : Dirs.HORIZONTAL) {
+					int nx = x + Dirs.dx(dir);
+					int nz = z + Dirs.dz(dir);
+					field |= !o.inside(nx, nz);
+					if (o.wall(nx, nz, thick) && Mason.inPlot(d, nx, nz)) {
+						lo = Math.min(lo, d.site().ground(nx, nz));
+					}
+				}
+				int base = Math.min(lo, walk - 2);
+				Mason.footing(d, m, x, z, base);
+				int g = d.site().ground(x, z);
+				int topSolid = field ? walk : walk - 1;
+				try (var s = d.stage(StageKind.WALLS)) {
+					for (int y = base; y <= topSolid; y++) {
+						Paint p;
+						if (y < g + 1 && field || y <= lo) {
+							p = m.plinth.full();
+						} else if (field && y == topSolid && timber) {
+							p = Mason.post(m.frame);
+						} else {
+							p = m.wall.full();
+						}
+						d.set(x, y, z, p);
+					}
+					if (!field) {
+						d.set(x, walk - 1, z, m.paving.full());
+						d.set(x, walk, z, air);
+						d.set(x, walk + 1, z, air);
+					}
+				}
+				if (field) {
+					face.add(new int[]{x, z});
+				}
+			}
+		}
+		// the parapet's rhythm runs round the outline, so merlons alternate along every stretch and turn every corner
+		double[] mid = o.centre();
+		face.sort((a, b) -> Double.compare(Math.atan2(a[1] - mid[1], a[0] - mid[0]), Math.atan2(b[1] - mid[1], b[0] - mid[0])));
+		for (int i = 0; i < face.size(); i++) {
+			int x = face.get(i)[0];
+			int z = face.get(i)[1];
+			Direction out = null;
+			int outs = 0;
+			for (Direction dir : Dirs.HORIZONTAL) {
+				if (!o.inside(x + Dirs.dx(dir), z + Dirs.dz(dir))) {
+					out = out == null ? dir : out;
+					outs++;
+				}
+			}
+			if (out == null) {
+				continue;
+			}
+			Direction in = out.getOpposite();
+			try (var s = d.stage(StageKind.WALLS)) {
+				Mason.merlon(d, m, man.merlon(), x, walk + 1, z, i, Dirs.right(out), out, outs > 1);
+				if (!timber && outs == 1) {
+					Mason.corbel(d, m.dress, x + Dirs.dx(out), walk - 1, z + Dirs.dz(out), in);
+				}
+			}
+			int fx = x + Dirs.dx(out);
+			int fz = z + Dirs.dz(out);
+			if (Mason.inPlot(d, fx, fz) && d.site().ground(fx, fz) < walk - 4) {
+				Mason.talus(d, m, fx, fz, out, walk - 4);
+			}
+			if (opts.loops() && i % 4 == 2 && !timber && outs == 1) {
+				int g = d.site().ground(x, z);
+				int ly = walk - 3;
+				if (ly > g + 1 && d.isSolid(x + Dirs.dx(in), ly, z + Dirs.dz(in))) {
+					Mason.loop(d, x, ly, z, 1);
+				}
+			}
 		}
 	}
 

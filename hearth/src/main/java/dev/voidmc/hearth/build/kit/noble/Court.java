@@ -74,6 +74,26 @@ public final class Court {
 	}
 
 	/**
+	 * Levels and paves the ward an {@link Outline} encloses inside its curtain ({@code thick} deep) at standing level y,
+	 * run by run along each row, so the made ground stops at the wall's foot and the field outside keeps its own slope.
+	 */
+	public static void fill(Draft d, Dress m, Outline o, int thick, int y) {
+		for (int z = Math.max(0, o.z0); z <= Math.min(d.depth() - 1, o.z1); z++) {
+			int run = Integer.MIN_VALUE;
+			for (int x = o.x0; x <= o.x1 + 1; x++) {
+				boolean in = x <= o.x1 && Mason.inPlot(d, x, z) && o.ward(x, z, thick);
+				if (in && run == Integer.MIN_VALUE) {
+					run = x;
+				} else if (!in && run != Integer.MIN_VALUE) {
+					dev.voidmc.hearth.build.terrain.Groundwork.level(d, run, z, x - 1, z, y, true);
+					pave(d, m, run, z, x - 1, z, y);
+					run = Integer.MIN_VALUE;
+				}
+			}
+		}
+	}
+
+	/**
 	 * A stable shed against the wall toward {@code wall} over (x0..x1, z0..z1) at standing level y: posts on the open
 	 * side, a lean-to roof falling away from the wall, stalls parted by fences with hay and a trough, hitching posts in
 	 * front (HITCHING_POST), a chest of tack (STORAGE).
@@ -209,6 +229,22 @@ public final class Court {
 			for (int x = ax + 1; x <= bx - 1; x += 8) {
 				if (open(d, x, y, z)) {
 					Lighting.post(d, x, y, z);
+				}
+			}
+		}
+	}
+
+	/** {@link #lamps} over the ward of an {@link Outline} (inside its curtain, {@code thick} deep), never outside it. */
+	public static void lamps(Draft d, Outline o, int thick, int y) {
+		for (int z = o.z0 + 1; z <= o.z1 - 1; z += 8) {
+			for (int x = o.x0 + 1; x <= o.x1 - 1; x += 8) {
+				// the nearest ward cell along the row, so a lamp is not lost to a corner the outline cuts
+				for (int off : new int[]{0, 2, -2, 4, -4}) {
+					int px = x + off;
+					if (o.ward(px, z, thick + 1) && open(d, px, y, z)) {
+						Lighting.post(d, px, y, z);
+						break;
+					}
 				}
 			}
 		}

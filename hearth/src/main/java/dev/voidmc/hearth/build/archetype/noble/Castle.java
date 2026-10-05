@@ -114,10 +114,46 @@ public final class Castle implements Archetype {
 		int chz1;
 	}
 
+	/**
+	 * The plan a culture builds its castle to: each its own silhouette, not one plan in other stone (forced with the
+	 * {@code layout} param).
+	 */
+	enum Layout {
+		/** Two wards on a hill, towers at every turn, a gatehouse and barbican, the bergfried, the palace (alpine, maritime, wisteria). */
+		WARDS,
+		/** Bohemia (KCD II): few broad towers, a palace wing, an outer bailey whose curtain follows the hill. */
+		BOHEMIAN;
+
+		static Layout of(Culture c) {
+			return switch (c) {
+				case TEMPERATE -> BOHEMIAN;
+				default -> WARDS;
+			};
+		}
+	}
+
+	static Layout layout(Draft d, Manner man) {
+		String forced = d.param("layout", "");
+		for (Layout l : Layout.values()) {
+			if (l.name().equalsIgnoreCase(forced)) {
+				return l;
+			}
+		}
+		return Layout.of(man.culture());
+	}
+
 	@Override
 	public void draw(Draft d) {
 		Manner man = Manner.of(d);
 		Dress m = Dress.of(d);
+		switch (layout(d, man)) {
+			case BOHEMIAN -> BohemianCastle.draw(d, man, m);
+			default -> wards(d, man, m);
+		}
+	}
+
+	/** The two-ward castle (see the class comment). */
+	private static void wards(Draft d, Manner man, Dress m) {
 		Plan p = plan(d, man);
 		d.body(p.lx, p.fz, p.rx, p.bz);
 		d.eave(p.walkI + 6);
@@ -461,26 +497,32 @@ public final class Castle implements Archetype {
 	private static void innerGate(Draft d, Dress m, Manner man, Plan p) {
 		int top = Math.min(p.walkI + 5, p.maxTop - 8);
 		Gate.tower(d, m, man, p.igx0, p.cz - 1, p.igx1, p.cz + p.it + 1, 3, p.li, p.walkI, top, p.maxTop);
-		int c = (p.igx0 + p.igx1) / 2;
-		// the ramp: steps from the outer ward up to the passage
-		int rise = p.li - p.lo;
+		ramp(d, m, (p.igx0 + p.igx1) / 2, p.cz - 2, p.lo, p.li);
+	}
+
+	/**
+	 * A ramp of steps three wide climbing toward the back from a lower court at {@code lo} to a gate passage standing at
+	 * {@code hi}, its top step at row z, built up solid with a parapet either side.
+	 */
+	static void ramp(Draft d, Dress m, int c, int z, int lo, int hi) {
+		int rise = hi - lo;
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int k = 1; k <= rise; k++) {
-				int z = p.cz - 1 - (rise - k) - 1;
-				int y = p.lo + k - 1;
+				int sz = z - (rise - k);
+				int y = lo + k - 1;
 				for (int x = c - 1; x <= c + 1; x++) {
-					for (int yy = p.lo - 1; yy < y; yy++) {
-						d.set(x, yy, z, m.wall.full());
+					for (int yy = lo - 1; yy < y; yy++) {
+						d.set(x, yy, sz, m.wall.full());
 					}
-					d.set(x, y, z, m.paving.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
+					d.set(x, y, sz, m.paving.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
 					for (int yy = y + 1; yy <= y + 3; yy++) {
-						d.set(x, yy, z, Blocks.AIR.defaultBlockState());
+						d.set(x, yy, sz, Blocks.AIR.defaultBlockState());
 					}
 				}
 				// parapets either side of the ramp
 				for (int x : new int[]{c - 2, c + 2}) {
-					for (int yy = p.lo - 1; yy <= y; yy++) {
-						d.set(x, yy, z, m.wall.full());
+					for (int yy = lo - 1; yy <= y; yy++) {
+						d.set(x, yy, sz, m.wall.full());
 					}
 				}
 			}
@@ -660,7 +702,7 @@ public final class Castle implements Archetype {
 	}
 
 	/** A little open belfry riding a ridge: four posts on a block, a bell, a steep cap and a spike. */
-	private static void belfry(Draft d, Dress m, Manner man, int x, int z, int y, int maxTop) {
+	static void belfry(Draft d, Dress m, Manner man, int x, int z, int y, int maxTop) {
 		if (y + 6 > maxTop) {
 			return;
 		}
@@ -732,7 +774,7 @@ public final class Castle implements Archetype {
 		return true;
 	}
 
-	private static void stalls(Draft d, Dress m, Rooms.Room room, Direction wall) {
+	static void stalls(Draft d, Dress m, Rooms.Room room, Direction wall) {
 		var fence = d.mat(dev.voidmc.hearth.build.style.Role.FENCE);
 		boolean alongZ = wall.getAxis() == Direction.Axis.X;
 		int wx = wall == Dirs.RIGHT ? room.x1 : room.x0;

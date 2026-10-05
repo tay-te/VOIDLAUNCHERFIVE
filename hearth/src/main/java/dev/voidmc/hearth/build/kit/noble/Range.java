@@ -56,6 +56,8 @@ public final class Range {
 	private final List<int[]> kept = new ArrayList<>();
 	public Roofs.@Nullable Roof roof;
 	public int ridge = Integer.MIN_VALUE;
+	/** Walls of timber over the plinth (posts and boards), as the north raises its halls on a stone footing. */
+	private boolean timber;
 
 	public Range(int x0, int z0, int x1, int z1, int level, int[] heights, Direction court) {
 		this.x0 = Math.min(x0, x1);
@@ -66,6 +68,12 @@ public final class Range {
 		this.heights = heights;
 		this.court = court;
 		this.open = new boolean[heights.length];
+	}
+
+	/** Builds the walls in timber: a post at every corner and every third cell, boards between, on the stone plinth. */
+	public Range timber() {
+		this.timber = true;
+		return this;
 	}
 
 	public Range blind(Direction... sides) {
@@ -173,10 +181,14 @@ public final class Range {
 					boolean corner = (x == this.x0 || x == this.x1) && (z == this.z0 || z == this.z1);
 					boolean near = !corner && ((x == this.x0 + 1 || x == this.x1 - 1) && (z == this.z0 || z == this.z1)
 						|| (z == this.z0 + 1 || z == this.z1 - 1) && (x == this.x0 || x == this.x1));
+					int run = x == this.x0 || x == this.x1 ? z - this.z0 : x - this.x0;
 					for (int y = this.level - 1; y <= plate; y++) {
 						Paint p;
 						if (y <= this.level) {
 							p = m.plinth.full();
+						} else if (this.timber) {
+							boolean post = corner || run % 3 == 0;
+							p = post ? Mason.post(m.frame) : y == plate ? Mason.beam(m.beam, x == this.x0 || x == this.x1 ? Direction.Axis.Z : Direction.Axis.X) : m.boards.full();
 						} else if (corner || near && ((y - this.level) & 1) == 0) {
 							p = m.dress.full();
 						} else {
@@ -197,7 +209,7 @@ public final class Range {
 		}
 		// string courses under each upper floor, all round
 		for (int k = 1; k < this.heights.length; k++) {
-			if (this.open[k]) {
+			if (this.open[k] || this.timber) {
 				continue;
 			}
 			int y = floorY(k) - 1;
@@ -373,10 +385,47 @@ public final class Range {
 					Mason.loop(d, x, y, z, 2);
 					continue;
 				}
+				if (this.timber) {
+					// a timber wall's light: glass between the posts, no stone about it
+					try (var st = d.stage(StageKind.OPENINGS)) {
+						for (int yy = y; yy < y + height; yy++) {
+							d.set(x, yy, z, m.glass.pane());
+						}
+					}
+					continue;
+				}
 				window(d, m, man.window(), s, i, y, height);
 			}
 		}
 		return this;
+	}
+
+	/**
+	 * A skirt of roof round the range at row y, {@code width} cells out from the walls and falling a row a cell: the lower
+	 * eaves of a hall roofed in two tiers (the karst's double-eaved halls, the stacked eaves of a tower). Lays only where
+	 * nothing stands; its corners lift a half row, as the karst's do.
+	 */
+	public void skirt(Draft d, Dress m, int y, int width) {
+		try (var st = d.stage(StageKind.ROOF)) {
+			for (int k = 1; k <= width; k++) {
+				int ry = y - (k - 1);
+				for (int x = this.x0 - k; x <= this.x1 + k; x++) {
+					for (int z = this.z0 - k; z <= this.z1 + k; z++) {
+						boolean ringX = x == this.x0 - k || x == this.x1 + k;
+						boolean ringZ = z == this.z0 - k || z == this.z1 + k;
+						if (!ringX && !ringZ || !Mason.ok(d, x, ry, z) || !d.isAbsent(x, ry, z) && !d.isEmpty(x, ry, z)) {
+							continue;
+						}
+						if (ringX && ringZ) {
+							d.set(x, ry, z, m.trim.has(Form.SLAB) ? m.trim.slab(k == width ? SlabType.TOP : SlabType.BOTTOM) : m.roof.full());
+							continue;
+						}
+						Direction out = ringX ? (x < this.x0 ? Dirs.LEFT : Dirs.RIGHT) : (z < this.z0 ? Dirs.FRONT : Dirs.BACK);
+						d.set(x, ry, z, m.roof.stairsOrSlab(out.getOpposite(), Half.BOTTOM));
+					}
+				}
+			}
+		}
 	}
 
 	/** One window at cell i of a side: glass in the manner's kind, dressed jambs and head, a sill. */
