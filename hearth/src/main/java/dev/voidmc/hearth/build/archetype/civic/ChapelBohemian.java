@@ -354,7 +354,7 @@ final class ChapelBohemian {
 	 * The cells of the chancel and its apse (walls and floor): the rectangle {@code cx ± ra} from the nave's back wall to
 	 * {@code zA}, then the half of an octagon beyond (three-sided), or a square end to {@code zC1}.
 	 */
-	private static Set<Long> eastEnd(int cx, int zN1, int zA, int ra, boolean apse, int zC1) {
+	static Set<Long> eastEnd(int cx, int zN1, int zA, int ra, boolean apse, int zC1) {
 		Set<Long> s = new HashSet<>();
 		int zr = apse ? zA : zC1;
 		for (int z = zN1; z <= zr; z++) {
@@ -373,7 +373,7 @@ final class ChapelBohemian {
 	}
 
 	/** The cells of a shape not on its outline (every neighbour in the shape), without the nave's back wall row. */
-	private static Set<Long> interior(Set<Long> shape) {
+	static Set<Long> interior(Set<Long> shape) {
 		Set<Long> in = new HashSet<>();
 		int zMin = Integer.MAX_VALUE;
 		for (long k : shape) {
@@ -403,7 +403,7 @@ final class ChapelBohemian {
 	 * The chancel's and the apse's walls up to {@code plateC}: the render, dressed quoins at the angles, the plinth course
 	 * at the foot; the nave's back wall row is left to the nave.
 	 */
-	private static void eastWalls(Draft d, Set<Long> east, int cx, int zN1, int zA, int ra, int base, int plateC) {
+	static void eastWalls(Draft d, Set<Long> east, int cx, int zN1, int zA, int ra, int base, int plateC) {
 		Set<Long> inner = interior(east);
 		Mat wall = d.mat(Role.WALL);
 		Mat plinth = d.mat(Role.PLINTH);
@@ -447,7 +447,7 @@ final class ChapelBohemian {
 	 * A rendered buttress against the nave: footed to the ground, the plinth course in stone, its body in the walls' render
 	 * (Bohemian buttresses are plastered with the church), a dressed set-off half way and a dressed weathering on top.
 	 */
-	private static void buttress(Draft d, int x, int z, int base, int top, Direction out) {
+	static void buttress(Draft d, int x, int z, int base, int top, Direction out) {
 		if (x < 0 || x >= d.frontage() || z < 0 || z >= d.depth()) {
 			return;
 		}
@@ -465,7 +465,7 @@ final class ChapelBohemian {
 	}
 
 	/** Lights of coloured glass in the apse: a tall one in the back face, one in each slanting face, or a pair in a square end. */
-	private static void apseLights(Draft d, int cx, int zA, int ra, boolean apse, int zC1, int base, int hc) {
+	static void apseLights(Draft d, int cx, int zA, int ra, boolean apse, int zC1, int base, int hc) {
 		Mat cloth = d.mat(Role.CLOTH);
 		Mat glass = d.mat(Role.GLASS);
 		Stone dress = Stone.dressing(d);
@@ -500,7 +500,7 @@ final class ChapelBohemian {
 	 * The chancel's roof: a gable over the straight part, hipped round the apse as one surface (or a gable to a square
 	 * end), eaves a block out, its wall plate a course under the nave's. Returns its highest row.
 	 */
-	private static int eastRoof(Draft d, int cx, int zN1, int zA, int ra, boolean apse, int zC1, int plateC, double pitch) {
+	static int eastRoof(Draft d, int cx, int zN1, int zA, int ra, boolean apse, int zC1, int plateC, double pitch) {
 		Mat roof = d.mat(Role.ROOF);
 		Mat trim = d.mat(Role.ROOF_TRIM);
 		int e = 1;

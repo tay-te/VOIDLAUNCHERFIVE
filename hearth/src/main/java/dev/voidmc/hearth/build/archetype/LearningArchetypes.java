@@ -1,6 +1,7 @@
 package dev.voidmc.hearth.build.archetype;
 
 import dev.voidmc.hearth.build.ArchetypeRegistry;
+import dev.voidmc.hearth.build.archetype.civic.Monastery;
 import dev.voidmc.hearth.build.archetype.civic.Observatory;
 import dev.voidmc.hearth.build.archetype.civic.Shrine;
 import dev.voidmc.hearth.build.archetype.work.AlchemistTower;
@@ -14,5 +15,6 @@ public final class LearningArchetypes {
 		registry.register(new Shrine());
 		registry.register(new AlchemistTower());
 		registry.register(new Observatory());
+		registry.register(new Monastery());
 	}
 }
