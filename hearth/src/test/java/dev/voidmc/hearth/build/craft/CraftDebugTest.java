@@ -76,6 +76,9 @@ class CraftDebugTest {
 		for (var p : bp.pois()) {
 			System.out.println("POI " + p.type() + " " + p.job() + " at " + p.pos());
 		}
+		for (var p : d.pois()) {
+			System.out.println("LOCALPOI " + p.type() + " " + p.job() + " at " + p.x() + "," + p.y() + "," + p.z());
+		}
 		for (var e : bp.entrances()) {
 			System.out.println("ENTRANCE " + e);
 		}

@@ -296,7 +296,7 @@ public final class Butcher implements Archetype {
 		int z1 = s.dp - 1;
 		int bx = s.backDoor;
 		Yard.trodden(d, 0, z0, w - 1, z1, 0);
-		Floorplan yp = new Floorplan(0, z0, w - 1, z1, 0, 2).blockDrawn(d);
+		Floorplan yp = Craft.yardPlan(d, 0, z0, w - 1, z1);
 		yp.keep(bx, z0);
 		boolean houseLeft = bx > (w - 1) / 2;
 		int sx0 = houseLeft ? 0 : w - 3;

@@ -4,5 +4,7 @@
   "hearth.archetype.work.butcher": "Butcher",
   "hearth.sign.butcher": "Butcher",
   "hearth.archetype.work.chandler": "Chandler",
-  "hearth.sign.chandler": "Chandler"
+  "hearth.sign.chandler": "Chandler",
+  "hearth.archetype.work.dye_works": "Dye Works",
+  "hearth.sign.dye_works": "Dyer"
 }

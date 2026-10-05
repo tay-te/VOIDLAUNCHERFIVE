@@ -323,7 +323,7 @@ public final class Chandler implements Archetype {
 		int z1 = s.dp - 1;
 		int bx = s.backDoor;
 		Yard.trodden(d, 0, z0, w - 1, z1, 0);
-		Floorplan yp = new Floorplan(0, z0, w - 1, z1, 0, 2).blockDrawn(d);
+		Floorplan yp = Craft.yardPlan(d, 0, z0, w - 1, z1);
 		yp.keep(bx, z0);
 		// the kettle in the far corner from the back door under a little pent against the back fence
 		boolean kLeft = bx > (w - 1) / 2;

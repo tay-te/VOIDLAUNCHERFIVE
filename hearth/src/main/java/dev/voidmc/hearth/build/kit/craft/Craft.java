@@ -53,8 +53,7 @@ public final class Craft {
 	 */
 	public static void roof(Draft d, Hall hall, RoofForm form, Direction.Axis axis, int reserve, Consumer<Roofs.Plan> extras) {
 		RoofForm base = form == RoofForm.CROSS_GABLE ? RoofForm.GABLE : form;
-		boolean steepable = steepRoofs(d) && (base == RoofForm.GABLE || base == RoofForm.GAMBREL);
-		if (!steepable) {
+		if (base == RoofForm.FLAT || base == RoofForm.DOME || base == RoofForm.CONE) {
 			hall.roof(form, axis, reserve, extras);
 			return;
 		}
@@ -62,12 +61,25 @@ public final class Craft {
 		int plate = hall.plateY();
 		int limit = d.maxHeight() - 1 - reserve;
 		Roofs.Opts o = Roofs.Opts.of(d);
-		Roofs.Opts chosen = null;
-		for (double p : new double[]{1.5, 1.25}) {
-			if (p <= o.pitch()) {
-				break;
+		List<Double> pitches = new java.util.ArrayList<>();
+		if (steepRoofs(d) && (base == RoofForm.GABLE || base == RoofForm.GAMBREL)) {
+			for (double p : new double[]{1.5, 1.25}) {
+				if (p > o.pitch()) {
+					pitches.add(p);
+				}
 			}
+		}
+		for (double p = o.pitch(); p >= 0.5 - 1e-9; p -= 0.25) {
+			pitches.add(p);
+		}
+		Roofs.Opts chosen = null;
+		for (double p : pitches) {
 			Roofs.Opts t = o.withPitch(base == RoofForm.GAMBREL ? Math.min(p, 1.25) : p);
+			if (t.pitch() > 1.0 && (base == RoofForm.GABLE || base == RoofForm.GAMBREL)) {
+				// a steep gable ends flush with its wall: a block of verge on a steep slope is a wall of tiles in front of the
+				// gable, and the boarded or rendered triangle should show
+				t = t.withEaves(o.eaves(), 0);
+			}
 			if (Hall.ridgeY(d, tr[0], tr[1], tr[2], tr[3], plate, base, axis, t, hall.body.partyLeft, hall.body.partyRight) <= limit) {
 				chosen = t;
 				break;
@@ -78,6 +90,13 @@ public final class Craft {
 			return;
 		}
 		Roofs.Plan plan = Roofs.plan(d, tr[0], tr[1], tr[2], tr[3], plate, base, axis, chosen, hall.body.partyLeft, hall.body.partyRight);
+		int width = tr[2] - tr[0] + 1;
+		if (form == RoofForm.CROSS_GABLE && axis == Direction.Axis.X && width >= 7) {
+			Side front = hall.body.side(hall.body.storeys() - 1, Dirs.FRONT);
+			int gw = width >= 8 ? 5 : 3;
+			int centre = hall.door != null ? hall.door : (tr[0] + tr[2]) / 2;
+			plan.crossGable(front, Math.clamp(centre - gw / 2, tr[0] + 1, tr[2] - gw), gw, d);
+		}
 		if (extras != null) {
 			extras.accept(plan);
 		}
@@ -85,7 +104,7 @@ public final class Craft {
 		hall.form = form;
 		hall.ridge = axis;
 		hall.top = hall.roof.ridgeY;
-		if (Bohemia.is(d)) {
+		if (Bohemia.is(d) && chosen.pitch() > 1.0) {
 			Bohemia.carryRidge(d, hall.roof);
 		}
 	}
@@ -197,5 +216,34 @@ public final class Craft {
 			}
 		}
 		return Integer.MIN_VALUE;
+	}
+
+	/**
+	 * A walkable plan of a yard at standing level 0 over x0..x1 × z0..z1 for laying out its props: cells blocked where
+	 * something already stands that cannot be walked over (a low step, a slab or a carpet can be), or where there is no
+	 * footing (a pit, a channel). See {@link dev.voidmc.hearth.build.kit.trade.Floorplan}.
+	 */
+	public static dev.voidmc.hearth.build.kit.trade.Floorplan yardPlan(Draft d, int x0, int z0, int x1, int z1) {
+		var fp = new dev.voidmc.hearth.build.kit.trade.Floorplan(x0, z0, x1, z1, 0, 2);
+		for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+			for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+				BlockState st = d.get(x, 0, z);
+				BlockState below = d.get(x, -1, z);
+				boolean step = st != null && (st.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+					&& st.getValue(net.minecraft.world.level.block.StairBlock.HALF) == net.minecraft.world.level.block.state.properties.Half.BOTTOM
+					|| st.getBlock() instanceof net.minecraft.world.level.block.SlabBlock
+					&& st.getValue(net.minecraft.world.level.block.SlabBlock.TYPE) == net.minecraft.world.level.block.state.properties.SlabType.BOTTOM
+					|| st.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock);
+				boolean wet = below != null && below.is(Blocks.WATER);
+				// no headroom: a sill, a flower box or a step of the house overhead
+				BlockState head = d.get(x, 1, z);
+				boolean low = head != null && !head.isAir()
+					&& !head.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO).isEmpty();
+				if (st != null && !st.isAir() && !step || wet || low) {
+					fp.block(x, z);
+				}
+			}
+		}
+		return fp;
 	}
 }
