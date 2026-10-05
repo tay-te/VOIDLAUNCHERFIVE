@@ -162,13 +162,14 @@ public final class Restorer {
 	}
 
 	private static void place(ServerLevel level, BlockPos pos, BlockState state, @Nullable CompoundTag tag) {
-		level.setBlock(pos, state, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+		level.setBlock(pos, state, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_ON_PLACE);
 		if (tag != null) {
 			BlockEntity be = level.getBlockEntity(pos);
 			if (be != null) {
 				try (ProblemReporter.ScopedCollector reporter = new ProblemReporter.ScopedCollector(be.problemPath(), RepairModule.LOG)) {
 					be.loadWithComponents(TagValueInput.create(reporter, level.registryAccess(), tag));
-					be.setChanged();
+					// (not be.setChanged(): its comparator update reads the neighbours, which may be in a chunk not loaded)
+					level.blockEntityChanged(pos);
 					level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
 				}
 			}

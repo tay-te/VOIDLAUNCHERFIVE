@@ -31,7 +31,8 @@ import org.jspecify.annotations.Nullable;
  * up are taken down, so nothing of a player's is touched. Every block is recorded in the ledger before it is placed.
  */
 public final class Dressings {
-	private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+	/** No neighbour updates and no {@code onPlace} (a dressing never reacts to what is next to it, nor reads the next chunk). */
+	private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_ON_PLACE;
 
 	private Dressings() {
 	}
@@ -289,7 +290,8 @@ public final class Dressings {
 				if (be != null) {
 					be.loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(net.minecraft.util.ProblemReporter.DISCARDING,
 						level.registryAccess(), p.tag));
-					be.setChanged();
+					// (not be.setChanged(): its comparator update reads the neighbours, which may be in a chunk not loaded)
+					level.blockEntityChanged(p.pos);
 				}
 			}
 		}

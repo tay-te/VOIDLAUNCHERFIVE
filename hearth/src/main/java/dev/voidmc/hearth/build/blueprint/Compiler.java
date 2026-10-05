@@ -70,11 +70,37 @@ public final class Compiler {
 	private Compiler() {
 	}
 
+	/**
+	 * What compiling costs, phase by phase, summed over every compile in this JVM (nanoseconds): the light pass (with the
+	 * sealing of voids), shape resolution, the campaign split, and the whole compile. Read by the dev harness and the
+	 * blueprint bench; cheap enough to keep on.
+	 */
+	public static final class Timings {
+		public static final java.util.concurrent.atomic.LongAdder LIGHT = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.LongAdder SHAPES = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.LongAdder CAMPAIGNS = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.LongAdder TOTAL = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.LongAdder COUNT = new java.util.concurrent.atomic.LongAdder();
+
+		private Timings() {
+		}
+	}
+
 	private record Step(int x, int y, int z, BlockState state, @Nullable CompoundTag tag, StageKind stage, double support, int rank, int dist,
 		int sequence, int order) {
 	}
 
 	public static BlueprintImpl compile(Draft d) {
+		long t0 = System.nanoTime();
+		try {
+			return compileTimed(d, t0);
+		} finally {
+			Timings.TOTAL.add(System.nanoTime() - t0);
+			Timings.COUNT.increment();
+		}
+	}
+
+	private static BlueprintImpl compileTimed(Draft d, long t0) {
 		Site site = d.site();
 		LocalFrame frame = d.frame();
 		// light what the archetype left dark (docs/LIVING_WORLD.md §1), before shapes are final and steps ordered (the pass
@@ -87,11 +113,16 @@ public final class Compiler {
 			dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 		}
 		dev.voidmc.hearth.build.kit.light.AutoLighter.light(d);
+		long t1 = System.nanoTime();
+		Timings.LIGHT.add(t1 - t0);
 		ShapeResolver.resolve(d, site);
+		long t2 = System.nanoTime();
+		Timings.SHAPES.add(t2 - t1);
 
 		int[] main = d.entrances().isEmpty() ? new int[]{d.frontage() / 2, 0, -1} : d.entrances().get(0);
 		// a blueprint built in campaigns (Draft#campaign) is emitted campaign by campaign, each one's stages in StageKind order
 		it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap campaignOf = d.inCampaigns() ? campaigns(d) : null;
+		Timings.CAMPAIGNS.add(System.nanoTime() - t2);
 		java.util.TreeMap<Integer, EnumMap<StageKind, List<Step>>> byCampaign = new java.util.TreeMap<>();
 		List<Poi> pois = new ArrayList<>();
 		int[] beds = {0};

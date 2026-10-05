@@ -535,6 +535,10 @@ public final class SimSettlement implements Settlement {
 		p.reason = reason == null ? "" : reason;
 		this.plots.put(p.id(), p);
 		this.bounds = null;
+		if (this.ctx != null && this.ctx.deferBlueprints()) {
+			// its blueprint made in the background from now, so it is ready by the time its builders need it
+			blueprintsReady(p);
+		}
 		// an excavation employs its diggers from the day it is staked out
 		this.derivedDirty = true;
 		markDirty();
@@ -740,20 +744,34 @@ public final class SimSettlement implements Settlement {
 				}
 			}
 			if (this.poiByType == null || key != this.poiCacheKey) {
+				// each plot's points are read from its blueprint once; on the live server a blueprint not yet made is made in
+				// the background and the lists are rebuilt (without it until then) on a later tick
 				java.util.EnumMap<PoiType, List<Poi>> byType = new java.util.EnumMap<>(PoiType.class);
+				boolean complete = true;
+				boolean defer = this.ctx.deferBlueprints();
 				for (SimPlot p : this.plots.values()) {
 					if (p.state == PlotState.BUILT) {
-						try {
-							for (Poi poi : ctx().blueprints().blueprint(p.spec(), ctx().terrain()).pois()) {
-								byType.computeIfAbsent(poi.type(), k -> new ArrayList<>()).add(poi);
+						List<Poi> own = p.pois;
+						if (own == null) {
+							if (defer && !ctx().blueprints().prepare(p.spec(), ctx().terrain())) {
+								complete = false;
+								continue;
 							}
-						} catch (RuntimeException e) {
-							// an archetype that no longer exists has no points of interest
+							try {
+								own = List.copyOf(ctx().blueprints().blueprint(p.spec(), ctx().terrain()).pois());
+							} catch (RuntimeException e) {
+								// an archetype that no longer exists has no points of interest
+								own = List.of();
+							}
+							p.pois = own;
+						}
+						for (Poi poi : own) {
+							byType.computeIfAbsent(poi.type(), k -> new ArrayList<>()).add(poi);
 						}
 					}
 				}
 				this.poiByType = byType;
-				this.poiCacheKey = key;
+				this.poiCacheKey = complete ? key : key + 1;
 			}
 		}
 		List<Poi> found = this.poiByType.get(type);
@@ -765,6 +783,28 @@ public final class SimSettlement implements Settlement {
 		if (w != null) {
 			SettlementEvents.PLOT_ABANDONED.invoker().onPlotAbandoned(w, this, p, why);
 		}
+	}
+
+	/**
+	 * Whether the plot's facts can be read now without making a blueprint on the server thread: they are known, the
+	 * blueprints they need are ready, or this context makes blueprints inline ({@link SimContext#deferBlueprints}). If
+	 * not, the blueprints are being made in the background and the plot waits for them.
+	 */
+	public boolean factsReady(SimPlot p) {
+		return p.facts != null || this.ctx == null || !this.ctx.deferBlueprints() || blueprintsReady(p);
+	}
+
+	/** Whether the blueprints a plot needs (its own, and the one it changes or replaces) are ready, starting any that are not. */
+	public boolean blueprintsReady(SimPlot p) {
+		var blueprints = ctx().blueprints();
+		boolean ready = blueprints.prepare(p.spec(), ctx().terrain());
+		if (p.replaces != SimPlot.NONE || p.replacedSpec() != null) {
+			PlotSpec old = replacedSpec(p);
+			if (old != null) {
+				ready &= blueprints.prepare(old, ctx().terrain());
+			}
+		}
+		return ready;
 	}
 
 	/** The plot's blueprint facts, read once. A plot whose archetype no longer exists gets none and is abandoned. */
@@ -1000,6 +1040,7 @@ public final class SimSettlement implements Settlement {
 	/** Beds, job slots and storage from the standing buildings. */
 	public void recomputeDerived() {
 		this.derivedDirty = false;
+		boolean retryDerived = false;
 		this.beds = 0;
 		this.storageBuildings = 0;
 		this.buildings = 0;
@@ -1010,6 +1051,11 @@ public final class SimSettlement implements Settlement {
 				// an excavation employs its diggers while it is being dug
 				p.digs = true;
 				this.activeDigs++;
+				if (!factsReady(p)) {
+					// its blueprint is being made: counted again (with its diggers' places) once it is ready
+					retryDerived = true;
+					continue;
+				}
 				int[] jobs = facts(p).jobs();
 				p.jobs = jobs.clone();
 				for (int j = 0; j < jobs.length && j < this.jobSlots.length; j++) {
@@ -1061,6 +1107,9 @@ public final class SimSettlement implements Settlement {
 				}
 			}
 			this.stockpile.setCapacity(cap);
+		}
+		if (retryDerived) {
+			this.derivedDirty = true;
 		}
 	}
 

@@ -36,8 +36,28 @@ public final class PoiScanner {
 	private PoiScanner() {
 	}
 
+	/**
+	 * Whether every chunk a scan of this box reads (the box and a block round it: a door's sides, the spot beside a
+	 * workstation) is loaded, so the scan never makes the server load or generate one (it would wait for it in the tick).
+	 */
+	public static boolean loaded(ServerLevel level, BoundingBox box) {
+		box = clamp(box);
+		for (int cx = (box.minX() - 2) >> 4; cx <= (box.maxX() + 2) >> 4; cx++) {
+			for (int cz = (box.minZ() - 2) >> 4; cz <= (box.maxZ() + 2) >> 4; cz++) {
+				if (level.getChunkSource().getChunkNow(cx, cz) == null) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	/** The places in a box; nothing in chunks that are not loaded (callers check {@link #loaded} first). */
 	public static List<Poi> scan(ServerLevel level, BoundingBox box) {
 		box = clamp(box);
+		if (!loaded(level, box)) {
+			return new ArrayList<>();
+		}
 		List<Poi> out = new ArrayList<>();
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
 		for (int x = box.minX(); x <= box.maxX(); x++) {

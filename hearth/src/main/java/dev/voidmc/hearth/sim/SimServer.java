@@ -84,6 +84,9 @@ public final class SimServer {
 		public final LongAdder saveNanos = new LongAdder();
 		public final LongAdder saved = new LongAdder();
 		public final LongAdder tickNanos = new LongAdder();
+		/** The longest a tick's sim work took, and how many took over 5 ms (a hitch a player can feel at 20 tps). */
+		public final AtomicLong maxTickNanos = new AtomicLong();
+		public final LongAdder slowTicks = new LongAdder();
 	}
 
 	private SimServer(MinecraftServer server, SimRules rules) {
@@ -257,7 +260,12 @@ public final class SimServer {
 			this.stats.saved.add(saved);
 			this.stats.saveNanos.add(System.nanoTime() - saveStart);
 		}
-		this.stats.tickNanos.add(System.nanoTime() - tickStart);
+		long tickNanos = System.nanoTime() - tickStart;
+		this.stats.tickNanos.add(tickNanos);
+		this.stats.maxTickNanos.accumulateAndGet(tickNanos, Math::max);
+		if (tickNanos > 5_000_000L) {
+			this.stats.slowTicks.increment();
+		}
 	}
 
 	// ---------------------------------------------------------------- embodiment and arrivals

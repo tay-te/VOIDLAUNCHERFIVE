@@ -14,6 +14,17 @@ public interface BlueprintService {
 	 */
 	Blueprint blueprint(PlotSpec spec, TerrainProbe terrain);
 
+	/**
+	 * Whether {@link #blueprint} would answer this spec at once (from the cache); if not, starts making it in the
+	 * background so that it soon will. For callers on the server thread that can wait a few ticks rather than hold the
+	 * tick while a large building is drawn and compiled (a castle takes up to a second). A service that makes nothing in
+	 * the background answers true (callers then make it inline, as before). Never throws: an unknown archetype answers
+	 * true, and {@link #blueprint} then throws as it always has.
+	 */
+	default boolean prepare(PlotSpec spec, TerrainProbe terrain) {
+		return true;
+	}
+
 	@Nullable ArchetypeInfo archetype(Identifier id);
 
 	Collection<ArchetypeInfo> archetypes();

@@ -6,7 +6,6 @@ import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.plan.catalogue.Archetypes;
 import dev.voidmc.hearth.plan.catalogue.Catalogue;
 import dev.voidmc.hearth.plan.road.Polyline;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 
 /**
@@ -59,9 +58,8 @@ public final class PlotGeometry {
 			return;
 		}
 		if (Archetypes.isLinear(id)) {
-			CompoundTag p = spec.params();
-			int[] pts = p.getIntArray("points").orElse(null);
-			int width = p.getIntOr("width", 1);
+			int[] pts = spec.paramInts("points").orElse(null);
+			int width = spec.paramInt("width", 1);
 			if (pts != null && pts.length >= 6) {
 				Polyline.corridor(pts, width, visitor);
 				return;
@@ -85,9 +83,8 @@ public final class PlotGeometry {
 		forEachColumn(spec, (x, z) -> occ.mark(x, z, code));
 		// the side gaps a detached building keeps (params "gap", "back_gap") stay open ground
 		if (!Archetypes.isLinear(spec.archetype())) {
-			CompoundTag p = spec.params();
-			int gap = p.getIntOr("gap", 0);
-			int back = p.getIntOr("back_gap", 0);
+			int gap = spec.paramInt("gap", 0);
+			int back = spec.paramInt("back_gap", 0);
 			if (gap > 0 || back > 0) {
 				int x0 = spec.origin().getX();
 				int z0 = spec.origin().getZ();

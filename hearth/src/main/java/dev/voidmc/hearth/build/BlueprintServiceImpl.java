@@ -46,6 +46,20 @@ public final class BlueprintServiceImpl implements BlueprintService {
 	private long cachedSteps;
 	private final Map<Key, BlueprintImpl> cache;
 	private final Set<String> reported = ConcurrentHashMap.newKeySet();
+	/** Specs being made in the background ({@link #prepare}), and those that failed there (made inline next time). */
+	private final Set<Key> pending = ConcurrentHashMap.newKeySet();
+	private final Set<Key> failed = ConcurrentHashMap.newKeySet();
+
+	/**
+	 * The background makers: two daemon threads a little below normal priority, shared by every service in the JVM. Their
+	 * queue is unbounded but holds each spec once ({@link #pending}).
+	 */
+	private static final java.util.concurrent.ExecutorService MAKERS = java.util.concurrent.Executors.newFixedThreadPool(2, r -> {
+		Thread t = new Thread(r, "hearth-blueprints");
+		t.setDaemon(true);
+		t.setPriority(Thread.NORM_PRIORITY - 1);
+		return t;
+	});
 
 	public BlueprintServiceImpl(ArchetypeRegistry archetypes, StyleRegistry styles) {
 		this(archetypes, styles, DEFAULT_CACHE);
@@ -56,6 +70,43 @@ public final class BlueprintServiceImpl implements BlueprintService {
 		this.styles = styles;
 		this.capacity = capacity;
 		this.cache = new LinkedHashMap<>(64, 0.75F, true);
+	}
+
+	/**
+	 * Cache hits and misses, and what the misses cost (draw and compile), with those on the server thread apart: a
+	 * blueprint made there holds the tick up. For the dev harness, {@code /hearth sim stats} and the tours.
+	 */
+	public static final class Stats {
+		public static final java.util.concurrent.atomic.LongAdder HITS = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.LongAdder MISSES = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.LongAdder NANOS = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.LongAdder SERVER_MISSES = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.LongAdder SERVER_NANOS = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.AtomicLong SERVER_MAX = new java.util.concurrent.atomic.AtomicLong();
+		/** Specs handed to the background makers ({@link #prepare}). */
+		public static final java.util.concurrent.atomic.LongAdder BACKGROUND = new java.util.concurrent.atomic.LongAdder();
+
+		private Stats() {
+		}
+
+		static void record(long nanos) {
+			MISSES.increment();
+			NANOS.add(nanos);
+			if ("Server thread".equals(Thread.currentThread().getName())) {
+				SERVER_MISSES.increment();
+				SERVER_NANOS.add(nanos);
+				SERVER_MAX.accumulateAndGet(nanos, Math::max);
+			}
+		}
+
+		public static String line() {
+			long m = MISSES.sum();
+			long sm = SERVER_MISSES.sum();
+			return String.format(java.util.Locale.ROOT,
+				"blueprints: %d cache hits, %d made (%.1f ms avg), %d handed to the background; on the server thread %d made, %.1f ms avg, %.1f ms max, %.0f ms in all",
+				HITS.sum(), m, m == 0 ? 0 : NANOS.sum() / 1e6 / m, BACKGROUND.sum(), sm, sm == 0 ? 0 : SERVER_NANOS.sum() / 1e6 / sm, SERVER_MAX.get() / 1e6,
+				SERVER_NANOS.sum() / 1e6);
+		}
 	}
 
 	private record Key(PlotSpec spec, TerrainProbe probe, int generation) {
@@ -75,16 +126,58 @@ public final class BlueprintServiceImpl implements BlueprintService {
 		return compiled(spec, terrain);
 	}
 
+	@Override
+	public boolean prepare(PlotSpec spec, TerrainProbe terrain) {
+		Key key = new Key(spec, terrain, this.styles.generation());
+		synchronized (this.cache) {
+			// (a lookup, so it is the most recently used: its caller is about to ask for it)
+			if (this.cache.get(key) != null) {
+				return true;
+			}
+		}
+		if (this.archetypes.get(spec.archetype()) == null || this.failed.contains(key)) {
+			return true;
+		}
+		if (this.pending.add(key)) {
+			Stats.BACKGROUND.increment();
+			try {
+				MAKERS.execute(() -> {
+					try {
+						compiled(spec, terrain);
+					} catch (RuntimeException e) {
+						if (this.failed.size() < 4096) {
+							this.failed.add(key);
+						}
+					} finally {
+						this.pending.remove(key);
+					}
+				});
+			} catch (java.util.concurrent.RejectedExecutionException e) {
+				this.pending.remove(key);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Specs waiting for a background maker or being made. */
+	public static int pendingCount(BlueprintServiceImpl s) {
+		return s.pending.size();
+	}
+
 	/** {@link #blueprint} with the implementation type (for tools and tests). */
 	public BlueprintImpl compiled(PlotSpec spec, TerrainProbe terrain) {
 		Key key = new Key(spec, terrain, this.styles.generation());
 		synchronized (this.cache) {
 			BlueprintImpl b = this.cache.get(key);
 			if (b != null) {
+				Stats.HITS.increment();
 				return b;
 			}
 		}
+		long t0 = System.nanoTime();
 		BlueprintImpl b = Compiler.compile(draw(spec, terrain));
+		Stats.record(System.nanoTime() - t0);
 		synchronized (this.cache) {
 			BlueprintImpl old = this.cache.put(key, b);
 			this.cachedSteps += b.totalSteps() - (old == null ? 0 : old.totalSteps());

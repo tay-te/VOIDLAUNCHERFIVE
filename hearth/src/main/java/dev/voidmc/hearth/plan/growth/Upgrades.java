@@ -128,7 +128,7 @@ public final class Upgrades {
 			}
 		}
 		for (PlotView p : ctx.settlement.plots()) {
-			int r = p.spec().params().getIntOr("replaces", -1);
+			int r = p.spec().paramInt("replaces", -1);
 			if (r >= 0) {
 				out.add(r);
 			}

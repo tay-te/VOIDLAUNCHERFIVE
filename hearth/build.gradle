@@ -140,6 +140,21 @@ fileTree('docs/buildings') { include '*_preview.gradle', 'townhome_street.gradle
 	}
 }
 
+// What blueprints cost to draw and compile, per family (the light pass, shapes, campaigns), without the game.
+//   ./gradlew blueprintBench -Parchetype=all -Pstyle=all -Pterrain=slope
+tasks.register('blueprintBench', JavaExec) {
+	group = 'hearth'
+	description = 'Times drawing and compiling every catalogue blueprint, per family'
+	classpath = sourceSets.gametest.runtimeClasspath
+	mainClass = 'dev.voidmc.hearth.gametest.perf.BlueprintBench'
+	jvmArgs '-Djava.awt.headless=true', '-Xmx3g'
+	args = [
+		project.findProperty('archetype') ?: 'all',
+		project.findProperty('style') ?: 'all',
+		project.findProperty('terrain') ?: 'slope'
+	]
+}
+
 // Plans a settlement on synthetic or generator terrain, grows it for some days, and renders it (plan + isometric).
 //   ./gradlew settlementPreview -Pculture=temperate -Pdays=200 -Pterrain=hills -Pseed=1
 tasks.register('settlementPreview', JavaExec) {

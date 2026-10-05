@@ -70,6 +70,26 @@ public record PlotSpec(Identifier archetype, Identifier style, long seed, BlockP
 		return this.origin.getY();
 	}
 
+	/** Whether a param is set (without copying them all, as {@link #params} does: the planner reads every plot's often). */
+	public boolean hasParam(String key) {
+		return this.params.contains(key);
+	}
+
+	/** One int param, or {@code fallback}, without copying the params. */
+	public int paramInt(String key, int fallback) {
+		return this.params.getIntOr(key, fallback);
+	}
+
+	/** One string param, or {@code fallback}, without copying the params. */
+	public String paramString(String key, String fallback) {
+		return this.params.getStringOr(key, fallback);
+	}
+
+	/** One int-array param (a copy of it), without copying the rest. */
+	public java.util.Optional<int[]> paramInts(String key) {
+		return this.params.getIntArray(key).map(int[]::clone);
+	}
+
 	/** The params, as a copy (the record keeps its own so a spec never changes once made). */
 	@Override
 	public CompoundTag params() {
