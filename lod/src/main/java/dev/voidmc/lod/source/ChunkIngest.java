@@ -9,11 +9,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.QuartPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -73,6 +75,8 @@ public final class ChunkIngest {
 
 	// one chunk's palette, reused chunk to chunk: the kinds as fields, so finding a column's needs no allocation
 	private final int[] columns = new int[256];
+	private final byte[] light = new byte[256];
+	private final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 	private final BlockState[] kindTop = new BlockState[ChunkColumns.MAX_PALETTE];
 	private final BlockState[] kindSide = new BlockState[ChunkColumns.MAX_PALETTE];
 	private final BlockState[] kindSoil = new BlockState[ChunkColumns.MAX_PALETTE];
@@ -179,16 +183,32 @@ public final class ChunkIngest {
 		this.lastKind = -1;
 		for (int z = 0; z < 16; z++) {
 			for (int x = 0; x < 16; x++) {
-				this.columns[x + z * 16] = this.column(chunk, sections, minY, x, z);
+				int packed = this.column(chunk, sections, minY, x, z);
+				this.columns[x + z * 16] = packed;
+				this.light[x + z * 16] = packed == ChunkColumns.VOID ? 0 : this.light(chunk, x, z, ChunkColumns.ground(packed));
 			}
 		}
-		ChunkColumns data = new ChunkColumns(this.columns.clone(), Arrays.copyOf(this.palette, this.kinds));
+		ChunkColumns data = new ChunkColumns(this.columns.clone(), Arrays.copyOf(this.palette, this.kinds), this.light.clone());
 		Arrays.fill(this.palette, 0, this.kinds, null);
 		Arrays.fill(this.kindBiome, 0, this.kinds, null);
 		ChunkPos pos = chunk.getPos();
 		if (!this.store.put(pos.x(), pos.z(), data)) {
 			this.unchanged++;
 		}
+	}
+
+	/**
+	 * The block light over a column: on its ground (a path by a torch, the floor of a lit yard) or on whatever stands
+	 * highest there (a roof under a lantern, a torch on a wall), whichever is brighter.
+	 */
+	private byte light(LevelChunk chunk, int x, int z, int ground) {
+		ChunkPos c = chunk.getPos();
+		int wx = c.getMinBlockX() + x, wz = c.getMinBlockZ() + z;
+		// the air over the highest block, and over the ground (the first y above it)
+		int over = chunk.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) + 1;
+		int a = this.level.getBrightness(LightLayer.BLOCK, this.pos.set(wx, ground, wz));
+		int b = over == ground ? a : this.level.getBrightness(LightLayer.BLOCK, this.pos.set(wx, over, wz));
+		return (byte) Math.max(a, b);
 	}
 
 	private static BlockState state(LevelChunkSection[] sections, int minY, int x, int y, int z) {

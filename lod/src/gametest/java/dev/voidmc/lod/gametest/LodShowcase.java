@@ -74,6 +74,7 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final int TIME = Integer.getInteger("lod.show.time", 6000);
 	private static final boolean INGEST = Boolean.getBoolean("lod.show.ingest");
 	private static final boolean MULTIPLAYER = Boolean.getBoolean("lod.show.mp");
+	private static final boolean TOWN = Boolean.getBoolean("lod.show.town");
 	/** How far from the build the camera stands to photograph it: well past the render distance. */
 	private static final int AWAY = 480;
 
@@ -297,6 +298,9 @@ public class LodShowcase implements FabricClientGameTest {
 				this.settings(context, spots.get(Math.min(VIEWS, spots.size()) - 1));
 			}
 
+			if (TOWN) {
+				this.town(context, world.getServer(), valley.x(), valley.z() + 256, "town");
+			}
 			if (INGEST) {
 				after = this.build(context, world.getServer(), valley.x(), valley.z(), "ingest");
 			}
@@ -399,6 +403,44 @@ public class LodShowcase implements FabricClientGameTest {
 		context.runOnClient(mc -> VoidLod.get().setEnabled(true));
 		this.photograph(context, name + "_after", true);
 		return from;
+	}
+
+	/**
+	 * Lays a town's worth of light at {@code (x, z)} while its chunks are loaded (a stone deck with glowstone streets
+	 * every 16 blocks), then photographs it at midnight from {@value #AWAY} blocks away, past the render distance, with
+	 * the LOD and without: it only glows in the first if the chunks' block light went into the LOD.
+	 */
+	private void town(ClientGameTestContext context, TestServerContext server, int x, int z, String name) {
+		// heights only once each place's chunks are loaded: an unloaded column reads as the bottom of the world
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d 300 %d 0 60", x + AWAY, z));
+		this.settle(context, SETTLE_MS);
+		int far = server.computeOnServer(s -> s.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, x + AWAY, z));
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d 300 %d 0 60", x, z));
+		this.settle(context, SETTLE_MS);
+		int deck = server.computeOnServer(s -> s.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, x, z)) + 4;
+		int eye = Math.max(deck, far) + 60;
+		float pitch = (float) Math.toDegrees(Math.atan2(eye - deck, AWAY));
+		server.runCommand("gamerule max_block_modifications 1000000");
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d stone_bricks", x - 48, deck, z - 48, x + 47, deck, z + 47));
+		for (int d = -48; d <= 48; d += 16) {
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d glowstone", x - 48, deck, z + d, x + 47, deck, z + d));
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d glowstone", x + d, deck, z - 48, x + d, deck, z + 47));
+		}
+		for (int i = 0; i < 60; i++) {
+			context.waitTicks(10);
+			if (i >= 4 && context.computeOnClient(mc -> VoidLod.get().ingest() == null || VoidLod.get().ingest().queued() == 0)) {
+				break;
+			}
+		}
+		server.runCommand("time set 18000");
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d %d %d 90 %.1f", x + AWAY, eye, z, pitch));
+		this.settle(context, SETTLE_MS);
+		context.runOnClient(mc -> VoidLod.get().setEnabled(false));
+		context.waitTicks(20);
+		this.shoot(context, name + "_off");
+		context.runOnClient(mc -> VoidLod.get().setEnabled(true));
+		this.photograph(context, name, true);
+		server.runCommand("time set 6000");
 	}
 
 	/**

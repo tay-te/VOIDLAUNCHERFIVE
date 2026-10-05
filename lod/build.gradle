@@ -96,7 +96,7 @@ loom {
 			['void.lod.radius', 'void.lod.detail', 'void.lod.farDetail', 'void.lod.threads', 'void.lod.budget', 'void.lod.enabled', 'void.lod.haze', 'void.lod.smoothFrom',
 			 'void.lod.preset', 'void.lod.autoTune', 'void.lod.overPack', 'void.lod.occlusion', 'void.lod.ingest', 'lod.show.compare',
 			 'lod.show.seed', 'lod.show.distance', 'lod.show.settle', 'lod.show.views', 'lod.show.width', 'lod.show.height', 'lod.show.off', 'lod.show.only', 'lod.show.trace',
-			 'lod.show.settings', 'lod.show.ingest', 'lod.show.mp', 'lod.show.time'].each { key ->
+			 'lod.show.settings', 'lod.show.ingest', 'lod.show.town', 'lod.show.mp', 'lod.show.time'].each { key ->
 				if (project.hasProperty(key)) {
 					property key, project.property(key).toString()
 				}

@@ -233,7 +233,14 @@ into the LOD (`source/ChunkIngest`), and the far view shows the world as it is:
   the soil and the rock. The column keeps its ground height, water depth, canopy height and an index into
   the chunk's palette of *surfaces*: what its faces look like (the same texture colours and biome tints as
   the generator path) and their material ids, worked out once per kind of column ever. A chunk is
-  256 ints and a short palette, about 1.3 KB in memory: ten thousand chunks explored, 13 MB.
+  256 ints, 256 bytes of light and a short palette, about 1.5 KB in memory: ten thousand chunks explored,
+  15 MB.
+* **Lit at night.** Each column also keeps the block light over its surface (on its ground, or over the
+  highest thing standing there: a roof under a lantern, a torch on a wall). Light is summed like everything
+  else, so a cell glows by how much of it is lit, and it rides in the vertex (3 bits up close, 2 in the
+  compact far vertices, Distant Horizons' block-light nibble through a pack). The shader lights it through
+  vanilla's lightmap exactly as it lights a block by a torch, so a town the player has been to stays lit
+  on the horizon after dark, and lava always glows.
 * **Cheap on the client thread.** Chunks queue as they arrive and are read within 0.3 ms a frame. A chunk
   costs about 0.13 ms on forested Earth terrain (leaves, trunks and water to walk through) and 0.04 ms on
   plain land. A changed chunk is read again once its block updates have been quiet for 0.75 s, so an
@@ -281,6 +288,13 @@ again after leaving and rejoining, when its chunks never load:
 `./gradlew runClientGameTest -Plod.show.only=none -Plod.show.ingest=true` takes these;
 `-Plod.show.mp=true` does the same on a dedicated server.
 
+At midnight, glowstone streets laid on a deck in loaded chunks and seen from 480 blocks away, past the
+chunks (`-Plod.show.town=true`), in the LOD's own renderer and through Complementary Reimagined:
+
+| LOD | Through a shader pack |
+|---|---|
+| ![town at night](docs/town_night.jpg) | ![town at night, Complementary](docs/town_night_pack.jpg) |
+
 ## Sodium and Iris
 
 * **Sodium** (0.9.2 tested) replaces the chunk renderer, but its chunks still draw inside vanilla's main
@@ -296,7 +310,10 @@ again after leaving and rejoining, when its chunks never load:
   (position, colour, a material such as leaves, grass, stone or water, a face normal and the sky light
   from the land's own occlusion), drawn into the pack's buffers before the chunks, which cover them
   wherever they stand. The water goes after the world's translucent pass, through `dh_water`, over a bed
-  drawn under it, so the sea shows its floor in the shallows as the chunks do. Depth is reversed, as
+  drawn under it, so the sea shows its floor in the shallows as the chunks do; past 12 blocks down the bed
+  steps down in 8-block levels instead of following every bump, still dark as deep water should be, in a
+  fraction of the faces (the sea view: 269k quads instead of 601k). The pack's draws are timed on the GPU
+  for F3 and auto-tune, which counts half of it: a pack's programs cost about twice the LOD's own. Depth is reversed, as
   everywhere in 26.3: Iris patches the pack's programs to write it reversed and to read every depth texture
   back the usual way round, so the LOD's depth clears to 0 and tests greater-or-equal.
 

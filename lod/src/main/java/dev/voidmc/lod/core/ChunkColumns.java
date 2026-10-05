@@ -9,8 +9,9 @@ import java.util.Arrays;
  *
  * <p>A column packs, low bits first: the ground's height (12 bits, biased, 0 for a column with nothing in it at
  * all), the water standing on it (8 bits, blocks deep, 0 for none), the leaves over it (6 bits, how far their top
- * stands above the ground, 0 for none), and its surface (6 bits, an index into the palette). About 1.1 KB a
- * chunk in memory, whatever is built on it.
+ * stands above the ground, 0 for none), and its surface (6 bits, an index into the palette). Beside them, the block
+ * light at each column's surface (torches, lanterns, lava), a byte each, so a lit town glows at night far off. About
+ * 1.4 KB a chunk in memory, whatever is built on it.
  */
 public final class ChunkColumns {
 	/** The packed column with nothing in it from the build limit down: the void under a sky island. */
@@ -22,16 +23,28 @@ public final class ChunkColumns {
 
 	final int[] columns;
 	final Surface[] palette;
+	/** The block light (0..15) over each column's surface, x fastest. */
+	final byte[] light;
 	/** The whole chunk as a statistic: the 16-block cell of the far field, and what the regions' cells sum. */
 	final int[] summary;
 
-	/** {@code columns} are 256 packed columns, x fastest; the array is the chunk's own from here on. */
+	/** A chunk with no light anywhere on it. */
 	public ChunkColumns(int[] columns, Surface[] palette) {
+		this(columns, palette, new byte[256]);
+	}
+
+	/**
+	 * {@code columns} are 256 packed columns and {@code light} their surfaces' block light, x fastest; the arrays are the
+	 * chunk's own from here on.
+	 */
+	public ChunkColumns(int[] columns, Surface[] palette, byte[] light) {
 		this.columns = columns;
 		this.palette = palette;
+		this.light = light;
 		ColumnSummary sum = new ColumnSummary();
-		for (int packed : columns) {
-			sum.add(packed, packed == VOID ? null : palette[look(packed)], false);
+		for (int c = 0; c < 256; c++) {
+			int packed = columns[c];
+			sum.add(packed, packed == VOID ? null : palette[look(packed)], false, light[c]);
 		}
 		this.summary = sum.freeze();
 	}
@@ -66,6 +79,11 @@ public final class ChunkColumns {
 		return this.columns[x + z * 16];
 	}
 
+	/** The block light over column {@code c} (x + z * 16). */
+	public int light(int c) {
+		return this.light[c];
+	}
+
 	public Surface surface(int packed) {
 		return this.palette[look(packed)];
 	}
@@ -91,7 +109,8 @@ public final class ChunkColumns {
 				int a = this.columns[x + z * 16];
 				int b = old.columns[x + z * 16];
 				// height, water and leaves first, then what the surfaces look like from above
-				if ((a & 0x3FFFFFF) == (b & 0x3FFFFFF) && (a == VOID || seenAlike(this.palette[look(a)], old.palette[look(b)]))) {
+				if ((a & 0x3FFFFFF) == (b & 0x3FFFFFF) && this.light[x + z * 16] == old.light[x + z * 16]
+					&& (a == VOID || seenAlike(this.palette[look(a)], old.palette[look(b)]))) {
 					continue;
 				}
 				n++;
@@ -113,7 +132,8 @@ public final class ChunkColumns {
 
 	@Override
 	public boolean equals(Object o) {
-		return o instanceof ChunkColumns c && Arrays.equals(this.columns, c.columns) && Arrays.equals(this.palette, c.palette);
+		return o instanceof ChunkColumns c && Arrays.equals(this.columns, c.columns) && Arrays.equals(this.palette, c.palette)
+			&& Arrays.equals(this.light, c.light);
 	}
 
 	@Override

@@ -123,8 +123,9 @@ public final class IngestSource implements TerrainSource {
 		int z0 = z & 15;
 		for (int j = 0; j < size; j++) {
 			for (int i = 0; i < size; i++) {
-				int packed = c.columns[x0 + i + (z0 + j) * 16];
-				r.sum.add(packed, packed == ChunkColumns.VOID ? null : c.palette[ChunkColumns.look(packed)], exact);
+				int at = x0 + i + (z0 + j) * 16;
+				int packed = c.columns[at];
+				r.sum.add(packed, packed == ChunkColumns.VOID ? null : c.palette[ChunkColumns.look(packed)], exact, c.light[at]);
 			}
 		}
 	}
@@ -159,6 +160,8 @@ public final class IngestSource implements TerrainSource {
 			out.rockMaterial = generated.rockMaterial;
 			out.leavesMaterial = generated.leavesMaterial;
 		}
+		// the generator knows of no light: the seen share of the cell carries what the chunks showed
+		out.light = generated.light + (out.light - generated.light) * seen;
 		out.top = Colors.mix(generated.top, out.top, seen);
 		out.side = Colors.mix(generated.side, out.side, seen);
 		out.soil = Colors.mix(generated.soil, out.soil, seen);

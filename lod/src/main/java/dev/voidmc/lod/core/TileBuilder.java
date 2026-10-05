@@ -92,6 +92,8 @@ public final class TileBuilder {
 	private int lightX;
 	private int lightZ;
 	private int lightFlags;
+	/** The block light (0..15) the vertices after this carry: in 3 bits of the flags' high byte, 2 of a compact word. */
+	private int lightBlock;
 	/** Whether this build writes compact vertices ({@link #COMPACT_BYTES}). */
 	private boolean compact;
 	/** Whether this build writes the Distant Horizons layout ({@link #packFormat}). */
@@ -256,16 +258,19 @@ public final class TileBuilder {
 	}
 
 	/**
-	 * The light the vertices after this carry, from sample {@code k}'s horizons: the sun's horizon east and west
-	 * and the sky's occlusion, in the spare high bytes of x, z and flags. Unlit builds leave them zero.
+	 * The light the vertices after this carry, from sample {@code k}: the sun's horizon east and west and the sky's
+	 * occlusion (Horizons), in the spare high bytes of x, z and flags (the occlusion in the top 5 bits of the last), and
+	 * the block light over its surface in the 3 bits under the occlusion. Unlit builds leave the horizons zero.
 	 */
 	void light(int k) {
+		this.lightBlock = this.samples.light[k];
+		int occlusion = this.lit ? this.horizons.occlusion[k] & 0xF8 : 0;
+		this.lightFlags = (occlusion | this.lightBlock >> 1) << 8;
 		if (!this.lit) {
 			return;
 		}
 		this.lightX = this.horizons.east[k] << 8;
 		this.lightZ = this.horizons.west[k] << 8;
-		this.lightFlags = this.horizons.occlusion[k] << 8;
 	}
 
 	/** Whether this build writes the Distant Horizons layout, for a shader pack: its water shows what lies under it. */
@@ -280,11 +285,14 @@ public final class TileBuilder {
 
 	/** No light for the vertices after this: faces the sun and the sky never reach, such as an island's underside. */
 	void unlit() {
-		this.lightX = this.lightZ = this.lightFlags = 0;
+		this.lightX = this.lightZ = this.lightFlags = this.lightBlock = 0;
 	}
 
 	/** Whether two samples' light is close enough for their faces to merge into one. */
 	boolean sameLight(int a, int b) {
+		if (this.samples.light[a] != this.samples.light[b]) {
+			return false;
+		}
 		if (!this.lit) {
 			return true;
 		}
@@ -364,7 +372,7 @@ public final class TileBuilder {
 		int cell = this.samples.cell;
 		int yb = Math.max(-PACK_Y_OFFSET, Math.min(65535 - PACK_Y_OFFSET, Math.round(y)));
 		// sky light from how much of the sky the land around hides: the pack's ambient light, darker down in valleys
-		int occlusion = this.lightFlags >> 8 & 255;
+		int occlusion = this.lightFlags >> 8 & 0xF8;
 		int sky = Math.max(8, 15 - Math.round(occlusion * 7 / 255.0F));
 		int material;
 		if ((flags & WATER) != 0) {
@@ -375,7 +383,7 @@ public final class TileBuilder {
 			material = id == 0 || materials == null ? PACK_STONE : materials.applyAsInt(id);
 		}
 		ByteBuffer b = this.out;
-		b.putShort((short) (x * cell)).putShort((short) (yb + PACK_Y_OFFSET)).putShort((short) (z * cell)).putShort((short) sky);
+		b.putShort((short) (x * cell)).putShort((short) (yb + PACK_Y_OFFSET)).putShort((short) (z * cell)).putShort((short) (sky | this.lightBlock << 4));
 		// water at about the opacity of vanilla's water texture, over the bed drawn under it (Blocky.beds)
 		b.put((byte) (top >> 16)).put((byte) (top >> 8)).put((byte) top).put((byte) (material == PACK_WATER ? 180 : 255));
 		b.put((byte) material).put((byte) PACK_NORMAL[flags & 7]).put((byte) 0).put((byte) 0);
@@ -402,8 +410,9 @@ public final class TileBuilder {
 		// tops carry the corner occlusion's level; walls have no floor shading out here
 		int ao = (flags & 7) == UP ? aoLevel(topAlpha) : 0;
 		int rgb = (top >> 19 & 31) | (top >> 11 & 31) << 5 | (top >> 3 & 31) << 10;
-		int east = this.lightX >> 11 & 31, west = this.lightZ >> 11 & 31, occ = this.lightFlags >> 11 & 31;
-		int w1 = rgb | ao << 15 | east << 17 | west << 22 | occ << 27;
+		// the horizons in 4 bits each, the block light in 2, the occlusion in 5
+		int east = this.lightX >> 12 & 15, west = this.lightZ >> 12 & 15, occ = this.lightFlags >> 11 & 31;
+		int w1 = rgb | ao << 15 | east << 17 | west << 21 | (this.lightBlock >> 2) << 25 | occ << 27;
 		this.out.putInt(w0).putInt(w1);
 		this.vertices++;
 		if (yb < this.minY) {

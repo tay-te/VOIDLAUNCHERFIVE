@@ -10,13 +10,14 @@
 // Per vertex: x and z in cells from the tile's corner (low bytes), y in eighths of a block, flags (face in the low
 // three bits: 0 up, 1 smooth, 2/3 north/south, 4/5 west/east, 6 down; +8 for water, +16 over the void), then two
 // colours. The high bytes of x, z and flags are the light (Horizons): the sun's horizon to the east and to the west,
-// in 255ths of a right angle, and how much of the sky the land around hides. Blocky faces use the first colour,
+// in 255ths of a right angle, and how much of the sky the land around hides (top 5 bits of the flags' high byte),
+// with the block light over the surface in the 3 bits under it. Blocky faces use the first colour,
 // with ambient occlusion (tops) or height above the floor (walls) in its alpha, and carry what they are made of in
 // the second: a 16-bit material id, low byte in red (0: untextured). Smooth vertices carry the colour of the tops
 // and of the risers, with the slope along x and z in the two alphas.
 // Far blocky tiles (LOD_COMPACT) pack the same in two words (TileBuilder.COMPACT_BYTES): x, z, face and water, y in
-// whole blocks; then the colour in 5 bits a channel, the corner occlusion level and the light in 5 bits each. They
-// are untextured.
+// whole blocks; then the colour in 5 bits a channel, the corner occlusion level, the horizons in 4 bits each, the
+// block light in 2 and the sky's occlusion in 5. They are untextured.
 // Per tile (one instance each): its corner in blocks, its level, and its cross-fade (Fades: 0 solid, +n fading in,
 // -n fading out, in 255ths).
 #ifdef LOD_COMPACT
@@ -81,7 +82,7 @@ void main() {
     ivec4 vpos;
     vec4 top;
     vec4 side;
-    float horizonEast, horizonWest, skyHidden;
+    float horizonEast, horizonWest, skyHidden, blockLight;
 #ifdef LOD_COMPACT
     uint w0 = LodPacked.x, w1 = LodPacked.y;
     vpos = ivec4(int(w0 & 127u), (int(w0) >> 18) * 8, int((w0 >> 7) & 127u), int((w0 >> 14) & 15u));
@@ -90,18 +91,21 @@ void main() {
     top = vec4(vec3(float(w1 & 31u), float((w1 >> 5) & 31u), float((w1 >> 10) & 31u)) / 31.0,
         (vpos.w & 7) == 0 ? AO[(w1 >> 15) & 3u] : 1.0);
     side = vec4(0.0);
-    // 5 bits of what was 8: the middle of each step, and none for none
-    uint e = (w1 >> 17) & 31u, w = (w1 >> 22) & 31u, o = w1 >> 27;
-    horizonEast = e == 0u ? 0.0 : float(e * 8u + 4u) * (1.5707963 / 255.0);
-    horizonWest = w == 0u ? 0.0 : float(w * 8u + 4u) * (1.5707963 / 255.0);
+    // 4 or 5 bits of what was 8: the middle of each step, and none for none
+    uint e = (w1 >> 17) & 15u, w = (w1 >> 21) & 15u, b = (w1 >> 25) & 3u, o = w1 >> 27;
+    horizonEast = e == 0u ? 0.0 : float(e * 16u + 8u) * (1.5707963 / 255.0);
+    horizonWest = w == 0u ? 0.0 : float(w * 16u + 8u) * (1.5707963 / 255.0);
     skyHidden = o == 0u ? 0.0 : float(o * 8u + 4u) / 255.0;
+    blockLight = float(b) * 5.0;
 #else
     vpos = ivec4(LodPos.x & 255, LodPos.y, LodPos.z & 255, LodPos.w & 255);
     top = LodTop;
     side = LodSide;
     horizonEast = float((LodPos.x >> 8) & 255) * (1.5707963 / 255.0);
     horizonWest = float((LodPos.z >> 8) & 255) * (1.5707963 / 255.0);
-    skyHidden = float((LodPos.w >> 8) & 255) / 255.0;
+    int o = (LodPos.w >> 11) & 31;
+    skyHidden = o == 0 ? 0.0 : float(o * 8 + 4) / 255.0;
+    blockLight = float((LodPos.w >> 8) & 7) * (15.0 / 7.0);
 #endif
 
     // Integer arithmetic until the camera is subtracted, so the far edge of the world keeps its precision.
@@ -114,7 +118,8 @@ void main() {
 
     int face = vpos.w & 7;
     vec3 color;
-    vec3 light = sample_lightmap(Sampler2, ivec2(0, 240)).rgb;
+    // the block light over the surface (torches, lanterns, lava) through the same lightmap: a lit town glows at night
+    vec3 light = sample_lightmap(Sampler2, ivec2(int(blockLight * 16.0 + 0.5), 240)).rgb;
 #ifdef LOD_SMOOTH
     // A stair of blocks seen from afar: tops in the top colour, risers in the side colour, each weighted by the
     // area it shows the camera. From above a hillside is its grass, from across the valley mostly its risers,
@@ -149,7 +154,8 @@ void main() {
     occlusion = face == 0 ? vec2(top.a, 64.0) : vec2(1.0, top.a * 255.0);
 #endif
 
-    // Full sky light, through the lightmap: the LOD darkens at dusk and night exactly as the chunks do.
+    // Full sky light and the surface's block light, through the lightmap: the LOD darkens at dusk and night exactly as
+    // the chunks do, and what was lit stays lit.
     color *= light;
 
     // The land's own light, which the chunks do not have, so it comes in past them: the shadows mountains cast

@@ -65,6 +65,11 @@ public final class ColumnSample {
 	public int leavesMaterial;
 	/** The material of each of {@link #bands}, parallel to it; null leaves banded rock {@link #rockMaterial}. */
 	public int[] bandMaterials;
+	/**
+	 * The block light over the surface, 0..15, averaged over the cell: torches, lanterns and lava the player has seen, so
+	 * a lit town glows at night far off. 0 where nothing is known of it.
+	 */
+	public float light;
 	/** No ground at all in this column: the void between End islands. Nothing is drawn over it. */
 	public boolean empty;
 
@@ -94,6 +99,7 @@ public final class ColumnSample {
 		this.rockMaterial = 0;
 		this.leavesMaterial = 0;
 		this.bandMaterials = null;
+		this.light = 0;
 		this.empty = false;
 	}
 

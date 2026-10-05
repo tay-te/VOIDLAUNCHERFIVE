@@ -42,9 +42,10 @@ class ColumnFilesTest {
 		}
 	}
 
-	/** A varied chunk: hills, a lake, trees, two surfaces, a hole to the void. */
+	/** A varied chunk: hills, a lake, trees, two surfaces, a hole to the void, torchlight here and there. */
 	private static ChunkColumns varied(int cx, int cz) {
 		int[] columns = new int[256];
+		byte[] light = new byte[256];
 		for (int z = 0; z < 16; z++) {
 			for (int x = 0; x < 16; x++) {
 				int wx = cx * 16 + x;
@@ -53,9 +54,10 @@ class ColumnFilesTest {
 				int depth = ground < 64 ? 64 - ground : 0;
 				int canopy = (wx * wz) % 11 == 0 && depth == 0 ? 6 : 0;
 				columns[x + z * 16] = x == 15 && z == 15 ? ChunkColumns.VOID : ChunkColumns.pack(ground, depth, canopy, (x + z) & 1);
+				light[x + z * 16] = (byte) ((wx * 5 + wz * 11) % 7 == 0 ? Math.floorMod(wx + wz, 16) : 0);
 			}
 		}
-		return new ChunkColumns(columns, new Surface[]{GRASS, SAND});
+		return new ChunkColumns(columns, new Surface[]{GRASS, SAND}, light);
 	}
 
 	@Test
@@ -81,6 +83,7 @@ class ColumnFilesTest {
 			}
 			found++;
 			assertArrayEquals(before.columns, chunks[i].columns);
+			assertArrayEquals(before.light, chunks[i].light, "the block light comes back");
 			assertEquals(before.palette.length, chunks[i].palette.length);
 			for (int p = 0; p < before.palette.length; p++) {
 				Surface a = before.palette[p];

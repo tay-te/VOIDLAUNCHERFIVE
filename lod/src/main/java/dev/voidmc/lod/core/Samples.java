@@ -49,6 +49,8 @@ final class Samples {
 	final int[] rockMaterial;
 	final int[] leavesMaterial;
 	final boolean[] empty;
+	/** The block light over the surface, 0..15: what the chunks showed lit, and lava, which always glows. */
+	final byte[] light;
 	private final ColumnSample sample = new ColumnSample();
 	private final boolean variation;
 	/** Which samples of the tile being sampled were reused from {@link SampleCache}, so the source is not asked again. */
@@ -88,6 +90,7 @@ final class Samples {
 		this.rockMaterial = new int[capacity];
 		this.leavesMaterial = new int[capacity];
 		this.empty = new boolean[capacity];
+		this.light = new byte[capacity];
 		this.known = new boolean[capacity];
 	}
 
@@ -145,6 +148,8 @@ final class Samples {
 				this.leavesMaterial[k] = s.leavesMaterial;
 				this.bandMaterials[k] = s.bands == null ? null : s.bandMaterials;
 				this.empty[k] = s.empty;
+				boolean lava = s.lava && s.water != Integer.MIN_VALUE && s.water > s.ground;
+				this.light[k] = (byte) (lava ? 15 : Math.max(0, Math.min(15, Math.round(s.light))));
 
 				if (!this.variation) {
 					this.top[k] = s.top;
@@ -223,6 +228,7 @@ final class Samples {
 		this.rockMaterial[k] = from.rockMaterial[f];
 		this.leavesMaterial[k] = from.leavesMaterial[f];
 		this.empty[k] = from.empty[f];
+		this.light[k] = from.light[f];
 	}
 
 	int at(int i, int j) {

@@ -173,6 +173,52 @@ class TileBuilderTest {
 		assertTrue(shallowQuads > 500, "shallows keep their floor: " + shallowQuads);
 	}
 
+	@Test
+	void blockLightRidesInEveryVertexFormat() {
+		// a lit yard (block light 14) beside dark ground, and a lava pool, which always glows
+		TerrainSource town = (x, z, cell, out) -> {
+			out.ground = 64;
+			out.top = 0x707070;
+			if (Math.floorMod(x, 64) < 16) {
+				out.light = 14;
+			} else if (Math.floorMod(z, 64) < 16) {
+				out.water = 65;
+				out.lava = true;
+			}
+		};
+		// near: the 3 bits under the occlusion in the flags' high byte
+		TileBuilder.Mesh near = builder().build(town, TileKey.of(0, 0, 0));
+		java.util.Set<Integer> nearLights = new java.util.TreeSet<>();
+		ByteBuffer v = vertices(near);
+		for (int i = 0; i < near.vertexCount(); i++) {
+			nearLights.add(v.getShort(i * TileBuilder.VERTEX_BYTES + 6) >> 8 & 7);
+		}
+		assertEquals(java.util.Set.of(0, 7), nearLights, "dark, and lit (14 and 15 both round to 7)");
+		// far: 2 bits of the second word
+		TileBuilder.Mesh far = builder().build(town, TileKey.of(TileBuilder.COMPACT_FROM, 0, 0));
+		assertTrue(far.compact());
+		java.util.Set<Integer> farLights = new java.util.TreeSet<>();
+		v = vertices(far);
+		for (int i = 0; i < far.vertexCount(); i++) {
+			farLights.add(v.getInt(i * TileBuilder.COMPACT_BYTES + 4) >>> 25 & 3);
+		}
+		assertEquals(java.util.Set.of(0, 3), farLights);
+		// through a pack: Distant Horizons' block light nibble
+		TileBuilder.Mesh pack;
+		TileBuilder.packFormat = true;
+		try {
+			pack = builder().build(town, TileKey.of(0, 0, 0));
+		} finally {
+			TileBuilder.packFormat = false;
+		}
+		java.util.Set<Integer> packLights = new java.util.TreeSet<>();
+		v = vertices(pack);
+		for (int i = 0; i < pack.vertexCount(); i++) {
+			packLights.add(v.getShort(i * TileBuilder.VERTEX_BYTES + 6) >> 4 & 15);
+		}
+		assertEquals(java.util.Set.of(0, 14, 15), packLights);
+	}
+
 	private static void assertFacing(int face, long[] n) {
 		long[] expected = switch (face) {
 			case 0 -> new long[]{0, 1, 0};

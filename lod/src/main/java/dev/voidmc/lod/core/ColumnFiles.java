@@ -57,7 +57,8 @@ public final class ColumnFiles {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger("VOID LOD");
 	private static final int MAGIC = 0x564C4F44;
-	private static final int FORMAT = 1;
+	/** 2 adds each chunk's block light; files of format 1 still read, unlit. */
+	private static final int FORMAT = 2;
 	private static final String SUFFIX = ".vlod";
 	private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "VOID LOD files");
@@ -332,6 +333,7 @@ public final class ColumnFiles {
 				for (int packed : c.columns) {
 					out.writeByte(ChunkColumns.look(packed));
 				}
+				out.write(c.light);
 			}
 			out.flush();
 			zip.finish();
@@ -350,7 +352,7 @@ public final class ColumnFiles {
 				throw new IOException("not a VOID LOD region");
 			}
 			int format = in.readInt();
-			if (format != FORMAT) {
+			if (format != FORMAT && format != 1) {
 				throw new IOException("unknown format " + format);
 			}
 			if (in.readInt() != rx || in.readInt() != rz) {
@@ -404,7 +406,11 @@ public final class ColumnFiles {
 					}
 					columns[c] |= look << 26;
 				}
-				chunks[index] = new ChunkColumns(columns, palette);
+				byte[] light = new byte[256];
+				if (format >= 2) {
+					in.readFully(light);
+				}
+				chunks[index] = new ChunkColumns(columns, palette, light);
 			}
 			return chunks;
 		} finally {

@@ -34,15 +34,17 @@ final class ColumnSummary {
 	static final int ROCK = 23;
 	static final int WATER_COLOR = 26;
 	static final int LEAVES = 29;
+	/** The block light over the known columns' surfaces. */
+	static final int LIGHT = 32;
 	/** Everything before this is a sum; after it, the materials of the commonest surfaces. */
-	static final int SUMS = 32;
-	static final int M_TOP = 32;
-	static final int M_SIDE = 33;
-	static final int M_SOIL = 34;
-	static final int M_ROCK = 35;
-	static final int M_BED = 36;
-	static final int M_LEAVES = 37;
-	static final int SIZE = 38;
+	static final int SUMS = 33;
+	static final int M_TOP = 33;
+	static final int M_SIDE = 34;
+	static final int M_SOIL = 35;
+	static final int M_ROCK = 36;
+	static final int M_BED = 37;
+	static final int M_LEAVES = 38;
+	static final int SIZE = 39;
 	/** A crown seen from afar is darker than one leaf block in full light: its leaves shade each other. */
 	static final float CROWN_SHADE = 0.82F;
 
@@ -111,13 +113,19 @@ final class ColumnSummary {
 		return this.s[VOID];
 	}
 
-	/** Adds a packed column ({@link ChunkColumns}) made of {@code surface} (null for the void). */
+	/** Adds a packed column ({@link ChunkColumns}) made of {@code surface} (null for the void), unlit. */
 	void add(int packed, Surface surface, boolean exact) {
+		this.add(packed, surface, exact, 0);
+	}
+
+	/** Adds a packed column made of {@code surface} (null for the void), with {@code light} block light over it. */
+	void add(int packed, Surface surface, boolean exact, int light) {
 		int[] s = this.s;
 		if (packed == ChunkColumns.VOID) {
 			s[VOID]++;
 			return;
 		}
+		s[LIGHT] += light;
 		int ground = ChunkColumns.ground(packed);
 		int depth = ChunkColumns.depth(packed);
 		int canopy = ChunkColumns.canopy(packed);
@@ -244,6 +252,7 @@ final class ColumnSummary {
 			return false;
 		}
 		this.materials();
+		out.light = s[LIGHT] / (float) known;
 		int wet = s[WET];
 		int dry = known - wet;
 		if (wet * 2 > known) {

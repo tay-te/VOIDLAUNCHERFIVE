@@ -232,13 +232,15 @@ public final class PackLodRenderer {
 		return this.timer.millis;
 	}
 
+	/**
+	 * Frees what the LOD made for the pack. Not the framebuffers: Iris's render targets own those, and have freed them
+	 * already when the pipeline is torn down (a pack reload, F8).
+	 */
 	public void destroy() {
 		this.timer.free();
 		this.solid.free();
-		this.terrain.destroy();
 		if (this.water != null) {
 			this.water.free();
-			this.waterTarget.destroy();
 		}
 		if (this.depth != null) {
 			this.depth.destroy();
