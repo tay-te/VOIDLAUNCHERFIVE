@@ -140,7 +140,7 @@ public final class WaypointBeams {
 				continue;
 			}
 			boolean near = d <= NEAR;
-			double height = near ? Math.max(5, d * 0.35) : Math.min(140, Math.max(24, d * 0.18));
+			double height = near ? 2.6 : Math.min(140, Math.max(24, d * 0.18));
 			float[] base = this.project(w.x() + 0.5 - cam.x, w.y() - cam.y, w.z() + 0.5 - cam.z, sw, sh);
 			float[] top = this.project(w.x() + 0.5 - cam.x, w.y() + height - cam.y, w.z() + 0.5 - cam.z, sw, sh);
 			if (base == null || top == null) {
@@ -161,7 +161,7 @@ public final class WaypointBeams {
 				continue;
 			}
 			boolean near = d <= NEAR;
-			double height = near ? Math.max(5, d * 0.35) : Math.min(140, Math.max(24, d * 0.18));
+			double height = near ? 2.6 : Math.min(140, Math.max(24, d * 0.18));
 			float[] top = this.project(w.x() + 0.5 - cam.x, w.y() + height - cam.y, w.z() + 0.5 - cam.z, sw, sh);
 			if (top == null) {
 				continue;

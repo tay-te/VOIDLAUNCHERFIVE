@@ -95,7 +95,11 @@ final class ParityShots {
 		});
 		this.context.waitTicks(10);
 		this.tour.shootPublic(this.context, "chat_coordinates");
-		this.client(mc -> mc.gui.setScreen(null));
+		this.client(mc -> {
+			mc.gui.setScreen(null);
+			mc.gui.hud.getChat().clearMessages(false);
+			dev.voidmc.atlas.client.ui.ShareCards.clear();
+		});
 
 		// the map: the right-click menu, the waypoint card with both dimensions, search, the world picker
 		this.openMap(sx, sz, 1, MapPanel.Kind.SURFACE);

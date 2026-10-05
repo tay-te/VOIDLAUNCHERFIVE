@@ -44,6 +44,11 @@ public final class ShareCards {
 		CARDS.addLast(new Card(waypoint, from == null || from.isBlank() ? "Someone" : from, sourceLabel, System.currentTimeMillis()));
 	}
 
+	/** Drops every card. */
+	public static void clear() {
+		CARDS.clear();
+	}
+
 	/** A message on its way to the chat: any share codes in it become cards. */
 	public static void scan(Component message) {
 		String text = message.getString();

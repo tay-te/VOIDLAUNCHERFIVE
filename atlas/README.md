@@ -38,9 +38,26 @@ other mods (Hearth's settlements) add their markers through a small API.
   card (status, distance, level, day, what is known, the source chip, Track, Set waypoint), and other mods' markers.
 - **HUD**: the discovery toast, the minimap's edge markers for sighted and tracked places, and an optional compass
   strip with the places on it.
-- **Data**: maps live in `<game dir>/atlas/<sp/save | mp/address/seed>/<dimension>/<layer>/`: per 512 × 512-block
+- **Waypoints**: a beam in the world with a label that keeps its size (far: a thin core and a one-line label; near:
+  a ground ring and "18 m · 6 above"; labels never overlap); quick-add with B (colour, icon, Always / Within N m /
+  Temporary, share); death points that clear after 10 minutes or once you are back within 8 blocks; coordinates in
+  chat made clickable (a client-side command, works on any server); `atlas-wp:` share codes arrive as a card with
+  Accept / Ignore; Overworld and Nether coordinates on every waypoint card; import from Xaero's Minimap and
+  JourneyMap (their files only read), offered once; colour-blind pin shapes (one per colour, on by default).
+- **Minimap**: square or round, S/M/L, north-up or turning, cave view after a second without sky, an optional radar
+  (faces for players, squares and circles for mobs, no red), hidden with F1 and F3.
+- **Map**: day and night following the world's clock (or always day / night), PNG export (what you see, everything
+  explored or a box; 1, 2 or 4 px a block) to `screenshots/atlas/`, a right-click menu (Waypoint here, Copy
+  coordinates, Show in Nether, Track), search over places, biomes and waypoints.
+- **Servers**: worlds behind one address (a proxy's lobbies and games) are told apart by their terrain before
+  anything is mapped, never mixed; when unsure Atlas asks "keep separate / same as before". Servers' map rules are
+  honoured (Xaero's, VoxelMap's, Rei's and JourneyMap's codes; see [docs/SERVER_RULES.md](docs/SERVER_RULES.md)); the
+  radar is off on servers unless the server opts in.
+- **Data**: maps live in `<game dir>/atlas/<sp/save | mp/address/world>/<dimension>/<layer>/`: per 512 × 512-block
   region a raw file (what is known of each column) and an image file (the region drawn, every mip level apart). Files
-  are checksummed and written atomically; a damaged one is set aside and the region mapped afresh.
+  are checksummed and written atomically; a damaged one is set aside and the region mapped afresh. Waypoints, places
+  and the region index carry a checked header and rolling backups, and the newest good backup is restored if one is
+  damaged (with a notice). A disk cap (4 GB by default) lets the least recently viewed far regions go first.
 
 ## Keys
 
@@ -48,9 +65,9 @@ other mods (Hearth's settlements) add their markers through a small API.
 |---|---|
 | M | open / close the map |
 | N | minimap on / off |
-| B | drop a waypoint where you stand |
+| B | quick-add a waypoint where you stand |
 | = / − | minimap zoom |
-| (unbound) | Atlas settings (also the gear on the map) |
+| (unbound) | Atlas settings (Minimap, Map, Waypoints, Data) |
 
 In the map: drag, scroll, arrows, space (recentre), B, Ctrl+F (search), T (track the selected place), W (a waypoint
 on it), Esc (close the card, then the map); underground, Shift+scroll changes the depth and F follows your height.
@@ -82,6 +99,9 @@ classpath, so the map, the tour and the perf gate can run over an Expanse Earth 
 |---|---|
 | `./gradlew test` | Unit tests, no game: every structure detector with positive and look-alike negative cases on synthetic chunks (`StructureScanTest`), the underground reveal's no-x-ray guarantees (`RevealTest`), the place book's states, merging, exact-data folding, persistence and migration (`PlaceBookTest`), peaks, waterfalls, ravines and patches (`RegionAnalysisTest`), areas joined across regions and their ids (`AreaIndexTest`), plain biome names and the world hash (`PlainNamesTest`), cave areas (`CaveAreasTest`), biome families (`BiomeFamilyTest`); the palette and tone curve, hillshade quantisation, elevation bands, water depth steps and shoreline, the dithered edge, and **golden images** of three small synthetic worlds (an island with a river, beach, forest and snow-capped mountain; stepped ramps; a cave slice); tile maths (block ↔ region ↔ pixel ↔ mip level, negative coordinates); the tile store (write/read round trip, single-level reads, corrupt, truncated and foreign files recovered); waypoint and discovery persistence (incl. a corrupt file); the marker-provider API (ordering, replacement, a throwing provider fenced off and switched off after three failures in a row). After a deliberate change of look: `./gradlew test -Patlas.golden.update=true`, then review `src/test/resources/golden/*.png` (6× copies in `build/test-images`). |
 | `./gradlew atlasTour` | The screenshot tour (a client game test): makes a world, flies from spawn to the nearest coast and on to the nearest mountains, analyses the land, then photographs the full map at three zooms, the coast and mountains, the surface zoomed out with region names and "?"s, the legend, a sighted and a discovered place's cards, sighted and discovered side by side, the region labels, the embeddable map widget, the HUD toast with the minimap's edge markers and the compass, the underground at two depths (walked through real caves), the Nether, the minimap (north-up and turning), into `build/tour/` (with an `index.md` that also reports how the block heuristics did against the game's own structure data). `-Patlas.test.only=quick,map_0,...` runs a short version; `-Patlas.test.seed=` picks the world. |
+| `./gradlew atlasSoak` | The soak and world-switch test: two dedicated servers in turn behind one address (needs `eula=true` in `build/run/atlasSoak/eula.txt`, the player's to accept), then a long session with many dimension changes and the map opened and closed; fails on two worlds mixed, an old world not found again, heap growth over 400 MB, or Atlas spending more than 33 ms of CPU in one frame. |
+| `-Psodium`, `-Piris` | Any run with Sodium, or Sodium and Iris (26.3 builds), on the classpath, to check Atlas with them. |
+| `-Patlas.baseline=true` (with `atlasPerf`) | The perf flight with Atlas idle: the game alone, for comparison (`build/perf-baseline/`). |
 | `./gradlew atlasPerf -Pbackend=opengl` / `-Pbackend=vulkan` | The performance gate (see [docs/PERF.md](docs/PERF.md)): uncapped, scripted flight with the minimap on, a walk through a real cave, then a scripted pan and zoom over a few hundred tiles with the map open, on the surface and underground; writes `build/perf/<backend>.json`, updates `docs/PERF.md` and **fails** if the minimap averages over 0.3 ms/frame, the map screen (surface or underground) averages over 4 ms or its p99 is over 8 ms, chunk ingest takes over 1 ms of client-thread time in any frame, structure detection takes over 0.5 ms a chunk or the underground reveal over 20 ms a walk on the workers, or any frame takes over 33 ms. |
 
 Both game tasks open a game window (1920 × 1080 by default, `-Patlas.test.width/height`); add

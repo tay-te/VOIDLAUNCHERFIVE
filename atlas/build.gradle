@@ -10,6 +10,18 @@ base {
 
 repositories {
 	mavenCentral()
+	// Sodium and Iris, to check Atlas with them (-Psodium, -Piris); nothing of either is compiled against or ships
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
 }
 
 // -Patlas.withExpanse=true: the dev runs and game tests also load ../expanse (see settings.gradle).
@@ -32,6 +44,14 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// -Psodium: the dev runs and game tests with Sodium; -Piris: with Sodium and Iris (shader packs)
+	if (project.hasProperty('sodium') || project.hasProperty('iris')) {
+		localRuntime "maven.modrinth:sodium:${project.sodium_version}"
+	}
+	if (project.hasProperty('iris')) {
+		localRuntime "maven.modrinth:iris:${project.iris_version}"
+	}
 
 	if (withExpanse) {
 		// Only for the dev runs: Atlas reads whatever world it is in, it never calls Expanse.

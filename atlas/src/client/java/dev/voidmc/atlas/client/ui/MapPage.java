@@ -1538,9 +1538,9 @@ public final class MapPage {
 			cy += 8;
 			this.coordBlock(ui, cx, cy, w - 34, overworld ? "NETHER  ·  X AND Z DIVIDED BY 8" : "OVERWORLD  ·  X AND Z TIMES 8", other.x(), other.y(), other.z());
 			cy += 64 + 12;
-			ui.text(ui.fit(note.substring(0, Math.min(note.length(), 62)), Ui.Font.F11, w - 34), cx, cy, Ui.Font.F11, Theme.INK_3);
-			if (note.length() > 62) {
-				ui.text(ui.fit(note.substring(62).strip(), Ui.Font.F11, w - 34), cx, cy + 15, Ui.Font.F11, Theme.INK_3);
+			List<String> lines = wrap(ui, note, Ui.Font.F11, w - 34, 2);
+			for (int i = 0; i < lines.size(); i++) {
+				ui.text(lines.get(i), cx, cy + i * 15, Ui.Font.F11, Theme.INK_3);
 			}
 			cy += 30;
 		}
@@ -1556,6 +1556,32 @@ public final class MapPage {
 		} else {
 			this.button(ui, cx, cy, w - 34, false, tracking ? "Tracking" : "Track", MarkerGlyph.TRACK, mx, my, () -> this.track(AtlasClient.waypointMarkerId(wp)));
 		}
+	}
+
+	/** Words laid into lines no wider than {@code max}, at most {@code lines} of them (the last cut short if need be). */
+	static List<String> wrap(Ui ui, String text, Ui.Font font, float max, int lines) {
+		List<String> out = new ArrayList<>();
+		StringBuilder line = new StringBuilder();
+		for (String word : text.split(" ")) {
+			String next = line.length() == 0 ? word : line + " " + word;
+			if (ui.width(next, font) <= max || line.length() == 0) {
+				line.setLength(0);
+				line.append(next);
+			} else {
+				out.add(line.toString());
+				line.setLength(0);
+				line.append(word);
+			}
+		}
+		if (line.length() > 0) {
+			out.add(line.toString());
+		}
+		if (out.size() > lines) {
+			List<String> cut = new ArrayList<>(out.subList(0, lines));
+			cut.set(lines - 1, ui.fit(String.join(" ", out.subList(lines - 1, out.size())), font, max));
+			return cut;
+		}
+		return out;
 	}
 
 	/** A well with a caps line over X, Y and Z. */
@@ -1741,7 +1767,22 @@ public final class MapPage {
 	/** What the search found, by group (up to 6 each), under the search box; Enter centres on the first. */
 	private void searchResults(Ui ui, float x, float y, float w, float mx, float my) {
 		this.refreshSearch();
-		List<SearchHit> hits = this.searchHits;
+		List<SearchHit> hits = new ArrayList<>(this.searchHits);
+		// as many as fit above the window's foot: fewest from the biggest group first
+		float room = this.mapY + this.mapH + 40 - y;
+		while (!hits.isEmpty() && 10 + 3 * 24 + hits.size() * 46 + 34 > room) {
+			int[] count = new int[3];
+			for (SearchHit h : hits) {
+				count[h.group]++;
+			}
+			int biggest = count[0] >= count[1] && count[0] >= count[2] ? 0 : count[1] >= count[2] ? 1 : 2;
+			for (int i = hits.size() - 1; i >= 0; i--) {
+				if (hits.get(i).group == biggest) {
+					hits.remove(i);
+					break;
+				}
+			}
+		}
 		int[] per = new int[3];
 		for (SearchHit h : hits) {
 			per[h.group]++;
@@ -1919,9 +1960,9 @@ public final class MapPage {
 		cy += 26;
 		String from = (xaero > 0 ? "Xaero's Minimap (" + xaero + ")" : "") + (xaero > 0 && jm > 0 ? " and " : "") + (jm > 0 ? "JourneyMap (" + jm + ")" : "");
 		String line = "In this instance: " + from + ".";
-		ui.text(ui.fit(line.substring(0, Math.min(line.length(), 46)), Ui.Font.F11, w - 34), cx, cy, Ui.Font.F11, Theme.INK_3);
-		if (line.length() > 46) {
-			ui.text(ui.fit(line.substring(46).strip(), Ui.Font.F11, w - 34), cx, cy + 15, Ui.Font.F11, Theme.INK_3);
+		List<String> lines = wrap(ui, line, Ui.Font.F11, w - 34, 2);
+		for (int i = 0; i < lines.size(); i++) {
+			ui.text(lines.get(i), cx, cy + i * 15, Ui.Font.F11, Theme.INK_3);
 		}
 		cy += 36 + 8;
 		boolean shapes = this.atlas.settings().shapeMarkers;
