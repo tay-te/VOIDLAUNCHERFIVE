@@ -100,7 +100,6 @@ public final class CourtTower {
 		if (mid > 0) {
 			tw.course(d, mid, false);
 		}
-		tw.band(d, yb - 1);
 		tw.course(d, yb, false);
 		// the vestibule opens into the hall through an arch; the tower room opens into the court through a doorway
 		try (var st = d.stage(StageKind.WALLS)) {
@@ -191,16 +190,36 @@ public final class CourtTower {
 	}
 
 	/**
+	 * What the Bohemian court's crown is sheathed in: slate (or, on a share of the towers, copper gone green) where the
+	 * town roofs in tile, whose bricks would read as masonry stacked so steep; the roof's own shingles or slate otherwise;
+	 * copper over thatch.
+	 */
+	static Stone skin(Draft d) {
+		var roof = d.mat(Role.ROOF);
+		var main = roof.main(Form.FULL);
+		boolean thatch = d.habits().roof().thatch() || !roof.has(Form.STAIRS);
+		boolean tile = main != null && dev.voidmc.hearth.build.blueprint.MaterialBill.masonry(main)
+			&& !net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(main).getPath().contains("deepslate");
+		if (thatch || tile && d.chance(0.3)) {
+			return Stone.copper(d);
+		}
+		if (tile) {
+			return Stone.fixed(d, StageKind.ROOF, "minecraft:deepslate_tiles", "minecraft:deepslate_tiles", "minecraft:cracked_deepslate_tiles");
+		}
+		return Stone.of(d, Role.ROOF);
+	}
+
+	/**
 	 * The crown of the Prague bridge towers: a tall steep pyramid of the roof's covering laid in rings that draw in a
 	 * block a side, each ring a core of full blocks capped by stairs facing up its slope (slate or tile; copper over
 	 * thatch and shingle towns), a pinnacle of the dressing on each corner of its foot, a gilded ball on a rod at the apex.
 	 * Returns the top.
 	 */
 	static int prague(Draft d, Tower tw, int yc, int maxTop, Stone dress) {
-		Stone skin = d.habits().roof().thatch() || !d.mat(Role.ROOF).has(Form.STAIRS) ? Stone.copper(d) : Stone.of(d, Role.ROOF);
+		Stone skin = skin(d);
 		int room = maxTop - yc;
 		// rows per ring, outer to inner: the broad ring briefly, the slender top longest
-		int[] rows = room >= 10 ? new int[]{2, 3, 1} : room >= 8 ? new int[]{2, 2, 1} : new int[]{1, 1, 1};
+		int[] rows = room >= 10 ? new int[]{1, 3, 2} : room >= 8 ? new int[]{1, 2, 2} : new int[]{1, 1, 1};
 		int y = yc + 1;
 		try (var st = d.stage(StageKind.ROOF)) {
 			for (int ring = 0; ring < 3; ring++) {

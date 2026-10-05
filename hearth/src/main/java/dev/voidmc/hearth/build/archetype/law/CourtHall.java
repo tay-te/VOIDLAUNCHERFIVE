@@ -10,6 +10,7 @@ import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Facade;
 import dev.voidmc.hearth.build.kit.Furniture;
+import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
@@ -95,7 +96,7 @@ final class CourtHall {
 				}
 				Fenestration.framed(d, s, i0, 2, base + 1, 2, dress, false, true, false);
 				Side up = body.side(1, s.out());
-				Fenestration.framed(d, up, i0, 2, fy + 1, h1 >= 6 ? 3 : 2, dress, false, false, false);
+				Fenestration.framed(d, up, i0, 2, fy + 1, h1 >= 6 ? 4 : 2, dress, false, false, false);
 			}
 		}
 
@@ -111,6 +112,17 @@ final class CourtHall {
 			Halls.cornice(d, body.topRect(), plate - 1);
 		}
 		int skyline = top.ridge();
+		// a window in each gable end, framed like the rest
+		if (top.roof() != null) {
+			int gz = (z0 + z1) / 2;
+			for (Side s : new Side[]{body.side(1, Dirs.LEFT), body.side(1, Dirs.RIGHT)}) {
+				int i = s.index(gz);
+				if (Openings.isWallBlock(d, s.x(i), plate + 2, s.z(i)) && Openings.isWallBlock(d, s.x(i), plate + 3, s.z(i))
+					&& Openings.isWallBlock(d, s.x(i), plate + 4, s.z(i))) {
+					Fenestration.framed(d, s, i, 1, plate + 2, 2, dress, false, false, false);
+				}
+			}
+		}
 
 		// --- the tower and its portal
 		Set<Direction> blind = corner ? Set.of(Dirs.BACK, towerRight ? Dirs.LEFT : Dirs.RIGHT) : Set.of(Dirs.BACK);
@@ -161,6 +173,14 @@ final class CourtHall {
 			}
 		}
 		keep.add(Courtroom.key(doorX, tz1 + 1));
+		// the court's tiled stove in the front corner away from the stair, its flue up through the roof
+		int stx = stairLeft ? ix1 : ix0;
+		if (top.roof() != null && !blocked.contains(Courtroom.key(stx, iz0)) && !(stx >= tx0 && stx <= tx1)) {
+			Furniture.hearth(d, stx, fy, iz0, Dirs.BACK, false);
+			skyline = Math.max(skyline, dev.voidmc.hearth.build.kit.Chimneys.stack(d, stx, iz0, fy + 2, top.roof(), top.roof().ridgeY - 2));
+			blocked.add(Courtroom.key(stx, iz0));
+			keep.add(Courtroom.key(stx, iz0 + 1));
+		}
 		if (flue != null) {
 			blocked.add(Courtroom.key(flue[0], flue[1]));
 		}
