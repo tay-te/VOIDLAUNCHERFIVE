@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.stonebreaker"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.stonebreaker.description"
+	},
+	"synergy": {
+		"mettle:mining": 10,
+		"mettle:heavy_weapons": 10
+	},
+	"order": 15
+}

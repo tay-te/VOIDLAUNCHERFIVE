@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.iron_grip"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.iron_grip.description"
+	},
+	"order": 8
+}
