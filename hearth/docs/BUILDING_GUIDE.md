@@ -372,8 +372,9 @@ dyke on a river bank (`BuildersYard`). Put the entrance where the street can rea
 
 ### The worked example: `hearth:commerce/market_stall`
 
-`archetype/commerce/MarketStall.java`, a merchant's stall: four posts, a striped cloth awning sloping over a counter,
-stock behind. The whole `draw`:
+`archetype/commerce/MarketStall.java`, a merchant's stall as a market day puts it up: a low trestle across the front
+under a canopy two high on four poles (undyed linen or boards; striped canvas only in the south), the day's goods of
+one trade on it, stock behind. The heart of `draw` (the canopy, wares and basket helpers are in the file):
 
 ```java
 public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("commerce/market_stall"), ArchetypeCategory.COMMERCE,
@@ -388,83 +389,55 @@ public void draw(Draft d) {
 	d.entrance(w / 2, 0, -1);
 	// the plot levelled to the floor (a river bank embanked), the stall paved
 	Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
-	int x0 = w >= 6 ? 1 : 0;
-	int x1 = w >= 6 ? w - 2 : w - 1;
-	int zc = 1;            // the counter row
+	int x0 = 0, x1 = w - 1;
+	int zc = 1;            // the trestle row
 	int zb = dp - 1;       // the back row
-	Mat paving = d.mat(Role.PAVING);
-	try (var s = d.stage(StageKind.EXTERIOR)) {
-		for (int z = 0; z <= zb; z++) {
-			for (int x = x0; x <= x1; x++) {
-				d.set(x, -1, z, paving.full());
-			}
-		}
-	}
-	// four posts
+	try (var s = d.stage(StageKind.EXTERIOR)) { /* PAVING under x0..x1 × 0..zb at y = -1 */ }
+	// four poles at the corners: two high on the street edge, three at the back where the canopy is higher
 	Mat frame = d.mat(Role.FRAME);
+	Mat pole = frame.has(Form.FENCE) ? frame : Hall.woodFence(d);
 	try (var s = d.stage(StageKind.FRAME)) {
-		for (int[] p : new int[][]{{x0, zc}, {x1, zc}, {x0, zb}, {x1, zb}}) {
-			for (int y = 0; y < 3; y++) {
-				d.set(p[0], y, p[1], frame.log(Direction.Axis.Y));
+		for (int[] p : new int[][]{{x0, 0}, {x1, 0}, {x0, zb}, {x1, zb}}) {
+			int top = rise(p[1], zc, zb) == 2 ? 3 : 2;
+			for (int y = 0; y < top; y++) {
+				d.set(p[0], y, p[1], pole.fence());
 			}
 		}
 	}
-	// the awning: a lean-to field of cloth rising toward the back, overhanging the front row
-	Mat cloth = d.mat(Role.CLOTH);
-	Roofs.Field awning = Roofs.shed(x0, 0, x1, zb, Dirs.BACK, Roofs.Profile.straight(0.5));
-	Roofs.Roof roof = Roofs.raster(d, awning, 3, x0, 0, x1, zb, cloth, cloth, Habits.Ridge.SLAB);
-	if (d.param("stripes", d.chance(0.75))) {
-		stripe(d, x0, x1, 0, zb, roof);        // every other column restated in white wool of the same shape
-	}
-	// the posts carried up to meet it (nothing may float)
-	try (var s = d.stage(StageKind.FRAME)) {
-		for (int[] p : new int[][]{{x0, zc}, {x1, zc}, {x0, zb}, {x1, zb}}) {
-			for (int y = 3; y < roof.bottomY(p[0], p[1]); y++) {
-				d.set(p[0], y, p[1], frame.log(Direction.Axis.Y));
-			}
-		}
-	}
-	// the counter: wares on slab tops and barrels, a gap at one end to get behind it
+	// the canopy: slabs from the street edge to the back, a half block up at a time (linen, boards or striped canvas)
+	canopy(d, x0, x1, zc, zb, frame);
+	// the trestle: top slabs the width of the stall, a gap by one end to get behind it, one trade's goods on it
 	Mat wood = d.mat(Role.FURNITURE);
-	int gap = d.chance(0.5) ? x0 + 1 : x1 - 1;
+	String trade = d.param("wares", WARES[(int) (Noise.unit(d.seed() ^ 0x3A7E, 0, 0, 0) * WARES.length) % WARES.length]);
+	int gap = Noise.unit(d.seed() ^ 0x6A9, 1, 0, 0) < 0.5 ? x0 + 1 : x1 - 1;
 	try (var s = d.stage(StageKind.INTERIOR)) {
-		for (int x = x0 + 1; x <= x1 - 1; x++) {
-			if (x == gap) {
-				continue;
-			}
-			if ((x - x0) % 3 == 2) {
-				d.set(x, 0, zc, States.facing(Blocks.BARREL, Dirs.FRONT));
-			} else {
+		for (int x = x0; x <= x1; x++) {
+			if (x != gap) {
 				d.set(x, 0, zc, wood.slab(SlabType.TOP));
-				wares(d, x, 1, zc);                 // a pot, a candle, a decorated pot, a melon, or nothing
+				wares(d, trade, x, 1, zc);        // melons, pots, sacks, cloth, candles, cakes... or a gap
 			}
 		}
 	}
 	int mid = (x0 + x1) / 2 == gap ? (x0 + x1) / 2 + (gap == x0 + 1 ? 1 : -1) : (x0 + x1) / 2;
 	d.poi(PoiType.MARKET_STALL, mid, 0, zc - 1, Dirs.BACK);     // where a customer stands
 	d.poi(PoiType.COUNTER, mid, 0, zc + 1, Dirs.FRONT);         // where the merchant stands
-	// stock at the back: the merchant's barrel (the job site), a chest, crates
-	if (zb - zc >= 3) {
-		Furniture.workstation(d, JobType.MERCHANT, x0 + 1, 0, zb, Dirs.FRONT);
-		Furniture.chest(d, x1 - 1, 0, zb, Dirs.FRONT, List.of(new Object[]{"minecraft:bread", 6}, new Object[]{"minecraft:apple", 4}));
-		if (x1 - x0 >= 4) {
-			Garden.barrels(d, x0 + 2, 0, zb, Dirs.RIGHT, Math.min(2, x1 - x0 - 3));
-		}
-	} else {
-		Furniture.workstation(d, JobType.MERCHANT, gap == x0 + 1 ? x1 - 1 : x0 + 1, 0, zb, Dirs.FRONT);
-	}
-	// a lantern under the high side of the awning
-	if (roof.covers(mid, zb - 1) && roof.bottomY(mid, zb - 1) >= 3) {
-		Furniture.hangingLantern(d, mid, roof.bottomY(mid, zb - 1), zb - 1, 0);
-	}
-	Groundwork.clear(d, 0, 0, w - 1, dp - 1, roof.ridgeY + 2);
+	// a basket by a front pole; stock at the back: the merchant's barrel (the job site), a chest, crates and sacks
+	basket(d, trade, gap == x0 + 1 ? x1 - 1 : x0 + 1, 0, 0);
+	Furniture.workstation(d, JobType.MERCHANT, x0 + 1, 0, zb, Dirs.FRONT);
+	Furniture.chest(d, x1 - 1, 0, zb, Dirs.FRONT, List.of(new Object[]{"minecraft:bread", 6}, new Object[]{"minecraft:apple", 4}));
+	Props.sacks(d, x0 + 2, 0, zb, Dirs.RIGHT, 1, trade.equals("bread"));
+	// a lantern hung under the high back of the canopy
+	Furniture.hangingLantern(d, mid, 3, rise(zb - 1, zc, zb) == 2 ? zb - 1 : zb, 0);
+	Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, 5));
 }
 ```
 
 What it shows: the entrance on the street row; levelling with water handling; materials by role so every culture
-dresses it differently (striped red awnings in the temperate style, blue and white in the Mediterranean, ochre on the
-steppe); a roof field reused as an awning; posts carried up to whatever the roof turned out to be (read the `Roof`, do
-not assume); furniture through the kit so POIs are registered; a param with a seeded default; clearing last.
+dresses it differently (dark boards in the timber cultures, white linen, red-and-white canvas in the desert and blue in
+the Mediterranean, `Fair.striped`/`Fair.houseColour`); geometry worked out once (`rise`) and read by every part that
+depends on it, so the poles meet the canopy whatever its depth; furniture and props through the kit so POIs are
+registered; params with seeded defaults (`canopy`, `wares`); clearing last. Keep it low and open: a closed booth with
+a tall striped awning turns a square of ten into a fairground.
 
 The bigger archetypes are the references for everything else: `house/Hut` (round and square, stilts),
 `house/HouseBuilder.cottage` (facade, cross gables and dormers, porch, bay, balcony, attic, lean-to outshot, garden),
@@ -479,7 +452,7 @@ layout, shed, crane, stacks), `landscape/Well`.
 - Shared keys: `storeys` (int), `party_left` / `party_right` (boolean, ATTACHABLE archetypes: no windows, no eaves on
   that side — **the building's own left and right looking out of its front door**, which is the mirror of the local
   frame's LEFT/RIGHT; always read them with `d.partyLocalLeft()` / `d.partyLocalRight()`, never `d.param("party_left")`), `roof` (a `RoofForm` name), `variant` (style variant index). Per archetype: `shop` and `terrace`
-  (townhouse), `outshot` (cottage), `stripes` (market stall).
+  (townhouse), `outshot` (cottage), `canopy` and `wares` (market stall).
 - Infrastructure archetypes take their geometry in params (ARCHITECTURE.md §6.1).
 
 ## 8. The quality bar
