@@ -25,6 +25,12 @@ import net.minecraft.world.level.block.state.BlockState;
  * at every door, lit streets between their lamps. On the surface the light must be what folk burn: a blueprint that is
  * not an underground settlement's ({@code deep/} archetypes, {@code deep} styles) places no glowing Expanse block
  * (amber, glowcaps, prismite, lumenwood light, glowroots): those belong to the realms below.
+ *
+ * <p><b>The one exemption: abandoned buildings.</b> A plot whose {@code decay} param is at or past
+ * {@link dev.voidmc.hearth.build.age.Decay#ABANDONED} (0.25: left empty, docs/buildings/age.md) is nobody's home: its
+ * household took the lamps, its candles burnt out, and a ruin may be dark (mobs in ruins are part of exploring them). The
+ * light rule is not applied to it at all; the surface-glow rule still is. Below 0.25 a weathered building is still lived in
+ * and keeps the whole rule (the lighting pass runs after the decay pass).
  */
 public final class LightCheck {
 	/** Columns read round the plot (light reaching out and back in). */
@@ -93,6 +99,10 @@ public final class LightCheck {
 	/** Adds a line per kind of unmet need to {@code out}, and one for glowing Expanse blocks on the surface. */
 	static void light(BlueprintImpl bp, BlueprintChecks.World w, List<String> out) {
 		surfaceGlow(bp, w, out);
+		if (dev.voidmc.hearth.build.age.Decay.unlit(bp.spec())) {
+			// an abandoned building (decay at or past Decay.ABANDONED) is nobody's home: its lamps were taken, it may be dark
+			return;
+		}
 		Result r = evaluate(bp, w);
 		if (r.unmet().isEmpty()) {
 			return;

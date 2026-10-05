@@ -116,7 +116,10 @@ public final class BlueprintServiceImpl implements BlueprintService {
 		Site site = new Site(spec, a.terrain(spec, terrain));
 		Draft d = new Draft(spec, style, site);
 		try {
-			a.draw(d);
+			// the house as first built (on part of its plot when it will grow: docs/buildings/age.md)
+			dev.voidmc.hearth.build.age.Age.draw(a, d, style, terrain);
+			// what time has done to it: additions over generations, then decay (docs/buildings/age.md)
+			dev.voidmc.hearth.build.age.Age.apply(a.info(), d);
 		} catch (RuntimeException e) {
 			// a broken generator must not take world generation down with it: log once per kind, build nothing
 			if (this.reported.add(spec.archetype() + "/" + spec.style())) {
