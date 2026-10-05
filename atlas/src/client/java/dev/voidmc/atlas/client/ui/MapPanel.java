@@ -115,6 +115,10 @@ public final class MapPanel {
 		if (kind == Kind.SURFACE && !data.ceiling) {
 			return data.layer(DimensionData.SURFACE);
 		}
+		// what is underground only where the server allows the cave view on the map
+		if (!this.atlas.caveMapAllowed(data.ceiling)) {
+			return null;
+		}
 		return data.under(band);
 	}
 

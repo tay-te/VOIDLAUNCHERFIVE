@@ -153,6 +153,16 @@ public final class AtlasClient implements ClientModInitializer {
 
 		ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 		ChatCoordinates.register();
+		// what the server allows: reset on every connection, read from its MOTD and its system messages
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
+			this.rules.reset();
+			var server = mc.getCurrentServer();
+			if (server != null && server.motd != null) {
+				this.rules.accept(server.motd.getString());
+			}
+		});
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> this.rules.reset());
+		net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.GAME.register((message, overlay) -> this.rules.accept(message.getString()));
 		ClientChunkEvents.CHUNK_LOAD.register((level, chunk) -> {
 			if (this.ingest != null && level == this.level) {
 				this.ingest.loaded(chunk);
@@ -260,6 +270,11 @@ public final class AtlasClient implements ClientModInitializer {
 	/** Whether the server lets the map show what is underground ({@code ceiling}: in a dimension with a roof). */
 	public boolean caveViewAllowed(boolean ceiling) {
 		return !this.multiplayer() || this.rules.caveViewAllowed(ceiling);
+	}
+
+	/** Whether the server lets the full map show what is underground ({@code ceiling}: in the Nether). */
+	public boolean caveMapAllowed(boolean ceiling) {
+		return !this.multiplayer() || this.rules.caveMapAllowed(ceiling);
 	}
 
 	/**
