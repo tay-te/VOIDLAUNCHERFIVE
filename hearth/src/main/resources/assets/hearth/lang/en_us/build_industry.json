@@ -1,1 +1,18 @@
-{}
+{
+  "hearth.archetype.work.logging_camp": "Logging Camp",
+  "hearth.sign.logging_camp": "Logging Camp",
+  "hearth.archetype.work.charcoal_kiln": "Charcoal Kiln",
+  "hearth.sign.charcoal_kiln": "Charcoal",
+  "hearth.archetype.work.smelter": "Smelter",
+  "hearth.sign.smelter": "Ironworks",
+  "hearth.archetype.work.brick_kiln": "Brick Kiln",
+  "hearth.sign.brick_kiln": "Brickworks",
+  "hearth.archetype.work.glassworks": "Glassworks",
+  "hearth.sign.glassworks": "Glassworks",
+  "hearth.archetype.work.salt_works": "Salt Works",
+  "hearth.sign.salt_works": "Salt",
+  "hearth.archetype.work.shipyard": "Shipyard",
+  "hearth.sign.shipyard": "Shipwright",
+  "hearth.archetype.commerce.caravan_yard": "Caravan Yard",
+  "hearth.sign.caravan_yard": "Caravans"
+}

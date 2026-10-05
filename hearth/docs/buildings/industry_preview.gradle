@@ -1,0 +1,27 @@
+// Gradle init script: registers `industryShots` (large close-ups and culture grids of the heavy workshops) without
+// touching the shared build files. From hearth/:
+//
+//   ./gradlew -I docs/buildings/industry_preview.gradle industryShots -Pids=work/smelter -Pstyle=temperate -Pseeds=2 -Pterrain=hills
+//   ./gradlew -I docs/buildings/industry_preview.gradle industryShots -Pids=work/smelter,work/glassworks -Pstyle=all -Pmode=grid -Pscale=14
+//
+// Output: build/previews/industry/*.png. See dev.voidmc.hearth.gametest.industry.IndustryShots.
+rootProject { p ->
+	p.afterEvaluate {
+		p.tasks.register('industryShots', JavaExec) {
+			group = 'hearth'
+			description = 'Renders close-ups and culture grids of the heavy workshops to build/previews/industry/*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.industry.IndustryShots'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx3g'
+			args = [
+				p.findProperty('ids') ?: 'work/smelter',
+				p.findProperty('style') ?: 'temperate',
+				p.findProperty('seeds') ?: '1',
+				p.findProperty('terrain') ?: 'flat',
+				p.layout.buildDirectory.dir('previews/industry').get().asFile.path,
+				p.findProperty('mode') ?: 'close',
+				p.findProperty('scale') ?: '28'
+			]
+		}
+	}
+}
