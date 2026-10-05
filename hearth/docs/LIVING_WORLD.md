@@ -1,7 +1,12 @@
 # VOID Hearth — the living world (phase 3 design)
 
-Status: **agreed design, not yet implemented.** Phases 1–2 built the machinery: settlements that grow while you are
+Status: **built and merged** (October 2026). Phases 1–2 built the machinery: settlements that grow while you are
 away, folk with routines who really build, coin, need-driven quests, and a catalogue of 71 hand-crafted building types.
+Phase 3 — everything in this document — is now in the code: light, repairs, reputation, law and stealth, the resource
+economy, social life and the extra architecture (stages A and B, about 140 building types in 14 cultures). The design
+below is kept as the record of what was agreed; the module docs (SIM, FOLK, ECONOMY, LAW, STANDING, SOCIAL, REPAIRS) say
+how each part works, and the open items are listed in ARCHITECTURE.md §14.
+
 Phase 3 makes the world hold together the way a AAA open world does — *Kingdom Come: Deliverance II* is the reference
 for law, reputation and stealth; *Manor Lords*, *Banished* and *Anno* for the economy — while keeping what makes
 Hearth scale: **a settlement is data first**, entities and block changes are views made only where a player can see
