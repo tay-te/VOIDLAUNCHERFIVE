@@ -520,8 +520,8 @@ From the open items in `docs/requests/*.md` (each file says who owns it); everyt
 - The social module does not yet report a bath as the `social:bathed` deed — `p3-standing.md`.
 - No client formatter for coin names — `quest.md`.
 - Expanse: `UndergroundProbe.waterY` is not answered by Expanse's implementation (deep towns keep to the floor the
-  probe reports), and Hearth does not yet read Expanse's lakes or register with Expanse's `LandClaims`; both wait on
-  that Expanse work reaching `main` — `p3-plan.md`, `expanse.md`.
+  probe reports) — `p3-plan.md`. Hearth reads Expanse's lakes (`ExpanseProbe`) and registers with its `LandClaims`
+  (`ExpanseClaims`), so Expanse's standalone structures keep out of planned settlements — `expanse.md`.
 - VOID LOD does not yet draw settlements; the read-only `sim/LodFootprints` is ready for it (§11).
 - `SyntheticTerrain`'s brim-full river leaves banks below the water line, so approach roads dip below it in the
   previews — `arch-infra.md`.
