@@ -1,6 +1,7 @@
 package dev.voidmc.mettle.character.skill.heavy;
 
 import dev.voidmc.mettle.character.FeatCounters;
+import dev.voidmc.mettle.character.Progress;
 import dev.voidmc.mettle.character.Perks;
 import dev.voidmc.mettle.character.PlacedBlocks;
 import dev.voidmc.mettle.character.skill.HeavyWeaponsSkill;
@@ -120,6 +121,8 @@ public final class Woodcraft {
 			return;
 		}
 		FeatCounters.add(player, NATURAL_LOG_COUNTER, 1);
+		// Woodcutting teaches the axe too, more slowly than fighting (BALANCE.md §3).
+		Progress.award(player, dev.voidmc.mettle.character.skill.Combat.HEAVY_WEAPONS, 0.5);
 		if (felling || !player.isShiftKeyDown() || isLog(level.getBlockState(pos.below())) || !Perks.has(player, HeavyWeaponsSkill.TIMBER)) {
 			return;
 		}

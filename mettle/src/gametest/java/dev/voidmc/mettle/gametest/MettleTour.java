@@ -23,7 +23,10 @@ public class MettleTour implements FabricClientGameTest {
 		// Load every class Mettle mixes into, so a broken injection fails the tour instead of a player's game.
 		for (String target : new String[] {"net.minecraft.world.inventory.AnvilMenu", "net.minecraft.world.entity.npc.villager.Villager",
 			"net.minecraft.world.item.BlockItem", "net.minecraft.world.level.block.entity.BrewingStandBlockEntity",
-			"net.minecraft.client.gui.screens.inventory.AnvilScreen"}) {
+			"net.minecraft.client.gui.screens.inventory.AnvilScreen", "net.minecraft.world.entity.player.Player",
+			"net.minecraft.world.entity.LivingEntity", "net.minecraft.world.level.block.Block", "net.minecraft.world.item.ItemStack",
+			"net.minecraft.world.entity.monster.Creeper", "net.minecraft.world.item.BowItem", "net.minecraft.world.item.CrossbowItem",
+			"net.minecraft.world.entity.projectile.arrow.AbstractArrow"}) {
 			try {
 				Class.forName(target);
 			} catch (ClassNotFoundException e) {

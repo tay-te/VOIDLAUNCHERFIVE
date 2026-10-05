@@ -68,6 +68,9 @@ public final class Combat {
 	}
 
 	private static @Nullable ResourceKey<Skill> skillFor(DamageSource source, ServerPlayer player) {
+		if (source.is(dev.voidmc.mettle.character.skill.blades.BleedDamage.BLEED) && source.getEntity() == player) {
+			return BLADES;
+		}
 		Weapon w = weapon(source, player);
 		if (w == null) {
 			return null;

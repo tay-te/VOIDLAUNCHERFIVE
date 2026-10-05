@@ -10,11 +10,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * Bleed (Skirmisher): wounds opened by critical blade hits, one damage a second each. The damage is generic (through
+ * Bleed (Skirmisher): wounds opened by critical blade hits, one damage a second each. The damage is mettle:bleed (through
  * armour, no knockback) and credited to whoever opened the last wound, so a mob that bleeds out still counts as theirs.
  * A bleed tick ignores and restores the foe's hurt cooldown, so it never eats the next sword hit or is eaten by it.
  */
@@ -54,7 +53,7 @@ public final class Bleeding {
 			int damage = bleed.wounds.tick();
 			if (damage > 0 && target.isAlive() && !target.isRemoved() && target.level() instanceof ServerLevel level) {
 				ServerPlayer attacker = server.getPlayerList().getPlayer(bleed.attacker);
-				DamageSource source = level.damageSources().source(DamageTypes.GENERIC, null, attacker);
+				DamageSource source = level.damageSources().source(BleedDamage.BLEED, null, attacker);
 				BladesLivingAccess access = (BladesLivingAccess) target;
 				int cooldown = target.damageCooldownTime;
 				float lastHurt = access.mettle$lastHurt();

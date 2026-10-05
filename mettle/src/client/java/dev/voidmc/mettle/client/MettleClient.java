@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.mettle.Mettle;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
+import dev.voidmc.mettle.character.skill.BladesSkill;
+import dev.voidmc.mettle.mixin.blades.BladesLivingAccess;
 import dev.voidmc.mettle.client.character.BackgroundPickerScreen;
 import dev.voidmc.mettle.client.character.CharacterScreen;
 import dev.voidmc.mettle.client.athletics.AthleticsClient;
@@ -78,6 +80,11 @@ public final class MettleClient implements ClientModInitializer {
 			chip.addProperty("perk", payload.perk().toString());
 			chip.addProperty("text", payload.text().getString());
 			OverlayBridge.push("mettleFeedback", chip);
+			// Cut and Run and Sword and Board charge the next swing on the server; show it charged here too.
+			if ((payload.perk().equals(BladesSkill.CUT_AND_RUN) || payload.perk().equals(BladesSkill.SWORD_AND_BOARD)) && context.client().player != null) {
+				var player = context.client().player;
+				((BladesLivingAccess) player).mettle$setAttackStrengthTicker((int) Math.ceil(player.getCurrentItemAttackStrengthDelay()) + 1);
+			}
 			// Until the overlay's HUD chips exist, the action bar says it.
 			if (!OverlayBridge.hasListener() && context.client().player != null) {
 				context.client().player.sendOverlayMessage(payload.text());

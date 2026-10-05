@@ -52,6 +52,7 @@ Every value below is multiplied by: favoured ×1.25, Wits +2 %/point, perks, `xp
 | Mining | diamond · emerald · ancient debris · amethyst cluster | 20 · 25 · 30 · 2 |
 | Mining | deepslate ore variants | ×1.25 |
 | Blades / Heavy | per point of damage dealt (capped at the target's remaining health) | 1 |
+| Heavy | per natural log chopped with an axe (placed logs give nothing) | 0.5 |
 | Blades / Heavy | kill bonus | ¼ of the target's max health |
 | Blades / Heavy | modifiers: passive animals ×0.5 · players ×0.5 · spawner mobs ×0.1 | |
 | Marksmanship | per point of damage | 1.2 |
