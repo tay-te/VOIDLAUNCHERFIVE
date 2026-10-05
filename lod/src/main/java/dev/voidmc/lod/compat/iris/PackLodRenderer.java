@@ -43,6 +43,9 @@ public final class PackLodRenderer {
 	/** The pack's dh_water program and its framebuffer, or null without one (the water then goes with the land). */
 	private final PackLodProgram water;
 	private final GlFramebuffer waterTarget;
+	/** The pack's dh_shadow program and the shadow map's framebuffer, or null without one (or with shadows off). */
+	private final PackLodProgram shadow;
+	private final GlFramebuffer shadowTarget;
 	private DepthTexture depth;
 	/** The LOD's depth before its water: the pack's dhDepthTex1, what it sees through the water. */
 	private DepthTexture depthUnderWater;
@@ -58,6 +61,24 @@ public final class PackLodRenderer {
 		Optional<ProgramSource> water = pipeline.getDHWaterShader();
 		this.water = water.isPresent() ? PackLodProgram.create(water.get().getName(), false, true, water.get(), pipeline) : null;
 		this.waterTarget = water.isPresent() ? pipeline.createDHFramebuffer(water.get(), true) : null;
+		Optional<ProgramSource> shadow = pipeline.getDHShadowShader();
+		PackLodProgram shadowProgram = null;
+		GlFramebuffer shadowTarget = null;
+		if (shadow.isPresent()) {
+			try {
+				shadowProgram = PackLodProgram.create(shadow.get().getName(), true, false, shadow.get(), pipeline);
+				shadowTarget = pipeline.createDHFramebufferShadow(shadow.get());
+			} catch (RuntimeException e) {
+				// no shadow map (shadows off in the pack), or a program that will not build: the LOD casts no shadow
+				if (shadowProgram != null) {
+					shadowProgram.free();
+					shadowProgram = null;
+				}
+				LOGGER.info("VOID LOD: the shader pack's shadows leave the LOD out ({})", e.getMessage());
+			}
+		}
+		this.shadow = shadowProgram;
+		this.shadowTarget = shadowTarget;
 		this.resize();
 	}
 
@@ -70,6 +91,7 @@ public final class PackLodRenderer {
 		}
 		try {
 			PackLodRenderer renderer = new PackLodRenderer(pipeline, source.get());
+			PackLod.hookShadows();
 			LOGGER.info("VOID LOD: drawing through the shader pack's Distant Horizons programs");
 			return renderer;
 		} catch (RuntimeException e) {
@@ -198,6 +220,50 @@ public final class PackLodRenderer {
 		GlStateManager._disableScissorTest();
 	}
 
+	/**
+	 * Draws {@code frame}'s land into the pack's shadow map through its dh_shadow program, from Iris's shadow pass (a
+	 * shadow render callback), so the far land casts shadows as the chunks do. Every tile within the shadow map's reach
+	 * goes in, as Distant Horizons draws its own: the pack's program cuts out what the chunks cover (Bliss's overdraw
+	 * prevention does), as it does for the LOD's terrain.
+	 */
+	public void drawShadow(PackFrame frame, Matrix4f modelView, Matrix4f projection) {
+		if (this.shadow == null || frame == null || frame.count == 0) {
+			return;
+		}
+		this.shadowTarget.bind();
+		int resolution = net.irisshaders.iris.shadows.ShadowRenderer.RESOLUTION;
+		// the shadow map covers the pack's shadow distance around the camera: tiles past it would only cost vertices
+		float reach = net.irisshaders.iris.shadows.ShadowRenderer.renderDistance * 16.0F;
+		GlStateManager._viewport(0, 0, resolution, resolution);
+		noScissor();
+		GlStateManager._enableDepthTest();
+		GlStateManager._depthFunc(this.shadow.reversedDepth ? GL32C.GL_GEQUAL : GL32C.GL_LEQUAL);
+		GlStateManager._depthMask(true);
+		// both sides, as Iris draws the chunks' shadows: a ridge seen edge-on from the sun still casts
+		GlStateManager._disableCull();
+		this.shadow.bind();
+		this.shadow.fill(projection, modelView, frame.clip, -PackLod.Y_OFFSET);
+		if (this.vao == 0) {
+			this.vao = GL32C.glGenVertexArrays();
+		}
+		GL32C.glBindVertexArray(this.vao);
+		GL32C.glBindBuffer(GL32C.GL_ELEMENT_ARRAY_BUFFER, frame.indexBuffer);
+		int boundHeap = -1;
+		for (int i = 0; i < frame.count; i++) {
+			if (frame.landIndices[i] == 0 || frame.near[i] > reach) {
+				continue;
+			}
+			if (frame.heap[i] != boundHeap) {
+				boundHeap = frame.heap[i];
+				this.layout(boundHeap);
+			}
+			this.shadow.modelOffset(frame.offset[i * 3], frame.offset[i * 3 + 1], frame.offset[i * 3 + 2]);
+			GL32C.glDrawElementsBaseVertex(GL32C.GL_TRIANGLES, frame.landIndices[i], frame.indexType, 0L, frame.baseVertex[i]);
+		}
+		GL32C.glBindVertexArray(0);
+		this.shadow.unbind();
+		GlStateManager._enableCull();
+	}
 	/** Each tile's land ({@code water} false; with its water too if {@code both}) or its water, through {@code program}. */
 	private void ranges(PackLodProgram program, PackFrame frame, boolean water, boolean both) {
 		int boundHeap = -1;
@@ -241,6 +307,9 @@ public final class PackLodRenderer {
 		this.solid.free();
 		if (this.water != null) {
 			this.water.free();
+		}
+		if (this.shadow != null) {
+			this.shadow.free();
 		}
 		if (this.depth != null) {
 			this.depth.destroy();

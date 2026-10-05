@@ -472,7 +472,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 				this.lastTiles++;
 				this.packFrame.add(((GlBuffer) heap).handle(), (int) (alloc.getOffsetFromHeap() / TileBuilder.VERTEX_BYTES), tile.landIndices,
 					tile.landIndices, tile.indices - tile.landIndices, TileKey.minX(tile.key) - cx, -TileBuilder.PACK_Y_OFFSET - cy,
-					TileKey.minZ(tile.key) - cz);
+					TileKey.minZ(tile.key) - cz, nearest(tile.key, cx, cz));
 				maxQuads = Math.max(maxQuads, tile.quads);
 				this.lastQuads += tile.quads;
 				continue;
@@ -572,6 +572,15 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	 * Whether a shader pack draws the LOD (through its Distant Horizons programs): then the frame goes into
 	 * {@link #packFrame} instead of this renderer's draws.
 	 */
+	/** How close tile {@code key} comes to (cx, cz) across the ground, in blocks (0 if it is under the camera). */
+	private static double nearest(long key, double cx, double cz) {
+		int span = TileKey.span(TileKey.level(key));
+		int x0 = TileKey.minX(key), z0 = TileKey.minZ(key);
+		double nx = Math.max(0, Math.max(x0 - cx, cx - (x0 + span)));
+		double nz = Math.max(0, Math.max(z0 - cz, cz - (z0 + span)));
+		return Math.sqrt(nx * nx + nz * nz);
+	}
+
 	/** Whether the shader pack draws this renderer's tiles ({@link #packFrame}). */
 	public boolean packMode() {
 		return this.packMode;

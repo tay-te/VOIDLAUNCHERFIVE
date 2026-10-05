@@ -52,11 +52,17 @@ final class PackLodProgram {
 	private final CustomUniforms customUniforms;
 	private final ProgramSamplers samplers;
 	private final ProgramImages images;
+	/**
+	 * Whether Iris patched this program to write reversed depth ({@code gl_Position.z = (w - z) / 2}), as it does the
+	 * programs drawing into its reversed buffers; the depth test must then keep the greater depth.
+	 */
+	final boolean reversedDepth;
 	private final BlendModeOverride blend;
 	private final BufferBlendOverride[] bufferBlends;
 
 	private PackLodProgram(String name, boolean shadow, boolean translucent, BlendModeOverride blend, BufferBlendOverride[] bufferBlends,
 		Map<PatchShaderType, String> sources, CustomUniforms customUniforms, IrisRenderingPipeline pipeline) {
+		this.reversedDepth = sources.get(PatchShaderType.VERTEX).contains("gl_Position.w - gl_Position.z");
 		this.id = GL32C.glCreateProgram();
 		// the Distant Horizons layout, at the locations Iris binds them to
 		GL32C.glBindAttribLocation(this.id, 0, "vPosition");
@@ -119,7 +125,7 @@ final class PackLodProgram {
 		GL32C.glUseProgram(0);
 	}
 
-	/** Compiles {@code source} (a pack's dh_terrain or dh_water) for the LOD. */
+	/** Compiles {@code source} (a pack's dh_terrain, dh_water or dh_shadow) for the LOD. */
 	static PackLodProgram create(String name, boolean shadow, boolean translucent, ProgramSource source, IrisRenderingPipeline pipeline) {
 		Map<PatchShaderType, String> patched = TransformPatcher.patchDHTerrain(name,
 			source.getVertexSource().orElseThrow(RuntimeException::new),

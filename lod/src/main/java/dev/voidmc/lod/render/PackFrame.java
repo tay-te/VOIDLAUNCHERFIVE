@@ -17,6 +17,8 @@ public final class PackFrame {
 	public int[] waterIndices = new int[256];
 	/** x, y, z per tile: its corner (y: the vertical offset its vertices carry) relative to the camera, in blocks. */
 	public float[] offset = new float[256 * 3];
+	/** How close each tile comes to the camera across the ground, in blocks: the shadow pass leaves out the tiles past its map. */
+	public float[] near = new float[256];
 	/** The shared quad index buffer: its GL handle, the GL type of its indices and their size in bytes. */
 	public int indexBuffer;
 	public int indexType;
@@ -28,7 +30,7 @@ public final class PackFrame {
 		this.count = 0;
 	}
 
-	void add(int heap, int baseVertex, int landIndices, int waterFirst, int waterIndices, double x, double y, double z) {
+	void add(int heap, int baseVertex, int landIndices, int waterFirst, int waterIndices, double x, double y, double z, double near) {
 		if (this.count == this.heap.length) {
 			int n = this.count * 2;
 			this.heap = Arrays.copyOf(this.heap, n);
@@ -37,6 +39,7 @@ public final class PackFrame {
 			this.waterFirst = Arrays.copyOf(this.waterFirst, n);
 			this.waterIndices = Arrays.copyOf(this.waterIndices, n);
 			this.offset = Arrays.copyOf(this.offset, n * 3);
+			this.near = Arrays.copyOf(this.near, n);
 		}
 		int i = this.count++;
 		this.heap[i] = heap;
@@ -47,5 +50,6 @@ public final class PackFrame {
 		this.offset[i * 3] = (float) x;
 		this.offset[i * 3 + 1] = (float) y;
 		this.offset[i * 3 + 2] = (float) z;
+		this.near[i] = (float) near;
 	}
 }

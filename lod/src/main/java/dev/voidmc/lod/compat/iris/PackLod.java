@@ -99,6 +99,32 @@ public final class PackLod {
 		return renderer == null ? -1 : renderer.gpuMillis();
 	}
 
+	private static boolean shadowHooked;
+	/**
+	 * {@code -Dvoid.lod.packShadows=true} puts the LOD into the shadow map of packs with a dh_shadow program (Bliss). Off
+	 * by default: a pack's shadow map reaches a few hundred blocks at most, about where the chunks end, so in the views
+	 * tested the far land changed no visible shadow, and drawing it there is GPU work every frame for nothing seen.
+	 */
+	private static final boolean SHADOWS = "true".equals(System.getProperty("void.lod.packShadows"));
+
+	/**
+	 * Has Iris's shadow pass call the LOD after the chunks' shadows, once: the callback list outlives every pipeline, so
+	 * the hook asks for the current renderer each time.
+	 */
+	static void hookShadows() {
+		if (shadowHooked) {
+			return;
+		}
+		shadowHooked = true;
+		net.irisshaders.iris.shadows.ShadowRenderCallbacks.register((modelView, projection, x, y, z, tickDelta) -> {
+			PackLodRenderer renderer = renderer();
+			VoidLod lod = VoidLod.get();
+			if (SHADOWS && renderer != null && lod != null) {
+				renderer.drawShadow(lod.packFrame(), modelView, projection);
+			}
+		});
+	}
+
 	/** Draws the frame's water (Iris is about to run the pack's composite passes). */
 	public static void drawWater() {
 		PackLodRenderer renderer = renderer();

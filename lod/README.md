@@ -323,7 +323,16 @@ chunks (`-Plod.show.town=true`), in the LOD's own renderer and through Complemen
   stays on the chunks there, and its border fog fades the chunks' edge just in front of the LOD. With
   Distant Horizons installed too, Iris keeps its own integration and the LOD takes the fallback.
 
-  Tested with Complementary Reimagined r5.9.3 at the High preset (8 km), on the showcase views:
+  Packs with a `dh_shadow` program (of those tested, only Bliss) can take the LOD into their shadow map too
+  (`-Dvoid.lod.packShadows=true`, through Iris's shadow render callback). It is off by default: a pack's
+  shadow map reaches a few hundred blocks at most, about where the chunks end, so in the showcase views the
+  far land changed no visible shadow, while drawing it into the map is GPU work every frame for nothing seen. The
+  packs that shade distant land do it in screen space instead (Complementary).
+
+  Tested with Complementary Reimagined r5.9.3, BSL v10.1.8, Photon v1.3b and Bliss v2.1.2 at the High
+  preset (8 km), on the showcase views. None of them reads the block texture atlas Iris offers Distant
+  Horizons terrain (`dhBlockAtlas`), so the LOD gives them none; they shade the far land from its colours.
+  Complementary at dusk:
 
   ![dusk over the badlands, the far land lit by Complementary Reimagined](docs/shader_pack_dusk.jpg)
 
@@ -364,6 +373,7 @@ override the file for the session without being written back (dev runs and the g
 | `gpuTarget`, `prepareTarget` | | `1.5`, `0.5` | auto-tune's targets, in ms a frame |
 | `smoothFrom` | `void.lod.smoothFrom` | `10` (none) | the first level drawn as the smooth far field instead of blocks (read at start) |
 | | `void.lod.ingest` | `true` | read the chunks the client loads into the far view, and keep them on disk |
+| | `void.lod.packShadows` | `false` | put the LOD into the shadow map of packs with a `dh_shadow` program (Bliss) |
 | | `void.lod.overPack` | `true` | with a shader pack that has no Distant Horizons programs, draw over its picture (`false`: inside its buffers, unlit, to compare) |
 
 ### Quality presets
@@ -469,10 +479,9 @@ model, but only loads it when Expanse is installed.
 
 * **Land on a server nobody has seen.** Without the generator, the far view on a server is what the
   client has seen; a small server-side companion could stream column summaries of the rest.
-* **The LOD in a shader pack's shadow map.** Through a pack, the far land is lit by the pack but casts
-  no shadow into its shadow map (Distant Horizons' `dh_shadow`); Complementary covers it with its
-  screen-space shadows on the far terrain, other packs may not. Nor does the pack get block textures for
-  the far land (`dhBlockAtlas`): it draws the LOD's colours.
+* **Far shadows through packs that keep a short shadow map.** BSL and Photon do not shade distant land at
+  all, and a pack's shadow map ends near the chunks; long shadows over the far land would need the LOD's
+  own horizon lighting fed to the pack, which no pack reads today.
 * **Block textures from the real blocks.** The textures follow what the generator puts on the surface;
   loaded chunks could put their own blocks' ids on the faces through the same registry. A grass
   block's fringe takes the default grass tint against the biome's (the face's colour is the biome's).
