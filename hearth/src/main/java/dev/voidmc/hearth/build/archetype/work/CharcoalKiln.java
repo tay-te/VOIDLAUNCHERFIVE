@@ -26,7 +26,7 @@ import net.minecraft.core.Direction;
 
 /**
  * {@code hearth:work/charcoal_kiln}: the charcoal burner's clearing at the wood's edge. A trodden lane runs in from
- * the track. On one side of it the clamp smoulders, a low round hill of soot-black earth breathing smoke from its crown,
+ * the track. On one side of it the clamp smoulders, a low round hill of earth and turf breathing smoke from its crown,
  * the ground about it black with cinders; behind it the next clamp going up (billets stood on end round a centre pole,
  * the covering going on from one side) or the last one raked open into a black heap of charcoal. On the other side cords
  * of billets wait between their stakes, and at the back stands the burner's hut, poles leant together into a steep

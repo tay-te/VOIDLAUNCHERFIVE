@@ -64,9 +64,13 @@ public final class Mound {
 				return diff < 1.1 && Math.hypot(x - cx, z - cz) > r * 0.3 ? earth.at(x, yy, z) : log.at(x, yy, z);
 			};
 		}
-		// the slopes: soot-black earth and cinders
-		Shape.Picker turfStairs = (x, yy, z) -> Noise.unit(d.seed() ^ 0x5EE, x, yy, z) < 0.25 ? Blocks.COBBLED_DEEPSLATE_STAIRS : Blocks.BLACKSTONE_STAIRS;
-		Shape.Picker turfSlab = (x, yy, z) -> Noise.unit(d.seed() ^ 0x5EE, x, yy, z) < 0.25 ? Blocks.COBBLED_DEEPSLATE_SLAB : Blocks.BLACKSTONE_SLAB;
+		// the slopes
+		// mostly the earth itself in whole sods; here and there a streak of soot where the smoke has broken through
+		Shape.Picker turfStairs = (x, yy, z) -> {
+			double u = Noise.unit(d.seed() ^ 0x5EE, x, yy, z);
+			return u < 0.18 ? Blocks.BLACKSTONE_STAIRS : u < 0.3 ? Blocks.MUD_BRICK_STAIRS : null;
+		};
+		Shape.Picker turfSlab = (x, yy, z) -> Noise.unit(d.seed() ^ 0x5EE, x, yy, z) < 0.2 ? Blocks.BLACKSTONE_SLAB : null;
 		Shape.Skin sk = state == State.BURNING ? new Shape.Skin(skin, turfStairs, turfSlab) : new Shape.Skin(skin, (Shape.Picker) null, null);
 		for (int z = z0; z <= z1; z++) {
 			for (int x = x0; x <= x1; x++) {
@@ -135,7 +139,7 @@ public final class Mound {
 		if (Works.dry(d)) {
 			return new Block[]{Blocks.COARSE_DIRT, Blocks.PACKED_MUD, Blocks.BLACKSTONE, Blocks.COARSE_DIRT, Blocks.MUD};
 		}
-		return new Block[]{Blocks.MUD, Blocks.COARSE_DIRT, Blocks.PODZOL, Blocks.MUD, Blocks.ROOTED_DIRT, Blocks.MUD};
+		return new Block[]{Blocks.COARSE_DIRT, Blocks.ROOTED_DIRT, Blocks.PODZOL, Blocks.COARSE_DIRT, Blocks.DIRT, Blocks.MUD, Blocks.ROOTED_DIRT};
 	}
 
 	/** The ground round a clamp, blackened: cinders and soot in the trodden earth within radius r. */
