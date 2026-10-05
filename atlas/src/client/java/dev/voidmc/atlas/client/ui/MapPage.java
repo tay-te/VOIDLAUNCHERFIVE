@@ -454,7 +454,7 @@ public final class MapPage {
 			float rw = Math.max(ui.width(r.right, Ui.Font.F12), ui.width(r.rightSub, Ui.Font.F85, 1));
 			float tw = LIST_W - 10 - 32 - 12 - 14 - rw - 10;
 			ui.text(ui.fit(r.title, Ui.Font.F13, tw), x + 54, y + 9, Ui.Font.F13, Theme.INK);
-			ui.text(ui.fit(r.subtitle, Ui.Font.F85, tw), x + 54, y + 31, Ui.Font.F85, 1, Theme.INK_4);
+			ui.text(ui.fit(r.subtitle, Ui.Font.F85, 1, tw), x + 54, y + 31, Ui.Font.F85, 1, Theme.INK_4);
 			ui.textRight(r.right, x + LIST_W - 14, y + 10, Ui.Font.F12, 0, Theme.INK_2);
 			ui.textRight(r.rightSub, x + LIST_W - 14, y + 31, Ui.Font.F85, 1, Theme.INK_4);
 			if (y + 52 > this.listY && y < this.listY + this.listH) {
@@ -605,7 +605,7 @@ public final class MapPage {
 		ui.glyph(m.glyph(), cx + 9.5F, cy + 9.5F, 21, Theme.ink(0.8F), Theme.INK);
 		ui.text(ui.fit(m.name(), Ui.Font.F16, w - 32 - 52 - 30), cx + 52, cy + 3, Ui.Font.F16, Theme.INK);
 		String subtitle = m.subtitle().isEmpty() ? (waypoint != null ? "WAYPOINT" : "PLACE") : m.subtitle();
-		ui.text(ui.fit(subtitle, Ui.Font.F85, w - 32 - 52 - 30), cx + 52, cy + 26, Ui.Font.F85, 1, Theme.INK_4);
+		ui.text(ui.fit(subtitle, Ui.Font.F85, 1, w - 32 - 52 - 30), cx + 52, cy + 26, Ui.Font.F85, 1, Theme.INK_4);
 		boolean hClose = mx >= cx + 230 && mx <= cx + 254 && my >= cy + 8 && my <= cy + 32;
 		ui.panel(cx + 230, cy + 8, 24, 24, 12, hClose ? Theme.ISLAND : Theme.WELL, Theme.HAIR_6);
 		Icons.close(ui, cx + 236, cy + 14, Theme.INK_2);
@@ -618,7 +618,7 @@ public final class MapPage {
 			float rx = cx + i * (rw + 8);
 			ui.panel(rx, cy, rw, 55, 12, Theme.WELL, Theme.HAIR_5);
 			ui.text(ui.fit(r.value(), Ui.Font.F20, rw - 20), rx + 11, cy + 8, Ui.Font.F20, Theme.INK);
-			ui.text(ui.fit(r.label(), Ui.Font.F85, rw - 20), rx + 11, cy + 36, Ui.Font.F85, 1, Theme.INK_4);
+			ui.text(ui.fit(r.label(), Ui.Font.F85, 1, rw - 20), rx + 11, cy + 36, Ui.Font.F85, 1, Theme.INK_4);
 		}
 		cy += 55;
 		if (detail != null && detail.meter() != null) {

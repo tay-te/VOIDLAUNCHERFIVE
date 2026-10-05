@@ -405,12 +405,20 @@ public final class Ui {
 
 	/** Cuts text to fit {@code max} design pixels, with an ellipsis. */
 	public String fit(String text, Font font, float max) {
-		if (this.width(text, font) <= max) {
+		return this.fit(text, font, 0, max);
+	}
+
+	/**
+	 * Cuts text drawn with letter spacing {@code tracking} to fit {@code max} design pixels, with an ellipsis. The caps
+	 * lines are tracked, so measuring them untracked lets them run into whatever stands to their right.
+	 */
+	public String fit(String text, Font font, float tracking, float max) {
+		if (this.width(text, font, tracking) <= max) {
 			return text;
 		}
 		String dots = "…";
 		int end = text.length();
-		while (end > 0 && this.width(text.substring(0, end) + dots, font) > max) {
+		while (end > 0 && this.width(text.substring(0, end).stripTrailing() + dots, font, tracking) > max) {
 			end--;
 		}
 		return text.substring(0, end).stripTrailing() + dots;
