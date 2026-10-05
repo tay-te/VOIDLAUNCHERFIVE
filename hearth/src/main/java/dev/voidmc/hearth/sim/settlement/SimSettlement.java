@@ -963,6 +963,15 @@ public final class SimSettlement implements Settlement {
 		SimPlot old = this.plots.get(p.replaces);
 		if (old != null) {
 			p.replacedSpec = old.spec();
+			if (inPlace(old.spec(), p.spec())) {
+				// the same house with its addition: the household stays at home
+				for (Resident res : this.residents.values()) {
+					if (res.home == old.id()) {
+						res.home = p.id();
+					}
+				}
+				p.owner = old.owner;
+			}
 			this.plots.remove(old.id());
 			this.bounds = null;
 			c.plotsChanged(this);

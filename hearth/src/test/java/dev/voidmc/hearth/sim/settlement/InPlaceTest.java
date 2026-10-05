@@ -125,4 +125,46 @@ class InPlaceTest {
 		assertEquals(1.0, SimSettlement.decay(ruin.spec()));
 		assertEquals(s.facts(ruin).stageCount(), ruin.stage, "standing as it is, not to be built");
 	}
+
+	@Test
+	void anAdditionGoesUpOverTheLivedInHouse() {
+		SimSettlement s = TestSupport.founded("flat", 53);
+		for (int d = 1; d <= 120; d++) {
+			SettlementClock.advance(s, d * SimRules.DAY);
+		}
+		SimPlot house = null;
+		for (SimPlot p : s.plots.values()) {
+			if (p.state == PlotState.BUILT && p.beds > 0 && p.owner == null) {
+				int id = p.id();
+				if (s.residents.values().stream().anyMatch(r -> r.home == id)) {
+					house = p;
+					break;
+				}
+			}
+		}
+		assertTrue(house != null, "a lived-in house");
+		int oldId = house.id();
+		List<java.util.UUID> household = s.residents.values().stream().filter(r -> r.home == oldId).map(r -> r.id).toList();
+		CompoundTag params = house.spec().params().copy();
+		params.putInt(SimSettlement.ADDITIONS, 1);
+		params.putInt("replaces", oldId);
+		PlotSpec o = house.spec();
+		SimPlot add = s.addPlot(new PlotSpec(o.archetype(), o.style(), o.seed(), o.origin(), o.sizeX(), o.sizeZ(), o.facing(), o.maxHeight(), o.tier(),
+			params), oldId, "a household grows");
+		int day = 121;
+		while (add.state != PlotState.BUILT && day < 200) {
+			SettlementClock.advance(s, day++ * SimRules.DAY);
+			if (add.state == PlotState.BUILDING) {
+				assertEquals(PlotState.BUILT, s.plot(oldId).state, "the house stands, lived in, while its addition goes up");
+			}
+		}
+		assertEquals(PlotState.BUILT, add.state, "the addition was built");
+		assertTrue(s.plot(oldId) == null, "the old record is replaced");
+		for (java.util.UUID id : household) {
+			var r = s.residents.get(id);
+			if (r != null) {
+				assertEquals(add.id(), r.home, "the household stays at home");
+			}
+		}
+	}
 }
