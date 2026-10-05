@@ -1,12 +1,14 @@
 package dev.voidmc.mettle.character;
 
 import dev.voidmc.mettle.character.signature.SignaturePerks;
+import dev.voidmc.mettle.character.skill.AthleticsSkill;
 import dev.voidmc.mettle.character.skill.BladesSkill;
 import dev.voidmc.mettle.character.skill.Combat;
 import dev.voidmc.mettle.character.skill.DefenseSkill;
 import dev.voidmc.mettle.character.skill.HeavyWeaponsSkill;
 import dev.voidmc.mettle.character.skill.MarksmanshipSkill;
 import dev.voidmc.mettle.character.skill.MiningSkill;
+import dev.voidmc.mettle.character.skill.SurvivalSkill;
 import net.minecraft.network.chat.Component;
 import dev.voidmc.mettle.core.CharacterStore;
 import dev.voidmc.mettle.core.net.MettlePayloads;
@@ -45,6 +47,8 @@ public final class CharacterModule {
 		HeavyWeaponsSkill.init();
 		MarksmanshipSkill.init();
 		DefenseSkill.init();
+		AthleticsSkill.init();
+		SurvivalSkill.init();
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> {
 			CharacterCommands.register(dispatcher, context);
 			TreeCommands.register(dispatcher);

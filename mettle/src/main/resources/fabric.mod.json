@@ -23,6 +23,11 @@
 		"mettle-heavyweapons.mixins.json",
 		"mettle-marksmanship.mixins.json",
 		"mettle-defense.mixins.json",
+		"mettle-athletics.mixins.json",
+		"mettle-survival.mixins.json",
+		"mettle-smithing.mixins.json",
+		"mettle-burden.mixins.json",
+		"mettle-gear.mixins.json",
 		{
 			"config": "mettle-character.client.mixins.json",
 			"environment": "client"
@@ -41,6 +46,26 @@
 		},
 		{
 			"config": "mettle-defense.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "mettle-athletics.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "mettle-survival.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "mettle-smithing.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "mettle-burden.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "mettle-gear.client.mixins.json",
 			"environment": "client"
 		}
 	],

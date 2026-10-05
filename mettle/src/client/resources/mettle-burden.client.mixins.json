@@ -1,0 +1,9 @@
+{
+	"required": true,
+	"package": "dev.voidmc.mettle.client.mixin.burden",
+	"compatibilityLevel": "JAVA_25",
+	"client": [],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

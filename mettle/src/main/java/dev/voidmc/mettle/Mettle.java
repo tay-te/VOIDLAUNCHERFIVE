@@ -1,7 +1,9 @@
 package dev.voidmc.mettle;
 
+import dev.voidmc.mettle.burden.BurdenModule;
 import dev.voidmc.mettle.character.CharacterModule;
 import dev.voidmc.mettle.core.CoreModule;
+import dev.voidmc.mettle.gear.GearModule;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
@@ -20,5 +22,7 @@ public final class Mettle implements ModInitializer {
 	public void onInitialize() {
 		CoreModule.init();
 		CharacterModule.init();
+		BurdenModule.init();
+		GearModule.init();
 	}
 }
