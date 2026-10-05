@@ -170,16 +170,25 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 	 * @param baseBuilders       builders a settlement always has room for, yard or not
 	 * @param buildersPerTen     and more per ten residents
 	 * @param builderShare       each active plot wants this many builders (so builders spread over several plots)
+	 * @param fetchShare         the share of builders' idle time (every stage waits for goods) that becomes materials
+	 *                           fetched and dressed from the town's own land (the rest goes on the walk and the haul)
 	 */
-	public record Labour(double workPerBuilderHour, double builderHoursPerDay, int baseBuilders, int buildersPerTen, int builderShare) {
-		public static final Labour DEFAULTS = new Labour(33, 16, 2, 1, 2);
+	public record Labour(double workPerBuilderHour, double builderHoursPerDay, int baseBuilders, int buildersPerTen, int builderShare,
+		double fetchShare) {
+		public static final Labour DEFAULTS = new Labour(33, 16, 2, 1, 2, 0.4);
 		public static final Codec<Labour> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.doubleRange(0, 10000).optionalFieldOf("work_per_builder_hour", DEFAULTS.workPerBuilderHour).forGetter(Labour::workPerBuilderHour),
 			Codec.doubleRange(0, 24).optionalFieldOf("builder_hours_per_day", DEFAULTS.builderHoursPerDay).forGetter(Labour::builderHoursPerDay),
 			Codec.intRange(0, 64).optionalFieldOf("base_builders", DEFAULTS.baseBuilders).forGetter(Labour::baseBuilders),
 			Codec.intRange(0, 10).optionalFieldOf("builders_per_ten", DEFAULTS.buildersPerTen).forGetter(Labour::buildersPerTen),
-			Codec.intRange(1, 16).optionalFieldOf("builder_share", DEFAULTS.builderShare).forGetter(Labour::builderShare)
+			Codec.intRange(1, 16).optionalFieldOf("builder_share", DEFAULTS.builderShare).forGetter(Labour::builderShare),
+			Codec.doubleRange(0, 1).optionalFieldOf("fetch_share", DEFAULTS.fetchShare).forGetter(Labour::fetchShare)
 		).apply(i, Labour::new));
+
+		/** As these, fetching {@code share} of idle time (for tests). */
+		public Labour withFetchShare(double share) {
+			return new Labour(this.workPerBuilderHour, this.builderHoursPerDay, this.baseBuilders, this.buildersPerTen, this.builderShare, share);
+		}
 	}
 
 	/**

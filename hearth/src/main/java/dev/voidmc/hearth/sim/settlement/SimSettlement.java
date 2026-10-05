@@ -860,8 +860,16 @@ public final class SimSettlement implements Settlement {
 		return p.stage < f.stageCount() && (p.funded || startStage(p, f, false));
 	}
 
-	/** Takes the stage's goods if they are in store (or anyway, if forced: an embodied builder already started). */
+	/**
+	 * Takes the stage's goods if they are in store (or anyway, if forced: an embodied builder already started). The
+	 * founders' own buildings take nothing from the stores: they came with what those cost (requests/w5-tour.md §4: the
+	 * camp's first houses ask for thousands of goods of ten kinds, which no handful of settlers makes in its first month).
+	 */
 	boolean startStage(SimPlot p, PlotFacts f, boolean force) {
+		if (endowed(p)) {
+			fund(p);
+			return true;
+		}
 		int[] need = f.goods()[p.stage];
 		provision(need);
 		if (!force && !this.stockpile.has(need)) {
@@ -887,6 +895,20 @@ public final class SimSettlement implements Settlement {
 			}
 		}
 		this.stockpile.takeAll(need);
+		fund(p);
+		return true;
+	}
+
+	/** The founding's own plots: the founders brought what they cost (an endowment the size of the first buildings). */
+	static boolean endowed(SimPlot p) {
+		return FOUNDING.equals(p.reason);
+	}
+
+	/** The reason the founding plots carry. */
+	public static final String FOUNDING = "founding";
+
+	/** The stage's goods are in hand: under way, and an old building it replaces comes down. */
+	private void fund(SimPlot p) {
 		p.funded = true;
 		p.stalledOn = null;
 		p.heldBack = false;
@@ -904,7 +926,6 @@ public final class SimSettlement implements Settlement {
 				firePlotAbandoned(old, "rebuilt as " + p.spec().archetype().getPath());
 			}
 		}
-		return true;
 	}
 
 	/**
@@ -1067,6 +1088,10 @@ public final class SimSettlement implements Settlement {
 				continue;
 			}
 			this.beds += p.beds;
+			if (this.ctx != null) {
+				// (a save from before job sites were kept to the archetype's trades)
+				p.jobs = PlotFacts.listed(p.jobs, this.ctx.blueprints().archetype(p.spec().archetype()));
+			}
 			for (int j = 0; j < p.jobs.length && j < this.jobSlots.length; j++) {
 				this.jobSlots[j] += p.jobs[j];
 			}

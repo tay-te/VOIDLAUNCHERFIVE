@@ -125,6 +125,32 @@ class SettlementClockTest {
 	}
 
 	@Test
+	void onlyTheTradesAnArchetypeListsAreHired() {
+		// a tenement's workshop bench is furnishing: listed, a carpentry's benches hire carpenters, a house's hire nobody
+		int[] sites = new int[dev.voidmc.hearth.api.JobType.values().length];
+		sites[dev.voidmc.hearth.api.JobType.CARPENTER.ordinal()] = 4;
+		var house = new dev.voidmc.hearth.api.ArchetypeInfo(dev.voidmc.hearth.Hearth.id("house/tenement"), dev.voidmc.hearth.api.ArchetypeCategory.HOUSING,
+			java.util.Set.of(), 8, 8, 12, 8, 12, 8, 14, dev.voidmc.hearth.api.SettlementTier.CITY, java.util.Set.of(), java.util.Set.of(), java.util.List.of(),
+			0, 1.0);
+		var shop = new dev.voidmc.hearth.api.ArchetypeInfo(dev.voidmc.hearth.Hearth.id("work/carpentry"), dev.voidmc.hearth.api.ArchetypeCategory.WORKPLACE,
+			java.util.Set.of(dev.voidmc.hearth.api.JobType.CARPENTER), 0, 7, 11, 8, 12, 8, 13, dev.voidmc.hearth.api.SettlementTier.HAMLET, java.util.Set.of(),
+			java.util.Set.of(), java.util.List.of(), 0, 1.0);
+		assertEquals(0, PlotFacts.listed(sites, house)[dev.voidmc.hearth.api.JobType.CARPENTER.ordinal()]);
+		assertEquals(4, PlotFacts.listed(sites, shop)[dev.voidmc.hearth.api.JobType.CARPENTER.ordinal()]);
+		assertEquals(4, sites[dev.voidmc.hearth.api.JobType.CARPENTER.ordinal()], "the blueprint's own count is left alone");
+	}
+
+	@Test
+	void foundersBringWhatTheirOwnBuildingsCost() {
+		SimSettlement s = TestSupport.founded("flat", 14);
+		for (SimPlot p : s.plots()) {
+			if (p.reason().equals(SimSettlement.FOUNDING) && p.isActive()) {
+				assertTrue(s.tryStartStage(p.id()), "a founding plot never waits for goods: " + p.spec().archetype());
+			}
+		}
+	}
+
+	@Test
 	void budgetShrinksWhenTheServerIsSlow() {
 		var clock = SimConfig.Clock.DEFAULTS;
 		assertEquals(2_000_000, SimServer.budgetNanos(clock, 10));

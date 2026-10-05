@@ -174,6 +174,13 @@ public final class Production {
 			// a builder's own hewing and dressing, between placing blocks (their labour goes to the plots)
 			left = workerDays * r.resources.chains().builderShare();
 		}
+		labour(s, crew, left, frac, amounts, caps, data, r, c, haulCover, owe, reserved);
+	}
+
+	/** {@code left} worker-days of a crew's trade: recipes, then excavations, then gathering. */
+	private static void labour(SimSettlement s, Crew crew, double left, double[] frac, int[] amounts, int[] caps, SimData data, SimRules r,
+		SimContext c, double haulCover, boolean owe, int[] reserved) {
+		JobType job = crew.job();
 		double total = left;
 		if (!crew.recipes().isEmpty()) {
 			left = recipes(crew.recipes(), left, total, frac, amounts, caps, crew.toolWear(), reserved);
@@ -202,6 +209,44 @@ public final class Production {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Builders with no stage they can work (every one waits for goods, or none is planned) fetch and dress materials for
+	 * the rest of their day instead of standing about (requests/w5-tour.md §4): they hew the logs in store into timber
+	 * and dress stone, then cut wood, break stone and dig clay and sand on the town's own sites (the builders'
+	 * {@code gathering/builder.json}), which lose what was taken. A young town's builders thus win the raw goods of its
+	 * next stages from the land round it, and what it gathers beyond them is what it barters for the rest.
+	 *
+	 * @param builderDays the idle builders' time, in builder-days
+	 */
+	static void fetch(SimSettlement s, SettlementClock.Workforce wf, double builderDays, SimRules r, SimContext c) {
+		if (builderDays <= 1e-6) {
+			return;
+		}
+		SimData data = c.data();
+		Crew crew = null;
+		for (int k = 0; k < wf.crews.crews.size(); k++) {
+			if (wf.crews.crews.get(k).job() == JobType.BUILDER && wf.crews.counts[k] > 0) {
+				crew = wf.crews.crews.get(k);
+				break;
+			}
+		}
+		if (crew == null) {
+			return;
+		}
+		double[] frac = s.clock.fractions;
+		SimStockpile stock = s.stockpile();
+		int gatherers = 0;
+		for (int k = 0; k < wf.crews.crews.size(); k++) {
+			if (wf.crews.crews.get(k).gathering() != null && wf.crews.crews.get(k).job() != JobType.NONE) {
+				gatherers += wf.crews.counts[k];
+			}
+		}
+		int haulers = wf.workers[JobType.HAULER.ordinal()];
+		double haulCover = gatherers == 0 ? 1 : Math.min(1, haulers * r.resources.chains().haulPerHauler() / (double) gatherers);
+		labour(s, crew, builderDays, frac, stock.amounts(), stock.capacities(), data, r, c, haulCover, true, reserved(s));
+		settle(s, r, frac, 0);
 	}
 
 	/** Runs a crew's recipes, the most wanted first; returns the worker-days left over. */
