@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:defense",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.defense.still_standing"
+	},
+	"description": {
+		"translate": "mettle.perk.defense.still_standing.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.defense.still_standing.hint"
+	},
+	"feat": {
+		"counter": "survive_big_hit",
+		"target": 1
+	},
+	"order": 14
+}

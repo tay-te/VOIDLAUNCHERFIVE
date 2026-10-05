@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:defense",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "b",
+	"name": {
+		"translate": "mettle.perk.defense.juggernaut"
+	},
+	"description": {
+		"translate": "mettle.perk.defense.juggernaut.description"
+	},
+	"order": 12
+}

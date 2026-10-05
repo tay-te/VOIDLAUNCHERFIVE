@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:defense",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "any",
+	"name": {
+		"translate": "mettle.perk.defense.last_stand"
+	},
+	"description": {
+		"translate": "mettle.perk.defense.last_stand.description"
+	},
+	"order": 11
+}

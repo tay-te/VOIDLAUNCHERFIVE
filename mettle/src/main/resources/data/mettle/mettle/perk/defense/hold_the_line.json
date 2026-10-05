@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:defense",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.defense.hold_the_line"
+	},
+	"description": {
+		"translate": "mettle.perk.defense.hold_the_line.description"
+	},
+	"order": 8
+}

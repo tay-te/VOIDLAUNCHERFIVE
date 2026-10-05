@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:defense",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.defense.unbowed"
+	},
+	"description": {
+		"translate": "mettle.perk.defense.unbowed.description"
+	},
+	"order": 9
+}

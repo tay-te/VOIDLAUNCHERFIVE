@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:defense",
+	"kind": "path",
+	"tier": 2,
+	"path": "b",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.defense.mender"
+	},
+	"description": {
+		"translate": "mettle.perk.defense.mender.description"
+	},
+	"order": 6
+}
