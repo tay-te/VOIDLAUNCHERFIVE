@@ -51,6 +51,15 @@ type MettleState = {
   }[];
   skills: { id: string; name: string; attribute: Attr; released: boolean; icon: string }[];  // icons 16×16
   attributes: { id: Attr; name: string; perPoint: string }[];
+  burden: {                                        // {} until the first sync
+    load: number; capacity: number;                // kg
+    band: "light" | "burdened" | "overburdened" | "pinned";
+    exempt: boolean;                               // creative/spectator: show "—"
+    burdenedAt: number; overburdenedAt: number;    // fractions of capacity, meter marks (0.75 / 1.0 by default)
+    pinnedAt: number;                              // -1 when this player can't be pinned
+    heaviest?: { item: string; kg: number; stacks: number; text: string };  // "Cobblestone ×3 stacks · 48.0 kg"
+  };
+  gear: Record<"back" | "belt" | "quiver", { item: string; name: string; pockets: number; used: number } | null>;
 };
 type Attr = "strength" | "agility" | "vitality" | "wits" | "presence";
 ```
@@ -60,8 +69,11 @@ Skill trees (built for Mining; the others follow) add, per skill: `skills[].leve
 tier, path, rank, maxRank, cost, name, description (at the next rank), hint (feats, until earned), locked: reason | null }`.
 Actions: `learnPerk(id)`, `spendAttribute(attribute)`; answers come back as `mettleFeedback` chips.
 
-Other planned additions, as their systems land: `state.signature { id, ready, readyInSeconds }` (Rally's cooldown, from
-`SignaturePerks.rallyCooldown`), skill XP and levels, perk trees, load and capacity.
+Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`
+(the text says what happened and names the heaviest stack), so the HUD can show the chip without polling.
+
+Still planned: `state.signature { id, ready, readyInSeconds }` (Rally's cooldown, from `SignaturePerks.rallyCooldown`)
+and perk cooldowns (docs/requests/defense.md).
 
 ## Overlay → Java (calls)
 

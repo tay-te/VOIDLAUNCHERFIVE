@@ -1,0 +1,11 @@
+{
+	"values": {
+		"mettle:satchel": 0.8,
+		"mettle:leather_pack": 1.5,
+		"mettle:frame_pack": 3.0,
+		"mettle:belt": 0.4,
+		"mettle:tool_belt": 0.7,
+		"mettle:quiver": 0.5,
+		"mettle:hunters_quiver": 0.8
+	}
+}

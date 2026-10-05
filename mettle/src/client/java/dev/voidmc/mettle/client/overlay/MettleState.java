@@ -4,10 +4,15 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import dev.voidmc.mettle.api.Background;
+import dev.voidmc.mettle.api.BandRules;
 import dev.voidmc.mettle.api.CharacterAttribute;
+import dev.voidmc.mettle.api.GearSlot;
+import dev.voidmc.mettle.api.MettleServices;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
+import dev.voidmc.mettle.burden.LoadState;
+import dev.voidmc.mettle.burden.LoadTracker;
 import dev.voidmc.mettle.character.PerkRules;
 import dev.voidmc.mettle.character.PerkText;
 import dev.voidmc.mettle.character.Perks;
@@ -17,6 +22,7 @@ import dev.voidmc.mettle.core.CharacterStore;
 import dev.voidmc.mettle.core.MettleAttributes;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -25,6 +31,7 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 
@@ -136,7 +143,55 @@ public final class MettleState {
 			attributeInfo.add(o);
 		}
 		root.add("attributes", attributeInfo);
+		root.add("burden", burden(mc.player));
+		root.add("gear", gear(mc.player));
 		return root;
+	}
+
+	/** The synced load (BURDEN.md §3), for the HUD chip and the gear panel's meter. Empty until the first sync. */
+	private static JsonObject burden(Player player) {
+		JsonObject burden = new JsonObject();
+		LoadState load = LoadState.of(player);
+		if (load == null) {
+			return burden;
+		}
+		burden.addProperty("load", load.load());
+		burden.addProperty("capacity", load.capacity());
+		burden.addProperty("band", load.band().name().toLowerCase(Locale.ROOT));
+		burden.addProperty("exempt", load.exempt());
+		BandRules rules = MettleServices.burden().rules(player);
+		burden.addProperty("burdenedAt", rules.burdened());
+		burden.addProperty("overburdenedAt", rules.overburdened());
+		burden.addProperty("pinnedAt", rules.canBePinned() ? rules.pinned() : -1f);
+		if (load.hasHeaviest()) {
+			JsonObject h = new JsonObject();
+			h.addProperty("item", load.heaviest().toString());
+			h.addProperty("kg", load.heaviestKg());
+			h.addProperty("stacks", load.heaviestStacks());
+			h.addProperty("text", LoadTracker.heaviest(load).getString());
+			burden.add("heaviest", h);
+		}
+		return burden;
+	}
+
+	/** What is worn in the three gear slots (BURDEN.md §5), with how full each piece's pockets are. */
+	private static JsonObject gear(Player player) {
+		JsonObject gear = new JsonObject();
+		for (GearSlot slot : GearSlot.values()) {
+			ItemStack worn = MettleServices.gear().worn(player, slot);
+			if (worn.isEmpty()) {
+				gear.add(slot.name().toLowerCase(Locale.ROOT), JsonNull.INSTANCE);
+				continue;
+			}
+			List<ItemStack> pockets = MettleServices.gear().pockets(player, slot);
+			JsonObject o = new JsonObject();
+			o.addProperty("item", BuiltInRegistries.ITEM.getKey(worn.getItem()).toString());
+			o.addProperty("name", worn.getHoverName().getString());
+			o.addProperty("pockets", pockets.size());
+			o.addProperty("used", (int) pockets.stream().filter(s -> !s.isEmpty()).count());
+			gear.add(slot.name().toLowerCase(Locale.ROOT), o);
+		}
+		return gear;
 	}
 
 	private static JsonObject background(Holder.Reference<Background> ref) {

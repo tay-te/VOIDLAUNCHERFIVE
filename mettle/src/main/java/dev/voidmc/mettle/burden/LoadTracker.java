@@ -3,6 +3,7 @@ package dev.voidmc.mettle.burden;
 import dev.voidmc.mettle.Mettle;
 import dev.voidmc.mettle.api.BandRules;
 import dev.voidmc.mettle.api.LoadBand;
+import dev.voidmc.mettle.api.MettleEvents;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
 import dev.voidmc.mettle.core.CharacterStore;
 import dev.voidmc.mettle.core.MettleAttributes;
@@ -127,6 +128,7 @@ public final class LoadTracker {
 	/** A band change: a chip that says what happened and what is heaviest, and the strain sound on the way into Overburdened. */
 	private static void changed(ServerPlayer player, Tracked t, LoadBand from, LoadState now) {
 		LoadBand to = now.band();
+		MettleEvents.LOAD_BAND_CHANGED.invoker().changed(player, from, to);
 		if (Bands.atLeast(to, LoadBand.OVERBURDENED)) {
 			if (Sprint.blockedByLoad(player)) {
 				player.setSprinting(false);

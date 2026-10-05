@@ -131,6 +131,22 @@ weighs the same as raw.
 | Food | wheat 0.05 · apple 0.15 · carrot, beetroot 0.1 · potato 0.15 · raw beef, pork, mutton, fish 0.3 · chicken 0.4 · egg 0.06 · melon slice 0.1 · pumpkin 2.0 · melon 1.8 |
 | Animal | leather 0.3 · rabbit hide 0.1 · string, feather, paper 0.01 · wool (block) 0.15 · bone 0.1 · shulker shell 0.3 |
 | Liquids | water, milk or lava in a bucket: bucket + 1.0 / 1.0 / 1.5 · potion 0.35 · glass 0.2 |
+| Soil | podzol, mycelium, rooted dirt, dirt path, farmland, soul sand, soul soil, suspicious sand 0.2 · suspicious gravel 0.25 · nylium 0.15 · moss blocks 0.1 · sculk 0.2 |
+| Stone (uncraftable) | bedrock, reinforced deepslate, gilded blackstone 0.3 · budding amethyst 0.25 · pointed dripstone 0.06 |
+| Plants (uncraftable) | mangrove roots 0.4 · cactus 0.2 · sugar cane 0.05 · kelp 0.02 · mushrooms 0.02 · mushroom blocks, shroomlight 0.1 · corals 0.05 · coral blocks 0.25 |
+| Finds | heavy core 3.0 · bell 2.0 · dragon egg 3.0 · end portal frame 1.0 · spawner 5.0 · goat horn 0.5 · heart of the sea 0.3 · nautilus shell 0.1 · music discs 0.2 · sherds 0.1 · banner patterns 0.01 · froglights 0.15 · amethyst buds and cluster 0.05 · cobweb 0.01 · rabbit 0.2 |
+| Overrides of recipes | map 0.1 (the recipe's compass made it 2.1 kg) · golden apple 0.3 (8 gold ingots made it 4.95 kg) · sponge 0.1, wet sponge = sponge + 1.0 |
+
+Rules (`burden.Leaves`, `burden.Weights`):
+- **Equivalences** no recipe states: weathered and waxed copper = fresh copper; `stripped_X` = X; `infested_X` = X;
+  `<colour>_concrete` = its powder; explorer and filled maps = map; chipped/damaged anvil = anvil; enchanted book = book;
+  written book = book and quill; carved pumpkin = pumpkin.
+- **Cooking fills gaps**: an item no crafting recipe reaches weighs what it was cooked from (smooth stone = stone, brick =
+  clay ball, cooked rabbit = rabbit); listed leaves (glass, ingots, cooked meats) still win.
+- **Guesses rank last**: a recipe built from real weights always beats one built on a fallback weight, however light.
+- Fish and axolotl buckets = water bucket + the animal (0.3 / 0.5 / tadpole 0.05); powder snow bucket = bucket + 1.0.
+- About 110 of 1,658 vanilla items still use the fallback (4 kg ÷ stack size): mob drops such as gunpowder and blaze
+  rods at 0.06 kg, horse armour at 4 kg, smithing templates.
 
 ### 5.3 Equipment (overrides; recipes would make diamond lighter than iron)
 

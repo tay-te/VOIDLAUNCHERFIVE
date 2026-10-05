@@ -171,11 +171,11 @@ learned perks, unspent attribute and perk points, character level and XP.
 
 | Event | Args | Use |
 |---|---|---|
-| `MODIFY_XP` | `(player, skill, xp, source) → float` | scale or cancel XP (compat, server rules) |
-| `XP_GAINED` | `(player, skill, xp, source)` | chips, stats |
+| `MODIFY_XP` | `(player, skill, xp) → double` | scale or cancel XP (compat, server rules); 0 cancels |
+| `XP_GAINED` | `(player, skill, xp)` | chips, stats |
 | `SKILL_LEVEL_UP` | `(player, skill, from, to)` | sounds, Hearth deeds, advancements |
 | `CHARACTER_LEVEL_UP` | `(player, from, to)` | |
-| `PERK_LEARNED` / `RESPEC` | `(player, perk)` / `(player, what)` | |
+| `PERK_LEARNED` / `RESPEC` | `(player, perk, rank)` / `(player, attributes)` | earned perks fire `PERK_LEARNED` too, rank 1 |
 | `BACKGROUND_CHOSEN` | `(player, background)` | kits, Hearth greeting lines |
 | `LOAD_BAND_CHANGED` | `(player, from, to)` | HUD, compat |
 

@@ -83,7 +83,12 @@ public final class EffectsApplier {
 					AttributeModifier current = instance.getModifier(id);
 					if (current == null || current.amount() != amount || current.operation() != op) {
 						instance.removeModifier(id);
-						instance.addTransientModifier(new AttributeModifier(id, amount, op));
+						// Max health is saved with the player, so health is not clamped to the vanilla 20 on load (§6).
+						if (attribute.get().is(Attributes.MAX_HEALTH)) {
+							instance.addPermanentModifier(new AttributeModifier(id, amount, op));
+						} else {
+							instance.addTransientModifier(new AttributeModifier(id, amount, op));
+						}
 					}
 				}
 			}

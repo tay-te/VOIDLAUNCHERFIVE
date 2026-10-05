@@ -26,7 +26,8 @@ public class MettleTour implements FabricClientGameTest {
 			"net.minecraft.client.gui.screens.inventory.AnvilScreen", "net.minecraft.world.entity.player.Player",
 			"net.minecraft.world.entity.LivingEntity", "net.minecraft.world.level.block.Block", "net.minecraft.world.item.ItemStack",
 			"net.minecraft.world.entity.monster.Creeper", "net.minecraft.world.item.BowItem", "net.minecraft.world.item.CrossbowItem",
-			"net.minecraft.world.entity.projectile.arrow.AbstractArrow"}) {
+			"net.minecraft.world.entity.projectile.arrow.AbstractArrow", "net.minecraft.advancements.triggers.InventoryChangeTrigger",
+			"net.minecraft.world.food.FoodData"}) {
 			try {
 				Class.forName(target);
 			} catch (ClassNotFoundException e) {

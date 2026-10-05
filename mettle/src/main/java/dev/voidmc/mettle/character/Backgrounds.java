@@ -2,6 +2,7 @@ package dev.voidmc.mettle.character;
 
 import dev.voidmc.mettle.Mettle;
 import dev.voidmc.mettle.api.Background;
+import dev.voidmc.mettle.api.MettleEvents;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.MettleServices;
 import dev.voidmc.mettle.api.Skill;
@@ -41,6 +42,7 @@ public final class Backgrounds {
 		EffectsApplier.apply(player);
 		ServerPlayNetworking.send(player, new MettlePayloads.BackgroundChosen(request.background()));
 		Mettle.LOGGER.info("{} began as {}", player.getName().getString(), request.background().identifier());
+		MettleEvents.BACKGROUND_CHOSEN.invoker().chosen(player, request.background());
 		return true;
 	}
 

@@ -3,6 +3,7 @@ package dev.voidmc.mettle.character;
 import dev.voidmc.mettle.Mettle;
 import dev.voidmc.mettle.api.Background;
 import dev.voidmc.mettle.api.CharacterAttribute;
+import dev.voidmc.mettle.api.MettleEvents;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
@@ -62,6 +63,8 @@ public final class Progress {
 			m += FAVOURED_BONUS;
 		}
 		m += WITS_PER_POINT * (state.attribute(CharacterAttribute.WITS, background) - CharacterAttribute.BASE);
+		// Perks that speed learning: Jack of All Trades (skills below 10).
+		m *= dev.voidmc.mettle.character.skill.survival.GeneralFeats.jackBonus(state, skill);
 		return Math.max(0.1, m);
 	}
 
@@ -72,12 +75,16 @@ public final class Progress {
 		}
 		CharacterState state = CharacterStore.get(player);
 		Background background = CharacterStore.background(player.level().registryAccess(), state);
-		double gained = base * multiplier(state, background, skill);
+		double gained = MettleEvents.MODIFY_XP.invoker().modify(player, skill, base * multiplier(state, background, skill));
+		if (gained <= 0) {
+			return;
+		}
 		int levelBefore = state.level(skill);
 		int characterBefore = state.characterLevel();
 		CharacterState next = state.withXp(skill, state.xp(skill) + gained);
 		CharacterStore.set(player, next);
 		PENDING_CHIPS.computeIfAbsent(player.getUUID(), u -> new LinkedHashMap<>()).merge(skill, gained, Double::sum);
+		MettleEvents.XP_GAINED.invoker().gained(player, skill, gained);
 
 		int levelAfter = next.level(skill);
 		if (levelAfter > levelBefore) {
@@ -89,11 +96,13 @@ public final class Progress {
 				}
 			}
 			SignaturePerks.feedback(player, Mettle.id("level/" + skill.identifier().getPath()), text);
+			MettleEvents.SKILL_LEVEL_UP.invoker().levelUp(player, skill, levelBefore, levelAfter);
 			Perks.checkSynergies(player);
 		}
 		int characterAfter = next.characterLevel();
 		if (characterAfter > characterBefore) {
 			SignaturePerks.feedback(player, Mettle.id("level/character"), Component.translatable("mettle.feedback.character_level", characterAfter));
+			MettleEvents.CHARACTER_LEVEL_UP.invoker().levelUp(player, characterBefore, characterAfter);
 		}
 	}
 

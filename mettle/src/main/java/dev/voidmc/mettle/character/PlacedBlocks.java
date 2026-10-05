@@ -7,7 +7,9 @@ import java.util.List;
 import java.util.Set;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.LevelChunk;
 
@@ -19,10 +21,20 @@ public final class PlacedBlocks {
 	public static final AttachmentType<Set<Long>> PLACED = AttachmentRegistry.create(Mettle.id("character/placed"), b -> b
 		.persistent(Codec.LONG.listOf().xmap(Set::copyOf, List::copyOf)));
 
+	/**
+	 * Marks taken this tick. Fabric's {@code PlayerBlockBreakEvents.AFTER} (where trees take the mark) fires before the
+	 * block's loot is rolled, so {@link #isPlaced} still answers yes for the drop perks that follow in the same tick.
+	 */
+	private static final Set<TakenAt> JUST_TAKEN = new HashSet<>();
+
+	private record TakenAt(ResourceKey<Level> dimension, long pos) {
+	}
+
 	private PlacedBlocks() {
 	}
 
 	public static void init() {
+		ServerTickEvents.END_SERVER_TICK.register(server -> JUST_TAKEN.clear());
 	}
 
 	public static void mark(Level level, BlockPos pos) {
@@ -43,10 +55,17 @@ public final class PlacedBlocks {
 		Set<Long> next = new HashSet<>(set);
 		next.remove(pos.asLong());
 		chunk.setAttached(PLACED, next.isEmpty() ? null : Set.copyOf(next));
+		if (!level.isClientSide()) {
+			JUST_TAKEN.add(new TakenAt(level.dimension(), pos.asLong()));
+		}
 		return true;
 	}
 
+	/** Whether the block was placed by a player, or was one taken earlier this tick (its drops are being rolled). */
 	public static boolean isPlaced(Level level, BlockPos pos) {
+		if (!JUST_TAKEN.isEmpty() && JUST_TAKEN.contains(new TakenAt(level.dimension(), pos.asLong()))) {
+			return true;
+		}
 		Set<Long> set = level.getChunkAt(pos).getAttached(PLACED);
 		return set != null && set.contains(pos.asLong());
 	}

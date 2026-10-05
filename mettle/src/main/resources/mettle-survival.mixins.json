@@ -12,9 +12,7 @@
 		"SurvivalFurnaceResultSlotMixin",
 		"SurvivalLivingEntityMixin",
 		"SurvivalMobMixin",
-		"SurvivalPerksMixin",
 		"SurvivalPlayerMixin",
-		"SurvivalProgressMixin",
 		"SurvivalSweetBerryBushMixin"
 	],
 	"injectors": {

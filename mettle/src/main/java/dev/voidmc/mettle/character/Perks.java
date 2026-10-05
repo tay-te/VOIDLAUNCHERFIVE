@@ -3,6 +3,7 @@ package dev.voidmc.mettle.character;
 import dev.voidmc.mettle.Mettle;
 import dev.voidmc.mettle.api.Background;
 import dev.voidmc.mettle.api.CharacterAttribute;
+import dev.voidmc.mettle.api.MettleEvents;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
@@ -97,6 +98,7 @@ public final class Perks {
 			? Component.translatable("mettle.feedback.mastery", perk.get().name())
 			: Component.translatable("mettle.feedback.learned", perk.get().name(), rank);
 		SignaturePerks.feedback(player, key.identifier(), text);
+		MettleEvents.PERK_LEARNED.invoker().learned(player, key, rank);
 		return Optional.empty();
 	}
 
@@ -114,6 +116,7 @@ public final class Perks {
 		String kind = perk.get().kind().getSerializedName();
 		SignaturePerks.feedback(player, key.identifier(), Component.translatable("mettle.feedback.earned." + kind, perk.get().name()));
 		Mettle.LOGGER.info("{} earned {} {}", player.getName().getString(), kind, key.identifier());
+		MettleEvents.PERK_LEARNED.invoker().learned(player, key, 1);
 		return true;
 	}
 
@@ -131,6 +134,7 @@ public final class Perks {
 		}
 		CharacterStore.set(player, next);
 		EffectsApplier.apply(player);
+		MettleEvents.RESPEC.invoker().respec(player, attributes);
 	}
 
 	// ---------------------------------------------------------------- attribute points
@@ -141,7 +145,12 @@ public final class Perks {
 		Background background = CharacterStore.background(player.level().registryAccess(), state);
 		int free = background == null ? 0 : background.freePoints();
 		int placed = state.spent().values().stream().mapToInt(Integer::intValue).sum() - free;
-		return Math.max(0, state.characterLevel() - 1 - placed);
+		return Math.max(0, state.characterLevel() - 1 - placed + bonusPoints(player));
+	}
+
+	/** Attribute points granted by perks (Seen It All). Earned, so a respec keeps them. */
+	private static int bonusPoints(Player player) {
+		return dev.voidmc.mettle.character.skill.survival.GeneralFeats.bonusAttributePoints(player);
 	}
 
 	public static boolean spendAttribute(ServerPlayer player, CharacterAttribute attribute) {
