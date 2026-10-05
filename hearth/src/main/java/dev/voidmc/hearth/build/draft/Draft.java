@@ -83,13 +83,13 @@ public final class Draft {
 	private final Set<String> missing = new java.util.TreeSet<>();
 	private final it.unimi.dsi.fastutil.longs.LongOpenHashSet drained = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 	private @Nullable StageKind stage;
-	/**
-	 * The construction campaign placements belong to (0 unless an archetype raises itself in several, see
-	 * {@link #phase(int)}), and each placement's campaign where it is not 0.
-	 */
-	private int phase;
-	private int maxPhase;
-	private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap phases = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+	/** The campaign placements go to while a {@link #campaign(int)} scope is open (-1: none open). */
+	private int campaign = -1;
+	/** The campaign each cell was drawn in, where one was open (a blueprint built in campaigns). */
+	private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap campaigns = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+	/** The order key placements carry while an {@link #order(int)} scope is open (MIN_VALUE: none). */
+	private int order = Integer.MIN_VALUE;
+	private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap orders = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
 	private int sequence;
 	private int clipped;
 	private int eaveY = Integer.MIN_VALUE;
@@ -124,6 +124,8 @@ public final class Draft {
 		this.bodyZ0 = 0;
 		this.bodyX1 = frontage() - 1;
 		this.bodyZ1 = depth() - 1;
+		this.campaigns.defaultReturnValue(-1);
+		this.orders.defaultReturnValue(Integer.MIN_VALUE);
 	}
 
 	// ---------------------------------------------------------------------------------------------------- inputs
@@ -436,32 +438,54 @@ public final class Draft {
 	}
 
 	/**
-	 * Places everything until the returned scope is closed in construction campaign {@code n} (0 is the default). A great
-	 * building raised over months is built in campaigns, each one a whole run of stages: a castle's curtain and towers
-	 * (clearing, footings, walls, roofs), then its gatehouse, then its keep, then its hall... so a castle half built
-	 * looks like one, and no stage asks for more goods than a town can store. The compiler orders steps by campaign, then
-	 * by stage kind within it. Each campaign must stand on the ground or on what earlier campaigns built.
+	 * Places everything until the returned scope is closed in campaign {@code n} (n ≥ 0) of a blueprint <b>built in
+	 * campaigns</b>: sections raised or worked one after another, each a whole run of stages, so the work half done
+	 * looks like what it is and no stage asks for more goods than a town can store. A great building raised over months
+	 * is built so: a castle's terraces and keep (campaign 0), its inner curtain, its towers, its palace... An excavation
+	 * worked for weeks is too: a quarry's opening works (campaign 0), then bench 1's cutting, bench 2's...; a mine's
+	 * galleries and a shaft's lifts one by one (docs/LIVING_WORLD.md §8.5).
+	 * <p>
+	 * The compiler emits the campaigns in order, each with its own stages in {@link StageKind} order. Each campaign must
+	 * stand on the ground or on what earlier campaigns built. A placement made outside any campaign scope keeps the
+	 * campaign of the cell it replaces; a cell never drawn in one (what the lighting pass adds, a fixture hung from a
+	 * gallery's cap or a hall's ceiling) goes with the latest campaign among the cells its fixture touches, else with
+	 * campaign 0. A draft that never opens a campaign compiles exactly as before.
 	 */
-	public StageScope phase(int n) {
-		int previous = this.phase;
-		this.phase = Math.max(0, n);
-		this.maxPhase = Math.max(this.maxPhase, this.phase);
-		return () -> this.phase = previous;
+	public StageScope campaign(int n) {
+		if (n < 0) {
+			throw new IllegalArgumentException("campaign " + n);
+		}
+		int previous = this.campaign;
+		this.campaign = n;
+		return () -> this.campaign = previous;
 	}
 
-	/** The construction campaign of a placement (0 where none was set, or nothing is placed). */
-	public int phaseOf(int x, int y, int z) {
-		return this.phases.getOrDefault(key(x, y, z), 0);
+	/** The campaign a cell was drawn in, or -1 (not drawn, or drawn outside any campaign scope). */
+	public int campaign(int x, int y, int z) {
+		return this.campaigns.get(key(x, y, z));
 	}
 
-	/** The last construction campaign used (0 for a building raised in one). */
-	public int maxPhase() {
-		return this.maxPhase;
+	/** Whether any placement was made in a campaign scope (the blueprint is built in campaigns). */
+	public boolean inCampaigns() {
+		return !this.campaigns.isEmpty();
 	}
 
-	/** Makes the last campaign current: what the compiler adds after the archetype (lighting) goes in with it. */
-	public void toLastPhase() {
-		this.phase = this.maxPhase;
+	/**
+	 * Gives everything placed until the returned scope is closed an order key: in the {@code CLEAR} and
+	 * {@code EARTHWORK} stages steps are made by key first (lowest first), and only within one key by the usual rule
+	 * (cuts top-down before fills bottom-up, outward from the entrance). Draw an excavation's cuts slice by slice as the
+	 * face advances, with the props and rails that go in behind each slice under the next key, and a worker meets them
+	 * in that order. Unkeyed steps come first. No effect on the other stages.
+	 */
+	public StageScope order(int key) {
+		int previous = this.order;
+		this.order = key;
+		return () -> this.order = previous;
+	}
+
+	/** The order key a cell was drawn with, or {@code Integer.MIN_VALUE}. */
+	public int order(int x, int y, int z) {
+		return this.orders.get(key(x, y, z));
 	}
 
 	/** A stage scope; closing it restores the stage that was current before. */
@@ -535,8 +559,10 @@ public final class Draft {
 
 	/** Forgets a placement (the world is left as it is there). */
 	public void remove(int x, int y, int z) {
-		this.cells.remove(key(x, y, z));
-		this.phases.remove(key(x, y, z));
+		long k = key(x, y, z);
+		this.cells.remove(k);
+		this.campaigns.remove(k);
+		this.orders.remove(k);
 	}
 
 	/**
@@ -567,18 +593,30 @@ public final class Draft {
 		return this.clipped;
 	}
 
+	/** The first few placements dropped for falling outside the plot, as "x,y,z state (stage)" (for debugging). */
+	public List<String> clippedSample() {
+		return Collections.unmodifiableList(this.clippedSample);
+	}
+
+	private final List<String> clippedSample = new ArrayList<>();
+
 	private void put(int x, int y, int z, BlockState state, @Nullable CompoundTag tag, @Nullable StageKind paintStage) {
 		if (!allowed(x, y, z)) {
 			this.clipped++;
+			if (this.clippedSample.size() < 6) {
+				this.clippedSample.add(x + "," + y + "," + z + " " + state + " (" + (this.stage != null ? this.stage : paintStage) + ")");
+			}
 			return;
 		}
 		StageKind s = this.stage != null ? this.stage : paintStage != null ? paintStage : guessStage(x, y, z, state);
 		long k = key(x, y, z);
 		this.cells.put(k, new Cell(state, tag == null ? null : tag.copy(), s, this.sequence++));
-		if (this.phase != 0) {
-			this.phases.put(k, this.phase);
-		} else if (!this.phases.isEmpty()) {
-			this.phases.remove(k);
+		// a campaign or an order key belongs to the position: a placement outside those scopes keeps what the cell had
+		if (this.campaign >= 0) {
+			this.campaigns.put(k, this.campaign);
+		}
+		if (this.order != Integer.MIN_VALUE) {
+			this.orders.put(k, this.order);
 		}
 	}
 
@@ -673,9 +711,10 @@ public final class Draft {
 		Cell below = this.cells.get(key(x, y - 1, z));
 		StageKind s = below != null ? below.stage : guessStage(x, y, z, state);
 		this.cells.put(k, new Cell(state, null, s, this.sequence++));
-		int ph = below != null ? phaseOf(x, y - 1, z) : this.phase;
-		if (ph != 0) {
-			this.phases.put(k, ph);
+		// and in the campaign open, else in its lower half's
+		int camp = this.campaign >= 0 ? this.campaign : below != null ? campaign(x, y - 1, z) : -1;
+		if (camp >= 0) {
+			this.campaigns.put(k, camp);
 		}
 	}
 

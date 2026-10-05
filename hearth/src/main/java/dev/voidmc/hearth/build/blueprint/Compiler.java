@@ -71,7 +71,7 @@ public final class Compiler {
 	}
 
 	private record Step(int x, int y, int z, BlockState state, @Nullable CompoundTag tag, StageKind stage, double support, int rank, int dist,
-		int sequence) {
+		int sequence, int order) {
 	}
 
 	public static BlueprintImpl compile(Draft d) {
@@ -79,17 +79,14 @@ public final class Compiler {
 		LocalFrame frame = d.frame();
 		// light what the archetype left dark (docs/LIVING_WORLD.md §1), before shapes are final and steps ordered (the pass
 		// resolves the archetype's shapes to read light through them; resolving again settles its own fixtures)
-		// (what the pass adds goes in with the last construction campaign: the lamps come with the furnishing)
-		d.toLastPhase();
+		// (in a blueprint built in campaigns, what the pass adds goes in with what it hangs from or stands by: see campaigns)
 		dev.voidmc.hearth.build.kit.light.AutoLighter.light(d);
 		ShapeResolver.resolve(d, site);
 
 		int[] main = d.entrances().isEmpty() ? new int[]{d.frontage() / 2, 0, -1} : d.entrances().get(0);
-		// steps grouped by construction campaign (Draft.phase), then by stage kind within it
-		List<EnumMap<StageKind, List<Step>>> byPhase = new ArrayList<>();
-		for (int ph = 0; ph <= d.maxPhase(); ph++) {
-			byPhase.add(new EnumMap<>(StageKind.class));
-		}
+		// a blueprint built in campaigns (Draft#campaign) is emitted campaign by campaign, each one's stages in StageKind order
+		it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap campaignOf = d.inCampaigns() ? campaigns(d) : null;
+		java.util.TreeMap<Integer, EnumMap<StageKind, List<Step>>> byCampaign = new java.util.TreeMap<>();
 		List<Poi> pois = new ArrayList<>();
 		int[] beds = {0};
 		d.forEach((x, y, z, c) -> {
@@ -98,8 +95,9 @@ public final class Compiler {
 			int rank = rank(s);
 			int dx = x - main[0];
 			int dz = z - main[2];
-			byPhase.get(Math.min(d.phaseOf(x, y, z), d.maxPhase())).computeIfAbsent(c.stage(), k -> new ArrayList<>())
-				.add(new Step(x, y, z, s, c.tag(), c.stage(), support, rank, dx * dx + dz * dz, c.sequence()));
+			int campaign = campaignOf == null ? 0 : campaignOf.get(Draft.key(x, y, z));
+			byCampaign.computeIfAbsent(campaign, k -> new EnumMap<>(StageKind.class)).computeIfAbsent(c.stage(), k -> new ArrayList<>())
+				.add(new Step(x, y, z, s, c.tag(), c.stage(), support, rank, dx * dx + dz * dz, c.sequence(), d.order(x, y, z)));
 			if (s.getBlock() instanceof BedBlock && s.getValue(BedBlock.PART) == BedPart.HEAD) {
 				beds[0]++;
 				pois.add(new Poi(PoiType.BED, frame.toWorld(x, y, z), frame.toWorld(s.getValue(BedBlock.FACING).getOpposite()), null));
@@ -115,17 +113,18 @@ public final class Compiler {
 
 		List<StageKind> kinds = new ArrayList<>();
 		List<List<Step>> stages = new ArrayList<>();
-		it.unimi.dsi.fastutil.ints.IntArrayList phaseOfStage = new it.unimi.dsi.fastutil.ints.IntArrayList();
-		for (int ph = 0; ph < byPhase.size(); ph++) {
+		IntArrayList stageCampaigns = new IntArrayList();
+		for (var ce : byCampaign.entrySet()) {
+			EnumMap<StageKind, List<Step>> byStage = ce.getValue();
 			for (StageKind k : StageKind.values()) {
-				List<Step> list = byPhase.get(ph).get(k);
+				List<Step> list = byStage.get(k);
 				if (list == null || list.isEmpty()) {
 					continue;
 				}
 				list.sort(order(k));
 				kinds.add(k);
 				stages.add(list);
-				phaseOfStage.add(ph);
+				stageCampaigns.add(ce.getKey().intValue());
 			}
 		}
 
@@ -224,18 +223,71 @@ public final class Compiler {
 		}
 
 		Silhouette silhouette = silhouette(d, frame);
-		return new BlueprintImpl(d.spec(), bounds, kinds.toArray(StageKind[]::new), positions, stateIdx, palette.toArray(BlockState[]::new), tags,
-			chunks, work, goods, pois, entrances, beds[0], silhouette, phaseOfStage.toIntArray());
+		return new BlueprintImpl(d.spec(), bounds, kinds.toArray(StageKind[]::new), stageCampaigns.toIntArray(), positions, stateIdx,
+			palette.toArray(BlockState[]::new), tags, chunks, work, goods, pois, entrances, beds[0], silhouette);
+	}
+
+	/**
+	 * The campaign of every cell of a draft built in campaigns: the campaign it was drawn in; for the cells drawn in none
+	 * (what the lighting pass added, a void sealed after), taken a connected run at a time (a lantern with its chain, a
+	 * post with its lamp), the latest campaign among the cells the run touches, so a fixture goes in with what it hangs
+	 * from or stands by and never before its support; a run touching no campaign's cell goes in campaign 0.
+	 */
+	private static it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap campaigns(Draft d) {
+		it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap out = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+		out.defaultReturnValue(-1);
+		it.unimi.dsi.fastutil.longs.LongArrayList loose = new it.unimi.dsi.fastutil.longs.LongArrayList();
+		d.forEach((x, y, z, c) -> {
+			int n = d.campaign(x, y, z);
+			if (n >= 0) {
+				out.put(Draft.key(x, y, z), n);
+			} else {
+				loose.add(Draft.key(x, y, z));
+			}
+		});
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet left = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(loose);
+		int[][] n6 = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+		it.unimi.dsi.fastutil.longs.LongArrayList run = new it.unimi.dsi.fastutil.longs.LongArrayList();
+		for (int i = 0; i < loose.size(); i++) {
+			long seed = loose.getLong(i);
+			if (!left.remove(seed)) {
+				continue;
+			}
+			run.clear();
+			run.add(seed);
+			int latest = -1;
+			for (int j = 0; j < run.size(); j++) {
+				long k = run.getLong(j);
+				int x = Draft.keyX(k);
+				int y = Draft.keyY(k);
+				int z = Draft.keyZ(k);
+				for (int[] o : n6) {
+					long nk = Draft.key(x + o[0], y + o[1], z + o[2]);
+					if (left.remove(nk)) {
+						run.add(nk);
+					} else {
+						latest = Math.max(latest, out.get(nk));
+					}
+				}
+			}
+			int n = Math.max(0, latest);
+			for (int j = 0; j < run.size(); j++) {
+				out.put(run.getLong(j), n);
+			}
+		}
+		return out;
 	}
 
 	private static Comparator<Step> order(StageKind kind) {
 		Comparator<Step> tail = Comparator.<Step>comparingInt(s -> s.rank).thenComparingInt(s -> s.dist).thenComparingInt(s -> s.x)
 			.thenComparingInt(s -> s.z).thenComparingInt(s -> s.y);
+		// order keys (Draft#order) come first in the ground stages; unkeyed steps share the lowest key, so a draft without
+		// keys is ordered exactly as before
 		if (kind == StageKind.CLEAR) {
-			return Comparator.<Step>comparingInt(s -> -s.y).thenComparing(tail);
+			return Comparator.<Step>comparingInt(s -> s.order).thenComparingInt(s -> -s.y).thenComparing(tail);
 		}
 		if (kind == StageKind.EARTHWORK) {
-			return Comparator.<Step>comparingInt(s -> s.state.isAir() ? 0 : 1)
+			return Comparator.<Step>comparingInt(s -> s.order).thenComparingInt(s -> s.state.isAir() ? 0 : 1)
 				.thenComparingInt(s -> s.state.isAir() ? -s.y : s.y)
 				.thenComparing(tail);
 		}

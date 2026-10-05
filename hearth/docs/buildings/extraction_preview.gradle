@@ -1,0 +1,26 @@
+// Gradle init script: registers `extractionPreview` (quarries, mines, shafts, pits and woodlots rendered in deep ground:
+// corners, a section by day and by night, and the working as it grows part by part) without touching the shared build
+// files. From hearth/:
+//
+//   ./gradlew -I docs/buildings/extraction_preview.gradle extractionPreview -Parchetype=quarry_pit -Pstyle=temperate -Pseeds=2 -Pterrain=slope
+//   ./gradlew -I docs/buildings/extraction_preview.gradle extractionPreview -Parchetype=all -Pstyle=all -Pseeds=1 -Pterrain="hills;depth=14"
+//
+// Output: build/previews/extraction/. See dev.voidmc.hearth.gametest.extraction.ExtractionPreview for the arguments.
+rootProject { p ->
+	p.afterEvaluate {
+		p.tasks.register('extractionPreview', JavaExec) {
+			group = 'hearth'
+			description = 'Renders excavations in deep ground to build/previews/extraction/*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.extraction.ExtractionPreview'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx4g'
+			args = [
+				p.findProperty('archetype') ?: 'quarry_pit',
+				p.findProperty('style') ?: 'temperate',
+				p.findProperty('seeds') ?: '2',
+				p.findProperty('terrain') ?: 'flat',
+				p.layout.buildDirectory.dir('previews/extraction').get().asFile.path
+			]
+		}
+	}
+}

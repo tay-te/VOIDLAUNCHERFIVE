@@ -31,7 +31,8 @@ lodge), `shed_side` (stables).
 
 ## Construction campaigns
 
-A great building is raised in campaigns (`Draft.phase(n)`, a small addition to the shared draft and compiler): each
+A great building is raised in campaigns (`Draft.campaign(n)`, shared with the excavations' benches and galleries; see
+BUILDING_GUIDE.md §"Campaigns"): each
 campaign is a whole run of stages (clearing, footings, walls, floors, roof, openings, interior), so a castle half built
 looks like one, and no single stage asks for more goods than a town's stores hold. The order check allows the stage
 kinds to begin again with each campaign. The castle is raised in nine: the bergfried; the inner curtain in two; the

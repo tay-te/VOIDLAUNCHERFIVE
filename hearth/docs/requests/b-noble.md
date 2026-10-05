@@ -17,6 +17,8 @@ What the nobility (`docs/buildings/noble.md`) needs from files it does not own. 
 
 - `Draft.phase(n)` / `phaseOf` / `maxPhase` / `toLastPhase`, `Compiler` grouping steps by campaign then stage kind,
   `BlueprintImpl.phase(stage)`, `BlueprintChecks.order` allowing kinds to restart with each campaign (commit 144df15c).
+  *Integration: unified with the extraction family's parts as `Draft.campaign(n)` / `BlueprintImpl.campaign(stage)`;
+  the lighting pass's fixtures now go with the campaign they hang from (not the last).*
   Archetypes that never call `phase` compile exactly as before.
 - `BlueprintServiceImpl`'s cache is now bounded by total steps (`STEP_BUDGET`, 3M) as well as by count: 512 castles
   and palaces (about 80k steps each) outgrew the test JVM's heap during `BlueprintInvariantsTest` + `NobleTest` (and

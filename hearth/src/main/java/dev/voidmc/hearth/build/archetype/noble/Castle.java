@@ -52,7 +52,7 @@ import net.minecraft.world.level.block.state.properties.Half;
  * swallowtail merlons in the south, Moorish pointed merlons in the desert, curved roofs in the karst, domed sentry turrets
  * in the tropics; the steppe raises an ordu, a round ward round the khan's great round hall.
  *
- * <p>Raised in nine campaigns ({@link Draft#phase}), so a castle half built looks like one and no stage asks for more
+ * <p>Raised in nine campaigns ({@link Draft#campaign(int)}), so a castle half built looks like one and no stage asks for more
  * than a town can store: the bergfried on the levelled hill; the inner curtain in two; the inner towers; the palace; the
  * inner gate and the chapel; the outer curtain; the outer towers, the gatehouse and the barbican; the outer ward's
  * buildings and the courts.
@@ -123,48 +123,48 @@ public final class Castle implements Archetype {
 		d.eave(p.walkI + 6);
 
 		// ---- campaign 0: the hill levelled into its two terraces, the bergfried
-		try (var ph = d.phase(0)) {
+		try (var ph = d.campaign(0)) {
 			terraces(d, m, p);
 		}
 		// the walls are drawn before the towers and the buildings that stand over them (their campaigns are later)
-		try (var ph = d.phase(1)) {
+		try (var ph = d.campaign(1)) {
 			innerCurtain(d, m, man, p, true);
 		}
-		try (var ph = d.phase(2)) {
+		try (var ph = d.campaign(2)) {
 			innerCurtain(d, m, man, p, false);
 		}
-		try (var ph = d.phase(6)) {
+		try (var ph = d.campaign(6)) {
 			outerCurtain(d, m, man, p);
 		}
-		try (var ph = d.phase(0)) {
+		try (var ph = d.campaign(0)) {
 			bergfried(d, m, man, p);
 		}
 		// ---- campaigns 1 to 3: the inner curtain in two, then its towers
-		try (var ph = d.phase(3)) {
+		try (var ph = d.campaign(3)) {
 			innerTowers(d, m, man, p);
 		}
 		// ---- campaign 5: the chapel, the inner gate (drawn before the palace, whose stair turret may pierce its eaves)
-		try (var ph = d.phase(5)) {
+		try (var ph = d.campaign(5)) {
 			innerGate(d, m, man, p);
 		}
 		// ---- campaign 4: the palace
-		try (var ph = d.phase(4)) {
+		try (var ph = d.campaign(4)) {
 			palace(d, m, man, p);
 		}
-		try (var ph = d.phase(5)) {
+		try (var ph = d.campaign(5)) {
 			chapel(d, m, man, p);
 		}
 		// ---- campaigns 6 and 7: the outer curtain, then the outer towers, the gatehouse, the barbican
-		try (var ph = d.phase(7)) {
+		try (var ph = d.campaign(7)) {
 			outerTowers(d, m, man, p);
 			gatehouse(d, m, man, p);
 		}
 		// ---- campaign 8: the outer ward's buildings, the courts
-		try (var ph = d.phase(8)) {
+		try (var ph = d.campaign(8)) {
 			outerWard(d, m, man, p);
 			innerWard(d, m, man, p);
 		}
-		try (var ph = d.phase(0)) {
+		try (var ph = d.campaign(0)) {
 			Groundwork.clear(d, 0, 0, p.w - 1, p.dp - 1, p.maxTop);
 		}
 	}

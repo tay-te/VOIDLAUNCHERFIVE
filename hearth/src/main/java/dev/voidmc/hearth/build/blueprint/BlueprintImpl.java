@@ -36,6 +36,8 @@ public final class BlueprintImpl implements Blueprint {
 	private final PlotSpec spec;
 	private final BoundingBox bounds;
 	private final StageKind[] kinds;
+	/** The campaign of each stage (a blueprint built in campaigns, see {@code Draft#campaign}; all 0 otherwise). */
+	private final int[] campaigns;
 	private final int[][] positions;
 	private final int[][] states;
 	private final BlockState[] palette;
@@ -47,15 +49,14 @@ public final class BlueprintImpl implements Blueprint {
 	private final List<BlockPos> entrances;
 	private final int beds;
 	private final Silhouette silhouette;
-	/** The construction campaign of each stage (see {@code Draft.phase}); all 0 for a building raised in one. */
-	private final int[] phases;
 
-	BlueprintImpl(PlotSpec spec, BoundingBox bounds, StageKind[] kinds, int[][] positions, int[][] states, BlockState[] palette,
+	BlueprintImpl(PlotSpec spec, BoundingBox bounds, StageKind[] kinds, int[] campaigns, int[][] positions, int[][] states, BlockState[] palette,
 		Int2ObjectMap<CompoundTag>[] tags, Long2ObjectMap<int[][]> chunks, int[] work, int[][] goods, List<Poi> pois, List<BlockPos> entrances,
-		int beds, Silhouette silhouette, int[] phases) {
+		int beds, Silhouette silhouette) {
 		this.spec = spec;
 		this.bounds = bounds;
 		this.kinds = kinds;
+		this.campaigns = campaigns.length == kinds.length ? campaigns : new int[kinds.length];
 		this.positions = positions;
 		this.states = states;
 		this.palette = palette;
@@ -67,12 +68,6 @@ public final class BlueprintImpl implements Blueprint {
 		this.entrances = List.copyOf(entrances);
 		this.beds = beds;
 		this.silhouette = silhouette;
-		this.phases = phases.length == kinds.length ? phases : new int[kinds.length];
-	}
-
-	/** The construction campaign a stage belongs to: stage kinds run in order within a campaign, then start again. */
-	public int phase(int stage) {
-		return this.phases[stage];
 	}
 
 	static int pack(int dx, int dy, int dz) {
@@ -99,7 +94,22 @@ public final class BlueprintImpl implements Blueprint {
 		return this.kinds[stage];
 	}
 
-	/** The index of the stage of a kind, or -1 if the blueprint has none of that kind. */
+	/**
+	 * The campaign a stage belongs to (see {@code Draft#campaign}): 0 for an ordinary building. A blueprint built in
+	 * campaigns runs its stage kinds in order within each campaign, then starts again with the next: a castle's
+	 * terraces and keep are campaign 0, its curtains and towers later ones; an excavation's opening works are campaign 0
+	 * and each bench, gallery or lift after it a campaign of its own.
+	 */
+	public int campaign(int stage) {
+		return this.campaigns[stage];
+	}
+
+	/** How many campaigns the blueprint is built in (1 for an ordinary building; the last campaign's number plus one). */
+	public int campaignCount() {
+		return this.campaigns.length == 0 ? 1 : this.campaigns[this.campaigns.length - 1] + 1;
+	}
+
+	/** The index of the first stage of a kind, or -1 if the blueprint has none of that kind. */
 	public int stageIndex(StageKind kind) {
 		for (int i = 0; i < this.kinds.length; i++) {
 			if (this.kinds[i] == kind) {

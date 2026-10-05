@@ -71,7 +71,7 @@ public final class HuntingLodge implements Archetype {
 		d.body(0, rz0, w - 1, rz1);
 		d.eave(y + 9);
 
-		try (var ph = d.phase(0)) {
+		try (var ph = d.campaign(0)) {
 			Groundwork.level(d, 0, 0, w - 1, dp - 1, y, true);
 			r.footings(d, m);
 			r.walls(d, m, man);
@@ -117,7 +117,7 @@ public final class HuntingLodge implements Archetype {
 			rooms(d, m, r, towerLeft, tdx, dcol, hearth[0]);
 		}
 
-		try (var ph = d.phase(1)) {
+		try (var ph = d.campaign(1)) {
 			Court.pave(d, m, 0, 0, w - 1, rz0 - 1, y);
 			// the kennel against the lodge's front on the far side from the tower
 			int kx0 = towerLeft ? Math.max(dcol + 2, w - 6) : 0;

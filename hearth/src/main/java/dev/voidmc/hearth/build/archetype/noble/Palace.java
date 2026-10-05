@@ -103,7 +103,7 @@ public final class Palace implements Archetype {
 		Plan p = plan(d);
 		d.body(p.lx, p.fz, p.rx, p.bz);
 		d.eave(p.walk + 6);
-		try (var ph = d.phase(0)) {
+		try (var ph = d.campaign(0)) {
 			Groundwork.level(d, p.lx + p.thick, p.fz + p.thick, p.rx - p.thick, p.bz - p.thick, p.y, true);
 			Groundwork.level(d, p.c - 3, p.fz - 4, p.c + 3, p.fz + 1, p.y, true);
 			Court.pave(d, m, p.lx + p.thick, p.fz + p.thick, p.rx - p.thick, p.bz - p.thick, p.y);
@@ -111,28 +111,28 @@ public final class Palace implements Archetype {
 			Curtain.run(d, m, man, p.lx, p.fz, p.rx, p.fz, Dirs.FRONT, p.thick, p.walk, o);
 			Curtain.run(d, m, man, p.lx, p.fz, p.lx, p.bz, Dirs.LEFT, p.thick, p.walk, o);
 		}
-		try (var ph = d.phase(1)) {
+		try (var ph = d.campaign(1)) {
 			Curtain.Opts o = Curtain.Opts.of(man);
 			Curtain.run(d, m, man, p.rx, p.fz, p.rx, p.bz, Dirs.RIGHT, p.thick, p.walk, o);
 			Curtain.run(d, m, man, p.lx, p.bz, p.rx, p.bz, Dirs.BACK, p.thick, p.walk, o);
 		}
-		try (var ph = d.phase(2)) {
+		try (var ph = d.campaign(2)) {
 			gate(d, m, man, p);
 			towers(d, m, man, p);
 		}
-		try (var ph = d.phase(3)) {
+		try (var ph = d.campaign(3)) {
 			hall(d, m, man, p);
 		}
-		try (var ph = d.phase(4)) {
+		try (var ph = d.campaign(4)) {
 			range(d, m, man, p, true);
 		}
-		try (var ph = d.phase(5)) {
+		try (var ph = d.campaign(5)) {
 			range(d, m, man, p, false);
 		}
-		try (var ph = d.phase(6)) {
+		try (var ph = d.campaign(6)) {
 			courts(d, m, man, p);
 		}
-		try (var ph = d.phase(0)) {
+		try (var ph = d.campaign(0)) {
 			Groundwork.clear(d, 0, 0, p.w - 1, p.dp - 1, p.maxTop);
 		}
 	}

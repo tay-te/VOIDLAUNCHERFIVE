@@ -1,1 +1,13 @@
-{}
+{
+  "hearth.archetype.extract.quarry_pit": "Quarry pit",
+  "hearth.archetype.extract.mine": "Mine",
+  "hearth.archetype.extract.shaft": "Mine shaft",
+  "hearth.archetype.extract.clay_pit": "Clay pit",
+  "hearth.archetype.extract.sand_pit": "Sand pit",
+  "hearth.archetype.extract.plantation": "Plantation",
+  "hearth.sign.mine": "Mine",
+  "hearth.sign.shaft": "Shaft",
+  "hearth.sign.clay_pit": "Clay",
+  "hearth.sign.sand_pit": "Sand",
+  "hearth.sign.plantation": "Woodlot"
+}

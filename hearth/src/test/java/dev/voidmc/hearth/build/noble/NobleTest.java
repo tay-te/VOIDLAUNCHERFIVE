@@ -122,7 +122,7 @@ class NobleTest {
 				sum += g;
 			}
 			if (sum > STAGE_GOODS) {
-				out.add(tag + ": stage " + s + " (" + bp.stageKind(s) + ", campaign " + bp.phase(s) + ") asks for " + sum + " goods");
+				out.add(tag + ": stage " + s + " (" + bp.stageKind(s) + ", campaign " + bp.campaign(s) + ") asks for " + sum + " goods");
 			}
 		}
 		return out;

@@ -73,7 +73,7 @@ public final class Stables implements Archetype {
 		int[] heights = {5, 4};
 
 		// ---- campaign 0: the range
-		try (var ph = d.phase(0)) {
+		try (var ph = d.campaign(0)) {
 			Groundwork.level(d, 0, 0, w - 1, dp - 1, y, true);
 			Range r = new Range(rx0, rz0, rx1, rz1, y, heights, Dirs.FRONT);
 			r.blind(Dirs.BACK);
@@ -104,7 +104,7 @@ public final class Stables implements Archetype {
 		}
 
 		// ---- campaign 1: the yard, its wall, the shed and the rail
-		try (var ph = d.phase(1)) {
+		try (var ph = d.campaign(1)) {
 			Court.pave(d, m, 1, 1, w - 2, rz0 - 1, y);
 			// the yard wall round the front and sides, gate piers at the way in
 			int gw = 2;

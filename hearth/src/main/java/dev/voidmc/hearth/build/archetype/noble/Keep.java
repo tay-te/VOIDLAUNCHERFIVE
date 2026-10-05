@@ -44,7 +44,7 @@ import net.minecraft.world.level.block.state.properties.Half;
  * under an onion, a harled Scottish tower house with bartizans and crow steps, granite under machicolations, a northern
  * stone tower with its timber head, a kasbah's tower with its pointed merlons, a karst diaolou under a curved roof...
  *
- * <p>Raised in three campaigns ({@link Draft#phase}): the keep, then the curtain and gate, then the range and the court.
+ * <p>Raised in three campaigns ({@link Draft#campaign(int)}): the keep, then the curtain and gate, then the range and the court.
  *
  * <p>Params: {@code station} (the planner's {@code lord}), {@code keep_side} ({@code left} or {@code right}, seeded),
  * {@code round} (boolean: a round keep, seeded by the manner), {@code variant}.
@@ -115,11 +115,11 @@ public final class Keep implements Archetype {
 		}
 
 		// ---- campaign 0: the site, and the keep
-		try (var ph = d.phase(0)) {
+		try (var ph = d.campaign(0)) {
 			Groundwork.level(d, lx + thick, fz + thick, rx - thick, bz - thick, court, true);
 			Court.pave(d, m, lx + thick, fz + thick, rx - thick, bz - thick, court);
 			// the curtain is the second campaign's, but drawn first so the keep and the turrets stand over it
-			try (var ph1 = d.phase(1)) {
+			try (var ph1 = d.campaign(1)) {
 				Curtain.Opts o = new Curtain.Opts(false, true, true);
 				Curtain.run(d, m, man, lx, fz, rx, fz, Dirs.FRONT, thick, walk, o);
 				Curtain.run(d, m, man, rx, fz, rx, bz, Dirs.RIGHT, thick, walk, o);
@@ -169,7 +169,7 @@ public final class Keep implements Archetype {
 		}
 
 		// ---- campaign 1: the turrets and the gate (the curtain was drawn before the keep, so the keep stands over it)
-		try (var ph = d.phase(1)) {
+		try (var ph = d.campaign(1)) {
 			// round turrets on the corners the keep leaves
 			if (w >= 19) {
 				Turret.wall(d, m, man, lx + 1, fz + 1, 5, walk, maxTop, Set.of(Dirs.RIGHT, Dirs.BACK));
@@ -203,7 +203,7 @@ public final class Keep implements Archetype {
 
 		// ---- campaign 2: the range along the back wall, the court
 		int rz0 = Math.max(gz1 + 3, bz - 6);
-		try (var ph = d.phase(2)) {
+		try (var ph = d.campaign(2)) {
 			int rx0 = left ? kx1 : lx;
 			int rx1 = left ? rx : kx0;
 			if (rx1 - rx0 >= 8 && bz - rz0 >= 4) {

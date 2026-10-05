@@ -112,7 +112,33 @@ try (var s = d.stage(StageKind.INTERIOR)) { ... }     // or d.inStage(StageKind.
 
 Within a stage the compiler orders steps itself: supports first (bottom-up, a hanging lantern after its ceiling, a chain
 top-down), structural before attached before resting before hanging, outward from the main entrance, then by position.
-Clearing runs top-down; earthwork digs before it fills.
+Clearing runs top-down; earthwork digs before it fills. Where an excavation must be cut in a set order (a bench outward
+from where the diggers come down, a drift slice by slice behind its props), give the cuts order keys,
+`try (var o = d.order(key)) { ... }`: in `CLEAR` and `EARTHWORK` steps go by key first (unkeyed first), then by the
+usual rule.
+
+**Campaigns.** A building raised over months, or a working dug over weeks, is built in **campaigns**: sections done one
+after another, each a whole run of stages, so the work half done looks like what it is and no single stage asks for
+more goods than a town can store. A castle's terraces and keep, then its inner curtain, its towers, its palace...; a
+quarry's opening works, then bench 1, bench 2...; a mine's yard and portal, then each segment of its drift; a shaft's
+house, then each lift.
+
+```java
+try (var c = d.campaign(0)) { terraces(d); keep(d); }       // the opening campaign
+try (var c = d.campaign(1)) { curtain(d); }                // then the next, each with all its stages
+for (int k = 0; k < benches; k++) {
+	try (var c = d.campaign(k + 1)) { bench(d, k); }       // an excavation: one campaign per bench or gallery
+}
+```
+
+The compiler emits campaigns in number order and each campaign's stages in `StageKind` order
+(`BlueprintImpl.campaign(stage)`, `campaignCount()`); `BlueprintChecks.order` allows the stage kinds to begin again
+with each campaign and nowhere else. Each campaign must stand on the ground or on what earlier campaigns built (draw a
+tower in a campaign after its wall's, not before). A placement made outside any campaign scope keeps the campaign of the
+cell it replaces (shape resolution, a later restyle); a cell never drawn in one (what the lighting pass adds, a sealed
+void) goes, a connected run at a time, with the latest campaign among the cells it touches: a lantern and its chain go
+in with the vault they hang from, a lamp post with the bench it stands on. A draft that never opens a campaign compiles
+as before (everything campaign 0). Numbers may skip; draw order does not matter, only the number.
 
 ## 3. What the compiler does for you
 
