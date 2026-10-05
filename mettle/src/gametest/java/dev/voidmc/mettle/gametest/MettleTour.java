@@ -121,6 +121,7 @@ public class MettleTour implements FabricClientGameTest {
 			AthleticsJourney.run(context, world);
 			SurvivalJourney.run(context, world);
 			SmithingJourney.run(context, world);
+			TomeJourney.run(world);
 
 			context.setScreen(CharacterScreen::new);
 			context.waitTicks(5);

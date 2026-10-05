@@ -96,6 +96,7 @@ public final class MettleClient implements ClientModInitializer {
 			if (mc.player == null) {
 				return;
 			}
+			dev.voidmc.mettle.character.TomeItem.tooltip(stack, mc.level, line -> lines.add(1, line));
 			if (stack.has(SignaturePerks.HERB_LORE_BREWED)) {
 				lines.add(Component.translatable("mettle.tooltip.herb_lore").withStyle(ChatFormatting.GRAY));
 			}

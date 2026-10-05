@@ -224,7 +224,7 @@ hammer(c, 13, 6, L=10, half=2.2, w=1.1, d=(-2, 3))
 c2 = Cv()
 hammer(c2, 7, 2, L=13, half=2.6, w=1.3, d=(0, 1))
 c2.rect(5, 13, 9, 13, 'L')
-ICONS['a_hundred_hammers'] = [c, c2]
+ICONS['hundred_hammers'] = [c, c2]
 
 # Black Iron: the darkest metal, hardest won
 c = Cv()

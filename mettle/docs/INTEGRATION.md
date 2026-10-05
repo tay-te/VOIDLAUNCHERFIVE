@@ -56,7 +56,23 @@ Filed as `hearth/docs/requests/mettle.md` for the Hearth coordinator.
 | **Herbs** | Lavender, fireweed, edelweiss, reindeer lichen, heather and others become Alchemy ingredients in wave 2 (Alchemy's tree). Forager covers them in wave 1. |
 | **Hidden chests** | A "Keen Eye" cue (wave 2, Scholarship or Survival): a soft sound near a hidden mechanism. **No glow or particles on the surface**, which keeps Expanse's natural look. |
 | **Spawner mobs in structures** | Fall under anti-farm (×0.1), so crypts are for loot, not grinding. |
+| **Teaching tomes** | Built (`character.Tomes`). Each skill's Teaching has a tome in one landmark's hidden chest, 30 % per chest, added by `LootTableEvents.MODIFY` with no compile-time dependency. Without Expanse, a vanilla chest holds it at 8 %. Reading takes 5 s of holding use. The tome is kept, and each reader learns it once. See the table below. |
 | **Climate** | Not used. Expanse has no climate system, and Mettle doesn't add cold or heat survival. |
+
+Where the tomes lie (`Tomes.SOURCES`; TREES.md names the landmarks, mapped to the structures Expanse ships):
+
+| Teaching | Tome | Expanse chest | Vanilla stand-in |
+|---|---|---|---|
+| Stonesense | *The Delver's Almanac* | `deepstone_ruins_hidden` | `ancient_city` |
+| Master Strike | *The Verses of the Long Edge* | `wisteria_manor_hidden` | `woodland_mansion` |
+| Overhead Blow | *The Feller's Rule* | `logging_camp_hidden` | `pillager_outpost` |
+| Steppe Draw | *The Steppe Bow* | `caravanserai_hidden` | `desert_pyramid` |
+| Roll with the Blow | *The Citadel Drill* | `frost_outpost_hidden` (TREES' Frostwatch Citadel isn't built) | `igloo_chest` |
+| Courier's Stride | *Letters of a King's Runner* | `palm_harbour_hidden` | `shipwreck_map` |
+| Poultice | *The Monks' Herbal* | `cloud_monastery_hidden` | `jungle_temple` |
+| Folded Steel | *A Treatise on Folded Steel* | `karst_pagoda_hidden` | `bastion_other` |
+
+The other half, a city master trainer teaching it for coin, waits on Hearth (request 5).
 
 ## 3. LOD
 

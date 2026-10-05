@@ -6,6 +6,7 @@
 		"mettle:belt": 0.4,
 		"mettle:tool_belt": 0.7,
 		"mettle:quiver": 0.5,
-		"mettle:hunters_quiver": 0.8
+		"mettle:hunters_quiver": 0.8,
+		"mettle:tome": 0.6
 	}
 }

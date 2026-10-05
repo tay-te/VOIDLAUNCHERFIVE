@@ -51,6 +51,7 @@ public final class CharacterModule {
 		AthleticsSkill.init();
 		SurvivalSkill.init();
 		SmithingSkill.init();
+		Tomes.init();
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> {
 			CharacterCommands.register(dispatcher, context);
 			TreeCommands.register(dispatcher);
