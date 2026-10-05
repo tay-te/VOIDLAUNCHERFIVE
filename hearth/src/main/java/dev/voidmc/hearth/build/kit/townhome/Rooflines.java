@@ -72,8 +72,17 @@ public final class Rooflines {
 	 */
 	public static int ridgeY(Draft d, int wx0, int wz0, int wx1, int wz1, int plateY, RoofForm form, Direction.Axis axis, Roofs.Opts o, boolean partyL,
 		boolean partyR) {
+		return dry(d, wx0, wz0, wx1, wz1, plateY, form, axis, o, partyL, partyR).ridgeY;
+	}
+
+	/**
+	 * The roof a plan would draw (its surface and underside cell by cell), drawn on a scratch copy of the draft so
+	 * nothing is placed: where a second row of dormers would meet the slope.
+	 */
+	public static Roofs.Roof dry(Draft d, int wx0, int wz0, int wx1, int wz1, int plateY, RoofForm form, Direction.Axis axis, Roofs.Opts o,
+		boolean partyL, boolean partyR) {
 		Draft scratch = new Draft(d.spec(), d.style(), d.site());
-		return plan(scratch, wx0, wz0, wx1, wz1, plateY, form, axis, o, partyL, partyR).draw(scratch).roof().ridgeY;
+		return plan(scratch, wx0, wz0, wx1, wz1, plateY, form, axis, o, partyL, partyR).draw(scratch).roof();
 	}
 
 	/**

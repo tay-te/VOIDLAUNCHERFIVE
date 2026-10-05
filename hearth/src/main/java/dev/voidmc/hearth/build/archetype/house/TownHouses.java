@@ -323,6 +323,16 @@ final class TownHouses {
 	 * front windows when the ridge runs along the street; a window in a front gable.
 	 */
 	static Roofs.Roof pitched(Draft d, Body b, RoofForm form, Direction.Axis ridge, Roofs.Opts o, Traits t, Facade f, boolean dormers, boolean crow) {
+		return pitched(d, b, form, ridge, o, t, f, dormers, crow, false);
+	}
+
+	/**
+	 * {@link #pitched}; with {@code twoRows}, a roof tall enough over its attic carries a second row of dormers: the
+	 * lower row over every other front window, a small dormer higher up the slope over each window between them, so
+	 * the rows stagger as on a Bohemian or northern city roof (art review 7).
+	 */
+	static Roofs.Roof pitched(Draft d, Body b, RoofForm form, Direction.Axis ridge, Roofs.Opts o, Traits t, Facade f, boolean dormers, boolean crow,
+		boolean twoRows) {
 		int[] tr = b.topRect();
 		int plate = b.plateY();
 		RoofForm base = base(form);
@@ -335,11 +345,38 @@ final class TownHouses {
 			int col = Math.clamp((tr[0] + tr[2]) / 2 - gw / 2, tr[0] + (b.partyLeft ? 0 : 1), tr[2] - gw + (b.partyRight ? 1 : 0));
 			plan.crossGable(front, col, gw, d);
 		} else if (dormers && ridge == Direction.Axis.X && base != RoofForm.PAGODA && base != RoofForm.GAMBREL && o.eaves() <= 1) {
+			List<Facade.Opening> bays = new java.util.ArrayList<>();
 			for (Facade.Opening op : f.openings(Dirs.FRONT)) {
-				if (op.kind() != Facade.Kind.WINDOW || op.at() - 1 <= tr[0] || op.at() + op.width() >= tr[2]) {
+				// (the door's bay has a window over it on every upper floor: a dormer over that too)
+				if (op.kind() != Facade.Kind.BLANK && op.at() - 1 > tr[0] && op.at() + op.width() < tr[2]) {
+					bays.add(op);
+				}
+			}
+			bays.sort(java.util.Comparator.comparingInt(Facade.Opening::at));
+			int floor = b.floorY(topK);
+			int[] upper = twoRows && bays.size() >= 2 ? upperRow(d, b, base, ridge, o, floor + 3) : null;
+			if (upper != null && bays.size() == 2) {
+				// two bays: both below, one small dormer up the slope between them where they leave it room
+				int a = bays.get(0).at() + bays.get(0).width() - 1;
+				int c = bays.get(1).at();
+				int col = (a + c) / 2;
+				if (c - a - 1 >= 5 && upper[col - tr[0]] != Integer.MIN_VALUE) {
+					plan.dormer(new Side(Dirs.FRONT, tr[0], upper[col - tr[0]], width), col, 1, floor + 3);
+				}
+				upper = null;
+			}
+			for (int i = 0; i < bays.size(); i++) {
+				Facade.Opening op = bays.get(i);
+				if (upper != null && (i & 1) == 1) {
+					// the higher row: a one-wide dormer where the slope reaches its sill, over the window below
+					int col = op.at() + (op.width() - 1) / 2;
+					int zf = upper[col - tr[0]];
+					if (zf != Integer.MIN_VALUE) {
+						plan.dormer(new Side(Dirs.FRONT, tr[0], zf, width), col, 1, floor + 3);
+					}
 					continue;
 				}
-				plan.dormer(front, op.at(), op.width(), b.floorY(topK));
+				plan.dormer(front, op.at(), op.width(), floor);
 			}
 		}
 		Roofs.Roof roof = plan.draw(d).roof();
@@ -384,6 +421,34 @@ final class TownHouses {
 			}
 		}
 		return roof;
+	}
+
+	/**
+	 * Where a second row of dormers with its sill at {@code sill} would stand on the front slope, column by column
+	 * across the top storey (index 0 at its left wall): the row where the roof's surface reaches the sill, inside the
+	 * attic and well short of the ridge; MIN_VALUE where the roof does not rise high enough for one.
+	 */
+	static int[] upperRow(Draft d, Body b, RoofForm form, Direction.Axis ridge, Roofs.Opts o, int sill) {
+		int[] tr = b.topRect();
+		Roofs.Roof dry = Rooflines.dry(d, tr[0], tr[1], tr[2], tr[3], b.plateY(), form, ridge, o, b.partyLeft, b.partyRight);
+		int[] out = new int[tr[2] - tr[0] + 1];
+		java.util.Arrays.fill(out, Integer.MIN_VALUE);
+		int midZ = (tr[1] + tr[3]) / 2;
+		for (int x = tr[0] + 1; x < tr[2]; x++) {
+			for (int z = tr[1] + 2; z < midZ; z++) {
+				if (!dry.covers(x, z)) {
+					break;
+				}
+				if (dry.surfaceY(x, z) >= sill - 1) {
+					// the window's head and the dormer's own little gable must stay under the main ridge
+					if (dry.surfaceY(x, z) <= sill && dry.ridgeY >= sill + 5) {
+						out[x - tr[0]] = z;
+					}
+					break;
+				}
+			}
+		}
+		return out;
 	}
 
 	/**
