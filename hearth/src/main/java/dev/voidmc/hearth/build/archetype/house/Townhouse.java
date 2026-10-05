@@ -44,7 +44,7 @@ import net.minecraft.core.Direction;
  *
  * <p>Params:
  * <ul>
- *   <li>{@code storeys} (int, 3–5): suggested full storeys under the roof (a storey up or down by seed now and then so a
+ *   <li>{@code storeys} (int, 3–4): suggested full storeys under the roof (a storey up or down by seed now and then so a
  *   row steps its eaves; default 3 or 4)</li>
  *   <li>{@code party_left}, {@code party_right} (boolean): the building's own sides shared with neighbours (blind, no
  *   eaves; parapets and chimneys on them in masonry towns); read through {@code Draft.partyLocalLeft/Right}</li>
@@ -58,7 +58,7 @@ import net.minecraft.core.Direction;
  */
 public final class Townhouse implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/townhouse"), ArchetypeCategory.HOUSING, Set.of(), 4,
-		5, 8, 8, 13, 14, 24, SettlementTier.TOWN, Set.of(),
+		5, 8, 8, 13, 13, 20, SettlementTier.TOWN, Set.of(),
 		Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE, ArchetypeInfo.SiteFlag.VERTICAL), List.of(Hearth.id("house/tenement")), 0, 1.0);
 
 	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.GAMBREL, RoofForm.MANSARD, RoofForm.HIP, RoofForm.PAGODA,
@@ -90,7 +90,8 @@ public final class Townhouse implements Archetype {
 		boolean pueblo = t.pueblo() && form == RoofForm.FLAT && w >= 7;
 		boolean shop = d.param("shop", d.chance(0.4));
 		int sh = Math.max(4, h.walls().storeyHeight());
-		int wanted = TownHouses.storeys(d, 3, 5, d.chance(0.5) ? 4 : 3);
+		// three storeys and the roof, the burgher house's measure; a fourth now and then where a city street steps up
+		int wanted = TownHouses.storeys(d, 3, 4, 3);
 
 		// the door, where the street meets the floor; a row in front for steps when it does not
 		int bx0 = cornerL && jetties ? 1 : 0;
@@ -146,7 +147,8 @@ public final class Townhouse implements Archetype {
 				full--;
 			} else if (opts.pitch() > 0.5) {
 				opts = opts.withPitch(0.5);
-			} else {
+			} else if (!flat && (t.flatSome() || pass >= 6)) {
+				// a flat roof only where the culture builds them (or nothing else fits)
 				form = RoofForm.FLAT;
 				flat = true;
 			}

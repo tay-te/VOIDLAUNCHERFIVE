@@ -67,7 +67,7 @@ import net.minecraft.world.level.block.state.properties.Half;
  */
 public final class MerchantHouse implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/merchant_house"), ArchetypeCategory.HOUSING, Set.of(JobType.MERCHANT), 5,
-		7, 11, 11, 15, 20, 28, SettlementTier.VILLAGE, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE, ArchetypeInfo.SiteFlag.VERTICAL), List.of(),
+		7, 11, 11, 15, 13, 20, SettlementTier.VILLAGE, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE, ArchetypeInfo.SiteFlag.VERTICAL), List.of(),
 		0, 1.0);
 
 	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.GAMBREL, RoofForm.MANSARD, RoofForm.HIP, RoofForm.PAGODA,
@@ -164,7 +164,8 @@ public final class MerchantHouse implements Archetype {
 				full--;
 			} else if (opts.pitch() > 0.5) {
 				opts = opts.withPitch(0.5);
-			} else {
+			} else if (!flat && (t.flatSome() || pass >= 8)) {
+				// a flat roof only where the culture builds them (or nothing else fits): never a box in a pitched town
 				form = RoofForm.FLAT;
 				flat = true;
 				crow = false;

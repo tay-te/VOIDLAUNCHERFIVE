@@ -48,8 +48,8 @@ import net.minecraft.core.Direction;
  * </ul>
  */
 public final class ScribeHouse implements Archetype {
-	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/scribe_house"), ArchetypeCategory.HOUSING, Set.of(), 3, 6, 8, 9, 12, 18,
-		24, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE), List.of(), 0, 1.0);
+	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/scribe_house"), ArchetypeCategory.HOUSING, Set.of(), 3, 6, 8, 9, 12, 12,
+		18, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE), List.of(), 0, 1.0);
 
 	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.GAMBREL, RoofForm.MANSARD, RoofForm.HIP, RoofForm.PAGODA,
 		RoofForm.FLAT, RoofForm.CROSS_GABLE, RoofForm.SALTBOX, RoofForm.DOME};
@@ -126,7 +126,8 @@ public final class ScribeHouse implements Archetype {
 				full--;
 			} else if (opts.pitch() > 0.5) {
 				opts = opts.withPitch(0.5);
-			} else {
+			} else if (!flat && (t.flatSome() || pass >= 8)) {
+				// a flat roof only where the culture builds them (or nothing else fits)
 				form = RoofForm.FLAT;
 				flat = true;
 			}
