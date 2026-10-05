@@ -1,6 +1,6 @@
 {
 	"culture": "tundra",
-	"name": "Tundra: low spruce longhouses banked in snow, steep dark roofs, white trim, smoke and lantern light",
+	"name": "Tundra: low spruce longhouses under steep dark board roofs and turf on stone, white trim, smoke and lantern light (the world's own snow lies on them)",
 	"base_name": "longhouse",
 	"roles": {
 		"foundation": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:andesite", "w": 1}],
@@ -25,8 +25,8 @@
 		"light": ["minecraft:lantern"],
 		"chimney": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
 		"furniture": ["wood:minecraft:spruce"],
-		"cloth": ["dye:light_blue", "dye:white", "dye:red"],
-		"accent": ["minecraft:packed_ice"],
+		"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:white", "w": 2}, {"m": "dye:blue", "w": 1}, {"m": "dye:light_gray", "w": 1}],
+		"accent": ["minecraft:chiseled_stone_bricks"],
 		"garden": ["minecraft:oxeye_daisy", "minecraft:poppy", "minecraft:fern", "expanse:reindeer_lichen|minecraft:short_grass"],
 		"crops": ["minecraft:potatoes", "minecraft:beetroots"],
 		"hedge": ["minecraft:spruce_leaves"],
@@ -35,12 +35,12 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:spruce"],
-		"thatch": [{"m": "minecraft:moss_block", "stairs": "minecraft:green_wool_stairs", "slab": "minecraft:green_wool_slab"}],
+		"thatch": [{"m": "minecraft:moss_block", "stairs": "minecraft:mossy_cobblestone_stairs", "slab": "minecraft:mossy_cobblestone_slab", "w": 4}, {"m": "minecraft:cobblestone", "w": 0.4}],
 		"sheet": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
-		"masonry": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:andesite", "w": 1}]
+		"masonry": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone_bricks", "w": 0.16}, {"m": "minecraft:andesite", "w": 0.08}]
 	},
 	"tiers": {
-		"0": {"roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "minecraft:moss_block", "patch": 0.2}], "window": ["wood:minecraft:spruce"]},
+		"0": {"roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "minecraft:moss_block", "patch": 0.05}], "window": ["wood:minecraft:spruce"]},
 		"3": {"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}], "roof_trim": ["minecraft:polished_deepslate"], "chimney": ["minecraft:stone_bricks"]}
 	},
 	"base_weight": 2,
@@ -55,15 +55,15 @@
 			"w": 3,
 			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"]}],
 			"roles": {
-				"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1.5, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1}],
+				"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}, {"m": "minecraft:andesite", "w": 0.24}],
 				"wall_accent": ["minecraft:mossy_cobblestone"],
 				"gable": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:pale_oak", "w": 1}],
-				"roof": [{"m": "minecraft:moss_block", "stairs": "minecraft:green_wool_stairs", "slab": "minecraft:green_wool_slab"}],
-				"roof_trim": ["wood:minecraft:spruce"]
+				"roof": [{"m": "minecraft:moss_block", "stairs": "minecraft:mossy_cobblestone_stairs", "slab": "minecraft:mossy_cobblestone_slab"}],
+				"roof_trim": ["wood:minecraft:dark_oak"]
 			},
 			"habits": {
 				"walls": {"kind": "stone", "plinth": 0, "beam_ends": 0},
-				"roof": {"forms": {"gable": 5, "half_hip": 2}, "pitch": 1.0, "eaves": 1, "gable_overhang": 0, "ridge": "full", "dormers": 0.0}
+				"roof": {"forms": {"gable": 5, "half_hip": 2}, "pitch": 1.0, "eaves": 1, "gable_overhang": 0, "ridge": "trim", "dormers": 0.0}
 			}
 		},
 		{
@@ -81,7 +81,7 @@
 				"window": ["wood:minecraft:spruce"],
 				"door": ["wood:minecraft:dark_oak"],
 				"accent": ["minecraft:chiseled_stone_bricks"],
-				"cloth": ["dye:red", "dye:white", "dye:light_blue"]
+				"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:white", "w": 1}, {"m": "dye:blue", "w": 1}]
 			},
 			"habits": {
 				"walls": {"kind": "log", "plinth": 2, "beam_ends": 0.9},
@@ -99,6 +99,6 @@
 		"chimney": 1.0,
 		"porch": 0.6,
 		"balcony": 0.0,
-		"snow": true
+		"snow": false
 	}
 }

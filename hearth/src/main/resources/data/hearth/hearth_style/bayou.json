@@ -25,7 +25,7 @@
 		"light": ["minecraft:lantern"],
 		"chimney": ["minecraft:mud_bricks"],
 		"furniture": ["wood:minecraft:spruce"],
-		"cloth": ["dye:green", "dye:brown", "dye:yellow"],
+		"cloth": [{"m": "dye:brown", "w": 2}, {"m": "dye:yellow", "w": 1}, {"m": "dye:white", "w": 1}, {"m": "dye:red", "w": 1}],
 		"accent": ["minecraft:moss_block"],
 		"garden": ["minecraft:blue_orchid", "minecraft:fern", "expanse:cattail|minecraft:short_grass"],
 		"crops": ["minecraft:carrots", "minecraft:potatoes"],
@@ -37,7 +37,7 @@
 		"stilt": ["wood:minecraft:mangrove"],
 		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}],
 		"sheet": [{"m": "minecraft:waxed_exposed_cut_copper", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}],
-		"masonry": [{"m": "minecraft:mud_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 2}]
+		"masonry": [{"m": "minecraft:mud_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 0.16}, {"m": "minecraft:mossy_cobblestone", "w": 0.06, "low": 12}]
 	},
 	"tiers": {
 		"0": {"wall": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:poplar", "w": 1.5}, {"m": "wood:minecraft:oak", "w": 0.6}], "roof": [{"m": "minecraft:exposed_cut_copper", "w": 2}, {"m": "wood:minecraft:spruce", "patch": 0.25}]},

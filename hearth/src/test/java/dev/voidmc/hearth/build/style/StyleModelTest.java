@@ -171,6 +171,10 @@ class StyleModelTest {
 		int village = 0;
 		int church = 0;
 		int castle = 0;
+		int hall = 0;
+		int library = 0;
+		int warehouse = 0;
+		int bell = 0;
 		int n = 400;
 		for (long seed = 0; seed < n; seed++) {
 			String merchant = substyle(t, t.pickVariant(seed, context("house/townhouse", 2, "station", "merchant")));
@@ -185,12 +189,21 @@ class StyleModelTest {
 			String cottage = substyle(t, t.pickVariant(seed, context("house/cottage", 2)));
 			assertTrue(cottage == null || cottage.equals("bohemian village"), "an ordinary cottage wears a village manner: " + cottage);
 			village += "bohemian village".equals(cottage) ? 1 : 0;
+			hall += "bohemian town".equals(substyle(t, t.pickVariant(seed, context("civic/town_hall", 3)))) ? 1 : 0;
+			library += "bohemian town".equals(substyle(t, t.pickVariant(seed, context("civic/library", 2)))) ? 1 : 0;
+			warehouse += "burgher brick".equals(substyle(t, t.pickVariant(seed, context("storage/warehouse", 2)))) ? 1 : 0;
+			bell += "bohemian church".equals(substyle(t, t.pickVariant(seed, context("landmark/bell_tower", 3)))) ? 1 : 0;
 		}
 		// the Bohemian countryside is the temperate culture's main look; the English manners stay among it
-		assertTrue(village > n * 0.65 && village < n * 0.9, "cottages are mostly Bohemian: " + village + " of " + n);
-		assertTrue(town > n * 0.45 && burgher > n * 0.15, "merchants build Bohemian town houses with burgher brick among them: " + town + ", " + burgher);
-		assertTrue(church > n * 0.55, "chapels are mostly Bohemian: " + church);
-		assertTrue(castle > n * 0.55, "manors are mostly rendered Bohemian stone: " + castle);
+		assertTrue(village > n * 0.8 && village < n * 0.95, "cottages are mostly Bohemian: " + village + " of " + n);
+		assertTrue(town > n * 0.75 && burgher > n * 0.05 && burgher < n * 0.25, "merchants build Bohemian town houses with the odd burgher brick: " + town + ", "
+			+ burgher);
+		// Bohemia wins the prominent buildings (art review item 6): 85 % of religious, civic and noble buildings
+		assertTrue(church > n * 0.85, "chapels are Bohemian churches: " + church);
+		assertTrue(castle > n * 0.85, "manors are rendered Bohemian stone: " + castle);
+		assertTrue(hall > n * 0.85 && library > n * 0.85, "town halls and civic buildings are Bohemian town buildings: " + hall + ", " + library);
+		assertTrue(bell > n * 0.85, "bell towers are the Bohemian church's: " + bell);
+		assertTrue(warehouse > n * 0.85, "warehouses are burgher brick: " + warehouse);
 	}
 
 	private static String substyle(Style s, int v) {
@@ -370,6 +383,94 @@ class StyleModelTest {
 			}
 		}
 		assertTrue(bad.isEmpty(), "fantasy materials on the surface:\n  " + String.join("\n  ", bad));
+	}
+
+	/** The dyes a medieval dyer had (madder, woad, weld) and the undyed wools: no light blue, cyan, lime, magenta, purple. */
+	private static final Set<String> NATURAL_DYES = Set.of("red", "blue", "yellow", "white", "light_gray", "brown");
+
+	/** Cloth on the surface is dyed in natural dyes only (art review item 4). */
+	@Test
+	void surfaceClothIsNaturallyDyed() throws Exception {
+		List<String> bad = new ArrayList<>();
+		for (String f : surfaceFiles()) {
+			try (InputStream in = StyleModelTest.class.getResourceAsStream("/data/hearth/hearth_style/" + f + ".json")) {
+				dyes(f, JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)), bad);
+			}
+		}
+		assertTrue(bad.isEmpty(), "unnatural dyes on the surface:\n  " + String.join("\n  ", bad));
+	}
+
+	private static void dyes(String where, JsonElement e, List<String> bad) {
+		if (e.isJsonObject()) {
+			e.getAsJsonObject().entrySet().forEach(k -> dyes(where, k.getValue(), bad));
+		} else if (e.isJsonArray()) {
+			e.getAsJsonArray().forEach(x -> dyes(where, x, bad));
+		} else if (e.isJsonPrimitive() && e.getAsJsonPrimitive().isString()) {
+			for (String alt : e.getAsString().split("\\|")) {
+				if (alt.startsWith("dye:") && !NATURAL_DYES.contains(alt.substring(4))) {
+					bad.add(where + ": " + alt);
+				}
+			}
+		}
+	}
+
+	private static List<String> surfaceFiles() {
+		List<String> files = new ArrayList<>();
+		for (Culture c : Culture.values()) {
+			files.add(c.getSerializedName());
+		}
+		for (String r : StyleRegistry.BUILTIN_REGIONS) {
+			if (!r.equals("deep")) {
+				files.add("region/" + r);
+			}
+		}
+		return files;
+	}
+
+	/**
+	 * Walls are one material with a tonal second in patches, not camouflage (art review item 2): in every surface dressing
+	 * and tier, the main material of a masonry, render or brick wall takes at least 85 % of the wall away from the foot
+	 * and the eaves, and no wall material is biased to the north faces (moss over a whole face reads as damage); weathering
+	 * belongs at the foot ({@code low}).
+	 */
+	@Test
+	void wallsAreNotCamouflage() {
+		List<String> bad = new ArrayList<>();
+		List<Style> styles = new ArrayList<>();
+		for (Culture c : Culture.values()) {
+			styles.add(culture(c));
+		}
+		for (Style r : culture(Culture.TEMPERATE).regions()) {
+			if (!r.region().name().equals("deep")) {
+				styles.add(r);
+			}
+		}
+		for (Style s : styles) {
+			for (int v = -1; v < s.variants().size(); v++) {
+				for (int tier = 0; tier <= 4; tier++) {
+					for (Role role : new Role[]{Role.WALL, Role.GABLE, Role.MASONRY}) {
+						Palette p = s.region() != null ? s.own(role, tier, v) : s.palette(role, tier, v);
+						if (p == null) {
+							continue;
+						}
+						Palette.Entry main = LocalMaterials.main(p);
+						double sum = 0;
+						for (Palette.Entry e : p.entries()) {
+							sum += Math.max(0, e.weight());
+							if (e.north() > 0 && MaterialFamilies.kind(e.material()) != MaterialFamilies.Kind.WOOD) {
+								bad.add(s.id() + " " + s.dressingName(v) + " t" + tier + " " + role.key() + ": " + e.material() + " leans north");
+							}
+						}
+						double share = main.weight() / sum;
+						if (MaterialFamilies.kind(main.material()) != MaterialFamilies.Kind.WOOD && share < 0.85 - 1e-9) {
+							bad.add(String.format(java.util.Locale.ROOT, "%s %s t%d %s: %s only %.0f%%", s.id(), s.dressingName(v), tier, role.key(), main.material(),
+								100 * share));
+						}
+					}
+				}
+			}
+		}
+		assertTrue(bad.isEmpty(), bad.size() + " camouflage walls:\n  " + String.join("\n  ", new java.util.TreeSet<>(bad)));
 	}
 
 	private static void natural(String where, JsonElement e, List<String> bad) {

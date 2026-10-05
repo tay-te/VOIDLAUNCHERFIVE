@@ -16,17 +16,17 @@
 		],
 		"wall": [
 			{"m": "minecraft:mushroom_stem", "w": 3},
-			{"m": "minecraft:smooth_quartz", "w": 2, "high": 1},
-			{"m": "minecraft:calcite", "w": 0.6, "low": 1}
+			{"m": "minecraft:smooth_quartz", "w": 0.09, "high": 8},
+			{"m": "minecraft:calcite", "w": 0.09, "low": 12}
 		],
-		"wall_accent": ["minecraft:stone_bricks"],
+		"wall_accent": ["minecraft:calcite"],
 		"frame": [{"m": "wood:minecraft:dark_oak", "w": 4}, {"m": "wood:minecraft:spruce", "w": 1}],
 		"beam": [{"m": "wood:minecraft:dark_oak", "w": 4}, {"m": "wood:minecraft:spruce", "w": 1}],
 		"floor": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:oak", "w": 1}],
 		"ceiling": ["wood:minecraft:spruce"],
 		"roof": [{"m": "wood:minecraft:spruce", "w": 4}, {"m": "wood:minecraft:dark_oak", "w": 1.5}],
 		"roof_trim": ["wood:minecraft:dark_oak"],
-		"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 2}],
+		"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 0.24}],
 		"window": ["wood:minecraft:spruce"],
 		"glass": ["minecraft:glass_pane"],
 		"door": ["wood:minecraft:spruce"],
@@ -38,7 +38,7 @@
 		"light": ["minecraft:lantern"],
 		"chimney": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:stone_bricks", "w": 1}],
 		"furniture": ["wood:minecraft:spruce"],
-		"cloth": ["dye:red", "dye:white", "dye:light_blue"],
+		"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:white", "w": 2}, {"m": "dye:brown", "w": 1}],
 		"accent": ["minecraft:chiseled_stone_bricks"],
 		"garden": ["minecraft:poppy", "minecraft:dandelion", "minecraft:cornflower", "minecraft:oxeye_daisy", "minecraft:azure_bluet", "minecraft:allium", "minecraft:rose_bush", "minecraft:peony"],
 		"crops": ["minecraft:wheat", "minecraft:carrots", "minecraft:potatoes", "minecraft:beetroots"],
@@ -49,12 +49,12 @@
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:spruce"],
 		"thatch": [{"m": "minecraft:stripped_oak_wood", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}, {"m": "minecraft:moss_block", "patch": 0.08}],
-		"sheet": [{"m": "minecraft:waxed_oxidized_cut_copper", "w": 3}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
-		"masonry": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}, {"m": "minecraft:cracked_stone_bricks", "w": 0.5, "low": 1}]
+		"sheet": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 0.5}],
+		"masonry": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:mossy_stone_bricks", "w": 0.12, "low": 12}, {"m": "minecraft:cracked_stone_bricks", "w": 0.12, "low": 12}]
 	},
 	"tiers": {
 		"0": {
-			"wall": [{"m": "minecraft:packed_mud", "w": 2}, {"m": "minecraft:mushroom_stem", "w": 1}],
+			"wall": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:packed_mud", "w": 0.09, "low": 12}],
 			"roof": [{"m": "wood:minecraft:oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.12}],
 			"roof_trim": ["wood:minecraft:spruce"],
 			"plinth": ["minecraft:cobblestone"],
@@ -68,33 +68,33 @@
 		"3": {
 			"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}],
 			"roof_trim": ["minecraft:bricks"],
-			"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1}],
+			"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}],
 			"chimney": ["minecraft:stone_bricks"]
 		},
 		"4": {
-			"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 0.5}],
+			"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 0.32}],
 			"chimney": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:stone_bricks", "w": 1}],
 			"door": ["wood:minecraft:dark_oak"]
 		}
 	},
-	"base_weight": 2,
-	"base_when": {"not": [{"stations": ["gentry", "lord"]}, {"categories": ["religious", "fort"]}]},
+	"base_weight": 1,
+	"base_when": {"not": [{"stations": ["gentry", "lord", "merchant"]}, {"categories": ["religious", "fort", "public", "noble"]}, {"archetypes": ["storage/warehouse"]}]},
 	"variants": [
-		{"name": "brick nogging", "w": 1, "roles": {"wall": [{"m": "minecraft:bricks", "w": 4}], "gable": ["minecraft:bricks"], "roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}]},
-			"tiers": {"0": {"wall": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:mud_bricks", "w": 1.5}, {"m": "minecraft:packed_mud", "w": 0.6, "low": 1}]}, "3": {"wall": ["minecraft:bricks"], "gable": ["minecraft:bricks"]}}},
-		{"name": "ochre plaster", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.3, "low": 1}], "gable": ["minecraft:smooth_sandstone"], "roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:mangrove", "w": 1}]},
+		{"name": "brick nogging", "w": 0.5, "roles": {"wall": [{"m": "minecraft:bricks", "w": 4}], "gable": ["minecraft:bricks"], "roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}]},
+			"tiers": {"0": {"wall": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:mud_bricks", "w": 0.24}, {"m": "minecraft:packed_mud", "w": 0.09, "low": 12}]}, "3": {"wall": ["minecraft:bricks"], "gable": ["minecraft:bricks"]}}},
+		{"name": "ochre plaster", "w": 0.5, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.12, "low": 12}], "gable": ["minecraft:smooth_sandstone"], "roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:mangrove", "w": 1}]},
 			"tiers": {"3": {"wall": ["minecraft:smooth_sandstone"], "gable": ["minecraft:smooth_sandstone"]}}},
-		{"name": "rubble stone", "w": 1, "roles": {"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.8, "low": 2, "north": 1.5}], "gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1}], "wall_accent": ["minecraft:stone_bricks"], "frame": ["wood:minecraft:spruce"], "beam": ["wood:minecraft:spruce"], "roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}]}, "habits": {"walls": {"kind": "stone", "plinth": 0, "jetty": 0}},
-			"tiers": {"0": {"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1.5, "low": 2, "north": 1.5}, {"m": "minecraft:andesite", "w": 1}]}, "3": {"wall": [{"m": "minecraft:stone", "w": 3}, {"m": "minecraft:cobblestone", "w": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:stone_bricks", "w": 0.8}], "gable": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}]}}},
-		{"name": "thatched", "w": 0.8, "roles": {"thatch": [{"m": "minecraft:stripped_oak_wood", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}]}, "habits": {"roof": {"thatch": true, "forms": {"gable": 3, "half_hip": 3, "hip": 1}, "ridge": "full", "dormers": 0.3}}}
+		{"name": "rubble stone", "w": 0.5, "roles": {"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.144}, {"m": "minecraft:andesite", "w": 0.096}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}], "gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.24}], "wall_accent": ["minecraft:stone_bricks"], "frame": ["wood:minecraft:spruce"], "beam": ["wood:minecraft:spruce"], "roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}]}, "habits": {"walls": {"kind": "stone", "plinth": 0, "jetty": 0}},
+			"tiers": {"0": {"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}, {"m": "minecraft:andesite", "w": 0.24}]}, "3": {"wall": [{"m": "minecraft:stone", "w": 3}, {"m": "minecraft:cobblestone", "w": 0.109}, {"m": "minecraft:andesite", "w": 0.073}, {"m": "minecraft:stone_bricks", "w": 0.058}], "gable": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 0.16}]}}},
+		{"name": "thatched", "w": 0.4, "roles": {"thatch": [{"m": "minecraft:stripped_oak_wood", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}]}, "habits": {"roof": {"thatch": true, "forms": {"gable": 3, "half_hip": 3, "hip": 1}, "ridge": "full", "dormers": 0.3}}}
 	],
 	"substyles": [
 		{
 			"name": "burgher brick",
-			"w": 14,
-			"when": [{"stations": ["merchant"]}, {"categories": ["trade"], "tiers": {"min": 2}}, {"archetypes": ["civic/town_hall", "storage/warehouse", "commerce/counting_house"]}],
+			"w": 5,
+			"when": [{"stations": ["merchant"]}, {"categories": ["trade"], "tiers": {"min": 2}}, {"archetypes": ["storage/warehouse", "commerce/counting_house"]}],
 			"roles": {
-				"wall": [{"m": "minecraft:bricks", "w": 6}, {"m": "minecraft:mud_bricks", "w": 0.35, "low": 1.5}],
+				"wall": [{"m": "minecraft:bricks", "w": 6}, {"m": "minecraft:mud_bricks", "w": 0.18, "low": 12}],
 				"gable": ["minecraft:bricks"],
 				"wall_accent": ["minecraft:mud_bricks"],
 				"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 0.5, "low": 2, "north": 1}],
@@ -108,7 +108,7 @@
 				"chimney": ["minecraft:bricks"],
 				"accent": ["minecraft:chiseled_quartz_block"],
 				"paving": [{"m": "minecraft:bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 2}],
-				"cloth": ["dye:red", "dye:white", "dye:orange"]
+				"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:white", "w": 1.5}, {"m": "dye:yellow", "w": 1}]
 			},
 			"habits": {
 				"walls": {"kind": "brick", "upper": "brick", "plinth": 1, "jetty": 0, "braces": 0, "beam_ends": 0.2},
@@ -120,18 +120,18 @@
 			},
 			"base_weight": 3,
 			"variants": [
-				{"name": "limewashed", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 1}], "gable": ["minecraft:smooth_quartz"], "wall_accent": ["minecraft:bricks"], "window": ["minecraft:bricks"]}},
+				{"name": "limewashed", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 0.32}], "gable": ["minecraft:smooth_quartz"], "wall_accent": ["minecraft:calcite"], "window": ["minecraft:bricks"]}},
 				{"name": "slate roof", "w": 0.8, "roles": {"roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:cracked_deepslate_tiles", "w": 0.3}], "roof_trim": ["minecraft:deepslate_bricks"]}},
-				{"name": "brown brick", "w": 0.7, "roles": {"wall": [{"m": "minecraft:mud_bricks", "w": 3}, {"m": "minecraft:bricks", "w": 1}], "gable": ["minecraft:mud_bricks"]}}
+				{"name": "brown brick", "w": 0.7, "roles": {"wall": [{"m": "minecraft:mud_bricks", "w": 3}, {"m": "minecraft:bricks", "w": 0.24}], "gable": ["minecraft:mud_bricks"]}}
 			]
 		},
 		{
 			"name": "norman stone",
-			"w": 6,
-			"when": [{"categories": ["religious", "fort"], "not": {"archetypes": ["civic/monastery", "civic/convent", "noble/keep", "noble/castle"]}}, {"archetypes": ["landmark/*"]}],
+			"w": 1.5,
+			"when": [{"categories": ["religious", "fort"], "not": {"archetypes": ["civic/monastery", "civic/convent", "noble/keep", "noble/castle"]}}, {"archetypes": ["landmark/cathedral", "landmark/lighthouse"]}],
 			"roles": {
-				"wall": [{"m": "minecraft:stone_bricks", "w": 5}, {"m": "minecraft:stone", "w": 0.6}, {"m": "minecraft:cracked_stone_bricks", "w": 0.5, "low": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 0.8, "low": 2, "north": 1.5}],
-				"gable": [{"m": "minecraft:stone_bricks", "w": 5}, {"m": "minecraft:mossy_stone_bricks", "w": 0.5, "north": 1}],
+				"wall": [{"m": "minecraft:stone_bricks", "w": 5}, {"m": "minecraft:stone", "w": 0.4}, {"m": "minecraft:cracked_stone_bricks", "w": 0.15, "low": 12}, {"m": "minecraft:mossy_stone_bricks", "w": 0.15, "low": 12}],
+				"gable": [{"m": "minecraft:stone_bricks", "w": 5}, {"m": "minecraft:mossy_stone_bricks", "w": 0.15, "low": 12}],
 				"wall_accent": ["minecraft:polished_andesite"],
 				"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}],
 				"window": ["minecraft:stone_bricks"],
@@ -155,17 +155,17 @@
 			},
 			"base_weight": 3,
 			"variants": [
-				{"name": "rubble and ashlar", "w": 1.5, "roles": {"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.8, "low": 2, "north": 1.5}], "gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1}], "wall_accent": ["minecraft:stone_bricks"]}},
-				{"name": "tufa", "w": 0.6, "roles": {"wall": [{"m": "minecraft:tuff_bricks", "w": 3}, {"m": "minecraft:tuff", "w": 1}], "gable": ["minecraft:tuff_bricks"], "wall_accent": ["minecraft:polished_tuff"], "accent": ["minecraft:chiseled_tuff_bricks"]}},
+				{"name": "rubble and ashlar", "w": 1.5, "roles": {"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.144}, {"m": "minecraft:andesite", "w": 0.096}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}], "gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.24}], "wall_accent": ["minecraft:stone_bricks"]}},
+				{"name": "tufa", "w": 0.6, "roles": {"wall": [{"m": "minecraft:tuff_bricks", "w": 3}, {"m": "minecraft:tuff", "w": 0.24}], "gable": ["minecraft:tuff_bricks"], "wall_accent": ["minecraft:polished_tuff"], "accent": ["minecraft:chiseled_tuff_bricks"]}},
 				{"name": "slate roof", "w": 1, "roles": {"roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:cracked_deepslate_tiles", "w": 0.4}], "roof_trim": ["minecraft:deepslate_bricks"]}}
 			]
 		},
 		{
 			"name": "manorial",
-			"w": 6,
+			"w": 2,
 			"when": [{"stations": ["gentry", "lord"]}, {"archetypes": ["house/manor", "noble/palace", "noble/hunting_lodge"]}],
 			"roles": {
-				"wall": [{"m": "minecraft:smooth_sandstone", "w": 5}, {"m": "minecraft:sandstone", "w": 0.6, "low": 1.5}],
+				"wall": [{"m": "minecraft:smooth_sandstone", "w": 5}, {"m": "minecraft:sandstone", "w": 0.15, "low": 12}],
 				"gable": ["minecraft:smooth_sandstone"],
 				"wall_accent": ["minecraft:cut_sandstone"],
 				"plinth": ["minecraft:cut_sandstone"],
@@ -180,7 +180,7 @@
 				"accent": ["minecraft:chiseled_sandstone"],
 				"paving": [{"m": "minecraft:smooth_stone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 2}],
 				"furniture": ["wood:minecraft:dark_oak"],
-				"cloth": ["dye:red", "dye:green", "dye:yellow"]
+				"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:yellow", "w": 1}, {"m": "dye:blue", "w": 1}]
 			},
 			"tiers": {
 				"4": {"accent": ["minecraft:chiseled_quartz_block"], "wall_accent": ["minecraft:cut_sandstone"]}
@@ -195,20 +195,20 @@
 			},
 			"base_weight": 2,
 			"variants": [
-				{"name": "tudor brick", "w": 1, "roles": {"wall": [{"m": "minecraft:bricks", "w": 5}, {"m": "minecraft:mud_bricks", "w": 0.3, "low": 1}], "gable": ["minecraft:bricks"]}, "habits": {"walls": {"kind": "brick"}}},
-				{"name": "black and white", "w": 0.8, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 0.5}], "gable": ["minecraft:smooth_quartz"], "plinth": ["minecraft:stone_bricks"], "window": ["wood:minecraft:dark_oak"], "roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:cobbled_deepslate", "w": 0.3}], "roof_trim": ["minecraft:deepslate_bricks"]}, "habits": {"walls": {"kind": "timber_frame", "jetty": 0.7, "braces": 0.6, "post_spacing": 3, "beam_ends": 0.6}}}
+				{"name": "tudor brick", "w": 1, "roles": {"wall": [{"m": "minecraft:bricks", "w": 5}, {"m": "minecraft:mud_bricks", "w": 0.15, "low": 12}], "gable": ["minecraft:bricks"]}, "habits": {"walls": {"kind": "brick"}}},
+				{"name": "black and white", "w": 0.8, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 0.32}], "gable": ["minecraft:smooth_quartz"], "plinth": ["minecraft:stone_bricks"], "window": ["wood:minecraft:dark_oak"], "roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:cobbled_deepslate", "w": 0.3}], "roof_trim": ["minecraft:deepslate_bricks"]}, "habits": {"walls": {"kind": "timber_frame", "jetty": 0.7, "braces": 0.6, "post_spacing": 3, "beam_ends": 0.6}}}
 			]
 		},
 		{
 			"name": "bohemian village",
 			"w": 20,
-			"when": {"not": [{"stations": ["gentry", "lord", "merchant"]}, {"categories": ["religious", "fort", "noble"]},
+			"when": {"not": [{"stations": ["gentry", "lord", "merchant"]}, {"categories": ["religious", "fort", "noble", "public"]},
 				{"archetypes": ["house/townhouse", "house/rowhouse", "house/tenement", "house/shophouse", "civic/town_hall", "storage/warehouse", "house/scribe_house", "civic/university"]}]},
 			"roles": {
 				"foundation": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1.2, "low": 2, "north": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:tuff", "w": 0.5}, {"m": "minecraft:stone", "w": 0.5}],
 				"plinth": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 1.5}, {"m": "minecraft:andesite", "w": 0.8}],
-				"wall": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 1.5, "low": 1}, {"m": "minecraft:smooth_quartz", "w": 1, "high": 1}],
-				"wall_accent": ["minecraft:stone_bricks"],
+				"wall": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 0.09, "low": 12}, {"m": "minecraft:smooth_quartz", "w": 0.09, "high": 8}],
+				"wall_accent": ["minecraft:calcite"],
 				"gable": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1, "low": 1.5}],
 				"frame": [{"m": "wood:minecraft:dark_oak", "w": 4}, {"m": "wood:minecraft:spruce", "w": 1}],
 				"beam": ["wood:minecraft:dark_oak"],
@@ -225,27 +225,27 @@
 				"path": [{"m": "minecraft:dirt_path", "w": 3}, {"m": "minecraft:coarse_dirt", "w": 1.5}, {"m": "minecraft:rooted_dirt", "w": 0.4}, {"m": "minecraft:gravel", "w": 0.4}],
 				"paving": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 0.6}],
 				"chimney": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.5, "low": 1}],
-				"cloth": ["dye:red", "dye:white", "dye:brown"],
+				"cloth": [{"m": "dye:white", "w": 2}, {"m": "dye:red", "w": 1.5}, {"m": "dye:brown", "w": 1.5}],
 				"garden": ["minecraft:poppy", "minecraft:cornflower", "minecraft:oxeye_daisy", "minecraft:dandelion", "minecraft:azure_bluet", "minecraft:peony"],
-				"masonry": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone_bricks", "w": 1.5}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 1.5}]
+				"masonry": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone_bricks", "w": 0.24}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}]
 			},
 			"tiers": {
 				"0": {
-					"wall": [{"m": "minecraft:mushroom_stem", "w": 2}, {"m": "minecraft:packed_mud", "w": 1, "low": 1}, {"m": "minecraft:calcite", "w": 0.6}],
+					"wall": [{"m": "minecraft:mushroom_stem", "w": 2}, {"m": "minecraft:packed_mud", "w": 0.06, "low": 12}, {"m": "minecraft:calcite", "w": 0.16}],
 					"roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1.5}, {"m": "minecraft:moss_block", "patch": 0.14}],
 					"plinth": ["minecraft:cobblestone"],
 					"chimney": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}]
 				},
 				"1": {"roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1.5}, {"m": "minecraft:moss_block", "patch": 0.08}]},
 				"3": {
-					"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1}],
+					"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}],
 					"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}],
 					"chimney": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}]
 				},
 				"4": {"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}], "roof_trim": ["minecraft:bricks"]}
 			},
 			"habits": {
-				"walls": {"kind": "plaster", "upper": "plank", "plinth": 1, "jetty": 0.1, "post_spacing": 3, "braces": 0.3, "beam_ends": 0.4},
+				"walls": {"kind": "plaster", "upper": "plaster", "plinth": 1, "jetty": 0.1, "post_spacing": 3, "braces": 0.3, "beam_ends": 0.4},
 				"roof": {"forms": {"gable": 3, "half_hip": 3, "cross_gable": 0.8, "hip": 0.4}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "trim", "dormers": 0.15, "front_gable": 0.6},
 				"windows": {"shutters": 0.55, "boxes": 0.15, "bay": 0.0, "tall": false},
 				"yard": {"garden": "kitchen", "fence": "fence", "hedge": 0.1, "woodpile": 0.85},
@@ -255,19 +255,19 @@
 			},
 			"base_weight": 3,
 			"variants": [
-				{"name": "timbered", "w": 1.2, "roles": {"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 1}]},
+				{"name": "timbered", "w": 1.2, "roles": {"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}]},
 					"habits": {"walls": {"kind": "timber_frame", "upper": "timber_frame", "jetty": 0.2, "braces": 0.45}}},
 				{"name": "log cottage", "w": 1, "roles": {"wall": [{"m": "wood:minecraft:spruce", "log": "minecraft:stripped_spruce_log"}], "frame": ["wood:minecraft:dark_oak"],
-					"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 1}]},
+					"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}]},
 					"habits": {"walls": {"kind": "log", "upper": "log", "jetty": 0}}},
 				{"name": "thatched log cottage", "w": 0.8, "roles": {"wall": [{"m": "wood:minecraft:spruce", "log": "minecraft:stripped_spruce_log"}], "frame": ["wood:minecraft:dark_oak"]},
 					"habits": {"walls": {"kind": "log", "upper": "log", "jetty": 0}, "roof": {"thatch": true, "forms": {"gable": 3, "half_hip": 3}, "ridge": "full", "dormers": 0}}},
 				{"name": "fieldstone", "w": 1, "roles": {
-					"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 1.5}, {"m": "minecraft:tuff", "w": 0.5}],
-					"wall_accent": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 0.6}]},
-					"habits": {"walls": {"kind": "stone", "upper": "plank", "jetty": 0}}},
+					"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:andesite", "w": 0.096}, {"m": "minecraft:stone", "w": 0.096}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}, {"m": "minecraft:tuff", "w": 0.048}],
+					"wall_accent": ["minecraft:stone_bricks"]},
+					"habits": {"walls": {"kind": "stone", "upper": "plaster", "jetty": 0}}},
 				{"name": "thatched", "w": 1.2, "habits": {"roof": {"thatch": true, "forms": {"gable": 3, "half_hip": 3, "hip": 0.5}, "ridge": "full", "dormers": 0.1}}},
-				{"name": "whitewashed", "w": 1, "roles": {"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 1}]},
+				{"name": "whitewashed", "w": 1, "roles": {"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}]},
 					"habits": {"walls": {"kind": "plaster", "upper": "plaster"}, "roof": {"forms": {"half_hip": 3, "gable": 2, "hip": 1}}}},
 				{"name": "plank barn", "w": 8, "when": {"categories": ["farmstead"]},
 					"roles": {"gable": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 0.6, "low": 2}], "frame": ["wood:minecraft:dark_oak"]},
@@ -278,13 +278,14 @@
 			"name": "bohemian town",
 			"w": 30,
 			"when": [{"stations": ["merchant", "official"], "not": {"categories": ["fort", "religious"]}}, {"categories": ["trade"], "tiers": {"min": 2}},
-				{"archetypes": ["civic/town_hall", "storage/warehouse", "commerce/counting_house", "commerce/market_hall", "commerce/bank", "house/townhouse", "house/rowhouse", "house/tenement", "house/shophouse", "house/scribe_house", "civic/university"]}],
+				{"categories": ["civic", "law"], "not": {"categories": ["fort", "religious"]}}, {"archetypes": ["landmark/clock_tower"]},
+				{"archetypes": ["civic/town_hall", "commerce/counting_house", "commerce/market_hall", "commerce/bank", "house/townhouse", "house/rowhouse", "house/tenement", "house/shophouse", "house/scribe_house", "civic/university"]}],
 			"roles": {
 				"foundation": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:andesite", "w": 1}],
 				"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 0.6, "low": 2, "north": 1}],
-				"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1.2}, {"m": "minecraft:mushroom_stem", "w": 0.6, "low": 1}],
-				"gable": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1}],
-				"wall_accent": ["minecraft:polished_andesite"],
+				"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}, {"m": "minecraft:mushroom_stem", "w": 0.09, "low": 12}],
+				"gable": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}],
+				"wall_accent": ["minecraft:calcite"],
 				"window": ["minecraft:polished_andesite"],
 				"frame": ["wood:minecraft:dark_oak"],
 				"beam": ["wood:minecraft:dark_oak"],
@@ -296,12 +297,12 @@
 				"chimney": [{"m": "minecraft:bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
 				"accent": ["minecraft:chiseled_stone_bricks"],
 				"paving": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.5}],
-				"cloth": ["dye:red", "dye:white", "dye:yellow"],
-				"masonry": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:mossy_stone_bricks", "w": 0.8, "low": 2, "north": 1.5}, {"m": "minecraft:cracked_stone_bricks", "w": 0.4, "low": 1}]
+				"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:white", "w": 1.5}, {"m": "dye:yellow", "w": 1}],
+				"masonry": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:mossy_stone_bricks", "w": 0.12, "low": 12}, {"m": "minecraft:cracked_stone_bricks", "w": 0.12, "low": 12}]
 			},
 			"tiers": {
 				"0": {"roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.1}], "roof_trim": ["wood:minecraft:dark_oak"],
-					"wall": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 1}], "plinth": ["minecraft:cobblestone"]},
+					"wall": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}], "plinth": ["minecraft:cobblestone"]},
 				"1": {"roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]},
 				"4": {"accent": ["minecraft:chiseled_quartz_block"], "door": ["wood:minecraft:dark_oak"]}
 			},
@@ -315,8 +316,8 @@
 			},
 			"base_weight": 3,
 			"variants": [
-				{"name": "ochre", "w": 1.4, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.3, "low": 1}], "gable": ["minecraft:smooth_sandstone"]}},
-				{"name": "timbered front", "w": 1, "roles": {"gable": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1}]},
+				{"name": "ochre", "w": 1.4, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.12, "low": 12}], "gable": ["minecraft:smooth_sandstone"]}},
+				{"name": "timbered front", "w": 1, "roles": {"gable": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}]},
 					"habits": {"walls": {"kind": "plaster", "upper": "timber_frame", "jetty": 0.5, "braces": 0.4, "beam_ends": 0.5}}},
 				{"name": "shingled", "w": 1.2, "roles": {"roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1.5}], "roof_trim": ["wood:minecraft:dark_oak"]}}
 			]
@@ -324,13 +325,13 @@
 		{
 			"name": "bohemian church",
 			"w": 14,
-			"when": {"categories": ["religious"]},
+			"when": [{"categories": ["religious"]}, {"archetypes": ["landmark/bell_tower"]}],
 			"roles": {
 				"foundation": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}],
 				"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}],
-				"wall": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:mushroom_stem", "w": 1.5}, {"m": "minecraft:smooth_quartz", "w": 1, "high": 1}, {"m": "minecraft:stone", "w": 0.25, "low": 2}],
-				"gable": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:mushroom_stem", "w": 1.5}],
-				"wall_accent": [{"m": "minecraft:polished_diorite", "w": 3}, {"m": "minecraft:stone_bricks", "w": 1, "low": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 0.4, "low": 2}],
+				"wall": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}, {"m": "minecraft:smooth_quartz", "w": 0.09, "high": 8}, {"m": "minecraft:stone", "w": 0.09, "low": 12}],
+				"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}],
+				"wall_accent": [{"m": "minecraft:polished_diorite", "w": 3}, {"m": "minecraft:stone_bricks", "w": 0.1, "low": 12}],
 				"window": ["minecraft:polished_diorite"],
 				"door": ["wood:minecraft:dark_oak"],
 				"shutter": ["wood:minecraft:dark_oak"],
@@ -341,7 +342,7 @@
 				"chimney": ["minecraft:stone_bricks"],
 				"accent": ["minecraft:chiseled_stone_bricks"],
 				"paving": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
-				"masonry": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}, {"m": "minecraft:cracked_stone_bricks", "w": 0.5, "low": 1}]
+				"masonry": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:mossy_stone_bricks", "w": 0.12, "low": 12}, {"m": "minecraft:cracked_stone_bricks", "w": 0.12, "low": 12}]
 			},
 			"habits": {
 				"walls": {"kind": "stone", "plinth": 1, "jetty": 0, "braces": 0, "beam_ends": 0},
@@ -354,9 +355,9 @@
 			"base_weight": 3,
 			"variants": [
 				{"name": "fieldstone", "w": 1.2, "roles": {
-					"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.8, "low": 2, "north": 1.5}],
-					"gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1}],
-					"wall_accent": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 0.6, "low": 2}], "window": ["minecraft:stone_bricks"]}},
+					"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.144}, {"m": "minecraft:andesite", "w": 0.096}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}],
+					"gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.24}],
+					"wall_accent": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 0.1, "low": 12}], "window": ["minecraft:stone_bricks"]}},
 				{"name": "slate", "w": 1, "roles": {"roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:cracked_deepslate_tiles", "w": 0.3}], "roof_trim": ["minecraft:deepslate_bricks"]}},
 				{"name": "red tile", "w": 0.8, "when": {"tiers": {"min": 3}}, "roles": {"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}], "roof_trim": ["minecraft:bricks"]}}
 			]
@@ -368,9 +369,9 @@
 			"roles": {
 				"foundation": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}],
 				"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 0.8, "low": 2, "north": 1.5}],
-				"wall": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:mushroom_stem", "w": 1.2}, {"m": "minecraft:smooth_quartz", "w": 0.8, "high": 1}, {"m": "minecraft:stone", "w": 0.4, "low": 2}, {"m": "minecraft:cobblestone", "w": 0.25, "low": 2}],
-				"gable": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:mushroom_stem", "w": 1}],
-				"wall_accent": [{"m": "minecraft:polished_diorite", "w": 3}, {"m": "minecraft:stone_bricks", "w": 1, "low": 2}],
+				"wall": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}, {"m": "minecraft:smooth_quartz", "w": 0.09, "high": 8}, {"m": "minecraft:cobblestone", "w": 0.12, "low": 12}],
+				"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}],
+				"wall_accent": [{"m": "minecraft:polished_diorite", "w": 3}, {"m": "minecraft:stone_bricks", "w": 0.1, "low": 12}],
 				"window": ["minecraft:polished_diorite"],
 				"door": ["wood:minecraft:dark_oak"],
 				"shutter": ["wood:minecraft:dark_oak"],
@@ -382,8 +383,8 @@
 				"accent": ["minecraft:chiseled_stone_bricks"],
 				"paving": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
 				"furniture": ["wood:minecraft:dark_oak"],
-				"cloth": ["dye:red", "dye:white", "dye:yellow"],
-				"masonry": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}, {"m": "minecraft:cracked_stone_bricks", "w": 0.5, "low": 1}]
+				"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:white", "w": 1.5}, {"m": "dye:yellow", "w": 1}],
+				"masonry": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:mossy_stone_bricks", "w": 0.12, "low": 12}, {"m": "minecraft:cracked_stone_bricks", "w": 0.12, "low": 12}]
 			},
 			"tiers": {
 				"4": {"accent": ["minecraft:chiseled_quartz_block"]}
@@ -399,25 +400,25 @@
 			"base_weight": 2,
 			"variants": [
 				{"name": "grey stone", "w": 1.2, "roles": {
-					"wall": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 0.8, "low": 2, "north": 1.5}],
-					"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 1}],
+					"wall": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 0.12}, {"m": "minecraft:andesite", "w": 0.12}, {"m": "minecraft:mossy_stone_bricks", "w": 0.09, "low": 12}],
+					"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 0.24}],
 					"wall_accent": ["minecraft:polished_andesite"], "window": ["minecraft:stone_bricks"],
 					"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}},
 				{"name": "town wall", "w": 2.5, "when": {"categories": ["fort"]}, "roles": {
-					"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 1.5}],
-					"gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1}],
-					"wall_accent": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 1}], "window": ["minecraft:stone_bricks"],
+					"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.144}, {"m": "minecraft:andesite", "w": 0.096}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}],
+					"gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.24}],
+					"wall_accent": ["minecraft:stone_bricks"], "window": ["minecraft:stone_bricks"],
 					"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}},
 				{"name": "shingled", "w": 0.8, "roles": {"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}},
-				{"name": "ochre render", "w": 0.6, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.4, "low": 1.5}], "gable": ["minecraft:smooth_sandstone"]}},
+				{"name": "ochre render", "w": 0.6, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.12, "low": 12}], "gable": ["minecraft:smooth_sandstone"]}},
 				{"name": "lime over rubble", "w": 1.6, "when": {"categories": ["noble"]}, "roles": {
-					"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 1}, {"m": "minecraft:smooth_sandstone", "w": 0.8}],
-					"gable": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1}],
-					"wall_accent": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.6, "low": 2}],
+					"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 0.178}],
+					"gable": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}],
+					"wall_accent": ["minecraft:polished_diorite"],
 					"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}], "roof_trim": ["minecraft:bricks"]}},
 				{"name": "ochre and tile", "w": 1.2, "when": {"categories": ["noble"]}, "roles": {
-					"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.4, "low": 1.5}], "gable": ["minecraft:smooth_sandstone"],
-					"wall_accent": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1}],
+					"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.12, "low": 12}], "gable": ["minecraft:smooth_sandstone"],
+					"wall_accent": ["minecraft:polished_diorite"],
 					"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}], "roof_trim": ["minecraft:bricks"]}}
 			]
 		}

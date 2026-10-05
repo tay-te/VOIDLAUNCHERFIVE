@@ -25,7 +25,7 @@
 		"light": ["minecraft:lantern"],
 		"chimney": ["minecraft:mud_bricks"],
 		"furniture": ["wood:minecraft:bamboo"],
-		"cloth": ["dye:cyan", "dye:yellow", "dye:light_blue", "dye:orange"],
+		"cloth": [{"m": "dye:yellow", "w": 2}, {"m": "dye:red", "w": 1.5}, {"m": "dye:white", "w": 1}, {"m": "dye:brown", "w": 1}],
 		"accent": ["minecraft:bamboo_mosaic"],
 		"garden": ["minecraft:dandelion", "minecraft:orange_tulip", "minecraft:fern", "minecraft:short_grass"],
 		"crops": ["minecraft:carrots", "minecraft:potatoes", "minecraft:melon_stem"],
@@ -37,7 +37,7 @@
 		"stilt": ["wood:expanse:palm|wood:minecraft:jungle"],
 		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}],
 		"sheet": [{"m": "minecraft:bamboo_mosaic", "w": 2}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
-		"masonry": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 1}]
+		"masonry": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 0.107}, {"m": "minecraft:mossy_stone_bricks", "w": 0.053}]
 	},
 	"tiers": {
 		"0": {"wall": [{"m": "minecraft:bamboo_planks", "w": 2}, {"m": "minecraft:bamboo_block", "w": 1}], "roof": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]},
@@ -55,7 +55,7 @@
 			"w": 8,
 			"when": [{"stations": ["merchant", "official", "gentry", "lord"]}, {"archetypes": ["civic/town_hall", "commerce/bank", "commerce/inn", "house/manor", "commerce/market_hall"]}],
 			"roles": {
-				"wall": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:diorite", "w": 0.4, "low": 2}],
+				"wall": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 0.24}, {"m": "minecraft:diorite", "w": 0.09, "low": 12}],
 				"gable": [{"m": "wood:minecraft:pale_oak", "w": 3}, {"m": "wood:minecraft:birch", "w": 1}],
 				"wall_accent": ["minecraft:smooth_sandstone"],
 				"plinth": ["minecraft:cut_sandstone"],
@@ -86,8 +86,8 @@
 			"w": 6,
 			"when": {"categories": ["religious"]},
 			"roles": {
-				"wall": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 2}, {"m": "minecraft:cracked_stone_bricks", "w": 0.5}],
-				"gable": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
+				"wall": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 0.107}, {"m": "minecraft:mossy_cobblestone", "w": 0.06, "low": 12}, {"m": "minecraft:cracked_stone_bricks", "w": 0.053}],
+				"gable": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 0.16}],
 				"wall_accent": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 1}],
 				"plinth": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
 				"foundation": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
