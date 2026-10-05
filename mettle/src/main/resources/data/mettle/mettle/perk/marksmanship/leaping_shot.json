@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.marksmanship.leaping_shot"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.leaping_shot.description"
+	},
+	"synergy": {
+		"mettle:marksmanship": 10,
+		"mettle:athletics": 10
+	},
+	"order": 16
+}

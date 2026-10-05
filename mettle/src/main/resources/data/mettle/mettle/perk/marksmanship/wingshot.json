@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.marksmanship.wingshot"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.wingshot.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.marksmanship.wingshot.hint"
+	},
+	"feat": {
+		"counter": "marksmanship_flier_kills",
+		"target": 25
+	},
+	"order": 14
+}

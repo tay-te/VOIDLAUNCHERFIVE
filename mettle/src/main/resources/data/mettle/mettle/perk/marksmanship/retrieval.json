@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "root",
+	"tier": 1,
+	"ranks": 3,
+	"cost": 1,
+	"name": {
+		"translate": "mettle.perk.marksmanship.retrieval"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.retrieval.description"
+	},
+	"rank_values": [
+		"15",
+		"30",
+		"45"
+	],
+	"order": 1
+}

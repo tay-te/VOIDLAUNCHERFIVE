@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.marksmanship.huntsman"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.huntsman.description"
+	},
+	"synergy": {
+		"mettle:marksmanship": 10,
+		"mettle:survival": 10
+	},
+	"order": 15
+}

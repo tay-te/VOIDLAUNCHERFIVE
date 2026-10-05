@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "teaching",
+	"name": {
+		"translate": "mettle.perk.marksmanship.steppe_draw"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.steppe_draw.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.marksmanship.steppe_draw.hint"
+	},
+	"order": 17
+}

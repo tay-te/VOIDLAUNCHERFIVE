@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.marksmanship.double_nock"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.double_nock.description"
+	},
+	"order": 8
+}

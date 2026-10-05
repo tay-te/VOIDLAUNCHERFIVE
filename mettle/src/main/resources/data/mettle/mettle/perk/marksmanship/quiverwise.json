@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.marksmanship.quiverwise"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.quiverwise.description"
+	},
+	"order": 9
+}
