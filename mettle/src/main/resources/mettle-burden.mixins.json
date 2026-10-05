@@ -2,7 +2,13 @@
 	"required": true,
 	"package": "dev.voidmc.mettle.mixin.burden",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"FoodDataAccessor",
+		"InventoryChangeTriggerMixin",
+		"LivingEntityMixin",
+		"PlayerMixin",
+		"PlayerSprintGate"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

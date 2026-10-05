@@ -1,1 +1,22 @@
-{}
+{
+	"mettle.burden.band.light": "Light",
+	"mettle.burden.band.burdened": "Burdened",
+	"mettle.burden.band.overburdened": "Overburdened",
+	"mettle.burden.band.pinned": "Pinned",
+	"mettle.burden.tooltip.one": "%s kg",
+	"mettle.burden.tooltip.stack": "%s kg · stack %s kg",
+	"mettle.burden.tooltip.contents": "%s kg with contents",
+	"mettle.burden.tooltip.lighter": "%s · %s%% lighter for you",
+	"mettle.burden.hud": "%s · %s / %s kg",
+	"mettle.burden.heaviest.one": "%s · %s kg",
+	"mettle.burden.heaviest.many": "%s ×%s stacks · %s kg",
+	"mettle.burden.heaviest_line": "Heaviest: %s",
+	"mettle.burden.feedback.light": "Light again: you move freely",
+	"mettle.burden.feedback.burdened": "Burdened: slower and hungrier. Heaviest: %s",
+	"mettle.burden.feedback.overburdened": "Overburdened: no sprinting, short jumps. Heaviest: %s",
+	"mettle.burden.feedback.pinned": "Pinned: you can barely move. Heaviest: %s",
+	"mettle.burden.command.nothing_held": "Hold an item or name one: /mettle weight <item>",
+	"mettle.burden.command.for_you": "For you, after perks: %s kg each",
+	"mettle.burden.command.load": "%s carries %s of %s kg: %s",
+	"mettle.burden.command.load_exempt": "%s is in creative or spectator: weight doesn't apply"
+}
