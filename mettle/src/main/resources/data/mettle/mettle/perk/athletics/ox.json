@@ -1,0 +1,22 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "a",
+	"name": {
+		"translate": "mettle.perk.athletics.ox"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.ox.description"
+	},
+	"effects": [
+		{
+			"attribute": "mettle:carry_capacity",
+			"amounts": [
+				25.0
+			]
+		}
+	],
+	"order": 10
+}

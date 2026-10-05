@@ -1,0 +1,32 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.athletics.ironlung"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.ironlung.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.athletics.ironlung.hint"
+	},
+	"feat": {
+		"counter": "athletics_swim_underwater_cm",
+		"target": 200000
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:oxygen_bonus",
+			"amounts": [
+				1.0
+			]
+		},
+		{
+			"attribute": "minecraft:submerged_mining_speed",
+			"amounts": [
+				0.8
+			]
+		}
+	],
+	"order": 13
+}

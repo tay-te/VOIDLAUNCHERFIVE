@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.athletics.trailblazer"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.trailblazer.description"
+	},
+	"synergy": {
+		"mettle:survival": 10,
+		"mettle:athletics": 10
+	},
+	"order": 15
+}
