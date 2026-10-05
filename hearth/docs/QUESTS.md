@@ -373,7 +373,15 @@ The sandbox lives in memory until the server stops and works with or without the
   collapse, a bandit camp raised and beaten, a market thief yielding and the purse brought back, a donation into the
   treasury, a new quarry prospected in real rock, a caravan train on the lead and a robbery reported to the law, the wanted
   refused work and offered a way to clear their name):
-  `JAVA_TOOL_OPTIONS="-Dhearth.dev.quest.selftest=true -Dhearth.dev.quest.stop=true" ./gradlew runServer`
+  `JAVA_TOOL_OPTIONS="-Dhearth.dev.quest.selftest=true -Dhearth.dev.quest.stop=true" ./gradlew runServer`, or in the
+  client's integrated server (no server EULA needed) with
+  `JAVA_TOOL_OPTIONS="-Dhearth.dev.quest.selftest=true" ./gradlew runClient --args="--quickPlaySingleplayer <world>"`
+  (a fresh `run/options.txt` needs `onboardAccessibility:false`, or the first-launch screen holds up quick play).
+  It runs alongside the sim and standing modules in a world with real towns: courier and escort checks go to the town
+  each quest was bound to (read from its objective), and the sandbox's settlements keep their own standing, since the
+  standing module does not know them (`Standings` skips the service for `SandboxSettlements`). 2026-10-05, after the
+  phase 3 integration, in a world with sim towns and the law module running: 73 passed, 0 failed (the wanted checks
+  are skipped while the law module runs).
 - Client tour with screenshots (`run/screenshots/hearth_quest_*.png`), into an existing world:
   `JAVA_TOOL_OPTIONS="-Dhearth.dev.quest.tour=true" ./gradlew runClient --args="--quickPlaySingleplayer <world>"`
 - Assets: `python tools/quest/gen_quest_assets.py` regenerates the board's models, the paper and journal textures, the

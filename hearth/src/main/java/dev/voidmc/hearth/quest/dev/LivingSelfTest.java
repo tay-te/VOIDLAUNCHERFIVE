@@ -24,6 +24,7 @@ import dev.voidmc.hearth.quest.service.QuestManager;
 import dev.voidmc.hearth.quest.service.QuestSpawns;
 import dev.voidmc.hearth.quest.service.QuestStore;
 import dev.voidmc.hearth.quest.service.QuestTracker;
+import dev.voidmc.hearth.quest.service.Standings;
 import dev.voidmc.hearth.quest.template.QuestTemplate;
 import dev.voidmc.hearth.quest.template.QuestTemplates;
 import dev.voidmc.hearth.quest.world.QuestWorlds;
@@ -152,11 +153,11 @@ final class LivingSelfTest {
 			this.level.setBlockAndUpdate(f, Blocks.AIR.defaultBlockState());
 			this.level.setBlockAndUpdate(f.below(), Blocks.DIRT.defaultBlockState());
 		}
-		int rep = this.town.reputation(this.player.getUUID());
+		int rep = Standings.standing(this.town, this.player.getUUID());
 		QuestTracker.checkNow(this.player);
 		check(QuestStore.get(this.player).get(offer.id) == null && QuestStore.get(this.player).completed(offer.template) > 0,
 			"with the fires out, the brigade quest completes on the spot");
-		check(HearthServices.standing() != null || this.town.reputation(this.player.getUUID()) > rep, "fighting the fire raised standing");
+		check(Standings.standing(this.town, this.player.getUUID()) > rep, "fighting the fire raised standing");
 		Happening h = QuestStore.board(this.town).happening(SettlementQuests.happeningOf(offer));
 		check(h != null && h.resolved(), "the fire is resolved on the town's board");
 	}
