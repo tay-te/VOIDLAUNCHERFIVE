@@ -34,7 +34,7 @@ import net.minecraft.nbt.StringTag;
  *   {@code annex} (a lean-to under a flat deck).</li>
  * </ul>
  *
- * <p>The param is either a count (an int, 0 to 6): that many additions, chosen and ordered by the plot's seed among those
+ * <p>The param is either a count (an int or a numeric string, 0 to 8): that many additions, chosen and ordered by the plot's seed among those
  * that suit the house and its culture; or a list of kinds (a list tag of strings, or one comma-separated string) tried in
  * that order. Additions are cumulative: a house's first {@code n + 1} additions are its first {@code n} and one more, so
  * a planner that counts up as a family prospers sees the house grow, never rebuilt. Each addition reads the house as the
