@@ -652,14 +652,16 @@ final class HouseBuilder {
 	}
 
 	/**
-	 * A flat-roofed house of the dry lands made more than a box: its parapets finished (rounded mud shoulders in the
-	 * pueblos, stepped merlons in stone and plaster), a wind tower in a back corner of the roof (desert), a latticed
+	 * A flat-roofed house of the dry lands made more than a box: its parapets finished (the coping rounded over in the
+	 * pueblos, a plain coping swelling into rounded shoulders at the corners in stone and plaster; never merlons, which
+	 * would make a street of homes a street of little forts), a wind tower in a back corner of the roof (desert), a latticed
 	 * wooden screen boxed out over an upper window, the door in a painted surround with a tile at its sill, jars on the
 	 * terrace and by the door.
 	 */
 	static void dryDress(Draft d, Body b, Facade f, int deck, int terraceY, Integer door, int full) {
 		var t = dev.voidmc.hearth.build.kit.townhome.Traits.of(d);
-		var kind = t.pueblo() ? dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED : dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.MERLONS;
+		// a home's parapet: plain coping with rounded shoulders (merlons are for forts, seats and the law, not a cottage)
+		var kind = t.pueblo() ? dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED : dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.SHOULDERED;
 		int[] tr = b.topRect();
 		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, tr[0], tr[1], tr[2], tr[3], deck, kind);
 		if (terraceY != Integer.MIN_VALUE) {
@@ -744,7 +746,6 @@ final class HouseBuilder {
 		}
 		// a terrace: an awning of cloth on posts, a bench, pots
 		Mat fence = d.mat(Role.FENCE);
-		Mat cloth = d.mat(Role.CLOTH);
 		int ax = r[2] - 3;
 		int az = r[1] + 1;
 		if (r[2] - r[0] >= 6 && r[3] - r[1] >= 5) {
@@ -753,12 +754,9 @@ final class HouseBuilder {
 					d.set(p[0], deck, p[1], fence.fence());
 					d.set(p[0], deck + 1, p[1], fence.fence());
 				}
-				for (int xx = ax; xx <= r[2] - 1; xx++) {
-					for (int zz = az; zz <= az + 2; zz++) {
-						d.set(xx, deck + 2, zz, cloth.slab(SlabType.BOTTOM));
-					}
-				}
 			}
+			// canvas of one colour (a roof of the house's every cloth reads as a fairground)
+			dev.voidmc.hearth.build.kit.townhome.Life.awning(d, ax, az, r[2] - 1, az + 2, deck + 2);
 			Furniture.chair(d, ax + 1, deck, az + 1, Dirs.LEFT);
 			d.poi(PoiType.VIEWPOINT, ax + 1, deck, az + 1, Dirs.FRONT);
 		}
