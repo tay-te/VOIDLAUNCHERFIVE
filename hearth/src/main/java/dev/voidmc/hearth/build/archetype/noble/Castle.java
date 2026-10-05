@@ -52,9 +52,10 @@ import net.minecraft.world.level.block.state.properties.Half;
  * swallowtail merlons in the south, Moorish pointed merlons in the desert, curved roofs in the karst, domed sentry turrets
  * in the tropics; the steppe raises an ordu, a round ward round the khan's great round hall.
  *
- * <p>Raised in six campaigns ({@link Draft#phase}), so a castle half built looks like one: the bergfried on the levelled
- * hill; the inner curtain and its towers; the palace; the chapel and the inner gate; the outer curtain, the gatehouse and
- * the barbican; the outer ward's buildings and the courts.
+ * <p>Raised in nine campaigns ({@link Draft#phase}), so a castle half built looks like one and no stage asks for more
+ * than a town can store: the bergfried on the levelled hill; the inner curtain in two; the inner towers; the palace; the
+ * inner gate and the chapel; the outer curtain; the outer towers, the gatehouse and the barbican; the outer ward's
+ * buildings and the courts.
  *
  * <p>Params: {@code station} ({@code lord}), {@code keep_side} ({@code left}/{@code right}), {@code replaces} (the keep's
  * plot, set by the planner), {@code variant}.
