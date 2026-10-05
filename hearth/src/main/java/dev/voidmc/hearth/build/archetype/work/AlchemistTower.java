@@ -52,7 +52,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  *   <li>the <b>laboratory</b>: benches along the walls with brewing stands and their bottles, candles and jars, shelves
  *   of bottles over them, a cauldron, the alchemist's lectern with the book open (his job site) by an arched window;</li>
  *   <li>the <b>study</b> under the roof: his bed, a desk under the window, chiseled shelves of books, a chest and a
- *   reading lectern (in the timber traditions this top storey is framed in timber over the stone);</li>
+ *   reading lectern (in the mountains and the north this top storey is framed in boards or logs flush on the stone);</li>
  *   <li>the <b>roof platform</b> behind a corbelled parapet (battlements in stone, a railing in the timber traditions):
  *   herbs drying in pots, a still on a barrel, a bench where one can watch the town; the stair comes up into a little
  *   stair house in the back corner capped in the culture's manner (a needle spire, an onion, a cone, a dome, a curved
@@ -85,7 +85,7 @@ public final class AlchemistTower implements Archetype {
 		int[] floors;     // standing level of the workshop, laboratory, study and roof
 		int start;        // the spiral's start index
 		boolean house;    // a stair house on the roof
-		int[] top;        // the top storey's walls (jettied in the timber traditions): x0, z0, x1, z1
+		int[] top;        // the top storey's walls: x0, z0, x1, z1
 
 		/** A canonical column a (0..4 across the interior, the stair on side a0..a2) to local x. */
 		int ax(int a) {
@@ -132,7 +132,7 @@ public final class AlchemistTower implements Archetype {
 		// the shaft in the walls' render or masonry, laid clean above the workshop (its main material: a big face mixed in
 		// patches reads as blotches), weathered in the base stone below
 		Stone body = t == Tradition.STONE || t == Tradition.LOG || t == Tradition.STILT ? Stone.panel(d) : Stone.panel(d).crisp();
-		Stone dress = Stone.dressing(d);
+		Stone dress = dressing(d);
 		Stone base = Stone.stony(d, Role.PLINTH) ? Stone.of(d, Role.PLINTH) : Stone.footing(d);
 		Tower tw = new Tower(p.x0, p.z0, 7, body, dress, base, false);
 		Side front = tw.face(Dirs.FRONT);
@@ -141,7 +141,9 @@ public final class AlchemistTower implements Archetype {
 		// dressed corners, one string course over the workshop, a corbel table under the parapet
 		Grounds.footings(d, p.x0, p.z0, p.x1, p.z1, -1);
 		tw.plinth(d, 0, 0, true, front.outX(3, 1), front.outZ(3, 1));
-		boolean timberTop = t == Tradition.TIMBER || t == Tradition.ALPINE || t == Tradition.LOG;
+		// (the mountains' boarded and the north's log top; the timber towns build the whole shaft in stone, as their
+		// alchemists' towers were, a framed top jettied over it read top-heavy)
+		boolean timberTop = t == Tradition.ALPINE || t == Tradition.LOG;
 		int f1 = p.floors[1];
 		int f2 = p.floors[2];
 		int stoneTop = timberTop ? f2 - 1 : fd - 1;
@@ -164,11 +166,10 @@ public final class AlchemistTower implements Archetype {
 			}
 		}
 		tw.course(d, f1 - 1, false);
-		// the top: framed in timber (boards in the mountains, logs in the north) and jettied where the plot has room, or
-		// the stone carried up
+		// the top: framed in timber (boards in the mountains, logs in the north), or the stone carried up
 		int[] tr = {p.x0, p.z0, p.x1, p.z1};
 		if (timberTop) {
-			tr = new int[]{p.x0 - (p.x0 >= 1 ? 1 : 0), p.z0 - (p.z0 >= 1 ? 1 : 0), p.x1 + (p.x1 <= w - 2 ? 1 : 0), p.z1};
+			// framed flush on the stone: a top jettied out on three sides made the tower top-heavy
 			timberStorey(d, p, t, tr, f2, fd - 1);
 		} else {
 			try (var s = d.stage(StageKind.WALLS)) {
@@ -307,7 +308,7 @@ public final class AlchemistTower implements Archetype {
 		Mat wall = d.mat(Role.WALL);
 		Mat boards = d.mat(Role.GABLE);
 		Paint glass = d.mat(Role.GLASS).pane();
-		Stone dress = Stone.dressing(d);
+		Stone dress = dressing(d);
 		boolean logs = t == Tradition.LOG;
 		boolean planks = t == Tradition.ALPINE;
 		Direction stairSide = p.right ? Dirs.RIGHT : Dirs.LEFT;
@@ -378,7 +379,7 @@ public final class AlchemistTower implements Archetype {
 	// ------------------------------------------------------------------------------------------------ openings
 
 	private static void windows(Draft d, Plan p, Tower tw, boolean timberTop) {
-		Stone dress = Stone.dressing(d);
+		Stone dress = dressing(d);
 		Paint glass = d.mat(Role.GLASS).pane();
 		int f1 = p.floors[1];
 		int f2 = p.floors[2];
@@ -418,7 +419,7 @@ public final class AlchemistTower implements Archetype {
 	/** The parapet, the stair house with its cap, the flue. Returns the highest row. */
 	private static int roof(Draft d, Plan p, Tradition t, Tower tw, int top) {
 		int fd = p.floors[3];
-		Stone dress = Stone.dressing(d);
+		Stone dress = dressing(d);
 		boolean rail = t == Tradition.TIMBER || t == Tradition.ALPINE || t == Tradition.KARST || t == Tradition.STILT || t == Tradition.LOG;
 		int peak = fd + 1;
 		// the parapet round the deck: battlements, or a railing over a coped kerb in the timber traditions
@@ -550,6 +551,19 @@ public final class AlchemistTower implements Archetype {
 			peak = Math.max(peak, stackTop + 1);
 		}
 		return peak;
+	}
+
+	/**
+	 * The dressed stone of the quoins, courses, window surrounds and parapet: the culture's own dressing where the shaft is
+	 * its walls' stone or render; where the shaft falls back on plain masonry (a timber or log town's), the plinth stone
+	 * tooled crisp, so the tower is not salted with a pale accent stone that belongs to another wall.
+	 */
+	private static Stone dressing(Draft d) {
+		boolean render = d.habits().walls().kind() == WallKind.TIMBER_FRAME && !d.mat(Role.WALL).has(Form.LOG);
+		if (Stone.stony(d, Role.WALL) || render) {
+			return Stone.dressing(d);
+		}
+		return Stone.stony(d, Role.PLINTH) ? Stone.of(d, Role.PLINTH).crisp() : Stone.footing(d).crisp();
 	}
 
 	/** The cap a tradition puts on a little stair house. */
