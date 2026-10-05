@@ -49,6 +49,8 @@ public final class PackLodRenderer {
 	private int width = -1;
 	private int height = -1;
 	private int vao;
+	/** The GPU time of the LOD's draws through the pack, for the F3 line and auto-tune. */
+	private final GlTimer timer = new GlTimer();
 
 	private PackLodRenderer(IrisRenderingPipeline pipeline, ProgramSource source) {
 		this.solid = PackLodProgram.create(source.getName(), false, false, source, pipeline);
@@ -114,6 +116,7 @@ public final class PackLodRenderer {
 	 * chunks: they cover the LOD wherever they stand.
 	 */
 	public void drawOpaque(PackFrame frame) {
+		this.timer.frame();
 		this.resize();
 		this.terrain.bind();
 		GlStateManager._viewport(0, 0, this.width, this.height);
@@ -132,6 +135,7 @@ public final class PackLodRenderer {
 
 		Matrix4f projection = PackLod.projection();
 		Matrix4f modelView = new Matrix4f(CapturedRenderingState.INSTANCE.getGbufferModelView());
+		this.timer.begin();
 		this.solid.bind();
 		this.solid.fill(projection, modelView, frame.clip, -PackLod.Y_OFFSET);
 		if (this.vao == 0) {
@@ -143,6 +147,7 @@ public final class PackLodRenderer {
 		this.ranges(this.solid, frame, false, this.water == null);
 		GL32C.glBindVertexArray(0);
 		this.solid.unbind();
+		this.timer.end();
 	}
 
 	/**
@@ -169,6 +174,7 @@ public final class PackLodRenderer {
 		GlStateManager._disableCull();
 		Matrix4f projection = PackLod.projection();
 		Matrix4f modelView = new Matrix4f(CapturedRenderingState.INSTANCE.getGbufferModelView());
+		this.timer.begin();
 		this.water.bind();
 		this.water.fill(projection, modelView, frame.clip, -PackLod.Y_OFFSET);
 		if (this.vao == 0) {
@@ -179,6 +185,7 @@ public final class PackLodRenderer {
 		this.ranges(this.water, frame, true, false);
 		GL32C.glBindVertexArray(0);
 		this.water.unbind();
+		this.timer.end();
 		GlStateManager._enableCull();
 	}
 
@@ -220,7 +227,13 @@ public final class PackLodRenderer {
 		GL32C.glVertexAttribIPointer(2, 4, GL32C.GL_UNSIGNED_BYTE, 16, 12L);
 	}
 
+	/** The GPU time a frame of the LOD's draws through the pack (its programs' own cost), in ms; -1 until measured. */
+	public double gpuMillis() {
+		return this.timer.millis;
+	}
+
 	public void destroy() {
+		this.timer.free();
 		this.solid.free();
 		this.terrain.destroy();
 		if (this.water != null) {

@@ -35,6 +35,14 @@ final class Blocky {
 	private static final int DEEP = Integer.MIN_VALUE / 4;
 	/** How far an island's rim hangs when the source cannot say where its underside is. */
 	private static final int RIM_DEPTH = 12;
+	/**
+	 * How deep a shader pack's water shows its bed in detail. Deeper, the bed only needs to be about as deep as it is, so
+	 * the water over it darkens as the chunks' does: it steps down in {@link #BED_STEP}s to at most {@link #BED_FLOOR},
+	 * and merges into a few big rectangles instead of following every bump of the sea floor.
+	 */
+	private static final int BED_DEPTH = 12;
+	private static final int BED_STEP = 8;
+	private static final int BED_FLOOR = 44;
 
 	private final TileBuilder out;
 	private final Samples s;
@@ -270,7 +278,7 @@ final class Blocky {
 						int n = k + out;
 						t = this.top[k];
 						// for a pack, whose water shows what is under it, a shore goes down to the bed beyond, not the surface
-						f = this.out.pack() && !this.wet[k] && this.wet[n] ? this.ground[n] : this.top[n];
+						f = this.out.pack() && !this.wet[k] && this.wet[n] ? this.bed(n) : this.top[n];
 						if (this.s.empty[n]) {
 							// the rim of an island: down to its underside, with no floor to darken toward
 							b = this.base[k] != DEEP ? this.base[k] : this.ground[k] - RIM_DEPTH;
@@ -301,7 +309,8 @@ final class Blocky {
 	/**
 	 * The bed under the water, for a shader pack: its water program blends the surface over whatever lies beneath, so the
 	 * LOD draws the floor the water stands on, as the chunks have it, merged into rectangles where it is level, with
-	 * walls of rock where it steps down (and a skirt at the tile's edge). Our own renderer draws water opaque and skips it.
+	 * walls of rock where it steps down (and a skirt at the tile's edge). Deeper than {@link #BED_DEPTH} the floor goes
+	 * down in steps. Our own renderer draws water opaque and skips it.
 	 */
 	private void beds(int skirt) {
 		Samples s = this.s;
@@ -331,7 +340,7 @@ final class Blocky {
 						this.done[i + a + (j + b) * N] = true;
 					}
 				}
-				int y = this.ground[k];
+				int y = this.bed(k);
 				int c = s.top[k] & COLOR_MASK;
 				int m = TileBuilder.material(s.topMaterial[k]);
 				int ao = ao(0);
@@ -353,30 +362,61 @@ final class Blocky {
 			for (int row = 0; row < N; row++) {
 				boolean border = dir == 0 || dir == 2 ? row == 0 : row == N - 1;
 				int edge = dir == 0 || dir == 2 ? row : row + 1;
-				for (int a = 0; a < N; a++) {
-					int k = alongX ? s.at(a, row) : s.at(row, a);
-					if (!this.wet[k] || s.empty[k]) {
-						continue;
+				int runStart = -1;
+				int rk = 0, rt = 0, rb = 0, rf = 0;
+				for (int a = 0; a <= N; a++) {
+					int k = 0, t = 0, b = 0, f = 0;
+					boolean has = false;
+					if (a < N) {
+						k = alongX ? s.at(a, row) : s.at(row, a);
+						if (this.wet[k] && !s.empty[k]) {
+							int n = k + out;
+							t = this.bed(k);
+							// the floor beyond: another bed, or the land's own top (its walls come down to this bed already)
+							f = s.empty[n] ? t - skirt : this.wet[n] ? this.bed(n) : Math.min(t, this.top[n]);
+							b = border ? Math.min(t, f) - skirt : f;
+							has = t > b;
+						}
 					}
-					int n = k + out;
-					int t = this.ground[k];
-					// the floor beyond: another bed, or the land's own top (its walls come down to this bed already)
-					int f = s.empty[n] ? t - skirt : this.wet[n] ? this.ground[n] : Math.min(t, this.top[n]);
-					int b = border ? Math.min(t, f) - skirt : f;
-					if (t > b) {
-						this.out.light(k);
-						this.band(dir, edge, a, a + 1, t, b, f, this.rock[k], s.rockMaterial[k]);
+					if (runStart >= 0 && (!has || t != rt || b != rb || f != rf || this.rock[k] != this.rock[rk]
+						|| s.rockMaterial[k] != s.rockMaterial[rk] || !this.out.sameLight(k, rk))) {
+						this.out.light(rk);
+						this.band(dir, edge, runStart, a, rt, rb, rf, this.rock[rk], s.rockMaterial[rk]);
+						runStart = -1;
+					}
+					if (has && runStart < 0) {
+						runStart = a;
+						rk = k;
+						rt = t;
+						rb = b;
+						rf = f;
 					}
 				}
 			}
 		}
 	}
 
+	/** The height of the bed a pack's water shows over column {@code k}: its ground, or a stepped floor if it lies deep. */
+	private int bed(int k) {
+		int depth = this.top[k] - this.ground[k];
+		if (depth <= BED_DEPTH) {
+			return this.ground[k];
+		}
+		return this.top[k] - (BED_DEPTH + (Math.min(depth, BED_FLOOR) - BED_DEPTH) / BED_STEP * BED_STEP);
+	}
+
+	private boolean deepBed(int k) {
+		return this.ground[k] < this.top[k] - BED_DEPTH;
+	}
+
 	private boolean bedMergeable(int i, int j, int k) {
 		int o = this.s.at(i, j);
-		return !this.done[i + j * N] && this.wet[o] && !this.s.empty[o] && this.ground[o] == this.ground[k]
-			&& (this.s.top[o] & COLOR_MASK) == (this.s.top[k] & COLOR_MASK) && this.s.topMaterial[o] == this.s.topMaterial[k]
-			&& this.out.sameLight(o, k);
+		if (this.done[i + j * N] || !this.wet[o] || this.s.empty[o] || this.bed(o) != this.bed(k)) {
+			return false;
+		}
+		// a floor too deep to see takes the colour and light of its rectangle's first column
+		return this.deepBed(o) && this.deepBed(k) || (this.s.top[o] & COLOR_MASK) == (this.s.top[k] & COLOR_MASK)
+			&& this.s.topMaterial[o] == this.s.topMaterial[k] && this.out.sameLight(o, k);
 	}
 
 	private boolean sameColumn(int a, int b) {

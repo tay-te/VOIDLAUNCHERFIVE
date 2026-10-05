@@ -94,10 +94,10 @@ class TileBuilderTest {
 
 	@Test
 	void forAShaderPackTheWaterComesLastOverABedAndEveryFaceKnowsItsNormal() {
-		// a lake over the western half of a level 0 tile, its bed at 50, the land beside it at 70
+		// a lake over the western half of a level 0 tile, its bed at 55, the land beside it at 70
 		TerrainSource shore = (x, z, cell, out) -> {
 			boolean lake = Math.floorMod(x, 64) < 32;
-			out.ground = lake ? 50 : 70;
+			out.ground = lake ? 55 : 70;
 			if (lake) {
 				out.water = 63;
 				out.waterColor = 0x2050C0;
@@ -130,12 +130,47 @@ class TileBuilderTest {
 				assertEquals(180, v.get(o + 11) & 0xFF, "the water lets the bed show through");
 			}
 			int y = (v.getShort(o + 2) & 0xFFFF) - TileBuilder.PACK_Y_OFFSET;
-			if (q < land && normal == 1 && y == 50) {
+			if (q < land && normal == 1 && y == 55) {
 				sawBed = true;
 			}
 			assertFacing(ours[normal], normal(v, q * 4, q * 4 + 1, q * 4 + 2));
 		}
 		assertTrue(sawBed, "the lake's bed is drawn under its water");
+	}
+
+	@Test
+	void aDeepSeaFloorStepsDownInFewLevelsForAShaderPack() {
+		// a swelling floor with block-sized bumps, 21 to 41 blocks under the surface, and the same in shallows 2 to 8 deep
+		TerrainSource deep = (x, z, cell, out) -> {
+			out.ground = (float) (31 + 8 * Math.sin(x / 23.0) * Math.cos(z / 17.0) + Math.floorMod(x * 7 + z * 13, 3));
+			out.water = 63;
+			out.top = 0xC0B080;
+		};
+		TerrainSource shallow = (x, z, cell, out) -> {
+			out.ground = (float) (57 + 2 * Math.sin(x / 23.0) * Math.cos(z / 17.0) + Math.floorMod(x * 7 + z * 13, 3));
+			out.water = 63;
+			out.top = 0xC0B080;
+		};
+		int deepQuads, shallowQuads;
+		TileBuilder.packFormat = true;
+		try {
+			TileBuilder.Mesh mesh = builder().build(deep, TileKey.of(2, 0, 0));
+			deepQuads = mesh.landIndices() / 6;
+			ByteBuffer v = vertices(mesh);
+			for (int q = 0; q < deepQuads; q++) {
+				int o = q * 4 * TileBuilder.VERTEX_BYTES;
+				if ((v.get(o + 13) & 0xFF) == 1) {
+					int depth = 63 - ((v.getShort(o + 2) & 0xFFFF) - TileBuilder.PACK_Y_OFFSET);
+					assertTrue(depth == 12 || depth == 20 || depth == 28 || depth == 36, "the floor lies about as deep as it is, in 8-block steps: " + depth);
+				}
+			}
+			shallowQuads = builder().build(shallow, TileKey.of(2, 0, 0)).landIndices() / 6;
+		} finally {
+			TileBuilder.packFormat = false;
+		}
+		System.out.println("pack quads: deep floor " + deepQuads + ", shallow floor " + shallowQuads);
+		assertTrue(deepQuads * 3 < shallowQuads, "a deep floor merges into far fewer faces: " + deepQuads + " against " + shallowQuads);
+		assertTrue(shallowQuads > 500, "shallows keep their floor: " + shallowQuads);
 	}
 
 	private static void assertFacing(int face, long[] n) {

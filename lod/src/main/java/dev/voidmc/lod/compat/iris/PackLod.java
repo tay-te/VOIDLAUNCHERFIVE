@@ -93,6 +93,12 @@ public final class PackLod {
 		return null;
 	}
 
+	/** The GPU time of the LOD's draws through the pack, in ms, or -1. */
+	public static double gpuMillis() {
+		PackLodRenderer renderer = renderer();
+		return renderer == null ? -1 : renderer.gpuMillis();
+	}
+
 	/** Draws the frame's water (Iris is about to run the pack's composite passes). */
 	public static void drawWater() {
 		PackLodRenderer renderer = renderer();

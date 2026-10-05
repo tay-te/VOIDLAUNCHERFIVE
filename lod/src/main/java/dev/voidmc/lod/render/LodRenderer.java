@@ -572,6 +572,11 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	 * Whether a shader pack draws the LOD (through its Distant Horizons programs): then the frame goes into
 	 * {@link #packFrame} instead of this renderer's draws.
 	 */
+	/** Whether the shader pack draws this renderer's tiles ({@link #packFrame}). */
+	public boolean packMode() {
+		return this.packMode;
+	}
+
 	public void setPackMode(boolean packMode) {
 		this.packMode = packMode;
 	}

@@ -470,7 +470,7 @@ public final class VoidLod implements ClientModInitializer {
 		this.renderer.prepare(camera, this.radius, clipRadius(Minecraft.getInstance()), 16, this.detail, this.farDetail, this.haze, this.sun, this.sky);
 		LodRenderer r = this.renderer;
 		if (this.settings.autoTune && r.lastTiles > 0 && !this.fogHidesLod
-			&& this.tuner.sample(System.nanoTime(), r.gpuMillis, r.lastPrepareNanos / 1e6, this.engine.queued() > 0, this.capMillis)) {
+			&& this.tuner.sample(System.nanoTime(), this.tunedGpuMillis(r), r.lastPrepareNanos / 1e6, this.engine.queued() > 0, this.capMillis)) {
 			this.apply();
 			LOGGER.info(String.format(Locale.ROOT, "VOID LOD auto-tune: step %d, detail %.1f px (%.1f far), radius %d (GPU %.2f ms, prepare %.2f ms)",
 				this.tuner.step(), this.detail, this.farDetail, (int) this.radius, this.tuner.gpu, this.tuner.prepareMillis));
@@ -491,6 +491,19 @@ public final class VoidLod implements ClientModInitializer {
 	public void drawPack() {
 		LodRenderer r = this.renderer;
 		Shaders.drawPack(this.active() && r != null && !this.fogHidesLod ? r.packFrame : null);
+		if (r != null) {
+			// the pack's programs draw the tiles: their time is the LOD's GPU cost, for F3 and auto-tune
+			r.gpuMillis = Shaders.packGpuMillis();
+		}
+	}
+
+	/**
+	 * The GPU time auto-tune holds to its target. Through a shader pack's programs the same tiles cost about twice what
+	 * they do through ours (its lighting is the user's choice, as it is on the chunks), so half of it counts: the pack
+	 * gets the detail the LOD would have without it.
+	 */
+	private double tunedGpuMillis(LodRenderer r) {
+		return r.packMode() && r.gpuMillis > 0 ? r.gpuMillis * 0.5 : r.gpuMillis;
 	}
 
 	/** This frame's tiles for the shader pack, or null when there is nothing for it to draw. */

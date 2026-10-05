@@ -40,6 +40,11 @@ public final class Shaders {
 		}
 	}
 
+	/** The GPU time of the LOD's draws through the pack, in ms, or -1 when the pack does not draw it. */
+	public static double packGpuMillis() {
+		return packDraws() ? Iris.gpuMillis() : -1;
+	}
+
 	/** Iris's side in a class of its own, so the JVM only resolves it once Iris is known to be there. */
 	private static final class Iris {
 		static boolean packInUse() {
@@ -48,6 +53,10 @@ public final class Shaders {
 
 		static boolean packDraws() {
 			return dev.voidmc.lod.compat.iris.PackLod.renderer() != null;
+		}
+
+		static double gpuMillis() {
+			return dev.voidmc.lod.compat.iris.PackLod.gpuMillis();
 		}
 
 		static void drawPack(PackFrame frame) {
