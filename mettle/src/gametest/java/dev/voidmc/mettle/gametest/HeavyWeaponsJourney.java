@@ -543,7 +543,8 @@ final class HeavyWeaponsJourney {
 			BlockPos at = p.blockPosition().offset(-4, 0, 2);
 			level.setBlock(at, Blocks.IRON_ORE.defaultBlockState(), Block.UPDATE_ALL);
 			p.gameMode.destroyBlock(at);
-			return !items(s, Items.RAW_IRON).isEmpty() ? null : "Stonebreaker: iron ore broken with a mace dropped nothing";
+			// Forgemaster (earned in the Mining journey) smelts one ore in seven on the spot, so an ingot counts too.
+			return !items(s, Items.RAW_IRON).isEmpty() || !items(s, Items.IRON_INGOT).isEmpty() ? null : "Stonebreaker: iron ore broken with a mace dropped nothing";
 		}));
 		server.runCommand("kill @e[type=item]");
 	}

@@ -535,12 +535,15 @@ final class SurvivalJourney {
 			p.level().setBlock(under, Blocks.DIRT_PATH.defaultBlockState(), 3);
 			return under;
 		});
-		context.waitTicks(12);
+		// A dirt path is 1/16 lower than grass: give the player time to settle onto it before the 5-tick check sees it.
+		for (int i = 0; i < 40 && !server.computeOnServer(s -> player(s).getAttribute(Attributes.MOVEMENT_SPEED).hasModifier(Camp.PATHFINDER_SPEED)); i++) {
+			context.waitTick();
+		}
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
 			boolean on = p.getAttribute(Attributes.MOVEMENT_SPEED).hasModifier(Camp.PATHFINDER_SPEED);
 			p.level().setBlock(path, Blocks.GRASS_BLOCK.defaultBlockState(), 3);
-			return on ? null : "Pathfinder: no speed on a dirt path";
+			return on ? null : "Pathfinder: no speed on a dirt path (onGround " + p.onGround() + ", on " + p.level().getBlockState(p.getOnPos()) + " at " + p.position() + ", perk " + Perks.has(p, dev.voidmc.mettle.character.skill.SurvivalSkill.PATHFINDER) + ", flying " + p.getAbilities().flying + ")";
 		}));
 		server.runCommand("execute as @p at @s run tp @s ~ " + Y + " ~");
 		context.waitTicks(12);

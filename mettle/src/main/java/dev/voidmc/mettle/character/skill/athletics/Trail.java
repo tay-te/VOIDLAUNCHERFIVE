@@ -19,8 +19,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Util;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 
@@ -97,11 +95,7 @@ public final class Trail {
 		if (peak) {
 			FeatCounters.add(player, PEAKS_COUNTER, 1);
 		}
-		if (found != null && Perks.has(player, AthleticsSkill.TRAILBLAZER)) {
-			player.addEffect(new MobEffectInstance(MobEffects.SPEED, AthleticsRules.TRAILBLAZER_TICKS, 0));
-			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, AthleticsRules.TRAILBLAZER_TICKS, 0));
-			AthleticsSkill.chip(player, AthleticsSkill.TRAILBLAZER, "trailblazer", found);
-		}
+		// Trailblazer (Survival 10 + Athletics 10) is Survival's: it owns discovery (character.skill.survival.Discovery).
 	}
 
 	/** Mountain Goat: standing high, far from every peak counted before. Adds it to {@code peaks}. */

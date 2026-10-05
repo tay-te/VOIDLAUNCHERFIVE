@@ -486,30 +486,6 @@ final class AthleticsJourney {
 		}));
 		tp(context, server, cx + 0.5, FLOOR, cz + 0.5);
 
-		// Trailblazer (Survival 10 + Athletics 10, granted here so Survival's own journey starts clean): a biome the
-		// character has never seen gives Speed I and Regeneration I.
-		server.runCommand("effect clear @a");
-		server.runCommand("mettle perk grant mettle:athletics/trailblazer @a");
-		check(on(server, p -> {
-			Trail.Journal j = Trail.journal(p);
-			String here = p.level().getBiome(p.blockPosition()).unwrapKey().orElseThrow().identifier().toString();
-			if (!j.biomes().contains(here)) {
-				return "Trailblazer: the journal never noted " + here + ": " + j.biomes();
-			}
-			p.setAttached(Trail.JOURNAL, new Trail.Journal(j.biomes().stream().filter(b -> !b.equals(here)).toList(), j.places(), j.peaks()));
-			return null;
-		}));
-		context.waitTicks(45);
-		check(on(server, p -> {
-			var speed = p.getEffect(MobEffects.SPEED);
-			var regen = p.getEffect(MobEffects.REGENERATION);
-			if (speed == null || regen == null || speed.getAmplifier() != 0 || speed.getDuration() < 1100) {
-				return "Trailblazer: effects " + p.getActiveEffects() + " after a new biome";
-			}
-			return null;
-		}));
-		server.runCommand("effect clear @a");
-
 		// The cap: 120 XP a minute, then nothing until the next minute.
 		check(on(server, p -> {
 			AthleticsState state = AthleticsState.of(p);

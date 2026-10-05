@@ -43,7 +43,6 @@ public final class AthleticsSkill {
 	public static final Identifier FREERUNNER = Mettle.id("athletics/freerunner");
 	public static final Identifier IRONLUNG = Mettle.id("athletics/ironlung");
 	public static final Identifier MOUNTAIN_GOAT = Mettle.id("athletics/mountain_goat");
-	public static final Identifier TRAILBLAZER = Mettle.id("athletics/trailblazer");
 	public static final Identifier COURIERS_STRIDE = Mettle.id("athletics/couriers_stride");
 
 	/** Set while Steady Pace asks burden for the load, so a burden that asks for the rules again can't loop. */

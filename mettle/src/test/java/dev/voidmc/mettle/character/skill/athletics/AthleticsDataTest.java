@@ -75,7 +75,8 @@ class AthleticsDataTest {
 		assertEquals(8, kinds.get(Perk.Kind.PATH));
 		assertEquals(3, kinds.get(Perk.Kind.MASTERY));
 		assertEquals(2, kinds.get(Perk.Kind.FEAT));
-		assertEquals(1, kinds.get(Perk.Kind.SYNERGY));
+		// Trailblazer (Survival + Athletics) lives in Survival, which owns discovery.
+		assertEquals(null, kinds.get(Perk.Kind.SYNERGY));
 		assertEquals(1, kinds.get(Perk.Kind.TEACHING));
 		assertEquals(Map.of("a2", 2, "a3", 2, "b2", 2, "b3", 2), paths);
 		assertEquals(Map.of("a", 1, "any", 1, "b", 1), sides);
@@ -86,7 +87,7 @@ class AthleticsDataTest {
 	void everyFeedbackChipHasText() throws IOException {
 		JsonObject lang = JsonParser.parseString(Files.readString(Path.of("src/main/resources/assets/mettle/lang/en_us/athletics.json"))).getAsJsonObject();
 		// Every chip key the code sends, spelled out once here.
-		for (String key : new String[] {"couriers_stride", "marathon", "haulers_stride", "freerunner", "ox", "trailblazer"}) {
+		for (String key : new String[] {"couriers_stride", "marathon", "haulers_stride", "freerunner", "ox"}) {
 			assertTrue(lang.has("mettle.feedback.athletics." + key), key);
 		}
 	}

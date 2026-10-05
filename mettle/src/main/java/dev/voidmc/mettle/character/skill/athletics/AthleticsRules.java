@@ -50,8 +50,6 @@ public final class AthleticsRules {
 	/** Ironlung: centimetres swum under water (2 km). Flushed to the feat counter in 100 m steps. */
 	public static final long IRONLUNG_CM = 200_000;
 	public static final long IRONLUNG_FLUSH_CM = 10_000;
-	/** Trailblazer: Speed I and Regeneration I for 60 s. */
-	public static final int TRAILBLAZER_TICKS = 1200;
 
 	private AthleticsRules() {
 	}

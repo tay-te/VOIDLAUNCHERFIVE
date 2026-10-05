@@ -33,8 +33,6 @@
 	"mettle.perk.athletics.mountain_goat": "Mountain Goat",
 	"mettle.perk.athletics.mountain_goat.description": "You fall 3 more blocks before taking damage (on top of Soft Landing).",
 	"mettle.perk.athletics.mountain_goat.hint": "The view is better from up there.",
-	"mettle.perk.athletics.trailblazer": "Trailblazer",
-	"mettle.perk.athletics.trailblazer.description": "Reaching a biome or place you have never been gives you Speed I and Regeneration I for 60 s.",
 	"mettle.perk.athletics.couriers_stride": "Courier’s Stride",
 	"mettle.perk.athletics.couriers_stride.description": "After 20 s of unbroken sprinting you find your stride: 15%% faster, and no hunger, until you stop.",
 	"mettle.perk.athletics.couriers_stride.hint": "Taught by a city’s courier, or found in Letters of a King’s Runner.",
@@ -42,6 +40,5 @@
 	"mettle.feedback.athletics.marathon": "Marathon · running on empty",
 	"mettle.feedback.athletics.haulers_stride": "Hauler’s Stride · sprinting under the load",
 	"mettle.feedback.athletics.freerunner": "Scramble",
-	"mettle.feedback.athletics.ox": "Ox · picked up the %s (%s stacks inside)",
-	"mettle.feedback.athletics.trailblazer": "Trailblazer · %s"
+	"mettle.feedback.athletics.ox": "Ox · picked up the %s (%s stacks inside)"
 }
