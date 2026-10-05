@@ -292,7 +292,7 @@ final class ExcavationWork implements WorkBehaviour {
 				if (!old.isAir()) {
 					brain.swing();
 					level.levelEvent(LevelEvent.PARTICLES_AND_SOUND_DESTROY_BLOCK, pos, Block.getId(old));
-					level.setBlock(pos, step.state(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+					level.setBlock(pos, step.state(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_ON_PLACE);
 					if (old.getFluidState().isEmpty() && !old.canBeReplaced()) {
 						this.naturalCuts++;
 						if (this.naturalCuts % CUTS_PER_LOAD == 0) {
@@ -306,7 +306,7 @@ final class ExcavationWork implements WorkBehaviour {
 					return false;
 				}
 				brain.swing();
-				level.setBlock(pos, step.state(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+				level.setBlock(pos, step.state(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_ON_PLACE);
 				if (step.tag() != null) {
 					BuilderWork.loadBlockEntity(level, pos, step.state(), step.tag());
 				}

@@ -98,6 +98,12 @@ public final class DevCatalogue implements BlueprintService {
 		return bp;
 	}
 
+	@Override
+	public boolean prepare(PlotSpec spec, TerrainProbe terrain) {
+		// stand-ins are cheap: only the real ones are worth making in the background
+		return this.real == null || this.real.archetype(spec.archetype()) == null || this.real.prepare(spec, terrain);
+	}
+
 	private Blueprint standIn(PlotSpec spec, TerrainProbe terrain) {
 		ArchetypeInfo info = this.infos.get(spec.archetype());
 		if (info == null) {

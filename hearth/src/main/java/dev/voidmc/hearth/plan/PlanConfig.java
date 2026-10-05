@@ -33,7 +33,7 @@ public record PlanConfig(double roadGrade, double stairGrade, int maxCut, int br
 	int terraceMaxHeight, int doorPathMax, int roadPlotLength, double densityScale, double verticalBias, double sprawlBias,
 	double housingMargin, int searchBudget, int cacheTiles, int liveTimeLimitMs, Living living) {
 
-	public static final PlanConfig DEFAULTS = new PlanConfig(0.3, 1.0, 4, 40, 3, 7, 7, 3, 48, 1.0, 1.0, 1.0, 0.1, 1600, 4096, 20, Living.DEFAULTS);
+	public static final PlanConfig DEFAULTS = new PlanConfig(0.3, 1.0, 4, 40, 3, 7, 7, 3, 48, 1.0, 1.0, 1.0, 0.1, 1600, 16384, 20, Living.DEFAULTS);
 
 	private static final MapCodec<PlanConfig> CORE = RecordCodecBuilder.mapCodec(i -> i.group(
 		Codec.DOUBLE.optionalFieldOf("road_grade", DEFAULTS.roadGrade).forGetter(PlanConfig::roadGrade),

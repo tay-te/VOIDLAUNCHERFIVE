@@ -387,10 +387,10 @@ final class BuilderWork implements WorkBehaviour {
 			if (step.state.isAir()) {
 				if (!old.isAir()) {
 					level.levelEvent(LevelEvent.PARTICLES_AND_SOUND_DESTROY_BLOCK, pos, Block.getId(old));
-					level.setBlock(pos, step.state, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+					level.setBlock(pos, step.state, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_ON_PLACE);
 				}
 			} else {
-				level.setBlock(pos, step.state, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+				level.setBlock(pos, step.state, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_ON_PLACE);
 				if (step.tag != null) {
 					loadBlockEntity(level, pos, step.state, step.tag);
 				}
@@ -492,7 +492,8 @@ final class BuilderWork implements WorkBehaviour {
 		}
 		try (ProblemReporter.ScopedCollector reporter = new ProblemReporter.ScopedCollector(be.problemPath(), LOG)) {
 			be.loadWithComponents(TagValueInput.create(reporter, level.registryAccess(), tag));
-			be.setChanged();
+			// (not be.setChanged(): its comparator update reads the neighbours, which may be in a chunk not loaded)
+			level.blockEntityChanged(pos);
 			level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
 		}
 	}

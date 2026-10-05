@@ -93,22 +93,21 @@ public final class Additions {
 		// the town's houses show about one addition for every four folk past the first dozen, the oldest streets most
 		int total = 0;
 		for (PlotView p : ctx.settlement.plots()) {
-			total += Math.max(0, p.spec().params().getIntOr("additions", 0));
+			total += Math.max(0, p.spec().paramInt("additions", 0));
 		}
 		boolean roomToGrow = total < Math.max(0, (ctx.population - 12) / 4);
 		int cap = 1 + ctx.tier.ordinal();
 		Candidate best = null;
 		double bestScore = Double.MAX_VALUE;
 		for (PlotView p : ctx.settlement.plots()) {
-			CompoundTag params = p.spec().params();
-			if (p.state() != PlotState.BUILT || p.owner() != null || !params.contains("additions") || replacing.contains(p.id())) {
+			if (p.state() != PlotState.BUILT || p.owner() != null || !p.spec().hasParam("additions") || replacing.contains(p.id())) {
 				continue;
 			}
 			ArchetypeInfo info = ctx.info(p.spec().archetype());
 			if (info == null || info.category() != ArchetypeCategory.HOUSING) {
 				continue;
 			}
-			int n = params.getIntOr("additions", -1);
+			int n = p.spec().paramInt("additions", -1);
 			if (n < 0 || n >= Math.min(MOST, cap)) {
 				continue;
 			}

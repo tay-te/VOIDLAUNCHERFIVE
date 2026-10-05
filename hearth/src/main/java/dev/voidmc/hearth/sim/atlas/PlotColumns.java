@@ -21,11 +21,11 @@ public final class PlotColumns {
 
 	/** Whether the spec is a line (it has a polyline in its params). */
 	public static boolean isLine(PlotSpec spec) {
-		return spec.params().getIntArray("points").map(p -> p.length >= 6).orElse(false);
+		return spec.paramInts("points").map(p -> p.length >= 6).orElse(false);
 	}
 
 	public static void forEach(PlotSpec spec, int margin, ColumnSink sink) {
-		int[] pts = spec.params().getIntArray("points").orElse(null);
+		int[] pts = spec.paramInts("points").orElse(null);
 		if (pts != null && pts.length >= 6) {
 			int width = Math.max(1, spec.params().getIntOr("width", 3));
 			int r = width / 2 + margin;

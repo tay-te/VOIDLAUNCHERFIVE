@@ -326,7 +326,7 @@ at ~330 work units a day, newcomers while beds are free, jobs from built workpla
 | `sprawl_bias` | 1.0 | scales how far farmsteads and tracks reach |
 | `housing_margin` | 0.1 | spare beds planned ahead of the population (at least 2) |
 | `search_budget` | 1600 | frontage places examined per placement |
-| `cache_tiles` | 4096 | terrain tiles (256 columns) cached per world |
+| `cache_tiles` | 16384 | terrain tiles (256 columns, ~1 KB each) cached per world (4096 thrashed with 60+ towns: every planner call read its terrain afresh; w5 tour) |
 | `stations` | true | housing by station and the quarters (§14.1); off: homes by density alone, as in phase 2 |
 | `extraction` | true | workings on the territory's sites (§14.3) |
 | `haul_max_distance` | 320 | farthest a site may lie and still be worked |

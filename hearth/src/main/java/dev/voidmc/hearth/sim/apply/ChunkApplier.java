@@ -36,7 +36,12 @@ import org.slf4j.LoggerFactory;
  */
 public final class ChunkApplier {
 	private static final Logger LOG = LoggerFactory.getLogger("hearth");
-	private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS;
+	/**
+	 * No neighbour updates and no {@code onPlace} (shapes are resolved; a placed block reacting to its neighbours would
+	 * read the next chunk, which may not be loaded: a carved pumpkin looking for a golem's body crashed the server, a rail
+	 * and water read and flowed into it).
+	 */
+	private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS | Block.UPDATE_SKIP_ON_PLACE;
 
 	/** A plot over a chunk. */
 	public record PlotRef(SimSettlement settlement, int plotId) {
@@ -53,18 +58,36 @@ public final class ChunkApplier {
 	public final LongAdder conflicts = new LongAdder();
 	public final LongAdder chunksApplied = new LongAdder();
 	public final LongAdder nanos = new LongAdder();
+	/** The longest one tick's writing took. */
+	public final java.util.concurrent.atomic.AtomicLong maxTickNanos = new java.util.concurrent.atomic.AtomicLong();
 
 	private final ServerLevel level;
 	private final PlotIndex index;
 	private final BlueprintService blueprints;
 	private final TerrainProbe terrain;
 	private final LongLinkedOpenHashSet queue = new LongLinkedOpenHashSet();
+	/** Chunks waiting for blueprints being made in the background; queued again every {@link #WAIT_TICKS} ticks. */
+	private final LongLinkedOpenHashSet waiting = new LongLinkedOpenHashSet();
+	private static final int WAIT_TICKS = 10;
+	private final java.util.function.BooleanSupplier defer;
+	private int ticks;
+	/** Chunk passes put off because a blueprint they needed was still being made. */
+	public final LongAdder deferred = new LongAdder();
 
 	public ChunkApplier(ServerLevel level, PlotIndex index, BlueprintService blueprints, TerrainProbe terrain) {
+		this(level, index, blueprints, terrain, () -> false);
+	}
+
+	/**
+	 * {@code defer}: whether a chunk whose blueprints are not made yet waits for the build module's background makers
+	 * ({@link BlueprintService#prepare}) instead of the tick making them (a castle takes up to a second).
+	 */
+	public ChunkApplier(ServerLevel level, PlotIndex index, BlueprintService blueprints, TerrainProbe terrain, java.util.function.BooleanSupplier defer) {
 		this.level = level;
 		this.index = index;
 		this.blueprints = blueprints;
 		this.terrain = terrain;
+		this.defer = defer;
 	}
 
 	public void enqueue(long chunk) {
@@ -72,7 +95,7 @@ public final class ChunkApplier {
 	}
 
 	public int pending() {
-		return this.queue.size();
+		return this.queue.size() + this.waiting.size();
 	}
 
 	/** Queues every loaded chunk a plot touches. */
@@ -111,6 +134,10 @@ public final class ChunkApplier {
 
 	/** Works through the queue until the time or block budget is spent. */
 	public void tick(long budgetNanos, int maxBlocks) {
+		if (++this.ticks % WAIT_TICKS == 0 && !this.waiting.isEmpty()) {
+			this.queue.addAll(this.waiting);
+			this.waiting.clear();
+		}
 		if (this.queue.isEmpty()) {
 			return;
 		}
@@ -132,7 +159,9 @@ public final class ChunkApplier {
 			}
 			blocks += done;
 		}
-		this.nanos.add(System.nanoTime() - start);
+		long took = System.nanoTime() - start;
+		this.nanos.add(took);
+		this.maxTickNanos.accumulateAndGet(took, Math::max);
 	}
 
 	/** Returns blocks placed, negated if the chunk still has work left. */
@@ -144,6 +173,12 @@ public final class ChunkApplier {
 		int placed = 0;
 		boolean unfinished = false;
 		List<PlotRef> refs = this.index.refs(key);
+		if (this.defer.getAsBoolean() && !ready(refs, ledger)) {
+			// every blueprint this chunk may need is being made in the background: write it once they are all ready
+			this.waiting.add(key);
+			this.deferred.increment();
+			return 0;
+		}
 		// rebuilds first: what stands of a building coming down is cleared before its replacement's blocks go in
 		for (PlotRef ref : refs) {
 			SimSettlement s = ref.settlement();
@@ -209,8 +244,24 @@ public final class ChunkApplier {
 				continue;
 			}
 			StepWriter.Owned owned = owned(s, p, bp, cx, cz, cur, ledger, refs);
-			StepWriter.Result r = StepWriter.write(bp, cx, cz, cur, target, new World(chunk), owned);
-			ledger = ledger.with(s.id(), p.id(), target);
+			// a stage at a time, the budget looked at between them: a building whose every stage is due (a town built while
+			// nobody was near) does not take a tick on its own; the ledger records how far it got
+			StepWriter.Result r = new StepWriter.Result();
+			World world = new World(chunk);
+			long reached = cur;
+			while (reached < target) {
+				long next = Math.min(target, Cursor.pack(Cursor.stage(reached) + 1, 0));
+				StepWriter.Result part = StepWriter.write(bp, cx, cz, reached, next, world, owned);
+				r.placed += part.placed;
+				r.same += part.same;
+				r.conflicts += part.conflicts;
+				reached = next;
+				if (reached < target && (placed + r.placed >= blockBudget || System.nanoTime() - start >= budgetNanos)) {
+					unfinished = true;
+					break;
+				}
+			}
+			ledger = ledger.with(s.id(), p.id(), reached);
 			placed += r.placed;
 			this.blocksPlaced.add(r.placed);
 			this.conflicts.add(r.conflicts);
@@ -220,12 +271,44 @@ public final class ChunkApplier {
 					r.attempted());
 				s.abandonPlot(p);
 			}
+			if (unfinished) {
+				break;
+			}
 		}
 		if (ledger != before) {
 			ChunkLedgers.store(chunk, ledger);
 			this.chunksApplied.increment();
 		}
 		return unfinished ? -Math.max(1, placed) : placed;
+	}
+
+	/**
+	 * Whether every blueprint writing this chunk may need is made (the plots over it, the buildings they replace, and for a
+	 * building changed in place with work to write, what it stood as before), starting those that are not. Asks for all of
+	 * them, so they are made together.
+	 */
+	private boolean ready(List<PlotRef> refs, AppliedLedger ledger) {
+		boolean ready = true;
+		for (PlotRef ref : refs) {
+			SimSettlement s = ref.settlement();
+			SimPlot p = s.plot(ref.plotId());
+			if (p == null) {
+				continue;
+			}
+			if (!s.blueprintsReady(p)) {
+				ready = false;
+				continue;
+			}
+			if (p.replaces() != SimPlot.NONE || p.replacedSpec() != null) {
+				PlotSpec old = s.replacedSpec(p);
+				if (SimSettlement.inPlace(old, p.spec()) && ledger.get(s.id(), p.id()) < s.applicable(p)) {
+					for (PlotSpec earlier : SimSettlement.earlierSelves(p.spec())) {
+						ready &= this.blueprints.prepare(earlier, this.terrain);
+					}
+				}
+			}
+		}
+		return ready;
 	}
 
 	/**
@@ -331,7 +414,9 @@ public final class ChunkApplier {
 				BlockEntity be = ChunkApplier.this.level.getBlockEntity(at);
 				if (be != null) {
 					be.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, ChunkApplier.this.level.registryAccess(), tag));
-					be.setChanged();
+					// the chunk is to be saved; not be.setChanged(), whose comparator update reads the neighbours and would
+					// load (or generate) the chunk next door in the tick when the block entity stands on the chunk's edge
+					this.chunk.markUnsaved();
 				}
 			}
 		}

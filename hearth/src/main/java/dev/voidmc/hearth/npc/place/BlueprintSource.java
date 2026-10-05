@@ -15,6 +15,18 @@ import org.jspecify.annotations.Nullable;
 public interface BlueprintSource {
 	@Nullable Blueprint blueprint(PlotView plot);
 
+	/**
+	 * Whether {@link #of} would answer at once; if not, the build module is making the blueprint in the background
+	 * ({@code BlueprintService#prepare}) and a caller that can wait asks again later instead of holding the tick.
+	 */
+	static boolean ready(ServerLevel level, Settlement settlement, PlotView plot) {
+		if (settlement instanceof BlueprintSource || !HearthServices.hasBlueprints()) {
+			return true;
+		}
+		HearthWorld world = HearthWorld.of(level);
+		return world == null || HearthServices.blueprints().prepare(plot.spec(), world.terrain());
+	}
+
 	/** The blueprint of a plot, from the settlement itself or the build module; null if neither can make one. */
 	static @Nullable Blueprint of(ServerLevel level, Settlement settlement, PlotView plot) {
 		if (settlement instanceof BlueprintSource source) {

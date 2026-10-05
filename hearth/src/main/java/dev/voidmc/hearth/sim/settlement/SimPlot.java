@@ -69,6 +69,8 @@ public final class SimPlot implements PlotView {
 	/** Transient: when an embodied builder last advanced this plot (game time), and the blueprint facts. */
 	long lastEmbodiedAdvance = Long.MIN_VALUE;
 	@Nullable PlotFacts facts;
+	/** The blueprint's points of interest, read once the plot is built (transient, like the facts). */
+	java.util.@Nullable List<dev.voidmc.hearth.api.Poi> pois;
 
 	public SimPlot(int id, PlotSpec spec) {
 		this.id = id;

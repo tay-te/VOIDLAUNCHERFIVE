@@ -96,10 +96,20 @@ workplace's trade; everyone else gathers), the tier (`TIER_CHANGED`), then `DAY_
 **Growth**: after every slice, if builders are idle (fewer active plots than they can work; builders walking about as
 entities count) the clock asks `planner.next(settlement, terrain, random)` — up to 4 proposals in a row, while at most
 one plot is stalled — and adds each as `PLANNED`. A road (`infra/*`) does not count toward the 4: roads come first, the
-planner often queues a lane and then the houses along it, so the clock asks again in the same step (up to 4 roads in a
-row, without spending the per-tick budget). A null answer backs off half a day. Live, planner calls are budgeted
-(`planner_calls_per_tick`, 1); histories and explicit fast-forwards are not. Their cost is measured
-(`SettlementClock.PlannerTimings`, in `/hearth sim stats`).
+planner often queues a lane and then the houses along it, so a history or a fast-forward asks again in the same step (up
+to 4 roads in a row). A null answer backs off half a day. Live, every planner call is budgeted (`planner_calls_per_tick`,
+1), roads included (`SimContext.budgetsEveryPlannerCall`: a city's call takes tens of milliseconds, and five in one step
+made a 95 ms tick); histories and explicit fast-forwards are not. Their cost is measured
+(`SettlementClock.PlannerTimings`, with the median and p90 of the last 4096 live calls, in `/hearth sim stats`).
+
+**Blueprints off the server thread** (w5): a new plot's facts, the applier's chunks, `SimSettlement.pois` and the
+excavation crews need blueprints, and a castle takes up to a second to draw and compile (§17). Live (`SimContext
+.deferBlueprints`: on the server thread, not fast-forwarding), they ask `BlueprintService.prepare(spec, terrain)` first:
+ready, or being made on the build module's two `hearth-blueprints` threads, in which case the plot waits a few ticks
+(its builders go to the others; the chunk waits in the applier, retried every 10 ticks). A plot's blueprint is started
+the moment the planner hands it over (`addPlot`), so it is usually ready before its builders need it. Histories,
+fast-forwards and tests make them inline, so their results do not depend on timing. `-Dhearth.sim.inlineBlueprints=true`
+makes everything inline as before (for comparisons).
 
 **Rebuilds** (`replaces`): the old plot stands until the new one's first stage is funded; then it is `DEMOLISHING`
 (its beds and job sites stop counting, `PLOT_ABANDONED` fires with "rebuilt as …"), the applier clears its blocks from
@@ -195,8 +205,13 @@ since day 0 caught up as ordinary simulation. Adopted regions are remembered in 
 ## 6. The chunk applier (§5.3)
 
 Runtime construction is written into chunks when they load, under `applier.budget_ms` (3) and `max_blocks` (6000) per
-tick, with `UPDATE_CLIENTS | UPDATE_KNOWN_SHAPE | UPDATE_SUPPRESS_DROPS` (no neighbour updates: shapes are resolved),
-block entities loaded from the step's tag.
+tick, with `UPDATE_CLIENTS | UPDATE_KNOWN_SHAPE | UPDATE_SUPPRESS_DROPS | UPDATE_SKIP_ON_PLACE` (no neighbour updates and
+no `onPlace`: shapes are resolved, and a block reacting to its neighbours reads the next chunk, which may not be loaded —
+a carved pumpkin's golem check crashed the server that way, rails and water read and flowed into it), block entities
+loaded from the step's tag and the chunk marked unsaved (not `BlockEntity.setChanged`, whose comparator update loaded or
+generated the neighbouring chunk in the tick). A plot is written a stage at a time with the budget looked at between
+stages (the ledger records how far it got), so a building whose every stage is due does not take a tick on its own. A
+chunk whose blueprints are still being made waits (above).
 
 - **Ledger**: each chunk carries a persistent Fabric attachment `hearth:sim/applied` — per (settlement, plot) a cursor
   below which every step of that plot lying in this chunk is in the world. World generation sets it to the historic
@@ -661,3 +676,79 @@ the dedicated server needs its EULA accepted in `hearth/run/eula.txt` first. Sam
 | decline | Tidequay declined on its own ("the fertile at -1628, 2513 is running out"), 3–5 houses left empty; Thornfield declined at 103 souls ("the treasury is empty"), 6 houses empty. Emptying every site of a 21-soul village at once did not turn it: renewable sites regrew (11 % → 74 % in 180 days) and prosperity bottomed at 0.46 |
 | daughter hamlets | 6 founded 617–1 991 blocks from their parents, e.g. "settlers from Torheim, gone for the stone and ore it lacked" |
 | a town of 150 | not reached: the largest grew to 103 souls in 720 more days (capacity 339, held back by an empty treasury). For a bigger town see §16.11 (0.088 ms for 242 souls) |
+
+## 17. Measured with the full catalogue (w5 live tour, seed 20261003, Expanse Earth, 2026-10-05)
+
+`gametest/LiveTown` (`-Dhearth.tour=live`; `-Dhearth.live.skip=perf,visit,tour` skips legs, `-Dhearth.live.days`,
+`-Dhearth.live.scale`, `-Dhearth.live.nopatron`) in the client's integrated server, real blueprints only (134
+archetypes, no stand-ins). It founds a temperate town near spawn and 54 settlements on a 640-block grid round it, aged
+30–200 days, every other one with a **patron** topping its stores and purse up between 20-day spells (on their own, real
+buildings stall small towns: requests/w5-tour.md §4); then a minute with everything abstract, 200 hour steps of the four
+largest towns, the arrival at the largest temperate town (Thornley, a city of 452 with a keep, a cathedral, walls and
+798 plots, all written into the world as the player comes), 30 s embodied, and the photographs. A watchdog prints the
+server thread's stack whenever a tick runs past 60 ms (`-Dhearth.live.hitch`). Whole server ticks are timed from
+`START_SERVER_TICK` to `END_SERVER_TICK`. "Before" is the same build with `-Dhearth.sim.inlineBlueprints=true`
+(blueprints made on the server thread as before this pass; its other fixes still in); the original code's run (35 small
+towns, 271 souls) is in brackets where it differs.
+
+| | before | after (two runs) |
+|---|---|---|
+| world | 67 settlements, 5 942 souls, 15 292 plots | 67–68 settlements, 5 748–5 869 souls, 14 567–14 852 plots |
+| **abstract, 60 s**: sim tick work | 0.67 ms avg, **180 ms max**, 23 ticks over 5 ms | 0.28–0.32 ms avg, 38–77 ms max, 12–17 over 5 ms |
+| whole server tick | 2.83 ms avg, 217 ms max, 7 over 50 ms | 2.45–2.50 ms avg, 65–96 ms max, 1–4 over 50 ms |
+| blueprints made on the server thread | 70 (45 ms max) | 0 (626–629 handed to the background) |
+| planner `next`, live (6–8 calls) | median 8.7, p90 61.7, max 61.7 ms | median 20–41, p90 34–56, max 34–56 ms |
+| the worst step and where it went | 180 ms (blueprints) | 35–77 ms, growth (`planner.next`) 60 of 77 |
+| hour steps, towns of 410–452 souls (790–990 plots) | 0.10–0.23 ms avg, max 16 ms (a blueprint) | 0.18–0.34 ms avg, median 0.06–0.09, max 2.8–28 ms (a planner call) |
+| **arrival, 30 s** (253 790 blocks written): whole server tick | 20.9 ms avg, **1 641 ms max**, 18 over 50 ms [original: 666 ms max] | 10.6–12.9 ms avg, 155–267 ms max, 4–5 over 50 ms |
+| applier | 5.5 ms/tick avg, 71 ms max in a tick, 42 chunks still queued at 30 s [48 ms max] | 1.4–1.7 ms/tick avg, 25–38 ms max, all written |
+| blueprints made on the server thread | 1 058 (3.5 s in all, 98 ms max) | 0–3 (14 ms in all) |
+| embodiment manager | 3.4 ms/tick [2.1] | 0.44–0.53 ms/tick |
+| **embodied, next 30 s**: whole server tick | 10.7 ms avg, 49 ms max | 7.7–10.9 ms avg, 86–95 ms max |
+| folk | 48 embodied: 1.15 ms/tick, 24 µs a folk tick | 48: 1.05–1.27 ms/tick, 22–27 µs a folk tick (52 µs while spawning) |
+| client frames (render distance 12, no cap) | 2 446 fps away, 180 fps over the city | 2 107–2 632 fps away, 191–321 fps over the city |
+
+The arrival's remaining long ticks are vanilla's (chunk saving as the old view unloads, entity ticks as 600 chunks of
+animals wake, first pathfinding) as far as the watchdog's one-stack-a-tick can tell; Hearth's own part is the
+applier's single-stage writes and one planner call.
+
+**Blueprints** (`./gradlew blueprintBench`, offline, one thread, 3 452 blueprints: every archetype × every culture
+that builds it × a random and the largest size, on a slope; ms):
+
+| family | n | draw med/p90/max | compile med/p90/max | light pass med/p90/max | steps p90 |
+|---|---|---|---|---|---|
+| civic | 476 | 3.2 / 35 / 231 | 11.3 / 52 / 133 | 5.4 / 26 / 85 | 17 289 |
+| commerce | 262 | 2.4 / 8.1 / 173 | 4.8 / 33 / 91 | 2.3 / 18 / 73 | 7 693 |
+| deep | 168 | 1.8 / 25 / 77 | 6.8 / 25 / 64 | 3.7 / 9.4 / 28 | 13 170 |
+| defense | 112 | 1.0 / 1.8 / 8.1 | 4.4 / 8.1 / 17 | 3.1 / 4.8 / 12 | 3 338 |
+| extract | 168 | 0.5 / 3.2 / 21 | 2.7 / 11 / 22 | 2.0 / 6.3 / 18 | 3 979 |
+| farm | 116 | 1.5 / 5.2 / 343 | 8.0 / 22 / 96 | 3.1 / 7.4 / 39 | 8 397 |
+| house | 484 | 1.6 / 4.9 / 80 | 4.7 / 15 / 99 | 2.9 / 9.8 / 41 | 4 855 |
+| infra | 168 | 1.4 / 4.9 / 46 | 2.6 / 36 / 139 | 2.0 / 25 / 88 | 2 356 |
+| landmark | 92 | 3.5 / 12 / 33 | 19 / 125 / 269 | 9.7 / 60 / 124 | 40 849 |
+| landscape | 252 | 0.5 / 3.1 / 15 | 2.1 / 31 / 76 | 1.2 / 8.1 / 17 | 15 686 |
+| law | 168 | 3.5 / 11 / 30 | 2.5 / 15 / 32 | 1.5 / 6.9 / 19 | 9 084 |
+| noble | 118 | 34 / 180 / 514 | 45 / 288 / 496 | 16 / 97 / 169 | 119 041 |
+| storage | 84 | 1.1 / 2.6 / 3.8 | 7.1 / 20 / 30 | 5.2 / 12 / 21 | 7 262 |
+| work | 784 | 1.1 / 3.6 / 29 | 4.4 / 11 / 38 | 2.6 / 6.2 / 30 | 4 414 |
+| all | 3 452 | 1.6 / 9.8 / 514 | 5.7 / 30 / 496 | 3.0 / 13.5 / 169 | 12 098 |
+
+Shapes take a tenth of a compile (24 ms p90 for the noble family), campaigns almost nothing outside the castle (11 ms
+p90). The slowest: the castle, 120 000 steps, 190–510 ms to draw and 230–500 ms to compile (light 55–170 ms); the
+palace 420 ms to compile. These used to be made on the server thread whenever a plot was planned, a chunk with a plot
+in it loaded, or a town's points of interest were rebuilt; now only histories (atlas workers), fast-forwards and the
+background makers make them.
+
+**What is left over budget** (ARCHITECTURE.md §4, §12): `planner.next` in a city (requests/w5-tour.md §6), which is the
+worst step of every minute above (`SettlementClock.WorstStep` splits the worst live step into production, construction,
+the day and growth: growth is 60 of 77 ms); the applier's single-stage writes (25–38 ms when one stage of a big building
+lies in one chunk; finer resumption would need a step index per chunk from `Blueprint.forEachInChunk`); and vanilla's own work as a
+city's 600+ chunks load (chunk saving and first pathfinding showed in the watchdog). The abstract step of a 150-soul
+town stays far under 0.2 ms (0.07–0.09 ms median at 450 souls).
+
+**Photographs** (`build/run/clientGameTest/screenshots/*hearth_live_*.png`): the city from its approach, the square on a
+market day (29–38 folk in it, stalls along it and the fronts' wares), the keep, the cathedral, the chapel, the town hall,
+a forester walking out to a tree, the night town and three lit interiors (block light 10–14 over a table or a bed: a
+tavern, an inn, a townhouse), a moorland hamlet's house left empty in a decline. No builder was caught up on scaffolding
+(the city had nothing under way, the busiest other town finished what it had while the camera waited). No settlement opened a mine or any other working, so there is no mining town, miner or deep town to show
+(requests/w5-tour.md §3).

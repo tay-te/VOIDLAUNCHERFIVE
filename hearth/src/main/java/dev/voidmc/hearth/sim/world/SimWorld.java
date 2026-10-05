@@ -121,7 +121,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		this.index.data().setOps(this.ops);
 		var embody = rules.config.embody();
 		this.spatial = new SpatialIndex(embody.radius() + embody.hysteresis(), rules.config.atlas().guardMargin());
-		this.applier = new ChunkApplier(level, this.spatial, blueprints(), this.probe);
+		this.applier = new ChunkApplier(level, this.spatial, blueprints(), this.probe, () -> !INLINE_BLUEPRINTS);
 		this.footprints = new LodFootprints(this.atlas, this.probe);
 		LOG.info("hearth: {} uses the {} probe; {} structure sets avoided", level.dimension().identifier(), this.probe.describe(),
 			avoidance == null ? 0 : avoidance.setCount());
@@ -707,6 +707,22 @@ public final class SimWorld implements HearthWorld, SimContext {
 	@Override
 	public boolean inWorld() {
 		return true;
+	}
+
+	/**
+	 * {@code -Dhearth.sim.inlineBlueprints=true} makes every blueprint on the server thread as it is needed (as before the
+	 * background makers), for comparing the two.
+	 */
+	public static final boolean INLINE_BLUEPRINTS = Boolean.getBoolean("hearth.sim.inlineBlueprints");
+
+	@Override
+	public boolean budgetsEveryPlannerCall() {
+		return !this.fastForward;
+	}
+
+	@Override
+	public boolean deferBlueprints() {
+		return !INLINE_BLUEPRINTS && !this.fastForward && this.server.server().isSameThread();
 	}
 
 	/** Caravans on the roads of this world. */

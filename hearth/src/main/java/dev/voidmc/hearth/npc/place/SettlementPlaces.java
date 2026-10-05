@@ -141,14 +141,19 @@ public final class SettlementPlaces {
 		if (plot.state() != PlotState.BUILT && plot.state() != PlotState.ABANDONED) {
 			return new PlotPois(stamp, List.of(), false);
 		}
+		if (!BlueprintSource.ready(level, settlement, plot)) {
+			// being made in the background: known after a later refresh
+			return null;
+		}
 		Blueprint blueprint = BlueprintSource.of(level, settlement, plot);
 		if (blueprint != null && !blueprint.pois().isEmpty()) {
 			return new PlotPois(stamp, List.copyOf(blueprint.pois()), false);
 		}
-		if (!takeScanBudget(level)) {
+		BoundingBox box = blueprint != null ? blueprint.bounds() : bounds(plot.spec());
+		if (!PoiScanner.loaded(level, box) || !takeScanBudget(level)) {
+			// (a scan reaching into a chunk not loaded would make the server load it in the tick: later, when it is)
 			return null;
 		}
-		BoundingBox box = blueprint != null ? blueprint.bounds() : bounds(plot.spec());
 		return new PlotPois(stamp, List.copyOf(PoiScanner.scan(level, box)), true);
 	}
 

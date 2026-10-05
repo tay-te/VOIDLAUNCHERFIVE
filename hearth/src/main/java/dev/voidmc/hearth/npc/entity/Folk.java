@@ -334,6 +334,22 @@ public class Folk extends PathfinderMob {
 
 	// ---------------------------------------------------------------- behaviour
 
+	/** Server time spent ticking folk entities (the whole entity tick: AI, pathing, movement), for the dev harness and tours. */
+	public static final java.util.concurrent.atomic.LongAdder SERVER_TICK_NANOS = new java.util.concurrent.atomic.LongAdder();
+	public static final java.util.concurrent.atomic.LongAdder SERVER_TICKS = new java.util.concurrent.atomic.LongAdder();
+
+	@Override
+	public void tick() {
+		if (this.level().isClientSide()) {
+			super.tick();
+			return;
+		}
+		long t0 = System.nanoTime();
+		super.tick();
+		SERVER_TICK_NANOS.add(System.nanoTime() - t0);
+		SERVER_TICKS.increment();
+	}
+
 	@Override
 	protected void customServerAiStep(ServerLevel level) {
 		super.customServerAiStep(level);

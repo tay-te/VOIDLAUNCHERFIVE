@@ -57,6 +57,9 @@ import net.minecraft.world.entity.Mob;
  * raising their town block by block, conversation, quest markers and the dangers of the night. See docs/FOLK.md.
  */
 public final class NpcModule {
+	/** Server time the embodiment manager takes (spawning, folding, selecting who is embodied), for the dev harness and tours. */
+	public static final java.util.concurrent.atomic.LongAdder EMBODIMENT_NANOS = new java.util.concurrent.atomic.LongAdder();
+
 	private static NpcConfig config = NpcConfig.DEFAULTS;
 	private static final EmbodimentManager EMBODIMENT = new EmbodimentManager();
 	private static final Conversations CONVERSATIONS = new Conversations();
@@ -147,7 +150,9 @@ public final class NpcModule {
 			NpcTime.setServer(null);
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			long t0 = System.nanoTime();
 			EMBODIMENT.tick(server);
+			EMBODIMENT_NANOS.add(System.nanoTime() - t0);
 			CARAVANS.tick(server);
 			if (server.getTickCount() % 100 == 0) {
 				CONVERSATIONS.tick();

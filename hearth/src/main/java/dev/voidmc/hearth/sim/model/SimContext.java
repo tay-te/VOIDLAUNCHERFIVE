@@ -122,6 +122,25 @@ public interface SimContext {
 	 * Whether this settlement's numbers have a world behind them: a live settlement owes the world the trees its foresters
 	 * took from natural woods (felled where chunks load); a history writes only its plots.
 	 */
+	/**
+	 * Whether blueprints the clock and the applier need may be made in the background ({@code BlueprintService#prepare}):
+	 * live, on the server thread, not fast-forwarding. Then a new plot whose blueprint is not ready waits a few ticks for
+	 * it instead of the tick waiting (a castle takes up to a second to draw and compile). Histories, fast-forwards and
+	 * tests make them inline, so their results do not depend on timing.
+	 */
+	default boolean deferBlueprints() {
+		return false;
+	}
+
+	/**
+	 * Whether planner calls are budgeted ({@link #tryPlannerCall}) every one, roads included: live, not fast-forwarding. A
+	 * large town's {@code planner.next} takes tens of milliseconds, so the roads the clock asks for in a row (a lane, then
+	 * the houses along it) are spread over ticks rather than taken in one step. Histories and fast-forwards chain them.
+	 */
+	default boolean budgetsEveryPlannerCall() {
+		return false;
+	}
+
 	default boolean inWorld() {
 		return false;
 	}

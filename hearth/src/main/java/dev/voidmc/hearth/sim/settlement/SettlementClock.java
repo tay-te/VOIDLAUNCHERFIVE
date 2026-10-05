@@ -18,7 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.RandomSource;
 import org.jspecify.annotations.Nullable;
 
@@ -53,22 +52,35 @@ public final class SettlementClock {
 		}
 		long start = k.simTick;
 		long end = Math.min(target, k.simTick + r.maxCatchUpTicks);
+		long t0 = System.nanoTime();
+		long[] phase = new long[4];
 		Workforce wf = Workforce.of(s, c);
 		while (k.simTick < end) {
 			long dayEnd = (Math.floorDiv(k.simTick, SimRules.DAY) + 1) * SimRules.DAY;
 			long sliceEnd = Math.min(end, dayEnd);
 			double days = (sliceEnd - k.simTick) / (double) SimRules.DAY;
+			long a = System.nanoTime();
 			Production.produce(s, wf, days, r, c);
+			long b = System.nanoTime();
 			construct(s, wf, days, r, c);
+			long d = System.nanoTime();
+			phase[0] += b - a;
+			phase[1] += d - b;
 			k.simTick = sliceEnd;
 			if (sliceEnd == dayEnd) {
 				daily(s, r, c, Math.floorDiv(dayEnd, SimRules.DAY));
 				wf = Workforce.of(s, c);
 			}
+			long e = System.nanoTime();
+			phase[2] += e - d;
 			grow(s, wf, r, c);
+			phase[3] += System.nanoTime() - e;
 		}
 		s.markDirty();
 		c.dirty(s);
+		if (c.eventWorld() != null) {
+			WorstStep.offer(s, System.nanoTime() - t0, phase);
+		}
 		return end - start;
 	}
 
@@ -125,6 +137,10 @@ public final class SettlementClock {
 				}
 				if (s.embodied() && p.lastEmbodiedAdvance != Long.MIN_VALUE && now - p.lastEmbodiedAdvance < EMBODIED_HOLD) {
 					// an embodied builder is on it: abstract labour goes elsewhere
+					continue;
+				}
+				if (!s.factsReady(p)) {
+					// its blueprint is being made in the background (live): its builders go to the others meanwhile
 					continue;
 				}
 				PlotFacts f = s.facts(p);
@@ -188,7 +204,7 @@ public final class SettlementClock {
 			if (working >= want) {
 				return;
 			}
-			if (!p.isActive() || Extraction.is(s, p)) {
+			if (!p.isActive() || Extraction.is(s, p) || !s.factsReady(p)) {
 				continue;
 			}
 			PlotFacts f = s.facts(p);
@@ -260,7 +276,7 @@ public final class SettlementClock {
 		int roadsInARow = 0;
 		for (int tries = 0; tries < 4 && active < maxConcurrent(builders, r); tries++) {
 			boolean afterRoad = roadsInARow > 0 && roadsInARow <= MAX_ROADS_IN_A_ROW;
-			if (!afterRoad && !c.tryPlannerCall()) {
+			if ((!afterRoad || c.budgetsEveryPlannerCall()) && !c.tryPlannerCall()) {
 				return;
 			}
 			SettlementPlanner.GrowthProject project;
@@ -295,6 +311,32 @@ public final class SettlementClock {
 		return spec.archetype().getPath().startsWith("infra/");
 	}
 
+	/** The slowest live step since the last reset, and where its time went (for the dev harness and the tours). */
+	public static final class WorstStep {
+		private static long worst;
+		private static String line = "none";
+
+		private WorstStep() {
+		}
+
+		static synchronized void offer(SimSettlement s, long nanos, long[] phase) {
+			if (nanos > worst) {
+				worst = nanos;
+				line = String.format(java.util.Locale.ROOT, "%s (%d souls, %d plots): %.2f ms = production %.2f, construction %.2f, the day %.2f, growth %.2f",
+					s.name(), s.population(), s.plots().size(), nanos / 1e6, phase[0] / 1e6, phase[1] / 1e6, phase[2] / 1e6, phase[3] / 1e6);
+			}
+		}
+
+		public static synchronized String line() {
+			return line;
+		}
+
+		public static synchronized void reset() {
+			worst = 0;
+			line = "none";
+		}
+	}
+
 	/** How long {@code planner.next} takes: live calls (the server thread) and history calls (atlas workers) apart. */
 	public static final class PlannerTimings {
 		public static final java.util.concurrent.atomic.LongAdder LIVE_CALLS = new java.util.concurrent.atomic.LongAdder();
@@ -305,8 +347,39 @@ public final class SettlementClock {
 			new java.util.concurrent.atomic.LongAdder(), new java.util.concurrent.atomic.LongAdder(), new java.util.concurrent.atomic.LongAdder()};
 		public static final java.util.concurrent.atomic.LongAdder HISTORY_CALLS = new java.util.concurrent.atomic.LongAdder();
 		public static final java.util.concurrent.atomic.LongAdder HISTORY_NANOS = new java.util.concurrent.atomic.LongAdder();
+		/** The last live calls' times (a ring), for the median and the 90th percentile. */
+		private static final long[] RECENT = new long[4096];
+		private static int recentCount;
 
 		private PlannerTimings() {
+		}
+
+		/** Median, 90th percentile and maximum of the recent live calls, in ms (zeros if none). */
+		public static synchronized double[] percentiles() {
+			int n = Math.min(recentCount, RECENT.length);
+			if (n == 0) {
+				return new double[3];
+			}
+			long[] copy = java.util.Arrays.copyOf(RECENT, n);
+			java.util.Arrays.sort(copy);
+			return new double[]{copy[n / 2] / 1e6, copy[Math.min(n - 1, (int) (n * 0.9))] / 1e6, copy[n - 1] / 1e6};
+		}
+
+		public static synchronized void reset() {
+			recentCount = 0;
+			LIVE_CALLS.reset();
+			LIVE_NANOS.reset();
+			LIVE_MAX.set(0);
+			for (var b : LIVE_BUCKETS) {
+				b.reset();
+			}
+		}
+
+		private static synchronized void remember(long nanos) {
+			RECENT[recentCount++ % RECENT.length] = nanos;
+			if (recentCount >= 2 * RECENT.length) {
+				recentCount -= RECENT.length;
+			}
 		}
 
 		static void record(boolean live, long nanos) {
@@ -315,6 +388,7 @@ public final class SettlementClock {
 				LIVE_NANOS.add(nanos);
 				LIVE_MAX.accumulateAndGet(nanos, Math::max);
 				LIVE_BUCKETS[nanos < 1_000_000 ? 0 : nanos < 5_000_000 ? 1 : nanos < 20_000_000 ? 2 : 3].increment();
+				remember(nanos);
 			} else {
 				HISTORY_CALLS.increment();
 				HISTORY_NANOS.add(nanos);
@@ -748,8 +822,7 @@ public final class SettlementClock {
 	}
 
 	private static @Nullable String stationOf(SimPlot p) {
-		CompoundTag params = p.spec().params();
-		return params.contains("station") ? params.getStringOr("station", "") : null;
+		return p.spec().hasParam("station") ? p.spec().paramString("station", "") : null;
 	}
 
 	private static @Nullable String headOf(SimPlot p) {

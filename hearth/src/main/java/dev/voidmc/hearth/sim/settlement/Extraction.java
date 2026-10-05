@@ -45,7 +45,7 @@ public final class Extraction {
 			if (pool <= 0.5) {
 				break;
 			}
-			if (!p.isActive()) {
+			if (!p.isActive() || !s.factsReady(p)) {
 				continue;
 			}
 			SimData.Extraction x = data.extraction(p.spec().archetype());
