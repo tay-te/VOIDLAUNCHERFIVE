@@ -124,12 +124,14 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 	 * @param villageClearance   chunks to keep from any structure set holding a {@code #minecraft:village} structure
 	 * @param structureClearance more structure sets to avoid, with their clearance in chunks (Expanse landmarks)
 	 * @param guardMargin        trees and boulders keep this many blocks off planned plots and roads
+	 * @param treeReach          a tree's trunk keeps this many blocks more off them, so its crown does not spread over a
+	 *                           square or a lane (a crown reaches 3-7 blocks from its trunk)
 	 * @param adoptMargin        a historic settlement is adopted when a chunk within this of its bounds loads
 	 * @param planCache          region plans kept in memory (each is recomputed on demand, deterministically)
 	 */
 	public record Atlas(boolean enabled, double density, int siteMargin, int maxAgeDays, double ageSkew, int villageClearance,
-		Map<String, Integer> structureClearance, int guardMargin, int adoptMargin, int planCache) {
-		public static final Atlas DEFAULTS = new Atlas(true, 0.4, 300, 400, 2.2, 20, defaultClearance(), 3, 96, 256);
+		Map<String, Integer> structureClearance, int guardMargin, int treeReach, int adoptMargin, int planCache) {
+		public static final Atlas DEFAULTS = new Atlas(true, 0.4, 300, 400, 2.2, 20, defaultClearance(), 3, 5, 96, 256);
 		public static final Codec<Atlas> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Atlas::enabled),
 			Codec.doubleRange(0, 1).optionalFieldOf("density", DEFAULTS.density).forGetter(Atlas::density),
@@ -140,6 +142,7 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 			Codec.unboundedMap(Codec.STRING, Codec.intRange(0, 64)).optionalFieldOf("structure_clearance", DEFAULTS.structureClearance)
 				.forGetter(Atlas::structureClearance),
 			Codec.intRange(0, 16).optionalFieldOf("guard_margin", DEFAULTS.guardMargin).forGetter(Atlas::guardMargin),
+			Codec.intRange(0, 12).optionalFieldOf("tree_reach", DEFAULTS.treeReach).forGetter(Atlas::treeReach),
 			Codec.intRange(0, 512).optionalFieldOf("adopt_margin", DEFAULTS.adoptMargin).forGetter(Atlas::adoptMargin),
 			Codec.intRange(8, 65536).optionalFieldOf("plan_cache", DEFAULTS.planCache).forGetter(Atlas::planCache)
 		).apply(i, Atlas::new));

@@ -23,7 +23,7 @@ class AtlasTest {
 		SimConfig d = SimConfig.DEFAULTS;
 		SimConfig.Atlas a = d.atlas();
 		SimConfig.Atlas everywhere = new SimConfig.Atlas(true, density, a.siteMargin(), 160, a.ageSkew(), a.villageClearance(), a.structureClearance(),
-			a.guardMargin(), a.adoptMargin(), a.planCache());
+			a.guardMargin(), a.treeReach(), a.adoptMargin(), a.planCache());
 		return new SimRules(new SimConfig(d.dimensions(), false, d.embody(), d.clock(), d.applier(), everywhere, d.labour(), d.production(), d.population(),
 			d.storage(), d.founding(), d.daughters(), d.resources()));
 	}
