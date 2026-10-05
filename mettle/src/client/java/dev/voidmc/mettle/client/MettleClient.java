@@ -7,6 +7,7 @@ import dev.voidmc.mettle.character.signature.SignaturePerks;
 import dev.voidmc.mettle.client.character.BackgroundPickerScreen;
 import dev.voidmc.mettle.client.character.CharacterScreen;
 import dev.voidmc.mettle.client.heavy.HeavyWeaponsClient;
+import dev.voidmc.mettle.client.marksmanship.MarksmanshipClient;
 import dev.voidmc.mettle.client.overlay.MettleState;
 import dev.voidmc.mettle.client.overlay.OverlayBridge;
 import dev.voidmc.mettle.core.CharacterStore;
@@ -35,6 +36,7 @@ public final class MettleClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		// Every client that can see a thrown axe needs its renderer, or the game crashes when one is in view.
 		HeavyWeaponsClient.init();
+		MarksmanshipClient.init();
 		characterKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.mettle.character", InputConstants.KEY_K,
 			KeyMapping.Category.register(Mettle.id("character"))));
 
