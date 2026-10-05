@@ -432,7 +432,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 			double zoom = span > 700 ? 0.5 : span > 350 ? 1 : 2;
 			this.mapShot(context, "sighted_and_discovered", (ax + bx) / 2, (az + bz) / 2, zoom, MapPanel.Kind.SURFACE);
 		}
-		this.mapShot(context, "region_labels", this.spawn.getX(), this.spawn.getZ(), 0.125, MapPanel.Kind.SURFACE);
+		this.mapShot(context, "region_labels", this.spawn.getX(), this.spawn.getZ(), 0.5, MapPanel.Kind.SURFACE);
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 	}
 

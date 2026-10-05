@@ -97,8 +97,14 @@ public final class MarkerPainter {
 				boolean minor = m.tier() == Tier.MINOR && m.style() == Marker.Style.STRUCTURE;
 				float r = (minor ? 8 : 13) * s;
 				float rx = isCluster(m) ? clusterWidth(ui, m.name()) / 2 : r;
-				(minor ? small : taken).add(new float[]{ax - rx, ay - r, ax + rx, ay + r});
+				(minor ? small : taken).add(m.style() == Marker.Style.STRUCTURE ? new float[]{ax - rx, ay - r, ax + rx, ay + r} : box(m, ax, ay));
 			}
+		}
+		// and the player's own arrow, with its halo
+		float selfX = f.screenX(playerX, playerZ);
+		float selfY = f.screenY(playerX, playerZ);
+		if (f.inside(selfX, selfY)) {
+			taken.add(new float[]{selfX - 20, selfY - 20, selfX + 20, selfY + 20});
 		}
 		// tiles and their labels: minors under majors, labels of majors placed before those of minors
 		List<Marker> tiles = new ArrayList<>();
@@ -198,8 +204,8 @@ public final class MarkerPainter {
 	}
 
 	/**
-	 * The markers as they can be shown without any two tiles touching: waypoints, players, settlements and the selected
-	 * or hovered place first; then the major landmarks (structures before peaks, lakes and waterfalls, nearest first), a
+	 * The markers as they can be shown without any two tiles touching: players and the selected or hovered place first;
+	 * then waypoints and settlements; then the major landmarks (structures before peaks, lakes and waterfalls, nearest first), a
 	 * landmark that would touch one already down joining the minor places; then the minor places and the "?"s, nearest
 	 * first. Zoomed out (below 1:1) those are gathered on a screen grid (56 px from 1:4 out, 40 px in to 1:1): a cell with one place shows it, a cell
 	 * with more shows a count tile at their middle. Zoomed in, a place shows unless it would touch another. Whatever
@@ -212,6 +218,7 @@ public final class MarkerPainter {
 		List<float[]> taken = new ArrayList<>();
 		List<Marker> majors = new ArrayList<>();
 		List<Marker> pool = new ArrayList<>();
+		List<Marker> pins = new ArrayList<>();
 		for (Marker m : markers) {
 			if (m.style() == Marker.Style.LABEL) {
 				out.add(m);
@@ -223,7 +230,15 @@ public final class MarkerPainter {
 				continue;
 			}
 			boolean pinned = m.id().equals(selected) || m.id().equals(hovered);
-			if (m.style() != Marker.Style.STRUCTURE || pinned) {
+			if (m.style() == Marker.Style.WAYPOINT || m.style() == Marker.Style.SETTLEMENT) {
+				if (pinned) {
+					out.add(m);
+					float[] b = box(m, ax, ay);
+					free(taken, b[0], b[1], b[2], b[3], true);
+				} else {
+					pins.add(m);
+				}
+			} else if (m.style() != Marker.Style.STRUCTURE || pinned) {
 				out.add(m);
 				float[] b = box(m, ax, ay);
 				free(taken, b[0], b[1], b[2], b[3], true);
@@ -231,6 +246,16 @@ public final class MarkerPainter {
 				pool.add(m);
 			} else {
 				majors.add(m);
+			}
+		}
+		// waypoints and settlements, nearest first: one that would touch another joins the count tiles
+		pins.sort(Comparator.comparingDouble(m -> m.distanceTo(px, pz)));
+		for (Marker m : pins) {
+			float[] b = box(m, f.screenX(m.x(), m.z()), f.screenY(m.x(), m.z()));
+			if (free(taken, b[0], b[1], b[2], b[3], false)) {
+				out.add(m);
+			} else {
+				pool.add(m);
 			}
 		}
 		majors.sort(Comparator.comparingInt(MarkerPainter::landmarkRank).thenComparingDouble(m -> m.distanceTo(px, pz)));
