@@ -6,5 +6,10 @@
   "hearth.archetype.work.chandler": "Chandler",
   "hearth.sign.chandler": "Chandler",
   "hearth.archetype.work.dye_works": "Dye Works",
-  "hearth.sign.dye_works": "Dyer"
+  "hearth.sign.dye_works": "Dyer",
+  "hearth.archetype.work.paper_mill": "Paper Mill",
+  "hearth.sign.paper_mill": "Paper Mill",
+  "hearth.archetype.work.apiary": "Apiary",
+  "hearth.archetype.commerce.counting_house": "Counting House",
+  "hearth.sign.counting_house": "Counting House"
 }

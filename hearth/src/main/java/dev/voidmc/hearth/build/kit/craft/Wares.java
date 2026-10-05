@@ -132,15 +132,14 @@ public final class Wares {
 	}
 
 	/**
-	 * A merchant's balance on a counter at (x, y, z): a post with a beam across its head and the two pans hanging on
-	 * chains either side ({@code along} the beam), gold pans on a gentleman's counter, iron on a trader's.
+	 * A merchant's balance on a counter at (x, y, z): its post, and the two pans either side ({@code along} the beam)
+	 * resting on the counter, gold pans on a gentleman's counter, iron on a trader's.
 	 */
 	public static void scales(Draft d, int x, int y, int z, Direction along, boolean gold) {
 		Mat post = d.mat(Role.FURNITURE);
 		Block pan = gold ? Blocks.LIGHT_WEIGHTED_PRESSURE_PLATE : Blocks.HEAVY_WEIGHTED_PRESSURE_PLATE;
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			d.set(x, y, z, post.has(Form.FENCE) ? post.fence() : post.slab(SlabType.BOTTOM));
-			d.set(x, y + 1, z, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
 			for (int k : new int[]{-1, 1}) {
 				int px = x + Dirs.dx(along) * k;
 				int pz = z + Dirs.dz(along) * k;

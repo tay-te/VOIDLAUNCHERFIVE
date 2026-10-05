@@ -217,6 +217,31 @@ class CraftArchetypesTest {
 	}
 
 	@Test
+	void theCountingHouseKeepsAStrongboxAndServesOverACounter() {
+		ArchetypeInfo info = SERVICE.archetype(Hearth.id("commerce/counting_house"));
+		if (info == null) {
+			return;
+		}
+		List<String> problems = new ArrayList<>();
+		SyntheticTerrain probe = SyntheticTerrain.named("flat", 5);
+		for (Culture c : Culture.values()) {
+			for (int s = 0; s < 3; s++) {
+				PlotSpec spec = spec(info, c, 1300L + s * 41 + c.ordinal(), FACINGS[(s + c.ordinal()) % 4], probe, s == 2 ? info.minHeight()
+					: info.maxHeight(), new CompoundTag());
+				BlueprintImpl bp = SERVICE.compiled(spec, probe);
+				String where = c.getSerializedName() + " s" + s + " " + spec.frontage() + "x" + spec.depth();
+				if (bp.pois().stream().noneMatch(p -> p.type() == PoiType.STRONGBOX)) {
+					problems.add(where + ": no strongbox");
+				}
+				if (spec.frontage() >= 8 && bp.pois().stream().noneMatch(p -> p.type() == PoiType.COUNTER)) {
+					problems.add(where + ": no counter");
+				}
+			}
+		}
+		assertTrue(problems.isEmpty(), problems.size() + " problems:\n  " + String.join("\n  ", problems));
+	}
+
+	@Test
 	void noStageAsksForMoreThanACartTrainBrings() {
 		List<String> problems = new ArrayList<>();
 		SyntheticTerrain probe = SyntheticTerrain.named("hills", 9);
