@@ -17,7 +17,6 @@ import dev.voidmc.hearth.build.kit.industry.Stack;
 import dev.voidmc.hearth.build.kit.industry.Timber;
 import dev.voidmc.hearth.build.kit.industry.Pois;
 import dev.voidmc.hearth.build.kit.industry.Works;
-import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Props;
 import dev.voidmc.hearth.build.kit.trade.Shed;
@@ -170,7 +169,8 @@ public final class BrickKiln implements Archetype {
 		if (Works.in(d, signX, 0)) {
 			Signs.post(d, signX, 0, 0, kilnLeft ? Dirs.RIGHT : Dirs.LEFT, 3, "brick_kiln", "Brickworks");
 		}
-		Lighting.post(d, ex + (kilnLeft ? 2 : -2), 0, 1);
+		Works.lampPost(d, ex + (kilnLeft ? 2 : -2), 0, 1);
+		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{w / 2, 0, 1}, new int[]{w / 2, 0, 0});
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top, Math.max(shedTop, kiln.top())) + 1);
 	}

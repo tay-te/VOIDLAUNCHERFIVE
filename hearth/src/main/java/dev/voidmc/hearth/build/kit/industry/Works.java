@@ -185,4 +185,66 @@ public final class Works {
 	public static Block sacking(Draft d, boolean pale) {
 		return Blocks.WOOL.pick(pale ? net.minecraft.world.item.DyeColor.WHITE : net.minecraft.world.item.DyeColor.BROWN);
 	}
+
+	/** Whether (x, z) is the outside cell of a door drawn so far (or one of its sides, with {@code margin} 1). */
+	public static boolean atDoor(Draft d, int x, int z, int margin) {
+		for (int[] e : d.entrances()) {
+			if (e[2] >= 0 && Math.abs(e[0] - x) <= margin && Math.abs(e[2] - z) <= margin) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The culture's yard light standing at (x, y, z), or at the nearest free cell round it that is not in front of a
+	 * door (a post on a doorstep shuts the door). Answers whether one went in.
+	 */
+	public static boolean lampPost(Draft d, int x, int y, int z) {
+		for (int r = 0; r <= 2; r++) {
+			for (int dz = -r; dz <= r; dz++) {
+				for (int dx = -r; dx <= r; dx++) {
+					if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+						continue;
+					}
+					int px = x + dx;
+					int pz = z + dz;
+					if (in(d, px, pz) && !atDoor(d, px, pz, 0) && d.isEmpty(px, y, pz) && d.isEmpty(px, y + 1, pz) && d.isEmpty(px, y + 2, pz)
+						&& (d.isAbsent(px, y - 1, pz) || !d.isEmpty(px, y - 1, pz))) {
+						dev.voidmc.hearth.build.kit.light.Lighting.post(d, px, y, pz);
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Keeps every door's doorstep open: whatever a later heap, post or prop put in the outside cell of a door (feet and
+	 * head) is taken out again, and a lamp or fire left standing on nothing above it goes too. Call at the end of a draw.
+	 */
+	public static void keepDoors(Draft d) {
+		for (int[] e : d.entrances()) {
+			int x = e[0];
+			int y = e[1];
+			int z = e[2];
+			if (!in(d, x, z)) {
+				continue;
+			}
+			for (int yy = y; yy <= y + 1; yy++) {
+				// a prop placed there, or the hillside the levelling left standing
+				if (!d.isEmpty(x, yy, z) || d.isAbsent(x, yy, z) && yy < d.site().ground(x, z)) {
+					d.air(x, yy, z);
+				}
+			}
+			BlockState above = d.get(x, y + 2, z);
+			if (above != null && !above.isAir() && !above.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE,
+				net.minecraft.core.BlockPos.ZERO) && !(above.getBlock() instanceof net.minecraft.world.level.block.SlabBlock)
+				&& !(above.getBlock() instanceof net.minecraft.world.level.block.StairBlock)
+				&& !(above.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock)) {
+				d.air(x, y + 2, z);
+			}
+		}
+	}
 }

@@ -106,19 +106,26 @@ public final class Pois {
 	/**
 	 * Registers every gathered place whose cell is free, with headroom and something to stand on. Job types left without
 	 * any site get one at {@code fallback} cells in order (the first that is free), so every job a works offers has its
-	 * place. Returns how many were registered.
+	 * place; a works left with fewer than two job sites gets more round the first fallback cell, and one left without a
+	 * store gets a barrel there (the yard's crowding can squeeze them out). Returns how many were registered.
 	 */
 	public int commit(Draft d, JobType[] jobs, int[]... fallback) {
 		int n = 0;
+		int sites = 0;
+		int stores = 0;
+		List<Long> taken = new ArrayList<>();
 		List<JobType> have = new ArrayList<>();
 		for (Entry e : this.entries) {
 			if (!standable(d, e.x, e.y, e.z)) {
 				continue;
 			}
 			d.poi(e.type, e.x, e.y, e.z, e.facing, e.job);
+			taken.add(key(e.x, e.y, e.z));
 			if (e.job != null) {
 				have.add(e.job);
 			}
+			sites += e.type == PoiType.JOB_SITE ? 1 : 0;
+			stores += e.type == PoiType.STORAGE ? 1 : 0;
 			n++;
 		}
 		for (JobType j : jobs) {
@@ -126,14 +133,63 @@ public final class Pois {
 				continue;
 			}
 			for (int[] f : fallback) {
-				if (standable(d, f[0], f[1], f[2])) {
+				if (standable(d, f[0], f[1], f[2]) && !taken.contains(key(f[0], f[1], f[2]))) {
 					d.poi(PoiType.JOB_SITE, f[0], f[1], f[2], Dirs.BACK, j);
+					taken.add(key(f[0], f[1], f[2]));
+					sites++;
 					n++;
 					break;
 				}
 			}
 		}
+		if (fallback.length == 0 || jobs.length == 0) {
+			return n;
+		}
+		int[] a = fallback[0];
+		// round the first fallback cell, nearest first: more standing places, then a barrel against something solid
+		for (int r = 1; r <= 6 && (sites < 2 || stores < 1); r++) {
+			for (int dz = -r; dz <= r && (sites < 2 || stores < 1); dz++) {
+				for (int dx = -r; dx <= r && (sites < 2 || stores < 1); dx++) {
+					if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+						continue;
+					}
+					int x = a[0] + dx;
+					int z = a[2] + dz;
+					int y = a[1];
+					if (!standable(d, x, y, z) || taken.contains(key(x, y, z)) || Works.atDoor(d, x, z, 0)) {
+						continue;
+					}
+					if (sites < 2) {
+						d.poi(PoiType.JOB_SITE, x, y, z, Dirs.BACK, jobs[sites % jobs.length]);
+						taken.add(key(x, y, z));
+						sites++;
+						n++;
+						continue;
+					}
+					for (Direction toward : Direction.Plane.HORIZONTAL) {
+						int bx = x + Dirs.dx(toward);
+						int bz = z + Dirs.dz(toward);
+						boolean backed = !Works.in(d, bx + Dirs.dx(toward), bz + Dirs.dz(toward)) || d.isSolid(bx + Dirs.dx(toward), y, bz + Dirs.dz(toward));
+						if (backed && !taken.contains(key(bx, y, bz)) && !Works.atDoor(d, bx, bz, 1) && standable(d, bx, y, bz)) {
+							try (var s = d.stage(StageKind.INTERIOR)) {
+								d.set(bx, y, bz, States.facing(Blocks.BARREL, toward.getOpposite()));
+							}
+							d.poi(PoiType.STORAGE, x, y, z, toward, null);
+							taken.add(key(x, y, z));
+							taken.add(key(bx, y, bz));
+							stores++;
+							n++;
+							break;
+						}
+					}
+				}
+			}
+		}
 		return n;
+	}
+
+	private static long key(int x, int y, int z) {
+		return net.minecraft.core.BlockPos.asLong(x, y, z);
 	}
 
 	/** Whether a person can stand at (x, y, z): the cell and the one above free, something solid or ground below. */

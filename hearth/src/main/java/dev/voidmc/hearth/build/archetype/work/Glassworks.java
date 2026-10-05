@@ -204,6 +204,7 @@ public final class Glassworks implements Archetype {
 		if (si <= front.last() - 1) {
 			Signs.bracket(d, front, si, 3, "glassworks", "Glassworks");
 		}
+		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{w / 2, 0, 1}, new int[]{w / 2, 0, 0});
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top, hall.top) + 1);
 	}

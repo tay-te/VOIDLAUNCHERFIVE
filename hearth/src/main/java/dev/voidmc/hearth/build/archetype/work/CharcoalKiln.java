@@ -15,7 +15,6 @@ import dev.voidmc.hearth.build.kit.industry.Mound;
 import dev.voidmc.hearth.build.kit.industry.Timber;
 import dev.voidmc.hearth.build.kit.industry.Pois;
 import dev.voidmc.hearth.build.kit.industry.Works;
-import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.kit.trade.Props;
 import dev.voidmc.hearth.build.kit.trade.Signs;
 import dev.voidmc.hearth.build.kit.trade.Yard;
@@ -166,9 +165,10 @@ public final class CharcoalKiln implements Archetype {
 			int lz = hut.outZ() - 1;
 			int lx = lane + Dirs.dx(toHut);
 			if (lz >= 1 && Works.in(d, lx, lz) && d.isEmpty(lx, 0, lz) && d.isEmpty(lx, 1, lz)) {
-				Lighting.post(d, lx, 0, lz);
+				Works.lampPost(d, lx, 0, lz);
 			}
 		}
+		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{w / 2, 0, 1}, new int[]{w / 2, 0, 0});
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
 	}

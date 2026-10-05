@@ -156,8 +156,8 @@ public final class CaravanYard implements Archetype {
 		}
 		Yard.enclose(d, 0, 0, w - 1, dp - 1, gaps);
 		d.poi(PoiType.GATE, ex, 0, 0, Dirs.BACK);
-		Lighting.post(d, ex + 2, 0, 2);
-		Lighting.post(d, ex - 2, 0, wz0 - 3);
+		Works.lampPost(d, ex + 2, 0, 2);
+		Works.lampPost(d, ex - 2, 0, wz0 - 3);
 		// the yard's well-trodden way from the gate to the doors
 		List<int[]> way = new ArrayList<>();
 		for (int z = 0; z < wz0; z++) {
@@ -167,6 +167,7 @@ public final class CaravanYard implements Archetype {
 		if (posts == 0) {
 			pois.poi(PoiType.HITCHING_POST, ex + 1, 0, 2, Dirs.FRONT);
 		}
+		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{ex, 0, 2}, new int[]{ex, 0, 3});
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
 	}
@@ -254,6 +255,8 @@ public final class CaravanYard implements Archetype {
 				pois.poi(PoiType.HITCHING_POST, hx, 0, z + 2, left ? Dirs.LEFT : Dirs.RIGHT);
 			}
 		}
+		// a lamp under the shelter, so the beasts' corner is never dark
+		Lighting.room(d, x0, lz0, x1, z1, 0);
 	}
 
 	/** The booth: a counter at the window onto the yard, the ledger on its lectern, a strongbox, a stool. */

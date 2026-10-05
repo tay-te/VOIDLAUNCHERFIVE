@@ -188,7 +188,8 @@ public final class Shipyard implements Archetype {
 		if (Works.in(d, sgx, 0)) {
 			Signs.post(d, sgx, 0, 0, loftLeft ? Dirs.RIGHT : Dirs.LEFT, 3, "shipyard", "Shipwright");
 		}
-		Lighting.post(d, slipX + (loftLeft ? halfBeam + 2 : -halfBeam - 2), 0, Math.min(zw - 2, zBow + 5));
+		Works.lampPost(d, slipX + (loftLeft ? halfBeam + 2 : -halfBeam - 2), 0, Math.min(zw - 2, zBow + 5));
+		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{ex, 0, 1}, new int[]{ex, 0, 2});
 		Groundwork.clear(d, 0, 0, w - 1, Math.min(dp, zw + 1) - 1, Math.min(d.maxHeight() - 1, top + 1));
 	}

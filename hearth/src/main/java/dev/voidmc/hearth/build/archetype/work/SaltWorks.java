@@ -179,7 +179,8 @@ public final class SaltWorks implements Archetype {
 		Garden.path(d, walk, 0);
 		int sx = lane + (lane < w / 2 ? 2 : -2);
 		Signs.post(d, sx, 0, 0, lane < w / 2 ? Dirs.LEFT : Dirs.RIGHT, 3, "salt_works", "Salt");
-		Lighting.post(d, lane + (lane < w / 2 ? -1 : 1), 0, hz0 - 1);
+		Works.lampPost(d, lane + (lane < w / 2 ? -1 : 1), 0, hz0 - 1);
+		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{lane, 0, hz0 - 1}, new int[]{lane, 0, 1});
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
 	}

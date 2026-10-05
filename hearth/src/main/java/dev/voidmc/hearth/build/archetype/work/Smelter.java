@@ -18,7 +18,6 @@ import dev.voidmc.hearth.build.kit.industry.Furnace;
 import dev.voidmc.hearth.build.kit.industry.Heap;
 import dev.voidmc.hearth.build.kit.industry.Pois;
 import dev.voidmc.hearth.build.kit.industry.Works;
-import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Mills;
 import dev.voidmc.hearth.build.kit.trade.Props;
@@ -78,6 +77,7 @@ public final class Smelter implements Archetype {
 		} else {
 			top = tower(d, pois, w, dp, ex);
 		}
+		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{w / 2, 0, 1}, new int[]{w / 2, 0, 0});
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 1);
 	}
@@ -267,7 +267,7 @@ public final class Smelter implements Archetype {
 		}
 		Yard.enclose(d, 0, 0, w - 1, 0, gaps, Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
 		Signs.post(d, ex + 2 <= w - 1 ? ex + 2 : ex - 2, 0, 0, ex + 2 <= w - 1 ? Dirs.LEFT : Dirs.RIGHT, 3, "smelter", "Ironworks");
-		Lighting.post(d, ex - 2 >= 0 ? ex - 2 : ex + 3, 0, 1);
+		Works.lampPost(d, ex - 2 >= 0 ? ex - 2 : ex + 3, 0, 1);
 		return tw.top();
 	}
 
@@ -362,8 +362,9 @@ public final class Smelter implements Archetype {
 			top = Math.max(top, h + 1);
 		}
 		// the shade over the working floor before the furnaces
-		int sz0 = Math.max(1, fz - 5);
-		int sz1 = fz - 3;
+		// (kept two rows back from the street, so its eaves stay in the plot)
+		int sz0 = Math.max(2, fz - 5);
+		int sz1 = Math.max(sz0 + 1, fz - 3);
 		if (Works.tradition(d) == Works.Tradition.EARTH) {
 			Adobe.ramada(d, 1, sz0, w - 2, sz1, 0);
 		} else {

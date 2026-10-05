@@ -177,8 +177,9 @@ public final class LoggingCamp implements Archetype {
 		}
 		int lx = ex + (houseLeft ? -1 : 1) * 3;
 		if (Works.in(d, lx, bz0 - 1) && d.isEmpty(lx, 0, bz0 - 1) && d.isEmpty(lx, 1, bz0 - 1)) {
-			Lighting.post(d, lx, 0, bz0 - 1);
+			Works.lampPost(d, lx, 0, bz0 - 1);
 		}
+		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{w / 2, 0, 1}, new int[]{w / 2, 0, 0});
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
 	}
