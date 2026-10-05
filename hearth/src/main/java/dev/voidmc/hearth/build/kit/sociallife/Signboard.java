@@ -40,6 +40,22 @@ public final class Signboard {
 		{"pilgrims_rest", "Pilgrims'", "Rest"}, {"wayfarers", "Wayfarers'", "House"}, {"st_jodocus", "Hospice of", "St Jodok"},
 		{"open_door", "The Open", "Door"}, {"staff_and_scrip", "Staff and", "Scrip"}, {"travellers", "Travellers'", "Hall"}};
 
+	/** Almshouse names. */
+	public static final String[][] ALMSHOUSES = {
+		{"holy_spirit", "Hospital of", "the Holy Spirit"}, {"st_elizabeth", "St Elizabeth's", "Almshouse"}, {"poor_brethren", "House of the", "Poor Brethren"}, {"widows", "The Widows'", "House"}};
+
+	/** Orphanage names. */
+	public static final String[][] ORPHANAGES = {
+		{"foundlings", "Foundlings'", "Home"}, {"st_nicholas", "St Nicholas's", "House"}, {"little_lambs", "The Little", "Lambs"}, {"good_shepherd", "The Good", "Shepherd"}};
+
+	/** Infirmary names. */
+	public static final String[][] INFIRMARIES = {
+		{"st_lazarus", "Hospital of", "St Lazarus"}, {"healing_hand", "The Healing", "Hand"}, {"st_roch", "St Roch's", "Infirmary"}, {"mercy", "House of", "Mercy"}};
+
+	/** Playhouse names. */
+	public static final String[][] PLAYHOUSES = {
+		{"swan", "The", "Swan"}, {"globe", "The", "Globe"}, {"rose", "The", "Rose"}, {"fortune", "The", "Fortune"}, {"red_lion", "The Red", "Lion"}};
+
 	/** A name drawn from a list by the {@code name} param or the seed: the four lines of a sign, a flourish above and below. */
 	public static List<String[]> name(Draft d, String kind, String[][] names) {
 		int n = d.param("name", (int) (Noise.unit(d.seed(), 0x7A5, 0, 0) * names.length));

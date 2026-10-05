@@ -57,12 +57,15 @@ public final class FestivalGround implements Archetype {
 		int ring = Math.clamp(Math.min(w, dp) / 8, 3, 5);
 
 		// --- the ground: broad terraces, the floor, the stage and the booths on one level
+		// the front rows meet the street; from there the walk climbs (or falls) by at most two a band of three rows to the
+		// green's one level, which is the ground's at the floor as far as that climb can reach
 		int[] level = Terraces.plan(d, 0, w - 1, 7, 2);
-		for (int z = Math.max(0, cz - ring - 2); z <= dp - 1; z++) {
-			level[z] = level[cz];
-		}
-		for (int z = 0; z < Math.max(0, cz - ring - 2); z++) {
-			level[z] = Math.clamp(level[z], level[cz] - 2, level[cz] + 2);
+		int front = Math.max(1, cz - ring - 2);
+		int reach = 2 * ((front - 1) / 3);
+		// (and low enough under the plot's height for the stage and its players)
+		int green = Math.clamp(level[cz], -reach, Math.max(0, Math.min(reach, maxH - 5)));
+		for (int z = 0; z < dp; z++) {
+			level[z] = z >= front ? green : Math.clamp(green, -2 * (z / 3), 2 * (z / 3));
 		}
 		Terraces.build(d, 0, w - 1, level);
 		Terraces.steps(d, cx - 1, 3, level);
@@ -102,44 +105,6 @@ public final class FestivalGround implements Archetype {
 		Fair.Centre centre = Fair.centre(d);
 		Fair.centrepiece(d, centre, cx, y, cz, maxH - y, Dirs.FRONT);
 		d.poi(PoiType.MEETING_POINT, cx, y, cz - 2, Dirs.BACK);
-		// lamps round the floor, on the diagonals just outside it
-		int lr = ring + 1;
-		for (int[] o : new int[][]{{-lr, -lr}, {lr, -lr}, {-lr, lr}, {lr, lr}}) {
-			int lx = cx + o[0] * 3 / 4;
-			int lz = cz + o[1] * 3 / 4;
-			if (inside(d, lx, lz) && Enclosure.ground(d, lx, y, lz)) {
-				Lighting.post(d, lx, y, lz);
-				taken[lx][lz] = true;
-			}
-		}
-
-		// banner posts at the floor's four quarters
-		int bp = 0;
-		for (Direction dir : Dirs.HORIZONTAL) {
-			int px = cx + Dirs.dx(Dirs.right(dir)) * (ring + 1) + Dirs.dx(dir) * (ring + 1);
-			int pz = cz + Dirs.dz(Dirs.right(dir)) * (ring + 1) + Dirs.dz(dir) * (ring + 1);
-			px = cx + (px - cx) * 2 / 3;
-			pz = cz + (pz - cz) * 2 / 3;
-			if (inside(d, px, pz) && !taken[px][pz] && Enclosure.ground(d, px, y, pz)) {
-				Fair.bannerPost(d, px, y, pz, Dirs.FRONT, bp++);
-				taken[px][pz] = true;
-			}
-		}
-		// benches round the floor facing in
-		for (Direction dir : Dirs.HORIZONTAL) {
-			if (dir == Dirs.FRONT || dir == Dirs.BACK) {
-				continue;
-			}
-			for (int k = -1; k <= 1; k += 2) {
-				int bx = cx + Dirs.dx(dir) * (ring + 2);
-				int bz = cz + k;
-				if (inside(d, bx, bz) && !taken[bx][bz] && Enclosure.ground(d, bx, y, bz)) {
-					Venue.bench(d, bx, y, bz, Dirs.BACK, 1, dir);
-					taken[bx][bz] = true;
-				}
-			}
-		}
-
 		// --- the stage behind the floor, facing it
 		int sw = w >= 27 ? 7 : 5;
 		int sdp = 3;
@@ -168,6 +133,44 @@ public final class FestivalGround implements Archetype {
 							taken[x][z] = true;
 						}
 					}
+				}
+			}
+		}
+
+		// lamps round the floor, on the diagonals just outside it
+		int lr = ring + 1;
+		for (int[] o : new int[][]{{-lr, -lr}, {lr, -lr}, {-lr, lr}, {lr, lr}}) {
+			int lx = cx + o[0] * 3 / 4;
+			int lz = cz + o[1] * 3 / 4;
+			if (inside(d, lx, lz) && !taken[lx][lz] && Enclosure.ground(d, lx, y, lz)) {
+				Lighting.post(d, lx, y, lz);
+				taken[lx][lz] = true;
+			}
+		}
+
+		// banner posts at the floor's four quarters
+		int bp = 0;
+		for (Direction dir : Dirs.HORIZONTAL) {
+			int px = cx + Dirs.dx(Dirs.right(dir)) * (ring + 1) + Dirs.dx(dir) * (ring + 1);
+			int pz = cz + Dirs.dz(Dirs.right(dir)) * (ring + 1) + Dirs.dz(dir) * (ring + 1);
+			px = cx + (px - cx) * 2 / 3;
+			pz = cz + (pz - cz) * 2 / 3;
+			if (inside(d, px, pz) && !taken[px][pz] && Enclosure.ground(d, px, y, pz)) {
+				Fair.bannerPost(d, px, y, pz, Dirs.FRONT, bp++);
+				taken[px][pz] = true;
+			}
+		}
+		// benches round the floor facing in
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (dir == Dirs.FRONT || dir == Dirs.BACK) {
+				continue;
+			}
+			for (int k = -1; k <= 1; k += 2) {
+				int bx = cx + Dirs.dx(dir) * (ring + 2);
+				int bz = cz + k;
+				if (inside(d, bx, bz) && !taken[bx][bz] && Enclosure.ground(d, bx, y, bz)) {
+					Venue.bench(d, bx, y, bz, Dirs.BACK, 1, dir);
+					taken[bx][bz] = true;
 				}
 			}
 		}

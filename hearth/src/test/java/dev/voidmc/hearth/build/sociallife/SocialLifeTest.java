@@ -59,6 +59,12 @@ class SocialLifeTest {
 		REQUIRED.put("commerce/tavern", EnumSet.of(PoiType.COUNTER, PoiType.MARKET_STALL, PoiType.STAGE, PoiType.GAMING_TABLE, PoiType.HEARTH, PoiType.SEAT,
 			PoiType.DOOR));
 		REQUIRED.put("civic/cemetery", EnumSet.of(PoiType.SEAT, PoiType.DOOR));
+		REQUIRED.put("commerce/hostel", EnumSet.of(PoiType.BED, PoiType.COUNTER, PoiType.TABLE, PoiType.SEAT, PoiType.HEARTH, PoiType.DOOR));
+		REQUIRED.put("civic/infirmary", EnumSet.of(PoiType.SICKBED, PoiType.STORAGE, PoiType.ALTAR, PoiType.HEARTH, PoiType.DOOR));
+		REQUIRED.put("civic/almshouse", EnumSet.of(PoiType.BED, PoiType.STORAGE, PoiType.TABLE, PoiType.SEAT, PoiType.HEARTH, PoiType.ALTAR, PoiType.DOOR));
+		REQUIRED.put("civic/orphanage", EnumSet.of(PoiType.BED, PoiType.LECTERN, PoiType.TABLE, PoiType.SEAT, PoiType.HEARTH, PoiType.STORAGE, PoiType.DOOR));
+		REQUIRED.put("commerce/thieves_den", EnumSet.of(PoiType.COUNTER, PoiType.STRONGBOX, PoiType.STORAGE, PoiType.HEARTH, PoiType.DOOR));
+		REQUIRED.put("civic/playhouse", EnumSet.of(PoiType.STAGE, PoiType.SEAT, PoiType.STORAGE, PoiType.MEETING_POINT, PoiType.DOOR));
 		REQUIRED.put("landscape/festival_ground", EnumSet.of(PoiType.STAGE, PoiType.MEETING_POINT, PoiType.TABLE, PoiType.SEAT));
 	}
 
