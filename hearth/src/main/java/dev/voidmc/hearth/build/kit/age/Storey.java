@@ -49,6 +49,20 @@ public final class Storey {
 		int bx = Math.min(d.frontage() - 1, h.x1 + m);
 		int az = Math.max(-1, h.z0 - m);
 		int bz = Math.min(d.depth() - 1, h.z1 + m);
+		// a roof that runs on past the margin is a wing's or a porch's: lifting part of it would leave the rest in the air
+		for (int x = h.x0 - m - 1; x <= h.x1 + m + 1; x++) {
+			for (int z = h.z0 - m - 1; z <= h.z1 + m + 1; z++) {
+				if (x > h.x0 - m - 1 && x < h.x1 + m + 1 && z > h.z0 - m - 1 && z < h.z1 + m + 1) {
+					continue;
+				}
+				for (int y = h.eave - 2; y <= h.top; y++) {
+					Draft.Cell c = d.cell(x, y, z);
+					if (c != null && !c.state().isAir() && c.stage() == StageKind.ROOF && !h.added.contains(Draft.key(x, y, z))) {
+						return Why.no("storey", "the roof runs on into a wing at " + x + "," + y + "," + z);
+					}
+				}
+			}
+		}
 		Long2ObjectOpenHashMap<Draft.Cell> lifted = new Long2ObjectOpenHashMap<>();
 		for (var e : d.cells().long2ObjectEntrySet()) {
 			long k = e.getLongKey();
@@ -165,11 +179,14 @@ public final class Storey {
 		// the way up: a ladder against a wall of the old top floor
 		int[] lad = ladderSpot(h, lastFloor, deck);
 		if (lad == null) {
-			return true;
+			// no way up: the storey is not built (the caller takes down what was begun)
+			return Why.no("storey", "no place for a ladder");
 		}
 		Stairs.ladder(d, lad[0], lad[1], lastFloor, deck, Dirs.HORIZONTAL[lad[2]]);
 		// a bedroom for the family that needed the room
-		Rooms.Room room = new Rooms.Room(h.x0 + 1, h.z0 + 1, h.x1 - 1, h.z1 - 1, deck + 1, 2);
+		// (where the old top floor stood at the eave, its things went up with the roof: the new room is the one left below)
+		int roomY = lastFloor >= h.eave ? lastFloor : deck + 1;
+		Rooms.Room room = new Rooms.Room(h.x0 + 1, h.z0 + 1, h.x1 - 1, h.z1 - 1, roomY, 2);
 		room.keep(lad[0], lad[1]);
 		for (Direction dd : Dirs.HORIZONTAL) {
 			room.keep(lad[0] + Dirs.dx(dd), lad[1] + Dirs.dz(dd));

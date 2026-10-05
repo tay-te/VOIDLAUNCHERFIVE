@@ -86,6 +86,26 @@ class AgeDebugTest {
 		}
 	}
 
+	/** {@code HEARTH_AGE_CHECK=archetype,culture,terrain,seed,facing,count}: the checks of one grown house, from additions 0 up. */
+	@Test
+	void check() {
+		String env = System.getenv("HEARTH_AGE_CHECK");
+		if (env == null) {
+			return;
+		}
+		String[] a = env.split(",");
+		ArchetypeInfo info = AgeSupport.SERVICE.archetype(Hearth.id(a[0]));
+		Culture c = Culture.valueOf(a[1].toUpperCase(java.util.Locale.ROOT));
+		SyntheticTerrain probe = SyntheticTerrain.named(a[2], 42);
+		for (int n = 0; n <= Integer.parseInt(a[5]); n++) {
+			CompoundTag params = new CompoundTag();
+			params.putInt(Accretion.PARAM, n);
+			PlotSpec spec = AgeSupport.spec(info, StyleRegistry.styleId(c), Long.parseLong(a[3]), Direction.byName(a[4]), probe, params);
+			var bp = AgeSupport.SERVICE.compiled(spec, probe);
+			System.out.println("additions " + n + ": " + dev.voidmc.hearth.build.check.BlueprintChecks.all(bp, probe));
+		}
+	}
+
 	@Test
 	void debug() {
 		String env = System.getenv("HEARTH_AGE_DEBUG");

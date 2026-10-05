@@ -7,6 +7,7 @@ import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Noise;
 import dev.voidmc.hearth.build.kit.age.HouseScan;
 import dev.voidmc.hearth.build.kit.age.LeanTo;
+import dev.voidmc.hearth.build.kit.age.Settle;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.util.ArrayList;
 import java.util.List;
@@ -168,19 +169,33 @@ public final class Accretion {
 				return;
 			}
 			it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Draft.Cell> before = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(d.cells());
+			List<Draft.LocalPoi> pois = new ArrayList<>(d.pois());
+			LongOpenHashSet outOfReach = dev.voidmc.hearth.build.kit.age.Reach.unreached(d);
 			boolean ok = add(d, h, k);
-			if (LOG) {
-				System.out.println("ACCRETION " + d.spec().archetype() + " " + d.spec().style() + " seed " + d.seed() + " " + k.key() + (ok ? " built" : " skipped"));
-			}
 			if (ok) {
-				done++;
-				made.add(k);
-				for (var e : d.cells().long2ObjectEntrySet()) {
-					if (before.get(e.getLongKey()) != e.getValue()) {
-						added.add(e.getLongKey());
+				Settle.around(d, Settle.changed(before, d));
+				// nobody's bed, bench or store may end up where no one can walk to it
+				for (long key : dev.voidmc.hearth.build.kit.age.Reach.unreached(d)) {
+					if (!outOfReach.contains(key)) {
+						ok = false;
+						if (LOG) {
+							System.out.println("ACCRETION " + k.key() + " leaves " + Draft.keyX(key) + "," + Draft.keyY(key) + "," + Draft.keyZ(key) + " out of reach");
+						}
+						break;
 					}
 				}
 			}
+			if (LOG) {
+				System.out.println("ACCRETION " + d.spec().archetype() + " " + d.spec().style() + " seed " + d.seed() + " " + k.key() + (ok ? " built" : " skipped"));
+			}
+			if (!ok) {
+				// what an addition began and could not finish is taken down again
+				Settle.restore(d, before, pois);
+				continue;
+			}
+			done++;
+			made.add(k);
+			added.addAll(Settle.changed(before, d));
 		}
 	}
 
