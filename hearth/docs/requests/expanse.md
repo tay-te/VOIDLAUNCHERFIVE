@@ -21,3 +21,6 @@ hedgerows on about half the plains (each shrub a nested placement the guard sees
 borders, structures in natural materials (the opal sandstone, prismite and lumen blocks still exist, so styles keep
 working), and the biome renames already handled in Hearth. Expanse will message before its inland terrain softening
 lands (it changes heights in temperate country, so the histories of regions not yet generated will change with it).
+
+
+**Status (2026-10-05, after merging main 7598143c):** 1 done — `ExpanseProbe.modelColumn` reads `lake`/`lakeEdge` beside the crater line. 2 done — `sim/terrain/ExpanseClaims` registers a `LandClaims.Claim` backed by `SimWorld.isPlanned` (thread-safe), from `SimModule.init` when Expanse is loaded.

@@ -62,6 +62,9 @@ public final class SimModule {
 		// the plain default; the npc module replaces it with folk who have personalities
 		HearthServices.setResidents(PlainResidents.INSTANCE);
 		ChunkLedgers.init();
+		if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("expanse")) {
+			dev.voidmc.hearth.sim.terrain.ExpanseClaims.register();   // Expanse's area features stay off planned land
+		}
 		// the land's and the roads' saved state: keys registered before any world loads
 		java.util.Objects.requireNonNull(dev.voidmc.hearth.sim.land.LandState.KEY);
 		java.util.Objects.requireNonNull(dev.voidmc.hearth.sim.trade.Caravans.KEY);

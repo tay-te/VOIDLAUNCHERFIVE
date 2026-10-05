@@ -91,6 +91,10 @@ public final class ExpanseProbe extends GeneratorProbe {
 			// a crater lake (or lava): not ground anyone builds on
 			water = Math.max(water, (int) Math.ceil(c.crater));
 		}
+		if (c.lake > -900 && c.lakeEdge > 0) {
+			// an ordinary lake in a lowland hollow or a tarn up high: its shore ring (lakeEdge < 0) is dry ground at lake + 1
+			water = Math.max(water, (int) c.lake + 1);
+		}
 		out.ground = ground;
 		out.water = water;
 		// the model's temperature is the biome source's climate parameter, not a biome temperature: leave it to the biome
