@@ -138,6 +138,7 @@ public final class Brewery implements Archetype {
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, d.maxHeight() - 2) + 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** The brewhouse: coppers on their fire, the stands on a bench, barrel racks along the back wall, the chest. */

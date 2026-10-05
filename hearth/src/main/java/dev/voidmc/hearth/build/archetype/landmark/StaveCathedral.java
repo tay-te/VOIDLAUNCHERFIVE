@@ -480,6 +480,7 @@ final class StaveCathedral {
 			Garden.snowBanks(d, cx - hg, zG0, cx + hg, zG1, 0, cx);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(top, Math.max(peak, ridge) + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Staves filling a gable end at row z under a roof, from over the plate to the roof's underside. */

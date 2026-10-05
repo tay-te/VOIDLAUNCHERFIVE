@@ -176,6 +176,7 @@ public final class Cottage implements Archetype {
 			Garden.snowBanks(d, x0, z0, x1, z1, 0, door);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roof.ridgeY + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 		return true;
 	}
 

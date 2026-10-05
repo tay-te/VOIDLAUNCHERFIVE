@@ -11,14 +11,14 @@
 		"beam": ["wood:minecraft:dark_oak"],
 		"floor": ["wood:minecraft:spruce"],
 		"ceiling": ["wood:minecraft:spruce"],
-		"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.12}],
-		"roof_trim": ["wood:minecraft:spruce"],
+		"roof": [{"m": "wood:minecraft:dark_oak", "w": 4}, {"m": "wood:minecraft:spruce", "w": 0.6}, {"m": "minecraft:moss_block", "patch": 0.12}],
+		"roof_trim": ["wood:minecraft:dark_oak"],
 		"gable": [{"m": "wood:minecraft:poplar", "w": 3}, {"m": "wood:minecraft:spruce", "w": 0.5}],
 		"window": ["wood:minecraft:pale_oak"],
 		"glass": ["minecraft:glass_pane"],
-		"door": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}],
-		"shutter": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:pale_oak", "w": 1}],
-		"fence": ["wood:minecraft:spruce"],
+		"door": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:pale_oak", "w": 1}],
+		"shutter": [{"m": "wood:minecraft:pale_oak", "w": 2}, {"m": "wood:minecraft:dark_oak", "w": 1}],
+		"fence": [{"m": "wood:minecraft:spruce", "w": 1}, {"m": "wood:minecraft:pale_oak", "w": 1}],
 		"railing": ["wood:minecraft:pale_oak"],
 		"path": [{"m": "minecraft:coarse_dirt", "w": 2}, {"m": "minecraft:dirt_path", "w": 2}, {"m": "minecraft:podzol", "w": 1}],
 		"paving": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
@@ -58,7 +58,7 @@
 		{"name": "falu red", "w": 1, "roles": {"wall": ["wood:minecraft:mangrove"], "gable": ["wood:minecraft:mangrove"], "frame": ["wood:minecraft:pale_oak"], "window": ["wood:minecraft:pale_oak"], "shutter": ["wood:minecraft:pale_oak"], "roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}]}, "habits": {"walls": {"kind": "plank"}}},
 		{"name": "weathered grey", "w": 0.8, "roles": {"wall": [{"m": "wood:minecraft:pale_oak", "w": 3}, {"m": "wood:minecraft:poplar", "log": "minecraft:stripped_poplar_log", "w": 1}], "gable": ["wood:minecraft:pale_oak"], "window": ["wood:minecraft:dark_oak"], "roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:dark_oak", "w": 1}]}},
 		{"name": "birch trim", "w": 1, "roles": {"window": ["wood:minecraft:birch"], "shutter": ["wood:minecraft:birch"], "door": ["wood:minecraft:birch"], "roof": [{"m": "wood:minecraft:spruce", "w": 1}]}},
-		{"name": "tarred logs", "w": 0.8, "roles": {"wall": ["wood:minecraft:dark_oak"], "gable": ["wood:minecraft:dark_oak"], "frame": ["wood:minecraft:spruce"], "roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "minecraft:moss_block", "patch": 0.15}]}}
+		{"name": "tarred logs", "w": 0.5, "roles": {"wall": ["wood:minecraft:dark_oak"], "gable": ["wood:minecraft:dark_oak"], "frame": ["wood:minecraft:spruce"], "roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "minecraft:moss_block", "patch": 0.15}]}}
 	],
 	"substyles": [
 		{
@@ -71,8 +71,8 @@
 				"frame": ["wood:minecraft:dark_oak"],
 				"beam": ["wood:minecraft:dark_oak"],
 				"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}],
-				"roof_trim": ["wood:minecraft:spruce"],
-				"window": ["wood:minecraft:spruce"],
+				"roof_trim": ["wood:minecraft:dark_oak"],
+				"window": ["wood:minecraft:pale_oak"],
 				"door": ["wood:minecraft:dark_oak"],
 				"shutter": ["wood:minecraft:dark_oak"],
 				"railing": ["wood:minecraft:spruce"],
@@ -88,7 +88,7 @@
 			},
 			"base_weight": 2,
 			"variants": [
-				{"name": "carved log hall", "w": 1, "roles": {"wall": [{"m": "wood:minecraft:spruce", "log": "minecraft:stripped_spruce_log"}]}, "habits": {"walls": {"kind": "log"}}}
+				{"name": "carved log hall", "w": 1, "roles": {"wall": [{"m": "wood:minecraft:poplar", "log": "minecraft:stripped_poplar_log", "w": 4}, {"m": "wood:minecraft:spruce", "log": "minecraft:stripped_spruce_log", "w": 0.5, "low": 1.5}], "gable": [{"m": "wood:minecraft:poplar", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}]}, "habits": {"walls": {"kind": "log"}}}
 			]
 		},
 		{

@@ -59,7 +59,9 @@ public final class HuntersLodge implements Archetype {
 		int w = d.frontage();
 		int dp = d.depth();
 		Habits h = d.habits();
-		RoofForm form = Hall.pick(d, FORMS);
+		boolean logs = dev.voidmc.hearth.build.kit.refine.LogWalls.suits(d);
+		// a log lodge sits under a steep gable turned to the clearing; elsewhere the culture's own roof
+		RoofForm form = logs ? Hall.pick(d, RoofForm.GABLE, RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.SALTBOX) : Hall.pick(d, FORMS);
 		boolean flat = form == RoofForm.FLAT;
 		int fz = dp >= 9 ? 3 : 2;
 		int side = w >= 9 ? 3 : 0;
@@ -76,7 +78,13 @@ public final class HuntersLodge implements Archetype {
 		int ex = Yard.entrance(d);
 		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
 		hall.ground(false).shell().openings(true);
-		Direction.Axis ridge = d.chance(0.35) ? Direction.Axis.Z : Direction.Axis.X;
+		if (logs) {
+			// round logs course on course, notched at the corners, their ends standing out
+			int[] wr = hall.rect(0);
+			dev.voidmc.hearth.build.kit.refine.LogWalls.lay(d, wr[0], wr[1], wr[2], wr[3], Math.max(0, h.walls().plinth()), hall.plateY(),
+				dev.voidmc.hearth.build.kit.refine.LogWalls.log(d));
+		}
+		Direction.Axis ridge = logs || d.chance(0.35) ? Direction.Axis.Z : Direction.Axis.X;
 		hall.roof(form, ridge, 2, null);
 		if (flat) {
 			hall.crown();
@@ -111,6 +119,7 @@ public final class HuntersLodge implements Archetype {
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Over the door: a skull mounted on the wall between two antlers of bleached wood. */
@@ -224,6 +233,19 @@ public final class HuntersLodge implements Archetype {
 					}
 					d.set(cx, 0, cz + 1, States.lit(Blocks.CAMPFIRE, true).trySetValue(
 						net.minecraft.world.level.block.state.properties.BlockStateProperties.SIGNAL_FIRE, false));
+				}
+				// a little roof of boards over the rack keeps the rain off the meat; the smoke finds its way out under it
+				Mat boards = d.mat(Role.ROOF);
+				if (boards.has(dev.voidmc.hearth.build.style.Form.SLAB) && d.maxHeight() > 4) {
+					try (var s = d.stage(StageKind.ROOF)) {
+						for (int z = cz - 1; z <= cz + 3; z++) {
+							for (int x = cx - 1; x <= cx + 1; x++) {
+								if (d.allowed(x, 3, z) && d.isAbsent(x, 3, z) && x >= 0 && x < w && z >= 0 && z < dp) {
+									d.set(x, 3, z, boards.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
+								}
+							}
+						}
+					}
 				}
 				if (!Props.site(d, cx + (left ? 1 : -1), 0, cz + 1, left ? Dirs.LEFT : Dirs.RIGHT, JobType.HUNTER)) {
 					Props.site(d, cx - (left ? 1 : -1), 0, cz + 1, left ? Dirs.RIGHT : Dirs.LEFT, JobType.HUNTER);

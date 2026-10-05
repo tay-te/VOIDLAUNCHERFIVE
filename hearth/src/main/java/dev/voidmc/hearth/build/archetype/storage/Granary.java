@@ -128,6 +128,7 @@ public final class Granary implements Archetype {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, 0, door);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Staddle stones: a stone post and a broad cap of upside-down stairs under the store's corners and sides. */
@@ -255,6 +256,7 @@ public final class Granary implements Archetype {
 			Props.jars(d, 1, 0, 1, Dirs.RIGHT, Math.min(2, gate - 2));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, d.maxHeight() - 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**

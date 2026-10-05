@@ -194,6 +194,7 @@ public final class Storehouse implements Archetype {
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Stone caps on the posts of a raised store, where the timber meets the footing. */

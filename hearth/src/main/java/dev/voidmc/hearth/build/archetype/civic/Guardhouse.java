@@ -259,6 +259,7 @@ public final class Guardhouse implements Archetype {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, door);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** A rack of arms: a shelf on the wall at (x, y, z) facing {@code facing} into the room, with its items shown. */

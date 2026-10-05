@@ -338,6 +338,7 @@ final class ChapelBohemian {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Where the nave's back wall stands: the chancel and its apse (or its square end) take the rows behind. */

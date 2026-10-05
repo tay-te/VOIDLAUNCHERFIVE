@@ -89,6 +89,7 @@ public final class Fountain implements Archetype {
 			default -> basin(d, w, dp, cx, cz);
 		};
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** The basin's outline: which cells are inside (water or rim) for a shape over the plot inset by {@code m}. */

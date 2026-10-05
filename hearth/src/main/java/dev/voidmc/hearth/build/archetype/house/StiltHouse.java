@@ -307,6 +307,7 @@ public final class StiltHouse implements Archetype {
 			moss(d, roof, base);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roof.ridgeY + 3));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Which tradition the house follows: its culture, or for others the nearest by their habits. */

@@ -35,7 +35,7 @@
 		"ground": ["minecraft:red_sand"],
 		"fill": ["minecraft:red_sand"],
 		"stilt": ["wood:minecraft:spruce"],
-		"thatch": ["minecraft:hay_block"],
+		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}],
 		"sheet": [{"m": "minecraft:bricks", "w": 2}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
 		"masonry": [{"m": "minecraft:red_sandstone", "w": 2}, {"m": "minecraft:cut_red_sandstone", "w": 1}, {"m": "minecraft:terracotta", "w": 1}]
 	},

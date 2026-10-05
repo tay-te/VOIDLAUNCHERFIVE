@@ -167,6 +167,7 @@ public final class CliffDwelling implements Archetype {
 			Garden.snowBanks(d, 0, zb0, w - 1, bz1, 0, door);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, deck + 4));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**
@@ -402,6 +403,12 @@ public final class CliffDwelling implements Archetype {
 	/** The roof deck's life: drying racks and a pot or two (the deck itself stays open for the terrace above). */
 	private static void roofLife(Draft d, Body b, int deck, boolean pueblo) {
 		int[] tr = b.topRect();
+		// lanterns stood in the deck's corners, so the terrace is never dark under the stars
+		for (int[] c : new int[][]{{tr[0] + 1, tr[1] + 1}, {tr[2] - 1, tr[3] - 1}}) {
+			if (d.allowed(c[0], deck, c[1]) && d.isEmpty(c[0], deck, c[1]) && d.isSolid(c[0], deck - 1, c[1])) {
+				dev.voidmc.hearth.build.kit.light.Lighting.lamp(d, c[0], deck, c[1]);
+			}
+		}
 		if (deck + 1 >= d.maxHeight()) {
 			return;
 		}

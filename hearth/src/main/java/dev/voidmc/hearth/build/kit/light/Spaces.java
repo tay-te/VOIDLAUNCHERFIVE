@@ -73,6 +73,19 @@ public final class Spaces {
 				}
 			}
 		}
+		// what each block is to someone walking, classified once per kind of block
+		this.flags = new byte[g.volume()];
+		it.unimi.dsi.fastutil.objects.Reference2ByteOpenHashMap<BlockState> kinds = new it.unimi.dsi.fastutil.objects.Reference2ByteOpenHashMap<>();
+		kinds.defaultReturnValue((byte) -1);
+		for (int i = 0; i < this.flags.length; i++) {
+			BlockState s = g.states[i];
+			byte f = kinds.getByte(s);
+			if (f == -1) {
+				f = classify(s);
+				kinds.put(s, f);
+			}
+			this.flags[i] = f;
+		}
 		for (int y = 0; y < g.sy; y++) {
 			for (int z = 0; z < g.sz; z++) {
 				for (int x = 0; x < g.sx; x++) {
@@ -90,7 +103,7 @@ public final class Spaces {
 				for (int y = g.sy - 1; y >= 0; y--) {
 					int i = (y * g.sz + z) * g.sx + x;
 					this.roofAbove[i] = roof;
-					if (roofLike(g.states[i])) {
+					if ((this.flags[i] & ROOF) != 0) {
 						roof = g.y0 + y;
 					}
 				}
@@ -98,6 +111,50 @@ public final class Spaces {
 		}
 		walk(starts);
 	}
+
+	/** Per grid cell: what its block is to someone walking ({@link #PASS}, {@link #STAND}, ...). */
+	private final byte[] flags;
+	private static final byte PASS = 1;
+	private static final byte STAND = 2;
+	private static final byte CLIMB = 4;
+	private static final byte ROOF = 8;
+	private static final byte WALL = 16;
+	private static final byte STEP = 32;
+	private static final byte LIQUID = 64;
+
+	private static byte classify(BlockState s) {
+		int f = 0;
+		if (passable(s)) {
+			f |= PASS;
+		}
+		if (standable(s)) {
+			f |= STAND;
+		}
+		Block b = s.getBlock();
+		if (b instanceof LadderBlock || b instanceof ScaffoldingBlock) {
+			f |= CLIMB;
+		}
+		if (roofLike(s)) {
+			f |= ROOF;
+		}
+		if (wallLike(s)) {
+			f |= WALL;
+		}
+		if (step(s)) {
+			f |= STEP;
+		}
+		if (b instanceof LiquidBlock) {
+			f |= LIQUID;
+		}
+		return (byte) f;
+	}
+
+	/** The flags of the block at a position ({@link #classify}); outside the grid, bedrock's. */
+	private int flagsAt(int x, int y, int z) {
+		return this.g.contains(x, y, z) ? this.flags[this.g.index(x, y, z)] : OUTSIDE_FLAGS;
+	}
+
+	private static final int OUTSIDE_FLAGS = classify(net.minecraft.world.level.block.Blocks.BEDROCK.defaultBlockState());
 
 	public Grid grid() {
 		return this.g;
@@ -175,16 +232,14 @@ public final class Spaces {
 	// ------------------------------------------------------------------------------------------- cells
 
 	private boolean walkableAt(int x, int y, int z) {
-		BlockState feet = this.g.at(x, y, z);
-		BlockState head = this.g.at(x, y + 1, z);
-		if (!passable(feet) || !passable(head)) {
+		int feet = flagsAt(x, y, z);
+		if ((feet & PASS) == 0 || (flagsAt(x, y + 1, z) & PASS) == 0) {
 			return false;
 		}
-		if (feet.getBlock() instanceof LadderBlock || feet.getBlock() instanceof ScaffoldingBlock) {
+		if ((feet & CLIMB) != 0) {
 			return true;
 		}
-		BlockState below = this.g.at(x, y - 1, z);
-		return standable(below) || below.getBlock() instanceof LadderBlock || below.getBlock() instanceof ScaffoldingBlock;
+		return (flagsAt(x, y - 1, z) & (STAND | CLIMB)) != 0;
 	}
 
 	/** Feet can be at this cell. */
@@ -199,7 +254,7 @@ public final class Spaces {
 
 	/** Feet or floor are in water or lava (folk swim; the river is not the building's to light). */
 	public boolean wet(int x, int y, int z) {
-		return this.g.at(x, y, z).getBlock() instanceof LiquidBlock || this.g.at(x, y - 1, z).getBlock() instanceof LiquidBlock;
+		return ((flagsAt(x, y, z) | flagsAt(x, y - 1, z)) & LIQUID) != 0;
 	}
 
 	/** Whether the feet cell is a doorway (a door or a gate). */
@@ -246,7 +301,7 @@ public final class Spaces {
 			if (!this.g.contains(cx, y, cz)) {
 				return true;
 			}
-			if (wallLike(this.g.at(cx, y, cz))) {
+			if ((flagsAt(cx, y, cz) & WALL) != 0) {
 				return true;
 			}
 			if (!roofed(cx, y - 1, cz)) {
@@ -278,26 +333,27 @@ public final class Spaces {
 			int rest = i / g.sx;
 			int z = g.z0 + rest % g.sz;
 			int y = g.y0 + rest / g.sz;
-			BlockState here = g.at(x, y, z);
-			boolean climb = here.getBlock() instanceof LadderBlock || here.getBlock() instanceof ScaffoldingBlock;
+			boolean climb = (flagsAt(x, y, z) & CLIMB) != 0;
+			boolean headroom = (flagsAt(x, y + 2, z) & PASS) != 0;
 			for (Direction d : Direction.Plane.HORIZONTAL) {
 				int[] s = g.step(d);
 				int nx = x + s[0];
 				int nz = z + s[2];
 				for (int dy = 1; dy >= -3; dy--) {
 					int ny = y + dy;
-					if (dy == 1 && !passable(g.at(x, y + 2, z))) {
+					if (dy == 1 && !headroom) {
 						continue;
 					}
 					if (walkable(nx, ny, nz)) {
 						enqueue(q, nx, ny, nz);
 						break;
 					}
-					if (dy == 0 && step(g.at(nx, ny, nz)) && walkable(nx, ny + 1, nz) && passable(g.at(x, y + 2, z))) {
+					int there = flagsAt(nx, ny, nz);
+					if (dy == 0 && (there & STEP) != 0 && walkable(nx, ny + 1, nz) && headroom) {
 						enqueue(q, nx, ny + 1, nz);
 						break;
 					}
-					if (!passable(g.at(nx, ny, nz)) || dy < 0 && !passable(g.at(nx, ny + 1, nz))) {
+					if ((there & PASS) == 0 || dy < 0 && (flagsAt(nx, ny + 1, nz) & PASS) == 0) {
 						if (dy <= 0) {
 							break;
 						}

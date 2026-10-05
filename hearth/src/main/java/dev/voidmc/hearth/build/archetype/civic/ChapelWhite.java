@@ -181,6 +181,7 @@ final class ChapelWhite {
 			Sacred.churchyard(d, gx0, z0, gx1, dp - 2, 0, true, Dirs.FRONT);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** The dome's family: the concrete of the town's first cloth colour (a blue), else the roof's. */

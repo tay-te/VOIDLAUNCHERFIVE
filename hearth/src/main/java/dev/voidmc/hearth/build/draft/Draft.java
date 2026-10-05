@@ -682,10 +682,18 @@ public final class Draft {
 
 	/** Visits every placement (unordered). */
 	public void forEach(CellVisitor visitor) {
-		for (Long2ObjectMap.Entry<Cell> e : this.cells.long2ObjectEntrySet()) {
+		// the fast iterator reuses one entry (no allocation per cell); the order is the map's, as before
+		var it = this.cells.long2ObjectEntrySet().fastIterator();
+		while (it.hasNext()) {
+			Long2ObjectMap.Entry<Cell> e = it.next();
 			long k = e.getLongKey();
 			visitor.visit(keyX(k), keyY(k), keyZ(k), e.getValue());
 		}
+	}
+
+	/** The keys ({@link #key}) of every drawn cell, in {@link #forEach}'s order: a snapshot to visit while drawing. */
+	public long[] keys() {
+		return this.cells.keySet().toLongArray();
 	}
 
 	@FunctionalInterface

@@ -295,6 +295,7 @@ final class ChapelWestern {
 			Garden.snowBanks(d, nx0, zN0, nx1, zC1, base, cx);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(capTop, ridge) + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	private static int nl(int z0, int z1) {

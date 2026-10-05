@@ -86,7 +86,10 @@ public final class Temple implements Archetype {
 			case HALL -> hall(d);
 			case ROUND -> round(d);
 		};
+		// the hollows left between ceilings and roofs, sealed with a rubble core as the masons laid them
+		dev.voidmc.hearth.build.kit.refine.Voids.sealAll(d, 0, dev.voidmc.hearth.build.kit.landmark.Stone.footing(d).full(), StageKind.ROOF);
 		Groundwork.clear(d, 0, 0, d.frontage() - 1, d.depth() - 1, Math.min(d.maxHeight() - 1, peak + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	static Shape shape(Draft d) {
@@ -437,6 +440,20 @@ public final class Temple implements Archetype {
 		}
 		int yl = drumTop + 1 + rows;
 		int zc = (int) Math.round(zcH);
+		// the hall rises open into the drum, lit by its lights, under a vault at the drum's head (the dome over it a sealed
+		// shell)
+		java.util.Set<Long> drum = new java.util.HashSet<>();
+		for (int[] c : Shapes.ring(xc, zcH, rd)) {
+			drum.add(Shapes.cell(c[0], c[1]));
+		}
+		try (var st = d.stage(StageKind.ROOF)) {
+			for (int[] c : Shapes.disc(xc, zcH, rd)) {
+				if (!drum.contains(Shapes.cell(c[0], c[1]))) {
+					d.set(c[0], hH, c[1], Blocks.AIR.defaultBlockState());
+					d.set(c[0], drumTop, c[1], dress.full());
+				}
+			}
+		}
 		int peak = yl;
 		try (var st = d.stage(StageKind.ROOF)) {
 			if (yl + 2 <= top) {
@@ -512,7 +529,20 @@ public final class Temple implements Archetype {
 		d.poi(PoiType.ALTAR, xc, 0, hz1 - 1, Dirs.BACK);
 		Furniture.workstation(d, JobType.PRIEST, xc + 2, 0, hz1 - 1, Dirs.FRONT);
 		for (int z = hz0 + 2; z < hz1; z += 3) {
-			Furniture.hangingLantern(d, xc, hH, z, Math.max(0, hH - 5));
+			int links = Math.max(0, hH - 5);
+			if (d.isSolid(xc, hH, z)) {
+				Furniture.hangingLantern(d, xc, hH, z, links);
+			} else {
+				// under the drum: on a long chain from the vault
+				for (int y = hH + 1; y < top; y++) {
+					if (!d.isEmpty(xc, y, z)) {
+						if (d.isSolid(xc, y, z)) {
+							dev.voidmc.hearth.build.kit.light.Lighting.chandelier(d, xc, z, y, hH - 1 - links);
+						}
+						break;
+					}
+				}
+			}
 		}
 		d.poi(PoiType.SEAT, xc - 2, 0, hz0 + 3, Dirs.BACK);
 

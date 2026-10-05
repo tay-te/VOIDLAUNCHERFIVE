@@ -132,6 +132,7 @@ public final class MarketStall implements Archetype {
 			Furniture.hangingLantern(d, mid, roof.bottomY(mid, zb - 1), zb - 1, 0);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, roof.ridgeY + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** Every other column of the awning in white cloth of the same shapes. */

@@ -35,7 +35,7 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:spruce"],
-		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}, {"m": "minecraft:moss_block", "patch": 0.08}],
+		"thatch": [{"m": "minecraft:stripped_oak_wood", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}, {"m": "minecraft:moss_block", "patch": 0.08}],
 		"sheet": [{"m": "minecraft:waxed_oxidized_cut_copper", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}],
 		"masonry": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:polished_andesite", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 0.8, "low": 2, "north": 1.5}]
 	},

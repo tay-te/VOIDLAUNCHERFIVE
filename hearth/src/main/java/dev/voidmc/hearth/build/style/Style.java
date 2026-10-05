@@ -25,10 +25,12 @@ import org.jspecify.annotations.Nullable;
  * <ul>
  *   <li><b>fashions</b>: alternative dressings of the culture's common manner (brick nogging instead of plaster, a red
  *   painted house among the log ones), each overriding some roles and habits of the base; the culture's tier overrides
- *   still win over a fashion's roles (finish before fashion), and a fashion's own {@code tiers} win over both;</li>
+ *   still win over a fashion's roles (finish before fashion) except the fashion's fabric ({@link #isFabric}: the walls,
+ *   gables, quoins and frame it names stay its own), and a fashion's own {@code tiers} win over both;</li>
  *   <li><b>sub-styles</b>: the culture's other manners (burgher brick, Norman stone, the palazzo, the scholar's
  *   courtyard), each a whole dressing with its own tiers and its own fashions, flattened into the variant list after the
- *   fashions; a sub-style's tiers win over its roles, the culture's tiers do not reach it.</li>
+ *   fashions; a sub-style's tiers win over its roles (but not over the fabric its fashions name, as above; a sub-style's
+ *   fashion may carry {@code tiers} of its own), the culture's tiers do not reach it.</li>
  * </ul>
  * Any dressing may carry a {@link When} (who and where it is for: stations, categories, tiers, biomes, landforms...);
  * the base dressing's is {@code base_when}. A building draws by weight among the dressings whose condition holds for
@@ -457,6 +459,16 @@ public final class Style {
 		return variant >= 0 && variant < this.variants.size() ? this.variants.get(variant).habits() : this.habits;
 	}
 
+	/**
+	 * The roles that are what a building is built of (walls, gables, quoins, the timber frame): a fashion that names one
+	 * keeps it at every tier, so a brick house stays brick and a log cottage logs as it prospers or decays, while the
+	 * finish (roofs, chimneys, glass, plinths, doors) still follows the tier. A fashion's own {@code tiers} may still
+	 * change them.
+	 */
+	public static boolean isFabric(Role role) {
+		return role == Role.WALL || role == Role.GABLE || role == Role.WALL_ACCENT || role == Role.FRAME || role == Role.BEAM;
+	}
+
 	/** The habits JSON of a variant (do not modify). */
 	JsonObject habitsJson(int variant) {
 		return variant >= 0 && variant < this.variants.size() ? this.variants.get(variant).habitsJson() : this.habitsJson;
@@ -487,7 +499,7 @@ public final class Style {
 				}
 			} else {
 				Palette p = tierChain(v.tiers(), role, tier);
-				if (p == null) {
+				if (p == null && !(isFabric(role) && v.roles().containsKey(role))) {
 					p = tierChain(this.tiers, role, tier);
 				}
 				if (p != null) {

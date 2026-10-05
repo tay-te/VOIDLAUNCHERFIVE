@@ -46,8 +46,8 @@ public final class Tailor implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("work/tailor"), ArchetypeCategory.WORKPLACE, Set.of(JobType.TAILOR), 0,
 		6, 9, 7, 11, 8, 14, SettlementTier.VILLAGE, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE), List.of(), 0, 1.0);
 
-	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.GAMBREL, RoofForm.MANSARD, RoofForm.HIP, RoofForm.PAGODA,
-		RoofForm.FLAT};
+	// a narrow town house turns a steep gable to the street: no hipped lids on it
+	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.GAMBREL, RoofForm.PAGODA, RoofForm.FLAT};
 
 	private static final String[] DYES = {"red", "blue", "yellow", "lime", "purple", "orange", "cyan", "magenta", "light_blue", "white", "brown", "green"};
 
@@ -73,15 +73,14 @@ public final class Tailor implements Archetype {
 		int hz1 = dp - 1 - back;
 		int sh = Math.max(4, h.walls().storeyHeight());
 		int room = d.maxHeight() - 4;
-		int storeys = Math.clamp(d.param("storeys", room >= sh * 3 && d.chance(0.35) ? 3 : room >= sh * 2 ? 2 : 1), 1, 3);
+		// two storeys, the shop and the workroom over it; a third only in a city's crowded rows
+		int storeys = Math.clamp(d.param("storeys", room >= sh * 3 && attached && d.tier() >= 3 && d.chance(0.5) ? 3 : room >= sh * 2 ? 2 : 1), 1, 3);
 		while (storeys > 1 && storeys * sh + 4 > d.maxHeight()) {
 			storeys--;
 		}
-		int[] heights = new int[storeys + (flat ? 0 : 1)];
+		// the roof sits on the workroom's wall plate, its loft open over the workroom: no knee wall to stretch the front
+		int[] heights = new int[storeys];
 		java.util.Arrays.fill(heights, sh);
-		if (!flat) {
-			heights[storeys] = 2;
-		}
 		Hall hall = Hall.of(d, 0, hz0, w - 1, hz1, 0, heights, partyL, partyR);
 		boolean timber = h.walls().kind() == Habits.WallKind.TIMBER_FRAME || h.walls().upper() != null;
 		if (storeys >= 2 && timber && d.chance(Math.max(0.4, h.walls().jetty()))) {
@@ -142,11 +141,10 @@ public final class Tailor implements Archetype {
 				i++;
 			}
 		}
-		// a balcony off the workroom
-		if (storeys >= 2 && d.chance(Math.max(0.35, h.balcony()))) {
-			Side up = hall.side(1, Dirs.FRONT);
-			int c = up.column(up.middle());
-			Porches.balcony(d, up, Math.max(up.column(1), c - 1), Math.min(up.column(up.last() - 1), c + 1), hall.floorY(1));
+		// the weavers' windows: the workroom lit by a band of lights between the posts, front and back
+		if (storeys >= 2 && hall.body.height(1) >= 3) {
+			ribbon(d, hall, 1, Dirs.FRONT);
+			ribbon(d, hall, 1, Dirs.BACK);
 		}
 
 		Direction.Axis ridge = d.chance(Math.max(0.6, h.roof().frontGable())) ? Direction.Axis.Z : Direction.Axis.X;
@@ -154,7 +152,7 @@ public final class Tailor implements Archetype {
 			ridge = Direction.Axis.Z;
 		}
 		hall.roof(form, ridge, 1, plan -> {
-			if (plan.axis == Direction.Axis.X && w >= 6 && form != RoofForm.GAMBREL && form != RoofForm.MANSARD) {
+			if (plan.axis == Direction.Axis.X && w >= 6 && form != RoofForm.GAMBREL && form != RoofForm.MANSARD && hall.storeys() >= 2) {
 				Side top = hall.side(hall.storeys() - 1, Dirs.FRONT);
 				plan.dormer(top, top.column(top.middle()), 1, hall.floorY(hall.storeys() - 1));
 			}
@@ -177,6 +175,39 @@ public final class Tailor implements Archetype {
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	/**
+	 * A band of windows along storey k's wall toward {@code out} at eye height: every plain wall block between the corners
+	 * (posts, girts and openings kept) glazed, a sill of the window timber under the band on the outside.
+	 */
+	private static void ribbon(Draft d, Hall hall, int k, Direction out) {
+		Side s = hall.side(k, out);
+		int y = hall.floorY(k) + 1;
+		var glass = d.mat(dev.voidmc.hearth.build.style.Role.GLASS).pane();
+		var sill = d.mat(dev.voidmc.hearth.build.style.Role.WINDOW);
+		try (var st = d.stage(StageKind.OPENINGS)) {
+			for (int i = 1; i < s.last(); i++) {
+				int x = s.x(i);
+				int z = s.z(i);
+				var b = d.get(x, y, z);
+				if (b == null || !dev.voidmc.hearth.build.kit.Openings.isWallBlock(d, x, y, z)
+					|| b.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.AXIS)
+					&& b.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.AXIS) == Direction.Axis.Y) {
+					continue;
+				}
+				if (!d.isEmpty(s.outX(i, 1), y, s.outZ(i, 1))) {
+					continue;
+				}
+				d.set(x, y, z, glass);
+				int ox = s.outX(i, 1);
+				int oz = s.outZ(i, 1);
+				if (sill.has(dev.voidmc.hearth.build.style.Form.TRAPDOOR) && d.allowed(ox, y - 1, oz) && d.isEmpty(ox, y - 1, oz)) {
+					d.set(ox, y - 1, oz, sill.trapdoor(out.getOpposite(), net.minecraft.world.level.block.state.properties.Half.TOP, false));
+				}
+			}
+		}
 	}
 
 	/** A striped awning of wool stairs over the whole shop front, three blocks up. */
@@ -371,15 +402,17 @@ public final class Tailor implements Archetype {
 		int rx0 = 1;
 		int rail = z1;
 		int len = Math.max(1, w - 2);
-		Props.clothRail(d, rx0, 2, rail, Dirs.RIGHT, len, Dirs.FRONT, palette);
-		// posts under the rail ends
+		// the lengths of dyed cloth hung high on a line between poles, to dry in the wind: the dyer's colours over the yard
+		// wall, seen down the street
+		Props.clothRail(d, rx0, 3, rail, Dirs.RIGHT, len, Dirs.FRONT, palette);
 		var post = Hall.woodFence(d);
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int x : new int[]{rx0 - 1, rx0 + len}) {
 				if (x >= 0 && x < w) {
-					d.set(x, 0, rail, post.fence());
-					d.set(x, 1, rail, post.fence());
-					d.set(x, 2, rail, d.mat(dev.voidmc.hearth.build.style.Role.BEAM).log(Direction.Axis.X));
+					for (int y = 0; y <= 2; y++) {
+						d.set(x, y, rail, post.fence());
+					}
+					d.set(x, 3, rail, d.mat(dev.voidmc.hearth.build.style.Role.BEAM).log(Direction.Axis.X));
 				}
 			}
 		}

@@ -98,6 +98,7 @@ public final class Barn implements Archetype {
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, (hall.roof() != null ? hall.roof().ridgeY : hall.plateY() + 3) + 2));
 		// log walls peeled, the corner posts left in their bark
 		dev.voidmc.hearth.build.kit.homestead.Logs.peelAll(d, d.maxHeight() - 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	private static RoofForm roofParam(Draft d, RoofForm chosen) {

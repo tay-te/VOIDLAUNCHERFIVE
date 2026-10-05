@@ -217,6 +217,7 @@ final class ChapelRotunda {
 		}
 		dev.voidmc.hearth.build.kit.civic.Halls.lamp(d, Math.max(0, px - 3), 0, 0, 2);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, topY + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	private static long key(int x, int z) {

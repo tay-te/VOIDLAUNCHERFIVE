@@ -27,6 +27,30 @@ public final class Grid {
 
 		/** The direction a step of +1 along z is named by in this frame (SOUTH in the world, NORTH in a draft). */
 		Direction plusZ();
+
+		/** What the building places at a position (air included), or null where it places nothing: one read for both. */
+		default @org.jspecify.annotations.Nullable BlockState drawn(int x, int y, int z) {
+			return placed(x, y, z) ? at(x, y, z) : null;
+		}
+
+		/** What stands at a position the building does not place: the natural ground, water or air. */
+		default BlockState natural(int x, int y, int z) {
+			return at(x, y, z);
+		}
+
+		/**
+		 * Hands every placed block to {@code sink} (in any order) and answers true, or answers false to be read cell by
+		 * cell: a source that can list what it places (a draft) fills a big grid much faster this way.
+		 */
+		default boolean paint(Painter sink) {
+			return false;
+		}
+	}
+
+	/** Receives the blocks a source places. */
+	@FunctionalInterface
+	public interface Painter {
+		void put(int x, int y, int z, BlockState state);
 	}
 
 	public final int x0;
@@ -60,12 +84,34 @@ public final class Grid {
 				this.plot[z * this.sx + x] = src.inPlot(this.x0 + x, this.z0 + z);
 			}
 		}
+		// a source that lists what it places: the natural ground everywhere, then the building painted over it
+		boolean painted = src.paint((x, y, z, state) -> {
+			if (contains(x, y, z)) {
+				int i = index(x, y, z);
+				this.states[i] = state;
+				this.placed[i] = true;
+			}
+		});
+		if (painted) {
+			for (int y = 0; y < this.sy; y++) {
+				for (int z = 0; z < this.sz; z++) {
+					for (int x = 0; x < this.sx; x++) {
+						int i = (y * this.sz + z) * this.sx + x;
+						if (!this.placed[i]) {
+							this.states[i] = src.natural(this.x0 + x, this.y0 + y, this.z0 + z);
+						}
+					}
+				}
+			}
+			return;
+		}
 		for (int y = 0; y < this.sy; y++) {
 			for (int z = 0; z < this.sz; z++) {
 				for (int x = 0; x < this.sx; x++) {
 					int i = (y * this.sz + z) * this.sx + x;
-					this.states[i] = src.at(this.x0 + x, this.y0 + y, this.z0 + z);
-					this.placed[i] = src.placed(this.x0 + x, this.y0 + y, this.z0 + z);
+					BlockState drawn = src.drawn(this.x0 + x, this.y0 + y, this.z0 + z);
+					this.states[i] = drawn != null ? drawn : src.natural(this.x0 + x, this.y0 + y, this.z0 + z);
+					this.placed[i] = drawn != null;
 				}
 			}
 		}

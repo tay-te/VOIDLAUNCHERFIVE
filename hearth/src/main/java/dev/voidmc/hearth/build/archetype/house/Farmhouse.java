@@ -113,6 +113,7 @@ public final class Farmhouse implements Archetype {
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
 		// log walls peeled, the corner posts left in their bark
 		dev.voidmc.hearth.build.kit.homestead.Logs.peelAll(d, d.maxHeight() - 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** The culture's layout (or the param's). */

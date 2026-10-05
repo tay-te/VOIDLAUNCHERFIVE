@@ -141,6 +141,7 @@ public final class Hut implements Archetype {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, base, door);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, topY + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**
@@ -309,6 +310,7 @@ public final class Hut implements Archetype {
 			Garden.path(d, Garden.line(doorX, dz - 1, doorX, 0), 0);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roof.ridgeY + 3));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	private static boolean contains(List<int[]> cells, int[] c) {

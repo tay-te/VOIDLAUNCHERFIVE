@@ -144,6 +144,7 @@ public final class Statue implements Archetype {
 			Lamps.standard(d, w - 1, 0, dp - 1, 4, Manner.lamp(d), null);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**

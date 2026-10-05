@@ -213,6 +213,7 @@ public final class Tenement implements Archetype {
 		}
 		int top = roof != null ? roof.ridgeY : deck + 4;
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** A pane of glass over the hall door where the lintel was: the fanlight. */

@@ -236,6 +236,7 @@ public final class Manor implements Archetype {
 		}
 		int crest = roof != null ? roof.ridgeY : deck + (dome ? 6 : 3);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, crest + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** A copy of a facade plan keeping only the openings a test accepts (posts and all kept). */
@@ -463,6 +464,30 @@ public final class Manor implements Archetype {
 		Partitions.alongZ(d, hx1 + 1, iz0, iz1, y1, air1, iz1, Dirs.RIGHT);
 		Rooms.Room landing = new Rooms.Room(hx0, iz0, hx1, iz1, y1, air1);
 		core.keep(landing, 1);
+		// the garret: a ladder up through a hatch from the landing, against the hall's side wall under the ridge
+		int[] hatch = null;
+		if (main.storeys() >= 3 && roof != null) {
+			int y2 = main.floorY(2);
+			int zm = (iz0 + iz1) / 2;
+			int[] zr = core.zRange();
+			search:
+			for (int dz : new int[]{0, 1, -1, 2, -2}) {
+				for (int side = 0; side < 2; side++) {
+					int x = side == 0 ? hx0 : hx1;
+					int z = zm + dz;
+					Direction toWall = side == 0 ? Dirs.of(-1, 0) : Dirs.of(1, 0);
+					if (z <= iz0 || z >= iz1 || x >= core.x0() - 1 && x <= core.x1() + 1 && z >= zr[0] - 1 && z <= zr[1] + 1) {
+						continue;
+					}
+					if (dev.voidmc.hearth.build.kit.refine.Lofts.ladder(d, x, z, y1, y2, toWall, roof)) {
+						landing.keep(x, z);
+						landing.keep(x - Dirs.dx(toWall), z);
+						hatch = new int[]{x, z};
+						break search;
+					}
+				}
+			}
+		}
 		landing.keep(hx0, iz1);
 		landing.keep(hx1, iz1);
 		TownHouses.keepDoors(d, landing, r, y1);
@@ -477,7 +502,12 @@ public final class Manor implements Archetype {
 		Rooms.furnish(d, bedR, Rooms.Type.BEDROOM, 2, JobType.NONE);
 		// the attic: a garret under the roof
 		if (main.storeys() >= 3 && roof != null) {
-			TownHouses.room(d, main, 2, roof);
+			Rooms.Room garret = TownHouses.room(d, main, 2, roof);
+			if (hatch != null && garret != null) {
+				// a box room for the household's stores, the hatch kept clear
+				garret.keep(hatch[0], hatch[1]);
+				Rooms.furnish(d, garret, Rooms.Type.STORAGE, 0, JobType.NONE);
+			}
 		}
 
 		// the wings

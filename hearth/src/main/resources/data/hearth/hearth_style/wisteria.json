@@ -11,7 +11,7 @@
 		"beam": [{"m": "wood:minecraft:oak", "log": "minecraft:stripped_oak_log"}],
 		"floor": [{"m": "wood:minecraft:oak", "w": 3}, {"m": "wood:minecraft:birch", "w": 1}],
 		"ceiling": ["wood:minecraft:dark_oak"],
-		"roof": [{"m": "minecraft:bricks", "w": 5}, {"m": "minecraft:mud_bricks", "w": 0.5}],
+		"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}],
 		"roof_trim": ["minecraft:bricks"],
 		"gable": ["minecraft:smooth_quartz"],
 		"window": ["wood:minecraft:oak"],
@@ -35,7 +35,7 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:dark_oak"],
-		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}, {"m": "minecraft:moss_block", "patch": 0.08}],
+		"thatch": [{"m": "minecraft:stripped_oak_wood", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}, {"m": "minecraft:moss_block", "patch": 0.08}],
 		"sheet": [{"m": "minecraft:waxed_oxidized_cut_copper", "w": 2}, {"m": "minecraft:bricks", "w": 1}],
 		"masonry": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2}, {"m": "minecraft:polished_diorite", "w": 0.6}]
 	},
@@ -69,12 +69,36 @@
 				"cloth": ["dye:white", "dye:gray", "dye:brown"]
 			},
 			"habits": {
-				"walls": {"kind": "timber_frame", "plinth": 1, "jetty": 0, "post_spacing": 2, "braces": 0, "beam_ends": 0.5},
-				"roof": {"forms": {"hip": 4, "half_hip": 2}, "pitch": 1.0, "eaves": 2, "gable_overhang": 1, "flare": true, "brackets": true, "dormers": 0.0},
-				"windows": {"shutters": 0.0, "boxes": 0.2, "lattice": true, "bay": 0.2, "tall": true},
-				"yard": {"garden": "zen"},
-				"porch": 0.7,
-				"balcony": 0.5
+				"walls": {"kind": "timber_frame", "plinth": 1, "jetty": 0, "post_spacing": 2, "braces": 0.3, "beam_ends": 0.5},
+				"roof": {"forms": {"half_hip": 3, "hip": 2, "gable": 2}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "flare": false, "brackets": true, "dormers": 0.5, "ridge": "trim"},
+				"windows": {"shutters": 0.3, "boxes": 0.4, "lattice": false, "arched": 0.35, "bay": 0.35, "tall": true},
+				"yard": {"garden": "cottage"},
+				"porch": 0.5,
+				"balcony": 0.3
+			}
+		},
+		{
+			"name": "town wall",
+			"w": 40,
+			"when": {"categories": ["fort"]},
+			"roles": {
+				"wall": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 1.2}, {"m": "minecraft:andesite", "w": 0.6}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}, {"m": "minecraft:cracked_stone_bricks", "w": 0.4, "low": 1}],
+				"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 1}],
+				"wall_accent": [{"m": "minecraft:polished_diorite", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1, "low": 2}],
+				"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}],
+				"window": ["minecraft:stone_bricks"],
+				"frame": ["wood:minecraft:dark_oak"],
+				"beam": ["wood:minecraft:dark_oak"],
+				"door": ["wood:minecraft:dark_oak"],
+				"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}],
+				"roof_trim": ["minecraft:bricks"],
+				"accent": ["minecraft:chiseled_stone_bricks"],
+				"paving": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "upper": "stone", "plinth": 1, "jetty": 0, "braces": 0, "beam_ends": 0},
+				"roof": {"forms": {"hip": 3, "gable": 2}, "pitch": 1.0, "eaves": 1, "gable_overhang": 0, "ridge": "trim", "dormers": 0.0, "flare": false},
+				"windows": {"shutters": 0.0, "boxes": 0.1, "arched": 0.4, "bay": 0.0, "tall": false}
 			}
 		},
 		{
@@ -88,7 +112,7 @@
 				"wall_accent": ["minecraft:bricks"],
 				"frame": ["wood:minecraft:dark_oak"],
 				"beam": ["wood:minecraft:dark_oak"],
-				"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:mud_bricks", "w": 0.5}],
+				"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}],
 				"window": ["wood:minecraft:dark_oak"],
 				"shutter": [{"m": "wood:minecraft:spruce", "w": 1}]
 			},

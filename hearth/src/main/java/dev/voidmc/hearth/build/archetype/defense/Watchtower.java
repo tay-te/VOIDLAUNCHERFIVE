@@ -138,6 +138,7 @@ public final class Watchtower implements Archetype {
 		}
 		watch(d, w, dp, t);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, highest + 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/** A battered skirt of stone round the shaft's foot where it stands on the ground. */
@@ -310,5 +311,6 @@ public final class Watchtower implements Archetype {
 		d.poi(PoiType.GUARD_POST, w - 3, t, 1, Dirs.BACK);
 		d.poi(PoiType.VIEWPOINT, (w - 1) / 2, t, dp - 2, Dirs.BACK);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, highest + 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 }

@@ -43,9 +43,10 @@ public final class AutoLighter {
 		// light is read through the shapes that will stand (a stair's corner, a wall's post occlude it): resolve them first;
 		// the compiler resolves again after, for the fixtures (a bracket joining its wall)
 		dev.voidmc.hearth.build.blueprint.ShapeResolver.resolve(d, d.site());
+		Session s = null;
 		for (int round = 0; round < ROUNDS; round++) {
 			long t0 = System.nanoTime();
-			Session s = new Session(d, family, 0, 0, d.frontage() - 1, d.depth() - 1, null);
+			s = s == null ? new Session(d, family, 0, 0, d.frontage() - 1, d.depth() - 1, null) : s.next(0, 0, d.frontage() - 1, d.depth() - 1);
 			Session.TIME[0] += System.nanoTime() - t0;
 			s.run();
 			log.addAll(s.log);

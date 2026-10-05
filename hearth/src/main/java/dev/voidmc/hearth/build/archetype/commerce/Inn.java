@@ -483,6 +483,7 @@ public final class Inn implements Archetype {
 			Garden.snowBanks(d, x0, zF, x1, zM, base, doorX);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 3));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**

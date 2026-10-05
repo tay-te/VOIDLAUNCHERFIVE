@@ -112,7 +112,14 @@ public final class BuildersYard implements Archetype {
 			int hx = officeLeft ? w - 4 : 1;
 			if (d.isEmpty(hx, 0, hz) && d.isEmpty(hx + 1, 0, hz) && d.isEmpty(hx + 2, 0, hz)) {
 				Props.sawhorses(d, hx, 0, hz, Direction.Axis.X, true);
-				Props.site(d, hx + 1, 0, hz - 1, Dirs.BACK, JobType.BUILDER);
+				// the joiner's bench at the lane end of the trestles, where the sawn timber is marked and cut to length
+				int bx = officeLeft ? hx - 1 : hx + 3;
+				if (bx >= 1 && bx <= w - 2 && Math.abs(bx - lane) > 1 && d.isEmpty(bx, 0, hz) && d.isEmpty(bx, 1, hz) && d.isEmpty(bx, 0, hz - 1)
+					&& d.isEmpty(bx, 1, hz - 1)) {
+					Props.station(d, Blocks.CRAFTING_TABLE, bx, 0, hz, Dirs.FRONT, JobType.BUILDER);
+				} else {
+					Props.site(d, hx + 1, 0, hz - 1, Dirs.BACK, JobType.BUILDER);
+				}
 			}
 		}
 		// the crane before the shed, its jib over the lane, a load of stone on its chain
@@ -120,7 +127,13 @@ public final class BuildersYard implements Archetype {
 		int cz = sz0 - 1;
 		if (Lifts.crane(d, craneX, cz, 0, 10, craneX > lane ? Dirs.LEFT : Dirs.RIGHT, Math.max(3, Math.min(5, Math.abs(lane - craneX))),
 			d.mat(Role.PLINTH).full().at(lane, 2, cz)) != Integer.MIN_VALUE) {
-			Props.site(d, craneX + (craneX > lane ? 1 : -1), 0, cz - 1, Dirs.BACK, JobType.BUILDER);
+			// the rigger's bench by the crane's foot, its tackle hung over it
+			int rx = craneX + (craneX > lane ? 1 : -1);
+			if (rx >= 1 && rx <= w - 2 && d.isEmpty(rx, 0, cz) && d.isEmpty(rx, 1, cz) && d.isEmpty(rx, 0, cz - 1) && d.isEmpty(rx, 1, cz - 1)) {
+				Props.station(d, Blocks.CRAFTING_TABLE, rx, 0, cz, Dirs.FRONT, JobType.BUILDER);
+			} else {
+				Props.site(d, rx, 0, cz - 1, Dirs.BACK, JobType.BUILDER);
+			}
 		}
 		// scaffolding stacked ready, a cart loaded with boards by the gate
 		int scx = craneX + (craneX > lane ? -2 : 2);
@@ -143,6 +156,7 @@ public final class BuildersYard implements Archetype {
 		fence(d, w, dp, lane);
 		d.poi(PoiType.GATE, lane, 0, 0, Dirs.BACK);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(office.top, 11) + 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**
@@ -319,7 +333,13 @@ public final class BuildersYard implements Archetype {
 			d.set(x0 + 1, 0, z - 1, scaf);
 			d.set(x0 + 1, 1, z - 1, scaf);
 		}
-		Props.site(d, x0 + 2, 0, z - 1, Dirs.BACK, JobType.BUILDER);
+		// the banker where the stone for the trial is dressed, beside the corner going up
+		int bx = x0 + 2;
+		if (d.isEmpty(bx, 0, z - 1) && d.isEmpty(bx, 1, z - 1) && d.isEmpty(bx, 0, z - 2) && d.isEmpty(bx, 1, z - 2)) {
+			Props.station(d, Blocks.STONECUTTER, bx, 0, z - 1, Dirs.FRONT, JobType.BUILDER);
+		} else {
+			Props.site(d, x0 + 2, 0, z - 1, Dirs.BACK, JobType.BUILDER);
+		}
 	}
 
 	/** Scaffolding stacked ready to go up. */

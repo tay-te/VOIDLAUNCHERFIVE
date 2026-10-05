@@ -111,6 +111,7 @@ public final class BellTower implements Archetype {
 		// the forecourt and the way to the street
 		Grounds.forecourt(d, t.outer(), fr.x(door), 0, fr.outZ(door, 1));
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(top, peak + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**

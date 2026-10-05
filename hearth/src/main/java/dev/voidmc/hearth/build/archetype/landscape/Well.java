@@ -127,6 +127,7 @@ public final class Well implements Archetype {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roofY + 4));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	enum Head {

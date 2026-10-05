@@ -180,8 +180,35 @@ public final class StyleLoader {
 			}
 			JsonObject fj = f.has("habits") ? mergeHabits(hj, f.getAsJsonObject("habits")) : hj;
 			Habits fh = f.has("habits") ? Habits.parse(fj) : habits;
-			out.add(new Style.Variant(fname, w * fw / total, fr, fh, When.and(when, When.parse(f.get("when"))), name, tiers, fj));
+			out.add(new Style.Variant(fname, w * fw / total, fr, fh, When.and(when, When.parse(f.get("when"))), name,
+				fashionTiers(tiers, f.has("roles") ? roles(f.getAsJsonObject("roles")).keySet() : java.util.Set.of(),
+					f.has("tiers") ? tiers(f.getAsJsonObject("tiers")) : Map.of()), fj));
 		}
+	}
+
+	/**
+	 * A sub-style fashion's tiers: the sub-style's, less the roles that are the fashion's own material
+	 * ({@link Style#isFabric}: a log cottage keeps its logs and a fieldstone house its stone at every finish), with the
+	 * fashion's own tiers over them.
+	 */
+	private static Map<Integer, Map<Role, Palette>> fashionTiers(Map<Integer, Map<Role, Palette>> substyle, java.util.Set<Role> named,
+		Map<Integer, Map<Role, Palette>> own) {
+		Map<Integer, Map<Role, Palette>> out = new HashMap<>();
+		for (Map.Entry<Integer, Map<Role, Palette>> e : substyle.entrySet()) {
+			EnumMap<Role, Palette> m = new EnumMap<>(Role.class);
+			for (Map.Entry<Role, Palette> r : e.getValue().entrySet()) {
+				if (!(Style.isFabric(r.getKey()) && named.contains(r.getKey()))) {
+					m.put(r.getKey(), r.getValue());
+				}
+			}
+			if (!m.isEmpty()) {
+				out.put(e.getKey(), m);
+			}
+		}
+		for (Map.Entry<Integer, Map<Role, Palette>> e : own.entrySet()) {
+			out.computeIfAbsent(e.getKey(), k -> new EnumMap<>(Role.class)).putAll(e.getValue());
+		}
+		return out;
 	}
 
 	private static Map<Integer, Map<Role, Palette>> tiers(JsonObject o) {

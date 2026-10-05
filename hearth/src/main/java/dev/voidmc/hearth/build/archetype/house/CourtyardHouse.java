@@ -178,6 +178,7 @@ public final class CourtyardHouse implements Archetype {
 		}
 		int crest = roof != null ? roof.ridgeY : deck + (upper ? sh : 0) + 3;
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, crest + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	// ------------------------------------------------------------------------------------------------- walls
