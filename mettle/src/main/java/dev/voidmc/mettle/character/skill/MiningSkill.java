@@ -168,11 +168,13 @@ public final class MiningSkill {
 	}
 
 	private static void afterBreak(ServerLevel level, ServerPlayer player, BlockPos pos, BlockState state) {
-		boolean placed = PlacedBlocks.takePlaced(level, pos);
+		// Only blocks that give Mining XP are Mining's to forget; other trees (logs for Heavy Weapons) keep their own.
+		double xp = baseXp(state);
+		boolean placed = xp > 0 && PlacedBlocks.takePlaced(level, pos);
 		if (placed || player.isCreative()) {
 			return;
 		}
-		Progress.award(player, MINING, baseXp(state));
+		Progress.award(player, MINING, xp);
 		if (state.is(ConventionalBlockTags.DIAMOND_ORES)) {
 			FeatCounters.add(player, "mine_diamond_ore", 1);
 		}
