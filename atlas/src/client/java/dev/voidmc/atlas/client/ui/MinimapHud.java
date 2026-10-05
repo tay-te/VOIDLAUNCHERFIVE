@@ -45,7 +45,7 @@ public final class MinimapHud {
 		AtlasSettings settings = this.atlas.settings();
 		LocalPlayer p = mc.player;
 		if (!settings.minimap || p == null || mc.level == null || mc.gui.screen() != null || mc.gui.hud.isHidden()
-			|| mc.getDebugOverlay().showDebugScreen() || this.atlas.session() == null) {
+			|| settings.minimapHideWithDebug && mc.getDebugOverlay().showDebugScreen() || this.atlas.session() == null || !this.atlas.minimapAllowed()) {
 			return;
 		}
 		long t0 = System.nanoTime();
@@ -65,11 +65,13 @@ public final class MinimapHud {
 			case BOTTOM_LEFT, BOTTOM_RIGHT -> sh - margin - side - info;
 			default -> margin;
 		};
-		float radius = Math.round(side * 0.12F);
+		boolean round = settings.minimapShape == AtlasSettings.Shape.ROUND;
+		float radius = round ? side / 2 : Math.round(side * 0.12F);
 		String dim = mc.level.dimension().identifier().toString();
 		boolean ceiling = mc.level.dimensionType().hasCeiling();
 		DimensionData data = this.atlas.session().dimension(dim, ceiling);
-		boolean underground = ceiling || this.atlas.underground();
+		// underground, the slice round the player (if wanted, and where the server allows it)
+		boolean underground = ceiling || settings.minimapAutoCave && this.atlas.underground() && this.atlas.caveViewAllowed(ceiling);
 		LayerData layer = underground ? data.under(this.atlas.sliceBand(dim)) : data.layer(DimensionData.SURFACE);
 		long t1 = System.nanoTime();
 		double target = AtlasSettings.ZOOMS[settings.minimapZoom];
@@ -103,6 +105,7 @@ public final class MinimapHud {
 			}
 		}
 		MarkerPainter.paint(ui, f, markers, null, null, true, px, pz, this.zoom);
+		this.radar(ui, f, mc, p, px, pz);
 		this.edgeMarkers(ui, f, x, y, side, dim, px, pz, underground, ceiling, rotation);
 		long t3 = System.nanoTime();
 		// waypoints beyond the edge: a small dot on the rim, in the direction to walk
@@ -121,7 +124,7 @@ public final class MinimapHud {
 			float dx = sx - cx;
 			float dy = sy - cy;
 			float rim = side / 2 - 8;
-			float k = rim / Math.max(Math.abs(dx), Math.abs(dy));
+			float k = rim / (round ? (float) Math.hypot(dx, dy) : Math.max(Math.abs(dx), Math.abs(dy)));
 			float rx = cx + dx * k;
 			float ry = cy + dy * k;
 			ui.circle(rx, ry, 4, Theme.SHELL);
@@ -131,7 +134,7 @@ public final class MinimapHud {
 		ui.flush();
 		ui.g.disableScissor();
 		ui.border(x, y, side, side, radius, 0, Theme.HAIR_10);
-		this.north(ui, f, x, y, side, radius, rotation);
+		this.north(ui, f, x, y, side, radius, rotation, round);
 		if (settings.minimapCoordinates) {
 			this.info(ui, p, x, y + side + 6, side, underground);
 		}
@@ -144,8 +147,56 @@ public final class MinimapHud {
 		}
 	}
 
+	/** Most dots the radar draws in a frame. */
+	private static final int RADAR_MAX = 96;
+
+	/**
+	 * The radar: other players (a ring with a dot) and, if wanted, mobs (small dots: warm for hostile ones, cool for the
+	 * rest), from the entities the client already has, where the settings and the server allow. Fainter the further
+	 * above or below the player they are.
+	 */
+	private void radar(Ui ui, MapRenderer.Frame f, Minecraft mc, LocalPlayer self, double px, double pz) {
+		AtlasSettings settings = this.atlas.settings();
+		boolean players = settings.radarPlayers && this.atlas.radarAllowed(false);
+		boolean mobs = settings.radarMobs && this.atlas.radarAllowed(true);
+		if (!players && !mobs || mc.level == null) {
+			return;
+		}
+		long t0 = System.nanoTime();
+		int drawn = 0;
+		double py = self.getY();
+		for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+			if (e == self || e.isInvisible() || !(e instanceof net.minecraft.world.entity.LivingEntity living) || !living.isAlive()) {
+				continue;
+			}
+			boolean isPlayer = e instanceof net.minecraft.world.entity.player.Player;
+			if (isPlayer ? !players : !mobs) {
+				continue;
+			}
+			float sx = f.screenX(e.getX(), e.getZ());
+			float sy = f.screenY(e.getX(), e.getZ());
+			if (!f.inside(sx, sy)) {
+				continue;
+			}
+			float alpha = (float) Math.max(0.35, 1 - Math.abs(e.getY() - py) / 40);
+			if (isPlayer) {
+				ui.circle(sx, sy, 4.5F, Theme.alpha(Theme.SHELL, alpha));
+				ui.circle(sx, sy, 3.5F, Theme.ink(0.9F * alpha));
+				ui.circle(sx, sy, 1.6F, Theme.alpha(Theme.SHELL, alpha));
+			} else {
+				int colour = e instanceof net.minecraft.world.entity.monster.Enemy ? 0xFFC98F7A : 0xFF8FB8A0;
+				ui.circle(sx, sy, 2.5F, Theme.alpha(Theme.SHELL, alpha * 0.8F));
+				ui.circle(sx, sy, 1.8F, Theme.alpha(colour, alpha));
+			}
+			if (++drawn >= RADAR_MAX) {
+				break;
+			}
+		}
+		Perf.radar(System.nanoTime() - t0);
+	}
+
 	/** The north mark: a small disc on the rim, where north is. */
-	private void north(Ui ui, MapRenderer.Frame f, float x, float y, float side, float radius, double rotation) {
+	private void north(Ui ui, MapRenderer.Frame f, float x, float y, float side, float radius, double rotation, boolean round) {
 		double angle = -Math.PI / 2 + rotation;
 		float cx = x + side / 2;
 		float cy = y + side / 2;
@@ -153,7 +204,7 @@ public final class MinimapHud {
 		float r = side / 2 - 9;
 		float dx = (float) Math.cos(angle);
 		float dy = (float) Math.sin(angle);
-		float k = r / Math.max(Math.abs(dx), Math.abs(dy));
+		float k = round ? r : r / Math.max(Math.abs(dx), Math.abs(dy));
 		float nx = cx + dx * Math.min(k, side / 2 - 9);
 		float ny = cy + dy * Math.min(k, side / 2 - 9);
 		if (!f.inside(nx, ny)) {

@@ -452,7 +452,8 @@ public final class MapPage {
 				boolean wantDiscovered = section.equals("discovered");
 				int band = this.map.band(this.map.kind);
 				for (Place d : session.places.visible(dim)) {
-					if (d.isLabel() && !d.kind().equals(Place.LAKE)) {
+					// names of the land (biomes' areas) only while searching: then "forest" finds the forests
+					if (d.isLabel() && !d.kind().equals(Place.LAKE) && query.isEmpty()) {
 						continue;
 					}
 					if (depth) {
@@ -473,7 +474,13 @@ public final class MapPage {
 			}
 		}
 		if (!query.isEmpty()) {
-			rows.removeIf(r -> !r.title.toLowerCase(Locale.ROOT).contains(query) && !r.subtitle.toLowerCase(Locale.ROOT).contains(query));
+			// the best matches first (names before the lines under them), then the nearest
+			java.util.Map<Row, Integer> scores = new java.util.HashMap<>();
+			for (Row r : rows) {
+				scores.put(r, dev.voidmc.atlas.core.Search.score(query, r.title, r.subtitle));
+			}
+			rows.removeIf(r -> scores.get(r) == dev.voidmc.atlas.core.Search.NONE);
+			rows.sort(Comparator.comparingInt((Row r) -> -scores.get(r)));
 		}
 		return rows;
 	}
@@ -1329,7 +1336,13 @@ public final class MapPage {
 		if (m == null) {
 			return;
 		}
-		List<String> items = new ArrayList<>(List.of("Add waypoint here", "Centre here"));
+		List<String> items = new ArrayList<>(List.of("Waypoint here", "Copy coordinates", "Track", "Centre here"));
+		String dimHere = this.map.dimensionOf(this.map.kind);
+		if (dimHere.equals("minecraft:overworld")) {
+			items.add(2, "Show in the Nether");
+		} else if (dimHere.equals("minecraft:the_nether")) {
+			items.add(2, "Show in the Overworld");
+		}
 		if (this.atlas.canTeleport()) {
 			items.add(1, "Teleport here");
 		}
@@ -1359,8 +1372,28 @@ public final class MapPage {
 		int bz = (int) Math.floor(m.mapZ);
 		int by = this.atlas.heightAt(this.map.layer(this.map.kind), bx, bz);
 		switch (item) {
-			case "Add waypoint here" -> this.edit(Waypoint.create("Waypoint", bx, by, bz, dim, 0), true);
+			case "Waypoint here" -> this.edit(Waypoint.create("Waypoint", bx, by, bz, dim, 0), true);
 			case "Teleport here" -> this.atlas.teleport(dim, bx, by, bz);
+			case "Copy coordinates" -> Minecraft.getInstance().keyboardHandler.setClipboard(bx + " " + by + " " + bz);
+			case "Show in the Nether" -> {
+				// the same spot in the other dimension: an eighth of the way out from the middle of the world
+				this.map.setKind(MapPanel.Kind.NETHER);
+				this.map.centreOn(Math.floorDiv(bx, 8) + 0.5, Math.floorDiv(bz, 8) + 0.5);
+			}
+			case "Show in the Overworld" -> {
+				this.map.setKind(MapPanel.Kind.SURFACE);
+				this.map.centreOn(bx * 8.0 + 4, bz * 8.0 + 4);
+			}
+			case "Track" -> {
+				// a point is tracked by a temporary waypoint on it (it goes by itself)
+				var session = this.atlas.session();
+				if (session != null) {
+					Waypoint w = Waypoint.temporary("Tracked point", bx, by, bz, dim, 2, this.atlas.settings().temporaryMinutes * 60_000L);
+					session.waypoints.put(w);
+					session.saveSoon(false);
+					this.track(dev.voidmc.atlas.client.AtlasClient.waypointMarkerId(w));
+				}
+			}
 			default -> this.map.centreOn(m.mapX, m.mapZ);
 		}
 	}

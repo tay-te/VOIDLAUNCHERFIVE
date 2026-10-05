@@ -120,6 +120,8 @@ public final class AtlasClient implements ClientModInitializer {
 
 	private final java.util.concurrent.atomic.AtomicBoolean proximityRunning = new java.util.concurrent.atomic.AtomicBoolean();
 
+	private final dev.voidmc.atlas.client.render.WaypointBeams beams = new dev.voidmc.atlas.client.render.WaypointBeams(this);
+
 	public static AtlasClient get() {
 		return instance;
 	}
@@ -156,6 +158,11 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 		});
 		ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> this.closeSession());
+		net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
+			if (!BASELINE) {
+				this.beams.collect(ctx);
+			}
+		});
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "minimap"), (g, d) -> {
 			if (!BASELINE) {
 				this.minimap.extract(g, d);
@@ -235,6 +242,39 @@ public final class AtlasClient implements ClientModInitializer {
 	public boolean underground() {
 		return this.underground;
 	}
+
+	// --- what the server allows ------------------------------------------------------------------------------------
+
+	/** Whether this is a world on a server (not one Atlas's player runs). */
+	public boolean multiplayer() {
+		Minecraft mc = Minecraft.getInstance();
+		return mc.level != null && mc.getSingleplayerServer() == null;
+	}
+
+	/** Whether the server lets the minimap show (singleplayer: always). */
+	public boolean minimapAllowed() {
+		return !this.multiplayer() || this.rules.minimapAllowed();
+	}
+
+	/** Whether the server lets the map show what is underground ({@code ceiling}: in a dimension with a roof). */
+	public boolean caveViewAllowed(boolean ceiling) {
+		return !this.multiplayer() || this.rules.caveViewAllowed(ceiling);
+	}
+
+	/**
+	 * Whether the radar may show other players ({@code mobs} false) or mobs: always in singleplayer; on a server only
+	 * where it opts in (fair play: a VOID player must never be banned for Atlas).
+	 */
+	public boolean radarAllowed(boolean mobs) {
+		return !this.multiplayer() || this.rules.radarAllowed(mobs);
+	}
+
+	/** What the current server allows and forbids (see docs/SERVER_RULES.md). */
+	public dev.voidmc.atlas.client.ServerRulesState rules() {
+		return this.rules;
+	}
+
+	private final dev.voidmc.atlas.client.ServerRulesState rules = new dev.voidmc.atlas.client.ServerRulesState();
 
 	// --- the frame and the tick ------------------------------------------------------------------------------------
 
@@ -527,6 +567,13 @@ public final class AtlasClient implements ClientModInitializer {
 	}
 
 	public @Nullable Place placeFor(String markerId) {
+		if (this.session != null && markerId.startsWith("atlas:wp:")) {
+			// a tracked waypoint, as a place (the compass and the minimap's rim show it the same way)
+			Waypoint w = this.waypointFor(markerId);
+			return w == null ? null : new Place(markerId, "atlas:waypoint", w.name(), "WAYPOINT", dev.voidmc.atlas.api.Tier.MAJOR,
+				dev.voidmc.atlas.api.DiscoveryState.DISCOVERED, dev.voidmc.atlas.api.Source.player(), w.x(), w.y(), w.z(), w.dimension(), false, 0,
+				w.created(), w.created());
+		}
 		if (this.session == null || !markerId.startsWith("atlas:place:")) {
 			return null;
 		}

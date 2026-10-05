@@ -36,6 +36,8 @@ public final class Perf {
 	private static long ingestNanos;
 	private static long minimapNanos;
 	private static long mapNanos;
+	private static long beamNanos;
+	private static long radarNanos;
 	private static long tickNanos;
 	private static long hudNanos;
 	private static long pageNanos;
@@ -51,6 +53,8 @@ public final class Perf {
 	private static long[] ingest = new long[0];
 	private static long[] minimap = new long[0];
 	private static long[] map = new long[0];
+	private static long[] beams = new long[0];
+	private static long[] radar = new long[0];
 	private static int[] tiles = new int[0];
 	private static long lastFrameNanos;
 
@@ -69,6 +73,8 @@ public final class Perf {
 					ingest = Arrays.copyOf(ingest, size);
 					minimap = Arrays.copyOf(minimap, size);
 					map = Arrays.copyOf(map, size);
+					beams = Arrays.copyOf(beams, size);
+					radar = Arrays.copyOf(radar, size);
 					tiles = Arrays.copyOf(tiles, size);
 				}
 				long[] gc = gcTotals();
@@ -81,6 +87,8 @@ public final class Perf {
 				ingest[n] = ingestNanos;
 				minimap[n] = minimapNanos;
 				map[n] = mapNanos;
+				beams[n] = beamNanos;
+				radar[n] = radarNanos;
 				tiles[n] = frameTiles;
 				n++;
 			}
@@ -89,6 +97,8 @@ public final class Perf {
 		ingestNanos = 0;
 		minimapNanos = 0;
 		mapNanos = 0;
+		beamNanos = 0;
+		radarNanos = 0;
 		tickNanos = 0;
 		hudNanos = 0;
 		pageNanos = 0;
@@ -115,8 +125,8 @@ public final class Perf {
 	/** A slow frame while recording: where the time went (Atlas's parts, and the garbage collector's). */
 	private static void slowFrame(long nanos, long collections, long gcMillis) {
 		String line = String.format(java.util.Locale.ROOT,
-			"%.1f ms frame: ingest %.2f, minimap %.2f, map %.2f (page %.2f), uploads %.2f (%d, %d KB), tick %.2f, hud %.2f, gc %d (%d ms)", nanos / 1e6,
-			ingestNanos / 1e6, minimapNanos / 1e6, mapNanos / 1e6, pageNanos / 1e6, uploadNanos / 1e6, uploads - frameUploads,
+			"%.1f ms frame: ingest %.2f, minimap %.2f (radar %.2f), beams %.2f, map %.2f (page %.2f), uploads %.2f (%d, %d KB), tick %.2f, hud %.2f, gc %d (%d ms)", nanos / 1e6,
+			ingestNanos / 1e6, minimapNanos / 1e6, radarNanos / 1e6, beamNanos / 1e6, mapNanos / 1e6, pageNanos / 1e6, uploadNanos / 1e6, uploads - frameUploads,
 			(uploadBytes - frameUploadBytes) >> 10, tickNanos / 1e6, hudNanos / 1e6, collections, gcMillis);
 		if (SLOW.size() < 40) {
 			SLOW.add(line);
@@ -130,6 +140,16 @@ public final class Perf {
 
 	public static void ingest(long nanos) {
 		ingestNanos += nanos;
+	}
+
+	/** The waypoint beams and labels in the world. */
+	public static void beams(long nanos) {
+		beamNanos += nanos;
+	}
+
+	/** The minimap's radar (other players and mobs). */
+	public static void radar(long nanos) {
+		radarNanos += nanos;
 	}
 
 	public static void minimap(long nanos) {
@@ -200,11 +220,12 @@ public final class Perf {
 	/** Stops recording and returns what was recorded. */
 	public static Recording stopRecording() {
 		recording = false;
-		return new Recording(Arrays.copyOf(frames, n), Arrays.copyOf(ingest, n), Arrays.copyOf(minimap, n), Arrays.copyOf(map, n), Arrays.copyOf(tiles, n));
+		return new Recording(Arrays.copyOf(frames, n), Arrays.copyOf(ingest, n), Arrays.copyOf(minimap, n), Arrays.copyOf(map, n), Arrays.copyOf(tiles, n),
+			Arrays.copyOf(beams, n), Arrays.copyOf(radar, n));
 	}
 
 	/** Every frame's numbers, in nanoseconds (tiles: the count drawn). */
-	public record Recording(long[] frames, long[] ingest, long[] minimap, long[] map, int[] tiles) {
+	public record Recording(long[] frames, long[] ingest, long[] minimap, long[] map, int[] tiles, long[] beams, long[] radar) {
 		public int count() {
 			return this.frames.length;
 		}
