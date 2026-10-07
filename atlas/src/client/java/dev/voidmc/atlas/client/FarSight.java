@@ -64,6 +64,8 @@ public final class FarSight {
 	public static final int MAX_PENDING = 512;
 	/** The far layer's raw regions kept in memory, at most (each is about 2.4 MB); the rest are saved and let go. */
 	public static final int MAX_RAWS = 48;
+	/** Far regions in memory at which writing waits for the disk to catch up. */
+	public static final int HARD_RAWS = MAX_RAWS * 2;
 
 	/** For the perf log: tiles taken and written, columns written, worker time, and time on LOD's thread. */
 	public static final AtomicLong TAKEN = new AtomicLong();
@@ -240,12 +242,19 @@ public final class FarSight {
 			return;
 		}
 		long t0 = System.nanoTime();
+		boolean backlogged = false;
 		try {
 			List<Tile> order = new ArrayList<>(this.pending.values());
 			// where tiles overlap (a coarser and a finer one), the newer is written last
 			order.sort(Comparator.comparingLong(Tile::revision));
 			for (Tile t : order) {
 				if (System.nanoTime() - t0 >= RUN_BUDGET_NANOS) {
+					break;
+				}
+				if (this.full(session, t)) {
+					// more far land in memory than the disk has caught up with: wait for the IO thread's trim, never
+					// writing (or saving) past the cap in a worker's run
+					backlogged = true;
 					break;
 				}
 				if (!this.pending.remove(t.key(), t)) {
@@ -261,8 +270,46 @@ public final class FarSight {
 			MAX_RUN_NANOS.accumulateAndGet(spent, Math::max);
 			this.draining.set(false);
 		}
-		if (!this.pending.isEmpty() && this.atlas.session() == session) {
+		if (backlogged && this.atlas.session() == session) {
+			try {
+				session.workers.schedule(() -> this.drainLater(session), 50, java.util.concurrent.TimeUnit.MILLISECONDS);
+			} catch (RuntimeException e) {
+				// closing
+			}
+		} else if (!this.pending.isEmpty() && this.atlas.session() == session) {
 			this.drainLater(session);
+		}
+	}
+
+	/** Whether the far layer a tile goes to holds as much as memory may (then a trim is under way). */
+	private boolean full(MapSession session, Tile t) {
+		DimensionData d = session.dimensionIfOpen(t.dimension());
+		if (d == null) {
+			return false;
+		}
+		LayerData far = d.layerIfOpen(LAYER);
+		if (far == null || far.rawsInMemory() < HARD_RAWS) {
+			return false;
+		}
+		this.trim(session, far);
+		return true;
+	}
+
+	/** Sends what of the far layer is not being drawn to disk, on the IO thread; one trim at a time. */
+	private void trim(MapSession session, LayerData far) {
+		if (!this.trimming.compareAndSet(false, true)) {
+			return;
+		}
+		try {
+			session.io.execute(() -> {
+				try {
+					far.saveAndTrim(0, MAX_RAWS / 2, MAX_RAWS / 2, false);
+				} finally {
+					this.trimming.set(false);
+				}
+			});
+		} catch (RuntimeException e) {
+			this.trimming.set(false);
 		}
 	}
 
@@ -344,20 +391,10 @@ public final class FarSight {
 		if (minX <= maxX) {
 			far.dirty(minX, minZ, maxX + 1, maxZ + 1);
 		}
-		if (far.rawsInMemory() > MAX_RAWS && this.trimming.compareAndSet(false, true)) {
+		if (far.rawsInMemory() > MAX_RAWS) {
 			// far land reaches wide: what is not being drawn goes to disk (on the IO thread, never in a worker's run), so
-			// memory stays small
-			try {
-				session.io.execute(() -> {
-					try {
-						far.saveAndTrim(0, MAX_RAWS / 2, MAX_RAWS / 2, false);
-					} finally {
-						this.trimming.set(false);
-					}
-				});
-			} catch (RuntimeException e) {
-				this.trimming.set(false);
-			}
+			// memory stays small; past HARD_RAWS the writing waits for it
+			this.trim(session, far);
 		}
 		TILES.incrementAndGet();
 		SAMPLES.addAndGet(written);
