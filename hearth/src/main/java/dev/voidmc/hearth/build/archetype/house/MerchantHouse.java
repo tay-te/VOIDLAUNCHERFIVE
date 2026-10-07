@@ -67,7 +67,7 @@ import net.minecraft.world.level.block.state.properties.Half;
  */
 public final class MerchantHouse implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/merchant_house"), ArchetypeCategory.HOUSING, Set.of(JobType.MERCHANT), 5,
-		7, 11, 11, 15, 13, 20, SettlementTier.VILLAGE, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE, ArchetypeInfo.SiteFlag.VERTICAL), List.of(),
+		7, 11, 11, 15, 17, 20, SettlementTier.VILLAGE, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE, ArchetypeInfo.SiteFlag.VERTICAL), List.of(),
 		0, 1.0);
 
 	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.GAMBREL, RoofForm.MANSARD, RoofForm.HIP, RoofForm.PAGODA,
@@ -141,24 +141,32 @@ public final class MerchantHouse implements Archetype {
 		int full = wanted;
 		int ground = sh + 1;
 		for (int pass = 0; pass < 10; pass++) {
-			body = new Body(bx0, bz0, bx1, bz1, 0, TownHouses.heights(full, sh, ground, !flat), partyL, partyR);
-			if (jetties) {
-				body.jetty(1, Dirs.FRONT);
-				if (cornerL && body.x0 >= 1) {
-					body.jetty(1, Dirs.LEFT);
+			// a house of two storeys stands its loft up on knee walls two high where it can: the household sleeps there
+			boolean fits = false;
+			for (int knee = full <= 2 && !flat ? 2 : 1; knee >= 1 && !fits; knee--) {
+				int[] hs = TownHouses.heights(full, sh, ground, !flat);
+				if (!flat) {
+					hs[full] = knee;
 				}
-				if (cornerR && body.x1 <= w - 2) {
-					body.jetty(1, Dirs.RIGHT);
+				body = new Body(bx0, bz0, bx1, bz1, 0, hs, partyL, partyR);
+				if (jetties) {
+					body.jetty(1, Dirs.FRONT);
+					if (cornerL && body.x0 >= 1) {
+						body.jetty(1, Dirs.LEFT);
+					}
+					if (cornerR && body.x1 <= w - 2) {
+						body.jetty(1, Dirs.RIGHT);
+					}
 				}
+				fits = TownHouses.ridge(d, body, form, ridge, opts) + (flat ? 1 : 2) < d.maxHeight();
 			}
-			int top = TownHouses.ridge(d, body, form, ridge, opts) + (flat ? 1 : 2);
-			if (top < d.maxHeight()) {
+			if (fits) {
 				break;
 			}
 			if (full > 3) {
 				full--;
-			} else if (ground > sh) {
-				// the shop's tall ground storey goes before a storey does
+			} else if (ground > sh && !arcade) {
+				// the shop's tall ground storey goes before a storey does (an arcade keeps it: its arches need the height)
 				ground = sh;
 			} else if (full > 2 && pass >= 3) {
 				full--;
@@ -475,6 +483,7 @@ public final class MerchantHouse implements Archetype {
 		Rooms.Room hall = null;
 		List<Rooms.Room> chambers = new ArrayList<>();
 		Rooms.Room store = null;
+		Rooms.Room counting = null;
 		for (int k = 0; k < floors; k++) {
 			boolean reached = TownHouses.reached(core, k);
 			boolean isLoft = loft && k == topK;
@@ -495,6 +504,7 @@ public final class MerchantHouse implements Archetype {
 			TownHouses.keepDoors(d, room, r, b.floorY(k));
 			if (k == 0) {
 				counting(d, room, core, door);
+				counting = room;
 			} else if (k == 1) {
 				if (hearth != null) {
 					room.block(hearth[0], hearth[1]);
@@ -540,6 +550,10 @@ public final class MerchantHouse implements Archetype {
 		}
 		for (Rooms.Room r : all) {
 			beds += TownHouses.bedsIn(d, r);
+		}
+		if (counting != null) {
+			// in a low house the apprentices sleep in the shop, as they did
+			all.add(counting);
 		}
 		for (Rooms.Room r : all) {
 			if (beds >= INFO.beds()) {

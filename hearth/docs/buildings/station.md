@@ -12,10 +12,10 @@ zone (`plan/growth/Housing`); the registered infos below replace the placeholder
 | `hearth:house/hovel` | `house/Hovel` | camp+, weight 0.8 | 7–9 × 6–8 | 8–9 | 2 | cottage |
 | `hearth:house/shack` | `house/Shack` | camp+, ATTACHABLE, weight 0.8 | 5–7 × 5–8 | 8–11 | 2 | rowhouse |
 | `hearth:house/croft` | `house/Croft` | camp+ | 9–12 × 12–16 | 9–12 | 3 | cottage |
-| `hearth:house/merchant_house` | `house/MerchantHouse` | village+, ATTACHABLE, VERTICAL | 7–11 × 11–15 | 20–28 | 5, MERCHANT | — |
+| `hearth:house/merchant_house` | `house/MerchantHouse` | village+, ATTACHABLE, VERTICAL | 7–11 × 11–15 | 17–20 | 5, MERCHANT | — |
 | `hearth:house/reeve_house` | `house/ReeveHouse` | village+, max 2 | 10–13 × 13–16 | 13–18 | 4, REEVE | — |
 | `hearth:house/rectory` | `house/Rectory` | village+, max 2 | 9–12 × 14–17 | 12–17 | 3 | — |
-| `hearth:house/scribe_house` | `house/ScribeHouse` | town+, ATTACHABLE | 6–8 × 9–12 | 18–24 | 3 | — |
+| `hearth:house/scribe_house` | `house/ScribeHouse` | town+, ATTACHABLE | 6–8 × 9–12 | 15–18 | 3 | — |
 | `hearth:house/hermit_hut` | `house/HermitHut` | camp+, OUTSKIRTS, max 1, weight 0.5 | 6–8 × 7–9 | 7–9 | 1 | — |
 
 Every home reads `station` and `household` (shared, `kit/homestead/Household`): the trade's signature piece and its
@@ -33,7 +33,8 @@ fire, round-house lands a cone of thatch, raised lands a hut on piles, the north
 
 **Shack.** The town's poor in the back lanes: a narrow board-and-batten shack in a row, mended with odd planks, a
 sleeping loft oversailing the lane on brackets, a patched lean-to roof, a rubble flue; crates and a barrel at the door,
-washing out of the loft. One storey with both beds by the fire out of the core.
+washing out of the loft. One storey with both beds by the fire out of the core, and wherever it stands alone on a
+plot too narrow for the loft to stay within 1.6 times its front (`kit/townhome/Proportions`, art review 22).
 
 **Croft.** The peasant's long low house with the family and the beasts under one roof. In Bohemia its boarded gable
 stands to the lane over a little pent, the living room's two windows in it; the door into the hall from the yard side,
@@ -54,7 +55,10 @@ mashrabiya in the dry lands, pent roofs and a latticed gallery in the karst. Ins
 across it (scales on it; COUNTER and the merchant's barrel behind it, MARKET_STALL before), the strongbox in the back
 corner by the ledger desk; the hall upstairs with the hearth and the best of everything; the chambers; the loft
 stacked with barrels, bales, sacks and hay (servants' beds up there when there is only one storey of chambers; a ladder
-where the stair cannot reach it).
+where the stair cannot reach it). Where the plot's height leaves only two storeys, the loft stands up on knee walls two
+high so the household sleeps under the roof, and the apprentices bed down in the shop when the house still runs short;
+an arcade keeps its tall ground storey (a storey goes first). Its range is 17–20: below that a household of five no
+longer fits in every culture (art review 1 asked for 13–20; see `docs/requests/w6-homes.md`).
 
 **Reeve's house.** By the square: a detached house of two storeys and a garret standing back behind a paved forecourt,
 its broad front to the square (or, in Bohemia, the rendered and boarded gable of the `rychta`), the door in the middle
@@ -71,7 +75,9 @@ walls, the chest of the plate and the tithe) and the kitchen behind; the priest'
 **Scribe's house.** A narrow house in a row by the market: three low storeys and a garret on six to eight blocks, its
 gable to the street; a bay of small panes beside the door with the desk inside it where the light is best, a sign of
 the trade over the door. The writing room: the desk with candles, the lectern with a charter open on it, shelves of
-books, the chest of deeds; the kitchen above; the chamber; the apprentice's bed in the garret among the paper.
+books, the chest of deeds; the kitchen above; the chamber; the apprentice's bed in the garret among the paper (the
+whole household in the garret, on knee walls two high, where the plot leaves room for only two storeys). Its range is
+15–18: lower, a six-wide house no longer sleeps three (art review 1 asked for 12–18).
 
 **Hermit's hut.** Out past the fields: a tiny cell under a low mossy roof, one shuttered window, a bed, a fire and a
 lectern with the book always open; before it a wayside shrine of the culture's kind where passers-by stop (ALTAR), a
