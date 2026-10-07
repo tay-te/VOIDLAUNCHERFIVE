@@ -629,6 +629,9 @@ public class AtlasGameTest implements FabricClientGameTest {
 			settings.radarPlayers = true;
 			settings.radarMobs = true;
 			var session = AtlasClient.get().session();
+			if (session == null) {
+				return; // the baseline: Atlas idle, no map open
+			}
 			for (int i = 0; i < 48; i++) {
 				double a = i * Math.PI * 2 / 48;
 				int r = 60 + (i % 6) * 250;
