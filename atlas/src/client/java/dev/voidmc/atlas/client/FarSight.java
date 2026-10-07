@@ -64,6 +64,8 @@ public final class FarSight {
 	public static final int MAX_PENDING = 512;
 	/** The far layer's raw regions kept in memory, at most (each is about 2.4 MB); the rest are saved and let go. */
 	public static final int MAX_RAWS = 48;
+	/** Tiles offered by cell size (index: log2 of the cell), for the tour. */
+	public static final java.util.concurrent.atomic.AtomicLongArray OFFERED_BY_CELL = new java.util.concurrent.atomic.AtomicLongArray(11);
 	/** Far regions in memory at which writing waits for the disk to catch up. */
 	public static final int HARD_RAWS = MAX_RAWS * 2;
 
@@ -188,6 +190,10 @@ public final class FarSight {
 
 	/** Files a far tile to be written (any thread). Public for the perf scenario, which feeds made-up tiles. */
 	public void offer(Tile tile) {
+		if (this.on && tile.cell() > 0) {
+			// what VOID LOD offers, by cell size (powers of two, 1 to 512): the tour's account of what is taken and left
+			OFFERED_BY_CELL.incrementAndGet(Math.min(10, 31 - Integer.numberOfLeadingZeros(tile.cell())));
+		}
 		if (!this.on || tile.cell() < MIN_CELL || tile.cell() > MAX_CELL || tile.size() <= 0 || tile.size() > MAX_SIZE) {
 			return;
 		}

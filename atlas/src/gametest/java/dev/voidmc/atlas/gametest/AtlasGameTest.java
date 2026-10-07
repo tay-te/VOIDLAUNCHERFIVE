@@ -581,6 +581,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 			}
 		}
 		this.settle(context, SETTLE_MS);
+		log("far sight: tiles VOID LOD offered by cell size (1, 2, 4 ... 512 blocks): " + dev.voidmc.atlas.client.FarSight.OFFERED_BY_CELL);
 		log(String.format(Locale.ROOT, "far sight from VOID LOD: %d tiles taken, %d written, %d columns, listening %s", dev.voidmc.atlas.client.FarSight.TAKEN.get(),
 			tiles, dev.voidmc.atlas.client.FarSight.SAMPLES.get(), context.computeOnClient(mc -> AtlasClient.get().farSight.listening())));
 		int[] box = context.computeOnClient(mc -> Section8Shots.walkedBox());
