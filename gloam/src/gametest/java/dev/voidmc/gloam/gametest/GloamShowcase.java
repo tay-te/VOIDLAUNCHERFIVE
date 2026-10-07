@@ -6,6 +6,8 @@ import dev.voidmc.gloam.GloamSettings;
 import dev.voidmc.gloam.air.Atmosphere;
 import dev.voidmc.gloam.air.Air;
 import dev.voidmc.gloam.air.AirSample;
+import dev.voidmc.gloam.compat.Expanse;
+import dev.voidmc.gloam.sky.GloamSky;
 import dev.voidmc.gloam.sky.Haze;
 import dev.voidmc.gloam.sound.Soundscape;
 import dev.voidmc.gloam.motes.Motes;
@@ -83,6 +85,26 @@ public class GloamShowcase implements FabricClientGameTest {
 	 * Where the motes' views are taken: a spot under a broadleaf canopy (the falling leaves), one in the snow (breath and
 	 * snow) and a waterfall the showcase builds itself (spray).
 	 */
+	/**
+	 * The highest mountain range near the spawn and the places it is shot from: its summit, a valley floor a few km east
+	 * of it (so the setting sun goes down behind it), and a spot on its flank between the two at about mid-height.
+	 */
+	record RangePlaces(int peakX, int peakY, int peakZ, int valleyX, int valleyY, int valleyZ, int flankX, int flankY, int flankZ) {
+		/** The yaw from (x, z) toward (tx, tz), in Minecraft's degrees. */
+		static float yaw(int x, int z, int tx, int tz) {
+			return (float) Math.toDegrees(Math.atan2(-(tx - x), tz - z));
+		}
+
+		/** The pitch from (x, y, z) up (negative) or down to (tx, ty, tz). */
+		static float pitch(int x, int y, int z, int tx, int ty, int tz) {
+			return (float) -Math.toDegrees(Math.atan2(ty - y, Math.hypot(tx - x, tz - z)));
+		}
+	}
+
+	private static RangePlaces rangePlaces = new RangePlaces(0, 200, 0, 2000, 80, 0, 1000, 140, 0);
+	/** Whether the ranges have been looked for in this run (just before the first range view, see place). */
+	private static boolean rangesFound;
+
 	record MotePlaces(int forestX, int forestY, int forestZ, float forestYaw, int coldX, int coldY, int coldZ, float coldYaw, int fallX, int fallY, int fallZ) {
 	}
 
@@ -160,6 +182,12 @@ public class GloamShowcase implements FabricClientGameTest {
 						+ "wet %.2f, lowness %.2f, water %.2f, indoors %.2f, %d fps%n", view.name(), air.season().serializedName(), air.hour(), air.front(),
 					air.cloudCover(), air.rain(), air.storm(), air.mist(), air.mistTop(), air.wind().speed(), air.wind().gust(), air.wetness(),
 					air.climate().lowness(), air.climate().water(), air.indoors(), fps);
+				String sky = context.computeOnClient(mc -> {
+					Expanse.Sampler country = Expanse.sampler(mc.level);
+					var eye = mc.gameRenderer.mainCamera().position();
+					return GloamSky.describe() + "; country " + (country == null ? "none" : country.at((int) eye.x, (int) eye.z));
+				});
+				System.out.printf(Locale.ROOT, "[gloam] %s %s%n", view.name(), sky);
 				String beds = context.computeOnClient(mc -> Soundscape.describe());
 				System.out.printf(Locale.ROOT, "[gloam] %s sound: %s%n", view.name(), beds);
 				String motes = context.computeOnClient(mc -> Motes.stats() + "; particles " + mc.particleEngine.countParticles());
@@ -215,11 +243,166 @@ public class GloamShowcase implements FabricClientGameTest {
 		views.add(new View("storm0", p.peakX(), p.peakY() + 20, p.peakZ(), 0, 1, 45, 7000, "clear", 2));
 		View low = new View("sky0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), -18, 70, 4000, "clear", 2);
 		views.add(low);
+		addRangeViews(views);
 		return views;
+	}
+
+	/**
+	 * The highest ranges (the Earth world's tallest land, some 585 blocks): the golden hour from the valley east of them
+	 * with the sun going down behind them, the morning mist in the valleys from their flank at an autumn sunrise, and the ranges
+	 * from the summit at noon among the cloud layers (the stratus below, the high deck above).
+	 */
+	static void addRangeViews(List<View> views) {
+		RangePlaces r = rangePlaces;
+		// the flank camera a little above its ground, over the mist that settles on the slope, looking down on the valleys
+		int vy = r.valleyY() + 3, fy = r.flankY() + 30, py = r.peakY() + 6;
+		float toPeak = RangePlaces.yaw(r.valleyX(), r.valleyZ(), r.peakX(), r.peakZ());
+		float up = Math.max(-25, RangePlaces.pitch(r.valleyX(), vy, r.valleyZ(), r.peakX(), r.peakY(), r.peakZ()) + 4);
+		views.add(new View("range0", r.valleyX(), vy, r.valleyZ(), toPeak, up, 55, 11700, "clear", 2));
+		views.add(new View("range1", r.valleyX(), vy, r.valleyZ(), toPeak, up, 55, 12350, "clear", 2));
+		float toValley = RangePlaces.yaw(r.flankX(), r.flankZ(), r.valleyX(), r.valleyZ());
+		views.add(new View("range2", r.flankX(), fy, r.flankZ(), toValley, 14, 70, 14 * 24000 + 23900, "clear", 2));
+		views.add(new View("range3", r.flankX(), fy, r.flankZ(), toValley, 14, 70, 15 * 24000 + 600, "clear", 2));
+		float fromPeak = RangePlaces.yaw(r.peakX(), r.peakZ(), r.valleyX(), r.valleyZ());
+		views.add(new View("range4", r.peakX(), py, r.peakZ(), fromPeak, 4, 70, 6000, "clear", 2));
+		views.add(new View("range5", r.peakX(), py, r.peakZ(), fromPeak + 120, 4, 70, 6000, "clear", 2));
+	}
+
+	/**
+	 * Finds the ranges to shoot: of the highest summits within 8 km (the tallest land first), the one whose sky will be
+	 * fairest while its views are shot (the fronts over it, from Gloam's own model, a few minutes on), with a valley floor
+	 * 2.5..6 km east of it that sees the summit over the land between, and a spot on its flank at about mid-height.
+	 */
+	static RangePlaces findRanges(ServerLevel level) {
+		if (!(level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth)) {
+			return rangePlaces;
+		}
+		TerrainModel model = earth.model(level.getChunkSource().randomState());
+		// the summits: the highest sample of each 1.5 km square, highest first
+		java.util.Map<Long, int[]> tops = new java.util.HashMap<>();
+		for (int x = -8000; x <= 8000; x += 96) {
+			for (int z = -8000; z <= 8000; z += 96) {
+				int h = Math.round(model.sample(x, z).height);
+				long key = ((long) Math.floorDiv(x, 1536) << 32) ^ (Math.floorDiv(z, 1536) & 0xFFFFFFFFL);
+				int[] t = tops.get(key);
+				if (t == null || h > t[2]) {
+					tops.put(key, new int[]{x, z, h});
+				}
+			}
+		}
+		List<int[]> summits = new ArrayList<>(tops.values());
+		summits.sort((a, b) -> b[2] - a[2]);
+		Air air = new Air(BiomeManager.obfuscateSeed(level.getSeed()), GloamSettings.get().seasonDays);
+		// the range views take a few minutes from here; the fronts are read half way through
+		long gameTime = level.getGameTime() + 3 * SETTLE_MS / 50 + 2400;
+		int sea = level.getSeaLevel();
+		RangePlaces best = null;
+		float bestScore = Float.MAX_VALUE;
+		for (int[] top : summits.subList(0, Math.min(12, summits.size()))) {
+			if (top[2] < summits.get(0)[2] - 90) {
+				break;
+			}
+			RangePlaces r = range(model, sea, top[0], top[1], top[2]);
+			if (r == null) {
+				continue;
+			}
+			// the stormiest sky along the line from the valley to the summit, at noon and at the autumn dawn
+			float worst = 0;
+			for (int i = 0; i <= 4; i++) {
+				double x = r.valleyX() + (r.peakX() - r.valleyX()) * i / 4.0, z = r.valleyZ() + (r.peakZ() - r.valleyZ()) * i / 4.0;
+				worst = Math.max(worst, air.front(x, z, gameTime, air.year(6000), 0.6F));
+				worst = Math.max(worst, air.front(x, z, gameTime, air.year(15 * 24000), 0.6F));
+			}
+			// fair weather first (a few clouds are welcome), then the tallest
+			float score = Math.max(0, worst - 0.4F) * 1000 - r.peakY() * 0.1F;
+			System.out.printf(Locale.ROOT, "[gloam] range candidate %d %d (y %d): front up to %.2f%n", top[0], top[1], top[2], worst);
+			if (score < bestScore) {
+				bestScore = score;
+				best = r;
+			}
+		}
+		if (best == null) {
+			return rangePlaces;
+		}
+		int[][] at = {{best.peakX(), best.peakZ()}, {best.valleyX(), best.valleyZ()}, {best.flankX(), best.flankZ()}};
+		int[] ys = new int[3];
+		for (int i = 0; i < 3; i++) {
+			level.getChunk(at[i][0] >> 4, at[i][1] >> 4);
+			ys[i] = level.getHeight(Heightmap.Types.MOTION_BLOCKING, at[i][0], at[i][1]);
+		}
+		return new RangePlaces(best.peakX(), ys[0], best.peakZ(), best.valleyX(), ys[1], best.valleyZ(), best.flankX(), ys[2], best.flankZ());
+	}
+
+	/**
+	 * One summit's places (heights from the model, to be replaced by the real ground): the summit itself, the lowest dry
+	 * floor east of it that sees it over the land between, and the flank half way; null without such a floor.
+	 */
+	private static RangePlaces range(TerrainModel model, int sea, int px, int pz, int ph) {
+		int sx = px, sz = pz;
+		float peak = ph;
+		for (int x = px - 96; x <= px + 96; x += 8) {
+			for (int z = pz - 96; z <= pz + 96; z += 8) {
+				float h = model.sample(x, z).height;
+				if (h > peak) {
+					peak = h;
+					sx = x;
+					sz = z;
+				}
+			}
+		}
+		int vx = 0, vz = 0;
+		float low = Float.MAX_VALUE;
+		for (int dx = 2500; dx <= 6000; dx += 96) {
+			for (int dz = -dx * 5 / 6; dz <= dx * 5 / 6; dz += 96) {
+				float h = model.sample(sx + dx, sz + dz).height;
+				if (h > sea + 4 && h < low && sees(model, sx + dx, sz + dz, h + 6, sx, sz, peak)) {
+					low = h;
+					vx = sx + dx;
+					vz = sz + dz;
+				}
+			}
+		}
+		if (low == Float.MAX_VALUE) {
+			return null;
+		}
+		// on the line from the summit to the valley, the first ground below 45% of the way down: the flank
+		int fx = (sx + vx) / 2, fz = (sz + vz) / 2;
+		float target = low + 0.45F * (peak - low);
+		for (int i = 1; i < 200; i++) {
+			int x = sx + (vx - sx) * i / 200, z = sz + (vz - sz) * i / 200;
+			if (model.sample(x, z).height < target) {
+				fx = x;
+				fz = z;
+				break;
+			}
+		}
+		return new RangePlaces(sx, Math.round(peak), sz, vx, Math.round(low), vz, fx, Math.round(target), fz);
+	}
+
+	/** Whether an eye at (x, y, z) sees the top of (tx, tz) at height th over the land between (the model's ground). */
+	private static boolean sees(TerrainModel model, int x, int z, float y, int tx, int tz, float th) {
+		for (int i = 1; i < 48; i++) {
+			float t = i / 48.0F;
+			float line = y + (th - 40 - y) * t;
+			if (model.sample(Math.round(x + (tx - x) * t), Math.round(z + (tz - z) * t)).height > line) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** Where a view is shot: the overcast and haze views go looking for their place, the rest stay where they are. */
 	private View place(TestSingleplayerContext world, View planned, View last) {
+		if (planned.name().startsWith("range")) {
+			if (!rangesFound) {
+				rangesFound = true;
+				rangePlaces = world.getServer().computeOnServer(server -> findRanges(server.overworld()));
+				System.out.printf(Locale.ROOT, "[gloam] range places: %s%n", rangePlaces);
+			}
+			List<View> fresh = new ArrayList<>();
+			addRangeViews(fresh);
+			return fresh.stream().filter(v -> v.name().equals(planned.name())).findFirst().orElse(planned);
+		}
 		for (String kind : new String[]{"overcast", "haze"}) {
 			if (planned.name().startsWith(kind)) {
 				return last != null && last.name().startsWith(kind) ? planned.at(last)

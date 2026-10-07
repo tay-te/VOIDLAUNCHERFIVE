@@ -47,8 +47,9 @@ public final class Haze {
 	);
 
 	/**
-	 * Expanse's coming country haze hints (ExpanseCountry), as the same kind of entry; read the same way once the
-	 * country lands, under the biome's own entry where a biome has one.
+	 * Expanse's country haze hints ({@code ExpanseCountry.Here.haze}), as the same kind of entry: the air of a humid
+	 * lowland, of misty lake country, of a damp old forest, of dry dusty land, of clear mountain air. The camera takes
+	 * the hazier of its biome's entry and its country's.
 	 */
 	public static final Map<String, Entry> HINTS = Map.of(
 		"humid_lowland", new Entry(380, Kind.MIST),

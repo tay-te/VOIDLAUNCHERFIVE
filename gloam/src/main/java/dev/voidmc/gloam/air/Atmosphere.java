@@ -2,6 +2,7 @@ package dev.voidmc.gloam.air;
 
 import dev.voidmc.gloam.Gloam;
 import dev.voidmc.gloam.GloamSettings;
+import dev.voidmc.gloam.compat.Expanse;
 import dev.voidmc.gloam.mixin.BiomeManagerAccessor;
 import dev.voidmc.gloam.mixin.LevelAccessor;
 import net.minecraft.client.Camera;
@@ -29,6 +30,8 @@ public final class Atmosphere {
 	private float temperature = Climate.TEMPERATE.temperature(), downfall = Climate.TEMPERATE.downfall();
 	private float lowness = Climate.TEMPERATE.lowness(), water;
 	private float wetness, indoors;
+	/** Expanse's wetness of the land at the camera (NaN without it), read with the land and eased toward every tick. */
+	private float countryDownfall = Float.NaN;
 	private int ticks;
 
 	/** The air at the camera this tick ({@link AirSample#CLEAR} outside a world). */
@@ -82,10 +85,11 @@ public final class Atmosphere {
 
 		Biome biome = level.getBiome(at).value();
 		this.temperature += (biome.getBaseTemperature() - this.temperature) * ease;
-		this.downfall += (biome.climateSettings.downfall() - this.downfall) * ease;
 		if (first || this.ticks % 10 == 0) {
 			this.readLand(level, at, first);
 		}
+		float downfall = Float.isNaN(this.countryDownfall) ? biome.climateSettings.downfall() : this.countryDownfall;
+		this.downfall += (downfall - this.downfall) * ease;
 		this.indoors += (this.sky(level, at) - this.indoors) * (first ? 1.0F : 0.1F);
 		Climate climate = new Climate(this.temperature, this.downfall, this.lowness, this.water);
 
@@ -106,8 +110,34 @@ public final class Atmosphere {
 			Air.cloudCover(front, rain), rain, storm, mist, ground + Air.mistDepth(mist), this.wetness, climate, this.indoors);
 	}
 
-	/** How far below the land around it the camera's ground lies, and how near open water: read off the heightmaps. */
+	/**
+	 * How far below the land around it the camera's ground lies, and how near open water: from Expanse's countries
+	 * where it has them (they know the valley before its chunks load, and the rain shadows), else off the heightmaps.
+	 */
 	private void readLand(ClientLevel level, BlockPos at, boolean first) {
+		Expanse.Sampler country = Expanse.sampler(level);
+		if (country != null) {
+			Expanse.Land land = country.at(at.getX(), at.getZ());
+			float ease = first ? 1.0F : 0.25F;
+			// open water the heightmaps see (a pond, a flooded pit) still counts
+			float water = Math.max(land.water(), this.waterNearby(level, at));
+			this.lowness += (land.lowness() - this.lowness) * ease;
+			this.water += (water - this.water) * ease;
+			this.countryDownfall = land.downfall();
+			return;
+		}
+		this.countryDownfall = Float.NaN;
+		this.readHeightmaps(level, at, first);
+	}
+
+	/** Whether the camera's ground is water: the quick check where Expanse gives the rest. */
+	private float waterNearby(ClientLevel level, BlockPos at) {
+		int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
+		return level.getFluidState(new BlockPos(at.getX(), ground - 1, at.getZ())).is(FluidTags.WATER) ? 1 : 0;
+	}
+
+	/** The land's shape and water read off the heightmaps of the loaded chunks round the camera. */
+	private void readHeightmaps(ClientLevel level, BlockPos at, boolean first) {
 		int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
 		float around = 0;
 		int wet = 0, samples = 0;

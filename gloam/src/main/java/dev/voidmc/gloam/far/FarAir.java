@@ -7,6 +7,7 @@ import dev.voidmc.gloam.air.Air;
 import dev.voidmc.gloam.air.AirSample;
 import dev.voidmc.gloam.air.Atmosphere;
 import dev.voidmc.gloam.air.Noise;
+import dev.voidmc.gloam.compat.Expanse;
 import dev.voidmc.gloam.compat.Lod;
 import dev.voidmc.gloam.compat.Shaders;
 import java.nio.ByteBuffer;
@@ -187,6 +188,15 @@ public final class FarAir {
 		return map.at(WeatherMap.frameX(x, t), WeatherMap.frameZ(z, t));
 	}
 
+	/**
+	 * The cloud decks Gloam's clouds are laid out in, in world y: {low, main, high}, -1 for a deck the world has none of;
+	 * null while Gloam is not drawing the clouds (vanilla's one deck at its cloud height then).
+	 */
+	public static int[] cloudDecks() {
+		CloudGrid.Layers l = INSTANCE.layers;
+		return l == null || !INSTANCE.replacing ? null : new int[]{l.low(), l.main(), l.high()};
+	}
+
 	/** The far land the air has been told of (for the showcase: whether VOID LOD's tiles reached it). */
 	public static boolean landKnown() {
 		return INSTANCE.land.known();
@@ -234,7 +244,8 @@ public final class FarAir {
 		double clip = lodRadius > 0 ? Math.max(0, renderDistance - 24) : renderDistance;
 
 		// the fronts' picture
-		this.weather.update(air, cx, cz, state.gameTime, year, here.climate().downfall());
+		Expanse.Sampler country = Expanse.sampler(level);
+		this.weather.update(air, cx, cz, state.gameTime, year, here.climate().downfall(), country);
 		WeatherMap.Picture map = this.weather.current();
 		if (map != null && map != this.stormsOf) {
 			this.stormsOf = map;
@@ -290,7 +301,7 @@ public final class FarAir {
 		boolean mistOn = settings.farMist && this.land.known();
 		if (mistOn) {
 			this.land.trim(cx, cz, reach * 1.2);
-			this.mist.update(this.land, air, cx, cz, Math.min(reach, Math.max(lodRadius, 2048)), clock, here.wetness());
+			this.mist.update(this.land, air, cx, cz, Math.min(reach, Math.max(lodRadius, 2048)), clock, here.wetness(), country);
 		}
 		FarMist.Mesh mesh = this.mist.take();
 		if (mesh != null) {
