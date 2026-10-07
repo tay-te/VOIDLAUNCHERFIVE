@@ -30,4 +30,17 @@ public interface AtlasPlugin {
 	/** Called after {@link #onAtlasReady}: landmark and discovery providers, region names, places a server sends. */
 	default void onAtlasPlaces(AtlasPlaces places) {
 	}
+
+	/** Called after {@link #onAtlasPlaces}: the player's journal (read only). */
+	default void onAtlasJournal(AtlasJournal journal) {
+	}
+
+	/**
+	 * A way to reach the player's friends and party (the VOID launcher's, say), or null. Asked once at start; the first
+	 * plugin's transport that is {@link AtlasSocialTransport#available() available} is used. Friend features stay
+	 * hidden while there is none.
+	 */
+	default AtlasSocialTransport socialTransport() {
+		return null;
+	}
 }

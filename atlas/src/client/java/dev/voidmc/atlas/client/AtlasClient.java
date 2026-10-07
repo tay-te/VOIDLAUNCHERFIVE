@@ -83,7 +83,7 @@ public final class AtlasClient implements ClientModInitializer {
 	private static AtlasClient instance;
 
 	private AtlasSettings settings;
-	private final MarkerRegistry markers = new MarkerRegistry(LOGGER::warn);
+	final MarkerRegistry markers = new MarkerRegistry(LOGGER::warn);
 	private @Nullable TileCache tiles;
 	private @Nullable MapSession session;
 	private @Nullable Ingest ingest;
@@ -102,6 +102,10 @@ public final class AtlasClient implements ClientModInitializer {
 	private int rulesSeen;
 	/** Terrain seen from afar through VOID LOD (inert without it). */
 	public final FarSight farSight = new FarSight(this);
+	/** The journal of the world whose map is open (and its face to other mods). */
+	final JournalKeeper journal = new JournalKeeper(this);
+	/** VOID friends on the map, through a transport another mod gives (hidden without one). */
+	public final Social social = new Social(this);
 	/** The last band the player was in underground, per dimension (for the underground and Nether views). */
 	private final ConcurrentHashMap<String, Integer> bands = new ConcurrentHashMap<>();
 	private final boolean logStats = Boolean.getBoolean("atlas.logStats");
@@ -219,6 +223,8 @@ public final class AtlasClient implements ClientModInitializer {
 				AtlasPlugin plugin = container.getEntrypoint();
 				plugin.onAtlasReady(this.markers);
 				plugin.onAtlasPlaces(this.places);
+				plugin.onAtlasJournal(this.journal);
+				this.social.offer(plugin.socialTransport());
 				LOGGER.info("VOID Atlas: {} added its markers and places", mod);
 			} catch (Throwable t) {
 				LOGGER.warn("VOID Atlas: {}'s atlas entrypoint failed: {}", mod, t.toString());
@@ -520,6 +526,13 @@ public final class AtlasClient implements ClientModInitializer {
 			if (this.ticks % 20 == 11) {
 				this.farSight.update();
 			}
+			long day = p.level().getOverworldClockTime() / 24000 + 1;
+			if (this.ticks % 20 == 13) {
+				this.journal.tick(session, p, dim, day);
+			}
+			if (this.ticks % 20 == 17) {
+				this.social.tick(session, p, dim);
+			}
 			if (this.ticks % 100 == 3) {
 				// for the disk cap at close: the cap, and where the player is
 				session.diskCapBytes = this.settings.diskCapMb * 1024L * 1024L;
@@ -572,6 +585,7 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 			for (Place changed : session.places.drainChanges()) {
 				this.places.notify(changed);
+				this.journal.changed(session, changed, day);
 				if (changed.isDiscovered() && changed.dimension().equals(dim) && !changed.kind().equals(Place.RIVER)
 					&& !changed.kind().equals(Place.CAVE_MOUTH) && !changed.kind().equals(Place.RAVINE)) {
 					// the design's toast, once, as the player comes within reach (or walks into a region)
@@ -666,6 +680,12 @@ public final class AtlasClient implements ClientModInitializer {
 				TileCache cache = this.tiles;
 				if (cache != null) {
 					cache.regionChanged(change);
+				}
+				if (change.layer().name.equals(DimensionData.SURFACE) && change.rect() != null && this.social.available()) {
+					// walked land, to friends (within the byte budget; nothing without a transport or with privacy Nobody)
+					int[] r = change.rect();
+					this.social.walkedChanged(change.layer().dimension.id, change.layer().rawIfLoaded(change.rx(), change.rz()), r[0], r[1], r[2] - r[0],
+						r[3] - r[1]);
 				}
 			});
 			MapSession s = this.session;

@@ -90,6 +90,8 @@ public final class MapSession {
 		this.waypoints.load();
 		this.places = new PlaceBook(dir.resolve("places.json"), this::warn).withSafeFile(this.files);
 		this.places.load();
+		this.journal = dev.voidmc.atlas.core.journal.Journal.load(this.files, dir.resolve("journal.json"));
+		this.visited = dev.voidmc.atlas.core.journal.VisitedCells.load(this.files, dir.resolve("visited.dat"));
 		this.landmarks = new Landmarks(this);
 		this.scanners = ThreadLocal.withInitial(() -> new ChunkScanner(this.blockNames, this.biomeNames));
 		this.workers = new ScheduledThreadPoolExecutor(Math.max(1, threads), daemon("Atlas worker", Thread.MIN_PRIORITY + 1));
@@ -109,8 +111,11 @@ public final class MapSession {
 
 	/** Hears about damaged files set aside and files restored from a backup (the client turns them into islands). */
 	public static volatile Consumer<dev.voidmc.atlas.core.store.StorageEvent> STORAGE_EVENTS;
-	/** The files kept safe: waypoints, places, the region index. */
+	/** The files kept safe: waypoints, places, the region index, the journal. */
 	public final dev.voidmc.atlas.core.store.SafeFile files;
+	/** The player's journal of this world, and where they have been (for how much of each area they explored). */
+	public final dev.voidmc.atlas.core.journal.Journal journal;
+	public final dev.voidmc.atlas.core.journal.VisitedCells visited;
 	/** When each region was last on screen: (layer path, packed region) to epoch millis, for the disk cap. */
 	private final java.util.concurrent.ConcurrentHashMap<String, Long> views = new java.util.concurrent.ConcurrentHashMap<>();
 	/** The disk cap in bytes (0: none) and where the player was last, for {@link #close}. */
@@ -358,6 +363,12 @@ public final class MapSession {
 			this.waypoints.save();
 			if (this.places.dirty()) {
 				this.places.save();
+			}
+			if (this.journal.dirty()) {
+				this.journal.save(this.files, this.dir.resolve("journal.json"));
+			}
+			if (this.visited.dirty()) {
+				this.visited.save(this.files, this.dir.resolve("visited.dat"));
 			}
 		} catch (IOException e) {
 			this.warn("Atlas: could not save " + this.dir + ": " + e);

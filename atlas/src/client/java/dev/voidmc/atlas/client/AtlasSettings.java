@@ -127,6 +127,8 @@ public final class AtlasSettings {
 	public Performance performance = Performance.AUTO;
 	/** Terrain VOID LOD drew far off is mapped as "seen from afar" (when LOD is installed). */
 	public boolean farSight = true;
+	/** Who sees the player's position and explored land, and whose they see: friends, party (the default) or nobody. */
+	public String sharePrivacy = "party";
 	/** Beams are hidden for 10 s after the player hits or is hit (PvP-safe). */
 	public boolean beamsHideInCombat = false;
 	/** Which of the first-run presets was last applied (null: none, the defaults). */

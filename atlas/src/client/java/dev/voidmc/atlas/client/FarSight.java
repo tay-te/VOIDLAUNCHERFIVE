@@ -12,15 +12,20 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.RecordComponent;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -30,17 +35,20 @@ import net.minecraft.world.level.block.state.BlockState;
  * (mod id {@value #LOD_MOD}) nothing here runs, and Atlas has no compile dependency on it (LOD's API is reached by
  * reflection, its listener is a proxy).
  *
- * <p>LOD's API ({@code dev.voidmc.lod.api}): {@code LodApi.addVisibleTerrainListener(listener)} returns an
- * {@code AutoCloseable}; LOD then sends the tiles it has drawn so far and each tile it newly draws, on one LOD thread, in
- * order, as {@code VisibleTerrain(dimension, minX, minZ, cell, size, heights, colors, palette, blocks, seen)} (row major,
- * x fastest; {@code cell} blocks a cell; fresh arrays). Atlas takes a tile in a few microseconds on LOD's thread (checks
- * it, files it by place, replacing an older copy not yet written) and writes it on its own workers within a time budget
- * per run; the client thread never does any of it.
+ * <p>LOD's API ({@code dev.voidmc.lod.api}, VOID LOD 16d57b36): {@code LodApi.addVisibleTerrainListener(listener)}
+ * returns an {@code AutoCloseable}. LOD captures far terrain only while someone listens, and sends each new listener
+ * every tile drawn so far, then each tile as it is drawn, on its "VOID LOD API" thread, as {@code VisibleTerrain(
+ * dimension, revision, minX, minZ, cell, size, heights, colors, blockPalette, blocks, biomePalette, biomes, seen)} (64 x
+ * 64 cells, row major, x fastest; {@code cell} blocks a cell; -1 an unknown block or biome; fresh arrays; the higher
+ * revision wins for the same ground). Atlas listens from start-up (so capture runs from the first tile), and listens
+ * anew when the map or the dimension changes (so the tiles drawn so far come again). It takes a tile in microseconds on
+ * LOD's thread (checks it, files it by place, keeping the newer revision) and writes it on its own workers, oldest
+ * revision first, within a time budget a run; the client thread never does any of it.
  *
  * <p>Fair play: only what LOD drew for this player, only in the dimension the player is in, only while the map and the
  * server allow it; only cells coarser than the walked map (never a 1-block cell), never over a walked column, and never
- * a discovery: the far layer is drawn under the walked land and nothing reads places, areas or the journal from it. On
- * a server, only cells LOD built from chunks it was sent ({@code seen}), not from a generator.
+ * a discovery: the far layer is drawn under the walked land and nothing reads places, areas or the journal from it.
+ * Cells LOD made from the generator ({@code seen = false}: singleplayer or LAN) are "seen from afar" like the rest.
  */
 public final class FarSight {
 	public static final String LOD_MOD = "void_lod";
@@ -52,10 +60,10 @@ public final class FarSight {
 	public static final int MAX_SIZE = 256;
 	/** How long one worker run may write far tiles before it gives the worker back (and runs again later). */
 	public static final long RUN_BUDGET_NANOS = 4_000_000L;
-	/** Tiles waiting to be written, at most; past it the oldest waiting are dropped (LOD sends them again when redrawn). */
+	/** Tiles waiting to be written, at most; past it some waiting are dropped (LOD sends them again when redrawn). */
 	public static final int MAX_PENDING = 512;
 
-	/** For the perf log: tiles taken and written, samples written, worker time, and time on LOD's thread. */
+	/** For the perf log: tiles taken and written, columns written, worker time, and time on LOD's thread. */
 	public static final AtomicLong TAKEN = new AtomicLong();
 	public static final AtomicLong TILES = new AtomicLong();
 	public static final AtomicLong SAMPLES = new AtomicLong();
@@ -65,8 +73,9 @@ public final class FarSight {
 	/** The longest worker run (one run writes tiles until {@link #RUN_BUDGET_NANOS} is spent). */
 	public static final AtomicLong MAX_RUN_NANOS = new AtomicLong();
 
-	/** One far tile, as Atlas keeps it until written. */
-	public record Tile(String dimension, int minX, int minZ, int cell, int size, short[] heights, int[] colours, String[] blocks, boolean[] seen) {
+	/** One far tile, as Atlas keeps it until written: block and biome names per cell (null unknown). */
+	public record Tile(String dimension, long revision, int minX, int minZ, int cell, int size, short[] heights, int[] colours, String[] blocks,
+		String[] biomes, boolean[] seen) {
 		long key() {
 			return (long) this.minX * 0x9E3779B1L ^ (long) this.minZ * 0x85EBCA77L ^ this.cell;
 		}
@@ -84,42 +93,53 @@ public final class FarSight {
 		this.atlas = atlas;
 	}
 
-	/** Kept for the start-up call; the listener is added by {@link #update} once there is a map to fill. */
+	/** At start-up: listens to LOD at once, so it captures far terrain from the first tile it draws. */
 	public void register() {
 		this.lodMissing = !FabricLoader.getInstance().isModLoaded(LOD_MOD);
+		if (!this.lodMissing && this.atlas.settings().farSight) {
+			this.subscription = Lod.listen(this::take);
+			this.lodMissing = this.subscription == null;
+		}
 	}
 
 	/**
-	 * Client thread, about once a second: listens to LOD while far sight is wanted, and listens again (so LOD sends what
-	 * it has drawn so far once more) when the map, the dimension or the setting changes.
+	 * Client thread, about once a second: listens anew (so LOD sends what it has drawn so far once more) when the map or
+	 * the dimension changes, and stops listening while the setting is off.
 	 */
 	public void update() {
 		this.on = this.enabled();
 		Minecraft mc = Minecraft.getInstance();
 		MapSession session = this.atlas.session();
 		String want = this.on && session != null && mc.level != null ? session.worldKey + "|" + mc.level.dimension().identifier() : "";
-		if (want.equals(this.subscribedFor)) {
+		if (want.equals(this.subscribedFor) || this.lodMissing) {
 			return;
 		}
-		this.close();
 		this.pending.clear();
-		if (!want.isEmpty() && !this.lodMissing) {
+		if (!this.atlas.settings().farSight) {
+			// off: LOD need not capture anything for Atlas
+			this.close();
+		} else if (!want.isEmpty()) {
+			// the new listener first, so capture never stops; then the old one goes
+			AutoCloseable old = this.subscription;
 			this.subscription = Lod.listen(this::take);
-			if (this.subscription == null) {
-				this.lodMissing = true;
-			}
+			closeQuietly(old);
+			this.lodMissing = this.subscription == null;
 		}
 		this.subscribedFor = want;
 	}
 
-	/** Stops listening (closing the map, leaving the world). */
+	/** Stops listening. */
 	public void close() {
 		AutoCloseable s = this.subscription;
 		this.subscription = null;
 		this.subscribedFor = "";
-		if (s != null) {
+		closeQuietly(s);
+	}
+
+	private static void closeQuietly(AutoCloseable c) {
+		if (c != null) {
 			try {
-				s.close();
+				c.close();
 			} catch (Exception e) {
 				// LOD is going away too
 			}
@@ -140,9 +160,11 @@ public final class FarSight {
 	void take(Object visibleTerrain) {
 		long t0 = System.nanoTime();
 		try {
-			Tile tile = Lod.tile(visibleTerrain);
-			if (tile != null) {
-				this.offer(tile);
+			if (this.on) {
+				Tile tile = Lod.tile(visibleTerrain);
+				if (tile != null) {
+					this.offer(tile);
+				}
 			}
 		} catch (RuntimeException | LinkageError e) {
 			// a tile that does not keep the contract is dropped
@@ -158,11 +180,10 @@ public final class FarSight {
 		}
 		int n = tile.size() * tile.size();
 		if (tile.heights().length < n || tile.colours().length < n || tile.blocks() != null && tile.blocks().length < n
-			|| tile.seen() != null && tile.seen().length < n) {
+			|| tile.biomes() != null && tile.biomes().length < n || tile.seen() != null && tile.seen().length < n) {
 			return;
 		}
-		Minecraft mc = Minecraft.getInstance();
-		var level = mc.level;
+		var level = Minecraft.getInstance().level;
 		if (level == null || !tile.dimension().equals(level.dimension().identifier().toString())) {
 			return;
 		}
@@ -172,7 +193,7 @@ public final class FarSight {
 		}
 		TAKEN.incrementAndGet();
 		if (this.pending.size() >= MAX_PENDING) {
-			// LOD sends a tile again whenever it draws it again; the newest are worth more
+			// LOD sends a tile again whenever it draws it again
 			var it = this.pending.keySet().iterator();
 			if (it.hasNext()) {
 				it.next();
@@ -180,7 +201,8 @@ public final class FarSight {
 				DROPPED.incrementAndGet();
 			}
 		}
-		this.pending.put(tile.key(), tile);
+		// the same ground drawn again: the higher revision wins
+		this.pending.merge(tile.key(), tile, (a, b) -> b.revision() >= a.revision() ? b : a);
 		this.drainLater(session);
 	}
 
@@ -194,17 +216,22 @@ public final class FarSight {
 		}
 	}
 
-	/** Writes waiting tiles until the run's budget is spent, then hands the worker back and runs again (worker). */
+	/** Writes waiting tiles, oldest revision first, until the run's budget is spent; then runs again later (worker). */
 	private void drain(MapSession session) {
 		long t0 = System.nanoTime();
 		try {
-			boolean multiplayer = this.atlas.multiplayer();
-			var it = this.pending.entrySet().iterator();
-			while (it.hasNext() && System.nanoTime() - t0 < RUN_BUDGET_NANOS) {
-				var e = it.next();
-				it.remove();
+			List<Tile> order = new ArrayList<>(this.pending.values());
+			// where tiles overlap (a coarser and a finer one), the newer is written last
+			order.sort(Comparator.comparingLong(Tile::revision));
+			for (Tile t : order) {
+				if (System.nanoTime() - t0 >= RUN_BUDGET_NANOS) {
+					break;
+				}
+				if (!this.pending.remove(t.key(), t)) {
+					continue; // replaced by a newer copy meanwhile: that one is written in its turn
+				}
 				if (this.on && this.atlas.session() == session) {
-					this.write(session, e.getValue(), multiplayer);
+					this.write(session, t);
 				}
 			}
 		} finally {
@@ -219,7 +246,7 @@ public final class FarSight {
 	}
 
 	/** Writes a far tile into the far layer (worker): each cell fills its cell x cell block columns. */
-	private void write(MapSession session, Tile t, boolean multiplayer) {
+	private void write(MapSession session, Tile t) {
 		DimensionData d = session.dimensionIfOpen(t.dimension());
 		if (d == null || d.ceiling) {
 			return;
@@ -233,24 +260,22 @@ public final class FarSight {
 		int written = 0;
 		int n = t.size();
 		int scale = t.cell();
-		Map<String, Integer> ids = new HashMap<>();
+		Map<String, Integer> blockIds = new HashMap<>();
+		Map<String, Integer> biomeIds = new HashMap<>();
 		for (int j = 0; j < n; j++) {
 			for (int i = 0; i < n; i++) {
 				int k = j * n + i;
 				short y = t.heights()[k];
-				if (y == Short.MIN_VALUE || multiplayer && t.seen() != null && !t.seen()[k]) {
+				if (y == Short.MIN_VALUE) {
 					continue;
 				}
 				String name = t.blocks() == null ? null : t.blocks()[k];
 				boolean water = "minecraft:water".equals(name);
-				int block;
-				if (name == null || water) {
-					// no block (or water, whose bed LOD does not say): the colour LOD drew, through the far names
-					block = ids.computeIfAbsent(FarColour.name(t.colours()[k]), session.blockNames::id);
-				} else {
-					block = ids.computeIfAbsent(name, session.blockNames::id);
-				}
+				// no block, or water (whose bed LOD does not say): the colour LOD drew, through the far names
+				int block = blockIds.computeIfAbsent(name == null || water ? FarColour.name(t.colours()[k]) : name, session.blockNames::id);
 				int depth = water ? 4 : 0;
+				String biomeName = t.biomes() == null ? null : t.biomes()[k];
+				int biome = biomeName == null ? NamePalette.NONE : biomeIds.computeIfAbsent(biomeName, session.biomeNames::id);
 				for (int dz = 0; dz < scale; dz++) {
 					for (int dx = 0; dx < scale; dx++) {
 						int x = t.minX() + i * scale + dx;
@@ -267,7 +292,7 @@ public final class FarSight {
 						if (own != null && own.known(RegionRaw.index(lx, lz))) {
 							continue;
 						}
-						if (raw.set(lx, lz, y, block, depth, NamePalette.NONE, RegionRaw.KNOWN)) {
+						if (raw.set(lx, lz, y, block, depth, biome, RegionRaw.KNOWN)) {
 							written++;
 							minX = Math.min(minX, x);
 							minZ = Math.min(minZ, z);
@@ -287,19 +312,20 @@ public final class FarSight {
 
 	/** VOID LOD's API, reached by reflection so Atlas needs nothing of LOD to build or run. */
 	static final class Lod {
-		private static Map<String, Method> parts;
+		private static volatile Map<String, Method> parts;
 
 		private Lod() {
 		}
 
 		/** Adds a listener that hands each tile to {@code sink}; null if LOD has no such API. */
-		static AutoCloseable listen(java.util.function.Consumer<Object> sink) {
+		static AutoCloseable listen(Consumer<Object> sink) {
 			try {
 				ClassLoader loader = FarSight.class.getClassLoader();
 				Class<?> api = Class.forName("dev.voidmc.lod.api.LodApi", true, loader);
 				Class<?> listener = Class.forName("dev.voidmc.lod.api.VisibleTerrainListener", true, loader);
 				Method add = api.getMethod("addVisibleTerrainListener", listener);
 				Object target = Modifier.isStatic(add.getModifiers()) ? null : api.getMethod("get").invoke(null);
+				// VisibleTerrainListener has one method, onTerrain(VisibleTerrain)
 				InvocationHandler handler = (proxy, method, args) -> {
 					if (method.getDeclaringClass() == Object.class) {
 						return switch (method.getName()) {
@@ -327,8 +353,8 @@ public final class FarSight {
 			}
 		}
 
-		/** A {@code VisibleTerrain} record as Atlas's own tile (block states turned into names), or null. */
-		static Tile tile(Object v) throws RuntimeException {
+		/** A {@code VisibleTerrain} record as Atlas's own tile (block states and biome keys turned into names), or null. */
+		static Tile tile(Object v) {
 			try {
 				Map<String, Method> p = parts;
 				if (p == null || !p.get("cell").getDeclaringClass().isInstance(v)) {
@@ -340,38 +366,50 @@ public final class FarSight {
 					}
 					parts = p = got;
 				}
-				String dim = ((ResourceKey<?>) p.get("dimension").invoke(v)).identifier().toString();
-				int minX = (Integer) p.get("minX").invoke(v);
-				int minZ = (Integer) p.get("minZ").invoke(v);
 				int cell = (Integer) p.get("cell").invoke(v);
-				int size = (Integer) p.get("size").invoke(v);
-				short[] heights = (short[]) p.get("heights").invoke(v);
-				int[] colours = (int[]) p.get("colors").invoke(v);
-				Object[] palette = p.containsKey("palette") ? (Object[]) p.get("palette").invoke(v) : null;
-				byte[] blocks = p.containsKey("blocks") ? (byte[]) p.get("blocks").invoke(v) : null;
-				boolean[] seen = p.containsKey("seen") ? (boolean[]) p.get("seen").invoke(v) : null;
 				if (cell < MIN_CELL || cell > MAX_CELL) {
 					return null;
 				}
-				String[] names = null;
-				if (palette != null && blocks != null) {
-					String[] byIndex = new String[palette.length];
-					for (int i = 0; i < palette.length; i++) {
-						if (palette[i] instanceof BlockState s && !s.isAir() && !s.is(Blocks.VOID_AIR)) {
-							byIndex[i] = s.getFluidState().is(net.minecraft.tags.FluidTags.WATER) && !s.isSolid() ? "minecraft:water"
-								: BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString();
-						}
+				String dim = ((ResourceKey<?>) p.get("dimension").invoke(v)).identifier().toString();
+				long revision = p.containsKey("revision") ? (Long) p.get("revision").invoke(v) : 0;
+				int minX = (Integer) p.get("minX").invoke(v);
+				int minZ = (Integer) p.get("minZ").invoke(v);
+				int size = (Integer) p.get("size").invoke(v);
+				short[] heights = (short[]) p.get("heights").invoke(v);
+				int[] colours = (int[]) p.get("colors").invoke(v);
+				Object[] blockPalette = p.containsKey("blockPalette") ? (Object[]) p.get("blockPalette").invoke(v) : null;
+				byte[] blocks = p.containsKey("blocks") ? (byte[]) p.get("blocks").invoke(v) : null;
+				Object[] biomePalette = p.containsKey("biomePalette") ? (Object[]) p.get("biomePalette").invoke(v) : null;
+				byte[] biomes = p.containsKey("biomes") ? (byte[]) p.get("biomes").invoke(v) : null;
+				boolean[] seen = p.containsKey("seen") ? (boolean[]) p.get("seen").invoke(v) : null;
+				String[] blockNames = names(blockPalette, blocks, o -> {
+					if (o instanceof BlockState s && !s.isAir() && !s.is(Blocks.VOID_AIR)) {
+						return s.getFluidState().is(FluidTags.WATER) && !s.isSolid() ? "minecraft:water" : BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString();
 					}
-					names = new String[blocks.length];
-					for (int i = 0; i < blocks.length; i++) {
-						int b = blocks[i] & 0xFF;
-						names[i] = blocks[i] == -1 || b >= byIndex.length ? null : byIndex[b];
-					}
-				}
-				return new Tile(dim, minX, minZ, cell, size, heights, colours, names, seen);
+					return null;
+				});
+				String[] biomeNames = names(biomePalette, biomes, o -> o instanceof ResourceKey<?> key ? key.identifier().toString() : null);
+				return new Tile(dim, revision, minX, minZ, cell, size, heights, colours, blockNames, biomeNames, seen);
 			} catch (ReflectiveOperationException | ClassCastException | NullPointerException e) {
 				return null;
 			}
+		}
+
+		/** A palette and per-cell indices (-1 unknown) as names per cell; null without them. */
+		private static String[] names(Object[] palette, byte[] cells, java.util.function.Function<Object, String> name) {
+			if (palette == null || cells == null) {
+				return null;
+			}
+			String[] byIndex = new String[palette.length];
+			for (int i = 0; i < palette.length; i++) {
+				byIndex[i] = name.apply(palette[i]);
+			}
+			String[] out = new String[cells.length];
+			for (int i = 0; i < cells.length; i++) {
+				int b = cells[i] & 0xFF;
+				out[i] = cells[i] == -1 || b >= byIndex.length ? null : byIndex[b];
+			}
+			return out;
 		}
 	}
 }

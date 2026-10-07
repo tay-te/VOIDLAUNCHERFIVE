@@ -25,7 +25,9 @@ repositories {
 }
 
 // -Patlas.withExpanse=true: the dev runs and game tests also load ../expanse (see settings.gradle).
-def withExpanse = (findProperty('atlas.withExpanse') ?: 'false').toString().toBoolean()
+// -Patlas.expanseJar=<path>: the same, with a built Expanse jar instead (an Expanse newer than ../expanse, say).
+def expanseJar = findProperty('atlas.expanseJar')
+def withExpanse = (findProperty('atlas.withExpanse') ?: 'false').toString().toBoolean() || expanseJar != null
 
 loom {
 	// The pure map logic (palette, tiles, stores, the marker registry) lives in main and is unit tested without the
@@ -53,7 +55,9 @@ dependencies {
 		localRuntime "maven.modrinth:iris:${project.iris_version}"
 	}
 
-	if (withExpanse) {
+	if (expanseJar != null) {
+		localRuntime files(expanseJar.toString())
+	} else if (withExpanse) {
 		// Only for the dev runs: Atlas reads whatever world it is in, it never calls Expanse.
 		localRuntime 'dev.voidmc:void-expanse'
 	}

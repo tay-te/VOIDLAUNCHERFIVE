@@ -871,7 +871,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 					seen[k] = true;
 				}
 				long h0 = System.nanoTime();
-				farSight.offer(new dev.voidmc.atlas.client.FarSight.Tile("minecraft:overworld", x, z, cell, n, heights, colours, blocks, seen));
+				farSight.offer(new dev.voidmc.atlas.client.FarSight.Tile("minecraft:overworld", t, x, z, cell, n, heights, colours, blocks, null, seen));
 				handNanos[0] += System.nanoTime() - h0;
 				if (span > 0) {
 					try {
