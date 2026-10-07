@@ -57,6 +57,12 @@ MODULES += ["village_wisteria", "village_redwood", "village_coast", "village_ste
 MODULES += ["wayside_shrine_meadow", "campsite_meadow", "campsite_snowfield", "old_well_meadow", "treehouse_oak",
             "treehouse_spruce", "treehouse_jungle", "miners_camp_mesa", "sand_colossus_desert", "windpump_prairie",
             "mammoth_dig_snowfield"]
+# Peopled and working places: VOID Hearth builds living versions of these, so with Hearth installed they stand down
+# (SitedJigsawStructure "peopled"; a shared set then tries its other members). Played alone, the Expanse keeps them.
+# The land between towns (camps, wells, shrines, ruins, treehouses, bothies...) stays either way.
+PEOPLED = {"stilt_hamlet", "palm_harbour", "caravanserai", "logging_camp", "miners_camp", "miners_camp_mesa", "cavern_mine_camp",
+           "terrace_farm", "tea_garden", "wisteria_manor", "cloud_monastery", "karst_pagoda", "lighthouse", "frost_outpost",
+           "nomad_camp", "beach_hut", "bayou_shack"}
 # Shared random_spread sets: a design joins one with STRUCTURE["set"] (and optional "weight"). Vanilla tries a
 # set's structures in weighted random order until one suits the biome (cf. minecraft:abandoned_camp), so each
 # grid cell gets at most one of them. The wayside set keeps 2 chunks clear of the biome-sights grid.
@@ -132,6 +138,7 @@ def structure_json(name, s):
            if "set" in s and not s.get("cavern") else {"avoid": vanilla_avoid(s)} if s.get("avoid_vanilla") else {}),
         # cavern structures stand on the floor of a deep hall, wherever the hall is (CavernModel)
         **({"in_cavern": True} if s.get("cavern") else {}),
+        **({"peopled": True} if name in PEOPLED else {}),
     }
 
 
