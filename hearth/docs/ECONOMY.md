@@ -69,7 +69,8 @@ ten kinds to twenty-nine.
     `taxPerHead × population` from nobody in particular and wages `wagePerWorker ×` working adults to nobody;
   - upkeep: `upkeepRate ×` treasury — this keeps treasuries bounded: they settle near `net income / upkeepRate`;
   - **the mint**: with a minter or a built `hearth:commerce/bank`, up to `mintUnitsPerDay + mintUnitsPerMinter ×
-    minters` units of METAL above half its target become `bitsPerMetalUnit` bits each;
+    minters` units of METAL above half its target become `bitsPerMetalUnit` bits each, but not while a building waits
+    for goods (w6: the metal bought in for it was struck before its builders came for it);
   - price drift, the town's own use of each goods, and expiry of builders' needs (below);
   - shops restock, return surplus, pay dues, and pay their keepers (or owners); owned businesses pay their owners;
     funded projects buy what they lack; supply contracts lapse and are offered.
@@ -84,6 +85,14 @@ ten kinds to twenty-nine.
   settlements never are: a new camp brings the sim's `founding.treasury` (200 bits), and an adopted history keeps at most
   60 bits a head. While this module is present the sim's clock leaves its own per-worker coin out, so these daily books
   are the treasury's income (with the sim's export sales and import purchases on top).
+- **What builds a young town is not coin** (w6, SIM.md §2 and §18): its income is a few bits a worker a day, and the
+  wages the treasury pays out (at most `wage_cap_share` of it a day) come back through poll tax, tithes and food bought
+  from the stores, so coin mostly circulates. A stalled stage's imports are paid with coin first and then in barter for
+  what the town has in plenty (grain, logs, stone beyond its builds' wants), and the sim buys them in the day's business
+  before these books run, so wages never take the coin a stalled build was waiting for. The founders' own buildings
+  come provisioned and idle builders fetch raw materials from the town's land. With these a town left alone, books
+  running, reaches a village in 50–70 days and a town in 170–180, caught up a day at a time in 60–70 and 150–190 (it
+  averaged 7 souls before).
 
 ## Prices
 

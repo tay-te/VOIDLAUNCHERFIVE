@@ -61,6 +61,20 @@ class SettlementEconomyTest {
 	}
 
 	@Test
+	void theMintWaitsWhileABuildingWaitsForGoods() {
+		SimpleSettlement s = town(10, JobType.MINTER);
+		var plot = s.addPlot(new PlotSpec(Hearth.id("house/cottage"), Hearth.id("temperate"), 1, BlockPos.ZERO, 7, 9, Direction.NORTH, 12, 1,
+			new CompoundTag()));
+		plot.waitingForGoods = true;
+		s.stockpile().add(Goods.METAL, 9000);
+		SettlementEconomy.dayPassed(s, 1);
+		assertEquals(9000, s.stockpile().get(Goods.METAL), "the metal bought in for the house stays for its builders");
+		plot.waitingForGoods = false;
+		SettlementEconomy.dayPassed(s, 2);
+		assertTrue(s.stockpile().get(Goods.METAL) < 9000);
+	}
+
+	@Test
 	void noMintWithoutAMinter() {
 		SimpleSettlement s = town(10, JobType.FARMER);
 		s.stockpile().add(Goods.METAL, 9000);

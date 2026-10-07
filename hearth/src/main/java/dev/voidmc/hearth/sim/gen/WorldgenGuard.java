@@ -14,6 +14,10 @@ import net.minecraft.server.level.WorldGenRegion;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.GenerationStep;
+import net.minecraft.world.level.levelgen.feature.AbstractHugeMushroomFeature;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.HugeFungusFeature;
+import net.minecraft.world.level.levelgen.feature.TreeFeature;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import org.jspecify.annotations.Nullable;
 
@@ -22,8 +26,14 @@ import org.jspecify.annotations.Nullable;
  * to build on, so a house is never cut through by an oak. Only surface decoration steps are guarded, and only at or
  * above the natural ground: ores, caves and everything underground generate as always.
  *
+ * <p>Trees (and huge mushrooms and fungi) are kept further off: their crowns spread several blocks from the trunk, so
+ * an oak rooted just outside the guard margin would still roof a square or a lane over (requests/w5-tour.md §5). Their
+ * origin must be clear of planned ground for {@code tree_reach} blocks round about as well, sampled on a ring (the
+ * planned mask already carries the guard margin, so a ring at the reach covers reach + margin), nine bitmask reads.
+ *
  * <p>{@code FeaturePlacerMixin} calls {@link #enter} as each top-level placed feature starts (so features nested inside
- * selectors inherit its step) and {@link #blocks} before every feature placement.
+ * selectors inherit its step) and {@link #blocks} before every feature placement, with the feature being placed (a tree
+ * inside a random selector arrives as the tree itself).
  */
 public final class WorldgenGuard {
 	/** How far below the probe's ground a feature origin still counts as on the surface. */
@@ -61,13 +71,18 @@ public final class WorldgenGuard {
 		ACTIVE.remove();
 	}
 
-	/** Whether a feature about to be placed at {@code pos} would land on planned ground. */
-	public static boolean blocks(BlockPos pos) {
+	/** Whether a feature about to be placed at {@code pos} would land on planned ground (or, for a tree, spread over it). */
+	public static boolean blocks(Feature feature, BlockPos pos) {
 		SimWorld world = ACTIVE.get();
-		if (world == null || !world.isPlanned(pos.getX(), pos.getZ())) {
+		if (world == null) {
 			return false;
 		}
-		if (pos.getY() < world.probe().groundY(pos.getX(), pos.getZ()) - SURFACE_DEPTH) {
+		int x = pos.getX();
+		int z = pos.getZ();
+		if (!world.isPlanned(x, z) && !(crowned(feature) && nearPlanned(world, x, z, world.rules().config.atlas().treeReach()))) {
+			return false;
+		}
+		if (pos.getY() < world.probe().groundY(x, z) - SURFACE_DEPTH) {
 			return false;
 		}
 		SimServer s = SimServer.current();
@@ -75,6 +90,21 @@ public final class WorldgenGuard {
 			s.stats().guardSkips.increment();
 		}
 		return true;
+	}
+
+	/** Features that grow a crown wider than their foot: trees (every species, Expanse's too), huge mushrooms and fungi. */
+	static boolean crowned(Feature feature) {
+		return feature instanceof TreeFeature || feature instanceof AbstractHugeMushroomFeature || feature instanceof HugeFungusFeature;
+	}
+
+	/** Planned ground on a ring {@code reach} blocks round a column (eight points; the mask's margin fills the gaps). */
+	static boolean nearPlanned(SimWorld world, int x, int z, int reach) {
+		if (reach <= 0) {
+			return false;
+		}
+		int d = Math.max(1, (int) Math.round(reach * 0.7071));
+		return world.isPlanned(x + reach, z) || world.isPlanned(x - reach, z) || world.isPlanned(x, z + reach) || world.isPlanned(x, z - reach)
+			|| world.isPlanned(x + d, z + d) || world.isPlanned(x - d, z + d) || world.isPlanned(x + d, z - d) || world.isPlanned(x - d, z - d);
 	}
 
 	/** Which decoration step each placed feature runs in, read once from the biomes (after biome modifications). */

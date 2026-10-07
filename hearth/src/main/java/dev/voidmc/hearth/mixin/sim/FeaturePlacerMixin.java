@@ -48,7 +48,7 @@ abstract class FeaturePlacerMixin {
 			target = "Lnet/minecraft/world/level/levelgen/feature/Feature;place(Lnet/minecraft/world/level/WorldGenLevel;Lnet/minecraft/world/level/chunk/ChunkGenerator;Lnet/minecraft/util/RandomSource;Lnet/minecraft/core/BlockPos;)Z"))
 	private boolean hearth$guard(Feature feature, WorldGenLevel level, ChunkGenerator generator, RandomSource random, BlockPos pos,
 		Operation<Boolean> original) {
-		if (WorldgenGuard.blocks(pos)) {
+		if (WorldgenGuard.blocks(feature, pos)) {
 			return false;
 		}
 		return original.call(feature, level, generator, random, pos);

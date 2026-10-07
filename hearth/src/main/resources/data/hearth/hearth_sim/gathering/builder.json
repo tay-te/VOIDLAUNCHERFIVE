@@ -20,6 +20,18 @@
         "stone": 30
       },
       "wear": 0
+    },
+    {
+      "kind": "clay",
+      "yields": {
+        "clay": 24
+      }
+    },
+    {
+      "kind": "sand",
+      "yields": {
+        "sand": 24
+      }
     }
   ]
 }

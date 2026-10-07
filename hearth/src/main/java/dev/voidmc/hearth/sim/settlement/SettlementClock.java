@@ -153,17 +153,22 @@ public final class SettlementClock {
 				working.add(p);
 			}
 			if (working.isEmpty()) {
-				return;
+				break;
 			}
 			double share = pool / working.size();
 			double left = 0;
 			for (SimPlot p : working) {
 				left += labour(s, p, share, c);
 			}
-			if (left >= pool - 1e-6) {
-				return;
-			}
+			boolean stuck = left >= pool - 1e-6;
 			pool = left;
+			if (stuck) {
+				break;
+			}
+		}
+		if (pool > 0.5) {
+			// nothing more they can build today: the builders fetch and dress materials with the rest of their time
+			Production.fetch(s, wf, r.labour.fetchShare() * pool / (r.labour.workPerBuilderHour() * r.labour.builderHoursPerDay()), r, c);
 		}
 	}
 
@@ -462,10 +467,17 @@ public final class SettlementClock {
 
 	/**
 	 * A stage waiting for goods the town cannot make buys them from passing traders, a cartload a day at a markup: with
-	 * coin while the treasury allows, then in barter for whatever overflows its stores. Slow and dear on purpose: a player
+	 * coin while the treasury allows, then in barter for what the town has in plenty. Slow and dear on purpose: a player
 	 * bringing the goods (a supply quest) is faster.
+	 *
+	 * <p>Barter is how a young town pays for what it cannot make (requests/w5-tour.md §4): its coin is a few bits a
+	 * worker a day, but its land gives grain, logs and stone by the thousand. What it has in plenty is what it holds
+	 * beyond its builds' wants (every stage waiting or under way) and a fortnight's eating, not a share of its store
+	 * room: a village with a storehouse has room for ten thousand of everything, and keeping a fifth of that back left a
+	 * granary full of grain unbartered while a house waited a month for a dozen bolts of cloth.
 	 */
 	private static void imports(SimSettlement s, SimRules r) {
+		int[] keep = null;
 		for (SimPlot p : s.plots.values()) {
 			if (!p.isActive() || p.stalledOn == null) {
 				continue;
@@ -473,6 +485,9 @@ public final class SettlementClock {
 			PlotFacts f = s.facts(p);
 			if (p.stage >= f.stageCount()) {
 				continue;
+			}
+			if (keep == null) {
+				keep = barterReserve(s, r);
 			}
 			int[] need = f.goods()[p.stage];
 			for (int g = 0; g < need.length; g++) {
@@ -485,17 +500,17 @@ public final class SettlementClock {
 				long price = (long) Math.ceil(unit);
 				int bought = price <= 0 ? missing : (int) Math.min(missing, s.treasury / price);
 				s.treasury -= bought * price;
-				// then barter what overflows the stores, at a loss
+				// then barter what the town has in plenty, at a loss
 				for (int o = 0; o < need.length && bought < missing; o++) {
-					// what a town has plenty of goes in barter (it keeps a fifth of its room of everything)
-					int spare = s.stockpile.get(Goods.VALUES[o]) - Math.max(need[o], s.stockpile.capacity(Goods.VALUES[o]) / 5);
+					int spare = s.stockpile.get(Goods.VALUES[o]) - Math.max(need[o], keep[o]);
 					if (o == g || spare <= 0 || r.prices[o] <= 0) {
 						continue;
 					}
 					double worth = r.prices[o] * BARTER;
 					int units = (int) Math.min(missing - bought, Math.floor(spare * worth / unit));
 					if (units > 0) {
-						s.stockpile.takeQuiet(o, (int) Math.ceil(units * unit / worth));
+						int paid = (int) Math.ceil(units * unit / worth);
+						s.stockpile.takeQuiet(o, paid);
 						bought += units;
 					}
 				}
@@ -505,6 +520,38 @@ public final class SettlementClock {
 				}
 			}
 		}
+	}
+
+	/** Days of eating a town keeps back from barter, of each thing it eats. */
+	private static final int BARTER_FOOD_DAYS = 15;
+
+	/**
+	 * What a town keeps of each goods when it barters: what every active plot's current stage still wants (waiting or
+	 * about to start), and a fortnight's eating of what it eats.
+	 */
+	private static int[] barterReserve(SimSettlement s, SimRules r) {
+		int n = Goods.VALUES.length;
+		int[] keep = new int[n];
+		for (SimPlot p : s.plots.values()) {
+			if (!p.isActive() || p.funded || !s.factsReady(p)) {
+				continue;
+			}
+			PlotFacts f = s.facts(p);
+			if (p.stage < f.stageCount()) {
+				int[] g = f.goods()[p.stage];
+				for (int i = 0; i < n && i < g.length; i++) {
+					keep[i] += g[i];
+				}
+			}
+		}
+		double eat = s.population() * r.foodAdult * BARTER_FOOD_DAYS;
+		double[] edible = s.ctx().data().edible();
+		for (int i = 0; i < n && i < edible.length; i++) {
+			if (edible[i] > 0) {
+				keep[i] += (int) Math.ceil(eat / edible[i]);
+			}
+		}
+		return keep;
 	}
 
 	/**
@@ -978,7 +1025,7 @@ public final class SettlementClock {
 			List<PlotSpec> plots = planner.found(new SettlementPlanner.FoundingContext(s, s.center(), c.terrain(), random));
 			for (PlotSpec spec : plots) {
 				if (c.allows(s, spec)) {
-					s.addPlot(spec, -1, "founding");
+					s.addPlot(spec, -1, SimSettlement.FOUNDING);
 				}
 			}
 		}

@@ -131,7 +131,9 @@ public final class SettlementEconomy {
 		settlement.withdraw(upkeep);
 
 		long minted = 0;
-		if (minters > 0 || hasBuiltBank(settlement)) {
+		// not while a building waits for goods: the metal it was bought in for would be struck into coin before its
+		// builders came for it (the sim keeps it back from its own minters likewise)
+		if ((minters > 0 || hasBuiltBank(settlement)) && !waitingForGoods(settlement)) {
 			int keep = (int) (PriceModel.target(stock.capacity(Goods.METAL), ledger.use[Goods.METAL.ordinal()], pricing.targetFraction(),
 				pricing.reserveDays()) * 0.5);
 			int units = Math.min(Math.max(0, stock.get(Goods.METAL) - keep), t.mintUnitsPerDay() + t.mintUnitsPerMinter() * minters);
@@ -206,6 +208,16 @@ public final class SettlementEconomy {
 			}
 		}
 		return value;
+	}
+
+	/** Whether any plot's stage waits for goods. */
+	static boolean waitingForGoods(Settlement settlement) {
+		for (PlotView p : settlement.plots()) {
+			if (p.waitingForGoods()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	static boolean hasBuiltBank(Settlement settlement) {

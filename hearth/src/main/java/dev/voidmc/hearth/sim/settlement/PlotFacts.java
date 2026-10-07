@@ -85,6 +85,7 @@ public record PlotFacts(int stageCount, int[] stepCount, int[] work, int[][] goo
 				}
 			}
 		}
+		jobs = listed(jobs, info);
 		boolean storage = info != null && info.category() == ArchetypeCategory.STORAGE;
 		int[] cuts = null;
 		if (extraction != null) {
@@ -109,6 +110,29 @@ public record PlotFacts(int stageCount, int[] stepCount, int[] work, int[][] goo
 			discount(bp, blueprints.blueprint(over, terrain), steps, work, goods);
 		}
 		return new PlotFacts(n, steps, work, goods, bp.beds(), jobs, storage, cuts, campaigns);
+	}
+
+	/**
+	 * Job sites only for the trades the archetype lists (requests/w5-tour.md §2): a tenement's or townhouse's workshop
+	 * bench, a farmhouse's hay, a builders' yard's mason's block are furnishing, not places the town hires for. Counted
+	 * as jobs, every city tenement took on carpenters nobody had a carpentry for; the planner, which counts a trade's
+	 * places by the trades an archetype lists, then asked for a carpentry for them, again and again (69 in a city of
+	 * 441). Unknown archetypes keep what their blueprint marks.
+	 */
+	public static int[] listed(int[] jobs, @Nullable ArchetypeInfo info) {
+		if (info == null) {
+			return jobs;
+		}
+		int[] out = null;
+		for (int j = 0; j < jobs.length; j++) {
+			if (jobs[j] > 0 && !info.jobs().contains(JobType.values()[j])) {
+				if (out == null) {
+					out = jobs.clone();
+				}
+				out[j] = 0;
+			}
+		}
+		return out == null ? jobs : out;
 	}
 
 	/** Scales each stage's labour and goods to the share of its steps that differ from what the old building put there. */

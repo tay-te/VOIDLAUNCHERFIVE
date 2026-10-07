@@ -5,6 +5,8 @@ import dev.voidmc.hearth.api.BlueprintService;
 import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.api.TerrainProbe;
+import dev.voidmc.hearth.sim.atlas.PlotColumns;
+import dev.voidmc.hearth.sim.settlement.Extraction;
 import dev.voidmc.hearth.sim.settlement.Cursor;
 import dev.voidmc.hearth.sim.settlement.SimPlot;
 import dev.voidmc.hearth.sim.settlement.SimSettlement;
@@ -21,6 +23,7 @@ import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.tags.BlockTags;
 import org.jspecify.annotations.Nullable;
@@ -56,6 +59,8 @@ public final class ChunkApplier {
 	/** Blocks of buildings taken down for their rebuilds. */
 	public final LongAdder blocksCleared = new LongAdder();
 	public final LongAdder conflicts = new LongAdder();
+	/** Leaves and branches of natural trees cleared from over plots as their first stage went in. */
+	public final LongAdder canopyCleared = new LongAdder();
 	public final LongAdder chunksApplied = new LongAdder();
 	public final LongAdder nanos = new LongAdder();
 	/** The longest one tick's writing took. */
@@ -243,6 +248,12 @@ public final class ChunkApplier {
 				// an unknown archetype or a generator bug: leave this plot, write the others
 				continue;
 			}
+			if (cur <= Cursor.ZERO) {
+				// the plot's first blocks here: the crowns of trees rooted beside it come off its ground first
+				int felled = clearCanopy(chunk, s, p);
+				placed += felled;
+				this.canopyCleared.add(felled);
+			}
 			StepWriter.Owned owned = owned(s, p, bp, cx, cz, cur, ledger, refs);
 			// a stage at a time, the budget looked at between them: a building whose every stage is due (a town built while
 			// nobody was near) does not take a tick on its own; the ledger records how far it got
@@ -280,6 +291,69 @@ public final class ChunkApplier {
 			this.chunksApplied.increment();
 		}
 		return unfinished ? -Math.max(1, placed) : placed;
+	}
+
+	/** How far over a plot's floor the canopy is looked for (the tallest crowns, Expanse's redwoods aside). */
+	private static final int CANOPY_HEIGHT = 40;
+
+	/**
+	 * Clears the overhang of natural trees from a plot's columns in this chunk, as settlers lop the branches over a new
+	 * square or lane (requests/w5-tour.md §5): non-persistent leaves, and the logs among them that belong to a natural
+	 * tree, from the top of each column down to the plot's floor, stopping at the first block that is neither (a roof, a
+	 * player's work, the ground). A tree standing on the plot itself goes the same way, its trunk down to the foot; one
+	 * beside it keeps its trunk and the rest of its crown. Excavations (a woodlot fells its own trees) and plots down in a realm are left alone. Cheap:
+	 * the heightmap gives each column's top, and most columns hold nothing over the ground.
+	 */
+	int clearCanopy(LevelChunk chunk, SimSettlement s, SimPlot p) {
+		PlotSpec spec = p.spec();
+		if (Extraction.is(s, p) || PlotColumns.underground(spec)) {
+			return 0;
+		}
+		int minX = chunk.getPos().getMinBlockX();
+		int minZ = chunk.getPos().getMinBlockZ();
+		int floor = spec.floorY();
+		World world = new World(chunk);
+		// found first, then cleared: a log is told to be a tree's by the leaves round it, which must still be there
+		it.unimi.dsi.fastutil.longs.LongArrayList found = new it.unimi.dsi.fastutil.longs.LongArrayList();
+		long[] done = new long[4];
+		PlotColumns.forEach(spec, 0, (x, z) -> {
+			if (x < minX || x > minX + 15 || z < minZ || z > minZ + 15) {
+				return;
+			}
+			int bit = (z & 15) << 4 | x & 15;
+			if ((done[bit >> 6] >>> (bit & 63) & 1L) != 0) {
+				return;
+			}
+			done[bit >> 6] |= 1L << (bit & 63);
+			int top = Math.min(chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, x & 15, z & 15), floor + CANOPY_HEIGHT);
+			boolean trunk = false;
+			for (int y = top; y > chunk.getMinY(); y--) {
+				BlockState st = world.get(x, y, z);
+				if (st.is(BlockTags.LOGS) && (trunk || world.naturalTree(x, y, z))) {
+					// a trunk standing on the plot goes down to its foot, under the floor too; a branch over it is lopped
+					// and the leaves under it go on
+					trunk = world.get(x, y - 1, z).is(BlockTags.LOGS);
+					found.add(BlockPos.asLong(x, y, z));
+					continue;
+				}
+				if (trunk || y <= floor) {
+					break;
+				}
+				if (st.isAir() || st.canBeReplaced()) {
+					continue;
+				}
+				if (!(st.is(BlockTags.LEAVES) && st.hasProperty(LeavesBlock.PERSISTENT) && !st.getValue(LeavesBlock.PERSISTENT))) {
+					break;
+				}
+				found.add(BlockPos.asLong(x, y, z));
+			}
+		});
+		BlockState air = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+		for (int i = 0; i < found.size(); i++) {
+			long at = found.getLong(i);
+			world.set(BlockPos.getX(at), BlockPos.getY(at), BlockPos.getZ(at), air, null);
+		}
+		return found.size();
 	}
 
 	/**

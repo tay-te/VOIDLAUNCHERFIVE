@@ -154,7 +154,7 @@ public final class Production {
 			// household fell to poor by the purse rule (integration 3)
 			coin += r.coin[crew.job().ordinal()] * n * days * (economyWages ? ECONOMY_REVENUE : 1);
 		}
-		eat(s, wf, days, r, data, frac, amounts);
+		eat(s, wf, days, r, data, frac, amounts, reserved);
 		settle(s, r, frac, coin);
 	}
 
@@ -174,6 +174,13 @@ public final class Production {
 			// a builder's own hewing and dressing, between placing blocks (their labour goes to the plots)
 			left = workerDays * r.resources.chains().builderShare();
 		}
+		labour(s, crew, left, frac, amounts, caps, data, r, c, haulCover, owe, reserved);
+	}
+
+	/** {@code left} worker-days of a crew's trade: recipes, then excavations, then gathering. */
+	private static void labour(SimSettlement s, Crew crew, double left, double[] frac, int[] amounts, int[] caps, SimData data, SimRules r,
+		SimContext c, double haulCover, boolean owe, int[] reserved) {
+		JobType job = crew.job();
 		double total = left;
 		if (!crew.recipes().isEmpty()) {
 			left = recipes(crew.recipes(), left, total, frac, amounts, caps, crew.toolWear(), reserved);
@@ -186,12 +193,15 @@ public final class Production {
 				gather(s, crew.gathering(), left, frac, r, c, haulCover, owe);
 			}
 		} else if (!data.covers(job)) {
+			// what the stages waiting for goods want is kept back here too, as for the recipes: the mint struck the metal a
+			// waiting house was bought in for into coin overnight, every night, and the house never started (a town caught
+			// up a day at a time sat at 70 souls for good, its treasury in the thousands)
 			double[] row = r.production[job.ordinal()];
 			double factor = 1;
 			for (int g = 0; g < row.length; g++) {
 				if (row[g] < 0) {
 					double need = -row[g] * left;
-					double have = amounts[g] + Math.max(0, frac[g]);
+					double have = Math.max(0, amounts[g] + Math.max(0, frac[g]) - reserved[g]);
 					factor = Math.min(factor, need <= 0 ? 1 : have / need);
 				}
 			}
@@ -202,6 +212,44 @@ public final class Production {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Builders with no stage they can work (every one waits for goods, or none is planned) fetch and dress materials for
+	 * the rest of their day instead of standing about (requests/w5-tour.md §4): they hew the logs in store into timber
+	 * and dress stone, then cut wood, break stone and dig clay and sand on the town's own sites (the builders'
+	 * {@code gathering/builder.json}), which lose what was taken. A young town's builders thus win the raw goods of its
+	 * next stages from the land round it, and what it gathers beyond them is what it barters for the rest.
+	 *
+	 * @param builderDays the idle builders' time, in builder-days
+	 */
+	static void fetch(SimSettlement s, SettlementClock.Workforce wf, double builderDays, SimRules r, SimContext c) {
+		if (builderDays <= 1e-6) {
+			return;
+		}
+		SimData data = c.data();
+		Crew crew = null;
+		for (int k = 0; k < wf.crews.crews.size(); k++) {
+			if (wf.crews.crews.get(k).job() == JobType.BUILDER && wf.crews.counts[k] > 0) {
+				crew = wf.crews.crews.get(k);
+				break;
+			}
+		}
+		if (crew == null) {
+			return;
+		}
+		double[] frac = s.clock.fractions;
+		SimStockpile stock = s.stockpile();
+		int gatherers = 0;
+		for (int k = 0; k < wf.crews.crews.size(); k++) {
+			if (wf.crews.crews.get(k).gathering() != null && wf.crews.crews.get(k).job() != JobType.NONE) {
+				gatherers += wf.crews.counts[k];
+			}
+		}
+		int haulers = wf.workers[JobType.HAULER.ordinal()];
+		double haulCover = gatherers == 0 ? 1 : Math.min(1, haulers * r.resources.chains().haulPerHauler() / (double) gatherers);
+		labour(s, crew, builderDays, frac, stock.amounts(), stock.capacities(), data, r, c, haulCover, true, reserved(s));
+		settle(s, r, frac, 0);
 	}
 
 	/** Runs a crew's recipes, the most wanted first; returns the worker-days left over. */
@@ -458,9 +506,12 @@ public final class Production {
 
 	/**
 	 * Folk eat: prepared food first; when there is none, what the land gives eaten as it is (fish, meat, fruit, flour,
-	 * grain — worth less than bread).
+	 * grain — worth less than bread). What a stage waiting for goods wants is eaten last, only when nothing else is left
+	 * (a farmhouse's last stage waited half a year for the one basket of fruit its builders were bought in and that was
+	 * eaten every night, with 17 000 grain in the granary).
 	 */
-	private static void eat(SimSettlement s, SettlementClock.Workforce wf, double days, SimRules r, SimData data, double[] frac, int[] amounts) {
+	private static void eat(SimSettlement s, SettlementClock.Workforce wf, double days, SimRules r, SimData data, double[] frac, int[] amounts,
+		int[] reserved) {
 		int food = Goods.FOOD.ordinal();
 		double need = (wf.adults * r.foodAdult + wf.children * r.foodChild + wf.elders * r.foodElder) * days;
 		frac[food] -= need;
@@ -469,21 +520,23 @@ public final class Production {
 			return;
 		}
 		double[] value = data.edible();
-		for (int g : EAT_ORDER) {
-			if (deficit <= 0) {
-				break;
+		for (int pass = 0; pass < 2 && deficit > 0; pass++) {
+			for (int g : EAT_ORDER) {
+				if (deficit <= 0) {
+					break;
+				}
+				if (value[g] <= 0) {
+					continue;
+				}
+				double have = amounts[g] + frac[g] - (pass == 0 ? reserved[g] : 0);
+				if (have <= 0) {
+					continue;
+				}
+				double take = Math.min(have, deficit / value[g]);
+				frac[g] -= take;
+				frac[food] += take * value[g];
+				deficit -= take * value[g];
 			}
-			if (value[g] <= 0) {
-				continue;
-			}
-			double have = amounts[g] + frac[g];
-			if (have <= 0) {
-				continue;
-			}
-			double take = Math.min(have, deficit / value[g]);
-			frac[g] -= take;
-			frac[food] += take * value[g];
-			deficit -= take * value[g];
 		}
 	}
 
