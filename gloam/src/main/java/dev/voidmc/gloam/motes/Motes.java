@@ -23,6 +23,7 @@ import net.minecraft.world.attribute.EnvironmentAttributes;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
+import org.joml.Vector4fc;
 
 /**
  * The small living things in the air: drifting leaves, pollen and dust in the light, fireflies, mist wisps, breath in
@@ -41,10 +42,13 @@ public final class Motes {
 		LEAF("leaf"),
 		POLLEN("pollen"),
 		FIREFLY("firefly"),
-		WISP("wisp"),
+		MIST("mist"),
 		BREATH("breath"),
 		SNOW("snow"),
-		SPRAY("spray");
+		SPRAY("spray"),
+		POWDER("powder"),
+		/** Not spawned itself: the sprites the ground mist draws with under a shader pack ({@link MistMote}). */
+		VEIL("veil");
 
 		final String name;
 		final SimpleParticleType type = FabricParticleTypes.simple();
@@ -69,7 +73,7 @@ public final class Motes {
 	private static final MoteSpawner SPAWNER = new MoteSpawner();
 	private static ClientLevel level;
 	private static Vec3 camera = Vec3.ZERO;
-	private static final Vector3f MIST = new Vector3f(0.8F, 0.82F, 0.85F);
+	private static final Vector3f MIST = new Vector3f(0.8F, 0.82F, 0.85F), CLOUD = new Vector3f(1);
 	private static boolean active, pack;
 	private static int total;
 	// what the motes cost, summed since the showcase last asked (stats())
@@ -161,6 +165,16 @@ public final class Motes {
 		MIST.set(fog).lerp(new Vector3f(sky).mul(shade), 0.25F);
 		float light = Math.max(MIST.x, Math.max(MIST.y, MIST.z));
 		MIST.lerp(new Vector3f(light), 0.25F).lerp(new Vector3f(1), 0.12F * light);
+		Vector4fc cloud = cam.attributeProbe().getValue(EnvironmentAttributes.CLOUD_COLOR, 1.0F);
+		CLOUD.set(cloud.x(), cloud.y(), cloud.z());
+	}
+
+	/**
+	 * The colour the ground mist leans to: the clouds' sunlit colour, as the far mist over VOID LOD takes it (its shader
+	 * mixes it with the fog's), so the near sheets and the far banks are one mist.
+	 */
+	static Vector3fc cloud() {
+		return CLOUD;
 	}
 
 	/** The colour of the air for the soft motes, this tick. */
@@ -197,6 +211,9 @@ public final class Motes {
 		StringBuilder sb = new StringBuilder();
 		int now = 0;
 		for (Kind kind : Kind.values()) {
+			if (kind == Kind.VEIL) {
+				continue;
+			}
 			now += kind.count();
 			sb.append(kind.name).append(' ').append(kind.count()).append(" (max ").append(kind.peak).append("), ");
 			kind.peak = kind.count();

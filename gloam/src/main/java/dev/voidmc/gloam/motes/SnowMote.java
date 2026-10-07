@@ -14,7 +14,7 @@ final class SnowMote extends Mote {
 
 	SnowMote(ClientLevel level, double x, double y, double z, RandomSource random) {
 		super(level, x, y, z, Motes.Kind.SNOW, random);
-		this.quadSize = 0.016F + this.random.nextFloat() * 0.016F;
+		this.quadSize = 0.026F + this.random.nextFloat() * 0.022F;
 		this.lifetime = 50 + this.random.nextInt(50);
 		this.fadeIn = 6;
 		this.fadeOut = 12;

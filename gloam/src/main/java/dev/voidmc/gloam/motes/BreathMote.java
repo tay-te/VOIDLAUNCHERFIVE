@@ -15,17 +15,18 @@ final class BreathMote extends Mote {
 	BreathMote(ClientLevel level, double x, double y, double z, RandomSource random, double xd, double yd, double zd) {
 		super(level, x, y, z, Motes.Kind.BREATH, random);
 		this.quadSize = 0.03F + this.random.nextFloat() * 0.02F;
-		this.swell = 0.16F + this.random.nextFloat() * 0.08F;
+		this.swell = 0.10F + this.random.nextFloat() * 0.05F;
 		this.lifetime = 26 + this.random.nextInt(14);
 		this.fadeIn = 3;
 		this.fadeOut = 22;
-		this.peak = 0.32F + this.random.nextFloat() * 0.1F;
+		this.peak = 0.5F + this.random.nextFloat() * 0.15F;
 		this.xd = xd;
 		this.yd = yd;
 		this.zd = zd;
 		this.roll = this.random.nextFloat() * (float) (Math.PI * 2);
 		this.oRoll = this.roll;
-		this.misty = 1.0F;
+		// breath is lit vapour, whiter than the air around it
+		this.misty = 1.3F;
 	}
 
 	/** Thins the puff for air only just cold enough to show breath ({@code cold} 0..1). */

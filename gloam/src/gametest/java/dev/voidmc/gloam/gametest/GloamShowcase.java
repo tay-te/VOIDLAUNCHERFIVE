@@ -351,7 +351,8 @@ public class GloamShowcase implements FabricClientGameTest {
 			64, 64);
 		BlockPos snow = snowy != null ? snowy.getFirst() : new BlockPos(p.peakX(), p.peakY(), p.peakZ());
 		int[] cold = findCanopy(level, snow.getX(), snow.getZ(), false);
-		float coldYaw = clearest(level, cold[0], cold[1], cold[2]);
+		// out over the open snow, as far as the eye goes: the blown powder and the breath show against distance, not a slope
+		float coldYaw = clearest(level, cold[0], cold[1], cold[2], 48);
 		int fallX = p.valleyX() + 120, fallZ = p.valleyZ();
 		level.getChunk(fallX >> 4, fallZ >> 4);
 		int fallY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, fallX, fallZ);
@@ -359,7 +360,7 @@ public class GloamShowcase implements FabricClientGameTest {
 			level.setBlockAndUpdate(new BlockPos(fallX, y, fallZ), Blocks.STONE.defaultBlockState());
 		}
 		level.setBlockAndUpdate(new BlockPos(fallX, fallY + 12, fallZ), Blocks.WATER.defaultBlockState());
-		return new MotePlaces(forest[0], forest[1], forest[2], clearest(level, forest[0], forest[1], forest[2]), cold[0], cold[1], cold[2], coldYaw, fallX, fallY,
+		return new MotePlaces(forest[0], forest[1], forest[2], clearest(level, forest[0], forest[1], forest[2], 16), cold[0], cold[1], cold[2], coldYaw, fallX, fallY,
 			fallZ);
 	}
 
@@ -407,15 +408,15 @@ public class GloamShowcase implements FabricClientGameTest {
 		return new int[]{bestX, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bestX, bestZ), bestZ};
 	}
 
-	/** The yaw (of eight) from (x, ground, z) with the longest clear view at eye height, up to 16 blocks. */
-	private static float clearest(ServerLevel level, int x, int ground, int z) {
+	/** The yaw (of eight) from (x, ground, z) with the longest clear view at eye height, up to {@code range} blocks. */
+	private static float clearest(ServerLevel level, int x, int ground, int z, int range) {
 		float best = 0;
 		int longest = -1;
 		for (int k = 0; k < 8; k++) {
 			float yaw = k * 45;
 			double dx = -Math.sin(Math.toRadians(yaw)), dz = Math.cos(Math.toRadians(yaw));
 			int clear = 0;
-			for (int step = 1; step <= 16; step++) {
+			for (int step = 1; step <= range; step++) {
 				BlockPos at = BlockPos.containing(x + 0.5 + dx * step, ground + 1.6, z + 0.5 + dz * step);
 				BlockState state = level.getBlockState(at);
 				if (!state.isAir() && !state.canBeReplaced()) {
@@ -495,9 +496,9 @@ public class GloamShowcase implements FabricClientGameTest {
 		return new Places(bx, bz, peakY, lx, lz, valleyY, wx, wz, waterY, toPeak);
 	}
 
-	/** For the breath views: waits (up to ten seconds) until a breath is in the air, a few ticks after it starts. */
+	/** For the breath and cold views: waits (up to ten seconds) until a breath is in the air, a few ticks after it starts. */
 	private static void awaitBreath(ClientGameTestContext context, View view) {
-		if (!view.name().startsWith("breath")) {
+		if (!view.name().startsWith("breath") && !view.name().startsWith("cold")) {
 			return;
 		}
 		for (int t = 0; t < 200 && context.computeOnClient(mc -> Motes.Kind.BREATH.count()) < 4; t++) {

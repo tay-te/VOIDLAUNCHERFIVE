@@ -15,11 +15,13 @@ import net.minecraft.world.level.levelgen.Heightmap;
 final class FireflyMote extends Mote {
 	private int dark, flash, flashLength;
 	private int turn;
+	private final float size;
 	private double headX, headZ, height, ground;
 
 	FireflyMote(ClientLevel level, double x, double y, double z, RandomSource random) {
 		super(level, x, y, z, Motes.Kind.FIREFLY, random);
-		this.quadSize = 0.09F + this.random.nextFloat() * 0.03F;
+		this.size = 0.08F + this.random.nextFloat() * 0.03F;
+		this.quadSize = this.size;
 		this.lifetime = 600 + this.random.nextInt(600);
 		this.fadeIn = 0;
 		this.fadeOut = 0;
@@ -55,6 +57,8 @@ final class FireflyMote extends Mote {
 		}
 		this.steer(this.headX + windX(wind, 0.08), vy, this.headZ + windZ(wind, 0.08), 0.06);
 		this.move(this.xd, this.yd, this.zd);
+		// a little larger the further off, so a distant one still reads as a point of light and not a lost pixel
+		this.quadSize = this.size * (1 + (float) Math.sqrt(this.toCamera()) / 18);
 		if ((this.age & 7) == 0 && this.buried()) {
 			this.remove();
 		}
@@ -67,6 +71,11 @@ final class FireflyMote extends Mote {
 		}
 		int t = this.flashLength - this.flash;
 		return Math.min(1, (t + 1) / 3.0F) * Math.min(1, this.flash / 6.0F);
+	}
+
+	@Override
+	protected Layer getLayer() {
+		return Motes.pack() ? Layer.TRANSLUCENT : MoteLayers.GLOW;
 	}
 
 	@Override

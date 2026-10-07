@@ -32,6 +32,39 @@ final class MoteLayers {
 	static final SingleQuadParticle.Layer MIST = new SingleQuadParticle.Layer(true, TextureAtlas.LOCATION_PARTICLES, MIST_PIPELINE,
 		RenderPipelines.OIT_PARTICLE);
 
+	/**
+	 * The ground mist's sheets ({@link MistMote}): like {@link #MIST_PIPELINE}, but with shaders of their own
+	 * ({@code ground_mist.vsh/fsh}) that make a sheet as opaque as the eye's path through its slab is long, as the far
+	 * mist's shader does, and drawn from below as well as above.
+	 */
+	static final RenderPipeline GROUND_PIPELINE = RenderPipeline.builder(RenderPipelines.PARTICLE_SNIPPET)
+		.withLocation(Gloam.id("pipeline/ground_mist"))
+		.withVertexShader(Gloam.id("core/ground_mist"))
+		.withFragmentShader(Gloam.id("core/ground_mist"))
+		.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+		.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
+		.withCull(false)
+		.build();
+
+	/**
+	 * Gloam's own lights (fireflies): drawn at their own colour, never through the lightmap (so a dark night, however dark
+	 * the sky part makes it, cannot dim them), added onto what lies behind them and fading into the fog with distance.
+	 * Without a pack only; a pack draws fireflies as the particles they are.
+	 */
+	static final RenderPipeline GLOW_PIPELINE = RenderPipeline.builder(RenderPipelines.PARTICLE_SNIPPET)
+		.withLocation(Gloam.id("pipeline/glow"))
+		.withVertexShader(Gloam.id("core/glow"))
+		.withFragmentShader(Gloam.id("core/glow"))
+		.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))
+		.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
+		.build();
+
+	static final SingleQuadParticle.Layer GLOW = new SingleQuadParticle.Layer(true, TextureAtlas.LOCATION_PARTICLES, GLOW_PIPELINE,
+		RenderPipelines.OIT_PARTICLE);
+
+	static final SingleQuadParticle.Layer GROUND = new SingleQuadParticle.Layer(true, TextureAtlas.LOCATION_PARTICLES, GROUND_PIPELINE,
+		RenderPipelines.OIT_PARTICLE);
+
 	private MoteLayers() {
 	}
 
@@ -44,7 +77,9 @@ final class MoteLayers {
 	/** Iris's side in a class of its own, so the JVM only resolves it once Iris is known to be there. */
 	private static final class Iris {
 		static void assign() {
-			net.irisshaders.iris.api.v0.IrisApi.getInstance().assignPipeline(MIST_PIPELINE, net.irisshaders.iris.api.v0.IrisProgram.PARTICLES_TRANSLUCENT);
+			var iris = net.irisshaders.iris.api.v0.IrisApi.getInstance();
+			iris.assignPipeline(MIST_PIPELINE, net.irisshaders.iris.api.v0.IrisProgram.PARTICLES_TRANSLUCENT);
+			iris.assignPipeline(GROUND_PIPELINE, net.irisshaders.iris.api.v0.IrisProgram.PARTICLES_TRANSLUCENT);
 		}
 	}
 }
