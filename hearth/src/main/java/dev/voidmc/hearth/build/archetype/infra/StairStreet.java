@@ -34,8 +34,15 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * wide flight, on a parapet post or a wall coping of a narrow one. Edges stay walkable elsewhere (fronting houses open
  * onto them).
  *
+ * <p>A climb up a cliff town's face (the planner's {@code CliffFace}) caps its retaining walls a little over the treads
+ * ({@code cap}): the courses of dwellings cut into the face beside it are its walls higher up, and a wall carried up to
+ * the old crest would stand above their roofs as a fin. Where a course's terrace meets the flight ({@code gaps}) the
+ * side is left open, a landing onto the terrace.
+ *
  * <p>Params: {@code points} (int array x,y,z,..., world centreline at walking level, |Δy| ≤ 1 per step; default: a
- * flight straight up the plot, graded to the land at up to one block per block), {@code width} (odd, default 3).
+ * flight straight up the plot, graded to the land at up to one block per block), {@code width} (odd, default 3),
+ * {@code cap} (most blocks a retaining wall rises over the treads; default: up to the land), {@code gaps} (int array
+ * x,y,z,...: world side-edge columns left open from y to y + 2).
  */
 public final class StairStreet implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("infra/stairs"), ArchetypeCategory.INFRASTRUCTURE, Set.of(), 0,
@@ -78,6 +85,8 @@ public final class StairStreet implements Archetype {
 		LineMat coping = LineMat.of(lay, Role.PLINTH).weathered(0.1);
 		LineMat garden = LineMat.of(lay, Role.GARDEN);
 		long seed = Noise.hash(d.seed(), 0x5747);
+		int cap = d.param("cap", Integer.MAX_VALUE);
+		int[] gaps = d.params().getIntArray("gaps").orElse(new int[0]);
 		for (int i = 0; i < bed.cols().size(); i++) {
 			Course.Col col = bed.cols().get(i);
 			if (!bed.inside(i) || col.ring() != 0 || bed.inEnd(i)) {
@@ -97,17 +106,22 @@ public final class StairStreet implements Archetype {
 			if (hi == Integer.MIN_VALUE) {
 				continue;
 			}
+			int gap = gap(gaps, col.x(), col.z());
 			if (hi - l >= 3) {
-				// a retaining wall up to the land beside, coped flush with it
-				int top = Math.min(hi - 1, lay.topY());
+				// a retaining wall up to the land beside, coped flush with it (or capped: the face's courses stand above it)
+				int top = Math.min(Math.min(hi - 1, lay.topY()), cap == Integer.MAX_VALUE ? Integer.MAX_VALUE : l + cap);
 				try (var s = d.stage(StageKind.FOUNDATION)) {
 					for (int y = l; y < top; y++) {
-						lay.set(col.x(), y, col.z(), wall.full());
+						if (y < gap || y > gap + 2) {
+							lay.set(col.x(), y, col.z(), wall.full());
+						}
 					}
-					lay.set(col.x(), top, col.z(), coping.full());
+					if (top < gap || top > gap + 2) {
+						lay.set(col.x(), top, col.z(), coping.full());
+					}
 				}
 				double r = Noise.unit(seed, col.x(), 0, col.z());
-				if (top + 1 <= lay.topY() && r < 0.18) {
+				if (gap == Integer.MIN_VALUE && top + 1 <= lay.topY() && r < 0.18) {
 					try (var s = d.stage(StageKind.EXTERIOR)) {
 						if (r < 0.06) {
 							Lamps.standing(lay, col.x(), top + 1, col.z());
@@ -116,7 +130,7 @@ public final class StairStreet implements Archetype {
 						}
 					}
 				}
-			} else if (l - lo >= 3) {
+			} else if (l - lo >= 3 && gap == Integer.MIN_VALUE) {
 				// a parapet over the drop
 				try (var s = d.stage(StageKind.EXTERIOR)) {
 					lay.set(col.x(), l, col.z(), wall.has(Form.WALL) ? wall.wall() : coping.slab(SlabType.BOTTOM));
@@ -126,6 +140,16 @@ public final class StairStreet implements Archetype {
 				}
 			}
 		}
+	}
+
+	/** The level a course's terrace meets the flight at this side-edge column ({@code gaps}), or MIN_VALUE. */
+	private static int gap(int[] gaps, int x, int z) {
+		for (int i = 0; i + 2 < gaps.length; i += 3) {
+			if (gaps[i] == x && gaps[i + 2] == z) {
+				return gaps[i + 1];
+			}
+		}
+		return Integer.MIN_VALUE;
 	}
 
 	/** Landings: an inlaid stone in the middle of each. */
