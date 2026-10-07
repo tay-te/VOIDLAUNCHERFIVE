@@ -58,7 +58,7 @@ public class BuilderTour implements FabricClientGameTest {
 	private static final int STEP_TICKS = Integer.getInteger("hearth.build.step", 6);
 	private static final int CREW = Integer.getInteger("hearth.build.crew", 3);
 	private static final double EYE = 1.62;
-	private static final java.nio.file.Path RAW = java.nio.file.Path.of(System.getProperty("hearth.build.out", "build/run/clientGameTest/screenshots"));
+	private static final java.nio.file.Path RAW = java.nio.file.Path.of(System.getProperty("hearth.build.out", "screenshots"));
 
 	private record Site(long town, int plot) {
 	}
@@ -158,9 +158,13 @@ public class BuilderTour implements FabricClientGameTest {
 			long until = System.currentTimeMillis() + LATER * 1000L;
 			while (System.currentTimeMillis() < until) {
 				world.getServer().runOnServer(server -> patron(settlement(server, site.town)));
-				settle(context, 20_000);
+				for (int k = 0; k < 20; k++) {
+					settle(context, 1_000);
+					world.getServer().runOnServer(server -> tally(server, site));
+				}
 				log("progress: " + world.getServer().computeOnServer(server -> plotLine(server, site) + "; " + builders(server, site)));
 			}
+			log("time use (builder-seconds on the site, sampled each second): " + TALLY);
 			if (wide != null) {
 				double[] again = world.getServer().computeOnServer(server -> camOk(server.overworld(), wide[0], wide[1], wide[2], 0) ? wide : wideView(server, site));
 				shoot(context, world, "site_later", again != null ? again : wide);
@@ -310,6 +314,41 @@ public class BuilderTour implements FabricClientGameTest {
 		return String.format(Locale.ROOT, "%s #%d %s %s at %s, %dx%d, cursor %s, %.0f%% done%s", s.name(), p.id(), p.spec().archetype().getPath(),
 			p.state().getSerializedName(), centre(p).toShortString(), p.spec().sizeX(), p.spec().sizeZ(), Cursor.toString(p.cursor()), done(s, p) * 100,
 			p.waitingForGoods() ? ", waiting for " + p.stalledOn() : "");
+	}
+
+	/** What the site's builders were doing, one sample per builder each second of the later wait. */
+	private static final java.util.Map<String, Integer> TALLY = new java.util.TreeMap<>();
+
+	private static void tally(MinecraftServer server, Site site) {
+		for (Folk f : NpcModule.embodiment().entities()) {
+			if (f.brain() == null || f.brain().settlement.id() != site.town || f.brain().resident.job != JobType.BUILDER) {
+				continue;
+			}
+			String d = f.brain().describe();
+			String k;
+			if (!d.contains("(plot " + site.plot + ")")) {
+				k = "elsewhere";
+			} else if (d.contains("placing ") || d.contains("clearing")) {
+				var lvl = server.overworld();
+				var at = f.blockPosition();
+				boolean onScaffold = lvl.getBlockState(at).is(net.minecraft.world.level.block.Blocks.SCAFFOLDING)
+					|| lvl.getBlockState(at.below()).is(net.minecraft.world.level.block.Blocks.SCAFFOLDING);
+				k = onScaffold ? "placing from the scaffold" : "placing";
+			} else if (d.contains("working from the scaffold")) {
+				k = "on the scaffold (between blocks)";
+			} else if (d.contains("putting up scaffolding") || d.contains("carrying scaffolding")) {
+				k = "raising scaffolding";
+			} else if (d.contains("taking down scaffolding") || d.contains("climbing down")) {
+				k = "taking scaffolding down";
+			} else if (d.contains("fetching") || d.contains("waiting for materials")) {
+				k = "fetching";
+			} else if (d.contains("walking")) {
+				k = "walking to the work";
+			} else {
+				k = "other";
+			}
+			TALLY.merge(k, 1, Integer::sum);
+		}
 	}
 
 	private static String builders(MinecraftServer server, Site site) {
