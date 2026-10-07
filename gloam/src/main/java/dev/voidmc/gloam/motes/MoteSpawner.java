@@ -65,7 +65,7 @@ import org.joml.Vector3fc;
  */
 final class MoteSpawner {
 	/** How far around the camera each kind is placed, in blocks. */
-	private static final int LEAF_REACH = 16, POLLEN_REACH = 12, FIREFLY_REACH = 22, WISP_REACH = 44, SNOW_REACH = 14, SPRAY_REACH = 40;
+	private static final int LEAF_REACH = 16, POLLEN_REACH = 10, FIREFLY_REACH = 20, WISP_REACH = 44, SNOW_REACH = 14, SPRAY_REACH = 40;
 	/** The most motes started in one tick at density 1. */
 	private static final int BUDGET = 48;
 
@@ -279,7 +279,7 @@ final class MoteSpawner {
 		if (f < 0.02F) {
 			return;
 		}
-		this.fill(Motes.Kind.POLLEN, (int) (200 * density * f), () -> {
+		this.fill(Motes.Kind.POLLEN, (int) (300 * density * f), () -> {
 			int[] c = this.column(eye, POLLEN_REACH);
 			if (c == null) {
 				return null;
@@ -332,7 +332,7 @@ final class MoteSpawner {
 		}
 		float wet = Math.min(1.6F, 0.5F + air.climate().water() + 0.5F * air.climate().downfall());
 		float water = air.climate().water();
-		this.fill(Motes.Kind.FIREFLY, (int) (300 * density * f * wet), () -> {
+		this.fill(Motes.Kind.FIREFLY, (int) (400 * density * f * wet), () -> {
 			int[] c = this.column(eye, FIREFLY_REACH);
 			if (c == null) {
 				return null;

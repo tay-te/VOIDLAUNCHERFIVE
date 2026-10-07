@@ -21,8 +21,8 @@ The sprites:
     snow_0..1     a fine snow grain
 
 The mist, breath and spray sprites are drawn through Gloam's own particle pipeline, which does not cut away the faint
-edges the way vanilla's particle shader does (it discards alpha below 0.1), so they carry smooth alpha; everything
-else keeps to alpha a vanilla pipeline draws.
+edges the way vanilla's particle shader does (it discards alpha below 0.1), so they carry smooth alpha (with the
+faintest fringe trimmed, see trim()); everything else keeps to alpha a vanilla pipeline draws.
 """
 import json
 import math
@@ -205,6 +205,15 @@ def firefly():
 
 # ------------------------------------------------------------------------------------------------------- soft veils
 
+def trim(alpha):
+	"""
+	Cuts the faintest alpha to nothing and stretches the rest back over 0..1: a shader pack's particle program writes
+	its translucency data for every pixel it keeps (Complementary darkens what lies behind), so the soft sprites must
+	not leave a near-invisible fringe over the whole quad.
+	"""
+	return np.clip((alpha - 0.05) / 0.95, 0, 1)
+
+
 def wisp(seed):
 	"""
 	A veil of ground mist, 64x64: wide and low (the quad is square, the mist inside it is not), lying in long sideways
@@ -224,7 +233,7 @@ def wisp(seed):
 	r = np.sqrt(across ** 4 + up ** 2 + down ** 4)
 	shape = 1 - smoothstep(0.2, 1.0, r + (streaks(rng, n, 2, 7, 3) - 0.5) * 0.7)
 	body = 0.35 + 0.65 * streaks(rng, n, 2, 9, 3)
-	alpha = shape * body * 0.9
+	alpha = trim(shape * body * 0.9)
 	out = np.ones((n, n, 4))
 	out[..., 3] = alpha
 	return rgba(out)
@@ -238,7 +247,7 @@ def puff(seed, n, clump):
 	v = (y + 0.5) / n * 2 - 1
 	r = np.sqrt(u * u + v * v)
 	shape = 1 - smoothstep(0.25, 0.98, r + (fbm(rng, n, 2, 3) - 0.5) * clump)
-	alpha = shape * (0.6 + 0.4 * fbm(rng, n, 2, 3)) * 0.85
+	alpha = trim(shape * (0.6 + 0.4 * fbm(rng, n, 2, 3)) * 0.85)
 	out = np.ones((n, n, 4))
 	out[..., 3] = alpha
 	return rgba(out)

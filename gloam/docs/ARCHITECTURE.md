@@ -74,6 +74,14 @@ grass and flowers, water, the mist layer), moved by `Wind`, scaled by the `motes
 - Mist wisps drifting low over the ground and water while the mist is up.
 - Breath in the cold; snow drifting in the wind; spray at waterfalls.
 
+`MoteSpawner` tops the ambient kinds up toward a number worked out from the air (filling empty air at once with motes
+already partway through their lives) and fires the rest as events (a leaf from a canopy underside, a breath, spray where
+falling water lands). Mist, breath and spray draw through `MoteLayers.MIST`: the vanilla particle vertex shader with a
+fragment shader that keeps faint edges and no depth writes, in the colour of the air (the fog's attribute colour) at
+full brightness; under a pack the pipeline is assigned to Iris's translucent particle program and lit by the pack.
+Sprites and the icon: `tools/gen_motes.py`. Settings: `motes` (density), `moteLimit` (cap), `breath`. Each showcase
+view logs mote counts and their cost per tick.
+
 ### Soundscape: `dev.voidmc.gloam.sound` (`Soundscape`)
 
 Layered ambient beds chosen from the air and the land around the camera, cross-faded, muffled indoors

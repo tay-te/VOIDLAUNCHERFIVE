@@ -17,6 +17,8 @@ import org.joml.Vector3fc;
  * switched off. Subclasses say how it moves ({@link #step}).
  */
 abstract class Mote extends SingleQuadParticle {
+	/** How much more opaque the soft motes are drawn under a shader pack. */
+	private static final float PACK_BODY = 2.5F;
 	/** Ticks a mote takes to vanish once the motes are switched off. */
 	private static final int VANISH = 8;
 
@@ -83,6 +85,11 @@ abstract class Mote extends SingleQuadParticle {
 				this.setColor(Math.min(1, air.x() * this.misty), Math.min(1, air.y() * this.misty), Math.min(1, air.z() * this.misty));
 			}
 			float a = this.peak * this.fade();
+			if (this.misty > 0 && Motes.pack()) {
+				// a pack lights the soft motes like any particle (dim in the low light of dawn, where mist shows most)
+				// instead of in the bright colour of the air, so they need more body to show at all
+				a *= PACK_BODY;
+			}
 			if (this.vanishing > 0) {
 				a *= this.vanishing-- / (float) VANISH;
 			}
