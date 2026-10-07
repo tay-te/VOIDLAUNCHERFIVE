@@ -116,6 +116,15 @@ public final class Scene {
 		return pick;
 	}
 
+	/** The scene turned {@code quarters} quarters clockwise (seen from above). */
+	public Scene turnedBy(int quarters) {
+		Scene s = this;
+		for (int k = 0; k < Math.floorMod(quarters, 4); k++) {
+			s = s.turned();
+		}
+		return s;
+	}
+
 	/** The scene turned a quarter clockwise (seen from above): column (x, z) moves to (d - 1 - z, x). */
 	private Scene turned() {
 		Scene r = new Scene(this.x0, this.z0, this.d, this.w, this.sea);
