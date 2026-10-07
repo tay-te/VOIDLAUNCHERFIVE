@@ -112,6 +112,33 @@ public final class Spaces {
 		walk(starts);
 	}
 
+	/**
+	 * Where folk stand in a draft as it is drawn so far, walked from its entrances and the street row before the plot
+	 * (as the light pass walks it): the plot and {@link LightRules#MARGIN} round it, from {@link LightRules#BELOW} under
+	 * the lowest drawn block (or the floor) to {@link LightRules#ABOVE} over the highest.
+	 */
+	public static Spaces of(dev.voidmc.hearth.build.draft.Draft d) {
+		int[] yr = {Integer.MAX_VALUE, Integer.MIN_VALUE};
+		d.forEach((x, y, z, c) -> {
+			yr[0] = Math.min(yr[0], y);
+			yr[1] = Math.max(yr[1], y);
+		});
+		if (yr[0] == Integer.MAX_VALUE) {
+			yr[0] = 0;
+			yr[1] = 0;
+		}
+		int m = LightRules.MARGIN;
+		Grid g = Grid.of(d, -m, Math.min(yr[0], 0) - LightRules.BELOW, -m, d.frontage() - 1 + m, Math.max(yr[1], 0) + LightRules.ABOVE, d.depth() - 1 + m);
+		java.util.List<BlockPos> starts = new java.util.ArrayList<>();
+		for (int[] e : d.entrances()) {
+			starts.add(new BlockPos(e[0], e[1], e[2]));
+		}
+		for (int x = 0; x < d.frontage(); x++) {
+			starts.add(new BlockPos(x, Math.max(d.site().ground(x, -1), 0), -1));
+		}
+		return new Spaces(g, starts);
+	}
+
 	/** Per grid cell: what its block is to someone walking ({@link #PASS}, {@link #STAND}, ...). */
 	private final byte[] flags;
 	private static final byte PASS = 1;
