@@ -100,14 +100,19 @@ def features(W):
                             'field': 64, 'missing': 0.22, 'trees': 0.3})
     W.both('kcd_hedgerows', e('hedgerows'), [], S['surface_struct'])
 
+    # ---- waterfalls: a spring breaking out under the rim of a cliff of rock, its water falling the height of the face
+    # (CliffFallsFeature); six tries a chunk, most finding no cliff
+    W.feature('cliff_falls', {'type': e('cliff_falls'), 'min_drop': 14})
+    W.both('kcd_cliff_falls', e('cliff_falls'), [W.count(6), W.IN_SQUARE, W.heightmap('OCEAN_FLOOR_WG'), W.BIOME], 8)
+
     # ---- lone trees: a veteran oak on the crest of an open rise, a mark on the skyline seen for miles (HilltopFilter)
     W.both('kcd_lone_trees', e('natural/tree/oak_veteran/plain'),
            [W.count(4), W.IN_SQUARE, W.heightmap('WORLD_SURFACE_WG'), {'type': e('hilltop')}, W.BIOME], S['veg'])
 
 
-WOODLAND = ['kcd_fishponds', 'kcd_woodland_shrubs', 'kcd_woodland_floor', 'kcd_brambles', 'kcd_bank_trees', 'kcd_lone_trees']
-CONIFER = ['kcd_conifer_shrubs', 'kcd_conifer_floor', 'kcd_bank_trees']
-MEADOW = ['kcd_fishponds', 'kcd_open_shrubs', 'kcd_meadow_grass', 'kcd_meadow_flowers', 'kcd_bank_trees', 'kcd_lone_trees']
+WOODLAND = ['kcd_fishponds', 'kcd_cliff_falls', 'kcd_woodland_shrubs', 'kcd_woodland_floor', 'kcd_brambles', 'kcd_bank_trees', 'kcd_lone_trees']
+CONIFER = ['kcd_cliff_falls', 'kcd_conifer_shrubs', 'kcd_conifer_floor', 'kcd_bank_trees']
+MEADOW = ['kcd_fishponds', 'kcd_cliff_falls', 'kcd_open_shrubs', 'kcd_meadow_grass', 'kcd_meadow_flowers', 'kcd_bank_trees', 'kcd_lone_trees']
 TROPIC = ['kcd_tropic_bushes', 'kcd_tropic_floor']
 DRY = ['kcd_dry_grass']
 

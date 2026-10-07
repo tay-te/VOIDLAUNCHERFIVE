@@ -687,6 +687,10 @@ public final class CavernModel {
 	// ------------------------------------------------------------------ the realms
 
 	/** The realm of realm cell (hx, hz), if it has one: about half do, where a tunnel runs near its centre. */
+	/** Halls and ways in by cell, once worked out (keys scrambled so they hash evenly). */
+	private final java.util.concurrent.ConcurrentHashMap<Long, Hall> sharedHalls = new java.util.concurrent.ConcurrentHashMap<>();
+	private final java.util.concurrent.ConcurrentHashMap<Long, Adit> sharedAdits = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public Hall hall(int hx, int hz) {
 		return this.hall(this.cache.get(), hx, hz);
 	}
@@ -698,7 +702,16 @@ public final class CavernModel {
 		if (cached != null && c.hallKeys[slot] == key) {
 			return cached;
 		}
-		Hall hall = this.makeHall(c, hx, hz);
+		// shared across threads too: a far view samples far more halls than a thread's slots hold
+		Long shared = PlateMap.scramble(key);
+		Hall hall = this.sharedHalls.get(shared);
+		if (hall == null) {
+			hall = this.makeHall(c, hx, hz);
+			if (this.sharedHalls.size() > 100_000) {
+				this.sharedHalls.clear();
+			}
+			this.sharedHalls.putIfAbsent(shared, hall);
+		}
 		c.hallKeys[slot] = key;
 		c.halls[slot] = hall;
 		return hall;
@@ -1274,7 +1287,15 @@ public final class CavernModel {
 		if (cached != null && c.aditKeys[slot] == key) {
 			return cached;
 		}
-		Adit adit = this.makeAdit(c, ax, az);
+		Long shared = PlateMap.scramble(key);
+		Adit adit = this.sharedAdits.get(shared);
+		if (adit == null) {
+			adit = this.makeAdit(c, ax, az);
+			if (this.sharedAdits.size() > 200_000) {
+				this.sharedAdits.clear();
+			}
+			this.sharedAdits.putIfAbsent(shared, adit);
+		}
 		c.aditKeys[slot] = key;
 		c.adits[slot] = adit;
 		return adit;

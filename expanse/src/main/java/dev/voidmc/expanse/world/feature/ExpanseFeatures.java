@@ -19,6 +19,7 @@ public final class ExpanseFeatures {
 		register("cave_template", CaveTemplateFeature.CODEC);
 		register("hedgerow", HedgerowFeature.CODEC);
 		register("fishpond", FishpondFeature.CODEC);
+		register("cliff_falls", CliffFallsFeature.CODEC);
 		Registry.register(BuiltInRegistries.PLACEMENT_MODIFIER_TYPE, Expanse.id("clear_of_structures"), ClearOfStructuresFilter.CODEC);
 		Registry.register(BuiltInRegistries.PLACEMENT_MODIFIER_TYPE, Expanse.id("land_fit"), LandFitFilter.CODEC);
 		Registry.register(BuiltInRegistries.PLACEMENT_MODIFIER_TYPE, Expanse.id("hilltop"), HilltopFilter.CODEC);
