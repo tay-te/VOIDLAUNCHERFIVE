@@ -256,7 +256,9 @@ under a stair can hold furniture but are not walkways, ladders and carpets are w
 tried against a connectivity check, so a bed never cuts the room in two and every bed side, chest front and workstation
 front stays reachable. `room.claim(x, z)` reserves a cell for something you build yourself (a hearth). A kept cell
 taken by a ladder or the hole it climbs through counts as reached from the cell beside it, so a loft reached by a
-ladder is furnished like any other room.
+ladder is furnished like any other room, and the cell a flight arriving from below lands on stays free and joined.
+`Rooms.read(d, room)` reads the built floor into a room without furnishing it: call it before claiming cells (beds with
+`Beds.place`) in a room laid over a floor something else already furnished.
 
 `HALL` is for passages, landings and lobbies (a pot, a shelf). `DINING` is a common room filled to the walls (an
 inn's tap room, a refectory): booths of a table between two benches standing out from both long walls, back to back;
@@ -651,7 +653,8 @@ family's rule still needs, as a builder would, in this order:
 2. **rooms**, biggest first, aiming at **10** where it can (`Session.COMFORT`; the check asks 8, but 8 reads dim
    at night: about two thirds of full brightness on the game's light curve, 10 four fifths). A room its builder lit
    to the rule keeps its lights and only its dim corners are filled; corners already at 8 get lanterns, candles,
-   lamps and sconces, never light under a rug or a hidden block. In order: small rooms (up to 24 cells) with a table, barrel, counter or shelf get one or two groups
+   lamps on furniture and sconces, never light under a rug, a hidden block or a lantern set on the floor (it may be the
+   only way past a bed). In order: small rooms (up to 24 cells) with a table, barrel, counter or shelf get one or two groups
    of candles (2 in a poor house, 3 in an ordinary one, 4 in a fine one); otherwise the fewest ceiling lanterns, evenly
    along the room's middle (over the table when there is one; on chains in tall rooms; a wheel of four lanterns, or of
    candles round a lantern in the north, in halls 7 high; rows of lanterns in the eastern cultures). Then the dark
