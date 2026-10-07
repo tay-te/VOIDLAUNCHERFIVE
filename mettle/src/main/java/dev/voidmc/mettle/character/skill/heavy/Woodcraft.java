@@ -122,7 +122,7 @@ public final class Woodcraft {
 		}
 		FeatCounters.add(player, NATURAL_LOG_COUNTER, 1);
 		// Woodcutting teaches the axe too, more slowly than fighting (BALANCE.md §3).
-		Progress.award(player, dev.voidmc.mettle.character.skill.Combat.HEAVY_WEAPONS, 0.5);
+		Progress.award(player, dev.voidmc.mettle.character.skill.Combat.HEAVY_WEAPONS, HeavyRules.XP_PER_LOG);
 		if (felling || !player.isShiftKeyDown() || isLog(level.getBlockState(pos.below())) || !Perks.has(player, HeavyWeaponsSkill.TIMBER)) {
 			return;
 		}

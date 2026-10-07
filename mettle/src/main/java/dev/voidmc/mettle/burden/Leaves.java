@@ -46,17 +46,21 @@ public final class Leaves {
 		Entry.of("coal", 0.1f), Entry.of("charcoal", 0.08f),
 		// Metals
 		Entry.of("iron_ingot", 0.5f), Entry.of("gold_ingot", 0.6f), Entry.of("copper_ingot", 0.4f), Entry.of("netherite_scrap", 0.8f),
-		Entry.of("raw_iron", 0.6f), Entry.of("raw_gold", 0.7f), Entry.of("raw_copper", 0.5f),
+		// Raw metal weighs what it smelts into, so a mining haul isn't heavier than the ingots it becomes.
+		Entry.of("raw_iron", 0.5f), Entry.of("raw_gold", 0.6f), Entry.of("raw_copper", 0.4f),
+		// Bulk building blocks are light per block (a stack of stone is about 4 kg) so ordinary hauls of them burden you
+		// rather than pin you: BALANCE.md §5.2.
 		// Stone-like (ores are added below: their stone + 0.1)
-		Entry.of("cobblestone", 0.25f), Entry.of("stone", 0.25f), Entry.of("andesite", 0.25f), Entry.of("diorite", 0.25f),
-		Entry.of("granite", 0.25f), Entry.of("tuff", 0.25f), Entry.of("calcite", 0.25f),
-		Entry.of("deepslate", 0.3f), Entry.of("cobbled_deepslate", 0.3f), Entry.of("basalt", 0.3f), Entry.of("blackstone", 0.3f),
-		Entry.of("netherrack", 0.15f), Entry.of("end_stone", 0.2f), Entry.of("obsidian", 0.6f), Entry.of("crying_obsidian", 0.6f),
-		// Earth
-		Entry.of("dirt", 0.2f), Entry.of("grass_block", 0.2f), Entry.of("sand", 0.2f), Entry.of("red_sand", 0.2f), Entry.of("mud", 0.2f),
-		Entry.of("gravel", 0.25f), Entry.of("clay_ball", 0.05f), Entry.of("snowball", 0.02f), Entry.of("ice", 0.15f),
-		// Wood: planks derive to 0.2, sticks to 0.1
-		Entry.of("#minecraft:logs", 0.8f), Entry.of("bamboo", 0.05f),
+		Entry.of("cobblestone", 0.06f), Entry.of("stone", 0.06f), Entry.of("andesite", 0.06f), Entry.of("diorite", 0.06f),
+		Entry.of("granite", 0.06f), Entry.of("tuff", 0.06f), Entry.of("calcite", 0.06f),
+		Entry.of("deepslate", 0.08f), Entry.of("cobbled_deepslate", 0.08f), Entry.of("basalt", 0.08f), Entry.of("blackstone", 0.08f),
+		Entry.of("netherrack", 0.04f), Entry.of("end_stone", 0.05f), Entry.of("obsidian", 0.6f), Entry.of("crying_obsidian", 0.6f),
+		// Earth (sandstone is a block of sand, not four, and bricks are blocks of clay)
+		Entry.of("dirt", 0.05f), Entry.of("grass_block", 0.05f), Entry.of("sand", 0.05f), Entry.of("red_sand", 0.05f), Entry.of("mud", 0.05f),
+		Entry.of("sandstone", 0.05f), Entry.of("red_sandstone", 0.05f),
+		Entry.of("gravel", 0.06f), Entry.of("clay_ball", 0.015f), Entry.of("snowball", 0.02f), Entry.of("ice", 0.04f),
+		// Wood: planks derive to 0.0625, sticks to 0.03
+		Entry.of("#minecraft:logs", 0.25f), Entry.of("bamboo", 0.05f),
 		// Plants
 		Entry.of("#minecraft:saplings", 0.05f), Entry.of("#minecraft:flowers", 0.05f), Entry.of("#minecraft:leaves", 0.05f),
 		Entry.of("wheat_seeds", 0.005f), Entry.of("beetroot_seeds", 0.005f), Entry.of("melon_seeds", 0.005f), Entry.of("pumpkin_seeds", 0.005f),
@@ -81,14 +85,14 @@ public final class Leaves {
 		new Entry("pufferfish_bucket", 0.3f, "water_bucket"), new Entry("tropical_fish_bucket", 0.3f, "water_bucket"),
 		new Entry("axolotl_bucket", 0.5f, "water_bucket"), new Entry("tadpole_bucket", 0.05f, "water_bucket"),
 		new Entry("sulfur_cube_bucket", 0.5f, "water_bucket"),
-		Entry.of("potion", 0.35f), Entry.of("splash_potion", 0.35f), Entry.of("lingering_potion", 0.35f), Entry.of("glass", 0.2f),
+		Entry.of("potion", 0.35f), Entry.of("splash_potion", 0.35f), Entry.of("lingering_potion", 0.35f), Entry.of("glass", 0.05f),
 		// Not on the balance sheet: natural blocks and finds no recipe makes, which the 4 kg ÷ stack fallback would make
 		// absurdly light (a podzol block at a quarter of dirt) or heavy (a music disc at 4 kg). Tuned by the burden module.
-		Entry.of("podzol", 0.2f), Entry.of("mycelium", 0.2f), Entry.of("rooted_dirt", 0.2f), Entry.of("dirt_path", 0.2f), Entry.of("farmland", 0.2f),
-		Entry.of("soul_sand", 0.2f), Entry.of("soul_soil", 0.2f), Entry.of("suspicious_sand", 0.2f), Entry.of("suspicious_gravel", 0.25f),
-		Entry.of("crimson_nylium", 0.15f), Entry.of("warped_nylium", 0.15f), Entry.of("moss_block", 0.1f), Entry.of("pale_moss_block", 0.1f),
-		Entry.of("sculk", 0.2f), Entry.of("mangrove_roots", 0.4f), Entry.of("cactus", 0.2f), Entry.of("sugar_cane", 0.05f), Entry.of("kelp", 0.02f),
-		Entry.of("bedrock", 0.3f), Entry.of("reinforced_deepslate", 0.3f), Entry.of("gilded_blackstone", 0.3f), Entry.of("budding_amethyst", 0.25f),
+		Entry.of("podzol", 0.05f), Entry.of("mycelium", 0.05f), Entry.of("rooted_dirt", 0.05f), Entry.of("dirt_path", 0.05f), Entry.of("farmland", 0.05f),
+		Entry.of("soul_sand", 0.05f), Entry.of("soul_soil", 0.05f), Entry.of("suspicious_sand", 0.05f), Entry.of("suspicious_gravel", 0.06f),
+		Entry.of("crimson_nylium", 0.04f), Entry.of("warped_nylium", 0.04f), Entry.of("moss_block", 0.1f), Entry.of("pale_moss_block", 0.1f),
+		Entry.of("sculk", 0.05f), Entry.of("mangrove_roots", 0.1f), Entry.of("cactus", 0.2f), Entry.of("sugar_cane", 0.05f), Entry.of("kelp", 0.02f),
+		Entry.of("bedrock", 0.08f), Entry.of("reinforced_deepslate", 0.08f), Entry.of("gilded_blackstone", 0.08f), Entry.of("budding_amethyst", 0.06f),
 		Entry.of("pointed_dripstone", 0.06f), Entry.of("sponge", 0.1f), new Entry("wet_sponge", 1.0f, "sponge"), Entry.of("cobweb", 0.01f),
 		Entry.of("brown_mushroom", 0.02f), Entry.of("red_mushroom", 0.02f), Entry.of("brown_mushroom_block", 0.1f), Entry.of("red_mushroom_block", 0.1f),
 		Entry.of("mushroom_stem", 0.1f), Entry.of("shroomlight", 0.1f), Entry.of("rabbit", 0.2f),
@@ -98,7 +102,7 @@ public final class Leaves {
 
 	/** Name patterns for whole families no tag gathers: music discs, banner patterns, corals. */
 	private static final List<Entry> PATTERNS = List.of(
-		Entry.of("music_disc_", 0.2f), Entry.of("_banner_pattern", 0.01f), Entry.of("_coral_block", 0.25f), Entry.of("_coral_fan", 0.05f),
+		Entry.of("music_disc_", 0.2f), Entry.of("_banner_pattern", 0.01f), Entry.of("_coral_block", 0.06f), Entry.of("_coral_fan", 0.05f),
 		Entry.of("_coral", 0.05f), Entry.of("_froglight", 0.15f), Entry.of("_amethyst_bud", 0.05f));
 
 	private Leaves() {

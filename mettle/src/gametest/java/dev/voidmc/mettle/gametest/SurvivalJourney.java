@@ -161,7 +161,7 @@ final class SurvivalJourney {
 	// ---------------------------------------------------------------- XP (BALANCE.md §3)
 
 	private static void xpSources(ClientGameTestContext context, TestServerContext server) {
-		// An animal killed by the player: 4 XP.
+		// An animal killed by the player: XP_ANIMAL.
 		double[] before = {xp(server)};
 		summon(server, "pig", "^ ^ ^3", "pig1");
 		server.runCommand("damage @e[tag=pig1,limit=1] 100 minecraft:player_attack by @p");
@@ -174,7 +174,7 @@ final class SurvivalJourney {
 		server.runCommand("damage @e[tag=pig2,limit=1] 100 minecraft:generic");
 		check(gained(server, before[0], 0, "a pig that died mostly of something else"));
 
-		// Wild flowers (natural: placed with setBlock) picked by breaking: 1 XP each.
+		// Wild flowers (natural: placed with setBlock) picked by breaking: XP_PLANT each.
 		before[0] = xp(server);
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
@@ -187,7 +187,7 @@ final class SurvivalJourney {
 		}));
 		check(gained(server, before[0], 5 * SurvivalSkillXp.PLANT, "five wild poppies"));
 
-		// Berries picked off a ripe wild bush: 1 XP.
+		// Berries picked off a ripe wild bush: XP_PLANT.
 		before[0] = xp(server);
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
@@ -217,7 +217,7 @@ final class SurvivalJourney {
 		}));
 		check(gained(server, before[0], 0, "a planted dandelion"));
 
-		// Food taken out of a furnace: 1 XP per item, by shift-click.
+		// Food taken out of a furnace: XP_COOKED per item, by shift-click.
 		before[0] = xp(server);
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
@@ -236,7 +236,7 @@ final class SurvivalJourney {
 		}));
 		check(gained(server, before[0], 3 * SurvivalSkillXp.COOKED, "three cooked beef from a furnace"));
 
-		// Food the player put on a campfire: 1 XP when it pops off cooked.
+		// Food the player put on a campfire: XP_COOKED when it pops off cooked.
 		before[0] = xp(server);
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
@@ -631,7 +631,7 @@ final class SurvivalJourney {
 			before[0] = CharacterStore.get(p).xp(SurvivalSkill.SURVIVAL);
 			return null;
 		}));
-		// A biome seen "for the first time": 25 XP, the biome tally, and Trailblazer's second wind (no particles).
+		// A biome seen "for the first time": XP_BIOME, the biome tally, and Trailblazer's second wind (no particles).
 		context.waitTicks(Discovery.INTERVAL + 5);
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
@@ -935,11 +935,11 @@ final class SurvivalJourney {
 
 	/** BALANCE.md §3's Survival numbers, spelled out so the journey checks against the design, not the code. */
 	private static final class SurvivalSkillXp {
-		static final double ANIMAL = 4;
-		static final double PLANT = 1;
-		static final double COOKED = 1;
-		static final double BIOME = 25;
-		static final double STRUCTURE = 40;
+		static final double ANIMAL = dev.voidmc.mettle.character.skill.survival.SurvivalRules.XP_ANIMAL;
+		static final double PLANT = dev.voidmc.mettle.character.skill.survival.SurvivalRules.XP_PLANT;
+		static final double COOKED = dev.voidmc.mettle.character.skill.survival.SurvivalRules.XP_COOKED;
+		static final double BIOME = dev.voidmc.mettle.character.skill.survival.SurvivalRules.XP_BIOME;
+		static final double STRUCTURE = dev.voidmc.mettle.character.skill.survival.SurvivalRules.XP_STRUCTURE;
 	}
 
 	private static Map<ResourceKey<Perk>, Integer> without(CharacterState state, Identifier perk) {

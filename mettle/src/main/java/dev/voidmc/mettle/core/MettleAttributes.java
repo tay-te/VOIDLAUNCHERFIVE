@@ -14,8 +14,11 @@ import net.minecraft.world.entity.ai.attributes.RangedAttribute;
  * mod) can raise it with an ordinary modifier, and {@code /attribute} works on it.
  */
 public final class MettleAttributes {
+	/** Carry capacity before Strength, perks and gear (BALANCE.md §5.1). */
+	public static final double BASE_CARRY_CAPACITY = 65.0;
+
 	public static final Holder<Attribute> CARRY_CAPACITY = Registry.registerForHolder(BuiltInRegistries.ATTRIBUTE, Mettle.id("carry_capacity"),
-		new RangedAttribute("attribute.name.mettle.carry_capacity", 40.0, 0.0, 10_000.0).setSyncable(true).setSentiment(Attribute.Sentiment.POSITIVE));
+		new RangedAttribute("attribute.name.mettle.carry_capacity", BASE_CARRY_CAPACITY, 0.0, 10_000.0).setSyncable(true).setSentiment(Attribute.Sentiment.POSITIVE));
 
 	private MettleAttributes() {
 	}

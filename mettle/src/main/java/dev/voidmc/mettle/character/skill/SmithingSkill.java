@@ -61,6 +61,18 @@ public final class SmithingSkill {
 	public static final String NETHERITE_UPGRADES = "smithing_netherite_upgrades";
 
 	public static final double REFORGE_XP = 10;
+	/** XP (BALANCE.md §3): per metal unit in a crafted tool, weapon or armour piece; a diamond unit counts double. */
+	public static final double XP_PER_UNIT = 25;
+	public static final double XP_PER_DIAMOND_UNIT = 2 * XP_PER_UNIT;
+	/** A wooden, stone or leather piece (no metal in it). */
+	public static final double XP_PLAIN_PIECE = 5;
+	/** An ingot taken from a furnace or blast furnace. */
+	public static final double XP_INGOT = 4;
+	/** A smithing-table upgrade (netherite). */
+	public static final double XP_UPGRADE = 150;
+	/** An anvil job: a flat amount plus this much per level it cost. */
+	public static final double XP_ANVIL = 25;
+	public static final double XP_ANVIL_PER_LEVEL = 10;
 
 	private static boolean initialised;
 
@@ -93,23 +105,23 @@ public final class SmithingSkill {
 				return;
 			}
 			if (units > 0) {
-				Progress.award(player, SMITHING, 50.0 * count);
+				Progress.award(player, SMITHING, XP_UPGRADE * count);
 				made(player, result, path, count, false);
 			}
 			return;
 		}
 		if (menu instanceof AbstractFurnaceMenu) {
 			if (path.endsWith("_ingot")) {
-				Progress.award(player, SMITHING, count);
+				Progress.award(player, SMITHING, XP_INGOT * count);
 			}
 			return;
 		}
 		if (!(menu instanceof AbstractCraftingMenu) || units <= 0) {
 			return;
 		}
-		double perUnit = path.startsWith("diamond_") ? 16
-			: path.startsWith("iron_") || path.startsWith("golden_") || path.startsWith("copper_") || path.startsWith("chainmail_") ? 8 : 0;
-		Progress.award(player, SMITHING, perUnit > 0 ? perUnit * units * count : 2.0 * count);
+		double perUnit = path.startsWith("diamond_") ? XP_PER_DIAMOND_UNIT
+			: path.startsWith("iron_") || path.startsWith("golden_") || path.startsWith("copper_") || path.startsWith("chainmail_") ? XP_PER_UNIT : 0;
+		Progress.award(player, SMITHING, perUnit > 0 ? perUnit * units * count : XP_PLAIN_PIECE * count);
 		made(player, result, path, count, true);
 	}
 
@@ -154,7 +166,7 @@ public final class SmithingSkill {
 
 	/** Anvil job taken: XP grows with the levels it cost. */
 	public static void anvil(ServerPlayer player, int cost) {
-		Progress.award(player, SMITHING, 10 + 5.0 * Math.max(0, cost));
+		Progress.award(player, SMITHING, XP_ANVIL + XP_ANVIL_PER_LEVEL * Math.max(0, cost));
 	}
 
 	/** Metal units in a tool, weapon, armour piece or shield (as in its recipe), or 0. */

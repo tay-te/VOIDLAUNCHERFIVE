@@ -5,7 +5,7 @@
 	"name": "VOID Mettle client tour",
 	"environment": "*",
 	"entrypoints": {
-		"fabric-client-gametest": ["dev.voidmc.mettle.gametest.MettleTour"]
+		"fabric-client-gametest": ["dev.voidmc.mettle.gametest.MettleTour", "dev.voidmc.mettle.gametest.BalanceReport"]
 	},
 	"depends": {"mettle": "*"}
 }

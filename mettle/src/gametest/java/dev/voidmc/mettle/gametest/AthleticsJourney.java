@@ -161,26 +161,26 @@ final class AthleticsJourney {
 
 	// ---------------------------------------------------------------- XP
 
-	/** The real stat path: 40 m sprinted, 20 m swum and 10 m climbed are a point each; load doubles and triples it; no XP riding. */
+	/** The real stat path: one point each for the sprint, swim and climb distances in AthleticsRules; load doubles and triples it; no XP riding. */
 	private static void xp(TestServerContext server, FakeBurden burden) {
 		check(on(server, p -> {
 			AthleticsState state = AthleticsState.of(p);
 			state.pendingXp = 0;
 			double mult = multiplier(p);
 			double start = xpOf(p);
-			p.awardStat(Stats.SPRINT_ONE_CM, 4000);
-			p.awardStat(Stats.SWIM_ONE_CM, 2000);
-			p.awardStat(Stats.CLIMB_ONE_CM, 1000);
+			p.awardStat(Stats.SPRINT_ONE_CM, (int) AthleticsRules.SPRINT_CM_PER_XP);
+			p.awardStat(Stats.SWIM_ONE_CM, (int) AthleticsRules.SWIM_CM_PER_XP);
+			p.awardStat(Stats.CLIMB_ONE_CM, (int) AthleticsRules.CLIMB_CM_PER_XP);
 			double light = xpOf(p) - start;
 			burden.band = LoadBand.BURDENED;
-			p.awardStat(Stats.SPRINT_ONE_CM, 4000);
+			p.awardStat(Stats.SPRINT_ONE_CM, (int) AthleticsRules.SPRINT_CM_PER_XP);
 			double burdened = xpOf(p) - start - light;
 			burden.band = LoadBand.OVERBURDENED;
-			p.awardStat(Stats.SPRINT_ONE_CM, 4000);
+			p.awardStat(Stats.SPRINT_ONE_CM, (int) AthleticsRules.SPRINT_CM_PER_XP);
 			double over = xpOf(p) - start - light - burdened;
 			burden.band = LoadBand.LIGHT;
 			if (!near(light, 3 * mult)) {
-				return "XP for 40 m sprint + 20 m swim + 10 m climb: " + light + ", expected " + 3 * mult;
+				return "XP for one point each of sprint, swim and climb: " + light + ", expected " + 3 * mult;
 			}
 			if (!near(burdened, 2 * mult) || !near(over, 3 * mult)) {
 				return "load multiplier: Burdened " + burdened + " (expected " + 2 * mult + "), Overburdened " + over + " (expected " + 3 * mult + ")";
@@ -487,16 +487,16 @@ final class AthleticsJourney {
 		}));
 		tp(context, server, cx + 0.5, FLOOR, cz + 0.5);
 
-		// The cap: 120 XP a minute, then nothing until the next minute.
+		// The cap: AthleticsRules.XP_CAP_PER_MINUTE a minute, then nothing until the next minute.
 		check(on(server, p -> {
 			AthleticsState state = AthleticsState.of(p);
 			state.pendingXp = 0;
 			long now = p.level().getGameTime();
 			double room = state.meter.remaining(now);
 			double start = xpOf(p);
-			p.awardStat(Stats.SPRINT_ONE_CM, 4000 * 500);
+			p.awardStat(Stats.SPRINT_ONE_CM, (int) AthleticsRules.SPRINT_CM_PER_XP * 500);
 			double paid = xpOf(p) - start;
-			p.awardStat(Stats.SPRINT_ONE_CM, 4000 * 5);
+			p.awardStat(Stats.SPRINT_ONE_CM, (int) AthleticsRules.SPRINT_CM_PER_XP * 5);
 			double more = xpOf(p) - start - paid;
 			if (!near(paid, room * multiplier(p))) {
 				return "cap: 500 points of sprinting paid " + paid + ", expected " + room * multiplier(p) + " (room " + room + ")";

@@ -37,7 +37,7 @@ import net.minecraft.world.item.component.ItemContainerContents;
  * inventory, game mode and perks as they were.
  */
 final class BurdenJourney {
-	private static final float COBBLE = 0.25f;
+	private static final float COBBLE = 0.06f;
 
 	private BurdenJourney() {
 	}
@@ -73,7 +73,7 @@ final class BurdenJourney {
 			}
 			List<Component> lines = new ItemStack(Items.COBBLESTONE, 64).getTooltipLines(Item.TooltipContext.of(mc.level), mc.player, TooltipFlag.NORMAL);
 			String line = lines.size() > 1 ? lines.get(1).getString() : "";
-			return line.equals("0.25 kg · stack 16.0 kg") ? null : "tooltip weight line: " + lines.stream().map(Component::getString).toList();
+			return line.equals("0.06 kg · stack 3.8 kg") ? null : "tooltip weight line: " + lines.stream().map(Component::getString).toList();
 		}));
 
 		check(server.computeOnServer(s -> {

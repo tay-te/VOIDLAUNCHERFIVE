@@ -112,7 +112,7 @@ A centred panel with a header that shows:
 - the name and value
 - a 20-cell meter (quiet-cell meter: 12 px cells on a 17 px step)
 - a **+** control, shown while points are unspent
-- plain effect lines ("+3 kg carry · +2 % melee damage · +2 % mining speed per point")
+- plain effect lines ("+5 kg carry · +2 % melee damage · +2 % mining speed per point")
 - the skills it governs, as small icons
 
 **Skills tab.** A grid of the 15 skills. Each tile has:
@@ -166,7 +166,7 @@ matter. They are registered with `HudElementRegistry`. Space above the food and 
 
 | Chip | When | Where |
 |---|---|---|
-| **Burdened · 41 / 49 kg** | load band is Burdened | above the food bar |
+| **Burdened · 68 / 80 kg** | load band is Burdened | above the food bar |
 | **Overburdened** / **Pinned** | stronger state (raised fill, plus band name) | same |
 | **+12 Mining** | XP gained | above the hearts (left), so it balances the load chip on the right; merges per skill, fades after 2 s |
 | **Mining 6 · +1 perk point** | skill level-up | above the hotbar, centre, 3 s, soft chime |

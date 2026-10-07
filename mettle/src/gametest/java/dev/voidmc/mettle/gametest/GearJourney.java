@@ -200,8 +200,8 @@ final class GearJourney {
 				return "shift-clicking the quiver did not wear it";
 			}
 			float now = (float) p.getAttributeValue(MettleAttributes.CARRY_CAPACITY);
-			if (Math.abs(now - (base + 18f)) > 0.01f) {
-				return "capacity " + now + " with a leather pack and belt, expected " + (base + 18f);
+			if (Math.abs(now - (base + GearItems.LEATHER_PACK_KG + GearItems.BELT_KG)) > 0.01f) {
+				return "capacity " + now + " with a leather pack and belt, expected " + (base + GearItems.LEATHER_PACK_KG + GearItems.BELT_KG);
 			}
 			AttributeInstance capacity = p.getAttribute(MettleAttributes.CARRY_CAPACITY);
 			if (capacity.getModifier(GearEffects.modifierId(GearSlot.BACK)) == null || capacity.getModifier(Identifier.fromNamespaceAndPath("mettle", "gear/belt")) == null) {
@@ -288,7 +288,7 @@ final class GearJourney {
 				return "wearing the pack again did not bring its contents: " + gear.pockets(GearSlot.BACK);
 			}
 			float on = (float) p.getAttributeValue(MettleAttributes.CARRY_CAPACITY);
-			return Math.abs(on - off - 15f) < 0.01f ? null : "the pack's +15 kg did not come and go: " + off + " → " + on;
+			return Math.abs(on - off - GearItems.LEATHER_PACK_KG) < 0.01f ? null : "the pack's +" + GearItems.LEATHER_PACK_KG + " kg did not come and go: " + off + " → " + on;
 		});
 	}
 
@@ -635,7 +635,7 @@ final class GearJourney {
 				return "keepInventory lost the gear: " + p.getAttached(WornGear.TYPE);
 			}
 			float cap = (float) p.getAttributeValue(MettleAttributes.CARRY_CAPACITY);
-			return Math.abs(cap - (base + 25f)) < 0.01f ? null : "capacity after a keepInventory death " + cap + ", expected " + (base + 25f);
+			return Math.abs(cap - (base + GearItems.FRAME_PACK_KG)) < 0.01f ? null : "capacity after a keepInventory death " + cap + ", expected " + (base + GearItems.FRAME_PACK_KG);
 		});
 		context.waitTicks(3);
 		String client = context.computeOnClient(mc -> GearInventory.of(mc.player).worn(GearSlot.BACK).is(GearItems.FRAME_PACK) ? null

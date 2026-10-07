@@ -180,7 +180,7 @@ learned perks, unspent attribute and perk points, character level and XP.
 | `LOAD_BAND_CHANGED` | `(player, from, to)` | HUD, compat |
 | `DISCOVERED` | `(player, kind, id, pos)` | first visit to a biome, structure or landmark (Hearth, Expanse compat) |
 
-**Attribute**: `mettle:carry_capacity` (base 40, range 0–10 000, syncable, POSITIVE), added to the player through
+**Attribute**: `mettle:carry_capacity` (base 65, range 0–10 000, syncable, POSITIVE), added to the player through
 `FabricDefaultAttributeRegistry.MODIFY` on both sides. Anything may add modifiers to it (gear does, perks do, a
 future mod's cart could).
 

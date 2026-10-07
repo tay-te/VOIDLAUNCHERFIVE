@@ -102,6 +102,8 @@ java {
 
 test {
 	useJUnitPlatform()
+	// The balance reports (PacingReportTest, WeightReportTest) only run with -Dmettle.balance=true.
+	systemProperty 'mettle.balance', System.getProperty('mettle.balance', 'false')
 	testLogging {
 		events 'failed'
 		exceptionFormat 'full'
@@ -120,4 +122,9 @@ fabricApi {
 		eula = true
 		clearRunDirectory = false
 	}
+}
+
+// -Dmettle.balance=true turns the client tour into the in-game balance report (gametest BalanceReport).
+tasks.matching { it.name == 'runClientGameTest' }.configureEach {
+	systemProperty 'mettle.balance', System.getProperty('mettle.balance', 'false')
 }

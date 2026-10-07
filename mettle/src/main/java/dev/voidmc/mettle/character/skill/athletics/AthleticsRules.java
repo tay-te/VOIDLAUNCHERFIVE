@@ -8,12 +8,15 @@ import dev.voidmc.mettle.api.LoadBand;
  * them. Everything that touches a player lives in the other classes of this package and asks here.
  */
 public final class AthleticsRules {
-	/** Centimetres per base XP point (BALANCE.md §3: 40 m sprinted, 20 m swum, 10 m climbed). */
-	public static final double SPRINT_CM_PER_XP = 4000;
-	public static final double SWIM_CM_PER_XP = 2000;
-	public static final double CLIMB_CM_PER_XP = 1000;
-	/** Base Athletics XP a player can earn from moving in one minute (1200 ticks). */
-	public static final double XP_CAP_PER_MINUTE = 120;
+	/** Centimetres per base XP point (BALANCE.md §3: 6 m sprinted, 3 m swum, 2 m climbed). */
+	public static final double SPRINT_CM_PER_XP = 600;
+	public static final double SWIM_CM_PER_XP = 300;
+	public static final double CLIMB_CM_PER_XP = 200;
+	/**
+	 * Base Athletics XP a player can earn from moving in one minute (1200 ticks). A full minute of unburdened sprinting
+	 * (about 340 m) is 56; the cap trims sprinting in circles under a load.
+	 */
+	public static final double XP_CAP_PER_MINUTE = 60;
 	public static final long MINUTE = 1200;
 
 	/** Runner: sprint speed per rank (×total, on top of vanilla's sprint). */
@@ -80,11 +83,22 @@ public final class AthleticsRules {
 	}
 
 	/**
-	 * The 120-a-minute cap, as a fixed window of game time. Not thread safe; one per player, on the server thread.
+	 * The per-minute cap, as a fixed window of game time. Not thread safe; one per player, on the server thread.
 	 */
 	public static final class Meter {
+		private final double cap;
 		private long window = Long.MIN_VALUE;
 		private double spent;
+
+		/** Athletics' own cap. */
+		public Meter() {
+			this(XP_CAP_PER_MINUTE);
+		}
+
+		/** Any per-minute cap (Defense uses one too). */
+		public Meter(double cap) {
+			this.cap = cap;
+		}
 
 		/** How much of {@code xp} may still be paid this minute; records it as spent. */
 		public double take(double xp, long gameTime) {
@@ -93,7 +107,7 @@ public final class AthleticsRules {
 				window = w;
 				spent = 0;
 			}
-			double allowed = Math.max(0, Math.min(xp, XP_CAP_PER_MINUTE - spent));
+			double allowed = Math.max(0, Math.min(xp, this.cap - spent));
 			spent += allowed;
 			return allowed;
 		}
@@ -104,7 +118,7 @@ public final class AthleticsRules {
 
 		/** What may still be paid in the minute that {@code gameTime} falls in. */
 		public double remaining(long gameTime) {
-			return Math.floorDiv(gameTime, MINUTE) == window ? Math.max(0, XP_CAP_PER_MINUTE - spent) : XP_CAP_PER_MINUTE;
+			return Math.floorDiv(gameTime, MINUTE) == window ? Math.max(0, this.cap - spent) : this.cap;
 		}
 	}
 

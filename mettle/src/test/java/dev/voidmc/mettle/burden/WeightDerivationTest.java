@@ -69,17 +69,21 @@ class WeightDerivationTest {
 
 	@Test
 	void woodDerivesFromLogs() {
-		assertEquals(0.2f, w(Items.OAK_PLANKS), 1e-4);
-		assertEquals(0.1f, w(Items.STICK), 1e-4);
-		assertEquals(1.6f, w(Items.CHEST), 1e-4);
-		assertEquals("oak_planks = oak_log (leaf 0.8) ÷ 4 = 0.2 kg", Weights.explain(table, Items.OAK_PLANKS));
+		assertEquals(0.0625f, w(Items.OAK_PLANKS), 1e-4);
+		assertEquals(0.03125f, w(Items.STICK), 1e-4);
+		assertEquals(0.5f, w(Items.CHEST), 1e-4);
+		assertEquals("oak_planks = oak_log (leaf 0.25) ÷ 4 = 0.063 kg", Weights.explain(table, Items.OAK_PLANKS));
+		// Sandstone is a block of sand, not four; bricks are a block of clay.
+		assertEquals(w(Items.SAND), w(Items.SANDSTONE), 1e-4);
+		assertEquals(w(Items.STONE), w(Items.BRICKS), 1e-4);
 	}
 
 	@Test
 	void leavesOverridesAndBuckets() {
-		assertEquals(0.25f, w(Items.COBBLESTONE), 1e-4);
-		assertEquals(0.35f, w(Items.IRON_ORE), 1e-4);
-		assertEquals(0.4f, w(Items.DEEPSLATE_IRON_ORE), 1e-4);
+		assertEquals(0.06f, w(Items.COBBLESTONE), 1e-4);
+		assertEquals(0.16f, w(Items.IRON_ORE), 1e-4);
+		assertEquals(0.18f, w(Items.DEEPSLATE_IRON_ORE), 1e-4);
+		assertEquals(w(Items.IRON_INGOT), w(Items.RAW_IRON), 1e-4);
 		assertEquals(1.0f, w(Items.ANCIENT_DEBRIS), 1e-4);
 		assertEquals(2.4f, w(Items.IRON_HELMET), 1e-4);
 		assertEquals(4.8f, w(Items.IRON_CHESTPLATE), 1e-4);
@@ -134,7 +138,7 @@ class WeightDerivationTest {
 	void nestedContentsCount() {
 		ItemStack bundle = new ItemStack(Items.BUNDLE);
 		bundle.set(DataComponents.BUNDLE_CONTENTS, new BundleContents(List.of(new ItemStackTemplate(Items.COBBLESTONE, 16))));
-		assertEquals(w(Items.BUNDLE) + 16 * 0.25f, Weights.weigh(table, bundle), 1e-3);
+		assertEquals(w(Items.BUNDLE) + 16 * w(Items.COBBLESTONE), Weights.weigh(table, bundle), 1e-3);
 
 		List<ItemStack> stone = new ArrayList<>();
 		for (int i = 0; i < 27; i++) {
@@ -142,7 +146,7 @@ class WeightDerivationTest {
 		}
 		ItemStack shulker = new ItemStack(Items.SHULKER_BOX);
 		shulker.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(stone));
-		float full = w(Items.SHULKER_BOX) + 27 * 16f;
+		float full = w(Items.SHULKER_BOX) + 27 * 64 * w(Items.COBBLESTONE);
 		assertEquals(full, Weights.weigh(table, shulker), 1e-2);
 
 		// A shulker box inside a bundle inside a shulker box: everything counts, all the way down.

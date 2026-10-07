@@ -346,7 +346,8 @@ final class BackgroundPanel {
 	private void carry(UiCanvas c, int ix, int top, int strength) {
 		c.tracked(Component.translatable("mettle.picker.label.carry").getString(), Weight.MEDIUM, 10, 0.12f, ix, top, Ui.TEXT_2);
 		int fromStrength = (int) (strength * EffectsApplier.CAPACITY_PER_STRENGTH);
-		c.text(Component.translatable("mettle.picker.carry", 40 + fromStrength, fromStrength, strength), Weight.REGULAR, 13, ix, top + c.px(20), Ui.TEXT_2);
+		int base = (int) dev.voidmc.mettle.core.MettleAttributes.BASE_CARRY_CAPACITY;
+		c.text(Component.translatable("mettle.picker.carry", base + fromStrength, base, fromStrength, strength), Weight.REGULAR, 13, ix, top + c.px(20), Ui.TEXT_2);
 	}
 
 	private Component buttonLabel() {

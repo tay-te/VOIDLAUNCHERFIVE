@@ -202,7 +202,7 @@ public final class HeavyWeaponsSkill {
 		Entity direct = source.getDirectEntity();
 		boolean thrown = direct instanceof ThrownAxe;
 		if (thrown) {
-			Progress.award(player, Combat.HEAVY_WEAPONS, killed.getMaxHealth() / 4.0 * Combat.targetFactor(killed));
+			Progress.award(player, Combat.HEAVY_WEAPONS, CombatXp.kill(killed.getMaxHealth()) * Combat.targetFactor(killed));
 		}
 		boolean axe = thrown || direct == player && player.getMainHandItem().is(ItemTags.AXES);
 		if (!axe) {

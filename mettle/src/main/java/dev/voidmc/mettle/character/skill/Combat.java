@@ -2,13 +2,20 @@ package dev.voidmc.mettle.character.skill;
 
 import dev.voidmc.mettle.api.Skill;
 import dev.voidmc.mettle.character.Progress;
+import dev.voidmc.mettle.character.skill.athletics.AthleticsRules;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
@@ -30,6 +37,9 @@ public final class Combat {
 
 	public enum Weapon { BLADE, HEAVY, RANGED }
 
+	/** Defense's per-minute cap, per player (CombatXp#DEFENSE_CAP_PER_MINUTE). */
+	private static final Map<UUID, AthleticsRules.Meter> DEFENSE_METERS = new HashMap<>();
+
 	private Combat() {
 	}
 
@@ -39,10 +49,11 @@ public final class Combat {
 			if (killer instanceof ServerPlayer player && !player.isCreative()) {
 				ResourceKey<Skill> skill = skillFor(source, player);
 				if (skill != null) {
-					Progress.award(player, skill, killed.getMaxHealth() / 4.0 * targetFactor(killed));
+					Progress.award(player, skill, CombatXp.kill(killed.getMaxHealth()) * targetFactor(killed));
 				}
 			}
 		});
+		ServerPlayerEvents.LEAVE.register(player -> DEFENSE_METERS.remove(player.getUUID()));
 	}
 
 	/** A melee weapon's class: swords and spears are blades; axes, maces and tridents are heavy. */
@@ -94,17 +105,20 @@ public final class Combat {
 	}
 
 	private static void afterDamage(LivingEntity target, DamageSource source, float baseTaken, float taken, boolean blocked) {
-		// Defense: what a player's shield or armour stopped.
+		// Defense: what a player's shield blocked, and what their armour absorbed of the rest. "taken" is the hit
+		// after the shield and before armour (Fabric passes hurtServer's own amount).
 		if (target instanceof ServerPlayer defender && !defender.isCreative()) {
-			double xp = 0;
-			if (blocked) {
-				xp += Math.max(0, baseTaken - taken);
+			double blockedXp = blocked ? Math.max(0, baseTaken - taken) : 0;
+			double absorbed = 0;
+			if (taken > 0 && defender.getArmorValue() > 0 && !source.is(DamageTypeTags.BYPASSES_ARMOR)) {
+				absorbed = taken * CombatXp.armourFraction(defender.getArmorValue(), defender.getAttributeValue(Attributes.ARMOR_TOUGHNESS), taken);
 			}
-			if (taken > 0 && defender.getArmorValue() > 0) {
-				// Armour absorbs roughly armour/25 of a hit (vanilla's formula without toughness), half an XP per point.
-				xp += 0.5 * taken * Math.min(0.8, defender.getArmorValue() / 25.0);
+			double xp = CombatXp.defense(blockedXp, absorbed);
+			if (xp > 0) {
+				double paid = DEFENSE_METERS.computeIfAbsent(defender.getUUID(), u -> new AthleticsRules.Meter(CombatXp.DEFENSE_CAP_PER_MINUTE))
+					.take(xp, defender.level().getGameTime());
+				Progress.award(defender, DEFENSE, paid);
 			}
-			Progress.award(defender, DEFENSE, xp);
 		}
 		// Weapons: damage dealt, capped at what the target had left.
 		if (source.getEntity() instanceof ServerPlayer attacker && attacker != target && !attacker.isCreative()) {
@@ -113,7 +127,7 @@ public final class Combat {
 				return;
 			}
 			double dealt = Math.min(taken, target.getHealth() + taken);
-			double xp = (skill == MARKSMANSHIP ? 1.2 * dealt + attacker.distanceTo(target) / 10.0 : dealt) * targetFactor(target);
+			double xp = CombatXp.hit(skill == MARKSMANSHIP, dealt, attacker.distanceTo(target)) * targetFactor(target);
 			Progress.award(attacker, skill, xp);
 		}
 	}

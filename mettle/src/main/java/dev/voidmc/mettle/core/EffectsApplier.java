@@ -29,7 +29,8 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  */
 public final class EffectsApplier {
 	/** Carry capacity per point of Strength, counted from 1 (BALANCE.md §4). */
-	public static final double CAPACITY_PER_STRENGTH = 3.0;
+	public static final double CAPACITY_PER_STRENGTH = 5.0;
+	private static final double OLD_BASE_CARRY_CAPACITY = 40.0;
 
 	private EffectsApplier() {
 	}
@@ -45,6 +46,11 @@ public final class EffectsApplier {
 		int aOver = agility - CharacterAttribute.BASE;
 		int vOver = vitality - CharacterAttribute.BASE;
 
+		// Players saved before the 2026-10 balance pass kept the old default base (40) in their attribute data.
+		var capacity = player.getAttribute(MettleAttributes.CARRY_CAPACITY);
+		if (capacity != null && capacity.getBaseValue() == OLD_BASE_CARRY_CAPACITY) {
+			capacity.setBaseValue(MettleAttributes.BASE_CARRY_CAPACITY);
+		}
 		set(player, MettleAttributes.CARRY_CAPACITY, CharacterAttribute.STRENGTH, "carry_capacity", strength * CAPACITY_PER_STRENGTH, AttributeModifier.Operation.ADD_VALUE, false);
 		set(player, Attributes.ATTACK_DAMAGE, CharacterAttribute.STRENGTH, "attack_damage", 0.02 * sOver, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, false);
 		set(player, Attributes.BLOCK_BREAK_SPEED, CharacterAttribute.STRENGTH, "block_break_speed", 0.02 * sOver, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, false);

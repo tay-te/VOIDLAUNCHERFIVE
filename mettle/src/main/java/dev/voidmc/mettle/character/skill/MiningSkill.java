@@ -128,43 +128,64 @@ public final class MiningSkill {
 		return s.is(ConventionalBlockTags.ORES);
 	}
 
+	// XP per block (BALANCE.md §3)
+	public static final double XP_STONE = 1;
+	public static final double XP_DEEPSLATE = 1.5;
+	public static final double XP_NETHERRACK = 0.5;
+	public static final double XP_OBSIDIAN = 3;
+	/** Coal, copper and nether quartz. */
+	public static final double XP_COMMON_ORE = 3;
+	public static final double XP_NETHER_GOLD = 4;
+	/** Any other ore (modded). */
+	public static final double XP_OTHER_ORE = 4;
+	public static final double XP_REDSTONE = 5;
+	/** Iron and lapis. */
+	public static final double XP_IRON = 6;
+	public static final double XP_GOLD = 8;
+	public static final double XP_DIAMOND = 20;
+	public static final double XP_EMERALD = 25;
+	public static final double XP_DEBRIS = 30;
+	public static final double XP_AMETHYST = 2;
+	/** Deepslate ore variants pay this much more. */
+	public static final double DEEPSLATE_ORE = 1.25;
+
 	/** BALANCE.md §3: XP for mining a block naturally, or 0. */
 	public static double baseXp(BlockState s) {
 		double ore = 0;
 		if (s.is(Blocks.ANCIENT_DEBRIS)) {
-			ore = 30;
+			ore = XP_DEBRIS;
 		} else if (s.is(ConventionalBlockTags.EMERALD_ORES)) {
-			ore = 25;
+			ore = XP_EMERALD;
 		} else if (s.is(ConventionalBlockTags.DIAMOND_ORES)) {
-			ore = 20;
+			ore = XP_DIAMOND;
 		} else if (s.is(Blocks.NETHER_GOLD_ORE)) {
-			ore = 4;
+			ore = XP_NETHER_GOLD;
 		} else if (s.is(ConventionalBlockTags.GOLD_ORES)) {
-			ore = 8;
+			ore = XP_GOLD;
 		} else if (s.is(ConventionalBlockTags.IRON_ORES) || s.is(ConventionalBlockTags.LAPIS_ORES)) {
-			ore = 6;
+			ore = XP_IRON;
 		} else if (s.is(ConventionalBlockTags.REDSTONE_ORES)) {
-			ore = 5;
+			ore = XP_REDSTONE;
 		} else if (s.is(ConventionalBlockTags.COAL_ORES) || s.is(ConventionalBlockTags.COPPER_ORES) || s.is(ConventionalBlockTags.QUARTZ_ORES)) {
-			ore = 3;
+			ore = XP_COMMON_ORE;
 		} else if (isOre(s)) {
-			ore = 4;
+			ore = XP_OTHER_ORE;
 		} else if (s.is(Blocks.AMETHYST_CLUSTER)) {
-			return 2;
+			return XP_AMETHYST;
 		}
 		if (ore > 0) {
-			return BuiltInRegistries.BLOCK.getKey(s.getBlock()).getPath().startsWith("deepslate_") ? ore * 1.25 : ore;
+			return BuiltInRegistries.BLOCK.getKey(s.getBlock()).getPath().startsWith("deepslate_") ? ore * DEEPSLATE_ORE : ore;
 		}
 		if (s.is(Blocks.NETHERRACK)) {
-			return 0.5;
+			return XP_NETHERRACK;
 		}
 		if (s.is(Blocks.OBSIDIAN) || s.is(Blocks.CRYING_OBSIDIAN)) {
-			return 3;
+			return XP_OBSIDIAN;
 		}
 		if (s.is(Blocks.DEEPSLATE) || s.is(Blocks.COBBLED_DEEPSLATE)) {
-			return 1.5;
+			return XP_DEEPSLATE;
 		}
-		return isStoneLike(s) ? 1 : 0;
+		return isStoneLike(s) ? XP_STONE : 0;
 	}
 
 	private static void afterBreak(ServerLevel level, ServerPlayer player, BlockPos pos, BlockState state) {
