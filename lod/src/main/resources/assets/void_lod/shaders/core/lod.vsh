@@ -15,14 +15,17 @@
 // with ambient occlusion (tops) or height above the floor (walls) in its alpha, and carry what they are made of in
 // the second: a 16-bit material id, low byte in red (0: untextured). Smooth vertices carry the colour of the tops
 // and of the risers, with the slope along x and z in the two alphas.
-// Far blocky tiles (LOD_COMPACT) pack the same in two words (TileBuilder.COMPACT_BYTES): x, z, face and water, y in
-// whole blocks; then the colour in 5 bits a channel, the corner occlusion level, the horizons in 4 bits each, the
-// block light in 2 and the sky's occlusion in 5. They are untextured.
+// Far blocky tiles (LOD_COMPACT) have no vertices: one record per quad (TileBuilder.RECORD_BYTES), read for each
+// corner by the vertex's index. Its lowest corner (x, z, face and water, y in whole blocks); its size along the face,
+// the rotation of its corners and each top corner's occlusion level, the block light; the colour along its top and
+// along its foot in 5 bits a channel; the horizons in 4 bits each and the sky's occlusion in 5. They are untextured.
 // Per tile (one instance each): its corner in blocks, its level, and its cross-fade (Fades: 0 solid, +n fading in,
 // -n fading out, in 255ths).
 #ifdef LOD_COMPACT
-layout(location = 0) in uvec2 LodPacked;
 layout(location = 1) in ivec4 LodTile;
+uniform usamplerBuffer LodQuads;
+// each face's corners, unrotated, as TileBuilder.CORNERS: u | v << 1 along the face's two axes
+const int CORNERS[32] = int[32](0, 2, 3, 1, 0, 0, 0, 0, 2, 3, 1, 0, 3, 2, 0, 1, 3, 2, 0, 1, 2, 3, 1, 0, 0, 1, 3, 2, 0, 0, 0, 0);
 #else
 layout(location = 0) in ivec4 LodPos;
 layout(location = 1) in vec4 LodTop;
@@ -84,15 +87,24 @@ void main() {
     vec4 side;
     float horizonEast, horizonWest, skyHidden, blockLight;
 #ifdef LOD_COMPACT
-    uint w0 = LodPacked.x, w1 = LodPacked.y;
-    vpos = ivec4(int(w0 & 127u), (int(w0) >> 18) * 8, int((w0 >> 7) & 127u), int((w0 >> 14) & 15u));
-    // a top's alpha is its corner occlusion, one of vanilla's four shades; a wall's floor shading is under a pixel
+    uvec4 quad = texelFetch(LodQuads, gl_VertexIndex >> 2);
+    uint w0 = quad.x, w1 = quad.y;
+    int f = int((w0 >> 14) & 7u);
+    int c = ((gl_VertexIndex & 3) + int((w1 >> 20) & 3u)) & 3;
+    int uv = CORNERS[f * 4 + c];
+    int du = (uv & 1) * int(w1 & 127u), dv = (uv >> 1) * int((w1 >> 7) & 8191u);
+    ivec3 at = ivec3(int(w0 & 127u), int(w0) >> 18, int((w0 >> 7) & 127u));
+    at += f == 0 || f == 6 ? ivec3(du, 0, dv) : f >= 4 ? ivec3(0, dv, du) : ivec3(du, dv, 0);
+    vpos = ivec4(at.x, at.y * 8, at.z, int((w0 >> 14) & 15u));
+    // a top's alpha is its corner occlusion, one of vanilla's four shades; a wall's floor shading is under a pixel;
+    // a wall's colour runs from its top's down to its foot's
     const float AO[4] = float[4](1.0, 0.8, 0.62, 0.48);
-    top = vec4(vec3(float(w1 & 31u), float((w1 >> 5) & 31u), float((w1 >> 10) & 31u)) / 31.0,
-        (vpos.w & 7) == 0 ? AO[(w1 >> 15) & 3u] : 1.0);
+    uint rgb = (uv >> 1) != 0 || f == 0 || f == 6 ? quad.z & 32767u : (quad.z >> 15) & 32767u;
+    top = vec4(vec3(float(rgb & 31u), float((rgb >> 5) & 31u), float((rgb >> 10) & 31u)) / 31.0,
+        f == 0 ? AO[(w1 >> (22 + 2 * c)) & 3u] : 1.0);
     side = vec4(0.0);
     // 4 or 5 bits of what was 8: the middle of each step, and none for none
-    uint e = (w1 >> 17) & 15u, w = (w1 >> 21) & 15u, b = (w1 >> 25) & 3u, o = w1 >> 27;
+    uint e = quad.w & 15u, w = (quad.w >> 4) & 15u, b = w1 >> 30, o = (quad.w >> 8) & 31u;
     horizonEast = e == 0u ? 0.0 : float(e * 16u + 8u) * (1.5707963 / 255.0);
     horizonWest = w == 0u ? 0.0 : float(w * 16u + 8u) * (1.5707963 / 255.0);
     skyHidden = o == 0u ? 0.0 : float(o * 8u + 4u) / 255.0;

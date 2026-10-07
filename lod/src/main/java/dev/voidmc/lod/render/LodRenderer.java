@@ -110,25 +110,30 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private static final int INSTANCE_BYTES = 16;
 	private static final int COMMAND_BYTES = 20;
 
-	/** A far blocky tile's vertex: two packed words ({@link TileBuilder#COMPACT_BYTES}). */
-	public static final VertexFormat COMPACT = VertexFormat.builder(0)
-		.addAttribute("LodPacked", GpuFormat.RG32_UINT)
+	/**
+	 * The far blocky tiles' quads, one record of four words each ({@link TileBuilder#RECORD_BYTES}): the shader reads
+	 * its quad's record for each corner, by the vertex's index, so they have no vertex attributes of their own.
+	 */
+	public static final BindGroupLayout LOD_QUADS = BindGroupLayout.builder()
+		.withUniform("LodQuads", UniformType.TEXEL_BUFFER, GpuFormat.RGBA32_UINT)
 		.build();
 
 	/** Kinds of tile, each its own vertex layout or topology: near blocky, smooth, far blocky (compact). */
 	private static final int BLOCKY = 0, SMOOTH = 1, COMPACT_KIND = 2;
 
 	private static RenderPipeline.Snippet snippet(VertexFormat vertices) {
-		return RenderPipeline.builder(RenderPipelines.GLOBALS_SNIPPET)
+		RenderPipeline.Builder b = RenderPipeline.builder(RenderPipelines.GLOBALS_SNIPPET)
 			.withBindGroupLayout(BindGroupLayouts.PROJECTION)
 			.withBindGroupLayout(BindGroupLayouts.FOG)
 			.withBindGroupLayout(BindGroupLayouts.SAMPLER2)
 			.withBindGroupLayout(LOD_INFO)
 			.withBindGroupLayout(LOD_SHADE)
 			.withVertexShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"))
-			.withFragmentShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"))
-			.withVertexBinding(0, vertices)
-			.withVertexBinding(1, INSTANCE)
+			.withFragmentShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"));
+		if (vertices != null) {
+			b.withVertexBinding(0, vertices);
+		}
+		return b.withVertexBinding(1, INSTANCE)
 			.withPrimitiveTopology(PrimitiveTopology.QUADS)
 			.withDepthStencilState(DepthStencilState.DEFAULT)
 			.withColorTargetState(ColorTargetState.DEFAULT)
@@ -143,7 +148,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private static final RenderPipeline[] PIPELINES = new RenderPipeline[12];
 
 	static {
-		RenderPipeline.Snippet full = snippet(VERTEX), compact = snippet(COMPACT);
+		RenderPipeline.Snippet full = snippet(VERTEX), compact = snippet(null);
 		String[] names = {"lod", "lod_smooth", "lod_compact"};
 		for (int kind = 0; kind < 3; kind++) {
 			for (int variant = 0; variant < 4; variant++) {
@@ -159,7 +164,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 					b.withShaderDefine("LOD_SMOOTH").withPrimitiveTopology(PrimitiveTopology.TRIANGLES);
 				}
 				if (kind == COMPACT_KIND) {
-					b.withShaderDefine("LOD_COMPACT");
+					b.withShaderDefine("LOD_COMPACT").withBindGroupLayout(LOD_QUADS);
 				}
 				if (clipped) {
 					b.withShaderDefine("LOD_CLIP");
@@ -328,7 +333,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		this.device = RenderSystem.getDevice();
 		this.staging = StagingBuffer.create("VOID LOD", this.device, 16 << 20);
 		this.arena = new UberGpuBuffer<>("VOID LOD", GpuBuffer.USAGE_VERTEX, 64 << 20, TileBuilder.VERTEX_BYTES, this.staging);
-		this.compactArena = new UberGpuBuffer<>("VOID LOD far", GpuBuffer.USAGE_VERTEX, 64 << 20, TileBuilder.COMPACT_BYTES, this.staging);
+		this.compactArena = new UberGpuBuffer<>("VOID LOD far", GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER, 64 << 20, TileBuilder.RECORD_BYTES,
+			this.staging);
 		DeviceInfo info = this.device.getDeviceInfo();
 		this.maxIndirect = info.limits().maxDrawIndirectDrawCount();
 		this.firstInstance = info.features().nonZeroFirstInstance();
@@ -541,6 +547,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			int instance = this.lastTiles++;
 			this.ensureInstances(instance + 1);
 			this.instances.putInt(TileKey.minX(tile.key)).putInt(TileKey.minZ(tile.key)).putInt(level).putInt(this.inViewFade[c]);
+			// a compact quad's four corners all read its record, at the vertex's index over four
 			int stride = tile.compact ? TileBuilder.COMPACT_BYTES : TileBuilder.VERTEX_BYTES;
 			int baseVertex = (int) (alloc.getOffsetFromHeap() / stride);
 			int[] faces = tile.groups;
@@ -738,7 +745,11 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			} else {
 				pass.setIndexBuffer(this.indexBuffer, this.indexType);
 			}
-			pass.setVertexBuffer(0, group.heap.slice());
+			if (group.kind == COMPACT_KIND) {
+				pass.setUniform("LodQuads", group.heap);
+			} else {
+				pass.setVertexBuffer(0, group.heap.slice());
+			}
 			int count = group.count;
 			if (this.indirect) {
 				long offset = this.commandSlice.offset() + (long) group.firstCommand * COMMAND_BYTES;

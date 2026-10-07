@@ -35,13 +35,18 @@ import java.nio.ByteOrder;
 public final class TileBuilder {
 	public static final int VERTEX_BYTES = 16;
 	/**
-	 * A far blocky tile's vertex ({@link Mesh#compact}): two 32-bit words. The first is x and z (7 bits each), the
-	 * face and water flag (4 bits) and y in whole blocks (14 bits, signed); the second the colour (5 bits a channel),
-	 * the corner occlusion level (2 bits), and the light (the sun's horizon east and west, the sky's occlusion: 5 bits
-	 * each). Out there a block texture is under a pixel and so is the lowest block of a wall, so the near tiles'
-	 * material id and per-block floor shading go, and so does half the memory.
+	 * A far blocky tile's quad ({@link Mesh#compact}) is one record of four 32-bit words ({@link #RECORD_BYTES}),
+	 * which the shader reads for each of the quad's corners: its lowest corner's x and z (7 bits each), the face and
+	 * water flag (4 bits) and y in whole blocks (14 bits, signed); its size along the face (7 bits across, 13 up a
+	 * wall), the rotation of its corners (the diagonal it splits along), the occlusion level of each corner of a top
+	 * (2 bits each) and the block light (2 bits); the colour along its top and along its foot (5 bits a channel each);
+	 * and the light (the sun's horizon east and west, 4 bits each; the sky's occlusion, 5). Out there a block texture
+	 * is under a pixel and so is the lowest block of a wall, so the near tiles' material id and per-block floor
+	 * shading go, and a quad takes a quarter of the memory. Counted per vertex: {@value} bytes a vertex.
 	 */
-	public static final int COMPACT_BYTES = 8;
+	public static final int COMPACT_BYTES = 4;
+	/** A compact quad's record: four of its vertices' worth ({@link #COMPACT_BYTES}). */
+	public static final int RECORD_BYTES = 4 * COMPACT_BYTES;
 	/** The first level whose blocky tiles are compact. */
 	public static final int COMPACT_FROM = 2;
 	/**
@@ -63,6 +68,8 @@ public final class TileBuilder {
 	public static volatile java.util.function.IntUnaryOperator packMaterials;
 	public static final int UP = 0;
 	public static final int SMOOTH = 1;
+	/** Walls, by the way they face: north (toward -z), south, west (toward -x), east. */
+	static final int NORTH = 2, SOUTH = 3, WEST = 4, EAST = 5;
 	/** The underside of land floating over the void. */
 	public static final int DOWN = 6;
 	public static final int WATER = 8;
@@ -511,6 +518,7 @@ public final class TileBuilder {
 		this.lightX = this.lightZ = this.lightFlags = 0;
 		this.out.clear();
 		this.vertices = 0;
+		this.corners = 0;
 		this.minY = Integer.MAX_VALUE;
 		this.maxY = Integer.MIN_VALUE;
 	}
@@ -591,24 +599,39 @@ public final class TileBuilder {
 		}
 	}
 
+	/**
+	 * A compact quad's corners in the order {@link Blocky} emits them unrotated, per face: each corner's place along
+	 * the face's two axes ({@code u | v << 1}; u along x, or z on west and east walls; v along z on tops and
+	 * undersides, up on walls). The shader holds the same table.
+	 */
+	private static final int[] CORNERS = {
+		0, 2, 3, 1, // up
+		0, 0, 0, 0, // (smooth)
+		2, 3, 1, 0, // north
+		3, 2, 0, 1, // south
+		3, 2, 0, 1, // west
+		2, 3, 1, 0, // east
+		0, 1, 3, 2, // down
+		0, 0, 0, 0,
+	};
+	/** Compact quads whose corners came in no order {@link #CORNERS} knows, drawn wrong: for tests, which want none. */
+	static final java.util.concurrent.atomic.AtomicInteger MISFITS = new java.util.concurrent.atomic.AtomicInteger();
+	private final int[] cornerX = new int[4], cornerY = new int[4], cornerZ = new int[4], cornerFace = new int[4];
+	private final int[] cornerRgb = new int[4], cornerAo = new int[4];
+	private int corners;
+
+	/** A compact vertex: kept until its quad's four are in, then written as one record ({@link #RECORD_BYTES}). */
 	private void compactVertex(int x, float y, int z, int flags, int top, int topAlpha) {
-		if (this.out.remaining() < COMPACT_BYTES) {
-			ByteBuffer bigger = ByteBuffer.allocateDirect(this.out.capacity() * 2).order(ByteOrder.nativeOrder());
-			this.out.flip();
-			bigger.put(this.out);
-			this.out = bigger;
-		}
 		// blocky surfaces stand on whole blocks
 		int yb = Math.max(-8192, Math.min(8191, Math.round(y)));
-		int face = flags & 15;
-		int w0 = x & 127 | (z & 127) << 7 | face << 14 | yb << 18;
+		int k = this.corners++;
+		this.cornerX[k] = x;
+		this.cornerY[k] = yb;
+		this.cornerZ[k] = z;
+		this.cornerFace[k] = flags & 15;
+		this.cornerRgb[k] = (top >> 19 & 31) | (top >> 11 & 31) << 5 | (top >> 3 & 31) << 10;
 		// tops carry the corner occlusion's level; walls have no floor shading out here
-		int ao = (flags & 7) == UP ? aoLevel(topAlpha) : 0;
-		int rgb = (top >> 19 & 31) | (top >> 11 & 31) << 5 | (top >> 3 & 31) << 10;
-		// the horizons in 4 bits each, the block light in 2, the occlusion in 5
-		int east = this.lightX >> 12 & 15, west = this.lightZ >> 12 & 15, occ = this.lightFlags >> 11 & 31;
-		int w1 = rgb | ao << 15 | east << 17 | west << 21 | (this.lightBlock >> 2) << 25 | occ << 27;
-		this.out.putInt(w0).putInt(w1);
+		this.cornerAo[k] = (flags & 7) == UP ? aoLevel(topAlpha) : 0;
 		this.vertices++;
 		if (yb < this.minY) {
 			this.minY = yb;
@@ -616,6 +639,96 @@ public final class TileBuilder {
 		if (yb > this.maxY) {
 			this.maxY = yb;
 		}
+		if (k == 3) {
+			this.corners = 0;
+			this.compactRecord();
+		}
+	}
+
+	private void compactRecord() {
+		if (this.out.remaining() < RECORD_BYTES) {
+			ByteBuffer bigger = ByteBuffer.allocateDirect(this.out.capacity() * 2).order(ByteOrder.nativeOrder());
+			this.out.flip();
+			bigger.put(this.out);
+			this.out = bigger;
+		}
+		int face = this.cornerFace[0], f = face & 7;
+		int[] us = f == WEST || f == EAST ? this.cornerZ : this.cornerX;
+		int[] vs = f == UP || f == DOWN ? this.cornerZ : this.cornerY;
+		int x0 = min(this.cornerX), y0 = min(this.cornerY), z0 = min(this.cornerZ), u0 = min(us), v0 = min(vs);
+		int[] codes = new int[4];
+		for (int k = 0; k < 4; k++) {
+			codes[k] = (us[k] != u0 ? 1 : 0) | (vs[k] != v0 ? 2 : 0);
+		}
+		int rot = -1;
+		for (int r = 0; r < 4 && rot < 0; r++) {
+			boolean fits = true;
+			for (int k = 0; k < 4 && fits; k++) {
+				fits = codes[k] == CORNERS[f * 4 + (k + r & 3)];
+			}
+			if (fits) {
+				rot = r;
+			}
+		}
+		if (rot < 0) {
+			MISFITS.incrementAndGet();
+			rot = 0;
+		}
+		int du = max(us) - u0, dv = max(vs) - v0;
+		// walls run from the colour along their top (A) to the one along their foot (B); tops and undersides are one colour
+		int high = this.cornerRgb[0], low = high;
+		int ao = 0;
+		for (int k = 0; k < 4; k++) {
+			if ((codes[k] & 2) != 0) {
+				high = this.cornerRgb[k];
+			} else if (f != UP && f != DOWN) {
+				low = this.cornerRgb[k];
+			}
+			ao |= this.cornerAo[k] << 2 * (k + rot & 3);
+		}
+		if (f == UP || f == DOWN) {
+			high = low = this.cornerRgb[0];
+		}
+		int east = this.lightX >> 12 & 15, west = this.lightZ >> 12 & 15, occ = this.lightFlags >> 11 & 31;
+		this.out.putInt(x0 & 127 | (z0 & 127) << 7 | face << 14 | y0 << 18);
+		this.out.putInt(du & 127 | (dv & 8191) << 7 | rot << 20 | ao << 22 | (this.lightBlock >> 2) << 30);
+		this.out.putInt(high | low << 15);
+		this.out.putInt(east | west << 4 | occ << 8);
+	}
+
+	private static int min(int[] a) {
+		return Math.min(Math.min(a[0], a[1]), Math.min(a[2], a[3]));
+	}
+
+	private static int max(int[] a) {
+		return Math.max(Math.max(a[0], a[1]), Math.max(a[2], a[3]));
+	}
+
+	/**
+	 * Corner {@code corner} (in drawing order) of the compact record whose first two words are {@code w0} and
+	 * {@code w1}, into {@code out}: x, y (whole blocks) and z, and its canonical corner (for the occlusion level).
+	 * As the shader does it.
+	 */
+	static void recordCorner(int w0, int w1, int corner, int[] out) {
+		int face = w0 >> 14 & 7, rot = w1 >> 20 & 3;
+		int c = corner + rot & 3;
+		int code = CORNERS[face * 4 + c];
+		int du = (code & 1) * (w1 & 127), dv = (code >> 1) * (w1 >> 7 & 8191);
+		int x = w0 & 127, z = w0 >> 7 & 127, y = w0 >> 18;
+		if (face == UP || face == DOWN) {
+			x += du;
+			z += dv;
+		} else if (face == WEST || face == EAST) {
+			z += du;
+			y += dv;
+		} else {
+			x += du;
+			y += dv;
+		}
+		out[0] = x;
+		out[1] = y;
+		out[2] = z;
+		out[3] = c;
 	}
 
 	/**
@@ -625,10 +738,12 @@ public final class TileBuilder {
 	public static void decode(Mesh mesh, int i, int[] out) {
 		ByteBuffer v = mesh.vertices();
 		if (mesh.compact()) {
-			int w0 = v.getInt(i * COMPACT_BYTES);
-			out[0] = w0 & 127;
-			out[1] = (w0 >> 18) * 8;
-			out[2] = w0 >> 7 & 127;
+			int w0 = v.getInt((i >> 2) * RECORD_BYTES);
+			int[] corner = new int[4];
+			recordCorner(w0, v.getInt((i >> 2) * RECORD_BYTES + 4), i & 3, corner);
+			out[0] = corner[0];
+			out[1] = corner[1] * 8;
+			out[2] = corner[2];
 			out[3] = w0 >> 14 & 15;
 			return;
 		}

@@ -105,9 +105,11 @@ a fraction of the cost.
 
   ![the far field, smooth and in blocks](docs/far_blocks.jpg)
 
-  What keeps that affordable: from level 2 on, a vertex is 8 bytes instead of 16 (position, face, colour in
-  5 bits a channel, occlusion and light, `TileBuilder.COMPACT_BYTES`), since out there a texture and the
-  lowest block of a wall are under a pixel; heights are rounded to a quarter of a cell, a step under a
+  What keeps that affordable: from level 2 on, a quad has no vertices at all but one 16-byte record
+  (its corner, size and face, colour along its top and foot in 5 bits a channel, each corner's occlusion,
+  and light, `TileBuilder.RECORD_BYTES`), which the shader reads for each corner by the vertex's index: a
+  quarter of the near tiles' 64 bytes a quad, since out there a texture and the lowest block of a wall are
+  under a pixel; heights are rounded to a quarter of a cell, a step under a
   pixel, so level neighbours merge; and wall bands thinner than a quarter of a cell (a grass rim, a few
   blocks of soil, thin strata) are left out. At 16 km on Ultra that is about 400 to 600 MB of GPU memory and
   1 to 2 ms of GPU time on an RTX 4060; High is half that. Built the way the chunks are:
@@ -317,7 +319,7 @@ into the LOD (`source/ChunkIngest`), and the far view shows the world as it is:
 * **Lit at night.** Each column also keeps the block light over its surface (on its ground, or over the
   highest thing standing there: a roof under a lantern, a torch on a wall). Light is summed like everything
   else, so a cell glows by how much of it is lit, and it rides in the vertex (3 bits up close, 2 in the
-  compact far vertices, Distant Horizons' block-light nibble through a pack). The shader lights it through
+  compact far quads, Distant Horizons' block-light nibble through a pack). The shader lights it through
   vanilla's lightmap exactly as it lights a block by a torch, so a town the player has been to stays lit
   on the horizon after dark, and lava always glows.
 * **Cheap on the client thread.** Chunks queue as they arrive and are read within 0.3 ms a frame. A chunk
