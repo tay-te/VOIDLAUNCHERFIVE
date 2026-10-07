@@ -196,44 +196,47 @@ public final class Parcels {
 	 * Every place along the streets where a plot could front one, whatever the request (the first free column past the
 	 * road's corridor, every {@link #STRIDE} blocks, each side, in each facing the road's slant allows), in the order
 	 * {@link #find} examines them, with what the pre-score reads of each that no request changes: the distance to the
-	 * heart, the stable hash, the district, the ground. A call searches frontage for need after need on the same grid,
-	 * so this is gathered once and kept in the call's context while the grid and the roads stay as they were.
+	 * heart, the stable hash, the district, the ground. Kept in the plan state between calls, one {@link Places} per
+	 * road: a road's places are gathered again only when it changed or the grid changed in a tile they were read from,
+	 * so a city's search reads its streets anew only where it grew.
 	 */
 	public static final class Frontage {
 		final Occupancy occ;
-		final long version;
-		final long roads;
-		/** Per edge (by its place in the graph's list), its places are [from, to). */
-		final int[] from;
-		final int[] to;
-		int size;
-		int[] index = new int[256];
-		Direction[] facing = new Direction[256];
-		int[] qx = new int[256];
-		int[] qz = new int[256];
-		double[] dist = new double[256];
-		double[] hash = new double[256];
-		private District[] district = new District[256];
-		private boolean[] districtKnown = new boolean[256];
-		private int[] ground = new int[256];
+		final dev.voidmc.hearth.plan.model.RoadGraph graph;
+		/** Each edge's places, by its place in the graph's list. */
+		final List<Places> edges = new ArrayList<>();
+		/** The grid's version and the roads' signature when every edge was last checked. */
+		private long checkedAt = -1;
+		private long roads;
 
-		private Frontage(Occupancy occ, long roads, int edges) {
+		private Frontage(Occupancy occ, dev.voidmc.hearth.plan.model.RoadGraph graph) {
 			this.occ = occ;
-			this.version = occ.version();
-			this.roads = roads;
-			this.from = new int[edges];
-			this.to = new int[edges];
+			this.graph = graph;
 		}
 
 		static Frontage of(PlanContext ctx) {
-			long roads = roads(ctx);
-			Frontage f = ctx.frontage;
-			if (f != null && f.occ == ctx.occ && f.version == ctx.occ.version() && f.roads == roads) {
-				return f;
+			Frontage f = ctx.state.frontage;
+			if (f == null || f.occ != ctx.occ || f.graph != ctx.state.graph) {
+				f = new Frontage(ctx.occ, ctx.state.graph);
+				ctx.state.frontage = f;
 			}
-			f = new Frontage(ctx.occ, roads, ctx.state.graph.edges().size());
-			f.gather(ctx);
-			ctx.frontage = f;
+			long roads = roads(ctx);
+			if (f.checkedAt != ctx.occ.version() || f.roads != roads) {
+				List<RoadEdge> all = ctx.state.graph.edges();
+				for (int n = 0; n < all.size(); n++) {
+					Places p = n < f.edges.size() ? f.edges.get(n) : null;
+					if (p == null || !p.valid(ctx, all.get(n))) {
+						p = new Places(ctx, all.get(n));
+						if (n < f.edges.size()) {
+							f.edges.set(n, p);
+						} else {
+							f.edges.add(p);
+						}
+					}
+				}
+				f.checkedAt = ctx.occ.version();
+				f.roads = roads;
+			}
 			return f;
 		}
 
@@ -241,56 +244,108 @@ public final class Parcels {
 		private static long roads(PlanContext ctx) {
 			long h = ctx.state.graph.edges().size() * 31L + ctx.state.districts.size();
 			for (RoadEdge e : ctx.state.graph.edges()) {
-				h = h * 1_000_003L + ((long) e.built << 24 ^ (long) e.length() << 8 ^ e.role.ordinal() << 4 ^ e.width);
+				h = h * 1_000_003L + ((long) e.built << 24 ^ (long) e.length() << 8 ^ e.role.ordinal() << 4 ^ e.width) + System.identityHashCode(e);
 			}
 			return h;
 		}
+	}
 
-		private void gather(PlanContext ctx) {
-			List<RoadEdge> all = ctx.state.graph.edges();
-			for (int n = 0; n < all.size(); n++) {
-				RoadEdge e = all.get(n);
-				this.from[n] = this.size;
-				boolean square = e.role == RoadEdge.Role.SQUARE;
-				int lim = square ? e.length() : Math.min(e.built, e.length());
-				if (lim >= 2) {
-					Polyline.Dense d = e.dense();
-					int[] xs = d.xs();
-					int[] zs = d.zs();
-					for (int i = 0; i < lim; i += STRIDE) {
-						int a = Math.max(0, i - 2);
-						int b = Math.min(lim - 1, i + 2);
-						int tx = xs[b] - xs[a];
-						int tz = zs[b] - zs[a];
-						if (tx == 0 && tz == 0) {
+	/** One road's frontage places (see {@link Frontage}). */
+	static final class Places {
+		final RoadEdge edge;
+		final int built;
+		final int length;
+		/** The grid's version when gathered, and the tiles read. */
+		final long version;
+		private long[] tiles;
+		private int districts;
+		int size;
+		int[] index = new int[16];
+		Direction[] facing = new Direction[16];
+		int[] qx = new int[16];
+		int[] qz = new int[16];
+		double[] dist = new double[16];
+		double[] hash = new double[16];
+		private District[] district = new District[16];
+		private boolean[] districtKnown = new boolean[16];
+		private int[] ground = new int[16];
+
+		/** One place, for a search of its own ({@link #atEnds}). */
+		Places(PlanContext ctx, RoadEdge e, int i, Direction facing) {
+			this.edge = e;
+			this.built = e.built;
+			this.length = e.length();
+			this.version = ctx.occ.version();
+			it.unimi.dsi.fastutil.longs.LongOpenHashSet read = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+			add(ctx, e, i, facing, read);
+			this.tiles = read.toLongArray();
+		}
+
+		/** Gathers a road's places. */
+		Places(PlanContext ctx, RoadEdge e) {
+			this.edge = e;
+			this.built = e.built;
+			this.length = e.length();
+			this.version = ctx.occ.version();
+			this.districts = ctx.state.districts.size();
+			it.unimi.dsi.fastutil.longs.LongOpenHashSet read = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+			boolean square = e.role == RoadEdge.Role.SQUARE;
+			int lim = square ? e.length() : Math.min(e.built, e.length());
+			if (lim >= 2) {
+				Polyline.Dense d = e.dense();
+				int[] xs = d.xs();
+				int[] zs = d.zs();
+				for (int i = 0; i < lim; i += STRIDE) {
+					int a = Math.max(0, i - 2);
+					int b = Math.min(lim - 1, i + 2);
+					int tx = xs[b] - xs[a];
+					int tz = zs[b] - zs[a];
+					if (tx == 0 && tz == 0) {
+						continue;
+					}
+					for (int side = -1; side <= 1; side += 2) {
+						if (square && side > 0) {
 							continue;
 						}
-						for (int side = -1; side <= 1; side += 2) {
-							if (square && side > 0) {
-								continue;
-							}
-							// the normal toward the plot side; the plot faces back along it
-							int nx = side < 0 ? tz : -tz;
-							int nz = side < 0 ? -tx : tx;
-							Direction primary = facingToward(-nx, -nz);
-							add(ctx, e, i, primary);
-							int ax = Math.abs(nx);
-							int az = Math.abs(nz);
-							if (ax > 0 && az > 0 && Math.min(ax, az) * 5 >= Math.max(ax, az) * 2) {
-								Direction secondary = ax >= az ? facingToward(0, -nz) : facingToward(-nx, 0);
-								if (secondary != primary) {
-									add(ctx, e, i, secondary);
-								}
+						// the normal toward the plot side; the plot faces back along it
+						int nx = side < 0 ? tz : -tz;
+						int nz = side < 0 ? -tx : tx;
+						Direction primary = facingToward(-nx, -nz);
+						add(ctx, e, i, primary, read);
+						int ax = Math.abs(nx);
+						int az = Math.abs(nz);
+						if (ax > 0 && az > 0 && Math.min(ax, az) * 5 >= Math.max(ax, az) * 2) {
+							Direction secondary = ax >= az ? facingToward(0, -nz) : facingToward(-nx, 0);
+							if (secondary != primary) {
+								add(ctx, e, i, secondary, read);
 							}
 						}
 					}
 				}
-				this.to[n] = this.size;
 			}
+			this.tiles = read.toLongArray();
 		}
 
-		private void add(PlanContext ctx, RoadEdge e, int i, Direction facing) {
-			int[] q = across(this.occ, e, i, facing);
+		/** Whether these are still the road's places: the same road, built as far, and no tile read since changed. */
+		boolean valid(PlanContext ctx, RoadEdge e) {
+			if (e != this.edge || e.built != this.built || e.length() != this.length) {
+				return false;
+			}
+			for (long t : this.tiles) {
+				if (ctx.occ.changedSince(t, this.version)) {
+					return false;
+				}
+			}
+			if (this.districts != ctx.state.districts.size()) {
+				// the quarters were drawn since: each place finds its district again
+				java.util.Arrays.fill(this.districtKnown, false);
+				this.districts = ctx.state.districts.size();
+			}
+			return true;
+		}
+
+		private void add(PlanContext ctx, RoadEdge e, int i, Direction facing, it.unimi.dsi.fastutil.longs.LongSet read) {
+			int[] q = across(ctx.occ, e, i, facing, read);
 			if (q == null) {
 				return;
 			}
@@ -336,7 +391,7 @@ public final class Parcels {
 	 * The first column past a road's corridor at a dense index, walking away from the road against {@code facing}, if
 	 * the road is really there and that column is free: {x, z}, or null.
 	 */
-	private static int @Nullable [] across(Occupancy occ, RoadEdge e, int i, Direction facing) {
+	private static int @Nullable [] across(Occupancy occ, RoadEdge e, int i, Direction facing, it.unimi.dsi.fastutil.longs.LongSet read) {
 		Polyline.Dense d = e.dense();
 		int sx = -facing.getStepX();
 		int sz = -facing.getStepZ();
@@ -344,10 +399,12 @@ public final class Parcels {
 		int qz = d.zs()[i];
 		int k = 0;
 		int reach = e.width / 2 + 4;
+		read.add(Occupancy.tileKey(qx, qz));
 		while (k < reach && Cell.isAccess(occ.get(qx, qz))) {
 			qx += sx;
 			qz += sz;
 			k++;
+			read.add(Occupancy.tileKey(qx, qz));
 		}
 		// the road the plot would face must actually be there, and the first column past it free
 		if (k == 0 || !Cell.isVacant(occ.get(qx, qz))) {
@@ -378,11 +435,12 @@ public final class Parcels {
 				// a live call out of time: what was gathered so far is all this call looks at
 				break;
 			}
-			if (f.from[n] == f.to[n] || (edges != null && !edges.test(e.id)) || !frontsOk(e, req)) {
+			Places p = f.edges.get(n);
+			if (p.size == 0 || (edges != null && !edges.test(e.id)) || !frontsOk(e, req)) {
 				continue;
 			}
-			for (int k = f.from[n]; k < f.to[n]; k++) {
-				positions.add(new Pos(e.id, f.index[k], f.facing[k], f.qx[k], f.qz[k], preScore(ctx, req, e, f, k)));
+			for (int k = 0; k < p.size; k++) {
+				positions.add(new Pos(e.id, p.index[k], p.facing[k], p.qx[k], p.qz[k], preScore(ctx, req, e, p, k)));
 			}
 		}
 		// best first; a city has thousands of places and the search usually stops within the first few dozen, so they are
@@ -539,15 +597,14 @@ public final class Parcels {
 	}
 
 	private static void addPos(PlanContext ctx, Request req, RoadEdge e, int i, Direction facing, List<Pos> out, Occupancy occ) {
-		Frontage one = new Frontage(occ, 0, 0);
-		one.add(ctx, e, i, facing);
+		Places one = new Places(ctx, e, i, facing);
 		if (one.size > 0) {
 			out.add(new Pos(e.id, i, facing, one.qx[0], one.qz[0], preScore(ctx, req, e, one, 0)));
 		}
 	}
 
 	/** The cheap score a place ({@code k} of a frontage) is ranked by before it is examined. */
-	private static double preScore(PlanContext ctx, Request req, RoadEdge e, Frontage f, int k) {
+	private static double preScore(PlanContext ctx, Request req, RoadEdge e, Places f, int k) {
 		int x = f.qx[k];
 		int z = f.qz[k];
 		double dist = f.dist[k];

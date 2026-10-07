@@ -80,6 +80,8 @@ public final class PlanState {
 	 * the land under {@link #waterProbe}, which frontage searches ask for thousands of times a call (never saved).
 	 */
 	public final transient it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap waterDistances = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+	/** The frontage places of the streets ({@code Parcels.Frontage}), kept with the grid they were read from (never saved). */
+	public transient dev.voidmc.hearth.plan.growth.Parcels.@Nullable Frontage frontage;
 	/** The probe {@link #waterDistances} were measured on. */
 	public transient @Nullable Object waterProbe;
 	/** What each plot is for housing by station, by plot id (derived from its spec; never saved). */

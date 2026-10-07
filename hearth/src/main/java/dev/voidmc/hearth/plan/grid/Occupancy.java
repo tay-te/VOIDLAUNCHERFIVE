@@ -12,6 +12,9 @@ public final class Occupancy {
 	private long lastKey = Long.MIN_VALUE;
 	private byte[] last;
 	private long version;
+	/** The version each tile last changed at (see {@link #changedSince}). */
+	private final it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap stamps = new it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap();
+	private long clearedAt;
 	private boolean clipped;
 	private int clipX0;
 	private int clipZ0;
@@ -33,7 +36,7 @@ public final class Occupancy {
 			int i = ((z & 15) << 4) | (x & 15);
 			if (t[i] != code) {
 				t[i] = code;
-				this.version++;
+				this.stamps.put(((long) (x >> 4) << 32) ^ ((z >> 4) & 0xFFFFFFFFL), ++this.version);
 			}
 		}
 	}
@@ -41,6 +44,16 @@ public final class Occupancy {
 	/** Changes on every write that changes a column: what was read from the grid still holds while it stays the same. */
 	public long version() {
 		return this.version;
+	}
+
+	/** The key of the 16×16 tile holding a column (as {@link #tileKeys} gives them). */
+	public static long tileKey(int x, int z) {
+		return ((long) (x >> 4) << 32) ^ ((z >> 4) & 0xFFFFFFFFL);
+	}
+
+	/** Whether any column of a tile (by {@link #tileKey}) changed after the grid was at {@code version}. */
+	public boolean changedSince(long tile, long version) {
+		return Math.max(this.stamps.get(tile), this.clearedAt) > version;
 	}
 
 	/** Sets a column only if the code it holds ranks lower (see {@link Cell#rank}); returns whether it did. */
@@ -114,7 +127,8 @@ public final class Occupancy {
 	}
 
 	public void clear() {
-		this.version++;
+		this.clearedAt = ++this.version;
+		this.stamps.clear();
 		this.tiles.clear();
 		this.lastKey = Long.MIN_VALUE;
 		this.last = null;
