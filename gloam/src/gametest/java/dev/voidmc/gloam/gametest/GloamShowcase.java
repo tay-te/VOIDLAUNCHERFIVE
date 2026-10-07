@@ -5,6 +5,7 @@ import dev.voidmc.expanse.world.terrain.TerrainModel;
 import dev.voidmc.gloam.GloamSettings;
 import dev.voidmc.gloam.air.Atmosphere;
 import dev.voidmc.gloam.air.AirSample;
+import dev.voidmc.gloam.sound.Soundscape;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -23,7 +24,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * and a new moon, rain, and the land from a peak. Each part of Gloam adds its own views to {@link #views}.
  *
  * <p>Run with {@code ./gradlew runClientGameTest}; screenshots land in build/run/clientGameTest/screenshots, and each
- * view logs the air Gloam saw there ({@code [gloam] name: ...}). Properties (pass as -P to Gradle):
+ * view logs the air Gloam saw there ({@code [gloam] name: ...}) and the soundscape's beds, with Gloam off and on
+ * ({@code [gloam] name sound: ...}). Properties (pass as -P to Gradle):
  * {@code gloam.show.seed}, {@code gloam.show.distance} (vanilla render distance), {@code gloam.show.settle} (ms to let
  * chunks and the LOD load after moving), {@code gloam.show.only} (comma-separated view names),
  * {@code gloam.show.off} (false to skip the Gloam-off shots), {@code gloam.show.width}/{@code gloam.show.height}.
@@ -104,6 +106,8 @@ public class GloamShowcase implements FabricClientGameTest {
 					context.runOnClient(mc -> GloamSettings.get().enabled = false);
 					context.waitTicks(20);
 					this.shoot(context, view.name() + "_off");
+					String quiet = context.computeOnClient(mc -> Soundscape.describe());
+					System.out.printf(Locale.ROOT, "[gloam] %s sound (off): %s%n", view.name(), quiet);
 				}
 				context.runOnClient(mc -> GloamSettings.get().enabled = true);
 				context.waitTicks(20 + view.linger() * 20);
@@ -114,8 +118,11 @@ public class GloamShowcase implements FabricClientGameTest {
 						+ "wet %.2f, lowness %.2f, water %.2f, indoors %.2f, %d fps%n", view.name(), air.season().serializedName(), air.hour(), air.front(),
 					air.cloudCover(), air.rain(), air.storm(), air.mist(), air.mistTop(), air.wind().speed(), air.wind().gust(), air.wetness(),
 					air.climate().lowness(), air.climate().water(), air.indoors(), fps);
+				String beds = context.computeOnClient(mc -> Soundscape.describe());
+				System.out.printf(Locale.ROOT, "[gloam] %s sound: %s%n", view.name(), beds);
 				last = view;
 			}
+			System.out.printf(Locale.ROOT, "[gloam] sound clips %s%n", context.computeOnClient(mc -> Soundscape.loadedClips()));
 		}
 	}
 
