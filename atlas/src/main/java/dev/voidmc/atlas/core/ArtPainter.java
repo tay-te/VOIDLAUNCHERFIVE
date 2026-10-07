@@ -187,7 +187,7 @@ final class ArtPainter {
 		float[] smooth = r.scratch(1, gn);
 		boolean far = mode == TileRenderer.Mode.FAR;
 		// far land's light from its own smoothed heights (a chunk-sized sample, or a coarse one, is not a slope)
-		box(ground, smooth, gw, gh, biomeLook ? 2 : far ? (r.farSample > 1 ? 1 : 6) : 1);
+		box(ground, smooth, gw, gh, biomeLook ? 2 : far ? (r.farSample > 1 ? 2 : 6) : 1);
 		float perStep = biomeLook ? 0.004F : style == MapArt.Style.TOPOGRAPHIC ? 0.008F : 0.011F;
 		if (mode == TileRenderer.Mode.FAR) {
 			perStep *= 0.5F;
@@ -220,7 +220,7 @@ final class ArtPainter {
 				}
 			}
 			if (far) {
-				blurMasked(r, baseL, baseA, baseB, calmL, calmA, calmB, gw, gh, r.farSample > 1 ? 1 : 16);
+				blurMasked(r, baseL, baseA, baseB, calmL, calmA, calmB, gw, gh, r.farSample > 1 ? 2 : 16);
 			}
 		}
 		boolean contours = r.contours && !biomeLook;

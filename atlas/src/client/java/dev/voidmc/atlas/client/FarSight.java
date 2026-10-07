@@ -461,7 +461,10 @@ public final class FarSight {
 				continue;
 			}
 			String name = t.blocks() == null ? null : t.blocks()[k];
-			boolean water = "minecraft:water".equals(name) || looksLikeWater(t.colours()[k]) && (name == null || !name.contains("ice"));
+			String biomeAt = t.biomes() == null ? null : t.biomes()[k];
+			// water: LOD says so, or its colour does, or an ocean or river biome at the sea's level (a cold sea's grey)
+			boolean water = "minecraft:water".equals(name) || looksLikeWater(t.colours()[k]) && (name == null || !name.contains("ice"))
+				|| biomeAt != null && (biomeAt.contains("ocean") || biomeAt.contains("river")) && t.heights()[k] <= 63 && (name == null || !name.contains("ice"));
 			blocks[k] = blockIds.computeIfAbsent(name == null || water ? FarColour.name(t.colours()[k]) : name, session.blockNames::id);
 			String biomeName = t.biomes() == null ? null : t.biomes()[k];
 			// LOD does not say how deep its water is: the sea as deep as its biome says, so it meets walked sea in step
@@ -491,7 +494,10 @@ public final class FarSight {
 			}
 			String name = t.blocks() == null ? null : t.blocks()[k];
 			// LOD names the floor under water (sand, gravel); its colour says it is water
-			boolean water = "minecraft:water".equals(name) || looksLikeWater(t.colours()[k]) && (name == null || !name.contains("ice"));
+			String biomeAt = t.biomes() == null ? null : t.biomes()[k];
+			// water: LOD says so, or its colour does, or an ocean or river biome at the sea's level (a cold sea's grey)
+			boolean water = "minecraft:water".equals(name) || looksLikeWater(t.colours()[k]) && (name == null || !name.contains("ice"))
+				|| biomeAt != null && (biomeAt.contains("ocean") || biomeAt.contains("river")) && t.heights()[k] <= 63 && (name == null || !name.contains("ice"));
 			// no block, or water (whose bed LOD does not say): the colour LOD drew, through the far names
 			blocks[k] = blockIds.computeIfAbsent(name == null || water ? FarColour.name(t.colours()[k]) : name, session.blockNames::id);
 			String biomeName = t.biomes() == null ? null : t.biomes()[k];
