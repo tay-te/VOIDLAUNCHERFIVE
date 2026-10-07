@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The NPC module's in-memory state for one settlement: its places, its news, whether it is under attack, and which
  * builder is on which plot. Nothing here needs saving (places are recomputed, news is gossip); what must survive a
- * restart (scaffolding) is in settlement data.
+ * restart (scaffolding, listed in the settlement's scaffold ledger) is in settlement data.
  */
 public final class TownState {
 	public final long settlementId;
@@ -25,6 +25,8 @@ public final class TownState {
 	public final Map<UUID, Integer> builderClaims = new HashMap<>();
 	/** Plot id per gatherer (miners, quarriers, diggers, foresters on a plantation), so they spread over excavations. */
 	public final Map<UUID, Integer> gatherClaims = new HashMap<>();
+	/** Building sites by plot id: the crew's shared view of each (docs/FOLK.md §5). */
+	public final Map<Integer, dev.voidmc.hearth.npc.work.BuildSite> sites = new HashMap<>();
 	/** Trees a forester has marked for felling (log base, packed), so two foresters never take the same tree. */
 	public final java.util.Set<Long> treesClaimed = new java.util.HashSet<>();
 	private long alarmUntil = Long.MIN_VALUE;
@@ -118,6 +120,11 @@ public final class TownState {
 			}
 		}
 		return n;
+	}
+
+	/** The building site of a plot, made on first asking. */
+	public dev.voidmc.hearth.npc.work.BuildSite site(int plotId) {
+		return this.sites.computeIfAbsent(plotId, dev.voidmc.hearth.npc.work.BuildSite::new);
 	}
 
 	public int claimsOn(int plotId) {
