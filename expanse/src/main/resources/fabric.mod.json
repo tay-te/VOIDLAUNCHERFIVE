@@ -10,7 +10,8 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": ["dev.voidmc.expanse.Expanse"],
-		"client": ["dev.voidmc.expanse.client.ExpanseClient"]
+		"client": ["dev.voidmc.expanse.client.ExpanseClient"],
+		"atlas": ["dev.voidmc.expanse.client.atlas.ExpanseAtlas"]
 	},
 	"mixins": ["expanse.mixins.json", {"config": "expanse.client.mixins.json", "environment": "client"}],
 	"depends": {
@@ -18,5 +19,8 @@
 		"minecraft": "~26.3",
 		"java": ">=25",
 		"fabric-api": "*"
+	},
+	"suggests": {
+		"atlas": "*"
 	}
 }
