@@ -53,10 +53,12 @@ abstract class Mote extends SingleQuadParticle {
 			case LEAF -> new LeafMote(level, x, y, z, random, 0xFF59AE30);
 			case POLLEN -> new PollenMote(level, x, y, z, random, false);
 			case FIREFLY -> new FireflyMote(level, x, y, z, random);
-			case WISP -> new WispMote(level, x, y, z, random, 0.3F);
+			case MIST -> new MistMote(level, x, y, z, random, 4.0F, 0.15F, 0.5F);
 			case BREATH -> new BreathMote(level, x, y, z, random, 0, 0, 0);
 			case SNOW -> new SnowMote(level, x, y, z, random);
 			case SPRAY -> new SprayMote(level, x, y, z, random);
+			case POWDER -> new PowderMote(level, x, y, z, random);
+			case VEIL -> new MistMote(level, x, y, z, random, 4.0F, 0.15F, 0.5F);
 		};
 	}
 
@@ -90,12 +92,18 @@ abstract class Mote extends SingleQuadParticle {
 				// instead of in the bright colour of the air, so they need more body to show at all
 				a *= PACK_BODY;
 			}
+			a = this.finish(a);
 			if (this.vanishing > 0) {
 				a *= this.vanishing-- / (float) VANISH;
 			}
 			this.alpha = Math.clamp(a, 0, 1);
 		}
 		Motes.timeParticle(System.nanoTime() - start);
+	}
+
+	/** The alpha to draw with, given {@code a} (its strength times its fade): for motes that draw alpha as something else. */
+	protected float finish(float a) {
+		return a;
 	}
 
 	/** Moves the mote one tick through the air {@code air}. */
@@ -136,12 +144,20 @@ abstract class Mote extends SingleQuadParticle {
 		return state.isSolid() || !state.getFluidState().isEmpty();
 	}
 
+	double x() {
+		return this.x;
+	}
+
+	double z() {
+		return this.z;
+	}
+
 	/** The squared distance to the camera. */
 	protected double toCamera() {
 		return Motes.camera().distanceToSqr(this.x, this.y, this.z);
 	}
 
-	private static final Vector3fc ONE = new org.joml.Vector3f(1);
+	protected static final Vector3fc ONE = new org.joml.Vector3f(1);
 
 	@Override
 	protected Layer getLayer() {

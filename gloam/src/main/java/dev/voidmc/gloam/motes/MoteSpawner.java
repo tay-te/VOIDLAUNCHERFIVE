@@ -65,7 +65,12 @@ import org.joml.Vector3fc;
  */
 final class MoteSpawner {
 	/** How far around the camera each kind is placed, in blocks. */
-	private static final int LEAF_REACH = 16, POLLEN_REACH = 10, FIREFLY_REACH = 20, WISP_REACH = 44, SNOW_REACH = 14, SPRAY_REACH = 40;
+	private static final int LEAF_REACH = 14, POLLEN_REACH = 10, FIREFLY_REACH = 20, SNOW_REACH = 12, POWDER_REACH = 16, SPRAY_REACH = 40;
+	/** How many sheets of ground mist cover the view, how many cover each place, and how far out they lie in layers. */
+	private static final int MIST_SHEETS = 800, MIST_LAYERED = 56;
+	private static final float MIST_COVER = 2.0F;
+	/** The optical depth, looking straight down, of a full mist (1) at its thickest. */
+	private static final float MIST_DEPTH = 1.4F;
 	/** The most motes started in one tick at density 1. */
 	private static final int BUDGET = 48;
 
@@ -98,10 +103,11 @@ final class MoteSpawner {
 
 		this.leaves(air, eye, density);
 		if (!enclosed) {
-			this.wisps(air, eye, density);
+			this.mist(air, eye, Math.min(176, mc.options.getEffectiveRenderDistance() * 16 - 8), density);
 			this.pollen(air, eye, density);
 			this.fireflies(air, eye, density);
 			this.snow(air, eye, at, density);
+			this.powder(air, eye, at, density);
 			this.spray(air, eye, density);
 		}
 		if (GloamSettings.get().breath) {
@@ -160,7 +166,8 @@ final class MoteSpawner {
 		Wind wind = air.wind();
 		float windy = 0.3F + 0.06F * wind.speed() + 1.4F * wind.gust();
 		float chance = 0.55F * season * windy;
-		int probes = Mth.ceil(60 * Math.min(1.5F, density));
+		// a steady trickle, and bursts as a gust shakes the crowns
+		int probes = Mth.ceil(110 * Math.min(1.5F, density) * (1 + 2.5F * Noise.smoothstep(0.45F, 0.85F, wind.gust())));
 		for (int i = 0; i < probes; i++) {
 			int x = Mth.floor(eye.x + (this.random.nextFloat() * 2 - 1) * LEAF_REACH);
 			int y = Mth.floor(eye.y - 4 + this.random.nextFloat() * 18);
@@ -169,7 +176,9 @@ final class MoteSpawner {
 			if (!(state.getBlock() instanceof LeavesBlock) || !this.sheds(state.getBlock())) {
 				continue;
 			}
-			if (!this.level.getBlockState(this.probe.set(x, y - 1, z)).isAir() || this.random.nextFloat() >= chance) {
+			// only from the crown's underside, with a clear drop below: a leaf shed into the air pockets inside a crown
+			// only lands on the leaves under it, out of sight
+			if (this.random.nextFloat() >= chance || !this.clearBelow(x, y, z)) {
 				continue;
 			}
 			if (!this.room()) {
@@ -178,6 +187,17 @@ final class MoteSpawner {
 			int colour = this.turn(this.leafColour(state, this.probe.set(x, y, z)), air);
 			this.add(new LeafMote(this.level, x + this.random.nextDouble(), y - 0.08, z + this.random.nextDouble(), this.random, colour));
 		}
+	}
+
+	private boolean clearBelow(int x, int y, int z) {
+		for (int d = 1; d <= 3; d++) {
+			BlockState below = this.level.getBlockState(this.probe.set(x, y - d, z));
+			if (!below.isAir()) {
+				// the ground (or a plant on it) close under the crown is a clear drop too
+				return d > 1 && !(below.getBlock() instanceof LeavesBlock);
+			}
+		}
+		return true;
 	}
 
 	/** How far into autumn the year is, 0 at its first day .. 1 at its last. */
@@ -332,8 +352,16 @@ final class MoteSpawner {
 		}
 		float wet = Math.min(1.6F, 0.5F + air.climate().water() + 0.5F * air.climate().downfall());
 		float water = air.climate().water();
-		this.fill(Motes.Kind.FIREFLY, (int) (400 * density * f * wet), () -> {
-			int[] c = this.column(eye, FIREFLY_REACH);
+		this.fill(Motes.Kind.FIREFLY, (int) (1000 * density * f * wet), () -> {
+			// in loose swarms: mostly near one already flying, now and then somewhere new
+			List<Mote> flying = Motes.Kind.FIREFLY.live;
+			int[] c;
+			if (!flying.isEmpty() && this.random.nextFloat() < 0.65F) {
+				Mote near = flying.get(this.random.nextInt(flying.size()));
+				c = this.columnAt(near.x() + (this.random.nextDouble() - 0.5) * 7, near.z() + (this.random.nextDouble() - 0.5) * 7, eye);
+			} else {
+				c = this.column(eye, FIREFLY_REACH);
+			}
 			if (c == null) {
 				return null;
 			}
@@ -361,38 +389,69 @@ final class MoteSpawner {
 	// --------------------------------------------------------------------------------------------------------- mist
 
 	/**
-	 * Veils of mist while the ground mist is up: low over the ground and water around the camera, below the mist's top,
-	 * more of them and thicker in the hollows and over water, where the mist lies deepest.
+	 * The ground mist near the camera, while the mist is up: sheets lying flat ({@link MistMote}) out to the edge of the
+	 * loaded land, where the far mist over VOID LOD takes over. They are spread so each place is covered by a sheet or
+	 * two, small near the camera and growing with distance (so a few hundred cover the whole view); near the camera they
+	 * lie at a few heights, more of them close to the ground (the mist is densest in its lowest blocks and thins
+	 * upward), further off in one layer. Each stands for its share of the mist's depth there: deeper in hollows, below
+	 * the mist's top, over water, none on steep ground, which mist does not lie on.
 	 */
-	private void wisps(AirSample air, Vec3 eye, float density) {
+	private void mist(AirSample air, Vec3 eye, int reach, float density) {
 		float mist = air.mist();
 		if (mist < 0.04F) {
 			return;
 		}
 		float top = air.mistTop();
 		float depth = Air.mistDepth(mist);
-		this.fill(Motes.Kind.WISP, (int) (Math.min(320, 60 + 320 * mist) * density), () -> {
-			int[] c = this.column(eye, WISP_REACH);
-			if (c == null) {
+		// the mist's scale height: how quickly it thins upward
+		float scale = 1.0F + 2.5F * mist;
+		this.fill(Motes.Kind.MIST, (int) (MIST_SHEETS * Math.min(1.0F, density)), () -> {
+			double r = reach * Math.sqrt(this.random.nextDouble());
+			float size = sheetSize(r);
+			if (this.random.nextFloat() >= Mth.square(sheetSize(0) / size)) {
 				return null;
 			}
-			float room = top - c[1];
-			if (room < 1.0F) {
+			double a = this.random.nextDouble() * Math.PI * 2;
+			int x = Mth.floor(eye.x + Math.cos(a) * r), z = Mth.floor(eye.z + Math.sin(a) * r);
+			if (!this.level.hasChunk(x >> 4, z >> 4)) {
 				return null;
 			}
-			boolean water = this.level.getFluidState(this.probe.set(c[0], c[1] - 1, c[2])).is(FluidTags.WATER);
-			float deep = Math.clamp(room / depth, 0.25F, 1.0F) * (water ? 1.3F : 1.0F);
-			if (this.random.nextFloat() >= deep) {
+			// the ground under the sheet: its highest point, so no sheet is buried; none on steep ground
+			int high = Integer.MIN_VALUE, low = Integer.MAX_VALUE;
+			int edge = (int) (size * 0.6F);
+			for (int k = 0; k < 5; k++) {
+				int sx = x + (k == 1 ? edge : k == 2 ? -edge : 0), sz = z + (k == 3 ? edge : k == 4 ? -edge : 0);
+				int g = this.level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sx, sz);
+				high = Math.max(high, g);
+				low = Math.min(low, g);
+			}
+			if (high - low > 3 + size * 0.15F) {
 				return null;
 			}
-			double y = c[1] + (water ? 0.2 : 0.4) + Math.pow(this.random.nextFloat(), 1.8) * Math.min(room - 0.5, 3 + 6 * mist);
-			BlockPos p = this.probe.set(c[0], Mth.floor(y), c[2]);
-			if (this.level.getBlockState(p).isSolid() || this.level.getBrightness(LightLayer.SKY, p) < 8) {
+			float room = top - high;
+			if (room < 0.8F) {
 				return null;
 			}
-			float strength = Math.min(0.65F, (0.3F + 0.45F * mist) * (0.55F + 0.45F * deep));
-			return new WispMote(this.level, c[0] + this.random.nextDouble(), y, c[2] + this.random.nextDouble(), this.random, strength);
+			boolean water = this.level.getFluidState(this.probe.set(x, high - 1, z)).is(FluidTags.WATER);
+			float deep = Math.clamp(room / depth, 0.3F, 1.0F) * (water ? 1.25F : 1.0F);
+			float h;
+			if (r < MIST_LAYERED) {
+				// a height from the mist's profile: thinning exponentially upward, under its top
+				float hmax = Math.min(room - 0.2F, 1.5F + 7.0F * mist);
+				h = (float) (-scale * Math.log(1 - this.random.nextFloat() * (1 - Math.exp(-hmax / scale))));
+			} else {
+				h = Math.min(room - 0.2F, 0.6F * scale);
+			}
+			// the column's optical depth, shared among the sheets covering it
+			float tau = MIST_DEPTH * mist * deep / MIST_COVER;
+			return new MistMote(this.level, x + this.random.nextDouble(), high + 0.05 + h, z + this.random.nextDouble(), this.random,
+				size * (0.8F + 0.4F * this.random.nextFloat()), tau, h);
 		});
+	}
+
+	/** A sheet's half-width at {@code r} blocks from the camera. */
+	private static float sheetSize(double r) {
+		return (float) (4.0 + 0.08 * r);
 	}
 
 	// --------------------------------------------------------------------------------------------------------- snow
@@ -408,7 +467,7 @@ final class MoteSpawner {
 		}
 		Wind wind = air.wind();
 		float blow = 0.6F + Math.min(1.0F, wind.now() / 8.0F);
-		this.fill(Motes.Kind.SNOW, (int) (200 * density * air.rain() * blow), () -> {
+		this.fill(Motes.Kind.SNOW, (int) (450 * density * air.rain() * blow), () -> {
 			double x = eye.x + (this.random.nextDouble() * 2 - 1) * SNOW_REACH - wind.x() * 6;
 			double y = eye.y - 3 + this.random.nextDouble() * 10;
 			double z = eye.z + (this.random.nextDouble() * 2 - 1) * SNOW_REACH - wind.z() * 6;
@@ -416,6 +475,33 @@ final class MoteSpawner {
 				return null;
 			}
 			return new SnowMote(this.level, x, y, z, this.random);
+		});
+	}
+
+	/**
+	 * Powder snow blown off the ground: wherever the land around the camera lies under snow and the wind is up (more in
+	 * gusts, more while it snows), streaks of it skim low over the snow.
+	 */
+	private void powder(AirSample air, Vec3 eye, BlockPos at, float density) {
+		Wind wind = air.wind();
+		float blow = Noise.smoothstep(2.5F, 7.0F, wind.now()) + 0.4F * air.rain();
+		if (blow < 0.05F || !this.level.getBiome(at).value().coldEnoughToSnow(at, this.level.getSeaLevel())) {
+			return;
+		}
+		this.fill(Motes.Kind.POWDER, (int) (160 * density * Math.min(1.5F, blow)), () -> {
+			// upwind of the camera, so it streams past
+			int[] c = this.columnAt(eye.x + (this.random.nextDouble() * 2 - 1) * POWDER_REACH - wind.x() * 6,
+				eye.z + (this.random.nextDouble() * 2 - 1) * POWDER_REACH - wind.z() * 6, eye);
+			if (c == null) {
+				return null;
+			}
+			BlockState top = this.level.getBlockState(this.probe.set(c[0], c[1], c[2]));
+			BlockState under = this.level.getBlockState(this.probe.set(c[0], c[1] - 1, c[2]));
+			if (!top.is(BlockTags.SNOW) && !under.is(BlockTags.SNOW)) {
+				return null;
+			}
+			double y = c[1] + 0.1 + this.random.nextDouble() * 0.6;
+			return new PowderMote(this.level, c[0] + this.random.nextDouble(), y, c[2] + this.random.nextDouble(), this.random);
 		});
 	}
 
@@ -515,7 +601,7 @@ final class MoteSpawner {
 				} else {
 					Vector3fc f = camera.forwardVector();
 					look = new Vec3(f.x(), f.y(), f.z());
-					mouth = eye.add(look.scale(0.45)).add(0, -0.22, 0);
+					mouth = eye.add(look.scale(0.5)).add(0, -0.14, 0);
 				}
 				this.puff(mouth, look, cold);
 			}
@@ -575,7 +661,12 @@ final class MoteSpawner {
 	private int[] column(Vec3 eye, int reach) {
 		double r = reach * Math.sqrt(this.random.nextDouble());
 		double a = this.random.nextDouble() * Math.PI * 2;
-		int x = Mth.floor(eye.x + Math.cos(a) * r), z = Mth.floor(eye.z + Math.sin(a) * r);
+		return this.columnAt(eye.x + Math.cos(a) * r, eye.z + Math.sin(a) * r, eye);
+	}
+
+	/** The column at (x, z), as {@link #column}. */
+	private int[] columnAt(double px, double pz, Vec3 eye) {
+		int x = Mth.floor(px), z = Mth.floor(pz);
 		if (!this.level.hasChunk(x >> 4, z >> 4)) {
 			return null;
 		}
