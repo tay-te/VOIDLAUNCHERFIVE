@@ -26,10 +26,12 @@ public final class AtlasMapHost implements MapHost {
 
 	private final AtlasApi api;
 	private final MapWidget widget;
+	private final boolean still;
 
-	private AtlasMapHost(AtlasApi api) {
+	private AtlasMapHost(AtlasApi api, boolean still) {
 		this.api = api;
 		this.widget = api.createMapWidget();
+		this.still = still;
 	}
 
 	/**
@@ -43,7 +45,14 @@ public final class AtlasMapHost implements MapHost {
 		} catch (NoSuchMethodException e) {
 			throw new IllegalStateException("this VOID Atlas is older than the hub needs (MapWidget.unitFor, AtlasApi.isMapKey)", e);
 		}
-		return new AtlasMapHost(AtlasApi.get());
+		boolean still;
+		try {
+			MapWidget.class.getMethod("drawFrozenWorld", GuiGraphicsExtractor.class, float.class);
+			still = true;
+		} catch (NoSuchMethodException e) {
+			still = false;  // before 792a7cfc: the still only comes at Atlas's own dim; stay live
+		}
+		return new AtlasMapHost(AtlasApi.get(), still);
 	}
 
 	@Override
@@ -117,8 +126,13 @@ public final class AtlasMapHost implements MapHost {
 	}
 
 	@Override
-	public boolean drawFrozenWorld(GuiGraphicsExtractor graphics) {
-		return this.widget.drawFrozenWorld(graphics);
+	public boolean canDrawStill() {
+		return this.still;
+	}
+
+	@Override
+	public boolean drawFrozenWorld(GuiGraphicsExtractor graphics, float dim) {
+		return this.still && this.widget.drawFrozenWorld(graphics, dim);
 	}
 
 	@Override

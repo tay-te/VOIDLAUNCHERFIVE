@@ -298,6 +298,8 @@ public final class PerfTest {
 		}
 		double[][] path = this.panPath();
 		boolean liveWas = this.context.computeOnClient(mc -> AtlasHooks.setLiveBackdrop(true));
+		// The hub's live world for the live pairs; its still (the default) only in *_frozen.
+		this.context.runOnClient(mc -> HubConfig.setFrozenMap(false));
 		for (int round = 0; round < this.rounds; round++) {
 			this.scenario("atlas_map", per, () -> this.openAtlasMap(atlasScreen), this::closeMap);
 			this.scenario("void_map", per, () -> this.openVoidMap(), this::closeMap);
@@ -327,6 +329,7 @@ public final class PerfTest {
 			});
 		}
 		this.context.runOnClient(mc -> AtlasHooks.setLiveBackdrop(liveWas));
+		this.context.runOnClient(mc -> HubConfig.setFrozenMap(null));
 		return new MapNumbers(first, createMs, Dist.of(toArray(reopen)), Dist.of(toArray(atlasOpen)));
 	}
 

@@ -299,20 +299,32 @@ public final class MapTest {
 		this.context.waitForScreen(null);
 		this.pass("M closes the hub on the Map page");
 
-		// The still backdrop (voidhub.frozenMap): Atlas's still of the world behind the Map page,
-		// the world itself skipped; the hub's own dim steps aside for Atlas's.
-		this.context.runOnClient(mc -> dev.voidmc.hub.HubConfig.setFrozenMap(true));
+		// The still backdrop (the default): Atlas's still of the world behind the Map page at the hub's
+		// 34 % dim, the world itself not drawn; the page's own dim is off, so it is never doubled.
+		// Then the live world (voidhub.frozenMap=false), the page's dim back, for comparison.
+		this.context.runOnClient(mc -> dev.voidmc.hub.HubConfig.setFrozenMap(null));
 		this.ui.pressKey(InputConstants.KEY_RSHIFT);
 		this.context.waitForScreen(HubInventoryScreen.class);
 		this.ui.parkMouse();
 		this.waitFrames(10);
-		this.expect(this.bodyHas("frozen"), "the page knows the world is a still");
-		this.context.takeScreenshot("voidhub_map_11_frozen_backdrop");
+		this.expect(this.bodyHas("frozen"), "the page's dim is off over the still");
+		this.expect(this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubScreen<?> h && h.stillDrawn()), "Atlas drew its still behind the Map page");
+		this.context.takeScreenshot("voidhub_map_11_still_backdrop");
 		this.ui.pressKey(InputConstants.KEY_ESCAPE);
 		this.context.waitForScreen(null);
 		this.context.runOnClient(mc -> dev.voidmc.hub.HubConfig.setFrozenMap(false));
+		this.ui.pressKey(InputConstants.KEY_RSHIFT);
+		this.context.waitForScreen(HubInventoryScreen.class);
+		this.ui.parkMouse();
+		this.waitFrames(10);
+		this.expect(!this.bodyHas("frozen") && !this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubScreen<?> h && h.stillDrawn()),
+			"with voidhub.frozenMap=false the page draws its dim over the live world");
+		this.context.takeScreenshot("voidhub_map_12_live_backdrop");
+		this.ui.pressKey(InputConstants.KEY_ESCAPE);
+		this.context.waitForScreen(null);
+		this.context.runOnClient(mc -> dev.voidmc.hub.HubConfig.setFrozenMap(null));
 		this.waitFrames(3);
-		this.pass("the still backdrop shows behind the Map page and lets go when the hub closes");
+		this.pass("the still backdrop (default) at the hub's dim, the live world when switched off");
 
 		// Every GUI scale: the window and the widget's rectangle agree, screenshots of each.
 		for (int gs = 1; gs <= 4; gs++) {

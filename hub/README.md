@@ -63,11 +63,14 @@ page: the mark top-left, pages top-centre, close top-right, the world strip bott
   the GUI-pixel grid, so the frame the page draws and the rectangle Atlas lays out in are the same.
   While the pointer is over the map the page is told once that it left and then not at all, so
   panning costs Ultralight nothing (no messages, no hit-testing, no repaints).
-* **Still backdrop, optional** (`-Dvoidhub.frozenMap=true`): Atlas's still of the world behind the Map
-  page (`MapWidget.freezeWorld` / `drawFrozenWorld`), the world itself skipped, released when the page
-  stops showing. It saves about 1.1–1.2 ms a frame while panning (docs/PERF.md) but is **off by default**: Atlas dims the
-  still to its own map's 76 %, where the hub's design is the live world at 34 % (the hub's dim steps
-  aside over the still, so it is not dimmed twice).
+* **Still backdrop (default).** Behind the Map page the world is Atlas's still of it
+  (`MapWidget.freezeWorld`, then `drawFrozenWorld(graphics, 0.34)`): drawn once, then not at all, at the
+  hub's own 34 % dim, which saves about 1.1–1.2 ms a frame while panning (docs/PERF.md). The hub draws
+  that dim itself while the Map page shows — over the still, or over the live world in the frames
+  before Atlas has one — and the page's own dim is off meanwhile, so the two are never stacked. An
+  Atlas without `drawFrozenWorld(graphics, dim)` (before 792a7cfc) keeps the live world and the page's
+  dim; `-Dvoidhub.frozenMap=false` does the same by choice. The world moves again as soon as the
+  page stops showing.
 * **Lazy and kept.** The widget is made on the first frame the Map page draws (not at start-up or when
   the hub opens), then kept: every later open, and every switch back from the Inventory, shows the
   same map where it was left (`MapWidget.shown()` each time it shows: the map reads the player's
@@ -86,7 +89,7 @@ page: the mark top-left, pages top-centre, close top-right, the world strip bott
   (`MapWidget.selectWaypoint`), so the map centres on it and shows its card. The pill says "Waypoint added" for a moment.
 
 Building with Atlas: the hub compiles against `dev.voidmc:void-atlas:0.1.0` from Maven local
-(`./gradlew publishToMavenLocal` in `atlas/`; Atlas 6c4fb205 or later). Without it, `./gradlew syncAtlas`
+(`./gradlew publishToMavenLocal` in `atlas/`; Atlas 6c4fb205 or later, 792a7cfc for the still backdrop). Without it, `./gradlew syncAtlas`
 stages `libs/void-atlas.jar` from a `git archive` snapshot of the `claude/atlas` branch under
 `build/atlas-snapshot/` (`-PatlasRef=<ref>`, `-PatlasJar=<file>`; `-PatlasFrom=libs` prefers it over
 Maven local). Then `-Patlas` puts Atlas in the dev runs: `./gradlew runClient -Patlas`,
@@ -98,8 +101,8 @@ Maven local). Then `-Patlas` puts Atlas in the dev runs: `./gradlew runClient -P
 `createMapWidget`; `MapWidget.view()`, `selectWaypoint`, `closed()`, `shown()`, `unitFor(w, h)`,
 `freezeWorld` / `drawFrozenWorld`; `AtlasApi.markerId` and `isMapKey`; a solid Track glyph and solid
 22 % hairline tracking lines; maven-publish. The hub uses all of them and no longer reaches into Atlas.
-Still open: `drawFrozenWorld` with the host's dim (or none), so the still backdrop could keep the
-hub's 34 % look and be on by default.
+Then 792a7cfc: `drawFrozenWorld(graphics, dim)`, so the still keeps the hub's 34 % look (the hub's
+default since).
 
 ## Architecture
 

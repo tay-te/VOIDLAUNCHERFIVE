@@ -53,4 +53,8 @@ public interface MapWidget {
 	default boolean drawFrozenWorld(GuiGraphicsExtractor graphics) {
 		return false;
 	}
+
+	default boolean drawFrozenWorld(GuiGraphicsExtractor graphics, float dim) {
+		return false;
+	}
 }

@@ -72,8 +72,17 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	private boolean pointerOnMap;
 	/** Map page: the map has been told it is showing, this open (and must hear when it stops). */
 	private boolean mapShown;
-	/** Map page: the world behind it is Atlas's still (voidhub.frozenMap). */
+	/**
+	 * Map page: the world behind it is Atlas's still (voidhub.frozenMap), and the hub, not the page,
+	 * draws the 34 % dim: over the still through Atlas, over the live world (until the still exists)
+	 * as a fill. The page's own dim stays off for the whole time, so the two are never stacked.
+	 */
 	private boolean frozen;
+	/** The still was drawn this frame (tests). */
+	private boolean stillDrawn;
+	/** The hub's dim: #0B0B0C at 34 % (Figma's "dim · GL pass"). */
+	private static final float DIM = 0.34F;
+	private static final int DIM_ARGB = Math.round(DIM * 255) << 24 | 0x0B0B0C;
 	/** "Waypoint here" feedback on the strip: what to say, and until when (nanoTime). */
 	private String pillNote = "";
 	private long pillNoteUntil;
@@ -116,6 +125,11 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 
 	/** Shows another hub page; only the hub itself has pages. */
 	public void showPage(String page) {
+	}
+
+	/** Whether Atlas's still of the world was drawn behind the Map page this frame (tests). */
+	public boolean stillDrawn() {
+		return this.stillDrawn;
 	}
 
 	public boolean onMap() {
@@ -198,6 +212,21 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		}
 		this.hoveredSlot = hoverSlot;
 
+		// 0. The Map page's backdrop. With the still on (the default), the hub draws the 34 % dim
+		//    itself: over Atlas's still of the world (once Atlas has one the world is not drawn at
+		//    all), or over the live world until then; the page's dim is off meanwhile.
+		this.stillDrawn = false;
+		if (map) {
+			this.startMap();
+			if (this.frozen) {
+				MapHost host = HubMap.host();
+				this.stillDrawn = host != null && host.drawFrozenWorld(graphics, DIM);
+				if (!this.stillDrawn) {
+					graphics.fill(0, 0, this.width, this.height, DIM_ARGB);
+				}
+			}
+		}
+
 		// 1. Tell the page what changed, then let Ultralight paint and upload the damage.
 		this.hub.beginFrame();
 		this.pushLayout();
@@ -209,15 +238,6 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 			// The view still holds whatever the last VOID screen showed: let the UI thread paint
 			// this one before its first frame goes out (bounded; it is usually a few ms).
 			this.hub.awaitPainted(200_000_000L);
-		}
-
-		// 1b. With the still backdrop on (voidhub.frozenMap), Atlas's still of the world behind the
-		//     Map page: once it has one, the world itself is not drawn at all.
-		if (map && this.frozen) {
-			MapHost host = HubMap.host();
-			if (host != null) {
-				host.drawFrozenWorld(graphics);
-			}
 		}
 
 		// 2. The chrome: one premultiplied quad, 1:1 with the framebuffer. (Submitted before this
@@ -265,14 +285,6 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		MapHost host = HubMap.host();
 		if (host == null) {
 			return;
-		}
-		if (!this.mapShown) {
-			this.mapShown = true;
-			host.shown();
-			this.frozen = HubConfig.frozenMap();
-			if (this.frozen) {
-				host.freezeWorld(true);
-			}
 		}
 		Rect w = this.layout.window;
 		long t0 = System.nanoTime();
@@ -544,6 +556,23 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	private MouseButtonEvent toVanilla(MouseButtonEvent event, PointerMap.Target target) {
 		double[] p = PointerMap.vanillaPoint(target, this.geometry);
 		return new MouseButtonEvent(p[0], p[1], event.buttonInfo());
+	}
+
+	/** The Map page starts showing (first frame this open or switch): the map reads the player; the still. */
+	private void startMap() {
+		if (this.mapShown) {
+			return;
+		}
+		MapHost host = HubMap.host();
+		if (host == null) {
+			return;
+		}
+		this.mapShown = true;
+		host.shown();
+		this.frozen = HubConfig.frozenMap() && host.canDrawStill();
+		if (this.frozen) {
+			host.freezeWorld(true);
+		}
 	}
 
 	/** The Map page stops showing (another page, or the hub closed): the map saves, the world moves again. */

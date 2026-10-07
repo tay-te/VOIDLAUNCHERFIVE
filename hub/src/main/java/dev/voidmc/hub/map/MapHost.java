@@ -44,11 +44,21 @@ public interface MapHost {
 	/** The scale Atlas draws its 1280 x 744 page at in a rectangle of physical pixels. */
 	double unitFor(int width, int height);
 
+	/**
+	 * Whether this Atlas can draw its still of the world under the host's own dim
+	 * ({@code drawFrozenWorld(graphics, dim)}, Atlas 792a7cfc); an older one cannot, and the Map page
+	 * stays on the live world.
+	 */
+	boolean canDrawStill();
+
 	/** Keeps the world still behind the page (drawn once, then skipped), or lets it move again. */
 	void freezeWorld(boolean freeze);
 
-	/** Draws Atlas's still of the world, full screen and dimmed; false while there is none yet. */
-	boolean drawFrozenWorld(GuiGraphicsExtractor graphics);
+	/**
+	 * Draws Atlas's still of the world, full screen, under {@code dim} of #0B0B0C (0 none, 1 black);
+	 * false while there is none yet (the live world is drawn then).
+	 */
+	boolean drawFrozenWorld(GuiGraphicsExtractor graphics, float dim);
 
 	/**
 	 * Adds a waypoint where the player stands and, if {@code select}, selects it on the map (which
