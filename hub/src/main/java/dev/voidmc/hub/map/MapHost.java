@@ -32,8 +32,23 @@ public interface MapHost {
 	/** A text field has the keyboard: keys are text, not the hub's shortcuts. */
 	boolean typing();
 
-	/** The hub opened on (or switched to) the Map page. */
+	/** The player's map key (M unless changed): the hub closes on it, as Atlas's own map does. */
+	boolean isMapKey(KeyEvent event);
+
+	/** The hub opened on (or switched to) the Map page: the map reads the player's dimension and depth. */
 	void shown();
+
+	/** The Map page stopped showing (hub closed, or another page): the map saves its settings. */
+	void closed();
+
+	/** The scale Atlas draws its 1280 x 744 page at in a rectangle of physical pixels. */
+	double unitFor(int width, int height);
+
+	/** Keeps the world still behind the page (drawn once, then skipped), or lets it move again. */
+	void freezeWorld(boolean freeze);
+
+	/** Draws Atlas's still of the world, full screen and dimmed; false while there is none yet. */
+	boolean drawFrozenWorld(GuiGraphicsExtractor graphics);
 
 	/**
 	 * Adds a waypoint where the player stands and, if {@code select}, selects it on the map (which
@@ -44,10 +59,10 @@ public interface MapHost {
 	/** How many waypoints the current world has. */
 	int waypointCount();
 
-	/** The map's centre and zoom as {@code {x, z, pixelsPerBlock}}, or null if it cannot tell (tests). */
+	/** The map's centre and zoom as {@code {x, z, pixelsPerBlock}}. */
 	double[] view();
 
-	/** The map state as text (layer, centre, zoom step, selection), for tests. */
+	/** The map's view as text (layer, centre, zoom), for tests. */
 	String describe();
 
 	/** Atlas's version, for the log. */

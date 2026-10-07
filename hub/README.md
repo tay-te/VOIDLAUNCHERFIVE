@@ -49,25 +49,30 @@ page: the mark top-left, pages top-centre, close top-right, the world strip bott
   the Inventory rather than on a stand-in.
 * **Atlas's page at 1280 × 744.** The window is Atlas's shipped page at exactly its design size, at
   the largest of Atlas's own scales (0.75 … 3, the ones its fonts are rasterised at) that fits between
-  the islands and is no larger than the islands' unit; at 1920×1080 that is Atlas at 1:1 in a
-  1280×744 window. Atlas measures the rectangle and lays its page out at that same scale, unstretched.
-* **One map with M.** The Map page and Atlas's own map screen show one map state: the same view, zoom,
-  layer, depth and selection. Atlas has no shared state in its API yet, so the hub carries it across:
-  when M opens it is given the Map page's state, and when M closes the Map page takes M's (Atlas's
-  page and map panel, read and written reflectively in `AtlasMapHost.copy`; on an Atlas whose insides
-  differ it logs once and the two keep their own state).
+  the islands and is no larger than the islands' unit (asked of Atlas: `MapWidget.unitFor`); at
+  1920×1080 that is Atlas at 1:1 in a 1280×744 window. Atlas measures the rectangle and lays its page
+  out at that same scale, unstretched. (Without Atlas the stand-in's window uses a copy of Atlas's rule.)
+* **One map with M.** The Map page and Atlas's own map screen are two views of Atlas's one map page
+  for the session: the same view, zoom, layer, depth, selection and panel tab. **M** on the Map page
+  closes the hub (`AtlasApi.isMapKey`), as it closes Atlas's own map.
 * **Drawn natively.** Ultralight draws only the hub's chrome: the dim, the islands and the window's
   frame (Atlas's page window: `#0B0B0C`, 7 % hairline, radius 32). Atlas's
   `MapWidget.render` draws everything inside it through Minecraft's GUI pipeline, in the same frame,
   after the chrome quad. Nothing is drawn twice and neither side draws a full-screen layer of its own
-  (Atlas's backdrop belongs to its own map screen and is not used here). The window rectangle is on
+  by default. The window rectangle is on
   the GUI-pixel grid, so the frame the page draws and the rectangle Atlas lays out in are the same.
   While the pointer is over the map the page is told once that it left and then not at all, so
   panning costs Ultralight nothing (no messages, no hit-testing, no repaints).
+* **Still backdrop, optional** (`-Dvoidhub.frozenMap=true`): Atlas's still of the world behind the Map
+  page (`MapWidget.freezeWorld` / `drawFrozenWorld`), the world itself skipped, released when the page
+  stops showing. It saves 0.5–1.5 ms a frame (docs/PERF.md) but is **off by default**: Atlas dims the
+  still to its own map's 76 %, where the hub's design is the live world at 34 % (the hub's dim steps
+  aside over the still, so it is not dimmed twice).
 * **Lazy and kept.** The widget is made on the first frame the Map page draws (not at start-up or when
   the hub opens), then kept: every later open, and every switch back from the Inventory, shows the
-  same map where it was left. Joining a world drops it, so a new world gets a new map; changing
-  dimension switches it to that dimension's layer, as Atlas's own map screen does on open.
+  same map where it was left (`MapWidget.shown()` each time it shows: the map reads the player's
+  dimension and depth, as M does; `closed()` when it stops: the map saves its settings). Joining or
+  leaving a world drops it.
 * **Input.** On the Map page the window is the map's: clicks, drags (captured from the press, wherever
   the pointer goes), the wheel and keys go to the widget; the islands stay the page's. No click there is
   a vanilla container click, so a carried stack is never dropped from the map. The hub keeps
@@ -77,40 +82,24 @@ page: the mark top-left, pages top-centre, close top-right, the world strip bott
   groups and R-Shift types capitals, and only an Esc the map does not use closes the hub. **E** on the
   Map page shows the Inventory.
 * **"Waypoint here"** (the world strip) adds an Atlas waypoint where the player stands, named like
-  Atlas's own quick-add ("Waypoint 4"), through `AtlasApi.addWaypoint`; on the Map page it is selected,
-  so the map centres on it and shows its card. The pill says "Waypoint added" for a moment.
+  Atlas's own quick-add ("Waypoint 4"), through `AtlasApi.addWaypoint`; on the Map page it is selected
+  (`MapWidget.selectWaypoint`), so the map centres on it and shows its card. The pill says "Waypoint added" for a moment.
 
-Building with Atlas: `./gradlew syncAtlas` stages `libs/void-atlas.jar` (built from a `git archive`
-snapshot of the `claude/atlas` branch under `build/atlas-snapshot/`, so the Atlas worktree is never
-touched; `-PatlasRef=<ref>` for another commit, `-PatlasJar=<file>` to stage a jar you have). Then
-`-Patlas` puts Atlas in the dev runs: `./gradlew runClient -Patlas`, `hubFunctional -Patlas`,
-`hubPerf -Pbackend=vulkan -Patlas`. With no jar staged the hub compiles against `src/atlasApi/`, a
-copy of the few API signatures it calls (excluded from the jar).
+Building with Atlas: the hub compiles against `dev.voidmc:void-atlas:0.1.0` from Maven local
+(`./gradlew publishToMavenLocal` in `atlas/`; Atlas 6c4fb205 or later). Without it, `./gradlew syncAtlas`
+stages `libs/void-atlas.jar` from a `git archive` snapshot of the `claude/atlas` branch under
+`build/atlas-snapshot/` (`-PatlasRef=<ref>`, `-PatlasJar=<file>`; `-PatlasFrom=libs` prefers it over
+Maven local). Then `-Patlas` puts Atlas in the dev runs: `./gradlew runClient -Patlas`,
+`hubFunctional -Patlas`, `hubPerf -Pbackend=vulkan -Patlas`. With neither, the hub compiles against
+`src/atlasApi/`, a copy of the API signatures it calls (excluded from the jar). An Atlas older than
+6c4fb205 is refused at the first Map frame (logged; the stand-in shows).
 
-**What Atlas would need** (not changed here; Atlas is another engineer's):
-
-* **one map state per session**: `createMapWidget()` and the M screen over the same page state (view,
-  zoom, layer, band, selection, panel tab), so the hub's reflective copy can go;
-* tracking lines, when Atlas draws any (a line from the player to a tracked place), as solid hairlines,
-  never dashes or dots (Figma 375:36239's rule; the hub itself draws none);
-
-* a Maven publication (`maven-publish`, so `publishToMavenLocal` works) instead of the snapshot build;
-* `MapWidget.view()` returning its current `MapView` (centre, zoom, layer) — the tests read it
-  reflectively today;
-* `AtlasApi.markerId(Waypoint)` (or `MapWidget.selectWaypoint(Waypoint)`) — the hub builds Atlas's
-  internal `"atlas:wp:" + id` to select a new waypoint;
-* `MapWidget.closed()` (or `removed()`), so the hosted page can save its settings (zoom, layer toggles)
-  as Atlas's own screen does in `removed()`;
-* `MapWidget.shown()`, re-reading the player's dimension and whether they are underground, as a new
-  `MapPage` does: the hub follows dimension changes with `showLayer`, but cannot tell "underground";
-* the map key as API (`AtlasApi.isMapKey(KeyEvent)`), so M could close the hub on the Map page like it
-  closes Atlas's screen;
-* the still backdrop as API (`MapWidget` asking for it, or `AtlasApi.freezeWorld(boolean)`): Atlas's own
-  screen draws the world once and then skips it, ~0.7–1.5 ms a frame the hub's Map page could save
-  (docs/PERF.md);
-* the scale as API (`MapWidget.unitFor(width, height)` or a unit the host passes): the hub mirrors
-  Atlas's list of scales to size the window so the page lands at exactly 1280×744; at 1920×1080
-  (GUI scale 4) that is Atlas at 1.0 while the hub's islands are at 1.27.
+**Asked of Atlas and landed in 6c4fb205** (2026-10-07): one shared map page per session for M and
+`createMapWidget`; `MapWidget.view()`, `selectWaypoint`, `closed()`, `shown()`, `unitFor(w, h)`,
+`freezeWorld` / `drawFrozenWorld`; `AtlasApi.markerId` and `isMapKey`; a solid Track glyph and solid
+22 % hairline tracking lines; maven-publish. The hub uses all of them and no longer reaches into Atlas.
+Still open: `drawFrozenWorld` with the host's dim (or none), so the still backdrop could keep the
+hub's 34 % look and be on by default.
 
 ## Architecture
 

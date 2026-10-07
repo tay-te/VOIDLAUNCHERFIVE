@@ -35,6 +35,21 @@ public final class HubConfig {
 		return Boolean.parseBoolean(System.getProperty("voidhub.prewarm", "true"));
 	}
 
+	private static volatile Boolean frozenMap;
+
+	/**
+	 * The Map page over Atlas's still of the world (drawn once, then the world is skipped) instead of
+	 * the live world. Off by default: Atlas dims its still to its own map's 76 %, not the hub's 34 %.
+	 */
+	public static boolean frozenMap() {
+		Boolean v = frozenMap;
+		return v != null ? v : Boolean.getBoolean("voidhub.frozenMap");
+	}
+
+	public static void setFrozenMap(boolean on) {
+		frozenMap = on;
+	}
+
 	public static boolean hideHud() {
 		Boolean v = hideHud;
 		return v != null ? v : Boolean.parseBoolean(System.getProperty("voidhub.hideHud", "true"));

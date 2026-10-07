@@ -191,6 +191,8 @@ body.scrolls .scrollbar { display: block; }
    The window is Atlas's page window: #0B0B0C, a 7 % hairline, radius 32. Atlas draws
    everything inside it natively; the page draws only this frame, or the stand-in without Atlas. */
 body.map #win { background: var(--shell); border-color: var(--line-3); }
+/* Over Atlas's still of the world (voidhub.frozenMap) the still carries Atlas's own dim. */
+body.map.frozen #dim { opacity: 0; }
 body.map #win > * { display: none; }
 #win > .page-map { display: none; inset: 0; }
 body.map:not(.atlas) #win > .page-map { display: block; }

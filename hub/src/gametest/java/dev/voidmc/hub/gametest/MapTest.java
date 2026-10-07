@@ -255,15 +255,15 @@ public final class MapTest {
 		this.context.waitForScreen(null);
 		this.pass("typing in Atlas's search keeps Tab / R-Shift; Esc leaves the field, then closes the hub");
 
-		// One map with M: Atlas's own map screen opens on the Map page's state, and the Map page
-		// takes M's back when it closes (view, zoom, layer, selection).
+		// One map with M: Atlas's own map screen and the Map page are views of one map page, so M
+		// opens where the hub left the map, and what M does (pan, zoom) is on the hub's map after.
 		String hubState = this.context.computeOnClient(mc -> host.describe());
 		Class<? extends net.minecraft.client.gui.screens.Screen> atlasScreen = AtlasHooks.atlasScreenClass();
 		this.context.runOnClient(mc -> AtlasHooks.openAtlasMap());
 		this.context.waitForScreen(atlasScreen);
 		this.waitFrames(5);
-		String mState = this.context.computeOnClient(mc -> dev.voidmc.hub.map.atlas.AtlasMapHost.describe(mc.gui.screen()));
-		this.expect(mState.equals(hubState), "M opens on the Map page's state: M " + mState + " vs hub " + hubState);
+		String mState = this.context.computeOnClient(mc -> host.describe());
+		this.expect(mState.equals(hubState), "M opens on the Map page's view: " + mState + " vs " + hubState);
 		this.ui.moveTo(HubGameTest.WIDTH * 0.4, HubGameTest.HEIGHT * 0.5);
 		this.waitFrames(1);
 		this.ui.press(Ui.LEFT, 0);
@@ -273,26 +273,46 @@ public final class MapTest {
 		}
 		this.ui.release(Ui.LEFT, 0);
 		this.context.getInput().scroll(-1);
-		this.waitFrames(3);
+		// The zoom eases to its step over a few frames (keeping the point under the pointer still):
+		// read the shared view once it has settled.
+		this.waitFrames(20);
 		this.context.takeScreenshot("voidhub_map_08_atlas_screen_shared");
-		net.minecraft.client.gui.screens.Screen m = this.context.computeOnClient(mc -> mc.gui.screen());
-		String mMoved = this.context.computeOnClient(mc -> dev.voidmc.hub.map.atlas.AtlasMapHost.describe(m));
-		this.expect(!mMoved.equals(mState), "panning and zooming M changed its view: " + mMoved);
+		String mMoved = this.context.computeOnClient(mc -> host.describe());
+		this.expect(!mMoved.equals(mState), "panning and zooming in M moved the shared map: " + mMoved);
 		for (int i = 0; i < 3 && this.context.computeOnClient(mc -> mc.gui.screen() != null); i++) {
 			this.ui.pressKey(InputConstants.KEY_ESCAPE);
 			this.waitFrames(2);
 		}
 		this.context.waitForScreen(null);
-		String mClosed = this.context.computeOnClient(mc -> dev.voidmc.hub.map.atlas.AtlasMapHost.describe(m));
 		this.ui.pressKey(InputConstants.KEY_RSHIFT);
 		this.context.waitForScreen(HubInventoryScreen.class);
 		this.waitFrames(3);
 		String hubAfter = this.context.computeOnClient(mc -> host.describe());
-		this.expect(this.onMap() && hubAfter.equals(mClosed), "the Map page shows M's state: hub " + hubAfter + " vs M " + mClosed);
+		this.expect(this.onMap() && hubAfter.equals(mMoved), "the Map page shows M's view: " + hubAfter + " vs " + mMoved);
 		this.context.takeScreenshot("voidhub_map_09_shared_back");
+		this.pass("M and the Map page are one map (" + hubState + " -> M " + mMoved + " -> hub " + hubAfter + ")");
+
+		// M (Atlas's map key) closes the hub from the Map page, as it closes Atlas's own map.
+		this.ui.parkMouse();
+		this.waitFrames(1);
+		this.ui.pressKey(InputConstants.KEY_M);
+		this.context.waitForScreen(null);
+		this.pass("M closes the hub on the Map page");
+
+		// The still backdrop (voidhub.frozenMap): Atlas's still of the world behind the Map page,
+		// the world itself skipped; the hub's own dim steps aside for Atlas's.
+		this.context.runOnClient(mc -> dev.voidmc.hub.HubConfig.setFrozenMap(true));
+		this.ui.pressKey(InputConstants.KEY_RSHIFT);
+		this.context.waitForScreen(HubInventoryScreen.class);
+		this.ui.parkMouse();
+		this.waitFrames(10);
+		this.expect(this.bodyHas("frozen"), "the page knows the world is a still");
+		this.context.takeScreenshot("voidhub_map_11_frozen_backdrop");
 		this.ui.pressKey(InputConstants.KEY_ESCAPE);
 		this.context.waitForScreen(null);
-		this.pass("M and the Map page share one map state (" + hubState + " -> M " + mClosed + " -> hub " + hubAfter + ")");
+		this.context.runOnClient(mc -> dev.voidmc.hub.HubConfig.setFrozenMap(false));
+		this.waitFrames(3);
+		this.pass("the still backdrop shows behind the Map page and lets go when the hub closes");
 
 		// Every GUI scale: the window and the widget's rectangle agree, screenshots of each.
 		for (int gs = 1; gs <= 4; gs++) {
@@ -365,7 +385,7 @@ public final class MapTest {
 
 	private double[] view(MapHost host) {
 		double[] v = this.context.computeOnClient(mc -> host.view());
-		this.expect(v != null, "Atlas's map view could not be read (MapWidget has no view getter; the reflective read failed)");
+		this.expect(v != null, "Atlas's map view could not be read");
 		return v;
 	}
 

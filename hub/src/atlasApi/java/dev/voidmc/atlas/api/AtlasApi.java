@@ -26,4 +26,12 @@ public interface AtlasApi {
 	MapWidget createMapWidget();
 
 	void openMap();
+
+	default String markerId(Waypoint waypoint) {
+		return "atlas:wp:" + waypoint.id();
+	}
+
+	default boolean isMapKey(net.minecraft.client.input.KeyEvent event) {
+		return false;
+	}
 }

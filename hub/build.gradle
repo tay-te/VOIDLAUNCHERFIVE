@@ -37,6 +37,10 @@ tasks.register('syncUltralight', Sync) {
 // of Atlas ships in the hub) and touches it only from dev.voidmc.hub.map.atlas, behind
 // FabricLoader.isModLoaded("atlas").
 //
+// Where Atlas comes from, first found wins:
+//   1. Maven local, dev.voidmc:void-atlas:<atlas_version>: `./gradlew publishToMavenLocal` in
+//      the atlas project (-PatlasFrom=libs skips it)
+//   2. libs/void-atlas.jar, staged by syncAtlas:
 //   ./gradlew syncAtlas                       build Atlas from the claude/atlas branch (a git
 //                                             snapshot under build/, the atlas worktree is not
 //                                             touched) and stage it as libs/void-atlas.jar
@@ -45,16 +49,30 @@ tasks.register('syncUltralight', Sync) {
 //   ./gradlew runClient -Patlas               dev client with Atlas loaded (likewise hubPerf,
 //                                             hubFunctional, runClientGameTest)
 //
-// Without a staged jar the hub still builds: it compiles against src/atlasApi, a copy of the few
-// API signatures it calls (never packaged).
+//   3. neither: the hub still builds, against src/atlasApi, a copy of the API signatures it calls
+//      (never packaged); -Patlas then fails.
 // ---------------------------------------------------------------------------------------------
 def atlasJar = file('libs/void-atlas.jar')
+def atlasVersion = (project.findProperty('atlas_version') ?: '0.1.0').toString()
+def atlasMaven = new File(System.getProperty('user.home'), ".m2/repository/dev/voidmc/void-atlas/${atlasVersion}/void-atlas-${atlasVersion}.jar")
+def atlasFrom = (project.findProperty('atlasFrom') ?: (atlasMaven.isFile() ? 'maven' : atlasJar.isFile() ? 'libs' : 'none')).toString()
+def atlasDep = atlasFrom == 'maven' ? "dev.voidmc:void-atlas:${atlasVersion}" : atlasFrom == 'libs' && atlasJar.isFile() ? files(atlasJar) : null
 def withAtlas = project.hasProperty('atlas') && project.property('atlas').toString() != 'false'
-if (withAtlas && !atlasJar.isFile()) {
-	throw new GradleException("-Patlas needs libs/void-atlas.jar: run ./gradlew syncAtlas first")
+if (withAtlas && atlasDep == null) {
+	throw new GradleException("-Patlas needs VOID Atlas: publishToMavenLocal in the atlas project, or ./gradlew syncAtlas")
 }
+if (atlasFrom == 'maven') {
+	repositories {
+		mavenLocal {
+			content {
+				includeModule 'dev.voidmc', 'void-atlas'
+			}
+		}
+	}
+}
+logger.lifecycle("VOID Hub: VOID Atlas API from ${atlasDep == null ? 'src/atlasApi (no Atlas found)' : atlasFrom == 'maven' ? "Maven local (dev.voidmc:void-atlas:${atlasVersion})" : 'libs/void-atlas.jar'}${withAtlas ? ', and Atlas in the dev runs' : ''}")
 
-if (!atlasJar.isFile()) {
+if (atlasDep == null) {
 	// Compiled with the hub, never packaged (see the jar block).
 	sourceSets.main.java.srcDir 'src/atlasApi/java'
 }
@@ -135,13 +153,13 @@ dependencies {
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 	implementation files(ulApiJar)
 
-	// Atlas: its API to compile against (the real jar when staged, else the signature copy in
-	// src/atlasApi), and the mod itself in the dev runs only with -Patlas.
-	if (atlasJar.isFile()) {
-		compileOnly files(atlasJar)
+	// Atlas: its API to compile against (else the signature copy in src/atlasApi), and the mod
+	// itself in the dev runs only with -Patlas. Its own dependencies are the hub's already.
+	if (atlasDep != null) {
+		compileOnly(atlasDep) { if (it instanceof ModuleDependency) it.transitive = false }
 	}
 	if (withAtlas) {
-		localRuntime files(atlasJar)
+		localRuntime(atlasDep) { if (it instanceof ModuleDependency) it.transitive = false }
 	}
 
 	testImplementation platform("org.junit:junit-bom:${project.junit_version}")
@@ -205,8 +223,8 @@ fabricApi {
 
 // The game test calls Atlas's API too (only when Atlas is installed): the same jar, or the copy.
 dependencies {
-	if (atlasJar.isFile()) {
-		gametestCompileOnly files(atlasJar)
+	if (atlasDep != null) {
+		gametestCompileOnly(atlasDep) { if (it instanceof ModuleDependency) it.transitive = false }
 	}
 }
 

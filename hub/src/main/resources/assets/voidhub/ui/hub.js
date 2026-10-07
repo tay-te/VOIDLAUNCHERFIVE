@@ -275,6 +275,7 @@
       for (i = 0; i < pages.length; i++) toggle(pages[i], "active", pages[i].getAttribute("data-page") === s.page);
     }
     toggle(document.body, "atlas", !!s.atlas);
+    toggle(document.body, "frozen", !!s.frozen);
     toggle($("pill"), "off", !s.atlas);
     text($("pill-text"), s.pill || "Waypoint here");
 

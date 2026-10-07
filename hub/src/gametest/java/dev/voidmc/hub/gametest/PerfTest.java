@@ -274,9 +274,9 @@ public final class PerfTest {
 	 * by round like the inventory scenarios. Atlas draws the same page in both; what differs is the
 	 * hub around it (Ultralight's islands and window, the hub's input routing).
 	 *
-	 * <p>Like for like, Atlas's screen runs with its live backdrop on (the world drawn behind the map
-	 * every frame, as the hub draws it behind every page); {@code atlas_map_pan_frozen} is Atlas's
-	 * default (a still of the world, the world itself skipped), for reference, not gated.
+	 * <p>Like for like twice: the hub's default (the live world behind the page) against Atlas's screen
+	 * with its live backdrop on, and the hub's still backdrop ({@code voidhub.frozenMap}) against
+	 * Atlas's default still backdrop ({@code *_frozen}: the world drawn once, then skipped).
 	 */
 	private MapNumbers mapScenarios(double per) {
 		HubStats st = HubStats.INSTANCE;
@@ -316,6 +316,14 @@ public final class PerfTest {
 			}, () -> {
 				this.stopPanAndClose();
 				this.context.runOnClient(mc -> AtlasHooks.setLiveBackdrop(true));
+			});
+			this.scenario("void_map_pan_frozen", per, () -> {
+				this.context.runOnClient(mc -> HubConfig.setFrozenMap(true));
+				this.openVoidMap();
+				this.startPan(path);
+			}, () -> {
+				this.stopPanAndClose();
+				this.context.runOnClient(mc -> HubConfig.setFrozenMap(false));
 			});
 		}
 		this.context.runOnClient(mc -> AtlasHooks.setLiveBackdrop(liveWas));
@@ -627,6 +635,8 @@ public final class PerfTest {
 		double mapP99Delta;
 		double mapPanAvgDelta;
 		double mapPanP99Delta;
+		double mapFrozenAvgDelta;
+		double mapFrozenP99Delta;
 
 		/**
 		 * VOID minus vanilla, round by round (the rounds interleave the two), and the median of
@@ -710,6 +720,16 @@ public final class PerfTest {
 			this.mapP99Delta = this.paired.get("mapP99")[0];
 			this.mapPanAvgDelta = this.paired.get("mapPanAvg")[0];
 			this.mapPanP99Delta = this.paired.get("mapPanP99")[0];
+			this.paired.put("mapFrozenAvg", pairedMedian(this.samples.get("void_map_pan_frozen"), this.samples.get("atlas_map_pan_frozen"), false));
+			this.paired.put("mapFrozenP99", pairedMedian(this.samples.get("void_map_pan_frozen"), this.samples.get("atlas_map_pan_frozen"), true));
+			this.mapFrozenAvgDelta = this.paired.get("mapFrozenAvg")[0];
+			this.mapFrozenP99Delta = this.paired.get("mapFrozenP99")[0];
+			if (this.mapFrozenAvgDelta > BUDGET_MAP_AVG_MS) {
+				this.failures.add(String.format(Locale.ROOT, "map panning, still backdrop: avg frame +%.3f ms vs Atlas's screen > %.1f", this.mapFrozenAvgDelta, BUDGET_MAP_AVG_MS));
+			}
+			if (this.mapFrozenP99Delta > BUDGET_MAP_P99_MS) {
+				this.failures.add(String.format(Locale.ROOT, "map panning, still backdrop: p99 frame +%.3f ms vs Atlas's screen > %.1f", this.mapFrozenP99Delta, BUDGET_MAP_P99_MS));
+			}
 			if (this.mapPanAvgDelta > BUDGET_MAP_AVG_MS) {
 				this.failures.add(String.format(Locale.ROOT, "map panning: avg frame +%.3f ms vs Atlas's screen > %.1f", this.mapPanAvgDelta, BUDGET_MAP_AVG_MS));
 			}
@@ -792,6 +812,7 @@ public final class PerfTest {
 					.raw("reopen", this.map.reopen().json()).raw("atlasScreenOpen", this.map.atlasScreenOpen().json())
 					.put("idleAvgDeltaMs", Dist.r(this.mapAvgDelta)).put("idleP99DeltaMs", Dist.r(this.mapP99Delta))
 					.put("panAvgDeltaMs", Dist.r(this.mapPanAvgDelta)).put("panP99DeltaMs", Dist.r(this.mapPanP99Delta))
+					.put("panFrozenAvgDeltaMs", Dist.r(this.mapFrozenAvgDelta)).put("panFrozenP99DeltaMs", Dist.r(this.mapFrozenP99Delta))
 					.put("method", "median over interleaved rounds of (hub Map page round - Atlas map screen round)").end());
 			}
 			w.raw("memory", Json.object().put("privateBytesDeltaMb", Dist.r(this.privateDeltaMb)).put("privateBytesAfterMb", Dist.r(this.privateAfterMb))
@@ -847,10 +868,12 @@ public final class PerfTest {
 				.append("], p99 ").append(signed(this.hoverP99Delta)).append(" ms [").append(this.rounds("hoverP99")).append("]")
 				.append(" · chest avg ").append(signed(this.chestAvgDelta)).append(" ms, p99 ").append(signed(this.chestP99Delta)).append(" ms\n\n");
 			if (this.map != null) {
-				m.append("**Map page vs Atlas's own map screen**, both drawing the live world behind the map (median of the per-round differences; `atlas_map_pan_frozen` is Atlas's default still backdrop, not gated): idle avg ").append(signed(this.mapAvgDelta))
+				m.append("**Map page vs Atlas's own map screen** (median of the per-round differences), both drawing the live world: idle avg ").append(signed(this.mapAvgDelta))
 					.append(" ms [").append(this.rounds("mapAvg")).append("], p99 ").append(signed(this.mapP99Delta)).append(" ms [").append(this.rounds("mapP99"))
 					.append("] · panning avg ").append(signed(this.mapPanAvgDelta)).append(" ms [").append(this.rounds("mapPanAvg")).append("], p99 ")
-					.append(signed(this.mapPanP99Delta)).append(" ms [").append(this.rounds("mapPanP99")).append("]\n\n");
+					.append(signed(this.mapPanP99Delta)).append(" ms [").append(this.rounds("mapPanP99")).append("] · both over Atlas's still backdrop, panning avg ")
+					.append(signed(this.mapFrozenAvgDelta)).append(" ms [").append(this.rounds("mapFrozenAvg")).append("], p99 ").append(signed(this.mapFrozenP99Delta))
+					.append(" ms [").append(this.rounds("mapFrozenP99")).append("]\n\n");
 			}
 			m.append("| VOID cost (ms / frame) | render thread: avg / p99 / max | post | wait | copy | upload | uploads | avg upload | Ultralight on its thread | per page change: avg / p99 | Atlas widget draw avg / p99 |\n");
 			m.append("|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|\n");

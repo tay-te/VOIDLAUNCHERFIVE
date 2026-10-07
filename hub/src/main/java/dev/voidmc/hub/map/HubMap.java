@@ -1,6 +1,7 @@
 package dev.voidmc.hub.map;
 
 import dev.voidmc.hub.VoidHub;
+import dev.voidmc.hub.layout.HubLayout;
 import java.util.Locale;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -57,22 +58,14 @@ public final class HubMap {
 	/** A world was joined: the next Map page gets a fresh map. */
 	public static void reset() {
 		host = null;
-		if (available()) {
-			dev.voidmc.hub.map.atlas.AtlasMapHost.forgetShared();
-		}
 	}
 
 	/**
-	 * At start-up, with Atlas installed: the Map page and Atlas's own map screen (M) share one map
-	 * state (see {@code AtlasMapHost}).
+	 * The Atlas scale the Map page's window is sized for: Atlas's own answer when it is installed,
+	 * else the layout's copy of Atlas's scales (the stand-in's window is the same size).
 	 */
-	public static void install() {
-		if (available()) {
-			try {
-				dev.voidmc.hub.map.atlas.AtlasMapHost.installSync();
-			} catch (Throwable t) {
-				VoidHub.LOGGER.warn("VOID Hub: could not share the map state with VOID Atlas's map screen", t);
-			}
-		}
+	public static HubLayout.AtlasScale scale() {
+		MapHost h = host();
+		return h == null ? HubLayout.AtlasScale.MIRROR : h::unitFor;
 	}
 }

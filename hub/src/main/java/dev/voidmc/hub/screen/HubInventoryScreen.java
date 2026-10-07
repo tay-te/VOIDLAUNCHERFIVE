@@ -101,7 +101,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	@Override
 	protected HubLayout makeLayout(int fbW, int fbH, int guiScale) {
-		return MAP.equals(this.page) ? HubLayout.map(fbW, fbH, guiScale) : HubLayout.inventory(fbW, fbH, guiScale);
+		return MAP.equals(this.page) ? HubLayout.map(fbW, fbH, guiScale, HubMap.scale()) : HubLayout.inventory(fbW, fbH, guiScale);
 	}
 
 	@Override

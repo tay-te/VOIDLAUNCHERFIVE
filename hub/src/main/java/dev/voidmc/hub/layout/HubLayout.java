@@ -100,7 +100,7 @@ public final class HubLayout {
 	public final int iconPx;
 	private final List<Cell> cells;
 
-	private HubLayout(Kind kind, int fbW, int fbH, int guiScale, int containerRows, int scrollRow) {
+	private HubLayout(Kind kind, int fbW, int fbH, int guiScale, int containerRows, int scrollRow, AtlasScale scale) {
 		this.kind = kind;
 		this.fbW = Math.max(1, fbW);
 		this.fbH = Math.max(1, fbH);
@@ -120,7 +120,7 @@ public final class HubLayout {
 		this.strip = Rect.design(stripX, this.fbH - (MARGIN + STRIP_H) * u, 0, 0, STRIP_W, STRIP_H, u);
 
 		if (kind == Kind.MAP) {
-			this.window = mapWindow(this.fbW, this.fbH, this.guiScale, u);
+			this.window = mapWindow(this.fbW, this.fbH, this.guiScale, u, scale);
 		} else {
 			// Window: centred, lifted as in the design, never under the top islands.
 			double winX = Math.round((this.fbW - WIN_W * u) / 2.0);
@@ -170,17 +170,44 @@ public final class HubLayout {
 	}
 
 	public static HubLayout inventory(int fbW, int fbH, int guiScale) {
-		return new HubLayout(Kind.INVENTORY, fbW, fbH, guiScale, 0, 0);
+		return new HubLayout(Kind.INVENTORY, fbW, fbH, guiScale, 0, 0, null);
 	}
 
 	/** The Map page: the shell's islands as on every page, and the window Atlas's map fills. */
 	public static HubLayout map(int fbW, int fbH, int guiScale) {
-		return new HubLayout(Kind.MAP, fbW, fbH, guiScale, 0, 0);
+		return map(fbW, fbH, guiScale, AtlasScale.MIRROR);
+	}
+
+	/** The Map page, its window sized for the scale Atlas itself says it will draw at. */
+	public static HubLayout map(int fbW, int fbH, int guiScale, AtlasScale scale) {
+		return new HubLayout(Kind.MAP, fbW, fbH, guiScale, 0, 0, scale == null ? AtlasScale.MIRROR : scale);
+	}
+
+	/**
+	 * The scale Atlas draws its 1280 x 744 page at in a rectangle of physical px
+	 * ({@code MapWidget.unitFor}). {@link #MIRROR} is a copy of Atlas's rule, for when Atlas is not
+	 * installed (the stand-in's window) and for the unit tests.
+	 */
+	@FunctionalInterface
+	public interface AtlasScale {
+		double unitFor(int width, int height);
+
+		AtlasScale MIRROR = (w, h) -> {
+			double want = Math.min(w / (double) MAP_W, h / (double) MAP_H);
+			double best = ATLAS_UNITS[0];
+			for (double a : ATLAS_UNITS) {
+				if (a <= want + 1e-4) {
+					best = a;
+				}
+			}
+			return best;
+		};
 	}
 
 	/**
 	 * The scales VOID Atlas draws its page at (its {@code Ui.UNITS}: each has its own rasterisation of
-	 * Outfit). Atlas picks the largest that fits the rectangle it is given.
+	 * Outfit). Atlas picks the largest that fits the rectangle it is given. Only {@link AtlasScale#MIRROR}
+	 * uses this copy; with Atlas installed the layout asks Atlas.
 	 */
 	public static final double[] ATLAS_UNITS = {0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0};
 
@@ -190,17 +217,16 @@ public final class HubLayout {
 	 * window's width, and is no larger than the shell's own unit (so the map never outgrows the
 	 * islands around it).
 	 */
-	public static double atlasUnit(int fbW, int fbH, double u) {
+	public static double atlasUnit(int fbW, int fbH, double u, AtlasScale scale) {
 		double availW = fbW - 2 * MARGIN * u;
 		double availH = fbH - (MARGIN + PAGES_H + MAP_GAP_TOP + MARGIN + STRIP_H + MAP_GAP_BOTTOM) * u;
-		double want = Math.min(u, Math.min(availW / MAP_W, availH / MAP_H));
-		double best = ATLAS_UNITS[0];
-		for (double a : ATLAS_UNITS) {
-			if (a <= want + 1e-6) {
-				best = a;
-			}
-		}
-		return best;
+		int w = (int) Math.floor(Math.max(1, Math.min(availW, MAP_W * u)) + 1e-6);
+		int h = (int) Math.floor(Math.max(1, Math.min(availH, MAP_H * u)) + 1e-6);
+		return scale.unitFor(w, h);
+	}
+
+	public static double atlasUnit(int fbW, int fbH, double u) {
+		return atlasUnit(fbW, fbH, u, AtlasScale.MIRROR);
 	}
 
 	/**
@@ -210,11 +236,11 @@ public final class HubLayout {
 	 * same unit), and the rectangle Atlas is given in GUI coordinates is exactly the window the page
 	 * draws. A window too small for even Atlas's smallest scale gets the band, and Atlas fits into it.
 	 */
-	static Rect mapWindow(int fbW, int fbH, int guiScale, double u) {
+	static Rect mapWindow(int fbW, int fbH, int guiScale, double u, AtlasScale scale) {
 		double top = (MARGIN + PAGES_H + MAP_GAP_TOP) * u;
 		double bottom = fbH - (MARGIN + STRIP_H + MAP_GAP_BOTTOM) * u;
 		double availW = fbW - 2 * MARGIN * u;
-		double a = atlasUnit(fbW, fbH, u);
+		double a = atlasUnit(fbW, fbH, u, scale);
 		double w = MAP_W * a;
 		double h = MAP_H * a;
 		int gw;
@@ -235,7 +261,7 @@ public final class HubLayout {
 		if (rows < 1 || rows > 6) {
 			throw new IllegalArgumentException("chest rows must be 1-6, not " + rows);
 		}
-		return new HubLayout(Kind.CHEST, fbW, fbH, guiScale, rows, scrollRow);
+		return new HubLayout(Kind.CHEST, fbW, fbH, guiScale, rows, scrollRow, null);
 	}
 
 	/**

@@ -5,14 +5,10 @@ import dev.voidmc.atlas.api.MapView;
 import dev.voidmc.atlas.api.MapWidget;
 import dev.voidmc.atlas.api.Waypoint;
 import dev.voidmc.hub.VoidHub;
-import dev.voidmc.hub.map.HubMap;
 import dev.voidmc.hub.map.MapHost;
-import java.lang.reflect.Field;
 import java.util.Locale;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.player.LocalPlayer;
@@ -20,162 +16,34 @@ import net.minecraft.client.player.LocalPlayer;
 /**
  * The hub's Map page over VOID Atlas's {@link MapWidget}: Atlas's whole map page (segments, search,
  * the map, layers, zoom, the places list, cards and editor), drawn natively into the hub's window.
+ * Atlas's widget is a view of the session's one map page, the same one its own map screen (M) shows,
+ * so the two share view, zoom, layer, depth and selection by construction.
  *
  * <p>The only class of the hub that names Atlas types. {@code HubMap.host()} reaches it through
  * {@link #create}, and only once {@code FabricLoader.isModLoaded("atlas")} said yes.
- *
- * <p><b>One map with M.</b> The Map page and Atlas's own map screen (M) show one map state: the
- * same view, zoom, layer, depth and selection (Figma 375:36239). Atlas's API has no shared state
- * yet (each {@code createMapWidget()} and each M screen makes its own page), so until it does the
- * hub carries the state across: when M opens it is given the Map page's state, and when it closes
- * the Map page takes M's. That reads and writes Atlas's page and map panel reflectively
- * ({@link #copy}); on an Atlas whose insides differ it logs once and stops, and the two keep their
- * own state as before. See the README's "What Atlas would need".
  */
 public final class AtlasMapHost implements MapHost {
 
-	/** Atlas's marker id for a waypoint ({@code AtlasClient.waypointMarkerId}; not in its API yet). */
-	private static final String WAYPOINT_MARKER = "atlas:wp:";
-
 	private final AtlasApi api;
 	private final MapWidget widget;
-	private String dimension;
 
 	private AtlasMapHost(AtlasApi api) {
 		this.api = api;
 		this.widget = api.createMapWidget();
-		this.dimension = currentDimension();
 	}
 
-	/** Returns the hub-facing type, so the caller links against nothing of Atlas's. */
+	/**
+	 * Returns the hub-facing type, so the caller links against nothing of Atlas's. Throws on an Atlas
+	 * from before the hub's API (6c4fb205): the hub then shows the stand-in rather than fail later.
+	 */
 	public static MapHost create() {
-		AtlasMapHost host = new AtlasMapHost(AtlasApi.get());
-		if (lastScreenPage != null) {
-			copy(lastScreenPage, host.page());  // M was used before the Map page: start where M left off
-		}
-		return host;
-	}
-
-	// ---- one map state with Atlas's own map screen (M) -------------------------------------------
-
-	private static final String ATLAS_SCREEN = "dev.voidmc.atlas.client.ui.AtlasScreen";
-	/** M's page after it last closed (this world). */
-	private static Object lastScreenPage;
-	/** The M screen that was last given the Map page's state (init runs again on every resize). */
-	private static Screen syncedScreen;
-	private static boolean syncBroken;
-
-	/** Hooks M's screen opening and closing; called once at start-up when Atlas is installed. */
-	public static void installSync() {
-		ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> {
-			if (syncBroken || screen == syncedScreen || !screen.getClass().getName().equals(ATLAS_SCREEN)) {
-				return;
-			}
-			syncedScreen = screen;
-			Object page = screenPage(screen);
-			if (page == null) {
-				return;
-			}
-			Object from = HubMap.existing() instanceof AtlasMapHost host ? host.page() : lastScreenPage;
-			if (from != null) {
-				copy(from, page);
-			}
-			ScreenEvents.remove(screen).register(closed -> {
-				lastScreenPage = page;
-				if (HubMap.existing() instanceof AtlasMapHost host) {
-					copy(page, host.page());
-				}
-			});
-		});
-	}
-
-	/** A world was joined: M's state from the last one is not this one's. */
-	public static void forgetShared() {
-		lastScreenPage = null;
-		syncedScreen = null;
-	}
-
-	/** The widget's page (Atlas's {@code MapPage}). */
-	Object page() {
 		try {
-			return field(this.widget, "page");
-		} catch (ReflectiveOperationException | RuntimeException e) {
-			return null;
+			MapWidget.class.getMethod("unitFor", int.class, int.class);
+			AtlasApi.class.getMethod("isMapKey", KeyEvent.class);
+		} catch (NoSuchMethodException e) {
+			throw new IllegalStateException("this VOID Atlas is older than the hub needs (MapWidget.unitFor, AtlasApi.isMapKey)", e);
 		}
-	}
-
-	private static Object screenPage(Screen screen) {
-		try {
-			return screen.getClass().getField("page").get(screen);
-		} catch (ReflectiveOperationException | RuntimeException e) {
-			broken(e);
-			return null;
-		}
-	}
-
-	/**
-	 * Copies the map state from one of Atlas's pages to another: the layer first (a layer change
-	 * rescales the centre and clears the selection), the chosen depth, the centre (once the source
-	 * has one), the zoom step, the selection, and the right panel's tab.
-	 */
-	static void copy(Object fromPage, Object toPage) {
-		if (syncBroken || fromPage == null || toPage == null || fromPage == toPage) {
-			return;
-		}
-		try {
-			Object from = fromPage.getClass().getField("map").get(fromPage);
-			Object to = toPage.getClass().getField("map").get(toPage);
-			Class<?> panel = from.getClass();
-			Field kind = panel.getField("kind");
-			Object k = kind.get(from);
-			if (!k.equals(kind.get(to))) {
-				panel.getMethod("setKind", kind.getType()).invoke(to, k);
-			}
-			panel.getMethod("setBand", Integer.class).invoke(to, field(from, "band"));
-			if ((Boolean) field(from, "centred")) {
-				panel.getMethod("centreOn", double.class, double.class).invoke(to, panel.getMethod("centreX").invoke(from), panel.getMethod("centreZ").invoke(from));
-			}
-			panel.getMethod("setZoomIndex", int.class).invoke(to, panel.getMethod("zoomIndex").invoke(from));
-			Field selected = panel.getField("selected");
-			selected.set(to, selected.get(from));
-			Field legend = fromPage.getClass().getField("legendTab");
-			legend.set(toPage, legend.get(fromPage));
-		} catch (ReflectiveOperationException | RuntimeException e) {
-			broken(e);
-		}
-	}
-
-	private static void broken(Throwable e) {
-		if (!syncBroken) {
-			syncBroken = true;
-			VoidHub.LOGGER.warn("VOID Hub: this VOID Atlas's map page is not the one the hub knows; the Map page and M keep separate map state", e);
-		}
-	}
-
-	/**
-	 * A page's map state as text, for tests: layer, centre, zoom step, selection. Takes Atlas's
-	 * page or a screen holding one (M).
-	 */
-	public static String describe(Object pageOrScreen) {
-		try {
-			Object page = pageOrScreen instanceof Screen screen ? screen.getClass().getField("page").get(screen) : pageOrScreen;
-			Object map = page.getClass().getField("map").get(page);
-			Class<?> panel = map.getClass();
-			return String.format(Locale.ROOT, "%s %.2f %.2f z%d %s", panel.getField("kind").get(map), (Double) panel.getMethod("centreX").invoke(map),
-				(Double) panel.getMethod("centreZ").invoke(map), (Integer) panel.getMethod("zoomIndex").invoke(map), panel.getField("selected").get(map));
-		} catch (ReflectiveOperationException | RuntimeException e) {
-			return "unreadable: " + e;
-		}
-	}
-
-	@Override
-	public String describe() {
-		return describe(this.page());
-	}
-
-	private static String currentDimension() {
-		Minecraft mc = Minecraft.getInstance();
-		return mc.level == null ? "" : mc.level.dimension().identifier().toString();
+		return new AtlasMapHost(AtlasApi.get());
 	}
 
 	@Override
@@ -224,18 +92,33 @@ public final class AtlasMapHost implements MapHost {
 	}
 
 	@Override
+	public boolean isMapKey(KeyEvent event) {
+		return this.api.isMapKey(event);
+	}
+
+	@Override
 	public void shown() {
-		// The widget is kept between opens. Atlas's own map screen starts on the player's dimension
-		// every time it opens, so the kept one follows the player when they changed dimension.
-		String now = currentDimension();
-		if (!now.equals(this.dimension)) {
-			this.dimension = now;
-			try {
-				this.widget.showLayer(now.equals("minecraft:the_nether") ? MapView.NETHER : MapView.SURFACE);
-			} catch (LinkageError e) {
-				// an Atlas from before showLayer: the map keeps the layer last chosen
-			}
-		}
+		this.widget.shown();
+	}
+
+	@Override
+	public void closed() {
+		this.widget.closed();
+	}
+
+	@Override
+	public double unitFor(int width, int height) {
+		return this.widget.unitFor(width, height);
+	}
+
+	@Override
+	public void freezeWorld(boolean freeze) {
+		this.widget.freezeWorld(freeze);
+	}
+
+	@Override
+	public boolean drawFrozenWorld(GuiGraphicsExtractor graphics) {
+		return this.widget.drawFrozenWorld(graphics);
 	}
 
 	@Override
@@ -251,9 +134,9 @@ public final class AtlasMapHost implements MapHost {
 			return null;
 		}
 		if (select) {
-			this.widget.select(WAYPOINT_MARKER + w.id());
+			this.widget.selectWaypoint(w);
 		}
-		VoidHub.LOGGER.info("VOID Hub: added Atlas waypoint \"{}\" at {} {} {} ({})", w.name(), w.x(), w.y(), w.z(), w.dimension());
+		VoidHub.LOGGER.info("VOID Hub: added Atlas waypoint \"{}\" at {} {} {} ({}, {})", w.name(), w.x(), w.y(), w.z(), w.dimension(), this.api.markerId(w));
 		return w.name();
 	}
 
@@ -264,23 +147,13 @@ public final class AtlasMapHost implements MapHost {
 
 	@Override
 	public double[] view() {
-		// MapWidget has no getter for its view yet: read Atlas's page and map panel reflectively.
-		// Tests only; a different Atlas just answers null.
-		try {
-			Object page = this.page();
-			Object map = page.getClass().getField("map").get(page);
-			double x = (Double) map.getClass().getMethod("centreX").invoke(map);
-			double z = (Double) map.getClass().getMethod("centreZ").invoke(map);
-			double k = (Double) map.getClass().getMethod("zoom").invoke(map);
-			return new double[] {x, z, k};
-		} catch (ReflectiveOperationException | RuntimeException e) {
-			return null;
-		}
+		MapView v = this.widget.view();
+		return new double[] {v.centerX(), v.centerZ(), v.pixelsPerBlock()};
 	}
 
-	private static Object field(Object o, String name) throws ReflectiveOperationException {
-		Field f = o.getClass().getDeclaredField(name);
-		f.setAccessible(true);
-		return f.get(o);
+	@Override
+	public String describe() {
+		MapView v = this.widget.view();
+		return String.format(Locale.ROOT, "%s %.2f %.2f @%.3f", v.layer(), v.centerX(), v.centerZ(), v.pixelsPerBlock());
 	}
 }

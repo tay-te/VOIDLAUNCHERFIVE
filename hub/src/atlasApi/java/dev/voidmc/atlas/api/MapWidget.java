@@ -29,4 +29,28 @@ public interface MapWidget {
 
 	default void showDepth(int y) {
 	}
+
+	default MapView view() {
+		return new MapView(MapView.SURFACE, 0, 0, 1, 0, true, true, 12);
+	}
+
+	default void selectWaypoint(Waypoint waypoint) {
+	}
+
+	default void closed() {
+	}
+
+	default void shown() {
+	}
+
+	default float unitFor(int width, int height) {
+		return 1;
+	}
+
+	default void freezeWorld(boolean freeze) {
+	}
+
+	default boolean drawFrozenWorld(GuiGraphicsExtractor graphics) {
+		return false;
+	}
 }

@@ -1,6 +1,7 @@
 package dev.voidmc.hub.screen;
 
 import com.mojang.blaze3d.platform.Window;
+import dev.voidmc.hub.HubConfig;
 import dev.voidmc.hub.VoidHub;
 import dev.voidmc.hub.layout.HubLayout;
 import dev.voidmc.hub.layout.PointerMap;
@@ -69,8 +70,10 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	private boolean mapGrab;
 	/** Map page: the pointer is over the map, and the page was told it left (its islands unhovered). */
 	private boolean pointerOnMap;
-	/** Map page: the map has been told it is showing, this open. */
+	/** Map page: the map has been told it is showing, this open (and must hear when it stops). */
 	private boolean mapShown;
+	/** Map page: the world behind it is Atlas's still (voidhub.frozenMap). */
+	private boolean frozen;
 	/** "Waypoint here" feedback on the strip: what to say, and until when (nanoTime). */
 	private String pillNote = "";
 	private long pillNoteUntil;
@@ -121,6 +124,7 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 
 	/** After a page switch: the new layout, and its first frame waits for the page's paint, as on open. */
 	protected void pageChanged() {
+		this.mapHidden();
 		this.relayout();
 		this.firstFrame = true;
 		this.mapGrab = false;
@@ -207,6 +211,15 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 			this.hub.awaitPainted(200_000_000L);
 		}
 
+		// 1b. With the still backdrop on (voidhub.frozenMap), Atlas's still of the world behind the
+		//     Map page: once it has one, the world itself is not drawn at all.
+		if (map && this.frozen) {
+			MapHost host = HubMap.host();
+			if (host != null) {
+				host.drawFrozenWorld(graphics);
+			}
+		}
+
 		// 2. The chrome: one premultiplied quad, 1:1 with the framebuffer. (Submitted before this
 		//    frame's upload below; the GUI is drawn after both.)
 		graphics.pose().pushMatrix();
@@ -256,6 +269,10 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		if (!this.mapShown) {
 			this.mapShown = true;
 			host.shown();
+			this.frozen = HubConfig.frozenMap();
+			if (this.frozen) {
+				host.freezeWorld(true);
+			}
 		}
 		Rect w = this.layout.window;
 		long t0 = System.nanoTime();
@@ -347,6 +364,7 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		w.put("day", this.minecraft.level == null ? 0 : this.minecraft.level.getOverworldClockTime() / 24000L + 1);
 		w.put("page", this.page());
 		w.put("atlas", HubMap.available());
+		w.put("frozen", this.frozen);
 		w.put("pill", System.nanoTime() < this.pillNoteUntil ? this.pillNote : "");
 		this.writePurse(w);
 		this.writeState(w);
@@ -528,6 +546,21 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		return new MouseButtonEvent(p[0], p[1], event.buttonInfo());
 	}
 
+	/** The Map page stops showing (another page, or the hub closed): the map saves, the world moves again. */
+	private void mapHidden() {
+		if (this.mapShown) {
+			MapHost host = HubMap.existing();
+			if (host != null) {
+				if (this.frozen) {
+					host.freezeWorld(false);
+				}
+				host.closed();
+			}
+			this.mapShown = false;
+			this.frozen = false;
+		}
+	}
+
 	/** The map, if the Map page is showing and Atlas is there. */
 	private MapHost mapHost() {
 		return this.onMap() ? HubMap.host() : null;
@@ -692,6 +725,8 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 			this.cyclePage(event.hasShiftDown());
 		} else if (host != null && host.keyPressed(event)) {
 			return;  // the map's
+		} else if (host != null && host.isMapKey(event)) {
+			this.onClose();  // M closes the hub on the Map page, as it closes Atlas's own map
 		} else if (event.isEscape()) {
 			this.onClose();
 		} else if (this.minecraft.options.keyInventory.matches(event)) {
@@ -721,6 +756,7 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 
 	@Override
 	public void removed() {
+		this.mapHidden();
 		super.removed();
 		this.hub.setListener(null);
 		this.pending.clear();
