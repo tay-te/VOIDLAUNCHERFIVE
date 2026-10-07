@@ -21,8 +21,8 @@ import net.minecraft.world.level.block.state.BlockState;
  * @param biomes per cell, an index into {@code biomePalette}, or -1 for a biome not known (land saved before biomes
  *     were kept)
  * @param seen per cell, whether the chunks the player loaded showed most of it (true) or the world generator worked it
- *     out (false). Generator cells exist only where the player's own game has the generator: singleplayer and a LAN
- *     host. On a multiplayer server every cell is seen, and land the player never loaded is not drawn at all.
+ *     out (false). Generator cells exist where the player's own game has the generator (singleplayer, a LAN host) or a
+ *     server running VOID LOD describes its land; on other servers land the player never loaded is not drawn at all.
  */
 public record VisibleTerrain(ResourceKey<Level> dimension, long revision, int minX, int minZ, int cell, int size, short[] heights,
 	int[] colors, BlockState[] blockPalette, byte[] blocks, ResourceKey<Biome>[] biomePalette, byte[] biomes, boolean[] seen) {
