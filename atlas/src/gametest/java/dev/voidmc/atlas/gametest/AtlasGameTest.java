@@ -568,19 +568,144 @@ public class AtlasGameTest implements FabricClientGameTest {
 	 * each tile to Atlas through its API; the map shows the walked land beside the land seen from afar, the edge
 	 * between them, and the hover's readout.
 	 */
+	/**
+	 * Where, inside VOID LOD's reach, neither walked nor far land is known: 256-block cells with nothing at any of their
+	 * nine sample points, logged (for LOD) with their corner coordinates.
+	 */
+	private void farHoles(ClientGameTestContext context, double reach) {
+		String report = context.computeOnClient(mc -> {
+			var session = AtlasClient.get().session();
+			if (session == null || mc.player == null || reach <= 0) {
+				return "no session or no reach";
+			}
+			var d = session.dimension(mc.level.dimension().identifier().toString(), false);
+			var far = d.layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER);
+			var walked = d.layer(dev.voidmc.atlas.client.data.DimensionData.SURFACE);
+			int px = mc.player.getBlockX();
+			int pz = mc.player.getBlockZ();
+			int r = (int) (reach * 0.9);
+			int cell = 256;
+			java.util.List<int[]> holes = new java.util.ArrayList<>();
+			int cells = 0;
+			for (int cz = Math.floorDiv(pz - r, cell); cz <= Math.floorDiv(pz + r, cell); cz++) {
+				for (int cx = Math.floorDiv(px - r, cell); cx <= Math.floorDiv(px + r, cell); cx++) {
+					double mx = cx * cell + cell / 2.0 - px;
+					double mz = cz * cell + cell / 2.0 - pz;
+					if (Math.hypot(mx, mz) > r - cell / 2.0) {
+						continue;
+					}
+					cells++;
+					boolean any = false;
+					for (int s = 0; s < 9 && !any; s++) {
+						int x = cx * cell + 32 + (s % 3) * 96;
+						int z = cz * cell + 32 + (s / 3) * 96;
+						for (var layer : new dev.voidmc.atlas.client.data.LayerData[]{walked, far}) {
+							if (layer == null) {
+								continue;
+							}
+							var raw = layer.raw(dev.voidmc.atlas.core.Coords.region(x), dev.voidmc.atlas.core.Coords.region(z), false);
+							if (raw != null && raw.known(dev.voidmc.atlas.core.RegionRaw.index(dev.voidmc.atlas.core.Coords.inRegion(x),
+								dev.voidmc.atlas.core.Coords.inRegion(z)))) {
+								any = true;
+								break;
+							}
+						}
+					}
+					if (!any) {
+						holes.add(new int[]{cx * cell, cz * cell, (int) Math.hypot(mx, mz)});
+					}
+				}
+			}
+			holes.sort(java.util.Comparator.comparingInt(h -> h[2]));
+			int[] rings = new int[8];
+			for (int[] h : holes) {
+				rings[Math.min(7, h[2] * 8 / Math.max(1, r))]++;
+			}
+			StringBuilder near = new StringBuilder();
+			for (int i = 0; i < Math.min(30, holes.size()); i++) {
+				near.append(String.format(Locale.ROOT, " (%d, %d) %d m", holes.get(i)[0], holes.get(i)[1], holes.get(i)[2]));
+			}
+			return String.format(Locale.ROOT, "%d of %d 256-block cells inside 90%% of the reach (%d blocks round %d, %d) have no land; by eighths of that "
+				+ "reach, nearest first: %s; the nearest (corner x, z, distance):%s", holes.size(), cells, r, px, pz, java.util.Arrays.toString(rings), near);
+		});
+		log("far sight holes: " + report);
+		// and near the player, finer: 64-block cells within 2 km with nothing at any of their four sample points
+		String near = context.computeOnClient(mc -> {
+			var session = AtlasClient.get().session();
+			if (session == null || mc.player == null) {
+				return "no session";
+			}
+			var d = session.dimension(mc.level.dimension().identifier().toString(), false);
+			var far = d.layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER);
+			var walked = d.layer(dev.voidmc.atlas.client.data.DimensionData.SURFACE);
+			int px = mc.player.getBlockX();
+			int pz = mc.player.getBlockZ();
+			int r = (int) Math.min(2048, reach * 0.9);
+			java.util.List<String> out = new java.util.ArrayList<>();
+			int cells = 0;
+			for (int cz = Math.floorDiv(pz - r, 64); cz <= Math.floorDiv(pz + r, 64); cz++) {
+				for (int cx = Math.floorDiv(px - r, 64); cx <= Math.floorDiv(px + r, 64); cx++) {
+					if (Math.hypot(cx * 64 + 32 - px, cz * 64 + 32 - pz) > r) {
+						continue;
+					}
+					cells++;
+					boolean any = false;
+					for (int s = 0; s < 4 && !any; s++) {
+						int x = cx * 64 + 16 + (s % 2) * 32;
+						int z = cz * 64 + 16 + (s / 2) * 32;
+						for (var layer : new dev.voidmc.atlas.client.data.LayerData[]{walked, far}) {
+							var raw = layer == null ? null : layer.raw(dev.voidmc.atlas.core.Coords.region(x), dev.voidmc.atlas.core.Coords.region(z), false);
+							if (raw != null && raw.known(dev.voidmc.atlas.core.RegionRaw.index(dev.voidmc.atlas.core.Coords.inRegion(x),
+								dev.voidmc.atlas.core.Coords.inRegion(z)))) {
+								any = true;
+								break;
+							}
+						}
+					}
+					if (!any) {
+						out.add("(" + cx * 64 + ", " + cz * 64 + ")");
+					}
+				}
+			}
+			return out.size() + " of " + cells + " 64-block cells within " + r + " blocks: " + String.join(" ", out.subList(0, Math.min(60, out.size())));
+		});
+		log("far sight holes near: " + near);
+	}
+
 	private void lodShots(ClientGameTestContext context, TestSingleplayerContext world) {
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d 0 30", this.spawn.getX(), 200, this.spawn.getZ()));
-		long until = System.currentTimeMillis() + 120_000;
+		// until VOID LOD says its view is complete (every tile it wants built and handed over), then until Atlas has
+		// written what it was given; older LODs without complete(): until 200 tiles are in
+		long started = System.currentTimeMillis();
+		long until = started + 240_000;
 		long tiles = 0;
+		Boolean complete = null;
+		int steady = 0;
+		context.waitTicks(200); // LOD learns where the player went first
 		while (System.currentTimeMillis() < until) {
-			context.waitTicks(100);
+			context.waitTicks(40);
 			tiles = dev.voidmc.atlas.client.FarSight.TILES.get();
-			if (tiles > 200) {
+			complete = context.computeOnClient(mc -> dev.voidmc.atlas.client.FarSight.lodComplete());
+			// complete for ten seconds running (it can be true a moment before the next ring is queued)
+			steady = complete != null && complete && tiles > 0 ? steady + 1 : 0;
+			if (complete == null ? tiles > 200 : steady >= 5) {
 				break;
 			}
 		}
+		long waited = System.currentTimeMillis() - started;
+		// what LOD handed over is written on the workers: let them finish
+		long drainUntil = System.currentTimeMillis() + 60_000;
+		long before = -1;
+		while (System.currentTimeMillis() < drainUntil && before != dev.voidmc.atlas.client.FarSight.TILES.get()) {
+			before = dev.voidmc.atlas.client.FarSight.TILES.get();
+			context.waitTicks(60);
+		}
+		tiles = dev.voidmc.atlas.client.FarSight.TILES.get();
+		double reach = context.computeOnClient(mc -> dev.voidmc.atlas.client.FarSight.lodRadius());
+		log(String.format(Locale.ROOT, "far sight: VOID LOD complete %s after %.1f s, reach %.0f blocks", complete, waited / 1000.0, reach));
 		this.settle(context, SETTLE_MS);
+		this.farHoles(context, reach);
 		log("far sight: tiles VOID LOD offered by cell size (1, 2, 4 ... 512 blocks): " + dev.voidmc.atlas.client.FarSight.OFFERED_BY_CELL);
 		log(String.format(Locale.ROOT, "far sight from VOID LOD: %d tiles taken, %d written, %d columns, listening %s", dev.voidmc.atlas.client.FarSight.TAKEN.get(),
 			tiles, dev.voidmc.atlas.client.FarSight.SAMPLES.get(), context.computeOnClient(mc -> AtlasClient.get().farSight.listening())));

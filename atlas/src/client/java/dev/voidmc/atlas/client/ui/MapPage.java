@@ -49,8 +49,11 @@ public final class MapPage {
 	private static final float PAD = 28;
 	private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMM", Locale.ROOT).withZone(ZoneId.systemDefault());
 	/** The depth scrubber's range, one cell per slice. */
-	private static final int SCRUB_TOP = 128;
-	private static final int SCRUB_BOTTOM = -64;
+	/** The depth scrubber and side view show this many blocks of the world's height at a time (25 cells of 8). */
+	private static final int SCRUB_SPAN = 192;
+	/** The window shown: from the bottom of the world's height (-64 to 128 in a vanilla overworld at cave depth). */
+	private int scrubBottom = -64;
+	private int scrubTop = 128;
 
 	private final AtlasClient atlas;
 	public final MapPanel map;
@@ -1696,7 +1699,17 @@ public final class MapPage {
 	// --- the underground panel -------------------------------------------------------------------------------------
 
 	/** Underground: the depth scrubber, the side view through the player, and the places at this depth. */
+	private void updateScrubWindow() {
+		var level = Minecraft.getInstance().level;
+		int minY = level == null ? -64 : level.getMinY();
+		int maxY = level == null ? 319 : level.getMinY() + level.getHeight() - 1;
+		int[] w = dev.voidmc.atlas.core.under.DepthWindow.of(minY, maxY, this.map.band(this.map.kind) * DimensionData.BAND, this.scrubBottom, SCRUB_SPAN);
+		this.scrubBottom = w[0];
+		this.scrubTop = w[1];
+	}
+
 	private void depthPanel(Ui ui, float mx, float my) {
+		this.updateScrubWindow();
 		float x = this.listX;
 		float y = this.listY;
 		this.scrubber(ui, x, y, mx, my);
@@ -1719,11 +1732,12 @@ public final class MapPage {
 	}
 
 	private float scrubCellY(float y, int cellY) {
-		return y + 35 + (SCRUB_TOP - cellY) / 8F * 12.5F;
+		return y + 35 + (this.scrubTop - cellY) / 8F * 12.5F;
 	}
 
 	/**
-	 * The design's depth scrubber: a cell for every 8 blocks from 128 down to -64, brighter where the player has
+	 * The design's depth scrubber: a cell for every 8 blocks of its window on the world's height (128 down to -64 at a
+	 * vanilla overworld's cave depth), brighter where the player has
 	 * explored, violet for the slice shown (live), outlined for the player's own height; click or drag to choose a slice,
 	 * the handle beside it shows its height.
 	 */
@@ -1736,7 +1750,7 @@ public final class MapPage {
 		int you = p == null ? Integer.MIN_VALUE : DimensionData.bandOf(p.getBlockY());
 		int surface = p == null ? 64 : this.loadedHeight(p.getBlockX(), p.getBlockZ(), 64);
 		int surfaceBand = DimensionData.bandOf(surface);
-		for (int cy = SCRUB_TOP; cy >= SCRUB_BOTTOM; cy -= 8) {
+		for (int cy = this.scrubTop; cy >= this.scrubBottom; cy -= 8) {
 			int band = DimensionData.bandOf(cy);
 			float ty = this.scrubCellY(y, cy);
 			int fill;
@@ -1755,14 +1769,14 @@ public final class MapPage {
 				ui.textRight(minus(cy), x + 37, ty - 0.76F, Ui.Font.F9, 0.6F, Theme.INK_4);
 			}
 		}
-		if (surfaceBand * 8 <= SCRUB_TOP && surfaceBand * 8 >= SCRUB_BOTTOM) {
+		if (surfaceBand * 8 <= this.scrubTop && surfaceBand * 8 >= this.scrubBottom) {
 			ui.text("surface", x + 81, this.scrubCellY(y, surfaceBand * 8) - 0.76F, Ui.Font.F85, 0.6F, Theme.INK_4);
 		}
-		if (p != null && you != slice && you * 8 <= SCRUB_TOP && you * 8 >= SCRUB_BOTTOM) {
+		if (p != null && you != slice && you * 8 <= this.scrubTop && you * 8 >= this.scrubBottom) {
 			ui.text("you " + minus(p.getBlockY()), x + 81, this.scrubCellY(y, you * 8) - 1.26F, Ui.Font.F9, 0.4F, Theme.INK_2);
 		}
 		// the handle: the slice's height
-		float hy = this.scrubCellY(y, Math.max(SCRUB_BOTTOM, Math.min(SCRUB_TOP, slice * 8))) - 5.5F;
+		float hy = this.scrubCellY(y, Math.max(this.scrubBottom, Math.min(this.scrubTop, slice * 8))) - 5.5F;
 		String label = minus(slice * DimensionData.BAND);
 		float hw = ui.width(label, Ui.Font.F105) + 14;
 		ui.panel(x + 81, hy, hw, 19, 7, Theme.RAISED, 0x24FFFFFF);
@@ -1777,8 +1791,8 @@ public final class MapPage {
 
 	private void scrubTo(float my) {
 		float cells = (my - (this.scrubY0 + 35 + 4)) / 12.5F;
-		int cy = SCRUB_TOP - Math.round(cells) * 8;
-		cy = Math.max(SCRUB_BOTTOM, Math.min(SCRUB_TOP, cy));
+		int cy = this.scrubTop - Math.round(cells) * 8;
+		cy = Math.max(this.scrubBottom, Math.min(this.scrubTop, cy));
 		this.map.setBand(DimensionData.bandOf(cy));
 	}
 
@@ -1794,7 +1808,7 @@ public final class MapPage {
 		ui.text("SIDE VIEW  ·  Z " + minus(z), x + 14, y + 14, Ui.Font.F85, 1, Theme.INK_4);
 		float top = y + 48.5F;
 		float h = 287.5F;
-		float k = h / (SCRUB_TOP - SCRUB_BOTTOM);
+		float k = h / (this.scrubTop - this.scrubBottom);
 		int cx = p == null ? (int) this.map.centreX() : p.getBlockX();
 		int half = (int) (172 / k / 2);
 		MapSession session = this.atlas.session();
@@ -1809,17 +1823,17 @@ public final class MapPage {
 		for (int bx = cx - half; bx < cx + half; bx += step) {
 			float sx = x + 86 + (bx - cx) * k;
 			float sw = step * k + 0.01F;
-			int ground = d.ceiling ? SCRUB_TOP : Integer.MIN_VALUE;
+			int ground = d.ceiling ? this.scrubTop : Integer.MIN_VALUE;
 			if (surface != null) {
 				RegionRaw raw = surface.rawIfLoaded(Coords.region(bx), Coords.region(z));
 				int i = RegionRaw.index(Coords.inRegion(bx), Coords.inRegion(z));
 				if (raw != null && raw.known(i)) {
-					ground = Math.min(SCRUB_TOP, raw.height[i] - raw.depth(i));
+					ground = Math.min(this.scrubTop, raw.height[i] - raw.depth(i));
 				}
 			}
 			if (ground != Integer.MIN_VALUE) {
 				// the rock under the ground, a quiet fill
-				float gy = top + (SCRUB_TOP - ground) * k;
+				float gy = top + (this.scrubTop - ground) * k;
 				ui.rect(sx, gy, sw, top + h - gy, Theme.ink(0.07F));
 				if (!d.ceiling) {
 					ui.rect(sx, gy, sw, 1.5F, Theme.ink(0.22F));
@@ -1828,7 +1842,7 @@ public final class MapPage {
 			// the air seen underground, cut out of it
 			for (int band : d.bands()) {
 				int by0 = band * DimensionData.BAND;
-				if (by0 > SCRUB_TOP || by0 < SCRUB_BOTTOM) {
+				if (by0 > this.scrubTop || by0 < this.scrubBottom) {
 					continue;
 				}
 				LayerData layer = d.layerIfOpen(DimensionData.underLayer(band));
@@ -1842,25 +1856,25 @@ public final class MapPage {
 				}
 				int floor = Math.max(raw.height[i], by0 - 24);
 				int roof = by0 + DimensionData.BAND - 1;
-				float fy = top + (SCRUB_TOP - roof) * k;
+				float fy = top + (this.scrubTop - roof) * k;
 				float fh = Math.max(k, (roof - floor + 1) * k);
 				ui.rect(sx, fy, sw, fh, Theme.MAP_WELL);
 			}
 		}
 		// the slice, and the player
 		int slice = this.map.band(this.map.kind);
-		float sy = top + (SCRUB_TOP - (slice * DimensionData.BAND + DimensionData.BAND)) * k;
+		float sy = top + (this.scrubTop - (slice * DimensionData.BAND + DimensionData.BAND)) * k;
 		ui.rect(x, sy, 172, DimensionData.BAND * k, Theme.ink(0.05F));
 		ui.rect(x, sy + DimensionData.BAND * k / 2 - 1, 172, 2, Theme.alpha(Theme.VIOLET, 0.9F));
 		if (p != null) {
-			float py = top + (SCRUB_TOP - p.getBlockY()) * k;
+			float py = top + (this.scrubTop - p.getBlockY()) * k;
 			ui.round(x + 86 - 3.5F, py - 3.5F, 7, 7, 1.5F, Theme.INK);
 		}
 		ui.flush();
 		ui.g.disableScissor();
 		if (surface != null && p != null) {
 			int s = this.loadedHeight(cx, z, 64);
-			ui.textRight("surface " + s, x + 158, top + (SCRUB_TOP - s) * k - 14, Ui.Font.F85, 0.6F, Theme.INK_4);
+			ui.textRight("surface " + s, x + 158, top + (this.scrubTop - s) * k - 14, Ui.Font.F85, 0.6F, Theme.INK_4);
 		}
 		ui.text(d.ceiling ? "lava sea" : "bedrock", x + 14, y + 356, Ui.Font.F85, 0.6F, Theme.INK_4);
 	}
@@ -3427,8 +3441,14 @@ public final class MapPage {
 	/** Moves the underground slice a step (8 blocks) up or down; the view stops following the player. */
 	private void stepBand(int steps) {
 		int band = this.map.band(this.map.kind) + steps;
-		int top = DimensionData.bandOf(SCRUB_TOP);
-		int bottom = DimensionData.bandOf(SCRUB_BOTTOM);
+		var level = Minecraft.getInstance().level;
+		if (level != null) {
+			// anywhere in the world's height; the window follows
+			this.map.setBand(Math.max(DimensionData.bandOf(level.getMinY()), Math.min(DimensionData.bandOf(level.getMinY() + level.getHeight() - 1), band)));
+			return;
+		}
+		int top = DimensionData.bandOf(this.scrubTop);
+		int bottom = DimensionData.bandOf(this.scrubBottom);
 		this.map.setBand(Math.max(bottom, Math.min(top, band)));
 	}
 

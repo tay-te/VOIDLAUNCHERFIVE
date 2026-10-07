@@ -104,6 +104,22 @@ public final class FarSight {
 	 * Whether VOID LOD is installed (or the tour says to act as if: {@code -Datlas.test.assumeLod=true}, for its far
 	 * sight shots, fed made-up far tiles).
 	 */
+	/**
+	 * Whether VOID LOD has built, drawn and handed over every tile its view wants, with nothing queued
+	 * ({@code LodApi.complete()}, VOID LOD 003b81f5 on); null when this LOD has no such call. Turns false again as the
+	 * player moves into new land.
+	 */
+	public static @org.jspecify.annotations.Nullable Boolean lodComplete() {
+		Object v = Lod.call("complete");
+		return v instanceof Boolean b ? b : null;
+	}
+
+	/** How far VOID LOD draws the far land, in blocks (0 while it is not drawing, or with no such call). */
+	public static double lodRadius() {
+		Object v = Lod.call("radius");
+		return v instanceof Number n ? n.doubleValue() : 0;
+	}
+
 	public static boolean lodPresent() {
 		return FabricLoader.getInstance().isModLoaded(LOD_MOD) || Boolean.getBoolean("atlas.test.assumeLod");
 	}
@@ -426,6 +442,38 @@ public final class FarSight {
 		private static volatile Map<String, Method> parts;
 
 		private Lod() {
+		}
+
+		private static final Map<String, Method> CALLS = new java.util.concurrent.ConcurrentHashMap<>();
+		private static final Method NONE;
+
+		static {
+			try {
+				NONE = Object.class.getMethod("hashCode");
+			} catch (NoSuchMethodException e) {
+				throw new IllegalStateException(e);
+			}
+		}
+
+		/** Calls one of LodApi's static no-argument methods ({@code complete}, {@code radius}); null if it has none. */
+		static Object call(String name) {
+			Method m = CALLS.computeIfAbsent(name, n -> {
+				try {
+					Class<?> api = Class.forName("dev.voidmc.lod.api.LodApi", true, FarSight.class.getClassLoader());
+					Method found = api.getMethod(n);
+					return Modifier.isStatic(found.getModifiers()) ? found : NONE;
+				} catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
+					return NONE;
+				}
+			});
+			if (m == NONE) {
+				return null;
+			}
+			try {
+				return m.invoke(null);
+			} catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
+				return null;
+			}
 		}
 
 		/** Adds a listener that hands each tile to {@code sink}; null if LOD has no such API. */

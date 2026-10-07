@@ -129,7 +129,7 @@ public final class ChunkScanner {
 				boolean soul = false;
 				BlockState ground = null;
 				int groundY = minY;
-				int floor = Math.max(minY, top - 320);
+				int floor = minY; // the loop stops at the ground: any height of world
 				for (int y = top; y >= floor; y--) {
 					BlockState state = state(sections, minY, x, y, z);
 					if (state.isAir()) {
