@@ -118,23 +118,45 @@ public final class StationLedger {
 	 * a manor). Capped, so a quarter is a tendency, not a wall.
 	 */
 	public double neighbourhood(Station s, int x, int z) {
-		double score = 0;
-		int rank = rank(s);
-		for (int[] h : this.homes) {
-			int dx = h[0] - x;
-			int dz = h[1] - z;
-			if (dx * dx + dz * dz > 22 * 22) {
-				continue;
+		if (this.buckets == null) {
+			// homes by 32-block cell, so a frontage search over a city's every street does not read every home for every place
+			this.buckets = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
+			for (int[] h : this.homes) {
+				this.buckets.computeIfAbsent(cell(h[0] >> 5, h[1] >> 5), k -> new ArrayList<>()).add(h);
 			}
-			Station o = STATIONS[h[2]];
-			if (o == s) {
-				score += 5;
-			} else if (Math.abs(rank(o) - rank) >= 2) {
-				score -= 4;
+		}
+		// whole points summed, so the order homes are read in cannot change the score
+		int score = 0;
+		int rank = rank(s);
+		for (int cz = (z - 22) >> 5; cz <= (z + 22) >> 5; cz++) {
+			for (int cx = (x - 22) >> 5; cx <= (x + 22) >> 5; cx++) {
+				List<int[]> in = this.buckets.get(cell(cx, cz));
+				if (in == null) {
+					continue;
+				}
+				for (int[] h : in) {
+					int dx = h[0] - x;
+					int dz = h[1] - z;
+					if (dx * dx + dz * dz > 22 * 22) {
+						continue;
+					}
+					Station o = STATIONS[h[2]];
+					if (o == s) {
+						score += 5;
+					} else if (Math.abs(rank(o) - rank) >= 2) {
+						score -= 4;
+					}
+				}
 			}
 		}
 		return Math.max(-24, Math.min(30, score));
 	}
+
+	private static long cell(int cx, int cz) {
+		return ((long) cx << 32) ^ (cz & 0xFFFFFFFFL);
+	}
+
+	private it.unimi.dsi.fastutil.longs.@Nullable Long2ObjectOpenHashMap<List<int[]>> buckets;
 
 	/** Rough standing for neighbourliness: 0 the poor, 1 peasants, 2 artisans and the like, 3 merchants, 4 gentry and lord. */
 	private static int rank(Station s) {

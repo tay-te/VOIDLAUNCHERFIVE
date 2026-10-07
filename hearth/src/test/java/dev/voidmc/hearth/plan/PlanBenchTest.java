@@ -43,7 +43,7 @@ class PlanBenchTest {
 		HearthServices.setBlueprints(BuildModule.standalone());
 		try {
 			int days = Integer.parseInt(System.getenv().getOrDefault("HEARTH_PLAN_BENCH_DAYS", "420"));
-			String cases = System.getenv().getOrDefault("HEARTH_PLAN_BENCH_CASES", "temperate:hills:1:-,temperate:hills:5:walled,mediterranean:slope:3:-");
+			String cases = System.getenv().getOrDefault("HEARTH_PLAN_BENCH_CASES", "temperate:hills:1:-,temperate:hills:5:walled,mediterranean:slope:3:-,temperate:coast:2:-,temperate:river:4:-");
 			boolean profile = !"0".equals(System.getenv("HEARTH_PLAN_BENCH_PROFILE"));
 			for (String c : cases.split(",")) {
 				String[] a = c.split(":");

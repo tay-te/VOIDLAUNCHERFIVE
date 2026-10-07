@@ -12,7 +12,6 @@ import dev.voidmc.hearth.plan.model.Site;
 import dev.voidmc.hearth.plan.road.Polyline;
 import dev.voidmc.hearth.plan.terrain.Ground;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.IntPredicate;
 import net.minecraft.core.Direction;
@@ -252,12 +251,14 @@ public final class Parcels {
 				}
 			}
 		}
-		positions.sort(Comparator.comparingDouble((Pos p) -> -p.pre));
+		// best first; a city has thousands of places and the search usually stops within the first few dozen, so they are
+		// drawn from a heap rather than all sorted
+		Ranking ranking = new Ranking(positions);
 		List<Parcel> found = new ArrayList<>();
 		int budget = ctx.config.searchBudget();
 		int i = 0;
 		for (; i < positions.size() && budget > 0 && !ctx.pastDeadline(); i++, budget--) {
-			Parcel p = place(ctx, req, positions.get(i));
+			Parcel p = place(ctx, req, positions.get(ranking.next()));
 			if (p != null) {
 				found.add(p);
 				if (found.size() >= enough) {
@@ -269,10 +270,14 @@ public final class Parcels {
 			// a city's best-ranked places (near the heart, on the main street) can all be leftover gaps too small for
 			// anything: the budget spent on them would leave the frontage of its newer streets unseen and the town stalled
 			// (requests/w5-tour.md §1), so a spread sample of the rest gets half a budget more
+			List<Pos> rest = new ArrayList<>(positions.size() - i);
+			while (rest.size() < positions.size() - i) {
+				rest.add(positions.get(ranking.next()));
+			}
 			int more = Math.max(1, ctx.config.searchBudget() / 2);
-			int step = Math.max(1, (positions.size() - i) / more);
-			for (int k = i; k < positions.size() && !ctx.pastDeadline(); k += step) {
-				Parcel p = place(ctx, req, positions.get(k));
+			int step = Math.max(1, rest.size() / more);
+			for (int k = 0; k < rest.size() && !ctx.pastDeadline(); k += step) {
+				Parcel p = place(ctx, req, rest.get(k));
 				if (p != null) {
 					found.add(p);
 					if (found.size() >= enough) {
@@ -282,6 +287,62 @@ public final class Parcels {
 			}
 		}
 		return found;
+	}
+
+	/**
+	 * Places in the order a stable sort by falling pre-score would give (ties in the order they were gathered), drawn one
+	 * at a time from a binary heap: building it is linear, and each draw costs a logarithm.
+	 */
+	private static final class Ranking {
+		private final double[] pre;
+		private final int[] heap;
+		private int size;
+
+		Ranking(List<Pos> positions) {
+			this.size = positions.size();
+			this.pre = new double[this.size];
+			this.heap = new int[this.size];
+			for (int k = 0; k < this.size; k++) {
+				this.pre[k] = positions.get(k).pre;
+				this.heap[k] = k;
+			}
+			for (int k = this.size / 2 - 1; k >= 0; k--) {
+				down(k);
+			}
+		}
+
+		/** The index of the next place; only as many times as there are places. */
+		int next() {
+			int top = this.heap[0];
+			this.heap[0] = this.heap[--this.size];
+			down(0);
+			return top;
+		}
+
+		/** Whether place a comes before place b: the higher pre-score (compared as the sort compared it), then the earlier. */
+		private boolean before(int a, int b) {
+			int c = Double.compare(-this.pre[a], -this.pre[b]);
+			return c < 0 || c == 0 && a < b;
+		}
+
+		private void down(int k) {
+			int v = this.heap[k];
+			while (true) {
+				int c = 2 * k + 1;
+				if (c >= this.size) {
+					break;
+				}
+				if (c + 1 < this.size && before(this.heap[c + 1], this.heap[c])) {
+					c++;
+				}
+				if (!before(this.heap[c], v)) {
+					break;
+				}
+				this.heap[k] = this.heap[c];
+				k = c;
+			}
+			this.heap[k] = v;
+		}
 	}
 
 	/**
