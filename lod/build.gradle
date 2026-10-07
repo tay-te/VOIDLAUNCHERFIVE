@@ -127,6 +127,18 @@ fabricApi {
 	}
 }
 
+// What the horizon's quads are made of, per level, with and without trees.
+tasks.register('faceBench', JavaExec) {
+	group = 'lod'
+	classpath = sourceSets.gametest.runtimeClasspath
+	mainClass = 'dev.voidmc.lod.gametest.FaceBench'
+	jvmArgs '-Xmx4g'
+	args = [project.findProperty('seed') ?: '8675309']
+	if (project.hasProperty('lod.bench.radii')) {
+		systemProperty 'lod.bench.radii', project.property('lod.bench.radii').toString()
+	}
+}
+
 // What the generator cache costs on a first visit and saves on the next (four threads, plates prebuilt).
 //   ./gradlew cacheBench -Plod.bench.radii=32768
 tasks.register('cacheBench', JavaExec) {

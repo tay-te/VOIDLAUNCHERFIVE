@@ -449,8 +449,15 @@ final class Blocky {
 		int g = this.ground[k];
 		if (this.crown[k] >= 0) {
 			int under = Math.min(t, this.under[k]);
-			this.band(dir, edge, a0, a1, t, Math.max(b, under), floor, this.crown[k], this.s.leavesMaterial[k]);
-			this.band(dir, edge, a0, a1, under, Math.max(b, g), floor, Colors.scale(this.crown[k], 0.45F) & COLOR_MASK, this.s.leavesMaterial[k]);
+			int shade = Colors.scale(this.crown[k], 0.45F) & COLOR_MASK;
+			if (this.s.cell >= 4 && Math.max(b, g) < under) {
+				// where cells are 4 blocks or more, the crown's flank and the shade under it are a pixel or two each: one
+				// face, its colour running from the leaves down into the shade (trees are most of a far forest's faces)
+				this.band(dir, edge, a0, a1, t, Math.max(b, g), floor, this.crown[k], shade, this.s.leavesMaterial[k], 0);
+			} else {
+				this.band(dir, edge, a0, a1, t, Math.max(b, under), floor, this.crown[k], this.s.leavesMaterial[k]);
+				this.band(dir, edge, a0, a1, under, Math.max(b, g), floor, shade, this.s.leavesMaterial[k]);
+			}
 		}
 		// Bands thinner than about a quarter of a cell are under a pixel where the cells are a few pixels across:
 		// past that they only cost quads. The one-block rim of the surface block goes first, then the soil, then
@@ -603,6 +610,11 @@ final class Blocky {
 
 	/** One band of wall in colour {@code c}, made of {@code material}, with {@code water} flagging water's own faces. */
 	private void band(int dir, int edge, int a0, int a1, int hi, int lo, int floor, int c, int material, int water) {
+		this.band(dir, edge, a0, a1, hi, lo, floor, c, c, material, water);
+	}
+
+	/** A band whose colour runs from {@code c} along its top to {@code cl} along its foot. */
+	private void band(int dir, int edge, int a0, int a1, int hi, int lo, int floor, int c, int cl, int material, int water) {
 		if (hi <= lo) {
 			return;
 		}
@@ -615,26 +627,26 @@ final class Blocky {
 			case 0 -> {
 				o.vertex(a0, hi, edge, face, c, ah, m, 0);
 				o.vertex(a1, hi, edge, face, c, ah, m, 0);
-				o.vertex(a1, lo, edge, face, c, al, m, 0);
-				o.vertex(a0, lo, edge, face, c, al, m, 0);
+				o.vertex(a1, lo, edge, face, cl, al, m, 0);
+				o.vertex(a0, lo, edge, face, cl, al, m, 0);
 			}
 			case 1 -> {
 				o.vertex(a1, hi, edge, face, c, ah, m, 0);
 				o.vertex(a0, hi, edge, face, c, ah, m, 0);
-				o.vertex(a0, lo, edge, face, c, al, m, 0);
-				o.vertex(a1, lo, edge, face, c, al, m, 0);
+				o.vertex(a0, lo, edge, face, cl, al, m, 0);
+				o.vertex(a1, lo, edge, face, cl, al, m, 0);
 			}
 			case 2 -> {
 				o.vertex(edge, hi, a1, face, c, ah, m, 0);
 				o.vertex(edge, hi, a0, face, c, ah, m, 0);
-				o.vertex(edge, lo, a0, face, c, al, m, 0);
-				o.vertex(edge, lo, a1, face, c, al, m, 0);
+				o.vertex(edge, lo, a0, face, cl, al, m, 0);
+				o.vertex(edge, lo, a1, face, cl, al, m, 0);
 			}
 			default -> {
 				o.vertex(edge, hi, a0, face, c, ah, m, 0);
 				o.vertex(edge, hi, a1, face, c, ah, m, 0);
-				o.vertex(edge, lo, a1, face, c, al, m, 0);
-				o.vertex(edge, lo, a0, face, c, al, m, 0);
+				o.vertex(edge, lo, a1, face, cl, al, m, 0);
+				o.vertex(edge, lo, a0, face, cl, al, m, 0);
 			}
 		}
 	}

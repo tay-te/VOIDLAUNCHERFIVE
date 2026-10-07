@@ -246,6 +246,15 @@ far tile covers thousands of blocks a cell. What is left is made cheap three way
   every eighth frame, and queues its missing tiles after everything the view needs now, so a fast flight finds
   its land built when it gets there.
 
+* **Fewer faces where nobody can count them.** Trees are about half of a horizon's quads (7.6 million against
+  3.9 without them at 8 km, `./gradlew faceBench`), nearly all of it the flanks of crowns one cell wide. Where
+  cells are 4 blocks or more, a crown's leafy flank and the shade under it, a pixel or two each, are one face whose
+  colour runs from the leaves down into the shade: 14% fewer quads, no difference to see, through a shader pack
+  either.
+* **More workers when the machine is idle.** With a long queue and the CPU under 65% busy, up to twice the preset's
+  workers build (never more than all but two cores), back to the preset's once the queue is short; the game's own
+  threads keep what they need either way.
+
 The log says how long each world's horizon took: `VOID LOD: horizon built in 1.7 s, 455 tiles, radius 32768`.
 
 ## Real chunks, kept

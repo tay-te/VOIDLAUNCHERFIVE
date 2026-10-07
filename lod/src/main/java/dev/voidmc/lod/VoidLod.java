@@ -202,6 +202,7 @@ public final class VoidLod implements ClientModInitializer {
 		}
 		long now = System.nanoTime();
 		this.sizeGeneratorCaches(now);
+		this.adaptThreads(now);
 		this.reportHorizon(now);
 		if (this.loading != null && (this.loading.isDone() || now - this.loadingSince > LOAD_WAIT_NANOS)) {
 			this.loading = null;
@@ -296,6 +297,38 @@ public final class VoidLod implements ClientModInitializer {
 		this.tuner.setTargets(s.gpuTarget, s.prepareTarget);
 		this.generatorBusy = false;
 		this.idleSince = System.nanoTime();
+	}
+
+	/** How often the worker count is reconsidered, and the queue past which more workers may join in. */
+	private static final long ADAPT_NANOS = 2_000_000_000L;
+	private static final int ADAPT_QUEUE = 32;
+	/** Below this share of the machine's CPU busy, a long queue gets more workers. */
+	private static final double ADAPT_LOAD = 0.65;
+	private long adaptedNanos;
+	private final com.sun.management.OperatingSystemMXBean os =
+		java.lang.management.ManagementFactory.getPlatformMXBean(com.sun.management.OperatingSystemMXBean.class);
+
+	/**
+	 * More workers while a long queue meets an idle machine (a first visit, a long flight), up to twice the preset's
+	 * and never more than all but two cores; the preset's again once the queue is short or the machine busy, so the
+	 * game's own threads (the server generating chunks, the renderer) keep what they need. Workers run at minimum
+	 * priority either way.
+	 */
+	private void adaptThreads(long now) {
+		if (now - this.adaptedNanos < ADAPT_NANOS) {
+			return;
+		}
+		this.adaptedNanos = now;
+		int threads = this.settings.threads;
+		if (this.engine.queued() > ADAPT_QUEUE && this.os != null) {
+			double load = this.os.getCpuLoad();
+			if (load >= 0 && load < ADAPT_LOAD) {
+				threads = Math.max(threads, Math.min(Math.max(threads * 2, threads + 2), LodSettings.CORES - 2));
+			}
+		}
+		if (threads != this.engine.threads()) {
+			this.engine.setThreads(threads);
+		}
 	}
 
 	/** When this level was joined, and whether the time its horizon took to build has been logged. */
