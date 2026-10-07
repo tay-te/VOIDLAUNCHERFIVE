@@ -1,6 +1,6 @@
 # Requests to the Atlas session (2026-10-07)
 
-**Status: all five done** (Atlas `claude/atlas` 9b4ea50e, d2fc9087), and Hearth moved onto them the same day:
+**Status: all five done, and the leftovers too** (Atlas `claude/atlas` 9b4ea50e, d2fc9087), and Hearth moved onto them the same day:
 settlements are Atlas places with a look and a claim, the tracked quest is a tracked `QUEST` marker, the layer label is
 a lang key and towns use `TOWN`. See ARCHITECTURE.md §11. The original asks are kept below for the record.
 
@@ -38,11 +38,12 @@ Hearth now shows its settlements and the tracked quest on Atlas's map through th
    a `TOWN` glyph (a cluster of roofs, or a walled town) in the design's set would read better than the keep, which
    Atlas also uses for outposts and fortresses.
 
-## Left over (small, none blocking)
+## Left over (all done, Atlas `claude/atlas` 91404c3f, 769a11cc, 3aca6b6c)
 
-- A looked place always lands on Atlas's Landmarks layer (and the Villages legend toggle); a `layer` on `PlaceLook`
-  would let Hearth keep its own "Settlements" chip. Hearth dropped that chip.
-- Looks and claims live for the session only, so Hearth sets them again on every connection and gives remembered
-  settlements a plain look until the server sends them; persisting looks with the place would remove that.
-- `track(id)` on an id Atlas already remembers as tracked from an earlier session does nothing (its marker is not
-  picked up), so Hearth calls `untrack(id)` first.
+- **[done: `PlaceLook.layer`]** Settlements are on Hearth's own layer `hearth:settlements` (a "Settlements" chip, sighted and
+  discovered alike).
+- **[done: looks persist in `places.json`]** Hearth still sets looks each connection (cheap, and it keeps the language
+  current) but remembered settlements no longer depend on that.
+- **[done: `track` re-arms an already tracked id]** The `untrack`-first workaround is gone.
+- **[done: `AtlasApi.hud().reserve`]** The quest panel's live rectangle is reserved so Atlas's compass strip, toasts and
+  minimap keep out of it (`QuestHudHook.rect()`, null when no quest is tracked or the HUD is hidden).

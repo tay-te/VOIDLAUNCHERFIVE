@@ -1,5 +1,7 @@
 package dev.voidmc.hearth.client.map.atlas;
 
+import dev.voidmc.atlas.api.AtlasApi;
+import dev.voidmc.atlas.api.AtlasHud;
 import dev.voidmc.atlas.api.AtlasMarkers;
 import dev.voidmc.atlas.api.AtlasPlaces;
 import dev.voidmc.atlas.api.AtlasPlugin;
@@ -15,6 +17,7 @@ import dev.voidmc.atlas.api.Source;
 import dev.voidmc.atlas.api.Tier;
 import dev.voidmc.hearth.client.map.MapClient;
 import dev.voidmc.hearth.client.quest.QuestClient;
+import dev.voidmc.hearth.client.quest.QuestHudHook;
 import dev.voidmc.hearth.map.MapPayload;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -50,6 +53,9 @@ import net.minecraft.network.chat.Component;
 public final class HearthAtlas implements AtlasPlugin {
 	public static final String SETTLEMENTS = "hearth:settlements";
 	public static final String QUESTS = "hearth:quests";
+	/** The map layer (a chip in the layer row) the settlement places are drawn on, sighted and discovered alike. */
+	public static final String SETTLEMENTS_LAYER = "hearth:settlements";
+	private static final String HUD_QUEST = "hearth:quest";
 	static final String PLACE_PREFIX = "hearth:settlement:";
 	private static final String OVERWORLD = "minecraft:overworld";
 	/** Polls (about a second each) between claiming every settlement again, in case Atlas opened another map. */
@@ -72,6 +78,7 @@ public final class HearthAtlas implements AtlasPlugin {
 	private Marker quest;
 	private String trackedId;
 	private boolean trackPending;
+	private boolean hudReserved;
 	private int trackTries;
 	private int ticks;
 
@@ -79,6 +86,7 @@ public final class HearthAtlas implements AtlasPlugin {
 	public void onAtlasReady(AtlasMarkers markers) {
 		this.markers = markers;
 		// a translation key: Atlas shows it in the player's language
+		markers.registerLayer(new MapLayer(SETTLEMENTS_LAYER, "hearth.map.layer.settlements", true, 14));
 		markers.registerLayer(new MapLayer(QUESTS, "hearth.map.layer.quests", true, 16));
 		markers.registerProvider("hearth:quest", 10, this::quest);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> this.tick());
@@ -100,6 +108,7 @@ public final class HearthAtlas implements AtlasPlugin {
 		this.quest = null;
 		this.trackedId = null;
 		this.trackPending = false;
+		QuestHudHook.setCompassCovered(false);
 	}
 
 	// ---------------------------------------------------------------- settlements
@@ -150,7 +159,7 @@ public final class HearthAtlas implements AtlasPlugin {
 		for (Place p : this.places.places(dimension)) {
 			if (p.id().startsWith(PLACE_PREFIX) && !this.looked.containsKey(p.id())) {
 				String tier = p.kind().startsWith("hearth:") ? p.kind().substring("hearth:".length()) : "village";
-				this.setLook(p.id(), new PlaceLook(glyph(tier), Marker.Style.SETTLEMENT, "", subtitle(tier), null));
+				this.setLook(p.id(), new PlaceLook(glyph(tier), Marker.Style.SETTLEMENT, "", subtitle(tier), null, SETTLEMENTS_LAYER));
 			}
 		}
 	}
@@ -168,21 +177,22 @@ public final class HearthAtlas implements AtlasPlugin {
 		List<MarkerDetail.Readout> readouts = List.of(new MarkerDetail.Readout(String.valueOf(e.population()), tr("hearth.map.folk")));
 		MarkerDetail.Meter meter = null;
 		List<MarkerDetail.Row> rows = new ArrayList<>();
+		// most important first: Atlas drops the last rows of a tall card (population is the readout, standing the meter)
 		rows.add(new MarkerDetail.Row(tier, tr("hearth.map.tag.tier"), false));
-		if (!e.culture().isEmpty()) {
-			rows.add(new MarkerDetail.Row(tr("hearth.culture." + e.culture()), tr("hearth.map.tag.culture"), false));
-		}
 		if (!e.title().isEmpty()) {
 			String phrase = Component.translatable("hearth.standing.title_phrase." + e.title(), e.name()).getString();
 			meter = new MarkerDetail.Meter(tr("hearth.map.standing"), e.standing() > 0 ? "+" + e.standing() : Integer.toString(e.standing()), -100, 100,
 				e.standing(), capitalised(phrase));
 			rows.add(new MarkerDetail.Row(capitalised(phrase), tr("hearth.map.tag.title"), true));
 		}
+		if (!e.culture().isEmpty()) {
+			rows.add(new MarkerDetail.Row(tr("hearth.culture." + e.culture()), tr("hearth.map.tag.culture"), false));
+		}
 		if (e.owner()) {
 			rows.add(new MarkerDetail.Row(tr("hearth.map.row.owner"), tr("hearth.map.tag.property"), true));
 		}
 		MarkerDetail detail = new MarkerDetail(readouts, meter, List.of(new MarkerDetail.Section(tr("hearth.map.section"), rows)));
-		return new PlaceLook(glyph(e.tier()), Marker.Style.SETTLEMENT, String.valueOf(e.population()), subtitle(e.tier()), detail);
+		return new PlaceLook(glyph(e.tier()), Marker.Style.SETTLEMENT, String.valueOf(e.population()), subtitle(e.tier()), detail, SETTLEMENTS_LAYER);
 	}
 
 	private static String subtitle(String tier) {
@@ -229,6 +239,14 @@ public final class HearthAtlas implements AtlasPlugin {
 	 * Once tracked, it stays so until the player tracks something else on the map. Twice a second at most.
 	 */
 	private void tick() {
+		if (!this.hudReserved && AtlasApi.available()) {
+			this.hudReserved = true;
+			// the quest panel's room, asked again by Atlas each frame (null: no panel is showing)
+			AtlasApi.get().hud().reserve(HUD_QUEST, () -> {
+				QuestHudHook.Rect r = QuestHudHook.rect();
+				return r == null ? null : AtlasHud.Rect.of(r.x0(), r.y0(), r.x1() - r.x0(), r.y1() - r.y0());
+			});
+		}
 		if (this.markers == null || ++this.ticks % 10 != 0) {
 			return;
 		}
@@ -241,16 +259,15 @@ public final class HearthAtlas implements AtlasPlugin {
 			this.trackedId = want;
 			this.trackPending = want != null;
 			this.trackTries = 0;
-			if (want != null) {
-				// Atlas may remember this id as tracked from an earlier session without its marker: start clean
-				this.markers.untrack(want);
-			}
+			QuestHudHook.setCompassCovered(false);
 		}
 		if (this.trackPending) {
 			// false while Atlas cannot see the marker yet (another dimension, no map open); after a while, try less often
 			this.trackTries++;
 			if (this.trackTries <= 20 || this.trackTries % 20 == 0) {
 				this.trackPending = !this.markers.track(want);
+				// Atlas's compass and beam now point at the quest: the HUD panel keeps its title and objectives only
+				QuestHudHook.setCompassCovered(!this.trackPending);
 			}
 		}
 	}

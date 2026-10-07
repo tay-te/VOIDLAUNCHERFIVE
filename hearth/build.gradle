@@ -53,6 +53,11 @@ if (hasAtlas) {
 	loom.mods.named('hearth').configure { it.sourceSet sourceSets.atlas }
 	dependencies {
 		atlasCompileOnly 'dev.voidmc:void-atlas'
+		// Atlas's client API (AtlasApi, AtlasHud) lives in its client source set, which the included build does not hand
+		// over (its main one only): its jar, which carries both, is built and put on the compile classpath too.
+		atlasCompileOnly files(new File(gradle.ext.hearthAtlasDir, "build/libs/void-atlas-${findProperty('atlas.version') ?: '0.1.0'}.jar")) {
+			builtBy gradle.includedBuild(new File(gradle.ext.hearthAtlasDir).name).task(':jar')
+		}
 		if ((findProperty('atlas.run') ?: 'false').toString().toBoolean()) {
 			localRuntime 'dev.voidmc:void-atlas'
 		}

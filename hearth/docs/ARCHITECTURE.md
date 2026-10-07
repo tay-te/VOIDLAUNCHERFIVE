@@ -457,12 +457,16 @@ Citadel, Palm Harbour, the Logging Camp...) stay: remote, unpeopled places to ex
   radius), keeps that with its map of the world, and makes the toasts and journal lines; `AtlasPlaces.look` gives each a
   settlement tile (house for camps and hamlets, village, `TOWN` for towns and cities; `KEEP` is kept for castles and
   seats once they are places of their own), folk, tier, culture, the player's standing meter and title, and
-  `AtlasPlaces.claim` claims its area (radius + 32) so Atlas's own village sighting there is left out. Settlements Atlas
-  remembers but the server no longer sends (far away, after a restart) get a plain look from the place's name and kind.
+  `AtlasPlaces.claim` claims its area (radius + 32) so Atlas's own village sighting there is left out. The looks sit on
+  Hearth's own layer `hearth:settlements` (a "Settlements" chip), and their card rows run most important first (tier,
+  standing, culture, property: Atlas drops a tall card's last rows). Settlements Atlas remembers but the server no longer
+  sends (far away, after a restart) get a plain look from the place's name and kind.
   The tracked quest (`QuestClient.tracked`, from the synced quest attachment) is a `Marker.Style.QUEST` marker
   (`MarkerGlyph.QUEST`, the step's name and its progress, "12 / 24") on a "Quests" layer (labelled by lang key), and
   `AtlasMarkers.track` is called whenever it appears or becomes another quest's (compass, minimap rim, beam); Atlas lets
-  it go once the step has no place. The old per-player attachment `hearth:map/known` is still registered so old saves
+  it go once the step has no place. The quest HUD panel (`client.quest.QuestHud`) tells Atlas its live rectangle through
+  `AtlasHud.reserve` (via the Atlas-free `QuestHudHook`) so Atlas's HUD keeps out of it, and drops its own mini-compass
+  while Atlas tracks the quest. The old per-player attachment `hearth:map/known` is still registered so old saves
   load cleanly, and is dropped when the player joins. `config/hearth/map.json`: `enabled`, `sync_radius`,
   `interval_ticks`. What Hearth asked of Atlas (all done): `docs/requests/atlas.md`.
 - **LOD** (optional, later phase): VOID LOD draws settlements at the horizon from `Blueprint.silhouette()` of built
