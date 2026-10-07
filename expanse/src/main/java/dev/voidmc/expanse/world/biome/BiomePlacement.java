@@ -50,6 +50,9 @@ import net.minecraft.world.level.biome.Climate;
  *  mangrove swamp                           T3-4 (erosion 6)                Kapok Rainforest
  *  beach (positive weirdness, low slice)    T3                              Coral Coast
  * </pre>
+ *
+ * <p>The surface looks like the real world, so vanilla's two fantasy-coloured biomes give way first: the pale
+ * garden becomes dark forest (and so, in its variant half, Ancient Oakwood), the pink cherry grove a meadow.
  */
 public final class BiomePlacement {
 	private BiomePlacement() {
@@ -81,6 +84,11 @@ public final class BiomePlacement {
 		int h = band(p.humidity(), -0.35F, -0.1F, 0.1F, 0.3F);
 		boolean variant = p.weirdness().min() >= 0L;   // the positive half; valleys straddle zero and are left alone
 		boolean original = p.weirdness().max() <= 0L;
+		if (b == Biomes.PALE_GARDEN) {
+			b = Biomes.DARK_FOREST;
+		} else if (b == Biomes.CHERRY_GROVE) {
+			b = Biomes.MEADOW;
+		}
 
 		if (b == Biomes.JAGGED_PEAKS || b == Biomes.FROZEN_PEAKS) {
 			return t == 2 ? ExpanseBiomes.VERDANT_PEAKS : b;

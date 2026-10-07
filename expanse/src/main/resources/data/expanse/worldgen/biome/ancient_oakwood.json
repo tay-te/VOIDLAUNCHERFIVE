@@ -103,8 +103,7 @@
     },
     "minecraft:visual/sky_color": "#8aa8d0",
     "minecraft:visual/fog_color": "#bcc4c4",
-    "minecraft:visual/water_fog_color": "#2a4a6a",
-    "minecraft:visual/fog_end_distance": 150.0
+    "minecraft:visual/water_fog_color": "#2a4a6a"
   },
   "carvers": [
     "minecraft:cave",
@@ -134,7 +133,9 @@
       "minecraft:monster_room",
       "minecraft:monster_room_deep"
     ],
-    [],
+    [
+      "expanse:kcd_hedgerows"
+    ],
     [],
     [
       "minecraft:ore_dirt",
@@ -194,7 +195,8 @@
       "expanse:kcd_woodland_shrubs",
       "expanse:kcd_bank_trees",
       "expanse:kcd_woodland_floor",
-      "expanse:kcd_brambles"
+      "expanse:kcd_brambles",
+      "expanse:kcd_lone_trees"
     ],
     [
       "minecraft:freeze_top_layer"

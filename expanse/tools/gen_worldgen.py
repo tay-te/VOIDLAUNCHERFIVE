@@ -157,7 +157,20 @@ def feature(name, obj):
     return e(name)
 
 
+# The Expanse biomes' own woods: like every natural tree, they ask the land where a tree would stand (expanse:land_fit,
+# TerrainModel.woodland), so their woods keep to the rises with open country between. Shrubs, the trees of the water's
+# edge and the lone trees on the hilltops stand where they are put.
+FOREST_TREES = {'alpine_trees', 'aspen_groves', 'bluebell_trees', 'cloud_forest_trees', 'glade_trees', 'heath_trees',
+                'kapok_canopy_trees', 'kapok_emergents', 'larch_trees', 'maple_trees', 'monsoon_trees', 'moor_trees',
+                'muskeg_trees', 'oakwood_trees', 'olive_trees', 'outback_trees', 'palm_trees', 'redwood_forest',
+                'steppe_trees', 'tundra_trees', 'willow_trees'}
+LAND_FIT = {'type': 'expanse:land_fit'}
+
+
 def placed(name, feat, placement, step):
+    if name in FOREST_TREES and LAND_FIT not in placement:
+        at = next((i + 1 for i, m in enumerate(placement) if m.get('type') == 'minecraft:in_square'), 0)
+        placement = placement[:at] + [LAND_FIT] + placement[at:]
     PLACED[name] = ({'feature': feat, 'placement': placement}, step)
     FEATURE_ORDER.append(name)
     return name
@@ -659,6 +672,11 @@ def biome(name, analog, jar, *, temperature=None, downfall=None, precipitation=N
     attrs = b.setdefault('attributes', {})
     if attributes:
         attrs.update({f'minecraft:{k}': v for k, v in attributes.items()})
+    # The surface keeps its horizon: the far view (VOID LOD) hazes the distance by the fog's reach, so a biome's own
+    # close fog would end the view a couple of hundred blocks out. Mist, low cloud and a damp wood's closeness come
+    # from VOID Gloam instead, by the weather, the hour and the lie of the land (its colours stay ours).
+    for k in ('minecraft:visual/fog_start_distance', 'minecraft:visual/fog_end_distance'):
+        attrs.pop(k, None)
     feats = [list(s) for s in b['features']] + [[] for _ in range(STEPS - len(b['features']))]
     feats = [[f for f in step if f not in drop] for step in feats]
     add = list(add) + [k for k in FOLIAGE.kit(name) if k not in add]   # the understory (tools/worldgen_foliage.py)
@@ -720,7 +738,7 @@ def build_biomes(jar):
     # out to open grass bright with daisies, poppies and cornflowers.
     A['woodland_glades'] = biome('woodland_glades', 'forest', jar,
         temperature=0.65, downfall=0.8,
-        effects={'grass_color': '#78b057', 'foliage_color': '#62a344', 'water_color': '#3f76d8', 'dry_foliage_color': '#a07a3c'},
+        effects={'grass_color': '#6f9a4e', 'foliage_color': '#568a3c', 'water_color': '#3f76d8', 'dry_foliage_color': '#a07a3c'},
         attributes={'visual/sky_color': '#86aef8', 'visual/fog_color': '#d2dde8', 'visual/water_fog_color': '#2f5ab0',
                     'audio/background_music': music('minecraft:music.overworld.forest')},
         drop=['minecraft:forest_flowers', 'minecraft:trees_birch_and_oak_leaf_litter', 'minecraft:flower_default', 'minecraft:patch_bush'],
@@ -801,7 +819,7 @@ def build_biomes(jar):
 
     A['verdant_peaks'] = biome('verdant_peaks', 'jagged_peaks', jar,
         temperature=0.3, downfall=0.6, precipitation=True,
-        effects={'grass_color': '#7fb85a', 'foliage_color': '#6aa64a', 'water_color': '#3f86e0'},
+        effects={'grass_color': '#79a258', 'foliage_color': '#62914a', 'water_color': '#3f86e0'},
         attributes={'visual/sky_color': '#78a8ff', 'visual/fog_color': '#cfe0f5',
                     'audio/background_music': music('minecraft:music.overworld.meadow')},
         add=['alpine_springs', 'alpine_trees', 'alpine_flowers', 'boulder_rare', 'alpine_shrubs', 'alpine_tufts',
@@ -979,8 +997,11 @@ def build_earth(jar):
       and the climate the biome source reads (continentalness, erosion, ridges) come from the terrain
       model through expanse:terrain density functions; caves, aquifers, ore veins and surface rules
       are vanilla's, pointed at the new terrain where they read it.
-    * The overworld is 448 tall (y -64 to 383), for mountain ranges that need the room.
+    * The overworld is 704 tall (y -64 to 639): the great ranges stand 500 blocks and more over the sea, seen from
+      the far view across the country in front of them.
     """
+    TOP = 640                          # the build limit (exclusive); y -64 to 639
+    HEIGHT = TOP + 64
     out = lambda rel, obj: write(os.path.join(EARTH, 'data', rel), obj)
     vdf = lambda name: json.loads(jar.read(f'data/minecraft/worldgen/density_function/overworld/{name}.json'))
     D = f'{NS}:earth'
@@ -988,7 +1009,7 @@ def build_earth(jar):
     terrain = lambda output: {'type': f'{NS}:terrain', 'output': output}
     df = lambda name, obj: out(f'{NS}/worldgen/density_function/earth/{name}.json', obj)
     gradient_y = lambda at_bottom, at_top: {'type': 'minecraft:gradient', 'axis': 'y', 'from_coordinate': -64, 'from_value': at_bottom,
-                                            'to_coordinate': 384, 'to_value': at_top}
+                                            'to_coordinate': TOP, 'to_value': at_top}
 
     # The model's outputs, each cached per column (they are two-dimensional).
     for name in ['height', 'continents', 'erosion', 'ridges']:
@@ -999,19 +1020,19 @@ def build_earth(jar):
         df(name, {'type': 'minecraft:cache', 'input': terrain(name)})
     # depth = (ground height - y) / 128: zero at the surface, as vanilla's depth is.
     df('depth', {'type': 'minecraft:add', 'left': {'type': 'minecraft:mul', 'left': ref('height'), 'right': 1 / 128},
-                 'right': gradient_y(64 / 128, -384 / 128)})
+                 'right': gradient_y(64 / 128, -TOP / 128)})
     # The terrain density, in place of vanilla's "sloped_cheese": (ground height - y) / 25, so it passes
     # vanilla's cave thresholds at the depths vanilla's does, plus a little 3D noise for texture and the
     # odd overhang on steep ground.
     df('terrain', {'type': 'minecraft:add',
                    'left': {'type': 'minecraft:add', 'left': {'type': 'minecraft:mul', 'left': ref('height'), 'right': 0.04},
-                            'right': gradient_y(64 * 0.04, -384 * 0.04)},
+                            'right': gradient_y(64 * 0.04, -TOP * 0.04)},
                    'right': {'type': 'minecraft:mul', 'left': 'minecraft:overworld/base_3d_noise', 'right': 0.15}})
     # Vanilla's final density (caves, entrances, noodles, pillars) round the new terrain; its top slide,
     # which flattens anything near the old ceiling, moved up to the new one.
     final = json.dumps(vdf('final_density'))
     final = final.replace('"minecraft:overworld/sloped_cheese"', json.dumps(ref('terrain')))
-    final = final.replace('"from_coordinate": 240', '"from_coordinate": 368').replace('"to_coordinate": 256', '"to_coordinate": 384')
+    final = final.replace('"from_coordinate": 240', f'"from_coordinate": {TOP - 16}').replace('"to_coordinate": 256', f'"to_coordinate": {TOP}')
     final = json.loads(final)
 
     # ---- (caverns) The underground is the Expanse's own (world/terrain/CavernModel.java): none of vanilla's
@@ -1058,7 +1079,7 @@ def build_earth(jar):
     df('chunk_surface_level', {'type': 'minecraft:interpolated', 'cell_size_xz': 16, 'cell_size_y': 1, 'input': ref('preliminary_surface_level')})
 
     ns = json.loads(jar.read('data/minecraft/worldgen/noise_settings/overworld.json'))
-    ns['noise']['height'] = 448
+    ns['noise']['height'] = HEIGHT
     ns['noise_router'] = {k: ref(k) for k in ['temperature', 'vegetation', 'continents', 'erosion', 'depth', 'ridges',
                                                'chunk_surface_level', 'final_density']}
     swap = lambda obj: json.loads(json.dumps(obj).replace('"minecraft:overworld/erosion"', json.dumps(ref('erosion')))
@@ -1084,8 +1105,8 @@ def build_earth(jar):
     out('minecraft/worldgen/world_preset/normal.json', preset)
 
     dim = json.loads(jar.read('data/minecraft/dimension_type/overworld.json'))
-    dim['height'] = 448
-    dim['logical_height'] = 448
+    dim['height'] = HEIGHT
+    dim['logical_height'] = HEIGHT
     out('minecraft/dimension_type/overworld.json', dim)
 
     write(os.path.join(EARTH, 'pack.mcmeta'), {'pack': {

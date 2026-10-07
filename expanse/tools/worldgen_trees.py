@@ -25,6 +25,10 @@ birches among their own trees plant these instead (the `plain` variants, without
 """
 import json
 
+# Every natural tree asks the land whether a tree would stand there (LandFitFilter, TerrainModel.woodland): woods on
+# the rises with clean edges, open fields and meadows in the vales, each country's share of open land, a treeline.
+LAND_FIT = [{'type': 'expanse:land_fit'}]
+
 FORK = 'expanse:fork_trunk_placer'
 
 
@@ -219,7 +223,7 @@ def _vanilla_mixes(W, jar, shapes, made):
             # one placed feature per vanilla placement, not per tree: spruce_on_snow and spruce_checked plant the same
             # spruce under different rules (on snow; where a sapling would live)
             placed_name = f'natural/{family}/{ref.split(":")[1] if isinstance(ref, str) else base}'
-            W.data(f'{W.NS}/worldgen/placed_feature/{placed_name}.json', {'feature': W.e(name), 'placement': placed['placement']})
+            W.data(f'{W.NS}/worldgen/placed_feature/{placed_name}.json', {'feature': W.e(name), 'placement': LAND_FIT + placed['placement']})
             return W.e(placed_name)
 
         obj['default'] = swap(obj['default'])
@@ -234,4 +238,4 @@ def _vanilla_mixes(W, jar, shapes, made):
         decorators = read(f'data/minecraft/worldgen/feature/{base}.json').get('decorators', [])
         name = f'natural/{family}/{base}'
         _family(W, shapes, made, family, base, decorators)
-        W.data(f'minecraft/worldgen/placed_feature/{placed_name}.json', {'feature': W.e(name), 'placement': placed['placement']})
+        W.data(f'minecraft/worldgen/placed_feature/{placed_name}.json', {'feature': W.e(name), 'placement': LAND_FIT + placed['placement']})

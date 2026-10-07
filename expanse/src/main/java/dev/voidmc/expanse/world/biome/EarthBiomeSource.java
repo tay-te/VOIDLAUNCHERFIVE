@@ -51,6 +51,26 @@ public final class EarthBiomeSource extends BiomeSource {
 		return this.source;
 	}
 
+	/**
+	 * The surface biome of a far-view column ({@link dev.voidmc.expanse.world.terrain.TerrainModel#sampleFar}),
+	 * without sampling the fine terrain: the column's climate values, as the noise router has them at the ground
+	 * (where its depth is 0 by construction: height / 128 plus a gradient that cancels it there), looked up in the
+	 * overworld's parameter list (with the Expanse biomes already in it). Null if this source is not a multi-noise
+	 * one. Thread-safe.
+	 */
+	public @org.jspecify.annotations.Nullable Holder<Biome> surfaceBiome(dev.voidmc.expanse.world.terrain.TerrainModel.FarColumn c) {
+		if (!(this.source instanceof net.minecraft.world.level.biome.MultiNoiseBiomeSource multi)) {
+			return null;
+		}
+		Climate.TargetPoint target = Climate.target(c.temperature, c.humidity, c.continentalness, c.erosion, 0.0F, c.weirdness);
+		return this.swap(multi.getNoiseBiome(target));
+	}
+
+	/** {@link #surfaceBiome(dev.voidmc.expanse.world.terrain.TerrainModel.FarColumn)} for any biome source; null unless the Earth one. */
+	public static @org.jspecify.annotations.Nullable Holder<Biome> surfaceBiome(BiomeSource source, dev.voidmc.expanse.world.terrain.TerrainModel.FarColumn c) {
+		return source instanceof EarthBiomeSource earth ? earth.surfaceBiome(c) : null;
+	}
+
 	private Holder<Biome> swap(Holder<Biome> b) {
 		for (int k = 0; k < this.ours.length; k++) {
 			if (this.ours[k] != null && b.is(VANILLA.get(k))) {

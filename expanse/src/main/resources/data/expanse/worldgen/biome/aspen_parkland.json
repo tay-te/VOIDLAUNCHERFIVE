@@ -171,7 +171,9 @@
       "minecraft:monster_room",
       "minecraft:monster_room_deep"
     ],
-    [],
+    [
+      "expanse:kcd_hedgerows"
+    ],
     [],
     [
       "minecraft:ore_dirt",
@@ -228,6 +230,7 @@
       "expanse:kcd_bank_trees",
       "expanse:kcd_meadow_grass",
       "expanse:kcd_meadow_flowers",
+      "expanse:kcd_lone_trees",
       "expanse:aspen_groves",
       "expanse:aspen_lone_trees",
       "expanse:aspen_fireweed",

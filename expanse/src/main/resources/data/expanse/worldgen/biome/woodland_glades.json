@@ -127,8 +127,8 @@
   "downfall": 0.8,
   "effects": {
     "water_color": "#3f76d8",
-    "grass_color": "#78b057",
-    "foliage_color": "#62a344",
+    "grass_color": "#6f9a4e",
+    "foliage_color": "#568a3c",
     "dry_foliage_color": "#a07a3c"
   },
   "features": [
@@ -145,7 +145,9 @@
       "minecraft:monster_room",
       "minecraft:monster_room_deep"
     ],
-    [],
+    [
+      "expanse:kcd_hedgerows"
+    ],
     [],
     [
       "minecraft:ore_dirt",
@@ -205,7 +207,8 @@
       "expanse:kcd_bank_trees",
       "expanse:kcd_woodland_floor",
       "expanse:kcd_brambles",
-      "expanse:kcd_meadow_grass"
+      "expanse:kcd_meadow_grass",
+      "expanse:kcd_lone_trees"
     ],
     [
       "minecraft:freeze_top_layer"

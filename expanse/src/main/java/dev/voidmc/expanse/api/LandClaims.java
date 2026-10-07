@@ -30,6 +30,11 @@ public final class LandClaims {
 		CLAIMS.add(claim);
 	}
 
+	/** Whether any mod has registered a claim (when none has, nothing is ever claimed). */
+	public static boolean any() {
+		return !CLAIMS.isEmpty();
+	}
+
 	/** Whether any registered claim covers the column (x, z). */
 	public static boolean claimed(WorldGenLevel level, int x, int z) {
 		if (CLAIMS.isEmpty()) {

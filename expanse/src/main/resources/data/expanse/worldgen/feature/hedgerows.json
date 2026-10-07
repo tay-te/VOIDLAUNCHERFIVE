@@ -10,7 +10,17 @@
   },
   "biomes": [
     "minecraft:plains",
-    "minecraft:sunflower_plains"
+    "minecraft:sunflower_plains",
+    "minecraft:forest",
+    "minecraft:birch_forest",
+    "minecraft:flower_forest",
+    "minecraft:meadow",
+    "minecraft:old_growth_birch_forest",
+    "expanse:woodland_glades",
+    "expanse:aspen_parkland",
+    "expanse:ancient_oakwood",
+    "expanse:maple_highlands",
+    "expanse:bluebell_woods"
   ],
   "field": 64,
   "missing": 0.22,

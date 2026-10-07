@@ -145,9 +145,7 @@
     },
     "minecraft:visual/sky_color": "#b7c8d2",
     "minecraft:visual/fog_color": "#d4dfe2",
-    "minecraft:visual/water_fog_color": "#3f7f90",
-    "minecraft:visual/fog_start_distance": 4.0,
-    "minecraft:visual/fog_end_distance": 72.0
+    "minecraft:visual/water_fog_color": "#3f7f90"
   },
   "carvers": [
     "minecraft:cave",

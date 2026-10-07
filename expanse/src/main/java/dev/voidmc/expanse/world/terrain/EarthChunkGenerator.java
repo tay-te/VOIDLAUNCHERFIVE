@@ -85,6 +85,11 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 		return this.settings;
 	}
 
+	/** The terrain model, once a world has asked for it (null before); for code that has no RandomState at hand. */
+	public TerrainModel cachedModel() {
+		return this.model;
+	}
+
 	public TerrainModel model(RandomState randomState) {
 		TerrainModel m = this.model;
 		long worldSeed = randomState.seed();
@@ -143,6 +148,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 		TerrainModel m = this.model(randomState);
 		return this.noise.buildTerrain(chunk, blender, randomState, structureManager, biomeManager, carverBiomeRegion, possibleBiomes)
 			.thenApply(built -> {
+				this.layRock(built, m);
 				this.pourRivers(built, m);
 				this.pourCraters(built, m);
 				this.pourLakes(built, m);
@@ -152,6 +158,57 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 				return built;
 			});
 	}
+
+	/**
+	 * The rock of the land. Under the soil the surface rules laid, a column of a sandstone, limestone or basalt
+	 * country is that rock rather than stone, for 60 blocks down, so its cliffs, towers and gorge walls show it;
+	 * sandstone lies in beds, a band of smoother stone every few blocks. And wherever the ground is steeper than
+	 * soil will lie (some 55 degrees), the soil is gone and the rock shows: a cliff is rock, not a staircase of
+	 * dirt with grass on every step.
+	 */
+	private void layRock(ChunkAccess chunk, TerrainModel m) {
+		ChunkPos pos = chunk.getPos();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int minY = chunk.getMinY();
+		for (int lz = 0; lz < 16; lz++) {
+			for (int lx = 0; lx < 16; lx++) {
+				int x = pos.getMinBlockX() + lx;
+				int z = pos.getMinBlockZ() + lz;
+				Column c = m.sample(x, z);
+				int rock = c.rock;
+				boolean wet = c.height < SEA_LEVEL + 1 || c.nearRiver() && c.riverDist < c.riverHalfWidth + 1.5F;
+				float gx = m.sample(x + 1, z).height - m.sample(x - 1, z).height;
+				float gz = m.sample(x, z + 1).height - m.sample(x, z - 1).height;
+				boolean steep = !wet && Math.max(Math.abs(gx), Math.abs(gz)) > 2.9F;
+				if (rock == 0 && !steep) {
+					continue;
+				}
+				int top = chunk.getHeight(Heightmap.Types.WORLD_SURFACE_WG, lx, lz);
+				int bands = Math.floorMod((int) (PlateMap.mix(7, x >> 6, z >> 6) & 7), 6);
+				for (int y = top; y > Math.max(minY, top - 60); y--) {
+					BlockState st = chunk.getBlockState(p.set(x, y, z));
+					boolean soil = steep && y > top - 6 && (st.is(Blocks.GRASS_BLOCK) || st.is(Blocks.DIRT) || st.is(Blocks.COARSE_DIRT)
+						|| st.is(Blocks.PODZOL) || st.is(Blocks.ROOTED_DIRT) || st.is(Blocks.MOSS_BLOCK));
+					boolean stone = st.is(Blocks.STONE) || st.is(Blocks.ANDESITE) || st.is(Blocks.DIORITE) || st.is(Blocks.GRANITE) || st.is(Blocks.TUFF);
+					if (!soil && !(stone && rock != 0)) {
+						continue;
+					}
+					chunk.setBlockState(p, switch (rock) {
+						case 0 -> STONE;
+						case 1 -> Math.floorMod(y + bands, 6) == 0 ? SMOOTH_SANDSTONE : SANDSTONE;
+						case 2 -> dev.voidmc.expanse.registry.ExpanseBlocks.LIMESTONE.defaultBlockState();
+						default -> BASALT;
+					});
+				}
+			}
+		}
+	}
+
+	private static final int SEA_LEVEL = 63;
+	private static final BlockState STONE = Blocks.STONE.defaultBlockState();
+	private static final BlockState SANDSTONE = Blocks.SANDSTONE.defaultBlockState();
+	private static final BlockState SMOOTH_SANDSTONE = Blocks.SMOOTH_SANDSTONE.defaultBlockState();
+	private static final BlockState BASALT = Blocks.BASALT.defaultBlockState();
 
 	private void pourRivers(ChunkAccess chunk, TerrainModel m) {
 		ChunkPos pos = chunk.getPos();

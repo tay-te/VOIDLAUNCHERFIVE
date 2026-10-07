@@ -10,6 +10,8 @@
 		"JigsawStructureAccessor",
 		"MineshaftStructureMixin",
 		"OverworldBiomeBuilderMixin",
+		"StructureManagerAccessor",
+		"StructureStartsMixin",
 		"SurfaceWaterSpawnMixin"
 	],
 	"injectors": {

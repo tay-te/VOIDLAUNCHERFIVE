@@ -1,4 +1,8 @@
 {
   "feature": "expanse:natural/big_open_oak/fancy_oak_bees_005",
-  "placement": []
+  "placement": [
+    {
+      "type": "expanse:land_fit"
+    }
+  ]
 }

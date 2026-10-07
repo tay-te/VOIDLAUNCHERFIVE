@@ -31,7 +31,13 @@ import net.minecraft.world.level.levelgen.synth.SimplexNoise;
  * blocks so no hedge runs ruler-straight. A hedge follows each edge, a shrub every other block along it so
  * their crowns close into one line; some stretches are missing altogether and each has a gap where a gate or
  * a cart track went through. Only in farmed country (about half the open land, by a broad noise), only in
- * the biomes given, and never on water, steep ground or within a few blocks of anything built.
+ * the biomes given, and never on water, steep ground or within a few blocks of anything built. On the Earth terrain
+ * only in the open country between the woods ({@link dev.voidmc.expanse.world.terrain.TerrainModel#woodland}), which
+ * may lie in a forest biome as well as on the plains; elsewhere only on the plains.
+ *
+ * <p>On the Earth terrain the fields inside the hedges are farmed too, each field one crop as a whole: ripe wheat
+ * gold from end to end, green wheat, fallow earth turned over, hay meadow grown tall, or left as pasture. So from a
+ * hill the vale below is a quilt of gold and green and brown within its hedges, under the dark woods on the rises.
  *
  * <p>Placed once per chunk; it works column by column, so a hedge carries on unbroken from chunk to chunk.
  */
@@ -54,6 +60,8 @@ public record HedgerowFeature(Holder<PlacedFeature> shrub, Holder<PlacedFeature>
 	public static final java.util.concurrent.atomic.AtomicLong NANOS = new java.util.concurrent.atomic.AtomicLong();
 	/** (dev) why line columns were passed over: biome, ground, slope, building, the shrub would not grow */
 	public static final java.util.concurrent.atomic.AtomicIntegerArray SKIPPED = new java.util.concurrent.atomic.AtomicIntegerArray(5);
+	/** (dev) columns sown or worked in the fields */
+	public static final java.util.concurrent.atomic.AtomicInteger SOWN = new java.util.concurrent.atomic.AtomicInteger();
 
 	private record Noises(long seed, double angle, SimplexNoise farmed, SimplexNoise waverU, SimplexNoise waverV) {
 		static Noises of(long seed) {
@@ -89,6 +97,8 @@ public record HedgerowFeature(Holder<PlacedFeature> shrub, Holder<PlacedFeature>
 		double sin = Math.sin(n.angle());
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
 		List<BoundingBox> buildings = StructureClearance.nearbyBoxes(level);
+		dev.voidmc.expanse.world.terrain.TerrainModel model = generator instanceof dev.voidmc.expanse.world.terrain.EarthChunkGenerator earth
+			? earth.cachedModel() : null;
 		boolean placed = false;
 		for (int dx = 0; dx < 16; dx++) {
 			for (int dz = 0; dz < 16; dz++) {
@@ -109,6 +119,10 @@ public record HedgerowFeature(Holder<PlacedFeature> shrub, Holder<PlacedFeature>
 				boolean across = dv < 1.0;
 				boolean along = du < 1.0;
 				if (!across && !along) {
+					// inside the field, a block or two in from the hedge: its crop
+					if (model != null && du > 2.5 && dv > 2.5 && this.field - du > 1.5 && this.field - dv > 1.5) {
+						this.sow(level, model, buildings, mix(level.getSeed() ^ 0x43, row, col), x, z, p);
+					}
 					continue;
 				}
 				// one stretch of hedge: the edge of one field; a few are gone, and each has its gateway
@@ -131,9 +145,14 @@ public record HedgerowFeature(Holder<PlacedFeature> shrub, Holder<PlacedFeature>
 				if (dev.voidmc.expanse.api.LandClaims.claimed(level, x, z)) {
 					continue;  // a settlement's planned land (VOID Hearth): its fields are its own
 				}
+				if (model != null && model.woodland(x, z) > 0.45F) {
+					continue;  // in a wood: no fields
+				}
 				int top = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z);
 				p.set(x, top, z);
-				if (!this.biomes.contains(level.getBiome(p))) {
+				var biome = level.getBiome(p);
+				if (!this.biomes.contains(biome) || model == null && !biome.is(net.minecraft.world.level.biome.Biomes.PLAINS)
+					&& !biome.is(net.minecraft.world.level.biome.Biomes.SUNFLOWER_PLAINS)) {
 					SKIPPED.incrementAndGet(0);
 					continue;
 				}
@@ -162,6 +181,66 @@ public record HedgerowFeature(Holder<PlacedFeature> shrub, Holder<PlacedFeature>
 			}
 		}
 		return placed;
+	}
+
+	/**
+	 * One column of a field's crop. Which crop a field grows is its own (by its row and column of the grid): ripe
+	 * wheat in two of five, green wheat, fallow earth and hay meadow in about one in seven each, the rest pasture.
+	 * Only in open country on level, dry soil, clear of anything built and of land a settlement has planned.
+	 */
+	private void sow(WorldGenLevel level, dev.voidmc.expanse.world.terrain.TerrainModel model, List<BoundingBox> buildings, long fieldSeed, int x,
+		int z, BlockPos.MutableBlockPos p) {
+		double kind = unit(fieldSeed);
+		if (kind >= 0.86) {
+			return;   // pasture
+		}
+		if (model.woodland(x, z) > 0.35F || dev.voidmc.expanse.api.LandClaims.claimed(level, x, z)) {
+			return;
+		}
+		int top = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z);
+		p.set(x, top, z);
+		if (!this.biomes.contains(level.getBiome(p))) {
+			return;
+		}
+		BlockState ground = level.getBlockState(p.below());
+		if (!ground.is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK) && !ground.is(net.minecraft.world.level.block.Blocks.DIRT)
+			|| !level.getBlockState(p).isAir() && !level.getBlockState(p).canBeReplaced()) {
+			return;
+		}
+		if (Math.abs(level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x + 1, z) - top) > 1
+			|| Math.abs(level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z + 1) - top) > 1) {
+			return;
+		}
+		if (!buildings.isEmpty() && StructureClearance.distance(buildings, x, z) < 6) {
+			return;
+		}
+		long spot = mix(fieldSeed, x, z);
+		BlockPos below = p.below().immutable();
+		BlockPos at = p.immutable();
+		if (kind < 0.55) {
+			// wheat, ripe (or for a field in three, still green and growing)
+			int age = kind < 0.4 ? 7 : 3 + (int) (unit(fieldSeed >>> 7) * 3);
+			level.setBlock(below, net.minecraft.world.level.block.Blocks.FARMLAND.defaultBlockState(), 2);
+			level.setBlock(at, net.minecraft.world.level.block.Blocks.WHEAT.defaultBlockState()
+				.setValue(net.minecraft.world.level.block.CropBlock.AGE, unit(spot) < 0.04 ? Math.max(2, age - 2) : age), 2);
+		} else if (kind < 0.71) {
+			// fallow: the earth turned over and left to lie
+			level.setBlock(below, unit(spot) < 0.75 ? net.minecraft.world.level.block.Blocks.COARSE_DIRT.defaultBlockState()
+				: net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState(), 2);
+			if (!level.getBlockState(at).isAir()) {
+				level.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
+			}
+		} else {
+			// hay meadow, grown tall for the scythe
+			if (unit(spot) < 0.7 && level.getBlockState(at.above()).isAir()) {
+				level.setBlock(at, net.minecraft.world.level.block.Blocks.TALL_GRASS.defaultBlockState(), 2);
+				level.setBlock(at.above(), net.minecraft.world.level.block.Blocks.TALL_GRASS.defaultBlockState()
+					.setValue(net.minecraft.world.level.block.DoublePlantBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER), 2);
+			} else {
+				level.setBlock(at, net.minecraft.world.level.block.Blocks.SHORT_GRASS.defaultBlockState(), 2);
+			}
+		}
+		SOWN.incrementAndGet();
 	}
 
 	private static double noise(SimplexNoise noise, double x, double z) {

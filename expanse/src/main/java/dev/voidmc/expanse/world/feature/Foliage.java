@@ -85,7 +85,10 @@ public final class Foliage {
 	private static final Set<ResourceKey<Biome>> MEADOWS = Set.of(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW, Biomes.WINDSWEPT_HILLS,
 		Biomes.WINDSWEPT_GRAVELLY_HILLS);
 	/** Farmed country, hedged into fields. */
-	private static final Set<ResourceKey<Biome>> FARMLAND = Set.of(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS);
+	/** Where hedged fields may lie: the plains, and on the Earth terrain the open country between the woods of the
+	 * temperate forests and meadows too (HedgerowFeature asks the land). */
+	private static final Set<ResourceKey<Biome>> FARMLAND = Set.of(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.FOREST, Biomes.BIRCH_FOREST,
+		Biomes.FLOWER_FOREST, Biomes.MEADOW, Biomes.OLD_GROWTH_BIRCH_FOREST);
 	private static final Set<ResourceKey<Biome>> JUNGLES = Set.of(Biomes.JUNGLE, Biomes.SPARSE_JUNGLE, Biomes.BAMBOO_JUNGLE);
 
 	private static final GenerationStep.Decoration VEGETATION = GenerationStep.Decoration.VEGETAL_DECORATION;
@@ -121,7 +124,8 @@ public final class Foliage {
 		add("kcd_meadow_flowers", VEGETATION, minus(MEADOWS, Set.of(Biomes.WINDSWEPT_HILLS, Biomes.WINDSWEPT_GRAVELLY_HILLS))),
 		add("kcd_tropic_floor", VEGETATION, JUNGLES),
 		add("kcd_dry_grass", VEGETATION, SAVANNAS),
-		add("kcd_fishponds", GenerationStep.Decoration.LAKES, union(WOODLANDS, Set.of(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS))));
+		add("kcd_fishponds", GenerationStep.Decoration.LAKES, union(WOODLANDS, Set.of(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS))),
+		add("kcd_lone_trees", VEGETATION, union(WOODLANDS, MEADOWS)));
 
 	public static void init() {
 		// -Dexpanse.dev.understory=false leaves the understory out of vanilla's biomes (to time what it costs)

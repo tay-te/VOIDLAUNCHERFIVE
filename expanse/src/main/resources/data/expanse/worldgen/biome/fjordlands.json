@@ -120,7 +120,6 @@
     "minecraft:visual/sky_color": "#93aac6",
     "minecraft:visual/fog_color": "#b8c4cc",
     "minecraft:visual/water_fog_color": "#1d3a52",
-    "minecraft:visual/fog_end_distance": 240.0,
     "minecraft:audio/background_music": {
       "default": {
         "max_delay": 24000,

@@ -2,6 +2,9 @@
   "feature": "expanse:natural/swamp_wood/swamp_oak",
   "placement": [
     {
+      "type": "expanse:land_fit"
+    },
+    {
       "type": "minecraft:count",
       "count": {
         "type": "minecraft:weighted_list",

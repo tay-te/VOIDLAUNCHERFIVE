@@ -78,7 +78,7 @@ BOOKS = {
     "lumen_shrine": {
         "title": "Notes from the Old Wood", "author": "Alchemist Vey",
         "pages": [
-            "The oaks here were old when the chapel was built, and the chapel is very old. Their fungus and their "
+            "The oaks down here were old when the chapel was built, though how they grew without the sun I cannot say, and the chapel is very old. Their fungus and their "
             "moss are my trade. I built my still beside the ruin to be near both.",
             "Bracket tincture: one shelf of fungus, one bottle of water, a pinch of salt. Night-sight for an hour, "
             "bad dreams for a week. My best work is kept behind the vines.",

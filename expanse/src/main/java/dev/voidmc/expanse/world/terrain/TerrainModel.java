@@ -51,7 +51,12 @@ public final class TerrainModel {
 	static final int N_TEPUI = 15;
 	static final int N_PAN = 16;
 	static final int N_LAKE = 17;
-	private static final int NOISES = 18;
+	static final int N_COUNTRY = 18;
+	static final int N_ROCK = 19;
+	static final int N_DOME = 20;
+	static final int N_WOOD = 21;
+	static final int N_ESC = 22;
+	private static final int NOISES = 23;
 	/** One lake at most in each cell this wide. */
 	private static final int LAKE_CELL = 560;
 	/** One great lake at most in each cell this wide. */
@@ -62,10 +67,14 @@ public final class TerrainModel {
 	private final SimplexNoise[] noises = new SimplexNoise[NOISES];
 	private final ConcurrentHashMap<Long, Entry> terrains = new ConcurrentHashMap<>();
 	private final AtomicLong clock = new AtomicLong();
+	/** How many built plates are kept: {@link #MAX_PLATES}, or more while a far view asks for it ({@link #reservePlates}). */
+	private volatile int maxPlates = Integer.getInteger("expanse.maxPlates", MAX_PLATES);
 	private final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
 	/** Great lakes by cell, once found (a few hundred bytes each; the cells are 1.4 km across). */
 	private final ConcurrentHashMap<Long, GreatLake> greatLakes = new ConcurrentHashMap<>();
 	private final CavernModel caverns;
+	/** The countries laid over the relief ({@link Countries}). */
+	private final Countries countries;
 	/** Vanilla's climate noises, made from the same parameters (so the biomes come out in the same proportions). */
 	private final Noise temperature;
 	private final Noise vegetation;
@@ -98,6 +107,11 @@ public final class TerrainModel {
 		final float[] tepuiTropical = new float[64];
 		final float[] tepuiGround = new float[64];
 		final PlateMap.Hit hitC = new PlateMap.Hit();
+		/** (far view) its own working memory, so it never disturbs a column being computed */
+		final PlateMap.Hit farHit = new PlateMap.Hit();
+		final PlateTerrain.Raw farA = new PlateTerrain.Raw();
+		final PlateTerrain.Raw farB = new PlateTerrain.Raw();
+		final Countries.Here farHere = new Countries.Here();
 		/** (lakes) Per lake cell: its key and its lake; the sampler for its site; how far inside the shore. */
 		final long[] lakeKey = new long[64];
 		final Lake[] lakes = new Lake[64];
@@ -107,6 +121,10 @@ public final class TerrainModel {
 		/** (great lakes) Per great-lake cell: its key and its lake. */
 		final long[] greatKey = new long[32];
 		final GreatLake[] greats = new GreatLake[32];
+		/** (countries) Where the column lies on the map of countries; how far up a volcanic hill's core. */
+		final Countries.Here here = new Countries.Here();
+		final Countries.Here hereL = new Countries.Here();
+		final float[] core = new float[2];
 
 		Scratch() {
 			java.util.Arrays.fill(this.tepuiKey, Long.MIN_VALUE);
@@ -143,6 +161,7 @@ public final class TerrainModel {
 			this.noises[i] = new SimplexNoise(random);
 		}
 		this.caverns = new CavernModel(this, seed);
+		this.countries = new Countries(this, seed);
 		var climate = WorldgenRandom.Algorithm.XOROSHIRO.newInstance(seed ^ 0x434C_494D_4154_45L).forkPositional();
 		this.temperature = NormalNoise.builder().setBaseAmplitude(1.2453007926713473).setBaseOctave(-10).setOctaveCount(6)
 			.setAmplitudeModifier(0, 1.5).setAmplitudeModifier(1, 0).setAmplitudeModifier(2, 1).setAmplitudeModifier(3, 0)
@@ -170,6 +189,289 @@ public final class TerrainModel {
 
 	PlateMap plates() {
 		return this.plates;
+	}
+
+	/** The temperature and humidity at (x, z) before the lapse with height, as the columns have them. */
+	float[] climate(double x, double z) {
+		double sx = this.offset.get(x * 0.25, 0, z * 0.25) * 4;
+		double sz = this.offset.get(z * 0.25, x * 0.25, 0) * 4;
+		return new float[]{(float) this.temperature.get(x * 0.2 + sx, 0, z * 0.2 + sz), (float) this.vegetation.get(x * 0.2 + sx, 0, z * 0.2 + sz)};
+	}
+
+	// ------------------------------------------------------------------------------------------------ the far view
+
+	/**
+	 * The node spacing of the far view's plates (blocks): {@link #sampleFar} is the call for cells this size and up;
+	 * for smaller ones, {@link #sample}.
+	 */
+	public static final int FAR_GRID = 512;
+	/** How many far-view plates are kept (some 30 KB each: a 100 km horizon holds about 2,500). */
+	private static final int MAX_FAR_PLATES = 4096;
+	/** How much higher the far view's land stands than its coarse plates make it (see sampleFar). */
+	private static final float FAR_LIFT = 7.5F;
+	private final ConcurrentHashMap<Long, Entry> farTerrains = new ConcurrentHashMap<>();
+
+	/** A far-view column ({@link #sampleFar}): the land averaged over a cell of half a kilometre and more. */
+	public static final class FarColumn {
+		/** The ground's height, smoothed over the cell. */
+		public float height;
+		/** The water's surface (y) where water stands over the ground (the sea), NaN on dry land. */
+		public float water;
+		public boolean ocean;
+		/** The climate values the biome source reads, as {@link Column} has them. */
+		public float continentalness;
+		public float erosion;
+		public float weirdness;
+		public float lapse;
+		public float temperature;
+		public float humidity;
+		public int landform;
+		public float coast;
+		public float uplift;
+		public int rock;
+		public int country;
+	}
+
+	/**
+	 * The land at (x, z) for a far view (VOID LOD's horizon ring past 32 km, cells of 512 to 2048 blocks): the same
+	 * plates, uplift, drainage, climate and countries as {@link #sample}, but each plate worked out on a grid of
+	 * {@value #FAR_GRID}-block nodes (some 30 KB rather than megabytes, cached apart, never building a full plate),
+	 * without rivers, lakes or anything smaller than the cell; what the countries raise above the ground on average
+	 * (hills, towns of rock) is added as an average. Thread-safe; a few microseconds a call once its plates are built.
+	 */
+	public void sampleFar(int x, int z, FarColumn out) {
+		Scratch s = this.scratch.get();
+		PlateMap.Hit hit = s.farHit;
+		this.plates.locate(x, z, hit);
+		PlateTerrain.Raw a = s.farA;
+		PlateTerrain plate = this.farTerrain(hit.own);
+		plate.sample(x, z, x, z, false, a);
+		float weight = 1;
+		float sumHeight = a.height;
+		float sumUplift = a.uplift;
+		float sumCoast = a.coast;
+		float sumBase = a.drainBase;
+		float sumLowland = a.lowland;
+		for (int n = 0; n < hit.nearCount; n++) {
+			double border = hit.nearBorder[n];
+			if (border >= BLEND) {
+				continue;
+			}
+			PlateTerrain.Raw b = s.farB;
+			double rx = x + 2 * border * hit.nearNormalX[n];
+			double rz = z + 2 * border * hit.nearNormalZ[n];
+			this.farTerrain(hit.near[n]).sample(rx, rz, rx, rz, false, b);
+			float t = 0.5F * (1 - Mth.smoothstep((float) (Math.max(0, border) / BLEND)));
+			float q = t / (1 - t);
+			weight += q;
+			sumHeight += q * b.height;
+			sumUplift += q * b.uplift;
+			sumCoast += q * b.coast;
+			sumBase += q * b.drainBase;
+			sumLowland += q * b.lowland;
+		}
+		float height = sumHeight / weight;
+		float uplift = sumUplift / weight;
+		float coast = sumCoast / weight;
+		float base = sumBase / weight;
+		float lowland = sumLowland / weight;
+		// the coarse grid's drainage paths take longer steps between nodes, and so climb a little less: lifted back
+		// by what that comes to on average (measured against the fine grid, -Pslice=far)
+		height += FAR_LIFT * smooth((height - PlateTerrain.SEA) / 20);
+		double sx = this.offset.get(x * 0.25, 0, z * 0.25) * 4;
+		double sz = this.offset.get(z * 0.25, x * 0.25, 0) * 4;
+		float temperature = (float) this.temperature.get(x * 0.2 + sx, 0, z * 0.2 + sz);
+		float humidity = (float) this.vegetation.get(x * 0.2 + sx, 0, z * 0.2 + sz);
+		boolean land = height > PlateTerrain.SEA + 3;
+		if (land) {
+			float alpine = smooth((uplift - 0.9F) / 1.3F);
+			if (alpine > 0 && height > lowland) {
+				height = lowland + (height - lowland) * (1 + 0.65F * alpine);
+			}
+			if (height > 560) {
+				height = 560 + 60 * (1 - (float) Math.exp(-(height - 560) / 60));
+			}
+			float heart = smooth((temperature + 0.4F) / 0.3F) * smooth((0.6F - temperature) / 0.3F) * smooth((humidity + 0.25F) / 0.3F)
+				* smooth((coast - 400) / 700) * smooth((0.95F - uplift) / 0.5F);
+			if (heart > 0) {
+				if (height > lowland) {
+					height = lowland + (height - lowland) * (1 - 0.3F * heart);
+				}
+				float swell = smooth((float) (this.noise(N_DOME, x / 1500.0 - 70, z / 1500.0 + 20) + 0.35) / 1.1F);
+				height += heart * 38 * swell * smooth((coast - 300) / 500);
+			}
+		}
+		Countries.Here here = s.farHere;
+		this.countries.locate(x, z, here);
+		out.country = here.kind;
+		out.rock = Countries.STONE;
+		if (land && here.kind != Countries.NONE && here.strength > 0) {
+			float k = here.strength;
+			float above = Math.max(0, height - lowland);
+			float edge = ESCARPED[here.kind] * k * smooth((coast - 250) / 400) * smooth((1.0F - uplift) / 0.4F);
+			if (edge > 0) {
+				float n = (float) (this.noise(N_ESC, x / 3200.0, z / 3200.0) + 0.22 * this.noise(N_ESC, x / 640.0 + 40, z / 640.0));
+				height += edge * (30 + 25 * (float) (0.5 + 0.5 * this.noise(N_ESC, x / 1900.0 - 77, z / 1900.0))) * smooth((n - 0.15F) / 0.035F);
+			}
+			switch (here.kind) {
+				case Countries.HEARTLAND -> height -= above * 0.25F * k;
+				case Countries.OLD_FOREST -> {
+					height -= above * 0.2F * k;
+					height += k * 30 * smooth((float) (this.noise(N_DOME, x / 2600.0, z / 2600.0) + 0.3) / 0.9F) * smooth((coast - 300) / 600)
+						* smooth((200 - height) / 60);
+				}
+				case Countries.VOLCANIC_HILLS -> {
+					height -= above * 0.3F * k;
+					height += k * 9 * smooth((220 - height) / 50);     // the hills, on average over the cell
+				}
+				case Countries.ROCK_CITY -> {
+					height -= above * 0.25F * k;
+					float patch = smooth((float) (this.noise(N_ROCK, x / 620.0, z / 620.0) - 0.12) / 0.22F) * k;
+					height += 14 * patch * smooth((190 - height) / 40);      // the towers, on average
+					out.rock = k > 0.4F ? Countries.SANDSTONE : Countries.STONE;
+				}
+				case Countries.LAKE_DISTRICT -> height -= above * 0.3F * k;
+				case Countries.GORGES -> {
+					float plateau = lowland + 32 + 12 * (float) this.noise(N_DOME, x / 1800.0 + 11, z / 1800.0);
+					float lowlands = k * smooth((coast - 250) / 500) * smooth((1.05F - uplift) / 0.4F);
+					height = Mth.lerp(lowlands, height, plateau + 0.3F * (height - plateau)) - 4 * lowlands;   // less the gorges
+					out.rock = lowlands > 0.4F ? Countries.LIMESTONE : Countries.STONE;
+				}
+				default -> {
+				}
+			}
+		}
+		// the volcanoes' cones, which stand out over any distance
+		out.landform = Landform.NONE;
+		java.util.List<PlateTerrain.Volcano> volcanoes = plate.volcanoes();
+		for (int v = 0; v < volcanoes.size(); v++) {
+			PlateTerrain.Volcano volcano = volcanoes.get(v);
+			double d = Math.hypot(x - volcano.x(), z - volcano.z());
+			double r = volcano.radius();
+			if (d >= r) {
+				continue;
+			}
+			float apex = plate.summit(v) + 40 + 35 * (float) volcano.strength();
+			float foot = PlateTerrain.SEA + 6;
+			height = Math.max(height, (float) (foot + (apex - foot) * Math.pow(1 - d / r, 1.7)));
+			if (d < r * 0.62 && height > PlateTerrain.SEA + 4) {
+				out.landform = Landform.VOLCANIC;
+			}
+		}
+		out.height = height;
+		out.ocean = height < PlateTerrain.SEA;
+		out.water = out.ocean ? PlateTerrain.SEA : Float.NaN;
+		out.coast = coast;
+		out.uplift = uplift;
+		out.continentalness = continentalness(coast);
+		out.erosion = (float) Mth.clamp(0.42 - 1.25 * Mth.smoothstep(Mth.clamp((uplift - 0.12F) / 1.5F, 0, 1))
+			+ 0.22 * this.noise(N_EROSION, x / 800.0, z / 800.0), -1, 1);
+		float pv = Mth.clamp(-0.7F + (height - base) / 55.0F, -0.7F, 1);
+		float sign = this.noise(N_SIGN, x / 1100.0, z / 1100.0) >= 0 ? 1 : -1;
+		out.weirdness = out.landform != Landform.NONE ? Landform.weirdness(out.landform) : sign * (pv + 1) / 3;
+		out.lapse = -0.8F * Mth.clamp((height - 110) / 260.0F, 0, 1);
+		out.temperature = temperature + out.lapse;
+		out.humidity = humidity;
+	}
+
+	private PlateTerrain farTerrain(PlateMap.Plate plate) {
+		Entry entry = this.farTerrains.get(plate.key());
+		if (entry == null) {
+			Entry mine = new Entry(this.clock.incrementAndGet());
+			entry = this.farTerrains.putIfAbsent(plate.key(), mine);
+			if (entry == null) {
+				entry = mine;
+				try {
+					mine.terrain.complete(new PlateTerrain(this, plate, FAR_GRID));
+				} catch (Throwable t) {
+					mine.terrain.completeExceptionally(t);
+					this.farTerrains.remove(plate.key(), mine);
+					throw t;
+				}
+				if (this.farTerrains.size() > MAX_FAR_PLATES) {
+					// the least recently used half goes at once (rather than one at a time, each a scan of thousands)
+					this.farTerrains.entrySet().stream().filter(e -> e.getValue().terrain.isDone())
+						.sorted(java.util.Comparator.comparingLong(e -> e.getValue().used)).limit(MAX_FAR_PLATES / 2)
+						.toList().forEach(e -> this.farTerrains.remove(e.getKey(), e.getValue()));
+				}
+			}
+		}
+		entry.used = this.clock.incrementAndGet();
+		return entry.terrain.join();
+	}
+
+	/** How much of each kind of country (Countries order) breaks off in escarpments. */
+	private static final float[] ESCARPED = {0, 0.6F, 1.0F, 0.4F, 0, 0.8F, 0.6F};
+
+	/** How open each kind of country is (Countries order): the share of its land left as fields and meadow. */
+	private static final float[] OPENNESS = {0.12F, 0.45F, -0.35F, 0.38F, 0.3F, 0.22F, -0.45F};
+
+	/**
+	 * How likely a tree is to stand at (x, z), 0 to 1: the woods and the open country. A broad noise lays out woods
+	 * and clearings with edges a dozen blocks wide, so a wood ends rather than thins out; the woods keep to the
+	 * rises and slopes (height over the drainage, steepness) and leave the vale floors and the floodplains open;
+	 * each country has its own share of open land (the heartland is mostly fields, the old forest mostly wood, rock
+	 * towns stand in forest); a few lone trees stand out in the open; above the treeline the trees give out.
+	 */
+	public float woodland(int x, int z) {
+		Column c = this.sample(x, z);
+		float height = c.height;
+		float above = c.aboveRiver;
+		int country = c.country;
+		float strength = c.countryStrength;
+		boolean nearRiver = c.nearRiver();
+		float riverDist = c.riverDist - c.riverHalfWidth;
+		if (height < PlateTerrain.SEA + 1) {
+			return 1;
+		}
+		float gx = this.sample(x + 4, z).height - height;
+		float gz = this.sample(x, z + 4).height - height;
+		float slope = (float) Math.sqrt(gx * gx + gz * gz) / 4;
+		float mask = (float) (0.8 * this.noise(N_WOOD, x / 540.0, z / 540.0) + 0.3 * this.noise(N_WOOD, x / 150.0 + 70, z / 150.0));
+		mask += 0.012F * Mth.clamp(above - 14, -14, 40) + 0.6F * Math.min(slope, 1);
+		mask -= 0.12F + (OPENNESS[country] - 0.12F) * strength;
+		float keep = 0.05F + 0.95F * smooth((mask + 0.07F) / 0.14F);
+		if (nearRiver && riverDist < 22 && above < 5) {
+			keep *= 0.35F;     // the floodplain meadows (the bank trees come with the water's edge)
+		}
+		keep *= 1 - 0.92F * smooth((height - 185) / 40);     // the treeline
+		return keep;
+	}
+
+	/**
+	 * Whether (x, z) is on the crest of a rise in open country: no ground within 18 blocks round it stands higher, it
+	 * stands 6 blocks and more over the ground 40 blocks off, and no wood grows there. Where a lone tree belongs.
+	 */
+	public boolean crest(int x, int z) {
+		Column c = this.sample(x, z);
+		float height = c.height;
+		if (height < PlateTerrain.SEA + 6 || height > 175 || c.nearRiver() && c.riverDist < c.riverHalfWidth + 30) {
+			return false;
+		}
+		float lower = 0;
+		for (int k = 0; k < 8; k++) {
+			double a = k * Math.PI / 4;
+			if (this.sample(x + (int) Math.round(Math.cos(a) * 18), z + (int) Math.round(Math.sin(a) * 18)).height > height + 0.3F) {
+				return false;
+			}
+			lower += this.sample(x + (int) Math.round(Math.cos(a) * 40), z + (int) Math.round(Math.sin(a) * 40)).height;
+		}
+		return height - lower / 8 > 6 && this.woodland(x, z) < 0.3F;
+	}
+
+	/** How far from (x, z) the nearest river's bank is (blocks; far when there is none near). */
+	float riverClearance(double x, double z) {
+		PlateMap.Hit hit = new PlateMap.Hit();
+		this.plates.locate(x, z, hit);
+		PlateTerrain.Raw raw = new PlateTerrain.Raw();
+		this.terrain(hit.own).sample(x, z, x, z, true, raw);
+		return Float.isNaN(raw.riverWater) ? 1000 : raw.riverDist - raw.riverHalfWidth;
+	}
+
+	/** The kind of country at (x, z) ({@link Countries}), for a cell's site search. */
+	private int countryAt(double x, double z, Scratch s) {
+		this.countries.locate(x, z, s.hereL);
+		return s.hereL.strength > 0.5F ? s.hereL.kind : Countries.NONE;
 	}
 
 	/** Simplex noise number {@code which}, kept to [-1, 1]. */
@@ -200,9 +502,19 @@ public final class TerrainModel {
 		return entry.terrain.join();
 	}
 
+	/**
+	 * Keeps up to {@code plates} built plates rather than {@link #MAX_PLATES}: for a far view (VOID LOD), which
+	 * samples across many plates at once, where building each once is much faster than building some over and
+	 * over. Asking for fewer again lets the least recently used go at once.
+	 */
+	public void reservePlates(int plates) {
+		this.maxPlates = Math.max(MAX_PLATES, plates);
+		this.evict();
+	}
+
 	/** Drops the least recently used plates once there are too many: each holds a few megabytes. */
 	private void evict() {
-		while (this.terrains.size() > MAX_PLATES) {
+		while (this.terrains.size() > this.maxPlates) {
 			Map.Entry<Long, Entry> oldest = null;
 			for (Map.Entry<Long, Entry> e : this.terrains.entrySet()) {
 				if (e.getValue().terrain.isDone() && (oldest == null || e.getValue().used < oldest.getValue().used)) {
@@ -246,6 +558,7 @@ public final class TerrainModel {
 		float uplift = a.uplift;
 		float coast = a.coast;
 		float base = a.drainBase;
+		float lowland = a.lowland;
 		// Near a border, mirror the point across it into the neighbouring plate and blend toward that, so the
 		// two meet at the border at the same height from either side. Every neighbour within reach takes part,
 		// each by how near its border is (half and half on a border, as before between two plates): where three
@@ -255,6 +568,7 @@ public final class TerrainModel {
 		float sumUplift = uplift;
 		float sumCoast = coast;
 		float sumBase = base;
+		float sumLowland = lowland;
 		for (int n = 0; n < hit.nearCount; n++) {
 			double border = hit.nearBorder[n];
 			s.nearWeight[n] = 0;
@@ -273,11 +587,13 @@ public final class TerrainModel {
 			sumUplift += q * b.uplift;
 			sumCoast += q * b.coast;
 			sumBase += q * b.drainBase;
+			sumLowland += q * b.lowland;
 		}
 		height = sumHeight / weight;
 		uplift = sumUplift / weight;
 		coast = sumCoast / weight;
 		base = sumBase / weight;
+		lowland = sumLowland / weight;
 
 		// A river is not a canal: it narrows and broadens along its course.
 		boolean river = !Float.isNaN(a.riverWater);
@@ -305,14 +621,107 @@ public final class TerrainModel {
 		out.landform = Landform.NONE;
 		boolean land = height > PlateTerrain.SEA + 3;
 
+		// The great ranges: where the land is pushed up hardest, its relief over the lowland is drawn out by up to
+		// two thirds again, so the ranges stand 500 blocks and more over the sea: a wall of rock and snow seen from
+		// far across the country in front of them. The top of the world (y 639) is approached, never reached.
+		if (land) {
+			float alpine = smooth((uplift - 0.9F) / 1.3F);
+			if (alpine > 0 && height > lowland) {
+				height = lowland + (height - lowland) * (1 + 0.65F * alpine);
+			}
+			if (height > 560) {
+				height = 560 + 60 * (1 - (float) Math.exp(-(height - 560) / 60));
+			}
+		}
+
 		// The Bohemian heartland: temperate country well inland and away from the ranges rolls rather than climbs.
-		// Its hills stand lower over their valleys (by up to nearly half), so the land opens out into long gentle
-		// slopes and broad vales, while the mountains and the coasts keep their relief.
+		// Its small hills are worn lower over their valleys, and the land swells instead into long broad rises 20 to
+		// 40 blocks over the vales between them, a kilometre and more across, so ridge behind ridge stands against
+		// the sky; the mountains and the coasts keep their relief.
 		if (land) {
 			float heart = smooth((temperature + 0.4F) / 0.3F) * smooth((0.6F - temperature) / 0.3F) * smooth((humidity + 0.25F) / 0.3F)
 				* smooth((coast - 400) / 700) * smooth((0.95F - uplift) / 0.5F);
-			if (heart > 0 && height > base) {
-				height = base + (height - base) * (1 - 0.45F * heart);
+			if (heart > 0) {
+				if (height > lowland) {
+					height = lowland + (height - lowland) * (1 - 0.3F * heart);
+				}
+				float swell = smooth((float) (this.noise(N_DOME, x / 1500.0 - 70, z / 1500.0 + 20) + 0.35) / 1.1F);
+				height += heart * 38 * swell * smooth((coast - 300) / 500);
+			}
+		}
+
+		// The countries: each reshapes its land its own way (Countries). A river keeps its valley through them.
+		Countries.Here here = s.here;
+		this.countries.locate(x, z, here);
+		out.country = here.kind;
+		out.countryStrength = here.strength;
+		out.rock = Countries.STONE;
+		out.site = Column.SITE_NONE;
+		float gorge = 0;
+		if (land && here.kind != Countries.NONE && here.strength > 0) {
+			float k = here.strength;
+			// (a column knows its river only within the river's box, 56 blocks and more out: be clear of it by then)
+			float clear = river ? smooth((a.riverDist - a.riverHalfWidth - 10) / 40) : 1;
+			float above = Math.max(0, height - lowland);
+			// Escarpments: here and there a long edge where the upland ends in a cliff over the country below, 30 to
+			// 55 blocks high, following a broad noise's contour so it winds for kilometres (the cuestas of the
+			// sandstone and limestone country, the view from a castle). Rivers cut their way through it.
+			float edge = ESCARPED[here.kind] * k * smooth((coast - 250) / 400) * smooth((1.0F - uplift) / 0.4F);
+			if (edge > 0) {
+				float n = (float) (this.noise(N_ESC, x / 3200.0, z / 3200.0) + 0.22 * this.noise(N_ESC, x / 640.0 + 40, z / 640.0));
+				float step = smooth((n - 0.15F) / 0.035F);
+				height += edge * (30 + 25 * (float) (0.5 + 0.5 * this.noise(N_ESC, x / 1900.0 - 77, z / 1900.0))) * step;
+				if (step > 0.7F && step < 0.995F && n - 0.15F < 0.06F && edge > 0.5F) {
+					out.site = Column.SITE_RIM;
+				}
+			}
+			switch (here.kind) {
+				case Countries.HEARTLAND -> height -= above * 0.25F * k;
+				case Countries.OLD_FOREST -> {
+					height -= above * 0.2F * k;
+					height += k * 30 * smooth((float) (this.noise(N_DOME, x / 2600.0, z / 2600.0) + 0.3) / 0.9F) * smooth((coast - 300) / 600)
+						* smooth((200 - height) / 60);
+				}
+				case Countries.VOLCANIC_HILLS -> {
+					height -= above * 0.3F * k;
+					// (lone hills on rolling country: none on the high ranges)
+					float rise = k * this.countries.volcanicHill(x, z, here.seed, s.core) * smooth((220 - height) / 50);
+					height += rise;
+					if (rise > 18 && s.core[0] > 0.5F) {
+						out.rock = Countries.BASALT;
+					}
+					if (s.core[1] > 0 && rise > 30) {
+						out.site = Column.SITE_HILLTOP;
+					}
+				}
+				case Countries.ROCK_CITY -> {
+					height -= above * 0.25F * k;
+					float rise = this.countries.rockTown(x, z, k, clear) * smooth((190 - height) / 40);
+					height += rise;
+					if (k > 0.4F) {
+						out.rock = Countries.SANDSTONE;
+					}
+				}
+				case Countries.LAKE_DISTRICT -> {
+					height -= above * 0.3F * k;
+					height += k * clear * this.countries.drumlins(x, z, here.seed);
+				}
+				case Countries.GORGES -> {
+					// a level-topped plateau over the drainage, its rivers sunk in gorges (the valley below makes the walls)
+					// (rolling a little on top, as karst uplands do, and dimpled with shallow sinkholes)
+					float plateau = lowland + 32 + 12 * (float) this.noise(N_DOME, x / 1800.0 + 11, z / 1800.0)
+						+ 9 * (float) this.noise(N_DOME, x / 420.0 - 40, z / 420.0) + 3 * (float) this.noise(N_ROCK, x / 120.0 + 300, z / 120.0)
+						- this.countries.doline(x, z);
+					// (a plateau of the lowland and the hill country: the high ranges keep their peaks)
+					float lowlands = k * smooth((coast - 250) / 500) * smooth((1.05F - uplift) / 0.4F);
+					height = Mth.lerp(lowlands, height, plateau + 0.3F * (height - plateau));
+					gorge = 0.9F * lowlands;
+					if (lowlands > 0.4F) {
+						out.rock = Countries.LIMESTONE;
+					}
+				}
+				default -> {
+				}
 			}
 		}
 
@@ -375,12 +784,24 @@ public final class TerrainModel {
 			}
 			float apex = plate.summit(v) + 40 + 35 * (float) volcano.strength();
 			float foot = PlateTerrain.SEA + 6;
-			double t = 1 - d / r;
 			double angle = Math.atan2(dz, dx);
-			double gully = 1 - Math.abs(this.noise(N_DETAIL_B, angle * r / 55.0, d / 140.0));
-			float cone = (float) (foot + (apex - foot) * Math.pow(t, 1.7) - (3 + 0.05 * (apex - foot) * t) * gully * gully);
-			height = Math.max(height, cone);
-			if (d < r * 0.62 && height > PlateTerrain.SEA + 4) {
+			// no cone is perfect: its foot wanders in and out, one flank stands fuller than another (old flows,
+			// a collapse), and the gullies wander as water cuts them rather than running out like spokes
+			double flank = 1 + 0.2 * this.noise(N_DOME, Math.cos(angle) * 1.4 + volcano.x() / 83.0, Math.sin(angle) * 1.4 + volcano.z() / 83.0)
+				+ 0.08 * this.noise(N_DOME, Math.cos(angle) * 4.1 - volcano.x() / 61.0, Math.sin(angle) * 4.1 + 17);
+			double t = Math.max(0, 1 - d / (r * (0.82 + 0.18 * flank)));
+			double bend = angle + 0.5 * this.noise(N_ROUGH, x / 230.0 + 13, z / 230.0) * (d / r);
+			// (on a circle round the summit, so the pattern closes on itself with no seam where the bearing wraps)
+			double gully = 1 - Math.abs(this.noise(N_DETAIL_B, Math.cos(bend) * 2.6 + d / 120.0, Math.sin(bend) * 2.6 - d / 120.0));
+			float cone = (float) (foot + (apex - foot) * Math.pow(t, 1.7) * (0.88 + 0.12 * flank)
+				- (4 + 0.07 * (apex - foot) * t) * gully * gully * gully * (0.6 + 0.4 * flank));
+			// (a smooth maximum, so the cone's foot spreads into the land round it rather than meeting it at a line;
+			// exactly the higher of the two wherever they differ by more than 16)
+			float ground = height;
+			float k = Math.max(0, 16 - Math.abs(cone - ground));
+			height = Math.max(ground, cone) + k * k / 64;
+			// the volcano's own country is the cone where it stands clear of the land, not a circle round it
+			if (cone > ground + 8 && d < r * 0.8 && height > PlateTerrain.SEA + 4) {
 				out.landform = Landform.VOLCANIC;
 			}
 			double cr = volcano.crater() * (1 + 0.1 * this.noise(N_BED, x / 23.0, z / 23.0));
@@ -431,7 +852,7 @@ public final class TerrainModel {
 		// deeper the river lies below the land, the wider its valley sides spread, so they climb at a slope a
 		// walker can take rather than standing as walls over the floor.
 		if (river) {
-			height = valley(height, a.riverDist, a.riverHalfWidth, a.riverWater, canyon);
+			height = valley(height, a.riverDist, a.riverHalfWidth, a.riverWater, Math.max(canyon, gorge));
 		}
 		// A river of the plate next door runs near the border: its valley comes across too, fully on the border
 		// and fading out over the blend, and only ever down into the land. Otherwise the valley's side stops dead
@@ -448,7 +869,7 @@ public final class TerrainModel {
 					continue;
 				}
 				float hw = nr.riverHalfWidth * (float) (0.8 + 0.35 * this.noise(N_BED, x / 160.0 + 40, z / 160.0));
-				float carved = valley(height, Math.max(nr.riverDist, hw + 1), hw, nr.riverWater, canyon);
+				float carved = valley(height, Math.max(nr.riverDist, hw + 1), hw, nr.riverWater, Math.max(canyon, gorge));
 				height = Math.min(height, Mth.lerp(w, height, carved));
 			}
 		}
@@ -471,6 +892,9 @@ public final class TerrainModel {
 		// the coast, where the sea has come in: sheer walls round a long arm of the sea.
 		out.fjord = false;
 		float glacial = smooth((-0.05F - temperature) / 0.3F) * smooth((1500 - coast) / 600) * smooth((uplift - 0.35F) / 0.4F);
+		// ...and high in the great ranges, wherever they are, the ice ground the valleys into troughs too: broad
+		// floors between steep walls, the river winding along the bottom
+		glacial = Math.max(glacial, 0.85F * smooth((uplift - 1.3F) / 0.8F) * smooth((height - 240) / 120));
 		if (river && glacial > 0) {
 			float hw = a.riverHalfWidth;
 			float wide = Math.min(58, 20 + 1.4F * hw + 26 * glacial);
@@ -644,7 +1068,8 @@ public final class TerrainModel {
 	 */
 	private GreatLake makeGreatLake(int gx, int gz, Scratch s) {
 		long h = PlateMap.mix(this.seed ^ 0x4752_4541L, gx, gz);
-		if (PlateMap.unit(h) > 0.6) {
+		boolean district = this.countryAt((gx + 0.5) * GREAT_CELL, (gz + 0.5) * GREAT_CELL, s) == Countries.LAKE_DISTRICT;
+		if (PlateMap.unit(h) > (district ? 1.0 : 0.6)) {
 			return GreatLake.NONE;
 		}
 		PlateTerrain.Raw raw = s.l;
@@ -784,7 +1209,8 @@ public final class TerrainModel {
 	 */
 	private Lake makeLake(int lx, int lz, Scratch s) {
 		long h = PlateMap.mix(this.seed ^ 0x4C41_4B45L, lx, lz);
-		if (PlateMap.unit(h) > 0.6) {
+		boolean district = this.countryAt((lx + 0.5) * LAKE_CELL, (lz + 0.5) * LAKE_CELL, s) == Countries.LAKE_DISTRICT;
+		if (PlateMap.unit(h) > (district ? 1.0 : 0.6)) {
 			return Lake.NONE;
 		}
 		PlateTerrain.Raw raw = s.l;

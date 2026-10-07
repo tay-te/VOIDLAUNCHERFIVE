@@ -10,7 +10,7 @@
     "axis": "y",
     "from_coordinate": -64,
     "from_value": 0.5,
-    "to_coordinate": 384,
-    "to_value": -3.0
+    "to_coordinate": 640,
+    "to_value": -5.0
   }
 }

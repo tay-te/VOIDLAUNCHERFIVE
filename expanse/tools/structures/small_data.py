@@ -295,35 +295,6 @@ BOOKS["treehouse_hollow"] = {
         "Visitors: knock on the bark. If I do not answer I am out, or asleep, or a mushroom.",
     ]}
 
-BOOKS["fairy_ring"] = {
-    "title": "Things Not To Do", "author": "a worried forester",
-    "pages": [
-        "Do not step inside the ring of toadstools after dark. Do not step inside it before dark either. Do not "
-        "eat the cake. Nobody knows who bakes the cake.",
-        "Travellers throw coins into the spring for luck, and the luck goes somewhere, and so do the coins. "
-        "I have seen the glint of a box down there. I have not reached for it. See rule one.",
-        "The warden's box in the old stump is for anyone lost in the wood. Take a torch and walk with the "
-        "stream until the oaks stop following you.",
-    ]}
-BOOKS["fairy_ring_toadstool"] = {
-    "title": "Guest Book", "author": "the Toadstool",
-    "pages": [
-        "Welcome! Please mind your head, your feet, and the ring. The bed is short because we are short. The "
-        "berries on the shelf are for guests; the stew is not.",
-        "Signed: a tired traveller (slept well, dreamed of singing). A forester (left in a hurry). A fox (left "
-        "a feather). Someone very small (left the rug crooked).",
-        "Do not lift the rug. There is nothing under the rug. Especially not a hatch.",
-    ]}
-BOOKS["fairy_ring_moonwell"] = {
-    "title": "On the Moonwell", "author": "Alchemist Vey",
-    "pages": [
-        "The basin is lit by candles nobody admits to lighting. The water is cold, still, and three fingers "
-        "deep; anything dropped in it is seen forever and reached never, or so the grove folk say.",
-        "I put my hand in. It is three fingers deep. There is a box. I left it, because the old foresters "
-        "warn that the wood keeps accounts.",
-        "Leave a candle burning at the altar and the arches hum. Leave nothing and they hum anyway, but less kindly.",
-    ]}
-
 BOOKS["bayou_shack"] = {
     "title": "Tide and Catch", "author": "Fen the net-mender",
     "pages": [
@@ -892,21 +863,6 @@ TABLES["treehouse_hidden"] = table(
          item("iron_sword", 3, enchant=True), item("bow", 3, enchant=True), item("arrow", 5, (8, 16)),
          item("honey_bottle", 4, (1, 3)), item("diamond", 1)),
     pool(1, empty(3), book(3), item("golden_apple", 1), item("name_tag", 1), lore("treehouse", 2)))
-
-TABLES["fairy_ring"] = table(
-    "fairy_ring",
-    pool((3, 6), item("glow_berries", 8, (2, 6)), item("expanse:glowcap", 8, (1, 4)), item("brown_mushroom", 6, (1, 3)),
-         item("red_mushroom", 6, (1, 3)), item("honey_bottle", 4), item("cookie", 5, (2, 5)), item("torch", 5, (2, 6)),
-         item("expanse:lumen_sapling", 3), item("glow_ink_sac", 4, (1, 2)),
-         item("expanse:prismite_cluster", 3, (1, 2))),
-    pool(1, empty(5), item("emerald", 2), item("cake", 1), item("music_disc_mellohi", 1)))
-TABLES["fairy_ring_hidden"] = table(
-    "fairy_ring_hidden",
-    pool((3, 6), item("gold_nugget", 10, (3, 12)), item("emerald", 6, (1, 4)), item("amethyst_shard", 5, (2, 6)),
-         item("expanse:prismite_block", 3, (1, 2)), item("glowstone_dust", 5, (2, 6)),
-         item("experience_bottle", 4, (1, 3)),
-         item("diamond", 1)),
-    pool(1, empty(3), book(3), item("golden_apple", 2), item("name_tag", 1), lore("fairy_ring", 2)))
 
 TABLES["bayou_shack"] = table(
     "bayou_shack",
