@@ -33,8 +33,8 @@ import net.minecraft.world.level.block.Blocks;
  * the great room upstairs; the chapel and the cookhouse in the front corners; barracks down the sides where the fort is
  * deep enough. Low and star-shaped: the walls are the silhouette, not towers.
  *
- * <p>Raised in six campaigns: the trace; the gate and the garitas; the commandant's house; the chapel and the cookhouse;
- * the barracks; the parade ground.
+ * <p>Raised in campaigns: the trace (in up to three, a stretch at a time, on a hillside); the gate and the garitas; the
+ * commandant's house; the chapel and the cookhouse; the barracks; the parade ground.
  */
 final class Bastion {
 	private Bastion() {
@@ -63,26 +63,27 @@ final class Bastion {
 		Plan p = plan(d);
 		d.body(p.trace.x0, p.trace.z0, p.trace.x1, p.trace.z1);
 		d.eave(p.walk + 6);
+		// the parade ground levelled, the trace raised a stretch at a time where it is footed far down a hillside
 		try (var ph = d.campaign(0)) {
 			Court.fill(d, m, p.trace, p.thick, p.y);
-			Curtain.enclose(d, m, man, p.trace, p.thick, p.walk, Curtain.Opts.of(man));
 		}
-		try (var ph = d.campaign(1)) {
+		Curtain.encloseInCampaigns(d, m, man, p.trace, p.thick, p.walk, Curtain.Opts.of(man), null, 0, 3);
+		try (var ph = d.campaign(3)) {
 			gate(d, m, man, p);
 			garitas(d, m, man, p);
 		}
-		try (var ph = d.campaign(2)) {
+		try (var ph = d.campaign(4)) {
 			house(d, m, man, p);
 		}
-		try (var ph = d.campaign(3)) {
+		try (var ph = d.campaign(5)) {
 			chapel(d, m, man, p);
 			cookhouse(d, m, man, p);
 		}
-		try (var ph = d.campaign(4)) {
+		try (var ph = d.campaign(6)) {
 			barracks(d, m, man, p, true);
 			barracks(d, m, man, p, false);
 		}
-		try (var ph = d.campaign(5)) {
+		try (var ph = d.campaign(7)) {
 			parade(d, m, p);
 		}
 		try (var ph = d.campaign(0)) {
@@ -229,7 +230,7 @@ final class Bastion {
 			x1 = p.c - 4;
 		}
 		Range r = new Range(x0, z0, x1, z1, p.y, new int[]{6}, Dirs.FRONT);
-		r.footings(d, m);
+		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
 		int cx = (x0 + x1) / 2;
@@ -240,7 +241,10 @@ final class Bastion {
 			Castle.belfry(d, m, man, cx, z0 + 1, r.roof.surfaceY(cx, z0 + 1) + 1, p.maxTop);
 		}
 		int[] in = r.room(0);
-		Sacred.altar(d, cx, p.y, in[3], Dirs.FRONT, in[2] - in[0] >= 4, cx + 2 <= in[2] ? cx + 2 : cx - 2);
+		// the priest's lectern beside the altar, inside the walls however narrow the corner leaves the cell
+		boolean wide = in[2] - in[0] >= 4;
+		int lx = cx + 2 <= in[2] ? cx + 2 : cx - 2 >= in[0] ? cx - 2 : cx + 1 <= in[2] ? cx + 1 : cx - 1;
+		Sacred.altar(d, cx, p.y, in[3], Dirs.FRONT, wide, lx);
 		Sacred.pews(d, in[0], in[2], in[3] - 3, in[1] + 2, p.y, cx, Dirs.BACK, false);
 		Lighting.room(d, in[0], in[1], in[2], in[3], in[4]);
 	}
@@ -252,7 +256,7 @@ final class Bastion {
 		int z0 = p.z0 + p.thick + 2;
 		int z1 = Math.min(z0 + 7, p.z1 - 12);
 		Range r = new Range(x0, z0, x1, z1, p.y, new int[]{5}, Dirs.FRONT);
-		r.footings(d, m);
+		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
 		int cx = (x0 + x1) / 2;
@@ -279,7 +283,7 @@ final class Bastion {
 		Direction court = left ? Dirs.RIGHT : Dirs.LEFT;
 		Range r = new Range(x0, z0, x1, z1, p.y, new int[]{5}, court);
 		r.blind(court.getOpposite());
-		r.footings(d, m);
+		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
 		int mz = (z0 + z1) / 2;

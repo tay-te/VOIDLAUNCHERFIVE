@@ -16,6 +16,7 @@ import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Role;
+import dev.voidmc.hearth.build.terrain.Groundwork;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -74,18 +75,20 @@ public final class Court {
 	}
 
 	/**
-	 * Levels and paves the ward an {@link Outline} encloses inside its curtain ({@code thick} deep) at standing level y,
-	 * run by run along each row, so the made ground stops at the wall's foot and the field outside keeps its own slope.
+	 * Levels and paves the ward an {@link Outline} encloses inside its curtain ({@code thick} deep) at standing level y as
+	 * one piece of made ground, so it stops at the wall's foot and the field outside keeps its own slope: earth cut and
+	 * filled within, foundation stone only along its edge (under the curtain) where the fill stands high.
 	 */
 	public static void fill(Draft d, Dress m, Outline o, int thick, int y) {
+		Groundwork.Within in = (x, z) -> Mason.inPlot(d, x, z) && o.ward(x, z, thick);
+		Groundwork.level(d, o.x0, Math.max(0, o.z0), o.x1, Math.min(d.depth() - 1, o.z1), y, true, in);
 		for (int z = Math.max(0, o.z0); z <= Math.min(d.depth() - 1, o.z1); z++) {
 			int run = Integer.MIN_VALUE;
 			for (int x = o.x0; x <= o.x1 + 1; x++) {
-				boolean in = x <= o.x1 && Mason.inPlot(d, x, z) && o.ward(x, z, thick);
-				if (in && run == Integer.MIN_VALUE) {
+				boolean inside = x <= o.x1 && in.test(x, z);
+				if (inside && run == Integer.MIN_VALUE) {
 					run = x;
-				} else if (!in && run != Integer.MIN_VALUE) {
-					dev.voidmc.hearth.build.terrain.Groundwork.level(d, run, z, x - 1, z, y, true);
+				} else if (!inside && run != Integer.MIN_VALUE) {
 					pave(d, m, run, z, x - 1, z, y);
 					run = Integer.MIN_VALUE;
 				}
