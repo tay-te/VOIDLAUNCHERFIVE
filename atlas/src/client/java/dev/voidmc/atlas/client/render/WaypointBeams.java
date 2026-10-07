@@ -52,6 +52,7 @@ public final class WaypointBeams {
 	private final float[] boxes = new float[MAX_BEAMS * 4];
 	private final String[] metaText = new String[256];
 	private final String[] widthFor = new String[256];
+	private final boolean[] clamped = new boolean[256];
 	private final boolean[] widthNear = new boolean[256];
 	private final float[] nameW = new float[256];
 	private final float[] metaW = new float[256];
@@ -96,6 +97,7 @@ public final class WaypointBeams {
 			this.shownSession = session;
 			java.util.Arrays.fill(this.metaKey, Long.MIN_VALUE);
 			java.util.Arrays.fill(this.widthFor, null);
+			java.util.Arrays.fill(this.clamped, false);
 		}
 		if (this.shown.isEmpty()) {
 			return;
@@ -151,7 +153,7 @@ public final class WaypointBeams {
 			if (base == null || top == null) {
 				continue;
 			}
-			if (near && (!onScreen(base, sw, sh) || !onScreen(top, sw, sh))) {
+			if (near && (!onScreen(base, sw, sh) || !onScreen(top, sw, sh)) || this.clamped[this.order[k]]) {
 				// a near beam half off the screen (under the player, beside them): no line to a label at the edge
 				continue;
 			}
@@ -195,9 +197,10 @@ public final class WaypointBeams {
 				bw = 10 + 6 + 7 + this.nameW[index] + 7 + this.metaW[index] + 10;
 				bh = 22;
 			}
-			// kept on screen: a label at the edge still says where and how far
+			// kept on screen: a label at the edge still says where and how far (and its beam is left out: no line to it)
 			x0 = Math.max(8, Math.min(sw - bw - 8, top[0] - bw / 2));
 			y0 = Math.max(8, Math.min(sh - bh - 8, top[1] - bh));
+			this.clamped[index] = Math.abs(x0 - (top[0] - bw / 2)) > 2 || Math.abs(y0 - (top[1] - bh)) > 2;
 			if (this.clashes(placed, x0, y0, bw, bh)) {
 				continue;
 			}
