@@ -358,6 +358,7 @@ public final class Expand {
 			return false;
 		}
 		Grid.planAhead(ctx, lane, 0, lane.length());
+		Beauty.cornerLamp(ctx, lane);
 		return true;
 	}
 
@@ -655,6 +656,7 @@ public final class Expand {
 		}
 		Roads.build(ctx, lane, lane.length(), "road: a new " + kind.getSerializedName() + " off the " + describe(parent));
 		Grid.planAhead(ctx, lane, 0, lane.length());
+		Beauty.cornerLamp(ctx, lane);
 		return true;
 	}
 

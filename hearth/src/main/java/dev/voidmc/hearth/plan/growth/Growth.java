@@ -260,13 +260,18 @@ public final class Growth {
 		if ((ctx.state.signature.stacks || ctx.state.layout == LayoutType.CLIFF) && tier.ordinal() >= SettlementTier.HAMLET.ordinal()) {
 			list.add(new Need("stack", 120, Stacks::plan));
 		}
+		// a town lights its streets (ART_REVIEW_2 item 19)
+		if (Beauty.lampsWanted(ctx, needs)) {
+			list.add(new Need("lights", 95, Beauty::lights));
+		}
 		// households that outgrew their houses build on (docs/buildings/age.md)
 		Need additions = Additions.need(ctx);
 		if (additions != null) {
 			list.add(additions);
 		}
 		if (deficit <= 0 && needs.food >= mouths && tier.ordinal() >= SettlementTier.HAMLET.ordinal()) {
-			int beauty = needs.category(ArchetypeCategory.LANDSCAPE);
+			// (the street lamps a town keeps are counted apart: they light it, they do not make it fair)
+			int beauty = needs.category(ArchetypeCategory.LANDSCAPE) - needs.count(Archetypes.LAMP_POST);
 			if (beauty < 2 + pop / 15) {
 				list.add(new Need("beauty", 60, c -> Beauty.plan(c, needs)));
 			}
