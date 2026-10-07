@@ -279,6 +279,9 @@ public class AtlasGameTest implements FabricClientGameTest {
 		if (this.want("expanse")) {
 			this.expanseShot(context);
 		}
+		if (this.want("tall")) {
+			this.tallShots(context, world);
+		}
 		if (this.want("lod") && net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(dev.voidmc.atlas.client.FarSight.LOD_MOD)) {
 			this.lodShots(context, world);
 		}
@@ -710,6 +713,106 @@ public class AtlasGameTest implements FabricClientGameTest {
 			return out.size() + " of " + cells + " 64-block cells within " + r + " blocks: " + String.join(" ", out.subList(0, Math.min(60, out.size())));
 		});
 		log("far sight holes near: " + near);
+	}
+
+	/**
+	 * A tall world (VOID Expanse's Earth, top y 639): the highest ground found round the spawn, flown over so it is mapped,
+	 * then the range in the Natural and Topographic styles, the biome view, and the depth scrubber and side view at a
+	 * slice high in the mountain. Logs the peak, the world's height and how the elevation lift and contours fall there.
+	 */
+	private void tallShots(ClientGameTestContext context, TestSingleplayerContext world) {
+		int[] peak = world.getServer().computeOnServer(server -> {
+			var level = server.overworld();
+			var gen = level.getChunkSource().getGenerator();
+			var rs = level.getChunkSource().randomState();
+			int bx = 0, bz = 0, by = Integer.MIN_VALUE;
+			for (int r = 0; r <= 6144; r += 256) {
+				for (int a = 0; a < Math.max(1, r / 128); a++) {
+					double ang = a * Math.PI * 2 / Math.max(1, r / 128);
+					int x = this.spawn.getX() + (int) (Math.cos(ang) * r);
+					int z = this.spawn.getZ() + (int) (Math.sin(ang) * r);
+					int y = gen.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, level, rs);
+					if (y > by) {
+						by = y;
+						bx = x;
+						bz = z;
+					}
+				}
+			}
+			// the summit near the best sample
+			for (int dz = -96; dz <= 96; dz += 16) {
+				for (int dx = -96; dx <= 96; dx += 16) {
+					int y = gen.getBaseHeight(bx + dx, bz + dz, Heightmap.Types.WORLD_SURFACE_WG, level, rs);
+					if (y > by) {
+						by = y;
+						bx += dx;
+						bz += dz;
+					}
+				}
+			}
+			return new int[]{bx, by, bz, level.getMinY(), level.getMinY() + level.getHeight() - 1};
+		});
+		log(String.format(Locale.ROOT, "tall world: y %d to %d; the highest ground found: %d at (%d, %d); elevation lift there +%.3f L (capped from y %d); "
+			+ "%d contour lines of 16 blocks and %d of 64 from the sea up", peak[3], peak[4], peak[1], peak[0], peak[2],
+			Math.min(0.032, 0.004 * Math.floor((peak[1] - 63) / 16.0)), 63 + 8 * 16, (peak[1] - 63) / 16, (peak[1] - 63) / 64));
+		// fly over the range so it is mapped
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		world.getServer().runCommand("gamemode spectator @a");
+		for (int i = 0; i < 9; i++) {
+			int x = peak[0] + (i % 3 - 1) * 160;
+			int z = peak[2] + (i / 3 - 1) * 160;
+			world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d 0 90", x, Math.min(peak[4] - 2, peak[1] + 60), z));
+			context.waitTicks(60);
+		}
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d 0 60", peak[0] - 40, Math.min(peak[4] - 2, peak[1] + 40), peak[2] - 40));
+		context.waitTicks(100);
+		java.util.function.Consumer<double[]> map = v -> context.runOnClient(mc -> {
+			if (!(mc.gui.screen() instanceof AtlasScreen)) {
+				AtlasClient.get().openMap();
+			}
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			screen.page.rightTab = 1;
+			screen.page.map.setKind(MapPanel.Kind.SURFACE);
+			screen.page.map.setBiomeLook(v[3] > 0);
+			screen.page.map.centreOn(v[0], v[1]);
+			screen.page.map.setZoom(v[2]);
+			screen.page.map.selected = null;
+		});
+		context.getInput().setCursorPos(5, 5);
+		for (dev.voidmc.atlas.core.MapArt.Style style : new dev.voidmc.atlas.core.MapArt.Style[]{dev.voidmc.atlas.core.MapArt.Style.NATURAL,
+			dev.voidmc.atlas.core.MapArt.Style.TOPOGRAPHIC}) {
+			context.runOnClient(mc -> {
+				AtlasClient.get().settings().mapStyle = style;
+				AtlasClient.get().settings().contours = null;
+			});
+			map.accept(new double[]{peak[0], peak[2], 1, 0});
+			this.settle(context, SETTLE_MS);
+			context.waitTicks(20);
+			this.shoot(context, "tall_" + style.name().toLowerCase(Locale.ROOT));
+		}
+		context.runOnClient(mc -> AtlasClient.get().settings().mapStyle = dev.voidmc.atlas.core.MapArt.Style.NATURAL);
+		map.accept(new double[]{peak[0], peak[2], 1, 1});
+		this.settle(context, SETTLE_MS);
+		context.waitTicks(20);
+		this.shoot(context, "tall_biomes");
+		// the depth scrubber and side view at a slice high in the mountain
+		int slice = dev.voidmc.atlas.client.data.DimensionData.bandOf(peak[1] - 48);
+		context.runOnClient(mc -> {
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			screen.page.map.setBiomeLook(false);
+			screen.page.map.setKind(MapPanel.Kind.UNDERGROUND);
+			screen.page.map.setBiomeLook(false);
+			screen.page.map.setBand(slice);
+			screen.page.map.centreOn(peak[0], peak[2]);
+			screen.page.map.setZoom(1);
+		});
+		this.settle(context, SETTLE_MS);
+		context.waitTicks(20);
+		this.shoot(context, "tall_depth");
+		context.runOnClient(mc -> {
+			((AtlasScreen) mc.gui.screen()).page.map.setKind(MapPanel.Kind.SURFACE);
+			mc.gui.setScreen(null);
+		});
 	}
 
 	private void lodShots(ClientGameTestContext context, TestSingleplayerContext world) {

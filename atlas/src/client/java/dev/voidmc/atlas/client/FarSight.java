@@ -216,6 +216,11 @@ public final class FarSight {
 	void take(Object visibleTerrain) {
 		long t0 = System.nanoTime();
 		try {
+			// what VOID LOD hands over, by cell size, before anything is filtered (the tour's raw account)
+			int rawCell = Lod.cell(visibleTerrain);
+			if (rawCell > 0) {
+				OFFERED_BY_CELL.incrementAndGet(Math.min(10, 31 - Integer.numberOfLeadingZeros(rawCell)));
+			}
 			if (this.on) {
 				Tile tile = Lod.tile(visibleTerrain);
 				if (tile != null) {
@@ -231,10 +236,6 @@ public final class FarSight {
 
 	/** Files a far tile to be written (any thread). Public for the perf scenario, which feeds made-up tiles. */
 	public void offer(Tile tile) {
-		if (this.on && tile.cell() > 0) {
-			// what VOID LOD offers, by cell size (powers of two, 1 to 512): the tour's account of what is taken and left
-			OFFERED_BY_CELL.incrementAndGet(Math.min(10, 31 - Integer.numberOfLeadingZeros(tile.cell())));
-		}
 		boolean coarse = tile.cell() >= COARSE && tile.cell() <= MAX_COARSE_CELL;
 		if (!this.on || tile.cell() < MIN_CELL || tile.cell() > MAX_CELL && !coarse || tile.size() <= 0 || tile.size() > MAX_SIZE) {
 			return;
@@ -631,6 +632,22 @@ public final class FarSight {
 			}
 		}
 
+		/** A {@code VisibleTerrain} record's cell size, read before anything else (0 if it is not one). */
+		static int cell(Object v) {
+			try {
+				for (RecordComponent c : v.getClass().getRecordComponents()) {
+					if (c.getName().equals("cell")) {
+						Method m = c.getAccessor();
+						m.setAccessible(true);
+						return (Integer) m.invoke(v);
+					}
+				}
+			} catch (ReflectiveOperationException | RuntimeException e) {
+				// not a tile
+			}
+			return 0;
+		}
+
 		/** A {@code VisibleTerrain} record as Atlas's own tile (block states and biome keys turned into names), or null. */
 		static Tile tile(Object v) {
 			try {
@@ -645,7 +662,8 @@ public final class FarSight {
 					parts = p = got;
 				}
 				int cell = (Integer) p.get("cell").invoke(v);
-				if (cell < MIN_CELL || cell > MAX_CELL) {
+				// fine (1 to 16 blocks) or coarse (32 to 512): anything else is left
+				if (cell < MIN_CELL || cell > MAX_CELL && (cell < COARSE || cell > MAX_COARSE_CELL)) {
 					return null;
 				}
 				String dim = ((ResourceKey<?>) p.get("dimension").invoke(v)).identifier().toString();
