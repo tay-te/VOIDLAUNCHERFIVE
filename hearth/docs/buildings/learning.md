@@ -110,8 +110,11 @@ floors; arcades on all four sides of the court, a sundial at the crossing of its
 tropical spirit house. ALTAR before it, a bench where there is room, offerings of flowers and candles.
 
 **Observatory.** On the rise: the astronomers' tower (square with dressed corners or eight-sided, a newel stair through
-the library and the instrument rooms to the domed observing room with its slit and telescope, a gallery round it, armillary
-spheres, a sundial in the forecourt), or in the dry lands, the steppe and the karst the terrace observatory (a stepped
+the library and the instrument rooms to the observing room: a round drum (on a square tower the drum stands on its
+head, the corners left to the walk) under a smooth hemisphere of one sheet, lead (polished andesite) in the north, the
+west and Bohemia, patinated copper in the mountains, on the coasts and in the tropics, laid to a sphere's section row by
+row (`Shapes.domeRows`) with its slit to the sky and the telescope aimed through it; a gallery round it behind a
+balustrade (piers only at its angles, nothing on it), a sundial in the forecourt), or in the dry lands, the steppe and the karst the terrace observatory (a stepped
 platform with the library and the instrument store inside, a terrace of instruments on top reached by the great
 gnomon's stair, or by a stair to a pavilion in the karst). Params: `form` (`tower`, `terrace`).
 
