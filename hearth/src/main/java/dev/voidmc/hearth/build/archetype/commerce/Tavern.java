@@ -526,6 +526,11 @@ public final class Tavern implements Archetype {
 							d.set(cells[k][0], yy, cells[k][1], stone.full());
 						}
 					}
+					// where the room is open to the rafters the breast goes on up into them (a breast that stops at the
+					// plate leaves a ledge under the roof)
+					for (int yy = plate; roof != null && yy <= roof.ridgeY && d.isEmpty(cells[k][0], yy, cells[k][1]); yy++) {
+						d.set(cells[k][0], yy, cells[k][1], stone.full());
+					}
 				}
 			}
 			d.poi(PoiType.HEARTH, frontCell[0], y, frontCell[1], toWall);

@@ -109,12 +109,58 @@ public final class Edges {
 				System.out.println("  edge " + x + "/" + y + "/" + z + " way=" + ways.contains(Draft.key(x, y, z)) + " open=" + keepsOpen(d, x, y, z) + " under=" + under);
 			}
 			if (ways.contains(Draft.key(x, y, z))) {
+				// the way in (a landing before the door, the head of its flight): rails beside it over the drop, never on it
+				n += sideRails(d, ways, x, y, z, rail);
+				continue;
+			}
+			BlockState here = d.get(x, y, z);
+			if (here != null && here.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock
+				&& here.getValue(net.minecraft.world.level.block.TrapDoorBlock.OPEN) && d.allowed(x, y, z)) {
+				Direction f = here.getValue(net.minecraft.world.level.block.TrapDoorBlock.FACING);
+				Direction side = f.getClockWise();
+				boolean opening = !passable(d, x + side.getStepX(), y, z + side.getStepZ()) && !passable(d, x - side.getStepX(), y, z - side.getStepZ())
+					|| !passable(d, x + f.getStepX(), y, z + f.getStepZ()) && !passable(d, x - f.getStepX(), y, z - f.getStepZ());
+				int lo = y;
+				while (d.get(x, lo - 1, z) != null && d.get(x, lo - 1, z).getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) {
+					lo--;
+				}
+				int hi = y;
+				while (d.get(x, hi + 1, z) != null && d.get(x, hi + 1, z).getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) {
+					hi++;
+				}
+				BlockState post = d.get(x, lo - 1, z);
+				if (post != null && post.getBlock() instanceof net.minecraft.world.level.block.RotatedPillarBlock
+					&& post.getValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS) == Direction.Axis.Y) {
+					// a lattice band carried round a corner post: the post goes on up through it
+					for (int yy = lo; yy <= hi; yy++) {
+						int fy = yy;
+						d.inStage(StageKind.FRAME, () -> d.set(x, fy, z, post));
+					}
+				} else if (opening) {
+					// a lattice in an opening someone could climb into over the drop: glazed instead
+					Mat glass = d.mat(Role.GLASS);
+					d.inStage(StageKind.OPENINGS, () -> d.set(x, y, z, glass.has(Form.PANE) ? glass.pane()
+						: Paint.of(net.minecraft.world.level.block.Blocks.GLASS_PANE.defaultBlockState())));
+				} else {
+					// a pair of shutter leaves on a wall's face whose top someone could step onto over the drop: the window
+					// goes unshuttered
+					for (int dy = -2; dy <= 2; dy++) {
+						BlockState leaf = d.get(x, y + dy, z);
+						if (leaf != null && leaf.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock
+							&& leaf.getValue(net.minecraft.world.level.block.TrapDoorBlock.FACING) == f && d.allowed(x, y + dy, z)) {
+							d.remove(x, y + dy, z);
+						}
+					}
+				}
+				n++;
 				continue;
 			}
 			if (!onFurniture && !keepsOpen(d, x, y, z)) {
 				// on a stair or beside a door: nothing on the cell itself, but a balustrade may still stand in the open well
-				// beside it (between the lanes of a switchback, over a stair's open side)
-				n += wellRail(d, ways, x, y, z, rail);
+				// beside it (between the lanes of a switchback, over a stair's open side), or out of doors a rail on a board
+				// beside it over the drop
+				int railed = wellRail(d, ways, x, y, z, rail);
+				n += railed > 0 ? railed : sideRails(d, ways, x, y, z, rail);
 				continue;
 			}
 			// a floor behind the rail: some neighbour stays walkable and is no edge itself
@@ -179,6 +225,10 @@ public final class Edges {
 				lastResort.add(e);
 			}
 		}
+		// a corner post carried up through a lattice band makes the jambs of the lattice beside it: glaze those now
+		if (n > 0) {
+			n += glazeLattices(d, walk(d), x0, z0, x1, z1, y0, y1);
+		}
 		// the rest railed on the edge itself, each only where the rail closes nothing but its own cell (every cell walked to
 		// before is walked to after): a rail never cuts the way to a room
 		if (!lastResort.isEmpty()) {
@@ -225,16 +275,23 @@ public final class Edges {
 			}
 			Direction f = s.getValue(net.minecraft.world.level.block.TrapDoorBlock.FACING);
 			Direction side = f.getClockWise();
-			// in a wall: solid either side across the opening, or the next leaf of a wider lattice
+			// in a wall: solid either side across the opening, or the next leaf of a wider lattice; or a shutter leaf folded
+			// back against its jamb (it faces along the wall, the opening beside it stands open)
+			Direction through = f;
 			if (!jamb(d, x + side.getStepX(), y, z + side.getStepZ(), f) || !jamb(d, x - side.getStepX(), y, z - side.getStepZ(), f)) {
-				continue;
+				if (passable(d, x + f.getStepX(), y, z + f.getStepZ()) || passable(d, x - f.getStepX(), y, z - f.getStepZ())) {
+					continue;
+				}
+				through = side;
 			}
 			// through it: a cell to stand on beyond (level with the sill or a drop of up to three under it) on an eave, a sill or
 			// a porch roof (a stair or a slab), up off the ground, or at the brink of a drop
 			boolean out = false;
-			for (Direction dir : new Direction[]{f, f.getOpposite()}) {
+			for (Direction dir : new Direction[]{through, through.getOpposite()}) {
 				int nx = x + dir.getStepX();
 				int nz = z + dir.getStepZ();
+				// a lattice down to the floor (a raised house's) straight over the drop
+				out = out || passable(d, nx, y, nz) && passable(d, nx, y + 1, nz) && drop(d, nx, y, nz) >= DROP;
 				for (int dy = 0; dy >= -3 && !out; dy--) {
 					int ny = y + dy;
 					if (!walkable(d, nx, ny, nz)) {
@@ -267,6 +324,36 @@ public final class Edges {
 				&& braced(d, nx, y, nz, dir.getOpposite()) && !ways.contains(Draft.key(nx, y, nz))) {
 				Paint p = rail != null ? rail : railing(d);
 				d.inStage(StageKind.INTERIOR, () -> d.set(nx, y, nz, p));
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Rails beside walked cell (x, y, z), which itself stays open (a way in, a stair tread, a door's cell): on every side
+	 * where the next cell falls {@value #DROP} or more, a board under it and a rail on the board, kept only where every
+	 * door and POI walked to before is still walked to after. Returns how many it set.
+	 */
+	private static int sideRails(Draft d, LongOpenHashSet ways, int x, int y, int z, @Nullable Paint rail) {
+		int n = 0;
+		for (Direction dir : Direction.Plane.HORIZONTAL) {
+			int nx = x + dir.getStepX();
+			int nz = z + dir.getStepZ();
+			if (!d.allowed(nx, y - 1, nz) || !d.allowed(nx, y, nz) || !empty(d, nx, y - 1, nz) || !empty(d, nx, y, nz) || !empty(d, nx, y + 1, nz)
+				|| drop(d, nx, y, nz) < DROP || ways.contains(Draft.key(nx, y, nz))) {
+				continue;
+			}
+			int before = inPlot(d, walk(d));
+			Mat floor = d.mat(Role.FLOOR);
+			Paint board = floor.has(Form.SLAB) ? floor.slab(SlabType.TOP) : floor.full();
+			Paint p = rail != null ? rail : railing(d);
+			d.inStage(StageKind.FLOORS, () -> d.set(nx, y - 1, nz, board));
+			d.inStage(StageKind.EXTERIOR, () -> d.set(nx, y, nz, p));
+			if (inPlot(d, walk(d)) < before) {
+				d.remove(nx, y, nz);
+				d.remove(nx, y - 1, nz);
+			} else {
 				n++;
 			}
 		}
