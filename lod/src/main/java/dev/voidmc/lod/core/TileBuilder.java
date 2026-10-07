@@ -166,6 +166,10 @@ public final class TileBuilder {
 		SAMPLE_NANOS.addAndGet(System.nanoTime() - t0);
 		SAMPLES.addAndGet((long) this.samples.size * this.samples.size);
 		this.terrain = captureTerrain ? TileTerrain.of(key, this.samples) : null;
+		dev.voidmc.lod.api.LodApi.Seasons seasons = dev.voidmc.lod.api.LodApi.seasons();
+		if (seasons != null) {
+			this.season(seasons);
+		}
 		this.lit = heights != null;
 		if (this.lit) {
 			heights.put(key, this.grid(smooth));
@@ -213,6 +217,17 @@ public final class TileBuilder {
 				decorator = null;
 			}
 		}
+		if (decorator != null && seasons != null) {
+			Voxels v = this.voxels;
+			for (int n = 0; n < v.size; n++) {
+				if (v.kind[n] == Voxels.LEAVES) {
+					int biome = this.samples.biome[this.samples.at(Math.clamp(Math.floorDiv(v.x[n] - TileKey.minX(key), this.samples.cell), 0, TileKey.TILE - 1),
+						Math.clamp(Math.floorDiv(v.z[n] - TileKey.minZ(key), this.samples.cell), 0, TileKey.TILE - 1))];
+					v.topColor[n] = seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.LEAVES, v.topColor[n], biome, v.topMaterial[n], -1);
+					v.sideColor[n] = seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.LEAVES, v.sideColor[n], biome, v.sideMaterial[n], -1);
+				}
+			}
+		}
 		this.blocky.trees(decorator != null ? this.voxels : null);
 		if (smooth) {
 			indices = this.smooth.mesh();
@@ -231,6 +246,29 @@ public final class TileBuilder {
 		int[] groups = smooth || this.vertices == 0 ? null : this.groupByFace(this.pack ? land / 6 : this.vertices / 4);
 		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes, this.compact, land,
 			groups);
+	}
+
+	/**
+	 * Gives the samples' grass and leaves the season's colours ({@link dev.voidmc.lod.api.LodApi#setSeasons}), after
+	 * they were sampled and the edges kept for the neighbours, so what is kept stays as vanilla tints it.
+	 */
+	private void season(dev.voidmc.lod.api.LodApi.Seasons seasons) {
+		Samples s = this.samples;
+		int n = s.size * s.size;
+		for (int k = 0; k < n; k++) {
+			if (s.empty[k]) {
+				continue;
+			}
+			int biome = s.biome[k];
+			s.top[k] = seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.GROUND_TOP, s.top[k], biome, s.topMaterial[k], 0);
+			s.side[k] = seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.GROUND_SIDE, s.side[k], biome, s.sideMaterial[k], 0);
+			if (s.canopy[k] > 0) {
+				int leaves = s.leaves[k];
+				s.leaves[k] = seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.LEAVES, leaves, biome, s.leavesMaterial[k], s.conifer[k]);
+				s.leavesTop[k] = s.leavesTop[k] == leaves ? s.leaves[k]
+					: seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.LEAVES, s.leavesTop[k], biome, s.leavesMaterial[k], s.conifer[k]);
+			}
+		}
 	}
 
 	/**

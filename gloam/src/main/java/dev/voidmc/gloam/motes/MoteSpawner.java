@@ -5,6 +5,7 @@ import dev.voidmc.gloam.air.Air;
 import dev.voidmc.gloam.air.AirSample;
 import dev.voidmc.gloam.air.Noise;
 import dev.voidmc.gloam.air.Wind;
+import dev.voidmc.gloam.season.Seasons;
 import it.unimi.dsi.fastutil.longs.Long2IntMap;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import java.io.InputStream;
@@ -172,6 +173,8 @@ final class MoteSpawner {
 			case AUTUMN -> 0.7F + 2.3F * autumn(air.year());
 			case WINTER -> 0.2F;
 		};
+		// with the seasons shown, the crowns thin as they drop their leaves: few fall from a bare one
+		season *= Seasons.leafFall();
 		Wind wind = air.wind();
 		float windy = 0.3F + 0.06F * wind.speed() + 1.4F * wind.gust();
 		float chance = 0.55F * season * windy;
@@ -301,13 +304,17 @@ final class MoteSpawner {
 		});
 	}
 
+	/** Whether the leaves {@link #leafColour} last looked at are tinted (so wear the season's colour when it is shown). */
+	private boolean tinted;
+
 	/** The colour of the leaves at {@code pos}: the biome's tint for tinted leaves, the texture's own for the rest. */
 	private int leafColour(BlockState state, BlockPos pos) {
 		int tint = this.level.getClientLeafTintColor(pos);
+		this.tinted = tint != -1;
 		if (tint != -1) {
 			return tint;
 		}
-		return this.leafColours.computeIfAbsent(state.getBlock(), b -> textureColour(b, state.getMapColor(this.level, pos).col));
+		return Seasons.untintedLeaf(state, this.leafColours.computeIfAbsent(state.getBlock(), b -> textureColour(b, state.getMapColor(this.level, pos).col)));
 	}
 
 	/** The average colour of a block's texture ({@code textures/block/<name>.png}), or {@code fallback}. */
@@ -345,6 +352,14 @@ final class MoteSpawner {
 	 * turned yellow, orange or russet brown (birch yellow), and a few in late summer.
 	 */
 	private int turn(int green, AirSample air) {
+		if (this.tinted && Seasons.colours().on()) {
+			// the leaves already wear the season's colour (and their tree's own): a falling one shows its paler underside
+			float lift = 0.15F + this.random.nextFloat() * 0.15F;
+			int r = (int) Mth.lerp(lift, green >> 16 & 0xFF, 255);
+			int g = (int) Mth.lerp(lift, green >> 8 & 0xFF, 250);
+			int b = (int) Mth.lerp(lift * 0.6F, green & 0xFF, 200);
+			return 0xFF000000 | r << 16 | g << 8 | b;
+		}
 		float turned = switch (air.season()) {
 			case SUMMER -> 0.12F * Noise.smoothstep(0.4F, 0.5F, air.year());
 			case AUTUMN -> 0.3F + 0.55F * autumn(air.year());
