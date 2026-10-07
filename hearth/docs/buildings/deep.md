@@ -66,19 +66,31 @@ four realm grounds (`floor`, `rubble`, `wall`, `ledge`; the lift on the open flo
 
 ## Archetypes
 
-### `deep/hall` (DeepHall.java)
-The moot hall where the reeve sits: a basilica of the realm's stone. A tall nave on tie beams under a roof by the
-culture, lower aisles under copper lean-tos, an arcade of dressed piers between them, a clerestory over the aisle roofs,
-buttresses down the sides; at the front two towers (a stair of slabs to a lookout in the broader halls) and between
-them a frontispiece standing proud — a deep arched porch, a carved tympanum with the realm's glow at its heart, a rose
-window in a gable of the culture's own finish. Domed halls (desert, steppe) stand their dome on a drum over a flat
-deck behind a parapet. Inside: a runner from the doors to the dais, the reeve's high table, his chair and lectern on
-it, the town chest beside him, long tables and benches down the nave, a great hearth in an aisle with its stack
-through the lean-to, chests and shelves of the town's records, wheels of lanterns from the tie beams, sconces on the
-piers. A notice board by the porch where there is room.
-**POIs:** DOOR, MEETING_POINT (the nave), JOB_SITE REEVE + LECTERN (the lectern), TABLE ×2–3, SEAT ×4–29, THRONE (the
-reeve's chair), STRONGBOX (the town chest), STORAGE ×2–3 (record chests), HEARTH, VIEWPOINT ×2 (the towers' lookouts),
-NOTICE_BOARD (some). **Params:** `realm`, `ceiling_y`, `character`, `local`, `variant`.
+### `deep/hall` (DeepHall.java and the `Hall*` plans)
+The moot hall where the reeve sits, raised to the plan its culture builds a hall to (`DeepManner.hallForm`; art review
+item 28 found one basilica in all fourteen cultures). Every plan keeps the vault one clear, stands on the realm's stone
+and is furnished by the same moot (`kit/deep/Moot`: a runner from the doors to a dais, the reeve's high table, chair,
+lectern and town chest, banners behind, long tables and benches, the town's records, lanterns from tie beams laid only
+where both ends rest on something, the room lit to the rule).
+
+| plan | cultures | what it is |
+|---|---|---|
+| basilica (`DeepHall`) | temperate, alpine, moorland, maritime | the aisled hall of the silver towns: a tall nave on tie beams, copper lean-to aisles, arcade and clerestory, buttresses, two front towers round a frontispiece with a rose window. The nave wears the culture's own covering; the towers' caps are the culture's: **dark shingle helms** (Bohemia), **copper onions** (the Alps), **squat crenellated towers** (the moors and coasts) |
+| stave (`HallStave`) | northern | a core of staves on a stone sill in a gallery (*svalgang*) of posts with arched heads under a skirt roof; where the vault leaves room an upper core on masts rising out of a second skirt; a steep top roof with crossed boards at its ends, a ridge turret and spire where it fits; a long fire down the floor |
+| longhouse (`HallStave`) | tundra | one long low hall, a stone footing under timber walls barely a man high, a great half-hipped roof sweeping down along the depth, posts carrying the purlins, a long fire |
+| pavilion (`HallPavilion`) | karst, wisteria | a raised timber hall on a terrace: a dressed platform two or three high with a balustrade and a broad flight, a veranda of columns with brackets under a lower curved eave with lifted corners, lattice windows, triple doors, a flared hipped roof over the hall; a brazier inside |
+| court (`HallCourt`) | desert | walls of the culture's render behind stepped merlons, a pishtaq portal higher than them with a pointed arch over the doors' recess, slim towers under little copper domes, an open court with a pool and arcades down its sides, the hall across the back under a copper dome on a drum |
+| sahel (`HallCourt`) | steppe | the same court built as the Sahel's earthen halls: buttresses every third cell rising to pinnacles, timber torons through the faces, a buttressed tower round the door under a timber lintel, no dome |
+| pueblo (`HallPueblo`) | mesa | a great house of earthen render stepped back in terraces (the moot below, a record room over it, a lookout over that where the vault allows), vigas through the walls, ladders from terrace to terrace, a mission's bell wall over the door |
+| loggia (`HallLoggia`) | mediterranean | the *palazzo comunale*: a whitewashed block with quoins and round-arched windows, an open loggia of round arches with a terrace over it, a low hip of tiles, a campanile at the front corner with an arched belfry and a pyramid cap |
+| stilt (`HallStilt`) | tropical, bayou | a timber hall on a grid of posts three over the floor, a gallery two wide round its front and sides behind a railing, shuttered windows, a great hipped roof on deep eaves, a broad flight up the front, lanterns hung under the deck |
+
+The culture's own materials come from `DeepManner.home` (walls, render, columns) and `DeepManner.rehome` (a roof the kit
+rasterised in the deep region's tiles relaid in the culture's own covering); the realm's stone stays in plinths, the
+foot course and terraces, and copper stays where it belongs (the basilica's aisles, the onions and the desert's domes).
+**POIs:** DOOR (2–3 in the pueblo), MEETING_POINT, JOB_SITE REEVE + LECTERN, TABLE ×2–3, SEAT, THRONE, STRONGBOX,
+STORAGE (record chests), HEARTH (a wall hearth, a long fire or a brazier), VIEWPOINT (the basilica's towers, the pueblo's
+top terrace), NOTICE_BOARD (most). **Params:** `realm`, `ceiling_y`, `character`, `local`, `variant`.
 
 ### `deep/dwelling` (DeepDwelling.java)
 A miner's house built the way the silver towns built theirs: a ground storey of rough-cut stone, and over it, on stone
@@ -88,7 +100,7 @@ terrace at the top of the plot's height. In front runs the house's stair, a flig
 soffit, rising past the arcade to the upper door and on to the terrace (a ladder on up the front where the frontage is
 too short). An arched street door with a fanlight and a keystone of the realm's glow; framed windows; planters of the
 realm's plants; glow lichen in the damp corners, glow berries hanging from the cornice; a chimney pot smoking on the
-terrace. Lower houses keep their piers to the cornice and wear a pent roof or a timber oriel; under a low vault the
+terrace. The top of the front is the culture's: an eave of its own covering sloping out over the street under a timber rail (the north, the Alps, the tundra, the tropics, the bayou, the Mediterranean), its corners lifted with lanterns under them (the karst, the glades), stepped merlons (the desert), vigas under a rounded parapet (the mesa), torons through it (the steppe), the stone parapet and cornice of the silver towns (Bohemia, the moors and coasts). Lower houses keep their piers to the cornice and wear a pent roof or a timber oriel; under a low vault the
 house becomes one room. Inside: the hearth and table below, beds above, the household's tools on a shelf (picks for a
 miner). Where the ground rises behind, the back is cut into it and the rock round the forecourt and terrace is cut
 back.
@@ -151,17 +163,22 @@ floor or the street).
 - `DeepSite`: the realm a plot stands in (`ceiling_y`, `character`, `top()`), the surface-probe fallback (`probeFor`).
 - `DeepTerrain`: synthetic realm ground for tests and previews (`floor`, `rubble`, `wall`, `ledge`) and its vault
   (`ceilingY`, `ceilingOver`).
-- `DeepManner`: what each culture keeps underground (arches, galleries, oriels, lattices, hall roof) and its own
-  finish (`home`).
+- `DeepManner`: what each culture keeps underground (arches, galleries, oriels, lattices, hall roof, the hall's plan
+  `hallForm`) and its own finish (`home`, `rehome`).
 - `Glow`: the realm's lamp, accent, mineral, soil and plants; glow-berry vines.
+- `Moot`: the hall's furnishing inside whatever shell its culture raises (dais, high table, throne, lectern, chest,
+  tables, records, the fire, tie beams and lanterns).
 - `Rock`: the masonry vocabulary — dressing, piers with capitals, arched door heads with a glowing keystone, framed and
   arched windows, parapets, planters, lamp posts, benches, copper sheathing weathered by noise.
 
 ## What is weak (next passes)
 
-- The dwellings differ between cultures mostly by materials and the upper storey's finish; the karst's galleries and
-  lattices and the desert's screens read only at close range.
-- The hall is one plan (towers, nave, aisles) in every culture; the roof changes but the silhouette is always a
-  basilica. A karst hall should be a raised timber hall on a terrace, a northern one a stave hall.
+- The dwellings now differ at the top of their fronts (eaves, lifted corners, merlons, vigas, torons; see the dwelling),
+  but every one is still the same block under its terrace: the terrace must stay clear for a dwelling stacked on it and
+  nothing may rise over the plot's height, so the silhouette can only change in front. A taller envelope (or the
+  planner telling a dwelling nothing will be stacked on it) would allow gables and roofs.
+- The halls fit their tallest parts to the vault: under a low vault the stave hall loses its turret and upper tier and
+  the pavilion's roof flattens; the northern turret appears only on narrow plots or high vaults.
+- The tropical and bayou halls share one plan (materials alone tell them apart).
 - The glow garden's pergola and mushroom are small on the minimum plots; the market's court is narrow at 11 wide.
 - The lift's tower is a plain shaft between its string courses: it could carry a gallery at the vault or buttresses.
