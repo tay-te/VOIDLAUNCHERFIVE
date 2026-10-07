@@ -84,7 +84,11 @@ layered and densest in the lowest blocks, drawn through `MoteLayers.GROUND` with
 far banks. Without a pack (and without improved transparency) the sheets are soft (`SoftMist`): their draw is held
 back from vanilla's particle pass and made right after the main pass, against a copy of the main depth, fading where the
 scene behind comes close, so no sheet ends in a straight line along a slope or a step; a sheet level with the eye fades
-too. Under a pack (which treats flat translucent quads as glass) the sheets become upright feathered veils.
+too. Looked down into steeply, a sheet's optical depth is eased toward a ceiling, so mist seen from above (a gorge
+floor from its flank) is a thin veil and not a floor; and the number of sheets follows the share of the land around
+that can hold mist (a running survey of places, too steep or above the mist's top), so they are not heaped onto the
+few flat places in mountains. One's own breath shows low in the view and thins close to the camera (under a pack it
+stays a faint wisp, never a lit blob). Under a pack (which treats flat translucent quads as glass) the sheets become upright feathered veils.
 Breath, spray and powder draw through `MoteLayers.MIST` (faint edges kept, no depth writes, the colour of the air at full
 brightness); fireflies through `MoteLayers.GLOW` (additive, never through the lightmap, so dark nights cannot dim them).
 Every soft sprite is feathered to alpha 0 well inside its quad. Under a pack the pipelines go to Iris's translucent

@@ -42,19 +42,29 @@ void main() {
         discard;
     }
     float dist = length(relative);
+    float steep = abs(relative.y) / max(dist, 1e-3);
+    float edgeOn = smoothstep(0.35, 0.12, steep);
     // capped, so a single sheet seen dead edge-on does not turn into a hard white line
-    float across = 1.0 / max(abs(relative.y) / max(dist, 1e-3), 0.1);
-    float opacity = (1.0 - exp(-vertexColor.a * across)) * sheet;
+    float across = 1.0 / max(steep, 0.1);
+    // Looked down into from above, a few metres of mist (however dense the air says it is) are a thin veil the ground
+    // shows through, not a floor: the slab's depth is eased toward a ceiling as the eye looks down more steeply, and
+    // kept whole when seen across, where the long path through it makes the white band.
+    float tau = vertexColor.a;
+    float eased = 0.35 * (1.0 - exp(-tau / 0.35));
+    tau = mix(eased, tau, edgeOn);
+    float opacity = (1.0 - exp(-tau * across)) * sheet;
     // a sheet level with the eye is seen dead edge-on all the way out, a ruled line across the land however soft its
-    // edges: let it go there, the sheets above and below carry the mist at that height
-    opacity *= smoothstep(0.1, 0.8, abs(relative.y));
+    // edges: let it go there, the sheets above and below carry the mist at that height (above the eye, seen nearly
+    // edge-on, over a wider band: a sheet overhead seen far off from under it is a streak hanging in the air)
+    opacity *= smoothstep(0.1, mix(0.8, 2.0, relative.y > 0.0 ? edgeOn : 0.0), abs(relative.y));
 #ifdef GLOAM_SOFT
     float here = viewDistance(gl_FragCoord.z);
     float behind = viewDistance(texelFetch(SceneDepth, ivec2(gl_FragCoord.xy), 0).r);
     // how far the scene lies behind the sheet: nothing within a couple of blocks (more far off, where a block is a few
     // pixels), and the whole sheet beyond; nothing behind at all (the sky) counts as far
     float gap = behind > 0.0 ? behind - here : 1e6;
-    float soft = 2.0 + 0.04 * here;
+    // (looked down into, nothing meets the ground edge-on: only the last block fades, so low sheets keep showing)
+    float soft = mix(1.0, 2.0 + 0.04 * here, edgeOn);
     float fade = smoothstep(0.0, 1.0, clamp(gap / soft, 0.0, 1.0));
     opacity *= fade;
 #endif

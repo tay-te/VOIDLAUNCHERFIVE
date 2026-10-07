@@ -34,6 +34,20 @@ final class BreathMote extends Mote {
 		this.peak *= 0.45F + 0.55F * cold;
 	}
 
+	/**
+	 * A breath close to the camera (one's own) fills much of the view, so it thins the nearer it is, and never hangs in
+	 * front of the eye as a white blob. Under a shader pack the soft motes get more body (the pack lights them dimly),
+	 * but in full daylight the pack lights a breath white: there it stays a faint wisp.
+	 */
+	@Override
+	protected float finish(float a) {
+		float near = (float) Math.clamp((Math.sqrt(this.toCamera()) - 0.4) / 1.2, 0, 1);
+		if (!Motes.pack()) {
+			return a * (0.45F + 0.55F * near);
+		}
+		return Math.min(a, 0.3F) * (0.35F + 0.65F * near);
+	}
+
 	@Override
 	protected void step(AirSample air) {
 		Wind wind = air.wind();
