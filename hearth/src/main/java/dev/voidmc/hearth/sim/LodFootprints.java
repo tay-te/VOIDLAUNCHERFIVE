@@ -190,6 +190,21 @@ public final class LodFootprints {
 		return true;
 	}
 
+	/**
+	 * Fills {@code out} (768 ints) with the whole chunk's columns, {wall, roof, eave << 16 | ridge} per column at
+	 * {@code ((z & 15) << 4 | x & 15) * 3} (all zero where nothing stands), and returns false, leaving {@code out} untouched,
+	 * if no finished building stands anywhere in the chunk. One lookup instead of 256 for LOD's near tiles.
+	 */
+	public boolean chunk(int cx, int cz, int[] out) {
+		Snapshot snap = snapshot(Atlas.region(cx << 4), Atlas.region(cz << 4));
+		int[] cols = snap.chunks.get(ChunkPos.pack(cx, cz));
+		if (cols == null) {
+			return false;
+		}
+		System.arraycopy(cols, 0, out, 0, 256 * 3);
+		return true;
+	}
+
 	private Snapshot snapshot(int rx, int rz) {
 		long key = Atlas.regionKey(rx, rz);
 		Region r = region(key);
