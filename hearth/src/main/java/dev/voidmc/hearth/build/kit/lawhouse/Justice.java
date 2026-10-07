@@ -169,9 +169,14 @@ public final class Justice {
 				int px = x + Dirs.dx(along) * i;
 				int pz = z + Dirs.dz(along) * i;
 				if (i == 0 || i == n + 1) {
+					// the posts stand a head higher than the board, capped
 					d.set(px, y, pz, f.fence());
+					d.set(px, y + 1, pz, f.fence());
+					d.set(px, y + 2, pz, f.slab(SlabType.BOTTOM));
 				} else {
+					// the two halves of the board meeting over the ankles: the lower one up, the upper one down
 					d.set(px, y, pz, t.trapdoor(back.getOpposite(), Half.TOP, false));
+					d.set(px, y + 1, pz, t.trapdoor(back.getOpposite(), Half.BOTTOM, false));
 				}
 				if (i >= 1 && i <= n) {
 					int bx = px + Dirs.dx(back);
@@ -199,6 +204,69 @@ public final class Justice {
 	/** A slab of the dressing (a coping, a kerb's cap), or nothing where it has none. */
 	static Paint dressSlab(Draft d) {
 		return Stone.dressing(d).slabOrNothing(SlabType.BOTTOM);
+	}
+
+	/**
+	 * The whipping post of the plains, the tropics and the north: a tall hewn post on a foot block of the dressing, an
+	 * iron ring and chain at the prisoner's head height on its front, a lantern on a crossbar at its top. The prisoner
+	 * stands at (x, y, z) before it facing {@code out}. Registers the PILLORY point. Returns the top.
+	 */
+	public static int post(Draft d, int x, int y, int z, Direction out) {
+		Timber t = Timber.frame(d);
+		Direction back = out.getOpposite();
+		int px = x + Dirs.dx(back);
+		int pz = z + Dirs.dz(back);
+		Stone dress = Stone.dressing(d);
+		try (var st = d.stage(StageKind.FRAME)) {
+			d.set(px, y, pz, dress.full());
+			for (int k = 1; k <= 3; k++) {
+				d.set(px, y + k, pz, t.post());
+			}
+			d.set(px, y + 4, pz, t.fence());
+		}
+		// the collar's chain hangs from an iron-shod arm over the prisoner's head
+		try (var st = d.stage(StageKind.FRAME)) {
+			d.set(x, y + 3, z, t.slab(SlabType.TOP));
+		}
+		try (var st = d.stage(StageKind.INTERIOR)) {
+			d.set(x, y + 2, z, chain());
+		}
+		Lighting.lamp(d, px, y + 5, pz);
+		d.poi(PoiType.PILLORY, x, y, z, out);
+		return y + 5;
+	}
+
+	/**
+	 * The cangue stand of the karst's yamen gate: two red posts and a lintel, the cangue (a heavy square board about the
+	 * neck) hung at head height as a collar of top slabs round the prisoner standing at (x, y, z) facing {@code out}, a
+	 * lantern under the lintel. Registers the PILLORY point. Returns the top.
+	 */
+	public static int cangue(Draft d, int x, int y, int z, Direction out) {
+		Timber t = Timber.frame(d);
+		Timber board = Timber.joinery(d);
+		Direction along = Dirs.right(out.getOpposite());
+		try (var st = d.stage(StageKind.FRAME)) {
+			for (int s : new int[]{-1, 1}) {
+				int px = x + Dirs.dx(along) * s;
+				int pz = z + Dirs.dz(along) * s;
+				for (int k = 0; k <= 2; k++) {
+					d.set(px, y + k, pz, t.post());
+				}
+				// the board's wings either side of the neck
+				d.set(px, y + 1, pz, board.slab(SlabType.TOP));
+			}
+			for (int s = -1; s <= 1; s++) {
+				d.set(x + Dirs.dx(along) * s, y + 3, z + Dirs.dz(along) * s, t.beam(along.getAxis()));
+			}
+		}
+		Lighting.lamp(d, x, y + 4, z);
+		d.poi(PoiType.PILLORY, x, y, z, out);
+		return y + 4;
+	}
+
+	/** The chain's state (for hanging ropes and collars). */
+	public static net.minecraft.world.level.block.state.BlockState chainState() {
+		return chain();
 	}
 
 	/** States helper. */

@@ -5,6 +5,7 @@ import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.SettlementTier;
+import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.Archetype;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
@@ -12,7 +13,9 @@ import dev.voidmc.hearth.build.kit.civic.Tradition;
 import dev.voidmc.hearth.build.kit.landscape.Lamps;
 import dev.voidmc.hearth.build.kit.landscape.Manner;
 import dev.voidmc.hearth.build.kit.landscape.Paving;
+import dev.voidmc.hearth.build.kit.lawhouse.Justice;
 import dev.voidmc.hearth.build.kit.lawhouse.Scaffold;
+import dev.voidmc.hearth.build.kit.lawhouse.Timber;
 import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.terrain.Groundwork;
 import java.util.HashSet;
@@ -45,7 +48,15 @@ public final class Gallows implements Archetype {
 		int w = d.frontage();
 		int dp = d.depth();
 		Tradition t = Tradition.of(d);
-		boolean stone = t.masonry() || t == Tradition.KARST;
+		boolean stone = (t.masonry() || t == Tradition.KARST) && !dev.voidmc.hearth.build.kit.civic.Pueblo.is(d);
+		if (t == Tradition.TIMBER && w >= 7 && dp >= 7 && d.maxHeight() >= 10) {
+			masonry(d);
+			return;
+		}
+		if (dev.voidmc.hearth.build.kit.civic.Pueblo.is(d)) {
+			gibbet(d);
+			return;
+		}
 		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
 		Paving.lay(d, 0, 0, w - 1, dp - 1, 0, Paving.paint(d, Paving.pattern(d), (w - 1) / 2.0, (dp - 1) / 2.0, 2, false));
 		int h = 3;
@@ -106,6 +117,142 @@ public final class Gallows implements Archetype {
 			}
 		}
 		d.poi(PoiType.MEETING_POINT, (w - 1) / 2, 0, -1, Dirs.BACK);
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
+	}
+
+	/**
+	 * The mesa's gibbet: on the plaza's beaten earth a low platform of planks a step up, a tall post at its back with an
+	 * arm braced out over the drop, the chain from the arm's end, a trapdoor under it; a lantern on the post.
+	 */
+	static void gibbet(Draft d) {
+		int w = d.frontage();
+		int dp = d.depth();
+		int cx = (w - 1) / 2;
+		int cz = dp / 2;
+		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
+		Timber t = Timber.frame(d);
+		Timber j = Timber.joinery(d);
+		try (var st = d.stage(StageKind.FRAME)) {
+			for (int z = cz - 1; z <= cz + 1; z++) {
+				for (int x = cx - 1; x <= cx + 1; x++) {
+					d.set(x, 0, z, j.planks());
+				}
+			}
+			for (int x = cx - 1; x <= cx + 1; x++) {
+				d.set(x, 0, cz - 2, j.stairs(Dirs.BACK, net.minecraft.world.level.block.state.properties.Half.BOTTOM));
+			}
+			for (int y = 1; y <= 5; y++) {
+				d.set(cx, y, cz + 1, t.post());
+			}
+			d.set(cx, 5, cz, t.beam(net.minecraft.core.Direction.Axis.Z));
+			d.set(cx, 4, cz + 1, t.post());
+			d.set(cx, 4, cz, j.stairs(Dirs.FRONT, net.minecraft.world.level.block.state.properties.Half.TOP));
+		}
+		try (var st = d.stage(StageKind.INTERIOR)) {
+			d.set(cx, 3, cz, Justice.chainState());
+		}
+		try (var st = d.stage(StageKind.FLOORS)) {
+			d.set(cx, 0, cz, j.trapdoor(Dirs.BACK, net.minecraft.world.level.block.state.properties.Half.TOP, false));
+		}
+		Lighting.lamp(d, cx, 6, cz + 1);
+		d.poi(PoiType.GALLOWS, cx, 1, cz, Dirs.FRONT);
+		d.entrance(cx, 0, -1);
+		d.poi(PoiType.MEETING_POINT, cx, 0, -1, Dirs.BACK);
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, 8));
+	}
+
+	/**
+	 * The Bohemian gallows (a <i>šibenice</i> on the town's edge): a round platform of rubble two courses high, coped in
+	 * the dressing, a flight let into its front; on it two square pillars of dressed stone with capitals carry a hewn beam,
+	 * the ropes' chains hang from it over drops let into the deck, a lantern on each capital.
+	 */
+	static void masonry(Draft d) {
+		int w = d.frontage();
+		int dp = d.depth();
+		int cx = (w - 1) / 2;
+		int cz = Math.min(dp - 4, Math.max(3, dp / 2));
+		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
+		Paving.lay(d, 0, 0, w - 1, dp - 1, 0, Paving.paint(d, Paving.pattern(d), cx, cz, 2, false));
+		dev.voidmc.hearth.build.kit.landmark.Stone body = dev.voidmc.hearth.build.kit.landmark.Stone.footing(d);
+		dev.voidmc.hearth.build.kit.landmark.Stone dress = dev.voidmc.hearth.build.kit.landmark.Stone.dressing(d);
+		java.util.Set<Long> deck = dev.voidmc.hearth.build.kit.landmark.Shapes.oct(cx, cz, 3, 1);
+		// the platform: rubble to the deck at standing level 2, its rim coped
+		try (var st = d.stage(StageKind.FOUNDATION)) {
+			for (long k : deck) {
+				int x = (int) (k >> 32);
+				int z = (int) k;
+				for (int y = Math.min(-1, d.site().ground(x, z) - 1); y <= 1; y++) {
+					d.set(x, y, z, body.full());
+				}
+			}
+		}
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (long k : deck) {
+				int x = (int) (k >> 32);
+				int z = (int) k;
+				boolean rim = false;
+				for (net.minecraft.core.Direction dir : Dirs.HORIZONTAL) {
+					rim |= !deck.contains(dev.voidmc.hearth.build.kit.landmark.Shapes.cell(x + Dirs.dx(dir), z + Dirs.dz(dir)));
+				}
+				if (rim) {
+					d.set(x, 1, z, dress.full());
+				}
+			}
+		}
+		// the flight let into the front: two steps across three columns
+		int zf = cz - 3;
+		try (var st = d.stage(StageKind.EXTERIOR)) {
+			for (int x = cx - 1; x <= cx + 1; x++) {
+				d.set(x, 0, zf, dress.stairsOrSlab(Dirs.BACK, net.minecraft.world.level.block.state.properties.Half.BOTTOM));
+				d.set(x, 1, zf, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+				d.set(x, 1, zf + 1, dress.stairsOrSlab(Dirs.BACK, net.minecraft.world.level.block.state.properties.Half.BOTTOM));
+			}
+		}
+		// the pillars, their capitals, the beam and the ropes
+		int pz = cz + 1;
+		int top = Math.min(d.maxHeight() - 2, 7);
+		Timber t = Timber.frame(d);
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int x : new int[]{cx - 2, cx + 2}) {
+				for (int y = 2; y < top - 1; y++) {
+					d.set(x, y, pz, dress.wallOrFull());
+				}
+				d.set(x, top - 1, pz, dress.full());
+			}
+		}
+		try (var st = d.stage(StageKind.FRAME)) {
+			for (int x = cx - 1; x <= cx + 1; x++) {
+				d.set(x, top - 1, pz, t.beam(net.minecraft.core.Direction.Axis.X));
+			}
+		}
+		int[] ropes = {cx - 1, cx + 1};
+		try (var st = d.stage(StageKind.INTERIOR)) {
+			for (int x : ropes) {
+				d.set(x, top - 2, pz, Justice.chainState());
+			}
+		}
+		try (var st = d.stage(StageKind.FLOORS)) {
+			for (int x : ropes) {
+				d.set(x, 1, pz, Timber.joinery(d).trapdoor(Dirs.BACK, net.minecraft.world.level.block.state.properties.Half.TOP, false));
+			}
+		}
+		for (int x : new int[]{cx - 2, cx + 2}) {
+			Lighting.lamp(d, x, top, pz);
+		}
+		for (int x : ropes) {
+			d.poi(PoiType.GALLOWS, x, 2, pz, Dirs.FRONT);
+		}
+		d.entrance(cx, 0, -1);
+		d.poi(PoiType.MEETING_POINT, cx, 0, -1, Dirs.BACK);
+		int sky = top + 1;
+		for (int lx : new int[]{0, w - 1}) {
+			if (d.isEmpty(lx, 0, 0) && d.isEmpty(lx, 1, 0) && Groundwork.surface(d, lx, 0) == 0) {
+				sky = Math.max(sky, Lamps.standard(d, lx, 0, 0, 4, Manner.lamp(d), null));
+			}
+		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, sky + 1));
 	}
 }
