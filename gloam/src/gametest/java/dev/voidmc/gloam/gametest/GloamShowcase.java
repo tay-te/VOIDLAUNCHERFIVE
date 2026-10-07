@@ -42,13 +42,13 @@ public class GloamShowcase implements FabricClientGameTest {
 	 * the moon, day 0 a full moon, day 4 a new one) and weather, and how many seconds to wait there before shooting (for
 	 * motes and weather to build up).
 	 */
-	record View(String name, int x, int y, int z, float yaw, float pitch, int fov, long time, String weather, int wait) {
+	record View(String name, int x, int y, int z, float yaw, float pitch, int fov, long time, String weather, int linger) {
 		View at(String name, long time, String weather) {
-			return new View(name, this.x, this.y, this.z, this.yaw, this.pitch, this.fov, time, weather, this.wait);
+			return new View(name, this.x, this.y, this.z, this.yaw, this.pitch, this.fov, time, weather, this.linger);
 		}
 
 		View looking(String name, float yaw, float pitch) {
-			return new View(name, this.x, this.y, this.z, yaw, pitch, this.fov, this.time, this.weather, this.wait);
+			return new View(name, this.x, this.y, this.z, yaw, pitch, this.fov, this.time, this.weather, this.linger);
 		}
 
 		boolean samePlace(View o) {
@@ -106,7 +106,7 @@ public class GloamShowcase implements FabricClientGameTest {
 					this.shoot(context, view.name() + "_off");
 				}
 				context.runOnClient(mc -> GloamSettings.get().enabled = true);
-				context.waitTicks(20 + view.wait() * 20);
+				context.waitTicks(20 + view.linger() * 20);
 				this.shoot(context, view.name() + "_on");
 				AirSample air = context.computeOnClient(mc -> Atmosphere.get().here());
 				int fps = context.computeOnClient(mc -> mc.getFps());
