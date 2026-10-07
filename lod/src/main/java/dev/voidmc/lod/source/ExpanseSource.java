@@ -142,6 +142,7 @@ public final class ExpanseSource extends WorldgenSource {
 
 		long t2 = TIMING ? System.nanoTime() : 0;
 		Holder<Biome> biome = this.biome(x, Math.max(top, this.seaLevel), z, cell);
+		out.biome = biomeId(biome);
 		if (TIMING) {
 			TIMES.addAndGet(1, System.nanoTime() - t2);
 		}

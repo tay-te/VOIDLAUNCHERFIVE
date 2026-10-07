@@ -90,7 +90,10 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		}
 	}
 
-	private record Built(Tile tile, ByteBuffer vertices, TileBuilder.Mesh mesh, long version) {
+	private record Built(Tile tile, ByteBuffer vertices, TileBuilder.Mesh mesh, long version, TileTerrain terrain) {
+		Built(Tile tile, ByteBuffer vertices, TileBuilder.Mesh mesh, long version) {
+			this(tile, vertices, mesh, version, null);
+		}
 	}
 
 	/** A worker thread, and the flag that tells it to stop once the tile in hand is built. */
@@ -327,6 +330,9 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		this.selecting = false;
 		this.asked = null;
 		this.lookAhead(nanos, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell);
+		if (TileBuilder.captureTerrain) {
+			this.collectTerrain(draw);
+		}
 		if (!this.invalidated.isEmpty()) {
 			this.markDirty();
 		}
@@ -347,6 +353,38 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			this.evict(gpu);
 		}
 		return draw;
+	}
+
+	/** What newly drawn tiles show from above, for {@link #drainTerrain}. Render thread. */
+	private final java.util.ArrayList<TileTerrain> terrainOut = new java.util.ArrayList<>();
+	private boolean resendTerrain;
+
+	/** Takes the tiles drawn this frame whose terrain has not been handed over yet (all of them after {@link #resendTerrain}). */
+	private void collectTerrain(LongList draw) {
+		boolean all = this.resendTerrain;
+		this.resendTerrain = false;
+		for (int i = 0; i < draw.size(); i++) {
+			Tile tile = this.tiles.get(draw.get(i));
+			if (tile != null && tile.terrain != null && (all || !tile.terrainSent)) {
+				tile.terrainSent = true;
+				this.terrainOut.add(tile.terrain);
+			}
+		}
+	}
+
+	/** Hands over every drawn tile's terrain again next frame: someone new is listening. */
+	public void resendTerrain() {
+		this.resendTerrain = true;
+	}
+
+	/** The terrain of the tiles drawn since last asked. Render thread. */
+	public java.util.List<TileTerrain> drainTerrain() {
+		if (this.terrainOut.isEmpty()) {
+			return java.util.List.of();
+		}
+		java.util.List<TileTerrain> out = new java.util.ArrayList<>(this.terrainOut);
+		this.terrainOut.clear();
+		return out;
 	}
 
 	/** Follows the camera's ground speed, and on the move selects the horizon {@value #AHEAD_SECONDS} s ahead. */
@@ -497,7 +535,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				ByteBuffer copy = ByteBuffer.allocateDirect(Math.max(1, mesh.bytes())).order(ByteOrder.nativeOrder());
 				copy.put(mesh.vertices()).flip();
 				// the record keeps the counts; its buffer is the builder's own and is about to be reused
-				this.built.add(new Built(tile, copy, mesh.withVertices(copy), ver));
+				this.built.add(new Built(tile, copy, mesh.withVertices(copy), ver, builder.takeTerrain()));
 				this.quadsBuilt.addAndGet(mesh.quads());
 			} catch (Throwable t) {
 				// a source that throws for one column should not take the worker with it
@@ -548,6 +586,10 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				continue;
 			}
 			TileBuilder.Mesh mesh = b.mesh();
+			if (b.terrain() != null) {
+				tile.terrain = b.terrain();
+				tile.terrainSent = false;
+			}
 			tile.quads = mesh.quads();
 			tile.vertices = mesh.vertexCount();
 			tile.indices = mesh.indexCount();

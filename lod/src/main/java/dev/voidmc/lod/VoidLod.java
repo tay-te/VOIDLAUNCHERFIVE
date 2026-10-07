@@ -204,6 +204,10 @@ public final class VoidLod implements ClientModInitializer {
 		this.sizeGeneratorCaches(now);
 		this.adaptThreads(now);
 		this.reportHorizon(now);
+		// what the newly drawn tiles show, for other mods that listen (dev.voidmc.lod.api)
+		if (TileBuilder.captureTerrain && mc.level != null) {
+			dev.voidmc.lod.api.LodApi.publish(mc.level.dimension(), this.engine.drainTerrain(), this.materials);
+		}
 		if (this.loading != null && (this.loading.isDone() || now - this.loadingSince > LOAD_WAIT_NANOS)) {
 			this.loading = null;
 			this.engine.reset(this.waiting, this.gpu());
@@ -331,6 +335,9 @@ public final class VoidLod implements ClientModInitializer {
 		}
 	}
 
+	/** The material registry of the current source: what the API turns material ids into blocks with. */
+	private Materials materials;
+
 	/** When this level was joined, and whether the time its horizon took to build has been logged. */
 	private long joinedNanos;
 	private boolean horizonReported;
@@ -388,6 +395,7 @@ public final class VoidLod implements ClientModInitializer {
 			return null;
 		}
 		Materials materials = new Materials();
+		this.materials = materials;
 		TileBuilder.packMaterials = new dev.voidmc.lod.source.PackMaterials(materials);
 		TerrainSource generator = this.createGenerator(mc, materials);
 		Path dir = this.saveDir(mc);

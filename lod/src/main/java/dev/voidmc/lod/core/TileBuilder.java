@@ -51,6 +51,9 @@ public final class TileBuilder {
 	 * the water last so it can go through the pack's water program. Set before the engine's tiles are rebuilt.
 	 */
 	public static volatile boolean packFormat;
+	/** Whether builds take what their tile shows from above ({@link TileTerrain}): while another mod listens. */
+	public static volatile boolean captureTerrain;
+	private TileTerrain terrain;
 	/** Added to every height in the pack layout, whose positions are unsigned. */
 	public static final int PACK_Y_OFFSET = 4096;
 	/**
@@ -96,6 +99,13 @@ public final class TileBuilder {
 	private int lightBlock;
 	/** Whether this build writes compact vertices ({@link #COMPACT_BYTES}). */
 	private boolean compact;
+	/** What the tile just built shows from above, if {@link #captureTerrain} was on; once (it is handed over). */
+	public TileTerrain takeTerrain() {
+		TileTerrain t = this.terrain;
+		this.terrain = null;
+		return t;
+	}
+
 	/** Whether this build writes the Distant Horizons layout ({@link #packFormat}). */
 	private boolean pack;
 	private ByteBuffer out = ByteBuffer.allocateDirect(128 * 1024).order(ByteOrder.nativeOrder());
@@ -146,6 +156,7 @@ public final class TileBuilder {
 		this.samples.sample(source, key, smooth, smooth ? 2 : 1, source.keepsAnswers() ? null : this.cache);
 		SAMPLE_NANOS.addAndGet(System.nanoTime() - t0);
 		SAMPLES.addAndGet((long) this.samples.size * this.samples.size);
+		this.terrain = captureTerrain ? TileTerrain.of(key, this.samples) : null;
 		this.lit = heights != null;
 		if (this.lit) {
 			heights.put(key, this.grid(smooth));

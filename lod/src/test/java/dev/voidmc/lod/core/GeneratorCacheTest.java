@@ -46,6 +46,7 @@ class GeneratorCacheTest {
 			out.topMaterial = 5 + Math.floorMod(x, 3);
 			out.leavesMaterial = 9;
 			out.light = Math.floorMod(x, 11) == 0 ? 7.5F : 0;
+			out.biome = BiomeIds.id(Math.floorMod(z, 7) == 0 ? "minecraft:taiga" : "minecraft:forest");
 			if (Math.floorMod(z, 5) == 0) {
 				out.bands = STRATA;
 				out.bandMaterials = STRATA_MATERIALS;
@@ -65,6 +66,7 @@ class GeneratorCacheTest {
 		assertEquals(a.topMaterial, b.topMaterial);
 		assertEquals(a.leavesMaterial, b.leavesMaterial);
 		assertEquals(a.light, b.light);
+		assertEquals(a.biome, b.biome);
 		assertEquals(a.bandHeight, b.bandHeight);
 		if (a.bands == null) {
 			assertNull(b.bands);

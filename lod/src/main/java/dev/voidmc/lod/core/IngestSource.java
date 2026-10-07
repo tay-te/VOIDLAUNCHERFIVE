@@ -106,6 +106,7 @@ public final class IngestSource implements TerrainSource {
 			return;
 		}
 		sum.write(out);
+		out.seen = 1;
 		if (known + none < total && this.fallback != null) {
 			ColumnSample other = r.other;
 			other.clear();
@@ -181,6 +182,10 @@ public final class IngestSource implements TerrainSource {
 		}
 		// the generator knows of no light: the seen share of the cell carries what the chunks showed
 		out.light = generated.light + (out.light - generated.light) * seen;
+		out.seen = seen;
+		if (seen < 0.5F || out.biome < 0) {
+			out.biome = generated.biome;
+		}
 		out.top = Colors.mix(generated.top, out.top, seen);
 		out.side = Colors.mix(generated.side, out.side, seen);
 		out.soil = Colors.mix(generated.soil, out.soil, seen);

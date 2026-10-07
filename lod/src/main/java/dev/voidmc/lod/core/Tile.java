@@ -38,6 +38,9 @@ public final class Tile {
 	public short[] occluders;
 	/** The renderer's handle on the uploaded mesh. */
 	public Object gpu;
+	/** What the tile shows from above ({@link TileBuilder#captureTerrain}), and whether it has been handed over. */
+	public volatile TileTerrain terrain;
+	public boolean terrainSent;
 	/** When this tile's mesh was made: a tile is rebuilt at most so often. */
 	long builtNanos;
 	/**

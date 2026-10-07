@@ -84,6 +84,9 @@ class ColumnFilesTest {
 			found++;
 			assertArrayEquals(before.columns, chunks[i].columns);
 			assertArrayEquals(before.light, chunks[i].light, "the block light comes back");
+			for (int p = 0; p < before.palette.length; p++) {
+				assertEquals(before.palette[p].biome(), chunks[i].palette[p].biome(), "the biome comes back");
+			}
 			assertEquals(before.palette.length, chunks[i].palette.length);
 			for (int p = 0; p < before.palette.length; p++) {
 				Surface a = before.palette[p];

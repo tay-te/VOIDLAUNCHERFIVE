@@ -44,13 +44,16 @@ import org.slf4j.LoggerFactory;
 public final class GeneratorCache implements TerrainSource {
 	private static final Logger LOGGER = LoggerFactory.getLogger("VOID LOD");
 	private static final int MAGIC = 0x56474E43;
-	private static final int FORMAT = 3;
+	private static final int FORMAT = 4;
 	private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "VOID LOD generator cache");
 		t.setDaemon(true);
 		t.setPriority(Thread.MIN_PRIORITY);
 		return t;
 	});
+
+	/** Ints a sample keeps: its colours, depths, water, materials (11 to 15) and biome (16). */
+	static final int INTS = 17;
 
 	/** One tile's page: its grid of samples, border included, those asked for so far. */
 	static final class Page {
@@ -74,7 +77,7 @@ public final class GeneratorCache implements TerrainSource {
 			this.count = size * size;
 			this.known = new boolean[this.count];
 			this.f = new float[this.count * 7];
-			this.i = new int[this.count * 16];
+			this.i = new int[this.count * INTS];
 			this.flags = new byte[this.count];
 			this.bands = new short[this.count];
 			this.bandMaterials = new short[this.count];
@@ -108,7 +111,7 @@ public final class GeneratorCache implements TerrainSource {
 			f[fo + 5] = c.conifer;
 			f[fo + 6] = c.light;
 			int[] i = this.i;
-			int io = s * 16;
+			int io = s * INTS;
 			i[io] = c.top;
 			i[io + 1] = c.side;
 			i[io + 2] = c.soil;
@@ -125,6 +128,7 @@ public final class GeneratorCache implements TerrainSource {
 			i[io + 13] = c.soilMaterial;
 			i[io + 14] = c.rockMaterial;
 			i[io + 15] = c.leavesMaterial;
+			i[io + 16] = c.biome;
 			this.flags[s] = (byte) ((c.lava ? 1 : 0) | (c.empty ? 2 : 0));
 			this.bands[s] = table(this.colors, c.bands);
 			this.bandMaterials[s] = table(this.materials, c.bands == null ? null : c.bandMaterials);
@@ -143,7 +147,7 @@ public final class GeneratorCache implements TerrainSource {
 			c.conifer = f[fo + 5];
 			c.light = f[fo + 6];
 			int[] i = this.i;
-			int io = s * 16;
+			int io = s * INTS;
 			c.top = i[io];
 			c.side = i[io + 1];
 			c.soil = i[io + 2];
@@ -160,6 +164,7 @@ public final class GeneratorCache implements TerrainSource {
 			c.soilMaterial = i[io + 13];
 			c.rockMaterial = i[io + 14];
 			c.leavesMaterial = i[io + 15];
+			c.biome = i[io + 16];
 			c.lava = (this.flags[s] & 1) != 0;
 			c.empty = (this.flags[s] & 2) != 0;
 			c.bands = this.bands[s] < 0 ? null : this.colors.get(this.bands[s]);
@@ -387,8 +392,8 @@ public final class GeneratorCache implements TerrainSource {
 	// band tables), then each field for every sample in turn (planes deflate far better than samples one by one), so
 	// both ways are bulk copies rather than a call per value.
 
-	/** Bytes a sample takes in the planes: its flags, 7 floats, 16 ints and 2 shorts. */
-	private static final int SAMPLE_BYTES = 1 + 7 * 4 + 16 * 4 + 2 * 2;
+	/** Bytes a sample takes in the planes: its flags, 7 floats, {@value #INTS} ints and 2 shorts. */
+	private static final int SAMPLE_BYTES = 1 + 7 * 4 + INTS * 4 + 2 * 2;
 
 	static void write(Page page, long identity, ColumnFiles.Names names, OutputStream raw) throws IOException {
 		// material ids by name, numbered in the order met (0: none)
@@ -415,8 +420,26 @@ public final class GeneratorCache implements TerrainSource {
 		int[] materialRefs = new int[n * 5];
 		for (int s = 0; s < n; s++) {
 			for (int m = 0; m < 5; m++) {
-				materialRefs[s * 5 + m] = ref.applyAsInt(ints[s * 16 + 11 + m]);
+				materialRefs[s * 5 + m] = ref.applyAsInt(ints[s * INTS + 11 + m]);
 			}
+		}
+		// biomes by name too, numbered from 1 in the order met (0: none)
+		Map<Integer, Integer> biomeRefs = new HashMap<>();
+		List<String> biomeNames = new ArrayList<>();
+		int[] biomes = new int[n];
+		for (int s = 0; s < n; s++) {
+			int id = ints[s * INTS + 16];
+			String name = BiomeIds.name(id);
+			if (name == null) {
+				continue;
+			}
+			Integer r = biomeRefs.get(id);
+			if (r == null) {
+				biomeNames.add(name);
+				r = biomeNames.size();
+				biomeRefs.put(id, r);
+			}
+			biomes[s] = r;
 		}
 		List<int[]> materialTables = new ArrayList<>();
 		for (int[] table : page.materials) {
@@ -435,6 +458,10 @@ public final class GeneratorCache implements TerrainSource {
 		h.writeInt(page.size);
 		h.writeShort(materialNames.size());
 		for (String name : materialNames) {
+			h.writeUTF(name);
+		}
+		h.writeShort(biomeNames.size());
+		for (String name : biomeNames) {
 			h.writeUTF(name);
 		}
 		for (List<int[]> tables : List.of(page.colors, materialTables)) {
@@ -456,9 +483,9 @@ public final class GeneratorCache implements TerrainSource {
 				b.putFloat(page.f[s * 7 + k]);
 			}
 		}
-		for (int k = 0; k < 16; k++) {
+		for (int k = 0; k < INTS; k++) {
 			for (int s = 0; s < n; s++) {
-				b.putInt(k >= 11 ? materialRefs[s * 5 + k - 11] : ints[s * 16 + k]);
+				b.putInt(k == 16 ? biomes[s] : k >= 11 ? materialRefs[s * 5 + k - 11] : ints[s * INTS + k]);
 			}
 		}
 		for (int s = 0; s < n; s++) {
@@ -500,6 +527,11 @@ public final class GeneratorCache implements TerrainSource {
 		for (int m = 1; m < materials.length; m++) {
 			materials[m] = names.id(h.readUTF());
 		}
+		int[] biomes = new int[h.readUnsignedShort() + 1];
+		biomes[0] = -1;
+		for (int m = 1; m < biomes.length; m++) {
+			biomes[m] = BiomeIds.id(h.readUTF());
+		}
 		Page page = new Page(key, size);
 		for (int list = 0; list < 2; list++) {
 			int count = h.readUnsignedShort();
@@ -525,14 +557,15 @@ public final class GeneratorCache implements TerrainSource {
 				page.f[s * 7 + k] = floats.get();
 			}
 		}
-		java.nio.IntBuffer ints = b.slice(n + n * 7 * 4, n * 16 * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).asIntBuffer();
-		for (int k = 0; k < 16; k++) {
+		java.nio.IntBuffer ints = b.slice(n + n * 7 * 4, n * INTS * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).asIntBuffer();
+		for (int k = 0; k < INTS; k++) {
 			for (int s = 0; s < n; s++) {
 				int v = ints.get();
-				page.i[s * 16 + k] = k >= 11 ? (v > 0 && v < materials.length ? materials[v] : 0) : v;
+				page.i[s * INTS + k] = k == 16 ? (v > 0 && v < biomes.length ? biomes[v] : -1)
+					: k >= 11 ? (v > 0 && v < materials.length ? materials[v] : 0) : v;
 			}
 		}
-		java.nio.ShortBuffer shorts = b.slice(n + n * 23 * 4, n * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).asShortBuffer();
+		java.nio.ShortBuffer shorts = b.slice(n + n * (7 + INTS) * 4, n * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).asShortBuffer();
 		shorts.get(page.bands);
 		shorts.get(page.bandMaterials);
 		return page;

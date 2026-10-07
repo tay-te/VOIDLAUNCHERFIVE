@@ -385,7 +385,13 @@ public final class ChunkIngest {
 			this.textures.top(k.top(), b), this.textures.side(k.side(), b), this.textures.side(k.soil(), b), this.textures.side(k.rock(), b),
 			leaves == null ? 0 : this.textures.top(leaves, b), water, k.soilDepth(), k.fluid() == 2, leaves != null && coniferous(leaves),
 			this.materials.id(k.top(), true), this.materials.id(k.side(), false), this.materials.id(k.soil(), false),
-			this.materials.id(k.rock(), false), leaves == null ? 0 : this.materials.id(leaves, true)));
+			this.materials.id(k.rock(), false), leaves == null ? 0 : this.materials.id(leaves, true), this.biomeId(b)));
+	}
+
+	/** A biome's {@link BiomeIds} id, by its name in the level's registry (-1 for one it does not know). */
+	private int biomeId(Biome biome) {
+		var key = this.level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.BIOME).getKey(biome);
+		return key == null ? -1 : dev.voidmc.lod.core.BiomeIds.id(key.toString());
 	}
 
 	/** Needle trees, drawn as cones far out: by name, so modded firs and pines count too. */

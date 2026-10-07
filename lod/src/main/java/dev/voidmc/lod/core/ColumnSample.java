@@ -70,6 +70,10 @@ public final class ColumnSample {
 	 * a lit town glows at night far off. 0 where nothing is known of it.
 	 */
 	public float light;
+	/** The biome, a {@link BiomeIds} id (-1 unknown). */
+	public int biome;
+	/** How much of the cell the chunks the player loaded showed, 0..1 (the rest is the generator's). */
+	public float seen;
 	/** No ground at all in this column: the void between End islands. Nothing is drawn over it. */
 	public boolean empty;
 
@@ -100,6 +104,8 @@ public final class ColumnSample {
 		this.leavesMaterial = 0;
 		this.bandMaterials = null;
 		this.light = 0;
+		this.biome = -1;
+		this.seen = 0;
 		this.empty = false;
 	}
 

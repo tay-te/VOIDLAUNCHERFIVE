@@ -376,6 +376,25 @@ The game test runs with them: `-Psodium` adds Sodium, `-Piris` Sodium and Iris (
 for dev runs only; nothing of either ships). Put a pack in `build/run/clientGameTest/shaderpacks` and
 switch it on in `config/iris.properties` to test one.
 
+## For other mods
+
+`dev.voidmc.lod.api.LodApi` hands out, read only and client side, the far terrain the LOD draws for this player,
+tile by tile, off the render thread (VOID Atlas maps it as land seen from afar):
+
+```java
+AutoCloseable handle = LodApi.addVisibleTerrainListener(tile -> {
+    // tile.dimension(), tile.revision(), tile.minX(), tile.minZ(), tile.cell(), tile.size(): size x size cells
+    // tile.heights()[i], tile.colors()[i], tile.blockPalette()[tile.blocks()[i]],
+    // tile.biomePalette()[tile.biomes()[i]], tile.seen()[i]: row-major, x fastest
+});
+```
+
+Every tile drawn is told of once, and again when it is rebuilt; a later `revision` of the same ground is the newer
+picture. `seen` says whether the chunks the player loaded showed a cell or the generator worked it out: generator
+cells exist only where the player's own game has the generator (singleplayer, a LAN host), never on a server.
+Nothing is kept for the API until something listens (then about 25 KB a tile). Surfaces and generator samples now
+carry their biome (saved by name: region format 3, generator pages format 4).
+
 ## Settings
 
 In game: **Options → VOID LOD Settings…**, under the other buttons (it stays there with mods that replace

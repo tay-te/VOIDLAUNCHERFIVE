@@ -44,7 +44,10 @@ final class ColumnSummary {
 	static final int M_ROCK = 36;
 	static final int M_BED = 37;
 	static final int M_LEAVES = 38;
-	static final int SIZE = 39;
+	/** The biome of the commonest dry surface and of the commonest wet one. */
+	static final int M_BIOME_DRY = 39;
+	static final int M_BIOME_WET = 40;
+	static final int SIZE = 41;
 	/** A crown seen from afar is darker than one leaf block in full light: its leaves shade each other. */
 	static final float CROWN_SHADE = 0.82F;
 
@@ -84,6 +87,10 @@ final class ColumnSummary {
 	}
 
 	final int[] s = new int[SIZE];
+
+	ColumnSummary() {
+		this.s[M_BIOME_DRY] = this.s[M_BIOME_WET] = -1;
+	}
 	private final Tally dry = new Tally();
 	/** Columns counted exactly whose top is a crown: their faces are the leaves'. */
 	private final Tally crowns = new Tally();
@@ -96,6 +103,7 @@ final class ColumnSummary {
 
 	void clear() {
 		java.util.Arrays.fill(this.s, 0);
+		this.s[M_BIOME_DRY] = this.s[M_BIOME_WET] = -1;
 		this.dry.clear();
 		this.crowns.clear();
 		this.wet.clear();
@@ -186,10 +194,12 @@ final class ColumnSummary {
 			s[M_SIDE] = child[M_SIDE];
 			s[M_SOIL] = child[M_SOIL];
 			s[M_ROCK] = child[M_ROCK];
+			s[M_BIOME_DRY] = child[M_BIOME_DRY];
 		}
 		if (child[WET] > this.bestWet) {
 			this.bestWet = child[WET];
 			s[M_BED] = child[M_BED];
+			s[M_BIOME_WET] = child[M_BIOME_WET];
 		}
 		if (child[CANOPY_N] > this.bestLeaves) {
 			this.bestLeaves = child[CANOPY_N];
@@ -208,6 +218,7 @@ final class ColumnSummary {
 			Surface crown = this.crowns.surfaces[c];
 			s[M_TOP] = s[M_SIDE] = s[M_SOIL] = crown.leavesMaterial();
 			s[M_ROCK] = crown.rockMaterial();
+			s[M_BIOME_DRY] = crown.biome();
 			this.bestDry = cc;
 		} else if (dc > this.bestDry) {
 			Surface ground = this.dry.surfaces[d];
@@ -215,11 +226,13 @@ final class ColumnSummary {
 			s[M_SIDE] = ground.sideMaterial();
 			s[M_SOIL] = ground.soilMaterial();
 			s[M_ROCK] = ground.rockMaterial();
+			s[M_BIOME_DRY] = ground.biome();
 			this.bestDry = dc;
 		}
 		int w = this.wet.best();
 		if (w >= 0 && this.wet.counts[w] > this.bestWet) {
 			s[M_BED] = this.wet.surfaces[w].topMaterial();
+			s[M_BIOME_WET] = this.wet.surfaces[w].biome();
 			this.bestWet = this.wet.counts[w];
 		}
 		int l = this.leaves.best();
@@ -255,6 +268,7 @@ final class ColumnSummary {
 		out.light = s[LIGHT] / (float) known;
 		int wet = s[WET];
 		int dry = known - wet;
+		out.biome = wet * 2 > known ? s[M_BIOME_WET] : s[M_BIOME_DRY];
 		if (wet * 2 > known) {
 			int water = Math.round(s[WATER] / (float) wet);
 			int bed = this.mean(BED, wet);

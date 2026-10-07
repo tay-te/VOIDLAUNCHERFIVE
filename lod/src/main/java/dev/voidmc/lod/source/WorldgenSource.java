@@ -121,6 +121,11 @@ public class WorldgenSource implements TerrainSource {
 	public void reach(double radius, boolean building) {
 	}
 
+	/** A biome's {@link dev.voidmc.lod.core.BiomeIds} id, by its key's name. */
+	protected static int biomeId(Holder<Biome> biome) {
+		return biome.unwrapKey().map(k -> dev.voidmc.lod.core.BiomeIds.id(k.identifier().toString())).orElse(-1);
+	}
+
 	protected Holder<Biome> biome(int x, int y, int z) {
 		return this.resolvers.get().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z));
 	}
@@ -234,6 +239,7 @@ public class WorldgenSource implements TerrainSource {
 			return;
 		}
 		Holder<Biome> biome = this.biome(x, ground, z, cell);
+		out.biome = biomeId(biome);
 		BiomeLooks.Look look = this.looks.get(biome);
 		look.fill(out);
 		out.ground = ground;

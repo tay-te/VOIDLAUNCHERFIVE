@@ -51,6 +51,9 @@ final class Samples {
 	final boolean[] empty;
 	/** The block light over the surface, 0..15: what the chunks showed lit, and lava, which always glows. */
 	final byte[] light;
+	/** The biome ({@link BiomeIds}), and whether the chunks the player loaded showed most of the cell. */
+	final int[] biome;
+	final boolean[] seen;
 	private final ColumnSample sample = new ColumnSample();
 	private final boolean variation;
 	/** Which samples of the tile being sampled were reused from {@link SampleCache}, so the source is not asked again. */
@@ -91,6 +94,8 @@ final class Samples {
 		this.leavesMaterial = new int[capacity];
 		this.empty = new boolean[capacity];
 		this.light = new byte[capacity];
+		this.biome = new int[capacity];
+		this.seen = new boolean[capacity];
 		this.known = new boolean[capacity];
 	}
 
@@ -159,6 +164,8 @@ final class Samples {
 				this.empty[k] = s.empty;
 				boolean lava = s.lava && s.water != Integer.MIN_VALUE && s.water > s.ground;
 				this.light[k] = (byte) (lava ? 15 : Math.max(0, Math.min(15, Math.round(s.light))));
+				this.biome[k] = s.biome;
+				this.seen[k] = s.seen >= 0.5F;
 
 				if (!this.variation) {
 					this.top[k] = s.top;
@@ -238,6 +245,8 @@ final class Samples {
 		this.leavesMaterial[k] = from.leavesMaterial[f];
 		this.empty[k] = from.empty[f];
 		this.light[k] = from.light[f];
+		this.biome[k] = from.biome[f];
+		this.seen[k] = from.seen[f];
 	}
 
 	int at(int i, int j) {

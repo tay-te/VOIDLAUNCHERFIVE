@@ -57,8 +57,8 @@ public final class ColumnFiles {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger("VOID LOD");
 	private static final int MAGIC = 0x564C4F44;
-	/** 2 adds each chunk's block light; files of format 1 still read, unlit. */
-	private static final int FORMAT = 2;
+	/** 2 adds each chunk's block light, 3 each surface's biome; files of formats 1 and 2 still read (unlit, no biome). */
+	private static final int FORMAT = 3;
 	private static final String SUFFIX = ".vlod";
 	private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "VOID LOD files");
@@ -306,6 +306,8 @@ public final class ColumnFiles {
 				for (int m : new int[]{s.topMaterial(), s.sideMaterial(), s.soilMaterial(), s.rockMaterial(), s.leavesMaterial()}) {
 					varint(out, materials.getOrDefault(m, 0));
 				}
+				String biome = BiomeIds.name(s.biome());
+				out.writeUTF(biome == null ? "" : biome);
 			}
 			varint(out, count);
 			for (int i = 0; i < n; i++) {
@@ -352,7 +354,7 @@ public final class ColumnFiles {
 				throw new IOException("not a VOID LOD region");
 			}
 			int format = in.readInt();
-			if (format != FORMAT && format != 1) {
+			if (format < 1 || format > FORMAT) {
 				throw new IOException("unknown format " + format);
 			}
 			if (in.readInt() != rx || in.readInt() != rz) {
@@ -375,8 +377,9 @@ public final class ColumnFiles {
 					int ref = varint(in);
 					refs[m] = ref < materials.length ? materials[ref] : 0;
 				}
+				int biome = format >= 3 ? BiomeIds.id(emptyToNull(in.readUTF())) : -1;
 				surfaces[i] = store.intern(new Surface(colors[0], colors[1], colors[2], colors[3], colors[4], colors[5], soilDepth,
-					(flags & 1) != 0, (flags & 2) != 0, refs[0], refs[1], refs[2], refs[3], refs[4]));
+					(flags & 1) != 0, (flags & 2) != 0, refs[0], refs[1], refs[2], refs[3], refs[4], biome));
 			}
 			ChunkColumns[] chunks = new ChunkColumns[ColumnStore.REGION_CHUNKS * ColumnStore.REGION_CHUNKS];
 			int count = varint(in);
@@ -416,6 +419,10 @@ public final class ColumnFiles {
 		} finally {
 			inflater.end();
 		}
+	}
+
+	private static String emptyToNull(String s) {
+		return s.isEmpty() ? null : s;
 	}
 
 	private static void varint(DataOutputStream out, int v) throws IOException {

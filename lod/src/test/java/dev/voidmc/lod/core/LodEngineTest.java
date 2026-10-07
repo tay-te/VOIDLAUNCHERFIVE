@@ -60,6 +60,46 @@ class LodEngineTest {
 	}
 
 	@Test
+	void drawnTilesHandOverWhatTheyShowOnce() throws InterruptedException {
+		TerrainSource biomes = (x, z, cell, out) -> {
+			HILLS.sample(x, z, cell, out);
+			out.biome = BiomeIds.id(x < 0 ? "minecraft:desert" : "minecraft:plains");
+		};
+		TileBuilder.captureTerrain = true;
+		try {
+			LodEngine engine = new LodEngine(2, 512L << 20);
+			InstantGpu gpu = new InstantGpu();
+			gpu.engine = engine;
+			engine.reset(biomes, gpu);
+			java.util.List<TileTerrain> got = new java.util.ArrayList<>();
+			int frames = 0;
+			do {
+				engine.update(gpu, 0, 150, 0, 4096, 150, 771, 5);
+				got.addAll(engine.drainTerrain());
+				Thread.sleep(2);
+				frames++;
+			} while (!engine.idle() && frames < 3_000);
+			for (int i = 0; i < 5; i++) {
+				engine.update(gpu, 0, 150, 0, 4096, 150, 771, 5);
+				got.addAll(engine.drainTerrain());
+			}
+			assertTrue(got.size() > 20, "tiles handed over: " + got.size());
+			assertEquals(got.size(), got.stream().mapToLong(t -> t.key).distinct().count(), "each once");
+			TileTerrain t = got.get(got.size() - 1);
+			int c = 10 + 20 * t.size;
+			int x = t.minX + 10 * t.cell + t.cell / 2;
+			assertEquals(x < 0 ? "minecraft:desert" : "minecraft:plains", BiomeIds.name(t.biomes[c]));
+			assertTrue(t.heights[c] > 0 && !t.seen[c]);
+			engine.resendTerrain();
+			engine.update(gpu, 0, 150, 0, 4096, 150, 771, 5);
+			assertTrue(engine.drainTerrain().size() > 20, "a new listener is told of what is drawn");
+			engine.close();
+		} finally {
+			TileBuilder.captureTerrain = false;
+		}
+	}
+
+	@Test
 	void aStillCameraBuildsEachTileOnce() throws InterruptedException {
 		LodEngine engine = new LodEngine(2, 512L << 20);
 		InstantGpu gpu = new InstantGpu();

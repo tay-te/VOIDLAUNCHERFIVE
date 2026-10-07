@@ -13,7 +13,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ColumnStoreTest {
-	static final Surface GRASS = new Surface(0x5D9A3A, 0x7A6A40, 0x866043, 0x7E7E7E, 0x3F7A22, 0x3F76E4, 3, false, false, 1, 2, 3, 4, 5);
+	static final Surface GRASS = new Surface(0x5D9A3A, 0x7A6A40, 0x866043, 0x7E7E7E, 0x3F7A22, 0x3F76E4, 3, false, false, 1, 2, 3, 4, 5,
+		BiomeIds.id("minecraft:plains"));
 	static final Surface SAND = new Surface(0xDBCFA3, 0xDBCFA3, 0xDBCFA3, 0xD8CB9B, 0, 0x3F76E4, 3, false, false, 6, 7, 7, 8, 0);
 	static final Surface CONCRETE = new Surface(0x8E2121, 0x8E2121, 0x8E2121, 0x8E2121, 0, 0x3F76E4, 0, false, false, 9, 10, 10, 10, 0);
 
