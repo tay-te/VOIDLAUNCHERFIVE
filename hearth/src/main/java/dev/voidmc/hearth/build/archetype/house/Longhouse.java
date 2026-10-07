@@ -348,11 +348,9 @@ public final class Longhouse implements Archetype {
 			}
 			// each rake's barge board runs on past the ridge, so the two cross over the peak like horns
 			try (var s = d.stage(StageKind.ROOF)) {
-				int reach = ry + 2 < d.maxHeight() - 1 ? 2 : 1;
-				for (int k = 1; k <= reach; k++) {
-					d.set(mid - k, ry + k, gz, beam.stairsOrSlab(Dirs.LEFT, Half.BOTTOM));
-					d.set(mid + k, ry + k, gz, beam.stairsOrSlab(Dirs.RIGHT, Half.BOTTOM));
-				}
+				// one block past the ridge (two read as antlers)
+				d.set(mid - 1, ry + 1, gz, beam.stairsOrSlab(Dirs.LEFT, Half.BOTTOM));
+				d.set(mid + 1, ry + 1, gz, beam.stairsOrSlab(Dirs.RIGHT, Half.BOTTOM));
 			}
 		}
 	}

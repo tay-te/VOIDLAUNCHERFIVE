@@ -8,8 +8,12 @@ import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits.WallKind;
 import dev.voidmc.hearth.build.style.Role;
 import java.util.List;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.properties.Half;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Walls in the style's construction, one storey at a time. Every kind gives the wall depth and structure rather than a
@@ -17,9 +21,10 @@ import net.minecraft.world.level.block.state.properties.Half;
  * <ul>
  *   <li><b>timber frame</b>: corner posts and posts flanking every opening, a girt at each floor, a sill beam on upper
  *   storeys, braces in some blank panels, plaster or brick infill, a stone plinth;</li>
- *   <li><b>log</b>: horizontal logs, corners notched with the logs running past on alternate courses, openings framed by
- *   stripped posts;</li>
- *   <li><b>stone</b> and <b>brick</b>: mixed masonry with toothed quoins at the corners;</li>
+ *   <li><b>log</b>: horizontal logs, corners notched with the logs of both walls running a block past on every course
+ *   (the ends show at the four corners and nowhere else), openings framed by flush stripped posts;</li>
+ *   <li><b>stone</b> and <b>brick</b>: mixed masonry with quoins at the corners of a building of some standing (see
+ *   {@link #quoined}), toothed long and short only where the accent is tonal (see {@link #tonal});</li>
  *   <li><b>plaster</b> and <b>adobe</b>: render on a plinth with a string course at each floor;</li>
  *   <li><b>bamboo</b> and <b>plank</b>: boards between posts on a stone sill (plank walls use the GABLE role's
  *   boards, so a style can board its upper storeys over plaster ones).</li>
@@ -64,6 +69,10 @@ public final class Walls {
 		Mat accent = d.mat(Role.WALL_ACCENT);
 		Mat gable = d.mat(Role.GABLE);
 		List<Integer> posts = party ? List.of() : f.posts(s.out());
+		// quoins: none on a small or plain building; a strongly contrasting accent stays a plain corner strip, since
+		// toothed course by course it reads as a checkerboard (styles README §8)
+		boolean quoins = quoined(d, b, k);
+		boolean toothed = quoins && tonal(wall.main(Form.FULL), accent.main(Form.FULL));
 		for (int i = 0; i < s.length(); i++) {
 			int x = s.x(i);
 			int z = s.z(i);
@@ -72,7 +81,7 @@ public final class Walls {
 			boolean post = posts.contains(col);
 			// the quoins' long-and-short toothing reaches in a block only on a wall long enough to carry it: on a small
 			// cottage it would turn half the front into corner stone
-			boolean nextToCorner = (i == 1 || i == s.length() - 2) && s.length() >= 8;
+			boolean nextToCorner = toothed && (i == 1 || i == s.length() - 2) && s.length() >= 8;
 			for (int y = ya; y <= yg; y++) {
 				boolean inPlinth = k == 0 && y < b.baseY + plinth;
 				Paint p = switch (kind) {
@@ -106,10 +115,10 @@ public final class Walls {
 						yield wall.log(axis);
 					}
 					case STONE, BRICK -> {
-						if (inPlinth && !corner) {
+						if (inPlinth && !(corner && quoins)) {
 							yield plinthMat.full();
 						}
-						boolean quoin = corner || (nextToCorner && ((y - b.baseY) & 1) == 0);
+						boolean quoin = quoins && corner || nextToCorner && ((y - b.baseY) & 1) == 0;
 						if (quoin) {
 							yield accent.full();
 						}
@@ -140,13 +149,14 @@ public final class Walls {
 				};
 				d.set(x, y, z, p);
 			}
-			// log corners run past the wall on alternate courses
+			// log corners: this wall's logs run a block past the corner on every course (the crossing wall's run past it
+			// the other way), so the ends stand in a clean column at each corner rather than dotting it
 			if (kind == WallKind.LOG && corner) {
 				int ox = s.x(i) + (i == 0 ? -Dirs.dx(s.along()) : Dirs.dx(s.along()));
 				int oz = s.z(i) + (i == 0 ? -Dirs.dz(s.along()) : Dirs.dz(s.along()));
 				if (inPlot(d, ox, oz)) {
 					for (int y = ya + plinth; y <= yg; y++) {
-						if (((y & 1) == 0) && d.isEmpty(ox, y, oz)) {
+						if (d.isEmpty(ox, y, oz)) {
 							d.set(ox, y, oz, frame.log(axis));
 						}
 					}
@@ -158,6 +168,33 @@ public final class Walls {
 				brace(d, s, br[0], br[1], k == 0 ? b.baseY + plinth : ya + 1, yg - 1, frame);
 			}
 		}
+	}
+
+	/**
+	 * Whether storey k's masonry corners are quoined at all: only on a building at least nine blocks across both ways
+	 * that is dressed at tier 2 or better (on a small or poor house the corner stones would take half the wall).
+	 */
+	public static boolean quoined(Draft d, Body b, int k) {
+		int[] r = b.rect(k);
+		return Math.min(r[2] - r[0], r[3] - r[1]) + 1 >= 9 && d.finish() >= 2;
+	}
+
+	/**
+	 * Whether quoins of {@code accent} on a wall of {@code wall} are tonal (close in lightness by map colour, as mud brick
+	 * on brick or a pale limestone on grey rubble) and may be toothed long and short; a strongly contrasting accent
+	 * (white on brick, white on grey stone) alternating course by course reads as a checkerboard.
+	 */
+	public static boolean tonal(@Nullable Block wall, @Nullable Block accent) {
+		if (wall == null || accent == null) {
+			return false;
+		}
+		return Math.abs(lightness(wall) - lightness(accent)) <= 45;
+	}
+
+	/** A block's lightness from afar (0-255), by its map colour. */
+	static double lightness(Block b) {
+		int c = b.defaultBlockState().getMapColor(EmptyBlockGetter.INSTANCE, BlockPos.ZERO).col;
+		return 0.3 * ((c >> 16) & 0xFF) + 0.59 * ((c >> 8) & 0xFF) + 0.11 * (c & 0xFF);
 	}
 
 	private static Direction.Axis other(Direction.Axis a) {
@@ -221,10 +258,12 @@ public final class Walls {
 
 	/**
 	 * Floor beams showing their ends through a wall at storey k's floor level: a log end just outside the wall at each
-	 * post column (only where that cell is inside the plot, or overhangs the street at least three blocks up).
+	 * post column (only where that cell is inside the plot, or overhangs the street at least three blocks up). None on
+	 * log walls.
 	 */
 	public static void beamEnds(Draft d, Body b, int k, Facade f, Direction side) {
-		if (k <= 0 || b.isParty(side)) {
+		// a log wall carries its joists in its own courses: ends at every post would dot the wall
+		if (k <= 0 || b.isParty(side) || d.habits().walls().kind(k) == WallKind.LOG) {
 			return;
 		}
 		Side s = b.side(k, side);

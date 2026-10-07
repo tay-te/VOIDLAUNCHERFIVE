@@ -180,6 +180,8 @@ the region pages carry in-game screenshots too. Every blueprint drawn is checked
 - Every dressing needs contrast at 30 blocks: a light wall wants a dark frame or roof, a dark wall light trim.
 - Quoins (the `wall_accent` of stone and brick kinds) alternate course by course at the corners: a strongly contrasting
   accent reads as a checkerboard on small houses. Use a tonal accent (mud brick on brick) or a light one on rubble.
+  The kits enforce it (`Walls.quoined`, `Walls.tonal`): no quoins on a building under 9 wide or dressed below tier 2,
+  and an accent more than 45 apart in lightness (by map colour) from the walling stays a plain corner strip, untoothed.
 - Wall roles of terracotta, wool or concrete have no stairs or slabs: give the entry per-form overrides
   (`"stairs": "minecraft:granite_stairs"`) in a stone of the same colour, or copings come out as full blocks.
 - Name vanilla ids exactly (the tests resolve every one) and put Expanse ids first in a chain with a vanilla stand-in of

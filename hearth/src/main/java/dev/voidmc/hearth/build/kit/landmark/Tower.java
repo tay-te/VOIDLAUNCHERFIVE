@@ -164,7 +164,10 @@ public final class Tower {
 						boolean corner = f.isCorner(i);
 						// alternating quoins: the long stone of each corner on one face, then the other, course by course
 						// (a narrow tower keeps its corner stones alone, so its render still reads between them)
-						boolean tooth = !this.piers && this.size >= 7 && (i == 1 && ((y & 1) == 1) || i == f.length() - 2 && ((y & 1) == 0));
+						// (and only in a tonal dressing: a strongly contrasting one toothed reads as a checkerboard, so it
+						// stays a corner strip, see Walls.tonal)
+						boolean tooth = !this.piers && this.size >= 7 && dev.voidmc.hearth.build.kit.Walls.tonal(this.body.main(Form.FULL), this.dress.main(Form.FULL))
+							&& (i == 1 && ((y & 1) == 1) || i == f.length() - 2 && ((y & 1) == 0));
 						d.set(f.x(i), y, f.z(i), corner || tooth ? this.dress.full() : this.body.full());
 					}
 				}

@@ -11,8 +11,9 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Walls of round logs laid course on course, as a forest lodge or a herdsman's hut is raised: every log runs along its
- * wall, the corners are notched so the logs cross, and on every other course the log ends stand out a block past the
- * corner, first along one wall, then along the other. The ends are what makes a log house read from across a clearing.
+ * wall, the corners are notched so the logs cross, and both walls' logs run a block past each corner on every course,
+ * so the ends stand in a clean column at the four corners (on alternate courses they would dot the corner like a
+ * checkerboard). The ends are what makes a log house read from across a clearing; nowhere else does a log show its end.
  */
 public final class LogWalls {
 	private LogWalls() {
@@ -45,7 +46,8 @@ public final class LogWalls {
 
 	/**
 	 * Relays the full blocks of the wall ring {@code [x0..x1] × [z0..z1]} from row {@code y0} to {@code y1} as logs in
-	 * {@code logs}, the corners crossing and the ends standing out on alternate courses (only into free cells). Openings
+	 * {@code logs}, the corners crossing and the ends of both walls standing out a block on every course (only into free
+	 * cells, and over head height where the plot leaves a walker no room to step round them). Openings
 	 * (glass, doors, shutters) are kept. Returns the number of logs laid.
 	 */
 	public static int lay(Draft d, int x0, int z0, int x1, int z1, int y0, int y1, Mat logs) {
@@ -64,22 +66,77 @@ public final class LogWalls {
 						n += relay(d, x, y, z, Direction.Axis.Z, logs);
 					}
 				}
-				// the ends past the corners
+				// the ends past the corners, both walls' on every course
 				for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
 					if (!d.isSolid(c[0], y, c[1])) {
 						continue;
 					}
-					int ex = alongX ? c[0] + (c[0] == x0 ? -1 : 1) : c[0];
-					int ez = alongX ? c[1] : c[1] + (c[1] == z0 ? -1 : 1);
-					// over head height only: an end at a walker's head would bar the way round the corner
-					if (d.allowed(ex, y, ez) && d.isAbsent(ex, y, ez) && y >= dev.voidmc.hearth.build.kit.Garden.groundAt(d, ex, ez) + 2) {
-						d.set(ex, y, ez, logs.log(alongX ? Direction.Axis.X : Direction.Axis.Z));
-						n++;
+					for (boolean endX : new boolean[]{true, false}) {
+						int ox = endX ? (c[0] == x0 ? -1 : 1) : 0;
+						int oz = endX ? 0 : (c[1] == z0 ? -1 : 1);
+						int ex = c[0] + ox;
+						int ez = c[1] + oz;
+						// from the foot up where a walker can step round the end; where the plot ends a block further out,
+						// over head height only (an end at a walker's head there would bar the way round the corner)
+						boolean roundIt = d.allowed(ex + ox, y, ez + oz);
+						if (d.allowed(ex, y, ez) && d.isAbsent(ex, y, ez) && (roundIt || y >= dev.voidmc.hearth.build.kit.Garden.groundAt(d, ex, ez) + 2)) {
+							d.set(ex, y, ez, logs.log(endX ? Direction.Axis.X : Direction.Axis.Z));
+							n++;
+						}
 					}
 				}
 			}
 		}
 		return n;
+	}
+
+	/**
+	 * Called once the yard is furnished: where a corner end standing from the foot up (as {@link #lay} sets them where
+	 * a walker could step round) now bars the only way to a bed, bench or store, its two lowest logs come out again, so
+	 * that end column starts over head height. The ring and {@code y0} are those given to {@link #lay}.
+	 */
+	public static void keepWays(Draft d, int x0, int z0, int x1, int z1, int y0) {
+		int stranded = dev.voidmc.hearth.build.kit.age.Reach.unreached(d).size();
+		for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
+			for (boolean endX : new boolean[]{true, false}) {
+				if (stranded == 0) {
+					return;
+				}
+				int ex = c[0] + (endX ? (c[0] == x0 ? -1 : 1) : 0);
+				int ez = c[1] + (endX ? 0 : (c[1] == z0 ? -1 : 1));
+				// the end column's foot: its lowest log at or over the first course
+				int yl = y0;
+				while (yl < y0 + 8 && !isLog(d, ex, yl, ez)) {
+					yl++;
+				}
+				if (!isLog(d, ex, yl, ez)) {
+					continue;
+				}
+				BlockState foot = d.get(ex, yl, ez);
+				BlockState head = isLog(d, ex, yl + 1, ez) ? d.get(ex, yl + 1, ez) : null;
+				d.remove(ex, yl, ez);
+				if (head != null) {
+					d.remove(ex, yl + 1, ez);
+				}
+				int now = dev.voidmc.hearth.build.kit.age.Reach.unreached(d).size();
+				if (now < stranded) {
+					stranded = now;
+					continue;
+				}
+				// it was not this end in the way: put it back
+				try (var s = d.stage(StageKind.WALLS)) {
+					d.set(ex, yl, ez, foot);
+					if (head != null) {
+						d.set(ex, yl + 1, ez, head);
+					}
+				}
+			}
+		}
+	}
+
+	private static boolean isLog(Draft d, int x, int y, int z) {
+		BlockState s = d.get(x, y, z);
+		return s != null && s.getBlock() instanceof net.minecraft.world.level.block.RotatedPillarBlock;
 	}
 
 	private static int relay(Draft d, int x, int y, int z, Direction.Axis axis, Mat logs) {

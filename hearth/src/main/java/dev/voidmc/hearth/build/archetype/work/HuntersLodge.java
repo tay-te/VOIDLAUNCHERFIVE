@@ -118,6 +118,10 @@ public final class HuntersLodge implements Archetype {
 			// a flat roof is a terrace: a stair up the side, a room set back, an awning
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a corner end at a walker's feet may not bar the yard
+		if (logs) {
+			dev.voidmc.hearth.build.kit.refine.LogWalls.keepWays(d, r[0], r[1], r[2], r[3], Math.max(0, h.walls().plinth()));
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
