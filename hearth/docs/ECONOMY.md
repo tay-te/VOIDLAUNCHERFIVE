@@ -69,7 +69,8 @@ ten kinds to twenty-nine.
     `taxPerHead × population` from nobody in particular and wages `wagePerWorker ×` working adults to nobody;
   - upkeep: `upkeepRate ×` treasury — this keeps treasuries bounded: they settle near `net income / upkeepRate`;
   - **the mint**: with a minter or a built `hearth:commerce/bank`, up to `mintUnitsPerDay + mintUnitsPerMinter ×
-    minters` units of METAL above half its target become `bitsPerMetalUnit` bits each;
+    minters` units of METAL above half its target become `bitsPerMetalUnit` bits each, but not while a building waits
+    for goods (w6: the metal bought in for it was struck before its builders came for it);
   - price drift, the town's own use of each goods, and expiry of builders' needs (below);
   - shops restock, return surplus, pay dues, and pay their keepers (or owners); owned businesses pay their owners;
     funded projects buy what they lack; supply contracts lapse and are offered.

@@ -154,7 +154,7 @@ public final class Production {
 			// household fell to poor by the purse rule (integration 3)
 			coin += r.coin[crew.job().ordinal()] * n * days * (economyWages ? ECONOMY_REVENUE : 1);
 		}
-		eat(s, wf, days, r, data, frac, amounts);
+		eat(s, wf, days, r, data, frac, amounts, reserved);
 		settle(s, r, frac, coin);
 	}
 
@@ -193,12 +193,15 @@ public final class Production {
 				gather(s, crew.gathering(), left, frac, r, c, haulCover, owe);
 			}
 		} else if (!data.covers(job)) {
+			// what the stages waiting for goods want is kept back here too, as for the recipes: the mint struck the metal a
+			// waiting house was bought in for into coin overnight, every night, and the house never started (a town caught
+			// up a day at a time sat at 70 souls for good, its treasury in the thousands)
 			double[] row = r.production[job.ordinal()];
 			double factor = 1;
 			for (int g = 0; g < row.length; g++) {
 				if (row[g] < 0) {
 					double need = -row[g] * left;
-					double have = amounts[g] + Math.max(0, frac[g]);
+					double have = Math.max(0, amounts[g] + Math.max(0, frac[g]) - reserved[g]);
 					factor = Math.min(factor, need <= 0 ? 1 : have / need);
 				}
 			}
@@ -503,9 +506,12 @@ public final class Production {
 
 	/**
 	 * Folk eat: prepared food first; when there is none, what the land gives eaten as it is (fish, meat, fruit, flour,
-	 * grain — worth less than bread).
+	 * grain — worth less than bread). What a stage waiting for goods wants is eaten last, only when nothing else is left
+	 * (a farmhouse's last stage waited half a year for the one basket of fruit its builders were bought in and that was
+	 * eaten every night, with 17 000 grain in the granary).
 	 */
-	private static void eat(SimSettlement s, SettlementClock.Workforce wf, double days, SimRules r, SimData data, double[] frac, int[] amounts) {
+	private static void eat(SimSettlement s, SettlementClock.Workforce wf, double days, SimRules r, SimData data, double[] frac, int[] amounts,
+		int[] reserved) {
 		int food = Goods.FOOD.ordinal();
 		double need = (wf.adults * r.foodAdult + wf.children * r.foodChild + wf.elders * r.foodElder) * days;
 		frac[food] -= need;
@@ -514,21 +520,23 @@ public final class Production {
 			return;
 		}
 		double[] value = data.edible();
-		for (int g : EAT_ORDER) {
-			if (deficit <= 0) {
-				break;
+		for (int pass = 0; pass < 2 && deficit > 0; pass++) {
+			for (int g : EAT_ORDER) {
+				if (deficit <= 0) {
+					break;
+				}
+				if (value[g] <= 0) {
+					continue;
+				}
+				double have = amounts[g] + frac[g] - (pass == 0 ? reserved[g] : 0);
+				if (have <= 0) {
+					continue;
+				}
+				double take = Math.min(have, deficit / value[g]);
+				frac[g] -= take;
+				frac[food] += take * value[g];
+				deficit -= take * value[g];
 			}
-			if (value[g] <= 0) {
-				continue;
-			}
-			double have = amounts[g] + frac[g];
-			if (have <= 0) {
-				continue;
-			}
-			double take = Math.min(have, deficit / value[g]);
-			frac[g] -= take;
-			frac[food] += take * value[g];
-			deficit -= take * value[g];
 		}
 	}
 

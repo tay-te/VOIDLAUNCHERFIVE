@@ -44,6 +44,8 @@ final class GrowthHarness {
 	private static boolean prices;
 	/** For tuning: another share of idle builder time fetched than the config's, or null. */
 	static @Nullable Double fetchShare;
+	/** A day at a time, as a fast-forward or a history steps a town, instead of hour by hour. */
+	static boolean wholeDays;
 
 	final SimSettlement town;
 	private final boolean economy;
@@ -83,8 +85,9 @@ final class GrowthHarness {
 	/** One sim day, hour by hour as a live town nobody is near is stepped, then the economy's books. */
 	void day() {
 		this.day++;
-		for (int h = 1; h <= 24; h++) {
-			SettlementClock.advance(this.town, (this.day - 1) * SimRules.DAY + h * 1000L);
+		int slices = wholeDays ? 1 : 24;
+		for (int h = 1; h <= slices; h++) {
+			SettlementClock.advance(this.town, (this.day - 1) * SimRules.DAY + h * (SimRules.DAY / slices));
 		}
 		if (this.economy) {
 			SettlementEconomy.dayPassed(this.town, this.day);
@@ -114,6 +117,31 @@ final class GrowthHarness {
 		return String.format(java.util.Locale.ROOT, "day %3d: %3d souls %3d beds %-7s treasury %6d prosp %.2f plots %s builders %d stalls [%s]",
 			this.day, s.population(), s.beds(), s.tier().getSerializedName(), s.treasury(), s.land().prosperity(), s.plotCounts(),
 			jobs.getOrDefault(JobType.BUILDER, 0), stalls.toString().trim());
+	}
+
+	/** What each stalled plot's stage still lacks: goods wanted / held / room for them. */
+	String stalls() {
+		StringBuilder out = new StringBuilder();
+		for (SimPlot p : this.town.plots()) {
+			if (!p.isActive() || p.stalledOn() == null || !this.town.factsReady(p)) {
+				continue;
+			}
+			PlotFacts f = this.town.facts(p);
+			if (p.stage() >= f.stageCount()) {
+				continue;
+			}
+			out.append(p.spec().archetype().getPath()).append('@').append(p.stage()).append(p.heldBack ? " (held)" : "").append(':');
+			int[] need = f.goods()[p.stage()];
+			for (int g = 0; g < need.length; g++) {
+				if (need[g] > 0) {
+					Goods k = Goods.VALUES[g];
+					out.append(' ').append(k.getSerializedName()).append('=').append(need[g]).append('/').append(this.town.stockpile().get(k)).append('/')
+						.append(this.town.stockpile().capacity(k));
+				}
+			}
+			out.append("; ");
+		}
+		return out.toString();
 	}
 
 	String stock() {

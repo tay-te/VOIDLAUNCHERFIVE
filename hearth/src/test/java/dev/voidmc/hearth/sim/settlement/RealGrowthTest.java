@@ -19,6 +19,7 @@ class RealGrowthTest {
 		Assumptions.assumeTrue(terrains != null);
 		int days = Integer.parseInt(System.getenv().getOrDefault("HEARTH_GROWTH_DAYS", "240"));
 		boolean economy = System.getenv("HEARTH_GROWTH_NOECONOMY") == null;
+		GrowthHarness.wholeDays = System.getenv("HEARTH_GROWTH_DAYSTEP") != null;
 		for (String run : runs(terrains, System.getenv().getOrDefault("HEARTH_FETCH", "-"))) {
 			String terrain = run.substring(0, run.indexOf(' '));
 			String fetch = run.substring(run.indexOf(' ') + 1);
@@ -32,6 +33,7 @@ class RealGrowthTest {
 					System.out.println(h.line());
 					if (d % 50 == 0) {
 						System.out.println("   stock " + h.stock());
+						System.out.println("   stalls " + h.stalls());
 					}
 				}
 			}
@@ -131,5 +133,40 @@ class RealGrowthTest {
 		System.out.println("village (20) on day " + village + ", town (60) on day " + town);
 		assertTrue(village >= 25 && village <= 100, "a village in about 60 days, was day " + village + "\n" + log);
 		assertTrue(town >= 100 && town <= 280, "a town in about 200 days, was day " + town + "\n" + log);
+	}
+
+	/**
+	 * The same town stepped a day at a time, as a history ages a town nobody has seen and a fast-forward catches one up,
+	 * with the clock's own coin as histories keep: it grows on through its second hundred days instead of settling for
+	 * good on a stage whose goods are eaten, struck or burned overnight before its builders come for them (it sat at 79
+	 * souls from day 180 to day 300, the treasury in the thousands, a farmhouse waiting on the one basket of fruit the
+	 * town ate every night).
+	 */
+	@Test
+	void aTownCaughtUpADayAtATimeGrowsToo() {
+		GrowthHarness.wholeDays = true;
+		try {
+			GrowthHarness h = GrowthHarness.found("flat", 3, false);
+			int town = -1;
+			int at200 = 0;
+			StringBuilder log = new StringBuilder();
+			for (int d = 1; d <= 300; d++) {
+				h.day();
+				if (town < 0 && h.town.population() >= 60) {
+					town = d;
+				}
+				if (d == 200) {
+					at200 = h.town.population();
+				}
+				if (d % 20 == 0) {
+					log.append(h.line()).append('\n');
+				}
+			}
+			System.out.print(log);
+			assertTrue(town >= 100 && town <= 280, "a town in about 200 days, was day " + town + "\n" + log);
+			assertTrue(h.town.population() >= at200 + 20, "still growing after day 200: " + at200 + " then " + h.town.population() + "\n" + log);
+		} finally {
+			GrowthHarness.wholeDays = false;
+		}
 	}
 }
