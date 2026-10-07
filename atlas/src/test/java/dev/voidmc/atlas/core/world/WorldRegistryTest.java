@@ -175,6 +175,7 @@ class WorldRegistryTest {
 	void decodeRefusesPathsAsIds() {
 		assertThrows(IllegalArgumentException.class, () -> WorldRegistry.decode("{\"worlds\":[{\"id\":\"../escape\"}]}"));
 		assertThrows(IllegalArgumentException.class, () -> WorldRegistry.decode("{\"worlds\":[{\"id\":\"a\\\\b\"}]}"));
+		assertThrows(IllegalArgumentException.class, () -> WorldRegistry.decode("{\"worlds\":[{\"id\":\"C:x\"}]}"), "a drive on Windows");
 		assertEquals("x", WorldRegistry.decode("{\"worlds\":[{\"id\":\"x\"}]}").get(0).name(), "a world without a name shows its id");
 	}
 

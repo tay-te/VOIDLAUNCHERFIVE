@@ -179,7 +179,7 @@ public final class WaypointStore {
 			this.waypoints.clear();
 			this.warn.accept("Atlas: " + this.file + " is unreadable (" + e.getMessage() + "); kept as .corrupt, starting with no waypoints");
 			try {
-				Files.move(this.file, this.file.resolveSibling(this.file.getFileName() + ".corrupt"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+				dev.voidmc.atlas.core.store.FileMoves.move(this.file, this.file.resolveSibling(this.file.getFileName() + ".corrupt"));
 			} catch (IOException ignored) {
 				// it stays where it is; the next save replaces it
 			}

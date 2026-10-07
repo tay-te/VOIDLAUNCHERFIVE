@@ -124,7 +124,7 @@ public final class MapExport {
 		try (OutputStream o = Files.newOutputStream(tmp)) {
 			writePng(o, out, w, h);
 		}
-		Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		dev.voidmc.atlas.core.store.FileMoves.replace(tmp, file);
 		return new Result(file, w, h, scale);
 	}
 

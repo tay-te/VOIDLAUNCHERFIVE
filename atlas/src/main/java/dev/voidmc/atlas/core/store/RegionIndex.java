@@ -114,11 +114,11 @@ public final class RegionIndex {
 		return out.toString();
 	}
 
-	/** Reads {@link #encode}'s text. Blank lines are skipped; any malformed line is an error. */
+	/** Reads {@link #encode}'s text, with any line endings. Blank lines are skipped; any malformed line is an error. */
 	public static RegionIndex decode(String text) {
 		RegionIndex index = new RegionIndex();
 		int lineNo = 0;
-		for (String line : text.split("\n", -1)) {
+		for (String line : text.split("\\R", -1)) {
 			lineNo++;
 			String trimmed = line.strip();
 			if (trimmed.isEmpty()) {

@@ -2191,12 +2191,30 @@ public final class MapPage {
 
 	/** Opens a folder in the system's file browser (best effort). */
 	private static void openFolder(java.nio.file.Path dir) {
-		String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-		String[] cmd = os.contains("win") ? new String[]{"explorer", dir.toString()} : os.contains("mac") ? new String[]{"open", dir.toString()}
-			: new String[]{"xdg-open", dir.toString()};
 		try {
-			new ProcessBuilder(cmd).start();
-		} catch (java.io.IOException | RuntimeException ignored) {
+			String path = dir.toAbsolutePath().normalize().toString();
+			String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+			// os.name is "Windows 11", "Mac OS X", "Linux" or a BSD; matched by prefix, since "darwin" contains "win"
+			String[][] tries = os.startsWith("mac") || os.startsWith("darwin") ? new String[][]{{"open", path}}
+				: os.startsWith("windows") ? new String[][]{{"explorer.exe", path}}
+				: new String[][]{{"xdg-open", path}, {"gio", "open", path}, {"kde-open", path}};
+			for (String[] cmd : tries) {
+				Process p;
+				try {
+					// the browser's own output is discarded, so a chatty one never blocks on a full pipe
+					p = new ProcessBuilder(cmd).redirectOutput(ProcessBuilder.Redirect.DISCARD)
+						.redirectError(ProcessBuilder.Redirect.DISCARD).start();
+				} catch (java.io.IOException e) {
+					continue; // not installed here: try the next one
+				}
+				try {
+					p.getOutputStream().close();
+				} catch (java.io.IOException ignored) {
+					// it has no use for input anyway
+				}
+				return;
+			}
+		} catch (RuntimeException | java.io.IOError ignored) {
 			// no file browser: the path is in the chat
 		}
 	}

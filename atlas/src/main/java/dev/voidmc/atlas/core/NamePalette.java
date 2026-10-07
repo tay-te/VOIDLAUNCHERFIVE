@@ -64,7 +64,10 @@ public final class NamePalette {
 		return this.dirty;
 	}
 
-	/** One name per line, in id order (line n is id n + 1). */
+	/**
+	 * One name per line, in id order (line n is id n + 1). Lines end in {@code \n} on every system, so a map folder
+	 * reads the same wherever it was written ({@link #load} accepts {@code \r\n} and {@code \r} as well).
+	 */
 	public void save(Path file) throws IOException {
 		List<String> copy;
 		synchronized (this.names) {
@@ -73,8 +76,12 @@ public final class NamePalette {
 		}
 		Files.createDirectories(file.getParent());
 		Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
-		Files.write(tmp, copy, StandardCharsets.UTF_8);
-		Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+		StringBuilder text = new StringBuilder();
+		for (String name : copy) {
+			text.append(name).append('\n');
+		}
+		Files.writeString(tmp, text, StandardCharsets.UTF_8);
+		dev.voidmc.atlas.core.store.FileMoves.replace(tmp, file);
 	}
 
 	public static NamePalette load(Path file) throws IOException {

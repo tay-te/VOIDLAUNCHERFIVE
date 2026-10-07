@@ -6,11 +6,9 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Clock;
 import java.time.Duration;
@@ -40,7 +38,9 @@ import java.util.zip.CRC32;
  * recognised instead of read as nonsense.
  *
  * <p>Writing goes to {@code <name>.tmp}, which is flushed to the disk before it is moved over the old file in one
- * step: after a crash there is the old file or the new one, never half of one.
+ * step: after a crash there is the old file or the new one, never half of one. (On Windows a file someone holds open
+ * cannot be renamed over; {@link FileMoves#replace} waits for them briefly and then replaces the file in two steps.
+ * Should a crash fall between those, the intact {@code .tmp} is what {@link #read} finds.)
  *
  * <p>Reading accepts a file without a header (the plain {@code waypoints.json} older Atlas builds wrote) as version 0,
  * so it can be migrated. A file that cannot be read (bad checksum, cut short, another kind, a version newer than this
@@ -107,7 +107,8 @@ public final class SafeFile {
 	 * @param payload  the text, upgraded to the version asked for; null if there was nothing readable
 	 * @param version  the version the file (or the backup it came from) was written as; 0 for a legacy file
 	 * @param legacy   the file had no header: an older Atlas wrote it
-	 * @param upgraded migrations ran (the caller should save, so the file on disk is current)
+	 * @param upgraded migrations ran, or the payload came from a write that was cut short before its {@code .tmp}
+	 *                 was moved into place (either way the caller should save, so the file on disk is current)
 	 * @param restored the main file was unreadable and this came from a backup
 	 * @param backup   which backup, if restored
 	 * @param lost     the main file was unreadable and no backup was either: the data is gone (the damaged file is
@@ -170,14 +171,13 @@ public final class SafeFile {
 				}
 				out.force(true);
 			}
-			try {
-				Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-			} catch (AtomicMoveNotSupportedException e) {
-				Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
-			}
+			FileMoves.replace(tmp, file);
 		} catch (IOException | RuntimeException e) {
 			try {
-				Files.deleteIfExists(tmp);
+				// unless a plain replace removed the old file and then failed: then the .tmp is the only copy left
+				if (Files.exists(file)) {
+					Files.deleteIfExists(tmp);
+				}
 			} catch (IOException ignored) {
 				// a stale .tmp is harmless: the next write truncates it
 			}
@@ -208,7 +208,9 @@ public final class SafeFile {
 	 * a bad checksum. A legacy file has no checksum, so this is the only check it gets.
 	 *
 	 * <p>No file at all is not an error: the result is empty, not {@code lost}, and no backup is restored (the
-	 * player may have deleted it on purpose).
+	 * player may have deleted it on purpose). The one exception is an intact {@code <name>.tmp} with a header of this
+	 * kind: a write that was cut short between removing the old file and moving the new one in (see
+	 * {@link FileMoves#replace}). Its payload is returned, marked {@code upgraded} so the caller saves it.
 	 */
 	public Result read(Path file, String kind, int maxVersion, Predicate<String> valid) {
 		checkKind(kind);
@@ -216,10 +218,10 @@ public final class SafeFile {
 		try {
 			data = Files.readAllBytes(file);
 		} catch (NoSuchFileException e) {
-			return Result.missing();
+			return this.stranded(file, kind, maxVersion, valid);
 		} catch (IOException e) {
 			if (!Files.exists(file)) {
-				return Result.missing();
+				return this.stranded(file, kind, maxVersion, valid);
 			}
 			return this.recover(file, kind, maxVersion, valid, "it could not be read (" + e.getMessage() + ")");
 		}
@@ -229,6 +231,22 @@ public final class SafeFile {
 			return new Result(payload, decoded.version(), decoded.legacy(), decoded.version() < maxVersion, false, null, false);
 		} catch (IOException | RuntimeException e) {
 			return this.recover(file, kind, maxVersion, valid, e.getMessage());
+		}
+	}
+
+	/** The payload of an intact {@code <name>.tmp} left by a cut-short replace, or {@link Result#missing()}. */
+	private Result stranded(Path file, String kind, int maxVersion, Predicate<String> valid) {
+		Path tmp = file.resolveSibling(file.getFileName() + TEMP_SUFFIX);
+		try {
+			Decoded decoded = decode(Files.readAllBytes(tmp), kind, maxVersion);
+			if (decoded.legacy()) {
+				// without a header there is no checksum to say the write finished
+				return Result.missing();
+			}
+			String payload = this.upgrade(kind, decoded, maxVersion, valid);
+			return new Result(payload, decoded.version(), false, true, false, null, false);
+		} catch (IOException | RuntimeException e) {
+			return Result.missing();
 		}
 	}
 
@@ -365,10 +383,10 @@ public final class SafeFile {
 			for (int i = CORRUPT_KEPT - 2; i >= 0; i--) {
 				Path from = corruptCopy(file, i);
 				if (Files.exists(from)) {
-					Files.move(from, corruptCopy(file, i + 1), StandardCopyOption.REPLACE_EXISTING);
+					FileMoves.move(from, corruptCopy(file, i + 1));
 				}
 			}
-			Files.move(file, first, StandardCopyOption.REPLACE_EXISTING);
+			FileMoves.move(file, first);
 			return first;
 		} catch (IOException e) {
 			return null;

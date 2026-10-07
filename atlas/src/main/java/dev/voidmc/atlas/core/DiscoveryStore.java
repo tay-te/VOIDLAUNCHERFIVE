@@ -72,7 +72,7 @@ public final class DiscoveryStore {
 			this.discoveries.clear();
 			this.warn.accept("Atlas: " + this.file + " is unreadable (" + e.getMessage() + "); kept as .corrupt");
 			try {
-				Files.move(this.file, this.file.resolveSibling(this.file.getFileName() + ".corrupt"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+				dev.voidmc.atlas.core.store.FileMoves.move(this.file, this.file.resolveSibling(this.file.getFileName() + ".corrupt"));
 			} catch (IOException ignored) {
 				// replaced by the next save
 			}

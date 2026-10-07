@@ -2,7 +2,9 @@ package dev.voidmc.atlas.core;
 
 /**
  * Small synthetic worlds for the palette's golden images, drawn with fixed block colours (the vanilla textures'
- * averages, tinted for plains), so the tests need no game.
+ * averages, tinted for plains), so the tests need no game. The shapes use {@link StrictMath}, which gives the same
+ * bits on every JVM and CPU ({@link Math}'s intrinsics may differ in the last place between x86 and ARM), so the
+ * golden images hold on Windows, Linux and Apple silicon alike.
  */
 final class Scenes {
 	static final int GRASS = 1, SAND = 2, STONE = 3, SNOW = 4, LEAVES = 5, GRAVEL = 6, DIRT = 7, SPRUCE = 8;
@@ -65,7 +67,7 @@ final class Scenes {
 		for (int z = 0; z < size; z++) {
 			for (int x = 0; x < size; x++) {
 				double dx = x - c, dz = z - c;
-				double r = Math.hypot(dx, dz);
+				double r = StrictMath.hypot(dx, dz);
 				if (r > size * 0.47) {
 					continue;
 				}
@@ -74,10 +76,10 @@ final class Scenes {
 				if (land <= 0) {
 					ground = (int) Math.round(62 + land * 60);
 				} else {
-					ground = 62 + (int) Math.round(Math.pow(land, 1.6) * 110 + 2);
+					ground = 62 + (int) Math.round(StrictMath.pow(land, 1.6) * 110 + 2);
 				}
 				// a river cutting across from the west
-				boolean river = Math.abs(dz - Math.sin(x * 0.18) * 3 - 6) < 1.6 && x < c - 4 && land > 0;
+				boolean river = Math.abs(dz - StrictMath.sin(x * 0.18) * 3 - 6) < 1.6 && x < c - 4 && land > 0;
 				if (river) {
 					raw.set(x, z, 62, GRAVEL, 2, PLAINS, RegionRaw.KNOWN);
 				} else if (ground < 62) {
@@ -119,14 +121,14 @@ final class Scenes {
 		RegionRaw raw = new RegionRaw(0, 0);
 		for (int z = 0; z < size; z++) {
 			for (int x = 0; x < size; x++) {
-				double t = Math.sin(x * 0.12) * 10 + Math.cos(z * 0.09) * 8;
-				boolean open = Math.abs(z - size / 2.0 - t) < 6 + (hash(x / 3, z / 3) % 3) || Math.hypot(x - size * 0.7, z - size * 0.3) < 9;
+				double t = StrictMath.sin(x * 0.12) * 10 + StrictMath.cos(z * 0.09) * 8;
+				boolean open = Math.abs(z - size / 2.0 - t) < 6 + (hash(x / 3, z / 3) % 3) || StrictMath.hypot(x - size * 0.7, z - size * 0.3) < 9;
 				if (!open) {
 					raw.set(x, z, 30, 0, 0, PLAINS, RegionRaw.KNOWN | RegionRaw.ROCK);
-				} else if (Math.hypot(x - size * 0.7, z - size * 0.3) < 6) {
+				} else if (StrictMath.hypot(x - size * 0.7, z - size * 0.3) < 6) {
 					raw.set(x, z, 20, GRAVEL, 3, PLAINS, RegionRaw.KNOWN);
 				} else {
-					raw.set(x, z, 14 + (int) Math.round(Math.sin(x * 0.3) * 2), (x + z) % 7 == 0 ? GRAVEL : STONE, 0, PLAINS, RegionRaw.KNOWN);
+					raw.set(x, z, 14 + (int) Math.round(StrictMath.sin(x * 0.3) * 2), (x + z) % 7 == 0 ? GRAVEL : STONE, 0, PLAINS, RegionRaw.KNOWN);
 				}
 			}
 		}

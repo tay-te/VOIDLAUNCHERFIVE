@@ -4,6 +4,9 @@ package dev.voidmc.atlas.core;
  * Colour maths in OKLab, a perceptual space where equal steps of L look like equal steps of lightness: the palette's
  * hillshade and depth steps are made there so they read as even, crafted bands. sRGB to and from linear light goes
  * through tables, so a whole region (262k pixels) shades in a few milliseconds.
+ *
+ * <p>The powers and roots are {@link StrictMath}'s: the same bits on every JVM and CPU, where {@link Math}'s may differ
+ * in the last place (x86 and ARM have different intrinsics), so a colour, and a golden image, is the same everywhere.
  */
 public final class Oklab {
 	private static final float[] TO_LINEAR = new float[256];
@@ -14,11 +17,11 @@ public final class Oklab {
 	static {
 		for (int i = 0; i < 256; i++) {
 			double v = i / 255.0;
-			TO_LINEAR[i] = (float) (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+			TO_LINEAR[i] = (float) (v <= 0.04045 ? v / 12.92 : StrictMath.pow((v + 0.055) / 1.055, 2.4));
 		}
 		for (int i = 0; i <= LUT; i++) {
 			double l = i / (double) LUT;
-			double v = l <= 0.0031308 ? l * 12.92 : 1.055 * Math.pow(l, 1 / 2.4) - 0.055;
+			double v = l <= 0.0031308 ? l * 12.92 : 1.055 * StrictMath.pow(l, 1 / 2.4) - 0.055;
 			TO_SRGB[i] = (int) Math.round(Math.max(0, Math.min(1, v)) * 255);
 		}
 	}
@@ -51,9 +54,9 @@ public final class Oklab {
 		float l = 0.4122214708F * r + 0.5363325363F * g + 0.0514459929F * b;
 		float m = 0.2119034982F * r + 0.6806995451F * g + 0.1073969566F * b;
 		float s = 0.0883024619F * r + 0.2817188376F * g + 0.6299787005F * b;
-		float l_ = (float) Math.cbrt(l);
-		float m_ = (float) Math.cbrt(m);
-		float s_ = (float) Math.cbrt(s);
+		float l_ = (float) StrictMath.cbrt(l);
+		float m_ = (float) StrictMath.cbrt(m);
+		float s_ = (float) StrictMath.cbrt(s);
 		out[0] = 0.2104542553F * l_ + 0.7936177850F * m_ - 0.0040720468F * s_;
 		out[1] = 1.9779984951F * l_ - 2.4285922050F * m_ + 0.4505937099F * s_;
 		out[2] = 0.0259040371F * l_ + 0.7827717662F * m_ - 0.8086757660F * s_;
@@ -79,7 +82,7 @@ public final class Oklab {
 
 	/** Chroma (colourfulness) of an OKLab colour. */
 	public static float chroma(float[] lab) {
-		return (float) Math.hypot(lab[1], lab[2]);
+		return (float) StrictMath.hypot(lab[1], lab[2]);
 	}
 
 	/** Mixes two 0xRRGGBB colours in linear light. */

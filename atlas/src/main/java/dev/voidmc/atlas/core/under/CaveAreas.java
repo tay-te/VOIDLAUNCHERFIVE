@@ -117,9 +117,9 @@ public final class CaveAreas {
 		return b.toString();
 	}
 
-	/** Reads what {@link #save} wrote; lines it cannot read are skipped. */
+	/** Reads what {@link #save} wrote (with any line endings); lines it cannot read are skipped. */
 	public synchronized void load(String text) {
-		for (String line : text.split("\n")) {
+		for (String line : text.split("\\R")) {
 			String[] p = line.strip().split(" ");
 			if (p.length != 4) {
 				continue;

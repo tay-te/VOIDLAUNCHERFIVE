@@ -1,0 +1,157 @@
+# ---------------------------------------------------------------------------
+# VOID Atlas CI
+#
+#   test   the mod builds and its unit tests pass on Windows, Linux and macOS (Apple silicon).
+#          Atlas is a client mod, so the three systems players run are the three it is tested on:
+#          file moves over open files (Windows), case-sensitive names (Linux), arm64 maths (macOS).
+#   tour   optional, run by hand (Actions -> atlas CI -> Run workflow): the client game test flies a
+#          short route in a real game on a virtual display with Mesa's software renderer (llvmpipe),
+#          and uploads the screenshots it takes. Slow and GPU-less, so it is a smoke test of the
+#          client side, not a performance or look check (that is ./gradlew atlasPerf on real hardware).
+#
+# Atlas builds alone: ../expanse is only included with -Patlas.withExpanse=true (see atlas/settings.gradle),
+# which nothing here passes.
+# ---------------------------------------------------------------------------
+name: atlas CI
+
+on:
+  push:
+    paths: ['atlas/**', '.github/workflows/atlas.yml']
+  pull_request:
+    paths: ['atlas/**', '.github/workflows/atlas.yml']
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Tour shots to take (atlas.test.only); "quick" shortens the flight to three stops round spawn'
+        default: 'quick,minimap,map_0'
+        type: string
+
+concurrency:
+  group: atlas-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Minecraft 26.3 runs on Java 25, and so does Loom 1.18.
+  JAVA_VERSION: '25'
+
+jobs:
+  test:
+    name: unit tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        # bash on Windows too (Git Bash), so ./gradlew is the same command everywhere
+        shell: bash
+        working-directory: atlas
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # caches the wrapper, dependencies and Loom's Minecraft jars and assets (~/.gradle); only builds of the
+      # default branch write the cache, so pull requests cannot fill it
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
+
+      # gradlew is committed without its executable bit
+      - run: chmod +x gradlew
+
+      # build = compile (main, client), unit tests, jars; the game test sources are compiled too, never run
+      - name: Build and run the unit tests
+        run: ./gradlew build compileGametestJava --console=plain
+
+      - name: Upload the test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atlas-test-reports-${{ matrix.os }}
+          # golden images that failed are written to build/test-images, next to what they should have been
+          path: |
+            atlas/build/reports/tests/test/
+            atlas/build/test-results/test/
+            atlas/build/test-images/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  tour:
+    name: client game test (xvfb, llvmpipe)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: atlas
+    env:
+      # Mesa's CPU renderer: there is no GPU on the runner
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Install a virtual display and Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb xauth mesa-utils libgl1-mesa-dri libglx-mesa0 libegl1 \
+            libxcursor1 libxrandr2 libxinerama1 libxi6 libxxf86vm1 libxkbcommon-x11-0
+
+      - name: Show the renderer
+        run: xvfb-run -a -s '-screen 0 1280x720x24' glxinfo -B
+
+      - run: chmod +x gradlew
+
+      # The smallest tour that still photographs something: "quick" flies three stops round spawn instead of
+      # the whole coast-and-mountains route, then only the shots named (default: the minimap and the
+      # nearest map zoom). 1280 x 720 keeps llvmpipe's frames bearable; the watchdog stops a hung game.
+      - name: Fly the tour
+        env:
+          ONLY: ${{ inputs.only }}
+        run: |
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            ./gradlew atlasTour --console=plain \
+              "-Patlas.test.only=$ONLY" \
+              -Patlas.test.width=1280 -Patlas.test.height=720 \
+              -Patlas.test.watchdogMinutes=40 \
+              -Pbackend=opengl
+
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atlas-tour
+          path: atlas/build/tour/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload the game logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atlas-tour-logs
+          path: |
+            atlas/build/run/atlasTour/logs/
+            atlas/build/run/atlasTour/crash-reports/
+          if-no-files-found: ignore
+          retention-days: 14

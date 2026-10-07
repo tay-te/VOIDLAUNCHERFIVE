@@ -1,11 +1,10 @@
 package dev.voidmc.atlas.core;
 
+import dev.voidmc.atlas.core.store.FileMoves;
 import java.io.IOException;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.function.Consumer;
 
 /**
@@ -110,7 +109,7 @@ public final class RegionStore {
 	private void quarantine(Path file, Exception why) {
 		this.warn.accept("Atlas: " + file + " is unreadable (" + why.getMessage() + "); moving it aside and mapping that region afresh");
 		try {
-			Files.move(file, file.resolveSibling(file.getFileName() + ".corrupt"), StandardCopyOption.REPLACE_EXISTING);
+			FileMoves.move(file, file.resolveSibling(file.getFileName() + ".corrupt"));
 		} catch (IOException e) {
 			try {
 				Files.deleteIfExists(file);
@@ -130,15 +129,26 @@ public final class RegionStore {
 		}
 	}
 
-	/** Writes a file whole: to a temporary file first, then moved into place. */
+	/**
+	 * Writes a file whole: to a temporary file first, then moved into place (atomically where the file system allows;
+	 * on Windows, waiting briefly for anyone reading the old file to let go, see {@link FileMoves#replace}).
+	 */
 	public static void write(Path file, byte[] data) throws IOException {
-		Files.createDirectories(file.getParent());
+		Files.createDirectories(file.toAbsolutePath().getParent());
 		Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
-		Files.write(tmp, data);
 		try {
-			Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-		} catch (AtomicMoveNotSupportedException e) {
-			Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+			Files.write(tmp, data);
+			FileMoves.replace(tmp, file);
+		} catch (IOException | RuntimeException e) {
+			try {
+				// unless a plain replace removed the old file and then failed: the .tmp is then the only copy left
+				if (Files.exists(file)) {
+					Files.deleteIfExists(tmp);
+				}
+			} catch (IOException ignored) {
+				// a stale .tmp is overwritten by the next write
+			}
+			throw e;
 		}
 	}
 }

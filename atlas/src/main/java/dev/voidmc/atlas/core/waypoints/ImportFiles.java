@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +17,12 @@ import java.util.stream.Stream;
 final class ImportFiles {
 	/** Bigger files than this are not waypoint files, or not ones worth reading. */
 	static final long MAX_FILE_BYTES = 8L << 20;
+	/**
+	 * By file name ignoring case, then by case. Not {@link Path#compareTo}: that ignores case on Windows only, so the
+	 * same folders would be read in another order (and another copy of a repeated waypoint kept) on macOS and Linux.
+	 */
+	static final Comparator<Path> BY_NAME = Comparator.comparing((Path p) -> String.valueOf(p.getFileName()), String.CASE_INSENSITIVE_ORDER)
+		.thenComparing(p -> String.valueOf(p.getFileName()));
 
 	private ImportFiles() {
 	}
@@ -44,7 +50,7 @@ final class ImportFiles {
 		return dir;
 	}
 
-	/** The entries of a directory matching {@code filter}, sorted by name; empty if it cannot be listed. */
+	/** The entries of a directory matching {@code filter}, sorted by {@link #BY_NAME}; empty if it cannot be listed. */
 	static List<Path> list(Path dir, Predicate<Path> filter, Consumer<String> warn) {
 		if (dir == null || !Files.isDirectory(dir)) {
 			return List.of();
@@ -56,7 +62,7 @@ final class ImportFiles {
 			warn.accept("Could not list " + dir + ": " + e);
 			return List.of();
 		}
-		Collections.sort(out);
+		out.sort(BY_NAME);
 		return out;
 	}
 

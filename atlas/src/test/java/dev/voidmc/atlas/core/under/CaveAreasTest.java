@@ -58,4 +58,18 @@ class CaveAreasTest {
 		CaveAreas.Area a = back.areas().get(0);
 		assertTrue(a.x() < -40 && a.z() < -2900 && a.band() == -8);
 	}
+
+	@Test
+	void loadsFilesWithWindowsOrOldMacLineEndings() {
+		CaveAreas caves = new CaveAreas();
+		for (int x = 0; x < 64; x += 16) {
+			caves.put(-2, x, 0, "minecraft:lush_caves");
+		}
+		for (String ending : new String[]{"\r\n", "\r"}) {
+			CaveAreas back = new CaveAreas();
+			back.load(caves.save().replace("\n", ending));
+			assertEquals(caves.areas(), back.areas(), "lines ending in " + ending.replace("\r", "CR").replace("\n", "LF"));
+			assertEquals(caves.save(), back.save());
+		}
+	}
 }

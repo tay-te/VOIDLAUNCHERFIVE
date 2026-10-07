@@ -342,7 +342,8 @@ public final class WorldRegistry {
 		for (JsonElement e : root.getAsJsonArray("worlds")) {
 			JsonObject o = e.getAsJsonObject();
 			String id = o.get("id").getAsString();
-			if (id.isBlank() || id.contains("/") || id.contains("\\") || id.startsWith(".")) {
+			// the id is a folder name: no separators of any system, and no ':' ("C:x" names a drive on Windows)
+			if (id.isBlank() || id.contains("/") || id.contains("\\") || id.contains(":") || id.startsWith(".")) {
 				throw new IllegalArgumentException("bad world id '" + id + "'");
 			}
 			Set<Long> seeds = new TreeSet<>();

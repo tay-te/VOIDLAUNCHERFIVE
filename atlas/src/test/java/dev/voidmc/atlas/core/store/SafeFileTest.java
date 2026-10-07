@@ -442,6 +442,53 @@ class SafeFileTest {
 		assertEquals("#atlas worlds v7 crc32=" + String.format("%08x", crc("hi")) + " len=2\nhi", new String(data, StandardCharsets.UTF_8));
 	}
 
+	// ---------------------------------------------------------------- every system
+
+	@Test
+	void writesOverAFileThatIsBeingRead() throws IOException {
+		this.files.write(this.file, "k", 1, "old");
+		// on Windows a rename over an open file is refused; the write must still land
+		try (java.nio.channels.FileChannel reader = java.nio.channels.FileChannel.open(this.file, java.nio.file.StandardOpenOption.READ)) {
+			this.files.write(this.file, "k", 1, "new");
+		}
+		assertEquals("new", this.files.read(this.file, "k", 1).payload());
+		assertFalse(Files.exists(this.dir.resolve("waypoints.json.tmp")));
+	}
+
+	@Test
+	void aWriteCutShortMidReplaceIsFoundInItsTemporaryFile() throws IOException {
+		// the old file removed, the new one complete under .tmp, and then the crash
+		Files.write(this.dir.resolve("waypoints.json.tmp"), SafeFile.encode("k", 1, "newest"));
+		SafeFile.Result r = this.files.read(this.file, "k", 1);
+		assertTrue(r.present());
+		assertEquals("newest", r.payload());
+		assertTrue(r.upgraded(), "so the caller saves it in place");
+		assertFalse(r.lost());
+		assertTrue(this.events.isEmpty());
+	}
+
+	@Test
+	void aTemporaryFileThatIsNotWholeIsIgnored() throws IOException {
+		byte[] whole = SafeFile.encode("k", 1, "newest");
+		Path tmp = this.dir.resolve("waypoints.json.tmp");
+		Files.write(tmp, java.util.Arrays.copyOf(whole, whole.length - 2));
+		assertFalse(this.files.read(this.file, "k", 1).present(), "cut short while being written");
+		Files.write(tmp, SafeFile.encode("other", 1, "newest"));
+		assertFalse(this.files.read(this.file, "k", 1).present(), "another kind of file");
+		Files.writeString(tmp, "{\"no\":\"header\"}");
+		assertFalse(this.files.read(this.file, "k", 1).present(), "no header, so no checksum to trust");
+		assertFalse(this.files.read(this.file, "k", 0).present(), "not even as a legacy file");
+	}
+
+	@Test
+	void aFailedWriteLeavesTheOldFile() throws IOException {
+		this.files.write(this.file, "k", 1, "old");
+		// the temporary file's name taken by a folder: the write fails before anything is moved
+		Files.createDirectories(this.dir.resolve("waypoints.json.tmp").resolve("in-the-way"));
+		assertThrows(IOException.class, () -> this.files.write(this.file, "k", 1, "new"));
+		assertEquals("old", this.files.read(this.file, "k", 1).payload());
+	}
+
 	// ---------------------------------------------------------------- helpers
 
 	/** Writes {@code payload} and backs it up, leaving the main file in place. */

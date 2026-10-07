@@ -70,6 +70,20 @@ class RegionIndexTest {
 	}
 
 	@Test
+	void decodeReadsAnyLineEnding() {
+		// a map folder copied from Windows, or opened and saved in Notepad, or from a classic Mac editor
+		RegionIndex index = new RegionIndex();
+		index.put(new RegionIndex.Entry("surface", 2, -1, 17, 412345));
+		index.put(new RegionIndex.Entry("cave_-2", 0, 0, 7, 9));
+		String lf = index.encode();
+		assertEquals(index.entries(), RegionIndex.decode(lf.replace("\n", "\r\n")).entries());
+		assertEquals(index.entries(), RegionIndex.decode(lf.replace("\n", "\r")).entries());
+		assertEquals(index.entries(), RegionIndex.decode(lf.replace("\n", "\r\n").stripTrailing()).entries(), "no newline at the end");
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> RegionIndex.decode("surface 1 2 3 4\r\nbad\r\n"));
+		assertTrue(e.getMessage().startsWith("line 2:"), "a CRLF counts as one line break: " + e.getMessage());
+	}
+
+	@Test
 	void layerMustBeOneWord() {
 		assertThrows(IllegalArgumentException.class, () -> new RegionIndex().viewed("two words", 0, 0, 1));
 	}
