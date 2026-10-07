@@ -219,6 +219,14 @@ a fraction of the cost.
   so far islands sink into the dark rather than ending in a line at the LOD's edge.
 * **No popping** (`core/Fades`): when the selection swaps a tile for its children or back, the two
   cross-fade over 0.45 s through complementary dither, so every pixel shows exactly one of them.
+* **The chunks dissolve into the LOD** (`ChunkFade`, `mixin/ChunkShaderMixin`): vanilla fades a newly
+  drawn section in from the fog colour, which in front of the LOD flashes pale at the seam each time a
+  chunk arrives, and its chunks end in the ragged square of the last sections loaded. The chunk shaders
+  (vanilla's and Sodium's, patched as they load) dither the chunks away instead, over their last 24 blocks
+  and while a section fades in, with the LOD drawn whole underneath: the seam is round and soft, and a new
+  chunk appears out of the far view it replaces. No uniform is added: the edge's radius rides in values
+  the chunk shaders already have (a section's visibility under vanilla, the render fog's start under
+  Sodium). Off with a shader pack, which draws the chunks itself, or with `-Dvoid.lod.chunkFade=false`.
 
 ## How it works
 

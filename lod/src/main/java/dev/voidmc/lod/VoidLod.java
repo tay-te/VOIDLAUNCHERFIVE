@@ -708,9 +708,25 @@ public final class VoidLod implements ClientModInitializer {
 		return this.enabled;
 	}
 
-	/** How far vanilla's chunks reach, in blocks: the LOD starts where they stop. */
+	/**
+	 * How far vanilla's chunks reach, in blocks: the LOD starts where they stop. Where the chunks dissolve into it
+	 * ({@link ChunkFade}), it is drawn whole under the ring they dissolve over, and fades in under the chunks before it.
+	 */
 	public static double clipRadius(Minecraft mc) {
-		return Math.max(0, mc.options.getEffectiveRenderDistance() * 16 - 24);
+		int distance = mc.options.getEffectiveRenderDistance();
+		if (ChunkFade.on() && ChunkFade.fadesEdge(distance)) {
+			return Math.max(0, ChunkFade.edge(distance) - ChunkFade.EDGE - 16);
+		}
+		return Math.max(0, distance * 16 - 24);
+	}
+
+	/** Where the chunks' haze meets the LOD's ({@code mixin.FogRendererMixin}): the middle of the seam. */
+	public static double seamRadius(Minecraft mc) {
+		int distance = mc.options.getEffectiveRenderDistance();
+		if (ChunkFade.on() && ChunkFade.fadesEdge(distance)) {
+			return ChunkFade.edge(distance) - ChunkFade.EDGE / 2.0;
+		}
+		return clipRadius(mc);
 	}
 
 	// ---- called from the mixins, on the render thread -------------------------------------------------------
@@ -721,6 +737,8 @@ public final class VoidLod implements ClientModInitializer {
 			// with the LOD toggled off too: what changes meanwhile should be there when it comes back
 			ingest.run(INGEST_NANOS);
 		}
+		// the chunks dissolve into the LOD where it is drawn behind them with vanilla's own chunk shaders
+		ChunkFade.update(this.active() && !Shaders.packDraws() && !Shaders.drawOverPack(), Minecraft.getInstance().options.getEffectiveRenderDistance());
 		if (!this.active()) {
 			return;
 		}

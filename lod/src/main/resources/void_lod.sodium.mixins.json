@@ -1,0 +1,12 @@
+{
+	"required": false,
+	"package": "dev.voidmc.lod.mixin.sodium",
+	"plugin": "dev.voidmc.lod.mixin.sodium.SodiumMixinPlugin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"GlobalUniformsMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
