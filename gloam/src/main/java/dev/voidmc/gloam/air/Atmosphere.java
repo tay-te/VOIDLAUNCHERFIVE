@@ -52,6 +52,12 @@ public final class Atmosphere {
 		return Mth.lerp(partialTick, raw.gloam$oRainLevel(), raw.gloam$rainLevel());
 	}
 
+	/** Vanilla's own thunder level (under its own rain), before Gloam makes it follow the storms. */
+	public static float vanillaThunder(ClientLevel level, float partialTick) {
+		LevelAccessor raw = (LevelAccessor) level;
+		return Mth.lerp(partialTick, raw.gloam$oThunderLevel(), raw.gloam$thunderLevel()) * vanillaRain(level, partialTick);
+	}
+
 	/** Called once a client tick. */
 	public void tick(Minecraft mc) {
 		ClientLevel level = mc.level;
@@ -90,7 +96,7 @@ public final class Atmosphere {
 		float vanilla = vanillaRain(level, 1.0F);
 		boolean precipitation = level.canHaveWeather() && biome.hasPrecipitation();
 		float rain = precipitation ? Air.rain(vanilla, front, GloamSettings.get().showers) : 0;
-		float storm = Math.max(Air.storm(front, year), level.getThunderLevel(1.0F) * Noise.smoothstep(0.3F, 0.6F, front));
+		float storm = Math.max(Air.storm(front, year), vanillaThunder(level, 1.0F) * Noise.smoothstep(0.3F, 0.6F, front));
 		// the ground soaks up rain in a few minutes and dries over most of a day, faster in the heat
 		float drying = 1.0F / (12000.0F / (0.5F + Math.max(0, this.temperature)));
 		this.wetness = rain > this.wetness ? Math.min(rain, this.wetness + rain / 1200.0F) : Math.max(0, this.wetness - drying);
