@@ -549,6 +549,18 @@ answers; `PlanModule.underground` falls back to probes paired by hand). A lift i
   out of town when the streets are full, and a sample past an exhausted search budget. On the real catalogue a
   temperate hill town that stopped at 35 (MiniSurvey) or 209 souls (the sim's survey) now grows on to the capacity it
   is given.
+- **Met with nothing queued**: a need that reports itself met without queueing anything rests like a failure and the
+  next need is tried (it was tried first on every call and a city of 447 answered nothing for good).
+- **No workings** in the live tour: its towns were grown by `SimWorld.simulate`, a fast-forward that holds the server
+  thread, so the off-thread survey never merged and they grew with no sites (no workings, unbounded carrying capacity).
+  A fast-forward now surveys at once. With their land, the tour's Bradfield (29 souls before) grows to 476 of a
+  capacity of 514 in 300 days with two quarry pits, three shafts, clay and sand pits, a woodlot, three logging camps
+  and three carpentries. `RealGrowthTest.aTownOfSixtyWorksItsLand` grows a town on the real archetypes with the sim's
+  survey and checks it opens a mine (or a shaft), a quarry pit and a logging camp.
+- **Adits that never fit**: a mine's plot fronts its track with its back into the slope, but a track that comes down
+  the hill to the mouth has only the contour beside it, so an alpine town built track after track to its ore and never
+  mined it. Plots across the end of a track are tried too (`Parcels.atEnds`), and when the track is at the hill's foot
+  and still no adit fits, a shaft with its headframe is sunk by the track instead.
 - **Out of time**: a need cut short by a live call's time limit rests one or two calls without counting as a failure
   (it used to rest up to eight times as long, so a city's workings and workshops, tried after housing had spent the
   20 ms, were shelved for good).
@@ -562,5 +574,6 @@ answers; `PlanModule.underground` falls back to probes paired by hand). A lift i
   fewer in the inner town (unless the layout is dense), two in the outskirts; never more than three in the steppe, the
   tropics, the bayou, the north or the tundra. The height cap leaves 12 blocks over the top storey for the roof, so a
   steep roof is not squeezed flat. Towers that are not homes (church, clock and bell towers, the keep, watchtowers)
-  keep their full height: they are the skyline.
+  keep their full height: they are the skyline. A home rebuilt taller (`Upgrades`: cottages to shophouses to
+  townhouses) is measured in the zone it stands in now, not the zone its first house was planned in.
 

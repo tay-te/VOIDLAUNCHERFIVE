@@ -317,10 +317,12 @@ public final class Upgrades {
 				params.putBoolean("party_left", i > 0 && party[i - 1]);
 				params.putBoolean("party_right", i < batch.size() - 1 && party[i]);
 			}
+			// the zone it stands in now (the town has grown round it since the old house was planned)
 			int zone = ctx.zone(r[0], r[1]);
+			params.putString("zone", Build.zoneName(zone));
 			params.putInt("storeys", Build.storeys(ctx, target, zone));
 			PlotSpec spec = new PlotSpec(target.id(), ctx.style, ctx.nextSeed(), new BlockPos(r[0], old.floorY(), r[1]), r[2] - r[0] + 1, r[3] - r[1] + 1,
-				facing, Build.height(ctx, target, 0), Math.min(4, Math.max(old.tier(), Build.finish(ctx, target, zone, ctx.district(r[0], r[1])))), params);
+				facing, Build.height(ctx, target, zone), Math.min(4, Math.max(old.tier(), Build.finish(ctx, target, zone, ctx.district(r[0], r[1])))), params);
 			specs.add(spec);
 			ids.add(p.id());
 		}
@@ -425,9 +427,12 @@ public final class Upgrades {
 				params.putBoolean("party_left", false);
 				params.putBoolean("party_right", false);
 			}
-			params.putInt("storeys", Build.storeys(ctx, t, 0));
+			// the zone it stands in, so a rebuilt tall home keeps to its town's storeys (ART_REVIEW.md item 1)
+			int zone = ctx.zone(r[0], r[1]);
+			params.putString("zone", Build.zoneName(zone));
+			params.putInt("storeys", Build.storeys(ctx, t, zone));
 			PlotSpec other = new PlotSpec(t.id(), ctx.style, ctx.nextSeed(), new BlockPos(r[0], s.floorY(), r[1]), r[2] - r[0] + 1, r[3] - r[1] + 1,
-				s.facing(), Build.height(ctx, t, 0), Math.min(4, s.tier() + 1), params);
+				s.facing(), Build.height(ctx, t, zone), Math.min(4, s.tier() + 1), params);
 			int[] otherEnt = dev.voidmc.hearth.plan.grid.PlotGeometry.entrance(other);
 			int[] pts = {ent[0], deck, ent[1], otherEnt[0], deck, otherEnt[1]};
 			if (Math.abs(otherEnt[0] - ent[0]) > 0 && Math.abs(otherEnt[1] - ent[1]) > 0) {

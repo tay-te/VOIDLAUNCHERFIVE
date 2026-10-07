@@ -284,6 +284,37 @@ public final class Parcels {
 		return found;
 	}
 
+	/**
+	 * Places that close the built end of a road within {@code r} blocks of (x, z), in every facing, rather than line its
+	 * sides: the adit at the foot of a hill, its mouth on the track's end and its back into the slope.
+	 */
+	public static List<Parcel> atEnds(PlanContext ctx, Request req, int x, int z, int r) {
+		List<Parcel> found = new ArrayList<>();
+		for (RoadEdge e : ctx.state.graph.edges()) {
+			int lim = Math.min(e.built, e.length());
+			if (lim < 2 || !frontsOk(e, req)) {
+				continue;
+			}
+			Polyline.Dense d = e.dense();
+			for (int i : new int[]{0, lim - 1}) {
+				if (Math.hypot(d.xs()[i] - x, d.zs()[i] - z) > r) {
+					continue;
+				}
+				for (Direction facing : Direction.Plane.HORIZONTAL) {
+					List<Pos> one = new ArrayList<>(1);
+					addPos(ctx, req, e, i, facing, one, ctx.occ);
+					for (Pos pos : one) {
+						Parcel p = place(ctx, req, pos);
+						if (p != null) {
+							found.add(p);
+						}
+					}
+				}
+			}
+		}
+		return found;
+	}
+
 	private static boolean frontsOk(RoadEdge e, Request req) {
 		boolean water = req.info.flags().contains(SiteFlag.ON_WATER);
 		if (water) {

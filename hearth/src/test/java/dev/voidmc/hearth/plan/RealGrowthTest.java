@@ -97,6 +97,40 @@ class RealGrowthTest {
 			+ kinds + "; " + summary(sim) + "\n" + String.join("\n", sim.log()));
 	}
 
+	/**
+	 * Tall homes keep to their town (ART_REVIEW.md item 1): a townhouse, tenement or merchant's house is told no more
+	 * storeys than its tier and zone allow (village 2, town 3, city 4; two fewer in the outskirts),
+	 * and its plot's height leaves no room for more, while the church and the hall keep their towers.
+	 */
+	@Test
+	void tallHomesKeepToTheirTown() {
+		MiniSim sim = grow(Culture.TEMPERATE, "river", 2, 400);
+		sim.run(200);
+		int cap = switch (sim.settlement.tier()) {
+			case CAMP, HAMLET, VILLAGE -> 2;
+			case TOWN -> 3;
+			case CITY -> 4;
+		};
+		int tall = 0;
+		for (PlotView p : sim.settlement.plots()) {
+			var info = real.archetypes().stream().filter(i -> i.id().equals(p.spec().archetype())).findFirst().orElse(null);
+			if (info == null || info.category() != dev.voidmc.hearth.api.ArchetypeCategory.HOUSING) {
+				continue;
+			}
+			String zone = p.spec().params().getStringOr("zone", "core");
+			// (a dense layout's inner town keeps the core's storeys)
+			int allowed = Math.max(2, cap - (zone.equals("core") || zone.equals("inner") ? 0 : 2));
+			int storeys = p.spec().params().getIntOr("storeys", 1);
+			assertTrue(storeys <= allowed, p.spec().archetype() + " in the " + zone + " of a " + sim.settlement.tier().getSerializedName() + ": " + storeys
+				+ " storeys");
+			if (info.flags().contains(dev.voidmc.hearth.api.ArchetypeInfo.SiteFlag.VERTICAL)) {
+				tall++;
+				assertTrue(p.spec().maxHeight() <= Math.max(info.minHeight(), 5 * allowed + 12), p.spec().archetype() + " " + p.spec().maxHeight() + " high");
+			}
+		}
+		assertTrue(tall > 0 || sim.settlement.tier().ordinal() < dev.voidmc.hearth.api.SettlementTier.TOWN.ordinal(), "a town has tall homes: " + summary(sim));
+	}
+
 	private static int count(MiniSim sim, Identifier id) {
 		int n = 0;
 		for (PlotView p : sim.settlement.plots()) {
