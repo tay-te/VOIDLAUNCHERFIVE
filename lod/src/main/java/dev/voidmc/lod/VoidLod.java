@@ -253,6 +253,10 @@ public final class VoidLod implements ClientModInitializer {
 				this.files.saveChanged();
 			}
 		}
+		if (this.hearth != null && mc.player != null && now - this.hearthNanos > AROUND_NANOS) {
+			this.hearthNanos = now;
+			this.pollHearth(mc.player.getX(), mc.player.getZ());
+		}
 		if (++this.ticks % 20 == 0) {
 			this.capMillis = frameCap(mc);
 		}
@@ -460,6 +464,15 @@ public final class VoidLod implements ClientModInitializer {
 			}
 			generator = new StructureOverlay(generator, this.sites);
 		}
+		if (generator != null && this.serverLevel != null) {
+			// VOID Hearth's towns, where it runs: drawn from its blueprints, so no chunk loads for them
+			dev.voidmc.lod.source.HearthFootprints footprints = dev.voidmc.lod.source.HearthFootprints.of(this.serverLevel);
+			if (footprints != null) {
+				this.hearth = footprints;
+				this.hearthVersions.clear();
+				generator = new dev.voidmc.lod.source.HearthOverlay(generator, footprints);
+			}
+		}
 		if (!this.ingestChunks) {
 			return generator;
 		}
@@ -545,6 +558,7 @@ public final class VoidLod implements ClientModInitializer {
 		}
 		StructureSites sites = this.sites;
 		this.sites = null;
+		this.hearth = null;
 		this.serverLevel = null;
 		if (sites != null) {
 			sites.close();
@@ -614,6 +628,33 @@ public final class VoidLod implements ClientModInitializer {
 	/** {@code -Dvoid.lod.structures=false} leaves the world's structures off the land nobody has loaded. */
 	private static final boolean STRUCTURES = !"false".equals(System.getProperty("void.lod.structures"));
 	private StructureSites sites;
+	/** VOID Hearth's towns, where it runs, and the version of each 1024-block region the tiles were built with. */
+	private dev.voidmc.lod.source.HearthOverlay.Footprints hearth;
+	private final it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap hearthVersions = new it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap();
+	{
+		this.hearthVersions.defaultReturnValue(-1);
+	}
+	private long hearthNanos;
+	/** How far out Hearth's towns are watched for changes: past this a town is a few pixels, rebuilt when its tile is. */
+	private static final double HEARTH_REACH = 16384;
+
+	/** The regions around the player whose towns changed since last asked: their tiles are built again. Render thread. */
+	private void pollHearth(double px, double pz) {
+		dev.voidmc.lod.source.HearthOverlay.Footprints f = this.hearth;
+		int reach = (int) Math.ceil(Math.min(this.radius, HEARTH_REACH) / 1024);
+		int cx = (int) Math.floor(px) >> 10, cz = (int) Math.floor(pz) >> 10;
+		for (int rz = cz - reach; rz <= cz + reach; rz++) {
+			for (int rx = cx - reach; rx <= cx + reach; rx++) {
+				long key = (long) rx << 32 ^ rz & 0xFFFFFFFFL;
+				long v = f.version(rx, rz);
+				long was = this.hearthVersions.put(key, v);
+				// a region seen for the first time with towns in it may have been built before Hearth's world was up
+				if (was != v && (was != -1 || v != 0)) {
+					this.engine.invalidate(rx << 10, rz << 10, (rx + 1) << 10, (rz + 1) << 10, 1024 * 1024);
+				}
+			}
+		}
+	}
 	/** Chunks whose trees are still to be placed in the background (0 without the world's trees). */
 	public int treesPending() {
 		dev.voidmc.lod.source.TreeDecorator trees = this.trees;

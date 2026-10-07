@@ -44,6 +44,10 @@ dependencies {
 	if (project.hasProperty('sodium') || project.hasProperty('iris')) {
 		localRuntime "maven.modrinth:sodium:${project.sodium_version}"
 	}
+	// -Phearth=<jar>: VOID Hearth in the dev runs and game tests, to see its towns at the horizon (reached by reflection)
+	if (project.hasProperty('hearth')) {
+		localRuntime files(project.property('hearth'))
+	}
 	if (project.hasProperty('iris')) {
 		localRuntime "maven.modrinth:iris:${project.iris_version}"
 	}
