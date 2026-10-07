@@ -27,6 +27,11 @@ public final class ChunkColumns {
 	final byte[] light;
 	/** The whole chunk as a statistic: the 16-block cell of the far field, and what the regions' cells sum. */
 	final int[] summary;
+	/**
+	 * Per column, the land under an overhang ({@link #packUnder}: a bridge, a ledge, a roof on posts), 0 for none; null
+	 * where no column of the chunk has one.
+	 */
+	final int[] under;
 
 	/** A chunk with no light anywhere on it. */
 	public ChunkColumns(int[] columns, Surface[] palette) {
@@ -38,6 +43,12 @@ public final class ChunkColumns {
 	 * chunk's own from here on.
 	 */
 	public ChunkColumns(int[] columns, Surface[] palette, byte[] light) {
+		this(columns, palette, light, null);
+	}
+
+	/** The same, with the land under each column's overhang ({@link #packUnder}, null for none anywhere). */
+	public ChunkColumns(int[] columns, Surface[] palette, byte[] light, int[] under) {
+		this.under = under;
 		this.columns = columns;
 		this.palette = palette;
 		this.light = light;
@@ -56,6 +67,31 @@ public final class ChunkColumns {
 	public static int pack(int ground, int depth, int canopy, int look) {
 		int g = Math.max(1 - BIAS, Math.min(BIAS - 1, ground)) + BIAS;
 		return g | Math.max(0, Math.min(MAX_DEPTH, depth)) << 12 | Math.max(0, Math.min(MAX_CANOPY, canopy)) << 20 | look << 26;
+	}
+
+	/**
+	 * The land under a column's overhang: how thick the overhang is (its solid blocks, under the ground {@link #pack}
+	 * gives), the open gap under it, how deep the water on the land below is, and the land below's surface (an index
+	 * into the palette, as the column's own).
+	 */
+	public static int packUnder(int deck, int gap, int depth, int look) {
+		return Math.max(1, Math.min(31, deck)) | Math.max(1, Math.min(2047, gap)) << 5 | Math.max(0, Math.min(255, depth)) << 16 | look << 24;
+	}
+
+	public static int deck(int under) {
+		return under & 31;
+	}
+
+	public static int gap(int under) {
+		return (under >>> 5) & 2047;
+	}
+
+	public static int underDepth(int under) {
+		return (under >>> 16) & 0xFF;
+	}
+
+	public static int underLook(int under) {
+		return under >>> 24;
 	}
 
 	public static int ground(int packed) {

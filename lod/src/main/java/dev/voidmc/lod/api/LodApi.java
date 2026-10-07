@@ -103,6 +103,20 @@ public final class LodApi {
 		};
 	}
 
+	/**
+	 * Whether the far terrain around the player is complete for now: every tile the view wants is built and drawn (and
+	 * handed to the listeners), with nothing left in the queue, the world's trees included. Turns false again as the
+	 * player moves on. A map can treat the areas no tile covered by then as beyond the LOD's reach.
+	 */
+	public static boolean complete() {
+		VoidLod lod = VoidLod.get();
+		if (lod == null || !lod.isEnabled()) {
+			return false;
+		}
+		var engine = lod.engine();
+		return engine.source() != null && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0 && lod.treesPending() == 0;
+	}
+
 	/** Whether VOID LOD is loaded and drawing in this level (false: no tiles will come). */
 	public static boolean active() {
 		VoidLod lod = VoidLod.get();

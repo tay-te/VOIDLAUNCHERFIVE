@@ -219,7 +219,7 @@ public final class TileBuilder {
 			holes = indices > 0 && this.smooth.holes;
 			firstIndex = this.smooth.flat ? Smooth.FLAT_FIRST_INDEX : 0;
 		} else {
-			this.blocky.mesh();
+			this.meshLayers(decorator != null);
 			indices = this.vertices / 4 * 6;
 		}
 		if (this.vertices == 0) {
@@ -231,6 +231,81 @@ public final class TileBuilder {
 		int[] groups = smooth || this.vertices == 0 ? null : this.groupByFace(this.pack ? land / 6 : this.vertices / 4);
 		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes, this.compact, land,
 			groups);
+	}
+
+	/**
+	 * Meshes the tile's blocky surface; where the chunks showed land under an overhang (a bridge, a ledge, a roof on
+	 * posts), in two layers: first the land, with the land under each overhang in its place, then the overhangs
+	 * themselves as slabs over it, with their undersides and rims, as islands over the void are drawn.
+	 */
+	private void meshLayers(boolean trees) {
+		Samples s = this.samples;
+		int n = s.size * s.size;
+		boolean any = false;
+		for (int k = 0; k < n; k++) {
+			// an overhang only where it makes sense: its underside under its top, the land under it lower still
+			if (s.deckBottom[k] != Integer.MIN_VALUE && (s.empty[k] || s.deckBottom[k] >= s.ground[k] || s.lowerGround[k] >= s.deckBottom[k])) {
+				s.deckBottom[k] = Integer.MIN_VALUE;
+			}
+			any |= s.deckBottom[k] != Integer.MIN_VALUE;
+		}
+		if (!any) {
+			this.blocky.mesh();
+			return;
+		}
+		float[] ground = java.util.Arrays.copyOf(s.ground, n);
+		float[] bottom = java.util.Arrays.copyOf(s.bottom, n);
+		int[] water = java.util.Arrays.copyOf(s.water, n);
+		int[] top = java.util.Arrays.copyOf(s.top, n), side = java.util.Arrays.copyOf(s.side, n), soil = java.util.Arrays.copyOf(s.soil, n);
+		int[] topMaterial = java.util.Arrays.copyOf(s.topMaterial, n), sideMaterial = java.util.Arrays.copyOf(s.sideMaterial, n);
+		int[] soilMaterial = java.util.Arrays.copyOf(s.soilMaterial, n), waterColor = java.util.Arrays.copyOf(s.waterColor, n);
+		float[] canopy = java.util.Arrays.copyOf(s.canopy, n);
+		boolean[] empty = java.util.Arrays.copyOf(s.empty, n);
+		// the land, the land under each overhang in its place
+		for (int k = 0; k < n; k++) {
+			if (s.deckBottom[k] == Integer.MIN_VALUE || empty[k]) {
+				continue;
+			}
+			s.ground[k] = s.lowerGround[k];
+			s.water[k] = s.lowerWater[k];
+			s.top[k] = s.lowerTop[k];
+			s.side[k] = s.soil[k] = s.lowerSide[k];
+			s.topMaterial[k] = s.lowerTopMaterial[k];
+			s.sideMaterial[k] = s.soilMaterial[k] = s.lowerSideMaterial[k];
+			s.waterColor[k] = s.lowerWaterColor[k];
+			s.canopy[k] = 0;
+		}
+		this.blocky.mesh();
+		// the overhangs, alone over nothing
+		this.blocky.trees(null);
+		for (int k = 0; k < n; k++) {
+			boolean deck = s.deckBottom[k] != Integer.MIN_VALUE && !empty[k];
+			s.ground[k] = ground[k];
+			s.water[k] = Integer.MIN_VALUE;
+			s.top[k] = top[k];
+			s.side[k] = side[k];
+			s.soil[k] = soil[k];
+			s.topMaterial[k] = topMaterial[k];
+			s.sideMaterial[k] = sideMaterial[k];
+			s.soilMaterial[k] = soilMaterial[k];
+			s.canopy[k] = 0;
+			s.bottom[k] = deck ? s.deckBottom[k] : bottom[k];
+			s.empty[k] = !deck;
+		}
+		this.blocky.mesh();
+		// as it was, for whatever reads the samples after
+		System.arraycopy(ground, 0, s.ground, 0, n);
+		System.arraycopy(bottom, 0, s.bottom, 0, n);
+		System.arraycopy(water, 0, s.water, 0, n);
+		System.arraycopy(top, 0, s.top, 0, n);
+		System.arraycopy(side, 0, s.side, 0, n);
+		System.arraycopy(soil, 0, s.soil, 0, n);
+		System.arraycopy(topMaterial, 0, s.topMaterial, 0, n);
+		System.arraycopy(sideMaterial, 0, s.sideMaterial, 0, n);
+		System.arraycopy(soilMaterial, 0, s.soilMaterial, 0, n);
+		System.arraycopy(waterColor, 0, s.waterColor, 0, n);
+		System.arraycopy(canopy, 0, s.canopy, 0, n);
+		System.arraycopy(empty, 0, s.empty, 0, n);
 	}
 
 	/**

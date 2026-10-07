@@ -181,14 +181,19 @@ public final class ChunkIngest {
 		int minY = chunk.getMinY();
 		this.kinds = 0;
 		this.lastKind = -1;
+		boolean anyUnder = false;
 		for (int z = 0; z < 16; z++) {
 			for (int x = 0; x < 16; x++) {
+				this.lastUnder = 0;
 				int packed = this.column(chunk, sections, minY, x, z);
 				this.columns[x + z * 16] = packed;
+				this.under[x + z * 16] = this.lastUnder;
+				anyUnder |= this.lastUnder != 0;
 				this.light[x + z * 16] = packed == ChunkColumns.VOID ? 0 : this.light(chunk, x, z, ChunkColumns.ground(packed));
 			}
 		}
-		ChunkColumns data = new ChunkColumns(this.columns.clone(), Arrays.copyOf(this.palette, this.kinds), this.light.clone());
+		ChunkColumns data = new ChunkColumns(this.columns.clone(), Arrays.copyOf(this.palette, this.kinds), this.light.clone(),
+			anyUnder ? this.under.clone() : null);
 		Arrays.fill(this.palette, 0, this.kinds, null);
 		Arrays.fill(this.kindBiome, 0, this.kinds, null);
 		ChunkPos pos = chunk.getPos();
@@ -308,7 +313,65 @@ public final class ChunkIngest {
 		}
 		Biome biome = chunk.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(groundY), QuartPos.fromBlock(z)).value();
 		int kind = this.kind(cover != null ? cover : ground, ground, soil, rock, leaves, fluid, Math.min(soilDepth, 4), biome);
+		if (y >= floor && canopy == 0) {
+			this.under(sections, minY, x, z, groundY, biome);
+		}
 		return ChunkColumns.pack(groundY + 1, depth, canopy, kind);
+	}
+
+	/** An overhang at most this thick has land under it worth drawing; and the gap under it must be this open. */
+	private static final int MAX_DECK = 31;
+	private static final int MIN_GAP = 3;
+	private static final int MAX_GAP = 64;
+	private final int[] under = new int[256];
+	/** The land under the overhang of the column just read ({@link ChunkColumns#packUnder}), or 0. */
+	private int lastUnder;
+
+	/**
+	 * Under a column's ground (its top solid block at {@code groundY}): if that is a thin overhang (a bridge, a ledge, a
+	 * roof) over an open gap, the land below, kept as the column's second surface; thick ground over a cave is not.
+	 */
+	private void under(LevelChunkSection[] sections, int minY, int x, int z, int groundY, Biome biome) {
+		int lim = Math.max(minY, groundY - MAX_DECK);
+		int by = groundY - 1;
+		while (by >= lim && state(sections, minY, x, by, z).isSolid()) {
+			by--;
+		}
+		if (by < lim) {
+			return;
+		}
+		int deck = groundY - by;
+		int glim = Math.max(minY, by - MAX_GAP);
+		int gy = by;
+		int waterTop = NONE;
+		int fluid = 0;
+		for (; gy >= glim; gy--) {
+			BlockState state = state(sections, minY, x, gy, z);
+			FluidState fluidState = state.getFluidState();
+			if (!fluidState.isEmpty() && !state.isSolid()) {
+				if (waterTop == NONE) {
+					waterTop = gy;
+					fluid = fluidState.is(FluidTags.LAVA) ? 2 : 1;
+				}
+				continue;
+			}
+			if (state.isSolid()) {
+				break;
+			}
+		}
+		int gap = by - gy;
+		if (gy < glim || gap < MIN_GAP) {
+			return;
+		}
+		// the open gap is what matters: water filling it up to the overhang is a dam's, not a bridge's
+		int open = waterTop == NONE ? gap : by - waterTop;
+		if (open < MIN_GAP) {
+			return;
+		}
+		BlockState lower = seen(state(sections, minY, x, gy, z));
+		int depth = waterTop != NONE ? waterTop - gy : 0;
+		int look = this.kind(lower, lower, lower, lower, null, fluid, 1, biome);
+		this.lastUnder = ChunkColumns.packUnder(deck, gap, depth, look);
 	}
 
 	/**

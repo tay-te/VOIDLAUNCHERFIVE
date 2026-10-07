@@ -120,12 +120,45 @@ public final class IngestSource implements TerrainSource {
 		}
 		sum.write(out);
 		out.seen = 1;
+		if (cell <= UNDER_CELLS) {
+			this.under(x, z, out);
+		}
 		if (known + none < total && this.fallback != null) {
 			ColumnSample other = r.other;
 			other.clear();
 			this.fallback.sample(x, z, cell, other);
 			blend(out, other, (known + none) / (float) total);
 		}
+	}
+
+	/** Cells this wide or narrower draw the land under overhangs (a bridge, a deck, a roof on posts), read at their centre. */
+	static final int UNDER_CELLS = 4;
+
+	/** The land under column (x, z)'s overhang, if the chunks showed one, into {@code out}. */
+	private void under(int x, int z, ColumnSample out) {
+		ColumnStore.Region region = this.store.region(x >> (ColumnStore.REGION_SHIFT + 4), z >> (ColumnStore.REGION_SHIFT + 4));
+		if (region == null) {
+			return;
+		}
+		ChunkColumns c = region.chunks.get(ColumnStore.index(x >> 4, z >> 4));
+		if (c == null || c.under == null) {
+			return;
+		}
+		int u = c.under[(x & 15) + (z & 15) * 16];
+		if (u == 0) {
+			return;
+		}
+		int top = (int) Math.ceil(out.ground - 1e-3F);
+		Surface lower = c.palette[ChunkColumns.underLook(u)];
+		out.deckBottom = top - ChunkColumns.deck(u);
+		out.lowerGround = out.deckBottom - ChunkColumns.gap(u);
+		int depth = ChunkColumns.underDepth(u);
+		out.lowerWater = depth > 0 ? out.lowerGround + depth : Integer.MIN_VALUE;
+		out.lowerTop = lower.top();
+		out.lowerSide = lower.side();
+		out.lowerTopMaterial = lower.topMaterial();
+		out.lowerSideMaterial = lower.sideMaterial();
+		out.lowerWaterColor = lower.waterColor();
 	}
 
 	/** Adds the {@code size}-block square at {@code (x, z)} (aligned to its size) to the reader's sum. */

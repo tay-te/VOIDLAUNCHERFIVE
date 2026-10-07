@@ -54,6 +54,15 @@ final class Samples {
 	/** The biome ({@link BiomeIds}), and whether the chunks the player loaded showed most of the cell. */
 	final int[] biome;
 	final boolean[] seen;
+	/** The land under an overhang ({@link ColumnSample#deckBottom}, {@link Integer#MIN_VALUE} for none), and how it looks. */
+	final int[] deckBottom;
+	final int[] lowerGround;
+	final int[] lowerWater;
+	final int[] lowerTop;
+	final int[] lowerSide;
+	final int[] lowerTopMaterial;
+	final int[] lowerSideMaterial;
+	final int[] lowerWaterColor;
 	private final ColumnSample sample = new ColumnSample();
 	private final boolean variation;
 	/** Which samples of the tile being sampled were reused from {@link SampleCache}, so the source is not asked again. */
@@ -96,6 +105,15 @@ final class Samples {
 		this.light = new byte[capacity];
 		this.biome = new int[capacity];
 		this.seen = new boolean[capacity];
+		this.deckBottom = new int[capacity];
+		Arrays.fill(this.deckBottom, Integer.MIN_VALUE);
+		this.lowerGround = new int[capacity];
+		this.lowerWater = new int[capacity];
+		this.lowerTop = new int[capacity];
+		this.lowerSide = new int[capacity];
+		this.lowerTopMaterial = new int[capacity];
+		this.lowerSideMaterial = new int[capacity];
+		this.lowerWaterColor = new int[capacity];
 		this.known = new boolean[capacity];
 	}
 
@@ -166,6 +184,14 @@ final class Samples {
 				this.light[k] = (byte) (lava ? 15 : Math.max(0, Math.min(15, Math.round(s.light))));
 				this.biome[k] = s.biome;
 				this.seen[k] = s.seen >= 0.5F;
+				this.deckBottom[k] = s.deckBottom;
+				this.lowerGround[k] = s.lowerGround;
+				this.lowerWater[k] = s.lowerWater;
+				this.lowerTop[k] = s.lowerTop;
+				this.lowerSide[k] = s.lowerSide;
+				this.lowerTopMaterial[k] = s.lowerTopMaterial;
+				this.lowerSideMaterial[k] = s.lowerSideMaterial;
+				this.lowerWaterColor[k] = s.lowerWaterColor;
 
 				if (!this.variation) {
 					this.top[k] = s.top;
@@ -218,6 +244,14 @@ final class Samples {
 
 	/** Copies sample {@code f} of {@code from} into sample {@code k}: every per-sample field, variation included. */
 	void copy(int k, Samples from, int f) {
+		this.deckBottom[k] = from.deckBottom[f];
+		this.lowerGround[k] = from.lowerGround[f];
+		this.lowerWater[k] = from.lowerWater[f];
+		this.lowerTop[k] = from.lowerTop[f];
+		this.lowerSide[k] = from.lowerSide[f];
+		this.lowerTopMaterial[k] = from.lowerTopMaterial[f];
+		this.lowerSideMaterial[k] = from.lowerSideMaterial[f];
+		this.lowerWaterColor[k] = from.lowerWaterColor[f];
 		this.ground[k] = from.ground[f];
 		this.bottom[k] = from.bottom[f];
 		this.top[k] = from.top[f];

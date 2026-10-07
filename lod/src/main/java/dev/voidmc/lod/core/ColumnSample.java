@@ -77,7 +77,21 @@ public final class ColumnSample {
 	/** No ground at all in this column: the void between End islands. Nothing is drawn over it. */
 	public boolean empty;
 
+	/**
+	 * A close column with land under an overhang: the overhang's underside ({@link Integer#MIN_VALUE}: none), and the land
+	 * below, its water (or none) and how it looks.
+	 */
+	public int deckBottom = Integer.MIN_VALUE;
+	public int lowerGround;
+	public int lowerWater;
+	public int lowerTop;
+	public int lowerSide;
+	public int lowerTopMaterial;
+	public int lowerSideMaterial;
+	public int lowerWaterColor;
+
 	public void clear() {
+		this.deckBottom = Integer.MIN_VALUE;
 		this.ground = 0;
 		this.bottom = Float.NEGATIVE_INFINITY;
 		this.top = 0x7F7F7F;

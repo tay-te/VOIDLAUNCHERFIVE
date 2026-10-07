@@ -309,6 +309,11 @@ into the LOD (`source/ChunkIngest`), and the far view shows the world as it is:
   the generator path) and their material ids, worked out once per kind of column ever. A chunk is
   256 ints, 256 bytes of light and a short palette, about 1.5 KB in memory: ten thousand chunks explored,
   15 MB.
+* **Land under overhangs.** Under a column's top, a thin solid overhang (31 blocks at most) over an open gap
+  (3 blocks at least) is a bridge, a deck, a roof on posts, a ledge: the land under it is kept as the column's
+  second surface, with its own surface and water (region format 4; older files still read). Tiles of cells up to
+  4 blocks mesh in two layers, the land with the land under each overhang in its place, then the overhangs as
+  slabs over it with their undersides and rims, so a bridge stays a bridge from afar instead of a dam.
 * **Lit at night.** Each column also keeps the block light over its surface (on its ground, or over the
   highest thing standing there: a roof under a lantern, a torch on a wall). Light is summed like everything
   else, so a cell glows by how much of it is lit, and it rides in the vertex (3 bits up close, 2 in the
