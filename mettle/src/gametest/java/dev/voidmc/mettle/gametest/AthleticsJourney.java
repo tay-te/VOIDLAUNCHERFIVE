@@ -216,7 +216,7 @@ final class AthleticsJourney {
 				return "roots not learned: " + CharacterStore.get(p).perks();
 			}
 			double now = p.getAttributeValue(MettleAttributes.CARRY_CAPACITY);
-			return near(now, capacity + 8) ? null : "Pack Mule III: capacity " + now + ", expected " + (capacity + 8);
+			return near(now, capacity + 12) ? null : "Pack Mule III: capacity " + now + ", expected " + (capacity + 12);
 		}));
 		double runner = sprintSpeed(context, server);
 		expect(Math.abs(runner / plain - 1.09) < 0.02, "Runner III: sprint " + runner + " b/t against " + plain + ", expected ×1.09");
@@ -322,8 +322,8 @@ final class AthleticsJourney {
 				return "Porter tier III not learned: " + CharacterStore.get(p).perks();
 			}
 			double now = p.getAttributeValue(MettleAttributes.CARRY_CAPACITY);
-			if (!near(now, capacity + 15)) {
-				return "Beast of Burden: capacity " + now + ", expected " + (capacity + 15);
+			if (!near(now, capacity + 22)) {
+				return "Beast of Burden: capacity " + now + ", expected " + (capacity + 22);
 			}
 			if (rules(p).canBePinned()) {
 				return "Beast of Burden: still pinnable";
@@ -347,8 +347,8 @@ final class AthleticsJourney {
 				return "Ox not learned: " + CharacterStore.get(p).perks();
 			}
 			double now = p.getAttributeValue(MettleAttributes.CARRY_CAPACITY);
-			if (!near(now, capacity + 40)) {
-				return "Ox: capacity " + now + ", expected " + (capacity + 40);
+			if (!near(now, capacity + 60)) {
+				return "Ox: capacity " + now + ", expected " + (capacity + 60);
 			}
 			burden.ratio = 1.1f;
 			BandRules rules = rules(p);

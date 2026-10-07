@@ -120,7 +120,7 @@ hooks above cover what it can't (weapon type, distance, block hardness).
 
 - **Placed blocks give nothing.** XP-bearing blocks (ores, stone-likes, logs, crops' seeds) placed by a player are
   recorded in a per-chunk ledger; breaking them gives no Mining/Survival XP. Silk-touched ore re-placed is "placed".
-- **Farm mobs give little.** Mobs from spawners and trial spawners are flagged at spawn: 10 % XP. Mobs that die mostly
+- **Farm mobs give little.** Mobs from monster spawners are flagged at spawn (`mettle.spawner`): 10 % XP. Trial spawners are a fight, not a farm, and keep full XP. Mobs that die mostly
   from fall, lava, suffocation or drowning give none; a kill counts if the player dealt ≥ 50 % of the damage.
 - **Repetition tapers.** Per skill and source, XP from the same kind of action within 5 minutes tapers to 25 % after
   the first ~60 occurrences (mob grinders, arrow spam at one target, sprinting in circles). It recovers in minutes.

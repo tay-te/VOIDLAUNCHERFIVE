@@ -827,13 +827,13 @@ final class SurvivalJourney {
 			return Perks.attributePoints(p) == points + 1 ? null : "Seen It All: attribute points " + points + " → " + Perks.attributePoints(p);
 		}));
 
-		// Pack Horse: a kilometre under a crushing load, +5 kg.
+		// Pack Horse: a kilometre under a crushing load, +8 kg.
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
 			double capacity = p.getAttributeValue(MettleAttributes.CARRY_CAPACITY);
 			FeatCounters.add(p, SurvivalSkill.OVERBURDENED_METRES, 1000);
 			double after = p.getAttributeValue(MettleAttributes.CARRY_CAPACITY);
-			return Perks.has(p, SurvivalSkill.PACK_HORSE) && after == capacity + 5 ? null : "Pack Horse: capacity " + capacity + " → " + after;
+			return Perks.has(p, SurvivalSkill.PACK_HORSE) && after == capacity + 8 ? null : "Pack Horse: capacity " + capacity + " → " + after;
 		}));
 
 		// Seasoned: thirty days alive, by vanilla's own statistic; +1 heart.

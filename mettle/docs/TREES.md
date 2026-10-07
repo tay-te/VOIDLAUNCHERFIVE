@@ -313,7 +313,7 @@ burden effects; everything else is a named behaviour on that hook). Every perk w
 
 | Perk | Ranks | Hook |
 |---|---|---|
-| **Pack Mule** | +3 / 5 / 8 kg carry capacity. | attr carry_capacity |
+| **Pack Mule** | +5 / 8 / 12 kg carry capacity. | attr carry_capacity |
 | **Runner** | You sprint 3 / 6 / 9 % faster. | attr movement_speed (sprinting) |
 
 **Path A · Porter** (the heavy load)
@@ -322,7 +322,7 @@ burden effects; everything else is a named behaviour on that hook). Every perk w
 |---|---|---|---|
 | II | **Strong Back** | You only become Burdened at 85 % of capacity. | band mod |
 | II | **Steady Pace** | Being Burdened slows you by only 5 % and costs no extra hunger. | band mod |
-| III | **Beast of Burden** | +15 kg, and a heavy load never pins you: Overburdened is the worst it gets. | attr, band mod |
+| III | **Beast of Burden** | +22 kg, and a heavy load never pins you: Overburdened is the worst it gets. | attr, band mod |
 | III | **Hauler's Stride** | You can still sprint while Overburdened, with half the usual sprint speed. | sprint gate |
 
 **Path B · Freerunner** (water, height, ground)
@@ -338,7 +338,7 @@ burden effects; everything else is a named behaviour on that hook). Every perk w
 
 | Mastery | Needs | What it does | Hook |
 |---|---|---|---|
-| **Ox** | 2 Porter perks | +25 kg, load slows you only half as much, and you can sneak-use an empty hand on a chest or barrel to pick it up whole, contents and all (it weighs what's inside). | attr, band mod, use block |
+| **Ox** | 2 Porter perks | +38 kg, load slows you only half as much, and you can sneak-use an empty hand on a chest or barrel to pick it up whole, contents and all (it weighs what's inside). | attr, band mod, use block |
 | **Marathon** | any 2 path perks | You can sprint at any hunger level, and sprinting costs half the hunger. | sprint gate, exhaustion |
 | **Freerunner** | 2 Freerunner perks | Hold jump against a wall to scramble up it, up to 2 blocks above your jump, once before you land again. | input packet |
 
@@ -483,6 +483,6 @@ grant something everyone can use.
 |---|---|---|---|---|
 | **Nine Lives** | "Not today. Not yet." | Dropping to half a heart or less and living, nine times (at most once a minute) | Below 3 hearts you move 20 % faster. | health check |
 | **Seen It All** | "There is always one more hill." | Discovering all 8 Expanse landmarks (without Expanse: 8 kinds of vanilla structure) | +1 attribute point. | discovery |
-| **Pack Horse** | "Nobody asked you to carry all that." | Walking 1 km on foot while Overburdened or Pinned | +5 kg carry capacity. | band distance |
+| **Pack Horse** | "Nobody asked you to carry all that." | Walking 1 km on foot while Overburdened or Pinned | +8 kg carry capacity. | band distance |
 | **Seasoned** | "Thirty days, and still breathing." | Living through 30 in-game days (720 000 ticks) without dying | +1 heart. | life timer |
 | **Jack of All Trades** | "A little of everything goes a long way." | Reaching level 5 in all eight wave-1 skills | Skills below level 10 gain XP 25 % faster. | level check |

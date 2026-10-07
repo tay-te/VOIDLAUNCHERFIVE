@@ -94,7 +94,15 @@ public final class Combat {
 	}
 
 	/** Fighting animals and players teaches half as much; everything else full (spawner mobs: see CHARACTER.md §3.3). */
+	/** Entity tag on mobs a monster spawner made (mixin.character.MobSpawnerMixin). */
+	public static final String SPAWNER_TAG = "mettle.spawner";
+	/** CHARACTER.md §3.3: spawner mobs teach a tenth, so a grinder is for loot, not levels. */
+	public static final double SPAWNER_FACTOR = 0.1;
+
 	public static double targetFactor(LivingEntity target) {
+		if (target.entityTags().contains(SPAWNER_TAG)) {
+			return SPAWNER_FACTOR;
+		}
 		if (target instanceof Animal) {
 			return 0.5;
 		}

@@ -9,6 +9,7 @@
 		"ItemCombinerMenuAccessor",
 		"ItemStackMixin",
 		"LivingEntityMixin",
+		"MobSpawnerMixin",
 		"PlayerMixin",
 		"VillagerMixin"
 	],

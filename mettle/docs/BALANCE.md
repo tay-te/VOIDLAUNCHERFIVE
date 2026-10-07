@@ -57,7 +57,7 @@ Every value below is multiplied by: favoured ×1.25, Wits +2 %/point, perks, `xp
 | Blades / Heavy | per point of damage dealt (capped at the target's remaining health) | 1 |
 | Heavy | per natural log chopped with an axe (placed logs give nothing) | 0.5 |
 | Blades / Heavy | kill bonus | ¼ of the target's max health |
-| Blades / Heavy | modifiers: passive animals ×0.5 · players ×0.5 · spawner mobs ×0.1 (spawner flag not built yet) | |
+| Blades / Heavy | modifiers: passive animals ×0.5 · players ×0.5 · spawner mobs ×0.1 (tag `mettle.spawner`, set at spawn; trial spawners keep full XP) | |
 | Marksmanship | per point of damage | 1.5 |
 | Marksmanship | distance bonus | +1 per 5 blocks |
 | Marksmanship | kill bonus | ¼ max health |
