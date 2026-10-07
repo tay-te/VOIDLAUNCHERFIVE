@@ -298,6 +298,12 @@ final class BladesJourney {
 			Mob b = (Mob) find(p, "arc_b");
 			a.setTarget(p);
 			b.setTarget(p);
+			// Golems wander: freeze both and set the second right beside the first, inside the sweep box.
+			a.setNoAi(true);
+			b.setNoAi(true);
+			net.minecraft.world.phys.Vec3 look = p.getLookAngle();
+			double len = Math.max(1e-6, Math.hypot(look.x, look.z));
+			b.setPos(a.getX() - look.z / len * 1.2, a.getY(), a.getZ() + look.x / len * 1.2);
 			double ratio = p.getAttributeValue(Attributes.SWEEPING_DAMAGE_RATIO);
 			float base = base(p);
 			b.damageCooldownTime = 0;
