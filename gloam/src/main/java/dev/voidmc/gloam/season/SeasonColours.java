@@ -272,10 +272,36 @@ public final class SeasonColours {
 	 * darker orange than a bright meadow's, as its greens were darker.
 	 */
 	static int match(int target, int base, float k) {
+		int lb = Math.round(luma(base >> 16 & 0xFF, base >> 8 & 0xFF, base & 0xFF));
+		return scale(target, brightness(target, Math.clamp(lb, 0, 255)) * k);
+	}
+
+	/** The fixed colours {@link #match} brings to a base's brightness, and its factor for each base brightness 0..255. */
+	private static final int[] TARGETS = {OLIVE, STRAW_BROWN, GRASS_BROWN, DRY_GRASS, YELLOW_GREEN, AUTUMN, WITHERED, TWIGS, BUDS, BIRCH_GOLD,
+		BIRCH_SERE, BIRCH_TWIGS, LITTER};
+	private static final float[][] BRIGHTNESS = new float[TARGETS.length][];
+
+	static {
+		for (int i = 0; i < TARGETS.length; i++) {
+			BRIGHTNESS[i] = new float[256];
+			for (int lb = 0; lb < 256; lb++) {
+				BRIGHTNESS[i][lb] = power(TARGETS[i], lb);
+			}
+		}
+	}
+
+	private static float brightness(int target, int lb) {
+		for (int i = 0; i < TARGETS.length; i++) {
+			if (TARGETS[i] == target) {
+				return BRIGHTNESS[i][lb];
+			}
+		}
+		return power(target, lb);
+	}
+
+	private static float power(int target, int lb) {
 		float lt = luma(target >> 16 & 0xFF, target >> 8 & 0xFF, target & 0xFF);
-		float lb = luma(base >> 16 & 0xFF, base >> 8 & 0xFF, base & 0xFF);
-		float f = (lt <= 0 ? 1 : (float) Math.pow(Math.max(1, lb) / lt, 0.6)) * k;
-		return scale(target, f);
+		return lt <= 0 ? 1 : (float) Math.pow(Math.max(1, lb) / lt, 0.6);
 	}
 
 	static float luma(float r, float g, float b) {

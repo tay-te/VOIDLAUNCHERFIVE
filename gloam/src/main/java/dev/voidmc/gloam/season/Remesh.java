@@ -26,6 +26,9 @@ final class Remesh {
 	private long lastNanos;
 	/** The time spent working out which sections to mark, last pass. */
 	private long lastPlanNanos;
+	/** From the start of the last pass until vanilla's meshers had rebuilt everything marked. */
+	private long lastBuiltNanos;
+	private boolean waiting;
 
 	/** Plans a pass over the loaded chunks around the camera (replacing any pass still going). */
 	void start(Minecraft mc) {
@@ -89,6 +92,15 @@ final class Remesh {
 		if (this.next >= this.queue.size()) {
 			this.lastSections = this.queue.size();
 			this.lastNanos = System.nanoTime() - this.startedNanos;
+			this.waiting = true;
+		}
+	}
+
+	/** Once the marks are done: notes when vanilla's meshers have caught up (Sodium keeps its own queue, not seen here). */
+	void watch(Minecraft mc) {
+		if (this.waiting && !this.busy() && mc.levelRenderer != null && mc.levelRenderer.hasRenderedAllSections()) {
+			this.waiting = false;
+			this.lastBuiltNanos = System.nanoTime() - this.startedNanos;
 		}
 	}
 
@@ -98,7 +110,7 @@ final class Remesh {
 	}
 
 	String stats() {
-		return String.format(java.util.Locale.ROOT, "last re-mesh %d sections, planned in %.2f ms, marked over %.0f ms", this.lastSections,
-			this.lastPlanNanos / 1e6, this.lastNanos / 1e6);
+		return String.format(java.util.Locale.ROOT, "last re-mesh %d sections, planned in %.2f ms, marked over %.0f ms, rebuilt by %.0f ms",
+			this.lastSections, this.lastPlanNanos / 1e6, this.lastNanos / 1e6, this.lastBuiltNanos / 1e6);
 	}
 }

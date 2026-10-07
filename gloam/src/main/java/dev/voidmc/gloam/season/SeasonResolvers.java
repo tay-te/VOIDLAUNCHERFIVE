@@ -54,12 +54,45 @@ public final class SeasonResolvers {
 			}
 			float t = biome.getBaseTemperature(), d = biome.climateSettings.downfall();
 			int rgb = base & 0xFFFFFF;
+			// the grass's patches in 64 steps: finer than the eye tells, coarse enough to remember
+			int shift = this.kind == GRASS ? Math.clamp(Math.round(patch(x, z) * 31), -31, 31) + 32 : 0;
+			Memo memo = MEMO.get();
+			if (memo.colours != colours) {
+				memo.clear(colours);
+			}
+			long k1 = 1L << 40 | (long) this.kind << 32 | (long) shift << 24 | rgb;
+			long k2 = (long) Float.floatToRawIntBits(t) << 32 | Float.floatToRawIntBits(d) & 0xFFFFFFFFL;
+			int slot = (int) ((k1 * 0x9E3779B97F4A7C15L ^ k2 * 0xC2B2AE3D27D4EB4FL) >>> 54);
+			if (memo.k1[slot] == k1 && memo.k2[slot] == k2) {
+				return base & 0xFF000000 | memo.out[slot];
+			}
 			int out = switch (this.kind) {
-				case GRASS -> colours.grass(rgb, t, d, PATCH_SHIFT * patch(x, z));
+				case GRASS -> colours.grass(rgb, t, d, PATCH_SHIFT * (shift - 32) / 31.0F);
 				case FOLIAGE -> colours.foliage(rgb, t, d);
 				default -> colours.dryFoliage(rgb, t, d);
 			};
+			memo.k1[slot] = k1;
+			memo.k2[slot] = k2;
+			memo.out[slot] = out;
 			return base & 0xFF000000 | out;
+		}
+	}
+
+	/**
+	 * The colours a meshing thread worked out last, per vanilla colour, climate and patch: a biome's few colours are asked
+	 * for over and over (25 times a block at vanilla's blend radius), and the maths behind each is not free.
+	 */
+	private static final ThreadLocal<Memo> MEMO = ThreadLocal.withInitial(Memo::new);
+
+	private static final class Memo {
+		final long[] k1 = new long[1024];
+		final long[] k2 = new long[1024];
+		final int[] out = new int[1024];
+		SeasonColours colours;
+
+		void clear(SeasonColours colours) {
+			java.util.Arrays.fill(this.k1, 0);
+			this.colours = colours;
 		}
 	}
 

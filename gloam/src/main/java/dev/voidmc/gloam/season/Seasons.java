@@ -90,6 +90,7 @@ public final class Seasons {
 			}
 		}
 		REMESH.tick(mc);
+		REMESH.watch(mc);
 		if (crowns == null) {
 			crowns = new BareCrowns();
 		}

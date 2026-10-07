@@ -222,7 +222,7 @@ final class BareCrowns {
 				}
 				if (!leaf) {
 					// a twig: dark wood, grey under a tint, grey-brown where the texture carries the colour
-					rgb = kind.tinted() ? 0xC4C4C4 : SeasonColours.scale(0x7A6B60, 0.85F + 0.3F * r);
+					rgb = kind.tinted() ? 0xA8A8A8 : SeasonColours.scale(0x7A6B60, 0.85F + 0.3F * r);
 				}
 				image.setPixel(x, y, 0xFF000000 | rgb);
 			}
