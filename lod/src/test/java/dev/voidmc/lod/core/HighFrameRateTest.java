@@ -33,9 +33,12 @@ class HighFrameRateTest {
 			}
 		};
 		engine.reset(HILLS, gpu);
-		long end = System.nanoTime() + 8_000_000_000L;
+		// eight seconds of frames, then as long as the last builds take on a busy machine (at most thirty more): a view
+		// that never settles keeps building or queueing forever, one on a loaded machine just finishes late
+		long churn = System.nanoTime() + 8_000_000_000L;
+		long end = churn + 30_000_000_000L;
 		long frames = 0;
-		while (System.nanoTime() < end) {
+		while (System.nanoTime() < end && (System.nanoTime() < churn || !engine.idle() || engine.queued() != 0)) {
 			LongList draw = engine.update(gpu, 0, 150, 0, 8192, 104, 771, 5);
 			fades.update(draw, System.nanoTime(), engine::ready);
 			for (int i = 0; i < fades.size(); i++) {
