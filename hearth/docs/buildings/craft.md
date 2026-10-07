@@ -30,11 +30,14 @@ liquors tinted water over a concrete or terracotta bed, never exposed coloured b
 
 - **Tannery**: the yard of kerbed pits (lime, tan, bark ooze, water) behind a fence hung with hides, the beam house
   with the drying loft over it, open between its posts, under a great steep roof with a ridge louvre; Fez manner where
-  roofs are flat (round sunk vats, hides on the terrace).
+  roofs are flat (round sunk vats, hides on the terrace). In the tropics and the bayou the beam house is a deeper shed
+  under a broad roof and keeps its loft only where it stays within 1.6 times its narrow side (art review 22).
 - **Butcher**: a narrow row house, the shop to the street (meat on the stall board, hooks under the jetty), the
-  smokehouse and block behind, the household above.
+  smokehouse and block behind, the household above. Standing alone, it carries only the storeys that keep it within
+  1.6 times its front, ground to ridge (`kit/townhome/Proportions`); in a row the street carries the height.
 - **Chandler**: the row house whose window glows: lit candles on the sill and the stall board, lanterns either side,
-  the tallow kettle under its hood, the dipping rack, a rendering lean-to in the yard.
+  the tallow kettle under its hood, the dipping rack, a rendering lean-to in the yard. Three storeys in a row; alone on
+  a narrow plot, as many as keep it within 1.6 times its front (one, with the workroom in the attic, on 5 to 9 blocks).
 - **Dye works**: the dye house down one side of the plot, gable to the street: coppers by a back-wall chimney and a
   woad vat below, a wide bay to the yard; above, the loft open to the yard and hung with cloth in every colour, a
   gallery of cloth across the street gable. The yard: a rinsing channel, tall tenter frames of bright cloth that show
