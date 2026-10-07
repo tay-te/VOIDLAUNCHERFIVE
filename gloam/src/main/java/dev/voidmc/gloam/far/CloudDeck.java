@@ -70,7 +70,7 @@ final class CloudDeck implements AutoCloseable {
 	 * This frame's places for the groups: the camera at frame ({@code frameX}, {@code frameZ}), {@code below} blocks
 	 * under the deck's base; vanilla's cloud colour, darkened for showery and stormy tones. Outside any pass.
 	 */
-	void prepare(double frameX, double frameZ, double below, int color) {
+	void prepare(double frameX, double frameZ, double below, int color, float[] light) {
 		if (this.groups.isEmpty()) {
 			return;
 		}
@@ -82,13 +82,39 @@ final class CloudDeck implements AutoCloseable {
 		}
 		this.infos.clear();
 		float r = ARGB.red(color) / 255.0F, g = ARGB.green(color) / 255.0F, b = ARGB.blue(color) / 255.0F, a = ARGB.alpha(color) / 255.0F;
+		float sunX = light[0], glow = light[5];
 		for (int i = 0; i < this.groups.size(); i++) {
 			CloudGrid.Group gr = this.groups.get(i);
 			int at = i * this.stride;
 			// showers greyer, storms dark, a little bluish, as the deck is thick and the light comes through little
 			float dim = gr.tone() == 2 ? 0.52F : gr.tone() == 1 ? 0.76F : 1.0F;
-			float blue = gr.tone() == 2 ? 1.06F : 1.0F;
-			this.infos.putFloat(at, r * dim).putFloat(at + 4, g * dim).putFloat(at + 8, b * dim * blue).putFloat(at + 12, a);
+			float cr = r * dim, cg = g * dim, cb = b * dim * (gr.tone() == 2 ? 1.06F : 1.0F);
+			if (glow > 0) {
+				// The low sun's colour (without a shader pack, which lights the clouds itself): warm on the side toward it
+				// and on the tops, cool blue-grey on the side away from it and underneath.
+				// The low sun's colour (without a shader pack, which lights the clouds itself): warm on the sides toward it, and
+				// on the undersides and tops of the clouds in its half of the sky, which it lights from below and across;
+				// cool blue-grey on the sides away from it and in the other half of the sky.
+				int f = gr.face();
+				boolean east = f == CloudGrid.FACE_EAST || f == CloudGrid.FACE_BOTTOM_EAST || f == CloudGrid.FACE_TOP_EAST;
+				boolean west = f == CloudGrid.FACE_WEST || f == CloudGrid.FACE_BOTTOM || f == CloudGrid.FACE_TOP;
+				boolean sunHalf = east ? sunX > 0 : west && sunX < 0;
+				boolean side = f == CloudGrid.FACE_EAST || f == CloudGrid.FACE_WEST;
+				boolean top = f == CloudGrid.FACE_TOP || f == CloudGrid.FACE_TOP_EAST;
+				boolean toward = side && sunHalf;
+				float warm = sunHalf ? (side ? 0.8F : top ? 0.55F : 0.5F) : f == CloudGrid.FACE_NS ? 0.3F : top ? 0.25F : 0;
+				float cool = !sunHalf && f != CloudGrid.FACE_NS ? (side ? 0.55F : top ? 0.2F : 0.45F) : 0;
+				float lift = toward ? 1.35F : 1.15F;
+				float w = warm * glow * (gr.tone() == 2 ? 0.5F : 1.0F), c = cool * glow;
+				float bright = Math.max(cr, Math.max(cg, cb));
+				cr += (light[2] * bright * lift - cr) * w;
+				cg += (light[3] * bright * lift - cg) * w;
+				cb += (light[4] * bright * lift - cb) * w;
+				cr += (bright * 0.72F - cr) * c;
+				cg += (bright * 0.78F - cg) * c;
+				cb += (bright * 0.95F - cb) * c;
+			}
+			this.infos.putFloat(at, cr).putFloat(at + 4, cg).putFloat(at + 8, cb).putFloat(at + 12, a);
 			this.infos.putFloat(at + 16, (float) (gr.originX() * (double) gr.size() - frameX));
 			this.infos.putFloat(at + 20, (float) (gr.y() - below));
 			this.infos.putFloat(at + 24, (float) (gr.originZ() * (double) gr.size() - frameZ));
