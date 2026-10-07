@@ -31,6 +31,8 @@ final class Blocky {
 	private static final int W = N + 2;
 	/** Six bits a channel: past where the shader's per-block grain hides the step, and it lets tops merge. */
 	private static final int COLOR_MASK = 0xFCFCFC;
+	/** The colour bits a compact vertex keeps (5 a channel). */
+	private static final int COMPACT_COLOR = 0xF8F8F8;
 	/** The top of an empty column, and the underside of ground that goes all the way down: lower than anything. */
 	private static final int DEEP = Integer.MIN_VALUE / 4;
 	/** How far an island's rim hangs when the source cannot say where its underside is. */
@@ -414,7 +416,8 @@ final class Blocky {
 		if (this.done[i + j * N] || this.s.empty[o] || !this.uniform(i, j) || this.ao[(i + j * N) * 4] != level) {
 			return false;
 		}
-		return this.top[o] == this.top[k] && this.color[o] == this.color[k] && this.wet[o] == this.wet[k]
+		int mask = this.out.compact() ? COMPACT_COLOR : -1;
+		return this.top[o] == this.top[k] && (this.color[o] & mask) == (this.color[k] & mask) && this.wet[o] == this.wet[k]
 			&& (this.out.compact() || this.material[o] == this.material[k]) && this.out.sameLight(o, k);
 	}
 
@@ -615,10 +618,19 @@ final class Blocky {
 		if (this.wet[a] != this.wet[b] || !this.out.sameLight(a, b)) {
 			return false;
 		}
+		// a compact vertex keeps 5 bits a channel and no materials: what it cannot tell apart merges
+		boolean compact = this.out.compact();
+		int mask = compact ? COMPACT_COLOR : -1;
 		if (this.wet[a]) {
-			return this.color[a] == this.color[b];
+			return (this.color[a] & mask) == (this.color[b] & mask);
 		}
 		Samples s = this.s;
+		if (compact) {
+			return this.ground[a] == this.ground[b] && (this.crown[a] & mask) == (this.crown[b] & mask) && (this.crown[a] < 0 || this.under[a] == this.under[b])
+				&& (this.side[a] & mask) == (this.side[b] & mask) && (this.soil[a] & mask) == (this.soil[b] & mask)
+				&& (this.rock[a] & mask) == (this.rock[b] & mask) && s.soilDepth[a] == s.soilDepth[b]
+				&& s.bands[a] == s.bands[b] && s.bandHeight[a] == s.bandHeight[b] && s.bandOffset[a] == s.bandOffset[b];
+		}
 		return this.ground[a] == this.ground[b] && this.crown[a] == this.crown[b] && (this.crown[a] < 0 || this.under[a] == this.under[b])
 			&& (this.crown[a] < 0 || s.leavesMaterial[a] == s.leavesMaterial[b])
 			&& this.side[a] == this.side[b] && s.sideMaterial[a] == s.sideMaterial[b]

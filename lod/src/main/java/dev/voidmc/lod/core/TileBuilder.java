@@ -474,6 +474,17 @@ public final class TileBuilder {
 
 	/** Whether two samples' light is close enough for their faces to merge into one. */
 	boolean sameLight(int a, int b) {
+		if (this.compact) {
+			// exactly as finely as a compact vertex keeps it: what it cannot tell apart may as well be one face
+			if (this.samples.light[a] >> 2 != this.samples.light[b] >> 2) {
+				return false;
+			}
+			if (!this.lit) {
+				return true;
+			}
+			Horizons h = this.horizons;
+			return h.east[a] >> 4 == h.east[b] >> 4 && h.west[a] >> 4 == h.west[b] >> 4 && h.occlusion[a] >> 3 == h.occlusion[b] >> 3;
+		}
 		if (this.samples.light[a] != this.samples.light[b]) {
 			return false;
 		}
