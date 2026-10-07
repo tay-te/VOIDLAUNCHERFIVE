@@ -447,8 +447,13 @@ final class HouseBuilder {
 			}
 		}
 		// inside: a scullery's barrels and a chest along the walls
+		// (the row under the high side of the roof is the scullery's floor, kept whole; the stores go under the low side,
+		// where nobody stands upright, used from the row in front: H15)
 		Rooms.Room room = new Rooms.Room(ox0 + 1, z0 + 1, ox1 - 1, z1 - 1, base, 2);
 		room.keep(dx, z0 + 1);
+		if (z1 - 1 > z0 + 1) {
+			room.keepArea(ox0 + 1, z0 + 1, ox1 - 1, z0 + 1);
+		}
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		return new int[]{dx, z0 - 1};
 	}

@@ -401,6 +401,18 @@ public final class Adobe {
 			}
 			d.set(x, deck + 1, z, pole.fence());
 		}
+		// the gap in the parapet where it arrives, so one steps off it onto the roof (H16)
+		int px = x - Dirs.dx(out);
+		int pz = z - Dirs.dz(out);
+		if (d.isSolid(px, deck - 1, pz)) {
+			try (var s = d.stage(StageKind.ROOF)) {
+				for (int yy = deck; yy <= deck + 1; yy++) {
+					if (d.get(px, yy, pz) != null && !d.isEmpty(px, yy, pz)) {
+						d.set(px, yy, pz, Blocks.AIR.defaultBlockState());
+					}
+				}
+			}
+		}
 		return true;
 	}
 

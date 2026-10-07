@@ -67,13 +67,30 @@ public final class Settle {
 		doors(d);
 		yardDoors(d);
 		reachThings(d);
+		openPockets(d);
+		pockets(d);
 		guards(d);
-		// (a gallery door whose lattice became a rail is a window now)
+		// (a gallery door whose lattice became a rail is a window now; a yard thing a rail cut off is not put out)
 		doors(d);
+		yardDoors(d);
 		if (debug(d)) {
 			int[] lost = lostOutside(d, walk(d), d.bodyRect());
 			System.out.println("settle end lost=" + (lost == null ? "none" : lost[0] + "/" + lost[1] + "/" + lost[2]));
 			LongOpenHashSet w = walk(d);
+			for (int y = 0; y < Math.min(d.maxHeight(), 14); y++) {
+				StringBuilder sb = new StringBuilder("settle map y=" + y + " ");
+				for (int z = d.depth() - 1; z >= -1; z--) {
+					sb.append(String.format("%3d ", z));
+					for (int x = 0; x < d.frontage(); x++) {
+						BlockState st = at(d, x, y, z);
+						char c = w.contains(Draft.key(x, y, z)) ? 'r' : walkable(d, x, y, z) ? '+' : st.getBlock() instanceof BedBlock ? 'B'
+							: st.getBlock() instanceof DoorBlock ? 'D' : st.getBlock() instanceof StairBlock ? 's' : st.isAir() ? '.' : passable(st) ? ',' : used(st) ? 'U' : '#';
+						sb.append(c);
+					}
+					sb.append('|');
+				}
+				System.out.println(sb);
+			}
 			for (var e : d.cells().long2ObjectEntrySet()) {
 				BlockState st = e.getValue().state();
 				long k = e.getLongKey();
@@ -83,8 +100,8 @@ public final class Settle {
 					int z = Draft.keyZ(k);
 					Direction f = st.getValue(DoorBlock.FACING);
 					System.out.println("settle unreached door " + x + "/" + y + "/" + z + " " + f + " below=" + at(d, x, y - 1, z)
-						+ " out=" + at(d, x + f.getStepX(), y, z + f.getStepZ()) + "/" + at(d, x + f.getStepX(), y - 1, z + f.getStepZ()) + " r=" + w.contains(Draft.key(x + f.getStepX(), y, z + f.getStepZ()))
-						+ " in=" + at(d, x - f.getStepX(), y, z - f.getStepZ()) + "/" + at(d, x - f.getStepX(), y - 1, z - f.getStepZ()) + " r=" + w.contains(Draft.key(x - f.getStepX(), y, z - f.getStepZ())));
+						+ " out=" + at(d, x + Dirs.dx(f), y, z + Dirs.dz(f)) + "/" + at(d, x + Dirs.dx(f), y - 1, z + Dirs.dz(f)) + " r=" + w.contains(Draft.key(x + Dirs.dx(f), y, z + Dirs.dz(f)))
+						+ " in=" + at(d, x - Dirs.dx(f), y, z - Dirs.dz(f)) + "/" + at(d, x - Dirs.dx(f), y - 1, z - Dirs.dz(f)) + " r=" + w.contains(Draft.key(x - Dirs.dx(f), y, z - Dirs.dz(f))));
 				}
 			}
 		}
@@ -114,17 +131,26 @@ public final class Settle {
 			lintel(d, p[0], p[1], p[2], f);
 			boolean ok = true;
 			for (Direction side : new Direction[]{f, f.getOpposite()}) {
-				int nx = p[0] + side.getStepX();
-				int nz = p[2] + side.getStepZ();
+				int nx = p[0] + Dirs.dx(side);
+				int nz = p[2] + Dirs.dz(side);
 				if (!sideOk(d, nx, p[1], nz)) {
 					clear(d, nx, p[1], nz);
+					// a chest, a stool or a table set down in the doorway's way (the furnisher's): moved off
+					BlockState in = d.get(nx, p[1], nz);
+					if (!sideOk(d, nx, p[1], nz) && in != null && piece(d, nx, p[1], nz) && !(used(in) && jobAt(d, nx, p[1], nz))) {
+						lift(d, nx, p[1], nz);
+						int fx = nx;
+						int fz = nz;
+						int fy = p[1];
+						d.retainPois(q -> !(q.x() == fx && q.z() == fz && Math.abs(q.y() - fy) <= 1 && q.type() == dev.voidmc.hearth.api.PoiType.STORAGE));
+					}
 					ok &= sideOk(d, nx, p[1], nz);
 				}
 			}
 			if (!ok && debug(d)) {
 				System.out.println("settle door " + p[0] + "/" + p[1] + "/" + p[2] + " " + f + " entrance=" + entrance(d, p[0], p[1], p[2])
-					+ " out=" + at(d, p[0] + f.getStepX(), p[1], p[2] + f.getStepZ()) + "/" + at(d, p[0] + f.getStepX(), p[1] - 1, p[2] + f.getStepZ())
-					+ " in=" + at(d, p[0] - f.getStepX(), p[1], p[2] - f.getStepZ()) + "/" + at(d, p[0] - f.getStepX(), p[1] - 1, p[2] - f.getStepZ()));
+					+ " out=" + at(d, p[0] + Dirs.dx(f), p[1], p[2] + Dirs.dz(f)) + "/" + at(d, p[0] + Dirs.dx(f), p[1] - 1, p[2] + Dirs.dz(f))
+					+ " in=" + at(d, p[0] - Dirs.dx(f), p[1], p[2] - Dirs.dz(f)) + "/" + at(d, p[0] - Dirs.dx(f), p[1] - 1, p[2] - Dirs.dz(f)));
 			}
 			if (!ok && !entrance(d, p[0], p[1], p[2])) {
 				wallUp(d, p[0], p[1], p[2], f);
@@ -144,7 +170,7 @@ public final class Settle {
 		}
 		BlockState sill = null;
 		for (Direction side : new Direction[]{f, f.getOpposite()}) {
-			BlockState b = d.get(x + side.getStepX(), y - 1, z + side.getStepZ());
+			BlockState b = d.get(x + Dirs.dx(side), y - 1, z + Dirs.dz(side));
 			if (b != null && b.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
 				sill = b;
 				break;
@@ -166,7 +192,7 @@ public final class Settle {
 		BlockState wall = null;
 		for (Direction a : new Direction[]{along, along.getOpposite()}) {
 			for (int yy = y + 2; yy >= y + 1 && wall == null; yy--) {
-				BlockState n = d.get(x + a.getStepX(), yy, z + a.getStepZ());
+				BlockState n = d.get(x + Dirs.dx(a), yy, z + Dirs.dz(a));
 				if (n != null && n.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
 					wall = n;
 				}
@@ -190,7 +216,7 @@ public final class Settle {
 
 	/** Whether a door at (x, y, z) facing {@code facing} would open from a floor on both sides. */
 	public static boolean ok(Draft d, int x, int y, int z, Direction facing) {
-		return sideOk(d, x + facing.getStepX(), y, z + facing.getStepZ()) && sideOk(d, x - facing.getStepX(), y, z - facing.getStepZ());
+		return sideOk(d, x + Dirs.dx(facing), y, z + Dirs.dz(facing)) && sideOk(d, x - Dirs.dx(facing), y, z - Dirs.dz(facing));
 	}
 
 	/** Takes away the small things dressing left at feet and head height in a door's way. */
@@ -258,7 +284,7 @@ public final class Settle {
 		Direction along = facing.getClockWise();
 		BlockState wall = null;
 		for (Direction a : new Direction[]{along, along.getOpposite()}) {
-			BlockState n = d.get(x + a.getStepX(), y, z + a.getStepZ());
+			BlockState n = d.get(x + Dirs.dx(a), y, z + Dirs.dz(a));
 			if (n != null && n.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
 				wall = n;
 				break;
@@ -305,11 +331,11 @@ public final class Settle {
 				int x = walls.get(i)[0];
 				int z = walls.get(i)[1];
 				Direction out = x == b[0] ? Dirs.LEFT : x == b[2] ? Dirs.RIGHT : z == b[1] ? Dirs.FRONT : Dirs.BACK;
-				int ix = x - out.getStepX();
-				int iz = z - out.getStepZ();
+				int ix = x - Dirs.dx(out);
+				int iz = z - Dirs.dz(out);
 				for (int y = lost[1] - 1; y <= lost[1] + 1 && !done; y++) {
 					if (!reached.contains(Draft.key(ix, y, iz)) || !wallOrPane(d, x, y, z) || !wallOrPane(d, x, y + 1, z) || d.isEmpty(x, y + 2, z)
-						|| !d.isEmpty(ix, y, iz) || !d.allowed(x + out.getStepX(), y, z + out.getStepZ())) {
+						|| !d.isEmpty(ix, y, iz) || !d.allowed(x + Dirs.dx(out), y, z + Dirs.dz(out))) {
 						continue;
 					}
 					BlockState was0 = d.get(x, y, z);
@@ -318,7 +344,7 @@ public final class Settle {
 					int fy = y;
 					d.inStage(StageKind.OPENINGS, () -> d.door(x, fy, z, door, out, net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
 					if (ok(d, x, y, z, out) && reachedThing(d, walk(d), lost)) {
-						d.poi(dev.voidmc.hearth.api.PoiType.DOOR, x + out.getStepX(), y, z + out.getStepZ(), out.getOpposite());
+						d.poi(dev.voidmc.hearth.api.PoiType.DOOR, x + Dirs.dx(out), y, z + Dirs.dz(out), out.getOpposite());
 						if (debug(d)) {
 							System.out.println("settle yard door " + x + "/" + y + "/" + z + " " + out);
 						}
@@ -374,7 +400,7 @@ public final class Settle {
 	private static boolean reachedThing(Draft d, LongOpenHashSet reached, int[] c) {
 		for (Direction dir : Dirs.HORIZONTAL) {
 			for (int dy = -1; dy <= 1; dy++) {
-				if (reached.contains(Draft.key(c[0] + dir.getStepX(), c[1] + dy, c[2] + dir.getStepZ()))) {
+				if (reached.contains(Draft.key(c[0] + Dirs.dx(dir), c[1] + dy, c[2] + Dirs.dz(dir)))) {
 					return true;
 				}
 			}
@@ -410,34 +436,56 @@ public final class Settle {
 			cells.add(c);
 			if (s.getBlock() instanceof BedBlock) {
 				Direction foot = s.getValue(BedBlock.FACING).getOpposite();
-				cells.add(new int[]{c[0] + foot.getStepX(), c[1], c[2] + foot.getStepZ()});
+				cells.add(new int[]{c[0] + Dirs.dx(foot), c[1], c[2] + Dirs.dz(foot)});
 			}
 			if (gotTo(reached, cells, s)) {
 				continue;
 			}
 			boolean done = false;
+			if (debug(d)) {
+				StringBuilder sb = new StringBuilder("settle unreached thing " + s.getBlock() + " at " + c[0] + "/" + c[1] + "/" + c[2] + " around:");
+				for (int[] part : cells) {
+					for (Direction dir : Dirs.HORIZONTAL) {
+						sb.append(' ').append(at(d, part[0] + Dirs.dx(dir), part[1], part[2] + Dirs.dz(dir)).getBlock().toString().replace("Block{minecraft:", "").replace("}", ""));
+					}
+				}
+				System.out.println(sb);
+			}
 			for (int[] part : cells) {
 				for (Direction dir : Dirs.HORIZONTAL) {
-					int nx = part[0] + dir.getStepX();
-					int nz = part[2] + dir.getStepZ();
+					int nx = part[0] + Dirs.dx(dir);
+					int nz = part[2] + Dirs.dz(dir);
 					int y = part[1];
 					BlockState n = d.get(nx, y, nz);
-					if (done || n == null || movable(n) < 0 || n.getBlock() instanceof BedBlock || jobAt(d, nx, y, nz)) {
+					if (debug(d) && n != null) {
+						System.out.println("settle try " + nx + "/" + y + "/" + nz + " " + n + " piece=" + piece(d, nx, y, nz) + " above=" + d.get(nx, y + 1, nz));
+					}
+					if (done || n == null || !piece(d, nx, y, nz) || n.getBlock() instanceof BedBlock || used(n) && jobAt(d, nx, y, nz)) {
 						continue;
 					}
 					BlockState above = d.get(nx, y + 1, nz);
-					d.inStage(StageKind.INTERIOR, () -> d.set(nx, y, nz, Blocks.AIR.defaultBlockState()));
+					// (what rests on it, or hangs at head height over it from the furnishing: a shelf, a table's top)
+					boolean onIt = above != null && (rests(above) || !passable(above) && furnishing(above));
+					var tag = d.cell(nx, y, nz).tag();
+					d.inStage(StageKind.INTERIOR, () -> {
+						d.set(nx, y, nz, Blocks.AIR.defaultBlockState());
+						if (onIt) {
+							d.set(nx, y + 1, nz, Blocks.AIR.defaultBlockState());
+						}
+					});
 					LongOpenHashSet again = walk(d);
 					if (gotTo(again, cells, s)) {
 						reached = again;
-						if (above != null && rests(above)) {
-							d.inStage(StageKind.INTERIOR, () -> d.set(nx, y + 1, nz, Blocks.AIR.defaultBlockState()));
-						}
 						d.retainPois(p -> !(p.x() == nx && p.z() == nz && Math.abs(p.y() - y) <= 1 && p.type() == dev.voidmc.hearth.api.PoiType.STORAGE));
 						taken++;
 						done = true;
 					} else {
-						d.inStage(StageKind.INTERIOR, () -> d.set(nx, y, nz, n));
+						d.inStage(StageKind.INTERIOR, () -> {
+							d.set(nx, y, nz, n, tag);
+							if (onIt) {
+								d.set(nx, y + 1, nz, above);
+							}
+						});
 					}
 				}
 			}
@@ -449,8 +497,8 @@ public final class Settle {
 	private static boolean gotTo(LongOpenHashSet reached, List<int[]> cells, BlockState s) {
 		for (int[] c : cells) {
 			for (Direction dir : Dirs.HORIZONTAL) {
-				int nx = c[0] + dir.getStepX();
-				int nz = c[2] + dir.getStepZ();
+				int nx = c[0] + Dirs.dx(dir);
+				int nz = c[2] + Dirs.dz(dir);
 				boolean other = false;
 				for (int[] o : cells) {
 					other |= o[0] == nx && o[2] == nz;
@@ -489,17 +537,200 @@ public final class Settle {
 			return 2;
 		}
 		if (s.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) && !(b instanceof net.minecraft.world.level.block.CraftingTableBlock)
-			&& (b == Blocks.HAY_BLOCK || b instanceof net.minecraft.world.level.block.RotatedPillarBlock || b instanceof net.minecraft.world.level.block.CarvedPumpkinBlock
+			&& (b == Blocks.HAY_BLOCK || b instanceof net.minecraft.world.level.block.CarvedPumpkinBlock
 			|| b == Blocks.HONEYCOMB_BLOCK || b == Blocks.BOOKSHELF)) {
 			return 3;
 		}
 		return -1;
 	}
 
+	/**
+	 * A piece of furniture that may be moved: {@link #movable}, and a fence only as a table's leg (a top over it, or
+	 * inside the house's body): a gallery's or a yard's rail stays.
+	 */
+	private static boolean piece(Draft d, int x, int y, int z) {
+		BlockState s = d.get(x, y, z);
+		if (s == null || movable(s) < 0) {
+			return false;
+		}
+		if (s.getBlock() instanceof FenceBlock) {
+			int[] b = d.bodyRect();
+			BlockState top = d.get(x, y + 1, z);
+			boolean table = top != null && (top.getBlock() instanceof CarpetBlock || top.getBlock() instanceof net.minecraft.world.level.block.PressurePlateBlock
+				|| top.getBlock() instanceof SlabBlock);
+			return table || x > b[0] && x < b[2] && z > b[1] && z < b[3];
+		}
+		return true;
+	}
+
+	/** Furniture rather than building: anything that is not a full plain block (shelves, table tops), or a movable thing. */
+	private static boolean furnishing(BlockState s) {
+		Block b = s.getBlock();
+		return movable(s) >= 0 || b instanceof net.minecraft.world.level.block.EntityBlock && !(b instanceof BedBlock)
+			|| !s.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) && !(b instanceof StairBlock) && !(b instanceof SlabBlock && s.getValue(SlabBlock.TYPE) == SlabType.BOTTOM)
+			&& !(b instanceof DoorBlock) && !(b instanceof LadderBlock) && !(b instanceof net.minecraft.world.level.block.IronBarsBlock) && !(b instanceof WallBlock);
+	}
+
 	/** Whether a job site stands at the cell (its block stays). */
 	private static boolean jobAt(Draft d, int x, int y, int z) {
 		for (Draft.LocalPoi p : d.pois()) {
 			if (p.x() == x && p.z() == z && Math.abs(p.y() - y) <= 1 && p.type() == dev.voidmc.hearth.api.PoiType.JOB_SITE) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// ------------------------------------------------------------------------------------------------- pockets
+
+	/**
+	 * Ledges nobody can get to: a few cells one could stand on up under the roof (the top of a tie beam, a partition's
+	 * head, a hay stack's top) that no way reaches. The wall or beam under them is carried up a course, as a builder
+	 * fills the gable of a partition to the rafters; a walled-in ledge is no room. Small ones only (eight cells or fewer):
+	 * a whole storey nobody reaches is the plan's fault, not this pass's. Answers how many cells were filled.
+	 */
+	public static int pockets(Draft d) {
+		int filled = 0;
+		int[] b = d.bodyRect();
+		for (int round = 0; round < 3; round++) {
+			LongOpenHashSet reached = walk(d);
+			LongOpenHashSet seen = new LongOpenHashSet();
+			int now = 0;
+			for (int y = 1; y < d.maxHeight() - 1; y++) {
+				for (int z = b[1]; z <= b[3]; z++) {
+					for (int x = b[0]; x <= b[2]; x++) {
+						long k = Draft.key(x, y, z);
+						if (seen.contains(k) || reached.contains(k) || !walkable(d, x, y, z) || !roofed(d, x, y, z)) {
+							continue;
+						}
+						LongArrayList comp = new LongArrayList();
+						LongArrayFIFOQueue q = new LongArrayFIFOQueue();
+						q.enqueue(k);
+						seen.add(k);
+						while (!q.isEmpty()) {
+							long c = q.dequeueLong();
+							comp.add(c);
+							for (Direction dir : Dirs.HORIZONTAL) {
+								int nx = Draft.keyX(c) + Dirs.dx(dir);
+								int nz = Draft.keyZ(c) + Dirs.dz(dir);
+								long n = Draft.key(nx, y, nz);
+								if (!seen.contains(n) && !reached.contains(n) && nx >= b[0] && nx <= b[2] && nz >= b[1] && nz <= b[3]
+									&& walkable(d, nx, y, nz) && roofed(d, nx, y, nz)) {
+									seen.add(n);
+									q.enqueue(n);
+								}
+							}
+						}
+						if (comp.size() > 8 || comp.size() == 0) {
+							continue;
+						}
+						// (only ledges on the building's own stuff: the top of a chest, a bed or a bale is furniture, not a ledge)
+						boolean structural = true;
+						for (int i = 0; i < comp.size() && structural; i++) {
+							BlockState under = at(d, Draft.keyX(comp.getLong(i)), y - 1, Draft.keyZ(comp.getLong(i)));
+							structural = under.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)
+								&& !(under.getBlock() instanceof net.minecraft.world.level.block.EntityBlock)
+								&& (movable(under) < 0 || under.getBlock() == Blocks.HAY_BLOCK);
+						}
+						if (!structural) {
+							// a ledge of dressing (racks of trapdoors hung under the rafters): the rack comes down a course
+							for (int i = 0; i < comp.size(); i++) {
+								int cx = Draft.keyX(comp.getLong(i));
+								int cz = Draft.keyZ(comp.getLong(i));
+								BlockState under = at(d, cx, y - 1, cz);
+								if (under.getBlock() instanceof TrapDoorBlock && d.allowed(cx, y - 1, cz)) {
+									lift(d, cx, y - 1, cz);
+									now++;
+								}
+							}
+							continue;
+						}
+						for (int i = 0; i < comp.size(); i++) {
+							long c = comp.getLong(i);
+							int cx = Draft.keyX(c);
+							int cz = Draft.keyZ(c);
+							BlockState under = at(d, cx, y - 1, cz);
+							BlockState fill = under.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) && !(under.getBlock() instanceof net.minecraft.world.level.block.EntityBlock)
+								? under : d.mat(Role.FLOOR).block(Form.FULL, cx, y, cz).defaultBlockState();
+							if (d.allowed(cx, y, cz) && d.isEmpty(cx, y, cz)) {
+								int fy = y;
+								d.inStage(StageKind.WALLS, () -> d.set(cx, fy, cz, fill));
+								now++;
+							}
+						}
+					}
+				}
+			}
+			filled += now;
+			if (now == 0) {
+				break;
+			}
+		}
+		return filled;
+	}
+
+	/**
+	 * Corners shut off by a piece of furniture: where a bench, a table or a crate stands between a walked cell and floor
+	 * nobody reaches beyond it (the end of a scullery past the bench, the nook behind a dresser), it is taken away if
+	 * that opens the floor beyond. Answers how many were taken away.
+	 */
+	public static int openPockets(Draft d) {
+		int taken = 0;
+		int[] b = {0, 0, d.frontage() - 1, d.depth() - 1};
+		LongOpenHashSet reached = walk(d);
+		for (int y = 0; y < d.maxHeight() - 1; y++) {
+			for (int z = b[1]; z <= b[3]; z++) {
+				for (int x = b[0]; x <= b[2]; x++) {
+					BlockState s = d.get(x, y, z);
+					if (s == null || !piece(d, x, y, z) || used(s) && jobAt(d, x, y, z)) {
+						continue;
+					}
+					boolean nearWalked = false;
+					boolean nearShut = false;
+					for (Direction dir : Dirs.HORIZONTAL) {
+						long n = Draft.key(x + Dirs.dx(dir), y, z + Dirs.dz(dir));
+						nearWalked |= reached.contains(n);
+						nearShut |= !reached.contains(n) && walkable(d, x + Dirs.dx(dir), y, z + Dirs.dz(dir));
+					}
+					if (!nearWalked || !nearShut) {
+						continue;
+					}
+					BlockState above = d.get(x, y + 1, z);
+					boolean onIt = above != null && rests(above);
+					var tag = d.cell(x, y, z).tag();
+					int fx = x;
+					int fy = y;
+					int fz = z;
+					d.inStage(StageKind.INTERIOR, () -> {
+						d.set(fx, fy, fz, Blocks.AIR.defaultBlockState());
+						if (onIt) {
+							d.set(fx, fy + 1, fz, Blocks.AIR.defaultBlockState());
+						}
+					});
+					LongOpenHashSet again = walk(d);
+					if (again.size() >= reached.size() + 3) {
+						reached = again;
+						d.retainPois(p -> !(p.x() == fx && p.z() == fz && Math.abs(p.y() - fy) <= 1 && p.type() == dev.voidmc.hearth.api.PoiType.STORAGE));
+						taken++;
+					} else {
+						d.inStage(StageKind.INTERIOR, () -> {
+							d.set(fx, fy, fz, s, tag);
+							if (onIt) {
+								d.set(fx, fy + 1, fz, above);
+							}
+						});
+					}
+				}
+			}
+		}
+		return taken;
+	}
+
+	/** Something solid within three blocks over the head: under a roof or a floor. */
+	private static boolean roofed(Draft d, int x, int y, int z) {
+		for (int dy = 2; dy <= 4; dy++) {
+			BlockState s = at(d, x, y + dy, z);
+			if (!s.isAir() && !passable(s)) {
 				return true;
 			}
 		}
@@ -529,8 +760,8 @@ public final class Settle {
 				continue;
 			}
 			for (Direction dir : Dirs.HORIZONTAL) {
-				int nx = x + dir.getStepX();
-				int nz = z + dir.getStepZ();
+				int nx = x + Dirs.dx(dir);
+				int nz = z + Dirs.dz(dir);
 				if (!passable(at(d, nx, y, nz)) || !passable(at(d, nx, y + 1, nz)) || at(d, nx, y, nz).getBlock() instanceof DoorBlock) {
 					continue;
 				}
@@ -615,7 +846,16 @@ public final class Settle {
 
 	static boolean debug(Draft d) {
 		String p = System.getProperty("hearth.settle.debug");
-		return p != null && (d.spec().archetype().getPath() + "," + d.style().id().getPath() + "," + d.seed()).contains(p);
+		if (p == null) {
+			return false;
+		}
+		String id = d.spec().archetype().getPath() + "," + d.style().id().getPath();
+		for (String one : p.split(";")) {
+			if (id.contains(one)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -639,7 +879,7 @@ public final class Settle {
 			boolean need = here instanceof DoorBlock || here instanceof LadderBlock || here instanceof FenceGateBlock || poi.contains(k);
 			for (Direction dir : Dirs.HORIZONTAL) {
 				for (int dy = -1; dy <= 1 && !need; dy++) {
-					need = used(at(d, x + dir.getStepX(), y + dy, z + dir.getStepZ()));
+					need = used(at(d, x + Dirs.dx(dir), y + dy, z + Dirs.dz(dir)));
 				}
 			}
 			if (need) {
@@ -694,20 +934,20 @@ public final class Settle {
 
 	/** Whether both cells beside (x, y, z) along {@code along} are solid: the cell is an opening in a wall. */
 	private static boolean solid(Draft d, int x, int y, int z, Direction along) {
-		return d.isSolid(x + along.getStepX(), y, z + along.getStepZ()) && d.isSolid(x - along.getStepX(), y, z - along.getStepZ());
+		return d.isSolid(x + Dirs.dx(along), y, z + Dirs.dz(along)) && d.isSolid(x - Dirs.dx(along), y, z - Dirs.dz(along));
 	}
 
 	/** The wall block beside an opening, to fill its foot with. */
 	private static BlockState wallBeside(Draft d, int x, int y, int z, Direction along) {
-		BlockState a = d.get(x + along.getStepX(), y, z + along.getStepZ());
+		BlockState a = d.get(x + Dirs.dx(along), y, z + Dirs.dz(along));
 		return a != null && a.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) ? a : null;
 	}
 
 	/** A cell someone needs to stand in to use a door, a ladder or a stair beside it. */
 	private static boolean access(Draft d, int x, int y, int z) {
 		for (Direction dir : Dirs.HORIZONTAL) {
-			BlockState n = at(d, x + dir.getStepX(), y, z + dir.getStepZ());
-			BlockState below = at(d, x + dir.getStepX(), y - 1, z + dir.getStepZ());
+			BlockState n = at(d, x + Dirs.dx(dir), y, z + Dirs.dz(dir));
+			BlockState below = at(d, x + Dirs.dx(dir), y - 1, z + Dirs.dz(dir));
 			if (n.getBlock() instanceof DoorBlock || n.getBlock() instanceof LadderBlock || below.getBlock() instanceof LadderBlock
 				|| n.getBlock() instanceof StairBlock || below.getBlock() instanceof StairBlock || n.getBlock() instanceof FenceGateBlock) {
 				return true;
@@ -854,8 +1094,8 @@ public final class Settle {
 			boolean climb = climbable(at(d, x, y, z));
 			boolean headroom = passable(at(d, x, y + 2, z));
 			for (Direction dir : Dirs.HORIZONTAL) {
-				int nx = x + dir.getStepX();
-				int nz = z + dir.getStepZ();
+				int nx = x + Dirs.dx(dir);
+				int nz = z + Dirs.dz(dir);
 				if (nx < x0 || nx > x1 || nz < z0 || nz > z1) {
 					continue;
 				}
