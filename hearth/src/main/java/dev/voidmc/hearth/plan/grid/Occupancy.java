@@ -11,18 +11,49 @@ public final class Occupancy {
 	private final Long2ObjectOpenHashMap<byte[]> tiles = new Long2ObjectOpenHashMap<>();
 	private long lastKey = Long.MIN_VALUE;
 	private byte[] last;
+	private long version;
+	/** The version each tile last changed at (see {@link #changedSince}). */
+	private final it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap stamps = new it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap();
+	private long clearedAt;
+	private boolean clipped;
+	private int clipX0;
+	private int clipZ0;
+	private int clipX1;
+	private int clipZ1;
 
 	public byte get(int x, int z) {
 		byte[] t = tile(x, z, false);
 		return t == null ? Cell.FREE : t[((z & 15) << 4) | (x & 15)];
 	}
 
-	/** Sets a column unconditionally. */
+	/** Sets a column unconditionally (unless it lies outside the {@link #clip}). */
 	public void set(int x, int z, byte code) {
+		if (this.clipped && (x < this.clipX0 || x > this.clipX1 || z < this.clipZ0 || z > this.clipZ1)) {
+			return;
+		}
 		byte[] t = tile(x, z, code != Cell.FREE);
 		if (t != null) {
-			t[((z & 15) << 4) | (x & 15)] = code;
+			int i = ((z & 15) << 4) | (x & 15);
+			if (t[i] != code) {
+				t[i] = code;
+				this.stamps.put(((long) (x >> 4) << 32) ^ ((z >> 4) & 0xFFFFFFFFL), ++this.version);
+			}
 		}
+	}
+
+	/** Changes on every write that changes a column: what was read from the grid still holds while it stays the same. */
+	public long version() {
+		return this.version;
+	}
+
+	/** The key of the 16×16 tile holding a column (as {@link #tileKeys} gives them). */
+	public static long tileKey(int x, int z) {
+		return ((long) (x >> 4) << 32) ^ ((z >> 4) & 0xFFFFFFFFL);
+	}
+
+	/** Whether any column of a tile (by {@link #tileKey}) changed after the grid was at {@code version}. */
+	public boolean changedSince(long tile, long version) {
+		return Math.max(this.stamps.get(tile), this.clearedAt) > version;
 	}
 
 	/** Sets a column only if the code it holds ranks lower (see {@link Cell#rank}); returns whether it did. */
@@ -79,10 +110,33 @@ public final class Occupancy {
 		return false;
 	}
 
+	/**
+	 * Until {@link #unclip}, every write outside the rectangle (inclusive) is dropped: a region is marked again as a
+	 * rebuild from scratch would mark it, by replaying the rebuild's marks, without touching the rest of the grid.
+	 */
+	public void clip(int x0, int z0, int x1, int z1) {
+		this.clipped = true;
+		this.clipX0 = x0;
+		this.clipZ0 = z0;
+		this.clipX1 = x1;
+		this.clipZ1 = z1;
+	}
+
+	public void unclip() {
+		this.clipped = false;
+	}
+
 	public void clear() {
+		this.clearedAt = ++this.version;
+		this.stamps.clear();
 		this.tiles.clear();
 		this.lastKey = Long.MIN_VALUE;
 		this.last = null;
+	}
+
+	/** The 16×16 tiles that have been written, as keys ({@code tileX << 32 ^ tileZ}), for comparing two grids. */
+	public long[] tileKeys() {
+		return this.tiles.keySet().toLongArray();
 	}
 
 	public int tileCount() {

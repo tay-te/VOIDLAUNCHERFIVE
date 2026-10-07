@@ -134,6 +134,20 @@ public final class Polyline {
 	}
 
 	public static void corridor(int[] points, int width, ColumnVisitor visitor) {
+		corridor(points, width, Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, visitor);
+	}
+
+	/** How far a corridor of this width reaches past its centreline's vertices, in columns. */
+	public static int reach(int width) {
+		return (int) Math.ceil((width + 0.5) / 2.0);
+	}
+
+	/**
+	 * The corridor's columns within a rectangle (inclusive bounds), in the order {@link #corridor(int[], int,
+	 * ColumnVisitor)} visits them: segments that miss the rectangle are skipped, so a long road costs little where it
+	 * only passes by.
+	 */
+	public static void corridor(int[] points, int width, int rx0, int rz0, int rx1, int rz1, ColumnVisitor visitor) {
 		double limit = (width + 0.5) / 2.0;
 		double limit2 = limit * limit;
 		int reach = (int) Math.ceil(limit);
@@ -141,8 +155,10 @@ public final class Polyline {
 		if (n == 1) {
 			for (int dz = -reach; dz <= reach; dz++) {
 				for (int dx = -reach; dx <= reach; dx++) {
-					if (dx * dx + dz * dz < limit2) {
-						visitor.visit(points[0] + dx, points[2] + dz);
+					int x = points[0] + dx;
+					int z = points[2] + dz;
+					if (dx * dx + dz * dz < limit2 && x >= rx0 && x <= rx1 && z >= rz0 && z <= rz1) {
+						visitor.visit(x, z);
 					}
 				}
 			}
@@ -153,10 +169,10 @@ public final class Polyline {
 			int az = points[v * 3 + 2];
 			int bx = points[v * 3 + 3];
 			int bz = points[v * 3 + 5];
-			int x0 = Math.min(ax, bx) - reach;
-			int x1 = Math.max(ax, bx) + reach;
-			int z0 = Math.min(az, bz) - reach;
-			int z1 = Math.max(az, bz) + reach;
+			int x0 = Math.max(rx0, Math.min(ax, bx) - reach);
+			int x1 = Math.min(rx1, Math.max(ax, bx) + reach);
+			int z0 = Math.max(rz0, Math.min(az, bz) - reach);
+			int z1 = Math.min(rz1, Math.max(az, bz) + reach);
 			double ex = bx - ax;
 			double ez = bz - az;
 			double len2 = ex * ex + ez * ez;

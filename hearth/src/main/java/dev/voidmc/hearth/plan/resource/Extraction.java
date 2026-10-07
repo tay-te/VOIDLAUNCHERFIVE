@@ -10,6 +10,7 @@ import dev.voidmc.hearth.plan.PlanModule;
 import dev.voidmc.hearth.plan.catalogue.Archetypes;
 import dev.voidmc.hearth.plan.catalogue.Catalogue;
 import dev.voidmc.hearth.plan.growth.Build;
+import dev.voidmc.hearth.plan.growth.Growth;
 import dev.voidmc.hearth.plan.growth.Parcels;
 import dev.voidmc.hearth.plan.growth.Parcels.Placement;
 import dev.voidmc.hearth.plan.growth.Siting;
@@ -110,6 +111,7 @@ public final class Extraction {
 	public static boolean place(PlanContext ctx, ArchetypeInfo info) {
 		ResourceSite site = site(ctx, info.id());
 		if (site == null) {
+			Growth.why("no workable site");
 			return false;
 		}
 		Identifier id = info.id();
@@ -121,6 +123,7 @@ public final class Extraction {
 				// ore under flat ground: a shaft with its headframe instead of an adit
 				ArchetypeInfo shaft = ctx.catalogue.info(Archetypes.SHAFT);
 				if (shaft == null || !Catalogue.allowed(shaft, ctx.culture, ctx.tier)) {
+					Growth.why("no hillside for an adit, and no shaft allowed");
 					return false;
 				}
 				use = shaft;
@@ -129,38 +132,34 @@ public final class Extraction {
 		int[] target = target(ctx, use, site, face);
 		if (target == null) {
 			// all of the site lies under the town
+			Growth.why("the site lies under the town");
 			return false;
 		}
-		Siting siting = Siting.near(target[0], target[1], reach(use)).withHeight(id.equals(Archetypes.QUARRY_PIT) ? 0.3 : 0);
-		Parcels.Request req = new Parcels.Request(use, Placement.SITED, null).sited(siting);
-		if (face != null) {
-			int depth = Math.min(use.maxDepth(), Math.max(use.minDepth(), 22 + (int) (ctx.hash(site.id(), 0, 91) * 14)));
-			req = req.withSize(-1, depth);
-		}
-		Parcels.Parcel best = null;
-		List<Parcels.Parcel> found = Parcels.find(ctx, req, null, 14);
-		if (dev.voidmc.hearth.plan.growth.Growth.trace) {
-			for (Parcels.Parcel p : found) {
-				dev.voidmc.hearth.Hearth.LOG.info("[plan]     candidate {},{} {}x{} d {} fits {}", p.x0, p.z0, p.sizeX, p.sizeZ,
-					(int) Math.hypot(p.x0 + p.sizeX / 2 - target[0], p.z0 + p.sizeZ / 2 - target[1]), fits(ctx, use, site, target, face, p));
+		List<Parcels.Parcel> found = new java.util.ArrayList<>();
+		Parcels.Parcel best = best(ctx, use, site, target, face, found);
+		if (best == null && face != null && accessNear(ctx, target[0], target[1], 14)) {
+			// the track is at the hill's foot but no adit lies along it or across its end with its back into the slope (a
+			// track that comes down the hill to the mouth has only the contour beside it): a shaft with its headframe by the
+			// track instead, so a town by an ore hill still mines it (requests/w5-tour.md §3)
+			ArchetypeInfo shaft = ctx.catalogue.info(Archetypes.SHAFT);
+			if (shaft != null && Catalogue.allowed(shaft, ctx.culture, ctx.tier)) {
+				Parcels.Parcel p = best(ctx, shaft, site, target, null, found);
+				if (p != null) {
+					use = shaft;
+					face = null;
+					best = p;
+				}
 			}
-		}
-		for (Parcels.Parcel p : found) {
-			if (!fits(ctx, use, site, target, face, p)) {
-				continue;
-			}
-			if (best == null || p.score > best.score) {
-				best = p;
-			}
-		}
-		if (dev.voidmc.hearth.plan.growth.Growth.trace) {
-			dev.voidmc.hearth.Hearth.LOG.info("[plan]   {} at site {} {} target {},{} face {} best {}", use.id().getPath(), site.id(), site.kind(), target[0], target[1],
-				face, best == null ? null : best.x0 + "," + best.z0);
 		}
 		if (best == null) {
 			// no road out there yet: a cart track to the site (no stairs; carts and haulers use it); if a road already comes
 			// near, the site is simply full for now
-			if (ctx.distanceToHeart(target[0], target[1]) > ctx.config.living().haulMaxDistance() || accessNear(ctx, target[0], target[1], 14)) {
+			if (ctx.distanceToHeart(target[0], target[1]) > ctx.config.living().haulMaxDistance()) {
+				Growth.why("the site is beyond hauling");
+				return false;
+			}
+			if (accessNear(ctx, target[0], target[1], 14)) {
+				Growth.why("no plot fits at the site (" + found.size() + " places by the track)");
 				return false;
 			}
 			String what = site.kind() == ResourceSite.Kind.ORE ? "ore" : site.kind().getSerializedName();
@@ -170,11 +169,50 @@ public final class Extraction {
 			}
 			// too steep for carts all the way: a track with steps where it must (pack animals and porters)
 			ctx.routed = false;
-			return Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, true,
-				"road: a track with steps up to the " + what + " for the " + Build.shortName(use)) != null;
+			if (Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, true,
+				"road: a track with steps up to the " + what + " for the " + Build.shortName(use)) != null) {
+				return true;
+			}
+			Growth.why(ctx.haulMayGrow() ? "no track could reach the site" : "cart tracks at their budget");
+			return false;
 		}
 		Build.building(ctx, use, best, reason(use, site), params(ctx, use, site, best));
 		return true;
+	}
+
+	/**
+	 * The best plot for a working at its target, or null: along the roads near it and, for an adit, also across the end of a
+	 * track there. {@code found} gets what was looked at (for the reason when nothing fits).
+	 */
+	private static Parcels.@Nullable Parcel best(PlanContext ctx, ArchetypeInfo use, ResourceSite site, int[] target, @Nullable Face face,
+		List<Parcels.Parcel> found) {
+		Siting siting = Siting.near(target[0], target[1], reach(use)).withHeight(use.id().equals(Archetypes.QUARRY_PIT) ? 0.3 : 0);
+		Parcels.Request req = new Parcels.Request(use, Placement.SITED, null).sited(siting);
+		if (face != null) {
+			int depth = Math.min(use.maxDepth(), Math.max(use.minDepth(), 22 + (int) (ctx.hash(site.id(), 0, 91) * 14)));
+			req = req.withSize(-1, depth);
+		}
+		found.clear();
+		found.addAll(Parcels.find(ctx, req, null, 14));
+		if (face != null) {
+			found.addAll(Parcels.atEnds(ctx, req, target[0], target[1], 14));
+		}
+		Parcels.Parcel best = null;
+		for (Parcels.Parcel p : found) {
+			boolean fits = fits(ctx, use, site, target, face, p);
+			if (dev.voidmc.hearth.plan.growth.Growth.trace) {
+				dev.voidmc.hearth.Hearth.LOG.info("[plan]     candidate {},{} {}x{} d {} fits {}", p.x0, p.z0, p.sizeX, p.sizeZ,
+					(int) Math.hypot(p.x0 + p.sizeX / 2 - target[0], p.z0 + p.sizeZ / 2 - target[1]), fits);
+			}
+			if (fits && (best == null || p.score > best.score)) {
+				best = p;
+			}
+		}
+		if (dev.voidmc.hearth.plan.growth.Growth.trace) {
+			dev.voidmc.hearth.Hearth.LOG.info("[plan]   {} at site {} {} target {},{} face {} best {}", use.id().getPath(), site.id(), site.kind(), target[0], target[1],
+				face, best == null ? null : best.x0 + "," + best.z0);
+		}
+		return best;
 	}
 
 	/** Whether a road, bridge or plaza column lies within {@code r} blocks of (x, z) (sampled every two blocks). */

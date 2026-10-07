@@ -9,6 +9,7 @@ import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Station;
 import dev.voidmc.hearth.plan.PlanContext;
 import dev.voidmc.hearth.plan.growth.Needs;
+import dev.voidmc.hearth.plan.model.PlanState;
 import dev.voidmc.hearth.plan.model.QueuedProject;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -50,11 +51,10 @@ public final class StationLedger {
 	public static StationLedger of(PlanContext ctx) {
 		StationLedger l = new StationLedger();
 		Map<Integer, HomeFacts> cache = ctx.state.homeFacts;
-		// every level's homes count (a deep town's dwellings house the town's miners)
-		List<PlotView> plots = new ArrayList<>(dev.voidmc.hearth.plan.deep.LevelView.unwrap(ctx.settlement).plots());
-		plots.sort(Comparator.comparingInt(PlotView::id));
+		// every level's homes count (a deep town's dwellings house the town's miners); in any order, as nothing here
+		// depends on it (sums, sets, a map by plot)
 		java.util.HashMap<Integer, Station> byPlot = new java.util.HashMap<>();
-		for (PlotView p : plots) {
+		for (PlotView p : dev.voidmc.hearth.plan.deep.LevelView.unwrap(ctx.settlement).plots()) {
 			if (p.state() == PlotState.DEMOLISHING) {
 				continue;
 			}
@@ -84,9 +84,7 @@ public final class StationLedger {
 		// adults by station; the rest of the household spread over the stations as the adults are
 		int[] adults = new int[STATIONS.length];
 		int dependants = 0;
-		List<Resident> residents = new ArrayList<>(ctx.settlement.residents());
-		residents.sort(Comparator.comparing(r -> r.id));
-		for (Resident r : residents) {
+		for (Resident r : byId(ctx)) {
 			if (!Stations.householder(r)) {
 				dependants++;
 				continue;
@@ -113,28 +111,76 @@ public final class StationLedger {
 	}
 
 	/**
+	 * The settlement's residents in id order, kept in the plan state while they are the same folk (ids never change, so
+	 * neither does their order): a city of six hundred is not sorted on every call.
+	 */
+	private static List<Resident> byId(PlanContext ctx) {
+		java.util.Collection<Resident> now = ctx.settlement.residents();
+		PlanState state = ctx.state;
+		boolean same = state.residentOrder != null && state.residentOrder.size() == now.size();
+		if (same) {
+			for (Resident r : now) {
+				if (!state.residentSet.contains(r)) {
+					same = false;
+					break;
+				}
+			}
+		}
+		if (!same) {
+			List<Resident> sorted = new ArrayList<>(now);
+			sorted.sort(Comparator.comparing(r -> r.id));
+			state.residentOrder = sorted;
+			state.residentSet.clear();
+			state.residentSet.addAll(sorted);
+		}
+		return state.residentOrder;
+	}
+
+	/**
 	 * How a spot suits a new home of a station by its neighbours (within 22 blocks): like draws like, so quarters form;
 	 * a few points for each home of the same station, some taken off for each of a very different one (no hovel beside
 	 * a manor). Capped, so a quarter is a tendency, not a wall.
 	 */
 	public double neighbourhood(Station s, int x, int z) {
-		double score = 0;
-		int rank = rank(s);
-		for (int[] h : this.homes) {
-			int dx = h[0] - x;
-			int dz = h[1] - z;
-			if (dx * dx + dz * dz > 22 * 22) {
-				continue;
+		if (this.buckets == null) {
+			// homes by 32-block cell, so a frontage search over a city's every street does not read every home for every place
+			this.buckets = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
+			for (int[] h : this.homes) {
+				this.buckets.computeIfAbsent(cell(h[0] >> 5, h[1] >> 5), k -> new ArrayList<>()).add(h);
 			}
-			Station o = STATIONS[h[2]];
-			if (o == s) {
-				score += 5;
-			} else if (Math.abs(rank(o) - rank) >= 2) {
-				score -= 4;
+		}
+		// whole points summed, so the order homes are read in cannot change the score
+		int score = 0;
+		int rank = rank(s);
+		for (int cz = (z - 22) >> 5; cz <= (z + 22) >> 5; cz++) {
+			for (int cx = (x - 22) >> 5; cx <= (x + 22) >> 5; cx++) {
+				List<int[]> in = this.buckets.get(cell(cx, cz));
+				if (in == null) {
+					continue;
+				}
+				for (int[] h : in) {
+					int dx = h[0] - x;
+					int dz = h[1] - z;
+					if (dx * dx + dz * dz > 22 * 22) {
+						continue;
+					}
+					Station o = STATIONS[h[2]];
+					if (o == s) {
+						score += 5;
+					} else if (Math.abs(rank(o) - rank) >= 2) {
+						score -= 4;
+					}
+				}
 			}
 		}
 		return Math.max(-24, Math.min(30, score));
 	}
+
+	private static long cell(int cx, int cz) {
+		return ((long) cx << 32) ^ (cz & 0xFFFFFFFFL);
+	}
+
+	private it.unimi.dsi.fastutil.longs.@Nullable Long2ObjectOpenHashMap<List<int[]>> buckets;
 
 	/** Rough standing for neighbourliness: 0 the poor, 1 peasants, 2 artisans and the like, 3 merchants, 4 gentry and lord. */
 	private static int rank(Station s) {

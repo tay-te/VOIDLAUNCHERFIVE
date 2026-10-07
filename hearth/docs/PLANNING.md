@@ -84,7 +84,11 @@ layout and sets habits: landmark preferences, walkways between tall houses, stac
   good spacing; lengthen a dead-end lane (within 1.5× the planned core); extend a main road; run a farm track off a
   road beyond the houses; route an **approach** (A\* to the nearest road, stairs allowed) up to the rise or summit; a
   lane down to the water; a new boardwalk; for farmland, run a fully built main road that ends near the edge of town
-  on by 64 blocks (never in expansive layouts, which reach out along their tracks). Road growth is capped at about
+  on by 64 blocks (never in expansive layouts, which reach out along their tracks). The lane moves try the best place
+  on each of the four best streets, not only the single best (a mouth whose lane will not walk used to block every
+  other, call after call); a town whose streets are all built out grows a **new quarter**: a lane off a street beyond
+  the built-up town, else its main road runs on into the country. Homes that still find no frontage settle along the
+  roads out of town by the fields (the crofts' placement) and the town spreads along them. Road growth is capped at about
   `300 + 20 × (population + max(6, population / 5))` blocks so a settlement that cannot place what it wants does not
   pave the world. The cap runs a little ahead of the people living there: newcomers only come while beds are free and
   beds need frontage, so a cap on today's head count froze towns whose roads had no frontage left (a 15-soul harbour
@@ -115,6 +119,8 @@ stable hash for variety; then examined best first within `search_budget`:
   too uneven for the archetype gets a **terrace** plot under it (or, for HILLSIDE archetypes in cliff towns, the back is
   **cut into the slope**);
 - the best of the first eight that fit wins, slid along the street to sit exactly its band's gap from its neighbour.
+  When the whole budget finds nothing (a city's best-ranked places are all leftover gaps), a spread sample of the
+  remaining places gets half a budget more, so the frontage of its newer streets is still seen.
 
 **Rows**: attachable houses in the core (and inner town of dense layouts) are laid out as rows of 2–5 along the street,
 each floor meeting the street at its own door (a row steps down a hill), with party walls between neighbours.
@@ -247,9 +253,16 @@ radius, counters, need cooldowns, the castle hill, and the deep town's own plan 
 id).
 Int arrays are read back from NBT or JSON alike. A city's plan is a few kilobytes.
 
-The **occupancy grid** (16×16 byte tiles, `grid/Occupancy`) is not saved: it is rebuilt from the plots, the planned
-roads, the wall line and the reservations on first use, and whenever a plot the planner knew disappeared or a spec it
-handed out was not taken; plots added since are marked incrementally. It can never disagree with the settlement.
+The **occupancy grid** (16×16 byte tiles, `grid/Occupancy`) is not saved: it is built from the plots, the planned
+roads, the wall line and the reservations on first use and kept between calls. Plots added since are marked as they
+come; where a plot the planner knew disappeared (demolished, weathered, replaced by its rebuild), a spec it handed out
+was not taken (a tier the sim finished it at does not count) or a queued rebuild was dropped, that rectangle is marked
+again exactly as a rebuild would mark it (`HearthPlanner.remark`: cleared, then the rebuild's marks replayed in its
+order with writes outside it dropped); land held or given back (`PlanContext.hold`, `release`) is marked the same way.
+So the kept grid always equals a rebuild from scratch (`PlanGridTest`), and a city's grid is never rebuilt whole.
+Transient, per settlement, never saved and never changing a plan: the water distance per 3-block cell, the frontage
+places of each road (`Parcels.Frontage`, gathered again only for a road that changed or whose tiles did), the lane
+mouths' probes of each street (`Expand.Probes`), the residents in id order.
 
 ## 10. Determinism, threads, cost
 
@@ -276,6 +289,20 @@ handed out was not taken; plots added since are marked incrementally. It can nev
   phase 2 sim without a survey): 976 and 1065 live calls averaged 2.4 and 2.2 ms (85–87 % under 5 ms, max 21 ms at the
   live time limit), history calls 0.5–1.9 ms. A deep town's founding scans the realm on a 10-block grid within 200
   blocks of the mine (a few thousand underground probes) once, then rests if it found no spot.
+- Cities (wave 6, requests/w5-tour.md §6). The live tour measured `next` at median 9–20 ms, p90 27–62 ms in towns of
+  785–970 plots. Causes and fixes: a prosperous or declining town's plots are finished a tier up or down by the sim, so
+  no plot ever equalled the spec handed out and every call after a building rebuilt the whole grid (now: the tier does
+  not count, and nothing rebuilds the grid whole, §9); water distance was memoised per call (now per town); every
+  frontage place of every street was found and scored, and all of them sorted, for each search (now: the places and
+  what no request changes are kept per road, scored per request, drawn best first from a heap); lane mouths were probed
+  anew on every call (now kept per street); station neighbourhoods read every home for every place (now by cell); a
+  city's thousand plots and six hundred residents were sorted on every call. All of it plans exactly the same towns
+  (the bench's fingerprints of five cities unchanged by every step but the grid's, which now no longer drifts).
+  `PlanBenchTest` (HEARTH_PLAN_BENCH=1, cities of 1000–1250 plots on the real archetypes, calls from 500 plots on, no
+  time limit, a shared machine): median 3.6–6.0 → 2.0–2.5 ms, p90 8.7–17 → 4.6–6.5 ms; a prosperous city 5.3 → 2.4 ms.
+  `PlanSimBenchTest` (HEARTH_PLAN_SIMBENCH=1, the real sim, 1500 days to ~640 plots): p90 8.5 → 4.3 ms, mean 3.1 →
+  2.1 ms. What is left is the search itself (a failing search examines the budget and half again: workshops sited by
+  their inputs) and the needs list. `live_time_limit_ms` is 10.
 - New per-call state (`PlanContext.territory()`, `ledger`) and per-settlement caches (`PlanState.homeFacts`, `levels`)
   are derived from the settlement's plots and specs and never change a plan; the deep town's plan state is a full plan
   state of its own, so its determinism is the surface's.
@@ -338,10 +365,13 @@ at ~330 work units a day, newcomers while beds are free, jobs from built workpla
 | `nobility` | true | the castle hill, the keep, the castle or palace, stables, gardens, the lodge |
 | `deep_towns`, `deep_share` | true, 0.25 | deep towns, and the share of the town they house |
 | `prevailing_wind` | −1 | degrees clockwise from north the wind blows from; negative: one per world from its seed |
-| `live_time_limit_ms` | 20 | a call on the server thread stops searching frontage after this long and lets the need rest (a cold terrain cache in a big town cost 250 ms once); histories, on their own threads, are never cut short, so they stay deterministic |
+| `live_time_limit_ms` | 10 | a call on the server thread stops searching frontage after this long and lets the need rest (a cold terrain cache in a big town cost 250 ms once); histories, on their own threads, are never cut short, so they stay deterministic |
 
-Debug: `/hearth plan info` near a settlement; `-Dhearth.dev.plan.trace=true` logs every need tried, its result and
-time; `-Dhearth.dev.plan.layout=<layout>` forces every settlement founded in the run to that layout (any thread: live
+Debug: `/hearth plan info` near a settlement (with why its last call answered nothing); `/hearth plan stats`: live
+`planner.next` calls that answered nothing, counted by reason (`PlanStats`: "housing: no frontage, roads at their
+budget", "program: no plot fits at the site", "out of time"...), each settlement's reason also logged once when it
+changes; `-Dhearth.dev.plan.trace=true` logs every need tried, its result (or why it failed) and time;
+`-Dhearth.dev.plan.deadlineMs=<ms>` gives every call (offline too) a live call's time limit; `-Dhearth.dev.plan.layout=<layout>` forces every settlement founded in the run to that layout (any thread: live
 founding and histories alike; `PlanModule.devLayout`).
 
 ## 13. Tests (`src/test/java/dev/voidmc/hearth/plan`)
@@ -350,6 +380,10 @@ founding and histories alike; `PlanModule.devLayout`).
 allowances, no building on a road, every door on a road (or path, plaza, square green), road grades, buildings level or
 terraced (or cut in), sizes within archetype ranges, nothing in water that cannot be. `PlanDeterminismTest`: same seed →
 same plots, on another thread too; state round trip through NBT and JSON. `PlanPerformanceTest`: §10.
+`PlanGridTest`: the occupancy grid kept between calls equals a rebuild from scratch, every five days of a walled town
+and a river town growing on the real archetypes. Benches (asserting nothing, run by environment variable):
+`PlanBenchTest` (MiniSim cities, per-spell timings, a sampled profile, a fingerprint of every plot to show a change
+plans the same towns), `PlanSimBenchTest` (the real sim), `PlanProfileTest` (every need traced).
 `RoadGeometryTest`: polyline reproduction, corridor widths, stairs on steep ground, bridges over rivers.
 `CatalogueFallbackTest`: only registered archetypes, with fallbacks; the §8.5 buildings never stood in for.
 `StationHousingTest`: homes name their station and household, families live in homes of their station, the poor live
@@ -527,4 +561,53 @@ answers; `PlanModule.underground` falls back to probes paired by hand). A lift i
   `material`, deserted and player-funded plots are never rebuilt (`Upgrades.replacing`), desert towns get pastures.
 - **The default catalogue** carries the build module's registered sizes, heights, beds and cultures for the 71 phase 1–2
   archetypes (the registered infos still win at runtime).
+
+### 14.7 The live tour's findings (wave 6, requests/w5-tour.md §1–3, ART_REVIEW.md item 1)
+
+- **Why nothing**: `Growth.plan` answers why a call queued nothing (nothing wanted, every need resting, out of time, or
+  the most urgent need tried and what stopped it, as its planner says through `Growth.why`); `HearthPlanner` counts it
+  (`PlanStats`, `/hearth plan stats`). Offline, `PlanStats.everyCall` counts tests and previews too.
+- **Stalled towns** (pop = beds, builders idle, 29 or ~450 souls): the most urgent need was housing, and the frontage
+  search and the road moves gave up — the best lane mouth would not walk and was the only one tried; the main streets
+  were built to their planned ends; expansive towns never grew lanes. Fixed by trying the best mouth of each of the four
+  best streets, a new quarter beyond the town (an outward lane, then the main road running on), homes along the roads
+  out of town when the streets are full, and a sample past an exhausted search budget. On the real catalogue a
+  temperate hill town that stopped at 35 (MiniSurvey) or 209 souls (the sim's survey) now grows on to the capacity it
+  is given. A lane mouth that would not walk is remembered (per settlement, not saved) and the street's next best is
+  offered instead: a walled steppe town on flat land stalled at 312 souls with open land all round, its four best
+  mouths failing call after call. When nothing else grows, three untried mouths are walked every third call; the
+  same town now grows to the 600 it is given.
+- **Planned lanes blocked at the mouth**: a lane planned ahead whose mouth a plot has since covered was "built" on every
+  call with nothing queued (the need reported itself met), so the town planned nothing else; it is now given up
+  (`limit` 0) and the next way to grow is tried. A need met with nothing queued counts as an attempt (a hillside town of
+  200 ran through every need on every call, 4.5 ms median; now 0.6 ms).
+- **Met with nothing queued**: a need that reports itself met without queueing anything rests like a failure and the
+  next need is tried (it was tried first on every call and a city of 447 answered nothing for good).
+- **No workings** in the live tour: its towns were grown by `SimWorld.simulate`, a fast-forward that holds the server
+  thread, so the off-thread survey never merged and they grew with no sites (no workings, unbounded carrying capacity).
+  A fast-forward now surveys at once. With their land, the tour's Bradfield (29 souls before) grows to 476 of a
+  capacity of 514 in 300 days with two quarry pits, three shafts, clay and sand pits, a woodlot, three logging camps
+  and three carpentries. `RealGrowthTest.aTownOfSixtyWorksItsLand` grows a town on the real archetypes with the sim's
+  survey and checks it opens a mine (or a shaft), a quarry pit and a logging camp.
+- **Adits that never fit**: a mine's plot fronts its track with its back into the slope, but a track that comes down
+  the hill to the mouth has only the contour beside it, so an alpine town built track after track to its ore and never
+  mined it. Plots across the end of a track are tried too (`Parcels.atEnds`), and when the track is at the hill's foot
+  and still no adit fits, a shaft with its headframe is sunk by the track instead.
+- **Out of time**: a need cut short by a live call's time limit rests one or two calls without counting as a failure
+  (it used to rest up to eight times as long, so a city's workings and workshops, tried after housing had spent the
+  20 ms, were shelved for good).
+- **Cost in cities** (§10): `next` in a city of a thousand plots is about 2 ms median, 5 ms p90 offline (from 4–6 and
+  9–17); the live time limit is 10 ms. A deep town's lift head is looked for among 48 places near the spot, not 12.
+- **A trade with nowhere to work** counts only workers whose workplace is missing or not standing (the sim gives a
+  trade only as many workers as standing buildings have places for it, a townhouse's workshop among them), against
+  the places in workplaces already planned, and a trade gets no more workshops than the program's count for the
+  archetype (a carpentry per 120 souls), or one per forty souls for a workshop the program does not list. A city of 441
+  had 69 carpentries.
+- **Tall homes** (VERTICAL housing: townhouse, tenement, merchant's house, tower house) taper with the zone like any
+  other building and stop at `Build.maxStoreys`: two full storeys in a village, three in a town, four in a city, one
+  fewer in the inner town (unless the layout is dense), two in the outskirts; never more than three in the steppe, the
+  tropics, the bayou, the north or the tundra. The height cap leaves 12 blocks over the top storey for the roof, so a
+  steep roof is not squeezed flat. Towers that are not homes (church, clock and bell towers, the keep, watchtowers)
+  keep their full height: they are the skyline. A home rebuilt taller (`Upgrades`: cottages to shophouses to
+  townhouses) is measured in the zone it stands in now, not the zone its first house was planned in.
 

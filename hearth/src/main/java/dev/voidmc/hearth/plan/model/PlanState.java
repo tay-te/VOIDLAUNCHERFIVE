@@ -70,12 +70,32 @@ public final class PlanState {
 	public transient @Nullable Occupancy occupancy;
 	/** Plot ids the occupancy grid already shows. */
 	public transient int @Nullable [] knownPlots;
+	/**
+	 * Where each plot the grid shows marked it ({@code PlotGeometry.bounds}), by plot id: the ground marked again when it
+	 * is gone, instead of the whole grid.
+	 */
+	public final transient it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<int[]> knownBounds = new it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<>();
+	/**
+	 * Distance to water per three-block cell ({@code PlanContext.waterDistance}), kept between calls: a pure function of
+	 * the land under {@link #waterProbe}, which frontage searches ask for thousands of times a call (never saved).
+	 */
+	public final transient it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap waterDistances = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+	/** The frontage places of the streets ({@code Parcels.Frontage}), kept with the grid they were read from (never saved). */
+	public transient dev.voidmc.hearth.plan.growth.Parcels.@Nullable Frontage frontage;
+	/** The lane mouths' probes of the streets ({@code Expand.Probes}), kept with the grid they read (never saved). */
+	public transient dev.voidmc.hearth.plan.growth.Expand.@Nullable Probes laneProbes;
+	/** The residents in id order ({@code StationLedger}), and the same folk as a set to tell whether it still holds (never saved). */
+	public transient java.util.@Nullable List<dev.voidmc.hearth.api.Resident> residentOrder;
+	public final transient java.util.Set<dev.voidmc.hearth.api.Resident> residentSet = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+	/** The probe {@link #waterDistances} were measured on. */
+	public transient @Nullable Object waterProbe;
 	/** What each plot is for housing by station, by plot id (derived from its spec; never saved). */
 	public final transient java.util.Map<Integer, dev.voidmc.hearth.plan.society.StationLedger.HomeFacts> homeFacts = new java.util.HashMap<>();
 
 	public void invalidate() {
 		this.occupancy = null;
 		this.knownPlots = null;
+		this.knownBounds.clear();
 		if (this.deep != null) {
 			this.deep.invalidate();
 		}

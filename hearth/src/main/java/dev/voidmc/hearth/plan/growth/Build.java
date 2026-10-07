@@ -3,6 +3,7 @@ package dev.voidmc.hearth.plan.growth;
 import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
 import dev.voidmc.hearth.api.ArchetypeInfo.SiteFlag;
+import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.plan.PlanContext;
@@ -75,7 +76,8 @@ public final class Build {
 		Station station = station(params);
 		if (info.category() == ArchetypeCategory.HOUSING && !params.contains("storeys")) {
 			int storeys = storeys(ctx, info, p.zone);
-			params.putInt("storeys", station == null ? storeys : Math.max(1, Math.min(storeys(ctx, info, 0) + 1, Stations.storeys(station, storeys))));
+			int st = station == null ? storeys : Math.max(1, Math.min(storeys(ctx, info, 0) + 1, Stations.storeys(station, storeys)));
+			params.putInt("storeys", Math.min(st, maxStoreys(ctx, p.zone)));
 		}
 		if (info.category() == ArchetypeCategory.HOUSING && !params.contains("additions") && grows(info, p)) {
 			// a household that may grow: the house is first built leaving a yard to grow into, and the planner counts its
@@ -160,11 +162,17 @@ public final class Build {
 		return low * 3 >= n;
 	}
 
-	/** The plot's height cap: tall in the core and for towers, lower toward the edge so the skyline peaks at the heart. */
+	/**
+	 * The plot's height cap: tall in the core and for towers, lower toward the edge so the skyline peaks at the heart. The
+	 * town's verticality is its towers (the church, the hall's clock, the keep, the watchtowers) and its hill: a tall home
+	 * (a townhouse, a tenement, a merchant's house) tapers with the zone like any other building and stops at the storeys
+	 * its town allows ({@link #maxStoreys}) with room for its roof (ART_REVIEW.md item 1).
+	 */
 	public static int height(PlanContext ctx, ArchetypeInfo info, int zone) {
 		int min = info.minHeight();
 		int max = info.maxHeight();
-		if (info.flags().contains(SiteFlag.VERTICAL) || info.category() == ArchetypeCategory.LANDMARK || info.category() == ArchetypeCategory.CIVIC) {
+		boolean home = info.category() == ArchetypeCategory.HOUSING;
+		if (!home && info.flags().contains(SiteFlag.VERTICAL) || info.category() == ArchetypeCategory.LANDMARK || info.category() == ArchetypeCategory.CIVIC) {
 			return max;
 		}
 		double t = switch (zone) {
@@ -181,7 +189,40 @@ public final class Build {
 			// arch-civic.md §4) wherever they stand
 			t = Math.max(t, 0.75);
 		}
-		return min + (int) Math.round((max - min) * t);
+		int h = min + (int) Math.round((max - min) * t);
+		if (home && info.flags().contains(SiteFlag.VERTICAL)) {
+			// floor-to-floor four or five blocks, and room over the top storey for a steep roof (a squeezed roof goes flat)
+			h = Math.min(h, Math.max(min, STOREY * maxStoreys(ctx, zone) + ROOF_ROOM));
+		}
+		return h;
+	}
+
+	/** Blocks a storey takes (the styles' floor-to-floor height is four or five), for a tall home's height cap. */
+	private static final int STOREY = 5;
+	/** Blocks over the top storey kept for the roof, the knee wall and a shop's taller ground floor. */
+	private static final int ROOF_ROOM = 12;
+
+	/**
+	 * The most full storeys under the roof a home may have here (ART_REVIEW.md item 1): two in a village, three in a town,
+	 * four in a city, one fewer in the inner town (unless the layout is dense) and only two in the outskirts; the cultures
+	 * that build low and wide (the steppe, the tropics, the bayou, the north, the tundra) never more than three. Towns grow
+	 * tall through their towers, their dense streets and their hills, not through tall homes.
+	 */
+	public static int maxStoreys(PlanContext ctx, int zone) {
+		int cap = switch (ctx.tier) {
+			case CAMP, HAMLET, VILLAGE -> 2;
+			case TOWN -> 3;
+			case CITY -> 4;
+		};
+		if (zone >= 2) {
+			cap -= 2;
+		} else if (zone == 1 && !ctx.state.layout.dense) {
+			cap--;
+		}
+		if (Growth.isCulture(ctx, Culture.STEPPE, Culture.TROPICAL, Culture.BAYOU, Culture.NORTHERN, Culture.TUNDRA)) {
+			cap = Math.min(cap, 3);
+		}
+		return Math.max(2, cap);
 	}
 
 	/** Buildings that look their part only near the top of their height range, wherever they are placed. */
@@ -220,8 +261,8 @@ public final class Build {
 			return info.maxHeight() >= 11 ? 2 : 1;
 		}
 		if (info.flags().contains(SiteFlag.VERTICAL)) {
-			int s = 3 + (zone == 0 ? 1 : 0) + (ctx.tier == SettlementTier.CITY ? 1 : 0);
-			return Math.max(3, Math.min(s, info.maxHeight() / 4));
+			// a tall home: as many storeys as its town and zone allow (two in a village, up to four in a city's core)
+			return Math.max(2, Math.min(maxStoreys(ctx, zone), info.maxHeight() / 4));
 		}
 		if (zone == 0 && ctx.tier.ordinal() >= SettlementTier.VILLAGE.ordinal()) {
 			return 2;
