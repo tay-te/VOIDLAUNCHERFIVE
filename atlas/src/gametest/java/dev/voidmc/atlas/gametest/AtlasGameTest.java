@@ -630,8 +630,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 			return s.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, hx, hz);
 		});
 		// where the player watches from: in view of the settlement, well beyond Atlas's reach for discovering it
-		int ax = hx - 110;
-		int az = hz - 70;
+		int ax = hx - 70;
+		int az = hz - 45;
 		int ay = world.getServer().computeOnServer(sv -> {
 			sv.overworld().getChunk(ax >> 4, az >> 4);
 			return sv.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, ax, az);
