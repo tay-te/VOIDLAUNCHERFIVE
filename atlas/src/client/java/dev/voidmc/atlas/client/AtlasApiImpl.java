@@ -282,6 +282,11 @@ public final class AtlasApiImpl implements AtlasApi {
 
 		@Override
 		public boolean drawFrozenWorld(GuiGraphicsExtractor graphics) {
+			return this.drawFrozenWorld(graphics, 0xC2 / 255F);
+		}
+
+		@Override
+		public boolean drawFrozenWorld(GuiGraphicsExtractor graphics, float dim) {
 			if (!Backdrop.ready()) {
 				return false;
 			}
@@ -289,7 +294,10 @@ public final class AtlasApiImpl implements AtlasApi {
 			Ui ui = new Ui(graphics, Ui.fit(mc.getWindow().getWidth(), mc.getWindow().getHeight(), 1360, 824));
 			ui.begin();
 			boolean drawn = Backdrop.draw(ui, ui.width(), ui.height());
-			ui.rect(0, 0, ui.width(), ui.height(), 0xC20B0B0C);
+			int a = Math.round(Math.max(0, Math.min(1, dim)) * 255);
+			if (a > 0) {
+				ui.rect(0, 0, ui.width(), ui.height(), a << 24 | 0x0B0B0C);
+			}
 			ui.end();
 			return drawn;
 		}

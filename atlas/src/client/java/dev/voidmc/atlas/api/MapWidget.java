@@ -85,4 +85,13 @@ public interface MapWidget {
 	default boolean drawFrozenWorld(GuiGraphicsExtractor graphics) {
 		return false;
 	}
+
+	/**
+	 * Draws the still of the world, full screen, under a dim of your own: {@code dim} is how much of Atlas's near-black
+	 * (#0B0B0C) lies over it, from 0 (the still undimmed) to 1 (black); Atlas's map uses 0.76. False if there is no
+	 * still (yet).
+	 */
+	default boolean drawFrozenWorld(GuiGraphicsExtractor graphics, float dim) {
+		return false;
+	}
 }
