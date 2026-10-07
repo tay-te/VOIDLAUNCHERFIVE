@@ -260,12 +260,12 @@ public final class TownWall implements Archetype {
 			}
 		}
 		// stairs up from the town side: at the end nearer the street, and at the start too on a long stretch
-		int[] entrance = stair(d, c, p, true, capEnd, body, walk);
+		int[] entrance = stair(d, c, p, q, true, capEnd, body, walk);
 		if (n >= 30) {
-			stair(d, c, p, false, capStart, body, walk);
+			stair(d, c, p, q, false, capStart, body, walk);
 		}
 		if (entrance == null) {
-			entrance = stair(d, c, p, false, capStart, body, walk);
+			entrance = stair(d, c, p, q, false, capStart, body, walk);
 		}
 		if (entrance != null) {
 			d.entrance(entrance[0], entrance[1], entrance[2]);
@@ -373,7 +373,7 @@ public final class TownWall implements Archetype {
 	 * A flight of steps cut into the town face, from a niche at the ground near one end up to the walk. Returns
 	 * {niche x, y, z, top x, y, z} or null when the stretch has no room for it.
 	 */
-	private static int @Nullable [] stair(Draft d, Corridor c, int[] p, boolean atEnd, boolean capped, Mat body, Mat walk) {
+	private static int @Nullable [] stair(Draft d, Corridor c, int[] p, int[] q, boolean atEnd, boolean capped, Mat body, Mat walk) {
 		int n = c.length();
 		int landing = atEnd ? n - 1 - (capped ? 1 : 0) : (capped ? 1 : 0);
 		int step = atEnd ? -1 : 1;
@@ -455,7 +455,8 @@ public final class TownWall implements Archetype {
 					d.set(cell.x(), yy, cell.z(), body.full());
 				}
 				d.set(cell.x(), y, cell.z(), steps.has(Form.STAIRS) && face != null ? steps.stairs(face, Half.BOTTOM) : steps.full());
-				for (int yy = y + 1; yy <= Math.max(y + 3, p[cell.index()] + 1); yy++) {
+				// clear up through the coping (it may stand above the walk) and anything set on it
+				for (int yy = y + 1; yy <= Math.max(y + 3, q[cell.index()] + 1); yy++) {
 					d.set(cell.x(), yy, cell.z(), air);
 				}
 			}
