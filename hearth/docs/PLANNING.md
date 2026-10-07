@@ -593,7 +593,9 @@ edge or alone in a field, the town stopped dead on bare grass. What the planner 
   on a village street (5 wide, a street, not a lane); its farmers keep spreading as farmsteads out along the tracks, but
   from village tier its heart takes a crossroads town's core scale (`PlanContext.coreRadiusAt`), lane spacing and length,
   gaps (1 in the core, 2 in the inner town), terraces and contour lanes (`Grid.terraces`), and its homes fill in near the
-  heart before they spread (`Grid.expansive` is false), with no farmhouses in its streets.
+  heart before they spread (`Grid.expansive` is false), with no farmhouses in its streets. Its lanes are not planned
+  ahead (planned at a crossroads town's spacing they covered the whole hill and the homes spread thin along them): they
+  are walked one at a time near the heart as homes need them, which keeps the heart dense.
 - **Street walls** (`Housing.terraced`, `Housing.continueRow`): rows are 3–5 long; before a home of the town's own folk
   looks for new frontage it runs an existing row on where a row house in the terraced part of town has an open side on its
   street, flush, its front on the same line, the party wall toward the old house; a town's inner streets are terraced too

@@ -29,11 +29,13 @@ public final class Grid {
 	}
 
 	/**
-	 * Whether this settlement lays out its streets ahead: as {@link #plans(LayoutType)}, and a farmsteads settlement once
-	 * it has nucleated ({@link #nucleated}): its heart then grows in blocks like any town's.
+	 * Whether this settlement lays out its streets ahead: as {@link #plans(LayoutType)}. A nucleated farmsteads village
+	 * ({@link #nucleated}) still does not: planned ahead, its lanes ran out at a crossroads town's spacing over the whole
+	 * hill and the homes spread thin along them (ART_REVIEW_2 item 1); grown a lane at a time near the heart as homes
+	 * need them, it keeps a dense, organic heart.
 	 */
 	public static boolean plans(PlanContext ctx) {
-		return plans(ctx.state.layout) || nucleated(ctx);
+		return plans(ctx.state.layout);
 	}
 
 	/**

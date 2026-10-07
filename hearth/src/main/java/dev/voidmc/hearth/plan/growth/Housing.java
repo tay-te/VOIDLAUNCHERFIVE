@@ -481,7 +481,12 @@ public final class Housing {
 				List<Parcels.Parcel> row = new ArrayList<>();
 				int[] last = {s.origin().getX(), s.origin().getZ(), s.origin().getX() + s.sizeX() - 1, s.origin().getZ() + s.sizeZ() - 1};
 				int lastFloor = s.floorY();
-				while (row.size() < units) {
+				// a quick look first: the strip along the old house's side must be open ground, or there is no row to run on
+				int[] o = last;
+				boolean open = alongX
+					? ctx.occ.isFree(step.getStepX() > 0 ? o[2] + 1 : o[0] - 1, o[1], step.getStepX() > 0 ? o[2] + 1 : o[0] - 1, o[3])
+					: ctx.occ.isFree(o[0], step.getStepZ() > 0 ? o[3] + 1 : o[1] - 1, o[2], step.getStepZ() > 0 ? o[3] + 1 : o[1] - 1);
+				while (open && row.size() < units) {
 					int f = info.minFrontage() + (int) Math.round((info.maxFrontage() - info.minFrontage()) * (0.15 + 0.35 * ctx.hash(last[0], last[1], 29 + row.size())));
 					int sizeX = alongX ? f : depth;
 					int sizeZ = alongX ? depth : f;

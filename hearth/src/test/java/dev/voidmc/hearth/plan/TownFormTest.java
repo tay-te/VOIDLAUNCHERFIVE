@@ -60,7 +60,7 @@ class TownFormTest {
 			for (String c : cases.split(",")) {
 				String[] a = c.split(":");
 				run.invoke(null, Culture.valueOf(a[0].toUpperCase(Locale.ROOT)), a[1], Long.parseLong(a[2]),
-					a[3].equals("-") ? null : LayoutType.valueOf(a[3].toUpperCase(Locale.ROOT)), 420, false, false);
+					a[3].equals("-") ? null : LayoutType.valueOf(a[3].toUpperCase(Locale.ROOT)), 420, args.length > 2 && args[2].equals("profile"), false);
 			}
 			return;
 		}

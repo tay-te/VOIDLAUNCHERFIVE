@@ -188,19 +188,46 @@ public final class Beauty {
 			if (lamps.stream().anyMatch(l -> Math.hypot(l[0] - x, l[1] - z) < LAMP_SPACING)) {
 				continue;
 			}
-			if (++tried > 4) {
+			if (++tried > 8) {
 				break;
 			}
-			int size = info.minFrontage();
-			Parcels.Request req = new Parcels.Request(info, Placement.HOME, null, 0, size, info.minDepth(), false, 0, 0).anchoredAt(x, z);
-			Parcels.Parcel p = Parcels.best(ctx, req, null);
-			if (p == null || Math.hypot(p.x0 + p.sizeX / 2.0 - x, p.z0 + p.sizeZ / 2.0 - z) > 8) {
-				continue;
+			Parcels.Parcel p = beside(ctx, info, x, z);
+			if (p != null) {
+				Build.building(ctx, info, p, "beauty: a lamp to light the street", null);
+				return true;
 			}
-			Build.building(ctx, info, p, "beauty: a lamp to light the street", null);
-			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * A lamp's island of 3 × 3 just off the road at a spot on it (a junction, a point of a main street): to the north,
+	 * south, east or west, two to four blocks out, facing back to the road, its front on the road's edge. Checked in
+	 * place, not searched for, so a spot that has no room costs a few cells' look, not a frontage search.
+	 */
+	private static Parcels.@org.jspecify.annotations.Nullable Parcel beside(PlanContext ctx, ArchetypeInfo info, int x, int z) {
+		Parcels.Request req = new Parcels.Request(info, Placement.HOME, null, 0, 3, 3, false, 0, 0);
+		for (int out = 3; out <= 5; out++) {
+			for (net.minecraft.core.Direction away : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+				int cx = x + away.getStepX() * out;
+				int cz = z + away.getStepZ() * out;
+				// its front middle looks onto the road back toward the spot
+				int ex = cx - away.getStepX() * 2;
+				int ez = cz - away.getStepZ() * 2;
+				if (!dev.voidmc.hearth.plan.grid.Cell.isAccess(ctx.occ.get(ex, ez)) || !ctx.occ.isFree(cx - 1, cz - 1, cx + 1, cz + 1)) {
+					continue;
+				}
+				int[] at = dev.voidmc.hearth.plan.road.Roads.edgeAt(ctx, ex, ez);
+				if (at == null) {
+					continue;
+				}
+				Parcels.Parcel p = Parcels.fitAt(ctx, req, at[0], cx - 1, cz - 1, 3, 3, away.getOpposite());
+				if (p != null && !p.terrace) {
+					return p;
+				}
+			}
+		}
+		return null;
 	}
 
 	/**
