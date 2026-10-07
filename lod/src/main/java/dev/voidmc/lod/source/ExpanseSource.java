@@ -32,7 +32,8 @@ public final class ExpanseSource extends WorldgenSource {
 		this.colours = new ExpanseColours(this.looks, materials, this.seaLevel, this.strata, this.strataMaterials);
 		NoiseSurface surface = null;
 		try {
-			surface = NoiseSurface.of(this.randomState);
+			// -Dvoid.lod.exactGround=false: the model's height next to the chunks too
+			surface = "false".equals(System.getProperty("void.lod.exactGround")) ? null : NoiseSurface.of(this.randomState);
 		} catch (RuntimeException | LinkageError e) {
 			org.slf4j.LoggerFactory.getLogger("VOID LOD").warn("VOID LOD: cannot read the generator's density; the near ground follows the model's height", e);
 		}

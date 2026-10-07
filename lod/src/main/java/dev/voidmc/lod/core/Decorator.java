@@ -24,6 +24,18 @@ public interface Decorator {
 		}
 	}
 
-	/** Puts into {@code out} the blocks placed over the blocks [minX, maxX) x [minZ, maxZ), on {@code ground}. */
-	void decorate(int minX, int minZ, int maxX, int maxZ, Ground ground, Voxels out);
+	/**
+	 * Puts into {@code out} the blocks placed over the blocks [minX, maxX) x [minZ, maxZ), on {@code ground}, and
+	 * returns true; or, where they are not worked out yet, starts on them in the background and returns false (then
+	 * {@link #onReady} hears of the area once they are).
+	 */
+	boolean decorate(int minX, int minZ, int maxX, int maxZ, Ground ground, Voxels out);
+
+	/** Told of an area whose blocks became ready after a {@link #decorate} said they were not. */
+	interface Ready {
+		void ready(int minX, int minZ, int maxX, int maxZ);
+	}
+
+	default void onReady(Ready ready) {
+	}
 }

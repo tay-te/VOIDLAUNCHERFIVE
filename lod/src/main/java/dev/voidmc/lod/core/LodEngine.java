@@ -297,6 +297,14 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		this.invalidated.add(new int[]{minX, minZ, maxX, maxZ, columns});
 	}
 
+	/**
+	 * Rebuilds the tiles over an area at the levels up to {@code maxLevel}, whose source has more to show there now (the
+	 * world's trees, placed in the background), keeping their samples: the land itself did not change.
+	 */
+	public void refresh(int minX, int minZ, int maxX, int maxZ, int maxLevel) {
+		this.invalidated.add(new int[]{minX, minZ, maxX, maxZ, (maxX - minX) * (maxZ - minZ), maxLevel});
+	}
+
 	public TerrainSource source() {
 		return this.source;
 	}
@@ -686,7 +694,8 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private void mark(int[] area) {
 		long now = this.frameNanos;
 		float size = area[4];
-		for (int level = 0; level <= TileKey.MAX_LEVEL; level++) {
+		int maxLevel = area.length > 5 ? area[5] : TileKey.MAX_LEVEL;
+		for (int level = 0; level <= maxLevel; level++) {
 			int span = TileKey.span(level);
 			// a tile's samples reach a few cells past its edges: its border, and the square each sample stands for
 			int margin = 3 * TileKey.cell(level);

@@ -363,7 +363,7 @@ public class LodShowcase implements FabricClientGameTest {
 				var engine = VoidLod.get().engine();
 				var ingest = VoidLod.get().ingest();
 				boolean done = engine.frame() - firstFrame > 200 && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0
-					&& VoidLod.get().remotePending() == 0 && (!changes || settled || engine.dirtyDrawn() == 0 && (ingest == null || ingest.queued() == 0));
+					&& VoidLod.get().remotePending() == 0 && VoidLod.get().treesPending() == 0 && (settled || engine.dirtyDrawn() == 0) && (!changes || settled || engine.dirtyDrawn() == 0 && (ingest == null || ingest.queued() == 0));
 				return (done ? "done " : "busy ") + (engine.frame() - firstFrame) + " frames, " + engine.busy();
 			});
 			boolean idle = state.startsWith("done");
@@ -619,6 +619,19 @@ public class LodShowcase implements FabricClientGameTest {
 			return logs;
 		});
 		java.util.Map<String, Integer> placedKinds = new java.util.TreeMap<>();
+		// the trees there are placed in the background: asked until they are ready
+		for (int tries = 0; tries < 120; tries++) {
+			boolean ready = context.computeOnClient(mc -> {
+				var source = VoidLod.get().engine().source();
+				var decorator = source == null ? null : source.decorator();
+				return decorator == null || decorator.decorate(x0, z0, x1, z1, (x, z, out) -> source.sample(x, z, 1, out),
+					new dev.voidmc.lod.core.Voxels());
+			});
+			if (ready) {
+				break;
+			}
+			context.waitTicks(20);
+		}
 		java.util.Set<Long> placed = context.computeOnClient(mc -> {
 			var source = VoidLod.get().engine().source();
 			var decorator = source == null ? null : source.decorator();

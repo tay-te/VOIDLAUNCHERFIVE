@@ -81,7 +81,7 @@ public final class TreeDecorator implements Decorator {
 	}
 
 	/** One chunk's trees: positions packed as {@link BlockPos#asLong}, and what stands there. */
-	private record Chunk(long[] positions, BlockState[] states) {
+	record Placed(long[] positions, BlockState[] states) {
 	}
 
 	private final ServerLevel level;
@@ -97,14 +97,22 @@ public final class TreeDecorator implements Decorator {
 	/** Per biome, the indices in the step of its features that place trees. */
 	private final Map<Holder<Biome>, int[]> treeFeatures = new ConcurrentHashMap<>();
 	private final Map<Integer, Optional<Holder<Biome>>> byId = new ConcurrentHashMap<>();
-	private final Map<Long, Chunk> chunks = new LinkedHashMap<>(256, 0.75F, true) {
+	private final Map<Long, Placed> chunks = new LinkedHashMap<>(256, 0.75F, true) {
 		@Override
-		protected boolean removeEldestEntry(Map.Entry<Long, Chunk> eldest) {
+		protected boolean removeEldestEntry(Map.Entry<Long, Placed> eldest) {
 			return this.size() > CHUNKS_KEPT;
 		}
 	};
 	private volatile boolean warned;
 	public final AtomicLong chunksPlaced = new AtomicLong();
+	public final AtomicLong chunksRead = new AtomicLong();
+	/** Where the trees worked out are kept, or null: worked out again each time. */
+	private volatile TreeFiles files;
+
+	/** Keeps the trees worked out in {@code dir}, for the world and game of {@code identity}. */
+	public void keepIn(java.nio.file.Path dir, long identity) {
+		this.files = new TreeFiles(dir, identity);
+	}
 	public final AtomicLong placeNanos = new AtomicLong();
 	/** Columns the stand-in asked of the ground, and the time that took (the rest of placing is the features'). */
 	public final AtomicLong columnsAsked = new AtomicLong();
@@ -130,6 +138,11 @@ public final class TreeDecorator implements Decorator {
 		}
 	}
 
+	/** Whether {@code level} is the stand-in world trees are placed in here, not a real one. */
+	public static boolean isStandIn(Object level) {
+		return level != null && Proxy.isProxyClass(level.getClass()) && Proxy.getInvocationHandler(level) instanceof Stand;
+	}
+
 	/** For {@code level}'s generator, or null if its decoration step cannot be read. */
 	public static TreeDecorator of(ServerLevel level, Biomes biomes, BiomeLooks looks, Materials materials) {
 		try {
@@ -146,12 +159,32 @@ public final class TreeDecorator implements Decorator {
 	}
 
 	@Override
-	public void decorate(int minX, int minZ, int maxX, int maxZ, Ground ground, Voxels out) {
+	public boolean decorate(int minX, int minZ, int maxX, int maxZ, Ground ground, Voxels out) {
 		this.keep(minX - REACH, minZ - REACH, maxX + REACH, maxZ + REACH, ground);
+		int cx0 = Math.floorDiv(minX - REACH, 16), cx1 = Math.floorDiv(maxX - 1 + REACH, 16);
+		int cz0 = Math.floorDiv(minZ - REACH, 16), cz1 = Math.floorDiv(maxZ - 1 + REACH, 16);
+		Placed[] chunks = new Placed[(cx1 - cx0 + 1) * (cz1 - cz0 + 1)];
+		List<Long> missing = null;
+		for (int cz = cz0; cz <= cz1; cz++) {
+			for (int cx = cx0; cx <= cx1; cx++) {
+				Placed chunk = this.known(cx, cz);
+				if (chunk == null) {
+					if (missing == null) {
+						missing = new ArrayList<>();
+					}
+					missing.add(chunkKey(cx, cz));
+				}
+				chunks[(cx - cx0) + (cz - cz0) * (cx1 - cx0 + 1)] = chunk;
+			}
+		}
+		if (missing != null) {
+			this.request(minX, minZ, maxX, maxZ, missing);
+			return false;
+		}
 		ColumnSample sample = new ColumnSample();
-		for (int cz = Math.floorDiv(minZ - REACH, 16); cz <= Math.floorDiv(maxZ - 1 + REACH, 16); cz++) {
-			for (int cx = Math.floorDiv(minX - REACH, 16); cx <= Math.floorDiv(maxX - 1 + REACH, 16); cx++) {
-				Chunk chunk = this.chunk(cx, cz, ground);
+		for (int cz = cz0; cz <= cz1; cz++) {
+			for (int cx = cx0; cx <= cx1; cx++) {
+				Placed chunk = chunks[(cx - cx0) + (cz - cz0) * (cx1 - cx0 + 1)];
 				for (int b = 0; b < chunk.positions.length; b++) {
 					long p = chunk.positions[b];
 					int x = BlockPos.getX(p), y = BlockPos.getY(p), z = BlockPos.getZ(p);
@@ -186,6 +219,157 @@ public final class TreeDecorator implements Decorator {
 				}
 			}
 		}
+		return true;
+	}
+
+	private static long chunkKey(int cx, int cz) {
+		return (long) cx << 32 ^ cz & 0xFFFFFFFFL;
+	}
+
+	// ---- placing in the background ---------------------------------------------------------------------------
+
+	/** A tile's area waiting for its chunks' trees: told ready once the last of them is placed. */
+	private record Pending(String area, int minX, int minZ, int maxX, int maxZ, java.util.concurrent.atomic.AtomicInteger missing) {
+	}
+
+	private record Job(long key, double distance) {
+	}
+
+	private final java.util.concurrent.PriorityBlockingQueue<Job> queue = new java.util.concurrent.PriorityBlockingQueue<>(256,
+		java.util.Comparator.comparingDouble(Job::distance));
+	private final java.util.Set<Long> queued = ConcurrentHashMap.newKeySet();
+	private final Map<Long, List<Pending>> waiting = new HashMap<>();
+	private final Map<String, Pending> pendingAreas = new HashMap<>();
+	private volatile Ready ready;
+	private volatile Ground background;
+	private volatile double centreX;
+	private volatile double centreZ;
+	private volatile boolean started;
+	private static final int THREADS = Math.max(1, Math.min(3, Runtime.getRuntime().availableProcessors() / 4));
+
+	@Override
+	public void onReady(Ready ready) {
+		this.ready = ready;
+	}
+
+	/** The ground trees placed in the background stand on: the terrain source, column by column. */
+	public void ground(Ground ground) {
+		this.background = ground;
+	}
+
+	/** Where the player is: the trees nearest them are placed first. */
+	public void centre(double x, double z) {
+		this.centreX = x;
+		this.centreZ = z;
+	}
+
+	/** Chunks waiting to have their trees placed. */
+	public int queued() {
+		return this.queued.size();
+	}
+
+	private void request(int minX, int minZ, int maxX, int maxZ, List<Long> missing) {
+		String area = minX + "," + minZ + "," + maxX + "," + maxZ;
+		synchronized (this.waiting) {
+			if (this.pendingAreas.containsKey(area)) {
+				return;
+			}
+			Pending p = new Pending(area, minX, minZ, maxX, maxZ, new java.util.concurrent.atomic.AtomicInteger(missing.size()));
+			this.pendingAreas.put(area, p);
+			for (long key : missing) {
+				this.waiting.computeIfAbsent(key, k -> new ArrayList<>()).add(p);
+			}
+		}
+		for (long key : missing) {
+			if (this.queued.add(key)) {
+				int cx = (int) (key >> 32), cz = (int) key;
+				double dx = cx * 16 + 8 - this.centreX, dz = cz * 16 + 8 - this.centreZ;
+				this.queue.add(new Job(key, dx * dx + dz * dz));
+			}
+		}
+		this.start();
+	}
+
+	private void start() {
+		if (this.started) {
+			return;
+		}
+		synchronized (this) {
+			if (this.started) {
+				return;
+			}
+			this.started = true;
+			for (int i = 0; i < THREADS; i++) {
+				Thread t = new Thread(this::work, "VOID LOD trees " + (i + 1));
+				t.setDaemon(true);
+				t.setPriority(Thread.MIN_PRIORITY);
+				t.start();
+			}
+		}
+	}
+
+	private void work() {
+		while (true) {
+			Job job;
+			try {
+				job = this.queue.take();
+			} catch (InterruptedException e) {
+				return;
+			}
+			long key = job.key();
+			int cx = (int) (key >> 32), cz = (int) key;
+			try {
+				Ground ground = this.background;
+				if (this.known(cx, cz) == null && ground != null) {
+					this.chunk(cx, cz, ground);
+				}
+			} catch (RuntimeException | LinkageError e) {
+				LoggerFactory.getLogger("VOID LOD").warn("VOID LOD: could not place the trees of chunk {}, {}", cx, cz, e);
+				synchronized (this.chunks) {
+					this.chunks.put(key, new Placed(new long[0], new BlockState[0]));
+				}
+			} finally {
+				this.queued.remove(key);
+			}
+			List<Pending> done;
+			synchronized (this.waiting) {
+				done = this.waiting.remove(key);
+			}
+			if (done == null) {
+				continue;
+			}
+			for (Pending p : done) {
+				if (p.missing().decrementAndGet() == 0) {
+					synchronized (this.waiting) {
+						this.pendingAreas.remove(p.area());
+					}
+					Ready r = this.ready;
+					if (r != null) {
+						r.ready(p.minX(), p.minZ(), p.maxX(), p.maxZ());
+					}
+				}
+			}
+		}
+	}
+
+	/** The chunk's trees if worked out already: kept in memory, or on disk. */
+	private Placed known(int cx, int cz) {
+		long key = chunkKey(cx, cz);
+		synchronized (this.chunks) {
+			Placed p = this.chunks.get(key);
+			if (p != null) {
+				return p;
+			}
+		}
+		TreeFiles files = this.files;
+		Placed p = files == null ? null : files.read(cx, cz);
+		if (p != null) {
+			this.chunksRead.incrementAndGet();
+			synchronized (this.chunks) {
+				this.chunks.put(key, p);
+			}
+		}
+		return p;
 	}
 
 	private Holder<Biome> biome(int id) {
@@ -288,19 +472,25 @@ public final class TreeDecorator implements Decorator {
 		}
 	}
 
-	private Chunk chunk(int cx, int cz, Ground ground) {
-		// trees stood on rounded ground (a farther tile's) are kept apart from those on the land block by block
-		long key = ((long) cx << 32 ^ cz & 0xFFFFFFFFL) ^ (ground.blockExact() ? 0 : 0x4000_0000_0000_0000L);
+	private Placed chunk(int cx, int cz, Ground ground) {
+		long key = chunkKey(cx, cz);
 		synchronized (this.chunks) {
-			Chunk known = this.chunks.get(key);
+			Placed known = this.chunks.get(key);
 			if (known != null) {
 				return known;
 			}
 		}
-		long t0 = System.nanoTime();
-		Chunk chunk = this.place(cx, cz, ground);
-		this.placeNanos.addAndGet(System.nanoTime() - t0);
-		this.chunksPlaced.incrementAndGet();
+		TreeFiles files = this.files;
+		Placed chunk;
+		{
+			long t0 = System.nanoTime();
+			chunk = this.place(cx, cz, ground);
+			this.placeNanos.addAndGet(System.nanoTime() - t0);
+			this.chunksPlaced.incrementAndGet();
+			if (files != null) {
+				files.write(cx, cz, chunk);
+			}
+		}
 		synchronized (this.chunks) {
 			this.chunks.put(key, chunk);
 		}
@@ -308,7 +498,7 @@ public final class TreeDecorator implements Decorator {
 	}
 
 	/** Runs the tree features of chunk (cx, cz) as the decoration step would, and keeps what they set. */
-	private Chunk place(int cx, int cz, Ground ground) {
+	private Placed place(int cx, int cz, Ground ground) {
 		Stand stand = new Stand(ground);
 		// the features of every biome in and around the chunk, in the step's order: each is seeded from its own index,
 		// so one more or fewer changes nobody else's trees, and its biome filter keeps each where its biome is
@@ -328,7 +518,7 @@ public final class TreeDecorator implements Decorator {
 			}
 		}
 		if (wanted.isEmpty()) {
-			return new Chunk(new long[0], new BlockState[0]);
+			return new Placed(new long[0], new BlockState[0]);
 		}
 		WorldgenRandom random = new WorldgenRandom(new XoroshiroRandomSource(RandomSupport.generateUniqueSeed()));
 		long decorationSeed = random.setDecorationSeed(this.seed, cx * 16, cz * 16);
@@ -348,14 +538,14 @@ public final class TreeDecorator implements Decorator {
 		long[] positions = new long[stand.placed.size()];
 		BlockState[] states = new BlockState[positions.length];
 		int n = 0;
-		for (Map.Entry<Long, BlockState> e : stand.placed.entrySet()) {
+		for (var e : stand.placed.long2ObjectEntrySet()) {
 			if (!e.getValue().isAir()) {
-				positions[n] = e.getKey();
+				positions[n] = e.getLongKey();
 				states[n] = e.getValue();
 				n++;
 			}
 		}
-		return new Chunk(Arrays.copyOf(positions, n), Arrays.copyOf(states, n));
+		return new Placed(Arrays.copyOf(positions, n), Arrays.copyOf(states, n));
 	}
 
 	private int[] treeFeatures(Holder<Biome> biome) {
@@ -385,10 +575,10 @@ public final class TreeDecorator implements Decorator {
 	/** The world the features see while one chunk's trees are placed. */
 	private final class Stand implements InvocationHandler {
 		final Ground ground;
-		final Map<Long, Column> columns = new HashMap<>();
-		final Map<Long, BlockState> placed = new HashMap<>();
+		final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Column> columns = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
+		final it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<BlockState> placed = new it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<>();
 		/** Per column, the highest block set and the highest that is not leaves, each plus one. */
-		final Map<Long, int[]> tops = new HashMap<>();
+		final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<int[]> tops = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
 		final ColumnSample sample = new ColumnSample();
 		final RandomSource random = RandomSource.create(42);
 		/** A chunk of nothing, for features that mark blocks in theirs (fallen trees ask for post-processing). */
@@ -621,7 +811,7 @@ public final class TreeDecorator implements Decorator {
 
 	public String stats() {
 		long n = this.chunksPlaced.get();
-		return String.format(Locale.ROOT, "trees: %d chunks placed (%.2f ms each, %.2f of it the ground: %d columns a chunk)", n,
+		return String.format(Locale.ROOT, "trees: %d queued, %d chunks read, %d placed (%.2f ms each, %.2f of it the ground: %d columns a chunk)", this.queued.size(), this.chunksRead.get(), n,
 			n == 0 ? 0 : this.placeNanos.get() / 1e6 / n, n == 0 ? 0 : this.groundNanos.get() / 1e6 / n, n == 0 ? 0 : this.columnsAsked.get() / n);
 	}
 }

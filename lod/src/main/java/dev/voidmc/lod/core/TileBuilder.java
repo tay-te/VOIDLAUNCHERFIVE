@@ -179,7 +179,7 @@ public final class TileBuilder {
 			long t2 = System.nanoTime();
 			Samples s = this.samples;
 			int minX = TileKey.minX(key), minZ = TileKey.minZ(key), span = TileKey.span(level);
-			decorator.decorate(minX, minZ, minX + span, minZ + span, new Decorator.Ground() {
+			boolean ready = decorator.decorate(minX, minZ, minX + span, minZ + span, new Decorator.Ground() {
 				@Override
 				public void column(int x, int z, ColumnSample out) {
 					// the tile's own sample where it has one (on a farther tile, the cell's: rounded ground), else the source's
@@ -208,6 +208,10 @@ public final class TileBuilder {
 				}
 			}, this.voxels);
 			TREE_NANOS.addAndGet(System.nanoTime() - t2);
+			if (!ready) {
+				// placed in the background: drawn crowns until the tile is built again with them
+				decorator = null;
+			}
 		}
 		this.blocky.trees(decorator != null ? this.voxels : null);
 		if (smooth) {

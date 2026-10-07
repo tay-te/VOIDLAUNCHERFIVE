@@ -128,6 +128,11 @@ a fraction of the cost.
     96-block square 200 blocks out (`-Plod.show.seam=true`): the same kinds in the same numbers, 60% of trunk
     columns where the chunks have them and 55% of logs on the very block; the rest differ where the chunk itself
     differs from the terrain source (a tree of the neighbouring chunk placed first, a structure, a cave mouth).
+    Placed on threads of their own, nearest the player first, so the horizon never waits for them: a close tile is
+    built at once with drawn crowns and again, its close levels only, once its chunks' trees are placed. Kept in
+    the world's folder (`void_lod/<dimension>/trees`, a file per 32 x 32 chunks, about 0.3 KB a chunk, checked
+    against the world's identity), so a horizon seen before has its trees at once. In the stand-in world the
+    trees' last pass (each leaf's distance from a log, for decay) is skipped: it changes nothing drawn.
     Further out:
   * Trees, one crown each (`core/Trees`): a jittered grid with the biome's density, each tree its own
     height and shade, darker under the canopy. Conifers are cones and broadleaf trees domes, in the
