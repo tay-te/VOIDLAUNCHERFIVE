@@ -275,7 +275,12 @@ public final class Walls {
 
 	/** Shows a wall line in the grid, except where roads cross it (the gates). */
 	public static void markLine(Occupancy occ, RoadEdge line) {
-		Polyline.corridor(line.line().points(), line.width, (x, z) -> {
+		markLine(occ, line, Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
+	}
+
+	/** {@link #markLine(Occupancy, RoadEdge)} within a rectangle (inclusive), for a region marked again. */
+	public static void markLine(Occupancy occ, RoadEdge line, int x0, int z0, int x1, int z1) {
+		Polyline.corridor(line.line().points(), line.width, x0, z0, x1, z1, (x, z) -> {
 			byte c = occ.get(x, z);
 			if (c == Cell.FREE || c == Cell.SETBACK) {
 				occ.set(x, z, Cell.WALL);

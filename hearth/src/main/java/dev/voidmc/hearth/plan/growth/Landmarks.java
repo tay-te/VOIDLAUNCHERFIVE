@@ -175,8 +175,7 @@ public final class Landmarks {
 				c.gap = p.gap;
 		// a close set back from a slanting street keeps its garden path to the door
 		c.doorGap = p.doorGap;
-				ctx.state.reservations.add(new Reservation("close", p.x0, p.z0, p.x1(), p.z1(), dev.voidmc.hearth.plan.grid.Cell.RESERVED));
-				ctx.occ.markRect(p.x0, p.z0, p.x1(), p.z1(), dev.voidmc.hearth.plan.grid.Cell.RESERVED);
+				ctx.hold(new Reservation("close", p.x0, p.z0, p.x1(), p.z1(), dev.voidmc.hearth.plan.grid.Cell.RESERVED));
 				Build.building(ctx, chapel, c, reason + ", with a close kept round it", null);
 				return true;
 			}

@@ -183,7 +183,7 @@ class PlanBenchTest {
 
 		void print() {
 			System.out.println("  profile: " + this.samples + " samples in next");
-			print("inclusive", this.inclusive, 60);
+			print("inclusive", this.inclusive, 90);
 			print("self", this.self, 20);
 		}
 

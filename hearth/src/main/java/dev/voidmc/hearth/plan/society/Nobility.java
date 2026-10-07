@@ -247,8 +247,7 @@ public final class Nobility {
 		int[] hill = hill(ctx);
 		ArchetypeInfo future = future(ctx);
 		int half = (future == null ? 23 : future.minFrontage()) / 2 + 3;
-		ctx.state.reservations.add(new Reservation(HILL, hill[0] - half, hill[1] - half, hill[0] + half, hill[1] + half, Cell.RESERVED));
-		ctx.occ.markRect(hill[0] - half, hill[1] - half, hill[0] + half, hill[1] + half, Cell.RESERVED);
+		ctx.hold(new Reservation(HILL, hill[0] - half, hill[1] - half, hill[0] + half, hill[1] + half, Cell.RESERVED));
 	}
 
 	/** The keep, on the castle hill, at the front of a close kept for the castle; a cart road up to it first. */
@@ -262,14 +261,13 @@ public final class Nobility {
 		Reservation held = ctx.state.reservation(HILL);
 		if (held != null) {
 			ctx.state.removeReservation(HILL);
-			ctx.occ.clearRect(held.x0(), held.z0(), held.x1(), held.z1(), Cell.RESERVED);
+			ctx.release(held.x0(), held.z0(), held.x1(), held.z1());
 		}
 		if (placeKeep(ctx, keep, hill)) {
 			return true;
 		}
 		if (held != null) {
-			ctx.state.reservations.add(held);
-			ctx.occ.markRect(held.x0(), held.z0(), held.x1(), held.z1(), Cell.RESERVED);
+			ctx.hold(held);
 		}
 		// no frontage up there yet: a cart road up to the hill's foot on the town's side (steps only where it must)
 		int[] foot = held == null ? hill : foot(ctx, held);
@@ -303,8 +301,7 @@ public final class Nobility {
 			Parcels.Parcel p = near(ctx, Parcels.best(ctx, big, null), hill, 40);
 			if (p != null && !p.terrace) {
 				Parcels.Parcel k = front(p, keep);
-				ctx.state.reservations.add(new Reservation(CLOSE, p.x0, p.z0, p.x1(), p.z1(), Cell.RESERVED));
-				ctx.occ.markRect(p.x0, p.z0, p.x1(), p.z1(), Cell.RESERVED);
+				ctx.hold(new Reservation(CLOSE, p.x0, p.z0, p.x1(), p.z1(), Cell.RESERVED));
 				Build.building(ctx, keep, k, reason + ", with a close kept for the castle", seatParams());
 				return true;
 			}

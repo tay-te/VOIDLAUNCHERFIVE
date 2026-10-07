@@ -71,6 +71,11 @@ public final class PlanState {
 	/** Plot ids the occupancy grid already shows. */
 	public transient int @Nullable [] knownPlots;
 	/**
+	 * Where each plot the grid shows marked it ({@code PlotGeometry.bounds}), by plot id: the ground marked again when it
+	 * is gone, instead of the whole grid.
+	 */
+	public final transient it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<int[]> knownBounds = new it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<>();
+	/**
 	 * Distance to water per three-block cell ({@code PlanContext.waterDistance}), kept between calls: a pure function of
 	 * the land under {@link #waterProbe}, which frontage searches ask for thousands of times a call (never saved).
 	 */
@@ -83,6 +88,7 @@ public final class PlanState {
 	public void invalidate() {
 		this.occupancy = null;
 		this.knownPlots = null;
+		this.knownBounds.clear();
 		if (this.deep != null) {
 			this.deep.invalidate();
 		}

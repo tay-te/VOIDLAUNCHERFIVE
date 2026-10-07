@@ -82,6 +82,27 @@ public final class PlanContext {
 		this.occ = state.occupancy != null ? state.occupancy : new Occupancy();
 	}
 
+	/**
+	 * Holds land (a reservation added to the plan state) and marks its rectangle as a rebuild of the grid would: the
+	 * hold is marked before roads and plots there, so a road planned across it earlier shows as held, as it will after a
+	 * rebuild from scratch.
+	 */
+	public void hold(dev.voidmc.hearth.plan.model.Reservation r) {
+		this.state.reservations.add(r);
+		release(r.x0(), r.z0(), r.x1(), r.z1());
+	}
+
+	/**
+	 * Gives back land held (a reservation just taken out of the plan state): the rectangle (inclusive) is marked again as
+	 * a rebuild of the grid would mark it, so the gaps and planned roads the hold covered show again. Clearing it to free
+	 * ground instead left the grid wrong until its next rebuild from scratch.
+	 */
+	public void release(int x0, int z0, int x1, int z1) {
+		java.util.List<dev.voidmc.hearth.api.PlotView> plots = new java.util.ArrayList<>(this.settlement.plots());
+		plots.sort(java.util.Comparator.comparingInt(dev.voidmc.hearth.api.PlotView::id));
+		HearthPlanner.remark(this, new int[]{x0, z0, x1, z1}, plots);
+	}
+
 	public int heartX() {
 		return this.state.heartX;
 	}

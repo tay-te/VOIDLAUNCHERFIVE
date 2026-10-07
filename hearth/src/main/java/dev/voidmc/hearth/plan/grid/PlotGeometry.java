@@ -108,6 +108,47 @@ public final class PlotGeometry {
 		}
 	}
 
+	/**
+	 * The rectangle {x0, z0, x1, z1} (inclusive) holding every column {@link #mark} may write for the plot, its kept gaps
+	 * and a corridor's reach included; null if it marks nothing.
+	 */
+	public static int @org.jspecify.annotations.Nullable [] bounds(PlotSpec spec) {
+		Identifier id = spec.archetype();
+		if (id.equals(Archetypes.WALKWAY)) {
+			return null;
+		}
+		if (Archetypes.isLinear(id)) {
+			int[] pts = spec.paramInts("points").orElse(null);
+			if (pts != null && pts.length >= 6) {
+				return pointsBounds(pts, Polyline.reach(spec.paramInt("width", 1)));
+			}
+		}
+		int pad = Archetypes.isLinear(id) ? 0 : Math.max(0, Math.max(spec.paramInt("gap", 0), spec.paramInt("back_gap", 0)));
+		int x0 = spec.origin().getX();
+		int z0 = spec.origin().getZ();
+		return new int[]{x0 - pad, z0 - pad, x0 + spec.sizeX() - 1 + pad, z0 + spec.sizeZ() - 1 + pad};
+	}
+
+	/** The rectangle round a polyline's vertices (x, y, z triples), widened by {@code reach} on every side. */
+	public static int[] pointsBounds(int[] pts, int reach) {
+		int x0 = Integer.MAX_VALUE;
+		int z0 = Integer.MAX_VALUE;
+		int x1 = Integer.MIN_VALUE;
+		int z1 = Integer.MIN_VALUE;
+		for (int i = 0; i + 2 < pts.length; i += 3) {
+			x0 = Math.min(x0, pts[i]);
+			x1 = Math.max(x1, pts[i]);
+			z0 = Math.min(z0, pts[i + 2]);
+			z1 = Math.max(z1, pts[i + 2]);
+		}
+		return new int[]{x0 - reach, z0 - reach, x1 + reach, z1 + reach};
+	}
+
+	/** Whether two inclusive rectangles {x0, z0, x1, z1} share a column. */
+	public static boolean overlaps(int[] a, int[] b) {
+		return a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
+	}
+
 	/** The column in front of a building's main entrance: just outside the middle of its front edge. */
 	public static int[] entrance(PlotSpec spec) {
 		int x0 = spec.origin().getX();

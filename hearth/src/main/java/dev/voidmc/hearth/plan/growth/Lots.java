@@ -70,8 +70,7 @@ public final class Lots {
 			if (Growth.trace) {
 				dev.voidmc.hearth.Hearth.LOG.info("[plan] lot for {} at {},{} {}x{} facing {}", id.getPath(), p.x0, p.z0, p.sizeX, p.sizeZ, p.facing);
 			}
-			ctx.state.reservations.add(new Reservation("lot/" + id.getPath(), p.x0, p.z0, p.x1(), p.z1(), Cell.RESERVED));
-			ctx.occ.markRect(p.x0, p.z0, p.x1(), p.z1(), Cell.RESERVED);
+			ctx.hold(new Reservation("lot/" + id.getPath(), p.x0, p.z0, p.x1(), p.z1(), Cell.RESERVED));
 			any = true;
 		}
 		return any;
@@ -84,7 +83,7 @@ public final class Lots {
 			return false;
 		}
 		ctx.state.removeReservation(r.tag());
-		ctx.occ.clearRect(r.x0(), r.z0(), r.x1(), r.z1(), Cell.RESERVED);
+		ctx.release(r.x0(), r.z0(), r.x1(), r.z1());
 		return true;
 	}
 }

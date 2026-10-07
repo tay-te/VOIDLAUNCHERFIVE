@@ -282,6 +282,8 @@ public final class MiniSim {
 					spec.tier() + 1, spec.params());
 			}
 			var plot = this.settlement.addPlot(spec);
+			// the rebuild remembers what it replaces, as the sim's record does (SimSettlement.addPlot)
+			plot.replaces = project.replaces();
 			if (!project.spec().archetype().getPath().startsWith("infra/")) {
 				active++;
 			}

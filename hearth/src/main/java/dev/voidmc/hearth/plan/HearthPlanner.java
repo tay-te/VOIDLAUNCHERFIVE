@@ -179,8 +179,13 @@ public final class HearthPlanner implements SettlementPlanner {
 			if (q.replaces() >= 0) {
 				PlotView old = ctx.settlement.plot(q.replaces());
 				if (old == null || old.state() != PlotState.BUILT && old.state() != PlotState.ABANDONED) {
-					ctx.state.invalidate();
-					ctx.occ = rebuild(ctx);
+					// its ground is marked again without it
+					int[] bounds = PlotGeometry.bounds(q.spec());
+					if (bounds != null) {
+						List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
+						plots.sort(Comparator.comparingInt(PlotView::id));
+						remark(ctx, bounds, plots);
+					}
 					continue;
 				}
 			}
@@ -203,57 +208,53 @@ public final class HearthPlanner implements SettlementPlanner {
 	}
 
 	/**
-	 * Brings the occupancy grid up to date with the settlement's plots: marks plots it has not seen, and rebuilds from
-	 * scratch if a plot it knew is gone or a spec it handed out was not taken (the sim refused or re-planned it).
+	 * Brings the occupancy grid up to date with the settlement's plots: marks plots it has not seen, and where a plot it
+	 * knew is gone (demolished, weathered, replaced by its rebuild) or a spec it handed out was not taken (the sim refused
+	 * or re-planned it), marks that ground again as a rebuild from scratch would ({@link #remark}). A city's whole grid is
+	 * rebuilt only when it has none yet.
 	 */
 	static void reconcile(PlanContext ctx) {
 		PlanState state = ctx.state;
 		List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
 		plots.sort(Comparator.comparingInt(PlotView::id));
 		boolean rebuild = state.occupancy == null || state.knownPlots == null;
-		if (!rebuild && !state.issued.isEmpty()) {
+		List<int[]> stale = new ArrayList<>();
+		if (!rebuild) {
 			for (PlotSpec spec : state.issued) {
 				boolean taken = false;
 				for (int i = plots.size() - 1; i >= 0 && !taken; i--) {
 					taken = taken(plots.get(i).spec(), spec);
 				}
-				if (!taken) {
-					rebuild = true;
-					break;
+				int[] b = taken ? null : PlotGeometry.bounds(spec);
+				if (b != null) {
+					stale.add(b);
 				}
 			}
-		}
-		int[] known = state.knownPlots;
-		if (!rebuild) {
-			int seen = 0;
-			java.util.Set<Integer> rebuilt = new java.util.HashSet<>();
+			it.unimi.dsi.fastutil.ints.IntOpenHashSet present = new it.unimi.dsi.fastutil.ints.IntOpenHashSet(plots.size());
 			for (PlotView p : plots) {
-				if (Arrays.binarySearch(known, p.id()) >= 0) {
-					seen++;
-				}
-				if (p.replaces() >= 0) {
-					rebuilt.add(p.replaces());
-				}
+				present.add(p.id());
 			}
-			if (seen != known.length) {
-				// a plot that is gone because its rebuild finished stands under the rebuild's own footprint (and its kept
-				// gaps only keep ground open): no need to rebuild a city's whole grid for it
-				int replacedAway = 0;
-				for (int id : known) {
-					if (rebuilt.contains(id) && ctx.settlement.plot(id) == null) {
-						replacedAway++;
+			for (int id : state.knownPlots) {
+				if (!present.contains(id)) {
+					int[] b = state.knownBounds.remove(id);
+					if (b != null) {
+						stale.add(b);
 					}
 				}
-				rebuild = seen + replacedAway != known.length;
 			}
 		}
 		if (rebuild) {
 			ctx.occ = rebuild(ctx);
 		} else {
 			ctx.occ = state.occupancy;
+			for (int[] r : stale) {
+				remark(ctx, r, plots);
+			}
+			int[] known = state.knownPlots;
 			for (PlotView p : plots) {
 				if (Arrays.binarySearch(known, p.id()) < 0) {
 					PlotGeometry.mark(ctx.occ, p.spec(), ctx.catalogue);
+					remember(state, p);
 				}
 			}
 		}
@@ -281,8 +282,97 @@ public final class HearthPlanner implements SettlementPlanner {
 			&& plot.maxHeight() == spec.maxHeight() && plot.params().equals(spec.params());
 	}
 
-	/** The occupancy grid from scratch: reservations, planned roads, plots in id order, then the queue. */
+	private static void remember(PlanState state, PlotView p) {
+		int[] b = PlotGeometry.bounds(p.spec());
+		if (b != null) {
+			state.knownBounds.put(p.id(), b);
+		}
+	}
+
+	/**
+	 * Marks a rectangle of the grid (inclusive {x0, z0, x1, z1}) again exactly as {@link #rebuild} would: cleared, then
+	 * every mark of the rebuild replayed in the rebuild's order, with writes outside the rectangle dropped and whatever
+	 * cannot reach it skipped. Each column's code depends only on the marks made on it, in order, so the rectangle ends
+	 * as a rebuild leaves it, at the cost of the few plots and roads round it.
+	 */
+	static void remark(PlanContext ctx, int[] r, List<PlotView> plots) {
+		PlanState state = ctx.state;
+		Occupancy occ = ctx.occ;
+		int x0 = r[0];
+		int z0 = r[1];
+		int x1 = r[2];
+		int z1 = r[3];
+		occ.clip(x0, z0, x1, z1);
+		try {
+			for (int z = z0; z <= z1; z++) {
+				for (int x = x0; x <= x1; x++) {
+					occ.set(x, z, Cell.FREE);
+				}
+			}
+			for (Reservation res : state.reservations) {
+				int ax = Math.max(x0, res.x0());
+				int az = Math.max(z0, res.z0());
+				int bx = Math.min(x1, res.x1());
+				int bz = Math.min(z1, res.z1());
+				if (ax <= bx && az <= bz) {
+					occ.markRect(ax, az, bx, bz, res.code());
+				}
+			}
+			for (RoadEdge e : state.graph.edges()) {
+				if (e.emits()) {
+					Polyline.corridor(e.line().points(), e.width, x0, z0, x1, z1, (x, z) -> occ.mark(x, z, Cell.PLANNED_ROAD));
+				}
+			}
+			for (RoadEdge e : state.graph.edges()) {
+				if (e.role == RoadEdge.Role.WALL_LINE) {
+					dev.voidmc.hearth.plan.growth.Walls.markLine(occ, e, x0, z0, x1, z1);
+				}
+			}
+			for (PlotView p : plots) {
+				int[] b = state.knownBounds.get(p.id());
+				if (b == null) {
+					b = PlotGeometry.bounds(p.spec());
+				}
+				if (b != null && PlotGeometry.overlaps(b, r)) {
+					PlotGeometry.mark(occ, p.spec(), ctx.catalogue);
+				}
+			}
+			for (QueuedProject q : state.queue) {
+				int[] b = PlotGeometry.bounds(q.spec());
+				if (b != null && PlotGeometry.overlaps(b, r)) {
+					PlotGeometry.mark(occ, q.spec(), ctx.catalogue);
+				}
+			}
+		} finally {
+			occ.unclip();
+		}
+	}
+
+	/** The occupancy grid from scratch, kept as the settlement's (see {@link #fresh}). */
 	static Occupancy rebuild(PlanContext ctx) {
+		PlanState state = ctx.state;
+		state.knownBounds.clear();
+		List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
+		plots.sort(Comparator.comparingInt(PlotView::id));
+		Occupancy occ = fresh(ctx, plots);
+		for (PlotView p : plots) {
+			remember(state, p);
+		}
+		int[] ids = new int[plots.size()];
+		for (int i = 0; i < ids.length; i++) {
+			ids[i] = plots.get(i).id();
+		}
+		Arrays.sort(ids);
+		state.knownPlots = ids;
+		state.occupancy = occ;
+		return occ;
+	}
+
+	/**
+	 * The occupancy grid from scratch, touching nothing else: reservations, planned roads, wall lines, plots in id order
+	 * ({@code plots} sorted so), then the queue. What the grid kept between calls must always equal (PlanGridTest).
+	 */
+	public static Occupancy fresh(PlanContext ctx, List<PlotView> plots) {
 		PlanState state = ctx.state;
 		Occupancy occ = new Occupancy();
 		for (Reservation r : state.reservations) {
@@ -298,21 +388,13 @@ public final class HearthPlanner implements SettlementPlanner {
 				dev.voidmc.hearth.plan.growth.Walls.markLine(occ, e);
 			}
 		}
-		List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
-		plots.sort(Comparator.comparingInt(PlotView::id));
 		for (PlotView p : plots) {
 			PlotGeometry.mark(occ, p.spec(), ctx.catalogue);
 		}
 		for (QueuedProject q : state.queue) {
 			PlotGeometry.mark(occ, q.spec(), ctx.catalogue);
 		}
-		int[] ids = new int[plots.size()];
-		for (int i = 0; i < ids.length; i++) {
-			ids[i] = plots.get(i).id();
-		}
-		Arrays.sort(ids);
-		state.knownPlots = ids;
-		state.occupancy = occ;
 		return occ;
 	}
+
 }
