@@ -438,13 +438,14 @@ public final class DeepHall implements Archetype {
 			int mx = (tx0 + tx1) / 2;
 			int mz = (tz0 + tz1) / 2;
 			int belfry = wallTop - 3;
+			// (glazed: the spiral climbs past them, and an open slit beside a step is a way out over the street)
 			try (var s = d.stage(StageKind.OPENINGS)) {
 				for (int y = 4; y < belfry - 1; y += 4) {
 					if (p.stairTower) {
-						d.set(mx, y, tz0, Blocks.AIR.defaultBlockState());
-						d.set(mx, y + 1, tz0, Blocks.AIR.defaultBlockState());
-						d.set(outX, y + 2, mz, Blocks.AIR.defaultBlockState());
-						d.set(outX, y + 3, mz, Blocks.AIR.defaultBlockState());
+						d.set(mx, y, tz0, d.mat(Role.GLASS).pane());
+						d.set(mx, y + 1, tz0, d.mat(Role.GLASS).pane());
+						d.set(outX, y + 2, mz, d.mat(Role.GLASS).pane());
+						d.set(outX, y + 3, mz, d.mat(Role.GLASS).pane());
 					}
 				}
 			}
@@ -483,17 +484,19 @@ public final class DeepHall implements Archetype {
 						}
 					}
 				}
-				Stairs.spiral(d, mx, mz, 0, lookout, 0);
-				// the stairwell's head cut through the lookout floor where the spiral arrives
-				d.air(mx - 1, lookout - 1, mz - 1);
-				d.air(mx, lookout - 1, mz - 1);
-				// the door from the aisle at the tower's back
+				// the door from the aisle at the tower's back; the spiral's foot starts beside its inside cell, so the way in
+				// stands clear to the head (its first turn passes four over the door) and the spiral cuts its own way
+				// through the lookout floor
 				Block door = d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR);
 				int dx = side == 0 ? tx1 - 1 : tx0 + 1;
+				Stairs.spiral(d, mx, mz, 0, lookout, side == 0 ? 4 : 6);
 				d.air(dx, 0, tz1);
 				d.air(dx, 1, tz1);
 				d.inStage(StageKind.OPENINGS, () -> d.door(dx, 0, tz1, door, Dirs.FRONT, DoorHingeSide.LEFT));
-				d.poi(PoiType.VIEWPOINT, mx + (side == 0 ? -1 : 1), lookout, mz + 1, Dirs.FRONT);
+				// the lookout's standing place two cells on from the spiral's head, where its floor is whole
+				int[][] ring = {{-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}};
+				int[] vp = ring[((side == 0 ? 4 : 6) + 2 * lookout + 2) % 8];
+				d.poi(PoiType.VIEWPOINT, mx + vp[0], lookout, mz + vp[1], Dirs.FRONT);
 				Lighting.chandelier(d, mx, mz, wallTop, Math.max(lookout + 2, wallTop - 1));
 				for (int y = 3; y < lookout - 2; y += 5) {
 					Lighting.sconce(d, mx + (side == 0 ? 1 : -1), y + 1, tz1 - 1, Dirs.BACK);
@@ -688,7 +691,9 @@ public final class DeepHall implements Archetype {
 		int c = p.c;
 		int last = p.cols[p.cols.length - 1];
 		// the dais: the nave's last bays raised a step, stairs across its front
-		int dz0 = Math.max(last + 1, p.zb - 4);
+		// three rows at least: the step, the high table and the reeve's chair each have their own (a long hall whose last
+		// pier stands near the back wall carries the dais in over it)
+		int dz0 = Math.min(Math.max(last + 1, p.zb - 4), p.zb - 3);
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int z = dz0; z < p.zb; z++) {
 				for (int x = p.xa + 1; x < p.xb; x++) {
