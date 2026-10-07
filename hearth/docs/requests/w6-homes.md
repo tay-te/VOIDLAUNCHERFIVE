@@ -25,3 +25,10 @@ household (five and three) in every culture and size, even with the loft on knee
 `kit/townhome/Proportions` (owned here) gives any lane the free-standing rule: ground to ridge at most 1.6 x frontage
 (`Proportions.tallest(w)`, `Proportions.detached(d)`, `Proportions.storeys(...)`). The shack, chandler, butcher and the
 tropical and bayou tannery use it; other small detached buildings may too.
+
+## The default catalogue
+
+`plan/catalogue/DefaultCatalogue` carried the old merchant and scribe heights (20–28, 18–24) and
+`CatalogueMatchesBuildTest` failed on them; this lane changed just those two numbers per line (17–20, 15–18). The
+townhouse (14–24) and tenement (18–28) lines there are not checked by that test and still hold the old ranges: the plan
+lane may want them at 13–20 and 16–22 to match.

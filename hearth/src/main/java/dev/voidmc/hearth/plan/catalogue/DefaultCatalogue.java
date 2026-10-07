@@ -175,10 +175,10 @@ public final class DefaultCatalogue {
 		l.add(info(Archetypes.HOVEL, H, jobs(), 2, 7, 9, 6, 8, 8, 9, SettlementTier.CAMP, cultures(), flags(), List.of(Archetypes.COTTAGE), 0, 0.8));
 		l.add(info(Archetypes.SHACK, H, jobs(), 2, 5, 7, 5, 8, 8, 11, SettlementTier.CAMP, cultures(), flags(ATTACHABLE), List.of(Archetypes.ROWHOUSE), 0, 0.8));
 		l.add(info(Archetypes.CROFT, H, jobs(), 3, 9, 12, 12, 16, 9, 12, SettlementTier.CAMP, cultures(), flags(), List.of(Archetypes.COTTAGE), 0, 1.0));
-		l.add(info(Archetypes.MERCHANT_HOUSE, H, jobs(JobType.MERCHANT), 5, 7, 11, 11, 15, 20, 28, SettlementTier.VILLAGE, cultures(), flags(ATTACHABLE, VERTICAL), List.of(), 0, 1.0));
+		l.add(info(Archetypes.MERCHANT_HOUSE, H, jobs(JobType.MERCHANT), 5, 7, 11, 11, 15, 17, 20, SettlementTier.VILLAGE, cultures(), flags(ATTACHABLE, VERTICAL), List.of(), 0, 1.0));
 		l.add(info(Archetypes.REEVE_HOUSE, H, jobs(JobType.REEVE), 4, 10, 13, 13, 16, 13, 18, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 2, 1.0));
 		l.add(info(Archetypes.RECTORY, H, jobs(), 3, 9, 12, 14, 17, 12, 17, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 2, 1.0));
-		l.add(info(Archetypes.SCRIBE_HOUSE, H, jobs(), 3, 6, 8, 9, 12, 18, 24, SettlementTier.TOWN, cultures(), flags(ATTACHABLE), List.of(), 0, 1.0));
+		l.add(info(Archetypes.SCRIBE_HOUSE, H, jobs(), 3, 6, 8, 9, 12, 15, 18, SettlementTier.TOWN, cultures(), flags(ATTACHABLE), List.of(), 0, 1.0));
 		l.add(info(Archetypes.HERMIT_HUT, H, jobs(), 1, 6, 8, 7, 9, 7, 9, SettlementTier.CAMP, cultures(), flags(OUTSKIRTS), List.of(), 1, 0.5));
 
 		ArchetypeCategory N = ArchetypeCategory.NOBLE;
