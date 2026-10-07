@@ -549,8 +549,10 @@ public final class Towers {
 	// ---------------------------------------------------------------------------------------------------- faces
 
 	/**
-	 * A clock face on wall {@code s} centred on cell {@code i} at height {@code yc}: a round white dial (three by three,
-	 * its corners rounded with stairs) with a dark boss, set in the wall plane. {@code small} gives a single dial block.
+	 * A clock face on wall {@code s} centred on cell {@code i} at height {@code yc}: one dial block (dark and gilded on a
+	 * light wall, white on a dark one) in a frame of four stones of the dressing, set in the wall plane: the clock a town
+	 * reads from its square, never a three-wide face (that reads as Big Ben on a village tower). {@code small} gives the
+	 * dial block alone.
 	 */
 	public static void clock(Draft d, Side s, int i, int yc, boolean small) {
 		clock(d, s, i, yc, small, 0);
@@ -561,36 +563,19 @@ public final class Towers {
 		Side s = s0.shifted(out);
 		// a dial that stands out from its wall: dark on light walls, white on dark ones
 		boolean lightWall = light(d.mat(Role.WALL).mainOr(Form.FULL, Blocks.STONE));
-		Fam dial = Fam.of(lightWall ? "minecraft:polished_blackstone" : "minecraft:smooth_quartz", StageKind.WALLS);
-		Block boss = d.tier() >= 4 || lightWall ? Blocks.GOLD_BLOCK : Blocks.POLISHED_BLACKSTONE;
-		Direction right = s.along();
-		Direction left = right.getOpposite();
+		BlockState face = lightWall ? (d.tier() >= 3 ? States.block("minecraft:gilded_blackstone", Blocks.POLISHED_BLACKSTONE)
+			: Blocks.POLISHED_BLACKSTONE).defaultBlockState() : Blocks.CHISELED_QUARTZ_BLOCK.defaultBlockState();
+		Mat frame = d.mat(Role.WALL_ACCENT);
 		try (var st = d.stage(StageKind.WALLS)) {
-			if (small) {
-				d.set(s.x(i), yc, s.z(i), boss.defaultBlockState());
-				return;
-			}
-			for (int dy = -1; dy <= 1; dy++) {
-				for (int di = -1; di <= 1; di++) {
-					int j = i + di;
-					if (j < 0 || j > s.last()) {
-						continue;
+			if (!small) {
+				for (int[] o : new int[][]{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) {
+					int j = i + o[0];
+					if (j >= 0 && j <= s.last()) {
+						d.set(s.x(j), yc + o[1], s.z(j), frame.full());
 					}
-					int x = s.x(j);
-					int z = s.z(j);
-					int y = yc + dy;
-					Paint p;
-					if (di == 0 && dy == 0) {
-						p = Paint.of(boss.defaultBlockState());
-					} else if (di != 0 && dy != 0) {
-						// the corners are left to the wall: a round dial of four arms round its boss
-						continue;
-					} else {
-						p = dial.full();
-					}
-					d.set(x, y, z, p);
 				}
 			}
+			d.set(s.x(i), yc, s.z(i), face);
 		}
 	}
 

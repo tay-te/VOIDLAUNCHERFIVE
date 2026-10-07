@@ -188,10 +188,9 @@ public final class ClockTower implements Archetype {
 		plain(d, t, 2, yc - 1, body, dress);
 		t.course(d, doorTop, false);
 		int clockY = yb - 3;
+		// the shaft's render runs unbroken between the course over the door and the clock's (a course at every stage grids
+		// the face into stone frames round white panels); a tall shaft only takes its lights at two heights
 		int mid = clockY - 3 - doorTop >= 8 ? doorTop + (clockY - 3 - doorTop) / 2 : -1;
-		if (mid > 0) {
-			t.course(d, mid, false);
-		}
 		t.course(d, clockY - 2, false);
 		Paint glass = d.mat(Role.GLASS).pane();
 		for (Side f : t.faces()) {

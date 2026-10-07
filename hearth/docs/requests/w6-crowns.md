@@ -2,17 +2,19 @@
 
 What changed in the kits, so the requests below make sense:
 
-- `Crowns.bulbSkin` sheets every onion and helm in one material laid crisp: dark slate (deepslate tiles) in temperate
+- `Crowns.bulbSkin` sheets every onion and helm in one material laid crisp: blackened sheet (polished deepslate) in temperate
   and wisteria (copper on 12 % of tier-4 towns), copper or the roof's shingle (half and half) in the alpine culture,
   elsewhere the sheet asked for (copper unmixed) or the roof. `Towers.cap(ONION)` draws a helm on three-wide towers and
   where the height is short, an onion with a lantern on five-wide ones.
-- `Shapes.domeRows` is a hemisphere now (about r + 1 rows), `Shapes.onionRows` a waist and a lens-shaped bulb,
+- `Shapes.domeRows` is a hemisphere now (about r + 1 rows), `Shapes.onionRows` a waist, a bulb of round octagons held two rows, a shoulder,
   `Shapes.helmRows` new. `Shapes.stack` makes the middle cell of a whole-centred top row a full block.
 - `Adobe.dome` builds one dome per draft (a second call draws nothing and returns the deck), on a round drum of the
   render with a cornice, the dome flush on it, in `domeSheet`'s lime plaster (`expanse:limestone`, polished diorite
   without Expanse) instead of smooth quartz.
 - `Towers.lathe` only uses round outlines (no square courses).
 - `ClockTower` has five manners (town hall tower, campanile, minaret, drum tower, civic), all with one-block dials.
+- `Towers.clock` (used by the town hall, university, market hall, Bohemian towers, court tower, western chapel) now
+  lays one dial block in a frame of four dressed stones instead of the three-wide plus.
 
 ## plan lane
 

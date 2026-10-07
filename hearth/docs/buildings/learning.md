@@ -114,7 +114,7 @@ the library and the instrument rooms to the observing room: a round drum (on a s
 head, the corners left to the walk) under a smooth hemisphere of one sheet, lead (polished andesite) in the north, the
 west and Bohemia, patinated copper in the mountains, on the coasts and in the tropics, laid to a sphere's section row by
 row (`Shapes.domeRows`) with its slit to the sky and the telescope aimed through it; a gallery round it behind a
-balustrade (piers only at its angles), armillary spheres, a sundial in the forecourt), or in the dry lands, the steppe and the karst the terrace observatory (a stepped
+balustrade (piers only at its angles, nothing on it), a sundial in the forecourt), or in the dry lands, the steppe and the karst the terrace observatory (a stepped
 platform with the library and the instrument store inside, a terrace of instruments on top reached by the great
 gnomon's stair, or by a stair to a pavilion in the karst). Params: `form` (`tower`, `terrace`).
 

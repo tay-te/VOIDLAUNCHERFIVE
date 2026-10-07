@@ -345,19 +345,19 @@ public final class Shapes {
 		}
 		boolean whole = Math.abs(r - Math.floor(r)) < 0.25;
 		if (whole) {
-			// a waist a cell in from the bulb, then the bulb laid as a lens: its rounder outline (corners cut to a diamond)
-			// under and over its widest octagon, so every step of it in and out is a stair, never a held wall of blocks;
-			// the shoulder drawn in to a plus and a slender point two cells tall (the lantern over it is the caller's)
+			// a waist a cell in from the bulb, the bulb held two rows (three on a broad onion), the shoulder drawn in and a
+			// slender point two cells tall (the lantern over it is the caller's); every outline the round octagon nearest a
+			// circle (a diamond's saw-toothed edge reads as a heap at a distance), so the bulb's lower row swells out on
+			// upside-down stairs and its upper row draws in on stairs, never a held wall of blocks
 			int k = (int) Math.round(r);
-			rows.add(oct(cx, cz, k - 1, k - 1));
-			rows.add(oct(cx, cz, k, k));
-			rows.add(oct(cx, cz, k, k - 1));
+			rows.add(oct(cx, cz, k - 1, round(k - 1)));
+			rows.add(oct(cx, cz, k, round(k)));
+			rows.add(oct(cx, cz, k, round(k)));
 			if (k >= 4) {
-				rows.add(oct(cx, cz, k, k - 1));
+				rows.add(oct(cx, cz, k, round(k)));
 			}
-			rows.add(oct(cx, cz, k, k));
-			if (k >= 3) {
-				rows.add(oct(cx, cz, k - 1, k - 1));
+			for (int j = k - 1; j >= 2; j--) {
+				rows.add(oct(cx, cz, j, round(j)));
 			}
 			rows.add(oct(cx, cz, 1, 1));
 			Set<Long> point = oct(cx, cz, 0, 0);

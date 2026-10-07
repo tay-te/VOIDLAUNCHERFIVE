@@ -197,7 +197,8 @@ public final class Crowns {
 	 */
 	public static Stone bulbSkin(Draft d, @org.jspecify.annotations.Nullable Stone sheet) {
 		dev.voidmc.hearth.api.Culture c = d.style().culture();
-		Stone slate = Stone.fixed(d, StageKind.ROOF, "minecraft:deepslate_tiles");
+		// blackened sheet: polished deepslate, smooth (the cracked tiles' texture on a small curved form reads as a heap)
+		Stone slate = Stone.fixed(d, StageKind.ROOF, "minecraft:polished_deepslate");
 		Stone copper = Stone.copper(d).crisp();
 		long h = dev.voidmc.hearth.build.draft.Noise.hash(d.seed(), 0x0410);
 		double roll = (h >>> 11) * 0x1.0p-53;

@@ -49,9 +49,9 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  *   Mediterranean, bayou and the tropics): a tower nine or eleven across, square with dressed corners where the culture
  *   squares its towers, eight-sided where it rounds them, on a chamfered plinth, a string course at every floor, a newel
  *   stair winding up its middle through the library on the ground floor and the instrument rooms over it to the
- *   observing room under a dome of green copper (terracotta in the south) with its slit to the sky and the telescope
+ *   observing room under a smooth dome of lead or copper on a round drum with its slit to the sky and the telescope
  *   aimed through it. A gallery runs round the domed room behind a balustrade: corbelled out past the walls where the
- *   plot leaves room, else on the tower's head round a smaller domed lantern. Armillary spheres stand on its corners; a
+ *   plot leaves room, else on the tower's head round a smaller domed lantern. A
  *   sundial lies in the forecourt.</li>
  *   <li><b>The terrace observatory</b> (desert, mesa, steppe, karst): a massive platform of two stepped storeys (the
  *   library and the instrument store inside), its roof a terrace of instruments behind a parapet: armillary spheres of
@@ -356,7 +356,7 @@ public final class Observatory implements Archetype {
 	/**
 	 * The top: the observing room's walls carried up from the last floor, the gallery round it on corbels (or, where the
 	 * plot leaves no room round the tower, a balcony on the front), the doors out to it, the dome with its slit and the
-	 * telescope aimed through it, armillary spheres on the gallery's angles. Returns the top row.
+	 * telescope aimed through it. Returns the top row.
 	 */
 	private static int top(Draft d, Plan p, Tradition t, Stone body, Stone dress, int top) {
 		int ft = p.floors[p.floors.length - 1];
@@ -451,16 +451,9 @@ public final class Observatory implements Archetype {
 				break;
 			}
 		}
-		// armillary spheres on the gallery's front angles
+		// no instruments on the balustrade: bronze rings on its angles read from the street as copper cubes on crenels (the
+		// armillary stands in the instrument room below)
 		if (p.outer) {
-			for (long c : gallery) {
-				int x = (int) (c >> 32);
-				int z = (int) c;
-				if (z <= p.cz - p.r && angleOf(all, x, z) && Math.abs(x - p.cx) >= 2 && ft + 3 <= top && d.isSolid(x, ft, z)) {
-					Instruments.armillary(d, x, ft + 1, z);
-					peak = Math.max(peak, ft + 3);
-				}
-			}
 			d.poi(PoiType.VIEWPOINT, p.cx + 1, ft, p.cz - rr - 1, Dirs.FRONT);
 			d.poi(PoiType.VIEWPOINT, p.cx - rr - 1, ft, p.cz + 1, Dirs.LEFT);
 			d.poi(PoiType.VIEWPOINT, p.cx + rr + 1, ft, p.cz - 1, Dirs.RIGHT);
