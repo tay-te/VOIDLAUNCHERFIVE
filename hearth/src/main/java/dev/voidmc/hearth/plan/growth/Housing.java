@@ -67,6 +67,11 @@ public final class Housing {
 				return true;
 			}
 		}
+		// a cliff town houses its commoners in the quarter climbing the face behind the square (CliffFace) first
+		if (layout == LayoutType.CLIFF && commoner && ctx.random.nextDouble() < 0.8
+			&& Stacks.face(ctx, homeParams(ctx, station, ledger), "housing: a cliff dwelling in the face for " + deficit + " without beds")) {
+			return true;
+		}
 		boolean farmer = station == null || station == Station.PEASANT || station == Station.POOR && ctx.tier.ordinal() < SettlementTier.TOWN.ordinal();
 		if ((layout == LayoutType.FARMSTEADS || ctx.state.signature.fieldFan) && ctx.population >= 6 && farmer) {
 			// an expansive settlement keeps a small hamlet at its heart and spreads its homes as farmsteads
