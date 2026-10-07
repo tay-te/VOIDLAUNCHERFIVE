@@ -6,6 +6,7 @@
 		"ChunkMapMixin",
 		"EarthCarversMixin",
 		"FrogSpawnMixin",
+		"HearthStructureSetMixin",
 		"JigsawStructureAccessor",
 		"MineshaftStructureMixin",
 		"OverworldBiomeBuilderMixin",

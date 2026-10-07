@@ -46,6 +46,10 @@ import net.minecraft.world.level.levelgen.structure.structures.JigsawStructure;
  * set's placement grid, which is arithmetic, but it also asks the biome, so a temple's grid points out
  * in the wrong biome, where no temple will ever stand, don't push anything away.
  * The grid cell then simply has no structure, as when the biome is wrong.
+ *
+ * <p>With {@code peopled}, a place folk live and work in (a hamlet, a harbour, a mine camp): VOID Hearth builds living
+ * versions of these, so with Hearth installed it never finds a site. A shared set then tries its other members in its
+ * place, and no sight keeps clear of where it would have stood. Played alone, the Expanse keeps it.
  */
 public final class SitedJigsawStructure extends Structure {
 	private record Avoid(Identifier set, int radius) {
@@ -60,27 +64,37 @@ public final class SitedJigsawStructure extends Structure {
 		Codec.intRange(1, 128).optionalFieldOf("max_relief", 12).forGetter(s -> s.maxRelief),
 		Codec.BOOL.optionalFieldOf("allow_water", false).forGetter(s -> s.allowWater),
 		Avoid.CODEC.listOf().optionalFieldOf("avoid", List.of()).forGetter(s -> s.avoid),
-		Codec.BOOL.optionalFieldOf("in_cavern", false).forGetter(s -> s.inCavern)
+		Codec.BOOL.optionalFieldOf("in_cavern", false).forGetter(s -> s.inCavern),
+		Codec.BOOL.optionalFieldOf("peopled", false).forGetter(s -> s.peopled)
 	).apply(i, SitedJigsawStructure::new));
 	public static final StructureType<SitedJigsawStructure> TYPE = () -> CODEC;
 	/** How far from the start point to look: the footprint of a small structure. */
 	private static final int REACH = 8;
 	/** How far below the ground round it the start may sit. */
 	private static final int MAX_SINK = 4;
+	/** Whether VOID Hearth peoples the land (or {@code -Dexpanse.dev.hearth=true}, to see the world as it would). */
+	private static final boolean HEARTH = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("hearth") || Boolean.getBoolean("expanse.dev.hearth");
 
 	private final JigsawStructure jigsaw;
 	private final int maxRelief;
 	private final boolean allowWater;
 	private final List<Avoid> avoid;
 	private final boolean inCavern;
+	private final boolean peopled;
 
-	private SitedJigsawStructure(JigsawStructure jigsaw, int maxRelief, boolean allowWater, List<Avoid> avoid, boolean inCavern) {
+	private SitedJigsawStructure(JigsawStructure jigsaw, int maxRelief, boolean allowWater, List<Avoid> avoid, boolean inCavern, boolean peopled) {
 		super(new StructureSettings(jigsaw.biomes(), jigsaw.spawnOverrides(), jigsaw.step(), jigsaw.terrainAdaptation()));
 		this.jigsaw = jigsaw;
 		this.maxRelief = maxRelief;
 		this.allowWater = allowWater;
 		this.avoid = List.copyOf(avoid);
 		this.inCavern = inCavern;
+		this.peopled = peopled;
+	}
+
+	/** Whether this stands down for VOID Hearth's living settlements. */
+	public boolean givenToHearth() {
+		return this.peopled && HEARTH;
 	}
 
 	public static void init() {
@@ -89,6 +103,9 @@ public final class SitedJigsawStructure extends Structure {
 
 	@Override
 	protected Optional<GenerationStub> findGenerationPoint(GenerationContext context) {
+		if (this.givenToHearth()) {
+			return Optional.empty();
+		}
 		if (this.inCavern) {
 			return this.inHall(context);
 		}
@@ -188,6 +205,9 @@ public final class SitedJigsawStructure extends Structure {
 		int y = height(context, x, z, Heightmap.Types.WORLD_SURFACE_WG);
 		Holder<Biome> biome = context.biomeResolver().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z));
 		for (StructureSet.StructureSelectionEntry entry : set.structures()) {
+			if (entry.structure().value() instanceof SitedJigsawStructure s && s.givenToHearth()) {
+				continue;
+			}
 			if (entry.structure().value().biomes().contains(biome)) {
 				return true;
 			}
