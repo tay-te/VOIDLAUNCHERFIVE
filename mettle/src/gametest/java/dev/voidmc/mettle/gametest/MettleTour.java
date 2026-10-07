@@ -110,9 +110,10 @@ public class MettleTour implements FabricClientGameTest {
 				throw new AssertionError(problem);
 			}
 
+			// Progress moments first, while the character is fresh (it is put back as it was).
+			MomentJourney.run(context, world);
 			signaturePerks(world);
 			miningJourney(world);
-			MomentJourney.run(context, world);
 			BladesJourney.run(world);
 			HeavyWeaponsJourney.run(world);
 			MarksmanshipJourney.run(world);

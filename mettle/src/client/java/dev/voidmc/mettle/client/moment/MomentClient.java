@@ -44,6 +44,8 @@ public final class MomentClient {
 	private static long lastTickAt = -1;
 	private static boolean joinChecked;
 	private static int toastsDrawn;
+	/** "kind subject" of every moment received since {@link #resetForTest}, for the client tour. */
+	private static final java.util.List<String> RECEIVED = new java.util.ArrayList<>();
 
 	private MomentClient() {
 	}
@@ -58,6 +60,7 @@ public final class MomentClient {
 	static void receive(Minecraft mc, MettlePayloads.Moment m) {
 		long now = Util.getMillis();
 		COVERED.put(m.feedbackId(), now);
+		RECEIVED.add(m.kind().serializedName() + " " + m.feedbackId());
 		JsonObject json = json(m);
 		OverlayBridge.push("mettleMoment", json);
 		MettleState.rememberMoment(json);
@@ -161,7 +164,19 @@ public final class MomentClient {
 	public static void resetForTest() {
 		QUEUE.clear();
 		THROTTLE.clear();
+		RECEIVED.clear();
 		toastsDrawn = 0;
+	}
+
+	/** Every moment received since {@link #resetForTest}, as "kind id" ("tier mettle:level/mining"). */
+	public static java.util.List<String> received() {
+		return java.util.List.copyOf(RECEIVED);
+	}
+
+	/** The toast on screen now as "kind subject" ("learned mettle:mining/quarryman"), or null. */
+	public static String showingKey() {
+		MomentQueue.Entry e = QUEUE.current();
+		return e == null ? null : e.kind().serializedName() + " " + (e.perk() != null ? e.perk() : e.skill() != null ? e.skill() : "character");
 	}
 
 	public static java.util.Set<MomentKind> seenKinds() {
