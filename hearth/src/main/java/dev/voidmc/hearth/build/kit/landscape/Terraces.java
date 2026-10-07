@@ -14,7 +14,8 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * Laying out open ground on a slope as a few level terraces from the street back, each a band of rows, rather than one
  * platform cut deep into the hill or banked high above it: the front terrace meets the street, the ones behind follow
  * the ground up (or down) by at most three blocks a step, each held by a retaining wall of the foundation stone with a
- * coping on top, and a flight of steps where a path climbs from one to the next.
+ * coping on top (a parapet where the wall stands three or more), and a flight of steps where a path climbs from one to
+ * the next.
  */
 public final class Terraces {
 	private Terraces() {
@@ -96,10 +97,12 @@ public final class Terraces {
 					}
 				}
 			}
-			// a coping course on the wall's top edge, so nobody walks off the terrace unawares
+			// a coping course on the wall's top edge, so nobody walks off the terrace unawares; over a drop of three or more
+			// a parapet (a wall of the masonry) instead, which nobody steps up onto
+			boolean parapet = hi - lo >= 3 && cap.has(Form.WALL);
 			try (var s = d.stage(StageKind.EXTERIOR)) {
 				for (int x = x0; x <= x1; x++) {
-					d.set(x, hi, wz, cap.has(Form.SLAB) ? cap.slab(SlabType.BOTTOM) : cap.full());
+					d.set(x, hi, wz, parapet ? cap.wall() : cap.has(Form.SLAB) ? cap.slab(SlabType.BOTTOM) : cap.full());
 				}
 			}
 		}
