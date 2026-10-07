@@ -340,5 +340,5 @@ public final class MapArt {
 	}
 
 	/** The art's version, for images drawn with another (they are drawn again). */
-	public static final int VERSION = 9_002;
+	public static final int VERSION = 9_003;
 }

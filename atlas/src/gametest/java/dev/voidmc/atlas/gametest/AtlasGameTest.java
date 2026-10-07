@@ -1443,7 +1443,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 			}
 		});
 		long deadline = System.currentTimeMillis() + 90_000;
-		while (System.currentTimeMillis() < deadline && context.computeOnClient(mc -> AtlasClient.get().farSight.pendingCount()) > 0) {
+		// until every coarse tile of the burst is written (fine tiles still waiting on the disk do not count here)
+		while (System.currentTimeMillis() < deadline && dev.voidmc.atlas.client.FarSight.COARSE_TILES.get() - tiles0 < count) {
 			context.waitTicks(2);
 		}
 		double drain = (System.nanoTime() - t0) / 1e9;
@@ -1455,7 +1456,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 			var l = d == null ? null : d.layerIfOpen(dev.voidmc.atlas.client.FarSight.COARSE_LAYER);
 			return l == null ? 0.0 : l.rawsInMemory();
 		});
-		log(String.format(Locale.ROOT, "coarse far store: %d tiles at %.2f ms on the workers, %d samples, none waiting after %.2f s, %.0f pages in memory",
+		log(String.format(Locale.ROOT, "coarse far store: %d tiles at %.2f ms on the workers, %d samples, all written after %.2f s, %.0f pages in memory",
 			tiles, ms, dev.voidmc.atlas.client.FarSight.COARSE_SAMPLES.get() - samples0, drain, raws));
 		return new double[]{tiles, ms, dev.voidmc.atlas.client.FarSight.COARSE_SAMPLES.get() - samples0, drain, raws};
 	}

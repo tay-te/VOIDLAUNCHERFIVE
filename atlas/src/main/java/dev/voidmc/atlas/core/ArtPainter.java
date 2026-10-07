@@ -407,8 +407,8 @@ final class ArtPainter {
 					// land was already calmed towards its biome; water quietened here
 					lab[0] *= 0.88F;
 					if (kind == 1) {
-						lab[1] *= 0.7F;
-						lab[2] *= 0.7F;
+						lab[1] *= 0.85F;
+						lab[2] *= 0.85F;
 					}
 				} else if (mode == TileRenderer.Mode.SHARED) {
 					lab[0] = 0.45F + (lab[0] - 0.45F) * 0.8F;

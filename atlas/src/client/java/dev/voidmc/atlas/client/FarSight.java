@@ -463,8 +463,9 @@ public final class FarSight {
 			String name = t.blocks() == null ? null : t.blocks()[k];
 			boolean water = "minecraft:water".equals(name) || looksLikeWater(t.colours()[k]) && (name == null || !name.contains("ice"));
 			blocks[k] = blockIds.computeIfAbsent(name == null || water ? FarColour.name(t.colours()[k]) : name, session.blockNames::id);
-			depths[k] = (byte) (water ? 4 : 0);
 			String biomeName = t.biomes() == null ? null : t.biomes()[k];
+			// LOD does not say how deep its water is: the sea as deep as its biome says, so it meets walked sea in step
+			depths[k] = (byte) (!water ? 0 : biomeName == null ? 4 : biomeName.contains("deep") ? 24 : biomeName.contains("ocean") ? 12 : 4);
 			biomes[k] = biomeName == null ? NamePalette.NONE : biomeIds.computeIfAbsent(biomeName, session.biomeNames::id);
 		}
 	}
@@ -493,8 +494,9 @@ public final class FarSight {
 			boolean water = "minecraft:water".equals(name) || looksLikeWater(t.colours()[k]) && (name == null || !name.contains("ice"));
 			// no block, or water (whose bed LOD does not say): the colour LOD drew, through the far names
 			blocks[k] = blockIds.computeIfAbsent(name == null || water ? FarColour.name(t.colours()[k]) : name, session.blockNames::id);
-			depths[k] = (byte) (water ? 4 : 0);
 			String biomeName = t.biomes() == null ? null : t.biomes()[k];
+			// LOD does not say how deep its water is: the sea as deep as its biome says, so it meets walked sea in step
+			depths[k] = (byte) (!water ? 0 : biomeName == null ? 4 : biomeName.contains("deep") ? 24 : biomeName.contains("ocean") ? 12 : 4);
 			biomes[k] = biomeName == null ? NamePalette.NONE : biomeIds.computeIfAbsent(biomeName, session.biomeNames::id);
 		}
 		int span = n * scale;
