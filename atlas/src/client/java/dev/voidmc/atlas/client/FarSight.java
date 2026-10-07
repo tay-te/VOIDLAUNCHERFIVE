@@ -62,6 +62,8 @@ public final class FarSight {
 	public static final long RUN_BUDGET_NANOS = 4_000_000L;
 	/** Tiles waiting to be written, at most; past it some waiting are dropped (LOD sends them again when redrawn). */
 	public static final int MAX_PENDING = 512;
+	/** The far layer's raw regions kept in memory, at most (each is about 2.4 MB); the rest are saved and let go. */
+	public static final int MAX_RAWS = 48;
 
 	/** For the perf log: tiles taken and written, columns written, worker time, and time on LOD's thread. */
 	public static final AtomicLong TAKEN = new AtomicLong();
@@ -339,6 +341,10 @@ public final class FarSight {
 		}
 		if (minX <= maxX) {
 			far.dirty(minX, minZ, maxX + 1, maxZ + 1);
+		}
+		if (far.rawsInMemory() > MAX_RAWS) {
+			// far land reaches wide: what is not being drawn goes to disk, so memory stays small
+			far.saveAndTrim(0, MAX_RAWS / 2, MAX_RAWS / 2, false);
 		}
 		TILES.incrementAndGet();
 		SAMPLES.addAndGet(written);

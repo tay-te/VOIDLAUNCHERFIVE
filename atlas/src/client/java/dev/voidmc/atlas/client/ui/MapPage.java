@@ -181,8 +181,13 @@ public final class MapPage {
 		this.hoverX = interactive && f.inside(mouseX, mouseY) ? mouseX : Float.NaN;
 		this.hoverY = mouseY;
 		this.aboveOrBelow(ui, f);
-		this.landHover(ui, f);
-		this.readout(ui, this.mapX + 16, this.mapY + 16);
+		if (this.map.biomeLook()) {
+			this.biomeHover(ui, f);
+		} else {
+			this.landHover(ui, f);
+		}
+		float rw = this.readout(ui, this.mapX + 16, this.mapY + 16);
+		this.lookToggle(ui, this.mapX + 16 + rw + 10, this.mapY + 16 + 8.5F, mouseX, mouseY);
 		this.north(ui, this.mapX + this.mapW - 48, this.mapY + 16);
 		this.layers(ui, this.mapX + 16, this.mapY + this.mapH - 55, mouseX, mouseY);
 		this.zoomControl(ui, this.mapX + this.mapW - 52, this.mapY + this.mapH - 116, mouseX, mouseY);
@@ -308,18 +313,17 @@ public final class MapPage {
 	}
 
 	/** The readout: the named region (or biome) the player is in, its source, the position and the heading. */
-	private void readout(Ui ui, float x, float y) {
+	private float readout(Ui ui, float x, float y) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer p = mc.player;
 		if (p == null) {
-			return;
+			return 0;
 		}
 		String[] biome = this.atlas.biomeAt(p.blockPosition());
 		Place region = this.atlas.regionHere();
 		if (region != null && this.map.kind == MapPanel.Kind.SURFACE && region.source().kind() == Source.Kind.PLUGIN) {
 			// a mod named the land (Expanse): its name leads, with the source chip, and the biome moves to the second line
-			this.namedReadout(ui, x, y, p, region, biome[0]);
-			return;
+			return this.namedReadout(ui, x, y, p, region, biome[0]);
 		}
 		String name = region != null && this.map.kind == MapPanel.Kind.SURFACE ? region.name() : biome[0];
 		String tag = region != null && region.source().kind() == Source.Kind.PLUGIN ? region.source().label() : biome[1];
@@ -343,10 +347,11 @@ public final class MapPage {
 		cx = this.coord(ui, "Z", bz, cx, ty);
 		ui.round(cx, ty + 4.5F, 6, 6, 1.8F, Theme.alpha(Theme.VIOLET, 0.95F));
 		ui.text(facing, cx + 11, ty + 0.5F, Ui.Font.F11, Theme.INK_2);
+		return w;
 	}
 
 	/** The readout of a region a mod named (atlas/readout, mod region): "Woodland Glades  [from Expanse]" over "FOREST · X 412 Y 71 Z -1288 · NE". */
-	private void namedReadout(Ui ui, float x, float y, LocalPlayer p, Place region, String biome) {
+	private float namedReadout(Ui ui, float x, float y, LocalPlayer p, Place region, String biome) {
 		String name = region.name();
 		String line = biome.toUpperCase(java.util.Locale.ROOT) + "  ·  X " + minus(p.getBlockX()) + "  Y " + minus(p.getBlockY()) + "  Z " + minus(p.getBlockZ())
 			+ "  ·  " + facing(p.getYRot());
@@ -358,6 +363,7 @@ public final class MapPage {
 		ui.text(name, x + 15, y + 11, Ui.Font.F13, Theme.INK);
 		MarkerPainter.smallSourceChip(ui, region.source(), x + 15 + ui.width(name, Ui.Font.F13) + 10, y + 9);
 		ui.text(line, x + 15, y + 35, Ui.Font.F85, 1, Theme.INK_4);
+		return w;
 	}
 
 	private float coord(Ui ui, String axis, String value, float x, float y) {
@@ -617,7 +623,11 @@ public final class MapPage {
 		float top = y + 48;
 		float bottom = this.listY + this.listH;
 		if (this.rightTab == 1) {
-			this.legend(ui, x, top, bottom, mx, my);
+			if (this.map.biomeLook()) {
+				this.biomeLegend(ui, x, top, bottom, mx, my, false);
+			} else {
+				this.legend(ui, x, top, bottom, mx, my);
+			}
 			return;
 		}
 		if (this.rightTab == 2) {
@@ -969,6 +979,313 @@ public final class MapPage {
 		return y + 108 + 14;
 	}
 
+	// --- the biome view (Figma 395:19901 biome view, 405:29739 highlight and hover, 395:20093 underground, 395:20189 Nether) --
+
+	/** One biome on the map: how much of it is explored (columns), and its nearest explored column to the player. */
+	private record BiomeCount(int biome, String id, long columns, int nearX, int nearZ) {
+	}
+
+	private volatile List<BiomeCount> census = List.of();
+	private long censusAt;
+	private String censusKey = "";
+	private final java.util.concurrent.atomic.AtomicBoolean censusRunning = new java.util.concurrent.atomic.AtomicBoolean();
+	private final TextField biomeSearch = new TextField(40);
+
+	/** The biomes of the layer shown, counted on a worker at most every three seconds (from the regions in memory). */
+	private List<BiomeCount> census() {
+		MapSession session = this.atlas.session();
+		LayerData layer = this.map.layer(this.map.kind);
+		long now = System.currentTimeMillis();
+		String key = this.map.lookKey() + "|" + (layer == null ? "" : layer.name);
+		if (session != null && layer != null && (now - this.censusAt > 3000 || !key.equals(this.censusKey)) && this.censusRunning.compareAndSet(false, true)) {
+			this.censusAt = now;
+			this.censusKey = key;
+			LocalPlayer p = Minecraft.getInstance().player;
+			double px = p == null ? 0 : p.getX();
+			double pz = p == null ? 0 : p.getZ();
+			try {
+				session.workers.execute(() -> {
+					try {
+						java.util.Map<Integer, long[]> counts = new java.util.HashMap<>();
+						for (long k : layer.regionKeys()) {
+							RegionRaw raw = layer.rawIfLoaded(Coords.unpackX(k), Coords.unpackZ(k));
+							if (raw == null) {
+								continue;
+							}
+							int ox = raw.x << Coords.REGION_SHIFT;
+							int oz = raw.z << Coords.REGION_SHIFT;
+							for (int i = 0; i < RegionRaw.AREA; i++) {
+								if (!raw.known(i) || (raw.flags[i] & RegionRaw.ROCK) != 0) {
+									continue;
+								}
+								long[] c = counts.computeIfAbsent((int) raw.biome[i], b -> new long[]{0, Long.MAX_VALUE, 0, 0});
+								c[0]++;
+								if ((i & 63) == 0) {
+									int bx = ox + (i & (RegionRaw.SIZE - 1));
+									int bz = oz + (i >> Coords.REGION_SHIFT);
+									long d = (long) ((bx - px) * (bx - px) + (bz - pz) * (bz - pz));
+									if (d < c[1]) {
+										c[1] = d;
+										c[2] = bx;
+										c[3] = bz;
+									}
+								}
+							}
+						}
+						var looks = session.looks();
+						List<BiomeCount> out = new ArrayList<>();
+						for (var e : counts.entrySet()) {
+							String id = looks == null ? null : looks.biomeName(e.getKey());
+							if (id != null) {
+								long[] c = e.getValue();
+								out.add(new BiomeCount(e.getKey(), id, c[0], (int) c[2], (int) c[3]));
+							}
+						}
+						out.sort(Comparator.comparingLong((BiomeCount b) -> -b.columns()));
+						this.census = out;
+					} finally {
+						this.censusRunning.set(false);
+					}
+				});
+			} catch (RuntimeException e) {
+				this.censusRunning.set(false);
+			}
+		}
+		return this.census;
+	}
+
+	private static String km2(long columns) {
+		double km = columns / 1_000_000.0;
+		return km >= 10 ? String.format(Locale.ROOT, "%.0f km²", km) : km >= 0.995 ? String.format(Locale.ROOT, "%.1f km²", km)
+			: String.format(Locale.ROOT, "%.2f km²", km);
+	}
+
+	private static int fillOf(String biomeId, dev.voidmc.atlas.client.@Nullable BlockLooks looks, int biome) {
+		int rgb = dev.voidmc.atlas.core.MapArt.vanillaFill(biomeId);
+		if (rgb < 0 && looks != null) {
+			rgb = dev.voidmc.atlas.core.MapArt.moddedFill(looks.grass(biome), looks.foliage(biome));
+		}
+		return rgb < 0 ? 0x55554C : rgb;
+	}
+
+	/**
+	 * The map look toggle (atlas/map look): Terrain or Biomes, beside the readout; B switches it. Returns its width.
+	 */
+	private float lookToggle(Ui ui, float x, float y, float mx, float my) {
+		boolean biomes = this.map.biomeLook();
+		String[] labels = {"Terrain", "Biomes"};
+		float w0 = 28 + ui.width(labels[0], Ui.Font.F13);
+		float w1 = 28 + ui.width(labels[1], Ui.Font.F13);
+		float w = 8 + w0 + 2 + w1;
+		ui.panel(x, y, w, 42, 14, Theme.ISLAND, Theme.HAIR_8);
+		float sx = x + 4;
+		for (int i = 0; i < 2; i++) {
+			float sw = i == 0 ? w0 : w1;
+			boolean active = (i == 1) == biomes;
+			if (active) {
+				ui.panel(sx, y + 5, sw, 32, 10, Theme.RAISED, Theme.HAIR_8);
+			} else if (mx >= sx && mx <= sx + sw && my >= y + 5 && my <= y + 37) {
+				ui.round(sx, y + 5, sw, 32, 10, Theme.WELL);
+			}
+			ui.text(labels[i], sx + 14, y + 12, Ui.Font.F13, active ? Theme.INK : Theme.INK_2);
+			boolean on = i == 1;
+			this.hit(sx, y + 5, sw, 32, () -> this.map.setBiomeLook(on));
+			sx += sw + 2;
+		}
+		return w;
+	}
+
+	/**
+	 * The Legend in the biome view: a search ("Find: Cherry Grove"), then the biomes by family with their explored
+	 * area; clicking a row highlights its family (the rest dims), clicking it again lets it go.
+	 */
+	private void biomeLegend(Ui ui, float x, float top, float bottom, float mx, float my, boolean caves) {
+		var session = this.atlas.session();
+		var looks = session == null ? null : session.looks();
+		List<BiomeCount> all = this.census();
+		dev.voidmc.atlas.core.MapArt.Family highlight = this.atlas.biomeHighlight;
+		float y = top;
+		if (!caves) {
+			// the search
+			boolean focused = this.biomeSearch.focused;
+			ui.panel(x, y, LIST_W, 38, 12, Theme.WELL, focused ? Theme.HAIR_16 : Theme.HAIR_6);
+			Icons.search(ui, x + 14, y + 11.5F, Theme.INK_3);
+			if (highlight != null && this.biomeSearch.text.isEmpty() && !focused) {
+				ui.text(highlight.label + " highlighted  ·  Esc clears", x + 38, y + 11, Ui.Font.F12, Theme.INK_2);
+			} else {
+				this.biomeSearch.placeholder = "Find: Cherry Grove";
+				ui.flush();
+				ui.g.enableScissor((int) (x + 36), (int) y, (int) (x + LIST_W - 36), (int) (y + 38));
+				this.biomeSearch.draw(ui, x + 38, y + 11, LIST_W - 80, Ui.Font.F12, Theme.INK, Theme.INK_4);
+				ui.flush();
+				ui.g.disableScissor();
+			}
+			kitKey(ui, "/", x + LIST_W - 30, y + 10);
+			this.hit(x, y, LIST_W, 38, () -> this.biomeSearch.focused = true);
+			y += 38 + 14;
+		}
+		String query = this.biomeSearch.text.strip().toLowerCase(Locale.ROOT);
+		java.util.Map<dev.voidmc.atlas.core.MapArt.Family, List<BiomeCount>> byFamily = new java.util.EnumMap<>(dev.voidmc.atlas.core.MapArt.Family.class);
+		for (BiomeCount b : all) {
+			var fam = dev.voidmc.atlas.core.MapArt.family(b.id());
+			if (caves && fam != dev.voidmc.atlas.core.MapArt.Family.CAVES) {
+				continue;
+			}
+			if (!query.isEmpty() && !dev.voidmc.atlas.core.MapArt.biomeLabel(b.id()).toLowerCase(Locale.ROOT).contains(query)) {
+				continue;
+			}
+			byFamily.computeIfAbsent(fam, f -> new ArrayList<>()).add(b);
+		}
+		// families by explored area, the highlighted one first; as many as fit, the rest named in a line
+		List<dev.voidmc.atlas.core.MapArt.Family> order = new ArrayList<>(byFamily.keySet());
+		order.sort(Comparator.comparingInt((dev.voidmc.atlas.core.MapArt.Family f) -> f == highlight ? 0 : 1)
+			.thenComparingLong(f -> -byFamily.get(f).stream().mapToLong(BiomeCount::columns).sum()));
+		ui.flush();
+		ui.g.enableScissor((int) x - 2, (int) top, (int) (x + LIST_W + 2), (int) bottom);
+		List<String> rest = new ArrayList<>();
+		for (var fam : order) {
+			List<BiomeCount> rows = byFamily.get(fam);
+			if (y + 22 + rows.size() * 36 > bottom - 40) {
+				rest.add(fam.label);
+				continue;
+			}
+			ui.text((caves ? "CAVE BIOMES  ·  AT THIS DEPTH" : fam.label.toUpperCase(Locale.ROOT) + "  ·  " + rows.size()), x + 4, y + 6, Ui.Font.F85, 1,
+				Theme.INK_4);
+			y += 24;
+			boolean famOn = highlight == null || highlight == fam;
+			for (BiomeCount b : rows) {
+				boolean hl = highlight == fam;
+				boolean hover = mx >= x && mx <= x + LIST_W && my >= y && my <= y + 32 && my >= top && my <= bottom;
+				if (hl) {
+					ui.panel(x, y, LIST_W, 32, 10, Theme.RAISED, Theme.HAIR_10);
+				} else if (hover) {
+					ui.round(x, y, LIST_W, 32, 10, Theme.ISLAND);
+				}
+				int fill = fillOf(b.id(), looks, b.biome());
+				ui.round(x + 12, y + 9, 14, 14, 4, (famOn ? 0xFF000000 : 0x66000000) | fill);
+				ui.border(x + 12, y + 9, 14, 14, 4, 0, Theme.HAIR_10);
+				String name = dev.voidmc.atlas.core.MapArt.biomeLabel(b.id());
+				ui.text(ui.fit(name, Ui.Font.F12, LIST_W - 150), x + 36, y + 8, Ui.Font.F12, famOn ? Theme.INK : Theme.INK_4);
+				if (!b.id().startsWith("minecraft:")) {
+					// a mod's biome says whose it is
+					dev.voidmc.atlas.api.Source src = dev.voidmc.atlas.api.Source.plugin(b.id().substring(0, b.id().indexOf(':')));
+					MarkerPainter.smallSourceChip(ui, src, x + 36 + Math.min(ui.width(name, Ui.Font.F12), LIST_W - 150) + 8, y + 6);
+				}
+				ui.textRight(km2(b.columns()), x + LIST_W - 12, y + 9, Ui.Font.F105, 0, famOn ? Theme.INK_2 : Theme.INK_4);
+				if (y + 32 > top && y < bottom) {
+					var f = fam;
+					this.hit(x, Math.max(y, top), LIST_W, Math.min(y + 32, bottom) - Math.max(y, top), () -> {
+						this.atlas.biomeHighlight = this.atlas.biomeHighlight == f ? null : f;
+						if (!query.isEmpty() && b.columns() > 0) {
+							this.map.centreOn(b.nearX(), b.nearZ());
+						}
+					});
+				}
+				y += 36;
+			}
+			y += 6;
+		}
+		if (!rest.isEmpty()) {
+			String line = String.join(", ", rest.subList(0, Math.min(3, rest.size()))) + (rest.size() > 3 ? " and " + (rest.size() - 3) + " more families" : "");
+			ui.text(ui.fit(line, Ui.Font.F105, LIST_W), x + 2, y + 2, Ui.Font.F105, Theme.INK_3);
+			y += 20;
+		}
+		if (!query.isEmpty() && byFamily.isEmpty()) {
+			ui.text("No " + this.biomeSearch.text.strip() + " explored yet", x + 4, y + 4, Ui.Font.F11, Theme.INK_3);
+			y += 20;
+		}
+		if (caves) {
+			ui.text("Other cave floors take the biome of the land above, drawn", x + 2, y + 2, Ui.Font.F105, Theme.INK_3);
+			ui.text("quieter: half the lightness range, a third of the colour.", x + 2, y + 16, Ui.Font.F105, Theme.INK_3);
+			ui.text("Walls and rock keep the cave look; only floors are filled.", x + 2, y + 32, Ui.Font.F105, Theme.INK_3);
+		} else if (this.map.kind == MapPanel.Kind.NETHER) {
+			ui.text("Lava seas keep their biome fill, 30% darker, so the shore", x + 2, y + 2, Ui.Font.F105, Theme.INK_3);
+			ui.text("still reads.", x + 2, y + 16, Ui.Font.F105, Theme.INK_3);
+		}
+		ui.flush();
+		ui.g.disableScissor();
+	}
+
+	private static void kitKey(Ui ui, String key, float x, float y) {
+		float w = ui.width(key, Ui.Font.F85, 0.5F) + 12;
+		ui.panel(x, y, w, 17, 5, 0x8C0B0B0C, Theme.HAIR_10);
+		ui.text(key, x + 6, y + 3, Ui.Font.F85, 0.5F, Theme.INK_4);
+	}
+
+	/** The biome under the cursor (atlas/biome hover): its name, family, explored area and climate in words. */
+	private void biomeHover(Ui ui, MapRenderer.Frame f) {
+		if (Float.isNaN(this.hoverX) || this.map.hovered != null) {
+			return;
+		}
+		MapSession session = this.atlas.session();
+		LayerData layer = this.map.layer(this.map.kind);
+		if (session == null || layer == null || session.looks() == null) {
+			return;
+		}
+		int bx = (int) Math.floor(f.mapX(this.hoverX, this.hoverY));
+		int bz = (int) Math.floor(f.mapZ(this.hoverX, this.hoverY));
+		RegionRaw raw = layer.rawIfLoaded(Coords.region(bx), Coords.region(bz));
+		int i = RegionRaw.index(Coords.inRegion(bx), Coords.inRegion(bz));
+		if (raw == null || !raw.known(i)) {
+			return;
+		}
+		int biome = raw.biome[i];
+		String id = session.looks().biomeName(biome);
+		if (id == null) {
+			return;
+		}
+		String name = dev.voidmc.atlas.core.MapArt.biomeLabel(id);
+		long columns = 0;
+		for (BiomeCount b : this.census) {
+			if (b.biome() == biome) {
+				columns = b.columns();
+			}
+		}
+		var fam = dev.voidmc.atlas.core.MapArt.family(id);
+		String caps = fam.label.toUpperCase(Locale.ROOT) + "  ·  " + km2(columns).toUpperCase(Locale.ROOT) + " EXPLORED";
+		float[] climate = session.looks().climate(biome);
+		String words = climate == null ? "" : String.format(Locale.ROOT, "Temperature %.1f, %s", climate[0],
+			dev.voidmc.atlas.core.MapArt.temperatureWord(climate[0])) + (Float.isNaN(climate[1]) ? "" : String.format(Locale.ROOT,
+			"  ·  Rainfall %.1f, %s", climate[1], dev.voidmc.atlas.core.MapArt.rainfallWord(climate[1])));
+		dev.voidmc.atlas.api.Source src = id.startsWith("minecraft:") ? null : dev.voidmc.atlas.api.Source.plugin(id.substring(0, id.indexOf(':')));
+		float chip = src == null ? 0 : 8 + MarkerPainter.smallSourceChipWidth(ui, src);
+		float w = Math.max(Math.max(ui.width(name, Ui.Font.F12) + chip, ui.width(caps, Ui.Font.F85, 1)), ui.width(words, Ui.Font.F95)) + 26;
+		float tx = Math.min(this.hoverX + 14, this.mapX + this.mapW - w - 8);
+		float ty = Math.min(this.hoverY + 12, this.mapY + this.mapH - 74);
+		ui.panel(tx, ty, w, 66, 12, Theme.ISLAND, Theme.HAIR_10);
+		ui.text(name, tx + 13, ty + 9, Ui.Font.F12, Theme.INK);
+		if (src != null) {
+			MarkerPainter.smallSourceChip(ui, src, tx + 13 + ui.width(name, Ui.Font.F12) + 8, ty + 7);
+		}
+		ui.text(caps, tx + 13, ty + 29, Ui.Font.F85, 1, Theme.INK_4);
+		ui.text(words, tx + 13, ty + 45, Ui.Font.F95, Theme.INK_2);
+	}
+
+	/** The footer in the biome view: how many biomes are known, or the highlighted family's share. */
+	private @Nullable String biomeFooter() {
+		if (!this.map.biomeLook()) {
+			return null;
+		}
+		List<BiomeCount> all = this.census;
+		var highlight = this.atlas.biomeHighlight;
+		if (highlight != null) {
+			long fam = 0;
+			long total = 0;
+			int n = 0;
+			for (BiomeCount b : all) {
+				total += b.columns();
+				if (dev.voidmc.atlas.core.MapArt.family(b.id()) == highlight) {
+					fam += b.columns();
+					n++;
+				}
+			}
+			return highlight.label.toUpperCase(Locale.ROOT) + "  ·  " + n + " BIOMES  ·  " + km2(fam).toUpperCase(Locale.ROOT) + " OF " + km2(total)
+				.toUpperCase(Locale.ROOT) + " EXPLORED";
+		}
+		String where = this.map.kind == MapPanel.Kind.UNDERGROUND ? "UNDERGROUND  ·  " : this.map.kind == MapPanel.Kind.NETHER ? "NETHER  ·  " : "";
+		return where + "BIOMES  ·  " + all.size() + " FOUND IN EXPLORED LAND  ·  B SWITCHES THE LOOK";
+	}
+
 	/** The design's "marker states" key: a discovered major and minor tile, and their sighted hollow twins. */
 	private void statesKey(Ui ui, float x, float y) {
 		ui.panel(x, y, LIST_W, 97, 14, Theme.ISLAND, Theme.HAIR_7);
@@ -1279,6 +1596,10 @@ public final class MapPage {
 		float y = this.listY;
 		this.scrubber(ui, x, y, mx, my);
 		this.sideView(ui, x + 132, y);
+		if (this.map.biomeLook()) {
+			this.biomeLegend(ui, x, y + 396, this.listY + this.listH, mx, my, true);
+			return;
+		}
 		this.list(ui, y + 390, this.listY + this.listH, mx, my, List.of("depth"), List.of("AT THIS DEPTH"));
 	}
 
@@ -1486,6 +1807,8 @@ public final class MapPage {
 				seen = "  ·  " + (Kinds.sighted(selected) ? "SIGHTED " : "") + MarkerPainter.distance(selected.distanceTo(p.getX(), p.getZ())) + " AWAY";
 			}
 			left = selected.name() + seen + "  ·  " + (Kinds.sighted(selected) ? "NOT VISITED" : "VISITED");
+		} else if (this.biomeFooter() != null && this.map.selected == null) {
+			left = this.biomeFooter();
 		} else if (this.rightTab == 1 && this.partyShown() && !this.friendSelected()
 			&& !this.atlas.social.shared(this.map.dimensionOf(this.map.kind)).isEmpty()) {
 			StringBuilder b = new StringBuilder("MAP FROM PARTY");
@@ -3013,9 +3336,36 @@ public final class MapPage {
 				return true;
 			}
 		}
+		if (this.biomeSearch.focused) {
+			// the biome view's search: Enter centres on the nearest explored patch of the best match
+			if (key == InputConstants.KEY_ESCAPE) {
+				this.biomeSearch.set("");
+				this.biomeSearch.focused = false;
+				return true;
+			}
+			if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
+				String q = this.biomeSearch.text.strip().toLowerCase(Locale.ROOT);
+				for (BiomeCount b : this.census) {
+					if (!q.isEmpty() && dev.voidmc.atlas.core.MapArt.biomeLabel(b.id()).toLowerCase(Locale.ROOT).contains(q)) {
+						this.map.centreOn(b.nearX(), b.nearZ());
+						this.atlas.biomeHighlight = dev.voidmc.atlas.core.MapArt.family(b.id());
+						break;
+					}
+				}
+				this.biomeSearch.focused = false;
+				return true;
+			}
+			if (this.biomeSearch.keyPressed(event)) {
+				return true;
+			}
+		}
 		if (key == InputConstants.KEY_ESCAPE) {
 			if (this.menu != null) {
 				this.menu = null;
+				return true;
+			}
+			if (this.atlas.biomeHighlight != null && this.map.biomeLook() && this.map.selected == null) {
+				this.atlas.biomeHighlight = null;
 				return true;
 			}
 			if (this.map.selected != null) {
@@ -3040,7 +3390,7 @@ public final class MapPage {
 			case InputConstants.KEY_UP -> this.map.pan(0, -step);
 			case InputConstants.KEY_DOWN -> this.map.pan(0, step);
 			case InputConstants.KEY_SPACE, InputConstants.KEY_C -> this.map.centreOnPlayer();
-			case InputConstants.KEY_B -> this.newWaypointAtPlayer();
+			case InputConstants.KEY_B -> this.map.setBiomeLook(!this.map.biomeLook());
 			case InputConstants.KEY_T -> {
 				if (this.map.selected == null) {
 					return false;
@@ -3086,12 +3436,15 @@ public final class MapPage {
 		if (this.searching && this.search.focused) {
 			return this.search.charTyped(event);
 		}
+		if (this.biomeSearch.focused) {
+			return this.biomeSearch.charTyped(event);
+		}
 		return false;
 	}
 
 	/** Whether typing goes to a field (so the map key does not close the map). */
 	public boolean typing() {
-		return (this.editing != null && this.name.focused) || (this.searching && this.search.focused);
+		return (this.editing != null && this.name.focused) || (this.searching && this.search.focused) || this.biomeSearch.focused;
 	}
 
 	// --- text helpers ----------------------------------------------------------------------------------------------

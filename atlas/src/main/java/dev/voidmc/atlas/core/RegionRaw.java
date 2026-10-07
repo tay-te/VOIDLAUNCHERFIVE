@@ -29,7 +29,8 @@ public final class RegionRaw {
 	public static final byte ROCK = 2;
 
 	private static final int MAGIC = 0x41544C52; // ATLR
-	private static final int VERSION = 1;
+	/** 2: with the block light of each column (version 1 files have none, and still read). */
+	private static final int VERSION = 2;
 
 	public final int x;
 	public final int z;
@@ -38,6 +39,8 @@ public final class RegionRaw {
 	public final byte[] depth = new byte[AREA];
 	public final char[] biome = new char[AREA];
 	public final byte[] flags = new byte[AREA];
+	/** The brightest block light seen in a column from the top down to its surface: level in the low 4 bits, 0x10 soul light. */
+	public final byte[] light = new byte[AREA];
 	/** Bumped by every write, so savers can tell whether there is anything new to save. */
 	private volatile long version;
 	private long savedVersion;
@@ -75,6 +78,18 @@ public final class RegionRaw {
 		this.depth[i] = d;
 		this.biome[i] = bi;
 		this.flags[i] = f;
+		this.version++;
+		return true;
+	}
+
+	/** Records a column's block light (level 0–15, soul light cooler); returns whether it changed. */
+	public boolean setLight(int lx, int lz, int level, boolean soul) {
+		int i = index(lx, lz);
+		byte v = (byte) (Math.max(0, Math.min(15, level)) | (soul && level > 0 ? 0x10 : 0));
+		if (this.light[i] == v) {
+			return false;
+		}
+		this.light[i] = v;
 		this.version++;
 		return true;
 	}
@@ -122,6 +137,7 @@ public final class RegionRaw {
 					out.writeChar(b);
 				}
 				out.write(this.flags);
+				out.write(this.light);
 			} finally {
 				deflater.end();
 			}
@@ -133,7 +149,8 @@ public final class RegionRaw {
 
 	/** Reads what {@link #encode} wrote; throws {@link IOException} if it is not a whole, valid region. */
 	public static RegionRaw decode(int x, int z, byte[] data) throws IOException {
-		byte[] payload = Frame.unwrap(MAGIC, VERSION, data);
+		int version = data.length >= 8 ? java.nio.ByteBuffer.wrap(data, 4, 4).getInt() : VERSION;
+		byte[] payload = Frame.unwrap(MAGIC, version == 1 ? 1 : VERSION, data);
 		RegionRaw raw = new RegionRaw(x, z);
 		try (DataInputStream in = new DataInputStream(new InflaterInputStream(new ByteArrayInputStream(payload), new java.util.zip.Inflater(), 1 << 16))) {
 			for (int i = 0; i < AREA; i++) {
@@ -147,6 +164,9 @@ public final class RegionRaw {
 				raw.biome[i] = in.readChar();
 			}
 			in.readFully(raw.flags);
+			if (version >= 2) {
+				in.readFully(raw.light);
+			}
 		}
 		raw.savedVersion = raw.version;
 		return raw;

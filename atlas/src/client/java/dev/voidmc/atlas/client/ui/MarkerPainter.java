@@ -569,7 +569,9 @@ public final class MarkerPainter {
 			for (float dy : new float[]{0, -h * 1.4F, h * 1.4F}) {
 				float y0 = ay - h / 2 + dy;
 				if (free(small, x0, y0, x0 + w, y0 + h, false, false) && free(taken, x0, y0, x0 + w, y0 + h, false)) {
-					ui.text(text, x0, y0, font, tracking, water ? Theme.alpha(WATER_INK, alpha) : Theme.ink(alpha));
+					// in the biome view, a light fill takes the dark ink (#0E0F11 at 62%)
+					int ink = "ink:dark".equals(m.meta()) ? 0x9E0E0F11 : water ? Theme.alpha(WATER_INK, alpha) : Theme.ink(alpha);
+					ui.text(text, x0, y0, font, tracking, ink);
 					return new Placed(m, ax, ay, x0, y0, x0 + w, y0 + h);
 				}
 			}

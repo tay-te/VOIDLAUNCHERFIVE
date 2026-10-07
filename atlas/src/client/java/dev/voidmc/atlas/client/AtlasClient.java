@@ -360,9 +360,17 @@ public final class AtlasClient implements ClientModInitializer {
 
 	// --- the frame and the tick ------------------------------------------------------------------------------------
 
+	/** The biome view's highlighted family (a legend row clicked), or null. */
+	public volatile dev.voidmc.atlas.core.MapArt.Family biomeHighlight;
+
 	/** The start of every frame, on the render thread: hand chunks to the workers, upload finished tiles. */
 	public void frame() {
 		Minecraft mc = Minecraft.getInstance();
+		if (this.session != null && this.session.setArt(this.settings.mapStyle == null ? dev.voidmc.atlas.core.MapArt.Style.NATURAL : this.settings.mapStyle,
+			this.settings.contoursOn(), this.biomeHighlight) && this.tiles != null) {
+			// the art changed: tiles are drawn again as the map asks for them, a few a frame within the upload budget
+			this.tiles.clear();
+		}
 		if (this.tiles != null) {
 			this.tiles.beginFrame();
 			long t0 = System.nanoTime();

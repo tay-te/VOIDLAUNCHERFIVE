@@ -323,7 +323,7 @@ public final class MapRenderer {
 		float v0, float v1) {
 		double mx = p[i * 3];
 		double mz = p[i * 3 + 1];
-		int alpha = (int) Math.round(Math.max(0, Math.min(1, p[i * 3 + 2])) * 255);
+		int alpha = (int) Math.round(Math.max(0, Math.min(1, p[i * 3 + 2])) * 255 * this.opacity);
 		float u = (float) ((slot.px + (mx - ox) / texelBlocks) / TileCache.PAGE);
 		float v = (float) ((slot.py + (mz - oz) / texelBlocks) / TileCache.PAGE);
 		mesh.vertex(f.screenX(mx, mz), f.screenY(mx, mz), Math.max(u0, Math.min(u1, u)), Math.max(v0, Math.min(v1, v)), alpha << 24 | this.tint);
@@ -334,6 +334,13 @@ public final class MapRenderer {
 
 	public void setTint(int rgb) {
 		this.tint = rgb & 0xFFFFFF;
+	}
+
+	/** How opaque the tiles are drawn (a wash over another layer: the night, the minimap's biome tint). */
+	private float opacity = 1;
+
+	public void setOpacity(float opacity) {
+		this.opacity = Math.max(0, Math.min(1, opacity));
 	}
 
 

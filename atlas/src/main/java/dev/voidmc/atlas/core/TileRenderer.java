@@ -20,6 +20,31 @@ public final class TileRenderer {
 
 		/** The biome's water colour, 0xRRGGBB. */
 		int water(int biome);
+
+		/** The block's id ("minecraft:grass_block"), for the tuned table; null if not known. */
+		default String blockName(int block) {
+			return null;
+		}
+
+		/** The biome's id ("minecraft:forest"), for the biome view; null if not known. */
+		default String biomeName(int biome) {
+			return null;
+		}
+
+		/** The biome's grass colour, 0xRRGGBB (plains' by default). */
+		default int grass(int biome) {
+			return MapArt.REF_GRASS;
+		}
+
+		/** The biome's foliage colour, 0xRRGGBB (plains' by default). */
+		default int foliage(int biome) {
+			return MapArt.REF_FOLIAGE;
+		}
+	}
+
+	/** What a layer's images show: the land (terrain), its biomes, or the land by night. */
+	public enum Variant {
+		TERRAIN, BIOMES, NIGHT
 	}
 
 	public enum Mode {
@@ -50,9 +75,9 @@ public final class TileRenderer {
 	private final it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap waters = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
 
 	// scratch grids for one rectangle, grown as needed
-	private boolean[] known = new boolean[0];
-	private short[] heights = new short[0];
-	private byte[] kinds = new byte[0];
+	boolean[] known = new boolean[0];
+	short[] heights = new short[0];
+	byte[] kinds = new byte[0];
 
 	private static final byte LAND = 0;
 	private static final byte WATER = 1;
@@ -62,9 +87,44 @@ public final class TileRenderer {
 	public static final int MARGIN = 3;
 	/** Whether underground water and lava are drawn (the "Water & lava" layer); off, water shows its bed. */
 	public boolean fluids = true;
+	/** The next render's look: set by the layer before each render (the renderer is one per worker). */
+	public Variant variant = Variant.TERRAIN;
+	public MapArt.Style style = MapArt.Style.NATURAL;
+	public boolean contours;
+	/** In the biome view, the family kept bright (the others dimmed); null for none. */
+	public MapArt.Family highlight;
+	/** The new map art (section 9); off: the shipped palette (kept for comparison). */
+	public boolean art = true;
+
+	// grids the art needs as well
+	int[] blocks = new int[0];
+	int[] biomes = new int[0];
+	byte[] depths = new byte[0];
+	byte[] lights = new byte[0];
+	private float[][] scratch = new float[2][0];
+	private byte[] scratchBytes = new byte[0];
+	/** The rectangle's region origin in blocks (for patterns that line up across regions). */
+	int originX;
+	int originZ;
+	private final ArtPainter painter;
 
 	public TileRenderer(Looks looks) {
 		this.looks = looks;
+		this.painter = new ArtPainter(looks);
+	}
+
+	float[] scratch(int i, int n) {
+		if (this.scratch[i].length < n) {
+			this.scratch[i] = new float[n];
+		}
+		return this.scratch[i];
+	}
+
+	byte[] scratchBytes(int n) {
+		if (this.scratchBytes.length < n) {
+			this.scratchBytes = new byte[n];
+		}
+		return this.scratchBytes;
 	}
 
 	/** Forgets cached colours (after the looks change: a resource reload). */
@@ -72,6 +132,7 @@ public final class TileRenderer {
 		this.toned.clear();
 		this.materials.clear();
 		this.waters.clear();
+		this.painter.clear();
 	}
 
 	/**
@@ -107,7 +168,13 @@ public final class TileRenderer {
 			this.known = new boolean[gn];
 			this.heights = new short[gn];
 			this.kinds = new byte[gn];
+			this.blocks = new int[gn];
+			this.biomes = new int[gn];
+			this.depths = new byte[gn];
+			this.lights = new byte[gn];
 		}
+		this.originX = around[4] == null ? 0 : around[4].x << Coords.REGION_SHIFT;
+		this.originZ = around[4] == null ? 0 : around[4].z << Coords.REGION_SHIFT;
 		for (int gz = 0; gz < gh; gz++) {
 			for (int gx = 0; gx < gw; gx++) {
 				int lx = x0 + gx - m;
@@ -130,6 +197,10 @@ public final class TileRenderer {
 					this.kinds[g] = r.depth(i) > 0 ? WATER : LAND;
 				}
 				this.heights[g] = r.height[i];
+				this.blocks[g] = r.block[i];
+				this.biomes[g] = r.biome[i];
+				this.depths[g] = r.depth[i];
+				this.lights[g] = r.light[i];
 				if (mode == Mode.CAVE && !this.fluids && this.kinds[g] == WATER) {
 					// water hidden: its bed shows
 					this.kinds[g] = LAND;
@@ -139,6 +210,16 @@ public final class TileRenderer {
 		}
 		RegionRaw centre = around[4];
 		int[] out = image.levelOrCreate(0);
+		if (this.art && (mode != Mode.CAVE || this.variant == Variant.BIOMES)) {
+			// the section 9 map art: the surface, far and shared land, and the biome view everywhere
+			this.painter.paintSurface(this, mode, x0, z0, x1, z1, m, gw, gh, out, 0, 0);
+			if (this.variant == Variant.NIGHT) {
+				this.night(out, x0, z0, x1, z1, m, gw);
+			}
+			image.downsample(x0, z0, x1, z1);
+			image.touch();
+			return;
+		}
 		for (int z = z0; z < z1; z++) {
 			for (int x = x0; x < x1; x++) {
 				int g = (z - z0 + m) * gw + (x - x0 + m);
@@ -227,6 +308,84 @@ public final class TileRenderer {
 		return Oklab.toRgb(0.45F + (lab[0] - 0.45F) * 0.8F, lab[1] * 0.5F, lab[2] * 0.5F);
 	}
 
+	/** A pixel's coverage by the explored edge (far land: the 8 px checker). */
+	int coverageFor(Mode mode, int g, int gw, int x, int z) {
+		return mode == Mode.FAR ? this.farCoverage(g, gw, x, z) : Palette.coverage(this.distanceToUnknown(g, gw));
+	}
+
+	/** The shipped palette's tone of a block (the untuned blocks start from it). */
+	float[] shippedTone(int block, int biome, Material material) {
+		return this.tone(block, biome, material);
+	}
+
+	int waterColour(int biome) {
+		return this.water(biome);
+	}
+
+	/** How far block light reaches (a level 15 source: 10.4 blocks). */
+	private static final int GLOW_REACH = 11;
+
+	/**
+	 * The night look of what was just painted (Figma 395:20486): moonlit (L × 0.56 + 0.015, chroma 0.4, cooler), and
+	 * the glow of the block light Atlas recorded in walked columns (torches 14, lanterns and glowstone 15, soul light
+	 * 10, cooler), warming the day's colour back in. Sources up to {@value #GLOW_REACH} blocks round the rectangle are
+	 * read from the regions round it.
+	 */
+	private void night(int[] out, int x0, int z0, int x1, int z1, int m, int gw) {
+		int w = x1 - x0;
+		int h = z1 - z0;
+		float[] glow = this.scratch(0, w * h);
+		java.util.Arrays.fill(glow, 0, w * h, 0);
+		byte[] soul = this.scratchBytes(w * h);
+		java.util.Arrays.fill(soul, 0, w * h, (byte) 0);
+		// sources in the grid (the margin covers the near ones; light from beyond the margin is not seen)
+		int gh = h + 2 * m;
+		for (int gz = 0; gz < gh; gz++) {
+			for (int gx = 0; gx < gw; gx++) {
+				int g = gz * gw + gx;
+				int lv = this.lights[g] & 0x0F;
+				if (lv <= 3 || !this.known[g]) {
+					continue;
+				}
+				boolean isSoul = (this.lights[g] & 0x10) != 0;
+				int sx = gx - m;
+				int sz = gz - m;
+				for (int dz = -GLOW_REACH; dz <= GLOW_REACH; dz++) {
+					int pz = sz + dz;
+					if (pz < 0 || pz >= h) {
+						continue;
+					}
+					for (int dx = -GLOW_REACH; dx <= GLOW_REACH; dx++) {
+						int px = sx + dx;
+						if (px < 0 || px >= w) {
+							continue;
+						}
+						float gv = MapArt.glow(lv, Math.sqrt(dx * dx + dz * dz));
+						int k = pz * w + px;
+						if (gv > glow[k]) {
+							glow[k] = gv;
+							soul[k] = (byte) (isSoul ? 1 : 0);
+						}
+					}
+				}
+			}
+		}
+		for (int z = z0; z < z1; z++) {
+			for (int x = x0; x < x1; x++) {
+				int p = z * Coords.REGION_SIZE + x;
+				int argb = out[p];
+				if (argb >>> 24 == 0) {
+					continue;
+				}
+				float[] day = Oklab.fromRgb(argb & 0xFFFFFF);
+				float[] night = MapArt.moonlit(day);
+				int k = (z - z0) * w + (x - x0);
+				float[] lit = MapArt.lit(night, day, glow[k], soul[k] != 0);
+				out[p] = argb & 0xFF000000 | Oklab.toRgb(Math.max(0.03F, lit[0]), lit[1], lit[2]);
+			}
+		}
+	}
+
 	/** Chebyshev distance from a wall pixel to the nearest open (floor or water) pixel, up to 4 ("far"). */
 	private int distanceToOpen(int g, int gw) {
 		for (int r = 1; r <= 3; r++) {
@@ -295,7 +454,7 @@ public final class TileRenderer {
 		return around[rz * 3 + rx];
 	}
 
-	private Material material(int block) {
+	Material material(int block) {
 		Material m = this.materials.get(block);
 		if (m == null) {
 			m = this.looks.material(block);

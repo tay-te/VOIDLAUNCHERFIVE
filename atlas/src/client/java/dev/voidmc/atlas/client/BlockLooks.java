@@ -334,8 +334,50 @@ public final class BlockLooks implements TileRenderer.Looks {
 	}
 
 	/** The biome's name for the readout ("minecraft:dark_forest"), or null. */
+	@Override
 	public String biomeName(int id) {
 		return this.biomeNames.name(id);
+	}
+
+	@Override
+	public String blockName(int id) {
+		return this.blockNames.name(id);
+	}
+
+	@Override
+	public int grass(int biomeId) {
+		Biome biome = this.biome(biomeId);
+		return biome == null ? dev.voidmc.atlas.core.MapArt.REF_GRASS : biome.getGrassColor(0, 0) & 0xFFFFFF;
+	}
+
+	@Override
+	public int foliage(int biomeId) {
+		Biome biome = this.biome(biomeId);
+		return biome == null ? dev.voidmc.atlas.core.MapArt.REF_FOLIAGE : biome.getFoliageColor() & 0xFFFFFF;
+	}
+
+	/** A biome's climate for the biome view's hover: {temperature, rainfall}, or null. */
+	public float @Nullable [] climate(int biomeId) {
+		Biome biome = this.biome(biomeId);
+		if (biome == null) {
+			return null;
+		}
+		float rain = Float.NaN;
+		try {
+			for (var f : Biome.class.getDeclaredFields()) {
+				if (f.getType().getSimpleName().equals("ClimateSettings")) {
+					f.setAccessible(true);
+					Object c = f.get(biome);
+					var m = c.getClass().getDeclaredMethod("downfall");
+					m.setAccessible(true);
+					rain = (Float) m.invoke(c);
+					break;
+				}
+			}
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			// no rainfall to tell
+		}
+		return new float[]{biome.getBaseTemperature(), rain};
 	}
 
 	private int tint(BlockState state, int index, Biome biome) {

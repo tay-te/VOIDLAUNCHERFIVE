@@ -189,6 +189,8 @@ public final class SettingsScreen extends Screen {
 		}
 		this.steps(w, "Zoom", "How much of the world it shows", zooms, zoomAt, i -> s.minimapZoom = ZOOM_STEPS[i]);
 		this.toggle(w, "Turn with me", "Off: north stays up", s.minimapRotates, true, () -> s.minimapRotates = !s.minimapRotates);
+		this.choice(w, "Minimap colours", "Terrain, or under a biome wash", new Boolean[]{false, true}, v -> v ? "Biome tint" : "Terrain", s.minimapBiomeTint,
+			v -> s.minimapBiomeTint = v);
 		this.group("SHOW");
 		boolean caves = this.atlas.caveViewAllowed(false);
 		this.toggle(w, "Cave view underground", caves ? "Switches to the depth slice when there is no sky" : "Off on this server", caves && s.minimapAutoCave,
@@ -216,6 +218,12 @@ public final class SettingsScreen extends Screen {
 		this.ry += FormKit.SEG_H + 8;
 		this.kit.ui.text("Night begins at dusk (12 500 ticks), eases in over 20 s", this.rx + 4, this.ry, Ui.Font.F105, Theme.INK_3);
 		this.ry += 13 + 10;
+		this.choice(w, "Map style", "The minimap follows", dev.voidmc.atlas.core.MapArt.Style.values(), v -> v.label, s.mapStyle, v -> {
+			s.mapStyle = v;
+			s.contours = null;
+		});
+		this.choice(w, "Contours", "A hairline every 16 blocks, a bolder one every 64", new Boolean[]{false, true}, v -> v ? "On" : "Off", s.contoursOn(),
+			v -> s.contours = v);
 		this.toggle(w, "Live backdrop", "The world moves behind the open map; costs a render a frame", s.liveBackdrop, true,
 			() -> s.liveBackdrop = !s.liveBackdrop);
 		this.group("ON SCREEN");

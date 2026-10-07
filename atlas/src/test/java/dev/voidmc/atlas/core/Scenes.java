@@ -45,6 +45,36 @@ final class Scenes {
 		public int water(int biome) {
 			return 0x3F76E4;
 		}
+
+		@Override
+		public String blockName(int block) {
+			return switch (block) {
+				case GRASS -> "minecraft:grass_block";
+				case SAND -> "minecraft:sand";
+				case STONE -> "minecraft:stone";
+				case SNOW -> "minecraft:snow_block";
+				case LEAVES -> "minecraft:oak_leaves";
+				case SPRUCE -> "minecraft:spruce_leaves";
+				case GRAVEL -> "minecraft:gravel";
+				case DIRT -> "minecraft:dirt";
+				default -> null;
+			};
+		}
+
+		@Override
+		public String biomeName(int biome) {
+			return biome == TAIGA ? "minecraft:taiga" : "minecraft:plains";
+		}
+
+		@Override
+		public int grass(int biome) {
+			return biome == TAIGA ? 0x86B783 : 0x91BD59;
+		}
+
+		@Override
+		public int foliage(int biome) {
+			return biome == TAIGA ? 0x68A464 : 0x77AB2F;
+		}
 	};
 
 	private Scenes() {

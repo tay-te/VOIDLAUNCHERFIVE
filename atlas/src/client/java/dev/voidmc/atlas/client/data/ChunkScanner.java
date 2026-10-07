@@ -97,6 +97,12 @@ public final class ChunkScanner {
 		return v;
 	}
 
+	private final Map<Block, Boolean> souls = new IdentityHashMap<>();
+
+	private boolean soul(BlockState state) {
+		return this.souls.computeIfAbsent(state.getBlock(), b -> net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).getPath().contains("soul"));
+	}
+
 	/** Reads the chunk's surface into {@code raw}; returns whether any column changed. */
 	public boolean surface(LevelChunk chunk, RegionRaw raw) {
 		LevelChunkSection[] sections = chunk.getSections();
@@ -119,6 +125,8 @@ public final class ChunkScanner {
 				}
 				int waterTop = Integer.MIN_VALUE;
 				boolean snow = false;
+				int light = 0;
+				boolean soul = false;
 				BlockState ground = null;
 				int groundY = minY;
 				int floor = Math.max(minY, top - 320);
@@ -126,6 +134,12 @@ public final class ChunkScanner {
 					BlockState state = state(sections, minY, x, y, z);
 					if (state.isAir()) {
 						continue;
+					}
+					int emits = state.getLightEmission();
+					if (emits > light && waterTop == Integer.MIN_VALUE) {
+						// the night map's glow: torches, lanterns, glowstone (soul light is drawn cooler)
+						light = emits;
+						soul = this.soul(state);
 					}
 					FluidState fluid = state.getFluidState();
 					if (!fluid.isEmpty() && !state.isSolid()) {
@@ -165,6 +179,7 @@ public final class ChunkScanner {
 					changed |= raw.set(lx, lz, minY, NamePalette.NONE, 0, biome, RegionRaw.KNOWN | RegionRaw.ROCK);
 					continue;
 				}
+				changed |= raw.setLight(lx, lz, ground.getFluidState().is(FluidTags.LAVA) ? 0 : light, soul);
 				int block = snow && waterTop == Integer.MIN_VALUE ? this.snowId : this.blockId(ground.getBlock());
 				if (waterTop != Integer.MIN_VALUE) {
 					changed |= raw.set(lx, lz, waterTop, block, Math.max(1, waterTop - groundY), biome, RegionRaw.KNOWN);

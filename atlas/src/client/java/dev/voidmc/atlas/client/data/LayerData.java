@@ -31,13 +31,19 @@ public final class LayerData {
 	/** Whether the regions on disk have been listed (on the IO thread); until then no tile is asked for. */
 	private volatile boolean listed;
 
-	private final ConcurrentHashMap<Long, RegionRaw> raws = new ConcurrentHashMap<>();
+	/** For a twin (the biome view, the night look of the same land): the layer whose raw regions it draws; else null. */
+	public final LayerData base;
+	/** What this layer's images show. */
+	public final TileRenderer.Variant variant;
+	private final java.util.Map<TileRenderer.Variant, LayerData> twins = new java.util.concurrent.ConcurrentHashMap<>();
+
+	private final ConcurrentHashMap<Long, RegionRaw> raws;
 	private final ConcurrentHashMap<Long, RegionImage> images = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<Long, Long> lastUse = new ConcurrentHashMap<>();
 	/** Regions that have a raw file or data: everything else is unexplored and needs no tile. */
-	private final LongOpenHashSet existing = new LongOpenHashSet();
+	private final LongOpenHashSet existing;
 	/** Per level, the tiles with any existing region. */
-	private final LongOpenHashSet[] existingTiles = new LongOpenHashSet[RegionImage.LEVELS];
+	private final LongOpenHashSet[] existingTiles;
 	private final ConcurrentHashMap<Long, int[]> pending = new ConcurrentHashMap<>();
 	/** Small levels of regions not otherwise in memory, for assembling zoomed-out tiles: (region, level) to pixels. */
 	private final Map<Long, int[]> levelCache = new LinkedHashMap<>(256, 0.75F, true);
@@ -51,6 +57,11 @@ public final class LayerData {
 		this.mode = mode;
 		this.caveTop = caveTop;
 		this.uid = uid;
+		this.base = null;
+		this.variant = TileRenderer.Variant.TERRAIN;
+		this.raws = new ConcurrentHashMap<>();
+		this.existing = new LongOpenHashSet();
+		this.existingTiles = new LongOpenHashSet[RegionImage.LEVELS];
 		for (int i = 0; i < this.existingTiles.length; i++) {
 			this.existingTiles[i] = new LongOpenHashSet();
 		}
@@ -64,18 +75,57 @@ public final class LayerData {
 		});
 	}
 
+	/** A twin: the same raw regions drawn another way (its own images and tiles); the base's dirt reaches it. */
+	private LayerData(LayerData base, TileRenderer.Variant variant, int uid) {
+		this.dimension = base.dimension;
+		this.name = base.name + "~" + variant.name().toLowerCase(java.util.Locale.ROOT);
+		this.mode = base.mode;
+		this.caveTop = base.caveTop;
+		this.uid = uid;
+		this.base = base;
+		this.variant = variant;
+		this.raws = base.raws;
+		this.existing = base.existing;
+		this.existingTiles = base.existingTiles;
+		this.listed = true;
+	}
+
+	/** This layer drawn another way (made when first wanted). */
+	public LayerData twin(TileRenderer.Variant variant) {
+		if (variant == TileRenderer.Variant.TERRAIN) {
+			return this;
+		}
+		if (this.base != null) {
+			return this.base.twin(variant);
+		}
+		return this.twins.computeIfAbsent(variant, v -> new LayerData(this, v, this.dimension.session.nextLayerUid()));
+	}
+
+	/** The twins made so far. */
+	public java.util.Collection<LayerData> twins() {
+		return this.twins.values();
+	}
+
+	/** The name raw regions are kept under (a twin's are its base's). */
+	private String rawName() {
+		return this.base == null ? this.name : this.base.name;
+	}
+
 	/**
-	 * The version of the look this layer's images are drawn with: the palette's, and for the underground whether water
-	 * and lava are shown (images drawn the other way are drawn again).
+	 * The version of the look this layer's images are drawn with: the palette's and the map art's (style, contours,
+	 * and in the biome view the highlighted family), and for the underground whether water and lava are shown (images
+	 * drawn another way are drawn again).
 	 */
 	public int paletteVersion() {
-		int v = this.dimension.session.paletteVersion();
+		int v = this.dimension.session.paletteVersion() * 31 + this.dimension.session.artVersion(this.variant);
 		return this.mode == TileRenderer.Mode.CAVE && !this.dimension.session.caveFluids() ? v ^ 0x51F1D5 : v;
 	}
 
 	private TileRenderer renderer() {
 		TileRenderer r = this.dimension.session.renderer();
 		r.fluids = this.mode != TileRenderer.Mode.CAVE || this.dimension.session.caveFluids();
+		r.variant = this.variant;
+		this.dimension.session.configure(r);
 		return r;
 	}
 
@@ -91,7 +141,7 @@ public final class LayerData {
 
 	/** Whether the layer knows which regions it has on disk yet. */
 	public boolean listed() {
-		return this.listed;
+		return this.base == null ? this.listed : this.base.listed();
 	}
 
 	/** Bumped whenever any of the layer's pixels change. */
@@ -117,7 +167,7 @@ public final class LayerData {
 
 	/** Whether any region of a tile has ever been seen: if not, the tile need not be drawn or made. */
 	public boolean tileExists(int level, int tx, int tz) {
-		if (!this.listed) {
+		if (!this.listed()) {
 			return false;
 		}
 		synchronized (this.existing) {
@@ -148,7 +198,7 @@ public final class LayerData {
 		RegionRaw raw = this.raws.get(key);
 		if (raw == null) {
 			raw = this.raws.computeIfAbsent(key, k -> {
-				RegionRaw loaded = this.dimension.files.loadRaw(this.name, rx, rz);
+				RegionRaw loaded = this.dimension.files.loadRaw(this.rawName(), rx, rz);
 				if (loaded == null && create) {
 					loaded = new RegionRaw(rx, rz);
 				}
@@ -182,6 +232,9 @@ public final class LayerData {
 	 * the dithered edge and the cave walls reach that far), are drawn again shortly.
 	 */
 	public void dirty(int x0, int z0, int x1, int z1) {
+		for (LayerData twin : this.twins.values()) {
+			twin.dirty(x0, z0, x1, z1);
+		}
 		int m = TileRenderer.margin(this.mode);
 		x0 -= m;
 		z0 -= m;
@@ -366,7 +419,7 @@ public final class LayerData {
 	public int saveAndTrim(long idleNanos, int keepRaws, int keepImages, boolean all) {
 		int saved = 0;
 		long now = System.nanoTime();
-		for (var e : this.raws.entrySet()) {
+		for (var e : this.base != null ? java.util.Map.<Long, RegionRaw>of().entrySet() : this.raws.entrySet()) {
 			RegionRaw raw = e.getValue();
 			if (raw.dirty()) {
 				try {
@@ -391,7 +444,9 @@ public final class LayerData {
 			}
 		}
 		if (!all) {
-			trim(this.raws, this.lastUse, now, idleNanos, keepRaws, this.pending, r -> !r.dirty());
+			if (this.base == null) {
+				trim(this.raws, this.lastUse, now, idleNanos, keepRaws, this.pending, r -> !r.dirty());
+			}
 			trim(this.images, this.lastUse, now, idleNanos, keepImages, this.pending, i -> !i.dirty());
 		}
 		return saved;

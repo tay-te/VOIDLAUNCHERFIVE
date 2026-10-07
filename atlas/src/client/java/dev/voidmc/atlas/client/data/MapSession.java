@@ -239,7 +239,66 @@ public final class MapSession {
 
 	/** The version of the palette the images are drawn with: images from another are drawn again. */
 	public int paletteVersion() {
-		return Palette.VERSION;
+		return Palette.VERSION ^ dev.voidmc.atlas.core.MapArt.VERSION;
+	}
+
+	// the map art's state (section 9): the style, contours, the biome view's highlighted family
+	private volatile dev.voidmc.atlas.core.MapArt.Style style = dev.voidmc.atlas.core.MapArt.Style.NATURAL;
+	private volatile boolean contours;
+	private volatile dev.voidmc.atlas.core.MapArt.Family highlight;
+
+	/** The art's part of a variant's image version. */
+	public int artVersion(TileRenderer.Variant variant) {
+		int v = this.style.ordinal() * 7 + (this.contours ? 3 : 0);
+		if (variant == TileRenderer.Variant.BIOMES) {
+			v = 1000 + (this.highlight == null ? 99 : this.highlight.ordinal());
+		} else if (variant == TileRenderer.Variant.NIGHT) {
+			v += 5000;
+		}
+		return v;
+	}
+
+	/** Sets a renderer up for the art as it is now (each render). */
+	public void configure(TileRenderer r) {
+		r.style = this.style;
+		r.contours = this.contours;
+		r.highlight = this.highlight;
+	}
+
+	public dev.voidmc.atlas.core.MapArt.Style style() {
+		return this.style;
+	}
+
+	public dev.voidmc.atlas.core.MapArt.Family highlight() {
+		return this.highlight;
+	}
+
+	/**
+	 * Changes the art: the images it touches are let go and drawn again as the map asks for them (a few tiles a frame,
+	 * within the upload budget, never all in one frame). Returns whether anything changed. Render thread.
+	 */
+	public boolean setArt(dev.voidmc.atlas.core.MapArt.Style style, boolean contours, dev.voidmc.atlas.core.MapArt.Family highlight) {
+		boolean terrain = style != this.style || contours != this.contours;
+		boolean biomes = highlight != this.highlight;
+		if (!terrain && !biomes) {
+			return false;
+		}
+		this.style = style;
+		this.contours = contours;
+		this.highlight = highlight;
+		for (DimensionData d : this.dimensions.values()) {
+			for (LayerData l : d.layers()) {
+				if (terrain) {
+					l.forgetImages();
+				}
+				for (LayerData t : l.twins()) {
+					if (terrain && t.variant != TileRenderer.Variant.BIOMES || biomes && t.variant == TileRenderer.Variant.BIOMES) {
+						t.forgetImages();
+					}
+				}
+			}
+		}
+		return true;
 	}
 
 	int nextLayerUid() {
@@ -311,7 +370,9 @@ public final class MapSession {
 	void regionChanged(LayerData layer, int rx, int rz, int[] rect) {
 		Perf.RENDERS.incrementAndGet();
 		this.changes.accept(new RegionChange(layer, rx, rz, rect));
-		this.landmarks.regionDrawn(layer, rx, rz);
+		if (layer.base == null) {
+			this.landmarks.regionDrawn(layer, rx, rz);
+		}
 	}
 
 	/** Whether underground water and lava are drawn (the "Water & lava" layer). */
@@ -351,6 +412,9 @@ public final class MapSession {
 		for (DimensionData d : this.dimensions.values()) {
 			for (LayerData l : d.layers()) {
 				saved += l.saveAndTrim(all ? 0 : 20_000_000_000L, 24, 32, all);
+				for (LayerData t : l.twins()) {
+					saved += t.saveAndTrim(all ? 0 : 20_000_000_000L, 0, 16, all);
+				}
 			}
 		}
 		try {

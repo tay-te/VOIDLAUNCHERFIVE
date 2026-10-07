@@ -109,6 +109,23 @@ public final class MinimapHud {
 			this.renderer.draw(ui, this.atlas.tiles(), shared, x, y, side, side, radius, new MapRenderer.View(px, pz, this.zoom, rotation), true);
 		}
 		MapRenderer.Frame f = this.renderer.draw(ui, this.atlas.tiles(), layer, x, y, side, side, radius, new MapRenderer.View(px, pz, this.zoom, rotation), true);
+		double night = dev.voidmc.atlas.client.render.MapLight.night();
+		if (sky && layer != null && night > 0.01 && !dev.voidmc.atlas.client.PerfGovernor.light()) {
+			// the moonlit look over the day's, as far into the night as it is
+			this.renderer.setTint(0xFFFFFF);
+			this.renderer.setOpacity((float) night);
+			this.renderer.draw(ui, this.atlas.tiles(), layer.twin(dev.voidmc.atlas.core.TileRenderer.Variant.NIGHT), x, y, side, side, radius,
+				new MapRenderer.View(px, pz, this.zoom, rotation), true);
+			this.renderer.setOpacity(1);
+		}
+		if (settings.minimapBiomeTint && layer != null) {
+			// the biome tint: the biome view's fills at 45% over the terrain (its borders then read at about 22%)
+			this.renderer.setTint(0xFFFFFF);
+			this.renderer.setOpacity(0.45F);
+			this.renderer.draw(ui, this.atlas.tiles(), layer.twin(dev.voidmc.atlas.core.TileRenderer.Variant.BIOMES), x, y, side, side, radius,
+				new MapRenderer.View(px, pz, this.zoom, rotation), true);
+			this.renderer.setOpacity(1);
+		}
 		long t2 = System.nanoTime();
 		ui.flush();
 		ui.g.enableScissor((int) Math.floor(x), (int) Math.floor(y), (int) Math.ceil(x + side), (int) Math.ceil(y + side));

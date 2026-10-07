@@ -135,6 +135,18 @@ public final class AtlasSettings {
 	public boolean discoveryToasts = true;
 	/** The journal: first discoveries by day and the explored share per biome area. */
 	public boolean journal = true;
+	/** The map style (section 9): Natural, Flat or Topographic; the minimap follows. */
+	public dev.voidmc.atlas.core.MapArt.Style mapStyle = dev.voidmc.atlas.core.MapArt.Style.NATURAL;
+	/** Contour lines: null follows the style (on in Topographic), else on or off. */
+	public Boolean contours;
+	/** The dimensions whose map shows Biomes rather than Terrain (the look is remembered per dimension). */
+	public java.util.Set<String> biomeLook = new java.util.HashSet<>();
+	/** The minimap's colours: the terrain alone, or under a 45% biome wash. */
+	public boolean minimapBiomeTint = false;
+
+	public boolean contoursOn() {
+		return this.contours != null ? this.contours : this.mapStyle == dev.voidmc.atlas.core.MapArt.Style.TOPOGRAPHIC;
+	}
 	/** Beams are hidden for 10 s after the player hits or is hit (PvP-safe). */
 	public boolean beamsHideInCombat = false;
 	/** Which of the first-run presets was last applied (null: none, the defaults). */

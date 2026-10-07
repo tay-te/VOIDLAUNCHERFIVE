@@ -51,6 +51,63 @@ public final class MapPanel {
 	public @Nullable String hovered;
 	private List<MarkerPainter.Placed> placed = List.of();
 
+	/**
+	 * The biome view's names: each region's label says its biome's plain name, in the region-label style, the ink dark
+	 * where the fill is light (L over 0.58).
+	 */
+	private List<Marker> biomeNames(List<Marker> markers, String dim) {
+		var session = this.atlas.session();
+		var d = session == null ? null : session.dimensionIfOpen(dim);
+		var looks = session == null ? null : session.looks();
+		if (d == null || looks == null) {
+			return markers;
+		}
+		java.util.Map<String, Integer> biomeOf = new java.util.HashMap<>();
+		for (var a : d.areas.areas()) {
+			biomeOf.put(a.id(), a.biome());
+		}
+		List<Marker> out = new ArrayList<>(markers.size());
+		for (Marker m : markers) {
+			if (m.style() == Marker.Style.LABEL && m.id().startsWith("atlas:label:")) {
+				Integer biome = biomeOf.get(m.id().substring("atlas:label:".length()));
+				String id = biome == null ? null : looks.biomeName(biome);
+				if (id != null) {
+					int rgb = dev.voidmc.atlas.core.MapArt.vanillaFill(id);
+					if (rgb < 0) {
+						rgb = dev.voidmc.atlas.core.MapArt.moddedFill(looks.grass(biome), looks.foliage(biome));
+					}
+					boolean light = dev.voidmc.atlas.core.Oklab.fromRgb(rgb)[0] > dev.voidmc.atlas.core.MapArt.LIGHT_FILL;
+					out.add(new Marker(m.id(), m.layer(), dev.voidmc.atlas.core.MapArt.biomeLabel(id), light ? "ink:dark" : "", m.subtitle(), m.x(), m.y(),
+						m.z(), m.dimension(), m.glyph(), m.style(), m.colour(), m.detail(), m.source(), m.tier()));
+					continue;
+				}
+			}
+			out.add(m);
+		}
+		return out;
+	}
+
+	/** Whether this map shows Biomes rather than Terrain (remembered per dimension; B switches). */
+	public boolean biomeLook() {
+		return this.atlas.settings().biomeLook.contains(this.lookKey());
+	}
+
+	/** The look's key: the dimension, and underground apart from the surface. */
+	public String lookKey() {
+		return this.dimensionOf(this.kind) + (this.kind == Kind.UNDERGROUND ? "#under" : "");
+	}
+
+	public void setBiomeLook(boolean on) {
+		var set = this.atlas.settings().biomeLook;
+		if (on) {
+			set.add(this.lookKey());
+		} else {
+			set.remove(this.lookKey());
+			this.atlas.biomeHighlight = null;
+		}
+		this.atlas.settings().save();
+	}
+
 	/** Where a marker (or a name on the land) was drawn last frame, or null (the tour's cursor). */
 	public MarkerPainter.@Nullable Placed placedOf(String markerId) {
 		for (MarkerPainter.Placed p : this.placed) {
@@ -285,17 +342,32 @@ public final class MapPanel {
 		this.renderer.setTint(sky ? dev.voidmc.atlas.client.render.MapLight.tint() : 0xFFFFFF);
 		// under the walked land: terrain seen from afar (VOID LOD), then a party member's land, each drawn quieter (their
 		// layers' own looks), never over one's own
+		boolean biomes = this.biomeLook();
+		if (biomes) {
+			// the biome view: flat fills, no day and night
+			this.renderer.setTint(0xFFFFFF);
+		}
 		DimensionData under = this.kind == Kind.SURFACE && layer != null && session != null ? session.dimension(this.dimensionOf(this.kind), false) : null;
 		LayerData far = under != null && this.atlas.settings().farSight ? under.layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER) : null;
 		if (far != null) {
-			this.renderer.draw(ui, this.atlas.tiles(), far, x, y, w, h, radius, view, true);
+			this.renderer.draw(ui, this.atlas.tiles(), biomes ? far.twin(dev.voidmc.atlas.core.TileRenderer.Variant.BIOMES) : far, x, y, w, h, radius, view,
+				true);
 		}
-		LayerData shared = under != null && this.atlas.social.available() && this.atlas.settings().shareMap
+		LayerData shared = under != null && !biomes && this.atlas.social.available() && this.atlas.settings().shareMap
 			? under.layerIfOpen(dev.voidmc.atlas.client.Social.LAYER) : null;
 		if (shared != null) {
 			this.renderer.draw(ui, this.atlas.tiles(), shared, x, y, w, h, radius, view, true);
 		}
-		MapRenderer.Frame f = this.renderer.draw(ui, this.atlas.tiles(), layer, x, y, w, h, radius, view, true);
+		LayerData shown = layer == null || !biomes ? layer : layer.twin(dev.voidmc.atlas.core.TileRenderer.Variant.BIOMES);
+		MapRenderer.Frame f = this.renderer.draw(ui, this.atlas.tiles(), shown, x, y, w, h, radius, view, true);
+		double night = dev.voidmc.atlas.client.render.MapLight.night();
+		if (sky && !biomes && layer != null && night > 0.01) {
+			// the moonlit map (with its block light) over the day's, as far into the night as it is
+			this.renderer.setTint(0xFFFFFF);
+			this.renderer.setOpacity((float) night);
+			this.renderer.draw(ui, this.atlas.tiles(), layer.twin(dev.voidmc.atlas.core.TileRenderer.Variant.NIGHT), x, y, w, h, radius, view, true);
+			this.renderer.setOpacity(1);
+		}
 		this.frame = f;
 		// markers and the player, clipped to the map's box
 		ui.flush();
@@ -306,6 +378,9 @@ public final class MapPanel {
 		double px = p == null ? this.cx : p.getX() * s;
 		double pz = p == null ? this.cz : p.getZ() * s;
 		this.markers = this.collect(f, dim, px, pz);
+		if (this.biomeLook()) {
+			this.markers = this.biomeNames(this.markers, dim);
+		}
 		this.hovered = null;
 		if (interactive && f.inside(mouseX, mouseY)) {
 			for (int i = this.placed.size() - 1; i >= 0; i--) {
