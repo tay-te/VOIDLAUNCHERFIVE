@@ -37,8 +37,8 @@ public final class SeasonColours {
 	private static final int[] LEAF = {BARE, BARE, BUD, FRESH, FRESH, DEEP, DEEP, EARLY_TURN, TURN, TURN, SERE, BARE, BARE};
 
 	private static final int OLIVE = 0xA9A04E, STRAW_BROWN = 0x9A9068, GRASS_BROWN = 0x9C8C5A, DRY_GRASS = 0xB3A85C, YELLOW_GREEN = 0x9FC64A;
-	private static final int AUTUMN = 0xC98A2C, WITHERED = 0x8C5E34, TWIGS = 0x76695D, BUDS = 0x9DBE4A;
-	private static final int BIRCH_GOLD = 0xDDB935, BIRCH_SERE = 0x9A7A3E, BIRCH_TWIGS = 0x8A7D79, LITTER = 0xB46A2E;
+	private static final int AUTUMN = 0xC98A2C, WITHERED = 0x8C5E34, TWIGS = 0x6E5E50, BUDS = 0x9DBE4A;
+	private static final int BIRCH_GOLD = 0xDDB935, BIRCH_SERE = 0x9A7A3E, BIRCH_TWIGS = 0x84786C, LITTER = 0xB46A2E;
 
 	private final float year;
 	private final boolean on;
@@ -234,7 +234,7 @@ public final class SeasonColours {
 			case TURN -> birch ? match(BIRCH_GOLD, base, 1.18F) : match(AUTUMN, base, 1.12F);
 			case EARLY_TURN -> mix(this.state(DEEP, base, birch, dryness), this.state(TURN, base, birch, dryness), 0.35F);
 			case SERE -> match(birch ? BIRCH_SERE : WITHERED, base, 0.95F);
-			case BARE -> birch ? match(BIRCH_TWIGS, base, 1.05F) : match(TWIGS, base, 1.0F);
+			case BARE -> birch ? match(BIRCH_TWIGS, base, 1.0F) : match(TWIGS, base, 0.95F);
 			case BUD -> mix(match(BUDS, base, 1.15F), this.state(BARE, base, birch, dryness), 0.35F);
 			default -> base;
 		};

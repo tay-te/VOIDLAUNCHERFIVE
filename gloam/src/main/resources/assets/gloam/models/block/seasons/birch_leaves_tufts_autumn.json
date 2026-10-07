@@ -1,0 +1,6 @@
+{
+  "parent": "gloam:block/seasons/tufts",
+  "textures": {
+    "leaves": "minecraft:block/birch_leaves"
+  }
+}

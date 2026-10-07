@@ -27,7 +27,7 @@ final class SeasonLeaves {
 	/** Vanilla's constant leaf colours (BlockColors.createDefault). */
 	static final int SPRUCE = 0x619961, BIRCH = 0x80A755;
 	/** How wide one crown's cell is, in blocks: a broadleaf crown is five to seven across. */
-	private static final int CROWN = 6;
+	static final int CROWN = 6;
 	/** The climate the constant-coloured trees are taken to grow in (their tint does not see the biome). */
 	private static final float TEMPERATE = 0.6F, WET = 0.6F;
 

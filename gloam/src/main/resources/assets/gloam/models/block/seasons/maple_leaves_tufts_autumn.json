@@ -1,0 +1,6 @@
+{
+  "parent": "gloam:block/seasons/tufts_bark",
+  "textures": {
+    "leaves": "expanse:block/maple_leaves"
+  }
+}

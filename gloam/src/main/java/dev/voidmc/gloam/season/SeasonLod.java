@@ -87,7 +87,7 @@ final class SeasonLod {
 			byte leaf = ground ? OTHER : this.leaf(material);
 			if (leaf == DRAWN) {
 				// a crown drawn in its autumn colours (maple, aspen, larch): green until autumn, as the chunks show it
-				return BareCrowns.drawnAutumn(rgb, BareCrowns.summer(material(material)), colours);
+				return SeasonalLeaves.drawnAutumn(rgb, SeasonalLeaves.summer(material(material)), colours);
 			}
 			float green = greenness(rgb);
 			if (green <= 0 || !ground && leaf == OTHER) {
@@ -200,7 +200,7 @@ final class SeasonLod {
 				String path = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
 				if (state.is(Blocks.BIRCH_LEAVES)) {
 					kind = BIRCH;
-				} else if (BareCrowns.summer(state) != 0) {
+				} else if (SeasonalLeaves.summer(state) != 0) {
 					kind = DRAWN;
 				} else if (path.contains("spruce") || path.contains("pine") || path.contains("fir") || path.contains("redwood") || path.contains("cedar")) {
 					kind = NEEDLES;

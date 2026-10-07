@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/leaves",
+  "textures": {
+    "all": "gloam:block/seasons/maple_leaves_green"
+  }
+}

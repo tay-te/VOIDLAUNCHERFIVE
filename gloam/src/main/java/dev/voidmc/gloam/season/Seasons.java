@@ -12,7 +12,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
  * Seasons you can see: the year Gloam already keeps ({@link Air#year}) shown on the land. The grass and leaves take the
  * season's colours through vanilla's biome colour resolvers ({@link SeasonResolvers}, tree by tree in
  * {@link SeasonLeaves}), so the chunks bake them in and shader packs see them; the broadleaf crowns thin in late autumn
- * and stand bare through winter ({@link BareCrowns}); the snow falls lower in winter ({@link Snowline}); and VOID LOD's
+ * and stand bare through winter, their leaf blocks drawn as twigs ({@link SeasonalLeaves}); the snow falls lower in winter ({@link Snowline}); and VOID LOD's
  * far land turns with the near ({@link SeasonLod}).
  *
  * <p>The colours move in steps, {@value #STEPS} a year (half a day each at the default eight-day seasons), not every
@@ -31,11 +31,11 @@ public final class Seasons {
 	private static volatile SeasonColours lodColours = SeasonColours.NONE;
 
 	private static final Remesh REMESH = new Remesh();
-	private static BareCrowns crowns;
+	/** Whether the crowns were thinned at the last step (the setting can change between steps). */
+	private static boolean bareTrees;
 	private static ClientLevel level;
 	private static int step = Integer.MIN_VALUE;
 	private static int held;
-	private static int ticks;
 	private static int steps;
 	private static long applyNanos;
 
@@ -44,6 +44,7 @@ public final class Seasons {
 
 	public static void init() {
 		SeasonLeaves.register();
+		SeasonalLeaves.register();
 		ClientTickEvents.END_CLIENT_TICK.register(Seasons::tick);
 	}
 
@@ -91,18 +92,15 @@ public final class Seasons {
 		}
 		REMESH.tick(mc);
 		REMESH.watch(mc);
-		if (crowns == null) {
-			crowns = new BareCrowns();
-		}
-		if (++ticks % 40 == 0 || crowns.pending) {
-			// a resource reload makes the atlas again: its sprites are drawn again as they are now
-			crowns.update(mc, colours, colours.on() && settings.bareTrees);
+		if (settings.bareTrees != bareTrees && step != Integer.MIN_VALUE) {
+			// the crowns' models follow the setting: a step in the same colours
+			apply(mc, colours, false);
 		}
 	}
 
 	private static void apply(Minecraft mc, SeasonColours next, boolean first) {
 		long t0 = System.nanoTime();
-		boolean changed = next.on() || colours.on();
+		boolean changed = next.on() || colours.on() || bareTrees != GloamSettings.get().bareTrees;
 		colours = next;
 		if (first) {
 			// a new level: the far land is built in these colours from the start
@@ -114,9 +112,7 @@ public final class Seasons {
 			mc.level.clearTintCaches();
 			REMESH.start(mc);
 		}
-		if (crowns != null) {
-			crowns.update(mc, next, next.on() && GloamSettings.get().bareTrees);
-		}
+		bareTrees = GloamSettings.get().bareTrees;
 		steps++;
 		applyNanos += System.nanoTime() - t0;
 	}
@@ -133,7 +129,7 @@ public final class Seasons {
 	 */
 	public static int untintedLeaf(net.minecraft.world.level.block.state.BlockState state, int drawn) {
 		SeasonColours c = colours;
-		return c.on() ? drawn & 0xFF000000 | BareCrowns.drawnAutumn(drawn & 0xFFFFFF, BareCrowns.summer(state), c) : drawn;
+		return c.on() ? drawn & 0xFF000000 | SeasonalLeaves.drawnAutumn(drawn & 0xFFFFFF, SeasonalLeaves.summer(state), c) : drawn;
 	}
 
 	/** Whether the chunks have finished taking the last step's colours (marked, and the meshers' queues empty). */
@@ -145,8 +141,7 @@ public final class Seasons {
 	/** One line for the logs: the step shown and what the last ones cost. */
 	public static String stats() {
 		SeasonColours c = colours;
-		return String.format(Locale.ROOT, "season step %d (year %.3f, %s), bare %.2f, turned %.2f; %d steps, %.2f ms each on the client thread; %s; %s",
-			step, c.year(), c.on() ? "on" : "off", c.bare(), c.turned(), steps, steps == 0 ? 0 : applyNanos / 1e6 / steps, REMESH.stats(),
-			crowns == null ? "no crowns" : crowns.stats());
+		return String.format(Locale.ROOT, "season step %d (year %.3f, %s), bare %.2f, turned %.2f; %d steps, %.2f ms each on the client thread; %s",
+			step, c.year(), c.on() ? "on" : "off", c.bare(), c.turned(), steps, steps == 0 ? 0 : applyNanos / 1e6 / steps, REMESH.stats());
 	}
 }

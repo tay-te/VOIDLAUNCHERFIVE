@@ -402,7 +402,8 @@ public class GloamShowcase implements FabricClientGameTest {
 
 	/**
 	 * The seasons' views (Seasons): the valley and the forest at noon on a day of each season ({@code seasonDays} 8 and the
-	 * year starting 0.15 in: day 1 is mid-spring, day 6 early summer, day 15 mid-autumn, day 23 deep winter), the winter
+	 * year starting 0.15 in: day 1 is mid-spring, day 6 early summer, day 15 mid-autumn, day 17 late autumn with the crowns
+	 * thinning, day 23 deep winter), the winter
 	 * snowline (rain in the valley, snow on the peak), and the land from the peak in autumn with a long lens, where the
 	 * chunks meet VOID LOD's far land. Shot place by place, so the chunks load once for each.
 	 */
@@ -420,6 +421,9 @@ public class GloamShowcase implements FabricClientGameTest {
 		for (int i = 0; i < 4; i++) {
 			views.add(new View(names[i] + "1", m.forestX(), m.forestY() + 24, m.forestZ(), m.forestYaw(), 22, 70, days[i] * 24000L + 6000, "clear", 3));
 		}
+		// late autumn (day 17, the crowns half bare): the leaves thinning to twigs, over the forest and in the valley
+		views.add(new View("lateautumn1", m.forestX(), m.forestY() + 24, m.forestZ(), m.forestYaw(), 22, 70, 17 * 24000L + 6000, "clear", 3));
+		views.add(new View("lateautumn0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), 3, 70, 17 * 24000L + 6000, "clear", 3));
 		// on temperate high ground, where vanilla rains all year, in a winter rain: it snows there now
 		views.add(new View("snowline1", hill[0], hill[1] + 4, hill[2], hill[3], 6, 70, 23 * 24000L + 6000, "rain", 4));
 	}

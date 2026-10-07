@@ -186,11 +186,11 @@ changed: it is all in how the client tints and draws what is there.
 
 | Class | What it is |
 |---|---|
-| `Seasons` | The client tick: the year in steps (64 a year, half a day each at eight-day seasons); at a step clears the tint caches, re-meshes the chunks around the camera, redraws the crowns and (once a step has held 5 s) has VOID LOD rebuild its tiles. Gloam or `seasons` off is a step back to vanilla. |
+| `Seasons` | The client tick: the year in steps (64 a year, half a day each at eight-day seasons); at a step clears the tint caches, re-meshes the chunks around the camera (which also swaps the crowns' models) and (once a step has held 5 s) has VOID LOD rebuild its tiles. Gloam or `seasons` off is a step back to vanilla. |
 | `SeasonColours` | Pure colour maths per step (`SeasonColoursTest`): keyframes through the year for grass, broadleaf crowns, birch, needles and leaf litter, from vanilla's colour and the biome's climate; hot, dry and tropical lands change little. |
 | `SeasonResolvers` | Vanilla's grass, foliage and dry-foliage `ColorResolver`s wrapped (`BiomeColorsMixin`), so chunk meshes bake the season and every biome (vanilla, Expanse) turns in its own greens; grass turns in patches. Sodium reads the same resolvers. |
 | `SeasonLeaves` | Tint sources for oak, dark oak, birch and spruce leaves (Fabric's `BlockColorRegistry`): each tree its own hue about the season's colour (a jittered crown-sized grid), birch bright yellow in autumn, spruce darker in the cold. |
-| `BareCrowns` | The broadleaf leaf sprites redrawn in the block atlas as the crowns thin in late autumn and stand bare through winter (cut-out pixels, a few twigs and buds, mipmaps made again); Expanse's untinted broadleaves recoloured (beech copper, willow yellow; maple, aspen and larch green until autumn). No chunk is rebuilt for it, and packs sample the same atlas. |
+| `SeasonalLeaves` | The broadleaf leaf blocks' models wrapped (Fabric's model loading API): block by block, by how bare the season has the crowns and each tree's own timing, the leaf cube, a thinning crown (twigs and small clumps of leaves) or a bare one (two crossed and two flat planes of thin twigs, mostly clear), so a winter wood is a light tracery with the ground through it; Expanse's untinted leaves swap to their other season's texture (beech copper, willow yellow; maple, aspen, larch green until autumn). Chosen as chunks are meshed (vanilla through Fabric's renderer, Sodium through its own); items and particles keep the cube. Textures and models from `tools/gen_seasons.py`. |
 | `Remesh` | Marks the sections around each loaded column's surface (lowest open ground to the treetops), nearest first, over ten ticks: ~1500 sections at render distance 12. |
 | `Snowline` | The precipitation look (`ClientLevelSnowlineMixin` on `ClientLevel.getPrecipitationAt`): the temperature it is decided by drops with the season's cold and faster with height in winter, so it snows on temperate hills and rains in the valleys, and the line sits higher in summer. The server's snow stays vanilla's. |
 | `SeasonLod` | VOID LOD's `LodApi.Seasons` hook: LOD bakes vanilla's colours (`LodApi.bakingColours`) and turns each tile's grass and leaf colours by the season's tint over vanilla's, per channel in linear light, so the far land matches the chunks. |
@@ -246,7 +246,7 @@ rounded, no gradients).
 ## Later phases
 
 - **Seasons, more:** snow lying in winter (server side, from the same year), the season as an API for Hearth and
-  Expanse, real bare branch models instead of thinned leaf sprites.
+  Expanse, branches that sway in the wind.
 - **Server-side regional weather,** so crops, fire and snow follow the same fronts.
 - **World details:** puddles and wet surfaces after rain, frost and dew at dawn, leaf litter in autumn, rainbows
   after showers, heat shimmer over the dunes, wind sway without a pack.

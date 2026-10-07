@@ -1,0 +1,6 @@
+{
+  "parent": "gloam:block/seasons/tufts_bark",
+  "textures": {
+    "leaves": "gloam:block/seasons/aspen_leaves_green"
+  }
+}
