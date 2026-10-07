@@ -23,7 +23,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * is what the chunks show. The amount is how far the season has moved the colour, so in summer each biome keeps its
  * own greens. Crowns take one of four variants by where they stand ({@code LodApi.seasonVariant}, the same hash the
  * near crowns use: {@link SeasonLeaves#tree}), so a far autumn wood is red, orange, gold and late green, tree for tree as
- * near. Bare winter crowns are the season's twig grey-brown, darkened, with the land showing through.
+ * near. Bare winter crowns are the season's twig grey-brown, lifted as the sky and land show through them.
  *
  * <p>Touches VOID LOD's classes only when it is loaded ({@link Lod#LOADED}).
  */
@@ -32,8 +32,11 @@ final class SeasonLod {
 	static final int GRASS_DRY = 1, GRASS_WET = 2, GRASS_WARM = 3, SIDE_DRY = 4, SIDE_WET = 5, SIDE_WARM = 6, BROADLEAF = 7, BROADLEAF_WARM = 8,
 		MIXED = 9, NEEDLES = 10, BIRCH = 11, BEECH = 12, WILLOW = 13, MAPLE = 14, ORANGE_MAPLE = 15, ASPEN = 16, LARCH = 17;
 	private static final int CLASSES = 32, VARIANTS = 4;
-	/** A bare crown seen from afar is twigs over the land under them: darker than the twigs alone. */
-	private static final float BARE_SHADE = 0.8F;
+	/**
+	 * A bare crown seen from afar is a haze of twigs with the sky and the land through it: lighter than the summer's
+	 * shaded green, as light again as the twigs' own colour, by this much.
+	 */
+	private static final float BARE_LIFT = 1.45F;
 
 	private SeasonLod() {
 	}
@@ -109,15 +112,15 @@ final class SeasonLod {
 		}
 	}
 
-	/** A crown this time of year, its tree's own about it, and darkened as it goes bare (the land shows through). */
+	/** A crown this time of year, its tree's own about it, and lighter as it goes bare (the sky and land show through). */
 	private static int crown(SeasonColours c, int seasoned, float[] tree) {
 		int own = c.tree(seasoned, tree[0], tree[1], tree[2]);
-		return SeasonColours.scale(own, 1 - (1 - BARE_SHADE) * c.bare());
+		return SeasonColours.scale(own, 1 + (BARE_LIFT - 1) * c.bare());
 	}
 
 	private static void untinted(float[] t, int cls, int v, int base, int seasoned, SeasonColours c, float[] tree) {
 		int own = SeasonColours.scale(seasoned, 1 + (tree[2] - 0.5F) * 0.12F);
-		entry(t, cls, v, base, SeasonColours.scale(own, 1 - (1 - BARE_SHADE) * c.bare()), 1);
+		entry(t, cls, v, base, SeasonColours.scale(own, 1 + (BARE_LIFT - 1) * c.bare()), 1);
 	}
 
 	/**

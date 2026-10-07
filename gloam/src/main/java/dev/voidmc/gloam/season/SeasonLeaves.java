@@ -60,7 +60,7 @@ final class SeasonLeaves {
 	 * one late and still yellow-green. Near and far take them by the same hash ({@link Hash#variant}, VOID LOD's
 	 * {@code seasonVariant}), so the far crowns match the near tree for tree.
 	 */
-	private static final float[][] VARIANTS = {{0.1F, 0.6F, 0.42F}, {0.38F, 0.6F, 0.55F}, {0.7F, 0.45F, 0.6F}, {0.95F, 0.5F, 0.5F}};
+	private static final float[][] VARIANTS = {{0.18F, 0.55F, 0.45F}, {0.5F, 0.6F, 0.55F}, {0.78F, 0.45F, 0.62F}, {0.95F, 0.5F, 0.55F}};
 
 	static float[] variant(int v) {
 		return VARIANTS[v & 3];
