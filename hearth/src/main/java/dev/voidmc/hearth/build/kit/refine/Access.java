@@ -27,6 +27,10 @@ public final class Access {
 		}
 		Doors.Report r = Doors.finish(d);
 		dev.voidmc.hearth.build.kit.Stairs.finish(d);
+		// -Dhearth.lofts.off=true: without the loft pass (to measure it alone)
+		if (!Boolean.getBoolean("hearth.lofts.off")) {
+			Lofts.finish(d);
+		}
 		int guards = Guards.finish(d);
 		return new Report(r.doors(), r.cleared(), r.bricked(), r.lids(), guards);
 	}
