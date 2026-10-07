@@ -84,6 +84,11 @@ public final class Jail implements Archetype {
 		int h0 = 5;
 		int h1 = 4;
 		Body body = new Body(x0, z0, x1, z1, base, new int[]{h0, h1}, false, false);
+		// the mesa's lock-up steps its jailer's storey back from the front, the strong storey's roof a terrace before it
+		boolean pueblo = Pueblo.is(d);
+		if (pueblo) {
+			body.setback(1, Dirs.FRONT, 2);
+		}
 		d.body(x0, z0, x1, z1);
 		int plate = body.plateY();
 		d.eave(plate);
@@ -158,7 +163,13 @@ public final class Jail implements Archetype {
 		Storeys.Top top;
 		if (flat) {
 			top = Storeys.roof(d, body, RoofForm.FLAT, Direction.Axis.X, 1.0, 1);
-			Towers.battlements(d, x0, z0, x1, z1, top.deck());
+			int[] tr = body.topRect();
+			Towers.battlements(d, tr[0], tr[1], tr[2], tr[3], top.deck());
+			if (pueblo) {
+				// the terrace over the strong storey, a door out to it from the jailer's storey
+				dev.voidmc.hearth.build.kit.Roofs.terrace(d, body.rect(0), body.rect(1), fy - 1);
+				Openings.door(d, up, cx, fy, 1, new Openings.DoorOpts(false, false, false));
+			}
 		} else {
 			RoofForm form = t == Tradition.KARST ? RoofForm.PAGODA : RoofForm.HIP;
 			top = Storeys.roof(d, body, form, Direction.Axis.X, 1.0, 2);
@@ -290,7 +301,8 @@ public final class Jail implements Archetype {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, doorX);
 		}
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
-		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(maxH - 1, skyline + 2), pueblo + 2));
+		int crown = pueblo ? Pueblo.crown(d, body.topRect()) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(maxH - 1, skyline + 2), crown + 2));
 	}
 }

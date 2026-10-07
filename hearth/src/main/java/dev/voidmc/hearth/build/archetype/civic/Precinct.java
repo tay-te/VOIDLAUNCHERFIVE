@@ -315,7 +315,8 @@ final class Precinct {
 		this.gaz0 = this.kz0 + (this.wF > 0 ? this.wF + 1 : 0);
 		this.gaz1 = this.kz1 - (this.wB + 1);
 		// storeys: two where the plot is tall enough
-		this.heights = this.top >= 15 ? new int[]{5, 4} : new int[]{5};
+		// (the mesa's missions keep their ranges to one storey round the patio, under the church and its bell wall)
+		this.heights = this.top >= 15 && !dev.voidmc.hearth.build.kit.civic.Pueblo.is(d) ? new int[]{5, 4} : new int[]{5};
 		int p = 0;
 		for (int h : this.heights) {
 			p += h;
@@ -1664,6 +1665,11 @@ final class Precinct {
 	private void furnishKind(Room room) {
 		switch (room.kind) {
 			case GATE, TOWER -> {
+				// the room over the gate passage (or up a tower): the house's muniments, chests and a shelf of the rolls;
+				// the passage itself stays bare
+				if (room.storey > 0) {
+					generic(room, Rooms.Type.STORAGE, 0, null);
+				}
 			}
 			case DORMITORY -> beds(room, Math.max(1, room.beds), false, false);
 			case CHAMBERS -> beds(room, Math.max(1, room.beds), true, false);
@@ -2294,7 +2300,7 @@ final class Precinct {
 	/** The finishing pass: natural ground cleared over the plot up to the skyline. */
 	void finish() {
 		clearThresholds();
-		Halls.lintels(this.d);
+		Halls.finish(this.d);
 		Groundwork.clear(this.d, 0, 0, this.w - 1, this.dp - 1, Math.min(this.top, this.skyline + 2));
 	}
 

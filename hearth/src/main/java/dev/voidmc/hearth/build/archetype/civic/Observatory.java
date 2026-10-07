@@ -77,7 +77,8 @@ public final class Observatory implements Archetype {
 	@Override
 	public void draw(Draft d) {
 		Tradition t = Tradition.of(d);
-		boolean terrace = t == Tradition.ADOBE || t == Tradition.STEPPE || t == Tradition.KARST;
+		// (the mesa raises its astronomers' tower round, as the canyon builders raised theirs, not the desert's platform)
+		boolean terrace = (t == Tradition.ADOBE || t == Tradition.STEPPE || t == Tradition.KARST) && !Pueblo.is(d);
 		String form = d.param("form", "");
 		if (form.equals("tower")) {
 			terrace = false;
@@ -87,6 +88,7 @@ public final class Observatory implements Archetype {
 		int peak = terrace ? terraceObservatory(d, t) : tower(d, t);
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, d.frontage() - 1, d.depth() - 1, Math.max(Math.min(d.maxHeight() - 1, peak + 2), pueblo + 2));
 	}
 
