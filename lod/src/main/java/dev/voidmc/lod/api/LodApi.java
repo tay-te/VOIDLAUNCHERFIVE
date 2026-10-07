@@ -85,8 +85,8 @@ public final class LodApi {
 	/**
 	 * Calls {@code listener} for every far tile VOID LOD draws for this player: the tiles drawn now (those built since
 	 * anything first listened), then each tile as it is first drawn, and again whenever it is rebuilt. Called on VOID
-	 * LOD's own thread, one tile at a time. Closing the returned handle stops it. Listen early (at client start) to be
-	 * told of every tile; a tile built before anything listened is told of once it is next rebuilt.
+	 * LOD's own thread, one tile at a time. Closing the returned handle stops it. A tile drawn but built before anything
+	 * listened is built again to be told of ({@link #complete} waits for it).
 	 */
 	public static AutoCloseable addVisibleTerrainListener(VisibleTerrainListener listener) {
 		LISTENERS.add(listener);
@@ -101,6 +101,21 @@ public final class LodApi {
 				TileBuilder.captureTerrain = false;
 			}
 		};
+	}
+
+	/**
+	 * Whether the far terrain around the player is complete for now: every tile the view wants is built and drawn (and
+	 * handed to the listeners), with nothing left in the queue, the world's trees included. Turns false again as the
+	 * player moves on. A map can treat the areas no tile covered by then as beyond the LOD's reach.
+	 */
+	public static boolean complete() {
+		VoidLod lod = VoidLod.get();
+		if (lod == null || !lod.isEnabled()) {
+			return false;
+		}
+		var engine = lod.engine();
+		return engine.source() != null && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0 && engine.terrainMissing() == 0
+			&& lod.treesPending() == 0;
 	}
 
 	/** Whether VOID LOD is loaded and drawing in this level (false: no tiles will come). */
@@ -149,65 +164,172 @@ public final class LodApi {
 	}
 
 	/**
-	 * How the far land's grass and leaves look this time of year, for a mod that turns the near chunks through the seasons
-	 * (by their biome colour resolvers): VOID LOD keeps the colours it bakes as vanilla has them and asks this, as each tile
-	 * is built, what each of a cell's grass and leaf colours looks like now. Called on VOID LOD's workers, so it must be
-	 * quick and thread-safe.
+	 * The far land through the seasons, for a mod that turns the near chunks through them: each grass and leaf face of
+	 * the far land is given a season class as its tile is built ({@link #classify}), and the colours of the classes are a
+	 * small table set at any time ({@link #setSeasonTints}) that the shader applies as it draws: a season step, or a
+	 * smooth blend between seasons frame by frame, costs one upload and no rebuilding. (Through a shader pack, whose
+	 * vertex layout has no room for it, the table is baked into the tiles instead, and they are rebuilt when it has
+	 * moved on far enough.)
 	 */
 	public interface Seasons {
 		/** The top face of the ground (grass, or whatever the cell's surface is). */
 		int GROUND_TOP = 0;
-		/** A side face of the ground (the grass block's side: dirt under a tinted fringe). */
+		/** A side face of the ground's top block (the grass block's side). */
 		int GROUND_SIDE = 1;
-		/** The leaves of a cell's crowns, or of one leaf block of a tree stood on a near tile. */
+		/** Leaves: a cell's crowns, or one leaf block of a tree stood on a near tile. */
 		int LEAVES = 2;
+		/** Classes there are, 0 included (0: the colour never changes). */
+		int CLASSES = 32;
+		/** Variants per class: each crown takes one by where it stands ({@link LodApi#seasonVariant}). */
+		int VARIANTS = 4;
 
 		/**
-		 * The colour {@code rgb} (0xRRGGBB, as vanilla would tint it) of a {@code kind} face looks like now.
+		 * The season class of a {@code kind} face: 0 for one whose colour never changes (stone, sand, water, a desert),
+		 * else 1..31, the mod's own classes ("temperate broadleaf leaves", "steppe grass"...). Called on VOID LOD's
+		 * workers as tiles are built, so it must be quick and thread-safe; answers are remembered per kind, biome,
+		 * material and conifer share (in eighths), so it is asked rarely.
 		 *
-		 * @param biome    the cell's biome, a {@link #biomeName} id (-1 unknown)
-		 * @param material what the face is made of, a {@link #material} id (0 unknown)
+		 * @param biome    the cell's biome, a {@link LodApi#biomeName} id (-1 unknown)
+		 * @param material what the face is made of, a {@link LodApi#material} id (0 unknown)
 		 * @param conifer  the share of the cell's trees that are needle trees, 0..1, or -1 for one leaf block (go by its
 		 *                 material)
 		 */
-		int recolour(int kind, int rgb, int biome, int material, float conifer);
+		int classify(int kind, int biome, int material, float conifer);
 	}
 
 	private static volatile Seasons seasons;
-	/** Threads working out what blocks look like for the far land ({@link #bakingColours}), and how many there are. */
-	private static final ThreadLocal<Boolean> BAKING = new ThreadLocal<>();
-	private static volatile int bakers;
+	/** The season table: per class and variant, (r, g, b, amount, brightness); null: as vanilla tints it. */
+	private static volatile float[] seasonTints;
+	private static volatile int seasonVersion;
 
-	/** Sets how the far land's grass and leaves look through the year (null: as vanilla tints them), then {@link #recolour}. */
+	/**
+	 * Sets what decides the far land's season classes (null: none, every face as vanilla tints it). The tiles are built
+	 * again once, in the background, to carry their classes. Render thread.
+	 */
 	public static void setSeasons(Seasons seasons) {
+		if (LodApi.seasons == seasons) {
+			return;
+		}
 		LodApi.seasons = seasons;
-		recolour();
+		rebuildAround();
 	}
 
-	/** How the far land's grass and leaves look through the year, or null. */
+	/** What decides the far land's season classes, or null. */
 	public static Seasons seasons() {
 		return seasons;
 	}
 
 	/**
-	 * Rebuilds the far land's tiles around the camera, keeping what they know of the land, so they take the season's colours:
-	 * gradually, in the background, as each is drawn. Render thread.
+	 * Sets the season table: {@link Seasons#CLASSES} x {@link Seasons#VARIANTS} entries (class-major, variant-minor), each
+	 * five floats (r, g, b, amount, brightness), class 0 ignored. A classed face's colour becomes
+	 * {@code mix(rgb, target * lum(rgb) / lum(target), amount) * brightness} (lum: Rec. 709 luminance): toward the
+	 * target, keeping its own light and shade, then brightened or darkened (bare winter crowns, straw). Null: as vanilla
+	 * tints it. Any thread; cheap enough to call every frame.
 	 */
-	public static void recolour() {
+	public static void setSeasonTints(float[] table) {
+		if (table != null && table.length < Seasons.CLASSES * Seasons.VARIANTS * 5) {
+			throw new IllegalArgumentException("a season table has " + Seasons.CLASSES * Seasons.VARIANTS * 5 + " floats");
+		}
+		seasonTints = table == null ? null : table.clone();
+		seasonVersion++;
+	}
+
+	/** The season table as last set (not to be changed), or null. */
+	public static float[] seasonTints() {
+		return seasonTints;
+	}
+
+	/** Bumped with every {@link #setSeasonTints}. */
+	public static int seasonVersion() {
+		return seasonVersion;
+	}
+
+	/**
+	 * Which of a class's {@link Seasons#VARIANTS} the crowns standing at block (x, z) take: a hash of the 12-block square
+	 * they stand in. The same for the near chunks, if the mod uses it there too, so near and far crowns agree tree for tree.
+	 */
+	public static int seasonVariant(int x, int z) {
+		int h = Math.floorDiv(x, 12) * 0x1B873593 ^ Math.floorDiv(z, 12) * 0x5BD1E995;
+		h ^= h >>> 15;
+		h *= 0x2C1B3C6D;
+		h ^= h >>> 12;
+		return h & 3;
+	}
+
+	/**
+	 * Colour {@code rgb} (0xRRGGBB) as the season table has it for a face of season code {@code code} (class in the low five
+	 * bits, variant in the two above), for the tiles that bake it (through a shader pack). The shader does the same.
+	 */
+	public static int seasonColour(int rgb, int code, float[] table) {
+		int cls = code & 31;
+		if (cls == 0 || table == null) {
+			return rgb;
+		}
+		int e = (cls * Seasons.VARIANTS + (code >> 5 & 3)) * 5;
+		float r = (rgb >> 16 & 255) / 255.0F, g = (rgb >> 8 & 255) / 255.0F, b = (rgb & 255) / 255.0F;
+		float tr = table[e], tg = table[e + 1], tb = table[e + 2], amount = table[e + 3], bright = table[e + 4];
+		float lum = 0.2126F * r + 0.7152F * g + 0.0722F * b;
+		float k = lum / Math.max(0.2126F * tr + 0.7152F * tg + 0.0722F * tb, 1e-3F);
+		r = (r + (tr * k - r) * amount) * bright;
+		g = (g + (tg * k - g) * amount) * bright;
+		b = (b + (tb * k - b) * amount) * bright;
+		return Math.round(Math.clamp(r, 0, 1) * 255) << 16 | Math.round(Math.clamp(g, 0, 1) * 255) << 8 | Math.round(Math.clamp(b, 0, 1) * 255);
+	}
+
+	/** The table the tiles built through a shader pack have baked in, and when it was baked. */
+	private static float[] bakedTints;
+	private static long bakedNanos;
+	/** How far the table must move on (any float) before tiles that bake it are built again, and how often at most. */
+	private static final float BAKE_STEP = 0.04F;
+	private static final long BAKE_NANOS = 20_000_000_000L;
+
+	/**
+	 * Each frame while a shader pack draws the far land (render thread): its tiles bake the season table in, so once the
+	 * table has moved on far enough they are built again, at most every {@value #BAKE_NANOS} ns.
+	 */
+	public static void bakeSeasons() {
+		float[] table = seasonTints;
+		if (seasons == null || table == bakedTints) {
+			return;
+		}
+		long now = System.nanoTime();
+		if (now - bakedNanos < BAKE_NANOS) {
+			return;
+		}
+		boolean moved = bakedTints == null || table == null;
+		for (int i = 0; !moved && i < table.length; i++) {
+			moved = Math.abs(table[i] - bakedTints[i]) > BAKE_STEP;
+		}
+		if (moved) {
+			bakedTints = table;
+			bakedNanos = now;
+			rebuildAround();
+		}
+	}
+
+	/** Builds the far land's tiles around the camera again, keeping what they know of the land. Render thread. */
+	static void rebuildAround() {
 		VoidLod lod = VoidLod.get();
+		if (lod == null || lod.engine().source() == null) {
+			return;
+		}
 		var mc = net.minecraft.client.Minecraft.getInstance();
-		if (lod == null || lod.engine().source() == null || mc.gameRenderer == null) {
+		if (mc.gameRenderer == null) {
 			return;
 		}
 		var eye = mc.gameRenderer.mainCamera().position();
-		int r = (int) Math.min(23000, lod.radius + 1024);
+		int r = (int) (lod.radius + 1024);
 		int x = (int) eye.x, z = (int) eye.z;
 		lod.engine().refresh(x - r, z - r, x + r, z + r, dev.voidmc.lod.core.TileKey.MAX_LEVEL);
 	}
 
+	/** Threads working out what blocks look like for the far land ({@link #bakingColours}), and how many there are. */
+	private static final ThreadLocal<Boolean> BAKING = new ThreadLocal<>();
+	private static volatile int bakers;
+
 	/**
 	 * Whether this thread is working out what blocks look like for the far land right now (their textures and vanilla's
-	 * tints): a mod whose tints follow the seasons gives vanilla's own here, and the season through {@link #setSeasons}.
+	 * tints): a mod whose tints follow the seasons gives vanilla's own here; the season comes through {@link #setSeasons}.
 	 */
 	public static boolean bakingColours() {
 		return bakers > 0 && BAKING.get() == Boolean.TRUE;

@@ -29,6 +29,9 @@ public final class ExpanseColours {
 	private final int saltSideMaterial;
 	private final int basaltTopMaterial;
 	private final int basaltSideMaterial;
+	/** The rocks Expanse lays under the soil in place of stone ({@code Column.rock}: sandstone, limestone, basalt). */
+	private final int[] rocks = new int[4];
+	private final int[] rockMaterials = new int[4];
 
 	/** @param strata the world's badlands strata, one colour per block (null: none), and their blocks' material ids */
 	public ExpanseColours(BiomeLooks looks, Materials materials, int seaLevel, int[] strata, int[] strataMaterials) {
@@ -43,6 +46,12 @@ public final class ExpanseColours {
 		this.saltSideMaterial = materials.id(LandformBlocks.SALT_BLOCK.defaultBlockState(), false);
 		this.basaltTopMaterial = materials.id(Blocks.BASALT.defaultBlockState(), true);
 		this.basaltSideMaterial = materials.id(Blocks.BASALT.defaultBlockState(), false);
+		net.minecraft.world.level.block.state.BlockState[] rocks = {null, Blocks.SANDSTONE.defaultBlockState(),
+			dev.voidmc.expanse.registry.ExpanseBlocks.LIMESTONE.defaultBlockState(), Blocks.BASALT.defaultBlockState()};
+		for (int r = 1; r < 4; r++) {
+			this.rocks[r] = looks.colorOf(rocks[r]);
+			this.rockMaterials[r] = materials.id(rocks[r], false);
+		}
 	}
 
 	public int seaLevel() {
@@ -65,6 +74,11 @@ public final class ExpanseColours {
 		out.lava = f.lava;
 		if (f.lava) {
 			out.waterColor = this.looks.lava;
+		}
+		if (f.rock > 0 && f.rock < 4) {
+			// the generator lays it in place of the stone and its veins under the soil
+			out.rock = this.rocks[f.rock];
+			out.rockMaterial = this.rockMaterials[f.rock];
 		}
 		if (out.bands != null && this.strata != null) {
 			out.bands = this.strata;
@@ -104,6 +118,12 @@ public final class ExpanseColours {
 		if (landform == Landform.NONE || landform == Landform.FJORD || landform == Landform.TEPUI) {
 			// snow where the chunks will lay it: the biome's own temperature at this height
 			float snow = this.snow(biome, x, top, z, cell);
+			// steep soil the generator strips to the rock under it (not strata, which are no soil; not under snow)
+			// (never next to the sea or a river, as the generator leaves those)
+			out.bareWhenSteep = out.bands == null && snow < 0.5F
+				&& (look.ground() == BiomeLooks.Ground.GRASS || look.ground() == BiomeLooks.Ground.PODZOL)
+				&& f.height >= this.seaLevel + 1 && !(f.nearRiver && f.riverDist < f.riverHalfWidth + 1.5F);
+			out.bareRise = ColumnSample.DEFAULT_BARE_RISE + 1.6F * f.outcrop;
 			// bare rock above the tree line on high, young ranges
 			float bare = Colors.smooth(135, 175, top) * Colors.smooth(0.95F, 1.25F, f.uplift);
 			if (look.ground() == BiomeLooks.Ground.GRASS || look.ground() == BiomeLooks.Ground.PODZOL) {

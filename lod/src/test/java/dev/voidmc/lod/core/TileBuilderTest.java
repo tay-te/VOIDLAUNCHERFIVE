@@ -11,9 +11,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 class TileBuilderTest {
+	/** Every far quad built by these tests came in corners its record can say. */
+	@AfterAll
+	static void everyCompactQuadFitsItsRecord() {
+		assertEquals(0, TileBuilder.MISFITS.get());
+	}
+
 	private static TerrainSource flat(int y) {
 		return (x, z, cell, out) -> {
 			out.ground = y;
@@ -199,8 +206,8 @@ class TileBuilderTest {
 		assertTrue(far.compact());
 		java.util.Set<Integer> farLights = new java.util.TreeSet<>();
 		v = vertices(far);
-		for (int i = 0; i < far.vertexCount(); i++) {
-			farLights.add(v.getInt(i * TileBuilder.COMPACT_BYTES + 4) >>> 25 & 3);
+		for (int q = 0; q < far.vertexCount() / 4; q++) {
+			farLights.add(v.getInt(q * TileBuilder.RECORD_BYTES + 4) >>> 30);
 		}
 		assertEquals(java.util.Set.of(0, 3), farLights);
 		// through a pack: Distant Horizons' block light nibble

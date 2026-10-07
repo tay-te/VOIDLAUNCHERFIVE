@@ -35,13 +35,18 @@ import java.nio.ByteOrder;
 public final class TileBuilder {
 	public static final int VERTEX_BYTES = 16;
 	/**
-	 * A far blocky tile's vertex ({@link Mesh#compact}): two 32-bit words. The first is x and z (7 bits each), the
-	 * face and water flag (4 bits) and y in whole blocks (14 bits, signed); the second the colour (5 bits a channel),
-	 * the corner occlusion level (2 bits), and the light (the sun's horizon east and west, the sky's occlusion: 5 bits
-	 * each). Out there a block texture is under a pixel and so is the lowest block of a wall, so the near tiles'
-	 * material id and per-block floor shading go, and so does half the memory.
+	 * A far blocky tile's quad ({@link Mesh#compact}) is one record of four 32-bit words ({@link #RECORD_BYTES}),
+	 * which the shader reads for each of the quad's corners: its lowest corner's x and z (7 bits each), the face and
+	 * water flag (4 bits) and y in whole blocks (14 bits, signed); its size along the face (7 bits across, 13 up a
+	 * wall), the rotation of its corners (the diagonal it splits along), the occlusion level of each corner of a top
+	 * (2 bits each) and the block light (2 bits); the colour along its top and along its foot (5 bits a channel each);
+	 * and the light (the sun's horizon east and west, 4 bits each; the sky's occlusion, 5). Out there a block texture
+	 * is under a pixel and so is the lowest block of a wall, so the near tiles' material id and per-block floor
+	 * shading go, and a quad takes a quarter of the memory. Counted per vertex: {@value} bytes a vertex.
 	 */
-	public static final int COMPACT_BYTES = 8;
+	public static final int COMPACT_BYTES = 4;
+	/** A compact quad's record: four of its vertices' worth ({@link #COMPACT_BYTES}). */
+	public static final int RECORD_BYTES = 4 * COMPACT_BYTES;
 	/** The first level whose blocky tiles are compact. */
 	public static final int COMPACT_FROM = 2;
 	/**
@@ -63,6 +68,8 @@ public final class TileBuilder {
 	public static volatile java.util.function.IntUnaryOperator packMaterials;
 	public static final int UP = 0;
 	public static final int SMOOTH = 1;
+	/** Walls, by the way they face: north (toward -z), south, west (toward -x), east. */
+	static final int NORTH = 2, SOUTH = 3, WEST = 4, EAST = 5;
 	/** The underside of land floating over the void. */
 	public static final int DOWN = 6;
 	public static final int WATER = 8;
@@ -166,10 +173,9 @@ public final class TileBuilder {
 		SAMPLE_NANOS.addAndGet(System.nanoTime() - t0);
 		SAMPLES.addAndGet((long) this.samples.size * this.samples.size);
 		this.terrain = captureTerrain ? TileTerrain.of(key, this.samples) : null;
-		dev.voidmc.lod.api.LodApi.Seasons seasons = dev.voidmc.lod.api.LodApi.seasons();
-		if (seasons != null) {
-			this.season(seasons);
-		}
+		dev.voidmc.lod.api.LodApi.Seasons seasons = smooth ? null : dev.voidmc.lod.api.LodApi.seasons();
+		this.seasonTable = this.pack ? dev.voidmc.lod.api.LodApi.seasonTints() : null;
+		this.classify(seasons);
 		this.lit = heights != null;
 		if (this.lit) {
 			heights.put(key, this.grid(smooth));
@@ -219,12 +225,13 @@ public final class TileBuilder {
 		}
 		if (decorator != null && seasons != null) {
 			Voxels v = this.voxels;
+			Samples s = this.samples;
 			for (int n = 0; n < v.size; n++) {
 				if (v.kind[n] == Voxels.LEAVES) {
-					int biome = this.samples.biome[this.samples.at(Math.clamp(Math.floorDiv(v.x[n] - TileKey.minX(key), this.samples.cell), 0, TileKey.TILE - 1),
-						Math.clamp(Math.floorDiv(v.z[n] - TileKey.minZ(key), this.samples.cell), 0, TileKey.TILE - 1))];
-					v.topColor[n] = seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.LEAVES, v.topColor[n], biome, v.topMaterial[n], -1);
-					v.sideColor[n] = seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.LEAVES, v.sideColor[n], biome, v.sideMaterial[n], -1);
+					int i = Math.clamp(Math.floorDiv(v.x[n] - TileKey.minX(key), s.cell), 0, TileKey.TILE - 1);
+					int j = Math.clamp(Math.floorDiv(v.z[n] - TileKey.minZ(key), s.cell), 0, TileKey.TILE - 1);
+					v.season[n] = this.seasonCode(seasons, dev.voidmc.lod.api.LodApi.Seasons.LEAVES, s.biome[s.at(i, j)], v.topMaterial[n], -1,
+						v.x[n], v.z[n]);
 				}
 			}
 		}
@@ -234,7 +241,7 @@ public final class TileBuilder {
 			holes = indices > 0 && this.smooth.holes;
 			firstIndex = this.smooth.flat ? Smooth.FLAT_FIRST_INDEX : 0;
 		} else {
-			this.blocky.mesh();
+			this.meshLayers(decorator != null);
 			indices = this.vertices / 4 * 6;
 		}
 		if (this.vertices == 0) {
@@ -249,26 +256,147 @@ public final class TileBuilder {
 	}
 
 	/**
-	 * Gives the samples' grass and leaves the season's colours ({@link dev.voidmc.lod.api.LodApi#setSeasons}), after
-	 * they were sampled and the edges kept for the neighbours, so what is kept stays as vanilla tints it.
+	 * Meshes the tile's blocky surface; where the chunks showed land under an overhang (a bridge, a ledge, a roof on
+	 * posts), in two layers: first the land, with the land under each overhang in its place, then the overhangs
+	 * themselves as slabs over it, with their undersides and rims, as islands over the void are drawn.
 	 */
-	private void season(dev.voidmc.lod.api.LodApi.Seasons seasons) {
+	private void meshLayers(boolean trees) {
 		Samples s = this.samples;
 		int n = s.size * s.size;
+		boolean any = false;
 		for (int k = 0; k < n; k++) {
-			if (s.empty[k]) {
+			// an overhang only where it makes sense: its underside under its top, the land under it lower still
+			if (s.deckBottom[k] != Integer.MIN_VALUE && (s.empty[k] || s.deckBottom[k] >= s.ground[k] || s.lowerGround[k] >= s.deckBottom[k])) {
+				s.deckBottom[k] = Integer.MIN_VALUE;
+			}
+			any |= s.deckBottom[k] != Integer.MIN_VALUE;
+		}
+		if (!any) {
+			this.blocky.mesh();
+			return;
+		}
+		float[] ground = java.util.Arrays.copyOf(s.ground, n);
+		float[] bottom = java.util.Arrays.copyOf(s.bottom, n);
+		int[] water = java.util.Arrays.copyOf(s.water, n);
+		int[] top = java.util.Arrays.copyOf(s.top, n), side = java.util.Arrays.copyOf(s.side, n), soil = java.util.Arrays.copyOf(s.soil, n);
+		int[] topMaterial = java.util.Arrays.copyOf(s.topMaterial, n), sideMaterial = java.util.Arrays.copyOf(s.sideMaterial, n);
+		int[] soilMaterial = java.util.Arrays.copyOf(s.soilMaterial, n), waterColor = java.util.Arrays.copyOf(s.waterColor, n);
+		float[] canopy = java.util.Arrays.copyOf(s.canopy, n);
+		boolean[] empty = java.util.Arrays.copyOf(s.empty, n);
+		// the land, the land under each overhang in its place
+		for (int k = 0; k < n; k++) {
+			if (s.deckBottom[k] == Integer.MIN_VALUE || empty[k]) {
 				continue;
 			}
-			int biome = s.biome[k];
-			s.top[k] = seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.GROUND_TOP, s.top[k], biome, s.topMaterial[k], 0);
-			s.side[k] = seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.GROUND_SIDE, s.side[k], biome, s.sideMaterial[k], 0);
-			if (s.canopy[k] > 0) {
-				int leaves = s.leaves[k];
-				s.leaves[k] = seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.LEAVES, leaves, biome, s.leavesMaterial[k], s.conifer[k]);
-				s.leavesTop[k] = s.leavesTop[k] == leaves ? s.leaves[k]
-					: seasons.recolour(dev.voidmc.lod.api.LodApi.Seasons.LEAVES, s.leavesTop[k], biome, s.leavesMaterial[k], s.conifer[k]);
+			s.ground[k] = s.lowerGround[k];
+			s.water[k] = s.lowerWater[k];
+			s.top[k] = s.lowerTop[k];
+			s.side[k] = s.soil[k] = s.lowerSide[k];
+			s.topMaterial[k] = s.lowerTopMaterial[k];
+			s.sideMaterial[k] = s.soilMaterial[k] = s.lowerSideMaterial[k];
+			s.waterColor[k] = s.lowerWaterColor[k];
+			s.canopy[k] = 0;
+		}
+		this.blocky.mesh();
+		// the overhangs, alone over nothing
+		this.blocky.trees(null);
+		for (int k = 0; k < n; k++) {
+			boolean deck = s.deckBottom[k] != Integer.MIN_VALUE && !empty[k];
+			s.ground[k] = ground[k];
+			s.water[k] = Integer.MIN_VALUE;
+			s.top[k] = top[k];
+			s.side[k] = side[k];
+			s.soil[k] = soil[k];
+			s.topMaterial[k] = topMaterial[k];
+			s.sideMaterial[k] = sideMaterial[k];
+			s.soilMaterial[k] = soilMaterial[k];
+			s.canopy[k] = 0;
+			s.bottom[k] = deck ? s.deckBottom[k] : bottom[k];
+			s.empty[k] = !deck;
+		}
+		this.blocky.mesh();
+		// as it was, for whatever reads the samples after
+		System.arraycopy(ground, 0, s.ground, 0, n);
+		System.arraycopy(bottom, 0, s.bottom, 0, n);
+		System.arraycopy(water, 0, s.water, 0, n);
+		System.arraycopy(top, 0, s.top, 0, n);
+		System.arraycopy(side, 0, s.side, 0, n);
+		System.arraycopy(soil, 0, s.soil, 0, n);
+		System.arraycopy(topMaterial, 0, s.topMaterial, 0, n);
+		System.arraycopy(sideMaterial, 0, s.sideMaterial, 0, n);
+		System.arraycopy(soilMaterial, 0, s.soilMaterial, 0, n);
+		System.arraycopy(waterColor, 0, s.waterColor, 0, n);
+		System.arraycopy(canopy, 0, s.canopy, 0, n);
+		System.arraycopy(empty, 0, s.empty, 0, n);
+	}
+
+	/** The season code the vertices after this carry ({@link #season}): 0 none. */
+	private int season;
+	/** The season table this build bakes in (through a shader pack, whose vertices have no room for the code), or null. */
+	private float[] seasonTable;
+	/** What the seasons hook answered, per kind, biome, material and conifer share: it is asked once each. */
+	private final it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap seasonClasses = new it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap();
+	private dev.voidmc.lod.api.LodApi.Seasons seasonsAsked;
+
+	/** The season code ({@code LodApi.Seasons}) the faces after this carry, until the next {@link #light}. */
+	void season(int code) {
+		this.season = code;
+	}
+
+	/**
+	 * The samples' season codes: what the seasons hook makes of the top, the side and the leaves of each ({@code
+	 * LodApi.Seasons}). Leaves take a variant by where they stand, so each crown has its own shade of the season.
+	 */
+	private void classify(dev.voidmc.lod.api.LodApi.Seasons seasons) {
+		Samples s = this.samples;
+		int n = s.size * s.size;
+		if (seasons == null) {
+			java.util.Arrays.fill(s.topSeason, 0, n, (byte) 0);
+			java.util.Arrays.fill(s.sideSeason, 0, n, (byte) 0);
+			java.util.Arrays.fill(s.leavesSeason, 0, n, (byte) 0);
+			return;
+		}
+		for (int j = -s.border; j < s.size - s.border; j++) {
+			for (int i = -s.border; i < s.size - s.border; i++) {
+				int k = s.at(i, j);
+				if (s.empty[k]) {
+					s.topSeason[k] = s.sideSeason[k] = s.leavesSeason[k] = 0;
+					continue;
+				}
+				int x = s.x(i), z = s.z(j), biome = s.biome[k];
+				s.topSeason[k] = this.seasonCode(seasons, dev.voidmc.lod.api.LodApi.Seasons.GROUND_TOP, biome, s.topMaterial[k], 0, x, z);
+				s.sideSeason[k] = this.seasonCode(seasons, dev.voidmc.lod.api.LodApi.Seasons.GROUND_SIDE, biome, s.sideMaterial[k], 0, x, z);
+				s.leavesSeason[k] = s.canopy[k] > 0
+					? this.seasonCode(seasons, dev.voidmc.lod.api.LodApi.Seasons.LEAVES, biome, s.leavesMaterial[k], s.conifer[k], x, z) : 0;
 			}
 		}
+	}
+
+	/** A face's season code: its class from the hook (remembered), and for leaves the variant where it stands. */
+	private byte seasonCode(dev.voidmc.lod.api.LodApi.Seasons seasons, int kind, int biome, int material, float conifer, int x, int z) {
+		if (seasons != this.seasonsAsked) {
+			this.seasonClasses.clear();
+			this.seasonsAsked = seasons;
+		}
+		int eighths = conifer < 0 ? 15 : Math.round(conifer * 8);
+		long key = (long) kind << 56 | (long) (eighths & 15) << 52 | (long) (biome & 0xFFFFF) << 32 | material & 0xFFFFFFFFL;
+		byte cls;
+		if (this.seasonClasses.containsKey(key)) {
+			cls = this.seasonClasses.get(key);
+		} else {
+			int asked;
+			try {
+				asked = seasons.classify(kind, biome, material, conifer);
+			} catch (RuntimeException e) {
+				asked = 0;
+			}
+			cls = (byte) Math.clamp(asked, 0, 31);
+			this.seasonClasses.put(key, cls);
+		}
+		if (cls == 0) {
+			return 0;
+		}
+		return (byte) (kind == dev.voidmc.lod.api.LodApi.Seasons.LEAVES ? cls | dev.voidmc.lod.api.LodApi.seasonVariant(x, z) << 5 : cls);
 	}
 
 	/**
@@ -410,6 +538,7 @@ public final class TileBuilder {
 	 * the block light over its surface in the 3 bits under the occlusion. Unlit builds leave the horizons zero.
 	 */
 	void light(int k) {
+		this.season = 0;
 		this.lightBlock = this.samples.light[k];
 		int occlusion = this.lit ? this.horizons.occlusion[k] & 0xF8 : 0;
 		this.lightFlags = (occlusion | this.lightBlock >> 1) << 8;
@@ -432,11 +561,23 @@ public final class TileBuilder {
 
 	/** No light for the vertices after this: faces the sun and the sky never reach, such as an island's underside. */
 	void unlit() {
+		this.season = 0;
 		this.lightX = this.lightZ = this.lightFlags = this.lightBlock = 0;
 	}
 
 	/** Whether two samples' light is close enough for their faces to merge into one. */
 	boolean sameLight(int a, int b) {
+		if (this.compact) {
+			// exactly as finely as a compact vertex keeps it: what it cannot tell apart may as well be one face
+			if (this.samples.light[a] >> 2 != this.samples.light[b] >> 2) {
+				return false;
+			}
+			if (!this.lit) {
+				return true;
+			}
+			Horizons h = this.horizons;
+			return h.east[a] >> 4 == h.east[b] >> 4 && h.west[a] >> 4 == h.west[b] >> 4 && h.occlusion[a] >> 3 == h.occlusion[b] >> 3;
+		}
 		if (this.samples.light[a] != this.samples.light[b]) {
 			return false;
 		}
@@ -463,6 +604,7 @@ public final class TileBuilder {
 		this.lightX = this.lightZ = this.lightFlags = 0;
 		this.out.clear();
 		this.vertices = 0;
+		this.corners = 0;
 		this.minY = Integer.MAX_VALUE;
 		this.maxY = Integer.MIN_VALUE;
 	}
@@ -491,7 +633,7 @@ public final class TileBuilder {
 		ByteBuffer b = this.out;
 		b.putShort((short) (x | this.lightX)).putShort((short) y8).putShort((short) (z | this.lightZ)).putShort((short) (flags | this.lightFlags));
 		b.put((byte) (top >> 16)).put((byte) (top >> 8)).put((byte) top).put((byte) topAlpha);
-		b.put((byte) (side >> 16)).put((byte) (side >> 8)).put((byte) side).put((byte) sideAlpha);
+		b.put((byte) (side >> 16)).put((byte) (side >> 8)).put((byte) ((flags & 7) == SMOOTH ? side : this.season)).put((byte) sideAlpha);
 		this.vertices++;
 		int lo = y8 >> 3;
 		int hi = (y8 + 7) >> 3;
@@ -529,6 +671,9 @@ public final class TileBuilder {
 			java.util.function.IntUnaryOperator materials = packMaterials;
 			material = id == 0 || materials == null ? PACK_STONE : materials.applyAsInt(id);
 		}
+		if (this.season != 0) {
+			top = dev.voidmc.lod.api.LodApi.seasonColour(top & 0xFFFFFF, this.season, this.seasonTable);
+		}
 		ByteBuffer b = this.out;
 		b.putShort((short) (x * cell)).putShort((short) (yb + PACK_Y_OFFSET)).putShort((short) (z * cell)).putShort((short) (sky | this.lightBlock << 4));
 		// water at about the opacity of vanilla's water texture, over the bed drawn under it (Blocky.beds)
@@ -543,24 +688,39 @@ public final class TileBuilder {
 		}
 	}
 
+	/**
+	 * A compact quad's corners in the order {@link Blocky} emits them unrotated, per face: each corner's place along
+	 * the face's two axes ({@code u | v << 1}; u along x, or z on west and east walls; v along z on tops and
+	 * undersides, up on walls). The shader holds the same table.
+	 */
+	private static final int[] CORNERS = {
+		0, 2, 3, 1, // up
+		0, 0, 0, 0, // (smooth)
+		2, 3, 1, 0, // north
+		3, 2, 0, 1, // south
+		3, 2, 0, 1, // west
+		2, 3, 1, 0, // east
+		0, 1, 3, 2, // down
+		0, 0, 0, 0,
+	};
+	/** Compact quads whose corners came in no order {@link #CORNERS} knows, drawn wrong: for tests, which want none. */
+	static final java.util.concurrent.atomic.AtomicInteger MISFITS = new java.util.concurrent.atomic.AtomicInteger();
+	private final int[] cornerX = new int[4], cornerY = new int[4], cornerZ = new int[4], cornerFace = new int[4];
+	private final int[] cornerRgb = new int[4], cornerAo = new int[4];
+	private int corners;
+
+	/** A compact vertex: kept until its quad's four are in, then written as one record ({@link #RECORD_BYTES}). */
 	private void compactVertex(int x, float y, int z, int flags, int top, int topAlpha) {
-		if (this.out.remaining() < COMPACT_BYTES) {
-			ByteBuffer bigger = ByteBuffer.allocateDirect(this.out.capacity() * 2).order(ByteOrder.nativeOrder());
-			this.out.flip();
-			bigger.put(this.out);
-			this.out = bigger;
-		}
 		// blocky surfaces stand on whole blocks
 		int yb = Math.max(-8192, Math.min(8191, Math.round(y)));
-		int face = flags & 15;
-		int w0 = x & 127 | (z & 127) << 7 | face << 14 | yb << 18;
+		int k = this.corners++;
+		this.cornerX[k] = x;
+		this.cornerY[k] = yb;
+		this.cornerZ[k] = z;
+		this.cornerFace[k] = flags & 15;
+		this.cornerRgb[k] = (top >> 19 & 31) | (top >> 11 & 31) << 5 | (top >> 3 & 31) << 10;
 		// tops carry the corner occlusion's level; walls have no floor shading out here
-		int ao = (flags & 7) == UP ? aoLevel(topAlpha) : 0;
-		int rgb = (top >> 19 & 31) | (top >> 11 & 31) << 5 | (top >> 3 & 31) << 10;
-		// the horizons in 4 bits each, the block light in 2, the occlusion in 5
-		int east = this.lightX >> 12 & 15, west = this.lightZ >> 12 & 15, occ = this.lightFlags >> 11 & 31;
-		int w1 = rgb | ao << 15 | east << 17 | west << 21 | (this.lightBlock >> 2) << 25 | occ << 27;
-		this.out.putInt(w0).putInt(w1);
+		this.cornerAo[k] = (flags & 7) == UP ? aoLevel(topAlpha) : 0;
 		this.vertices++;
 		if (yb < this.minY) {
 			this.minY = yb;
@@ -568,6 +728,96 @@ public final class TileBuilder {
 		if (yb > this.maxY) {
 			this.maxY = yb;
 		}
+		if (k == 3) {
+			this.corners = 0;
+			this.compactRecord();
+		}
+	}
+
+	private void compactRecord() {
+		if (this.out.remaining() < RECORD_BYTES) {
+			ByteBuffer bigger = ByteBuffer.allocateDirect(this.out.capacity() * 2).order(ByteOrder.nativeOrder());
+			this.out.flip();
+			bigger.put(this.out);
+			this.out = bigger;
+		}
+		int face = this.cornerFace[0], f = face & 7;
+		int[] us = f == WEST || f == EAST ? this.cornerZ : this.cornerX;
+		int[] vs = f == UP || f == DOWN ? this.cornerZ : this.cornerY;
+		int x0 = min(this.cornerX), y0 = min(this.cornerY), z0 = min(this.cornerZ), u0 = min(us), v0 = min(vs);
+		int[] codes = new int[4];
+		for (int k = 0; k < 4; k++) {
+			codes[k] = (us[k] != u0 ? 1 : 0) | (vs[k] != v0 ? 2 : 0);
+		}
+		int rot = -1;
+		for (int r = 0; r < 4 && rot < 0; r++) {
+			boolean fits = true;
+			for (int k = 0; k < 4 && fits; k++) {
+				fits = codes[k] == CORNERS[f * 4 + (k + r & 3)];
+			}
+			if (fits) {
+				rot = r;
+			}
+		}
+		if (rot < 0) {
+			MISFITS.incrementAndGet();
+			rot = 0;
+		}
+		int du = max(us) - u0, dv = max(vs) - v0;
+		// walls run from the colour along their top (A) to the one along their foot (B); tops and undersides are one colour
+		int high = this.cornerRgb[0], low = high;
+		int ao = 0;
+		for (int k = 0; k < 4; k++) {
+			if ((codes[k] & 2) != 0) {
+				high = this.cornerRgb[k];
+			} else if (f != UP && f != DOWN) {
+				low = this.cornerRgb[k];
+			}
+			ao |= this.cornerAo[k] << 2 * (k + rot & 3);
+		}
+		if (f == UP || f == DOWN) {
+			high = low = this.cornerRgb[0];
+		}
+		int east = this.lightX >> 12 & 15, west = this.lightZ >> 12 & 15, occ = this.lightFlags >> 11 & 31;
+		this.out.putInt(x0 & 127 | (z0 & 127) << 7 | face << 14 | y0 << 18);
+		this.out.putInt(du & 127 | (dv & 8191) << 7 | rot << 20 | ao << 22 | (this.lightBlock >> 2) << 30);
+		this.out.putInt(high | low << 15);
+		this.out.putInt(east | west << 4 | occ << 8 | (this.season & 127) << 13);
+	}
+
+	private static int min(int[] a) {
+		return Math.min(Math.min(a[0], a[1]), Math.min(a[2], a[3]));
+	}
+
+	private static int max(int[] a) {
+		return Math.max(Math.max(a[0], a[1]), Math.max(a[2], a[3]));
+	}
+
+	/**
+	 * Corner {@code corner} (in drawing order) of the compact record whose first two words are {@code w0} and
+	 * {@code w1}, into {@code out}: x, y (whole blocks) and z, and its canonical corner (for the occlusion level).
+	 * As the shader does it.
+	 */
+	static void recordCorner(int w0, int w1, int corner, int[] out) {
+		int face = w0 >> 14 & 7, rot = w1 >> 20 & 3;
+		int c = corner + rot & 3;
+		int code = CORNERS[face * 4 + c];
+		int du = (code & 1) * (w1 & 127), dv = (code >> 1) * (w1 >> 7 & 8191);
+		int x = w0 & 127, z = w0 >> 7 & 127, y = w0 >> 18;
+		if (face == UP || face == DOWN) {
+			x += du;
+			z += dv;
+		} else if (face == WEST || face == EAST) {
+			z += du;
+			y += dv;
+		} else {
+			x += du;
+			y += dv;
+		}
+		out[0] = x;
+		out[1] = y;
+		out[2] = z;
+		out[3] = c;
 	}
 
 	/**
@@ -577,10 +827,12 @@ public final class TileBuilder {
 	public static void decode(Mesh mesh, int i, int[] out) {
 		ByteBuffer v = mesh.vertices();
 		if (mesh.compact()) {
-			int w0 = v.getInt(i * COMPACT_BYTES);
-			out[0] = w0 & 127;
-			out[1] = (w0 >> 18) * 8;
-			out[2] = w0 >> 7 & 127;
+			int w0 = v.getInt((i >> 2) * RECORD_BYTES);
+			int[] corner = new int[4];
+			recordCorner(w0, v.getInt((i >> 2) * RECORD_BYTES + 4), i & 3, corner);
+			out[0] = corner[0];
+			out[1] = corner[1] * 8;
+			out[2] = corner[2];
 			out[3] = w0 >> 14 & 15;
 			return;
 		}

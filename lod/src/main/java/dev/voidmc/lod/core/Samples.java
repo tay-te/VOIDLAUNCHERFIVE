@@ -54,6 +54,21 @@ final class Samples {
 	/** The biome ({@link BiomeIds}), and whether the chunks the player loaded showed most of the cell. */
 	final int[] biome;
 	final boolean[] seen;
+	final boolean[] bareWhenSteep;
+	/** Season codes ({@code LodApi.Seasons}: class, and for leaves a variant) of the top, the top block's side and the leaves. */
+	final byte[] topSeason;
+	final byte[] sideSeason;
+	final byte[] leavesSeason;
+	final float[] bareRise;
+	/** The land under an overhang ({@link ColumnSample#deckBottom}, {@link Integer#MIN_VALUE} for none), and how it looks. */
+	final int[] deckBottom;
+	final int[] lowerGround;
+	final int[] lowerWater;
+	final int[] lowerTop;
+	final int[] lowerSide;
+	final int[] lowerTopMaterial;
+	final int[] lowerSideMaterial;
+	final int[] lowerWaterColor;
 	private final ColumnSample sample = new ColumnSample();
 	private final boolean variation;
 	/** Which samples of the tile being sampled were reused from {@link SampleCache}, so the source is not asked again. */
@@ -96,6 +111,20 @@ final class Samples {
 		this.light = new byte[capacity];
 		this.biome = new int[capacity];
 		this.seen = new boolean[capacity];
+		this.bareWhenSteep = new boolean[capacity];
+		this.topSeason = new byte[capacity];
+		this.sideSeason = new byte[capacity];
+		this.leavesSeason = new byte[capacity];
+		this.bareRise = new float[capacity];
+		this.deckBottom = new int[capacity];
+		Arrays.fill(this.deckBottom, Integer.MIN_VALUE);
+		this.lowerGround = new int[capacity];
+		this.lowerWater = new int[capacity];
+		this.lowerTop = new int[capacity];
+		this.lowerSide = new int[capacity];
+		this.lowerTopMaterial = new int[capacity];
+		this.lowerSideMaterial = new int[capacity];
+		this.lowerWaterColor = new int[capacity];
 		this.known = new boolean[capacity];
 	}
 
@@ -127,6 +156,36 @@ final class Samples {
 			this.sampleGrid(source, key, corners, border, cache, inner);
 		} finally {
 			source.endTile();
+		}
+		this.bareSteep();
+	}
+
+	/**
+	 * Tops and walls in rock the columns that strip to it where steep ({@link ColumnSample#bareWhenSteep}), where the land
+	 * between their neighbours in the grid rises more than the column's {@link ColumnSample#bareRise} over four blocks:
+	 * the chunks' cliffs, from afar. Not where the chunks were seen (their own blocks came with them), and not at the
+	 * grid's rim, which has no neighbours. A cell's slope is its average, so far out only slopes steep over a whole cell
+	 * show as rock, as from afar they do.
+	 */
+	private void bareSteep() {
+		int n = this.size;
+		// the neighbours are two cells apart: the rise over four blocks is theirs times 4 / (2 cell)
+		float scale = 2.0F / this.cell;
+		for (int j = 1; j < n - 1; j++) {
+			for (int i = 1; i < n - 1; i++) {
+				int k = i + j * n;
+				if (!this.bareWhenSteep[k] || this.seen[k] || this.empty[k]) {
+					continue;
+				}
+				float gx = this.ground[k + 1] - this.ground[k - 1];
+				float gz = this.ground[k + n] - this.ground[k - n];
+				if (Math.max(Math.abs(gx), Math.abs(gz)) * scale <= this.bareRise[k]) {
+					continue;
+				}
+				this.top[k] = this.side[k] = this.soil[k] = this.rock[k];
+				this.topMaterial[k] = this.sideMaterial[k] = this.soilMaterial[k] = this.rockMaterial[k];
+				this.cover[k] = 0;
+			}
 		}
 	}
 
@@ -166,6 +225,16 @@ final class Samples {
 				this.light[k] = (byte) (lava ? 15 : Math.max(0, Math.min(15, Math.round(s.light))));
 				this.biome[k] = s.biome;
 				this.seen[k] = s.seen >= 0.5F;
+				this.bareWhenSteep[k] = s.bareWhenSteep;
+				this.bareRise[k] = s.bareRise;
+				this.deckBottom[k] = s.deckBottom;
+				this.lowerGround[k] = s.lowerGround;
+				this.lowerWater[k] = s.lowerWater;
+				this.lowerTop[k] = s.lowerTop;
+				this.lowerSide[k] = s.lowerSide;
+				this.lowerTopMaterial[k] = s.lowerTopMaterial;
+				this.lowerSideMaterial[k] = s.lowerSideMaterial;
+				this.lowerWaterColor[k] = s.lowerWaterColor;
 
 				if (!this.variation) {
 					this.top[k] = s.top;
@@ -218,6 +287,14 @@ final class Samples {
 
 	/** Copies sample {@code f} of {@code from} into sample {@code k}: every per-sample field, variation included. */
 	void copy(int k, Samples from, int f) {
+		this.deckBottom[k] = from.deckBottom[f];
+		this.lowerGround[k] = from.lowerGround[f];
+		this.lowerWater[k] = from.lowerWater[f];
+		this.lowerTop[k] = from.lowerTop[f];
+		this.lowerSide[k] = from.lowerSide[f];
+		this.lowerTopMaterial[k] = from.lowerTopMaterial[f];
+		this.lowerSideMaterial[k] = from.lowerSideMaterial[f];
+		this.lowerWaterColor[k] = from.lowerWaterColor[f];
 		this.ground[k] = from.ground[f];
 		this.bottom[k] = from.bottom[f];
 		this.top[k] = from.top[f];
@@ -247,6 +324,8 @@ final class Samples {
 		this.light[k] = from.light[f];
 		this.biome[k] = from.biome[f];
 		this.seen[k] = from.seen[f];
+		this.bareWhenSteep[k] = from.bareWhenSteep[f];
+		this.bareRise[k] = from.bareRise[f];
 	}
 
 	int at(int i, int j) {

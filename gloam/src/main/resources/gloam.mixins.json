@@ -18,9 +18,7 @@
 		"LevelRendererFarMixin",
 		"LevelRendererMistMixin",
 		"LevelWeatherMixin",
-		"QuadParticleSoftMistMixin",
-		"SpriteContentsAccessor",
-		"TextureAtlasSpriteAccessor"
+		"QuadParticleSoftMistMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

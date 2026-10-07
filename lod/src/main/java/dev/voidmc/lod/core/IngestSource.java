@@ -120,6 +120,9 @@ public final class IngestSource implements TerrainSource {
 		}
 		sum.write(out);
 		out.seen = 1;
+		if (cell <= UNDER_CELLS) {
+			this.under(x, z, out);
+		}
 		if (known + none < total && this.fallback != null) {
 			ColumnSample other = r.other;
 			other.clear();
@@ -128,8 +131,47 @@ public final class IngestSource implements TerrainSource {
 		}
 	}
 
+	/** Cells this wide or narrower draw the land under overhangs (a bridge, a deck, a roof on posts), read at their centre. */
+	static final int UNDER_CELLS = 4;
+
+	/** The land under column (x, z)'s overhang, if the chunks showed one, into {@code out}. */
+	private void under(int x, int z, ColumnSample out) {
+		ColumnStore.Region region = this.store.region(x >> (ColumnStore.REGION_SHIFT + 4), z >> (ColumnStore.REGION_SHIFT + 4));
+		if (region == null) {
+			return;
+		}
+		ChunkColumns c = region.chunks.get(ColumnStore.index(x >> 4, z >> 4));
+		if (c == null || c.under == null) {
+			return;
+		}
+		int u = c.under[(x & 15) + (z & 15) * 16];
+		if (u == 0) {
+			return;
+		}
+		int top = (int) Math.ceil(out.ground - 1e-3F);
+		Surface lower = c.palette[ChunkColumns.underLook(u)];
+		out.deckBottom = top - ChunkColumns.deck(u);
+		out.lowerGround = out.deckBottom - ChunkColumns.gap(u);
+		int depth = ChunkColumns.underDepth(u);
+		out.lowerWater = depth > 0 ? out.lowerGround + depth : Integer.MIN_VALUE;
+		out.lowerTop = lower.top();
+		out.lowerSide = lower.side();
+		out.lowerTopMaterial = lower.topMaterial();
+		out.lowerSideMaterial = lower.sideMaterial();
+		out.lowerWaterColor = lower.waterColor();
+	}
+
 	/** Adds the {@code size}-block square at {@code (x, z)} (aligned to its size) to the reader's sum. */
 	private void add(Reader r, int x, int z, int size, boolean exact) {
+		if (size > ColumnStore.MAX_SUMMARY) {
+			// the store's summaries go up to a quarter of a region: a coarser square (past 64 km) is theirs added up
+			int h = size >> 1;
+			this.add(r, x, z, h, exact);
+			this.add(r, x + h, z, h, exact);
+			this.add(r, x, z + h, h, exact);
+			this.add(r, x + h, z + h, h, exact);
+			return;
+		}
 		int rx = x >> (ColumnStore.REGION_SHIFT + 4);
 		int rz = z >> (ColumnStore.REGION_SHIFT + 4);
 		long key = ColumnStore.key(rx, rz);

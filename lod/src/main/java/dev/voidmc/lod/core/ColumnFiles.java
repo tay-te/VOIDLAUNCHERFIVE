@@ -58,7 +58,7 @@ public final class ColumnFiles {
 	private static final Logger LOGGER = LoggerFactory.getLogger("VOID LOD");
 	private static final int MAGIC = 0x564C4F44;
 	/** 2 adds each chunk's block light, 3 each surface's biome; files of formats 1 and 2 still read (unlit, no biome). */
-	private static final int FORMAT = 3;
+	private static final int FORMAT = 4;
 	private static final String SUFFIX = ".vlod";
 	private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "VOID LOD files");
@@ -336,6 +336,13 @@ public final class ColumnFiles {
 					out.writeByte(ChunkColumns.look(packed));
 				}
 				out.write(c.light);
+				// 4: the land under overhangs
+				out.writeBoolean(c.under != null);
+				if (c.under != null) {
+					for (int u : c.under) {
+						out.writeInt(u);
+					}
+				}
 			}
 			out.flush();
 			zip.finish();
@@ -413,7 +420,15 @@ public final class ColumnFiles {
 				if (format >= 2) {
 					in.readFully(light);
 				}
-				chunks[index] = new ChunkColumns(columns, palette, light);
+				int[] under = null;
+				if (format >= 4 && in.readBoolean()) {
+					under = new int[256];
+					for (int c = 0; c < 256; c++) {
+						int u = in.readInt();
+						under[c] = u != 0 && ChunkColumns.underLook(u) < palette.length ? u : 0;
+					}
+				}
+				chunks[index] = new ChunkColumns(columns, palette, light, under);
 			}
 			return chunks;
 		} finally {

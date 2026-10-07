@@ -31,6 +31,8 @@ final class Blocky {
 	private static final int W = N + 2;
 	/** Six bits a channel: past where the shader's per-block grain hides the step, and it lets tops merge. */
 	private static final int COLOR_MASK = 0xFCFCFC;
+	/** The colour bits a compact vertex keeps (5 a channel). */
+	private static final int COMPACT_COLOR = 0xF8F8F8;
 	/** The top of an empty column, and the underside of ground that goes all the way down: lower than anything. */
 	private static final int DEEP = Integer.MIN_VALUE / 4;
 	/** How far an island's rim hangs when the source cannot say where its underside is. */
@@ -51,6 +53,8 @@ final class Blocky {
 	private final int[] color = new int[W * W];
 	/** What each cell's top is made of: its surface block, its tree's leaves, or 0 for water. */
 	private final int[] material = new int[W * W];
+	/** The season code of each column's top ({@code LodApi.Seasons}): the ground's, or the leaves' where a crown or roof is. */
+	private final byte[] season = new byte[W * W];
 	private final int[] crown = new int[W * W];
 	/** Where a crown's underside is: below it, the wall is the shade under the trees. */
 	private final int[] under = new int[W * W];
@@ -161,6 +165,7 @@ final class Blocky {
 			int axis = v.axis[n];
 			int yb = yc * c, yt = yb + c;
 			this.out.light(s.at(i, j));
+			this.out.season(log ? 0 : v.season[n]);
 			for (int f = 0; f < 6; f++) {
 				int nx = f == 4 ? -1 : f == 5 ? 1 : 0, ny = f == 0 ? 1 : f == 1 ? -1 : 0, nz = f == 2 ? -1 : f == 3 ? 1 : 0;
 				if (this.solid(gi + nx, yc + ny, gj + nz, base, layers)) {
@@ -306,18 +311,21 @@ final class Blocky {
 					this.top[k] = water;
 					this.color[k] = Colors.water(s.waterColor[k], s.top[k], water - s.ground[k], s.lava[k]) & COLOR_MASK;
 					this.material[k] = 0;
+					this.season[k] = 0;
 					continue;
 				}
 				this.wet[k] = false;
 				this.top[k] = g;
 				this.color[k] = s.top[k] & COLOR_MASK;
 				this.material[k] = s.topMaterial[k];
+				this.season[k] = s.topSeason[k];
 				if (s.canopy[k] > 0 && this.voxels == null) {
 					float h = Trees.crown(s.x(i) + centre, s.z(j) + centre, s.canopy[k], s.cover[k], s.crown[k], s.conifer[k], this.shade);
 					int height = q == 1 ? Math.max(1, Math.round(h)) : Math.round(h / q) * q;
 					if (h >= 1 && height == 0) {
 						// a crown lower than a step: the forest's roof, flat, in its leaves' colour
 						this.color[k] = Colors.scale(s.leaves[k], this.shade[0] * 1.15F) & COLOR_MASK;
+						this.season[k] = s.leavesSeason[k];
 					} else if (h >= 1) {
 						this.top[k] = g + height;
 						// one tree's leaves in full light: the looks' colour is a whole crown's, self-shading included
@@ -325,6 +333,7 @@ final class Blocky {
 						// its top as it is from above: in a cold forest, the snow on the boughs
 						this.color[k] = (s.leavesTop[k] == s.leaves[k] ? leaves : Colors.scale(s.leavesTop[k], this.shade[0] * 1.15F)) & COLOR_MASK;
 						this.material[k] = s.leavesMaterial[k];
+						this.season[k] = s.leavesSeason[k];
 						// its flanks get Minecraft's face shading in the shader; under the crown it is darker still
 						this.crown[k] = leaves & COLOR_MASK;
 						this.under[k] = g + Math.round(this.shade[1]);
@@ -414,13 +423,16 @@ final class Blocky {
 		if (this.done[i + j * N] || this.s.empty[o] || !this.uniform(i, j) || this.ao[(i + j * N) * 4] != level) {
 			return false;
 		}
-		return this.top[o] == this.top[k] && this.color[o] == this.color[k] && this.wet[o] == this.wet[k]
+		int mask = this.out.compact() ? COMPACT_COLOR : -1;
+		return this.top[o] == this.top[k] && (this.color[o] & mask) == (this.color[k] & mask) && this.wet[o] == this.wet[k]
+			&& this.season[o] == this.season[k]
 			&& (this.out.compact() || this.material[o] == this.material[k]) && this.out.sameLight(o, k);
 	}
 
 	private void top(int i, int j, int w, int d, int k, int a0, int a1, int a2, int a3) {
 		int flags = this.wet[k] ? TileBuilder.UP | TileBuilder.WATER : TileBuilder.UP;
 		this.out.light(k);
+		this.out.season(this.season[k]);
 		int y = this.top[k];
 		int c = this.color[k];
 		int m = TileBuilder.material(this.material[k]);
@@ -615,10 +627,22 @@ final class Blocky {
 		if (this.wet[a] != this.wet[b] || !this.out.sameLight(a, b)) {
 			return false;
 		}
+		// a compact vertex keeps 5 bits a channel and no materials: what it cannot tell apart merges
+		boolean compact = this.out.compact();
+		int mask = compact ? COMPACT_COLOR : -1;
 		if (this.wet[a]) {
-			return this.color[a] == this.color[b];
+			return (this.color[a] & mask) == (this.color[b] & mask);
 		}
 		Samples s = this.s;
+		if (s.sideSeason[a] != s.sideSeason[b] || this.crown[a] >= 0 && s.leavesSeason[a] != s.leavesSeason[b]) {
+			return false;
+		}
+		if (compact) {
+			return this.ground[a] == this.ground[b] && (this.crown[a] & mask) == (this.crown[b] & mask) && (this.crown[a] < 0 || this.under[a] == this.under[b])
+				&& (this.side[a] & mask) == (this.side[b] & mask) && (this.soil[a] & mask) == (this.soil[b] & mask)
+				&& (this.rock[a] & mask) == (this.rock[b] & mask) && s.soilDepth[a] == s.soilDepth[b]
+				&& s.bands[a] == s.bands[b] && s.bandHeight[a] == s.bandHeight[b] && s.bandOffset[a] == s.bandOffset[b];
+		}
 		return this.ground[a] == this.ground[b] && this.crown[a] == this.crown[b] && (this.crown[a] < 0 || this.under[a] == this.under[b])
 			&& (this.crown[a] < 0 || s.leavesMaterial[a] == s.leavesMaterial[b])
 			&& this.side[a] == this.side[b] && s.sideMaterial[a] == s.sideMaterial[b]
@@ -640,6 +664,7 @@ final class Blocky {
 		}
 		int g = this.ground[k];
 		if (this.crown[k] >= 0) {
+			this.out.season(this.s.leavesSeason[k]);
 			int under = Math.min(t, this.under[k]);
 			int shade = Colors.scale(this.crown[k], 0.45F) & COLOR_MASK;
 			if (this.s.cell >= 4 && Math.max(b, g) < under) {
@@ -657,9 +682,11 @@ final class Blocky {
 		int cell = this.s.cell;
 		int soilTop = g;
 		if (cell < 8) {
+			this.out.season(this.s.sideSeason[k]);
 			this.band(dir, edge, a0, a1, Math.min(t, g), Math.max(b, g - 1), floor, this.side[k], this.s.sideMaterial[k]);
 			soilTop = g - 1;
 		}
+		this.out.season(0);
 		int soilBottom = g - 1 - this.s.soilDepth[k];
 		int rockTop = soilTop;
 		if ((soilTop - soilBottom) * 4 >= cell) {

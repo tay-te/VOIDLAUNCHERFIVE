@@ -89,7 +89,7 @@ public final class TextureColors {
 			return 0xFFFFFF;
 		}
 		this.tint.biome = biome;
-		// vanilla's own tint, whatever a mod does to the chunks' (the season goes on per tile: LodApi.setSeasons)
+		// vanilla's own tint, whatever a mod does to the chunks' (the seasons go on as the LOD draws: LodApi.setSeasons)
 		dev.voidmc.lod.api.LodApi.baking(true);
 		try {
 			return source.colorInWorld(state, this.tint, BlockPos.ZERO) & 0xFFFFFF;

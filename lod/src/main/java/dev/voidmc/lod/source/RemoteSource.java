@@ -56,6 +56,8 @@ public final class RemoteSource implements TerrainSource {
 
 	private final Level level;
 	private final ExpanseColours colours;
+	private final BiomeLooks looks;
+	private final Materials materials;
 	private final int seaLevel;
 	private final long version;
 	private final Map<Long, Tile> tiles = new ConcurrentHashMap<>();
@@ -76,6 +78,8 @@ public final class RemoteSource implements TerrainSource {
 		this.seaLevel = hello.seaLevel();
 		this.version = version;
 		BiomeLooks looks = new BiomeLooks(level, materials, hello.trees().isEmpty() ? null : hello.trees());
+		this.looks = looks;
+		this.materials = materials;
 		int[] strata = null;
 		int[] strataMaterials = null;
 		if (!hello.strata().isEmpty()) {
@@ -270,8 +274,149 @@ public final class RemoteSource implements TerrainSource {
 		return this.asked.size();
 	}
 
+	// ---- the server's trees -------------------------------------------------------------------------------
+
+	/** Tree chunks asked of the server at most at once: its queue for a player is shared with the tiles' facts. */
+	private static final int TREES_IN_FLIGHT = 24;
+	private final Map<Long, TreePlacer.Placed> trees = java.util.Collections.synchronizedMap(new java.util.LinkedHashMap<>(256, 0.75F, true) {
+		@Override
+		protected boolean removeEldestEntry(Map.Entry<Long, TreePlacer.Placed> eldest) {
+			return this.size() > 6144;
+		}
+	});
+	/** Asked and not answered yet, with when; and waiting to be asked, nearest first as they came. */
+	private final Map<Long, Long> treesAsked = new ConcurrentHashMap<>();
+	private final java.util.Deque<Long> treesWaiting = new java.util.ArrayDeque<>();
+	private final Map<Integer, java.util.Optional<Holder<Biome>>> byId = new ConcurrentHashMap<>();
+	private volatile TreeDecorator decorator;
+	public final AtomicLong treesReceived = new AtomicLong();
+
+	/** The world's trees as the server places them, painted here ({@link TreeDecorator}). */
+	@Override
+	public dev.voidmc.lod.core.Decorator decorator() {
+		TreeDecorator d = this.decorator;
+		if (d == null) {
+			synchronized (this) {
+				if (this.decorator == null) {
+					this.decorator = TreeDecorator.from(new TreeDecorator.Trees() {
+						@Override
+						public TreePlacer.Placed known(int cx, int cz) {
+							return RemoteSource.this.trees.get(TreePlacer.chunkKey(cx, cz));
+						}
+
+						@Override
+						public TreePlacer.Placed place(int cx, int cz, dev.voidmc.lod.core.Decorator.Ground ground) {
+							RemoteSource.this.askTrees(TreePlacer.chunkKey(cx, cz));
+							return null;
+						}
+
+						@Override
+						public void keep(int minX, int minZ, int maxX, int maxZ, dev.voidmc.lod.core.Decorator.Ground ground) {
+						}
+
+						@Override
+						public void column(int x, int z, dev.voidmc.lod.core.Decorator.Ground ground, ColumnSample out) {
+							ground.column(x, z, out);
+						}
+
+						@Override
+						public Holder<Biome> biome(int id) {
+							return RemoteSource.this.biome(id);
+						}
+
+						@Override
+						public String stats() {
+							return String.format(java.util.Locale.ROOT, "%d chunks from the server, %d asked, %d waiting",
+								RemoteSource.this.treesReceived.get(), RemoteSource.this.treesAsked.size(), RemoteSource.this.treesWaiting.size());
+						}
+					}, this.looks, this.materials);
+				}
+				d = this.decorator;
+			}
+		}
+		return d;
+	}
+
+	private Holder<Biome> biome(int id) {
+		if (id < 0) {
+			return null;
+		}
+		return this.byId.computeIfAbsent(id, i -> {
+			String name = dev.voidmc.lod.core.BiomeIds.name(i);
+			if (name == null) {
+				return java.util.Optional.empty();
+			}
+			return this.level.registryAccess().lookupOrThrow(Registries.BIOME).get(ResourceKey.create(Registries.BIOME, Identifier.parse(name)))
+				.map(h -> (Holder<Biome>) h);
+		}).orElse(null);
+	}
+
+	private void askTrees(long key) {
+		synchronized (this.treesWaiting) {
+			if (!this.treesAsked.containsKey(key) && !this.treesWaiting.contains(key)) {
+				this.treesWaiting.add(key);
+			}
+		}
+		this.pumpTrees();
+	}
+
+	/** Asks for the waiting chunks while fewer than {@link #TREES_IN_FLIGHT} are out; asks again for the long unanswered. */
+	private void pumpTrees() {
+		long now = System.nanoTime();
+		List<Long> send = new ArrayList<>();
+		synchronized (this.treesWaiting) {
+			this.treesAsked.entrySet().removeIf(e -> {
+				if (now - e.getValue() > RETRY_NANOS) {
+					this.treesWaiting.addFirst(e.getKey());
+					return true;
+				}
+				return false;
+			});
+			while (this.treesAsked.size() < TREES_IN_FLIGHT && !this.treesWaiting.isEmpty()) {
+				long key = this.treesWaiting.pollFirst();
+				if (this.trees.containsKey(key)) {
+					continue;
+				}
+				this.treesAsked.put(key, now);
+				send.add(key);
+			}
+		}
+		if (!send.isEmpty()) {
+			net.minecraft.client.Minecraft.getInstance().execute(() -> {
+				if (ClientPlayNetworking.canSend(LodNet.TreeRequest.TYPE)) {
+					for (long key : send) {
+						ClientPlayNetworking.send(new LodNet.TreeRequest((int) (key >> 32), (int) key));
+					}
+				}
+			});
+		}
+	}
+
+	/** A chunk's trees came in (client thread): read off it, then the tiles waiting for them are built again. */
+	public void receiveTrees(LodNet.TreeChunk payload) {
+		DECODE.execute(() -> {
+			long key = TreePlacer.chunkKey(payload.cx(), payload.cz());
+			TreePlacer.Placed placed;
+			try {
+				placed = payload.data().length == 0 ? new TreePlacer.Placed(new long[0], new BlockState[0])
+					: LodNet.decode(payload.cx(), payload.cz(), payload.data());
+			} catch (IOException | RuntimeException e) {
+				placed = new TreePlacer.Placed(new long[0], new BlockState[0]);
+			}
+			this.trees.put(key, placed);
+			this.treesAsked.remove(key);
+			this.treesReceived.incrementAndGet();
+			TreeDecorator d = this.decorator;
+			if (d != null) {
+				d.arrived(key);
+			}
+			this.pumpTrees();
+		});
+	}
+
 	public String stats() {
+		TreeDecorator trees = this.decorator;
 		return String.format(java.util.Locale.ROOT, "server facts: %d tiles (%.1f MB), %d asked", this.received.get(), this.bytes.get() / 1048576.0,
-			this.asked.size());
+			this.asked.size()) + (trees == null ? "" : " | " + trees.stats());
 	}
 }

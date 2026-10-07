@@ -7,6 +7,7 @@ import dev.voidmc.lod.VoidLod;
 import dev.voidmc.lod.compat.Shaders;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
+import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import org.spongepowered.asm.mixin.Final;
@@ -14,6 +15,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
@@ -47,6 +49,13 @@ public abstract class LevelRendererMixin {
 		if (lod != null && !Shaders.drawOverPack() && !Shaders.packDraws()) {
 			lod.draw(renderPass);
 		}
+	}
+
+	/** A section's visibility, with the radius the chunks dissolve into the LOD by ({@link dev.voidmc.lod.ChunkFade}). */
+	@Redirect(method = "extractSectionDrawGroups", at = @At(value = "INVOKE",
+		target = "Lnet/minecraft/client/renderer/chunk/SectionRenderDispatcher$RenderSection;getVisibility(JJ)F"))
+	private float voidLod$dissolve(SectionRenderDispatcher.RenderSection section, long now, long fadeDuration) {
+		return dev.voidmc.lod.ChunkFade.encode(section.getVisibility(now, fadeDuration));
 	}
 
 	/**

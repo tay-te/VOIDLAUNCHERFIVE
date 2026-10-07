@@ -33,6 +33,18 @@ final class Hash {
 	}
 
 	/**
+	 * Which of four crown variants stands at block (x, z): a hash of the 12-block square, exactly VOID LOD's
+	 * {@code LodApi.seasonVariant}, so near and far crowns agree (and the same without VOID LOD).
+	 */
+	static int variant(int x, int z) {
+		int h = Math.floorDiv(x, 12) * 0x1B873593 ^ Math.floorDiv(z, 12) * 0x5BD1E995;
+		h ^= h >>> 15;
+		h *= 0x2C1B3C6D;
+		h ^= h >>> 12;
+		return h & 3;
+	}
+
+	/**
 	 * The cell of a jittered grid {@code size} blocks across that (x, z) lies nearest the middle of: one tree's crown, near
 	 * enough, with uneven edges between neighbours rather than a grid's straight lines. Returns the cell's hash.
 	 */

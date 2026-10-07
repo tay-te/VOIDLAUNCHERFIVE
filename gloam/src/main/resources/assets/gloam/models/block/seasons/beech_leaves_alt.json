@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/leaves",
+  "textures": {
+    "all": "gloam:block/seasons/beech_leaves_autumn"
+  }
+}

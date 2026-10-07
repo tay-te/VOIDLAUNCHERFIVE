@@ -35,6 +35,13 @@ public final class ExpanseFacts {
 	public boolean lava;
 	/** The share of the cell a river narrower than it covers. */
 	public float river;
+	/** The rock under the soil: 0 stone, 1 sandstone, 2 limestone, 3 basalt ({@code Column.rock}). */
+	public int rock;
+	/**
+	 * How readily the rock crops out here, -1..1 ({@code TerrainModel.outcrop}, a patchy noise): the generator bares
+	 * slopes past a rise of 5.8 + 1.6 outcrop over four blocks. 0 where the source cannot say.
+	 */
+	public float outcrop;
 
 	/** Takes column {@code c} of the model (read it before the model samples another). */
 	public ExpanseFacts of(Column c) {
@@ -51,6 +58,8 @@ public final class ExpanseFacts {
 		this.fjord = c.fjord;
 		this.coast = c.coast;
 		this.uplift = c.uplift;
+		this.rock = c.rock;
+		this.outcrop = 0;
 		return this;
 	}
 

@@ -32,7 +32,8 @@ public final class LodSettings {
 	static final int CORES = Runtime.getRuntime().availableProcessors();
 
 	public static final int MIN_RADIUS = 1024;
-	public static final int MAX_RADIUS = 32768;
+	/** 128 km: past 32 km the land comes from Expanse's coarse model, cells 256 blocks and wider (two more levels). */
+	public static final int MAX_RADIUS = 131072;
 	public static final double MIN_DETAIL = 1;
 	public static final double MAX_DETAIL = 32;
 	public static final int MAX_HAZE = 131072;
