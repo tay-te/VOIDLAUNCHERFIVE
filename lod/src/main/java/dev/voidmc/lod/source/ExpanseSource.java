@@ -131,6 +131,10 @@ public final class ExpanseSource extends WorldgenSource {
 		if (TIMING) {
 			TIMES.addAndGet(0, System.nanoTime() - t0);
 		}
+		if (cell <= 4) {
+			// where the rock crops out: a noise some ten blocks across, which wider cells average away
+			f.outcrop = (float) this.model.outcrop(x, z);
+		}
 		if (cell <= 2 && this.surface != null) {
 			// next to the chunks, the ground as the chunks lay it, block for block
 			int air = this.surface.firstAir(x, z, f.height);
