@@ -1,0 +1,19 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:matching_block_tag",
+    "tag": "minecraft:substrate_overworld"
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/kapok",
+  "templates": [
+    {
+      "data": "expanse:micro/ruin_stone_face",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/ruin_brick_shrine",
+      "weight": 2
+    }
+  ]
+}

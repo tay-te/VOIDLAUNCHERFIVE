@@ -1,0 +1,8 @@
+{
+  "feature": "expanse:cave/caves",
+  "placement": [
+    {
+      "type": "minecraft:in_square"
+    }
+  ]
+}

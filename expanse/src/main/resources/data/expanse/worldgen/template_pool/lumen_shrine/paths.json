@@ -5,7 +5,7 @@
         "element_type": "minecraft:single_pool_element",
         "location": "expanse:lumen_shrine/lumen_shrine_path_a",
         "processors": "expanse:lumen_shrine",
-        "projection": "terrain_matching"
+        "projection": "rigid"
       },
       "weight": 3
     },
@@ -14,7 +14,7 @@
         "element_type": "minecraft:single_pool_element",
         "location": "expanse:lumen_shrine/lumen_shrine_path_b",
         "processors": "expanse:lumen_shrine",
-        "projection": "terrain_matching"
+        "projection": "rigid"
       },
       "weight": 2
     },

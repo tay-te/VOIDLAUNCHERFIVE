@@ -25,10 +25,22 @@
     },
     {
       "data": "expanse:micro/log_oak",
-      "weight": 1
+      "weight": 2
     },
     {
       "data": "expanse:micro/snag_beehive",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/uprooted_oak",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/boulder_field",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/ant_mound",
       "weight": 1
     }
   ]

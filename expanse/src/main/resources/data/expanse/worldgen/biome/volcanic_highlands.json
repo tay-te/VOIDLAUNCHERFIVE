@@ -105,7 +105,6 @@
     },
     "minecraft:visual/sky_color": "#9aa6b6",
     "minecraft:visual/fog_color": "#b4ada8",
-    "minecraft:visual/fog_end_distance": 260.0,
     "minecraft:visual/ambient_particles": {
       "argument": [
         {
@@ -204,7 +203,8 @@
       "minecraft:red_mushroom_normal",
       "minecraft:patch_pumpkin",
       "minecraft:patch_sugar_cane",
-      "minecraft:patch_firefly_bush_near_water"
+      "minecraft:patch_firefly_bush_near_water",
+      "expanse:kcd_meadow_grass"
     ],
     [
       "minecraft:freeze_top_layer"

@@ -1,0 +1,74 @@
+{
+  "type": "expanse:cave_template",
+  "biomes": "#minecraft:is_overworld",
+  "clearance": 3,
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:base_stone_overworld"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:dirt"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:sand"
+      },
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "minecraft:gravel",
+          "minecraft:clay",
+          "minecraft:calcite",
+          "minecraft:dripstone_block",
+          "minecraft:smooth_basalt",
+          "minecraft:basalt",
+          "minecraft:blackstone",
+          "minecraft:sandstone",
+          "minecraft:red_sandstone",
+          "minecraft:snow_block",
+          "minecraft:packed_ice",
+          "minecraft:sulfur",
+          "minecraft:amethyst_block",
+          "expanse:amber",
+          "expanse:limestone",
+          "expanse:salt_block",
+          "expanse:volcanic_ash"
+        ]
+      }
+    ]
+  },
+  "max_relief": 1,
+  "min_depth": 10,
+  "processors": "expanse:cave/stone",
+  "templates": [
+    {
+      "data": "expanse:cave/hermit_cell",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/mine_store",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/crypt_niche",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/wall_shrine",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/vault_door",
+      "weight": 1
+    },
+    {
+      "data": "expanse:cave/miners_cubby",
+      "weight": 3
+    }
+  ],
+  "wall_depth": 5
+}

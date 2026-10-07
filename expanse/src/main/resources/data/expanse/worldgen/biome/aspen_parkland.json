@@ -161,7 +161,8 @@
     [],
     [
       "minecraft:lake_lava_underground",
-      "minecraft:lake_lava_surface"
+      "minecraft:lake_lava_surface",
+      "expanse:kcd_fishponds"
     ],
     [
       "minecraft:amethyst_geode"
@@ -170,7 +171,9 @@
       "minecraft:monster_room",
       "minecraft:monster_room_deep"
     ],
-    [],
+    [
+      "expanse:kcd_hedgerows"
+    ],
     [],
     [
       "minecraft:ore_dirt",
@@ -223,6 +226,11 @@
       "expanse:river_lily_pads",
       "expanse:river_wet_bank",
       "expanse:river_seagrass",
+      "expanse:kcd_open_shrubs",
+      "expanse:kcd_bank_trees",
+      "expanse:kcd_meadow_grass",
+      "expanse:kcd_meadow_flowers",
+      "expanse:kcd_lone_trees",
       "expanse:aspen_groves",
       "expanse:aspen_lone_trees",
       "expanse:aspen_fireweed",

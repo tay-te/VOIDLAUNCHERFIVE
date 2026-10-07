@@ -36,9 +36,9 @@ BOOKS = {
             "giant has fallen, it is only polite.",
         ]},
     "sun_shrine": {
-        "title": "Hymn to the Pink Sun", "author": "The last priestess",
+        "title": "Hymn to the Red Sun", "author": "The last priestess",
         "pages": [
-            "When the dunes were young the sun rose rose-coloured over the opal sand, and we built it a house "
+            "When the dunes were young the sun rose red over the red sand, and we built it a house "
             "of the same stone so it would know where to return each morning.",
             "The offerings were sealed under the sun disc in the sanctum floor. The disc lifts for the faithful. "
             "For everyone else, there is a pickaxe.",
@@ -76,12 +76,12 @@ BOOKS = {
             "Keep the jetty boat bailed.",
         ]},
     "lumen_shrine": {
-        "title": "Notes on Luminous Wood", "author": "Alchemist Vey",
+        "title": "Notes from the Old Wood", "author": "Alchemist Vey",
         "pages": [
-            "The lumen trees drink moonlight and give it back as a glow. The prismite under their roots does the "
-            "same with heat. I built my still beside the old shrine to study both.",
-            "Glowcap tincture: one cap, one bottle of water, a pinch of prismite. Night-sight for an hour, bad "
-            "dreams for a week. My best work is kept behind the vines.",
+            "The oaks down here were old when the chapel was built, though how they grew without the sun I cannot say, and the chapel is very old. Their fungus and their "
+            "moss are my trade. I built my still beside the ruin to be near both.",
+            "Bracket tincture: one shelf of fungus, one bottle of water, a pinch of salt. Night-sight for an hour, "
+            "bad dreams for a week. My best work is kept behind the vines.",
             "The shrine was a ruin when I came. Whoever raised the spire wanted to be seen from very far away. I "
             "think they were afraid of the dark.",
         ]},

@@ -14,6 +14,10 @@
     {
       "data": "expanse:micro/mushroom_ring",
       "weight": 2
+    },
+    {
+      "data": "expanse:micro/snag_bayou",
+      "weight": 3
     }
   ]
 }

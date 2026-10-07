@@ -6,9 +6,12 @@
 		"ChunkMapMixin",
 		"EarthCarversMixin",
 		"FrogSpawnMixin",
+		"HearthStructureSetMixin",
 		"JigsawStructureAccessor",
 		"MineshaftStructureMixin",
 		"OverworldBiomeBuilderMixin",
+		"StructureManagerAccessor",
+		"StructureStartsMixin",
 		"SurfaceWaterSpawnMixin"
 	],
 	"injectors": {

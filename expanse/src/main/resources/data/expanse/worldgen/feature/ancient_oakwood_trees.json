@@ -1,0 +1,37 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:ancient_oak",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.3,
+      "feature": {
+        "feature": "expanse:ancient_oak_ivy",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.25,
+      "feature": {
+        "feature": "expanse:natural/dark_wood/plain",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.08,
+      "feature": {
+        "feature": "expanse:natural/big_oak/plain",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.06,
+      "feature": {
+        "feature": "expanse:fallen_ancient_oak",
+        "placement": []
+      }
+    }
+  ]
+}

@@ -205,10 +205,10 @@ for _ox in ["", "exposed_", "weathered_", "oxidized_"]:
         PLAIN.update({f"{_wx}{_ox}cut_copper", f"{_wx}{_ox}copper" if _ox else f"{_wx}copper_block",
                       f"{_wx}{_ox}chiseled_copper"})
 # ores and stones used by the small structures (mine faces, carvings)
-PLAIN.update({"iron_ore", "coal_ore", "copper_ore", "polished_diorite", "polished_granite"})
+PLAIN.update({"iron_ore", "coal_ore", "copper_ore", "gold_ore", "polished_diorite", "polished_granite"})
 # used by the little things (gen_micro.py): cocoa on a jungle stump, badland rocks (CocoaBlock)
 EXPLICIT["minecraft:cocoa"] = {"age": _p(_ints(0, 2), "0"), "facing": _p(H4, "north")}
-PLAIN.update({"red_sandstone"})
+PLAIN.update({"red_sandstone", "chiseled_red_sandstone"})
 
 _NOT_WALL = re.compile(r"_(wall_banner|wall_torch|wall_sign|wall_hanging_sign|wall_skull|wall_head|wall_fan)$")
 PILLARS = {"minecraft:quartz_pillar", "minecraft:bone_block", "minecraft:hay_block", "minecraft:basalt",
@@ -344,3 +344,64 @@ def B(name, **props):
 
 
 AIR = B("air")
+
+# ---- used by the things underground (gen_caves.py) --------------------------------------------------------
+_SPELEOTHEM = {"thickness": _p(["tip_merge", "tip", "frustum", "middle", "base"], "tip"),
+               "vertical_direction": _p(["up", "down"], "up"), "waterlogged": _p(BOOL, "false")}
+EXPLICIT.update({
+    "minecraft:sulfur_spike": _SPELEOTHEM,
+    "minecraft:small_amethyst_bud": EXPLICIT["minecraft:amethyst_cluster"],
+    "minecraft:medium_amethyst_bud": EXPLICIT["minecraft:amethyst_cluster"],
+    "minecraft:large_amethyst_bud": EXPLICIT["minecraft:amethyst_cluster"],
+    "minecraft:sculk_vein": MULTIFACE,
+    "minecraft:copper_wall_torch": FACING4,
+    "minecraft:powder_snow_cauldron": {"level": _p(_ints(1, 3), "3")},
+    "minecraft:cave_vines": {"age": _p(_ints(0, 25), "0"), "berries": _p(BOOL, "false")},
+    "minecraft:cave_vines_plant": {"berries": _p(BOOL, "false")},
+    "expanse:icicle": _SPELEOTHEM,                                   # DeepSpeleothemBlock
+    "expanse:amber_spike": _SPELEOTHEM,                              # DeepSpeleothemBlock
+    "expanse:glowroots": {"waterlogged": _p(BOOL, "false")},         # HangingRootsBlock
+    "expanse:glowworm_silk": {"tip": _p(BOOL, "true")},              # HangingMossBlock
+    "expanse:deeproot": AXIS,                                        # RotatedPillarBlock
+})
+PLAIN.update("""sculk sulfur sulfur_bricks polished_sulfur chiseled_sulfur cinnabar cinnabar_bricks polished_cinnabar
+chiseled_cinnabar obsidian crying_obsidian spore_blossom copper_torch smooth_basalt dead_tube_coral_block
+dead_brain_coral_block dead_bubble_coral_block dead_fire_coral_block dead_horn_coral_block raw_copper_block
+deepslate_iron_ore deepslate_copper_ore deepslate_coal_ore deepslate_gold_ore
+cracked_polished_blackstone_bricks""".split())
+MOD_PLAIN.update({"expanse:amber", "expanse:insect_amber", "expanse:salt_block", "expanse:volcanic_ash"})
+MOD_ALLOWED.update({"expanse:amber", "expanse:insect_amber", "expanse:salt_block", "expanse:volcanic_ash", "expanse:icicle", "expanse:amber_spike",
+                    "expanse:glowroots", "expanse:glowworm_silk", "expanse:deeproot"})
+
+# ---- used by the little things, second wave (gen_micro.py) ------------------------------------------------
+# The newer mod woods, soils and plants, and the vanilla blocks the new surface templates use. Properties come
+# from the blocks' classes and blockstate files: plain Blocks, BushBlock, FlowerBlock, CarpetBlock and
+# DryVegetationBlock have none; bluebells is a FlowerBedBlock, fireweed a TallFlowerBlock, ocotillo an
+# OcotilloBlock (tip); pale moss carpet, resin clumps and dead coral (dry, on the beach) as their vanilla classes.
+MICRO_WOODS = ["aspen", "beech", "eucalyptus", "kapok", "maple", "olive", "pine", "teak"]
+for _w in MICRO_WOODS:
+    MOD_PLAIN.add(f"expanse:{_w}_planks")
+    for _s in ["log", "wood"]:
+        MOD_ALLOWED.update({f"expanse:{_w}_{_s}", f"expanse:stripped_{_w}_{_s}"})
+    for _s in ["planks", "stairs", "slab", "fence", "fence_gate", "door", "trapdoor", "button", "pressure_plate",
+               "leaves"]:
+        MOD_ALLOWED.add(f"expanse:{_w}_{_s}")
+_MICRO_PLAIN = {"expanse:" + _n for _n in """red_earth coral_sand peat sphagnum_moss sphagnum_moss_carpet reindeer_lichen
+cotton_grass cranberry_bush spinifex lavender desert_marigold desert_pea moth_orchid fumarole potted_lavender""".split()}
+MOD_PLAIN.update(_MICRO_PLAIN)
+MOD_ALLOWED.update(_MICRO_PLAIN | {"expanse:bluebells", "expanse:fireweed", "expanse:ocotillo",
+                                   "expanse:orange_maple_leaves", "expanse:flame_tree_leaves"})
+EXPLICIT.update({
+    "expanse:bluebells": {"facing": _p(H4, "north"), "flower_amount": _p(_ints(1, 4), "1")},     # FlowerBedBlock
+    "expanse:fireweed": HALF2,                                                                     # TallFlowerBlock
+    "expanse:ocotillo": {"tip": _p(BOOL, "true")},                                                 # OcotilloBlock
+    "minecraft:pale_moss_carpet": {"bottom": _p(BOOL, "true"), "east": _p(WALL_SIDE, "none"),
+                                   "north": _p(WALL_SIDE, "none"), "south": _p(WALL_SIDE, "none"),
+                                   "west": _p(WALL_SIDE, "none")},
+    "minecraft:resin_clump": MULTIFACE,
+})
+for _c in ["tube", "brain", "bubble", "fire", "horn"]:
+    EXPLICIT[f"minecraft:dead_{_c}_coral"] = {"waterlogged": _p(BOOL, "false")}
+    EXPLICIT[f"minecraft:dead_{_c}_coral_fan"] = {"waterlogged": _p(BOOL, "false")}
+PLAIN.update("""pale_moss_block open_eyeblossom closed_eyeblossom obsidian crying_obsidian smooth_basalt sulfur
+dead_tube_coral_block dead_brain_coral_block dead_bubble_coral_block dead_fire_coral_block dead_horn_coral_block""".split())

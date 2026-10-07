@@ -19,10 +19,17 @@ loom {
 	}
 }
 
+// Stand-ins for the part of VOID Atlas's API the optional map integration uses (client/atlas): compiled against,
+// never shipped, so Expanse needs nothing of Atlas to build or run.
+sourceSets {
+	atlasApi
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	clientCompileOnly sourceSets.atlasApi.output
 }
 
 processResources {
@@ -66,7 +73,7 @@ tasks.register('terrainPreview', JavaExec) {
 	description = 'Renders the Earth terrain model to build/terrain_preview.png'
 	classpath = sourceSets.gametest.runtimeClasspath
 	mainClass = 'dev.voidmc.expanse.gametest.TerrainPreview'
-	jvmArgs '-Djava.awt.headless=true', '-Xmx3g', "-Dexpanse.preview.borders=${project.findProperty('borders') ?: 'false'}",
+	jvmArgs '-Djava.awt.headless=true', '-Xmx3g', "-Dexpanse.preview.borders=${project.findProperty('borders') ?: 'false'}", "-Dexpanse.preview.countries=${project.findProperty('countries') ?: 'false'}", "-Dexpanse.preview.woods=${project.findProperty('woods') ?: 'false'}",
 		"-Dexpanse.preview.bench=${project.findProperty('bench') ?: 'false'}", "-Dexpanse.preview.slice=${project.findProperty('slice') ?: ''}", "-Dexpanse.preview.stats=${project.findProperty('stats') ?: 'false'}", "-Dexpanse.terrain.profile=true"
 	args = [
 		project.findProperty('seed') ?: '8675309',

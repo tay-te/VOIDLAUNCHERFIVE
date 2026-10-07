@@ -1,4 +1,4 @@
-"""Frostwatch Citadel - a fortified waystation of the frostbloom tundra (LANDMARK).
+"""Frostwatch Citadel - a fortified waystation of the lichen tundra (LANDMARK).
 
 start  bailey : a 51x51 walled bailey on a raised snow mound. Deepslate curtain walls
                 with a wall walk, four corner towers with snow-capped roofs, a
@@ -12,7 +12,7 @@ wards  (inside, west + east plots)  : stables (horses) / smithy (anvil, smithing
 cellar (down from the keep hatch)   : ice cellar - packed-ice vault, the hidden chest
 paths -> grounds (terrain-matching) : hunters' camp under a mammoth-tusk arch, ice-fishing
                                       hut, signal cairn, mammoth bones, frozen wagon,
-                                      frostbloom shrine
+                                      candle shrine
 """
 import math
 import random
@@ -28,7 +28,7 @@ from pieces import Empty, Piece
 from terrain_paths import connector, path_piece, piece_in
 
 NAME = "frost_outpost"
-STRUCTURE = dict(biomes=["frostbloom_tundra"], spacing=50, separation=20, size=5, max_distance=76)
+STRUCTURE = dict(biomes=["lichen_tundra"], spacing=50, separation=20, size=5, max_distance=76)
 LOOT = "expanse:chests/frost_outpost"
 HIDDEN = "expanse:chests/frost_outpost_hidden"
 P_WARDS = f"expanse:{NAME}/wards"
@@ -865,8 +865,8 @@ def ground_mammoth_bones():
         for z in range(1, 15):
             if b.get(x, 1, z) is None and rng.random() < 0.4:
                 b.set(x, 1, z, B("snow", layers=rng.randint(1, 3)))
-    b.set(12, 1, 3, B("expanse:frostbloom"))
-    b.set(2, 1, 11, B("expanse:frostbloom"))
+    b.set(12, 1, 3, B("fern"))
+    b.set(2, 1, 11, B("dead_bush"))
     return b
 
 
@@ -902,7 +902,7 @@ def ground_frozen_wagon():
     return b
 
 
-def ground_frostbloom_shrine():
+def ground_candle_shrine():
     b = Build(f"{NAME}_shrine", 9, 7, 10, seed=1847841)
     rng = b.rng
     piece_in(b, 4, 1, 0, "north")
@@ -920,8 +920,8 @@ def ground_frostbloom_shrine():
         b.set(x, 5, 8, slab(DBR) if x == 4 else AIR)
     b.set(4, 1, 8, B(PD))
     b.set(4, 2, 8, B("soul_lantern"))
-    for (x, z) in ((3, 6), (5, 6), (2, 5), (6, 5), (4, 5)):
-        b.set(x, 1, z, B("expanse:frostbloom"))
+    for (x, z) in ((3, 6), (5, 6), (2, 5), (6, 5), (4, 5)):      # candles left burning in the snow
+        b.set(x, 1, z, B("white_candle", candles=1 + (x + z) % 3, lit=True))
     b.pot(5, 1, 7, "north", ("brick", "brick", "snort_pottery_sherd", "brick"))
     return b
 
@@ -943,5 +943,5 @@ def pools():
                   Empty(1)],
         "grounds": [Piece(ground_hunters_camp(), 3, PROC), Piece(ground_ice_fishing(), 2, PROC),
                     Piece(ground_cairn(), 2, PROC), Piece(ground_mammoth_bones(), 2, PROC),
-                    Piece(ground_frozen_wagon(), 2, PROC), Piece(ground_frostbloom_shrine(), 2, PROC)],
+                    Piece(ground_frozen_wagon(), 2, PROC), Piece(ground_candle_shrine(), 2, PROC)],
     }

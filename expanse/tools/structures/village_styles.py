@@ -4,13 +4,13 @@ Every style shares villagekit's vanilla-scale archetypes (cottages, workshops fo
 library, farms, pens, meeting points, streets) and changes only what a vanilla village changes from
 biome to biome: the wood, the stone, the roof, the crops, the beds, and a handful of regional pieces.
 
-  wisteria   Wisteria Vale     timber frames of wisteria wood, plaster, clay-tile roofs; an orchard
+  wisteria   Woodland Glades     dark oak timber frames, plaster, clay-tile roofs; an apple orchard
   redwood    Redwood Giants    redwood log cabins, spruce roofs; a sawpit, a smokehouse (the butcher's)
   coast      Palm Coast        palm-wood houses on stilts under thatch; a fishing jetty, boats, drying racks
   steppe     Amber Steppe      round houses of ochre plaster and baobab; a market, a llama and goat pen
   moor       Heather Moor      rubble-stone cottages under slate; dry-stone walls, a sheep fold
   karst      Jade Karst        bamboo houses on limestone sills under green tile; rice paddies
-  tundra     Frostbloom Tundra spruce cabins drifted in snow; a longhouse
+  tundra     Lichen Tundra spruce cabins drifted in snow; a longhouse
 """
 from blocks import AIR, B
 from builder import slab, stairs
@@ -91,9 +91,9 @@ def wid_log(wood):
     return K.wid(wood, "log")
 
 
-# ------------------------------------------------------------------ wisteria vale
+# ------------------------------------------------------------------ woodland glades
 def orchard(P, name):
-    """A walled garden of wisteria trees and beehives off the street (entrance at ground level)."""
+    """A walled orchard of apple trees and beehives off the street (entrance at ground level)."""
     b = Build(name, 11, 9, 11, seed=hash_seed(name))
     rng = b.rng
     cells = [(x, z) for x in range(11) for z in range(11)]
@@ -102,8 +102,7 @@ def orchard(P, name):
         if x in (0, 10) or z in (0, 10):
             b.set(x, 1, z, B(P.W("fence")))
     for (x, z) in ((3, 3), (7, 3), (3, 7), (7, 7)):
-        small_tree(b, x, z, rng, "expanse:wisteria_log", "expanse:wisteria_leaves", h=3, r=2,
-                   blossoms="expanse:wisteria_blossoms")
+        small_tree(b, x, z, rng, "oak_log", "oak_leaves", h=3, r=2)
     for (x, z) in ((5, 2), (5, 8)):
         b.set(x, 1, z, B(P.W("fence")))
         b.set(x, 2, z, B("beehive", facing="west"))
@@ -121,20 +120,19 @@ def orchard(P, name):
 
 def wisteria_extras(P):
     return {"houses": [(orchard(P, "orchard"), 3, None)],
-            "decor": [(tree_decor(P, "wisteria_tree", "expanse:wisteria_log", "expanse:wisteria_leaves",
-                                  "expanse:wisteria_blossoms"), 2), (flower_bed(P, "flower_bed"), 2)]}
+            "decor": [(tree_decor(P, "wisteria_tree", "oak_log", "oak_leaves", None), 2), (flower_bed(P, "flower_bed"), 2)]}
 
 
 WISTERIA = Style(
-    name="wisteria", biomes=["wisteria_vale"], vtype="plains",
-    wood="expanse:wisteria", frame="expanse:wisteria", walls="timber", wall="white_terracotta",
-    roof="brick", roof_fill="expanse:wisteria_planks", base=("cobblestone", "stone_bricks", "cobblestone"),
-    bridge="expanse:wisteria_planks", beds=("purple", "magenta", "white"), carpet="purple",
-    chapel_glass="magenta_stained_glass_pane", flowers=("allium", "pink_tulip", "azure_bluet", "lilac", "peony"),
-    pot="expanse:potted_wisteria_sapling", crops=(("carrots", 0.3), ("beetroots", 0.2), ("potatoes", 0.1)),
+    name="wisteria", biomes=["woodland_glades"], vtype="plains",
+    wood="oak", frame="dark_oak", walls="timber", wall="white_terracotta",
+    roof="brick", roof_fill="oak_planks", base=("cobblestone", "stone_bricks", "cobblestone"),
+    bridge="oak_planks", beds=("red", "white", "yellow"), carpet="green",
+    chapel_glass="white_stained_glass_pane", flowers=("poppy", "oxeye_daisy", "cornflower", "lilac", "peony"),
+    pot="potted_oak_sapling", crops=(("carrots", 0.3), ("beetroots", 0.2), ("potatoes", 0.1)),
     features=("minecraft:flower_plain", "minecraft:pile_hay"),
-    loot_items=(("expanse:wisteria_sapling", 5, (1, 2)), ("apple", 5, (1, 3)), ("wheat", 8, (1, 7)),
-                ("allium", 2, (1, 3)), ("honey_bottle", 2, 1)),
+    loot_items=(("oak_sapling", 5, (1, 2)), ("apple", 5, (1, 3)), ("wheat", 8, (1, 7)),
+                ("poppy", 2, (1, 3)), ("honey_bottle", 2, 1)),
     extras=wisteria_extras)
 
 
@@ -458,7 +456,7 @@ KARST = Style(
     extras=karst_extras)
 
 
-# ------------------------------------------------------------------ frostbloom tundra
+# ------------------------------------------------------------------ lichen tundra
 def longhouse(P, name):
     """A spruce longhouse half-buried in drifted snow: one long hall with four beds along its walls,
     furnaces at the far end, lanterns from the ridge beam."""
@@ -500,14 +498,14 @@ def tundra_extras(P):
 
 
 TUNDRA = Style(
-    name="tundra", biomes=["frostbloom_tundra"], vtype="snow",
+    name="tundra", biomes=["lichen_tundra"], vtype="snow",
     wood="spruce", frame="spruce", walls="cabin", roof="spruce", roof_fill="spruce_planks", snow=True,
     base=("cobblestone", "stone_bricks", "cobblestone"), floor="spruce_planks", bridge="spruce_planks",
     beds=("light_blue", "white", "cyan"), carpet="light_blue", chapel_glass="light_blue_stained_glass_pane",
-    flowers=("expanse:frostbloom", "fern"), pot="expanse:potted_frostbloom",
+    flowers=("fern", "dead_bush"), pot="potted_fern",
     crops=(("potatoes", 0.35), ("beetroots", 0.3)), features=("minecraft:pile_snow", "minecraft:pile_ice"),
     loot_items=(("potato", 10, (1, 7)), ("beetroot", 6, (1, 5)), ("snowball", 8, (1, 7)),
-                ("spruce_sapling", 4, (1, 2)), ("expanse:frostbloom", 3, (1, 3)), ("rabbit_hide", 3, (1, 3))),
+                ("spruce_sapling", 4, (1, 2)), ("sweet_berries", 3, (1, 3)), ("rabbit_hide", 3, (1, 3))),
     extras=tundra_extras)
 
 

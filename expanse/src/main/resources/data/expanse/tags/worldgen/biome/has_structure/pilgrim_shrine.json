@@ -1,5 +1,11 @@
 {
   "values": [
-    "expanse:cloud_forest"
+    "expanse:cloud_forest",
+    "expanse:tepui",
+    "expanse:monsoon_forest",
+    "expanse:kapok_rainforest",
+    "minecraft:jungle",
+    "minecraft:sparse_jungle",
+    "minecraft:bamboo_jungle"
   ]
 }

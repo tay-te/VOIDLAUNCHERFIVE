@@ -1,11 +1,11 @@
-"""Wisteria manor - a country house of the wisteria vale, a small cousin of the woodland mansion (LANDMARK).
+"""Wisteria manor - a country house of the woodland glades, a small cousin of the woodland mansion (LANDMARK).
 
 start  manor and forecourt (two variants: kept / gone to seed)
-  The manor: a stone ground floor under a timber-framed wisteria-wood upper storey and a dark
+  The manor: a stone ground floor under a timber-framed upper storey of pale infill and a dark
   oak roof, a pillared porch. Ground floor: the hall with its stair, the dining room, the
   library (fireplace, lectern with the family's book). Upstairs: the master bedroom, the
   landing, the guest room. A kitchen wing on the east; a rug in the kitchen covers the hatch
-  to the wine cellar. A gravel drive loops round a fountain between hedges and wisteria trees
+  to the wine cellar. A gravel drive loops round a fountain between hedges and old oaks the wisteria climbs
   inside a low garden wall.
 paths -> grounds (rigid satellites, one pool per side so nothing repeats)
   behind the house: the lake and boathouse; west: the walled kitchen garden or the orangery;
@@ -31,7 +31,7 @@ from townkit import (door, goods_stack, hanging_lamp, house, journal, lamp, lore
                      stripped, trapdoor, vec, wall_torch, walls, win)
 
 NAME = "wisteria_manor"
-STRUCTURE = dict(biomes=["wisteria_vale"], spacing=46, separation=16, size=4, max_distance=72)
+STRUCTURE = dict(biomes=["woodland_glades"], spacing=46, separation=16, size=4, max_distance=72)
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"
 SUPPLIES = f"expanse:chests/{NAME}_supplies"
@@ -47,7 +47,8 @@ P_CELLAR = f"expanse:{NAME}/cellar"
 J_CELLAR = "expanse:manor_cellar"
 PROC = NAME
 PROC_SEED = f"{NAME}_overgrown"
-WI = "expanse:wisteria"
+WI = "birch"        # the pale infill between the dark oak beams
+TREE = "oak"       # the garden trees the wisteria climbs
 DO = "dark_oak"
 DOL = B("dark_oak_log", axis="y")
 SDO = "stripped_dark_oak_log"
@@ -65,8 +66,8 @@ BOOK = {
 
 DATA = {
     "worldgen/processor_list": {
-        PROC: plist(STONE_WEATHER, aged_wood("wisteria", "dark_oak"), VALE, [rule("moss_carpet", 0.3, "air")]),
-        PROC_SEED: plist(STONE_WEATHER, aged_wood("wisteria", "dark_oak"), VALE, OVERGROWTH,
+        PROC: plist(STONE_WEATHER, aged_wood("birch", "dark_oak"), VALE, [rule("moss_carpet", 0.3, "air")]),
+        PROC_SEED: plist(STONE_WEATHER, aged_wood("birch", "dark_oak"), VALE, OVERGROWTH,
                          [rule("dark_oak_leaves", 0.25, "air"), rule("glass_pane", 0.12, "air"),
                           rule("gravel", 0.2, "coarse_dirt")]),
     },
@@ -347,9 +348,9 @@ def forecourt(b, rng, V):
                 b.set(x, 1, z, hedge)
     for x in list(range(4, 17)) + list(range(28, 40)):
         b.set(x, 1, 20, hedge)
-    # wisteria trees flanking the lawn, flowers in beds
+    # old oaks hung with wisteria flanking the lawn, flowers in beds
     for (tx, tz, lean) in ((8, 26, "east"), (36, 26, "west"), (8, 37, None), (36, 37, None)):
-        tree(b, tx, 1, tz, rng, f"{WI}_log", f"{WI}_leaves", height=5, crown=2.6, lean=lean, flat=0.6,
+        tree(b, tx, 1, tz, rng, f"{TREE}_log", f"{TREE}_leaves", height=5, crown=2.6, lean=lean, flat=0.6,
              blossoms="expanse:wisteria_blossoms")
     for x in range(3, 41):
         for z in range(21, 41):
@@ -639,7 +640,7 @@ def folly():
     b.set(cx, 2, cz - 1, slab("stone_brick", "top"))
     b.item_frame(cx, 3, cz - 1, "up", "book")
     b.set(cx - 1, 2, cz - 1, B("potted_allium"))
-    tree(b, 12, 1, 4, rng, f"{WI}_log", f"{WI}_leaves", height=5, crown=2.4, lean="west", flat=0.6,
+    tree(b, 12, 1, 4, rng, f"{TREE}_log", f"{TREE}_leaves", height=5, crown=2.4, lean="west", flat=0.6,
          blossoms="expanse:wisteria_blossoms")
     b.barrel(cx + 1, 2, cz - 1, "west")
     return b

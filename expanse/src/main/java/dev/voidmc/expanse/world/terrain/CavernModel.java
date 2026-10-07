@@ -33,7 +33,10 @@ import net.minecraft.world.level.levelgen.synth.SimplexNoise;
  *       and volcanoes) with some chance, that decides its lakes, its relief and, in {@link CavernLife}, what
  *       grows there.</li>
  * </ul>
- * Apart from the ways in, nothing comes nearer than {@value #ROOF_COVER} blocks to the lowest ground within a
+ * Beside this network, cave systems of their own, each a shape of its own and some rare: lava tubes under the
+ * volcanoes, maze caves, abysses, rift halls and geodes ({@link CaveSystems}).
+ *
+ * <p>Apart from the ways in, nothing comes nearer than {@value #ROOF_COVER} blocks to the lowest ground within a
  * few dozen blocks, so no hillside breaks open into a tunnel, and nothing lies under the sea or a lake, which
  * would flood it. Aquifers are kept out of all of it ({@link #dry}); the water and lava here are poured, by
  * {@link EarthChunkGenerator}, where the model says, except below y {@value #LAVA_LEVEL}, where every open
@@ -103,6 +106,8 @@ public final class CavernModel {
 
 	private final TerrainModel terrain;
 	private final SimplexNoise[] n = new SimplexNoise[48];
+	/** The cave systems of their own: lava tubes, mazes, abysses, rift halls, geodes. */
+	private final CaveSystems systems;
 	private final ThreadLocal<Cache> cache = ThreadLocal.withInitial(Cache::new);
 	/** Mixed into the hashes that place things, so each world has its own. */
 	private final long salt;
@@ -194,6 +199,57 @@ public final class CavernModel {
 		public float shaftRadius;
 		public float shaftBottom;
 		public float shaftTop;
+		// ---- the cave systems of their own (CaveSystems)
+		/** Any of them is here. */
+		public boolean systems;
+		/** A lava tube: distance from its middle line, half its width, its flat floor and its height. */
+		public boolean tube;
+		public float tubeDist;
+		public float tubeHalfWidth;
+		public float tubeFloor;
+		public float tubeHeight;
+		/** A skylight over a lava tube, where its crust fell in: distance from its middle, radius, top. */
+		public boolean skylight;
+		public float skylightDist;
+		public float skylightRadius;
+		public float skylightTop;
+		/** A maze cave: distance to the nearest open joint, half its width, floor and height; a room's depth inside it. */
+		public boolean maze;
+		public float mazeDist;
+		public float mazeHalfWidth;
+		public float mazeFloor;
+		public float mazeHeight;
+		public float mazeRoom;
+		/** An abyss: its axis, the distance from it, its radius, the ground at the column and at its lip, its bottom. */
+		public boolean abyss;
+		public float abyssX;
+		public float abyssZ;
+		public float abyssDist;
+		public float abyssRadius;
+		public float abyssTop;
+		public float abyssLip;
+		public float abyssBottom;
+		public float abyssPhase;
+		public float abyssSpring;
+		/** A rift hall: distance from its line, its half width here, bottom and top, how far along it, its boulders. */
+		public boolean rift;
+		public float riftDist;
+		public float riftHalfWidth;
+		public float riftBottom;
+		public float riftTop;
+		public float riftAlong;
+		public float riftLength;
+		public long riftSeed;
+		public int riftChocks;
+		/** A geode: its centre, radii and beams. */
+		public boolean geode;
+		public float geodeX;
+		public float geodeY;
+		public float geodeZ;
+		public float geodeA;
+		public float geodeC;
+		public long geodeSeed;
+		public int geodeBeams;
 		/** Whether any of the small spaces is here, and the heights between which they lie. */
 		public boolean fine;
 		public float fineLow;
@@ -262,6 +318,12 @@ public final class CavernModel {
 			this.n[i] = new SimplexNoise(random);
 		}
 		this.salt = PlateMap.mix(seed, 0x5341_4C54L, 0x4445_4550L);
+		this.systems = new CaveSystems(this, terrain, seed);
+	}
+
+	/** The cave systems of their own (lava tubes, mazes, abysses, rift halls, geodes). */
+	CaveSystems systems() {
+		return this.systems;
 	}
 
 	/** The land above, whose climate the caves follow. */
@@ -394,6 +456,8 @@ public final class CavernModel {
 		}
 		this.fissure(x, z, out);
 		this.adits(c, x, z, out);
+		// the cave systems of their own, the mazes at the shallow passages' depth
+		this.systems.compute(x, z, out, this.levelFloor(0, x, z, out, cover));
 	}
 
 	/** The land of a realm at one column: its floor, its roof, its columns and what fills its hollows. */
@@ -1019,7 +1083,7 @@ public final class CavernModel {
 	 * Whether a small space between heights {@code low} and {@code high} may be cut here: not into a realm but
 	 * through its walls, never below its lake, and never through an underground river's bed.
 	 */
-	private boolean clear(Info out, float low, float high) {
+	boolean clear(Info out, float low, float high) {
 		if (out.nearRealm && out.hallEdge > -10) {
 			if (low < out.liquid() + 2) {
 				return false;
@@ -1032,6 +1096,11 @@ public final class CavernModel {
 			return false;
 		}
 		return true;
+	}
+
+	/** Widens the heights between which the column's small spaces lie (for {@link CaveSystems}). */
+	void extentOf(Info out, float low, float high) {
+		this.extent(out, low, high);
 	}
 
 	private void extent(Info out, float low, float high) {
@@ -1066,7 +1135,7 @@ public final class CavernModel {
 	 * lake, no volcano, no river within {@code margin} blocks of its channel. Read straight from a fresh sample.
 	 */
 	private boolean openable(Column land, float margin) {
-		if (land.height < 68 || land.landform == Landform.VOLCANIC || land.crater > land.height - 3) {
+		if (land.height < 68 || land.landform == Landform.VOLCANIC || land.underWater(3)) {
 			return false;
 		}
 		return !land.nearRiver() || land.riverDist > land.riverHalfWidth + margin;
@@ -1121,7 +1190,7 @@ public final class CavernModel {
 		int[][] around = {{reach, 0}, {-reach, 0}, {0, reach}, {0, -reach}};
 		for (int[] o : around) {
 			Column land = this.terrain.sample(x + o[0], z + o[1]);
-			if (land.height < 66 || land.crater > land.height - 3 || land.nearRiver() && land.riverDist < land.riverHalfWidth + 4) {
+			if (land.height < 66 || land.underWater(3) || land.nearRiver() && land.riverDist < land.riverHalfWidth + 4) {
 				return true;
 			}
 		}
@@ -1181,7 +1250,7 @@ public final class CavernModel {
 				}
 				// where it runs near the surface, only under dry land, and never beside a river's water
 				Column land = this.terrain.sample(x, z);
-				if (floor + a.height() > land.height - 5 && (land.height < 66 || land.crater > land.height - 3)
+				if (floor + a.height() > land.height - 5 && (land.height < 66 || land.underWater(3))
 					|| land.nearRiver() && land.riverDist < land.riverHalfWidth + 3) {
 					continue;
 				}
@@ -1370,6 +1439,13 @@ public final class CavernModel {
 			// a funnel at the top, where the ground has slumped in
 			float funnel = 6 * sq(Mth.clamp(1 - (c.shaftTop - 4 - y) / 12, 0, 1));
 			best = Math.max(best, Math.min(Math.min(y - c.shaftBottom, c.shaftTop - y), c.shaftRadius + funnel - c.shaftDist));
+		}
+		if (c.systems) {
+			float in = this.systems.inside(c, x, y, z);
+			if (in > best) {
+				best = in;
+				rough = c.geode || c.tube ? 0.35F : 0.7F;
+			}
 		}
 		if (best > -5) {
 			best += (float) (rough * this.n[28].get(x / 9.0, y / 7.0, z / 9.0));

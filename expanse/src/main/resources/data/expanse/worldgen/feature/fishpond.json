@@ -1,0 +1,13 @@
+{
+  "type": "expanse:fishpond",
+  "half_length": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 7,
+    "max_inclusive": 12
+  },
+  "half_width": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 5,
+    "max_inclusive": 9
+  }
+}

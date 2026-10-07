@@ -8,7 +8,7 @@
     {
       "chance": 0.3,
       "feature": {
-        "feature": "minecraft:acacia",
+        "feature": "expanse:natural/acacia_wood/plain",
         "placement": []
       }
     }

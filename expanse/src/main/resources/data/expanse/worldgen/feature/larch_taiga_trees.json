@@ -8,14 +8,14 @@
     {
       "chance": 0.35,
       "feature": {
-        "feature": "minecraft:spruce",
+        "feature": "expanse:natural/spruce_forest/plain",
         "placement": []
       }
     },
     {
       "chance": 0.08,
       "feature": {
-        "feature": "minecraft:pine",
+        "feature": "expanse:natural/pine_forest/plain",
         "placement": []
       }
     },

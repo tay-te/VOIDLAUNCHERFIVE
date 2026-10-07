@@ -32,6 +32,14 @@
       "weight": 3
     },
     {
+      "data": "expanse:micro/lean_to",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/high_seat",
+      "weight": 1
+    },
+    {
       "data": "expanse:micro/signpost",
       "weight": 1
     },
@@ -41,6 +49,10 @@
     },
     {
       "data": "expanse:micro/old_fence",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/lost_cache",
       "weight": 1
     }
   ]

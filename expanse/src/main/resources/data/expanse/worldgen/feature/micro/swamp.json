@@ -18,6 +18,10 @@
     {
       "data": "expanse:micro/mossy_rocks_low",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/snag_swamp",
+      "weight": 3
     }
   ]
 }

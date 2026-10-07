@@ -1,4 +1,4 @@
-"""Palm coast lighthouse on a rocky headland.
+"""Lighthouse on a rocky headland of the warm coasts (palm coast, coral coast, beaches).
 
 start  (two liveries: red-and-white stripes / black-and-white stripes with a slate cap)
   A round tower ~44 high on a rock-and-stone headland. A spiral stair winds round the
@@ -27,7 +27,8 @@ from pieces import Empty, Piece
 from terrain_paths import connector, path_piece, piece_in
 
 NAME = "lighthouse"
-STRUCTURE = dict(biomes=["palm_coast"], spacing=36, separation=12, size=3, max_distance=56, sited=False)
+STRUCTURE = dict(biomes=["palm_coast", "coral_coast", "minecraft:beach"], spacing=36, separation=12, size=3,
+                 max_distance=56, sited=False, avoid_vanilla=True)
 LOOT = "expanse:chests/lighthouse"
 MAPS = "expanse:chests/lighthouse_map"
 HIDDEN = "expanse:chests/lighthouse_hidden"

@@ -1,7 +1,7 @@
 {
   "replace": false,
   "values": [
-    "expanse:frostbloom_tundra",
-    "expanse:larch_taiga"
+    "expanse:larch_taiga",
+    "expanse:lichen_tundra"
   ]
 }
