@@ -101,12 +101,44 @@ public final class MeshBuilder {
 		}
 	}
 
-	/** A quad, counter-clockwise or clockwise: the GUI pipeline does not cull. */
+	/** A quad, counter-clockwise or clockwise: wound the way the GUI pipeline keeps (see {@link #orient}) as it is written. */
 	public void quad(float x0, float y0, int c0, float x1, float y1, int c1, float x2, float y2, int c2, float x3, float y3, int c3) {
-		this.vertex(x0, y0, c0);
-		this.vertex(x1, y1, c1);
-		this.vertex(x2, y2, c2);
-		this.vertex(x3, y3, c3);
+		if (this.textured || (this.count & 3) != 0) {
+			this.vertex(x0, y0, c0);
+			this.vertex(x1, y1, c1);
+			this.vertex(x2, y2, c2);
+			this.vertex(x3, y3, c3);
+			return;
+		}
+		this.grow(4);
+		float area = x0 * y1 - x1 * y0 + x1 * y2 - x2 * y1 + x2 * y3 - x3 * y2 + x3 * y0 - x0 * y3;
+		float[] p = this.xy;
+		int[] c = this.colours;
+		int b = this.count;
+		int o = b * 2;
+		p[o] = x0;
+		p[o + 1] = y0;
+		c[b] = c0;
+		p[o + 4] = x2;
+		p[o + 5] = y2;
+		c[b + 2] = c2;
+		if (area > 0) {
+			// the other way round: the second and fourth corners change places
+			p[o + 2] = x3;
+			p[o + 3] = y3;
+			c[b + 1] = c3;
+			p[o + 6] = x1;
+			p[o + 7] = y1;
+			c[b + 3] = c1;
+		} else {
+			p[o + 2] = x1;
+			p[o + 3] = y1;
+			c[b + 1] = c1;
+			p[o + 6] = x3;
+			p[o + 7] = y3;
+			c[b + 3] = c3;
+		}
+		this.count = b + 4;
 	}
 
 	public void triangle(float x0, float y0, int c0, float x1, float y1, int c1, float x2, float y2, int c2) {

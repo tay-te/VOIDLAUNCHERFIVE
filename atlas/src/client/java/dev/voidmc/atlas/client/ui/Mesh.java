@@ -42,10 +42,29 @@ public final class Mesh implements GuiElementRenderState {
 		if (n == 0) {
 			return null;
 		}
+		// the vertices' box first (one pass, untransformed), then its four corners through the pose: the same box for the
+		// GUI's scale and translation, and a safe one for any other affine pose
+		float bx0 = Float.MAX_VALUE, by0 = Float.MAX_VALUE, bx1 = -Float.MAX_VALUE, by1 = -Float.MAX_VALUE;
+		for (int i = 0, m = n * 2; i < m; i += 2) {
+			float x = xy[i];
+			float y = xy[i + 1];
+			if (x < bx0) {
+				bx0 = x;
+			}
+			if (x > bx1) {
+				bx1 = x;
+			}
+			if (y < by0) {
+				by0 = y;
+			}
+			if (y > by1) {
+				by1 = y;
+			}
+		}
 		float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
 		Vector2f v = new Vector2f();
-		for (int i = 0; i < n; i++) {
-			pose.transformPosition(xy[i * 2], xy[i * 2 + 1], v);
+		for (int k = 0; k < 4; k++) {
+			pose.transformPosition((k & 1) == 0 ? bx0 : bx1, (k & 2) == 0 ? by0 : by1, v);
 			minX = Math.min(minX, v.x);
 			minY = Math.min(minY, v.y);
 			maxX = Math.max(maxX, v.x);

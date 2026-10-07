@@ -178,18 +178,40 @@ public final class Ui {
 	private int contour(float[] out, float x, float y, float w, float h, float r, float inset, int n) {
 		float rr = Math.max(0, r - inset);
 		float x0 = x + inset, y0 = y + inset, x1 = x + w - inset, y1 = y + h - inset;
-		float[] cx = {x0 + rr, x1 - rr, x1 - rr, x0 + rr};
-		float[] cy = {y0 + rr, y0 + rr, y1 - rr, y1 - rr};
+		// the corners' unit circle points, worked out once per segment count (no trigonometry per shape)
+		float[] cos = CONTOUR_COS[n];
+		float[] sin = CONTOUR_SIN[n];
 		int k = 0;
+		int t = 0;
 		for (int c = 0; c < 4; c++) {
-			double start = Math.PI + c * Math.PI / 2;
-			for (int i = 0; i <= n; i++) {
-				double a = start + i * (Math.PI / 2) / n;
-				out[k++] = cx[c] + (float) Math.cos(a) * rr;
-				out[k++] = cy[c] + (float) Math.sin(a) * rr;
+			float cx = c == 0 || c == 3 ? x0 + rr : x1 - rr;
+			float cy = c < 2 ? y0 + rr : y1 - rr;
+			for (int i = 0; i <= n; i++, t++) {
+				out[k++] = cx + cos[t] * rr;
+				out[k++] = cy + sin[t] * rr;
 			}
 		}
 		return k / 2;
+	}
+
+	/** The rounded corners' points on a unit circle, for each segment count {@link #segments} gives (2 to 14). */
+	private static final float[][] CONTOUR_COS = new float[15][];
+	private static final float[][] CONTOUR_SIN = new float[15][];
+
+	static {
+		for (int n = 1; n < 15; n++) {
+			CONTOUR_COS[n] = new float[4 * (n + 1)];
+			CONTOUR_SIN[n] = new float[4 * (n + 1)];
+			int t = 0;
+			for (int c = 0; c < 4; c++) {
+				double start = Math.PI + c * Math.PI / 2;
+				for (int i = 0; i <= n; i++, t++) {
+					double a = start + i * (Math.PI / 2) / n;
+					CONTOUR_COS[n][t] = (float) Math.cos(a);
+					CONTOUR_SIN[n][t] = (float) Math.sin(a);
+				}
+			}
+		}
 	}
 
 	/** A filled rounded rectangle with an anti-aliased edge. */

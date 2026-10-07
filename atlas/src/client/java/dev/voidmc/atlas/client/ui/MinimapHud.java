@@ -184,6 +184,8 @@ public final class MinimapHud {
 		// the nearest few beyond the edge only (each a dot on the rim): more would crowd the rim and cost every frame
 		int shown = 0;
 		int count = 0;
+		String trackedId = settings.tracked;
+		String trackedWp = trackedId != null && trackedId.startsWith("atlas:wp:") ? trackedId.substring("atlas:wp:".length()) : null;
 		for (int i = 0; i < this.rim.size() && count < this.rimNear.length && !light; i++) {
 			var w = this.rim.get(i);
 			float sx = f.screenX(w.x() + 0.5, w.z() + 0.5);
@@ -192,10 +194,11 @@ public final class MinimapHud {
 				continue;
 			}
 			double d = Math.hypot(w.x() + 0.5 - px, w.z() + 0.5 - pz);
-			if (d > RIM_REACH && !dev.voidmc.atlas.client.AtlasClient.waypointMarkerId(w).equals(settings.tracked)) {
+			boolean wpTracked = trackedWp != null && trackedWp.equals(w.id());
+			if (d > RIM_REACH && !wpTracked) {
 				continue;
 			}
-			if (dev.voidmc.atlas.client.AtlasClient.waypointMarkerId(w).equals(settings.tracked)) {
+			if (wpTracked) {
 				d = -1;
 			}
 			// insertion into the nearest RIM_DOTS so far
@@ -245,6 +248,20 @@ public final class MinimapHud {
 	}
 
 	private static final int RIM_DOTS = 6;
+	/** Which eighth of the compass a screen offset points into (0 east, 2 south, 4 west, 6 north), without atan2. */
+	static int octant(float dx, float dy) {
+		float ax = Math.abs(dx);
+		float ay = Math.abs(dy);
+		float t = 0.41421356F; // tan 22.5°
+		if (ay <= ax * t) {
+			return dx >= 0 ? 0 : 4;
+		}
+		if (ax <= ay * t) {
+			return dy >= 0 ? 2 : 6;
+		}
+		return dx >= 0 ? (dy >= 0 ? 1 : 7) : (dy >= 0 ? 3 : 5);
+	}
+
 	/** Sighted places shown on the rim at most (the nearest), besides the tracked one. */
 	private static final int EDGE_MARKS = 3;
 	/** Waypoints get a dot on the rim within this many blocks (or when tracked). */
@@ -432,18 +449,23 @@ public final class MinimapHud {
 			this.edgeFrom = visible;
 			this.edgeCandidates = candidates;
 		}
-		List<Place> pool = new ArrayList<>(this.edgeCandidates);
-		if (trackedPlace != null && !pool.contains(trackedPlace)) {
-			pool.add(trackedPlace);
-		}
-		for (Place pl : pool) {
+		// each frame: the candidates (no copy), then the tracked place; the cheap tests first, no trigonometry
+		List<Place> candidates = this.edgeCandidates;
+		boolean sightedShown = this.atlas.settings().kindVisible(Kinds.Kind.SIGHTED.name());
+		int total = candidates.size() + (trackedPlace != null ? 1 : 0);
+		for (int ci = 0; ci < total; ci++) {
+			Place pl = ci < candidates.size() ? candidates.get(ci) : trackedPlace;
 			boolean isTracked = pl == trackedPlace;
-			if (!isTracked && (!Kinds.sighted(pl) || pl.isLabel() || !ceiling && pl.underground() != underground
-				|| !this.atlas.settings().kindVisible(Kinds.Kind.SIGHTED.name()))) {
+			if (isTracked && ci < candidates.size()) {
+				continue; // the tracked place comes last, once
+			}
+			if (!isTracked && (!sightedShown || !ceiling && pl.underground() != underground)) {
 				continue;
 			}
-			double d = Math.hypot(pl.x() + 0.5 - px, pl.z() + 0.5 - pz);
-			if (d > 1024 && !isTracked) {
+			double ddx = pl.x() + 0.5 - px;
+			double ddz = pl.z() + 0.5 - pz;
+			double d2 = ddx * ddx + ddz * ddz;
+			if (d2 > 1024 * 1024 && !isTracked) {
 				continue;
 			}
 			float sx = f.screenX(pl.x() + 0.5, pl.z() + 0.5);
@@ -451,9 +473,8 @@ public final class MinimapHud {
 			if (f.inside(sx, sy)) {
 				continue;
 			}
-			double angle = Math.atan2(sy - (y + side / 2), sx - (x + side / 2));
-			int octant = Math.floorMod((int) Math.round(angle / (Math.PI / 4)), 8);
-			double rank = isTracked ? -1 : d;
+			int octant = octant(sx - (x + side / 2), sy - (y + side / 2));
+			double rank = isTracked ? -1 : d2;
 			if (rank < best[octant]) {
 				best[octant] = rank;
 				chosen[octant] = pl;
