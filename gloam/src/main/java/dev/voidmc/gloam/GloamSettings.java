@@ -59,11 +59,11 @@ public final class GloamSettings {
 	/** How much the air thickens or thins VOID LOD's haze (humid lowland summers hazier, clear air after rain), 0 (as VOID LOD has it) .. 1. */
 	public double farHaze = 1.0;
 	/**
-	 * How far above {@code CLOUD_HEIGHT} Gloam's cloud deck sits, in blocks. Vanilla's 192 leaves today's mountains
-	 * (and Expanse's) standing in the clouds and the far land hidden behind the deck from every peak; real fair-weather
-	 * clouds float far higher above the land.
+	 * Where Gloam's clouds sit. -1 (the default): fitted to the world's height, one deck at {@code CLOUD_HEIGHT} on a
+	 * vanilla-height world, and on a tall one a low stratus layer just above it, the main deck in the middle and a thin
+	 * high deck near the top. 0 and up: one deck that many blocks above {@code CLOUD_HEIGHT}, set by hand.
 	 */
-	public double farCloudLift = 240;
+	public double farCloudLift = -1;
 	/** With a shader pack on (and VOID LOD drawing through it), the far air drawn over the pack's finished picture. */
 	public boolean farOverPack = true;
 
@@ -132,7 +132,7 @@ public final class GloamSettings {
 		this.farRain = bool(json, "farRain", this.farRain);
 		this.farMist = bool(json, "farMist", this.farMist);
 		this.farHaze = number(json, "farHaze", this.farHaze, 0, 1);
-		this.farCloudLift = number(json, "farCloudLift", this.farCloudLift, 0, 512);
+		this.farCloudLift = number(json, "farCloudLift", this.farCloudLift, -1, 512);
 		this.farOverPack = bool(json, "farOverPack", this.farOverPack);
 	}
 

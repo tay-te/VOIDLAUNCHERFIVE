@@ -14,7 +14,7 @@ class CloudGridTest {
 	}
 
 	private static CloudGrid.Mesh build(float front) {
-		return CloudGrid.build(new CloudGrid.Input(uniform(front), 1, 0.3F, 0, true, 0, 0, 0, 70, 432, 1024, 16384, false));
+		return CloudGrid.build(new CloudGrid.Input(uniform(front), 1, 0.3F, 0, true, 0, 0, 0, 0, 0, 70, CloudGrid.Layers.of(192.33F, 639, -1), null, 1024, 16384, false));
 	}
 
 	private static int towerFaces(CloudGrid.Mesh mesh) {
@@ -26,11 +26,19 @@ class CloudGridTest {
 	}
 
 	@Test
+	void layersFollowTheWorldsHeight() {
+		CloudGrid.Layers vanilla = CloudGrid.Layers.of(192.33F, 319, -1), tall = CloudGrid.Layers.of(192.33F, 639, -1);
+		System.out.printf("vanilla %s, tall %s, now %s%n", vanilla, tall, CloudGrid.Layers.of(192.33F, 383, -1));
+		assertTrue(vanilla.low() < 0 && vanilla.main() == 192);
+		assertTrue(tall.low() > 192 && tall.main() > 350 && tall.high() >= 610);
+	}
+
+	@Test
 	void clearSkiesHaveFewCloudsAndStormsTower() {
 		CloudGrid.Mesh clear = build(0.2F), broken = build(0.55F), storm = build(0.97F);
 		System.out.printf("clear %d faces, broken %d faces, storm %d faces (%d in towers)%n", faces(clear), faces(broken), faces(storm), towerFaces(storm));
 		assertTrue(faces(clear) < faces(broken));
 		assertTrue(towerFaces(storm) > 0);
-		assertTrue(towerFaces(clear) == 0);
+		assertTrue(towerFaces(storm) > 2 * towerFaces(clear));
 	}
 }

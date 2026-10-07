@@ -42,6 +42,9 @@ public final class FarAir {
 	/** How far Gloam's clouds reach this frame (0 while vanilla's are drawn), for the clouds' fog. */
 	private double cloudReach;
 	private float cloudBase;
+	private CloudGrid.Layers layers;
+	/** The sun's side and height and the sunrise colour for the clouds' low-sun light; [5] 0 with a shader pack. */
+	private final float[] sunLight = new float[6];
 	private final ByteBuffer info = MemoryUtil.memAlloc(FarRenderer.INFO_BYTES);
 	private FarRenderer renderer;
 	private ClientLevel level;
@@ -91,7 +94,7 @@ public final class FarAir {
 		}
 		double seconds = (gameTime + partialTicks) / 20.0;
 		double fx = camera.x - Air.FRONT_DRIFT * seconds, fz = camera.z - Air.FRONT_DRIFT * 0.2 * seconds;
-		deck.prepare(fx, fz, camera.y - INSTANCE.cloudBase, color);
+		deck.prepare(fx, fz, camera.y - INSTANCE.cloudBase, color, INSTANCE.sunLight);
 		return deck.anything();
 	}
 
@@ -245,16 +248,29 @@ public final class FarAir {
 		this.replacing = settings.farClouds;
 		float vanilla = Atmosphere.vanillaRain(level, partial);
 		float thunder = level.getThunderLevel(partial);
-		float base = state.cloudHeight + (float) settings.farCloudLift;
+		// the cloud layers, fitted to the world's height (or one deck farCloudLift over vanilla's, set by hand)
+		// (gloam.far.maxY lays the clouds out as for a world that tall, to try a tall world's layers on a lower one)
+		CloudGrid.Layers layers = CloudGrid.Layers.of(state.cloudHeight, Integer.getInteger("gloam.far.maxY", level.getMaxY()), settings.farCloudLift);
+		float base = layers.base();
 		this.cloudBase = base;
+		this.layers = layers;
+		// the low sun's light on the clouds, without a shader pack (a pack lights them itself)
+		float sunAngle0 = state.skyRenderState.sunAngle;
+		org.joml.Vector4fc rise = state.skyRenderState.sunriseAndSunsetColor;
+		this.sunLight[0] = -(float) Math.sin(sunAngle0);
+		this.sunLight[1] = (float) Math.cos(sunAngle0);
+		this.sunLight[2] = rise == null ? 1 : rise.x();
+		this.sunLight[3] = rise == null ? 1 : rise.y();
+		this.sunLight[4] = rise == null ? 1 : rise.z();
+		this.sunLight[5] = rise == null || Shaders.packInUse() ? 0 : rise.w();
 		// the deck reaches a little past the far land (inside the far plane, which VOID LOD puts at 1.5 times its radius),
 		// thinning into the sky all the way out
 		this.cloudReach = lodRadius > 0 ? lodRadius * 1.45 : reach;
 		double fx = WeatherMap.frameX(cx, state.gameTime), fz = WeatherMap.frameZ(cz, state.gameTime);
 		if (this.replacing && map != null) {
 			double near = Math.min(mc.options.cloudRange().get() * 16.0, 1536);
-			this.grid.update(new CloudGrid.Input(map, air.seed(), year, vanilla, settings.showers, thunder, fx, fz, cy, base, near, this.cloudReach,
-				status == CloudStatus.FAST));
+			this.grid.update(new CloudGrid.Input(map, air.seed(), year, vanilla, settings.showers, thunder, fx, fz, cx - fx, cz - fz, cy, layers,
+				this.land, near, this.cloudReach, status == CloudStatus.FAST));
 		}
 		CloudGrid.Mesh cells = this.grid.take();
 		if (cells != null) {
@@ -267,8 +283,8 @@ public final class FarAir {
 				cells.free();
 			}
 		}
-		this.cloudState = String.format(Locale.ROOT, "clouds %s (%s, colour %08x, base %.0f, %d faces in %d draws)", clouds ? "on" : "off", status,
-			state.cloudColor, base, this.deck == null ? 0 : this.deck.faceCount(), this.deck == null ? 0 : this.deck.groupCount());
+		this.cloudState = String.format(Locale.ROOT, "clouds %s (%s, colour %08x, layers %s, %d faces in %d draws)", clouds ? "on" : "off", status,
+			state.cloudColor, layers, this.deck == null ? 0 : this.deck.faceCount(), this.deck == null ? 0 : this.deck.groupCount());
 
 		// the far land and its mist
 		boolean mistOn = settings.farMist && this.land.known();
@@ -297,7 +313,7 @@ public final class FarAir {
 			double seconds = ticks / 20.0;
 			float sunAngle = state.skyRenderState.sunAngle;
 			double sunX = -Math.sin(sunAngle), sunY = Math.max(0.3, Math.cos(sunAngle));
-			double offset = -sunX / sunY * (base - (level.getSeaLevel() + 30));
+			double offset = -sunX / sunY * (layers.main() - (level.getSeaLevel() + 30));
 			this.setShade(true, this.deck.shadeX() + Air.FRONT_DRIFT * seconds + offset, this.deck.shadeZ() + Air.FRONT_DRIFT * 0.2 * seconds,
 				this.deck.shadeSize());
 		} else {

@@ -141,16 +141,24 @@ is loaded).
 
 - **Clouds: Minecraft's, laid out by the weather.** Vanilla's look (12 x 12 cells, 4 high, flat-shaded boxes, the
   top brightest and the bottom darkest, `CLOUD_COLOR`, the fast/fancy option) but placed from the fronts instead of
-  `clouds.png`: a few small puffs under a clear front, bigger merged shapes in broken weather, a near-continuous slab with
-  holes under an overcast; showers and storms thicker and darker (two darker tones), stacked into stepped towers
-  (20-block layers, up to ~600 blocks), a storm's top two layers spreading wider into an anvil. Their base is
-  `CLOUD_HEIGHT` plus `farCloudLift` (240), since at 192 every Expanse peak stands in the clouds. The cells lie in the
-  fronts' drifting frame, so the clouds travel with their weather; out to just past VOID LOD's radius the rings get
-  coarser (12, 24, 48 ... blocks), some 30-45 thousand faces in all, and the clouds' fog (`FogRendererCloudMixin`)
-  stretches to that reach so they thin into the sky like the far land. `CloudRendererMixin` has vanilla's own
-  `CloudRenderer` draw the mesh, through the pipeline it chose this frame, so a shader pack's clouds program, which
-  Iris swaps in for vanilla's, draws Gloam's clouds itself, lit by the pack: no second cloud layer. Packs that turn
-  vanilla's clouds off for their own keep theirs (see *Shader packs*).
+  `clouds.png`: scattered puffs about as many as vanilla's under a clear front, bigger merged shapes in broken weather, a
+  near-continuous slab with holes under an overcast; showers and storms thicker and darker (two darker tones), stacked
+  into stepped towers from the lowest deck up into the highest, a storm's top spreading wider into an anvil, its
+  footprint widened so a thunderhead reads kilometres off.
+- **Layers fitted to the world** (`CloudGrid.Layers`, from the build height and `CLOUD_HEIGHT`): a vanilla-height world
+  keeps one deck at `CLOUD_HEIGHT`; a somewhat taller one (Expanse's top 383 today) a low grey stratus layer 16 above
+  it, thick over lowlands and wet fronts and broken over high ground (read from VOID LOD's far land), and the main deck
+  near the top (343); a tall one (top 600 and more, Expanse's coming 639) the stratus, the main deck in the middle (393)
+  and a thin high deck near the top (619), so 550-600 ranges stand between the main and the high deck, towers spanning
+  208 to 619. `farCloudLift` -1 (the default) is this; 0 and up puts one deck that far above `CLOUD_HEIGHT` by hand.
+  `-Dgloam.far.maxY=639` lays the clouds out as for a world that tall, to try it on a lower one.
+- The cells lie in the fronts' drifting frame, so the clouds travel with their weather; out to just past VOID LOD's
+  radius the rings get coarser (12, 24, 48 ... blocks), some 65-80 thousand faces in about 200-370 draws, and the clouds'
+  fog (`FogRendererCloudMixin`) stretches to that reach so they thin into the sky like the far land. `CloudRendererMixin`
+  has vanilla's own `CloudRenderer` draw the mesh, through the pipeline it chose this frame, so a shader pack's clouds
+  program, which Iris swaps in for vanilla's, draws Gloam's clouds itself, lit by the pack. Without a pack the faces
+  take the low sun's colour at dawn and dusk (`SUNRISE_SUNSET_COLOR`): warm on the sides facing the sun and on the
+  undersides and tops in its half of the sky, cool blue-grey away from it.
 - **Cloud shadows** on the far land: from the same cells, a 512² picture carried along with the fronts and offset along
   the sun's ray, laid on the LOD with `LodApi.setShade` (relative to the camera's light, so an overcast does not darken
   the far land against the chunks).
@@ -180,7 +188,7 @@ How the packs tested take Gloam's clouds (vanilla's cloud geometry, drawn throug
 
 | Pack | Default | Gloam's clouds |
 |---|---|---|
-| Complementary Reimagined r5.9.3 | its own clouds; `clouds=off` unless *Cloud Style* is Vanilla (50) | with Cloud Style: Vanilla |
+| Complementary Reimagined r5.9.3 | its own clouds; `clouds=off` unless *Cloud Style* is Vanilla (50) | with Cloud Style: Vanilla (`CLOUD_STYLE_DEFINE=50`), lit by the pack; checked |
 | BSL v10.1.8 | its own volumetric clouds (`CLOUDS=2`) | with `CLOUDS=3` (vanilla); its vanilla-cloud fog (`FOG_VANILLA_CLOUD`) fades them out past ~1 km unless set to 0 |
 | Photon v1.3b | always `clouds=off`; its own volumetric and blocky clouds | never |
 
