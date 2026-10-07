@@ -176,6 +176,8 @@ final class FarmParts {
 			}
 		}
 		// beds placed on purpose first (heads to the walls, a way in beside each), the furnisher's heuristic after
+		// the floor is furnished already: read it, so the beds' walkway goes round the furniture, not through it
+		dev.voidmc.hearth.build.kit.Rooms.read(d, room);
 		int placed = dev.voidmc.hearth.build.kit.homestead.Beds.place(d, room, min - count);
 		if (placed < min - count) {
 			dev.voidmc.hearth.build.kit.Rooms.furnish(d, room, dev.voidmc.hearth.build.kit.Rooms.Type.BEDROOM, min - count - placed, JobType.NONE);

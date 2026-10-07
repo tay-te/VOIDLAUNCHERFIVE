@@ -167,6 +167,44 @@ tasks.register('blueprintPreview', JavaExec) {
 	]
 }
 
+// A whole town in real textures: grown by the planner, every plot from the build module, an overview and close-ups by
+// day (and night), then the similarity check across cultures over what the towns built.
+//   ./gradlew townPreview -Pculture=temperate -Pdays=200 -Pterrain=hills -Pseed=1 -Pnight=true
+tasks.register('townPreview', JavaExec) {
+	group = 'hearth'
+	description = 'Renders a grown town in textures (overview and close-ups, day and night) to build/previews/town/*.png'
+	classpath = sourceSets.gametest.runtimeClasspath
+	mainClass = 'dev.voidmc.hearth.gametest.render.TownPreview'
+	jvmArgs '-Djava.awt.headless=true', '-Xmx6g'
+	args = [
+		project.findProperty('culture') ?: 'temperate',
+		project.findProperty('days') ?: '200',
+		project.findProperty('terrain') ?: 'hills',
+		project.findProperty('seed') ?: '1',
+		project.findProperty('night') ?: 'false',
+		project.findProperty('closeups') ?: '4',
+		project.findProperty('window') ?: '60',
+		project.findProperty('similar') ?: 'true',
+		layout.buildDirectory.dir('previews/town').get().asFile.path
+	]
+}
+
+// One plan reused in many cultures: compares each archetype's blueprint across the cultures that build it.
+//   ./gradlew cultureSimilarity -Parchetype=all -Pseeds=2 -Pthreshold=0.8
+tasks.register('cultureSimilarity', JavaExec) {
+	group = 'hearth'
+	description = 'Flags archetypes whose plan does not change with the culture (build/previews/town/similarity.txt)'
+	classpath = sourceSets.gametest.runtimeClasspath
+	mainClass = 'dev.voidmc.hearth.gametest.render.CultureSimilarity'
+	jvmArgs '-Djava.awt.headless=true', '-Xmx3g'
+	args = [
+		project.findProperty('archetype') ?: 'all',
+		project.findProperty('seeds') ?: '2',
+		project.findProperty('threshold') ?: '0.8',
+		layout.buildDirectory.file('previews/town/similarity.txt').get().asFile.path
+	]
+}
+
 // The building families' previews as tasks of this build (agePreview, ageTown, craftPreview, deepPreview, deepTown,
 // extractionPreview, industryPreview, socialPreview, stationPreview, streetPreview...): each docs/buildings/*_preview.gradle
 // (and townhome_street.gradle) is applied here as it would be as an init script; one passed with -I registers its own

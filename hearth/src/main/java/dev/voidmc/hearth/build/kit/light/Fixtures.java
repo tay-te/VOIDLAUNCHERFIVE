@@ -337,7 +337,7 @@ final class Fixtures {
 		}
 		// two walls meeting (not two opposite: that is a corridor)
 		boolean corner = wall[0] && wall[1] || wall[1] && wall[2] || wall[2] && wall[3] || wall[3] && wall[0];
-		return corner && !cuts(s, x, y, z);
+		return corner && !cuts(s, x, y, z, true);
 	}
 
 	private static boolean nearUnmet(Session s, int x, int y, int z, int radius) {
@@ -656,12 +656,20 @@ final class Fixtures {
 
 	/** Whether standing something at (x, y, z) would cut a way through (its walkable neighbours no longer meet). */
 	static boolean cuts(Session s, int x, int y, int z) {
+		return cuts(s, x, y, z, false);
+	}
+
+	/**
+	 * As {@link #cuts(Session, int, int, int)}; with {@code any}, every walkable neighbour counts, reached or not (the
+	 * landing of a ladder or a stair the walk does not climb is still someone's way into the room).
+	 */
+	static boolean cuts(Session s, int x, int y, int z, boolean any) {
 		java.util.List<int[]> ns = new java.util.ArrayList<>();
 		for (Direction dir : Dirs.HORIZONTAL) {
 			int nx = x + Dirs.dx(dir);
 			int nz = z + Dirs.dz(dir);
 			for (int dy = 1; dy >= -1; dy--) {
-				if (s.sp.walkable(nx, y + dy, nz) && s.sp.reached(nx, y + dy, nz)) {
+				if (s.sp.walkable(nx, y + dy, nz) && (any || s.sp.reached(nx, y + dy, nz))) {
 					ns.add(new int[]{nx, y + dy, nz});
 					break;
 				}
@@ -684,7 +692,8 @@ final class Fixtures {
 				}
 				for (int dy = 1; dy >= -1; dy--) {
 					int ny = c[1] + dy;
-					if (s.sp.walkable(nx, ny, nz)) {
+					// (with any: nobody walks over a bed, though one can stand on it)
+					if (s.sp.walkable(nx, ny, nz) && !(any && s.g.at(nx, ny - 1, nz).getBlock() instanceof net.minecraft.world.level.block.BedBlock)) {
 						if (seen.add(net.minecraft.core.BlockPos.asLong(nx, ny, nz))) {
 							q.add(new int[]{nx, ny, nz});
 						}

@@ -282,7 +282,7 @@ public final class Inn implements Archetype {
 				Chimneys.stack(d, ox, zM - 2, body.floorY(1), roof, roof.ridgeY + 1);
 			}
 		}
-		// tables with chairs in the open floor, each piece only where the room stays walkable
+		// the tap room's floor, each piece only where the room stays walkable
 		Rooms.Room tap = new Rooms.Room(tx0, iz0, tx1, iz1, base, h0 - 1);
 		tap.keep(doorX, iz0);
 		if (arch) {
@@ -310,34 +310,8 @@ public final class Inn implements Archetype {
 		if (d.isEmpty(hx, base, iz1 - 1)) {
 			tap.keep(hx, iz1 - 1);
 		}
-		int seats = 0;
-		for (int z = iz0 + 2; z <= iz1 - 1; z += 3) {
-			for (int x = Math.min(tx0, tx1) + 1; x <= Math.max(tx0, tx1) - 1; x += 3) {
-				if (!tap.claim(x, z)) {
-					continue;
-				}
-				Furniture.table(d, x, base, z);
-				for (Direction dir : Dirs.HORIZONTAL) {
-					int cx2 = x + Dirs.dx(dir);
-					int cz2 = z + Dirs.dz(dir);
-					if (d.isEmpty(cx2, base, cz2) && tap.claim(cx2, cz2)) {
-						Furniture.chair(d, cx2, base, cz2, dir);
-						seats++;
-					}
-				}
-			}
-		}
-		// a tap room too cramped for a table still has a settle or two against its walls
-		for (int z = iz1; z >= iz0 && seats < 2; z--) {
-			for (int x = Math.min(tx0, tx1); x <= Math.max(tx0, tx1) && seats < 2; x++) {
-				Direction wallward = z == iz1 ? Dirs.BACK : x == tx0 ? Dirs.LEFT : x == tx1 ? Dirs.RIGHT : null;
-				if (wallward != null && d.isEmpty(x, base, z) && d.isEmpty(x, base + 1, z) && tap.claim(x, z)) {
-					Furniture.chair(d, x, base, z, wallward);
-					seats++;
-				}
-			}
-		}
-		Rooms.furnish(d, tap, Rooms.Type.HALL, 0, JobType.NONE);
+		// booths and long tables to the walls, settles where they leave wall
+		Rooms.furnish(d, tap, Rooms.Type.DINING, 0, JobType.NONE);
 		Floors.joists(d, tx0, iz0, tx1, iz1, fy - 1, Direction.Axis.X, 2, base);
 		// lanterns over the tables and the bar, hung from the joists, so the windows glow at night
 		for (int lx : new int[]{(tx0 + tx1) / 2, barX}) {

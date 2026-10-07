@@ -144,7 +144,9 @@ over the window above the door on a two-storey house, the door in a painted surr
 terrace, under an awning of plain canvas (`Life.awning`), never the cloth palette cell by cell. And a **split-level** variant on hillside
 plots (rise or fall of 3+ to the back, not terraced): where the land falls, the street door opens into the main floor
 and the lower storey has a back door onto a terrace at the lower ground; where it rises, the street door opens into the
-lower storey cut into the bank and the upper floor has a side door out at grade. A cottage whose loft is too low for a
+lower storey cut into the bank and the upper floor has a side door out at grade. A small cottage (a ground floor of 28 cells or less inside) climbs to its loft by a ladder in the back corner, so a
+flight does not take a fifth of its floor; an outshot opens off the room through a wide doorway with no door in it, the
+scullery part of the floor. A cottage whose loft is too low for a
 bed sleeps downstairs (beds placed on purpose, `Beds`). Params: `storeys`, `garden`, `outshot`, `split` (bool, default
 true), `terraced`, `turf` (bool), `station`, `household`.
 

@@ -409,7 +409,7 @@ final class HouseBuilder {
 				int ix0 = r[0] + 1;
 				int ix1 = r[2] - 1;
 				int rise = b.height(0);
-				boolean run = ix1 - ix0 + 1 >= rise + 2;
+				boolean run = !byLadder(ix0, r[1] + 1, ix1, r[3] - 1, rise);
 				if (run ? runCovers(ix0, ix1, stairLeftward, rise, x) : Math.abs(x - (stairLeftward ? ix0 : ix1)) <= 1) {
 					continue;
 				}
@@ -421,8 +421,31 @@ final class HouseBuilder {
 			return null;
 		}
 		int dx = doorX;
-		d.inStage(StageKind.OPENINGS, () -> d.door(dx, base, z0, d.mat(Role.DOOR).mainOr(dev.voidmc.hearth.build.style.Form.DOOR, Blocks.SPRUCE_DOOR),
-			Dirs.BACK, net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+		// the scullery opens off the room through a wide doorway, two high under the lintel, no door in it: the outshot
+		// reads as part of the house's floor, not a cupboard behind a wall
+		int wx0 = dx;
+		int wx1 = dx;
+		for (int x : new int[]{dx - 1, dx + 1}) {
+			boolean clear = x > Math.max(ox0, r[0]) && x < Math.min(ox1, r[2]) && Openings.isWallBlock(d, x, base, z0) && Openings.isWallBlock(d, x, base + 1, z0)
+				&& (hearth == null || Math.abs(x - hearth[0]) > 1 || Math.abs(z0 - 1 - hearth[1]) > 1);
+			if (clear && b.storeys() >= 2) {
+				int ix0 = r[0] + 1;
+				int ix1 = r[2] - 1;
+				int rise = b.height(0);
+				clear = !byLadder(ix0, r[1] + 1, ix1, r[3] - 1, rise) ? !runCovers(ix0, ix1, stairLeftward, rise, x)
+					: Math.abs(x - (stairLeftward ? ix0 : ix1)) > 1;
+			}
+			if (clear) {
+				wx0 = Math.min(wx0, x);
+				wx1 = Math.max(wx1, x);
+			}
+		}
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			for (int x = wx0; x <= wx1; x++) {
+				d.set(x, base, z0, Blocks.AIR.defaultBlockState());
+				d.set(x, base + 1, z0, Blocks.AIR.defaultBlockState());
+			}
+		}
 		// inside: a scullery's barrels and a chest along the walls
 		Rooms.Room room = new Rooms.Room(ox0 + 1, z0 + 1, ox1 - 1, z1 - 1, base, 2);
 		room.keep(dx, z0 + 1);
@@ -794,7 +817,7 @@ final class HouseBuilder {
 				}
 				blocked = runCovers(ix0, ix1, leftward, rise, keep[0]);
 			}
-			if (ix1 - ix0 + 1 >= run + 2 && !blocked) {
+			if (!byLadder(ix0, iz0, ix1, iz1, rise) && !blocked) {
 				int sx = leftward ? ix0 + 1 : ix1 - 1;
 				Direction dir = leftward ? Dirs.RIGHT : Dirs.LEFT;
 				int start = leftward ? sx : sx;
@@ -815,7 +838,7 @@ final class HouseBuilder {
 					Rooms.furnish(d, up, Rooms.Type.BEDROOM, 2, JobType.NONE);
 				}
 			} else {
-				// too narrow for a run: a ladder in the back corner (the one away from a back door)
+				// too narrow or too small for a run: a ladder in the back corner (the one away from a back door)
 				int lx = leftward ? ix0 : ix1;
 				if (keep != null && keep[1] == sz && Math.abs(keep[0] - lx) <= 1) {
 					lx = lx == ix0 ? ix1 : ix0;
@@ -824,6 +847,8 @@ final class HouseBuilder {
 				d.set(lx, b.floorY(1) - 1, iz1, Blocks.AIR.defaultBlockState());
 				ground.keep(lx, iz1);
 				ground.block(lx, iz1);
+				// the cell before the ladder, where one stands to climb it, stays joined to the door
+				ground.keep(lx, iz1 - 1);
 				Rooms.Room up = upperRoom(d, b, 1, roof);
 				if (up != null) {
 					up.keep(lx, iz1);
@@ -847,6 +872,15 @@ final class HouseBuilder {
 		if (b.storeys() >= 2) {
 			Floors.joists(d, ix0, iz0, ix1, iz1, b.floorY(1) - 1, (ix1 - ix0) <= (iz1 - iz0) ? Direction.Axis.X : Direction.Axis.Z, 2, b.baseY);
 		}
+	}
+
+	/**
+	 * Whether the ground floor inside (ix0, iz0)–(ix1, iz1) climbs by a ladder in the back corner rather than a flight
+	 * along the back wall: too narrow for the run, or so small that a flight and its foot would take a fifth of its floor
+	 * (ART_REVIEW.md item 23: cottages lost half their floor to walls and stair).
+	 */
+	static boolean byLadder(int ix0, int iz0, int ix1, int iz1, int rise) {
+		return ix1 - ix0 + 1 < rise + 2 || (ix1 - ix0 + 1) * (iz1 - iz0 + 1) <= 28;
 	}
 
 	/** Whether a straight flight along the back wall (as {@link #interior} lays it) covers column x, or its foot. */
