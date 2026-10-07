@@ -463,8 +463,8 @@ public final class Parcels {
 			// anything: the budget spent on them would leave the frontage of its newer streets unseen and the town stalled
 			// (requests/w5-tour.md §1), so a spread sample of the rest gets half a budget more
 			List<Pos> rest = new ArrayList<>(positions.size() - i);
-			while (rest.size() < positions.size() - i) {
-				rest.add(positions.get(ranking.next()));
+			for (int k : ranking.rest()) {
+				rest.add(positions.get(k));
 			}
 			int more = Math.max(1, ctx.config.searchBudget() / 2);
 			int step = Math.max(1, rest.size() / more);
@@ -509,6 +509,14 @@ public final class Parcels {
 			this.heap[0] = this.heap[--this.size];
 			down(0);
 			return top;
+		}
+
+		/** The places not drawn yet, in order (sorted at once: cheaper than drawing them all). */
+		int[] rest() {
+			int[] rest = java.util.Arrays.copyOf(this.heap, this.size);
+			it.unimi.dsi.fastutil.ints.IntArrays.quickSort(rest, (a, b) -> before(a, b) ? -1 : before(b, a) ? 1 : 0);
+			this.size = 0;
+			return rest;
 		}
 
 		/** Whether place a comes before place b: the higher pre-score (compared as the sort compared it), then the earlier. */

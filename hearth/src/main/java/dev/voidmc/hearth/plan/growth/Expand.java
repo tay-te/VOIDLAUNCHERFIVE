@@ -415,6 +415,7 @@ public final class Expand {
 	static List<Branch> branches(PlanContext ctx, boolean outward, int max, @Nullable List<Branch> fresh) {
 		java.util.Map<Integer, Branch> perEdge = new java.util.HashMap<>();
 		java.util.Map<Integer, Branch> untried = new java.util.HashMap<>();
+		Probes probes = Probes.of(ctx);
 		double core = ctx.coreRadius();
 		Ground g = ctx.ground;
 		LayoutType layout = ctx.state.layout;
@@ -442,6 +443,7 @@ public final class Expand {
 				spacing = Math.max(spacing, 30);
 			}
 			double outwardFrom = Math.max(core * 1.4, ctx.extent() + 16);
+			EdgeProbes memo = probes.of(ctx, e);
 			Polyline.Dense d = e.dense();
 			int lim = Math.min(e.built, d.length());
 			int fromStart = Math.max(10, spacing / 2);
@@ -460,7 +462,7 @@ public final class Expand {
 					// square off: a lane leaves a near-straight street at right angles
 					int heading = Math.abs(tx) == 0 || Math.abs(tz) == 0 || Math.abs(Math.abs(tx) - Math.abs(tz)) > 1
 						? Roads.cardinal(nx, nz) : Roads.heading(nx, nz);
-					int probe = probe(ctx, d.xs()[i], d.zs()[i], heading, e.width / 2 + 1, 12);
+					int probe = memo.probe(ctx, i, side, d.xs()[i], d.zs()[i], heading, e.width / 2 + 1);
 					if (probe < 10) {
 						continue;
 					}
@@ -506,12 +508,95 @@ public final class Expand {
 		return out.size() > max ? out.subList(0, max) : out;
 	}
 
+	/**
+	 * The lane mouths' probes ({@link #probe} of twelve, at each index and side of each street), kept in the plan state
+	 * between calls: a street's are probed again only once the grid changed in a tile one of them read, so a city's
+	 * search for a lane mouth reads only the streets where it grew.
+	 */
+	public static final class Probes {
+		final dev.voidmc.hearth.plan.grid.Occupancy occ;
+		final java.util.IdentityHashMap<RoadEdge, EdgeProbes> edges = new java.util.IdentityHashMap<>();
+
+		private Probes(dev.voidmc.hearth.plan.grid.Occupancy occ) {
+			this.occ = occ;
+		}
+
+		static Probes of(PlanContext ctx) {
+			Probes p = ctx.state.laneProbes;
+			if (p == null || p.occ != ctx.occ) {
+				p = new Probes(ctx.occ);
+				ctx.state.laneProbes = p;
+			}
+			return p;
+		}
+
+		EdgeProbes of(PlanContext ctx, RoadEdge e) {
+			EdgeProbes m = this.edges.get(e);
+			if (m == null || !m.valid(ctx)) {
+				m = new EdgeProbes(ctx, e);
+				this.edges.put(e, m);
+			}
+			return m;
+		}
+	}
+
+	/** One street's lane-mouth probes (see {@link Probes}). */
+	static final class EdgeProbes {
+		/** The grid's version when the first was probed: a tile read that changed since makes them all stale. */
+		private final long version;
+		private final it.unimi.dsi.fastutil.longs.LongOpenHashSet tiles = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+		private long[] checked = new long[0];
+		/** Per index, the left and the right side's probe, or -1 before it is probed. */
+		private final int[] values;
+
+		EdgeProbes(PlanContext ctx, RoadEdge e) {
+			this.version = ctx.occ.version();
+			this.values = new int[e.length() * 2];
+			java.util.Arrays.fill(this.values, -1);
+		}
+
+		boolean valid(PlanContext ctx) {
+			if (this.checked.length != this.tiles.size()) {
+				this.checked = this.tiles.toLongArray();
+			}
+			for (long t : this.checked) {
+				if (ctx.occ.changedSince(t, this.version)) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		int probe(PlanContext ctx, int i, int side, int x, int z, int heading, int skip) {
+			int slot = i * 2 + (side < 0 ? 0 : 1);
+			int v = this.values[slot];
+			if (v < 0) {
+				v = Expand.probe(ctx, x, z, heading, skip, 12, this.tiles);
+				this.values[slot] = v;
+			}
+			return v;
+		}
+	}
+
 	/** Free columns ahead of a road column along a heading, after skipping the road's own corridor. */
 	static int probe(PlanContext ctx, int x, int z, int heading, int skip, int max) {
+		return probe(ctx, x, z, heading, skip, max, null);
+	}
+
+	/** {@link #probe(PlanContext, int, int, int, int, int)}, noting the grid's tiles it reads in {@code read}. */
+	private static int probe(PlanContext ctx, int x, int z, int heading, int skip, int max, it.unimi.dsi.fastutil.longs.@Nullable LongSet read) {
 		int n = 0;
 		for (int k = skip + 1; k <= skip + max; k++) {
 			int px = x + Roads.DX[heading] * k;
 			int pz = z + Roads.DZ[heading] * k;
+			if (read != null) {
+				// the lane's corridor is a column either side: their tiles too
+				int ox = -Roads.DZ[heading];
+				int oz = Roads.DX[heading];
+				read.add(dev.voidmc.hearth.plan.grid.Occupancy.tileKey(px, pz));
+				read.add(dev.voidmc.hearth.plan.grid.Occupancy.tileKey(px + ox, pz + oz));
+				read.add(dev.voidmc.hearth.plan.grid.Occupancy.tileKey(px - ox, pz - oz));
+			}
 			byte c = ctx.occ.get(px, pz);
 			if (!(Cell.isBuildable(c) || c == Cell.PLANNED_ROAD) || ctx.ground.isWater(px, pz)) {
 				break;

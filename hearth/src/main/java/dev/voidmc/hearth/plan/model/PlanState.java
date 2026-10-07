@@ -82,6 +82,8 @@ public final class PlanState {
 	public final transient it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap waterDistances = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
 	/** The frontage places of the streets ({@code Parcels.Frontage}), kept with the grid they were read from (never saved). */
 	public transient dev.voidmc.hearth.plan.growth.Parcels.@Nullable Frontage frontage;
+	/** The lane mouths' probes of the streets ({@code Expand.Probes}), kept with the grid they read (never saved). */
+	public transient dev.voidmc.hearth.plan.growth.Expand.@Nullable Probes laneProbes;
 	/** The probe {@link #waterDistances} were measured on. */
 	public transient @Nullable Object waterProbe;
 	/** What each plot is for housing by station, by plot id (derived from its spec; never saved). */
