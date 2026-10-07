@@ -54,18 +54,26 @@ final class Index {
 			+ "player's 0.6 x 1.8), stepping up a stair, slab or one full block with three clear above, dropping at most three, climbing "
 			+ "ladders, passing doors and gates, starting from the street row and the registered entrances. A *room cell* is a walkable cell "
 			+ "in the plot with a roof above and a wall before the roof ends in all four directions (Spaces.enclosed). The light check's walk "
-			+ "does not stand on candles, lanterns, flower pots, cakes or skulls (Spaces.standable); the BlueprintChecks gate does, so a "
-			+ "room reached only by clambering over pots passes the tests but shows here as unreached (desert courtyard house).");
+			+ "does not stand on candles, lanterns, flower pots, cakes or skulls (Spaces.standable); BlueprintChecks' own walk still does, "
+			+ "so a room reached only by clambering over pots passes the invariants but shows here as unreached and breaks the gate's "
+			+ "`walk` rule (desert courtyard house).");
 		md.add("");
 		md.add("| column | meaning |");
 		md.add("|---|---|");
 		String[][] cols = {
 			{"check_problems, floating, unsupported, main_entrance_unreached, beds/jobs_unreached_check, check_text",
 				"BlueprintChecks.all as the tests run it (bounds, floating, support, reach, chunks, order, light), parsed"},
+			{"strict_reach, floating_pieces, roof_gap_cells, gate", "the gate's play rules (PlayChecks, as BlueprintChecks runs them): "
+				+ "beds, job sites and doors the invariant walk reaches only by standing on pots and candles; pieces standing on nothing "
+				+ "(structure on neither the ground nor other structure; leaves and fixtures not on structure); open-sky gaps of <= 6 "
+				+ "cells closed by roof or covered space, walkable or not, one per column (smoke holes over a fire left out); the rules "
+				+ "this case breaks (walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole); `gate_text` each rule's count "
+				+ "and first place (local x/y/z, or the walk's message)"},
 			{"walk_cells, reached_cells, room_cells", "walkable cells in the plot; of them reached from the street; of them room cells"},
 			{"unreached_room_cells, unreached_furnished_cells, unreached_pockets, unreached_levels", "room cells no one can walk to; of them "
 				+ "those in rooms with furniture, a POI or a door (the rest are sealed voids under roofs: wasted space that needs a hidden "
-				+ "lamp); unreached pockets of 4+ cells; whole storeys (6+ room cells) with nothing reached"},
+				+ "lamp); unreached pockets of 4+ cells; whole storeys (6+ room cells) with nothing reached. A one-wide beam with air under "
+				+ "it and on both sides (a tie beam) is not a floor"},
 			{"rooms, rooms_no3x3, cramped_rooms, empty_rooms, purposeless_rooms", "reached rooms of 4+ cells (4-connected on one level, doors "
 				+ "split them); rooms of 6+ cells with no 3x3 of clear floor; furnished rooms with < 6 free cells; rooms of 6+ cells with no "
 				+ "furniture; rooms with <= 2 ways out, no POI and <= 1 piece of furniture"},
@@ -78,8 +86,9 @@ final class Index {
 				+ "two clear above"},
 			{"ladders, dead_ladders", "ladder columns; ladders with nowhere to step off at the top"},
 			{"beds_no_free_side", "beds with no reached cell beside either half"},
-			{"workstations, workstations_unusable, chest_lids_blocked", "job blocks, chests, barrels; those with no reached face (beside, a "
-				+ "level up or down); chests under a solid block"},
+			{"workstations, workstations_unusable, chest_lids_blocked", "job blocks, chests, barrels, cauldrons (a cauldron only when a POI "
+				+ "is at or beside it: a well's bucket is decoration); those with no reached face (beside, a level up or down); chests under a "
+				+ "solid block"},
 			{"light_min_room, light_mean_room, dark_room_cells, light_unmet", "block light on reached room cells (the light check's flood); cells "
 				+ "under 8; the light check's unmet needs"},
 			{"roof_hole_cells", "walkable open-sky cells in patches of <= 6 with roof all round (rain gets in; smoke holes and light wells show "
@@ -91,7 +100,9 @@ final class Index {
 				+ "beams, sills, frames, shutters, pilasters"},
 			{"flat_patch_max", "largest 4-connected patch of one block on the wall plane, over all facades (cells)"},
 			{"facade_blocks, dominant_share", "distinct blocks per facade; the commonest block's share"},
-			{"windows_per_side, blind_sides", "glass groups and wall openings per facade 5+ wide; such facades without one"},
+			{"windows_per_side, blind_sides", "glass groups, lattices and shutters set in the wall (trapdoors on the wall plane) and wall "
+				+ "openings per facade 5+ wide; such facades without one. A round or polygonal body is measured against each column's own "
+				+ "wall depth"},
 			{"overhang_mean", "median over a facade's columns of how far the roof above the wall stands out from the wall plane"},
 			{"roof_facings, roof_corners, roof_levels, roof_complexity", "top surface: distinct stair facings; inner/outer stair corners "
 				+ "(hips, valleys); distinct heights; facings + corners/2 (<= 4) + levels/3 (<= 3)"},
