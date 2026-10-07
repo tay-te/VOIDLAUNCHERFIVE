@@ -11,9 +11,11 @@ import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.Noise;
+import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
+import dev.voidmc.hearth.build.kit.civic.Halls;
 import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.kit.sociallife.Venue;
 import dev.voidmc.hearth.build.kit.sociallife.Fair;
@@ -129,6 +131,8 @@ public final class TiltYard implements Archetype {
 				d.set(tilt, base, z, frame.log(Direction.Axis.Y));
 				d.set(tilt, base + 1, z, frame.log(Direction.Axis.Y));
 				d.set(tilt, base + 2, z, frame.fence());
+				// a lantern on each painted post, so the lists are lit for the evening's feast
+				d.set(tilt, base + 3, z, States.lantern(Blocks.LANTERN, false));
 			}
 		}
 		Venue.banner(d, tilt, base + 1, z0, Dirs.FRONT, colours[0].getName(), List.of(), StageKind.EXTERIOR);
@@ -217,11 +221,48 @@ public final class TiltYard implements Archetype {
 					d.set(sx1, cy - 1, z, Blocks.WOOL.pick(colours[0]).defaultBlockState());
 				}
 			}
+			// the house's banners on the box's front posts, toward the lists
+			for (int z : new int[]{boxZ0, boxZ1}) {
+				Venue.banner(d, sx1 + 1, base + 3, z, Dirs.RIGHT, colours[0].getName(), List.of(), StageKind.EXTERIOR);
+			}
 		}
 		// --- the pavilions at either end on the right, the quintain at the far end of the lists
-		int px = lx1 + 3;
-		pavilion(d, px, base, z0 + 2, colours[0], colours[0], maxH);
-		pavilion(d, px, base, z1 - 2, colours[0], colours[1], maxH);
+		// (inside the fence, a block off it)
+		int px = w - 4;
+		Tent kind = Tent.of(d);
+		for (int[] tz : new int[][]{{z0 + 2, 0}, {z1 - 2, 1}}) {
+			if (!fits(d, px - 2, tz[0] - 3, px + 2, tz[0] + 3, base)) {
+				continue;
+			}
+			tent(d, kind, px, base, tz[0], colours[0], colours[tz[1]], maxH);
+			// the horses' trough and the squire's grindstone by the tent's door
+			int wx = px - 3;
+			int wz = tz[0] + (tz[1] == 0 ? 2 : -2);
+			if (Venue.standable(d, wx, base, wz)) {
+				d.inStage(StageKind.EXTERIOR, () -> d.set(wx, base, wz, Blocks.WATER_CAULDRON.defaultBlockState()
+					.setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.LEVEL_CAULDRON, 3)));
+			}
+			int gz = tz[0] + (tz[1] == 0 ? -2 : 2);
+			if (Venue.standable(d, wx, base, gz)) {
+				d.inStage(StageKind.EXTERIOR, () -> d.set(wx, base, gz, States.facing(Blocks.GRINDSTONE, Dirs.LEFT)));
+			}
+		}
+		// the common folk's low stand along the far side, between the tents, facing the tilt
+		for (int z = z0 + 7; z <= z1 - 7; z++) {
+			if (Venue.standable(d, lx1 + 1, base, z) && (z - z0) % 6 != 3) {
+				Venue.bench(d, lx1 + 1, base, z, Dirs.BACK, 1, Dirs.RIGHT);
+			}
+		}
+		// the judges' table across the lists' near end, by the gate
+		int jz = z0 - 2;
+		if (jz >= 3 && Venue.standable(d, tilt - 3, base, jz) && Venue.standable(d, tilt - 2, base, jz)) {
+			Venue.trestle(d, tilt - 3, base, jz, Dirs.RIGHT, 2);
+			for (int x : new int[]{tilt - 3, tilt - 2}) {
+				if (Venue.standable(d, x, base, jz - 1)) {
+					Furniture.chair(d, x, base, jz - 1, Dirs.FRONT);
+				}
+			}
+		}
 		quintain(d, tilt + 2, base, dp - 4);
 		// hay for the horses and a trough by each pavilion
 		try (var s = d.stage(StageKind.EXTERIOR)) {
@@ -243,6 +284,7 @@ public final class TiltYard implements Archetype {
 				Lighting.post(d, c[0], base, c[1]);
 			}
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, maxH - 1);
 	}
 
@@ -281,54 +323,203 @@ public final class TiltYard implements Archetype {
 		d.poi(PoiType.SEAT, x, y, z, Dirs.RIGHT);
 	}
 
-	/**
-	 * A knight's pavilion centred on (cx, y, cz): a round tent five across of undyed canvas two high under a band of the
-	 * house's colour, its roof drawn in to a cap and a pole with the knight's pennant ({@code pennant}), the door toward the
-	 * lists; inside the arms chest and a stand.
-	 */
-	private static void pavilion(Draft d, int cx, int y, int cz, DyeColor house, DyeColor pennant, int maxH) {
-		Block canvas = Blocks.WOOL.pick(DyeColor.WHITE);
-		Block band = Blocks.WOOL.pick(house);
-		Mat frame = d.mat(Role.FRAME);
-		try (var s = d.stage(StageKind.WALLS)) {
-			for (int dx = -2; dx <= 2; dx++) {
-				for (int dz = -2; dz <= 2; dz++) {
-					boolean corner = Math.abs(dx) == 2 && Math.abs(dz) == 2;
-					boolean wall = !corner && (Math.abs(dx) == 2 || Math.abs(dz) == 2);
-					int x = cx + dx;
-					int z = cz + dz;
-					if (wall) {
-						boolean door = dx == -2 && dz == 0;
-						for (int yy = y; yy < y + 2; yy++) {
-							d.set(x, yy, z, door ? Blocks.AIR.defaultBlockState() : canvas.defaultBlockState());
-						}
-						// the band at the eaves, dagged: colour and canvas by turns
-						if (y + 2 < maxH) {
-							d.set(x, y + 2, z, (((dx + dz) & 1) == 0 ? band : canvas).defaultBlockState());
-						}
-					}
-					if (!corner && Math.abs(dx) <= 1 && Math.abs(dz) <= 1 && y + 3 < maxH) {
-						d.set(x, y + 3, z, (dx == 0 && dz == 0 ? band : canvas).defaultBlockState());
-					}
+	/** How a culture pitches the knights' tents. */
+	enum Tent {
+		/** A ridge tent of canvas, its gables to the lists' ends, guyed to stakes (the west and the north). */
+		RIDGE,
+		/** A round felt yurt under a cone (the steppe's horse games). */
+		YURT,
+		/** A square pavilion on red posts under a tiered canvas roof (the karst's archery ground). */
+		PAVILION,
+		/** An open shade of striped cloth on four poles over a carpet (the desert's riding ground). */
+		SHADE,
+		/** A ramada: four posts, a roof of poles laid across and brush heaped on them, a wall of wattle at its back (the mesa). */
+		RAMADA;
+
+		static Tent of(Draft d) {
+			return switch (dev.voidmc.hearth.build.kit.civic.Tradition.of(d)) {
+				case STEPPE -> YURT;
+				case KARST -> PAVILION;
+				case ADOBE -> dev.voidmc.hearth.build.kit.civic.Pueblo.is(d) ? RAMADA : SHADE;
+				default -> RIDGE;
+			};
+		}
+	}
+
+	/** Every cell of the rectangle is level ground at y (nothing pitched over a drop or water). */
+	private static boolean fits(Draft d, int x0, int z0, int x1, int z1, int y) {
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				if (x < 0 || z < 0 || x >= d.frontage() || z >= d.depth() || !Venue.standable(d, x, y, z)) {
+					return false;
 				}
 			}
-			// the door's lintel and the pole through the cap
-			if (y + 2 < maxH) {
-				d.set(cx - 2, y + 2, cz, band.defaultBlockState());
-			}
-			for (int yy = y + 4; yy < Math.min(maxH - 1, y + 6); yy++) {
-				d.set(cx, yy, cz, frame.fence());
+		}
+		return true;
+	}
+
+	/**
+	 * A knight's tent centred on (cx, y, cz), its door toward the lists (the left), in the culture's manner ({@link Tent}):
+	 * canvas banded in the colour of the house that holds the tilt, the knight's pennant ({@code pennant}) on its pole;
+	 * inside the arms chest, a barrel and a lantern.
+	 */
+	private static void tent(Draft d, Tent kind, int cx, int y, int cz, DyeColor house, DyeColor pennant, int maxH) {
+		Block canvas = Blocks.WOOL.pick(kind == Tent.YURT ? DyeColor.LIGHT_GRAY : DyeColor.WHITE);
+		Block band = Blocks.WOOL.pick(house);
+		Mat frame = d.mat(Role.FRAME);
+		int top = y + 4;
+		if (top + 2 >= maxH) {
+			return;
+		}
+		try (var s = d.stage(StageKind.WALLS)) {
+			switch (kind) {
+				case RIDGE -> {
+					// the walls a block high, the roof's two pitches over them in canvas, the eaves banded, gables at the ends
+					for (int dx = -2; dx <= 2; dx++) {
+						for (int dz = -2; dz <= 2; dz++) {
+							int x = cx + dx;
+							int z = cz + dz;
+							boolean side = Math.abs(dz) == 2;
+							boolean end = Math.abs(dx) == 2;
+							boolean door = dx == -2 && dz == 0;
+							if ((side || end) && !door) {
+								d.set(x, y, z, canvas.defaultBlockState());
+							}
+							if (side) {
+								d.set(x, y + 1, z, band.defaultBlockState());
+							} else if (Math.abs(dz) == 1) {
+								d.set(x, y + 2, z, canvas.defaultBlockState());
+								if (end) {
+									d.set(x, y + 1, z, canvas.defaultBlockState());
+								}
+							} else {
+								d.set(x, y + 3, z, canvas.defaultBlockState());
+								if (end && !door) {
+									d.set(x, y + 1, z, canvas.defaultBlockState());
+									d.set(x, y + 2, z, canvas.defaultBlockState());
+								}
+							}
+						}
+					}
+					d.set(cx - 2, y + 2, cz, band.defaultBlockState());
+					// the poles through the ridge's ends, guy stakes out on the long sides
+					for (int dx : new int[]{-2, 2}) {
+						d.set(cx + dx, y + 4, cz, frame.fence());
+					}
+					for (int dx : new int[]{-1, 1}) {
+						for (int dz : new int[]{-3, 3}) {
+							if (Venue.standable(d, cx + dx, y, cz + dz)) {
+								d.set(cx + dx, y, cz + dz, frame.fence());
+							}
+						}
+					}
+				}
+				case YURT -> {
+					// felt walls round a ring two high, the door, a cone of felt to the smoke ring
+					java.util.Set<Long> ring = dev.voidmc.hearth.build.kit.landmark.Shapes.oct(cx, cz, 2, 1);
+					for (long k : ring) {
+						int x = (int) (k >> 32);
+						int z = (int) k;
+						boolean rim = false;
+						for (Direction dir : Dirs.HORIZONTAL) {
+							rim |= !ring.contains(dev.voidmc.hearth.build.kit.landmark.Shapes.cell(x + Dirs.dx(dir), z + Dirs.dz(dir)));
+						}
+						if (rim) {
+							boolean door = x == cx - 2 && z == cz;
+							for (int yy = y; yy < y + 2; yy++) {
+								if (!door) {
+									d.set(x, yy, z, (yy == y + 1 && ((x + z) & 1) == 0 ? band : canvas).defaultBlockState());
+								}
+							}
+							d.set(x, y + 2, z, canvas.defaultBlockState());
+						} else if (Math.abs(x - cx) + Math.abs(z - cz) <= 1) {
+							d.set(x, y + 3, z, (x == cx && z == cz ? band : canvas).defaultBlockState());
+						} else {
+							d.set(x, y + 2, z, canvas.defaultBlockState());
+						}
+					}
+					d.set(cx, y + 4, cz, frame.fence());
+				}
+				case PAVILION -> {
+					// red posts at the corners, canvas between them two high, a tiered roof drawn in to a cap
+					Paint post = frame.log(Direction.Axis.Y);
+					for (int dx = -2; dx <= 2; dx++) {
+						for (int dz = -2; dz <= 2; dz++) {
+							int x = cx + dx;
+							int z = cz + dz;
+							boolean corner = Math.abs(dx) == 2 && Math.abs(dz) == 2;
+							boolean wall = Math.abs(dx) == 2 || Math.abs(dz) == 2;
+							boolean door = dx == -2 && dz == 0;
+							if (wall) {
+								for (int yy = y; yy < y + 2; yy++) {
+									if (corner) {
+										d.set(x, yy, z, post);
+									} else if (!door) {
+										d.set(x, yy, z, canvas.defaultBlockState());
+									}
+								}
+								d.set(x, y + 2, z, (corner ? band : canvas).defaultBlockState());
+							} else {
+								d.set(x, y + 3, z, (dx == 0 && dz == 0 ? band : canvas).defaultBlockState());
+							}
+						}
+					}
+					d.set(cx, y + 4, cz, frame.fence());
+				}
+				case RAMADA -> {
+					// four posts two high, the vigas across them, brush (hay and leaves) over, a wattle screen at the back
+					Paint post = frame.log(Direction.Axis.Y);
+					for (int dx : new int[]{-2, 2}) {
+						for (int dz : new int[]{-2, 2}) {
+							for (int yy = y; yy < y + 3; yy++) {
+								d.set(cx + dx, yy, cz + dz, post);
+							}
+						}
+					}
+					for (int dz = -2; dz <= 2; dz++) {
+						for (int dx = -2; dx <= 2; dx++) {
+							d.set(cx + dx, y + 3, cz + dz, frame.log(Direction.Axis.X));
+							if (Math.abs(dz) <= 1 && Math.abs(dx) <= 1) {
+								d.set(cx + dx, y + 4, cz + dz, (((dx + dz) & 1) == 0 ? Blocks.HAY_BLOCK : Blocks.OAK_LEAVES).defaultBlockState()
+									.trySetValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true));
+							}
+						}
+						if (Math.abs(dz) <= 1) {
+							for (int yy = y; yy < y + 2; yy++) {
+								d.set(cx + 2, yy, cz + dz, frame.fence());
+							}
+						}
+					}
+					top = y + 5;
+				}
+				case SHADE -> {
+					// four poles, a cloth roof in stripes of the house's colour and canvas, a carpet on the ground
+					for (int dx : new int[]{-2, 2}) {
+						for (int dz : new int[]{-2, 2}) {
+							for (int yy = y; yy < y + 3; yy++) {
+								d.set(cx + dx, yy, cz + dz, frame.fence());
+							}
+						}
+					}
+					for (int dx = -2; dx <= 2; dx++) {
+						for (int dz = -2; dz <= 2; dz++) {
+							d.set(cx + dx, y + 3, cz + dz, ((dz & 1) == 0 ? band : canvas).defaultBlockState());
+							if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1 && !(dx == 1 && dz >= 0)) {
+								d.set(cx + dx, y, cz + dz, Blocks.CARPET.pick(house).defaultBlockState());
+							}
+						}
+					}
+					d.set(cx, y + 4, cz, frame.fence());
+				}
 			}
 		}
-		if (y + 5 < maxH - 1) {
-			Venue.banner(d, cx + 1, y + 5, cz, Dirs.RIGHT, pennant.getName(), List.of(), StageKind.ROOF);
-		}
-		// inside: the arms chest against the back, a stand, a lantern
+		Venue.banner(d, cx + 1, top, cz, Dirs.RIGHT, pennant.getName(), List.of(), StageKind.ROOF);
+		// inside: the arms chest against the back, a barrel, a lantern
 		Furniture.chest(d, cx + 1, y, cz, Dirs.LEFT, List.of(new Object[]{"minecraft:iron_sword", 1}, new Object[]{"minecraft:shield", 1},
 			new Object[]{"minecraft:stick", 4}));
 		d.poi(PoiType.STORAGE, cx, y, cz, Dirs.RIGHT);
 		Furniture.barrel(d, cx + 1, y, cz + 1, Dirs.LEFT);
-		Furniture.hangingLantern(d, cx, y + 3, cz, 0);
+		Halls.lanternUnder(d, cx, y, cz, 0);
 		Lighting.room(d, cx - 1, cz - 1, cx + 1, cz + 1, y);
 	}
 
