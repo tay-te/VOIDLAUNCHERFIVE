@@ -253,9 +253,16 @@ radius, counters, need cooldowns, the castle hill, and the deep town's own plan 
 id).
 Int arrays are read back from NBT or JSON alike. A city's plan is a few kilobytes.
 
-The **occupancy grid** (16×16 byte tiles, `grid/Occupancy`) is not saved: it is rebuilt from the plots, the planned
-roads, the wall line and the reservations on first use, and whenever a plot the planner knew disappeared or a spec it
-handed out was not taken; plots added since are marked incrementally. It can never disagree with the settlement.
+The **occupancy grid** (16×16 byte tiles, `grid/Occupancy`) is not saved: it is built from the plots, the planned
+roads, the wall line and the reservations on first use and kept between calls. Plots added since are marked as they
+come; where a plot the planner knew disappeared (demolished, weathered, replaced by its rebuild), a spec it handed out
+was not taken (a tier the sim finished it at does not count) or a queued rebuild was dropped, that rectangle is marked
+again exactly as a rebuild would mark it (`HearthPlanner.remark`: cleared, then the rebuild's marks replayed in its
+order with writes outside it dropped); land held or given back (`PlanContext.hold`, `release`) is marked the same way.
+So the kept grid always equals a rebuild from scratch (`PlanGridTest`), and a city's grid is never rebuilt whole.
+Transient, per settlement, never saved and never changing a plan: the water distance per 3-block cell, the frontage
+places of each road (`Parcels.Frontage`, gathered again only for a road that changed or whose tiles did), the lane
+mouths' probes of each street (`Expand.Probes`), the residents in id order.
 
 ## 10. Determinism, threads, cost
 
@@ -282,6 +289,20 @@ handed out was not taken; plots added since are marked incrementally. It can nev
   phase 2 sim without a survey): 976 and 1065 live calls averaged 2.4 and 2.2 ms (85–87 % under 5 ms, max 21 ms at the
   live time limit), history calls 0.5–1.9 ms. A deep town's founding scans the realm on a 10-block grid within 200
   blocks of the mine (a few thousand underground probes) once, then rests if it found no spot.
+- Cities (wave 6, requests/w5-tour.md §6). The live tour measured `next` at median 9–20 ms, p90 27–62 ms in towns of
+  785–970 plots. Causes and fixes: a prosperous or declining town's plots are finished a tier up or down by the sim, so
+  no plot ever equalled the spec handed out and every call after a building rebuilt the whole grid (now: the tier does
+  not count, and nothing rebuilds the grid whole, §9); water distance was memoised per call (now per town); every
+  frontage place of every street was found and scored, and all of them sorted, for each search (now: the places and
+  what no request changes are kept per road, scored per request, drawn best first from a heap); lane mouths were probed
+  anew on every call (now kept per street); station neighbourhoods read every home for every place (now by cell); a
+  city's thousand plots and six hundred residents were sorted on every call. All of it plans exactly the same towns
+  (the bench's fingerprints of five cities unchanged by every step but the grid's, which now no longer drifts).
+  `PlanBenchTest` (HEARTH_PLAN_BENCH=1, cities of 1000–1250 plots on the real archetypes, calls from 500 plots on, no
+  time limit, a shared machine): median 3.6–6.0 → 2.0–2.5 ms, p90 8.7–17 → 4.6–6.5 ms; a prosperous city 5.3 → 2.4 ms.
+  `PlanSimBenchTest` (HEARTH_PLAN_SIMBENCH=1, the real sim, 1500 days to ~640 plots): p90 8.5 → 4.3 ms, mean 3.1 →
+  2.1 ms. What is left is the search itself (a failing search examines the budget and half again: workshops sited by
+  their inputs) and the needs list. `live_time_limit_ms` is 10.
 - New per-call state (`PlanContext.territory()`, `ledger`) and per-settlement caches (`PlanState.homeFacts`, `levels`)
   are derived from the settlement's plots and specs and never change a plan; the deep town's plan state is a full plan
   state of its own, so its determinism is the surface's.
@@ -344,7 +365,7 @@ at ~330 work units a day, newcomers while beds are free, jobs from built workpla
 | `nobility` | true | the castle hill, the keep, the castle or palace, stables, gardens, the lodge |
 | `deep_towns`, `deep_share` | true, 0.25 | deep towns, and the share of the town they house |
 | `prevailing_wind` | −1 | degrees clockwise from north the wind blows from; negative: one per world from its seed |
-| `live_time_limit_ms` | 20 | a call on the server thread stops searching frontage after this long and lets the need rest (a cold terrain cache in a big town cost 250 ms once); histories, on their own threads, are never cut short, so they stay deterministic |
+| `live_time_limit_ms` | 10 | a call on the server thread stops searching frontage after this long and lets the need rest (a cold terrain cache in a big town cost 250 ms once); histories, on their own threads, are never cut short, so they stay deterministic |
 
 Debug: `/hearth plan info` near a settlement (with why its last call answered nothing); `/hearth plan stats`: live
 `planner.next` calls that answered nothing, counted by reason (`PlanStats`: "housing: no frontage, roads at their
@@ -359,6 +380,10 @@ founding and histories alike; `PlanModule.devLayout`).
 allowances, no building on a road, every door on a road (or path, plaza, square green), road grades, buildings level or
 terraced (or cut in), sizes within archetype ranges, nothing in water that cannot be. `PlanDeterminismTest`: same seed →
 same plots, on another thread too; state round trip through NBT and JSON. `PlanPerformanceTest`: §10.
+`PlanGridTest`: the occupancy grid kept between calls equals a rebuild from scratch, every five days of a walled town
+and a river town growing on the real archetypes. Benches (asserting nothing, run by environment variable):
+`PlanBenchTest` (MiniSim cities, per-spell timings, a sampled profile, a fingerprint of every plot to show a change
+plans the same towns), `PlanSimBenchTest` (the real sim), `PlanProfileTest` (every need traced).
 `RoadGeometryTest`: polyline reproduction, corridor widths, stairs on steep ground, bridges over rivers.
 `CatalogueFallbackTest`: only registered archetypes, with fallbacks; the §8.5 buildings never stood in for.
 `StationHousingTest`: homes name their station and household, families live in homes of their station, the poor live
@@ -571,6 +596,8 @@ answers; `PlanModule.underground` falls back to probes paired by hand). A lift i
 - **Out of time**: a need cut short by a live call's time limit rests one or two calls without counting as a failure
   (it used to rest up to eight times as long, so a city's workings and workshops, tried after housing had spent the
   20 ms, were shelved for good).
+- **Cost in cities** (§10): `next` in a city of a thousand plots is about 2 ms median, 5 ms p90 offline (from 4–6 and
+  9–17); the live time limit is 10 ms. A deep town's lift head is looked for among 48 places near the spot, not 12.
 - **A trade with nowhere to work** counts only workers whose workplace is missing or not standing (the sim gives a
   trade only as many workers as standing buildings have places for it, a townhouse's workshop among them), against
   the places in workplaces already planned, and a trade gets no more workshops than the program's count for the

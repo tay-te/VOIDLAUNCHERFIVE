@@ -26,10 +26,28 @@ other lanes:
    now rests a call or two without counting as a failure, so the workings and workshops below housing are reached; but
    the clock's half-day wait after a null answer (`noGrowthUntil`) multiplies it. If a null answer's reason ends in
    "out of time" (`PlanStats.last(id)`), the clock could ask again on the next tick instead of half a day later.
+   **Now more so**: w5-tour §6 is answered below and `live_time_limit_ms` is down to 10, so a slow call in a big city
+   ends sooner, and more often with "out of time"; without the retry each such answer costs that town half a day.
+5. **`SimSettlement.beds()` inside the planner's call**: under the real sim (`PlanSimBenchTest`, profiled) 7.6 % of
+   `planner.next` is `SimSettlement.ensureDerived`/`recomputeDerived`, run when `Needs` reads `beds()` after a plot
+   was added. If the sim recomputes its derived figures anyway later in the step, nothing to do; if not, keeping them
+   up to date as plots change (or recomputing before the planner is asked) takes it off the planner's time.
+
+## For the tour lane (`requests/w5-tour.md` §6, answered)
+
+7. **`planner.next` in cities** (PLANNING.md §10, "Cities"). The largest cause on a live server was the sim finishing a
+   prosperous or declining town's plots a tier up or down (`Prosperity.finish`): the plot never equalled the spec the
+   planner handed out, so every call after a building rebuilt the whole occupancy grid. The grid is now never rebuilt
+   whole (the ground a plot leaves is marked again exactly as a rebuild would, and the kept grid equals a rebuild,
+   `PlanGridTest`); water distance, each road's frontage places and each street's lane-mouth probes are kept per town
+   between calls; frontage is drawn best first from a heap instead of sorting thousands of places per search. Offline
+   (`PlanBenchTest`, five cities of 1000–1250 plots): median 3.6–6.0 → 2.0–2.5 ms, p90 8.7–17 → 4.6–6.5 ms, the same
+   plans; a prosperous city 5.3 → 2.4 ms. Please measure again on the live tour (it should land near or under 5 ms
+   median); `live_time_limit_ms` is 10.
 
 ## For the homes lane (`build/archetype/house`)
 
-5. The planner now tells tall homes `storeys` 2 in a village, the outskirts and the inner town of a town; 3 in a town's
+6. The planner now tells tall homes `storeys` 2 in a village, the outskirts and the inner town of a town; 3 in a town's
    core; up to 4 in a city's core; at most 3 in steppe, tropical, bayou, northern and tundra towns. `Townhouse`,
    `Tenement`, `MerchantHouse` and `TowerHouse` clamp the param to 3–5 / 4–6 / 3–4 / 3–5 today, so a 2 is read as 3 (and
    the tenement's 4 as its least). Please let the param go down to 2 (the tenement to 3) so a village or outskirts
