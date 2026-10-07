@@ -313,7 +313,7 @@ final class Section8Shots {
 	}
 
 	/** The walked map's box in blocks (min x, min z, max x, max z), from the regions in memory. */
-	private static int[] walkedBox() {
+	static int[] walkedBox() {
 		MapSession s = AtlasClient.get().session();
 		LayerData walked = s.dimension("minecraft:overworld", false).layer(DimensionData.SURFACE);
 		int[] box = {Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE};

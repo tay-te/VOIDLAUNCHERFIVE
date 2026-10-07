@@ -56,6 +56,10 @@ dependencies {
 		localRuntime "maven.modrinth:iris:${project.iris_version}"
 	}
 
+	// -Plod=<jar>: VOID LOD in the dev runs and the tour (far sight, end to end)
+	if (findProperty('lod') != null) {
+		localRuntime files(findProperty('lod').toString())
+	}
 	// -Phearth=<jar>: VOID Hearth in the dev runs and the tour (its settlements and quests on the map)
 	if (findProperty('hearth') != null) {
 		localRuntime files(findProperty('hearth').toString())

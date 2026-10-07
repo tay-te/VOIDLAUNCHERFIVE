@@ -279,6 +279,9 @@ public class AtlasGameTest implements FabricClientGameTest {
 		if (this.want("expanse")) {
 			this.expanseShot(context);
 		}
+		if (this.want("lod") && net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(dev.voidmc.atlas.client.FarSight.LOD_MOD)) {
+			this.lodShots(context, world);
+		}
 		if (this.want("hearth") && net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("hearth")) {
 			this.hearthShots(context, world);
 		}
@@ -297,6 +300,11 @@ public class AtlasGameTest implements FabricClientGameTest {
 		if (this.want("parity")) {
 			context.runOnClient(mc -> mc.gui.setScreen(null));
 			new ParityShots(this, context, world, this.spawn).run();
+		}
+		if (this.want("section9")) {
+			context.runOnClient(mc -> mc.gui.setScreen(null));
+			boolean expanse = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("expanse");
+			new Section9Shots(this, context, world, this.spawn, this.coast, this.peaks).run(expanse);
 		}
 		if (this.want("section8")) {
 			context.runOnClient(mc -> mc.gui.setScreen(null));
@@ -553,6 +561,60 @@ public class AtlasGameTest implements FabricClientGameTest {
 		}
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", this.spawn.getX(), 140, this.spawn.getZ()));
 		context.waitTicks(20);
+	}
+
+	/**
+	 * With VOID LOD installed (-Plod=<jar>): far sight end to end. LOD draws the land beyond the loaded chunks and hands
+	 * each tile to Atlas through its API; the map shows the walked land beside the land seen from afar, the edge
+	 * between them, and the hover's readout.
+	 */
+	private void lodShots(ClientGameTestContext context, TestSingleplayerContext world) {
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d 0 30", this.spawn.getX(), 200, this.spawn.getZ()));
+		long until = System.currentTimeMillis() + 120_000;
+		long tiles = 0;
+		while (System.currentTimeMillis() < until) {
+			context.waitTicks(100);
+			tiles = dev.voidmc.atlas.client.FarSight.TILES.get();
+			if (tiles > 200) {
+				break;
+			}
+		}
+		this.settle(context, SETTLE_MS);
+		log(String.format(Locale.ROOT, "far sight from VOID LOD: %d tiles taken, %d written, %d columns, listening %s", dev.voidmc.atlas.client.FarSight.TAKEN.get(),
+			tiles, dev.voidmc.atlas.client.FarSight.SAMPLES.get(), context.computeOnClient(mc -> AtlasClient.get().farSight.listening())));
+		int[] box = context.computeOnClient(mc -> Section8Shots.walkedBox());
+		context.runOnClient(mc -> {
+			AtlasClient.get().openMap();
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			screen.page.rightTab = 1;
+			screen.page.map.setKind(MapPanel.Kind.SURFACE);
+			screen.page.map.centreOn((box[0] + box[2]) / 2.0, (box[1] + box[3]) / 2.0);
+			screen.page.map.setZoom(0.25);
+			screen.page.map.selected = null;
+		});
+		this.settle(context, SETTLE_MS);
+		context.waitTicks(20);
+		this.shoot(context, "lod_far_map");
+		context.runOnClient(mc -> {
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			screen.page.map.centreOn(box[2], (box[1] + box[3]) / 2.0);
+			screen.page.map.setZoom(1);
+		});
+		this.settle(context, SETTLE_MS);
+		context.waitTicks(20);
+		this.shoot(context, "lod_far_edge");
+		double[] at = context.computeOnClient(mc -> {
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			var f = screen.page.map.frame();
+			double bx = box[2] + 160;
+			double bz = (box[1] + box[3]) / 2.0;
+			return new double[]{f.screenX(bx, bz) * screen.unit(), f.screenY(bx, bz) * screen.unit()};
+		});
+		context.getInput().setCursorPos(at[0], at[1]);
+		context.waitTicks(10);
+		this.shoot(context, "lod_far_hover");
+		context.getInput().setCursorPos(5, 5);
 	}
 
 	/**
