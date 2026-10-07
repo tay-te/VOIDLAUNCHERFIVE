@@ -351,10 +351,14 @@ final class MoteSpawner {
 	 * The colour a leaf falls in: its tree's green (lifted, see below), except that through autumn more and more of the falling leaves have
 	 * turned yellow, orange or russet brown (birch yellow), and a few in late summer.
 	 */
+	/** The autumn leaf palette: golden yellow, orange, russet, brown, birch yellow. */
+	private static final int[][] AUTUMN = {{222, 176, 48}, {214, 118, 34}, {176, 74, 34}, {140, 92, 48}, {230, 200, 70}};
+
 	private int turn(int green, AirSample air) {
 		if (this.tinted && Seasons.colours().on()) {
 			// the leaves already wear the season's colour (and their tree's own): a falling one shows its paler underside
-			float lift = 0.15F + this.random.nextFloat() * 0.15F;
+			// (one fixed lift, so each tree's leaves fall in one clean colour: docs/STYLE.md, limited palettes)
+			float lift = 0.22F;
 			int r = (int) Mth.lerp(lift, green >> 16 & 0xFF, 255);
 			int g = (int) Mth.lerp(lift, green >> 8 & 0xFF, 250);
 			int b = (int) Mth.lerp(lift * 0.6F, green & 0xFF, 200);
@@ -369,19 +373,15 @@ final class MoteSpawner {
 		if (this.random.nextFloat() >= turned) {
 			// still green, but a falling leaf shows its paler underside and catches the light: lifted toward a light
 			// yellow-green, so it stands out against the canopy and the grass of the same green
-			float lift = 0.35F + this.random.nextFloat() * 0.15F;
+			float lift = 0.4F;
 			int r = (int) Mth.lerp(lift, green >> 16 & 0xFF, 214);
 			int g = (int) Mth.lerp(lift, green >> 8 & 0xFF, 232);
 			int b = (int) Mth.lerp(lift, green & 0xFF, 120);
 			return 0xFF000000 | r << 16 | g << 8 | b;
 		}
-		int[][] palette = {{214, 170, 52}, {200, 120, 40}, {170, 84, 36}, {138, 92, 50}, {186, 150, 70}};
-		int[] c = palette[this.random.nextInt(palette.length)];
-		float mix = 0.75F + this.random.nextFloat() * 0.25F;
-		int r = (int) Mth.lerp(mix, green >> 16 & 0xFF, c[0]);
-		int g = (int) Mth.lerp(mix, green >> 8 & 0xFF, c[1]);
-		int b = (int) Mth.lerp(mix, green & 0xFF, c[2]);
-		return 0xFF000000 | r << 16 | g << 8 | b;
+		// a turned leaf takes one of a few clean autumn colours as they are, not blended with its green
+		int[] c = AUTUMN[this.random.nextInt(AUTUMN.length)];
+		return 0xFF000000 | c[0] << 16 | c[1] << 8 | c[2];
 	}
 
 	// ------------------------------------------------------------------------------------------------- pollen, dust
@@ -664,13 +664,21 @@ final class MoteSpawner {
 	 * three blocks tall standing on something that is not falling water (the foot of a fall); each foot found then
 	 * throws up spray every few ticks until it is gone.
 	 */
+	/** How many spray puffs may be in the air at once, however many falls there are. */
+	private static final int SPRAY_CAP = 360;
+
 	private void spray(AirSample air, Vec3 eye, float density) {
 		this.findFeet(eye);
 		if (this.feet.isEmpty()) {
 			return;
 		}
 		double reach = SPRAY_REACH * SPRAY_REACH;
+		// a canyon full of falls would otherwise fill the whole mote budget with spray (and leave no room for breath)
+		int cap = (int) (SPRAY_CAP * Math.min(1.0F, density));
 		for (Long2IntMap.Entry e : this.feet.long2IntEntrySet()) {
+			if (Motes.Kind.SPRAY.count() >= cap) {
+				return;
+			}
 			BlockPos foot = BlockPos.of(e.getLongKey());
 			if (foot.distToCenterSqr(eye) > reach || this.random.nextFloat() >= 0.5F * density || !this.room()) {
 				continue;

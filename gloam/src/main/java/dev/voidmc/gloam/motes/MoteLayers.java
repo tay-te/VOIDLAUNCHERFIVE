@@ -50,11 +50,13 @@ final class MoteLayers {
 
 	/** The scene's depth behind the ground mist, copied out of the main pass ({@link SoftMist}). */
 	static final BindGroupLayout SCENE_DEPTH = BindGroupLayout.builder().withUniform("SceneDepth", UniformType.COMBINED_IMAGE_SAMPLER).build();
+	/** Where the camera is (for the world's texel grid) and the clouds' colour (for the mist palette), std140. */
+	static final BindGroupLayout MIST_INFO = BindGroupLayout.builder().withUniform("GloamMist", UniformType.UNIFORM_BUFFER).build();
 
 	/**
-	 * {@link #GROUND_PIPELINE} made soft: the sheets fade where they near the scene behind them, read from a copy of the
-	 * depth ({@code GLOAM_SOFT} in {@code ground_mist.fsh}). Drawn by {@link SoftMist} after vanilla's main pass, never
-	 * through a particle layer.
+	 * {@link #GROUND_PIPELINE} drawn pixel-true on the world's texel grid and made soft: the sheets fade, in dithered
+	 * steps, where they near the scene behind them, read from a copy of the depth ({@code GLOAM_SOFT} in
+	 * {@code ground_mist.fsh}). Drawn by {@link SoftMist} after vanilla's main pass, never through a particle layer.
 	 */
 	static final RenderPipeline GROUND_SOFT_PIPELINE = RenderPipeline.builder(RenderPipelines.PARTICLE_SNIPPET)
 		.withLocation(Gloam.id("pipeline/ground_mist_soft"))
@@ -62,6 +64,7 @@ final class MoteLayers {
 		.withFragmentShader(Gloam.id("core/ground_mist"))
 		.withShaderDefine("GLOAM_SOFT")
 		.withBindGroupLayout(SCENE_DEPTH)
+		.withBindGroupLayout(MIST_INFO)
 		.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
 		.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
 		.withCull(false)

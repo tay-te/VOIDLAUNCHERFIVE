@@ -9,7 +9,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
  * A firefly: a small warm point that wanders slowly a little above the grass and flashes, dark between flashes as
- * real fireflies are. A flash rises in a few ticks and fades over about half a second, every two to six seconds,
+ * real fireflies are. A flash comes on and goes out in a step or two and lasts about a second, every two to six seconds,
  * and the firefly climbs a little as it flashes (the "J" a courting Photinus draws). Lit, it is full bright.
  */
 final class FireflyMote extends Mote {
@@ -20,7 +20,8 @@ final class FireflyMote extends Mote {
 
 	FireflyMote(ClientLevel level, double x, double y, double z, RandomSource random) {
 		super(level, x, y, z, Motes.Kind.FIREFLY, random);
-		this.size = 0.08F + this.random.nextFloat() * 0.03F;
+		// the light is the middle half of the sprite (2x2 of 4x4 pixels)
+		this.size = 0.12F + this.random.nextFloat() * 0.04F;
 		this.quadSize = this.size;
 		this.lifetime = 600 + this.random.nextInt(600);
 		this.fadeIn = 0;
@@ -64,13 +65,14 @@ final class FireflyMote extends Mote {
 		}
 	}
 
+	/** On and off in steps (docs/STYLE.md): a tick at half as a flash comes on and as it goes out, full between. */
 	@Override
 	protected float fade() {
 		if (this.flash <= 0) {
 			return 0;
 		}
 		int t = this.flashLength - this.flash;
-		return Math.min(1, (t + 1) / 3.0F) * Math.min(1, this.flash / 6.0F);
+		return t < 1 || this.flash <= 2 ? 0.5F : 1.0F;
 	}
 
 	@Override

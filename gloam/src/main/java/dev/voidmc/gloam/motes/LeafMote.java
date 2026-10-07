@@ -30,7 +30,7 @@ final class LeafMote extends Mote {
 		super(level, x, y, z, Motes.Kind.LEAF, random);
 		this.hasPhysics = true;
 		this.setSize(0.1F, 0.05F);
-		this.quadSize = 0.13F + this.random.nextFloat() * 0.06F;
+		this.quadSize = 0.12F + this.random.nextFloat() * 0.04F;
 		this.lifetime = 700 + this.random.nextInt(400);
 		this.fadeIn = 6;
 		this.fadeOut = 30;

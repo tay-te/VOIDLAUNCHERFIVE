@@ -34,6 +34,8 @@ final class MistMote extends Mote {
 
 	private final float tau, carry, packSize, packLift;
 	private final TextureAtlasSprite veil;
+	/** Which of the patterns on the world's texel grid this sheet takes (ground_mist.fsh). */
+	private final int seed;
 
 	/**
 	 * @param size the sheet's half-width, in blocks
@@ -50,10 +52,11 @@ final class MistMote extends Mote {
 		this.carry = 0.08F + this.random.nextFloat() * 0.08F;
 		this.roll = this.random.nextFloat() * (float) (Math.PI * 2);
 		this.oRoll = this.roll;
-		this.packSize = Math.min(size * 0.85F, 9.0F);
+		this.packSize = Math.min(size * 0.85F, 6.0F);
 		// the veil's body reaches a third of the quad's half-height down: stand it so its feathering meets the ground
 		this.packLift = Math.max(0, 0.22F * this.packSize - above);
 		this.veil = Motes.Kind.VEIL.sprite(random);
+		this.seed = this.random.nextInt(256);
 	}
 
 	@Override
@@ -65,8 +68,14 @@ final class MistMote extends Mote {
 		if (air.mist() < 0.03 || this.y > air.mistTop() + 1) {
 			this.endWithin(this.fadeOut);
 		}
-		Vector3fc colour = Motes.pack() ? ONE : Motes.cloud();
-		this.setColor(colour.x(), colour.y(), colour.z());
+		if (SoftMist.active()) {
+			// drawn on the world's texel grid in the mist palette (ground_mist.fsh): the colour carries the sheet's
+			// half-width and seed instead of a tint
+			this.setColor(Math.min(1, this.quadSize / 40.0F), this.seed / 255.0F, 0);
+		} else {
+			Vector3fc colour = Motes.pack() ? ONE : Motes.cloud();
+			this.setColor(colour.x(), colour.y(), colour.z());
+		}
 	}
 
 	@Override
@@ -90,23 +99,33 @@ final class MistMote extends Mote {
 	}
 
 	@Override
+	protected boolean stepped() {
+		// the alpha is the sheet's optical depth for ground_mist.fsh, which steps the opacity itself; an upright veil
+		// under a pack is drawn as a sprite and steps like any mote
+		return Motes.pack();
+	}
+
+	// On the world's texel grid, every corner carries the sheet's centre (x, z modulo 256) instead of a sprite's
+	// corner: ground_mist.fsh draws the sheet around it.
+
+	@Override
 	protected float getU0() {
-		return Motes.pack() ? this.veil.getU0() : super.getU0();
+		return Motes.pack() ? this.veil.getU0() : SoftMist.active() ? (float) SoftMist.wrap(this.x) : super.getU0();
 	}
 
 	@Override
 	protected float getU1() {
-		return Motes.pack() ? this.veil.getU1() : super.getU1();
+		return Motes.pack() ? this.veil.getU1() : SoftMist.active() ? (float) SoftMist.wrap(this.x) : super.getU1();
 	}
 
 	@Override
 	protected float getV0() {
-		return Motes.pack() ? this.veil.getV0() : super.getV0();
+		return Motes.pack() ? this.veil.getV0() : SoftMist.active() ? (float) SoftMist.wrap(this.z) : super.getV0();
 	}
 
 	@Override
 	protected float getV1() {
-		return Motes.pack() ? this.veil.getV1() : super.getV1();
+		return Motes.pack() ? this.veil.getV1() : SoftMist.active() ? (float) SoftMist.wrap(this.z) : super.getV1();
 	}
 
 	@Override
