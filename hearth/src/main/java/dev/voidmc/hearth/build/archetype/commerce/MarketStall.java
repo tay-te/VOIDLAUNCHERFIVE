@@ -34,8 +34,8 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
- * {@code hearth:commerce/market_stall}: a merchant's stall on a square or a high street, as a market day puts them up. A
- * low trestle of boards across the front with the day's goods laid out on it (one trade to a stall: produce, pots,
+ * {@code hearth:commerce/market_stall}: a merchant's stall on a square or a high street, as a market day puts them up.
+ * A low trestle of boards across the front with the day's goods laid out on it (one trade to a stall: produce, pots,
  * grain, cloth, candles, bread), crates, sacks and baskets on the ground at its ends and stock behind; over it what the
  * culture's market puts up:
  * <ul>
@@ -58,9 +58,11 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * <p>Params:
  * <ul>
  *   <li>{@code form} (string: {@code booth}, {@code souk}, {@code pavilion}, {@code barrow}, {@code thatch},
- *   {@code canopy}): the stall's build (default by culture; {@code canopy} is the plain linen canopy on four poles)</li>
- *   <li>{@code canopy} (string: {@code linen}, {@code boards}, {@code striped}): what the plain canopy is (default by seed:
- *   linen mostly, boards often, striped canvas one stall in five and only in the mediterranean and the desert)</li>
+ *   {@code canopy}): the stall's build (default by culture; {@code canopy} is the plain linen canopy on four
+ *   poles)</li>
+ *   <li>{@code canopy} (string: {@code linen}, {@code boards}, {@code striped}): what the plain canopy is (default by
+ *   seed: linen mostly, boards often, striped canvas one stall in five and only in the mediterranean and the
+ *   desert)</li>
  *   <li>{@code wares} (string: {@code produce}, {@code pots}, {@code grain}, {@code cloth}, {@code candles},
  *   {@code bread}): what the stall sells (default by seed)</li>
  * </ul>
@@ -259,8 +261,8 @@ public final class MarketStall implements Archetype {
 
 	/**
 	 * The dry lands' souk booth: four poles, a flat awning of canvas striped in the culture's colour, cloth hung from its
-	 * edge down the sides and across the back (a curtain's top, clear of the merchant's head), rugs on the floor behind the
-	 * trestle.
+	 * edge down the sides and across the back (a curtain's top, clear of the merchant's head), rugs on the floor behind
+	 * the trestle.
 	 */
 	private static void souk(Draft d, int x0, int x1, int zc, int zb, Mat pole) {
 		DyeColor dyed = DyeColor.byName(Fair.houseColour(d), DyeColor.RED);

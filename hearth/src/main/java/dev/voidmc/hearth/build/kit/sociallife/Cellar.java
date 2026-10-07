@@ -17,9 +17,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
- * A cellar dug under a floor: walls of the foundation stone, a floor of flags, three rows of headroom under the boards of
- * the room above, lanterns hung from those boards. Where the ground falls away under it (a hillside) its walls go down to
- * the ground and stand as a basement storey.
+ * A cellar dug under a floor: walls of the foundation stone, a floor of flags, three rows of headroom under the boards
+ * of the room above, lanterns hung from those boards. Where the ground falls away under it (a hillside) its walls go
+ * down to the ground and stand as a basement storey.
  */
 public final class Cellar {
 	private Cellar() {
@@ -68,8 +68,9 @@ public final class Cellar {
 
 	/**
 	 * Stocks a dug cellar: casks lying in racks two high against its walls (a cradle of slabs under the lower one where
-	 * the wall run is long), sacks in the corners (a cask there would have no face to tap), a chest of the house's stores (STORAGE) where it can be
-	 * reached, lanterns hung from the ceiling every few cells. {@code plan} is the cellar's floor with the stair foot kept.
+	 * the wall run is long), sacks in the corners (a cask there would have no face to tap), a chest of the house's stores
+	 * (STORAGE) where it can be reached, lanterns hung from the ceiling every few cells. {@code plan} is the cellar's
+	 * floor with the stair foot kept.
 	 */
 	public static void stock(Draft d, Floorplan plan, int ceilingY, List<Object[]> stores) {
 		int y = plan.y;

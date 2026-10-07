@@ -55,8 +55,8 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * minter's place behind it; the strongroom behind an iron door with its chests and bullion; upstairs the coin press
  * room with the furnace and the anvil, and the ledgers.
  *
- * <p>POIs: COUNTER and MARKET_STALL at the counter with the MINTER's JOB_SITE behind it, a second MINTER JOB_SITE at the
- * press upstairs, SEATs, STORAGE, LECTERN (the ledger), DOOR.
+ * <p>POIs: COUNTER and MARKET_STALL at the counter with the MINTER's JOB_SITE behind it, a second MINTER JOB_SITE at
+ * the press upstairs, SEATs, STORAGE, LECTERN (the ledger), DOOR.
  *
  * <p>Params: {@code portico} (boolean, default by tier), {@code variant} (int).
  */

@@ -28,9 +28,10 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * The furniture of a festival green: the culture's centrepiece (the Bohemian maypole, a stripped spruce with its green
- * crown and garland and the town's ribbons; the north's midsummer pole with its crossbar and hoops; a beacon on its stone
- * stand; a field of lantern poles; the steppe's horsetail standard over a wrestling ring; a wine vat under a pergola; a
- * bonfire), the musicians' stage under its canopy, booths under canvas awnings, a garlanded arch over the way in.
+ * crown and garland and the town's ribbons; the north's midsummer pole with its crossbar and hoops; a beacon on its
+ * stone stand; a field of lantern poles; the steppe's horsetail standard over a wrestling ring; a wine vat under a
+ * pergola; a bonfire), the musicians' stage under its canopy, booths under canvas awnings, a garlanded arch over the
+ * way in.
  *
  * <p>Colour: a fair is undyed canvas with one colour of the house that holds it (a valance, the ribbons, the banners),
  * dyed as cloth was dyed, in madder, woad or weld ({@link #natural}); awnings are striped only where the south stripes
@@ -81,8 +82,8 @@ public final class Fair {
 
 	/**
 	 * The maypole: a tall stripped trunk on a stone step, its crown left green (a little fir top) and a garland of leaves
-	 * round it below the crown, the town's ribbons (banners) hanging from the garland on four sides; or, {@code midsummer},
-	 * the north's pole: a crossbar under the top and two leafy hoops hung from its ends.
+	 * round it below the crown, the town's ribbons (banners) hanging from the garland on four sides; or,
+	 * {@code midsummer}, the north's pole: a crossbar under the top and two leafy hoops hung from its ends.
 	 */
 	public static int maypole(Draft d, int x, int y, int z, int room, boolean midsummer) {
 		int h = Math.max(6, Math.min(14, room - 1));
@@ -316,8 +317,9 @@ public final class Fair {
 
 	/**
 	 * A booth: a counter with wares across its front (the keeper behind it) between two posts, a canvas awning over it
-	 * with a valance of the fair's colour (striped canvas and colour in the south), a crate and a barrel at the back. {@code x, z} is the front-left corner seen from the
-	 * customers, {@code toCustomers} the way the booth faces; three wide, three deep. Registers COUNTER and MARKET_STALL.
+	 * with a valance of the fair's colour (striped canvas and colour in the south), a crate and a barrel at the back.
+	 * {@code x, z} is the front-left corner seen from the customers, {@code toCustomers} the way the booth faces; three
+	 * wide, three deep. Registers COUNTER and MARKET_STALL.
 	 */
 	public static void booth(Draft d, int x, int y, int z, Direction toCustomers) {
 		Direction back = toCustomers.getOpposite();
@@ -549,8 +551,8 @@ public final class Fair {
 
 	/**
 	 * A dye colour as cloth was dyed before the bright synthetics: madder red, woad blue, weld yellow, their green, the
-	 * undyed and the dark colours stand; light blue and cyan go to woad, lime to green, magenta, pink, purple and orange to
-	 * madder.
+	 * undyed and the dark colours stand; light blue and cyan go to woad, lime to green, magenta, pink, purple and orange
+	 * to madder.
 	 */
 	public static String natural(String colour) {
 		return switch (colour) {

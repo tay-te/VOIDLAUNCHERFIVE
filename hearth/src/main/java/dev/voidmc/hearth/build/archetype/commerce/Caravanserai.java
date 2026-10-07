@@ -43,11 +43,12 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 /**
  * {@code hearth:commerce/caravanserai}: the walled inn of the caravan roads, a fortress round a courtyard. High blank
  * outer walls with towers at the corners standing over them; in the front the great portal, a tall block over the gate
- * passage, its arch deep enough for a loaded camel. Round the courtyard two storeys of cells behind an arcade of piers and
- * arches: below, the stables (hay, troughs, the beasts tied at the piers) and the storerooms, the innkeeper's and the
- * trader's counters either side of the gate, the kitchen in the back range; above, round a gallery on the arcade's roof,
- * the travellers' rooms, a bed, a chest and a rug in each. In the courtyard's middle a fountain in its basin, crates and
- * bales of the caravans about it. Flat roofs behind parapets in the dry lands, tiled ring roofs where the culture roofs so.
+ * passage, its arch deep enough for a loaded camel. Round the courtyard two storeys of cells behind an arcade of piers
+ * and arches: below, the stables (hay, troughs, the beasts tied at the piers) and the storerooms, the innkeeper's and
+ * the trader's counters either side of the gate, the kitchen in the back range; above, round a gallery on the arcade's
+ * roof, the travellers' rooms, a bed, a chest and a rug in each. In the courtyard's middle a fountain in its basin,
+ * crates and bales of the caravans about it. Flat roofs behind parapets in the dry lands, tiled ring roofs where the
+ * culture roofs so.
  *
  * <p>POIs: BEDs (8 or more), the INNKEEPER's and the TRADER's JOB_SITEs with COUNTER and MARKET_STALL, HITCHING_POSTs,
  * STORAGE, the HEARTH, TABLE, SEATs, MEETING_POINT (the fountain), the DOOR. Params: {@code variant} (int).

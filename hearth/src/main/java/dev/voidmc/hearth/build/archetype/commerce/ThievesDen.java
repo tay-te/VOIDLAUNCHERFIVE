@@ -37,11 +37,11 @@ import net.minecraft.world.level.block.Blocks;
 
 /**
  * {@code hearth:commerce/thieves_den}: an ordinary poor house in a back lane, and under it the fence's room. Above, a
- * single shabby room like any of its neighbours: a table and a stool, a fire, a pallet, a few barrels; in its back corner
- * the stair down, half hidden behind a stack of barrels and a hanging cloth. Below, dug into the ground, the secret room:
- * the fence's counter where stolen goods are bought, the strongbox, chests and crates of loot, a dice table for those who
- * wait, all by candle and lantern light. Where the house stands on posts (no cellar can be dug), the secret room is a back
- * room behind a partition instead.
+ * single shabby room like any of its neighbours: a table and a stool, a fire, a pallet, a few barrels; in its back
+ * corner the stair down, half hidden behind a stack of barrels and a hanging cloth. Below, dug into the ground, the
+ * secret room: the fence's counter where stolen goods are bought, the strongbox, chests and crates of loot, a dice
+ * table for those who wait, all by candle and lantern light. Where the house stands on posts (no cellar can be dug),
+ * the secret room is a back room behind a partition instead.
  *
  * <p>POIs: the FENCE's JOB_SITE, COUNTER and MARKET_STALL (the fence's trade), STRONGBOX, STORAGE, GAMING_TABLE, the
  * HEARTH, the DOOR. Params: {@code variant} (int).

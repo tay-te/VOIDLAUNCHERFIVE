@@ -53,16 +53,16 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:commerce/inn}: the coaching inn on the main road, the broadest front in the street. Its range runs the
- * whole width of the plot, two storeys over a lofty ground floor (three where the plot is broad and the sky allows), the
- * ground floor in stone wherever the culture builds in timber, the upper storeys jettied over the street in the timber
- * towns; its long roof carries a cross gable over the tap-room door, dormers and a stack at each gable end. Through one
- * side of the ground floor runs the carriage arch (voussoirs and keystone, guard stones at its foot, the yard gates
- * folded back against the passage walls, a lantern in the vault) to the stable yard behind. Beside it the tap room shows
- * itself to the street: tall windows, a bay, the door under the inn's painted sign hung from a wrought bracket, its name
- * on a board along the front, a settle, casks of the house's ale and a barrel table outside; within, the bar with its
- * kegs racked behind, tables and chairs, the great hearth, lanterns overhead. Upstairs the guest rooms open off a
- * corridor along the back, the gallery looks over the yard, and the stable stands across the yard with its stalls,
- * hay, trough and loft.
+ * whole width of the plot, two storeys over a lofty ground floor (three where the plot is broad and the sky allows),
+ * the ground floor in stone wherever the culture builds in timber, the upper storeys jettied over the street in the
+ * timber towns; its long roof carries a cross gable over the tap-room door, dormers and a stack at each gable end.
+ * Through one side of the ground floor runs the carriage arch (voussoirs and keystone, guard stones at its foot, the
+ * yard gates folded back against the passage walls, a lantern in the vault) to the stable yard behind. Beside it the
+ * tap room shows itself to the street: tall windows, a bay, the door under the inn's painted sign hung from a wrought
+ * bracket, its name on a board along the front, a settle, casks of the house's ale and a barrel table outside; within,
+ * the bar with its kegs racked behind, tables and chairs, the great hearth, lanterns overhead. Upstairs the guest rooms
+ * open off a corridor along the back, the gallery looks over the yard, and the stable stands across the yard with its
+ * stalls, hay, trough and loft.
  *
  * <p>By culture: alpine and karst inns carry a balcony across the upper front; the dry south a flat roof with a shaded
  * terrace, latticed screens, a striped awning and a palm in the yard; the mediterranean a vine pergola over the front

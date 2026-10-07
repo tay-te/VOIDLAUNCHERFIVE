@@ -46,13 +46,13 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
 
 /**
- * {@code hearth:commerce/hostel}: the house at the town's gate where pilgrims and travellers sleep cheaply. A long plain
- * range of two storeys with its ridge along the road: on the ground floor the refectory, long tables and benches for the
- * travellers' supper, the keeper's counter by the door and the kitchen hearth on the end wall; up the stair the
+ * {@code hearth:commerce/hostel}: the house at the town's gate where pilgrims and travellers sleep cheaply. A long
+ * plain range of two storeys with its ridge along the road: on the ground floor the refectory, long tables and benches
+ * for the travellers' supper, the keeper's counter by the door and the kitchen hearth on the end wall; up the stair the
  * dormitory, beds head to the wall in two rows down its length with a chest between each pair and lanterns over the
  * aisle (on a low plot, one storey: refectory and dormitory side by side behind a partition). Outside, a bench by the
- * door under the house's board, a wayside cross for the pilgrims, a trough and a hitching rail for the travellers' beasts
- * (the stables' hire works from it), and behind, a draw-well and the woodpile.
+ * door under the house's board, a wayside cross for the pilgrims, a trough and a hitching rail for the travellers'
+ * beasts (the stables' hire works from it), and behind, a draw-well and the woodpile.
  *
  * <p>POIs: BEDs (6 or more), the INNKEEPER's JOB_SITE, COUNTER and MARKET_STALL, TABLE, SEATs, the HEARTH, STORAGE, a
  * HITCHING_POST, the DOOR. Params: {@code name} (int, the board's name, default by seed).

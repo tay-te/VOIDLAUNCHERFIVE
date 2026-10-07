@@ -56,13 +56,13 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:commerce/tavern}: the drinking house, not the inn. A low broad house of one lofty storey whose tap room
- * is open to the rafters under tie beams, lanterns hung from them on chains; along its back wall the bar with the
- * casks racked behind the keeper's lane and stools before it; beside the bar the stair down to the cellar of casks; at
- * the far end the great hearth with its stone breast and the stack through the gable; in a corner the musicians' stage
- * with the culture's cloth hung behind it and a drum; dice tables of green baize where folk play the social module's
- * dice of an evening; settles along the walls and a trestle by the windows. Outside, the ale-stake (a pole with a bush
- * tied to its end) over the door, the painted board on its wrought bracket, a bench by the door, a barrel stood on end
- * for a table, and behind, a little garden with a shade tree, tables, the woodpile and the empties.
+ * is open to the rafters under tie beams, lanterns hung from them on chains; along its back wall the bar with the casks
+ * racked behind the keeper's lane and stools before it; beside the bar the stair down to the cellar of casks; at the
+ * far end the great hearth with its stone breast and the stack through the gable; in a corner the musicians' stage with
+ * the culture's cloth hung behind it and a drum; dice tables of green baize where folk play the social module's dice of
+ * an evening; settles along the walls and a trestle by the windows. Outside, the ale-stake (a pole with a bush tied to
+ * its end) over the door, the painted board on its wrought bracket, a bench by the door, a barrel stood on end for a
+ * table, and behind, a little garden with a shade tree, tables, the woodpile and the empties.
  *
  * <p>Two plans: the long house (the ridge along the street, the door in the front) and, on broad deep plots in the
  * timber, log, alpine and stone cultures, the gable to the street with a yard beside it, a pentice along the yard side
@@ -77,9 +77,10 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  *
  * <p>Params:
  * <ul>
- *   <li>{@code gable_front} (boolean): the gable to the street with a yard beside it (default by seed, where the plot is
- *   12+ wide and 12+ deep and the culture builds so)</li>
- *   <li>{@code yard_left} (boolean): with {@code gable_front}, the yard on the left seen from the street (default by seed)</li>
+ *   <li>{@code gable_front} (boolean): the gable to the street with a yard beside it (default by seed, where the plot
+ *   is 12+ wide and 12+ deep and the culture builds so)</li>
+ *   <li>{@code yard_left} (boolean): with {@code gable_front}, the yard on the left seen from the street (default by
+ *   seed)</li>
  *   <li>{@code name} (int): which of the tavern names the board shows (default by seed)</li>
  *   <li>{@code variant} (int): the style variant</li>
  * </ul>
@@ -468,10 +469,10 @@ public final class Tavern implements Archetype {
 	// ------------------------------------------------------------------------------------------- the tap room
 
 	/**
-	 * The hearth on a wall of the room: a fire (an open fire in a stone surround) with stone cheeks either side and a stone
-	 * breast over them to the tie beams, its flue running up in the wall to a stack through the roof. Tried on the end
-	 * wall away from the stair first, then the other walls, wherever three cells of solid wall stand behind it. Answers
-	 * {x, z, toWall dx, toWall dz} of the fire, or null.
+	 * The hearth on a wall of the room: a fire (an open fire in a stone surround) with stone cheeks either side and a
+	 * stone breast over them to the tie beams, its flue running up in the wall to a stack through the roof. Tried on the
+	 * end wall away from the stair first, then the other walls, wherever three cells of solid wall stand behind it.
+	 * Answers {x, z, toWall dx, toWall dz} of the fire, or null.
 	 */
 	private static int[] hearth(Draft d, RoomFrame fr, Floorplan plan, int y, Roofs.Roof roof, Body body) {
 		List<int[]> tries = new ArrayList<>();
@@ -546,8 +547,8 @@ public final class Tavern implements Archetype {
 	}
 
 	/**
-	 * Where no wall will take a chimney breast (a lattice or bamboo wall, a raised house of boards): a stove against a wall
-	 * of the room, the HEARTH before it.
+	 * Where no wall will take a chimney breast (a lattice or bamboo wall, a raised house of boards): a stove against a
+	 * wall of the room, the HEARTH before it.
 	 */
 	private static void stove(Draft d, Floorplan plan, int y) {
 		for (Direction wall : Dirs.HORIZONTAL) {
@@ -753,17 +754,18 @@ public final class Tavern implements Archetype {
 			for (int z = iz0; z <= iz1; z++) {
 				for (int x = ix0; x <= ix1; x++) {
 					for (int y = base + 2; y < plate; y++) {
-						var under = d.get(x, y - 1, z);
-						if (under == null || !d.isSolid(x, y - 1, z) || !d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z) || d.get(x, y - 2, z) == null
-							|| d.isEmpty(x, y - 2, z)) {
+						Draft.Cell top = d.cell(x, y - 1, z);
+						Draft.Cell under = d.cell(x, y - 2, z);
+						if (top == null || top.stage() != StageKind.INTERIOR || top.state().isAir() || under == null || under.state().isAir()
+							|| !d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z)
+							|| dev.voidmc.hearth.build.kit.light.Spaces.passable(top.state())
+							|| !dev.voidmc.hearth.build.kit.light.Spaces.standable(top.state())
+							|| top.state().getBlock() instanceof net.minecraft.world.level.block.SlabBlock
+							|| top.state().getBlock() instanceof net.minecraft.world.level.block.StairBlock) {
 							continue;
 						}
-						boolean furniture = under.getBlock() instanceof net.minecraft.world.level.block.BaseEntityBlock || under.is(Blocks.BOOKSHELF)
-							|| under.is(Blocks.HAY_BLOCK);
-						if (furniture) {
-							d.set(x, y, z, ((x + z) & 1) == 0 ? Blocks.FLOWER_POT.defaultBlockState()
-								: Blocks.CANDLE.defaultBlockState().setValue(BlockStateProperties.LIT, false));
-						}
+						d.set(x, y, z, ((x + z) & 1) == 0 ? Blocks.FLOWER_POT.defaultBlockState()
+							: Blocks.CANDLE.defaultBlockState().setValue(BlockStateProperties.LIT, false));
 					}
 				}
 			}
