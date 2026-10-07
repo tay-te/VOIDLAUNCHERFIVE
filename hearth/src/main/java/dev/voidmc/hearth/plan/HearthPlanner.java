@@ -215,7 +215,7 @@ public final class HearthPlanner implements SettlementPlanner {
 			for (PlotSpec spec : state.issued) {
 				boolean taken = false;
 				for (int i = plots.size() - 1; i >= 0 && !taken; i--) {
-					taken = plots.get(i).spec().equals(spec);
+					taken = taken(plots.get(i).spec(), spec);
 				}
 				if (!taken) {
 					rebuild = true;
@@ -265,6 +265,20 @@ public final class HearthPlanner implements SettlementPlanner {
 		state.knownPlots = ids;
 		state.occupancy = ctx.occ;
 		state.issued.clear();
+	}
+
+	/**
+	 * Whether a plot is the spec handed out: the same, though the sim may have finished it at another tier (a prosperous
+	 * town builds a grade up, {@code Prosperity.finish}); the tier is not where a plot stands. Read as not taken, every
+	 * call of a prosperous city rebuilt its whole occupancy grid (requests/w5-tour.md §6).
+	 */
+	static boolean taken(PlotSpec plot, PlotSpec spec) {
+		if (plot.tier() == spec.tier()) {
+			return plot.equals(spec);
+		}
+		return plot.archetype().equals(spec.archetype()) && plot.style().equals(spec.style()) && plot.seed() == spec.seed()
+			&& plot.origin().equals(spec.origin()) && plot.sizeX() == spec.sizeX() && plot.sizeZ() == spec.sizeZ() && plot.facing() == spec.facing()
+			&& plot.maxHeight() == spec.maxHeight() && plot.params().equals(spec.params());
 	}
 
 	/** The occupancy grid from scratch: reservations, planned roads, plots in id order, then the queue. */

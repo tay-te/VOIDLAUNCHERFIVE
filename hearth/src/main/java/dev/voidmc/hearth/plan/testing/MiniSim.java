@@ -89,6 +89,17 @@ public final class MiniSim {
 		this.log.add("day 0: founded with " + first.size() + " plots");
 	}
 
+	/**
+	 * Builds every building a grade above the planner's tier, as the live sim does in a prosperous town
+	 * ({@code Prosperity.finish}), so the planner sees plots that differ from the specs it handed out.
+	 */
+	public MiniSim prosperous() {
+		this.prosperous = true;
+		return this;
+	}
+
+	private boolean prosperous;
+
 	/** Grows toward this many souls instead of about 220 (to see what a city of four or five hundred plans). */
 	public MiniSim capacity(int souls) {
 		this.capacity = souls;
@@ -265,7 +276,12 @@ public final class MiniSim {
 			if (project == null) {
 				break;
 			}
-			var plot = this.settlement.addPlot(project.spec());
+			PlotSpec spec = project.spec();
+			if (this.prosperous && !spec.archetype().getPath().startsWith("infra/") && spec.tier() < 4) {
+				spec = new PlotSpec(spec.archetype(), spec.style(), spec.seed(), spec.origin(), spec.sizeX(), spec.sizeZ(), spec.facing(), spec.maxHeight(),
+					spec.tier() + 1, spec.params());
+			}
+			var plot = this.settlement.addPlot(spec);
 			if (!project.spec().archetype().getPath().startsWith("infra/")) {
 				active++;
 			}

@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
  * costs as they grow: median, p90 and worst call per spell, a sampled profile of the last spell (inclusive share per
  * planner method), and a fingerprint of every plot and queued project, so a change meant to make the planner cheaper
  * can show it plans exactly the same towns. {@code HEARTH_PLAN_BENCH_DAYS} (default 420), {@code _CASES} (a comma list
- * of {@code culture:terrain:seed:layout}), {@code _PROFILE=0} to skip the sampler.
+ * of {@code culture:terrain:seed:layout[:prosperous]}, the last building a grade up as a prosperous town does), {@code _PROFILE=0} to skip the sampler.
  */
 class PlanBenchTest {
 	@Test
@@ -48,14 +48,15 @@ class PlanBenchTest {
 			for (String c : cases.split(",")) {
 				String[] a = c.split(":");
 				run(Culture.valueOf(a[0].toUpperCase()), a[1], Long.parseLong(a[2]), a[3].equals("-") ? null : LayoutType.valueOf(a[3].toUpperCase()), days,
-					profile);
+					profile, a.length > 4 && a[4].equals("prosperous"));
 			}
 		} finally {
 			HearthServices.setBlueprints(new CatalogueDouble());
 		}
 	}
 
-	private static void run(Culture culture, String terrain, long seed, LayoutType layout, int days, boolean profile) throws Exception {
+	private static void run(Culture culture, String terrain, long seed, LayoutType layout, int days, boolean profile, boolean prosperous)
+		throws Exception {
 		if (layout != null) {
 			LayoutChooser.FORCED.set(layout);
 		}
@@ -66,7 +67,10 @@ class PlanBenchTest {
 		} finally {
 			LayoutChooser.FORCED.remove();
 		}
-		String name = culture + " " + terrain + " " + seed + (layout != null ? " " + layout : "");
+		if (prosperous) {
+			sim.prosperous();
+		}
+		String name = culture + " " + terrain + " " + seed + (layout != null ? " " + layout : "") + (prosperous ? " prosperous" : "");
 		int spell = 60;
 		// the city's calls (from the day it passes about five hundred plots) are profiled together
 		Sampler sampler = null;
