@@ -130,6 +130,13 @@ test {
 	// fresh JVM every hundred test classes so their caches do not pile up
 	maxHeapSize = '3g'
 	forkEvery = 100
+	// the audit gate's play rules (build/check/Gate.java): reported to build/reports/gate/ while hearth/gate/known/ lists
+	// today's failures; -Phearth.gate=hard fails on any not listed (Gate.DEFAULT is the switch flipped at wave exit)
+	systemProperty 'hearth.gate.known', file('gate/known').absolutePath
+	systemProperty 'hearth.gate.out', layout.buildDirectory.dir('reports/gate').get().asFile.absolutePath
+	if (project.findProperty('hearth.gate')) {
+		systemProperty 'hearth.gate', project.findProperty('hearth.gate')
+	}
 	testLogging {
 		events 'failed'
 		exceptionFormat 'full'
@@ -208,7 +215,8 @@ tasks.register('cultureSimilarity', JavaExec) {
 // The structure audit: every archetype x culture x terrain (flat, slope, its own) x seed measured offline for playability
 // (reach, doors, stairs, beds, workstations, light, holes, hazards) and detail (facade relief, palette, windows, roof, symmetry,
 // furniture, likeness across cultures), ranked, and drawn as contact sheets. See gametest/audit/StructureAudit.java.
-//   ./gradlew structureAudit -Pmode=all -Pout=build/audit          (modes: metrics, sheets, all, index)
+//   ./gradlew structureAudit -Pmode=all -Pout=build/audit          (modes: metrics, sheets, all, gate)
+//   ./gradlew structureAudit -Pmode=gate -Parchetype=house/        (PASS/FAIL per archetype against BUILDING_GUIDE.md §8; exit 1 on a FAIL)
 //   ./gradlew structureAudit -Pmode=metrics -Parchetype=house/,inn -Pseeds=2
 tasks.register('structureAudit', JavaExec) {
 	group = 'hearth'
@@ -216,6 +224,7 @@ tasks.register('structureAudit', JavaExec) {
 	classpath = sourceSets.gametest.runtimeClasspath
 	mainClass = 'dev.voidmc.hearth.gametest.audit.StructureAudit'
 	jvmArgs '-Djava.awt.headless=true', '-Xmx5g'
+	jvmArgs "-Dhearth.gate.known=${file('gate/known').absolutePath}", "-Dhearth.gate.allow=${file('gate/allow.txt').absolutePath}"
 	// -Preach=<path>,<style id path>,<seed>,<facing>,<level>: print that case's walk map (local frame) at a standing level
 	if (project.findProperty('reach')) {
 		jvmArgs "-Daudit.reach=${project.findProperty('reach')}"
