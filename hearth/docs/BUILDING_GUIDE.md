@@ -239,6 +239,15 @@ facing)` (last resort). Cut the stairwell in the floor above yourself and keep i
 `Floors.boards(d, x0, z0, x1, z1, y)` lays boards (over anything not built, dug-out ground included);
 `Floors.joists(...)` exposed beams under a ceiling, skipping stairwells.
 
+`kit/landscape/Edges.guard(d)` (last, after `Groundwork.clear`) walks the draft from its entrances as the folk do and
+guards every walked edge over a drop of three: a balustrade in a stairwell against its wall, a rail (or a low wall on
+open ground) on a floor with floor behind it, a one-wide deck carried out a board under its rail, a jug on a chest
+someone could climb beside a well, lattice windows over an eave glazed in their lower row. Doorways, stair heads and
+feet, ladder heads and POI cells stay open, and a rail is set only where every door and POI walked to before is still
+walked to after. `Edges.guard(d, y0, y1)` limits it to standing levels. It is a net under the archetype's own guards
+(a stair's rail, a balcony's balustrade), not a replacement for them: what it cannot rail (a one-wide walk along the
+plot's edge, the top of a roof) it leaves for the archetype to widen or close.
+
 ### Rooms and furniture
 
 `Rooms` furnishes a room so it stays walkable:
@@ -384,8 +393,11 @@ dyke on a river bank (`BuildersYard`). Put the entrance where the street can rea
 ### The worked example: `hearth:commerce/market_stall`
 
 `archetype/commerce/MarketStall.java`, a merchant's stall as a market day puts it up: a low trestle across the front
-under a canopy two high on four poles (undyed linen or boards; now and then striped canvas in the south, one stall in five), the day's goods of
-one trade on it, stock behind. The heart of `draw` (the canopy, wares and basket helpers are in the file):
+with the day's goods of one trade on it, stock behind, and over it what the culture's market puts up (`Kind`): a planked
+booth under a shingle hood in the timber north, a souk booth of striped canvas with hangings in the dry lands, a pavilion
+stall with turned-up eaves in the karst, a barrow under a parasol in the mediterranean, a thatched gable in the tropics,
+or the plain canopy two high on four poles (undyed linen or boards; now and then striped canvas in the south). The
+heart of `draw` (the forms, wares and basket helpers are in the file):
 
 ```java
 public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("commerce/market_stall"), ArchetypeCategory.COMMERCE,
@@ -403,20 +415,30 @@ public void draw(Draft d) {
 	int x0 = 0, x1 = w - 1;
 	int zc = 1;            // the trestle row
 	int zb = dp - 1;       // the back row
-	try (var s = d.stage(StageKind.EXTERIOR)) { /* PAVING under x0..x1 × 0..zb at y = -1 */ }
-	// four poles at the corners: two high on the street edge, three at the back where the canopy is higher
+	Kind kind = kind(d);   // the culture's build, or the `form` param
+	try (var s = d.stage(StageKind.EXTERIOR)) { /* PAVING under x0..x1 × 0..zb at y = -1 (the booth: boards behind) */ }
 	Mat frame = d.mat(Role.FRAME);
 	Mat pole = frame.has(Form.FENCE) ? frame : Hall.woodFence(d);
-	try (var s = d.stage(StageKind.FRAME)) {
-		for (int[] p : new int[][]{{x0, 0}, {x1, 0}, {x0, zb}, {x1, zb}}) {
-			int top = rise(p[1], zc, zb) == 2 ? 3 : 2;
-			for (int y = 0; y < top; y++) {
-				d.set(p[0], y, p[1], pole.fence());
+	switch (kind) {
+		case BOOTH -> booth(d, x0, x1, zc, zb, pole);       // planked back and cheeks, a shingle hood
+		case SOUK -> souk(d, x0, x1, zc, zb, pole);         // striped awning, hangings, rugs
+		case PAVILION -> pavilion(d, x0, x1, zb, frame);    // lacquered posts, eaves turned up
+		case BARROW -> barrow(d, x0, x1, zc, zb, pole);     // a cart under a parasol
+		case THATCH -> thatch(d, x0, x1, zb, pole);         // a thatched gable on four poles
+		default -> {
+			// four poles at the corners: two high on the street edge, three at the back where the canopy is higher
+			try (var s = d.stage(StageKind.FRAME)) {
+				for (int[] p : new int[][]{{x0, 0}, {x1, 0}, {x0, zb}, {x1, zb}}) {
+					int top = rise(p[1], zc, zb) == 2 ? 3 : 2;
+					for (int y = 0; y < top; y++) {
+						d.set(p[0], y, p[1], pole.fence());
+					}
+				}
 			}
+			// the canopy: slabs from the street edge to the back, a half block up at a time (linen, boards or stripes)
+			canopy(d, x0, x1, zc, zb, frame);
 		}
 	}
-	// the canopy: slabs from the street edge to the back, a half block up at a time (linen, boards or striped canvas)
-	canopy(d, x0, x1, zc, zb, frame);
 	// the trestle: top slabs the width of the stall, a gap by one end to get behind it, one trade's goods on it
 	Mat wood = d.mat(Role.FURNITURE);
 	String trade = d.param("wares", WARES[(int) (Noise.unit(d.seed() ^ 0x3A7E, 0, 0, 0) * WARES.length) % WARES.length]);
@@ -437,18 +459,20 @@ public void draw(Draft d) {
 	Furniture.workstation(d, JobType.MERCHANT, x0 + 1, 0, zb, Dirs.FRONT);
 	Furniture.chest(d, x1 - 1, 0, zb, Dirs.FRONT, List.of(new Object[]{"minecraft:bread", 6}, new Object[]{"minecraft:apple", 4}));
 	Props.sacks(d, x0 + 2, 0, zb, Dirs.RIGHT, 1, trade.equals("bread"));
-	// a lantern hung under the high back of the canopy
+	// a lantern hung under the roof (under the high back of the plain canopy)
 	Furniture.hangingLantern(d, mid, 3, rise(zb - 1, zc, zb) == 2 ? zb - 1 : zb, 0);
 	Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, 5));
+	Edges.guard(d);   // rails (or a jug on the goods) where a slope falls away behind
 }
 ```
 
-What it shows: the entrance on the street row; levelling with water handling; materials by role so every culture
-dresses it differently (dark boards in the timber cultures, white linen, red-and-white canvas in the desert and blue in
-the Mediterranean, `Fair.striped`/`Fair.houseColour`); geometry worked out once (`rise`) and read by every part that
-depends on it, so the poles meet the canopy whatever its depth; furniture and props through the kit so POIs are
-registered; params with seeded defaults (`canopy`, `wares`); clearing last. Keep it low and open: a closed booth with
-a tall striped awning turns a square of ten into a fairground.
+What it shows: the entrance on the street row; levelling with water handling; a plan per culture group (the forms
+differ in their shape, not only their palette, so `culture_likes` stays at 6 or under), materials by role so every
+culture dresses it differently (dark boards in the timber cultures, white linen, canvas striped in the culture's colour,
+`Fair.striped`/`Fair.houseColour`); geometry worked out once (`rise`) and read by every part that depends on it, so the
+poles meet the canopy whatever its depth; furniture and props through the kit so POIs are registered; params with
+seeded defaults (`form`, `canopy`, `wares`); clearing, then `Edges.guard`, last. Keep it low and open at the front: a
+closed booth with a tall striped awning turns a square of ten into a fairground.
 
 The bigger archetypes are the references for everything else: `house/Hut` (round and square, stilts),
 `house/HouseBuilder.cottage` (facade, cross gables and dormers, porch, bay, balcony, attic, lean-to outshot, garden),
@@ -521,7 +545,7 @@ the systemic causes behind them.
 | `beds_no_free_side` | 0 | a bed nobody can get into |
 | `workstations_unusable`, `chest_lids_blocked` | 0 | a job block, chest or barrel with no reachable face; a chest under a solid block |
 | `dark_room_cells` (and `light_min_room` >= 8) | 0 | room floor under light 8 |
-| `fall_edge_cells` | 0 | a walked cell beside an unguarded drop of 4+ (rail, parapet or sill it). Allowed only where the family page says the edge is the point: quarry faces, quay edges, the town side of a wall walk |
+| `fall_edge_cells` | 0 | a walked cell beside an unguarded drop of 4+ (rail, parapet or sill it; `Edges.guard` does most). Allowed only where the family page says the edge is the point: quarry faces, quay edges, the town side of a wall walk |
 | `lava`, `water_roofed` | 0 unless the page says so | stray fluids |
 
 **Soft: targets per archetype (means over suited cases).** Missing one is a reason to look again at the sheet, not

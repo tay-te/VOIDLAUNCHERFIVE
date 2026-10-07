@@ -24,15 +24,16 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Guards on walkable edges, the last thing a builder does before the scaffolding comes down: wherever someone who walked
- * in from the street stands on a floor, a deck, a forecourt or a terrace beside a drop of {@value #DROP} or more, a rail
- * (the house's railing, or a low wall of the masonry on open ground) stands on that edge. The way in is walked as the
- * folk walk (a step up of one, down of three, ladders), over the draft and the natural ground under it.
+ * Guards on walkable edges, the last thing a builder does before the scaffolding comes down: wherever someone who
+ * walked in from the street stands on a floor, a deck, a forecourt or a terrace beside a drop of {@value #DROP} or
+ * more, a rail (the house's railing, or a low wall of the masonry on open ground) stands on that edge. The way in is
+ * walked as the folk walk (a step up of one, down of three, ladders), over the draft and the natural ground under it.
  *
- * <p>Left open: doorways and the cells before them, the way in from the street, stair treads and steps, ladder heads, the
- * cells folk stand in to use a bed, a chest or a job block (and every POI). A walk one wide (a veranda, a gallery) is not
- * closed by its rail: its deck is carried out a board further and the rail stands on that. A chest or a shelf someone
- * could climb beside a stairwell gets its rail in the well beside it, or a jug on its top where the drop is past the plot.
+ * <p>Left open: doorways and the cells before them, the way in from the street, stair treads and steps, ladder heads,
+ * the cells folk stand in to use a bed, a chest or a job block (and every POI). A walk one wide (a veranda, a gallery)
+ * is not closed by its rail: its deck is carried out a board further and the rail stands on that. A chest or a shelf
+ * someone could climb beside a stairwell gets its rail in the well beside it, or a jug on its top where the drop is
+ * past the plot.
  */
 public final class Edges {
 	private Edges() {
@@ -82,12 +83,9 @@ public final class Edges {
 		}
 		LongOpenHashSet ways = new LongOpenHashSet();
 		for (int[] e : d.entrances()) {
+			// the way in itself (the door before it and the stairs to it keep themselves open)
 			for (int dy = -2; dy <= 1; dy++) {
-				for (int dx = -1; dx <= 1; dx++) {
-					for (int dz = -1; dz <= 1; dz++) {
-						ways.add(Draft.key(e[0] + dx, e[1] + dy, e[2] + dz));
-					}
-				}
+				ways.add(Draft.key(e[0], e[1] + dy, e[2]));
 			}
 		}
 		// where folk stand to use something (a chest's front, a bench, a job site) stays clear
@@ -96,7 +94,7 @@ public final class Edges {
 		}
 		int n = 0;
 		String dbg = System.getProperty("hearth.edges.debug", "");
-		boolean trace = !dbg.isEmpty() && d.spec().archetype().getPath().contains(dbg);
+		boolean trace = !dbg.isEmpty() && java.util.Arrays.stream(dbg.split(",")).anyMatch(d.spec().archetype().getPath()::equals);
 		if (trace) {
 			System.out.println("EDGES " + d.spec().archetype() + " " + d.spec().style() + " " + d.spec().seed() + " reached " + reached.size() + " edges " + edges.size());
 		}
@@ -110,7 +108,13 @@ public final class Edges {
 			if (trace) {
 				System.out.println("  edge " + x + "/" + y + "/" + z + " way=" + ways.contains(Draft.key(x, y, z)) + " open=" + keepsOpen(d, x, y, z) + " under=" + under);
 			}
-			if (ways.contains(Draft.key(x, y, z)) || !onFurniture && !keepsOpen(d, x, y, z)) {
+			if (ways.contains(Draft.key(x, y, z))) {
+				continue;
+			}
+			if (!onFurniture && !keepsOpen(d, x, y, z)) {
+				// on a stair or beside a door: nothing on the cell itself, but a balustrade may still stand in the open well
+				// beside it (between the lanes of a switchback, over a stair's open side)
+				n += wellRail(d, ways, x, y, z, rail);
 				continue;
 			}
 			// a floor behind the rail: some neighbour stays walkable and is no edge itself
@@ -144,19 +148,9 @@ public final class Edges {
 			}
 			// indoors (a stairwell under the roof): the balustrade stands in the well itself at the floor's level, against
 			// the wall beside it, clear of the treads' head room below
-			boolean well = false;
-			for (Direction dir : Direction.Plane.HORIZONTAL) {
-				int nx = x + dir.getStepX();
-				int nz = z + dir.getStepZ();
-				if (d.allowed(nx, y, nz) && empty(d, nx, y, nz) && empty(d, nx, y + 1, nz) && drop(d, nx, y, nz) >= DROP && roofed(d, nx, y, nz)
-					&& braced(d, nx, y, nz, dir.getOpposite()) && !ways.contains(Draft.key(nx, y, nz))) {
-					Paint p = rail != null ? rail : railing(d);
-					d.inStage(StageKind.INTERIOR, () -> d.set(nx, y, nz, p));
-					n++;
-					well = true;
-				}
-			}
-			if (well) {
+			int railed = wellRail(d, ways, x, y, z, rail);
+			if (railed > 0) {
+				n += railed;
 				continue;
 			}
 			if (behind) {
@@ -231,8 +225,8 @@ public final class Edges {
 			}
 			Direction f = s.getValue(net.minecraft.world.level.block.TrapDoorBlock.FACING);
 			Direction side = f.getClockWise();
-			// in a wall: solid either side across the opening
-			if (passable(d, x + side.getStepX(), y, z + side.getStepZ()) || passable(d, x - side.getStepX(), y, z - side.getStepZ())) {
+			// in a wall: solid either side across the opening, or the next leaf of a wider lattice
+			if (!jamb(d, x + side.getStepX(), y, z + side.getStepZ(), f) || !jamb(d, x - side.getStepX(), y, z - side.getStepZ(), f)) {
 				continue;
 			}
 			// through it: a cell to stand on beyond (level with the sill or a drop of up to three under it) on an eave, a sill or
@@ -258,6 +252,35 @@ public final class Edges {
 			}
 		}
 		return n;
+	}
+
+	/**
+	 * A balustrade in the open well beside walked cell (x, y, z), indoors, against a wall or another rail, where the drop
+	 * under it leaves the treads below their head room. Returns how many it set.
+	 */
+	private static int wellRail(Draft d, LongOpenHashSet ways, int x, int y, int z, @Nullable Paint rail) {
+		int n = 0;
+		for (Direction dir : Direction.Plane.HORIZONTAL) {
+			int nx = x + dir.getStepX();
+			int nz = z + dir.getStepZ();
+			if (d.allowed(nx, y, nz) && empty(d, nx, y, nz) && empty(d, nx, y + 1, nz) && drop(d, nx, y, nz) >= DROP && roofed(d, nx, y, nz)
+				&& braced(d, nx, y, nz, dir.getOpposite()) && !ways.contains(Draft.key(nx, y, nz))) {
+				Paint p = rail != null ? rail : railing(d);
+				d.inStage(StageKind.INTERIOR, () -> d.set(nx, y, nz, p));
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** Beside a lattice: wall, or another lattice leaf facing the same way (a window two wide). */
+	private static boolean jamb(Draft d, int x, int y, int z, Direction facing) {
+		BlockState s = d.get(x, y, z);
+		if (s != null && s.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock && s.getValue(net.minecraft.world.level.block.TrapDoorBlock.OPEN)
+			&& s.getValue(net.minecraft.world.level.block.TrapDoorBlock.FACING) == facing) {
+			return true;
+		}
+		return !passable(d, x, y, z);
 	}
 
 	/** A block folk do not stand on by choice: furniture, stores, shelves, bales. */
