@@ -437,6 +437,9 @@ public final class Expand {
 					}
 					double grade = Math.abs(g.surface(mx, mz) - g.surface(d.xs()[i], d.zs()[i])) / 8.0;
 					boolean contour = layout.terraces && grade < ctx.config.roadGrade() && ctx.state.site != null && ctx.state.site.slope() > 0.12;
+					if (hasFailed(ctx, e, i, heading)) {
+						continue;
+					}
 					double score = outward ? -Math.abs(dist - outwardFrom) : -dist;
 					score -= grade > ctx.config.stairGrade() ? 1000 : grade > ctx.config.roadGrade() ? (layout.terraces ? 4 : 25) : 0;
 					if (layout.terraces && e.role == RoadEdge.Role.STAIR && grade < ctx.config.roadGrade()) {
@@ -496,12 +499,14 @@ public final class Expand {
 		Roads.Mode mode = b.contour ? Roads.Mode.CONTOUR : Roads.Mode.STRAIGHT;
 		int[][] path = Roads.walk(ctx, sx, sz, b.heading, parent.width / 2 + 1, maxLen, mode, 11, 1, joined);
 		if (path[0].length < parent.width / 2 + 10) {
+			failed(ctx, b);
 			return false;
 		}
 		RoadKind kind = layout.dense && zone == 0 && ctx.tier.ordinal() >= 2 ? RoadKind.ALLEY : zone >= 3 ? RoadKind.PATH : RoadKind.LANE;
 		int from = Roads.junction(ctx, parent, b.index);
 		RoadEdge lane = Roads.plan(ctx, from, path[0], path[1], RoadEdge.Role.LANE, kind, 3, parent.width / 2 + 8);
 		if (lane == null) {
+			failed(ctx, b);
 			return false;
 		}
 		lane.parent = parent.id;
@@ -520,6 +525,32 @@ public final class Expand {
 		Roads.build(ctx, lane, lane.length(), "road: a new " + kind.getSerializedName() + " off the " + describe(parent));
 		Grid.planAhead(ctx, lane, 0, lane.length());
 		return true;
+	}
+
+	/**
+	 * Lane mouths that would not walk, per settlement (not saved): a street's best mouth that runs into a plot a few blocks
+	 * on is passed over afterwards, so the street's next best is offered instead of the same failure call after call (a
+	 * walled steppe town stalled at 312 souls with open land all round it, its four best mouths failing every call).
+	 */
+	private static final java.util.Map<dev.voidmc.hearth.plan.model.PlanState, java.util.Set<Long>> FAILED =
+		java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+	private static long mouth(RoadEdge e, int index, int heading) {
+		return ((long) e.id << 24) ^ ((long) index << 4) ^ heading;
+	}
+
+	private static void failed(PlanContext ctx, Branch b) {
+		java.util.Set<Long> set = FAILED.computeIfAbsent(ctx.state, k -> java.util.Collections.synchronizedSet(new java.util.HashSet<>()));
+		if (set.size() > 4096) {
+			// a town that has tried this many has changed since the first: let them be tried again
+			set.clear();
+		}
+		set.add(mouth(b.edge, b.index, b.heading));
+	}
+
+	private static boolean hasFailed(PlanContext ctx, RoadEdge e, int index, int heading) {
+		java.util.Set<Long> set = FAILED.get(ctx.state);
+		return set != null && set.contains(mouth(e, index, heading));
 	}
 
 	static double stairShare(RoadEdge e) {

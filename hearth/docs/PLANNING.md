@@ -548,7 +548,9 @@ answers; `PlanModule.underground` falls back to probes paired by hand). A lift i
   best streets, a new quarter beyond the town (an outward lane, then the main road running on), homes along the roads
   out of town when the streets are full, and a sample past an exhausted search budget. On the real catalogue a
   temperate hill town that stopped at 35 (MiniSurvey) or 209 souls (the sim's survey) now grows on to the capacity it
-  is given.
+  is given. A lane mouth that would not walk is remembered (per settlement, not saved) and the street's next best is
+  offered instead: a walled steppe town on flat land stalled at 312 souls with open land all round, its four best
+  mouths failing call after call; it now grows to the 600 it is given.
 - **Met with nothing queued**: a need that reports itself met without queueing anything rests like a failure and the
   next need is tried (it was tried first on every call and a city of 447 answered nothing for good).
 - **No workings** in the live tour: its towns were grown by `SimWorld.simulate`, a fast-forward that holds the server
