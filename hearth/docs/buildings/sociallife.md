@@ -32,10 +32,14 @@ cloth behind; dice tables of green baize; settles and a trestle. Outside the ale
 bracket, a bench, and behind a garden with a shade tree. Long house or (`gable_front`) gable to the street with a yard
 beside it. POIs COUNTER, MARKET_STALL, STAGE, GAMING_TABLE, HEARTH, SEAT, TABLE, STORAGE, DOOR.
 
-**Hostel.** The pilgrims' and travellers' house at the gate: a plain two-storey range with its ridge along the road;
-below the refectory (the keeper's counter by the door, long tables, the kitchen fire on the end wall), up the stair the
-dormitory (beds head to the wall, a chest or a candle stand between each pair). Outside a bench, the board, a wayside
-cross, a hitching rail with its trough; behind a well and the woodpile. On posts a low upper storey.
+**Hostel.** The pilgrims' and travellers' house at the gate, known by its **arcade and its stable**: a two-storey range
+on the street line with its ridge along the road, the ground storey opened into an arcade (the Bohemian *podloubí*:
+round heads on piers, a paved walk one or two deep under the upper storey, beams and a lantern over it; `Shell`'s
+`walk`), the door and the board behind and over it. Below the refectory (the keeper's counter by the door, long tables,
+the kitchen fire on the end wall, a back door to the yard), up the stair the dormitory (beds head to the wall, a chest or
+a candle stand between each pair). Across the back of the yard the stable: a lean-to on posts against a back wall, stalls
+two wide parted by rails, hay, water, the beast's HITCHING_POST in each; the woodpile before it. On posts no arcade: a
+low upper storey, the hitching rail in the strip before the house.
 
 **Caravanserai.** The walled inn of the caravan roads round a courtyard: high blank walls, corner towers standing over
 them, the portal over the gate passage; round the court two storeys of cells behind an arcade of piers and arches (two
@@ -61,16 +65,31 @@ THRONE at its top; on the other side two knights' pavilions (undyed canvas bande
 the tilt, the challenger's pennant, arms chest = STORAGE, hung lantern); colours are natural dyes (`Fair.natural`);
 the quintain at the far end; lamps; a wide gate from the street.
 
-**Infirmary.** One lofty storey under tie beams: down both long walls the cots of the sick (`Wards.cot`: a white bolster,
-a blanket of the house's cloth, SICKBED — not beds, so a hospital never counts as housing), the healer's stand between
-each pair; an altar at the far end, a stove; beside the door, behind a partition, the dispensary (brewing stand = HEALER's
-JOB_SITE, a chest of herbs, barrels under decorated pots). Behind, the physic garden of herb beds and a well.
+**Infirmary.** Known by its **long ward behind the herb garden**: one lofty storey under tie beams across the back of the
+plot, a louvre on the ridge to let the foul air out, and before it the physic garden in view of the street (herb beds
+either side of the path from a gate in a low wall, a lamp). Inside, down both long walls the cots of the sick
+(`Wards.cot`: a white bolster, a blanket of the house's cloth, SICKBED — not beds, so a hospital never counts as
+housing), the healer's stand between each pair; an altar at the far end, a stove; beside the door, behind a partition,
+the dispensary (brewing stand = HEALER's JOB_SITE, a chest of herbs, barrels under decorated pots). Where the ground
+before it is not gentle, or on posts, the ward stands at the front and the garden behind.
 
-**Almshouse / orphanage.** Both on `Range`, a plain two-storey range: below the common hall (the kitchen fire on the end
-wall, long tables, an altar with a cross banner and the alms box by the door — or, in the orphanage, the matron's lectern
-facing the tables and a chest of toys), above the beds (one each with a chest or candle stand in the almshouse; packed
-side by side, each reached from its foot, for the children). Outside a cross over the almshouse door, boards, a bench;
-behind a kitchen garden and well, or the children's yard with a swing, a shade tree and their garden row.
+**Almshouse.** Known by its **bell-cote and its row of cells round a court**: from the street the low gable ends of the
+cells and the court's coped wall with its roofed gate (where the street meets the court's level); across the back of
+the court the hall on `Range` (its front wall on the court), two storeys, the ground storey of stone, a bell-cote on the
+ridge (a bell gable over the parapet where roofs are flat), a cross over the door; down one side of the court (both on a
+wide plot, each kept clear of the hall's door) the single-storey row of cells, a door and a lamp for each (`Shell`'s
+several doors), a bed and a chest inside, a bench against it. In the hall the common room (the kitchen fire, long
+tables, an altar with a cross banner, the alms box by the door) and above the sleeping floor for those without a cell.
+In the court a wayside cross, a lamp, a bed of herbs along the wall. On posts, or where the street nowhere meets the
+plot's level, the hall stands alone at the front with its kitchen garden behind.
+
+**Orphanage.** Known by its **yard and dormitory**: a tall narrow house gable-on to the street down one side of the plot,
+the steep roof with dormers over the long dormitory (small beds packed side by side down both walls, each reached from
+its foot), and beside it the children's walled yard (a gate where the street meets it, a fence round the rest, a swing, a
+shade tree, their garden rows, a lamp), a door out to it from the hall. In the street gable beside the door the
+foundling wheel (a barrel turned in the wall) and the board. Below the hall: the matron's lectern facing the tables, the
+kitchen fire on the back wall, a chest of toys and clothes by the door. On posts a `Range` across the front with the
+yard behind.
 
 **Cemetery.** Walled (Enclosure: rendered wall under a coping, pales, hedge), a roofed lychgate, gravel walks, rows of
 graves in each culture's manner (`Graves.Manner`), the calvary where the walks cross (funerals gather there), yews, a
@@ -96,7 +115,10 @@ and under the plot's height.
 - `Cellar`, `RoomFrame`, `Enclosure`, `Graves`, `Fair` (the tavern's cellar, rooms seen from a wall, yard walls and
   lychgates, graves, festival pieces).
 - `Ring`: ranges built round a yard and their ring roof. `Yardwork`: wayside cross, hitching rail, herb beds, swing,
-  partitions.
+  partitions, bell-cote.
+- `Shell`: the family's house shell; several doors in one wall (a row of cells) and an arcaded front (`walk`).
+- `Range`: the charitable two-storey range (common hall below, beds above), after a forecourt or with its front wall in
+  a given row (the almshouse's hall across the back of its court).
 
 ## Looking at them
 
@@ -106,8 +128,9 @@ and under the plot's height.
 
 ## What is weak
 
-- The almshouse, orphanage and hostel share one shell and read alike from outside; they want a bell-cote, an arcade or
-  an oriel each.
+- The charitable houses each have their own plan and sign now (court and bell-cote, yard and gable, ward behind the
+  garden, arcade and stable) on gentle ground; on posts, and the almshouse and infirmary on a bank, they fall back on
+  the plain range. The almshouse cells are small (three by two or three) and dark timber in the Bohemian village palette.
 - The tilt yard's stands read as a solid wedge from the side; the pavilions are drum-shaped, not conical.
 - The thieves' den's stair is open, not truly hidden (a closed trapdoor would break the walkability check).
 - The caravanserai's portal is half hidden under the ring roof in the pitched cultures; the cells near the ring's corners

@@ -122,7 +122,10 @@ gnomon's stair, or by a stair to a pavilion in the karst). Params: `form` (`towe
 
 **Alchemist's tower.** Seven square in the culture's best stone: the workshop with the athanor, the laboratory of
 brewing stands, bottles and the alchemist's lectern, his study under the roof, the roof platform with a still and drying
-herbs behind a parapet, the stair house capped in the culture's manner. Params: `stair_right`.
+herbs behind a parapet, the stair house capped in the culture's manner. The timber towns build the whole shaft in stone;
+only the mountains (boards) and the north (logs) frame the study storey, flush on the stone (a top jettied out on three
+sides read top-heavy). Where the shaft falls back on plain masonry its quoins, courses and window surrounds are the
+plinth stone, not the culture's pale accent (which salted the upper stages with white). Params: `stair_right`.
 
 ## Params
 

@@ -16,6 +16,8 @@ import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Rooms;
+import dev.voidmc.hearth.build.kit.Openings;
+import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
@@ -24,18 +26,22 @@ import dev.voidmc.hearth.build.kit.civic.Tradition;
 import dev.voidmc.hearth.build.kit.homestead.Bohemia;
 import dev.voidmc.hearth.build.kit.homestead.Yard;
 import dev.voidmc.hearth.build.kit.light.Lighting;
+import dev.voidmc.hearth.build.kit.sociallife.Range;
 import dev.voidmc.hearth.build.kit.sociallife.Shell;
 import dev.voidmc.hearth.build.kit.sociallife.Signboard;
 import dev.voidmc.hearth.build.kit.sociallife.Venue;
 import dev.voidmc.hearth.build.kit.sociallife.Wards;
 import dev.voidmc.hearth.build.kit.sociallife.Yardwork;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
+import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
 
 /**
@@ -67,9 +73,11 @@ public final class Hostel implements Archetype {
 		Tradition t = Tradition.of(d);
 		boolean raised = t.raised();
 
-		// --- the plan: the range across the front, a strip before it, the yard behind
-		int md = dp >= 14 ? 8 : 7;
-		int zF = raised ? Math.max(2, Math.min(dp - md, 1 + Grounds.stiltBase(d, 0, 1, w - 1, md))) : 2;
+		// --- the plan: the range across the front, its arcade on the street line (on posts: a strip before it), the yard
+		// and the stable behind
+		int md = raised ? (dp >= 14 ? 8 : 7) : dp >= 14 ? 9 : 8;
+		int walk = raised ? 0 : md - 7;
+		int zF = raised ? Math.max(2, Math.min(dp - md, 1 + Grounds.stiltBase(d, 0, 1, w - 1, md))) : 0;
 		int zM = Math.min(dp - 1, zF + md - 1);
 		int base = raised ? Grounds.stiltBase(d, 0, zF, w - 1, zM) : 0;
 		// the dormitory a full storey over the refectory; on a low plot all on one floor
@@ -77,12 +85,16 @@ public final class Hostel implements Archetype {
 		// (a low upper storey under a raised house's height)
 		boolean two = maxH - base >= 8;
 		int[] heights = loft ? new int[]{4} : two ? new int[]{4, maxH - base >= 10 ? 4 : 3} : new int[]{5};
+		if (walk > 0 && maxH - base >= 12) {
+			// a lofty ground storey behind the arcade: arches three high
+			heights[0] = 5;
+		}
 		Body body = new Body(0, zF, w - 1, zM, base, heights, false, false);
 		d.body(0, zF, w - 1, zM);
 		d.eave(body.plateY());
 		int doorCol = d.chance(0.5) ? w / 2 - 1 : w / 2 + 1;
 		Grounds.forecourt(d, 0, w - 1, zF - 1, !raised);
-		Shell.Built sh = Shell.build(d, body, Direction.Axis.X, Dirs.FRONT, doorCol, 1, 0.7, !loft, t.masonry(), loft);
+		Shell.Built sh = Shell.build(d, body, Direction.Axis.X, Dirs.FRONT, new int[]{doorCol}, 1, 0.7, !loft, t.masonry(), loft, walk);
 		if (loft) {
 			// the loft's floor of boards on the wall plate
 			dev.voidmc.hearth.build.kit.Floors.boards(d, 1, zF + 1, w - 2, zM - 1, body.plateY());
@@ -90,7 +102,7 @@ public final class Hostel implements Archetype {
 		doorCol = sh.doorCol();
 		int ix0 = 1;
 		int ix1 = w - 2;
-		int iz0 = zF + 1;
+		int iz0 = sh.frontZ();
 		int iz1 = zM - 1;
 
 		// --- the stair (two storeys): along the back wall at the end away from the door, climbing toward the door
@@ -118,6 +130,24 @@ public final class Hostel implements Archetype {
 			ground.keep(sx0 + Dirs.dx(climb) * heights[0], iz1);
 			ground.keep(sx0, iz1 - 1);
 			stairX = sx0;
+		}
+
+		// the back door out to the yard and the stable, at the end away from the stair
+		boolean backDoor = false;
+		if (two && !raised && dp - 1 - zM >= 3) {
+			Side back = body.side(0, Dirs.BACK);
+			for (int bx : stairLeft ? new int[]{ix1 - 2, ix1 - 1, ix1 - 3} : new int[]{ix0 + 2, ix0 + 1, ix0 + 3}) {
+				if (Math.abs(bx - (stairLeft ? ix0 : ix1)) <= heights[0] || !Openings.isWallBlock(d, bx, base, zM)
+					|| !Openings.isWallBlock(d, bx, base + 1, zM) || !ground.free(bx, iz1)) {
+					continue;
+				}
+				Openings.door(d, back, bx, base, 1, Openings.DoorOpts.BACK);
+				int li = back.index(bx) + 1 <= back.last() - 1 ? back.index(bx) + 1 : back.index(bx) - 1;
+				Lighting.doorLamp(d, back.outX(li, 1), base + 2, back.outZ(li, 1), back.out().getOpposite());
+				ground.keep(bx, iz1);
+				backDoor = true;
+				break;
+			}
 		}
 
 		// --- the refectory: the keeper's counter by the door, the kitchen hearth on the end wall, long tables
@@ -163,7 +193,8 @@ public final class Hostel implements Archetype {
 		// the kitchen hearth on the end wall of the refectory
 		int hx = stairLeft ? rx1 : rx0;
 		Direction hearthFace = stairLeft ? Dirs.LEFT : Dirs.RIGHT;
-		int hz = (iz0 + iz1) / 2;
+		// (the back half of the room: the keeper's counter stands in the front row)
+		int hz = (iz0 + iz1 + 1) / 2;
 		if (ground.free(hx, hz) && ground.inside(hx + Dirs.dx(hearthFace), hz) && ground.take(hx, hz, hearthFace)) {
 			Furniture.hearth(d, hx, base, hz, hearthFace, true);
 			if (sh.roof() != null) {
@@ -183,6 +214,7 @@ public final class Hostel implements Archetype {
 			}
 		}
 		// long tables down the room
+		boolean tabled = false;
 		for (int z = iz0 + 1; z <= iz1 - 1; z++) {
 			for (int x = rx0 + 1; x + 3 <= rx1 - 1; x++) {
 				int[][] cells = {{x, z}, {x + 1, z}, {x + 2, z}, {x, z - 1}, {x + 1, z - 1}, {x + 2, z - 1}, {x, z + 1}, {x + 1, z + 1}, {x + 2, z + 1}};
@@ -196,9 +228,14 @@ public final class Hostel implements Archetype {
 				}
 				Venue.trestle(d, x, base, z, Dirs.RIGHT, 3);
 				Venue.candles(d, x + 1, base + 1, z, 2);
+				tabled = true;
 				z += 3;
 				break;
 			}
+		}
+		if (!tabled && Range.tables(d, ground, rx0, rx1, 2, 1) == 0) {
+			// a narrow refectory behind the arcade: a shorter table, else a bench against a wall
+			Range.wallBench(d, ground);
 		}
 		ground.blockDrawn(d);
 		Rooms.furnish(d, ground.room(), Rooms.Type.HALL, 0, JobType.NONE);
@@ -218,43 +255,132 @@ public final class Hostel implements Archetype {
 			beds += dormitory(d, dorm);
 		}
 
-		// --- outside: the board, a bench, the wayside cross, the trough and the hitching rail
+		// --- outside: the board over the arcade (on posts: the hitching rail in the strip before the house)
 		Side front = body.side(0, Dirs.FRONT);
 		List<String[]> name = Signboard.name(d, "hostel", Signboard.HOSTELS);
-		for (int k : new int[]{2, -2, 3, -3}) {
-			int i = front.index(doorCol) + k;
-			if (i >= 1 && i <= front.last() - 1 && Signboard.bracket(d, front.x(i), base + 3, front.z(i), Dirs.FRONT, name)) {
-				break;
+		boolean hung = false;
+		for (int y : new int[]{base + 3, base + 5}) {
+			for (int k : new int[]{2, -2, 3, -3}) {
+				int i = front.index(doorCol) + k;
+				if (!hung && i >= 1 && i <= front.last() - 1 && Signboard.bracket(d, front.x(i), y, front.z(i), Dirs.FRONT, name)) {
+					hung = true;
+				}
 			}
 		}
-		if (!raised) {
-			Bohemia.bench(d, doorCol, zF, base);
-			Grounds.approach(d, sh.outside()[0], base, sh.outside()[1]);
-			// the wayside cross at the forecourt's corner, the trough and the rail at the other
-			int crossX = doorCol < w / 2 ? w - 2 : 1;
-			if (zF >= 2 && Venue.standable(d, crossX, base, 0)) {
-				Yardwork.wayside(d, crossX, base, 0);
-			}
+		Grounds.approach(d, sh.outside()[0], base, sh.outside()[1]);
+		if (raised && zF >= 2) {
 			int railX = doorCol < w / 2 ? 1 : w - 4;
 			Yardwork.hitchingRail(d, railX, base, 0, Dirs.RIGHT, 2, Dirs.BACK);
-		} else {
-			Grounds.approach(d, sh.outside()[0], base, sh.outside()[1]);
 		}
 
-		// --- the yard behind: a draw-well, the woodpile
+		// --- the yard behind: the stable across its back and the woodpile before it; else a draw-well, the woodpile and
+		// a hitching rail
 		int yz0 = zM + 1;
-		if (dp - 1 - yz0 >= 2 && Grounds.gentle(d, 0, yz0, w - 1, dp - 1, base) && !raised) {
-			Groundwork.level(d, 0, yz0, w - 1, dp - 1, base);
-			int wx = stairLeft ? w - 3 : 2;
-			if (dp - 1 - yz0 >= 3) {
-				Yard.well(d, wx, base, Math.min(dp - 2, yz0 + 2), Dirs.FRONT);
+		if (dp - 1 - yz0 >= 2 && !raised && (backDoor || Grounds.gentle(d, 0, yz0, w - 1, dp - 1, base))) {
+			Groundwork.level(d, 0, yz0, w - 1, dp - 1, base, true);
+			int sd = Math.min(3, dp - yz0 - 1);
+			boolean stable = backDoor && sd >= 2 && stable(d, 0, w - 1, dp - sd, dp - 1, base);
+			int strip = stable ? dp - sd - yz0 : dp - yz0;
+			if (!stable && strip >= 4) {
+				Yard.well(d, stairLeft ? w - 3 : 2, base, Math.min(dp - 2, yz0 + 2), Dirs.FRONT);
 			}
-			Garden.woodpile(d, stairLeft ? 1 : w - 4, base, yz0, Dirs.RIGHT, 3);
+			if (!stable || strip >= 2) {
+				Garden.woodpile(d, stairLeft ? 1 : w - 4, base, yz0, Dirs.RIGHT, 3);
+			}
+			if (!stable) {
+				Yardwork.hitchingRail(d, stairLeft ? 1 : w - 4, base, dp - 1, Dirs.RIGHT, 2, Dirs.FRONT);
+			}
 		}
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, 0, zF, w - 1, zM, base, doorCol);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, sh.skyline() + 3));
+	}
+
+	/**
+	 * The stable across the back of the yard over [x0..x1] x [z0..z1]: a lean-to against a back wall (row z1) of the
+	 * house's walling on a plinth course, side walls at x0 and x1, open to the yard on posts in row z0 under a beam;
+	 * stalls two wide parted by rails, each with its bale of hay (and, three rows deep, a trough of water) at the back and
+	 * the beast's stand before it (a HITCHING_POST, where the stables' hire works from); a lantern under the roof. Answers
+	 * whether it was built.
+	 */
+	private static boolean stable(Draft d, int x0, int x1, int z0, int z1, int y) {
+		int depth = z1 - z0 + 1;
+		if (depth < 2 || x1 - x0 < 4 || y + 6 >= d.maxHeight()) {
+			return false;
+		}
+		Mat frame = d.mat(Role.FRAME);
+		Mat beam = d.mat(Role.BEAM);
+		Mat wall = d.mat(Role.WALL);
+		Mat plinth = d.mat(Role.PLINTH);
+		Mat fence = d.mat(Role.FENCE).has(Form.FENCE) ? d.mat(Role.FENCE) : frame;
+		Groundwork.footings(d, x0, z0, x1, z1, y - 1);
+		// the roof: one slope from the back wall's top down over the posts and a block beyond
+		int ez = Math.max(0, z0 - 1);
+		Roofs.Field f = Roofs.shed(x0, ez, x1, z1, Dirs.BACK, Roofs.Profile.straight(0.5));
+		Roofs.Roof roof = Roofs.raster(d, f, y + 3, x0, ez, x1, z1, d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), d.habits().roof().ridge());
+		// the stalls' partitions: every third column
+		List<Integer> parts = new ArrayList<>();
+		for (int x = x0 + 3; x <= x1 - 3; x += 3) {
+			parts.add(x);
+		}
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int x = x0; x <= x1; x++) {
+				for (int yy = y; yy < Math.max(y + 3, roof.bottomY(x, z1)); yy++) {
+					d.set(x, yy, z1, yy == y ? plinth.full() : wall.full());
+				}
+			}
+			for (int x : new int[]{x0, x1}) {
+				for (int z = z0 + 1; z < z1; z++) {
+					for (int yy = y; yy < Math.max(y + 3, roof.bottomY(x, z)); yy++) {
+						d.set(x, yy, z, yy == y ? plinth.full() : wall.full());
+					}
+				}
+			}
+		}
+		// the posts at the ends and the partitions, the beam over the open front
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int x = x0; x <= x1; x++) {
+				boolean post = x == x0 || x == x1 || parts.contains(x);
+				int top = Math.max(y + 3, roof.bottomY(x, z0));
+				if (post) {
+					for (int yy = y; yy < top; yy++) {
+						d.set(x, yy, z0, frame.log(Direction.Axis.Y));
+					}
+				} else {
+					for (int yy = y + 2; yy < top; yy++) {
+						d.set(x, yy, z0, beam.log(Direction.Axis.X));
+					}
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.INTERIOR)) {
+			for (int px : parts) {
+				for (int z = z0 + 1; z < z1; z++) {
+					d.set(px, y, z, fence.fence());
+				}
+			}
+		}
+		// in each stall: the hay and the water at the back, the stand before them
+		int stall = 0;
+		for (int sx = x0 + 1; sx + 1 <= x1 - 1; sx += 3) {
+			int back = z1 - 1;
+			boolean flip = (stall & 1) == 1;
+			int hx = flip ? sx + 1 : sx;
+			int wx = flip ? sx : sx + 1;
+			try (var s = d.stage(StageKind.INTERIOR)) {
+				d.set(hx, y, back, Blocks.HAY_BLOCK.defaultBlockState());
+				if (depth >= 3) {
+					d.set(wx, y, back, Blocks.WATER_CAULDRON.defaultBlockState().setValue(BlockStateProperties.LEVEL_CAULDRON, 3));
+				}
+			}
+			int standX = depth >= 3 ? hx : wx;
+			int standZ = depth >= 3 ? back - 1 : back;
+			d.poi(PoiType.HITCHING_POST, standX, y, standZ, Dirs.BACK);
+			stall++;
+		}
+		Lighting.room(d, x0 + 1, z0, x1 - 1, z1 - 1, y);
+		return stall > 0;
 	}
 
 	/** A dormitory: beds head to the wall down both long sides with chests between, lanterns over the aisle. */
