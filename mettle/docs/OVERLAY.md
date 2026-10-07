@@ -39,6 +39,10 @@ type MettleState = {
     spent: Partial<Record<Attr, number>>;          // points the player placed
     favoured: string[];                            // skill ids
     capacityKg: number;                            // the carry_capacity attribute
+    level: number; xp: number;                     // character level, total XP
+    levelXp: number; nextXp: number;               // XP at this level's start and at the next
+    points: number;                                // attribute points waiting to be placed
+    maxAttribute: number;                          // 20
   };
   backgrounds: {
     id: string; name: string; tagline: string;
@@ -60,13 +64,15 @@ type MettleState = {
     heaviest?: { item: string; kg: number; stacks: number; text: string };  // "Cobblestone ×3 stacks · 48.0 kg"
   };
   gear: Record<"back" | "belt" | "quiver", { item: string; name: string; pockets: number; used: number } | null>;
+  tiers: { tier: 1 | 2 | 3 | 4; skillLevel: number; attribute: number }[];   // TREES.md §1 gates
+  feedback: { perk: string; text: string; ageMs: number }[];  // chips from the last 4 s (for screens that hide the HUD)
 };
 type Attr = "strength" | "agility" | "vitality" | "wits" | "presence";
 ```
 
-Skill trees (built for Mining; the others follow) add, per skill: `skills[].level`, `skills[].xp`, `skills[].nextXp`,
+Skill trees add, per skill: `skills[].level`, `skills[].xp`, `skills[].levelXp`, `skills[].nextXp`,
 `skills[].points`, `skills[].paths {a, b}`, and `perks[]`: `{ id, skill, kind: "root"|"path"|"mastery"|"feat"|"synergy"|"teaching",
-tier, path, rank, maxRank, cost, name, description (at the next rank), hint (feats, until earned), locked: reason | null }`.
+tier, path, rank, maxRank, cost, order, name, description (at the next rank), hint (feats, until earned), locked: reason | null }`.
 Actions: `learnPerk(id)`, `spendAttribute(attribute)`; answers come back as `mettleFeedback` chips.
 
 Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`
@@ -86,3 +92,16 @@ and perk cooldowns (docs/requests/defense.md).
 
 Textures referenced by `art` and `icon` are the mod's own resources; the host serves them to Ultralight from the
 resource manager (a `mettle://` scheme or data URLs).
+
+## Hosts
+
+The VOID Hub (`hub/`, branch `claude/hub-mettle`) is the first host: its window gains a **Gear** page (pack pockets,
+belt and quiver, load) and a **Classes** page (overview, skill trees) over the player's own `InventoryMenu`. It reaches
+this API by reflection (`MettleState.build`, `MettleActions.learnPerk` / `spendAttribute`,
+`MettleScreens.setCharacterOpener`), so neither mod needs the other to build. A host like this draws Mettle's
+screens but not the HUD, so it does **not** register with `OverlayBridge` (a listener there takes over the picker,
+chips and the dev burden line); it pulls `MettleState.build` while its pages are open.
+
+`MettleScreens.setCharacterOpener(BooleanSupplier)`: K opens the host's character page instead of the native
+`CharacterScreen` (the supplier returns false when it cannot, and the native screen opens). A character without a
+background still gets Mettle's picker.

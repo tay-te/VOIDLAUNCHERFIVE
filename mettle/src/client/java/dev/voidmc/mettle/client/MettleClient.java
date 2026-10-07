@@ -15,6 +15,7 @@ import dev.voidmc.mettle.client.heavy.HeavyWeaponsClient;
 import dev.voidmc.mettle.client.smithing.SmithingClient;
 import dev.voidmc.mettle.client.survival.SurvivalClient;
 import dev.voidmc.mettle.client.marksmanship.MarksmanshipClient;
+import dev.voidmc.mettle.client.overlay.MettleScreens;
 import dev.voidmc.mettle.client.overlay.MettleState;
 import dev.voidmc.mettle.client.overlay.OverlayBridge;
 import dev.voidmc.mettle.core.CharacterStore;
@@ -80,6 +81,7 @@ public final class MettleClient implements ClientModInitializer {
 			chip.addProperty("perk", payload.perk().toString());
 			chip.addProperty("text", payload.text().getString());
 			OverlayBridge.push("mettleFeedback", chip);
+			MettleState.remember(payload.perk().toString(), payload.text().getString());
 			// Cut and Run and Sword and Board charge the next swing on the server; show it charged here too.
 			if ((payload.perk().equals(BladesSkill.CUT_AND_RUN) || payload.perk().equals(BladesSkill.SWORD_AND_BOARD)) && context.client().player != null) {
 				var player = context.client().player;
@@ -110,7 +112,11 @@ public final class MettleClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (characterKey.consumeClick()) {
 				if (mc.player != null && mc.gui.screen() == null) {
-					mc.gui.setScreen(CharacterStore.get(mc.player).hasBackground() ? new CharacterScreen() : new BackgroundPickerScreen(false));
+					if (!CharacterStore.get(mc.player).hasBackground()) {
+						mc.gui.setScreen(new BackgroundPickerScreen(false));
+					} else if (!MettleScreens.openCharacter()) {
+						mc.gui.setScreen(new CharacterScreen());
+					}
 				}
 			}
 			if (pickerPending && mc.player != null && mc.level != null && mc.gui.screen() == null) {

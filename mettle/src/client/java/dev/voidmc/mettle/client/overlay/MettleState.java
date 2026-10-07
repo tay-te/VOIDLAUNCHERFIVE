@@ -52,6 +52,20 @@ public final class MettleState {
 	private MettleState() {
 	}
 
+	private static final long FEEDBACK_MS = 4000;
+	private static final java.util.Deque<Feedback> RECENT = new java.util.ArrayDeque<>();
+
+	private record Feedback(String perk, String text, long at) {
+	}
+
+	/** A feedback chip arrived (MettleClient); kept a few seconds for {@code feedback}. */
+	public static void remember(String perk, String text) {
+		RECENT.addLast(new Feedback(perk, text, net.minecraft.util.Util.getMillis()));
+		while (RECENT.size() > 4) {
+			RECENT.removeFirst();
+		}
+	}
+
 	public static JsonObject build(Minecraft mc) {
 		JsonObject root = new JsonObject();
 		ClientPacketListener connection = mc.getConnection();
@@ -77,6 +91,13 @@ public final class MettleState {
 		List<ResourceKey<Skill>> favoured = state.favoured().isEmpty() && background != null ? background.favoured() : state.favoured();
 		character.add("favoured", ids(favoured));
 		character.addProperty("capacityKg", mc.player.getAttributeValue(MettleAttributes.CARRY_CAPACITY));
+		int charLevel = state.characterLevel();
+		character.addProperty("level", charLevel);
+		character.addProperty("xp", state.totalXp());
+		character.addProperty("levelXp", Curves.characterXpFor(charLevel));
+		character.addProperty("nextXp", Curves.characterXpFor(Math.min(charLevel + 1, Curves.CHARACTER_CAP)));
+		character.addProperty("points", Perks.attributePoints(mc.player));
+		character.addProperty("maxAttribute", CharacterAttribute.MAX);
 		root.add("character", character);
 
 		JsonArray backgrounds = new JsonArray();
@@ -98,6 +119,7 @@ public final class MettleState {
 				int level = state.level(ref.key());
 				s.addProperty("level", level);
 				s.addProperty("xp", state.xp(ref.key()));
+				s.addProperty("levelXp", Curves.skillXpFor(level));
 				s.addProperty("nextXp", Curves.skillXpFor(Math.min(level + 1, Curves.SKILL_CAP)));
 				s.addProperty("points", Perks.points(state, registries.lookupOrThrow(MettleRegistries.PERK), ref.key()));
 				JsonObject paths = new JsonObject();
@@ -120,6 +142,7 @@ public final class MettleState {
 			o.addProperty("rank", rank);
 			o.addProperty("maxRank", p.ranks());
 			o.addProperty("cost", p.cost());
+			o.addProperty("order", p.order());
 			boolean hidden = p.kind() == Perk.Kind.FEAT && rank == 0;
 			o.addProperty("name", hidden ? "" : p.name().getString());
 			o.addProperty("description", hidden ? "" : PerkText.description(p, Math.max(1, Math.min(rank + 1, p.ranks()))).getString());
@@ -133,6 +156,31 @@ public final class MettleState {
 			perks.add(o);
 		});
 		root.add("perks", perks);
+
+		// Tier gates (TREES.md §1): the skill level and attribute value each tier needs.
+		JsonArray tiers = new JsonArray();
+		for (int tier = 1; tier <= 4; tier++) {
+			JsonObject t = new JsonObject();
+			t.addProperty("tier", tier);
+			t.addProperty("skillLevel", Curves.tierSkillGate(tier));
+			t.addProperty("attribute", Curves.tierAttributeGate(tier));
+			tiers.add(t);
+		}
+		root.add("tiers", tiers);
+
+		// The last few seconds of feedback chips, so a screen that hides the HUD can still say what happened.
+		JsonArray feedback = new JsonArray();
+		long now = net.minecraft.util.Util.getMillis();
+		for (Feedback f : RECENT) {
+			if (now - f.at() < FEEDBACK_MS) {
+				JsonObject o = new JsonObject();
+				o.addProperty("perk", f.perk());
+				o.addProperty("text", f.text());
+				o.addProperty("ageMs", now - f.at());
+				feedback.add(o);
+			}
+		}
+		root.add("feedback", feedback);
 
 		JsonArray attributeInfo = new JsonArray();
 		for (CharacterAttribute a : CharacterAttribute.values()) {
