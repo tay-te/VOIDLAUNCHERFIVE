@@ -113,7 +113,9 @@ public final class MettleClient implements ClientModInitializer {
 			while (characterKey.consumeClick()) {
 				if (mc.player != null && mc.gui.screen() == null) {
 					if (!CharacterStore.get(mc.player).hasBackground()) {
-						mc.gui.setScreen(new BackgroundPickerScreen(false));
+						if (!MettleScreens.openPicker()) {
+							mc.gui.setScreen(new BackgroundPickerScreen(false));
+						}
 					} else if (!MettleScreens.openCharacter()) {
 						mc.gui.setScreen(new CharacterScreen());
 					}
@@ -122,7 +124,10 @@ public final class MettleClient implements ClientModInitializer {
 			if (pickerPending && mc.player != null && mc.level != null && mc.gui.screen() == null) {
 				pickerPending = false;
 				if (!CharacterStore.get(mc.player).hasBackground()) {
-					mc.gui.setScreen(new BackgroundPickerScreen(pickerByOperator));
+					MettleState.rememberPicker(pickerByOperator);
+					if (!MettleScreens.openPicker()) {
+						mc.gui.setScreen(new BackgroundPickerScreen(pickerByOperator));
+					}
 				}
 			}
 			if (OverlayBridge.hasListener() && mc.player != null && mc.player.tickCount % 10 == 0) {
@@ -132,6 +137,7 @@ public final class MettleClient implements ClientModInitializer {
 	}
 
 	private static void result(boolean ok, String reason) {
+		MettleState.rememberResult(ok, reason);
 		JsonObject r = new JsonObject();
 		r.addProperty("ok", ok);
 		if (reason != null) {

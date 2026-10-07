@@ -58,6 +58,26 @@ public final class MettleState {
 	private record Feedback(String perk, String text, long at) {
 	}
 
+	private static JsonObject lastResult;
+	private static boolean pickerByOperator;
+
+	/** The server's answer to a background choice, for a hosted picker ({@code result}). */
+	public static void rememberResult(boolean ok, String reason) {
+		JsonObject r = new JsonObject();
+		r.addProperty("ok", ok);
+		if (reason != null) {
+			r.addProperty("reason", reason);
+			r.addProperty("text", Component.translatable("mettle.picker.rejected." + reason).getString());
+		}
+		r.addProperty("at", net.minecraft.util.Util.getMillis());
+		lastResult = r;
+	}
+
+	/** Whether the open picker was asked for by an operator's reset ({@code pickerByOperator}). */
+	public static void rememberPicker(boolean byOperator) {
+		pickerByOperator = byOperator;
+	}
+
 	/** A feedback chip arrived (MettleClient); kept a few seconds for {@code feedback}. */
 	public static void remember(String perk, String text) {
 		RECENT.addLast(new Feedback(perk, text, net.minecraft.util.Util.getMillis()));
@@ -132,6 +152,7 @@ public final class MettleState {
 				String path = ref.key().identifier().getPath();
 				s.addProperty("title", Component.translatable("mettle.title." + titleBand(level), Component.translatable("mettle.skill." + path + ".noun")).getString());
 				s.addProperty("lore", Component.translatable("mettle.skill." + path + ".lore").getString());
+				s.addProperty("levelsBy", Component.translatable("mettle.skill." + path + ".levels").getString());
 				JsonObject paths = new JsonObject();
 				ref.value().paths().forEach((k, v) -> paths.addProperty(k, v.getString()));
 				s.add("paths", paths);
@@ -200,6 +221,10 @@ public final class MettleState {
 			}
 		}
 		root.add("feedback", feedback);
+		if (lastResult != null) {
+			root.add("result", lastResult);
+		}
+		root.addProperty("pickerByOperator", pickerByOperator);
 
 		JsonArray attributeInfo = new JsonArray();
 		for (CharacterAttribute a : CharacterAttribute.values()) {

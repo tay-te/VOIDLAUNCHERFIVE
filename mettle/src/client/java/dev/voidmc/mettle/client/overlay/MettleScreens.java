@@ -9,6 +9,7 @@ import java.util.function.BooleanSupplier;
  */
 public final class MettleScreens {
 	private static BooleanSupplier character;
+	private static BooleanSupplier picker;
 
 	private MettleScreens() {
 	}
@@ -21,5 +22,14 @@ public final class MettleScreens {
 	/** Opens the host's character page, if a host is registered and able. */
 	public static boolean openCharacter() {
 		return character != null && character.getAsBoolean();
+	}
+
+	/** The host's background picker (first join, an operator's reset, K before a background is chosen). */
+	public static void setPickerOpener(BooleanSupplier opener) {
+		picker = opener;
+	}
+
+	public static boolean openPicker() {
+		return picker != null && picker.getAsBoolean();
 	}
 }

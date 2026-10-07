@@ -55,7 +55,8 @@ type MettleState = {
   }[];
   skills: { id: string; name: string; attribute: Attr; released: boolean; icon: string;     // icons 16×16
             colour: string;                       // "#F5B03C", the skill's signature hue (skill data "colour")
-            title: string; lore: string }[];      // "Journeyman Miner"; one line of flavour
+            title: string; lore: string;          // "Journeyman Miner"; one line of flavour
+            levelsBy: string }[];                 // how the skill gains XP, one line ("Break stone, deepslate and ore.")
   attributes: { id: Attr; name: string; perPoint: string }[];
   burden: {                                        // {} until the first sync
     load: number; capacity: number;                // kg
