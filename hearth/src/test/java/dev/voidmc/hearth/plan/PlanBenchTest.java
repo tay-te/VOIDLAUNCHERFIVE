@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
  * costs as they grow: median, p90 and worst call per spell, a sampled profile of the last spell (inclusive share per
  * planner method), and a fingerprint of every plot and queued project, so a change meant to make the planner cheaper
  * can show it plans exactly the same towns. {@code HEARTH_PLAN_BENCH_DAYS} (default 420), {@code _CASES} (a comma list
- * of {@code culture:terrain:seed:layout[:prosperous]}, the last building a grade up as a prosperous town does), {@code _PROFILE=0} to skip the sampler.
+ * of {@code culture:terrain:seed:layout[:prosperous]}, the last building a grade up as a prosperous town does), {@code _PROFILE=0} to skip the sampler, {@code _DEADLINE} a live call's time limit in ms on every call.
  */
 class PlanBenchTest {
 	@Test
@@ -45,12 +45,15 @@ class PlanBenchTest {
 			int days = Integer.parseInt(System.getenv().getOrDefault("HEARTH_PLAN_BENCH_DAYS", "420"));
 			String cases = System.getenv().getOrDefault("HEARTH_PLAN_BENCH_CASES", "temperate:hills:1:-,temperate:hills:5:walled,mediterranean:slope:3:-,temperate:coast:2:-,temperate:river:4:-");
 			boolean profile = !"0".equals(System.getenv("HEARTH_PLAN_BENCH_PROFILE"));
+			// a live call's time limit on every call, to see what it does to a city's plan (no longer deterministic)
+			HearthPlanner.DEV_DEADLINE_MS = Double.parseDouble(System.getenv().getOrDefault("HEARTH_PLAN_BENCH_DEADLINE", "0"));
 			for (String c : cases.split(",")) {
 				String[] a = c.split(":");
 				run(Culture.valueOf(a[0].toUpperCase()), a[1], Long.parseLong(a[2]), a[3].equals("-") ? null : LayoutType.valueOf(a[3].toUpperCase()), days,
 					profile, a.length > 4 && a[4].equals("prosperous"));
 			}
 		} finally {
+			HearthPlanner.DEV_DEADLINE_MS = 0;
 			HearthServices.setBlueprints(new CatalogueDouble());
 		}
 	}
