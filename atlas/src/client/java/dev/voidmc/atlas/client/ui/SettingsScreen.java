@@ -165,7 +165,10 @@ public final class SettingsScreen extends Screen {
 		boolean left = s.minimapCorner == AtlasSettings.Corner.TOP_LEFT || s.minimapCorner == AtlasSettings.Corner.BOTTOM_LEFT;
 		boolean bottom = s.minimapCorner == AtlasSettings.Corner.BOTTOM_LEFT || s.minimapCorner == AtlasSettings.Corner.BOTTOM_RIGHT;
 		float centre = left ? 16 + side / 2 : ui.width() - 16 - side / 2;
-		float top = bottom ? ui.height() - 16 - side - info - 12 - 11 : 16 + side + info + 12;
+		// below the quiet notes under the readout (a server rule, Light mode), when there are any
+		int notes = (this.atlas.multiplayer() && this.atlas.rules().turnedOff() != null ? 1 : 0) + (dev.voidmc.atlas.client.PerfGovernor.light() ? 1 : 0);
+		float noteH = s.minimapCoordinates ? notes * 30 : 0;
+		float top = bottom ? ui.height() - 16 - side - info - 12 - 11 : 16 + side + info + noteH + 12;
 		ui.textCentred("LIVE PREVIEW", centre, top, Ui.Font.F85, 1, Theme.INK_4);
 		ui.end();
 	}
@@ -245,7 +248,10 @@ public final class SettingsScreen extends Screen {
 			float h = 82;
 			ui.panel(this.rx, this.ry, w, h, 14, Theme.ISLAND, Theme.HAIR_7);
 			ui.text("Performance", this.rx + 17, this.ry + 10.5F, Ui.Font.F13, Theme.INK);
-			ui.text("Auto drops to Light while the game is struggling", this.rx + 17, this.ry + 29.5F, Ui.Font.F105, Theme.INK_3);
+			AtlasSettings.Performance[] shown = AtlasSettings.Performance.values();
+			float segW = this.kit.segmentedWidth(shown, v -> v.label);
+			ui.text(ui.fit("Auto drops to Light while the game is struggling", Ui.Font.F105, w - segW - 46), this.rx + 17, this.ry + 29.5F, Ui.Font.F105,
+				Theme.INK_3);
 			long min = dev.voidmc.atlas.client.PerfGovernor.lightMillis() / 60_000L;
 			MinimapHud.quietNote(ui, MinimapHud.LIGHT_NOTE + (min >= 1 ? "  ·  " + min + " min" : ""), this.rx + 9, this.ry + 49, w - 220);
 			AtlasSettings.Performance[] values = AtlasSettings.Performance.values();
@@ -253,7 +259,7 @@ public final class SettingsScreen extends Screen {
 			this.kit.segmented(this.rx + w - 13 - sw, this.ry + (h - 40) / 2, sw, false, values, v -> v.label, s.performance, v -> s.performance = v);
 			this.ry += h + 10;
 		} else {
-			this.choice(w, "Performance", "Auto drops to Light while the game is struggling", AtlasSettings.Performance.values(), v -> v.label, s.performance,
+			this.choice(w, "Performance", "Auto drops to Light when the game struggles", AtlasSettings.Performance.values(), v -> v.label, s.performance,
 				v -> s.performance = v);
 		}
 		this.group("JOURNAL");

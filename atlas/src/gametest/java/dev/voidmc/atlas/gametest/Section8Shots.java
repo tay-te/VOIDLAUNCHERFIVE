@@ -157,7 +157,8 @@ final class Section8Shots {
 		// 3. friends: a loopback hub with Kestrel_ (party, here), Mara (here) and Jun (elsewhere)
 		this.client(mc -> {
 			mc.gui.setScreen(null);
-			AtlasClient.get().settings().performance = AtlasSettings.Performance.AUTO;
+			// Quality for the rest: far sight and party tiles wait while Light is on, and a busy tour machine may go Light
+			AtlasClient.get().settings().performance = AtlasSettings.Performance.QUALITY;
 			Social.testServer = SERVER;
 			this.hub = new LoopbackTransport.Hub();
 			LoopbackTransport mine = this.hub.join(ME);
@@ -245,7 +246,12 @@ final class Section8Shots {
 		// 7. a Hearth quest step, tracked: its target and chip, the tracked row, and its beam in the world
 		int qx = sx + 90;
 		int qz = sz + 70;
-		int qy = this.world.getServer().computeOnServer(s -> s.overworld().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, qx, qz));
+		int qy = this.world.getServer().computeOnServer(s -> {
+			s.overworld().getChunk(qx >> 4, qz >> 4);
+			s.overworld().getChunk(sx >> 4, sz >> 4);
+			return s.overworld().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, qx, qz);
+		});
+		int gy = this.world.getServer().computeOnServer(s -> s.overworld().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, sx, sz));
 		this.client(mc -> {
 			AtlasApi.get().markers().registerProvider("hearth:quests", 0, (q, out) -> {
 				if (q.dimension().equals("minecraft:overworld")) {
@@ -263,7 +269,7 @@ final class Section8Shots {
 		this.friendsTick(20);
 		this.shot("s8_quest_map");
 		this.client(mc -> mc.gui.setScreen(null));
-		this.world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d -40 10", sx, qy + 12, sz));
+		this.world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d -40 10", sx, Math.max(gy, qy) + 14, sz));
 		this.friendsTick(40);
 		this.shot("s8_quest_beam");
 

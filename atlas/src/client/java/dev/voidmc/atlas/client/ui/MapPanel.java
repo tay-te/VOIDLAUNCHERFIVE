@@ -50,6 +50,16 @@ public final class MapPanel {
 	public @Nullable String selected;
 	public @Nullable String hovered;
 	private List<MarkerPainter.Placed> placed = List.of();
+
+	/** Where a marker (or a name on the land) was drawn last frame, or null (the tour's cursor). */
+	public MarkerPainter.@Nullable Placed placedOf(String markerId) {
+		for (MarkerPainter.Placed p : this.placed) {
+			if (p.marker().id().equals(markerId)) {
+				return p;
+			}
+		}
+		return null;
+	}
 	private List<Marker> markers = List.of();
 	private MapRenderer.@Nullable Frame frame;
 	private long lastNanos;

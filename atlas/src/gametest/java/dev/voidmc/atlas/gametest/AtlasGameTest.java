@@ -593,6 +593,12 @@ public class AtlasGameTest implements FabricClientGameTest {
 			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
 			screen.page.map.selected = null;
 			var f = screen.page.map.frame();
+			// the label as drawn (it may sit a step above or below its point), else its point
+			String label = "atlas:label:" + parts[0].substring("atlas:place:".length());
+			var placed = screen.page.map.placedOf(label);
+			if (placed != null) {
+				return new double[]{(placed.x0() + placed.x1()) / 2 * screen.unit(), (placed.y0() + placed.y1()) / 2 * screen.unit()};
+			}
 			double lx = Double.parseDouble(parts[1]);
 			double lz = Double.parseDouble(parts[2]);
 			return new double[]{f.screenX(lx, lz) * screen.unit(), f.screenY(lx, lz) * screen.unit()};

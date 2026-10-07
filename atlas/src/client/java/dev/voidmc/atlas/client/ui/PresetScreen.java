@@ -111,23 +111,27 @@ public final class PresetScreen extends Screen {
 			ui.border(bx, by, 16, 16, 5, 1.2F, Theme.HAIR_16);
 		}
 		ui.text(p.label, x + 15, y + 61, Ui.Font.F13, Theme.INK);
-		// the detail on two lines, broken at the full stop between "On" and "Off"
-		String d = p.detail;
-		int cut = d.indexOf(". ");
+		// the detail, wrapped by words (at most three lines)
 		float lineW = w - 30;
-		if (ui.width(d, Ui.Font.F11) <= lineW) {
-			ui.text(d, x + 15, y + 88, Ui.Font.F11, Theme.INK_2);
-		} else {
-			String first = cut > 0 ? d.substring(0, cut + 1) : d;
-			String rest = cut > 0 ? d.substring(cut + 2) : "";
-			if (ui.width(first, Ui.Font.F11) > lineW) {
-				// a long first sentence: wrap by words
-				int sp = first.lastIndexOf(' ', Math.max(1, (int) (first.length() * lineW / ui.width(first, Ui.Font.F11))));
-				rest = first.substring(sp + 1) + (rest.isEmpty() ? "" : " " + rest);
-				first = first.substring(0, Math.max(0, sp));
+		String[] words = p.detail.split(" ");
+		StringBuilder line = new StringBuilder();
+		float ly = y + 88;
+		int lines = 0;
+		for (String word : words) {
+			String next = line.isEmpty() ? word : line + " " + word;
+			if (ui.width(next, Ui.Font.F11) > lineW && !line.isEmpty()) {
+				ui.text(line.toString(), x + 15, ly, Ui.Font.F11, Theme.INK_2);
+				ly += 15;
+				line = new StringBuilder(word);
+				if (++lines == 2) {
+					break;
+				}
+			} else {
+				line = new StringBuilder(next);
 			}
-			ui.text(first, x + 15, y + 88, Ui.Font.F11, Theme.INK_2);
-			ui.text(ui.fit(rest, Ui.Font.F11, lineW), x + 15, y + 103, Ui.Font.F11, Theme.INK_2);
+		}
+		if (!line.isEmpty()) {
+			ui.text(ui.fit(line.toString(), Ui.Font.F11, lineW), x + 15, ly, Ui.Font.F11, Theme.INK_2);
 		}
 		kit.hit(x, y, w, h, () -> this.chosen = index);
 	}
