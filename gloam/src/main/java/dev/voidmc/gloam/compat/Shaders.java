@@ -18,10 +18,32 @@ public final class Shaders {
 		return IRIS && Iris.packInUse();
 	}
 
+	/**
+	 * Runs {@code draw} with Iris's shader overrides held off: for Gloam's own pipelines drawn over a pack's finished
+	 * picture, which must keep their own shaders (and which Iris would otherwise report missing from its override list).
+	 */
+	public static void withoutPackShaders(Runnable draw) {
+		if (!IRIS) {
+			draw.run();
+			return;
+		}
+		Iris.withoutOverrides(draw);
+	}
+
 	/** Iris's side in a class of its own, so the JVM only resolves it once Iris is known to be there. */
 	private static final class Iris {
 		static boolean packInUse() {
 			return net.irisshaders.iris.api.v0.IrisApi.getInstance().isShaderPackInUse();
+		}
+
+		static void withoutOverrides(Runnable draw) {
+			boolean was = net.irisshaders.iris.vertices.ImmediateState.bypass;
+			net.irisshaders.iris.vertices.ImmediateState.bypass = true;
+			try {
+				draw.run();
+			} finally {
+				net.irisshaders.iris.vertices.ImmediateState.bypass = was;
+			}
 		}
 	}
 }

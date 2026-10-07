@@ -41,6 +41,11 @@ public final class FarAir {
 	private final FarLand land = new FarLand();
 	private final FarMist mist = new FarMist();
 	private final FarRain rain = new FarRain();
+	private final CloudGrid grid = new CloudGrid();
+	private CloudDeck deck;
+	/** How far Gloam's clouds reach this frame (0 while vanilla's are drawn), for the clouds' fog. */
+	private double cloudReach;
+	private float cloudBase;
 	private final ByteBuffer info = MemoryUtil.memAlloc(FarRenderer.INFO_BYTES);
 	private FarRenderer renderer;
 	private ClientLevel level;
@@ -69,19 +74,52 @@ public final class FarAir {
 		}
 	}
 
-	/** Whether Gloam's cloud deck stands in for vanilla's clouds this frame. */
+	/** Whether Gloam's cells stand in for vanilla's in vanilla's cloud renderer this frame. */
 	public static boolean replacesClouds() {
 		return INSTANCE.replacing;
 	}
 
+	/** How far Gloam's clouds reach this frame, in blocks (0 while vanilla's are drawn), so their fog can reach as far. */
+	public static double cloudReach() {
+		return INSTANCE.replacing ? INSTANCE.cloudReach : 0;
+	}
+
 	/**
-	 * Whether the far air is wanted at all: Gloam on, the far air on, a level with an open sky; with a shader pack on,
-	 * only when VOID LOD hands over the far land's depth after the pack's picture (the far air is drawn over it then).
+	 * Vanilla's cloud renderer prepares its clouds (CloudRendererMixin): the places of Gloam's cells for this frame, from
+	 * the camera and the game time vanilla was given. Outside any pass. Whether there is anything to draw.
 	 */
+	public static boolean prepareClouds(int color, net.minecraft.world.phys.Vec3 camera, long gameTime, float partialTicks) {
+		CloudDeck deck = INSTANCE.deck;
+		if (deck == null) {
+			return false;
+		}
+		double seconds = (gameTime + partialTicks) / 20.0;
+		double fx = camera.x - Air.FRONT_DRIFT * seconds, fz = camera.z - Air.FRONT_DRIFT * 0.2 * seconds;
+		deck.prepare(fx, fz, camera.y - INSTANCE.cloudBase, color);
+		return deck.anything();
+	}
+
+	/** Vanilla's cloud renderer draws its clouds with {@code pipeline}: Gloam's cells instead. */
+	public static void drawClouds(RenderPass pass, com.mojang.renderpearl.api.pipeline.RenderPipeline pipeline) {
+		CloudDeck deck = INSTANCE.deck;
+		if (deck != null) {
+			deck.draw(pass, pipeline);
+		}
+	}
+
+	/** Whether the far air is wanted at all: Gloam on, the far air on, a level with an open sky. */
 	private static boolean wanted(ClientLevel level) {
 		GloamSettings s = GloamSettings.get();
 		return s.enabled && s.far && level != null && Atmosphere.get().air() != null && level.dimensionType().hasSkyLight()
-			&& !level.dimensionType().hasCeiling() && (!Shaders.packInUse() || (Lod.LOADED && s.farOverPack));
+			&& !level.dimensionType().hasCeiling();
+	}
+
+	/**
+	 * Whether the mist and the curtains are drawn: always without a shader pack; with one, only when VOID LOD hands over
+	 * the far land's depth after the pack's picture (they are drawn over it then).
+	 */
+	private static boolean belowClouds() {
+		return !Shaders.packInUse() || (Lod.LOADED && GloamSettings.get().farOverPack);
 	}
 
 	/**
@@ -107,8 +145,8 @@ public final class FarAir {
 		if (r == null || !Shaders.packInUse() || this.camera == null) {
 			return;
 		}
-		r.drawOverPack(Minecraft.getInstance().gameRenderer.mainRenderTarget(), depth.glTexture(), depth.projection(), this.camera,
-			depth.width(), depth.height(), this.fog);
+		Shaders.withoutPackShaders(() -> r.drawOverPack(Minecraft.getInstance().gameRenderer.mainRenderTarget(), depth.glTexture(), depth.projection(),
+			this.camera, depth.width(), depth.height(), this.fog));
 	}
 
 	/** This frame's camera projection, for the far depth's reprojection. */
@@ -134,8 +172,8 @@ public final class FarAir {
 	/** One line on the far air's cost and content, for the logs and the showcase. */
 	public static String stats() {
 		FarRenderer r = INSTANCE.renderer;
-		return String.format(Locale.ROOT, "far air: GPU %.2f ms (%s), prepare %.3f ms, %d mist quads, %d curtains, max storm %.2f, %s, %d draws",
-			r == null ? -1 : r.gpuMillis, r == null ? "" : r.gpuSplit(), INSTANCE.prepareMillis, r == null ? 0 : r.mistQuads(), INSTANCE.curtains, INSTANCE.maxStorm,
+		return String.format(Locale.ROOT, "far air: GPU %.2f ms (mist and curtains), prepare %.3f ms, %d mist quads, %d curtains, max storm %.2f, %s, %d draws",
+			r == null ? -1 : r.gpuMillis, INSTANCE.prepareMillis, r == null ? 0 : r.mistQuads(), INSTANCE.curtains, INSTANCE.maxStorm,
 			INSTANCE.cloudState, r == null ? 0 : r.draws);
 	}
 
@@ -164,6 +202,7 @@ public final class FarAir {
 			this.weather.reset();
 			this.land.reset();
 			this.mist.reset();
+			this.grid.reset();
 			this.stormsOf = null;
 		}
 		CameraRenderState camera = state.cameraRenderState;
@@ -203,14 +242,37 @@ public final class FarAir {
 			this.maxStorm = maxStorm(map, WeatherMap.frameX(cx, state.gameTime), WeatherMap.frameZ(cz, state.gameTime), reach, year);
 		}
 
-		// Iris reports the clouds off while a pack that draws its own runs; over the pack's picture Gloam's deck follows the
-		// player's own option instead
-		CloudStatus status = Shaders.packInUse() ? mc.options.cloudStatus().get() : mc.options.getCloudStatus();
+		// the clouds: vanilla's renderer draws Gloam's cells (as vanilla draws them: Iris forces them off for a shader pack
+		// that draws clouds of its own, which then keeps its own)
+		CloudStatus status = mc.options.getCloudStatus();
 		boolean clouds = settings.farClouds && map != null && status != CloudStatus.OFF && ARGB.alpha(state.cloudColor) > 0;
 		this.replacing = settings.farClouds;
-		boolean fast = status == CloudStatus.FAST;
-		this.cloudState = String.format(Locale.ROOT, "clouds %s (%s, colour %08x, base %.0f, map %s)", clouds ? "on" : "off", status,
-			state.cloudColor, state.cloudHeight, map != null);
+		float vanilla = Atmosphere.vanillaRain(level, partial);
+		float thunder = level.getThunderLevel(partial);
+		float base = state.cloudHeight + (float) settings.farCloudLift;
+		this.cloudBase = base;
+		// the deck reaches a little past the far land (inside the far plane, which VOID LOD puts at 1.5 times its radius),
+		// thinning into the sky all the way out
+		this.cloudReach = lodRadius > 0 ? lodRadius * 1.45 : reach;
+		double fx = WeatherMap.frameX(cx, state.gameTime), fz = WeatherMap.frameZ(cz, state.gameTime);
+		if (this.replacing && map != null) {
+			double near = Math.min(mc.options.cloudRange().get() * 16.0, 1536);
+			this.grid.update(new CloudGrid.Input(map, air.seed(), year, vanilla, settings.showers, thunder, fx, fz, cy, base, near, this.cloudReach,
+				status == CloudStatus.FAST));
+		}
+		CloudGrid.Mesh cells = this.grid.take();
+		if (cells != null) {
+			try {
+				if (this.deck == null) {
+					this.deck = new CloudDeck();
+				}
+				this.deck.accept(cells);
+			} finally {
+				cells.free();
+			}
+		}
+		this.cloudState = String.format(Locale.ROOT, "clouds %s (%s, colour %08x, base %.0f, %d faces in %d draws)", clouds ? "on" : "off", status,
+			state.cloudColor, base, this.deck == null ? 0 : this.deck.faceCount(), this.deck == null ? 0 : this.deck.groupCount());
 
 		// the far land and its mist
 		boolean mistOn = settings.farMist && this.land.known();
@@ -225,34 +287,35 @@ public final class FarAir {
 		}
 
 		// the curtains
-		float vanilla = Atmosphere.vanillaRain(level, partial);
-		float thunder = level.getThunderLevel(partial);
 		boolean rainOn = settings.farRain && map != null;
-		float base = state.cloudHeight + (float) settings.farCloudLift;
 		if (rainOn) {
 			this.rain.build(map, this.land, cx, cy, cz, ticks, reach, base, vanilla, settings.showers, year, thunder, air.seed());
 		}
 		this.curtains = rainOn ? this.rain.count() : 0;
 
-		// the cloud shadows' picture: square around the camera, its texels fixed to the world as the camera moves
-		boolean pack = Shaders.packInUse();
-		// the pack draws the far land with its own programs, which take no shade
-		boolean shadows = clouds && lodRadius > 0 && !pack;
+		// The cloud shadows on VOID LOD's land, from the same cells: their picture lies in the fronts' frame, carried along
+		// with them, and offset along the sun's ray from the clouds down to the ground. (A shader pack draws the far land
+		// with its own programs, which take no shade.)
+		boolean shadows = clouds && lodRadius > 0 && !Shaders.packInUse() && this.deck != null && this.deck.hasShade();
+		if (shadows) {
+			double seconds = ticks / 20.0;
+			float sunAngle = state.skyRenderState.sunAngle;
+			double sunX = -Math.sin(sunAngle), sunY = Math.max(0.3, Math.cos(sunAngle));
+			double offset = -sunX / sunY * (base - (level.getSeaLevel() + 30));
+			this.setShade(true, this.deck.shadeX() + Air.FRONT_DRIFT * seconds + offset, this.deck.shadeZ() + Air.FRONT_DRIFT * 0.2 * seconds,
+				this.deck.shadeSize());
+		} else {
+			this.setShade(false, 0, 0, 0);
+		}
 		this.camera = new org.joml.Matrix4f(camera.projectionMatrix);
-		double shadeSize = 2 * Math.min(Math.max(lodRadius, 4096), 16384);
-		double texel = shadeSize / FarRenderer.SHADE_SIZE;
-		double shadeX = Math.floor((cx - shadeSize / 2) / texel) * texel, shadeZ = Math.floor((cz - shadeSize / 2) / texel) * texel;
-		this.fillInfo(state, camera, map, reach, clip, base, vanilla, settings.showers, year, thunder, ticks, shadeX - cx, shadeZ - cz, shadeSize,
-			level.getSeaLevel() + 30);
-		ByteBuffer texels = this.weather.takeUpload();
+		this.fillInfo(state, camera, map, reach, clip, base, vanilla, settings.showers, year, thunder, ticks, 0, 0, 0, level.getSeaLevel() + 30);
 		try {
-			var target = mc.gameRenderer.mainRenderTarget();
-			this.renderer.prepare(this.info, texels, mesh, this.rain, clouds, fast, mistOn, rainOn, shadows, this.fog, target.width, target.height);
-			this.setShade(shadows, shadeX, shadeZ, shadeSize);
-		} finally {
-			if (texels != null) {
-				MemoryUtil.memFree(texels);
+			if (belowClouds()) {
+				this.renderer.prepare(this.info, mesh, this.rain, mistOn, rainOn);
+			} else {
+				this.renderer.skip();
 			}
+		} finally {
 			if (mesh != null) {
 				MemoryUtil.memFree(mesh.vertices());
 			}
@@ -281,7 +344,7 @@ public final class FarAir {
 	/** Lays the cloud shadows' picture over VOID LOD's land, or takes it off. */
 	private void setShade(boolean on, double x, double z, double size) {
 		if (on) {
-			Lod.setShade(this.renderer.shadeView(), x, z, size, 1.0F);
+			Lod.setShade(this.deck.shadeView(), x, z, size, 1.0F);
 			this.shading = true;
 		} else if (this.shading) {
 			Lod.setShade(null, 0, 0, 0, 0);
