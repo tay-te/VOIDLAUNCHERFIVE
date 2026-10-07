@@ -191,7 +191,8 @@ public final class MapPage {
 		float rw = this.readout(ui, this.mapX + 16, this.mapY + 16);
 		this.lookToggle(ui, this.mapX + 16 + rw + 10, this.mapY + 16 + 8.5F, mouseX, mouseY);
 		this.north(ui, this.mapX + this.mapW - 48, this.mapY + 16);
-		this.layers(ui, this.mapX + 16, this.mapY + this.mapH - 55, mouseX, mouseY);
+		// the chips keep left of the scale bar (at its widest) and its gap
+		this.layers(ui, this.mapX + 16, this.mapY + this.mapH - 55, this.mapW - 62 - 16 - 12 - scaleBarMaxWidth(ui), mouseX, mouseY);
 		this.zoomControl(ui, this.mapX + this.mapW - 52, this.mapY + this.mapH - 116, mouseX, mouseY);
 		this.scaleBar(ui, this.mapX + this.mapW - 62, this.mapY + this.mapH - 43, f);
 
@@ -222,6 +223,7 @@ public final class MapPage {
 		if (this.pickerOpen) {
 			this.pickerList(ui, wx + PAD, wy + 34 + 44, mouseX, mouseY);
 		}
+		this.layersPopover(ui, mouseX, mouseY);
 		if (this.menu != null) {
 			this.contextMenu(ui, mouseX, mouseY);
 		}
@@ -403,41 +405,132 @@ public final class MapPage {
 		ui.text(text, sx + 34, sy - 6, Ui.Font.F10, Theme.INK_2);
 	}
 
-	/** The layer chips: Terrain, Names, Landmarks, Places, (other mods'), Waypoints, and Friends or, underground, Water & lava. */
-	private void layers(Ui ui, float x, float y, float mx, float my) {
+	/**
+	 * The layer chips: Terrain, Names, Landmarks, Places, Waypoints, and Friends or, underground, Water & lava. Other
+	 * mods' layers wait behind a "More · N" chip in a small popover; when even Atlas's own do not fit beside the scale bar,
+	 * every layer goes into it behind one "Layers · N" chip. Never over the scale bar.
+	 */
+	private void layers(Ui ui, float x, float y, float maxW, float mx, float my) {
 		List<MapLayer> all = this.atlas.markersRegistry().layers();
-		List<MapLayer> layers = new ArrayList<>();
+		List<MapLayer> own = new ArrayList<>();
+		List<MapLayer> theirs = new ArrayList<>();
 		for (MapLayer l : all) {
 			if (l.id().equals(MapLayer.FLUIDS) && !this.under() || l.id().equals(MapLayer.PLAYERS) && this.under()
 				|| l.id().equals(MapLayer.STRUCTURES)) {
 				continue;
 			}
-			layers.add(l);
+			(l.id().startsWith("atlas:") ? own : theirs).add(l);
 		}
 		AtlasSettings settings = this.atlas.settings();
-		float w = 12 + ui.width("LAYERS", Ui.Font.F85, 1) + 10 + 4;
-		float[] cw = new float[layers.size()];
-		for (int i = 0; i < layers.size(); i++) {
-			cw[i] = 9 + 8 + 7 + ui.width(label(layers.get(i)), Ui.Font.F12) + 12;
-			w += cw[i] + (i > 0 ? 2 : 0);
+		float head = 12 + ui.width("LAYERS", Ui.Font.F85, 1) + 10;
+		List<MapLayer> inline = own;
+		List<MapLayer> popover = theirs;
+		String moreLabel = theirs.isEmpty() ? null : "More  ·  " + theirs.size();
+		float w = head + 4 + chipsWidth(ui, inline) + (moreLabel == null ? 0 : 2 + moreWidth(ui, moreLabel));
+		if (w > maxW) {
+			// not even Atlas's own fit: one chip for every layer
+			inline = List.of();
+			popover = new ArrayList<>(own);
+			popover.addAll(theirs);
+			moreLabel = "Layers  ·  " + popover.size();
+			w = 4 + moreWidth(ui, moreLabel) + 4;
+			head = 0;
+		}
+		this.layersPopover = popover;
+		if (popover.isEmpty()) {
+			this.layersOpen = false;
 		}
 		ui.panel(x, y, w, 39, 18, Theme.ISLAND, Theme.HAIR_8);
-		ui.text("LAYERS", x + 13, y + 14, Ui.Font.F85, 1, Theme.INK_4);
-		float cx = x + 12 + ui.width("LAYERS", Ui.Font.F85, 1) + 10;
-		for (int i = 0; i < layers.size(); i++) {
-			MapLayer l = layers.get(i);
+		float cx = x + 4;
+		if (head > 0) {
+			ui.text("LAYERS", x + 13, y + 14, Ui.Font.F85, 1, Theme.INK_4);
+			cx = x + head;
+		}
+		for (MapLayer l : inline) {
+			float cw = chipWidth(ui, l);
 			boolean on = settings.layerVisible(l.id());
-			boolean hover = mx >= cx && mx <= cx + cw[i] && my >= y + 5 && my <= y + 34;
+			boolean hover = mx >= cx && mx <= cx + cw && my >= y + 5 && my <= y + 34;
 			if (on) {
-				ui.panel(cx, y + 5, cw[i], 29, 13, hover ? 0xFF2C2D31 : Theme.RAISED, Theme.HAIR_8);
+				ui.panel(cx, y + 5, cw, 29, 13, hover ? 0xFF2C2D31 : Theme.RAISED, Theme.HAIR_8);
 			} else if (hover) {
-				ui.round(cx, y + 5, cw[i], 29, 13, Theme.WELL);
+				ui.round(cx, y + 5, cw, 29, 13, Theme.WELL);
 			}
 			ui.round(cx + 9, y + 15.5F, 8, 8, 2.5F, on ? Theme.ink(0.85F) : Theme.ink(0.18F));
 			ui.text(label(l), cx + 24, y + 11, Ui.Font.F12, on ? Theme.INK : Theme.INK_4);
 			String id = l.id();
-			this.hit(cx, y + 5, cw[i], 29, () -> settings.toggleLayer(id));
-			cx += cw[i] + 2;
+			this.hit(cx, y + 5, cw, 29, () -> settings.toggleLayer(id));
+			cx += cw + 2;
+		}
+		if (moreLabel != null) {
+			float cw = moreWidth(ui, moreLabel);
+			boolean hover = mx >= cx && mx <= cx + cw && my >= y + 5 && my <= y + 34;
+			if (this.layersOpen) {
+				ui.panel(cx, y + 5, cw, 29, 13, Theme.RAISED, Theme.HAIR_16);
+			} else if (hover) {
+				ui.round(cx, y + 5, cw, 29, 13, Theme.WELL);
+			}
+			ui.text(moreLabel, cx + 12, y + 11, Ui.Font.F12, this.layersOpen || hover ? Theme.INK : Theme.INK_2);
+			Icons.chevron(ui, cx + cw - 22, y + 14, Theme.INK_3);
+			this.hit(cx, y + 5, cw, 29, () -> this.layersOpen = !this.layersOpen);
+			this.layersAnchorX = cx;
+		}
+		this.layersAnchorY = y;
+	}
+
+	private static float chipWidth(Ui ui, MapLayer l) {
+		return 9 + 8 + 7 + ui.width(label(l), Ui.Font.F12) + 12;
+	}
+
+	private static float chipsWidth(Ui ui, List<MapLayer> layers) {
+		float w = 0;
+		for (int i = 0; i < layers.size(); i++) {
+			w += chipWidth(ui, layers.get(i)) + (i > 0 ? 2 : 0);
+		}
+		return w;
+	}
+
+	private static float moreWidth(Ui ui, String label) {
+		return 12 + ui.width(label, Ui.Font.F12) + 8 + 12 + 10;
+	}
+
+	private boolean layersOpen;
+	private List<MapLayer> layersPopover = List.of();
+	private float layersAnchorX;
+	private float layersAnchorY;
+
+	/**
+	 * The layers popover: a small fixed panel over the "More" (or "Layers") chip, a row with a toggle for each layer in
+	 * it. A click outside it closes it, as Esc does.
+	 */
+	private void layersPopover(Ui ui, float mx, float my) {
+		if (!this.layersOpen || this.layersPopover.isEmpty()) {
+			return;
+		}
+		AtlasSettings settings = this.atlas.settings();
+		float w = 220;
+		for (MapLayer l : this.layersPopover) {
+			w = Math.max(w, 16 + ui.width(label(l), Ui.Font.F12) + 16 + 32 + 16);
+		}
+		float rowH = 36;
+		float h = 12 + 20 + this.layersPopover.size() * rowH + 8;
+		float x = Math.min(this.layersAnchorX, this.mapX + this.mapW - w - 16);
+		float y = this.layersAnchorY - 8 - h;
+		// outside it: closes it (registered first, so the rows win)
+		this.hit(this.mapX - PAD, this.mapY - 100, this.mapW + PAD * 2 + 20 + LIST_W, this.mapH + 156, () -> this.layersOpen = false);
+		ui.panel(x, y, w, h, 18, Theme.ISLAND, Theme.HAIR_10);
+		ui.text("LAYERS", x + 16, y + 14, Ui.Font.F85, 1, Theme.INK_4);
+		float ry = y + 12 + 20;
+		for (MapLayer l : this.layersPopover) {
+			boolean on = settings.layerVisible(l.id());
+			boolean hover = mx >= x + 6 && mx <= x + w - 6 && my >= ry && my <= ry + rowH - 4;
+			if (hover) {
+				ui.round(x + 6, ry, w - 12, rowH - 4, 12, Theme.WELL);
+			}
+			ui.text(label(l), x + 16, ry + 8, Ui.Font.F12, on ? Theme.INK : Theme.INK_3);
+			toggle(ui, x + w - 16 - 32, ry + 7, on);
+			String id = l.id();
+			this.hit(x + 6, ry, w - 12, rowH - 4, () -> settings.toggleLayer(id));
+			ry += rowH;
 		}
 	}
 
@@ -468,6 +561,11 @@ public final class MapPage {
 			return Math.round(pixelsPerBlock) + ":1";
 		}
 		return "1:" + Math.round(1 / pixelsPerBlock);
+	}
+
+	/** The scale bar at its widest (its bar near 84 design pixels, "16K BLOCKS"). */
+	private static float scaleBarMaxWidth(Ui ui) {
+		return 10 + 84 + 8 + ui.width("16K BLOCKS", Ui.Font.F85, 1) + 10;
 	}
 
 	private void scaleBar(Ui ui, float right, float y, MapRenderer.Frame f) {
@@ -3332,6 +3430,10 @@ public final class MapPage {
 	/** Returns true if the key was used. Escape: closes the topmost card or the search first. */
 	public boolean keyPressed(KeyEvent event) {
 		int key = event.key();
+		if (this.layersOpen && key == InputConstants.KEY_ESCAPE) {
+			this.layersOpen = false;
+			return true;
+		}
 		if (this.export != null) {
 			if (key == InputConstants.KEY_ESCAPE) {
 				this.export = null;

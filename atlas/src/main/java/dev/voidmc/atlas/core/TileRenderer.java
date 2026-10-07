@@ -61,13 +61,16 @@ public final class TileRenderer {
 		SHARED
 	}
 
-	/** How far round a rectangle a mode reads (the far edge's checker reaches 8 px). */
+	/** How far round a rectangle a mode reads (far land: its small gaps are filled from up to 2 chunks off, and its checker). */
 	public static int margin(Mode mode) {
-		return mode == Mode.FAR ? FAR_EDGE : MARGIN;
+		return mode == Mode.FAR ? FAR_GAP + FAR_EDGE : MARGIN;
 	}
 
 	/** The far layer's edge checker: 8 px cells. */
 	public static final int FAR_EDGE = 8;
+	/** A gap in far land this wide or less (2 chunks), with far land on both sides, is filled from its neighbours. */
+	public static final int FAR_GAP = 32;
+	private int[] gapFrom = new int[0];
 
 	private final Looks looks;
 	private final Int2ObjectOpenHashMap<float[]> toned = new Int2ObjectOpenHashMap<>();
@@ -208,6 +211,9 @@ public final class TileRenderer {
 				}
 			}
 		}
+		if (mode == Mode.FAR) {
+			this.fillFarGaps(gw, gh);
+		}
 		RegionRaw centre = around[4];
 		int[] out = image.levelOrCreate(0);
 		if (this.art && (mode != Mode.CAVE || this.variant == Variant.BIOMES)) {
@@ -250,14 +256,16 @@ public final class TileRenderer {
 					}
 				} else if (kind == WATER) {
 					boolean shore = this.isLand(g - 1) || this.isLand(g + 1) || this.isLand(g - gw) || this.isLand(g + gw);
-					rgb = mode == Mode.CAVE ? Palette.caveWater(centre.depth(i), shore, this.water(centre.biome[i]))
-						: Palette.water(centre.depth(i), shore, this.water(centre.biome[i]));
+					// from the grid (a far gap filled from its neighbour has its neighbour's)
+					int depth = this.depths[g] & 0xFF;
+					rgb = mode == Mode.CAVE ? Palette.caveWater(depth, shore, this.water(this.biomes[g]))
+						: Palette.water(depth, shore, this.water(this.biomes[g]));
 					if (mode == Mode.FAR || mode == Mode.SHARED) {
 						rgb = quiet(rgb, mode);
 					}
 				} else {
-					int block = centre.block[i];
-					int biome = centre.biome[i];
+					int block = this.blocks[g];
+					int biome = this.biomes[g];
 					Material material = this.material(block);
 					float[] tone = this.tone(block, biome, material);
 					int step = Palette.shadeStep(this.northWestDifference(g, gw));
@@ -283,6 +291,72 @@ public final class TileRenderer {
 		}
 		image.downsample(x0, z0, x1, z1);
 		image.touch();
+	}
+
+	/**
+	 * Far land's small gaps (where VOID LOD sent nothing, up to {@value #FAR_GAP} blocks across with far land on both
+	 * sides, across or along) take the nearest neighbour's column, so seams and missed tiles do not read as holes; wider
+	 * gaps stay unexplored, behind the same checker edge as all far land's.
+	 */
+	private void fillFarGaps(int gw, int gh) {
+		int gn = gw * gh;
+		if (this.gapFrom.length < gn) {
+			this.gapFrom = new int[gn];
+		}
+		int filled = 0;
+		for (int gz = 0; gz < gh; gz++) {
+			for (int gx = 0; gx < gw; gx++) {
+				int g = gz * gw + gx;
+				this.gapFrom[g] = -1;
+				if (this.known[g]) {
+					continue;
+				}
+				int l = 1;
+				while (l <= FAR_GAP && gx - l >= 0 && !this.known[g - l]) {
+					l++;
+				}
+				int r = 1;
+				while (r <= FAR_GAP && gx + r < gw && !this.known[g + r]) {
+					r++;
+				}
+				int best = -1;
+				int bestD = Integer.MAX_VALUE;
+				if (gx - l >= 0 && gx + r < gw && l <= FAR_GAP && r <= FAR_GAP && l + r - 1 <= FAR_GAP) {
+					best = l <= r ? g - l : g + r;
+					bestD = Math.min(l, r);
+				}
+				int u = 1;
+				while (u <= FAR_GAP && gz - u >= 0 && !this.known[g - u * gw]) {
+					u++;
+				}
+				int d = 1;
+				while (d <= FAR_GAP && gz + d < gh && !this.known[g + d * gw]) {
+					d++;
+				}
+				if (gz - u >= 0 && gz + d < gh && u <= FAR_GAP && d <= FAR_GAP && u + d - 1 <= FAR_GAP && Math.min(u, d) < bestD) {
+					best = u <= d ? g - u * gw : g + d * gw;
+				}
+				if (best >= 0) {
+					this.gapFrom[g] = best;
+					filled++;
+				}
+			}
+		}
+		if (filled == 0) {
+			return;
+		}
+		for (int g = 0; g < gn; g++) {
+			int from = this.gapFrom[g];
+			if (from >= 0) {
+				this.known[g] = true;
+				this.kinds[g] = this.kinds[from];
+				this.heights[g] = this.heights[from];
+				this.blocks[g] = this.blocks[from];
+				this.biomes[g] = this.biomes[from];
+				this.depths[g] = this.depths[from];
+				this.lights[g] = this.lights[from];
+			}
+		}
 	}
 
 	/**
