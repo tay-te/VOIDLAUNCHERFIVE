@@ -16,6 +16,9 @@ layout(std140) uniform LodInfo {
     vec4 LodSkyBase;
     vec4 LodSunrise;
     vec4 LodSkyColor;
+    // Light laid over the far land from above by another mod (LodApi.setShade: cloud shadows). xy: the camera's place
+    // on its picture, in blocks from the picture's corner, z: 1 / the picture's size in blocks, w: its strength (0: none)
+    vec4 LodShadeMap;
 };
 
 #endif

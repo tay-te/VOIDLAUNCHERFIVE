@@ -171,8 +171,9 @@ final class Blocky {
 				int color = ring || !log ? v.topColor[n] : v.sideColor[n];
 				if (log && c > 1) {
 					// a trunk thinner than the cell: as much of it bark as the trunk fills, the rest the shade under the crown
+					// (a thin trunk is a line of bark between shadows: from afar, mostly the shadow)
 					float fill = Math.min(1, this.logCount[g] / (float) (c * c * c / 2));
-					color = Colors.scale(color, 0.3F + 0.7F * fill);
+					color = Colors.scale(color, 0.2F + 0.8F * fill * fill);
 				}
 				color &= COLOR_MASK;
 				int m = TileBuilder.material(ring || !log ? v.topMaterial[n] : v.sideMaterial[n]);
