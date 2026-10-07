@@ -26,6 +26,7 @@ import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits.GardenKind;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -143,6 +144,7 @@ public final class GardenPlot implements Archetype {
 			top = Math.max(top, Lamps.standard(d, cx + 1, level[1], 1, 4, Manner.lamp(d), null));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
+		Edges.guard(d);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
@@ -420,6 +422,18 @@ public final class GardenPlot implements Archetype {
 			clearCell(d, tx, l.y(tz), tz);
 			top = Math.max(top, Trees.tree(d, tx, l.y(tz), tz, Math.min(6, d.maxHeight() - l.y(tz)), Trees.kind(d), l.cx() + 1, l.dp() - 6, l.w() - 2,
 				l.dp() - 2));
+		}
+		// the way to the butt kept clear of the tree's low boughs
+		int butt = l.w() - 2;
+		for (var dir : Dirs.HORIZONTAL) {
+			for (int dy = 0; dy <= 1; dy++) {
+				int nx = butt + Dirs.dx(dir);
+				int nz = bz + Dirs.dz(dir);
+				var st = d.get(nx, l.y(bz) + dy, nz);
+				if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock) {
+					d.remove(nx, l.y(bz) + dy, nz);
+				}
+			}
 		}
 		Benches.bench(d, l.cx() - 1 >= 1 ? l.cx() - 1 : l.cx(), l.y(bz), bz, Dirs.FRONT, Dirs.RIGHT, 1, false);
 		return top;

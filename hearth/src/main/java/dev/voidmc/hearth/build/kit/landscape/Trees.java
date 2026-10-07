@@ -208,9 +208,14 @@ public final class Trees {
 		return Math.min(d.maxHeight() - 1, (int) Math.ceil(cy + rv));
 	}
 
+	/**
+	 * A spruce: the trunk stops two under the top, inside the last whorl, and the leader is two leaves standing on it
+	 * (a bare log tip over the foliage reads as a post, not a tree). Every whorl keeps the four cells round the trunk, so
+	 * the trunk never shows between tiers near the top.
+	 */
 	private static int conifer(Draft d, Reach r, int x, int y, int z, int h, Paint log, Paint leaf, long seed) {
 		int topY = y + h - 1;
-		for (int yy = y; yy < topY; yy++) {
+		for (int yy = y; yy <= topY - 2; yy++) {
 			logAt(d, r, x, yy, z, log);
 		}
 		int start = y + Math.max(1, h / 5);
@@ -222,13 +227,14 @@ public final class Trees {
 			for (int dz = -rad; dz <= rad; dz++) {
 				for (int dx = -rad; dx <= rad; dx++) {
 					double dd = Math.sqrt(dx * dx + dz * dz);
-					if (dd > rad + 0.3 || dd > rad - 0.4 && Noise.unit(seed, x + dx, yy, z + dz) < 0.35) {
+					if (dd > rad + 0.3 || dd > 1 && dd > rad - 0.4 && Noise.unit(seed, x + dx, yy, z + dz) < 0.35) {
 						continue;
 					}
 					leafAt(d, r, x + dx, yy, z + dz, leaf);
 				}
 			}
 		}
+		leafAt(d, r, x, topY - 1, z, leaf);
 		leafAt(d, r, x, topY, z, leaf);
 		return topY;
 	}

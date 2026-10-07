@@ -22,6 +22,7 @@ import dev.voidmc.hearth.build.kit.landscape.Trees;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -32,8 +33,8 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * {@code hearth:landscape/park}: a town's public park, terraced down a slope where it has to be. A gate on the street
  * opens on a broad walk up the middle (steps where it climbs a terrace wall), cross walks on every terrace and, on
- * level ground, a loop walk round the lawns; a pond with lilies and reeds in one quarter, clumps of the culture's trees
- * in the others, flower borders by the gate, benches along the walks looking in, lamps every few blocks; in a city, a
+ * level ground, a loop walk round the lawns; a pond with lilies and reeds in one quarter, the culture's trees standing
+ * one or two to a lawn in the others (some lawns left open), flower borders by the gate, benches along the walks looking in, lamps every few blocks; in a city, a
  * bandstand (an open pavilion on a podium, roofed in the culture's manner) where the walks meet, with benches facing
  * it. The boundary is the culture's yard fence, hedge or wall, open at the sides as well as the gate.
  *
@@ -200,6 +201,7 @@ public final class Park implements Archetype {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
+		Edges.guard(d);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
@@ -312,12 +314,16 @@ public final class Park implements Archetype {
 		return y + 2;
 	}
 
-	/** A clump of the culture's trees in a quarter, three blocks or more apart, off the walks. */
+	/**
+	 * A clump of the culture's trees in a quarter (one, or two on a big quarter, five blocks or more apart, off the walks),
+	 * or now and then an open lawn with flowers: a park is lawns with trees standing in them, not a wood.
+	 */
 	private static int trees(Draft d, int x0, int z0, int x1, int z1, int y, boolean[][] used) {
 		long seed = d.seed() ^ (x0 * 31L + z0);
 		int top = y;
 		List<int[]> placed = new ArrayList<>();
-		int want = Math.max(1, Math.min(3, ((x1 - x0 + 1) * (z1 - z0 + 1)) / 14));
+		int area = (x1 - x0 + 1) * (z1 - z0 + 1);
+		int want = Noise.unit(seed, 7, 7, 7) < 0.3 ? 0 : area >= 40 ? 2 : 1;
 		for (int k = 0; k < want * 4 && placed.size() < want; k++) {
 			int x = x0 + 1 + (int) (Noise.unit(seed, k, 0, 1) * Math.max(1, x1 - x0 - 1));
 			int z = z0 + 1 + (int) (Noise.unit(seed, k, 0, 2) * Math.max(1, z1 - z0 - 1));
@@ -326,7 +332,7 @@ public final class Park implements Archetype {
 			}
 			boolean far = true;
 			for (int[] p : placed) {
-				far &= Math.abs(p[0] - x) + Math.abs(p[1] - z) >= 4;
+				far &= Math.abs(p[0] - x) + Math.abs(p[1] - z) >= 5;
 			}
 			if (!far) {
 				continue;

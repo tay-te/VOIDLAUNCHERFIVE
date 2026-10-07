@@ -20,7 +20,9 @@ public final class Paving {
 	}
 
 	public enum Pattern {
-		RINGS, CIRCLES, CHECKER, GRID, RADIAL, STAGGERED, PLAIN, BOARDS
+		RINGS, CIRCLES, CHECKER, GRID, RADIAL, STAGGERED, PLAIN, BOARDS,
+		/** Cobble setts in one stone, its own mottle and the medallion the only pattern (a Bohemian square). */
+		SETTS
 	}
 
 	/** The pattern a culture lays its squares in (two choices for most, by seed). */
@@ -30,7 +32,7 @@ public final class Paving {
 		}
 		boolean a = d.chance(0.5);
 		return switch (Manner.culture(d)) {
-			case TEMPERATE -> a ? Pattern.RINGS : Pattern.GRID;
+			case TEMPERATE -> Pattern.SETTS;
 			case WISTERIA -> a ? Pattern.CHECKER : Pattern.CIRCLES;
 			case MEDITERRANEAN -> a ? Pattern.STAGGERED : Pattern.RADIAL;
 			case DESERT -> a ? Pattern.GRID : Pattern.RADIAL;
@@ -90,7 +92,7 @@ public final class Paving {
 				}
 				case RADIAL -> ix == 0 || iz == 0 || ix == iz ? band : main;
 				case STAGGERED -> ((Math.floorDiv(x + ((z & 1) == 0 ? 0 : 1), 2) + z) & 1) == 0 && Noise.unit(seed, x, 0, z) < 0.8 ? band : main;
-				case BOARDS -> main;
+				case BOARDS, SETTS -> main;
 				default -> Noise.value(seed, x / 2.5, 0, z / 2.5) < 0.22 ? band : main;
 			};
 			if (p == Pattern.BOARDS) {

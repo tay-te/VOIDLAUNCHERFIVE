@@ -100,20 +100,18 @@ public final class Fair {
 				d.set(x + Dirs.dx(dir), y, z + Dirs.dz(dir), stone.has(Form.SLAB) ? stone.slab(SlabType.BOTTOM) : stone.full());
 			}
 			if (!midsummer) {
-				// the green crown
+				// the crown: the young spruce's own tip left on the stripped trunk, three wide and a few high (no canopy: a
+				// maypole is a pole)
 				d.set(x, top + 1, z, leaf);
-				for (Direction dir : Dirs.HORIZONTAL) {
-					d.set(x + Dirs.dx(dir), top, z + Dirs.dz(dir), leaf);
-				}
-				for (int dx = -1; dx <= 1; dx++) {
-					for (int dz = -1; dz <= 1; dz++) {
-						if (dx != 0 || dz != 0) {
-							d.set(x + dx, top - 1, z + dz, leaf);
+				for (int yy = top - 2; yy <= top; yy++) {
+					for (Direction dir : Dirs.HORIZONTAL) {
+						if (yy < top || ((dir.get2DDataValue() & 1) == 0)) {
+							d.set(x + Dirs.dx(dir), yy, z + Dirs.dz(dir), leaf);
 						}
 					}
 				}
-				// the garland: a ring of leaves two under the crown, the ribbons hanging from it
-				int gy = top - 3;
+				// the wreath: a ring of green well under the crown, the town's ribbons hanging from it on every side
+				int gy = Math.max(y + 3, top - 5);
 				for (int dx = -1; dx <= 1; dx++) {
 					for (int dz = -1; dz <= 1; dz++) {
 						if (dx != 0 || dz != 0) {
@@ -126,8 +124,8 @@ public final class Fair {
 				for (Direction dir : Dirs.HORIZONTAL) {
 					String col = colours.isEmpty() ? "red" : colours.get(k++ % colours.size());
 					Block banner = States.block("minecraft:" + col + "_wall_banner", States.block("minecraft:white_wall_banner", Blocks.AIR));
-					// the ribbon hangs on the trunk's face just under the garland
-					d.set(x + Dirs.dx(dir), gy - 1, z + Dirs.dz(dir), banner.defaultBlockState().trySetValue(BlockStateProperties.HORIZONTAL_FACING, dir),
+					// the ribbon hangs off the wreath's outer face
+					d.set(x + 2 * Dirs.dx(dir), gy, z + 2 * Dirs.dz(dir), banner.defaultBlockState().trySetValue(BlockStateProperties.HORIZONTAL_FACING, dir),
 						dev.voidmc.hearth.build.draft.BlockEntities.banner(List.of()));
 				}
 				return top + 1;

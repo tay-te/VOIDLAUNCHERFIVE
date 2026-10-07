@@ -20,6 +20,7 @@ import dev.voidmc.hearth.build.kit.landscape.Planters;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
@@ -89,6 +90,7 @@ public final class Fountain implements Archetype {
 			default -> basin(d, w, dp, cx, cz);
 		};
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
+		Edges.guard(d);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 

@@ -103,7 +103,6 @@ public final class Pavilions {
 		int top;
 		if (desert) {
 			Mat roof = d.mat(Role.ROOF);
-			Mat accent = Paving.inlay(d);
 			try (var s = d.stage(StageKind.ROOF)) {
 				for (int z = z0; z <= z1; z++) {
 					for (int x = x0; x <= x1; x++) {
@@ -122,7 +121,7 @@ public final class Pavilions {
 						}
 					}
 				}
-				d.set(cx, plate + 3, cz, accent.full());
+				d.set(cx, plate + 3, cz, roof.full());
 			}
 			Towers.finial(d, cx, plate + 4, cz);
 			top = plate + 4;
