@@ -25,6 +25,8 @@ final class FarModel {
 	private final Field height, water, ocean, landform, coast, uplift;
 	/** The rock under the soil, if this Expanse says (null: stone). */
 	private final Field rock;
+	/** The cell's high ground (about its 90th percentile), if this Expanse says (null: its mean is all there is). */
+	private final Field peak;
 	private final ThreadLocal<Object> columns;
 
 	private FarModel(Method sample, Constructor<?> column, Method surfaceBiome, Class<?> type) throws ReflectiveOperationException {
@@ -44,6 +46,13 @@ final class FarModel {
 			rock = null;
 		}
 		this.rock = rock;
+		Field peak;
+		try {
+			peak = type.getField("peak");
+		} catch (NoSuchFieldException e) {
+			peak = null;
+		}
+		this.peak = peak;
 		this.columns = ThreadLocal.withInitial(() -> {
 			try {
 				return this.column.newInstance();
@@ -68,14 +77,24 @@ final class FarModel {
 		}
 	}
 
-	/** Fills {@code f} with the coarse column at (x, z), and returns its surface biome (null: ask the biome source). */
-	Holder<Biome> sample(Object model, BiomeSource biomes, int x, int z, int seaLevel, ExpanseFacts f) {
+	/**
+	 * Fills {@code f} with the coarse column at (x, z), and returns its surface biome (null: ask the biome source). Dry land
+	 * stands {@code toPeak} of the way from the cell's mean height to its high ground: from far off a cell's ridges hide
+	 * its valleys, so the skyline is the high ground's, and ranges read against the sky as they do in the chunks.
+	 */
+	Holder<Biome> sample(Object model, BiomeSource biomes, int x, int z, int seaLevel, float toPeak, ExpanseFacts f) {
 		Object c = this.columns.get();
 		try {
 			this.sample.invoke(model, x, z, c);
 			float height = ((Number) this.height.get(c)).floatValue();
 			float water = ((Number) this.water.get(c)).floatValue();
 			boolean ocean = this.ocean.getBoolean(c);
+			if (this.peak != null && toPeak > 0 && !ocean && Float.isNaN(water)) {
+				float peak = ((Number) this.peak.get(c)).floatValue();
+				if (peak > height) {
+					height += toPeak * (peak - height);
+				}
+			}
 			f.height = height;
 			f.riverDist = Float.MAX_VALUE;
 			f.riverHalfWidth = 0;

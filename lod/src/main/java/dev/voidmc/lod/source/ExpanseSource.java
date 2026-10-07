@@ -118,7 +118,9 @@ public final class ExpanseSource extends WorldgenSource {
 		if (cell >= this.farCell && this.far != null) {
 			// past 32 km: the coarse model, which builds no plates
 			ExpanseFacts f = this.facts.get();
-			Holder<Biome> biome = this.far.sample(this.model, this.biomes, x, z, this.seaLevel, f);
+			// the coarser the cell, the farther out it is: the skyline rises from the mean toward the high ground
+			float toPeak = Math.min(0.6F, 0.2F * (1 + Integer.numberOfTrailingZeros(cell) - Integer.numberOfTrailingZeros(this.farCell)));
+			Holder<Biome> biome = this.far.sample(this.model, this.biomes, x, z, this.seaLevel, toPeak, f);
 			f.geometry(cell, this.seaLevel);
 			if (biome == null) {
 				biome = this.biome(x, f.biomeY(this.seaLevel), z, cell);

@@ -692,6 +692,25 @@ public class LodShowcase implements FabricClientGameTest {
 			+ " effective") + ", server " + server.computeOnServer(s -> s.getPlayerList().getViewDistance());
 		System.out.printf(Locale.ROOT, "[lod] seam %s: %d chunks loaded for the far shot (want %d; render distance %s)%n", spot.name(), last, want,
 			distances);
+		// the chunks' ground against the terrain model's along the view: what the far tiles stand their land on
+		if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("expanse")) {
+			String heights = server.computeOnServer(s -> {
+				var level = s.overworld();
+				Land model = ExpanseLand.of(level);
+				StringBuilder out = new StringBuilder();
+				double a = Math.toRadians(spot.yaw());
+				for (int d = 32; d <= 384; d += 32) {
+					for (int side = -1; side <= 1; side++) {
+						double b = a + side * Math.toRadians(20);
+						int x = (int) Math.round(spot.x() - Math.sin(b) * d), z = (int) Math.round(spot.z() + Math.cos(b) * d);
+						int real = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+						out.append(String.format(Locale.ROOT, " %d:%+.0f", d, real - model.height(x, z)));
+					}
+				}
+				return out.toString();
+			});
+			System.out.printf(Locale.ROOT, "[lod] heights %s (chunks minus model, by distance, 3 bearings):%s%n", spot.name(), heights);
+		}
 		this.treeMatch(context, server, spot);
 		// back where the LOD's shot was taken: the player falls while the far chunks load
 		server.runCommand(String.format(Locale.ROOT, "execute in %s run tp @a %d %d %d %.1f %.1f", spot.dimension(), spot.x(), spot.y(), spot.z(),
