@@ -524,8 +524,8 @@ public final class Hall {
 	}
 
 	/**
-	 * A flat roof's parapet raised a block at the corners: the crown of an adobe or stone store. Nothing if the roof is
-	 * pitched or the plot too low.
+	 * A flat roof's parapet finished with rounded shoulders: the coping swelling a course at the corners, the crown of an
+	 * adobe or stone store (a workshop is no fort: no pinnacles). Nothing if the roof is pitched or the plot too low.
 	 */
 	public Hall crown() {
 		if (this.deck == Integer.MIN_VALUE) {
@@ -536,15 +536,8 @@ public final class Hall {
 		if (y + 1 >= this.d.maxHeight()) {
 			return this;
 		}
-		Mat wall = this.d.mat(Role.WALL);
-		Mat cap = this.d.mat(Role.WALL_ACCENT);
-		try (var s = this.d.stage(StageKind.ROOF)) {
-			for (int[] c : new int[][]{{r[0], r[1]}, {r[2], r[1]}, {r[0], r[3]}, {r[2], r[3]}}) {
-				this.d.set(c[0], y, c[1], wall.full());
-				this.d.set(c[0], y + 1, c[1], cap.has(Form.SLAB) ? cap.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM)
-					: wall.has(Form.SLAB) ? wall.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM) : cap.full());
-			}
-		}
+		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(this.d, r[0], r[1], r[2], r[3], this.deck,
+			dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.SHOULDERED);
 		this.top = Math.max(this.top, y + 1);
 		return this;
 	}
@@ -639,17 +632,11 @@ public final class Hall {
 				this.d.inStage(StageKind.OPENINGS, () -> this.d.set(wxx, deckY + 1, (z0 + z1) / 2, this.d.mat(Role.GLASS).pane()));
 			}
 			int up = deckY + 3;
-			try (var st = this.d.stage(StageKind.ROOF)) {
-				for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
-					if (up + 2 < this.d.maxHeight()) {
-						this.d.set(c[0], up + 1, c[1], wall.full());
-					}
-				}
-			}
+			// its parapet's corners eased into shoulders, as the hall's own
+			dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(this.d, x0, z0, x1, z1, up, dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.SHOULDERED);
 			this.top = Math.max(this.top, up + 2);
 		}
 		// an awning of cloth on poles over the front of the terrace, pots along the parapet
-		Mat cloth = this.d.mat(Role.CLOTH);
 		Mat pole = woodFence(this.d);
 		int ax0 = r[0] + 1;
 		int ax1 = Math.min(r[2] - 1, ax0 + 2);
@@ -657,14 +644,8 @@ public final class Hall {
 		int az1 = Math.min(r[3] - 1, az0 + 1);
 		if (deckY + 3 < this.d.maxHeight() && ax1 > ax0 && az1 >= az0) {
 			try (var st = this.d.stage(StageKind.EXTERIOR)) {
-				for (int x = ax0; x <= ax1; x++) {
-					for (int z = az0; z <= az1; z++) {
-						if (this.d.isEmpty(x, deckY + 2, z)) {
-							this.d.set(x, deckY + 2, z, cloth.has(Form.SLAB) ? cloth.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM)
-								: cloth.full());
-						}
-					}
-				}
+				// canvas of one colour, not the house's every cloth cell by cell
+				dev.voidmc.hearth.build.kit.townhome.Life.awning(this.d, ax0, az0, ax1, az1, deckY + 2);
 				for (int[] c : new int[][]{{ax1, az1}, {ax1, az0}}) {
 					if (this.d.isEmpty(c[0], deckY, c[1])) {
 						this.d.set(c[0], deckY, c[1], pole.fence());

@@ -298,7 +298,7 @@ public final class Halls {
 	}
 
 	/**
-	 * Furniture for a flat roof inside its parapet: an awning of the town's cloth on four posts over a bench, pots along
+	 * Furniture for a flat roof inside its parapet: an awning of canvas on four posts over a bench, pots along
 	 * the parapet, a VIEWPOINT under the awning. {@code r} is the roof's wall rectangle, {@code deck} its standing level.
 	 */
 	public static void roofTerrace(Draft d, int[] r, int deck, boolean right) {
@@ -307,7 +307,6 @@ public final class Halls {
 		if (w < 4 || dd < 4) {
 			return;
 		}
-		Mat cloth = d.mat(Role.CLOTH);
 		int ax0 = right ? r[2] - 4 : r[0] + 1;
 		int ax1 = ax0 + 3;
 		int az0 = r[1] + 1;
@@ -322,12 +321,9 @@ public final class Halls {
 				d.set(c[0], deck, c[1], post(d));
 				d.set(c[0], deck + 1, c[1], post(d));
 			}
-			for (int x = ax0; x <= ax1; x++) {
-				for (int z = az0; z <= az1; z++) {
-					d.set(x, deck + 2, z, cloth.has(Form.SLAB) ? cloth.slab(SlabType.BOTTOM) : cloth.full());
-				}
-			}
 		}
+		// canvas of one colour, not the town's every cloth cell by cell
+		dev.voidmc.hearth.build.kit.townhome.Life.awning(d, ax0, az0, ax1, az1, deck + 2);
 		dev.voidmc.hearth.build.kit.Furniture.chair(d, ax0 + 1, deck, az0 + 1, Dirs.BACK);
 		d.poi(dev.voidmc.hearth.api.PoiType.VIEWPOINT, ax0 + 2, deck, az0 + 1, Dirs.FRONT);
 		for (int x = r[0] + 2; x < r[2] - 1; x += 3) {

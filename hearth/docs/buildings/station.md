@@ -28,8 +28,9 @@ does not): the Bohemian town manner for the merchant and the reeve, the village 
 **Hovel.** One room under a big roof come down low, walls on a course of fieldstone with the daub mended in patches
 (packed mud, a board over a hole, stones at the foot); a lean-to run on as a catslide over the firewood; a fire pit on
 its hearthstone against the back wall with a bed either side; a doorstep with a stool, a pot of flowers and the water
-barrel; ferns at the foot. Poor but cared for. Flat lands build an adobe cell with a shade of poles over the cooking
-fire, round-house lands a cone of thatch, raised lands a hut on piles, the north a turf roof.
+barrel; ferns at the foot. Poor but cared for. Flat lands build an adobe cell with a lower store or an open lean-to of poles
+and reeds against its side, a yard walled from the street and a reed shade over the cooking fire (over the doorway on a
+shallow plot), round-house lands a cone of thatch, raised lands a hut on piles, the north a turf roof.
 
 **Shack.** The town's poor in the back lanes: a narrow board-and-batten shack in a row, mended with odd planks, a
 sleeping loft oversailing the lane on brackets, a patched lean-to roof, a rubble flue; crates and a barrel at the door,
@@ -81,7 +82,8 @@ whole household in the garret, on knee walls two high, where the plot leaves roo
 
 **Hermit's hut.** Out past the fields: a tiny cell under a low mossy roof, one shuttered window, a bed, a fire and a
 lectern with the book always open; before it a wayside shrine of the culture's kind where passers-by stop (ALTAR), a
-fenced garden of herbs with a hive, a bench, a woodpile, a rain barrel, ferns grown up all round.
+fenced garden of herbs with a hive, a bench, a woodpile, a rain barrel, ferns grown up all round. In the dry lands a
+mud cell with a lean-to of poles and reeds along its front over the door and the bench, its garden walled in mud.
 
 ## Kit (`build/kit/station/`)
 

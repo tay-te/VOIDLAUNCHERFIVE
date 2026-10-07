@@ -136,10 +136,12 @@ rakes and an eave board, the house one storey under it; **window trim** on log a
 window and door and a thin sill board under each window (`Carving.dripCaps`, trapdoors or slabs, never full blocks), in
 the frame's timber, white joinery only on the better station's houses (`Carving.trim`); no horns on a cottage (they are
 for halls and stave buildings); log corners show their ends in a clean column at the four corners only; in flat-roofed
-cultures the **dry-land dressing** (`HouseBuilder.dryDress`): rounded-over parapets in the pueblos, corner pinnacles
-elsewhere, a **wind tower** with latticed vents rising from a back corner of the roof (desert), a latticed screen boxed out
+cultures the **dry-land dressing** (`HouseBuilder.dryDress`): rounded-over parapets in the pueblos, elsewhere a plain
+coping with its corners eased round (`Adobe.Parapet.SHOULDERED`; merlons are for forts, noble seats and the law, never a
+home or a workshop), a **wind tower** with latticed vents rising from a back corner of the roof (desert), a latticed screen boxed out
 over the window above the door on a two-storey house, the door in a painted surround with a tile at its sill, jars, a
-palm-frond **ramada** before the door, a rug and seats on the roof terrace. And a **split-level** variant on hillside
+**ramada** of poles and reed mats before the door, one rug in a worn colour (`Life.rug`), a seat and jars on the roof
+terrace, under an awning of plain canvas (`Life.awning`), never the cloth palette cell by cell. And a **split-level** variant on hillside
 plots (rise or fall of 3+ to the back, not terraced): where the land falls, the street door opens into the main floor
 and the lower storey has a back door onto a terrace at the lower ground; where it rises, the street door opens into the
 lower storey cut into the bank and the upper floor has a side door out at grade. A cottage whose loft is too low for a
@@ -147,9 +149,11 @@ bed sleeps downstairs (beds placed on purpose, `Beds`). Params: `storeys`, `gard
 true), `terraced`, `turf` (bool), `station`, `household`.
 
 **`house/hut`** (refined). Round cultures: a round hut on an odd ring of the Round kit (painted in the steppe, a smoke hole
-over its fire, the bed placed first). Flat-roofed cultures: an adobe cell with its parapet rounded over, a palm-frond shade
-before the door where the plot allows, a smoker oven against the side (the household's HEARTH before its mouth), jars and a
-tile at the sill. Elsewhere a small gabled hut with peeled logs and a stone sill in log country. One bed, and a chest or a
+over its fire, the bed placed first). Flat-roofed cultures: an adobe cell with its parapet rounded over, kept to one side of a
+plot six or more wide so a yard lies beside it under a **lean-to of poles and reeds** sheltering the smoker oven (the
+household's HEARTH before its mouth), firewood and jars; a mud **yard wall** along the street (the gap at the door) and
+down the yard's side where it is two wide; a shade of poles and reeds before the door, or over the doorway alone on a
+shallow plot; jars and a tile at the sill. Elsewhere a small gabled hut with peeled logs and a stone sill in log country. One bed, and a chest or a
 table where they fit.
 
 ## The Bohemian village (temperate)
@@ -204,7 +208,7 @@ courtyard houses).
   farmsteads.
 - **Mediterranean / alpine**: dry-stone terraces of vines and olives, or hay meadows with beehives; alpine barns with a
   boarded loft over a stone byre.
-- **Desert / mesa**: houses with wind towers, rounded or crested parapets, latticed screens, palm-frond shades and roof
+- **Desert / mesa**: houses with wind towers, rounded or coped parapets (never merlons), latticed screens, reed shades and roof
   terraces; court farmsteads behind walls with an arcade before the house and a painted gate; flat-roofed byres with a
   palm shade before their doors and rooftop hay; adobe huts.
 
@@ -231,7 +235,8 @@ courtyard houses).
 - `RoofDress` – barge boards (a roof row or column restated in the trim).
 - `Carving` – horns over a hall's gables (one block past the ridge), window trim (thin caps and sills in the frame's
   timber, `trim`/`board`).
-- `Adobe` – parapets (rounded or crested), wind towers, palm-frond ramadas, tiled thresholds, jars, roof-terrace life.
+- `Adobe` – parapets (rounded, shouldered, or merlons for forts and seats), wind towers, reed ramadas, lean-tos of poles
+  and reeds, doorway shades, mud yard walls, tiled thresholds, jars, roof-terrace life.
 - `Bohemia` – the Bohemian village: roof forms and steep pitches, the carried ridge, boarded gables with their pent,
   fieldstone plinths, benches, wattle, roofed gates, log hives.
 

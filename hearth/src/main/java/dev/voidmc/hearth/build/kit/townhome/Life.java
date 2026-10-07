@@ -13,6 +13,7 @@ import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import net.minecraft.core.Direction;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.TripWireBlock;
@@ -92,6 +93,63 @@ public final class Life {
 		}
 		Block carpet = d.mat(Role.CLOTH).block(Form.CARPET, x, y, z);
 		d.inStage(StageKind.EXTERIOR, () -> d.set(x, y, z, carpet.defaultBlockState()));
+	}
+
+	/** Dyes that read as worn cloth on a roof in the sun, the most muted first. */
+	private static final DyeColor[] MUTED = {DyeColor.BROWN, DyeColor.LIGHT_GRAY, DyeColor.GRAY, DyeColor.WHITE};
+
+	/**
+	 * The house's cloth in one muted colour, for what lies out on a roof in full view (a rug, an awning): the first of the
+	 * style's cloths that is a worn colour (brown, grey, undyed), else undyed canvas ({@code canvas}) or a brown rug.
+	 * One colour, never a cloth picked cell by cell: a roof laid in four colours reads as a fairground.
+	 */
+	public static DyeColor mutedCloth(Draft d, boolean canvas) {
+		var p = d.mat(Role.CLOTH).palette();
+		for (DyeColor dye : MUTED) {
+			for (var e : p.entries()) {
+				if (e.material().spec().toLowerCase(java.util.Locale.ROOT).equals("dye:" + dye.getName())) {
+					return dye;
+				}
+			}
+		}
+		return canvas ? DyeColor.WHITE : DyeColor.BROWN;
+	}
+
+	/**
+	 * One rug laid out on a roof terrace over {@code x0..x1 × z0..z1} at standing level y, in a single muted colour; only
+	 * on free, floored cells. Returns how many cells it covered.
+	 */
+	public static int rug(Draft d, int x0, int z0, int x1, int z1, int y) {
+		BlockState rug = Blocks.CARPET.pick(mutedCloth(d, false)).defaultBlockState();
+		int n = 0;
+		try (var st = d.stage(StageKind.EXTERIOR)) {
+			for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+				for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+					if (d.isEmpty(x, y, z) && d.isSolid(x, y - 1, z)) {
+						d.set(x, y, z, rug);
+						n++;
+					}
+				}
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * The cover of an awning over a roof terrace, {@code x0..x1 × z0..z1} at height y (its posts are the caller's): canvas
+	 * slabs of one colour. Only where nothing is drawn.
+	 */
+	public static void awning(Draft d, int x0, int z0, int x1, int z1, int y) {
+		BlockState cover = Blocks.WOOL_SLAB.pick(mutedCloth(d, true)).defaultBlockState();
+		try (var st = d.stage(StageKind.EXTERIOR)) {
+			for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+				for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+					if (d.isAbsent(x, y, z)) {
+						d.set(x, y, z, cover);
+					}
+				}
+			}
+		}
 	}
 
 	/**

@@ -179,6 +179,12 @@ public final class HermitHut implements Archetype {
 			Groundwork.approach(d, door, base, bz0 - 1);
 			Garden.path(d, Garden.line(door, bz0 - 1, door, 0), 0);
 		}
+		if (flat && !raised) {
+			// the dry lands' cell: a lean-to of poles and reeds along its front, shading the door and the bench
+			if (!Adobe.leanTo(d, bx0, bz0 - 2, bx1, bz0 - 1, base, Dirs.BACK)) {
+				Adobe.doorShade(d, door, bz0, base);
+			}
+		}
 		Hovel.doorLight(d, door, base, bz0 - 1, !hutLeft);
 		shrine(d, door, bz0, hutLeft);
 		garden(d, body, hutLeft);
@@ -294,7 +300,22 @@ public final class HermitHut implements Archetype {
 				}
 			}
 		}
-		if (fenced && x1 - x0 >= 2) {
+		if (Traits.of(d).flat() && b.baseY == 0) {
+			// the dry lands wall a garden in mud: along its open side and across its street end, a gap by the hut
+			List<int[]> wall = new ArrayList<>();
+			if (x1 - x0 >= 2) {
+				for (int z = z0; z <= z1; z++) {
+					wall.add(new int[]{fenceX, z});
+				}
+			}
+			int gate = hutLeft ? x0 : x1;
+			for (int x = x0; x <= x1 && z0 >= 1; x++) {
+				if (x != gate) {
+					wall.add(new int[]{x, z0 - 1});
+				}
+			}
+			Adobe.yardWall(d, wall, b.baseY);
+		} else if (fenced && x1 - x0 >= 2) {
 			List<int[]> line = new ArrayList<>();
 			for (int z = z0; z <= z1; z++) {
 				line.add(new int[]{fenceX, z});

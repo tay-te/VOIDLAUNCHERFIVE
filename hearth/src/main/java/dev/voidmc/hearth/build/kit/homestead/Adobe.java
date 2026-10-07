@@ -33,7 +33,15 @@ public final class Adobe {
 	public enum Parapet {
 		/** Mud: the coping rounded over (a bullnose), the corners eased. */
 		ROUNDED,
-		/** Dressed stone or plaster: a stepped pinnacle at each corner and over the middle of a long side. */
+		/**
+		 * A home's or a workshop's: the plain coping run round, its corners eased into rounded shoulders (the coping turned
+		 * over outward there), no pinnacle anywhere.
+		 */
+		SHOULDERED,
+		/**
+		 * Dressed stone or plaster: a stepped pinnacle at each corner and over the middle of a long side. Only for the
+		 * fort, the noble seat and the law: on a house it makes the town a town of little forts.
+		 */
 		MERLONS
 	}
 
@@ -64,6 +72,15 @@ public final class Adobe {
 						Mat round = wall.has(Form.STAIRS) ? wall : accent.has(Form.STAIRS) ? accent : trim.has(Form.STAIRS) ? trim : null;
 						if (round != null) {
 							d.set(x, y + 1, z, round.stairs(side.out().getOpposite(), Half.BOTTOM));
+						}
+					} else if (kind == Parapet.SHOULDERED) {
+						// at the corner the coping turned over outward, a stair of its own stone easing the corner round
+						// (the shape resolver turns the pair at each corner into one rounded quarter); no pinnacle stands on it
+						Mat round = cap.has(Form.STAIRS) ? cap : wall.has(Form.STAIRS) ? wall : null;
+						if (corner && round != null) {
+							d.set(x, y + 1, z, round.stairs(side.out().getOpposite(), Half.BOTTOM));
+						} else if (d.isAbsent(x, y + 1, z)) {
+							d.set(x, y + 1, z, cap.slab(SlabType.BOTTOM));
 						}
 					} else if (corner || side.length() >= 8 && i == mid) {
 						d.set(x, y + 1, z, wall.full());
@@ -139,8 +156,8 @@ public final class Adobe {
 	}
 
 	/**
-	 * A shade over the cells {@code x0..x1 × z0..z1} at standing level y: poles at the corners, a roof of slats with palm
-	 * fronds laid over it two blocks up. Only over cells that are free; returns whether it was built.
+	 * A shade over the cells {@code x0..x1 × z0..z1} at standing level y: poles at the corners, a roof of reed mats with
+	 * palm fronds laid over it two blocks up. Only over cells that are free; returns whether it was built.
 	 */
 	public static boolean ramada(Draft d, int x0, int z0, int x1, int z1, int y) {
 		if (y + 3 >= d.maxHeight()) {
@@ -154,13 +171,12 @@ public final class Adobe {
 		}
 		for (int x = x0; x <= x1; x++) {
 			for (int z = z0; z <= z1; z++) {
-				if (!d.isAbsent(x, y + 2, z) || !Verandas.in(d, x, z)) {
+				if (!d.isEmpty(x, y + 2, z) || !Verandas.in(d, x, z)) {
 					return false;
 				}
 			}
 		}
 		Mat pole = d.mat(Role.FRAME);
-		Mat slat = d.mat(Role.FURNITURE);
 		Mat frond = d.mat(Role.TREE_LEAVES);
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int[] p : posts) {
@@ -171,15 +187,195 @@ public final class Adobe {
 				for (int z = z0; z <= z1; z++) {
 					boolean edge = x == x0 || x == x1 || z == z0 || z == z1;
 					double u = Noise.unit(d.seed() ^ 0x8A3A, x, y, z);
-					if (frond.has(Form.FULL) && (u < 0.45 && !edge || u < 0.2)) {
+					if (frond.has(Form.FULL) && (u < 0.3 && !edge || u < 0.1)) {
 						d.set(x, y + 2, z, frond.leaves());
 					} else {
-						d.set(x, y + 2, z, slat.trapdoor(Dirs.FRONT, Half.BOTTOM, false));
+						d.set(x, y + 2, z, reed(SlabType.BOTTOM));
 					}
 				}
 			}
 		}
 		return true;
+	}
+
+	/** Reeds: the woven cane mat a dry-land shade is roofed with, pale as straw. */
+	public static net.minecraft.world.level.block.state.BlockState reed(SlabType type) {
+		return Blocks.BAMBOO_MOSAIC_SLAB.defaultBlockState().setValue(BlockStateProperties.SLAB_TYPE, type);
+	}
+
+	/** A pole of the frame's timber: a fence where the wood has one, else an upright log. */
+	private static net.minecraft.world.level.block.state.BlockState pole(Draft d, int x, int y, int z) {
+		Mat pole = d.mat(Role.FRAME);
+		var p = pole.fence().orElse(pole.log(Direction.Axis.Y)).at(x, y, z);
+		return p == null ? Blocks.OAK_FENCE.defaultBlockState() : p;
+	}
+
+	/**
+	 * A lean-to of poles and reeds over the cells {@code x0..x1 × z0..z1} at standing level y, its back against the wall
+	 * on side {@code toWall} (the house's, or a yard wall's): poles at its open corners (and every third cell of a long
+	 * run) where the ground is free, a roof of reed mats two up, a half-step higher against the wall so it reads as
+	 * falling away from it, fronds thrown over here and there; jars, a water jar, a stack of firewood along the wall
+	 * under it. Cells already holding something keep it (an oven sheltered under it, a yard wall carrying its edge).
+	 * Needs at least a cell of roof clear; returns whether it was built.
+	 */
+	public static boolean leanTo(Draft d, int x0, int z0, int x1, int z1, int y, Direction toWall) {
+		int ax = Math.min(x0, x1);
+		int bx = Math.max(x0, x1);
+		int az = Math.min(z0, z1);
+		int bz = Math.max(z0, z1);
+		if (y + 3 >= d.maxHeight()) {
+			return false;
+		}
+		int clear = 0;
+		for (int x = ax; x <= bx; x++) {
+			for (int z = az; z <= bz; z++) {
+				if (!Verandas.in(d, x, z)) {
+					return false;
+				}
+				clear += d.isEmpty(x, y + 2, z) ? 1 : 0;
+			}
+		}
+		if (clear == 0) {
+			return false;
+		}
+		boolean alongX = toWall.getAxis() == Direction.Axis.Z;
+		// the row against the wall, the open row away from it
+		int wallRow = alongX ? (Dirs.dz(toWall) > 0 ? bz : az) : (Dirs.dx(toWall) > 0 ? bx : ax);
+		int openRow = alongX ? (wallRow == bz ? az : bz) : (wallRow == bx ? ax : bx);
+		int r0 = alongX ? ax : az;
+		int r1 = alongX ? bx : bz;
+		Mat frond = d.mat(Role.TREE_LEAVES);
+		Mat poleWood = d.mat(Role.FRAME);
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int k = r0; k <= r1; k++) {
+				if (k != r0 && k != r1 && (k - r0) % 3 != 0) {
+					continue;
+				}
+				int px = alongX ? k : openRow;
+				int pz = alongX ? openRow : k;
+				if (d.isEmpty(px, y, pz) && d.isEmpty(px, y + 1, pz) && (d.isSolid(px, y - 1, pz) || y - 1 < d.site().ground(px, pz))) {
+					d.set(px, y, pz, pole(d, px, y, pz));
+					d.set(px, y + 1, pz, pole(d, px, y + 1, pz));
+				}
+			}
+			boolean deep = wallRow != openRow;
+			for (int x = ax; x <= bx; x++) {
+				for (int z = az; z <= bz; z++) {
+					if (!d.isEmpty(x, y + 2, z)) {
+						// a viga's end or a shutter: the reeds lie round it
+						continue;
+					}
+					boolean back = (alongX ? z : x) == wallRow;
+					double u = Noise.unit(d.seed() ^ 0x1EA7, x, y, z);
+					SlabType t = deep && back ? SlabType.TOP : SlabType.BOTTOM;
+					int k = alongX ? x : z;
+					if ((k - r0) % 3 == 0 || k == r1) {
+						// a rafter pole over each post, from the post to the wall
+						d.set(x, y + 2, z, poleWood.slab(t).orElse(poleWood.full()));
+					} else if (frond.has(Form.FULL) && !back && u < 0.12) {
+						d.set(x, y + 2, z, frond.leaves());
+					} else {
+						d.set(x, y + 2, z, reed(t));
+					}
+				}
+			}
+		}
+		// along the wall under it: firewood at one end, jars
+		boolean wood = false;
+		for (int k = r0; k <= r1; k++) {
+			int x = alongX ? k : wallRow;
+			int z = alongX ? wallRow : k;
+			var behind = d.get(x + Dirs.dx(toWall), y, z + Dirs.dz(toWall));
+			if (!Spots.standable(d, x, y, z) || Spots.claimed(d, x, y, z) || !d.isEmpty(x, y, z)
+				|| behind != null && behind.getBlock() instanceof net.minecraft.world.level.block.DoorBlock) {
+				continue;
+			}
+			double u = Noise.unit(d.seed() ^ 0x1EA8, x, y, z);
+			if (!wood && (k == r0 || k == r1) && r1 > r0) {
+				int fx = x;
+				int fz = z;
+				d.inStage(StageKind.EXTERIOR, () -> {
+					d.set(fx, y, fz, d.mat(Role.BEAM).log(alongX ? Direction.Axis.X : Direction.Axis.Z));
+				});
+				wood = true;
+			} else if (u < 0.45) {
+				jar(d, x, y, z);
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * A shade of reeds over a doorway at column {@code door} of a front wall whose face is {@code wallZ} (the shade stands
+	 * on the cells in front of it, z = wallZ - 1), standing level y: three cells of reed mat at the lintel, on two poles
+	 * where the ground before the door is free, else carried on the wall alone. Returns whether it was built.
+	 */
+	public static boolean doorShade(Draft d, int door, int wallZ, int y) {
+		int z = wallZ - 1;
+		if (z < 0 || y + 3 >= d.maxHeight()) {
+			return false;
+		}
+		for (int x = door - 1; x <= door + 1; x++) {
+			if (!Verandas.in(d, x, z)) {
+				return false;
+			}
+		}
+		if (!d.isEmpty(door, y + 2, z) && !d.isEmpty(door, y + 3, z)) {
+			return false;
+		}
+		// over a viga's end the shade lies a course higher, on it
+		int sy = d.isEmpty(door - 1, y + 2, z) && d.isEmpty(door, y + 2, z) && d.isEmpty(door + 1, y + 2, z) ? y + 2 : y + 3;
+		if (sy + 1 >= d.maxHeight()) {
+			return false;
+		}
+		boolean poles = true;
+		for (int x : new int[]{door - 1, door + 1}) {
+			poles &= d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && Spots.standable(d, x, y, z) && !Spots.claimed(d, x, y, z);
+		}
+		boolean posts = poles;
+		d.inStage(StageKind.EXTERIOR, () -> {
+			if (posts) {
+				for (int x : new int[]{door - 1, door + 1}) {
+					for (int yy = y; yy < sy; yy++) {
+						if (d.isEmpty(x, yy, z)) {
+							d.set(x, yy, z, pole(d, x, yy, z));
+						}
+					}
+				}
+			}
+			for (int x = door - 1; x <= door + 1; x++) {
+				if (d.isEmpty(x, sy, z)) {
+					d.set(x, sy, z, reed(SlabType.BOTTOM));
+				}
+			}
+		});
+		return true;
+	}
+
+	/**
+	 * A yard wall of mud along the given cells at standing level y: a course of the wall, rounded over with the coping a
+	 * course up (head-high to a child, waist-high to a man), only where the cell is free and stands on ground. A dry-land
+	 * house turns its back on the street behind one: the yard inside is where the household lives.
+	 */
+	public static void yardWall(Draft d, Iterable<int[]> cells, int y) {
+		if (y + 2 >= d.maxHeight()) {
+			return;
+		}
+		Mat wall = d.mat(Role.WALL);
+		Mat accent = d.mat(Role.WALL_ACCENT);
+		Mat cap = wall.has(Form.SLAB) ? wall : accent.has(Form.SLAB) ? accent : null;
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int[] c : cells) {
+				int x = c[0];
+				int z = c[1];
+				if (!Verandas.in(d, x, z) || !d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z) || Spots.claimed(d, x, y, z)
+					|| !d.isSolid(x, y - 1, z) && y - 1 >= d.site().ground(x, z) || d.site().isWater(x, z)) {
+					continue;
+				}
+				d.set(x, y, z, wall.full());
+				d.set(x, y + 1, z, cap == null ? wall.full() : cap.slab(SlabType.BOTTOM));
+			}
+		}
 	}
 
 	/**
@@ -256,8 +452,8 @@ public final class Adobe {
 	}
 
 	/**
-	 * Roof-terrace living on a deck {@code x0..x1 × z0..z1} (inside the parapet) at standing level y: a carpet laid in the
-	 * shade, low seats, jars along the parapet, a lantern; keeps (kx, kz), the way up, free. Returns a seat cell or null.
+	 * Roof-terrace living on a deck {@code x0..x1 × z0..z1} (inside the parapet) at standing level y: one muted rug laid in
+	 * a corner, a low seat, jars along the parapet; keeps (kx, kz), the way up, free. Returns a seat cell or null.
 	 */
 	public static int[] terraceLife(Draft d, int x0, int z0, int x1, int z1, int y, int kx, int kz) {
 		int w = x1 - x0 + 1;
@@ -271,8 +467,8 @@ public final class Adobe {
 		int cz = Math.abs(kz - z0) > Math.abs(kz - z1) ? z0 : z1;
 		int dx = cx == x0 ? 1 : -1;
 		int dz = cz == z0 ? 1 : -1;
-		var cloth = d.mat(Role.CLOTH).palette();
-		var carpet = cloth.main().block(Form.CARPET);
+		// one rug, in one worn colour (a roof laid in the house's every cloth reads as a fairground)
+		var carpet = net.minecraft.world.level.block.Blocks.CARPET.pick(dev.voidmc.hearth.build.kit.townhome.Life.mutedCloth(d, false));
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int i = 0; i < 2; i++) {
 				for (int j = 0; j < 2; j++) {
