@@ -105,6 +105,15 @@ public final class PackLodRenderer {
 		return this.depth == null ? 0 : this.depth.getTextureId();
 	}
 
+	/** The size of the LOD's depth texture, the pack's main target's. */
+	public int width() {
+		return this.width;
+	}
+
+	public int height() {
+		return this.height;
+	}
+
 	/** The LOD's depth under its water, for the pack's dhDepthTex1. */
 	public int depthTextureUnderWater() {
 		if (this.water == null) {
@@ -268,9 +277,8 @@ public final class PackLodRenderer {
 	private void ranges(PackLodProgram program, PackFrame frame, boolean water, boolean both) {
 		int boundHeap = -1;
 		for (int i = 0; i < frame.count; i++) {
-			int first = water ? frame.waterFirst[i] : 0;
-			int count = water ? frame.waterIndices[i] : frame.landIndices[i] + (both ? frame.waterIndices[i] : 0);
-			if (count == 0) {
+			boolean any = water ? frame.waterIndices[i] > 0 : frame.runs[i] > 0 || both && frame.waterIndices[i] > 0;
+			if (!any) {
 				continue;
 			}
 			if (frame.heap[i] != boundHeap) {
@@ -278,7 +286,19 @@ public final class PackLodRenderer {
 				this.layout(boundHeap);
 			}
 			program.modelOffset(frame.offset[i * 3], frame.offset[i * 3 + 1], frame.offset[i * 3 + 2]);
-			GL32C.glDrawElementsBaseVertex(GL32C.GL_TRIANGLES, count, frame.indexType, (long) first * frame.indexBytes, frame.baseVertex[i]);
+			if (!water) {
+				// the land that can face the camera, a run or a few
+				for (int r = 0; r < frame.runs[i]; r++) {
+					int first = frame.landRuns[i * 6 + r * 2], count = frame.landRuns[i * 6 + r * 2 + 1];
+					if (count > 0) {
+						GL32C.glDrawElementsBaseVertex(GL32C.GL_TRIANGLES, count, frame.indexType, (long) first * frame.indexBytes, frame.baseVertex[i]);
+					}
+				}
+			}
+			if ((water || both) && frame.waterIndices[i] > 0) {
+				GL32C.glDrawElementsBaseVertex(GL32C.GL_TRIANGLES, frame.waterIndices[i], frame.indexType,
+					(long) frame.waterFirst[i] * frame.indexBytes, frame.baseVertex[i]);
+			}
 		}
 	}
 

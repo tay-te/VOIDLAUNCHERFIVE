@@ -13,6 +13,12 @@ public final class PackFrame {
 	public int[] heap = new int[256];
 	public int[] baseVertex = new int[256];
 	public int[] landIndices = new int[256];
+	/**
+	 * Per tile, the runs of its land that can face the camera (up to three: first index and count each, in
+	 * {@link #landRuns}) and how many there are; the shadow pass draws the whole land, {@link #landIndices}.
+	 */
+	public int[] landRuns = new int[256 * 6];
+	public int[] runs = new int[256];
 	public int[] waterFirst = new int[256];
 	public int[] waterIndices = new int[256];
 	/** x, y, z per tile: its corner (y: the vertical offset its vertices carry) relative to the camera, in blocks. */
@@ -26,6 +32,25 @@ public final class PackFrame {
 	/** How far vanilla's chunks reach: the pack's programs fade the LOD in toward it. */
 	public float clip;
 
+	/** Replaces the last tile's land with only the runs given next (call before the first {@link #addRun}). */
+	void clearRuns() {
+		this.runs[this.count - 1] = 0;
+	}
+
+	void addRun(int first, int count) {
+		int i = this.count - 1;
+		int r = this.runs[i];
+		if (r == 3) {
+			// a fourth run: merge it into the third, drawing what lies between
+			int end = first + count;
+			this.landRuns[i * 6 + 5] = end - this.landRuns[i * 6 + 4];
+			return;
+		}
+		this.landRuns[i * 6 + r * 2] = first;
+		this.landRuns[i * 6 + r * 2 + 1] = count;
+		this.runs[i] = r + 1;
+	}
+
 	void clear() {
 		this.count = 0;
 	}
@@ -36,6 +61,8 @@ public final class PackFrame {
 			this.heap = Arrays.copyOf(this.heap, n);
 			this.baseVertex = Arrays.copyOf(this.baseVertex, n);
 			this.landIndices = Arrays.copyOf(this.landIndices, n);
+			this.landRuns = Arrays.copyOf(this.landRuns, n * 6);
+			this.runs = Arrays.copyOf(this.runs, n);
 			this.waterFirst = Arrays.copyOf(this.waterFirst, n);
 			this.waterIndices = Arrays.copyOf(this.waterIndices, n);
 			this.offset = Arrays.copyOf(this.offset, n * 3);
@@ -45,6 +72,10 @@ public final class PackFrame {
 		this.heap[i] = heap;
 		this.baseVertex[i] = baseVertex;
 		this.landIndices[i] = landIndices;
+		// the whole land unless runs are given (addRun)
+		this.runs[i] = 1;
+		this.landRuns[i * 6] = 0;
+		this.landRuns[i * 6 + 1] = landIndices;
 		this.waterFirst[i] = waterFirst;
 		this.waterIndices[i] = waterIndices;
 		this.offset[i * 3] = (float) x;

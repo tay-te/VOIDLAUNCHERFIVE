@@ -27,6 +27,8 @@ public final class Tile {
 	public int landIndices;
 	/** Where the tile's indices start in the index buffer it is drawn with: a flat smooth tile's are past the grid's. */
 	public int firstIndex;
+	/** Where each group of faces starts, in quads ({@code TileBuilder.GROUP_*}, the last entry the end), or null: one draw. */
+	public int[] groups;
 	public boolean smooth;
 	/** A far blocky tile with compact vertices ({@link TileBuilder#COMPACT_BYTES}). */
 	public boolean compact;

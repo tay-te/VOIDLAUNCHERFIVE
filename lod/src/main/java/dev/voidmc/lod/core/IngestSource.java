@@ -33,7 +33,14 @@ public final class IngestSource implements TerrainSource {
 	public IngestSource(ColumnStore store, TerrainSource fallback) {
 		this.store = store;
 		this.fallback = fallback;
+		this.realTrees = fallback != null && fallback.decorator() != null;
 	}
+
+	/**
+	 * Whether the generator stands the world's own trees on the close tiles ({@link Decorator}): then a seen crown stays a
+	 * canopy over its ground, rather than becoming leaf blocks down to the trunk's foot, which the trees themselves are.
+	 */
+	private final boolean realTrees;
 
 	public ColumnStore store() {
 		return this.store;
@@ -63,6 +70,11 @@ public final class IngestSource implements TerrainSource {
 	}
 
 	@Override
+	public Decorator decorator() {
+		return this.fallback == null ? null : this.fallback.decorator();
+	}
+
+	@Override
 	public boolean keepsAnswers() {
 		return this.fallback != null && this.fallback.keepsAnswers();
 	}
@@ -80,11 +92,11 @@ public final class IngestSource implements TerrainSource {
 		sum.clear();
 		int total;
 		if (cell <= 1) {
-			this.add(r, x, z, 1, true);
+			this.add(r, x, z, 1, !this.realTrees);
 			total = 1;
 		} else {
 			int h = cell >> 1;
-			boolean exact = cell <= EXACT;
+			boolean exact = cell <= EXACT && !this.realTrees;
 			this.add(r, x - h, z - h, h, exact);
 			this.add(r, x, z - h, h, exact);
 			this.add(r, x - h, z, h, exact);

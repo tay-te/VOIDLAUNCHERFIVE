@@ -116,6 +116,24 @@ a fraction of the cost.
     `MaterialSystem`, so canyon walls are striped exactly as the chunks stripe them.
   * Vanilla's ambient occlusion: each top corner darkens with the neighbours above it, quads split
     along the brighter diagonal, and every wall darkens along its lowest block.
+  * **The world's own trees next to the chunks** (`source/TreeDecorator`, `core/Decorator`). On the tiles right
+    past the chunks the trees are the ones the chunks will have: for each chunk, the biomes' tree features run
+    exactly as the chunk generator's decoration step runs them (the same decoration seed from the world seed and
+    the chunk, the same feature seed from each feature's place in the step, the same placement modifiers and
+    biome filters), against a stand-in world that answers from the terrain source (its ground, surface block,
+    water and biomes) and records every log and leaf they set. They are drawn block by block (`Blocky.voxelFaces`):
+    each face not against another block, vanilla's smooth-lighting corners, rings on a log's ends and bark on its
+    sides, leaves in their texture with its gaps darkened, as cut-out leaves read from afar. Nothing reaches the
+    real world (the stand-in hands out neither the level nor the server). Measured against the real chunks over a
+    96-block square 200 blocks out (`-Plod.show.seam=true`): the same kinds in the same numbers, 60% of trunk
+    columns where the chunks have them and 55% of logs on the very block; the rest differ where the chunk itself
+    differs from the terrain source (a tree of the neighbouring chunk placed first, a structure, a cave mouth).
+    Placed on threads of their own, nearest the player first, so the horizon never waits for them: a close tile is
+    built at once with drawn crowns and again, its close levels only, once its chunks' trees are placed. Kept in
+    the world's folder (`void_lod/<dimension>/trees`, a file per 32 x 32 chunks, about 0.3 KB a chunk, checked
+    against the world's identity), so a horizon seen before has its trees at once. In the stand-in world the
+    trees' last pass (each leaf's distance from a log, for decay) is skipped: it changes nothing drawn.
+    Further out:
   * Trees, one crown each (`core/Trees`): a jittered grid with the biome's density, each tree its own
     height and shade, darker under the canopy. Conifers are cones and broadleaf trees domes, in the
     biome's own mix: `BiomeLooks` reads each tree feature's foliage placer (spruce, pine, mega pine) or,
@@ -138,6 +156,15 @@ a fraction of the cost.
     begin at the bottom edge):
 
     ![blocky tiles before and after block textures](docs/seam_textures.jpg)
+* **The ground block for block next to the chunks** (`source/NoiseSurface`). A noise generator does not lay its
+  terrain at its model's height: it samples its density at the corners of cells (4 blocks across, 8 high),
+  interpolates, and fills where that is positive, so the ground strays a block or more from the model in bands
+  that follow the contours, and its 3D noise moves it further. On the tiles of one- and two-block cells the LOD
+  samples the generator's own interpolated density (its seeded sampler, from the world's noise router) at those
+  corners near the model's height and finds the first air block from above as the chunk does: 87% of columns at
+  the chunks' very height (49% before), mean error 0.4 blocks, and the trees stand where the chunks stand them.
+* **The sky of a far render distance.** Vanilla pales its sky toward the fog colour the shorter the render
+  distance; with the LOD drawing to the horizon it gets the colours it has at 32 chunks.
 * **Light from the land itself** (`core/Horizons`, `core/Heights`). Every vertex carries the land's horizon
   along the four axes, from its tile's own samples nearby and the height grids of the coarser tiles further
   out, to 8 km: a sweep per row with an upper convex hull, a few milliseconds a tile. Minecraft's sun crosses
@@ -216,6 +243,11 @@ a fraction of the cost.
     instance buffer and one `drawIndexedIndirect` per heap and kind of tile.
   * Only tiles in the seam with the chunks, or fading, use the shader variant with `discard`; the rest
     keep early-Z.
+  * Faces turned away are never drawn. Each blocky tile's quads are sorted by the way they face (north, west,
+    up, east, south, down: `TileBuilder.groupByFace`), and a wall's plane lies inside its tile, so from outside
+    a tile's span along an axis the walls facing away along it cannot be seen: the renderer draws only the runs
+    of groups that can face the camera, one to three commands a tile. Walls are about two thirds of a horizon's
+    quads; a third fewer quads reach the GPU. A shader pack's land is grouped and drawn the same way.
   * GPU time is measured with timestamp queries and logged with the other statistics.
 * **Shared depth** (`mixin/CameraMixin`). 26.3 renders reversed-Z into a 32-bit float buffer, so the far
   plane moves out to the LOD's reach for free. The LOD draws right after the opaque chunks, so every
@@ -329,6 +361,12 @@ again after leaving and rejoining, when its chunks never load:
 
 `./gradlew runClientGameTest -Plod.show.only=none -Plod.show.ingest=true` takes these;
 `-Plod.show.mp=true` does the same on a dedicated server.
+
+The seam, measured: `-Plod.show.seam=true` shoots each view a second time with the chunks out to
+`lod.show.seamFar` (24) and the LOD off, and logs, per band of distance, the mean colour, brightness and texture
+of each picture; over a square 200 blocks out it compares the real chunks' ground and logs with the LOD's
+(`seam_<view>.png` and `trees_<view>.png` in the screenshots). Views of one's own: `-Plod.show.at=name:x,y,z,yaw,pitch[,fov]`
+(several separated by `;`).
 
 At midnight, glowstone streets laid on a deck in loaded chunks and seen from 480 blocks away, past the
 chunks (`-Plod.show.town=true`), in the LOD's own renderer and through Complementary Reimagined:
@@ -472,6 +510,7 @@ cores.
 | Medium | laptop GPUs | 8 km | 7 / 7 px | 2 | 320 MB |
 | **High** (default) | desktop GPUs | 8 km | 5 / 5 px | up to 4 | 512 MB |
 | Ultra | strong desktop GPUs | 16 km | 4 / 3 px | up to 6 | 1 GB |
+| Extreme | strong desktop GPUs with memory to spare | 32 km | 4 / 3 px | up to 8 | 1.5 GB |
 
 Each preset from the 250-block peak above (1600×900, RTX 4060), settled, auto-tune off:
 

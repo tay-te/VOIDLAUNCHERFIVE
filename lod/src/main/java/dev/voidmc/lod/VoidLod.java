@@ -150,7 +150,8 @@ public final class VoidLod implements ClientModInitializer {
 		this.settings = this.saved.copy();
 		this.settings.override(System::getProperty);
 		this.enabled = this.settings.enabled;
-		TileBuilder.smoothFrom = this.settings.smoothFrom;
+		// no smooth levels at all, whatever the coarsest level now is (the setting's "never" predates the levels past 32 km)
+		TileBuilder.smoothFrom = this.settings.smoothFrom >= LodSettings.BLOCKY_EVERYWHERE ? Integer.MAX_VALUE : this.settings.smoothFrom;
 		// a server with VOID LOD describes the land past the view (net.FactsService)
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(dev.voidmc.lod.net.LodNet.Hello.TYPE,
 			(hello, context) -> this.hello(hello));
@@ -221,6 +222,10 @@ public final class VoidLod implements ClientModInitializer {
 		StructureSites sites = this.sites;
 		if (sites != null && mc.player != null) {
 			sites.centre(mc.player.getX(), mc.player.getZ());
+		}
+		dev.voidmc.lod.source.TreeDecorator trees = this.trees;
+		if (trees != null && mc.player != null) {
+			trees.centre(mc.player.getX(), mc.player.getZ());
 		}
 		// what the newly drawn tiles show, for other mods that listen (dev.voidmc.lod.api)
 		if (TileBuilder.captureTerrain && mc.level != null) {
@@ -361,6 +366,11 @@ public final class VoidLod implements ClientModInitializer {
 	/** The material registry of the current source: what the API turns material ids into blocks with. */
 	private Materials materials;
 
+	/** The current level's material registry (block faces by id), shared by its sources and the renderer; null without one. */
+	public Materials materials() {
+		return this.materials;
+	}
+
 	/** When this level was joined, and whether the time its horizon took to build has been logged. */
 	private long joinedNanos;
 	private boolean horizonReported;
@@ -425,6 +435,10 @@ public final class VoidLod implements ClientModInitializer {
 		TileBuilder.packMaterials = new dev.voidmc.lod.source.PackMaterials(materials);
 		TerrainSource generator = this.createGenerator(mc, materials);
 		Path dir = this.saveDir(mc);
+		if (generator instanceof WorldgenSource w && dir != null && w.decorator() instanceof dev.voidmc.lod.source.TreeDecorator trees) {
+			// the world's trees kept beside its generated land, worked out once
+			trees.keepIn(dir.resolve("trees"), this.generatorIdentity);
+		}
 		if (generator != null && dir != null && GENERATOR_CACHE) {
 			// the generator's answers kept in the world's folder: a horizon seen before is read, not generated
 			this.generatorCache = new GeneratorCache(generator, dir.resolve("generated"), new MaterialNames(materials), this.generatorIdentity);
@@ -454,7 +468,7 @@ public final class VoidLod implements ClientModInitializer {
 		}
 		LOGGER.info("VOID LOD: reading the loaded chunks of {} into the far view{}, saved in {}", mc.level.dimension().identifier(),
 			generator == null ? " (no generator here: only what has been seen is drawn)" : " over the generator's terrain", dir);
-		return new IngestSource(store, generator);
+		return this.withTrees(new IngestSource(store, generator));
 	}
 
 	/** The world's generator, sampled without building chunks: only where the server is ours (singleplayer, a LAN host). */
@@ -587,12 +601,33 @@ public final class VoidLod implements ClientModInitializer {
 	/** {@code -Dvoid.lod.generatorCache=false} samples the generator every time, as before the cache. */
 	private static final boolean GENERATOR_CACHE = !"false".equals(System.getProperty("void.lod.generatorCache"));
 	/** Bumped whenever the sources' answers change for the same generator, seed and mods (the cache's pages then go). */
-	private static final int SAMPLING_VERSION = 1;
+	private static final int SAMPLING_VERSION = 2;
 	private GeneratorCache generatorCache;
 	private long generatorIdentity;
 	/** {@code -Dvoid.lod.structures=false} leaves the world's structures off the land nobody has loaded. */
 	private static final boolean STRUCTURES = !"false".equals(System.getProperty("void.lod.structures"));
 	private StructureSites sites;
+	/** Chunks whose trees are still to be placed in the background (0 without the world's trees). */
+	public int treesPending() {
+		dev.voidmc.lod.source.TreeDecorator trees = this.trees;
+		return trees == null ? 0 : trees.queued();
+	}
+
+	/** The world's trees, placed in the background for the close tiles, or null. */
+	private dev.voidmc.lod.source.TreeDecorator trees;
+
+	/**
+	 * Hands the world's trees the source to stand them on (whole, the seen chunks included) and the engine to tell when a
+	 * tile's trees are ready, so its close levels are built again with them.
+	 */
+	private TerrainSource withTrees(TerrainSource source) {
+		this.trees = source.decorator() instanceof dev.voidmc.lod.source.TreeDecorator t ? t : null;
+		if (this.trees != null) {
+			this.trees.ground((x, z, out) -> source.sample(x, z, 1, out));
+			this.trees.onReady((minX, minZ, maxX, maxZ) -> this.engine.refresh(minX, minZ, maxX, maxZ, TileBuilder.treeLevels - 1));
+		}
+		return source;
+	}
 	private ServerLevel serverLevel;
 
 	/**
@@ -822,6 +857,10 @@ public final class VoidLod implements ClientModInitializer {
 		}
 		if (source instanceof WorldgenSource w) {
 			out.append(w.diagnostics());
+			if (w.trees() != null) {
+				out.append(" | ").append(w.trees().stats()).append(String.format(Locale.ROOT, ", %.1f s standing them",
+					dev.voidmc.lod.core.TileBuilder.TREE_NANOS.get() / 1e9));
+			}
 		}
 		ChunkIngest ingest = this.ingest;
 		if (ingest != null) {

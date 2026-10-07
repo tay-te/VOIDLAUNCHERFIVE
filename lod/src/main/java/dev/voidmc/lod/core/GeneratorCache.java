@@ -232,6 +232,11 @@ public final class GeneratorCache implements TerrainSource {
 	}
 
 	@Override
+	public Decorator decorator() {
+		return this.generator.decorator();
+	}
+
+	@Override
 	public boolean keepsAnswers() {
 		return !this.closed;
 	}

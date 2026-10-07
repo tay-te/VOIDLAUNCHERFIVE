@@ -38,8 +38,14 @@ import net.minecraft.world.level.levelgen.placement.RarityFilter;
  * client colours the leaves itself ({@link BiomeLooks}).
  */
 public final class TreeKinds {
-	/** One kind of tree: {@code count} a chunk on average, {@code height} blocks tall. */
-	public record Kind(BlockState leaves, double count, double height, boolean conifer) {
+	/**
+	 * One kind of tree: {@code count} a chunk on average, {@code height} blocks tall, wearing {@code leaves} on a trunk of
+	 * {@code trunk} (null where a server described it: only the leaves travel).
+	 */
+	public record Kind(BlockState leaves, double count, double height, boolean conifer, BlockState trunk) {
+		public Kind(BlockState leaves, double count, double height, boolean conifer) {
+			this(leaves, count, height, conifer, null);
+		}
 	}
 
 	private final RandomSource random = RandomSource.create(42);
@@ -61,6 +67,27 @@ public final class TreeKinds {
 			}
 		}
 		return new ArrayList<>(trees.kinds.values());
+	}
+
+	/** Whether {@code placed} places trees, directly or through any of its random selectors. */
+	static boolean hasTree(PlacedFeature placed) {
+		return hasTree(placed.feature().value(), 0);
+	}
+
+	private static boolean hasTree(Feature feature, int depth) {
+		if (depth > 6) {
+			return false;
+		}
+		return switch (feature) {
+			case TreeFeature tree -> true;
+			case RandomSelectorFeature sel -> sel.features().stream().anyMatch(w -> hasTree(w.feature().value().feature().value(), depth + 1))
+				|| hasTree(sel.defaultFeature().value().feature().value(), depth + 1);
+			case SimpleRandomSelectorFeature sel -> sel.features().stream().anyMatch(f -> hasTree(f.value().feature().value(), depth + 1));
+			case RandomBooleanSelectorFeature sel -> hasTree(sel.featureTrue().value().feature().value(), depth + 1)
+				|| hasTree(sel.featureFalse().value().feature().value(), depth + 1);
+			case WeightedRandomSelectorFeature sel -> sel.features().unwrap().stream().anyMatch(w -> hasTree(w.value().value().feature().value(), depth + 1));
+			default -> false;
+		};
 	}
 
 	private void visit(PlacedFeature placed, double weight, int depth) {
@@ -114,9 +141,11 @@ public final class TreeKinds {
 		}
 		double height = h / 8.0 + 1;
 		BlockState leaves = this.leafState(tree);
+		BlockState trunk = this.trunkState(tree);
 		boolean conifer = isConifer(tree);
-		String key = leaves + "|" + height + "|" + conifer;
-		this.kinds.merge(key, new Kind(leaves, count, height, conifer), (a, b) -> new Kind(a.leaves(), a.count() + b.count(), a.height(), a.conifer()));
+		String key = leaves + "|" + trunk + "|" + height + "|" + conifer;
+		this.kinds.merge(key, new Kind(leaves, count, height, conifer, trunk),
+			(a, b) -> new Kind(a.leaves(), a.count() + b.count(), a.height(), a.conifer(), a.trunk()));
 	}
 
 	private BlockState leafState(TreeFeature tree) {
@@ -124,6 +153,14 @@ public final class TreeKinds {
 			return tree.foliageProvider().value().getState(this.level, this.random, BlockPos.ZERO);
 		} catch (RuntimeException e) {
 			return Blocks.OAK_LEAVES.defaultBlockState();
+		}
+	}
+
+	private BlockState trunkState(TreeFeature tree) {
+		try {
+			return tree.trunkProvider().value().getState(this.level, this.random, BlockPos.ZERO);
+		} catch (RuntimeException e) {
+			return Blocks.OAK_LOG.defaultBlockState();
 		}
 	}
 

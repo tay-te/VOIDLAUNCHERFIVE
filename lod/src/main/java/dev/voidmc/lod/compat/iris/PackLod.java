@@ -136,9 +136,27 @@ public final class PackLod {
 
 	/** Draws the frame's land, or only clears the LOD's depth if there is nothing to draw. */
 	public static void drawOpaque(PackFrame frame) {
+		dev.voidmc.lod.api.LodApi.packFrameStarted();
 		PackLodRenderer renderer = renderer();
 		if (renderer != null) {
 			renderer.drawOpaque(frame);
+			drewThisFrame = true;
 		}
+	}
+
+	private static boolean drewThisFrame;
+
+	/** The pack has finished the frame (its composite passes done): its far depth, for the mods that listen. */
+	public static void frameFinished() {
+		if (!drewThisFrame) {
+			return;
+		}
+		drewThisFrame = false;
+		PackLodRenderer renderer = renderer();
+		if (renderer == null || renderer.depthTexture() == 0) {
+			return;
+		}
+		dev.voidmc.lod.api.LodApi.packFrameFinished(new dev.voidmc.lod.api.LodApi.FarDepth(renderer.depthTexture(), projection(),
+			new Matrix4f(CapturedRenderingState.INSTANCE.getGbufferModelView()), true, renderer.width(), renderer.height()));
 	}
 }

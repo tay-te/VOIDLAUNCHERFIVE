@@ -73,6 +73,15 @@ public class LodShowcase implements FabricClientGameTest {
 	/** The time of day, in ticks (6000 noon, 12500 a low evening sun, 23500 a low morning one). */
 	private static final int TIME = Integer.getInteger("lod.show.time", 6000);
 	private static final boolean INGEST = Boolean.getBoolean("lod.show.ingest");
+	/**
+	 * The seam with the chunks, measured: each view again with the chunks out to {@code lod.show.seamFar} (24 by
+	 * default) and the LOD off, against the LOD from the usual render distance, compared band by band of distance.
+	 */
+	private static final boolean SEAM = Boolean.getBoolean("lod.show.seam");
+	/** Measures each view's GPU time with face culling on and off, alternating, in the same run (the GPU may be shared). */
+	private static final boolean FACE_COMPARE = Boolean.getBoolean("lod.show.faceCompare");
+	private static final int SEAM_FAR = Integer.getInteger("lod.show.seamFar", 24);
+	private static final long SEAM_SETTLE_MS = Long.getLong("lod.show.seamSettle", 300_000L);
 	private static final boolean MULTIPLAYER = Boolean.getBoolean("lod.show.mp");
 	private static final boolean TOWN = Boolean.getBoolean("lod.show.town");
 	private static final boolean STRUCTURES = Boolean.getBoolean("lod.show.structures");
@@ -256,6 +265,16 @@ public class LodShowcase implements FabricClientGameTest {
 				return found;
 			});
 
+			// fixed viewpoints of one's own: -Plod.show.at=name:x,y,z,yaw,pitch[,fov][;name:...]
+			for (String at : System.getProperty("lod.show.at", "").split(";")) {
+				if (at.isBlank()) {
+					continue;
+				}
+				String[] parts = at.split(":", 2);
+				String[] v = parts[1].split(",");
+				spots.add(new Spot(parts[0].trim(), Integer.parseInt(v[0].trim()), Integer.parseInt(v[1].trim()), Integer.parseInt(v[2].trim()),
+					Float.parseFloat(v[3].trim()), Float.parseFloat(v[4].trim()), v.length > 5 ? Integer.parseInt(v[5].trim()) : 70));
+			}
 			Spot valley = spots.stream().filter(spot -> spot.name().equals("low0")).findFirst().orElse(spots.get(0));
 			if (!ONLY.isEmpty()) {
 				List<String> names = List.of(ONLY.split(","));
@@ -293,6 +312,21 @@ public class LodShowcase implements FabricClientGameTest {
 					String unculled = context.computeOnClient(mc -> VoidLod.get().stats());
 					System.out.printf(Locale.ROOT, "[lod] %s unculled: %s%n", spot.name(), unculled.substring(unculled.indexOf('|') + 2));
 					context.runOnClient(mc -> LodRenderer.occlusion = true);
+				}
+				if (SEAM) {
+					this.seam(context, world.getServer(), spot);
+				}
+				if (FACE_COMPARE) {
+					double[] sum = new double[2];
+					for (int round = 0; round < 6; round++) {
+						boolean on = round % 2 == 0;
+						context.runOnClient(mc -> LodRenderer.faceCulling = on);
+						context.waitTicks(60);
+						double ms = context.computeOnClient(mc -> VoidLod.get().renderer().gpuMillis);
+						sum[on ? 0 : 1] += ms;
+					}
+					context.runOnClient(mc -> LodRenderer.faceCulling = true);
+					System.out.printf(Locale.ROOT, "[lod] faces %s: GPU %.2f ms with face culling, %.2f ms without%n", spot.name(), sum[0] / 3, sum[1] / 3);
 				}
 			}
 			if (SETTINGS && !spots.isEmpty()) {
@@ -343,7 +377,7 @@ public class LodShowcase implements FabricClientGameTest {
 				var engine = VoidLod.get().engine();
 				var ingest = VoidLod.get().ingest();
 				boolean done = engine.frame() - firstFrame > 200 && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0
-					&& VoidLod.get().remotePending() == 0 && (!changes || settled || engine.dirtyDrawn() == 0 && (ingest == null || ingest.queued() == 0));
+					&& VoidLod.get().remotePending() == 0 && VoidLod.get().treesPending() == 0 && (settled || engine.dirtyDrawn() == 0) && (!changes || settled || engine.dirtyDrawn() == 0 && (ingest == null || ingest.queued() == 0));
 				return (done ? "done " : "busy ") + (engine.frame() - firstFrame) + " frames, " + engine.busy();
 			});
 			boolean idle = state.startsWith("done");
@@ -521,6 +555,246 @@ public class LodShowcase implements FabricClientGameTest {
 			this.photograph(context, "mp_horizon", false);
 			System.out.println("[lod] server described " + server.computeOnServer(s -> dev.voidmc.lod.net.FactsService.TILES.get()) + " tiles");
 		}
+	}
+
+	/**
+	 * The view as the chunks draw it (out to {@link #SEAM_FAR} chunks, LOD off) against the LOD's (from {@link #DISTANCE}):
+	 * per band of distance across the ground, the mean colour and brightness of each and how much texture each has
+	 * (the mean difference between neighbouring pixels: leaves and grass have plenty, a flat face none), and a picture
+	 * of the two, one over the other. Distance is from the angle under the horizon and the eye's height over the
+	 * ground, so it is right on level land and rough on hills.
+	 */
+	private void seam(ClientGameTestContext context, TestServerContext server, Spot spot) {
+		java.nio.file.Path lod = context.takeScreenshot(TestScreenshotOptions.of("lod_" + spot.name() + "_seam_lod").withSize(WIDTH, HEIGHT));
+		context.runOnClient(mc -> {
+			VoidLod.get().setEnabled(false);
+			mc.options.renderDistance().set(SEAM_FAR);
+			// the server sends a player no further than the distance their client says it draws
+			mc.options.broadcastOptions();
+		});
+		server.runOnServer(s -> s.getPlayerList().setViewDistance(SEAM_FAR));
+		// the chunks out to the far distance must exist and be drawn: a world generator takes minutes for that many
+		long until = System.currentTimeMillis() + SEAM_SETTLE_MS;
+		int want = (int) (0.85 * Math.PI * SEAM_FAR * SEAM_FAR);
+		int last = -1, calm = 0;
+		while (System.currentTimeMillis() < until && calm < 4) {
+			this.settle(context, 2_000);
+			int[] state = context.computeOnClient(mc -> new int[]{mc.level.getChunkSource().getLoadedChunksCount(),
+				mc.levelRenderer.hasRenderedAllSections() ? 1 : 0});
+			calm = state[0] >= want && state[0] == last && state[1] == 1 ? calm + 1 : 0;
+			last = state[0];
+		}
+		String distances = context.computeOnClient(mc -> mc.options.renderDistance().get() + " option, " + mc.options.getEffectiveRenderDistance()
+			+ " effective") + ", server " + server.computeOnServer(s -> s.getPlayerList().getViewDistance());
+		System.out.printf(Locale.ROOT, "[lod] seam %s: %d chunks loaded for the far shot (want %d; render distance %s)%n", spot.name(), last, want,
+			distances);
+		this.treeMatch(context, server, spot);
+		java.nio.file.Path vanilla = context.takeScreenshot(TestScreenshotOptions.of("lod_" + spot.name() + "_seam_vanilla").withSize(WIDTH, HEIGHT));
+		context.runOnClient(mc -> {
+			mc.options.renderDistance().set(DISTANCE);
+			mc.options.broadcastOptions();
+			VoidLod.get().setEnabled(true);
+		});
+		this.settle(context, 5_000);
+		int ground = server.computeOnServer(s -> s.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, spot.x(), spot.z()));
+		try {
+			compare(spot, spot.y() + 1.62 - ground, javax.imageio.ImageIO.read(vanilla.toFile()), javax.imageio.ImageIO.read(lod.toFile()),
+				vanilla.resolveSibling("seam_" + spot.name() + ".png"));
+		} catch (java.io.IOException e) {
+			throw new java.io.UncheckedIOException(e);
+		}
+	}
+
+	/**
+	 * How well the trees the LOD places match the chunks': over a square of 96 blocks, 200 blocks out along the view (its
+	 * chunks loaded for the far shot), the logs in the real world against the logs the source's decorator places there.
+	 */
+	private void treeMatch(ClientGameTestContext context, TestServerContext server, Spot spot) {
+		double yaw = Math.toRadians(spot.yaw());
+		int cx = (int) Math.round(spot.x() - Math.sin(yaw) * 200), cz = (int) Math.round(spot.z() + Math.cos(yaw) * 200);
+		int x0 = cx - 48, z0 = cz - 48, x1 = cx + 48, z1 = cz + 48;
+		java.util.Map<String, Integer> realKinds = new java.util.TreeMap<>();
+		java.util.Set<Long> real = server.computeOnServer(s -> {
+			ServerLevel level = s.overworld();
+			java.util.Set<Long> logs = new java.util.HashSet<>();
+			net.minecraft.core.BlockPos.MutableBlockPos p = new net.minecraft.core.BlockPos.MutableBlockPos();
+			for (int x = x0; x < x1; x++) {
+				for (int z = z0; z < z1; z++) {
+					int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
+					for (int y = top - 40; y <= top; y++) {
+						net.minecraft.world.level.block.state.BlockState state = level.getBlockState(p.set(x, y, z));
+						if (state.is(net.minecraft.tags.BlockTags.LOGS)) {
+							logs.add(net.minecraft.core.BlockPos.asLong(x, y, z));
+							realKinds.merge(state.getBlock().getDescriptionId(), 1, Integer::sum);
+						}
+					}
+				}
+			}
+			return logs;
+		});
+		java.util.Map<String, Integer> placedKinds = new java.util.TreeMap<>();
+		// the trees there are placed in the background: asked until they are ready
+		for (int tries = 0; tries < 120; tries++) {
+			boolean ready = context.computeOnClient(mc -> {
+				var source = VoidLod.get().engine().source();
+				var decorator = source == null ? null : source.decorator();
+				return decorator == null || decorator.decorate(x0, z0, x1, z1, (x, z, out) -> source.sample(x, z, 1, out),
+					new dev.voidmc.lod.core.Voxels());
+			});
+			if (ready) {
+				break;
+			}
+			context.waitTicks(20);
+		}
+		java.util.Set<Long> placed = context.computeOnClient(mc -> {
+			var source = VoidLod.get().engine().source();
+			var decorator = source == null ? null : source.decorator();
+			java.util.Set<Long> logs = new java.util.HashSet<>();
+			if (decorator == null) {
+				return logs;
+			}
+			dev.voidmc.lod.core.Voxels v = new dev.voidmc.lod.core.Voxels();
+			decorator.decorate(x0, z0, x1, z1, (x, z, out) -> source.sample(x, z, 1, out), v);
+			for (int n = 0; n < v.size; n++) {
+				if (v.kind[n] == dev.voidmc.lod.core.Voxels.LOG) {
+					logs.add(net.minecraft.core.BlockPos.asLong(v.x[n], v.y[n], v.z[n]));
+					var face = VoidLod.get().materials().face(v.sideMaterial[n]);
+					placedKinds.merge(face == null ? "?" : face.state().getBlock().getDescriptionId(), 1, Integer::sum);
+				}
+			}
+			return logs;
+		});
+		java.util.Set<Long> both = new java.util.HashSet<>(real);
+		both.retainAll(placed);
+		// a trunk a block lower or higher (the ground a block off) still stands in the right place
+		java.util.Set<Long> columnsReal = new java.util.HashSet<>(), columnsPlaced = new java.util.HashSet<>();
+		real.forEach(l -> columnsReal.add((long) net.minecraft.core.BlockPos.getX(l) << 32 ^ net.minecraft.core.BlockPos.getZ(l) & 0xFFFFFFFFL));
+		placed.forEach(l -> columnsPlaced.add((long) net.minecraft.core.BlockPos.getX(l) << 32 ^ net.minecraft.core.BlockPos.getZ(l) & 0xFFFFFFFFL));
+		java.util.Set<Long> columnsBoth = new java.util.HashSet<>(columnsReal);
+		columnsBoth.retainAll(columnsPlaced);
+		// the ground under it all: the chunks' against the source's, and a map of where the logs are in each
+		int[] realGround = server.computeOnServer(s -> {
+			int[] g = new int[96 * 96];
+			for (int x = x0; x < x1; x++) {
+				for (int z = z0; z < z1; z++) {
+					// the ground under the trees: past leaves, and past a trunk down to its foot
+					net.minecraft.core.BlockPos.MutableBlockPos p = new net.minecraft.core.BlockPos.MutableBlockPos();
+					int y = s.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+					while (s.overworld().getBlockState(p.set(x, y - 1, z)).is(net.minecraft.tags.BlockTags.LOGS)) {
+						y--;
+					}
+					g[(x - x0) + (z - z0) * 96] = y;
+				}
+			}
+			return g;
+		});
+		int[] lodGround = context.computeOnClient(mc -> {
+			var source = VoidLod.get().engine().source();
+			int[] g = new int[96 * 96];
+			dev.voidmc.lod.core.ColumnSample c = new dev.voidmc.lod.core.ColumnSample();
+			for (int x = x0; x < x1; x++) {
+				for (int z = z0; z < z1; z++) {
+					c.clear();
+					source.sample(x, z, 1, c);
+					g[(x - x0) + (z - z0) * 96] = (int) Math.ceil(c.ground - 1e-3F);
+				}
+			}
+			return g;
+		});
+		int same = 0, off1 = 0;
+		long absDiff = 0;
+		java.awt.image.BufferedImage map = new java.awt.image.BufferedImage(96 * 4, 96 * 4, java.awt.image.BufferedImage.TYPE_INT_RGB);
+		for (int i = 0; i < 96 * 96; i++) {
+			int d = Math.abs(realGround[i] - lodGround[i]);
+			same += d == 0 ? 1 : 0;
+			off1 += d == 1 ? 1 : 0;
+			absDiff += d;
+			long column = (long) (x0 + i % 96) << 32 ^ (z0 + i / 96) & 0xFFFFFFFFL;
+			boolean r = columnsReal.contains(column), p = columnsPlaced.contains(column);
+			int shade = Math.min(255, d * 40);
+			int rgb = r && p ? 0xFFFF00 : r ? 0xFF2020 : p ? 0x20FF20 : shade << 16 | shade << 8 | shade;
+			for (int a = 0; a < 16; a++) {
+				map.setRGB((i % 96) * 4 + a % 4, (i / 96) * 4 + a / 4, rgb);
+			}
+		}
+		try {
+			javax.imageio.ImageIO.write(map, "png", java.nio.file.Path.of("screenshots", "trees_" + spot.name() + ".png").toFile());
+		} catch (java.io.IOException e) {
+			throw new java.io.UncheckedIOException(e);
+		}
+		System.out.printf(Locale.ROOT, "[lod] ground %s: %.0f%% of columns at the chunks' height, %.0f%% a block off, mean %.2f blocks off%n",
+			spot.name(), 100.0 * same / (96 * 96), 100.0 * off1 / (96 * 96), absDiff / (double) (96 * 96));
+		System.out.printf(Locale.ROOT, "[lod] tree kinds %s: chunks %s | LOD %s%n", spot.name(), realKinds, placedKinds);
+		System.out.printf(Locale.ROOT, "[lod] trees %s: chunks have %d logs, LOD placed %d, %d exactly the same (%.0f%%); log columns %d vs %d, %d shared (%.0f%%)%n",
+			spot.name(), real.size(), placed.size(), both.size(), real.isEmpty() ? 0 : 100.0 * both.size() / real.size(), columnsReal.size(),
+			columnsPlaced.size(), columnsBoth.size(), columnsReal.isEmpty() ? 0 : 100.0 * columnsBoth.size() / columnsReal.size());
+	}
+
+	/** Distance bands, in blocks across the ground: the first lies inside both pictures' chunks, a control. */
+	private static final int[] BANDS = {64, 112, 144, 192, 256, 384};
+
+	private static void compare(Spot spot, double eye, java.awt.image.BufferedImage vanilla, java.awt.image.BufferedImage lod, java.nio.file.Path out)
+		throws java.io.IOException {
+		int w = Math.min(vanilla.getWidth(), lod.getWidth()), h = Math.min(vanilla.getHeight(), lod.getHeight());
+		double f = 0.5 * h / Math.tan(Math.toRadians(spot.fov()) / 2);
+		double pitch = Math.toRadians(spot.pitch());
+		int bands = BANDS.length - 1;
+		double[][] sum = new double[2][bands * 3];
+		double[][] texture = new double[2][bands];
+		double[] diff = new double[bands];
+		long[] count = new long[bands];
+		for (int y = 0; y < h; y++) {
+			double below = Math.atan((y - 0.5 * h) / f) + pitch;
+			if (below <= 1e-4) {
+				continue;
+			}
+			double d = eye / Math.tan(below);
+			int band = -1;
+			for (int b = 0; b < bands; b++) {
+				if (d >= BANDS[b] && d < BANDS[b + 1]) {
+					band = b;
+				}
+			}
+			if (band < 0) {
+				continue;
+			}
+			for (int x = 0; x + 1 < w; x++) {
+				java.awt.image.BufferedImage[] pictures = {vanilla, lod};
+				int[] here = new int[2];
+				for (int p = 0; p < 2; p++) {
+					int c = pictures[p].getRGB(x, y), n = pictures[p].getRGB(x + 1, y);
+					here[p] = c;
+					sum[p][band * 3] += c >> 16 & 255;
+					sum[p][band * 3 + 1] += c >> 8 & 255;
+					sum[p][band * 3 + 2] += c & 255;
+					texture[p][band] += (Math.abs((c >> 16 & 255) - (n >> 16 & 255)) + Math.abs((c >> 8 & 255) - (n >> 8 & 255))
+						+ Math.abs((c & 255) - (n & 255))) / 3.0;
+				}
+				diff[band] += (Math.abs((here[0] >> 16 & 255) - (here[1] >> 16 & 255)) + Math.abs((here[0] >> 8 & 255) - (here[1] >> 8 & 255))
+					+ Math.abs((here[0] & 255) - (here[1] & 255))) / 3.0;
+				count[band]++;
+			}
+		}
+		for (int b = 0; b < bands; b++) {
+			if (count[b] == 0) {
+				continue;
+			}
+			double n = count[b];
+			double[] lum = new double[2];
+			for (int p = 0; p < 2; p++) {
+				lum[p] = (0.2126 * sum[p][b * 3] + 0.7152 * sum[p][b * 3 + 1] + 0.0722 * sum[p][b * 3 + 2]) / n;
+			}
+			System.out.printf(Locale.ROOT,
+				"[lod] seam %s %d-%d m: chunks rgb(%.0f %.0f %.0f) lum %.1f texture %.1f | lod rgb(%.0f %.0f %.0f) lum %.1f texture %.1f | brightness %+.1f%%, pixel diff %.1f%n",
+				spot.name(), BANDS[b], BANDS[b + 1], sum[0][b * 3] / n, sum[0][b * 3 + 1] / n, sum[0][b * 3 + 2] / n, lum[0], texture[0][b] / n,
+				sum[1][b * 3] / n, sum[1][b * 3 + 1] / n, sum[1][b * 3 + 2] / n, lum[1], texture[1][b] / n, 100 * (lum[1] / lum[0] - 1), diff[b] / n);
+		}
+		java.awt.image.BufferedImage both = new java.awt.image.BufferedImage(w, 2 * h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+		java.awt.Graphics2D g = both.createGraphics();
+		g.drawImage(vanilla, 0, 0, null);
+		g.drawImage(lod, 0, h, null);
+		g.dispose();
+		javax.imageio.ImageIO.write(both, "png", out.toFile());
 	}
 
 	private static long size(java.nio.file.Path dir) {

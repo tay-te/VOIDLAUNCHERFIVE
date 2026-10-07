@@ -51,4 +51,9 @@ public interface TerrainSource {
 	default boolean partial() {
 		return false;
 	}
+
+	/** What this source's world places on its ground, block by block ({@link Decorator}), or null: none known. */
+	default Decorator decorator() {
+		return null;
+	}
 }

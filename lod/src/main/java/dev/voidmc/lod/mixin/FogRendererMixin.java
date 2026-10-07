@@ -21,6 +21,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -38,6 +39,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(FogRenderer.class)
 public abstract class FogRendererMixin {
+	/**
+	 * Vanilla pales the sky toward the fog colour the shorter the render distance (at 8 chunks the blue is washed out,
+	 * at 32 it is deep). With the LOD drawing to the horizon the world is as far as at the longest distance, so the
+	 * sky and the fog take the colours they have there.
+	 */
+	@ModifyVariable(method = "setupFog", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+	private int voidLod$farSky(int renderDistanceInChunks) {
+		VoidLod lod = VoidLod.get();
+		return lod != null && lod.active() ? Math.max(renderDistanceInChunks, 32) : renderDistanceInChunks;
+	}
+
 	@Inject(method = "setupFog", at = @At("RETURN"))
 	private void voidLod$farFog(Camera camera, int renderDistanceInChunks, DeltaTracker deltaTracker, float darkenWorldAmount, ClientLevel level,
 		CallbackInfoReturnable<FogData> cir) {
@@ -47,7 +59,8 @@ public abstract class FogRendererMixin {
 		}
 		FogData fog = cir.getReturnValue();
 		float far = (float) lod.radius;
-		float chunks = renderDistanceInChunks * 16;
+		// the chunks' own reach (renderDistanceInChunks is the far one voidLod$farSky gave the sky)
+		float chunks = Minecraft.getInstance().options.getEffectiveRenderDistance() * 16;
 		Entity entity = camera.entity();
 		boolean blind = entity instanceof LivingEntity living && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS));
 		boolean open = camera.getFluidInCamera() == FogType.NONE && !blind && !Minecraft.getInstance().gui.hud.getBossOverlay().shouldCreateWorldFog();
