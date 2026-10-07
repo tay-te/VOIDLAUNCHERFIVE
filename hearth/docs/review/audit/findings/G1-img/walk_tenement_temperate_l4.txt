@@ -1,0 +1,16 @@
+[11:42:10] [pool-2-thread-2/INFO]: [STDOUT]: walk map house/tenement,temperate,1007,south,4 (x across, back at top)
+.............
+.###########.
+.########r##.
+.#rr#..#WrW#.
+.#rr#..#rrr#.
+.#rr##r#WrW#.
+.#rrrrrrrrr#.
+.##r####rrW#.
+.#rrW#rrrrW#.
+.#WrW#rBrBB#.
+.#WrW#rBrrW#.
+.#####r#####.
+.##+++#++#+#.
+.............
+.............
