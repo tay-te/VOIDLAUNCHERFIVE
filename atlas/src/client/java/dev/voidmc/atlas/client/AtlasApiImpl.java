@@ -205,7 +205,8 @@ public final class AtlasApiImpl implements AtlasApi {
 
 	@Override
 	public MapWidget createMapWidget() {
-		return new Widget(new MapPage(this.atlas, () -> this.atlas.openSettings(Minecraft.getInstance().gui.screen())));
+		// the same page as the M screen's: one map state (view, layer, depth, selection, tab) however it is shown
+		return new Widget(this.atlas, this.atlas.sharedPage());
 	}
 
 	@Override
@@ -223,12 +224,74 @@ public final class AtlasApiImpl implements AtlasApi {
 		return this.atlas.mapKey().matches(event);
 	}
 
+	@Override
+	public boolean isMapKey(KeyEvent event) {
+		return event != null && this.mapKeyMatches(event);
+	}
+
+	@Override
+	public String markerId(Waypoint waypoint) {
+		return AtlasClient.waypointMarkerId(waypoint);
+	}
+
 	private static final class Widget implements MapWidget {
+		private final AtlasClient atlas;
 		private final MapPage page;
 		private float scale = 1;
 
-		Widget(MapPage page) {
+		Widget(AtlasClient atlas, MapPage page) {
+			this.atlas = atlas;
 			this.page = page;
+		}
+
+		@Override
+		public MapView view() {
+			MapPanel map = this.page.map;
+			String layer = switch (map.kind) {
+				case SURFACE -> MapView.SURFACE;
+				case NETHER -> MapView.NETHER;
+				case UNDERGROUND -> MapView.UNDERGROUND + ":" + (map.band(map.kind) * dev.voidmc.atlas.client.data.DimensionData.BAND);
+			};
+			return new MapView(layer, map.centreX(), map.centreZ(), map.zoom(), 0, true, true, 20);
+		}
+
+		@Override
+		public void closed() {
+			this.atlas.settings().save();
+			Backdrop.close();
+		}
+
+		@Override
+		public void shown() {
+			this.page.shown();
+		}
+
+		@Override
+		public float unitFor(int width, int height) {
+			return Ui.fit(width, height, 1280, 744);
+		}
+
+		@Override
+		public void freezeWorld(boolean freeze) {
+			if (freeze) {
+				Backdrop.open(true);
+			} else {
+				Backdrop.close();
+			}
+		}
+
+		@Override
+		public boolean drawFrozenWorld(GuiGraphicsExtractor graphics) {
+			if (!Backdrop.ready()) {
+				return false;
+			}
+			Minecraft mc = Minecraft.getInstance();
+			Ui ui = new Ui(graphics, Ui.fit(mc.getWindow().getWidth(), mc.getWindow().getHeight(), 1360, 824));
+			ui.begin();
+			boolean drawn = Backdrop.draw(ui, ui.width(), ui.height());
+			ui.rect(0, 0, ui.width(), ui.height(), 0xC20B0B0C);
+			ui.end();
+			return drawn;
 		}
 
 		@Override

@@ -133,11 +133,19 @@ public final class MapPage {
 		this.map = new MapPanel(atlas);
 		this.search.placeholder = "Search places and waypoints";
 		this.name.placeholder = "Name";
+		this.shown();
+	}
+
+	/** Shown (again): the layer follows the player's dimension and whether they are underground, as on a first open. */
+	public void shown() {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.level != null && mc.level.dimension().identifier().toString().equals("minecraft:the_nether")) {
-			this.map.kind = MapPanel.Kind.NETHER;
-		} else if (atlas.underground()) {
-			this.map.kind = MapPanel.Kind.UNDERGROUND;
+		boolean nether = mc.level != null && mc.level.dimension().identifier().toString().equals("minecraft:the_nether");
+		if (nether) {
+			this.map.setKind(MapPanel.Kind.NETHER);
+		} else if (this.atlas.underground()) {
+			this.map.setKind(MapPanel.Kind.UNDERGROUND);
+		} else if (this.map.kind != MapPanel.Kind.SURFACE) {
+			this.map.setKind(MapPanel.Kind.SURFACE);
 		}
 	}
 

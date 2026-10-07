@@ -52,7 +52,7 @@ public enum MarkerGlyph {
 	/** The deep dark. */
 	SCULK(rows("10101", "01110", "11011", "01110", "10101"), 0),
 	/** A tracked place. */
-	TRACK(rows("00100", "00000", "10101", "00000", "00100"), 0),
+	TRACK(rows("01110", "10001", "10101", "10001", "01110"), 0),
 	/** A geode. */
 	GEM(rows("00100", "01010", "10101", "01010", "00100"), 0),
 	/** A pillager outpost, a stronghold, a fortress: a fortified tower. */

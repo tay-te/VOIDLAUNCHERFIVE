@@ -2,6 +2,7 @@ plugins {
 	// 26.x ships unobfuscated, so there is no mappings line: the code is written against Mojang's own names, and
 	// Loom has nothing to remap.
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'maven-publish'
 }
 
 base {
@@ -368,4 +369,15 @@ tasks.register('atlasSynthetic', JavaExec) {
 	jvmArgs '-Djava.awt.headless=true'
 	systemProperty 'atlas.test.out', file('build/test-images').absolutePath
 	args = [(findProperty('scale') ?: '1').toString()]
+}
+
+// ./gradlew publishToMavenLocal: dev.voidmc:void-atlas:<version> (the jar, its sources), for the VOID Hub and other
+// mods that compile against Atlas's API.
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			artifactId = 'void-atlas'
+			from components.java
+		}
+	}
 }

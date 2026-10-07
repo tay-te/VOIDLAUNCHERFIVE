@@ -28,7 +28,9 @@ public final class AtlasScreen extends Screen {
 	public AtlasScreen(AtlasClient atlas) {
 		super(Component.translatable("atlas.map.title"));
 		this.atlas = atlas;
-		this.page = new MapPage(atlas, () -> atlas.openSettings(this));
+		// one map state for the session, shared with the hosts' map widgets
+		this.page = atlas.sharedPage();
+		this.page.shown();
 	}
 
 	@Override

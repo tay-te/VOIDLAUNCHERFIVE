@@ -45,4 +45,44 @@ public interface MapWidget {
 	/** Shows the underground at height {@code y} (the 8-block slice holding it). */
 	default void showDepth(int y) {
 	}
+
+	/** The view shown now: layer (with its depth underground), centre and zoom. */
+	default MapView view() {
+		return MapView.surface(0, 0, 1);
+	}
+
+	/** Selects a waypoint (its card opens) and centres on it. */
+	default void selectWaypoint(Waypoint waypoint) {
+		if (waypoint != null) {
+			this.select(AtlasApi.get().markerId(waypoint));
+		}
+	}
+
+	/** The host stopped showing the page (its screen closed): the map's settings are saved, as Atlas's own screen does. */
+	default void closed() {
+	}
+
+	/** The host shows the page again: it reads the player's dimension and whether they are underground, as M does. */
+	default void shown() {
+	}
+
+	/**
+	 * The scale Atlas draws its page at in a rectangle of {@code width x height} physical pixels: the largest of its own
+	 * scales (0.75 to 3, those its fonts are made at) at which the 1280 x 744 page fits.
+	 */
+	default float unitFor(int width, int height) {
+		return 1;
+	}
+
+	/**
+	 * Keeps the world still behind the page (drawn once, then not again: about 1 ms a frame saved), or lets it move
+	 * again. Draw the still with {@link #drawFrozenWorld}; let it go when the page closes.
+	 */
+	default void freezeWorld(boolean freeze) {
+	}
+
+	/** Draws the still of the world, full screen, dimmed as Atlas's own map does; false if there is none (yet). */
+	default boolean drawFrozenWorld(GuiGraphicsExtractor graphics) {
+		return false;
+	}
 }

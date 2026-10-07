@@ -738,6 +738,8 @@ public final class AtlasClient implements ClientModInitializer {
 	}
 
 	private void closeSession() {
+		// a new world starts from a fresh map page
+		this.sharedPage = null;
 		this.exactStarts.clear();
 		this.exactStates.clear();
 		this.exactChunks.clear();
@@ -1274,6 +1276,16 @@ public final class AtlasClient implements ClientModInitializer {
 		this.session.waypoints.put(w);
 		this.session.saveSoon(false);
 		p.sendOverlayMessage(Component.literal("Waypoint " + n + " added  ·  M opens the map"));
+	}
+
+	private dev.voidmc.atlas.client.ui.@Nullable MapPage sharedPage;
+
+	/** The map page of this session: Atlas's own screen (M) and every host's map widget show this one state. */
+	public dev.voidmc.atlas.client.ui.MapPage sharedPage() {
+		if (this.sharedPage == null) {
+			this.sharedPage = new dev.voidmc.atlas.client.ui.MapPage(this, () -> this.openSettings(Minecraft.getInstance().gui.screen()));
+		}
+		return this.sharedPage;
 	}
 
 	public void openMap() {

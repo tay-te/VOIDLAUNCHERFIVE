@@ -117,4 +117,14 @@ public interface AtlasApi {
 			api = impl;
 		}
 	}
+
+	/** A waypoint's marker id (to select it on a map widget, or track it). */
+	default String markerId(Waypoint waypoint) {
+		return "atlas:wp:" + waypoint.id();
+	}
+
+	/** Whether a key press is the player's map key (M unless changed): a host can close on it as Atlas's map does. */
+	default boolean isMapKey(net.minecraft.client.input.KeyEvent event) {
+		return false;
+	}
 }
