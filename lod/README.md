@@ -105,9 +105,11 @@ a fraction of the cost.
 
   ![the far field, smooth and in blocks](docs/far_blocks.jpg)
 
-  What keeps that affordable: from level 2 on, a vertex is 8 bytes instead of 16 (position, face, colour in
-  5 bits a channel, occlusion and light, `TileBuilder.COMPACT_BYTES`), since out there a texture and the
-  lowest block of a wall are under a pixel; heights are rounded to a quarter of a cell, a step under a
+  What keeps that affordable: from level 2 on, a quad has no vertices at all but one 16-byte record
+  (its corner, size and face, colour along its top and foot in 5 bits a channel, each corner's occlusion,
+  and light, `TileBuilder.RECORD_BYTES`), which the shader reads for each corner by the vertex's index: a
+  quarter of the near tiles' 64 bytes a quad, since out there a texture and the lowest block of a wall are
+  under a pixel; heights are rounded to a quarter of a cell, a step under a
   pixel, so level neighbours merge; and wall bands thinner than a quarter of a cell (a grass rim, a few
   blocks of soil, thin strata) are left out. At 16 km on Ultra that is about 400 to 600 MB of GPU memory and
   1 to 2 ms of GPU time on an RTX 4060; High is half that. Built the way the chunks are:
@@ -163,6 +165,12 @@ a fraction of the cost.
   samples the generator's own interpolated density (its seeded sampler, from the world's noise router) at those
   corners near the model's height and finds the first air block from above as the chunk does: 87% of columns at
   the chunks' very height (49% before), mean error 0.4 blocks, and the trees stand where the chunks stand them.
+* **Vanilla worlds the same way, many times faster.** Any noise generator's ground is found from its own
+  interpolated density (`NoiseSurface`): looked for near the column sampled before it, corners shared between
+  columns, and on the corner lattice itself (where far tiles sample) one corner column instead of four. Against
+  walking each column down (`getBaseHeight`): a tile in 117 ms instead of 2.5 to 3 s, a chunk's trees in 1.3 ms
+  instead of 49, the ground at the chunks' very height everywhere it was measured. `-Pvanilla` runs the game
+  tests without Expanse.
 * **The sky of a far render distance.** Vanilla pales its sky toward the fog colour the shorter the render
   distance; with the LOD drawing to the horizon it gets the colours it has at 32 chunks.
 * **Light from the land itself** (`core/Horizons`, `core/Heights`). Every vertex carries the land's horizon
@@ -211,6 +219,24 @@ a fraction of the cost.
   so far islands sink into the dark rather than ending in a line at the LOD's edge.
 * **No popping** (`core/Fades`): when the selection swaps a tile for its children or back, the two
   cross-fade over 0.45 s through complementary dither, so every pixel shows exactly one of them.
+* **The chunks dissolve into the LOD** (`ChunkFade`, `mixin/ChunkShaderMixin`): vanilla fades a newly
+  drawn section in from the fog colour, which in front of the LOD flashes pale at the seam each time a
+  chunk arrives, and its chunks end in the ragged square of the last sections loaded. The chunk shaders
+  (vanilla's and Sodium's, patched as they load) dither the chunks away instead, over their last 24 blocks
+  and while a section fades in, with the LOD drawn whole underneath: the seam is round and soft, and a new
+  chunk appears out of the far view it replaces. No uniform is added: the edge's radius rides in values
+  the chunk shaders already have (a section's visibility under vanilla, the render fog's start under
+  Sodium). Off with a shader pack, which draws the chunks itself, or with `-Dvoid.lod.chunkFade=false`.
+* **Seasons, without rebuilding** (`LodApi.setSeasons`, `setSeasonTints`; VOID Gloam turns the year): as a
+  tile is built, a mod's hook gives each grass top, grass side and leaf face a season class (0 for the
+  faces that never change), and broadleaf crowns one of four variants by the 12-block square they stand in
+  (`LodApi.seasonVariant`, which the mod can use near the camera too, so near and far crowns agree tree for
+  tree). The class rides in spare bits of the vertex. What each class and variant looks like is a 128-entry
+  table the shader reads as it draws: toward a target colour keeping the face's own light and shade, then a
+  brightness (bare winter crowns, straw). A season step, or a smooth blend frame by frame, is one 4 KB
+  upload and no tile is built again. Through a shader pack, whose vertex layout has no room for it, the
+  table is baked into the tiles, and they are rebuilt when it has moved on far enough (`-Plod.show.autumn`
+  shows an autumn).
 
 ## How it works
 
@@ -303,10 +329,15 @@ into the LOD (`source/ChunkIngest`), and the far view shows the world as it is:
   the generator path) and their material ids, worked out once per kind of column ever. A chunk is
   256 ints, 256 bytes of light and a short palette, about 1.5 KB in memory: ten thousand chunks explored,
   15 MB.
+* **Land under overhangs.** Under a column's top, a thin solid overhang (31 blocks at most) over an open gap
+  (3 blocks at least) is a bridge, a deck, a roof on posts, a ledge: the land under it is kept as the column's
+  second surface, with its own surface and water (region format 4; older files still read). Tiles of cells up to
+  4 blocks mesh in two layers, the land with the land under each overhang in its place, then the overhangs as
+  slabs over it with their undersides and rims, so a bridge stays a bridge from afar instead of a dam.
 * **Lit at night.** Each column also keeps the block light over its surface (on its ground, or over the
   highest thing standing there: a roof under a lantern, a torch on a wall). Light is summed like everything
   else, so a cell glows by how much of it is lit, and it rides in the vertex (3 bits up close, 2 in the
-  compact far vertices, Distant Horizons' block-light nibble through a pack). The shader lights it through
+  compact far quads, Distant Horizons' block-light nibble through a pack). The shader lights it through
   vanilla's lightmap exactly as it lights a block by a torch, so a town the player has been to stays lit
   on the horizon after dark, and lava always glows.
 * **Cheap on the client thread.** Chunks queue as they arrive and are read within 0.3 ms a frame. A chunk
@@ -349,7 +380,11 @@ into the LOD (`source/ChunkIngest`), and the far view shows the world as it is:
   them with its own textures (`source.RemoteSource`, sharing `ExpanseColours` with singleplayer), so the
   far land looks as it does in singleplayer, and keeps them in the generator cache under
   `void_lod/servers/<address>/generated`. The seed never leaves the server. Without VOID LOD on the server
-  the LOD draws only what the client has seen (this session and every earlier one there).
+  the LOD draws only what the client has seen (this session and every earlier one there). The server also places the
+  world's trees for the client's close tiles, as singleplayer does (`source/TreePlacer` on the server, the same
+  stand-in world, its ground from the terrain model block for block): the client asks for a chunk's trees
+  (at most 24 in flight, asked again after 20 s), gets the logs and leaves as block states, and paints them with
+  its own textures.
 
 In the showcase world: a red concrete deck pierced by a gold tower and a trench cut across the land, built
 in loaded chunks, then seen from 480 blocks away (render distance 8: the chunks end at 128 blocks), and
@@ -511,6 +546,12 @@ cores.
 | **High** (default) | desktop GPUs | 8 km | 5 / 5 px | up to 4 | 512 MB |
 | Ultra | strong desktop GPUs | 16 km | 4 / 3 px | up to 6 | 1 GB |
 | Extreme | strong desktop GPUs with memory to spare | 32 km | 4 / 3 px | up to 8 | 1.5 GB |
+
+The reach goes up to 128 km (two more levels, 1024- and 2048-block cells). Expanse's plates, 2 MB each, are kept
+built only out to 36 km; past that, and from 128-block cells on once the reach passes it, the land comes from
+Expanse's coarse model (`TerrainModel.sampleFar` and `EarthBiomeSource.surfaceBiome`, found by name: `source/FarModel`),
+smooth ground on a 512-block grid, which is all a cell that far out shows. An Expanse without it is sampled in full
+there too, slower. 64 km from the 250-block peak: 1,146 tiles, built in a minute, 300 MB, 2.5 to 3.6 ms on the GPU.
 
 Each preset from the 250-block peak above (1600×900, RTX 4060), settled, auto-tune off:
 

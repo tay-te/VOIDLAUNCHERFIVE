@@ -106,29 +106,39 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	 * a texel that changes nothing, while none is.
 	 */
 	public static final BindGroupLayout LOD_SHADE = BindGroupLayout.builder().withUniform("LodShade", UniformType.COMBINED_IMAGE_SAMPLER).build();
+	/** The season table ({@code LodApi.setSeasonTints}): per class and variant a target and amount, then a brightness. */
+	public static final BindGroupLayout LOD_SEASONS = BindGroupLayout.builder().withUniform("LodSeasons", UniformType.UNIFORM_BUFFER).build();
+	private static final int SEASON_ENTRIES = 128;
+	private static final int SEASONS_SIZE = SEASON_ENTRIES * 2 * 16;
 	private static final int LOD_INFO_SIZE = 64 + 16 + 16 + 16 + 48 + 16;
 	private static final int INSTANCE_BYTES = 16;
 	private static final int COMMAND_BYTES = 20;
 
-	/** A far blocky tile's vertex: two packed words ({@link TileBuilder#COMPACT_BYTES}). */
-	public static final VertexFormat COMPACT = VertexFormat.builder(0)
-		.addAttribute("LodPacked", GpuFormat.RG32_UINT)
+	/**
+	 * The far blocky tiles' quads, one record of four words each ({@link TileBuilder#RECORD_BYTES}): the shader reads
+	 * its quad's record for each corner, by the vertex's index, so they have no vertex attributes of their own.
+	 */
+	public static final BindGroupLayout LOD_QUADS = BindGroupLayout.builder()
+		.withUniform("LodQuads", UniformType.TEXEL_BUFFER, GpuFormat.RGBA32_UINT)
 		.build();
 
 	/** Kinds of tile, each its own vertex layout or topology: near blocky, smooth, far blocky (compact). */
 	private static final int BLOCKY = 0, SMOOTH = 1, COMPACT_KIND = 2;
 
 	private static RenderPipeline.Snippet snippet(VertexFormat vertices) {
-		return RenderPipeline.builder(RenderPipelines.GLOBALS_SNIPPET)
+		RenderPipeline.Builder b = RenderPipeline.builder(RenderPipelines.GLOBALS_SNIPPET)
 			.withBindGroupLayout(BindGroupLayouts.PROJECTION)
 			.withBindGroupLayout(BindGroupLayouts.FOG)
 			.withBindGroupLayout(BindGroupLayouts.SAMPLER2)
 			.withBindGroupLayout(LOD_INFO)
 			.withBindGroupLayout(LOD_SHADE)
+			.withBindGroupLayout(LOD_SEASONS)
 			.withVertexShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"))
-			.withFragmentShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"))
-			.withVertexBinding(0, vertices)
-			.withVertexBinding(1, INSTANCE)
+			.withFragmentShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"));
+		if (vertices != null) {
+			b.withVertexBinding(0, vertices);
+		}
+		return b.withVertexBinding(1, INSTANCE)
 			.withPrimitiveTopology(PrimitiveTopology.QUADS)
 			.withDepthStencilState(DepthStencilState.DEFAULT)
 			.withColorTargetState(ColorTargetState.DEFAULT)
@@ -143,7 +153,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private static final RenderPipeline[] PIPELINES = new RenderPipeline[12];
 
 	static {
-		RenderPipeline.Snippet full = snippet(VERTEX), compact = snippet(COMPACT);
+		RenderPipeline.Snippet full = snippet(VERTEX), compact = snippet(null);
 		String[] names = {"lod", "lod_smooth", "lod_compact"};
 		for (int kind = 0; kind < 3; kind++) {
 			for (int variant = 0; variant < 4; variant++) {
@@ -159,7 +169,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 					b.withShaderDefine("LOD_SMOOTH").withPrimitiveTopology(PrimitiveTopology.TRIANGLES);
 				}
 				if (kind == COMPACT_KIND) {
-					b.withShaderDefine("LOD_COMPACT");
+					b.withShaderDefine("LOD_COMPACT").withBindGroupLayout(LOD_QUADS);
 				}
 				if (clipped) {
 					b.withShaderDefine("LOD_CLIP");
@@ -253,6 +263,9 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private ByteBuffer instances = MemoryUtil.memAlloc(INSTANCE_BYTES * 1024);
 	private ByteBuffer commands = MemoryUtil.memAlloc(COMMAND_BYTES * 1024);
 	private final ByteBuffer info = MemoryUtil.memAlloc(LOD_INFO_SIZE);
+	private final ByteBuffer seasons = MemoryUtil.memAlloc(SEASONS_SIZE);
+	private int seasonsVersion = -1;
+	private GpuBufferSlice seasonsSlice;
 	// a copy of the shader pack's picture, for drawOver's haze
 	private GpuTexture backdrop;
 	private GpuTextureView backdropView;
@@ -328,7 +341,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		this.device = RenderSystem.getDevice();
 		this.staging = StagingBuffer.create("VOID LOD", this.device, 16 << 20);
 		this.arena = new UberGpuBuffer<>("VOID LOD", GpuBuffer.USAGE_VERTEX, 64 << 20, TileBuilder.VERTEX_BYTES, this.staging);
-		this.compactArena = new UberGpuBuffer<>("VOID LOD far", GpuBuffer.USAGE_VERTEX, 64 << 20, TileBuilder.COMPACT_BYTES, this.staging);
+		this.compactArena = new UberGpuBuffer<>("VOID LOD far", GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER, 64 << 20, TileBuilder.RECORD_BYTES,
+			this.staging);
 		DeviceInfo info = this.device.getDeviceInfo();
 		this.maxIndirect = info.limits().maxDrawIndirectDrawCount();
 		this.firstInstance = info.features().nonZeroFirstInstance();
@@ -541,6 +555,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			int instance = this.lastTiles++;
 			this.ensureInstances(instance + 1);
 			this.instances.putInt(TileKey.minX(tile.key)).putInt(TileKey.minZ(tile.key)).putInt(level).putInt(this.inViewFade[c]);
+			// a compact quad's four corners all read its record, at the vertex's index over four
 			int stride = tile.compact ? TileBuilder.COMPACT_BYTES : TileBuilder.VERTEX_BYTES;
 			int baseVertex = (int) (alloc.getOffsetFromHeap() / stride);
 			int[] faces = tile.groups;
@@ -618,6 +633,9 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		}
 		this.info.flip();
 		this.infoSlice = transient_.uploadGpu(this.info, this.device.getDeviceInfo().limits().minUniformOffsetAlignment(), GpuBuffer.USAGE_UNIFORM);
+		this.fillSeasons();
+		this.seasons.rewind();
+		this.seasonsSlice = transient_.uploadGpu(this.seasons, this.device.getDeviceInfo().limits().minUniformOffsetAlignment(), GpuBuffer.USAGE_UNIFORM);
 		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 		this.indexBuffer = quads.getBuffer(Math.max(1, maxQuads) * 6);
 		this.indexType = quads.type();
@@ -720,6 +738,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			pass.writeTimestamp(this.timer, this.timerSlot * 2);
 		}
 		pass.setUniform("LodInfo", this.infoSlice);
+		pass.setUniform("LodSeasons", this.seasonsSlice);
 		pass.setUniform("Sampler2", Minecraft.getInstance().gameRenderer.lightmap(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
 		// the block atlas as the chunks sample it, for the blocky tiles' textures
 		GpuSampler blocks = ((LevelRendererAccessor) Minecraft.getInstance().levelRenderer).voidLod$chunkLayerSampler();
@@ -738,7 +757,11 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			} else {
 				pass.setIndexBuffer(this.indexBuffer, this.indexType);
 			}
-			pass.setVertexBuffer(0, group.heap.slice());
+			if (group.kind == COMPACT_KIND) {
+				pass.setUniform("LodQuads", group.heap);
+			} else {
+				pass.setVertexBuffer(0, group.heap.slice());
+			}
 			int count = group.count;
 			if (this.indirect) {
 				long offset = this.commandSlice.offset() + (long) group.firstCommand * COMMAND_BYTES;
@@ -770,6 +793,29 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		pass.popDebugGroup();
 	}
 
+	/** The season table as the shader reads it, rewritten when it changes: targets and amounts, then brightnesses. */
+	private void fillSeasons() {
+		int version = dev.voidmc.lod.api.LodApi.seasonVersion();
+		if (version == this.seasonsVersion) {
+			return;
+		}
+		this.seasonsVersion = version;
+		float[] table = dev.voidmc.lod.api.LodApi.seasonTints();
+		ByteBuffer b = this.seasons;
+		b.clear();
+		for (int e = 0; e < SEASON_ENTRIES; e++) {
+			if (table == null) {
+				b.putFloat(0).putFloat(0).putFloat(0).putFloat(0);
+			} else {
+				b.putFloat(table[e * 5]).putFloat(table[e * 5 + 1]).putFloat(table[e * 5 + 2]).putFloat(table[e * 5 + 3]);
+			}
+		}
+		for (int e = 0; e < SEASON_ENTRIES; e++) {
+			b.putFloat(table == null ? 1 : table[e * 5 + 4]).putFloat(0).putFloat(0).putFloat(0);
+		}
+		b.flip();
+	}
+
 	private void ensureInstances(int count) {
 		if (this.instances.capacity() < count * INSTANCE_BYTES) {
 			this.instances = MemoryUtil.memRealloc(this.instances, this.instances.capacity() * 2);
@@ -798,5 +844,6 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		MemoryUtil.memFree(this.instances);
 		MemoryUtil.memFree(this.commands);
 		MemoryUtil.memFree(this.info);
+		MemoryUtil.memFree(this.seasons);
 	}
 }

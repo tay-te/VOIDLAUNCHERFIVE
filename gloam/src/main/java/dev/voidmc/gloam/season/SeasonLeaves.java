@@ -48,8 +48,22 @@ final class SeasonLeaves {
 
 	/** One tree's own colour, from its biome's colour this time of year and the cell of the crown at {@code pos}. */
 	static int tree(SeasonColours colours, int seasoned, BlockPos pos) {
+		float[] v = variant(Hash.variant(pos.getX(), pos.getZ()));
+		// within the far land's variant, each crown a little its own
 		int h = Hash.cell(0x7EE5, pos.getX(), pos.getZ(), CROWN);
-		return colours.tree(seasoned & 0xFFFFFF, Hash.unit(h, 0), Hash.unit(h, 1), Hash.unit(h >>> 4, 2));
+		return colours.tree(seasoned & 0xFFFFFF, v[0] + (Hash.unit(h, 0) - 0.5F) * 0.08F, v[1] + (Hash.unit(h, 1) - 0.5F) * 0.2F,
+			v[2] + (Hash.unit(h >>> 4, 2) - 0.5F) * 0.2F);
+	}
+
+	/**
+	 * The four kinds of tree a wood's crowns come in ({@link SeasonColours#tree}'s numbers): in autumn red, orange, gold, and
+	 * one late and still yellow-green. Near and far take them by the same hash ({@link Hash#variant}, VOID LOD's
+	 * {@code seasonVariant}), so the far crowns match the near tree for tree.
+	 */
+	private static final float[][] VARIANTS = {{0.1F, 0.6F, 0.42F}, {0.38F, 0.6F, 0.55F}, {0.7F, 0.45F, 0.6F}, {0.95F, 0.5F, 0.5F}};
+
+	static float[] variant(int v) {
+		return VARIANTS[v & 3];
 	}
 
 	/** Oak and dark oak: the biome's (seasoned) foliage colour, made the tree's own. */

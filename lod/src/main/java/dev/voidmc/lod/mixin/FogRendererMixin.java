@@ -84,7 +84,7 @@ public abstract class FogRendererMixin {
 			float atCamera = reach * (float) Math.exp(Mth.clamp(above / VoidLod.HAZE_SCALE_HEIGHT, -4, 4));
 			// the chunks' linear fog, as thick as the haze and the rain together where they meet the LOD: the
 			// same optical depth as lod.vsh's at the seam, so a downpour leaves no step there either
-			float seam = Math.max(16, (float) VoidLod.clipRadius(Minecraft.getInstance()));
+			float seam = Math.max(16, (float) VoidLod.seamRadius(Minecraft.getInstance()));
 			float depth = seam / atCamera + (seam + VoidLod.RAIN_OFFSET * rain) * rain / VoidLod.RAIN_REACH;
 			float hazed = Math.max(1e-4F, 1 - (float) Math.exp(-depth));
 			fog.environmentalEnd = fog.environmentalStart + Math.max(1, seam - fog.environmentalStart) / hazed;

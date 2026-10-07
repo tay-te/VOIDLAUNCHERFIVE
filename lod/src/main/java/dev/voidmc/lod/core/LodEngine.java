@@ -191,6 +191,9 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private long gpuBytes;
 	private long budgetBytes;
 
+	/** Tiles whose build threw, for the log's sake. */
+	private static final AtomicLong FAILURES = new AtomicLong();
+
 	// statistics, for the debug screen and the benchmarks
 	public final AtomicLong tilesBuilt = new AtomicLong();
 	public final AtomicLong buildNanos = new AtomicLong();
@@ -367,17 +370,47 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private final java.util.ArrayList<TileTerrain> terrainOut = new java.util.ArrayList<>();
 	private boolean resendTerrain;
 
-	/** Takes the tiles drawn this frame whose terrain has not been handed over yet (all of them after {@link #resendTerrain}). */
+	/** Drawn tiles with no terrain to hand over yet: built before anything listened, being built again for it. */
+	private int terrainMissing;
+
+	/**
+	 * Takes the tiles drawn this frame whose terrain has not been handed over yet (all of them after {@link #resendTerrain}).
+	 * A drawn tile built before anything listened has none: it is built again, as far as the workers have room, as a
+	 * rebuild (the far tiles are built first, so a map that starts listening once the world is up would otherwise never
+	 * hear of the far ones).
+	 */
 	private void collectTerrain(LongList draw) {
 		boolean all = this.resendTerrain;
 		this.resendTerrain = false;
+		int missing = 0;
 		for (int i = 0; i < draw.size(); i++) {
 			Tile tile = this.tiles.get(draw.get(i));
-			if (tile != null && tile.terrain != null && (all || !tile.terrainSent)) {
+			if (tile == null) {
+				continue;
+			}
+			if (tile.terrain == null) {
+				missing++;
+				if (tile.state == Tile.State.READY && tile.rebuild == null && this.rebuilding < this.workers.size()) {
+					Tile next = new Tile(tile.key);
+					next.replaces = tile;
+					next.priority = tile.priority + REBUILD_PRIORITY;
+					next.wantedFrame = this.frame;
+					next.inQueue = true;
+					tile.rebuild = next;
+					this.rebuilding++;
+					this.queue.add(new Job(next, next.priority, this.order.incrementAndGet()));
+				}
+			} else if (all || !tile.terrainSent) {
 				tile.terrainSent = true;
 				this.terrainOut.add(tile.terrain);
 			}
 		}
+		this.terrainMissing = missing;
+	}
+
+	/** Drawn tiles whose terrain has yet to be worked out for the listeners (0 when nothing listens). */
+	public int terrainMissing() {
+		return TileBuilder.captureTerrain ? this.terrainMissing : 0;
 	}
 
 	/** Hands over every drawn tile's terrain again next frame: someone new is listening. */
@@ -553,7 +586,14 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				} else {
 					tile.state = Tile.State.DEAD;
 				}
-				org.slf4j.LoggerFactory.getLogger("VOID LOD").warn("Failed to build {}", TileKey.toString(tile.key), t);
+				// the first few in full; after that a count now and then, so a failure on every tile cannot fill a disk
+				long failed = FAILURES.incrementAndGet();
+				if (failed <= 5) {
+					org.slf4j.LoggerFactory.getLogger("VOID LOD").warn("Failed to build {}", TileKey.toString(tile.key), t);
+				} else if (Long.bitCount(failed) == 1) {
+					org.slf4j.LoggerFactory.getLogger("VOID LOD").warn("Failed to build {} tiles so far, the last {}: {}", failed,
+						TileKey.toString(tile.key), t.toString());
+				}
 			}
 			this.buildNanos.addAndGet(System.nanoTime() - t0);
 			this.tilesBuilt.incrementAndGet();

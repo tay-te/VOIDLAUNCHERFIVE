@@ -1,7 +1,5 @@
 package dev.voidmc.lod.gametest;
 
-import dev.voidmc.expanse.world.terrain.EarthChunkGenerator;
-import dev.voidmc.expanse.world.terrain.TerrainModel;
 import dev.voidmc.lod.LodSettings;
 import dev.voidmc.lod.VoidLod;
 import dev.voidmc.lod.gui.LodSettingsScreen;
@@ -83,6 +81,17 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final int SEAM_FAR = Integer.getInteger("lod.show.seamFar", 24);
 	private static final long SEAM_SETTLE_MS = Long.getLong("lod.show.seamSettle", 300_000L);
 	private static final boolean MULTIPLAYER = Boolean.getBoolean("lod.show.mp");
+	/**
+	 * Listens for the drawn tiles' terrain: {@code true} only once the view is built, as a map mod that starts late does;
+	 * {@code early} from client start, before the world exists, as one that starts with the game does.
+	 */
+	/** An autumn through LodApi's seasons: broadleaf crowns red, orange, gold and late green, the grass gone to straw. */
+	private static final boolean AUTUMN = Boolean.getBoolean("lod.show.autumn");
+	private static final String LISTEN_MODE = System.getProperty("lod.show.listen", "false");
+	private static final boolean LISTEN = !LISTEN_MODE.equals("false");
+	private final java.util.Map<Integer, Integer> heardByCell = new java.util.concurrent.ConcurrentSkipListMap<>();
+	private final java.util.Set<Long> heardSquares = java.util.concurrent.ConcurrentHashMap.newKeySet();
+	private AutoCloseable listening;
 	private static final boolean TOWN = Boolean.getBoolean("lod.show.town");
 	private static final boolean STRUCTURES = Boolean.getBoolean("lod.show.structures");
 	/** How far from the build the camera stands to photograph it: well past the render distance. */
@@ -114,6 +123,12 @@ public class LodShowcase implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (AUTUMN) {
+			autumn();
+		}
+		if (LISTEN_MODE.equals("early")) {
+			this.startListening();
+		}
 		context.runOnClient(mc -> {
 			if (!mc.gui.hud.isHidden()) {
 				mc.gui.hud.toggle();
@@ -144,17 +159,29 @@ public class LodShowcase implements FabricClientGameTest {
 			List<Spot> spots = world.getServer().computeOnServer(server -> {
 				ServerLevel level = server.overworld();
 				List<Spot> found = new ArrayList<>();
-				if (!(level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth)) {
-					found.add(new Spot("view0", 0, 200, 0, 0, 12));
-					return found;
-				}
-				TerrainModel model = earth.model(level.getChunkSource().randomState());
+				// Expanse's model where it is loaded and makes the world; the generator's own heights otherwise (slower: a
+				// coarser search), so the same views are taken of a vanilla world too
+				Land expanse = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("expanse") ? ExpanseLand.of(level) : null;
+				var randomState = level.getChunkSource().randomState();
+				var overworld = level.getChunkSource().getGenerator();
+				Land model = expanse != null ? expanse : new Land() {
+					@Override
+					public float height(int x, int z) {
+						return overworld.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, level, randomState);
+					}
+
+					@Override
+					public boolean river(int x, int z) {
+						return false;
+					}
+				};
+				int coarse = expanse != null ? 1 : 3;
 				// the highest ground within 3 km, and the lowest dry land within 2 km of it
 				int bx = 0, bz = 0, lx = 0, lz = 0;
 				float best = -1, low = Float.MAX_VALUE;
-				for (int x = -3000; x <= 3000; x += 48) {
-					for (int z = -3000; z <= 3000; z += 48) {
-						float h = model.sample(x, z).height;
+				for (int x = -3000; x <= 3000; x += 48 * coarse) {
+					for (int z = -3000; z <= 3000; z += 48 * coarse) {
+						float h = model.height(x, z);
 						if (h > best) {
 							best = h;
 							bx = x;
@@ -162,11 +189,11 @@ public class LodShowcase implements FabricClientGameTest {
 						}
 					}
 				}
-				for (int x = bx - 2000; x <= bx + 2000; x += 40) {
-					for (int z = bz - 2000; z <= bz + 2000; z += 40) {
-						var c = model.sample(x, z);
-						if (c.height > 68 && c.height < low && !c.nearRiver() && Math.hypot(x - bx, z - bz) > 900) {
-							low = c.height;
+				for (int x = bx - 2000; x <= bx + 2000; x += 40 * coarse) {
+					for (int z = bz - 2000; z <= bz + 2000; z += 40 * coarse) {
+						float h = model.height(x, z);
+						if (h > 68 && h < low && !model.river(x, z) && Math.hypot(x - bx, z - bz) > 900) {
+							low = h;
 							lx = x;
 							lz = z;
 						}
@@ -215,7 +242,7 @@ public class LodShowcase implements FabricClientGameTest {
 
 				// the open sea nearest the peak: from just above the water out to sea at dusk and at night, and under it
 				int sea = level.getSeaLevel();
-				int[] deep = nearest(bx, bz, 6000, 64, (x, z) -> model.sample(x, z).height < sea - 24);
+				int[] deep = nearest(bx, bz, 6000, 64, (x, z) -> model.height(x, z) < sea - 24);
 				if (deep != null) {
 					float out = (float) Math.toDegrees(Math.atan2(-(deep[0] - bx), deep[1] - bz));
 					Spot above = new Spot("sea", deep[0], sea + 5, deep[1], out, 2);
@@ -230,16 +257,16 @@ public class LodShowcase implements FabricClientGameTest {
 				BiomeResolver biomes = level.getChunkSource().getGenerator().getBiomeSource().createUncachedResolver(level.getChunkSource().randomState());
 				for (boolean snowy : new boolean[]{false, true}) {
 					int[] forest = nearest(bx, bz, 6000, 64, (x, z) -> {
-						var c = model.sample(x, z);
-						if (c.height < sea + 4 || c.nearRiver()) {
+						float h = model.height(x, z);
+						if (h < sea + 4 || model.river(x, z)) {
 							return false;
 						}
-						Holder<Biome> biome = biomes.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock((int) c.height), QuartPos.fromBlock(z));
+						Holder<Biome> biome = biomes.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock((int) h), QuartPos.fromBlock(z));
 						String path = biome.unwrapKey().map(k -> k.identifier().getPath()).orElse("");
 						return CONIFER_BIOMES.contains(path) && (biome.value().getBaseTemperature() < 0.15F) == snowy;
 					});
 					if (forest != null) {
-						int ground = (int) model.sample(forest[0], forest[1]).height;
+						int ground = (int) model.height(forest[0], forest[1]);
 						found.add(new Spot(snowy ? "forest1" : "forest0", forest[0], ground + 140, forest[1], 45, 24));
 						System.out.printf(Locale.ROOT, "[lod] %s conifer forest at %d,%d, y=%d%n", snowy ? "snowy" : "temperate", forest[0], forest[1], ground);
 					}
@@ -315,6 +342,9 @@ public class LodShowcase implements FabricClientGameTest {
 				}
 				if (SEAM) {
 					this.seam(context, world.getServer(), spot);
+				}
+				if (LISTEN) {
+					this.listen(context, spot);
 				}
 				if (FACE_COMPARE) {
 					double[] sum = new double[2];
@@ -564,6 +594,80 @@ public class LodShowcase implements FabricClientGameTest {
 	 * of the two, one over the other. Distance is from the angle under the horizon and the eye's height over the
 	 * ground, so it is right on level land and rough on hills.
 	 */
+	/**
+	 * Starts listening for the drawn tiles' terrain with the view already built, waits for {@code LodApi.complete()},
+	 * and logs what came by cell size and how much of the reach it covers (256-block squares within 90% of it).
+	 */
+	private static void autumn() {
+		dev.voidmc.lod.api.LodApi.setSeasons((kind, biome, material, conifer) -> {
+			if (kind == dev.voidmc.lod.api.LodApi.Seasons.LEAVES) {
+				var state = dev.voidmc.lod.api.LodApi.material(material);
+				boolean needles = conifer >= 0 ? conifer > 0.5F
+					: state != null && (state.is(net.minecraft.world.level.block.Blocks.SPRUCE_LEAVES));
+				return needles ? 0 : 1;
+			}
+			var state = dev.voidmc.lod.api.LodApi.material(material);
+			return state != null && state.is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK) ? 2 : 0;
+		});
+		int n = dev.voidmc.lod.api.LodApi.Seasons.CLASSES * dev.voidmc.lod.api.LodApi.Seasons.VARIANTS;
+		float[] table = new float[n * 5];
+		for (int e = 0; e < n; e++) {
+			table[e * 5 + 4] = 1;
+		}
+		float[][] crowns = {{0.85F, 0.25F, 0.08F, 0.9F}, {0.95F, 0.5F, 0.1F, 0.9F}, {0.9F, 0.75F, 0.15F, 0.85F}, {0.4F, 0.55F, 0.15F, 0.5F}};
+		for (int v = 0; v < 4; v++) {
+			System.arraycopy(crowns[v], 0, table, (4 + v) * 5, 4);
+			// straw: toward a pale ochre, a little brighter
+			table[(8 + v) * 5] = 0.75F;
+			table[(8 + v) * 5 + 1] = 0.68F;
+			table[(8 + v) * 5 + 2] = 0.35F;
+			table[(8 + v) * 5 + 3] = 0.7F;
+			table[(8 + v) * 5 + 4] = 1.05F;
+		}
+		dev.voidmc.lod.api.LodApi.setSeasonTints(table);
+	}
+
+	private void startListening() {
+		this.listening = dev.voidmc.lod.api.LodApi.addVisibleTerrainListener(tile -> {
+			this.heardByCell.merge(tile.cell(), 1, Integer::sum);
+			int span = tile.cell() * tile.size();
+			for (int x = Math.floorDiv(tile.minX(), 256); x < Math.floorDiv(tile.minX() + span + 255, 256); x++) {
+				for (int z = Math.floorDiv(tile.minZ(), 256); z < Math.floorDiv(tile.minZ() + span + 255, 256); z++) {
+					this.heardSquares.add((long) x << 32 ^ z & 0xFFFFFFFFL);
+				}
+			}
+		});
+	}
+
+	private void listen(ClientGameTestContext context, Spot spot) {
+		if (this.listening == null) {
+			this.startListening();
+		}
+		java.util.Map<Integer, Integer> byCell = this.heardByCell;
+		java.util.Set<Long> covered = this.heardSquares;
+		long start = System.currentTimeMillis();
+		int calm = 0;
+		while (System.currentTimeMillis() - start < 180_000 && calm < 5) {
+			this.settle(context, 1_000);
+			calm = context.computeOnClient(mc -> dev.voidmc.lod.api.LodApi.complete()) ? calm + 1 : 0;
+		}
+		double reach = 0.9 * context.computeOnClient(mc -> VoidLod.get().radius);
+		int want = 0, got = 0;
+		for (int x = (int) Math.floor((spot.x() - reach) / 256); x <= (int) Math.floor((spot.x() + reach) / 256); x++) {
+			for (int z = (int) Math.floor((spot.z() - reach) / 256); z <= (int) Math.floor((spot.z() + reach) / 256); z++) {
+				double dx = x * 256 + 128 - spot.x(), dz = z * 256 + 128 - spot.z();
+				if (dx * dx + dz * dz <= reach * reach) {
+					want++;
+					if (covered.contains((long) x << 32 ^ z & 0xFFFFFFFFL)) {
+						got++;
+					}
+				}
+			}
+		}
+		System.out.printf(Locale.ROOT, "[lod] listen %s: complete after %.1f s, tiles by cell %s, %d of %d squares in 90%% of the reach covered%n",
+			spot.name(), (System.currentTimeMillis() - start) / 1000.0, byCell, got, want);
+	}
+
 	private void seam(ClientGameTestContext context, TestServerContext server, Spot spot) {
 		java.nio.file.Path lod = context.takeScreenshot(TestScreenshotOptions.of("lod_" + spot.name() + "_seam_lod").withSize(WIDTH, HEIGHT));
 		context.runOnClient(mc -> {
@@ -589,6 +693,10 @@ public class LodShowcase implements FabricClientGameTest {
 		System.out.printf(Locale.ROOT, "[lod] seam %s: %d chunks loaded for the far shot (want %d; render distance %s)%n", spot.name(), last, want,
 			distances);
 		this.treeMatch(context, server, spot);
+		// back where the LOD's shot was taken: the player falls while the far chunks load
+		server.runCommand(String.format(Locale.ROOT, "execute in %s run tp @a %d %d %d %.1f %.1f", spot.dimension(), spot.x(), spot.y(), spot.z(),
+			spot.yaw(), spot.pitch()));
+		context.waitTicks(20);
 		java.nio.file.Path vanilla = context.takeScreenshot(TestScreenshotOptions.of("lod_" + spot.name() + "_seam_vanilla").withSize(WIDTH, HEIGHT));
 		context.runOnClient(mc -> {
 			mc.options.renderDistance().set(DISTANCE);
@@ -898,9 +1006,16 @@ public class LodShowcase implements FabricClientGameTest {
 	}
 
 	/** A view along {@code yaw} aimed down at the ground {@code reach} blocks out. */
-	private static Spot seam(String name, TerrainModel model, int x, int y, int z, float yaw, int reach, int fov) {
+	/** The land's height at a column, and whether a river runs there: what finding the views needs of a world. */
+	interface Land {
+		float height(int x, int z);
+
+		boolean river(int x, int z);
+	}
+
+	private static Spot seam(String name, Land model, int x, int y, int z, float yaw, int reach, int fov) {
 		double a = Math.toRadians(yaw);
-		float ground = model.sample((int) Math.round(x - Math.sin(a) * reach), (int) Math.round(z + Math.cos(a) * reach)).height;
+		float ground = model.height((int) Math.round(x - Math.sin(a) * reach), (int) Math.round(z + Math.cos(a) * reach));
 		float pitch = (float) Math.toDegrees(Math.atan2(y + 1.62 - ground, reach));
 		return new Spot(name, x, y, z, yaw, pitch, fov);
 	}

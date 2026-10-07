@@ -26,6 +26,8 @@ public final class ColumnStore {
 	public static final int REGION_BLOCKS = REGION_CHUNKS * 16;
 	/** Where each level of the pyramid starts (level 1: 32-block cells, 16 x 16 to a region; up to level 4: 256 blocks, 2 x 2). */
 	private static final int[] LEVEL_AT = {0, 0, 256, 320, 336};
+	/** The largest square {@link #summary} answers for, in blocks. */
+	public static final int MAX_SUMMARY = 16 << (LEVEL_AT.length - 1);
 	private static final int PYRAMID = 340;
 
 	public static final class Region {

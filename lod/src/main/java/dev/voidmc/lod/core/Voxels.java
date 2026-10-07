@@ -22,6 +22,8 @@ public final class Voxels {
 	public int[] sideColor = new int[256];
 	public int[] topMaterial = new int[256];
 	public int[] sideMaterial = new int[256];
+	/** The season code of a leaf block ({@code LodApi.Seasons}: class, variant), 0 for none; set as the tile is built. */
+	public byte[] season = new byte[256];
 
 	public void clear() {
 		this.size = 0;
@@ -39,6 +41,7 @@ public final class Voxels {
 			this.sideColor = Arrays.copyOf(this.sideColor, n);
 			this.topMaterial = Arrays.copyOf(this.topMaterial, n);
 			this.sideMaterial = Arrays.copyOf(this.sideMaterial, n);
+			this.season = Arrays.copyOf(this.season, n);
 		}
 		int i = this.size++;
 		this.x[i] = x;
@@ -48,6 +51,7 @@ public final class Voxels {
 		this.axis[i] = axis;
 		this.topColor[i] = topColor;
 		this.sideColor[i] = sideColor;
+		this.season[i] = 0;
 		this.topMaterial[i] = topMaterial;
 		this.sideMaterial[i] = sideMaterial;
 	}

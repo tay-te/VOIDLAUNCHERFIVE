@@ -17,25 +17,24 @@ import net.minecraft.client.multiplayer.ClientLevel;
  *
  * <p>The colours move in steps, {@value #STEPS} a year (half a day each at the default eight-day seasons), not every
  * tick: at each step the tint caches are cleared and the chunk meshes around the camera rebuilt over a few ticks
- * ({@link Remesh}), and VOID LOD rebuilds its tiles in the background. Switching Gloam (or the {@code seasons} setting)
- * off is a step back to vanilla's colours. The far land follows a step once it has held for {@value #LOD_HOLD} ticks, so
- * flicking Gloam off and on again does not rebuild the whole horizon twice.
+ * ({@link Remesh}). Switching Gloam (or the {@code seasons} setting) off is a step back to vanilla's colours. The far
+ * land needs no rebuilding: VOID LOD turns it at draw time by a table set from the year every {@value #LOD_TICKS} ticks.
  */
 public final class Seasons {
 	/** Colour steps a year. */
 	public static final int STEPS = 64;
-	/** How long a step must hold before the far land is rebuilt for it, in ticks. */
-	private static final int LOD_HOLD = 100;
+	/** How often the far land's season table is set again, in ticks. */
+	private static final int LOD_TICKS = 10;
 
 	private static volatile SeasonColours colours = SeasonColours.NONE;
-	private static volatile SeasonColours lodColours = SeasonColours.NONE;
 
 	private static final Remesh REMESH = new Remesh();
 	/** Whether the crowns were thinned at the last step (the setting can change between steps). */
 	private static boolean bareTrees;
 	private static ClientLevel level;
 	private static int step = Integer.MIN_VALUE;
-	private static int held;
+	private static int ticks;
+	private static boolean lodOn;
 	private static int steps;
 	private static long applyNanos;
 
@@ -53,11 +52,6 @@ public final class Seasons {
 		return colours;
 	}
 
-	/** The colours VOID LOD's far land is turned to now. Any thread. */
-	static SeasonColours lodColours() {
-		return lodColours;
-	}
-
 	/** Whether VOID LOD is working out vanilla's block colours on this thread, so the tints must give vanilla's. */
 	static boolean lodBaking() {
 		return SeasonLod.baking();
@@ -68,46 +62,40 @@ public final class Seasons {
 		if (now != level) {
 			level = now;
 			step = Integer.MIN_VALUE;
-			held = 0;
+			if (now != null) {
+				SeasonLod.install();
+			}
 		}
 		if (now == null) {
-			colours = lodColours = SeasonColours.NONE;
+			colours = SeasonColours.NONE;
 			return;
 		}
 		GloamSettings settings = GloamSettings.get();
 		Air air = Atmosphere.get().air();
 		boolean on = settings.enabled && settings.seasons && air != null && now.dimensionType().hasSkyLight();
-		int want = on ? (int) Math.floor(air.year(now.getOverworldClockTime()) * STEPS) : -1;
+		float year = on ? air.year(now.getOverworldClockTime()) : 0;
+		int want = on ? (int) Math.floor(year * STEPS) : -1;
 		if (want != step) {
-			boolean first = step == Integer.MIN_VALUE;
 			step = want;
-			held = 0;
-			apply(mc, want < 0 ? SeasonColours.NONE : SeasonColours.at((want + 0.5F) / STEPS), first);
-		} else if (held >= 0 && ++held >= LOD_HOLD) {
-			held = -1;
-			if (lodColours != colours) {
-				lodColours = colours;
-				SeasonLod.recolour();
-			}
+			apply(mc, want < 0 ? SeasonColours.NONE : SeasonColours.at((want + 0.5F) / STEPS));
+		}
+		if (++ticks % LOD_TICKS == 0 || want < 0 != !lodOn) {
+			// the far land's table follows the year smoothly (it costs nothing to change), and goes at once with the seasons
+			lodOn = want >= 0;
+			SeasonLod.tints(lodOn ? SeasonColours.at(year) : SeasonColours.NONE);
 		}
 		REMESH.tick(mc);
 		REMESH.watch(mc);
 		if (settings.bareTrees != bareTrees && step != Integer.MIN_VALUE) {
 			// the crowns' models follow the setting: a step in the same colours
-			apply(mc, colours, false);
+			apply(mc, colours);
 		}
 	}
 
-	private static void apply(Minecraft mc, SeasonColours next, boolean first) {
+	private static void apply(Minecraft mc, SeasonColours next) {
 		long t0 = System.nanoTime();
 		boolean changed = next.on() || colours.on() || bareTrees != GloamSettings.get().bareTrees;
 		colours = next;
-		if (first) {
-			// a new level: the far land is built in these colours from the start
-			lodColours = next;
-			held = -1;
-			SeasonLod.recolour();
-		}
 		if (changed && mc.level != null) {
 			mc.level.clearTintCaches();
 			REMESH.start(mc);

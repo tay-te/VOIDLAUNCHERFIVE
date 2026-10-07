@@ -30,7 +30,7 @@ public final class Tile {
 	/** Where each group of faces starts, in quads ({@code TileBuilder.GROUP_*}, the last entry the end), or null: one draw. */
 	public int[] groups;
 	public boolean smooth;
-	/** A far blocky tile with compact vertices ({@link TileBuilder#COMPACT_BYTES}). */
+	/** A far blocky tile in compact quad records ({@link TileBuilder#RECORD_BYTES}). */
 	public boolean compact;
 	/** A smooth tile with void in it (between End islands): drawn with the shader variant that cuts it out. */
 	public boolean holes;

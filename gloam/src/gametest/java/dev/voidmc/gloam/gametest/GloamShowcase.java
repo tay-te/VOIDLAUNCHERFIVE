@@ -417,6 +417,7 @@ public class GloamShowcase implements FabricClientGameTest {
 		views.add(new View("snowline0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), 3, 70, 23 * 24000L + 6000, "rain", 4));
 		// high over the valley, under the lowest clouds, out over the land where the chunks give way to VOID LOD's
 		views.add(new View("autumnfar0", p.valleyX(), p.valleyY() + 100, p.valleyZ(), p.toPeak() + 180, 10, 50, 15 * 24000L + 5000, "clear", 3));
+		views.add(new View("winterfar0", p.valleyX(), p.valleyY() + 100, p.valleyZ(), p.toPeak() + 180, 10, 50, 23 * 24000L + 5000, "clear", 3));
 		// over the forest's crowns, looking out across them
 		for (int i = 0; i < 4; i++) {
 			views.add(new View(names[i] + "1", m.forestX(), m.forestY() + 24, m.forestZ(), m.forestYaw(), 22, 70, days[i] * 24000L + 6000, "clear", 3));

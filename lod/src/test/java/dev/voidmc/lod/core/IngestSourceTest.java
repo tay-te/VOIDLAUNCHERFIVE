@@ -52,6 +52,21 @@ class IngestSourceTest {
 	}
 
 	@Test
+	void cellsPastSixtyFourKilometresAddUpTheStoresSummaries() {
+		ColumnStore store = new ColumnStore();
+		// one whole region (512 blocks a side) seen: a concrete plateau at 100
+		for (int cz = 0; cz < ColumnStore.REGION_CHUNKS; cz++) {
+			for (int cx = 0; cx < ColumnStore.REGION_CHUNKS; cx++) {
+				store.put(cx, cz, chunk(cx, cz, CONCRETE, (x, z) -> 100));
+			}
+		}
+		IngestSource source = new IngestSource(store, GENERATED);
+		// a 1024-block cell centred on (512, 512) and a 2048-block one on (1024, 1024): a quarter and a sixteenth seen
+		assertEquals(64 + 0.25F * 36, sample(source, 512, 512, 1024).ground, 1e-3);
+		assertEquals(64 + 36 / 16.0F, sample(source, 1024, 1024, 2048).ground, 1e-3);
+	}
+
+	@Test
 	void theEdgeOfTheSeenLandBlendsIntoTheGenerated() {
 		ColumnStore store = new ColumnStore();
 		store.put(0, 0, chunk(0, 0, CONCRETE, (x, z) -> 100));

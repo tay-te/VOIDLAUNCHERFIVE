@@ -93,11 +93,35 @@ public class WorldgenSource implements TerrainSource {
 		this.strata = strata;
 		this.strataMaterials = strataMaterials;
 		this.strataOffset = offset;
+		this.surface = this.surfaceOrNull();
 	}
 
 	@Override
 	public long version() {
 		return this.version;
+	}
+
+	/**
+	 * The ground as the generator lays it, from its interpolated density ({@link NoiseSurface}), many times cheaper than
+	 * walking a noise column down for every sample; null where its density is not interpolated (or the source has a
+	 * model of its own, as Expanse's does).
+	 */
+	private final NoiseSurface surface;
+
+	private NoiseSurface surfaceOrNull() {
+		if (this.floating || this.getClass() != WorldgenSource.class || "false".equals(System.getProperty("void.lod.exactGround"))) {
+			return null;
+		}
+		try {
+			return NoiseSurface.of(this.randomState);
+		} catch (RuntimeException | LinkageError e) {
+			return null;
+		}
+	}
+
+	/** Anything about the source worth a line in the statistics. */
+	public String diagnostics() {
+		return this.surface == null ? "" : this.surface.stats();
 	}
 
 	/** {@code -Dvoid.lod.trees=false} draws stand-in trees instead of the world's own, placed block by block. */
@@ -135,10 +159,6 @@ public class WorldgenSource implements TerrainSource {
 		return this.floating;
 	}
 
-	/** Anything about the source worth a line in the statistics. */
-	public String diagnostics() {
-		return "";
-	}
 
 	/**
 	 * How far the LOD reaches, in blocks, and whether it is building: a source with caches of its own sizes them to the
@@ -261,8 +281,16 @@ public class WorldgenSource implements TerrainSource {
 
 	@Override
 	public void sample(int x, int z, int cell, ColumnSample out) {
-		int ground = this.floating ? this.island(x, z, out)
-			: this.generator.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, this.level, this.randomState);
+		int ground;
+		if (this.floating) {
+			ground = this.island(x, z, out);
+		} else if (this.surface != null) {
+			// the generator's interpolated density at its cell corners, shared by the columns around them
+			int air = this.surface.firstAir(x, z, this.level.getMinY(), this.level.getMaxY());
+			ground = air == Integer.MIN_VALUE ? this.level.getMinY() : air;
+		} else {
+			ground = this.generator.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, this.level, this.randomState);
+		}
 		if (ground <= this.level.getMinY()) {
 			// nothing at all down to the bottom of the world: the void
 			out.empty = true;

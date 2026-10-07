@@ -71,6 +71,33 @@ class SeasonColoursTest {
 		assertTrue(g(wet) > r(wet) + 40, "a jungle stays green: " + Integer.toHexString(wet));
 	}
 
+	/** VOID LOD's season formula (LodApi.seasonColour), as the far land applies a table entry. */
+	private static int far(int rgb, float[] t, int cls, int v) {
+		int e = (cls * 4 + v) * 5;
+		float r = (rgb >> 16 & 255) / 255.0F, g = (rgb >> 8 & 255) / 255.0F, b = (rgb & 255) / 255.0F;
+		float lum = 0.2126F * r + 0.7152F * g + 0.0722F * b;
+		float k = lum / Math.max(0.2126F * t[e] + 0.7152F * t[e + 1] + 0.0722F * t[e + 2], 1e-3F);
+		r = (r + (t[e] * k - r) * t[e + 3]) * t[e + 4];
+		g = (g + (t[e + 1] * k - g) * t[e + 3]) * t[e + 4];
+		b = (b + (t[e + 2] * k - b) * t[e + 3]) * t[e + 4];
+		return Math.round(Math.clamp(r, 0, 1) * 255) << 16 | Math.round(Math.clamp(g, 0, 1) * 255) << 8 | Math.round(Math.clamp(b, 0, 1) * 255);
+	}
+
+	@Test
+	void theFarLandTurnsAsTheChunksDo() {
+		// a grey texture (0.6) under plains grass: what the chunks show is the texture times the season's tint
+		SeasonColours autumn = SeasonColours.at(AUTUMN + 0.06F);
+		float[] table = SeasonLod.table(autumn);
+		int vanilla = SeasonColours.scale(PLAINS_GRASS, 0.6F);
+		int near = SeasonColours.scale(autumn.grass(PLAINS_GRASS, 0.8F, 0.4F, 0), 0.6F);
+		int farColour = far(vanilla, table, SeasonLod.GRASS_DRY, 0);
+		assertTrue(Math.abs(r(near) - r(farColour)) + Math.abs(g(near) - g(farColour)) + Math.abs(b(near) - b(farColour)) < 12,
+			Integer.toHexString(near) + " near, " + Integer.toHexString(farColour) + " far");
+		// winter crowns darker and grey-brown, not green
+		int crown = far(SeasonColours.scale(PLAINS_FOLIAGE, 0.55F), SeasonLod.table(SeasonColours.at(WINTER)), SeasonLod.BROADLEAF, 1);
+		assertTrue(g(crown) - r(crown) < 8 && r(crown) > b(crown), Integer.toHexString(crown));
+	}
+
 	@Test
 	void winterSnowsOnTheHillsAndRainsInTheValleys() {
 		SeasonColours winter = SeasonColours.at(WINTER), summer = SeasonColours.at(SUMMER);
