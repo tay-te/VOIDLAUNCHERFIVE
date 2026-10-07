@@ -304,7 +304,7 @@ tasks.register('atlasPerf') {
 		if (r.farSight && r.farSight.tiles > 0 && r.farSight.workerMsPerTile > held.farTileMs) failures << "far sight ${r.farSight.workerMsPerTile} ms/tile > ${held.farTileMs}"
 		if (r.farSight && r.farSight.listenerUsPerTile > held.farHandUs) failures << "far sight hand-over ${r.farSight.listenerUsPerTile} us/tile > ${held.farHandUs}"
 		if (r.farCoarse && r.farCoarse.tiles > 0 && r.farCoarse.workerMsPerTile > held.farCoarseTileMs) failures << "coarse far store ${r.farCoarse.workerMsPerTile} ms/tile > ${held.farCoarseTileMs}"
-		if (r.farCoarse && r.farCoarse.drainSeconds > held.farCoarseDrainS) failures << "coarse far burst written in ${r.farCoarse.drainSeconds} s > ${held.farCoarseDrainS}"
+		if (r.farCoarse && r.farCoarse.tiles > 0 && r.farCoarse.drainSeconds > held.farCoarseDrainS) failures << "coarse far burst written in ${r.farCoarse.drainSeconds} s > ${held.farCoarseDrainS}"
 		if (r.farSight && r.farSight.clientIngestMs > held.ingestMaxFrameMs) failures << "far sight cost the client thread ${r.farSight.clientIngestMs} ms/frame"
 		updatePerfDoc(file('docs/PERF.md'), file('build/perf'), held)
 		if (!failures.isEmpty()) {

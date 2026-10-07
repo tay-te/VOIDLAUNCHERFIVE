@@ -1425,9 +1425,9 @@ public class AtlasGameTest implements FabricClientGameTest {
 			for (int t = 0; t < count; t++) {
 				int cell = cells[t % cells.length];
 				int n = 64;
-				int span = n * cell;
-				int x = x0 + (t / cells.length % 8) * span;
-				int z = z0 + (t / cells.length / 8) * span;
+				// as VOID LOD hands them over: round one player, out to its 8 km reach (tiles of every size overlapping)
+				int x = x0 + (t / cells.length % 8 - 4) * 2048;
+				int z = z0 + (t / cells.length / 8 % 4 - 2) * 2048;
 				short[] heights = new short[n * n];
 				int[] colours = new int[n * n];
 				String[] blocks = new String[n * n];
