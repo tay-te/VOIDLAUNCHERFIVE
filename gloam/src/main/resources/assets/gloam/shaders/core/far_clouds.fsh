@@ -121,7 +121,13 @@ void main() {
             // Aerial perspective, sample by sample: the air between pales a far cloud into the horizon's colour, so a
             // tower 10 km off is a bluish-grey mass rather than white (worked out per sample, a ray that slips through
             // a near wisp to a far cloud does not turn into a bright speck)
-            col = mix(col, FogColor.rgb, (1.0 - exp(-t / FarAnchor.w)) * 0.8);
+            float air = (1.0 - exp(-t / FarAnchor.w)) * 0.8;
+            if (FarMap.w > 0.5) {
+                // over a shader pack: thinned by the air instead, so it melts into the pack's own sky
+                a *= 1.0 - air * 0.9;
+            } else {
+                col = mix(col, FogColor.rgb, air);
+            }
             light += transmit * a * col;
             weighted += transmit * a * t;
             transmit *= 1.0 - a;

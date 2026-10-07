@@ -42,6 +42,6 @@ void main() {
     color = mix(color, FarSunrise.rgb * max(max(color.r, color.g), color.b), FarSunrise.a * sunward * 0.5);
     // far banks sink into the air like the land under them
     float haze = 1.0 - exp(-dist / FarAnchor.w);
-    color = mix(color, FogColor.rgb, haze * 0.35);
-    fragColor = vec4(min(color, vec3(1.0)), opacity * 0.95);
+    color = mix(color, FogColor.rgb, haze * 0.35 * (1.0 - FarMap.w));
+    fragColor = vec4(min(color, vec3(1.0)), opacity * 0.95 * (1.0 - haze * 0.5 * FarMap.w));
 }

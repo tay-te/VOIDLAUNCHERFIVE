@@ -150,8 +150,13 @@ the LOD; prepared (uploads, the shadow picture) while the frame graph is built (
   stand out of it through the depth buffer, and its edges go soft where the mist over the ground runs out.
 - **The haze follows Gloam** through the attributes, and `LodApi.setHazeThickness` thickens it in humid summer
   lowlands and morning mist, thins it in winter and in the washed air after rain (`farHaze`).
-- With a shader pack on, the pack draws its own sky and clouds: the far air stays out (vanilla clouds are left to the
-  pack) and reaches it only through the attributes and the rain level.
+- **Over a shader pack** (`farOverPack`): when the pack draws VOID LOD's far land through its Distant Horizons programs,
+  VOID LOD hands over that land's depth once the pack has finished its picture (`LodApi.onPackFrame`). Gloam writes it
+  into the main depth buffer in the game's perspective (`far_depth_merge`, sampling the LOD's GL texture through a
+  borrowed `GlTexture`), then draws the deck, the mist and the curtains over the pack's picture, hidden behind the
+  chunks and the far ridges alike. Over a pack the far air thins into the pack's own sky with distance instead of
+  taking vanilla's fog colour, and the deck follows the player's cloud option (Iris reports it off for packs that draw
+  their own clouds; those stay, under Gloam's deck). No cloud shadows there: the pack's programs take no shade.
 
 ## Shader packs
 

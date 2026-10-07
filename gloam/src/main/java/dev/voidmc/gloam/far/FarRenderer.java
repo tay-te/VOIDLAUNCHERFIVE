@@ -127,6 +127,20 @@ final class FarRenderer implements AutoCloseable {
 		.withDepthStencilState(TEST_ONLY)
 		.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT_PREMULTIPLIED_ALPHA))
 		.build();
+	static final BindGroupLayout DEPTH_MERGE = BindGroupLayout.builder()
+		.withUniform("GloamFarDepth", UniformType.UNIFORM_BUFFER)
+		.withUniform("FarDepth", UniformType.COMBINED_IMAGE_SAMPLER)
+		.build();
+	/** The far land's depth, as a shader pack drew it, written into the main depth buffer: depth only, no colour. */
+	static final RenderPipeline MERGE = RenderPipeline.builder()
+		.withLocation(Gloam.id("pipeline/far_depth_merge"))
+		.withVertexShader(Gloam.id("core/far_shade"))
+		.withFragmentShader(Gloam.id("core/far_depth_merge"))
+		.withBindGroupLayout(DEPTH_MERGE)
+		.withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+		.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true))
+		.withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, ColorTargetState.WRITE_NONE))
+		.build();
 	static final RenderPipeline CLOUDS = clouds(false);
 	static final RenderPipeline CLOUDS_FAST = clouds(true);
 	static final RenderPipeline MIST = translucent("far_mist", MIST_VERTEX);
@@ -392,6 +406,53 @@ final class FarRenderer implements AutoCloseable {
 		return !this.timerPending[this.timerSlot];
 	}
 
+	private BorrowedDepth farDepth;
+	private GpuTextureView farDepthView;
+	private final ByteBuffer mergeInfo = MemoryUtil.memAlloc(80);
+	private final org.joml.Matrix4f farToMain = new org.joml.Matrix4f();
+
+	/**
+	 * Draws the prepared far air over a shader pack's finished picture: first the far land's depth, as the pack drew it
+	 * through VOID LOD, into the main depth buffer (which holds the chunks'), then the far air tested against both.
+	 */
+	void drawOverPack(com.mojang.blaze3d.pipeline.RenderTarget target, int glDepth, org.joml.Matrix4fc lodProjection, org.joml.Matrix4fc projection,
+		int depthWidth, int depthHeight, GpuBufferSlice fog) {
+		if (!this.anything()) {
+			return;
+		}
+		if (this.farDepth == null || this.farDepth.glId() != glDepth || this.farDepth.getWidth(0) != depthWidth || this.farDepth.getHeight(0) != depthHeight) {
+			// the old wrapper is dropped, not closed: the texture is VOID LOD's
+			this.farDepth = new BorrowedDepth(glDepth, depthWidth, depthHeight);
+			this.farDepthView = this.device.createTextureView(this.farDepth);
+		}
+		int width = target.width, height = target.height;
+		this.farToMain.set(projection).mul(new org.joml.Matrix4f(lodProjection).invert());
+		this.mergeInfo.clear();
+		this.farToMain.get(0, this.mergeInfo);
+		this.mergeInfo.position(64);
+		this.mergeInfo.putFloat(depthWidth / (float) width).putFloat(depthHeight / (float) height).putFloat(0).putFloat(0);
+		this.mergeInfo.flip();
+		CommandEncoder encoder = this.device.createCommandEncoder();
+		GpuBufferSlice merge = encoder.transientMemory().uploadGpu(this.mergeInfo, this.device.getDeviceInfo().limits().minUniformOffsetAlignment(),
+			GpuBuffer.USAGE_UNIFORM);
+		int quads = Math.max(this.drawMist ? this.mistQuads : 0, this.rainQuads);
+		if (quads > 0) {
+			RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS).getBuffer(quads * 6);
+		}
+		try (RenderPass pass = encoder.createRenderPass(() -> "VOID Gloam far air over the shader pack", target.getColorTextureView(), Optional.empty(),
+			target.getDepthTextureView(), java.util.OptionalDouble.empty())) {
+			RenderSystem.bindDefaultUniforms(pass);
+			if (fog != null) {
+				pass.setUniform("Fog", fog);
+			}
+			pass.setUniform("GloamFarDepth", merge);
+			pass.setUniform("FarDepth", this.farDepthView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+			pass.setPipeline(RenderSystem.getCompiledPipeline(MERGE));
+			pass.draw(3, 1, 0, 0);
+			this.draw(pass);
+		}
+	}
+
 	/** The cloud shadows' picture. */
 	GpuTextureView shadeView() {
 		return this.shadeView;
@@ -427,5 +488,6 @@ final class FarRenderer implements AutoCloseable {
 			this.half.close();
 		}
 		MemoryUtil.memFree(this.info);
+		MemoryUtil.memFree(this.mergeInfo);
 	}
 }
