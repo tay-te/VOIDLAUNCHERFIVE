@@ -106,7 +106,7 @@
     var rows = [
       ["ARMOUR", Math.round(Math.min(20, s.armor) / 20 * 10), false, String(s.armor)],
       ["LOAD", Math.min(10, Math.round(b.load / Math.max(1, b.capacity) * 8)), true, Math.round(b.load) + " KG"],
-      ["LEVEL", s.level > 0 ? Math.floor(s.xp * 10) + 1 : 0, false, String(s.level)]
+      ["XP LVL", s.level > 0 ? Math.floor(s.xp * 10) + 1 : 0, false, String(s.level)]
     ];
     var key = JSON.stringify(rows);
     if (last.readout === key) return;
@@ -231,12 +231,107 @@
     return s + "</span>";
   }
 
+  // ---- the background picker (first join, or an operator's reset) ---------------------------------------
+  // Nine backgrounds as cards on the left, the chosen one in full on the right with Begin. A background's
+  // accent is its first favoured skill's colour. The Wanderer places free points and picks skills to favour.
+  var pick = {bg: null, spent: {}, fav: []};
+
+  function bgAccent(b) {
+    var s = b.favoured && b.favoured.length ? skillById(b.favoured[0]) : null;
+    return s ? hueOf(s) : CHAMP;
+  }
+
+  function picker() {
+    var list = M.backgrounds, h = "";
+    if (!pick.bg || !findBg(pick.bg)) pick.bg = list.length ? list[0].id : null;
+    var b = findBg(pick.bg);
+    h += '<div style="left:28px;top:96px"><div class="m-eb">' + (M.pickerByOperator ? "AN OPERATOR RESET YOUR BACKGROUND  ·  YOUR SKILLS STAY" : "A NEW CHARACTER") +
+      '</div><div class="m-h1" style="margin-top:4px">Choose your background</div><div class="m-eb m-ink2" style="margin-top:5px">EVERY SKILL CAN BE LEARNED. THIS IS ONLY WHERE YOU START.</div></div>';
+    for (var i = 0; i < list.length && i < 9; i++) {
+      var g = list[i], hue = bgAccent(g), on = g.id === pick.bg;
+      var st = "left:" + (28 + (i % 3) * 156) + "px;top:" + (166 + Math.floor(i / 3) * 132) + "px;background:" + mix(PANEL, hue, on ? 0.10 : 0.04) + ";border:" +
+        (on ? "2px solid " + hue + ";box-shadow:0 0 0 3px " + rgba(hue, 0.12) + ", 0 0 24px " + rgba(hue, 0.4) : "1px solid " + rgba(hue, 0.25));
+      h += '<div class="p-card" data-bg="' + g.id + '" style="' + st + '"><div class="p-art" style="background:' + mix(WELL, hue, 0.08) + '">' + img(g.art, 96, 48) + "</div>";
+      h += '<div class="m-h4" style="left:12px;top:72px">' + esc(g.name) + '</div><div class="m-eb" style="left:12px;top:92px;color:' + rgba(hue, 0.75) + '">' + esc(upper(bonusText(g))) + "</div></div>";
+    }
+    if (!b) return h;
+    var hue = bgAccent(b), light = lightOf(hue);
+    h += '<div class="p-panel" style="background:' + mix(PANEL, hue, 0.05) + ";border:1px solid " + rgba(hue, 0.3) + '">';
+    h += '<div class="p-big" style="background:' + mix(WELL, hue, 0.10) + '"><div class="o-halo" style="left:46px;top:-30px;width:180px;height:180px;border-radius:90px;background:radial-gradient(circle,' +
+      rgba(hue, 0.35) + " 0%," + rgba(hue, 0) + ' 70%)"></div><div style="left:40px;top:8px">' + img(b.art, 192, 96) + "</div></div>";
+    h += '<div style="left:292px;top:20px;right:18px"><div class="m-h1">' + esc(b.name) + '</div><div class="p-tag">' + esc(b.tagline) + "</div></div>";
+    var y = 130;
+    if (b.freePoints > 0 || b.freeFavoured > 0) {
+      h += wandererControls(b, hue, y);
+    } else {
+      h += '<div class="m-eb" style="left:18px;top:' + y + 'px">STARTS WITH</div><div class="p-chips" style="top:' + (y + 16) + 'px">';
+      for (var a in b.bonus) h += '<span class="p-chip" style="border-color:' + rgba(hue, 0.4) + '">' + esc(attrName(a)) + " +" + b.bonus[a] + "</span>";
+      h += "</div>";
+      h += '<div class="m-eb" style="left:18px;top:' + (y + 54) + 'px">FAVOURED SKILLS  ·  +25 % XP</div><div class="p-chips" style="top:' + (y + 70) + 'px">';
+      for (var f = 0; f < b.favoured.length; f++) {
+        var fs = skillById(b.favoured[f]);
+        if (fs) h += '<span class="p-chip" style="color:' + lightOf(hueOf(fs)) + ";border-color:" + rgba(hueOf(fs), 0.55) + ";background:" + mix(WELL, hueOf(fs), 0.15) + '">' + img(fs.icon, 16) + esc(fs.name) + "</span>";
+      }
+      h += "</div>";
+      if (b.signature) {
+        h += '<div class="p-sig" style="top:' + (y + 108) + "px;border-color:" + rgba(CHAMP, 0.5) + '"><div class="m-eb" style="color:' + CHAMP + '">SIGNATURE PERK  ·  ALWAYS YOURS</div><div class="m-h4" style="margin-top:4px">' +
+          esc(b.signature.name) + '</div><div class="p-desc">' + esc(b.signature.description) + "</div></div>";
+      }
+    }
+    h += '<div class="m-eb" style="left:18px;bottom:72px">KIT  <span class="m-ink2">' + esc(upper(b.kitSummary || "")) + "</span></div>";
+    var r = M.result && !M.result.ok && M.result.text ? M.result.text : "";
+    var ready = pickerReady(b);
+    h += r ? '<div class="p-err">' + esc(r) + "</div>" : "";
+    h += '<div class="p-begin' + (ready ? "" : " off") + '"' + (ready ? ' data-begin="1" style="background:' + hue + ";box-shadow:0 0 22px " + rgba(hue, 0.5) + '"' : "") + ">" +
+      (ready ? "Begin as " + esc(b.name) : "Place your points and favoured skills") + "</div>";
+    h += "</div>";
+    h += '<div class="footer" style="top:594px">CHOOSE ONCE  ·  AN OPERATOR CAN RESET IT  ·  SKILLS ARE NEVER LOST</div>';
+    return h;
+  }
+
+  function findBg(id) {
+    for (var i = 0; i < M.backgrounds.length; i++) if (M.backgrounds[i].id === id) return M.backgrounds[i];
+    return null;
+  }
+
+  function bonusText(b) {
+    if (b.freePoints > 0) return b.freePoints + " points to place";
+    var out = [];
+    for (var a in b.bonus) out.push(attrName(a).slice(0, 3) + " +" + b.bonus[a]);
+    return out.join(" · ");
+  }
+
+  function spentTotal() { var n = 0; for (var a in pick.spent) n += pick.spent[a]; return n; }
+
+  function pickerReady(b) {
+    if (b.freePoints > 0 && spentTotal() !== b.freePoints) return false;
+    if (b.freeFavoured > 0 && pick.fav.length !== b.freeFavoured) return false;
+    return true;
+  }
+
+  function wandererControls(b, hue, y) {
+    var h = '<div class="m-eb" style="left:18px;top:' + y + 'px">PLACE ' + b.freePoints + " POINTS  ·  " + (b.freePoints - spentTotal()) + " LEFT</div>";
+    for (var i = 0; i < M.attributes.length; i++) {
+      var a = M.attributes[i], v = 3 + (b.bonus[a.id] || 0) + (pick.spent[a.id] || 0);
+      h += '<div class="p-step" style="left:' + (18 + i * 84) + "px;top:" + (y + 16) + 'px"><div class="m-eb">' + esc(upper(a.name).slice(0, 3)) + '</div><div class="m-h3">' + v + "</div>" +
+        '<div class="p-pm" data-pm="' + a.id + ':-1">−</div><div class="p-pm" data-pm="' + a.id + ':1" style="left:44px">+</div></div>';
+    }
+    h += '<div class="m-eb" style="left:18px;top:' + (y + 86) + 'px">FAVOUR ' + b.freeFavoured + " SKILLS  ·  +25 % XP</div><div class=\"p-chips wrap\" style=\"top:" + (y + 102) + 'px">';
+    var list = skillsShown();
+    for (var k = 0; k < list.length; k++) {
+      var s = list[k], on = pick.fav.indexOf(s.id) >= 0, sh = hueOf(s);
+      h += '<span class="p-chip" data-fav="' + s.id + '" style="' + (on ? "color:" + lightOf(sh) + ";border-color:" + sh + ";background:" + mix(WELL, sh, 0.22) + ";box-shadow:0 0 10px " + rgba(sh, 0.35)
+        : "border-color:" + rgba(sh, 0.3)) + '">' + img(s.icon, 16) + esc(s.name) + "</span>";
+    }
+    return h + "</div>";
+  }
+
   // ---- the gallery ------------------------------------------------------------------------------------
   function gallery() {
     var c = M.character, b = bg();
     var h = '<div class="m-source"><span class="modmark big"><i></i><i></i><i></i><i></i><i></i><i></i></span>from Mettle</div>';
     if (M.phase !== "chosen" || !b) {
-      return h + '<div class="w-empty">You have not chosen where you come from yet.<br><span class="m-ink3">Close this and press K to choose your background.</span></div>';
+      return picker();
     }
     // Character strip: background, level, the five attributes (+ where points wait).
     h += '<div class="o-strip"><div class="o-art">' + img(b.art, 96, 48) + "</div>";
@@ -274,7 +369,8 @@
       '"><b style="background:' + hue + '"></b>' + s.points + "</div>";
     h += '<div class="o-title" style="color:' + mix("#9A9DA1", hue, 0.35) + '">' + esc(s.level > 0 ? s.title : "Untried") + "</div>";
     h += '<div style="left:14px;top:144px">' + hcells(16, s.level >= 20 ? 16 : Math.max(1, Math.round(frac(s) * 16)), 10, 6, 2, hue) + "</div>";
-    h += '<div class="m-eb" style="left:14px;top:160px;color:' + mix("#626569", hue, 0.3) + '">' + (s.level >= 20 ? "MASTERED" : fmt(s.xp) + " / " + fmt(s.nextXp) + " XP") + "</div>";
+    h += '<div class="o-how' + (s.level === 0 ? " always" : "") + '" style="color:' + mix("#B5B8BC", hue, 0.25) + '"><span class="m-eb" style="color:' + rgba(hue, 0.85) + '">HOW IT LEVELS</span><br>' + esc(s.levelsBy || "") + "</div>";
+    if (s.level > 0) h += '<div class="m-eb o-xpt" style="left:14px;top:160px;color:' + mix("#626569", hue, 0.3) + '">' + (s.level >= 20 ? "MASTERED" : fmt(s.xp) + " / " + fmt(s.nextXp) + " XP") + "</div>";
     // The perks learned so far, then earned ones in champagne.
     var ps = perksOf(s.id), row = "", shown = 0, extra = 0;
     for (var i = 0; i < ps.length; i++) {
@@ -290,6 +386,7 @@
     }
     if (extra) row += '<div class="o-more">+' + extra + "</div>";
     if (!shown) row = '<span class="m-eb">NO PERKS YET</span>';
+    if (s.level === 0) row = "";
     h += '<div class="o-perks">' + row + "</div>";
     return h + "</div>";
   }
@@ -448,9 +545,9 @@
     h += actionBar(findPerk(view.perk), s, hue);
     var spent = 0;
     for (var z = 0; z < M.perks.length; z++) if (M.perks[z].skill === s.id && !earnedKind(M.perks[z])) spent += M.perks[z].rank * M.perks[z].cost;
-    h += '<div class="footer" style="top:594px">' + esc(upper(s.name)) + "  ·  " + spent + (spent === 1 ? " POINT SPENT  ·  " : " POINTS SPENT  ·  ") + (s.points ? '<span style="color:' + light + '">' + s.points + " LEFT</span>" : "0 LEFT") +
+    h += '<div class="footer" style="top:594px">' + spent + (spent === 1 ? " POINT SPENT  ·  " : " POINTS SPENT  ·  ") + (s.points ? '<span style="color:' + light + '">' + s.points + " LEFT</span>" : "0 LEFT") +
       "  ·  " + esc(upper(s.paths.a || "")) + " " + pa + " / 4  ·  " + esc(upper(s.paths.b || "")) + " " + pb + " / 4</div>";
-    h += '<div class="footer right" style="top:594px">CLICK A PERK  ·  ENTER LEARNS</div>';
+    h += '<div class="footer right" style="top:594px">LEVELS BY  ·  ' + esc(upper(s.levelsBy || "")) + "</div>";
     return h;
   }
 
@@ -502,13 +599,27 @@
     return '<div class="o-req">' + (ok ? '<span style="color:' + hue + '">✓</span>' : '<span class="m-ink3">×</span>') + "&nbsp; " + '<span' + (ok ? "" : ' class="m-ink2"') + ">" + esc(txt) + "</span></div>";
   }
 
+  var ranks = null;  // perk id -> rank last drawn, to light up a perk that was just learned
+
   function classes() {
     var el = $("classes");
     if (!el || !M || kind !== "classes") return;
-    var key = JSON.stringify([view, M.character, M.skills, M.perks, M.phase]);
+    var key = JSON.stringify([view, pick, M.character, M.skills, M.perks, M.phase, M.result]);
     if (key === built) { toast(); return; }
     built = key;
-    el.innerHTML = view.skill ? tree() : gallery();
+    el.innerHTML = view.skill && M.phase === "chosen" ? tree() : gallery();
+    // A perk whose rank went up since the last draw pulses once.
+    var now = {};
+    for (var i = 0; i < M.perks.length; i++) now[M.perks[i].id] = M.perks[i].rank;
+    if (ranks) {
+      for (var id in now) {
+        if (now[id] > (ranks[id] || 0)) {
+          var tiles = el.querySelectorAll('[data-perk="' + id + '"] .t-tile');
+          for (var k = 0; k < tiles.length; k++) tiles[k].classList.add("t-just");
+        }
+      }
+    }
+    ranks = now;
     toast();
   }
 
@@ -544,6 +655,25 @@
       if (t.getAttribute) {
         var v;
         if ((v = t.getAttribute("data-learn"))) { send({type: "mettle", op: "learnPerk", arg: v}); return; }
+        if ((v = t.getAttribute("data-bg"))) { pick = {bg: v, spent: {}, fav: []}; classes(); return; }
+        if ((v = t.getAttribute("data-pm"))) {
+          var pm = v.split(":"), b0 = findBg(pick.bg), cur = pick.spent[pm[0]] || 0, next = cur + (+pm[1]);
+          var base = 3 + ((b0 && b0.bonus[pm[0]]) || 0);
+          if (b0 && next >= 0 && base + next <= M.character.maxAttribute && spentTotal() - cur + next <= b0.freePoints) { pick.spent[pm[0]] = next; classes(); }
+          return;
+        }
+        if ((v = t.getAttribute("data-fav"))) {
+          var b1 = findBg(pick.bg), at = pick.fav.indexOf(v);
+          if (at >= 0) pick.fav.splice(at, 1); else if (b1 && pick.fav.length < b1.freeFavoured) pick.fav.push(v);
+          classes();
+          return;
+        }
+        if (t.getAttribute("data-begin")) {
+          var sp = {};
+          for (var k in pick.spent) if (pick.spent[k] > 0) sp[k] = pick.spent[k];
+          send({type: "mettleChoose", background: pick.bg, spent: sp, favoured: pick.fav});
+          return;
+        }
         if ((v = t.getAttribute("data-attr"))) { send({type: "mettle", op: "spendAttribute", arg: v}); return; }
         if ((v = t.getAttribute("data-perk"))) { view.perk = v; classes(); return; }
         if ((v = t.getAttribute("data-skill"))) { view.skill = v; view.perk = null; classes(); return; }

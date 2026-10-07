@@ -47,6 +47,9 @@ public final class MettleLink {
 	private static MethodHandle learnPerk;
 	private static MethodHandle spendAttribute;
 	private static MethodHandle setOpener;
+	private static MethodHandle setPickerOpener;
+	private static MethodHandle chooseBackground;
+	private static MethodHandle parseJson;
 	private static final Map<String, String> ICONS = new HashMap<>();
 
 	private MettleLink() {
@@ -70,6 +73,13 @@ public final class MettleLink {
 			learnPerk = lookup.findStatic(actions, "learnPerk", MethodType.methodType(void.class, String.class));
 			spendAttribute = lookup.findStatic(actions, "spendAttribute", MethodType.methodType(void.class, String.class));
 			setOpener = lookup.findStatic(screens, "setCharacterOpener", MethodType.methodType(void.class, BooleanSupplier.class));
+			chooseBackground = lookup.findStatic(actions, "chooseBackground", MethodType.methodType(void.class, json));
+			parseJson = lookup.findStatic(Class.forName("com.google.gson.JsonParser"), "parseString", MethodType.methodType(Class.forName("com.google.gson.JsonElement"), String.class));
+			try {
+				setPickerOpener = lookup.findStatic(screens, "setPickerOpener", MethodType.methodType(void.class, BooleanSupplier.class));
+			} catch (NoSuchMethodException older) {
+				setPickerOpener = null;  // an older Mettle: its own picker screen stays
+			}
 		} catch (ReflectiveOperationException | LinkageError e) {
 			VoidHub.LOGGER.warn("VOID Hub: Mettle is installed but its overlay API did not match; the Classes and Gear pages stay off", e);
 			build = null;
@@ -106,6 +116,35 @@ public final class MettleLink {
 
 	public static void spendAttribute(String attribute) {
 		call(spendAttribute, attribute);
+	}
+
+	/**
+	 * Begins the character as a background: {@code request} is OVERLAY.md's chooseBackground JSON
+	 * ({@code {background, spent, favoured}}), already validated by the bridge. The server answers in the state's
+	 * {@code result} and phase.
+	 */
+	public static void chooseBackground(String request) {
+		if (!present()) {
+			return;
+		}
+		try {
+			Object element = parseJson.invoke(request);
+			Object object = element.getClass().getMethod("getAsJsonObject").invoke(element);
+			chooseBackground.invoke(object);
+		} catch (Throwable t) {
+			VoidHub.LOGGER.error("VOID Hub: Mettle background choice failed", t);
+		}
+	}
+
+	/** The first-join (or operator-reset) background picker opens on the hub's Classes page. */
+	public static void registerPickerOpener(BooleanSupplier opener) {
+		if (present() && setPickerOpener != null) {
+			try {
+				setPickerOpener.invoke(opener);
+			} catch (Throwable t) {
+				VoidHub.LOGGER.error("VOID Hub: could not register the picker opener with Mettle", t);
+			}
+		}
 	}
 
 	/** K opens the hub's Classes page instead of Mettle's fallback screen. */

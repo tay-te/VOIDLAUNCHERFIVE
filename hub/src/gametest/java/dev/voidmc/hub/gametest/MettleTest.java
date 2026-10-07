@@ -36,7 +36,28 @@ public final class MettleTest {
 	public void run() {
 		this.expect(this.context.computeOnClient(mc -> MettleLink.present()), "Mettle is loaded and its overlay API links");
 		var server = this.world.getServer();
-		server.runCommand("mettle background set mettle:ranger Player0");
+		// 0. First join: Mettle asks for a background and the hub's picker opens on Classes. Choose the Wanderer,
+		// which has to place 4 points and favour 2 skills, through the page.
+		this.context.waitFor(mc -> mc.gui.screen() instanceof HubInventoryScreen h && "classes".equals(h.page()), 400);
+		this.context.waitTicks(20);
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.context.takeScreenshot("voidhub_mettle_00_picker");
+		this.ui.clickPage("[data-bg=\"mettle:wanderer\"]");
+		this.context.waitTicks(2);
+		for (int i = 0; i < 4; i++) {
+			this.ui.clickPage("[data-pm=\"strength:1\"]");
+		}
+		this.ui.clickPage("[data-fav=\"mettle:mining\"]");
+		this.ui.clickPage("[data-fav=\"mettle:marksmanship\"]");
+		this.context.waitTicks(2);
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.context.takeScreenshot("voidhub_mettle_00b_picker_wanderer");
+		this.ui.clickPage("[data-begin]");
+		this.context.waitTicks(30);
+		this.expect("chosen".equals(this.state().get("phase")), "the hub's picker began the character: " + this.state().get("phase"));
+		this.expect(this.attribute("strength") == 7, "the Wanderer's 4 points went to Strength: " + this.attribute("strength"));
 		server.runCommand("mettle xp mettle:mining 2600 Player0");
 		server.runCommand("mettle xp mettle:marksmanship 5200 Player0");
 		server.runCommand("mettle xp mettle:survival 3100 Player0");
@@ -46,7 +67,6 @@ public final class MettleTest {
 		server.runCommand("give Player0 mettle:quiver");
 		server.runCommand("give Player0 minecraft:arrow 64");
 		this.context.waitTicks(10);
-		// A new character meets Mettle's background picker on join; the command above chose for them.
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
 		this.context.waitTicks(5);
 

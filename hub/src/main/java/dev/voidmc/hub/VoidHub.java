@@ -38,6 +38,14 @@ public final class VoidHub implements ClientModInitializer {
 	public void onInitializeClient() {
 		openHub = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.voidhub.open", InputConstants.Type.KEYBOARD, InputConstants.KEY_RSHIFT, CATEGORY));
 		// VOID Mettle's K opens the hub's Classes page instead of its fallback screen.
+		MettleLink.registerPickerOpener(() -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.player == null || !HubView.available()) {
+				return false;
+			}
+			mc.gui.setScreen(new HubInventoryScreen(mc.player, "classes"));
+			return true;
+		});
 		MettleLink.registerOpener(() -> {
 			Minecraft mc = Minecraft.getInstance();
 			if (mc.player == null || !HubView.available()) {

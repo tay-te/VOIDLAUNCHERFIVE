@@ -90,6 +90,10 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	protected void onMessage(Bridge.Message m) {
 		switch (m) {
 			case Bridge.Segment seg -> this.setPage(seg.value());
+			case Bridge.MettleChoose choose -> {
+				MettleLink.chooseBackground(choose.json());
+				this.mettleAge = METTLE_EVERY - 2;
+			}
 			case Bridge.MettleCall call -> {
 				switch (call.op()) {
 					case "learnPerk" -> MettleLink.learnPerk(call.arg());

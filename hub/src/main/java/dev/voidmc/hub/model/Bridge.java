@@ -1,5 +1,6 @@
 package dev.voidmc.hub.model;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,7 +21,7 @@ public final class Bridge {
 	private Bridge() {
 	}
 
-	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, MettleCall, Invalid {
+	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, MettleCall, MettleChoose, Invalid {
 	}
 
 	/** The page finished loading and installed {@code hub.apply}. */
@@ -58,6 +59,23 @@ public final class Bridge {
 	public record MettleCall(String op, String arg) implements Message {
 	}
 
+	/**
+	 * The Classes page's background picker: begin as {@code background}, placing {@code spent} free attribute points
+	 * and favouring {@code favoured} skills (Wanderer). Shapes only are checked here; Mettle's server applies its rules.
+	 */
+	public record MettleChoose(String background, Map<String, Integer> spent, List<String> favoured) implements Message {
+		/** OVERLAY.md's chooseBackground request. */
+		public String json() {
+			Json.Writer sp = Json.object();
+			this.spent.forEach(sp::put);
+			StringBuilder fav = new StringBuilder("[");
+			for (int i = 0; i < this.favoured.size(); i++) {
+				fav.append(i > 0 ? "," : "").append(Json.quote(this.favoured.get(i)));
+			}
+			return Json.object().put("background", this.background).raw("spent", sp.end()).raw("favoured", fav.append(']').toString()).end();
+		}
+	}
+
 	public record Invalid(String reason) implements Message {
 	}
 
@@ -88,10 +106,41 @@ public final class Bridge {
 			case "moveAll" -> oneOf(m, "to", MOVE_TARGETS) instanceof String v ? new MoveAll(v) : new Invalid("moveAll target");
 			case "segment" -> oneOf(m, "value", SEGMENTS) instanceof String v ? new Segment(v) : new Invalid("segment value");
 			case "turn" -> m.get("deg") instanceof Double d && Double.isFinite(d) ? new Turn(d) : new Invalid("turn deg");
+			case "mettleChoose" -> choose(m);
 			case "mettle" -> oneOf(m, "op", METTLE_OPS) instanceof String op && m.get("arg") instanceof String a && a.length() <= 96
 				&& METTLE_ARG.matcher(a).matches() ? new MettleCall(op, a) : new Invalid("mettle call");
 			default -> new Invalid("unknown type " + t);
 		};
+	}
+
+	static final Set<String> ATTRIBUTES = Set.of("strength", "agility", "vitality", "wits", "presence");
+
+	private static Message choose(Map<String, Object> m) {
+		if (!(m.get("background") instanceof String bg) || bg.length() > 96 || !METTLE_ARG.matcher(bg).matches()) {
+			return new Invalid("mettleChoose background");
+		}
+		java.util.LinkedHashMap<String, Integer> spent = new java.util.LinkedHashMap<>();
+		if (m.get("spent") instanceof Map<?, ?> sp) {
+			for (Map.Entry<?, ?> e : sp.entrySet()) {
+				if (!(e.getKey() instanceof String a) || !ATTRIBUTES.contains(a) || !(e.getValue() instanceof Double d) || d < 0 || d > 20 || d != Math.floor(d)) {
+					return new Invalid("mettleChoose spent");
+				}
+				spent.put(a, d.intValue());
+			}
+		}
+		java.util.ArrayList<String> favoured = new java.util.ArrayList<>();
+		if (m.get("favoured") instanceof List<?> fl) {
+			if (fl.size() > 8) {
+				return new Invalid("mettleChoose favoured");
+			}
+			for (Object o : fl) {
+				if (!(o instanceof String s) || s.length() > 96 || !METTLE_ARG.matcher(s).matches()) {
+					return new Invalid("mettleChoose favoured");
+				}
+				favoured.add(s);
+			}
+		}
+		return new MettleChoose(bg, spent, favoured);
 	}
 
 	private static Object oneOf(Map<String, Object> m, String key, Set<String> allowed) {
