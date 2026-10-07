@@ -2,6 +2,9 @@
   "feature": "expanse:natural/cherry_wood/cherry_bees_005",
   "placement": [
     {
+      "type": "expanse:land_fit"
+    },
+    {
       "type": "minecraft:count",
       "count": {
         "type": "minecraft:weighted_list",

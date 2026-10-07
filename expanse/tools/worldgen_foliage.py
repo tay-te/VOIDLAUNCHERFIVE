@@ -94,19 +94,25 @@ def features(W):
     hedge = lambda f: {'feature': f, 'placement': []}
     W.feature('hedgerows', {'type': e('hedgerow'), 'shrub': hedge(e('shrubs_broadleaf')),
                             'tree': hedge(e('natural/tree/oak_spreading/plain')),
-                            'biomes': ['minecraft:plains', 'minecraft:sunflower_plains'] + [e(b) for b in HEDGED],
+                            'biomes': ['minecraft:plains', 'minecraft:sunflower_plains', 'minecraft:forest', 'minecraft:birch_forest',
+                                       'minecraft:flower_forest', 'minecraft:meadow', 'minecraft:old_growth_birch_forest']
+                                      + [e(b) for b in HEDGED],
                             'field': 64, 'missing': 0.22, 'trees': 0.3})
     W.both('kcd_hedgerows', e('hedgerows'), [], S['surface_struct'])
 
+    # ---- lone trees: a veteran oak on the crest of an open rise, a mark on the skyline seen for miles (HilltopFilter)
+    W.both('kcd_lone_trees', e('natural/tree/oak_veteran/plain'),
+           [W.count(4), W.IN_SQUARE, W.heightmap('WORLD_SURFACE_WG'), {'type': e('hilltop')}, W.BIOME], S['veg'])
 
-WOODLAND = ['kcd_fishponds', 'kcd_woodland_shrubs', 'kcd_woodland_floor', 'kcd_brambles', 'kcd_bank_trees']
+
+WOODLAND = ['kcd_fishponds', 'kcd_woodland_shrubs', 'kcd_woodland_floor', 'kcd_brambles', 'kcd_bank_trees', 'kcd_lone_trees']
 CONIFER = ['kcd_conifer_shrubs', 'kcd_conifer_floor', 'kcd_bank_trees']
-MEADOW = ['kcd_fishponds', 'kcd_open_shrubs', 'kcd_meadow_grass', 'kcd_meadow_flowers', 'kcd_bank_trees']
+MEADOW = ['kcd_fishponds', 'kcd_open_shrubs', 'kcd_meadow_grass', 'kcd_meadow_flowers', 'kcd_bank_trees', 'kcd_lone_trees']
 TROPIC = ['kcd_tropic_bushes', 'kcd_tropic_floor']
 DRY = ['kcd_dry_grass']
 
-# Expanse biomes that are farmed country, hedged into fields
-HEDGED = []
+# Expanse biomes that are farmed country, hedged into fields (on the Earth terrain, in their open country only)
+HEDGED = ['woodland_glades', 'aspen_parkland', 'ancient_oakwood', 'maple_highlands', 'bluebell_woods']
 
 # Each Expanse biome's kit, on top of its own undergrowth
 HABITATS = {
@@ -140,4 +146,4 @@ HABITATS = {
 
 def kit(name):
     """The kit's placed features for Expanse biome `name` (gen_worldgen.biome() adds them)."""
-    return HABITATS.get(name, [])
+    return HABITATS.get(name, []) + (['kcd_hedgerows'] if name in HEDGED else [])

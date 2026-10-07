@@ -136,8 +136,8 @@
   "downfall": 0.85,
   "effects": {
     "water_color": "#3f7ad8",
-    "grass_color": "#6db54d",
-    "foliage_color": "#5aa73f",
+    "grass_color": "#659e4a",
+    "foliage_color": "#508f3c",
     "dry_foliage_color": "#8b6a3c"
   },
   "features": [
@@ -154,7 +154,9 @@
       "minecraft:monster_room",
       "minecraft:monster_room_deep"
     ],
-    [],
+    [
+      "expanse:kcd_hedgerows"
+    ],
     [],
     [
       "minecraft:ore_dirt",

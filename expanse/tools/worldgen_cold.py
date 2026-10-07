@@ -252,7 +252,7 @@ def biomes(W, jar):
 
     A['bluebell_woods'] = W.biome('bluebell_woods', 'forest', jar,
         temperature=0.6, downfall=0.85,
-        effects={'grass_color': '#6db54d', 'foliage_color': '#5aa73f', 'dry_foliage_color': '#8b6a3c', 'water_color': '#3f7ad8'},
+        effects={'grass_color': '#659e4a', 'foliage_color': '#508f3c', 'dry_foliage_color': '#8b6a3c', 'water_color': '#3f7ad8'},
         attributes={'visual/sky_color': '#84adff', 'visual/fog_color': '#d0d8e6', 'visual/water_fog_color': '#2f5ab0',
                     'audio/background_music': music('minecraft:music.overworld.forest')},
         drop=['minecraft:trees_birch_and_oak_leaf_litter', 'minecraft:forest_flowers', 'minecraft:flower_default'],

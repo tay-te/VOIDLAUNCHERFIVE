@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:miners_camp/miners_camp_adit",
+        "processors": "expanse:abandoned/abandoned_mine_camp/small_mine",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:miners_camp/miners_camp_sluice",
+        "processors": "expanse:abandoned/abandoned_mine_camp/small_mine_dig",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:miners_camp/miners_camp_collapse",
+        "processors": "expanse:abandoned/abandoned_mine_camp/small_mine",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

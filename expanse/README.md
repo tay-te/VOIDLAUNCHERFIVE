@@ -101,7 +101,9 @@ rust, steppe in gold, opal dunes in pink.*
 Each biome takes the *variant* half of one vanilla biome's climate cell (see
 `world/biome/BiomePlacement.java`). Vanilla's biome table has a second "variant" table for places where
 the weirdness noise is positive, and most of its cells are empty. The Expanse biomes fill those empty
-cells. Each one borders the vanilla biome it grew from, and no vanilla biome is removed.
+cells. Each one borders the vanilla biome it grew from. Two vanilla biomes give way, as the surface should look
+like the real world: the pale garden becomes dark forest (Ancient Oakwood in its variant half) and the pink cherry
+grove a meadow.
 
 | Biome | Where it grows | What it looks like |
 |---|---|---|
@@ -160,9 +162,45 @@ from plate tectonics and erosion rather than from noise alone:
 
   The results are sharp ridgelines, branching valleys and concave river profiles. Interior basins stay
   low, as plains, and old worn ranges cross the continents.
-- **The heartland.** Temperate country well inland and away from the ranges rolls rather than climbs: its
-  hills stand up to nearly half lower over their valleys, so the land opens out into long gentle slopes and
-  broad vales, the Bohemian countryside. The mountains and the coasts keep their relief.
+- **A tall world.** The Earth overworld runs from y -64 to 639, so the great ranges can stand 500 blocks and more
+  over the sea. Long belts of high mountains cross the continents (a core of high peaks in broad foothills,
+  bending and rising and falling along their length), besides the ranges where plates collide; the ice has ground
+  their high valleys into troughs with broad floors. From the far view a wall of rock and snow stands behind the
+  country in front of it.
+- **The heartland.** Temperate country well inland and away from the ranges rolls rather than climbs: its small
+  hills are worn lower over their valleys, and the land swells instead into long broad rises 20 to 40 blocks
+  over the vales between them, a kilometre and more across, so ridge behind ridge stands against the sky. The
+  mountains and the coasts keep their relief.
+- **Escarpments.** Here and there in the temperate countries the upland ends in a long edge, a cliff 30 to 55
+  blocks over the country below, winding for kilometres (the cuestas of the sandstone and limestone country);
+  rivers cut their way through. The rims and the level tops of the lone volcanic hills are marked in the column
+  (`Column.site`) for VOID Hearth's castles.
+- **Volcanoes** are eroded, not turned: each cone's foot wanders in and out, one flank stands fuller than
+  another, and its gullies wind down it as water cuts them.
+- **Countries** (`world/terrain/Countries.java`). Over the relief lies a map of countries, regions some five
+  kilometres across, so a journey crosses from one country into the next rather than from patch to patch of
+  biome. Each reshapes its land its own way, after the Bohemia of the old maps:
+  - *Heartland:* rolling loess country, its hills worn lower still over broad vales; mostly fields, woods on
+    the rises.
+  - *Rock city:* sandstone country where the land has weathered into towns of rock, blocks and towers 16 to
+    50 blocks high split by corridors two to four wide, forest on their tops (Bohemian Paradise, Adršpach).
+    Its rock is sandstone through and through, in beds.
+  - *Volcanic hills:* rolling country studded with lone bell-shaped hills, 45 to 115 blocks high, the old
+    volcanoes' cores, basalt showing on the steeper ones; one in four has a level top where a castle would
+    stand (the České středohoří). Rivers flow round them.
+  - *Lake district:* land the ice left: scoured low, swarms of drumlins all lying one way, a lake in every
+    cell and a great lake in every one that will hold one.
+  - *Gorges:* a limestone plateau, level-topped and dimpled with sinkholes, its rivers sunk in steep-walled
+    gorges 30 to 45 deep (the Moravian Karst).
+  - *Old forest:* broad, rounded uplands, the worn roots of old mountains, mostly forest (Šumava).
+
+  Which kind a country is follows the climate at its heart: the Bohemian countries in the temperate zone,
+  glacial lakes and old forest in the cold, gorges and volcanic hills here and there in the warm; the steppe,
+  deserts and tropics keep their own landforms. Neighbouring countries grade into each other over about a
+  kilometre. `./gradlew terrainPreview -Pcountries=true` tints them on the map.
+- **Cliffs are rock.** Wherever the ground is steeper than soil will lie (some 55 degrees), the soil is stripped and
+  the rock shows: stone, or the country's own sandstone, limestone or basalt. A gorge wall or a hill's crag is a
+  face of rock, not a staircase of dirt with grass on every step.
 - **Rivers that reach the sea.** Wherever enough land drains through a point there is a river. Each one:
   - widens downstream, from 3-block brooks to great lowland rivers nearly 50 blocks across, in broad
     flat-floored vales half a dozen times as wide;
@@ -427,6 +465,28 @@ rivers need in more places than vanilla puts them:
 - **Fireflies.** Vanilla's firefly bush makes the fireflies (at night, or in deep shade). Clusters of them
   now line the banks of every temperate and warm river and lake, and grow under the canopy of wet woods.
 
+### Woods and open country
+
+Every natural tree asks the land whether a tree would stand there (`expanse:land_fit`,
+`TerrainModel.woodland`), so from a hill, or from the far view, the land reads as it does in Bohemia: dark woods
+on the rises, light open country between.
+
+- A broad noise lays out woods and clearings with edges a dozen blocks wide, so a wood ends rather than thinning
+  out; woods keep to the rises and slopes and leave the vale floors and floodplains open.
+- Each country has its own share of open land: the heartland mostly fields, the old forest and the rock towns
+  mostly wood. Above about y 185 the trees give out.
+- **Hedgerows** divide the open country into fields wherever it lies: on the Earth terrain in the open land of
+  the temperate forests and meadows too, never inside a wood.
+- **Fields.** Inside the hedges each field is farmed as a whole: ripe wheat gold from end to end, green wheat,
+  fallow earth turned over, hay meadow grown tall, or pasture. From a hill the vale below is a quilt of gold and
+  green and brown, under the dark woods on the rises.
+- **The greens** of the temperate land are muted and olive, as in a real countryside: vanilla's temperate biomes
+  take greens of their own (`world/biome/Palette.java`) instead of the colour map's bright lime.
+- **Lone trees** (`expanse:hilltop`): a veteran oak on the crest of an open rise, a mark on the skyline seen for
+  miles.
+
+`./gradlew terrainPreview -Pwoods=true` shows the woods dark and the open country pale.
+
 ### Ground cover and little things
 
 The land between structures should never be empty. Two layers fill it:
@@ -565,7 +625,6 @@ chest and a hidden one, and most have a lore book or journal.
 | Woodland lodge with its yard | Redwood Giants, Woodland Glades, Maple Highlands, Bluebell Woods, Pine Heath, Larch Taiga, Fjordlands, Taiga, Snowy Taiga, Old Growth Pine and Spruce Taiga, Windswept Forest, Forest, Dark Forest, Birch Forest, Old Growth Birch Forest |
 | Stilt hamlet on boardwalks | Willow Bayou, Swamp, Mangrove Swamp |
 | Lighthouse, keeper's cottage and jetty | Palm Coast, Coral Coast, Beach |
-| Old chapel (`lumen_shrine`): a ruined bell spire or chapel with a lantern crown, an ancient oak through it | Ancient Oakwood |
 | Nomad camp: yurts, dyers, a llama corral | Amber Steppe, Savanna, Savanna Plateau |
 
 **Small sights.** 17 kinds, 108 variants (36 structures with three layouts each), on two shared grids
@@ -578,7 +637,7 @@ country they stand in:
 |---|---|
 | Shepherd's bothy, its ruin, a peat cutting | Heather Moor, Verdant Peaks, Pine Heath, Fjordlands, Boreal Muskeg, Volcanic Highlands, Meadow, Windswept Hills |
 | Treehouse, log cabin, hollow fallen giant | redwood in Redwood Giants; dark oak under a broad crown in the broadleaf woods (Forest, Flower, Birch, Dark and Dappled Forest, Bluebell Woods, Maple Highlands); spruce in the taigas, Grove, Windswept Forest, Pine Heath, Larch Taiga, Fjordlands; jungle wood and bamboo in the jungles, Kapok Rainforest, Monsoon Forest |
-| Fairy ring of toadstools round a spring, toadstool cottage, candlelit moonwell | Ancient Oakwood, Dark Forest, Pale Garden, Flower Forest, Bluebell Woods |
+| Fairy ring: mushrooms ringing a patch of trodden grass, a broken ring with two squat brown toadstools, a ring round an old mossy stump (nothing magic, no chests) | Ancient Oakwood, Bluebell Woods, Woodland Glades, Aspen Parkland, Dark, Flower, Birch and Old Growth Birch Forest, Forest, Meadow |
 | Mammoth dig, ribcage, ice-fishing hut | Lichen Tundra; Snowy Plains, Ice Spikes, Snowy Taiga, Grove, Larch Taiga |
 | Miners' camp: adit, sluice, collapse | copper and iron in a snowy knoll: Dolomite, Stony, Jagged and Frozen Peaks, Snowy Slopes, Windswept Gravelly Hills; gold in banded terracotta: the Badlands, Painted Canyons, Saguaro Flats, Ghost Gum Outback |
 | Sand colossus: head, obelisk, gate | red sandstone in the Red Dunes; sandstone in the Desert and Salt Flats |
@@ -612,7 +671,7 @@ work, trade, breed and get raided exactly as in a plains village. They join `#mi
 Every Expanse biome has its villager type set (`world/ExpanseVillagers.java`), so a villager spawned,
 cured or (half the time, as in vanilla) born in a Jade Karst takes the jungle look.
 
-**Underground.** Three structures stand on the plateaus in the middle of the realms, at most one per realm,
+**Underground.** Four structures stand on the plateaus in the middle of the realms, at most one per realm,
 placed by the realms themselves (`expanse:cavern_halls`, `world/terrain/CavernHallPlacement.java`):
 
 | Structure | What's there |
@@ -620,6 +679,7 @@ placed by the realms themselves (`expanse:cavern_halls`, `world/terrain/CavernHa
 | Deep mine camp | A timber headframe with a sheave wheel and a lift cage on chains, tents, a forge, ore carts on rails out to an ore face and a boarded adit (cave spiders). |
 | Deepstone ruins | A collapsed deepslate hall: column rows, broken arches, an altar with candles and soul lanterns, gravel hiding brushable finds; a crypt behind the altar. |
 | Cavern landing | A deepslate quay for the underground boats: boat shed with the old ferry, the ferryman's hut and bell, a ferry rope across. |
+| Old chapel (`lumen_shrine`) | In the green realms only (Verdant Hollow, Glowcap Wilds, Root Hollows): a ruined bell spire or chapel with a lantern crown, an ancient oak that grew without the sun breaking through it, an alchemist's still in the ruin; glowcap rings, a moon pool, a fallen guardian and a ruined gate round about. |
 
 Structures choose their sites the way a builder would (`expanse:sited_jigsaw`,
 `world/SitedJigsawStructure.java`): never on water (unless it's a stilt house or a jetty), on a cliff edge
@@ -647,6 +707,15 @@ the world, and `/locate` finds none at once. The land between towns keeps everyt
 shrines, ruins, treehouses, bothies and lodges. `-Dexpanse.dev.hearth=true` shows a world as it would be with
 Hearth.
 
+With Hearth, and only then, the wild holds the traces of folk who left instead, rarer than the wild sights (one
+grid every 40 chunks, `abandoned`): an **abandoned mine camp** (both palettes, the ore still showing at the face, for
+Hearth's prospectors to report), a **collapsed hamlet** on its stilts, a **burnt-out logging camp**. Each is the living
+place's own pieces run through a ruin (`tools/structures/abandoned.py`, written with the rest by gen_structures.py):
+beds, workstations, lights, glass and doors gone, the roofs fallen in the more the higher they stood, tents rotted,
+moss on the boards and the floors; the burnt camp charred to basalt and coal, its boards holed, its grass gone to
+ash. No animals are left in them. Every surface structure, these included, keeps off land Hearth has planned
+(`LandClaims`), checked over the whole of what it would build.
+
 On the VOID Atlas map an Expanse world's places carry their own names rather than plain biome names
 (`client/atlas`, the `"atlas"` entrypoint, called only when Atlas is installed). They are made up from the
 seed and the place's position, so every client calls a place the same, and the words follow the country:
@@ -655,6 +724,20 @@ the temperate heartland is Bohemian (Brezek Forest, Lake Maletz, the Olsava), th
 Expanse world when its biomes include the Expanse's; elsewhere Atlas names its places itself. The build
 compiles against stand-ins for Atlas's API (`src/atlasApi`), never shipped, so the Expanse needs nothing of
 Atlas to build or run.
+
+### For other mods
+
+`dev.voidmc.expanse.api.ExpanseCountry.sampler(level).at(x, z)` says what the land is like at a place (its
+country, humidity, temperature, how low it lies, how far from water and the sea, its height, and a hint at the
+air's character) for mods that dress it, such as VOID Gloam's mist and haze. It is a pure function of the
+seed and the coordinates, cheap enough to ask every tick.
+
+`TerrainModel.sampleFar(x, z, out)` gives a far view (VOID LOD's horizon past 32 km) the land averaged over cells of
+`TerrainModel.FAR_GRID` (512) blocks and up: the same plates, drainage, climate and countries, each plate worked out
+again on a 512-block grid (some 30 KB, cached apart), so a 100 km horizon never builds a full plate. It agrees with
+`sample` to within about 7 blocks over a cell on average, at a few microseconds a call (`terrainPreview
+-Pslice=far` measures it). `TerrainModel.sample` is what LOD reads nearer in; `reservePlates` lets it keep more
+plates built while it does.
 
 ### Extras
 

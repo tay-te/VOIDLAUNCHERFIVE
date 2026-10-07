@@ -1,0 +1,26 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 930417443,
+    "separation": 12,
+    "spacing": 40
+  },
+  "structures": [
+    {
+      "structure": "expanse:abandoned_mine_camp",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:abandoned_mine_camp_mesa",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:collapsed_hamlet",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:burnt_logging_camp",
+      "weight": 1
+    }
+  ]
+}

@@ -105,7 +105,6 @@
     },
     "minecraft:visual/sky_color": "#9aa6b6",
     "minecraft:visual/fog_color": "#b4ada8",
-    "minecraft:visual/fog_end_distance": 260.0,
     "minecraft:visual/ambient_particles": {
       "argument": [
         {

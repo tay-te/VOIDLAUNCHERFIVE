@@ -73,7 +73,7 @@ tasks.register('terrainPreview', JavaExec) {
 	description = 'Renders the Earth terrain model to build/terrain_preview.png'
 	classpath = sourceSets.gametest.runtimeClasspath
 	mainClass = 'dev.voidmc.expanse.gametest.TerrainPreview'
-	jvmArgs '-Djava.awt.headless=true', '-Xmx3g', "-Dexpanse.preview.borders=${project.findProperty('borders') ?: 'false'}",
+	jvmArgs '-Djava.awt.headless=true', '-Xmx3g', "-Dexpanse.preview.borders=${project.findProperty('borders') ?: 'false'}", "-Dexpanse.preview.countries=${project.findProperty('countries') ?: 'false'}", "-Dexpanse.preview.woods=${project.findProperty('woods') ?: 'false'}",
 		"-Dexpanse.preview.bench=${project.findProperty('bench') ?: 'false'}", "-Dexpanse.preview.slice=${project.findProperty('slice') ?: ''}", "-Dexpanse.preview.stats=${project.findProperty('stats') ?: 'false'}", "-Dexpanse.terrain.profile=true"
 	args = [
 		project.findProperty('seed') ?: '8675309',

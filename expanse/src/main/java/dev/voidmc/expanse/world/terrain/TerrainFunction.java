@@ -23,7 +23,7 @@ import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
  */
 public record TerrainFunction(Output output) implements DensityFunction {
 	public enum Output implements StringRepresentable {
-		HEIGHT("height", -64, 384),
+		HEIGHT("height", -64, 640),
 		CONTINENTS("continents", -1, 1),
 		EROSION("erosion", -1, 1),
 		RIDGES("ridges", -1, 5),

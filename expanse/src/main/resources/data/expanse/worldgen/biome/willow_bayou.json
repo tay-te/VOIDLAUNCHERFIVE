@@ -137,7 +137,6 @@
       "modifier": "multiply"
     },
     "minecraft:visual/fog_color": "#a7c2a2",
-    "minecraft:visual/fog_end_distance": 120.0,
     "minecraft:visual/ambient_particles": {
       "argument": [
         {

@@ -31,6 +31,8 @@ import blocks as BL  # noqa: E402
 import nbt  # noqa: E402
 
 MC_RES = os.environ.get("MC_RES", "/root/mc/res")
+# sights of the land itself, with nothing of anyone's in them (no loot)
+NATURAL = {"fairy_ring"}
 MC_SRC = os.environ.get("MC_SRC", "/root/mc/src")
 VDATA = os.path.join(MC_RES, "data", "minecraft")
 VANILLA_BS = os.path.join(MC_RES, "assets", "minecraft", "blockstates")
@@ -783,7 +785,7 @@ def run(data):
         extra = set(s) - need - {"project_start_to_heightmap", "start_jigsaw_name", "pool_aliases",
                                  "dimension_padding", "liquid_settings"}
         if s.get("type") == "expanse:sited_jigsaw":
-            extra -= {"max_relief", "allow_water", "avoid", "in_cavern"}
+            extra -= {"max_relief", "allow_water", "avoid", "in_cavern", "peopled", "abandoned", "realms"}
             seen_sets = set()
             for z in s.get("avoid", []):
                 sp_avoid = ctx.res(z.get("other_set", "x:x"), "worldgen/structure_set") or ""
@@ -833,7 +835,10 @@ def run(data):
             if info and loc.startswith(f"expanse:{name}/"):
                 tables.update(info["chests"])
         village = f"expanse:{name}" in villages            # villages keep vanilla's chests, none hidden
-        for want in (f"expanse:chests/{name}",) + (() if village else (f"expanse:chests/{name}_hidden",)):
+        # natural sights hold no chests; abandoned places keep the chests of the place they ruin (abandoned.py)
+        wants = () if name in NATURAL or s.get("abandoned") else (f"expanse:chests/{name}",) + (
+            () if village else (f"expanse:chests/{name}_hidden",))
+        for want in wants:
             if want not in tables:
                 ctx.err(f"{rel}: no container uses {want}")
         # offline assembly over many seeds: the start must place and its pools must be reachable

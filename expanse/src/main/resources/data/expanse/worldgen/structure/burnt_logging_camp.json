@@ -1,0 +1,33 @@
+{
+  "type": "expanse:sited_jigsaw",
+  "abandoned": true,
+  "biomes": "#expanse:has_structure/burnt_logging_camp",
+  "max_distance_from_center": 72,
+  "pool_aliases": [
+    {
+      "type": "minecraft:direct",
+      "alias": "expanse:logging_camp/camp",
+      "target": "expanse:burnt_logging_camp/camp"
+    },
+    {
+      "type": "minecraft:direct",
+      "alias": "expanse:logging_camp/paths",
+      "target": "expanse:burnt_logging_camp/paths"
+    },
+    {
+      "type": "minecraft:direct",
+      "alias": "expanse:logging_camp/strongroom",
+      "target": "expanse:burnt_logging_camp/strongroom"
+    }
+  ],
+  "project_start_to_heightmap": "WORLD_SURFACE_WG",
+  "size": 4,
+  "spawn_overrides": {},
+  "start_height": {
+    "absolute": 0
+  },
+  "start_pool": "expanse:burnt_logging_camp/start",
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin",
+  "use_expansion_hack": false
+}

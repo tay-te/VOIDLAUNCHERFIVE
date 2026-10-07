@@ -88,7 +88,9 @@ VANILLA_AVOID = [("minecraft:villages", 112), ("minecraft:pillager_outposts", 80
 
 FILL = {"stone", "dirt", "andesite", "tuff", "granite", "diorite", "gravel", "coarse_dirt", "sand", "sandstone",
         "deepslate", "cobblestone", "snow_block", "packed_ice", "clay", "mud", "rooted_dirt"}
-LEGACY_FILES = ["worldgen/processor_list/mossy_stones.json", "worldgen/processor_list/weathered_sandstone.json"]
+LEGACY_FILES = ["worldgen/processor_list/mossy_stones.json", "worldgen/processor_list/weathered_sandstone.json",
+                # lumen_shrine went underground into the shared cavern_halls set; the fairy ring has no chests now
+                "worldgen/structure_set/lumen_shrine.json"]
 
 STRUCTURE_TAGS = {
     # exploration maps from the lighthouse map drawer point at the nearest of these
@@ -138,6 +140,8 @@ def structure_json(name, s):
            if "set" in s and not s.get("cavern") else {"avoid": vanilla_avoid(s)} if s.get("avoid_vanilla") else {}),
         # cavern structures stand on the floor of a deep hall, wherever the hall is (CavernModel)
         **({"in_cavern": True} if s.get("cavern") else {}),
+        # (cavern) only in halls of these realms: the generator paints the realms' biomes in, so the biome test can't
+        **({"realms": list(s["realms"])} if "realms" in s else {}),
         **({"peopled": True} if name in PEOPLED else {}),
     }
 
@@ -338,6 +342,9 @@ def main():
                 if getattr(importlib.import_module(f"designs.{n}"), "STRUCTURE", {}).get("village")]
     written.append(write_json(os.path.join("..", "minecraft", "tags", "worldgen", "structure", "village.json"),
                               {"replace": False, "values": villages}))
+    # the places folk left, for VOID Hearth worlds: derived from the peopled structures just written (abandoned.py)
+    import abandoned
+    written += abandoned.write_all()
     print(f"wrote {len(written)} files under {os.path.relpath(DATA, ROOT)}")
 
     if not args.no_validate:

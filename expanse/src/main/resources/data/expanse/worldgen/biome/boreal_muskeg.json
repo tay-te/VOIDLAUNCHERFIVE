@@ -142,7 +142,6 @@
       "argument": 0.6,
       "modifier": "multiply"
     },
-    "minecraft:visual/fog_end_distance": 150.0,
     "minecraft:audio/background_music": {
       "default": {
         "max_delay": 24000,

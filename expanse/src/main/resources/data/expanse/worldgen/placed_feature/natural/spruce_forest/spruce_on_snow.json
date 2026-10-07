@@ -2,6 +2,9 @@
   "feature": "expanse:natural/spruce_forest/spruce",
   "placement": [
     {
+      "type": "expanse:land_fit"
+    },
+    {
       "type": "minecraft:environment_scan",
       "direction_of_search": "up",
       "max_steps": 8,

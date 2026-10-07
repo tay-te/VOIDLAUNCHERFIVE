@@ -1,8 +1,10 @@
-"""The old chapel of the Ancient Oakwood (structure lumen_shrine): a ruined sanctuary with a lantern crown.
+"""The old chapel under the world (structure lumen_shrine): a ruined sanctuary with a lantern crown, on the floor
+of a deep cavern hall in the green realms (Verdant Hollow, Glowcap Wilds, Root Hollows), where its old oak grew
+without the sun. Underground, so its glowcaps and glow may stay; the surface has none.
 
 start  (two layouts, both on a raised round terrace with steps)
   spire   : broken colonnade around a crystal dais, a 5x5 ruined bell spire ~28 high
-            (climb its ladder to the lantern crown that shines over the canopy), an
+            (climb its ladder to the lantern crown that shines across the hall), an
             ancient oak breaking through the terrace
   chapel  : roofless chapel ruin with a tall gable wall and a twin-arched belfry ~26
             high crowned with lanterns, the old oak growing out of the nave
@@ -26,7 +28,9 @@ from pieces import Empty, Piece
 from terrain_paths import connector, path_piece, piece_in
 
 NAME = "lumen_shrine"
-STRUCTURE = dict(biomes=["ancient_oakwood"], spacing=30, separation=10, size=2, max_distance=48)
+# on the plateau of a deep hall (cavern_halls); the paths are rigid, as terrain_matching would follow the land overhead
+STRUCTURE = dict(biomes=["#minecraft:is_overworld"], realms=["realm_lush", "realm_wilds", "realm_roots"], cavern=True,
+                 set="cavern_halls", weight=2, size=2, max_distance=40)
 LOOT = "expanse:chests/lumen_shrine"
 HIDDEN = "expanse:chests/lumen_shrine_hidden"
 P_PATHS = f"expanse:{NAME}/paths"
@@ -429,8 +433,8 @@ def pools():
     mats = (("moss_block", 2), ("gravel", 2), ("mossy_cobblestone", 2), ("coarse_dirt", 2))
     return {
         "start": [Piece(start_spire(), 1, PROC), Piece(start_chapel(), 1, PROC)],
-        "paths": [Piece(path_piece(f"{NAME}_path_a", 6, P_GROUNDS, rp, mats=mats), 3, PROC, "terrain_matching"),
-                  Piece(path_piece(f"{NAME}_path_b", 10, P_GROUNDS, rp, mats=mats), 2, PROC, "terrain_matching"),
+        "paths": [Piece(path_piece(f"{NAME}_path_a", 6, P_GROUNDS, rp, mats=mats), 3, PROC, "rigid"),
+                  Piece(path_piece(f"{NAME}_path_b", 10, P_GROUNDS, rp, mats=mats), 2, PROC, "rigid"),
                   Empty(2)],
         "grounds": [Piece(ground_glowcap_ring(), 3, PROC), Piece(ground_moon_pool(), 2, PROC),
                     Piece(ground_fallen_statue(), 2, PROC), Piece(ground_outcrop(), 2, PROC),

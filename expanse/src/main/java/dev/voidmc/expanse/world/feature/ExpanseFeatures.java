@@ -20,6 +20,8 @@ public final class ExpanseFeatures {
 		register("hedgerow", HedgerowFeature.CODEC);
 		register("fishpond", FishpondFeature.CODEC);
 		Registry.register(BuiltInRegistries.PLACEMENT_MODIFIER_TYPE, Expanse.id("clear_of_structures"), ClearOfStructuresFilter.CODEC);
+		Registry.register(BuiltInRegistries.PLACEMENT_MODIFIER_TYPE, Expanse.id("land_fit"), LandFitFilter.CODEC);
+		Registry.register(BuiltInRegistries.PLACEMENT_MODIFIER_TYPE, Expanse.id("hilltop"), HilltopFilter.CODEC);
 	}
 
 	private static void register(String name, MapCodec<? extends Feature> codec) {
