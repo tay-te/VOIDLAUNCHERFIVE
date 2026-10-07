@@ -426,7 +426,7 @@ final class Measure {
 							bedsBlocked++;
 							at(where, "bed_blocked", lf0, BlockPos.asLong(x, y, z));
 						}
-					} else if (workstation(s) && !decorative(s, poiCells, x, y, z)) {
+					} else if (workstation(s) && !decorative(s, poiCells, x, y, z, spec, sp)) {
 						stations++;
 						boolean ok = false;
 						for (Direction d : Direction.Plane.HORIZONTAL) {
@@ -678,10 +678,11 @@ final class Measure {
 	}
 
 	/**
-	 * A cauldron no job site points at (a well's bucket, a dye vat by the yard gate): decoration, not a workstation. A
-	 * cauldron that is a job site, or stands beside one, still counts.
+	 * A cauldron that is decoration, not a workstation: no POI at or beside it, and either in an open-space or
+	 * infrastructure plot (a well's bucket, a fountain's basin) or out under the sky (a yard's rain butt). A cauldron
+	 * indoors in a working building (a smelter's tap, a kitchen's pot) still counts.
 	 */
-	private static boolean decorative(BlockState s, LongOpenHashSet poiCells, int x, int y, int z) {
+	private static boolean decorative(BlockState s, LongOpenHashSet poiCells, int x, int y, int z, PlotSpec spec, Spaces sp) {
 		if (!path(s).endsWith("cauldron")) {
 			return false;
 		}
@@ -694,7 +695,8 @@ final class Measure {
 				}
 			}
 		}
-		return true;
+		String p = spec.archetype().getPath();
+		return p.startsWith("landscape/") || p.startsWith("infra/") || !sp.roofed(x, y, z);
 	}
 
 	/** A block a person works at or takes from ({@link PlayChecks#workstation}). */

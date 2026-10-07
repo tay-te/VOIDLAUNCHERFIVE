@@ -86,8 +86,8 @@ final class Index {
 				+ "two clear above"},
 			{"ladders, dead_ladders", "ladder columns; ladders with nowhere to step off at the top"},
 			{"beds_no_free_side", "beds with no reached cell beside either half"},
-			{"workstations, workstations_unusable, chest_lids_blocked", "job blocks, chests, barrels, cauldrons (a cauldron only when a POI "
-				+ "is at or beside it: a well's bucket is decoration); those with no reached face (beside, a level up or down); chests under a "
+			{"workstations, workstations_unusable, chest_lids_blocked", "job blocks, chests, barrels, cauldrons (a cauldron with no POI at or "
+				+ "beside it in an open-space or infrastructure plot, or under the sky, is decoration: a well's bucket); those with no reached face (beside, a level up or down); chests under a "
 				+ "solid block"},
 			{"light_min_room, light_mean_room, dark_room_cells, light_unmet", "block light on reached room cells (the light check's flood); cells "
 				+ "under 8; the light check's unmet needs"},

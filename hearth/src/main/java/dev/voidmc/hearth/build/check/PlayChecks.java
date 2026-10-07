@@ -267,7 +267,7 @@ public final class PlayChecks {
 
 	/**
 	 * A standing cell of a room: in the plot, walkable and dry, under a roof with walls all round, not a doorway, not on
-	 * furniture (a bench is not a floor), and not on a tie beam (a one-wide beam across open space with air on both sides
+	 * furniture (a bench is not a floor), and not on a tie beam (a one-wide log across open space with air on both sides
 	 * reads as a floor to the walk, as the tavern's lantern beams did).
 	 */
 	public static boolean roomCell(Grid g, Spaces sp, int x, int y, int z) {
@@ -278,19 +278,28 @@ public final class PlayChecks {
 		if (g.placed(x, y - 1, z) && !(under.getBlock() instanceof StairBlock) && furniture(under, 0)) {
 			return false;
 		}
-		if (tieBeam(g, x, y - 1, z)) {
+		if (TIE_BEAMS && tieBeam(g, x, y - 1, z)) {
 			return false;
 		}
 		return sp.enclosed(x, y, z);
 	}
 
-	/** A block with open air under it and on both sides along one axis: a beam across a hall, not a floor. */
+	/** Whether tie beams are told from floors ({@code -Dhearth.gate.tiebeams=false} turns it off, to compare with the October audit). */
+	private static final boolean TIE_BEAMS = !"false".equals(System.getProperty("hearth.gate.tiebeams"));
+
+	/** A log or a rail with open air under it and on both sides along one axis: a beam across a hall, not a floor. */
 	public static boolean tieBeam(Grid g, int x, int y, int z) {
-		if (!Spaces.passable(g.at(x, y - 1, z))) {
+		// a beam is a log (or a fence rail) laid across; a one-wide loft of boards is a floor, however narrow
+		Block b = g.at(x, y, z).getBlock();
+		if (!(b instanceof net.minecraft.world.level.block.RotatedPillarBlock) && !(b instanceof FenceBlock)) {
 			return false;
 		}
-		boolean alongX = Spaces.passable(g.at(x + 1, y, z)) && Spaces.passable(g.at(x - 1, y, z));
-		boolean alongZ = Spaces.passable(g.at(x, y, z + 1)) && Spaces.passable(g.at(x, y, z - 1));
+		// air, not merely passable: a floor of trapdoors or carpets has its own kind on both sides
+		if (!g.at(x, y - 1, z).isAir()) {
+			return false;
+		}
+		boolean alongX = g.at(x + 1, y, z).isAir() && g.at(x - 1, y, z).isAir();
+		boolean alongZ = g.at(x, y, z + 1).isAir() && g.at(x, y, z - 1).isAir();
 		return alongX || alongZ;
 	}
 
