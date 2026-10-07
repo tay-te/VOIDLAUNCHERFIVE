@@ -147,7 +147,9 @@ public final class Lots {
 			int[] at = dev.voidmc.hearth.plan.road.Roads.edgeAt(ctx, ent[0], ent[1]);
 			int edge = at != null ? at[0] : ctx.state.squareEdge;
 			Parcels.Parcel p = edge < 0 ? null : Parcels.fitAt(ctx, req, edge, r.x0(), r.z0(), w, h, facing);
-			if (p != null) {
+			// facing this way the lot must give the building its least frontage and depth (a chapel's close may be larger)
+			if (p != null && p.frontage() >= info.minFrontage() && p.depth() >= info.minDepth()
+				&& (info.id().equals(Archetypes.CHAPEL) || p.frontage() <= info.maxFrontage() && p.depth() <= info.maxDepth())) {
 				return p;
 			}
 		}

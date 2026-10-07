@@ -197,6 +197,10 @@ public final class Housing {
 			return grew;
 		}
 		Build.building(ctx, info, p, reason, homeParams(ctx, station, ledger));
+		if (p.zone >= 2 && (home.placement == Placement.CROFTS || home.placement == Placement.HOVELS || station == Station.PEASANT)) {
+			// a cottage at the edge of town works a plot beside it: the town ends in gardens and orchards (ART_REVIEW_2 item 4)
+			Farms.croftPlot(ctx, p);
+		}
 		return true;
 	}
 

@@ -74,7 +74,9 @@ public final class Beauty {
 	 * {@link #LAMP_SPACING}. Called as the lane is built, so a town's junctions are lit as it grows (ART_REVIEW_2 item 19).
 	 */
 	static void cornerLamp(PlanContext ctx, dev.voidmc.hearth.plan.model.RoadEdge lane) {
-		if (ctx.tier.ordinal() < SettlementTier.TOWN.ordinal() || lane.parent < 0 || lane.built <= 4) {
+		if (ctx.tier.ordinal() < SettlementTier.TOWN.ordinal() || lane.parent < 0 || lane.built <= 4
+			|| ctx.ground.probe() instanceof dev.voidmc.hearth.plan.deep.RealmTerrain) {
+			// (a deep town's lanes, grown by the same moves under the vault, are lit by its glow, not by street lamps)
 			return;
 		}
 		ArchetypeInfo info = ctx.catalogue.info(Archetypes.LAMP_POST);

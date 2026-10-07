@@ -20,10 +20,18 @@ public final class Specs {
 	}
 
 	public static PlotSpec road(PlanContext ctx, Identifier archetype, int[] points, int width, RoadKind kind) {
+		return road(ctx, archetype, points, width, kind, 0);
+	}
+
+	/** A road with street lamps every {@code lamps} blocks along its verge ({@code lamps} param, left out when 0). */
+	public static PlotSpec road(PlanContext ctx, Identifier archetype, int[] points, int width, RoadKind kind, int lamps) {
 		CompoundTag p = new CompoundTag();
 		p.putIntArray("points", points);
 		p.putInt("width", width);
 		p.putString("kind", kind.getSerializedName());
+		if (lamps > 0) {
+			p.putInt("lamps", lamps);
+		}
 		return linear(ctx, archetype, points, width, p, minY(points), maxY(points) - minY(points) + 5);
 	}
 
