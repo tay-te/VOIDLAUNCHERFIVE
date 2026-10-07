@@ -191,8 +191,18 @@ final class Section9Shots {
 				}
 			}
 		});
-		this.context.waitTicks(300);
-		this.map("s9_nether_biomes", 0, 0, 0.5, MapPanel.Kind.NETHER, true, 1);
+		this.context.waitTicks(100);
+		// the Nether is mapped where it is walked (its land is all under the roof): a walk through its open air
+		List<BlockPos> walk = this.world.getServer().computeOnServer(server ->
+			Caves.path(server.getLevel(net.minecraft.world.level.Level.NETHER), new BlockPos(0, 70, 0), 32, 100));
+		for (BlockPos stop : walk) {
+			this.world.getServer().runCommand(String.format(Locale.ROOT, "execute in minecraft:the_nether run tp @a %d %d %d", stop.getX(), stop.getY(),
+				stop.getZ()));
+			this.context.waitTicks(10);
+		}
+		BlockPos inNether = walk.isEmpty() ? BlockPos.ZERO : walk.get(walk.size() / 2);
+		this.context.waitTicks(100);
+		this.map("s9_nether_biomes", inNether.getX(), inNether.getZ(), 1, MapPanel.Kind.NETHER, true, 1);
 		this.client(mc -> {
 			((AtlasScreen) mc.gui.screen()).page.map.setBiomeLook(false);
 			mc.gui.setScreen(null);

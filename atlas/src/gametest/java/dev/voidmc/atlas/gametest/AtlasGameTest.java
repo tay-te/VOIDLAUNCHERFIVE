@@ -629,6 +629,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 			return s.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, hx, hz);
 		});
 		context.runOnClient(mc -> mc.gui.setScreen(null));
+		// Hearth sights and discovers settlements only for players who are not spectating
+		world.getServer().runCommand("gamemode creative @a");
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", hx, hy + 1, hz));
 		context.waitTicks(60);
 		world.getServer().runCommand("execute as @p at @p run hearth settlement found");
@@ -636,7 +638,14 @@ public class AtlasGameTest implements FabricClientGameTest {
 		for (String t : new String[]{"hearth:gathering/honey", "hearth:honey", "hearth:gathering/fish", "hearth:fish"}) {
 			world.getServer().runCommand("execute as @p at @p run hearth quest give " + t);
 		}
+		// a little way off, so the tracked quest is a walk away (still within sight of the settlement)
+		int ay = world.getServer().computeOnServer(sv -> {
+			sv.overworld().getChunk((hx - 90) >> 4, (hz - 60) >> 4);
+			return sv.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, hx - 90, hz - 60);
+		});
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", hx - 90, ay + 1, hz - 60));
 		context.waitTicks(100);
+		context.getInput().setCursorPos(5, 5);
 		String[] ids = context.computeOnClient(mc -> {
 			String settlement = null;
 			String quest = null;
@@ -662,6 +671,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 				AtlasScreen screen = (AtlasScreen) mc.gui.screen();
 				screen.page.rightTab = 0;
 				screen.page.map.setKind(MapPanel.Kind.SURFACE);
+				screen.page.map.setBiomeLook(false);
 				screen.page.map.centreOn(Double.parseDouble(s[1]) + 80, Double.parseDouble(s[2]));
 				screen.page.map.setZoom(2);
 				screen.page.map.selected = s[0];
@@ -678,8 +688,11 @@ public class AtlasGameTest implements FabricClientGameTest {
 					AtlasClient.get().openMap();
 				}
 				AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+				screen.page.rightTab = 0;
+				screen.page.map.setKind(MapPanel.Kind.SURFACE);
+				screen.page.map.setBiomeLook(false);
 				screen.page.map.selected = null;
-				screen.page.map.centreOn(Double.parseDouble(qd[1]), Double.parseDouble(qd[2]));
+				screen.page.map.centreOn(Double.parseDouble(qd[1]) - 45, Double.parseDouble(qd[2]) - 30);
 				screen.page.map.setZoom(1);
 			});
 			this.settle(context, SETTLE_MS);
