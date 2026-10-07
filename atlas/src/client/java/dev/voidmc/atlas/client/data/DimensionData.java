@@ -22,6 +22,8 @@ public final class DimensionData {
 	public final RegionStore files;
 	/** Whether it has a ceiling (the Nether): then it has no surface layer, only underground bands. */
 	public final boolean ceiling;
+	/** The highest block of this dimension's world (its own height: 319 in vanilla, 639 in VOID Expanse's Earth). */
+	public volatile int top = 319;
 	public final Detections detections = new Detections();
 	public final AreaIndex areas = new AreaIndex();
 	/** The cave biomes seen underground, for their names on the underground map. */

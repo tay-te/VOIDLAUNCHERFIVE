@@ -113,7 +113,9 @@ public final class TileRenderer {
 	int[] biomes = new int[0];
 	byte[] depths = new byte[0];
 	byte[] lights = new byte[0];
-	private float[][] scratch = new float[2][0];
+	private float[][] scratch = new float[12][0];
+	/** The top of the world drawn (its highest block): the elevation lift spreads over its height (319 in vanilla). */
+	public int worldTop = 319;
 	private byte[] scratchBytes = new byte[0];
 	/** The rectangle's region origin in blocks (for patterns that line up across regions). */
 	int originX;

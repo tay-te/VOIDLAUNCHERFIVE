@@ -127,6 +127,7 @@ public final class LayerData {
 		r.variant = this.variant;
 		// the coarse far store's samples are 32 blocks
 		r.farSample = this.rawName().equals("farc") ? 32 : 1;
+		r.worldTop = this.dimension.top;
 		this.dimension.session.configure(r);
 		return r;
 	}

@@ -550,6 +550,11 @@ public final class AtlasClient implements ClientModInitializer {
 			String dim = p.level().dimension().identifier().toString();
 			if (this.ticks % 20 == 11) {
 				this.farSight.update();
+				// the map's elevation lift spreads over the world's own height
+				DimensionData here = session.dimensionIfOpen(dim);
+				if (here != null) {
+					here.top = p.level().getMinY() + p.level().getHeight() - 1;
+				}
 			}
 			long day = p.level().getOverworldClockTime() / 24000 + 1;
 			if (this.ticks % 20 == 13 && this.settings.journal) {

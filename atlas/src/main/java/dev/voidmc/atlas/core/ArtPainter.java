@@ -185,12 +185,44 @@ final class ArtPainter {
 		}
 		// smoothed: 3 x 3 for the terrain's light, 5 x 5 for the biome view's faint one
 		float[] smooth = r.scratch(1, gn);
-		box(ground, smooth, gw, gh, biomeLook ? 2 : 1);
+		boolean far = mode == TileRenderer.Mode.FAR;
+		// far land's light from its own smoothed heights (a chunk-sized sample, or a coarse one, is not a slope)
+		box(ground, smooth, gw, gh, biomeLook ? 2 : far ? (r.farSample > 1 ? 1 : 6) : 1);
 		float perStep = biomeLook ? 0.004F : style == MapArt.Style.TOPOGRAPHIC ? 0.008F : 0.011F;
 		if (mode == TileRenderer.Mode.FAR) {
 			perStep *= 0.5F;
 		}
 		boolean relief = biomeLook || style != MapArt.Style.FLAT;
+		float[] baseL = r.scratch(2, gn);
+		float[] baseA = r.scratch(3, gn);
+		float[] baseB = r.scratch(4, gn);
+		float[] calmL = r.scratch(5, gn);
+		float[] calmA = r.scratch(6, gn);
+		float[] calmB = r.scratch(7, gn);
+		if (!biomeLook) {
+			for (int g = 0; g < gn; g++) {
+				if (!known[g] || kinds[g] != 0) {
+					baseL[g] = Float.NaN;
+					continue;
+				}
+				Material mat = r.material(blocks[g]);
+				float[] b = this.base(blocks[g], biomes[g], mat, style, r.shippedTone(blocks[g], biomes[g], mat));
+				if (far) {
+					// far land: towards its biome's own fill (not grey or beige), quieter; one calm colour an area
+					float[] fill = this.fill(biomes[g]);
+					baseL[g] = b[0] * 0.75F + fill[0] * 0.25F;
+					baseA[g] = (b[1] * 0.35F + fill[1] * 0.65F) * 0.8F;
+					baseB[g] = (b[2] * 0.35F + fill[2] * 0.65F) * 0.8F;
+				} else {
+					baseL[g] = b[0];
+					baseA[g] = b[1];
+					baseB[g] = b[2];
+				}
+			}
+			if (far) {
+				blurMasked(r, baseL, baseA, baseB, calmL, calmA, calmB, gw, gh, r.farSample > 1 ? 1 : 16);
+			}
+		}
 		boolean contours = r.contours && !biomeLook;
 		MapArt.Family highlight = r.highlight;
 		float[] lab = new float[3];
@@ -215,8 +247,9 @@ final class ArtPainter {
 					continue;
 				}
 				// the light on the smoothed ground
-				int step = 0;
+				float step = 0;
 				float slope = 0;
+				double grade = 0;
 				if (relief && !Float.isNaN(smooth[g])) {
 					float e = neighbour(smooth, g + 1, smooth[g]);
 					float w = neighbour(smooth, g - 1, smooth[g]);
@@ -226,8 +259,10 @@ final class ArtPainter {
 					double gz = (s - n) / 2.0;
 					double len = Math.sqrt(gx * gx + 1 + gz * gz);
 					double lambert = (-gx * LX + LY - gz * LZ) / len;
-					step = (int) Math.max(-6, Math.min(6, Math.round((lambert - LY) / 0.035)));
-					slope = (float) Math.min(Math.hypot(gx, gz) / 1.5, 1);
+					// continuous, not in steps: a long even slope is one even shade, never bands
+					step = (float) Math.max(-6, Math.min(6, (lambert - LY) / 0.035));
+					grade = Math.hypot(gx, gz);
+					slope = (float) Math.min(grade / 1.5, 1);
 				}
 				if (biomeLook) {
 					float[] fill = this.fill(biome);
@@ -291,11 +326,23 @@ final class ArtPainter {
 					}
 				} else {
 					Material mat = r.material(block);
-					float[] tone = r.shippedTone(block, biome, mat);
-					float[] b = this.base(block, biome, mat, style, tone);
-					lab[0] = b[0];
-					lab[1] = b[1];
-					lab[2] = b[2];
+					int from = grade > 1.2 && !far ? majority(blocks, baseL, gw, gh, g, 2) : g;
+					if (far && !Float.isNaN(calmL[g])) {
+						// far land: the calmed colour of its area
+						lab[0] = calmL[g];
+						lab[1] = calmA[g];
+						lab[2] = calmB[g];
+					} else if (from != g) {
+						// a steep face (snow and rock striped by its steps): the block most of its 5 x 5 shows, so a
+						// snowfield reads as one, its edges still crisp
+						lab[0] = baseL[from];
+						lab[1] = baseA[from];
+						lab[2] = baseB[from];
+					} else {
+						lab[0] = baseL[g];
+						lab[1] = baseA[g];
+						lab[2] = baseB[g];
+					}
 					if (mat == Material.LAVA) {
 						out[p] = coverage << 24 | Oklab.toRgb(lab[0], lab[1], lab[2]);
 						continue;
@@ -333,9 +380,12 @@ final class ArtPainter {
 							}
 						}
 					}
-					// elevation: a little lighter per 16 blocks above the sea, at most +0.032
+					// elevation: a little lighter in eight steps up to two thirds of the way from the sea to 64 below the
+					// world's top (+0.032 there): every 16 blocks to y 191 in vanilla, as it always was; every 43 in a
+					// world 704 high, so tall mountains keep lightening all the way up
 					if (gh0 > Palette.SEA_LEVEL) {
-						lab[0] += Math.min(0.032F, 0.004F * (float) Math.floor((gh0 - Palette.SEA_LEVEL) / 16));
+						float stepBlocks = Math.max(16, (r.worldTop - 64 - Palette.SEA_LEVEL) * 2 / 3F / 8F);
+						lab[0] += Math.min(0.032F, 0.004F * (float) Math.floor((gh0 - Palette.SEA_LEVEL) / stepBlocks));
 					}
 					if (contours) {
 						int gi = (int) Math.floor(gh0);
@@ -345,15 +395,21 @@ final class ArtPainter {
 						if (Math.floorDiv(gi, 64) != Math.floorDiv(he, 64) || Math.floorDiv(gi, 64) != Math.floorDiv(hs, 64)) {
 							lab[0] -= 0.09F;
 						} else if (Math.floorDiv(gi, 16) != Math.floorDiv(he, 16) || Math.floorDiv(gi, 16) != Math.floorDiv(hs, 16)) {
-							lab[0] -= 0.045F;
+							// a minor line fades where its neighbours crowd it: full at a grade of 1 (16 blocks apart, 4 px or
+							// more at 1:4), gone by a grade of 2; the 64-block lines always stay
+							float keep = (float) Math.max(0, Math.min(1, 2 - grade));
+							lab[0] -= 0.045F * keep;
 						}
 					}
 					lab[0] = Math.max(MapArt.LAND_MIN_L, Math.min(MapArt.LAND_MAX_L, lab[0]));
 				}
 				if (mode == TileRenderer.Mode.FAR) {
-					lab[0] *= 0.86F;
-					lab[1] *= 0.6F;
-					lab[2] *= 0.6F;
+					// land was already calmed towards its biome; water quietened here
+					lab[0] *= 0.88F;
+					if (kind == 1) {
+						lab[1] *= 0.7F;
+						lab[2] *= 0.7F;
+					}
 				} else if (mode == TileRenderer.Mode.SHARED) {
 					lab[0] = 0.45F + (lab[0] - 0.45F) * 0.8F;
 					lab[1] *= 0.5F;
@@ -395,6 +451,119 @@ final class ArtPainter {
 		}
 		float v = a[g];
 		return Float.isNaN(v) ? self : v;
+	}
+
+	/** The cell round {@code g} (radius {@code k}) whose block most land there shares; {@code g} when it is a tie or its own. */
+	private static int majority(int[] blocks, float[] baseL, int w, int h, int g, int k) {
+		int gx = g % w;
+		int gz = g / w;
+		int bestBlock = blocks[g];
+		int bestCount = 0;
+		int bestCell = g;
+		int ownCount = 0;
+		for (int dz = -k; dz <= k; dz++) {
+			for (int dx = -k; dx <= k; dx++) {
+				int ax = gx + dx, az = gz + dz;
+				if (ax < 0 || az < 0 || ax >= w || az >= h) {
+					continue;
+				}
+				int a = az * w + ax;
+				if (Float.isNaN(baseL[a])) {
+					continue;
+				}
+				int block = blocks[a];
+				if (block == blocks[g]) {
+					ownCount++;
+					continue;
+				}
+				int c = 0;
+				for (int ez = -k; ez <= k; ez++) {
+					for (int ex = -k; ex <= k; ex++) {
+						int bx = gx + ex, bz = gz + ez;
+						if (bx >= 0 && bz >= 0 && bx < w && bz < h && blocks[bz * w + bx] == block && !Float.isNaN(baseL[bz * w + bx])) {
+							c++;
+						}
+					}
+				}
+				if (c > bestCount) {
+					bestCount = c;
+					bestBlock = block;
+					bestCell = a;
+				}
+			}
+		}
+		return bestCount > ownCount + 2 ? bestCell : g;
+	}
+
+	/**
+	 * A box blur of radius {@code k} of three channels over the cells whose first channel is a number (land), each
+	 * averaged only with its own kind; separable, with running sums (any radius, one pass a channel a way).
+	 */
+	private static void blurMasked(TileRenderer r, float[] l, float[] a, float[] b, float[] ol, float[] oa, float[] ob, int w, int h, int k) {
+		int n = w * h;
+		float[] tl = r.scratch(8, n);
+		float[] ta = r.scratch(9, n);
+		float[] tb = r.scratch(10, n);
+		float[] tc = r.scratch(11, n);
+		// across
+		for (int z = 0; z < h; z++) {
+			float sl = 0, sa = 0, sb = 0, c = 0;
+			int row = z * w;
+			for (int x = -k; x < w; x++) {
+				int add = x + k;
+				if (add < w && !Float.isNaN(l[row + add])) {
+					sl += l[row + add];
+					sa += a[row + add];
+					sb += b[row + add];
+					c++;
+				}
+				int sub = x - k - 1;
+				if (sub >= 0 && !Float.isNaN(l[row + sub])) {
+					sl -= l[row + sub];
+					sa -= a[row + sub];
+					sb -= b[row + sub];
+					c--;
+				}
+				if (x >= 0) {
+					tl[row + x] = sl;
+					ta[row + x] = sa;
+					tb[row + x] = sb;
+					tc[row + x] = c;
+				}
+			}
+		}
+		// down
+		for (int x = 0; x < w; x++) {
+			float sl = 0, sa = 0, sb = 0, c = 0;
+			for (int z = -k; z < h; z++) {
+				int add = z + k;
+				if (add < h) {
+					int g = add * w + x;
+					sl += tl[g];
+					sa += ta[g];
+					sb += tb[g];
+					c += tc[g];
+				}
+				int sub = z - k - 1;
+				if (sub >= 0) {
+					int g = sub * w + x;
+					sl -= tl[g];
+					sa -= ta[g];
+					sb -= tb[g];
+					c -= tc[g];
+				}
+				if (z >= 0) {
+					int g = z * w + x;
+					if (Float.isNaN(l[g]) || c < 0.5F) {
+						ol[g] = Float.NaN;
+					} else {
+						ol[g] = sl / c;
+						oa[g] = sa / c;
+						ob[g] = sb / c;
+					}
+				}
+			}
+		}
 	}
 
 	/** A box blur of radius {@code k} over the known (non-NaN) cells. */
