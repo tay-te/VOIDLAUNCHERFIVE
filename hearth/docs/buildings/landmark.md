@@ -28,13 +28,16 @@ lightens as it climbs and no two stages read alike), paired
 lights or a clock higher up, the open belfry (a triple light or a big arch over a balustrade) with one to three bells on
 a beam, a corbelled cornice. Panels in the style's light walling where it is masonry (white plaster between stone piers),
 the belfry in dressed stone. Crowns by culture: needle, octagonal or broach spires behind a parapet with pinnacles
-(maritime, moorland, wisteria; a temperate town's tower always takes the needle in its pinnacled gallery, as Bohemia's
-towers do), crenellated parapets with a flag (moorland), low tiled pyramids on brackets or
+(maritime, moorland, wisteria), crenellated parapets with a flag (moorland), low tiled pyramids on brackets or
 a brick campanile (mediterranean), onion domes (alpine), curved hips (karst). Timber cultures (northern, tundra, bayou,
 tropical) raise a stone base under a pent skirt and, on a seven-wide core, step the framed shaft in a block behind it
 (braces, lights) before the louvred belfry flares out two blocks on raking brackets under stacked shingle caps or a tin
 pyramid, as a northern klockstapel does. Spires and domes take copper where the roof is shingle, and on
-a share of the rest. Spiral stair from the door to the belfry (VIEWPOINT); a forecourt with a bench, a lamp and pots
+a share of the rest, except in temperate towns: the Bohemian town tower is lime render to its cornice (no clasping piers,
+no rustication, its corner stones alone), a course over the door stage and under the belfry, lights up the shaft and a
+clock on a share, a belfry of paired lights, and the gallery and cap of `kit/civic/Bohemian`: a timber balustrade on
+corbels before a white attic, under a dark shingle or slate helm (or an onion on a share). The cathedral's spires in a
+temperate town are dark shingle or slate too (`Bohemian.shingle`), copper only on a baroque onion. Spiral stair from the door to the belfry (VIEWPOINT); a forecourt with a bench, a lamp and pots
 (MEETING_POINT, SEAT).
 Params: `crown` (a `Crowns.Kind` name), `clock` (boolean).
 

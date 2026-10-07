@@ -13,6 +13,7 @@ import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Bohemian;
 import dev.voidmc.hearth.build.kit.landmark.Crowns;
 import dev.voidmc.hearth.build.kit.landmark.Details;
 import dev.voidmc.hearth.build.kit.landmark.Grounds;
@@ -32,7 +33,8 @@ import net.minecraft.world.level.block.Blocks;
  * chamfered plinth, its faces recessed between clasping corner piers, ringed by string courses over Lombard bands of
  * little arches; its openings widen as it climbs (slits, single lights, paired lights) to an open belfry where bells hang
  * from a beam; a corbelled cornice; and a crown in the culture's manner: a needle or broach spire behind pinnacles
- * (temperate, maritime, moorland), a low tiled pyramid on brackets or a brick campanile (mediterranean), an onion dome
+ * (maritime, moorland), a white rendered shaft with a timber gallery under a dark shingle helm or onion (temperate, the
+ * Bohemian town tower), a low tiled pyramid on brackets or a brick campanile (mediterranean), an onion dome
  * (alpine), a crenellated parapet with a flag (moorland), a curved hip (wisteria, karst). Timber cultures (northern,
  * tundra, bayou, tropical) raise a stone base and a framed belfry above it under stacked shingle caps or a tin pyramid.
  * A spiral stair climbs from the door to the belfry, which is a viewpoint; a paved forecourt with a bench and a lamp
@@ -59,7 +61,10 @@ public final class BellTower implements Archetype {
 		int dp = d.depth();
 		int avail = Math.min(w, dp);
 		boolean timber = Wooden.timberCulture(d);
-		boolean piers = !timber && d.chance(0.75);
+		// a Bohemian town's tower: white render between corner stones, no clasping piers, a gallery under a dark helm or
+		// an onion (the copper needle in its pinnacled parapet is a Hanseatic or English tower, not Bohemia's)
+		boolean boh = !timber && d.style().culture() == Culture.TEMPERATE;
+		boolean piers = !timber && d.chance(0.75) && !boh;
 		// the core: as massive as the plot allows, a margin round it where there is room
 		int size = piers ? (avail >= 9 ? 7 : 5) : (avail >= 9 ? 7 : avail >= 7 ? 5 : 5);
 		if (piers && avail >= 9 && avail <= 10 && d.chance(0.3)) {
@@ -71,14 +76,16 @@ public final class BellTower implements Archetype {
 		int oz = front + (piers ? 1 : 0);
 		d.body(ox, oz, ox + size - 1, oz + size - 1);
 		Crowns.Kind crown = crown(d, timber);
-		Stone body = body(d, crown);
+		Bohemian.Cap cap = boh ? Bohemian.townCap(d, d.tier()) : null;
+		Stone body = boh ? Bohemian.whiteRender(d) : body(d, crown);
 		Stone dress = Stone.dressing(d);
 		Stone base = Stone.of(d, Role.PLINTH).isRole() && Stone.stony(d, Role.PLINTH) ? Stone.of(d, Role.PLINTH) : Stone.footing(d);
 		Tower t = new Tower(ox, oz, size, body, dress, base, piers);
 		int top = d.maxHeight() - 1;
 		int height = Math.max(22, (int) Math.round(top * (0.86 + 0.14 * d.random().nextDouble())));
 		// the cornice row, the belfry under it, the stages under that
-		int yc = Math.max(14, height - Crowns.rows(crown, timber ? outer + 2 : outer, height));
+		int crownRows = boh ? (cap == Bohemian.Cap.ONION ? 16 : 4 + (int) Math.round(size * 2.2)) : Crowns.rows(crown, timber ? outer + 2 : outer, height);
+		int yc = Math.max(14, height - crownRows);
 		int belfryRows = size >= 7 ? 6 : 5;
 		int yb = yc - belfryRows - 1;          // the belfry's floor row
 		d.eave(yc);
@@ -91,9 +98,14 @@ public final class BellTower implements Archetype {
 		if (timber) {
 			cs = Wooden.belfryTower(d, t, yb, yc, fr.outX(door, 1), fr.outZ(door, 1));
 		} else {
-			masonry(d, t, yb, yc, fr.outX(door, 1), fr.outZ(door, 1));
+			if (boh) {
+				bohemian(d, t, yb, yc, fr.outX(door, 1), fr.outZ(door, 1));
+			} else {
+				masonry(d, t, yb, yc, fr.outX(door, 1), fr.outZ(door, 1), boh);
+			}
 		}
-		int peak = Crowns.crown(d, crown, cs[0], cs[1], cs[2], cs[3], yc + 1, top, crown == Crowns.Kind.STAVE || crown == Crowns.Kind.PAGODA
+		int peak = boh ? Bohemian.gallery(d, t, yc, top, dress, d.tier(), cap)
+			: Crowns.crown(d, crown, cs[0], cs[1], cs[2], cs[3], yc + 1, top, crown == Crowns.Kind.STAVE || crown == Crowns.Kind.PAGODA
 			|| crown == Crowns.Kind.PYRAMID ? Crowns.Mats.of(d, dress) : Crowns.Mats.coppered(d, dress, 0.4));
 
 		// the door, the stair, the belfry and its bells
@@ -118,11 +130,13 @@ public final class BellTower implements Archetype {
 	 * The stone tower: a chamfered plinth, the door stage, stages ringed by courses over Lombard bands whose openings
 	 * open up as they climb (slits, lancets, paired lights or a clock), the open belfry, the cornice.
 	 */
-	private static void masonry(Draft d, Tower t, int yb, int yc, int keepX, int keepZ) {
+	private static void masonry(Draft d, Tower t, int yb, int yc, int keepX, int keepZ, boolean boh) {
 		t.plinth(d, 0, 1, true, keepX, keepZ);
 		t.shaft(d, 2, yc - 1);
-		// the belfry in dressed stone over the rougher shaft
-		t.ring(d, yb + 1, yc - 1, t.dress);
+		// the belfry in dressed stone over the rougher shaft (a Bohemian tower is rendered to its cornice)
+		if (!boh) {
+			t.ring(d, yb + 1, yc - 1, t.dress);
+		}
 		Paint glass = d.mat(Role.GLASS).pane();
 		int doorTop = 7;
 		// one course over the door stage, one under the belfry, one between if the shaft is long
@@ -136,13 +150,13 @@ public final class BellTower implements Archetype {
 			t.course(d, mid, true);
 			t.band(d, mid - 1);
 			// the upper stage in dressed stone over the rendered shaft below: the tower lightens as it climbs
-			if (t.body.main(Form.FULL) != t.dress.main(Form.FULL)) {
+			if (!boh && t.body.main(Form.FULL) != t.dress.main(Form.FULL)) {
 				t.ring(d, mid + 1, yb - 1, t.dress);
 			}
 		}
-		// the door stage rusticated: every other course of its panels in the base stone
+		// the door stage rusticated: every other course of its panels in the base stone (not under a render)
 		try (var st = d.stage(StageKind.WALLS)) {
-			for (int y = 2; y < doorTop - 1; y += 2) {
+			for (int y = 2; y < doorTop - 1 && !boh; y += 2) {
 				for (Side f : t.faces()) {
 					for (int i = 1; i < f.last(); i++) {
 						if (d.isSolid(f.x(i), y, f.z(i))) {
@@ -202,6 +216,49 @@ public final class BellTower implements Archetype {
 		t.cornice(d, yc);
 	}
 
+	/**
+	 * The Bohemian town tower: a stone plinth, a white rendered shaft with its corner stones alone (no toothing), a course
+	 * over the door stage and one under the belfry, a single light up each face of the long shaft (a clock on the stage
+	 * under the belfry on a share), the belfry of paired lights in the render, little arches under the cornice.
+	 */
+	private static void bohemian(Draft d, Tower t, int yb, int yc, int keepX, int keepZ) {
+		t.plinth(d, 0, 1, true, keepX, keepZ);
+		t.shaft(d, 2, yc - 1);
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int y = 2; y < yc; y++) {
+				for (Side f : t.faces()) {
+					for (int i : new int[]{1, f.last() - 1}) {
+						if (i > 0 && i < f.last()) {
+							d.set(f.x(i), y, f.z(i), t.body.full());
+						}
+					}
+				}
+			}
+		}
+		Paint glass = d.mat(Role.GLASS).pane();
+		int doorTop = 7;
+		t.course(d, doorTop, true);
+		t.course(d, yb, true);
+		for (Side f : t.faces()) {
+			Details.slit(d, f, f.middle(), f.out() == Dirs.FRONT ? 5 : 3, 2, t.dress, glass);
+		}
+		// lights up the long shaft, one stage of them every six courses or so, and the clock under the belfry
+		boolean clock = d.param("clock", d.chance(0.6));
+		int clockY = yb - 3;
+		int hi = clock ? clockY - 3 : yb - 2;
+		for (int y = doorTop + 3; y + 1 < hi; y += 6) {
+			t.openings(d, y, 2, Tower.Opening.SINGLE, true, glass);
+		}
+		if (clock && clockY - 1 > doorTop + 1) {
+			for (Side f : t.faces()) {
+				dev.voidmc.hearth.build.kit.civic.Towers.clock(d, f, f.middle(), clockY, t.size < 7);
+			}
+		}
+		t.openings(d, yb + 1, yc - yb - 2, Tower.Opening.BIFORA, true, null);
+		t.band(d, yc - 1);
+		t.cornice(d, yc);
+	}
+
 	/** The crown, from the param or the culture's manner. */
 	static Crowns.Kind crown(Draft d, boolean timber) {
 		String p = d.param("crown", "");
@@ -230,7 +287,7 @@ public final class BellTower implements Archetype {
 			case MARITIME -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.BROACH, Crowns.Kind.OCTAGON, Crowns.Kind.PARAPET);
 			case DESERT, MESA, STEPPE -> d.pick(Crowns.Kind.DOME, Crowns.Kind.PARAPET, Crowns.Kind.CUPOLA);
 			case WISTERIA -> d.pick(Crowns.Kind.BROACH, Crowns.Kind.OCTAGON, Crowns.Kind.PYRAMID);
-			// a Bohemian town's tower: the gallery with its corner pinnacles round a needle
+			// (a Bohemian town's tower takes its gallery and helm or onion from kit/civic/Bohemian instead)
 			case TEMPERATE -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.SPIRE, Crowns.Kind.OCTAGON);
 			default -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.OCTAGON, Crowns.Kind.BROACH, Crowns.Kind.SPIRE, Crowns.Kind.PARAPET);
 		};

@@ -40,8 +40,8 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * {@code hearth:civic/shrine}: the little holy place on the roads into a settlement, where folk stop to pray on their
  * way, built as each culture builds its wayside shrines:
  * <ul>
- *   <li><b>temperate, wisteria</b> (Bohemia): the <i>boží muka</i>, a rendered pillar on a stepped stone base carrying a
- *   lantern-head of niches under a little shingled pyramid and an iron cross; or the niche chapel, a white rendered
+ *   <li><b>temperate, wisteria</b> (Bohemia): the <i>boží muka</i>, a slender limed or stone pillar on a stepped base
+ *   carrying a little niche with a lamp under a gable and an iron cross; or the niche chapel, a white rendered
  *   block with quoins under a steep gable, the image in an arched niche lit by candles and a hanging lamp, an iron
  *   cross on the gable;</li>
  *   <li><b>alpine</b>: the <i>Wegkreuz</i>, a timber crucifix under its own little shingled roof on a stone socket, with
@@ -89,7 +89,7 @@ public final class Shrine implements Archetype {
 		String form = d.param("form", "");
 		int top;
 		switch (t) {
-			case TIMBER -> top = form.equals("niche") || !form.equals("pillar") && d.chance(0.45) ? nicheChapel(d, false) : pillar(d, false);
+			case TIMBER -> top = form.equals("niche") || !form.equals("pillar") && d.chance(0.45) ? nicheChapel(d, false) : bozimuka(d);
 			case ALPINE -> top = form.equals("pillar") || !form.equals("cross") && d.chance(0.35) ? pillar(d, true) : wayCross(d, false);
 			case LOG -> top = wayCross(d, c == Culture.TUNDRA);
 			case STONE -> top = form.equals("well") || !form.equals("cross") && d.chance(c == Culture.MARITIME ? 0.5 : 0.3) ? holyWell(d) : highCross(d);
@@ -318,12 +318,104 @@ public final class Shrine implements Archetype {
 		return Math.max(top, yr);
 	}
 
+	// ------------------------------------------------------------------------------------------------ the boží muka
+
+	/**
+	 * The Bohemian <i>boží muka</i>: a slender pillar, limed or in bare stone, on a stepped plinth, a dressed band corbelled
+	 * out under its head, the head a little niche (a lamp in it, a back wall behind) under a gable of the roof's stairs a
+	 * block wider than the shaft either side, a wrought-iron cross on the ridge. Returns the top row.
+	 */
+	private static int bozimuka(Draft d) {
+		int w = d.frontage();
+		int dp = d.depth();
+		int cx = mid(d);
+		int cz = dp - 2;
+		int maxTop = d.maxHeight() - 1;
+		Stone base = plinth(d);
+		Stone body = dev.voidmc.hearth.build.kit.civic.Bohemian.lime(d);
+		Stone dress = Stone.dressing(d);
+		// rows: the step (0), the shaft (1..s), the band (s + 1), the niche (s + 2), the gable (s + 3), the ridge (s + 4),
+		// the cross over it
+		int shaft = Math.clamp(maxTop - 7, 1, 3);
+		int yb = shaft + 1;
+		int yn = shaft + 2;
+		int yg = shaft + 3;
+		int yr = shaft + 4;
+		boolean step = cz - 2 >= 0 && w >= 3;
+		socket(d, cx, cz);
+		socket(d, cx, cz + 1);
+		try (var s = d.stage(StageKind.WALLS)) {
+			if (step) {
+				for (int z = cz - 1; z <= cz + 1; z++) {
+					for (int x = cx - 1; x <= cx + 1; x++) {
+						if (x == cx && z == cz || x < 0 || x >= w) {
+							continue;
+						}
+						if (z == cz + 1 && x != cx) {
+							continue;
+						}
+						Direction in = Dirs.nearest(cx - x, cz - z);
+						d.set(x, 0, z, base.stairsOrSlab(in, Half.BOTTOM));
+					}
+				}
+			}
+			d.set(cx, 0, cz, base.full());
+			for (int y = 1; y <= shaft; y++) {
+				d.set(cx, y, cz, body.full());
+			}
+			// the band: a dressed block on the shaft, a sill corbelled out before the niche and a corbel carrying the back
+			d.set(cx, yb, cz, dress.full());
+			d.set(cx, yb, cz - 1, dress.stairsOrSlab(Dirs.BACK, Half.TOP));
+			d.set(cx, yb, cz + 1, dress.stairsOrSlab(Dirs.FRONT, Half.TOP));
+			// the niche's back wall, and the gable's head over the niche
+			d.set(cx, yn, cz + 1, body.full());
+			d.set(cx, yg, cz, body.full());
+			d.set(cx, yg, cz + 1, body.full());
+		}
+		// the little roof: stairs either side of the gable's head, a block wider than the shaft, the ridge capped
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int z = cz; z <= cz + 1; z++) {
+				if (cx - 1 >= 0) {
+					d.set(cx - 1, yg, z, Sacra.roofStair(d, Dirs.RIGHT, Half.BOTTOM));
+				}
+				if (cx + 1 < w) {
+					d.set(cx + 1, yg, z, Sacra.roofStair(d, Dirs.LEFT, Half.BOTTOM));
+				}
+				if (yr <= maxTop) {
+					d.set(cx, yr, z, Sacra.capSlab(d));
+				}
+			}
+		}
+		// the lamp in the niche, candles on the sill before it
+		Sacra.standingLantern(d, cx, yn, cz, StageKind.EXTERIOR);
+		Sacra.candles(d, cx, yb + 1, cz - 1, 2, StageKind.EXTERIOR);
+		int top = Math.min(yr, maxTop);
+		if (yr + 3 <= maxTop) {
+			top = Sacra.ironCross(d, cx, yr + 1, cz, Direction.Axis.X);
+		}
+		int pz = Math.max(0, step ? cz - 2 : cz - 1);
+		prayer(d, cx, pz);
+		offerings(d, cx, pz);
+		// a bench beside it where there is room, or flowers along the plot's side
+		if (w >= 5 && dp >= 4) {
+			if (d.chance(0.5)) {
+				bench(d, cx + 2, cz, Dirs.LEFT);
+				bench(d, cx + 2, cz - 1, Dirs.LEFT);
+			} else {
+				for (int z = 0; z < dp; z++) {
+					Sacra.flower(d, cx + 2, 0, z);
+				}
+			}
+		}
+		return top;
+	}
+
 	// ------------------------------------------------------------------------------------------------ the niche chapel
 
 	/**
 	 * The niche chapel (<i>výklenková kaple</i>): a block three wide, rendered between dressed quoins over a stone plinth,
 	 * under a gable of the roof whose end faces the road (eaves over the sides where the plot has room, a lip over the
-	 * front); the image in a niche with candles under a hanging lamp, a timber cross on the gable. Returns the top row.
+	 * front); the image in a niche with candles under a hanging lamp, a wrought-iron cross on the gable. Returns the top row.
 	 */
 	private static int nicheChapel(Draft d, boolean alpine) {
 		int w = d.frontage();
@@ -389,7 +481,7 @@ public final class Shrine implements Archetype {
 		}
 		int top = ridge;
 		if (ridge + 3 <= maxTop) {
-			top = Sacra.woodCross(d, cx, ridge + 1, ez0, Direction.Axis.X);
+			top = Sacra.ironCross(d, cx, ridge + 1, ez0, Direction.Axis.X);
 		}
 		Sacra.candles(d, cx, 2, bz0, 3, StageKind.EXTERIOR);
 		Sacra.hangingLantern(d, cx, 3, bz0, StageKind.EXTERIOR);

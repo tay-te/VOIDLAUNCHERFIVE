@@ -104,7 +104,9 @@ the street, a belfry and a cap in the culture's manner, the porter's lodge; scho
 room upstairs), lecture halls in the side ranges (chambers over), the library hall filling the back range on both
 floors; arcades on all four sides of the court, a sundial at the crossing of its paths, benches in the back walk.
 
-**Shrine.** The wayside shrine in each culture's form: the Bohemian *boží muka* pillar or a niche chapel; the alpine
+**Shrine.** The wayside shrine in each culture's form: the Bohemian *boží muka* pillar (a slender limed or stone shaft on a stepped plinth, a dressed band corbelled out under a little niche with
+its lamp, a gable of the roof's stairs a block wider than the shaft, a wrought-iron cross on the ridge) or a niche
+chapel; the alpine
 *Wegkreuz* or *Bildstock*; the roofed worship cross of the north; a Celtic high cross or a holy well; the *edicola*; the
 *qubba* or the *capilla* with its bell wall; the Sahel stupa; the karst's gate and shrine house with stone lanterns; the
 tropical spirit house. ALTAR before it, a bench where there is room, offerings of flowers and candles.

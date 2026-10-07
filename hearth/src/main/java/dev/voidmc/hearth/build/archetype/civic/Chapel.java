@@ -19,8 +19,8 @@ import java.util.Set;
  * churchyard of graves under a dark tree lies beside or behind it. A village's chapel is humble (a bell-cote, a short
  * nave); a town's has a tower; a city's is tall and buttressed (the cathedral is a landmark of its own).
  *
- * <p>Each tradition builds its own: a timber or stone parish church with a spire (temperate, wisteria, moorland,
- * maritime), a whitewashed chapel with an onion-domed tower (alpine), a stave church of stacked shingle roofs and carved
+ * <p>Each tradition builds its own: a rendered Bohemian parish church with a west tower under a dark helm or an onion
+ * (temperate, wisteria), a stone parish church with a spire (moorland, maritime), a whitewashed chapel with an onion-domed tower (alpine), a stave church of stacked shingle roofs and carved
  * ridges (northern), a log chapel with onion cupolas (tundra), a whitewashed chapel with a bell wall or a campanile and a
  * blue dome (mediterranean), an adobe mission with a pierced bell wall and a walled campo santo (desert, mesa), a round
  * chapel under a cone (steppe), a shrine-temple on a stone terrace under a double curved roof (karst), and a raised

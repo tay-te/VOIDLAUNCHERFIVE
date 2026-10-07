@@ -61,16 +61,20 @@ piston); a lectern for the ledgers. Two storeys where deep enough, else one tall
 **Chapel.** One per tradition:
 - *Bohemian parish church* (temperate, wisteria; `ChapelBohemian`): stone whatever the houses are. White render (the
   style's own walls) between dressed quoins over a stone plinth, buttresses rendered with the church and finished with
-  a dressed set-off and weathering, tall lancets of coloured glass, a steep Gothic roof (two blocks per cell where the
-  height allows, one otherwise: pitches between terrace the roof in lips), gables in the render (no king post), a
+  a dressed set-off and weathering, tall lancets of coloured glass, a roof at a block per cell (a true gable in the
+  render; two blocks per cell laid every course as a stair on a block and read, gable on, as a stack of slabs), a
   narrower chancel ending in a three-sided apse with a buttress in every notch of its octagon and a light in every face
-  (a square east end on the shortest plots), a cross on the apse's hip. A town's church raises a west tower half-engaged
-  in the nave (its foot the narthex, an arch through into the nave, the font in the aisle beside it), or a tower beside
-  the nave's front on short wide plots: five square, rendered between corner stones, a pointed portal under a little
-  gable, slit lights, clocks to the street (and over the roof behind), a belfry of paired lights and the Bohemian crown
-  (a corbelled gallery with merlons and corner pinnacles round a slender needle spire); the ringer's ladder inside. A
-  village's church carries a slender shingled turret on the ridge over its west gable, its portal and a round window in
-  the gable. Lanterns from tie beams, banners between the windows, the churchyard behind a wall with a lychgate.
+  (a square east end on the shortest plots), a cross on the apse's hip. Every church that has the room raises a west
+  tower half-engaged in the nave (its foot the narthex, an arch through into the nave, the font in the aisle beside it),
+  or a tower beside the nave's front on short wide plots: five square, rendered between corner stones, a pointed portal
+  under a little gable, slit lights, a belfry of paired lights, the ringer's ladder inside (`kit/civic/Bohemian`). A
+  town's (tier 3+, or `tower=true`) is tall, with clocks to the street, a timber gallery on corbels before a white attic
+  and a tall dark helm or an onion over it; a village's is squat (Rattay, Talmberg, Sasau), its belfry on the nave's
+  ridge and a broad pyramidal helm or an onion straight off it. Helms and onions are dark shingle or slate whatever the
+  nave is roofed in (`Bohemian.shingle`; copper only on a share of a city's onions); no merlons or corner pinnacles. A
+  plot too short for any tower takes a three-square ridge turret with a squat helm (`Bohemian.turret`), its portal and a
+  round window in the gable. Lanterns from tie beams, banners between the windows, the churchyard behind a wall with a
+  lychgate.
 - *Western parish church* (moorland, maritime, alpine, tundra): nave of pews either side of an
   aisle, a narrower chancel with the altar, lancets of stained glass, tie beams with lanterns, a bell in a cote, a
   turret on the ridge, a front tower with a spire and a clock, or a side tower (tier and seed decide); buttresses on
@@ -87,12 +91,14 @@ piston); a lectern for the ledgers. Two storeys where deep enough, else one tall
   pavilion or under the porch beam.
 - *Raised chapel* (bayou, tropical): the western plan lifted on stilts with boards, a gallery and a belfry.
 
-**Town hall.** In the timber traditions a Bohemian town hall: the whole hall rendered over a stone plinth, a rendered
-arcade of pointed arches (their rings in dressed stone) along the square with the town's banners on its piers, a corner
-tower (`kit/civic/Bohemian`) whose foot is the arcade's corner bay (arches to the square and into the loggia) rising to
-clocks, a belfry of paired lights and the gallery and needle spire, the chamber's windows framed in dressed stone, an
-oriel on stepped corbels over the arcade, a gable roof along the square with a crow-stepped show gable over the middle
-(each step capped in dressed stone, a pinnacle on its peak). Elsewhere: a loggia of arches
+**Town hall.** In the timber traditions a Bohemian town hall (a *radnice*): the whole hall in render over a stone
+plinth with no quoins (a string course at the chamber floor), a taller ground floor opening onto the square in an arcade
+of squat rendered piers and round arches (their rings in dressed stone) with the town's banners on its piers, a corner
+tower (`kit/civic/Bohemian`) in lime render whatever the walls are, its foot the arcade's corner bay (arches to the
+square and into the loggia), rising to clocks, a belfry of paired lights and a timber gallery on corbels under a dark
+shingle helm or an onion, the chamber's windows framed in dressed stone (a brick dressing gives way to stone: a brick
+frame is the Hanse's), an oriel on stepped corbels over the arcade, a red tile gable roof along the square with a
+rendered show gable over the middle and a dressed light in its peak. No crow steps, merlons or corner spirelets. Elsewhere: a loggia of arches
 inside the front, a stone ground floor (the clerk's lectern and the records, benches
 for those waiting, a runner to the stair), the council chamber above with its long
 table, chairs and the meeting point, the clerk's lectern, a fireplace; a balcony over the loggia hung with the
