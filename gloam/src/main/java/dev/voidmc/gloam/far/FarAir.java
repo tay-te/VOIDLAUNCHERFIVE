@@ -24,15 +24,11 @@ import org.joml.Vector4fc;
 import org.lwjgl.system.MemoryUtil;
 
 /**
- * The air past the render distance, over VOID LOD's far terrain: the cloud deck out to the horizon, storms and rain
- * curtains seen kilometres off, and morning mist lying in the far valleys. All of it comes from the same model as the
- * air at the camera ({@link Air}): the clouds from the fronts, the curtains from where they rain, the mist from each far
- * place's own climate.
- *
- * <p>Gloam's cloud deck replaces vanilla's clouds (vanilla's stop at the cloud distance and ignore the weather): it keeps
- * the cloud option (off, fast: one soft layer, fancy: heaps with depth), {@code CLOUD_HEIGHT} as its base and
- * {@code CLOUD_COLOR} as its sunlit colour. With a shader pack on, the pack draws its own sky and clouds, and the far air
- * stays out of its picture.
+ * The air past the render distance, over VOID LOD's far terrain, and the clouds: Minecraft's clouds laid out by the
+ * fronts out to the horizon ({@link CloudGrid}, drawn by vanilla's own renderer), rain curtains under storms and
+ * showers kilometres off, and morning mist lying in the far valleys. All of it comes from the same model as the air at
+ * the camera ({@link Air}): the clouds from the fronts, the curtains from where they rain, the mist from each far place's
+ * own climate.
  */
 public final class FarAir {
 	private static final FarAir INSTANCE = new FarAir();
