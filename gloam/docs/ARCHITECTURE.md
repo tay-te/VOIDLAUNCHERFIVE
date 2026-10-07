@@ -125,48 +125,47 @@ small API.
 
 ### Far air: `dev.voidmc.gloam.far` (`FarAir`)
 
-The air over VOID LOD's far terrain. Touches LOD classes only through `compat.Lod` (when `void_lod` is loaded). Drawn
-by `FarRenderer` through Mojang's GPU layer (OpenGL and Vulkan) inside vanilla's main pass, after the translucent
-terrain and before the weather (where vanilla draws its clouds), in the same reversed depth buffer as the chunks and
-the LOD; prepared (uploads, the shadow picture) while the frame graph is built (`LevelRendererFarMixin`).
+The air over VOID LOD's far terrain, and the clouds. Touches LOD classes only through `compat.Lod` (when `void_lod`
+is loaded).
 
 | Class | What it is |
 |---|---|
-| `WeatherMap` | `Air.front` over ~49 km on a 256² grid in the fronts' drifting frame, made on a worker every few seconds, uploaded as a texture. |
-| `CloudNoise` | Four tiling fractal noises in one 256² texture: the rain's streaks, the mist's tongues. |
-| `CloudVolume` | The deck's 3D noise, 64³ as slices in one 528² texture, made once on a worker. |
-| `FarRenderer` | The pipelines and the draws: the cloud deck, the mist mesh, the rain curtains, the cloud shadows' picture; GPU timing. |
+| `WeatherMap` | `Air.front` over ~49 km on a 256² grid in the fronts' drifting frame, made on a worker every few seconds. |
+| `CloudGrid` | Minecraft's cloud cells laid out from the fronts, in rings coarser with distance, built on a worker. |
+| `CloudDeck` | The cells on the GPU, in vanilla's own face format, drawn by vanilla's cloud renderer group by group. |
+| `FarRenderer` | The far mist and the rain curtains (and, over a shader pack, the far land's depth merged in first). |
 | `FarLand` | The far land on 128-block cells (height, water, biome warmth and wetness) from `LodApi.addVisibleTerrainListener`. |
 | `FarMist` | The mist mesh: `Air.mist` per far cell with its own climate, lying at the lowest ground nearby plus `Air.mistDepth`. |
 | `FarRain` | Rain curtains: one per rainy 1 km cell of the fronts' frame, facing the camera, back to front, every frame. |
+| `CloudNoise` | Four tiling noises in one 256² texture, for the rain's streaks and the mist's tongues. |
 
-- **The cloud deck** replaces vanilla's clouds (`CloudRendererMixin`) and keeps the cloud option (off; fast: one soft
-  layer; fancy: heaps with depth) and `CLOUD_COLOR` as its sunlit colour. Its base is `CLOUD_HEIGHT` plus
-  `farCloudLift` (240): at vanilla's 192 every mountain peak stands inside the deck and the far land is hidden behind it.
-  A thin volume, marched at half resolution before the frame into a picture of its own, then laid over the world in
-  the main pass by `far_composite` (a nine-tap filter that drops outliers, which takes the march's dither out without
-  blurring edges), at the depth where each ray enters the layer. The shape is a real 3D noise (`CloudVolume`: a
-  Perlin-Worley shape and three cellular detail octaves, 64³ laid out as slices in one 2D texture, since Mojang's GPU
-  layer has no 3D textures), covered by the fronts: a few fair-weather heaps under a clear front, broken cumulus, a lumpy
-  stratocumulus deck, towering cumulus under showers, cumulonimbus with flaring anvils under storms (~1400 blocks).
-  Lighting by the sun's direction (a light sample toward the sun, a two-lobed phase for the silver lining, darker bases,
-  the low sun's colour at dawn and dusk) and aerial perspective per sample, so a tower 10 km off is bluish-grey. About
-  0.6-0.9 ms of GPU at 1600x900 on an RTX 4060.
-- **Cloud shadows** on the far land: a 1024² picture of the sunlight under the clouds (relative to the light at the
-  camera, so an overcast does not darken the far land against the chunks), laid on the LOD with `LodApi.setShade`.
+- **Clouds: Minecraft's, laid out by the weather.** Vanilla's look (12 x 12 cells, 4 high, flat-shaded boxes, the
+  top brightest and the bottom darkest, `CLOUD_COLOR`, the fast/fancy option) but placed from the fronts instead of
+  `clouds.png`: a few small puffs under a clear front, bigger merged shapes in broken weather, a near-continuous slab with
+  holes under an overcast; showers and storms thicker and darker (two darker tones), stacked into stepped towers
+  (20-block layers, up to ~600 blocks), a storm's top two layers spreading wider into an anvil. Their base is
+  `CLOUD_HEIGHT` plus `farCloudLift` (240), since at 192 every Expanse peak stands in the clouds. The cells lie in the
+  fronts' drifting frame, so the clouds travel with their weather; out to just past VOID LOD's radius the rings get
+  coarser (12, 24, 48 ... blocks), some 30-45 thousand faces in all, and the clouds' fog (`FogRendererCloudMixin`)
+  stretches to that reach so they thin into the sky like the far land. `CloudRendererMixin` has vanilla's own
+  `CloudRenderer` draw the mesh, through the pipeline it chose this frame, so a shader pack's clouds program, which
+  Iris swaps in for vanilla's, draws Gloam's clouds itself, lit by the pack: no second cloud layer. Packs that turn
+  vanilla's clouds off for their own keep theirs (see *Shader packs*).
+- **Cloud shadows** on the far land: from the same cells, a 512² picture carried along with the fronts and offset along
+  the sun's ray, laid on the LOD with `LodApi.setShade` (relative to the camera's light, so an overcast does not darken
+  the far land against the chunks).
 - **Far storms.** Rain curtains under showers and storms kilometres off, grey veils streaked and leaning, darker under
   storms, travelling with their weather.
-- **Far mist.** At dawn (and over water at dusk) mist lies in the far valleys as a translucent sheet; ridges and hills
-  stand out of it through the depth buffer, and its edges go soft where the mist over the ground runs out.
+- **Far mist.** At dawn (and over water at dusk) mist lies in the far valleys as a translucent sheet with an uneven,
+  drifting top, thin at the slopes, cool white-grey away from the sun and warm toward it; ridges and hills stand out of
+  it through the depth buffer.
 - **The haze follows Gloam** through the attributes, and `LodApi.setHazeThickness` thickens it in humid summer
   lowlands and morning mist, thins it in winter and in the washed air after rain (`farHaze`).
 - **Over a shader pack** (`farOverPack`): when the pack draws VOID LOD's far land through its Distant Horizons programs,
   VOID LOD hands over that land's depth once the pack has finished its picture (`LodApi.onPackFrame`). Gloam writes it
   into the main depth buffer in the game's perspective (`far_depth_merge`, sampling the LOD's GL texture through a
-  borrowed `GlTexture`), then draws the deck, the mist and the curtains over the pack's picture, hidden behind the
-  chunks and the far ridges alike. Over a pack the far air thins into the pack's own sky with distance instead of
-  taking vanilla's fog colour, and the deck follows the player's cloud option (Iris reports it off for packs that draw
-  their own clouds; those stay, under Gloam's deck). No cloud shadows there: the pack's programs take no shade.
+  borrowed `GlTexture`), then draws the mist and the curtains over the pack's picture, with Iris's shader overrides held
+  off for those draws.
 
 ## Shader packs
 
@@ -176,6 +175,16 @@ reaches it from Gloam: the environment attributes (packs read fog and sky colour
 after the pack has finished, tested against the depth the world left. Every visual change is checked with and without
 a pack (Complementary Reimagined r5.9.3 in the game test's `shaderpacks`).
 
+
+How the packs tested take Gloam's clouds (vanilla's cloud geometry, drawn through the pack's `gbuffers_clouds`):
+
+| Pack | Default | Gloam's clouds |
+|---|---|---|
+| Complementary Reimagined r5.9.3 | its own clouds; `clouds=off` unless *Cloud Style* is Vanilla (50) | with Cloud Style: Vanilla |
+| BSL v10.1.8 | its own volumetric clouds (`CLOUDS=2`) | with `CLOUDS=3` (vanilla); its vanilla-cloud fog (`FOG_VANILLA_CLOUD`) fades them out past ~1 km unless set to 0 |
+| Photon v1.3b | always `clouds=off`; its own volumetric and blocky clouds | never |
+
+With their own clouds the packs still follow Gloam's weather through the rain level and the attributes.
 ## Partners
 
 - **VOID LOD** (`void_lod`): optional. `compat.Lod`, `LodApi`. Gloam is cut from `claude/lod-quality`, so LOD changes

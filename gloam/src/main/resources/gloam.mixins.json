@@ -11,6 +11,7 @@
 		"ClientLevelFlashMixin",
 		"ClientLevelMixin",
 		"CloudRendererMixin",
+		"FogRendererCloudMixin",
 		"LevelRendererFarMixin",
 		"LevelRendererMistMixin",
 		"LevelWeatherMixin",

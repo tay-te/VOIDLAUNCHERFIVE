@@ -23,25 +23,35 @@ void main() {
     }
     float dist = length(relative);
     vec3 dir = relative / max(dist, 1e-3);
-    float across = depth / max(abs(dir.y), 0.04);
-    // drifting, uneven: it lies in tongues and thins in patches
+    // An uneven top: the mist heaps in slow billows and tongues and thins into holes, so the bank reads as air, not as
+    // a lake's flat water. Three scales of drifting noise lift and sink the depth the eye looks through.
     vec2 world = FarNoise.zw + relative.xz;
     float drift = FarCamera.y * 0.8;
-    float n = texture(CloudNoise, (world + vec2(drift, drift * 0.3)) / 2048.0).g * 0.6
-        + texture(CloudNoise, (world - vec2(drift * 0.6, 0.0)) / 512.0).b * 0.4;
-    float opacity = 1.0 - exp(-across * thickness * 0.07 * (0.45 + 1.1 * n));
+    float broad = texture(CloudNoise, (world + vec2(drift, drift * 0.3)) / 3072.0).g;
+    float tongues = texture(CloudNoise, (world - vec2(drift * 0.6, 0.0)) / 768.0).b;
+    float wisps = texture(CloudNoise, (world + vec2(0.0, drift)) / 192.0).a;
+    float lumps = broad * 0.5 + tongues * 0.32 + wisps * 0.18;
+    float deep = depth * smoothstep(0.22, 0.75, lumps) * 1.6;
+    // thin at the margins, where the ground rises toward the mist's top
+    deep *= smoothstep(0.0, 14.0, depth);
+    // the eye's path through it, longer the lower it looks, but not without end: seen across, a bank stays a veil
+    float across = min(deep / max(abs(dir.y), 0.05), deep * 6.0 + 60.0);
+    float opacity = 1.0 - exp(-across * thickness * 0.06);
+    // never quite opaque: treetops and the land show through faintly where it is thin
+    opacity = min(opacity, mix(0.55, 0.9, smoothstep(10.0, 40.0, deep)));
     // in from where the chunks end (near mist is the sky's and the motes' to draw), out before the far air's edge
     float ground = length(relative.xz);
     opacity *= smoothstep(FarCamera.z * 0.9, FarCamera.z * 1.6, ground) * (1.0 - smoothstep(0.85 * FarCamera.w, FarCamera.w, ground));
-    // Lit like the haze it is but denser, so brighter than the air around it: soft white, taking the dawn's tint, warm
-    // toward a low sun; it has to stand out against the haze over the land beside it.
+    // Lit like the haze it is: a cool white-grey, brighter on its heaps and greyer in its hollows; toward a low sun it
+    // takes the sun's warmth, away from it the sky's blue.
     float bright = max(max(FogColor.r, FogColor.g), FogColor.b);
-    vec3 color = mix(FogColor.rgb, vec3(bright), 0.55) * 1.18 + 0.04;
-    color = mix(color, FarCloudColor.rgb * 1.05, 0.25);
+    vec3 cool = vec3(bright) * vec3(0.9, 0.93, 0.98) * 1.08;
+    vec3 color = mix(cool, FarCloudColor.rgb * vec3(0.93, 0.95, 1.0), 0.3) * mix(0.84, 1.08, lumps);
     float sunward = max(dot(normalize(dir.xz + vec2(1e-4, 0.0)), vec2(sign(FarSun.x), 0.0)), 0.0);
-    color = mix(color, FarSunrise.rgb * max(max(color.r, color.g), color.b), FarSunrise.a * sunward * 0.5);
+    vec3 warm = mix(vec3(1.0, 0.72, 0.5), FarSunrise.rgb, 0.5) * bright * 1.1;
+    color = mix(color, warm, FarSunrise.a * sunward * sunward * 0.55);
     // far banks sink into the air like the land under them
     float haze = 1.0 - exp(-dist / FarAnchor.w);
     color = mix(color, FogColor.rgb, haze * 0.35 * (1.0 - FarMap.w));
-    fragColor = vec4(min(color, vec3(1.0)), opacity * 0.95 * (1.0 - haze * 0.5 * FarMap.w));
+    fragColor = vec4(min(color, vec3(1.0)), opacity * (1.0 - haze * 0.5 * FarMap.w));
 }
