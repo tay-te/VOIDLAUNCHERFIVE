@@ -40,6 +40,8 @@ public final class GloamSettings {
 	// the sound
 	/** The soundscape's volume, 0 off .. 1; on top of Minecraft's ambient volume slider. */
 	public double sound = 1.0;
+	/** Distant thunder rolling under the storms (the soundscape's only sudden sound). */
+	public boolean thunder = true;
 
 	// the far air, over VOID LOD
 	/** The air over VOID LOD's far terrain: the cloud deck, far storms, far mist. */
@@ -95,6 +97,7 @@ public final class GloamSettings {
 		this.motes = number(json, "motes", this.motes, 0, 2);
 		this.sound = number(json, "sound", this.sound, 0, 1);
 		this.far = bool(json, "far", this.far);
+		this.thunder = bool(json, "thunder", this.thunder);
 	}
 
 	private JsonObject write() {
@@ -107,12 +110,13 @@ public final class GloamSettings {
 		json.addProperty("motes", this.motes);
 		json.addProperty("sound", this.sound);
 		json.addProperty("far", this.far);
+		json.addProperty("thunder", this.thunder);
 		return json;
 	}
 
 	private void overrides() {
 		JsonObject props = new JsonObject();
-		for (String name : new String[]{"enabled", "sky", "darkNights", "showers", "seasonDays", "motes", "sound", "far"}) {
+		for (String name : new String[]{"enabled", "sky", "darkNights", "showers", "seasonDays", "motes", "sound", "far", "thunder"}) {
 			String value = System.getProperty("gloam." + name);
 			if (value != null) {
 				String v = value.trim().toLowerCase(Locale.ROOT);

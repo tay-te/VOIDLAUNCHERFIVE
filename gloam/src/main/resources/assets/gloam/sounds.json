@@ -1,0 +1,109 @@
+{
+	"bed.wind_open": {
+		"sounds": [
+			{
+				"name": "gloam:bed/wind_open"
+			}
+		]
+	},
+	"bed.wind_leaves": {
+		"sounds": [
+			{
+				"name": "gloam:bed/wind_leaves"
+			}
+		]
+	},
+	"bed.wind_high": {
+		"sounds": [
+			{
+				"name": "gloam:bed/wind_high"
+			}
+		]
+	},
+	"bed.rain_ground": {
+		"sounds": [
+			{
+				"name": "gloam:bed/rain_ground"
+			}
+		]
+	},
+	"bed.rain_leaves": {
+		"sounds": [
+			{
+				"name": "gloam:bed/rain_leaves"
+			}
+		]
+	},
+	"bed.rain_roof": {
+		"sounds": [
+			{
+				"name": "gloam:bed/rain_roof"
+			}
+		]
+	},
+	"bed.dawn_chorus": {
+		"sounds": [
+			{
+				"name": "gloam:bed/dawn_chorus"
+			}
+		]
+	},
+	"bed.birds_day": {
+		"sounds": [
+			{
+				"name": "gloam:bed/birds_day"
+			}
+		]
+	},
+	"bed.crickets": {
+		"sounds": [
+			{
+				"name": "gloam:bed/crickets"
+			}
+		]
+	},
+	"bed.frogs": {
+		"sounds": [
+			{
+				"name": "gloam:bed/frogs"
+			}
+		]
+	},
+	"bed.cicadas": {
+		"sounds": [
+			{
+				"name": "gloam:bed/cicadas"
+			}
+		]
+	},
+	"bed.stream": {
+		"sounds": [
+			{
+				"name": "gloam:bed/stream"
+			}
+		]
+	},
+	"bed.waves": {
+		"sounds": [
+			{
+				"name": "gloam:bed/waves"
+			}
+		]
+	},
+	"thunder": {
+		"sounds": [
+			{
+				"name": "gloam:thunder/roll1"
+			},
+			{
+				"name": "gloam:thunder/roll2"
+			},
+			{
+				"name": "gloam:thunder/roll3"
+			},
+			{
+				"name": "gloam:thunder/roll4"
+			}
+		]
+	}
+}
