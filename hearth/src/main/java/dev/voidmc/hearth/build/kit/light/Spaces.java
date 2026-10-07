@@ -247,6 +247,14 @@ public final class Spaces {
 		return this.g.contains(x, y, z) && this.walkable.get(this.g.index(x, y, z));
 	}
 
+	/** Something now stands where one could stand (a lantern the pass set on the floor): nobody stands there any more. */
+	void stoodOn(int x, int y, int z) {
+		if (this.g.contains(x, y, z)) {
+			this.walkable.clear(this.g.index(x, y, z));
+			this.reached.clear(this.g.index(x, y, z));
+		}
+	}
+
 	/** Walked to from the starts (the doors, the street). */
 	public boolean reached(int x, int y, int z) {
 		return this.g.contains(x, y, z) && this.reached.get(this.g.index(x, y, z));

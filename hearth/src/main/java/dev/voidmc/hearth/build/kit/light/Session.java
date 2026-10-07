@@ -572,6 +572,10 @@ final class Session {
 			}
 			this.g.set(p.x(), p.y(), p.z(), p.state());
 			this.lf.changed(p.x(), p.y(), p.z());
+			if (!Spaces.passable(p.state())) {
+				// a lantern set on the floor takes its cell: the next fixture's way-through check must see it
+				this.sp.stoodOn(p.x(), p.y(), p.z());
+			}
 		}
 		for (int[] e : f.emitters) {
 			this.lf.add(e[0], e[1], e[2], e[3]);
@@ -785,6 +789,16 @@ final class Session {
 				this.needMin[raised.getInt(k)] = (byte) LightRules.ROOM;
 			}
 		}
+	}
+
+	/** Whether a fixture stands a part where someone could stand (a lantern set on the floor). */
+	private boolean onFloor(Fixture f) {
+		for (Fixture.Part p : f.parts) {
+			if (this.sp.walkable(p.x(), p.y(), p.z())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** How many of a room's cells stand below a level of light. */
@@ -1014,10 +1028,11 @@ final class Session {
 			Fixture best = null;
 			double bestScore = 0;
 			int min = this.needMin[worst];
-			// a corner the rule is already met in is lit for comfort only: by what folk hang and stand, not a glow or a hidden lamp
+			// a corner the rule is already met in is lit for comfort only: by what folk hang and stand on furniture, not a
+			// glow, a hidden lamp or a lantern on the floor where someone could walk (it may be the only way past a bed)
 			boolean comfortOnly = worstLevel >= LightRules.ROOM;
 			for (Fixture f : cands) {
-				if (!within(f, wx, r.y, wz, min) || comfortOnly && (f.kind == Fixture.Kind.GLOW || f.kind == Fixture.Kind.HIDDEN)) {
+				if (!within(f, wx, r.y, wz, min) || comfortOnly && (f.kind == Fixture.Kind.GLOW || f.kind == Fixture.Kind.HIDDEN || onFloor(f))) {
 					continue;
 				}
 				double gain = evaluate(f, kinds, worst, min);

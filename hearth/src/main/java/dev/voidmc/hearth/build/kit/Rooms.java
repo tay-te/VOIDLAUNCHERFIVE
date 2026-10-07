@@ -262,6 +262,22 @@ public final class Rooms {
 					|| hole && (ladder(d.get(x, r.y - 1, z)) || ladder(d.get(x, r.y - 2, z)))) {
 					r.climb[r.idx(x, z)] = true;
 				}
+				// a flight arriving from below (its top step under this cell, or under the hole): the cell it lands on
+				// stays free and joined, or a bed can wall the stair off from the room
+				for (int dy = 1; dy <= 2; dy++) {
+					BlockState st = d.get(x, r.y - dy, z);
+					if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+						&& st.getValue(net.minecraft.world.level.block.StairBlock.HALF) == net.minecraft.world.level.block.state.properties.Half.BOTTOM
+						&& (dy == 1 || hole)) {
+						Direction up = st.getValue(net.minecraft.world.level.block.StairBlock.FACING);
+						int lx = x + Dirs.dx(up);
+						int lz = z + Dirs.dz(up);
+						if (r.inside(lx, lz) && d.isEmpty(lx, r.y, lz) && d.isSolid(lx, r.y - 1, lz)) {
+							r.keep(lx, lz);
+						}
+						break;
+					}
+				}
 				boolean through = s != null && (s.getBlock() instanceof net.minecraft.world.level.block.LadderBlock
 					|| s.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO).isEmpty());
 				if (s != null && !s.isAir() && through && !hole) {
