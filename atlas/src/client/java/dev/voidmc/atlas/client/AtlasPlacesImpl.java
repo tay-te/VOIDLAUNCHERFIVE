@@ -98,9 +98,11 @@ public final class AtlasPlacesImpl implements AtlasPlaces {
 	private static final java.util.Map<String, dev.voidmc.atlas.api.PlaceLook> LOOKS = new java.util.concurrent.ConcurrentHashMap<>();
 	private static volatile long looksVersion;
 
-	/** A reported place's look, set by its mod, or null. */
+	/** A reported place's look, set by its mod (kept in the world's place book across sessions), or null. */
 	static dev.voidmc.atlas.api.PlaceLook lookOf(String placeId) {
-		return LOOKS.get(placeId);
+		MapSession session = AtlasClient.get().session();
+		dev.voidmc.atlas.api.PlaceLook look = session == null ? null : session.places.look(placeId);
+		return look != null ? look : LOOKS.get(placeId);
 	}
 
 	@Override
@@ -108,10 +110,18 @@ public final class AtlasPlacesImpl implements AtlasPlaces {
 		if (placeId == null) {
 			return;
 		}
-		if (look == null) {
-			LOOKS.remove(placeId);
+		MapSession session = this.atlas.session();
+		boolean changed;
+		if (session != null) {
+			// kept with the place: a remembered place keeps its look before its mod says it again next session
+			changed = session.places.setLook(placeId, look);
+			changed |= LOOKS.remove(placeId) != null;
 		} else {
-			LOOKS.put(placeId, look);
+			// no world open yet: kept until one is (lookOf reads it meanwhile)
+			changed = !java.util.Objects.equals(look == null ? LOOKS.remove(placeId) : LOOKS.put(placeId, look), look);
+		}
+		if (!changed) {
+			return;
 		}
 		looksVersion++;
 		// the place's marker is made again with its look

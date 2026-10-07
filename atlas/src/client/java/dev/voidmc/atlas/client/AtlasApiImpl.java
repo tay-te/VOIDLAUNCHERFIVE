@@ -121,6 +121,9 @@ public final class AtlasApiImpl implements AtlasApi {
 			if (m.id().equals(markerId)) {
 				if (!markerId.equals(this.atlas.settings().tracked)) {
 					this.atlas.track(m);
+				} else {
+					// tracked already (remembered from an earlier session): followed again, not switched off
+					this.atlas.rearm(m);
 				}
 				return true;
 			}

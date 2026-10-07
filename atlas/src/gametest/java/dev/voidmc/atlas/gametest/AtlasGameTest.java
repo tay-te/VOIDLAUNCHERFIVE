@@ -618,8 +618,9 @@ public class AtlasGameTest implements FabricClientGameTest {
 	}
 
 	/**
-	 * With VOID Hearth installed (-Phearth=<jar>): a settlement founded beside the spawn and walked into (discovered),
-	 * its card on the map; then a quest given there, tracked through Atlas's API, on the map and as a beam.
+	 * With VOID Hearth installed (-Phearth=<jar>): a settlement founded a walk from the player, seen from afar (Atlas's
+	 * "?", on Hearth's layer), then walked into (discovered: Hearth's tile, folk and card); then a quest given there,
+	 * tracked through Atlas's API, on the map, as a beam and on the compass.
 	 */
 	private void hearthShots(ClientGameTestContext context, TestSingleplayerContext world) {
 		int hx = this.spawn.getX() + 60;
@@ -628,81 +629,113 @@ public class AtlasGameTest implements FabricClientGameTest {
 			s.overworld().getChunk(hx >> 4, hz >> 4);
 			return s.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, hx, hz);
 		});
+		// where the player watches from: in view of the settlement, well beyond Atlas's reach for discovering it
+		int ax = hx - 110;
+		int az = hz - 70;
+		int ay = world.getServer().computeOnServer(sv -> {
+			sv.overworld().getChunk(ax >> 4, az >> 4);
+			return sv.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, ax, az);
+		});
 		context.runOnClient(mc -> mc.gui.setScreen(null));
-		// Hearth sights and discovers settlements only for players who are not spectating
+		context.getInput().setCursorPos(5, 5);
+		// Hearth's settlements and quests are for players, not spectators
 		world.getServer().runCommand("gamemode creative @a");
-		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", hx, hy + 1, hz));
-		context.waitTicks(60);
-		world.getServer().runCommand("execute as @p at @p run hearth settlement found");
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", ax, ay + 1, az));
+		context.waitTicks(40);
+		world.getServer().runCommand(String.format(Locale.ROOT, "execute as @p positioned %d %d %d run hearth settlement found", hx, hy + 1, hz));
 		context.waitTicks(200);
+		String sighted = this.hearthSettlement(context, hx, hz);
+		log("Hearth settlement seen from afar: " + sighted);
+		if (sighted != null) {
+			this.hearthMap(context, sighted, 1, 0, "hearth_settlement_sighted");
+		}
+		// walked into: discovered
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", hx, hy + 1, hz));
+		context.waitTicks(120);
+		String found = this.hearthSettlement(context, hx, hz);
+		log("Hearth settlement walked into: " + found);
+		if (found != null) {
+			this.hearthMap(context, found, 1, 0, "hearth_settlement_discovered");
+			this.hearthMap(context, found, 2, 80, "hearth_settlement_card");
+		}
+		context.runOnClient(mc -> mc.gui.setScreen(null));
 		for (String t : new String[]{"hearth:gathering/honey", "hearth:honey", "hearth:gathering/fish", "hearth:fish"}) {
 			world.getServer().runCommand("execute as @p at @p run hearth quest give " + t);
 		}
-		// a little way off, so the tracked quest is a walk away (still within sight of the settlement)
-		int ay = world.getServer().computeOnServer(sv -> {
-			sv.overworld().getChunk((hx - 90) >> 4, (hz - 60) >> 4);
-			return sv.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, hx - 90, hz - 60);
-		});
-		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", hx - 90, ay + 1, hz - 60));
+		// a little way off again, so the tracked quest is a walk away
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", hx - 90, world.getServer().computeOnServer(sv ->
+			sv.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, hx - 90, hz - 60)) + 1, hz - 60));
 		context.waitTicks(100);
-		context.getInput().setCursorPos(5, 5);
-		String[] ids = context.computeOnClient(mc -> {
-			String settlement = null;
-			String quest = null;
+		String quest = context.computeOnClient(mc -> {
 			MarkerQuery q = new MarkerQuery("minecraft:overworld", -3e7, -3e7, 3e7, 3e7, hx, hz, MarkerQuery.Purpose.LIST);
 			java.util.Map<String, Integer> by = new java.util.TreeMap<>();
+			String id = null;
 			for (Marker m : AtlasClient.get().collect(q)) {
 				by.merge(m.layer() + " " + m.style(), 1, Integer::sum);
-				if (m.id().startsWith("hearth:settlement:") && settlement == null) {
-					settlement = m.id() + "|" + m.x() + "|" + m.z();
-				}
-				if (m.id().startsWith("hearth:quest:") && quest == null) {
-					quest = m.id() + "|" + m.x() + "|" + m.z();
+				if (m.id().startsWith("hearth:quest:") && id == null) {
+					id = m.id() + "|" + m.x() + "|" + m.z();
 				}
 			}
 			log("markers by layer and style with Hearth: " + by);
-			return new String[]{settlement, quest};
+			return id;
 		});
-		log("Hearth settlement " + ids[0] + ", quest " + ids[1]);
-		if (ids[0] != null) {
-			String[] s = ids[0].split("\\|");
-			context.runOnClient(mc -> {
-				AtlasClient.get().openMap();
-				AtlasScreen screen = (AtlasScreen) mc.gui.screen();
-				screen.page.rightTab = 0;
-				screen.page.map.setKind(MapPanel.Kind.SURFACE);
-				screen.page.map.setBiomeLook(false);
-				screen.page.map.centreOn(Double.parseDouble(s[1]) + 80, Double.parseDouble(s[2]));
-				screen.page.map.setZoom(2);
-				screen.page.map.selected = s[0];
-			});
-			this.settle(context, SETTLE_MS);
-			context.waitTicks(10);
-			this.shoot(context, "hearth_settlement_card");
+		log("Hearth quest " + quest + ", tracked " + context.computeOnClient(mc -> AtlasClient.get().settings().tracked));
+		if (quest == null) {
+			return;
 		}
-		if (ids[1] != null) {
-			String[] qd = ids[1].split("\\|");
-			context.runOnClient(mc -> {
-				dev.voidmc.atlas.api.AtlasApi.get().markers().track(qd[0]);
-				if (!(mc.gui.screen() instanceof AtlasScreen)) {
-					AtlasClient.get().openMap();
+		String[] qd = quest.split("\\|");
+		context.runOnClient(mc -> {
+			dev.voidmc.atlas.api.AtlasApi.get().markers().track(qd[0]);
+			AtlasClient.get().openMap();
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			screen.page.rightTab = 0;
+			screen.page.map.setKind(MapPanel.Kind.SURFACE);
+			screen.page.map.setBiomeLook(false);
+			screen.page.map.selected = null;
+			screen.page.map.centreOn(Double.parseDouble(qd[1]) - 45, Double.parseDouble(qd[2]) - 30);
+			screen.page.map.setZoom(1);
+		});
+		this.settle(context, SETTLE_MS);
+		context.waitTicks(10);
+		this.shoot(context, "hearth_tracked_quest");
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		// facing the target (south-east of here), its beam in view and its entry on the compass
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d -55 12", hx - 30, hy + 12, hz - 30));
+		context.waitTicks(40);
+		this.shoot(context, "hearth_quest_beam");
+	}
+
+	/** The marker of the Hearth settlement nearest a point ("id|x|z"), or null. */
+	private String hearthSettlement(ClientGameTestContext context, int x, int z) {
+		return context.computeOnClient(mc -> {
+			MarkerQuery q = new MarkerQuery("minecraft:overworld", -3e7, -3e7, 3e7, 3e7, x, z, MarkerQuery.Purpose.LIST);
+			for (Marker m : AtlasClient.get().collect(q)) {
+				if (m.id().contains("hearth:settlement:")) {
+					return m.id() + "|" + m.x() + "|" + m.z() + "|" + m.layer() + "|" + m.name();
 				}
-				AtlasScreen screen = (AtlasScreen) mc.gui.screen();
-				screen.page.rightTab = 0;
-				screen.page.map.setKind(MapPanel.Kind.SURFACE);
-				screen.page.map.setBiomeLook(false);
-				screen.page.map.selected = null;
-				screen.page.map.centreOn(Double.parseDouble(qd[1]) - 45, Double.parseDouble(qd[2]) - 30);
-				screen.page.map.setZoom(1);
-			});
-			this.settle(context, SETTLE_MS);
-			context.waitTicks(10);
-			this.shoot(context, "hearth_tracked_quest");
-			context.runOnClient(mc -> mc.gui.setScreen(null));
-			world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d 0 15", hx - 30, hy + 12, hz - 30));
-			context.waitTicks(40);
-			this.shoot(context, "hearth_quest_beam");
-		}
+			}
+			return null;
+		});
+	}
+
+	/** The map on a Hearth settlement, it selected (its card), zoomed and settled; then the shot. */
+	private void hearthMap(ClientGameTestContext context, String marker, double zoom, double offset, String name) {
+		String[] s = marker.split("\\|");
+		context.runOnClient(mc -> {
+			if (!(mc.gui.screen() instanceof AtlasScreen)) {
+				AtlasClient.get().openMap();
+			}
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			screen.page.rightTab = 0;
+			screen.page.map.setKind(MapPanel.Kind.SURFACE);
+			screen.page.map.setBiomeLook(false);
+			screen.page.map.centreOn(Double.parseDouble(s[1]) + offset, Double.parseDouble(s[2]));
+			screen.page.map.setZoom(zoom);
+			screen.page.map.selected = s[0];
+		});
+		this.settle(context, SETTLE_MS);
+		context.waitTicks(10);
+		this.shoot(context, name);
 	}
 
 	/**

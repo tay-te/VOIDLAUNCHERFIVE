@@ -170,6 +170,8 @@ public final class PlaceBook {
 	private final Path file;
 	private final Consumer<String> warn;
 	private final LinkedHashMap<String, Entry> entries = new LinkedHashMap<>();
+	/** Other mods' looks for their places ({@link dev.voidmc.atlas.api.PlaceLook}), kept with them in places.json. */
+	private final Map<String, dev.voidmc.atlas.api.PlaceLook> looks = new java.util.concurrent.ConcurrentHashMap<>();
 	private final ConcurrentLinkedQueue<Place> changes = new ConcurrentLinkedQueue<>();
 	/** Bumped when places are added or removed (or gain bounds): the sightings' index is made again. */
 	private long structure;
@@ -770,9 +772,32 @@ public final class PlaceBook {
 		return this;
 	}
 
+	/** A place's look, set by its mod (this session or an earlier one), or null. */
+	public dev.voidmc.atlas.api.PlaceLook look(String placeId) {
+		return placeId == null ? null : this.looks.get(placeId);
+	}
+
+	/** Sets (or, with null, forgets) a place's look; returns whether it changed (then it is saved with the places). */
+	public boolean setLook(String placeId, dev.voidmc.atlas.api.PlaceLook look) {
+		if (placeId == null) {
+			return false;
+		}
+		dev.voidmc.atlas.api.PlaceLook old = look == null ? this.looks.remove(placeId) : this.looks.put(placeId, look);
+		if (java.util.Objects.equals(old, look)) {
+			return false;
+		}
+		synchronized (this) {
+			this.version++;
+		}
+		return true;
+	}
+
+	private static final com.google.gson.Gson LOOK_GSON = new GsonBuilder().create();
+
 	public synchronized void load() {
 		try {
 			this.entries.clear();
+			this.looks.clear();
 			Path legacy = this.file.resolveSibling("discoveries.json");
 			try {
 				String text = null;
@@ -792,6 +817,18 @@ public final class PlaceBook {
 					JsonObject root = JsonParser.parseString(text).getAsJsonObject();
 					for (JsonElement el : root.getAsJsonArray("places")) {
 						this.read(el.getAsJsonObject());
+					}
+					if (root.has("looks")) {
+						for (var e : root.getAsJsonObject("looks").entrySet()) {
+							try {
+								dev.voidmc.atlas.api.PlaceLook look = LOOK_GSON.fromJson(e.getValue(), dev.voidmc.atlas.api.PlaceLook.class);
+								if (look != null) {
+									this.looks.put(e.getKey(), look);
+								}
+							} catch (RuntimeException ex) {
+								// one unreadable look: that place is drawn Atlas's way until its mod says it again
+							}
+						}
 					}
 				} else if (Files.isRegularFile(legacy)) {
 					JsonObject root = JsonParser.parseString(Files.readString(legacy, StandardCharsets.UTF_8)).getAsJsonObject();
@@ -904,6 +941,13 @@ public final class PlaceBook {
 			}
 		}
 		root.add("places", list);
+		if (!this.looks.isEmpty()) {
+			JsonObject looks = new JsonObject();
+			for (var e : this.looks.entrySet()) {
+				looks.add(e.getKey(), LOOK_GSON.toJsonTree(e.getValue()));
+			}
+			root.add("looks", looks);
+		}
 		String json = new GsonBuilder().create().toJson(root);
 		if (this.files != null) {
 			this.files.backup(this.file);

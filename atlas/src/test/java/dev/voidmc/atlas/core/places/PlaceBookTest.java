@@ -705,4 +705,25 @@ class PlaceBookTest {
 		book.unclaim("hearth:kestrel_ford");
 		assertNotNull(book.sight(OW, surface(StructureKind.VILLAGE, 130, 70, 140), 1002), "after the claim goes, sightings count again");
 	}
+
+	@Test
+	void looksAreKeptWithThePlaces() throws IOException {
+		PlaceBook book = this.book();
+		book.load();
+		var detail = new dev.voidmc.atlas.api.MarkerDetail(List.of(new dev.voidmc.atlas.api.MarkerDetail.Readout("84", "FOLK")),
+			new dev.voidmc.atlas.api.MarkerDetail.Meter("Standing", "Friendly", -100, 100, 40, "they know you"),
+			List.of(new dev.voidmc.atlas.api.MarkerDetail.Section("NEEDS", List.of(new dev.voidmc.atlas.api.MarkerDetail.Row("Honey", "ACTIVE", true)))));
+		var look = new dev.voidmc.atlas.api.PlaceLook(dev.voidmc.atlas.api.MarkerGlyph.TOWN, dev.voidmc.atlas.api.Marker.Style.SETTLEMENT, "84 folk",
+			"HEARTH  ·  TOWN", detail, "hearth:settlements");
+		assertTrue(book.setLook("hearth:settlement:1", look));
+		assertFalse(book.setLook("hearth:settlement:1", look), "the same look again changes nothing");
+		book.save();
+		PlaceBook again = this.book();
+		again.load();
+		assertEquals(look, again.look("hearth:settlement:1"), "a later session has the look before its mod says it again");
+		assertEquals("hearth:settlements", again.look("hearth:settlement:1").layer());
+		assertTrue(again.setLook("hearth:settlement:1", null));
+		assertNull(again.look("hearth:settlement:1"));
+		assertNull(new dev.voidmc.atlas.api.PlaceLook(null, null, null, null, null).layer(), "the old five-part look is on Atlas's own layers");
+	}
 }

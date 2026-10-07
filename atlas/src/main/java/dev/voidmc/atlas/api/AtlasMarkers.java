@@ -33,7 +33,9 @@ public interface AtlasMarkers {
 	/**
 	 * Tracks a marker by id (a quest's target): the compass, the minimap's rim, one beam and the map's hairline follow
 	 * it, as they do a tracked waypoint, until the player tracks something else or the provider stops showing it. False
-	 * if no provider shows that marker now (or tracking is not available here).
+	 * if no provider shows that marker now (or tracking is not available here). The tracked id is remembered across
+	 * sessions: a marker tracked before is followed again as soon as its provider shows it, and tracking it again then
+	 * simply re-arms it (it is never switched off by this call).
 	 */
 	default boolean track(String markerId) {
 		return false;

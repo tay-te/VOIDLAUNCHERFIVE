@@ -869,6 +869,14 @@ public final class AtlasClient implements ClientModInitializer {
 		this.settings.save();
 	}
 
+	/** Follows a marker that is already the tracked id (remembered from an earlier session) without switching it off. */
+	public void rearm(Marker m) {
+		if (m.id().equals(this.settings.tracked)) {
+			this.trackedMarker = m;
+			this.trackedMisses = 0;
+		}
+	}
+
 	/**
 	 * Keeps another mod's tracked marker where its mod says it is now (client thread, once a second); once the mod
 	 * stops showing it (a quest step done), it is no longer tracked.
@@ -876,6 +884,21 @@ public final class AtlasClient implements ClientModInitializer {
 	private void refreshTracked() {
 		String id = this.settings.tracked;
 		Marker tm = this.trackedMarker;
+		if (id != null && tm == null && !id.startsWith("atlas:")) {
+			// another mod's marker, tracked in an earlier session: followed again once its mod shows it
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.level != null && mc.player != null) {
+				MarkerQuery q = new MarkerQuery(mc.level.dimension().identifier().toString(), -3e7, -3e7, 3e7, 3e7, mc.player.getX(), mc.player.getZ(),
+					MarkerQuery.Purpose.LIST);
+				for (Marker m : this.collect(q)) {
+					if (m.id().equals(id)) {
+						this.rearm(m);
+						return;
+					}
+				}
+			}
+			return;
+		}
 		if (id == null || tm == null || !tm.id().equals(id)) {
 			return;
 		}
@@ -997,19 +1020,22 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 		}
 		boolean sighted = dev.voidmc.atlas.client.ui.Kinds.sighted(p);
-		dev.voidmc.atlas.api.PlaceLook look = sighted ? null : AtlasPlacesImpl.lookOf(p.id());
-		if (look != null) {
+		dev.voidmc.atlas.api.PlaceLook look = AtlasPlacesImpl.lookOf(p.id());
+		if (look != null && !sighted) {
 			// another mod's place, discovered: drawn its way (a Hearth settlement's tile, folk and card)
 			String sub = look.kindWord() == null ? subtitle : look.kindWord();
 			boolean major = look.style() == Marker.Style.SETTLEMENT || p.tier() == Tier.MAJOR;
-			out.add(new Marker(placeMarkerId(p), major ? MapLayer.LANDMARKS : MapLayer.PLACES, p.name(), look.meta(), sub, p.x() + 0.5, p.y(), p.z() + 0.5,
+			String layer = look.layer() != null ? look.layer() : major ? MapLayer.LANDMARKS : MapLayer.PLACES;
+			out.add(new Marker(placeMarkerId(p), layer, p.name(), look.meta(), sub, p.x() + 0.5, p.y(), p.z() + 0.5,
 				p.dimension(), look.glyph(), look.style(), 0, look.detail(), p.source(), major ? Tier.MAJOR : Tier.MINOR));
 			return out;
 		}
 		boolean major = dev.voidmc.atlas.client.ui.Kinds.major(p);
 		String name = sighted ? "Sighted" : p.name();
 		String meta = p.kind().equals(Place.PEAK) ? String.valueOf(p.y()) : "";
-		out.add(new Marker(placeMarkerId(p), major ? MapLayer.LANDMARKS : MapLayer.PLACES, name, meta, subtitle, p.x() + 0.5, p.y(), p.z() + 0.5,
+		// sighted, a looked place is Atlas's "?" on its mod's layer
+		String layer = look != null && look.layer() != null ? look.layer() : major ? MapLayer.LANDMARKS : MapLayer.PLACES;
+		out.add(new Marker(placeMarkerId(p), layer, name, meta, subtitle, p.x() + 0.5, p.y(), p.z() + 0.5,
 			p.dimension(), dev.voidmc.atlas.client.ui.Kinds.glyph(p), Marker.Style.STRUCTURE, 0, null, p.source(), major ? Tier.MAJOR : Tier.MINOR));
 		return out;
 	}
