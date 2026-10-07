@@ -6,6 +6,7 @@ import dev.voidmc.gloam.GloamSettings;
 import dev.voidmc.gloam.air.Atmosphere;
 import dev.voidmc.gloam.air.Air;
 import dev.voidmc.gloam.air.AirSample;
+import dev.voidmc.gloam.sky.Haze;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -15,6 +16,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.minecraft.client.InactivityFpsLimit;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -99,8 +101,7 @@ public class GloamShowcase implements FabricClientGameTest {
 			}
 			View last = null;
 			for (View planned : views) {
-				View view = !planned.name().startsWith("overcast") ? planned
-					: last != null && last.name().startsWith("overcast") ? planned.at(last) : this.underFront(world, planned);
+				View view = this.place(world, planned, last);
 				context.runOnClient(mc -> mc.options.fov().set(view.fov()));
 				boolean moved = !view.samePlace(last);
 				world.getServer().runCommand("time set " + view.time());
@@ -154,7 +155,22 @@ public class GloamShowcase implements FabricClientGameTest {
 		View overcast = new View("overcast0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), 90, 4, 70, 6000, "clear", 2);
 		views.add(overcast);
 		views.add(overcast.at("overcast1", 18000 + 4 * 24000, "clear"));
+		// a hazy land (a cloud forest, or the haziest one found) in the morning and at noon, moved there by inHaze
+		View hazy = new View("haze0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), 90, 4, 70, 2000, "clear", 4);
+		views.add(hazy);
+		views.add(hazy.at("haze1", 6500, "clear"));
 		return views;
+	}
+
+	/** Where a view is shot: the overcast and haze views go looking for their place, the rest stay where they are. */
+	private View place(TestSingleplayerContext world, View planned, View last) {
+		for (String kind : new String[]{"overcast", "haze"}) {
+			if (planned.name().startsWith(kind)) {
+				return last != null && last.name().startsWith(kind) ? planned.at(last)
+					: kind.equals("haze") ? this.inHaze(world, planned) : this.underFront(world, planned);
+			}
+		}
+		return planned;
 	}
 
 	/**
@@ -212,6 +228,27 @@ public class GloamShowcase implements FabricClientGameTest {
 			return new int[]{bx, level.getHeight(Heightmap.Types.MOTION_BLOCKING, bx, bz) + 4, bz};
 		});
 		System.out.printf(Locale.ROOT, "[gloam] %s: under a front at %d %d %d%n", view.name(), at[0], at[1], at[2]);
+		return new View(view.name(), at[0], at[1], at[2], view.yaw(), view.pitch(), view.fov(), view.time(), view.weather(), view.linger());
+	}
+
+	/** Moves a view into the haziest land of Gloam's haze table near it (a cloud forest, if one is near). */
+	private View inHaze(TestSingleplayerContext world, View view) {
+		int[] at = world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			BlockPos origin = new BlockPos(view.x(), 80, view.z());
+			// the murkiest first, then any of the hazy ones
+			for (float most : new float[]{80, 160, 320}) {
+				var found = level.findClosestBiome3d(b -> b.unwrapKey().map(k -> Haze.BIOMES.get(k.identifier()))
+					.map(e -> e.reach() <= most).orElse(false), origin, 6400, 64, 64);
+				if (found != null) {
+					BlockPos pos = found.getFirst();
+					System.out.printf(Locale.ROOT, "[gloam] %s: %s at %d %d%n", view.name(), found.getSecond().getRegisteredName(), pos.getX(), pos.getZ());
+					level.getChunk(pos.getX() >> 4, pos.getZ() >> 4);
+					return new int[]{pos.getX(), level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.getX(), pos.getZ()) + 3, pos.getZ()};
+				}
+			}
+			return new int[]{view.x(), view.y(), view.z()};
+		});
 		return new View(view.name(), at[0], at[1], at[2], view.yaw(), view.pitch(), view.fov(), view.time(), view.weather(), view.linger());
 	}
 

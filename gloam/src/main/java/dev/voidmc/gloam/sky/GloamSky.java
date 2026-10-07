@@ -9,6 +9,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
 import net.minecraft.world.attribute.EnvironmentAttributeSystem;
@@ -55,7 +56,10 @@ public final class GloamSky {
 	private static boolean lit;
 	/** Whether the rain at the camera is Gloam's this tick. */
 	private static boolean regional;
-	private static float night, dark, skyLight, ambient, cloud, cover, moon, stars, golden, blue, mist, mistEnd, mistCurtain;
+	private static float night, dark, skyLight, ambient, cloud, cover, moon, stars, golden, blue, mist, mistEnd;
+	/** The haze of the land round the camera (0..1, eased over biome edges), how much of it is dust, and the fog it makes. */
+	private static float landHaze, landDust, haze, hazeEnd, curtain;
+	private static ClientLevel hazeLevel;
 	private static float sunsetAlpha;
 	private static Vector3fc sunset = new Vector3f(1, 0.6F, 0.3F);
 	private static float rain, oRain, thunder, oThunder, storm;
@@ -141,7 +145,17 @@ public final class GloamSky {
 		float inside = Noise.smoothstep(air.mistTop() + 4, air.mistTop() - 4, (float) eye.y);
 		mist = inside * outdoors * Noise.smoothstep(0.04F, 0.35F, air.mist());
 		mistEnd = Mth.lerp(air.mist(), 360.0F, 56.0F);
-		mistCurtain = Math.min(0.7F, mist * (0.3F + 0.7F * air.mist()));
+		float mistCurtain = mist * (0.3F + 0.7F * air.mist());
+
+		// the land's own haze, eased over biome edges at the pace the atmosphere eases the climate
+		Haze.Entry entry = lv.getBiome(BlockPos.containing(eye)).unwrapKey().map(key -> Haze.BIOMES.get(key.identifier())).orElse(null);
+		float ease = hazeLevel == lv ? 0.05F : 1.0F;
+		hazeLevel = lv;
+		landHaze += ((entry == null ? 0 : Haze.haziness(entry.reach())) - landHaze) * ease;
+		landDust += ((entry != null && entry.kind() == Haze.Kind.DUST ? 1 : 0) - landDust) * ease;
+		haze = landHaze * Haze.daily(landHaze, air.hour()) * (float) settings.haze * outdoors;
+		hazeEnd = Haze.reach(haze, 80.0F);
+		curtain = Math.min(0.8F, mistCurtain + Haze.curtain(haze));
 	}
 
 	/** Adds Gloam's layers to a client level's environment attributes, as the level is made. */
@@ -176,21 +190,29 @@ public final class GloamSky {
 			return new Vector4f(sunset.x(), sunset.y(), sunset.z(), Math.clamp(colour.w() * sunsetAlpha, 0.0F, 1.0F));
 		});
 		builder.addTimeBasedLayer(EnvironmentAttributes.FOG_START_DISTANCE, (start, tick) -> {
-			if (!on(forLevel) || mist <= 0) {
+			if (!on(forLevel) || curtain <= 0) {
 				return start;
 			}
-			// the mist hangs round the camera the way rain does: the fog starts behind it, so even the near land is
-			// veiled. VOID LOD reads a start behind the camera as a curtain that does not thin with height (its rain
-			// curtain, RAIN_OFFSET blocks per unit), which is what standing in a mist bank is
-			return start - 160.0F * mistCurtain;
+			// mist and a hazy land's murk hang round the camera the way rain does: the fog starts behind it, so even
+			// the near land is veiled. VOID LOD reads a start behind the camera as a curtain that does not thin with
+			// height (its rain curtain, RAIN_OFFSET blocks per unit), which is what standing in a mist bank is; it
+			// fades the far land over kilometres rather than walling it
+			return start - 160.0F * curtain;
 		});
 		builder.addTimeBasedLayer(EnvironmentAttributes.FOG_END_DISTANCE, (end, tick) -> {
-			if (!on(forLevel) || mist <= 0) {
+			if (!on(forLevel)) {
 				return end;
 			}
 			// never further than it was; VOID LOD's haze follows this distance, down to a floor of its own, so the far
 			// land still shows through as a horizon
-			return Math.min(end, Mth.lerp(mist, end, mistEnd));
+			float e = end;
+			if (mist > 0) {
+				e = Math.min(e, Mth.lerp(mist, end, mistEnd));
+			}
+			if (haze > 0) {
+				e = Math.min(e, Mth.lerp(Math.min(1, haze * 3), end, hazeEnd));
+			}
+			return e;
 		});
 	}
 
@@ -227,9 +249,16 @@ public final class GloamSky {
 			c.mul(new Vector3f(1).lerp(new Vector3f(0.86F, 0.92F, 1.08F), blue));
 		}
 		c = grey(c, 0.85F, 0.6F * cloud);
-		if (mist > 0) {
+		float pale = Math.max(0.4F * mist, 0.3F * haze * (1 - landDust));
+		if (pale > 0) {
+			// mist and damp air: a pale grey
 			float grey = luma(c);
-			c.lerp(new Vector3f(grey * 1.08F + 0.02F), 0.4F * mist);
+			c.lerp(new Vector3f(grey * 1.08F + 0.02F), pale);
+		}
+		if (haze * landDust > 0) {
+			// dust: a warm, dry haze
+			float grey = luma(c);
+			c.lerp(new Vector3f(grey * 1.08F, grey * 0.97F, grey * 0.82F), 0.4F * haze * landDust);
 		}
 		c.mul(Mth.lerp(dark, 1.0F, 0.25F + 0.75F * skyLight));
 		return clamp(c);

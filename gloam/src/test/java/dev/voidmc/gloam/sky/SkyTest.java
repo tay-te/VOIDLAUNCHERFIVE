@@ -49,4 +49,20 @@ class SkyTest {
 		float[] pale = Twilight.colour(12900, 0.5F);
 		assertTrue(pale[0] - pale[2] < red[0] - red[2], "a pale evening is less saturated");
 	}
+
+	@Test
+	void hazeKeepsAHorizon() {
+		assertTrue(Haze.haziness(72) > 0.9F, "a cloud forest is about as murky as it gets");
+		assertEquals(0.0F, Haze.haziness(1024), 1e-6F, "clear air");
+		assertTrue(Haze.haziness(150) > Haze.haziness(300), "the shorter the old fog, the hazier");
+		assertTrue(Haze.reach(1, 80) >= 80, "never nearer than the floor");
+		assertEquals(1024, Haze.reach(0, 80), 1, "clear air reaches vanilla's fog end");
+		assertTrue(Haze.daily(0.5F, 13) < 0.6F, "a damp land's haze thins at midday");
+		assertTrue(Haze.daily(0.95F, 13) > 0.85F, "a cloud forest stays murky");
+		assertEquals(1.0F, Haze.daily(0.5F, 6), 1e-6F, "all of it at dawn");
+		assertTrue(Haze.curtain(1) < 0.8F, "the curtain fades the far land, never walls it");
+		for (Haze.Entry e : Haze.BIOMES.values()) {
+			assertTrue(e.reach() > 0);
+		}
+	}
 }
