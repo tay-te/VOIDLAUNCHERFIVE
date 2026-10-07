@@ -709,12 +709,14 @@ public class AtlasGameTest implements FabricClientGameTest {
 	private String hearthSettlement(ClientGameTestContext context, int x, int z) {
 		return context.computeOnClient(mc -> {
 			MarkerQuery q = new MarkerQuery("minecraft:overworld", -3e7, -3e7, 3e7, 3e7, x, z, MarkerQuery.Purpose.LIST);
+			// the nearest (Hearth also adopts the world's own villages, further off)
+			Marker best = null;
 			for (Marker m : AtlasClient.get().collect(q)) {
-				if (m.id().contains("hearth:settlement:")) {
-					return m.id() + "|" + m.x() + "|" + m.z() + "|" + m.layer() + "|" + m.name();
+				if (m.id().contains("hearth:settlement:") && (best == null || Math.hypot(m.x() - x, m.z() - z) < Math.hypot(best.x() - x, best.z() - z))) {
+					best = m;
 				}
 			}
-			return null;
+			return best == null ? null : best.id() + "|" + best.x() + "|" + best.z() + "|" + best.layer() + "|" + best.name();
 		});
 	}
 
