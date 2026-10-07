@@ -22,6 +22,7 @@ import dev.voidmc.hearth.build.kit.craft.Wares;
 import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
+import dev.voidmc.hearth.build.kit.townhome.Proportions;
 import dev.voidmc.hearth.build.kit.trade.Props;
 import dev.voidmc.hearth.build.kit.trade.Shed;
 import dev.voidmc.hearth.build.kit.trade.Shop;
@@ -62,7 +63,10 @@ public final class Chandler implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
-		ShopHouse s = ShopHouse.build(d, FORMS, 3, 2, 5, 0.4, true);
+		// three storeys in a row; standing alone on a narrow plot, no taller than half again its front (art review 22)
+		int sh = Math.max(4, d.habits().walls().storeyHeight());
+		int most = Proportions.storeys(d, d.frontage(), 3, sh, 2 + Proportions.rise(d, d.frontage()));
+		ShopHouse s = ShopHouse.build(d, FORMS, most, 2, 5, 0.4, true);
 		Hall hall = s.hall;
 		// the sign by the door before anything else claims the cell
 		if (!Signs.bracket(d, s.front, s.signCell(), 3, "chandler", "Chandler")) {

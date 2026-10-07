@@ -3,6 +3,7 @@ package dev.voidmc.hearth.build.archetype.house;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
+import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.api.StageKind;
@@ -36,17 +37,20 @@ import java.util.Set;
 import net.minecraft.core.Direction;
 
 /**
- * {@code hearth:house/tenement}: a city block of flats, four to six storeys over a rusticated ground floor, the stair
+ * {@code hearth:house/tenement}: a city block of flats, three or four storeys over a rusticated ground floor, the stair
  * every family shares climbing a well at the back of the house with a landing on every floor and a door off it to each
- * flat (two flats a floor on a wide plot, one on a narrow one), the top storey a roof storey of attic flats under a
- * mansard or the culture's roof, or a flat roof given over to gardens, washing lines and a water tank round the stair
- * house. The street front is banded floor by floor with a cornice, balconies on alternate floors, sheets hung from the
+ * flat (two flats a floor on a wide plot, one on a narrow one), the top storey a roof storey of attic flats. Where the
+ * culture pitches its roofs that roof is a steep one along the street with a row of dormers over the front windows
+ * and, where it rises high enough, a second row of small dormers above them between the first (the Bohemian and
+ * northern city's tall roofs); only the cultures that build flat roofs give it a flat roof with gardens, washing
+ * lines and a water tank round the stair house. The street front is banded floor by floor with a cornice, balconies on alternate floors, sheets hung from the
  * windows; the back has galleries on brackets at every floor strung with washing. The ground floor is a hall through to
  * the stair with a flat or a workshop either side, a double door under a fanlight in the middle of the front.
  *
  * <p>Params:
  * <ul>
- *   <li>{@code storeys} (int, 4–6): suggested full storeys (a storey up or down by seed so a city street steps)</li>
+ *   <li>{@code storeys} (int, 3–4): suggested full storeys (a storey up or down by seed so a city street steps); five
+ *   under a flat roof</li>
  *   <li>{@code party_left}, {@code party_right}, {@code corner_left}, {@code corner_right} (boolean): as for the townhouse</li>
  *   <li>{@code shops} (boolean): workshops behind shop windows either side of the hall (default by seed)</li>
  *   <li>{@code walkway_y} (int, world y): a walkway meets the front at this level: a door there</li>
@@ -55,7 +59,7 @@ import net.minecraft.core.Direction;
  */
 public final class Tenement implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/tenement"), ArchetypeCategory.HOUSING, Set.of(), 8,
-		8, 12, 10, 14, 18, 28, SettlementTier.CITY, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE, ArchetypeInfo.SiteFlag.VERTICAL), List.of(),
+		8, 12, 10, 14, 16, 22, SettlementTier.CITY, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE, ArchetypeInfo.SiteFlag.VERTICAL), List.of(),
 		0, 1.0);
 
 	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HIP, RoofForm.MANSARD, RoofForm.GAMBREL, RoofForm.HALF_HIP, RoofForm.PAGODA,
@@ -82,15 +86,21 @@ public final class Tenement implements Archetype {
 		if (form == RoofForm.DOME || form == RoofForm.CONE || form == RoofForm.SALTBOX) {
 			form = form == RoofForm.DOME ? RoofForm.FLAT : RoofForm.HIP;
 		}
-		// a city's tenements take to flat roofs and mansards more than the villages' houses do
-		if (form != RoofForm.FLAT && d.chance(t.flatSome() ? 0.4 : 0.12)) {
+		// a city's tenements take to flat roofs and mansards more than the villages' houses do, but a flat roof only
+		// where the culture builds them at all: in the pitched-roof towns a tall house wears a tall roof (art review 7)
+		if (form != RoofForm.FLAT && t.flatSome() && d.chance(0.4)) {
 			form = RoofForm.FLAT;
-		} else if (form == RoofForm.GABLE && !t.eastern() && t.masonry() && d.chance(0.35)) {
+		} else if (form == RoofForm.GABLE && !t.eastern() && t.masonry() && t.culture() != Culture.TEMPERATE && d.chance(0.35)) {
+			// (the Bohemian city keeps its steep tile roofs: no mansards on its squares)
 			form = RoofForm.MANSARD;
+		}
+		if (form == RoofForm.FLAT && !t.flatSome()) {
+			form = RoofForm.GABLE;
 		}
 		boolean flat = form == RoofForm.FLAT;
 		int sh = Math.max(4, h.walls().storeyHeight());
-		int full = TownHouses.storeys(d, 4, 6, 5);
+		// three or four storeys and the roof storey (a burgher street's eaves, not a block of flats' parapet)
+		int full = flat ? TownHouses.storeys(d, 3, 5, 4) : TownHouses.storeys(d, 3, 4, 4);
 
 		boolean twin = w >= 10;
 		int door = twin ? (w - 1) / 2 : TownHouses.doorColumn(d, 0, w - 1, partyL, partyR);
@@ -104,20 +114,35 @@ public final class Tenement implements Archetype {
 		if (t.eastern() && (partyL || partyR) && (form == RoofForm.PAGODA || form == RoofForm.HIP)) {
 			form = RoofForm.HIP;
 			opts = opts.withPitch(0.6);
+		} else if (!flat && t.steep() && !t.eastern() && form == RoofForm.GABLE) {
+			// the steep roof of a tall town house, room under it for the attic flats and two rows of dormers (a gable
+			// only: a hip or a cone at that pitch leaves steps in its top)
+			opts = opts.withPitch(Math.max(opts.pitch(), 1.25));
 		}
 
+		// fit the storeys and the roof under the plot's height: a storey goes before the roof's pitch, and a pitched
+		// roof falls flat only where the culture has flat roofs (or nothing else will fit)
 		Body body = null;
-		for (int pass = 0; pass < 8; pass++) {
-			body = new Body(0, bz0, w - 1, bz1, 0, TownHouses.heights(full, sh, sh, !flat), partyL, partyR);
+		for (int pass = 0; pass < 10; pass++) {
+			int[] hs = TownHouses.heights(full, sh, sh, !flat);
+			if (!flat) {
+				// the roof storey's walls two high: the attic flats stand up under the slope, the stair climbs to them
+				hs[full] = 2;
+			}
+			body = new Body(0, bz0, w - 1, bz1, 0, hs, partyL, partyR);
 			int top = TownHouses.ridge(d, body, form, ridge, opts) + (flat ? 4 : 2);
 			if (top < d.maxHeight()) {
 				break;
 			}
-			if (full > 4 || full > 3 && pass >= 3) {
+			if (full > 3) {
+				full--;
+			} else if (opts.pitch() > 1.0) {
+				opts = opts.withPitch(1.0);
+			} else if (full > 2 && pass >= 3) {
 				full--;
 			} else if (opts.pitch() > 0.5) {
 				opts = opts.withPitch(0.5);
-			} else {
+			} else if (!flat && (t.flatSome() || pass >= 8)) {
 				form = RoofForm.FLAT;
 				flat = true;
 			}
@@ -174,7 +199,7 @@ public final class Tenement implements Archetype {
 		if (flat) {
 			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.5));
 		} else {
-			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, true, false);
+			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, true, false, true);
 		}
 
 		// chimneys on both party walls (or the side walls) where the culture has fires

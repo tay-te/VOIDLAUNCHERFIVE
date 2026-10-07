@@ -27,6 +27,7 @@ import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.kit.station.Fire;
 import dev.voidmc.hearth.build.kit.station.Mending;
 import dev.voidmc.hearth.build.kit.townhome.Life;
+import dev.voidmc.hearth.build.kit.townhome.Proportions;
 import dev.voidmc.hearth.build.kit.townhome.Traits;
 import dev.voidmc.hearth.build.kit.trade.Props;
 import dev.voidmc.hearth.build.style.Form;
@@ -87,7 +88,9 @@ public final class Shack implements Archetype {
 		// two storeys where the plot is tall enough for the loft and its roof
 		int roofRoom = flat ? 2 : 3;
 		int loft = flat ? 3 : 2;
-		boolean two = d.param("storeys", 2) >= 2 && base + 4 + loft + roofRoom < d.maxHeight();
+		// (standing alone, only where the loft leaves it no taller than half again its front: art review 22)
+		boolean two = d.param("storeys", 2) >= 2 && base + 4 + loft + roofRoom < d.maxHeight()
+			&& (!Proportions.detached(d) || base + 4 + loft + roofRoom <= Proportions.tallest(w));
 		int[] heights = two ? new int[]{4, loft} : new int[]{4};
 		Body body = new Body(0, bz0, w - 1, bz1, base, heights, pl, pr);
 		// the loft oversails the lane (timber towns, a lane in front at least three below it)

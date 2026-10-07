@@ -48,8 +48,8 @@ import net.minecraft.core.Direction;
  * </ul>
  */
 public final class ScribeHouse implements Archetype {
-	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/scribe_house"), ArchetypeCategory.HOUSING, Set.of(), 3, 6, 8, 9, 12, 18,
-		24, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE), List.of(), 0, 1.0);
+	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/scribe_house"), ArchetypeCategory.HOUSING, Set.of(), 3, 6, 8, 9, 12, 15,
+		18, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE), List.of(), 0, 1.0);
 
 	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.GAMBREL, RoofForm.MANSARD, RoofForm.HIP, RoofForm.PAGODA,
 		RoofForm.FLAT, RoofForm.CROSS_GABLE, RoofForm.SALTBOX, RoofForm.DOME};
@@ -112,12 +112,20 @@ public final class ScribeHouse implements Archetype {
 		Body body = null;
 		int full = wanted;
 		for (int pass = 0; pass < 10; pass++) {
-			body = new Body(0, bz0, w - 1, bz1, 0, TownHouses.heights(full, sh, sh, !flat), partyL, partyR);
-			if (jetties) {
-				body.jetty(1, Dirs.FRONT);
+			// two storeys only: the garret stands up on knee walls two high where it can, the household's beds under it
+			boolean fits = false;
+			for (int knee = full <= 2 && !flat ? 2 : 1; knee >= 1 && !fits; knee--) {
+				int[] hs = TownHouses.heights(full, sh, sh, !flat);
+				if (!flat) {
+					hs[full] = knee;
+				}
+				body = new Body(0, bz0, w - 1, bz1, 0, hs, partyL, partyR);
+				if (jetties) {
+					body.jetty(1, Dirs.FRONT);
+				}
+				fits = TownHouses.ridge(d, body, form, ridge, opts) + (flat ? 1 : 2) < d.maxHeight();
 			}
-			int top = TownHouses.ridge(d, body, form, ridge, opts) + (flat ? 1 : 2);
-			if (top < d.maxHeight()) {
+			if (fits) {
 				break;
 			}
 			if (opts.pitch() > 1.0) {
@@ -126,7 +134,8 @@ public final class ScribeHouse implements Archetype {
 				full--;
 			} else if (opts.pitch() > 0.5) {
 				opts = opts.withPitch(0.5);
-			} else {
+			} else if (!flat && (t.flatSome() || pass >= 8)) {
+				// a flat roof only where the culture builds them (or nothing else fits)
 				form = RoofForm.FLAT;
 				flat = true;
 			}
@@ -228,14 +237,15 @@ public final class ScribeHouse implements Archetype {
 			writingRoom(d, rooms[0], core, door, bayAt);
 		}
 		int beds = 0;
+		int chamberTop = garret ? topK - 1 : topK;
 		if (garret && topK >= 2 && rooms[topK] != null) {
-			// the apprentice's bed, the paper and the parchment in store
-			TownHouses.bedroom(d, rooms[topK], 1);
+			// the apprentice's bed, the paper and the parchment in store (the whole household up there over a house of
+			// two storeys)
+			TownHouses.bedroom(d, rooms[topK], chamberTop >= 2 ? 1 : INFO.beds());
 			beds += TownHouses.bedsIn(d, rooms[topK]);
 			Rooms.furnish(d, rooms[topK], Rooms.Type.STORAGE, 0, JobType.NONE);
 			sleep.add(rooms[topK]);
 		}
-		int chamberTop = garret ? topK - 1 : topK;
 		for (int k = chamberTop; k >= 2; k--) {
 			if (rooms[k] == null) {
 				continue;

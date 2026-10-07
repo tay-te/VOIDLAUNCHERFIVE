@@ -7,8 +7,8 @@ stack up a cliff or turn inward round a court. Eight archetypes, each built in e
 | id | class | tier, flags | size (frontage × depth) | height | beds, jobs | upgrades to |
 |---|---|---|---|---|---|---|
 | `hearth:house/rowhouse` | `archetype/house/Rowhouse` | village+, ATTACHABLE | 5–7 × 8–12 | 9–14 | 2 | townhouse, tenement |
-| `hearth:house/townhouse` | `archetype/house/Townhouse` | town+, ATTACHABLE, VERTICAL | 5–8 × 8–13 | 14–24 | 4 (CARPENTER with `shop`) | tenement |
-| `hearth:house/tenement` | `archetype/house/Tenement` | city, ATTACHABLE, VERTICAL | 8–12 × 10–14 | 18–28 | 8 (CARPENTER with `shops`) | — |
+| `hearth:house/townhouse` | `archetype/house/Townhouse` | town+, ATTACHABLE, VERTICAL | 5–8 × 8–13 | 13–20 | 4 (CARPENTER with `shop`) | tenement |
+| `hearth:house/tenement` | `archetype/house/Tenement` | city, ATTACHABLE, VERTICAL | 8–12 × 10–14 | 16–22 | 8 (CARPENTER with `shops`) | — |
 | `hearth:house/shophouse` | `archetype/house/Shophouse` | village+, ATTACHABLE, weight 0.8 | 5–8 × 8–12 | 9–15 | 2, MERCHANT | townhouse, tenement |
 | `hearth:house/manor` | `archetype/house/Manor` | town+, max 4, weight 0.5 | 15–25 × 15–25 | 10–16 | 6 | — |
 | `hearth:house/tower_house` | `archetype/house/TowerHouse` | hamlet+, VERTICAL; alpine, moorland, mediterranean, karst; weight 0.7 | 6–7 × 7–8 | 14–22 | 2 | — |
@@ -42,7 +42,8 @@ them in masonry towns; an end house hips or turns its roof toward the side stree
 roof garden over a stair house (a pueblo steps its upper storey back behind a terrace, ladders up), stilt cultures a
 double gallery on posts, karst houses a latticed gallery and pentice.
 
-**Townhouse.** Three to five storeys and a roof storey. Timber towns jetty each storey over the street and put an
+**Townhouse.** Three storeys and a roof storey (a fourth now and then where a city street steps up): the burgher
+house's measure, never a tower. Timber towns jetty each storey over the street and put an
 oriel on the corner; masonry towns band the floors with string courses, raise crow-stepped or parapeted gables and
 stand the chimneys on the party walls; hill towns render the walls in a tint over a stone base, hang balconies with
 doors onto them and open the top floor into a loggia (a furnished living room behind arches); karst houses rise in
@@ -52,13 +53,16 @@ stack posted galleries across the front (only where the street meets the floor: 
 falling street). The switchback stair climbs the back; ground floor kitchen or workroom with a shop window, a living
 room, bedrooms, one more under the roof where the stair can reach it (a low roof leaves the attic a closed loft).
 
-**Tenement.** Four to six storeys over a rusticated ground floor: a double door under a fanlight in the middle of the
+**Tenement.** Three or four storeys and a roof storey over a rusticated ground floor (five under a flat roof): a double door under a fanlight in the middle of the
 front into a hall through to the stair every family shares, a landing on every floor and a door off it to each flat
 (two flats a floor on a plot 10 or wider, one on a narrower one); flats with kitchen, living and bedrooms; workshops
 behind shop windows either side of the hall (`shops`). The street front banded floor by floor with a cornice,
 balconies on alternate floors, sheets hung from windows; galleries on brackets at the back strung with washing. The
-top is a mansard or the culture's roof with dormers (none through deep alpine eaves), or a flat roof with the stair
-house, a roof garden, a water tank and a washing line.
+top, wherever the culture pitches its roofs, is a steep roof along the street (pitch 1.25 where the height allows, a
+mansard in the masonry towns but never in Bohemia) over attic flats whose walls stand two high, with a dormer over each
+front window and, where the roof rises high enough, a second row of small dormers up the slope staggered between the
+first (none through deep alpine eaves). Only the cultures that build flat roofs (desert, mesa, the hill towns) give it
+a flat roof with the stair house, a roof garden, a water tank and a washing line (art review 7).
 
 **Shophouse.** The shop on the ground floor, the family over it. The shop storey is taller and opens to the street in
 the culture's manner: mullioned display windows over a stall riser, round-headed glazed arches, or the whole front
@@ -104,7 +108,7 @@ All optional; defaults are seeded choices. Party walls are always read through `
 
 | key | archetypes | meaning |
 |---|---|---|
-| `storeys` | rowhouse (2), townhouse (3–5), tenement (4–6), shophouse (2–3), tower_house (3–5), courtyard_house (1–2) | suggested full storeys; the attached types move a storey up or down now and then by seed so a row steps its eaves, and every type drops storeys (then flattens its pitch, then goes flat) to fit the plot's height |
+| `storeys` | rowhouse (2), townhouse (3–4), tenement (3–4, flat roofs 3–5), shophouse (2–3), tower_house (3–5), courtyard_house (1–2) | suggested full storeys; the attached types move a storey up or down now and then by seed so a row steps its eaves, and every type drops storeys (then flattens its pitch) to fit the plot's height, and goes flat only in a culture that builds flat roofs |
 | `party_left`, `party_right` | rowhouse, townhouse, tenement, shophouse | shared side walls: blind, no eaves, the roof gabled against them; parapets, firewalls and chimneys on them in masonry towns |
 | `corner_left`, `corner_right` | rowhouse, townhouse, tenement, shophouse | a street along that side: windows, the roof hipped toward it where the culture hips, a corner oriel (townhouse), the shop front turning the corner (shophouse) |
 | `walkway_y` | townhouse, tenement | a walkway meets the front at this world y: a door there onto it |

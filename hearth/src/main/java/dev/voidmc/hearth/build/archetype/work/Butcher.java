@@ -20,6 +20,7 @@ import dev.voidmc.hearth.build.kit.craft.Craft;
 import dev.voidmc.hearth.build.kit.craft.ShopHouse;
 import dev.voidmc.hearth.build.kit.craft.Wares;
 import dev.voidmc.hearth.build.kit.light.Lighting;
+import dev.voidmc.hearth.build.kit.townhome.Proportions;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Props;
@@ -66,7 +67,10 @@ public final class Butcher implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
-		ShopHouse s = ShopHouse.build(d, FORMS, 2, 3, 6, 0.65, false);
+		// two storeys in a row; standing alone on a narrow plot, no taller than half again its front (art review 22)
+		int sh = Math.max(4, d.habits().walls().storeyHeight());
+		int most = Proportions.storeys(d, d.frontage(), 2, sh, 2 + Proportions.rise(d, d.frontage()));
+		ShopHouse s = ShopHouse.build(d, FORMS, most, 3, 6, 0.65, false);
 		Hall hall = s.hall;
 		boolean jettied = hall.body.outset(hall.storeys() - 1, Dirs.FRONT) > 0;
 		// the sign by the door, or high on the oversailing floor where the jetty takes the low cell
