@@ -130,6 +130,11 @@ final class MoteSpawner {
 	 * fitting, or null if the place it tried did not fit.
 	 */
 	private void fill(Motes.Kind kind, int target, Supplier<Mote> place) {
+		this.fill(kind, target, 4, place);
+	}
+
+	/** As {@link #fill(Motes.Kind, int, Supplier)}, trying {@code triesEach} places for each mote wanted. */
+	private void fill(Motes.Kind kind, int target, int triesEach, Supplier<Mote> place) {
 		int gap = target - kind.count();
 		if (gap <= 0) {
 			return;
@@ -137,7 +142,7 @@ final class MoteSpawner {
 		boolean empty = kind.count() < target * 0.3F;
 		float want = gap * (empty ? 0.25F : 0.04F);
 		int n = (int) want + (this.random.nextFloat() < want - (int) want ? 1 : 0);
-		for (int tries = n * 4; n > 0 && tries > 0 && this.room(); tries--) {
+		for (int tries = n * triesEach; n > 0 && tries > 0 && this.room(); tries--) {
 			Mote mote = place.get();
 			if (mote != null) {
 				if (empty) {
@@ -490,7 +495,18 @@ final class MoteSpawner {
 		float depth = Air.mistDepth(mist);
 		// the mist's scale height: how quickly it thins upward
 		float scale = 1.0F + 2.5F * mist;
-		this.fill(Motes.Kind.MIST, (int) (MIST_SHEETS * Math.min(1.0F, density)), () -> {
+		// as many sheets as the share of the land around that can hold mist (not too steep, under the mist's top), so
+		// the sheets are not all heaped onto the few flat places there are (a gorge floor among mountain flanks), where
+		// they would stack into an opaque floor; any beyond that (the camera just came from open land) thin away
+		this.surveyMist(eye, reach, top);
+		float fits = Math.clamp(this.mistFit / this.mistTries, 0.03F, 1.0F);
+		int target = (int) (MIST_SHEETS * Math.min(1.0F, density) * fits);
+		List<Mote> sheets = Motes.Kind.MIST.live;
+		for (int k = 0, excess = sheets.size() - target * 5 / 4; k < 4 && excess > 0; k++, excess--) {
+			sheets.get(this.random.nextInt(sheets.size())).endWithin(120);
+		}
+		// where few places fit, more are tried to find them
+		this.fill(Motes.Kind.MIST, target, Math.min(48, Mth.ceil(4 / fits)), () -> {
 			double r = reach * Math.sqrt(this.random.nextDouble());
 			float size = sheetSize(r);
 			if (this.random.nextFloat() >= Mth.square(sheetSize(0) / size)) {
@@ -510,11 +526,8 @@ final class MoteSpawner {
 				high = Math.max(high, g);
 				low = Math.min(low, g);
 			}
-			if (high - low > 3 + size * 0.15F) {
-				return null;
-			}
 			float room = top - high;
-			if (room < 0.8F) {
+			if (high - low > 3 + size * 0.15F || room < 0.8F) {
 				return null;
 			}
 			boolean water = this.level.getFluidState(this.probe.set(x, high - 1, z)).is(FluidTags.WATER);
@@ -532,6 +545,45 @@ final class MoteSpawner {
 			return new MistMote(this.level, x + this.random.nextDouble(), high + 0.05 + h, z + this.random.nextDouble(), this.random,
 				size * (0.8F + 0.4F * this.random.nextFloat()), tau, h);
 		});
+	}
+
+	/** How many places around the camera were tried for mist lately and how many could hold it (slowly forgetting). */
+	private float mistTries, mistFit;
+	private @org.jspecify.annotations.Nullable Vec3 mistSurveyed;
+
+	/**
+	 * Tries a few places around the camera, spread evenly over the area the sheets cover, for whether a sheet could lie
+	 * there (the ground under it not too steep, below the mist's top), keeping a running tally; starts it afresh with
+	 * many when the camera has jumped.
+	 */
+	private void surveyMist(Vec3 eye, int reach, float top) {
+		int n = 8;
+		if (this.mistSurveyed == null || this.mistSurveyed.distanceToSqr(eye) > 32 * 32) {
+			this.mistTries = this.mistFit = 0;
+			n = 96;
+		}
+		this.mistSurveyed = eye;
+		for (int i = 0; i < n; i++) {
+			double r = reach * Math.sqrt(this.random.nextDouble()), a = this.random.nextDouble() * Math.PI * 2;
+			int x = Mth.floor(eye.x + Math.cos(a) * r), z = Mth.floor(eye.z + Math.sin(a) * r);
+			if (!this.level.hasChunk(x >> 4, z >> 4)) {
+				continue;
+			}
+			float size = sheetSize(r);
+			int edge = (int) (size * 0.6F), high = Integer.MIN_VALUE, low = Integer.MAX_VALUE;
+			for (int k = 0; k < 5; k++) {
+				int sx = x + (k == 1 ? edge : k == 2 ? -edge : 0), sz = z + (k == 3 ? edge : k == 4 ? -edge : 0);
+				int g = this.level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sx, sz);
+				high = Math.max(high, g);
+				low = Math.min(low, g);
+			}
+			boolean fit = high - low <= 3 + size * 0.15F && top - high >= 0.8F;
+			this.mistTries = this.mistTries * 0.995F + 1;
+			this.mistFit = this.mistFit * 0.995F + (fit ? 1 : 0);
+		}
+		if (this.mistTries < 1) {
+			this.mistTries = this.mistFit = 1;
+		}
 	}
 
 	/** A sheet's half-width at {@code r} blocks from the camera. */
@@ -686,7 +738,8 @@ final class MoteSpawner {
 				} else {
 					Vector3fc f = camera.forwardVector();
 					look = new Vec3(f.x(), f.y(), f.z());
-					mouth = eye.add(look.scale(0.5)).add(0, -0.14, 0);
+					// a little low, so one's own breath shows toward the bottom of the view, as it does
+					mouth = eye.add(look.scale(0.45)).add(0, -0.3, 0);
 				}
 				this.puff(mouth, look, cold);
 			}
