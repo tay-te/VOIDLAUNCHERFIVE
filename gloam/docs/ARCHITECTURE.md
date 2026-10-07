@@ -103,11 +103,14 @@ the LOD; prepared (uploads, the shadow picture) while the frame graph is built (
 | `FarRain` | Rain curtains: one per rainy 1 km cell of the fronts' frame, facing the camera, back to front, every frame. |
 
 - **The cloud deck** replaces vanilla's clouds (`CloudRendererMixin`) and keeps the cloud option (off; fast: one soft
-  layer; fancy: heaps with depth), `CLOUD_HEIGHT` as its base and `CLOUD_COLOR` as its sunlit colour. One triangle over
-  the screen; each pixel marches its ray through the layer (10-56 steps, jittered), the heaps shaped from the fronts'
-  cover and the noise: clear sky, broken heaps, a flat overcast deck, storms dark underneath and towering to ~560 blocks
-  over the base. It writes the depth of the first cloud it meets, so land in front covers it. Out to the LOD's radius,
-  paling into the horizon's colour.
+  layer; fancy: heaps with depth) and `CLOUD_COLOR` as its sunlit colour. Its base is `CLOUD_HEIGHT` plus
+  `farCloudLift` (240): at vanilla's 192 every mountain peak stands inside the deck and the far land is hidden behind it.
+  One triangle over the screen; each pixel marches its ray through the layer (long strides through clear air, short
+  ones inside a cloud, jittered), the heaps shaped from the fronts' cover and the noise: a few fair-weather heaps under a
+  clear front, broken heaps, a lumpy overcast deck, showers building towering heaps, storms dark underneath and towering
+  ~1400 blocks over the base. Heaps are domes over a smooth noise, frayed near the camera by a fine noise in slices (a
+  2D noise standing in for a 3D one). It writes the depth of the first cloud it meets, so land in front covers it. Out
+  to the LOD's radius, paling into the horizon's colour.
 - **Cloud shadows** on the far land: a 1024² picture of the sunlight under the clouds (relative to the light at the
   camera, so an overcast does not darken the far land against the chunks), laid on the LOD with `LodApi.setShade`.
 - **Far storms.** Rain curtains under showers and storms kilometres off, grey veils streaked and leaning, darker under
