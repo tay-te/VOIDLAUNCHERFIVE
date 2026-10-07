@@ -205,6 +205,26 @@ tasks.register('cultureSimilarity', JavaExec) {
 	]
 }
 
+// The structure audit: every archetype x culture x terrain (flat, slope, its own) x seed measured offline for playability
+// (reach, doors, stairs, beds, workstations, light, holes, hazards) and detail (facade relief, palette, windows, roof, symmetry,
+// furniture, likeness across cultures), ranked, and drawn as contact sheets. See gametest/audit/StructureAudit.java.
+//   ./gradlew structureAudit -Pmode=all -Pout=build/audit          (modes: metrics, sheets, all, index)
+//   ./gradlew structureAudit -Pmode=metrics -Parchetype=house/,inn -Pseeds=2
+tasks.register('structureAudit', JavaExec) {
+	group = 'hearth'
+	description = 'Audits every archetype for playability and detail (metrics.csv, archetypes.csv, worst.md, INDEX.md, contact sheets)'
+	classpath = sourceSets.gametest.runtimeClasspath
+	mainClass = 'dev.voidmc.hearth.gametest.audit.StructureAudit'
+	jvmArgs '-Djava.awt.headless=true', '-Xmx5g'
+	args = [
+		project.findProperty('mode') ?: 'metrics',
+		project.findProperty('archetype') ?: 'all',
+		project.findProperty('seeds') ?: '2',
+		project.findProperty('out') ?: layout.buildDirectory.dir('audit').get().asFile.path,
+		project.findProperty('threads') ?: '4'
+	]
+}
+
 // The building families' previews as tasks of this build (agePreview, ageTown, craftPreview, deepPreview, deepTown,
 // extractionPreview, industryPreview, socialPreview, stationPreview, streetPreview...): each docs/buildings/*_preview.gradle
 // (and townhome_street.gradle) is applied here as it would be as an init script; one passed with -I registers its own
