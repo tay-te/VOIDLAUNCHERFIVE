@@ -34,3 +34,15 @@ lands (it changes heights in temperate country, so the histories of regions not 
   an escarpment's edge). Read it in `ExpanseProbe` and let castle and keep siting (plan/society/Nobility) prefer them.
 - Expanse lays crop fields inside hedgerows on open land, skipping LandClaims land; abandoned mine camps (with real ore
   faces, for prospecting quests), a collapsed hamlet and a burnt logging camp appear only with Hearth, clear of its land.
+
+## Agreed with Expanse, 2026-10-07 (after main f02fe894) — Hearth-side work to schedule
+
+- **Reserved seat sites**: Hearth reserves the best `SITE_HILLTOP`/`SITE_RIM` within each planned settlement's territory for
+  its future castle or keep, and `ExpanseClaims` answers true there too, so Expanse's ruined keeps and chapels on hilltops and
+  rims keep off them.
+- **The Great Mine** (Expanse: old workings, a pithead high on a mountain, a ~300-block shaft, gallery levels, breaking into
+  a realm; abandoned when Hearth is loaded): Hearth reopens it. A town whose territory reaches one adds an ORE site; the
+  planner builds a working pithead beside Expanse's (headframe, winch, miners' huts); diggers extend galleries from its
+  levels. Waits on an Expanse query (`ExpanseSights.greatMines(level, x, z, radius)` → pithead, shaft bottom, levels, realm).
+- **Cavern water**: Expanse exposes the water surface of meres, underground rivers and the buried sea; Hearth's
+  `UndergroundProbe.waterY` answers from it so deep towns site landings and docks on real water.
