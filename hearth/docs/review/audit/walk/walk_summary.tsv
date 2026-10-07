@@ -1,0 +1,85 @@
+culture	archetype	verdict	rooms	entrances	pois	folk	walks	stuck	badSteps/steps	jumps	tight	dark0/dim/cells	badDoors/doors
+temperate	house/cottage	PASS	3/3	1/1	bed 2/2, storage 1/1, seat 2/2, table 2/2, hearth 1/1, door 1/1	3/3	7/7	0	0/4	0	0	0/0/62	0/1
+temperate	house/farmhouse	WARN	6/7	3/3	bed 2/2, job_site 1/1, storage 2/2, seat 5/5, table 2/2, hearth 1/1, door 2/2, gate 1/1, viewpoint 1/1	5/5	12/12	0	0/4	2	0	1/16/141	0/1
+temperate	house/townhouse	FAIL	4/5	1/1	bed 2/2, storage 2/2, seat 1/1, table 2/2, hearth 1/1, door 1/1	3/4	10/10	0	0/8	0	0	0/0/61	0/1
+temperate	house/tenement	FAIL	11/11	1/1	bed 12/12, job_site 4/4, storage 8/8, table 3/3, hearth 1/1, door 1/1, viewpoint 1/3	24/24	40/40	0	0/12	0	0	0/10/272	2/10
+temperate	house/merchant_house	FAIL	5/5	1/1	bed 5/5, job_site 1/1, storage 4/4, counter 1/1, seat 3/3, table 3/3, hearth 1/1, door 1/1, strongbox 1/1	4/11	22/22	0	0/13	0	0	0/2/204	0/1
+temperate	commerce/inn	WARN	6/7	1/1	bed 4/4, job_site 1/1, storage 3/3, market_stall 1/1, counter 1/1, seat 4/4, table 4/4, hearth 1/1, door 1/1	9/9	16/16	0	0/4	1	0	0/0/100	0/4
+temperate	commerce/tavern	PASS	4/6	1/1	job_site 2/2, storage 1/1, market_stall 1/1, counter 1/1, seat 7/7, table 1/1, hearth 1/1, door 1/1, gaming_table 1/1, stage 1/1	4/4	9/9	0	0/4	0	0	0/0/71	0/1
+temperate	work/smithy	PASS	1/3	1/1	job_site 4/4, storage 2/2, door 1/1	6/6	6/6	0	0/0	0	0	0/2/55	0/0
+temperate	work/bakery	WARN	2/3	3/3	job_site 3/3, storage 1/1, counter 1/1, seat 1/1, table 1/1, door 2/2	5/5	7/7	0	0/0	1	0	0/4/36	0/2
+temperate	work/windmill	WARN	4/10	2/2	job_site 2/2, storage 1/1, door 1/1	3/3	7/7	0	0/0	0	0	0/16/54	0/1
+temperate	civic/chapel	WARN	6/8	1/1	job_site 1/1, seat 2/2, altar 1/1, door 1/1	1/1	30/30	0	2/73	4	0	0/16/157	0/1
+temperate	civic/town_hall	WARN	7/10	2/2	storage 2/2, notice_board 1/1, meeting_point 1/1, seat 3/3, table 1/1, hearth 1/1, lectern 1/1, door 1/1	1/2	32/32	0	6/109	2	0	0/21/297	0/1
+temperate	civic/library	PASS	3/3	1/1	job_site 2/2, storage 1/1, seat 8/8, table 4/4, lectern 2/2, door 1/1, viewpoint 1/1	3/3	7/7	0	0/4	0	0	0/4/96	0/1
+temperate	commerce/market_hall	FAIL	1/4	2/2	job_site 4/4, storage 0/2, market_stall 4/4, counter 4/4, meeting_point 1/2, seat 0/4, table 0/1, hearth 0/1, door 2/2, viewpoint 0/1	8/10	9/9	0	0/0	0	0	0/12/101	2/2
+temperate	house/manor	FAIL	17/18	2/2	bed 6/6, storage 8/8, seat 6/7, table 6/6, hearth 2/2, door 1/1, gate 1/1, viewpoint 1/2	11/14	33/33	0	0/4	2	0	0/7/280	0/10
+temperate	noble/keep	FAIL	11/15	1/1	bed 3/3, job_site 4/4, storage 5/5, meeting_point 2/2, seat 2/2, table 4/4, hearth 1/1, altar 1/1, lectern 1/1, door 1/1, guard_post 5/6, gate 1/1, viewpoint 1/1, hitching_post 1/1, throne 1/1, strongbox 1/1	7/12	25/25	0	1/11	6	0	0/84/572	0/2
+temperate	extract/mine	WARN	1/1	1/1	job_site 1/1, storage 2/2, work_face 6/6	3/7	8/8	0	0/0	0	0	0/0/45	0/0
+mediterranean	house/cottage	PASS	2/2	1/1	bed 2/2, storage 1/1, table 1/1, door 1/1	3/3	5/5	0	0/0	1	0	0/0/38	0/1
+mediterranean	house/farmhouse	FAIL	4/7	3/3	bed 2/2, job_site 3/3, storage 1/1, seat 4/4, table 2/2, hearth 1/1, door 2/2, gate 1/1, work_face 2/2	7/8	12/12	0	0/4	0	0	0/0/116	0/1
+mediterranean	house/townhouse	PASS	4/4	1/1	bed 4/4, job_site 2/2, storage 2/2, table 2/2, door 1/1	8/8	14/14	0	0/9	0	0	0/0/59	0/1
+mediterranean	house/tenement	FAIL	7/9	1/1	bed 12/12, storage 6/6, table 5/5, hearth 1/1, door 1/1, viewpoint 0/3	13/18	33/33	0	0/16	0	0	0/1/187	0/11
+mediterranean	house/merchant_house	FAIL	6/6	1/1	bed 5/5, job_site 1/1, storage 7/7, market_stall 1/1, counter 1/1, seat 1/1, table 4/4, hearth 1/1, door 1/1, strongbox 1/1	11/14	26/26	0	0/13	2	0	0/1/167	0/1
+mediterranean	commerce/inn	WARN	8/12	1/1	bed 7/7, job_site 1/1, storage 3/3, market_stall 1/1, counter 1/1, seat 6/6, table 6/6, hearth 1/1, door 1/1, viewpoint 0/1	12/12	22/22	0	0/9	1	0	0/5/166	0/6
+mediterranean	commerce/tavern	FAIL	3/3	1/1	job_site 1/2, storage 1/1, market_stall 1/1, counter 1/1, seat 4/4, table 1/1, hearth 1/1, door 1/1, gaming_table 1/1, stage 1/1	3/4	7/7	0	0/4	0	0	0/0/75	0/1
+mediterranean	work/smithy	PASS	1/2	1/1	job_site 5/5, storage 2/2, seat 1/1, door 1/1	7/7	8/8	0	0/0	0	0	0/1/45	0/0
+mediterranean	work/bakery	WARN	2/3	3/3	job_site 3/3, storage 1/1, counter 1/1, seat 1/1, table 1/1, door 2/2	5/5	7/7	0	0/0	2	0	0/3/28	0/2
+mediterranean	work/windmill	FAIL	3/6	2/2	job_site 2/2, storage 1/1, door 1/1	3/3	6/6	0	0/0	0	0	0/22/61	0/1
+mediterranean	civic/chapel	WARN	3/4	1/1	job_site 1/1, seat 4/4, altar 1/1, door 1/1	1/1	4/4	0	0/0	3	0	0/10/61	0/1
+mediterranean	civic/town_hall	WARN	9/13	2/2	storage 2/2, notice_board 1/1, meeting_point 1/1, seat 7/7, table 1/1, hearth 1/1, lectern 1/1, door 1/1, viewpoint 1/2	1/2	12/12	0	0/5	7	0	0/5/208	0/2
+mediterranean	civic/library	WARN	2/3	1/1	job_site 2/2, storage 1/1, seat 4/4, table 2/2, lectern 2/2, door 1/1, viewpoint 1/1	3/3	6/6	0	0/4	1	0	0/0/96	0/1
+mediterranean	commerce/market_hall	FAIL	1/6	2/2	job_site 6/6, storage 0/2, market_stall 6/6, counter 6/6, meeting_point 1/2, seat 0/10, table 0/1, hearth 0/1, door 2/2, viewpoint 0/1	12/14	13/13	0	0/0	0	0	0/20/180	1/1
+mediterranean	house/manor	WARN	13/15	2/2	bed 4/4, storage 7/7, seat 5/5, table 7/7, hearth 1/1, lectern 1/1, door 1/1, gate 1/1, viewpoint 1/1	10/11	26/26	0	0/5	0	0	0/24/255	0/7
+mediterranean	noble/keep	FAIL	5/6	1/1	job_site 4/4, storage 3/3, meeting_point 2/2, seat 1/1, table 4/4, altar 1/1, lectern 1/1, guard_post 4/5, gate 1/1, viewpoint 1/1, hitching_post 1/1, throne 1/1, strongbox 1/1	5/7	13/13	0	0/5	2	0	0/55/382	0/1
+mediterranean	extract/mine	WARN	1/1	1/1	job_site 1/1, storage 2/2, work_face 6/6	3/7	8/8	0	0/0	0	0	0/0/58	0/0
+northern	house/cottage	WARN	1/1	1/1	bed 2/2, storage 1/1, seat 1/1, table 2/2, hearth 1/1, door 1/1	3/3	4/4	0	2/2	0	0	0/2/52	0/1
+northern	house/farmhouse	FAIL	5/7	3/3	bed 2/2, job_site 3/3, storage 3/3, seat 2/2, table 2/2, hearth 1/1, door 2/2, gate 1/1, work_face 2/2	6/10	16/16	0	0/4	1	0	0/0/139	0/1
+northern	house/townhouse	PASS	3/3	1/1	bed 2/2, storage 2/2, seat 1/1, table 2/2, hearth 1/1, door 1/1	4/4	9/9	0	0/8	0	0	0/0/64	0/1
+northern	house/tenement	FAIL	5/7	1/1	bed 11/11, storage 8/8, seat 4/4, table 6/6, hearth 1/1, door 1/1, viewpoint 0/2	11/19	30/30	0	0/12	0	0	0/4/224	0/8
+northern	house/merchant_house	FAIL	6/6	1/1	bed 5/5, job_site 1/1, storage 9/9, market_stall 1/1, counter 1/1, seat 3/3, table 4/4, hearth 1/1, door 1/1, strongbox 1/1	7/16	28/28	0	0/12	1	0	0/4/206	0/1
+northern	commerce/inn	PASS	8/8	1/1	bed 3/3, job_site 1/1, storage 3/3, market_stall 1/1, counter 1/1, seat 3/3, table 4/4, hearth 1/1, door 1/1	8/8	17/17	0	0/5	3	0	0/8/139	0/4
+northern	commerce/tavern	PASS	4/7	1/1	job_site 1/1, storage 1/1, market_stall 1/1, counter 1/1, seat 8/8, table 1/1, hearth 1/1, door 1/1, gaming_table 1/1	3/3	8/8	0	0/4	0	0	0/1/80	0/1
+northern	work/smithy	PASS	1/1	1/1	job_site 3/3, storage 2/2, seat 1/1, door 1/1	5/5	5/5	0	0/0	0	0	0/1/46	0/0
+northern	work/bakery	FAIL	2/4	2/2	job_site 2/2, storage 1/1, counter 1/1, table 1/1, door 1/1	4/4	6/6	0	0/0	0	0	0/2/23	0/1
+northern	work/windmill	WARN	4/11	2/2	job_site 2/2, storage 1/1, door 1/1	3/3	7/7	0	0/0	0	0	0/14/50	0/1
+northern	civic/chapel	PASS	7/7	1/1	job_site 1/1, seat 2/2, altar 1/1, door 1/1	1/1	8/8	0	0/0	1	0	0/24/95	0/1
+northern	civic/town_hall	FAIL	9/11	2/2	storage 2/2, notice_board 1/1, meeting_point 1/1, seat 11/11, table 1/1, hearth 1/1, lectern 1/1, door 1/1, viewpoint 1/3	2/2	12/12	0	0/5	6	0	0/4/263	0/2
+northern	civic/library	PASS	2/2	1/1	job_site 2/2, storage 1/1, seat 8/8, table 4/4, lectern 2/2, door 1/1, viewpoint 1/1	3/3	6/6	0	0/4	1	0	0/0/83	0/1
+northern	commerce/market_hall	FAIL	4/8	2/2	job_site 8/8, storage 0/2, market_stall 8/8, counter 8/8, meeting_point 1/2, seat 0/12, table 0/1, hearth 0/1, door 2/2	16/18	20/20	0	0/0	1	0	0/17/211	1/1
+northern	house/manor	PASS	10/10	2/2	bed 3/3, storage 4/4, seat 3/3, table 3/3, hearth 2/2, lectern 1/1, door 1/1, gate 1/1, viewpoint 2/2	7/7	19/19	0	0/4	0	11	0/16/195	0/6
+northern	noble/keep	FAIL	8/13	1/1	bed 3/3, job_site 4/4, storage 4/4, meeting_point 2/2, seat 4/4, table 4/4, hearth 1/1, altar 1/1, lectern 1/1, door 1/1, guard_post 3/6, gate 1/1, viewpoint 1/1, throne 1/1, strongbox 1/1	5/11	21/21	0	0/10	4	0	0/30/509	0/2
+northern	extract/mine	FAIL	0/1	1/1	job_site 1/1, storage 2/2, work_face 0/4	3/7	5/5	0	0/4	0	0	0/0/0	0/0
+desert	house/cottage	PASS	1/2	1/1	bed 2/2, storage 1/1, seat 0/1, table 1/1, door 1/1, viewpoint 0/1	3/3	4/4	0	0/0	0	0	0/0/24	0/1
+desert	house/farmhouse	PASS	3/4	4/4	bed 2/2, storage 2/2, seat 0/1, table 1/1, hearth 1/1, door 3/3, gate 1/1, viewpoint 0/1	4/4	8/8	0	0/4	0	0	0/5/91	0/3
+desert	house/townhouse	FAIL	6/7	1/1	bed 3/3, job_site 2/2, storage 3/3, table 2/2, door 1/1	8/8	17/17	0	0/13	1	0	0/0/73	0/2
+desert	house/tenement	FAIL	6/6	1/1	bed 9/9, storage 7/7, table 6/6, door 1/1, viewpoint 2/4	13/16	30/30	0	0/16	0	0	0/2/195	1/13
+desert	house/merchant_house	FAIL	8/8	1/1	bed 5/5, job_site 1/1, storage 10/10, market_stall 1/1, counter 1/1, seat 3/3, table 4/4, hearth 1/1, door 1/1, strongbox 1/1	13/17	31/31	0	0/13	4	0	0/0/183	0/1
+desert	commerce/inn	PASS	5/7	1/1	bed 4/4, job_site 1/1, storage 3/3, market_stall 1/1, counter 1/1, seat 3/4, table 3/3, hearth 1/1, door 1/1, viewpoint 0/2	9/9	15/15	0	0/5	2	0	0/4/107	0/4
+desert	commerce/tavern	PASS	5/6	1/1	job_site 2/2, storage 1/1, market_stall 1/1, counter 1/1, seat 18/19, table 3/3, hearth 1/1, door 1/1, viewpoint 0/1, gaming_table 1/1, stage 1/1	4/4	10/10	0	0/4	0	0	0/10/85	0/1
+desert	work/smithy	WARN	1/3	1/1	job_site 4/4, storage 2/2, door 1/1	6/6	7/7	0	0/0	0	0	0/0/36	0/0
+desert	work/bakery	FAIL	1/2	3/3	job_site 3/3, storage 1/1, counter 1/1, seat 1/1, table 1/1, door 2/2	5/5	6/6	0	0/0	0	0	0/0/18	1/3
+desert	work/windmill	FAIL	3/6	2/2	job_site 2/2, storage 1/1, door 1/1	3/3	6/6	0	0/0	0	0	0/13/60	0/1
+desert	civic/chapel	PASS	1/1	2/2	job_site 1/1, seat 10/10, altar 1/1, door 1/1	1/1	2/2	0	0/0	0	0	0/2/79	0/1
+desert	civic/town_hall	WARN	4/8	2/2	storage 2/2, notice_board 1/1, meeting_point 1/1, seat 12/13, table 1/1, lectern 1/1, door 1/1, viewpoint 1/3	1/2	7/7	0	0/5	2	0	0/0/172	0/2
+desert	civic/library	WARN	2/3	1/1	job_site 2/2, storage 1/1, seat 8/8, table 4/4, lectern 2/2, door 1/1, viewpoint 1/1	3/3	6/6	0	0/4	1	0	0/0/88	0/1
+desert	commerce/market_hall	FAIL	1/3	2/2	job_site 4/4, storage 0/2, market_stall 4/4, counter 4/4, meeting_point 1/2, seat 0/4, table 0/1, hearth 0/1, door 2/2, viewpoint 0/1	8/10	9/9	0	0/0	0	0	0/20/120	1/1
+desert	house/manor	FAIL	13/14	2/2	bed 8/8, storage 7/7, meeting_point 1/1, seat 11/12, table 11/11, hearth 1/1, lectern 1/1, door 1/1, gate 1/1, viewpoint 1/2	8/15	30/30	0	0/5	2	0	0/6/295	0/11
+desert	noble/keep	FAIL	4/4	1/1	job_site 4/4, storage 2/2, meeting_point 1/1, seat 1/1, table 4/4, altar 1/1, lectern 1/1, guard_post 4/4, gate 1/1, viewpoint 1/1, throne 1/1, strongbox 1/1	4/6	11/11	0	0/5	2	0	0/40/334	0/1
+desert	extract/mine	WARN	1/1	1/1	job_site 1/1, storage 2/2, work_face 10/10	3/7	8/8	0	0/0	0	0	0/0/74	0/0
+temperate (grown Bradfield)	work/builders_yard	WARN	2/3	2/2	job_site 5/5, storage 4/4, lectern 1/1, door 1/1, gate 1/1	8/9	11/11	0	0/0	1	0	0/0/67	0/1
+temperate (grown Bradfield)	house/croft	FAIL	4/5	2/2	bed 3/3, seat 3/3, table 1/1, hearth 1/1, door 1/1	3/3	7/7	0	0/0	2	0	0/1/69	1/4
+temperate (grown Bradfield)	storage/storehouse	WARN	2/3	2/2	storage 5/5, door 1/1	5/5	7/7	0	0/0	1	0	0/0/28	0/2
+temperate (grown Bradfield)	work/fishery	WARN	1/2	3/3	job_site 2/2, storage 3/3, hearth 1/1, door 2/2	5/5	6/6	0	0/0	0	0	0/0/29	0/2
+temperate (grown Bradfield)	work/carpentry	PASS	4/5	3/3	job_site 3/3, storage 5/5, door 2/2	8/8	12/12	0	0/0	2	0	0/0/57	0/3
+temperate (grown Bradfield)	commerce/market_stall	FAIL	1/1	1/1	job_site 1/1, market_stall 1/1, counter 1/1	0/2	3/3	0	0/0	0	0	0/0/6	0/0
+temperate (grown Bradfield)	work/smithy	PASS	1/3	1/1	job_site 4/4, storage 2/2, seat 1/1, door 1/1	6/6	6/6	0	0/0	0	0	0/3/55	0/0
+temperate (grown Bradfield)	work/logging_camp	PASS	2/2	2/2	bed 2/2, job_site 4/4, storage 1/1, table 1/1, door 1/1	7/7	9/9	0	0/0	0	0	0/1/38	0/1
+temperate (grown Bradfield)	work/sawmill	PASS	1/1	1/1	job_site 4/4, storage 1/1	5/5	6/6	0	0/0	0	0	0/22/51	0/0
+temperate (grown Bradfield)	work/barn	PASS	3/3	1/1	job_site 2/2, door 1/1, work_face 4/4	6/6	9/9	0	0/0	1	1	0/15/114	0/0
+temperate (grown Bradfield)	work/hunters_lodge	PASS	2/2	2/2	job_site 2/2, storage 1/1, seat 1/1, hearth 1/1, door 1/1	3/3	5/5	0	0/0	0	0	0/0/41	0/1
+temperate (grown Bradfield)	civic/shrine	PASS	0/0	1/1	altar 1/1, door 1/1	0/0	0/0	0	0/0	0	0	0/0/3	0/0
+temperate (grown Bradfield)	house/reeve_house	FAIL	6/6	1/1	bed 4/4, job_site 1/1, storage 5/5, notice_board 1/1, seat 2/2, table 4/4, hearth 1/1, door 1/1, viewpoint 1/1, strongbox 1/1	9/10	20/20	0	0/8	0	0	0/11/133	0/3
+temperate (grown Bradfield)	commerce/inn	WARN	6/7	1/1	bed 2/2, job_site 1/1, storage 1/1, market_stall 1/1, counter 1/1, seat 1/1, table 1/1, hearth 1/1, door 1/1	5/5	12/12	0	0/4	1	0	0/6/90	0/4
+temperate (grown Bradfield)	work/apiary	PASS	5/5	2/2	job_site 4/4, storage 2/2, door 1/1	6/6	11/11	0	0/0	3	0	0/2/32	0/1
+temperate (grown Bradfield)	work/bakery	FAIL	1/2	3/3	job_site 3/3, storage 1/1, seat 1/1, door 2/2	4/4	5/5	0	0/0	0	0	0/3/28	1/2

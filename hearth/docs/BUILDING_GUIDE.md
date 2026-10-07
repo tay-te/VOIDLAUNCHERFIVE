@@ -488,6 +488,70 @@ Every archetype, every culture, every seed:
   than special-casing a culture in Java where you can.
 - [ ] **Looked at.** Render it on flat, slope and steep in every culture, from both corners, with the storey cutaways,
   and in game with `/hearth build`.
+- [ ] **Audited.** The audit gate below passes for the archetypes you touched.
+
+### The audit gate
+
+`structureAudit` measures every case of an archetype: 14 cultures, 3 terrains (flat, slope, and its own), 2 seeds. It
+walks each case the way a player walks: 0.6 x 1.8, a one-block step, a drop of 3, ladders and doors, starting from the
+street. It also measures the facades. Run it on what you changed before you commit (it takes a heavy-JVM slot):
+
+```
+cd hearth
+JAVA_HOME=C:/Users/bitto/VOID/.tools/jdk-25 bash C:/Users/bitto/VOID/.tools/locks/slot.sh ./gradlew structureAudit -Pmode=metrics -Parchetype=house/croft,house/cottage -Pseeds=2
+```
+
+Read `build/audit/metrics.csv` (one row per case; `suits=1` are the cultures that build it; `where` gives the first
+location of each finding) and `build/audit/archetypes.csv` (per archetype: means and the worst case). Add
+`-Preach=<path>,<culture>,<seed>,<facing>,<level>` to print a case's walk map. Add `-Pmode=all` for the contact sheets
+and cutaways. Columns are explained in the run's `INDEX.md`. `docs/review/AUDIT.md` holds the October 2026 results and
+the systemic causes behind them.
+
+**Hard: 0 in every suited case.** A failure here is a broken building. Fix it before you commit.
+
+| column | must be | what it catches |
+|---|---|---|
+| `error`, `check_problems`, `floating`, `unsupported` | empty / 0 | the blueprint fails, or something floats |
+| `main_entrance_unreached`, `entrances_unreached` | 0 | the front door is not walkable from the street |
+| `unreached_furnished_cells` | 0 | a room with furniture, a POI or a door that nobody can walk to (player-reachable rooms 100 %) |
+| `unreached_levels` | 0 for storeys with furniture | a storey no stair or ladder reaches |
+| `blocked_doors`, `unreached_doors` | 0 | a door with a wall, post, rail, furniture or drop on one side; a door nobody reaches |
+| `bad_flights` | 0 | a flight that ends at a wall or ceiling, or a tread without two clear above |
+| `dead_ladders` | 0 | a ladder with nowhere to step off at the top |
+| `beds_no_free_side` | 0 | a bed nobody can get into |
+| `workstations_unusable`, `chest_lids_blocked` | 0 | a job block, chest or barrel with no reachable face; a chest under a solid block |
+| `dark_room_cells` (and `light_min_room` >= 8) | 0 | room floor under light 8 |
+| `fall_edge_cells` | 0 | a walked cell beside an unguarded drop of 4+ (rail, parapet or sill it). Allowed only where the family page says the edge is the point: quarry faces, quay edges, the town side of a wall walk |
+| `lava`, `water_roofed` | 0 unless the page says so | stray fluids |
+
+**Soft: targets per archetype (means over suited cases).** Missing one is a reason to look again at the sheet, not
+an automatic fail. Each line names the habit it guards against.
+
+| column | target | habit |
+|---|---|---|
+| `unreached_room_cells` - `unreached_furnished_cells` | <= 8 per case | sealed attics: open them to the room below, give them a ladder, or `Voids.seal` them |
+| `rooms_no3x3`, `cramped_rooms`, `purposeless_rooms` | 0 | rooms that are corridors, furniture wall to wall, rooms with no use |
+| `empty_room_ratio` | 0 | bare rooms |
+| `furniture_per_cell` | >= 0.25 | sparse interiors |
+| `tight_headroom_share` | <= 0.35 | 3-high storeys with heads at the ceiling; build 4 high |
+| `roof_hole_cells` | 0 (or a smoke hole, light well or patio the page names) | gaps where roofs meet |
+| `relief_share` | >= 0.10, no case under 0.06 | flat facades: posts, sills, plinths, frames, shutters every three blocks |
+| `flat_patch_max` | <= 24 (party walls in a row excepted; never over 60) | large blank walls |
+| `blind_sides` | <= 1 (party walls excepted) | windowless sides |
+| `dominant_share` | <= 0.8, `facade_blocks` >= 2 | one-material walls |
+| `overhang_mean` | >= 0.25 on pitched roofs | roofs flush with the wall |
+| `roof_complexity` | >= 3 for roofed buildings | single-plane boxes |
+| `mirror_sym` | <= 0.95 (towers, temples and churches may be symmetric) | stamped symmetry |
+| `repeat_cols` | <= 0.75 | copied bays |
+| `culture_likes` | <= 4 for buildings (yards, posts and street furniture excepted) | one plan reskinned (as `cultureSimilarity`'s flag) |
+| `play_score`, `detail_score` | play mean >= 90 and worst case >= 75; detail mean >= 75 | the reviewer's summary |
+
+**In game.** For a building with upper storeys, beds or job sites, also run the walkthrough tour on it (`-Dhearth.tour=walk`,
+`gametest/walk/`). It must show every path walked by the real player and **the folk's pathfinder reaching every bed and
+job site**: the static walk climbs things the folk cannot (a flight that turns without a landing, a ladder and hatch).
+Known quirks of the metrics: tropical and karst lattice openings count as no window; round plans score no facade;
+decorative cauldrons (a well's bucket) count as workstations; BlueprintChecks' own walker still stands on pots and
+candles (`AUDIT.md` S3), so the audit is the stricter of the two.
 
 ## 9. Previews
 
