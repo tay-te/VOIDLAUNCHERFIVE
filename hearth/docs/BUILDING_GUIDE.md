@@ -565,7 +565,9 @@ JAVA_HOME=C:/Users/bitto/VOID/.tools/jdk-25 ./gradlew blueprintPreview -Parchety
 - `terrain`: `flat`, `slope`, `hills`, `river`, `coast`, `steep` (comma list or `all`), optionally followed by params
   after semicolons, passed to the spec: `-Pterrain="steep;frontage=9;depth=11;roof=hip;outshot=true"`.
   Preview-only keys: `seed=` (first seed), `facing=` (south, east, north, west; else the facing turns per seed),
-  `frontage=`, `depth=`, `tier=`, `variant=`.
+  `frontage=`, `depth=`, `tier=`, `variant=`, `stage=` (a stage kind: the site as built through the last stage of that
+  kind, the next one waiting, as the sim leaves a plot stalled on goods: `-Pterrain="flat;stage=floors"`; the output
+  names get `_<stage>`).
 - Output in `build/previews/`: `sheet_<archetype>_<terrain>.png` (all styles × seeds, labelled with the variant) and
   per building `<archetype>/<culture>_s<n>_<terrain>.png` (views from two opposite corners, then a plan and a cutaway
   per storey) and `_front.png`.
