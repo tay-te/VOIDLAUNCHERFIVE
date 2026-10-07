@@ -5,25 +5,20 @@ import dev.voidmc.gloam.air.Noise;
 /**
  * Dawn and dusk: when the low sun gilds the land, when the afterglow and the blue hour follow it, and what colour the
  * band of sky round the sun is meanwhile. Vanilla keeps the band's strength (its alpha, which follows the sun) and
- * Gloam gives it the colours of a real evening: gold while the sun is still up, orange as it touches the horizon,
- * red and rose just after it sets, a dusky violet as the afterglow goes. Mornings run the same way backwards, a
- * little paler and pinker. Pure functions of the clock, so they are unit-tested and cost nothing.
+ * Gloam gives it the palette's colours in steps (docs/STYLE.md): gold while the sun is still up, orange as it touches
+ * the horizon, rose just after it sets, violet, then dusk blue as the afterglow goes. Mornings run the same way
+ * backwards. Pure functions of the clock, so they are unit-tested and cost nothing.
  *
  * <p>Times are the overworld clock's ticks within the day ({@code 0} sunrise, {@code 6000} noon, {@code 12000}
  * sunset, {@code 18000} midnight). Vanilla's sunset band is strongest at about 12800, just after the sun has gone.
  */
 public final class Twilight {
-	/** The colour of the band round the sun at the dusk times in {@link #KEYS}: gold, orange, red, rose, violet. */
-	private static final float[][] COLOURS = {
-		{1.00F, 0.80F, 0.46F},
-		{1.00F, 0.60F, 0.28F},
-		{0.97F, 0.43F, 0.21F},
-		{0.80F, 0.31F, 0.28F},
-		{0.44F, 0.24F, 0.34F},
-	};
-	private static final float[] KEYS = {11500, 12300, 12850, 13400, 14100};
-	/** What a morning leans to: the cooler, cleaner air at dawn gives peach and pink more than fire. */
-	private static final float[] DAWN = {1.00F, 0.72F, 0.68F};
+	/**
+	 * The band round the sun in the palette's steps (docs/STYLE.md), from the sun still up to the last of the afterglow,
+	 * and the dusk times each step begins at: no blending between them, the colour steps from one to the next.
+	 */
+	private static final org.joml.Vector3fc[] STEPS = {Palette.GOLD, Palette.ORANGE, Palette.ROSE, Palette.VIOLET, Palette.DUSK_BLUE};
+	private static final float[] FROM = {0, 12000, 12700, 13500, 14000};
 
 	private Twilight() {
 	}
@@ -73,37 +68,16 @@ public final class Twilight {
 	}
 
 	/**
-	 * The colour of the band of sky round the sun at {@code clock}, as RGB in 0..1. {@code vivid} (about 0.7..1.4)
-	 * says how fiery this particular evening is; every day has its own.
+	 * The colour of the band of sky round the sun at {@code clock}: the palette step for how far the sun has gone, gold
+	 * while it is up, then orange, rose, violet and dusk blue (and the same backwards in the morning).
 	 */
-	public static float[] colour(long clock, float vivid) {
+	public static org.joml.Vector3fc colour(long clock) {
 		float u = duskTime(clock);
-		float[] c;
-		if (u <= KEYS[0]) {
-			c = COLOURS[0].clone();
-		} else if (u >= KEYS[KEYS.length - 1]) {
-			c = COLOURS[COLOURS.length - 1].clone();
-		} else {
-			int i = 0;
-			while (u > KEYS[i + 1]) {
-				i++;
-			}
-			float t = (u - KEYS[i]) / (KEYS[i + 1] - KEYS[i]);
-			c = new float[3];
-			for (int k = 0; k < 3; k++) {
-				c[k] = COLOURS[i][k] + (COLOURS[i + 1][k] - COLOURS[i][k]) * t;
-			}
+		int i = 0;
+		while (i + 1 < FROM.length && u >= FROM[i + 1]) {
+			i++;
 		}
-		if (morning(clock)) {
-			for (int k = 0; k < 3; k++) {
-				c[k] += (DAWN[k] - c[k]) * 0.25F;
-			}
-		}
-		float grey = 0.2126F * c[0] + 0.7152F * c[1] + 0.0722F * c[2];
-		for (int k = 0; k < 3; k++) {
-			c[k] = Math.clamp(grey + (c[k] - grey) * vivid, 0.0F, 1.0F);
-		}
-		return c;
+		return STEPS[i];
 	}
 
 	/**

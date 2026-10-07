@@ -338,7 +338,11 @@ public class GloamShowcase implements FabricClientGameTest {
 		int[] ys = new int[3];
 		for (int i = 0; i < 3; i++) {
 			level.getChunk(at[i][0] >> 4, at[i][1] >> 4);
-			ys[i] = level.getHeight(Heightmap.Types.MOTION_BLOCKING, at[i][0], at[i][1]);
+			// over the treetops round about, so a valley in the woods still sees its range
+			for (int[] d : new int[][]{{0, 0}, {-10, 0}, {10, 0}, {0, -10}, {0, 10}}) {
+				level.getChunk((at[i][0] + d[0]) >> 4, (at[i][1] + d[1]) >> 4);
+				ys[i] = Math.max(ys[i], level.getHeight(Heightmap.Types.MOTION_BLOCKING, at[i][0] + d[0], at[i][1] + d[1]));
+			}
 		}
 		return new RangePlaces(best.peakX(), ys[0], best.peakZ(), best.valleyX(), ys[1], best.valleyZ(), best.flankX(), ys[2], best.flankZ());
 	}
