@@ -90,6 +90,7 @@ public final class Settle {
 				continue;
 			}
 			Direction f = s.getValue(DoorBlock.FACING);
+			threshold(d, p[0], p[1], p[2], f);
 			boolean ok = true;
 			for (Direction side : new Direction[]{f, f.getOpposite()}) {
 				int nx = p[0] + side.getStepX();
@@ -99,6 +100,11 @@ public final class Settle {
 					ok &= sideOk(d, nx, p[1], nz);
 				}
 			}
+			if (!ok && debug(d)) {
+				System.out.println("settle door " + p[0] + "/" + p[1] + "/" + p[2] + " " + f + " entrance=" + entrance(d, p[0], p[1], p[2])
+					+ " out=" + at(d, p[0] + f.getStepX(), p[1], p[2] + f.getStepZ()) + "/" + at(d, p[0] + f.getStepX(), p[1] - 1, p[2] + f.getStepZ())
+					+ " in=" + at(d, p[0] - f.getStepX(), p[1], p[2] - f.getStepZ()) + "/" + at(d, p[0] - f.getStepX(), p[1] - 1, p[2] - f.getStepZ()));
+			}
 			if (!ok && !entrance(d, p[0], p[1], p[2])) {
 				wallUp(d, p[0], p[1], p[2], f);
 				walled++;
@@ -107,10 +113,32 @@ public final class Settle {
 		return walled;
 	}
 
+	/**
+	 * A door hung over nothing (an inner wall's doorway over a slope's fall, where the floor boards stop at the wall): a
+	 * threshold under it, of the floor beside it.
+	 */
+	private static void threshold(Draft d, int x, int y, int z, Direction f) {
+		if (standable(at(d, x, y - 1, z)) || !d.allowed(x, y - 1, z)) {
+			return;
+		}
+		BlockState sill = null;
+		for (Direction side : new Direction[]{f, f.getOpposite()}) {
+			BlockState b = d.get(x + side.getStepX(), y - 1, z + side.getStepZ());
+			if (b != null && b.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
+				sill = b;
+				break;
+			}
+		}
+		BlockState fill = sill != null ? sill : d.mat(Role.FOUNDATION).block(Form.FULL, x, y - 1, z).defaultBlockState();
+		d.inStage(StageKind.FLOORS, () -> d.set(x, y - 1, z, fill));
+	}
+
 	/** Whether someone can stand on this side of a door: level, a step down, a stair or slab up, or another door. */
 	public static boolean sideOk(Draft d, int x, int y, int z) {
 		BlockState here = at(d, x, y, z);
-		return walkable(d, x, y, z) || walkable(d, x, y - 1, z) && passable(here) || step(here) && walkable(d, x, y + 1, z)
+		boolean stepUp = here.getBlock() instanceof StairBlock && here.getValue(StairBlock.HALF) == Half.BOTTOM
+			|| here.getBlock() instanceof SlabBlock && here.getValue(SlabBlock.TYPE) == SlabType.BOTTOM;
+		return walkable(d, x, y, z) || walkable(d, x, y - 1, z) && passable(here) || stepUp && walkable(d, x, y + 1, z)
 			|| here.getBlock() instanceof DoorBlock;
 	}
 
@@ -121,6 +149,15 @@ public final class Settle {
 
 	/** Takes away the small things dressing left at feet and head height in a door's way. */
 	private static void clear(Draft d, int x, int y, int z) {
+		// ground banked up against the door (a slope, a bed of soil): dug away to the door's sill
+		if (d.allowed(x, y, z) && dev.voidmc.hearth.build.kit.Garden.groundLike(d, x, y, z) && standable(at(d, x, y - 1, z))) {
+			d.inStage(StageKind.EARTHWORK, () -> {
+				d.set(x, y, z, Blocks.AIR.defaultBlockState());
+				if (d.allowed(x, y + 1, z) && dev.voidmc.hearth.build.kit.Garden.groundLike(d, x, y + 1, z)) {
+					d.set(x, y + 1, z, Blocks.AIR.defaultBlockState());
+				}
+			});
+		}
 		for (int yy = y; yy <= y + 1; yy++) {
 			BlockState s = d.get(x, yy, z);
 			if (s != null && dressing(s)) {

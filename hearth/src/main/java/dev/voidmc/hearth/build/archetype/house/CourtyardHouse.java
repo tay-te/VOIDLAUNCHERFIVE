@@ -32,6 +32,7 @@ import dev.voidmc.hearth.build.style.Habits.WallKind;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
@@ -83,11 +84,14 @@ public final class CourtyardHouse implements Archetype {
 		int maxH = d.maxHeight();
 		boolean flat = t.flat() || t.flatSome() && d.chance(0.35);
 		boolean eastern = t.eastern();
-		int wd = Math.min(w, dp) >= 13 ? 5 : 4;
+		// wings two rooms' depth (three on the widest plots), the court at least five across: on a narrow plot the right
+		// side has no wing, only the court wall (the stair climbs it), so the court is a court and not a light well
+		int wd = Math.min(w, dp) >= 15 ? 5 : 4;
 		int sh = Math.max(4, h.walls().storeyHeight());
+		boolean rightWing = w - 2 * wd >= 5;
 		// the court
 		int cx0 = wd;
-		int cx1 = w - 1 - wd;
+		int cx1 = rightWing ? w - 1 - wd : w - 2;
 		int cz0 = wd;
 		int cz1 = dp - 1 - wd;
 		// the back wing rises a storey where the height allows
@@ -97,7 +101,9 @@ public final class CourtyardHouse implements Archetype {
 		wings.add(new Wing(0, 0, w - 1, wd - 1, Dirs.FRONT));
 		wings.add(new Wing(0, cz1 + 1, w - 1, dp - 1, Dirs.BACK));
 		wings.add(new Wing(0, wd, wd - 1, cz1, Dirs.LEFT));
-		wings.add(new Wing(cx1 + 1, wd, w - 1, cz1, Dirs.RIGHT));
+		if (rightWing) {
+			wings.add(new Wing(cx1 + 1, wd, w - 1, cz1, Dirs.RIGHT));
+		}
 		d.body(0, 0, w - 1, dp - 1);
 		d.eave(sh - 1);
 
@@ -135,14 +141,14 @@ public final class CourtyardHouse implements Archetype {
 		// openings: the gate, doors and windows onto the court, few and small to the street
 		gateway(d, w, gate, t);
 		boolean stair = (flat || upper) && cz1 - cz0 + 1 >= sh + 1;
-		courtOpenings(d, cx0, cz0, cx1, cz1, gate, inner, t, eastern, stair);
+		courtOpenings(d, cx0, cz0, cx1, cz1, gate, inner, t, eastern, stair, rightWing);
 		outerWindows(d, w, dp, t, gate);
 		if (upper) {
 			upperOpenings(d, wings.get(1), sh, t);
 		}
 
 		// rooms divided off round the ring, the vestibule inside the gate
-		partitions(d, w, dp, wd, cx0, cz0, cx1, cz1, gate, inner, sh);
+		partitions(d, w, dp, wd, cx0, cz0, cx1, cz1, gate, inner, sh, rightWing);
 
 		// roofs
 		Roofs.Roof roof = null;
@@ -150,11 +156,11 @@ public final class CourtyardHouse implements Archetype {
 		if (flat) {
 			deck = flatRoofs(d, w, dp, cx0, cz0, cx1, cz1, top, upper ? wings.get(1) : null, sh, t);
 		} else {
-			roof = ringRoof(d, w, dp, cx0, cz0, cx1, cz1, upper ? top + sh : top, eastern, upper ? wings.get(1) : null, top);
+			roof = ringRoof(d, w, dp, cx0, cz0, cx1, cz1, upper ? top + sh : top, eastern, upper ? wings.get(1) : null, top, rightWing);
 		}
 
 		// the court: paving, a fountain or a tree, an arcade on one side, pots, a bench
-		court(d, cx0, cz0, cx1, cz1, gate, inner, t, eastern, flat);
+		court(d, cx0, cz0, cx1, cz1, inner, t, eastern, stair ? sh : 0);
 
 		// the way up: a stair along a court wall to the roof terraces or the upper storey
 		if (stair) {
@@ -165,7 +171,7 @@ public final class CourtyardHouse implements Archetype {
 		}
 
 		// furnishing
-		rooms(d, w, dp, wd, cx0, cz0, cx1, cz1, gate, inner, sh, upper, roof);
+		rooms(d, w, dp, wd, cx0, cz0, cx1, cz1, gate, inner, sh, upper, roof, rightWing);
 		// the kitchen's chimney over the hearth in the front corner
 		if (roof != null && roof.covers(1, 1) && roof.surfaceY(1, 1) + 3 < maxH) {
 			// as high as the wing's own ridge, not the whole house's (the corner sits under the low front wing)
@@ -299,7 +305,8 @@ public final class CourtyardHouse implements Archetype {
 	 * Doors from the court into each wing (the front one is the vestibule's inner door; the right wing's sits at the
 	 * court's front end, clear of the stair up its wall), windows between them onto the court.
 	 */
-	private static void courtOpenings(Draft d, int cx0, int cz0, int cx1, int cz1, int gate, int inner, Traits t, boolean eastern, boolean stair) {
+	private static void courtOpenings(Draft d, int cx0, int cz0, int cx1, int cz1, int gate, int inner, Traits t, boolean eastern, boolean stair,
+		boolean rightWing) {
 		Habits.Windows hw = d.habits().windows();
 		boolean arched = d.chance(hw.arched());
 		int mx = (cx0 + cx1) / 2;
@@ -308,7 +315,9 @@ public final class CourtyardHouse implements Archetype {
 		Partitions.door(d, inner, 0, cz0 - 1, Dirs.BACK);
 		Partitions.door(d, mx, 0, cz1 + 1, Dirs.BACK);
 		Partitions.door(d, cx0 - 1, 0, mz, Dirs.LEFT);
-		Partitions.door(d, cx1 + 1, 0, rightDoor, Dirs.RIGHT);
+		if (rightWing) {
+			Partitions.door(d, cx1 + 1, 0, rightDoor, Dirs.RIGHT);
+		}
 		for (Side s : Side.of(cx0 - 1, cz0 - 1, cx1 + 1, cz1 + 1)) {
 			for (int i = 1; i < s.length() - 1; i++) {
 				int x = s.x(i);
@@ -373,7 +382,8 @@ public final class CourtyardHouse implements Archetype {
 	}
 
 	/** Walls between the rooms of the ring: at the corners (the corner rooms join the side wings), round the vestibule. */
-	private static void partitions(Draft d, int w, int dp, int wd, int cx0, int cz0, int cx1, int cz1, int gate, int inner, int sh) {
+	private static void partitions(Draft d, int w, int dp, int wd, int cx0, int cz0, int cx1, int cz1, int gate, int inner, int sh,
+		boolean rightWing) {
 		int h = sh - 1;
 		// the front wing: the vestibule between walls either side of the gate (and the inner door, if bent)
 		int va = Math.min(gate, inner) - 1;
@@ -382,10 +392,14 @@ public final class CourtyardHouse implements Archetype {
 		Partitions.alongZ(d, vb, 1, wd - 2, 0, h, Integer.MIN_VALUE, Dirs.RIGHT);
 		// the front rooms either side open off the side wings at the corners: walls across where the wings meet
 		Partitions.alongX(d, wd - 1, 1, cx0 - 2, 0, h, Integer.MIN_VALUE, Dirs.BACK);
-		Partitions.alongX(d, wd - 1, cx1 + 2, w - 2, 0, h, Integer.MIN_VALUE, Dirs.BACK);
+		if (rightWing) {
+			Partitions.alongX(d, wd - 1, cx1 + 2, w - 2, 0, h, Integer.MIN_VALUE, Dirs.BACK);
+		}
 		// the back wing apart from the side wings
 		Partitions.alongX(d, cz1 + 1, 1, cx0 - 2, 0, h, Integer.MIN_VALUE, Dirs.BACK);
-		Partitions.alongX(d, cz1 + 1, cx1 + 2, w - 2, 0, h, Integer.MIN_VALUE, Dirs.BACK);
+		if (rightWing) {
+			Partitions.alongX(d, cz1 + 1, cx1 + 2, w - 2, 0, h, Integer.MIN_VALUE, Dirs.BACK);
+		}
 		// doors from the front corner rooms into the side wings, so they are reached through them
 		Partitions.door(d, 2, 0, wd - 1, Dirs.FRONT);
 		Partitions.door(d, w - 3, 0, wd - 1, Dirs.FRONT);
@@ -454,7 +468,8 @@ public final class CourtyardHouse implements Archetype {
 	 * cloister roof), its valleys at the court's corners; curved with lifted outer corners in the karst; the upper wing
 	 * roofed on its own over the ring's roof.
 	 */
-	private static Roofs.Roof ringRoof(Draft d, int w, int dp, int cx0, int cz0, int cx1, int cz1, int plate, boolean eastern, Wing upper, int top) {
+	private static Roofs.Roof ringRoof(Draft d, int w, int dp, int cx0, int cz0, int cx1, int cz1, int plate, boolean eastern, Wing upper, int top,
+		boolean rightWing) {
 		Roofs.Opts o = Roofs.Opts.of(d);
 		double pitch = Math.min(o.pitch(), eastern ? 0.75 : 0.75);
 		int eaves = Math.min(1, o.eaves());
@@ -466,7 +481,8 @@ public final class CourtyardHouse implements Archetype {
 		// eaves over the court by one
 		int ix0 = cx0 + 1;
 		int iz0 = cz0 + 1;
-		int ix1 = cx1 - 1;
+		// (no eaves over the stair along the court wall where the right side has no wing)
+		int ix1 = rightWing ? cx1 - 1 : cx1;
 		int iz1 = cz1 - 1;
 		Roofs.Field ring = (x, z) -> {
 			if (x < ox0 || x > ox1 || z < oz0 || z > oz1) {
@@ -521,10 +537,14 @@ public final class CourtyardHouse implements Archetype {
 	// ------------------------------------------------------------------------------------------------- the court
 
 	/**
-	 * The court: paved, a fountain in the middle (a tree in the karst, a well or a tree where it is small), an arcade
-	 * along the back where the court is deep enough, pots round its edge, a bench.
+	 * The court: paved, a fountain in the middle where it is five across (a wall fountain on a smaller one; a flowering
+	 * tree in the karst), an arcade along the back where the court is deep enough, pots round its edge, a bench. The ways
+	 * across it from the vestibule's door to every other door into the court are kept first, and nothing stands on them:
+	 * a court is crossed every day.
+	 *
+	 * @param stairRise the rise of the stair that will climb the right court wall (0 if none): its column is kept clear
 	 */
-	private static void court(Draft d, int cx0, int cz0, int cx1, int cz1, int gate, int inner, Traits t, boolean eastern, boolean flat) {
+	private static void court(Draft d, int cx0, int cz0, int cx1, int cz1, int inner, Traits t, boolean eastern, int stairRise) {
 		Mat paving = d.mat(Role.PAVING);
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int z = cz0; z <= cz1; z++) {
@@ -537,45 +557,183 @@ public final class CourtyardHouse implements Archetype {
 		int mz = (cz0 + cz1) / 2;
 		int cw = cx1 - cx0 + 1;
 		int cd = cz1 - cz0 + 1;
+		boolean big = cw >= 5 && cd >= 5;
+		// what will stand in the court for good: the stair's column, the fountain or the tree, the arcade's piers
+		Set<Long> fixed = new HashSet<>();
+		if (stairRise > 0) {
+			for (int z = cz1 - stairRise; z <= cz1; z++) {
+				fixed.add(Draft.key(cx1, 0, z));
+			}
+		}
 		if (eastern) {
-			// a flowering tree in a raised bed, a spirit wall behind the gate
-			Garden.tree(d, mx, 0, mz, 3);
-			int sx = inner;
-			int sz = cz0;
-			if (d.isEmpty(sx, 0, sz + 1) && cd >= 4) {
-				Mat accent = d.mat(Role.WALL_ACCENT);
-				try (var s = d.stage(StageKind.EXTERIOR)) {
-					for (int x = sx - 1; x <= sx + 1; x++) {
-						if (x >= cx0 && x <= cx1 && x != sx) {
-							d.set(x, 0, sz + 1, accent.full());
-							d.set(x, 1, sz + 1, d.mat(Role.ROOF).slab(SlabType.BOTTOM));
-						}
-					}
+			if (big) {
+				// a flowering tree in the middle, its crown above head height
+				Garden.tree(d, mx, 0, mz, 4);
+				fixed.add(Draft.key(mx, 0, mz));
+			}
+		} else if (big) {
+			fountain(d, mx, mz, cw, cd);
+			for (int dz = -1; dz <= 1; dz++) {
+				for (int dx = -1; dx <= 1; dx++) {
+					fixed.add(Draft.key(mx + dx, 0, mz + dz));
 				}
 			}
-		} else if (cw >= 3 && cd >= 3) {
-			fountain(d, mx, mz, cw, cd);
 		}
-		d.poi(PoiType.MEETING_POINT, mx, 0, Math.min(cz1, mz + 2), Dirs.BACK);
-		// an arcade (portico) along the back of the court on piers, its lean-to roof from the back wing
-		if (cd >= 5 && !eastern) {
+		boolean arcade = cd >= 5 && !eastern;
+		if (arcade) {
+			for (int x = cx0; x <= cx1; x += 2) {
+				fixed.add(Draft.key(x, 0, cz1 - 1));
+			}
+			if ((cx1 - cx0) % 2 != 0) {
+				fixed.add(Draft.key(cx1, 0, cz1 - 1));
+			}
+		}
+		// the doors into the court, the cell before each, and the ways between them (from the vestibule's inner door)
+		List<int[]> doors = courtDoors(d, cx0, cz0, cx1, cz1);
+		Set<Long> way = new HashSet<>();
+		int[] from = new int[]{inner, cz0};
+		for (int[] to : doors) {
+			way.addAll(path(from, to, cx0, cz0, cx1, cz1, fixed));
+		}
+		for (int[] c : doors) {
+			way.add(Draft.key(c[0], 0, c[1]));
+		}
+		if (arcade) {
 			portico(d, cx0, cx1, cz1, t);
 		}
-		// pots and planters round the edge (not before the doors)
+		if (eastern && cd >= 5) {
+			// a spirit wall inside the vestibule's door, where it closes no way
+			Mat accent = d.mat(Role.WALL_ACCENT);
+			int sz = cz0 + 1;
+			Set<Long> screen = new HashSet<>();
+			for (int x = inner - 1; x <= inner + 1; x++) {
+				if (x >= cx0 && x <= cx1 && x != inner) {
+					screen.add(Draft.key(x, 0, sz));
+				}
+			}
+			Set<Long> both = new HashSet<>(fixed);
+			both.addAll(screen);
+			boolean clear = true;
+			for (long k : screen) {
+				clear &= !way.contains(k);
+			}
+			for (int[] to : doors) {
+				clear &= !path(from, to, cx0, cz0, cx1, cz1, both).isEmpty();
+			}
+			if (clear) {
+				try (var s = d.stage(StageKind.EXTERIOR)) {
+					for (long k : screen) {
+						d.set(Draft.keyX(k), 0, Draft.keyZ(k), accent.full());
+						d.set(Draft.keyX(k), 1, Draft.keyZ(k), d.mat(Role.ROOF).slab(SlabType.BOTTOM));
+					}
+				}
+				fixed.addAll(screen);
+			}
+		}
+		// pots and planters round the edge, benches along the sides: never on a way, never before a door
 		for (int x = cx0; x <= cx1; x++) {
 			for (int z : new int[]{cz0, cz1}) {
-				if (d.isEmpty(x, 0, z) && d.isAbsent(x, 0, z) && Math.abs(x - mx) > 0 && (x + z) % 2 == 0 && !nextToDoor(d, x, z)) {
+				if (free(d, x, z, way, fixed) && (x + z) % 2 == 0) {
 					Garden.pot(d, x, 0, z);
+					fixed.add(Draft.key(x, 0, z));
 				}
 			}
 		}
 		for (int z = cz0 + 1; z < cz1; z++) {
 			for (int x : new int[]{cx0, cx1}) {
-				if (d.isAbsent(x, 0, z) && !nextToDoor(d, x, z) && (z % 3 == 0)) {
+				if (free(d, x, z, way, fixed) && z % 3 == 0) {
 					Furniture.chair(d, x, 0, z, x == cx0 ? Dirs.LEFT : Dirs.RIGHT);
+					fixed.add(Draft.key(x, 0, z));
 				}
 			}
 		}
+		if (!big && !eastern) {
+			// a wall fountain: a basin against the left court wall, a spout of the wall's trim over it
+			for (int z = cz1; z >= cz0; z--) {
+				if (free(d, cx0, z, way, fixed) && d.isSolid(cx0 - 1, 1, z)) {
+					Mat rim = d.mat(Role.WALL_ACCENT);
+					int fz = z;
+					d.inStage(StageKind.EXTERIOR, () -> {
+						d.set(cx0, 0, fz, Blocks.WATER_CAULDRON.defaultBlockState().setValue(net.minecraft.world.level.block.LayeredCauldronBlock.LEVEL, 3));
+						if (rim.has(Form.STAIRS)) {
+							d.set(cx0, 2, fz, rim.stairs(Dirs.RIGHT, Half.TOP));
+						}
+					});
+					break;
+				}
+			}
+		}
+		d.poi(PoiType.MEETING_POINT, mx, 0, Math.min(cz1, mz + (big ? 2 : 0)), Dirs.BACK);
+	}
+
+	/** Whether a court cell is free to dress: nothing there, not on a way, not before a door. */
+	private static boolean free(Draft d, int x, int z, Set<Long> way, Set<Long> fixed) {
+		long k = Draft.key(x, 0, z);
+		return d.isAbsent(x, 0, z) && !way.contains(k) && !fixed.contains(k) && !nextToDoor(d, x, z);
+	}
+
+	/** The court cell before every door in the court's walls (at the ground floor). */
+	private static List<int[]> courtDoors(Draft d, int cx0, int cz0, int cx1, int cz1) {
+		List<int[]> out = new ArrayList<>();
+		for (int x = cx0; x <= cx1; x++) {
+			if (isDoor(d, x, 0, cz0 - 1)) {
+				out.add(new int[]{x, cz0});
+			}
+			if (isDoor(d, x, 0, cz1 + 1)) {
+				out.add(new int[]{x, cz1});
+			}
+		}
+		for (int z = cz0; z <= cz1; z++) {
+			if (isDoor(d, cx0 - 1, 0, z)) {
+				out.add(new int[]{cx0, z});
+			}
+			if (isDoor(d, cx1 + 1, 0, z)) {
+				out.add(new int[]{cx1, z});
+			}
+		}
+		return out;
+	}
+
+	/** The cells of a shortest way across the court between two of its cells round what stands in it (empty if none). */
+	private static Set<Long> path(int[] a, int[] b, int cx0, int cz0, int cx1, int cz1, Set<Long> blocked) {
+		int cw = cx1 - cx0 + 1;
+		int cd = cz1 - cz0 + 1;
+		int start = (a[1] - cz0) * cw + (a[0] - cx0);
+		int goal = (b[1] - cz0) * cw + (b[0] - cx0);
+		if (a[0] < cx0 || a[0] > cx1 || b[0] < cx0 || b[0] > cx1 || start < 0 || start >= cw * cd || goal < 0 || goal >= cw * cd) {
+			return Set.of();
+		}
+		int[] prev = new int[cw * cd];
+		java.util.Arrays.fill(prev, -2);
+		java.util.ArrayDeque<Integer> q = new java.util.ArrayDeque<>();
+		prev[start] = -1;
+		q.add(start);
+		while (!q.isEmpty() && prev[goal] == -2) {
+			int i = q.poll();
+			int x = i % cw;
+			int z = i / cw;
+			for (int[] st : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+				int nx = x + st[0];
+				int nz = z + st[1];
+				if (nx < 0 || nz < 0 || nx >= cw || nz >= cd) {
+					continue;
+				}
+				int j = nz * cw + nx;
+				if (prev[j] != -2 || blocked.contains(Draft.key(nx + cx0, 0, nz + cz0)) && j != goal) {
+					continue;
+				}
+				prev[j] = i;
+				q.add(j);
+			}
+		}
+		if (prev[goal] == -2) {
+			return Set.of();
+		}
+		Set<Long> out = new HashSet<>();
+		for (int i = goal; i != -1; i = prev[i]) {
+			out.add(Draft.key(i % cw + cx0, 0, i / cw + cz0));
+		}
+		return out;
 	}
 
 	private static boolean nextToDoor(Draft d, int x, int z) {
@@ -692,7 +850,7 @@ public final class CourtyardHouse implements Archetype {
 	// ------------------------------------------------------------------------------------------------- rooms
 
 	private static void rooms(Draft d, int w, int dp, int wd, int cx0, int cz0, int cx1, int cz1, int gate, int inner, int sh, boolean upper,
-		Roofs.Roof roof) {
+		Roofs.Roof roof, boolean rightWing) {
 		int air = sh - 1;
 		int va = Math.min(gate, inner) - 1;
 		int vb = Math.max(gate, inner) + 1;
@@ -734,7 +892,7 @@ public final class CourtyardHouse implements Archetype {
 		if (hall != null) {
 			keepDoors(d, hall);
 			Rooms.furnish(d, hall, Rooms.Type.LIVING, 0, JobType.NONE);
-			Rooms.furnish(d, hall, Rooms.Type.BEDROOM, upper ? 0 : 1, JobType.NONE);
+			Rooms.furnish(d, hall, Rooms.Type.BEDROOM, upper ? 0 : rightWing ? 1 : 2, JobType.NONE);
 		}
 		if (upper) {
 			Rooms.Room up = new Rooms.Room(1, cz1 + 2, w - 2, dp - 2, sh, air);
