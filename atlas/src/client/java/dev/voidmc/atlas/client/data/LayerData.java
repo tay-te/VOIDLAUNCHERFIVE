@@ -192,6 +192,12 @@ public final class LayerData {
 		this.lastUse.put(key, System.nanoTime());
 	}
 
+	/** The raw region in memory, or read from disk without keeping it (a survey of wide land); null if there is none. */
+	public RegionRaw peekRaw(int rx, int rz) {
+		RegionRaw raw = this.raws.get(Coords.pack(rx, rz));
+		return raw != null ? raw : this.dimension.files.loadRaw(this.rawName(), rx, rz);
+	}
+
 	/** The raw region, loaded from disk or (with {@code create}) made empty; null if there is none and none is wanted. */
 	public RegionRaw raw(int rx, int rz, boolean create) {
 		long key = Coords.pack(rx, rz);

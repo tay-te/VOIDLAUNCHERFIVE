@@ -53,15 +53,22 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class FarSight {
 	public static final String LOD_MOD = "void_lod";
 	public static final String LAYER = "far";
-	/** The finest cell taken: the walked map is 1 block a column, so far sight only takes what is coarser. */
-	public static final int MIN_CELL = 2;
-	/** The coarsest cell taken: a 64-cell tile of 16-block cells covers 1,024 blocks a side (a million columns). */
+	/**
+	 * The finest cell taken: 1 block, the ring VOID LOD draws right past the loaded chunks (walked land is never written
+	 * over, so it only fills what the player has not walked).
+	 */
+	public static final int MIN_CELL = 1;
+	/**
+	 * The coarsest cell taken: 16 blocks (a 64-cell tile covers 1,024 blocks a side, a million columns). Far land is kept
+	 * a column a block like walked land, so VOID LOD's 32- and 64-block cells at its horizon (4,096-block tiles, 64
+	 * regions each) would cost more to write and keep than they show; they are left out.
+	 */
 	public static final int MAX_CELL = 16;
 	public static final int MAX_SIZE = 256;
 	/** How long one worker run may write far tiles before it gives the worker back (and runs again later). */
 	public static final long RUN_BUDGET_NANOS = 4_000_000L;
-	/** Tiles waiting to be written, at most; past it some waiting are dropped (LOD sends them again when redrawn). */
-	public static final int MAX_PENDING = 512;
+	/** Tiles waiting to be written, at most; past it the oldest waiting is dropped (VOID LOD hands each over once when idle: keep room). */
+	public static final int MAX_PENDING = 4096;
 	/** The far layer's raw regions kept in memory, at most (each is about 2.4 MB); the rest are saved and let go. */
 	public static final int MAX_RAWS = 48;
 	/** Tiles offered by cell size (index: log2 of the cell), for the tour. */
@@ -89,6 +96,11 @@ public final class FarSight {
 
 	private final AtlasClient atlas;
 	private final Map<Long, Tile> pending = new ConcurrentHashMap<>();
+
+	/** Tiles taken and not yet written (the tour waits for none). */
+	public int pendingCount() {
+		return this.pending.size();
+	}
 	private final AtomicBoolean draining = new AtomicBoolean();
 	private final AtomicBoolean trimming = new AtomicBoolean();
 	private volatile boolean on;

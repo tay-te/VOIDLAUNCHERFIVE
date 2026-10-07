@@ -1554,6 +1554,17 @@ public final class MapPage {
 		this.listScroll = Math.max(0, Math.min(Math.max(0, this.listContent - (bottom - top)), this.listScroll));
 	}
 
+	/** Whether VOID LOD is still drawing the land round a column: inside its reach, and not yet complete. */
+	private boolean lodStillDrawing(int bx, int bz) {
+		Boolean complete = dev.voidmc.atlas.client.FarSight.lodComplete();
+		if (complete == null || complete) {
+			return false;
+		}
+		LocalPlayer p = Minecraft.getInstance().player;
+		double reach = dev.voidmc.atlas.client.FarSight.lodRadius();
+		return p != null && reach > 0 && Math.hypot(bx + 0.5 - p.getX(), bz + 0.5 - p.getZ()) <= reach;
+	}
+
 	/** What a hovered column is, when it is not one's own: "Seen from afar" (far sight) or a party member's land. */
 	private void landHover(Ui ui, MapRenderer.Frame f) {
 		if (Float.isNaN(this.hoverX) || this.map.kind != MapPanel.Kind.SURFACE || this.map.hovered != null) {
@@ -1583,6 +1594,12 @@ public final class MapPage {
 			title = "Seen from afar";
 			sub = "walk closer for detail";
 			biome = biomeOf(far, bx, bz);
+		} else if (far != null && this.lodStillDrawing(bx, bz)) {
+			// inside VOID LOD's reach while it is still drawing: land on its way; once it is complete (or past its
+			// reach) land not seen is plain unexplored, with no hover
+			title = "Still being drawn";
+			sub = "VOID LOD is drawing the far land here";
+			biome = -1;
 		} else {
 			return;
 		}

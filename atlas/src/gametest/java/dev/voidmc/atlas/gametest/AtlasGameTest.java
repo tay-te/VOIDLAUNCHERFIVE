@@ -583,6 +583,15 @@ public class AtlasGameTest implements FabricClientGameTest {
 			var walked = d.layer(dev.voidmc.atlas.client.data.DimensionData.SURFACE);
 			int px = mc.player.getBlockX();
 			int pz = mc.player.getBlockZ();
+			// regions read once each, from memory or disk, never kept (the reach is hundreds of regions)
+			java.util.Map<Object, dev.voidmc.atlas.core.RegionRaw> seenRaws = new java.util.HashMap<>();
+			java.util.function.BiFunction<dev.voidmc.atlas.client.data.LayerData, int[], dev.voidmc.atlas.core.RegionRaw> peek = (layer, rr) -> {
+				Object key = java.util.List.of(System.identityHashCode(layer), rr[0], rr[1]);
+				if (seenRaws.size() > 64 && !seenRaws.containsKey(key)) {
+					seenRaws.clear();
+				}
+				return seenRaws.computeIfAbsent(key, k -> layer.peekRaw(rr[0], rr[1]));
+			};
 			int r = (int) (reach * 0.9);
 			int cell = 256;
 			java.util.List<int[]> holes = new java.util.ArrayList<>();
@@ -603,7 +612,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 							if (layer == null) {
 								continue;
 							}
-							var raw = layer.raw(dev.voidmc.atlas.core.Coords.region(x), dev.voidmc.atlas.core.Coords.region(z), false);
+							var raw = peek.apply(layer, new int[]{dev.voidmc.atlas.core.Coords.region(x), dev.voidmc.atlas.core.Coords.region(z)});
 							if (raw != null && raw.known(dev.voidmc.atlas.core.RegionRaw.index(dev.voidmc.atlas.core.Coords.inRegion(x),
 								dev.voidmc.atlas.core.Coords.inRegion(z)))) {
 								any = true;
@@ -640,6 +649,15 @@ public class AtlasGameTest implements FabricClientGameTest {
 			var walked = d.layer(dev.voidmc.atlas.client.data.DimensionData.SURFACE);
 			int px = mc.player.getBlockX();
 			int pz = mc.player.getBlockZ();
+			// regions read once each, from memory or disk, never kept (the reach is hundreds of regions)
+			java.util.Map<Object, dev.voidmc.atlas.core.RegionRaw> seenRaws = new java.util.HashMap<>();
+			java.util.function.BiFunction<dev.voidmc.atlas.client.data.LayerData, int[], dev.voidmc.atlas.core.RegionRaw> peek = (layer, rr) -> {
+				Object key = java.util.List.of(System.identityHashCode(layer), rr[0], rr[1]);
+				if (seenRaws.size() > 64 && !seenRaws.containsKey(key)) {
+					seenRaws.clear();
+				}
+				return seenRaws.computeIfAbsent(key, k -> layer.peekRaw(rr[0], rr[1]));
+			};
 			int r = (int) Math.min(2048, reach * 0.9);
 			java.util.List<String> out = new java.util.ArrayList<>();
 			int cells = 0;
@@ -654,7 +672,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 						int x = cx * 64 + 16 + (s % 2) * 32;
 						int z = cz * 64 + 16 + (s / 2) * 32;
 						for (var layer : new dev.voidmc.atlas.client.data.LayerData[]{walked, far}) {
-							var raw = layer == null ? null : layer.raw(dev.voidmc.atlas.core.Coords.region(x), dev.voidmc.atlas.core.Coords.region(z), false);
+							var raw = layer == null ? null : peek.apply(layer, new int[]{dev.voidmc.atlas.core.Coords.region(x), dev.voidmc.atlas.core.Coords.region(z)});
 							if (raw != null && raw.known(dev.voidmc.atlas.core.RegionRaw.index(dev.voidmc.atlas.core.Coords.inRegion(x),
 								dev.voidmc.atlas.core.Coords.inRegion(z)))) {
 								any = true;
@@ -694,13 +712,13 @@ public class AtlasGameTest implements FabricClientGameTest {
 			}
 		}
 		long waited = System.currentTimeMillis() - started;
-		// what LOD handed over is written on the workers: let them finish
-		long drainUntil = System.currentTimeMillis() + 60_000;
-		long before = -1;
-		while (System.currentTimeMillis() < drainUntil && before != dev.voidmc.atlas.client.FarSight.TILES.get()) {
-			before = dev.voidmc.atlas.client.FarSight.TILES.get();
-			context.waitTicks(60);
+		// what LOD handed over is written on the workers: until none is waiting
+		long drainUntil = System.currentTimeMillis() + 180_000;
+		while (System.currentTimeMillis() < drainUntil && context.computeOnClient(mc -> AtlasClient.get().farSight.pendingCount()) > 0) {
+			context.waitTicks(40);
 		}
+		log("far sight: " + dev.voidmc.atlas.client.FarSight.DROPPED.get() + " tiles dropped for room, " + context.computeOnClient(mc -> AtlasClient.get().farSight.pendingCount()) + " still waiting after "
+			+ (System.currentTimeMillis() - started) / 1000 + " s");
 		tiles = dev.voidmc.atlas.client.FarSight.TILES.get();
 		double reach = context.computeOnClient(mc -> dev.voidmc.atlas.client.FarSight.lodRadius());
 		log(String.format(Locale.ROOT, "far sight: VOID LOD complete %s after %.1f s, reach %.0f blocks", complete, waited / 1000.0, reach));
@@ -722,6 +740,20 @@ public class AtlasGameTest implements FabricClientGameTest {
 		this.settle(context, SETTLE_MS);
 		context.waitTicks(20);
 		this.shoot(context, "lod_far_map");
+		// all of VOID LOD's reach (8 km at 1:16)
+		context.runOnClient(mc -> {
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			screen.page.map.centreOn(mc.player.getX(), mc.player.getZ());
+			screen.page.map.setZoom(1.0 / 16);
+		});
+		this.settle(context, SETTLE_MS);
+		context.waitTicks(40);
+		this.shoot(context, "lod_far_reach");
+		context.runOnClient(mc -> {
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			screen.page.map.centreOn((box[0] + box[2]) / 2.0, (box[1] + box[3]) / 2.0);
+			screen.page.map.setZoom(0.25);
+		});
 		context.runOnClient(mc -> {
 			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
 			screen.page.map.centreOn(box[2], (box[1] + box[3]) / 2.0);
