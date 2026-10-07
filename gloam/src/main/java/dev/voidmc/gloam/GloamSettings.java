@@ -51,6 +51,12 @@ public final class GloamSettings {
 	/** The air over VOID LOD's far terrain: the cloud deck, far storms, far mist. */
 	public boolean far = true;
 
+	// the motes, more
+	/** The most motes in the air at once; the spawner stops starting new ones above it. */
+	public int moteLimit = 1500;
+	/** Breath showing in the cold, the player's and the people's and animals' nearby. */
+	public boolean breath = true;
+
 	public static GloamSettings get() {
 		return current;
 	}
@@ -104,6 +110,8 @@ public final class GloamSettings {
 		this.sound = number(json, "sound", this.sound, 0, 1);
 		this.far = bool(json, "far", this.far);
 		this.thunder = bool(json, "thunder", this.thunder);
+		this.moteLimit = (int) number(json, "moteLimit", this.moteLimit, 0, 8000);
+		this.breath = bool(json, "breath", this.breath);
 	}
 
 	private JsonObject write() {
@@ -119,6 +127,8 @@ public final class GloamSettings {
 		json.addProperty("sound", this.sound);
 		json.addProperty("far", this.far);
 		json.addProperty("thunder", this.thunder);
+		json.addProperty("moteLimit", this.moteLimit);
+		json.addProperty("breath", this.breath);
 		return json;
 	}
 

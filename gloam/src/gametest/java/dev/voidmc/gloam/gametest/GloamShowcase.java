@@ -8,6 +8,7 @@ import dev.voidmc.gloam.air.Air;
 import dev.voidmc.gloam.air.AirSample;
 import dev.voidmc.gloam.sky.Haze;
 import dev.voidmc.gloam.sound.Soundscape;
+import dev.voidmc.gloam.motes.Motes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -20,6 +21,10 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.biome.BiomeManager;
+import net.minecraft.tags.BiomeTags;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
@@ -66,6 +71,15 @@ public class GloamShowcase implements FabricClientGameTest {
 		}
 	}
 
+	/**
+	 * Where the motes' views are taken: a spot under a broadleaf canopy (the falling leaves), one in the snow (breath and
+	 * snow) and a waterfall the showcase builds itself (spray).
+	 */
+	record MotePlaces(int forestX, int forestY, int forestZ, float forestYaw, int coldX, int coldY, int coldZ, float coldYaw, int fallX, int fallY, int fallZ) {
+	}
+
+	private static MotePlaces motePlaces = new MotePlaces(0, 80, 0, 0, 0, 80, 0, 0, 0, 80, 0);
+
 	/** The places the views are taken from, found once on the server. */
 	record Places(int peakX, int peakZ, int peakY, int valleyX, int valleyZ, int valleyY, int waterX, int waterZ, int waterY, float toPeak) {
 	}
@@ -96,6 +110,8 @@ public class GloamShowcase implements FabricClientGameTest {
 
 			Places places = world.getServer().computeOnServer(server -> find(server.overworld()));
 			System.out.printf(Locale.ROOT, "[gloam] places: %s%n", places);
+			motePlaces = world.getServer().computeOnServer(server -> findMotePlaces(server.overworld(), places));
+			System.out.printf(Locale.ROOT, "[gloam] mote places: %s%n", motePlaces);
 			List<View> views = views(places);
 			if (!ONLY.isEmpty()) {
 				List<String> names = List.of(ONLY.split(","));
@@ -111,15 +127,19 @@ public class GloamShowcase implements FabricClientGameTest {
 				world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", view.x(), view.y(), view.z(), view.yaw(), view.pitch()));
 				boolean weatherChanged = last == null || !last.weather().equals(view.weather());
 				this.settle(context, moved ? SETTLE_MS : weatherChanged ? 7_000 : 1_500);
+				int fpsOff = -1;
 				if (OFF) {
 					context.runOnClient(mc -> GloamSettings.get().enabled = false);
 					context.waitTicks(20);
 					this.shoot(context, view.name() + "_off");
 					String quiet = context.computeOnClient(mc -> Soundscape.describe());
 					System.out.printf(Locale.ROOT, "[gloam] %s sound (off): %s%n", view.name(), quiet);
+					fpsOff = context.computeOnClient(mc -> mc.getFps());
 				}
+				context.runOnClient(mc -> Motes.stats());
 				context.runOnClient(mc -> GloamSettings.get().enabled = true);
 				context.waitTicks(20 + view.linger() * 20);
+				awaitBreath(context, view);
 				this.shoot(context, view.name() + "_on");
 				AirSample air = context.computeOnClient(mc -> Atmosphere.get().here());
 				int fps = context.computeOnClient(mc -> mc.getFps());
@@ -129,6 +149,8 @@ public class GloamShowcase implements FabricClientGameTest {
 					air.climate().lowness(), air.climate().water(), air.indoors(), fps);
 				String beds = context.computeOnClient(mc -> Soundscape.describe());
 				System.out.printf(Locale.ROOT, "[gloam] %s sound: %s%n", view.name(), beds);
+				String motes = context.computeOnClient(mc -> Motes.stats() + "; particles " + mc.particleEngine.countParticles());
+				System.out.printf(Locale.ROOT, "[gloam] %s motes: %s; %d fps off, %d on%n", view.name(), motes, fpsOff, fps);
 				last = view;
 			}
 			String clips = context.computeOnClient(mc -> Soundscape.loadedClips());
@@ -167,6 +189,7 @@ public class GloamShowcase implements FabricClientGameTest {
 		View hazy = new View("haze0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), 90, 4, 70, 2000, "clear", 4);
 		views.add(hazy);
 		views.add(hazy.at("haze1", 6500, "clear"));
+		addMoteViews(views, p);
 		return views;
 	}
 
@@ -272,6 +295,131 @@ public class GloamShowcase implements FabricClientGameTest {
 		return true;
 	}
 
+	/**
+	 * The motes' views. Days are picked for their season ({@code seasonDays} 8, the year starting 0.15 in, so day 6 is
+	 * early summer, day 15 mid-autumn, day 23 deep winter): falling leaves under an autumn canopy, pollen over the valley
+	 * meadow at a summer noon, fireflies by the water on a summer dusk and after dark, spray where a waterfall lands,
+	 * breath and snow in the snowy land in winter.
+	 */
+	static void addMoteViews(List<View> views, Places p) {
+		MotePlaces m = motePlaces;
+		// by the water first: water0 is shot from there, so the chunks are already loaded
+		View water = new View("firefly0", p.waterX(), p.waterY() + 2, p.waterZ(), 0, 4, 70, 6 * 24000 + 13200, "clear", 20);
+		views.add(water);
+		views.add(water.at("firefly1", 6 * 24000 + 14400, "clear"));
+		views.add(new View("forest0", m.forestX(), m.forestY(), m.forestZ(), m.forestYaw(), -6, 70, 15 * 24000 + 6000, "clear", 15));
+		views.add(new View("pollen0", p.valleyX(), p.valleyY() + 2, p.valleyZ(), p.toPeak() + 90, 6, 70, 6 * 24000 + 5000, "clear", 6));
+		views.add(new View("fall0", m.fallX() - 9, m.fallY() + 3, m.fallZ(), -90, 8, 70, 6 * 24000 + 6000, "clear", 5));
+		views.add(new View("cold0", m.coldX(), m.coldY() + 1, m.coldZ(), m.coldYaw(), -6, 70, 23 * 24000 + 2000, "rain", 8));
+		// a winter dawn in the valley, the breath against the dark grass (the shot waits for a breath, see shoot's caller)
+		views.add(new View("breath0", p.valleyX(), p.valleyY() + 1, p.valleyZ(), p.toPeak() + 90, 10, 70, 23 * 24000 + 23400, "clear", 2));
+	}
+
+	/**
+	 * The motes' places: under the canopy of the forest nearest the valley (the column with most leaves around it and no
+	 * trunk in the way), the snowy land nearest the valley, and a waterfall built 120 blocks east of the valley: a stone
+	 * pillar twelve blocks tall with a water source on top, which runs off all four sides.
+	 */
+	static MotePlaces findMotePlaces(ServerLevel level, Places p) {
+		BlockPos origin = new BlockPos(p.valleyX(), p.valleyY(), p.valleyZ());
+		int[] forest = findForest(level, p, origin);
+		var snowy = level.findClosestBiome3d(b -> b.value().getBaseTemperature() < 0.15F && !b.is(BiomeTags.IS_TAIGA) && !b.is(BiomeTags.IS_FOREST), origin, 4000,
+			64, 64);
+		BlockPos snow = snowy != null ? snowy.getFirst() : new BlockPos(p.peakX(), p.peakY(), p.peakZ());
+		int[] cold = findCanopy(level, snow.getX(), snow.getZ(), false);
+		float coldYaw = clearest(level, cold[0], cold[1], cold[2]);
+		int fallX = p.valleyX() + 120, fallZ = p.valleyZ();
+		level.getChunk(fallX >> 4, fallZ >> 4);
+		int fallY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, fallX, fallZ);
+		for (int y = fallY; y < fallY + 12; y++) {
+			level.setBlockAndUpdate(new BlockPos(fallX, y, fallZ), Blocks.STONE.defaultBlockState());
+		}
+		level.setBlockAndUpdate(new BlockPos(fallX, fallY + 12, fallZ), Blocks.WATER.defaultBlockState());
+		return new MotePlaces(forest[0], forest[1], forest[2], clearest(level, forest[0], forest[1], forest[2]), cold[0], cold[1], cold[2], coldYaw, fallX, fallY,
+			fallZ);
+	}
+
+	private static int[] findForest(ServerLevel level, Places p, BlockPos origin) {
+		var found = level.findClosestBiome3d(b -> b.is(BiomeTags.IS_FOREST) && b.unwrapKey().map(k -> {
+			String name = k.identifier().getPath();
+			return !name.contains("lumen") && !name.contains("wisteria") && !name.contains("cherry") && !name.contains("pale");
+		}).orElse(false), origin, 2400, 32, 64);
+		if (found == null) {
+			return new int[]{p.valleyX(), p.valleyY(), p.valleyZ()};
+		}
+		return findCanopy(level, found.getFirst().getX(), found.getFirst().getZ(), true);
+	}
+
+	/**
+	 * Near (cx, cz), the column with the most leaves overhead around it ({@code under}) or the fewest (out in the open),
+	 * and no trunk in the way of the camera, as {x, ground y, z}.
+	 */
+	private static int[] findCanopy(ServerLevel level, int cx, int cz, boolean under) {
+		int bestX = cx, bestZ = cz, best = -1;
+		for (int dx = -24; dx <= 24; dx += 2) {
+			for (int dz = -24; dz <= 24; dz += 2) {
+				int score = 0;
+				for (int ox = -6; ox <= 6; ox += 3) {
+					for (int oz = -6; oz <= 6; oz += 3) {
+						int x = cx + dx + ox, z = cz + dz + oz;
+						level.getChunk(x >> 4, z >> 4);
+						int canopy = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z) - level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+						if (under ? canopy >= 3 : canopy == 0) {
+							score++;
+						}
+					}
+				}
+				// the camera's own column must be open to stand in, with no trunk right in front of it
+				int x = cx + dx, z = cz + dz;
+				int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+				boolean clear = under || level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z) == ground;
+				if (score > best && clear && open(level, x, ground + 1, z)) {
+					best = score;
+					bestX = x;
+					bestZ = z;
+				}
+			}
+		}
+		return new int[]{bestX, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bestX, bestZ), bestZ};
+	}
+
+	/** The yaw (of eight) from (x, ground, z) with the longest clear view at eye height, up to 16 blocks. */
+	private static float clearest(ServerLevel level, int x, int ground, int z) {
+		float best = 0;
+		int longest = -1;
+		for (int k = 0; k < 8; k++) {
+			float yaw = k * 45;
+			double dx = -Math.sin(Math.toRadians(yaw)), dz = Math.cos(Math.toRadians(yaw));
+			int clear = 0;
+			for (int step = 1; step <= 16; step++) {
+				BlockPos at = BlockPos.containing(x + 0.5 + dx * step, ground + 1.6, z + 0.5 + dz * step);
+				BlockState state = level.getBlockState(at);
+				if (!state.isAir() && !state.canBeReplaced()) {
+					break;
+				}
+				clear++;
+			}
+			if (clear > longest) {
+				longest = clear;
+				best = yaw;
+			}
+		}
+		return best;
+	}
+
+	/** Whether there is no log within three blocks of (x, y, z) at eye height. */
+	private static boolean open(ServerLevel level, int x, int y, int z) {
+		for (int dx = -3; dx <= 3; dx++) {
+			for (int dz = -3; dz <= 3; dz++) {
+				BlockState state = level.getBlockState(new BlockPos(x + dx, y, z + dz));
+				if (state.is(BlockTags.LOGS) || (dx == 0 && dz == 0 && !state.isAir())) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	/** The highest ground within 3 km, a low valley floor within 2 km of it, and open water nearest the valley. */
 	static Places find(ServerLevel level) {
 		if (!(level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth)) {
@@ -321,6 +469,17 @@ public class GloamShowcase implements FabricClientGameTest {
 		int waterY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, wx, wz);
 		float toPeak = (float) Math.toDegrees(Math.atan2(-(bx - lx), bz - lz));
 		return new Places(bx, bz, peakY, lx, lz, valleyY, wx, wz, waterY, toPeak);
+	}
+
+	/** For the breath views: waits (up to ten seconds) until a breath is in the air, a few ticks after it starts. */
+	private static void awaitBreath(ClientGameTestContext context, View view) {
+		if (!view.name().startsWith("breath")) {
+			return;
+		}
+		for (int t = 0; t < 200 && context.computeOnClient(mc -> Motes.Kind.BREATH.count()) < 4; t++) {
+			context.waitTick();
+		}
+		context.waitTicks(6);
 	}
 
 	private void shoot(ClientGameTestContext context, String name) {
