@@ -65,6 +65,51 @@ public final class LodApi {
 		return lod != null && lod.isEnabled() && lod.engine().source() != null;
 	}
 
+	private static volatile float hazeThickness = 1.0F;
+	private static volatile Shade shade;
+
+	/**
+	 * Light laid over the far land from above: a picture whose red channel, times two, scales the sunlight on the land
+	 * under each texel (0.5 leaves it as it is, less shades it, more brightens it), {@code size} blocks square with its
+	 * corner at world ({@code originX}, {@code originZ}), applied with {@code strength} 0..1. It comes in past the chunks
+	 * (which do not have it) and goes with the sun.
+	 */
+	public record Shade(com.mojang.renderpearl.api.textures.GpuTextureView texture, double originX, double originZ, double size, float strength) {
+	}
+
+	/**
+	 * Lays {@code shade} over the far land from the next frame on (a mod drawing cloud shadows), or takes it off with
+	 * null. Render thread; the texture must stay open until it is replaced or taken off.
+	 */
+	public static void setShade(Shade shade) {
+		LodApi.shade = shade;
+	}
+
+	/** The light laid over the far land ({@link #setShade}), or null. */
+	public static Shade shade() {
+		return shade;
+	}
+
+	/**
+	 * Makes VOID LOD's aerial haze {@code thickness} times as thick as it would have it (1: its own), for a mod that keeps
+	 * the weather: hazier over a humid lowland in summer, clearer in the washed air after rain. Held until set again;
+	 * clamped to 0.25..4.
+	 */
+	public static void setHazeThickness(float thickness) {
+		hazeThickness = Float.isFinite(thickness) ? Math.clamp(thickness, 0.25F, 4.0F) : 1.0F;
+	}
+
+	/** How many times as thick as its own the haze is ({@link #setHazeThickness}). */
+	public static float hazeThickness() {
+		return hazeThickness;
+	}
+
+	/** How far VOID LOD draws the far land, in blocks from the camera (0 while it is not drawing). */
+	public static double radius() {
+		VoidLod lod = VoidLod.get();
+		return lod != null && active() ? lod.radius : 0;
+	}
+
 	/** Hands {@code tiles}, just drawn in {@code dimension}, to the listeners. Render thread; the work is done off it. */
 	public static void publish(ResourceKey<Level> dimension, List<TileTerrain> tiles, Materials materials) {
 		if (LISTENERS.isEmpty() || tiles.isEmpty()) {

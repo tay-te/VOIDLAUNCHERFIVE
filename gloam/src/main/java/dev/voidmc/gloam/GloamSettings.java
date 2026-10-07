@@ -44,6 +44,20 @@ public final class GloamSettings {
 	// the far air, over VOID LOD
 	/** The air over VOID LOD's far terrain: the cloud deck, far storms, far mist. */
 	public boolean far = true;
+	/** Gloam's cloud deck, following the fronts out to VOID LOD's horizon, in place of vanilla's clouds (the cloud option still says off, fast or fancy). */
+	public boolean farClouds = true;
+	/** Rain curtains under far showers and storms. */
+	public boolean farRain = true;
+	/** Morning mist lying in the far valleys. */
+	public boolean farMist = true;
+	/** How much the air thickens or thins VOID LOD's haze (humid lowland summers hazier, clear air after rain), 0 (as VOID LOD has it) .. 1. */
+	public double farHaze = 1.0;
+	/**
+	 * How far above {@code CLOUD_HEIGHT} Gloam's cloud deck sits, in blocks. Vanilla's 192 leaves today's mountains
+	 * (and Expanse's) standing in the clouds and the far land hidden behind the deck from every peak; real fair-weather
+	 * clouds float far higher above the land.
+	 */
+	public double farCloudLift = 240;
 
 	public static GloamSettings get() {
 		return current;
@@ -95,6 +109,11 @@ public final class GloamSettings {
 		this.motes = number(json, "motes", this.motes, 0, 2);
 		this.sound = number(json, "sound", this.sound, 0, 1);
 		this.far = bool(json, "far", this.far);
+		this.farClouds = bool(json, "farClouds", this.farClouds);
+		this.farRain = bool(json, "farRain", this.farRain);
+		this.farMist = bool(json, "farMist", this.farMist);
+		this.farHaze = number(json, "farHaze", this.farHaze, 0, 1);
+		this.farCloudLift = number(json, "farCloudLift", this.farCloudLift, 0, 512);
 	}
 
 	private JsonObject write() {
@@ -107,12 +126,17 @@ public final class GloamSettings {
 		json.addProperty("motes", this.motes);
 		json.addProperty("sound", this.sound);
 		json.addProperty("far", this.far);
+		json.addProperty("farClouds", this.farClouds);
+		json.addProperty("farRain", this.farRain);
+		json.addProperty("farMist", this.farMist);
+		json.addProperty("farHaze", this.farHaze);
+		json.addProperty("farCloudLift", this.farCloudLift);
 		return json;
 	}
 
 	private void overrides() {
 		JsonObject props = new JsonObject();
-		for (String name : new String[]{"enabled", "sky", "darkNights", "showers", "seasonDays", "motes", "sound", "far"}) {
+		for (String name : new String[]{"enabled", "sky", "darkNights", "showers", "seasonDays", "motes", "sound", "far", "farClouds", "farRain", "farMist", "farHaze", "farCloudLift"}) {
 			String value = System.getProperty("gloam." + name);
 			if (value != null) {
 				String v = value.trim().toLowerCase(Locale.ROOT);

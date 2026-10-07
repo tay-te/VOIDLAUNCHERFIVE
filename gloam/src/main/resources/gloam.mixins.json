@@ -7,7 +7,9 @@
 		"LevelAccessor"
 	],
 	"client": [
-		"ClientLevelMixin"
+		"ClientLevelMixin",
+		"CloudRendererMixin",
+		"LevelRendererFarMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
