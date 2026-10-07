@@ -21,7 +21,7 @@ public abstract class CameraMixin {
 	@Inject(method = "update", at = @At(value = "FIELD", target = "Lnet/minecraft/client/Camera;depthFar:F", opcode = org.objectweb.asm.Opcodes.PUTFIELD, shift = At.Shift.AFTER))
 	private void voidLod$farPlane(CallbackInfo ci) {
 		VoidLod lod = VoidLod.get();
-		if (lod != null && lod.active()) {
+		if (lod != null && lod.drawsFar()) {
 			this.depthFar = Math.max(this.depthFar, (float) (lod.radius * 1.5));
 		}
 	}

@@ -19,6 +19,10 @@ public final class HearthOverlay implements TerrainSource {
 
 		/** A finished building's {wall colour, roof colour, eave << 16 | ridge & 0xFFFF} at column (x, z), if one stands there. */
 		boolean sample(int x, int z, int[] out);
+
+		/** Something changed (a region's version moved on): what was read before may be out of date. */
+		default void changed() {
+		}
 	}
 
 	/** How far in from a footprint's edge a roof is looked for: a ridge rises no higher than this above the eaves here. */

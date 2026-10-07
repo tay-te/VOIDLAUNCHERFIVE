@@ -47,14 +47,15 @@ public abstract class FogRendererMixin {
 	@ModifyVariable(method = "setupFog", at = @At("HEAD"), argsOnly = true, ordinal = 0)
 	private int voidLod$farSky(int renderDistanceInChunks) {
 		VoidLod lod = VoidLod.get();
-		return lod != null && lod.active() ? Math.max(renderDistanceInChunks, 32) : renderDistanceInChunks;
+		return lod != null && lod.drawsFar() ? Math.max(renderDistanceInChunks, 32) : renderDistanceInChunks;
 	}
 
 	@Inject(method = "setupFog", at = @At("RETURN"))
 	private void voidLod$farFog(Camera camera, int renderDistanceInChunks, DeltaTracker deltaTracker, float darkenWorldAmount, ClientLevel level,
 		CallbackInfoReturnable<FogData> cir) {
 		VoidLod lod = VoidLod.get();
-		if (lod == null || !lod.active()) {
+		if (lod == null || !lod.drawsFar()) {
+			// off, or underground: vanilla's fog, which closes the caves off at the render distance
 			return;
 		}
 		FogData fog = cir.getReturnValue();

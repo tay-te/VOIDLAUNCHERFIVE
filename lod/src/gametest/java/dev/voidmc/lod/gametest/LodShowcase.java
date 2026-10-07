@@ -85,6 +85,8 @@ public class LodShowcase implements FabricClientGameTest {
 	 * Listens for the drawn tiles' terrain: {@code true} only once the view is built, as a map mod that starts late does;
 	 * {@code early} from client start, before the world exists, as one that starts with the game does.
 	 */
+	/** Views of VOID Hearth's nearest town (with -Phearth=<jar>): town0 from 400 m, town1 from 1200 m. */
+	private static final boolean HEARTH = Boolean.getBoolean("lod.show.hearth");
 	/** An autumn through LodApi's seasons: broadleaf crowns red, orange, gold and late green, the grass gone to straw. */
 	private static final boolean AUTUMN = Boolean.getBoolean("lod.show.autumn");
 	private static final String LISTEN_MODE = System.getProperty("lod.show.listen", "false");
@@ -292,6 +294,43 @@ public class LodShowcase implements FabricClientGameTest {
 				return found;
 			});
 
+			if (HEARTH) {
+				spots.addAll(world.getServer().computeOnServer(server -> {
+					List<Spot> found = new ArrayList<>();
+					ServerLevel level = server.overworld();
+					var footprints = dev.voidmc.lod.source.HearthFootprints.of(level);
+					if (footprints == null) {
+						System.out.println("[lod] hearth: not running");
+						return found;
+					}
+					Land model = ExpanseLand.of(level);
+					int[] b = new int[3];
+					// the nearest finished building to spawn, ring by ring
+					for (int d = 0; d <= 4000; d += 32) {
+						for (int step = 0; step < Math.max(1, d / 4); step++) {
+							double a = step * 2 * Math.PI / Math.max(1, d / 4);
+							int tx = (int) Math.round(Math.cos(a) * d), tz = (int) Math.round(Math.sin(a) * d);
+							if (!footprints.sample(tx, tz, b)) {
+								continue;
+							}
+							int eave = b[2] >> 16, ridge = (short) b[2];
+							System.out.printf(Locale.ROOT, "[lod] hearth: a building at %d,%d, eaves %d, ridge %d, wall %06x, roof %06x%n", tx, tz, eave, ridge,
+								b[0] & 0xFFFFFF, b[1] & 0xFFFFFF);
+							for (int[] view : new int[][]{{400, 0}, {1200, 1}}) {
+								// from the south-west, looking at it
+								int cx = tx - (int) (view[0] * 0.707), cz = tz - (int) (view[0] * 0.707);
+								int cy = (int) Math.max(model.height(cx, cz), 63) + 40 + view[1] * 60;
+								float yaw = (float) Math.toDegrees(Math.atan2(-(tx - cx), tz - cz));
+								float pitch = (float) Math.toDegrees(Math.atan2(cy - ridge, view[0]));
+								found.add(new Spot("town" + view[1], cx, cy, cz, yaw, pitch, 50));
+							}
+							return found;
+						}
+					}
+					System.out.println("[lod] hearth: no finished building within 4 km");
+					return found;
+				}));
+			}
 			// fixed viewpoints of one's own: -Plod.show.at=name:x,y,z,yaw,pitch[,fov][;name:...]
 			for (String at : System.getProperty("lod.show.at", "").split(";")) {
 				if (at.isBlank()) {

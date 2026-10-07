@@ -650,6 +650,7 @@ public final class VoidLod implements ClientModInitializer {
 				long was = this.hearthVersions.put(key, v);
 				// a region seen for the first time with towns in it may have been built before Hearth's world was up
 				if (was != v && (was != -1 || v != 0)) {
+					f.changed();
 					this.engine.invalidate(rx << 10, rz << 10, (rx + 1) << 10, (rz + 1) << 10, 1024 * 1024);
 				}
 			}
@@ -732,6 +733,52 @@ public final class VoidLod implements ClientModInitializer {
 		return this.enabled && this.engine != null && this.engine.source() != null;
 	}
 
+	/**
+	 * Whether the far land is drawn this frame: on, and the camera not shut in underground ({@link #underground}). The
+	 * tiles keep being built either way, so it is all there again the moment the player comes up.
+	 */
+	public boolean drawsFar() {
+		return this.active() && !this.underground;
+	}
+
+	/**
+	 * The camera is down in the ground: no sky light where it is and well under the surface of its column. Past the
+	 * chunks there is then rock, not the land above (which would draw over a cave's vault) nor the sky (which would show
+	 * at the end of a tunnel), so the far land stands down and vanilla's own fog closes the caves off at the render
+	 * distance as it does without it. A house or an overhang is not underground (not deep enough), nor a ravine open to
+	 * the sky; nor anywhere in a dimension without sky light (the Nether, the End).
+	 */
+	public boolean underground() {
+		return this.underground;
+	}
+
+	private boolean underground;
+	private int undergroundFrames;
+	/** How far under its column's surface the camera must be, in blocks, to be underground; and how soon it counts. */
+	private static final int UNDERGROUND_DEPTH = 12, UNDERGROUND_FRAMES = 10;
+
+	private void updateUnderground(Minecraft mc) {
+		var level = mc.level;
+		if (level == null || mc.gameRenderer == null || !level.dimensionType().hasSkyLight()) {
+			this.underground = false;
+			this.undergroundFrames = 0;
+			return;
+		}
+		net.minecraft.core.BlockPos eye = net.minecraft.core.BlockPos.containing(mc.gameRenderer.mainCamera().position());
+		int sky = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, eye);
+		int surface = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, eye.getX(), eye.getZ());
+		if (sky <= 3 && eye.getY() < surface - UNDERGROUND_DEPTH) {
+			if (++this.undergroundFrames >= UNDERGROUND_FRAMES) {
+				this.underground = true;
+			}
+		} else {
+			this.undergroundFrames = 0;
+			if (sky >= 7 || eye.getY() >= surface - 4) {
+				this.underground = false;
+			}
+		}
+	}
+
 	public LodEngine engine() {
 		return this.engine;
 	}
@@ -778,8 +825,9 @@ public final class VoidLod implements ClientModInitializer {
 			// with the LOD toggled off too: what changes meanwhile should be there when it comes back
 			ingest.run(INGEST_NANOS);
 		}
+		this.updateUnderground(Minecraft.getInstance());
 		// the chunks dissolve into the LOD where it is drawn behind them with vanilla's own chunk shaders
-		ChunkFade.update(this.active() && !Shaders.packDraws() && !Shaders.drawOverPack(), Minecraft.getInstance().options.getEffectiveRenderDistance());
+		ChunkFade.update(this.drawsFar() && !Shaders.packDraws() && !Shaders.drawOverPack(), Minecraft.getInstance().options.getEffectiveRenderDistance());
 		if (!this.active()) {
 			return;
 		}
@@ -813,7 +861,7 @@ public final class VoidLod implements ClientModInitializer {
 	}
 
 	public void draw(RenderPass pass) {
-		if (this.active() && this.renderer != null && !this.fogHidesLod) {
+		if (this.drawsFar() && this.renderer != null && !this.fogHidesLod) {
 			this.renderer.draw(pass);
 		}
 	}
@@ -825,7 +873,7 @@ public final class VoidLod implements ClientModInitializer {
 	 */
 	public void drawPack() {
 		LodRenderer r = this.renderer;
-		Shaders.drawPack(this.active() && r != null && !this.fogHidesLod ? r.packFrame : null);
+		Shaders.drawPack(this.drawsFar() && r != null && !this.fogHidesLod ? r.packFrame : null);
 		if (r != null) {
 			// the pack's programs draw the tiles: their time is the LOD's GPU cost, for F3 and auto-tune
 			r.gpuMillis = Shaders.packGpuMillis();
@@ -844,11 +892,11 @@ public final class VoidLod implements ClientModInitializer {
 	/** This frame's tiles for the shader pack, or null when there is nothing for it to draw. */
 	public dev.voidmc.lod.render.PackFrame packFrame() {
 		LodRenderer r = this.renderer;
-		return this.active() && r != null && !this.fogHidesLod ? r.packFrame : null;
+		return this.drawsFar() && r != null && !this.fogHidesLod ? r.packFrame : null;
 	}
 
 	public void drawOverPack() {
-		if (this.active() && this.renderer != null && !this.fogHidesLod) {
+		if (this.drawsFar() && this.renderer != null && !this.fogHidesLod) {
 			this.renderer.drawOver(Minecraft.getInstance().gameRenderer.mainRenderTarget());
 		}
 	}
