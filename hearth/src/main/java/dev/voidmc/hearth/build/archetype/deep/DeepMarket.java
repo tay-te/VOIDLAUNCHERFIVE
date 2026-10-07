@@ -244,21 +244,36 @@ public final class DeepMarket implements Archetype {
 	}
 
 	/**
-	 * The wings' roofs: a lean-to of the culture's own covering rising from the outer wall to the arcade, its high edge
-	 * over the court finished with a parapet of the dressing stone.
+	 * The wings' roofs: a gable of the culture's own covering along each wing, pitched a block a block so it reads as a
+	 * roof from the court and the street (not a strip of planks), the side wings' gable ends to the street walled up in
+	 * the dressing stone.
 	 */
 	private static void roofs(Draft d, int w, int dp, int wd, int eave, int h) {
 		Mat sheet = d.mat(Role.SHEET).has(Form.STAIRS) ? d.mat(Role.SHEET) : d.mat(Role.ROOF);
 		Mat trim = d.mat(Role.ROOF_TRIM);
 		int cz1 = dp - 1 - wd;
-		Roofs.Field left = Roofs.shed(0, 0, wd - 1, cz1, Dirs.RIGHT, Roofs.Profile.straight(0.5));
-		Roofs.Field right = Roofs.shed(w - wd, 0, w - 1, cz1, Dirs.LEFT, Roofs.Profile.straight(0.5));
-		Roofs.Field back = Roofs.shed(0, cz1 + 1, w - 1, dp - 1, Dirs.FRONT, Roofs.Profile.straight(0.5));
-		Roofs.raster(d, left, eave, 0, 0, wd - 1, cz1, sheet, trim, Habits.Ridge.SLAB);
-		Roofs.raster(d, right, eave, w - wd, 0, w - 1, cz1, sheet, trim, Habits.Ridge.SLAB);
+		double pitch = eave + (wd + 1) / 2 + 1 < h ? 1.0 : 0.5;
+		Roofs.Field left = Roofs.gable(0, 0, wd - 1, cz1, Direction.Axis.Z, Roofs.Profile.straight(pitch));
+		Roofs.Field right = Roofs.gable(w - wd, 0, w - 1, cz1, Direction.Axis.Z, Roofs.Profile.straight(pitch));
+		Roofs.Field back = Roofs.gable(0, cz1 + 1, w - 1, dp - 1, Direction.Axis.X, Roofs.Profile.straight(pitch));
+		Roofs.Roof rl = Roofs.raster(d, left, eave, 0, 0, wd - 1, cz1, sheet, trim, Habits.Ridge.SLAB);
+		Roofs.Roof rr = Roofs.raster(d, right, eave, w - wd, 0, w - 1, cz1, sheet, trim, Habits.Ridge.SLAB);
 		Roofs.raster(d, back, eave, wd, cz1 + 1, w - 1 - wd, dp - 1, sheet, trim, Habits.Ridge.SLAB);
+		Mat dress = Rock.dressing(d);
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (Roofs.Roof r : new Roofs.Roof[]{rl, rr}) {
+				for (int x = r.x0; x <= r.x1; x++) {
+					if (!r.covers(x, 0)) {
+						continue;
+					}
+					for (int y = eave; y < r.bottomY(x, 0); y++) {
+						d.set(x, y, 0, dress.full());
+					}
+				}
+			}
+		}
 		if (!DeepManner.thatches(d)) {
-			homeCovering(d, 0, eave, 0, w - 1, eave + 3, dp - 1, sheet);
+			homeCovering(d, 0, eave, 0, w - 1, eave + 4, dp - 1, sheet);
 		}
 	}
 
