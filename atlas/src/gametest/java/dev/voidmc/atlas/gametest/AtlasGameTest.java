@@ -274,6 +274,9 @@ public class AtlasGameTest implements FabricClientGameTest {
 		if (this.want("card")) {
 			this.cardShots(context);
 		}
+		if (this.want("expanse")) {
+			this.expanseShot(context);
+		}
 		if (this.want("places")) {
 			this.placeShots(context);
 		}
@@ -541,6 +544,47 @@ public class AtlasGameTest implements FabricClientGameTest {
 		}
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", this.spawn.getX(), 140, this.spawn.getZ()));
 		context.waitTicks(20);
+	}
+
+	/**
+	 * With VOID Expanse installed: the map over places Expanse named (its name provider), one of them selected, so its
+	 * card shows the "from Expanse" source chip. Logs how many places each namer named.
+	 */
+	private void expanseShot(ClientGameTestContext context) {
+		String picked = context.computeOnClient(mc -> {
+			AtlasClient atlas = AtlasClient.get();
+			java.util.Map<String, Integer> bySource = new java.util.TreeMap<>();
+			Place best = null;
+			for (Place d : atlas.session().places.visible("minecraft:overworld")) {
+				bySource.merge(d.kind() + " " + d.source().label(), 1, Integer::sum);
+				boolean expanse = d.source().kind() == dev.voidmc.atlas.api.Source.Kind.PLUGIN && d.source().id().startsWith("expanse");
+				if (expanse && d.kind().equals(Place.REGION) && (best == null || d.radius() > best.radius())) {
+					best = d;
+				}
+			}
+			log("places by kind and source: " + bySource);
+			return best == null ? "" : AtlasClient.placeMarkerId(best) + "|" + best.x() + "|" + best.z() + "|" + best.name();
+		});
+		if (picked.isEmpty()) {
+			log("no place named by Expanse (is Expanse installed and this an Expanse world?)");
+			return;
+		}
+		String[] parts = picked.split("\\|");
+		log("Expanse named " + parts[3]);
+		context.runOnClient(mc -> {
+			if (!(mc.gui.screen() instanceof AtlasScreen)) {
+				AtlasClient.get().openMap();
+			}
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			screen.page.map.setKind(MapPanel.Kind.SURFACE);
+			screen.page.map.centreOn(Double.parseDouble(parts[1]) + 120, Double.parseDouble(parts[2]));
+			screen.page.map.setZoom(0.5);
+			screen.page.map.selected = parts[0];
+		});
+		this.settle(context, SETTLE_MS);
+		context.waitTicks(10);
+		this.shoot(context, "expanse_names");
+		context.runOnClient(mc -> ((AtlasScreen) mc.gui.screen()).page.map.selected = null);
 	}
 
 	private void cardShots(ClientGameTestContext context) {

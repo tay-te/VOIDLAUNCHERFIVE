@@ -60,6 +60,15 @@ public interface AtlasApi {
 	 */
 	AtlasPlaces places();
 
+	/** The player's journal of the world whose map is open (read only): firsts, distance, depth, explored areas. */
+	AtlasJournal journal();
+
+	/**
+	 * Hands Atlas the way to reach the player's friends and party (the VOID Hub's or launcher's bridge), if no plugin
+	 * gave one. Friend features show while it is {@link AtlasSocialTransport#available() available}.
+	 */
+	void useSocialTransport(AtlasSocialTransport transport);
+
 	/**
 	 * A share code for waypoints ({@code atlas-wp:1:...}): copy-paste safe, versioned; what VOID friends (or a chat
 	 * message) carry to another player's Atlas.

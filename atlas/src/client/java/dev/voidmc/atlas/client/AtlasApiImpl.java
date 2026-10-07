@@ -110,6 +110,16 @@ public final class AtlasApiImpl implements AtlasApi {
 	}
 
 	@Override
+	public dev.voidmc.atlas.api.AtlasJournal journal() {
+		return this.atlas.journal;
+	}
+
+	@Override
+	public void useSocialTransport(dev.voidmc.atlas.api.AtlasSocialTransport transport) {
+		this.atlas.social.offer(transport);
+	}
+
+	@Override
 	public MapView playerView() {
 		LocalPlayer p = Minecraft.getInstance().player;
 		double zoom = AtlasSettings.ZOOMS[this.atlas.settings().mapZoom];

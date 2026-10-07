@@ -208,6 +208,23 @@ public final class SettingsScreen extends Screen {
 		this.toggle(w, "Coordinates under the minimap", "The biome and where you stand", s.minimapCoordinates, true,
 			() -> s.minimapCoordinates = !s.minimapCoordinates);
 		this.toggle(w, "Compass", "A strip at the top with the places you have sighted", s.compass, true, () -> s.compass = !s.compass);
+		// placeholders for the section 8 design (performance, presets, far sight): plain rows until it is signed off
+		this.group("PERFORMANCE");
+		this.choice(w, "Performance", "Auto turns extras down when frames run slow", AtlasSettings.Performance.values(), v -> v.label, s.performance,
+			v -> s.performance = v);
+		AtlasSettings.Preset current = s.preset == null ? null : parsePreset(s.preset);
+		this.choice(w, "Preset", current == null ? "Sets several at once" : current.detail, AtlasSettings.Preset.values(), v -> v.label, current, s::apply);
+		boolean lod = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(dev.voidmc.atlas.client.FarSight.LOD_MOD);
+		this.toggle(w, "Far sight", lod ? "Land VOID LOD draws far off, mapped as seen from afar" : "Needs VOID LOD", lod && s.farSight, lod,
+			() -> s.farSight = !s.farSight);
+	}
+
+	private static AtlasSettings.Preset parsePreset(String name) {
+		try {
+			return AtlasSettings.Preset.valueOf(name);
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
 	}
 
 	private void waypointsTab(AtlasSettings s, float w) {
@@ -243,6 +260,13 @@ public final class SettingsScreen extends Screen {
 		this.group("EXPORT AND IMPORT");
 		this.button(w, "Export map as image", "A PNG of the map as it is shown", "Export", () -> this.atlas.openExport());
 		this.button(w, "Import waypoints", "From other map mods in this instance", "Import", () -> this.atlas.offerImport());
+		if (this.atlas.social.available()) {
+			// a placeholder for the section 8 design: who sees you, and whose land you see
+			this.group("FRIENDS");
+			this.choice(w, "Share with", "Your position and explored land; theirs the same way", dev.voidmc.atlas.api.Privacy.values(),
+				v -> v == dev.voidmc.atlas.api.Privacy.FRIENDS ? "Friends" : v == dev.voidmc.atlas.api.Privacy.PARTY ? "Party" : "Nobody",
+				this.atlas.social.privacy(), v -> s.sharePrivacy = v.id());
+		}
 		this.group("BACKUPS");
 		this.kit.ui.text("Waypoints, places and the region index are backed up as you play", this.rx + 4, this.ry - 4, Ui.Font.F105, Theme.INK_3);
 	}

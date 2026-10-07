@@ -133,8 +133,9 @@ public final class MyAtlasPlugin implements AtlasPlugin {
 ```
 
 **Places and names** — the same plugin can implement `onAtlasPlaces(AtlasPlaces places)`: `registerPlaceProvider`
-(landmarks and discoveries of your own), `registerNameProvider` (names for regions, lakes, rivers, peaks — Expanse's
-real names), `report(place)` for places a server tells the client about (`Source.voidServer()` gives them the "from
+(landmarks and discoveries of your own), `registerNameProvider` (names for regions, lakes, rivers, peaks, waterfalls,
+cave mouths, ravines, and structures by id with kind `atlas:structure` and `RegionNameQuery.structure()` — Expanse's
+real names; a natural place a provider names is credited to it, "from Expanse"), `report(place)` for places a server tells the client about (`Source.voidServer()` gives them the "from
 the VOID server" chip). Every marker carries a `Source` (the provider's id unless it says otherwise) and a `Tier`. See
 [docs/DISCOVERY.md](docs/DISCOVERY.md).
 
@@ -156,6 +157,21 @@ switched off and logged once. `MarkerDetail` fills the detail card: up to three 
 | `renderMap(graphics, x, y, w, h, MapView)` | draws a map view (tiles, markers, the player) into any rectangle, rounded |
 | `createMapWidget()` | the whole interactive map page as a `MapWidget` for a screen of your own: `render(graphics, x, y, w, h, mouseX, mouseY)` and the mouse and key methods; this is what the VOID Hub's *Map* page hosts inside its shell |
 | `openMap()`, `openSettings(parent)` | Atlas's own screens |
+| `journal()` | `AtlasJournal`: the timeline (`newest(n)`), totals (`stats()`: distance, deepest and highest Y, days, places), the areas explored most (`topAreas(n)`), a listener for new lines |
+| `useSocialTransport(t)` | the way to reach VOID friends (see below), if no plugin gave one |
+
+
+**VOID friends** — `AtlasSocialTransport` (`publish(topic, bytes)`, `subscribe(topic, handler)`, `presence(state)`,
+`available()`, and the player's id, friends and party) is how friends' positions (topic `position`, JSON, at most
+1 Hz), shared waypoints (`waypoint`) and explored land (`tiles:<dimension>:<rx>,<rz>`: checked, compressed deltas of at
+most 48 KB, sent within a byte budget, never whole maps) travel. A plugin returns one from `socialTransport()`, or
+the Hub calls `useSocialTransport`. Without one, nothing of it shows. The privacy setting (Friends, Party, Nobody;
+Party by default) is enforced on both ends in the client; friends' land is drawn under one's own, only where one has
+not been, and never counts as explored. The message formats are in `core/social` (`FriendPositions`, `SharedTiles`).
+
+**Far sight** — with VOID LOD installed, the land it draws far off (`dev.voidmc.lod.api.LodApi`, reached by
+reflection) is mapped into a "seen from afar" layer under the walked map: cells of 2 to 16 blocks, never over walked
+land, never a discovery. Settings: Map, Far sight.
 
 `MapView` is a record: layer (`surface`, `underground`, `nether`), centre, zoom in pixels per block (whole numbers
 are pixel-crisp), rotation, whether to draw markers and the player, and the corner radius.
