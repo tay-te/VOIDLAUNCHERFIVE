@@ -55,6 +55,9 @@ public final class FarAir {
 	private int curtains;
 	private String cloudState = "";
 
+	/** This frame's terrain fog, which the deck's half-resolution pass draws with. */
+	private com.mojang.renderpearl.api.buffers.GpuBufferSlice fog;
+
 	private FarAir() {
 	}
 
@@ -81,7 +84,8 @@ public final class FarAir {
 	 * Works out and uploads this frame's far air. Called by {@code LevelRendererFarMixin} while the frame graph is built,
 	 * before any pass runs (as VOID LOD prepares its own).
 	 */
-	public static void prepare(LevelRenderState state) {
+	public static void prepare(LevelRenderState state, com.mojang.renderpearl.api.buffers.GpuBufferSlice fog) {
+		INSTANCE.fog = fog;
 		INSTANCE.prepareFrame(state);
 	}
 
@@ -220,7 +224,8 @@ public final class FarAir {
 			level.getSeaLevel() + 30);
 		ByteBuffer texels = this.weather.takeUpload();
 		try {
-			this.renderer.prepare(this.info, texels, mesh, this.rain, clouds, fast, mistOn, rainOn, shadows);
+			var target = mc.gameRenderer.mainRenderTarget();
+			this.renderer.prepare(this.info, texels, mesh, this.rain, clouds, fast, mistOn, rainOn, shadows, this.fog, target.width, target.height);
 			this.setShade(shadows, shadeX, shadeZ, shadeSize);
 		} finally {
 			if (texels != null) {

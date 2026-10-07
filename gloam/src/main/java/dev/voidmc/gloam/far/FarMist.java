@@ -129,11 +129,12 @@ final class FarMist {
 				top[i] = Float.NaN;
 				continue;
 			}
-			float lowness = Noise.smoothstep(0.0F, 40.0F, mean[i] - h[i]);
+			float lowness = Noise.smoothstep(0.0F, 30.0F, mean[i] - h[i]);
 			Climate climate = new Climate(temp[i], wet[i], lowness, Math.max(water[i], near[i] * 0.6F));
 			float m = Air.mist(clock, year, climate, wetness);
 			thick[i] = m;
-			top[i] = floor[i] + Air.mistDepth(m);
+			// a little deeper than the model's layer at the camera: seen from kilometres off, a valley's mist is a bank
+			top[i] = floor[i] + Air.mistDepth(m) * 1.5F;
 		}
 
 		int anchorX = (int) Math.floor(camX), anchorZ = (int) Math.floor(camZ);

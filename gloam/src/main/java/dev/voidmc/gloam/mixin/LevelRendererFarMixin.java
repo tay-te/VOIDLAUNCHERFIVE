@@ -31,7 +31,7 @@ public abstract class LevelRendererFarMixin {
 	@Inject(method = "addMainPass", at = @At("HEAD"))
 	private void gloam$prepareFar(FrameGraphBuilder frame, FeatureRenderDispatcher.PreparedFrame featureFrame, GpuBufferSlice terrainFog,
 		ChunkSectionsToRender chunkSectionsToRender, boolean consistentDepthRequired, CallbackInfo ci) {
-		FarAir.prepare(this.levelRenderState);
+		FarAir.prepare(this.levelRenderState, terrainFog);
 	}
 
 	@Inject(

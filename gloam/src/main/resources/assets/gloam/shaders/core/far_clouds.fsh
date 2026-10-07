@@ -7,48 +7,34 @@
 
 #include <gloam:farclouds.glsl>
 
+// The cloud deck at half the screen's resolution, into a picture of its own (premultiplied colour and coverage), which
+// far_composite lays over the world at full resolution, blurring away what grain the march leaves.
 layout(location = 0) in vec4 nearPoint;
 
 layout(location = 0) out vec4 fragColor;
 
-// The light a bit of cloud sends toward the camera: the top in vanilla's cloud colour, the underside grey (a storm's
-// near black), the sun's side of the sky glowing at dawn and dusk, and a bright rim looking toward the sun.
-vec3 shade(Column c, float frac, vec3 dir) {
-    vec3 lit = FarCloudColor.rgb;
-    float under = mix(0.55, 0.26, c.storm);
-    under *= mix(1.0, 0.7, smoothstep(60.0, 300.0, c.top - c.bottom));
-    vec3 color = lit * mix(under, 1.0, smoothstep(0.0, 1.0, frac));
-    float sunward = max(dot(normalize(dir.xz + vec2(1e-4, 0.0)), vec2(sign(FarSun.x), 0.0)), 0.0);
-    float glow = FarSunrise.a * (0.12 + 0.88 * sunward * sunward) * (1.0 - 0.5 * frac);
-    color = mix(color, FarSunrise.rgb * max(max(lit.r, lit.g), lit.b) * 1.1, glow * 0.6);
-    float rim = pow(max(dot(dir, FarSun.xyz), 0.0), 10.0);
-    color += lit * FarSun.w * rim * 0.6 * (1.0 - 0.8 * c.h);
-    return color;
+// Henyey-Greenstein: how much light a cloud scatters at an angle to the sun, g its forward lean.
+float phase(float cosine, float g) {
+    float g2 = g * g;
+    return (1.0 - g2) / (4.0 * 3.14159265 * pow(1.0 + g2 - 2.0 * g * cosine, 1.5));
 }
 
-// White noise from the pixel, for the march's jitter.
-float hash12(vec2 p) {
-    vec3 q = fract(vec3(p.xyx) * 0.1031);
-    q += dot(q, q.yzx + 33.33);
-    return fract((q.x + q.y) * q.z);
-}
-
-float depthOf(vec3 pos) {
-    vec4 clip = ProjMat * FarModelView * vec4(pos, 1.0);
-    return clamp(clip.z / clip.w, 0.0, 1.0);
+// Interleaved gradient noise: a dither whose neighbours differ as much as they can, so the composite's blur takes it out.
+float dither(vec2 p) {
+    return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
 }
 
 void main() {
     vec3 dir = normalize(nearPoint.xyz / nearPoint.w);
     float cameraY = FarCamera.x;
     float reach = FarCamera.w;
-    float low = FarLayer.x - 90.0;
+    float low = FarLayer.x - 95.0;
     float high = FarLayer.x + FarLayer.y;
-    // where the ray is between the lowest base and the highest top in view
     float t0, t1;
     if (abs(dir.y) < 1e-5) {
         if (cameraY < low || cameraY > high) {
-            discard;
+            fragColor = vec4(0.0);
+            return;
         }
         t0 = 0.0;
         t1 = reach;
@@ -58,75 +44,103 @@ void main() {
         t1 = min(max(a, b), reach);
     }
     if (t1 <= t0) {
-        discard;
+        fragColor = vec4(0.0);
+        return;
     }
+
+    // The light: the sun's colour (vanilla's cloud colour, warmed by a low sun), and the sky's light from all round,
+    // bluish-grey under the clouds and brighter over them.
+    vec3 lit = FarCloudColor.rgb;
+    float low_sun = FarSunrise.a * (1.0 - smoothstep(0.0, 0.5, FarSun.y));
+    vec3 sun = mix(lit, FarSunrise.rgb * max(max(lit.r, lit.g), lit.b) * 1.3, low_sun * 0.75) * FarSun.w;
+    vec3 skyLight = mix(FogColor.rgb, lit, 0.5);
+    float cosine = dot(dir, FarSun.xyz);
+    // a silver lining toward the sun, a little back-scatter away from it
+    float scatter = mix(phase(cosine, 0.65), phase(cosine, -0.2), 0.35) * 4.0 * 3.14159265 * 0.55;
+    vec3 toSun = normalize(FarSun.xyz + vec3(0.0, 0.08, 0.0));
 
     float transmit = 1.0;
     vec3 light = vec3(0.0);
-    float hit = -1.0;
+    float weighted = 0.0;
 #ifdef FAR_FAST
-    // Vanilla's fast clouds: one flat layer, soft-edged, in the middle of the deck.
-    float mid = FarLayer.x + 20.0;
+    // Vanilla's fast clouds: one soft layer through the middle of the deck.
+    float mid = FarLayer.x + 40.0;
     float tm = abs(dir.y) < 1e-5 ? -1.0 : (mid - cameraY) / dir.y;
-    if (tm <= 0.0 || tm > reach) {
-        discard;
+    if (tm > 0.0 && tm < reach) {
+        vec2 rel = dir.xz * tm;
+        vec4 s = skyAt(rel);
+        float height;
+        float d = cloud(rel, deckBase(s) + 0.4 * deckDepth(s), s, false, height);
+        float a = smoothstep(0.0, 0.35, d) * 0.92;
+        light = (sun * 0.6 + skyLight * 0.55) * a;
+        weighted = tm * a;
+        transmit = 1.0 - a;
     }
-    vec2 rel = dir.xz * tm;
-    Column c = column(rel);
-    float a = smoothstep(0.05, 0.45, c.h) * 0.92;
-    light = shade(c, 0.6 * c.h, dir) * a;
-    transmit = 1.0 - a;
-    hit = tm;
 #else
-    // March through the slab: long strides through clear air, growing with distance, and short ones inside a cloud, as
-    // short as a few pixels there, stepping back on meeting one so its near edge is not skipped. Jittered per pixel so
-    // what is left of the steps blurs into fine noise rather than bands.
-    float t = t0 + max(16.0, t0 * 0.06) * hash12(gl_FragCoord.xy);
+    // Long strides through clear air, short ones in cloud, stepping back on meeting one so its near edge is not skipped.
+    // the pixel's own offset into every stride, so neighbouring pixels sample between each other's samples (kept when
+    // the march steps back into a cloud: re-gridding there drew the clouds' insides as contour lines)
+    float jitter = dither(gl_FragCoord.xy);
+    float t = t0 + max(20.0, t0 * 0.03) * jitter;
     bool inside = false;
     int misses = 0;
-    for (int i = 0; i < 120 && t < t1; i++) {
-        float stride = inside ? clamp(t * 0.018, 8.0, 240.0) : max(16.0, t * 0.035);
+    for (int i = 0; i < 90 && t < t1; i++) {
+        float stride = inside ? clamp(t * 0.016, 8.0, 160.0) : max(20.0, t * 0.03);
         vec3 p = dir * t;
-        // past a few kilometres a heap's fraying is under a pixel: the cheaper shape
-        bool coarse = t > 5000.0;
-        Column c = column(p.xz);
-        float frac;
-        // a clear bubble round the camera: clouds thin away as it flies into them instead of standing at its face
-        float d = density(c, cameraY + p.y, p.xz, coarse, frac) * smoothstep(24.0, 96.0, t);
-        if (d > 0.001) {
+        float y = cameraY + p.y;
+        vec4 s = skyAt(p.xz);
+        float height;
+        bool near = t < 3500.0;
+        // a clear bubble round the camera: clouds thin away as it flies into them
+        float d = cloud(p.xz, y, s, near, height) * smoothstep(24.0, 96.0, t);
+        if (d > 0.002) {
             if (!inside) {
                 inside = true;
-                t = max(t0, t - stride);
+                t = max(t0, t - stride + clamp(t * 0.016, 8.0, 160.0) * jitter);
                 continue;
             }
             misses = 0;
-            float a = 1.0 - exp(-SIGMA * d * stride);
-            if (hit < 0.0) {
-                hit = t;
+            // the sun's light reaching this point: two samples toward it through the cloud
+            float toward = 0.0;
+            float lengths[2] = float[2](30.0, 110.0);
+            float along = 0.0;
+            for (int k = 0; k < 2; k++) {
+                float len = lengths[k];
+                vec3 q = p + toSun * (along + len * 0.5);
+                float hq;
+                toward += cloud(q.xz, cameraY + q.y, skyAt(q.xz), false, hq) * len;
+                along += len;
             }
-            // lit by how high in the deck it is, the same for every heap (each heap's own top would stripe them)
-            float lift = clamp((cameraY + p.y - c.base) / mix(140.0, FarLayer.y * 0.6, c.storm), 0.0, 1.0);
-            light += transmit * a * shade(c, lift, dir);
+            float beer = exp(-SIGMA * 0.8 * toward);
+            // the dark of a cloud's inside lifts toward its edges (light scattered many times)
+            float powder = 1.0 - exp(-2.0 * SIGMA * d * 40.0);
+            float shadeBase = mix(0.55, 0.3, s.y);
+            vec3 ambient = skyLight * mix(shadeBase, 1.0, smoothstep(0.0, 1.0, height));
+            vec3 col = sun * beer * mix(1.0, scatter, 0.6) * (0.5 + 0.5 * powder) * 1.2 + ambient * 0.62;
+            float a = 1.0 - exp(-SIGMA * d * stride);
+            light += transmit * a * col;
+            weighted += transmit * a * t;
             transmit *= 1.0 - a;
-            if (transmit < 0.01) {
+            if (transmit < 0.02) {
                 break;
             }
         } else if (inside && ++misses > 2) {
-            // out the other side: back to long strides
             inside = false;
         }
         t += stride;
     }
 #endif
     float alpha = 1.0 - transmit;
-    if (hit < 0.0 || alpha < 0.004) {
-        discard;
+    if (alpha < 0.003) {
+        fragColor = vec4(0.0);
+        return;
     }
     vec3 color = light / alpha;
-    // the air between: far clouds pale into the horizon's colour, and fade out before the far air's edge
-    float haze = 1.0 - exp(-hit / FarAnchor.w);
-    color = mix(color, FogColor.rgb, haze * 0.85);
-    alpha *= (1.0 - smoothstep(0.7 * reach, reach, hit)) * min(1.0, FarCloudColor.a * 1.25);
+    // Aerial perspective: the air between pales a far cloud into the horizon's colour, so a tower 10 km off is a
+    // bluish-grey mass rather than white; and the deck fades out before the far air's edge.
+    float dist = weighted / alpha;
+    float haze = 1.0 - exp(-dist / FarAnchor.w);
+    color = mix(color, FogColor.rgb, haze * 0.8);
+    alpha *= (1.0 - smoothstep(0.7 * reach, reach, dist)) * min(1.0, FarCloudColor.a * 1.25);
     fragColor = vec4(color * alpha, alpha);
-    gl_FragDepth = depthOf(dir * hit);
 }
