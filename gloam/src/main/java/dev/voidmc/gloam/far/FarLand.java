@@ -38,6 +38,13 @@ public final class FarLand {
 		/** The biome's temperature, (t + 1) * 64, and downfall * 255. */
 		final byte[] temperature = new byte[REGION * REGION];
 		final byte[] downfall = new byte[REGION * REGION];
+		/**
+		 * What Expanse's countries say of each cell (filled by the mist's worker, not the listener): whether it has been
+		 * asked (1), its lowness and nearness to water as 0..255; its wetness then stands in the downfall above.
+		 */
+		final byte[] country = new byte[REGION * REGION];
+		final byte[] lowness = new byte[REGION * REGION];
+		final byte[] nearWater = new byte[REGION * REGION];
 
 		Region() {
 			java.util.Arrays.fill(this.height, UNKNOWN);
@@ -161,6 +168,8 @@ public final class FarLand {
 				r.height[at] = (short) Math.round(sum / n);
 				r.detail[at] = (byte) detail;
 				r.water[at] = (byte) Math.round(255.0F * waters / n);
+				// asked of Expanse again with the new land (its wetness takes the downfall's place once more)
+				r.country[at] = 0;
 				if (climates > 0) {
 					r.temperature[at] = (byte) Math.round(Math.clamp((temp / climates + 1) * 64, 0, 255));
 					r.downfall[at] = (byte) Math.round(Math.clamp(wet / climates, 0, 1) * 255);

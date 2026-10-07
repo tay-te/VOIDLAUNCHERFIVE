@@ -4,6 +4,8 @@ import dev.voidmc.gloam.GloamSettings;
 import dev.voidmc.gloam.air.AirSample;
 import dev.voidmc.gloam.air.Atmosphere;
 import dev.voidmc.gloam.air.Noise;
+import dev.voidmc.gloam.compat.Expanse;
+import dev.voidmc.gloam.far.FarAir;
 import dev.voidmc.gloam.mixin.ClientLevelAccessor;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Camera;
@@ -60,6 +62,9 @@ public final class GloamSky {
 	/** The haze of the land round the camera (0..1, eased over biome edges), how much of it is dust, and the fog it makes. */
 	private static float landHaze, landDust, haze, hazeEnd, curtain;
 	private static ClientLevel hazeLevel;
+	/** The haze hint of Expanse's country at the camera (null without one), read every half second. */
+	private static Haze.Entry hint;
+	private static int hintTicks;
 	private static float sunsetAlpha;
 	private static Vector3fc sunset = new Vector3f(1, 0.6F, 0.3F);
 	private static float rain, oRain, thunder, oThunder, storm;
@@ -93,11 +98,18 @@ public final class GloamSky {
 			return;
 		}
 		AirSample air = atmosphere.here();
+		Camera camera = mc.gameRenderer.mainCamera();
+		Vec3 eye = camera.isInitialized() ? camera.position() : mc.player != null ? mc.player.getEyePosition() : Vec3.ZERO;
+		// how much of the fronts' cloud is above the camera, and whether the rain cloud is: on a summit above the main
+		// deck the sky is blue over a sea of cloud and it does not rain
+		float decks = lv.environmentAttributes().getValue(EnvironmentAttributes.CLOUD_HEIGHT, eye);
+		float overhead = overhead(FarAir.cloudDecks(), decks, (float) eye.y);
+		float wetHere = rainBelow(FarAir.cloudDecks(), decks, (float) eye.y);
 		regional = settings.regionalRain && lv.canHaveWeather();
 		if (regional) {
-			rain = air.rain();
+			rain = air.rain() * wetHere;
 			// the dark of a thunderstorm, where the front overhead has one
-			thunder = air.storm() * air.rain();
+			thunder = air.storm() * rain;
 		} else {
 			rain = Atmosphere.vanillaRain(lv, 1.0F);
 			thunder = Atmosphere.vanillaThunder(lv, 1.0F);
@@ -108,19 +120,18 @@ public final class GloamSky {
 		if (!lit) {
 			return;
 		}
-		Camera camera = mc.gameRenderer.mainCamera();
-		Vec3 eye = camera.isInitialized() ? camera.position() : mc.player != null ? mc.player.getEyePosition() : Vec3.ZERO;
 		long clock = lv.getOverworldClockTime();
 		MoonPhase phase = lv.environmentAttributes().getValue(EnvironmentAttributes.MOON_PHASE, eye);
 		float outdoors = 1 - air.indoors();
 		float strength = (float) settings.darkNights;
 
 		moon = DimensionType.MOON_BRIGHTNESS_PER_PHASE[phase.index()];
-		cover = air.overcast();
+		float cloudCover = air.cloudCover() * overhead;
+		cover = Math.max(cloudCover, rain);
 		float clear = Night.clear(cover);
 		// how grey the fronts' cloud makes the sky, on top of whatever rain vanilla's weather layer already greys it
 		// for: a scattered sky stays blue between its clouds, a covered one goes grey
-		cloud = Noise.smoothstep(0.3F, 0.95F, air.cloudCover()) * (1 - rain);
+		cloud = Noise.smoothstep(0.3F, 0.95F, cloudCover) * (1 - rain);
 		night = Twilight.night(clock);
 		dark = Twilight.dark(clock);
 		float light = Night.light(moon, cover);
@@ -135,7 +146,7 @@ public final class GloamSky {
 		float[] c = Twilight.colour(clock, vivid);
 		Vector3f band = new Vector3f(c[0], c[1], c[2]);
 		// a closing overcast greys the band and hides most of it (rain's own share vanilla's weather layer takes)
-		float closed = Noise.smoothstep(0.55F, 0.95F, air.cloudCover()) * (1 - rain);
+		float closed = Noise.smoothstep(0.55F, 0.95F, cloudCover) * (1 - rain);
 		float grey = band.x * 0.3F + band.y * 0.59F + band.z * 0.11F;
 		band.lerp(new Vector3f(grey, grey, grey), 0.7F * closed);
 		sunset = band;
@@ -150,12 +161,27 @@ public final class GloamSky {
 		// the land's own haze, eased over biome edges at the pace the atmosphere eases the climate
 		Haze.Entry entry = lv.getBiome(BlockPos.containing(eye)).unwrapKey().map(key -> Haze.BIOMES.get(key.identifier())).orElse(null);
 		float ease = hazeLevel == lv ? 0.05F : 1.0F;
+		if (hazeLevel != lv || hintTicks++ % 10 == 0) {
+			// and the country's: a humid lowland, misty lakes, a damp forest, dust, or clear mountain air
+			Expanse.Sampler country = Expanse.sampler(lv);
+			hint = country == null ? null : Haze.HINTS.get(country.at((int) Math.floor(eye.x), (int) Math.floor(eye.z)).haze());
+		}
 		hazeLevel = lv;
-		landHaze += ((entry == null ? 0 : Haze.haziness(entry.reach())) - landHaze) * ease;
-		landDust += ((entry != null && entry.kind() == Haze.Kind.DUST ? 1 : 0) - landDust) * ease;
+		// the hazier of the biome's own and the country's, so a cloud forest stays murky inside a clear country
+		float biomeHaze = entry == null ? 0 : Haze.haziness(entry.reach());
+		float hintHaze = hint == null ? 0 : Haze.haziness(hint.reach());
+		Haze.Entry hazier = biomeHaze >= hintHaze ? entry : hint;
+		landHaze += (Math.max(biomeHaze, hintHaze) - landHaze) * ease;
+		landDust += ((hazier != null && hazier.kind() == Haze.Kind.DUST ? 1 : 0) - landDust) * ease;
 		haze = landHaze * Haze.daily(landHaze, air.hour()) * (float) settings.haze * outdoors;
 		hazeEnd = Haze.reach(haze, 80.0F);
 		curtain = Math.min(0.8F, mistCurtain + Haze.curtain(haze));
+	}
+
+	/** What the sky is doing, for the showcase's log and debugging. */
+	public static String describe() {
+		return String.format(java.util.Locale.ROOT, "sky %s: night %.2f, light %.2f, cloud %.2f, golden %.2f, blue %.2f, mist fog %.2f, haze %.2f (land %.2f, dust %.2f, hint %s), curtain %.2f",
+			lit ? "on" : "off", night, skyLight, cloud, golden, blue, mist, haze, landHaze, landDust, hint == null ? "none" : hint, curtain);
 	}
 
 	/** Adds Gloam's layers to a client level's environment attributes, as the level is made. */
@@ -214,6 +240,36 @@ public final class GloamSky {
 			}
 			return e;
 		});
+	}
+
+	/**
+	 * How much of the fronts' cloud lies above a camera at {@code y}, 0..1: all of it under the lowest deck, only the
+	 * high deck's share over the main deck. {@code decks} are Gloam's cloud decks ({low, main, high}, -1 for none) or
+	 * null for vanilla's one deck at {@code vanilla}.
+	 */
+	static float overhead(int[] decks, float vanilla, float y) {
+		if (decks == null) {
+			return above(vanilla, y);
+		}
+		// how much of the cover each deck holds: the main deck most, a thin high veil least
+		float[] share = decks[2] >= 0 ? new float[]{0.35F, 0.45F, 0.2F} : decks[0] >= 0 ? new float[]{0.4F, 0.6F, 0} : new float[]{0, 1, 0};
+		float sum = 0;
+		for (int i = 0; i < 3; i++) {
+			if (decks[i] >= 0) {
+				sum += share[i] * above(decks[i], y);
+			}
+		}
+		return sum;
+	}
+
+	/** Whether the rain cloud (the main deck, or vanilla's one) is above a camera at {@code y}: 1 under it, 0 over it. */
+	static float rainBelow(int[] decks, float vanilla, float y) {
+		return above(decks == null ? vanilla : decks[1], y);
+	}
+
+	/** 1 for a deck at {@code deck} well above {@code y}, 0 well below, a 20-block ease through it (decks are 4 thick). */
+	private static float above(float deck, float y) {
+		return Noise.smoothstep(y - 8, y + 12, deck);
 	}
 
 	private static boolean on(ClientLevel forLevel) {

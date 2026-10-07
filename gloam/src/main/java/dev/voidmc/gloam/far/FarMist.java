@@ -3,6 +3,7 @@ package dev.voidmc.gloam.far;
 import dev.voidmc.gloam.air.Air;
 import dev.voidmc.gloam.air.Climate;
 import dev.voidmc.gloam.air.Noise;
+import dev.voidmc.gloam.compat.Expanse;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -47,7 +48,7 @@ final class FarMist {
 	}
 
 	/** Starts a new build if one is due: every couple of seconds, at once when the camera jumps or the clock is set. */
-	void update(FarLand land, Air air, double x, double z, double reach, long clock, float wetness) {
+	void update(FarLand land, Air air, double x, double z, double reach, long clock, float wetness, Expanse.Sampler country) {
 		if (this.working || !land.known()) {
 			return;
 		}
@@ -64,7 +65,7 @@ final class FarMist {
 		this.working = true;
 		WORKER.execute(() -> {
 			try {
-				Mesh old = this.ready.getAndSet(build(land, air, x, z, reach, clock, wetness));
+				Mesh old = this.ready.getAndSet(build(land, air, x, z, reach, clock, wetness, country));
 				if (old != null) {
 					MemoryUtil.memFree(old.vertices());
 				}
@@ -82,7 +83,7 @@ final class FarMist {
 		this.lastX = Double.NaN;
 	}
 
-	static Mesh build(FarLand land, Air air, double camX, double camZ, double reach, long clock, float wetness) {
+	static Mesh build(FarLand land, Air air, double camX, double camZ, double reach, long clock, float wetness, Expanse.Sampler country) {
 		int cell = FarLand.CELL;
 		int r = (int) Math.ceil(reach / cell) + 1;
 		// the window of cells, with a margin for the neighbourhoods read around each
@@ -93,6 +94,9 @@ final class FarMist {
 		float[] water = new float[n * n];
 		float[] temp = new float[n * n];
 		float[] wet = new float[n * n];
+		// what Expanse's countries say of each cell (NaN without them): its lowness and nearness to water
+		float[] low = new float[n * n];
+		float[] shore = new float[n * n];
 		boolean any = false;
 		for (int z = 0; z < n; z++) {
 			for (int x = 0; x < n; x++) {
@@ -109,6 +113,20 @@ final class FarMist {
 				water[i] = (region.water[at] & 255) / 255.0F;
 				temp[i] = (region.temperature[at] & 255) / 64.0F - 1;
 				wet[i] = (region.downfall[at] & 255) / 255.0F;
+				low[i] = Float.NaN;
+				if (country != null) {
+					if (region.country[at] == 0) {
+						// asked once per cell, at its middle, here on the worker (a few microseconds each)
+						Expanse.Land l = country.at(cx * cell + cell / 2, cz * cell + cell / 2);
+						region.lowness[at] = (byte) Math.round(l.lowness() * 255);
+						region.nearWater[at] = (byte) Math.round(l.water() * 255);
+						region.downfall[at] = (byte) Math.round(Math.clamp(l.downfall(), 0, 1) * 255);
+						region.country[at] = 1;
+					}
+					low[i] = (region.lowness[at] & 255) / 255.0F;
+					shore[i] = (region.nearWater[at] & 255) / 255.0F;
+					wet[i] = (region.downfall[at] & 255) / 255.0F;
+				}
 			}
 		}
 		if (!any) {
@@ -130,7 +148,13 @@ final class FarMist {
 				continue;
 			}
 			float lowness = Noise.smoothstep(0.0F, 30.0F, mean[i] - h[i]);
-			Climate climate = new Climate(temp[i], wet[i], lowness, Math.max(water[i], near[i] * 0.6F));
+			float nearWater = Math.max(water[i], near[i] * 0.6F);
+			if (!Float.isNaN(low[i])) {
+				// the countries see the valleys and the shores finer than the far cells do
+				lowness = Math.max(lowness, low[i]);
+				nearWater = Math.max(nearWater, shore[i]);
+			}
+			Climate climate = new Climate(temp[i], wet[i], lowness, nearWater);
 			float m = Air.mist(clock, year, climate, wetness);
 			thick[i] = m;
 			// a little deeper than the model's layer at the camera: seen from kilometres off, a valley's mist is a bank

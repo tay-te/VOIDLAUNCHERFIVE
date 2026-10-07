@@ -65,4 +65,15 @@ class SkyTest {
 			assertTrue(e.reach() > 0);
 		}
 	}
+
+	@Test
+	void aSummitAboveTheCloudsHasASkyAndNoRain() {
+		int[] tall = {208, 393, 619};
+		assertEquals(1.0F, GloamSky.overhead(tall, 192, 100), 1e-4F, "in the valley all the cloud is overhead");
+		assertEquals(0.2F, GloamSky.overhead(tall, 192, 590), 0.02F, "on a summit only the high veil");
+		assertEquals(0.0F, GloamSky.rainBelow(tall, 192, 590), 1e-4F, "no rain above the rain cloud");
+		assertEquals(1.0F, GloamSky.rainBelow(tall, 192, 300), 1e-4F, "rain under the main deck");
+		assertEquals(1.0F, GloamSky.overhead(null, 192, 100), 1e-4F, "vanilla's one deck");
+		assertEquals(0.0F, GloamSky.overhead(null, 192, 260), 1e-4F);
+	}
 }

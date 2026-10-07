@@ -1,7 +1,10 @@
 package dev.voidmc.gloam.far;
 
 import dev.voidmc.gloam.air.Air;
+import dev.voidmc.gloam.compat.Expanse;
 import java.nio.ByteBuffer;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.lwjgl.system.MemoryUtil;
@@ -47,6 +50,13 @@ final class WeatherMap {
 		}
 	}
 
+	/** How far apart the land's wetness is read from Expanse's countries, in blocks: rain shadows are mountain-sized. */
+	private static final int WET_STEP = 768;
+
+	/** The land's wetness on a {@value #WET_STEP}-block lattice in the world, kept across pictures (worker only). */
+	private final Map<Long, Float> wetness = new ConcurrentHashMap<>();
+	private Expanse.Sampler wetnessOf;
+
 	private volatile Picture ready;
 	private Picture current;
 	private boolean working;
@@ -64,10 +74,11 @@ final class WeatherMap {
 
 	/**
 	 * Called once a frame on the render thread: takes a finished picture, and starts the next when the old one is due
-	 * or the camera has wandered from its middle. {@code downfall} is the land's wetness at the camera, which leans on
-	 * the fronts a little everywhere (Expanse's country data will make it the far land's own later).
+	 * or the camera has wandered from its middle. The land's wetness leans on the fronts (wet land cloudier, a rain
+	 * shadow drier): each place's own from Expanse's countries ({@code country}), else {@code downfall}, the land's
+	 * wetness at the camera, everywhere.
 	 */
-	void update(Air air, double cameraX, double cameraZ, long gameTime, float year, float downfall) {
+	void update(Air air, double cameraX, double cameraZ, long gameTime, float year, float downfall, Expanse.Sampler country) {
 		Picture done = this.ready;
 		if (done != null && done != this.current) {
 			this.current = done;
@@ -90,7 +101,7 @@ final class WeatherMap {
 		double ox = Math.floor((fx - half) / TEXEL) * TEXEL, oz = Math.floor((fz - half) / TEXEL) * TEXEL;
 		WORKER.execute(() -> {
 			try {
-				this.ready = make(air, ox, oz, gameTime, year, downfall);
+				this.ready = this.make(air, ox, oz, gameTime, year, downfall, country);
 			} catch (RuntimeException e) {
 				this.working = false;
 				throw e;
@@ -98,17 +109,36 @@ final class WeatherMap {
 		});
 	}
 
-	private static Picture make(Air air, double ox, double oz, long gameTime, float year, float downfall) {
+	private Picture make(Air air, double ox, double oz, long gameTime, float year, float downfall, Expanse.Sampler country) {
+		if (country != this.wetnessOf || this.wetness.size() > 40_000) {
+			this.wetness.clear();
+			this.wetnessOf = country;
+		}
 		float[] fronts = new float[SIZE * SIZE];
 		double driftX = Air.FRONT_DRIFT * (gameTime / 20.0), driftZ = Air.FRONT_DRIFT * 0.2 * (gameTime / 20.0);
 		for (int z = 0; z < SIZE; z++) {
 			for (int x = 0; x < SIZE; x++) {
 				// Air.front takes world coordinates at a time: the texel's place in the frame, back in the world now
 				double wx = ox + (x + 0.5) * TEXEL + driftX, wz = oz + (z + 0.5) * TEXEL + driftZ;
-				fronts[z * SIZE + x] = air.front(wx, wz, gameTime, year, downfall);
+				float wet = country == null ? downfall : this.wetnessAt(country, wx, wz);
+				fronts[z * SIZE + x] = air.front(wx, wz, gameTime, year, wet);
 			}
 		}
 		return new Picture(ox, oz, fronts, gameTime, air.seed());
+	}
+
+	/** The land's wetness at world (x, z), between the lattice points round it (each read from Expanse once). */
+	private float wetnessAt(Expanse.Sampler country, double x, double z) {
+		double u = x / WET_STEP, v = z / WET_STEP;
+		int x0 = (int) Math.floor(u), z0 = (int) Math.floor(v);
+		float tx = (float) (u - x0), tz = (float) (v - z0);
+		float a = this.lattice(country, x0, z0), b = this.lattice(country, x0 + 1, z0);
+		float c = this.lattice(country, x0, z0 + 1), d = this.lattice(country, x0 + 1, z0 + 1);
+		return (a + (b - a) * tx) + ((c + (d - c) * tx) - (a + (b - a) * tx)) * tz;
+	}
+
+	private float lattice(Expanse.Sampler country, int i, int j) {
+		return this.wetness.computeIfAbsent(((long) i << 32) | (j & 0xFFFFFFFFL), k -> country.at(i * WET_STEP, j * WET_STEP).downfall());
 	}
 
 	/** The picture in use (null until the first is done). */
