@@ -139,6 +139,41 @@ public final class Outline {
 		return inside(x, z) && edge(x, z) >= thick - 0.5;
 	}
 
+	/** Whether a box stands wholly on the ward inside a curtain {@code thick} deep, {@code margin} clear of the wall. */
+	public boolean fits(int x0, int z0, int x1, int z1, int thick, int margin) {
+		for (int x = x0; x <= x1; x++) {
+			if (!ward(x, z0, thick + margin) || !ward(x, z1, thick + margin)) {
+				return false;
+			}
+		}
+		for (int z = z0; z <= z1; z++) {
+			if (!ward(x0, z, thick + margin) || !ward(x1, z, thick + margin)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** The last row (largest z) of column x inside the outline, or {@code Integer.MIN_VALUE}. */
+	public int back(int x) {
+		for (int z = this.z1; z >= this.z0; z--) {
+			if (inside(x, z)) {
+				return z;
+			}
+		}
+		return Integer.MIN_VALUE;
+	}
+
+	/** The first row (smallest z) of column x inside the outline, or {@code Integer.MAX_VALUE}. */
+	public int front(int x) {
+		for (int z = this.z0; z <= this.z1; z++) {
+			if (inside(x, z)) {
+				return z;
+			}
+		}
+		return Integer.MAX_VALUE;
+	}
+
 	/** The x extent {lo, hi} of the cells of row z inside the outline, or null if none. */
 	public int[] span(int z) {
 		int lo = Integer.MAX_VALUE;

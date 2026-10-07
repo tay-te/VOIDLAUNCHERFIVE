@@ -122,11 +122,32 @@ public final class Castle implements Archetype {
 		/** Two wards on a hill, towers at every turn, a gatehouse and barbican, the bergfried, the palace (alpine, maritime, wisteria). */
 		WARDS,
 		/** Bohemia (KCD II): few broad towers, a palace wing, an outer bailey whose curtain follows the hill. */
-		BOHEMIAN;
+		BOHEMIAN,
+		/** The karst: a walled compound on its axis, gate halls, a great hall in two tiers on a terrace. */
+		COMPOUND,
+		/** The north: a ring wall of stone with a timber breastwork, the kastal, a timber great hall and houses. */
+		BORG,
+		/** The steppe: a round royal enclosure, round towers, the great round hall and round houses under cones. */
+		ORDU,
+		/** The south: a rocca, one square court on a scarp, squat corner towers, the tall mastio, the palazzo. */
+		ROCCA,
+		/** The dry lands: a qasr, a square of walls buttressed by drum towers, flat ranges round a court, the burj, a dome. */
+		QASR,
+		/** The warm coasts and the bayou: a fort, a square with arrowhead bastions and garitas, the commandant's house. */
+		BASTION,
+		/** The moor: a laird's L-plan tower house with bartizans and crow steps in its barmkin. */
+		TOWER_HOUSE;
 
 		static Layout of(Culture c) {
 			return switch (c) {
 				case TEMPERATE -> BOHEMIAN;
+				case KARST -> COMPOUND;
+				case NORTHERN, TUNDRA -> BORG;
+				case STEPPE -> ORDU;
+				case MEDITERRANEAN -> ROCCA;
+				case DESERT, MESA -> QASR;
+				case TROPICAL, BAYOU -> BASTION;
+				case MOORLAND -> TOWER_HOUSE;
 				default -> WARDS;
 			};
 		}
@@ -148,6 +169,13 @@ public final class Castle implements Archetype {
 		Dress m = Dress.of(d);
 		switch (layout(d, man)) {
 			case BOHEMIAN -> BohemianCastle.draw(d, man, m);
+			case COMPOUND -> Compound.draw(d, man, m);
+			case BORG -> Borg.draw(d, man, m);
+			case ORDU -> Ordu.draw(d, man, m);
+			case ROCCA -> Rocca.draw(d, man, m);
+			case QASR -> Qasr.draw(d, man, m);
+			case BASTION -> Bastion.draw(d, man, m);
+			case TOWER_HOUSE -> TowerHouse.draw(d, man, m);
 			default -> wards(d, man, m);
 		}
 	}
