@@ -91,7 +91,8 @@ ten kinds to twenty-nine.
   what the town has in plenty (grain, logs, stone beyond its builds' wants), and the sim buys them in the day's business
   before these books run, so wages never take the coin a stalled build was waiting for. The founders' own buildings
   come provisioned and idle builders fetch raw materials from the town's land. With these a town left alone, books
-  running, reaches a village in 50–70 days and a town in 170–180 (it averaged 7 souls before).
+  running, reaches a village in 50–70 days and a town in 170–180, caught up a day at a time in 60–70 and 150–190 (it
+  averaged 7 souls before).
 
 ## Prices
 

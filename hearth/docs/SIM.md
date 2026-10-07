@@ -544,6 +544,11 @@ adults of one trade at one kind of workplace, resolved once a day:
    nearness; yield = the trade's yields × the site's density × its richness (the square root of how full it is; a
    renewable site never gives under 0.35) × the haul (sites beyond half of `haul_range` give less, unless there are
    enough haulers); the site loses what was taken. No site of its kinds: the trade's `no_site` yields.
+- **What waiting stages want is kept back**: recipes, the per-day rows of trades the data does not cover (the mint) and
+  eating (last, when nothing else is left) leave alone the goods every unfunded active plot's current stage wants (w6:
+  stepped a day at a time, a whole day of production runs before the builders come, and the mint struck the metal a
+  waiting house was bought in for, the town ate the basket of fruit a farmhouse waited on, and the traders brought them
+  again at the day's end, every day, §18).
 - **Tools** wear by the worker-day (`tool_wear` or the data's); short of tools, every trade but odd jobs manages
   `no_tools_factor` of a day. Passing traders sell a toolless town a cartload a day while its coin lasts.
 - **Food**: folk eat prepared food; without it, what the land gives as it is (fish, meat, fruit, flour, grain at the
@@ -813,13 +818,28 @@ Souls (treasury) by day, seed 3:
 | before, flat | 4 (0) | 6 (0) | 11 (8) | 15 (9) | 21 (7) | 21 (0) | 24 (14) | 31 (14) | | 150 / — |
 | before, hills | 7 (8) | 7 (0) | 10 (8) | 16 (10) | 19 (11) | 19 (0) | 21 (1) | 23 (0) | | 200 / — |
 | before, river | 4 (0) | 7 (0) | 10 (11) | 15 (0) | 15 (0) | 18 (0) | 20 (0) | 22 (0) | | 200 / — |
-| after, flat | 14 (10) | 19 (19) | 26 (4) | 33 (0) | 47 (17) | 65 (20) | 82 (386) | 120 (1 588) | 197 (4 648) | 70 / 170 |
-| after, hills | 15 (0) | 21 (0) | 27 (8) | 32 (8) | 44 (11) | 64 (23) | 66 (561) | 97 (19) | 118 (920) | 50 / 180 |
-| after, river | 14 (4) | 20 (8) | 25 (0) | 31 (18) | 44 (17) | 62 (19) | 78 (12) | 111 (976) | 152 (6 436) | 60 / 180 |
+| after, flat | 14 (10) | 19 (19) | 26 (4) | 33 (0) | 47 (17) | 65 (20) | 82 (399) | 113 (1 466) | 189 (4 312) | 70 / 170 |
+| after, hills | 15 (0) | 21 (3) | 30 (8) | 35 (8) | 46 (0) | 72 (19) | 84 (32) | 116 (731) | 116 (454) | 50 / 170 |
+| after, river | 14 (4) | 20 (8) | 25 (0) | 31 (18) | 44 (17) | 62 (19) | 78 (12) | 111 (976) | 170 (3 650) | 60 / 180 |
+| day steps, books, flat | 13 (42) | 19 (10) | 28 (10) | 42 (173) | 62 (123) | 87 (767) | 100 (1 385) | 141 (2 290) | 222 (7 179) | 70 / 150 |
+| day steps, books, hills | 16 (16) | 20 (8) | 24 (9) | 29 (0) | 41 (10) | 58 (45) | 74 (311) | 115 (1 257) | 120 (1 284) | 60 / 190 |
+| day steps, books, river | 15 (63) | 21 (8) | 30 (5) | 38 (59) | 55 (503) | 76 (352) | 89 (534) | 123 (1 421) | 179 (7 427) | 60 / 160 |
+| history, flat | 12 (0) | 20 (2) | 28 (0) | 40 (0) | 57 (0) | 79 (413) | 87 (1 073) | 123 (3 461) | 182 (9 350) | 60 / 160 |
+| history, hills | 14 (2) | 18 (2) | 20 (0) | 26 (0) | 32 (0) | 46 (3) | 55 (1) | 69 (1) | 115 (466) | 90 / 210 |
+| history, river | 15 (4) | 25 (0) | 35 (3) | 47 (6) | 67 (40) | 89 (471) | 105 (922) | 150 (2 178) | 223 (5 460) | 60 / 150 |
 
 Before, every stage waited on something (logs and clay in the first month, then cloth, glass, iron, brick) with the
 treasury at nothing and the builders idle; the stores meanwhile held 1 800 grain, 2 500 stone and 2 400 logs the barter
-rule would not touch. After, the stalls are short and mostly on the finishing goods (iron, candles, cloth) a village does
-not make; the treasury fills once the town has workshops and trade. Histories grow the same way (they keep the clock's
-coin), so an old historic town is now a town, not a hamlet: about 4 s of history for 300 days at the most (12 s for the
-three towns above, blueprints included), against 0.4 s measured with the stand-ins (§16.11).
+rule would not touch. After, the stalls are short and mostly on the finishing goods (iron, candles, cloth) a village
+does not make; the treasury fills once the town has workshops and trade.
+
+"Day steps" are the same town stepped a day at a time (`HEARTH_GROWTH_DAYSTEP`), as a fast-forward or a live town far
+behind catches up, and "history" the same with the clock's own coin, as histories age the towns nobody has seen (the
+live tour's scale towns). Stepped so, every town first settled for good on one stage: flat at 70 souls from day 160 (79
+with the clock's coin, from day 180), river at 68 from day 180, treasuries in the thousands, because a whole day of
+production ran before the builders came and the mint struck the metal a waiting house was bought in for, or the town
+ate the one basket of fruit a farmhouse waited on, and the traders brought them again at the day's end, every day. What
+waiting stages want is now kept back (§16.2) and the economy's mint strikes nothing while a building waits for goods;
+`aTownCaughtUpADayAtATimeGrowsToo` asserts a history-stepped town reaches 60 and grows by 20 more after day 200. Hills
+in a history grow slowest (their land carries less, prosperity 0.41–0.47). A history of 300 days takes about 4 s at
+most (12 s for the three towns above, blueprints included), against 0.4 s measured with the stand-ins (§16.11).
