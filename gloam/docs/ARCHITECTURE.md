@@ -77,14 +77,33 @@ grass and flowers, water, the mist layer), moved by `Wind`, scaled by the `motes
 ### Soundscape: `dev.voidmc.gloam.sound` (`Soundscape`)
 
 Layered ambient beds chosen from the air and the land around the camera, cross-faded, muffled indoors
-(`AirSample.indoors`), on the ambient sound category times the `sound` setting.
+(`AirSample.indoors`), on the ambient sound category (so Minecraft's ambient slider scales them) times the `sound`
+setting.
 
-- Wind, by its speed, the altitude and the exposure; through leaves in forests, over grass on open land.
-- Rain: on leaves, on open ground, on a roof when indoors; thunder rolling in the distance under storms.
-- The hours: the dawn chorus, daytime birds by biome, crickets and night insects, frogs by water, cicadas in warm lands.
-- Water: a stream nearby, waves on a shore.
-- Clips are synthesised (Python, like Expanse's `tools/gen_living.py`) into `assets/gloam/sounds`. Expanse keeps its
-  creatures' own calls; Gloam is the bed underneath. Hearth's bells: later, through a small API.
+- Wind, by its speed, the altitude and the exposure; through leaves in forests, over grass on open land, hollow on
+  bare summits and over open land in winter; its pitch rises a little with the gusts and the cold.
+- Rain: on leaves, on open ground, on a roof when indoors; thunder rolling in the distance under storms (`thunder`
+  setting).
+- The hours: the dawn chorus, sparse daytime birds, crickets on warm nights, frogs by still water, cicadas on hot days
+  in warm lands. No insects in winter, few birds.
+- Water: a brook nearby (flowing water, or a long narrow ribbon of water above the sea), waves on the shore of open
+  water. These and the frogs are heard from the direction they lie in.
+
+| Class | What it is |
+|---|---|
+| `Soundscape` | The client tick: reads the land every 30 ticks, asks `Mix` for each bed's volume, starts, aims and stops the beds, rolls the thunder. `describe()` for the logs. |
+| `Mix` | Pure: each bed's volume from an `AirSample` and `Surroundings` (hour and year windows, warmth, weather, habitat, muffling). Unit-tested (`MixTest`). |
+| `Land`, `Surroundings` | The land read: 16 directions x 6 radii out to 34 blocks plus the columns overhead (~300 lookups), eased between reads. |
+| `Bed`, `BedSound` | The beds and their gains; one looping, self-easing sound instance each (starts silent, stops itself once faded). |
+| `ThunderRoll` | One distant roll from a random direction. |
+
+Clips are synthesised by `tools/gen_sounds.py` (numpy, written with `soundfile`) into `assets/gloam/sounds`: 13 beds
+and 4 thunder rolls, mono 24 kHz Vorbis q3, 1.3 MB in all. Each bed is one period of a periodic signal, so it loops
+without a seam; `--check` decodes them back and checks length, levels and the seam, `--png` draws spectrograms;
+`ClipsTest` decodes them with Minecraft's own decoder. Nothing is registered: the clips are played by name from
+`sounds.json`, so a server needs none of it. Expanse keeps its creatures' own calls; Gloam is the bed underneath.
+Vanilla's ambience (cave moods, the underwater loop, rain patter) plays on beneath. Hearth's bells: later, through a
+small API.
 
 ### Far air: `dev.voidmc.gloam.far` (`FarAir`)
 

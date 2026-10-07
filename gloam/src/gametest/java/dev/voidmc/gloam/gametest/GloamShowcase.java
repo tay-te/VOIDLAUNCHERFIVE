@@ -122,7 +122,8 @@ public class GloamShowcase implements FabricClientGameTest {
 				System.out.printf(Locale.ROOT, "[gloam] %s sound: %s%n", view.name(), beds);
 				last = view;
 			}
-			System.out.printf(Locale.ROOT, "[gloam] sound clips %s%n", context.computeOnClient(mc -> Soundscape.loadedClips()));
+			String clips = context.computeOnClient(mc -> Soundscape.loadedClips());
+			System.out.printf(Locale.ROOT, "[gloam] sound clips %s%n", clips);
 		}
 	}
 
