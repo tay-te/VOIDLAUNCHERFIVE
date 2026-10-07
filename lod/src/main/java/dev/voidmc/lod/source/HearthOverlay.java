@@ -27,6 +27,8 @@ public final class HearthOverlay implements TerrainSource {
 
 	/** How far in from a footprint's edge a roof is looked for: a ridge rises no higher than this above the eaves here. */
 	private static final int ROOF_REACH = 8;
+	/** The widest cells towns are drawn in (out to a few kilometres): past them a town is under a few pixels. */
+	static final int MAX_CELL = 16;
 	/** Points per side a far cell is looked at in, for the share of it under buildings. */
 	private static final int FAR_POINTS = 4;
 
@@ -83,6 +85,10 @@ public final class HearthOverlay implements TerrainSource {
 	public void sample(int x, int z, int cell, ColumnSample out) {
 		this.generator.sample(x, z, cell, out);
 		if (out.empty) {
+			return;
+		}
+		if (cell > MAX_CELL) {
+			// a town is a few pixels out there, and asking would have Hearth work out the history of every region in reach
 			return;
 		}
 		int[] b = this.scratch.get();

@@ -319,7 +319,12 @@ public class LodShowcase implements FabricClientGameTest {
 							for (int[] view : new int[][]{{400, 0}, {1200, 1}}) {
 								// from the south-west, looking at it
 								int cx = tx - (int) (view[0] * 0.707), cz = tz - (int) (view[0] * 0.707);
-								int cy = (int) Math.max(model.height(cx, cz), 63) + 40 + view[1] * 60;
+								// high enough to see over the land between
+								float between = 63;
+								for (int t = 0; t <= 20; t++) {
+									between = Math.max(between, model.height(cx + (tx - cx) * t / 20, cz + (tz - cz) * t / 20));
+								}
+								int cy = (int) between + 40 + view[1] * 40;
 								float yaw = (float) Math.toDegrees(Math.atan2(-(tx - cx), tz - cz));
 								float pitch = (float) Math.toDegrees(Math.atan2(cy - ridge, view[0]));
 								found.add(new Spot("town" + view[1], cx, cy, cz, yaw, pitch, 50));

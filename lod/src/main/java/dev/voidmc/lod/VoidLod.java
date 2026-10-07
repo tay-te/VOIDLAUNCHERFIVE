@@ -636,7 +636,7 @@ public final class VoidLod implements ClientModInitializer {
 	}
 	private long hearthNanos;
 	/** How far out Hearth's towns are watched for changes: past this a town is a few pixels, rebuilt when its tile is. */
-	private static final double HEARTH_REACH = 16384;
+	private static final double HEARTH_REACH = 6144;
 
 	/** The regions around the player whose towns changed since last asked: their tiles are built again. Render thread. */
 	private void pollHearth(double px, double pz) {
