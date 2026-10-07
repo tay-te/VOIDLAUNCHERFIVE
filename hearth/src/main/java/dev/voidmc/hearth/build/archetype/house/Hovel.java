@@ -472,21 +472,7 @@ public final class Hovel implements Archetype {
 				Adobe.leanTo(d, storeLeft ? 0 : bx1 + 1, bz0 + 1, storeLeft ? bx0 - 1 : w - 1, bz1, base, storeLeft ? Dirs.RIGHT : Dirs.LEFT);
 			}
 		}
-		// the yard before the door walled from the street, the gap at the door; a shade of reeds over the door where the
-		// yard is too shallow for the fire's
-		if (!raised && bz0 >= 2) {
-			java.util.List<int[]> wall = new java.util.ArrayList<>();
-			for (int x = 0; x < w; x++) {
-				if (x != door) {
-					wall.add(new int[]{x, 0});
-				}
-			}
-			for (int z = 1; z < bz0; z++) {
-				wall.add(new int[]{0, z});
-				wall.add(new int[]{w - 1, z});
-			}
-			Adobe.yardWall(d, wall, base);
-		}
+		// a shade of reeds over the door where the yard is too shallow for the fire's
 		if (!raised && !yardFire) {
 			Adobe.doorShade(d, door, bz0, base);
 		}
@@ -532,6 +518,21 @@ public final class Hovel implements Archetype {
 					break;
 				}
 			}
+		}
+		// the yard before the door walled from the street, the gap at the door: last, on the levelled ground, round the fire
+		// and the jars
+		if (!raised && bz0 >= 2) {
+			java.util.List<int[]> wall = new java.util.ArrayList<>();
+			for (int x = 0; x < w; x++) {
+				if (x != door) {
+					wall.add(new int[]{x, 0});
+				}
+			}
+			for (int z = 1; z < bz0; z++) {
+				wall.add(new int[]{0, z});
+				wall.add(new int[]{w - 1, z});
+			}
+			Adobe.yardWall(d, wall, base);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, deck + 3);
 	}
