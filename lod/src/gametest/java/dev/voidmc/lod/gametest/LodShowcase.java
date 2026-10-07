@@ -81,8 +81,15 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final int SEAM_FAR = Integer.getInteger("lod.show.seamFar", 24);
 	private static final long SEAM_SETTLE_MS = Long.getLong("lod.show.seamSettle", 300_000L);
 	private static final boolean MULTIPLAYER = Boolean.getBoolean("lod.show.mp");
-	/** Listens for the drawn tiles' terrain only once the view is built, as a map mod that starts late does. */
-	private static final boolean LISTEN = Boolean.getBoolean("lod.show.listen");
+	/**
+	 * Listens for the drawn tiles' terrain: {@code true} only once the view is built, as a map mod that starts late does;
+	 * {@code early} from client start, before the world exists, as one that starts with the game does.
+	 */
+	private static final String LISTEN_MODE = System.getProperty("lod.show.listen", "false");
+	private static final boolean LISTEN = !LISTEN_MODE.equals("false");
+	private final java.util.Map<Integer, Integer> heardByCell = new java.util.concurrent.ConcurrentSkipListMap<>();
+	private final java.util.Set<Long> heardSquares = java.util.concurrent.ConcurrentHashMap.newKeySet();
+	private AutoCloseable listening;
 	private static final boolean TOWN = Boolean.getBoolean("lod.show.town");
 	private static final boolean STRUCTURES = Boolean.getBoolean("lod.show.structures");
 	/** How far from the build the camera stands to photograph it: well past the render distance. */
@@ -114,6 +121,9 @@ public class LodShowcase implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (LISTEN_MODE.equals("early")) {
+			this.startListening();
+		}
 		context.runOnClient(mc -> {
 			if (!mc.gui.hud.isHidden()) {
 				mc.gui.hud.toggle();
@@ -583,18 +593,24 @@ public class LodShowcase implements FabricClientGameTest {
 	 * Starts listening for the drawn tiles' terrain with the view already built, waits for {@code LodApi.complete()},
 	 * and logs what came by cell size and how much of the reach it covers (256-block squares within 90% of it).
 	 */
-	private void listen(ClientGameTestContext context, Spot spot) {
-		java.util.Map<Integer, Integer> byCell = new java.util.concurrent.ConcurrentSkipListMap<>();
-		java.util.Set<Long> covered = java.util.concurrent.ConcurrentHashMap.newKeySet();
-		AutoCloseable handle = dev.voidmc.lod.api.LodApi.addVisibleTerrainListener(tile -> {
-			byCell.merge(tile.cell(), 1, Integer::sum);
+	private void startListening() {
+		this.listening = dev.voidmc.lod.api.LodApi.addVisibleTerrainListener(tile -> {
+			this.heardByCell.merge(tile.cell(), 1, Integer::sum);
 			int span = tile.cell() * tile.size();
 			for (int x = Math.floorDiv(tile.minX(), 256); x < Math.floorDiv(tile.minX() + span + 255, 256); x++) {
 				for (int z = Math.floorDiv(tile.minZ(), 256); z < Math.floorDiv(tile.minZ() + span + 255, 256); z++) {
-					covered.add((long) x << 32 ^ z & 0xFFFFFFFFL);
+					this.heardSquares.add((long) x << 32 ^ z & 0xFFFFFFFFL);
 				}
 			}
 		});
+	}
+
+	private void listen(ClientGameTestContext context, Spot spot) {
+		if (this.listening == null) {
+			this.startListening();
+		}
+		java.util.Map<Integer, Integer> byCell = this.heardByCell;
+		java.util.Set<Long> covered = this.heardSquares;
 		long start = System.currentTimeMillis();
 		int calm = 0;
 		while (System.currentTimeMillis() - start < 180_000 && calm < 5) {
@@ -616,11 +632,6 @@ public class LodShowcase implements FabricClientGameTest {
 		}
 		System.out.printf(Locale.ROOT, "[lod] listen %s: complete after %.1f s, tiles by cell %s, %d of %d squares in 90%% of the reach covered%n",
 			spot.name(), (System.currentTimeMillis() - start) / 1000.0, byCell, got, want);
-		try {
-			handle.close();
-		} catch (Exception e) {
-			throw new IllegalStateException(e);
-		}
 	}
 
 	private void seam(ClientGameTestContext context, TestServerContext server, Spot spot) {
