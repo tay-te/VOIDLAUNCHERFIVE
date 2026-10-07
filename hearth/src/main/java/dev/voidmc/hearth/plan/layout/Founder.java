@@ -51,7 +51,11 @@ public final class Founder {
 		int hx = site.heartX();
 		int hz = site.heartZ();
 		if (state.layout == LayoutType.CLIFF && site.cliff()) {
-			int[] foot = cliffFoot(g, hx, hz, site);
+			// at the foot of the face, close enough under it for the quarter climbing it (CliffFace); else just off its foot
+			int[] foot = CliffFace.heart(g, site, state.layout.plazaHalf);
+			if (foot == null) {
+				foot = cliffFoot(g, hx, hz, site);
+			}
 			hx = foot[0];
 			hz = foot[1];
 		}
@@ -241,11 +245,17 @@ public final class Founder {
 				double along = site.cliff() ? site.cliffAngle() + Math.PI / 2 : contour;
 				arm(ctx, heart, along, 160, width, kind, RoadEdge.Role.ARM, 24);
 				arm(ctx, heart, along + Math.PI, 160, width, kind, RoadEdge.Role.ARM, 24);
-				double up = site.cliff() ? site.cliffAngle() + Math.PI : site.uphillAngle();
-				RoadEdge climb = stair(ctx, heart, up, 70, 0);
+				// the quarter climbing the face behind the square, its stair streets built from the start; on a face too low
+				// or too broken for it, one stair street straight up
+				RoadEdge climb = site.cliff() ? CliffFace.found(ctx, heart) : null;
+				if (climb == null) {
+					double up = site.cliff() ? site.cliffAngle() + Math.PI : site.uphillAngle();
+					climb = stair(ctx, heart, up, 70, 0);
+					if (climb != null) {
+						Roads.build(ctx, climb, climb.length(), "road: the stair street up the cliff");
+					}
+				}
 				if (climb != null) {
-					Roads.build(ctx, climb, climb.length(), "road: the stair street up the cliff");
-					Polyline.Dense d = climb.dense();
 					int top = climb.to;
 					arm(ctx, top, along, 110, 3, RoadKind.LANE, RoadEdge.Role.ARM, 0);
 					arm(ctx, top, along + Math.PI, 110, 3, RoadKind.LANE, RoadEdge.Role.ARM, 0);

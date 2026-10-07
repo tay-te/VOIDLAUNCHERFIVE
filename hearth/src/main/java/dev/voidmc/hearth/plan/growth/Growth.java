@@ -257,7 +257,7 @@ public final class Growth {
 			double p = 110 + 90 * ctx.state.layout.verticalBias * ctx.config.verticalBias();
 			list.add(new Need("densify", p, c -> Upgrades.plan(c, needs, false)));
 		}
-		if (ctx.state.signature.stacks && tier.ordinal() >= SettlementTier.HAMLET.ordinal()) {
+		if ((ctx.state.signature.stacks || ctx.state.layout == LayoutType.CLIFF) && tier.ordinal() >= SettlementTier.HAMLET.ordinal()) {
 			list.add(new Need("stack", 120, Stacks::plan));
 		}
 		// households that outgrew their houses build on (docs/buildings/age.md)

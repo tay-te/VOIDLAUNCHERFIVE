@@ -64,6 +64,9 @@ Params: `points` (|Δy| ≤ 1 per step), `width`. Treads in the paving (or cobbl
 cultures), cheeks of dressed stone up the edges, landings where the profile is level with an inlaid accent stone in the
 middle; retaining walls (coped, with potted flowers and the odd lantern) where the hill stands three or more over the
 treads; a parapet over a drop of three or more; lamps on the landings of wide flights.
+A climb up a cliff town's face (the planner's `CliffFace`) passes `cap` (its retaining walls rise at most that far
+over the treads, since the courses of dwellings cut in beside it are its walls higher up) and `gaps` (x,y,z side columns
+left open from y to y + 2: landings onto each course's terrace).
 
 ### `hearth:infra/bridge` — `Bridge`
 Params: `points` (first and last on the banks at the approach roads' levels, the rest at `deck_y`), `width`,

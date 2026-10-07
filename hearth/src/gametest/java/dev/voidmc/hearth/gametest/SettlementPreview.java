@@ -107,6 +107,35 @@ public final class SettlementPreview {
 		return service;
 	}
 
+	/**
+	 * "earthcliff:x:z": the dry ground at the foot of the highest 8-block drop within {@code radius} of (x, z) on the Earth
+	 * terrain, for a cliff town on real Expanse land.
+	 */
+	private static int[] cliffSite(EarthProbe earth, int cx, int cz, int radius) {
+		int[] best = {cx, cz};
+		int bestDrop = 0;
+		int[][] dirs = {{8, 0}, {-8, 0}, {0, 8}, {0, -8}};
+		for (int dz = -radius; dz <= radius; dz += 16) {
+			for (int dx = -radius; dx <= radius; dx += 16) {
+				int x = cx + dx;
+				int z = cz + dz;
+				int g = earth.groundY(x, z);
+				if (earth.waterY(x, z) != EarthProbe.NO_WATER || g < earth.seaLevel() + 2) {
+					continue;
+				}
+				for (int[] d : dirs) {
+					int drop = earth.groundY(x - d[0], z - d[1]) - g;
+					if (drop > bestDrop && earth.waterY(x + 2 * d[0], z + 2 * d[1]) == EarthProbe.NO_WATER) {
+						bestDrop = drop;
+						best = new int[]{x + d[0], z + d[1]};
+					}
+				}
+			}
+		}
+		System.out.println("cliff of " + bestDrop + " over 8 blocks at " + best[0] + ", " + best[1]);
+		return best;
+	}
+
 	private static void preview(String cultureSpec, String terrainName, long seed, int[] days, File out, BlueprintService blocks) throws Exception {
 		// culture[/layout]: a layout after a slash forces it (to see each layout on the same land)
 		String cultureName = cultureSpec.contains("/") ? cultureSpec.substring(0, cultureSpec.indexOf('/')) : cultureSpec;
@@ -139,7 +168,7 @@ public final class SettlementPreview {
 					radius = Math.max(64, Math.min(192, best.radius()));
 				}
 			}
-			int[] site = earth.findSite(cx, cz, radius);
+			int[] site = terrainName.startsWith("earthcliff") ? cliffSite(earth, cx, cz, 1200) : earth.findSite(cx, cz, radius);
 			terrain = earth;
 			center = new BlockPos(site[0], earth.groundY(site[0], site[1]), site[1]);
 		} else {
@@ -182,6 +211,12 @@ public final class SettlementPreview {
 			scene.addSettlement(sim.settlement, terrain, Catalogue.current(), blocks);
 			// the isometric view keeps to the town itself: its buildings, not the fields and tracks round it
 			int[] town = townBounds(sim.settlement, new BlockPos(state.heartX, 0, state.heartZ));
+			// HEARTH_PREVIEW_CLOSE=r: only r blocks round the heart (a close look at the heart and what climbs behind it)
+			String close = System.getenv("HEARTH_PREVIEW_CLOSE");
+			if (close != null) {
+				int r = Integer.parseInt(close);
+				town = new int[]{state.heartX - r, state.heartZ - r, state.heartX + r, state.heartZ + r};
+			}
 			Scene townScene = new Scene(terrain, town[0], town[1], town[2] - town[0] + 1, town[3] - town[1] + 1);
 			townScene.addSettlement(sim.settlement, terrain, Catalogue.current(), blocks);
 			int roads = state.graph.builtLength();
@@ -192,7 +227,10 @@ public final class SettlementPreview {
 			File plan = new File(out, "settlement_" + tag + "_d" + day + "_plan.png");
 			File iso = new File(out, "settlement_" + tag + "_d" + day + "_iso.png");
 			ImageIO.write(new PlanRenderer(scene, 1500).render(sim.settlement, state, Catalogue.current(), title, blocks != null), "png", plan);
-			ImageIO.write(new IsoRenderer(townScene.facingDownhill(), 1900).render(title), "png", iso);
+			// HEARTH_PREVIEW_TURN=n: the isometric view turned n quarters instead of looking down the slope
+			String turn = System.getenv("HEARTH_PREVIEW_TURN");
+			Scene seen = turn == null ? townScene.facingDownhill() : townScene.turnedBy(Integer.parseInt(turn));
+			ImageIO.write(new IsoRenderer(seen, 1900).render(title), "png", iso);
 			// the town itself, close up: its quarters and who lives in them
 			File townPlan = new File(out, "settlement_" + tag + "_d" + day + "_town.png");
 			ImageIO.write(new PlanRenderer(townScene, 1500).render(sim.settlement, state, Catalogue.current(), title, blocks != null), "png", townPlan);

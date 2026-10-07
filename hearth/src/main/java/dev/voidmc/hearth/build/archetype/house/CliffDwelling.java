@@ -50,6 +50,11 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * <ul>
  *   <li>{@code stacked} (boolean): raised on the roof of the dwelling below ({@code stacked_on}); the front half is a
  *   terrace on that roof, nothing is founded down through it</li>
+ *   <li>{@code open_left}, {@code open_right} (boolean; the dwelling's own sides, looking out of its door, as party
+ *   walls are named): the terrace runs on that way without a parapet, into the next dwelling's terrace along a cliff
+ *   town's face or onto the landing of a stair street beside it</li>
+ *   <li>{@code set} (int, with {@code stacked}): how far it stands behind the dwelling below (default half its depth;
+ *   a cliff town's face sets each course back by the depth of the rooms, so they stand wholly on the rock behind)</li>
  *   <li>{@code variant} (int)</li>
  * </ul>
  * The dwelling reads the slope itself ({@code cut_into_slope} and {@code level} are not needed): walls where the ground
@@ -97,7 +102,7 @@ public final class CliffDwelling implements Archetype {
 		if (stacked) {
 			// on the roof below: footings only behind it, a course under the walls where it stands on the deck
 			terraceDeck(d, zb0);
-			int set = Math.max(2, dp / 2);
+			int set = d.param("set", Math.max(2, dp / 2));
 			int onDeck = dp - 1 - set;
 			Mat found = d.mat(Role.FOUNDATION);
 			try (var st = d.stage(StageKind.FOUNDATION)) {
@@ -213,6 +218,9 @@ public final class CliffDwelling implements Archetype {
 		Mat wall = d.mat(Role.WALL);
 		Mat coping = d.mat(Role.WALL_ACCENT);
 		int gate = w / 2;
+		// the sides the terrace runs on through (the viewer's left is the dwelling's own right)
+		boolean openX0 = d.param("open_right", false);
+		boolean openX1 = d.param("open_left", false);
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int z = 0; z < zb0; z++) {
 				for (int x = 0; x < w; x++) {
@@ -223,7 +231,7 @@ public final class CliffDwelling implements Archetype {
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int z = 0; z < zb0; z++) {
 				for (int x = 0; x < w; x++) {
-					boolean edge = x == 0 || x == w - 1;
+					boolean edge = x == 0 && !openX0 || x == w - 1 && !openX1;
 					if (edge) {
 						d.set(x, 0, z, coping.has(Form.SLAB) ? coping.slab(SlabType.BOTTOM) : wall.slab(SlabType.BOTTOM));
 					}

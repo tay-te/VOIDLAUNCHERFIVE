@@ -118,6 +118,7 @@ All optional; defaults are seeded choices. Party walls are always read through `
 | `arcade`, `trade` | shophouse | upper storeys over the pavement on piers; the word on the sign |
 | `shops` | tenement | workshops behind shop windows either side of the hall |
 | `stacked` | cliff_dwelling | raised on the roof of the dwelling below (`stacked_on`) |
+| `open_left`, `open_right` | cliff_dwelling | the terrace runs on that side (the dwelling's own, as party walls are named) without a parapet: into the next dwelling's terrace along a cliff face, or onto a stair street's landing |
 | `roof` | all but cliff_dwelling | a `RoofForm` name |
 | `station`, `household` | all but tenement and manor | who lives there (a `Station` name; `{job: <JobType>}`): the living room is dressed for the household's trade and station (`kit/homestead/Household`, see homestead.md), the materials' finish comes from the style |
 | `variant` | all | the style variant |
@@ -125,6 +126,9 @@ All optional; defaults are seeded choices. Party walls are always read through `
 **Stacking contract (cliff dwelling).** The roof deck's walking level is `floorY + maxHeight - 1` (deck block at
 `maxHeight - 2`, a one-course parapet at `maxHeight - 1`), so a dwelling stacked on it has its floor at
 `floorY + maxHeight`. The planner's `Stacks` sets the upper plot back half its depth; its front half lands on the deck.
+In a cliff town's face quarter (`plan/layout/CliffFace`, PLANNING.md) each course is set back a course's height
+instead, so the face climbs at one in one beside its stair streets and the terraces of a row of columns join into one
+walkway along the face.
 
 ## POIs
 
