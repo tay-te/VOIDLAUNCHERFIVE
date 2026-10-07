@@ -85,8 +85,8 @@ public final class LodApi {
 	/**
 	 * Calls {@code listener} for every far tile VOID LOD draws for this player: the tiles drawn now (those built since
 	 * anything first listened), then each tile as it is first drawn, and again whenever it is rebuilt. Called on VOID
-	 * LOD's own thread, one tile at a time. Closing the returned handle stops it. Listen early (at client start) to be
-	 * told of every tile; a tile built before anything listened is told of once it is next rebuilt.
+	 * LOD's own thread, one tile at a time. Closing the returned handle stops it. A tile drawn but built before anything
+	 * listened is built again to be told of ({@link #complete} waits for it).
 	 */
 	public static AutoCloseable addVisibleTerrainListener(VisibleTerrainListener listener) {
 		LISTENERS.add(listener);
@@ -114,7 +114,8 @@ public final class LodApi {
 			return false;
 		}
 		var engine = lod.engine();
-		return engine.source() != null && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0 && lod.treesPending() == 0;
+		return engine.source() != null && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0 && engine.terrainMissing() == 0
+			&& lod.treesPending() == 0;
 	}
 
 	/** Whether VOID LOD is loaded and drawing in this level (false: no tiles will come). */

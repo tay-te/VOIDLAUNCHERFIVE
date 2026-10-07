@@ -136,7 +136,8 @@ public final class LodSelector {
 			return true;
 		}
 		double dy = 0;
-		int y0 = -64, y1 = 320;
+		// until its heights are known, as tall as worlds go (Expanse's reaches 639)
+		int y0 = -64, y1 = 640;
 		if (this.store.heightRange(key, this.range)) {
 			dy = Math.max(0, Math.max(this.range[0] - this.cy, this.cy - this.range[1]));
 			y0 = this.range[0];

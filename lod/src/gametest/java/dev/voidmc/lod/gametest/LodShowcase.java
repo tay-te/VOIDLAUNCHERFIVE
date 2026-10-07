@@ -81,6 +81,8 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final int SEAM_FAR = Integer.getInteger("lod.show.seamFar", 24);
 	private static final long SEAM_SETTLE_MS = Long.getLong("lod.show.seamSettle", 300_000L);
 	private static final boolean MULTIPLAYER = Boolean.getBoolean("lod.show.mp");
+	/** Listens for the drawn tiles' terrain only once the view is built, as a map mod that starts late does. */
+	private static final boolean LISTEN = Boolean.getBoolean("lod.show.listen");
 	private static final boolean TOWN = Boolean.getBoolean("lod.show.town");
 	private static final boolean STRUCTURES = Boolean.getBoolean("lod.show.structures");
 	/** How far from the build the camera stands to photograph it: well past the render distance. */
@@ -325,6 +327,9 @@ public class LodShowcase implements FabricClientGameTest {
 				}
 				if (SEAM) {
 					this.seam(context, world.getServer(), spot);
+				}
+				if (LISTEN) {
+					this.listen(context, spot);
 				}
 				if (FACE_COMPARE) {
 					double[] sum = new double[2];
@@ -574,6 +579,50 @@ public class LodShowcase implements FabricClientGameTest {
 	 * of the two, one over the other. Distance is from the angle under the horizon and the eye's height over the
 	 * ground, so it is right on level land and rough on hills.
 	 */
+	/**
+	 * Starts listening for the drawn tiles' terrain with the view already built, waits for {@code LodApi.complete()},
+	 * and logs what came by cell size and how much of the reach it covers (256-block squares within 90% of it).
+	 */
+	private void listen(ClientGameTestContext context, Spot spot) {
+		java.util.Map<Integer, Integer> byCell = new java.util.concurrent.ConcurrentSkipListMap<>();
+		java.util.Set<Long> covered = java.util.concurrent.ConcurrentHashMap.newKeySet();
+		AutoCloseable handle = dev.voidmc.lod.api.LodApi.addVisibleTerrainListener(tile -> {
+			byCell.merge(tile.cell(), 1, Integer::sum);
+			int span = tile.cell() * tile.size();
+			for (int x = Math.floorDiv(tile.minX(), 256); x < Math.floorDiv(tile.minX() + span + 255, 256); x++) {
+				for (int z = Math.floorDiv(tile.minZ(), 256); z < Math.floorDiv(tile.minZ() + span + 255, 256); z++) {
+					covered.add((long) x << 32 ^ z & 0xFFFFFFFFL);
+				}
+			}
+		});
+		long start = System.currentTimeMillis();
+		int calm = 0;
+		while (System.currentTimeMillis() - start < 180_000 && calm < 5) {
+			this.settle(context, 1_000);
+			calm = context.computeOnClient(mc -> dev.voidmc.lod.api.LodApi.complete()) ? calm + 1 : 0;
+		}
+		double reach = 0.9 * context.computeOnClient(mc -> VoidLod.get().radius);
+		int want = 0, got = 0;
+		for (int x = (int) Math.floor((spot.x() - reach) / 256); x <= (int) Math.floor((spot.x() + reach) / 256); x++) {
+			for (int z = (int) Math.floor((spot.z() - reach) / 256); z <= (int) Math.floor((spot.z() + reach) / 256); z++) {
+				double dx = x * 256 + 128 - spot.x(), dz = z * 256 + 128 - spot.z();
+				if (dx * dx + dz * dz <= reach * reach) {
+					want++;
+					if (covered.contains((long) x << 32 ^ z & 0xFFFFFFFFL)) {
+						got++;
+					}
+				}
+			}
+		}
+		System.out.printf(Locale.ROOT, "[lod] listen %s: complete after %.1f s, tiles by cell %s, %d of %d squares in 90%% of the reach covered%n",
+			spot.name(), (System.currentTimeMillis() - start) / 1000.0, byCell, got, want);
+		try {
+			handle.close();
+		} catch (Exception e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
 	private void seam(ClientGameTestContext context, TestServerContext server, Spot spot) {
 		java.nio.file.Path lod = context.takeScreenshot(TestScreenshotOptions.of("lod_" + spot.name() + "_seam_lod").withSize(WIDTH, HEIGHT));
 		context.runOnClient(mc -> {
