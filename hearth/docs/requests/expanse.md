@@ -34,3 +34,30 @@ lands (it changes heights in temperate country, so the histories of regions not 
   an escarpment's edge). Read it in `ExpanseProbe` and let castle and keep siting (plan/society/Nobility) prefer them.
 - Expanse lays crop fields inside hedgerows on open land, skipping LandClaims land; abandoned mine camps (with real ore
   faces, for prospecting quests), a collapsed hamlet and a burnt logging camp appear only with Hearth, clear of its land.
+
+## Agreed with Expanse, 2026-10-07 (after main f02fe894) — Hearth-side work to schedule
+
+- **Reserved seat sites**: Hearth reserves the best `SITE_HILLTOP`/`SITE_RIM` within each planned settlement's territory for
+  its future castle or keep, and `ExpanseClaims` answers true there too, so Expanse's ruined keeps and chapels on hilltops and
+  rims keep off them.
+- **The Great Mine** (Expanse: old workings, a pithead high on a mountain, a ~300-block shaft, gallery levels, breaking into
+  a realm; abandoned when Hearth is loaded): Hearth reopens it. A town whose territory reaches one adds an ORE site; the
+  planner builds a working pithead beside Expanse's (headframe, winch, miners' huts); diggers extend galleries from its
+  levels. Waits on an Expanse query (`ExpanseSights.greatMines(level, x, z, radius)` → pithead, shaft bottom, levels, realm).
+- **Cavern water**: Expanse exposes the water surface of meres, underground rivers and the buried sea; Hearth's
+  `UndergroundProbe.waterY` answers from it so deep towns site landings and docks on real water.
+
+## Expanse APIs offered 2026-10-07 (in Expanse's working tree; wire in once committed)
+
+- `dev.voidmc.expanse.api.ExpanseSights.greatMines(ServerLevel, x, z, radius)` → `List<GreatMine>` nearest first;
+  `GreatMine(BlockPos pithead, int shaftBottom, List<Integer> levels, BlockPos realmMouth, BlockPos realmCentre)`. 5x5 shaft,
+  120-360 deep, ladder on its north wall; 11x11 station rooms per level with drifts on the axes; a great drift at the foot
+  into a realm. At most one per 2.4 km cell (~1 in 5). Expanse builds its pithead only if `LandClaims.anyClaimed` is false
+  over ±12 of the shaft: Hearth claims that square to build a living pithead. Quest hooks: a find in the deep, a missing
+  crew, the flooded lowest level to drain.
+- `ExpanseUnderground.sampler(level).water(x, z)` → `Water(String kind /* river|sea|lake|lava|none */, int surface, float
+  distance)`; `at(x, y, z)` also gives floor and ceiling. Use it for `UndergroundProbe.waterY` and deep-town landings.
+  Expanse's own abandoned rope bridges and landings (one per ~192-block cell along rivers) will check LandClaims.
+- Expanse sites (knoll, summit, pass, wood_edge, border) for its ruins and sights, all behind LandClaims. The pass refuge is
+  "peopled" (stands down with Hearth): Hearth adds a kept **pass hospice** small settlement (with the caravan stop,
+  mountain monastery, nomad camp, fishing harbour, shepherd's farmstead).
