@@ -9,7 +9,8 @@ import net.minecraft.world.level.biome.Biome;
  * is built with (blended over the biome blend radius), on the meshing threads, so it stays allocation-free and cheap.
  *
  * <p>Grass turns in patches: each spot's year is moved a little by a soft noise about ten blocks across, so a field
- * yellows and browns unevenly, as real fields do. Crowns are varied tree by tree in {@link SeasonLeaves} instead.
+ * yellows and browns unevenly. Crowns take one of four tree variants (palette entries) by the 12-block square they stand
+ * in ({@link Hash#variant}), the far land's own hash, so near and far woods agree tree for tree.
  *
  * <p>While VOID LOD works out what blocks look like ({@code LodApi.bakingColours}) these give vanilla's own colour: the
  * far land takes the season per tile, through {@link SeasonLod}.
@@ -55,7 +56,9 @@ public final class SeasonResolvers {
 			float t = biome.getBaseTemperature(), d = biome.climateSettings.downfall();
 			int rgb = base & 0xFFFFFF;
 			// the grass's patches in 64 steps: finer than the eye tells, coarse enough to remember
-			int shift = this.kind == GRASS ? Math.clamp(Math.round(patch(x, z) * 31), -31, 31) + 32 : 0;
+			// foliage: the tree variant of the 12-block square (the same as the far land's), blended over the biome blend
+			int shift = this.kind == GRASS ? Math.clamp(Math.round(patch(x, z) * 31), -31, 31) + 32
+				: this.kind == FOLIAGE ? Hash.variant((int) Math.floor(x), (int) Math.floor(z)) : 0;
 			Memo memo = MEMO.get();
 			if (memo.colours != colours) {
 				memo.clear(colours);
@@ -68,7 +71,7 @@ public final class SeasonResolvers {
 			}
 			int out = switch (this.kind) {
 				case GRASS -> colours.grass(rgb, t, d, PATCH_SHIFT * (shift - 32) / 31.0F);
-				case FOLIAGE -> colours.foliage(rgb, t, d);
+				case FOLIAGE -> colours.foliage(rgb, t, d, shift);
 				default -> colours.dryFoliage(rgb, t, d);
 			};
 			memo.k1[slot] = k1;

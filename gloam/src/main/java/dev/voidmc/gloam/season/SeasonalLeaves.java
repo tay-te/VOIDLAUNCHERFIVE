@@ -25,7 +25,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The broadleaf crowns through the year as the blocks they are drawn with, swapped on the client: each broadleaf leaf
- * block's model (oak, dark oak, birch, Expanse's beech, willow, maples, aspen and larch; never a conifer) is wrapped so
+ * block's model (oak, dark oak, birch, jungle, acacia and mangrove where the land has seasons, Expanse's beech, willow,
+ * maples, aspen and larch; never a conifer) is wrapped so
  * that, block by block, it draws one of:
  * <ul>
  *   <li>its own leaf cube (summer);</li>
@@ -57,6 +58,10 @@ final class SeasonalLeaves {
 		new Species("minecraft:oak_leaves", true, Shift.NONE, 0),
 		new Species("minecraft:dark_oak_leaves", true, Shift.NONE, 0),
 		new Species("minecraft:birch_leaves", true, Shift.NONE, 0),
+		// leafy where it is warm and wet, but bare in a temperate land's winter like any broadleaf (Expanse grows them there)
+		new Species("minecraft:jungle_leaves", true, Shift.NONE, 0),
+		new Species("minecraft:acacia_leaves", true, Shift.NONE, 0),
+		new Species("minecraft:mangrove_leaves", true, Shift.NONE, 0),
 		new Species("expanse:beech_leaves", false, Shift.AUTUMN_TEXTURE, 0),
 		new Species("expanse:willow_leaves", false, Shift.AUTUMN_TEXTURE, 0),
 		new Species("expanse:maple_leaves", false, Shift.GREEN_UNTIL_AUTUMN, 0x5F8C35),
@@ -110,7 +115,7 @@ final class SeasonalLeaves {
 	/** Which look the block at (x, y, z) of {@code species} wears this time of year. */
 	private static int look(Species species, int x, int y, int z) {
 		SeasonColours c = Seasons.colours();
-		if (!c.on()) {
+		if (!c.on() || !seasonal(x, y, z)) {
 			return SUMMER;
 		}
 		// a tree turns as one, near enough (the crown's cell, as its tint), its blocks a little apart
@@ -130,6 +135,23 @@ final class SeasonalLeaves {
 			case AUTUMN_TEXTURE -> u < c.turned() ? ALT : SUMMER;
 			default -> SUMMER;
 		};
+	}
+
+	/** Each biome's answer to {@link #seasonal}, worked out once. */
+	private static final java.util.concurrent.ConcurrentHashMap<net.minecraft.world.level.biome.Biome, Boolean> SEASONAL = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/**
+	 * Whether the land at (x, y, z) has seasons its crowns follow: not a hot or a wet tropical one, where its leaves stay
+	 * green (as its tint does: {@link SeasonColours#seasonality}). Asked of the client level from the meshing threads,
+	 * which read its biomes as vanilla's meshing does.
+	 */
+	private static boolean seasonal(int x, int y, int z) {
+		var level = Minecraft.getInstance().level;
+		if (level == null) {
+			return true;
+		}
+		var biome = level.getBiome(new BlockPos(x, y, z)).value();
+		return SEASONAL.computeIfAbsent(biome, b -> SeasonColours.seasonality(b.getBaseTemperature(), b.climateSettings.downfall()) >= 0.45F);
 	}
 
 	/** A leaf block's model, drawing the look the season gives it at its place. */
@@ -231,7 +253,7 @@ final class SeasonalLeaves {
 		}
 		float lift = luma(rgb) / Math.max(1, luma(summer));
 		int c = SeasonColours.mix(rgb, SeasonColours.scale(summer, lift), green(colours));
-		return SeasonColours.mix(c, SeasonColours.scale(0x6E6157, Math.min(1.3F, lift)), colours.bare() * 0.8F);
+		return SeasonColours.mix(c, SeasonColours.scale(0x7E6C5A, Math.min(1.3F, lift)), colours.bare() * 0.8F);
 	}
 
 	private static float luma(int rgb) {

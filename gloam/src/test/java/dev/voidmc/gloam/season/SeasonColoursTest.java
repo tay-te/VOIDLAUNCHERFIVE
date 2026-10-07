@@ -24,23 +24,34 @@ class SeasonColoursTest {
 	@Test
 	void noneIsVanilla() {
 		assertEquals(PLAINS_GRASS, SeasonColours.NONE.grass(PLAINS_GRASS, 0.8F, 0.4F, 0.02F));
-		assertEquals(PLAINS_FOLIAGE, SeasonColours.NONE.foliage(PLAINS_FOLIAGE, 0.8F, 0.4F));
+		assertEquals(PLAINS_FOLIAGE, SeasonColours.NONE.foliage(PLAINS_FOLIAGE, 0.8F, 0.4F, 0));
 		assertEquals(0, SeasonColours.NONE.bare());
 	}
 
 	@Test
 	void broadleavesTurnInAutumnAndAreBareInWinter() {
-		int summer = SeasonColours.at(SUMMER).foliage(PLAINS_FOLIAGE, 0.8F, 0.4F);
-		int autumn = SeasonColours.at(AUTUMN).foliage(PLAINS_FOLIAGE, 0.8F, 0.4F);
+		int summer = SeasonColours.at(SUMMER).foliage(PLAINS_FOLIAGE, 0.8F, 0.4F, 1);
+		int autumn = SeasonColours.at(AUTUMN).foliage(PLAINS_FOLIAGE, 0.8F, 0.4F, 1);
 		assertTrue(g(summer) > r(summer), "summer leaves are green");
 		assertTrue(r(autumn) > g(autumn) && g(autumn) > b(autumn), "autumn leaves are orange: " + Integer.toHexString(autumn));
 		assertEquals(0, SeasonColours.at(SUMMER).bare());
 		assertEquals(1, SeasonColours.at(WINTER).bare(), 1e-4);
 		assertTrue(SeasonColours.at(AUTUMN).turned() > 0.9F);
 		// spring: leafed out, fresh and lighter than summer's deep green
-		int spring = SeasonColours.at(SPRING).foliage(PLAINS_FOLIAGE, 0.8F, 0.4F);
+		int spring = SeasonColours.at(SPRING).foliage(PLAINS_FOLIAGE, 0.8F, 0.4F, 1);
 		assertTrue(SeasonColours.at(SPRING).bare() < 0.05F);
 		assertTrue(g(spring) > g(summer));
+	}
+
+	@Test
+	void coloursComeFromThePalettes() {
+		// a seasonal land's autumn and winter colours do not depend on the biome's own: they are palette entries
+		SeasonColours autumn = SeasonColours.at(AUTUMN);
+		assertEquals(autumn.foliage(0x77AB2F, 0.8F, 0.4F, 2), autumn.foliage(0x59AE30, 0.7F, 0.8F, 2));
+		assertTrue(autumn.foliage(0x77AB2F, 0.8F, 0.4F, 0) != autumn.foliage(0x77AB2F, 0.8F, 0.4F, 2), "tree variants differ");
+		// winter grass: clean straw, warm and light, not drab grey
+		int straw = SeasonColours.at(WINTER).grass(PLAINS_GRASS, 0.8F, 0.4F, 0);
+		assertTrue(r(straw) > 180 && r(straw) - b(straw) > 50, Integer.toHexString(straw));
 	}
 
 	@Test
@@ -67,7 +78,7 @@ class SeasonColoursTest {
 		int hot = winter.grass(savanna, 2.0F, 0.0F, 0);
 		assertTrue(Math.abs(r(hot) - r(savanna)) + Math.abs(g(hot) - g(savanna)) + Math.abs(b(hot) - b(savanna)) < 30);
 		int jungle = 0x59C93C;
-		int wet = winter.foliage(jungle, 0.95F, 0.9F);
+		int wet = winter.foliage(jungle, 0.95F, 0.9F, 1);
 		assertTrue(g(wet) > r(wet) + 40, "a jungle stays green: " + Integer.toHexString(wet));
 	}
 

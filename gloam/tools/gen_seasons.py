@@ -33,6 +33,9 @@ LEAVES = [
 	('oak_leaves', 'minecraft', True, None),
 	('dark_oak_leaves', 'minecraft', True, None),
 	('birch_leaves', 'minecraft', True, None),
+	('jungle_leaves', 'minecraft', True, None),
+	('acacia_leaves', 'minecraft', True, None),
+	('mangrove_leaves', 'minecraft', True, None),
 	('beech_leaves', 'expanse', False, ('autumn', [0xB8642A, 0xC98235, 0x9A4E28, 0xB07A30])),
 	('willow_leaves', 'expanse', False, ('autumn', [0xC8B048, 0xB09A3C, 0xBFA850])),
 	('maple_leaves', 'expanse', False, ('green', 0x5F8C35)),
@@ -41,7 +44,7 @@ LEAVES = [
 	('larch_leaves', 'expanse', False, ('green', 0x7FA850)),
 ]
 
-BARK = (0.64, 0.56, 0.49)
+BARK = (0.60, 0.50, 0.42)
 
 
 def line(px, x0, y0, x1, y1, value):
@@ -84,11 +87,23 @@ def twigs(seed, top):
 
 
 def save_twigs(name, px, tint):
+	"""Pixel-art twigs in the style of vanilla's leaves: a few flat grey steps (thick limbs darkest, the finest twigs
+	lightest), a darker pixel under each limb for its shadow, and a light bud at the tips."""
 	img = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
-	for (x, y), v in px.items():
-		g = 165 + 55 * v
-		r, gg, b = (g * tint[0], g * tint[1], g * tint[2])
-		img.putpixel((x, y), (int(r), int(gg), int(b), 255))
+	steps = {0: 120, 1: 138, 2: 156, 3: 172}
+	for (x, y), v in sorted(px.items(), key=lambda kv: -kv[1]):
+		depth = min(3, round((1.0 - v) / 0.12))
+		g = steps[depth]
+		img.putpixel((x, y), (int(g * tint[0]), int(g * tint[1]), int(g * tint[2]), 255))
+	# a shadow pixel under the limbs where there is room, and buds at the ends of the finest twigs
+	for (x, y), v in list(px.items()):
+		if y + 1 < 16 and (x, y + 1) not in px and v > 0.85 and img.getpixel((x, y + 1))[3] == 0:
+			g = 100
+			img.putpixel((x, y + 1), (int(g * tint[0]), int(g * tint[1]), int(g * tint[2]), 255))
+		around = sum((x + dx, y + dy) in px for dx in (-1, 0, 1) for dy in (-1, 0, 1)) - 1
+		if around <= 1 and v < 0.75:
+			g = 196
+			img.putpixel((x, y), (int(g * tint[0]), int(g * tint[1]), int(g * tint[2]), 255))
 	img.save(os.path.join(TEX, name + '.png'))
 	with open(os.path.join(TEX, name + '.png.mcmeta'), 'w') as f:
 		json.dump({'texture': {'mipmap_strategy': 'cutout'}}, f, indent=2)

@@ -4,41 +4,68 @@ import dev.voidmc.gloam.air.Air;
 import dev.voidmc.gloam.air.Noise;
 
 /**
- * What grass and leaves look like at one point of the year: pure colour maths, worked out from the colour vanilla would
- * give (the biome's own tint, which Expanse sets naturally per biome) and the biome's climate, so every biome turns in
- * its own greens. One of these is made per season step ({@link Seasons}) and read from every thread that tints blocks.
+ * What grass and leaves look like at one point of the year, drawn from small hand-picked palettes (docs/STYLE.md: clean,
+ * slightly saturated colours like Minecraft's own textures, chosen, never blended freely). One of these is made per
+ * season step ({@link Seasons}) and read from every thread that tints blocks.
  *
- * <p>The year as the colours see it (0 the first day of spring, 0.25 summer, 0.5 autumn, 0.75 winter):
+ * <p>The year runs through keyframes (0 the first day of spring, 0.25 summer, 0.5 autumn, 0.75 winter), each a palette
+ * entry: between two keyframes a colour moves from one entry to the next, and nowhere else.
  * <ul>
- *   <li>grass: a fresh, light yellow-green in spring, deep green in summer (drying a little by its end in the drier
- *       lands), yellowing olive through autumn and browning at its end, a dull straw-brown in winter where there is no
- *       snow, greening again as spring comes;</li>
- *   <li>broadleaf trees: bare until the buds break early in spring, fresh light green, deep summer green, then a turn to
- *       gold, orange and red in mid-autumn (each tree its own, see {@link #tree}), withering brown and falling, bare
- *       twig grey-brown through winter; birches turn bright yellow;</li>
- *   <li>needle trees keep their needles, a little darker and bluer in the cold;</li>
- *   <li>the leaf litter on the ground is freshest orange-brown in autumn.</li>
+ *   <li>grass: thaw, a fresh clear green in spring, vanilla's own green in summer (the biome's colour is Minecraft's),
+ *       drying, olive-gold, a warm clean brown, then clean straw through winter; each in three tones, light, mid and
+ *       dark, taken by how light the biome's own grass is;</li>
+ *   <li>broadleaf crowns: bare twigs, buds, fresh green, vanilla's summer green, then the turn and the withering, each in
+ *       four tree variants (red, orange, gold and a late green in autumn), which near and far take by the same hash, so a
+ *       wood's trees differ as palette entries do;</li>
+ *   <li>birches turn bright gold; needle trees keep their needles, darker and bluer in the cold; the leaf litter is
+ *       freshest orange in autumn.</li>
  * </ul>
- * Hot, dry and tropical lands change little ({@link #seasonality}).
+ * Hot, dry and tropical lands keep vanilla's colours ({@link #seasonality}).
  */
 public final class SeasonColours {
 	/** No season: every colour as vanilla has it. */
 	public static final SeasonColours NONE = new SeasonColours(Float.NaN);
+	/** Tree variants a crown takes by where it stands ({@link Hash#variant}, VOID LOD's {@code seasonVariant}). */
+	public static final int VARIANTS = 4;
 
-	// the states a colour passes through; each a function of vanilla's colour (see state())
-	private static final int BASE = 0, FRESH = 1, DEEP = 2, DRY = 3, TURN = 4, SERE = 5, BARE = 6, BUD = 7, STRAW = 8, EARLY = 9, YELLOW = 10,
-		EARLY_TURN = 11, BROWN = 12;
-
-	/** Grass through the year: (year, state) keyframes, eased between. */
+	// grass's states: palettes of three tones, light, mid, dark (SUMMER: vanilla's own)
+	private static final int THAW = 0, FRESH = 1, SUMMER = 2, DRY = 3, OLIVE = 4, BROWN = 5, STRAW = 6;
+	private static final int[][] GRASS_PALETTE = {
+		{0xA8BE62, 0x94AA55, 0x7E934A},
+		{0x98D24C, 0x82C03E, 0x6CA734},
+		null,
+		{0xAEBE52, 0x9AAB48, 0x82923E},
+		{0xBDB24C, 0xA89D42, 0x8E8538},
+		{0xC49C52, 0xAE8848, 0x92723E},
+		{0xD6C68C, 0xC2B076, 0xAA9762}};
 	private static final float[] GRASS_AT = {0.00F, 0.07F, 0.20F, 0.31F, 0.43F, 0.50F, 0.58F, 0.68F, 0.77F, 0.95F, 1.00F};
-	private static final int[] GRASS = {EARLY, FRESH, FRESH, DEEP, DEEP, DRY, YELLOW, BROWN, STRAW, STRAW, EARLY};
-	/** Broadleaf crowns through the year. */
-	private static final float[] LEAF_AT = {0.00F, 0.045F, 0.085F, 0.13F, 0.22F, 0.32F, 0.50F, 0.555F, 0.60F, 0.665F, 0.71F, 0.75F, 1.00F};
-	private static final int[] LEAF = {BARE, BARE, BUD, FRESH, FRESH, DEEP, DEEP, EARLY_TURN, TURN, TURN, SERE, BARE, BARE};
+	private static final int[] GRASS = {THAW, FRESH, FRESH, SUMMER, SUMMER, DRY, OLIVE, BROWN, STRAW, STRAW, THAW};
 
-	private static final int OLIVE = 0xA9A04E, STRAW_BROWN = 0x9A9068, GRASS_BROWN = 0x9C8C5A, DRY_GRASS = 0xB3A85C, YELLOW_GREEN = 0x9FC64A;
-	private static final int AUTUMN = 0xC98A2C, WITHERED = 0x8C5E34, TWIGS = 0x6E5E50, BUDS = 0x9DBE4A;
-	private static final int BIRCH_GOLD = 0xDDB935, BIRCH_SERE = 0x9A7A3E, BIRCH_TWIGS = 0x84786C, LITTER = 0xB46A2E;
+	// crowns' states: palettes of four tree variants (SUMMER: vanilla's own, a shade apart per variant)
+	private static final int BARE = 0, BUD = 1, LEAF = 2, GREEN = 3, TURN = 4, SERE = 5;
+	private static final int[][] LEAF_PALETTE = {
+		{0x7E6C5A, 0x766554, 0x86745F, 0x705F4F},
+		{0xA8CC56, 0x9CC24E, 0xB0D060, 0x98BE4A},
+		{0x86C442, 0x7CBA3C, 0x92CC48, 0x74B238},
+		null,
+		{0xB8421E, 0xD8761E, 0xE2AE2A, 0x9CA436},
+		{0x9A5A2C, 0xA86A30, 0xB8843A, 0x8E7036}};
+	private static final int[][] BIRCH_PALETTE = {
+		{0x908479, 0x887C72, 0x988C80, 0x84786E},
+		{0xB2D466, 0xA8CC5E, 0xBAD86E, 0xA2C658},
+		{0x9ACE58, 0x92C652, 0xA2D25E, 0x8CC04E},
+		null,
+		{0xEEC63A, 0xE4BA34, 0xF2D046, 0xD8BE40},
+		{0xB88C3E, 0xAC8238, 0xC09644, 0xA48A40}};
+	/** A summer crown's shade, variant by variant, so even a green wood is not one flat colour. */
+	private static final float[] SUMMER_SHADE = {0.94F, 1.0F, 1.06F, 0.97F};
+	private static final float[] LEAF_AT = {0.00F, 0.045F, 0.085F, 0.13F, 0.22F, 0.32F, 0.50F, 0.555F, 0.60F, 0.665F, 0.71F, 0.75F, 1.00F};
+	private static final int[] CROWN = {BARE, BARE, BUD, LEAF, LEAF, GREEN, GREEN, GREEN, TURN, TURN, SERE, BARE, BARE};
+
+	/** Needles in the cold, and their fresh tips in late spring. */
+	private static final int NEEDLES_COLD = 0x4A7856, NEEDLE_TIPS = 0x78AE5A;
+	/** The leaf litter: fresh in autumn, sodden in winter. */
+	private static final int LITTER = 0xC8742E, LITTER_WINTER = 0x8C5C34;
 
 	private final float year;
 	private final boolean on;
@@ -88,6 +115,14 @@ public final class SeasonColours {
 		return Math.max(0.1F, s);
 	}
 
+	/**
+	 * How far a land of this seasonality takes the palettes over vanilla's colours: all the way in a seasonal land, not at
+	 * all in a hot or tropical one, the two clean colours meeting only across the lands between.
+	 */
+	private static float reach(float temperature, float downfall) {
+		return Noise.smoothstep(0.3F, 0.6F, seasonality(temperature, downfall));
+	}
+
 	// ------------------------------------------------------------------------------------------------------ grass
 
 	/**
@@ -101,51 +136,77 @@ public final class SeasonColours {
 		}
 		float y = this.year + shift;
 		y -= (float) Math.floor(y);
-		int c = this.along(GRASS_AT, GRASS, y, base, false, 1 - downfall);
-		return mix(base, c, seasonality(temperature, downfall));
+		int i = segment(GRASS_AT, y);
+		float t = Noise.smoothstep(GRASS_AT[i], GRASS_AT[i + 1], y);
+		float tone = tone(base);
+		int c = mix(grassState(GRASS[i], base, tone), grassState(GRASS[i + 1], base, tone), t);
+		return mix(base, c, reach(temperature, downfall));
+	}
+
+	/** How light a grass is, as a place along its palette's tones: 0 light .. 2 dark. */
+	private static float tone(int base) {
+		float l = luma(base >> 16 & 0xFF, base >> 8 & 0xFF, base & 0xFF);
+		return 2 * (1 - Math.clamp((l - 95) / 75.0F, 0, 1));
+	}
+
+	private static int grassState(int state, int base, float tone) {
+		int[] p = GRASS_PALETTE[state];
+		if (p == null) {
+			return base;
+		}
+		int i = Math.min(1, (int) tone);
+		return mix(p[i], p[i + 1], tone - i);
 	}
 
 	// ------------------------------------------------------------------------------------------------------ leaves
 
-	/** Broadleaf crowns tinted by their biome (oak, dark oak, vines), whose vanilla colour is {@code base}. */
-	public int foliage(int base, float temperature, float downfall) {
+	/** Broadleaf crowns tinted by their biome (oak, dark oak, vines), whose vanilla colour is {@code base}; tree {@code variant} (0..3). */
+	public int foliage(int base, float temperature, float downfall, int variant) {
 		if (!this.on) {
 			return base;
 		}
-		int c = this.along(LEAF_AT, LEAF, this.year, base, false, 1 - downfall);
-		return mix(base, c, seasonality(temperature, downfall));
+		return mix(base, this.crown(LEAF_PALETTE, base, variant), reach(temperature, downfall));
 	}
 
-	/** Birch leaves, whose vanilla colour ({@code base}) is the same everywhere: bright yellow in autumn. */
-	public int birch(int base, float temperature, float downfall) {
+	/** Birch leaves, whose vanilla colour ({@code base}) is the same everywhere: bright gold in autumn. */
+	public int birch(int base, float temperature, float downfall, int variant) {
 		if (!this.on) {
 			return base;
 		}
-		int c = this.along(LEAF_AT, LEAF, this.year, base, true, 1 - downfall);
-		return mix(base, c, seasonality(temperature, downfall));
+		return mix(base, this.crown(BIRCH_PALETTE, base, variant), reach(temperature, downfall));
 	}
 
-	/** Needle trees (spruce): green all year, a little darker and bluer in the cold, fresh tips in late spring. */
+	private int crown(int[][] palette, int base, int variant) {
+		int i = segment(LEAF_AT, this.year);
+		float t = Noise.smoothstep(LEAF_AT[i], LEAF_AT[i + 1], this.year);
+		int v = variant & 3;
+		return mix(crownState(palette, CROWN[i], base, v), crownState(palette, CROWN[i + 1], base, v), t);
+	}
+
+	private static int crownState(int[][] palette, int state, int base, int v) {
+		int[] p = palette[state];
+		return p == null ? scale(base, SUMMER_SHADE[v]) : p[v];
+	}
+
+	/** Needle trees (spruce): green all year, darker and bluer in the cold, fresh tips in late spring. */
 	public int conifer(int base, float temperature, float downfall) {
 		if (!this.on) {
 			return base;
 		}
-		float s = seasonality(temperature, downfall);
-		int cold = saturate(scale(base, 0.8F), 0.9F);
-		cold = mix(cold, 0x3E6B58, 0.12F);
-		int c = mix(base, cold, this.cold * s);
+		float r = reach(temperature, downfall);
+		int c = mix(base, NEEDLES_COLD, this.cold * r);
 		float tips = Noise.smoothstep(0.08F, 0.16F, this.year) * (1 - Noise.smoothstep(0.2F, 0.3F, this.year));
-		return mix(c, this.state(FRESH, base, false, 0), 0.25F * tips * s);
+		return mix(c, NEEDLE_TIPS, 0.35F * tips * r);
 	}
 
-	/** The leaf litter on the ground (vanilla's dry foliage tint): freshest orange-brown in autumn, darker in winter. */
+	/** The leaf litter on the ground (vanilla's dry foliage tint): freshest orange in autumn, sodden brown in winter. */
 	public int dryFoliage(int base, float temperature, float downfall) {
 		if (!this.on) {
 			return base;
 		}
-		float s = seasonality(temperature, downfall);
-		int c = mix(base, match(LITTER, base, 1.1F), 0.5F * this.turned() * s);
-		return mix(c, scale(c, 0.82F), 0.5F * this.cold * s);
+		float r = reach(temperature, downfall);
+		int c = mix(base, LITTER, this.turned() * r);
+		return mix(c, LITTER_WINTER, this.cold * r);
 	}
 
 	/**
@@ -174,70 +235,13 @@ public final class SeasonColours {
 		return Noise.smoothstep(0.63F, 0.755F, y);
 	}
 
-	/**
-	 * One tree's own colour, from the colour its biome gives its crown this time of year ({@code seasoned}) and three
-	 * numbers 0..1 of its own: through the turn trees go from red through orange and gold to a late yellow-green each by
-	 * its own hue, brightness and depth; the rest of the year they differ only a little.
-	 */
-	public int tree(int seasoned, float v1, float v2, float v3) {
-		if (!this.on) {
-			return seasoned;
-		}
-		float turn = this.turned();
-		float r = (seasoned >> 16 & 0xFF) / 255.0F, g = (seasoned >> 8 & 0xFF) / 255.0F, b = (seasoned & 0xFF) / 255.0F;
-		float max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b));
-		float v = max, s = max <= 0 ? 0 : (max - min) / max, h = hue(r, g, b, max, min);
-		// most trees within a band about the season's colour, one in ten well behind (still yellow-green)
-		float spread = v1 < 0.9F ? (v1 / 0.9F - 0.5F) * 2 : 1 + (v1 - 0.9F) * 12;
-		h += spread * (5 + 33 * turn);
-		s = Math.clamp(s * (1 + (v2 - 0.5F) * (0.1F + 0.35F * turn)), 0, 1);
-		v = Math.clamp(v * (1 + (v3 - 0.5F) * (0.1F + 0.16F * turn)), 0, 1);
-		return hsv(h, s, v);
-	}
-
-	/**
-	 * A crown's colour where its leaves are thinned ({@link #bare}: the sprites are the same everywhere) but its land keeps
-	 * them green (a warm, wet one): the green going to twig colour as the leaves go, so no thinned crown shows green twigs.
-	 */
-	public int bareTwigs(int c) {
-		float bare = this.bare();
-		if (bare <= 0) {
-			return c;
-		}
-		int r = c >> 16 & 0xFF, g = c >> 8 & 0xFF, b = c & 0xFF;
-		float green = Math.clamp((g - Math.max(r, b)) / 30.0F, 0, 1);
-		return mix(c, this.state(BARE, c, false, 0), bare * green);
-	}
-
-	// ------------------------------------------------------------------------------------------------ the states
-
-	/** Where {@code y} falls between the keyframes, eased, and the colour there. */
-	private int along(float[] at, int[] states, float y, int base, boolean birch, float dryness) {
+	/** Which keyframe segment {@code y} falls in. */
+	private static int segment(float[] at, float y) {
 		int i = 0;
 		while (i < at.length - 2 && y >= at[i + 1]) {
 			i++;
 		}
-		float t = Noise.smoothstep(at[i], at[i + 1], y);
-		int a = this.state(states[i], base, birch, dryness);
-		return states[i + 1] == states[i] ? a : mix(a, this.state(states[i + 1], base, birch, dryness), t);
-	}
-
-	private int state(int state, int base, boolean birch, float dryness) {
-		return switch (state) {
-			case FRESH -> saturate(mix(scale(base, 1.12F), match(YELLOW_GREEN, base, 1.15F), 0.35F), 1.08F);
-			case DEEP -> saturate(scale(base, 0.88F), 1.1F);
-			case DRY -> mix(this.state(DEEP, base, birch, dryness), match(DRY_GRASS, base, 1.0F), 0.12F + 0.4F * Math.clamp(dryness, 0, 1));
-			case YELLOW -> mix(base, match(OLIVE, base, 1.0F), 0.6F);
-			case STRAW -> saturate(mix(base, match(STRAW_BROWN, base, 0.95F), 0.8F), 0.85F);
-			case BROWN -> mix(base, match(GRASS_BROWN, base, 0.97F), 0.72F);
-			case EARLY -> mix(this.state(STRAW, base, birch, dryness), this.state(FRESH, base, birch, dryness), 0.45F);
-			case TURN -> birch ? match(BIRCH_GOLD, base, 1.18F) : match(AUTUMN, base, 1.12F);
-			case EARLY_TURN -> mix(this.state(DEEP, base, birch, dryness), this.state(TURN, base, birch, dryness), 0.35F);
-			case SERE -> match(birch ? BIRCH_SERE : WITHERED, base, 0.95F);
-			case BARE -> birch ? match(BIRCH_TWIGS, base, 1.0F) : match(TWIGS, base, 0.95F);
-			case BUD -> mix(match(BUDS, base, 1.15F), this.state(BARE, base, birch, dryness), 0.35F);
-			default -> base;
-		};
+		return i;
 	}
 
 	// ------------------------------------------------------------------------------------------------ colour maths
@@ -260,50 +264,6 @@ public final class SeasonColours {
 		return rgb((c >> 16 & 0xFF) * f, (c >> 8 & 0xFF) * f, (c & 0xFF) * f);
 	}
 
-	/** Pushes a colour's channels away from its grey ({@code f} above 1) or toward it. */
-	static int saturate(int c, float f) {
-		float r = c >> 16 & 0xFF, g = c >> 8 & 0xFF, b = c & 0xFF;
-		float l = luma(r, g, b);
-		return rgb(l + (r - l) * f, l + (g - l) * f, l + (b - l) * f);
-	}
-
-	/**
-	 * A fixed colour brought most of the way to {@code base}'s brightness, times {@code k}: so a dark swamp's autumn is a
-	 * darker orange than a bright meadow's, as its greens were darker.
-	 */
-	static int match(int target, int base, float k) {
-		int lb = Math.round(luma(base >> 16 & 0xFF, base >> 8 & 0xFF, base & 0xFF));
-		return scale(target, brightness(target, Math.clamp(lb, 0, 255)) * k);
-	}
-
-	/** The fixed colours {@link #match} brings to a base's brightness, and its factor for each base brightness 0..255. */
-	private static final int[] TARGETS = {OLIVE, STRAW_BROWN, GRASS_BROWN, DRY_GRASS, YELLOW_GREEN, AUTUMN, WITHERED, TWIGS, BUDS, BIRCH_GOLD,
-		BIRCH_SERE, BIRCH_TWIGS, LITTER};
-	private static final float[][] BRIGHTNESS = new float[TARGETS.length][];
-
-	static {
-		for (int i = 0; i < TARGETS.length; i++) {
-			BRIGHTNESS[i] = new float[256];
-			for (int lb = 0; lb < 256; lb++) {
-				BRIGHTNESS[i][lb] = power(TARGETS[i], lb);
-			}
-		}
-	}
-
-	private static float brightness(int target, int lb) {
-		for (int i = 0; i < TARGETS.length; i++) {
-			if (TARGETS[i] == target) {
-				return BRIGHTNESS[i][lb];
-			}
-		}
-		return power(target, lb);
-	}
-
-	private static float power(int target, int lb) {
-		float lt = luma(target >> 16 & 0xFF, target >> 8 & 0xFF, target & 0xFF);
-		return lt <= 0 ? 1 : (float) Math.pow(Math.max(1, lb) / lt, 0.6);
-	}
-
 	static float luma(float r, float g, float b) {
 		return 0.2126F * r + 0.7152F * g + 0.0722F * b;
 	}
@@ -314,61 +274,5 @@ public final class SeasonColours {
 
 	private static int clamp(float v) {
 		return Math.clamp(Math.round(v), 0, 255);
-	}
-
-	private static float hue(float r, float g, float b, float max, float min) {
-		float d = max - min;
-		if (d <= 0) {
-			return 0;
-		}
-		float h;
-		if (max == r) {
-			h = (g - b) / d;
-		} else if (max == g) {
-			h = 2 + (b - r) / d;
-		} else {
-			h = 4 + (r - g) / d;
-		}
-		return h * 60;
-	}
-
-	private static int hsv(float h, float s, float v) {
-		h = ((h % 360) + 360) % 360 / 60;
-		int i = (int) h;
-		float f = h - i, p = v * (1 - s), q = v * (1 - s * f), t = v * (1 - s * (1 - f));
-		float r, g, b;
-		switch (i) {
-			case 0 -> {
-				r = v;
-				g = t;
-				b = p;
-			}
-			case 1 -> {
-				r = q;
-				g = v;
-				b = p;
-			}
-			case 2 -> {
-				r = p;
-				g = v;
-				b = t;
-			}
-			case 3 -> {
-				r = p;
-				g = q;
-				b = v;
-			}
-			case 4 -> {
-				r = t;
-				g = p;
-				b = v;
-			}
-			default -> {
-				r = v;
-				g = p;
-				b = q;
-			}
-		}
-		return rgb(r * 255, g * 255, b * 255);
 	}
 }
