@@ -101,7 +101,7 @@ final class MoteSpawner {
 		// camera's own sky light agrees, as it does in houses and caves and not under trees
 		boolean enclosed = air.indoors() > 0.6F && level.getBrightness(LightLayer.SKY, at) < 10;
 
-		this.leaves(air, eye, density);
+		this.leaves(mc, air, eye, density);
 		if (!enclosed) {
 			this.mist(air, eye, Math.min(176, mc.options.getEffectiveRenderDistance() * 16 - 8), density);
 			this.pollen(air, eye, density);
@@ -155,8 +155,12 @@ final class MoteSpawner {
 	 * Leaves fall from the undersides of canopies near the camera: random probes in the air around it that land on a
 	 * leaf block with air below drop a leaf with a chance set by the season (few in summer, many through autumn) and the
 	 * wind (more in gusts). How many fall is then simply how much canopy there is.
+	 *
+	 * <p>On top of that the part of the view where falling leaves show best, two to twelve blocks ahead and inside the
+	 * frame, is kept stocked ({@link #leavesInView}): enough leaves are let go from the canopy over it that some are
+	 * always on their way down there, wherever the camera looks.
 	 */
-	private void leaves(AirSample air, Vec3 eye, float density) {
+	private void leaves(Minecraft mc, AirSample air, Vec3 eye, float density) {
 		float season = switch (air.season()) {
 			case SPRING -> 0.35F;
 			case SUMMER -> 0.25F;
@@ -186,6 +190,81 @@ final class MoteSpawner {
 			}
 			int colour = this.turn(this.leafColour(state, this.probe.set(x, y, z)), air);
 			this.add(new LeafMote(this.level, x + this.random.nextDouble(), y - 0.08, z + this.random.nextDouble(), this.random, colour));
+		}
+		Camera camera = mc.gameRenderer.mainCamera();
+		if (camera.isInitialized()) {
+			this.leavesInView(air, eye, camera.forwardVector(), Math.min(1.0F, season * (0.5F + 0.5F * Math.min(windy, 2.0F)) / 1.5F), density);
+		}
+	}
+
+	/** How wide (half the angle, as its cosine) and how deep the stretch of the view kept stocked with falling leaves is. */
+	private static final float VIEW_COS = 0.8F, VIEW_NEAR = 2.0F, VIEW_FAR = 12.0F;
+	/** How many leaves that stretch holds at most (all of it under canopy, in full autumn). */
+	private static final int VIEW_LEAVES = 44;
+
+	/**
+	 * Keeps the stretch of the view two to twelve blocks ahead stocked with falling leaves, as many as the season and the
+	 * canopy over it allow: places under that stretch are picked at random, and where a shedding canopy hangs over one a
+	 * leaf is let go from the canopy's underside (or, when the air there is still empty, as on arrival, already partway
+	 * down, as if it had fallen a while ago).
+	 */
+	private void leavesInView(AirSample air, Vec3 eye, Vector3fc forward, float strength, float density) {
+		double fx = forward.x(), fz = forward.z(), flat = Math.sqrt(fx * fx + fz * fz);
+		int target = (int) (VIEW_LEAVES * strength * Math.min(1.5F, density));
+		if (flat < 0.2 || target < 1) {
+			return;
+		}
+		fx /= flat;
+		fz /= flat;
+		int airborne = 0;
+		for (Mote mote : Motes.Kind.LEAF.live) {
+			if (mote instanceof LeafMote leaf && !leaf.landed()) {
+				double dx = leaf.x() - eye.x, dz = leaf.z() - eye.z, d = Math.sqrt(dx * dx + dz * dz);
+				if (d >= VIEW_NEAR && d <= VIEW_FAR + 1 && (dx * fx + dz * fz) >= VIEW_COS * d) {
+					airborne++;
+				}
+			}
+		}
+		int gap = target - airborne;
+		if (gap <= 0) {
+			return;
+		}
+		boolean empty = airborne < target * 0.3F;
+		float want = gap * (empty ? 0.3F : 0.05F);
+		int n = (int) want + (this.random.nextFloat() < want - (int) want ? 1 : 0);
+		double spread = Math.acos(VIEW_COS) * 0.9;
+		for (int tries = n * 6; n > 0 && tries > 0 && this.room(); tries--) {
+			double d = VIEW_NEAR + (VIEW_FAR - VIEW_NEAR) * Math.sqrt(this.random.nextDouble());
+			double a = (this.random.nextDouble() * 2 - 1) * spread;
+			double cos = Math.cos(a), sin = Math.sin(a);
+			double x = eye.x + (fx * cos - fz * sin) * d, z = eye.z + (fz * cos + fx * sin) * d;
+			int bx = Mth.floor(x), bz = Mth.floor(z);
+			if (!this.level.hasChunk(bx >> 4, bz >> 4)) {
+				continue;
+			}
+			// the canopy over the place: the lowest leaves above the ground there, with room to fall under them
+			int ground = this.level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+			int top = Math.min(this.level.getHeight(Heightmap.Types.MOTION_BLOCKING, bx, bz), ground + 24);
+			BlockState canopy = null;
+			int under = 0;
+			for (int y = ground + 1; y < top; y++) {
+				BlockState state = this.level.getBlockState(this.probe.set(bx, y, bz));
+				if (state.getBlock() instanceof LeavesBlock) {
+					canopy = state;
+					under = y;
+					break;
+				}
+			}
+			if (canopy == null || !this.sheds(canopy.getBlock()) || under - ground < 2) {
+				continue;
+			}
+			double y = under - 0.08;
+			if (empty) {
+				y = ground + 0.4 + this.random.nextDouble() * (under - ground - 0.5);
+			}
+			int colour = this.turn(this.leafColour(canopy, this.probe.set(bx, under, bz)), air);
+			this.add(new LeafMote(this.level, x, y, z, this.random, colour));
+			n--;
 		}
 	}
 
@@ -257,7 +336,7 @@ final class MoteSpawner {
 	}
 
 	/**
-	 * The colour a leaf falls in: its tree's green, except that through autumn more and more of the falling leaves have
+	 * The colour a leaf falls in: its tree's green (lifted, see below), except that through autumn more and more of the falling leaves have
 	 * turned yellow, orange or russet brown (birch yellow), and a few in late summer.
 	 */
 	private int turn(int green, AirSample air) {
@@ -268,7 +347,13 @@ final class MoteSpawner {
 			case SPRING -> 0.0F;
 		};
 		if (this.random.nextFloat() >= turned) {
-			return green;
+			// still green, but a falling leaf shows its paler underside and catches the light: lifted toward a light
+			// yellow-green, so it stands out against the canopy and the grass of the same green
+			float lift = 0.35F + this.random.nextFloat() * 0.15F;
+			int r = (int) Mth.lerp(lift, green >> 16 & 0xFF, 214);
+			int g = (int) Mth.lerp(lift, green >> 8 & 0xFF, 232);
+			int b = (int) Mth.lerp(lift, green & 0xFF, 120);
+			return 0xFF000000 | r << 16 | g << 8 | b;
 		}
 		int[][] palette = {{214, 170, 52}, {200, 120, 40}, {170, 84, 36}, {138, 92, 50}, {186, 150, 70}};
 		int[] c = palette[this.random.nextInt(palette.length)];

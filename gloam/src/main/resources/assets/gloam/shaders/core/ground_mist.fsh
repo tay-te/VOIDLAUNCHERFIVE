@@ -11,6 +11,23 @@
 
 uniform sampler2D Sampler0;
 
+#ifdef GLOAM_SOFT
+// Soft sheets (SoftMist): the depth of the scene behind, copied out of the main pass, so a sheet thins away where the
+// ground comes up close behind it instead of ending in a straight line along a slope or a step.
+#include <minecraft:projection.glsl>
+uniform sampler2D SceneDepth;
+
+// The distance along the view axis to a depth buffer value (the game's projection, reversed or not).
+float viewDistance(float depth) {
+#ifdef RENDERPEARL_DEPTH_IS_ZERO_TO_ONE
+    float ndc = depth;
+#else
+    float ndc = depth * 2.0 - 1.0;
+#endif
+    return ProjMat[3][2] / (ndc + ProjMat[2][2]);
+}
+#endif
+
 layout(location = 0) in float sphericalVertexDistance;
 layout(location = 1) in float cylindricalVertexDistance;
 layout(location = 2) in vec2 texCoord0;
@@ -28,6 +45,19 @@ void main() {
     // capped, so a single sheet seen dead edge-on does not turn into a hard white line
     float across = 1.0 / max(abs(relative.y) / max(dist, 1e-3), 0.1);
     float opacity = (1.0 - exp(-vertexColor.a * across)) * sheet;
+    // a sheet level with the eye is seen dead edge-on all the way out, a ruled line across the land however soft its
+    // edges: let it go there, the sheets above and below carry the mist at that height
+    opacity *= smoothstep(0.1, 0.8, abs(relative.y));
+#ifdef GLOAM_SOFT
+    float here = viewDistance(gl_FragCoord.z);
+    float behind = viewDistance(texelFetch(SceneDepth, ivec2(gl_FragCoord.xy), 0).r);
+    // how far the scene lies behind the sheet: nothing within a couple of blocks (more far off, where a block is a few
+    // pixels), and the whole sheet beyond; nothing behind at all (the sky) counts as far
+    float gap = behind > 0.0 ? behind - here : 1e6;
+    float soft = 2.0 + 0.04 * here;
+    float fade = smoothstep(0.0, 1.0, clamp(gap / soft, 0.0, 1.0));
+    opacity *= fade;
+#endif
     if (opacity < 0.003) {
         discard;
     }
