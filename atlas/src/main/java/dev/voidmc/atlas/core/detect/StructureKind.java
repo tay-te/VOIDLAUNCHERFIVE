@@ -30,7 +30,7 @@ public enum StructureKind {
 	BASTION("minecraft:bastion_remnant", "Bastion remnant", "DUNGEON", Tier.MAJOR, 72),
 	END_CITY("minecraft:end_city", "End city", "LANDMARK", Tier.MAJOR, 80),
 	/** Not a structure, but found the same way: an opening in a hillside that leads into the rock. */
-	CAVE_MOUTH("atlas:cave_mouth", "Cave mouth", "NATURAL", Tier.MINOR, 48);
+	CAVE_MOUTH("atlas:cave_mouth", "Cave mouth", "NATURAL", Tier.MINOR, 96);
 
 	/** The id its places carry. */
 	public final String id;

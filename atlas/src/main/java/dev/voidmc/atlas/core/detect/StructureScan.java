@@ -399,7 +399,9 @@ public final class StructureScan {
 	/**
 	 * An opening in a hillside: ground in the open, and beside it a passage at least two blocks high running at least
 	 * {@value #MOUTH_DEPTH} blocks into the hill under a roof of natural rock (the floor of the passage is earth or
-	 * stone, so a house's doorway is not a cave). One per chunk at most, the deepest.
+	 * stone, so a house's doorway is not a cave). Only notable ones are marked: a passage that runs on past the probe
+	 * ({@value #MOUTH_DEPTH} + 2 blocks: it leads somewhere), or an opening three or more blocks wide. One per chunk
+	 * at most, the deepest.
 	 */
 	private void caveMouth(ChunkBlocks c, Consumer<Sighting> out) {
 		int bestDepth = 0;
@@ -426,6 +428,7 @@ public final class StructureScan {
 					int floor = g;
 					int earthFloors = 0;
 					int earthRoofs = 0;
+					int floor1 = Integer.MIN_VALUE;
 					for (int k = 1; k <= MOUTH_DEPTH + 2; k++) {
 						int x = lx + d[0] * k;
 						int z = lz + d[1] * k;
@@ -449,6 +452,9 @@ public final class StructureScan {
 						}
 						floor = at;
 						depth++;
+						if (k == 1) {
+							floor1 = at;
+						}
 						if (earth(c.code(x, at, z))) {
 							earthFloors++;
 						}
@@ -463,7 +469,8 @@ public final class StructureScan {
 							}
 						}
 					}
-					if (depth >= MOUTH_DEPTH && earthFloors * 4 >= depth * 3 && earthRoofs * 4 >= depth * 3 && depth > bestDepth) {
+					boolean notable = depth >= MOUTH_DEPTH + 2 || depth >= MOUTH_DEPTH && mouthWidth(c, lx + d[0], floor1, lz + d[1], d) >= 3;
+					if (notable && earthFloors * 4 >= depth * 3 && earthRoofs * 4 >= depth * 3 && depth > bestDepth) {
 						bestDepth = depth;
 						bx = (c.chunkX() << 4) + lx + d[0];
 						by = g + 1;
@@ -475,6 +482,28 @@ public final class StructureScan {
 		if (bestDepth > 0 && !this.near(StructureKind.CAVE_MOUTH, bx, bz)) {
 			this.emitAt(StructureKind.CAVE_MOUTH, bx, by, bz, false, out);
 		}
+	}
+
+	/** How wide a passage's first step is: it and its walkable, roofed neighbours across the way in (up to five). */
+	private static int mouthWidth(ChunkBlocks c, int x, int floor, int z, int[] dir) {
+		if (floor == Integer.MIN_VALUE) {
+			return 0;
+		}
+		int px = dir[1];
+		int pz = dir[0];
+		int width = 1;
+		for (int side : new int[]{1, -1}) {
+			for (int j = 1; j <= 2; j++) {
+				int nx = x + px * j * side;
+				int nz = z + pz * j * side;
+				if (nx < 0 || nz < 0 || nx > 15 || nz > 15 || !walkable(c, nx, floor + 1, nz) || !Sig.solid(c.code(nx, floor, nz))
+					|| c.surface(nx, nz) < floor + 6) {
+					break;
+				}
+				width++;
+			}
+		}
+		return width;
 	}
 
 	private void emitAt(StructureKind kind, int x, int y, int z, boolean underground, Consumer<Sighting> out) {

@@ -151,6 +151,10 @@ public final class WaypointBeams {
 			if (base == null || top == null) {
 				continue;
 			}
+			if (near && (!onScreen(base, sw, sh) || !onScreen(top, sw, sh))) {
+				// a near beam half off the screen (under the player, beside them): no line to a label at the edge
+				continue;
+			}
 			int rgb = w.rgb();
 			ui.line(base[0], base[1], top[0], top[1], near ? 12 : 8, Theme.alpha(0xFF000000 | rgb, 0.08F * fade));
 			ui.line(base[0], base[1], top[0], top[1], near ? 3 : 2, Theme.alpha(0xFF000000 | rgb, 0.45F * fade));
@@ -255,23 +259,39 @@ public final class WaypointBeams {
 		return this.metaText[index];
 	}
 
-	/** A ring on the ground round a near waypoint (16 points, projected). */
+	private final float[] ringX = new float[17];
+	private final float[] ringY = new float[17];
+
+	/**
+	 * A small flat ring on the ground round a near waypoint (16 points, projected). Left out when any of it is behind
+	 * the camera or off the screen, or it would be large (the camera nearly over it): it marks the spot, it never
+	 * sweeps across the view.
+	 */
 	private void ring(Ui ui, Waypoint w, Vec3 cam, float sw, float sh, int argb) {
-		float px = Float.NaN;
-		float py = 0;
+		float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
 		for (int i = 0; i <= 16; i++) {
 			double a = i * Math.PI * 2 / 16;
 			float[] p = this.project(w.x() + 0.5 + Math.cos(a) * 1.6 - cam.x, w.y() + 0.05 - cam.y, w.z() + 0.5 + Math.sin(a) * 1.6 - cam.z, sw, sh);
-			if (p == null) {
-				px = Float.NaN;
-				continue;
+			if (p == null || !onScreen(p, sw, sh)) {
+				return;
 			}
-			if (!Float.isNaN(px)) {
-				ui.line(px, py, p[0], p[1], 1.5F, argb);
-			}
-			px = p[0];
-			py = p[1];
+			this.ringX[i] = p[0];
+			this.ringY[i] = p[1];
+			minX = Math.min(minX, p[0]);
+			maxX = Math.max(maxX, p[0]);
+			minY = Math.min(minY, p[1]);
+			maxY = Math.max(maxY, p[1]);
 		}
+		if (maxX - minX > 120 || maxY - minY > 60) {
+			return;
+		}
+		for (int i = 0; i < 16; i++) {
+			ui.line(this.ringX[i], this.ringY[i], this.ringX[i + 1], this.ringY[i + 1], 1.5F, argb);
+		}
+	}
+
+	private static boolean onScreen(float[] p, float sw, float sh) {
+		return p[0] >= 0 && p[1] >= 0 && p[0] <= sw && p[1] <= sh;
 	}
 
 	private final float[] point = new float[2];

@@ -117,9 +117,23 @@ public final class MarkerPainter {
 		labelOrder.sort(Comparator.comparingInt((Marker m) -> m.id().equals(selected) || m.id().equals(hovered) ? 0 : 1)
 			.thenComparingInt(m -> -rank(m)));
 		java.util.Map<String, Chip> chips = new java.util.HashMap<>();
+		// of the natural landmarks (peaks, lakes, waterfalls: plain words, alike), only the biggest of each kind on screen
+		// is labelled; the others say their names when hovered
+		java.util.Map<MarkerGlyph, Marker> biggest = new java.util.EnumMap<>(MarkerGlyph.class);
+		for (Marker m : tiles) {
+			if (m.style() == Marker.Style.STRUCTURE && isNatural(m.glyph())) {
+				Marker best = biggest.get(m.glyph());
+				if (best == null || size(m) > size(best)) {
+					biggest.put(m.glyph(), m);
+				}
+			}
+		}
 		if (!compact) {
 			for (Marker m : labelOrder) {
 				boolean force = m.id().equals(selected) || m.id().equals(hovered);
+				if (!force && m.style() == Marker.Style.STRUCTURE && isNatural(m.glyph()) && biggest.get(m.glyph()) != m) {
+					continue;
+				}
 				float ax = f.screenX(m.x(), m.z());
 				float ay = f.screenY(m.x(), m.z());
 				Chip chip = labelBox(ui, m, ax, ay, s, zoom, force, playerX, playerZ);
@@ -278,6 +292,12 @@ public final class MarkerPainter {
 			}
 		}
 		pool.sort(Comparator.comparingDouble(m -> m.distanceTo(px, pz)));
+		int caves = 0;
+		for (java.util.Iterator<Marker> it = pool.iterator(); it.hasNext(); ) {
+			if (it.next().glyph() == MarkerGlyph.CAVE && ++caves > CAVES_PER_SCREEN) {
+				it.remove();
+			}
+		}
 		java.util.Map<Long, List<Marker>> groups = new java.util.LinkedHashMap<>();
 		float cell = zoom <= 0.25 ? 56 : 40;
 		long unique = 0;
@@ -350,6 +370,22 @@ public final class MarkerPainter {
 		return out;
 	}
 
+	private static boolean isNatural(MarkerGlyph g) {
+		return g == MarkerGlyph.PEAK || g == MarkerGlyph.LAKE || g == MarkerGlyph.WATERFALL;
+	}
+
+	/** How big a natural landmark is, to pick the one to label: a peak by its height, a lake by its size. */
+	private static double size(Marker m) {
+		if (m.glyph() == MarkerGlyph.LAKE) {
+			Place p = dev.voidmc.atlas.client.AtlasClient.get().placeOf(m);
+			return p == null ? 0 : p.radius();
+		}
+		return m.y();
+	}
+
+	/** Cave mouths shown on one screen at most (the nearest); the rest are in the list. */
+	private static final int CAVES_PER_SCREEN = 3;
+
 	/** Which landmarks keep their place first when two would touch: structures, then peaks, lakes, waterfalls. */
 	private static int landmarkRank(Marker m) {
 		return switch (m.glyph()) {
@@ -404,7 +440,8 @@ public final class MarkerPainter {
 		boolean sighted = m.glyph() == MarkerGlyph.UNKNOWN;
 		boolean major = m.tier() == Tier.MAJOR;
 		if (m.style() == Marker.Style.STRUCTURE && !force) {
-			if (sighted && zoom < 1 || !major && zoom < 1 || major && zoom < 0.25) {
+			// a "?" is labelled only when hovered or selected (the list carries the distances); a minor place from 2:1
+			if (sighted || !major && zoom < 2 || major && zoom < 0.25) {
 				return null;
 			}
 		}

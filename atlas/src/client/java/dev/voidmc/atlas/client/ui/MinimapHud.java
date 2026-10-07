@@ -141,6 +141,12 @@ public final class MinimapHud {
 				continue;
 			}
 			double d = Math.hypot(w.x() + 0.5 - px, w.z() + 0.5 - pz);
+			if (d > RIM_REACH && !dev.voidmc.atlas.client.AtlasClient.waypointMarkerId(w).equals(settings.tracked)) {
+				continue;
+			}
+			if (dev.voidmc.atlas.client.AtlasClient.waypointMarkerId(w).equals(settings.tracked)) {
+				d = -1;
+			}
 			// insertion into the nearest RIM_DOTS so far
 			int at = Math.min(shown, RIM_DOTS - 1);
 			if (shown == RIM_DOTS && d >= this.rimDist[RIM_DOTS - 1]) {
@@ -188,6 +194,10 @@ public final class MinimapHud {
 	}
 
 	private static final int RIM_DOTS = 6;
+	/** Sighted places shown on the rim at most (the nearest), besides the tracked one. */
+	private static final int EDGE_MARKS = 3;
+	/** Waypoints get a dot on the rim within this many blocks (or when tracked). */
+	private static final double RIM_REACH = 256;
 	private final int[] rimNear = new int[256];
 	private final double[] rimDist = new double[RIM_DOTS];
 	private List<dev.voidmc.atlas.api.Waypoint> rim = List.of();
@@ -245,6 +255,12 @@ public final class MinimapHud {
 			float sx = f.screenX(e.getX(), e.getZ());
 			float sy = f.screenY(e.getX(), e.getZ());
 			if (!f.inside(sx, sy)) {
+				continue;
+			}
+			// never over the player's own arrow
+			float fcx = f.x + f.w / 2;
+			float fcy = f.y + f.h / 2;
+			if (Math.abs(sx - fcx) < 18 && Math.abs(sy - fcy) < 18) {
 				continue;
 			}
 			float alpha = (float) Math.max(0.35, 1 - Math.abs(e.getY() - py) / 40);
@@ -378,6 +394,25 @@ public final class MinimapHud {
 			if (rank < best[octant]) {
 				best[octant] = rank;
 				chosen[octant] = pl;
+			}
+		}
+		// the nearest three sighted places only, and the tracked one: a rim with a mark in every direction tells nothing
+		int kept = 0;
+		for (int pass = 0; pass < 8; pass++) {
+			int nearest = -1;
+			for (int o = 0; o < 8; o++) {
+				if (chosen[o] != null && chosen[o] != trackedPlace && best[o] >= 0 && (nearest < 0 || best[o] < best[nearest])) {
+					nearest = o;
+				}
+			}
+			if (nearest < 0) {
+				break;
+			}
+			if (kept < EDGE_MARKS) {
+				kept++;
+				best[nearest] = -2 - kept;
+			} else {
+				chosen[nearest] = null;
 			}
 		}
 		float cx = x + side / 2;

@@ -835,20 +835,37 @@ class StructureScanTest {
 
 	/** A stone hill over x 6..15 up to y 75, and a tunnel two high into it at z 8 for {@code depth} blocks. */
 	private static FakeWorld hill(int depth) {
+		return hill(depth, 1);
+	}
+
+	/** As {@link #hill(int)}, the tunnel {@code width} blocks wide (centred on z 8). */
+	private static FakeWorld hill(int depth, int width) {
 		FakeWorld w = new FakeWorld(63, "minecraft:stone");
 		w.fill(6, 64, 0, 15, 75, 15, "minecraft:stone");
 		w.fill(0, 64, 0, 5, 64, 15, "minecraft:short_grass");
 		if (depth > 0) {
-			w.fill(6, 64, 8, 5 + depth, 65, 8, "minecraft:air");
+			w.fill(6, 64, 8 - (width - 1) / 2, 5 + depth, 65, 8 + width / 2, "minecraft:air");
 		}
 		return w;
 	}
 
 	@Test
 	void caveMouthIsATunnelIntoAHillside() {
-		List<Sighting> s = sightings(hill(7));
-		assertEquals(List.of(CAVE_MOUTH), kinds(s));
-		assertEquals(new Sighting(CAVE_MOUTH, 6, 64, 8, false), s.get(0), "at the opening, never underground");
+		List<Sighting> s = sightings(hill(9));
+		assertEquals(List.of(CAVE_MOUTH), kinds(s), "a passage that runs on past the probe leads somewhere");
+		assertEquals(CAVE_MOUTH, s.get(0).kind());
+		assertEquals(64, s.get(0).y(), "at the opening, never underground");
+		assertFalse(s.get(0).underground());
+	}
+
+	@Test
+	void aWideOpeningIsACaveMouthEvenIfShort() {
+		assertEquals(List.of(CAVE_MOUTH), kinds(hill(7, 3)));
+	}
+
+	@Test
+	void aNarrowShortTunnelIsNotNotable() {
+		assertEquals(List.of(), kinds(hill(7)), "one block wide and ending within the probe: not worth a place");
 	}
 
 	@Test
