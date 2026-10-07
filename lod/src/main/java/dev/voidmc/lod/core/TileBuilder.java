@@ -173,6 +173,9 @@ public final class TileBuilder {
 		SAMPLE_NANOS.addAndGet(System.nanoTime() - t0);
 		SAMPLES.addAndGet((long) this.samples.size * this.samples.size);
 		this.terrain = captureTerrain ? TileTerrain.of(key, this.samples) : null;
+		dev.voidmc.lod.api.LodApi.Seasons seasons = smooth ? null : dev.voidmc.lod.api.LodApi.seasons();
+		this.seasonTable = this.pack ? dev.voidmc.lod.api.LodApi.seasonTints() : null;
+		this.classify(seasons);
 		this.lit = heights != null;
 		if (this.lit) {
 			heights.put(key, this.grid(smooth));
@@ -218,6 +221,18 @@ public final class TileBuilder {
 			if (!ready) {
 				// placed in the background: drawn crowns until the tile is built again with them
 				decorator = null;
+			}
+		}
+		if (decorator != null && seasons != null) {
+			Voxels v = this.voxels;
+			Samples s = this.samples;
+			for (int n = 0; n < v.size; n++) {
+				if (v.kind[n] == Voxels.LEAVES) {
+					int i = Math.clamp(Math.floorDiv(v.x[n] - TileKey.minX(key), s.cell), 0, TileKey.TILE - 1);
+					int j = Math.clamp(Math.floorDiv(v.z[n] - TileKey.minZ(key), s.cell), 0, TileKey.TILE - 1);
+					v.season[n] = this.seasonCode(seasons, dev.voidmc.lod.api.LodApi.Seasons.LEAVES, s.biome[s.at(i, j)], v.topMaterial[n], -1,
+						v.x[n], v.z[n]);
+				}
 			}
 		}
 		this.blocky.trees(decorator != null ? this.voxels : null);
@@ -313,6 +328,75 @@ public final class TileBuilder {
 		System.arraycopy(waterColor, 0, s.waterColor, 0, n);
 		System.arraycopy(canopy, 0, s.canopy, 0, n);
 		System.arraycopy(empty, 0, s.empty, 0, n);
+	}
+
+	/** The season code the vertices after this carry ({@link #season}): 0 none. */
+	private int season;
+	/** The season table this build bakes in (through a shader pack, whose vertices have no room for the code), or null. */
+	private float[] seasonTable;
+	/** What the seasons hook answered, per kind, biome, material and conifer share: it is asked once each. */
+	private final it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap seasonClasses = new it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap();
+	private dev.voidmc.lod.api.LodApi.Seasons seasonsAsked;
+
+	/** The season code ({@code LodApi.Seasons}) the faces after this carry, until the next {@link #light}. */
+	void season(int code) {
+		this.season = code;
+	}
+
+	/**
+	 * The samples' season codes: what the seasons hook makes of the top, the side and the leaves of each ({@code
+	 * LodApi.Seasons}). Leaves take a variant by where they stand, so each crown has its own shade of the season.
+	 */
+	private void classify(dev.voidmc.lod.api.LodApi.Seasons seasons) {
+		Samples s = this.samples;
+		int n = s.size * s.size;
+		if (seasons == null) {
+			java.util.Arrays.fill(s.topSeason, 0, n, (byte) 0);
+			java.util.Arrays.fill(s.sideSeason, 0, n, (byte) 0);
+			java.util.Arrays.fill(s.leavesSeason, 0, n, (byte) 0);
+			return;
+		}
+		for (int j = -s.border; j < s.size - s.border; j++) {
+			for (int i = -s.border; i < s.size - s.border; i++) {
+				int k = s.at(i, j);
+				if (s.empty[k]) {
+					s.topSeason[k] = s.sideSeason[k] = s.leavesSeason[k] = 0;
+					continue;
+				}
+				int x = s.x(i), z = s.z(j), biome = s.biome[k];
+				s.topSeason[k] = this.seasonCode(seasons, dev.voidmc.lod.api.LodApi.Seasons.GROUND_TOP, biome, s.topMaterial[k], 0, x, z);
+				s.sideSeason[k] = this.seasonCode(seasons, dev.voidmc.lod.api.LodApi.Seasons.GROUND_SIDE, biome, s.sideMaterial[k], 0, x, z);
+				s.leavesSeason[k] = s.canopy[k] > 0
+					? this.seasonCode(seasons, dev.voidmc.lod.api.LodApi.Seasons.LEAVES, biome, s.leavesMaterial[k], s.conifer[k], x, z) : 0;
+			}
+		}
+	}
+
+	/** A face's season code: its class from the hook (remembered), and for leaves the variant where it stands. */
+	private byte seasonCode(dev.voidmc.lod.api.LodApi.Seasons seasons, int kind, int biome, int material, float conifer, int x, int z) {
+		if (seasons != this.seasonsAsked) {
+			this.seasonClasses.clear();
+			this.seasonsAsked = seasons;
+		}
+		int eighths = conifer < 0 ? 15 : Math.round(conifer * 8);
+		long key = (long) kind << 56 | (long) (eighths & 15) << 52 | (long) (biome & 0xFFFFF) << 32 | material & 0xFFFFFFFFL;
+		byte cls;
+		if (this.seasonClasses.containsKey(key)) {
+			cls = this.seasonClasses.get(key);
+		} else {
+			int asked;
+			try {
+				asked = seasons.classify(kind, biome, material, conifer);
+			} catch (RuntimeException e) {
+				asked = 0;
+			}
+			cls = (byte) Math.clamp(asked, 0, 31);
+			this.seasonClasses.put(key, cls);
+		}
+		if (cls == 0) {
+			return 0;
+		}
+		return (byte) (kind == dev.voidmc.lod.api.LodApi.Seasons.LEAVES ? cls | dev.voidmc.lod.api.LodApi.seasonVariant(x, z) << 5 : cls);
 	}
 
 	/**
@@ -454,6 +538,7 @@ public final class TileBuilder {
 	 * the block light over its surface in the 3 bits under the occlusion. Unlit builds leave the horizons zero.
 	 */
 	void light(int k) {
+		this.season = 0;
 		this.lightBlock = this.samples.light[k];
 		int occlusion = this.lit ? this.horizons.occlusion[k] & 0xF8 : 0;
 		this.lightFlags = (occlusion | this.lightBlock >> 1) << 8;
@@ -476,6 +561,7 @@ public final class TileBuilder {
 
 	/** No light for the vertices after this: faces the sun and the sky never reach, such as an island's underside. */
 	void unlit() {
+		this.season = 0;
 		this.lightX = this.lightZ = this.lightFlags = this.lightBlock = 0;
 	}
 
@@ -547,7 +633,7 @@ public final class TileBuilder {
 		ByteBuffer b = this.out;
 		b.putShort((short) (x | this.lightX)).putShort((short) y8).putShort((short) (z | this.lightZ)).putShort((short) (flags | this.lightFlags));
 		b.put((byte) (top >> 16)).put((byte) (top >> 8)).put((byte) top).put((byte) topAlpha);
-		b.put((byte) (side >> 16)).put((byte) (side >> 8)).put((byte) side).put((byte) sideAlpha);
+		b.put((byte) (side >> 16)).put((byte) (side >> 8)).put((byte) ((flags & 7) == SMOOTH ? side : this.season)).put((byte) sideAlpha);
 		this.vertices++;
 		int lo = y8 >> 3;
 		int hi = (y8 + 7) >> 3;
@@ -584,6 +670,9 @@ public final class TileBuilder {
 			int id = (side >> 16 & 0xFF) | (side & 0xFF00);
 			java.util.function.IntUnaryOperator materials = packMaterials;
 			material = id == 0 || materials == null ? PACK_STONE : materials.applyAsInt(id);
+		}
+		if (this.season != 0) {
+			top = dev.voidmc.lod.api.LodApi.seasonColour(top & 0xFFFFFF, this.season, this.seasonTable);
 		}
 		ByteBuffer b = this.out;
 		b.putShort((short) (x * cell)).putShort((short) (yb + PACK_Y_OFFSET)).putShort((short) (z * cell)).putShort((short) (sky | this.lightBlock << 4));
@@ -693,7 +782,7 @@ public final class TileBuilder {
 		this.out.putInt(x0 & 127 | (z0 & 127) << 7 | face << 14 | y0 << 18);
 		this.out.putInt(du & 127 | (dv & 8191) << 7 | rot << 20 | ao << 22 | (this.lightBlock >> 2) << 30);
 		this.out.putInt(high | low << 15);
-		this.out.putInt(east | west << 4 | occ << 8);
+		this.out.putInt(east | west << 4 | occ << 8 | (this.season & 127) << 13);
 	}
 
 	private static int min(int[] a) {

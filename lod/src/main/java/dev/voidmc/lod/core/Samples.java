@@ -55,6 +55,10 @@ final class Samples {
 	final int[] biome;
 	final boolean[] seen;
 	final boolean[] bareWhenSteep;
+	/** Season codes ({@code LodApi.Seasons}: class, and for leaves a variant) of the top, the top block's side and the leaves. */
+	final byte[] topSeason;
+	final byte[] sideSeason;
+	final byte[] leavesSeason;
 	final float[] bareRise;
 	/** The land under an overhang ({@link ColumnSample#deckBottom}, {@link Integer#MIN_VALUE} for none), and how it looks. */
 	final int[] deckBottom;
@@ -108,6 +112,9 @@ final class Samples {
 		this.biome = new int[capacity];
 		this.seen = new boolean[capacity];
 		this.bareWhenSteep = new boolean[capacity];
+		this.topSeason = new byte[capacity];
+		this.sideSeason = new byte[capacity];
+		this.leavesSeason = new byte[capacity];
 		this.bareRise = new float[capacity];
 		this.deckBottom = new int[capacity];
 		Arrays.fill(this.deckBottom, Integer.MIN_VALUE);

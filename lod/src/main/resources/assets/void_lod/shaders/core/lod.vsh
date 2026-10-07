@@ -35,6 +35,28 @@ layout(location = 3) in ivec4 LodTile;
 
 uniform sampler2D Sampler2;
 
+// The seasons (LodApi.setSeasonTints): per class and variant (class * 4 + variant), the colour a classed face moves
+// toward and how far (w), then how much brighter or darker it is (x).
+layout(std140) uniform LodSeasons {
+    vec4 SeasonTarget[128];
+    vec4 SeasonBright[128];
+};
+
+// A grass or leaf face's colour this time of year (LodApi.seasonColour does the same): toward the target, keeping its
+// own light and shade, then brightened or darkened. Code: the class in the low five bits (0: never changes), the variant
+// above.
+vec3 season(vec3 rgb, int code) {
+    int cls = code & 31;
+    if (cls == 0) {
+        return rgb;
+    }
+    int e = cls * 4 + ((code >> 5) & 3);
+    vec4 t = SeasonTarget[e];
+    const vec3 L = vec3(0.2126, 0.7152, 0.0722);
+    vec3 target = t.rgb * (dot(rgb, L) / max(dot(t.rgb, L), 1e-3));
+    return clamp(mix(rgb, target, t.w) * SeasonBright[e].x, 0.0, 1.0);
+}
+
 layout(location = 0) out vec4 vertexColor;
 layout(location = 1) out vec2 horizontal;
 layout(location = 4) flat out float tileFade;
@@ -105,6 +127,7 @@ void main() {
     side = vec4(0.0);
     // 4 or 5 bits of what was 8: the middle of each step, and none for none
     uint e = quad.w & 15u, w = (quad.w >> 4) & 15u, b = w1 >> 30, o = (quad.w >> 8) & 31u;
+    top.rgb = season(top.rgb, int((quad.w >> 13) & 127u));
     horizonEast = e == 0u ? 0.0 : float(e * 16u + 8u) * (1.5707963 / 255.0);
     horizonWest = w == 0u ? 0.0 : float(w * 16u + 8u) * (1.5707963 / 255.0);
     skyHidden = o == 0u ? 0.0 : float(o * 8u + 4u) / 255.0;
@@ -113,6 +136,10 @@ void main() {
     vpos = ivec4(LodPos.x & 255, LodPos.y, LodPos.z & 255, LodPos.w & 255);
     top = LodTop;
     side = LodSide;
+    if ((vpos.w & 7) != 1) {
+        // a blocky face carries its season code in the second colour's blue
+        top.rgb = season(top.rgb, int(side.b * 255.0 + 0.5));
+    }
     horizonEast = float((LodPos.x >> 8) & 255) * (1.5707963 / 255.0);
     horizonWest = float((LodPos.z >> 8) & 255) * (1.5707963 / 255.0);
     int o = (LodPos.w >> 11) & 31;

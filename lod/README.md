@@ -227,6 +227,16 @@ a fraction of the cost.
   chunk appears out of the far view it replaces. No uniform is added: the edge's radius rides in values
   the chunk shaders already have (a section's visibility under vanilla, the render fog's start under
   Sodium). Off with a shader pack, which draws the chunks itself, or with `-Dvoid.lod.chunkFade=false`.
+* **Seasons, without rebuilding** (`LodApi.setSeasons`, `setSeasonTints`; VOID Gloam turns the year): as a
+  tile is built, a mod's hook gives each grass top, grass side and leaf face a season class (0 for the
+  faces that never change), and broadleaf crowns one of four variants by the 12-block square they stand in
+  (`LodApi.seasonVariant`, which the mod can use near the camera too, so near and far crowns agree tree for
+  tree). The class rides in spare bits of the vertex. What each class and variant looks like is a 128-entry
+  table the shader reads as it draws: toward a target colour keeping the face's own light and shade, then a
+  brightness (bare winter crowns, straw). A season step, or a smooth blend frame by frame, is one 4 KB
+  upload and no tile is built again. Through a shader pack, whose vertex layout has no room for it, the
+  table is baked into the tiles, and they are rebuilt when it has moved on far enough (`-Plod.show.autumn`
+  shows an autumn).
 
 ## How it works
 

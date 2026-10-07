@@ -85,6 +85,8 @@ public class LodShowcase implements FabricClientGameTest {
 	 * Listens for the drawn tiles' terrain: {@code true} only once the view is built, as a map mod that starts late does;
 	 * {@code early} from client start, before the world exists, as one that starts with the game does.
 	 */
+	/** An autumn through LodApi's seasons: broadleaf crowns red, orange, gold and late green, the grass gone to straw. */
+	private static final boolean AUTUMN = Boolean.getBoolean("lod.show.autumn");
 	private static final String LISTEN_MODE = System.getProperty("lod.show.listen", "false");
 	private static final boolean LISTEN = !LISTEN_MODE.equals("false");
 	private final java.util.Map<Integer, Integer> heardByCell = new java.util.concurrent.ConcurrentSkipListMap<>();
@@ -121,6 +123,9 @@ public class LodShowcase implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (AUTUMN) {
+			autumn();
+		}
 		if (LISTEN_MODE.equals("early")) {
 			this.startListening();
 		}
@@ -593,6 +598,35 @@ public class LodShowcase implements FabricClientGameTest {
 	 * Starts listening for the drawn tiles' terrain with the view already built, waits for {@code LodApi.complete()},
 	 * and logs what came by cell size and how much of the reach it covers (256-block squares within 90% of it).
 	 */
+	private static void autumn() {
+		dev.voidmc.lod.api.LodApi.setSeasons((kind, biome, material, conifer) -> {
+			if (kind == dev.voidmc.lod.api.LodApi.Seasons.LEAVES) {
+				var state = dev.voidmc.lod.api.LodApi.material(material);
+				boolean needles = conifer >= 0 ? conifer > 0.5F
+					: state != null && (state.is(net.minecraft.world.level.block.Blocks.SPRUCE_LEAVES));
+				return needles ? 0 : 1;
+			}
+			var state = dev.voidmc.lod.api.LodApi.material(material);
+			return state != null && state.is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK) ? 2 : 0;
+		});
+		int n = dev.voidmc.lod.api.LodApi.Seasons.CLASSES * dev.voidmc.lod.api.LodApi.Seasons.VARIANTS;
+		float[] table = new float[n * 5];
+		for (int e = 0; e < n; e++) {
+			table[e * 5 + 4] = 1;
+		}
+		float[][] crowns = {{0.85F, 0.25F, 0.08F, 0.9F}, {0.95F, 0.5F, 0.1F, 0.9F}, {0.9F, 0.75F, 0.15F, 0.85F}, {0.4F, 0.55F, 0.15F, 0.5F}};
+		for (int v = 0; v < 4; v++) {
+			System.arraycopy(crowns[v], 0, table, (4 + v) * 5, 4);
+			// straw: toward a pale ochre, a little brighter
+			table[(8 + v) * 5] = 0.75F;
+			table[(8 + v) * 5 + 1] = 0.68F;
+			table[(8 + v) * 5 + 2] = 0.35F;
+			table[(8 + v) * 5 + 3] = 0.7F;
+			table[(8 + v) * 5 + 4] = 1.05F;
+		}
+		dev.voidmc.lod.api.LodApi.setSeasonTints(table);
+	}
+
 	private void startListening() {
 		this.listening = dev.voidmc.lod.api.LodApi.addVisibleTerrainListener(tile -> {
 			this.heardByCell.merge(tile.cell(), 1, Integer::sum);

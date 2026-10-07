@@ -757,6 +757,10 @@ public final class VoidLod implements ClientModInitializer {
 			this.engine.reset(this.engine.source(), this.gpu());
 		}
 		this.renderer.setPackMode(pack);
+		if (pack) {
+			// a pack's tiles have the seasons baked in
+			dev.voidmc.lod.api.LodApi.bakeSeasons();
+		}
 		this.renderer.prepare(camera, this.radius, clipRadius(Minecraft.getInstance()), 16, this.detail, this.farDetail, this.haze, this.sun, this.sky);
 		LodRenderer r = this.renderer;
 		if (this.settings.autoTune && r.lastTiles > 0 && !this.fogHidesLod
