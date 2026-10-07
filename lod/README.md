@@ -512,6 +512,12 @@ cores.
 | Ultra | strong desktop GPUs | 16 km | 4 / 3 px | up to 6 | 1 GB |
 | Extreme | strong desktop GPUs with memory to spare | 32 km | 4 / 3 px | up to 8 | 1.5 GB |
 
+The reach goes up to 128 km (two more levels, 1024- and 2048-block cells). Expanse's plates, 2 MB each, are kept
+built only out to 36 km; past that, and from 128-block cells on once the reach passes it, the land comes from
+Expanse's coarse model (`TerrainModel.sampleFar` and `EarthBiomeSource.surfaceBiome`, found by name: `source/FarModel`),
+smooth ground on a 512-block grid, which is all a cell that far out shows. An Expanse without it is sampled in full
+there too, slower. 64 km from the 250-block peak: 1,146 tiles, built in a minute, 300 MB, 2.5 to 3.6 ms on the GPU.
+
 Each preset from the 250-block peak above (1600×900, RTX 4060), settled, auto-tune off:
 
 | Preset | Tiles drawn | Quads | GPU time | Render thread |

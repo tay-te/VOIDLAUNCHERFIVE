@@ -40,6 +40,11 @@ public final class ExpanseSource extends WorldgenSource {
 		this.surface = surface;
 	}
 
+	/** The cells from which on tiles sample the coarse model ({@link #reach}). */
+	private volatile int farCell = FAR_CELL;
+	/** Expanse's coarse model for the land past 32 km, or null if this Expanse has none. */
+	private final FarModel far = FarModel.find();
+
 	/** The ground block for block as the chunks lay it ({@link NoiseSurface}), or null: the model's height. */
 	private final NoiseSurface surface;
 
@@ -60,6 +65,8 @@ public final class ExpanseSource extends WorldgenSource {
 	 */
 	@Override
 	public void reach(double radius, boolean building) {
+		// past the plates' reach, the tiles there go to the coarse model from their cell size on
+		this.farCell = radius > PLATE_REACH ? FAR_CELL / 2 : FAR_CELL;
 		int plates = building ? platesFor(radius) : 0;
 		if (plates != this.reserved) {
 			this.reserved = plates;
@@ -106,6 +113,17 @@ public final class ExpanseSource extends WorldgenSource {
 	}
 
 	private void sample(int x, int z, int cell, ColumnSample out, long t0) {
+		if (cell >= this.farCell && this.far != null) {
+			// past 32 km: the coarse model, which builds no plates
+			ExpanseFacts f = this.facts.get();
+			Holder<Biome> biome = this.far.sample(this.model, this.biomes, x, z, this.seaLevel, f);
+			f.geometry(cell, this.seaLevel);
+			if (biome == null) {
+				biome = this.biome(x, f.biomeY(this.seaLevel), z, cell);
+			}
+			this.colours.colour(f, biome, x, z, cell, 0, out);
+			return;
+		}
 		// Read everything from the column before anything else samples the model: its column is reused.
 		ExpanseFacts f = this.facts.get().of(this.model.sample(x, z));
 		if (TIMING) {
