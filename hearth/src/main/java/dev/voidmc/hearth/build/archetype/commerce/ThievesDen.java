@@ -29,6 +29,7 @@ import dev.voidmc.hearth.build.kit.sociallife.Yardwork;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
@@ -271,5 +272,6 @@ public final class ThievesDen implements Archetype {
 			Garden.snowBanks(d, 0, zF, w - 1, zM, base, doorCol);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, sh.skyline() + 3));
+		Edges.guard(d);
 	}
 }

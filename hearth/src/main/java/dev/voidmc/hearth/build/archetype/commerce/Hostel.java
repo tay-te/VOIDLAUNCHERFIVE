@@ -36,6 +36,7 @@ import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -295,6 +296,8 @@ public final class Hostel implements Archetype {
 			Garden.snowBanks(d, 0, zF, w - 1, zM, base, doorCol);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, sh.skyline() + 3));
+		// rails round the dormitory's stairwell and on the balcony
+		Edges.guard(d);
 	}
 
 	/**

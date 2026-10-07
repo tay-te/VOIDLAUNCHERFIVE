@@ -44,6 +44,7 @@ import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -307,6 +308,18 @@ public final class Tavern implements Archetype {
 		boolean bar = barN >= 3 && fr.vLen() >= 5;
 		if (bar) {
 			Trade.bar(d, k0[0], base, k0[1], fr.uDir(), barN, fr.vDir(), 2);
+			// jugs and candle stubs along the top of the kegs racked two high
+			try (var s = d.stage(StageKind.INTERIOR)) {
+				for (int u = barU0; u < barU0 + barN; u++) {
+					int kx = fr.x(u, 0);
+					int kz = fr.z(u, 0);
+					var keg = d.get(kx, base + 1, kz);
+					if (keg != null && keg.is(Blocks.BARREL) && d.isEmpty(kx, base + 2, kz)) {
+						d.set(kx, base + 2, kz, (u & 1) == 0 ? Blocks.FLOWER_POT.defaultBlockState()
+							: Blocks.CANDLE.defaultBlockState().setValue(BlockStateProperties.LIT, false));
+					}
+				}
+			}
 			for (int u = barU0; u < barU0 + barN; u++) {
 				for (int v = 0; v <= 2; v++) {
 					if (v == 1) {
@@ -366,6 +379,11 @@ public final class Tavern implements Archetype {
 		trestles(d, plan, base, fr);
 		settles(d, plan, base);
 		plan.blockDrawn(d);
+		if (raised) {
+			// the raised tap room has no cellar or chimney breast to fill its walls: tables and benches along them
+			dev.voidmc.hearth.build.kit.Rooms.furnish(d, plan.room(), dev.voidmc.hearth.build.kit.Rooms.Type.DINING, 0, JobType.NONE);
+			plan.blockDrawn(d);
+		}
 		dev.voidmc.hearth.build.kit.Rooms.furnish(d, plan.room(), dev.voidmc.hearth.build.kit.Rooms.Type.HALL, 0, JobType.NONE);
 
 		// --- light by design: lanterns from the tie beams over the floor, sconces at the hearth, then the rest
@@ -387,6 +405,7 @@ public final class Tavern implements Archetype {
 			}
 		}
 		Lighting.room(d, ix0, iz0, ix1, iz1, base);
+		topsDressed(d, ix0, iz0, ix1, iz1, base, plate);
 
 		// --- outside
 		exterior(d, t, body, roof, front, doorSide, doorCol, base, zF, zM, gable, yardLeft, deck, skyline);
@@ -402,6 +421,8 @@ public final class Tavern implements Archetype {
 			Garden.snowBanks(d, bx0, zF, bx1, zM, base, doorCol);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 3));
+		// rails on the veranda and the cellar stair's open side
+		Edges.guard(d);
 	}
 
 	// ------------------------------------------------------------------------------------------- roof
@@ -604,6 +625,11 @@ public final class Tavern implements Archetype {
 			if (!plan.inside(fx, fz) || !plan.take(cells.toArray(int[][]::new), new int[]{fx, fz})) {
 				continue;
 			}
+			// the way up: the floor before the step stays clear, so the players (and the folk) reach it from the room
+			int[] before = {step[0] + Dirs.dx(face), step[1] + Dirs.dz(face)};
+			if (plan.inside(before[0], before[1]) && plan.free(before[0], before[1])) {
+				plan.keepArea(before[0], before[1], before[0], before[1]);
+			}
 			// the step at the front's end is on the floor in front: keep it free of furniture
 			Venue.stage(d, r[0], r[1], r[2], r[3], y, face, true);
 			for (int z = r[1] - 1; z <= r[3] + 1; z++) {
@@ -714,6 +740,32 @@ public final class Tavern implements Archetype {
 				}
 				Venue.bench(d, a[0], y, a[1], Dirs.of(b[0] - a[0], b[1] - a[1]), 2, wall);
 				i += 2;
+			}
+		}
+	}
+
+	/**
+	 * The tops of the racked casks and the shelves (anything stacked two high) dressed with a jug or a candle stub, as a
+	 * tap room's are: nobody climbs up there, and a bare top under the beams would read as a loft.
+	 */
+	private static void topsDressed(Draft d, int ix0, int iz0, int ix1, int iz1, int base, int plate) {
+		try (var s = d.stage(StageKind.INTERIOR)) {
+			for (int z = iz0; z <= iz1; z++) {
+				for (int x = ix0; x <= ix1; x++) {
+					for (int y = base + 2; y < plate; y++) {
+						var under = d.get(x, y - 1, z);
+						if (under == null || !d.isSolid(x, y - 1, z) || !d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z) || d.get(x, y - 2, z) == null
+							|| d.isEmpty(x, y - 2, z)) {
+							continue;
+						}
+						boolean furniture = under.getBlock() instanceof net.minecraft.world.level.block.BaseEntityBlock || under.is(Blocks.BOOKSHELF)
+							|| under.is(Blocks.HAY_BLOCK);
+						if (furniture) {
+							d.set(x, y, z, ((x + z) & 1) == 0 ? Blocks.FLOWER_POT.defaultBlockState()
+								: Blocks.CANDLE.defaultBlockState().setValue(BlockStateProperties.LIT, false));
+						}
+					}
+				}
 			}
 		}
 	}

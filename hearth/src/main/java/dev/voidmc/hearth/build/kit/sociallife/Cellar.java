@@ -68,7 +68,7 @@ public final class Cellar {
 
 	/**
 	 * Stocks a dug cellar: casks lying in racks two high against its walls (a cradle of slabs under the lower one where
-	 * the wall run is long), sacks and crates in the corners, a chest of the house's stores (STORAGE) where it can be
+	 * the wall run is long), sacks in the corners (a cask there would have no face to tap), a chest of the house's stores (STORAGE) where it can be
 	 * reached, lanterns hung from the ceiling every few cells. {@code plan} is the cellar's floor with the stair foot kept.
 	 */
 	public static void stock(Draft d, Floorplan plan, int ceilingY, List<Object[]> stores) {
@@ -91,6 +91,13 @@ public final class Cellar {
 					continue;
 				}
 				if (!plan.take(new int[][]{c}, null)) {
+					continue;
+				}
+				// a corner, where two walls of casks would meet, takes a sack (a bale) instead: no cask without a face
+				if ((c[0] == plan.x0 || c[0] == plan.x1) && (c[1] == plan.z0 || c[1] == plan.z1)) {
+					if (u < 0.7) {
+						d.inStage(StageKind.INTERIOR, () -> d.set(c[0], y, c[1], Blocks.HAY_BLOCK.defaultBlockState()));
+					}
 					continue;
 				}
 				Direction lying = Dirs.right(wall);

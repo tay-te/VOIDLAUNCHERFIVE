@@ -39,6 +39,7 @@ import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Habits.WallKind;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -361,12 +362,20 @@ public final class Inn implements Archetype {
 					DoorHingeSide.LEFT));
 				Rooms.Room room = new Rooms.Room(r[0], up[1] + 1, r[1], wallZ - 1, fk, 3);
 				room.keep(dx, wallZ - 1);
-				int want = r[1] - r[0] + 1 >= 3 ? 2 : 1;
+				// one bed to a guest room (two in a wide one), a clear floor before the door
+				int want = r[1] - r[0] + 1 >= 6 ? 2 : 1;
+				room.keepArea(dx, wallZ - 2, dx, wallZ - 1);
 				Rooms.furnish(d, room, Rooms.Type.BEDROOM, want, JobType.NONE);
+				clearBedsides(d, r[0], up[1] + 1, r[1], wallZ - 1, fk);
 				beds += want;
 				// a lantern hung inside the front window, so the guest rooms glow over the street at night
 				Halls.lanternUnder(d, dx, fk, up[1] + 1, 0);
 				}
+			// under a pitched roof the top floor gets a ceiling of boards over its rooms and corridor, the attic above it
+			// left as roof space (the partitions stop at three high: nothing to stand on up there)
+			if (k == top && roof != null) {
+				dev.voidmc.hearth.build.kit.Floors.boards(d, up[0] + 1, up[1] + 1, up[2] - 1, zM - 1, fk + 3);
+			}
 			// the corridor: a runner, lanterns
 			try (var s = d.stage(StageKind.INTERIOR)) {
 				for (int x = Math.min(rx0, sx); x <= Math.max(rx1, sx); x++) {
@@ -457,7 +466,27 @@ public final class Inn implements Archetype {
 			Garden.snowBanks(d, x0, zF, x1, zM, base, doorX);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 3));
+		// rails on the balconies and the galleries, round the stairwells
+		Edges.guard(d);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	/** No rug beside a bed: the floor at a bed's sides stays bare boards, so the bed is got into from the floor. */
+	private static void clearBedsides(Draft d, int x0, int z0, int x1, int z1, int y) {
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				var st = d.get(x, y, z);
+				if (st == null || !(st.getBlock() instanceof net.minecraft.world.level.block.BedBlock)) {
+					continue;
+				}
+				for (Direction dir : Dirs.HORIZONTAL) {
+					var n = d.get(x + Dirs.dx(dir), y, z + Dirs.dz(dir));
+					if (n != null && n.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock) {
+						d.remove(x + Dirs.dx(dir), y, z + Dirs.dz(dir));
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -709,11 +738,13 @@ public final class Inn implements Archetype {
 	static List<int[]> rooms(int x0, int x1) {
 		List<int[]> out = new ArrayList<>();
 		int n = x1 - x0 + 1;
-		int count = Math.max(1, (n + 1) / 4);
+		// rooms four wide where the range allows (a bed, a chest and a chair with room to turn round), the width shared
+		// out between them, a partition between each
+		int count = Math.max(1, (n + 1) / 5);
+		int inner = n - (count - 1);
 		int x = x0;
 		for (int k = 0; k < count; k++) {
-			int left = x1 - x + 1 - (count - k - 1) * 4;
-			int width = k == count - 1 ? x1 - x + 1 : Math.min(3, left);
+			int width = inner / count + (k < inner % count ? 1 : 0);
 			if (width < 2) {
 				break;
 			}

@@ -30,6 +30,7 @@ import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -138,7 +139,17 @@ public final class CaravanYard implements Archetype {
 		int rz0 = pz0 + 1;
 		int rz1 = Math.min(wz0 - 3, rz0 + 6);
 		if (rz1 - rz0 >= 2 && Math.abs(railX - ex) > 1) {
-			Carts.rail(d, railX, rz0, Dirs.BACK, rz1 - rz0 + 1);
+			// in lengths between the pens' gates, so every gate opens onto the yard
+			int run0 = rz0;
+			for (int z = rz0; z <= rz1 + 1; z++) {
+				boolean gateRow = z <= rz1 && Math.floorMod(z - pz0, 5) == 2;
+				if (gateRow || z == rz1 + 1) {
+					if (z - run0 >= 1) {
+						Carts.rail(d, railX, run0, Dirs.BACK, z - run0);
+					}
+					run0 = z + 1;
+				}
+			}
 			for (int z = rz0 + 1; z <= rz1; z += 2) {
 				int sx = railX + (pensLeft ? 1 : -1);
 				if (Pois.standable(d, sx, 0, z)) {
@@ -170,9 +181,10 @@ public final class CaravanYard implements Archetype {
 		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{ex, 0, 2}, new int[]{ex, 0, 3});
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
+		Edges.guard(d);
 	}
 
-	/** Inside the warehouse: barrel racks and crates along the walls, the chests of goods, the trader's tally. */
+	/** Inside the warehouse: barrel racks and crates along the walls, the chests of goods, the trader's tally, the loft. */
 	private static void warehouse(Draft d, Pois pois, Hall h, int bay, int bayW) {
 		Floorplan fp = h.floor(0).blockHoles(d);
 		int[] in = h.inner(0);
@@ -204,6 +216,30 @@ public final class CaravanYard implements Archetype {
 				pois.site(c[0] + 1, 0, c[1], Dirs.LEFT, JobType.TRADER);
 				Props.crates(d, c[0], 0, c[1], Dirs.BACK, 1);
 				break;
+			}
+		}
+		// the loft under the hoist: a ladder up the right wall by the doors through a hatch in its boards, sacks and bales
+		// stowed up there
+		if (h.storeys() >= 2) {
+			int lx = in[2];
+			int lz = in[1] + 1;
+			int fy = h.floorY(1);
+			if (fp.take(lx, lz, Dirs.LEFT)) {
+				try (var s = d.stage(StageKind.INTERIOR)) {
+					for (int y = 0; y <= fy; y++) {
+						d.set(lx, y, lz, dev.voidmc.hearth.build.draft.States.facing(Blocks.LADDER, Dirs.LEFT));
+					}
+				}
+				Floorplan loft = h.floor(1).blockHoles(d);
+				loft.block(lx, lz);
+				loft.keep(lx - 1, lz);
+				for (int[] c : loft.along(Dirs.BACK)) {
+					if (loft.take(c[0], c[1], Dirs.FRONT)) {
+						d.inStage(StageKind.INTERIOR, () -> d.set(c[0], loft.y, c[1], (c[0] & 1) == 0 ? Blocks.HAY_BLOCK.defaultBlockState()
+							: dev.voidmc.hearth.build.draft.States.facing(Blocks.BARREL, Direction.UP)));
+					}
+				}
+				Lighting.room(d, loft.room());
 			}
 		}
 		Lighting.room(d, fp.room());
