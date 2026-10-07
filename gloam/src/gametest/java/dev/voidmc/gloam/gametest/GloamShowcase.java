@@ -473,6 +473,10 @@ public class GloamShowcase implements FabricClientGameTest {
 		for (int t = 0; t < 120 && !context.computeOnClient(mc -> Seasons.settled()); t++) {
 			context.waitTick();
 		}
+		// Sodium keeps its own rebuild queue, which Seasons cannot see: give it time to catch up
+		if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium")) {
+			context.waitTicks(80);
+		}
 	}
 
 	/** For the far view: waits (up to two minutes) until VOID LOD has rebuilt the tiles on screen in the season's colours. */
