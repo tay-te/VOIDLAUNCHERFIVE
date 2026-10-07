@@ -125,7 +125,12 @@ public final class Trees {
 		};
 	}
 
-	/** A short trunk and a round crown, blossom through it for apples, cocoa on the trunk for cocoa trees. */
+	/**
+	 * A short trunk and a crown grown the way a fruit tree grows: the trunk forks at the top (the leader stepping a block
+	 * toward the light on a grown tree), boughs run out as logs on their sides, and the leaves gather in lobes round the
+	 * leader and the boughs' ends, so the crown is lopsided and lumpy, never a ball or a ring. Blossom through it for
+	 * apples, cocoa on the trunk for cocoa trees.
+	 */
 	private static void round(Draft d, int x, int y, int z, Kind kind, int size) {
 		Block log = logOf(d, kind);
 		Block leaves = leavesOf(d, kind);
@@ -136,45 +141,9 @@ public final class Trees {
 			d.set(x, y + k, z, States.axis(log, Direction.Axis.Y));
 		}
 		int base = y + trunk;
-		int r = size == 0 ? 1 : 2;
-		long seed = d.seed() ^ 0x7E1;
-		for (int dy = 0; dy <= (size == 0 ? 2 : 3); dy++) {
-			int rr = dy == 0 ? r : dy >= (size == 0 ? 2 : 3) ? 1 : r;
-			for (int dx = -rr; dx <= rr; dx++) {
-				for (int dz = -rr; dz <= rr; dz++) {
-					boolean corner = Math.abs(dx) == rr && Math.abs(dz) == rr;
-					double u = Noise.unit(seed, x + dx, base + dy, z + dz);
-					if (corner && (rr > 1 || u < 0.6)) {
-						continue;
-					}
-					if (rr == 2 && (Math.abs(dx) == 2 || Math.abs(dz) == 2) && u < 0.22) {
-						continue;
-					}
-					int lx = x + dx;
-					int lz = z + dz;
-					if (!inPlot(d, lx, lz)) {
-						continue;
-					}
-					if (dx == 0 && dz == 0 && dy < (size == 0 ? 1 : 2)) {
-						d.set(lx, base + dy, lz, States.axis(log, Direction.Axis.Y));
-						continue;
-					}
-					Block b = leaves;
-					if (kind == Kind.APPLE && u > 0.7) {
-						b = u > 0.82 ? Blocks.FLOWERING_AZALEA_LEAVES : Blocks.AZALEA_LEAVES;
-					}
-					d.setIfAbsent(lx, base + dy, lz, Paint.of(States.leaves(b)));
-				}
-			}
-		}
-		// the crown's underside a little ragged: a few leaves hang one lower
-		for (Direction dir : Dirs.HORIZONTAL) {
-			int lx = x + Dirs.dx(dir) * r;
-			int lz = z + Dirs.dz(dir) * r;
-			if (inPlot(d, lx, lz) && r == 2 && Noise.unit(seed, lx, base - 1, lz) < 0.4 && d.isAbsent(lx, base - 1, lz) && base - 1 >= Spots.level(d, lx, lz) + 2) {
-				d.set(lx, base - 1, lz, States.leaves(leaves));
-			}
-		}
+		int height = size == 0 ? 2 : 3;
+		long seed = d.seed() ^ 0x7E1 ^ (x * 341873128712L + z * 132897987541L);
+		crown(d, x, base, z, log, leaves, size == 0 ? 1 : 2, height, kind == Kind.APPLE, seed, headroom(d, x, z, r0));
 		if (kind == Kind.COCOA) {
 			for (Direction dir : Dirs.HORIZONTAL) {
 				int cx = x + Dirs.dx(dir);
@@ -185,6 +154,123 @@ public final class Trees {
 				}
 			}
 		}
+	}
+
+	/**
+	 * A broadleaf crown over a trunk top at (x, base - 1, z): a leader up the middle (stepping toward the tree's lean on a
+	 * crown of radius 2), boughs as logs on their sides out to lobe centres in different directions and heights, and
+	 * leaves where any lobe reaches (a ragged edge from noise, the core always full). Nothing leaves the plot, rises over
+	 * {@code base + height}, or hangs under {@code floor} (where heads pass).
+	 */
+	static void crown(Draft d, int x, int base, int z, Block log, Block leaves, int radius, int height, boolean blossom, long seed, int floor) {
+		Direction lean = Dirs.HORIZONTAL[(int) (Noise.unit(seed, 1, 2, 3) * 4) & 3];
+		java.util.List<long[]> wood = new java.util.ArrayList<>();
+		wood.add(new long[]{x, base - 1, z});
+		int lx = x;
+		int lz = z;
+		if (radius >= 2 && inPlot(d, x + Dirs.dx(lean), z + Dirs.dz(lean)) && Noise.unit(seed, 4, 5, 6) < 0.7) {
+			// the leader steps toward the light: a block of bark-all-round at the fork
+			lx += Dirs.dx(lean);
+			lz += Dirs.dz(lean);
+			d.set(lx, base, lz, woodOf(log).defaultBlockState());
+			wood.add(new long[]{lx, base, lz});
+		}
+		for (int k = lx == x ? 0 : 1; k < height - 1; k++) {
+			d.set(lx, base + k, lz, States.axis(log, Direction.Axis.Y));
+			wood.add(new long[]{lx, base + k, lz});
+		}
+		// the lobes: the leader's head, then boughs to two or three sides
+		java.util.List<double[]> lobes = new java.util.ArrayList<>();
+		lobes.add(new double[]{lx, base + height - 1.2, lz, radius + 0.35, height * 0.55 + 0.3});
+		int boughs = radius >= 2 ? 2 + (Noise.unit(seed, 7, 8, 9) < 0.5 ? 1 : 0) : 1;
+		int first = (int) (Noise.unit(seed, 10, 11, 12) * 4);
+		int[] turns = boughs == 3 ? new int[]{0, 1, 3} : new int[]{0, 2};
+		for (int b = 0; b < boughs; b++) {
+			Direction dir = Dirs.HORIZONTAL[(first + turns[b]) & 3];
+			int reach = radius >= 2 ? 1 + (Noise.unit(seed, 13 + b, 14, 15) < 0.55 ? 1 : 0) : 1;
+			int by = base + (int) (Noise.unit(seed, 16 + b, 17, 18) * Math.max(1, height - 1));
+			int ex = lx;
+			int ez = lz;
+			for (int k = 1; k <= reach; k++) {
+				int nx = lx + Dirs.dx(dir) * k;
+				int nz = lz + Dirs.dz(dir) * k;
+				if (!inPlot(d, nx, nz) || by < floor) {
+					break;
+				}
+				if (radius >= 2) {
+					d.set(nx, by, nz, States.axis(log, Dirs.dx(dir) != 0 ? Direction.Axis.X : Direction.Axis.Z));
+					wood.add(new long[]{nx, by, nz});
+				}
+				ex = nx;
+				ez = nz;
+			}
+			lobes.add(new double[]{ex + Dirs.dx(dir) * 0.4, by + 0.6, ez + Dirs.dz(dir) * 0.4, radius - 0.15 + Noise.unit(seed, 19 + b, 20, 21) * 0.5,
+				1.25});
+		}
+		int span = radius + 1;
+		java.util.Set<Long> leaf = new java.util.HashSet<>();
+		for (int dy = -1; dy <= height; dy++) {
+			int ly = base + dy;
+			if (ly < floor || ly > base + height) {
+				continue;
+			}
+			for (int dx = -span; dx <= span; dx++) {
+				for (int dz = -span; dz <= span; dz++) {
+					int px = x + dx;
+					int pz = z + dz;
+					if (!inPlot(d, px, pz)) {
+						continue;
+					}
+					double best = 9;
+					for (double[] o : lobes) {
+						double hx = (px - o[0]) / o[3];
+						double hz = (pz - o[2]) / o[3];
+						double hy = (ly - o[1]) / o[4];
+						best = Math.min(best, hx * hx + hy * hy + hz * hz);
+					}
+					double u = Noise.unit(seed ^ 0x51E, px, ly, pz);
+					// the edge ragged; the core (well inside a lobe) always full, so the crown never shows a hole
+					if (best > 1.0 + (u - 0.5) * 0.7 || best > 0.55 && u < 0.12) {
+						continue;
+					}
+					Block b = leaves;
+					if (blossom && u > 0.7) {
+						b = u > 0.84 ? Blocks.FLOWERING_AZALEA_LEAVES : Blocks.AZALEA_LEAVES;
+					}
+					if (d.isAbsent(px, ly, pz)) {
+						d.set(px, ly, pz, States.leaves(b));
+						leaf.add(key(px, ly, pz));
+					}
+				}
+			}
+		}
+		// leaves the ragged edge cut off from the boughs are taken away (nothing hangs in the air on its own)
+		java.util.Set<Long> held = new java.util.HashSet<>();
+		java.util.ArrayDeque<Long> q = new java.util.ArrayDeque<>();
+		for (long[] w0 : wood) {
+			q.add(key((int) w0[0], (int) w0[1], (int) w0[2]));
+		}
+		while (!q.isEmpty()) {
+			long k = q.poll();
+			int kx = (int) (k >> 40) - 1024;
+			int ky = (int) ((k >> 20) & 0xFFFFF) - 1024;
+			int kz = (int) (k & 0xFFFFF) - 1024;
+			for (int[] o : new int[][]{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}) {
+				long n = key(kx + o[0], ky + o[1], kz + o[2]);
+				if (leaf.contains(n) && held.add(n)) {
+					q.add(n);
+				}
+			}
+		}
+		for (long k : leaf) {
+			if (!held.contains(k)) {
+				d.remove((int) (k >> 40) - 1024, (int) ((k >> 20) & 0xFFFFF) - 1024, (int) (k & 0xFFFFF) - 1024);
+			}
+		}
+	}
+
+	private static long key(int x, int y, int z) {
+		return ((long) (x + 1024) << 40) | ((long) (y + 1024) << 20) | (z + 1024);
 	}
 
 	/** An olive: a trunk leaning one way and back, a loose, flat crown. */
@@ -306,20 +392,26 @@ public final class Trees {
 		}
 	}
 
-	/** A ladder leaning against a trunk at (x, y..y+1, z), on the side {@code side} of it (left after the harvest). */
+	/**
+	 * The picker's short ladder propped against a trunk at (x, y, z), on the side {@code side} of it (left after the
+	 * harvest): one rung's height, its foot on the grass. (A taller one would climb into the crown with nowhere to step
+	 * off; the pickers reach the fruit from it and from the ground.)
+	 */
 	public static void ladder(Draft d, int x, int y, int z, Direction side) {
 		int lx = x + Dirs.dx(side);
 		int lz = z + Dirs.dz(side);
-		if (!inPlot(d, lx, lz) || !d.isAbsent(lx, y, lz) || !d.isAbsent(lx, y + 1, lz)) {
+		if (!inPlot(d, lx, lz) || !d.isAbsent(lx, y, lz)) {
 			return;
 		}
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			d.set(lx, y, lz, States.facing(Blocks.LADDER, side));
-			d.set(lx, y + 1, lz, States.facing(Blocks.LADDER, side));
 		}
 	}
 
-	/** A shade tree (the culture's own), larger than a fruit tree, for a pasture or a yard. */
+	/**
+	 * A shade tree (the culture's own), larger than a fruit tree, for a pasture or a yard: a broadleaf with a tall clear
+	 * trunk and a spreading, lopsided crown of lobes on boughs; a conifer a ragged cone, its tiers uneven.
+	 */
 	public static void shade(Draft d, int x, int y, int z) {
 		Kind k = kind(d);
 		try (var s = d.stage(StageKind.EXTERIOR)) {
@@ -333,22 +425,31 @@ public final class Trees {
 			if (log == null || leaves == null) {
 				return;
 			}
+			long seed = d.seed() ^ 0x5AD ^ (x * 341873128712L + z * 132897987541L);
 			boolean conifer = BuiltInRegistries.BLOCK.getKey(leaves).getPath().contains("spruce");
-			int trunk = conifer ? 2 : 3;
+			if (!conifer) {
+				int trunk = Math.max(3, headroom(d, x, z, 2) - y);
+				for (int t = 0; t < trunk; t++) {
+					d.set(x, y + t, z, States.axis(log, Direction.Axis.Y));
+				}
+				crown(d, x, y + trunk, z, log, leaves, 2, 4, false, seed, headroom(d, x, z, 3));
+				return;
+			}
+			int trunk = 2;
 			for (int t = 0; t < trunk; t++) {
 				d.set(x, y + t, z, States.axis(log, Direction.Axis.Y));
 			}
 			int base = y + trunk;
-			int layers = conifer ? 6 : 4;
+			int layers = 6;
 			for (int dy = 0; dy < layers; dy++) {
-				int rr = conifer ? Math.max(0, 2 - dy / 2) + (dy % 2 == 0 ? 0 : -0) : dy == layers - 1 ? 1 : 2;
-				if (conifer && dy == layers - 1) {
-					rr = 0;
-				}
-				for (int dx = -rr; dx <= rr; dx++) {
-					for (int dz = -rr; dz <= rr; dz++) {
-						double u = Noise.unit(d.seed() ^ 0x5AD, x + dx, base + dy, z + dz);
-						if (Math.abs(dx) == rr && Math.abs(dz) == rr && rr > 0 && (conifer || u < 0.7)) {
+				// tiers stepping in toward the tip, every other one a little drawn in, each skirt uneven
+				int rr = dy == layers - 1 ? 0 : Math.max(1, 2 - dy / 2 - (dy % 2));
+				for (int dx = -rr - 1; dx <= rr + 1; dx++) {
+					for (int dz = -rr - 1; dz <= rr + 1; dz++) {
+						double u = Noise.unit(seed, x + dx, base + dy, z + dz);
+						int m = Math.abs(dx) + Math.abs(dz);
+						boolean in = m <= rr || m == rr + 1 && Math.max(Math.abs(dx), Math.abs(dz)) <= rr && u < 0.45;
+						if (!in || m == rr && rr > 1 && u < 0.18) {
 							continue;
 						}
 						if (inPlot(d, x + dx, z + dz)) {
@@ -360,6 +461,51 @@ public final class Trees {
 					d.set(x, base + dy, z, States.axis(log, Direction.Axis.Y));
 				}
 			}
+		}
+	}
+
+	/**
+	 * A timber tree of given wood, its foot at (x, y, z), at most {@code height} tall: a broadleaf with a clear trunk
+	 * and a lobed crown on boughs, or a conifer (a fir or spruce of a woodlot) with a straight stem nearly to the tip and
+	 * ragged tiers stepping in. Returns the highest y drawn.
+	 */
+	public static int timber(Draft d, int x, int y, int z, int height, Block log, Block leaves, boolean conifer) {
+		height = Math.min(height, d.maxHeight() - 1 - y);
+		long seed = d.seed() ^ 0x71B3 ^ (x * 341873128712L + z * 132897987541L);
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			soil(d, x, y, z);
+			if (!conifer) {
+				int ch = height >= 8 ? 4 : 3;
+				int trunk = Math.max(Math.max(2, height - ch - 1), headroom(d, x, z, 2) - y);
+				for (int t = 0; t < trunk; t++) {
+					d.set(x, y + t, z, States.axis(log, Direction.Axis.Y));
+				}
+				crown(d, x, y + trunk, z, log, leaves, 2, ch, false, seed, headroom(d, x, z, 3));
+				return y + trunk + ch;
+			}
+			int skirt = Math.max(2, headroom(d, x, z, 2) - y);
+			int top = y + Math.max(skirt + 3, height - 1);
+			for (int yy = y; yy < top; yy++) {
+				d.set(x, yy, z, States.axis(log, Direction.Axis.Y));
+			}
+			int n = top - (y + skirt);
+			for (int k = 0; k <= n; k++) {
+				int ly = y + skirt + k;
+				// widest low down, stepping in toward the tip; every other tier drawn in a little
+				int rr = k == n ? 0 : Math.max(1, (n - k) * 2 / Math.max(1, n) + (k % 2 == 0 ? 0 : -1) + (n >= 6 && k < n / 2 ? 1 : 0));
+				for (int dx = -rr; dx <= rr; dx++) {
+					for (int dz = -rr; dz <= rr; dz++) {
+						int m = Math.abs(dx) + Math.abs(dz);
+						double u = Noise.unit(seed, x + dx, ly, z + dz);
+						if (m > rr + (u < 0.3 ? 1 : 0) || m == rr && rr > 1 && u < 0.2 || !inPlot(d, x + dx, z + dz)) {
+							continue;
+						}
+						d.setIfAbsent(x + dx, ly, z + dz, Paint.of(States.leaves(leaves)));
+					}
+				}
+			}
+			d.setIfAbsent(x, top, z, Paint.of(States.leaves(leaves)));
+			return top;
 		}
 	}
 
