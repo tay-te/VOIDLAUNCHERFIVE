@@ -64,7 +64,7 @@ public enum MarkerGlyph {
 	/** A quest step: an exclamation mark. */
 	QUEST(rows("00100", "00100", "00100", "00000", "00100"), 0),
 	/** A town: roofs behind a wall, with a gate. */
-	TOWN(rows("01010", "11111", "00000", "11111", "11011"), rows("00000", "00000", "00000", "00000", "00100"));
+	TOWN(rows("01010", "11111", "00000", "11111", "11111"), rows("00000", "00000", "00000", "00000", "00100"));
 
 	public final int mask;
 	public final int accent;
