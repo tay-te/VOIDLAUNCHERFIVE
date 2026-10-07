@@ -68,7 +68,9 @@ public final class Temple implements Archetype {
 		Set.of(), List.of(), 1, 1.0);
 
 	enum Shape {
-		COLONNADE, DOME, PYRAMID, HALL, ROUND
+		COLONNADE, DOME, PYRAMID, HALL, ROUND,
+		/** The great church of the culture's own tradition ({@code civic/chapel} raised as a town's church): the mesa's adobe mission, the bayou's raised board church with its gallery and belfry. */
+		CHURCH
 	}
 
 	@Override
@@ -79,17 +81,44 @@ public final class Temple implements Archetype {
 	@Override
 	public void draw(Draft d) {
 		Shape shape = shape(d);
+		if (shape == Shape.CHURCH) {
+			// the mission on the mesa and the creole church on the bayou: a stepped pyramid or a karst hall read as a
+			// foreign land there; their great church is their own church raised as a town's, its tower beside the front
+			new dev.voidmc.hearth.build.archetype.civic.Chapel().draw(d);
+			meetingPoint(d);
+			return;
+		}
 		int peak = switch (shape) {
 			case COLONNADE -> colonnade(d);
 			case DOME -> dome(d);
 			case PYRAMID -> pyramid(d);
 			case HALL -> hall(d);
 			case ROUND -> round(d);
+			case CHURCH -> 0;
 		};
 		// the hollows left between ceilings and roofs, sealed with a rubble core as the masons laid them
 		dev.voidmc.hearth.build.kit.refine.Voids.sealAll(d, 0, dev.voidmc.hearth.build.kit.landmark.Stone.footing(d).full(), StageKind.ROOF);
 		Groundwork.clear(d, 0, 0, d.frontage() - 1, d.depth() - 1, Math.min(d.maxHeight() - 1, peak + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	/** A meeting point on the first open, standable cell before the front (the church's forecourt or the street row). */
+	private static void meetingPoint(Draft d) {
+		int c = (d.frontage() - 1) / 2;
+		for (int z = 0; z < Math.min(6, d.depth()); z++) {
+			for (int k = 0; k <= c; k++) {
+				for (int x : new int[]{c - k, c + k}) {
+					int y = d.site().ground(x, z) + 1;
+					for (int yy = y + 2; yy >= y - 2; yy--) {
+						boolean floor = d.isSolid(x, yy - 1, z) || d.isAbsent(x, yy - 1, z) && d.site().ground(x, z) == yy - 1;
+						if (floor && d.isEmpty(x, yy, z) && d.isEmpty(x, yy + 1, z)) {
+							d.poi(PoiType.MEETING_POINT, x, yy, z, Dirs.BACK);
+							return;
+						}
+					}
+				}
+			}
+		}
 	}
 
 	static Shape shape(Draft d) {
@@ -108,12 +137,13 @@ public final class Temple implements Archetype {
 				case DESERT:
 					return Shape.DOME;
 				case MESA:
+				case BAYOU:
+					return Shape.CHURCH;
 				case TROPICAL:
 					return Shape.PYRAMID;
 				case STEPPE:
 					return Shape.ROUND;
 				case KARST:
-				case BAYOU:
 				case WISTERIA:
 					return Shape.HALL;
 				default:
@@ -974,6 +1004,29 @@ public final class Temple implements Archetype {
 			Furniture.hangingLantern(d, xc, uy + 1, z, 2);
 		}
 		Details.bell(d, hx1 - 1, y0 + wallH - 2, hz0 + 1, Dirs.FRONT);
+		// rows of cushions either side of the way to the altar, pots of incense flanking it, the great drum on its stand
+		try (var st = d.stage(StageKind.INTERIOR)) {
+			Block cushion = d.mat(Role.CLOTH).mainOr(Form.CARPET, Blocks.CARPET.pick(net.minecraft.world.item.DyeColor.RED));
+			for (int z = hz0 + 2; z < hz1 - 3; z += 2) {
+				for (int x : new int[]{xc - 3, xc - 1, xc + 1, xc + 3}) {
+					if (x > hx0 && x < hx1 && d.isEmpty(x, y0, z) && d.isSolid(x, y0 - 1, z)) {
+						d.set(x, y0, z, cushion.defaultBlockState());
+					}
+				}
+			}
+			for (int x : new int[]{xc - 3, xc + 3}) {
+				if (x > hx0 && x < hx1 && d.isEmpty(x, y0, hz1 - 1)) {
+					d.set(x, y0, hz1 - 1, Blocks.DECORATED_POT.defaultBlockState());
+				}
+			}
+			if (d.isEmpty(hx0 + 1, y0, hz0 + 1) && d.isEmpty(hx0 + 1, y0 + 1, hz0 + 1)) {
+				d.set(hx0 + 1, y0, hz0 + 1, d.mat(Role.FRAME).fence());
+				d.set(hx0 + 1, y0 + 1, hz0 + 1, Blocks.NOTE_BLOCK.defaultBlockState());
+			}
+		}
+		for (int z = hz0 + 2; z < hz1 - 3; z += 4) {
+			d.poi(PoiType.SEAT, xc + 3 < hx1 ? xc + 3 : xc + 1, y0, z, Dirs.BACK);
+		}
 		// the court: a gateway, stone lanterns, an incense burner, trees
 		if (pz0 >= 4) {
 			int gx0 = xc - 2;

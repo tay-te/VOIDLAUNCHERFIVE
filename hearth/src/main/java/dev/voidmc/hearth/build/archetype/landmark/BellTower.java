@@ -189,11 +189,11 @@ public final class BellTower implements Archetype {
 		if (mid > 0) {
 			int ulo = mid + 1;
 			int uhi = yb - 2;
-			int r = t.size >= 9 ? 3 : 2;
-			if (clock && uhi - ulo + 1 >= 2 * r + 1) {
+			// (a framed dial three across, as the town's clock towers wear: no great Big Ben faces)
+			if (clock && uhi - ulo + 1 >= 5) {
 				int ycl = ulo + (uhi - ulo) / 2;
 				for (Side f : t.faces()) {
-					Details.clock(d, f, f.middle(), ycl, r, t.dress, 0xC10C);
+					ClockTower.dial(d, f, f.middle(), ycl, t.dress);
 				}
 			} else if (uhi - ulo >= 2) {
 				int lh = Math.min(3, uhi - ulo + 1);
@@ -251,7 +251,7 @@ public final class BellTower implements Archetype {
 		}
 		if (clock && clockY - 1 > doorTop + 1) {
 			for (Side f : t.faces()) {
-				dev.voidmc.hearth.build.kit.civic.Towers.clock(d, f, f.middle(), clockY, t.size < 7);
+				ClockTower.dial(d, f, f.middle(), clockY, t.dress);
 			}
 		}
 		t.openings(d, yb + 1, yc - yb - 2, Tower.Opening.BIFORA, true, null);
@@ -281,12 +281,12 @@ public final class BellTower implements Archetype {
 			return h.roof().weight(dev.voidmc.hearth.build.style.Habits.RoofForm.FLAT) > 2 ? Crowns.Kind.DOME : Crowns.Kind.SPIRE;
 		}
 		return switch (c) {
-			case ALPINE -> d.chance(0.65) ? Crowns.Kind.ONION : Crowns.Kind.PYRAMID;
+			case ALPINE -> Crowns.Kind.ONION;
 			case MEDITERRANEAN -> d.pick(Crowns.Kind.PYRAMID, Crowns.Kind.PYRAMID, Crowns.Kind.CUPOLA, Crowns.Kind.PARAPET);
-			case MOORLAND -> d.pick(Crowns.Kind.PARAPET, Crowns.Kind.PARAPET, Crowns.Kind.BROACH, Crowns.Kind.SPIRE);
+			case MOORLAND -> d.pick(Crowns.Kind.PARAPET, Crowns.Kind.PARAPET, Crowns.Kind.BROACH);
 			case MARITIME -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.BROACH, Crowns.Kind.OCTAGON, Crowns.Kind.PARAPET);
 			case DESERT, MESA, STEPPE -> d.pick(Crowns.Kind.DOME, Crowns.Kind.PARAPET, Crowns.Kind.CUPOLA);
-			case WISTERIA -> d.pick(Crowns.Kind.BROACH, Crowns.Kind.OCTAGON, Crowns.Kind.PYRAMID);
+			case WISTERIA -> d.pick(Crowns.Kind.BROACH, Crowns.Kind.PYRAMID);
 			// (a Bohemian town's tower takes its gallery and helm or onion from kit/civic/Bohemian instead)
 			case TEMPERATE -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.SPIRE, Crowns.Kind.OCTAGON);
 			default -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.OCTAGON, Crowns.Kind.BROACH, Crowns.Kind.SPIRE, Crowns.Kind.PARAPET);

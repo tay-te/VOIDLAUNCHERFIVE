@@ -145,7 +145,7 @@ public final class DefaultCatalogue {
 			cultures(Culture.MEDITERRANEAN, Culture.KARST, Culture.DESERT, Culture.STEPPE, Culture.MESA, Culture.TROPICAL, Culture.BAYOU), flags(), List.of(), 1, 1.0));
 		l.add(info(Archetypes.LIGHTHOUSE, K, jobs(), 1, 11, 15, 13, 21, 26, 40, SettlementTier.TOWN,
 			cultures(Culture.NORTHERN, Culture.MEDITERRANEAN, Culture.MARITIME, Culture.TROPICAL), flags(VERTICAL, WATERFRONT), List.of(), 1, 1.0));
-		l.add(info(Archetypes.PAGODA, K, jobs(), 0, 15, 21, 17, 25, 28, 40, SettlementTier.TOWN, cultures(Culture.WISTERIA, Culture.KARST), flags(VERTICAL), List.of(), 1, 1.0));
+		l.add(info(Archetypes.PAGODA, K, jobs(), 0, 15, 21, 17, 25, 28, 40, SettlementTier.TOWN, cultures(Culture.KARST), flags(VERTICAL), List.of(), 1, 1.0));
 		l.add(info(Archetypes.CLOCK_TOWER, K, jobs(), 0, 7, 11, 7, 11, 28, 44, SettlementTier.CITY, cultures(), flags(VERTICAL, CENTRAL), List.of(), 1, 1.0));
 		phase3(l);
 		return Collections.unmodifiableList(l);

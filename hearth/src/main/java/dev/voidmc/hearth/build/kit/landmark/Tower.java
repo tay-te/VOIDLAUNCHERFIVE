@@ -289,6 +289,22 @@ public final class Tower {
 
 	/** One opening of a kind centred on a face. */
 	public void opening(Draft d, Side f, int y, int height, Opening kind, Paint fill) {
+		openingOnly(d, f, y, height, kind, fill);
+		if (fill == null && height >= 3) {
+			// an open light high on the tower stands on a balustrade, so nobody walks out of the belfry onto a cornice or
+			// into the air
+			int mid = f.middle();
+			for (int i = Math.max(1, mid - 2); i <= Math.min(f.last() - 1, mid + 2); i++) {
+				int ox = f.x(i) + Dirs.dx(f.out());
+				int oz = f.z(i) + Dirs.dz(f.out());
+				if (d.isEmpty(f.x(i), y, f.z(i)) && d.isEmpty(f.x(i), y + 1, f.z(i)) && d.site().ground(ox, oz) < y - 3) {
+					d.set(f.x(i), y, f.z(i), this.dress.wallOrFull());
+				}
+			}
+		}
+	}
+
+	private void openingOnly(Draft d, Side f, int y, int height, Opening kind, Paint fill) {
 		int mid = f.middle();
 		int panel = this.size - (this.piers ? 2 : 2);
 		switch (kind) {

@@ -63,11 +63,16 @@ public final class Crowns {
 			return new Mats(d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), dress, d.mat(Role.FRAME), null);
 		}
 
-		/** With spires and domes in copper where the roof is wood, and on a share of the rest. */
+		/**
+		 * With spires and domes in the town's sheet (its roofing, or dark slate over timber roofs), copper on a share of
+		 * them only where copper belongs to the culture's skyline: the Hanseatic coast and the Tyrolean mountains.
+		 */
 		public static Mats coppered(Draft d, Stone dress, double chance) {
 			Stone sheet = Stone.sheet(d);
 			boolean wood = !Stone.stony(d, Role.ROOF) && !d.habits().roof().thatch();
-			if (!wood && d.chance(chance)) {
+			dev.voidmc.hearth.api.Culture c = d.style().culture();
+			boolean copperLand = c == null || c == dev.voidmc.hearth.api.Culture.MARITIME || c == dev.voidmc.hearth.api.Culture.ALPINE;
+			if (!wood && copperLand && d.chance(chance)) {
 				sheet = Stone.copper(d);
 			}
 			return new Mats(d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), dress, d.mat(Role.FRAME), sheet);

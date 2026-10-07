@@ -182,7 +182,7 @@ public final class GreatHall implements Archetype {
 		int ridge = roof.ridgeY;
 		if (logs && d.mat(Role.GABLE).has(Form.LOG)) {
 			// a northern hall is shingled in its own timber: warm boards, not slate, over the dark logs
-			Shapes.reclad(d, roof, Stone.of(d, Role.GABLE));
+			Shapes.reclad(d, roof, shingles(d));
 		}
 		// the gables: vertical battens over the boards and a sun-wheel light high up (timber), or crow steps on stone
 		for (int z : new int[]{hz0, hz1}) {
@@ -242,7 +242,7 @@ public final class GreatHall implements Archetype {
 			Porches.porch(d, frontWall, xc - 2, xc + 2, 2, 0, 3, xc);
 			if (logs && d.mat(Role.GABLE).has(Form.LOG)) {
 				// the porch shingled like the hall
-				Stone shingle = Stone.of(d, Role.GABLE);
+				Stone shingle = shingles(d);
 				for (int z = 0; z <= hz0; z++) {
 					for (int x = xc - 4; x <= xc + 4; x++) {
 						for (int y = 1; y <= 7; y++) {
@@ -380,8 +380,19 @@ public final class GreatHall implements Archetype {
 	}
 
 	/**
+	 * The shingles of a timber hall: its own gable timber where that is a warm or dark wood; a pale one (stripped or
+	 * birch logs) would read as snow on the roof from afar, so then spruce shingles, warm brown over the dark logs.
+	 */
+	private static Stone shingles(Draft d) {
+		Stone own = Stone.of(d, Role.GABLE);
+		net.minecraft.world.level.block.Block b = own.main(Form.FULL);
+		return b == null || ClockTower.light(b) ? Stone.fixed(d, StageKind.ROOF, "minecraft:spruce_planks") : own;
+	}
+
+	/**
 	 * The barge boards of a gable crossing over its apex and carved into dragon heads: from the roof's edge row
-	 * {@code z}, the two boards carry on past the ridge for two blocks each, ending in a head of stairs with a jaw.
+	 * {@code z}, each board carries its slope one block past the ridge (the neck), the head sits over the neck, its snout
+	 * turned outward with a jaw hung under it. Two blocks past the apex at most: at a distance a carved finial, not antlers.
 	 */
 	private static void dragons(Draft d, Roofs.Roof roof, int x0, int x1, int xc, int z, Mat trim, Mat frame) {
 		int ridge = roof.surfaceY(xc, z);
@@ -393,23 +404,19 @@ public final class GreatHall implements Archetype {
 			d.set(xc, ridge + 1, z, trim.full());
 			for (int side : new int[]{-1, 1}) {
 				Direction out = side < 0 ? Dirs.LEFT : Dirs.RIGHT;
-				// the neck: each board carries its slope on past the ridge, a stair rising outward
-				for (int k = 1; k <= 2; k++) {
-					d.set(xc + side * k, ridge + 1 + k, z, trim.stairsOrSlab(out, Half.BOTTOM));
-					d.set(xc + side * k, ridge + k, z, trim.stairsOrSlab(out.getOpposite(), Half.TOP));
-				}
-				// the head: a crown block, a snout reaching outward, a jaw hanging under it
-				int hx = xc + side * 3;
-				int hy = ridge + 3;
-				if (!d.allowed(hx, hy + 1, z)) {
+				int nx = xc + side;
+				// the neck: one stair carrying the board's slope past the ridge, its underside cut
+				d.set(nx, ridge + 2, z, trim.stairsOrSlab(out, Half.BOTTOM));
+				d.set(nx, ridge + 1, z, trim.stairsOrSlab(out.getOpposite(), Half.TOP));
+				// the head over the neck: a crown of the board, the snout reaching outward, the jaw under it
+				if (!d.allowed(nx, ridge + 3, z)) {
 					continue;
 				}
-				d.set(hx, hy, z, trim.full());
-				d.set(hx, hy + 1, z, trim.stairsOrSlab(out.getOpposite(), Half.BOTTOM));
-				int sx = xc + side * 4;
-				if (d.allowed(sx, hy, z)) {
-					d.set(sx, hy, z, trim.stairsOrSlab(out.getOpposite(), Half.TOP));
-					d.set(sx, hy - 1, z, frame.has(Form.TRAPDOOR) ? frame.trapdoor(out.getOpposite(), Half.TOP, true) : trim.slab(SlabType.TOP));
+				d.set(nx, ridge + 3, z, trim.stairsOrSlab(out.getOpposite(), Half.BOTTOM));
+				int sx = xc + side * 2;
+				if (d.allowed(sx, ridge + 2, z)) {
+					d.set(sx, ridge + 2, z, trim.stairsOrSlab(out.getOpposite(), Half.TOP));
+					d.set(sx, ridge + 1, z, frame.has(Form.TRAPDOOR) ? frame.trapdoor(out.getOpposite(), Half.TOP, true) : trim.slab(SlabType.TOP));
 				}
 			}
 		}
