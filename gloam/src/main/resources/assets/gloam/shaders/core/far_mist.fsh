@@ -64,13 +64,15 @@ void main() {
     // side of the sky a warm cream and peach instead. Scaled by the daylight, chosen per texel, never blended.
     float bright = max(max(FogColor.r, FogColor.g), FogColor.b);
     float sunward = max(dot(normalize(dir.xz + vec2(1e-4, 0.0)), vec2(sign(FarSun.x), 0.0)), 0.0);
-    bool warm = FarSunrise.a * sunward * sunward > 0.18 + 0.2 * bayer4(p.yx);
+    // (the warm tones only toward a rising sun: an evening veil keeps the cool ones, never the dusk sky's pink)
+    bool rising = FarSun.x > 0.0;
+    bool warm = rising && FarSunrise.a * sunward * sunward > 0.18 + 0.2 * bayer4(p.yx);
     int tone = int(clamp(floor(lumps * 3.0 + bayer4(p + 2) * 0.8), 0.0, 2.0));
     vec3 cool[3] = vec3[3](vec3(0.72, 0.76, 0.84), vec3(0.85, 0.88, 0.93), vec3(0.97, 0.98, 1.0));
     vec3 sunny[3] = vec3[3](vec3(0.86, 0.72, 0.66), vec3(0.98, 0.85, 0.72), vec3(1.0, 0.95, 0.84));
     vec3 color = (warm ? sunny[tone] : cool[tone]) * min(1.0, bright * 1.1);
     // far banks sink into the air in two steps, like the land under them
     float haze = floor((1.0 - exp(-dist / FarAnchor.w)) * 3.0) / 3.0;
-    color = mix(color, FogColor.rgb, haze * 0.4 * (1.0 - FarMap.w));
+    color = mix(color, vec3(dot(FogColor.rgb, vec3(0.3, 0.59, 0.11))), haze * 0.3 * (1.0 - FarMap.w));
     fragColor = vec4(color, mix(0.25, 0.92, level) * (1.0 - haze * 0.4 * FarMap.w));
 }

@@ -140,6 +140,8 @@ final class FarMist {
 		float[] near = boxMax(water, n, 1);
 
 		float year = air.year(clock);
+		float hour = Air.hour(clock);
+		boolean evening = hour >= 14.0F || hour < 0.5F;
 		float[] top = new float[n * n];
 		float[] thick = new float[n * n];
 		for (int i = 0; i < n * n; i++) {
@@ -147,15 +149,20 @@ final class FarMist {
 				top[i] = Float.NaN;
 				continue;
 			}
-			float lowness = Noise.smoothstep(0.0F, 30.0F, mean[i] - h[i]);
+			// how far below the land around it the cell lies, at the cells' own scale: what makes a valley here
+			float local = Noise.smoothstep(4.0F, 30.0F, mean[i] - h[i]);
 			float nearWater = Math.max(water[i], near[i] * 0.6F);
+			float lowness = local;
 			if (!Float.isNaN(low[i])) {
-				// the countries see the valleys and the shores finer than the far cells do
-				lowness = Math.max(lowness, low[i]);
-				nearWater = Math.max(nearWater, shore[i]);
+				// The countries see the valleys and the shores finer than the far cells do, but only where the land here is
+				// low too: their lowness is measured over a hundred blocks and calls a whole plain low.
+				lowness = Math.max(local, Math.min(low[i], local * 2.0F));
+				nearWater = Math.max(nearWater, shore[i] * Noise.smoothstep(0.1F, 0.4F, local));
 			}
 			Climate climate = new Climate(temp[i], wet[i], lowness, nearWater);
-			float m = Air.mist(clock, year, climate, wetness);
+			// only genuinely low ground holds a bank (or open water); and it is a dawn thing: the evening veil is thin
+			float settles = Math.max(Noise.smoothstep(0.12F, 0.45F, local), water[i] > 0.5F ? 0.6F : 0.0F);
+			float m = Air.mist(clock, year, climate, wetness) * settles * (evening ? 0.3F : 1.0F);
 			thick[i] = m;
 			// a little deeper than the model's layer at the camera: seen from kilometres off, a valley's mist is a bank
 			top[i] = floor[i] + Air.mistDepth(m) * 1.5F;
