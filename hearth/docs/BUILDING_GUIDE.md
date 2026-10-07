@@ -157,6 +157,23 @@ Air drawn in stage `CLEAR` under natural water is dropped (clearing never drains
 pages)`, `banner(patterns)`, `pot(back, left, right, front)`, `container(items)`, `shelf(items)`, where items are
 `List<Object[]>` of `{"minecraft:bread", 6}`.
 
+Before the voids are sealed and the light pass runs, the **access pass** (`kit/refine/Access`, the audit's rules
+S1-S4) makes what folk use usable, touching only what is still wrong:
+
+- **doors** (`Doors.finish`): props in a door's two front cells, at feet and head height, are cleared. Props are pots,
+  flower boxes, sills, closed trapdoors, shutters lying against the door's wall, chests, barrels, counters, hay, and a
+  roof's beam end at head height. A door that faces a wall (feet and head) or opens over a fall of four or more is
+  bricked up, unless it is an entrance;
+- **chests** under a solid block become barrels (same goods);
+- **flights** (`Stairs.finish`): over every tread of a run of two or more stairs (not a roof's courses), a lamp, chain,
+  joist or shelf in the two rows of head room goes. A floor board over the second row is cut where nothing stands on it;
+- **guards** (`Guards.finish`, buildings and grounds only): a rail (a balustrade on a masonry deck) is set on the edge
+  cell of a flat floor beside a fall of four or more. It is never set on a roof's slope, where a ladder, hatch, stair
+  or door arrives, or where it would cut a way.
+
+Build it right in the archetype anyway: the pass bricks up a door it cannot save, and a rail the pass adds is plainer
+than one you design. `-Dhearth.access.off=true` turns it off to compare.
+
 The bill of goods per stage is computed from the steps (`MaterialBill`, processed goods as LIVING_WORLD.md §7.5 asks:
 logs → LOGS, timber → WOOD, rubble → STONE, cut stone → DRESSED_STONE, brick and terracotta → BRICK, lanterns → METAL
 + CANDLES...; the table is in §13); `work` counts non-air steps plus excavation. Before shapes are resolved the compiler
@@ -197,6 +214,16 @@ and flower box by habit; styles `DRESSED`, `PLAIN`, `ARCHED`, `LATTICE`, `SLIT`.
 width, DoorOpts.MAIN)` draws a door with its lamp and hood and registers the entrance and a DOOR POI;
 `Openings.wallLantern`, `Openings.hood`, `Openings.box` are the small parts.
 
+**A door only where both sides can be stood on.** Each side needs a floor (level, one step down, or a bottom stair or
+slab up) with two blocks of air over it and nothing in the way. `Doors.ok(d, x, y, z, out)` asks (once both rooms are
+carved). `Doors.place(d, side, column, y, width, opts)` draws the door only if it can be used, after clearing the
+window dressing in its fronts. `Doors.placeOrWindow(...)` leaves a window where it cannot. `Doors.clearFronts(d, x, y,
+z, out)` clears a door's fronts after furnishing.
+
+**A guard on every edge over a drop.** `Guards.edge(d, x, y, z, toward)` sets the culture's rail beyond a standing cell
+that falls four or more. `Guards.deck(d, x0, z0, x1, z1, y, gaps...)` rails a deck's or gallery's open edges, except at
+its gaps (a ladder's head, a stair's top, a door's front). `Guards.rail(d)` is the rail itself.
+
 ### Roofs
 
 Roofs are **height fields**: `h(x, z)` in blocks above an eave line, rasterised to stairs where the slope is a whole
@@ -230,14 +257,27 @@ one. `Chimneys.stack(d, x, z, fromY, roof, minTop)` runs a chimney up through th
 ### Porches, stairs, floors
 
 `Porches.porch(d, side, c0, c1, depth, y, clear, opening)` (posts never in front of the opening, railings, lean-to
-roof, a bench), `Porches.balcony(d, side, c0, c1, floorY)`, `Porches.bay(d, side, c0, c1, y)`.
+roof, a bench), `Porches.balcony(d, side, c0, c1, floorY)`, `Porches.bay(d, side, c0, c1, y)`. A balcony is two deep
+where the plot allows. Its rail stands on the outer row and returns to the wall, so the row before the wall (and the
+door onto it) is clear. Over the street, where one row fits, the rail is a row of open trapdoors on the deck's outer
+edge. It returns the depth built.
 
 `Stairs.straight(d, x, y, z, dir, rise, width)` (with a string under every step), `Stairs.switchback(d, x, y, z, dir,
-rise, across)` (two lanes, a landing), `Stairs.spiral(d, cx, cz, y0, rise, startAt)`, `Stairs.ladder(d, x, z, y0, y1,
-facing)` (last resort). Cut the stairwell in the floor above yourself and keep its foot and head free in the rooms.
+rise, across)` (two lanes, a landing at the turn), `Stairs.spiral(d, cx, cz, y0, rise, startAt)`, `Stairs.ladder(d, x,
+z, y0, y1, facing)` (last resort). Cut the stairwell in the floor above yourself and keep its foot and head free in the
+rooms. Every tread needs two blocks of air over it, or folk cannot climb it. A flight that turns gets a landing
+(`switchback`); never step across from one run to the next. `Stairs.well(d, x, y, z, dir, rise, openSide)` rails a
+stairwell on the floor it arrives at, along its open side and across its lower end. `Storeys.flight` and
+`Hall.flight` do this themselves.
+
+A loft no stair reaches gets `refine.Lofts.ladder(d, x, z, yFrom, yTo, toWall, roof)`. This is a ladder against a wall
+through a hatch, placed only where a boarded cell beside the hatch has two rows of air to step off onto
+(`Lofts.landing`). Otherwise open the loft to the room below (`Hall.openLoft`) or seal it. A flat roof that is a
+terrace (`Hall.terrace`) is reached by its outside stair or, on two storeys or more, by a ladder through a hatch from
+the top storey. With no way up, there is no room on the deck.
 
 `Floors.boards(d, x0, z0, x1, z1, y)` lays boards (over anything not built, dug-out ground included);
-`Floors.joists(...)` exposed beams under a ceiling, skipping stairwells.
+`Floors.joists(...)` exposed beams under a ceiling, skipping stairwells and never over a tread's head room.
 
 ### Rooms and furniture
 
@@ -252,7 +292,10 @@ Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);   // BEDROOM, KITCH
 ```
 
 `furnish` reads what is already built: blocks on the floor are taken, holes (stairwells) cannot be stood on, cells
-under a stair can hold furniture but are not walkways, ladders and carpets are walked through. Every placement is
+under a stair can hold furniture but are not walkways, ladders and carpets are walked through. The inside cell of every
+door in the walls round the room is kept free and joined. In kitchens, living rooms, stores, halls and workshops (after
+the trade's own station), and in bedrooms after the beds, a square of three by three is kept clear in rooms of nine
+cells or more, nearest a door. Every placement is
 tried against a connectivity check, so a bed never cuts the room in two and every bed side, chest front and workstation
 front stays reachable. `room.claim(x, z)` reserves a cell for something you build yourself (a hearth). A kept cell
 taken by a ladder or the hole it climbs through counts as reached from the cell beside it, so a loft reached by a
