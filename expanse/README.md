@@ -198,6 +198,11 @@ from plate tectonics and erosion rather than from noise alone:
   glacial lakes and old forest in the cold, gorges and volcanic hills here and there in the warm; the steppe,
   deserts and tropics keep their own landforms. Neighbouring countries grade into each other over about a
   kilometre. `./gradlew terrainPreview -Pcountries=true` tints them on the map.
+- **Waterfalls.** Where the land breaks off in a face of rock (an escarpment, a gorge wall, a rock town, a crag)
+  a spring now and then breaks out under the rim, and its water falls the height of the face in a white ribbon
+  (`world/feature/CliffFallsFeature.java`).
+- **Meanders.** Rivers swing either side of their course, and in some country twice as wide, looping through their
+  vales.
 - **Cliffs are rock.** Wherever the ground is steeper than soil will lie (some 55 degrees), the soil is stripped and
   the rock shows: stone, or the country's own sandstone, limestone or basalt. A gorge wall or a hill's crag is a
   face of rock, not a staircase of dirt with grass on every step.
@@ -234,6 +239,12 @@ from plate tectonics and erosion rather than from noise alone:
   - The river comes in at the head and goes on from the outlet; under the water it is the lake's.
   - Two great lakes never overlap; the site search is done once per cell for every thread, so the lakes
     cost the terrain next to nothing.
+- **The climate follows the land.** The air warms and cools over broad zones tens of kilometres across; the rain
+  comes in off the sea on a westerly wind, so the coasts are wet and the land dries the further it lies inland, and
+  a great range wrings the rain out of the wind, leaving the country in its lee dry for tens of kilometres (the rain
+  shadow) while its windward foothills are the wettest of all. So the steppe lies behind the mountains and the
+  green heartland where the rain falls: every country and biome lies where it does for a reason
+  (`TerrainModel.climateAt`; `terrainPreview -Pclimate=true` shows it).
 - **Biomes follow the land.** The climate values the biome source reads come from the terrain:
   - continentalness from distance to the coast;
   - erosion from how mountainous the land is;
@@ -477,8 +488,9 @@ on the rises, light open country between.
   mostly wood. Above about y 185 the trees give out.
 - **Hedgerows** divide the open country into fields wherever it lies: on the Earth terrain in the open land of
   the temperate forests and meadows too, never inside a wood.
-- **Fields.** Inside the hedges each field is farmed as a whole: ripe wheat gold from end to end, green wheat,
-  fallow earth turned over, hay meadow grown tall, or pasture. From a hill the vale below is a quilt of gold and
+- **Fields.** Inside the hedges each field is farmed as a whole: ripe wheat gold from end to end, a field being
+  reaped (stubble, the sheaves stood up in stooks in rows), green wheat, fallow earth turned over, hay meadow grown
+  tall round its haystack, or pasture with a flock of sheep or a few cattle grazing it. From a hill the vale below is a quilt of gold and
   green and brown, under the dark woods on the rises.
 - **The greens** of the temperate land are muted and olive, as in a real countryside: vanilla's temperate biomes
   take greens of their own (`world/biome/Palette.java`) instead of the colour map's bright lime.

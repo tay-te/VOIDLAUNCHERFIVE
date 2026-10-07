@@ -125,6 +125,7 @@
 		}
 	],
 	"overrides": [
+		{"when": {"categories": ["workshop"]}, "roles": {"tree_log": ["minecraft:oak_log"], "tree_leaves": ["minecraft:oak_leaves"]}},
 		{"when": {"categories": ["fort"]}, "roles": {"tree_log": ["minecraft:oak_log"]}}
 	],
 	"habits": {
