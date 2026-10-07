@@ -45,3 +45,8 @@ to `region/volcanic.json`'s habits (it would also unthatch any temperate cottage
 
 - `build/kit/trade/Shop.java`, `build/kit/trade/Pentice.java`, `build/kit/townhome/Fronts.java`: the white awning stripe
   is now also gated by `d.habits().stripes()` (one condition each).
+- `build/archetype/civic/School.java`: no colonnade column in front of the door (steppe's new plank-walled `timber`
+  variant puts the door on the post grid, off the middle, where `Portico.column` stood a mud-brick pier before it).
+- `build/kit/homestead/Household.java`: a moneyed household's strongbox takes its corner in `first()`, before the
+  kitchen fills a one-room home (fewer burgher merchants left a full brick cottage room with no corner to spare);
+  `merchant()` then only adds one if none stands, trying the living room after the bedroom.
