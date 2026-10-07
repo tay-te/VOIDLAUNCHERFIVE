@@ -1594,6 +1594,12 @@ public final class MapPage {
 			title = "Seen from afar";
 			sub = "walk closer for detail";
 			biome = biomeOf(far, bx, bz);
+		} else if (this.farShown() && known(d.layerIfOpen(dev.voidmc.atlas.client.FarSight.COARSE_LAYER), Math.floorDiv(bx, dev.voidmc.atlas.client.FarSight.COARSE),
+			Math.floorDiv(bz, dev.voidmc.atlas.client.FarSight.COARSE))) {
+			title = "Seen from afar";
+			sub = "on the horizon: walk closer for detail";
+			biome = biomeOf(d.layerIfOpen(dev.voidmc.atlas.client.FarSight.COARSE_LAYER), Math.floorDiv(bx, dev.voidmc.atlas.client.FarSight.COARSE),
+				Math.floorDiv(bz, dev.voidmc.atlas.client.FarSight.COARSE));
 		} else if (far != null && this.lodStillDrawing(bx, bz)) {
 			// inside VOID LOD's reach while it is still drawing: land on its way; once it is complete (or past its
 			// reach) land not seen is plain unexplored, with no hover

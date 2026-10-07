@@ -348,6 +348,15 @@ public final class MapPanel {
 			this.renderer.setTint(0xFFFFFF);
 		}
 		DimensionData under = this.kind == Kind.SURFACE && layer != null && session != null ? session.dimension(this.dimensionOf(this.kind), false) : null;
+		LayerData coarse = under != null && this.atlas.settings().farSight ? under.layerIfOpen(dev.voidmc.atlas.client.FarSight.COARSE_LAYER) : null;
+		if (coarse != null) {
+			// the coarse far store: its samples are 32 blocks, so it is drawn on a view in those units (the same place on
+			// the screen), through its own mip levels; under the fine far land and the walked
+			double k = dev.voidmc.atlas.client.FarSight.COARSE;
+			MapRenderer.View cv = new MapRenderer.View(view.centerX() / k, view.centerZ() / k, view.pixelsPerBlock() * k, view.rotation());
+			this.renderer.draw(ui, this.atlas.tiles(), biomes ? coarse.twin(dev.voidmc.atlas.core.TileRenderer.Variant.BIOMES) : coarse, x, y, w, h, radius,
+				cv, true);
+		}
 		LayerData far = under != null && this.atlas.settings().farSight ? under.layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER) : null;
 		if (far != null) {
 			this.renderer.draw(ui, this.atlas.tiles(), biomes ? far.twin(dev.voidmc.atlas.core.TileRenderer.Variant.BIOMES) : far, x, y, w, h, radius, view,

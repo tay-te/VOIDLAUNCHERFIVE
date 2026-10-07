@@ -580,6 +580,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 			}
 			var d = session.dimension(mc.level.dimension().identifier().toString(), false);
 			var far = d.layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER);
+			var coarse = d.layerIfOpen(dev.voidmc.atlas.client.FarSight.COARSE_LAYER);
 			var walked = d.layer(dev.voidmc.atlas.client.data.DimensionData.SURFACE);
 			int px = mc.player.getBlockX();
 			int pz = mc.player.getBlockZ();
@@ -608,6 +609,16 @@ public class AtlasGameTest implements FabricClientGameTest {
 					for (int s = 0; s < 9 && !any; s++) {
 						int x = cx * cell + 32 + (s % 3) * 96;
 						int z = cz * cell + 32 + (s / 3) * 96;
+						if (coarse != null) {
+							int sx = Math.floorDiv(x, dev.voidmc.atlas.client.FarSight.COARSE);
+							int sz = Math.floorDiv(z, dev.voidmc.atlas.client.FarSight.COARSE);
+							var craw = peek.apply(coarse, new int[]{dev.voidmc.atlas.core.Coords.region(sx), dev.voidmc.atlas.core.Coords.region(sz)});
+							if (craw != null && craw.known(dev.voidmc.atlas.core.RegionRaw.index(dev.voidmc.atlas.core.Coords.inRegion(sx),
+								dev.voidmc.atlas.core.Coords.inRegion(sz)))) {
+								any = true;
+								break;
+							}
+						}
 						for (var layer : new dev.voidmc.atlas.client.data.LayerData[]{walked, far}) {
 							if (layer == null) {
 								continue;
@@ -646,6 +657,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 			}
 			var d = session.dimension(mc.level.dimension().identifier().toString(), false);
 			var far = d.layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER);
+			var coarse = d.layerIfOpen(dev.voidmc.atlas.client.FarSight.COARSE_LAYER);
 			var walked = d.layer(dev.voidmc.atlas.client.data.DimensionData.SURFACE);
 			int px = mc.player.getBlockX();
 			int pz = mc.player.getBlockZ();
@@ -671,6 +683,16 @@ public class AtlasGameTest implements FabricClientGameTest {
 					for (int s = 0; s < 4 && !any; s++) {
 						int x = cx * 64 + 16 + (s % 2) * 32;
 						int z = cz * 64 + 16 + (s / 2) * 32;
+						if (coarse != null) {
+							int sx = Math.floorDiv(x, dev.voidmc.atlas.client.FarSight.COARSE);
+							int sz = Math.floorDiv(z, dev.voidmc.atlas.client.FarSight.COARSE);
+							var craw = peek.apply(coarse, new int[]{dev.voidmc.atlas.core.Coords.region(sx), dev.voidmc.atlas.core.Coords.region(sz)});
+							if (craw != null && craw.known(dev.voidmc.atlas.core.RegionRaw.index(dev.voidmc.atlas.core.Coords.inRegion(sx),
+								dev.voidmc.atlas.core.Coords.inRegion(sz)))) {
+								any = true;
+								break;
+							}
+						}
 						for (var layer : new dev.voidmc.atlas.client.data.LayerData[]{walked, far}) {
 							var raw = layer == null ? null : peek.apply(layer, new int[]{dev.voidmc.atlas.core.Coords.region(x), dev.voidmc.atlas.core.Coords.region(z)});
 							if (raw != null && raw.known(dev.voidmc.atlas.core.RegionRaw.index(dev.voidmc.atlas.core.Coords.inRegion(x),
@@ -725,6 +747,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 		this.settle(context, SETTLE_MS);
 		this.farHoles(context, reach);
 		log("far sight: tiles VOID LOD offered by cell size (1, 2, 4 ... 512 blocks): " + dev.voidmc.atlas.client.FarSight.OFFERED_BY_CELL);
+		log("far sight: coarse store " + dev.voidmc.atlas.client.FarSight.COARSE_TILES.get() + " tiles, " + dev.voidmc.atlas.client.FarSight.COARSE_SAMPLES.get() + " samples at " + String.format(Locale.ROOT, "%.2f", dev.voidmc.atlas.client.FarSight.COARSE_NANOS.get() / 1e6 / Math.max(1, dev.voidmc.atlas.client.FarSight.COARSE_TILES.get())) + " ms a tile");
 		log(String.format(Locale.ROOT, "far sight from VOID LOD: %d tiles taken, %d written, %d columns, listening %s", dev.voidmc.atlas.client.FarSight.TAKEN.get(),
 			tiles, dev.voidmc.atlas.client.FarSight.SAMPLES.get(), context.computeOnClient(mc -> AtlasClient.get().farSight.listening())));
 		int[] box = context.computeOnClient(mc -> Section8Shots.walkedBox());
@@ -1220,6 +1243,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 		// 5. far sight: tiles as VOID LOD hands them over (from a thread of its own), written on the workers, timed
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		double[] far = this.farSight(context, (ox + 2 * regions + 8) * Coords.REGION_SIZE, oz * Coords.REGION_SIZE);
+		double[] coarse = this.coarseSight(context, (ox + 2 * regions + 8) * Coords.REGION_SIZE + 60_000, oz * Coords.REGION_SIZE);
 
 		String gpu = context.computeOnClient(mc -> {
 			var info = com.mojang.blaze3d.systems.RenderSystem.getDevice().getDeviceInfo();
@@ -1244,7 +1268,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 			  "reveal": {"walks": %d, "msPerWalk": %.3f, "openPerWalk": %d},
 			  "underMap": {"frames": %d, "avgFrameMs": %.3f, "avgFps": %.0f, "p99FrameMs": %.3f, "maxFrameMs": %.3f, "atlasAvgMs": %.3f, "uploads": %d},
 			  "minimapSpike": {"totalMs": %.3f, "setupMs": %.3f, "tilesMs": %.3f, "markersMs": %.3f, "restMs": %.3f},
-			  "farSight": {"tiles": %.0f, "workerMsPerTile": %.3f, "listenerUsPerTile": %.2f, "maxRunMs": %.3f, "frames": %.0f, "avgFrameMs": %.3f, "p99FrameMs": %.3f, "clientIngestMs": %.4f, "samples": %.0f}
+			  "farSight": {"tiles": %.0f, "workerMsPerTile": %.3f, "listenerUsPerTile": %.2f, "maxRunMs": %.3f, "frames": %.0f, "avgFrameMs": %.3f, "p99FrameMs": %.3f, "clientIngestMs": %.4f, "samples": %.0f},
+			  "farCoarse": {"tiles": %.0f, "workerMsPerTile": %.3f, "samples": %.0f, "drainSeconds": %.2f, "rawsInMemory": %.0f}
 			}
 			""",
 			backend, gpu.replace("\"", "'"), context.computeOnClient(mc -> mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight()),
@@ -1263,7 +1288,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 			under.count(), Perf.Recording.avgMs(under.frames()), 1000 / Math.max(1e-6, Perf.Recording.avgMs(under.frames())),
 			Perf.Recording.percentileMs(under.frames(), 0.99), Perf.Recording.maxMs(under.frames()), Perf.Recording.avgMs(under.map()), underUploads,
 			spike[0] / 1e6, spike[1] / 1e6, spike[2] / 1e6, spike[3] / 1e6, spike[4] / 1e6,
-			far[0], far[1], far[2], far[3], far[4], far[5], far[6], far[7], far[8]);
+			far[0], far[1], far[2], far[3], far[4], far[5], far[6], far[7], far[8],
+			coarse[0], coarse[1], coarse[2], coarse[3], coarse[4]);
 		try {
 			Files.writeString(OUT, json, StandardCharsets.UTF_8);
 			log("results written to " + OUT);
@@ -1279,6 +1305,58 @@ public class AtlasGameTest implements FabricClientGameTest {
 	 * the handing-over thread's microseconds a tile, the longest worker run, frames, avg and p99 frame ms, the client
 	 * thread's ingest ms a frame (far sight must add nothing there), and columns written.
 	 */
+	/**
+	 * The coarse far store under a burst like VOID LOD's at its horizon: 160 tiles of 32- to 512-block cells (64 cells a
+	 * side) handed over at once, written into the coarse pages; how long each took on the workers, and how long until
+	 * none was waiting.
+	 */
+	private double[] coarseSight(ClientGameTestContext context, int x0, int z0) {
+		long tiles0 = dev.voidmc.atlas.client.FarSight.COARSE_TILES.get();
+		long nanos0 = dev.voidmc.atlas.client.FarSight.COARSE_NANOS.get();
+		long samples0 = dev.voidmc.atlas.client.FarSight.COARSE_SAMPLES.get();
+		int count = 160;
+		int[] cells = {32, 64, 128, 256, 512};
+		long t0 = System.nanoTime();
+		context.runOnClient(mc -> {
+			var farSight = AtlasClient.get().farSight;
+			for (int t = 0; t < count; t++) {
+				int cell = cells[t % cells.length];
+				int n = 64;
+				int span = n * cell;
+				int x = x0 + (t / cells.length % 8) * span;
+				int z = z0 + (t / cells.length / 8) * span;
+				short[] heights = new short[n * n];
+				int[] colours = new int[n * n];
+				String[] blocks = new String[n * n];
+				boolean[] seen = new boolean[n * n];
+				for (int k = 0; k < n * n; k++) {
+					heights[k] = (short) (64 + (int) (90 * Math.sin((x + k % n * cell) / 3000.0) * Math.cos((z + k / n * cell) / 2600.0)));
+					boolean water = heights[k] < 60;
+					colours[k] = water ? 0x3F76E4 : 0x5A8A3C;
+					blocks[k] = water ? "minecraft:water" : "minecraft:grass_block";
+					seen[k] = true;
+				}
+				farSight.offer(new dev.voidmc.atlas.client.FarSight.Tile("minecraft:overworld", 1_000_000 + t, x, z, cell, n, heights, colours, blocks, null, seen));
+			}
+		});
+		long deadline = System.currentTimeMillis() + 90_000;
+		while (System.currentTimeMillis() < deadline && context.computeOnClient(mc -> AtlasClient.get().farSight.pendingCount()) > 0) {
+			context.waitTicks(2);
+		}
+		double drain = (System.nanoTime() - t0) / 1e9;
+		long tiles = dev.voidmc.atlas.client.FarSight.COARSE_TILES.get() - tiles0;
+		double ms = (dev.voidmc.atlas.client.FarSight.COARSE_NANOS.get() - nanos0) / 1e6 / Math.max(1, tiles);
+		double raws = context.computeOnClient(mc -> {
+			var s = AtlasClient.get().session();
+			var d = s == null ? null : s.dimensionIfOpen("minecraft:overworld");
+			var l = d == null ? null : d.layerIfOpen(dev.voidmc.atlas.client.FarSight.COARSE_LAYER);
+			return l == null ? 0.0 : l.rawsInMemory();
+		});
+		log(String.format(Locale.ROOT, "coarse far store: %d tiles at %.2f ms on the workers, %d samples, none waiting after %.2f s, %.0f pages in memory",
+			tiles, ms, dev.voidmc.atlas.client.FarSight.COARSE_SAMPLES.get() - samples0, drain, raws));
+		return new double[]{tiles, ms, dev.voidmc.atlas.client.FarSight.COARSE_SAMPLES.get() - samples0, drain, raws};
+	}
+
 	private double[] farSight(ClientGameTestContext context, int x0, int z0) {
 		context.runOnClient(mc -> AtlasClient.get().farSight.update());
 		context.waitTicks(5);

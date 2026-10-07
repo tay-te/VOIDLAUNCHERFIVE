@@ -54,6 +54,19 @@ public final class FarSight {
 	public static final String LOD_MOD = "void_lod";
 	public static final String LAYER = "far";
 	/**
+	 * The coarse far store: VOID LOD's 32- to 512-block cells, kept apart from walked land and the fine far layer, one
+	 * sample per {@value #COARSE} blocks (a page, 512 samples a side, covers 16,384 blocks). Drawn under both, so the
+	 * finer land shows wherever it is known: walked, then fine far, then coarse far.
+	 */
+	public static final String COARSE_LAYER = "farc";
+	/** Blocks a coarse sample stands for. */
+	public static final int COARSE = 32;
+	/** The coarsest cell taken into the coarse store. */
+	public static final int MAX_COARSE_CELL = 512;
+	public static final AtomicLong COARSE_TILES = new AtomicLong();
+	public static final AtomicLong COARSE_NANOS = new AtomicLong();
+	public static final AtomicLong COARSE_SAMPLES = new AtomicLong();
+	/**
 	 * The finest cell taken: 1 block, the ring VOID LOD draws right past the loaded chunks (walked land is never written
 	 * over, so it only fills what the player has not walked).
 	 */
@@ -222,7 +235,8 @@ public final class FarSight {
 			// what VOID LOD offers, by cell size (powers of two, 1 to 512): the tour's account of what is taken and left
 			OFFERED_BY_CELL.incrementAndGet(Math.min(10, 31 - Integer.numberOfLeadingZeros(tile.cell())));
 		}
-		if (!this.on || tile.cell() < MIN_CELL || tile.cell() > MAX_CELL || tile.size() <= 0 || tile.size() > MAX_SIZE) {
+		boolean coarse = tile.cell() >= COARSE && tile.cell() <= MAX_COARSE_CELL;
+		if (!this.on || tile.cell() < MIN_CELL || tile.cell() > MAX_CELL && !coarse || tile.size() <= 0 || tile.size() > MAX_SIZE) {
 			return;
 		}
 		int n = tile.size() * tile.size();
@@ -295,7 +309,11 @@ public final class FarSight {
 					continue; // replaced by a newer copy meanwhile: that one is written in its turn
 				}
 				if (this.on && this.atlas.session() == session) {
-					this.write(session, t);
+					if (t.cell() >= COARSE) {
+						this.writeCoarse(session, t);
+					} else {
+						this.write(session, t);
+					}
 				}
 			}
 		} finally {
@@ -321,7 +339,7 @@ public final class FarSight {
 		if (d == null) {
 			return false;
 		}
-		LayerData far = d.layerIfOpen(LAYER);
+		LayerData far = d.layerIfOpen(t.cell() >= COARSE ? COARSE_LAYER : LAYER);
 		if (far == null || far.rawsInMemory() < HARD_RAWS) {
 			return false;
 		}
@@ -351,6 +369,95 @@ public final class FarSight {
 	 * Writes a far tile into the far layer (worker): each block column gets its cell's height, and the look (block,
 	 * biome, water) of the cell at its chunk's middle: one colour a chunk, as the design draws far land.
 	 */
+	/**
+	 * Writes a coarse far tile (32- to 512-block cells) into the coarse store (worker): each sample gets the height and
+	 * look of the cell its middle falls in. A 512-block tile is about a million samples over a page or four; never per
+	 * block.
+	 */
+	private void writeCoarse(MapSession session, Tile t) {
+		long t0 = System.nanoTime();
+		DimensionData d = session.dimensionIfOpen(t.dimension());
+		if (d == null || d.ceiling) {
+			return;
+		}
+		LayerData store = d.layer(COARSE_LAYER);
+		int n = t.size();
+		int cell = t.cell();
+		int[] blocks = new int[n * n];
+		int[] biomes = new int[n * n];
+		byte[] depths = new byte[n * n];
+		this.looks(session, t, blocks, biomes, depths);
+		short[] heights = t.heights();
+		int s0x = Math.floorDiv(t.minX(), COARSE);
+		int s0z = Math.floorDiv(t.minZ(), COARSE);
+		int s1x = Math.floorDiv(t.minX() + n * cell - 1, COARSE);
+		int s1z = Math.floorDiv(t.minZ() + n * cell - 1, COARSE);
+		int written = 0;
+		int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+		for (int rz = Coords.region(s0z); rz <= Coords.region(s1z); rz++) {
+			int z0 = Math.max(s0z, rz * Coords.REGION_SIZE);
+			int z1 = Math.min(s1z + 1, (rz + 1) * Coords.REGION_SIZE);
+			for (int rx = Coords.region(s0x); rx <= Coords.region(s1x); rx++) {
+				int x0 = Math.max(s0x, rx * Coords.REGION_SIZE);
+				int x1 = Math.min(s1x + 1, (rx + 1) * Coords.REGION_SIZE);
+				RegionRaw raw = store.raw(rx, rz, true);
+				for (int sz = z0; sz < z1; sz++) {
+					int j = Math.floorDiv(sz * COARSE + COARSE / 2 - t.minZ(), cell);
+					if (j < 0 || j >= n) {
+						continue;
+					}
+					int lz = Coords.inRegion(sz);
+					for (int sx = x0; sx < x1; sx++) {
+						int i = Math.floorDiv(sx * COARSE + COARSE / 2 - t.minX(), cell);
+						if (i < 0 || i >= n) {
+							continue;
+						}
+						int k = j * n + i;
+						short y = heights[k];
+						if (y == Short.MIN_VALUE) {
+							continue;
+						}
+						if (raw.set(Coords.inRegion(sx), lz, y, blocks[k], depths[k], biomes[k], RegionRaw.KNOWN)) {
+							written++;
+							minX = Math.min(minX, sx);
+							maxX = Math.max(maxX, sx);
+							minZ = Math.min(minZ, sz);
+							maxZ = Math.max(maxZ, sz);
+						}
+					}
+				}
+			}
+		}
+		if (written > 0) {
+			store.dirty(minX, minZ, maxX + 1, maxZ + 1);
+		}
+		if (store.rawsInMemory() > MAX_RAWS) {
+			// pages not being drawn go to disk on the IO thread, as the fine far layer's do
+			this.trim(session, store);
+		}
+		COARSE_TILES.incrementAndGet();
+		COARSE_SAMPLES.addAndGet(written);
+		COARSE_NANOS.addAndGet(System.nanoTime() - t0);
+	}
+
+	/** Each cell's look (block, biome, water) as the map's names, once a tile. */
+	private void looks(MapSession session, Tile t, int[] blocks, int[] biomes, byte[] depths) {
+		int n = t.size();
+		Map<String, Integer> blockIds = new HashMap<>();
+		Map<String, Integer> biomeIds = new HashMap<>();
+		for (int k = 0; k < n * n; k++) {
+			if (t.heights()[k] == Short.MIN_VALUE) {
+				continue;
+			}
+			String name = t.blocks() == null ? null : t.blocks()[k];
+			boolean water = "minecraft:water".equals(name) || looksLikeWater(t.colours()[k]) && (name == null || !name.contains("ice"));
+			blocks[k] = blockIds.computeIfAbsent(name == null || water ? FarColour.name(t.colours()[k]) : name, session.blockNames::id);
+			depths[k] = (byte) (water ? 4 : 0);
+			String biomeName = t.biomes() == null ? null : t.biomes()[k];
+			biomes[k] = biomeName == null ? NamePalette.NONE : biomeIds.computeIfAbsent(biomeName, session.biomeNames::id);
+		}
+	}
+
 	private void write(MapSession session, Tile t) {
 		DimensionData d = session.dimensionIfOpen(t.dimension());
 		if (d == null || d.ceiling) {

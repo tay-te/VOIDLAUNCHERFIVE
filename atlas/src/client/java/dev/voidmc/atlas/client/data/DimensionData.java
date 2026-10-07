@@ -82,7 +82,7 @@ public final class DimensionData {
 			if (under) {
 				this.bands.add(underBand(n));
 			}
-			TileRenderer.Mode mode = n.equals(SURFACE) ? TileRenderer.Mode.SURFACE : n.equals("far") ? TileRenderer.Mode.FAR
+			TileRenderer.Mode mode = n.equals(SURFACE) ? TileRenderer.Mode.SURFACE : n.equals("far") || n.equals("farc") ? TileRenderer.Mode.FAR
 				: n.equals("shared") ? TileRenderer.Mode.SHARED : TileRenderer.Mode.CAVE;
 			return new LayerData(this, n, mode,
 				under ? bandTop(underBand(n)) : Integer.MIN_VALUE, this.session.nextLayerUid());

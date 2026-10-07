@@ -254,7 +254,9 @@ def budgets = [
 	beamsAvgMs       : 0.15,  // the waypoint beams and labels in the world, per frame while flying (48 waypoints)
 	radarAvgMs       : 0.10,  // the minimap's radar, per frame while flying
 	farTileMs        : 40.0,  // far sight: one far tile (64 x 64 cells, up to 16 blocks a cell) written, on the workers
-	farHandUs        : 200.0  // far sight: taking a tile on VOID LOD's thread, microseconds
+	farHandUs        : 200.0, // far sight: taking a tile on VOID LOD's thread, microseconds
+	farCoarseTileMs  : 40.0,  // far sight's coarse store: one 32- to 512-block-cell tile written, on the workers
+	farCoarseDrainS  : 10.0   // a burst of 160 coarse tiles all written (no backlog)
 ]
 // On the weak profile, in Light mode: Atlas must cost less, the game itself is allowed to be slower
 def weakBudgets = budgets + [
@@ -301,6 +303,8 @@ tasks.register('atlasPerf') {
 		if (r.reveal.walks > 0 && r.reveal.msPerWalk > held.revealMsPerWalk) failures << "underground reveal ${r.reveal.msPerWalk} ms/walk > ${held.revealMsPerWalk}"
 		if (r.farSight && r.farSight.tiles > 0 && r.farSight.workerMsPerTile > held.farTileMs) failures << "far sight ${r.farSight.workerMsPerTile} ms/tile > ${held.farTileMs}"
 		if (r.farSight && r.farSight.listenerUsPerTile > held.farHandUs) failures << "far sight hand-over ${r.farSight.listenerUsPerTile} us/tile > ${held.farHandUs}"
+		if (r.farCoarse && r.farCoarse.tiles > 0 && r.farCoarse.workerMsPerTile > held.farCoarseTileMs) failures << "coarse far store ${r.farCoarse.workerMsPerTile} ms/tile > ${held.farCoarseTileMs}"
+		if (r.farCoarse && r.farCoarse.drainSeconds > held.farCoarseDrainS) failures << "coarse far burst written in ${r.farCoarse.drainSeconds} s > ${held.farCoarseDrainS}"
 		if (r.farSight && r.farSight.clientIngestMs > held.ingestMaxFrameMs) failures << "far sight cost the client thread ${r.farSight.clientIngestMs} ms/frame"
 		updatePerfDoc(file('docs/PERF.md'), file('build/perf'), held)
 		if (!failures.isEmpty()) {
@@ -336,6 +340,7 @@ static void updatePerfDoc(File doc, File dir, Map budgets) {
 	row('Underground map: p99 / worst frame', { it.underMap ? "${it.underMap.p99FrameMs} / ${it.underMap.maxFrameMs} ms" : '—' }, "≤ ${budgets.underP99FrameMs} / ${budgets.hitchMs} ms")
 	row('Structure detection (worker): per chunk', { it.detect ? "${it.detect.msPerChunk} ms (${it.detect.chunks} chunks)" : '—' }, "≤ ${budgets.detectMsPerChunk} ms")
 	row('Underground reveal (worker): per walk', { it.reveal ? "${it.reveal.msPerWalk} ms (${it.reveal.walks} walks, ${it.reveal.openPerWalk} open blocks)" : '—' }, "≤ ${budgets.revealMsPerWalk} ms")
+	row('Coarse far store (worker): per tile / burst of 160 written in / pages kept', { it.farCoarse ? "${it.farCoarse.workerMsPerTile} ms / ${it.farCoarse.drainSeconds} s / ${it.farCoarse.rawsInMemory} (${it.farCoarse.tiles} tiles)" : '—' }, "≤ ${budgets.farCoarseTileMs} ms / ${budgets.farCoarseDrainS} s / —")
 	row('Far sight (worker): per tile / longest run / hand-over', { it.farSight ? "${it.farSight.workerMsPerTile} ms / ${it.farSight.maxRunMs} ms / ${it.farSight.listenerUsPerTile} us (${it.farSight.tiles} tiles)" : '—' }, "≤ ${budgets.farTileMs} ms / — / ${budgets.farHandUs} us")
 	row('Far sight: frames while ingesting (avg / p99), client ingest', { it.farSight ? "${it.farSight.avgFrameMs} / ${it.farSight.p99FrameMs} ms, ${it.farSight.clientIngestMs} ms" : '—' }, '—')
 	row('Worst minimap frame: setup / tiles / markers / rest', { it.minimapSpike ? "${it.minimapSpike.setupMs} / ${it.minimapSpike.tilesMs} / ${it.minimapSpike.markersMs} / ${it.minimapSpike.restMs} ms" : '—' }, '—')
