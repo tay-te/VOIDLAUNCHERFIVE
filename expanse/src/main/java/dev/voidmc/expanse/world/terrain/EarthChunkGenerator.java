@@ -166,6 +166,9 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 				if (!c.nearRiver() || c.fjord || c.riverDist >= c.riverHalfWidth + 2) {
 					continue;
 				}
+				if (c.lake > -900 && c.lakeEdge > 0) {
+					continue;  // drowned in a great lake: the lake's water is poured over it
+				}
 				int top = c.waterTop();
 				boolean channel = c.inChannel();
 				int bed = c.bed();

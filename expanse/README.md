@@ -160,8 +160,12 @@ from plate tectonics and erosion rather than from noise alone:
 
   The results are sharp ridgelines, branching valleys and concave river profiles. Interior basins stay
   low, as plains, and old worn ranges cross the continents.
+- **The heartland.** Temperate country well inland and away from the ranges rolls rather than climbs: its
+  hills stand up to nearly half lower over their valleys, so the land opens out into long gentle slopes and
+  broad vales, the Bohemian countryside. The mountains and the coasts keep their relief.
 - **Rivers that reach the sea.** Wherever enough land drains through a point there is a river. Each one:
-  - widens downstream, from 3-block brooks to 30-block rivers;
+  - widens downstream, from 3-block brooks to great lowland rivers nearly 50 blocks across, in broad
+    flat-floored vales half a dozen times as wide;
   - follows smooth curves between grid points, wandering either side;
   - holds real water above sea level, falling stretch by stretch toward the sea in small rapids;
   - sits in a valley floor with firm banks and a gravel, sand and clay bed, whose sides spread wider the
@@ -181,6 +185,17 @@ from plate tectonics and erosion rather than from noise alone:
   - High up a lake is a small deep tarn.
   - A lake takes the biome of the country round it. Reeds and lily pads come to its shores as they do to
     rivers', since those test for the water itself. No cave opens under one.
+- **Great lakes.** Here and there (a few in a 12 km square, at most one in each 1400-block cell, never where it
+  is dry, tropical, volcanic or near a plate border) a lowland river valley lies flooded behind a moraine the ice left across
+  it. The water stands five or six blocks over the river, and the lake reaches up the valley (up to 700 blocks
+  from its middle) until the land upstream has risen out of it, so it runs a kilometre and more and sprawls
+  out along every side valley, with drowned arms, headlands and islands where hilltops stand clear.
+  - Toward the rim the shallower ground is built up into a broad moraine plug across the valley, with a notch
+    where the river spills out; its outer face falls away into the valley below. The rim's reach wavers
+    with the bearing, so no shore is ever an arc of a circle.
+  - The river comes in at the head and goes on from the outlet; under the water it is the lake's.
+  - Two great lakes never overlap; the site search is done once per cell for every thread, so the lakes
+    cost the terrain next to nothing.
 - **Biomes follow the land.** The climate values the biome source reads come from the terrain:
   - continentalness from distance to the coast;
   - erosion from how mountainous the land is;
