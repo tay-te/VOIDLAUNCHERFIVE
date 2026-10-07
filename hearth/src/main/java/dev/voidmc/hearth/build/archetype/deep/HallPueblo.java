@@ -162,7 +162,7 @@ final class HallPueblo {
 		}
 	}
 
-	/** A rounded parapet (slabs, a block at each corner) round a deck at standing level {@code y}, open where the next block stands. */
+	/** A rounded parapet (the render, a slab over it) round a deck at standing level {@code y}, open where the next block stands. */
 	private static void parapet(Draft d, int x0, int z0, int x1, int z1, int y, int[] next) {
 		if (y >= d.maxHeight()) {
 			return;
@@ -176,8 +176,11 @@ final class HallPueblo {
 				if (next != null && x >= next[0] && x <= next[2] && z >= next[1]) {
 					continue;
 				}
-				boolean corner = (x == x0 || x == x1) && (z == z0 || z == z1);
-				d.set(x, y, z, corner ? render : slab);
+				// a block of the render rounded over with a slab: a guard round the roof a person cannot step up onto
+				d.set(x, y, z, render);
+				if (y + 1 < d.maxHeight()) {
+					d.set(x, y + 1, z, slab);
+				}
 			}
 		}
 	}
@@ -246,6 +249,9 @@ final class HallPueblo {
 		// the parapet opened where the ladder arrives
 		if (d.allowed(x, y1, z + 1)) {
 			d.air(x, y1, z + 1);
+			if (d.allowed(x, y1 + 1, z + 1)) {
+				d.air(x, y1 + 1, z + 1);
+			}
 		}
 	}
 
