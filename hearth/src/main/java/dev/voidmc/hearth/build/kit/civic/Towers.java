@@ -531,31 +531,26 @@ public final class Towers {
 	}
 
 	/**
-	 * Crenellations: a parapet of the wall with merlons every other block, coped. The mesa's pueblos have none: their
-	 * parapet is one course under a coping ({@link Pueblo#parapet}).
+	 * The parapet round a walked roof deck at standing level y: one course of the wall under a coping of the dressing,
+	 * its corners carried up a course as little piers in the wall-accent stone (the town's guard and watch houses, the
+	 * flat-roofed jails). No crenels: a row of merlons round a small civic roof reads as a ruin's broken wall head. The
+	 * mesa's pueblos keep even the corners low ({@link Pueblo#parapet}).
 	 */
 	public static void battlements(Draft d, int x0, int z0, int x1, int z1, int y) {
-		if (Pueblo.is(d)) {
-			Mat coping = d.mat(Role.WALL_ACCENT).has(Form.SLAB) ? d.mat(Role.WALL_ACCENT) : d.mat(Role.WALL);
-			try (var s = d.stage(StageKind.ROOF)) {
-				for (int[] c : Draft.ring(x0, z0, x1, z1)) {
-					d.set(c[0], y, c[1], d.mat(Role.WALL).full());
-					d.set(c[0], y + 1, c[1], coping.slab(SlabType.BOTTOM));
-				}
-			}
-			return;
-		}
 		Mat wall = d.mat(Role.WALL);
 		Mat accent = d.mat(Role.WALL_ACCENT);
+		Mat coping = accent.has(Form.SLAB) ? accent : wall;
+		boolean pueblo = Pueblo.is(d);
 		try (var s = d.stage(StageKind.ROOF)) {
-			int k = 0;
 			for (int[] c : Draft.ring(x0, z0, x1, z1)) {
-				d.set(c[0], y, c[1], wall.full());
 				boolean corner = (c[0] == x0 || c[0] == x1) && (c[1] == z0 || c[1] == z1);
-				if (corner || (k & 1) == 0) {
-					d.set(c[0], y + 1, c[1], accent.has(Form.SLAB) ? accent.full() : wall.full());
+				d.set(c[0], y, c[1], wall.full());
+				if (corner && !pueblo) {
+					d.set(c[0], y + 1, c[1], accent.has(Form.FULL) ? accent.full() : wall.full());
+					d.set(c[0], y + 2, c[1], coping.slab(SlabType.BOTTOM));
+				} else {
+					d.set(c[0], y + 1, c[1], coping.slab(SlabType.BOTTOM));
 				}
-				k++;
 			}
 		}
 	}

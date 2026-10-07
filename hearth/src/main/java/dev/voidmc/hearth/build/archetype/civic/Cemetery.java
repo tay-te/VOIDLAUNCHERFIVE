@@ -285,6 +285,7 @@ public final class Cemetery implements Archetype {
 				Venue.bench(d, c[0], ly, c[1], Dirs.RIGHT, 1, c[2] == 0 ? Dirs.BACK : Dirs.FRONT);
 			}
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, maxH - 1);
 	}
 

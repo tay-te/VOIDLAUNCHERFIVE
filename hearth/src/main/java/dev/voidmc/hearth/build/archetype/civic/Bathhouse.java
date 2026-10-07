@@ -185,6 +185,7 @@ public final class Bathhouse implements Archetype {
 		}
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(skyline + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -292,6 +293,7 @@ public final class Bathhouse implements Archetype {
 		Halls.lanternUnder(d, cx, base, hcz, 4);
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -370,6 +372,7 @@ public final class Bathhouse implements Archetype {
 		Garden.garden(d, 1, 1, 2, hz0 - 2, base);
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -454,6 +457,7 @@ public final class Bathhouse implements Archetype {
 		}
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top.ridge() + 3, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

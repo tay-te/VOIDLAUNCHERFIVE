@@ -162,6 +162,7 @@ public final class Almshouse implements Archetype {
 		}
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(d.maxHeight() - 1, r.shell().skyline() + 3), pueblo + 2));
 	}
 
@@ -252,6 +253,7 @@ public final class Almshouse implements Archetype {
 		}
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(d.maxHeight() - 1, roofTop + 3), pueblo + 2));
 	}
 

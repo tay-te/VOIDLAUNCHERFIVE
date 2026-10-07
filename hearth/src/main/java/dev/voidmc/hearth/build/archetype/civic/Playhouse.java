@@ -295,6 +295,7 @@ public final class Playhouse implements Archetype {
 				}
 			}
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, maxH - 1);
 	}
 

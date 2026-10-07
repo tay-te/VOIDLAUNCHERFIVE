@@ -197,6 +197,7 @@ final class ChapelMission {
 		}
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.max(top, deck + 2) + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

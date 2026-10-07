@@ -440,6 +440,15 @@ public final class Halls {
 	}
 
 	/**
+	 * The last touches every civic and law building takes before its ground is cleared: a lintel over every doorway and a
+	 * parapet along made ground standing over a fall ({@link #lintels}, {@link Grounds#edgeRails}).
+	 */
+	public static void finish(Draft d) {
+		lintels(d);
+		Grounds.edgeRails(d);
+	}
+
+	/**
 	 * A head over every doorway in the draft: where the cell over a door's upper leaf is open (a tall light's lattice or
 	 * glass, or nothing) and it stands in a wall (solid either side of the door along its wall), that cell takes the wall's
 	 * dressed stone. A doorway needs a lintel: without one, a body can climb on top of the door.

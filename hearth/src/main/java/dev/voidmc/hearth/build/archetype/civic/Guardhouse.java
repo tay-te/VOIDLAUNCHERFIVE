@@ -148,6 +148,10 @@ public final class Guardhouse implements Archetype {
 				d.poi(PoiType.GUARD_POST, ix0, top.deck(), z0 + 1, Dirs.FRONT);
 				d.poi(PoiType.GUARD_POST, ix1, top.deck(), z0 + 1, Dirs.FRONT);
 				d.poi(PoiType.VIEWPOINT, cx, top.deck(), z1 - 1, Dirs.BACK);
+				// the watch's shade on the deck: an awning on four posts over a bench, at the back away from the hatch
+				if (!dev.voidmc.hearth.build.kit.civic.Pueblo.is(d)) {
+					Halls.roofTerrace(d, new int[]{x0, z1 - 4, x1, z1}, top.deck(), !stairLeft);
+				}
 			}
 		} else {
 			RoofForm form = t == Tradition.KARST ? RoofForm.PAGODA : h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HIP, RoofForm.HALF_HIP);
@@ -261,6 +265,7 @@ public final class Guardhouse implements Archetype {
 		}
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(skyline + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

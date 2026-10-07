@@ -431,8 +431,7 @@ public final class TownHall implements Archetype {
 		}
 		// latticed lights of the chamber railed at their feet (no climbing out onto the eaves)
 		Halls.windowRails(d, x0, z0, x1, z1, fy + 1);
-		Halls.lintels(d);
-		Grounds.edgeRails(d);
+		Halls.finish(d);
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(skyline + 2, pueblo + 2));

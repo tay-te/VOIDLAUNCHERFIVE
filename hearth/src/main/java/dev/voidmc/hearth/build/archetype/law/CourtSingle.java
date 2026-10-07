@@ -156,6 +156,7 @@ final class CourtSingle {
 		if (h.snow()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, cx);
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 2));
 	}
 
