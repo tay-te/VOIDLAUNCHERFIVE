@@ -46,7 +46,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * <p>Params:
  * <ul>
  *   <li>{@code canopy} (string: {@code linen}, {@code boards}, {@code striped}): what the canopy is (default by seed:
- *   linen mostly, boards often, striped canvas only in the mediterranean and the desert)</li>
+ *   linen mostly, boards often, striped canvas one stall in five and only in the mediterranean and the desert)</li>
  *   <li>{@code wares} (string: {@code produce}, {@code pots}, {@code grain}, {@code cloth}, {@code candles},
  *   {@code bread}): what the stall sells (default by seed)</li>
  * </ul>
@@ -159,13 +159,14 @@ public final class MarketStall implements Archetype {
 
 	/**
 	 * The canopy over x0..x1 from the street edge (z 0) to the back row: slabs of undyed linen, of boards (the frame's
-	 * timber), or in the south of canvas striped with the culture's one colour, stepping up a half block toward the back.
+	 * timber), or now and then in the south (one stall in five) of canvas striped with the culture's one colour, so a
+	 * square of ten still reads as a linen market, stepping up a half block toward the back.
 	 */
 	private static void canopy(Draft d, int x0, int x1, int zc, int zb, Mat frame) {
 		boolean south = Fair.striped(d);
 		boolean boards = frame.has(Form.SLAB);
 		double u = Noise.unit(d.seed() ^ 0xCA90, 2, 0, 0);
-		String fallback = south && u < 0.6 ? "striped" : boards && u < 0.35 ? "boards" : "linen";
+		String fallback = south && u < 0.2 ? "striped" : boards && u < 0.35 ? "boards" : "linen";
 		String kind = d.param("canopy", fallback);
 		if (kind.equals("boards") && !boards) {
 			kind = "linen";

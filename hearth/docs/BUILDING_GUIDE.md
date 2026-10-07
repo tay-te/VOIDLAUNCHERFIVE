@@ -373,7 +373,7 @@ dyke on a river bank (`BuildersYard`). Put the entrance where the street can rea
 ### The worked example: `hearth:commerce/market_stall`
 
 `archetype/commerce/MarketStall.java`, a merchant's stall as a market day puts it up: a low trestle across the front
-under a canopy two high on four poles (undyed linen or boards; striped canvas only in the south), the day's goods of
+under a canopy two high on four poles (undyed linen or boards; now and then striped canvas in the south, one stall in five), the day's goods of
 one trade on it, stock behind. The heart of `draw` (the canopy, wares and basket helpers are in the file):
 
 ```java
