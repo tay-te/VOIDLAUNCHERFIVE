@@ -48,8 +48,8 @@ out on every side under a steep pyramid roof with the alarm bell (a crenellated 
 the flat-roofed south). `GUARD_POST`, `VIEWPOINT`, `BED`, GUARD job site.
 
 **Toll gate.** The toll keeper's room bridging the road on two piers, arched passage with lanterns; the booth with its
-counter hatch and strongbox in one pier, the ladder in the other; a striped boom with counterweight across the field
-side. `GATE`, `GUARD_POST`, GUARD job site, `STRONGBOX`-style storage, `BED`.
+counter hatch and strongbox in one pier, the ladder in the other; a boom banded red and white (black and white where
+the town's cloth is black, or now and then) with counterweight across the field side. `GATE`, `GUARD_POST`, GUARD job site, `STRONGBOX`-style storage, `BED`.
 
 ## Params
 
@@ -63,4 +63,3 @@ side. `GATE`, `GUARD_POST`, GUARD job site, `STRONGBOX`-style storage, `BED`.
 ## Weak spots
 
 - Jail roofs are low hips; the building is a plain cube in several cultures.
-- Toll gate booms use coloured wool stripes (the town's colours) — intended, but loud in pale palettes.

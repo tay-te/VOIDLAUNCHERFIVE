@@ -16,6 +16,7 @@ import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.kit.sociallife.Venue;
+import dev.voidmc.hearth.build.kit.sociallife.Fair;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
@@ -33,9 +34,9 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * {@code hearth:civic/tilt_yard}: the lists where knights run at each other for the town's holiday, outside the walls.
  * A long fenced field: down its length the tilt, the barrier the riders charge along either side of, painted posts with
  * the town's colours at its ends; on one side the stands, three tiers of benches stepping up, and at their middle the
- * lord's box under a canopy of cloth on posts, its high seat between banners; on the other side, at either end, the
- * knights' pavilions, striped tents with a pennant on the pole, the arms chest inside; at the far end the quintain, the
- * pivoting target squires practise on; lamps at the corners, the way in through a gate from the street.
+ * lord's box under a canopy of canvas on posts, its high seat between banners; on the other side, at either end, the
+ * knights' pavilions, canvas tents banded in the colour of the house that holds the tilt with a pennant on the pole,
+ * the arms chest inside; at the far end the quintain, the pivoting target squires practise on; lamps at the corners, the way in through a gate from the street.
  *
  * <p>POIs: SEATs (the stands), THRONE (the lord's seat in the box), MEETING_POINT (the lists), STORAGE (the arms chests),
  * the DOOR (the gate). Params: {@code variant} (int).
@@ -206,20 +207,21 @@ public final class TiltYard implements Archetype {
 				for (int z = boxZ0; z <= boxZ1; z++) {
 					for (int x = sx0; x <= sx1; x++) {
 						boolean edge = z == boxZ0 || z == boxZ1;
-						Block wool = Blocks.WOOL.pick(colours[(x + z) % 2 == 0 ? 0 : 2]);
+						// undyed canvas
+						Block wool = Blocks.WOOL.pick(colours[2]);
 						d.set(x, cy, z, wool.defaultBlockState());
 					}
 				}
-				// the valance along the canopy's front
+				// the valance along the canopy's front, in the colour of the house that holds the tilt
 				for (int z = boxZ0 + 1; z <= boxZ1 - 1; z++) {
-					d.set(sx1, cy - 1, z, Blocks.WOOL.pick(colours[z % 2 == 0 ? 0 : 1]).defaultBlockState());
+					d.set(sx1, cy - 1, z, Blocks.WOOL.pick(colours[0]).defaultBlockState());
 				}
 			}
 		}
 		// --- the pavilions at either end on the right, the quintain at the far end of the lists
 		int px = lx1 + 3;
-		pavilion(d, px, base, z0 + 2, colours[0], colours[2], maxH);
-		pavilion(d, px, base, z1 - 2, colours[1], colours[2], maxH);
+		pavilion(d, px, base, z0 + 2, colours[0], colours[0], maxH);
+		pavilion(d, px, base, z1 - 2, colours[0], colours[1], maxH);
 		quintain(d, tilt + 2, base, dp - 4);
 		// hay for the horses and a trough by each pavilion
 		try (var s = d.stage(StageKind.EXTERIOR)) {
@@ -244,13 +246,21 @@ public final class TiltYard implements Archetype {
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, maxH - 1);
 	}
 
-	/** The town's colours for the day: two for the champions, one for the cloth between. */
+	/**
+	 * The colours of the day: the house that holds the tilt (its valances and pavilion bands), the challenger (his
+	 * pennant and his end of the tilt), and undyed canvas for the cloth between; dyed as cloth was ({@link Fair#natural}).
+	 */
 	private static DyeColor[] colours(Draft d) {
 		// the town's own colours where it has arms (the planner's banner param), else the day's by seed
 		List<String> arms = dev.voidmc.hearth.build.kit.civic.Signs.armsColours(d);
 		if (!arms.isEmpty()) {
-			DyeColor a = DyeColor.byName(arms.get(0), DyeColor.RED);
-			DyeColor b = arms.size() > 1 ? DyeColor.byName(arms.get(1), DyeColor.WHITE) : a == DyeColor.WHITE ? DyeColor.RED : DyeColor.WHITE;
+			DyeColor a = DyeColor.byName(Fair.natural(arms.get(0)), DyeColor.RED);
+			DyeColor b = arms.size() > 1 ? DyeColor.byName(Fair.natural(arms.get(1)), DyeColor.WHITE) : a == DyeColor.WHITE ? DyeColor.RED : DyeColor.WHITE;
+			if (a == DyeColor.WHITE) {
+				// the house's colour must show on the canvas
+				a = b == DyeColor.WHITE ? DyeColor.RED : b;
+				b = DyeColor.WHITE;
+			}
 			return new DyeColor[]{a, b, DyeColor.WHITE};
 		}
 		DyeColor[][] sets = {{DyeColor.RED, DyeColor.BLUE, DyeColor.WHITE}, {DyeColor.RED, DyeColor.YELLOW, DyeColor.WHITE},
@@ -272,12 +282,13 @@ public final class TiltYard implements Archetype {
 	}
 
 	/**
-	 * A knight's pavilion centred on (cx, y, cz): a round tent five across of striped cloth two high, its roof drawn in to
-	 * a cap and a pole with the knight's pennant, the door toward the lists; inside the arms chest and a stand.
+	 * A knight's pavilion centred on (cx, y, cz): a round tent five across of undyed canvas two high under a band of the
+	 * house's colour, its roof drawn in to a cap and a pole with the knight's pennant ({@code pennant}), the door toward the
+	 * lists; inside the arms chest and a stand.
 	 */
-	private static void pavilion(Draft d, int cx, int y, int cz, DyeColor a, DyeColor b, int maxH) {
-		Block wa = Blocks.WOOL.pick(a);
-		Block wb = Blocks.WOOL.pick(b);
+	private static void pavilion(Draft d, int cx, int y, int cz, DyeColor house, DyeColor pennant, int maxH) {
+		Block canvas = Blocks.WOOL.pick(DyeColor.WHITE);
+		Block band = Blocks.WOOL.pick(house);
 		Mat frame = d.mat(Role.FRAME);
 		try (var s = d.stage(StageKind.WALLS)) {
 			for (int dx = -2; dx <= 2; dx++) {
@@ -287,30 +298,30 @@ public final class TiltYard implements Archetype {
 					int x = cx + dx;
 					int z = cz + dz;
 					if (wall) {
-						Block wool = ((dx + dz) & 1) == 0 ? wa : wb;
 						boolean door = dx == -2 && dz == 0;
 						for (int yy = y; yy < y + 2; yy++) {
-							d.set(x, yy, z, door ? Blocks.AIR.defaultBlockState() : wool.defaultBlockState());
+							d.set(x, yy, z, door ? Blocks.AIR.defaultBlockState() : canvas.defaultBlockState());
 						}
+						// the band at the eaves, dagged: colour and canvas by turns
 						if (y + 2 < maxH) {
-							d.set(x, y + 2, z, Math.abs(dx) == 2 ? (((dz & 1) == 0) ? wa : wb).defaultBlockState() : (((dx & 1) == 0) ? wa : wb).defaultBlockState());
+							d.set(x, y + 2, z, (((dx + dz) & 1) == 0 ? band : canvas).defaultBlockState());
 						}
 					}
 					if (!corner && Math.abs(dx) <= 1 && Math.abs(dz) <= 1 && y + 3 < maxH) {
-						d.set(x, y + 3, z, (dx == 0 && dz == 0 ? wb : wa).defaultBlockState());
+						d.set(x, y + 3, z, (dx == 0 && dz == 0 ? band : canvas).defaultBlockState());
 					}
 				}
 			}
 			// the door's lintel and the pole through the cap
 			if (y + 2 < maxH) {
-				d.set(cx - 2, y + 2, cz, wa.defaultBlockState());
+				d.set(cx - 2, y + 2, cz, band.defaultBlockState());
 			}
 			for (int yy = y + 4; yy < Math.min(maxH - 1, y + 6); yy++) {
 				d.set(cx, yy, cz, frame.fence());
 			}
 		}
 		if (y + 5 < maxH - 1) {
-			Venue.banner(d, cx + 1, y + 5, cz, Dirs.RIGHT, a.getName(), List.of(), StageKind.ROOF);
+			Venue.banner(d, cx + 1, y + 5, cz, Dirs.RIGHT, pennant.getName(), List.of(), StageKind.ROOF);
 		}
 		// inside: the arms chest against the back, a stand, a lantern
 		Furniture.chest(d, cx + 1, y, cz, Dirs.LEFT, List.of(new Object[]{"minecraft:iron_sword", 1}, new Object[]{"minecraft:shield", 1},

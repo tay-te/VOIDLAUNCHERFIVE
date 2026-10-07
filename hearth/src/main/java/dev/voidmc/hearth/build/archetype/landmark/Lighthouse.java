@@ -41,7 +41,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:landmark/lighthouse}: a light on the rocks at the water's edge. A round tower in its livery (white and
- * banded in the town's colour, or plain stone) rises from a mound of weathered rock, a flared plinth at its foot,
+ * banded red or black as a day-mark, or plain stone) rises from a mound of weathered rock, a flared plinth at its foot,
  * little windows climbing it with the stair inside; at the top a corbelled gallery with an iron railing round a glazed
  * lantern room where the light burns, under a cap and a vane. In front stands the keeper's cottage (a bed, a hearth, the
  * log on its lectern, a chest of charts) and, where the water reaches the plot, a plank jetty on posts with mooring
@@ -72,7 +72,7 @@ public final class Lighthouse implements Archetype {
 		int zt = Math.min(dp - 2 - r, Math.max(r + 6, dp / 2 + 1));
 		d.body(xt - r, zt - r, xt + r, zt + r);
 		Stone body = livery(d);
-		Paint band = bandPaint(d);
+		Paint band = bandPaint(d, !(Stone.masonryWalls(d) && Stone.stony(d, Role.WALL)));
 		boolean bands = band != null && d.param("bands", d.chance(0.75));
 		Stone dress = Stone.dressing(d);
 		Stone rock = Stone.fixed(d, StageKind.FOUNDATION, "minecraft:stone", "minecraft:andesite", "minecraft:cobblestone", "minecraft:mossy_cobblestone",
@@ -212,27 +212,24 @@ public final class Lighthouse implements Archetype {
 		return Stone.fixed(d, StageKind.WALLS, "minecraft:white_concrete");
 	}
 
-	/** The bands: the town's strongest cloth colour as concrete (red, blue...), or null for a plain tower. */
-	private static Paint bandPaint(Draft d) {
-		// the strongest colour the town wears, by the order lighthouses are painted in
-		String[] order = {"red", "blue", "black", "green", "cyan", "orange", "purple", "brown"};
-		Block best = null;
-		int rank = Integer.MAX_VALUE;
+	/**
+	 * The bands: a day-mark painted as real ones are, red or black on the tower's white (black only where the town's
+	 * cloth is black and not red, or now and then by seed; a stone tower is always banded red, black would not show).
+	 */
+	private static Paint bandPaint(Draft d, boolean white) {
+		boolean red = false;
+		boolean black = false;
 		for (var e : d.mat(Role.CLOTH).palette().entries()) {
 			Block wool = e.material().block(Form.FULL);
-			Block concrete = e.material().block(Form.CONCRETE);
-			if (wool == null || concrete == null) {
+			if (wool == null) {
 				continue;
 			}
 			String name = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(wool).getPath();
-			for (int i = 0; i < order.length; i++) {
-				if (name.equals(order[i] + "_wool") && i < rank) {
-					rank = i;
-					best = concrete;
-				}
-			}
+			red |= name.equals("red_wool");
+			black |= name.equals("black_wool");
 		}
-		return best == null ? null : Paint.of(best.defaultBlockState());
+		boolean dark = white && (black && !red || !red && !black && d.chance(0.3));
+		return Paint.of(Blocks.CONCRETE.pick(dark ? net.minecraft.world.item.DyeColor.BLACK : net.minecraft.world.item.DyeColor.RED).defaultBlockState());
 	}
 
 	/** A mound of weathered rock round the tower's foot, highest against it, running out into any water. */
