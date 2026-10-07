@@ -50,6 +50,20 @@ public final class GloamSettings {
 	// the far air, over VOID LOD
 	/** The air over VOID LOD's far terrain: the cloud deck, far storms, far mist. */
 	public boolean far = true;
+	/** Gloam's cloud deck, following the fronts out to VOID LOD's horizon, in place of vanilla's clouds (the cloud option still says off, fast or fancy). */
+	public boolean farClouds = true;
+	/** Rain curtains under far showers and storms. */
+	public boolean farRain = true;
+	/** Morning mist lying in the far valleys. */
+	public boolean farMist = true;
+	/** How much the air thickens or thins VOID LOD's haze (humid lowland summers hazier, clear air after rain), 0 (as VOID LOD has it) .. 1. */
+	public double farHaze = 1.0;
+	/**
+	 * How far above {@code CLOUD_HEIGHT} Gloam's cloud deck sits, in blocks. Vanilla's 192 leaves today's mountains
+	 * (and Expanse's) standing in the clouds and the far land hidden behind the deck from every peak; real fair-weather
+	 * clouds float far higher above the land.
+	 */
+	public double farCloudLift = 240;
 
 	// the motes, more
 	/** The most motes in the air at once; the spawner stops starting new ones above it. */
@@ -112,6 +126,11 @@ public final class GloamSettings {
 		this.thunder = bool(json, "thunder", this.thunder);
 		this.moteLimit = (int) number(json, "moteLimit", this.moteLimit, 0, 8000);
 		this.breath = bool(json, "breath", this.breath);
+		this.farClouds = bool(json, "farClouds", this.farClouds);
+		this.farRain = bool(json, "farRain", this.farRain);
+		this.farMist = bool(json, "farMist", this.farMist);
+		this.farHaze = number(json, "farHaze", this.farHaze, 0, 1);
+		this.farCloudLift = number(json, "farCloudLift", this.farCloudLift, 0, 512);
 	}
 
 	private JsonObject write() {
@@ -129,6 +148,11 @@ public final class GloamSettings {
 		json.addProperty("thunder", this.thunder);
 		json.addProperty("moteLimit", this.moteLimit);
 		json.addProperty("breath", this.breath);
+		json.addProperty("farClouds", this.farClouds);
+		json.addProperty("farRain", this.farRain);
+		json.addProperty("farMist", this.farMist);
+		json.addProperty("farHaze", this.farHaze);
+		json.addProperty("farCloudLift", this.farCloudLift);
 		return json;
 	}
 

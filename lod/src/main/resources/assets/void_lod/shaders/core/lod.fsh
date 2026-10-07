@@ -30,6 +30,9 @@ uniform usamplerBuffer LodMaterials;
 
 layout(location = 0) out vec4 fragColor;
 
+// Light laid over the far land from above (LodApi.setShade): its red, times two, scales the sunlight under each texel.
+uniform sampler2D LodShade;
+
 #ifdef LOD_OVER_PACK
 // A copy of the shader pack's finished picture: what the pack drew behind this pixel, its own sky.
 uniform sampler2D Sampler1;
@@ -245,6 +248,12 @@ void main() {
     vec2 planar = horizontal - CameraOffset.xz;
     color *= 1.0 + 0.07 * detail(planar, max(fwidth(planar.x), fwidth(planar.y)), 2);
 #endif
+    if (LodShadeMap.w > 0.0) {
+        // past the chunks, which do not have it, and only while the sun is up
+        float shade = texture(LodShade, (LodShadeMap.xy + horizontal) * LodShadeMap.z).r * 2.0;
+        float beyond = smoothstep(LodClip.x, LodClip.x + 384.0, length(horizontal));
+        color *= mix(1.0, shade, LodShadeMap.w * LodSun.w * beyond);
+    }
 #ifdef LOD_OVER_PACK
     fragColor = vec4(mix(color, texelFetch(Sampler1, ivec2(gl_FragCoord.xy), 0).rgb, vertexColor.a), 1.0);
 #else

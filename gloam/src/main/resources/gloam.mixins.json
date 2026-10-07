@@ -10,6 +10,8 @@
 		"ClientLevelAccessor",
 		"ClientLevelFlashMixin",
 		"ClientLevelMixin",
+		"CloudRendererMixin",
+		"LevelRendererFarMixin",
 		"LevelWeatherMixin"
 	],
 	"injectors": {

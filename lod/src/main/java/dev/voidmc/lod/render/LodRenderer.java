@@ -26,6 +26,7 @@ import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.renderpearl.api.textures.GpuSampler;
 import com.mojang.renderpearl.api.vertex.VertexFormat;
+import dev.voidmc.lod.api.LodApi;
 import dev.voidmc.lod.core.Fades;
 import dev.voidmc.lod.core.Horizon;
 import dev.voidmc.lod.core.LodEngine;
@@ -101,7 +102,12 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		.withUniform("Sampler0", UniformType.COMBINED_IMAGE_SAMPLER)
 		.withUniform("LodMaterials", UniformType.TEXEL_BUFFER, GpuFormat.RGBA32_UINT)
 		.build();
-	private static final int LOD_INFO_SIZE = 64 + 16 + 16 + 16 + 48;
+	/**
+	 * Light laid over the far land from above by another mod ({@code LodApi.setShade}: cloud shadows), and its stand-in,
+	 * a texel that changes nothing, while none is.
+	 */
+	public static final BindGroupLayout LOD_SHADE = BindGroupLayout.builder().withUniform("LodShade", UniformType.COMBINED_IMAGE_SAMPLER).build();
+	private static final int LOD_INFO_SIZE = 64 + 16 + 16 + 16 + 48 + 16;
 	private static final int INSTANCE_BYTES = 16;
 	private static final int COMMAND_BYTES = 20;
 
@@ -119,6 +125,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			.withBindGroupLayout(BindGroupLayouts.FOG)
 			.withBindGroupLayout(BindGroupLayouts.SAMPLER2)
 			.withBindGroupLayout(LOD_INFO)
+			.withBindGroupLayout(LOD_SHADE)
 			.withVertexShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"))
 			.withFragmentShader(Identifier.fromNamespaceAndPath("void_lod", "core/lod"))
 			.withVertexBinding(0, vertices)
@@ -188,6 +195,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	/** The engine's readiness test, made once: a method reference built every frame is an allocation every frame. */
 	private final LongPredicate ready;
 	private final MaterialTable materials;
+	private final GpuTexture noShade;
+	private final GpuTextureView noShadeView;
 	private double viewX;
 	private double viewY;
 	private double viewZ;
@@ -291,6 +300,14 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			&& this.firstInstance && !info.hintsAndWorkarounds().multiDrawIndirectHasKnownIssues();
 		this.gridIndices = this.device.createBuffer(() -> "VOID LOD grid indices", GpuBuffer.USAGE_INDEX, TileBuilder.smoothIndices());
 		this.materials = new MaterialTable(this.device);
+		this.noShade = this.device.createTexture("VOID LOD no shade", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING, GpuFormat.RGBA8_UNORM, 1, 1, 1, 1);
+		this.noShadeView = this.device.createTextureView(this.noShade);
+		ByteBuffer half = MemoryUtil.memAlloc(4).put(0, (byte) 128).put(1, (byte) 128).put(2, (byte) 128).put(3, (byte) 255);
+		try {
+			this.device.createCommandEncoder().writeToTexture(this.noShade, half, 0, 0, 0, 0, 1, 1);
+		} finally {
+			MemoryUtil.memFree(half);
+		}
 		GpuQueryPool timer = null;
 		try {
 			timer = this.device.createTimestampQueryPool(TIMER_SLOTS * 2);
@@ -536,6 +553,14 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		for (float f : sky) {
 			this.info.putFloat(f);
 		}
+		// the light laid over the far land (LodApi.setShade): the camera's place on it, its scale, its strength
+		LodApi.Shade shade = LodApi.shade();
+		if (shade != null) {
+			this.info.putFloat((float) (cx - shade.originX())).putFloat((float) (cz - shade.originZ())).putFloat((float) (1.0 / shade.size()))
+				.putFloat(shade.strength());
+		} else {
+			this.info.putFloat(0).putFloat(0).putFloat(0).putFloat(0);
+		}
 		this.info.flip();
 		this.infoSlice = transient_.uploadGpu(this.info, this.device.getDeviceInfo().limits().minUniformOffsetAlignment(), GpuBuffer.USAGE_UNIFORM);
 		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
@@ -645,6 +670,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		GpuSampler blocks = ((LevelRendererAccessor) Minecraft.getInstance().levelRenderer).voidLod$chunkLayerSampler();
 		pass.setUniform("Sampler0", this.materials.atlas(), blocks != null ? blocks : RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR, true));
 		pass.setUniform("LodMaterials", this.materials.buffer());
+		LodApi.Shade shade = LodApi.shade();
+		pass.setUniform("LodShade", shade != null ? shade.texture() : this.noShadeView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
 		pass.setVertexBuffer(1, this.instanceSlice);
 		for (Group group : this.order) {
 			if (group.count == 0) {
@@ -703,6 +730,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	@Override
 	public void close() {
 		this.closeBackdrop();
+		this.noShadeView.close();
+		this.noShade.close();
 		if (this.timer != null) {
 			this.timer.close();
 		}

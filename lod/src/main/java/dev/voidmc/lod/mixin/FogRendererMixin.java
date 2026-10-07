@@ -1,6 +1,7 @@
 package dev.voidmc.lod.mixin;
 
 import dev.voidmc.lod.VoidLod;
+import dev.voidmc.lod.api.LodApi;
 import dev.voidmc.lod.source.WorldgenSource;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
@@ -56,7 +57,8 @@ public abstract class FogRendererMixin {
 			// shorter it asks for, so a cloud forest is murky and still has a horizon; rain is its own curtain.
 			float rain = Mth.clamp(-fog.environmentalStart / VoidLod.RAIN_OFFSET, 0, 1);
 			float visibility = Mth.clamp((fog.environmentalEnd + 256 * rain) / 1024.0F, 0, 1);
-			float reach = (float) lod.hazeReach * Math.max(0.25F, (float) Math.sqrt(visibility));
+			// and a mod keeping the weather may thicken or thin it (LodApi.setHazeThickness)
+			float reach = (float) lod.hazeReach * Math.max(0.25F, (float) Math.sqrt(visibility)) / LodApi.hazeThickness();
 			float base = level.getSeaLevel();
 			if (lod.engine().source() instanceof WorldgenSource source && source.floating()) {
 				// Over the void (the End) there is no sea for the haze to settle toward: it is as thick at the

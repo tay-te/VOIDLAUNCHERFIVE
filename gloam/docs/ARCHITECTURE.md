@@ -115,16 +115,39 @@ small API.
 
 ### Far air: `dev.voidmc.gloam.far` (`FarAir`)
 
-The air over VOID LOD's far terrain. Touches LOD classes only through `compat.Lod` (when `void_lod` is loaded).
+The air over VOID LOD's far terrain. Touches LOD classes only through `compat.Lod` (when `void_lod` is loaded). Drawn
+by `FarRenderer` through Mojang's GPU layer (OpenGL and Vulkan) inside vanilla's main pass, after the translucent
+terrain and before the weather (where vanilla draws its clouds), in the same reversed depth buffer as the chunks and
+the LOD; prepared (uploads, the shadow picture) while the frame graph is built (`LevelRendererFarMixin`).
 
-- **The haze follows Gloam** already, through the attributes. A small `LodApi` hook may add a ground-mist term to the
-  LOD's height haze (`lod.vsh`) so far valleys fill with mist at dawn.
-- **A cloud deck to the horizon.** Vanilla's clouds stop at the cloud render distance; Gloam draws the far cloud layer
-  from the fronts, so a storm 10 km off is a dark mass on the horizon.
-- **Far storms.** Rain curtains under storm cells, drawn kilometres away over the LOD land, in the same depth buffer
-  (26.3 renders reversed depth; see `lod/.../render/LodRenderer.java`).
-- **Far mist.** Using `LodApi.addVisibleTerrainListener` (heights and biomes of each far tile), mist banks lie in the
-  far valleys while the mist is up.
+| Class | What it is |
+|---|---|
+| `WeatherMap` | `Air.front` over ~49 km on a 256² grid in the fronts' drifting frame, made on a worker every few seconds, uploaded as a texture. |
+| `CloudNoise` | Four tiling fractal noises in one 256² texture: the heaps, their edges, the rain's streaks, the mist's tongues. |
+| `FarRenderer` | The pipelines and the draws: the cloud deck, the mist mesh, the rain curtains, the cloud shadows' picture; GPU timing. |
+| `FarLand` | The far land on 128-block cells (height, water, biome warmth and wetness) from `LodApi.addVisibleTerrainListener`. |
+| `FarMist` | The mist mesh: `Air.mist` per far cell with its own climate, lying at the lowest ground nearby plus `Air.mistDepth`. |
+| `FarRain` | Rain curtains: one per rainy 1 km cell of the fronts' frame, facing the camera, back to front, every frame. |
+
+- **The cloud deck** replaces vanilla's clouds (`CloudRendererMixin`) and keeps the cloud option (off; fast: one soft
+  layer; fancy: heaps with depth) and `CLOUD_COLOR` as its sunlit colour. Its base is `CLOUD_HEIGHT` plus
+  `farCloudLift` (240): at vanilla's 192 every mountain peak stands inside the deck and the far land is hidden behind it.
+  One triangle over the screen; each pixel marches its ray through the layer (long strides through clear air, short
+  ones inside a cloud, jittered), the heaps shaped from the fronts' cover and the noise: a few fair-weather heaps under a
+  clear front, broken heaps, a lumpy overcast deck, showers building towering heaps, storms dark underneath and towering
+  ~1400 blocks over the base. Heaps are domes over a smooth noise, frayed near the camera by a fine noise in slices (a
+  2D noise standing in for a 3D one). It writes the depth of the first cloud it meets, so land in front covers it. Out
+  to the LOD's radius, paling into the horizon's colour.
+- **Cloud shadows** on the far land: a 1024² picture of the sunlight under the clouds (relative to the light at the
+  camera, so an overcast does not darken the far land against the chunks), laid on the LOD with `LodApi.setShade`.
+- **Far storms.** Rain curtains under showers and storms kilometres off, grey veils streaked and leaning, darker under
+  storms, travelling with their weather.
+- **Far mist.** At dawn (and over water at dusk) mist lies in the far valleys as a translucent sheet; ridges and hills
+  stand out of it through the depth buffer, and its edges go soft where the mist over the ground runs out.
+- **The haze follows Gloam** through the attributes, and `LodApi.setHazeThickness` thickens it in humid summer
+  lowlands and morning mist, thins it in winter and in the washed air after rain (`farHaze`).
+- With a shader pack on, the pack draws its own sky and clouds: the far air stays out (vanilla clouds are left to the
+  pack) and reaches it only through the attributes and the rain level.
 
 ## Shader packs
 
