@@ -56,6 +56,11 @@ public final class StructureOverlay implements TerrainSource {
 	}
 
 	@Override
+	public dev.voidmc.lod.core.Decorator decorator() {
+		return this.generator.decorator();
+	}
+
+	@Override
 	public boolean keepsAnswers() {
 		return this.generator.keepsAnswers();
 	}

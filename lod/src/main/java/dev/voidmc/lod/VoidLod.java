@@ -150,7 +150,8 @@ public final class VoidLod implements ClientModInitializer {
 		this.settings = this.saved.copy();
 		this.settings.override(System::getProperty);
 		this.enabled = this.settings.enabled;
-		TileBuilder.smoothFrom = this.settings.smoothFrom;
+		// no smooth levels at all, whatever the coarsest level now is (the setting's "never" predates the levels past 32 km)
+		TileBuilder.smoothFrom = this.settings.smoothFrom >= LodSettings.BLOCKY_EVERYWHERE ? Integer.MAX_VALUE : this.settings.smoothFrom;
 		// a server with VOID LOD describes the land past the view (net.FactsService)
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(dev.voidmc.lod.net.LodNet.Hello.TYPE,
 			(hello, context) -> this.hello(hello));
@@ -360,6 +361,11 @@ public final class VoidLod implements ClientModInitializer {
 
 	/** The material registry of the current source: what the API turns material ids into blocks with. */
 	private Materials materials;
+
+	/** The current level's material registry (block faces by id), shared by its sources and the renderer; null without one. */
+	public Materials materials() {
+		return this.materials;
+	}
 
 	/** When this level was joined, and whether the time its horizon took to build has been logged. */
 	private long joinedNanos;
@@ -587,7 +593,7 @@ public final class VoidLod implements ClientModInitializer {
 	/** {@code -Dvoid.lod.generatorCache=false} samples the generator every time, as before the cache. */
 	private static final boolean GENERATOR_CACHE = !"false".equals(System.getProperty("void.lod.generatorCache"));
 	/** Bumped whenever the sources' answers change for the same generator, seed and mods (the cache's pages then go). */
-	private static final int SAMPLING_VERSION = 1;
+	private static final int SAMPLING_VERSION = 2;
 	private GeneratorCache generatorCache;
 	private long generatorIdentity;
 	/** {@code -Dvoid.lod.structures=false} leaves the world's structures off the land nobody has loaded. */
@@ -822,6 +828,10 @@ public final class VoidLod implements ClientModInitializer {
 		}
 		if (source instanceof WorldgenSource w) {
 			out.append(w.diagnostics());
+			if (w.trees() != null) {
+				out.append(" | ").append(w.trees().stats()).append(String.format(Locale.ROOT, ", %.1f s standing them",
+					dev.voidmc.lod.core.TileBuilder.TREE_NANOS.get() / 1e9));
+			}
 		}
 		ChunkIngest ingest = this.ingest;
 		if (ingest != null) {

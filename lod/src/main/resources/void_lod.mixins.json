@@ -3,7 +3,9 @@
 	"package": "dev.voidmc.lod.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-		"MaterialSystemAccessor"
+		"ChunkGeneratorAccessor",
+		"MaterialSystemAccessor",
+		"RandomStateAccessor"
 	],
 	"client": [
 		"BiomeManagerAccessor",

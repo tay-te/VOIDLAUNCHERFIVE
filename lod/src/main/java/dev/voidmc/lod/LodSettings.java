@@ -50,6 +50,8 @@ public final class LodSettings {
 		MEDIUM("medium"),
 		HIGH("high"),
 		ULTRA("ultra"),
+		/** 32 km: a strong GPU with memory to spare. */
+		EXTREME("extreme"),
 		CUSTOM("custom");
 
 		private final String name;
@@ -117,6 +119,7 @@ public final class LodSettings {
 			case MEDIUM -> this.set(8192, 7, 7, Math.min(2, half), 320);
 			case HIGH -> this.set(8192, 5, 5, Math.min(4, half), 512);
 			case ULTRA -> this.set(16384, 4, 3, Math.min(6, half), 1024);
+			case EXTREME -> this.set(32768, 4, 3, Math.min(8, half), 1536);
 			case CUSTOM -> {
 			}
 		}

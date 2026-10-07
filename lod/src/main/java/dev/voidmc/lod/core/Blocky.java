@@ -69,6 +69,14 @@ final class Blocky {
 		this.s = samples;
 	}
 
+	/** The world's own trees for this tile, block by block, or null: stand-in crowns ({@link Trees}). */
+	private Voxels voxels;
+	private byte[] grid = new byte[0];
+
+	void trees(Voxels voxels) {
+		this.voxels = voxels;
+	}
+
 	void mesh() {
 		boolean floating = this.cells();
 		this.occlusion();
@@ -81,6 +89,189 @@ final class Blocky {
 			this.floors();
 			this.steps();
 		}
+		if (this.voxels != null && this.voxels.size > 0) {
+			this.voxelFaces();
+		}
+	}
+
+	/**
+	 * The trees, block by block: every face of a log or leaf block that is not against another, or the ground, with
+	 * vanilla's smooth-lighting corners (each corner darker for each block beside it in the layer it faces, split
+	 * along the brighter diagonal), rings on a log's ends and bark on its sides, leaves in their own texture. On a
+	 * tile of cells two blocks across, the blocks are taken two by two by two: a cell stands where a few of its eight
+	 * blocks are a tree's, a log where they are mostly logs, so a crown keeps its outline and a trunk its place.
+	 */
+	private void voxelFaces() {
+		Voxels v = this.voxels;
+		Samples s = this.s;
+		int c = s.cell;
+		int minX = s.x0 - (c >> 1), minZ = s.z0 - (c >> 1);
+		int lo = Integer.MAX_VALUE, hi = Integer.MIN_VALUE;
+		for (int n = 0; n < v.size; n++) {
+			int yc = Math.floorDiv(v.y[n], c);
+			lo = Math.min(lo, yc);
+			hi = Math.max(hi, yc);
+		}
+		int layers = hi - lo + 3;
+		int base = lo - 1;
+		int size = W * W * layers;
+		if (this.grid.length < size) {
+			this.grid = new byte[size];
+			this.leafCount = new short[size];
+			this.logCount = new short[size];
+			this.leafRep = new int[size];
+			this.logRep = new int[size];
+		} else {
+			Arrays.fill(this.grid, 0, size, (byte) 0);
+			Arrays.fill(this.leafCount, 0, size, (short) 0);
+			Arrays.fill(this.logCount, 0, size, (short) 0);
+		}
+		for (int n = 0; n < v.size; n++) {
+			int gi = Math.floorDiv(v.x[n] - minX, c) + 1, gj = Math.floorDiv(v.z[n] - minZ, c) + 1;
+			if (gi < 1 || gj < 1 || gi > N || gj > N) {
+				continue;
+			}
+			int g = (gi + gj * W) * layers + Math.floorDiv(v.y[n], c) - base;
+			if (v.kind[n] == Voxels.LOG) {
+				if (this.logCount[g]++ == 0) {
+					this.logRep[g] = n;
+				}
+			} else if (this.leafCount[g]++ == 0) {
+				this.leafRep[g] = n;
+			}
+		}
+		// a cell of eight blocks needs two of them to stand: a lone leaf at a crown's rim is under a pixel out there
+		int need = c == 1 ? 1 : 2;
+		for (int g = 0; g < size; g++) {
+			int leaves = this.leafCount[g], logs = this.logCount[g];
+			if (leaves + logs >= need) {
+				this.grid[g] = logs * 2 >= leaves ? Voxels.LOG : Voxels.LEAVES;
+			}
+		}
+		for (int g = 0; g < size; g++) {
+			byte kind = this.grid[g];
+			if (kind == 0) {
+				continue;
+			}
+			int yi = g % layers, column = g / layers;
+			int gi = column % W, gj = column / W;
+			int i = gi - 1, j = gj - 1, yc = yi + base;
+			int n = kind == Voxels.LOG ? this.logRep[g] : this.leafRep[g];
+			boolean log = kind == Voxels.LOG;
+			int axis = v.axis[n];
+			int yb = yc * c, yt = yb + c;
+			this.out.light(s.at(i, j));
+			for (int f = 0; f < 6; f++) {
+				int nx = f == 4 ? -1 : f == 5 ? 1 : 0, ny = f == 0 ? 1 : f == 1 ? -1 : 0, nz = f == 2 ? -1 : f == 3 ? 1 : 0;
+				if (this.solid(gi + nx, yc + ny, gj + nz, base, layers)) {
+					continue;
+				}
+				// a log's rings on the ends its axis runs through, bark elsewhere
+				boolean ring = log && (axis == 0 ? ny != 0 : axis == 1 ? nx != 0 : nz != 0);
+				int color = ring || !log ? v.topColor[n] : v.sideColor[n];
+				if (log && c > 1) {
+					// a trunk thinner than the cell: as much of it bark as the trunk fills, the rest the shade under the crown
+					float fill = Math.min(1, this.logCount[g] / (float) (c * c * c / 2));
+					color = Colors.scale(color, 0.3F + 0.7F * fill);
+				}
+				color &= COLOR_MASK;
+				int m = TileBuilder.material(ring || !log ? v.topMaterial[n] : v.sideMaterial[n]);
+				switch (f) {
+					case 0 -> this.voxelQuad(TileBuilder.UP, color, m, base, layers, gi, yc, gj, 0, 1, 0,
+						i, yt, j, -1, 0, 0, 0, 0, -1,
+						i, yt, j + 1, -1, 0, 0, 0, 0, 1,
+						i + 1, yt, j + 1, 1, 0, 0, 0, 0, 1,
+						i + 1, yt, j, 1, 0, 0, 0, 0, -1);
+					case 1 -> this.voxelQuad(TileBuilder.DOWN, color, m, base, layers, gi, yc, gj, 0, -1, 0,
+						i, yb, j, -1, 0, 0, 0, 0, -1,
+						i + 1, yb, j, 1, 0, 0, 0, 0, -1,
+						i + 1, yb, j + 1, 1, 0, 0, 0, 0, 1,
+						i, yb, j + 1, -1, 0, 0, 0, 0, 1);
+					case 2 -> this.voxelQuad(2, color, m, base, layers, gi, yc, gj, 0, 0, -1,
+						i, yt, j, -1, 0, 0, 0, 1, 0,
+						i + 1, yt, j, 1, 0, 0, 0, 1, 0,
+						i + 1, yb, j, 1, 0, 0, 0, -1, 0,
+						i, yb, j, -1, 0, 0, 0, -1, 0);
+					case 3 -> this.voxelQuad(3, color, m, base, layers, gi, yc, gj, 0, 0, 1,
+						i + 1, yt, j + 1, 1, 0, 0, 0, 1, 0,
+						i, yt, j + 1, -1, 0, 0, 0, 1, 0,
+						i, yb, j + 1, -1, 0, 0, 0, -1, 0,
+						i + 1, yb, j + 1, 1, 0, 0, 0, -1, 0);
+					case 4 -> this.voxelQuad(4, color, m, base, layers, gi, yc, gj, -1, 0, 0,
+						i, yt, j + 1, 0, 0, 1, 0, 1, 0,
+						i, yt, j, 0, 0, -1, 0, 1, 0,
+						i, yb, j, 0, 0, -1, 0, -1, 0,
+						i, yb, j + 1, 0, 0, 1, 0, -1, 0);
+					default -> this.voxelQuad(5, color, m, base, layers, gi, yc, gj, 1, 0, 0,
+						i + 1, yt, j, 0, 0, -1, 0, 1, 0,
+						i + 1, yt, j + 1, 0, 0, 1, 0, 1, 0,
+						i + 1, yb, j + 1, 0, 0, 1, 0, -1, 0,
+						i + 1, yb, j, 0, 0, -1, 0, -1, 0);
+				}
+			}
+		}
+	}
+
+	private short[] leafCount = new short[0];
+	private short[] logCount = new short[0];
+	private int[] leafRep = new int[0];
+	private int[] logRep = new int[0];
+
+	/** Whether the cell at grid column (gi, gj) and height y (in cells) is a tree's or the ground's. */
+	private boolean solid(int gi, int y, int gj, int base, int layers) {
+		if (gi < 0 || gj < 0 || gi >= W || gj >= W) {
+			return false;
+		}
+		int yi = y - base;
+		if (yi >= 0 && yi < layers && this.grid[(gi + gj * W) * layers + yi] != 0) {
+			return true;
+		}
+		// the ground: a cell of blocks whose middle is under it (y in cells of the tile's size)
+		int k = gi + gj * W;
+		int c = this.s.cell;
+		return !this.s.empty[k] && y * c + (c >> 1) < this.ground[k];
+	}
+
+	/**
+	 * One face of a tree's block at grid (gi, y, gj) facing (nx, ny, nz): four corners, each its position and the two
+	 * directions along the face toward it, shaded by vanilla's corner rule in the layer the face looks into.
+	 */
+	private void voxelQuad(int face, int color, int m, int base, int layers, int gi, int y, int gj, int nx, int ny, int nz,
+		int x0, int y0, int z0, int a0x, int a0y, int a0z, int c0x, int c0y, int c0z,
+		int x1, int y1, int z1, int a1x, int a1y, int a1z, int c1x, int c1y, int c1z,
+		int x2, int y2, int z2, int a2x, int a2y, int a2z, int c2x, int c2y, int c2z,
+		int x3, int y3, int z3, int a3x, int a3y, int a3z, int c3x, int c3y, int c3z) {
+		int li = gi + nx, ly = y + ny, lj = gj + nz;
+		int l0 = this.corner(li, ly, lj, a0x, a0y, a0z, c0x, c0y, c0z, base, layers);
+		int l1 = this.corner(li, ly, lj, a1x, a1y, a1z, c1x, c1y, c1z, base, layers);
+		int l2 = this.corner(li, ly, lj, a2x, a2y, a2z, c2x, c2y, c2z, base, layers);
+		int l3 = this.corner(li, ly, lj, a3x, a3y, a3z, c3x, c3y, c3z, base, layers);
+		int k0 = Colors.scale(color, Colors.AO[l0]), k1 = Colors.scale(color, Colors.AO[l1]);
+		int k2 = Colors.scale(color, Colors.AO[l2]), k3 = Colors.scale(color, Colors.AO[l3]);
+		TileBuilder o = this.out;
+		// split along the brighter diagonal, as vanilla's smooth lighting does
+		if (l1 + l3 < l0 + l2) {
+			o.vertex(x1, y1, z1, face, k1, 255, m, 0);
+			o.vertex(x2, y2, z2, face, k2, 255, m, 0);
+			o.vertex(x3, y3, z3, face, k3, 255, m, 0);
+			o.vertex(x0, y0, z0, face, k0, 255, m, 0);
+		} else {
+			o.vertex(x0, y0, z0, face, k0, 255, m, 0);
+			o.vertex(x1, y1, z1, face, k1, 255, m, 0);
+			o.vertex(x2, y2, z2, face, k2, 255, m, 0);
+			o.vertex(x3, y3, z3, face, k3, 255, m, 0);
+		}
+	}
+
+	/** Vanilla's corner rule: both sides taken is fully dark, else a step for each side and the corner. */
+	private int corner(int li, int ly, int lj, int ax, int ay, int az, int cx, int cy, int cz, int base, int layers) {
+		boolean s1 = this.solid(li + ax, ly + ay, lj + az, base, layers);
+		boolean s2 = this.solid(li + cx, ly + cy, lj + cz, base, layers);
+		if (s1 && s2) {
+			return 3;
+		}
+		boolean c = this.solid(li + ax + cx, ly + ay + cy, lj + az + cz, base, layers);
+		return (s1 ? 1 : 0) + (s2 ? 1 : 0) + (c ? 1 : 0);
 	}
 
 	/** Each cell's top, what it is made of, and its tree. True if any of the tile's ground floats over the void. */
@@ -120,7 +311,7 @@ final class Blocky {
 				this.top[k] = g;
 				this.color[k] = s.top[k] & COLOR_MASK;
 				this.material[k] = s.topMaterial[k];
-				if (s.canopy[k] > 0) {
+				if (s.canopy[k] > 0 && this.voxels == null) {
 					float h = Trees.crown(s.x(i) + centre, s.z(j) + centre, s.canopy[k], s.cover[k], s.crown[k], s.conifer[k], this.shade);
 					int height = q == 1 ? Math.max(1, Math.round(h)) : Math.round(h / q) * q;
 					if (h >= 1 && height == 0) {

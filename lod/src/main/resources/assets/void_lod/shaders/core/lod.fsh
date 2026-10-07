@@ -154,7 +154,13 @@ vec3 blockTexture(int entry, uvec4 e, bool top, vec2 uv, vec2 dx, vec2 dy) {
             dy = vec2(-dy.y, dy.x);
         }
     }
-    vec3 c = blockLayer(e, p, dx, dy).rgb;
+    vec4 layer = blockLayer(e, p, dx, dy);
+    vec3 c = layer.rgb;
+    if ((flags & 4u) != 0u) {
+        // leaves: where the cut-out texture has a gap, the leaves further in, in their shade; mipmaps melt the gaps into
+        // the speckle a crown has from afar
+        c = mix(vec3(0.42), c, smoothstep(0.2, 0.8, layer.a));
+    }
     if ((flags & 2u) != 0u) {
         // a second layer cut out over the first: a grass block's tinted fringe over its dirt
         vec4 o = blockLayer(texelFetch(LodMaterials, entry + 1), p, dx, dy);

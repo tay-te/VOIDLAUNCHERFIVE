@@ -34,7 +34,6 @@ import dev.voidmc.lod.core.Tile;
 import dev.voidmc.lod.core.TileBuilder;
 import dev.voidmc.lod.core.TileKey;
 import dev.voidmc.lod.mixin.LevelRendererAccessor;
-import dev.voidmc.lod.source.WorldgenSource;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -395,7 +394,10 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			this.compactArena.uploadStagedAllocations(this.device, uploader);
 		}
 		// after the uploads: every id a tile just uploaded was handed out before it was built
-		this.materials.update(this.engine.source() instanceof WorldgenSource w ? w.materials() : null, encoder);
+		// the world's registry itself: the source the engine holds is usually a wrapper around the generator (the seen
+		// chunks over it, its cache), which does not hand it out
+		dev.voidmc.lod.VoidLod lod = dev.voidmc.lod.VoidLod.get();
+		this.materials.update(lod == null || this.engine.source() == null ? null : lod.materials(), encoder);
 		long t3 = System.nanoTime();
 		this.lastStagingNanos = t3 - t2;
 

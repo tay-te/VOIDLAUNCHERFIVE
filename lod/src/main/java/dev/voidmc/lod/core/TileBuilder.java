@@ -79,8 +79,17 @@ public final class TileBuilder {
 	public static final int OCCLUDERS = 2;
 	/** An occluder square with a hole in it, a column with no ground: it hides nothing. */
 	public static final short NO_OCCLUDER = Short.MIN_VALUE;
+	/** Time all builders have spent standing the world's trees on their tiles ({@link Decorator}). */
+	public static final java.util.concurrent.atomic.AtomicLong TREE_NANOS = new java.util.concurrent.atomic.AtomicLong();
 	/** Time all builders have spent working out horizons ({@link Horizons}). */
 	public static final java.util.concurrent.atomic.AtomicLong LIGHT_NANOS = new java.util.concurrent.atomic.AtomicLong();
+
+	/**
+	 * The levels whose tiles stand the world's own trees, block by block, where the source can place them
+	 * ({@link Decorator}): those right outside the chunks, where a tree is still several pixels across.
+	 */
+	public static volatile int treeLevels = Integer.getInteger("void.lod.treeLevels", 2);
+	private final Voxels voxels = new Voxels();
 
 	/** The first level drawn smooth; the levels below it are blocky. */
 	public static volatile int smoothFrom = Integer.getInteger("void.lod.smoothFrom", TileKey.MAX_LEVEL + 1);
@@ -164,6 +173,43 @@ public final class TileBuilder {
 			this.horizons.compute(this.samples, heights, level, smooth ? TileKey.TILE + 1 : TileKey.TILE);
 			LIGHT_NANOS.addAndGet(System.nanoTime() - t1);
 		}
+		Decorator decorator = !smooth && !this.compact && level < treeLevels ? source.decorator() : null;
+		this.voxels.clear();
+		if (decorator != null) {
+			long t2 = System.nanoTime();
+			Samples s = this.samples;
+			int minX = TileKey.minX(key), minZ = TileKey.minZ(key), span = TileKey.span(level);
+			decorator.decorate(minX, minZ, minX + span, minZ + span, new Decorator.Ground() {
+				@Override
+				public void column(int x, int z, ColumnSample out) {
+					// the tile's own sample where it has one (on a farther tile, the cell's: rounded ground), else the source's
+					int i = Math.floorDiv(x - minX, s.cell), j = Math.floorDiv(z - minZ, s.cell);
+					if (i >= -s.border && j >= -s.border && i < s.size - s.border && j < s.size - s.border) {
+						int k = s.at(i, j);
+						out.ground = s.ground[k];
+						out.water = s.water[k];
+						out.topMaterial = s.topMaterial[k];
+						out.biome = s.biome[k];
+						out.empty = s.empty[k];
+					} else {
+						source.sample(x, z, s.cell, out);
+					}
+				}
+
+				@Override
+				public boolean exact(int x, int z) {
+					int i = x - minX, j = z - minZ;
+					return s.cell == 1 && i >= -s.border && j >= -s.border && i < s.size - s.border && j < s.size - s.border;
+				}
+
+				@Override
+				public boolean blockExact() {
+					return s.cell == 1;
+				}
+			}, this.voxels);
+			TREE_NANOS.addAndGet(System.nanoTime() - t2);
+		}
+		this.blocky.trees(decorator != null ? this.voxels : null);
 		if (smooth) {
 			indices = this.smooth.mesh();
 			holes = indices > 0 && this.smooth.holes;

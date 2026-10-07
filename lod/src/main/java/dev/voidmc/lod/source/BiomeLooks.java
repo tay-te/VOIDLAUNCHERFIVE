@@ -72,6 +72,8 @@ public final class BiomeLooks {
 	private final LevelAccessor level;
 	private final Materials materials;
 	private final Map<String, List<TreeKinds.Kind>> serverTrees;
+	/** Per biome, the top and side colour of each block its trees are made of. */
+	private final Map<Biome, Map<net.minecraft.world.level.block.Block, int[]>> treeColors = new java.util.concurrent.ConcurrentHashMap<>();
 	private final TextureColors textures = new TextureColors();
 	private final Biome anyBiome;
 	public final int snowTop;
@@ -132,6 +134,16 @@ public final class BiomeLooks {
 		this.stoneSideMaterial = materials.id(Blocks.STONE.defaultBlockState(), false);
 		this.sandTopMaterial = materials.id(Blocks.SAND.defaultBlockState(), true);
 		this.sandSideMaterial = materials.id(Blocks.SAND.defaultBlockState(), false);
+	}
+
+	/**
+	 * The top and side colour of {@code block} as one of {@code biome}'s trees wears it (worked out when the looks were),
+	 * or null if none of its trees is made of it.
+	 */
+	public int[] treeColors(Holder<Biome> biome, net.minecraft.world.level.block.Block block) {
+		this.get(biome);
+		Map<net.minecraft.world.level.block.Block, int[]> colors = this.treeColors.get(biome.value());
+		return colors == null ? null : colors.get(block);
 	}
 
 	public Look get(Holder<Biome> biome) {
@@ -334,9 +346,20 @@ public final class BiomeLooks {
 		String name = holder.unwrapKey().map(k -> k.identifier().toString()).orElse("");
 		List<TreeKinds.Kind> kinds = this.serverTrees != null && this.serverTrees.containsKey(name) ? this.serverTrees.get(name)
 			: TreeKinds.of(biome, this.level);
+		Map<net.minecraft.world.level.block.Block, int[]> colors = new IdentityHashMap<>();
 		for (TreeKinds.Kind kind : kinds) {
 			trees.add(kind);
+			// each block of its trees as the chunks draw it, for the trees placed block by block (TreeDecorator)
+			colors.computeIfAbsent(kind.leaves().getBlock(), b -> {
+				int c = this.textures.top(b.defaultBlockState(), biome);
+				return new int[]{c, c};
+			});
+			if (kind.trunk() != null) {
+				colors.computeIfAbsent(kind.trunk().getBlock(), b -> new int[]{this.textures.top(b.defaultBlockState(), biome),
+					this.textures.side(b.defaultBlockState(), biome)});
+			}
 		}
+		this.treeColors.put(biome, colors);
 		int water = Colors.multiply(0xFFFFFF, biome.getWaterColor());
 		Materials ids = this.materials;
 		return new Look(ground, top, side, soil, soilDepth, rock, bands, bandHeight, bed, water, trees.cover(), trees.height(),
