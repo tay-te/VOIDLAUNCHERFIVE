@@ -15,6 +15,7 @@ import dev.voidmc.mettle.client.heavy.HeavyWeaponsClient;
 import dev.voidmc.mettle.client.smithing.SmithingClient;
 import dev.voidmc.mettle.client.survival.SurvivalClient;
 import dev.voidmc.mettle.client.marksmanship.MarksmanshipClient;
+import dev.voidmc.mettle.client.moment.MomentClient;
 import dev.voidmc.mettle.client.overlay.MettleScreens;
 import dev.voidmc.mettle.client.overlay.MettleState;
 import dev.voidmc.mettle.client.overlay.OverlayBridge;
@@ -50,6 +51,7 @@ public final class MettleClient implements ClientModInitializer {
 		SmithingClient.init();
 		BurdenClient.init();
 		GearClient.init();
+		MomentClient.init();
 		characterKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.mettle.character", InputConstants.KEY_K,
 			KeyMapping.Category.register(Mettle.id("character"))));
 
@@ -87,8 +89,8 @@ public final class MettleClient implements ClientModInitializer {
 				var player = context.client().player;
 				((BladesLivingAccess) player).mettle$setAttackStrengthTicker((int) Math.ceil(player.getCurrentItemAttackStrengthDelay()) + 1);
 			}
-			// Until the overlay's HUD chips exist, the action bar says it.
-			if (!OverlayBridge.hasListener() && context.client().player != null) {
+			// Until the overlay's HUD chips exist, the action bar says it, unless a progress toast already does.
+			if (!OverlayBridge.hasListener() && context.client().player != null && !MomentClient.covers(payload.perk())) {
 				context.client().player.sendOverlayMessage(payload.text());
 			}
 		});

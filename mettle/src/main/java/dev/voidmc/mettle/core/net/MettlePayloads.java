@@ -7,9 +7,11 @@ import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
 import dev.voidmc.mettle.character.BackgroundRules;
+import dev.voidmc.mettle.character.moment.MomentKind;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -95,6 +97,39 @@ public final class MettlePayloads {
 		@Override
 		public Type<Feedback> type() {
 			return TYPE;
+		}
+	}
+
+	/**
+	 * Server → client: a progress moment (UI.md §6b): a skill level (and the tier it opened), a character level, a perk
+	 * learned or earned. Sent just before the matching {@link Feedback} chip, which the client then leaves off the action
+	 * bar because the toast says it. {@code tier} is 0 unless a tier opened; {@code rank} is 0 for level moments.
+	 */
+	public record Moment(MomentKind kind, Optional<ResourceKey<Skill>> skill, int level, int tier, Optional<Identifier> perk, int rank)
+		implements CustomPacketPayload {
+		public static final Type<Moment> TYPE = new Type<>(Mettle.id("character/moment"));
+		private static final StreamCodec<io.netty.buffer.ByteBuf, MomentKind> KIND = ByteBufCodecs.idMapper(i -> MomentKind.values()[i], Enum::ordinal);
+		public static final StreamCodec<RegistryFriendlyByteBuf, Moment> STREAM_CODEC = StreamCodec.composite(
+			KIND, Moment::kind,
+			ByteBufCodecs.optional(ResourceKey.streamCodec(MettleRegistries.SKILL)), Moment::skill,
+			ByteBufCodecs.VAR_INT, Moment::level,
+			ByteBufCodecs.VAR_INT, Moment::tier,
+			ByteBufCodecs.optional(Identifier.STREAM_CODEC), Moment::perk,
+			ByteBufCodecs.VAR_INT, Moment::rank,
+			Moment::new);
+
+		@Override
+		public Type<Moment> type() {
+			return TYPE;
+		}
+
+		/** The id of the {@link Feedback} chip this moment stands for ({@code mettle:level/mining}, or the perk). */
+		public Identifier feedbackId() {
+			return switch (this.kind) {
+				case LEVEL, TIER -> Mettle.id("level/" + this.skill.map(k -> k.identifier().getPath()).orElse("unknown"));
+				case CHARACTER -> Mettle.id("level/character");
+				default -> this.perk.orElse(Mettle.id("unknown"));
+			};
 		}
 	}
 

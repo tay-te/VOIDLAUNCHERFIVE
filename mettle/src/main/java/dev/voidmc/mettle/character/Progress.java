@@ -7,6 +7,7 @@ import dev.voidmc.mettle.api.MettleEvents;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
+import dev.voidmc.mettle.character.moment.Moments;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
 import dev.voidmc.mettle.core.CharacterState;
 import dev.voidmc.mettle.core.CharacterStore;
@@ -90,17 +91,22 @@ public final class Progress {
 		if (levelAfter > levelBefore) {
 			Skill s = player.level().registryAccess().lookupOrThrow(MettleRegistries.SKILL).getValueOrThrow(skill);
 			Component text = Component.translatable("mettle.feedback.level", s.name(), levelAfter);
+			int opened = 0;
 			for (int tier = 1; tier <= 4; tier++) {
 				if (levelBefore < Curves.tierSkillGate(tier) && levelAfter >= Curves.tierSkillGate(tier)) {
 					text = Component.translatable("mettle.feedback.level_tier", s.name(), levelAfter, tierName(tier));
+					opened = tier;
 				}
 			}
+			// The typed moment first: the client toasts it and leaves the chip below off the action bar.
+			Moments.level(player, skill, levelAfter, opened);
 			SignaturePerks.feedback(player, Mettle.id("level/" + skill.identifier().getPath()), text);
 			MettleEvents.SKILL_LEVEL_UP.invoker().levelUp(player, skill, levelBefore, levelAfter);
 			Perks.checkSynergies(player);
 		}
 		int characterAfter = next.characterLevel();
 		if (characterAfter > characterBefore) {
+			Moments.character(player, characterAfter);
 			SignaturePerks.feedback(player, Mettle.id("level/character"), Component.translatable("mettle.feedback.character_level", characterAfter));
 			MettleEvents.CHARACTER_LEVEL_UP.invoker().levelUp(player, characterBefore, characterAfter);
 		}

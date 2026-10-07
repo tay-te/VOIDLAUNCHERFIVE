@@ -25,6 +25,7 @@ Same shape as pvp's `window.void`: `void.on(event, handler)`. Mettle pushes thro
 | `mettleResult` | `{ ok: boolean, reason?: "already_chosen" \| "unknown_background" \| "points_not_placed" \| "points_invalid" \| "skills_not_picked" \| "skill_invalid" }` | after `chooseBackground` |
 | `mettleFeedback` | `{ perk: "mettle:rally", text: "Rally · +1 ♥" }` | a signature perk fired (HUD chip; merge repeats, fade after ~2 s) |
 | `mettlePicker` | `{ byOperator: boolean }` | the server asks for the picker (first join, or an op reset) |
+| `mettleMoment` | `{ kind: "level" \| "tier" \| "character" \| "learned" \| "mastery" \| "feat" \| "synergy" \| "teaching", skill?: "mettle:mining", perk?: "mettle:mining/quarryman", level: number, tier: number, rank: number, title: "Mining 9 · Apprentice Miner", subtitle?: "1 point to spend · press K", colour: "#F5B03C" }` | a progress moment (UI.md §6b): show a toast; queue them, merge rapid repeats of one skill or perk. The matching `mettleFeedback` chip follows it and can be skipped. Java plays the sound. |
 
 ### The `mettle` state (`client.overlay.MettleState`)
 
@@ -69,6 +70,7 @@ type MettleState = {
   gear: Record<"back" | "belt" | "quiver", { item: string; name: string; pockets: number; used: number } | null>;
   tiers: { tier: 1 | 2 | 3 | 4; skillLevel: number; attribute: number }[];   // TREES.md §1 gates
   feedback: { perk: string; text: string; ageMs: number }[];  // chips from the last 4 s (for screens that hide the HUD)
+  moments: object[];                                         // mettleMoment payloads from the last 4 s, each with ageMs
 };
 type Attr = "strength" | "agility" | "vitality" | "wits" | "presence";
 ```

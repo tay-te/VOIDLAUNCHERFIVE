@@ -86,8 +86,21 @@ public final class MettleState {
 		}
 	}
 
+	private static final java.util.Deque<Moment> MOMENTS = new java.util.ArrayDeque<>();
+
+	private record Moment(JsonObject json, long at) {
+	}
+
+	/** A progress moment arrived (MomentClient); kept a few seconds for {@code moments}, like {@link #remember}. */
+	public static void rememberMoment(JsonObject json) {
+		MOMENTS.addLast(new Moment(json, net.minecraft.util.Util.getMillis()));
+		while (MOMENTS.size() > 6) {
+			MOMENTS.removeFirst();
+		}
+	}
+
 	/** Rank title bands (TREES.md): untrained 0, novice 1–4, apprentice 5–9, journeyman 10–14, expert 15–19, master 20. */
-	static String titleBand(int level) {
+	public static String titleBand(int level) {
 		return level <= 0 ? "untrained" : level < 5 ? "novice" : level < 10 ? "apprentice" : level < 15 ? "journeyman" : level < 20 ? "expert" : "master";
 	}
 
@@ -225,6 +238,17 @@ public final class MettleState {
 			root.add("result", lastResult);
 		}
 		root.addProperty("pickerByOperator", pickerByOperator);
+
+		// The same for progress moments (the mettleMoment event), so a host can show the toast too.
+		JsonArray moments = new JsonArray();
+		for (Moment m : MOMENTS) {
+			if (now - m.at() < FEEDBACK_MS) {
+				JsonObject o = m.json().deepCopy();
+				o.addProperty("ageMs", now - m.at());
+				moments.add(o);
+			}
+		}
+		root.add("moments", moments);
 
 		JsonArray attributeInfo = new JsonArray();
 		for (CharacterAttribute a : CharacterAttribute.values()) {

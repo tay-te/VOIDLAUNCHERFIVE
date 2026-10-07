@@ -169,10 +169,49 @@ matter. They are registered with `HudElementRegistry`. Space above the food and 
 | **Burdened · 68 / 80 kg** | load band is Burdened | above the food bar |
 | **Overburdened** / **Pinned** | stronger state (raised fill, plus band name) | same |
 | **+12 Mining** | XP gained | above the hearts (left), so it balances the load chip on the right; merges per skill, fades after 2 s |
-| **Mining 6 · +1 perk point** | skill level-up | above the hotbar, centre, 3 s, soft chime |
-| **Level 7 · +1 attribute point** | character level-up | same, queued after the skill chip |
-| **K** with a dot | unspent points | small, just past the hotbar's right end |
+| **Mining 6 · Apprentice Miner** | skill level-up, tier opened, perk learned, feat/synergy/teaching earned, character level | a toast, top centre (§6b) |
+| **◆ 3 points  K** | unspent points, after a level-up | small, just past the hotbar's right end, fades after 20 s (§6b) |
 | Quiver count | holding a bow or crossbow with a quiver worn | just past the hotbar's left end (the offhand side when it's empty) |
+
+## 6b. Progress moments (built 2026-10-07)
+
+Levelling a skill, opening a tier, learning a perk or earning a feat is a **moment**: a chime and a toast, not a line
+of action-bar text. The server sends a typed `Moment` payload (`MettlePayloads.Moment` {kind, skill, level, tier, perk,
+rank}, sent by `character.moment.Moments` just before the matching feedback chip); the client (`client.moment`) plays
+the sound, queues the toast and leaves that chip off the action bar. Other chips (XP gains, signature perks, burden
+bands) stay on the action bar until the overlay's chips exist.
+
+- **Kinds:** `level`, `tier` (a level that opened a tier), `character`, `learned`, `mastery`, `feat`, `synergy`,
+  `teaching`.
+- **Toast** (`MomentHud`, native resolution with the UI kit): top centre, below any boss bars. A flat rounded dark
+  panel (base #131315 at 94 %, radius 14) with a hairline in the accent, the icon in a tinted well (skill icon for
+  levels, perk icon for perks, a Temper diamond for the character level), a title whose lead is in the accent and a
+  small second line:
+  - "Mining 9 · Apprentice Miner" / "1 point to spend · press K"
+  - "Tier II open · Mining" / "3 points to spend · press K"
+  - "Character level 7" / "1 attribute point to place · press K"
+  - "Learned · Quarryman II" / the perk's effect at that rank
+  - "Feat earned · Diamond Hands" / its effect (likewise "Mastery", "Synergy unlocked", "Teaching learned")
+  - **Accent:** the skill's hue (§1b); champagne #E8DDBC for earned perks; Temper for the character level. Tiers,
+    masteries and earned perks get a halo ring around the panel.
+  - Slides down and fades in (0.22 s), stays 3.2 s (2 s when others wait), fades out (0.38 s).
+- **Queue** (`character.moment.MomentQueue`, unit-tested): one toast at a time, in order. Rapid repeats **merge**: a
+  skill levelling again while its toast is up shows the new level (a level that opens a tier upgrades it to the tier
+  toast), ranks of one perk show the highest rank. More than 5 waiting drops the oldest level/bought ones first.
+- **Screens:** while any screen is open the toast is hidden and the queue **waits** (it does not expire unseen). A perk
+  bought from a screen gets the click-chime but no toast, because the screen already shows it. The VOID Hub hides the
+  HUD while open, so its toasts wait for it to close; it can read `moments` from the state meanwhile (OVERLAY.md).
+- **Sounds** (UI category, local, `MomentSounds`): level, a soft rising note-block chime triad over an amethyst
+  shimmer; tier, brighter, up to the octave with a bell and the level-up sparkle; character level, the level-up sound;
+  perk learned, a click then one high chime (mastery adds a bell); feat/synergy, the challenge-complete fanfare
+  (synergy pitched up); teaching, a page turn then the fanfare. **Throttled** (`SoundThrottle`, unit-tested): level
+  sounds share 1.5 s and the stronger wins (a skill level and the character level in the same tick chime once; a tier
+  still rings over a level); earned share 2.5 s; perk clicks 90 ms.
+- **Points nudge:** "◆ 3 points  K" (perk points in every released skill plus attribute points) just past the hotbar's
+  right end, clear of the offhand slot and the hotbar attack indicator. It appears on a level-up (and once on joining
+  with points unspent), stays 20 s, fades, and comes back on the next level-up; gone as soon as nothing is unspent.
+- With an `OverlayBridge` listener attached the overlay draws these instead; the native toast and nudge stay hidden,
+  and sounds still play.
 
 ## 7. Belt radial (R)
 
@@ -204,3 +243,8 @@ These are reached from a small settings glyph in the K screen's corner:
 - show my gear on my character
 - XP chips on/off
 - hints on/off
+- progress toasts on/off, progress sounds on/off, points nudge on/off (§6b)
+
+Until that glyph exists, the options live in `config/mettle-client.properties` (`toasts`, `sounds`, `pointsNudge`,
+all `true` by default), read and written by `client.MettleClientOptions`; a host can call its setters. Turning toasts
+off brings back the action-bar line for those moments.
