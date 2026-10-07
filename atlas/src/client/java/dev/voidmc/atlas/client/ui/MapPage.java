@@ -1973,7 +1973,8 @@ public final class MapPage {
 		}
 		// what goes in
 		List<MarkerDetail.Readout> readouts = new ArrayList<>();
-		if (sameDim) {
+		if (sameDim && distance > 8) {
+			// the distance only when it says something: standing in the place, it is left out
 			readouts.add(new MarkerDetail.Readout(String.valueOf(Math.round(distance)), "METRES  " + MarkerPainter.direction(px, pz, m.x(), m.z())));
 		}
 		MarkerDetail detail = m.detail();
@@ -2035,8 +2036,13 @@ public final class MapPage {
 			shownMeter = null;
 			h = cardHeight(place != null, false, rows, facts.size(), source != null);
 		}
+		boolean cut = h > room;
 		h = Math.min(h, room);
 		ui.panel(x, y, w, h, 20, Theme.ISLAND, Theme.HAIR_8);
+		// the actions are a footer pinned to the card's foot; the body above them is clipped to the card
+		float footY = y + h - 17 - 40;
+		ui.flush();
+		ui.g.enableScissor((int) x, (int) y, (int) (x + w), (int) (footY - 7));
 		float cx = x + 17;
 		float cy = y + 17;
 		// header: the tile, the name and kind, the close button
@@ -2084,7 +2090,16 @@ public final class MapPage {
 			float rx = cx + i * (rw + 8);
 			ui.panel(rx, cy, rw, 60, 12, Theme.WELL, Theme.HAIR_5);
 			ui.text(ui.fit(r.value(), Ui.Font.F18, rw - 20), rx + 13, cy + 10.5F, Ui.Font.F18, Theme.INK);
-			ui.text(ui.fit(r.label(), Ui.Font.F85, 1, rw - 20), rx + 13, cy + 38, Ui.Font.F85, 1, Theme.INK_4);
+			// the caps label whole: tighter, then shorter words, before it is ever cut
+			String label = r.label();
+			float tracking = 1;
+			if (ui.width(label, Ui.Font.F85, 1) > rw - 20) {
+				tracking = 0.4F;
+				if (ui.width(label, Ui.Font.F85, tracking) > rw - 20) {
+					label = label.replace("METRES", "M").replace("  ", " ");
+				}
+			}
+			ui.text(ui.fit(label, Ui.Font.F85, tracking, rw - 20), rx + 13, cy + 38, Ui.Font.F85, tracking, Theme.INK_4);
 		}
 		cy += 60;
 		if (shownMeter != null) {
@@ -2148,7 +2163,13 @@ public final class MapPage {
 			MarkerPainter.sourceChip(ui, source, cx + 49, cy);
 			cy += 26;
 		}
-		cy += 14;
+		ui.flush();
+		ui.g.disableScissor();
+		if (cut) {
+			// more than the map has room for: a hairline over the footer says the body goes on
+			ui.rect(cx, footY - 7, 262, 1, Theme.HAIR_8);
+		}
+		cy = footY;
 		// actions
 		if (waypoint != null) {
 			this.button(ui, cx, cy, 127, true, "Edit", MarkerGlyph.PIN, mx, my, () -> this.edit(waypoint, false));
