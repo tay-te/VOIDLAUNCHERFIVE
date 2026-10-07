@@ -57,5 +57,22 @@ public final class HubMap {
 	/** A world was joined: the next Map page gets a fresh map. */
 	public static void reset() {
 		host = null;
+		if (available()) {
+			dev.voidmc.hub.map.atlas.AtlasMapHost.forgetShared();
+		}
+	}
+
+	/**
+	 * At start-up, with Atlas installed: the Map page and Atlas's own map screen (M) share one map
+	 * state (see {@code AtlasMapHost}).
+	 */
+	public static void install() {
+		if (available()) {
+			try {
+				dev.voidmc.hub.map.atlas.AtlasMapHost.installSync();
+			} catch (Throwable t) {
+				VoidHub.LOGGER.warn("VOID Hub: could not share the map state with VOID Atlas's map screen", t);
+			}
+		}
 	}
 }

@@ -15,7 +15,7 @@ class MapLayoutTest {
 
 	@Test
 	void theDesignFrameIsReproducedAtOneToOne() {
-		// Figma 333:32995 is 1600 x 980 at u = 1: the host rectangle is 1280 x 744 at (160, 110).
+		// Figma 375:36239 is 1600 x 980 at u = 1: the window is 1280 x 744 at (160, 110).
 		HubLayout l = HubLayout.map(1600, 980, 3);
 		assertEquals(1.0, l.u, 1e-9);
 		// Snapped to the GUI grid (3 px): within a GUI pixel of the design.
@@ -51,14 +51,43 @@ class MapLayoutTest {
 				assertTrue(new Rect(0, 0, l.fbW, l.fbH).containsRect(win), name + ": window " + win + " off screen");
 				assertTrue(win.y() >= l.pages.bottom(), name + ": window under the pages island");
 				assertTrue(win.bottom() <= l.strip.y(), name + ": window under the world strip");
-				assertTrue(win.w() <= HubLayout.MAP_W * l.u + 1 && win.h() <= HubLayout.MAP_H * l.u + 1, name + ": larger than the design");
 				for (int v : new int[] {win.x(), win.y(), win.w(), win.h()}) {
 					assertEquals(0, v % gs, name + ": " + win + " off the GUI grid");
 				}
 				assertTrue(l.cells().isEmpty(), name + ": the map page has no wells");
+				// Atlas, measuring this rectangle, lays its page out at the unit the layout chose: the
+				// 1280 x 744 page, not a stretched one (Figma 375:36239).
+				double a = HubLayout.atlasUnit(l.fbW, l.fbH, l.u);
+				double fit = Math.min(win.w() / (double) HubLayout.MAP_W, win.h() / (double) HubLayout.MAP_H);
+				if (fit >= HubLayout.ATLAS_UNITS[0]) {
+					assertEquals(a, pick(fit), 1e-9, name + ": Atlas would draw at " + pick(fit) + ", not " + a);
+					assertTrue(win.w() - HubLayout.MAP_W * a < gs && win.h() - HubLayout.MAP_H * a < gs, name + ": " + win + " is not 1280 x 744 at " + a);
+				}
+				assertTrue(a <= l.u + 1e-9 || a == HubLayout.ATLAS_UNITS[0], name + ": the map outgrows the islands (" + a + " > " + l.u + ")");
 				assertTrue(l.onSurface(win.centerX(), win.centerY()), name + ": the window is a VOID surface");
 			}
 		}
+	}
+
+	static double pick(double fit) {
+		double best = HubLayout.ATLAS_UNITS[0];
+		for (double u : HubLayout.ATLAS_UNITS) {
+			if (u <= fit + 1e-4) {
+				best = u;
+			}
+		}
+		return best;
+	}
+
+	@Test
+	void atTenEightyTheMapIsAtlasAtOneToOne() {
+		HubLayout l = HubLayout.map(1920, 1080, 4);
+		assertEquals(1.0, HubLayout.atlasUnit(1920, 1080, l.u), 1e-9);
+		assertEquals(1280, l.window.w());
+		assertEquals(744, l.window.h());
+		HubLayout big = HubLayout.map(2560, 1440, 4);
+		assertEquals(1.25, HubLayout.atlasUnit(2560, 1440, big.u), 1e-9);
+		assertEquals(new Rect(big.window.x(), big.window.y(), 1600, 932), big.window);
 	}
 
 	@Test

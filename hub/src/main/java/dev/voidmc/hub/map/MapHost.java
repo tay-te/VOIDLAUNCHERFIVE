@@ -47,6 +47,9 @@ public interface MapHost {
 	/** The map's centre and zoom as {@code {x, z, pixelsPerBlock}}, or null if it cannot tell (tests). */
 	double[] view();
 
+	/** The map state as text (layer, centre, zoom step, selection), for tests. */
+	String describe();
+
 	/** Atlas's version, for the log. */
 	String version();
 }

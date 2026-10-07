@@ -187,10 +187,10 @@ body.chest .page-inv { display: none; }
 .scrollbar .thumb { position: absolute; left: 0; width: 4px; border-radius: 2px; background: var(--cell-on); }
 body.scrolls .scrollbar { display: block; }
 
-/* ---- map page (Figma 333:32995) ------------------------------------------------------------
-   The window is Atlas's host rectangle: #0B0B0C at 96 %, a 7 % hairline, radius 32. Atlas draws
+/* ---- map page (Figma 375:36239) ------------------------------------------------------------
+   The window is Atlas's page window: #0B0B0C, a 7 % hairline, radius 32. Atlas draws
    everything inside it natively; the page draws only this frame, or the stand-in without Atlas. */
-body.map #win { background: rgba(11, 11, 12, 0.96); border-color: var(--line-3); }
+body.map #win { background: var(--shell); border-color: var(--line-3); }
 body.map #win > * { display: none; }
 #win > .page-map { display: none; inset: 0; }
 body.map:not(.atlas) #win > .page-map { display: block; }

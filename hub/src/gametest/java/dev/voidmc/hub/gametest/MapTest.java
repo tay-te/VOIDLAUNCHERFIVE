@@ -255,6 +255,45 @@ public final class MapTest {
 		this.context.waitForScreen(null);
 		this.pass("typing in Atlas's search keeps Tab / R-Shift; Esc leaves the field, then closes the hub");
 
+		// One map with M: Atlas's own map screen opens on the Map page's state, and the Map page
+		// takes M's back when it closes (view, zoom, layer, selection).
+		String hubState = this.context.computeOnClient(mc -> host.describe());
+		Class<? extends net.minecraft.client.gui.screens.Screen> atlasScreen = AtlasHooks.atlasScreenClass();
+		this.context.runOnClient(mc -> AtlasHooks.openAtlasMap());
+		this.context.waitForScreen(atlasScreen);
+		this.waitFrames(5);
+		String mState = this.context.computeOnClient(mc -> dev.voidmc.hub.map.atlas.AtlasMapHost.describe(mc.gui.screen()));
+		this.expect(mState.equals(hubState), "M opens on the Map page's state: M " + mState + " vs hub " + hubState);
+		this.ui.moveTo(HubGameTest.WIDTH * 0.4, HubGameTest.HEIGHT * 0.5);
+		this.waitFrames(1);
+		this.ui.press(Ui.LEFT, 0);
+		for (int i = 1; i <= 10; i++) {
+			this.ui.moveTo(HubGameTest.WIDTH * 0.4 + 25 * i, HubGameTest.HEIGHT * 0.5 + 10 * i);
+			this.waitFrames(1);
+		}
+		this.ui.release(Ui.LEFT, 0);
+		this.context.getInput().scroll(-1);
+		this.waitFrames(3);
+		this.context.takeScreenshot("voidhub_map_08_atlas_screen_shared");
+		net.minecraft.client.gui.screens.Screen m = this.context.computeOnClient(mc -> mc.gui.screen());
+		String mMoved = this.context.computeOnClient(mc -> dev.voidmc.hub.map.atlas.AtlasMapHost.describe(m));
+		this.expect(!mMoved.equals(mState), "panning and zooming M changed its view: " + mMoved);
+		for (int i = 0; i < 3 && this.context.computeOnClient(mc -> mc.gui.screen() != null); i++) {
+			this.ui.pressKey(InputConstants.KEY_ESCAPE);
+			this.waitFrames(2);
+		}
+		this.context.waitForScreen(null);
+		String mClosed = this.context.computeOnClient(mc -> dev.voidmc.hub.map.atlas.AtlasMapHost.describe(m));
+		this.ui.pressKey(InputConstants.KEY_RSHIFT);
+		this.context.waitForScreen(HubInventoryScreen.class);
+		this.waitFrames(3);
+		String hubAfter = this.context.computeOnClient(mc -> host.describe());
+		this.expect(this.onMap() && hubAfter.equals(mClosed), "the Map page shows M's state: hub " + hubAfter + " vs M " + mClosed);
+		this.context.takeScreenshot("voidhub_map_09_shared_back");
+		this.ui.pressKey(InputConstants.KEY_ESCAPE);
+		this.context.waitForScreen(null);
+		this.pass("M and the Map page share one map state (" + hubState + " -> M " + mClosed + " -> hub " + hubAfter + ")");
+
 		// Every GUI scale: the window and the widget's rectangle agree, screenshots of each.
 		for (int gs = 1; gs <= 4; gs++) {
 			int scale = gs;

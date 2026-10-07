@@ -69,9 +69,8 @@ public final class HubLayout {
 	/** Visible chest rows; longer containers scroll. */
 	public static final int VISIBLE_ROWS = 3;
 	/**
-	 * The Map page's window: the host rectangle of Figma 333:32995 ("Hub · Map (R-Shift) with the
-	 * new map"), 1280 x 744, 36 below the page islands and 30 above the world strip. Atlas's page
-	 * fills it in its own design units.
+	 * The Map page's window: Figma 375:36239 ("Hub Map page with the real Atlas"), Atlas's shipped
+	 * page at 1280 x 744, 36 below the page islands and 30 above the world strip.
 	 */
 	public static final int MAP_W = 1280;
 	public static final int MAP_H = 744;
@@ -180,18 +179,53 @@ public final class HubLayout {
 	}
 
 	/**
-	 * The Map page's window, physical px: the design's 1280 x 744 at the shell's unit, shrunk to the
-	 * band between the page islands and the world strip (keeping the design's gaps) and to the
-	 * window's width, centred in that band. Every edge lies on the GUI-pixel grid, so the rectangle
-	 * Atlas is given in GUI coordinates is exactly the one the page draws the window at.
+	 * The scales VOID Atlas draws its page at (its {@code Ui.UNITS}: each has its own rasterisation of
+	 * Outfit). Atlas picks the largest that fits the rectangle it is given.
+	 */
+	public static final double[] ATLAS_UNITS = {0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0};
+
+	/**
+	 * The Atlas scale for the Map page: the largest of Atlas's scales at which its 1280 x 744 page
+	 * fits the band between the page islands and the world strip (keeping the design's gaps) and the
+	 * window's width, and is no larger than the shell's own unit (so the map never outgrows the
+	 * islands around it).
+	 */
+	public static double atlasUnit(int fbW, int fbH, double u) {
+		double availW = fbW - 2 * MARGIN * u;
+		double availH = fbH - (MARGIN + PAGES_H + MAP_GAP_TOP + MARGIN + STRIP_H + MAP_GAP_BOTTOM) * u;
+		double want = Math.min(u, Math.min(availW / MAP_W, availH / MAP_H));
+		double best = ATLAS_UNITS[0];
+		for (double a : ATLAS_UNITS) {
+			if (a <= want + 1e-6) {
+				best = a;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * The Map page's window, physical px: Atlas's page at exactly 1280 x 744 of its design units
+	 * (Figma 375:36239), at {@link #atlasUnit}, centred in the band between the islands. Every edge
+	 * lies on the GUI-pixel grid (the size rounded up, so Atlas, measuring the rectangle, picks that
+	 * same unit), and the rectangle Atlas is given in GUI coordinates is exactly the window the page
+	 * draws. A window too small for even Atlas's smallest scale gets the band, and Atlas fits into it.
 	 */
 	static Rect mapWindow(int fbW, int fbH, int guiScale, double u) {
 		double top = (MARGIN + PAGES_H + MAP_GAP_TOP) * u;
 		double bottom = fbH - (MARGIN + STRIP_H + MAP_GAP_BOTTOM) * u;
-		double w = Math.min(MAP_W * u, fbW - 2 * MARGIN * u);
-		double h = Math.min(MAP_H * u, bottom - top);
-		int gw = Math.max(1, (int) Math.floor(w / guiScale));
-		int gh = Math.max(1, (int) Math.floor(h / guiScale));
+		double availW = fbW - 2 * MARGIN * u;
+		double a = atlasUnit(fbW, fbH, u);
+		double w = MAP_W * a;
+		double h = MAP_H * a;
+		int gw;
+		int gh;
+		if (w <= availW && h <= bottom - top) {
+			gw = (int) Math.ceil(w / guiScale - 1e-9);
+			gh = (int) Math.ceil(h / guiScale - 1e-9);
+		} else {
+			gw = Math.max(1, (int) Math.floor(Math.min(w, availW) / guiScale));
+			gh = Math.max(1, (int) Math.floor(Math.min(h, bottom - top) / guiScale));
+		}
 		int gx = (int) Math.round((fbW / (double) guiScale - gw) / 2.0);
 		int gy = (int) Math.round(((top + bottom) / 2.0) / guiScale - gh / 2.0);
 		return new Rect(gx * guiScale, gy * guiScale, gw * guiScale, gh * guiScale);

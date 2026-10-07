@@ -55,6 +55,7 @@ public final class VoidHub implements ClientModInitializer {
 				HubView.prewarm(w.getWidth(), w.getHeight(), l.u, l.toJson());
 			}
 		});
+		HubMap.install();
 		// A new world gets a new map (Atlas's map of it) and opens on the first page again.
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
 			HubMap.reset();

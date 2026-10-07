@@ -35,7 +35,7 @@ Switches (system properties, e.g. via `JAVA_TOOL_OPTIONS`):
 
 ## The Map page and VOID Atlas (optional)
 
-The hub's Map page (Figma `333:32995`, "Hub · Map (R-Shift) with the new map") hosts **VOID Atlas**'s
+The hub's Map page (Figma `375:36239`, section 8, "Hub Map page with the real Atlas") hosts **VOID Atlas**'s
 whole map page — segments, search, the map with its readout, layers, zoom and scale, the places list,
 cards and the waypoint editor — inside the hub's window, with the hub's islands around it as on every
 page: the mark top-left, pages top-centre, close top-right, the world strip bottom-centre.
@@ -47,8 +47,17 @@ page: the mark top-left, pages top-centre, close top-right, the world strip bott
   `map/MapHost` interface. Without Atlas the Map page shows a quiet stand-in ("Install VOID Atlas for
   the map") in the same window, the strip's "Waypoint here" is dimmed and inert, and R-Shift opens on
   the Inventory rather than on a stand-in.
+* **Atlas's page at 1280 × 744.** The window is Atlas's shipped page at exactly its design size, at
+  the largest of Atlas's own scales (0.75 … 3, the ones its fonts are rasterised at) that fits between
+  the islands and is no larger than the islands' unit; at 1920×1080 that is Atlas at 1:1 in a
+  1280×744 window. Atlas measures the rectangle and lays its page out at that same scale, unstretched.
+* **One map with M.** The Map page and Atlas's own map screen show one map state: the same view, zoom,
+  layer, depth and selection. Atlas has no shared state in its API yet, so the hub carries it across:
+  when M opens it is given the Map page's state, and when M closes the Map page takes M's (Atlas's
+  page and map panel, read and written reflectively in `AtlasMapHost.copy`; on an Atlas whose insides
+  differ it logs once and the two keep their own state).
 * **Drawn natively.** Ultralight draws only the hub's chrome: the dim, the islands and the window's
-  frame (Atlas's host rectangle: `#0B0B0C` at 96 %, 7 % hairline, radius 32). Atlas's
+  frame (Atlas's page window: `#0B0B0C`, 7 % hairline, radius 32). Atlas's
   `MapWidget.render` draws everything inside it through Minecraft's GUI pipeline, in the same frame,
   after the chrome quad. Nothing is drawn twice and neither side draws a full-screen layer of its own
   (Atlas's backdrop belongs to its own map screen and is not used here). The window rectangle is on
@@ -69,7 +78,7 @@ page: the mark top-left, pages top-centre, close top-right, the world strip bott
   Map page shows the Inventory.
 * **"Waypoint here"** (the world strip) adds an Atlas waypoint where the player stands, named like
   Atlas's own quick-add ("Waypoint 4"), through `AtlasApi.addWaypoint`; on the Map page it is selected,
-  so the map centres on it and shows its card. The pill says "Waypoint 4 added" for a moment.
+  so the map centres on it and shows its card. The pill says "Waypoint added" for a moment.
 
 Building with Atlas: `./gradlew syncAtlas` stages `libs/void-atlas.jar` (built from a `git archive`
 snapshot of the `claude/atlas` branch under `build/atlas-snapshot/`, so the Atlas worktree is never
@@ -79,6 +88,11 @@ touched; `-PatlasRef=<ref>` for another commit, `-PatlasJar=<file>` to stage a j
 copy of the few API signatures it calls (excluded from the jar).
 
 **What Atlas would need** (not changed here; Atlas is another engineer's):
+
+* **one map state per session**: `createMapWidget()` and the M screen over the same page state (view,
+  zoom, layer, band, selection, panel tab), so the hub's reflective copy can go;
+* tracking lines, when Atlas draws any (a line from the player to a tracked place), as solid hairlines,
+  never dashes or dots (Figma 375:36239's rule; the hub itself draws none);
 
 * a Maven publication (`maven-publish`, so `publishToMavenLocal` works) instead of the snapshot build;
 * `MapWidget.view()` returning its current `MapView` (centre, zoom, layer) — the tests read it
@@ -91,8 +105,9 @@ copy of the few API signatures it calls (excluded from the jar).
   `MapPage` does: the hub follows dimension changes with `showLayer`, but cannot tell "underground";
 * the map key as API (`AtlasApi.isMapKey(KeyEvent)`), so M could close the hub on the Map page like it
   closes Atlas's screen;
-* a way to give the widget a unit: it picks the largest of its fixed font scales that fits the
-  rectangle, so at 1920×1080 (GUI scale 4) Atlas draws at 1.0 while the hub's islands are at 1.27.
+* the scale as API (`MapWidget.unitFor(width, height)` or a unit the host passes): the hub mirrors
+  Atlas's list of scales to size the window so the page lands at exactly 1280×744; at 1920×1080
+  (GUI scale 4) that is Atlas at 1.0 while the hub's islands are at 1.27.
 
 ## Architecture
 

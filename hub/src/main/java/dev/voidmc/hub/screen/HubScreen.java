@@ -220,7 +220,8 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 			this.extractMap(graphics, mouseX, mouseY, gs);
 		}
 		this.hub.frame();
-		if (!map) {
+		// frame() delivers the page's messages: a page switch may just have changed the layout.
+		if (!map && !this.onMap()) {
 			// 3. Native stacks, at the same rects the page drew the wells at.
 			this.extractStacks(graphics, mouseX, mouseY, gs);
 			this.extractDetailIcon(graphics, gs);
@@ -457,7 +458,8 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		}
 		String name = host.addWaypointHere(this.onMap());
 		if (name != null) {
-			this.pillNote = name + " added";
+			// The pill keeps its width (the strip is fixed): the name is on the map's card.
+			this.pillNote = "Waypoint added";
 			this.pillNoteUntil = System.nanoTime() + 1_600_000_000L;
 		}
 		return name;
