@@ -54,6 +54,12 @@ public final class Hut implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		Habits h = d.habits();
 		boolean round = d.chance(h.plan().round()) && d.frontage() >= 5 && d.depth() >= 5;
 		if (round) {

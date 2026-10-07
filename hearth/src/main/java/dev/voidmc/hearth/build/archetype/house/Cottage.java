@@ -62,6 +62,12 @@ public final class Cottage implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		int rise = d.site().riseToBack();
 		boolean hillside = Math.abs(rise) >= 3 && d.depth() >= 8 && !d.param("terraced", false) && d.param("split", true)
 			&& !d.site().anyWater(0, 0, d.frontage() - 1, d.depth() - 1);
