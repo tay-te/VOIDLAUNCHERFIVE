@@ -21,7 +21,7 @@ import net.minecraft.world.level.levelgen.densityfunction.op.InterpolatedFunctio
  * first block of air from above: the tiles next to the chunks, and the trees stood on them, then meet the chunks block
  * for block. Caves that only open at the surface by their fine noise, and the ground a structure levels, are left out.
  */
-final class NoiseSurface {
+public final class NoiseSurface {
 	/**
 	 * Blocks sampled above and below the model's height first: its 3D noise moves the ground under four blocks. Where
 	 * the ground is not within that, the corners are sampled further, up to {@link #FAR}.
@@ -74,7 +74,7 @@ final class NoiseSurface {
 	}
 
 	/** For the world whose noise is {@code randomState}'s, or null if its final density is not interpolated. */
-	static NoiseSurface of(RandomState randomState) {
+	public static NoiseSurface of(RandomState randomState) {
 		InterpolatedFunction interpolated = find(((dev.voidmc.lod.mixin.RandomStateAccessor) (Object) randomState).voidLod$router().finalDensity(), 0);
 		if (interpolated == null) {
 			return null;
@@ -123,7 +123,7 @@ final class NoiseSurface {
 	 * The first block of air above the ground in column (x, z), whose model height is {@code height}; or
 	 * {@link Integer#MIN_VALUE} if the ground is not within reach of it (a cave opening, a structure).
 	 */
-	int firstAir(int x, int z, float height) {
+	public int firstAir(int x, int z, float height) {
 		long t0 = System.nanoTime();
 		int air = this.firstAir(x, z, height, REACH);
 		if (air == Integer.MIN_VALUE) {

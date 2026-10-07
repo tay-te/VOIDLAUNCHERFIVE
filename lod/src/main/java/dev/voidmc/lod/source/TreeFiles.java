@@ -60,7 +60,7 @@ final class TreeFiles {
 	}
 
 	/** The chunk's trees as kept, or null if they never were. */
-	synchronized TreeDecorator.Placed read(int cx, int cz) {
+	synchronized TreePlacer.Placed read(int cx, int cz) {
 		int rx = cx >> 5, rz = cz >> 5;
 		long[] index = this.index(rx, rz);
 		long at = index == null ? 0 : index[(cx & 31) + (cz & 31) * 32];
@@ -99,14 +99,14 @@ final class TreeFiles {
 				positions[kept] = net.minecraft.core.BlockPos.asLong(x, y, z);
 				states[kept++] = state;
 			}
-			return new TreeDecorator.Placed(Arrays.copyOf(positions, kept), Arrays.copyOf(states, kept));
+			return new TreePlacer.Placed(Arrays.copyOf(positions, kept), Arrays.copyOf(states, kept));
 		} catch (IOException | DataFormatException | RuntimeException e) {
 			return null;
 		}
 	}
 
 	/** Keeps the chunk's trees: appended to its region's file. */
-	synchronized void write(int cx, int cz, TreeDecorator.Placed placed) {
+	synchronized void write(int cx, int cz, TreePlacer.Placed placed) {
 		int rx = cx >> 5, rz = cz >> 5;
 		long[] index = this.index(rx, rz);
 		if (index == null) {

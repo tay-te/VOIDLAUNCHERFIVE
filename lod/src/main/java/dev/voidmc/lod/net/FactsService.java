@@ -62,6 +62,7 @@ public final class FactsService {
 		ServerEntityLevelChangeEvents.AFTER_PLAYER_CHANGE_LEVEL.register((player, from, to) -> hello(player, to));
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> QUEUED.remove(handler.player.getUUID()));
 		ServerPlayNetworking.registerGlobalReceiver(LodNet.TileRequest.TYPE, (request, context) -> request(request, context.player()));
+		ServerPlayNetworking.registerGlobalReceiver(LodNet.TreeRequest.TYPE, (request, context) -> trees(request, context.player()));
 	}
 
 	/** Offers the player's client the land of {@code level}, if it is Expanse's and the client listens. */
@@ -114,6 +115,85 @@ public final class FactsService {
 				});
 			} catch (RuntimeException e) {
 				LOGGER.warn("VOID LOD: could not describe tile {} for {}", r.key(), player.getName().getString(), e);
+			} finally {
+				queued.decrementAndGet();
+			}
+		});
+	}
+
+	/** Per level, its trees as the chunks will have them, placed for the clients that ask ({@code source.TreePlacer}). */
+	private static final Map<ServerLevel, Trees> TREES_BY_LEVEL = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+	/** A level's tree placer and the ground it stands them on: the terrain model's, block for block. */
+	private record Trees(dev.voidmc.lod.source.TreePlacer placer, dev.voidmc.lod.core.Decorator.Ground ground) {
+	}
+
+	private static Trees treesOf(ServerLevel level, EarthChunkGenerator earth) {
+		return TREES_BY_LEVEL.computeIfAbsent(level, l -> {
+			var randomState = l.getChunkSource().randomState();
+			TerrainModel model = earth.model(randomState);
+			int seaLevel = earth.getSeaLevel();
+			dev.voidmc.lod.source.Materials materials = new dev.voidmc.lod.source.Materials();
+			dev.voidmc.lod.source.NoiseSurface surface;
+			try {
+				surface = dev.voidmc.lod.source.NoiseSurface.of(randomState);
+			} catch (RuntimeException | LinkageError e) {
+				surface = null;
+			}
+			dev.voidmc.lod.source.NoiseSurface exact = surface;
+			ThreadLocal<BiomeResolver> resolvers = ThreadLocal.withInitial(() -> earth.getBiomeSource().createCachingResolver(randomState));
+			ThreadLocal<ExpanseFacts> facts = ThreadLocal.withInitial(ExpanseFacts::new);
+			int grass = materials.id(net.minecraft.world.level.block.Blocks.GRASS_BLOCK.defaultBlockState(), true);
+			int sand = materials.id(net.minecraft.world.level.block.Blocks.SAND.defaultBlockState(), true);
+			dev.voidmc.lod.core.Decorator.Ground ground = (x, z, out) -> {
+				ExpanseFacts f = facts.get().of(model.sample(x, z));
+				if (exact != null) {
+					int air = exact.firstAir(x, z, f.height);
+					if (air != Integer.MIN_VALUE) {
+						f.height = air;
+					}
+				}
+				f.geometry(1, seaLevel);
+				out.ground = f.ground;
+				out.water = f.water;
+				out.empty = false;
+				boolean wet = f.water != Integer.MIN_VALUE && f.water > f.ground;
+				// what the trees stand on: grass on dry land (a sapling's test), sand where water stands
+				out.topMaterial = wet ? sand : grass;
+				Holder<Biome> biome = resolvers.get().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(f.biomeY(seaLevel)), QuartPos.fromBlock(z));
+				out.biome = biome.unwrapKey().map(k -> dev.voidmc.lod.core.BiomeIds.id(k.identifier().toString())).orElse(-1);
+			};
+			dev.voidmc.lod.source.TreePlacer placer = dev.voidmc.lod.source.TreePlacer.of(l,
+				(x, y, z) -> resolvers.get().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z)), materials);
+			return new Trees(placer, ground);
+		});
+	}
+
+	private static void trees(LodNet.TreeRequest r, ServerPlayer player) {
+		AtomicInteger queued = QUEUED.computeIfAbsent(player.getUUID(), u -> new AtomicInteger());
+		if (queued.incrementAndGet() > MAX_QUEUED) {
+			queued.decrementAndGet();
+			return;
+		}
+		ServerLevel level = player.level();
+		var server = level.getServer();
+		WORK.execute(() -> {
+			try {
+				byte[] data = new byte[0];
+				if (level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth) {
+					Trees trees = treesOf(level, earth);
+					if (trees.placer() != null) {
+						data = LodNet.encode(r.cx(), r.cz(), trees.placer().placed(r.cx(), r.cz(), trees.ground()));
+					}
+				}
+				byte[] sent = data;
+				server.execute(() -> {
+					if (!player.hasDisconnected()) {
+						ServerPlayNetworking.send(player, new LodNet.TreeChunk(r.cx(), r.cz(), sent));
+					}
+				});
+			} catch (RuntimeException | LinkageError e) {
+				LOGGER.warn("VOID LOD: could not place the trees of chunk {}, {} for {}", r.cx(), r.cz(), player.getName().getString(), e);
 			} finally {
 				queued.decrementAndGet();
 			}

@@ -155,6 +155,13 @@ public final class VoidLod implements ClientModInitializer {
 		// a server with VOID LOD describes the land past the view (net.FactsService)
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(dev.voidmc.lod.net.LodNet.Hello.TYPE,
 			(hello, context) -> this.hello(hello));
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(dev.voidmc.lod.net.LodNet.TreeChunk.TYPE,
+			(trees, context) -> {
+				RemoteSource remote = this.remote;
+				if (remote != null) {
+					remote.receiveTrees(trees);
+				}
+			});
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(dev.voidmc.lod.net.LodNet.TileFacts.TYPE,
 			(facts, context) -> {
 				RemoteSource remote = this.remote;

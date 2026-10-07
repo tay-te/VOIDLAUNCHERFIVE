@@ -355,7 +355,11 @@ into the LOD (`source/ChunkIngest`), and the far view shows the world as it is:
   them with its own textures (`source.RemoteSource`, sharing `ExpanseColours` with singleplayer), so the
   far land looks as it does in singleplayer, and keeps them in the generator cache under
   `void_lod/servers/<address>/generated`. The seed never leaves the server. Without VOID LOD on the server
-  the LOD draws only what the client has seen (this session and every earlier one there).
+  the LOD draws only what the client has seen (this session and every earlier one there). The server also places the
+  world's trees for the client's close tiles, as singleplayer does (`source/TreePlacer` on the server, the same
+  stand-in world, its ground from the terrain model block for block): the client asks for a chunk's trees
+  (at most 24 in flight, asked again after 20 s), gets the logs and leaves as block states, and paints them with
+  its own textures.
 
 In the showcase world: a red concrete deck pierced by a gold tower and a trench cut across the land, built
 in loaded chunks, then seen from 480 blocks away (render distance 8: the chunks end at 128 blocks), and

@@ -23,7 +23,7 @@ import net.minecraft.resources.Identifier;
  */
 public final class LodNet {
 	/** Bumped when the facts change shape: a client and server of different versions keep to what they each have. */
-	public static final int VERSION = 2;
+	public static final int VERSION = 3;
 	/** The most a tile's facts may take on the wire: 66 x 66 columns of 40 bytes, deflated, with room to spare. */
 	private static final int MAX_FACTS = 1 << 20;
 
@@ -135,10 +135,119 @@ public final class LodNet {
 		}
 	}
 
+	/** The trees of chunk (cx, cz), asked of a server that places them (its world's own, as singleplayer has them). */
+	public record TreeRequest(int cx, int cz) implements CustomPacketPayload {
+		public static final Type<TreeRequest> TYPE = new Type<>(Identifier.fromNamespaceAndPath("void_lod", "tree_request"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, TreeRequest> CODEC = StreamCodec.of((buf, r) -> {
+			buf.writeInt(r.cx);
+			buf.writeInt(r.cz);
+		}, buf -> new TreeRequest(buf.readInt(), buf.readInt()));
+
+		@Override
+		public Type<? extends CustomPacketPayload> type() {
+			return TYPE;
+		}
+	}
+
+	/**
+	 * A chunk's trees, deflated: a palette of block states (written as commands write them), then per block its place in
+	 * the chunk (x and z 4 bits each, y biased) and its palette index. Empty {@code data}: none placed.
+	 */
+	public record TreeChunk(int cx, int cz, byte[] data) implements CustomPacketPayload {
+		public static final Type<TreeChunk> TYPE = new Type<>(Identifier.fromNamespaceAndPath("void_lod", "tree_chunk"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, TreeChunk> CODEC = StreamCodec.of((buf, c) -> {
+			buf.writeInt(c.cx);
+			buf.writeInt(c.cz);
+			buf.writeByteArray(c.data);
+		}, buf -> new TreeChunk(buf.readInt(), buf.readInt(), buf.readByteArray(MAX_FACTS)));
+
+		@Override
+		public Type<? extends CustomPacketPayload> type() {
+			return TYPE;
+		}
+	}
+
+	/** A chunk's trees for the wire ({@link TreeChunk#data}). */
+	public static byte[] encode(int cx, int cz, dev.voidmc.lod.source.TreePlacer.Placed placed) {
+		java.util.Map<net.minecraft.world.level.block.state.BlockState, Integer> index = new java.util.LinkedHashMap<>();
+		java.io.ByteArrayOutputStream raw = new java.io.ByteArrayOutputStream();
+		java.io.DataOutputStream out = new java.io.DataOutputStream(raw);
+		try {
+			for (var state : placed.states()) {
+				index.putIfAbsent(state, index.size());
+			}
+			out.writeShort(index.size());
+			for (var state : index.keySet()) {
+				out.writeUTF(net.minecraft.commands.arguments.blocks.BlockStateParser.serialize(state));
+			}
+			out.writeInt(placed.positions().length);
+			for (int i = 0; i < placed.positions().length; i++) {
+				long p = placed.positions()[i];
+				int x = net.minecraft.core.BlockPos.getX(p), y = net.minecraft.core.BlockPos.getY(p), z = net.minecraft.core.BlockPos.getZ(p);
+				out.writeInt((x - cx * 16 & 15) | (z - cz * 16 & 15) << 4 | (y + 4096) << 8);
+				out.writeShort(index.get(placed.states()[i]));
+			}
+		} catch (java.io.IOException e) {
+			throw new IllegalStateException(e);
+		}
+		java.util.zip.Deflater deflater = new java.util.zip.Deflater(java.util.zip.Deflater.BEST_SPEED);
+		try {
+			deflater.setInput(raw.toByteArray());
+			deflater.finish();
+			java.io.ByteArrayOutputStream zipped = new java.io.ByteArrayOutputStream();
+			byte[] chunk = new byte[8192];
+			while (!deflater.finished()) {
+				zipped.write(chunk, 0, deflater.deflate(chunk));
+			}
+			return zipped.toByteArray();
+		} finally {
+			deflater.end();
+		}
+	}
+
+	/** A chunk's trees from the wire; blocks this game does not have are left out. */
+	public static dev.voidmc.lod.source.TreePlacer.Placed decode(int cx, int cz, byte[] data) throws java.io.IOException {
+		java.util.zip.Inflater inflater = new java.util.zip.Inflater();
+		byte[] raw;
+		try (var in = new java.util.zip.InflaterInputStream(new java.io.ByteArrayInputStream(data), inflater)) {
+			raw = in.readAllBytes();
+		} finally {
+			inflater.end();
+		}
+		java.io.DataInputStream in = new java.io.DataInputStream(new java.io.ByteArrayInputStream(raw));
+		int names = in.readUnsignedShort();
+		net.minecraft.world.level.block.state.BlockState[] palette = new net.minecraft.world.level.block.state.BlockState[names];
+		for (int i = 0; i < names; i++) {
+			String name = in.readUTF();
+			try {
+				palette[i] = net.minecraft.commands.arguments.blocks.BlockStateParser.parseForBlock(
+					net.minecraft.core.registries.BuiltInRegistries.BLOCK, name, false).blockState();
+			} catch (Exception e) {
+				palette[i] = null;
+			}
+		}
+		int count = in.readInt();
+		long[] positions = new long[count];
+		net.minecraft.world.level.block.state.BlockState[] states = new net.minecraft.world.level.block.state.BlockState[count];
+		int kept = 0;
+		for (int i = 0; i < count; i++) {
+			int p = in.readInt();
+			int k = in.readUnsignedShort();
+			if (k >= names || palette[k] == null) {
+				continue;
+			}
+			positions[kept] = net.minecraft.core.BlockPos.asLong(cx * 16 + (p & 15), (p >> 8) - 4096, cz * 16 + (p >> 4 & 15));
+			states[kept++] = palette[k];
+		}
+		return new dev.voidmc.lod.source.TreePlacer.Placed(java.util.Arrays.copyOf(positions, kept), java.util.Arrays.copyOf(states, kept));
+	}
+
 	/** Registers the payloads, both ways: from the common entrypoint, on client and server alike. */
 	public static void init() {
 		PayloadTypeRegistry.clientboundPlay().register(Hello.TYPE, Hello.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(TileRequest.TYPE, TileRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().registerLarge(TileFacts.TYPE, TileFacts.CODEC, MAX_FACTS + 64);
+		PayloadTypeRegistry.serverboundPlay().register(TreeRequest.TYPE, TreeRequest.CODEC);
+		PayloadTypeRegistry.clientboundPlay().registerLarge(TreeChunk.TYPE, TreeChunk.CODEC, MAX_FACTS + 64);
 	}
 }
