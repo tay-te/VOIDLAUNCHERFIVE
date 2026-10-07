@@ -188,7 +188,8 @@ the §6.1 and §8.5 defaults (`catalogue/DefaultCatalogue`) stand in.
   floor up to the crest first (the dwelling is `terraced`), so each course stands in the open, the face a staircase of
   ledges. Terraces of neighbouring columns run on into each other and onto the climbs'
   landings (`open_left`/`open_right`; the stairs leave `gaps` there and `cap` their walls). Once the inner columns
-  have climbed halfway, a watchtower lookout (`lookout`) stands on the crest at the head of the main climb. The quarter
+  have climbed halfway, a watchtower lookout (`lookout`) stands on the crest in line with the main climb, its door
+  at the head of the flight (its ground, held from the founding, wins over a column's top course). The quarter
   is a pure function of the ground, the heart and the cliff direction, so it is the same on every planning call.
 
 ## 7. Infrastructure params (the contract with the build module)

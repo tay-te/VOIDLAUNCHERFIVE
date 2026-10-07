@@ -325,7 +325,7 @@ public final class CliffFace {
 		int[] sq = f.rect(COLUMNS[0][0], COLUMNS[0][0] + COLUMNS[0][1] - 1, f.back(0), f.front(0));
 		held.add(0, new Reservation(TAG + "0", sq[0], sq[1], sq[2], sq[3], Cell.RESERVED));
 		for (Reservation r : held) {
-			if (!vacant(ctx, r)) {
+			if (!vacant(ctx, r, false)) {
 				return null;
 			}
 		}
@@ -354,39 +354,50 @@ public final class CliffFace {
 			}
 		}
 		if (main != null) {
-			// the lookout's ground on the crest at the head of the main climb, facing the town: in line with the flight,
-			// else beside its last steps on the side away from the square (whose column reaches deepest into the face),
-			// else further back on the crest
+			// the lookout's ground on the crest at the head of the main climb, in line with the flight and facing the town,
+			// its door at the head of the flight (the road's end); it takes precedence over the top course of a column it
+			// overlaps
 			int[] p = main.line().points();
 			int ex = p[p.length - 3];
 			int ez = p[p.length - 1];
 			int te = f.t(ex, ez);
 			int ue = f.u(ex, ez);
-			int s = Integer.signum(te);
-			int[][] tries = {{te - 3, te + 3, 2}, {te - s, te + 5 * s, 2}, {te - 3, te + 3, 5}, {te - s, te + 5 * s, 5}};
-			for (int[] at : tries) {
-				int[] r = f.rect(at[0], at[1], ue - at[2] - 6, ue - at[2]);
-				Reservation top = new Reservation(TOP, r[0], r[1], r[2], r[3], Cell.RESERVED);
-				if (vacant(ctx, top)) {
-					state.reservations.add(top);
-					ctx.occ.markRect(r[0], r[1], r[2], r[3], Cell.RESERVED);
-					break;
-				}
+			int[] r = f.rect(te - 3, te + 3, ue - 8, ue - 2);
+			Reservation top = new Reservation(TOP, r[0], r[1], r[2], r[3], Cell.RESERVED);
+			if (vacant(ctx, top, true)) {
+				state.reservations.add(top);
+				ctx.occ.markRect(r[0], r[1], r[2], r[3], Cell.RESERVED);
 			}
 		}
 		return main;
 	}
 
-	private static boolean vacant(PlanContext ctx, Reservation r) {
+	/** Whether a rectangle is free for the quarter ({@code overFace}: the quarter's own columns count as free). */
+	private static boolean vacant(PlanContext ctx, Reservation r, boolean overFace) {
 		for (int z = r.z0(); z <= r.z1(); z++) {
 			for (int x = r.x0(); x <= r.x1(); x++) {
 				byte c = ctx.occ.get(x, z);
-				if (!(Cell.isBuildable(c) || c == Cell.PLANNED_ROAD) || ctx.ground.isWater(x, z)) {
+				boolean face = overFace && c == Cell.RESERVED && columnGround(ctx, x, z);
+				if (!(Cell.isBuildable(c) || c == Cell.PLANNED_ROAD || face) || ctx.ground.isWater(x, z)) {
 					return false;
 				}
 			}
 		}
 		return true;
+	}
+
+	/** Whether a column is held by the quarter's columns and nothing else. */
+	private static boolean columnGround(PlanContext ctx, int x, int z) {
+		boolean face = false;
+		for (Reservation r : ctx.state.reservations) {
+			if (r.contains(x, z)) {
+				if (!r.tag().startsWith(TAG)) {
+					return false;
+				}
+				face = true;
+			}
+		}
+		return face;
 	}
 
 	/**

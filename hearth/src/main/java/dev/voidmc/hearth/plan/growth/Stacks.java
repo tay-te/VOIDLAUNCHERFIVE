@@ -375,7 +375,7 @@ public final class Stacks {
 		int[] mid = {(top.x0() + top.x1()) / 2, (top.z0() + top.z1()) / 2};
 		int tm = f.t(mid[0], mid[1]);
 		int uf = Math.max(f.u(top.x0(), top.z0()), f.u(top.x1(), top.z1()));
-		// the way it is reached: the head of the climb or the lane along the crest, a few steps in front of its door
+		// the way it is reached: the head of the climb, at its door
 		int[] at = null;
 		for (int k = 1; k <= 4 && at == null; k++) {
 			at = Roads.edgeAt(ctx, f.x(tm, uf + k), f.z(tm, uf + k));
