@@ -78,7 +78,7 @@ pockets to answer for. The rule is unchanged.
   posts with a sill under it; the dyed cloth drying on a line high between poles over the yard wall.
 - **Hunters' lodge**: in the timber cultures a **log lodge**: round logs course on course (`LogWalls.lay`), notched
   corners whose ends (both walls') stand out a block on every course in a clean column, only at the four corners (over
-  head height where the plot leaves no room to step round), a steep gable turned to the clearing carried
+  head height where the plot leaves no room to step round, or where a low end would bar the yard: `LogWalls.keepWays`), a steep gable turned to the clearing carried
   on over the porch; a little roof over the smoking rack.
 - **Builders' yard**: every job site at a real workstation: the joiner's bench (crafting table) at the trestles, the
   rigger's bench at the crane's foot, a stone banker (stonecutter) beside the trial wall, as well as the shed's benches,

@@ -90,6 +90,55 @@ public final class LogWalls {
 		return n;
 	}
 
+	/**
+	 * Called once the yard is furnished: where a corner end standing from the foot up (as {@link #lay} sets them where
+	 * a walker could step round) now bars the only way to a bed, bench or store, its two lowest logs come out again, so
+	 * that end column starts over head height. The ring and {@code y0} are those given to {@link #lay}.
+	 */
+	public static void keepWays(Draft d, int x0, int z0, int x1, int z1, int y0) {
+		int stranded = dev.voidmc.hearth.build.kit.age.Reach.unreached(d).size();
+		for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
+			for (boolean endX : new boolean[]{true, false}) {
+				if (stranded == 0) {
+					return;
+				}
+				int ex = c[0] + (endX ? (c[0] == x0 ? -1 : 1) : 0);
+				int ez = c[1] + (endX ? 0 : (c[1] == z0 ? -1 : 1));
+				// the end column's foot: its lowest log at or over the first course
+				int yl = y0;
+				while (yl < y0 + 8 && !isLog(d, ex, yl, ez)) {
+					yl++;
+				}
+				if (!isLog(d, ex, yl, ez)) {
+					continue;
+				}
+				BlockState foot = d.get(ex, yl, ez);
+				BlockState head = isLog(d, ex, yl + 1, ez) ? d.get(ex, yl + 1, ez) : null;
+				d.remove(ex, yl, ez);
+				if (head != null) {
+					d.remove(ex, yl + 1, ez);
+				}
+				int now = dev.voidmc.hearth.build.kit.age.Reach.unreached(d).size();
+				if (now < stranded) {
+					stranded = now;
+					continue;
+				}
+				// it was not this end in the way: put it back
+				try (var s = d.stage(StageKind.WALLS)) {
+					d.set(ex, yl, ez, foot);
+					if (head != null) {
+						d.set(ex, yl + 1, ez, head);
+					}
+				}
+			}
+		}
+	}
+
+	private static boolean isLog(Draft d, int x, int y, int z) {
+		BlockState s = d.get(x, y, z);
+		return s != null && s.getBlock() instanceof net.minecraft.world.level.block.RotatedPillarBlock;
+	}
+
 	private static int relay(Draft d, int x, int y, int z, Direction.Axis axis, Mat logs) {
 		BlockState s = d.get(x, y, z);
 		if (s == null || s.isAir() || !d.isSolid(x, y, z) || s.hasBlockEntity()) {
