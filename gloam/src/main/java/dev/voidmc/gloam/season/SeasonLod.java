@@ -21,9 +21,9 @@ import net.minecraft.world.level.block.state.BlockState;
  * of it now ({@code seasoned}): the target hue is the seasoned colour, the brightness the ratio of their brightnesses,
  * so a far face, a texture's average times its biome's tint, comes out as that texture times the season's tint, which
  * is what the chunks show. The amount is how far the season has moved the colour, so in summer each biome keeps its
- * own greens. Crowns take one of four variants by where they stand ({@code LodApi.seasonVariant}, the same hash the
- * near crowns use: {@link SeasonLeaves#tree}), so a far autumn wood is red, orange, gold and late green, tree for tree as
- * near. Bare winter crowns are the season's twig grey-brown, lifted as the sky and land show through them.
+ * own greens. Crowns take one of four palette variants by where they stand ({@code LodApi.seasonVariant}, the same hash
+ * the near crowns use: {@link SeasonResolvers}), so a far autumn wood is red, orange, gold and late green, tree for tree
+ * as near. Bare winter crowns are the season's twig grey-brown, lifted as the sky and land show through them.
  *
  * <p>Touches VOID LOD's classes only when it is loaded ({@link Lod#LOADED}).
  */
@@ -83,22 +83,21 @@ final class SeasonLod {
 		grass(t, GRASS_WET, SIDE_WET, 0x79C05A, 0.7F, 0.8F, c);
 		grass(t, GRASS_WARM, SIDE_WARM, 0xA8B858, 1.2F, 0.35F, c);
 		for (int v = 0; v < VARIANTS; v++) {
-			float[] tree = SeasonLeaves.variant(v);
-			int broad = c.foliage(0x77AB2F, 0.8F, 0.4F);
-			entry(t, BROADLEAF, v, 0x77AB2F, crown(c, broad, tree), 1);
-			entry(t, BROADLEAF_WARM, v, 0x7AB038, crown(c, c.foliage(0x7AB038, 1.2F, 0.4F), tree), 1);
+			int broad = c.foliage(0x77AB2F, 0.8F, 0.4F, v);
+			entry(t, BROADLEAF, v, 0x77AB2F, crown(c, broad), 1);
+			entry(t, BROADLEAF_WARM, v, 0x7AB038, crown(c, c.foliage(0x7AB038, 1.2F, 0.4F, v)), 1);
 			int needles = c.conifer(SeasonLeaves.SPRUCE, 0.25F, 0.8F);
 			entry(t, NEEDLES, v, SeasonLeaves.SPRUCE, needles, 1);
 			int mixedBase = SeasonColours.mix(0x77AB2F, SeasonLeaves.SPRUCE, 0.5F);
-			entry(t, MIXED, v, mixedBase, SeasonColours.mix(crown(c, broad, tree), needles, 0.5F), 1);
-			entry(t, BIRCH, v, SeasonLeaves.BIRCH, crown(c, c.birch(SeasonLeaves.BIRCH, 0.6F, 0.6F), tree), 1);
+			entry(t, MIXED, v, mixedBase, SeasonColours.mix(crown(c, broad), needles, 0.5F), 1);
+			entry(t, BIRCH, v, SeasonLeaves.BIRCH, crown(c, c.birch(SeasonLeaves.BIRCH, 0.6F, 0.6F, v)), 1);
 			// Expanse's untinted crowns: their own colour (a texture's average) turned as the near ones' textures are
-			untinted(t, BEECH, v, 0x48852C, SeasonColours.mix(0x48852C, 0xB26A2E, c.turned()), c, tree);
-			untinted(t, WILLOW, v, 0x89AE53, SeasonColours.mix(0x89AE53, 0xC0A845, c.turned()), c, tree);
-			untinted(t, MAPLE, v, 0xB63C23, SeasonalLeaves.drawnAutumn(0xB63C23, 0x5F8C35, c), c, tree);
-			untinted(t, ORANGE_MAPLE, v, 0xCB7724, SeasonalLeaves.drawnAutumn(0xCB7724, 0x6B9038, c), c, tree);
-			untinted(t, ASPEN, v, 0xBEAA36, SeasonalLeaves.drawnAutumn(0xBEAA36, 0x86A848, c), c, tree);
-			untinted(t, LARCH, v, 0xCEA23A, SeasonalLeaves.drawnAutumn(0xCEA23A, 0x7FA850, c), c, tree);
+			untinted(t, BEECH, v, 0x48852C, SeasonColours.mix(0x48852C, 0xB26A2E, c.turned()), c);
+			untinted(t, WILLOW, v, 0x89AE53, SeasonColours.mix(0x89AE53, 0xC0A845, c.turned()), c);
+			untinted(t, MAPLE, v, 0xB63C23, SeasonalLeaves.drawnAutumn(0xB63C23, 0x5F8C35, c), c);
+			untinted(t, ORANGE_MAPLE, v, 0xCB7724, SeasonalLeaves.drawnAutumn(0xCB7724, 0x6B9038, c), c);
+			untinted(t, ASPEN, v, 0xBEAA36, SeasonalLeaves.drawnAutumn(0xBEAA36, 0x86A848, c), c);
+			untinted(t, LARCH, v, 0xCEA23A, SeasonalLeaves.drawnAutumn(0xCEA23A, 0x7FA850, c), c);
 		}
 		return t;
 	}
@@ -112,15 +111,13 @@ final class SeasonLod {
 		}
 	}
 
-	/** A crown this time of year, its tree's own about it, and lighter as it goes bare (the sky and land show through). */
-	private static int crown(SeasonColours c, int seasoned, float[] tree) {
-		int own = c.tree(seasoned, tree[0], tree[1], tree[2]);
-		return SeasonColours.scale(own, 1 + (BARE_LIFT - 1) * c.bare());
+	/** A crown this time of year, lighter as it goes bare (the sky and land show through). */
+	private static int crown(SeasonColours c, int seasoned) {
+		return SeasonColours.scale(seasoned, 1 + (BARE_LIFT - 1) * c.bare());
 	}
 
-	private static void untinted(float[] t, int cls, int v, int base, int seasoned, SeasonColours c, float[] tree) {
-		int own = SeasonColours.scale(seasoned, 1 + (tree[2] - 0.5F) * 0.12F);
-		entry(t, cls, v, base, SeasonColours.scale(own, 1 + (BARE_LIFT - 1) * c.bare()), 1);
+	private static void untinted(float[] t, int cls, int v, int base, int seasoned, SeasonColours c) {
+		entry(t, cls, v, base, crown(c, seasoned), 1);
 	}
 
 	/**

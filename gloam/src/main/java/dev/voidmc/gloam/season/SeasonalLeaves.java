@@ -231,7 +231,7 @@ final class SeasonalLeaves {
 		}
 		float lift = luma(rgb) / Math.max(1, luma(summer));
 		int c = SeasonColours.mix(rgb, SeasonColours.scale(summer, lift), green(colours));
-		return SeasonColours.mix(c, SeasonColours.scale(0x6E6157, Math.min(1.3F, lift)), colours.bare() * 0.8F);
+		return SeasonColours.mix(c, SeasonColours.scale(0x7E6C5A, Math.min(1.3F, lift)), colours.bare() * 0.8F);
 	}
 
 	private static float luma(int rgb) {
