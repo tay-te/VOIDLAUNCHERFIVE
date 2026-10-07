@@ -111,7 +111,7 @@ final class Measure {
 		for (String dbgSpec : System.getProperty("audit.reach", "").split(";")) for (String dbgLv : dbgSpec.isEmpty() ? new String[0] : dbgSpec.substring(dbgSpec.lastIndexOf(',') + 1).split("/")) {
 		String dbg = dbgSpec.substring(0, dbgSpec.lastIndexOf(',') + 1) + dbgLv;
 		String terr = System.getProperty("audit.reachTerrain", "");
-		if (!terr.isEmpty() && !spec.toString().contains(terr)) continue;
+		if (!terr.isEmpty() && !terr.equals(String.valueOf(m.get("terrain")))) continue;
 		if (!dbg.isEmpty() && dbg.startsWith(spec.archetype().getPath() + "," + spec.style().getPath() + "," + spec.seed() + "," + spec.facing().getSerializedName() + ",")) {
 			// a walk map in the plot's frame at one standing level: r reached, + walkable, # solid, . air; front (z = -1) at the bottom
 			int ly = Integer.parseInt(dbg.substring(dbg.lastIndexOf(',') + 1));
@@ -129,6 +129,20 @@ final class Measure {
 				sb.append(System.lineSeparator());
 			}
 			System.out.println(sb);
+			// -Daudit.col=lx,lz[;lx,lz]: the blocks of those columns (local frame), bottom up
+			for (String col : System.getProperty("audit.col", "").split(";")) {
+				if (col.isEmpty()) {
+					continue;
+				}
+				int clx = Integer.parseInt(col.split(",")[0]);
+				int clz = Integer.parseInt(col.split(",")[1]);
+				StringBuilder cs = new StringBuilder("column " + clx + "," + clz + ":");
+				for (int cy = -3; cy <= 10; cy++) {
+					cs.append(" ").append(cy).append("=").append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(
+						g.at(lfr.worldX(clx, clz), floor + cy, lfr.worldZ(clx, clz)).getBlock()).getPath());
+				}
+				System.out.println(cs);
+			}
 			System.out.println(BlueprintChecks.reachMap(bp, probe, floor + ly) + "entrances " + bp.entrances() + " floor " + floor + " grid y0 " + g.y0 + " spec " + spec);
 		}
 		}
