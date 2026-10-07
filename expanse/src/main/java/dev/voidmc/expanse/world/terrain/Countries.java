@@ -118,8 +118,29 @@ final class Countries {
 		out.seed = PlateMap.mix(this.seed ^ 0x5345_4544L, bx, bz);
 	}
 
+	/** A per-thread cache in front of {@link #kinds} (a column asks after 25 sites; the shared map boxes every key). */
+	private final ThreadLocal<long[]> nearKeys = ThreadLocal.withInitial(() -> {
+		long[] a = new long[256];
+		java.util.Arrays.fill(a, Long.MIN_VALUE);
+		return a;
+	});
+	private final ThreadLocal<int[]> nearKinds = ThreadLocal.withInitial(() -> new int[256]);
+
 	private int kindOf(int cx, int cz, double px, double pz) {
 		long key = (long) cx << 32 ^ cz & 0xFFFF_FFFFL;
+		long[] keys = this.nearKeys.get();
+		int slot = (int) (PlateMap.mix(9, cx, cz) & 255);
+		if (keys[slot] == key) {
+			return this.nearKinds.get()[slot];
+		}
+		int found = this.sharedKindOf(key, cx, cz, px, pz);
+		keys[slot] = key;
+		this.nearKinds.get()[slot] = found;
+		return found;
+	}
+
+	private int sharedKindOf(long packed, int cx, int cz, double px, double pz) {
+		long key = PlateMap.scramble(packed);   // (the packed pair alone hashes to cx ^ cz: a diagonal in one bucket)
 		Integer k = this.kinds.get(key);
 		if (k == null) {
 			float[] climate = this.model.climate(px, pz);
@@ -131,13 +152,21 @@ final class Countries {
 
 	/** A country's kind from the climate at its site and a roll. */
 	static int choose(float temperature, float humidity, double roll) {
-		boolean tropical = humidity > 0.1F && temperature > 0.45F;
-		boolean dry = humidity < -0.25F;
+		// (the bands are vanilla's biome table's: below -0.45 the cold, to 0.2 the temperate, to 0.55 the warm where the
+		// savannas and jungles grow, and over that the hot)
+		boolean dry = humidity < -0.2F;
 		if (temperature < -0.45F) {
 			return roll < 0.45 ? LAKE_DISTRICT : roll < 0.75 ? OLD_FOREST : NONE;
 		}
-		if (temperature > 0.55F || tropical || dry) {
-			return roll < 0.15 && !dry ? GORGES : roll < 0.3 ? VOLCANIC_HILLS : NONE;
+		if (temperature >= 0.55F) {
+			return roll < 0.12 && !dry ? GORGES : NONE;
+		}
+		if (temperature >= 0.2F) {
+			// the warm country: limestone gorges and old volcanoes, as round the Mediterranean
+			return roll < 0.22 ? GORGES : roll < 0.42 ? VOLCANIC_HILLS : NONE;
+		}
+		if (dry) {
+			return roll < 0.25 ? GORGES : NONE;    // the dry temperate country is steppe, its own
 		}
 		// the temperate zone: Bohemia
 		double[] share = {0.30, 0.14, 0.16, 0.14, 0.12, 0.14};

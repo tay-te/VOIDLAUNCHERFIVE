@@ -125,7 +125,8 @@ public final class Foliage {
 		add("kcd_tropic_floor", VEGETATION, JUNGLES),
 		add("kcd_dry_grass", VEGETATION, SAVANNAS),
 		add("kcd_fishponds", GenerationStep.Decoration.LAKES, union(WOODLANDS, Set.of(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS))),
-		add("kcd_lone_trees", VEGETATION, union(WOODLANDS, MEADOWS)));
+		add("kcd_lone_trees", VEGETATION, union(WOODLANDS, MEADOWS)),
+		add("kcd_cliff_falls", GenerationStep.Decoration.FLUID_SPRINGS, union(WOODLANDS, CONIFERS, MEADOWS)));
 
 	public static void init() {
 		// -Dexpanse.dev.understory=false leaves the understory out of vanilla's biomes (to time what it costs)
