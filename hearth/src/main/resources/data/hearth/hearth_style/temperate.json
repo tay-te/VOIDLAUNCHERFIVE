@@ -404,19 +404,19 @@
 					"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 0.24}],
 					"wall_accent": ["minecraft:polished_andesite"], "window": ["minecraft:stone_bricks"],
 					"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}},
-				{"name": "town wall", "w": 2.5, "when": {"categories": ["fort"]}, "roles": {
+				{"name": "town wall", "w": 2.5, "when": {"categories": ["fort"], "not": {"archetypes": ["noble/castle", "noble/keep"]}}, "roles": {
 					"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.144}, {"m": "minecraft:andesite", "w": 0.096}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}],
 					"gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.24}],
 					"wall_accent": ["minecraft:stone_bricks"], "window": ["minecraft:stone_bricks"],
 					"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}},
-				{"name": "shingled", "w": 0.8, "roles": {"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}},
-				{"name": "ochre render", "w": 0.6, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.12, "low": 12}], "gable": ["minecraft:smooth_sandstone"]}},
+				{"name": "shingled", "w": 0.8, "when": {"not": {"archetypes": ["noble/castle", "noble/keep"]}}, "roles": {"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}},
+				{"name": "ochre render", "w": 0.6, "when": {"not": {"archetypes": ["noble/castle", "noble/keep"]}}, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.12, "low": 12}], "gable": ["minecraft:smooth_sandstone"]}},
 				{"name": "lime over rubble", "w": 1.6, "when": {"categories": ["noble"]}, "roles": {
 					"wall": [{"m": "minecraft:smooth_quartz", "w": 4}, {"m": "minecraft:calcite", "w": 0.178}],
 					"gable": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 0.24}],
 					"wall_accent": ["minecraft:polished_diorite"],
 					"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}], "roof_trim": ["minecraft:bricks"]}},
-				{"name": "ochre and tile", "w": 1.2, "when": {"categories": ["noble"]}, "roles": {
+				{"name": "ochre and tile", "w": 1.2, "when": {"categories": ["noble"], "not": {"archetypes": ["noble/castle", "noble/keep"]}}, "roles": {
 					"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.12, "low": 12}], "gable": ["minecraft:smooth_sandstone"],
 					"wall_accent": ["minecraft:polished_diorite"],
 					"roof": [{"m": "minecraft:bricks", "w": 4}, {"m": "minecraft:granite", "patch": 0.1}], "roof_trim": ["minecraft:bricks"]}}
