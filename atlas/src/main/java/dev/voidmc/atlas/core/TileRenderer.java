@@ -70,6 +70,11 @@ public final class TileRenderer {
 	public static final int FAR_EDGE = 8;
 	/** A gap in far land this wide or less (2 chunks), with far land on both sides, is filled from its neighbours. */
 	public static final int FAR_GAP = 32;
+	/**
+	 * Blocks a far sample stands for (1: the fine far layer; 32: the coarse store): its gap fill and dissolve are worked
+	 * out in blocks, so they look the same at both.
+	 */
+	public int farSample = 1;
 	private int[] gapFrom = new int[0];
 	/** Far land's dissolve into unexplored land: this many blocks wide, an ordered dither in 4-block cells. */
 	public static final int FAR_DISSOLVE = 32;
@@ -304,6 +309,7 @@ public final class TileRenderer {
 	 * gaps stay unexplored, behind the same checker edge as all far land's.
 	 */
 	private void fillFarGaps(int gw, int gh) {
+		final int FAR_GAP = Math.max(1, TileRenderer.FAR_GAP / this.farSample);
 		int gn = gw * gh;
 		if (this.gapFrom.length < gn) {
 			this.gapFrom = new int[gn];
@@ -373,7 +379,7 @@ public final class TileRenderer {
 		if (this.farDist.length < gn) {
 			this.farDist = new byte[gn];
 		}
-		int cap = FAR_DISSOLVE + 1;
+		int cap = this.dissolve() + 1;
 		byte[] d = this.farDist;
 		for (int gz = 0; gz < gh; gz++) {
 			for (int gx = 0; gx < gw; gx++) {
@@ -429,11 +435,19 @@ public final class TileRenderer {
 	 */
 	private int farCoverage(int g, int gw, int x, int z) {
 		int d = this.farDist[g];
-		if (d > FAR_DISSOLVE) {
+		int dissolve = this.dissolve();
+		if (d > dissolve) {
 			return 255;
 		}
-		int cell = BAYER4[((z >> 2) & 3) * 4 + ((x >> 2) & 3)];
-		return d * 16 > cell * FAR_DISSOLVE + FAR_DISSOLVE / 2 ? 255 : 0;
+		// 4-block dither cells; a coarse sample is a cell of its own
+		int shift = this.farSample >= 4 ? 0 : 2;
+		int cell = BAYER4[((z >> shift) & 3) * 4 + ((x >> shift) & 3)];
+		return d * 16 > cell * dissolve + dissolve / 2 ? 255 : 0;
+	}
+
+	/** The dissolve's width in samples: {@value #FAR_DISSOLVE} blocks, at least four samples. */
+	private int dissolve() {
+		return Math.max(4, FAR_DISSOLVE / this.farSample);
 	}
 
 	/** A colour made quieter: far land 40% less saturated and 14% darker; a party member's at 50% saturation, 80% contrast. */

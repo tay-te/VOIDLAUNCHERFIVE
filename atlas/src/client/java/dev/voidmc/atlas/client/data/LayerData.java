@@ -125,6 +125,8 @@ public final class LayerData {
 		TileRenderer r = this.dimension.session.renderer();
 		r.fluids = this.mode != TileRenderer.Mode.CAVE || this.dimension.session.caveFluids();
 		r.variant = this.variant;
+		// the coarse far store's samples are 32 blocks
+		r.farSample = this.rawName().equals("farc") ? 32 : 1;
 		this.dimension.session.configure(r);
 		return r;
 	}
