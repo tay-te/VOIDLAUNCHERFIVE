@@ -145,6 +145,14 @@ public final class AtlasClient implements ClientModInitializer {
 		this.markers.registerLayer(new MapLayer(MapLayer.PLAYERS, "Friends", true, 30));
 		this.markers.registerLayer(new MapLayer(MapLayer.FLUIDS, "Water & lava", true, 31));
 		this.markers.registerProvider("atlas:places", -30, this::placeMarkers);
+		this.markers.tracker = id -> dev.voidmc.atlas.api.AtlasApi.available() && dev.voidmc.atlas.api.AtlasApi.get().track(id);
+		this.markers.untracker = id -> {
+			if (id.equals(this.settings.tracked)) {
+				this.settings.tracked = null;
+				this.trackedMarker = null;
+				this.settings.save();
+			}
+		};
 		this.markers.registerProvider("atlas:waypoints", 20, this::waypointMarkers);
 		this.markers.registerProvider("atlas:players", 30, this::playerMarkers);
 		this.places = new AtlasPlacesImpl(this);
@@ -979,6 +987,15 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 		}
 		boolean sighted = dev.voidmc.atlas.client.ui.Kinds.sighted(p);
+		dev.voidmc.atlas.api.PlaceLook look = sighted ? null : AtlasPlacesImpl.lookOf(p.id());
+		if (look != null) {
+			// another mod's place, discovered: drawn its way (a Hearth settlement's tile, folk and card)
+			String sub = look.kindWord() == null ? subtitle : look.kindWord();
+			boolean major = look.style() == Marker.Style.SETTLEMENT || p.tier() == Tier.MAJOR;
+			out.add(new Marker(placeMarkerId(p), major ? MapLayer.LANDMARKS : MapLayer.PLACES, p.name(), look.meta(), sub, p.x() + 0.5, p.y(), p.z() + 0.5,
+				p.dimension(), look.glyph(), look.style(), 0, look.detail(), p.source(), major ? Tier.MAJOR : Tier.MINOR));
+			return out;
+		}
 		boolean major = dev.voidmc.atlas.client.ui.Kinds.major(p);
 		String name = sighted ? "Sighted" : p.name();
 		String meta = p.kind().equals(Place.PEAK) ? String.valueOf(p.y()) : "";

@@ -62,7 +62,9 @@ public enum MarkerGlyph {
 	/** A shield (the PvP-safe preset). */
 	SHIELD(rows("11111", "11111", "11111", "01110", "00100"), 0),
 	/** A quest step: an exclamation mark. */
-	QUEST(rows("00100", "00100", "00100", "00000", "00100"), 0);
+	QUEST(rows("00100", "00100", "00100", "00000", "00100"), 0),
+	/** A town: roofs behind a wall, with a gate. */
+	TOWN(rows("01010", "11111", "00000", "11111", "11011"), rows("00000", "00000", "00000", "00000", "00100"));
 
 	public final int mask;
 	public final int accent;

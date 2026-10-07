@@ -43,6 +43,24 @@ public final class MarkerRegistry implements AtlasMarkers {
 		this.warn = warn;
 	}
 
+	/** Tracks and untracks markers for other mods (the client sets it); null: tracking is not available. */
+	public volatile java.util.function.Predicate<String> tracker;
+	public volatile Consumer<String> untracker;
+
+	@Override
+	public boolean track(String markerId) {
+		var t = this.tracker;
+		return t != null && markerId != null && t.test(markerId);
+	}
+
+	@Override
+	public void untrack(String markerId) {
+		var u = this.untracker;
+		if (u != null && markerId != null) {
+			u.accept(markerId);
+		}
+	}
+
 	@Override
 	public synchronized void registerProvider(String id, int priority, MarkerProvider provider) {
 		if (id == null || provider == null) {

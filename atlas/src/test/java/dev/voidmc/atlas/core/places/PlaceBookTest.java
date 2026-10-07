@@ -688,4 +688,21 @@ class PlaceBookTest {
 		assertEquals("Larkspur Meadow", book.get("atlas:region@0,0").name());
 		assertEquals("EXPANSE", book.get("atlas:region@0,0").source().label());
 	}
+
+	// --- claims: another mod's towns --------------------------------------------------------------------------------
+
+	@Test
+	void aClaimKeepsVillageSightingsOutAndForgetsThoseMade() {
+		PlaceBook book = this.book();
+		Place before = book.sight(OW, surface(StructureKind.VILLAGE, 100, 70, 100), 1000);
+		Place outside = book.sight(OW, surface(StructureKind.VILLAGE, 900, 70, 900), 1000);
+		Place dungeon = book.sight(OW, under(StructureKind.DUNGEON, 110, 20, 110), 1000);
+		book.claim("hearth:kestrel_ford", OW, 120, 120, 96);
+		assertNull(book.get(before.id()), "the village sighted in the town is forgotten");
+		assertNotNull(book.get(outside.id()), "one outside the claim stays");
+		assertNotNull(book.get(dungeon.id()), "only villages give way to a town");
+		assertNull(book.sight(OW, surface(StructureKind.VILLAGE, 130, 70, 140), 1001), "no new village inside it");
+		book.unclaim("hearth:kestrel_ford");
+		assertNotNull(book.sight(OW, surface(StructureKind.VILLAGE, 130, 70, 140), 1002), "after the claim goes, sightings count again");
+	}
 }

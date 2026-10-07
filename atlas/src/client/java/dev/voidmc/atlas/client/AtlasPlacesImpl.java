@@ -95,6 +95,45 @@ public final class AtlasPlacesImpl implements AtlasPlaces {
 		}
 	}
 
+	private static final java.util.Map<String, dev.voidmc.atlas.api.PlaceLook> LOOKS = new java.util.concurrent.ConcurrentHashMap<>();
+	private static volatile long looksVersion;
+
+	/** A reported place's look, set by its mod, or null. */
+	static dev.voidmc.atlas.api.PlaceLook lookOf(String placeId) {
+		return LOOKS.get(placeId);
+	}
+
+	@Override
+	public void look(String placeId, dev.voidmc.atlas.api.PlaceLook look) {
+		if (placeId == null) {
+			return;
+		}
+		if (look == null) {
+			LOOKS.remove(placeId);
+		} else {
+			LOOKS.put(placeId, look);
+		}
+		looksVersion++;
+		// the place's marker is made again with its look
+		this.atlas.settings().legendVersion++;
+	}
+
+	@Override
+	public void claim(String claimId, String dimension, int x, int z, int radius) {
+		MapSession session = this.atlas.session();
+		if (claimId != null && dimension != null && radius > 0 && session != null) {
+			session.places.claim(claimId, dimension, x, z, radius);
+		}
+	}
+
+	@Override
+	public void unclaim(String claimId) {
+		MapSession session = this.atlas.session();
+		if (claimId != null && session != null) {
+			session.places.unclaim(claimId);
+		}
+	}
+
 	/** Tells the listeners about places sighted or discovered (client thread). */
 	void notify(Place place) {
 		for (Consumer<Place> l : this.listeners) {

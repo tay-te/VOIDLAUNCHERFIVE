@@ -98,6 +98,47 @@ public final class PlaceBook {
 		}
 	}
 
+	/** An area another mod claimed for one of its places (a Hearth town): Atlas's own village sightings stay out of it. */
+	private record Claim(String dimension, int x, int z, int radius) {
+		boolean holds(String dim, int px, int pz) {
+			return this.dimension.equals(dim) && (long) (px - this.x) * (px - this.x) + (long) (pz - this.z) * (pz - this.z) <= (long) this.radius * this.radius;
+		}
+	}
+
+	private final Map<String, Claim> claims = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** Claims an area: village sightings inside it are left out, and those already made forgotten. */
+	public synchronized void claim(String claimId, String dimension, int x, int z, int radius) {
+		try {
+			Claim c = new Claim(dimension, x, z, radius);
+			this.claims.put(claimId, c);
+			for (Iterator<Entry> it = this.entries.values().iterator(); it.hasNext(); ) {
+				Entry e = it.next();
+				if (e.box == null && e.group == 0 && e.family.equals(StructureKind.VILLAGE.id) && e.place.source().kind() == Source.Kind.SEEN
+					&& c.holds(e.place.dimension(), e.place.x(), e.place.z())) {
+					it.remove();
+					this.structure++;
+					this.version++;
+				}
+			}
+		} finally {
+			this.publish();
+		}
+	}
+
+	public synchronized void unclaim(String claimId) {
+		this.claims.remove(claimId);
+	}
+
+	private boolean claimed(String dimension, int x, int z) {
+		for (Claim c : this.claims.values()) {
+			if (c.holds(dimension, x, z)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** The group of the landmarks found in one region (never 0, {@link #AREAS} or {@link #REPORTS}). */
 	public static long regionGroup(int rx, int rz) {
 		return 1 + (((long) (rx + (1 << 20)) & 0x1FFFFF) << 21 | ((long) (rz + (1 << 20)) & 0x1FFFFF));
@@ -292,6 +333,10 @@ public final class PlaceBook {
 		try {
 			StructureKind kind = s.kind();
 			String family = kind.id;
+			if (kind == StructureKind.VILLAGE && !this.claims.isEmpty() && this.claimed(dimension, s.x(), s.z())) {
+				// another mod's town is here: its place stands for it
+				return null;
+			}
 			if (this.indexed != this.structure) {
 				// what a sighting is matched against: structures with bounds, and places by family
 				this.byFamily.clear();

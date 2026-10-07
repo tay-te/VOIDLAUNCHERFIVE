@@ -402,7 +402,7 @@ public final class MapPage {
 		float w = 12 + ui.width("LAYERS", Ui.Font.F85, 1) + 10 + 4;
 		float[] cw = new float[layers.size()];
 		for (int i = 0; i < layers.size(); i++) {
-			cw[i] = 9 + 8 + 7 + ui.width(layers.get(i).label(), Ui.Font.F12) + 12;
+			cw[i] = 9 + 8 + 7 + ui.width(label(layers.get(i)), Ui.Font.F12) + 12;
 			w += cw[i] + (i > 0 ? 2 : 0);
 		}
 		ui.panel(x, y, w, 39, 18, Theme.ISLAND, Theme.HAIR_8);
@@ -418,7 +418,7 @@ public final class MapPage {
 				ui.round(cx, y + 5, cw[i], 29, 13, Theme.WELL);
 			}
 			ui.round(cx + 9, y + 15.5F, 8, 8, 2.5F, on ? Theme.ink(0.85F) : Theme.ink(0.18F));
-			ui.text(l.label(), cx + 24, y + 11, Ui.Font.F12, on ? Theme.INK : Theme.INK_4);
+			ui.text(label(l), cx + 24, y + 11, Ui.Font.F12, on ? Theme.INK : Theme.INK_4);
 			String id = l.id();
 			this.hit(cx, y + 5, cw[i], 29, () -> settings.toggleLayer(id));
 			cx += cw[i] + 2;
@@ -1198,6 +1198,12 @@ public final class MapPage {
 			this.chunkCountsAt = now;
 		}
 		return this.chunkCountsKept;
+	}
+
+	/** A layer chip's words: its label, or the translation if the label is a translation key ("hearth.map.settlements"). */
+	static String label(MapLayer l) {
+		net.minecraft.locale.Language language = net.minecraft.locale.Language.getInstance();
+		return language.has(l.label()) ? language.getOrDefault(l.label()) : l.label();
 	}
 
 	/** Whether far sight is part of this map (VOID LOD there, the setting on, the surface shown). */

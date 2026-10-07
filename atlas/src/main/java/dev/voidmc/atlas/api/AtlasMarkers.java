@@ -29,4 +29,17 @@ public interface AtlasMarkers {
 
 	/** Every marker every provider has for a query, in draw order. Never throws for a provider's sake. */
 	List<Marker> collect(MarkerQuery query);
+
+	/**
+	 * Tracks a marker by id (a quest's target): the compass, the minimap's rim, one beam and the map's hairline follow
+	 * it, as they do a tracked waypoint, until the player tracks something else or the provider stops showing it. False
+	 * if no provider shows that marker now (or tracking is not available here).
+	 */
+	default boolean track(String markerId) {
+		return false;
+	}
+
+	/** Stops tracking whatever is tracked, if it is a marker this mod tracked. */
+	default void untrack(String markerId) {
+	}
 }

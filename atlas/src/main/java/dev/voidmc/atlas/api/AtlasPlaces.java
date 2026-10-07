@@ -34,4 +34,23 @@ public interface AtlasPlaces {
 
 	/** Called on the client thread whenever a place is sighted or discovered (for a toast, a journal entry). */
 	void addListener(Consumer<Place> listener);
+
+	/**
+	 * Claims an area for one of the mod's places (a Hearth town): Atlas's own village sightings inside it are left out
+	 * (and those already made are forgotten), so the place does not show twice. Claiming again by the same id moves the
+	 * claim. Kept for the session.
+	 */
+	default void claim(String claimId, String dimension, int x, int z, int radius) {
+	}
+
+	/** Lets a claim go. */
+	default void unclaim(String claimId) {
+	}
+
+	/**
+	 * How a place the mod reports looks once discovered (its glyph, style, meta, kind word and detail card): Atlas then
+	 * judges it sighted and discovered by distance, as its own, and draws it this way. Null forgets the look.
+	 */
+	default void look(String placeId, PlaceLook look) {
+	}
 }
