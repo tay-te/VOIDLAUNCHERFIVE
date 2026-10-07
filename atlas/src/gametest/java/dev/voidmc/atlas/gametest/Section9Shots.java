@@ -67,7 +67,7 @@ final class Section9Shots {
 
 	/** Lets the tiles drawn again come in (a restyle redraws a few a frame). */
 	private void settle(int ticks) {
-		long until = System.currentTimeMillis() + 60_000;
+		long until = System.currentTimeMillis() + 15_000;
 		this.context.waitTicks(20);
 		while (System.currentTimeMillis() < until && this.context.computeOnClient(mc -> AtlasClient.get().busy()) > 0) {
 			this.context.waitTicks(10);
@@ -176,13 +176,22 @@ final class Section9Shots {
 				((AtlasScreen) mc.gui.screen()).page.map.setKind(MapPanel.Kind.UNDERGROUND);
 				((AtlasScreen) mc.gui.screen()).page.map.setBand(band);
 			});
-			this.map("s9_underground_biomes", mid.getX(), mid.getZ(), 1, MapPanel.Kind.UNDERGROUND, true, 0);
+			this.map("s9_underground_biomes", mid.getX(), mid.getZ(), 3, MapPanel.Kind.UNDERGROUND, true, 0);
 			this.client(mc -> ((AtlasScreen) mc.gui.screen()).page.map.setBiomeLook(false));
 		}
 		// the Nether's biomes
 		this.client(mc -> mc.gui.setScreen(null));
 		this.world.getServer().runCommand("execute in minecraft:the_nether run tp @a 0 70 0");
-		this.context.waitTicks(200);
+		this.context.waitTicks(40);
+		this.world.getServer().runOnServer(server -> {
+			var nether = server.getLevel(net.minecraft.world.level.Level.NETHER);
+			for (int dz = -6; dz <= 6; dz++) {
+				for (int dx = -6; dx <= 6; dx++) {
+					nether.getChunk(dx, dz);
+				}
+			}
+		});
+		this.context.waitTicks(300);
 		this.map("s9_nether_biomes", 0, 0, 0.5, MapPanel.Kind.NETHER, true, 1);
 		this.client(mc -> {
 			((AtlasScreen) mc.gui.screen()).page.map.setBiomeLook(false);
