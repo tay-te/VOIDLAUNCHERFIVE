@@ -330,8 +330,9 @@ public final class ChunkApplier {
 			for (int y = top; y > chunk.getMinY(); y--) {
 				BlockState st = world.get(x, y, z);
 				if (st.is(BlockTags.LOGS) && (trunk || world.naturalTree(x, y, z))) {
-					// a trunk standing on the plot goes down to its foot, under the floor too
-					trunk = true;
+					// a trunk standing on the plot goes down to its foot, under the floor too; a branch over it is lopped
+					// and the leaves under it go on
+					trunk = world.get(x, y - 1, z).is(BlockTags.LOGS);
 					found.add(BlockPos.asLong(x, y, z));
 					continue;
 				}
