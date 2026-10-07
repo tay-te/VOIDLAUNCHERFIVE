@@ -495,6 +495,11 @@ public final class MapPage {
 
 	private boolean layersOpen;
 	private List<MapLayer> layersPopover = List.of();
+
+	/** Opens (or closes) the layers popover, when there is one (the tour). */
+	public void openLayers(boolean open) {
+		this.layersOpen = open;
+	}
 	private float layersAnchorX;
 	private float layersAnchorY;
 

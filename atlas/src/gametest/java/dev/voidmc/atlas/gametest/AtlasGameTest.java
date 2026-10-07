@@ -657,6 +657,15 @@ public class AtlasGameTest implements FabricClientGameTest {
 		if (found != null) {
 			this.hearthMap(context, found, 1, 0, "hearth_settlement_discovered");
 			this.hearthMap(context, found, 2, 80, "hearth_settlement_card");
+			// Hearth's layers (Settlements, Quests) wait behind More in the layer chips: the popover open
+			context.runOnClient(mc -> {
+				AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+				screen.page.map.selected = null;
+				screen.page.openLayers(true);
+			});
+			context.waitTicks(10);
+			this.shoot(context, "hearth_layers_popover");
+			context.runOnClient(mc -> ((AtlasScreen) mc.gui.screen()).page.openLayers(false));
 		}
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		for (String t : new String[]{"hearth:gathering/honey", "hearth:honey", "hearth:gathering/fish", "hearth:fish"}) {
@@ -930,6 +939,10 @@ public class AtlasGameTest implements FabricClientGameTest {
 		double nph = Math.max(1, phases[4]) * 1e6;
 		log(String.format(Locale.ROOT, "minimap phases (avg ms): setup %.4f, tiles %.4f, markers %.4f, rest %.4f", phases[0] / nph, phases[1] / nph,
 			phases[2] / nph, phases[3] / nph));
+		long[] mcpu = context.computeOnClient(mc -> Perf.MINIMAP_CPU.clone());
+		long[] bcpu = context.computeOnClient(mc -> Perf.BEAMS_CPU.clone());
+		log(String.format(Locale.ROOT, "render-thread CPU (avg ms, the machine's load left out): minimap %.4f over %d frames, beams %.4f over %d frames",
+			mcpu[0] / Math.max(1, mcpu[1]) / 1e6, mcpu[1], bcpu[0] / Math.max(1, bcpu[1]) / 1e6, bcpu[1]));
 		if (AtlasClient.BASELINE) {
 			// the vanilla baseline: the same flight with Atlas doing nothing, for comparison; nothing else to time
 			String json = String.format(Locale.ROOT, """

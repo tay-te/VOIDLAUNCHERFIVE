@@ -83,7 +83,9 @@ public final class WaypointBeams {
 			this.draw(graphics, mc, settings, session);
 		} finally {
 			Perf.beams(System.nanoTime() - t0);
-			dev.voidmc.atlas.client.Perf.cpu(dev.voidmc.atlas.client.Perf.cpuNow() - c0);
+			long cpu = dev.voidmc.atlas.client.Perf.cpuNow() - c0;
+			dev.voidmc.atlas.client.Perf.cpu(cpu);
+			dev.voidmc.atlas.client.Perf.beamsCpu(cpu);
 		}
 	}
 

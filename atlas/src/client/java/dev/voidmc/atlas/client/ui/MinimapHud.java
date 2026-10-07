@@ -240,7 +240,9 @@ public final class MinimapHud {
 		long t4 = System.nanoTime();
 		Perf.minimap(t4 - t0);
 		Perf.minimapPhases(t1 - t0, t2 - t1, t3 - t2, t4 - t3);
-		Perf.cpu(Perf.cpuNow() - c0);
+		long cpu = Perf.cpuNow() - c0;
+		Perf.cpu(cpu);
+		Perf.minimapCpu(cpu);
 		if (t4 - t0 > 3_000_000L) {
 			// a slow minimap frame: say where the time went (the perf gate looks at the worst frame)
 			Perf.minimapSpike(t1 - t0, t2 - t1, t3 - t2, t4 - t3);

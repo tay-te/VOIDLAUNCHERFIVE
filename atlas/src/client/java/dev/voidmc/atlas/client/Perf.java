@@ -177,6 +177,28 @@ public final class Perf {
 		minimapNanos += nanos;
 	}
 
+	/**
+	 * The render thread's own CPU time in the minimap and the beams while recording (nanoseconds, frames): what Atlas costs
+	 * apart from the machine holding the thread up (on a busy machine the wall time includes others' work). Windows
+	 * counts thread time in clock ticks, so this is an average over many frames, not a per-frame figure.
+	 */
+	public static final long[] MINIMAP_CPU = new long[2];
+	public static final long[] BEAMS_CPU = new long[2];
+
+	public static void minimapCpu(long nanos) {
+		if (recording) {
+			MINIMAP_CPU[0] += nanos;
+			MINIMAP_CPU[1]++;
+		}
+	}
+
+	public static void beamsCpu(long nanos) {
+		if (recording) {
+			BEAMS_CPU[0] += nanos;
+			BEAMS_CPU[1]++;
+		}
+	}
+
 	/** The minimap's phases summed while recording (setup, tiles, markers, rest) and the frames counted. */
 	public static final long[] MINIMAP_PHASES = new long[5];
 
@@ -246,6 +268,8 @@ public final class Perf {
 		n = 0;
 		java.util.Arrays.fill(MINIMAP_SPIKE, 0);
 		java.util.Arrays.fill(MINIMAP_PHASES, 0);
+		java.util.Arrays.fill(MINIMAP_CPU, 0);
+		java.util.Arrays.fill(BEAMS_CPU, 0);
 		long[] gc = gcTotals();
 		gcCount = gc[0];
 		gcMillis = gc[1];
