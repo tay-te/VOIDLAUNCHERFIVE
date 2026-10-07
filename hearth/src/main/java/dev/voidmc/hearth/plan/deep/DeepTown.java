@@ -136,7 +136,7 @@ public final class DeepTown {
 			lift.minDepth());
 		Parcels.Parcel head = null;
 		for (Parcels.Parcel p : Parcels.find(ctx, req, null, 48)) {
-			if (liftFits(rt, floor, p) && (head == null || p.score > head.score)) {
+			if (liftFits(rt, floor, p) && doorOnRoad(ctx, lift, p) && (head == null || p.score > head.score)) {
 				head = p;
 			}
 		}
@@ -278,6 +278,16 @@ public final class DeepTown {
 			}
 		}
 		return best;
+	}
+
+	/**
+	 * The lift's street door opens onto the road it fronts: along a diagonal cart track a place may stand a column off it,
+	 * its door on open ground (seen with the wave 7 planner, PlanChecks' surface access).
+	 */
+	private static boolean doorOnRoad(PlanContext ctx, ArchetypeInfo lift, Parcels.Parcel p) {
+		int[] door = dev.voidmc.hearth.plan.grid.PlotGeometry.entrance(new PlotSpec(lift.id(), ctx.style, 0, new BlockPos(p.x0, 0, p.z0), p.sizeX,
+			p.sizeZ, p.facing, 1, 0, new CompoundTag()));
+		return dev.voidmc.hearth.plan.grid.Cell.isAccess(ctx.occ.get(door[0], door[1]));
 	}
 
 	/** The lift's footprint stands over open floor with room at its foot. */
