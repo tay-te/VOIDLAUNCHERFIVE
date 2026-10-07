@@ -22,6 +22,9 @@ import net.minecraft.resources.Identifier;
 public final class Lots {
 	private static final List<Identifier> KEPT = List.of(Archetypes.TOWN_HALL, Archetypes.MARKET_HALL, Archetypes.CHAPEL, Archetypes.COURTHOUSE);
 
+	/** How far past the square's edge a hall without a lot may still stand, and be by the square. */
+	private static final int BY_SQUARE = 36;
+
 	private Lots() {
 	}
 
@@ -102,10 +105,21 @@ public final class Lots {
 			return false;
 		}
 		Parcels.Parcel lot = take(ctx, info);
+		String where = " on the square";
+		if (lot == null && KEPT.contains(info.id())) {
+			// no lot (none was free at the founding, or it is gone): the square's side or a street at its corner, on a terrace
+			// if it must be, before the program's own search sends it out to the best raised ground anywhere
+			Parcels.Request near = new Parcels.Request(info, e.placement(), e.district(), -1, -1, -1, true, 0, 0);
+			Parcels.Parcel p = Parcels.best(ctx, near, null);
+			if (p != null && ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) <= ctx.state.plazaHalf + BY_SQUARE) {
+				lot = p;
+				where = " by the square";
+			}
+		}
 		if (lot == null) {
 			return false;
 		}
-		Build.building(ctx, info, lot, Growth.reasonFor(info, e.placement()) + " on the square", null);
+		Build.building(ctx, info, lot, Growth.reasonFor(info, e.placement()) + where, null);
 		return true;
 	}
 
@@ -133,7 +147,7 @@ public final class Lots {
 		int w = r.x1() - r.x0() + 1;
 		int h = r.z1() - r.z0() + 1;
 		Parcels.Request req = new Parcels.Request(info, Placement.CIVIC, null, 0, -1, -1, true, 0, 0);
-		// the lot faces the road its front row is on: the side whose middle opens on the square or a street
+		// the lot faces the road its front row is on (or its door path runs to, where it was set back from a slanting street)
 		for (Direction facing : Direction.Plane.HORIZONTAL) {
 			int[] ent = switch (facing) {
 				case NORTH -> new int[]{r.x0() + w / 2, r.z0() - 1};
@@ -141,12 +155,20 @@ public final class Lots {
 				case WEST -> new int[]{r.x0() - 1, r.z0() + h / 2};
 				default -> new int[]{r.x1() + 1, r.z0() + h / 2};
 			};
-			if (!Cell.isAccess(ctx.occ.get(ent[0], ent[1]))) {
+			int gap = 0;
+			while (gap <= ctx.config.doorPathMax() && !Cell.isAccess(ctx.occ.get(ent[0] + facing.getStepX() * gap, ent[1] + facing.getStepZ() * gap))) {
+				if (!Cell.isVacant(ctx.occ.get(ent[0] + facing.getStepX() * gap, ent[1] + facing.getStepZ() * gap))) {
+					gap = Integer.MAX_VALUE;
+					break;
+				}
+				gap++;
+			}
+			if (gap > ctx.config.doorPathMax()) {
 				continue;
 			}
-			int[] at = dev.voidmc.hearth.plan.road.Roads.edgeAt(ctx, ent[0], ent[1]);
+			int[] at = dev.voidmc.hearth.plan.road.Roads.edgeAt(ctx, ent[0] + facing.getStepX() * gap, ent[1] + facing.getStepZ() * gap);
 			int edge = at != null ? at[0] : ctx.state.squareEdge;
-			Parcels.Parcel p = edge < 0 ? null : Parcels.fitAt(ctx, req, edge, r.x0(), r.z0(), w, h, facing);
+			Parcels.Parcel p = edge < 0 ? null : Parcels.fitAt(ctx, req, edge, r.x0(), r.z0(), w, h, facing, gap);
 			// facing this way the lot must give the building its least frontage and depth (a chapel's close may be larger)
 			if (p != null && p.frontage() >= info.minFrontage() && p.depth() >= info.minDepth()
 				&& (info.id().equals(Archetypes.CHAPEL) || p.frontage() <= info.maxFrontage() && p.depth() <= info.maxDepth())) {

@@ -888,7 +888,16 @@ public final class Parcels {
 	 * are laid out this way, one beside the last): free, clear of water, side gaps, a floor that meets the street.
 	 */
 	public static @Nullable Parcel fitAt(PlanContext ctx, Request req, int edge, int x0, int z0, int sizeX, int sizeZ, Direction facing) {
+		return fitAt(ctx, req, edge, x0, z0, sizeX, sizeZ, facing, 0);
+	}
+
+	/**
+	 * {@link #fitAt(PlanContext, Request, int, int, int, int, int, Direction)} for a building set back {@code doorGap} from
+	 * its road, a door path across open ground between (a lot kept since the founding on a slanting street).
+	 */
+	public static @Nullable Parcel fitAt(PlanContext ctx, Request req, int edge, int x0, int z0, int sizeX, int sizeZ, Direction facing, int doorGap) {
 		Parcel p = new Parcel();
+		p.doorGap = doorGap;
 		p.x0 = x0;
 		p.z0 = z0;
 		p.sizeX = sizeX;
@@ -896,6 +905,11 @@ public final class Parcels {
 		p.facing = facing;
 		p.edge = edge;
 		int[] ent = p.entrance();
+		for (int k = 1; k <= doorGap; k++) {
+			if (!Cell.isVacant(ctx.occ.get(ent[0] + facing.getStepX() * (k - 1), ent[1] + facing.getStepZ() * (k - 1)))) {
+				return null;
+			}
+		}
 		p.index = ctx.state.graph.edge(edge).dense().nearest(ent[0], ent[1]);
 		if (!evaluate(ctx, req, p, ctx.zone(ent[0], ent[1]))) {
 			return null;
