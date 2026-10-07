@@ -2,6 +2,7 @@ package dev.voidmc.hearth.client;
 
 import dev.voidmc.hearth.client.economy.EconomyClient;
 import dev.voidmc.hearth.client.law.LawClient;
+import dev.voidmc.hearth.client.map.MapClient;
 import dev.voidmc.hearth.client.npc.NpcClient;
 import dev.voidmc.hearth.client.quest.QuestClient;
 import dev.voidmc.hearth.client.repair.RepairClient;
@@ -21,5 +22,6 @@ public class HearthClient implements ClientModInitializer {
 		LawClient.init();       // ownership hints, wanted status, the lockpicking and pickpocketing minigames
 		RepairClient.init();    // damage and repair feedback
 		SocialClient.init();    // dice and other tavern games, services
+		MapClient.init();       // settlements and the tracked quest for VOID Atlas's map, when it is installed
 	}
 }

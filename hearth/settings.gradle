@@ -14,3 +14,16 @@ rootProject.name = 'void-hearth'
 // Expanse is an optional partner, not a dependency: Hearth compiles against its terrain model so settlements can
 // read rivers and landforms straight from the Earth generator, and only touches those classes when Expanse is loaded.
 includeBuild('../expanse')
+
+// Atlas (the VOID map) is an optional partner too, but it is not on main yet: its build is included only when it is
+// there, so Hearth builds the same without it. -Patlas.dir=<path to the atlas/ folder of an Atlas checkout> points at
+// one elsewhere (an Atlas worktree); otherwise ../atlas is used if it exists. build.gradle adds the "atlas" source set
+// (src/atlas: the map plugin) only when this found one.
+def atlasPath = providers.gradleProperty('atlas.dir').getOrElse('../atlas')
+def atlasDir = file(atlasPath)
+if (new File(atlasDir, 'settings.gradle').isFile()) {
+	includeBuild(atlasDir)
+	gradle.ext.hearthAtlasDir = atlasDir.absolutePath
+} else {
+	gradle.ext.hearthAtlasDir = ''
+}

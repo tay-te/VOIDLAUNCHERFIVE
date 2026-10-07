@@ -3,6 +3,7 @@ package dev.voidmc.hearth;
 import dev.voidmc.hearth.build.BuildModule;
 import dev.voidmc.hearth.economy.EconomyModule;
 import dev.voidmc.hearth.law.LawModule;
+import dev.voidmc.hearth.map.MapModule;
 import dev.voidmc.hearth.npc.NpcModule;
 import dev.voidmc.hearth.plan.PlanModule;
 import dev.voidmc.hearth.quest.QuestModule;
@@ -38,6 +39,7 @@ public class Hearth implements ModInitializer {
 		LawModule.init();       // ownership, crimes, witnesses, guards, justice, stolen goods, locks, stealth
 		RepairModule.init();    // damage against blueprints, repair queues, fires
 		SocialModule.init();    // town life, officials, inns, baths, stables, dice
+		MapModule.init();       // which settlements each player knows of, sent to a map on their client (VOID Atlas)
 		HearthTab.init();       // last: every module has added its items by now
 	}
 
