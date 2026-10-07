@@ -255,7 +255,10 @@ public final class FarSight {
 		}
 	}
 
-	/** Writes a far tile into the far layer (worker): each cell fills its cell x cell block columns. */
+	/**
+	 * Writes a far tile into the far layer (worker): each block column gets its cell's height, and the look (block,
+	 * biome, water) of the cell at its chunk's middle: one colour a chunk, as the design draws far land.
+	 */
 	private void write(MapSession session, Tile t) {
 		DimensionData d = session.dimensionIfOpen(t.dimension());
 		if (d == null || d.ceiling) {
@@ -263,53 +266,66 @@ public final class FarSight {
 		}
 		LayerData far = d.layer(LAYER);
 		LayerData walked = d.layer(DimensionData.SURFACE);
+		int n = t.size();
+		int scale = t.cell();
+		// each cell's look, once
+		int[] blocks = new int[n * n];
+		int[] biomes = new int[n * n];
+		byte[] depths = new byte[n * n];
+		Map<String, Integer> blockIds = new HashMap<>();
+		Map<String, Integer> biomeIds = new HashMap<>();
+		for (int k = 0; k < n * n; k++) {
+			if (t.heights()[k] == Short.MIN_VALUE) {
+				continue;
+			}
+			String name = t.blocks() == null ? null : t.blocks()[k];
+			boolean water = "minecraft:water".equals(name);
+			// no block, or water (whose bed LOD does not say): the colour LOD drew, through the far names
+			blocks[k] = blockIds.computeIfAbsent(name == null || water ? FarColour.name(t.colours()[k]) : name, session.blockNames::id);
+			depths[k] = (byte) (water ? 4 : 0);
+			String biomeName = t.biomes() == null ? null : t.biomes()[k];
+			biomes[k] = biomeName == null ? NamePalette.NONE : biomeIds.computeIfAbsent(biomeName, session.biomeNames::id);
+		}
 		int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
 		RegionRaw raw = null;
 		RegionRaw own = null;
 		long rawKey = Long.MIN_VALUE;
 		int written = 0;
-		int n = t.size();
-		int scale = t.cell();
-		Map<String, Integer> blockIds = new HashMap<>();
-		Map<String, Integer> biomeIds = new HashMap<>();
-		for (int j = 0; j < n; j++) {
-			for (int i = 0; i < n; i++) {
-				int k = j * n + i;
+		int span = n * scale;
+		for (int dz = 0; dz < span; dz++) {
+			int z = t.minZ() + dz;
+			int j = dz / scale;
+			int cj = Math.max(0, Math.min(n - 1, Math.floorDiv((z & ~15) + 8 - t.minZ(), scale)));
+			for (int dx = 0; dx < span; dx++) {
+				int x = t.minX() + dx;
+				int k = j * n + dx / scale;
 				short y = t.heights()[k];
 				if (y == Short.MIN_VALUE) {
 					continue;
 				}
-				String name = t.blocks() == null ? null : t.blocks()[k];
-				boolean water = "minecraft:water".equals(name);
-				// no block, or water (whose bed LOD does not say): the colour LOD drew, through the far names
-				int block = blockIds.computeIfAbsent(name == null || water ? FarColour.name(t.colours()[k]) : name, session.blockNames::id);
-				int depth = water ? 4 : 0;
-				String biomeName = t.biomes() == null ? null : t.biomes()[k];
-				int biome = biomeName == null ? NamePalette.NONE : biomeIds.computeIfAbsent(biomeName, session.biomeNames::id);
-				for (int dz = 0; dz < scale; dz++) {
-					for (int dx = 0; dx < scale; dx++) {
-						int x = t.minX() + i * scale + dx;
-						int z = t.minZ() + j * scale + dz;
-						long key = Coords.pack(Coords.region(x), Coords.region(z));
-						if (key != rawKey) {
-							raw = far.raw(Coords.region(x), Coords.region(z), true);
-							own = walked.raw(Coords.region(x), Coords.region(z), false);
-							rawKey = key;
-						}
-						int lx = Coords.inRegion(x);
-						int lz = Coords.inRegion(z);
-						// walked land needs no far copy, and is never written over: the far layer is only drawn under it
-						if (own != null && own.known(RegionRaw.index(lx, lz))) {
-							continue;
-						}
-						if (raw.set(lx, lz, y, block, depth, biome, RegionRaw.KNOWN)) {
-							written++;
-							minX = Math.min(minX, x);
-							minZ = Math.min(minZ, z);
-							maxX = Math.max(maxX, x);
-							maxZ = Math.max(maxZ, z);
-						}
-					}
+				int ci = Math.max(0, Math.min(n - 1, Math.floorDiv((x & ~15) + 8 - t.minX(), scale)));
+				int kc = cj * n + ci;
+				if (t.heights()[kc] == Short.MIN_VALUE) {
+					kc = k;
+				}
+				long key = Coords.pack(Coords.region(x), Coords.region(z));
+				if (key != rawKey) {
+					raw = far.raw(Coords.region(x), Coords.region(z), true);
+					own = walked.raw(Coords.region(x), Coords.region(z), false);
+					rawKey = key;
+				}
+				int lx = Coords.inRegion(x);
+				int lz = Coords.inRegion(z);
+				// walked land needs no far copy, and is never written over: the far layer is only drawn under it
+				if (own != null && own.known(RegionRaw.index(lx, lz))) {
+					continue;
+				}
+				if (raw.set(lx, lz, y, blocks[kc], depths[kc], biomes[kc], RegionRaw.KNOWN)) {
+					written++;
+					minX = Math.min(minX, x);
+					minZ = Math.min(minZ, z);
+					maxX = Math.max(maxX, x);
+					maxZ = Math.max(maxZ, z);
 				}
 			}
 		}

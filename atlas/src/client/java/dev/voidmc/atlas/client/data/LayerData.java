@@ -182,7 +182,7 @@ public final class LayerData {
 	 * the dithered edge and the cave walls reach that far), are drawn again shortly.
 	 */
 	public void dirty(int x0, int z0, int x1, int z1) {
-		int m = TileRenderer.MARGIN;
+		int m = TileRenderer.margin(this.mode);
 		x0 -= m;
 		z0 -= m;
 		x1 += m;
@@ -334,6 +334,24 @@ public final class LayerData {
 		this.dimension.files.saveImage(this.name, image);
 		this.markExisting(raw.x, raw.z);
 		this.version++;
+	}
+
+	/**
+	 * How many chunks of the regions in memory have a known column at their middle (a count for the map's footer; it
+	 * reads only what is loaded).
+	 */
+	public int chunksKnown() {
+		int n = 0;
+		for (RegionRaw r : this.raws.values()) {
+			for (int cz = 0; cz < Coords.REGION_SIZE; cz += 16) {
+				for (int cx = 0; cx < Coords.REGION_SIZE; cx += 16) {
+					if (r.known(RegionRaw.index(cx + 8, cz + 8))) {
+						n++;
+					}
+				}
+			}
+		}
+		return n;
 	}
 
 	/** Every region's raw columns at a point, for the readouts: null if unexplored or not in memory. */

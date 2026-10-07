@@ -58,6 +58,9 @@ public final class WaypointBeams {
 	private final float[] metaW = new float[256];
 	private final long[] metaKey = new long[256];
 
+	/** The tracked target's beam colour: the first waypoint colour (white). */
+	private static final int TRACKED_COLOUR = 0;
+
 	public WaypointBeams(AtlasClient atlas) {
 		this.atlas = atlas;
 	}
@@ -103,7 +106,18 @@ public final class WaypointBeams {
 			java.util.Arrays.fill(this.widthFor, null);
 			java.util.Arrays.fill(this.clamped, false);
 		}
-		if (this.shown.isEmpty()) {
+		// the tracked target that is not a waypoint (a place, a friend, a quest step) gets one beam too
+		List<Waypoint> all = this.shown;
+		String tracked = settings.tracked;
+		if (tracked != null && !tracked.startsWith("atlas:wp:")) {
+			dev.voidmc.atlas.api.Place t = this.atlas.placeFor(tracked);
+			if (t != null && t.dimension().equals(dim)) {
+				all = new ArrayList<>(all.size() + 1);
+				all.addAll(this.shown.size() >= this.dist.length ? this.shown.subList(0, this.dist.length - 1) : this.shown);
+				all.add(new Waypoint("atlas:tracked", t.name(), t.x(), t.y(), t.z(), dim, TRACKED_COLOUR, Waypoint.Kind.USER, 0, true));
+			}
+		}
+		if (all.isEmpty()) {
 			return;
 		}
 		Camera camera = mc.gameRenderer.mainCamera();
@@ -111,8 +125,8 @@ public final class WaypointBeams {
 		camera.getViewRotationProjectionMatrix(this.viewProj);
 		double maxD = settings.beamDistance <= 0 ? Double.MAX_VALUE : settings.beamDistance;
 		int n = 0;
-		for (int i = 0; i < this.shown.size(); i++) {
-			Waypoint w = this.shown.get(i);
+		for (int i = 0; i < all.size(); i++) {
+			Waypoint w = all.get(i);
 			double dx = w.x() + 0.5 - cam.x;
 			double dy = w.y() - cam.y;
 			double dz = w.z() + 0.5 - cam.z;
@@ -144,7 +158,7 @@ public final class WaypointBeams {
 		long now = System.currentTimeMillis();
 		// beams first (far ones under near ones), then the labels nearest first so the nearer wins a clash
 		for (int k = n - 1; k >= 0; k--) {
-			Waypoint w = this.shown.get(this.order[k]);
+			Waypoint w = all.get(this.order[k]);
 			double d = this.dist[this.order[k]];
 			float fade = (float) Math.max(0, Math.min(1, (d - 2) / 2));
 			if (fade <= 0.02F) {
@@ -169,7 +183,7 @@ public final class WaypointBeams {
 			}
 		}
 		for (int k = 0; k < n; k++) {
-			Waypoint w = this.shown.get(this.order[k]);
+			Waypoint w = all.get(this.order[k]);
 			double d = this.dist[this.order[k]];
 			float fade = (float) Math.max(0, Math.min(1, (d - 2) / 2));
 			if (fade <= 0.02F) {

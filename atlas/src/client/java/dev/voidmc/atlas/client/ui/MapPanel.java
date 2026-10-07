@@ -273,13 +273,17 @@ public final class MapPanel {
 		boolean sky = this.kind == Kind.SURFACE && lightLevel != null && !lightLevel.dimensionType().hasCeiling();
 		dev.voidmc.atlas.client.render.MapLight.update(this.atlas.settings().mapLook, lightLevel == null ? 0 : lightLevel.getOverworldClockTime(), sky);
 		this.renderer.setTint(sky ? dev.voidmc.atlas.client.render.MapLight.tint() : 0xFFFFFF);
-		// terrain seen from afar (VOID LOD) first, cooler and dimmer, under the walked land
-		LayerData far = this.kind == Kind.SURFACE && layer != null && this.atlas.settings().farSight && session != null
-			? session.dimension(this.dimensionOf(this.kind), false).layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER) : null;
+		// under the walked land: terrain seen from afar (VOID LOD), then a party member's land, each drawn quieter (their
+		// layers' own looks), never over one's own
+		DimensionData under = this.kind == Kind.SURFACE && layer != null && session != null ? session.dimension(this.dimensionOf(this.kind), false) : null;
+		LayerData far = under != null && this.atlas.settings().farSight ? under.layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER) : null;
 		if (far != null) {
-			this.renderer.setTint(0xA8B4C4);
 			this.renderer.draw(ui, this.atlas.tiles(), far, x, y, w, h, radius, view, true);
-			this.renderer.setTint(sky ? dev.voidmc.atlas.client.render.MapLight.tint() : 0xFFFFFF);
+		}
+		LayerData shared = under != null && this.atlas.social.available() && this.atlas.settings().shareMap
+			? under.layerIfOpen(dev.voidmc.atlas.client.Social.LAYER) : null;
+		if (shared != null) {
+			this.renderer.draw(ui, this.atlas.tiles(), shared, x, y, w, h, radius, view, true);
 		}
 		MapRenderer.Frame f = this.renderer.draw(ui, this.atlas.tiles(), layer, x, y, w, h, radius, view, true);
 		this.frame = f;
@@ -302,6 +306,13 @@ public final class MapPanel {
 			}
 		}
 		this.placed = MarkerPainter.paint(ui, f, this.markers, this.selected, this.hovered, false, px, pz, this.zoom);
+		if (this.atlas.settings().layerVisible(dev.voidmc.atlas.client.Social.FRIENDS_LAYER)) {
+			MarkerPainter.friendEdges(ui, f, dim, x, y, w, h, false);
+		}
+		if (this.kind == Kind.SURFACE && this.zoom >= 0.25) {
+			// a party member's land says whose it is (atlas/source chip), hidden below 1:4
+			MarkerPainter.sharedChips(ui, f, this.atlas.social.shared(dim));
+		}
 		if (p != null) {
 			float sx = f.screenX(px, pz);
 			float sy = f.screenY(px, pz);

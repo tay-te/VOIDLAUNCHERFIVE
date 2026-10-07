@@ -173,6 +173,7 @@ public final class MapPage {
 		this.hoverX = interactive && f.inside(mouseX, mouseY) ? mouseX : Float.NaN;
 		this.hoverY = mouseY;
 		this.aboveOrBelow(ui, f);
+		this.landHover(ui, f);
 		this.readout(ui, this.mapX + 16, this.mapY + 16);
 		this.north(ui, this.mapX + this.mapW - 48, this.mapY + 16);
 		this.layers(ui, this.mapX + 16, this.mapY + this.mapH - 55, mouseX, mouseY);
@@ -188,7 +189,7 @@ public final class MapPage {
 
 		if (this.editing != null) {
 			this.editor(ui, this.mapX + 16, this.mapY + 88, mouseX, mouseY);
-		} else if (this.map.selected != null) {
+		} else if (this.map.selected != null && !this.friendSelected()) {
 			Marker m = this.map.marker(this.map.selected);
 			if (m == null) {
 				m = this.findAnywhere(this.map.selected);
@@ -572,6 +573,10 @@ public final class MapPage {
 
 	/** The right panel above ground: the Places, Legend and Journal tabs (Journal while the setting is on). */
 	private void placesPanel(Ui ui, float mx, float my) {
+		if (this.friendSelected() && this.atlas.social.available()) {
+			this.friendPanel(ui, mx, my);
+			return;
+		}
 		float x = this.listX;
 		float y = this.listY;
 		ui.panel(x, y, LIST_W, 42, 14, Theme.WELL, Theme.HAIR_6);
@@ -611,7 +616,10 @@ public final class MapPage {
 			this.journal(ui, x, top, bottom, mx, my);
 			return;
 		}
-		// the marker states key, at the foot of the panel
+		// friends first (with a VOID transport), then the marker states key at the foot and the list between
+		if (this.atlas.social.available() && this.search.text.isBlank()) {
+			top = this.friendsSection(ui, x, top, mx, my, bottom);
+		}
 		float keyH = 97;
 		this.statesKey(ui, x, bottom - keyH);
 		this.list(ui, top, bottom - keyH - 6, mx, my, List.of("sighted", "discovered", "settlements", "waypoints"),
@@ -740,6 +748,206 @@ public final class MapPage {
 		this.listScroll = Math.max(0, Math.min(Math.max(0, this.listContent - (bottom - top)), this.listScroll));
 	}
 
+	// --- VOID friends (Figma 375:36429 friends, 375:36549 party) --------------------------------------------------
+
+	/** Whether the selection is a friend (the right column then shows their card). */
+	private boolean friendSelected() {
+		return this.map.selected != null && this.map.selected.startsWith(dev.voidmc.atlas.client.Social.FRIEND_PREFIX);
+	}
+
+	/** The friends to list: in this world first (nearest first), then the others online, then those offline. */
+	private List<dev.voidmc.atlas.api.AtlasSocialTransport.Friend> friendsListed() {
+		var social = this.atlas.social;
+		List<dev.voidmc.atlas.api.AtlasSocialTransport.Friend> all = new ArrayList<>(social.roster());
+		LocalPlayer p = Minecraft.getInstance().player;
+		all.sort(Comparator.comparingInt((dev.voidmc.atlas.api.AtlasSocialTransport.Friend f) -> social.position(f.id()) != null ? 0 : f.online() ? 1 : 2)
+			.thenComparingDouble(f -> {
+				var at = social.position(f.id());
+				return at == null || p == null ? 0 : Math.hypot(at.x() - p.getX(), at.z() - p.getZ());
+			}));
+		return all;
+	}
+
+	/**
+	 * A friend's row (atlas/friend row): their face (ringed when in this world), name, where they are, and how far for
+	 * those in this world ("—" for those elsewhere). Returns the y under it.
+	 */
+	private float friendRow(Ui ui, dev.voidmc.atlas.api.AtlasSocialTransport.Friend f, float x, float y, float mx, float my, float top, float bottom,
+		String note) {
+		var at = this.atlas.social.position(f.id());
+		LocalPlayer p = Minecraft.getInstance().player;
+		String id = dev.voidmc.atlas.client.Social.FRIEND_PREFIX + f.id();
+		boolean selected = id.equals(this.map.selected);
+		boolean hover = mx >= x && mx <= x + LIST_W && my >= y && my <= y + 52 && my >= top && my <= bottom;
+		ui.panel(x, y, LIST_W, 52, 14, selected ? 0xFF1F2023 : hover ? 0xFF1C1D20 : Theme.ISLAND, selected ? Theme.HAIR_16 : Theme.HAIR_7);
+		Faces.tile(ui, f.minecraft(), x + 10, y + 10, 32, at != null, f.online() ? 1 : 0.55F);
+		String where = at != null ? "SAME WORLD" + (f.inParty() ? "  ·  " + note : "") : f.online() ? "ELSEWHERE" + (f.where() == null ? "" : "  ·  "
+			+ f.where().toUpperCase(Locale.ROOT)) : "OFFLINE";
+		String right = at == null || p == null ? "—" : MarkerPainter.distance(Math.hypot(at.x() - p.getX(), at.z() - p.getZ()));
+		String rightSub = at == null || p == null ? "" : MarkerPainter.direction(p.getX(), p.getZ(), at.x(), at.z());
+		float rw = Math.max(ui.width(right, Ui.Font.F12), ui.width(rightSub, Ui.Font.F85, 1));
+		float tw = LIST_W - 54 - 14 - rw - 10;
+		ui.text(ui.fit(f.name(), Ui.Font.F13, tw), x + 54, y + 9, Ui.Font.F13, f.online() ? Theme.INK : Theme.INK_3);
+		ui.text(ui.fit(where, Ui.Font.F85, 1, tw), x + 54, y + 31, Ui.Font.F85, 1, Theme.INK_4);
+		ui.textRight(right, x + LIST_W - 14, y + 10, Ui.Font.F12, 0, at == null ? Theme.INK_4 : Theme.INK_2);
+		ui.textRight(rightSub, x + LIST_W - 14, y + 31, Ui.Font.F85, 1, Theme.INK_4);
+		if (y + 52 > top && y < bottom) {
+			this.hit(x, Math.max(y, top), LIST_W, Math.min(y + 52, bottom) - Math.max(y, top), () -> {
+				this.map.selected = id;
+				this.editing = null;
+				if (at != null && at.dimension().equals(this.map.dimensionOf(this.map.kind))) {
+					this.map.centreOn(at.x(), at.z());
+				}
+			});
+		}
+		return y + 58;
+	}
+
+	/** The friends at the top of the Places tab (at most three); returns the y under them. */
+	private float friendsSection(Ui ui, float x, float y, float mx, float my, float bottom) {
+		var friends = this.friendsListed();
+		if (friends.isEmpty()) {
+			return y;
+		}
+		int online = 0;
+		for (var f : friends) {
+			online += f.online() ? 1 : 0;
+		}
+		ui.text("FRIENDS  ·  " + online + " ONLINE", x + 4, y + 8, Ui.Font.F85, 1, Theme.INK_4);
+		y += 28;
+		for (int i = 0; i < Math.min(3, friends.size()); i++) {
+			y = this.friendRow(ui, friends.get(i), x, y, mx, my, y, bottom, "IN YOUR PARTY");
+		}
+		return y + 6;
+	}
+
+	/**
+	 * The right column while a friend is selected: their card (atlas/friend card) over the friends list. Esc goes back.
+	 * Join party, Share waypoint (where you stand, as a temporary waypoint) and Track (the compass, one beam and the
+	 * hairline to them).
+	 */
+	private void friendPanel(Ui ui, float mx, float my) {
+		String id = this.map.selected.substring(dev.voidmc.atlas.client.Social.FRIEND_PREFIX.length());
+		var social = this.atlas.social;
+		var f = social.friend(id);
+		var at = social.position(id);
+		float x = this.listX;
+		float y = this.listY;
+		float h = 282;
+		ui.panel(x, y, LIST_W, h, 18, Theme.ISLAND, Theme.HAIR_8);
+		Faces.tile(ui, f == null ? null : f.minecraft(), x + 16, y + 16, 44, at != null, 1);
+		String name = f != null ? f.name() : at != null ? at.name() : id;
+		ui.text(ui.fit(name, Ui.Font.F18, LIST_W - 120), x + 72, y + 18, Ui.Font.F18, Theme.INK);
+		String state = f == null || f.online() ? "ONLINE" + (at != null ? "  ·  SAME WORLD" : f != null && f.where() != null ? "  ·  " + f.where().toUpperCase(Locale.ROOT) : "")
+			: "OFFLINE";
+		ui.text(ui.fit(state, Ui.Font.F85, 1, LIST_W - 110), x + 72, y + 44, Ui.Font.F85, 1, Theme.INK_4);
+		Icons.close(ui, x + LIST_W - 30, y + 22, Theme.INK_3);
+		this.hit(x + LIST_W - 40, y + 12, 32, 32, () -> this.map.selected = null);
+		// the three readouts: how far (and which way), their Y, the land they stand on
+		LocalPlayer p = Minecraft.getInstance().player;
+		String[][] tiles;
+		if (at != null && p != null) {
+			double d = Math.hypot(at.x() - p.getX(), at.z() - p.getZ());
+			String dist = d >= 1000 ? String.format(Locale.ROOT, "%.1f", d / 1000) : String.valueOf(Math.round(d));
+			String biome = this.biomeNameAt((int) Math.floor(at.x()), (int) Math.floor(at.z()));
+			tiles = new String[][]{{dist, (d >= 1000 ? "KM " : "METRES ") + MarkerPainter.direction(p.getX(), p.getZ(), at.x(), at.z())},
+				{minus((int) Math.round(at.y())), "Y LEVEL"}, {biome == null ? "—" : biome, "BIOME"}};
+		} else {
+			tiles = new String[][]{{"—", "METRES"}, {"—", "Y LEVEL"}, {"—", "BIOME"}};
+		}
+		float tw = (LIST_W - 32 - 14) / 3;
+		for (int i = 0; i < 3; i++) {
+			float tx = x + 16 + i * (tw + 7);
+			ui.panel(tx, y + 74, tw, 54, 12, Theme.WELL, Theme.HAIR_6);
+			ui.text(ui.fit(tiles[i][0], Ui.Font.F16, tw - 20), tx + 11, y + 82, Ui.Font.F16, Theme.INK);
+			ui.text(tiles[i][1], tx + 11, y + 108, Ui.Font.F85, 1, Theme.INK_4);
+		}
+		this.button(ui, x + 16, y + 140, LIST_W - 32, true, f != null && f.inParty() ? "In your party" : "Join party", MarkerGlyph.VILLAGE, mx, my, () -> {
+			if (!social.joinParty(id)) {
+				this.atlas.overlays().info("ATLAS  ·  FRIENDS", "Joining a party is not available here");
+			}
+		});
+		float bw = (LIST_W - 32 - 8) / 2;
+		this.button(ui, x + 16, y + 188, bw, false, "Share waypoint", MarkerGlyph.PIN, mx, my, () -> {
+			if (p != null) {
+				Waypoint w = Waypoint.create("Meet here", p.getBlockX(), p.getBlockY(), p.getBlockZ(), p.level().dimension().identifier().toString(), 0);
+				if (!social.shareWaypoint(w)) {
+					this.atlas.overlays().info("ATLAS  ·  FRIENDS", "Sharing is off (Share my position: Nobody)");
+				}
+			}
+		});
+		boolean tracking = this.map.selected.equals(this.atlas.settings().tracked);
+		this.button(ui, x + 16 + bw + 8, y + 188, bw, false, tracking ? "Tracking" : "Track", MarkerGlyph.TRACK, mx, my, () -> this.track(this.map.selected));
+		// where it comes from
+		dev.voidmc.atlas.api.Source via = dev.voidmc.atlas.api.Source.plugin("void:account");
+		float cw = 8 + 11 + 7 + ui.width("through your VOID account", Ui.Font.F11) + 11;
+		ui.round(x + 16, y + 238, cw, 26, 12, Theme.WELL);
+		ui.border(x + 16, y + 238, cw, 26, 12, 0, Theme.HAIR_8);
+		int[][] cells = {{0, 0}, {1, 0}, {0, 1}, {2, 1}, {1, 2}, {2, 2}};
+		for (int[] c : cells) {
+			ui.round(x + 24 + c[0] * 4, y + 245.5F + c[1] * 4, 3, 3, 1, Theme.ink(0.55F));
+		}
+		ui.text("through your VOID account", x + 16 + 26, y + 244, Ui.Font.F11, Theme.INK_2);
+		// the friends list under the card
+		float top = y + h + 18;
+		float bottom = this.listY + this.listH;
+		var friends = this.friendsListed();
+		int online = 0;
+		for (var fr : friends) {
+			online += fr.online() ? 1 : 0;
+		}
+		ui.text("FRIENDS  ·  " + online + " ONLINE", x + 4, top, Ui.Font.F85, 1, Theme.INK_4);
+		float ry = top + 20;
+		for (var fr : friends) {
+			if (ry + 52 > bottom - 24) {
+				break;
+			}
+			ry = this.friendRow(ui, fr, x, ry, mx, my, top, bottom, "IN YOUR PARTY");
+		}
+		ui.text("Friends elsewhere are listed, never drawn on this map.", x + 2, ry + 2, Ui.Font.F105, Theme.INK_3);
+	}
+
+	/** The biome mapped at a column, in words, or null. */
+	private @Nullable String biomeNameAt(int bx, int bz) {
+		MapSession session = this.atlas.session();
+		String b = session == null ? null : session.biomeAt(this.map.dimensionOf(MapPanel.Kind.SURFACE), bx, bz);
+		return b == null ? null : prettify(b.substring(b.indexOf(':') + 1));
+	}
+
+	/**
+	 * The Legend's party part (375:36549): who shares their map with you, and "Share my position: Friends / Party /
+	 * Nobody" (Party by default). Returns the y under it.
+	 */
+	private float partyLegend(Ui ui, float x, float y, float top, float bottom, float mx, float my) {
+		if (!this.atlas.social.available()) {
+			return y;
+		}
+		List<dev.voidmc.atlas.api.AtlasSocialTransport.Friend> party = new ArrayList<>();
+		for (var f : this.friendsListed()) {
+			if (f.inParty()) {
+				party.add(f);
+			}
+		}
+		if (!party.isEmpty()) {
+			ui.text("PARTY  ·  " + party.size(), x + 4, y + 6, Ui.Font.F85, 1, Theme.INK_4);
+			y += 26;
+			for (var f : party) {
+				y = this.friendRow(ui, f, x, y, mx, my, top, bottom, this.atlas.settings().shareMap ? "SHARING THEIR MAP" : "IN YOUR PARTY");
+			}
+		}
+		ui.panel(x, y, LIST_W, 108, 14, Theme.ISLAND, Theme.HAIR_7);
+		ui.text("Share my position", x + 15, y + 14, Ui.Font.F13, Theme.INK);
+		ui.text("Who sees you live on their map", x + 15, y + 33, Ui.Font.F105, Theme.INK_3);
+		dev.voidmc.atlas.api.Privacy[] values = dev.voidmc.atlas.api.Privacy.values();
+		String[] labels = {"Friends", "Party", "Nobody"};
+		int active = this.atlas.social.privacy().ordinal();
+		this.segmented(ui, x + 15, y + 56, LIST_W - 30, labels, active, i -> {
+			this.atlas.settings().sharePrivacy = values[i].id();
+			this.atlas.settings().save();
+		}, mx, my);
+		return y + 108 + 14;
+	}
+
 	/** The design's "marker states" key: a discovered major and minor tile, and their sighted hollow twins. */
 	private void statesKey(Ui ui, float x, float y) {
 		ui.panel(x, y, LIST_W, 97, 14, Theme.ISLAND, Theme.HAIR_7);
@@ -858,6 +1066,8 @@ public final class MapPage {
 		ui.flush();
 		ui.g.enableScissor((int) x - 2, (int) top, (int) (x + LIST_W + 2), (int) bottom);
 		float y = top - this.listScroll;
+		y = this.terrainLegend(ui, x, y, top, bottom, mx, my);
+		y = this.partyLegend(ui, x, y, top, bottom, mx, my);
 		for (Kinds.Group group : Kinds.Group.values()) {
 			ui.text(group.heading, x + 4, y + 6, Ui.Font.F85, 1, Theme.INK_4);
 			y += 22;
@@ -885,10 +1095,134 @@ public final class MapPage {
 			}
 			y += 6;
 		}
+		if (this.farShown()) {
+			ui.text("Places show up in seen-from-afar land only once you", x + 2, y + 2, Ui.Font.F105, Theme.INK_3);
+			ui.text("walk within 2 chunks.", x + 2, y + 17, Ui.Font.F105, Theme.INK_3);
+			y += 36;
+		}
 		this.listContent = y + this.listScroll - top;
 		ui.flush();
 		ui.g.disableScissor();
 		this.listScroll = Math.max(0, Math.min(Math.max(0, this.listContent - (bottom - top)), this.listScroll));
+	}
+
+	/** What a hovered column is, when it is not one's own: "Seen from afar" (far sight) or a party member's land. */
+	private void landHover(Ui ui, MapRenderer.Frame f) {
+		if (Float.isNaN(this.hoverX) || this.map.kind != MapPanel.Kind.SURFACE || this.map.hovered != null) {
+			return;
+		}
+		MapSession session = this.atlas.session();
+		DimensionData d = session == null ? null : session.dimensionIfOpen(this.map.dimensionOf(this.map.kind));
+		if (d == null) {
+			return;
+		}
+		int bx = (int) Math.floor(f.mapX(this.hoverX, this.hoverY));
+		int bz = (int) Math.floor(f.mapZ(this.hoverX, this.hoverY));
+		if (known(d.layerIfOpen(DimensionData.SURFACE), bx, bz)) {
+			return;
+		}
+		String title;
+		String sub;
+		int biome;
+		LayerData shared = this.partyShown() ? d.layerIfOpen(dev.voidmc.atlas.client.Social.LAYER) : null;
+		LayerData far = this.farShown() ? d.layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER) : null;
+		if (known(shared, bx, bz)) {
+			String by = this.atlas.social.mappedBy(d.id, bx, bz);
+			title = "From " + (by == null ? "your party" : this.atlas.social.nameOf(by));
+			sub = "no places here until you visit";
+			biome = biomeOf(shared, bx, bz);
+		} else if (known(far, bx, bz)) {
+			title = "Seen from afar";
+			sub = "walk closer for detail";
+			biome = biomeOf(far, bx, bz);
+		} else {
+			return;
+		}
+		var looks = session.looks();
+		String b = looks == null || biome < 0 ? null : looks.biomeName(biome);
+		LocalPlayer p = Minecraft.getInstance().player;
+		StringBuilder line = new StringBuilder();
+		if (b != null) {
+			line.append(prettify(b.substring(b.indexOf(':') + 1))).append("  ·  ");
+		}
+		if (p != null) {
+			line.append(MarkerPainter.distance(Math.hypot(bx + 0.5 - p.getX(), bz + 0.5 - p.getZ()))).append(' ')
+				.append(MarkerPainter.direction(p.getX(), p.getZ(), bx + 0.5, bz + 0.5)).append("  ·  ");
+		}
+		line.append(sub);
+		String text = line.toString();
+		float w = Math.max(ui.width(title, Ui.Font.F12), ui.width(text, Ui.Font.F95)) + 26;
+		float tx = Math.min(this.hoverX + 12, this.mapX + this.mapW - w - 8);
+		float ty = Math.min(this.hoverY + 10, this.mapY + this.mapH - 58);
+		ui.panel(tx, ty, w, 48, 12, Theme.ISLAND, Theme.HAIR_10);
+		ui.text(title, tx + 13, ty + 8, Ui.Font.F12, Theme.INK);
+		ui.text(text, tx + 13, ty + 27, Ui.Font.F95, Theme.INK_3);
+	}
+
+	private static boolean known(@Nullable LayerData layer, int bx, int bz) {
+		RegionRaw raw = layer == null ? null : layer.rawIfLoaded(Coords.region(bx), Coords.region(bz));
+		return raw != null && raw.known(RegionRaw.index(Coords.inRegion(bx), Coords.inRegion(bz)));
+	}
+
+	private static int biomeOf(LayerData layer, int bx, int bz) {
+		RegionRaw raw = layer.rawIfLoaded(Coords.region(bx), Coords.region(bz));
+		return raw == null ? -1 : raw.biome[RegionRaw.index(Coords.inRegion(bx), Coords.inRegion(bz))];
+	}
+
+	private int[] chunkCountsKept = {0, 0};
+	private long chunkCountsAt;
+
+	/** Chunks walked and chunks only seen from afar, counted at most every two seconds. */
+	private int[] chunkCounts(MapSession session) {
+		long now = System.currentTimeMillis();
+		if (now - this.chunkCountsAt > 2000) {
+			DimensionData d = session.dimensionIfOpen(this.map.dimensionOf(MapPanel.Kind.SURFACE));
+			LayerData walked = d == null ? null : d.layerIfOpen(DimensionData.SURFACE);
+			LayerData far = d == null ? null : d.layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER);
+			this.chunkCountsKept = new int[]{walked == null ? 0 : walked.chunksKnown(), far == null ? 0 : far.chunksKnown()};
+			this.chunkCountsAt = now;
+		}
+		return this.chunkCountsKept;
+	}
+
+	/** Whether far sight is part of this map (VOID LOD there, the setting on, the surface shown). */
+	private boolean farShown() {
+		return this.map.kind == MapPanel.Kind.SURFACE && this.atlas.settings().farSight
+			&& net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(dev.voidmc.atlas.client.FarSight.LOD_MOD);
+	}
+
+	/** Whether party members' land is part of this map. */
+	private boolean partyShown() {
+		return this.map.kind == MapPanel.Kind.SURFACE && this.atlas.social.available() && this.atlas.settings().shareMap;
+	}
+
+	/**
+	 * The Legend's terrain rows (atlas/terrain legend row): walked, seen from afar, from party; only those this map
+	 * has. Returns the y under them.
+	 */
+	private float terrainLegend(Ui ui, float x, float y, float top, float bottom, float mx, float my) {
+		boolean far = this.farShown();
+		boolean party = this.partyShown();
+		if (!far && !party) {
+			return y;
+		}
+		ui.text("TERRAIN", x + 4, y + 6, Ui.Font.F85, 1, Theme.INK_4);
+		y += 26;
+		y = terrainRow(ui, x, y, 0xFF2A3A2C, party ? "Your map" : "Walked", party ? "Walked by you, full detail" : "Full detail, every place");
+		if (far) {
+			y = terrainRow(ui, x, y, 0xFF55595E, "Seen from afar", "From VOID LOD, no places until you go");
+		}
+		if (party) {
+			y = terrainRow(ui, x, y, 0xFF2F3531, "From party", "Their land, quieter until you visit");
+		}
+		return y + 8;
+	}
+
+	private static float terrainRow(Ui ui, float x, float y, int swatch, String title, String sub) {
+		ui.panel(x + 8, y + 2, 30, 30, 8, swatch, Theme.HAIR_8);
+		ui.text(title, x + 50, y + 2, Ui.Font.F12, Theme.INK);
+		ui.text(sub, x + 50, y + 20, Ui.Font.F95, Theme.INK_3);
+		return y + 52;
 	}
 
 	/** The design's cell-grip toggle (32 x 18). */
@@ -1123,6 +1457,25 @@ public final class MapPage {
 				seen = "  ·  " + (Kinds.sighted(selected) ? "SIGHTED " : "") + MarkerPainter.distance(selected.distanceTo(p.getX(), p.getZ())) + " AWAY";
 			}
 			left = selected.name() + seen + "  ·  " + (Kinds.sighted(selected) ? "NOT VISITED" : "VISITED");
+		} else if (this.rightTab == 1 && this.partyShown() && !this.friendSelected()
+			&& !this.atlas.social.shared(this.map.dimensionOf(this.map.kind)).isEmpty()) {
+			StringBuilder b = new StringBuilder("MAP FROM PARTY");
+			for (var sh : this.atlas.social.shared(this.map.dimensionOf(this.map.kind))) {
+				b.append("  ·  ").append(sh.name()).append(' ').append(sh.chunks()).append(" CHUNKS");
+			}
+			left = b.toString();
+		} else if (this.rightTab == 1 && this.farShown() && session != null) {
+			int[] c = this.chunkCounts(session);
+			left = String.format(Locale.ROOT, "%,d CHUNKS WALKED  ·  %,d SEEN FROM AFAR  ·  FAR SIGHT ON", c[0], c[1]).replace(',', ' ');
+		} else if (this.friendSelected() || this.rightTab == 1 && this.partyShown()) {
+			var friends = this.friendsListed();
+			int online = 0;
+			int here = 0;
+			for (var fr : friends) {
+				online += fr.online() ? 1 : 0;
+				here += this.atlas.social.position(fr.id()) != null ? 1 : 0;
+			}
+			left = online + " FRIENDS ONLINE  ·  " + here + " IN THIS WORLD  ·  THROUGH YOUR VOID ACCOUNT";
 		} else if (this.rightTab == 2 && session != null) {
 			left = "JOURNAL  ·  SINCE DAY " + Math.max(1, session.journal.stats().firstDay()) + "  ·  ONLY FIRST DISCOVERIES ARE LOGGED";
 		} else {
@@ -1443,9 +1796,13 @@ public final class MapPage {
 		} else {
 			Marker marker = m;
 			boolean tracking = m.id().equals(this.atlas.settings().tracked);
-			this.button(ui, cx, cy, 127, true, tracking ? "Tracking" : "Track", MarkerGlyph.TRACK, mx, my, () -> this.track(marker.id()));
+			this.button(ui, cx, cy, 127, true, tracking ? "Tracking" : "Track", MarkerGlyph.TRACK, mx, my, () -> this.track(marker));
 			this.button(ui, cx + 135, cy, 127, false, "Set waypoint", MarkerGlyph.PIN, mx, my, () -> this.waypointAt(marker, place));
 		}
+	}
+
+	private void track(Marker m) {
+		this.atlas.track(m);
 	}
 
 	private void track(String id) {
@@ -2659,7 +3016,12 @@ public final class MapPage {
 				if (this.map.selected == null) {
 					return false;
 				}
-				this.track(this.map.selected);
+				Marker sm = this.map.marker(this.map.selected);
+				if (sm != null) {
+					this.track(sm);
+				} else {
+					this.track(this.map.selected);
+				}
 			}
 			case InputConstants.KEY_W -> {
 				Marker m = this.map.selected == null ? null : this.map.marker(this.map.selected);

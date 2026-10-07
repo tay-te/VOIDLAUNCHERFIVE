@@ -539,6 +539,11 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 			if (this.ticks % 20 == 17) {
 				this.social.tick(session, p, dim);
+				this.refreshTracked();
+			}
+			if (this.ticks % 10 == 9) {
+				// friends' positions twice a second
+				this.social.positions(p, dim);
 			}
 			if (this.ticks % 100 == 3) {
 				// for the disk cap at close: the cap, and where the player is
@@ -791,10 +796,70 @@ public final class AtlasClient implements ClientModInitializer {
 				dev.voidmc.atlas.api.DiscoveryState.DISCOVERED, dev.voidmc.atlas.api.Source.player(), w.x(), w.y(), w.z(), w.dimension(), false, 0,
 				w.created(), w.created());
 		}
+		if (markerId.startsWith(Social.FRIEND_PREFIX)) {
+			// a tracked friend, where they are now
+			String id = markerId.substring(Social.FRIEND_PREFIX.length());
+			for (var f : this.social.friends()) {
+				if (f.player().equals(id)) {
+					return new Place(markerId, "atlas:friend", f.name(), "FRIEND", dev.voidmc.atlas.api.Tier.MAJOR, dev.voidmc.atlas.api.DiscoveryState.DISCOVERED,
+						dev.voidmc.atlas.api.Source.plugin("atlas:friends"), (int) Math.floor(f.x()), (int) Math.round(f.y()), (int) Math.floor(f.z()),
+						f.dimension(), false, 0, 0, 0);
+				}
+			}
+			return null;
+		}
+		Marker tm = this.trackedMarker;
+		if (tm != null && tm.id().equals(markerId)) {
+			// another mod's marker tracked (a Hearth quest step): as a place, while its mod still shows it
+			return new Place(markerId, "atlas:marker", tm.name(), "MARKER", dev.voidmc.atlas.api.Tier.MAJOR, dev.voidmc.atlas.api.DiscoveryState.DISCOVERED,
+				tm.source() == null ? dev.voidmc.atlas.api.Source.seen() : tm.source(), (int) Math.floor(tm.x()), (int) Math.round(tm.y()),
+				(int) Math.floor(tm.z()), tm.dimension(), false, 0, 0, 0);
+		}
 		if (this.session == null || !markerId.startsWith("atlas:place:")) {
 			return null;
 		}
 		return this.session.places.peek(markerId.substring("atlas:place:".length()));
+	}
+
+	private volatile @Nullable Marker trackedMarker;
+	private int trackedMisses;
+
+	/** Tracks a marker (or stops, if it is tracked): the compass, the minimap's rim and one beam show it. */
+	public void track(Marker m) {
+		if (m.id().equals(this.settings.tracked)) {
+			this.settings.tracked = null;
+			this.trackedMarker = null;
+		} else {
+			this.settings.tracked = m.id();
+			this.trackedMarker = m;
+			this.trackedMisses = 0;
+		}
+		this.settings.save();
+	}
+
+	/**
+	 * Keeps another mod's tracked marker where its mod says it is now (client thread, once a second); once the mod
+	 * stops showing it (a quest step done), it is no longer tracked.
+	 */
+	private void refreshTracked() {
+		String id = this.settings.tracked;
+		Marker tm = this.trackedMarker;
+		if (id == null || tm == null || !tm.id().equals(id)) {
+			return;
+		}
+		MarkerQuery q = new MarkerQuery(tm.dimension(), -3e7, -3e7, 3e7, 3e7, tm.x(), tm.z(), MarkerQuery.Purpose.LIST);
+		for (Marker m : this.collect(q)) {
+			if (m.id().equals(id)) {
+				this.trackedMarker = m;
+				this.trackedMisses = 0;
+				return;
+			}
+		}
+		if (++this.trackedMisses >= 3) {
+			this.settings.tracked = null;
+			this.trackedMarker = null;
+			this.settings.save();
+		}
 	}
 
 	private List<Marker> wpMarkers = List.of();

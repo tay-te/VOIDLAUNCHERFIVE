@@ -177,10 +177,10 @@ class FriendPositionsTest {
 	}
 
 	@Test
-	void ownPositionsAreThrottledToOneHertzAndOnlyWhenMoved() {
+	void ownPositionsAreThrottledToTwoHertzAndOnlyWhenMoved() {
 		FriendPositions view = positions("me", new Roster(), Privacy.PARTY);
 		assertNotNull(view.outgoing("Me", "minecraft:overworld", 0, 64, 0, 0f, 0), "the first is always sent");
-		assertNull(view.outgoing("Me", "minecraft:overworld", 50, 64, 0, 0f, 500), "never more than 1 Hz");
+		assertNull(view.outgoing("Me", "minecraft:overworld", 50, 64, 0, 0f, 499), "never more than 2 Hz");
 		assertNull(view.outgoing("Me", "minecraft:overworld", 0.5, 64, 0.5, 0f, 1_000), "under a block moved");
 		assertNotNull(view.outgoing("Me", "minecraft:overworld", 2, 64, 0, 0f, 1_000), "moved more than a block");
 		assertNull(view.outgoing("Me", "minecraft:overworld", 2, 64, 0, 0f, 5_000));

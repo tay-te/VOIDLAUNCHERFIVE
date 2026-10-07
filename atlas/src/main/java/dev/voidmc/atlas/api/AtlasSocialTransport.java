@@ -71,6 +71,25 @@ public interface AtlasSocialTransport {
 		return java.util.List.of();
 	}
 
+	/**
+	 * A friend as the transport knows them, for the Friends list and card: their id here, the name shown, their
+	 * Minecraft profile id (for the face; null if unknown), whether they are online and in the player's party, the
+	 * server they play on (its {@code ServerHash}, null when not in a world) and where that is in words ("Hypixel
+	 * lobby", "voidmc.net · Survival").
+	 */
+	record Friend(String id, String name, java.util.UUID minecraft, boolean online, boolean inParty, String serverHash, String where) {
+	}
+
+	/** The player's friends and party members, online or not; empty if the transport keeps no list. */
+	default java.util.List<Friend> roster() {
+		return java.util.List.of();
+	}
+
+	/** Asks to join a friend's party; false if the transport cannot. */
+	default boolean joinParty(String friendId) {
+		return false;
+	}
+
 	/** The terrain topic for one region: {@code tiles:<dimension>:<rx>,<rz>}, like {@code tiles:minecraft:overworld:3,-2}. */
 	static String tilesTopic(String dimension, int rx, int rz) {
 		return TILES_PREFIX + dimension + ":" + rx + "," + rz;

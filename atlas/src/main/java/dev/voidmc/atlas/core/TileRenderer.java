@@ -26,8 +26,23 @@ public final class TileRenderer {
 		/** The surface: elevation bands, sky-lit. */
 		SURFACE,
 		/** A horizontal slice (underground, the Nether): floors under the slice, rock where there is no air. */
-		CAVE
+		CAVE,
+		/**
+		 * Land seen from afar (VOID LOD): the surface's look with the hillshade at half strength, 40% less saturated and
+		 * 14% darker, its edge to unexplored land an 8 px checker.
+		 */
+		FAR,
+		/** A party member's land: the surface's look at 50% saturation and 80% contrast, quieter than one's own. */
+		SHARED
 	}
+
+	/** How far round a rectangle a mode reads (the far edge's checker reaches 8 px). */
+	public static int margin(Mode mode) {
+		return mode == Mode.FAR ? FAR_EDGE : MARGIN;
+	}
+
+	/** The far layer's edge checker: 8 px cells. */
+	public static final int FAR_EDGE = 8;
 
 	private final Looks looks;
 	private final Int2ObjectOpenHashMap<float[]> toned = new Int2ObjectOpenHashMap<>();
@@ -84,7 +99,7 @@ public final class TileRenderer {
 		int w = x1 - x0;
 		int h = z1 - z0;
 		// a grid over the rectangle and three pixels round it (the dither and the cave walls reach that far)
-		int m = MARGIN;
+		int m = margin(mode);
 		int gw = w + 2 * m;
 		int gh = h + 2 * m;
 		int gn = gw * gh;
@@ -132,7 +147,11 @@ public final class TileRenderer {
 					out[p] = 0;
 					continue;
 				}
-				int coverage = Palette.coverage(this.distanceToUnknown(g, gw));
+				int coverage = mode == Mode.FAR ? this.farCoverage(g, gw, x, z) : Palette.coverage(this.distanceToUnknown(g, gw));
+				if (coverage == 0) {
+					out[p] = 0;
+					continue;
+				}
 				int i = RegionRaw.index(x, z);
 				int rgb;
 				byte kind = this.kinds[g];
@@ -152,6 +171,9 @@ public final class TileRenderer {
 					boolean shore = this.isLand(g - 1) || this.isLand(g + 1) || this.isLand(g - gw) || this.isLand(g + gw);
 					rgb = mode == Mode.CAVE ? Palette.caveWater(centre.depth(i), shore, this.water(centre.biome[i]))
 						: Palette.water(centre.depth(i), shore, this.water(centre.biome[i]));
+					if (mode == Mode.FAR || mode == Mode.SHARED) {
+						rgb = quiet(rgb, mode);
+					}
 				} else {
 					int block = centre.block[i];
 					int biome = centre.biome[i];
@@ -165,6 +187,12 @@ public final class TileRenderer {
 						}
 						int below = caveTop == Integer.MIN_VALUE ? 0 : Math.max(0, caveTop - this.heights[g]);
 						rgb = !this.fluids && material == Material.LAVA ? Palette.CAVE_WALL : Palette.caveFloor(tone, material, step, below);
+					} else if (mode == Mode.FAR) {
+						// half the hillshade, 40% less colour, 14% darker
+						float L = (tone[0] + step * material.shade * 0.5F + Palette.band(this.heights[g]) * material.band) * 0.86F;
+						rgb = Oklab.toRgb(Math.max(0.07F, Math.min(0.70F, L)), tone[1] * 0.6F, tone[2] * 0.6F);
+					} else if (mode == Mode.SHARED) {
+						rgb = quiet(Palette.land(tone, material, step, Palette.band(this.heights[g])), mode);
 					} else {
 						rgb = Palette.land(tone, material, step, Palette.band(this.heights[g]));
 					}
@@ -174,6 +202,29 @@ public final class TileRenderer {
 		}
 		image.downsample(x0, z0, x1, z1);
 		image.touch();
+	}
+
+	/**
+	 * A far pixel's coverage: whole, but where unexplored land lies within {@value #FAR_EDGE} px (looked at in 8 px
+	 * steps, the eight ways), the 8 px checker cells it falls on are left out: the edge steps out in a checker.
+	 */
+	private int farCoverage(int g, int gw, int x, int z) {
+		int e = FAR_EDGE;
+		boolean edge = !this.known[g - e] || !this.known[g + e] || !this.known[g - e * gw] || !this.known[g + e * gw] || !this.known[g - e * gw - e]
+			|| !this.known[g - e * gw + e] || !this.known[g + e * gw - e] || !this.known[g + e * gw + e];
+		if (edge && ((x >> 3) + (z >> 3) & 1) != 0) {
+			return 0;
+		}
+		return 255;
+	}
+
+	/** A colour made quieter: far land 40% less saturated and 14% darker; a party member's at 50% saturation, 80% contrast. */
+	static int quiet(int rgb, Mode mode) {
+		float[] lab = Oklab.fromRgb(rgb);
+		if (mode == Mode.FAR) {
+			return Oklab.toRgb(lab[0] * 0.86F, lab[1] * 0.6F, lab[2] * 0.6F);
+		}
+		return Oklab.toRgb(0.45F + (lab[0] - 0.45F) * 0.8F, lab[1] * 0.5F, lab[2] * 0.5F);
 	}
 
 	/** Chebyshev distance from a wall pixel to the nearest open (floor or water) pixel, up to 4 ("far"). */

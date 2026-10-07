@@ -38,7 +38,7 @@ public final class FriendPositions {
 	public static final int MAX_PAYLOAD_BYTES = 4096;
 	public static final long FADE_AFTER_MS = 10_000;
 	public static final long DROP_AFTER_MS = 30_000;
-	public static final long SEND_EVERY_MS = 1_000;
+	public static final long SEND_EVERY_MS = 500;
 	public static final long RESEND_IDLE_MS = 10_000;
 	/** Blocks of movement that make a new position worth sending. */
 	public static final double MOVE_THRESHOLD = 1.0;

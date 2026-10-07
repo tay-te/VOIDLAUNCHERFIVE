@@ -84,6 +84,16 @@ public final class MarkerPainter {
 				}
 			}
 		}
+		// and the same solid hairline to a tracked friend (never dashed)
+		String tracked = dev.voidmc.atlas.client.AtlasClient.get().settings().tracked;
+		if (tracked != null && !tracked.equals(selected) && tracked.startsWith(dev.voidmc.atlas.client.Social.FRIEND_PREFIX)) {
+			for (Marker m : order) {
+				if (m.id().equals(tracked)) {
+					ui.line(f.screenX(playerX, playerZ), f.screenY(playerX, playerZ), f.screenX(m.x(), m.z()), f.screenY(m.x(), m.z()), ui.hairline(), 0x38FFFFFF);
+					break;
+				}
+			}
+		}
 		// every tile claims its square first, so no label covers a tile (the land's names give way to every tile but the
 		// small ones, which a quiet name may pass over)
 		List<float[]> small = new ArrayList<>();
@@ -674,6 +684,9 @@ public final class MarkerPainter {
 	}
 
 	private static Placed player(Ui ui, Marker m, float ax, float ay, float s, Chip chip) {
+		if (m.id().startsWith(dev.voidmc.atlas.client.Social.FRIEND_PREFIX)) {
+			return friend(ui, m, ax, ay, s, chip);
+		}
 		float d = 22 * s;
 		int ring = m.colour() == 0 ? Theme.GREEN : 0xE6000000 | m.colour();
 		ui.circle(ax, ay, d / 2, Theme.ISLAND);
@@ -682,6 +695,90 @@ public final class MarkerPainter {
 		if (s >= 1) {
 			ui.textCentred(initial, ax, ay - 6.5F, Ui.Font.F10, 0, Theme.INK);
 		}
+		float x1 = ax + d / 2;
+		if (chip != null) {
+			chip(ui, m, chip, false);
+			x1 = chip.x1;
+		}
+		return new Placed(m, ax, ay, ax - d / 2, ay - d / 2, x1, ay + d / 2);
+	}
+
+	/**
+	 * Friends in this world beyond the map's edge: their face pinned 18 px inside the edge, towards them (the design's
+	 * edge marker), with a small chevron pointing out. {@code x, y, w, h} is the map's box.
+	 */
+	public static void friendEdges(Ui ui, MapRenderer.Frame f, String dimension, float x, float y, float w, float h, boolean round) {
+		var social = dev.voidmc.atlas.client.AtlasClient.get().social;
+		if (!social.available()) {
+			return;
+		}
+		float cx = x + w / 2;
+		float cy = y + h / 2;
+		for (var fr : social.friends()) {
+			if (!fr.dimension().equals(dimension)) {
+				continue;
+			}
+			float sx = f.screenX(fr.x(), fr.z());
+			float sy = f.screenY(fr.x(), fr.z());
+			if (f.inside(sx, sy)) {
+				continue;
+			}
+			float dx = sx - cx;
+			float dy = sy - cy;
+			float t;
+			if (round) {
+				float r = Math.min(w, h) / 2 - 18;
+				t = (float) (r / Math.hypot(dx, dy));
+			} else {
+				t = Math.min((w / 2 - 18) / Math.max(1e-3F, Math.abs(dx)), (h / 2 - 18) / Math.max(1e-3F, Math.abs(dy)));
+			}
+			float ex = cx + dx * t;
+			float ey = cy + dy * t;
+			float d = 22;
+			Faces.tile(ui, social.profileOf(fr.player()), ex - d / 2, ey - d / 2, d, !fr.faded(), fr.faded() ? 0.6F : 1);
+			// the chevron, two short strokes outside the tile towards them
+			double a = Math.atan2(dy, dx);
+			float ox = ex + (float) Math.cos(a) * (d / 2 + 6);
+			float oy = ey + (float) Math.sin(a) * (d / 2 + 6);
+			float bx = (float) Math.cos(a + 2.4), by = (float) Math.sin(a + 2.4);
+			float qx = (float) Math.cos(a - 2.4), qy = (float) Math.sin(a - 2.4);
+			ui.line(ox, oy, ox + bx * 4, oy + by * 4, 1.5F, Theme.alpha(Faces.RING, 0.8F));
+			ui.line(ox, oy, ox + qx * 4, oy + qy * 4, 1.5F, Theme.alpha(Faces.RING, 0.8F));
+		}
+	}
+
+	/** "from Kestrel_  ·  2 min ago" over each party member's land, and under it "No places here until you visit". */
+	public static void sharedChips(Ui ui, MapRenderer.Frame f, List<dev.voidmc.atlas.client.Social.Shared> shared) {
+		long now = System.currentTimeMillis();
+		for (var s : shared) {
+			float sx = f.screenX(s.x(), s.z());
+			float sy = f.screenY(s.x(), s.z());
+			if (!f.inside(sx, sy)) {
+				continue;
+			}
+			long min = Math.max(0, (now - s.at()) / 60_000L);
+			String text = "from " + s.name() + "  ·  " + (min < 1 ? "just now" : min + " min ago");
+			float w = 7 + 9 + 6 + ui.width(text, Ui.Font.F95) + 9;
+			float x = sx - w / 2;
+			float y = sy - 60;
+			ui.round(x, y, w, 20, 10, Theme.alpha(Theme.WELL, 0.92F));
+			ui.border(x, y, w, 20, 10, 0, Theme.HAIR_8);
+			int[][] cells = {{0, 0}, {1, 0}, {0, 1}, {2, 1}, {1, 2}, {2, 2}};
+			for (int[] c : cells) {
+				ui.round(x + 7 + c[0] * 3.2F, y + 5.5F + c[1] * 3.2F, 2.4F, 2.4F, 0.8F, Theme.ink(0.55F));
+			}
+			ui.text(text, x + 22, y + 4, Ui.Font.F95, Theme.INK_2);
+			String note = "No places here until you visit";
+			ui.text(note, sx - ui.width(note, Ui.Font.F95) / 2, sy + 8, Ui.Font.F95, Theme.INK_4);
+		}
+	}
+
+	/** A friend in this world (atlas/friend marker): their face in the green ring, and the chip with name and distance. */
+	private static Placed friend(Ui ui, Marker m, float ax, float ay, float s, Chip chip) {
+		float d = 24 * s;
+		String id = m.id().substring(dev.voidmc.atlas.client.Social.FRIEND_PREFIX.length());
+		boolean faded = !m.meta().isEmpty() && m.meta().startsWith("a while");
+		Faces.tile(ui, dev.voidmc.atlas.client.AtlasClient.get().social.profileOf(id), ax - d / 2, ay - d / 2, d, !faded, faded ? 0.6F : 1);
 		float x1 = ax + d / 2;
 		if (chip != null) {
 			chip(ui, m, chip, false);

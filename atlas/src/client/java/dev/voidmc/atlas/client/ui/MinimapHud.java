@@ -102,9 +102,11 @@ public final class MinimapHud {
 		this.renderer.setTint(sky ? dev.voidmc.atlas.client.render.MapLight.tint() : 0xFFFFFF);
 		LayerData far = !underground && settings.farSight ? data.layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER) : null;
 		if (far != null) {
-			this.renderer.setTint(0xA8B4C4);
 			this.renderer.draw(ui, this.atlas.tiles(), far, x, y, side, side, radius, new MapRenderer.View(px, pz, this.zoom, rotation), true);
-			this.renderer.setTint(sky ? dev.voidmc.atlas.client.render.MapLight.tint() : 0xFFFFFF);
+		}
+		LayerData shared = !underground && this.atlas.social.available() && settings.shareMap ? data.layerIfOpen(dev.voidmc.atlas.client.Social.LAYER) : null;
+		if (shared != null) {
+			this.renderer.draw(ui, this.atlas.tiles(), shared, x, y, side, side, radius, new MapRenderer.View(px, pz, this.zoom, rotation), true);
 		}
 		MapRenderer.Frame f = this.renderer.draw(ui, this.atlas.tiles(), layer, x, y, side, side, radius, new MapRenderer.View(px, pz, this.zoom, rotation), true);
 		long t2 = System.nanoTime();
@@ -135,6 +137,9 @@ public final class MinimapHud {
 			// Light: a simpler minimap (no radar, no edge markers, no rim dots)
 			this.radar(ui, f, mc, p, px, pz);
 			this.edgeMarkers(ui, f, x, y, side, dim, px, pz, underground, ceiling, rotation);
+		}
+		if (!underground && settings.layerVisible(dev.voidmc.atlas.client.Social.FRIENDS_LAYER)) {
+			MarkerPainter.friendEdges(ui, f, dim, x, y, side, side, settings.minimapShape == AtlasSettings.Shape.ROUND);
 		}
 		long t3 = System.nanoTime();
 		// waypoints beyond the edge: a small dot on the rim, in the direction to walk
