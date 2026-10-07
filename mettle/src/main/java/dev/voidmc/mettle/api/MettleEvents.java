@@ -48,7 +48,10 @@ public final class MettleEvents {
 		}
 	});
 
-	/** Bought perks refunded; {@code attributes} when the placed attribute points were returned too. */
+	/**
+	 * A respec: bought perks refunded (all of them, or one skill's from a Draught of Forgetting); {@code attributes} when
+	 * the placed attribute points were returned (a Draught of Unbinding returns only those).
+	 */
 	public static final Event<Respec> RESPEC = EventFactory.createArrayBacked(Respec.class, listeners -> (player, attributes) -> {
 		for (Respec l : listeners) {
 			l.respec(player, attributes);

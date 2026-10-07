@@ -1,0 +1,17 @@
+{
+	"type": "minecraft:crafting_shapeless",
+	"category": "misc",
+	"group": "draught_of_forgetting",
+	"ingredients": [
+		"minecraft:glass_bottle",
+		"minecraft:amethyst_shard",
+		"minecraft:poppy",
+		"minecraft:iron_axe"
+	],
+	"result": {
+		"id": "mettle:draught_of_forgetting",
+		"components": {
+			"mettle:forgets": "mettle:heavy_weapons"
+		}
+	}
+}

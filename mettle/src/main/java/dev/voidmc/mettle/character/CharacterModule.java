@@ -52,6 +52,7 @@ public final class CharacterModule {
 		SurvivalSkill.init();
 		SmithingSkill.init();
 		Tomes.init();
+		dev.voidmc.mettle.character.respec.Draughts.init();
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> {
 			CharacterCommands.register(dispatcher, context);
 			TreeCommands.register(dispatcher);

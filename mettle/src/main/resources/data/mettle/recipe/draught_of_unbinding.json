@@ -1,0 +1,13 @@
+{
+	"type": "minecraft:crafting_shapeless",
+	"category": "misc",
+	"ingredients": [
+		"minecraft:glass_bottle",
+		"minecraft:amethyst_shard",
+		"minecraft:fermented_spider_eye",
+		"minecraft:ender_pearl"
+	],
+	"result": {
+		"id": "mettle:draught_of_unbinding"
+	}
+}

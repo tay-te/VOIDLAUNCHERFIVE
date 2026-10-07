@@ -50,6 +50,7 @@ public final class MettleClient implements ClientModInitializer {
 		SmithingClient.init();
 		BurdenClient.init();
 		GearClient.init();
+		dev.voidmc.mettle.client.respec.RespecClient.init();
 		characterKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.mettle.character", InputConstants.KEY_K,
 			KeyMapping.Category.register(Mettle.id("character"))));
 

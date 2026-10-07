@@ -1,0 +1,16 @@
+{
+	"item.mettle.draught_of_forgetting": "Draught of Forgetting",
+	"item.mettle.draught_of_forgetting.of": "Draught of Forgetting (%s)",
+	"item.mettle.draught_of_forgetting.tooltip": "Forgets every perk you bought in %s",
+	"item.mettle.draught_of_forgetting.tooltip2": "Points return; skill and earned perks stay",
+	"item.mettle.draught_of_unbinding": "Draught of Unbinding",
+	"item.mettle.draught_of_unbinding.tooltip": "Takes back every attribute point you placed",
+	"item.mettle.draught_of_unbinding.tooltip2": "Place them again as you like",
+	"mettle.feedback.forgetting": "You forget the ways of the %s tree · %s points returned",
+	"mettle.feedback.forgetting.one": "You forget the ways of the %s tree · %s point returned",
+	"mettle.feedback.forgetting.nothing": "You have learned nothing in %s to forget",
+	"mettle.feedback.forgetting.unknown": "This draught was brewed for no skill you know",
+	"mettle.feedback.unbinding": "Your body forgets its training · %s attribute points to place again",
+	"mettle.feedback.unbinding.one": "Your body forgets its training · %s attribute point to place again",
+	"mettle.feedback.unbinding.nothing": "You have placed no attribute points to unbind"
+}
