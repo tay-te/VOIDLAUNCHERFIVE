@@ -55,10 +55,7 @@ final class JournalKeeper implements AtlasJournal {
 		for (JournalEvent e : journal.sample(dimension, p.getX(), p.getY(), p.getZ(), day, now)) {
 			this.tell(e);
 		}
-		if (!p.isSpectator()) {
-			// what the player explores themselves: a spectator's flight is not exploring
-			session.visited.visit(dimension, x, z);
-		}
+		session.visited.visit(dimension, x, z);
 		DimensionData d = session.dimensionIfOpen(dimension);
 		String area = d == null ? null : d.areas.regionAt(x, z);
 		if (area != null && !area.equals(this.lastArea)) {
@@ -81,6 +78,14 @@ final class JournalKeeper implements AtlasJournal {
 			} catch (RuntimeException e) {
 				this.progressRunning.set(false);
 			}
+		}
+	}
+
+	/** Works out the explored shares and place counts now (the tour, before its Journal shot). */
+	void progressNow(MapSession session, String dimension, long day) {
+		DimensionData d = session.dimensionIfOpen(dimension);
+		if (d != null) {
+			this.progress(session, d, day, System.currentTimeMillis());
 		}
 	}
 

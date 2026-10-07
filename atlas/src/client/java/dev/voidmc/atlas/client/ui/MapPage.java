@@ -616,7 +616,20 @@ public final class MapPage {
 			this.journal(ui, x, top, bottom, mx, my);
 			return;
 		}
-		// friends first (with a VOID transport), then the marker states key at the foot and the list between
+		// a tracked quest step first, then friends (with a VOID transport), then the marker states key at the foot and the
+		// list between
+		Marker quest = this.atlas.trackedMarker();
+		if (quest != null && quest.style() == Marker.Style.QUEST && this.search.text.isBlank()) {
+			String from = quest.source() == null ? "" : "  ·  " + quest.source().phrase().toUpperCase(Locale.ROOT);
+			ui.text("TRACKED QUEST" + from, x + 4, top + 8, Ui.Font.F85, 1, Theme.INK_4);
+			top += 28;
+			LocalPlayer qp = Minecraft.getInstance().player;
+			boolean same = qp != null && quest.dimension().equals(qp.level().dimension().identifier().toString());
+			Row row = new Row(quest.id(), MarkerGlyph.QUEST, false, quest.name(), "QUEST" + (quest.subtitle().isEmpty() ? "" : "  ·  " + quest.subtitle()),
+				same ? MarkerPainter.distance(quest.distanceTo(qp.getX(), qp.getZ())) : "—", same ? MarkerPainter.direction(qp.getX(), qp.getZ(), quest.x(), quest.z()) : "",
+				quest.x(), quest.z(), quest.dimension());
+			top = this.section(ui, null, List.of(row), x, top - 28, top - 28, bottom, mx, my, false) + 6;
+		}
 		if (this.atlas.social.available() && this.search.text.isBlank()) {
 			top = this.friendsSection(ui, x, top, mx, my, bottom);
 		}
@@ -997,8 +1010,10 @@ public final class MapPage {
 		}
 	}
 
-	private float section(Ui ui, String label, List<Row> rows, float x, float y, float top, float bottom, float mx, float my, boolean add) {
-		ui.text(label + "  ·  " + rows.size(), x + 4, y + 8, Ui.Font.F85, 1, Theme.INK_4);
+	private float section(Ui ui, @Nullable String label, List<Row> rows, float x, float y, float top, float bottom, float mx, float my, boolean add) {
+		if (label != null) {
+			ui.text(label + "  ·  " + rows.size(), x + 4, y + 8, Ui.Font.F85, 1, Theme.INK_4);
+		}
 		if (add) {
 			boolean hover = mx >= x + 282 && mx <= x + 304 && my >= y + 2 && my <= y + 24;
 			ui.panel(x + 282, y + 2, 22, 22, 11, hover ? Theme.ISLAND : Theme.WELL, Theme.HAIR_6);
@@ -1188,7 +1203,7 @@ public final class MapPage {
 	/** Whether far sight is part of this map (VOID LOD there, the setting on, the surface shown). */
 	private boolean farShown() {
 		return this.map.kind == MapPanel.Kind.SURFACE && this.atlas.settings().farSight
-			&& net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(dev.voidmc.atlas.client.FarSight.LOD_MOD);
+			&& dev.voidmc.atlas.client.FarSight.lodPresent();
 	}
 
 	/** Whether party members' land is part of this map. */

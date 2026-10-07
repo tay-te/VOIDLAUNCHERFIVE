@@ -60,6 +60,13 @@ public interface AtlasApi {
 	 */
 	AtlasPlaces places();
 
+	/**
+	 * Tracks a marker by its id (a Hearth quest step, a settlement): the compass, the minimap's rim, one beam and the
+	 * map's hairline show it, until the player tracks something else or its mod stops showing it. False if no marker
+	 * of that id is on the map now.
+	 */
+	boolean track(String markerId);
+
 	/** The player's journal of the world whose map is open (read only): firsts, distance, depth, explored areas. */
 	AtlasJournal journal();
 

@@ -93,6 +93,14 @@ public final class FarSight {
 		this.atlas = atlas;
 	}
 
+	/**
+	 * Whether VOID LOD is installed (or the tour says to act as if: {@code -Datlas.test.assumeLod=true}, for its far
+	 * sight shots, fed made-up far tiles).
+	 */
+	public static boolean lodPresent() {
+		return FabricLoader.getInstance().isModLoaded(LOD_MOD) || Boolean.getBoolean("atlas.test.assumeLod");
+	}
+
 	/** At start-up: listens to LOD at once, so it captures far terrain from the first tile it draws. */
 	public void register() {
 		this.lodMissing = !FabricLoader.getInstance().isModLoaded(LOD_MOD);

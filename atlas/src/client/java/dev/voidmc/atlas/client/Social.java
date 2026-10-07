@@ -41,6 +41,9 @@ public final class Social {
 	/** Shared tiles at 2 x 2 columns a sample: a friend's land, in less detail than one's own. */
 	public static final int SHARE_LEVEL = 1;
 
+	/** For the tour (a world played alone): the server hash friends are taken to share; null otherwise. */
+	public static volatile String testServer;
+
 	private final AtlasClient atlas;
 	private final Roster roster = new Roster();
 	private volatile AtlasSocialTransport transport = NoopTransport.INSTANCE;
@@ -100,9 +103,10 @@ public final class Social {
 		this.roster.setFriends(this.transport.friends());
 		this.roster.setParty(this.transport.party());
 		Minecraft mc = Minecraft.getInstance();
-		String server = this.atlas.multiplayer() && mc.getCurrentServer() != null ? ServerHash.of(mc.getCurrentServer().ip) : null;
+		String server = testServer != null ? testServer
+			: this.atlas.multiplayer() && mc.getCurrentServer() != null ? ServerHash.of(mc.getCurrentServer().ip) : null;
 		Privacy privacy = this.privacy();
-		boolean allowed = server != null && this.atlas.rules().minimapAllowed();
+		boolean allowed = server != null && (!this.atlas.multiplayer() || this.atlas.rules().minimapAllowed());
 		Privacy effective = allowed ? privacy : Privacy.NOBODY;
 		String key = server + "|" + dimension + "|" + effective;
 		if (!key.equals(this.presenceKey)) {
@@ -196,10 +200,10 @@ public final class Social {
 	public boolean shareWaypoint(dev.voidmc.atlas.api.Waypoint w) {
 		Minecraft mc = Minecraft.getInstance();
 		String me = this.available() ? this.transport.localPlayer() : null;
-		if (me == null || mc.getCurrentServer() == null || this.privacy() == Privacy.NOBODY) {
+		if (me == null || mc.getCurrentServer() == null && testServer == null || this.privacy() == Privacy.NOBODY) {
 			return false;
 		}
-		String server = ServerHash.of(mc.getCurrentServer().ip);
+		String server = testServer != null ? testServer : ServerHash.of(mc.getCurrentServer().ip);
 		this.transport.publish(AtlasSocialTransport.TOPIC_WAYPOINT, dev.voidmc.atlas.core.social.WaypointMessages.encode(
 			new dev.voidmc.atlas.core.social.WaypointMessages.Message(me, server, List.of(dev.voidmc.atlas.core.waypoints.SharedWaypoint.from(w)))));
 		return true;

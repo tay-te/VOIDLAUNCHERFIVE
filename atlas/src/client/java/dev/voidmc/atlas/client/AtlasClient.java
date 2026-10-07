@@ -822,6 +822,20 @@ public final class AtlasClient implements ClientModInitializer {
 	}
 
 	private volatile @Nullable Marker trackedMarker;
+
+	/** For the tour: the journal's explored shares worked out now, not in up to half a minute. */
+	public void journalProgressNow() {
+		Minecraft mc = Minecraft.getInstance();
+		if (this.session != null && mc.level != null) {
+			this.journal.progressNow(this.session, mc.level.dimension().identifier().toString(), mc.level.getOverworldClockTime() / 24000 + 1);
+		}
+	}
+
+	/** Another mod's tracked marker (a quest step), or null. */
+	public @Nullable Marker trackedMarker() {
+		Marker m = this.trackedMarker;
+		return m != null && m.id().equals(this.settings.tracked) ? m : null;
+	}
 	private int trackedMisses;
 
 	/** Tracks a marker (or stops, if it is tracked): the compass, the minimap's rim and one beam show it. */

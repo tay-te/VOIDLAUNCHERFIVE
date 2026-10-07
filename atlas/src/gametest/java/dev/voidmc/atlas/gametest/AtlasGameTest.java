@@ -293,6 +293,10 @@ public class AtlasGameTest implements FabricClientGameTest {
 			context.runOnClient(mc -> mc.gui.setScreen(null));
 			new ParityShots(this, context, world, this.spawn).run();
 		}
+		if (this.want("section8")) {
+			context.runOnClient(mc -> mc.gui.setScreen(null));
+			new Section8Shots(this, context, world, this.spawn).run();
+		}
 		if (this.want("nether")) {
 			context.runOnClient(mc -> mc.gui.setScreen(null));
 			world.getServer().runCommand("execute in minecraft:the_nether run tp @a 0 70 0");
@@ -584,7 +588,19 @@ public class AtlasGameTest implements FabricClientGameTest {
 		this.settle(context, SETTLE_MS);
 		context.waitTicks(10);
 		this.shoot(context, "expanse_names");
-		context.runOnClient(mc -> ((AtlasScreen) mc.gui.screen()).page.map.selected = null);
+		// the region's label hovered: its "from Expanse" chip
+		double[] at = context.computeOnClient(mc -> {
+			AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+			screen.page.map.selected = null;
+			var f = screen.page.map.frame();
+			double lx = Double.parseDouble(parts[1]);
+			double lz = Double.parseDouble(parts[2]);
+			return new double[]{f.screenX(lx, lz) * screen.unit(), f.screenY(lx, lz) * screen.unit()};
+		});
+		context.getInput().setCursorPos(at[0], at[1]);
+		context.waitTicks(10);
+		this.shoot(context, "expanse_label_hover");
+		context.getInput().setCursorPos(5, 5);
 	}
 
 	private void cardShots(ClientGameTestContext context) {

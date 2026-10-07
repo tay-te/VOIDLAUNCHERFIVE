@@ -110,6 +110,25 @@ public final class AtlasApiImpl implements AtlasApi {
 	}
 
 	@Override
+	public boolean track(String markerId) {
+		Minecraft mc = Minecraft.getInstance();
+		if (markerId == null || mc.level == null || mc.player == null) {
+			return false;
+		}
+		String dim = mc.level.dimension().identifier().toString();
+		MarkerQuery q = new MarkerQuery(dim, -3e7, -3e7, 3e7, 3e7, mc.player.getX(), mc.player.getZ(), MarkerQuery.Purpose.LIST);
+		for (Marker m : this.atlas.collect(q)) {
+			if (m.id().equals(markerId)) {
+				if (!markerId.equals(this.atlas.settings().tracked)) {
+					this.atlas.track(m);
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+
+	@Override
 	public dev.voidmc.atlas.api.AtlasJournal journal() {
 		return this.atlas.journal;
 	}

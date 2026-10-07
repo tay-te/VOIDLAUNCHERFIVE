@@ -129,7 +129,7 @@ final class Synthetic {
 		}
 	}
 
-	private static double height(int x, int z) {
+	static double height(int x, int z) {
 		double h = 70;
 		h += noise(x * 0.0009, z * 0.0009) * 70;
 		h += noise(x * 0.004 + 13, z * 0.004 - 7) * 22;

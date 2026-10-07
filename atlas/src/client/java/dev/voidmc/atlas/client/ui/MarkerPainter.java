@@ -54,7 +54,7 @@ public final class MarkerPainter {
 			case LABEL -> 0;
 			case STRUCTURE -> m.tier() == Tier.MAJOR ? 2 : 1;
 			case SETTLEMENT -> 3;
-			case WAYPOINT -> 4;
+			case WAYPOINT, QUEST -> 4;
 			case PLAYER -> 5;
 		};
 	}
@@ -199,6 +199,7 @@ public final class MarkerPainter {
 			placed.add(switch (m.style()) {
 				case STRUCTURE -> isCluster(m) ? cluster(ui, m, ax, ay) : tile(ui, m, ax, ay, s, sel, chip);
 				case SETTLEMENT -> settlement(ui, m, ax, ay, s, sel, chip);
+				case QUEST -> quest(ui, m, ax, ay, s, sel, chip);
 				case WAYPOINT -> waypoint(ui, m, ax, ay, s, sel, chip);
 				case PLAYER -> player(ui, m, ax, ay, s, chip);
 				case LABEL -> null;
@@ -269,7 +270,7 @@ public final class MarkerPainter {
 				continue;
 			}
 			boolean pinned = m.id().equals(selected) || m.id().equals(hovered);
-			if (m.style() == Marker.Style.WAYPOINT || m.style() == Marker.Style.SETTLEMENT) {
+			if (m.style() == Marker.Style.WAYPOINT || m.style() == Marker.Style.SETTLEMENT || m.style() == Marker.Style.QUEST) {
 				if (pinned) {
 					out.add(m);
 					float[] b = box(m, ax, ay);
@@ -419,7 +420,7 @@ public final class MarkerPainter {
 				yield new float[]{ax - r, ay - r, ax + r, ay + r};
 			}
 			case WAYPOINT -> new float[]{ax - 10, ay - 30, ax + 10, ay + 2};
-			case SETTLEMENT -> new float[]{ax - 13, ay - 13, ax + 13, ay + 13};
+			case SETTLEMENT, QUEST -> new float[]{ax - 13, ay - 13, ax + 13, ay + 13};
 			default -> new float[]{ax - 11, ay - 11, ax + 11, ay + 11};
 		};
 	}
@@ -477,10 +478,11 @@ public final class MarkerPainter {
 		Ui.Font font = minor ? Ui.Font.F10 : Ui.Font.F11;
 		float pad = minor ? 7 : 8;
 		float h = minor ? 19 : 22;
-		float w = ui.width(text[0], font) + (text[1].isEmpty() ? 0 : 6 + ui.width(text[1], Ui.Font.F9, 0.6F)) + pad * 2;
+		float w = ui.width(text[0], font) + (text[1].isEmpty() ? 0 : 6 + ui.width(text[1], Ui.Font.F9, 0.6F)) + pad * 2
+			+ (m.style() == Marker.Style.QUEST ? 14 : 0);
 		float half = switch (m.style()) {
 			case STRUCTURE -> (minor ? 8 : 13) * s;
-			case SETTLEMENT -> 13 * s;
+			case SETTLEMENT, QUEST -> 13 * s;
 			case WAYPOINT -> 10 * s;
 			default -> 11 * s;
 		};
@@ -503,9 +505,15 @@ public final class MarkerPainter {
 		ui.border(box.x0, box.y0, w, h, r, 0, hair);
 		int ink = minor || sighted ? Theme.INK_2 : Theme.INK;
 		float top = box.y0 + (h - font.size * 1.26F) / 2;
-		ui.text(box.name, box.x0 + pad, top, font, ink);
+		float tx = box.x0 + pad;
+		if (m.style() == Marker.Style.QUEST) {
+			// the quest chip: the "!" first
+			ui.glyph(MarkerGlyph.QUEST, tx - 2, box.y0 + (h - 10) / 2, 10, Theme.INK, Theme.INK);
+			tx += 14;
+		}
+		ui.text(box.name, tx, top, font, ink);
 		if (!box.meta.isEmpty()) {
-			ui.text(box.meta, box.x0 + pad + ui.width(box.name, font) + 6, top + (font.size - 9) / 2 + 0.5F, Ui.Font.F9, 0.6F, Theme.INK_4);
+			ui.text(box.meta, tx + ui.width(box.name, font) + 6, top + (font.size - 9) / 2 + 0.5F, Ui.Font.F9, 0.6F, Theme.INK_4);
 		}
 	}
 
@@ -644,6 +652,22 @@ public final class MarkerPainter {
 		ui.round(x, y, t, t, 8 * s, sel ? Theme.ink(0.92F) : Theme.ISLAND);
 		ui.border(x, y, t, t, 8 * s, 0, sel ? Theme.ink(0.9F) : Theme.HAIR_16);
 		ui.glyph(m.glyph(), ax - 8 * s, ay - 8 * s, 16 * s, sel ? Theme.SHELL : Theme.INK, sel ? Theme.SHELL : Theme.INK);
+		float x1 = x + t;
+		if (chip != null) {
+			chip(ui, m, chip, sel);
+			x1 = chip.x1;
+		}
+		return new Placed(m, ax, ay, x, y, x1, y + t);
+	}
+
+	/** A quest step's target (atlas/quest target): the "!" in a 26 px tile with a solid hairline (never dashed). */
+	private static Placed quest(Ui ui, Marker m, float ax, float ay, float s, boolean sel, Chip chip) {
+		float t = 26 * s;
+		float x = ax - t / 2;
+		float y = ay - t / 2;
+		ui.round(x, y, t, t, 8 * s, sel ? Theme.ink(0.92F) : 0xB30B0B0C);
+		ui.border(x, y, t, t, 8 * s, 1, sel ? Theme.ink(0.9F) : Theme.ink(0.7F));
+		ui.glyph(MarkerGlyph.QUEST, ax - 7 * s, ay - 7 * s, 14 * s, sel ? Theme.SHELL : Theme.INK, sel ? Theme.SHELL : Theme.INK);
 		float x1 = x + t;
 		if (chip != null) {
 			chip(ui, m, chip, sel);

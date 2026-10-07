@@ -47,6 +47,11 @@ public final class AtlasScreen extends Screen {
 		return false;
 	}
 
+	/** Physical pixels per design pixel on this screen (for the tour's cursor). */
+	public float unit() {
+		return this.fitUnit();
+	}
+
 	private float fitUnit() {
 		var window = Minecraft.getInstance().getWindow();
 		return Ui.fit(window.getWidth(), window.getHeight(), WINDOW_W + MARGIN * 2, WINDOW_H + MARGIN * 2);

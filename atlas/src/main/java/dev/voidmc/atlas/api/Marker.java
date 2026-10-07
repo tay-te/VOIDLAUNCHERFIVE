@@ -47,7 +47,13 @@ public record Marker(
 		/** A ring with an initial (other players). */
 		PLAYER,
 		/** Text on the land with no tile: a named region, a lake, a river. */
-		LABEL
+		LABEL,
+		/**
+		 * A quest step's target (atlas/quest target): a tile with the "!" in a solid hairline, and the quest chip with the
+		 * step's name and its progress as meta ("96 / 128"). A tracked one gets a beam; it is no longer tracked once its
+		 * mod stops showing it (the step done).
+		 */
+		QUEST
 	}
 
 	public Marker {

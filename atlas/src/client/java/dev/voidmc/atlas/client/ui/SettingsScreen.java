@@ -59,6 +59,12 @@ public final class SettingsScreen extends Screen {
 		this.preview = new MinimapHud(atlas);
 	}
 
+	/** Shows a tab (0 Minimap, 1 Map, 2 Waypoints, 3 Data); the tour's shots. */
+	public SettingsScreen showTab(int tab) {
+		this.tab = Math.floorMod(tab, TABS.length);
+		return this;
+	}
+
 	/**
 	 * Whether the settings are drawing the minimap preview right now. The HUD minimap hides behind any screen; it
 	 * should draw anyway while this is true, so the preview shows above the settings' dim.
@@ -221,7 +227,7 @@ public final class SettingsScreen extends Screen {
 	 * performance (with the quiet note while Light is on) and the journal.
 	 */
 	private void section8(AtlasSettings s, float w) {
-		boolean lod = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(dev.voidmc.atlas.client.FarSight.LOD_MOD);
+		boolean lod = dev.voidmc.atlas.client.FarSight.lodPresent();
 		this.group("FAR SIGHT");
 		this.toggle(w, "Map what you can see (VOID LOD)", lod ? "Chunks VOID LOD draws fill the map; walking adds detail" : "Needs VOID LOD installed",
 			lod && s.farSight, lod, () -> s.farSight = !s.farSight);
