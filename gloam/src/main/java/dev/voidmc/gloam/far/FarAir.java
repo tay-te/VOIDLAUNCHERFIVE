@@ -55,6 +55,9 @@ public final class FarAir {
 	private int curtains;
 	private String cloudState = "";
 
+	/** This frame's terrain fog, which the deck's half-resolution pass draws with. */
+	private com.mojang.renderpearl.api.buffers.GpuBufferSlice fog;
+
 	private FarAir() {
 	}
 
@@ -62,6 +65,7 @@ public final class FarAir {
 	public static void init() {
 		if (Lod.LOADED) {
 			INSTANCE.land.listen();
+			Lod.onPackFrame(INSTANCE::drawOverPack);
 		}
 	}
 
@@ -70,28 +74,45 @@ public final class FarAir {
 		return INSTANCE.replacing;
 	}
 
-	/** Whether the far air is wanted at all: Gloam on, the far air on, a level with an open sky, no shader pack. */
+	/**
+	 * Whether the far air is wanted at all: Gloam on, the far air on, a level with an open sky; with a shader pack on,
+	 * only when VOID LOD hands over the far land's depth after the pack's picture (the far air is drawn over it then).
+	 */
 	private static boolean wanted(ClientLevel level) {
 		GloamSettings s = GloamSettings.get();
 		return s.enabled && s.far && level != null && Atmosphere.get().air() != null && level.dimensionType().hasSkyLight()
-			&& !level.dimensionType().hasCeiling() && !Shaders.packInUse();
+			&& !level.dimensionType().hasCeiling() && (!Shaders.packInUse() || (Lod.LOADED && s.farOverPack));
 	}
 
 	/**
 	 * Works out and uploads this frame's far air. Called by {@code LevelRendererFarMixin} while the frame graph is built,
 	 * before any pass runs (as VOID LOD prepares its own).
 	 */
-	public static void prepare(LevelRenderState state) {
+	public static void prepare(LevelRenderState state, com.mojang.renderpearl.api.buffers.GpuBufferSlice fog) {
+		INSTANCE.fog = fog;
 		INSTANCE.prepareFrame(state);
 	}
 
 	/** Draws the far air into vanilla's main pass, before the weather (where vanilla draws its clouds). */
 	public static void draw(RenderPass pass) {
 		FarRenderer r = INSTANCE.renderer;
-		if (r != null) {
+		if (r != null && !Shaders.packInUse()) {
 			r.draw(pass);
 		}
 	}
+
+	/** Draws the far air over a shader pack's finished picture, against the far land's depth the pack drew. */
+	private void drawOverPack(Lod.PackDepth depth) {
+		FarRenderer r = this.renderer;
+		if (r == null || !Shaders.packInUse() || this.camera == null) {
+			return;
+		}
+		r.drawOverPack(Minecraft.getInstance().gameRenderer.mainRenderTarget(), depth.glTexture(), depth.projection(), this.camera,
+			depth.width(), depth.height(), this.fog);
+	}
+
+	/** This frame's camera projection, for the far depth's reprojection. */
+	private org.joml.Matrix4f camera;
 
 	/**
 	 * Draws the far air in a pass of its own over the main target, for vanilla's improved transparency, whose clouds and
@@ -99,7 +120,7 @@ public final class FarAir {
 	 */
 	public static void drawOwnPass(RenderTarget target) {
 		FarRenderer r = INSTANCE.renderer;
-		if (r == null || !r.anything()) {
+		if (r == null || !r.anything() || Shaders.packInUse()) {
 			return;
 		}
 		var encoder = com.mojang.blaze3d.systems.RenderSystem.getDevice().createCommandEncoder();
@@ -182,7 +203,9 @@ public final class FarAir {
 			this.maxStorm = maxStorm(map, WeatherMap.frameX(cx, state.gameTime), WeatherMap.frameZ(cz, state.gameTime), reach, year);
 		}
 
-		CloudStatus status = mc.options.getCloudStatus();
+		// Iris reports the clouds off while a pack that draws its own runs; over the pack's picture Gloam's deck follows the
+		// player's own option instead
+		CloudStatus status = Shaders.packInUse() ? mc.options.cloudStatus().get() : mc.options.getCloudStatus();
 		boolean clouds = settings.farClouds && map != null && status != CloudStatus.OFF && ARGB.alpha(state.cloudColor) > 0;
 		this.replacing = settings.farClouds;
 		boolean fast = status == CloudStatus.FAST;
@@ -212,7 +235,10 @@ public final class FarAir {
 		this.curtains = rainOn ? this.rain.count() : 0;
 
 		// the cloud shadows' picture: square around the camera, its texels fixed to the world as the camera moves
-		boolean shadows = clouds && lodRadius > 0;
+		boolean pack = Shaders.packInUse();
+		// the pack draws the far land with its own programs, which take no shade
+		boolean shadows = clouds && lodRadius > 0 && !pack;
+		this.camera = new org.joml.Matrix4f(camera.projectionMatrix);
 		double shadeSize = 2 * Math.min(Math.max(lodRadius, 4096), 16384);
 		double texel = shadeSize / FarRenderer.SHADE_SIZE;
 		double shadeX = Math.floor((cx - shadeSize / 2) / texel) * texel, shadeZ = Math.floor((cz - shadeSize / 2) / texel) * texel;
@@ -220,7 +246,8 @@ public final class FarAir {
 			level.getSeaLevel() + 30);
 		ByteBuffer texels = this.weather.takeUpload();
 		try {
-			this.renderer.prepare(this.info, texels, mesh, this.rain, clouds, fast, mistOn, rainOn, shadows);
+			var target = mc.gameRenderer.mainRenderTarget();
+			this.renderer.prepare(this.info, texels, mesh, this.rain, clouds, fast, mistOn, rainOn, shadows, this.fog, target.width, target.height);
 			this.setShade(shadows, shadeX, shadeZ, shadeSize);
 		} finally {
 			if (texels != null) {
@@ -299,10 +326,11 @@ public final class FarAir {
 		b.putFloat(base).putFloat(160 + 1240 * this.maxStorm).putFloat(1).putFloat(sunX >= 0 ? 1 : -1);
 		// FarWeather
 		b.putFloat(vanilla).putFloat(showers ? 1 : 0).putFloat(Math.max(0, Air.warmth(year))).putFloat(thunder);
-		// FarMap
+		// FarMap (w: over a shader pack, whose sky the far air dissolves into instead of vanilla's fog colour)
 		double fx = cx - Air.FRONT_DRIFT * (ticks / 20.0), fz = cz - Air.FRONT_DRIFT * 0.2 * (ticks / 20.0);
 		if (map != null) {
-			b.putFloat((float) (fx - map.originX())).putFloat((float) (fz - map.originZ())).putFloat(1.0F / (WeatherMap.SIZE * WeatherMap.TEXEL)).putFloat(0);
+			b.putFloat((float) (fx - map.originX())).putFloat((float) (fz - map.originZ())).putFloat(1.0F / (WeatherMap.SIZE * WeatherMap.TEXEL))
+				.putFloat(Shaders.packInUse() ? 1 : 0);
 		} else {
 			b.putFloat(0).putFloat(0).putFloat(0).putFloat(0);
 		}

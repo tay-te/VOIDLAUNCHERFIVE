@@ -13,15 +13,17 @@ layout(location = 0) out vec4 fragColor;
 // the sunlit field beside it).
 float sunlight(vec2 rel) {
     float up = max(FarSun.y, 0.3);
-    float mid = FarLayer.x + 50.0;
-    vec2 at = rel + FarSun.xz / up * (mid - FarShade.w);
-    Column c = column(at);
-    if (c.h <= 0.002) {
-        return 1.0;
+    vec3 toSun = normalize(vec3(FarSun.x, up, FarSun.z));
+    // four samples up the sun's ray through the deck, where it crosses the clouds over the ground
+    float optical = 0.0;
+    for (int k = 0; k < 4; k++) {
+        float y = FarLayer.x - 60.0 + (float(k) + 0.5) * 70.0;
+        vec2 at = rel + toSun.xz / toSun.y * (y - FarShade.w);
+        vec4 s = skyAt(at);
+        float height;
+        optical += cloud(at, y, s, false, height) * 70.0 / toSun.y;
     }
-    float depth = max(c.top - c.bottom, 0.0) * smoothstep(0.0, 0.3, c.h) / up;
-    float direct = exp(-SIGMA * 0.35 * depth);
-    return mix(0.5, 1.0, direct);
+    return mix(0.5, 1.0, exp(-SIGMA * 0.5 * optical));
 }
 
 // The far land's sunlight under the clouds, against the light where the camera stands: the chunks around the camera

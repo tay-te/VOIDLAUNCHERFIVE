@@ -1,89 +1,103 @@
 #ifndef GLOAM_FARCLOUDS_GLSL
 #define GLOAM_FARCLOUDS_GLSL
 
-// The cloud deck's shape, shared by the deck (far_clouds) and its shadows on the far land (far_shade).
+// The cloud deck as a volume, shared by the deck (far_clouds) and its shadows on the far land (far_shade).
 
-// The fronts over the far view (WeatherMap: the front in red, in the fronts' drifting frame), and four tiling noises
-// (CloudNoise) the heaps are shaped with.
+// The fronts over the far view (WeatherMap: the front in red, in the fronts' drifting frame), and the 3D noise the clouds
+// are shaped with (CloudVolume: its 64 slices in an 8 x 8 grid, each with a wrapping border; red the billowy shape,
+// green, blue and alpha cellular noise at three finer scales for the edges).
 uniform sampler2D WeatherMap;
-uniform sampler2D CloudNoise;
+uniform sampler2D CloudVolume;
 
-// How much light a block of cloud at full density stops: a heap 40 blocks through is all but opaque, its frayed edges
-// let the sky through.
-const float SIGMA = 0.075;
+// How much light a block of cloud at full density stops.
+const float SIGMA = 0.06;
+// The noise's tile in blocks: the shape (heaps a few hundred blocks across) and the detail (billows of tens).
+const float SHAPE_TILE = 2048.0;
+const float DETAIL_TILE = 512.0;
 
-// The clouds over one place: the column they can fill, from bottom to top in world y, and what shapes them there: how
-// much of a heap the place is by the smooth noise (h: 0 clear sky .. 1 the heart of a heap or a full overcast), the
-// smooth noise itself and the cover, which the fine shape works from, the storm in it, and the deck's base.
-struct Column {
-    float bottom;
-    float top;
-    float h;
-    float storm;
-    float base;
-    float shape;
-    float cover;
-};
+// One slice-blended sample of the 3D noise at p, in tiles (it wraps every tile).
+vec4 volume(vec3 p) {
+    vec3 q = fract(p) * 64.0;
+    float z = q.z - 0.5;
+    float z0 = floor(z);
+    float t = z - z0;
+    int s0 = int(mod(z0, 64.0));
+    int s1 = int(mod(z0 + 1.0, 64.0));
+    vec2 inCell = q.xy + 1.0;
+    vec2 c0 = vec2(float(s0 % 8), float(s0 / 8)) * 66.0, c1 = vec2(float(s1 % 8), float(s1 / 8)) * 66.0;
+    vec4 a = textureLod(CloudVolume, (c0 + inCell) / 528.0, 0.0);
+    vec4 b = textureLod(CloudVolume, (c1 + inCell) / 528.0, 0.0);
+    return mix(a, b, t);
+}
 
-Column column(vec2 rel) {
+float remap01(float v, float lo, float hi) {
+    return clamp((v - lo) / max(hi - lo, 1e-4), 0.0, 1.0);
+}
+
+// What the sky over rel holds: x the cover (a little even under a clear front), y the storm, z how much the heaps
+// tower (showers and storms), w the front itself.
+vec4 skyAt(vec2 rel) {
     float f = texture(WeatherMap, (FarMap.xy + rel) * FarMap.z).r;
     vec3 w = farWeather(f);
-    Column c;
-    // a few fair-weather heaps even under a clear front: a summer sky is rarely empty
-    c.cover = max(w.x, 0.1);
-    vec2 p = FarNoise.xy + rel;
-    // heaps several hundred blocks across, gathered into fields and streets kilometres long
-    float cluster = texture(CloudNoise, p / 8192.0).r;
-    float heap = texture(CloudNoise, p / 1024.0).g;
-    c.shape = clamp((heap - 0.5) * 2.2 + (cluster - 0.5) * 1.2 + 0.5, 0.0, 1.0);
-    // the cover decides how much of the noise is cloud: a little under a clear sky, all of it under an overcast;
-    // the outline in height is a dome over the smooth noise, so heaps are rounded and towers have rounded heads
-    c.h = smoothstep(1.0 - c.cover - 0.05, 1.0 - c.cover + 0.35, c.shape);
-    c.storm = w.y * c.h;
-    // fair-weather heaps are flat; a fuller sky builds them up; a full overcast flattens into a deck; showers and
-    // storms tower
-    float thick = 28.0 + 120.0 * smoothstep(0.1, 0.7, c.cover);
-    thick = mix(thick, 75.0, 0.6 * smoothstep(0.88, 1.0, c.cover));
-    float tower = max(w.y, smoothstep(0.72, 0.94, f));
-    thick = mix(thick, max(FarLayer.y, thick), tower);
-    // every heap its own height, as the fields they gather in
-    float tops = cluster;
-    c.base = FarLayer.x - 90.0 * w.y;
-    // flat bottoms that lift a little toward a heap's thin edges
-    c.bottom = c.base + thick * 0.15 * (1.0 - c.h);
-    c.top = c.base + thick * c.h * (0.6 + 0.4 * tops);
-    return c;
+    return vec4(max(w.x, 0.12), w.y, max(w.y, smoothstep(0.74, 0.95, f)), f);
 }
 
-// A 2D noise channel standing in for a 3D one: sampled in slices {@code step} blocks apart in height, each slice moved
-// far across the texture from the last and blended between, so it changes with height as much as across. A noise
-// that only depended on x and z would stand every heap up as a comb of vertical streaks.
-float sliced(vec2 uv, float y, float step, int channel) {
-    float slice = y / step;
-    float s0 = floor(slice);
-    vec2 a = fract(vec2(s0 * 0.371, s0 * 0.619)), b = fract(vec2(s0 * 0.371 + 0.371, s0 * 0.619 + 0.619));
-    vec4 n0 = texture(CloudNoise, uv + a), n1 = texture(CloudNoise, uv + b);
-    float t = smoothstep(0.0, 1.0, slice - s0);
-    return channel == 2 ? mix(n0.b, n1.b, t) : mix(n0.a, n1.a, t);
+// The deck's base over a place with sky s: storms bring theirs lower.
+float deckBase(vec4 s) {
+    return FarLayer.x - 90.0 * s.y;
 }
 
-// How dense the cloud is at height y in column c over rel, and how far up the column y is (0 bottom .. 1 top). Far off
-// (coarse) a heap is its smooth dome; near, the fine noise breaks it into billows and frays its edges.
-float density(Column c, float y, vec2 rel, bool coarse, out float frac) {
-    frac = 0.0;
-    if (c.h <= 0.002 || y < c.bottom || y > c.top) {
+// How deep the clouds over a place can reach above its base: fair-weather heaps shallow, a fuller sky building them up,
+// a full overcast a flattish deck, showers and storms towering.
+float deckDepth(vec4 s) {
+    float depth = 70.0 + 110.0 * smoothstep(0.1, 0.7, s.x);
+    depth = mix(depth, 95.0, 0.5 * smoothstep(0.88, 1.0, s.x));
+    return mix(depth, max(FarLayer.y, depth), s.z);
+}
+
+// The cloud's density at a point (rel across the ground from the camera, y its height), and how high in its cloud the
+// point is (0 base .. 1 top); detail adds the eroding billows, which are under a pixel far off.
+float cloud(vec2 rel, float y, vec4 s, bool detail, out float height) {
+    float base = deckBase(s);
+    float depth = deckDepth(s);
+    if (y < base - 1.0 || y > FarLayer.x + FarLayer.y) {
+        height = 0.0;
         return 0.0;
     }
-    frac = (y - c.bottom) / max(c.top - c.bottom, 1.0);
-    float profile = smoothstep(0.0, 0.06, frac) * smoothstep(1.0, 0.7, frac);
-    if (coarse) {
-        return smoothstep(0.05, 0.35, c.h) * profile;
-    }
     vec2 p = FarNoise.xy + rel;
-    float n = c.shape + (sliced(p / 256.0, y, 48.0, 2) - 0.5) * 0.9;
-    float h = smoothstep(1.0 - c.cover, 1.0 - c.cover + 0.22, n);
-    float e = sliced(p / 128.0, y, 20.0, 3);
-    return smoothstep(0.0, 0.25, h - (1.0 - e) * 0.35) * profile;
+    // the shape noise first: where it is strong the cloud reaches higher, so heads billow up in heaps and towers rise
+    // in rounded turrets instead of to one flat lid
+    vec4 n = volume(vec3(p.x, y * 2.0, p.y) / SHAPE_TILE);
+    // the billowy shape, and the same sample's cellular noise breaking a long bank into separate heaps
+    float shape = n.r * 0.58 + n.g * 0.42;
+    height = (y - base) / (depth * mix(0.6, 1.2, shape));
+    // A storm's anvil: a flat sheet spreading at the top of the towers, wider than the tower under it (the front's
+    // wetter ring), so the column flares out at its head.
+    float anvilBase = FarLayer.x + 0.72 * FarLayer.y, anvilDepth = 0.16 * FarLayer.y;
+    float ah = (y - anvilBase) / anvilDepth;
+    float anvil = 0.0;
+    if (ah > 0.0 && ah < 1.0) {
+        anvil = smoothstep(0.82, 0.9, s.w) * smoothstep(0.0, 0.25, ah) * smoothstep(1.0, 0.6, ah);
+        height = max(height, 0.9 + 0.1 * ah);
+    }
+    if ((height <= 0.0 || height >= 1.0) && anvil <= 0.0) {
+        return 0.0;
+    }
+    // The height profile: a quick flat-bottomed start, a rounded head; a tower keeps its girth higher up.
+    float hh = clamp(height, 0.0, 1.0);
+    float profile = smoothstep(0.0, 0.08, hh) * smoothstep(1.0, mix(0.5, 0.82, s.z), hh);
+    // the cover decides how much of the shape noise is cloud: some of its tops under a clear front, all of it under an
+    // overcast; and a cloud's girth narrows toward its head
+    float coverage = max(s.x * profile, anvil);
+    float d = remap01(shape, 1.0 - coverage, 1.0) * max(profile, anvil);
+    if (detail && d > 0.0) {
+        // erode the edges into billows: the detail noise rising with height, so bases are wispy and heads round
+        vec4 e = volume(vec3(p.x, y * 1.6, p.y) / DETAIL_TILE + vec3(FarCamera.y * 0.002, 0.0, 0.0));
+        float billows = e.g * 0.625 + e.b * 0.25 + e.a * 0.125;
+        float erode = mix(1.0 - billows, billows, smoothstep(0.1, 0.6, hh));
+        d = remap01(d, erode * 0.28, 1.0);
+    }
+    return d;
 }
 
 #endif

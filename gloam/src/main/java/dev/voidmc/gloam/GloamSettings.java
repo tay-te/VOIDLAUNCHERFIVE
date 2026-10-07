@@ -64,6 +64,8 @@ public final class GloamSettings {
 	 * clouds float far higher above the land.
 	 */
 	public double farCloudLift = 240;
+	/** With a shader pack on (and VOID LOD drawing through it), the far air drawn over the pack's finished picture. */
+	public boolean farOverPack = true;
 
 	// the motes, more
 	/** The most motes in the air at once; the spawner stops starting new ones above it. */
@@ -131,6 +133,7 @@ public final class GloamSettings {
 		this.farMist = bool(json, "farMist", this.farMist);
 		this.farHaze = number(json, "farHaze", this.farHaze, 0, 1);
 		this.farCloudLift = number(json, "farCloudLift", this.farCloudLift, 0, 512);
+		this.farOverPack = bool(json, "farOverPack", this.farOverPack);
 	}
 
 	private JsonObject write() {
@@ -153,6 +156,7 @@ public final class GloamSettings {
 		json.addProperty("farMist", this.farMist);
 		json.addProperty("farHaze", this.farHaze);
 		json.addProperty("farCloudLift", this.farCloudLift);
+		json.addProperty("farOverPack", this.farOverPack);
 		return json;
 	}
 

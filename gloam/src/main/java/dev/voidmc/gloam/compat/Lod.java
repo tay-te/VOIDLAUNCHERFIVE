@@ -36,6 +36,17 @@ public final class Lod {
 		}
 	}
 
+	/** The far land's depth as a shader pack drew it (VOID LOD's {@code LodApi.FarDepth}), in Gloam's own terms. */
+	public record PackDepth(int glTexture, org.joml.Matrix4f projection, int width, int height) {
+	}
+
+	/** Calls {@code listener} each frame a shader pack has finished with VOID LOD's far land in it; nothing without VOID LOD. */
+	public static void onPackFrame(java.util.function.Consumer<PackDepth> listener) {
+		if (LOADED) {
+			Api.onPackFrame(listener);
+		}
+	}
+
 	private static final class Api {
 		static boolean active() {
 			return dev.voidmc.lod.api.LodApi.active();
@@ -47,6 +58,10 @@ public final class Lod {
 
 		static void setShade(com.mojang.renderpearl.api.textures.GpuTextureView texture, double originX, double originZ, double size, float strength) {
 			dev.voidmc.lod.api.LodApi.setShade(texture == null ? null : new dev.voidmc.lod.api.LodApi.Shade(texture, originX, originZ, size, strength));
+		}
+
+		static void onPackFrame(java.util.function.Consumer<PackDepth> listener) {
+			dev.voidmc.lod.api.LodApi.onPackFrame(d -> listener.accept(new PackDepth(d.glTexture(), d.projection(), d.width(), d.height())));
 		}
 
 		static void setHazeThickness(float thickness) {

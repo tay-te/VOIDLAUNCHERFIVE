@@ -128,7 +128,8 @@ the LOD; prepared (uploads, the shadow picture) while the frame graph is built (
 | Class | What it is |
 |---|---|
 | `WeatherMap` | `Air.front` over ~49 km on a 256² grid in the fronts' drifting frame, made on a worker every few seconds, uploaded as a texture. |
-| `CloudNoise` | Four tiling fractal noises in one 256² texture: the heaps, their edges, the rain's streaks, the mist's tongues. |
+| `CloudNoise` | Four tiling fractal noises in one 256² texture: the rain's streaks, the mist's tongues. |
+| `CloudVolume` | The deck's 3D noise, 64³ as slices in one 528² texture, made once on a worker. |
 | `FarRenderer` | The pipelines and the draws: the cloud deck, the mist mesh, the rain curtains, the cloud shadows' picture; GPU timing. |
 | `FarLand` | The far land on 128-block cells (height, water, biome warmth and wetness) from `LodApi.addVisibleTerrainListener`. |
 | `FarMist` | The mist mesh: `Air.mist` per far cell with its own climate, lying at the lowest ground nearby plus `Air.mistDepth`. |
@@ -137,12 +138,15 @@ the LOD; prepared (uploads, the shadow picture) while the frame graph is built (
 - **The cloud deck** replaces vanilla's clouds (`CloudRendererMixin`) and keeps the cloud option (off; fast: one soft
   layer; fancy: heaps with depth) and `CLOUD_COLOR` as its sunlit colour. Its base is `CLOUD_HEIGHT` plus
   `farCloudLift` (240): at vanilla's 192 every mountain peak stands inside the deck and the far land is hidden behind it.
-  One triangle over the screen; each pixel marches its ray through the layer (long strides through clear air, short
-  ones inside a cloud, jittered), the heaps shaped from the fronts' cover and the noise: a few fair-weather heaps under a
-  clear front, broken heaps, a lumpy overcast deck, showers building towering heaps, storms dark underneath and towering
-  ~1400 blocks over the base. Heaps are domes over a smooth noise, frayed near the camera by a fine noise in slices (a
-  2D noise standing in for a 3D one). It writes the depth of the first cloud it meets, so land in front covers it. Out
-  to the LOD's radius, paling into the horizon's colour.
+  A thin volume, marched at half resolution before the frame into a picture of its own, then laid over the world in
+  the main pass by `far_composite` (a nine-tap filter that drops outliers, which takes the march's dither out without
+  blurring edges), at the depth where each ray enters the layer. The shape is a real 3D noise (`CloudVolume`: a
+  Perlin-Worley shape and three cellular detail octaves, 64³ laid out as slices in one 2D texture, since Mojang's GPU
+  layer has no 3D textures), covered by the fronts: a few fair-weather heaps under a clear front, broken cumulus, a lumpy
+  stratocumulus deck, towering cumulus under showers, cumulonimbus with flaring anvils under storms (~1400 blocks).
+  Lighting by the sun's direction (a light sample toward the sun, a two-lobed phase for the silver lining, darker bases,
+  the low sun's colour at dawn and dusk) and aerial perspective per sample, so a tower 10 km off is bluish-grey. About
+  0.6-0.9 ms of GPU at 1600x900 on an RTX 4060.
 - **Cloud shadows** on the far land: a 1024² picture of the sunlight under the clouds (relative to the light at the
   camera, so an overcast does not darken the far land against the chunks), laid on the LOD with `LodApi.setShade`.
 - **Far storms.** Rain curtains under showers and storms kilometres off, grey veils streaked and leaning, darker under
@@ -151,8 +155,13 @@ the LOD; prepared (uploads, the shadow picture) while the frame graph is built (
   stand out of it through the depth buffer, and its edges go soft where the mist over the ground runs out.
 - **The haze follows Gloam** through the attributes, and `LodApi.setHazeThickness` thickens it in humid summer
   lowlands and morning mist, thins it in winter and in the washed air after rain (`farHaze`).
-- With a shader pack on, the pack draws its own sky and clouds: the far air stays out (vanilla clouds are left to the
-  pack) and reaches it only through the attributes and the rain level.
+- **Over a shader pack** (`farOverPack`): when the pack draws VOID LOD's far land through its Distant Horizons programs,
+  VOID LOD hands over that land's depth once the pack has finished its picture (`LodApi.onPackFrame`). Gloam writes it
+  into the main depth buffer in the game's perspective (`far_depth_merge`, sampling the LOD's GL texture through a
+  borrowed `GlTexture`), then draws the deck, the mist and the curtains over the pack's picture, hidden behind the
+  chunks and the far ridges alike. Over a pack the far air thins into the pack's own sky with distance instead of
+  taking vanilla's fog colour, and the deck follows the player's cloud option (Iris reports it off for packs that draw
+  their own clouds; those stay, under Gloam's deck). No cloud shadows there: the pack's programs take no shade.
 
 ## Shader packs
 

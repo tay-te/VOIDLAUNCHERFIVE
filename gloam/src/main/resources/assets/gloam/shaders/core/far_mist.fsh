@@ -29,16 +29,19 @@ void main() {
     float drift = FarCamera.y * 0.8;
     float n = texture(CloudNoise, (world + vec2(drift, drift * 0.3)) / 2048.0).g * 0.6
         + texture(CloudNoise, (world - vec2(drift * 0.6, 0.0)) / 512.0).b * 0.4;
-    float opacity = 1.0 - exp(-across * thickness * 0.045 * (0.35 + 1.3 * n));
+    float opacity = 1.0 - exp(-across * thickness * 0.07 * (0.45 + 1.1 * n));
     // in from where the chunks end (near mist is the sky's and the motes' to draw), out before the far air's edge
     float ground = length(relative.xz);
     opacity *= smoothstep(FarCamera.z * 0.9, FarCamera.z * 1.6, ground) * (1.0 - smoothstep(0.85 * FarCamera.w, FarCamera.w, ground));
-    // Lit like the haze it is: the horizon's colour, whiter where the light falls on it, warm toward a low sun.
-    vec3 color = mix(FogColor.rgb, FarCloudColor.rgb, 0.6);
+    // Lit like the haze it is but denser, so brighter than the air around it: soft white, taking the dawn's tint, warm
+    // toward a low sun; it has to stand out against the haze over the land beside it.
+    float bright = max(max(FogColor.r, FogColor.g), FogColor.b);
+    vec3 color = mix(FogColor.rgb, vec3(bright), 0.55) * 1.18 + 0.04;
+    color = mix(color, FarCloudColor.rgb * 1.05, 0.25);
     float sunward = max(dot(normalize(dir.xz + vec2(1e-4, 0.0)), vec2(sign(FarSun.x), 0.0)), 0.0);
     color = mix(color, FarSunrise.rgb * max(max(color.r, color.g), color.b), FarSunrise.a * sunward * 0.5);
     // far banks sink into the air like the land under them
     float haze = 1.0 - exp(-dist / FarAnchor.w);
-    color = mix(color, FogColor.rgb, haze * 0.6);
-    fragColor = vec4(color, opacity * 0.92);
+    color = mix(color, FogColor.rgb, haze * 0.35 * (1.0 - FarMap.w));
+    fragColor = vec4(min(color, vec3(1.0)), opacity * 0.95 * (1.0 - haze * 0.5 * FarMap.w));
 }
