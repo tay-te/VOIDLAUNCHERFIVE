@@ -1,0 +1,17 @@
+{
+	"mettle.moment.level": "%s %s",
+	"mettle.moment.tier": "Tier %s open",
+	"mettle.moment.character": "Character level %s",
+	"mettle.moment.learned": "Learned",
+	"mettle.moment.mastery": "Mastery",
+	"mettle.moment.feat": "Feat earned",
+	"mettle.moment.synergy": "Synergy unlocked",
+	"mettle.moment.teaching": "Teaching learned",
+	"mettle.moment.perk_rank": "%s %s",
+	"mettle.moment.points.one": "1 point to spend · press %2$s",
+	"mettle.moment.points": "%s points to spend · press %s",
+	"mettle.moment.attribute_points.one": "1 attribute point to place · press %2$s",
+	"mettle.moment.attribute_points": "%s attribute points to place · press %s",
+	"mettle.moment.nudge.one": "1 point",
+	"mettle.moment.nudge": "%s points"
+}

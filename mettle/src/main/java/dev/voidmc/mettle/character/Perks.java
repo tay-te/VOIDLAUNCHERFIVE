@@ -7,6 +7,7 @@ import dev.voidmc.mettle.api.MettleEvents;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
+import dev.voidmc.mettle.character.moment.Moments;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
 import dev.voidmc.mettle.core.CharacterState;
 import dev.voidmc.mettle.core.CharacterStore;
@@ -97,6 +98,7 @@ public final class Perks {
 		Component text = perk.get().kind() == Perk.Kind.MASTERY
 			? Component.translatable("mettle.feedback.mastery", perk.get().name())
 			: Component.translatable("mettle.feedback.learned", perk.get().name(), rank);
+		Moments.perk(player, key, perk.get(), rank);
 		SignaturePerks.feedback(player, key.identifier(), text);
 		MettleEvents.PERK_LEARNED.invoker().learned(player, key, rank);
 		return Optional.empty();
@@ -114,6 +116,7 @@ public final class Perks {
 		CharacterStore.set(player, state.withPerks(held));
 		EffectsApplier.apply(player);
 		String kind = perk.get().kind().getSerializedName();
+		Moments.perk(player, key, perk.get(), 1);
 		SignaturePerks.feedback(player, key.identifier(), Component.translatable("mettle.feedback.earned." + kind, perk.get().name()));
 		Mettle.LOGGER.info("{} earned {} {}", player.getName().getString(), kind, key.identifier());
 		MettleEvents.PERK_LEARNED.invoker().learned(player, key, 1);

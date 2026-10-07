@@ -3,7 +3,8 @@
 	"package": "dev.voidmc.mettle.client.mixin.character",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"AnvilScreenMixin"
+		"AnvilScreenMixin",
+		"BossHealthOverlayAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

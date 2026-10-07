@@ -34,6 +34,7 @@ public final class CoreModule {
 		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.BackgroundChosen.TYPE, MettlePayloads.BackgroundChosen.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.BackgroundRejected.TYPE, MettlePayloads.BackgroundRejected.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.Feedback.TYPE, MettlePayloads.Feedback.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.Moment.TYPE, MettlePayloads.Moment.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.ChooseBackground.TYPE, MettlePayloads.ChooseBackground.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.LearnPerk.TYPE, MettlePayloads.LearnPerk.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.SpendAttribute.TYPE, MettlePayloads.SpendAttribute.STREAM_CODEC);
