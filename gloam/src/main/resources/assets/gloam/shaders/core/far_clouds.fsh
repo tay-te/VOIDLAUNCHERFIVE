@@ -53,10 +53,16 @@ void main() {
 
     // The light: the sun's colour (vanilla's cloud colour, warmed by a low sun), and the sky's light from all round,
     // bluish-grey under the clouds and brighter over them.
+    // The sun's own warmth by its height, as real sunlight goes golden through more air near the horizon, whatever
+    // colour vanilla gives the clouds (which a shader pack's sky leaves grey at dawn); vanilla's sunrise colour on top.
     vec3 lit = FarCloudColor.rgb;
+    float brightness = max(max(lit.r, lit.g), lit.b);
+    vec3 warmth = mix(vec3(1.0, 0.58, 0.32), vec3(1.0, 0.97, 0.93), smoothstep(0.02, 0.45, FarSun.y));
     float low_sun = FarSunrise.a * (1.0 - smoothstep(0.0, 0.5, FarSun.y));
-    vec3 sun = mix(lit, FarSunrise.rgb * max(max(lit.r, lit.g), lit.b) * 1.3, low_sun * 0.75) * FarSun.w;
-    vec3 skyLight = mix(FogColor.rgb, lit, 0.5);
+    vec3 sun = mix(vec3(brightness) * warmth * 1.15, FarSunrise.rgb * brightness * 1.3, low_sun * 0.5) * FarSun.w;
+    // the sky's light from all round: the horizon's colour without a pack; over a pack (whose sky is not vanilla's fog
+    // colour) a cool blue-grey from the cloud colour
+    vec3 skyLight = FarMap.w > 0.5 ? lit * vec3(0.78, 0.84, 0.95) : mix(FogColor.rgb, lit, 0.5);
     float cosine = dot(dir, FarSun.xyz);
     // a silver lining toward the sun, a little back-scatter away from it
     float scatter = mix(phase(cosine, 0.65), phase(cosine, -0.2), 0.35) * 4.0 * 3.14159265 * 0.55;
@@ -73,7 +79,7 @@ void main() {
         vec2 rel = dir.xz * tm;
         vec4 s = skyAt(rel);
         float height;
-        float d = cloud(rel, deckBase(s) + 0.4 * deckDepth(s), s, false, height);
+        float d = cloud(rel, deckBase(s) + 0.4 * deckDepth(s), s, false, false, height);
         float a = smoothstep(0.0, 0.35, d) * 0.92;
         light = mix(sun * 0.6 + skyLight * 0.55, FogColor.rgb, (1.0 - exp(-tm / FarAnchor.w)) * 0.8) * a;
         weighted = tm * a;
@@ -98,7 +104,7 @@ void main() {
         float height;
         bool near = t < 3000.0;
         // a clear bubble round the camera: clouds thin away as it flies into them
-        float d = cloud(p.xz, y, s, near, height) * smoothstep(24.0, 96.0, t);
+        float d = cloud(p.xz, y, s, near, false, height) * smoothstep(24.0, 96.0, t);
         if (d > 0.002) {
             if (!inside) {
                 inside = true;
@@ -109,13 +115,16 @@ void main() {
             // the sun's light reaching this point: one sample of the cloud a way toward it (the sky there taken as here's)
             vec3 q = p + toSun * 50.0;
             float hq;
-            float toward = cloud(q.xz, cameraY + q.y, s, false, hq) * 100.0;
+            float billows = cloudBillows;
+            // (far off a heap is a few pixels: its height in the deck stands in for the sample toward the sun)
+            float toward = near ? cloud(q.xz, cameraY + q.y, s, false, false, hq) * 100.0 : (1.0 - clamp(height, 0.0, 1.0)) * 60.0 * d;
             // and the cloud above shading its own underside
             float beer = exp(-SIGMA * 0.8 * toward) * mix(0.35, 1.0, smoothstep(0.0, 0.7, height));
             // the dark of a cloud's inside lifts toward its edges (light scattered many times)
             float powder = 1.0 - exp(-2.0 * SIGMA * d * 40.0);
             float shadeBase = mix(0.55, 0.3, s.y);
-            vec3 ambient = skyLight * mix(shadeBase, 1.0, smoothstep(0.0, 1.0, height));
+            // the underside lumpy with its billows: hollows darker, bulges catching more of the sky
+            vec3 ambient = skyLight * mix(shadeBase, 1.0, smoothstep(0.0, 1.0, height)) * mix(0.72, 1.18, billows);
             vec3 col = sun * beer * mix(1.0, scatter, 0.6) * (0.5 + 0.5 * powder) * 1.2 + ambient * 0.62;
             float a = 1.0 - exp(-SIGMA * d * stride);
             // Aerial perspective, sample by sample: the air between pales a far cloud into the horizon's colour, so a

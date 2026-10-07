@@ -21,7 +21,7 @@ float sunlight(vec2 rel) {
         vec2 at = rel + toSun.xz / toSun.y * (y - FarShade.w);
         vec4 s = skyAt(at);
         float height;
-        optical += cloud(at, y, s, false, height) * 70.0 / toSun.y;
+        optical += cloud(at, y, s, false, false, height) * 70.0 / toSun.y;
     }
     return mix(0.5, 1.0, exp(-SIGMA * 0.5 * optical));
 }

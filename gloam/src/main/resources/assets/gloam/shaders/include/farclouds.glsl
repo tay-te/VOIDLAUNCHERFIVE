@@ -55,9 +55,13 @@ float deckDepth(vec4 s) {
     return mix(depth, max(FarLayer.y, depth), s.z);
 }
 
+// The billows at the last point cloud() eroded (0..1), for the deck's shading: the hollows between billows darker.
+float cloudBillows = 0.5;
+
 // The cloud's density at a point (rel across the ground from the camera, y its height), and how high in its cloud the
-// point is (0 base .. 1 top); detail adds the eroding billows, which are under a pixel far off.
-float cloud(vec2 rel, float y, vec4 s, bool detail, out float height) {
+// point is (0 base .. 1 top); detail adds the eroding billows near the camera (far off, one coarser sample frays the
+// outline instead, so a distant bank seen edge-on breaks into heaps rather than a smooth sausage); light skips both.
+float cloud(vec2 rel, float y, vec4 s, bool detail, bool far, out float height) {
     float base = deckBase(s);
     float depth = deckDepth(s);
     if (y < base - 1.0 || y > FarLayer.x + FarLayer.y) {
@@ -91,11 +95,16 @@ float cloud(vec2 rel, float y, vec4 s, bool detail, out float height) {
     float coverage = max(s.x * profile, anvil);
     float d = remap01(shape, 1.0 - coverage, 1.0) * max(profile, anvil);
     if (detail && d > 0.0) {
-        // erode the edges into billows: the detail noise rising with height, so bases are wispy and heads round
+        // erode the edges into billows: the detail noise rising with height, so bases are lumpy and heads round
         vec4 e = volume(vec3(p.x, y * 1.6, p.y) / DETAIL_TILE + vec3(FarCamera.y * 0.002, 0.0, 0.0));
         float billows = e.g * 0.625 + e.b * 0.25 + e.a * 0.125;
+        cloudBillows = billows;
         float erode = mix(1.0 - billows, billows, smoothstep(0.1, 0.6, hh));
-        d = remap01(d, erode * 0.28, 1.0);
+        d = remap01(d, erode * 0.34, 1.0);
+    } else if (far && d > 0.0 && d < 0.6) {
+        vec4 e = volume(vec3(p.x, y * 1.2, p.y) / (DETAIL_TILE * 3.0));
+        cloudBillows = e.g;
+        d = remap01(d, (1.0 - e.g) * 0.35, 1.0);
     }
     return d;
 }

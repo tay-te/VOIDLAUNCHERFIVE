@@ -134,8 +134,8 @@ public final class FarAir {
 	/** One line on the far air's cost and content, for the logs and the showcase. */
 	public static String stats() {
 		FarRenderer r = INSTANCE.renderer;
-		return String.format(Locale.ROOT, "far air: GPU %.2f ms, prepare %.3f ms, %d mist quads, %d curtains, max storm %.2f, %s, %d draws",
-			r == null ? -1 : r.gpuMillis, INSTANCE.prepareMillis, r == null ? 0 : r.mistQuads(), INSTANCE.curtains, INSTANCE.maxStorm,
+		return String.format(Locale.ROOT, "far air: GPU %.2f ms (%s), prepare %.3f ms, %d mist quads, %d curtains, max storm %.2f, %s, %d draws",
+			r == null ? -1 : r.gpuMillis, r == null ? "" : r.gpuSplit(), INSTANCE.prepareMillis, r == null ? 0 : r.mistQuads(), INSTANCE.curtains, INSTANCE.maxStorm,
 			INSTANCE.cloudState, r == null ? 0 : r.draws);
 	}
 

@@ -53,7 +53,7 @@ final class FarRenderer implements AutoCloseable {
 	/** std140: a mat4 and ten vec4s. */
 	static final int INFO_BYTES = 64 + 10 * 16;
 	/** The cloud shadows' picture, texels across. */
-	static final int SHADE_SIZE = 1024;
+	static final int SHADE_SIZE = 512;
 
 	static final VertexFormat MIST_VERTEX = VertexFormat.builder(0)
 		.addAttribute("Position", GpuFormat.RGB32_FLOAT)
@@ -456,6 +456,11 @@ final class FarRenderer implements AutoCloseable {
 	/** The cloud shadows' picture. */
 	GpuTextureView shadeView() {
 		return this.shadeView;
+	}
+
+	/** The GPU time of the passes before the frame (the deck's march, the shadows) and of the draws in it, ms. */
+	String gpuSplit() {
+		return String.format(java.util.Locale.ROOT, "%.2f before + %.2f in the frame", this.prepareMillis, this.drawMillis);
 	}
 
 	int mistQuads() {
