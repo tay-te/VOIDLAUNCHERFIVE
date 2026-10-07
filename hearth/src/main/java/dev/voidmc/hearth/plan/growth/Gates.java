@@ -172,13 +172,22 @@ public final class Gates {
 		int sizeZ = facing.getAxis() == Direction.Axis.Z ? depth : front;
 		int x0 = d.xs()[i] - sizeX / 2;
 		int z0 = d.zs()[i] - sizeZ / 2;
+		int lo = Integer.MAX_VALUE;
+		int hi = Integer.MIN_VALUE;
 		for (int zz = z0; zz < z0 + sizeZ; zz++) {
 			for (int xx = x0; xx < x0 + sizeX; xx++) {
 				byte c = ctx.occ.get(xx, zz);
 				if (!(Cell.isAccess(c) || Cell.isBuildable(c) || c == Cell.PLANNED_ROAD) || ctx.ground.isWater(xx, zz)) {
 					return null;
 				}
+				int g = ctx.ground.ground(xx, zz);
+				lo = Math.min(lo, g);
+				hi = Math.max(hi, g);
 			}
+		}
+		if (hi - lo > ctx.config.slopeTolerance() + 2) {
+			// a road along a hillside: level along it, but the ground falls away across it, and the building would hang
+			return null;
 		}
 		CompoundTag params = new CompoundTag();
 		params.putInt("passage_width", e.width);

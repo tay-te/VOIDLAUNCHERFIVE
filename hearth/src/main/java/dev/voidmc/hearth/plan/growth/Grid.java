@@ -167,7 +167,7 @@ public final class Grid {
 		RoadEdge best = null;
 		double bestD = maxDistance;
 		for (RoadEdge e : ctx.state.graph.edges()) {
-			if ((e.role != RoadEdge.Role.LANE && e.role != RoadEdge.Role.STAIR) || e.built > 0 || !parentBuilt(ctx, e)) {
+			if ((e.role != RoadEdge.Role.LANE && e.role != RoadEdge.Role.STAIR) || e.built > 0 || e.limit <= 0 || !parentBuilt(ctx, e)) {
 				continue;
 			}
 			Polyline.Dense d = e.dense();

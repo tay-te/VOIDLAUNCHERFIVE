@@ -161,7 +161,8 @@ public final class Expand {
 		double core = ctx.coreRadius();
 		// the best few places for a lane, not only the best: a mouth whose lane will not walk (it runs into a plot a few
 		// blocks on) must not stop every other from being tried, call after call (requests/w5-tour.md §1)
-		List<Branch> branches = branches(ctx, false, 4);
+		List<Branch> fresh = new ArrayList<>();
+		List<Branch> branches = branches(ctx, false, 4, fresh);
 		Branch branch = branches.isEmpty() ? null : branches.get(0);
 		RoadEdge arm = shortestArm(ctx);
 		double armDist = arm == null ? Double.MAX_VALUE : armFrontier(ctx, arm);
@@ -178,8 +179,8 @@ public final class Expand {
 		};
 		// a lane planned ahead (its mouth kept open) is built first, nearest the heart first
 		RoadEdge planned = Grid.nearestPlanned(ctx, core * laneReach + 12);
-		if (planned != null) {
-			return buildLane(ctx, planned);
+		if (planned != null && buildLane(ctx, planned)) {
+			return true;
 		}
 		for (Branch b : branches) {
 			if (b.distance < core * laneReach && walkBranch(ctx, b)) {
@@ -199,8 +200,9 @@ public final class Expand {
 			}
 		}
 		planned = Grid.nearestPlanned(ctx, Double.MAX_VALUE);
-		if (planned != null && (arm == null || ctx.distanceToHeart(planned.dense().xs()[0], planned.dense().zs()[0]) < armDist)) {
-			return buildLane(ctx, planned);
+		if (planned != null && (arm == null || ctx.distanceToHeart(planned.dense().xs()[0], planned.dense().zs()[0]) < armDist)
+			&& buildLane(ctx, planned)) {
+			return true;
 		}
 		if (arm != null && extendArm(ctx, arm, "road: the main street grows outward")) {
 			return true;
@@ -218,6 +220,23 @@ public final class Expand {
 		if (continueArm(ctx)) {
 			return true;
 		}
+		// still nothing: the mouths no call has tried yet, beyond each street's best (a street whose best mouth runs into a
+		// plot a few blocks on has others; a walled steppe town stalled at 312 souls with open land all round it)
+		// (every third call: a town with nothing else to grow does not pay for these walks on every call)
+		int tries = ctx.state.calls % 3 == 0 ? 0 : 3;
+		for (Branch b : fresh) {
+			if (tries >= 3) {
+				break;
+			}
+			if (branches.contains(b)) {
+				// tried above
+				continue;
+			}
+			if (walkBranch(ctx, b)) {
+				return true;
+			}
+			tries++;
+		}
 		Growth.why("no road could grow (" + (branch == null ? "no lane mouth" : "a lane mouth at " + (int) branch.distance + " would not walk") + ", "
 			+ (arm == null ? "the main streets built out" : "the main street would not run on") + ", no dead end to run on)");
 		return false;
@@ -232,7 +251,8 @@ public final class Expand {
 		// lanes run on within the planned town; beyond it the main roads and tracks reach out instead
 		double bestD = Math.min(maxDistance, Math.max(Grid.reach(ctx) * 1.5, Parcels.edgeRing(ctx)));
 		for (RoadEdge e : ctx.state.graph.edges()) {
-			if ((e.role != RoadEdge.Role.LANE && e.role != RoadEdge.Role.STAIR) || !e.fullyBuilt() || e.length() < 6) {
+			if ((e.role != RoadEdge.Role.LANE && e.role != RoadEdge.Role.STAIR) || !e.fullyBuilt() || e.length() < 6 || e.built < e.length()) {
+				// (a lane given up at its mouth or cut short has no open end to run on from)
 				continue;
 			}
 			if (ctx.state.graph.node(e.to).kind() != RoadGraph.NodeKind.END) {
@@ -330,6 +350,12 @@ public final class Expand {
 	static boolean buildLane(PlanContext ctx, RoadEdge lane) {
 		RoadEdge parent = lane.parent >= 0 ? ctx.state.graph.edge(lane.parent) : null;
 		Roads.build(ctx, lane, lane.length(), "road: a new " + lane.kind.getSerializedName() + (parent == null ? "" : " off the " + describe(parent)));
+		if (lane.built <= 0) {
+			// blocked at its mouth since it was planned (a plot stands across it now): it is given up, or it would be "built"
+			// on every call with nothing to show and the town would plan nothing else (a city of 447, a hillside town of 200)
+			lane.limit = 0;
+			return false;
+		}
 		Grid.planAhead(ctx, lane, 0, lane.length());
 		return true;
 	}
@@ -379,7 +405,16 @@ public final class Expand {
 
 	/** The best {@code max} places to branch a new lane, best first, at most one per street (see {@link #bestBranch}). */
 	static List<Branch> branches(PlanContext ctx, boolean outward, int max) {
+		return branches(ctx, outward, max, null);
+	}
+
+	/**
+	 * As {@link #branches(PlanContext, boolean, int)}; {@code fresh}, if given, also gets each street's best mouth among
+	 * those no call has tried and seen fail (best first, at most {@code max}), from the same pass.
+	 */
+	static List<Branch> branches(PlanContext ctx, boolean outward, int max, @Nullable List<Branch> fresh) {
 		java.util.Map<Integer, Branch> perEdge = new java.util.HashMap<>();
+		java.util.Map<Integer, Branch> untried = new java.util.HashMap<>();
 		double core = ctx.coreRadius();
 		Ground g = ctx.ground;
 		LayoutType layout = ctx.state.layout;
@@ -437,9 +472,6 @@ public final class Expand {
 					}
 					double grade = Math.abs(g.surface(mx, mz) - g.surface(d.xs()[i], d.zs()[i])) / 8.0;
 					boolean contour = layout.terraces && grade < ctx.config.roadGrade() && ctx.state.site != null && ctx.state.site.slope() > 0.12;
-					if (hasFailed(ctx, e, i, heading)) {
-						continue;
-					}
 					double score = outward ? -Math.abs(dist - outwardFrom) : -dist;
 					score -= grade > ctx.config.stairGrade() ? 1000 : grade > ctx.config.roadGrade() ? (layout.terraces ? 4 : 25) : 0;
 					if (layout.terraces && e.role == RoadEdge.Role.STAIR && grade < ctx.config.roadGrade()) {
@@ -453,9 +485,22 @@ public final class Expand {
 					if (best == null || score > best.score) {
 						perEdge.put(e.id, new Branch(e, i, heading, dist, score, contour));
 					}
+					if (fresh != null && !hasFailed(ctx, e, i, heading)) {
+						Branch u = untried.get(e.id);
+						if (u == null || score > u.score) {
+							untried.put(e.id, new Branch(e, i, heading, dist, score, contour));
+						}
+					}
 				}
 			}
 		}
+		if (fresh != null) {
+			fresh.addAll(best(untried, max));
+		}
+		return best(perEdge, max);
+	}
+
+	private static List<Branch> best(java.util.Map<Integer, Branch> perEdge, int max) {
 		List<Branch> out = new ArrayList<>(perEdge.values());
 		out.sort(java.util.Comparator.comparingDouble((Branch b) -> -b.score).thenComparingInt(b -> b.edge.id));
 		return out.size() > max ? out.subList(0, max) : out;
@@ -528,9 +573,9 @@ public final class Expand {
 	}
 
 	/**
-	 * Lane mouths that would not walk, per settlement (not saved): a street's best mouth that runs into a plot a few blocks
-	 * on is passed over afterwards, so the street's next best is offered instead of the same failure call after call (a
-	 * walled steppe town stalled at 312 souls with open land all round it, its four best mouths failing every call).
+	 * Lane mouths that would not walk, per settlement (not saved): when every other way to grow has failed, a street's
+	 * mouths that ran into a plot a few blocks on are passed over and its next best are offered, instead of the same
+	 * failures call after call (a walled steppe town stalled at 312 souls with open land all round it).
 	 */
 	private static final java.util.Map<dev.voidmc.hearth.plan.model.PlanState, java.util.Set<Long>> FAILED =
 		java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());

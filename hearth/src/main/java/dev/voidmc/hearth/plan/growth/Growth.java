@@ -110,6 +110,14 @@ public final class Growth {
 				// said it was met but queued nothing (a seat already planned, a rebuild already asked for): it rests, or it
 				// would be "met" on every call and nothing after it ever planned (a city of 447 answered nothing for good)
 				ctx.state.cooldowns.put(need.key, ctx.state.calls + 4 + ctx.random.nextInt(5));
+				if (first == null) {
+					first = group(need.key) + ": met with nothing to build";
+				}
+				// it counts as an attempt, or a town whose needs are all "met" this way runs through every one of them on
+				// every call (a hillside town of 200 spent 5 ms a call so)
+				if (++attempts >= MAX_ATTEMPTS) {
+					break;
+				}
 				continue;
 			}
 			if (met) {
