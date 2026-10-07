@@ -172,6 +172,9 @@ public final class Doors {
 			int fz = z + Dirs.dz(side);
 			for (int dy = 0; dy <= 1; dy++) {
 				if (prop(d.cell(fx, y + dy, fz)) || shutter(d.cell(fx, y + dy, fz), side) || dy == 1 && beamEnd(d, fx, y + 1, fz)) {
+					if (Boolean.getBoolean("hearth.access.debug")) {
+						System.out.println("doors: cleared " + d.get(fx, y + dy, fz) + " at " + fx + "/" + (y + dy) + "/" + fz + " before the door at " + x + "/" + y + "/" + z);
+					}
 					d.remove(fx, y + dy, fz);
 					n++;
 				}
@@ -297,6 +300,9 @@ public final class Doors {
 			}
 			if (!useless || entrance(d, x, y, z, f)) {
 				continue;
+			}
+			if (Boolean.getBoolean("hearth.access.debug")) {
+				System.out.println("doors: bricked up the door at " + x + "/" + y + "/" + z + (outward ? " over a drop" : " into a wall"));
 			}
 			brickUp(d, x, y, z, f, outward);
 			bricked++;

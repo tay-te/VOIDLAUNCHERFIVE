@@ -118,6 +118,11 @@ public final class Spaces {
 	 * the lowest drawn block (or the floor) to {@link LightRules#ABOVE} over the highest.
 	 */
 	public static Spaces of(dev.voidmc.hearth.build.draft.Draft d) {
+		return of(d, true);
+	}
+
+	/** {@link #of(dev.voidmc.hearth.build.draft.Draft)}, walked from the street row only when {@code fromEntrances} is false (as the invariant checks walk to a main entrance). */
+	public static Spaces of(dev.voidmc.hearth.build.draft.Draft d, boolean fromEntrances) {
 		int[] yr = {Integer.MAX_VALUE, Integer.MIN_VALUE};
 		d.forEach((x, y, z, c) -> {
 			yr[0] = Math.min(yr[0], y);
@@ -130,7 +135,7 @@ public final class Spaces {
 		int m = LightRules.MARGIN;
 		Grid g = Grid.of(d, -m, Math.min(yr[0], 0) - LightRules.BELOW, -m, d.frontage() - 1 + m, Math.max(yr[1], 0) + LightRules.ABOVE, d.depth() - 1 + m);
 		java.util.List<BlockPos> starts = new java.util.ArrayList<>();
-		for (int[] e : d.entrances()) {
+		for (int[] e : fromEntrances ? d.entrances() : java.util.List.<int[]>of()) {
 			starts.add(new BlockPos(e[0], e[1], e[2]));
 		}
 		for (int x = 0; x < d.frontage(); x++) {
@@ -269,6 +274,18 @@ public final class Spaces {
 		return (flagsAt(x, y - 1, z) & (STAND | CLIMB)) != 0;
 	}
 
+	/**
+	 * An open trapdoor at a position whose leaf stands on its {@code side} edge (an open trapdoor's leaf is on the edge
+	 * away from its facing): nobody passes that edge, though the cell itself can be stood in.
+	 */
+	private boolean leaf(int x, int y, int z, Direction side) {
+		if (!this.g.contains(x, y, z)) {
+			return false;
+		}
+		BlockState s = this.g.at(x, y, z);
+		return s.getBlock() instanceof TrapDoorBlock && s.getValue(TrapDoorBlock.OPEN) && s.getValue(TrapDoorBlock.FACING) == side.getOpposite();
+	}
+
 	/** Feet can be at this cell. */
 	public boolean walkable(int x, int y, int z) {
 		return this.g.contains(x, y, z) && this.walkable.get(this.g.index(x, y, z));
@@ -374,10 +391,17 @@ public final class Spaces {
 				int[] s = g.step(d);
 				int nx = x + s[0];
 				int nz = z + s[2];
+				// the leaf of an open trapdoor on this side of the cell (a rail, a shutter against a wall) closes it
+				if (leaf(x, y, z, d) || leaf(x, y + 1, z, d)) {
+					continue;
+				}
 				for (int dy = 1; dy >= -3; dy--) {
 					int ny = y + dy;
 					if (dy == 1 && !headroom) {
 						continue;
+					}
+					if (leaf(nx, ny, nz, d.getOpposite()) || leaf(nx, ny + 1, nz, d.getOpposite())) {
+						break;
 					}
 					if (walkable(nx, ny, nz)) {
 						enqueue(q, nx, ny, nz);

@@ -120,14 +120,14 @@ public final class Guards {
 	 * audit's fall edge): the guard goes on the edge cell itself, a rail on boards, a parapet course on a masonry deck,
 	 * so nothing hangs out over the drop. Not on a roof's slope or ridge, not where a ladder, a stair, a hatch or a door
 	 * arrives, not on an entrance or a point of interest, and only where the floor goes on inward (a one-wide walk
-	 * keeps its way). If the guards would leave any cell unreached that was reached, none is kept. Returns how many
-	 * went in.
+	 * keeps its way). The walk is the street's (the way to the main door counts): a guard that would leave any cell
+	 * unreached that was reached is taken back, with its neighbours. Returns how many went in.
 	 */
 	public static int finish(Draft d) {
 		if (!applies(d)) {
 			return 0;
 		}
-		Spaces sp = Spaces.of(d);
+		Spaces sp = Spaces.of(d, false);
 		Grid g = sp.grid();
 		LongOpenHashSet keep = new LongOpenHashSet();
 		for (int[] e : d.entrances()) {
@@ -192,10 +192,10 @@ public final class Guards {
 		}
 		// a guard must never cut a way: every cell reached before (but the guards' own) is reached after; the guards
 		// beside a cell cut off are taken back (and the walk read again) until nothing is cut, three times at most
-		boolean debug = Boolean.getBoolean("hearth.guards.debug");
+		boolean debug = Boolean.getBoolean("hearth.access.debug");
 		LongOpenHashSet kept = new LongOpenHashSet(cells);
 		for (int round = 0; round < 4 && !kept.isEmpty(); round++) {
-			Spaces after = Spaces.of(d);
+			Spaces after = Spaces.of(d, false);
 			LongArrayList lost = new LongArrayList();
 			for (int i = 0; i < reachedBefore.size(); i++) {
 				long k = reachedBefore.getLong(i);
