@@ -114,8 +114,9 @@ public final class Tenement implements Archetype {
 		if (t.eastern() && (partyL || partyR) && (form == RoofForm.PAGODA || form == RoofForm.HIP)) {
 			form = RoofForm.HIP;
 			opts = opts.withPitch(0.6);
-		} else if (!flat && t.steep() && !t.eastern() && form != RoofForm.MANSARD && form != RoofForm.GAMBREL) {
-			// the steep roof of a tall town house, room under it for the attic flats and two rows of dormers
+		} else if (!flat && t.steep() && !t.eastern() && form == RoofForm.GABLE) {
+			// the steep roof of a tall town house, room under it for the attic flats and two rows of dormers (a gable
+			// only: a hip or a cone at that pitch leaves steps in its top)
 			opts = opts.withPitch(Math.max(opts.pitch(), 1.25));
 		}
 
