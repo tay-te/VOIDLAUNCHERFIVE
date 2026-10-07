@@ -33,6 +33,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.Heightmap;
+import dev.voidmc.atlas.api.MarkerQuery;
+import dev.voidmc.atlas.api.Marker;
 
 /**
  * Atlas in a real game. Two modes ({@code -Datlas.test=tour|perf}):
@@ -276,6 +278,9 @@ public class AtlasGameTest implements FabricClientGameTest {
 		}
 		if (this.want("expanse")) {
 			this.expanseShot(context);
+		}
+		if (this.want("hearth") && net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("hearth")) {
+			this.hearthShots(context, world);
 		}
 		if (this.want("places")) {
 			this.placeShots(context);
@@ -548,6 +553,81 @@ public class AtlasGameTest implements FabricClientGameTest {
 		}
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", this.spawn.getX(), 140, this.spawn.getZ()));
 		context.waitTicks(20);
+	}
+
+	/**
+	 * With VOID Hearth installed (-Phearth=<jar>): a settlement founded beside the spawn and walked into (discovered),
+	 * its card on the map; then a quest given there, tracked through Atlas's API, on the map and as a beam.
+	 */
+	private void hearthShots(ClientGameTestContext context, TestSingleplayerContext world) {
+		int hx = this.spawn.getX() + 60;
+		int hz = this.spawn.getZ() + 40;
+		int hy = world.getServer().computeOnServer(s -> {
+			s.overworld().getChunk(hx >> 4, hz >> 4);
+			return s.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, hx, hz);
+		});
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", hx, hy + 1, hz));
+		context.waitTicks(60);
+		world.getServer().runCommand("execute as @p at @p run hearth settlement found");
+		context.waitTicks(200);
+		for (String t : new String[]{"hearth:gathering/honey", "hearth:honey", "hearth:gathering/fish", "hearth:fish"}) {
+			world.getServer().runCommand("execute as @p at @p run hearth quest give " + t);
+		}
+		context.waitTicks(100);
+		String[] ids = context.computeOnClient(mc -> {
+			String settlement = null;
+			String quest = null;
+			MarkerQuery q = new MarkerQuery("minecraft:overworld", -3e7, -3e7, 3e7, 3e7, hx, hz, MarkerQuery.Purpose.LIST);
+			java.util.Map<String, Integer> by = new java.util.TreeMap<>();
+			for (Marker m : AtlasClient.get().collect(q)) {
+				by.merge(m.layer() + " " + m.style(), 1, Integer::sum);
+				if (m.id().startsWith("hearth:settlement:") && settlement == null) {
+					settlement = m.id() + "|" + m.x() + "|" + m.z();
+				}
+				if (m.id().startsWith("hearth:quest:") && quest == null) {
+					quest = m.id() + "|" + m.x() + "|" + m.z();
+				}
+			}
+			log("markers by layer and style with Hearth: " + by);
+			return new String[]{settlement, quest};
+		});
+		log("Hearth settlement " + ids[0] + ", quest " + ids[1]);
+		if (ids[0] != null) {
+			String[] s = ids[0].split("\\|");
+			context.runOnClient(mc -> {
+				AtlasClient.get().openMap();
+				AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+				screen.page.rightTab = 0;
+				screen.page.map.setKind(MapPanel.Kind.SURFACE);
+				screen.page.map.centreOn(Double.parseDouble(s[1]) + 80, Double.parseDouble(s[2]));
+				screen.page.map.setZoom(2);
+				screen.page.map.selected = s[0];
+			});
+			this.settle(context, SETTLE_MS);
+			context.waitTicks(10);
+			this.shoot(context, "hearth_settlement_card");
+		}
+		if (ids[1] != null) {
+			String[] qd = ids[1].split("\\|");
+			context.runOnClient(mc -> {
+				dev.voidmc.atlas.api.AtlasApi.get().markers().track(qd[0]);
+				if (!(mc.gui.screen() instanceof AtlasScreen)) {
+					AtlasClient.get().openMap();
+				}
+				AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+				screen.page.map.selected = null;
+				screen.page.map.centreOn(Double.parseDouble(qd[1]), Double.parseDouble(qd[2]));
+				screen.page.map.setZoom(1);
+			});
+			this.settle(context, SETTLE_MS);
+			context.waitTicks(10);
+			this.shoot(context, "hearth_tracked_quest");
+			context.runOnClient(mc -> mc.gui.setScreen(null));
+			world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d 0 15", hx - 30, hy + 12, hz - 30));
+			context.waitTicks(40);
+			this.shoot(context, "hearth_quest_beam");
+		}
 	}
 
 	/**

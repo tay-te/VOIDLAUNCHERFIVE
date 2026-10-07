@@ -56,6 +56,10 @@ dependencies {
 		localRuntime "maven.modrinth:iris:${project.iris_version}"
 	}
 
+	// -Phearth=<jar>: VOID Hearth in the dev runs and the tour (its settlements and quests on the map)
+	if (findProperty('hearth') != null) {
+		localRuntime files(findProperty('hearth').toString())
+	}
 	if (expanseJar != null) {
 		localRuntime files(expanseJar.toString())
 	} else if (withExpanse) {
