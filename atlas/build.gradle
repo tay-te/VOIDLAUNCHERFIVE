@@ -265,26 +265,26 @@ tasks.register('atlasPerf') {
 			return
 		}
 		def json = file("build/perf/${perfName}.json")
-		def budgets = weak ? weakBudgets : budgets
+		def held = weak ? weakBudgets : budgets
 		if (!json.isFile()) {
 			throw new GradleException("The perf run wrote no results to ${json}")
 		}
 		def r = new groovy.json.JsonSlurper().parse(json)
 		def failures = []
-		if (r.minimap.avgMs > budgets.minimapAvgMs) failures << "minimap ${r.minimap.avgMs} ms/frame > ${budgets.minimapAvgMs}"
-		if (r.map.avgFrameMs > budgets.mapAvgFrameMs) failures << "map screen avg frame ${r.map.avgFrameMs} ms > ${budgets.mapAvgFrameMs}"
-		if (r.map.p99FrameMs > budgets.mapP99FrameMs) failures << "map screen p99 frame ${r.map.p99FrameMs} ms > ${budgets.mapP99FrameMs}"
-		if (r.ingest.maxFrameMs > budgets.ingestMaxFrameMs) failures << "chunk ingest ${r.ingest.maxFrameMs} ms in one frame > ${budgets.ingestMaxFrameMs}"
-		if (r.map.maxFrameMs > budgets.hitchMs) failures << "hitch while panning/zooming: ${r.map.maxFrameMs} ms > ${budgets.hitchMs}"
-		if (r.flight.maxFrameMs > budgets.hitchMs) failures << "hitch while flying: ${r.flight.maxFrameMs} ms > ${budgets.hitchMs}"
-		if (r.underMap.avgFrameMs > budgets.underAvgFrameMs) failures << "underground map avg frame ${r.underMap.avgFrameMs} ms > ${budgets.underAvgFrameMs}"
-		if (r.underMap.p99FrameMs > budgets.underP99FrameMs) failures << "underground map p99 frame ${r.underMap.p99FrameMs} ms > ${budgets.underP99FrameMs}"
-		if (r.underMap.maxFrameMs > budgets.hitchMs) failures << "hitch on the underground map: ${r.underMap.maxFrameMs} ms > ${budgets.hitchMs}"
-		if (r.detect.msPerChunk > budgets.detectMsPerChunk) failures << "structure detection ${r.detect.msPerChunk} ms/chunk > ${budgets.detectMsPerChunk}"
-		if (r.beams && r.beams.avgMs > budgets.beamsAvgMs) failures << "waypoint beams ${r.beams.avgMs} ms/frame > ${budgets.beamsAvgMs}"
-		if (r.radar && r.radar.avgMs > budgets.radarAvgMs) failures << "radar ${r.radar.avgMs} ms/frame > ${budgets.radarAvgMs}"
-		if (r.reveal.walks > 0 && r.reveal.msPerWalk > budgets.revealMsPerWalk) failures << "underground reveal ${r.reveal.msPerWalk} ms/walk > ${budgets.revealMsPerWalk}"
-		updatePerfDoc(file('docs/PERF.md'), file('build/perf'), budgets)
+		if (r.minimap.avgMs > held.minimapAvgMs) failures << "minimap ${r.minimap.avgMs} ms/frame > ${held.minimapAvgMs}"
+		if (r.map.avgFrameMs > held.mapAvgFrameMs) failures << "map screen avg frame ${r.map.avgFrameMs} ms > ${held.mapAvgFrameMs}"
+		if (r.map.p99FrameMs > held.mapP99FrameMs) failures << "map screen p99 frame ${r.map.p99FrameMs} ms > ${held.mapP99FrameMs}"
+		if (r.ingest.maxFrameMs > held.ingestMaxFrameMs) failures << "chunk ingest ${r.ingest.maxFrameMs} ms in one frame > ${held.ingestMaxFrameMs}"
+		if (r.map.maxFrameMs > held.hitchMs) failures << "hitch while panning/zooming: ${r.map.maxFrameMs} ms > ${held.hitchMs}"
+		if (r.flight.maxFrameMs > held.hitchMs) failures << "hitch while flying: ${r.flight.maxFrameMs} ms > ${held.hitchMs}"
+		if (r.underMap.avgFrameMs > held.underAvgFrameMs) failures << "underground map avg frame ${r.underMap.avgFrameMs} ms > ${held.underAvgFrameMs}"
+		if (r.underMap.p99FrameMs > held.underP99FrameMs) failures << "underground map p99 frame ${r.underMap.p99FrameMs} ms > ${held.underP99FrameMs}"
+		if (r.underMap.maxFrameMs > held.hitchMs) failures << "hitch on the underground map: ${r.underMap.maxFrameMs} ms > ${held.hitchMs}"
+		if (r.detect.msPerChunk > held.detectMsPerChunk) failures << "structure detection ${r.detect.msPerChunk} ms/chunk > ${held.detectMsPerChunk}"
+		if (r.beams && r.beams.avgMs > held.beamsAvgMs) failures << "waypoint beams ${r.beams.avgMs} ms/frame > ${held.beamsAvgMs}"
+		if (r.radar && r.radar.avgMs > held.radarAvgMs) failures << "radar ${r.radar.avgMs} ms/frame > ${held.radarAvgMs}"
+		if (r.reveal.walks > 0 && r.reveal.msPerWalk > held.revealMsPerWalk) failures << "underground reveal ${r.reveal.msPerWalk} ms/walk > ${held.revealMsPerWalk}"
+		updatePerfDoc(file('docs/PERF.md'), file('build/perf'), held)
 		if (!failures.isEmpty()) {
 			throw new GradleException("Atlas is over budget on ${backend}:\n  " + failures.join('\n  '))
 		}

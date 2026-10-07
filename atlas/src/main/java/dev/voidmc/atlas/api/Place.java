@@ -36,6 +36,11 @@ public record Place(String id, String kind, String name, String category, Tier t
 	public static final String RAVINE = "atlas:ravine";
 	/** A named region of one biome ("Larkspur Meadow"). */
 	public static final String REGION = "atlas:region";
+	/**
+	 * The kind a name provider is asked with for a structure ({@link RegionNameQuery#structure} is its id). Only a query
+	 * kind: a structure's place has its structure id as its kind.
+	 */
+	public static final String STRUCTURE = "atlas:structure";
 
 	public Place {
 		Objects.requireNonNull(id, "id");

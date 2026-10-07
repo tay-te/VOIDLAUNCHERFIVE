@@ -100,6 +100,8 @@ public final class AtlasClient implements ClientModInitializer {
 	private final MinimapHud minimap = new MinimapHud(this);
 	private final dev.voidmc.atlas.client.ui.HudOverlays overlays = new dev.voidmc.atlas.client.ui.HudOverlays(this);
 	private int rulesSeen;
+	/** Terrain seen from afar through VOID LOD (inert without it). */
+	public final FarSight farSight = new FarSight(this);
 	/** The last band the player was in underground, per dimension (for the underground and Nether views). */
 	private final ConcurrentHashMap<String, Integer> bands = new ConcurrentHashMap<>();
 	private final boolean logStats = Boolean.getBoolean("atlas.logStats");
@@ -154,6 +156,7 @@ public final class AtlasClient implements ClientModInitializer {
 
 		ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 		ChatCoordinates.register();
+		this.farSight.register();
 		dev.voidmc.atlas.client.ui.ShareCards.register();
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "shares"), (g, d) -> {
 			if (!BASELINE) {
@@ -514,6 +517,9 @@ public final class AtlasClient implements ClientModInitializer {
 				this.deathRecorded = false;
 			}
 			String dim = p.level().dimension().identifier().toString();
+			if (this.ticks % 20 == 11) {
+				this.farSight.update();
+			}
 			if (this.ticks % 100 == 3) {
 				// for the disk cap at close: the cap, and where the player is
 				session.diskCapBytes = this.settings.diskCapMb * 1024L * 1024L;
@@ -665,6 +671,8 @@ public final class AtlasClient implements ClientModInitializer {
 			MapSession s = this.session;
 			s.places.setExactAvailable(mc.getSingleplayerServer() != null);
 			s.landmarks.setNamer((dimension, kind, biome, x, z, area) -> this.places.name(s, dimension, kind, biome, x, z, area));
+			s.places.setNamer((dimension, kind, structureId, x, z) -> this.places.nameStructure(s, dimension, kind, structureId, s.biomeAt(dimension, x, z), x,
+				z));
 			this.rebuildLooks(mc);
 			// the GPU pages are made now, with the world loading, rather than in the middle of a frame later
 			this.tiles().reserve();

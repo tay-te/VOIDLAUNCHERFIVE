@@ -1,5 +1,7 @@
 package dev.voidmc.atlas.client.data;
 
+import dev.voidmc.atlas.core.RegionRaw;
+import dev.voidmc.atlas.core.Coords;
 import dev.voidmc.atlas.client.BlockLooks;
 import dev.voidmc.atlas.client.Perf;
 import dev.voidmc.atlas.api.Place;
@@ -279,6 +281,18 @@ public final class MapSession {
 			this.landmarks.opened(d);
 		}
 		return d;
+	}
+
+	/** The biome mapped at a column, from the walked surface already in memory (never loads); null if not known. */
+	public String biomeAt(String dimension, int x, int z) {
+		DimensionData d = this.dimensions.get(dimension);
+		LayerData surface = d == null ? null : d.layerIfOpen(DimensionData.SURFACE);
+		RegionRaw raw = surface == null ? null : surface.rawIfLoaded(Coords.region(x), Coords.region(z));
+		if (raw == null) {
+			return null;
+		}
+		int i = RegionRaw.index(Coords.inRegion(x), Coords.inRegion(z));
+		return raw.known(i) ? this.biomeNames.name(raw.biome[i]) : null;
 	}
 
 	public DimensionData dimensionIfOpen(String id) {

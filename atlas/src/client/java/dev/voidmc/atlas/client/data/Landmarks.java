@@ -34,9 +34,12 @@ public final class Landmarks {
 	private static final long QUIET_MS = 8_000;
 	private static final long AREAS_DELAY_MS = 1_500;
 
-	/** Names places: a mod's name for it if one has one, else the plain name of the land. */
+	/**
+	 * Names places: a mod's name for it if one has one (credited to that mod), else the plain name of the land (no
+	 * source: the place stays "seen by you").
+	 */
 	public interface Namer {
-		String name(String dimension, String kind, String biomeId, int x, int z, long area);
+		PlaceBook.Named name(String dimension, String kind, String biomeId, int x, int z, long area);
 	}
 
 	private final MapSession session;
@@ -189,14 +192,21 @@ public final class Landmarks {
 		}
 	}
 
-	private String name(DimensionData d, String id, String kind, int biome, int x, int z, long area) {
+	private static final PlaceBook.Named NO_NAME = new PlaceBook.Named("", null);
+
+	/** A place's name, asked afresh each time (it is the same every time: a provider's, or the land's plain name). */
+	private PlaceBook.Named name(DimensionData d, String kind, int biome, int x, int z, long area) {
 		return this.name(d, kind, this.session.biomeNames.name(biome), x, z, area);
 	}
 
-	/** A place's name, asked afresh each time (it is the same every time: a provider's, or the land's plain name). */
-	private String name(DimensionData d, String kind, String biomeId, int x, int z, long area) {
+	private PlaceBook.Named name(DimensionData d, String kind, String biomeId, int x, int z, long area) {
 		Namer n = this.namer;
-		return n == null ? "" : n.name(d.id, kind, biomeId, x, z, area);
+		PlaceBook.Named got = n == null ? null : n.name(d.id, kind, biomeId, x, z, area);
+		return got == null || got.name() == null ? NO_NAME : got;
+	}
+
+	private static Source source(PlaceBook.Named named) {
+		return named.source() == null ? Source.seen() : named.source();
 	}
 
 	private void publishPoints(DimensionData d, RegionFeatures f) {
@@ -212,7 +222,8 @@ public final class Landmarks {
 			Tier tier = p.kind() == RegionFeatures.PointKind.RAVINE ? Tier.MINOR : Tier.MAJOR;
 			String category = p.kind() == RegionFeatures.PointKind.WATERFALL ? "WATER" : "NATURAL";
 			int radius = p.kind() == RegionFeatures.PointKind.RAVINE ? p.length() / 2 : 0;
-			Place place = new Place(id, kind, this.name(d, id, kind, p.biome(), p.x(), p.z(), 0), category, tier, DiscoveryState.SIGHTED, Source.seen(), p.x(),
+			PlaceBook.Named named = this.name(d, kind, p.biome(), p.x(), p.z(), 0);
+			Place place = new Place(id, kind, named.name(), category, tier, DiscoveryState.SIGHTED, source(named), p.x(),
 				p.y(), p.z(), d.id, false, radius, now, 0);
 			places.add(place);
 		}
@@ -227,8 +238,9 @@ public final class Landmarks {
 		long now = System.currentTimeMillis();
 		for (AreaIndex.Area a : areas) {
 			String category = a.kind().equals(Place.REGION) ? "REGION" : "WATER";
-			places.add(new Place(a.id(), a.kind(), this.name(d, a.id(), a.kind(), a.biome(), a.labelX(), a.labelZ(), a.blocks()), category,
-				a.major() ? Tier.MAJOR : Tier.MINOR, DiscoveryState.SIGHTED, Source.seen(), a.labelX(), 64, a.labelZ(), d.id, false, a.radius(), now, 0));
+			PlaceBook.Named named = this.name(d, a.kind(), a.biome(), a.labelX(), a.labelZ(), a.blocks());
+			places.add(new Place(a.id(), a.kind(), named.name(), category, a.major() ? Tier.MAJOR : Tier.MINOR, DiscoveryState.SIGHTED, source(named),
+				a.labelX(), 64, a.labelZ(), d.id, false, a.radius(), now, 0));
 		}
 		this.session.places.replaceGroup(d.id, PlaceBook.AREAS, places, now);
 		Perf.AREA_NANOS.addAndGet(System.nanoTime() - t0);
@@ -280,8 +292,9 @@ public final class Landmarks {
 			long blocks = (long) a.cells() * cell * cell;
 			int radius = (int) Math.round(Math.sqrt(blocks) / 2);
 			int y = a.band() * DimensionData.BAND + DimensionData.BAND / 2;
-			places.add(new Place(a.id(), Place.REGION, this.name(d, Place.REGION, a.biome(), a.x(), a.z(), blocks), "REGION", Tier.MAJOR,
-				DiscoveryState.SIGHTED, Source.seen(), a.x(), y, a.z(), d.id, true, radius, now, 0));
+			PlaceBook.Named named = this.name(d, Place.REGION, a.biome(), a.x(), a.z(), blocks);
+			places.add(new Place(a.id(), Place.REGION, named.name(), "REGION", Tier.MAJOR, DiscoveryState.SIGHTED, source(named), a.x(), y, a.z(), d.id,
+				true, radius, now, 0));
 		}
 		this.session.places.replaceGroup(d.id, PlaceBook.CAVES, places, now);
 		String text = d.caves.save();

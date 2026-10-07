@@ -245,6 +245,14 @@ public final class BlockLooks implements TileRenderer.Looks {
 		Look look = this.byId.get(id);
 		if (look == null) {
 			String name = this.blockNames.name(id);
+			int far = dev.voidmc.atlas.core.FarColour.colour(name);
+			if (far >= 0) {
+				// terrain seen from afar: a colour as VOID LOD drew it, untinted
+				look = new Look(Blocks.STONE.defaultBlockState(), Material.OTHER, new Layer[]{new Layer(Oklab.linear(far >> 16), Oklab.linear(far >> 8),
+					Oklab.linear(far), 1, -1)}, far);
+				this.byId.set(id, look);
+				return look;
+			}
 			Block block = name == null ? null : BuiltInRegistries.BLOCK.getOptional(Identifier.tryParse(name)).orElse(null);
 			look = block == null ? UNKNOWN : this.looks.getOrDefault(block, UNKNOWN);
 			this.byId.set(id, look);

@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -65,6 +64,39 @@ public final class PlaceBook {
 	public static final long CAVES = Long.MAX_VALUE - 1;
 	/** The group of places reported by other mods and servers. */
 	public static final long REPORTS = Long.MIN_VALUE;
+
+	/**
+	 * Names a new place before Atlas's own name is used: another mod's (VOID Expanse's) or none. {@code kind} is
+	 * {@link Place#CAVE_MOUTH} or {@link Place#STRUCTURE}, with {@code structureId} the structure's id. Called rarely
+	 * (once for each new place), inside the book's lock, so it must be quick and must not call back into the book.
+	 */
+	public interface Namer {
+		Named name(String dimension, String kind, String structureId, int x, int z);
+	}
+
+	/** A name a mod gave, and the source the place is then credited to (null to keep the place's own). */
+	public record Named(String name, Source source) {
+	}
+
+	private volatile Namer namer;
+
+	public void setNamer(Namer namer) {
+		this.namer = namer;
+	}
+
+	/** A mod's name for a new place, or null. */
+	private Named named(String dimension, String kind, String structureId, int x, int z) {
+		Namer n = this.namer;
+		if (n == null) {
+			return null;
+		}
+		try {
+			Named got = n.name(dimension, kind, structureId, x, z);
+			return got == null || got.name() == null || got.name().isBlank() ? null : got;
+		} catch (RuntimeException e) {
+			return null;
+		}
+	}
 
 	/** The group of the landmarks found in one region (never 0, {@link #AREAS} or {@link #REPORTS}). */
 	public static long regionGroup(int rx, int rz) {
@@ -306,8 +338,12 @@ public final class PlaceBook {
 				this.set(e, moved.withState(state, now));
 				return e.place;
 			}
-			Place p = new Place(idFor(family, s.x(), s.z(), dimension), family, kind.label, kind.category, kind.tier, DiscoveryState.UNKNOWN,
-				Source.seen(), s.x(), s.y(), s.z(), dimension, s.underground(), 0, 0, 0);
+			// a cave mouth is natural and takes the namer's credit; a structure keeps "seen" (exact data folds those in)
+			boolean mouth = kind == StructureKind.CAVE_MOUTH;
+			Named named = this.named(dimension, mouth ? Place.CAVE_MOUTH : Place.STRUCTURE, mouth ? null : family, s.x(), s.z());
+			Source source = mouth && named != null && named.source() != null ? named.source() : Source.seen();
+			Place p = new Place(idFor(family, s.x(), s.z(), dimension), family, named == null ? kind.label : named.name(), kind.category, kind.tier,
+				DiscoveryState.UNKNOWN, source, s.x(), s.y(), s.z(), dimension, s.underground(), 0, 0, 0);
 			Entry e = new Entry(p, family);
 			e.sx = s.x();
 			e.sy = s.y();
@@ -339,7 +375,9 @@ public final class PlaceBook {
 			if (e == null) {
 				String category = StructureNames.category(structureId, family.equals("minecraft:village"));
 				int radius = (int) Math.round(Math.hypot(box[3] - box[0], box[5] - box[2]) / 2);
-				Place p = new Place(id, structureId, StructureNames.name(structureId), category, StructureNames.tier(structureId, category),
+				Named named = this.named(dimension, Place.STRUCTURE, structureId, cx, cz);
+				Place p = new Place(id, structureId, named == null ? StructureNames.name(structureId) : named.name(), category,
+					StructureNames.tier(structureId, category),
 					DiscoveryState.UNKNOWN, Source.exact(), cx, underground ? cy : Math.max(cy, box[1]), cz, dimension, underground, radius, 0, 0);
 				e = new Entry(p, family);
 				e.box = box.clone();
@@ -456,7 +494,9 @@ public final class PlaceBook {
 				Place merged = p;
 				if (match != null) {
 					Place q = match.place;
-					merged = new Place(p.id(), p.kind(), q.name().isEmpty() ? p.name() : q.name(), p.category(), p.tier(), DiscoveryState.max(q.state(), p.state()),
+					// a name, once given, stays (it would wander as the area grows), unless another namer has it now
+					boolean keepName = !q.name().isEmpty() && q.source().equals(p.source());
+					merged = new Place(p.id(), p.kind(), keepName ? q.name() : p.name(), p.category(), p.tier(), DiscoveryState.max(q.state(), p.state()),
 						p.source(), p.x(), p.y(), p.z(), p.dimension(), p.underground(), p.radius(), q.sighted() != 0 ? q.sighted() : p.sighted(),
 						q.discovered() != 0 ? q.discovered() : p.discovered());
 					kept.add(match);
@@ -730,7 +770,7 @@ public final class PlaceBook {
 				this.entries.clear();
 				this.warn.accept("Atlas: " + this.file + " is unreadable (" + ex.getMessage() + "); kept as .corrupt");
 				try {
-					Files.move(this.file, this.file.resolveSibling(this.file.getFileName() + ".corrupt"), StandardCopyOption.REPLACE_EXISTING);
+					dev.voidmc.atlas.core.store.FileMoves.move(this.file, this.file.resolveSibling(this.file.getFileName() + ".corrupt"));
 				} catch (IOException ignored) {
 					// replaced by the next save
 				}

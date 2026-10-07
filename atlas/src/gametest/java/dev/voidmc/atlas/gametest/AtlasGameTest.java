@@ -775,6 +775,10 @@ public class AtlasGameTest implements FabricClientGameTest {
 			under.count(), Perf.Recording.avgMs(under.frames()), Perf.Recording.percentileMs(under.frames(), 0.99), Perf.Recording.maxMs(under.frames()),
 			Perf.Recording.avgMs(under.map()), underUploads));
 
+		// 5. far sight: tiles as VOID LOD hands them over (from a thread of its own), written on the workers, timed
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		double[] far = this.farSight(context, (ox + 2 * regions + 8) * Coords.REGION_SIZE, oz * Coords.REGION_SIZE);
+
 		String gpu = context.computeOnClient(mc -> {
 			var info = com.mojang.blaze3d.systems.RenderSystem.getDevice().getDeviceInfo();
 			return info.name() + " (" + info.backendName() + ")";
@@ -797,7 +801,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 			  "detect": {"chunks": %d, "msPerChunk": %.3f},
 			  "reveal": {"walks": %d, "msPerWalk": %.3f, "openPerWalk": %d},
 			  "underMap": {"frames": %d, "avgFrameMs": %.3f, "avgFps": %.0f, "p99FrameMs": %.3f, "maxFrameMs": %.3f, "atlasAvgMs": %.3f, "uploads": %d},
-			  "minimapSpike": {"totalMs": %.3f, "setupMs": %.3f, "tilesMs": %.3f, "markersMs": %.3f, "restMs": %.3f}
+			  "minimapSpike": {"totalMs": %.3f, "setupMs": %.3f, "tilesMs": %.3f, "markersMs": %.3f, "restMs": %.3f},
+			  "farSight": {"tiles": %.0f, "workerMsPerTile": %.3f, "listenerUsPerTile": %.2f, "maxRunMs": %.3f, "frames": %.0f, "avgFrameMs": %.3f, "p99FrameMs": %.3f, "clientIngestMs": %.4f, "samples": %.0f}
 			}
 			""",
 			backend, gpu.replace("\"", "'"), context.computeOnClient(mc -> mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight()),
@@ -815,7 +820,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 			reveals, revealMs, opened,
 			under.count(), Perf.Recording.avgMs(under.frames()), 1000 / Math.max(1e-6, Perf.Recording.avgMs(under.frames())),
 			Perf.Recording.percentileMs(under.frames(), 0.99), Perf.Recording.maxMs(under.frames()), Perf.Recording.avgMs(under.map()), underUploads,
-			spike[0] / 1e6, spike[1] / 1e6, spike[2] / 1e6, spike[3] / 1e6, spike[4] / 1e6);
+			spike[0] / 1e6, spike[1] / 1e6, spike[2] / 1e6, spike[3] / 1e6, spike[4] / 1e6,
+			far[0], far[1], far[2], far[3], far[4], far[5], far[6], far[7], far[8]);
 		try {
 			Files.writeString(OUT, json, StandardCharsets.UTF_8);
 			log("results written to " + OUT);
@@ -823,6 +829,79 @@ public class AtlasGameTest implements FabricClientGameTest {
 			throw new RuntimeException(e);
 		}
 		this.shoot(context, "perf_end");
+	}
+
+	/**
+	 * Far sight's ingest, timed: 288 made-up far tiles (64 x 64 cells of 4, 8 and 16 blocks: what VOID LOD sends) handed
+	 * over from a thread of their own, as LOD does, while frames are recorded. Returns tiles written, worker ms a tile,
+	 * the handing-over thread's microseconds a tile, the longest worker run, frames, avg and p99 frame ms, the client
+	 * thread's ingest ms a frame (far sight must add nothing there), and columns written.
+	 */
+	private double[] farSight(ClientGameTestContext context, int x0, int z0) {
+		context.runOnClient(mc -> AtlasClient.get().farSight.update());
+		context.waitTicks(5);
+		long tiles0 = dev.voidmc.atlas.client.FarSight.TILES.get();
+		long worker0 = dev.voidmc.atlas.client.FarSight.WORKER_NANOS.get();
+		long samples0 = dev.voidmc.atlas.client.FarSight.SAMPLES.get();
+		int count = 288;
+		long[] handNanos = new long[1];
+		context.runOnClient(mc -> Perf.startRecording());
+		Thread lod = new Thread(() -> {
+			var farSight = AtlasClient.get().farSight;
+			int[] cells = {4, 8, 16};
+			for (int t = 0; t < count; t++) {
+				int cell = cells[t % 3];
+				int n = 64;
+				int span = n * cell;
+				int col = t / 3 % 12;
+				int row = t / 36;
+				int x = x0 + col * 1024 + (t % 3) * 4096 * 4;
+				int z = z0 + row * 1024;
+				short[] heights = new short[n * n];
+				int[] colours = new int[n * n];
+				String[] blocks = new String[n * n];
+				boolean[] seen = new boolean[n * n];
+				for (int k = 0; k < n * n; k++) {
+					int i = k % n;
+					int j = k / n;
+					heights[k] = (short) (64 + (int) (12 * Math.sin((x + i * cell) / 180.0) * Math.cos((z + j * cell) / 210.0)));
+					boolean water = heights[k] < 60;
+					colours[k] = water ? 0x3F76E4 : 0x5A8A3C;
+					blocks[k] = water ? "minecraft:water" : (k % 7 == 0 ? "minecraft:stone" : "minecraft:grass_block");
+					seen[k] = true;
+				}
+				long h0 = System.nanoTime();
+				farSight.offer(new dev.voidmc.atlas.client.FarSight.Tile("minecraft:overworld", x, z, cell, n, heights, colours, blocks, seen));
+				handNanos[0] += System.nanoTime() - h0;
+				if (span > 0) {
+					try {
+						Thread.sleep(4);
+					} catch (InterruptedException e) {
+						return;
+					}
+				}
+			}
+		}, "fake VOID LOD");
+		lod.start();
+		long deadline = System.currentTimeMillis() + 90_000;
+		while (System.currentTimeMillis() < deadline
+			&& (lod.isAlive() || dev.voidmc.atlas.client.FarSight.TILES.get() - tiles0 < count - dev.voidmc.atlas.client.FarSight.DROPPED.get())) {
+			context.waitTicks(10);
+		}
+		Perf.Recording rec = context.computeOnClient(mc -> Perf.stopRecording());
+		try {
+			lod.join(5_000);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+		long tiles = dev.voidmc.atlas.client.FarSight.TILES.get() - tiles0;
+		double workerMs = (dev.voidmc.atlas.client.FarSight.WORKER_NANOS.get() - worker0) / 1e6;
+		double[] out = {tiles, workerMs / Math.max(1, tiles), handNanos[0] / 1e3 / count, dev.voidmc.atlas.client.FarSight.MAX_RUN_NANOS.get() / 1e6,
+			rec.count(), Perf.Recording.avgMs(rec.frames()), Perf.Recording.percentileMs(rec.frames(), 0.99), Perf.Recording.avgMs(rec.ingest()),
+			dev.voidmc.atlas.client.FarSight.SAMPLES.get() - samples0};
+		log(String.format(Locale.ROOT, "far sight: %d tiles at %.2f ms on the workers (longest run %.2f ms), %.1f us handing each over; %d frames avg %.2f ms "
+			+ "p99 %.2f ms, client ingest %.4f ms/frame", tiles, out[1], out[3], out[2], rec.count(), out[5], out[6], out[7]));
+		return out;
 	}
 
 	/**

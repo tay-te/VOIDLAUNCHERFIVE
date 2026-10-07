@@ -273,6 +273,14 @@ public final class MapPanel {
 		boolean sky = this.kind == Kind.SURFACE && lightLevel != null && !lightLevel.dimensionType().hasCeiling();
 		dev.voidmc.atlas.client.render.MapLight.update(this.atlas.settings().mapLook, lightLevel == null ? 0 : lightLevel.getOverworldClockTime(), sky);
 		this.renderer.setTint(sky ? dev.voidmc.atlas.client.render.MapLight.tint() : 0xFFFFFF);
+		// terrain seen from afar (VOID LOD) first, cooler and dimmer, under the walked land
+		LayerData far = this.kind == Kind.SURFACE && layer != null && this.atlas.settings().farSight && session != null
+			? session.dimension(this.dimensionOf(this.kind), false).layerIfOpen(dev.voidmc.atlas.client.FarSight.LAYER) : null;
+		if (far != null) {
+			this.renderer.setTint(0xA8B4C4);
+			this.renderer.draw(ui, this.atlas.tiles(), far, x, y, w, h, radius, view, true);
+			this.renderer.setTint(sky ? dev.voidmc.atlas.client.render.MapLight.tint() : 0xFFFFFF);
+		}
 		MapRenderer.Frame f = this.renderer.draw(ui, this.atlas.tiles(), layer, x, y, w, h, radius, view, true);
 		this.frame = f;
 		// markers and the player, clipped to the map's box

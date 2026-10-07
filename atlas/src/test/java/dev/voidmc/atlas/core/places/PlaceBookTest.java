@@ -630,4 +630,62 @@ class PlaceBookTest {
 		assertEquals(new Discovery(p.kind(), p.name(), p.category(), p.x(), p.y(), p.z(), OW, 2000, false), d);
 		assertEquals("minecraft:village", d.structure());
 	}
+
+	// --- names from other mods -------------------------------------------------------------------------------------
+
+	@Test
+	void aNamerNamesStructuresByIdAndCaveMouthsAsNatural() {
+		PlaceBook book = this.book();
+		List<String> asked = new ArrayList<>();
+		book.setNamer((dimension, kind, structureId, x, z) -> {
+			asked.add(kind + " " + structureId);
+			return switch (kind) {
+				case Place.STRUCTURE -> structureId.equals("minecraft:village") ? new PlaceBook.Named("Hollin", Source.plugin("expanse:names")) : null;
+				case Place.CAVE_MOUTH -> new PlaceBook.Named("Black Hole", Source.plugin("expanse:names"));
+				default -> null;
+			};
+		});
+		Place village = book.sight(OW, surface(StructureKind.VILLAGE, 100, 70, 200), 1000);
+		assertEquals("Hollin", village.name());
+		// a structure keeps "seen by you" (so the game's data can still fold it in); only its name is the mod's
+		assertEquals(Source.Kind.SEEN, village.source().kind());
+		Place dungeon = book.sight(OW, under(StructureKind.DUNGEON, 400, 20, 400), 1000);
+		assertEquals("Dungeon", dungeon.name(), "no name from the mod: Atlas's own");
+		Place mouth = book.sight(OW, surface(StructureKind.CAVE_MOUTH, 900, 70, 900), 1000);
+		assertEquals("Black Hole", mouth.name());
+		assertEquals(Source.plugin("expanse:names"), mouth.source());
+		// the same village seen again is not named again
+		book.sight(OW, surface(StructureKind.VILLAGE, 104, 70, 204), 1001);
+		assertEquals(List.of("atlas:structure minecraft:village", "atlas:structure atlas:dungeon", "atlas:cave_mouth null"), asked);
+		int[] box = {80, 60, 180, 120, 80, 220};
+		Place exact = book.exact(OW, "minecraft:village_plains", "minecraft:village", box, false, DiscoveryState.SIGHTED, 1002);
+		assertEquals(dev.voidmc.atlas.core.StructureNames.name("minecraft:village_plains"), exact.name());
+		assertEquals("atlas:structure minecraft:village_plains", asked.get(asked.size() - 1));
+	}
+
+	@Test
+	void aNamerThatThrowsLeavesAtlassName() {
+		PlaceBook book = this.book();
+		book.setNamer((dimension, kind, structureId, x, z) -> {
+			throw new IllegalStateException("broken");
+		});
+		assertEquals("Village", book.sight(OW, surface(StructureKind.VILLAGE, 100, 70, 200), 1000).name());
+	}
+
+	@Test
+	void aNaturalPlaceTakesTheNewNameWhenAnotherNamerHasIt() {
+		PlaceBook book = this.book();
+		Place plain = new Place("atlas:region@0,0", Place.REGION, "Forest", "REGION", Tier.MAJOR, DiscoveryState.SIGHTED, Source.seen(), 0, 64, 0, OW,
+			false, 100, 1000, 0);
+		book.replaceGroup(OW, PlaceBook.AREAS, List.of(plain), 1000);
+		Place again = new Place("atlas:region@0,0", Place.REGION, "Forest 2", "REGION", Tier.MAJOR, DiscoveryState.SIGHTED, Source.seen(), 0, 64, 0, OW,
+			false, 120, 1001, 0);
+		book.replaceGroup(OW, PlaceBook.AREAS, List.of(again), 1001);
+		assertEquals("Forest", book.get("atlas:region@0,0").name(), "a name once given stays");
+		Place expanse = new Place("atlas:region@0,0", Place.REGION, "Larkspur Meadow", "REGION", Tier.MAJOR, DiscoveryState.SIGHTED,
+			Source.plugin("expanse:names"), 0, 64, 0, OW, false, 120, 1002, 0);
+		book.replaceGroup(OW, PlaceBook.AREAS, List.of(expanse), 1002);
+		assertEquals("Larkspur Meadow", book.get("atlas:region@0,0").name());
+		assertEquals("EXPANSE", book.get("atlas:region@0,0").source().label());
+	}
 }
