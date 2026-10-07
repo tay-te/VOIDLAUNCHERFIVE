@@ -638,6 +638,24 @@ more than a block asks it first. That covers the little things and wayside sight
 fishponds. With Hearth installed, Hearth's villages stand in for the Expanse's own (Hearth leaves the
 village structure sets out); played alone, the Expanse keeps its seven village styles.
 
+The same goes for the Expanse's other peopled and working places: the stilt hamlet, palm harbour, caravanserai,
+logging camp, miners' camps (and the cavern mine camp), terrace farm, tea garden, wisteria manor, cloud
+monastery, karst pagoda, lighthouse, frost outpost, nomad camp, beach hut and bayou shack. Hearth builds living
+versions of them, so with Hearth installed each stands down (`"peopled": true` on its structure,
+`SitedJigsawStructure`): a set it shares with wild sights tries those in its place, a set of its own drops out of
+the world, and `/locate` finds none at once. The land between towns keeps everything else: the camps, wells,
+shrines, ruins, treehouses, bothies and lodges. `-Dexpanse.dev.hearth=true` shows a world as it would be with
+Hearth.
+
+On the VOID Atlas map an Expanse world's places carry their own names rather than plain biome names
+(`client/atlas`, the `"atlas"` entrypoint, called only when Atlas is installed). They are made up from the
+seed and the place's position, so every client calls a place the same, and the words follow the country:
+the temperate heartland is Bohemian (Brezek Forest, Lake Maletz, the Olsava), the cold north Norse
+(Hamarvik Barrens, Ulfdal Cleft), dry and tropical land southern (Zaroma Desert). A world counts as an
+Expanse world when its biomes include the Expanse's; elsewhere Atlas names its places itself. The build
+compiles against stand-ins for Atlas's API (`src/atlasApi`), never shipped, so the Expanse needs nothing of
+Atlas to build or run.
+
 ### Extras
 
 - `/expanse atlas [radius] [blocksPerPixel]` (needs operator level 2) writes a shaded biome-and-elevation
