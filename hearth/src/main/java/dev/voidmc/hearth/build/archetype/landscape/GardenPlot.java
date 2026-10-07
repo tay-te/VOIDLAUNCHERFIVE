@@ -43,17 +43,18 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * terraced where the ground rises or falls behind the street (a retaining wall with a coping, steps on the path).
  *
  * <ul>
- *   <li><b>Cottage</b> (temperate, alpine, wisteria): fenced or hedged, a path from the gate to an arbour with a bench at
- *   the back, a cross path, borders of flowers, a fruit tree, a beehive, a bird bath.</li>
+ *   <li><b>Cottage</b> (temperate, alpine, wisteria): fenced or hedged, a path from the gate to an arbour with a bench
+ *   at the back, a cross path, borders of flowers, a fruit tree, a beehive, a bird bath.</li>
  *   <li><b>Kitchen</b> (northern, mediterranean, steppe): beds of crops in rows with water between, a scarecrow, a
  *   compost bin and a water butt, a trellis of vines on the back fence, an olive or fruit tree, pots.</li>
- *   <li><b>Riad</b> (desert): walled, quartered by tiled walks meeting at a little fountain, palms in two quarters, a dry
- *   garden of sand, cacti and pots in the others, stone benches in the shade. On the mesa a cactus garden under a
+ *   <li><b>Riad</b> (desert): walled, quartered by tiled walks meeting at a little fountain, palms in two quarters, a
+ *   dry garden of sand, cacti and pots in the others, stone benches in the shade. On the mesa a cactus garden under a
  *   ramada of poles.</li>
- *   <li><b>Zen</b> (karst): raked gravel with moss islands and weathered stones, a blossom tree, a stone lantern, a pool
- *   crossed by stepping stones, a viewing deck with a bench at the back.</li>
+ *   <li><b>Zen</b> (karst): raked gravel with moss islands and weathered stones, a blossom tree, a stone lantern, a
+ *   pool crossed by stepping stones, a viewing deck with a bench at the back.</li>
  *   <li><b>Tropical</b>: ferns and big leaves, palms, a lily pool, bamboo.</li>
- *   <li><b>Rock</b> (moorland, maritime): dry-stone walled, heather and boulders, a flagged path, a birch, a bench.</li>
+ *   <li><b>Rock</b> (moorland, maritime): dry-stone walled, heather and boulders, a flagged path, a birch, a
+ *   bench.</li>
  *   <li><b>Bog</b> (bayou): pools and mud, a boardwalk, a tree hung with moss. <b>Winter garden</b> (tundra): spruces,
  *   stones, a fire bowl with log seats.</li>
  * </ul>
@@ -423,15 +424,15 @@ public final class GardenPlot implements Archetype {
 			top = Math.max(top, Trees.tree(d, tx, l.y(tz), tz, Math.min(6, d.maxHeight() - l.y(tz)), Trees.kind(d), l.cx() + 1, l.dp() - 6, l.w() - 2,
 				l.dp() - 2));
 		}
-		// the way to the butt kept clear of the tree's low boughs
+		// the tree's low boughs pruned off over the back corner (head high), so the way to the butt stays open
 		int butt = l.w() - 2;
-		for (var dir : Dirs.HORIZONTAL) {
-			for (int dy = 0; dy <= 1; dy++) {
-				int nx = butt + Dirs.dx(dir);
-				int nz = bz + Dirs.dz(dir);
-				var st = d.get(nx, l.y(bz) + dy, nz);
-				if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock) {
-					d.remove(nx, l.y(bz) + dy, nz);
+		for (int z = bz - 2; z <= bz; z++) {
+			for (int x = butt - 2; x <= butt; x++) {
+				for (int dy = 0; dy <= 1; dy++) {
+					var st = d.get(x, l.y(z) + dy, z);
+					if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock) {
+						d.remove(x, l.y(z) + dy, z);
+					}
 				}
 			}
 		}

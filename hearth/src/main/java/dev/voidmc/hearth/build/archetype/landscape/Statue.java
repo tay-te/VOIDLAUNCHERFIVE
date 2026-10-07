@@ -335,8 +335,8 @@ public final class Statue implements Archetype {
 	}
 
 	/**
-	 * An arm at the figure's side from row y: a shoulder stair at the top leaning into the chest ({@code toChest}), the arm,
-	 * and the hand: hanging, or bent forward with the forearm out before the body.
+	 * An arm at the figure's side from row y: a shoulder stair at the top leaning into the chest ({@code toChest}), the
+	 * arm, and the hand: hanging, or bent forward with the forearm out before the body.
 	 */
 	private static void arm(Draft d, int x, int y, int z, Stone st, boolean forward, Direction toChest) {
 		BlockState limb = st.wall().defaultBlockState();

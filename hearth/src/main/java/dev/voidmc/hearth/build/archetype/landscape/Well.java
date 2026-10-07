@@ -35,9 +35,9 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:landscape/well}: the village well, where folk meet. A stone curb round a deep shaft of water on a paved
- * square, and over it the culture's well head: posts carrying a little roof (a gable, a hip, a half-hip, a curved
- * karst roof) with a windlass and its crank; a well sweep in the north and on the steppe (a tall post, a long pole with
- * a stone on its short arm); a wrought-iron arch with a lantern on its crown in the south; a domed kiosk on arched piers
+ * square, and over it the culture's well head: posts carrying a little roof (a gable, a hip, a half-hip, a curved karst
+ * roof) with a windlass and its crank; a well sweep in the north and on the steppe (a tall post, a long pole with a
+ * stone on its short arm); a wrought-iron arch with a lantern on its crown in the south; a domed kiosk on arched piers
  * in the desert. The rope (a chain) hangs down the shaft, the bucket stands full on the paving by the curb. Round it
  * benches facing the curb, a trough, flowers in pots and lanterns on posts at the corners.
  *
@@ -125,7 +125,10 @@ public final class Well implements Archetype {
 		if (big) {
 			Furniture.chair(d, cx - 1, 0, 0 == cz - r - 2 ? 0 : cz - r - 2, Dirs.FRONT);
 			Furniture.chair(d, cx + 1, 0, cz - r - 2 < 0 ? 0 : cz - r - 2, Dirs.FRONT);
-			Furniture.chair(d, cx, 0, Math.min(dp - 1, cz + r + 2), Dirs.BACK);
+			if (cz + r + 2 < dp - 1) {
+				// (never on the plot's back row, where the ground may fall away behind it)
+				Furniture.chair(d, cx, 0, cz + r + 2, Dirs.BACK);
+			}
 			Garden.waterButt(d, Math.min(w - 1, cx + r + 2), 0, cz);
 			Garden.lampPost(d, 0, 0, 0, 2, null);
 			Garden.lampPost(d, w - 1, 0, dp - 1, 2, null);

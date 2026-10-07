@@ -38,15 +38,16 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * {@code hearth:landscape/bell}: the bell that calls the settlement together.
  *
  * <ul>
- *   <li>On a small plot: a bell frame in the culture's manner, the bell hung under it, its rope (a chain) hanging, a step
- *   of paving round it: two timber posts on stone feet under a beam and a little shingled gable (Bohemia, the Alps, the
- *   moors, the coast, the bayou); an A-frame of raking logs under a turf cap (the fjords, the tundra); a masonry arch with
- *   a stepped crest (desert, mesa, steppe); red posts under a curved roof with its ends turned up (the karst, the blossom
- *   vale); a bell gable, a rendered wall with the bell in an arched opening (the mediterranean); bamboo posts under a
- *   thatched cap (the tropics).</li>
+ *   <li>On a small plot: a bell frame in the culture's manner, the bell hung under it, its rope (a chain) hanging, a
+ *   step of paving round it: two timber posts on stone feet under a beam and a little shingled gable (Bohemia, the
+ *   Alps, the moors, the coast, the bayou); an A-frame of raking logs under a turf cap (the fjords, the tundra); a
+ *   masonry arch with a stepped crest (desert, mesa, steppe); red posts under a curved roof with its ends turned up
+ *   (the karst, the blossom vale); a bell gable, a rendered wall with the bell in an arched opening (the
+ *   mediterranean); bamboo posts under a thatched cap (the tropics).</li>
  *   <li>On a larger plot: a bell tower in little, a raised stone podium with steps up the front, four posts carrying a
  *   roof in the culture's form (a curved roof in the karst, a gable or hip elsewhere, an arched sandstone frame with a
- *   cupola in the desert), the bell hanging in the middle, lanterns under the eaves, benches on the podium's sides.</li>
+ *   cupola in the desert), the bell hanging in the middle, lanterns under the eaves, benches on the podium's
+ *   sides.</li>
  * </ul>
  *
  * <p>POIs: a MEETING_POINT in front of the bell (where folk gather when it rings), SEATs on the benches. Params: none.

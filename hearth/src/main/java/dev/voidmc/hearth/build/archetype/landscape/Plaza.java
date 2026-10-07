@@ -38,11 +38,11 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * of bands with inlays at the crossings, a checker, rays, staggered setts, plain setts with mended patches, boards on
  * sleepers in timber cultures) inside a kerb of the band stone. What the planner has already stood on the square (the
  * well, a bell, stalls, a fountain: the {@code keep} rectangles) is left exactly as it is, framed by a ring of the band
- * stone. Round the thing at the middle go benches looking at it and the notice board; lamps stand at the corners.
- * Where nothing stands in the middle (a little square where lanes meet, or a square drawn on its own) the plaza makes its
- * own centrepiece, the one thing in the open middle (a big square adds a pair of shade trees at its back, never a grove):
- * a tree in a raised planter ringed by benches, a fire pit with log seats in the north and on the
- * steppe, a small fountain in the south, a stone lantern by a blossom tree in the karst.
+ * stone. Round the thing at the middle go benches looking at it and the notice board; lamps stand at the corners. Where
+ * nothing stands in the middle (a little square where lanes meet, or a square drawn on its own) the plaza makes its own
+ * centrepiece, the one thing in the open middle (a big square adds a pair of shade trees at its back, never a grove): a
+ * tree in a raised planter ringed by benches, a fire pit with log seats in the north and on the steppe, a small
+ * fountain in the south, a stone lantern by a blossom tree in the karst.
  *
  * <p>The main square is the market's floor too: the planner later stands stalls, lamps, a fountain and a statue in the
  * ring two to five blocks in from its edge, so on the heart plaza that ring and the edge rows (where the doors of the

@@ -34,9 +34,10 @@ import net.minecraft.world.level.block.state.BlockState;
  * {@code hearth:landscape/park}: a town's public park, terraced down a slope where it has to be. A gate on the street
  * opens on a broad walk up the middle (steps where it climbs a terrace wall), cross walks on every terrace and, on
  * level ground, a loop walk round the lawns; a pond with lilies and reeds in one quarter, the culture's trees standing
- * one or two to a lawn in the others (some lawns left open), flower borders by the gate, benches along the walks looking in, lamps every few blocks; in a city, a
- * bandstand (an open pavilion on a podium, roofed in the culture's manner) where the walks meet, with benches facing
- * it. The boundary is the culture's yard fence, hedge or wall, open at the sides as well as the gate.
+ * one or two to a lawn in the others (some lawns left open), flower borders by the gate, benches along the walks
+ * looking in, lamps every few blocks; in a city, a bandstand (an open pavilion on a podium, roofed in the culture's
+ * manner) where the walks meet, with benches facing it. The boundary is the culture's yard fence, hedge or wall, open
+ * at the sides as well as the gate.
  *
  * <p>POIs: SEATs, a MEETING_POINT at the bandstand, a VIEWPOINT by the pond. Params: {@code bandstand} (boolean,
  * default: city tier), {@code pond} (boolean, default true where it fits).
@@ -315,8 +316,8 @@ public final class Park implements Archetype {
 	}
 
 	/**
-	 * A clump of the culture's trees in a quarter (one, or two on a big quarter, five blocks or more apart, off the walks),
-	 * or now and then an open lawn with flowers: a park is lawns with trees standing in them, not a wood.
+	 * A clump of the culture's trees in a quarter (one, or two on a big quarter, five blocks or more apart, off the
+	 * walks), or now and then an open lawn with flowers: a park is lawns with trees standing in them, not a wood.
 	 */
 	private static int trees(Draft d, int x0, int z0, int x1, int z1, int y, boolean[][] used) {
 		long seed = d.seed() ^ (x0 * 31L + z0);
