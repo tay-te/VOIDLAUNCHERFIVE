@@ -27,6 +27,7 @@ import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
@@ -360,7 +361,7 @@ public class GloamShowcase implements FabricClientGameTest {
 			level.setBlockAndUpdate(new BlockPos(fallX, y, fallZ), Blocks.STONE.defaultBlockState());
 		}
 		level.setBlockAndUpdate(new BlockPos(fallX, fallY + 12, fallZ), Blocks.WATER.defaultBlockState());
-		return new MotePlaces(forest[0], forest[1], forest[2], clearest(level, forest[0], forest[1], forest[2], 16), cold[0], cold[1], cold[2], coldYaw, fallX, fallY,
+		return new MotePlaces(forest[0], forest[1], forest[2], underCanopy(level, forest[0], forest[1], forest[2]), cold[0], cold[1], cold[2], coldYaw, fallX, fallY,
 			fallZ);
 	}
 
@@ -406,6 +407,41 @@ public class GloamShowcase implements FabricClientGameTest {
 			}
 		}
 		return new int[]{bestX, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bestX, bestZ), bestZ};
+	}
+
+	/**
+	 * For the falling leaves: the yaw (of sixteen) from (x, ground, z) that sees the most canopy two to twelve blocks
+	 * ahead across the middle of the frame (where leaves are let go and fall), counting only what the eye reaches past
+	 * trunks and bushes, and none with something in the way within four blocks of the middle.
+	 */
+	private static float underCanopy(ServerLevel level, int x, int ground, int z) {
+		float best = 0;
+		int most = -1;
+		for (int k = 0; k < 16; k++) {
+			float yaw = k * 22.5F;
+			int score = 0;
+			boolean blocked = false;
+			for (int off = -30; off <= 30; off += 10) {
+				double rad = Math.toRadians(yaw + off), dx = -Math.sin(rad), dz = Math.cos(rad);
+				for (int step = 1; step <= 12; step++) {
+					int cx = Mth.floor(x + 0.5 + dx * step), cz = Mth.floor(z + 0.5 + dz * step);
+					BlockState state = level.getBlockState(new BlockPos(cx, ground + 1, cz));
+					if (!state.isAir() && !state.canBeReplaced()) {
+						blocked |= step <= 4 && Math.abs(off) <= 10;
+						break;
+					}
+					int canopy = level.getHeight(Heightmap.Types.MOTION_BLOCKING, cx, cz) - level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
+					if (step >= 2 && canopy >= 2) {
+						score++;
+					}
+				}
+			}
+			if (!blocked && score > most) {
+				most = score;
+				best = yaw;
+			}
+		}
+		return most < 0 ? clearest(level, x, ground, z, 16) : best;
 	}
 
 	/** The yaw (of eight) from (x, ground, z) with the longest clear view at eye height, up to {@code range} blocks. */

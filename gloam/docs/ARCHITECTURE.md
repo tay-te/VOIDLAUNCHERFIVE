@@ -76,10 +76,15 @@ grass and flowers, water, the mist layer), moved by `Wind`, scaled by the `motes
 
 `MoteSpawner` tops the ambient kinds up toward a number worked out from the air (filling empty air at once with motes
 already partway through their lives) and fires the rest as events (a leaf from a canopy underside, a breath, spray where
-falling water lands). The ground mist near the camera is a few hundred flat sheets (`MistMote`) out to the chunk edge,
+falling water lands); the stretch of the view two to twelve blocks ahead is also kept stocked with leaves let go from
+the canopy over it, so falling leaves are always in frame under trees (slow, swinging, tumbling, green ones lifted paler
+to stand out). The ground mist near the camera is a few hundred flat sheets (`MistMote`) out to the chunk edge,
 layered and densest in the lowest blocks, drawn through `MoteLayers.GROUND` with the same look as `FarMist`
 (opacity from the eye's path through the slab, colour leaning from the fog to the cloud colour), so it runs on into the
-far banks; under a pack (which treats flat translucent quads as glass) the sheets become upright feathered veils.
+far banks. Without a pack (and without improved transparency) the sheets are soft (`SoftMist`): their draw is held
+back from vanilla's particle pass and made right after the main pass, against a copy of the main depth, fading where the
+scene behind comes close, so no sheet ends in a straight line along a slope or a step; a sheet level with the eye fades
+too. Under a pack (which treats flat translucent quads as glass) the sheets become upright feathered veils.
 Breath, spray and powder draw through `MoteLayers.MIST` (faint edges kept, no depth writes, the colour of the air at full
 brightness); fireflies through `MoteLayers.GLOW` (additive, never through the lightmap, so dark nights cannot dim them).
 Every soft sprite is feathered to alpha 0 well inside its quad. Under a pack the pipelines go to Iris's translucent

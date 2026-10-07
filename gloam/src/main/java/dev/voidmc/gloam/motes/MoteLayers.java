@@ -1,10 +1,12 @@
 package dev.voidmc.gloam.motes;
 
+import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
 import com.mojang.renderpearl.api.pipeline.BlendFunction;
 import com.mojang.renderpearl.api.pipeline.ColorTargetState;
 import com.mojang.renderpearl.api.pipeline.CompareOp;
 import com.mojang.renderpearl.api.pipeline.DepthStencilState;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.UniformType;
 import dev.voidmc.gloam.Gloam;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.particle.SingleQuadParticle;
@@ -41,6 +43,25 @@ final class MoteLayers {
 		.withLocation(Gloam.id("pipeline/ground_mist"))
 		.withVertexShader(Gloam.id("core/ground_mist"))
 		.withFragmentShader(Gloam.id("core/ground_mist"))
+		.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+		.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
+		.withCull(false)
+		.build();
+
+	/** The scene's depth behind the ground mist, copied out of the main pass ({@link SoftMist}). */
+	static final BindGroupLayout SCENE_DEPTH = BindGroupLayout.builder().withUniform("SceneDepth", UniformType.COMBINED_IMAGE_SAMPLER).build();
+
+	/**
+	 * {@link #GROUND_PIPELINE} made soft: the sheets fade where they near the scene behind them, read from a copy of the
+	 * depth ({@code GLOAM_SOFT} in {@code ground_mist.fsh}). Drawn by {@link SoftMist} after vanilla's main pass, never
+	 * through a particle layer.
+	 */
+	static final RenderPipeline GROUND_SOFT_PIPELINE = RenderPipeline.builder(RenderPipelines.PARTICLE_SNIPPET)
+		.withLocation(Gloam.id("pipeline/ground_mist_soft"))
+		.withVertexShader(Gloam.id("core/ground_mist"))
+		.withFragmentShader(Gloam.id("core/ground_mist"))
+		.withShaderDefine("GLOAM_SOFT")
+		.withBindGroupLayout(SCENE_DEPTH)
 		.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
 		.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
 		.withCull(false)

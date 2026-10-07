@@ -12,7 +12,9 @@
 		"ClientLevelMixin",
 		"CloudRendererMixin",
 		"LevelRendererFarMixin",
-		"LevelWeatherMixin"
+		"LevelRendererMistMixin",
+		"LevelWeatherMixin",
+		"QuadParticleSoftMistMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
