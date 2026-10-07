@@ -840,8 +840,12 @@ final class HouseBuilder {
 			} else {
 				// too narrow or too small for a run: a ladder in the back corner (the one away from a back door)
 				int lx = leftward ? ix0 : ix1;
-				if (keep != null && keep[1] == sz && Math.abs(keep[0] - lx) <= 1) {
-					lx = lx == ix0 ? ix1 : ix0;
+				int other = lx == ix0 ? ix1 : ix0;
+				boolean toDoor = keep != null && keep[1] == sz && Math.abs(keep[0] - lx) <= 1;
+				// nor where the fire stands against the side wall before it, taking the cell one climbs from (a small floor
+				// that climbs by ladder had its whole room walled off from the door, and nothing furnished in it)
+				if (toDoor || !ladderFits(d, b.baseY, keep, lx, iz1) && ladderFits(d, b.baseY, keep, other, iz1)) {
+					lx = other;
 				}
 				Stairs.ladder(d, lx, iz1, b.baseY, b.floorY(1) - 1, Dirs.FRONT);
 				d.set(lx, b.floorY(1) - 1, iz1, Blocks.AIR.defaultBlockState());
@@ -881,6 +885,17 @@ final class HouseBuilder {
 	 */
 	static boolean byLadder(int ix0, int iz0, int ix1, int iz1, int rise) {
 		return ix1 - ix0 + 1 < rise + 2 || (ix1 - ix0 + 1) * (iz1 - iz0 + 1) <= 28;
+	}
+
+	/**
+	 * Whether a ladder can stand in the back corner at column x (back row z) of a floor at y: clear of a back door, and
+	 * nothing yet in its cell or in the cell before it, where one stands to climb.
+	 */
+	private static boolean ladderFits(Draft d, int y, int @org.jspecify.annotations.Nullable [] keep, int x, int z) {
+		if (keep != null && keep[1] == z && Math.abs(keep[0] - x) <= 1) {
+			return false;
+		}
+		return d.isEmpty(x, y, z) && d.isEmpty(x, y, z - 1) && d.isEmpty(x, y + 1, z - 1);
 	}
 
 	/** Whether a straight flight along the back wall (as {@link #interior} lays it) covers column x, or its foot. */
