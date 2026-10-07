@@ -12,6 +12,7 @@ import dev.voidmc.hearth.build.draft.BlockEntities;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
+import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Facade;
@@ -20,6 +21,7 @@ import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Fam;
@@ -153,58 +155,60 @@ public final class Library implements Archetype {
 		skyline = Math.max(skyline, top.ridge());
 		int cz = (z0 + z1) / 2;
 		if (form == RoofForm.FLAT) {
-			Towers.shaft(d, cx - 2, cz - 2, 5, top.deck(), top.deck() + 1, t, -1);
-			for (Side s : Side.of(cx - 2, cz - 2, cx + 2, cz + 2)) {
-				int ry = top.deck() + 1;
-				d.inStage(StageKind.OPENINGS, () -> d.set(s.x(2), ry, s.z(2), d.mat(Role.GLASS).pane()));
-			}
-			Fam dome = Adobe.is(d) ? Adobe.domeSheet(d) : Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
-			if (dome != null) {
-				skyline = Math.max(skyline, Towers.lathe(d, cx, cz, top.deck() + 2, new double[]{2.6, 2.3, 1.7, 0.9}, dome, maxH));
-			}
+			// one smooth dome on a round drum of lights over the reading room (the mesa's library keeps a flat roof)
+			skyline = Math.max(skyline, Adobe.dome(d, cx, cz, top.deck(), 2, maxH));
 		} else if (top.roof() != null) {
 			skyline = Math.max(skyline, lantern(d, t, cx, cz, plate, top.roof(), maxH));
 		}
 
-		// --- the gallery round three sides (two wide: shelves and a walk), a rail of trapdoors on its edge, its stair
+		// --- the gallery round three sides: along the left wall (where the stair arrives) and the back a walk between the
+		// shelves and a balustrade, along the right wall a ledge carrying the shelves; brackets under its edge
 		int ix0 = x0 + 1;
 		int ix1 = x1 - 1;
 		int iz0 = z0 + 1;
 		int iz1 = z1 - 1;
 		Mat floor = d.mat(Role.FLOOR);
 		Mat beam = d.mat(Role.BEAM);
-		Mat shutter = d.mat(Role.SHUTTER);
+		Paint rail = Halls.rail(d, (Mat) null);
 		int sz0 = iz0 + 1;
 		int gz0 = sz0 + 4;
+		int railX = ix0 + 2;
+		int railZ = iz1 - 2;
 		try (var s = d.stage(StageKind.FLOORS)) {
-			for (int z = gz0; z <= iz1; z++) {
+			for (int z = gz0 - 1; z <= iz1; z++) {
 				for (int x = ix0; x <= ix1; x++) {
-					boolean gallery = x <= ix0 + 1 || x >= ix1 - 1 || z >= iz1 - 1;
+					boolean gallery = z >= gz0 && x <= railX || x == ix1 && z >= gz0 || z >= railZ;
 					if (gallery) {
 						d.set(x, gy - 1, z, floor.slab(SlabType.TOP));
 					}
 				}
 			}
 		}
+		// the stair along the left wall from the front, climbing back to the gallery's walk, a case of books on its open side
+		int sx = ix0 + 1;
+		Stairs.straight(d, sx, base, sz0, Dirs.BACK, 4, 1);
 		try (var s = d.stage(StageKind.INTERIOR)) {
-			for (int z = gz0 + 1; z < iz1 - 1; z++) {
-				d.set(ix0 + 1, gy, z, shutter.trapdoor(Dirs.LEFT, Half.BOTTOM, true));
-				d.set(ix1 - 1, gy, z, shutter.trapdoor(Dirs.RIGHT, Half.BOTTOM, true));
+			for (int y = base; y < gy; y++) {
+				d.set(railX, y, gz0 - 1, Blocks.BOOKSHELF.defaultBlockState());
 			}
-			for (int x = ix0 + 2; x <= ix1 - 2; x++) {
-				d.set(x, gy, iz1 - 1, shutter.trapdoor(Dirs.BACK, Half.BOTTOM, true));
+			d.set(railX, gy, gz0 - 1, rail);
+			for (int z = gz0; z < railZ; z++) {
+				d.set(railX, gy, z, rail);
+			}
+			for (int x = railX; x < ix1; x++) {
+				d.set(x, gy, railZ, rail);
 			}
 		}
 		try (var s = d.stage(StageKind.FRAME)) {
 			for (int z = gz0 + 1; z < iz1 - 1; z += 2) {
-				d.set(ix0 + 1, gy - 2, z, beam.stairsOrSlab(Dirs.LEFT, Half.TOP));
-				d.set(ix1 - 1, gy - 2, z, beam.stairsOrSlab(Dirs.RIGHT, Half.TOP));
+				d.set(railX, gy - 2, z, beam.stairsOrSlab(Dirs.LEFT, Half.TOP));
+				d.set(ix1, gy - 2, z, beam.stairsOrSlab(Dirs.RIGHT, Half.TOP));
 			}
 		}
-		// the stair along the left wall from the front, climbing back to the gallery's walk
-		int sx = ix0 + 1;
-		Stairs.straight(d, sx, base, sz0, Dirs.BACK, 4, 1);
-		d.poi(PoiType.VIEWPOINT, ix1 - 1, gy, iz1 - 2, Dirs.LEFT);
+		d.poi(PoiType.VIEWPOINT, ix1 - 1, gy, iz1 - 1, Dirs.FRONT);
+		// the records chest on the back walk, nothing over it (the shelves leave its column)
+		Furniture.chest(d, ix0, gy, iz1 - 1, Dirs.RIGHT, List.of(new Object[]{"minecraft:paper", 32}, new Object[]{"minecraft:book", 8},
+			new Object[]{"minecraft:ink_sac", 4}));
 
 		// --- shelves on both levels between the windows, lecterns, tables
 		for (int lvl = 0; lvl < 2; lvl++) {
@@ -268,8 +272,14 @@ public final class Library implements Archetype {
 				}
 			}
 		}
-		Furniture.chest(d, ix1, gy, iz1, Dirs.LEFT, List.of(new Object[]{"minecraft:paper", 32}, new Object[]{"minecraft:book", 8},
-			new Object[]{"minecraft:ink_sac", 4}));
+		// the ledge's gaps (before a window) railed: nobody steps off the gallery onto it
+		try (var st = d.stage(StageKind.INTERIOR)) {
+			for (int z = gz0; z < railZ; z++) {
+				if (d.isEmpty(ix1, gy, z)) {
+					d.set(ix1, gy, z, rail);
+				}
+			}
+		}
 		for (int z = iz0 + 2; z <= iz1 - 2; z += 3) {
 			Halls.lanternUnder(d, cx, gy, z, 3);
 		}
@@ -285,7 +295,9 @@ public final class Library implements Archetype {
 		if (h.snow()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, cx);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(skyline + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 

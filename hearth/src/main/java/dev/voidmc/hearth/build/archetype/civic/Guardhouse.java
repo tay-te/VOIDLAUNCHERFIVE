@@ -20,6 +20,7 @@ import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
@@ -258,7 +259,9 @@ public final class Guardhouse implements Archetype {
 		if (h.snow()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, door);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(skyline + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 

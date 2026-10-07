@@ -19,6 +19,7 @@ import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Signs;
 import dev.voidmc.hearth.build.kit.civic.Storeys;
 import dev.voidmc.hearth.build.kit.civic.Towers;
@@ -202,7 +203,9 @@ public final class TollGate implements Archetype {
 		if (d.isEmpty(lx1 - 1, 3, sz)) {
 			Signs.hangingSign(d, lx1 - 1, 3, sz, Dirs.LEFT, List.of(new String[]{"", ""}, new String[]{"hearth.build.law.toll", "Toll"}, new String[]{"", ""}));
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 2));
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(maxH - 1, skyline + 2), pueblo + 2));
 	}
 
 	/** Setts down the passage, kerbed along each side in the dressing. */

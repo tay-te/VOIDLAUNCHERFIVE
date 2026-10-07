@@ -7,6 +7,12 @@ import dev.voidmc.hearth.build.draft.BlockEntities;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.States;
+import net.minecraft.world.level.block.state.properties.DoorHingeSide;
+import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.level.block.state.properties.Half;
+import dev.voidmc.hearth.build.style.Form;
+import dev.voidmc.hearth.build.draft.Paint;
+import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Facade;
 import dev.voidmc.hearth.build.kit.Furniture;
@@ -44,59 +50,66 @@ final class CourtHall {
 	}
 
 	/**
-	 * The towered court: offices and records on the ground floor, the court room above, the tower half out of the front
-	 * (or at a front corner) with the portal at its foot.
+	 * The court on its perron (no tower: that is the town hall's): a long two-storey hall, the court room on the upper
+	 * floor under a tall roof, reached from the square by a double flight of stone steps along the front that meet on a
+	 * landing before its portal, roofed on two posts (where sentences are read out); under the landing the low door into
+	 * the undercroft, where the clerk keeps the records and the lock-up is barred off; the court's bell in a turret on the
+	 * ridge and the town's stone pillory by the steps.
 	 */
 	static void towered(Draft d, Tradition t) {
 		int w = d.frontage();
 		int dp = d.depth();
 		int maxH = d.maxHeight();
-		int tier = d.tier();
 		Habits h = d.habits();
 		boolean boh = t == Tradition.TIMBER;
 		boolean med = t == Tradition.MEDITERRANEAN;
-		boolean corner = d.param("tower", med ? "corner" : "centre").equals("corner");
-		boolean towerRight = d.chance(0.5);
 
-		// --- the plan: forecourt, the hall, the tower before it
+		// --- the plan: the forecourt with the perron, the hall
 		int x0 = 1;
 		int x1 = w - 2;
 		int cx = (x0 + x1) / 2;
 		int z0 = 3;
 		int z1 = dp - 2;
 		int base = Grounds.raisedBase(d, x0, x1, z0);
-		int h0 = 5;
+		// a low undercroft, the court room tall over it (the flights must reach its floor within the front)
+		int h0 = 4;
 		int h1 = maxH >= 32 ? 6 : 5;
+		if (cx - 2 - (base + h0) < 0) {
+			base = 0;
+		}
 		Body body = new Body(x0, z0, x1, z1, base, new int[]{h0, h1}, false, false);
 		d.body(x0, z0, x1, z1);
 		int plate = body.plateY();
 		d.eave(plate);
 		int fy = body.floorY(1);
-		int tx0 = corner ? (towerRight ? x1 - 4 : x0) : cx - 2;
-		int tz0 = corner ? z0 - 1 : z0 - 2;
-		int tx1 = tx0 + 4;
-		int tz1 = tz0 + 4;
-		int doorX = tx0 + 2;
+		int run = fy;
+		int doorX = cx;
 
 		// --- ground and shell: render (or the culture's walling) quoined in the dressing over a plinth course,
-		// a rusticated ground storey in the south
+		// a rusticated undercroft
 		Storeys.ground(d, body, false);
 		Grounds.forecourt(d, 0, w - 1, z0 - 1, true);
 		Stone dress = Stone.dressing(d);
 		Stone wall = Masonry.walling(d);
 		Stone plinth = Masonry.plinth(d);
-		Masonry.storey(d, body, 0, med ? plinth : wall, dress, plinth, med);
+		Masonry.storey(d, body, 0, med ? plinth : wall, dress, plinth, true);
 		Masonry.storey(d, body, 1, wall, dress, plinth, false);
-		// windows of two lights in bays four apart, one over the other: barred below (the records are kept there), tall
-		// above (the court)
+		// windows of two lights in bays four apart: small and barred in the undercroft (none behind the steps), tall over
+		// the court (none over the portal)
 		for (Side s : body.sides(0)) {
 			for (int i0 : Masonry.bays(s.length() - 1, 4)) {
-				if (nearTower(s, i0, 2, tx0, tz0, tx1, tz1) || i0 + 1 > s.last() - 2) {
+				if (i0 + 1 > s.last() - 2 || i0 < 1) {
 					continue;
 				}
-				Fenestration.framed(d, s, i0, 2, base + 1, 2, dress, false, true, false);
+				boolean steps = s.out() == Dirs.FRONT;
+				if (!steps) {
+					Fenestration.framed(d, s, i0, 2, base + 1, 2, dress, false, true, false);
+				}
+				if (steps && (Math.abs(s.x(i0) - cx) <= 2 || Math.abs(s.x(i0 + 1) - cx) <= 2)) {
+					continue;
+				}
 				Side up = body.side(1, s.out());
-				Fenestration.framed(d, up, i0, 2, fy + 1, h1 >= 6 ? 4 : 2, dress, false, false, false);
+				Fenestration.framed(d, up, i0, 2, fy + 1, h1 >= 6 ? 4 : 3, dress, false, false, false);
 			}
 		}
 
@@ -107,75 +120,55 @@ final class CourtHall {
 			default -> h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HIP, RoofForm.HALF_HIP);
 		};
 		double pitch = med ? 0.5 : Math.max(1.0, h.roof().pitch());
-		Storeys.Top top = Storeys.roof(d, body, form, Direction.Axis.X, pitch, maxH >= 34 ? 10 : 6, false);
+		Storeys.Top top = Storeys.roof(d, body, form, Direction.Axis.X, pitch, 6, true);
 		if (boh || med) {
 			Halls.cornice(d, body.topRect(), plate - 1);
 		}
 		int skyline = top.ridge();
-		// a window in each gable end, framed like the rest
-		if (top.roof() != null) {
-			int gz = (z0 + z1) / 2;
-			for (Side s : new Side[]{body.side(1, Dirs.LEFT), body.side(1, Dirs.RIGHT)}) {
-				int i = s.index(gz);
-				if (Openings.isWallBlock(d, s.x(i), plate + 2, s.z(i)) && Openings.isWallBlock(d, s.x(i), plate + 3, s.z(i))
-					&& Openings.isWallBlock(d, s.x(i), plate + 4, s.z(i))) {
-					Fenestration.framed(d, s, i, 1, plate + 2, 2, dress, false, false, false);
-				}
-			}
+		// the court's bell in a turret on the ridge
+		if (top.roof() != null && top.ridge() + 9 < maxH) {
+			skyline = Math.max(skyline, Bohemian.turret(d, cx, (z0 + z1) / 2 - 1, plate, top.ridge(), maxH));
 		}
 
-		// --- the tower and its portal
-		Set<Direction> blind = corner ? Set.of(Dirs.BACK, towerRight ? Dirs.LEFT : Dirs.RIGHT) : Set.of(Dirs.BACK);
-		CourtTower.Built tb = CourtTower.build(d, t, tx0, tz0, base, fy, top.ridge(), maxH, tier, blind);
-		skyline = Math.max(skyline, tb.top());
-		Side tf = Side.of(tx0, tz0, tx1, tz1, Dirs.FRONT);
+		// --- the perron: two flights up along the front wall meeting on a landing before the court's portal
+		perron(d, cx, z0, base, fy, run, dress, plinth);
+		Side front = body.side(1, Dirs.FRONT);
 		if (boh) {
-			Bohemian.portal(d, tf, 2, base);
+			Bohemian.portal(d, front, front.index(cx), fy);
 		} else {
-			dev.voidmc.hearth.build.kit.landmark.Grounds.door(d, tf, 2, base, dress);
+			dev.voidmc.hearth.build.kit.landmark.Grounds.door(d, front, front.index(cx), fy, dress);
 		}
-		if (base >= 1) {
-			Grounds.flight(d, doorX - 1, doorX + 1, tz0 - 1, base, base);
-		}
-		Grounds.approach(d, doorX, base, tz0 - 1);
+		// the undercroft's door under the landing
+		Side low = body.side(0, Dirs.FRONT);
+		Openings.door(d, low, cx, base, 1, new Openings.DoorOpts(false, false, false));
+		Grounds.approach(d, cx, base, z0 - 1);
 
-		// --- the ground floor: the hall of the court's offices, the stair up to the court
+		// --- the undercroft: the clerk's hall, the lock-up, the stair up to the court
 		int ix0 = x0 + 1;
 		int ix1 = x1 - 1;
 		int iz0 = z0 + 1;
 		int iz1 = z1 - 1;
-		boolean stairLeft = corner ? towerRight : d.chance(0.5);
+		boolean stairLeft = d.chance(0.5);
 		int sx = stairLeft ? ix0 : ix1;
 		Storeys.flight(d, body, 0, sx, iz0 + h0, Dirs.FRONT);
-		// beside a centre tower on a narrow hall the stairwell's rail would wall the landing in: leave the well open
-		for (int z = iz0; z <= iz0 + h0; z++) {
-			for (int x : new int[]{sx - 1, sx + 1}) {
-				var st = d.get(x, fy, z);
-				if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.FenceBlock
-					&& (x - 1 <= tx1 + 1 && x + 1 >= tx0 - 1 || w < 15)) {
-					d.remove(x, fy, z);
-				}
-			}
-		}
-		int entryZ = tz1 + 1;
-		int[] flue = offices(d, top, ix0, iz0, ix1, iz1, base, h0, cx, doorX, entryZ, tx0, tx1, tz1, sx, stairLeft, wall, dress);
-		// the court room upstairs
+		int cellX = stairLeft ? ix1 - 1 : ix0;
+		boolean cell = lockUp(d, cellX, iz0, base, stairLeft ? Dirs.LEFT : Dirs.RIGHT);
+		int[] flue = offices(d, top, ix0, iz0, ix1, iz1, base, h0, cx, doorX, iz0, cx + 1, cx - 1, z0, sx, stairLeft, wall, dress,
+			cell ? new int[]{stairLeft ? cellX - 1 : cellX, iz0, stairLeft ? cellX + 1 : cellX + 2, iz0 + 3, stairLeft ? cellX - 2 : cellX + 3, iz0 + 1}
+				: null);
+		// the court room upstairs, entered from the landing and by the stair from below
 		Set<Long> keep = new HashSet<>();
 		Set<Long> blocked = new HashSet<>();
 		keep.add(Courtroom.key(sx, iz0));
+		keep.add(Courtroom.key(doorX, iz0));
+		keep.add(Courtroom.key(doorX, iz0 + 1));
 		for (int z = iz0 + 1; z <= iz0 + 3; z++) {
 			blocked.add(Courtroom.key(sx, z));
 			blocked.add(Courtroom.key(sx + (stairLeft ? 1 : -1), z));
 		}
-		for (int x = tx0; x <= tx1; x++) {
-			for (int z = iz0; z <= tz1; z++) {
-				blocked.add(Courtroom.key(x, z));
-			}
-		}
-		keep.add(Courtroom.key(doorX, tz1 + 1));
 		// the court's tiled stove in the front corner away from the stair, its flue up through the roof
 		int stx = stairLeft ? ix1 : ix0;
-		if (top.roof() != null && !blocked.contains(Courtroom.key(stx, iz0)) && !(stx >= tx0 && stx <= tx1)) {
+		if (top.roof() != null && !blocked.contains(Courtroom.key(stx, iz0))) {
 			Furniture.hearth(d, stx, fy, iz0, Dirs.BACK, false);
 			skyline = Math.max(skyline, dev.voidmc.hearth.build.kit.Chimneys.stack(d, stx, iz0, fy + 2, top.roof(), top.roof().ridgeY - 2));
 			blocked.add(Courtroom.key(stx, iz0));
@@ -185,17 +178,125 @@ final class CourtHall {
 			blocked.add(Courtroom.key(flue[0], flue[1]));
 		}
 		Courtroom.furnish(d, ix0, iz0, ix1, iz1, fy, h1 - 1, keep, blocked);
-		// the tower room behind the loggia
-		Lighting.room(d, tx0 + 1, tz0 + 1, tx1 - 1, tz1 - 1, fy);
 
-		// --- outside: the notice board by the portal, lamps at the forecourt's corners
-		noticeBoard(d, doorX, z0 - 1, tx0 - 1, tx1 + 1);
+		// --- outside: the town's stone pillory by the steps, the notice board, lamps at the forecourt's corners
+		int px = cx - run - 3;
+		if (px >= 1 && Groundwork.surface(d, px, 1) == 0 && Groundwork.surface(d, px, 2) == 0 && d.isEmpty(px, 0, 1) && d.isEmpty(px, 0, 2)
+			&& d.isEmpty(px, 1, 2)) {
+			dev.voidmc.hearth.build.kit.lawhouse.Justice.column(d, px, 0, 1, Dirs.FRONT);
+		}
+		noticeBoard(d, cx, 1, cx - run - 3, cx + run + 1);
 		Halls.lamp(d, 0, 0, 0, 2);
 		Halls.lamp(d, w - 1, 0, 0, 2);
 		if (h.snow()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, doorX);
 		}
+		Grounds.edgeRails(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 2));
+	}
+
+	/**
+	 * The perron before the front wall (row {@code z0}): from the forecourt (standing 0) two flights of {@code run} steps
+	 * in the plinth's stone climb along the wall toward column cx, each walled on its open side by a parapet stepping up
+	 * with it (the plinth's wall on top), and meet on a landing three wide at the court's floor {@code fy}; the landing's
+	 * front is a balustrade between two posts carried down to the forecourt, which bear a little roof over it; under the
+	 * landing a passage stays open to the undercroft's door.
+	 */
+	static void perron(Draft d, int cx, int z0, int base, int fy, int run, Stone dress, Stone plinth) {
+		int zs = z0 - 1;
+		int zp = z0 - 2;
+		Paint rail = Halls.rail(d, plinth);
+		Paint solid = plinth.full();
+		Paint deck = dress.has(Form.SLAB) ? dress.slab(SlabType.TOP) : solid;
+		Mat roof = d.mat(Role.ROOF);
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int side : new int[]{-1, 1}) {
+				Direction up = side < 0 ? Dirs.RIGHT : Dirs.LEFT;
+				for (int k = 1; k <= run; k++) {
+					int x = cx + side * (1 + k);
+					int y = fy - k;
+					if (x < 0 || x >= d.frontage()) {
+						continue;
+					}
+					for (int yy = 0; yy < y; yy++) {
+						d.set(x, yy, zs, solid);
+					}
+					d.set(x, y, zs, plinth.stairsOrSlab(up, Half.BOTTOM));
+					d.clearBox(x, y + 1, zs, x, y + 3, zs);
+					// the parapet on the open side, its rail where the drop beside the step would be a fall
+					for (int yy = 0; yy <= y; yy++) {
+						d.set(x, yy, zp, solid);
+					}
+					if (y >= 1) {
+						d.set(x, y + 1, zp, rail);
+					}
+				}
+			}
+			// the landing: a floor three wide before the portal over the passage, its balustrade on the row before it
+			for (int x = cx - 1; x <= cx + 1; x++) {
+				d.set(x, fy - 1, zs, deck);
+				d.set(x, fy - 1, zp, deck);
+				d.set(x, fy, zp, rail);
+				d.clearBox(x, fy, zs, x, fy + 2, zs);
+				d.clearBox(x, base, zs, x, fy - 2, zs);
+				if (x == cx) {
+					d.clearBox(x, base, zp, x, fy - 2, zp);
+				}
+			}
+			// two posts from the forecourt through the landing's corners to its roof, the passage between them
+			for (int x : new int[]{cx - 1, cx + 1}) {
+				for (int y = 0; y <= fy + 2; y++) {
+					if (y != fy - 1) {
+						d.set(x, y, zp, dress.wallOrFull());
+					}
+				}
+			}
+		}
+		// the landing's little roof
+		try (var st = d.stage(StageKind.ROOF)) {
+			for (int x = cx - 1; x <= cx + 1; x++) {
+				d.set(x, fy + 3, zp, roof.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
+				d.set(x, fy + 3, zs, roof.slab(SlabType.BOTTOM));
+			}
+		}
+		Halls.lanternUnder(d, cx, fy - 1, zs, 0);
+		d.poi(PoiType.VIEWPOINT, cx, fy, zs, Dirs.FRONT);
+	}
+
+	/**
+	 * The lock-up: a cell two wide and three deep in the undercroft's front corner at (x, z), barred off on its inner
+	 * side and its back with an iron door toward {@code open} (prisoners pick its lock, nobody opens it by hand), a bale of
+	 * straw and a bucket inside. Returns whether it was built.
+	 */
+	static boolean lockUp(Draft d, int x, int z, int y, Direction open) {
+		int bx = open == Dirs.LEFT ? x - 1 : x + 2;
+		for (int zz = z; zz <= z + 3; zz++) {
+			for (int xx = Math.min(x, bx); xx <= Math.max(x + 1, bx); xx++) {
+				for (int yy = y; yy <= y + 1; yy++) {
+					if (!d.isEmpty(xx, yy, zz)) {
+						return false;
+					}
+				}
+			}
+		}
+		Paint bars = Paint.of(Blocks.IRON_BARS.defaultBlockState());
+		try (var st = d.stage(StageKind.INTERIOR)) {
+			for (int zz = z; zz <= z + 3; zz++) {
+				for (int yy = y; yy <= y + 2; yy++) {
+					d.set(bx, yy, zz, bars);
+				}
+			}
+			for (int xx = x; xx <= x + 1; xx++) {
+				for (int yy = y; yy <= y + 2; yy++) {
+					d.set(xx, yy, z + 3, bars);
+				}
+			}
+			d.set(open == Dirs.LEFT ? x + 1 : x, y, z, Blocks.HAY_BLOCK.defaultBlockState());
+			d.set(open == Dirs.LEFT ? x + 1 : x, y, z + 2, Blocks.CAULDRON.defaultBlockState());
+		}
+		d.inStage(StageKind.OPENINGS, () -> d.door(bx, y, z + 1, Blocks.IRON_DOOR, open.getOpposite(), DoorHingeSide.LEFT));
+		d.poi(PoiType.CELL, open == Dirs.LEFT ? x : x + 1, y, z + 1, open.getOpposite());
+		return true;
 	}
 
 	/**
@@ -206,7 +307,7 @@ final class CourtHall {
 	 * the court room above). Returns the flue's cell {x, z} on the court's floor, or null.
 	 */
 	static int[] offices(Draft d, Storeys.Top top, int ix0, int iz0, int ix1, int iz1, int base, int h0, int cx, int doorX, int entryZ,
-		int tx0, int tx1, int tz1, int sx, boolean stairLeft, Stone wall, Stone dress) {
+		int tx0, int tx1, int tz1, int sx, boolean stairLeft, Stone wall, Stone dress, int[] cell) {
 		boolean chamber = iz1 - iz0 + 1 >= 11;
 		int zp = chamber ? iz1 - 3 : iz1 + 1;
 		int hallZ1 = zp - 1;
@@ -273,6 +374,15 @@ final class CourtHall {
 		}
 		lobby.keepArea(sx, iz0, sx, iz0 + h0);
 		lobby.keep(sx, iz0 + h0 + 1);
+		// the lock-up and its bars are taken, the floor before its door kept
+		if (cell != null) {
+			for (int z = cell[1]; z <= cell[3]; z++) {
+				for (int x = cell[0]; x <= cell[2]; x++) {
+					lobby.block(x, z);
+				}
+			}
+			lobby.keep(cell[4], cell[5]);
+		}
 		if (chamber) {
 			int dx = stairLeft ? Math.min(ix1 - 1, cx + 2) : Math.max(ix0 + 1, cx - 2);
 			lobby.keep(dx, hallZ1);

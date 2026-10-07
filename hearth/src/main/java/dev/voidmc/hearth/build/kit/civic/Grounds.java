@@ -143,6 +143,50 @@ public final class Grounds {
 	}
 
 	/**
+	 * A parapet along the plot's sides and back wherever the levelled ground stands four or more above the land beyond
+	 * (a terrace made up on a slope): a low wall in the plinth's stone (the railing's fence where it has no wall), on the
+	 * edge cell itself, so nobody walks off the made ground. Cells taken, and the front row (the street's side, where the
+	 * approach comes in), are left alone. Call it last, when the grounds are made.
+	 */
+	public static void edgeRails(Draft d) {
+		int w = d.frontage();
+		int dp = d.depth();
+		Paint rail = Halls.rail(d, d.mat(Role.PLINTH));
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int z = 1; z < dp; z++) {
+				for (int x = 0; x < w; x++) {
+					if (x != 0 && x != w - 1 && z != dp - 1) {
+						continue;
+					}
+					// where one stands there: the first free cell over something solid, from the made ground up
+					int g0 = Groundwork.surface(d, x, z);
+					int g = Integer.MIN_VALUE;
+					int nat = d.site().ground(x, z);
+					for (int y = g0 - 1; y <= g0 + 4 && g == Integer.MIN_VALUE; y++) {
+						boolean under = d.isSolid(x, y - 1, z) || d.isAbsent(x, y - 1, z) && y - 1 < nat;
+						boolean free = (d.isAbsent(x, y, z) ? y >= nat : d.isEmpty(x, y, z)) && (d.isAbsent(x, y + 1, z) ? y + 1 >= nat : d.isEmpty(x, y + 1, z));
+						if (under && free) {
+							g = y;
+						}
+					}
+					if (g == Integer.MIN_VALUE) {
+						continue;
+					}
+					int low = Integer.MAX_VALUE;
+					for (int[] o : new int[][]{{x - 1, z}, {x + 1, z}, {x, z + 1}}) {
+						if (o[0] < 0 || o[0] >= w || o[1] >= dp) {
+							low = Math.min(low, d.site().ground(o[0], o[1]));
+						}
+					}
+					if (low != Integer.MAX_VALUE && g - low >= 4) {
+						d.set(x, g, z, rail);
+					}
+				}
+			}
+		}
+	}
+
+	/**
 	 * The way in: from the cell outside a door (x, zOut) at standing level {@code y} to the street, by the kit's approach
 	 * (steps down or up, paving, footings) when the ground does not already meet it.
 	 */

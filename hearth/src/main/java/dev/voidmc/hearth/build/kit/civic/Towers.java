@@ -138,7 +138,9 @@ public final class Towers {
 			int[] piers = size >= 7 ? Arches.piers(0, side.last(), 3) : new int[]{0, side.last()};
 			Paint c = Arches.timber(kind) ? d.mat(Role.BEAM).log(side.axis()) : course;
 			Arches.arcade(d, side, piers, y0, y0 + h, kind, pier, c);
-			// a low parapet between the piers: something to lean on, nothing to fall through
+			// a low parapet between the piers: something to lean on, nothing to fall through and nothing to step up onto
+			// (a balustrade of the dressed stone's wall, a slab would be a step out onto the roofs)
+			Paint sill = Arches.timber(Arches.kind(t)) ? Halls.post(d) : Halls.rail(d, d.mat(Role.WALL_ACCENT));
 			for (int i = 1; i < side.last(); i++) {
 				boolean isPier = false;
 				for (int p : piers) {
@@ -146,8 +148,7 @@ public final class Towers {
 				}
 				if (!isPier) {
 					int fi = i;
-					d.inStage(StageKind.EXTERIOR, () -> d.set(side.x(fi), y0, side.z(fi), Arches.timber(Arches.kind(t))
-						? Halls.post(d) : d.mat(Role.WALL_ACCENT).slab(SlabType.BOTTOM)));
+					d.inStage(StageKind.EXTERIOR, () -> d.set(side.x(fi), y0, side.z(fi), sill));
 				}
 			}
 		}
@@ -529,8 +530,21 @@ public final class Towers {
 		return States.block("minecraft:lightning_rod", Blocks.END_ROD);
 	}
 
-	/** Crenellations: a parapet of the wall with merlons every other block, coped. */
+	/**
+	 * Crenellations: a parapet of the wall with merlons every other block, coped. The mesa's pueblos have none: their
+	 * parapet is one course under a coping ({@link Pueblo#parapet}).
+	 */
 	public static void battlements(Draft d, int x0, int z0, int x1, int z1, int y) {
+		if (Pueblo.is(d)) {
+			Mat coping = d.mat(Role.WALL_ACCENT).has(Form.SLAB) ? d.mat(Role.WALL_ACCENT) : d.mat(Role.WALL);
+			try (var s = d.stage(StageKind.ROOF)) {
+				for (int[] c : Draft.ring(x0, z0, x1, z1)) {
+					d.set(c[0], y, c[1], d.mat(Role.WALL).full());
+					d.set(c[0], y + 1, c[1], coping.slab(SlabType.BOTTOM));
+				}
+			}
+			return;
+		}
 		Mat wall = d.mat(Role.WALL);
 		Mat accent = d.mat(Role.WALL_ACCENT);
 		try (var s = d.stage(StageKind.ROOF)) {

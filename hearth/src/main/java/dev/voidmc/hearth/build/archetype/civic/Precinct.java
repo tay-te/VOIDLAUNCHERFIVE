@@ -390,6 +390,36 @@ final class Precinct {
 		return this.keep.contains(key(x, y, z));
 	}
 
+	/** Cells before a door that must stand clear from its foot to its head (cleared in {@link #finish}). */
+	private final List<int[]> thresholds = new ArrayList<>();
+
+	/**
+	 * Marks the cell (x, z) outside a door as its threshold: whatever a window, a bench or the walk's furniture leaves
+	 * there (a sill, a shutter, a box, a seat) is taken away at the end, so the door has somewhere to stand on both sides.
+	 */
+	void threshold(int x, int z) {
+		keep(x, 0, z);
+		this.thresholds.add(new int[]{x, z});
+	}
+
+	private void clearThresholds() {
+		for (int[] c : this.thresholds) {
+			for (int y = 0; y <= 2; y++) {
+				BlockState s = this.d.get(c[0], y, c[1]);
+				if (s == null || s.isAir()) {
+					continue;
+				}
+				net.minecraft.world.level.block.Block b = s.getBlock();
+				if (b instanceof net.minecraft.world.level.block.StairBlock || b instanceof net.minecraft.world.level.block.SlabBlock
+					|| b instanceof net.minecraft.world.level.block.TrapDoorBlock || b instanceof net.minecraft.world.level.block.FlowerPotBlock
+					|| b instanceof net.minecraft.world.level.block.LeavesBlock || b instanceof net.minecraft.world.level.block.LanternBlock
+					|| b instanceof net.minecraft.world.level.block.VegetationBlock) {
+					this.d.set(c[0], y, c[1], air());
+				}
+			}
+		}
+	}
+
 	// ================================================================================================ the shell
 
 	/** Levels the precinct and builds every range's walls, floors and windows. */
@@ -408,11 +438,63 @@ final class Precinct {
 			Storeys.walls(this.d, r.body, f, 0, storeys() - 1, kinds, true);
 			groundFloor(r.x0 + 1, r.z0 + 1, r.x1 - 1, r.z1 - 1);
 			windows(r, f);
+			relief(r);
 		}
 		int qx0 = Math.min(this.church ? Math.min(this.nx0, this.bx0) : 0, this.bx0);
 		int qx1 = Math.max(this.church ? Math.max(this.nx1, this.bx1) : this.w - 1, this.bx1);
 		this.d.body(qx0, this.zF, qx1, this.dp - 1);
 		this.d.eave(this.plate);
+	}
+
+	/**
+	 * The ranges' walls dressed as a house of the orders builds them, regular and articulated rather than one plane: a
+	 * plinth course of the dressing at the foot, a string course at every floor, and pilaster strips of the dressing on the
+	 * facade's posts (every fourth column) up each masonry storey, so the long walls read in bays. Only the range's own
+	 * walling is replaced (a timber-framed storey keeps its frame, windows and doors are left alone).
+	 */
+	private void relief(Range r) {
+		Stone dress = Stone.dressing(this.d);
+		Paint strip = dress.full();
+		for (int k = 0; k < storeys(); k++) {
+			boolean timber = rangeKinds()[k] == WallKind.TIMBER_FRAME || rangeKinds()[k] == WallKind.LOG;
+			int fy = r.body.floorY(k);
+			int top = k + 1 < storeys() ? r.body.floorY(k + 1) - 1 : r.body.plateY();
+			for (Side s : r.body.sides(k)) {
+				// the walling of this storey on this side: the commonest full block between its ends
+				java.util.Map<Block, Integer> count = new java.util.HashMap<>();
+				for (int i = 1; i < s.last(); i++) {
+					BlockState st = this.d.get(s.x(i), fy + 1, s.z(i));
+					if (st != null && dev.voidmc.hearth.build.kit.Openings.isWallBlock(this.d, s.x(i), fy + 1, s.z(i))) {
+						count.merge(st.getBlock(), 1, Integer::sum);
+					}
+				}
+				if (count.isEmpty()) {
+					continue;
+				}
+				Block walling = java.util.Collections.max(count.entrySet(), java.util.Map.Entry.comparingByValue()).getKey();
+				if (walling == strip.at(s.x(1), fy, s.z(1)).getBlock()) {
+					continue;
+				}
+				try (var st = this.d.stage(StageKind.WALLS)) {
+					for (int i = 0; i <= s.last(); i++) {
+						int x = s.x(i);
+						int z = s.z(i);
+						int col = s.column(i);
+						boolean pilaster = !timber && (i == 0 || i == s.last() || Math.floorMod(col - s.column(0), 4) == 0);
+						for (int y = fy - 1; y <= top; y++) {
+							BlockState b = this.d.get(x, y, z);
+							if (b == null || b.getBlock() != walling) {
+								continue;
+							}
+							boolean course = y == fy - 1 || k == 0 && y == fy;
+							if (course || pilaster) {
+								this.d.set(x, y, z, strip);
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -869,8 +951,8 @@ final class Precinct {
 		Side outer = r.outerSide(0);
 		Side inner = r.courtSide(0);
 		int hh = Math.min(4, r.body.height(0) - 1);
-		Details.arch(this.d, outer, outer.index(g - 1), 3, 0, hh, dress, null);
-		Details.arch(this.d, inner, inner.index(g - 1), 3, 0, hh, dress, null);
+		Details.arch(this.d, outer, Math.min(outer.index(g - 1), outer.index(g + 1)), 3, 0, hh, dress, null);
+		Details.arch(this.d, inner, Math.min(inner.index(g - 1), inner.index(g + 1)), 3, 0, hh, dress, null);
 		Paint paving = this.d.mat(Role.PAVING).full();
 		try (var s = this.d.stage(StageKind.FLOORS)) {
 			for (int a = g - 1; a <= g + 1; a++) {
@@ -920,7 +1002,7 @@ final class Precinct {
 			// the cells inside the door and the walk outside it stay free
 			keep(cx, 0, cz);
 			keep(cx - Dirs.dx(r.court), 0, cz - Dirs.dz(r.court));
-			keep(cx + 2 * Dirs.dx(r.court), 0, cz + 2 * Dirs.dz(r.court));
+			threshold(cx + 2 * Dirs.dx(r.court), cz + 2 * Dirs.dz(r.court));
 		}
 	}
 
@@ -952,7 +1034,7 @@ final class Precinct {
 			}
 		}
 		Side s = new Side(Dirs.FRONT, this.kx0, z, this.kx1 - this.kx0 + 1);
-		Details.arch(this.d, s, s.index(g - 1), 3, 0, 3, dress, null);
+		Details.arch(this.d, s, Math.min(s.index(g - 1), s.index(g + 1)), 3, 0, 3, dress, null);
 		try (var st = this.d.stage(StageKind.WALLS)) {
 			for (int x = g - 2; x <= g + 2; x++) {
 				this.d.set(x, 3, z, dress.full());
@@ -1838,11 +1920,15 @@ final class Precinct {
 		storage(room, List.of(new Object[]{"minecraft:wheat", 16}, new Object[]{"minecraft:apple", 8}));
 		int n = 0;
 		for (int[] c : along(room, true, true, true)) {
-			if (!free(c[0], y, c[1]) || !this.d.isEmpty(c[0] + Dirs.dx(dir(c)), y, c[1] + Dirs.dz(dir(c)))) {
+			Direction in = dir(c);
+			int fx = c[0] + Dirs.dx(in);
+			int fz = c[1] + Dirs.dz(in);
+			// a barrel only with a floor before it that stays free (a later barrel never takes an earlier one's front)
+			if (!free(c[0], y, c[1]) || !this.d.isEmpty(fx, y, fz) || !this.d.isEmpty(fx, y + 1, fz) || !this.d.isSolid(fx, y - 1, fz)) {
 				continue;
 			}
-			Direction in = dir(c);
 			Furniture.barrel(this.d, c[0], y, c[1], in);
+			keep(fx, y, fz);
 			if (n % 3 == 0 && this.d.isEmpty(c[0], y + 1, c[1]) && this.d.isEmpty(c[0], y + 2, c[1])) {
 				int xx = c[0];
 				int zz = c[1];
@@ -2207,6 +2293,8 @@ final class Precinct {
 
 	/** The finishing pass: natural ground cleared over the plot up to the skyline. */
 	void finish() {
+		clearThresholds();
+		Halls.lintels(this.d);
 		Groundwork.clear(this.d, 0, 0, this.w - 1, this.dp - 1, Math.min(this.top, this.skyline + 2));
 	}
 

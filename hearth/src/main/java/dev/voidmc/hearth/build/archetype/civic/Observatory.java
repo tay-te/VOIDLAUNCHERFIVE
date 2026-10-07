@@ -16,6 +16,7 @@ import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Eaves;
 import dev.voidmc.hearth.build.kit.civic.Tradition;
@@ -84,7 +85,9 @@ public final class Observatory implements Archetype {
 			terrace = true;
 		}
 		int peak = terrace ? terraceObservatory(d, t) : tower(d, t);
-		Groundwork.clear(d, 0, 0, d.frontage() - 1, d.depth() - 1, Math.min(d.maxHeight() - 1, peak + 2));
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		Groundwork.clear(d, 0, 0, d.frontage() - 1, d.depth() - 1, Math.max(Math.min(d.maxHeight() - 1, peak + 2), pueblo + 2));
 	}
 
 	// ================================================================================================ the tower
@@ -417,7 +420,15 @@ public final class Observatory implements Archetype {
 			for (int k : new int[]{-1, 1}) {
 				int x = p.cx + k * rr;
 				Direction out = k < 0 ? Dirs.LEFT : Dirs.RIGHT;
-				d.inStage(StageKind.OPENINGS, () -> d.door(x, ft, p.cz, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), out, DoorHingeSide.LEFT));
+				// a door only where the gallery outside it is a walk (not its balustrade): else a tall light onto it
+				if (d.isEmpty(x + k, ft, p.cz) && d.isSolid(x + k, ft - 1, p.cz)) {
+					d.inStage(StageKind.OPENINGS, () -> d.door(x, ft, p.cz, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), out, DoorHingeSide.LEFT));
+				} else {
+					try (var s = d.stage(StageKind.OPENINGS)) {
+						d.set(x, ft, p.cz, d.mat(Role.GLASS).pane());
+						d.set(x, ft + 1, p.cz, d.mat(Role.GLASS).pane());
+					}
+				}
 			}
 		} else {
 			int fz = p.cz - rr;
@@ -524,9 +535,8 @@ public final class Observatory implements Archetype {
 	 * tropics.
 	 */
 	static Stone sheet(Draft d) {
-		Culture c = d.style().culture();
-		boolean copper = c == Culture.ALPINE || c == Culture.MARITIME || c == Culture.BAYOU || c == Culture.TROPICAL;
-		return copper ? Stone.copper(d).crisp() : Stone.fixed(d, StageKind.ROOF, "minecraft:polished_andesite");
+		// lead everywhere: a dark grey sheet reads as an instrument's housing (new copper's turquoise as a toy's)
+		return Stone.fixed(d, StageKind.ROOF, "minecraft:polished_andesite");
 	}
 
 	/** A cell of a shape at a turn of its outline. */

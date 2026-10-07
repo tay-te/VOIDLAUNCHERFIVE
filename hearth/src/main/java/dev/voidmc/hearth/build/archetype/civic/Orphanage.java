@@ -19,7 +19,9 @@ import dev.voidmc.hearth.build.kit.Stairs;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
+import dev.voidmc.hearth.build.kit.civic.Halls;
 import dev.voidmc.hearth.build.kit.civic.Tradition;
 import dev.voidmc.hearth.build.kit.homestead.Bohemia;
 import dev.voidmc.hearth.build.kit.landscape.Trees;
@@ -113,6 +115,8 @@ public final class Orphanage implements Archetype {
 		for (Direction wall : new Direction[]{Dirs.FRONT, Dirs.BACK, Dirs.LEFT, Dirs.RIGHT}) {
 			Wards.row(d, up, wall, 1, false, 12, null);
 		}
+		// (a bed the eaves or its neighbours box in is no bed)
+		Halls.dropBlockedBeds(d, up.x0, up.z0, up.x1, up.z1, up.y);
 		Lighting.room(d, up.x0, up.z0, up.x1, up.z1, up.y);
 
 		// --- outside: the board, a bench by the door
@@ -150,7 +154,9 @@ public final class Orphanage implements Archetype {
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, 0, r.zF(), w - 1, r.zM(), base, doorX);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, r.shell().skyline() + 3));
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(d.maxHeight() - 1, r.shell().skyline() + 3), pueblo + 2));
 	}
 
 	/**
@@ -343,6 +349,8 @@ public final class Orphanage implements Archetype {
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, hx0, zF, hx1, zM, base, doorX);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, sh.skyline() + 3));
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(d.maxHeight() - 1, sh.skyline() + 3), pueblo + 2));
 	}
 }

@@ -9,6 +9,7 @@ import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Halls;
@@ -161,7 +162,9 @@ final class CourtYard {
 				Lighting.post(d, c[0], 0, c[1]);
 			}
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 2));
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(maxH - 1, skyline + 2), pueblo + 2));
 	}
 
 	/** Merlons along the top of a wall: a block every other cell over the coping course at y. */

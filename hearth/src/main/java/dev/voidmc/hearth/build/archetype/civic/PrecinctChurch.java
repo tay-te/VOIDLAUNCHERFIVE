@@ -350,7 +350,10 @@ final class PrecinctChurch {
 			p.keep(inner, 0, dz - 1);
 			p.keep(inner, 0, dz + 1);
 			p.keep(inner - Dirs.dx(toCourt), 0, dz);
-			p.keep(courtWall + Dirs.dx(toCourt), 0, dz);
+			// a full threshold on the walk's side: the door's cell and one either side clear from foot to head
+			for (int k = -1; k <= 1; k++) {
+				p.threshold(courtWall + Dirs.dx(toCourt), dz + k);
+			}
 		}
 		// the runner up the middle
 		Mat cloth = d.mat(Role.CLOTH);
