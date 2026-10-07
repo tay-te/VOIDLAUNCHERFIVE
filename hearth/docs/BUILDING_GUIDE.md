@@ -117,6 +117,16 @@ from where the diggers come down, a drift slice by slice behind its props), give
 `try (var o = d.order(key)) { ... }`: in `CLEAR` and `EARTHWORK` steps go by key first (unkeyed first), then by the
 usual rule.
 
+**The site's works.** A building stalled on goods between stages must read as a building site, not a ruin. The
+compiler adds the works to every ordinary building (walls and a roof, not built in campaigns; `blueprint/SiteWorks`):
+a hurdle fence on the plot edge, open at the doors and paths, and a pile of hewn timbers and wall stone by the door
+(up in `FOUNDATION`, down in `EXTERIOR`); scaffold poles a block out from the walls at the corners and every third
+block, with putlogs and a lift of boards every three blocks up (up with `FRAME` or `WALLS`, down in `OPENINGS`), a
+flying scaffold over the street from y 3 in front of a house built to its frontage; a board deck over the wall heads
+(down as the roof goes on). They stand only where the finished building has nothing, so the finished blueprint is the
+drawing; a reader of steps takes the last step at a position. Do not draw them yourself; leave a plot's yard free if
+you want its pile and fence to show. Look with `blueprintPreview ... -Pterrain="flat;stage=floors"`.
+
 **Campaigns.** A building raised over months, or a working dug over weeks, is built in **campaigns**: sections done one
 after another, each a whole run of stages, so the work half done looks like what it is and no single stage asks for
 more goods than a town can store. A castle's terraces and keep, then its inner curtain, its towers, its palace...; a
@@ -224,8 +234,12 @@ Fields: `gable`, `hip`, `halfHip`, `shed`, `saltbox`, `cone`, `dome`, `flared`; 
 and `Profile.broken(steep, shallow, knee)`; `field.max(other)` merges. A `Roof` answers `covers(x, z)`,
 `surfaceY(x, z)`, `bottomY(x, z)` (what a wall fills up to) and `ridgeY`. `Roofs.flat(d, ...)` makes a deck with a
 parapet, spouts and vigas; `Roofs.terrace(d, outer, inner, deckY)` the roof of a lower storey round a set-back upper
-one. `Chimneys.stack(d, x, z, fromY, roof, minTop)` runs a chimney up through the roof with a corbel and a lit campfire
-(smoke) on top. Thatched styles (`habits.roof.thatch`) get their roof and ridge from the `thatch` role automatically.
+one. `Chimneys.stack(d, x, z, fromY, roof, minTop)` runs a chimney up through the roof to a smoking pot:
+`Chimneys.pot(d, x, y, z, stone)` puts the lit campfire in a crown of corbels (upside-down stairs of the stack's stone,
+backs to the fire) under a slab cap, so the roof smokes and shows no flame or light (a bare campfire on a stack reads as
+a roof on fire). A family that draws its own stack may end it with a bare lit campfire in stage `ROOF`: the compiler
+crowns and caps every such fire (`Chimneys.crownBareFires`); a brazier or a fire meant to be seen goes in another
+stage. Thatched styles (`habits.roof.thatch`) get their roof and ridge from the `thatch` role automatically.
 
 ### Porches, stairs, floors
 

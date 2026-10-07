@@ -87,7 +87,7 @@ public final class Compiler {
 	}
 
 	private record Step(int x, int y, int z, BlockState state, @Nullable CompoundTag tag, StageKind stage, double support, int rank, int dist,
-		int sequence, int order) {
+		int sequence, int order, boolean works) {
 	}
 
 	public static BlueprintImpl compile(Draft d) {
@@ -112,6 +112,8 @@ public final class Compiler {
 			// archetypes that already end their drawing with it
 			dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 		}
+		// every bare chimney fire crowned, so a roof smokes and shows no flame (art review 2 §8 item 18)
+		dev.voidmc.hearth.build.kit.Chimneys.crownBareFires(d);
 		dev.voidmc.hearth.build.kit.light.AutoLighter.light(d);
 		long t1 = System.nanoTime();
 		Timings.LIGHT.add(t1 - t0);
@@ -134,12 +136,25 @@ public final class Compiler {
 			int dz = z - main[2];
 			int campaign = campaignOf == null ? 0 : campaignOf.get(Draft.key(x, y, z));
 			byCampaign.computeIfAbsent(campaign, k -> new EnumMap<>(StageKind.class)).computeIfAbsent(c.stage(), k -> new ArrayList<>())
-				.add(new Step(x, y, z, s, c.tag(), c.stage(), support, rank, dx * dx + dz * dz, c.sequence(), d.order(x, y, z)));
+				.add(new Step(x, y, z, s, c.tag(), c.stage(), support, rank, dx * dx + dz * dz, c.sequence(), d.order(x, y, z), false));
 			if (s.getBlock() instanceof BedBlock && s.getValue(BedBlock.PART) == BedPart.HEAD) {
 				beds[0]++;
 				pois.add(new Poi(PoiType.BED, frame.toWorld(x, y, z), frame.toWorld(s.getValue(BedBlock.FACING).getOpposite()), null));
 			}
 		});
+		// the building site's works (scaffolding, a fence, a pile of materials, a board roof): put up in an early stage and
+		// taken down in a later one, so the finished blueprint is the drawing (SiteWorks); taking down goes first in its
+		// stage, from the top
+		if (campaignOf == null) {
+			for (SiteWorks.Work w : SiteWorks.plan(d)) {
+				int dx = w.x() - main[0];
+				int dz = w.z() - main[2];
+				boolean down = w.state().isAir();
+				byCampaign.computeIfAbsent(0, k -> new EnumMap<>(StageKind.class)).computeIfAbsent(w.stage(), k -> new ArrayList<>())
+					.add(new Step(w.x(), w.y(), w.z(), w.state(), null, w.stage(), down ? -10000 - w.y() : w.y(), down ? 0 : rank(w.state()),
+						dx * dx + dz * dz, Integer.MAX_VALUE, Integer.MIN_VALUE, true));
+			}
+		}
 		for (Draft.LocalPoi p : d.pois()) {
 			pois.add(new Poi(p.type(), frame.toWorld(p.x(), p.y(), p.z()), frame.toWorld(p.facing()), p.job()));
 		}
@@ -233,8 +248,8 @@ public final class Compiler {
 					}
 				} else {
 					work[si]++;
-					// fill moved about the site costs work, not goods
-					if (s.stage != StageKind.EARTHWORK || !MaterialBill.earth(world.getBlock())) {
+					// fill moved about the site costs work, not goods; so do the site's works (the builder's own poles and boards)
+					if (!s.works && (s.stage != StageKind.EARTHWORK || !MaterialBill.earth(world.getBlock()))) {
 						MaterialBill.add(world, goods[si]);
 					}
 				}
