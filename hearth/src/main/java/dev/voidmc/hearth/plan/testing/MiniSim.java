@@ -53,6 +53,8 @@ public final class MiniSim {
 	public long plannerNanos;
 	public long slowestNext;
 	public int calls;
+	/** Every {@code next} call's time, nanoseconds, in order (the planner bench reads them). */
+	public final it.unimi.dsi.fastutil.longs.LongArrayList callNanos = new it.unimi.dsi.fastutil.longs.LongArrayList();
 
 	public MiniSim(Culture culture, TerrainProbe terrain, long seed, SettlementPlanner planner) {
 		this(culture, terrain, seed, planner, new BlockPos(0, terrain.groundY(0, 0), 0));
@@ -259,6 +261,7 @@ public final class MiniSim {
 			this.plannerNanos += dt;
 			this.slowestNext = Math.max(this.slowestNext, dt);
 			this.calls++;
+			this.callNanos.add(dt);
 			if (project == null) {
 				break;
 			}
