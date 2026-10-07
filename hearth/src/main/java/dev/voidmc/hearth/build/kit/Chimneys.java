@@ -1,17 +1,37 @@
 package dev.voidmc.hearth.build.kit;
 
 import dev.voidmc.hearth.api.StageKind;
+import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.States;
+import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CampfireBlock;
+import net.minecraft.world.level.block.StairBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Chimney stacks: masonry from the hearth up through the roof to clear the ridge line nearby, a corbelled course near the
- * top, and a lit campfire in the pot so it smokes (smoke needs open air above, so the fire is the stack's top block).
+ * Chimney stacks: masonry from the hearth up through the roof to clear the ridge line nearby, and a pot at the top that
+ * smokes and shows no flame. The smoke comes from a lit campfire; a campfire standing bare on a stack reads from the
+ * street as a roof on fire (a flame on every roof by day, a beacon by night: art review 2 §8 item 18). So the fire sits
+ * inside the pot: the stack's top course is a crown of corbels (upside-down stairs of the stack's stone, their full
+ * backs against the fire) round the campfire on all four sides, and a slab of the same stone caps it. From the street
+ * and from above the head is a corbelled stone cap with smoke rising from it; no flame shows and no light spills onto
+ * the roof by night.
  */
 public final class Chimneys {
 	private Chimneys() {
@@ -29,8 +49,8 @@ public final class Chimneys {
 			for (int y = fromY; y < top; y++) {
 				d.set(x, y, z, stone.full());
 			}
-			// a little corbel under the pot where it stands clear of the roof
-			if (top - surface >= 3 && stone.has(dev.voidmc.hearth.build.style.Form.SLAB)) {
+			// a stone without stairs cannot crown the pot: a little corbel of slabs under the bare fire instead
+			if (!stone.has(Form.STAIRS) && top - surface >= 3 && stone.has(Form.SLAB)) {
 				int cy = top - 1;
 				for (int[] o : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
 					int ox = x + o[0];
@@ -42,8 +62,143 @@ public final class Chimneys {
 					}
 				}
 			}
-			d.set(x, top, z, States.lit(Blocks.CAMPFIRE, true).trySetValue(BlockStateProperties.SIGNAL_FIRE, false));
+			pot(d, x, top, z, null);
 		}
 		return top;
+	}
+
+	/**
+	 * The smoking pot at the head of a stack: a lit campfire at (x, y, z) and, on each side where nothing is drawn, a
+	 * corbel (an upside-down stair of the stack's stone, its full back against the fire) that hides the flame, and a slab
+	 * cap over it. {@code
+	 * stone}: the stack's stone; null reads it off the block under the fire. In the stage open, else ROOF.
+	 */
+	public static void pot(Draft d, int x, int y, int z, @Nullable BlockState stone) {
+		BlockState under = stone != null ? stone : d.get(x, y - 1, z);
+		d.set(x, y, z, States.lit(Blocks.CAMPFIRE, true).trySetValue(BlockStateProperties.SIGNAL_FIRE, false));
+		crown(d, x, y, z, under);
+	}
+
+	private static void crown(Draft d, int x, int y, int z, @Nullable BlockState under) {
+		Block stairs = under == null ? null : stairsOf(under.getBlock());
+		Mat chimney = d.mat(Role.CHIMNEY);
+		for (Direction side : Direction.Plane.HORIZONTAL) {
+			int ox = x + Dirs.dx(side);
+			int oz = z + Dirs.dz(side);
+			if (!d.isEmpty(ox, y, oz)) {
+				continue;
+			}
+			// the stair faces the fire: its full back is the side toward it, the corbel's step underneath faces out
+			Direction toFire = side.getOpposite();
+			BlockState corbel;
+			if (stairs != null) {
+				corbel = stairs.defaultBlockState().setValue(StairBlock.FACING, toFire).setValue(StairBlock.HALF, Half.TOP);
+			} else if (chimney.has(Form.STAIRS)) {
+				corbel = chimney.stairs(toFire, Half.TOP).at(ox, y, oz);
+			} else {
+				corbel = under != null && under.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) ? under : chimney.full().at(ox, y, oz);
+			}
+			if (corbel != null) {
+				d.set(ox, y, oz, corbel);
+			}
+		}
+		// the cap: a slab of the stone over the fire closes the pot, so no flame shows even from above (and no light
+		// spills over the roof by night). The smoke still rises from it: a campfire puts its smoke out up to two blocks
+		// over itself, and smoke starting inside a block moves out of it freely
+		if (d.isEmpty(x, y + 1, z)) {
+			BlockState cap = under == null ? null : slabOf(under.getBlock());
+			if (cap == null) {
+				cap = chimney.has(Form.SLAB) ? chimney.slab(SlabType.BOTTOM).at(x, y + 1, z) : null;
+			}
+			if (cap != null) {
+				d.set(x, y + 1, z, cap);
+			}
+		}
+	}
+
+	/** The bottom slab cut from a block (stone bricks: a stone brick slab), or null. */
+	public static @Nullable BlockState slabOf(Block b) {
+		if (b instanceof net.minecraft.world.level.block.SlabBlock) {
+			return b.defaultBlockState();
+		}
+		Identifier id = BuiltInRegistries.BLOCK.getKey(b);
+		String p = id.getPath();
+		List<String> names = new ArrayList<>();
+		if (p.endsWith("_planks")) {
+			names.add(p.substring(0, p.length() - "_planks".length()) + "_slab");
+		}
+		if (p.endsWith("_block")) {
+			names.add(p.substring(0, p.length() - "_block".length()) + "_slab");
+		}
+		if (p.endsWith("s")) {
+			names.add(p.substring(0, p.length() - 1) + "_slab");
+		}
+		names.add(p + "_slab");
+		for (String n : names) {
+			Block s = BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath(id.getNamespace(), n));
+			if (s instanceof net.minecraft.world.level.block.SlabBlock) {
+				return s.defaultBlockState();
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Every chimney fire in the draft that stands bare (a lit campfire drawn in stage ROOF on solid masonry, open air
+	 * over it) gets its crown and cap, whichever family drew it (town homes, tower houses, flat roofs, halls draw
+	 * their own stacks). Run by the compiler before shapes are resolved; idempotent.
+	 */
+	public static void crownBareFires(Draft d) {
+		List<long[]> fires = new ArrayList<>();
+		d.forEach((x, y, z, c) -> {
+			BlockState s = c.state();
+			if (c.stage() != StageKind.ROOF || !(s.getBlock() instanceof CampfireBlock) || !s.getValue(CampfireBlock.LIT)) {
+				return;
+			}
+			BlockState under = d.get(x, y - 1, z);
+			if (under == null || under.getBlock() instanceof CampfireBlock || !under.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
+				return;
+			}
+			if (!d.isEmpty(x, y + 1, z)) {
+				return;
+			}
+			fires.add(new long[]{x, y, z});
+		});
+		fires.sort((a, b) -> a[0] != b[0] ? Long.compare(a[0], b[0]) : a[1] != b[1] ? Long.compare(a[1], b[1]) : Long.compare(a[2], b[2]));
+		for (long[] f : fires) {
+			int x = (int) f[0];
+			int y = (int) f[1];
+			int z = (int) f[2];
+			try (var s = d.stage(StageKind.ROOF)) {
+				crown(d, x, y, z, d.get(x, y - 1, z));
+			}
+		}
+	}
+
+	/** The stairs cut from a block (stone bricks: stone brick stairs; mud bricks: mud brick stairs), or null. */
+	static @Nullable Block stairsOf(Block b) {
+		if (b instanceof StairBlock) {
+			return b;
+		}
+		Identifier id = BuiltInRegistries.BLOCK.getKey(b);
+		String p = id.getPath();
+		List<String> names = new ArrayList<>();
+		if (p.endsWith("_planks")) {
+			names.add(p.substring(0, p.length() - "_planks".length()) + "_stairs");
+		}
+		if (p.endsWith("_block")) {
+			names.add(p.substring(0, p.length() - "_block".length()) + "_stairs");
+		}
+		if (p.endsWith("s")) {
+			names.add(p.substring(0, p.length() - 1) + "_stairs");
+		}
+		names.add(p + "_stairs");
+		for (String n : names) {
+			Block s = BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath(id.getNamespace(), n));
+			if (s instanceof StairBlock) {
+				return s;
+			}
+		}
+		return null;
 	}
 }
