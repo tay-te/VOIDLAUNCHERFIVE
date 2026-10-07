@@ -23,6 +23,8 @@ import org.jspecify.annotations.Nullable;
  *   standing    standing module optional: reputation layers, gossip, charisma
  *   law         law module      optional: ownership, stolen goods, wanted status, crime reports
  *   repairs     repair module   optional: damage and repair queues
+ *   skills      another mod     optional: a player's skills, attributes and perks ({@link PlayerSkills}, e.g. VOID Mettle);
+ *                               never null, {@link PlayerSkills#NONE} until one registers
  * </pre>
  */
 public final class HearthServices {
@@ -37,6 +39,7 @@ public final class HearthServices {
 	private static volatile @Nullable StandingService standing;
 	private static volatile @Nullable LawService law;
 	private static volatile @Nullable RepairService repairs;
+	private static volatile PlayerSkills playerSkills = PlayerSkills.NONE;
 
 	private HearthServices() {
 	}
@@ -137,5 +140,15 @@ public final class HearthServices {
 
 	public static void setRepairs(RepairService service) {
 		repairs = service;
+	}
+
+	/** The player-skills service: a character mod's, or {@link PlayerSkills#NONE} (neutral; Hearth's checks unchanged). */
+	public static PlayerSkills playerSkills() {
+		return playerSkills;
+	}
+
+	/** Registered by a character mod when Hearth is loaded (from its own compat code); null puts back {@link PlayerSkills#NONE}. */
+	public static void setPlayerSkills(@Nullable PlayerSkills service) {
+		playerSkills = service == null ? PlayerSkills.NONE : service;
 	}
 }

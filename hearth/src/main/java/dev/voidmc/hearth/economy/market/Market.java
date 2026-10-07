@@ -1,6 +1,9 @@
 package dev.voidmc.hearth.economy.market;
 
 import dev.voidmc.hearth.api.Goods;
+import dev.voidmc.hearth.api.HearthServices;
+import dev.voidmc.hearth.api.MarketEvents;
+import dev.voidmc.hearth.api.PlayerSkills;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.economy.EconomyConfig;
@@ -200,7 +203,7 @@ public final class Market {
 	/** One item's price at this counter for this player: the town's price, moved by sourness, greed and the fence's rate. */
 	private Price price(MarketPricer pricer, ItemStack one, ServerPlayer player, boolean playerBuys, boolean townBuys, boolean sour, Set<String> traits,
 		StolenGoods.Verdict verdict) {
-		MarketPricer.Quote q = pricer.quote(one, player.getUUID(), townBuys);
+		MarketPricer.Quote q = pricer.quote(one, player, townBuys);
 		EconomyConfig cfg = EconomyModule.config();
 		double factor = 1;
 		if (sour) {
@@ -305,6 +308,7 @@ public final class Market {
 		this.settlement.markDirty();
 		this.status = Component.translatable("hearth.economy.market.bought", count, one.getHoverName(), CoinFormat.format(total))
 			.withStyle(ChatFormatting.DARK_GREEN);
+		MarketEvents.TRADED.invoker().onTraded(player, this.settlement, one.copy(), count, total, true);
 		return true;
 	}
 
@@ -359,6 +363,7 @@ public final class Market {
 		this.status = (helpedBuild
 			? Component.translatable("hearth.economy.market.sold_builders", sold, PropertyNames.lower(ledger.needFor[g.ordinal()]))
 			: sold.copy()).withStyle(ChatFormatting.DARK_GREEN);
+		MarketEvents.TRADED.invoker().onTraded(player, this.settlement, one.copy(), count, total, false);
 		return true;
 	}
 
@@ -386,8 +391,9 @@ public final class Market {
 		EconomyConfig.Haggle cfg = EconomyModule.config().haggle();
 		Resident keeper = row.town ? null : keeper();
 		Set<String> traits = Temper.traits(keeper);
-		double room = Temper.room(cfg, Reputation.charisma(player), Reputation.standing(this.settlement, player.getUUID()), traits);
-		double patience = Temper.patience(cfg, Reputation.opinion(keeper == null ? null : keeper.id, player.getUUID()), traits);
+		int speech = HearthServices.playerSkills().level(player, PlayerSkills.SPEECH);
+		double room = Temper.skilled(Temper.room(cfg, Reputation.charisma(player), Reputation.standing(this.settlement, player.getUUID()), traits), speech);
+		double patience = Temper.patience(cfg, Reputation.opinion(keeper == null ? null : keeper.id, player.getUUID()), traits) * Temper.skilledPatience(speech);
 		Haggle haggle = Haggle.start(playerBuys, list, room, patience, counter.cash(), cfg);
 		this.session = new Session(row.id, row.stack.copyWithCount(1), row.price.lot * lots, lots, playerBuys, row.town, haggle);
 		this.session.line = line(haggle, Haggle.Event.START);
@@ -430,6 +436,10 @@ public final class Market {
 			}
 			boolean ok = s.playerBuys ? buy(player, row, s.lots, h.agreed()) : sell(player, row, s.lots, h.agreed());
 			if (ok) {
+				float xp = Temper.haggleXp(h.list(), h.agreed());
+				if (xp > 0) {
+					HearthServices.playerSkills().award(player, PlayerSkills.SPEECH, xp, "hearth:economy/haggle");
+				}
 				this.status = Component.translatable("hearth.economy.haggle.struck", this.status).withStyle(ChatFormatting.DARK_GREEN);
 			}
 		} else if (h.state() == Haggle.State.WALKED) {

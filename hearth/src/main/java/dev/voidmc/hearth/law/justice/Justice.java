@@ -9,6 +9,7 @@ import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.api.StandingService;
 import dev.voidmc.hearth.law.Law;
 import dev.voidmc.hearth.law.LawConfig;
+import dev.voidmc.hearth.law.LawSkills;
 import dev.voidmc.hearth.law.crime.CrimeDesk;
 import dev.voidmc.hearth.law.crime.LawStatusSender;
 import dev.voidmc.hearth.law.folk.FolkTraits;
@@ -119,7 +120,7 @@ public final class Justice {
 		int st = standing != null ? standing.standing(s.id(), player.getUUID()) : s.reputation(player.getUUID());
 		int opinion = standing != null ? standing.opinion(guard.id, player.getUUID()) : 0;
 		float charisma = standing != null ? standing.charisma(player) : 0;
-		return SpeechCheck.persuade(st, opinion, charisma, severity, FolkTraits.of(guard).listener());
+		return LawSkills.speech(player, SpeechCheck.persuade(st, opinion, charisma, severity, FolkTraits.of(guard).listener()));
 	}
 
 	/** A word with the guard: small matters are let go, larger ones halved; failing makes it worse. One try per warrant. */
@@ -135,7 +136,9 @@ public final class Justice {
 		long day = Law.day(player.level());
 		w.setPersuadeTried(true);
 		s.markDirty();
-		if (player.getRandom().nextDouble() < odds) {
+		boolean talked = player.getRandom().nextDouble() < odds;
+		LawSkills.speechCheck(player, talked, "persuade_guard");
+		if (talked) {
 			if (Offences.severity(w.worst()) <= Offences.severity(Offence.THEFT) && w.bounty() <= Law.config().justice().pilloryMaxBounty()) {
 				w.clear();
 				Law.state(s).prune();
@@ -160,7 +163,7 @@ public final class Justice {
 		Warrant w = Law.state(s).warrant(player.getUUID());
 		long bounty = w == null ? 0 : w.bounty();
 		int severity = w == null ? 1 : Offences.severity(w.worst());
-		return SpeechCheck.bribe(bribeAmount(s, player.getUUID()), bounty, severity, FolkTraits.of(guard).listener());
+		return LawSkills.speech(player, SpeechCheck.bribe(bribeAmount(s, player.getUUID()), bounty, severity, FolkTraits.of(guard).listener()));
 	}
 
 	/** Coin in the guard's palm: taken either way; on success the warrant is gone, on failure it grows. One try. */
@@ -178,7 +181,9 @@ public final class Justice {
 		w.setBribeTried(true);
 		long day = Law.day(player.level());
 		s.markDirty();
-		if (player.getRandom().nextDouble() < odds) {
+		boolean took = player.getRandom().nextDouble() < odds;
+		LawSkills.speechCheck(player, took, "bribe_guard");
+		if (took) {
 			// the coin goes into the guard's own purse
 			economy.bribe(player, s, guard, amount);
 			w.clear();
