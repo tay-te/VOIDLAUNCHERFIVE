@@ -376,6 +376,26 @@ The game test runs with them: `-Psodium` adds Sodium, `-Piris` Sodium and Iris (
 for dev runs only; nothing of either ships). Put a pack in `build/run/clientGameTest/shaderpacks` and
 switch it on in `config/iris.properties` to test one.
 
+## Structures on land nobody has loaded
+
+The generator knows the land, not what is built on it; the chunks know both, but only where the player has been. So
+for the rest the LOD asks the game where its structures will stand, the way the game decides it, without a chunk
+(`source/StructureSites`): each structure set's placement grid gives the candidate chunks, the set's weighted pick
+and the structure's own site checks decide (Expanse's `sited_jigsaw` reads the generator's terrain, no chunk needed),
+and the structure is assembled to know its pieces. Their bounding boxes go onto the generator's land
+(`source/StructureOverlay`): up close a box is a building, walls to about half its height and a roof rising a
+block per block in from its edge, in the colours of its kind (timber, stone, white, sandstone, ruins) and lit at
+night; farther out a cell takes the share of it the buildings cover, so a settlement is a lit cluster on the
+horizon. Regions of 512 blocks are worked out the first time a tile asks there, nearest the player first, on one
+thread at minimum priority (about 130 ms a region on Expanse terrain), and the tiles over them are built again; small
+structures only within 1.5 km. The chunks the player loads replace all of it. Singleplayer and LAN hosts only
+(`-Dvoid.lod.structures=false` turns it off; `-Plod.show.structures=true` photographs the nearest village from 700
+blocks off).
+
+| A village 700 blocks off, its chunks never loaded | At night, through Complementary |
+|---|---|
+| ![predicted village](docs/village_predicted.jpg) | ![predicted village at night](docs/village_predicted_night_pack.jpg) |
+
 ## For other mods
 
 `dev.voidmc.lod.api.LodApi` hands out, read only and client side, the far terrain the LOD draws for this player,
@@ -428,6 +448,7 @@ override the file for the session without being written back (dev runs and the g
 | `gpuTarget`, `prepareTarget` | | `1.5`, `0.5` | auto-tune's targets, in ms a frame |
 | `smoothFrom` | `void.lod.smoothFrom` | `10` (none) | the first level drawn as the smooth far field instead of blocks (read at start) |
 | | `void.lod.ingest` | `true` | read the chunks the client loads into the far view, and keep them on disk |
+| | `void.lod.structures` | `true` | stand the world's structures on land nobody has loaded |
 | | `void.lod.generatorCache` | `true` | keep the generator's answers in the world's folder (`false`: sample it every time) |
 | | `void.lod.packShadows` | `false` | put the LOD into the shadow map of packs with a `dh_shadow` program (Bliss) |
 | | `void.lod.overPack` | `true` | with a shader pack that has no Distant Horizons programs, draw over its picture (`false`: inside its buffers, unlit, to compare) |

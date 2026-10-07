@@ -75,6 +75,7 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final boolean INGEST = Boolean.getBoolean("lod.show.ingest");
 	private static final boolean MULTIPLAYER = Boolean.getBoolean("lod.show.mp");
 	private static final boolean TOWN = Boolean.getBoolean("lod.show.town");
+	private static final boolean STRUCTURES = Boolean.getBoolean("lod.show.structures");
 	/** How far from the build the camera stands to photograph it: well past the render distance. */
 	private static final int AWAY = 480;
 
@@ -301,6 +302,9 @@ public class LodShowcase implements FabricClientGameTest {
 			if (TOWN) {
 				this.town(context, world.getServer(), valley.x(), valley.z() + 256, "town");
 			}
+			if (STRUCTURES) {
+				this.village(context, world.getServer(), valley.x(), valley.z());
+			}
 			if (INGEST) {
 				after = this.build(context, world.getServer(), valley.x(), valley.z(), "ingest");
 			}
@@ -440,6 +444,48 @@ public class LodShowcase implements FabricClientGameTest {
 		this.shoot(context, name + "_off");
 		context.runOnClient(mc -> VoidLod.get().setEnabled(true));
 		this.photograph(context, name, true);
+		server.runCommand("time set 6000");
+	}
+
+	/**
+	 * Finds the nearest village of the world's own (as /locate would) and photographs it from about 700 blocks off, by
+	 * day and at midnight, without its chunks ever loading: if it shows, the LOD worked out where it stands.
+	 */
+	private void village(ClientGameTestContext context, TestServerContext server, int x, int z) {
+		int[] at = server.computeOnServer(s -> {
+			ServerLevel level = s.overworld();
+			var structures = level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.STRUCTURE);
+			var villages = structures.listElements().filter(h -> h.key().identifier().getPath().startsWith("village")).map(h -> (net.minecraft.core.Holder<net.minecraft.world.level.levelgen.structure.Structure>) h).toList();
+			if (villages.isEmpty()) {
+				return null;
+			}
+			var found = level.getChunkSource().getGenerator().findNearestMapStructure(level, net.minecraft.core.HolderSet.direct(villages),
+				new net.minecraft.core.BlockPos(x + 1500, 100, z), 100, false);
+			return found == null ? null : new int[]{found.getFirst().getX(), found.getFirst().getZ()};
+		});
+		if (at == null) {
+			System.out.println("[lod] no village found");
+			return;
+		}
+		int vx = at[0], vz = at[1];
+		// look at it from the west, 700 blocks off and well above the land
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d 300 %d 90 30", vx + 700, vz));
+		this.settle(context, SETTLE_MS);
+		int ground = server.computeOnServer(s -> s.overworld().getHeight(Heightmap.Types.MOTION_BLOCKING, vx + 700, vz));
+		int eye = ground + 90;
+		float pitch = (float) Math.toDegrees(Math.atan2(eye - (ground - 10), 700));
+		System.out.printf(Locale.ROOT, "[lod] village at %d,%d; looking from %d,%d,%d%n", vx, vz, vx + 700, eye, vz);
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d %d %d 90 %.1f", vx + 700, eye, vz, pitch));
+		server.runCommand("time set 6000");
+		this.settle(context, SETTLE_MS);
+		// the village's region worked out, and the tiles over it built again
+		for (int i = 0; i < 240 && !context.computeOnClient(mc -> VoidLod.get().sites() == null || VoidLod.get().sites().known(vx, vz)); i++) {
+			context.waitTicks(10);
+		}
+		this.photograph(context, "village_day", true);
+		server.runCommand("time set 18000");
+		context.waitTicks(40);
+		this.photograph(context, "village_night", false);
 		server.runCommand("time set 6000");
 	}
 

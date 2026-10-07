@@ -17,6 +17,8 @@ import dev.voidmc.lod.gui.LodSettingsScreen;
 import dev.voidmc.lod.render.LodRenderer;
 import dev.voidmc.lod.source.ChunkIngest;
 import dev.voidmc.lod.source.MaterialNames;
+import dev.voidmc.lod.source.StructureOverlay;
+import dev.voidmc.lod.source.StructureSites;
 import dev.voidmc.lod.source.Materials;
 import dev.voidmc.lod.source.WorldgenSource;
 import java.nio.file.Files;
@@ -204,6 +206,10 @@ public final class VoidLod implements ClientModInitializer {
 		this.sizeGeneratorCaches(now);
 		this.adaptThreads(now);
 		this.reportHorizon(now);
+		StructureSites sites = this.sites;
+		if (sites != null && mc.player != null) {
+			sites.centre(mc.player.getX(), mc.player.getZ());
+		}
 		// what the newly drawn tiles show, for other mods that listen (dev.voidmc.lod.api)
 		if (TileBuilder.captureTerrain && mc.level != null) {
 			dev.voidmc.lod.api.LodApi.publish(mc.level.dimension(), this.engine.drainTerrain(), this.materials);
@@ -335,6 +341,11 @@ public final class VoidLod implements ClientModInitializer {
 		}
 	}
 
+	/** The structures stood on unexplored land, or null (a server, structures off). */
+	public StructureSites sites() {
+		return this.sites;
+	}
+
 	/** The material registry of the current source: what the API turns material ids into blocks with. */
 	private Materials materials;
 
@@ -366,6 +377,9 @@ public final class VoidLod implements ClientModInitializer {
 		TerrainSource source = this.waiting != null ? this.waiting : this.engine.source();
 		if (source instanceof IngestSource seen) {
 			source = seen.fallback();
+		}
+		if (source instanceof StructureOverlay overlay) {
+			source = overlay.generator();
 		}
 		if (source instanceof GeneratorCache cache) {
 			source = cache.generator();
@@ -404,6 +418,15 @@ public final class VoidLod implements ClientModInitializer {
 			this.generatorCache = new GeneratorCache(generator, dir.resolve("generated"), new MaterialNames(materials), this.generatorIdentity);
 			generator = this.generatorCache;
 		}
+		if (generator != null && this.serverLevel != null && STRUCTURES) {
+			// the world's villages, towers and manors stood on the land nobody has loaded yet
+			this.sites = new StructureSites(this.serverLevel);
+			this.sites.onKnown(this.engine::invalidate);
+			if (mc.player != null) {
+				this.sites.centre(mc.player.getX(), mc.player.getZ());
+			}
+			generator = new StructureOverlay(generator, this.sites);
+		}
 		if (!this.ingestChunks) {
 			return generator;
 		}
@@ -433,6 +456,7 @@ public final class VoidLod implements ClientModInitializer {
 		if (serverLevel == null) {
 			return null;
 		}
+		this.serverLevel = serverLevel;
 		long version = ++this.sourceVersion;
 		this.generatorIdentity = identity(mc, serverLevel);
 		if (FabricLoader.getInstance().isModLoaded("expanse")) {
@@ -477,6 +501,12 @@ public final class VoidLod implements ClientModInitializer {
 		if (files != null) {
 			files.close();
 		}
+		StructureSites sites = this.sites;
+		this.sites = null;
+		this.serverLevel = null;
+		if (sites != null) {
+			sites.close();
+		}
 		GeneratorCache cache = this.generatorCache;
 		this.generatorCache = null;
 		CompletableFuture<Void> cacheSaved = cache == null ? CompletableFuture.completedFuture(null) : cache.close();
@@ -502,6 +532,10 @@ public final class VoidLod implements ClientModInitializer {
 	private static final int SAMPLING_VERSION = 1;
 	private GeneratorCache generatorCache;
 	private long generatorIdentity;
+	/** {@code -Dvoid.lod.structures=false} leaves the world's structures off the land nobody has loaded. */
+	private static final boolean STRUCTURES = !"false".equals(System.getProperty("void.lod.structures"));
+	private StructureSites sites;
+	private ServerLevel serverLevel;
 
 	/**
 	 * What the generator is, as far as its answers go: the seed, the dimension and its generator, the versions of the
@@ -716,6 +750,10 @@ public final class VoidLod implements ClientModInitializer {
 		TerrainSource source = e.source();
 		if (source instanceof IngestSource seen) {
 			source = seen.fallback();
+		}
+		if (source instanceof StructureOverlay overlay) {
+			out.append(" | ").append(overlay.sites().stats());
+			source = overlay.generator();
 		}
 		if (source instanceof GeneratorCache cache) {
 			out.append(" | ").append(cache.stats());
