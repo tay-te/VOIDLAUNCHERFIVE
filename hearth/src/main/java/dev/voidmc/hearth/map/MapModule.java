@@ -1,6 +1,7 @@
 package dev.voidmc.hearth.map;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.HearthConfig;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -26,31 +28,33 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 
 /**
- * The map module: which settlements each player knows of (sighted from afar, then discovered by walking up to them),
- * kept with the player ({@code hearth:map/known}), and the list of them sent to the player's client for a map (VOID Atlas,
- * see docs/ARCHITECTURE.md §11). Each player is looked at every couple of seconds, staggered; the list is sent only when
- * it changed, and only to clients that asked for it (those with Atlas). Server side only; touches nothing of Atlas.
+ * The map module: the settlements round each player, sent to the player's client for a map (VOID Atlas, see
+ * docs/ARCHITECTURE.md §11), which decides there which of them the player has sighted and discovered and keeps that with
+ * its own map of the world. Each player is looked at every couple of seconds, staggered; the list (those within
+ * {@code sync_radius} blocks, with the player's own standing in each) is sent only when it changed, and only to clients
+ * that asked for it (those with Atlas). Server side only; touches nothing of Atlas.
  */
 public final class MapModule {
 	/**
-	 * @param sight    blocks from a settlement's bounds within which it is sighted (a "?" on the map)
-	 * @param reach    blocks from its bounds within which it is discovered (Atlas discovers its own places at 24)
+	 * @param radius   blocks from the player within which a settlement (its centre, less its size) is sent: well past
+	 *                 any view distance, so the map can sight it from as far as the player sees
 	 * @param interval ticks between looks at each player
 	 */
-	public record Config(boolean enabled, int sight, int reach, int interval) {
-		public static final Config DEFAULTS = new Config(true, 160, 24, 40);
+	public record Config(boolean enabled, int radius, int interval) {
+		public static final Config DEFAULTS = new Config(true, 1024, 40);
 		public static final Codec<Config> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Config::enabled),
-			Codec.intRange(0, 1024).optionalFieldOf("sight_radius", DEFAULTS.sight).forGetter(Config::sight),
-			Codec.intRange(0, 256).optionalFieldOf("discover_radius", DEFAULTS.reach).forGetter(Config::reach),
+			Codec.intRange(64, 8192).optionalFieldOf("sync_radius", DEFAULTS.radius).forGetter(Config::radius),
 			Codec.intRange(1, 1200).optionalFieldOf("interval_ticks", DEFAULTS.interval).forGetter(Config::interval)
 		).apply(i, Config::new));
 	}
 
-	/** The attachment, in its own class so {@link MapKnowledge} loads without Fabric (tests). */
-	private static final class Known {
-		static final AttachmentType<MapKnowledge> TYPE = AttachmentRegistry.create(Hearth.id("map/known"),
-			b -> b.persistent(MapKnowledge.CODEC).copyOnDeath().initializer(() -> MapKnowledge.EMPTY));
+	/**
+	 * What older Hearth kept per player ({@code hearth:map/known}: the settlements sighted and discovered, before Atlas
+	 * judged that itself). Still registered so old saves load without a warning; read as is and dropped on joining.
+	 */
+	private static final class Legacy {
+		static final AttachmentType<Dynamic<?>> KNOWN = AttachmentRegistry.create(Hearth.id("map/known"), b -> b.persistent(Codec.PASSTHROUGH));
 	}
 
 	private static Config config = Config.DEFAULTS;
@@ -62,18 +66,20 @@ public final class MapModule {
 
 	public static void init() {
 		config = HearthConfig.load("map", Config.CODEC, Config.DEFAULTS);
-		Hearth.LOG.debug("map knowledge attachment {}", Known.TYPE.identifier());
+		// registered now (not on first use): player data is read before the join event below
+		Hearth.LOG.debug("legacy map attachment {}", Legacy.KNOWN.identifier());
 		PayloadTypeRegistry.clientboundPlay().register(MapPayload.TYPE, MapPayload.CODEC);
+		ServerPlayerEvents.JOIN.register(player -> {
+			if (player.hasAttached(Legacy.KNOWN)) {
+				player.removeAttached(Legacy.KNOWN);
+			}
+		});
 		if (!config.enabled()) {
 			return;
 		}
 		ServerTickEvents.END_SERVER_TICK.register(MapModule::tick);
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> SENT.remove(handler.player.getUUID()));
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> SENT.clear());
-	}
-
-	public static MapKnowledge knowledge(ServerPlayer player) {
-		return player.getAttachedOrElse(Known.TYPE, MapKnowledge.EMPTY);
 	}
 
 	private static void tick(MinecraftServer server) {
@@ -86,28 +92,16 @@ public final class MapModule {
 		}
 	}
 
-	/** Notes the settlements the player is near, and sends their list if it changed and their client wants it. */
+	/** Sends the list of settlements round the player if it changed and their client wants it. */
 	static void look(ServerPlayer player) {
+		if (!ServerPlayNetworking.canSend(player, MapPayload.TYPE)) {
+			return;
+		}
 		HearthWorld w = HearthWorld.of(player.level());
 		if (w == null) {
 			return; // somewhere Hearth does not run: what the client has stays as it was
 		}
-		int px = player.getBlockX();
-		int pz = player.getBlockZ();
-		MapKnowledge known = knowledge(player);
-		MapKnowledge now = known;
-		if (!player.isSpectator()) {
-			for (Settlement s : w.settlements()) {
-				now = now.seen(s.id(), distance(s.bounds(), px, pz), config.reach(), config.sight());
-			}
-		}
-		if (now != known) {
-			player.setAttached(Known.TYPE, now);
-		}
-		if (!ServerPlayNetworking.canSend(player, MapPayload.TYPE)) {
-			return;
-		}
-		MapPayload payload = payload(w, player, now);
+		MapPayload payload = payload(w, player);
 		int hash = payload.hashCode();
 		Integer last = SENT.put(player.getUUID(), hash);
 		if (last == null || last != hash) {
@@ -115,15 +109,15 @@ public final class MapModule {
 		}
 	}
 
-	private static MapPayload payload(HearthWorld w, ServerPlayer player, MapKnowledge known) {
+	private static MapPayload payload(HearthWorld w, ServerPlayer player) {
+		int px = player.getBlockX();
+		int pz = player.getBlockZ();
 		List<Settlement> list = new ArrayList<>();
 		for (Settlement s : w.settlements()) {
-			if (known.knows(s.id())) {
+			if (near(s.center().getX(), s.center().getZ(), radius(s.bounds()), px, pz, config.radius())) {
 				list.add(s);
 			}
 		}
-		int px = player.getBlockX();
-		int pz = player.getBlockZ();
 		if (list.size() > MapPayload.MAX) {
 			list.sort(Comparator.comparingLong(s -> {
 				long dx = s.center().getX() - px;
@@ -138,19 +132,25 @@ public final class MapModule {
 		String dim = w.level().dimension().identifier().toString();
 		List<MapPayload.Entry> entries = new ArrayList<>(list.size());
 		for (Settlement s : list) {
-			BoundingBox b = s.bounds();
-			int radius = Math.max(8, Math.max(b.getXSpan(), b.getZSpan()) / 2);
-			if (known.discovered(s.id())) {
-				int st = standing == null ? s.reputation(me) : standing.standing(s.id(), me);
-				String title = standing == null ? "" : standing.title(s.id(), me).getSerializedName();
-				entries.add(new MapPayload.Entry(s.id(), true, s.name(), s.tier().getSerializedName(), s.culture().getSerializedName(), s.population(),
-					s.center().getX(), s.center().getY(), s.center().getZ(), dim, radius, st, title, owns(s, me)));
-			} else {
-				entries.add(new MapPayload.Entry(s.id(), false, "", s.tier().getSerializedName(), "", 0, s.center().getX(), s.center().getY(),
-					s.center().getZ(), dim, radius, 0, "", false));
-			}
+			int st = standing == null ? s.reputation(me) : standing.standing(s.id(), me);
+			String title = standing == null ? "" : standing.title(s.id(), me).getSerializedName();
+			entries.add(new MapPayload.Entry(s.id(), s.name(), s.tier().getSerializedName(), s.culture().getSerializedName(), s.population(),
+				s.center().getX(), s.center().getY(), s.center().getZ(), dim, radius(s.bounds()), st, title, owns(s, me)));
 		}
 		return new MapPayload(entries);
+	}
+
+	/** Roughly how far a settlement reaches from its centre. */
+	static int radius(BoundingBox b) {
+		return Math.max(8, Math.max(b.getXSpan(), b.getZSpan()) / 2);
+	}
+
+	/** Whether a settlement centred at (cx, cz) reaching {@code reach} blocks lies within {@code radius} of (px, pz). */
+	static boolean near(int cx, int cz, int reach, int px, int pz, int radius) {
+		long dx = cx - px;
+		long dz = cz - pz;
+		long r = (long) radius + reach;
+		return dx * dx + dz * dz <= r * r;
 	}
 
 	private static boolean owns(Settlement s, UUID player) {
@@ -160,12 +160,5 @@ public final class MapModule {
 			}
 		}
 		return false;
-	}
-
-	/** Horizontal distance from a column to a box (0 inside). */
-	static int distance(BoundingBox b, int x, int z) {
-		int dx = Math.max(0, Math.max(b.minX() - x, x - b.maxX()));
-		int dz = Math.max(0, Math.max(b.minZ() - z, z - b.maxZ()));
-		return (int) Math.sqrt((double) dx * dx + (double) dz * dz);
 	}
 }

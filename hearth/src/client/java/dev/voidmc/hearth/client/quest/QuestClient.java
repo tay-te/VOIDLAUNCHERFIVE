@@ -74,8 +74,11 @@ public final class QuestClient {
 	 *                   names no place (hunt anywhere, find a biome)
 	 * @param handIn     whether the work is done and only the hand-in is left
 	 * @param objectives the open objectives as lines ("Bring 24 × Spruce Log (12/24)"), or the hand-in line
+	 * @param step       the step the player is on: the first open objective's label, or the hand-in line
+	 * @param progress   how far along that step is ({@code count} 0 or 1: a step that is done or not, no count shown)
 	 */
-	public record Tracked(UUID id, String title, @Nullable BlockPos target, boolean handIn, String settlement, List<String> objectives) {
+	public record Tracked(UUID id, String title, @Nullable BlockPos target, boolean handIn, String settlement, List<String> objectives, String step,
+		int progress, int count) {
 	}
 
 	/** The tracked quest of a player (the client's own, synced), or null if none is tracked. */
@@ -90,13 +93,16 @@ public final class QuestClient {
 		}
 		boolean handIn = q.status == QuestStatus.READY;
 		List<String> lines = new ArrayList<>();
-		if (handIn) {
+		Objective open = handIn ? null : q.firstOpen();
+		if (open == null) {
 			lines.add(Component.translatable("hearth.quest.hud.return", NoticeBoardScreen.cap(q.giver.name()), q.settlementName).getString());
 		} else {
 			for (Objective o : q.currentObjectives()) {
 				lines.add(QuestUi.objectiveLine(o, null));
 			}
 		}
-		return new Tracked(q.id, q.text.title(), QuestUi.waypoint(q), handIn, q.settlementName == null ? "" : q.settlementName, lines);
+		String step = open == null ? lines.get(0) : open.label;
+		return new Tracked(q.id, q.text.title(), QuestUi.waypoint(q), handIn, q.settlementName == null ? "" : q.settlementName, lines, step,
+			open == null ? 0 : open.progress, open == null ? 0 : open.count);
 	}
 }
