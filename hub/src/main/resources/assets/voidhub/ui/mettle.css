@@ -1,0 +1,146 @@
+/* VOID Mettle in the hub (Figma 3c0Wgc4ZKFSpm98fWJoARS, section 387:20671): the Gear page, the
+   Classes page (overview and skill trees) and the inventory's gear wells and LOAD row.
+   Same rules as hub.css: flat, rounded, colour only on live values (violet live cell and points,
+   gold edge for earned perks), no transitions. Built by mettle.js; hidden without Mettle. */
+
+:root { --gold: rgba(217, 182, 106, 0.55); --gold-ink: #D9B66A; }
+
+/* The page layers (.page-inv, .page-gear, .page-classes) cover the whole window and come later in
+   the document, so they took clicks meant for the segment bar: lift it above them. */
+#win > .segments, #win > .search { z-index: 3; }
+
+.seg-mettle, .m-only { display: none !important; }
+body.gear .seg-chest, body.classes .seg-chest { display: none; }
+body.mettle .seg-mettle { display: flex !important; }
+body.mettle .m-only { display: block !important; }
+body.chest .seg-mettle { display: none !important; }
+.segment .pts { margin-left: 2px; }
+
+/* Which page shows what. */
+body.gear .page-inv, body.classes .page-inv, body.gear .page-chest, body.classes .page-chest { display: none; }
+body.gear #card-purse, body.classes #card-purse, body.classes #card-detail { display: none; }
+.page-gear, .page-classes { display: none; position: absolute; inset: 0; }
+body.gear .page-gear, body.classes .page-classes { display: block; }
+.page-gear > *, .page-classes > * { position: absolute; }
+body.gear .segment.active-inv, body.classes .segment.active-inv { background: transparent; border-color: transparent; color: var(--ink-2); }
+body.gear .segment[data-seg="gear"], body.classes .segment[data-seg="classes"] { background: var(--chip); border-color: var(--line-2); color: var(--ink); }
+
+/* The item card on the Gear page: compact, under the worn card (Figma 387:21106). */
+body.gear #card-detail { top: 433px; height: 131px; border-color: var(--line-3);
+  --wellsz: 56px; --well-r: 12px; --title-x: 89px; --label-y: 22px; --name-y: 37px; --meta-y: 66px; --name-size: 16px; }
+body.gear #card-detail .d-dur, body.gear #card-detail .d-row, body.gear #card-detail .d-eyebrow { display: none; }
+
+/* Wells: switched-off pockets, gear placeholders. */
+.well.absent { background: transparent; border: 1px dashed rgba(255, 255, 255, 0.08); }
+.well.absent .ph { display: none; }
+.well[data-role="back"], .well[data-role="belt"], .well[data-role="quiver"] { background: var(--raised); }
+
+.pts {
+  display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 11px;
+  background: var(--well); border: 1px solid var(--line-2); font-size: 11px; color: var(--ink); white-space: nowrap;
+}
+.pts b { width: 6px; height: 6px; border-radius: 2px; background: var(--violet); }
+.segment .pts { height: 18px; padding: 0 6px; font-size: 10px; gap: 4px; }
+.pts.big { height: 26px; padding: 0 11px; font-size: 12px; }
+
+.m-card { position: absolute; background: var(--panel); border: 1px solid var(--line-3); border-radius: 20px; }
+.m-card > * { position: absolute; }
+.m-eb { font-size: 8.5px; letter-spacing: 1px; color: var(--ink-4); white-space: pre; }
+.m-eb.tiny { font-size: 7.5px; letter-spacing: 0.8px; }
+.m-ink2 { color: var(--ink-2); } .m-ink3 { color: var(--ink-3); } .m-gold { color: var(--gold-ink); }
+.m-h1 { font-size: 22px; letter-spacing: -0.2px; }
+.m-h2 { font-size: 18px; letter-spacing: -0.1px; white-space: nowrap; }
+.m-num { font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.m-row { display: flex; align-items: center; justify-content: space-between; }
+.m-cells { position: absolute; }
+.m-cells i { position: absolute; top: 0; border-radius: 1.5px; background: var(--cell-off); }
+.m-cells i.on { background: var(--cell-on); }
+.m-cells i.live { background: var(--violet); }
+.m-tag { height: 20px; padding: 0 8px; display: flex; align-items: center; border: 1px solid var(--line-2); border-radius: 9px;
+  font-size: 8px; letter-spacing: 1px; color: var(--ink-2); white-space: nowrap; }
+.m-source { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 11px 0 8px; left: 28px; top: 39px;
+  background: var(--well); border: 1px solid var(--line-2); border-radius: 12px; font-size: 11px; color: var(--ink-2); }
+.m-source.back { padding: 0 12px; color: var(--ink); }
+.m-source.back:hover { background: var(--raised); }
+.m-icon { position: absolute; image-rendering: pixelated; }
+
+/* ---- Gear page ------------------------------------------------------------------------------ */
+.g-hint { left: 28px; width: 462px; top: 256px; text-align: center; }
+.g-mark { position: absolute; width: 2px; height: 16px; border-radius: 1px; background: rgba(237, 238, 239, 0.35); }
+.g-name { font-size: 13px; white-space: nowrap; }
+
+/* ---- Inventory: the LOAD row joins ARMOUR and LEVEL -------------------------------------------- */
+body.mettle .readout.m-has .eyebrow.small, body.mettle .readout.m-has .cells, body.mettle .readout.m-has .value { display: none; }
+.readout .m-load { display: none; position: absolute; inset: 0; }
+body.mettle .readout.m-has .m-load { display: block; }
+.m-load > * { position: absolute; }
+.m-load .k { left: 11px; font-size: 7.5px; letter-spacing: 0.8px; color: var(--ink-4); }
+.m-load .v { right: 11px; font-size: 10px; color: var(--ink); }
+
+/* ---- Classes: each skill in its own colour (Figma 468:9108, O) ---------------------------------
+   Colours come from Mettle's skill data and are applied inline; these rules are geometry. */
+.m-img { display: block; image-rendering: pixelated; }
+.m-h3 { font-size: 15px; } .m-h4 { font-size: 12.5px; }
+.m-q { font-size: 16px; color: var(--ink-4); }
+.m-ink { color: var(--ink); }
+.w-empty { left: 28px; right: 28px; top: 280px; text-align: center; font-size: 14px; color: var(--ink-2); }
+.h-cells { display: inline-flex; } .h-cells i { display: inline-block; border-radius: 1.5px; }
+
+.o-strip { left: 28px; top: 94px; width: 931px; height: 52px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line-3); }
+.o-strip > * { position: absolute; }
+.o-art { left: 8px; top: 5px; width: 100px; height: 40px; border-radius: 12px; background: var(--well); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.o-lv { font-size: 22px; line-height: 24px; }
+.o-sep { top: 10px; width: 1px; height: 32px; background: rgba(255, 255, 255, 0.08); }
+.o-at { top: 7px; width: 86px; height: 36px; border-radius: 12px; background: var(--well); border: 1px solid rgba(255, 255, 255, 0.06); }
+.o-at > * { position: absolute; }
+.o-av { left: 10px; top: 14px; font-size: 17px; line-height: 18px; }
+.o-plus { right: 8px; top: 8px; width: 18px; height: 18px; border-radius: 7px; background: var(--chip); border: 1px solid var(--line); font-size: 12px;
+  display: flex; align-items: center; justify-content: center; color: var(--ink); }
+.o-plus:hover { background: var(--ink); color: #0B0B0C; }
+
+.o-card { position: absolute; width: 220px; height: 206px; border-radius: 20px; }
+.o-card > * { position: absolute; }
+.o-plate { left: 10px; top: 10px; width: 198px; height: 82px; border-radius: 14px; overflow: hidden; }
+.o-plate > * { position: absolute; }
+.o-halo { left: -2px; top: -14px; width: 110px; height: 110px; border-radius: 55px; }
+.o-num { right: 14px; top: 10px; font-size: 40px; line-height: 40px; letter-spacing: -0.5px; text-align: right; }
+.o-pill { display: flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px 0 7px; border-radius: 9px; font-size: 10px; }
+.o-pill b { width: 6px; height: 6px; border-radius: 2px; }
+.o-pill.big { height: 28px; padding: 0 12px; font-size: 12px; }
+.o-title { left: 14px; top: 121px; font-size: 11.5px; line-height: 14px; }
+.o-perks { left: 14px; top: 176px; display: flex; gap: 5px; align-items: center; }
+.o-perk { width: 28px; height: 28px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex: none; }
+.o-more { height: 28px; padding: 0 8px; border-radius: 9px; background: var(--chip); font-size: 10px; color: var(--ink-2); display: flex; align-items: center; }
+
+.o-rail { left: 28px; top: 96px; width: 68px; height: 476px; border-radius: 24px; background: var(--panel); border: 1px solid var(--line-3);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.o-rb { position: relative; width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex: none; }
+.o-lvb { position: absolute; right: -7px; bottom: -6px; min-width: 20px; height: 20px; border-radius: 7px; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+.o-vd { position: absolute; right: -3px; top: -3px; width: 9px; height: 9px; border-radius: 3px; }
+.o-panel { left: 108px; top: 96px; width: 851px; height: 372px; border-radius: 24px; }
+.o-panel > * { position: absolute; }
+.o-atmo { left: 150px; top: 150px; width: 560px; height: 300px; border-radius: 150px; }
+.o-half { border-radius: 20px; background: var(--well); }
+.o-svg { left: 0; top: 0; }
+.o-tier { left: 18px; width: 96px; }
+.t-w { position: absolute; width: 56px; height: 56px; }
+.t-ring { position: absolute; }
+.t-tile { position: absolute; left: 0; top: 0; width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
+.t-tile.locked, .t-tile.mastery { background: #101012; border: 1.5px dashed rgba(237, 238, 239, 0.16); }
+.t-tile.locked .m-img, .t-tile.mastery .m-img { opacity: 0.4; }
+.t-tile.hidden { background: #101012; border: 1.5px dashed rgba(237, 238, 239, 0.15); }
+.t-tile.earned { background: #161512; border: 2px solid rgba(232, 221, 188, 0.78); box-shadow: 0 0 14px rgba(232, 221, 188, 0.22); }
+.t-w:hover .t-tile { border-color: rgba(255, 255, 255, 0.5); }
+.t-dot { position: absolute; right: -3px; top: -3px; width: 9px; height: 9px; border-radius: 3px; }
+.t-pips { position: absolute; left: 0; right: 0; bottom: 5px; display: flex; justify-content: center; gap: 3px; }
+.t-pips i { width: 11px; height: 4px; border-radius: 1.5px; }
+.o-bar { left: 108px; top: 480px; width: 851px; height: 92px; border-radius: 24px; overflow: hidden; }
+.o-bar > * { position: absolute; }
+.o-barglow { left: -20px; top: -40px; width: 300px; height: 170px; border-radius: 85px; }
+.o-eff { margin-top: 5px; font-size: 12.5px; line-height: 17px; max-height: 34px; overflow: hidden; }
+.o-eff2 { margin-top: 5px; font-size: 11px; color: var(--ink-4); white-space: pre; }
+.o-req { margin-top: 5px; font-size: 12px; white-space: nowrap; }
+.o-learn { width: 107px; height: 44px; border-radius: 13px; font-size: 14px; display: flex; align-items: center; justify-content: center; color: #160F06; }
+.o-learn.off { background: var(--well); border: 1px solid var(--line-2); color: var(--ink-3); }
+#classes.has-toast .footer.right { display: none; }
+.m-toast { right: 28px; top: 594px; font-size: 9px; letter-spacing: 1.1px; color: var(--ink); white-space: pre; }

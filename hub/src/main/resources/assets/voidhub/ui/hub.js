@@ -14,6 +14,8 @@
   var roles = {};        // slot index -> role
   var prev = {};         // last applied state, for diffing
   var layout = null;
+  // VOID Mettle's page parts (mettle.js), when loaded: gear and classes pages, extra placeholders.
+  var ext = window.hubMettle || null;
 
   function send(msg) {
     try {
@@ -188,10 +190,11 @@
         roles[s.i] = s.r;
         el.setAttribute("data-role", s.r);
         el.innerHTML = "";
-        if (PLACEHOLDER[s.r]) {
+        var art = PLACEHOLDER[s.r] || (ext && ext.placeholders[s.r]);
+        if (art) {
           var ph = document.createElement("div");
           ph.className = "ph";
-          sprite(ph, PLACEHOLDER[s.r], 3, 0.5, ["0.14", "0.14", "0.14"], "237,238,239");
+          sprite(ph, art, 3, 0.5, ["0.14", "0.14", "0.14"], "237,238,239");
           el.appendChild(ph);
         }
       }
@@ -220,6 +223,7 @@
       toggle(wells[w], "drag", false);
     }
     prev = {};
+    if (ext) ext.layout(l);
   }
 
   // ---- state ----------------------------------------------------------------------------------
@@ -274,7 +278,7 @@
       var xpLit = Math.floor(s.xp * 7);
       meter($("level-cells"), 7, 7, s.level > 0 ? xpLit + 1 : 0, s.level > 0, 6, 9, 1.8);
       text($("level-value"), String(s.level));
-    } else if (layout) {
+    } else if (layout && layout.kind === "chest") {
       var title = s.title || "Chest";
       text($("chest-title"), title);
       text($("chest-coords"), s.coords || "");
@@ -289,6 +293,7 @@
     }
 
     prev = {hover: s.hover, heldSlot: heldSlot, drag: drag, dragList: s.drag, filled: filled, filter: s.filter};
+    if (ext) ext.state(s);
   }
 
   function heldWell(n) {
@@ -382,11 +387,13 @@
         if (m.type === "layout") applyLayout(m);
         else if (m.type === "state") applyState(m);
         else if (m.type === "detail") applyDetail(m);
+        else if (ext) ext.apply(m);
       } catch (e) {
         return "error: " + e;
       }
       return "ok";
     },
+    wells: function () { return wells; },
     // Where the page actually drew each well (CSS px) — the in-game layout agreement check.
     wellRects: function () {
       var out = [];

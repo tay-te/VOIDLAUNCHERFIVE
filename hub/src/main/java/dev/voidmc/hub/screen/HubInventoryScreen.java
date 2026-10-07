@@ -2,6 +2,8 @@ package dev.voidmc.hub.screen;
 
 import dev.voidmc.hub.layout.HubLayout;
 import dev.voidmc.hub.layout.Rect;
+import dev.voidmc.hub.mettle.MettleLink;
+import dev.voidmc.hub.model.Bridge;
 import dev.voidmc.hub.model.Json;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -21,15 +23,38 @@ import org.joml.Vector3f;
  * The VOID inventory over {@code player.inventoryMenu}: armour, offhand, 2x2 crafting with its
  * result, 27 storage and 9 hotbar slots, the live player model (drag to turn), and the
  * hovered-item card.
+ *
+ * <p>With VOID Mettle installed the window has two more pages over the same menu, switched by the
+ * segments: <b>Gear</b> (the worn backpack's pockets, belt and quiver, and the load) and
+ * <b>Classes</b> (background, attributes, skills and their perk trees, drawn by the page from
+ * Mettle's state message). See {@link MettleLink}.
  */
 public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	private static final int[] STORAGE = range(9, 27);
 	private static final int[] HOTBAR = range(36, 9);
 
+	/** Rebuild Mettle's state at most this often (ticks) while the window is open. */
+	private static final int METTLE_EVERY = 10;
+
+	private String page;
+	private String sentMettle;
+	private boolean sentIcons;
+	private int mettleAge = Integer.MAX_VALUE;
+
 	public HubInventoryScreen(Player player) {
+		this(player, "inventory");
+	}
+
+	/** Opens on a page: "inventory", or with Mettle "gear" / "classes". */
+	public HubInventoryScreen(Player player, String page) {
 		// Vanilla's InventoryScreen panel size: the pointer mapping uses vanilla's own geometry.
 		super(player.inventoryMenu, player.getInventory(), Component.translatable("container.crafting"), 176, 166);
+		this.page = MettleLink.hasGear(player.inventoryMenu) ? page : "inventory";
+	}
+
+	public String page() {
+		return this.page;
 	}
 
 	static int[] range(int start, int n) {
@@ -42,7 +67,104 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	@Override
 	protected HubLayout makeLayout(int fbW, int fbH, int guiScale) {
-		return HubLayout.inventory(fbW, fbH, guiScale);
+		HubLayout.GearSlots gear = MettleLink.hasGear(this.menu) ? HubLayout.GearSlots.METTLE : null;
+		return switch (this.page) {
+			case "gear" -> gear == null ? HubLayout.inventory(fbW, fbH, guiScale) : HubLayout.gear(fbW, fbH, guiScale, gear);
+			case "classes" -> HubLayout.classes(fbW, fbH, guiScale);
+			default -> HubLayout.inventory(fbW, fbH, guiScale, gear);
+		};
+	}
+
+	/** Switches page in place: same menu, same carried stack, a new layout. */
+	public void setPage(String next) {
+		if (next.equals(this.page) || !("inventory".equals(next) || MettleLink.hasGear(this.menu))) {
+			return;
+		}
+		this.page = next;
+		this.mettleAge = Integer.MAX_VALUE;
+		this.relayout();
+		this.resendLayout();
+	}
+
+	@Override
+	protected void onMessage(Bridge.Message m) {
+		switch (m) {
+			case Bridge.Segment seg -> this.setPage(seg.value());
+			case Bridge.MettleCall call -> {
+				switch (call.op()) {
+					case "learnPerk" -> MettleLink.learnPerk(call.arg());
+					case "spendAttribute" -> MettleLink.spendAttribute(call.arg());
+					default -> {
+					}
+				}
+				this.mettleAge = METTLE_EVERY - 2;  // the server's answer lands in a tick or two
+			}
+			default -> {
+			}
+		}
+	}
+
+	@Override
+	protected void containerTick() {
+		super.containerTick();
+		if (this.mettleAge < Integer.MAX_VALUE) {
+			this.mettleAge++;
+		}
+	}
+
+	/**
+	 * Mettle's state, rebuilt every {@link #METTLE_EVERY} ticks and sent only when it changed; the
+	 * icons it names go once, as data URLs (the page cannot read another mod's assets).
+	 */
+	@Override
+	protected void pushExtra() {
+		if (!MettleLink.hasGear(this.menu)) {
+			return;
+		}
+		if (this.sentMettle != null && this.mettleAge < METTLE_EVERY) {
+			return;
+		}
+		this.mettleAge = 0;
+		String json = MettleLink.state();
+		if (json == null || json.equals(this.sentMettle)) {
+			return;
+		}
+		if (!this.sentIcons) {
+			this.sentIcons = true;
+			this.hub.send(icons(json));
+		}
+		this.hub.sendLatest("mettle", "{\"type\":\"mettle\",\"state\":" + json + "}");
+		this.sentMettle = json;
+	}
+
+	/** Every {@code "icon"} / {@code "art"} texture the state names, as one icons message. */
+	static String icons(String stateJson) {
+		java.util.Set<String> ids = new java.util.TreeSet<>();
+		collect(Json.parseObject(stateJson), ids);
+		Json.Writer map = Json.object();
+		for (String id : ids) {
+			String url = MettleLink.icon(id);
+			if (url != null) {
+				map.put(id, url);
+			}
+		}
+		return Json.object().put("type", "icons").raw("map", map.end()).end();
+	}
+
+	private static void collect(Object node, java.util.Set<String> out) {
+		if (node instanceof java.util.Map<?, ?> m) {
+			for (java.util.Map.Entry<?, ?> e : m.entrySet()) {
+				if (("icon".equals(e.getKey()) || "art".equals(e.getKey())) && e.getValue() instanceof String s && s.endsWith(".png")) {
+					out.add(s);
+				} else {
+					collect(e.getValue(), out);
+				}
+			}
+		} else if (node instanceof java.util.List<?> l) {
+			for (Object o : l) {
+				collect(o, out);
+			}
+		}
 	}
 
 	@Override
@@ -50,8 +172,15 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		return switch (name) {
 			case "storage" -> STORAGE;
 			case "hotbar" -> HOTBAR;
+			// The Gear page's "container" is the worn pack: its pockets that are switched on.
+			case "container" -> "gear".equals(this.page) && MettleLink.hasGear(this.menu) ? this.activePack() : new int[0];
 			default -> new int[0];
 		};
+	}
+
+	private int[] activePack() {
+		return java.util.stream.IntStream.range(MettleLink.PACK_FIRST, MettleLink.PACK_FIRST + MettleLink.PACK_SLOTS)
+			.filter(i -> this.menu.slots.get(i).isActive()).toArray();
 	}
 
 	@Override
@@ -65,6 +194,14 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		}
 		w.put("used", used);
 		w.put("total", 36);
+		w.put("page", this.page);
+		w.put("mettle", MettleLink.hasGear(this.menu));
+		if (MettleLink.hasGear(this.menu)) {
+			// Pockets the worn gear does not have are switched off: the page draws them as absent.
+			int[] off = java.util.stream.IntStream.range(MettleLink.PACK_FIRST, MettleLink.MENU_SIZE)
+				.filter(i -> !this.menu.slots.get(i).isActive()).toArray();
+			w.putInts("inactive", off);
+		}
 		w.put("armor", p.getArmorValue());
 		w.put("level", p.experienceLevel);
 		w.put("xp", Math.round(p.experienceProgress * 100) / 100.0);
@@ -73,6 +210,9 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	@Override
 	protected void extractExtras(GuiGraphicsExtractor graphics, double guiMouseX, double guiMouseY) {
 		Rect box = this.layout.player;
+		if (box == null) {
+			return;  // the Gear and Classes pages have no figure
+		}
 		int gs = this.minecraft.getWindow().getGuiScale();
 		// The model stands in the box above the "DRAG TO TURN" label.
 		int x0 = (int) Math.ceil(box.x() / (double) gs);

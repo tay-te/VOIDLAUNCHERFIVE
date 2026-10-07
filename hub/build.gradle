@@ -158,3 +158,30 @@ tasks.register('hubFunctional') {
 	description = 'In-game click assertions (pickup/place, shift-click, 2x2 craft, chest move-all, sort)'
 	dependsOn 'runHubFunctionalGame'
 }
+
+// ---------------------------------------------------------------------------------------------
+// VOID Mettle (optional). With Mettle installed the hub's window gains the Gear and Classes pages
+// (dev.voidmc.hub.mettle; the hub reaches Mettle's client overlay API reflectively, so nothing of
+// Mettle is needed to build).
+//
+//   copy Mettle's jar (mettle/build/libs/mettle-*.jar on the mettle branch) to libs/void-mettle.jar
+//   ./gradlew runClient -Pmettle         dev client with Mettle loaded
+//   ./gradlew hubMettle                  in-game test of the Mettle pages (photographs each step)
+// ---------------------------------------------------------------------------------------------
+def mettleJar = file('libs/void-mettle.jar')
+def withMettle = project.hasProperty('mettle') || gradle.startParameter.taskNames.any { it.contains('hubMettle') }
+if (withMettle) {
+	if (!mettleJar.isFile()) {
+		throw new GradleException("Mettle runs need libs/void-mettle.jar (Mettle's built jar)")
+	}
+	dependencies {
+		localRuntime files(mettleJar)
+	}
+}
+hubTestRun('hubMettleGame', 'mettle')
+
+tasks.register('hubMettle') {
+	group = 'voidhub'
+	description = 'In-game test of VOID Mettle in the hub (Gear and Classes pages); needs libs/void-mettle.jar'
+	dependsOn 'runHubMettleGame'
+}

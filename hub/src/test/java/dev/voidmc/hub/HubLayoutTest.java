@@ -34,6 +34,8 @@ class HubLayoutTest {
 		for (int[] w : WINDOWS) {
 			for (int gs = 1; gs <= 4; gs++) {
 				out.add(Arguments.of(HubLayout.inventory(w[0], w[1], gs), "inventory " + w[0] + "x" + w[1] + " @" + gs));
+				out.add(Arguments.of(HubLayout.inventory(w[0], w[1], gs, HubLayout.GearSlots.METTLE), "inventory+gear " + w[0] + "x" + w[1] + " @" + gs));
+				out.add(Arguments.of(HubLayout.gear(w[0], w[1], gs, HubLayout.GearSlots.METTLE), "gear " + w[0] + "x" + w[1] + " @" + gs));
 				for (int rows = 1; rows <= 6; rows++) {
 					int maxScroll = Math.max(0, rows - 3);
 					for (int scroll = 0; scroll <= maxScroll; scroll++) {
@@ -69,8 +71,12 @@ class HubLayoutTest {
 		List<HubLayout.Cell> cells = l.cells();
 		int w = cells.get(0).cell().w();
 		for (int i = 0; i < cells.size(); i++) {
-			assertEquals(w, cells.get(i).cell().w(), name);
-			assertEquals(w, cells.get(i).cell().h(), name);
+			// Mettle's belt and quiver pockets are smaller wells by design (Gear page, worn card).
+			boolean pocket = cells.get(i).role() == HubLayout.Role.BELT_POCKET || cells.get(i).role() == HubLayout.Role.QUIVER_POCKET;
+			if (!pocket) {
+				assertEquals(w, cells.get(i).cell().w(), name);
+			}
+			assertEquals(cells.get(i).cell().w(), cells.get(i).cell().h(), name);
 			for (int j = i + 1; j < cells.size(); j++) {
 				assertFalse(cells.get(i).cell().intersects(cells.get(j).cell()),
 					name + ": slots " + cells.get(i).slot() + " and " + cells.get(j).slot() + " overlap");

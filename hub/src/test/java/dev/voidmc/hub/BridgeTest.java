@@ -23,6 +23,14 @@ class BridgeTest {
 		assertEquals(new Bridge.MoveAll("inventory"), Bridge.decode("{\"type\":\"moveAll\",\"to\":\"inventory\"}"));
 		assertEquals(new Bridge.Segment("classes"), Bridge.decode("{ \"type\" : \"segment\" , \"value\" : \"classes\" }"));
 		assertEquals(new Bridge.Turn(-12.5), Bridge.decode("{\"type\":\"turn\",\"deg\":-12.5}"));
+		assertEquals(new Bridge.Segment("gear"), Bridge.decode("{\"type\":\"segment\",\"value\":\"gear\"}"));
+		assertEquals(new Bridge.MettleCall("learnPerk", "mettle:mining/prospector"),
+			Bridge.decode("{\"type\":\"mettle\",\"op\":\"learnPerk\",\"arg\":\"mettle:mining/prospector\"}"));
+		assertEquals(new Bridge.MettleCall("spendAttribute", "strength"), Bridge.decode("{\"type\":\"mettle\",\"op\":\"spendAttribute\",\"arg\":\"strength\"}"));
+		// Unknown operations and anything that is not an id are refused before they reach Mettle.
+		assertInstanceOf(Bridge.Invalid.class, Bridge.decode("{\"type\":\"mettle\",\"op\":\"respec\",\"arg\":\"x\"}"));
+		assertInstanceOf(Bridge.Invalid.class, Bridge.decode("{\"type\":\"mettle\",\"op\":\"learnPerk\",\"arg\":\"Mettle:Bad Id\"}"));
+		assertInstanceOf(Bridge.Invalid.class, Bridge.decode("{\"type\":\"mettle\",\"op\":\"learnPerk\"}"));
 	}
 
 	@Test

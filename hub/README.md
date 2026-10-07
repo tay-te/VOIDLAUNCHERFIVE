@@ -104,6 +104,22 @@ Source map:
 | `mixin/GuiMixin` | screen swap; HUD hidden under the hub |
 | `src/main/resources/assets/voidhub/ui/` | the page: `index.html`, `hub.css`, `hub.js`, Outfit fonts |
 
+## VOID Mettle (optional)
+
+With VOID Mettle installed the window gains two segments over the same `InventoryMenu`, and the inventory page gains
+Mettle's Back, Belt and Quiver wells beside the figure plus a LOAD row:
+
+* **Gear** — the worn pack's pockets where a chest's rows go, the inventory under them, and on the right the load
+  meter, the worn gear with the belt's and quiver's pockets, and a compact item card. Works like the chest page
+  (move all, sort, shift-click sends to the pack first).
+* **Classes** — Mettle's character and skills, each skill in its own colour: a gallery of skill cards (attributes with
+  + above), and per skill a tree with a skill rail and an action bar that learns perks. K opens it.
+
+The hub reaches Mettle only through `dev.voidmc.hub.mettle.MettleLink` (method handles on Mettle's client overlay API,
+mettle/docs/OVERLAY.md), so it builds and runs without Mettle. The page side is `ui/mettle.js` + `ui/mettle.css`,
+hooked into `hub.js` in four places. Mettle's icons reach the page as data URLs, enlarged nearest-neighbour first
+(Ultralight smooths scaled images). `./gradlew hubMettle` runs the in-game test with `libs/void-mettle.jar`.
+
 ## Building and running
 
 Java 25 and the Ultralight binding (built by `pvp/mod/native`, see its README) are needed:

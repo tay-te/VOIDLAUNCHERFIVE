@@ -23,11 +23,13 @@ import java.util.List;
 public final class HubLayout {
 
 	public enum Kind {
-		INVENTORY, CHEST
+		INVENTORY, CHEST, GEAR, CLASSES
 	}
 
 	public enum Role {
-		RESULT, CRAFT, HEAD, CHEST, LEGS, FEET, OFFHAND, STORAGE, HOTBAR, CONTAINER;
+		RESULT, CRAFT, HEAD, CHEST, LEGS, FEET, OFFHAND, STORAGE, HOTBAR, CONTAINER,
+		/** VOID Mettle's worn gear (back, belt, quiver) and the pockets of each. */
+		BACK, BELT, QUIVER, PACK, BELT_POCKET, QUIVER_POCKET;
 
 		public String css() {
 			return this.name().toLowerCase(java.util.Locale.ROOT);
@@ -68,6 +70,17 @@ public final class HubLayout {
 	static final double MIN_CELL_PX = 20.0;
 	/** Visible chest rows; longer containers scroll. */
 	public static final int VISIBLE_ROWS = 3;
+	/** Mettle's pocket wells in the Gear page's worn card are smaller than the grid's. */
+	public static final int POCKET = 40;
+
+	/**
+	 * Mettle's gear slot numbers in the InventoryMenu (mettle/docs/BURDEN.md §6), as the layout needs them; null
+	 * without Mettle. The hub's {@code dev.voidmc.hub.mettle.MettleLink} holds the same numbers.
+	 */
+	public record GearSlots(int back, int belt, int quiver, int packFirst, int packSlots, int beltFirst, int beltSlots,
+		int quiverFirst, int quiverSlots) {
+		public static final GearSlots METTLE = new GearSlots(46, 47, 48, 49, 27, 76, 6, 82, 4);
+	}
 
 	public final Kind kind;
 	public final int fbW;
@@ -90,15 +103,18 @@ public final class HubLayout {
 	public final int scrollRow;
 	public final int maxScroll;
 	public final int iconPx;
+	/** Mettle's gear slots in this layout's menu, or null. */
+	public final GearSlots gear;
 	private final List<Cell> cells;
 
-	private HubLayout(Kind kind, int fbW, int fbH, int guiScale, int containerRows, int scrollRow) {
+	private HubLayout(Kind kind, int fbW, int fbH, int guiScale, int containerRows, int scrollRow, GearSlots gear) {
 		this.kind = kind;
 		this.fbW = Math.max(1, fbW);
 		this.fbH = Math.max(1, fbH);
 		this.guiScale = Math.max(1, guiScale);
 		this.u = unit(this.fbW, this.fbH, this.guiScale);
 		this.containerRows = containerRows;
+		this.gear = gear;
 		this.maxScroll = Math.max(0, containerRows - VISIBLE_ROWS);
 		this.scrollRow = Math.max(0, Math.min(scrollRow, this.maxScroll));
 
@@ -126,6 +142,12 @@ public final class HubLayout {
 				out.add(this.cell(5 + i, armour[i], i, 28, 100 + i * PITCH));
 			}
 			out.add(this.cell(45, Role.OFFHAND, 0, 250, 256));
+			if (gear != null) {
+				// Back, belt, quiver above the offhand, beside the figure (Figma 387:21432).
+				out.add(this.cell(gear.back(), Role.BACK, 0, 250, 100));
+				out.add(this.cell(gear.belt(), Role.BELT, 0, 250, 152));
+				out.add(this.cell(gear.quiver(), Role.QUIVER, 0, 250, 204));
+			}
 			// 2x2 crafting grid (menu slots 1-4, row-major) and its result (slot 0).
 			for (int i = 0; i < 4; i++) {
 				out.add(this.cell(1 + i, Role.CRAFT, i, 318 + (i % 2) * PITCH, 118 + (i / 2) * PITCH));
@@ -134,6 +156,28 @@ public final class HubLayout {
 			this.addPlayerRows(out, 9, 352, 516);
 			this.player = this.rect(82, 100, 160, 202);
 			this.detailIcon = this.iconIn(this.rect(533, 117, 72, 72), 64);
+			this.containerGrid = null;
+		} else if (kind == Kind.GEAR) {
+			// The Gear page (Figma 387:21106): pack pockets where a chest's rows go, the inventory below, and the worn
+			// card on the right: back, belt and quiver with the belt's and quiver's pockets beside them.
+			for (int i = 0; i < gear.packSlots(); i++) {
+				out.add(this.cell(gear.packFirst() + i, Role.PACK, i, 28 + (i % 9) * PITCH, 134 + (i / 9) * PITCH));
+			}
+			this.addPlayerRows(out, 9, 334, 498);
+			int[] worn = {gear.back(), gear.belt(), gear.quiver()};
+			Role[] wornRoles = {Role.BACK, Role.BELT, Role.QUIVER};
+			for (int r = 0; r < 3; r++) {
+				out.add(this.cell(worn[r], wornRoles[r], 0, 528, 249 + r * 56));
+			}
+			this.pockets(out, gear.beltFirst(), gear.beltSlots(), Role.BELT_POCKET, 252 + 56);
+			this.pockets(out, gear.quiverFirst(), gear.quiverSlots(), Role.QUIVER_POCKET, 252 + 112);
+			this.player = null;
+			this.detailIcon = this.iconIn(this.rect(533, 450, 56, 56), 42);
+			this.containerGrid = null;
+		} else if (kind == Kind.CLASSES) {
+			// Mettle's Classes page draws no slots: the menu stays open underneath, untouched.
+			this.player = null;
+			this.detailIcon = null;
 			this.containerGrid = null;
 		} else {
 			for (int row = 0; row < VISIBLE_ROWS; row++) {
@@ -154,14 +198,32 @@ public final class HubLayout {
 	}
 
 	public static HubLayout inventory(int fbW, int fbH, int guiScale) {
-		return new HubLayout(Kind.INVENTORY, fbW, fbH, guiScale, 0, 0);
+		return inventory(fbW, fbH, guiScale, null);
+	}
+
+	/** The inventory page; with {@code gear}, Mettle's back, belt and quiver wells too. */
+	public static HubLayout inventory(int fbW, int fbH, int guiScale, GearSlots gear) {
+		return new HubLayout(Kind.INVENTORY, fbW, fbH, guiScale, 0, 0, gear);
+	}
+
+	/** Mettle's Gear page: pack pockets, the inventory, and the worn card with belt and quiver pockets. */
+	public static HubLayout gear(int fbW, int fbH, int guiScale, GearSlots gear) {
+		if (gear == null) {
+			throw new IllegalArgumentException("the Gear page needs Mettle's gear slots");
+		}
+		return new HubLayout(Kind.GEAR, fbW, fbH, guiScale, 0, 0, gear);
+	}
+
+	/** Mettle's Classes page: no slots. */
+	public static HubLayout classes(int fbW, int fbH, int guiScale) {
+		return new HubLayout(Kind.CLASSES, fbW, fbH, guiScale, 0, 0, null);
 	}
 
 	public static HubLayout chest(int fbW, int fbH, int guiScale, int rows, int scrollRow) {
 		if (rows < 1 || rows > 6) {
 			throw new IllegalArgumentException("chest rows must be 1-6, not " + rows);
 		}
-		return new HubLayout(Kind.CHEST, fbW, fbH, guiScale, rows, scrollRow);
+		return new HubLayout(Kind.CHEST, fbW, fbH, guiScale, rows, scrollRow, null);
 	}
 
 	/**
@@ -207,6 +269,15 @@ public final class HubLayout {
 		}
 		for (int c = 0; c < 9; c++) {
 			out.add(this.cell(firstStorageSlot + 27 + c, Role.HOTBAR, c, 28 + c * PITCH, hotbarTop));
+		}
+	}
+
+	/** A row of pocket wells, right-aligned in the worn card (card x 514, w 445, 14 px in). */
+	private void pockets(List<Cell> out, int first, int n, Role role, double dy) {
+		for (int k = 0; k < n; k++) {
+			double dx = 514 + 445 - 14 - (n - k) * (POCKET + 4) + 4;
+			Rect cell = this.rect(dx, dy, POCKET, POCKET);
+			out.add(new Cell(first + k, role, k, cell, this.centred(cell, iconSize(POCKET * this.u, 0.66))));
 		}
 	}
 

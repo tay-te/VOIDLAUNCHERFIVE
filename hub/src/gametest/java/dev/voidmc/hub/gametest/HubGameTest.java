@@ -18,6 +18,7 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *       (see {@link FunctionalTest});</li>
  *   <li>{@code perf} — the regression gate (see {@link PerfTest});</li>
  *   <li>{@code smoke} — open both screens and photograph them;</li>
+ *   <li>{@code mettle} — VOID Mettle's Gear and Classes pages (see {@link MettleTest});</li>
  *   <li>{@code all} (default) — functional, then perf.</li>
  * </ul>
  */
@@ -59,6 +60,9 @@ public class HubGameTest implements FabricClientGameTest {
 			quiet(context);
 
 			try {
+				if (mode.equals("mettle")) {
+					new MettleTest(context, world).run();
+				}
 				if (mode.equals("smoke")) {
 					this.smoke(context, world, spot);
 				}

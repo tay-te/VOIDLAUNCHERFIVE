@@ -2,6 +2,7 @@ package dev.voidmc.hub;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.hub.layout.HubLayout;
+import dev.voidmc.hub.mettle.MettleLink;
 import dev.voidmc.hub.screen.HubInventoryScreen;
 import dev.voidmc.hub.ui.HubView;
 import net.fabricmc.api.ClientModInitializer;
@@ -36,6 +37,15 @@ public final class VoidHub implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		openHub = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.voidhub.open", InputConstants.Type.KEYBOARD, InputConstants.KEY_RSHIFT, CATEGORY));
+		// VOID Mettle's K opens the hub's Classes page instead of its fallback screen.
+		MettleLink.registerOpener(() -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.player == null || !HubView.available()) {
+				return false;
+			}
+			mc.gui.setScreen(new HubInventoryScreen(mc.player, "classes"));
+			return true;
+		});
 
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (openHub.consumeClick()) {

@@ -149,7 +149,10 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		this.hub.beginFrame();
 		this.pushLayout();
 		this.pushState();
-		this.pushDetail(cell);
+		if (this.layout.detailIcon != null) {
+			this.pushDetail(cell);
+		}
+		this.pushExtra();
 		if (this.firstFrame) {
 			// The view still holds whatever the last VOID screen showed: let the UI thread paint
 			// this one before its first frame goes out (bounded; it is usually a few ms).
@@ -218,6 +221,9 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	}
 
 	private void extractDetailIcon(GuiGraphicsExtractor graphics, int gs) {
+		if (this.layout.detailIcon == null) {
+			return;  // a page without the item card (Classes)
+		}
 		ItemStack stack = this.detailStack();
 		if (stack.isEmpty()) {
 			return;
@@ -232,6 +238,15 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	}
 
 	// ---- page sync -------------------------------------------------------------------------------
+
+	/** Screen-specific messages beyond layout, state and detail (Mettle's page); called every frame. */
+	protected void pushExtra() {
+	}
+
+	/** Forces the layout message out again (a page switch inside one screen). */
+	protected void resendLayout() {
+		this.sentLayout = null;
+	}
 
 	private void pushLayout() {
 		String json = this.layout.toJson();
@@ -358,9 +373,12 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 			case Bridge.Sort s -> this.queue(this.sortPlan(s.region()));
 			case Bridge.MoveAll mv -> this.queue(this.moveAllPlan(mv.to()));
 			case Bridge.Turn t -> this.yaw += (float) t.degrees();
-			default -> {
-			}
+			default -> this.onMessage(m);
 		}
+	}
+
+	/** Messages this screen handles itself (segments, Mettle calls). */
+	protected void onMessage(Bridge.Message m) {
 	}
 
 	/** Slots of a named region of this menu (storage, hotbar, container). */

@@ -20,7 +20,7 @@ public final class Bridge {
 	private Bridge() {
 	}
 
-	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Invalid {
+	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, MettleCall, Invalid {
 	}
 
 	/** The page finished loading and installed {@code hub.apply}. */
@@ -51,13 +51,23 @@ public final class Bridge {
 	public record Turn(double degrees) implements Message {
 	}
 
+	/**
+	 * A VOID Mettle action from the Classes page: {@code learnPerk} (arg: perk id) or {@code spendAttribute} (arg:
+	 * attribute name). The server validates both; the page only asks.
+	 */
+	public record MettleCall(String op, String arg) implements Message {
+	}
+
 	public record Invalid(String reason) implements Message {
 	}
 
 	static final Set<String> FILTERS = Set.of("all", "tools", "blocks", "food");
 	static final Set<String> SORT_REGIONS = Set.of("container", "storage");
+	static final Set<String> METTLE_OPS = Set.of("learnPerk", "spendAttribute");
+	/** Ids and attribute names: namespaced lowercase paths, nothing longer than a real one. */
+	static final java.util.regex.Pattern METTLE_ARG = java.util.regex.Pattern.compile("[a-z0-9_.-]+(:[a-z0-9_./-]+)?");
 	static final Set<String> MOVE_TARGETS = Set.of("inventory", "container");
-	static final Set<String> SEGMENTS = Set.of("inventory", "chest", "classes");
+	static final Set<String> SEGMENTS = Set.of("inventory", "chest", "gear", "classes");
 
 	public static Message decode(String json) {
 		Map<String, Object> m;
@@ -78,6 +88,8 @@ public final class Bridge {
 			case "moveAll" -> oneOf(m, "to", MOVE_TARGETS) instanceof String v ? new MoveAll(v) : new Invalid("moveAll target");
 			case "segment" -> oneOf(m, "value", SEGMENTS) instanceof String v ? new Segment(v) : new Invalid("segment value");
 			case "turn" -> m.get("deg") instanceof Double d && Double.isFinite(d) ? new Turn(d) : new Invalid("turn deg");
+			case "mettle" -> oneOf(m, "op", METTLE_OPS) instanceof String op && m.get("arg") instanceof String a && a.length() <= 96
+				&& METTLE_ARG.matcher(a).matches() ? new MettleCall(op, a) : new Invalid("mettle call");
 			default -> new Invalid("unknown type " + t);
 		};
 	}
