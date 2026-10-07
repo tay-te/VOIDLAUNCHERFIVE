@@ -43,6 +43,8 @@
 	"hearth.standing.factor.coin": "The coin offered",
 	"hearth.standing.factor.difficulty": "What you ask",
 	"hearth.standing.factor.repeats": "You tried already today",
+	"hearth.standing.factor.speech": "Your way with words",
+	"hearth.standing.factor.presence": "Your presence",
 	"hearth.standing.factor.trait.sociable": "Sociable",
 	"hearth.standing.factor.trait.cheerful": "Cheerful",
 	"hearth.standing.factor.trait.curious": "Curious",

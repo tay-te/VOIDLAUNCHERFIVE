@@ -1,8 +1,8 @@
 package dev.voidmc.hearth.quest.template;
 
+import dev.voidmc.hearth.api.QuestType;
 import dev.voidmc.hearth.quest.QuestText;
 import dev.voidmc.hearth.quest.model.ObjectiveKind;
-import dev.voidmc.hearth.quest.model.QuestType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
