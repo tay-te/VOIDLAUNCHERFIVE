@@ -703,6 +703,21 @@ public class AtlasGameTest implements FabricClientGameTest {
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d -55 12", hx - 30, hy + 12, hz - 30));
 		context.waitTicks(40);
 		this.shoot(context, "hearth_quest_beam");
+		// the room Hearth's quest panel keeps (at its tallest, (6, 6) to (180, 69), while the HUD shows): Atlas's edge
+		// chips, compass, toasts and a top-left minimap keep out of it
+		context.runOnClient(mc -> dev.voidmc.atlas.api.AtlasApi.get().hud().reserve("tour:hearth-quest-panel",
+			() -> mc.gui.hud.isHidden() ? null : new dev.voidmc.atlas.api.AtlasHud.Rect(6, 6, 180, 69)));
+		context.waitTicks(10);
+		log("HUD room reserved: " + context.computeOnClient(mc -> dev.voidmc.atlas.client.ui.HudRoom.describe()));
+		this.shoot(context, "hearth_hud_room");
+		AtlasSettings.Corner corner = context.computeOnClient(mc -> AtlasClient.get().settings().minimapCorner);
+		context.runOnClient(mc -> AtlasClient.get().settings().minimapCorner = AtlasSettings.Corner.TOP_LEFT);
+		context.waitTicks(10);
+		this.shoot(context, "hearth_hud_room_minimap");
+		context.runOnClient(mc -> {
+			AtlasClient.get().settings().minimapCorner = corner;
+			dev.voidmc.atlas.api.AtlasApi.get().hud().unreserve("tour:hearth-quest-panel");
+		});
 	}
 
 	/** The marker of the Hearth settlement nearest a point ("id|x|z"), or null. */

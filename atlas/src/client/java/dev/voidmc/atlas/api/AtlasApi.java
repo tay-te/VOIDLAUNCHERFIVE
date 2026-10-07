@@ -127,4 +127,10 @@ public interface AtlasApi {
 	default boolean isMapKey(net.minecraft.client.input.KeyEvent event) {
 		return false;
 	}
+
+	/** Room your HUD keeps on the screen, which Atlas's HUD then keeps out of (see {@link AtlasHud}). */
+	default AtlasHud hud() {
+		return new AtlasHud() {
+		};
+	}
 }

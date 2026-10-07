@@ -69,6 +69,12 @@ public final class MinimapHud {
 			case BOTTOM_LEFT, BOTTOM_RIGHT -> sh - margin - side - info;
 			default -> margin;
 		};
+		if (HudRoom.INSTANCE.any()) {
+			// another mod's HUD keeps this corner: the minimap (with its line under it) steps out of its way
+			float[] at = HudRoom.INSTANCE.place(ui, x, y, side, side + (info > 0 ? info + 6 : 0), 8);
+			x = at[0];
+			y = at[1];
+		}
 		boolean round = settings.minimapShape == AtlasSettings.Shape.ROUND;
 		float radius = round ? side / 2 : Math.round(side * 0.12F);
 		String dim = mc.level.dimension().identifier().toString();

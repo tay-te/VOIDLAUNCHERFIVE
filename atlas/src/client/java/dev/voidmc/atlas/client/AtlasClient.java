@@ -366,6 +366,8 @@ public final class AtlasClient implements ClientModInitializer {
 	/** The start of every frame, on the render thread: hand chunks to the workers, upload finished tiles. */
 	public void frame() {
 		Minecraft mc = Minecraft.getInstance();
+		// the room other mods' HUDs keep this frame, asked once before Atlas's HUD is drawn
+		dev.voidmc.atlas.client.ui.HudRoom.INSTANCE.poll();
 		if (this.session != null && this.session.setArt(this.settings.mapStyle == null ? dev.voidmc.atlas.core.MapArt.Style.NATURAL : this.settings.mapStyle,
 			this.settings.contoursOn(), this.biomeHighlight) && this.tiles != null) {
 			// the art changed: tiles are drawn again as the map asks for them, a few a frame within the upload budget

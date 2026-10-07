@@ -149,21 +149,46 @@ public final class HudOverlays {
 		Ui ui = new Ui(graphics, MinimapHud.hudUnit());
 		ui.begin();
 		float top = 16;
+		HudRoom room = HudRoom.INSTANCE;
 		if (compass) {
-			this.compass(ui, p, ui.width() / 2 - 260, top);
-			top += 46 + 24;
+			// out of other mods' HUD room (moved the least way), the toasts then under it
+			float[] at = room.place(ui, ui.width() / 2 - 260, top, 520, 46, 8);
+			this.compass(ui, p, at[0], at[1]);
+			top = at[1] + 46 + 24;
 		}
 		if (this.showing != null && mc.gui.screen() == null) {
 			long age = now - this.shownAt;
 			float slide = Math.min(1, age / (float) SLIDE_NANOS);
 			float out = Math.max(0, (age - (this.showing.hold - SLIDE_NANOS)) / (float) SLIDE_NANOS);
 			float t = slide - out;
-			this.toast(ui, this.showing, ui.width() / 2, top - 8 * (1 - t), t);
+			float centre = ui.width() / 2;
+			if (room.any()) {
+				float w = this.toastWidth(ui, this.showing);
+				float[] at = room.place(ui, centre - w / 2, top, w, 54, 8);
+				centre = at[0] + w / 2;
+				top = at[1];
+			}
+			this.toast(ui, this.showing, centre, top - 8 * (1 - t), t);
 		}
 		if (death && mc.gui.screen() == null) {
 			this.deathIsland(ui, now);
 		}
 		ui.end();
+	}
+
+	/** How wide a toast's island is. */
+	private float toastWidth(Ui ui, Toast toast) {
+		float nameW = Math.max(ui.width(toast.kind, Ui.Font.F85, 1), ui.width(toast.name, Ui.Font.F15));
+		boolean hint = toast.key != null;
+		float hintW = !hint ? 0 : 14 + 1 + 14 + ui.width(toast.key, Ui.Font.F12) + 16 + 8 + ui.width(toast.keyText, Ui.Font.F11) + 10;
+		float buttonsW = 0;
+		if (toast.buttons != null) {
+			buttonsW = 14 + 1 + 6;
+			for (String b : toast.buttons) {
+				buttonsW += ui.width(b, Ui.Font.F12) + 30 + 6;
+			}
+		}
+		return 8 + 38 + 14 + nameW + hintW + buttonsW + (hint || toast.buttons != null ? 0 : 14);
 	}
 
 	/** The toast island: tile, "DISCOVERED · SHIPWRECK" over the name, and "M on the map". */

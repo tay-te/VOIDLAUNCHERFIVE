@@ -132,6 +132,11 @@ public final class AtlasApiImpl implements AtlasApi {
 	}
 
 	@Override
+	public dev.voidmc.atlas.api.AtlasHud hud() {
+		return dev.voidmc.atlas.client.ui.HudRoom.INSTANCE;
+	}
+
+	@Override
 	public dev.voidmc.atlas.api.AtlasJournal journal() {
 		return this.atlas.journal;
 	}

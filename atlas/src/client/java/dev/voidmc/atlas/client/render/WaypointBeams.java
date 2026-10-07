@@ -219,6 +219,12 @@ public final class WaypointBeams {
 			x0 = Math.max(8, Math.min(sw - bw - 8, top[0] - bw / 2));
 			y0 = Math.max(8, Math.min(sh - bh - 8, top[1] - bh));
 			this.clamped[index] = Math.abs(x0 - (top[0] - bw / 2)) > 2 || Math.abs(y0 - (top[1] - bh)) > 2;
+			if (this.clamped[index] && dev.voidmc.atlas.client.ui.HudRoom.INSTANCE.any()) {
+				// held at the edge: out of other mods' HUD room too (along the edge, the least way)
+				float[] at = dev.voidmc.atlas.client.ui.HudRoom.INSTANCE.place(ui, x0, y0, bw, bh, 8);
+				x0 = at[0];
+				y0 = at[1];
+			}
 			if (this.clashes(placed, x0, y0, bw, bh)) {
 				continue;
 			}
