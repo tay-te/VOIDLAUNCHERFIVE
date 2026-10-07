@@ -420,6 +420,10 @@ public final class Garden {
 				try (var s = d.stage(StageKind.EXTERIOR)) {
 					for (int[] c : cells) {
 						double u = Noise.unit(d.seed(), c[0], 4, c[1]);
+						// no bed over the water or over a drop (a river plot's bank under the stilts): its soil would float
+						if (d.site().isWater(c[0], c[1]) || !d.isSolid(c[0], y - 2, c[1]) && y - 2 >= d.site().ground(c[0], c[1])) {
+							continue;
+						}
 						if (u < 0.25) {
 							soil(d, c[0], y - 1, c[1], Blocks.FERN);
 							d.tallPlant(c[0], y, c[1], Blocks.LARGE_FERN);
