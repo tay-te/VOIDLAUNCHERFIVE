@@ -852,6 +852,8 @@ final class HouseBuilder {
 				d.set(lx, b.floorY(1) - 1, iz1, Blocks.AIR.defaultBlockState());
 				ground.keep(lx, iz1);
 				ground.block(lx, iz1);
+				// the cell before the ladder, where one stands to climb it, stays joined to the door
+				ground.keep(lx, iz1 - 1);
 				Rooms.Room up = upperRoom(d, b, 1, roof);
 				if (up != null) {
 					up.keep(lx, iz1);

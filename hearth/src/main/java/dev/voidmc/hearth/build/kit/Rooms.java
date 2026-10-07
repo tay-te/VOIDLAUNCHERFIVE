@@ -246,14 +246,12 @@ public final class Rooms {
 	}
 
 	/**
-	 * Furnishes a room for its purpose.
-	 *
-	 * @param beds how many beds a bedroom should hold (others ignore it)
-	 * @param job  a workshop's trade
+	 * Reads what is already built on a room's floor into it: whatever stands there (a chimney breast, stairs, posts,
+	 * furniture) is taken; a hole in the floor (a stairwell) cannot be stood on; a stair's top step can be walked but not
+	 * furnished; a ladder and the hole it climbs through are reached from beside. {@link #furnish} does it first; call it
+	 * before claiming cells in a room built over a floor something else furnished (beds added after the furnisher).
 	 */
-	public static void furnish(Draft d, Room r, Type type, int beds, JobType job) {
-		// whatever is already built on the floor (a chimney breast, stairs, posts) is taken; a hole in the floor (a
-		// stairwell) cannot be stood on; a stair's top step can be walked but not furnished
+	public static void read(Draft d, Room r) {
 		for (int z = r.z0; z <= r.z1; z++) {
 			for (int x = r.x0; x <= r.x1; x++) {
 				BlockState s = d.get(x, r.y, z);
@@ -279,6 +277,16 @@ public final class Rooms {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Furnishes a room for its purpose.
+	 *
+	 * @param beds how many beds a bedroom should hold (others ignore it)
+	 * @param job  a workshop's trade
+	 */
+	public static void furnish(Draft d, Room r, Type type, int beds, JobType job) {
+		read(d, r);
 		List<Slot> slots = slots(d, r);
 		switch (type) {
 			case BEDROOM -> {
