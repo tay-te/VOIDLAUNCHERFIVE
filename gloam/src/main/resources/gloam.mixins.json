@@ -7,15 +7,20 @@
 		"LevelAccessor"
 	],
 	"client": [
+		"BiomeColorsMixin",
+		"BiomeTemperatureInvoker",
 		"ClientLevelAccessor",
 		"ClientLevelFlashMixin",
 		"ClientLevelMixin",
+		"ClientLevelSnowlineMixin",
 		"CloudRendererMixin",
 		"FogRendererCloudMixin",
 		"LevelRendererFarMixin",
 		"LevelRendererMistMixin",
 		"LevelWeatherMixin",
-		"QuadParticleSoftMistMixin"
+		"QuadParticleSoftMistMixin",
+		"SpriteContentsAccessor",
+		"TextureAtlasSpriteAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

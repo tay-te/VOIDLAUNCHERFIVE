@@ -148,6 +148,93 @@ public final class LodApi {
 		return hazeThickness;
 	}
 
+	/**
+	 * How the far land's grass and leaves look this time of year, for a mod that turns the near chunks through the seasons
+	 * (by their biome colour resolvers): VOID LOD keeps the colours it bakes as vanilla has them and asks this, as each tile
+	 * is built, what each of a cell's grass and leaf colours looks like now. Called on VOID LOD's workers, so it must be
+	 * quick and thread-safe.
+	 */
+	public interface Seasons {
+		/** The top face of the ground (grass, or whatever the cell's surface is). */
+		int GROUND_TOP = 0;
+		/** A side face of the ground (the grass block's side: dirt under a tinted fringe). */
+		int GROUND_SIDE = 1;
+		/** The leaves of a cell's crowns, or of one leaf block of a tree stood on a near tile. */
+		int LEAVES = 2;
+
+		/**
+		 * The colour {@code rgb} (0xRRGGBB, as vanilla would tint it) of a {@code kind} face looks like now.
+		 *
+		 * @param biome    the cell's biome, a {@link #biomeName} id (-1 unknown)
+		 * @param material what the face is made of, a {@link #material} id (0 unknown)
+		 * @param conifer  the share of the cell's trees that are needle trees, 0..1, or -1 for one leaf block (go by its
+		 *                 material)
+		 */
+		int recolour(int kind, int rgb, int biome, int material, float conifer);
+	}
+
+	private static volatile Seasons seasons;
+	/** Threads working out what blocks look like for the far land ({@link #bakingColours}), and how many there are. */
+	private static final ThreadLocal<Boolean> BAKING = new ThreadLocal<>();
+	private static volatile int bakers;
+
+	/** Sets how the far land's grass and leaves look through the year (null: as vanilla tints them), then {@link #recolour}. */
+	public static void setSeasons(Seasons seasons) {
+		LodApi.seasons = seasons;
+		recolour();
+	}
+
+	/** How the far land's grass and leaves look through the year, or null. */
+	public static Seasons seasons() {
+		return seasons;
+	}
+
+	/**
+	 * Rebuilds the far land's tiles around the camera, keeping what they know of the land, so they take the season's colours:
+	 * gradually, in the background, as each is drawn. Render thread.
+	 */
+	public static void recolour() {
+		VoidLod lod = VoidLod.get();
+		var mc = net.minecraft.client.Minecraft.getInstance();
+		if (lod == null || lod.engine().source() == null || mc.gameRenderer == null) {
+			return;
+		}
+		var eye = mc.gameRenderer.mainCamera().position();
+		int r = (int) Math.min(23000, lod.radius + 1024);
+		int x = (int) eye.x, z = (int) eye.z;
+		lod.engine().refresh(x - r, z - r, x + r, z + r, dev.voidmc.lod.core.TileKey.MAX_LEVEL);
+	}
+
+	/**
+	 * Whether this thread is working out what blocks look like for the far land right now (their textures and vanilla's
+	 * tints): a mod whose tints follow the seasons gives vanilla's own here, and the season through {@link #setSeasons}.
+	 */
+	public static boolean bakingColours() {
+		return bakers > 0 && BAKING.get() == Boolean.TRUE;
+	}
+
+	/** Marks this thread as working out block colours for the far land ({@code true}), or done with it. */
+	public static synchronized void baking(boolean on) {
+		if (on == (BAKING.get() == Boolean.TRUE)) {
+			return;
+		}
+		BAKING.set(on ? Boolean.TRUE : null);
+		bakers += on ? 1 : -1;
+	}
+
+	/** The block behind a material id the far land's faces carry, or null. */
+	public static BlockState material(int id) {
+		VoidLod lod = VoidLod.get();
+		Materials materials = lod == null ? null : lod.materials();
+		Materials.Face face = materials == null ? null : materials.face(id);
+		return face == null ? null : face.state();
+	}
+
+	/** The registry name of a biome id the far land's cells carry ({@code minecraft:plains}), or null. */
+	public static String biomeName(int id) {
+		return BiomeIds.name(id);
+	}
+
 	/** How far VOID LOD draws the far land, in blocks from the camera (0 while it is not drawing). */
 	public static double radius() {
 		VoidLod lod = VoidLod.get();

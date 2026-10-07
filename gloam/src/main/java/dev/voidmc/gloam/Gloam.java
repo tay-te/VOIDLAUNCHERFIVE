@@ -3,6 +3,7 @@ package dev.voidmc.gloam;
 import dev.voidmc.gloam.air.Atmosphere;
 import dev.voidmc.gloam.far.FarAir;
 import dev.voidmc.gloam.motes.Motes;
+import dev.voidmc.gloam.season.Seasons;
 import dev.voidmc.gloam.sky.GloamSky;
 import dev.voidmc.gloam.sound.Soundscape;
 import net.fabricmc.api.ClientModInitializer;
@@ -21,7 +22,8 @@ import org.slf4j.LoggerFactory;
  *       packs all follow it;</li>
  *   <li>{@link Motes}: the small things in the air, as particles, which shader packs draw too;</li>
  *   <li>{@link Soundscape}: the ambient beds of the land, the weather and the hour;</li>
- *   <li>{@link FarAir}: the air over VOID LOD's far terrain, out to the horizon.</li>
+ *   <li>{@link FarAir}: the air over VOID LOD's far terrain, out to the horizon;</li>
+ *   <li>{@link Seasons}: the year on the land: grass and leaves through the seasons, bare winter crowns, the snowline.</li>
  * </ul>
  * Settings live in {@code config/gloam.json} ({@link GloamSettings}); {@code gloam.*} system properties override it.
  */
@@ -46,6 +48,7 @@ public final class Gloam implements ClientModInitializer {
 		Motes.init();
 		Soundscape.init();
 		FarAir.init();
+		Seasons.init();
 		LOGGER.info("VOID Gloam: the air is up");
 	}
 

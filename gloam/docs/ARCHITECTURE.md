@@ -41,7 +41,7 @@ Key behaviour:
 The time conventions: `clock` = `Level.getOverworldClockTime()` (tick 0 sunrise, 6000 noon, 18000 midnight);
 `gameTime` = `Level.getGameTime()` (never jumps).
 
-## The four parts
+## The parts
 
 Each part has one package, one entry class with `init()` (client) and, where it registers things, `register()`
 (common), called from `Gloam` / `GloamCommon`. Parts do not call each other; they all read `Atmosphere.get().here()`
@@ -175,6 +175,25 @@ is loaded).
   borrowed `GlTexture`), then draws the mist and the curtains over the pack's picture, with Iris's shader overrides held
   off for those draws.
 
+### Seasons: `dev.voidmc.gloam.season` (`Seasons`)
+
+The year the model keeps (`Air.year`) shown on the land, near and far, with and without a pack. Nothing in the world is
+changed: it is all in how the client tints and draws what is there.
+
+| Class | What it is |
+|---|---|
+| `Seasons` | The client tick: the year in steps (64 a year, half a day each at eight-day seasons); at a step clears the tint caches, re-meshes the chunks around the camera, redraws the crowns and (once a step has held 5 s) has VOID LOD rebuild its tiles. Gloam or `seasons` off is a step back to vanilla. |
+| `SeasonColours` | Pure colour maths per step (`SeasonColoursTest`): keyframes through the year for grass, broadleaf crowns, birch, needles and leaf litter, from vanilla's colour and the biome's climate; hot, dry and tropical lands change little. |
+| `SeasonResolvers` | Vanilla's grass, foliage and dry-foliage `ColorResolver`s wrapped (`BiomeColorsMixin`), so chunk meshes bake the season and every biome (vanilla, Expanse) turns in its own greens; grass turns in patches. Sodium reads the same resolvers. |
+| `SeasonLeaves` | Tint sources for oak, dark oak, birch and spruce leaves (Fabric's `BlockColorRegistry`): each tree its own hue about the season's colour (a jittered crown-sized grid), birch bright yellow in autumn, spruce darker in the cold. |
+| `BareCrowns` | The broadleaf leaf sprites redrawn in the block atlas as the crowns thin in late autumn and stand bare through winter (cut-out pixels, a few twigs and buds, mipmaps made again); Expanse's untinted broadleaves recoloured (beech copper, willow yellow; maple, aspen and larch green until autumn). No chunk is rebuilt for it, and packs sample the same atlas. |
+| `Remesh` | Marks the sections around each loaded column's surface (lowest open ground to the treetops), nearest first, over ten ticks: ~1500 sections at render distance 12. |
+| `Snowline` | The precipitation look (`ClientLevelSnowlineMixin` on `ClientLevel.getPrecipitationAt`): the temperature it is decided by drops with the season's cold and faster with height in winter, so it snows on temperate hills and rains in the valleys, and the line sits higher in summer. The server's snow stays vanilla's. |
+| `SeasonLod` | VOID LOD's `LodApi.Seasons` hook: LOD bakes vanilla's colours (`LodApi.bakingColours`) and turns each tile's grass and leaf colours by the season's tint over vanilla's, per channel in linear light, so the far land matches the chunks. |
+
+Falling leaves (motes) take the season's colour from the leaves and fall less from thinning crowns. Settings: `seasons`,
+`bareTrees`, `seasonSnow`, and `seasonDays` for the year's length.
+
 ## Shader packs
 
 With Iris and a pack on (`compat.Shaders.packInUse()`), the pack draws the sky, fog and lighting itself. What still
@@ -222,8 +241,8 @@ rounded, no gradients).
 
 ## Later phases
 
-- **Seasons you can see:** grass and leaf colours through the year (vanilla colour resolvers and the LOD's colours),
-  autumn leaves, bare winter branches, a lower snowline; the season as an API for Hearth and Expanse.
+- **Seasons, more:** snow lying in winter (server side, from the same year), the season as an API for Hearth and
+  Expanse, real bare branch models instead of thinned leaf sprites.
 - **Server-side regional weather,** so crops, fire and snow follow the same fronts.
 - **World details:** puddles and wet surfaces after rain, frost and dew at dawn, leaf litter in autumn, rainbows
   after showers, heat shimmer over the dunes, wind sway without a pack.

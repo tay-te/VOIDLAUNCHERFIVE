@@ -37,6 +37,14 @@ public final class GloamSettings {
 	/** How many Minecraft days one season lasts. */
 	public int seasonDays = 8;
 
+	// the seasons on the land
+	/** Grass and leaves turning through the year (fresh spring green, deep summer, autumn gold and red, winter straw), near and far. */
+	public boolean seasons = true;
+	/** Broadleaf crowns thinning in late autumn and bare through winter (their leaf sprites redrawn; the world is untouched). */
+	public boolean bareTrees = true;
+	/** The snow falling lower in winter and higher in summer (how the weather looks; the server's snow stays vanilla's). */
+	public boolean seasonSnow = true;
+
 	// the air
 	/** How many motes (leaves, pollen, fireflies, mist wisps) fill the air, 0 none .. 2 twice the default. */
 	public double motes = 1.0;
@@ -134,6 +142,9 @@ public final class GloamSettings {
 		this.farHaze = number(json, "farHaze", this.farHaze, 0, 1);
 		this.farCloudLift = number(json, "farCloudLift", this.farCloudLift, -1, 512);
 		this.farOverPack = bool(json, "farOverPack", this.farOverPack);
+		this.seasons = bool(json, "seasons", this.seasons);
+		this.bareTrees = bool(json, "bareTrees", this.bareTrees);
+		this.seasonSnow = bool(json, "seasonSnow", this.seasonSnow);
 	}
 
 	private JsonObject write() {
@@ -157,6 +168,9 @@ public final class GloamSettings {
 		json.addProperty("farHaze", this.farHaze);
 		json.addProperty("farCloudLift", this.farCloudLift);
 		json.addProperty("farOverPack", this.farOverPack);
+		json.addProperty("seasons", this.seasons);
+		json.addProperty("bareTrees", this.bareTrees);
+		json.addProperty("seasonSnow", this.seasonSnow);
 		return json;
 	}
 

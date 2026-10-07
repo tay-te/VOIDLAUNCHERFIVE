@@ -10,6 +10,7 @@ import dev.voidmc.gloam.sky.Haze;
 import dev.voidmc.gloam.sound.Soundscape;
 import dev.voidmc.gloam.motes.Motes;
 import dev.voidmc.gloam.far.FarAir;
+import dev.voidmc.gloam.season.Seasons;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -122,6 +123,8 @@ public class GloamShowcase implements FabricClientGameTest {
 			System.out.printf(Locale.ROOT, "[gloam] places: %s%n", places);
 			motePlaces = world.getServer().computeOnServer(server -> findMotePlaces(server.overworld(), places));
 			System.out.printf(Locale.ROOT, "[gloam] mote places: %s%n", motePlaces);
+			hill = world.getServer().computeOnServer(server -> findHill(server.overworld(), places));
+			System.out.printf(Locale.ROOT, "[gloam] hill: %d %d %d%n", hill[0], hill[1], hill[2]);
 			List<View> views = views(places);
 			if (!ONLY.isEmpty()) {
 				List<String> names = List.of(ONLY.split(","));
@@ -140,10 +143,12 @@ public class GloamShowcase implements FabricClientGameTest {
 				if (view.name().startsWith("storm")) {
 					this.aimAtStorm(context, world, view, places);
 				}
+				awaitLod(context, view);
 				int fpsOff = -1;
 				if (OFF) {
 					context.runOnClient(mc -> GloamSettings.get().enabled = false);
 					context.waitTicks(40);
+					awaitSeasons(context);
 					this.shoot(context, view.name() + "_off");
 					String quiet = context.computeOnClient(mc -> Soundscape.describe());
 					System.out.printf(Locale.ROOT, "[gloam] %s sound (off): %s%n", view.name(), quiet);
@@ -152,6 +157,7 @@ public class GloamShowcase implements FabricClientGameTest {
 				context.runOnClient(mc -> Motes.stats());
 				context.runOnClient(mc -> GloamSettings.get().enabled = true);
 				context.waitTicks(20 + view.linger() * 20);
+				awaitSeasons(context);
 				awaitBreath(context, view);
 				this.shoot(context, view.name() + "_on");
 				AirSample air = context.computeOnClient(mc -> Atmosphere.get().here());
@@ -166,6 +172,8 @@ public class GloamShowcase implements FabricClientGameTest {
 				System.out.printf(Locale.ROOT, "[gloam] %s motes: %s; %d fps off, %d on%n", view.name(), motes, fpsOff, fps);
 				String far = context.computeOnClient(mc -> FarAir.stats());
 				System.out.printf(Locale.ROOT, "[gloam] %s: %s; %d fps off, %d fps on%n", view.name(), far, fpsOff, fps);
+				String season = context.computeOnClient(mc -> Seasons.stats());
+				System.out.printf(Locale.ROOT, "[gloam] %s seasons: %s%n", view.name(), season);
 				last = view;
 			}
 			String clips = context.computeOnClient(mc -> Soundscape.loadedClips());
@@ -215,7 +223,98 @@ public class GloamShowcase implements FabricClientGameTest {
 		views.add(new View("storm0", p.peakX(), p.peakY() + 20, p.peakZ(), 0, 1, 45, 7000, "clear", 2));
 		View low = new View("sky0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), -18, 70, 4000, "clear", 2);
 		views.add(low);
+		addSeasonViews(views, p);
 		return views;
+	}
+
+	/**
+	 * The seasons' views (Seasons): the valley and the forest at noon on a day of each season ({@code seasonDays} 8 and the
+	 * year starting 0.15 in: day 1 is mid-spring, day 6 early summer, day 15 mid-autumn, day 23 deep winter), the winter
+	 * snowline (rain in the valley, snow on the peak), and the land from the peak in autumn with a long lens, where the
+	 * chunks meet VOID LOD's far land. Shot place by place, so the chunks load once for each.
+	 */
+	static void addSeasonViews(List<View> views, Places p) {
+		MotePlaces m = motePlaces;
+		int[] days = {1, 6, 15, 23};
+		String[] names = {"spring", "summer", "autumn", "winter"};
+		for (int i = 0; i < 4; i++) {
+			views.add(new View(names[i] + "0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), 3, 70, days[i] * 24000L + 6000, "clear", 3));
+		}
+		views.add(new View("snowline0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), 3, 70, 23 * 24000L + 6000, "rain", 4));
+		// high over the valley, under the lowest clouds, out over the land where the chunks give way to VOID LOD's
+		views.add(new View("autumnfar0", p.valleyX(), p.valleyY() + 100, p.valleyZ(), p.toPeak() + 180, 10, 50, 15 * 24000L + 5000, "clear", 3));
+		// over the forest's crowns, looking out across them
+		for (int i = 0; i < 4; i++) {
+			views.add(new View(names[i] + "1", m.forestX(), m.forestY() + 24, m.forestZ(), m.forestYaw(), 22, 70, days[i] * 24000L + 6000, "clear", 3));
+		}
+		// on temperate high ground, where vanilla rains all year, in a winter rain: it snows there now
+		views.add(new View("snowline1", hill[0], hill[1] + 4, hill[2], hill[3], 6, 70, 23 * 24000L + 6000, "rain", 4));
+	}
+
+	/** Where the snowline view is shot: {x, ground y, z, yaw}. */
+	private static int[] hill = {0, 120, 0, 0};
+
+	/**
+	 * Temperate high ground near the valley for the snowline view: the nearest column 130 to 180 high whose biome rains
+	 * there in vanilla (warm enough at that height) but is cool enough to snow in deep winter, looking back down to the
+	 * valley.
+	 */
+	static int[] findHill(ServerLevel level, Places p) {
+		if (!(level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth)) {
+			return new int[]{p.valleyX(), p.valleyY(), p.valleyZ(), 0};
+		}
+		TerrainModel model = earth.model(level.getChunkSource().randomState());
+		int checked = 0;
+		for (int r = 64; r <= 2400 && checked < 120; r += 48) {
+			for (int i = 0; i < 24 && checked < 120; i++) {
+				double a = i * Math.PI / 12;
+				int x = p.valleyX() + (int) (Math.cos(a) * r), z = p.valleyZ() + (int) (Math.sin(a) * r);
+				float h = model.sample(x, z).height;
+				if (h < 130 || h > 180) {
+					continue;
+				}
+				checked++;
+				// out in the open, so the view has its sky and the snow falling against it
+				if (!open(level, x, z)) {
+					continue;
+				}
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+				var biome = level.getBiome(new BlockPos(x, y, z)).value();
+				float t = biome.getBaseTemperature();
+				if (biome.hasPrecipitation() && t >= 0.6F && t <= 1.0F && y >= 130) {
+					float yaw = (float) Math.toDegrees(Math.atan2(-(p.valleyX() - x), p.valleyZ() - z));
+					return new int[]{x, y, z, (int) yaw};
+				}
+			}
+		}
+		return new int[]{p.valleyX(), p.valleyY(), p.valleyZ(), 0};
+	}
+
+	/** Waits (up to six seconds) until the chunks have taken the season's colours, after a step or Gloam switched off or on. */
+	private static void awaitSeasons(ClientGameTestContext context) {
+		for (int t = 0; t < 120 && !context.computeOnClient(mc -> Seasons.settled()); t++) {
+			context.waitTick();
+		}
+	}
+
+	/** For the far view: waits (up to two minutes) until VOID LOD has rebuilt the tiles on screen in the season's colours. */
+	private static void awaitLod(ClientGameTestContext context, View view) {
+		if (!view.name().endsWith("far0") || !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("void_lod")) {
+			return;
+		}
+		long until = System.currentTimeMillis() + 120_000;
+		int dirty = -1;
+		while (System.currentTimeMillis() < until) {
+			context.waitTicks(20);
+			dirty = context.computeOnClient(mc -> {
+				var lod = dev.voidmc.lod.VoidLod.get();
+				return lod == null ? 0 : lod.engine().dirtyDrawn() + lod.engine().rebuilding() + lod.engine().queued();
+			});
+			if (dirty == 0) {
+				break;
+			}
+		}
+		System.out.printf(Locale.ROOT, "[gloam] %s: far land settled (%d tiles still out of date)%n", view.name(), dirty);
 	}
 
 	/** Where a view is shot: the overcast and haze views go looking for their place, the rest stay where they are. */
