@@ -15,6 +15,8 @@ import net.minecraft.core.BlockPos;
  * behaviours that use them live beside this class; every number a player reads in a tooltip is here.
  */
 public final class HeavyRules {
+	/** Heavy Weapons XP per natural log chopped with an axe (BALANCE.md §3). */
+	public static final double XP_PER_LOG = 0.5;
 	/** Rhythm of the Axe: a log counts towards the rhythm when it falls within this many ticks of the last. */
 	public static final int RHYTHM_WINDOW = 60;
 	public static final int RHYTHM_MAX_STEPS = 4;

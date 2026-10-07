@@ -20,7 +20,7 @@
 	"mettle.picker.place_note": "Base 3 each. Drag along a meter, or click a cell.",
 	"mettle.picker.coming_note": "Coming skills can’t be favoured until they’re released.",
 	"mettle.picker.no_signature": "None — more freedom",
-	"mettle.picker.carry": "Carries up to %s kg  ·  40 + %s from Strength %s",
+	"mettle.picker.carry": "Carries up to %1$s kg  ·  %2$s + %3$s from Strength %4$s",
 	"mettle.picker.begin": "Begin as %s",
 	"mettle.picker.place_more": "Place %s more points to begin",
 	"mettle.picker.place_one_more": "Place 1 more point to begin",

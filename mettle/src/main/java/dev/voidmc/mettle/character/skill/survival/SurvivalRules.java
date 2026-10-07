@@ -6,11 +6,11 @@ package dev.voidmc.mettle.character.skill.survival;
  */
 public final class SurvivalRules {
 	// XP (BALANCE.md §3)
-	public static final double XP_ANIMAL = 4;
-	public static final double XP_PLANT = 1;
-	public static final double XP_COOKED = 1;
-	public static final double XP_BIOME = 25;
-	public static final double XP_STRUCTURE = 40;
+	public static final double XP_ANIMAL = 15;
+	public static final double XP_PLANT = 3;
+	public static final double XP_COOKED = 4;
+	public static final double XP_BIOME = 60;
+	public static final double XP_STRUCTURE = 100;
 	public static final double XP_LANDMARK = 150;
 	/** A kill counts for whoever dealt at least this share of the damage. */
 	public static final double KILL_SHARE = 0.5;

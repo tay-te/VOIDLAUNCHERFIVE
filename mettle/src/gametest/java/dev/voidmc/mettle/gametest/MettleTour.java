@@ -20,6 +20,10 @@ import net.minecraft.world.item.Items;
 public class MettleTour implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (BalanceReport.enabled()) {
+			// A balance run (-Dmettle.balance=true) only measures; BalanceReport does that.
+			return;
+		}
 		// Load every class Mettle mixes into, so a broken injection fails the tour instead of a player's game.
 		for (String target : new String[] {"net.minecraft.world.inventory.AnvilMenu", "net.minecraft.world.entity.npc.villager.Villager",
 			"net.minecraft.world.item.BlockItem", "net.minecraft.world.level.block.entity.BrewingStandBlockEntity",
@@ -101,8 +105,10 @@ public class MettleTour implements FabricClientGameTest {
 				}
 				dev.voidmc.mettle.gear.GearInventory.of(player).takeAll();
 				double capacity = player.getAttributeValue(dev.voidmc.mettle.core.MettleAttributes.CARRY_CAPACITY);
-				if (capacity != 49.0) {
-					return "carry capacity " + capacity + ", expected 49";
+				// Ranger: Strength 3, so base + 3 × per point.
+				double want = dev.voidmc.mettle.core.MettleAttributes.BASE_CARRY_CAPACITY + 3 * dev.voidmc.mettle.core.EffectsApplier.CAPACITY_PER_STRENGTH;
+				if (capacity != want) {
+					return "carry capacity " + capacity + ", expected " + want;
 				}
 				return null;
 			});

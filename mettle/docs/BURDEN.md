@@ -10,7 +10,7 @@ raise it with Strength, perks, gear, potions and animals.
 
 ## 1. Item weight
 
-Weights are in kilograms, shown with one decimal ("0.3 kg", stack "16.0 kg"). Nobody hand-writes a weight for 1,500
+Weights are in kilograms, shown with one decimal ("0.3 kg", stack "3.8 kg"; under 1 kg, two: "0.06 kg"). Nobody hand-writes a weight for 1,500
 items. The table is **derived**, so modded items (Expanse, Hearth, anything) get sensible weights for free.
 
 **Resolution order for an item:**
@@ -56,8 +56,8 @@ after `/reload` (`mettle:burden/weights`, about 1,500 floats). Tooltips and the 
   - the three worn gear items with their pockets
   - the stack on the cursor while a menu is open
 - **Not counted:** the ender chest (it's elsewhere), creative and spectator players (exempt; their load reads "—").
-- **Capacity** = the `mettle:carry_capacity` attribute. Base 40, plus modifiers from:
-  - Strength (+3 per point)
+- **Capacity** = the `mettle:carry_capacity` attribute. Base 65, plus modifiers from:
+  - Strength (+5 per point)
   - Pack Mule, Beast of Burden and Ox perks
   - worn gear (§5)
   - the Ox Draught potion
@@ -102,7 +102,7 @@ How each effect is applied:
 - **Tooltip line** under the name, on every item:
 
   ```
-  0.25 kg · stack 16.0 kg
+  0.06 kg · stack 3.8 kg
   ```
 
   For containers it shows the contents total: `Satchel · 6.2 kg with contents`.
@@ -122,7 +122,7 @@ when empty.
 
 | Slot | Items | What they do |
 |---|---|---|
-| **Back** | Satchel · Leather Pack · Frame Pack | +8 / +15 / +25 kg capacity, and 9 / 18 / 27 pocket slots |
+| **Back** | Satchel · Leather Pack · Frame Pack | +10 / +20 / +30 kg capacity, and 9 / 18 / 27 pocket slots |
 | **Belt** | Belt · Tool Belt | +3 / +5 kg, and 4 / 6 quick pockets for small things (potions, food, torches, tools ≤ 1 kg) |
 | **Quiver** | Quiver · Hunter's Quiver | 2 / 4 pockets that hold only arrows; bows and crossbows draw from it first |
 

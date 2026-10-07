@@ -15,25 +15,28 @@ class AthleticsRulesTest {
 
 	@Test
 	void xpPerDistance() {
-		assertEquals(1, AthleticsRules.xp(Move.SPRINT, 4000, LoadBand.LIGHT), EPS);
-		assertEquals(1, AthleticsRules.xp(Move.SWIM, 2000, LoadBand.LIGHT), EPS);
-		assertEquals(1, AthleticsRules.xp(Move.CLIMB, 1000, LoadBand.LIGHT), EPS);
-		assertEquals(2, AthleticsRules.xp(Move.SPRINT, 4000, LoadBand.BURDENED), EPS);
-		assertEquals(3, AthleticsRules.xp(Move.SPRINT, 4000, LoadBand.OVERBURDENED), EPS);
-		assertEquals(3, AthleticsRules.xp(Move.CLIMB, 1000, LoadBand.PINNED), EPS);
+		assertEquals(1, AthleticsRules.xp(Move.SPRINT, 600, LoadBand.LIGHT), EPS);
+		assertEquals(1, AthleticsRules.xp(Move.SWIM, 300, LoadBand.LIGHT), EPS);
+		assertEquals(1, AthleticsRules.xp(Move.CLIMB, 200, LoadBand.LIGHT), EPS);
+		assertEquals(2, AthleticsRules.xp(Move.SPRINT, 600, LoadBand.BURDENED), EPS);
+		assertEquals(3, AthleticsRules.xp(Move.SPRINT, 600, LoadBand.OVERBURDENED), EPS);
+		assertEquals(3, AthleticsRules.xp(Move.CLIMB, 200, LoadBand.PINNED), EPS);
 	}
 
 	@Test
 	void capIsPerMinute() {
 		AthleticsRules.Meter meter = new AthleticsRules.Meter();
-		assertEquals(100, meter.take(100, 0), EPS);
-		assertEquals(20, meter.take(50, 600), EPS);
+		assertEquals(50, meter.take(50, 0), EPS);
+		assertEquals(10, meter.take(50, 600), EPS);
 		assertEquals(0, meter.take(5, 1199), EPS);
 		// A new minute pays again.
 		assertEquals(5, meter.take(5, 1200), EPS);
 		assertEquals(5, meter.spent(), EPS);
-		assertEquals(115, meter.remaining(1300), EPS);
-		assertEquals(120, meter.remaining(2400), EPS);
+		assertEquals(55, meter.remaining(1300), EPS);
+		assertEquals(60, meter.remaining(2400), EPS);
+		// Any cap.
+		AthleticsRules.Meter defense = new AthleticsRules.Meter(30);
+		assertEquals(30, defense.take(100, 0), EPS);
 	}
 
 	@Test

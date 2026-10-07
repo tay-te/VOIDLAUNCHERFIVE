@@ -55,7 +55,7 @@ to place. That is 68 points by level 50: enough for three attributes at 14+ (cap
 
 | Attribute | Per point (as vanilla attribute modifiers where possible) | Governs |
 |---|---|---|
-| **Strength** | +3 kg carry capacity, +2 % melee damage, +2 % mining speed | Heavy Weapons, Mining, Smithing |
+| **Strength** | +5 kg carry capacity, +2 % melee damage, +2 % mining speed | Heavy Weapons, Mining, Smithing |
 | **Agility** | +1 % movement speed, +1.5 % attack speed, +2 % sneaking speed | Blades, Marksmanship, Stealth, Riding |
 | **Vitality** | +½ heart per 2 points above 3, −2 % hunger drain | Defense, Athletics, Survival, Husbandry |
 | **Wits** | +2 % XP in every skill | Alchemy, Scholarship |
@@ -127,7 +127,7 @@ hooks above cover what it can't (weapon type, distance, block hardness).
   Normal play never sees it.
 - **Brewing is stamped.** The player who last put an ingredient in a stand is recorded on the stand; brewed potions
   carry that player. Taking potions you didn't brew gives nothing.
-- **Movement** counts only on foot or swimming (not boats, carts, elytra) and caps at 120 XP a minute.
+- **Movement** counts only on foot or swimming (not boats, carts, elytra) and caps at 60 XP a minute. Defense caps at 60 XP a minute too.
 - **Damage on players** (PvP) gives half XP and is off on servers with `pvp_perks: off`.
 
 ## 4. Perk trees
