@@ -115,7 +115,7 @@ final class Session {
 
 	/** Lights the rooms among the needs (design, then fill), nothing else. */
 	void lightRooms() {
-		if (!this.needs.isEmpty() && unmetCount() > 0) {
+		if (!this.needs.isEmpty() && (unmetCount() > 0 || belowComfort())) {
 			rooms();
 		}
 	}
@@ -595,7 +595,7 @@ final class Session {
 
 	void run() {
 		trace("start");
-		if (this.needs.isEmpty() || unmetCount() == 0) {
+		if (this.needs.isEmpty() || unmetCount() == 0 && !belowComfort()) {
 			return;
 		}
 		long t0 = System.nanoTime();
@@ -757,17 +757,71 @@ final class Session {
 		return n;
 	}
 
+	/**
+	 * The light the room phase gives the rooms it lights, where it can: the user's rule is interiors <b>very</b> well lit.
+	 * The check asks {@link LightRules#ROOM}, but a room at 8 still reads dim at night (on the game's light curve 8 is
+	 * about two thirds of full brightness, 10 four fifths), so the room phase aims at 10 with what folk hang and stand
+	 * in a room (lanterns, candles, lamps, sconces); light under a rug and the hidden block stay for what the rule
+	 * itself needs.
+	 */
+	static final int COMFORT = 10;
+
 	private void rooms() {
 		int kinds = bit(LightRules.Kind.ROOM, LightRules.Kind.DARK);
-		for (Room r : roomsOf()) {
-			if (!anyUnmet(r)) {
+		IntArrayList raised = comfort();
+		try {
+			for (Room r : roomsOf()) {
+				if (!anyUnmet(r)) {
+					continue;
+				}
+				// a room its builder lit to the rule keeps its lights: only its dim corners are filled, unless most of it is dim
+				if (r.cells.size() >= 4 && r.height >= 3 && (below(r, LightRules.ROOM) > 0 || below(r, COMFORT) * 3 > r.cells.size())) {
+					design(r);
+				}
+				fill(r, kinds);
+			}
+		} finally {
+			for (int k = 0; k < raised.size(); k++) {
+				this.needMin[raised.getInt(k)] = (byte) LightRules.ROOM;
+			}
+		}
+	}
+
+	/** How many of a room's cells stand below a level of light. */
+	private int below(Room r, int level) {
+		int n = 0;
+		for (int k = 0; k < r.cells.size(); k++) {
+			if (this.lf.atIndex(r.cells.getInt(k)) < level) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** Raises the rooms' cells to {@link #COMFORT} for the room phase; returns them, to be put back after. */
+	private IntArrayList comfort() {
+		IntArrayList raised = new IntArrayList();
+		for (LightRules.Need n : this.needs) {
+			if (n.kind() != LightRules.Kind.ROOM) {
 				continue;
 			}
-			if (r.cells.size() >= 4 && r.height >= 3) {
-				design(r);
+			int i = this.g.index(n.x(), n.y(), n.z());
+			if (this.needKind[i] == LightRules.Kind.ROOM.ordinal() && this.needMin[i] < COMFORT) {
+				this.needMin[i] = (byte) COMFORT;
+				raised.add(i);
 			}
-			fill(r, kinds);
 		}
+		return raised;
+	}
+
+	/** Whether a room cell stands below {@link #COMFORT} (the pass runs for comfort too, where nothing is dark). */
+	private boolean belowComfort() {
+		for (LightRules.Need n : this.needs) {
+			if (n.kind() == LightRules.Kind.ROOM && this.lf.at(n.x(), n.y(), n.z()) < COMFORT) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -960,8 +1014,10 @@ final class Session {
 			Fixture best = null;
 			double bestScore = 0;
 			int min = this.needMin[worst];
+			// a corner the rule is already met in is lit for comfort only: by what folk hang and stand, not a glow or a hidden lamp
+			boolean comfortOnly = worstLevel >= LightRules.ROOM;
 			for (Fixture f : cands) {
-				if (!within(f, wx, r.y, wz, min)) {
+				if (!within(f, wx, r.y, wz, min) || comfortOnly && (f.kind == Fixture.Kind.GLOW || f.kind == Fixture.Kind.HIDDEN)) {
 					continue;
 				}
 				double gain = evaluate(f, kinds, worst, min);
