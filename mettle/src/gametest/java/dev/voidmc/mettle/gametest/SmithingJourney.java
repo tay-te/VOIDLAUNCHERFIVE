@@ -530,6 +530,10 @@ final class SmithingJourney {
 			husk.setPos(p.getX() + 1.5, p.getY(), p.getZ());
 			husk.setNoAi(true);
 			husk.addTag("smithing_t");
+			// Perks from earlier journeys (Blades) knock hard: keep the husk put and remembered, wherever it lands.
+			husk.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1.0);
+			husk.setPersistenceRequired();
+			HUSK[0] = husk.getUUID();
 			p.level().addFreshEntity(husk);
 		});
 		for (int i = 0; i < 3; i++) {
@@ -859,8 +863,13 @@ final class SmithingJourney {
 		return p.level().getEntitiesOfClass(ExperienceOrb.class, new AABB(Bench.GRINDSTONE.pos(p)).inflate(4)).size();
 	}
 
+	private static final java.util.UUID[] HUSK = new java.util.UUID[1];
+
 	private static Mob husk(ServerPlayer p) {
-		return p.level().getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(8), e -> e.entityTags().contains("smithing_t")).getFirst();
+		if (HUSK[0] != null && p.level().getEntity(HUSK[0]) instanceof Mob m && m.isAlive()) {
+			return m;
+		}
+		return p.level().getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(32), e -> e.entityTags().contains("smithing_t")).getFirst();
 	}
 
 	private static Holder<Enchantment> enchantment(ServerPlayer p, ResourceKey<Enchantment> key) {
