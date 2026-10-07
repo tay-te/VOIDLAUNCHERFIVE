@@ -73,6 +73,20 @@ public final class Settle {
 		if (debug(d)) {
 			int[] lost = lostOutside(d, walk(d), d.bodyRect());
 			System.out.println("settle end lost=" + (lost == null ? "none" : lost[0] + "/" + lost[1] + "/" + lost[2]));
+			LongOpenHashSet w = walk(d);
+			for (var e : d.cells().long2ObjectEntrySet()) {
+				BlockState st = e.getValue().state();
+				long k = e.getLongKey();
+				if (st.getBlock() instanceof DoorBlock && st.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER && !w.contains(k)) {
+					int x = Draft.keyX(k);
+					int y = Draft.keyY(k);
+					int z = Draft.keyZ(k);
+					Direction f = st.getValue(DoorBlock.FACING);
+					System.out.println("settle unreached door " + x + "/" + y + "/" + z + " " + f + " below=" + at(d, x, y - 1, z)
+						+ " out=" + at(d, x + f.getStepX(), y, z + f.getStepZ()) + "/" + at(d, x + f.getStepX(), y - 1, z + f.getStepZ()) + " r=" + w.contains(Draft.key(x + f.getStepX(), y, z + f.getStepZ()))
+						+ " in=" + at(d, x - f.getStepX(), y, z - f.getStepZ()) + "/" + at(d, x - f.getStepX(), y - 1, z - f.getStepZ()) + " r=" + w.contains(Draft.key(x - f.getStepX(), y, z - f.getStepZ())));
+				}
+			}
 		}
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -97,6 +111,7 @@ public final class Settle {
 			}
 			Direction f = s.getValue(DoorBlock.FACING);
 			threshold(d, p[0], p[1], p[2], f);
+			lintel(d, p[0], p[1], p[2], f);
 			boolean ok = true;
 			for (Direction side : new Direction[]{f, f.getOpposite()}) {
 				int nx = p[0] + side.getStepX();
@@ -137,6 +152,31 @@ public final class Settle {
 		}
 		BlockState fill = sill != null ? sill : d.mat(Role.FOUNDATION).block(Form.FULL, x, y - 1, z).defaultBlockState();
 		d.inStage(StageKind.FLOORS, () -> d.set(x, y - 1, z, fill));
+	}
+
+	/**
+	 * A door in a wall that stops at its head (an inner wall two high under a tall storey): a lintel over it of the wall
+	 * beside it, or one could climb over the shut door as over a step.
+	 */
+	private static void lintel(Draft d, int x, int y, int z, Direction f) {
+		if (!passable(at(d, x, y + 2, z)) || !d.allowed(x, y + 2, z)) {
+			return;
+		}
+		Direction along = f.getClockWise();
+		BlockState wall = null;
+		for (Direction a : new Direction[]{along, along.getOpposite()}) {
+			for (int yy = y + 2; yy >= y + 1 && wall == null; yy--) {
+				BlockState n = d.get(x + a.getStepX(), yy, z + a.getStepZ());
+				if (n != null && n.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
+					wall = n;
+				}
+			}
+		}
+		if (wall == null) {
+			return;
+		}
+		BlockState w = wall;
+		d.inStage(StageKind.WALLS, () -> d.set(x, y + 2, z, w));
 	}
 
 	/** Whether someone can stand on this side of a door: level, a step down, a stair or slab up, or another door. */
@@ -242,7 +282,7 @@ public final class Settle {
 	public static int yardDoors(Draft d) {
 		int cut = 0;
 		int[] b = d.bodyRect();
-		for (int round = 0; round < 3; round++) {
+		for (int round = 0; round < 6; round++) {
 			LongOpenHashSet reached = walk(d);
 			int[] lost = lostOutside(d, reached, b);
 			if (debug(d)) {
@@ -293,7 +333,13 @@ public final class Settle {
 				}
 			}
 			if (!done) {
-				return cut;
+				// no wall a door could be cut through (the stair fills the back of the house, the plot's edge is at its side):
+				// the yard is a garden seen from the windows, and what it would take a door to use is not put there
+				int lx = lost[0];
+				int ly = lost[1];
+				int lz = lost[2];
+				lift(d, lx, ly, lz);
+				d.retainPois(p -> !(p.x() == lx && p.z() == lz && Math.abs(p.y() - ly) <= 1));
 			}
 		}
 		return cut;
