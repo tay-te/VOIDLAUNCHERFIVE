@@ -1,0 +1,21 @@
+# Known failures of the audit gate's play rules, house/* (AUDIT.md lane L2; BUILDING_GUIDE.md §8, "The audit gate").
+# One line per archetype: its path, the rules it still breaks, a comment (audit cases breaking it / cases measured).
+# Rules: walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole (build/check/PlayChecks.java).
+# When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
+# breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
+# by an archetype not listed for it fails the tests.
+house/cliff_dwelling roof-hole                                          # roof-hole 6/84
+house/cottage door-sides ladder-top furnished-reached roof-hole         # door-sides 12/84 (tests 6), ladder-top 0/84 (tests 8), furnished-reached 3/84, roof-hole 10/84 (tests 6)
+house/courtyard_house walk door-sides furnished-reached roof-hole       # walk 36/84 (tests 9), door-sides 36/84 (tests 4), furnished-reached 37/84 (tests 9), roof-hole 78/84 (tests 15)
+house/croft door-sides furnished-reached roof-hole                      # door-sides 20/84, furnished-reached 21/84 (tests 7), roof-hole 12/84 (tests 3)
+house/farmhouse walk door-sides ladder-top furnished-reached roof-hole  # walk 9/84, door-sides 0/84 (tests 3), ladder-top 4/84, furnished-reached 0/84 (tests 1), roof-hole 5/84 (tests 4)
+house/hut door-sides                                                    # door-sides 0/84 (tests 1)
+house/manor door-sides                                                  # door-sides 84/84 (tests 6)
+house/merchant_house door-sides                                         # door-sides 36/84
+house/reeve_house door-sides                                            # door-sides 42/84 (tests 1)
+house/rowhouse door-sides                                               # door-sides 27/84
+house/scribe_house door-sides                                           # door-sides 33/84
+house/shophouse door-sides                                              # door-sides 6/84 (tests 2)
+house/tenement door-sides furnished-reached floating-piece roof-hole    # door-sides 84/84 (tests 11), furnished-reached 0/84 (tests 1), floating-piece 0/84 (tests 2), roof-hole 3/84 (tests 1)
+house/tower_house door-sides                                            # door-sides 12/84
+house/townhouse door-sides roof-hole                                    # door-sides 36/84 (tests 21), roof-hole 3/84

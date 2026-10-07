@@ -1,0 +1,10 @@
+# Known failures of the audit gate's play rules, deep/* (AUDIT.md lane L6; BUILDING_GUIDE.md §8, "The audit gate").
+# One line per archetype: its path, the rules it still breaks, a comment (audit cases breaking it / cases measured).
+# Rules: walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole (build/check/PlayChecks.java).
+# When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
+# breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
+# by an archetype not listed for it fails the tests.
+deep/dwelling walk                                # walk 30/84
+deep/glow_garden roof-hole                        # roof-hole 84/84
+deep/hall door-sides furnished-reached roof-hole  # door-sides 24/84, furnished-reached 24/84, roof-hole 16/84
+deep/lift roof-hole                               # roof-hole 70/84

@@ -1,0 +1,16 @@
+# Known failures of the audit gate's play rules, civic/* (AUDIT.md lane L4a; BUILDING_GUIDE.md §8, "The audit gate").
+# One line per archetype: its path, the rules it still breaks, a comment (audit cases breaking it / cases measured).
+# Rules: walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole (build/check/PlayChecks.java).
+# When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
+# breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
+# by an archetype not listed for it fails the tests.
+civic/almshouse roof-hole                                  # roof-hole 0/84 (tests 2)
+civic/cemetery roof-hole                                   # roof-hole 1/84 (tests 1)
+civic/convent walk door-sides furnished-reached roof-hole  # walk 0/84 (tests 1), door-sides 42/84 (tests 1), furnished-reached 6/84, roof-hole 39/84 (tests 2)
+civic/guardhouse roof-hole                                 # roof-hole 6/84
+civic/monastery door-sides roof-hole                       # door-sides 70/84 (tests 1), roof-hole 48/84 (tests 2)
+civic/observatory door-sides roof-hole                     # door-sides 60/84 (tests 2), roof-hole 24/84 (tests 1)
+civic/playhouse floating-piece                             # floating-piece 6/84
+civic/tilt_yard floating-piece                             # floating-piece 0/84 (tests 2)
+civic/town_hall door-sides furnished-reached               # door-sides 72/84 (tests 3), furnished-reached 36/84 (tests 2)
+civic/university door-sides roof-hole                      # door-sides 84/84 (tests 3), roof-hole 9/84

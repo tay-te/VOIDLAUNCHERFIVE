@@ -1,0 +1,26 @@
+# Known failures of the audit gate's play rules, work/* (AUDIT.md lane L3; BUILDING_GUIDE.md §8, "The audit gate").
+# One line per archetype: its path, the rules it still breaks, a comment (audit cases breaking it / cases measured).
+# Rules: walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole (build/check/PlayChecks.java).
+# When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
+# breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
+# by an archetype not listed for it fails the tests.
+work/alchemist_tower door-sides                             # door-sides 12/84 (tests 1)
+work/bakery door-sides furnished-reached roof-hole          # door-sides 6/84 (tests 3), furnished-reached 6/84 (tests 1), roof-hole 3/84 (tests 1)
+work/barn ladder-top                                        # ladder-top 12/84
+work/brewery door-sides furnished-reached roof-hole         # door-sides 15/84, furnished-reached 13/84, roof-hole 6/84
+work/builders_yard door-sides furnished-reached             # door-sides 42/84, furnished-reached 18/84
+work/butcher door-sides furnished-reached roof-hole         # door-sides 12/84 (tests 3), furnished-reached 12/84 (tests 3), roof-hole 12/84 (tests 1)
+work/carpentry walk door-sides furnished-reached roof-hole  # walk 6/84, door-sides 84/84 (tests 6), furnished-reached 57/84 (tests 2), roof-hole 3/84
+work/chandler door-sides furnished-reached roof-hole        # door-sides 3/84 (tests 2), furnished-reached 3/84 (tests 2), roof-hole 3/84
+work/dye_works furnished-reached roof-hole                  # furnished-reached 0/84 (tests 1), roof-hole 2/84
+work/fishery door-sides furnished-reached roof-hole         # door-sides 6/84, furnished-reached 3/84, roof-hole 3/84
+work/glassworks furnished-reached roof-hole                 # furnished-reached 2/84, roof-hole 15/84 (tests 1)
+work/hunters_lodge door-sides furnished-reached roof-hole   # door-sides 6/84, furnished-reached 3/84, roof-hole 3/84
+work/logging_camp roof-hole                                 # roof-hole 6/84
+work/salt_works furnished-reached roof-hole                 # furnished-reached 6/84, roof-hole 6/84
+work/shipyard roof-hole                                     # roof-hole 84/84
+work/smelter roof-hole                                      # roof-hole 12/84
+work/smithy door-sides furnished-reached roof-hole          # door-sides 9/84 (tests 2), furnished-reached 9/84 (tests 2), roof-hole 9/84 (tests 1)
+work/tailor door-sides furnished-reached roof-hole          # door-sides 6/84, furnished-reached 6/84 (tests 1), roof-hole 3/84 (tests 1)
+work/watermill door-sides furnished-reached                 # door-sides 20/84, furnished-reached 20/84
+work/windmill furnished-reached                             # furnished-reached 66/84 (tests 4)

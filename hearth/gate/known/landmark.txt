@@ -1,0 +1,9 @@
+# Known failures of the audit gate's play rules, landmark/* (AUDIT.md lane L5; BUILDING_GUIDE.md §8, "The audit gate").
+# One line per archetype: its path, the rules it still breaks, a comment (audit cases breaking it / cases measured).
+# Rules: walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole (build/check/PlayChecks.java).
+# When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
+# breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
+# by an archetype not listed for it fails the tests.
+landmark/cathedral furnished-reached            # furnished-reached 4/84
+landmark/pagoda walk door-sides floating-piece  # walk 36/84, door-sides 36/84, floating-piece 78/84
+landmark/temple roof-hole                       # roof-hole 9/84
