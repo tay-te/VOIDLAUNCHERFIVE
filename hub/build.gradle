@@ -66,6 +66,7 @@ tasks.register('syncAtlas') {
 	def ref = (project.findProperty('atlasRef') ?: 'claude/atlas').toString()
 	def snapshot = layout.buildDirectory.dir('atlas-snapshot').get().asFile
 	def libs = file('libs')
+	def repoRoot = rootDir.parentFile
 	def javaHome = System.getenv('JAVA_HOME') ?: System.getProperty('java.home')
 	doLast {
 		libs.mkdirs()
@@ -82,18 +83,23 @@ tasks.register('syncAtlas') {
 			project.delete(snapshot)
 			snapshot.mkdirs()
 			def tar = new File(snapshot, 'atlas.tar')
-			providers.exec { commandLine 'git', 'archive', '-o', tar.absolutePath, '--prefix=atlas/', "${sha}:atlas" }.result.get()
+			// From the repository's root: run in a subdirectory, git archive only archives that one.
+			providers.exec { commandLine 'git', '-C', repoRoot.absolutePath, 'archive', '-o', tar.absolutePath, sha, 'atlas' }.result.get()
 			project.copy {
 				from project.tarTree(tar)
 				into snapshot
 			}
 			def dir = new File(snapshot, 'atlas')
 			def isWindows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')
-			providers.exec {
+			def build = providers.exec {
 				workingDir dir
 				environment 'JAVA_HOME', javaHome
-				commandLine isWindows ? ['cmd', '/c', 'gradlew.bat', 'jar', '--no-daemon', '-q'] : ['sh', 'gradlew', 'jar', '--no-daemon', '-q']
-			}.result.get()
+				commandLine isWindows ? ['cmd', '/c', new File(dir, 'gradlew.bat').absolutePath, 'jar', '--no-daemon', '-q'] : ['sh', new File(dir, 'gradlew').absolutePath, 'jar', '--no-daemon', '-q']
+				ignoreExitValue = true
+			}
+			if (build.result.get().exitValue != 0) {
+				throw new GradleException('the Atlas snapshot build failed:\n' + build.standardOutput.asText.get() + build.standardError.asText.get())
+			}
 			jar = new File(dir, 'build/libs').listFiles().find { it.name.endsWith('.jar') && !it.name.contains('-sources') }
 			if (jar == null) {
 				throw new GradleException("the Atlas snapshot built no jar in ${dir}/build/libs")
@@ -133,7 +139,6 @@ dependencies {
 	// src/atlasApi), and the mod itself in the dev runs only with -Patlas.
 	if (atlasJar.isFile()) {
 		compileOnly files(atlasJar)
-		gametestCompileOnly files(atlasJar)
 	}
 	if (withAtlas) {
 		localRuntime files(atlasJar)
@@ -195,6 +200,13 @@ fabricApi {
 		enableClientGameTests = true
 		eula = true
 		clearRunDirectory = false
+	}
+}
+
+// The game test calls Atlas's API too (only when Atlas is installed): the same jar, or the copy.
+dependencies {
+	if (atlasJar.isFile()) {
+		gametestCompileOnly files(atlasJar)
 	}
 }
 
