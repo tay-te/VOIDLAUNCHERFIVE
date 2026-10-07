@@ -448,15 +448,23 @@ Citadel, Palm Harbour, the Logging Camp...) stay: remote, unpeopled places to ex
   add the `atlas` source set (`src/atlas`, `compileOnly 'dev.voidmc:void-atlas'`, shipped in the jar; `-Patlas.run=true`
   also loads Atlas in the dev runs). Without it the source set does not exist and the `"atlas"` entrypoint line is
   filtered out of `fabric.mod.json`. `client.map.atlas.HearthAtlas` (the `"atlas"` entrypoint, which Fabric only loads
-  with Atlas) is the only class that names Atlas types. The map module (server) keeps which settlements each player has
-  **sighted** (within 160 blocks of their bounds) and **discovered** (within 24, Atlas's own reach) in the persistent
-  attachment `hearth:map/known`, looks at each player every 40 ticks (staggered), and sends `hearth:map/settlements`
-  (the whole list, sighted ones without name or standing) only when it changed and only to clients that registered the
-  receiver — `client.map.MapClient` does so only when Atlas is loaded. The plugin draws them on a "Settlements" layer
-  (a "?" while sighted; then house / village / keep by tier, folk, tier, culture and the player's own standing meter and
-  title) and the tracked quest's target on a "Quests" layer, from the synced quest attachment (`QuestClient.tracked`).
-  `config/hearth/map.json`: `enabled`, `sight_radius`, `discover_radius`, `interval_ticks`. What Hearth would like
-  changed in Atlas's API: `docs/requests/atlas.md`.
+  with Atlas) is the only class that names Atlas types. Atlas owns discovery: the map module (server) only sends
+  `hearth:map/settlements` — the settlements within `sync_radius` (1024) blocks of the player, with the player's own
+  standing, title and property in each — looked at every 40 ticks (staggered), sent only when the list changed and only
+  to clients that registered the receiver (`client.map.MapClient` does so only when Atlas is loaded). The plugin's place
+  provider `hearth:settlements` reports them to Atlas as places with `DiscoveryState.UNKNOWN` (kind `hearth:<tier>`,
+  category `VILLAGE`), so Atlas sights them ("?"), discovers them within its reach (24 blocks of the settlement's
+  radius), keeps that with its map of the world, and makes the toasts and journal lines; `AtlasPlaces.look` gives each a
+  settlement tile (house for camps and hamlets, village, `TOWN` for towns and cities; `KEEP` is kept for castles and
+  seats once they are places of their own), folk, tier, culture, the player's standing meter and title, and
+  `AtlasPlaces.claim` claims its area (radius + 32) so Atlas's own village sighting there is left out. Settlements Atlas
+  remembers but the server no longer sends (far away, after a restart) get a plain look from the place's name and kind.
+  The tracked quest (`QuestClient.tracked`, from the synced quest attachment) is a `Marker.Style.QUEST` marker
+  (`MarkerGlyph.QUEST`, the step's name and its progress, "12 / 24") on a "Quests" layer (labelled by lang key), and
+  `AtlasMarkers.track` is called whenever it appears or becomes another quest's (compass, minimap rim, beam); Atlas lets
+  it go once the step has no place. The old per-player attachment `hearth:map/known` is still registered so old saves
+  load cleanly, and is dropped when the player joins. `config/hearth/map.json`: `enabled`, `sync_radius`,
+  `interval_ticks`. What Hearth asked of Atlas (all done): `docs/requests/atlas.md`.
 - **LOD** (optional, later phase): VOID LOD draws settlements at the horizon from `Blueprint.silhouette()` of built
   plots, through a small read-only API the sim module will expose (`sim/LodFootprints`): columns of (wall, roof)
   colour and height, thread-safe, versioned so the LOD rebuilds only tiles that changed.

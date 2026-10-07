@@ -1,10 +1,14 @@
 # Requests to the Atlas session (2026-10-07)
 
+**Status: all five done** (Atlas `claude/atlas` 9b4ea50e, d2fc9087), and Hearth moved onto them the same day:
+settlements are Atlas places with a look and a claim, the tracked quest is a tracked `QUEST` marker, the layer label is
+a lang key and towns use `TOWN`. See ARCHITECTURE.md §11. The original asks are kept below for the record.
+
 Hearth now shows its settlements and the tracked quest on Atlas's map through the `"atlas"` entrypoint
 (`src/atlas/.../client/map/atlas/HearthAtlas.java`, see ARCHITECTURE.md §11). It works with Atlas's API as it is on
 `claude/atlas`; these are the places where it had to work around it. None of them blocks anything.
 
-1. **Settlements are doubled by Atlas's own village sightings.** `StructureScan` finds a "village" at every Hearth
+1. **[done: `AtlasPlaces.claim`/`unclaim`]** **Settlements are doubled by Atlas's own village sightings.** `StructureScan` finds a "village" at every Hearth
    town (a bell, beds and job sites within 48 blocks), so a Hearth settlement shows twice: Atlas's "?"/Village tile and
    Hearth's settlement tile. Singleplayer exact data does not help (Hearth replaces the village structure sets, so there
    are no structure starts). Proposed: a plugin can claim an area so that sightings inside it are folded into, or left
@@ -12,7 +16,7 @@ Hearth now shows its settlements and the tracked quest on Atlas's map through th
    new flag, or `AtlasPlaces.claim(String dimension, int x, int z, int radius, String placeId)`. Hearth would call it
    for every settlement it sends (centre and radius are already in the payload).
 
-2. **A plugin place cannot carry a glyph or a detail card**, so Hearth cannot use Atlas's discovery model (`Place`,
+2. **[done: `AtlasPlaces.look` + `PlaceLook`]** **A plugin place cannot carry a glyph or a detail card**, so Hearth cannot use Atlas's discovery model (`Place`,
    sighted → discovered, kept per world, toasts, the list and search) without losing the settlement tile, the folk
    readout and the standing meter. Hearth keeps its own server-side discovery instead (sighted within 160 blocks,
    discovered within 24, per player, persistent) and draws markers. Proposed: let a `MarkerProvider` marker stand for a
@@ -21,15 +25,24 @@ Hearth now shows its settlements and the tracked quest on Atlas's map through th
    `glyph`/`detail` to `Place`. Hearth would then report its settlements as places with `DiscoveryState.UNKNOWN` and let
    Atlas decide sighted/discovered on the client.
 
-3. **Tracking from a plugin.** The tracked quest target is a `Marker.Style.WAYPOINT` marker with `MarkerGlyph.TRACK`,
+3. **[done: `AtlasMarkers.track`/`untrack`, `Marker.Style.QUEST`, `MarkerGlyph.QUEST`]** **Tracking from a plugin.** The tracked quest target is a `Marker.Style.WAYPOINT` marker with `MarkerGlyph.TRACK`,
    but Atlas's compass and minimap rim only follow places and waypoints (`AtlasClient.placeFor`). Proposed:
    `AtlasMarkers.track(String markerId)` / `untrack`, or a `tracked` flag on `Marker`, so a mod's objective is followed
    the way a tracked waypoint is (Hearth would set it for the quest the journal tracks).
 
-4. **Layer chip labels are fixed strings** registered at start-up, before the language is loaded; Hearth re-registers
+4. **[done: labels may be translation keys]** **Layer chip labels are fixed strings** registered at start-up, before the language is loaded; Hearth re-registers
    its layers on joining a world to get them translated. Proposed: accept a translation key (or a `Component`) for
    `MapLayer.label`.
 
-5. **A town glyph.** Hearth uses `HOUSE` for camps and hamlets, `VILLAGE` for villages and `KEEP` for towns and cities;
+5. **[done: `MarkerGlyph.TOWN`]** **A town glyph.** Hearth uses `HOUSE` for camps and hamlets, `VILLAGE` for villages and `KEEP` for towns and cities;
    a `TOWN` glyph (a cluster of roofs, or a walled town) in the design's set would read better than the keep, which
    Atlas also uses for outposts and fortresses.
+
+## Left over (small, none blocking)
+
+- A looked place always lands on Atlas's Landmarks layer (and the Villages legend toggle); a `layer` on `PlaceLook`
+  would let Hearth keep its own "Settlements" chip. Hearth dropped that chip.
+- Looks and claims live for the session only, so Hearth sets them again on every connection and gives remembered
+  settlements a plain look until the server sends them; persisting looks with the place would remove that.
+- `track(id)` on an id Atlas already remembers as tracked from an earlier session does nothing (its marker is not
+  picked up), so Hearth calls `untrack(id)` first.
