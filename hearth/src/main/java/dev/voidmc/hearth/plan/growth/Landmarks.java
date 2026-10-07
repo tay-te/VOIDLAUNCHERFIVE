@@ -87,6 +87,24 @@ public final class Landmarks {
 		return null;
 	}
 
+	/** How far from the heart a building still stands on or by the square: the church, the town tower. */
+	static final int BY_SQUARE = 44;
+
+	private static boolean isLandmark(PlanContext ctx, Identifier id) {
+		ArchetypeInfo i = ctx.info(id);
+		return i != null && i.category() == ArchetypeCategory.LANDMARK;
+	}
+
+	/** A building on the square or beside it (within {@link #BY_SQUARE} of the heart), or nothing. */
+	private static boolean bySquare(PlanContext ctx, ArchetypeInfo info, String reason) {
+		Parcels.Parcel p = Parcels.best(ctx, new Parcels.Request(info, Placement.CENTRAL, District.Kind.MARKET), null);
+		if (p == null || p.terrace || ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) > BY_SQUARE) {
+			return false;
+		}
+		Build.building(ctx, info, p, reason + " over the square", null);
+		return true;
+	}
+
 	/** The landmarks that need level ground (big footprints): never terraced up a slope. The lighthouse keeps its rocks. */
 	static boolean big(ArchetypeInfo info) {
 		return info.category() == ArchetypeCategory.LANDMARK && !info.id().equals(Archetypes.LIGHTHOUSE) && info.minFrontage() >= 11
@@ -100,6 +118,11 @@ public final class Landmarks {
 			if (replaceChapel(ctx, info, reason)) {
 				return true;
 			}
+			if (ctx.state.reservation("close") != null && chapelRising(ctx)) {
+				// the cathedral rises on the chapel's close by the square once the chapel stands, not on a field elsewhere
+				Growth.why("the chapel on its close is not built yet");
+				return false;
+			}
 			return Growth.placeBuilding(ctx, info, Placement.CIVIC, District.Kind.CIVIC, reason, null);
 		}
 		Site site = ctx.state.site;
@@ -111,6 +134,13 @@ public final class Landmarks {
 		}
 		if (id.equals(Archetypes.CLOCK_TOWER)) {
 			return Growth.placeBuilding(ctx, info, Placement.CENTRAL, District.Kind.MARKET, reason, null);
+		}
+		// the town's first tower stands over its square, where a Bohemian town has its town tower (ART_REVIEW_2 item 2); a
+		// second landmark crowns the summit in sight of the heart
+		boolean first = ctx.settlement.plots().stream().noneMatch(p -> isLandmark(ctx, p.spec().archetype()))
+			&& ctx.state.queue.stream().noneMatch(q -> isLandmark(ctx, q.spec().archetype()));
+		if (first && id.equals(Archetypes.BELL_TOWER) && bySquare(ctx, info, reason)) {
+			return true;
 		}
 		if (id.equals(Archetypes.GREAT_HALL)) {
 			return Growth.placeBuilding(ctx, info, Placement.CIVIC, District.Kind.CIVIC, reason, null);
@@ -124,7 +154,24 @@ public final class Landmarks {
 	 * The chapel, on the rise, with a close kept round it (beside and behind) big enough for the cathedral or temple a
 	 * city will raise in its place; a plain chapel if no such ground is free.
 	 */
+	/**
+	 * The chapel's ground with its close: the cathedral's (or temple's) middle size where the culture raises one, else
+	 * the chapel's largest; {frontage, depth}.
+	 */
+	static int[] closeSize(PlanContext ctx, ArchetypeInfo chapel) {
+		for (Identifier id : List.of(Archetypes.CATHEDRAL, Archetypes.TEMPLE)) {
+			ArchetypeInfo info = ctx.catalogue.info(id);
+			if (info != null && info.suits(ctx.culture)) {
+				return new int[]{Math.max(chapel.maxFrontage(), (info.minFrontage() + info.maxFrontage()) / 2),
+					Math.max(chapel.maxDepth(), (info.minDepth() + info.maxDepth()) / 2)};
+			}
+		}
+		return new int[]{chapel.maxFrontage(), chapel.maxDepth()};
+	}
+
 	public static boolean chapel(PlanContext ctx, ArchetypeInfo chapel, String reason) {
+		// the lot kept on the square since the founding, if there is one, is its ground (and its close)
+		Parcels.Parcel lot = Lots.take(ctx, chapel);
 		ArchetypeInfo future = null;
 		for (Identifier id : List.of(Archetypes.CATHEDRAL, Archetypes.TEMPLE)) {
 			ArchetypeInfo info = ctx.catalogue.info(id);
@@ -138,8 +185,32 @@ public final class Landmarks {
 			// arch-landmark.md §3), else at its smallest
 			int f = Math.max(chapel.maxFrontage(), (future.minFrontage() + future.maxFrontage()) / 2);
 			int d = Math.max(chapel.maxDepth(), (future.minDepth() + future.maxDepth()) / 2);
-			Parcels.Request big = new Parcels.Request(chapel, Placement.RISE, District.Kind.CIVIC).withSize(f, d);
-			Parcels.Parcel p = Parcels.best(ctx, big, null);
+			// the church stands on the square or just off it (a Bohemian town's skyline is its church tower and its town
+			// tower over the square, ART_REVIEW_2 item 2), on the rise only where no ground by the square will hold it
+			Parcels.Request big = null;
+			Parcels.Parcel p = lot;
+			if (p != null) {
+				f = p.frontage();
+				d = p.depth();
+			}
+			for (int[] size : new int[][]{{f, d}, {Math.max(chapel.maxFrontage(), future.minFrontage()), Math.max(chapel.maxDepth(), future.minDepth())}}) {
+				if (p != null) {
+					break;
+				}
+				Parcels.Request near = new Parcels.Request(chapel, Placement.CIVIC, District.Kind.CIVIC).withSize(size[0], size[1]);
+				Parcels.Parcel q = Parcels.best(ctx, near, null);
+				if (q != null && !q.terrace && ctx.distanceToHeart(q.x0 + q.sizeX / 2, q.z0 + q.sizeZ / 2) <= BY_SQUARE) {
+					p = q;
+					big = near;
+					f = size[0];
+					d = size[1];
+					break;
+				}
+			}
+			if (p == null) {
+				big = new Parcels.Request(chapel, Placement.RISE, District.Kind.CIVIC).withSize(f, d);
+				p = Parcels.best(ctx, big, null);
+			}
 			if (p == null || p.terrace) {
 				f = Math.max(chapel.maxFrontage(), future.minFrontage());
 				d = Math.max(chapel.maxDepth(), future.minDepth());
@@ -151,8 +222,8 @@ public final class Landmarks {
 			}
 			if (p != null && !p.terrace) {
 				// the chapel at the front, centred; the rest is its close
-				int cf = chapel.minFrontage() + (chapel.maxFrontage() - chapel.minFrontage()) / 2;
-				int cd = chapel.minDepth() + (chapel.maxDepth() - chapel.minDepth()) / 2;
+				int cf = Math.min(f, chapel.minFrontage() + (chapel.maxFrontage() - chapel.minFrontage()) / 2);
+				int cd = Math.min(d, chapel.minDepth() + (chapel.maxDepth() - chapel.minDepth()) / 2);
 				boolean alongX = p.facing.getAxis() == net.minecraft.core.Direction.Axis.Z;
 				int off = (f - cf) / 2;
 				Parcels.Parcel c = new Parcels.Parcel();
@@ -180,7 +251,27 @@ public final class Landmarks {
 				return true;
 			}
 		}
+		// a plain chapel: on its lot, by the square where it fits, else on the rise
+		if (lot != null && !lot.terrace && lot.frontage() <= chapel.maxFrontage() && lot.depth() <= chapel.maxDepth()) {
+			Build.building(ctx, chapel, lot, reason + " on the square", null);
+			return true;
+		}
+		Parcels.Parcel near = Parcels.best(ctx, new Parcels.Request(chapel, Placement.CIVIC, District.Kind.CIVIC), null);
+		if (near != null && !near.terrace && ctx.distanceToHeart(near.x0 + near.sizeX / 2, near.z0 + near.sizeZ / 2) <= BY_SQUARE) {
+			Build.building(ctx, chapel, near, reason + " by the square", null);
+			return true;
+		}
 		return Growth.placeBuilding(ctx, chapel, Placement.RISE, District.Kind.CIVIC, reason, null);
+	}
+
+	/** Whether a chapel is planned or being built (so its close will take the cathedral once it stands). */
+	private static boolean chapelRising(PlanContext ctx) {
+		for (PlotView plot : ctx.settlement.plots()) {
+			if (plot.spec().archetype().equals(Archetypes.CHAPEL) && plot.state() != PlotState.BUILT) {
+				return true;
+			}
+		}
+		return ctx.state.queue.stream().anyMatch(q -> q.spec().archetype().equals(Archetypes.CHAPEL));
 	}
 
 	/** A cathedral or temple on the chapel's site and its close. */

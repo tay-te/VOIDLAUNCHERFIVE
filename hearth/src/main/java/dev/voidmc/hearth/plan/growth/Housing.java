@@ -44,7 +44,7 @@ public final class Housing {
 
 	public static boolean plan(PlanContext ctx, Needs needs, int deficit) {
 		LayoutType layout = ctx.state.layout;
-		double vertical = layout.verticalBias * ctx.config.verticalBias();
+		double vertical = Grid.verticalBias(ctx) * ctx.config.verticalBias();
 		StationLedger ledger = ctx.config.living().stations() ? needs.stations(ctx) : null;
 		Station station = ledger == null ? null : ledger.pick(ctx, ctx.config.housingMargin());
 		if (station == Station.LORD) {
@@ -89,6 +89,19 @@ public final class Housing {
 			}
 		}
 		Home home = home(ctx, station);
+		if (home.placement == Placement.HOME || home.placement == Placement.CENTRAL || home.placement == Placement.MAIN) {
+			// the core's street rows run on before the town looks for new frontage: a home of the town's own folk goes onto
+			// the end of a row near the heart where one has room (ART_REVIEW_2 item 3)
+			ArchetypeInfo terrace = terraceHome(ctx, station);
+			if (terrace != null) {
+				Parcels.Request tr = request(terrace, home, station).withGap(0);
+				int units = Math.max(2, Math.min(4, (int) Math.ceil(deficit / (double) Math.max(1, terrace.beds())) + 1));
+				if (continueRow(ctx, terrace, tr, units, reason(station, terrace, deficit, ledger == null || station == null ? null : ledger.head(station)),
+					station, ledger)) {
+					return true;
+				}
+			}
+		}
 		ArchetypeInfo probe = probe(ctx, station);
 		if (probe == null) {
 			Growth.why("no house of the culture");
@@ -129,7 +142,7 @@ public final class Housing {
 		}
 		// fill in near the heart before spreading out along the main roads (the town's own houses; not the edge-dwellers')
 		boolean central = home.placement == Placement.HOME || home.placement == Placement.CENTRAL || home.placement == Placement.MAIN;
-		if (central && !layout.expansive
+		if (central && !Grid.expansive(ctx)
 			&& ctx.distanceToHeart(site.x0 + site.sizeX / 2, site.z0 + site.sizeZ / 2) > ctx.coreRadius() * Growth.reach(home.placement)
 			&& Expand.town(ctx)) {
 			grew = true;
@@ -162,11 +175,15 @@ public final class Housing {
 		}
 		Resident next = ledger == null || station == null ? null : ledger.head(station);
 		String reason = reason(station, info, deficit, next);
-		boolean attached = info.flags().contains(SiteFlag.ATTACHABLE) && (site.zone == 0 || layout.dense && site.zone <= 1);
+		boolean attached = terraced(ctx, info, site.zone, front.role);
 		int edge = site.edge;
 		Parcels.Request placed = request(info, home, station);
 		if (attached) {
-			int units = Math.max(2, Math.min(5, (int) Math.ceil(deficit / (double) Math.max(1, info.beds())) + 1));
+			// a street wall: rows of three to five, the next row run on from the end of the last (ART_REVIEW_2 item 3)
+			int units = Math.max(3, Math.min(5, (int) Math.ceil(deficit / (double) Math.max(1, info.beds())) + 2));
+			if (central && continueRow(ctx, info, placed.withGap(0), units, reason, station, ledger)) {
+				return true;
+			}
 			if (row(ctx, info, placed.withGap(0), edge, units, reason, station, ledger)) {
 				return true;
 			}
@@ -282,6 +299,12 @@ public final class Housing {
 
 	/** The house for a place, by its density band, its street and its ground, weighted by the station it is for. */
 	static @Nullable ArchetypeInfo choose(PlanContext ctx, Parcels.Parcel site, RoadEdge front, @Nullable Station station) {
+		return choose(ctx, site, front, station, i -> true);
+	}
+
+	/** {@link #choose(PlanContext, Parcels.Parcel, RoadEdge, Station)} among the houses {@code which} allows. */
+	static @Nullable ArchetypeInfo choose(PlanContext ctx, Parcels.Parcel site, RoadEdge front, @Nullable Station station,
+		java.util.function.Predicate<ArchetypeInfo> which) {
 		List<ArchetypeInfo> items = new ArrayList<>();
 		List<Double> weights = new ArrayList<>();
 		LayoutType layout = ctx.state.layout;
@@ -290,8 +313,13 @@ public final class Housing {
 		boolean main = front.role == RoadEdge.Role.ARM || front.role == RoadEdge.Role.SQUARE;
 		double slope = ctx.ground.slope(site.x0 + site.sizeX / 2, site.z0 + site.sizeZ / 2, 4);
 		int raised = site.floorY - ctx.state.heartY;
-		double vertical = layout.verticalBias * ctx.config.verticalBias();
+		double vertical = Grid.verticalBias(ctx) * ctx.config.verticalBias();
+		// a town's inner streets are lined with rows, not only its core (the street wall, ART_REVIEW_2 item 3)
+		boolean townStreet = zone <= 1 && tier.ordinal() >= SettlementTier.TOWN.ordinal() && street(front.role);
 		for (ArchetypeInfo info : Growth.allowed(ctx, ArchetypeCategory.HOUSING)) {
+			if (!which.test(info)) {
+				continue;
+			}
 			double w = info.weight();
 			var id = info.id();
 			if (id.equals(Archetypes.HUT)) {
@@ -299,21 +327,22 @@ public final class Housing {
 			} else if (id.equals(Archetypes.COTTAGE)) {
 				w *= switch (zone) {
 					case 0 -> layout.dense ? 0.15 : tier.ordinal() >= SettlementTier.TOWN.ordinal() ? 0.3 : 0.9;
-					case 1 -> layout.dense ? 0.35 : 1.6;
+					case 1 -> layout.dense ? 0.35 : townStreet ? 0.6 : 1.6;
 					case 2 -> 1.3;
 					default -> 0.8;
 				};
 			} else if (id.equals(Archetypes.ROWHOUSE)) {
-				w *= zone == 0 ? 2.2 : zone == 1 && layout.dense ? 2.4 : zone == 1 ? 0.25 : 0;
+				// a town's main streets are lined with rows through the inner town too, not only in the core
+				w *= zone == 0 ? 2.2 : zone == 1 && layout.dense ? 2.4 : townStreet ? 1.8 : zone == 1 ? 0.25 : 0;
 			} else if (id.equals(Archetypes.TOWNHOUSE)) {
-				w *= (zone == 0 ? 2.6 : zone == 1 && layout.dense ? 1.2 : 0) * vertical;
+				w *= (zone == 0 ? 2.6 : zone == 1 && layout.dense ? 1.2 : townStreet ? 1.0 : 0) * vertical;
 			} else if (id.equals(Archetypes.TENEMENT)) {
 				w *= (zone == 0 ? 1.4 : 0) * vertical;
 			} else if (id.equals(Archetypes.SHOPHOUSE)) {
 				w *= main && zone <= 1 ? 1.6 : 0;
 			} else if (id.equals(Archetypes.FARMHOUSE)) {
 				// farmhouses belong out among the fields, never in a town's streets
-				w *= layout.dense ? 0 : layout.expansive ? (zone >= 2 ? 3 : 0.4) : zone >= 3 ? 1.2 : 0;
+				w *= layout.dense ? 0 : Grid.nucleated(ctx) ? (zone >= 2 ? 3 : 0.05) : layout.expansive ? (zone >= 2 ? 3 : 0.4) : zone >= 3 ? 1.2 : 0;
 			} else if (id.equals(Archetypes.MANOR)) {
 				w *= station == Station.GENTRY ? 1 : 0;
 			} else if (id.equals(Archetypes.STILT_HOUSE) || id.equals(Archetypes.HERMIT_HUT)) {
@@ -353,6 +382,147 @@ public final class Housing {
 			}
 		}
 		return Growth.draw(ctx, items, weights);
+	}
+
+	/**
+	 * Whether a house stands in a street row here, sharing its side walls (gap 0, {@code party_left/right}): an attachable
+	 * house in the core, in the inner town of a dense layout, and along the streets of a town's inner town (ART_REVIEW_2
+	 * item 3: the street wall). Everywhere else town homes stand detached.
+	 */
+	public static boolean terraced(PlanContext ctx, ArchetypeInfo info, int zone, RoadEdge.Role front) {
+		if (!info.flags().contains(SiteFlag.ATTACHABLE)) {
+			return false;
+		}
+		if (zone == 0 || ctx.state.layout.dense && zone <= 1) {
+			return true;
+		}
+		return zone == 1 && ctx.tier.ordinal() >= SettlementTier.TOWN.ordinal() && street(front);
+	}
+
+	/** A town street a row can line (not a farm or cart track, a door path or a boardwalk). */
+	static boolean street(RoadEdge.Role role) {
+		return switch (role) {
+			case TRACK, HAUL, PATH, BOARDWALK -> false;
+			default -> true;
+		};
+	}
+
+	/** An attachable home of the town for a station, as the core would choose it; null if the culture has none. */
+	private static @Nullable ArchetypeInfo terraceHome(PlanContext ctx, @Nullable Station station) {
+		if (ctx.tier.ordinal() < SettlementTier.VILLAGE.ordinal() || ctx.state.squareEdge < 0) {
+			return null;
+		}
+		Parcels.Parcel core = new Parcels.Parcel();
+		core.x0 = ctx.heartX();
+		core.z0 = ctx.heartZ();
+		core.sizeX = 1;
+		core.sizeZ = 1;
+		core.floorY = ctx.state.heartY;
+		core.zone = 0;
+		RoadEdge square = ctx.state.graph.edge(ctx.state.squareEdge);
+		return choose(ctx, core, square, station, i -> i.flags().contains(SiteFlag.ATTACHABLE));
+	}
+
+	/** Row ends looked at per call, nearest the heart first. */
+	private static final int ROW_ENDS = 24;
+
+	/**
+	 * Runs a street row on: up to {@code units} attached houses flush against the free side of a row house already
+	 * standing (or planned) in the terraced part of the town, on the same street, its front on the same line, the first
+	 * sharing its wall with the old one ({@code party_left}/{@code party_right} toward it), each further one beside the
+	 * last. The rows of a town's core so close into a continuous street wall instead of pairs with grass between them.
+	 */
+	static boolean continueRow(PlanContext ctx, ArchetypeInfo info, Parcels.Request req, int units, String reason, @Nullable Station station,
+		@Nullable StationLedger ledger) {
+		List<dev.voidmc.hearth.api.PlotSpec> near = new ArrayList<>();
+		List<dev.voidmc.hearth.api.PlotSpec> all = new ArrayList<>();
+		for (var plot : ctx.settlement.plots()) {
+			all.add(plot.spec());
+		}
+		for (var q : ctx.state.queue) {
+			all.add(q.spec());
+		}
+		for (var s : all) {
+			ArchetypeInfo i = ctx.info(s.archetype());
+			if (i == null || !i.flags().contains(SiteFlag.ATTACHABLE) || i.category() != ArchetypeCategory.HOUSING || s.params().contains("stacked_on")) {
+				continue;
+			}
+			if (ctx.zone(s.origin().getX() + s.sizeX() / 2, s.origin().getZ() + s.sizeZ() / 2) <= 1) {
+				near.add(s);
+			}
+		}
+		near.sort(java.util.Comparator.comparingDouble((dev.voidmc.hearth.api.PlotSpec s) -> ctx.distanceToHeart(s.origin().getX() + s.sizeX() / 2,
+			s.origin().getZ() + s.sizeZ() / 2)).thenComparingLong(dev.voidmc.hearth.api.PlotSpec::seed));
+		int looked = 0;
+		for (var s : near) {
+			if (looked >= ROW_ENDS) {
+				break;
+			}
+			int[] ent = dev.voidmc.hearth.plan.grid.PlotGeometry.entrance(s);
+			int[] at = dev.voidmc.hearth.plan.road.Roads.edgeAt(ctx, ent[0], ent[1]);
+			if (at == null) {
+				continue;
+			}
+			RoadEdge front = ctx.state.graph.edge(at[0]);
+			if (!terraced(ctx, info, ctx.zone(ent[0], ent[1]), front.role) || front.role == RoadEdge.Role.TRACK || front.role == RoadEdge.Role.HAUL) {
+				continue;
+			}
+			looked++;
+			Direction facing = s.facing();
+			boolean alongX = facing.getAxis() == Direction.Axis.Z;
+			int depth = Math.max(info.minDepth(), Math.min(info.maxDepth(), alongX ? s.sizeZ() : s.sizeX()));
+			for (int side = 0; side < 2; side++) {
+				// side 0: the row runs on to the old house's right, so the old house is on the new ones' left
+				Direction step = side == 0 ? facing.getClockWise() : facing.getCounterClockWise();
+				List<Parcels.Parcel> row = new ArrayList<>();
+				int[] last = {s.origin().getX(), s.origin().getZ(), s.origin().getX() + s.sizeX() - 1, s.origin().getZ() + s.sizeZ() - 1};
+				int lastFloor = s.floorY();
+				while (row.size() < units) {
+					int f = info.minFrontage() + (int) Math.round((info.maxFrontage() - info.minFrontage()) * (0.15 + 0.35 * ctx.hash(last[0], last[1], 29 + row.size())));
+					int sizeX = alongX ? f : depth;
+					int sizeZ = alongX ? depth : f;
+					int x0;
+					int z0;
+					if (alongX) {
+						x0 = step.getStepX() > 0 ? last[2] + 1 : last[0] - sizeX;
+						// the fronts in one line: the front row where the old house has its own
+						z0 = facing == Direction.SOUTH ? last[3] - sizeZ + 1 : last[1];
+					} else {
+						z0 = step.getStepZ() > 0 ? last[3] + 1 : last[1] - sizeZ;
+						x0 = facing == Direction.EAST ? last[2] - sizeX + 1 : last[0];
+					}
+					Parcels.Parcel next = Parcels.fitAt(ctx, req, at[0], x0, z0, sizeX, sizeZ, facing);
+					if (next == null || Math.abs(next.floorY - lastFloor) > 2) {
+						break;
+					}
+					ctx.occ.markRect(next.x0, next.z0, next.x1(), next.z1(), dev.voidmc.hearth.plan.grid.Cell.RESERVED);
+					row.add(next);
+					last = new int[]{next.x0, next.z0, next.x1(), next.z1()};
+					lastFloor = next.floorY;
+				}
+				for (Parcels.Parcel p : row) {
+					ctx.occ.clearRect(p.x0, p.z0, p.x1(), p.z1(), dev.voidmc.hearth.plan.grid.Cell.RESERVED);
+				}
+				if (row.isEmpty()) {
+					continue;
+				}
+				String toward = side == 0 ? "party_left" : "party_right";
+				String onward = side == 0 ? "party_right" : "party_left";
+				for (int i = 0; i < row.size(); i++) {
+					CompoundTag params = homeParams(ctx, station, ledger);
+					if (params == null) {
+						params = new CompoundTag();
+					}
+					// each touches the one before it (the first, the old house) and, but for the last, the next
+					params.putBoolean(toward, true);
+					params.putBoolean(onward, i < row.size() - 1);
+					params.putInt("row", row.size() + 1);
+					Build.building(ctx, info, row.get(i), reason + " (the row runs on)", params);
+				}
+				return true;
+			}
+		}
+		return false;
 	}
 
 	static boolean row(PlanContext ctx, ArchetypeInfo info, Parcels.Request req, int edge, int units, String reason) {

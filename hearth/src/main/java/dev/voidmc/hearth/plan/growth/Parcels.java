@@ -426,6 +426,38 @@ public final class Parcels {
 	}
 
 	public static List<Parcel> find(PlanContext ctx, Request req, @Nullable IntPredicate edges, int enough) {
+		// kilns, tanneries and pits keep off the church's and the landmarks' close (ART_REVIEW_2 item 2: the bell tower stood
+		// in a field beside a brick kiln)
+		int avoided = ctx.avoid.size();
+		if (industry(req.info)) {
+			for (var plot : ctx.settlement.plots()) {
+				var a = plot.spec().archetype();
+				ArchetypeInfo i = ctx.info(a);
+				if (i != null && (i.category() == ArchetypeCategory.LANDMARK || a.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.CHAPEL))) {
+					ctx.avoid.add(new int[]{plot.spec().origin().getX() + plot.spec().sizeX() / 2, plot.spec().origin().getZ() + plot.spec().sizeZ() / 2,
+						LANDMARK_CLOSE + Math.max(plot.spec().sizeX(), plot.spec().sizeZ()) / 2});
+				}
+			}
+		}
+		try {
+			return search(ctx, req, edges, enough);
+		} finally {
+			while (ctx.avoid.size() > avoided) {
+				ctx.avoid.remove(ctx.avoid.size() - 1);
+			}
+		}
+	}
+
+	/** How far industry keeps from a landmark's or the church's walls. */
+	private static final int LANDMARK_CLOSE = 22;
+
+	/** Smoke, reek and spoil: workshops of the outskirts and the workings. */
+	private static boolean industry(ArchetypeInfo info) {
+		return info.category() == ArchetypeCategory.EXTRACTION
+			|| info.category() == ArchetypeCategory.WORKPLACE && info.flags().contains(SiteFlag.OUTSKIRTS);
+	}
+
+	private static List<Parcel> search(PlanContext ctx, Request req, @Nullable IntPredicate edges, int enough) {
 		List<Pos> positions = new ArrayList<>();
 		Frontage f = Frontage.of(ctx);
 		List<RoadEdge> all = ctx.state.graph.edges();
@@ -622,7 +654,9 @@ public final class Parcels {
 		switch (req.placement) {
 			case HOME -> s = -dist;
 			case CENTRAL -> s = -dist * 2 + (e.role == RoadEdge.Role.SQUARE ? 40 : 0) + (e.role == RoadEdge.Role.ARM ? 6 : 0);
-			case MAIN -> s = -dist + (e.role == RoadEdge.Role.ARM ? 30 : 0) + (e.role == RoadEdge.Role.SQUARE ? 20 : 0);
+			// the high street in town, not the main road out into the country (artisans' homes spread a hundred blocks out
+			// along it as detached cottages: ART_REVIEW_2 item 1)
+			case MAIN -> s = -dist + (e.role == RoadEdge.Role.ARM ? (dist < core * 1.2 ? 30 : 6) : 0) + (e.role == RoadEdge.Role.SQUARE ? 20 : 0);
 			case CIVIC -> s = -dist * 1.2 + (e.role == RoadEdge.Role.SQUARE ? 35 : 0) + (f.ground(ctx, k) - ctx.state.heartY) * 0.8;
 			case RISE -> {
 				double toRise = site == null ? dist : Math.hypot(x - site.riseX(), z - site.riseZ());
@@ -635,9 +669,14 @@ public final class Parcels {
 			case WATER, ON_WATER -> s = -dist * 0.4 - ctx.waterDistance(x, z) * 3;
 			case EDGE -> {
 				// fields go a little way out, leaving the town room to grow before it reaches them
-				double ring = req.info.category() == ArchetypeCategory.FARM && !ctx.state.layout.expansive
+				boolean farm = req.info.category() == ArchetypeCategory.FARM;
+				double ring = farm && !Grid.expansive(ctx)
 					? Math.max(edgeRing(ctx), ctx.coreRadiusAt(Math.max(40, (int) (ctx.population * 1.5))) * 1.25) : edgeRing(ctx);
 				s = -Math.abs(dist - ring) - (e.role == RoadEdge.Role.SQUARE ? 100 : 0);
+				if (farm) {
+					// fields line the roads out of town, so the town is met by worked land on every way in (ART_REVIEW_2 item 4)
+					s += e.role == RoadEdge.Role.ARM || e.role == RoadEdge.Role.TRACK ? 10 : 0;
+				}
 			}
 			case FARMSTEAD -> s = -Math.abs(dist - core * 2.2 * ctx.config.sprawlBias()) * 0.5 + (e.role == RoadEdge.Role.TRACK ? 30 : 0);
 			case RICH -> s = (f.ground(ctx, k) - ctx.state.heartY) * 1.5 - Math.abs(dist - core * 0.9) * 0.6;
@@ -695,7 +734,10 @@ public final class Parcels {
 			District.Kind d = f.districtKind(ctx, k);
 			if (d != null) {
 				boolean home = req.info.category() == ArchetypeCategory.HOUSING && req.station != null;
-				s += d == req.district ? (home ? 40 : 18) : d == District.Kind.FARMS && req.info.category() != ArchetypeCategory.FARM ? -25 : 0;
+				// a quarter draws its own homes near the town, not out along its roads to the horizon (a quarter's cell
+				// runs on outward without end): the pull fades from 1.6 to 2.6 core radii out
+				double pull = home ? Math.max(0, Math.min(1, 2.6 - dist / Math.max(1, core))) : 1;
+				s += d == req.district ? (home ? 40 * pull : 18) : d == District.Kind.FARMS && req.info.category() != ArchetypeCategory.FARM ? -25 : 0;
 				// the hill and the castle are kept for the gentry and the lord; the poor quarter is not where others build homes
 				if (req.info.category() == ArchetypeCategory.HOUSING && d != req.district) {
 					s -= d == District.Kind.RICH || d == District.Kind.CASTLE ? (home ? 40 : 22)
@@ -777,7 +819,7 @@ public final class Parcels {
 			if (ctx.state.layout.dense) {
 				tf *= 0.6;
 			}
-			if (ctx.state.layout.expansive) {
+			if (Grid.expansive(ctx)) {
 				tf = Math.min(1, tf + 0.2);
 			}
 		} else if (info.category() == ArchetypeCategory.FARM) {
@@ -875,8 +917,8 @@ public final class Parcels {
 			return false;
 		}
 		p.zone = zone;
-		boolean attachable = info.flags().contains(SiteFlag.ATTACHABLE) && (zone == 0 || ctx.state.layout.dense && zone <= 1);
-		p.gap = req.gap >= 0 ? req.gap : attachable ? 0 : Math.max(info.category() == ArchetypeCategory.FARM ? 1 : 0, ctx.state.layout.gap(zone));
+		boolean attachable = Housing.terraced(ctx, info, zone, ctx.state.graph.edge(p.edge).role);
+		p.gap = req.gap >= 0 ? req.gap : attachable ? 0 : Math.max(info.category() == ArchetypeCategory.FARM ? 1 : 0, Grid.gap(ctx, zone));
 		p.backGap = info.category() == ArchetypeCategory.HOUSING && zone >= 1 && req.gap != 0 ? 1 : 0;
 		if (!sidesClear(occ, p, p.gap, p.backGap)) {
 			return false;
@@ -947,7 +989,7 @@ public final class Parcels {
 				}
 			}
 			if (!fits) {
-				boolean terraces = req.allowTerrace && (ctx.state.layout.terraces || hillside || relief <= tol + 3);
+				boolean terraces = req.allowTerrace && (Grid.terraces(ctx) || hillside || relief <= tol + 3);
 				int needed = Math.max(cut, fill);
 				if (!terraces || needed > ctx.config.terraceMaxHeight() || info.category() == ArchetypeCategory.FARM && !hillside
 					&& needed > ctx.config.terraceMaxHeight() - 2) {
@@ -1279,7 +1321,7 @@ public final class Parcels {
 		s -= (p.hi - p.lo) * 0.8;
 		s -= p.doorGap * 4;
 		if (p.terrace) {
-			s -= ctx.state.layout.terraces ? 3 : 10;
+			s -= Grid.terraces(ctx) ? 3 : 10;
 		}
 		if ((p.cornerLeft || p.cornerRight)) {
 			ArchetypeCategory c = req.info.category();

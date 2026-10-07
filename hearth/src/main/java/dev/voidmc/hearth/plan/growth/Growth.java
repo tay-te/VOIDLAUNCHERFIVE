@@ -321,7 +321,9 @@ public final class Growth {
 	/** Plans one of the program's buildings, as its entry says. */
 	static boolean program(PlanContext c, Program.Entry e, ArchetypeInfo info) {
 		Identifier id = info.id();
-		Lots.release(c, e.id());
+		if (Lots.build(c, e, info)) {
+			return true;
+		}
 		if (id.equals(Archetypes.CHAPEL)) {
 			return Landmarks.chapel(c, info, "faith: the village raises its chapel on the rise");
 		}
@@ -438,7 +440,7 @@ public final class Growth {
 		boolean grew = false;
 		// in town, make room near the heart (a new lane) rather than settle far out along a main road
 		if (p != null && wantsCentre(placement) && ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) > ctx.coreRadius() * reach(placement)
-			&& !ctx.state.layout.expansive) {
+			&& !Grid.expansive(ctx)) {
 			if (Expand.town(ctx)) {
 				grew = true;
 				Parcels.Parcel q = Parcels.best(ctx, req, null);

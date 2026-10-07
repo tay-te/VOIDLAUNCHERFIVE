@@ -105,13 +105,19 @@ class TownFormTest {
 			LayoutChooser.FORCED.remove();
 		}
 		System.out.println(report(culture + " " + terrain + " s" + seed, sim));
+		if (Boolean.getBoolean("hearth.townform.map")) {
+			System.out.println(map(sim, 90));
+		}
 	}
 
 	/** The town's form, one paragraph. */
 	static String report(String name, MiniSim sim) {
 		PlanState st = sim.settlement.data(PlanModule.STATE);
 		int pop = sim.settlement.population();
-		double core = Math.max(18, st.layout.coreScale * Math.sqrt(Math.max(6, pop)));
+		// as PlanContext.coreRadiusAt: a farmsteads settlement past village tier keeps a crossroads town's core
+		double scale = st.layout.expansive && pop >= dev.voidmc.hearth.api.SettlementTier.VILLAGE.minPopulation ? LayoutType.CROSSROADS.coreScale
+			: st.layout.coreScale;
+		double core = Math.max(18, scale * Math.sqrt(Math.max(6, pop)));
 		int hx = st.heartX;
 		int hz = st.heartZ;
 		List<PlotView> plots = new ArrayList<>(sim.settlement.plots());
@@ -221,6 +227,41 @@ class TownFormTest {
 			summit = String.format(Locale.ROOT, "summit +%d at %d, nearest mark %d", st.site.summitY() - st.heartY,
 				(int) Math.hypot(st.site.summitX() - hx, st.site.summitZ() - hz), (int) best);
 		}
+		// what stands in the core's inner half (zone 0): the street fabric by archetype
+		java.util.Map<String, Integer> census = new java.util.TreeMap<>();
+		for (PlotView p : plots) {
+			PlotSpec s = p.spec();
+			if (Archetypes.isLinear(s.archetype()) || s.archetype().equals(Archetypes.TERRACE)) {
+				continue;
+			}
+			double d = Math.hypot(s.origin().getX() + s.sizeX() / 2.0 - hx, s.origin().getZ() + s.sizeZ() / 2.0 - hz);
+			if (d < core * 0.55) {
+				census.merge(s.archetype().getPath().substring(s.archetype().getPath().indexOf('/') + 1), 1, Integer::sum);
+			}
+		}
+		java.util.Map<String, Integer> kinds = new java.util.TreeMap<>();
+		for (PlotView p : plots) {
+			ArchetypeInfo info = HearthServices.blueprints().archetype(p.spec().archetype());
+			kinds.merge(Archetypes.isLinear(p.spec().archetype()) ? p.spec().archetype().getPath() : info == null ? "?" : info.category().name().toLowerCase(Locale.ROOT),
+				1, Integer::sum);
+		}
+		java.util.Map<String, List<Integer>> homeAt = new java.util.TreeMap<>();
+		for (PlotView p : plots) {
+			ArchetypeInfo info = HearthServices.blueprints().archetype(p.spec().archetype());
+			if (info != null && info.category() == ArchetypeCategory.HOUSING) {
+				PlotSpec s = p.spec();
+				homeAt.computeIfAbsent(s.archetype().getPath().substring(6) + "/" + s.params().getStringOr("station", "-"), k -> new ArrayList<>())
+					.add((int) Math.hypot(s.origin().getX() + s.sizeX() / 2.0 - hx, s.origin().getZ() + s.sizeZ() / 2.0 - hz));
+			}
+		}
+		StringBuilder inner = new StringBuilder(kinds.toString()).append("\n  homes (count@median distance): ");
+		homeAt.forEach((k, v) -> {
+			v.sort(Integer::compare);
+			inner.append(k).append(' ').append(v.size()).append('@').append(v.get(v.size() / 2)).append(", ");
+		});
+		inner.append("\n  inner: ");
+		census.entrySet().stream().sorted(java.util.Map.Entry.<String, Integer>comparingByValue().reversed()).limit(12)
+			.forEach(e -> inner.append(e.getKey()).append(' ').append(e.getValue()).append(", "));
 		long[] t = sim.callNanos.toLongArray();
 		Arrays.sort(t);
 		String time = t.length == 0 ? "no calls" : String.format(Locale.ROOT, "next median %.2f p90 %.2f max %.1f ms", t[t.length / 2] / 1e6,
@@ -229,11 +270,67 @@ class TownFormTest {
 			"%s %s: %d folk, %d plots, core r %d, square %d%n"
 				+ "  rows: %d/%d core attachable homes share a wall (%.0f %%); tall homes alone %d/%d; core mean side gap %.2f; homes %d (%d beyond the core), 90%% within %d%n"
 				+ "  marks: %s; %s; industry by marks %d%n"
-				+ "  farms %d (%.1f per 100 folk), %d in the belt past the houses; lamps %d; junction squares %d%n  %s",
+				+ "  farms %d (%.1f per 100 folk), %d in the belt past the houses; lamps %d; junction squares %d%n  core: %s%n  %s",
 			name, st.layout.getSerializedName(), pop, plots.size(), (int) core, st.plazaHalf * 2 + 1,
 			joined, attach, attach == 0 ? 0.0 : 100.0 * joined / attach, alone, tall, gapN == 0 ? 0.0 : gaps / gapN, homes, homesFar, (int) homeExtent,
 			String.join(", ", marks), summit, industryByMarks,
-			farms, 100.0 * farms / Math.max(1, pop), belt, lamps, junctions, time);
+			farms, 100.0 * farms / Math.max(1, pop), belt, lamps, junctions, inner, time);
+	}
+
+	/**
+	 * A text map of the plots round the heart, a character per column pair: roads {@code =}, the square and plazas {@code +},
+	 * homes {@code h} (attachable {@code H}), work {@code w}, farms {@code .}, civic and the rest by category initial.
+	 */
+	static String map(MiniSim sim, int r) {
+		PlanState st = sim.settlement.data(PlanModule.STATE);
+		int n = r;
+		char[][] g = new char[n][n];
+		for (char[] row : g) {
+			Arrays.fill(row, ' ');
+		}
+		int ox = st.heartX - r;
+		int oz = st.heartZ - r;
+		for (PlotView p : sim.settlement.plots()) {
+			PlotSpec s = p.spec();
+			ArchetypeInfo info = HearthServices.blueprints().archetype(s.archetype());
+			char c;
+			if (Archetypes.isLinear(s.archetype())) {
+				c = '=';
+			} else if (s.archetype().equals(Archetypes.PLAZA)) {
+				c = '+';
+			} else if (info == null) {
+				c = '?';
+			} else {
+				c = switch (info.category()) {
+					case HOUSING -> info.flags().contains(SiteFlag.ATTACHABLE) ? 'H' : 'h';
+					case WORKPLACE -> 'w';
+					case FARM -> '.';
+					default -> info.category().name().charAt(0);
+				};
+			}
+			if (Archetypes.isLinear(s.archetype())) {
+				int[] pts = s.params().getIntArray("points").orElse(new int[0]);
+				int w = s.params().getIntOr("width", 1);
+				dev.voidmc.hearth.plan.road.Polyline.corridor(pts, w, (x, z) -> put(g, (x - ox) / 2, (z - oz) / 2, '='));
+				continue;
+			}
+			for (int z = s.origin().getZ(); z < s.origin().getZ() + s.sizeZ(); z++) {
+				for (int x = s.origin().getX(); x < s.origin().getX() + s.sizeX(); x++) {
+					put(g, (x - ox) / 2, (z - oz) / 2, c);
+				}
+			}
+		}
+		StringBuilder b = new StringBuilder();
+		for (char[] row : g) {
+			b.append(new String(row)).append('\n');
+		}
+		return b.toString();
+	}
+
+	private static void put(char[][] g, int x, int z, char c) {
+		if (z >= 0 && z < g.length && x >= 0 && x < g[z].length && (g[z][x] == ' ' || c != '=')) {
+			g[z][x] = c;
+		}
 	}
 
 	private static int[] rect(PlotSpec s) {
