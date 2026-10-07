@@ -603,6 +603,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			tile.indices = mesh.indexCount();
 			tile.landIndices = mesh.landIndices();
 			tile.firstIndex = mesh.firstIndex();
+			tile.groups = mesh.groups();
 			tile.smooth = mesh.smooth();
 			tile.compact = mesh.compact();
 			tile.minY = mesh.minY();

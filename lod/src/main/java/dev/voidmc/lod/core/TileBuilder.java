@@ -227,7 +227,54 @@ public final class TileBuilder {
 		}
 		int land = this.pack ? this.waterLast() * 6 : indices;
 		this.out.flip();
-		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes, this.compact, land);
+		// a pack's mesh groups its land only: its water is drawn whole, through the pack's water program
+		int[] groups = smooth || this.vertices == 0 ? null : this.groupByFace(this.pack ? land / 6 : this.vertices / 4);
+		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes, this.compact, land,
+			groups);
+	}
+
+	/**
+	 * The order faces are grouped in ({@link #groupByFace}): north, west, up, east, south, down, so that from any side
+	 * of a tile the groups facing the camera are few runs: from the south-east, up, east and south are one.
+	 */
+	public static final int GROUP_NORTH = 0, GROUP_WEST = 1, GROUP_UP = 2, GROUP_EAST = 3, GROUP_SOUTH = 4, GROUP_DOWN = 5;
+	/** A blocky face (0 up, 2 north, 3 south, 4 west, 5 east, 6 down) to its group. */
+	private static final int[] FACE_GROUP = {GROUP_UP, GROUP_UP, GROUP_NORTH, GROUP_SOUTH, GROUP_WEST, GROUP_EAST, GROUP_DOWN, GROUP_UP};
+	/** Distant Horizons' normal numbers (down, up, north, south, west, east) as our faces. */
+	private static final int[] PACK_FACE = {6, 0, 2, 3, 4, 5, 0, 0};
+
+	/**
+	 * Sorts a blocky mesh's quads by the way they face, and returns where each group starts, in quads (seven entries,
+	 * the last the end): the renderer draws only the groups that can face the camera, and a wall facing away from it,
+	 * which is half the walls of most tiles and the walls are most of the quads, never reaches the GPU.
+	 */
+	private int[] groupByFace(int quads) {
+		int quadBytes = 4 * (this.compact ? COMPACT_BYTES : VERTEX_BYTES);
+		int[] group = new int[quads];
+		int[] starts = new int[7];
+		for (int q = 0; q < quads; q++) {
+			int face;
+			if (this.pack) {
+				// Distant Horizons' normals: down, up, north, south, west, east
+				face = PACK_FACE[this.out.get(q * quadBytes + 13) & 7];
+			} else if (this.compact) {
+				face = (this.out.getInt(q * quadBytes) >>> 14) & 7;
+			} else {
+				face = this.out.getShort(q * quadBytes + 6) & 7;
+			}
+			group[q] = FACE_GROUP[face];
+			starts[group[q] + 1]++;
+		}
+		for (int g = 1; g < 7; g++) {
+			starts[g] += starts[g - 1];
+		}
+		byte[] sorted = new byte[quads * quadBytes];
+		int[] next = java.util.Arrays.copyOf(starts, 6);
+		for (int q = 0; q < quads; q++) {
+			this.out.get(q * quadBytes, sorted, next[group[q]]++ * quadBytes, quadBytes);
+		}
+		this.out.put(0, sorted, 0, sorted.length);
+		return starts;
 	}
 
 	/**
@@ -529,11 +576,16 @@ public final class TileBuilder {
 	 * {@code holes}: a smooth mesh with void in it, which only the shader variant that discards can draw.
 	 */
 	public record Mesh(ByteBuffer vertices, int vertexCount, int indexCount, boolean smooth, int minY, int maxY, int firstIndex,
-		short[] occluders, boolean holes, boolean compact, int landIndices) {
+		short[] occluders, boolean holes, boolean compact, int landIndices, int[] groups) {
+		public Mesh(ByteBuffer vertices, int vertexCount, int indexCount, boolean smooth, int minY, int maxY, int firstIndex,
+			short[] occluders, boolean holes, boolean compact, int landIndices) {
+			this(vertices, vertexCount, indexCount, smooth, minY, maxY, firstIndex, occluders, holes, compact, landIndices, null);
+		}
+
 		/** The same mesh over other vertices: the copy handed to the renderer. */
 		public Mesh withVertices(ByteBuffer vertices) {
 			return new Mesh(vertices, this.vertexCount, this.indexCount, this.smooth, this.minY, this.maxY, this.firstIndex, this.occluders,
-				this.holes, this.compact, this.landIndices);
+				this.holes, this.compact, this.landIndices, this.groups);
 		}
 
 		/** Bytes a vertex of this mesh takes. */

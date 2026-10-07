@@ -243,6 +243,11 @@ a fraction of the cost.
     instance buffer and one `drawIndexedIndirect` per heap and kind of tile.
   * Only tiles in the seam with the chunks, or fading, use the shader variant with `discard`; the rest
     keep early-Z.
+  * Faces turned away are never drawn. Each blocky tile's quads are sorted by the way they face (north, west,
+    up, east, south, down: `TileBuilder.groupByFace`), and a wall's plane lies inside its tile, so from outside
+    a tile's span along an axis the walls facing away along it cannot be seen: the renderer draws only the runs
+    of groups that can face the camera, one to three commands a tile. Walls are about two thirds of a horizon's
+    quads; a third fewer quads reach the GPU. A shader pack's land is grouped and drawn the same way.
   * GPU time is measured with timestamp queries and logged with the other statistics.
 * **Shared depth** (`mixin/CameraMixin`). 26.3 renders reversed-Z into a 32-bit float buffer, so the far
   plane moves out to the LOD's reach for free. The LOD draws right after the opaque chunks, so every

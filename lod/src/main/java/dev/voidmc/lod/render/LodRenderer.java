@@ -178,6 +178,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private final boolean indirect;
 	private final boolean firstInstance;
 	private final int maxIndirect;
+	/** Whether faces that cannot face the camera are skipped ({@link #visibleRuns}); off only to compare. */
+	public static volatile boolean faceCulling = true;
 	/** Whether tiles hidden behind nearer land are skipped ({@link Horizon}); off only to compare. */
 	public static volatile boolean occlusion = Boolean.parseBoolean(System.getProperty("void.lod.occlusion", "true"));
 
@@ -195,6 +197,41 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		(float) (x0 - this.viewX), (float) (y0 - this.viewY), (float) (z0 - this.viewZ),
 		(float) (x1 - this.viewX), (float) (y1 - this.viewY), (float) (z1 - this.viewZ));
 	private final Matrix4f viewProjection = new Matrix4f();
+	/** This tile's groups of faces that can face the camera (scratch). */
+	private final boolean[] faceVisible = new boolean[6];
+
+	private interface Run {
+		void run(int firstQuad, int quads);
+	}
+
+	/**
+	 * The runs of a grouped tile's quads that can face the camera at (cx, cy, cz): a wall's plane lies inside the tile,
+	 * so walls facing north (toward -z) can be seen only from north of its far edge, and so on.
+	 */
+	private void visibleRuns(Tile tile, double cx, double cy, double cz, Run out) {
+		int[] faces = tile.groups;
+		int tx0 = TileKey.minX(tile.key), tz0 = TileKey.minZ(tile.key), span = TileKey.span(TileKey.level(tile.key));
+		boolean[] visible = this.faceVisible;
+		visible[TileBuilder.GROUP_NORTH] = cz < tz0 + span;
+		visible[TileBuilder.GROUP_SOUTH] = cz > tz0;
+		visible[TileBuilder.GROUP_WEST] = cx < tx0 + span;
+		visible[TileBuilder.GROUP_EAST] = cx > tx0;
+		visible[TileBuilder.GROUP_UP] = cy > tile.minY;
+		visible[TileBuilder.GROUP_DOWN] = cy < tile.maxY;
+		if (!faceCulling) {
+			java.util.Arrays.fill(visible, true);
+		}
+		int run = -1;
+		for (int g = 0; g <= 6; g++) {
+			boolean on = g < 6 && visible[g] && faces[g + 1] > faces[g];
+			if (on && run < 0) {
+				run = g;
+			} else if (!on && run >= 0) {
+				out.run(faces[run], faces[g] - faces[run]);
+				run = -1;
+			}
+		}
+	}
 	private final Matrix4f modelView = new Matrix4f();
 
 	// this frame's draws, grouped by heap and by pipeline variant; groups are kept from frame to frame
@@ -475,6 +512,10 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 				this.packFrame.add(((GlBuffer) heap).handle(), (int) (alloc.getOffsetFromHeap() / TileBuilder.VERTEX_BYTES), tile.landIndices,
 					tile.landIndices, tile.indices - tile.landIndices, TileKey.minX(tile.key) - cx, -TileBuilder.PACK_Y_OFFSET - cy,
 					TileKey.minZ(tile.key) - cz, nearest(tile.key, cx, cz));
+				if (tile.groups != null) {
+					this.packFrame.clearRuns();
+					this.visibleRuns(tile, cx, cy, cz, (first, quads) -> this.packFrame.addRun(first * 6, quads * 6));
+				}
 				maxQuads = Math.max(maxQuads, tile.quads);
 				this.lastQuads += tile.quads;
 				continue;
@@ -484,11 +525,23 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			this.ensureInstances(instance + 1);
 			this.instances.putInt(TileKey.minX(tile.key)).putInt(TileKey.minZ(tile.key)).putInt(level).putInt(this.inViewFade[c]);
 			int stride = tile.compact ? TileBuilder.COMPACT_BYTES : TileBuilder.VERTEX_BYTES;
-			group.add(tile.indices, tile.firstIndex, (int) (alloc.getOffsetFromHeap() / stride), instance);
+			int baseVertex = (int) (alloc.getOffsetFromHeap() / stride);
+			int[] faces = tile.groups;
+			if (faces == null) {
+				group.add(tile.indices, tile.firstIndex, baseVertex, instance);
+				this.lastQuads += tile.quads;
+			} else {
+				// only the faces that can be turned toward the camera: a wall's plane lies inside the tile, so walls facing
+				// north (toward -z) can be seen only from north of the tile's far edge, and so on
+				Group draws = group;
+				this.visibleRuns(tile, cx, cy, cz, (first, quads) -> {
+					draws.add(quads * 6, first * 6, baseVertex, instance);
+					this.lastQuads += quads;
+				});
+			}
 			if (!tile.smooth) {
 				maxQuads = Math.max(maxQuads, tile.quads);
 			}
-			this.lastQuads += tile.quads;
 		}
 		if (this.packMode) {
 			// the pack draws them: only the shared quad indices are needed, as GL handles

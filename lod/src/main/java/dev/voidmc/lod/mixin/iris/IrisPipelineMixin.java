@@ -17,4 +17,10 @@ public abstract class IrisPipelineMixin {
 	private void voidLod$water(CallbackInfo ci) {
 		PackLod.drawWater();
 	}
+
+	/** The pack's frame is finished: other mods may draw over it, against the far terrain's depth. */
+	@Inject(method = "finalizeLevelRendering", at = @At("RETURN"))
+	private void voidLod$finished(CallbackInfo ci) {
+		PackLod.frameFinished();
+	}
 }

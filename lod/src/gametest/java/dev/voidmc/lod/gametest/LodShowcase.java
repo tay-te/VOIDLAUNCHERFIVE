@@ -78,6 +78,8 @@ public class LodShowcase implements FabricClientGameTest {
 	 * default) and the LOD off, against the LOD from the usual render distance, compared band by band of distance.
 	 */
 	private static final boolean SEAM = Boolean.getBoolean("lod.show.seam");
+	/** Measures each view's GPU time with face culling on and off, alternating, in the same run (the GPU may be shared). */
+	private static final boolean FACE_COMPARE = Boolean.getBoolean("lod.show.faceCompare");
 	private static final int SEAM_FAR = Integer.getInteger("lod.show.seamFar", 24);
 	private static final long SEAM_SETTLE_MS = Long.getLong("lod.show.seamSettle", 300_000L);
 	private static final boolean MULTIPLAYER = Boolean.getBoolean("lod.show.mp");
@@ -313,6 +315,18 @@ public class LodShowcase implements FabricClientGameTest {
 				}
 				if (SEAM) {
 					this.seam(context, world.getServer(), spot);
+				}
+				if (FACE_COMPARE) {
+					double[] sum = new double[2];
+					for (int round = 0; round < 6; round++) {
+						boolean on = round % 2 == 0;
+						context.runOnClient(mc -> LodRenderer.faceCulling = on);
+						context.waitTicks(60);
+						double ms = context.computeOnClient(mc -> VoidLod.get().renderer().gpuMillis);
+						sum[on ? 0 : 1] += ms;
+					}
+					context.runOnClient(mc -> LodRenderer.faceCulling = true);
+					System.out.printf(Locale.ROOT, "[lod] faces %s: GPU %.2f ms with face culling, %.2f ms without%n", spot.name(), sum[0] / 3, sum[1] / 3);
 				}
 			}
 			if (SETTINGS && !spots.isEmpty()) {
