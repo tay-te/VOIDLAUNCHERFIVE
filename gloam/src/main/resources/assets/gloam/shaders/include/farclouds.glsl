@@ -50,7 +50,7 @@ float deckBase(vec4 s) {
 // How deep the clouds over a place can reach above its base: fair-weather heaps shallow, a fuller sky building them up,
 // a full overcast a flattish deck, showers and storms towering.
 float deckDepth(vec4 s) {
-    float depth = 55.0 + 110.0 * smoothstep(0.1, 0.7, s.x);
+    float depth = 70.0 + 110.0 * smoothstep(0.1, 0.7, s.x);
     depth = mix(depth, 95.0, 0.5 * smoothstep(0.88, 1.0, s.x));
     return mix(depth, max(FarLayer.y, depth), s.z);
 }
@@ -60,8 +60,17 @@ float deckDepth(vec4 s) {
 float cloud(vec2 rel, float y, vec4 s, bool detail, out float height) {
     float base = deckBase(s);
     float depth = deckDepth(s);
-    height = (y - base) / depth;
+    if (y < base - 1.0 || y > FarLayer.x + FarLayer.y) {
+        height = 0.0;
+        return 0.0;
+    }
     vec2 p = FarNoise.xy + rel;
+    // the shape noise first: where it is strong the cloud reaches higher, so heads billow up in heaps and towers rise
+    // in rounded turrets instead of to one flat lid
+    vec4 n = volume(vec3(p.x, y * 2.0, p.y) / SHAPE_TILE);
+    // the billowy shape, and the same sample's cellular noise breaking a long bank into separate heaps
+    float shape = n.r * 0.58 + n.g * 0.42;
+    height = (y - base) / (depth * mix(0.6, 1.2, shape));
     // A storm's anvil: a flat sheet spreading at the top of the towers, wider than the tower under it (the front's
     // wetter ring), so the column flares out at its head.
     float anvilBase = FarLayer.x + 0.72 * FarLayer.y, anvilDepth = 0.16 * FarLayer.y;
@@ -77,14 +86,13 @@ float cloud(vec2 rel, float y, vec4 s, bool detail, out float height) {
     // The height profile: a quick flat-bottomed start, a rounded head; a tower keeps its girth higher up.
     float hh = clamp(height, 0.0, 1.0);
     float profile = smoothstep(0.0, 0.08, hh) * smoothstep(1.0, mix(0.5, 0.82, s.z), hh);
-    vec4 n = volume(vec3(p.x, y * 1.4, p.y) / SHAPE_TILE);
     // the cover decides how much of the shape noise is cloud: some of its tops under a clear front, all of it under an
     // overcast; and a cloud's girth narrows toward its head
     float coverage = max(s.x * profile, anvil);
-    float d = remap01(n.r, 1.0 - coverage, 1.0) * max(profile, anvil);
+    float d = remap01(shape, 1.0 - coverage, 1.0) * max(profile, anvil);
     if (detail && d > 0.0) {
         // erode the edges into billows: the detail noise rising with height, so bases are wispy and heads round
-        vec4 e = volume(vec3(p.x, y * 1.2, p.y) / DETAIL_TILE + vec3(FarCamera.y * 0.002, 0.0, 0.0));
+        vec4 e = volume(vec3(p.x, y * 1.6, p.y) / DETAIL_TILE + vec3(FarCamera.y * 0.002, 0.0, 0.0));
         float billows = e.g * 0.625 + e.b * 0.25 + e.a * 0.125;
         float erode = mix(1.0 - billows, billows, smoothstep(0.1, 0.6, hh));
         d = remap01(d, erode * 0.28, 1.0);

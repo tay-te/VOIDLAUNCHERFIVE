@@ -17,9 +17,25 @@ layout(location = 0) out vec4 fragColor;
 void main() {
     vec2 size = vec2(textureSize(FarClouds, 0));
     vec2 uv = gl_FragCoord.xy / (size * 2.0);
-    vec2 o = 0.5 / size;
-    vec4 c = 0.25 * (texture(FarClouds, uv + vec2(-o.x, -o.y)) + texture(FarClouds, uv + vec2(o.x, -o.y))
-        + texture(FarClouds, uv + vec2(-o.x, o.y)) + texture(FarClouds, uv + vec2(o.x, o.y)));
+    // Nine taps over the half-size texels round the pixel; the march's dither leaves some rays that slipped through a
+    // cloud (or saw the sun through a gap), so taps far from the neighbourhood's coverage are left out, then the rest
+    // averaged: a filter that keeps edges and takes the specks out.
+    vec4 taps[9];
+    float mean = 0.0;
+    for (int i = 0; i < 9; i++) {
+        vec2 o = vec2(float(i % 3 - 1), float(i / 3 - 1)) / size;
+        taps[i] = texture(FarClouds, uv + o);
+        mean += taps[i].a;
+    }
+    mean /= 9.0;
+    vec4 c = vec4(0.0);
+    float weight = 0.0;
+    for (int i = 0; i < 9; i++) {
+        float w = (i == 4 ? 2.0 : 1.0) * (1.0 - smoothstep(0.12, 0.3, abs(taps[i].a - mean)));
+        c += taps[i] * w;
+        weight += w;
+    }
+    c = weight > 0.0 ? c / weight : taps[4];
     if (c.a < 0.003) {
         discard;
     }

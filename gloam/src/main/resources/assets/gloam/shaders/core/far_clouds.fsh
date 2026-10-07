@@ -19,9 +19,12 @@ float phase(float cosine, float g) {
     return (1.0 - g2) / (4.0 * 3.14159265 * pow(1.0 + g2 - 2.0 * g * cosine, 1.5));
 }
 
-// Interleaved gradient noise: a dither whose neighbours differ as much as they can, so the composite's blur takes it out.
+// White noise from the pixel: the march's offset (a structured dither drew fine stripes over far towers, where a
+// stride is wider than the details); the composite's blur takes most of the grain out.
 float dither(vec2 p) {
-    return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
+    vec3 q = fract(vec3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
 }
 
 void main() {
@@ -72,7 +75,7 @@ void main() {
         float height;
         float d = cloud(rel, deckBase(s) + 0.4 * deckDepth(s), s, false, height);
         float a = smoothstep(0.0, 0.35, d) * 0.92;
-        light = (sun * 0.6 + skyLight * 0.55) * a;
+        light = mix(sun * 0.6 + skyLight * 0.55, FogColor.rgb, (1.0 - exp(-tm / FarAnchor.w)) * 0.8) * a;
         weighted = tm * a;
         transmit = 1.0 - a;
     }
@@ -84,13 +87,16 @@ void main() {
     float t = t0 + max(20.0, t0 * 0.03) * jitter;
     bool inside = false;
     int misses = 0;
-    for (int i = 0; i < 90 && t < t1; i++) {
-        float stride = inside ? clamp(t * 0.016, 8.0, 160.0) : max(20.0, t * 0.03);
+    float chord = t1 - t0;
+    for (int i = 0; i < 96 && t < t1; i++) {
+        // (never so short that the march runs out of steps before the far side of the slab: a storm 12 km off stands
+        // at the end of a long chord)
+        float stride = inside ? max(clamp(t * 0.016, 8.0, 160.0), chord / 160.0) : max(clamp(t * 0.022, 16.0, 220.0), chord / 70.0);
         vec3 p = dir * t;
         float y = cameraY + p.y;
         vec4 s = skyAt(p.xz);
         float height;
-        bool near = t < 3500.0;
+        bool near = t < 3000.0;
         // a clear bubble round the camera: clouds thin away as it flies into them
         float d = cloud(p.xz, y, s, near, height) * smoothstep(24.0, 96.0, t);
         if (d > 0.002) {
@@ -100,24 +106,22 @@ void main() {
                 continue;
             }
             misses = 0;
-            // the sun's light reaching this point: two samples toward it through the cloud
-            float toward = 0.0;
-            float lengths[2] = float[2](30.0, 110.0);
-            float along = 0.0;
-            for (int k = 0; k < 2; k++) {
-                float len = lengths[k];
-                vec3 q = p + toSun * (along + len * 0.5);
-                float hq;
-                toward += cloud(q.xz, cameraY + q.y, skyAt(q.xz), false, hq) * len;
-                along += len;
-            }
-            float beer = exp(-SIGMA * 0.8 * toward);
+            // the sun's light reaching this point: one sample of the cloud a way toward it (the sky there taken as here's)
+            vec3 q = p + toSun * 50.0;
+            float hq;
+            float toward = cloud(q.xz, cameraY + q.y, s, false, hq) * 100.0;
+            // and the cloud above shading its own underside
+            float beer = exp(-SIGMA * 0.8 * toward) * mix(0.35, 1.0, smoothstep(0.0, 0.7, height));
             // the dark of a cloud's inside lifts toward its edges (light scattered many times)
             float powder = 1.0 - exp(-2.0 * SIGMA * d * 40.0);
             float shadeBase = mix(0.55, 0.3, s.y);
             vec3 ambient = skyLight * mix(shadeBase, 1.0, smoothstep(0.0, 1.0, height));
             vec3 col = sun * beer * mix(1.0, scatter, 0.6) * (0.5 + 0.5 * powder) * 1.2 + ambient * 0.62;
             float a = 1.0 - exp(-SIGMA * d * stride);
+            // Aerial perspective, sample by sample: the air between pales a far cloud into the horizon's colour, so a
+            // tower 10 km off is a bluish-grey mass rather than white (worked out per sample, a ray that slips through
+            // a near wisp to a far cloud does not turn into a bright speck)
+            col = mix(col, FogColor.rgb, (1.0 - exp(-t / FarAnchor.w)) * 0.8);
             light += transmit * a * col;
             weighted += transmit * a * t;
             transmit *= 1.0 - a;
@@ -136,11 +140,8 @@ void main() {
         return;
     }
     vec3 color = light / alpha;
-    // Aerial perspective: the air between pales a far cloud into the horizon's colour, so a tower 10 km off is a
-    // bluish-grey mass rather than white; and the deck fades out before the far air's edge.
+    // the deck fades out before the far air's edge
     float dist = weighted / alpha;
-    float haze = 1.0 - exp(-dist / FarAnchor.w);
-    color = mix(color, FogColor.rgb, haze * 0.8);
     alpha *= (1.0 - smoothstep(0.7 * reach, reach, dist)) * min(1.0, FarCloudColor.a * 1.25);
     fragColor = vec4(color * alpha, alpha);
 }
