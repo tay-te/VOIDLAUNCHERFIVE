@@ -398,7 +398,7 @@
 			},
 			"base_weight": 2,
 			"variants": [
-				{"name": "grey stone", "w": 1.2, "roles": {
+				{"name": "grey stone", "w": 1.2, "when": {"not": {"archetypes": ["noble/castle", "noble/keep"]}}, "roles": {
 					"wall": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 0.8, "low": 2, "north": 1.5}],
 					"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 1}],
 					"wall_accent": ["minecraft:polished_andesite"], "window": ["minecraft:stone_bricks"],
