@@ -795,8 +795,12 @@ public final class SimWorld implements HearthWorld, SimContext {
 		if (this.fastForward) {
 			// a fast-forward holds the server thread, so a survey made off it could not merge before the spell ends and the
 			// town would grow all of it without its land: no workings, no carrying capacity (requests/w5-tour.md §3)
+			long t0 = System.nanoTime();
 			Lands.surveyNow(s, this);
 			land.setSurveying(false);
+			// (counted with the others: the stats line's average is every survey's)
+			this.surveyNanos.add(System.nanoTime() - t0);
+			this.surveys++;
 			return;
 		}
 		if (land.isSurveying()) {
@@ -887,7 +891,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 
 	/** Surveys run, felling and caravans this session, for {@code /hearth sim stats} and the harness. */
 	public String landStats() {
-		return String.format(java.util.Locale.ROOT, "%d surveys (%.1f ms avg, off-thread); %s; %s", this.surveys,
+		return String.format(java.util.Locale.ROOT, "%d surveys (%.1f ms avg, off-thread but in a fast-forward); %s; %s", this.surveys,
 			this.surveys == 0 ? 0 : this.surveyNanos.sum() / 1e6 / this.surveys, this.woodcutter.describe(), this.caravans.describe());
 	}
 

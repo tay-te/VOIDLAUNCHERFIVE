@@ -551,8 +551,16 @@ public final class Roads {
 			return null;
 		}
 		ctx.routed = true;
-		// searched from the site toward the heart, ending at the first road it reaches
-		int[][] path = Router.route(ctx.ground, ctx.occ, tx, tz, ctx.heartX(), ctx.heartZ(), params);
+		// searched from the site toward the heart, ending at the first road it reaches (a live call's search stops at its
+		// deadline: nothing is remembered of a route not found, and the need is tried again)
+		long[] deadline = Router.DEADLINE.get();
+		deadline[0] = ctx.deadline;
+		int[][] path;
+		try {
+			path = Router.route(ctx.ground, ctx.occ, tx, tz, ctx.heartX(), ctx.heartZ(), params);
+		} finally {
+			deadline[0] = Long.MAX_VALUE;
+		}
 		if (path == null || path[0].length < 3) {
 			return null;
 		}

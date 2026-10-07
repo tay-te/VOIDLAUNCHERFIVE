@@ -136,6 +136,59 @@ class RealGrowthTest {
 	}
 
 	/**
+	 * A town with rock and ore in reach keeps an excavation open (staked out or being cut) on most days once it works its
+	 * land (requests/w7-tour.md §3: across 71 settlements live one excavation was open, every other worked out, and the
+	 * diggers did abstract work by their pits): a working dug out no longer counts for the program while the town wants
+	 * its goods, so the next is opened beside it or at the next site.
+	 */
+	@Test
+	void aTownKeepsAnExcavationOpen() {
+		GrowthHarness h = GrowthHarness.found(System.getenv().getOrDefault("HEARTH_DIG_TERRAIN", "slope"), Long.parseLong(System.getenv().getOrDefault("HEARTH_DIG_SEED", "3")), true);
+		dev.voidmc.hearth.plan.PlanStats.everyCall = true;
+		dev.voidmc.hearth.plan.PlanStats.reset();
+		int first = -1;
+		for (int d = 1; d <= 400 && first < 0; d++) {
+			h.day();
+			if (digs(h, false) > 0) {
+				first = d;
+			}
+		}
+		java.util.Map<String, Integer> kinds = new java.util.TreeMap<>();
+		for (var site : h.town.land().sites()) {
+			kinds.merge(site.kind().getSerializedName() + "@" + (int) site.distanceTo(h.town.center()) / 50 * 50, 1, Integer::sum);
+		}
+		dev.voidmc.hearth.plan.PlanStats.everyCall = false;
+		assertTrue(first > 0, "the town opens a working: " + h.town.population() + " souls, sites " + kinds + "\n"
+			+ String.join("\n", dev.voidmc.hearth.plan.PlanStats.lines()));
+		int days = 200;
+		int open = 0;
+		int before = digs(h, false);
+		for (int d = 0; d < days; d++) {
+			h.day();
+			if (digs(h, true) > 0) {
+				open++;
+			}
+		}
+		int after = digs(h, false);
+		System.out.println(String.format("first working on day %d; over %d days after it an excavation open on %d, workings %d -> %d; %d souls",
+			first, days, open, before, after, h.town.population()));
+		assertTrue(open >= days * 0.7, "an excavation open on " + open + " of " + days + " days (workings " + before + " -> " + after + ", "
+			+ h.town.population() + " souls)");
+	}
+
+	/** The town's quarry pits, mines, shafts, clay and sand pits: all, or only those staked out or being cut. */
+	private static int digs(GrowthHarness h, boolean openOnly) {
+		int n = 0;
+		for (SimPlot p : h.town.plots()) {
+			if (dev.voidmc.hearth.plan.resource.Extraction.digsOut(p.spec().archetype())
+				&& (!openOnly || p.state() == dev.voidmc.hearth.api.PlotState.PLANNED || p.state() == dev.voidmc.hearth.api.PlotState.BUILDING)) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/**
 	 * The same town stepped a day at a time, as a history ages a town nobody has seen and a fast-forward catches one up,
 	 * with the clock's own coin as histories keep: it grows on through its second hundred days instead of settling for
 	 * good on a stage whose goods are eaten, struck or burned overnight before its builders come for them (it sat at 79

@@ -32,7 +32,8 @@ import org.jspecify.annotations.Nullable;
  * the ore lies under flat ground), clay and sand pits on its banks, woodlots and the logging camp at its woods, the salt
  * works on its pans — each on a resource site from the survey, at the end of a cart track out from the town, with the
  * site, its kind, the host rock, how deep or how far the cuts reach and which way the face advances as params (§8.5).
- * When a working is dug out (built: all its stages cut) and the site still holds something, another may open there.
+ * When a working is dug out (built: all its stages cut) and the town still wants its goods, the next opens beside it on
+ * the same site while the site holds something, else at the next site ({@link #counted}).
  */
 public final class Extraction {
 	/** Extraction plots (and site-bound workplaces) at one site at once. */
@@ -62,6 +63,80 @@ public final class Extraction {
 			return ResourceSite.Kind.SALT;
 		}
 		return null;
+	}
+
+	/**
+	 * Whether a working of this archetype is dug out for good once built (a quarry pit, a mine or shaft, a clay or sand pit),
+	 * so the next is opened when it is: not a logging camp, woodlot or salt works, which keep working where they stand.
+	 */
+	public static boolean digsOut(Identifier id) {
+		ResourceSite.Kind kind = kind(id);
+		return kind != null && kind != ResourceSite.Kind.WOODS && kind != ResourceSite.Kind.SALT;
+	}
+
+	/** {@code -Dhearth.dev.plan.reopen=false}: workings dug out still count, as before wave 7 (to compare). */
+	static final boolean REOPEN = !"false".equals(System.getProperty("hearth.dev.plan.reopen"));
+
+	/** The archetypes counted together with this one (a mine and a shaft both work the ore). */
+	private static boolean sameWork(Identifier a, Identifier b) {
+		return a.equals(b) || (a.equals(Archetypes.MINE) || a.equals(Archetypes.SHAFT)) && (b.equals(Archetypes.MINE) || b.equals(Archetypes.SHAFT));
+	}
+
+	/**
+	 * How many of a program entry's workings the town has for its count: all of them, standing or not, except that a
+	 * working dug out (built) no longer counts while the town still wants what it gave and its sites hold more: then the
+	 * next is opened, at the same site beside the old cut (a new bench, a new face, a wider pit) or at the next site, so a
+	 * town always has a face being cut for its diggers (requests/w7-tour.md §3: one excavation open across 71 settlements,
+	 * every other worked out and nothing reopening them). {@code have} is the needs' count of the archetype itself.
+	 */
+	public static int counted(PlanContext ctx, Identifier id, int have) {
+		if (!REOPEN || !digsOut(id) || !ctx.config.living().extraction()) {
+			return have;
+		}
+		int open = 0;
+		int out = 0;
+		for (PlotView p : ctx.settlement.plots()) {
+			if (!sameWork(id, p.spec().archetype()) || p.state() == PlotState.DEMOLISHING) {
+				continue;
+			}
+			if (p.state() == PlotState.BUILT) {
+				out++;
+			} else if (p.state() != PlotState.ABANDONED) {
+				open++;
+			}
+		}
+		for (QueuedProject q : ctx.state.queue) {
+			if (sameWork(id, q.spec().archetype())) {
+				open++;
+			}
+		}
+		if (out == 0 || !wanted(ctx, id)) {
+			return Math.max(have, open);
+		}
+		return open;
+	}
+
+	/**
+	 * Whether the town still draws on what a working gives: its stores of the goods (stone, ore, clay, sand) are under what a
+	 * town of its size keeps in hand. A town sitting on a mountain of rubble opens no new pit.
+	 */
+	public static boolean wanted(PlanContext ctx, Identifier id) {
+		ResourceSite.Kind kind = kind(id);
+		if (kind == null) {
+			return false;
+		}
+		dev.voidmc.hearth.api.Goods goods = switch (kind) {
+			case STONE -> dev.voidmc.hearth.api.Goods.STONE;
+			case ORE -> dev.voidmc.hearth.api.Goods.ORE;
+			case CLAY -> dev.voidmc.hearth.api.Goods.CLAY;
+			case SAND -> dev.voidmc.hearth.api.Goods.SAND;
+			default -> null;
+		};
+		if (goods == null) {
+			return false;
+		}
+		int keep = goods == dev.voidmc.hearth.api.Goods.STONE ? 400 + 4 * ctx.population : 160 + 2 * ctx.population;
+		return ctx.settlement.stockpile().get(goods) < keep;
 	}
 
 	/** Whether the town has a site in reach for this archetype that is not being worked by one already. */
@@ -366,7 +441,8 @@ public final class Extraction {
 		for (int z = a.minZ(); z <= a.maxZ(); z += step) {
 			for (int x = a.minX(); x <= a.maxX(); x += step) {
 				double d = ctx.distanceToHeart(x, z);
-				if (d < minD || g.isWater(x, z)) {
+				if (d < minD || g.isWater(x, z) || !dev.voidmc.hearth.plan.grid.Cell.isBuildable(ctx.occ.get(x, z))) {
+					// (not where an old working has cut already: the next bench opens on the rock beside it)
 					continue;
 				}
 				double toCentre = Math.hypot(x - sx, z - sz);
@@ -412,7 +488,7 @@ public final class Extraction {
 		int step = Math.max(6, Math.min(a.getXSpan(), a.getZSpan()) / 6);
 		for (int z = a.minZ(); z <= a.maxZ(); z += step) {
 			for (int x = a.minX(); x <= a.maxX(); x += step) {
-				if (g.isWater(x, z) || ctx.distanceToHeart(x, z) < minD) {
+				if (g.isWater(x, z) || ctx.distanceToHeart(x, z) < minD || !dev.voidmc.hearth.plan.grid.Cell.isBuildable(ctx.occ.get(x, z))) {
 					continue;
 				}
 				for (Direction up : Direction.Plane.HORIZONTAL) {

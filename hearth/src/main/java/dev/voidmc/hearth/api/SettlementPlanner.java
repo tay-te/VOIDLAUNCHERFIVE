@@ -28,6 +28,14 @@ public interface SettlementPlanner {
 	 */
 	@Nullable GrowthProject next(Settlement settlement, TerrainProbe terrain, RandomSource random);
 
+	/**
+	 * Whether the last {@link #next} for this settlement answered nothing only because it ran out of its time (a live
+	 * call's limit), not because nothing was wanted or nothing fit: the sim may ask again soon instead of waiting.
+	 */
+	default boolean ranOutOfTime(Settlement settlement) {
+		return false;
+	}
+
 	record FoundingContext(Settlement settlement, BlockPos center, TerrainProbe terrain, RandomSource random) {
 	}
 
