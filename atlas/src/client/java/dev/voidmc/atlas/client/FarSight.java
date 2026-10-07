@@ -52,6 +52,16 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public final class FarSight {
 	public static final String LOD_MOD = "void_lod";
+	/**
+	 * Far sight's own writer: one low-priority thread, so a burst of tiles is written run after run instead of each run
+	 * waiting behind the workers' chunk and image jobs (and never holds a worker the map needs).
+	 */
+	private static final java.util.concurrent.ScheduledExecutorService WRITER = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+		Thread t = new Thread(r, "Atlas far sight");
+		t.setDaemon(true);
+		t.setPriority(Thread.NORM_PRIORITY - 2);
+		return t;
+	});
 	public static final String LAYER = "far";
 	/**
 	 * The coarse far store: VOID LOD's 32- to 512-block cells, kept apart from walked land and the fine far layer, one
@@ -271,7 +281,7 @@ public final class FarSight {
 	private void drainLater(MapSession session) {
 		if (this.draining.compareAndSet(false, true)) {
 			try {
-				session.workers.execute(() -> this.drain(session));
+				WRITER.execute(() -> this.drain(session));
 			} catch (RuntimeException e) {
 				this.draining.set(false);
 			}
@@ -284,7 +294,7 @@ public final class FarSight {
 			// Light: far sight waits (LOD's tiles stay filed, the newest of each), and looks again in a second
 			this.draining.set(false);
 			try {
-				session.workers.schedule(() -> this.drainLater(session), 1, java.util.concurrent.TimeUnit.SECONDS);
+				WRITER.schedule(() -> this.drainLater(session), 1, java.util.concurrent.TimeUnit.SECONDS);
 			} catch (RuntimeException e) {
 				// closing
 			}
@@ -325,7 +335,7 @@ public final class FarSight {
 		}
 		if (backlogged && this.atlas.session() == session) {
 			try {
-				session.workers.schedule(() -> this.drainLater(session), 50, java.util.concurrent.TimeUnit.MILLISECONDS);
+				WRITER.schedule(() -> this.drainLater(session), 50, java.util.concurrent.TimeUnit.MILLISECONDS);
 			} catch (RuntimeException e) {
 				// closing
 			}
