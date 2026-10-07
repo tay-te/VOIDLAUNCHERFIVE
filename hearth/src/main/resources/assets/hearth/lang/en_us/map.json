@@ -1,4 +1,5 @@
 {
+  "hearth.map.layer.settlements": "Settlements",
   "hearth.map.layer.quests": "Quests",
   "hearth.map.subtitle": "HEARTH  ·  %s",
   "hearth.map.folk": "FOLK",

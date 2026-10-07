@@ -26,48 +26,78 @@ final class QuestHud implements HudElement {
 	private static final int WIDTH = 168;
 	private static final int MARGIN = 6;
 
-	@Override
-	public void extractRenderState(GuiGraphicsExtractor g, DeltaTracker delta) {
-		Minecraft mc = Minecraft.getInstance();
+	/** Where the panel is and what it shows, worked out the same way for drawing it and for telling a map its room. */
+	record Layout(QuestInstance q, List<FormattedCharSequence> title, List<Objective> open, boolean compass, int x, int y, int h) {
+		QuestHudHook.Rect rect() {
+			return new QuestHudHook.Rect(this.x - 3, this.y - 3, this.x + WIDTH + 3, this.y + this.h);
+		}
+	}
+
+	/** The panel as it is drawn now, or null when there is nothing to draw (no player, HUD hidden, no tracked quest). */
+	static Layout layout(Minecraft mc) {
 		LocalPlayer player = mc.player;
 		if (player == null || mc.gui.hud.isHidden()) {
-			return;
+			return null;
 		}
 		PlayerQuests pq = QuestStore.get(player);
 		if (pq.tracked == null) {
-			return;
+			return null;
 		}
 		QuestInstance q = pq.get(pq.tracked);
 		if (q == null) {
-			return;
+			return null;
 		}
 		Font font = mc.font;
 		int x = MARGIN + 3;
 		int y = MARGIN + 3;
-		List<FormattedCharSequence> title = font.split(Component.literal(q.text.title()), WIDTH - 26);
+		// a map that already points at the quest covers the mini-compass: the text then takes its place
+		boolean compass = !QuestHudHook.compassCovered();
+		List<FormattedCharSequence> title = font.split(Component.literal(q.text.title()), WIDTH - (compass ? 26 : 10));
 		List<Objective> open = q.currentObjectives();
 		int lines = Math.min(title.size(), 2) + (q.status == QuestStatus.READY ? 1 : Math.min(open.size(), 3));
-		int h = Math.max(28, 6 + lines * (font.lineHeight + 1) + 4);
+		int h = 6 + lines * (font.lineHeight + 1) + 4;
+		return new Layout(q, title, open, compass, x, y, compass ? Math.max(28, h) : h);
+	}
+
+	@Override
+	public void extractRenderState(GuiGraphicsExtractor g, DeltaTracker delta) {
+		Minecraft mc = Minecraft.getInstance();
+		Layout l = layout(mc);
+		if (l == null) {
+			return;
+		}
+		LocalPlayer player = mc.player;
+		QuestInstance q = l.q();
+		List<FormattedCharSequence> title = l.title();
+		List<Objective> open = l.open();
+		Font font = mc.font;
+		int x = l.x();
+		int y = l.y();
+		int h = l.h();
+		int tx = x + (l.compass() ? 20 : 4);
+		int textWidth = WIDTH - (l.compass() ? 22 : 6);
 		g.fill(x - 3, y - 3, x + WIDTH + 3, y + h, 0x70000000);
 		g.fill(x - 3, y - 3, x - 2, y + h, 0xC0E0B050);
 		g.fill(x + WIDTH + 2, y - 3, x + WIDTH + 3, y + h, 0x40E0B050);
 
 		BlockPos target = QuestUi.waypoint(q);
-		this.compass(g, font, player, target, x + 8, y + 7, delta.getGameTimeDeltaPartialTick(false));
+		if (l.compass()) {
+			this.compass(g, font, player, target, x + 8, y + 7, delta.getGameTimeDeltaPartialTick(false));
+		}
 		int ty = y;
 		for (int i = 0; i < title.size() && i < 2; i++) {
-			g.text(font, title.get(i), x + 20, ty, 0xFFFFD86B, true);
+			g.text(font, title.get(i), tx, ty, 0xFFFFD86B, true);
 			ty += font.lineHeight + 1;
 		}
 		ty += 2;
 		if (q.status == QuestStatus.READY) {
 			String back = Component.translatable("hearth.quest.hud.return", NoticeBoardScreen.cap(q.giver.name()), q.settlementName).getString();
-			g.text(font, font.plainSubstrByWidth(back, WIDTH - 22), x + 20, ty, 0xFF8EE08E, true);
+			g.text(font, font.plainSubstrByWidth(back, textWidth), tx, ty, 0xFF8EE08E, true);
 			return;
 		}
 		for (int i = 0; i < open.size() && i < 3; i++) {
 			String line = "• " + QuestUi.objectiveLine(open.get(i), player);
-			g.text(font, font.plainSubstrByWidth(line, WIDTH - 22), x + 20, ty, 0xFFE8E8E8, true);
+			g.text(font, font.plainSubstrByWidth(line, textWidth), tx, ty, 0xFFE8E8E8, true);
 			ty += font.lineHeight + 1;
 		}
 	}
