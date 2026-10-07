@@ -416,12 +416,22 @@ public final class MinimapHud {
 
 	/** The design's quiet note (atlas/quiet note): a small ring and a line in a pill. Returns the y under it. */
 	static float quietNote(Ui ui, String note, float x, float y, float w) {
-		float nw = Math.min(w, 26 + ui.width(note, Ui.Font.F11) + 14);
-		ui.panel(x, y, nw, 24, 12, Theme.ISLAND, Theme.HAIR_8);
+		// measured once per note, width and scale (it is drawn every frame while it shows)
+		Note n = lastNote;
+		if (n == null || !n.note.equals(note) || n.w != w || n.unit != ui.unit) {
+			n = new Note(note, w, ui.unit, ui.fit(note, Ui.Font.F11, w - 40), Math.min(w, 26 + ui.width(note, Ui.Font.F11) + 14));
+			lastNote = n;
+		}
+		ui.panel(x, y, n.width, 24, 12, Theme.ISLAND, Theme.HAIR_8);
 		ui.ring(x + 13, y + 12, 2.5F, 1.1F, Theme.INK_4);
-		ui.text(ui.fit(note, Ui.Font.F11, w - 40), x + 24, y + 5, Ui.Font.F11, Theme.INK_3);
+		ui.text(n.fitted, x + 24, y + 5, Ui.Font.F11, Theme.INK_3);
 		return y + 30;
 	}
+
+	private record Note(String note, float w, float unit, String fitted, float width) {
+	}
+
+	private static Note lastNote;
 
 	/**
 	 * Places sighted (and the tracked one) beyond the minimap's rim, as the design's edge markers: the hollow "?" tile

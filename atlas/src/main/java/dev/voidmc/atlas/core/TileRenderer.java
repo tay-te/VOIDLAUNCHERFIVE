@@ -63,7 +63,7 @@ public final class TileRenderer {
 
 	/** How far round a rectangle a mode reads (far land: its small gaps are filled from up to 2 chunks off, and its checker). */
 	public static int margin(Mode mode) {
-		return mode == Mode.FAR ? FAR_GAP + FAR_EDGE : MARGIN;
+		return mode == Mode.FAR ? FAR_GAP + FAR_DISSOLVE + 1 : MARGIN;
 	}
 
 	/** The far layer's edge checker: 8 px cells. */
@@ -71,6 +71,10 @@ public final class TileRenderer {
 	/** A gap in far land this wide or less (2 chunks), with far land on both sides, is filled from its neighbours. */
 	public static final int FAR_GAP = 32;
 	private int[] gapFrom = new int[0];
+	/** Far land's dissolve into unexplored land: this many blocks wide, an ordered dither in 4-block cells. */
+	public static final int FAR_DISSOLVE = 32;
+	private byte[] farDist = new byte[0];
+	private static final int[] BAYER4 = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
 
 	private final Looks looks;
 	private final Int2ObjectOpenHashMap<float[]> toned = new Int2ObjectOpenHashMap<>();
@@ -213,6 +217,7 @@ public final class TileRenderer {
 		}
 		if (mode == Mode.FAR) {
 			this.fillFarGaps(gw, gh);
+			this.farDistances(gw, gh);
 		}
 		RegionRaw centre = around[4];
 		int[] out = image.levelOrCreate(0);
@@ -360,17 +365,75 @@ public final class TileRenderer {
 	}
 
 	/**
-	 * A far pixel's coverage: whole, but where unexplored land lies within {@value #FAR_EDGE} px (looked at in 8 px
-	 * steps, the eight ways), the 8 px checker cells it falls on are left out: the edge steps out in a checker.
+	 * How far each far column is from unexplored land (blocks, the eight ways, capped past {@link #FAR_DISSOLVE}): a
+	 * two-pass distance transform over the grid, once a render.
+	 */
+	private void farDistances(int gw, int gh) {
+		int gn = gw * gh;
+		if (this.farDist.length < gn) {
+			this.farDist = new byte[gn];
+		}
+		int cap = FAR_DISSOLVE + 1;
+		byte[] d = this.farDist;
+		for (int gz = 0; gz < gh; gz++) {
+			for (int gx = 0; gx < gw; gx++) {
+				int g = gz * gw + gx;
+				if (!this.known[g]) {
+					d[g] = 0;
+					continue;
+				}
+				int v = cap;
+				if (gx > 0) {
+					v = Math.min(v, d[g - 1] + 1);
+				}
+				if (gz > 0) {
+					v = Math.min(v, d[g - gw] + 1);
+					if (gx > 0) {
+						v = Math.min(v, d[g - gw - 1] + 1);
+					}
+					if (gx < gw - 1) {
+						v = Math.min(v, d[g - gw + 1] + 1);
+					}
+				}
+				d[g] = (byte) v;
+			}
+		}
+		for (int gz = gh - 1; gz >= 0; gz--) {
+			for (int gx = gw - 1; gx >= 0; gx--) {
+				int g = gz * gw + gx;
+				int v = d[g];
+				if (v == 0) {
+					continue;
+				}
+				if (gx < gw - 1) {
+					v = Math.min(v, d[g + 1] + 1);
+				}
+				if (gz < gh - 1) {
+					v = Math.min(v, d[g + gw] + 1);
+					if (gx < gw - 1) {
+						v = Math.min(v, d[g + gw + 1] + 1);
+					}
+					if (gx > 0) {
+						v = Math.min(v, d[g + gw - 1] + 1);
+					}
+				}
+				d[g] = (byte) v;
+			}
+		}
+	}
+
+	/**
+	 * A far pixel's coverage: whole, but within {@value #FAR_DISSOLVE} blocks of unexplored land it dissolves into it, an
+	 * ordered dither in 4-block cells thinning towards the edge: no hard edge at any zoom, a hole in VOID LOD's cover
+	 * reads as land not seen yet.
 	 */
 	private int farCoverage(int g, int gw, int x, int z) {
-		int e = FAR_EDGE;
-		boolean edge = !this.known[g - e] || !this.known[g + e] || !this.known[g - e * gw] || !this.known[g + e * gw] || !this.known[g - e * gw - e]
-			|| !this.known[g - e * gw + e] || !this.known[g + e * gw - e] || !this.known[g + e * gw + e];
-		if (edge && ((x >> 3) + (z >> 3) & 1) != 0) {
-			return 0;
+		int d = this.farDist[g];
+		if (d > FAR_DISSOLVE) {
+			return 255;
 		}
-		return 255;
+		int cell = BAYER4[((z >> 2) & 3) * 4 + ((x >> 2) & 3)];
+		return d * 16 > cell * FAR_DISSOLVE + FAR_DISSOLVE / 2 ? 255 : 0;
 	}
 
 	/** A colour made quieter: far land 40% less saturated and 14% darker; a party member's at 50% saturation, 80% contrast. */
