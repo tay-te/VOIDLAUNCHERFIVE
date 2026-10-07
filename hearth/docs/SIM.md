@@ -801,6 +801,57 @@ tavern, an inn, a townhouse), a moorland hamlet's house left empty in a decline.
 (the city had nothing under way, the busiest other town finished what it had while the camera waited). No settlement opened a mine or any other working, so there is no mining town, miner or deep town to show
 (requests/w5-tour.md §3).
 
+### 17.1 Again after wave 6 (w7 live tour, 2026-10-07)
+
+The same tour on the wave 6 code (three runs of `LiveTown`, one of `BuilderTour`; requests/w7-tour.md has what it
+found for other modules). The tour now prints every scale town's souls by day, its workings and carpentries, the
+workings across the world, `PlanStats` (why `planner.next` answered nothing) in every report, and benches the six
+largest towns by plots with an hour step **one a server tick** (the clock's planner budget is one call a tick across
+the server, so the old bench, 200 steps in one tick, made one planner call per town). Photographs are 1600×900.
+
+| | w5 (before) | w7 (three runs) |
+|---|---|---|
+| world | 67–68 settlements, 5 748–5 869 souls, 14 567–14 852 plots | 71 settlements, 5 296–5 467 souls, ~14 900 plots |
+| the Bohemian town (Bradfield, patron, 400 days) | 29 souls from day 120 on, pop = beds, planner answers nothing | 22 / 60 / 114 / 256 / 552 / 624 souls on days 20 / 40 / 60 / 100 / 200 / 300; 659–729 at day 400, 1 125–1 202 plots; stops at the land's capacity (532–535, "every need resting", "program: no road could grow") |
+| scale towns with a patron (27, aged 30–200 days) | 205 souls avg, the large ones all stopped at 452 ± 15 | 141–148 avg; largest Herringquay 536–589, Wavestrand 336–460, Anchorcove 270–420 |
+| scale towns left alone (27) | 7 souls avg | 28–29 avg; temperate ones: 20 souls by day 45–60, Wilham 63 by day 120 and 88 by 194, Stanbrook 58 / Langdale 56 by day 131–138 |
+| workings | none in 67 settlements | in 47–48 of 55: quarry pits 43–45, logging camps 64–72, plantations 15–17, mines 7–10, shafts 6–11, clay pits 2–3 |
+| carpentries | 69 in a city of 441 | at most 6–7, in Bradfield (659–729 souls; the program asks 1 + pop / 120) |
+| **abstract, 60 s**: sim tick work | 0.28–0.32 ms avg, 38–77 ms max, 12–17 over 5 ms | 0.57–0.79 ms avg, 36–65 ms max, 33–41 over 5 ms |
+| whole server tick | 2.45–2.50 ms avg, 65–96 ms max, 1–4 over 50 ms | 2.79–3.84 ms avg, 84–134 ms max, 1–6 over 50 ms |
+| the clock alone | | 71–81 steps, 0.74–1.67 ms avg a step, worst 29–61 ms (growth, Anchorcove) |
+| planner `next`, live, abstract minute (2–4 calls) | median 20–41, p90 34–56, max 34–56 ms | median 20–33, max 29–61 ms (mostly "out of time") |
+| planner `next`, hour steps of the six largest towns, one a tick (46–349 calls a town) | 0–1 call a town | 2.7–4.5 ms a call on average where the town grows (3.2 in Herringquay, 319 calls), 6–9 ms where most calls end "out of time" (Anchorcove at 250 souls); per step with a call median 0.25–10.3, p90 6–11, max 11–95 ms |
+| planner `next`, live, whole tour (24–27 calls) | | median 1.5–5.2, p90 12.5–17.6, max 41–52 ms |
+| hour step of a city | 0.18–0.34 ms avg, max 2.8–28 ms | at capacity (Bradfield, Valdheim) 0.8–1.6 ms avg; growing (Herringquay, Wavestrand, Anchorcove 392–589 souls) 3.8–5.2 ms avg, of which 1.5–2.5 ms is not the planner |
+| **arrival, 30 s** (274 000–291 000 blocks, 1 125–1 202 plots): whole server tick | 10.6–12.9 ms avg, 155–267 ms max, 4–5 over 50 ms | 13.2–18.5 ms avg, 450–500 ms max, 7–26 over 50 ms |
+| applier | 1.4–1.7 ms/tick avg, 25–38 ms max | 1.8–2.2 ms/tick avg, 34–61 ms max, all written |
+| **embodied, next 30 s**: whole server tick | 7.7–10.9 ms avg, 86–95 ms max | 10.1–11.3 ms avg, 51–79 ms max |
+| folk (48 embodied) | 1.05–1.27 ms/tick, 22–27 µs a folk tick | 1.5–2.4 ms/tick, 32–50 µs a folk tick (64–93 while spawning) |
+| client frames | 191–321 fps over the city | 107–171 fps over a city half again as large |
+
+Why the planner answered nothing (`[plan]` lines, logged when a town's reason changes, all settlements over a run):
+every need resting 578; program: no road could grow (a lane mouth would not walk, the main streets built out) 158;
+beauty: no room 85; program: no frontage, roads at their budget 72; housing: no road could grow 69; densify: no room
+66; law: no room 51; program: the site lies under the town 50; out of time 46 (+40 program, +16 noble, …); food: no
+frontage and no road could grow 46; lots: no room 32; program: no plot fits at the site 31. Over the tour's own live
+calls (24–27): every need resting 7–8, the rest "out of time" in one need or another and one "no road could grow".
+
+The arrival's long ticks are still mostly vanilla's (chunk saving, entity collision as the city's animals wake) and the
+embodiment manager's first passes; the watchdog caught Hearth in `EmbodimentManager.placement/consider`,
+`SettlementStore.save` and the terrain probe a few times each.
+
+**Builders** (`BuilderTour`, a temperate cottage 11×9 going up with three to six builders, sampled each second for six
+minutes, builder-seconds on the site): raising scaffolding 883, taking it down 252, placing 42 (39 of them from the
+scaffold), fetching 102, walking 1: **89 % of the time on scaffolding, 3 % placing**. The cottage went from 42 % to
+73 % in about seven minutes.
+
+**Photographs** (scratchpad `w7tour/`): Bradfield from its approach road and from above, the market street (31–45 folk),
+the chapel (now a squat stone tower with a bulb cap), the cathedral, the night town and lit interiors (block light
+11–14), a worked-out quarry pit and a shaft head in Bradfield, the one excavation open in the world (Herringport's
+quarry in the taiga), builders on scaffolding. No digger was caught at a face in Bradfield: every working there is
+BUILT (worked out), and diggers with no open excavation go back to their old work ("quarrying" by the pit).
+
 ## 18. A town left alone (w6, requests/w5-tour.md §4)
 
 `RealGrowthTest` (`sim/settlement`, with `GrowthHarness`) founds a temperate town on synthetic ground with the real

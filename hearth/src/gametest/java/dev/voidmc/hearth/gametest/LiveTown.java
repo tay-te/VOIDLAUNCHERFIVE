@@ -228,7 +228,7 @@ public class LiveTown implements FabricClientGameTest {
 				patron(s);
 			}
 			nanos += w.simulate(s, Math.min(20, DAYS - d));
-			if (d % 100 == 0) {
+			if (d % 20 == 0) {
 				log(String.format(Locale.ROOT, "  day %d: %d souls, %s, %d plots %s", d + 20, s.population(), s.tier().getSerializedName(), s.plots().size(), s.plotCounts()));
 			}
 		}
@@ -284,12 +284,16 @@ public class LiveTown implements FabricClientGameTest {
 			int d = 30 + random.nextInt(171);
 			days += d;
 			boolean helped = PATRON && made.size() % 2 == 0;
+			StringBuilder series = new StringBuilder();
 			for (int k = 0; k < d; k += 20) {
 				if (helped) {
 					patron(s);
 				}
 				w.simulate(s, Math.min(20, d - k));
+				series.append(' ').append(Math.min(d, k + 20)).append(':').append(s.population());
 			}
+			log(String.format(Locale.ROOT, "scale town %s (%s, %s, %s): souls by day%s; %s; %s", s.name(), helped ? "patron" : "alone", s.culture().getSerializedName(),
+				s.tier().getSerializedName(), series, kinds(s), s.plotCounts()));
 			made.add(s.id());
 		}
 		int pop = 0;
@@ -306,6 +310,35 @@ public class LiveTown implements FabricClientGameTest {
 		}
 		log(String.format(Locale.ROOT, "scale: %d towns with a patron, %.1f souls avg; %d on their own, %.1f souls avg", helped[0], helped[1] / (double) Math.max(1, helped[0]),
 			alone[0], alone[1] / (double) Math.max(1, alone[0])));
+		// plot kinds over the whole world: workings opened, carpentries per town
+		Map<String, Integer> workings = new TreeMap<>();
+		int withWorking = 0;
+		int maxCarp = 0;
+		String maxCarpTown = "";
+		for (SimSettlement s : w.settlements()) {
+			boolean any = false;
+			int carp = 0;
+			for (SimPlot p : s.plots()) {
+				String path = p.spec().archetype().getPath();
+				if (p.state() == PlotState.PLANNED) {
+					continue;
+				}
+				if (path.startsWith("extract/") || path.equals("work/logging_camp")) {
+					workings.merge(path, 1, Integer::sum);
+					any = true;
+				} else if (path.equals("work/carpentry")) {
+					carp++;
+				}
+			}
+			if (any) {
+				withWorking++;
+			}
+			if (carp > maxCarp) {
+				maxCarp = carp;
+				maxCarpTown = s.name() + " (" + s.population() + " souls)";
+			}
+		}
+		log("scale: workings " + workings + " in " + withWorking + " of " + w.settlements().size() + " settlements; most carpentries " + maxCarp + " in " + maxCarpTown);
 		log(String.format(Locale.ROOT, "scale: founded %d settlements and aged them %d sim days in all in %.1f s (%d blueprints compiled); %d settlements, %d souls",
 			made.size(), days, (System.nanoTime() - t0) / 1e9, Compiler.Timings.COUNT.sum() - compiles0, w.settlements().size(), pop));
 		return made;
@@ -318,43 +351,76 @@ public class LiveTown implements FabricClientGameTest {
 		world.getServer().runOnServer(server -> resetCounters());
 		settle(context, 60_000);
 		report(world, "abstract, 60 s, " + world.getServer().computeOnServer(server -> SimServer.world(server.overworld()).settlements().size()) + " settlements");
-		// hour steps of the largest towns
-		world.getServer().runOnServer(server -> {
-			SimWorld w = SimServer.world(server.overworld());
-			List<SimSettlement> big = new ArrayList<>(w.settlements());
-			big.sort(Comparator.comparingInt(SimSettlement::population).reversed());
-			for (int i = 0; i < Math.min(4, big.size()); i++) {
-				log("bench " + bench(w, big.get(i)));
+		// hour steps of the largest towns, one a tick (the clock's planner budget is one call a tick across the server)
+		List<Long> big = world.getServer().computeOnServer(server -> {
+			List<SimSettlement> all = new ArrayList<>(SimServer.world(server.overworld()).settlements());
+			all.sort(Comparator.comparingInt((SimSettlement x) -> x.plots().size()).reversed());
+			List<Long> ids = new ArrayList<>();
+			for (int i = 0; i < Math.min(6, all.size()); i++) {
+				ids.add(all.get(i).id());
 			}
+			return ids;
 		});
+		for (long id : big) {
+			Bench b = new Bench();
+			world.getServer().runOnServer(server -> b.start());
+			for (int i = 0; i < Bench.REPS; i++) {
+				world.getServer().runOnServer(server -> b.step(SimServer.world(server.overworld()), settlement(server, id)));
+				context.waitTick();
+			}
+			log("bench " + world.getServer().computeOnServer(server -> b.line(settlement(server, id))));
+		}
 	}
 
-	private static String bench(SimWorld w, SimSettlement s) {
-		int reps = 200;
-		long total = 0;
-		long max = 0;
-		long plannerNanos = SettlementClock.PlannerTimings.LIVE_NANOS.sum();
-		long plannerCalls = SettlementClock.PlannerTimings.LIVE_CALLS.sum();
-		long bp0 = BlueprintServiceImpl.Stats.SERVER_NANOS.sum();
-		List<Long> each = new ArrayList<>();
-		for (int i = 0; i < reps; i++) {
+	/** Hour steps of one town, each in its own server tick, with its planner calls' times. */
+	private static final class Bench {
+		static final int REPS = 400;
+		final List<Long> each = new ArrayList<>();
+		final List<Long> plannerEach = new ArrayList<>();
+		long total;
+		long max;
+		long plannerNanos;
+		long plannerCalls;
+		long bp0;
+
+		void start() {
+			SettlementClock.PlannerTimings.reset();
+			plannerNanos = SettlementClock.PlannerTimings.LIVE_NANOS.sum();
+			plannerCalls = SettlementClock.PlannerTimings.LIVE_CALLS.sum();
+			bp0 = BlueprintServiceImpl.Stats.SERVER_NANOS.sum();
+		}
+
+		void step(SimWorld w, SimSettlement s) {
 			s.addTimeOffset(1200);
+			long c0 = SettlementClock.PlannerTimings.LIVE_CALLS.sum();
+			long n0 = SettlementClock.PlannerTimings.LIVE_NANOS.sum();
 			long t0 = System.nanoTime();
 			SettlementClock.advance(s, w.simNow(s));
 			long dt = System.nanoTime() - t0;
+			if (SettlementClock.PlannerTimings.LIVE_CALLS.sum() > c0) {
+				plannerEach.add(SettlementClock.PlannerTimings.LIVE_NANOS.sum() - n0);
+			}
 			total += dt;
 			max = Math.max(max, dt);
 			each.add(dt);
 		}
-		each.sort(null);
-		long planner = SettlementClock.PlannerTimings.LIVE_NANOS.sum() - plannerNanos;
-		long calls = SettlementClock.PlannerTimings.LIVE_CALLS.sum() - plannerCalls;
-		long bp = BlueprintServiceImpl.Stats.SERVER_NANOS.sum() - bp0;
-		return String.format(Locale.ROOT,
-			"%s (%d souls, %d plots, %d sites): hour step %.4f ms avg, median %.4f, p90 %.4f, max %.2f over %d steps; planner %d calls %.1f ms; blueprints made in the steps %.1f ms; "
-				+ "without planner and blueprints %.4f ms avg",
-			s.name(), s.population(), s.plots().size(), s.land().sites().size(), total / 1e6 / reps, each.get(reps / 2) / 1e6, each.get(reps * 9 / 10) / 1e6, max / 1e6,
-			reps, calls, planner / 1e6, bp / 1e6, Math.max(0, total - planner - bp) / 1e6 / reps);
+
+		String line(SimSettlement s) {
+			each.sort(null);
+			plannerEach.sort(null);
+			int reps = each.size();
+			long planner = SettlementClock.PlannerTimings.LIVE_NANOS.sum() - plannerNanos;
+			long calls = SettlementClock.PlannerTimings.LIVE_CALLS.sum() - plannerCalls;
+			long bp = BlueprintServiceImpl.Stats.SERVER_NANOS.sum() - bp0;
+			int n = plannerEach.size();
+			String pc = n == 0 ? "none" : String.format(Locale.ROOT, "median %.2f, p90 %.2f, max %.2f ms", plannerEach.get(n / 2) / 1e6,
+				plannerEach.get(Math.min(n - 1, (int) (n * 0.9))) / 1e6, plannerEach.get(n - 1) / 1e6);
+			return String.format(Locale.ROOT,
+				"%s (%d souls, %d plots, %d sites): hour step %.4f ms avg, median %.4f, p90 %.4f, max %.2f over %d steps (one a tick); planner %d calls %.1f ms, steps with a call: %s; "
+					+ "blueprints made in the steps %.1f ms; without planner and blueprints %.4f ms avg; last answer: %s",
+				s.name(), s.population(), s.plots().size(), s.land().sites().size(), total / 1e6 / reps, each.get(reps / 2) / 1e6, each.get(reps * 9 / 10) / 1e6, max / 1e6,
+				reps, calls, planner / 1e6, pc, bp / 1e6, Math.max(0, total - planner - bp) / 1e6 / reps, dev.voidmc.hearth.plan.PlanStats.last(s.id()));
+		}
 	}
 
 	// ---------------------------------------------------------------- the visit: arriving, embodiment, folk
@@ -422,13 +488,14 @@ public class LiveTown implements FabricClientGameTest {
 		}
 		workers(context, world, t, JobType.FORESTER, "forester");
 		workers(context, world, t, JobType.QUARRIER, "quarrier");
-		Long mining = world.getServer().computeOnServer(server -> pick(server, others, LiveTown::miningScore));
+		Long mining = world.getServer().computeOnServer(server -> miningScore(settlement(server, t.id)) >= 1000 ? Long.valueOf(t.id) : pick(server, withTown(others, t), LiveTown::miningScore));
 		if (mining != null) {
 			Town m = new Town(mining, world.getServer().computeOnServer(server -> settlement(server, mining).name()));
 			log("mining town: " + world.getServer().computeOnServer(server -> describe(settlement(server, mining)) + "; " + composition(settlement(server, mining))));
 			overview(context, world, m, "mining_town");
 			extraction(context, world, m);
 			workers(context, world, m, JobType.MINER, "miner");
+			workers(context, world, m, JobType.QUARRIER, "quarrier_at_face");
 		} else {
 			log("mining town: none of the settlements opened a mine or a quarry");
 		}
@@ -486,7 +553,7 @@ public class LiveTown implements FabricClientGameTest {
 			for (SimPlot p : s.plots()) {
 				if (p.state() == PlotState.BUILT && p.spec().archetype().getPath().equals("infra/road")) {
 					double d = centre(p).distSqr(c);
-					if (d > farD) {
+					if (d > farD && d < 150 * 150) {
 						farD = d;
 						far = p;
 					}
@@ -627,12 +694,21 @@ public class LiveTown implements FabricClientGameTest {
 	private void workers(ClientGameTestContext context, TestSingleplayerContext world, Town t, JobType job, String name) {
 		double[] view = null;
 		for (int tries = 0; tries < 6 && view == null; tries++) {
+			boolean last = tries == 5;
 			view = world.getServer().computeOnServer(server -> {
 				for (Folk f : NpcModule.embodiment().entities()) {
 					if (f.brain() != null && f.brain().settlement.id() == t.id && f.brain().resident.job == job && !f.isSleeping()) {
+						String doing = f.brain().describe();
+						// diggers: one cutting at the face if any (walking and carrying only on the last try)
+						boolean digger = job == JobType.MINER || job == JobType.QUARRIER;
+						if (digger && !last && !doing.contains("cutting") && !doing.contains("at the face")) {
+							continue;
+						}
 						BlockPos at = f.blockPosition();
-						log(name + ": " + f.folkName() + " " + f.brain().describe() + " at " + at.toShortString());
-						return new double[]{at.getX() - 5.5, at.getY() + 3, at.getZ() - 5.5, at.getX(), at.getY() + 1, at.getZ()};
+						// in a gallery or a shaft (below the ground's surface there), not merely under a snowy bough
+						boolean under = !server.overworld().canSeeSky(at.above(2)) && at.getY() < groundAt(server.overworld(), at.getX(), at.getZ()) - 2;
+						log(name + ": " + f.folkName() + " " + doing + " at " + at.toShortString() + (under ? " (under cover)" : ""));
+						return new double[]{at.getX() - 5.5, at.getY() + 3, at.getZ() - 5.5, at.getX(), at.getY() + 1, at.getZ(), under ? 1 : 0};
 					}
 				}
 				return null;
@@ -647,7 +723,7 @@ public class LiveTown implements FabricClientGameTest {
 				+ world.getServer().computeOnServer(server -> settlement(server, t.id).residents().stream().filter(r -> r.job == job).count()) + " residents)");
 			return;
 		}
-		shootAt(context, world, name, view, View.CLOSE);
+		shootAt(context, world, name, java.util.Arrays.copyOf(view, 6), view[6] > 0 ? View.INDOOR : View.CLOSE);
 	}
 
 	private void overview(ClientGameTestContext context, TestSingleplayerContext world, Town t, String name) {
@@ -665,9 +741,22 @@ public class LiveTown implements FabricClientGameTest {
 	private void extraction(ClientGameTestContext context, TestSingleplayerContext world, Town t) {
 		double[] view = world.getServer().computeOnServer(server -> {
 			SimSettlement s = settlement(server, t.id);
+			List<SimPlot> pits = new ArrayList<>();
 			for (SimPlot p : s.plots()) {
+				if (p.spec().archetype().getPath().startsWith("extract/") && p.state() != PlotState.PLANNED) {
+					pits.add(p);
+				}
+			}
+			// a mine first, then a shaft, a quarry, the rest; open (building) before worked out (built)
+			pits.sort(Comparator.comparingInt((SimPlot p) -> p.state() == PlotState.BUILDING && !p.waitingForGoods() ? 0 : 1).thenComparingInt((SimPlot p) -> switch (p.spec().archetype().getPath()) {
+				case "extract/mine" -> 0;
+				case "extract/shaft" -> 1;
+				case "extract/quarry_pit" -> 2;
+				default -> 3;
+			}));
+			for (SimPlot p : pits) {
 				String path = p.spec().archetype().getPath();
-				if (path.startsWith("extract/") && p.state() != PlotState.PLANNED) {
+				{
 					var r = p.reach();
 					double cx = (r.minX() + r.maxX()) / 2.0;
 					double cz = (r.minZ() + r.maxZ()) / 2.0;
@@ -680,7 +769,8 @@ public class LiveTown implements FabricClientGameTest {
 		});
 		if (view != null) {
 			teleport(world, view[0], view[1], view[2], 0, 0);
-			settle(context, 10_000);
+			// long enough for the embodiment manager to bring the diggers out to their face
+			settle(context, 30_000);
 			shootAt(context, world, "working", view);
 		}
 	}
@@ -888,6 +978,7 @@ public class LiveTown implements FabricClientGameTest {
 		applierNanos0 = w.applier().nanos.sum();
 		applierBlocks0 = w.applier().blocksPlaced.sum();
 		SettlementClock.PlannerTimings.reset();
+		dev.voidmc.hearth.plan.PlanStats.reset();
 		SettlementClock.WorstStep.reset();
 		BlueprintServiceImpl.Stats.SERVER_MAX.set(0);
 		BlueprintServiceImpl.Stats.SERVER_MISSES.reset();
@@ -917,6 +1008,9 @@ public class LiveTown implements FabricClientGameTest {
 			double[] pc = SettlementClock.PlannerTimings.percentiles();
 			out.add(String.format(Locale.ROOT, "   planner.next %d live calls, median %.2f ms, p90 %.2f ms, max %.1f ms", SettlementClock.PlannerTimings.LIVE_CALLS.sum(), pc[0],
 				pc[1], pc[2]));
+			for (String l : dev.voidmc.hearth.plan.PlanStats.lines()) {
+				out.add("   " + l);
+			}
 			out.add("   " + BlueprintServiceImpl.Stats.line());
 			out.add("   worst step: " + SettlementClock.WorstStep.line());
 			long folkTicks = Folk.SERVER_TICKS.sum() - folkTicks0;
@@ -971,6 +1065,10 @@ public class LiveTown implements FabricClientGameTest {
 		double score = 0;
 		for (SimPlot p : s.plots()) {
 			String path = p.spec().archetype().getPath();
+			if (p.state() == PlotState.BUILDING && path.startsWith("extract/") && !p.waitingForGoods()) {
+				// being cut now: its diggers are at the face (a worked-out pit, BUILT, is not worked)
+				score += path.equals("extract/mine") || path.equals("extract/shaft") ? 2000 : 1000;
+			}
 			if (p.state() != PlotState.PLANNED && (path.equals("extract/mine") || path.equals("extract/shaft"))) {
 				score += 100;
 			} else if (p.state() != PlotState.PLANNED && path.startsWith("extract/")) {
@@ -1009,6 +1107,18 @@ public class LiveTown implements FabricClientGameTest {
 		return String.format(Locale.ROOT, "#%d %s: %s %s at %s, %d souls, %d beds, %d plots %s, treasury %d, prosperity %.2f, %d left empty", s.id(), s.name(),
 			s.culture().getSerializedName(), s.tier().getSerializedName(), s.center().toShortString(), s.population(), s.beds(), s.plots().size(), s.plotCounts(),
 			s.treasury(), s.land().prosperity(), s.land().deserted().size());
+	}
+
+	/** Workings and carpentries (built or going up) of a town, for the scale lines. */
+	private static String kinds(SimSettlement s) {
+		Map<String, Integer> n = new TreeMap<>();
+		for (SimPlot p : s.plots()) {
+			String path = p.spec().archetype().getPath();
+			if (p.state() != PlotState.PLANNED && (path.startsWith("extract/") || path.equals("work/logging_camp") || path.equals("work/carpentry"))) {
+				n.merge(path, 1, Integer::sum);
+			}
+		}
+		return s.population() + " souls, " + s.plots().size() + " plots, " + n;
 	}
 
 	private static String composition(SimSettlement s) {
@@ -1085,7 +1195,7 @@ public class LiveTown implements FabricClientGameTest {
 		float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
 		teleport(world, v[0], v[1], v[2], yaw, pitch);
 		settle(context, 5_000);
-		context.takeScreenshot("hearth_live_" + name);
+		context.takeScreenshot(net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions.of("hearth_live_" + name).withSize(1600, 900));
 		log("shot " + name + " from " + (int) v[0] + "," + (int) v[1] + "," + (int) v[2] + " toward " + (int) v[3] + "," + (int) v[4] + "," + (int) v[5]);
 	}
 
@@ -1123,6 +1233,10 @@ public class LiveTown implements FabricClientGameTest {
 					double feet = Math.floor(v[4] + h);
 					BlockPos at = BlockPos.containing(x, feet + eye, z);
 					if (!roomy(level, x, feet, z) || !roomy(level, x, feet + eye, z) || indoor == level.canSeeSky(at)) {
+						continue;
+					}
+					if (mode == View.MID && feet > groundAt(level, (int) Math.floor(x), (int) Math.floor(z)) + 1) {
+						// a square from the street, not from a stall's roof
 						continue;
 					}
 					if (sight(level, x, feet + eye, z, v[3], v[4], v[5])) {
