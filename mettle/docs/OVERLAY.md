@@ -53,7 +53,9 @@ type MettleState = {
     kit: { item: string; count: number; name: string }[];
     kitSummary: string;
   }[];
-  skills: { id: string; name: string; attribute: Attr; released: boolean; icon: string }[];  // icons 16×16
+  skills: { id: string; name: string; attribute: Attr; released: boolean; icon: string;     // icons 16×16
+            colour: string;                       // "#F5B03C", the skill's signature hue (skill data "colour")
+            title: string; lore: string }[];      // "Journeyman Miner"; one line of flavour
   attributes: { id: Attr; name: string; perPoint: string }[];
   burden: {                                        // {} until the first sync
     load: number; capacity: number;                // kg
@@ -72,7 +74,8 @@ type Attr = "strength" | "agility" | "vitality" | "wits" | "presence";
 
 Skill trees add, per skill: `skills[].level`, `skills[].xp`, `skills[].levelXp`, `skills[].nextXp`,
 `skills[].points`, `skills[].paths {a, b}`, and `perks[]`: `{ id, skill, kind: "root"|"path"|"mastery"|"feat"|"synergy"|"teaching",
-tier, path, rank, maxRank, cost, order, name, description (at the next rank), hint (feats, until earned), locked: reason | null }`.
+tier, path, side (masteries: a | b | any), rank, maxRank, cost, order, name, description (at the next rank), rankValues (e.g. ["5 %",
+"10 %", "15 %"]), synergy ({skill: level}, synergies only), hint (feats, until earned), locked: reason | null }`.
 Actions: `learnPerk(id)`, `spendAttribute(attribute)`; answers come back as `mettleFeedback` chips.
 
 Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`

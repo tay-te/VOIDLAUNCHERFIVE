@@ -4,5 +4,6 @@
 	},
 	"attribute": "vitality",
 	"order": 10,
-	"released": false
+	"released": false,
+	"colour": "#9CC97A"
 }

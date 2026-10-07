@@ -4,5 +4,6 @@
 	},
 	"attribute": "presence",
 	"order": 13,
-	"released": false
+	"released": false,
+	"colour": "#E8C46A"
 }

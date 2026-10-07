@@ -4,5 +4,6 @@
 	},
 	"attribute": "agility",
 	"order": 11,
-	"released": false
+	"released": false,
+	"colour": "#C79A6B"
 }

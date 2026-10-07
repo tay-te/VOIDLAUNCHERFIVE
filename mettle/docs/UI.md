@@ -56,6 +56,27 @@ reference; this doc is the behaviour.
   - Minecraft hints Outfit to whole pixels, so text runs a few percent wider than in Figma; `UiCanvas.fit` shrinks
     a label up to 15 % where it must fit a chip. Outfit has no arrow glyphs; keycap arrows are drawn.
 
+## 1b. Where the screens live now (2026-10-07)
+
+The player-facing Classes and Gear screens are built into the **VOID Hub** (`hub/`, branch `claude/hub-mettle`),
+reading this mod's overlay state (OVERLAY.md "Hosts"). The direction the user picked after several Figma rounds
+(page 264:2, sections 11–15) is **O, "every skill has its own colour"**:
+
+- **Hue = which skill.** Each skill's data names a signature colour (`"colour"` in `data/mettle/mettle/skill/*.json`):
+  Mining amber, Blades steel blue, Heavy Weapons crimson, Marksmanship green, Defense azure, Athletics teal, Survival
+  moss, Smithing ember; wave 2 has its own. Cards, trees, XP bars and the Learn button use it.
+- **Glow = how far you have come.** Locked perks dark and dashed; available ones ringed with a dot; learned ones lit
+  with a halo and glowing links; the selected perk brightest.
+- **Champagne gold = earned** (Feats, Teachings, Synergies), the same in every skill.
+- Layout: a **gallery** of skill cards under a character strip (background, level, attributes with +), and a **skill
+  tree** with a coloured skill rail, the tree (tiers as rows, two path panels, an earned column) and the selected perk
+  in a bottom action bar (effect at the next rank, per-rank values, requirements, Learn / Rank up / Choose).
+- Rank titles by level band (Untried, Novice 1–4, Apprentice 5–9, Journeyman 10–14, Expert 15–19, Master 20) with a
+  noun per skill ("Journeyman Miner"), and one line of lore per skill, all in the lang files.
+
+The rules in §1 stay for chrome; the colour and glow are for the skill content only (the user asked for "more color
+or glow" there).
+
 ## 2. Background picker
 
 - **When it opens:**

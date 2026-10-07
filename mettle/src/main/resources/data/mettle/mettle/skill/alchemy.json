@@ -4,5 +4,6 @@
 	},
 	"attribute": "wits",
 	"order": 8,
-	"released": false
+	"released": false,
+	"colour": "#5ED1E8"
 }

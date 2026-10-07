@@ -66,6 +66,11 @@ public final class MettleState {
 		}
 	}
 
+	/** Rank title bands (TREES.md): untrained 0, novice 1–4, apprentice 5–9, journeyman 10–14, expert 15–19, master 20. */
+	static String titleBand(int level) {
+		return level <= 0 ? "untrained" : level < 5 ? "novice" : level < 10 ? "apprentice" : level < 15 ? "journeyman" : level < 20 ? "expert" : "master";
+	}
+
 	public static JsonObject build(Minecraft mc) {
 		JsonObject root = new JsonObject();
 		ClientPacketListener connection = mc.getConnection();
@@ -116,12 +121,17 @@ public final class MettleState {
 				s.addProperty("attribute", ref.value().attribute().getSerializedName());
 				s.addProperty("released", ref.value().released());
 				s.addProperty("icon", Skill.icon(ref.key()).toString());
+				s.addProperty("colour", String.format(java.util.Locale.ROOT, "#%06X", ref.value().colour()));
 				int level = state.level(ref.key());
 				s.addProperty("level", level);
 				s.addProperty("xp", state.xp(ref.key()));
 				s.addProperty("levelXp", Curves.skillXpFor(level));
 				s.addProperty("nextXp", Curves.skillXpFor(Math.min(level + 1, Curves.SKILL_CAP)));
 				s.addProperty("points", Perks.points(state, registries.lookupOrThrow(MettleRegistries.PERK), ref.key()));
+				// Rank title by level band ("Journeyman Miner") and the skill's line of lore.
+				String path = ref.key().identifier().getPath();
+				s.addProperty("title", Component.translatable("mettle.title." + titleBand(level), Component.translatable("mettle.skill." + path + ".noun")).getString());
+				s.addProperty("lore", Component.translatable("mettle.skill." + path + ".lore").getString());
 				JsonObject paths = new JsonObject();
 				ref.value().paths().forEach((k, v) -> paths.addProperty(k, v.getString()));
 				s.add("paths", paths);
@@ -143,6 +153,15 @@ public final class MettleState {
 			o.addProperty("maxRank", p.ranks());
 			o.addProperty("cost", p.cost());
 			o.addProperty("order", p.order());
+			o.addProperty("side", p.side());
+			JsonArray values = new JsonArray();
+			p.rankValues().forEach(values::add);
+			o.add("rankValues", values);
+			if (!p.synergy().isEmpty()) {
+				JsonObject needs = new JsonObject();
+				p.synergy().forEach((k, v) -> needs.addProperty(k.identifier().toString(), v));
+				o.add("synergy", needs);
+			}
 			boolean hidden = p.kind() == Perk.Kind.FEAT && rank == 0;
 			o.addProperty("name", hidden ? "" : p.name().getString());
 			o.addProperty("description", hidden ? "" : PerkText.description(p, Math.max(1, Math.min(rank + 1, p.ranks()))).getString());
