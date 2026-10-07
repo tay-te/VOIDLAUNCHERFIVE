@@ -71,6 +71,11 @@ public final class Range {
 	}
 
 	/** Builds the walls in timber: a post at every corner and every third cell, boards between, on the stone plinth. */
+	/** Whether the walls are framed in logs and boards ({@link #timber()}). */
+	public boolean isTimber() {
+		return this.timber;
+	}
+
 	public Range timber() {
 		this.timber = true;
 		return this;
@@ -216,6 +221,59 @@ public final class Range {
 			for (Side s : Side.of(this.x0, this.z0, this.x1, this.z1)) {
 				for (int i = 0; i < s.length(); i++) {
 					Mason.sill(d, m, s.outX(i, 1), y, s.outZ(i, 1), s.out().getOpposite());
+				}
+			}
+		}
+		return this;
+	}
+
+	/**
+	 * Breaks a long blind wall into bays (call after {@link #walls} and the openings): a pier of the dressing up the
+	 * wall's face every {@code step} cells, standing a block proud for its lowest {@code proud} courses (a buttress's
+	 * foot, its top weathered with a stair), and a small high vent of a slit in every other bay of each storey, as a
+	 * stable, a barn or a range's back wall is built. A wall of one material three dozen cells long reads as a blank
+	 * slab from the street otherwise.
+	 */
+	public Range bays(Draft d, Dress m, Direction out, int step, int proud) {
+		Side s = side(out);
+		int plate = plate();
+		// (where the dressing is the walling's own stone, the piers are timber posts let into the wall)
+		boolean same = m.dress.main(dev.voidmc.hearth.build.style.Form.FULL) == m.wall.main(dev.voidmc.hearth.build.style.Form.FULL);
+		Paint pier = this.timber || same ? Mason.post(m.frame) : m.dress.full();
+		for (int i = step; i < s.length() - 1; i += step) {
+			int x = s.x(i);
+			int z = s.z(i);
+			try (var st = d.stage(StageKind.WALLS)) {
+				for (int y = this.level + 1; y <= plate; y++) {
+					if (d.isSolid(x, y, z)) {
+						d.set(x, y, z, pier);
+					}
+				}
+				int ox = s.outX(i, 1);
+				int oz = s.outZ(i, 1);
+				if (proud > 0 && !this.timber && Mason.inPlot(d, ox, oz)) {
+					int g = d.site().ground(ox, oz);
+					Mason.footing(d, m, ox, oz, Math.min(g, this.level - 1));
+					for (int y = Math.min(g + 1, this.level); y < this.level + proud; y++) {
+						if (d.isEmpty(ox, y, oz)) {
+							d.set(ox, y, oz, m.dress.full());
+						}
+					}
+					if (d.isEmpty(ox, this.level + proud, oz)) {
+						d.set(ox, this.level + proud, oz, m.dress.stairsOrSlab(out.getOpposite(), Half.BOTTOM));
+					}
+				}
+			}
+			// a vent high in the bay beside this pier, every other bay, on each storey
+			if ((i / step & 1) == 1) {
+				for (int k = 0; k < this.heights.length; k++) {
+					int vy = ceiling(k) - 1;
+					int vi = i - step / 2;
+					int vx = s.x(vi);
+					int vz = s.z(vi);
+					if (vi > 1 && d.isSolid(vx, vy, vz) && d.isSolid(vx, vy - 1, vz) && d.isSolid(vx, vy + 1, vz)) {
+						Mason.loop(d, vx, vy, vz, 1);
+					}
 				}
 			}
 		}

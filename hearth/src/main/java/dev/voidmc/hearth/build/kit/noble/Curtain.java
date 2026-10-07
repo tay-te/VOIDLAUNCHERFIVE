@@ -348,6 +348,44 @@ public final class Curtain {
 		}
 	}
 
+	/**
+	 * A parados on the court edge of a stretch's walk (drawn by {@link #run} with the same line): a low rail of the dressing
+	 * (posts and rails where the manner builds its heads in timber) carried on a corbel course out over the court, wherever
+	 * the walk would otherwise drop sheer into the ward. Cells the court's own work fills (a flight's treads, a range's
+	 * roof, a tower) are left as they are, so every way onto the walk stays open. Call after everything that stands
+	 * against the curtain.
+	 */
+	public static void parados(Draft d, Dress m, Manner man, int ax, int az, int bx, int bz, Direction out, int thick, int walk) {
+		Direction in = out.getOpposite();
+		Paint rail = man.merlon() == Manner.Merlon.TIMBER || !m.dress.has(Form.WALL) ? m.frame.fence() : m.dress.wall();
+		for (int[] c : cells(ax, az, bx, bz)) {
+			int wx = c[0] + Dirs.dx(in) * (thick - 1);
+			int wz = c[1] + Dirs.dz(in) * (thick - 1);
+			int nx = c[0] + Dirs.dx(in) * thick;
+			int nz = c[1] + Dirs.dz(in) * thick;
+			if (!Mason.inPlot(d, nx, nz) || !d.isSolid(wx, walk - 1, wz) || !d.isEmpty(wx, walk, wz) || !sheer(d, nx, walk, nz)) {
+				continue;
+			}
+			try (var s = d.stage(StageKind.WALLS)) {
+				d.set(nx, walk - 1, nz, m.dress.stairsOrSlab(out, Half.TOP));
+				d.set(nx, walk, nz, rail);
+			}
+		}
+	}
+
+	/** Whether the cell at (x, z) is open from {@code y + 1} down to four under the standing level {@code y}: a fall. */
+	static boolean sheer(Draft d, int x, int y, int z) {
+		if (d.site().ground(x, z) >= y - 4) {
+			return false;
+		}
+		for (int yy = y + 1; yy >= y - 4; yy--) {
+			if (!d.isEmpty(x, yy, z)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/** Whether the plot leaves a row outside the whole stretch for a corbelled parapet. */
 	private static boolean room(Draft d, int ax, int az, int bx, int bz, Direction out, int walk) {
 		int ox0 = Math.min(ax, bx) + Dirs.dx(out);

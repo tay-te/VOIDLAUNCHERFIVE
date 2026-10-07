@@ -430,6 +430,17 @@ public final class Tower {
 	}
 
 	/**
+	 * Takes the cell (x, z) inside as the tower's ladder well (call before {@link #floors}): the floors and the head's deck
+	 * leave it open as a hatch, so a ladder set in it lands on the deck or the top room's floor.
+	 */
+	public Tower ladderWell(int x, int z) {
+		this.stairX = x;
+		this.stairZ = z;
+		this.ladder = true;
+		return this;
+	}
+
+	/**
 	 * Turns the spiral (call before {@link #stair}) so it arrives at as many of the standing {@code levels} as can be on
 	 * the side toward {@code dir}: in a round tower of seven the landing round the spiral is cut into four by the wall,
 	 * and only the quarter the spiral arrives on is reached at each floor, so doorways on a fixed side need this.
@@ -613,7 +624,7 @@ public final class Tower {
 	public Tower loops(Draft d, Set<Direction> dirs, int from, int to) {
 		int k = 0;
 		for (int y = from; y < to; y += 3) {
-			for (Direction dir : dirs) {
+			for (Direction dir : ordered(dirs)) {
 				int[] f = face(dir);
 				Direction along = Dirs.right(dir);
 				int off = this.diam >= 9 && ((k + y) & 1) == 0 ? (this.round ? 0 : 2) : 0;
@@ -624,6 +635,11 @@ public final class Tower {
 				}
 				for (int t = 0; t < this.thick; t++) {
 					Mason.loop(d, x - Dirs.dx(dir) * t, y, z - Dirs.dz(dir) * t, 2);
+				}
+				// a grille in the loop's foot on the outer face: a slit two high in a wall one or two thick is a hole a
+				// person could climb into and fall out of
+				if (Mason.ok(d, x, y, z)) {
+					d.set(x, y, z, Blocks.IRON_BARS.defaultBlockState());
 				}
 			}
 			k++;
@@ -1150,9 +1166,24 @@ public final class Tower {
 		d.poi(PoiType.VIEWPOINT, x, this.top, z, look);
 	}
 
+	/**
+	 * The directions of a set in a fixed order (front, right, back, left). A {@code Set.of}'s order changes from one run of
+	 * the game to the next, so anything that chooses by walking one must walk it through here, or the blueprint is not the
+	 * same on every server.
+	 */
+	public static List<Direction> ordered(java.util.Collection<Direction> dirs) {
+		List<Direction> out = new ArrayList<>(4);
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (dirs.contains(dir)) {
+				out.add(dir);
+			}
+		}
+		return out;
+	}
+
 	/** The set of the four horizontal directions. */
 	public static Set<Direction> all() {
-		Set<Direction> s = new HashSet<>();
+		Set<Direction> s = java.util.EnumSet.noneOf(Direction.class);
 		java.util.Collections.addAll(s, Dirs.HORIZONTAL);
 		return s;
 	}

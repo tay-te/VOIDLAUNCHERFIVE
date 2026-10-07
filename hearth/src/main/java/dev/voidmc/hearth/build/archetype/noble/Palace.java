@@ -11,6 +11,7 @@ import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.Archetype;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
+import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Rooms;
@@ -118,7 +119,6 @@ public final class Palace implements Archetype {
 		}
 		try (var ph = d.campaign(2)) {
 			gate(d, m, man, p);
-			towers(d, m, man, p);
 		}
 		try (var ph = d.campaign(3)) {
 			hall(d, m, man, p);
@@ -129,12 +129,18 @@ public final class Palace implements Archetype {
 		try (var ph = d.campaign(5)) {
 			range(d, m, man, p, false);
 		}
+		// the towers are the gate's campaign, but drawn once the hall and the ranges stand, so their doors open where
+		// the court is still open
+		try (var ph = d.campaign(2)) {
+			towers(d, m, man, p);
+		}
 		try (var ph = d.campaign(6)) {
 			courts(d, m, man, p);
 		}
 		try (var ph = d.campaign(0)) {
 			Groundwork.clear(d, 0, 0, p.w - 1, p.dp - 1, p.maxTop);
 		}
+		Mason.settle(d, "palace");
 	}
 
 	static Plan plan(Draft d) {
@@ -239,7 +245,8 @@ public final class Palace implements Archetype {
 				// steps up the front of the terrace before the door
 				int c = (p.hx0 + p.hx1) / 2;
 				for (int k = 0; k < lift; k++) {
-					for (int x = c - 2; x <= c + 2; x++) {
+					// (as wide as the door: the veranda's posts stand either side of the flight)
+					for (int x = c - 1; x <= c + 1; x++) {
 						d.set(x, p.y + k, p.hz0 - 3 + k, m.paving.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
 						for (int yy = p.y - 1; yy < p.y + k; yy++) {
 							d.set(x, yy, p.hz0 - 3 + k, m.footing.full());
@@ -320,6 +327,7 @@ public final class Palace implements Archetype {
 		Direction along = x0 == x1 ? Dirs.BACK : Dirs.RIGHT;
 		int n = Math.abs(x1 - x0) + Math.abs(z1 - z0) + 1;
 		int h = 4;
+		List<int[]> placed = new java.util.ArrayList<>();
 		for (int i = 0; i < n; i++) {
 			int x = Math.min(x0, x1) + (along == Dirs.RIGHT ? i : 0);
 			int z = Math.min(z0, z1) + (along == Dirs.BACK ? i : 0);
@@ -352,6 +360,21 @@ public final class Palace implements Archetype {
 			}
 			if (i % 4 == 1 && !pier) {
 				Lighting.chandelier(d, ox, oz, y + h - 1, y + h - 2);
+			}
+			placed.add(new int[]{x, z, ox, oz});
+		}
+		// a balustrade along the roof's outer edge, and across its ends where they stand free: the arcade's roof is a
+		// terrace before the upper rooms' windows, not a ledge to fall from
+		Paint rail = karst ? m.frame.fence() : m.dress.has(Form.WALL) ? m.dress.wall() : m.frame.fence();
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int k = 0; k < placed.size(); k++) {
+				int[] c = placed.get(k);
+				if (d.isEmpty(c[2], y + h + 1, c[3])) {
+					d.set(c[2], y + h + 1, c[3], rail);
+				}
+				if ((k == 0 || k == placed.size() - 1) && d.isEmpty(c[0], y + h + 1, c[1]) && d.isEmpty(c[0], y + h + 2, c[1])) {
+					d.set(c[0], y + h + 1, c[1], rail);
+				}
 			}
 		}
 	}
@@ -450,6 +473,11 @@ public final class Palace implements Archetype {
 			}
 		}
 		Court.lamps(d, p.lx + p.thick, p.fz + p.thick, p.rx - p.thick, p.bz - p.thick, p.y);
+		// a parados on the court edge of the walks, where nothing stands against the curtain
+		Curtain.parados(d, m, man, p.lx, p.fz, p.rx, p.fz, Dirs.FRONT, p.thick, p.walk);
+		Curtain.parados(d, m, man, p.lx, p.fz, p.lx, p.bz, Dirs.LEFT, p.thick, p.walk);
+		Curtain.parados(d, m, man, p.rx, p.fz, p.rx, p.bz, Dirs.RIGHT, p.thick, p.walk);
+		Curtain.parados(d, m, man, p.lx, p.bz, p.rx, p.bz, Dirs.BACK, p.thick, p.walk);
 	}
 
 	/** A fountain: a basin five across with a rim of the dressing, water in it, a column with a bowl in the middle. */

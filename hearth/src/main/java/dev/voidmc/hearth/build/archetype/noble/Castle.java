@@ -178,6 +178,7 @@ public final class Castle implements Archetype {
 			case TOWER_HOUSE -> TowerHouse.draw(d, man, m);
 			default -> wards(d, man, m);
 		}
+		Mason.settle(d, "castle");
 	}
 
 	/** The two-ward castle (see the class comment). */
@@ -457,12 +458,17 @@ public final class Castle implements Archetype {
 		t.footings(d, m);
 		t.shell(d, m, top - 1, walk);
 		t.stair(d, m, man.timberTops(), null);
-		t.floors(d, m, top, walk);
-		for (Direction dir : walkDoors) {
+		// a tall tower is floored every four or five rows over the walk, so its spiral never climbs past a sheer shaft
+		List<Integer> lv = new java.util.ArrayList<>(List.of(walk));
+		for (int y = walk + 5; y <= top - 4; y += 5) {
+			lv.add(y);
+		}
+		t.floors(d, m, top, lv.stream().mapToInt(Integer::intValue).toArray());
+		for (Direction dir : Tower.ordered(walkDoors)) {
 			t.doorToward(d, m, dir, walk, false);
 		}
 		// the ground floor's door on the court, in the angle of the walls
-		for (Direction courtSide : walkDoors) {
+		for (Direction courtSide : Tower.ordered(walkDoors)) {
 			if (t.doorToward(d, m, courtSide, court, true) != null) {
 				break;
 			}
@@ -471,8 +477,11 @@ public final class Castle implements Archetype {
 		t.head(d, m, man, d.maxHeight() - 1);
 		Rooms.Room ground = t.room(court);
 		Rooms.furnish(d, ground, Rooms.Type.STORAGE, 0, JobType.NONE);
+		for (int k = 1; k < lv.size(); k++) {
+			Rooms.furnish(d, t.room(lv.get(k)), Rooms.Type.STORAGE, 0, JobType.NONE);
+		}
 		t.light(d, top - 1);
-		t.watch(d, field.iterator().next());
+		t.watch(d, Tower.ordered(field).getFirst());
 		return t;
 	}
 
