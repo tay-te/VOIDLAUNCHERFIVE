@@ -31,8 +31,8 @@ import net.minecraft.core.Direction;
  * strongbox, the guards' house, the cookhouse, the sleeping houses, the granaries. A ring of cones inside a ring wall:
  * no castle elsewhere looks like it.
  *
- * <p>Raised in five campaigns: the ring; the gate and the ring towers; the great hall; the houses of the household; the
- * rest of the houses and the court.
+ * <p>Raised in campaigns: the ring (in two on a hillside); the gate and the ring towers; the great hall; the houses
+ * of the household; the rest of the houses and the court.
  */
 final class Ordu {
 	private Ordu() {
@@ -58,6 +58,14 @@ final class Ordu {
 		int hz;
 		int hd;
 		final List<int[]> taken = new ArrayList<>();
+		/** The great hall's room (what found no house is kept in it). */
+		Rooms.Room hallRoom;
+		/** The round houses of the household, each where the ring had room for it (else a null box: kept in the hall). */
+		final List<Site> sites = new ArrayList<>();
+	}
+
+	/** A round house's use and its box (null where the ring had no room for it). */
+	private record Site(Use use, int @org.jspecify.annotations.Nullable [] box) {
 	}
 
 	/** What a round house is for. */
@@ -69,36 +77,37 @@ final class Ordu {
 		Plan p = plan(d);
 		d.body(p.ring.x0, p.ring.z0, p.ring.x1, p.ring.z1);
 		d.eave(p.walk + 6);
+		// the court levelled, the ring raised a stretch at a time where it is footed far down a hillside
 		try (var ph = d.campaign(0)) {
 			Court.fill(d, m, p.ring, p.thick, p.y);
-			Curtain.enclose(d, m, man, p.ring, p.thick, p.walk, Curtain.Opts.of(man));
 		}
-		try (var ph = d.campaign(1)) {
+		Curtain.encloseInCampaigns(d, m, man, p.ring, p.thick, p.walk, Curtain.Opts.of(man), null, 0, 2);
+		try (var ph = d.campaign(2)) {
 			gate(d, m, man, p);
 			ringTowers(d, m, man, p);
 		}
+		// what found no house of its own is kept in the hall, which then has no long tables to make room for it
 		List<Use> homeless = new ArrayList<>();
-		try (var ph = d.campaign(2)) {
-			hall(d, m, man, p);
+		for (Site s : p.sites) {
+			if (s.box() == null) {
+				homeless.add(s.use());
+			}
 		}
 		try (var ph = d.campaign(3)) {
-			// round the hall: the shrine and the steward's house toward the gate, the guards by it
-			house(d, m, man, p, Use.SHRINE, p.c - 9, p.gz + 9, homeless);
-			house(d, m, man, p, Use.STEWARD, p.c + 9, p.gz + 9, homeless);
-			house(d, m, man, p, Use.GUARDS, p.c - 9, p.gz + 4, homeless);
+			hall(d, m, man, p, homeless.isEmpty());
+			lodge(d, m, p, homeless);
 		}
-		try (var ph = d.campaign(4)) {
-			house(d, m, man, p, Use.SLEEPING, p.c + 11, p.hz, homeless);
-			house(d, m, man, p, Use.SLEEPING, p.c - 11, p.hz, homeless);
-			house(d, m, man, p, Use.COOKHOUSE, p.c + 9, p.gz + 4, homeless);
-			house(d, m, man, p, Use.GRANARY, p.hx - p.hd / 2 - 4, p.hz + p.hd / 2 + 1, homeless);
-			house(d, m, man, p, Use.GRANARY, p.hx + p.hd / 2 + 4, p.hz + p.hd / 2 + 1, homeless);
+		for (Site s : p.sites) {
+			if (s.box() != null) {
+				// round the hall: the shrine, the steward's and the guards' houses first, then the rest
+				try (var ph = d.campaign(s.use().ordinal() <= Use.GUARDS.ordinal() ? 4 : 5)) {
+					house(d, m, man, p, s.use(), s.box());
+				}
+			}
+		}
+		try (var ph = d.campaign(5)) {
 			Court.lamps(d, p.ring, p.thick, p.y);
 			d.poi(PoiType.MEETING_POINT, p.c, p.y, p.gz + 6, Dirs.BACK);
-		}
-		try (var ph = d.campaign(2)) {
-			// what found no house of its own is kept in the hall
-			lodge(d, m, p, homeless);
 		}
 		try (var ph = d.campaign(0)) {
 			Groundwork.clear(d, 0, 0, p.w - 1, p.dp - 1, p.maxTop);
@@ -128,6 +137,16 @@ final class Ordu {
 		}
 		p.hx = (b[0] + b[2]) / 2;
 		p.hz = (b[1] + b[3]) / 2;
+		// round the hall: the shrine and the steward's house toward the gate, the guards by it; then the sleeping
+		// houses, the cookhouse and the granaries
+		site(p, Use.SHRINE, p.c - 9, p.gz + 9);
+		site(p, Use.STEWARD, p.c + 9, p.gz + 9);
+		site(p, Use.GUARDS, p.c - 9, p.gz + 4);
+		site(p, Use.SLEEPING, p.c + 11, p.hz);
+		site(p, Use.SLEEPING, p.c - 11, p.hz);
+		site(p, Use.COOKHOUSE, p.c + 9, p.gz + 4);
+		site(p, Use.GRANARY, p.hx - p.hd / 2 - 4, p.hz + p.hd / 2 + 1);
+		site(p, Use.GRANARY, p.hx + p.hd / 2 + 4, p.hz + p.hd / 2 + 1);
 		return p;
 	}
 
@@ -160,8 +179,11 @@ final class Ordu {
 
 	// ------------------------------------------------------------------------------------------------ the hall
 
-	/** The great round hall: one tall room under the wide cone, the door toward the gate, the throne facing it. */
-	private static void hall(Draft d, Dress m, Manner man, Plan p) {
+	/**
+	 * The great round hall: one tall room under the wide cone, the door toward the gate, the throne facing it; its long
+	 * tables only where it lodges no one.
+	 */
+	private static void hall(Draft d, Dress m, Manner man, Plan p, boolean tables) {
 		int top = p.y + 7;
 		Tower t = Tower.round(p.hx, p.hz, p.hd, p.y, top, Manner.Cap.CONE);
 		t.footings(d, m);
@@ -177,45 +199,70 @@ final class Ordu {
 		t.flag(Dirs.RIGHT);
 		t.head(d, m, man, p.maxTop);
 		Rooms.Room room = t.room(p.y);
-		Chambers.hall(d, m, room, Dirs.BACK, true);
+		Chambers.hall(d, m, room, Dirs.BACK, tables);
+		p.hallRoom = room;
 		t.light(d, top - 1);
 	}
 
 	/** The functions that found no house: the shrine's altar, the steward's desk, the guards' bench, beds, in the hall. */
 	private static void lodge(Draft d, Dress m, Plan p, List<Use> homeless) {
-		Tower t = Tower.round(p.hx, p.hz, p.hd, p.y, p.y + 7, Manner.Cap.CONE);
-		Rooms.Room room = t.room(p.y);
+		// the hall's own room, which knows its door and what the hall put in it
+		Rooms.Room room = p.hallRoom;
+		if (room == null || homeless.isEmpty()) {
+			return;
+		}
 		for (Use u : homeless) {
 			switch (u) {
-				case SHRINE -> Chambers.niche(d, m, room, room.x0, room.z1, Dirs.LEFT);
+				case SHRINE -> {
+					Chambers.niche(d, m, room, room.x0, room.z1, Dirs.LEFT);
+					int[] spot = Chambers.spot(d, room, Dirs.LEFT);
+					if (spot != null) {
+						dev.voidmc.hearth.build.kit.Furniture.workstation(d, JobType.PRIEST, spot[0], p.y, spot[1], Dirs.HORIZONTAL[spot[2]].getOpposite());
+					}
+				}
 				case STEWARD -> Chambers.desk(d, m, room, room.x1, (room.z0 + room.z1) / 2, Dirs.RIGHT);
-				case GUARDS -> Rooms.furnish(d, room, Rooms.Type.WORKSHOP, 0, JobType.GUARD);
-				case SLEEPING -> Chambers.furnish(d, room, Rooms.Type.BEDROOM, 2);
+				case GUARDS -> guards(d, room, p.y);
+				case SLEEPING -> dev.voidmc.hearth.build.kit.homestead.Beds.place(d, room, 2);
 				default -> {
 				}
 			}
 		}
-		if (homeless.contains(Use.SHRINE)) {
-			int[] spot = Chambers.spot(d, room, Dirs.LEFT);
-			if (spot != null) {
-				dev.voidmc.hearth.build.kit.Furniture.workstation(d, JobType.PRIEST, spot[0], p.y, spot[1], Dirs.HORIZONTAL[spot[2]].getOpposite());
-			}
+	}
+
+	/** The guards' grindstone against a wall of the room, their job site before it (else whatever the room allows). */
+	private static void guards(Draft d, Rooms.Room room, int y) {
+		int[] spot = Chambers.spot(d, room, Dirs.FRONT);
+		if (spot != null) {
+			dev.voidmc.hearth.build.kit.Furniture.workstation(d, JobType.GUARD, spot[0], y, spot[1], Dirs.HORIZONTAL[spot[2]].getOpposite());
+		} else {
+			Rooms.furnish(d, room, Rooms.Type.WORKSHOP, 0, JobType.GUARD);
 		}
 	}
 
 	// ------------------------------------------------------------------------------------------------ the houses
 
 	/**
-	 * A round house of the household near (px, pz), its door toward the hall: earthen walls, a cone, one room furnished
-	 * for its use. Unplaced uses go on {@code homeless}.
+	 * Sites a round house of the household near (px, pz): seven across, or a hut five across for the guards and the
+	 * sleepers where the ring is tight; on the plan's list either way (no box where it found no room).
 	 */
-	private static void house(Draft d, Dress m, Manner man, Plan p, Use use, int px, int pz, List<Use> homeless) {
+	private static void site(Plan p, Use use, int px, int pz) {
 		int diam = use == Use.GRANARY ? 5 : 7;
 		int[] b = Borg.place(p.ring, p.thick, p.taken, diam, diam, px, pz);
-		if (b == null) {
-			homeless.add(use);
-			return;
+		if (b == null && (use == Use.GUARDS || use == Use.SLEEPING)) {
+			b = Borg.place(p.ring, p.thick, p.taken, 5, 5, px, pz);
 		}
+		// the guards' hut, failing room by the gate, beside the hall where the ring is widest
+		for (int side : new int[]{-1, 1}) {
+			if (b == null && use == Use.GUARDS) {
+				b = Borg.place(p.ring, p.thick, p.taken, 5, 5, p.c + side * 11, p.hz);
+			}
+		}
+		p.sites.add(new Site(use, b));
+	}
+
+	/** A round house of the household in its box, its door toward the hall: earthen walls, a cone, one room for its use. */
+	private static void house(Draft d, Dress m, Manner man, Plan p, Use use, int[] b) {
+		int diam = b[2] - b[0] + 1;
 		int cx = (b[0] + b[2]) / 2;
 		int cz = (b[1] + b[3]) / 2;
 		int top = p.y + (use == Use.GRANARY ? 4 : 5);
@@ -247,7 +294,7 @@ final class Ordu {
 				Chambers.desk(d, m, room, room.x0, cz, Dirs.LEFT);
 				Chambers.furnish(d, room, Rooms.Type.BEDROOM, 1);
 			}
-			case GUARDS -> Rooms.furnish(d, room, Rooms.Type.WORKSHOP, 0, JobType.GUARD);
+			case GUARDS -> guards(d, room, p.y);
 			case SLEEPING -> Chambers.furnish(d, room, Rooms.Type.BEDROOM, 2);
 			case COOKHOUSE -> Chambers.furnish(d, room, Rooms.Type.KITCHEN, 0);
 			case GRANARY -> Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);

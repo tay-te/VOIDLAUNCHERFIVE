@@ -39,8 +39,9 @@ import net.minecraft.world.level.block.Blocks;
  * round stair turret in the angle; covered walks on the inner curtain. The palace and wing stand on the curtain's line
  * and are the curtain there.
  *
- * <p>Raised in eight campaigns: the terraces and the bergfried; the inner curtain; the palace; the wing; the inner gate
- * and the stair turret; the outer curtain; the gate tower and the shell tower; the wards.
+ * <p>Raised in eight campaigns, the curtains each in two on a hillside: the terraces and the bergfried; the inner
+ * curtain; the palace; the wing; the inner gate and the stair turret; the outer curtain; the gate tower and the shell
+ * tower; the wards.
  */
 final class BohemianCastle {
 	private BohemianCastle() {
@@ -91,30 +92,27 @@ final class BohemianCastle {
 			Court.fill(d, m, p.outer, p.ot, p.lo);
 			Court.fill(d, m, p.inner, p.it, p.li);
 		}
-		// the walls first, so the towers and ranges standing on them are drawn over them
-		try (var ph = d.campaign(5)) {
-			outerCurtain(d, m, man, p);
-		}
-		try (var ph = d.campaign(1)) {
-			innerCurtain(d, m, man, p);
-		}
+		// the walls first, so the towers and ranges standing on them are drawn over them; each curtain a stretch at a
+		// time where it is footed far down a hillside
+		outerCurtain(d, m, man, p, 6);
+		innerCurtain(d, m, man, p, 1);
 		try (var ph = d.campaign(0)) {
 			bergfried(d, m, man, p);
 		}
-		try (var ph = d.campaign(4)) {
+		try (var ph = d.campaign(5)) {
 			innerGate(d, m, man, p);
 		}
-		try (var ph = d.campaign(3)) {
+		try (var ph = d.campaign(4)) {
 			wing(d, m, man, p);
 		}
-		try (var ph = d.campaign(2)) {
+		try (var ph = d.campaign(3)) {
 			palace(d, m, man, p);
 		}
-		try (var ph = d.campaign(6)) {
+		try (var ph = d.campaign(8)) {
 			gate(d, m, man, p);
 			shellTower(d, m, man, p);
 		}
-		try (var ph = d.campaign(7)) {
+		try (var ph = d.campaign(9)) {
 			outerWard(d, m, man, p);
 			innerWard(d, m, p);
 		}
@@ -186,8 +184,15 @@ final class BohemianCastle {
 
 	// ------------------------------------------------------------------------------------------------ walls
 
-	private static void outerCurtain(Draft d, Dress m, Manner man, Plan p) {
-		Curtain.enclose(d, m, man, p.outer, p.ot, p.walkO, Curtain.Opts.of(man));
+	/** The outer curtain in campaign {@code first} (and the next, on a hillside), the steps up to its walk in the last. */
+	private static void outerCurtain(Draft d, Dress m, Manner man, Plan p, int first) {
+		int n = Curtain.encloseInCampaigns(d, m, man, p.outer, p.ot, p.walkO, Curtain.Opts.of(man), null, first, 2);
+		try (var ph = d.campaign(first + n - 1)) {
+			outerSteps(d, m, p);
+		}
+	}
+
+	private static void outerSteps(Draft d, Dress m, Plan p) {
 		// steps up to the walk along the front curtain, beside the gate where the straight runs longer
 		int left = p.gc - 4 - (p.lx + (p.keepLeft ? p.chK : p.chF)) - 1;
 		int right = p.rx - (p.keepLeft ? p.chF : p.chK) - (p.gc + 4) - 1;
@@ -200,8 +205,14 @@ final class BohemianCastle {
 	}
 
 	/** The inner curtain: the cross wall and the keep's side (the palace and the wing are the rest), its walks covered. */
-	private static void innerCurtain(Draft d, Dress m, Manner man, Plan p) {
-		Curtain.enclose(d, m, man, p.inner, p.it, p.walkI, Curtain.Opts.of(man), (x, z) -> palace(p, x, z));
+	private static void innerCurtain(Draft d, Dress m, Manner man, Plan p, int first) {
+		int n = Curtain.encloseInCampaigns(d, m, man, p.inner, p.it, p.walkI, Curtain.Opts.of(man), (x, z) -> palace(p, x, z), first, 2);
+		try (var ph = d.campaign(first + n - 1)) {
+			innerWalks(d, m, man, p);
+		}
+	}
+
+	private static void innerWalks(Draft d, Dress m, Manner man, Plan p) {
 		int kx = p.keepLeft ? p.lx : p.rx;
 		Curtain.covered(d, m, man, kx, p.cz, kx, p.pz0 - 1, p.keepLeft ? Dirs.LEFT : Dirs.RIGHT, p.it, p.walkI);
 		if (p.keepLeft) {

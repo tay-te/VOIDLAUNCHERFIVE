@@ -33,8 +33,8 @@ import net.minecraft.core.Direction;
  * whole reads as one block; arcades on the court; the audience hall in the middle of the back under a dome, the throne in
  * it; a fountain and trees in planters. Low, square, regular, one tower and one dome.
  *
- * <p>Raised in seven campaigns: the walls in two; the gate and the towers; the burj; the audience hall; the side ranges;
- * the court.
+ * <p>Raised in seven campaigns: the walls in two; the gate and the towers of the front; the towers of the back and
+ * the burj; the audience hall; the side ranges; the court.
  */
 final class Qasr {
 	private Qasr() {
@@ -84,11 +84,14 @@ final class Qasr {
 			range(d, m, man, p, true);
 			range(d, m, man, p, false);
 		}
+		// the gate and the towers of the front half, then those of the back: drums footed down a hillside are more than a
+		// town stores at once
 		try (var ph = d.campaign(2)) {
 			gate(d, m, man, p);
-			towers(d, m, man, p);
+			towers(d, m, man, p, true);
 		}
 		try (var ph = d.campaign(3)) {
+			towers(d, m, man, p, false);
 			burj(d, m, man, p);
 		}
 		try (var ph = d.campaign(6)) {
@@ -130,12 +133,16 @@ final class Qasr {
 		Curtain.posts(d, p.lx, p.fz, p.rx, p.fz, Dirs.FRONT, p.thick, p.walk, 7);
 	}
 
-	/** Drum towers on the corners but the burj's, half-round towers buttressing the walls between at even spacing. */
-	private static void towers(Draft d, Dress m, Manner man, Plan p) {
+	/**
+	 * Drum towers on the corners but the burj's, half-round towers buttressing the walls between at even spacing: those
+	 * of the front half or of the back.
+	 */
+	private static void towers(Draft d, Dress m, Manner man, Plan p, boolean front) {
 		int top = Math.min(p.walk + 2, p.maxTop - 4);
+		int zm = (p.fz + p.bz) / 2;
 		int[][] cs = {{p.lx, p.fz, -1, -1}, {p.rx, p.fz, 1, -1}, {p.lx, p.bz, -1, 1}, {p.rx, p.bz, 1, 1}};
 		for (int[] c : cs) {
-			if (c[3] > 0 && (c[2] < 0) == p.towerLeft) {
+			if (c[3] > 0 && (c[2] < 0) == p.towerLeft || (c[3] < 0) != front) {
 				continue;
 			}
 			Direction sx = c[2] < 0 ? Dirs.LEFT : Dirs.RIGHT;
@@ -145,19 +152,22 @@ final class Qasr {
 		}
 		// the buttress towers: solid drums to the walk with a guard's lookout on them
 		for (int z = p.fz + 9; z <= p.bz - 7; z += 9) {
+			if (z <= zm != front) {
+				continue;
+			}
 			Turret.wall(d, m, man, p.lx, z, 5, p.walk, p.maxTop, Set.of(Dirs.FRONT, Dirs.BACK), Manner.Cap.CRENEL);
 			Turret.wall(d, m, man, p.rx, z, 5, p.walk, p.maxTop, Set.of(Dirs.FRONT, Dirs.BACK), Manner.Cap.CRENEL);
 		}
 		for (int x : new int[]{p.c - 9, p.c + 9}) {
-			if (x - 3 > p.lx + 4 && x + 3 < p.rx - 4) {
+			if (!front && x - 3 > p.lx + 4 && x + 3 < p.rx - 4) {
 				Turret.wall(d, m, man, x, p.bz, 5, p.walk, p.maxTop, Set.of(Dirs.LEFT, Dirs.RIGHT), Manner.Cap.CRENEL);
 			}
 		}
 	}
 
 	/**
-	 * The burj at a back corner: a tall square tower, slender, slot windows up it, the guards' room at its foot, the
-	 * steward's room and the strongbox above, open battlements at the head with the lord's flag.
+	 * The burj at a back corner: a tall square tower, slender, slot windows up it, the guards' room at its foot, stores
+	 * above (its spiral leaves no wall for a desk), open battlements at the head with the lord's flag.
 	 */
 	private static void burj(Draft d, Dress m, Manner man, Plan p) {
 		int x = p.towerLeft ? p.lx : p.rx;
@@ -182,17 +192,12 @@ final class Qasr {
 		t.loops(d, Set.of(Dirs.BACK, court.getOpposite(), Dirs.FRONT, court), p.walk + 2, top);
 		t.head(d, m, man, p.maxTop);
 		for (int k = 0; k <= lv.length; k++) {
-			int y = k == 0 ? p.y : lv[k - 1];
-			Rooms.Room room = t.room(y);
-			switch (k) {
-				case 0 -> Rooms.furnish(d, room, Rooms.Type.WORKSHOP, 0, JobType.GUARD);
-				case 2 -> Chambers.desk(d, m, room, room.x0, room.z0, Dirs.FRONT);
-				default -> Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
+			Rooms.Room room = t.room(k == 0 ? p.y : lv[k - 1]);
+			if (k == 0) {
+				Rooms.furnish(d, room, Rooms.Type.WORKSHOP, 0, JobType.GUARD);
+			} else {
+				Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 			}
-		}
-		if (lv.length < 2) {
-			Rooms.Room room = t.room(p.y);
-			Chambers.desk(d, m, room, room.x0, room.z1, Dirs.BACK);
 		}
 		t.light(d, top - 1);
 		int[] st = t.stairTop();
@@ -236,8 +241,9 @@ final class Qasr {
 
 	/**
 	 * A range of two storeys against a side wall from the front to the back, flat-roofed at the walk, an arcade on the
-	 * court: on the left the kitchen and the oratory below, the household's beds above; on the right the stores and the
-	 * guards below, the lord's chamber above. A flight inside at the back end.
+	 * court: on the left the kitchen and the oratory below, the household's beds above; on the right the stores (the
+	 * steward's desk and strongbox in them) and the guards below, the lord's chamber above. A flight inside at the back
+	 * end.
 	 */
 	private static void range(Draft d, Dress m, Manner man, Plan p, boolean left) {
 		// inside the curtain, which the buttress towers stand on
@@ -291,6 +297,8 @@ final class Qasr {
 			Chambers.furnish(d, upFront, Rooms.Type.BEDROOM, 3);
 			Chambers.furnish(d, upBack, Rooms.Type.BEDROOM, 2);
 		} else {
+			// the stores are the steward's: his desk with the rolls and the strongbox among them
+			Chambers.desk(d, m, front, front.x0, front.z0, wall);
 			Chambers.furnish(d, front, Rooms.Type.STORAGE, 0);
 			Rooms.furnish(d, back, Rooms.Type.WORKSHOP, 0, JobType.GUARD);
 			Chambers.niche(d, m, upFront, 0, 0, wall);

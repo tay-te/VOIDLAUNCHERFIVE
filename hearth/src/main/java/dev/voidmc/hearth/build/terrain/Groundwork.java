@@ -183,6 +183,113 @@ public final class Groundwork {
 		}
 	}
 
+	/** Which columns a {@link #level(Draft, int, int, int, int, int, boolean, Within)} levels. */
+	@FunctionalInterface
+	public interface Within {
+		boolean test(int x, int z);
+	}
+
+	/**
+	 * {@link #level(Draft, int, int, int, int, int, boolean)} over the columns of a shape that is not a rectangle (a
+	 * ward inside a curtain that follows the hill): the columns in the box (x0, z0)–(x1, z1) that {@code in} accepts are
+	 * made up or cut to standing level y as one piece. Its edge is where a column meets one outside the shape: only
+	 * there does deep fill stand on a wall of foundation stone, and only beyond it does a retaining wall hold up land
+	 * higher than the level; within, the made ground is the earth cut elsewhere.
+	 */
+	public static void level(Draft d, int x0, int z0, int x1, int z1, int y, boolean fillWater, Within in) {
+		Mat ground = d.mat(Role.GROUND);
+		Mat fill = d.mat(Role.FILL);
+		Mat found = d.mat(Role.FOUNDATION);
+		BlockState air = Blocks.AIR.defaultBlockState();
+		int ax = Math.max(0, Math.min(x0, x1));
+		int bx = Math.min(d.frontage() - 1, Math.max(x0, x1));
+		int az = Math.max(0, Math.min(z0, z1));
+		int bz = Math.min(d.depth() - 1, Math.max(z0, z1));
+		Within inside = (x, z) -> x >= ax && x <= bx && z >= az && z <= bz && in.test(x, z);
+		for (int z = az; z <= bz; z++) {
+			for (int x = ax; x <= bx; x++) {
+				if (!inside.test(x, z)) {
+					continue;
+				}
+				int g = d.site().ground(x, z);
+				// the edge: a neighbour outside the shape; the lowest ground beyond it
+				boolean edge = false;
+				int outside = Integer.MAX_VALUE;
+				for (Direction dir : Dirs.HORIZONTAL) {
+					int nx = x + Dirs.dx(dir);
+					int nz = z + Dirs.dz(dir);
+					if (!inside.test(nx, nz)) {
+						edge = true;
+						outside = Math.min(outside, d.site().ground(nx, nz));
+					}
+				}
+				if (outside == Integer.MAX_VALUE) {
+					outside = g;
+				}
+				if (d.site().isWater(x, z)) {
+					if (!fillWater) {
+						continue;
+					}
+					boolean waterEdge = edge || d.site().isWater(x + 1, z) != d.site().isWater(x - 1, z)
+						|| d.site().isWater(x, z + 1) != d.site().isWater(x, z - 1);
+					try (var s = d.stage(StageKind.EARTHWORK)) {
+						for (int yy = g - 1; yy < y - 1; yy++) {
+							d.set(x, yy, z, waterEdge ? found.full() : fill.full());
+						}
+						d.set(x, y - 1, z, waterEdge ? found.full() : ground.full());
+						int wy = d.site().water(x, z);
+						for (int yy = y; yy < wy; yy++) {
+							d.set(x, yy, z, edge ? found.full() : Paint.of(air));
+						}
+						if (wy > y - 1) {
+							d.drain(x, z);
+						}
+					}
+					continue;
+				}
+				try (var s = d.stage(StageKind.EARTHWORK)) {
+					if (g < y) {
+						boolean wall = edge && y - outside > 1;
+						for (int yy = g - 1; yy < y - 1; yy++) {
+							d.set(x, yy, z, wall ? found.full() : fill.full());
+						}
+						d.set(x, y - 1, z, wall ? found.full() : ground.full());
+					} else if (g > y) {
+						for (int yy = y; yy < g; yy++) {
+							d.set(x, yy, z, air);
+						}
+						d.set(x, y - 1, z, ground.full());
+					}
+				}
+			}
+		}
+		// a retaining wall where the level is cut below the land beyond its edge
+		for (int z = az; z <= bz; z++) {
+			for (int x = ax; x <= bx; x++) {
+				if (!inside.test(x, z)) {
+					continue;
+				}
+				for (Direction dir : Dirs.HORIZONTAL) {
+					int ox = x + Dirs.dx(dir);
+					int oz = z + Dirs.dz(dir);
+					if (inside.test(ox, oz) || !inPlot(d, ox, oz)) {
+						continue;
+					}
+					int og = d.site().ground(ox, oz);
+					if (og - y > 1) {
+						try (var st = d.stage(StageKind.EARTHWORK)) {
+							for (int yy = y - 1; yy < og; yy++) {
+								if (d.isAbsent(ox, yy, oz)) {
+									d.set(ox, yy, oz, found.full());
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	private static int edgeGround(Draft d, int x, int z, int ax, int az, int bx, int bz) {
 		int m = Integer.MAX_VALUE;
 		if (x == ax) {

@@ -32,8 +32,8 @@ import net.minecraft.core.Direction;
  * gate tower in the front; a range of two storeys against the far side (the guards and the kitchen below, the chapel
  * and the household above). One tall vertical mass in a low wall: nothing like a castle of wards.
  *
- * <p>Raised in six campaigns: the barmkin; the tower's block; the jamb and the bartizans; the gate and the turrets; the
- * range; the court.
+ * <p>Raised in seven campaigns: the barmkin and its wall in two; the tower's block; the jamb and the bartizans; the gate
+ * and the turrets; the range; the court.
  */
 final class TowerHouse {
 	private TowerHouse() {
@@ -73,25 +73,28 @@ final class TowerHouse {
 			Court.pave(d, m, p.lx + p.thick, p.fz + p.thick, p.rx - p.thick, p.bz - p.thick, p.y);
 			Curtain.run(d, m, man, p.lx, p.fz, p.rx, p.fz, Dirs.FRONT, p.thick, p.walk, o);
 			Curtain.run(d, m, man, p.lx, p.fz, p.lx, p.bz, Dirs.LEFT, p.thick, p.walk, o);
+		}
+		// the barmkin wall in two campaigns: footed down a hillside it is more than a town stores at once
+		try (var ph = d.campaign(1)) {
 			Curtain.run(d, m, man, p.rx, p.fz, p.rx, p.bz, Dirs.RIGHT, p.thick, p.walk, o);
 			Curtain.run(d, m, man, p.lx, p.bz, p.rx, p.bz, Dirs.BACK, p.thick, p.walk, o);
 		}
 		Range block;
-		try (var ph = d.campaign(1)) {
+		try (var ph = d.campaign(2)) {
 			block = block(d, m, man, p);
 		}
-		try (var ph = d.campaign(2)) {
+		try (var ph = d.campaign(3)) {
 			jamb(d, m, man, p, block);
 		}
-		try (var ph = d.campaign(3)) {
+		try (var ph = d.campaign(4)) {
 			gate(d, m, man, p);
 			Turret.wall(d, m, man, p.lx + 1, p.fz + 1, 5, p.walk, p.maxTop, Set.of(Dirs.RIGHT, Dirs.BACK), Manner.Cap.CONE);
 			Turret.wall(d, m, man, p.rx - 1, p.fz + 1, 5, p.walk, p.maxTop, Set.of(Dirs.LEFT, Dirs.BACK), Manner.Cap.CONE);
 		}
-		try (var ph = d.campaign(4)) {
+		try (var ph = d.campaign(5)) {
 			range(d, m, man, p);
 		}
-		try (var ph = d.campaign(5)) {
+		try (var ph = d.campaign(6)) {
 			int wx = (p.towerLeft ? p.jx1 + p.rx - 8 : p.jx0 + p.lx + 8) / 2;
 			int wz = (p.fz + p.jz0) / 2 + 1;
 			if (Castle.open(d, wx - 2, wz - 2, wx + 2, wz + 2, p.y, p.y + 3)) {
@@ -152,7 +155,7 @@ final class TowerHouse {
 	private static Range block(Draft d, Dress m, Manner man, Plan p) {
 		int[] hs = storeys(p);
 		Range r = new Range(p.tx0, p.tz0, p.tx1, p.bz, p.y, hs, Dirs.FRONT);
-		r.footings(d, m);
+		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
 		Direction field = p.towerLeft ? Dirs.LEFT : Dirs.RIGHT;
@@ -267,7 +270,7 @@ final class TowerHouse {
 		int fx = left ? x1 - 2 : x0 + 2;
 		Direction up = left ? Dirs.LEFT : Dirs.RIGHT;
 		r.flight(fx, z1 - 1, 0, up);
-		r.footings(d, m);
+		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
 		r.flights(d, m);

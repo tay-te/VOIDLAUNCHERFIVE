@@ -33,8 +33,8 @@ import net.minecraft.core.Direction;
  * chapel with its belfry, the cookhouse, the stable, the sleeping house. Low and spread on the ground, one tower: the
  * opposite of a castle of towers.
  *
- * <p>Raised in six campaigns: the ring; the gate tower; the kastal; the hall; the chapel and the cookhouse; the stable,
- * the sleeping house and the court.
+ * <p>Raised in campaigns: the ring (in up to three, a stretch at a time, on a hillside); the gate tower; the kastal; the
+ * hall; the chapel and the cookhouse; the stable, the sleeping house and the court.
  */
 final class Borg {
 	private Borg() {
@@ -59,30 +59,33 @@ final class Borg {
 		int kd = 11;
 		/** Boxes already standing, {x0, z0, x1, z1}, for placing the houses. */
 		final List<int[]> taken = new ArrayList<>();
+		/** The great hall's room: the household sleeps in it when the ring has no room for a sleeping house. */
+		Rooms.Room hallRoom;
 	}
 
 	static void draw(Draft d, Manner man, Dress m) {
 		Plan p = plan(d);
 		d.body(p.ring.x0, p.ring.z0, p.ring.x1, p.ring.z1);
 		d.eave(p.walk + 6);
+		// the yard levelled, the ring raised a stretch at a time where it is footed far down a hillside
 		try (var ph = d.campaign(0)) {
 			Court.fill(d, m, p.ring, p.thick, p.y);
-			Curtain.enclose(d, m, man, p.ring, p.thick, p.walk, Curtain.Opts.of(man));
 		}
-		try (var ph = d.campaign(1)) {
+		Curtain.encloseInCampaigns(d, m, man, p.ring, p.thick, p.walk, Curtain.Opts.of(man), null, 0, 3);
+		try (var ph = d.campaign(3)) {
 			gate(d, m, man, p);
 		}
-		try (var ph = d.campaign(2)) {
+		try (var ph = d.campaign(4)) {
 			kastal(d, m, man, p);
 		}
-		try (var ph = d.campaign(3)) {
+		try (var ph = d.campaign(5)) {
 			hall(d, m, man, p);
 		}
-		try (var ph = d.campaign(4)) {
+		try (var ph = d.campaign(6)) {
 			chapel(d, m, man, p);
 			cookhouse(d, m, man, p);
 		}
-		try (var ph = d.campaign(5)) {
+		try (var ph = d.campaign(7)) {
 			stable(d, m, man, p);
 			sleepingHouse(d, m, man, p);
 			Court.lamps(d, p.ring, p.thick, p.y);
@@ -240,7 +243,7 @@ final class Borg {
 			p.taken.add(b);
 		}
 		Range r = new Range(b[0], b[1], b[2], b[3], p.y, new int[]{7}, Dirs.FRONT).timber();
-		r.footings(d, m);
+		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
 		int c = (b[0] + b[2]) / 2;
@@ -251,6 +254,7 @@ final class Borg {
 		int[] in = r.room(0);
 		Rooms.Room room = Chambers.room(in[0], in[1], in[2], in[3], in[4], new int[]{c, in[1]}, new int[]{c + 1, in[1]}, new int[]{c + 3, in[3]});
 		Chambers.hall(d, m, room, p.towerLeft ? Dirs.RIGHT : Dirs.LEFT, true);
+		p.hallRoom = room;
 		Range.hang(d, in, 4);
 		Lighting.room(d, in[0], in[1], in[2], in[3], in[4]);
 	}
@@ -267,7 +271,7 @@ final class Borg {
 			return;
 		}
 		Range r = new Range(b[0], b[1], b[2], b[3], p.y, new int[]{6}, Dirs.FRONT).timber();
-		r.footings(d, m);
+		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
 		int c = (b[0] + b[2]) / 2;
@@ -292,7 +296,7 @@ final class Borg {
 		}
 		Direction door = side < 0 ? Dirs.RIGHT : Dirs.LEFT;
 		Range r = new Range(b[0], b[1], b[2], b[3], p.y, new int[]{5}, door).timber();
-		r.footings(d, m);
+		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
 		int mz = (b[1] + b[3]) / 2;
@@ -315,7 +319,7 @@ final class Borg {
 		}
 		Direction door = side < 0 ? Dirs.RIGHT : Dirs.LEFT;
 		Range r = new Range(b[0], b[1], b[2], b[3], p.y, new int[]{5}, Dirs.FRONT).timber();
-		r.footings(d, m);
+		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
 		int c = (b[0] + b[2]) / 2;
@@ -334,10 +338,15 @@ final class Borg {
 		int side = p.towerLeft ? 1 : -1;
 		int[] b = place(p, 8, 6, p.c + side * 10, (p.gz + p.kz) / 2 + 3);
 		if (b == null) {
+			// no room in the ring: the household sleeps in the hall, box beds along its walls as in the old northern halls
+			if (p.hallRoom != null) {
+				Rooms.read(d, p.hallRoom);
+				dev.voidmc.hearth.build.kit.homestead.Beds.place(d, p.hallRoom, 4);
+			}
 			return;
 		}
 		Range r = new Range(b[0], b[1], b[2], b[3], p.y, new int[]{5}, Dirs.FRONT).timber();
-		r.footings(d, m);
+		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
 		int c = (b[0] + b[2]) / 2;
