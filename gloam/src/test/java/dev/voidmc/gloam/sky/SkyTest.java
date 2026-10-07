@@ -42,12 +42,23 @@ class SkyTest {
 	}
 
 	@Test
-	void sunsetReddensAsTheSunGoes() {
-		float[] gold = Twilight.colour(11400, 1), red = Twilight.colour(12900, 1);
-		assertTrue(gold[1] > red[1] + 0.2F, "gold before the sun sets, red after");
-		assertTrue(red[0] > red[2] * 2, "still warm");
-		float[] pale = Twilight.colour(12900, 0.5F);
-		assertTrue(pale[0] - pale[2] < red[0] - red[2], "a pale evening is less saturated");
+	void sunsetStepsThroughThePalette() {
+		assertEquals(Palette.GOLD, Twilight.colour(11400), "gold while the sun is up");
+		assertEquals(Palette.ORANGE, Twilight.colour(12300));
+		assertEquals(Palette.ROSE, Twilight.colour(12900), "rose just after it sets");
+		assertEquals(Palette.VIOLET, Twilight.colour(13700));
+		assertEquals(Palette.DUSK_BLUE, Twilight.colour(14100), "dusk blue as the afterglow goes");
+		assertEquals(Palette.ROSE, Twilight.colour(36000 - 12900), "the morning backwards");
+		assertEquals(Palette.ROSE, Twilight.colour(12700), "a step holds until the next");
+	}
+
+	@Test
+	void stepsAreFlat() {
+		assertEquals(0.0F, Palette.step(0.1F, 3), 1e-6F);
+		assertEquals(1 / 3.0F, Palette.step(0.3F, 3), 1e-6F);
+		assertEquals(1.0F, Palette.step(0.9F, 3), 1e-6F);
+		org.joml.Vector3f t = Palette.tone(Palette.OVERCAST_SKY, new org.joml.Vector3f(0.2F), 1);
+		assertEquals(0.2F, Palette.luma(t), 1e-3F, "a tint takes the brightness of what it colours");
 	}
 
 	@Test

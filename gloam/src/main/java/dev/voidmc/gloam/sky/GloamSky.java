@@ -41,23 +41,14 @@ import org.joml.Vector4fc;
  * every gameplay rule, stays vanilla's.
  */
 public final class GloamSky {
-	/** A clear moonlit night's light: silver with the blue of the sky in it, not vanilla's violet. */
-	private static final Vector3fc MOONLIGHT = new Vector3f(0.60F, 0.68F, 1.0F);
-	/** Moonlight through thin cloud: a flat grey with a little blue. */
-	private static final Vector3fc CLOUDED_MOONLIGHT = new Vector3f(0.64F, 0.67F, 0.78F);
-	/** The colour of a clear sky lit by a full moon, a deep blue rather than vanilla's black. */
-	private static final Vector3fc MOONLIT_SKY = new Vector3f(0.022F, 0.034F, 0.072F);
-	/** The blue hour's tint on the sky: the red goes first, the blue stays. */
-	private static final Vector3fc BLUE_HOUR = new Vector3f(0.78F, 0.89F, 1.12F);
-	/** The golden hour's tint on the haze over the land: the low sun's light through a lot of air. */
-	private static final Vector3fc GOLDEN_HAZE = new Vector3f(1.10F, 0.93F, 0.72F);
-
 	// What the sky is doing, worked out once a client tick from the air at the camera, for the level it is for.
 	private static ClientLevel level;
 	/** Whether Gloam's light and colour layers apply this tick (Gloam and its sky on, in that level, with sky light). */
 	private static boolean lit;
 	/** Whether the rain at the camera is Gloam's this tick. */
 	private static boolean regional;
+	/** {@link #cloud} and {@link #dark} in the palette's steps, for the colours. */
+	private static float cloudStep, darkStep, mistStep, hazeStep;
 	private static float night, dark, skyLight, ambient, cloud, cover, moon, stars, golden, blue, mist, mistEnd;
 	/** The haze of the land round the camera (0..1, eased over biome edges), how much of it is dust, and the fog it makes. */
 	private static float landHaze, landDust, haze, hazeEnd, curtain;
@@ -66,7 +57,7 @@ public final class GloamSky {
 	private static Haze.Entry hint;
 	private static int hintTicks;
 	private static float sunsetAlpha;
-	private static Vector3fc sunset = new Vector3f(1, 0.6F, 0.3F);
+	private static Vector3fc sunset = Palette.ORANGE;
 	private static float rain, oRain, thunder, oThunder, storm;
 
 	private GloamSky() {
@@ -139,18 +130,18 @@ public final class GloamSky {
 		// the ambient floor of the light, in sight of the sky only, so caves stay as dark as vanilla made them
 		ambient = Night.scale(0.3F + 0.7F * light, dark, strength * outdoors);
 		stars = Night.stars(moon, cover);
-		golden = Twilight.golden(clock) * clear;
-		blue = Twilight.blue(clock) * clear;
+		// the colour work moves in flat steps (docs/STYLE.md): a few levels of each, not a smooth slide
+		golden = Palette.step(Twilight.golden(clock) * clear, 3);
+		blue = Palette.step(Twilight.blue(clock) * clear, 3);
+		cloudStep = Palette.step(cloud, 3);
+		darkStep = Palette.step(dark, 4);
 
+		// the band round the sun: the palette's step for the hour, as strong as this day's evening is fiery, hidden in
+		// steps as an overcast closes in (rain's own share vanilla's weather layer takes)
 		float vivid = Twilight.vivid(atmosphere.air().seed(), clock, cover);
-		float[] c = Twilight.colour(clock, vivid);
-		Vector3f band = new Vector3f(c[0], c[1], c[2]);
-		// a closing overcast greys the band and hides most of it (rain's own share vanilla's weather layer takes)
-		float closed = Noise.smoothstep(0.55F, 0.95F, cloudCover) * (1 - rain);
-		float grey = band.x * 0.3F + band.y * 0.59F + band.z * 0.11F;
-		band.lerp(new Vector3f(grey, grey, grey), 0.7F * closed);
-		sunset = band;
-		sunsetAlpha = (1 - 0.7F * closed) * Math.min(1.25F, vivid);
+		float closed = Palette.step(Noise.smoothstep(0.55F, 0.95F, cloudCover) * (1 - rain), 3);
+		sunset = Twilight.colour(clock);
+		sunsetAlpha = (1 - 0.75F * closed) * Math.min(1.25F, vivid);
 
 		// the fog closes in while the camera stands in the mist, not when it looks down on it from above
 		float inside = Noise.smoothstep(air.mistTop() + 4, air.mistTop() - 4, (float) eye.y);
@@ -176,6 +167,8 @@ public final class GloamSky {
 		haze = landHaze * Haze.daily(landHaze, air.hour()) * (float) settings.haze * outdoors;
 		hazeEnd = Haze.reach(haze, 80.0F);
 		curtain = Math.min(0.8F, mistCurtain + Haze.curtain(haze));
+		mistStep = Palette.step(mist, 3);
+		hazeStep = Palette.step(haze, 3);
 	}
 
 	/** What the sky is doing, for the showcase's log and debugging. */
@@ -200,9 +193,10 @@ public final class GloamSky {
 			if (!on(forLevel) || night <= 0) {
 				return colour;
 			}
-			Vector3f moonlight = new Vector3f(MOONLIGHT).lerp(CLOUDED_MOONLIGHT, 1 - Night.clear(cover));
+			// silver-blue under a clear sky, slate blue under cloud: one of the two, never a grey between
+			Vector3fc moonlight = Night.clear(cover) > 0.5F ? Palette.MOONLIGHT : Palette.CLOUDED_MOONLIGHT;
 			float bright = Math.max(colour.x(), Math.max(colour.y(), colour.z()));
-			return new Vector3f(colour).lerp(moonlight.mul(bright), night * 0.85F);
+			return new Vector3f(colour).lerp(new Vector3f(moonlight).mul(bright), Palette.step(night, 3) * 0.85F);
 		});
 		builder.addTimeBasedLayer(EnvironmentAttributes.AMBIENT_LIGHT_COLOR, (colour, tick) -> on(forLevel) ? ARGB.scaleRGB(colour, ambient) : colour);
 		builder.addTimeBasedLayer(EnvironmentAttributes.STAR_BRIGHTNESS, (brightness, tick) -> on(forLevel) ? Math.min(1.0F, brightness * stars) : brightness);
@@ -276,73 +270,61 @@ public final class GloamSky {
 		return lit && forLevel == level;
 	}
 
-	/** The sky overhead: the blue hour after sunset, a moonlit blue at night, greyed under the fronts' cloud. */
+	/**
+	 * The sky overhead: dusk blue in the blue hour, paler gold toward the low sun, a moonlit navy at night, a clean
+	 * blue-grey under the fronts' cloud; each in a few steps.
+	 */
 	private static Vector3fc sky(Vector3fc colour) {
 		Vector3f c = new Vector3f(colour);
 		if (blue > 0) {
-			c.mul(new Vector3f(1).lerp(BLUE_HOUR, blue));
+			c.lerp(Palette.tone(Palette.DUSK_BLUE, c, 1.0F), 0.55F * blue);
 		}
 		if (golden > 0) {
-			// the sky pales toward the low sun's side through the golden hour
-			float grey = luma(c);
-			c.lerp(new Vector3f(grey * 1.04F, grey, grey * 0.94F), 0.18F * golden);
+			c.lerp(Palette.tone(Palette.GOLDEN_HAZE, c, 1.05F), 0.2F * golden);
 		}
 		if (night > 0) {
-			c.max(new Vector3f(MOONLIT_SKY).mul(night * moon * Night.clear(cover)));
+			c.max(new Vector3f(Palette.MOONLIT_SKY).mul(Palette.step(night * moon * Night.clear(cover), 3)));
 		}
-		c = grey(c, 0.72F, 0.75F * cloud);
+		if (cloudStep > 0) {
+			c.lerp(Palette.tone(Palette.OVERCAST_SKY, c, 0.8F), 0.8F * cloudStep);
+		}
 		return clamp(c);
 	}
 
-	/** The haze the land fades into: gold in the golden hour, cool in the blue hour, grey under cloud, pale in mist, dark on a black night. */
+	/**
+	 * The haze the land fades into: gold in the golden hour, dusk blue in the blue hour, a cool grey under cloud, pale
+	 * in mist and damp air, sand over dusty land, darker on a black night; each in a few steps.
+	 */
 	private static Vector3fc fog(Vector3fc colour) {
 		Vector3f c = new Vector3f(colour);
 		if (golden > 0) {
-			float grey = luma(c);
-			c.lerp(new Vector3f(GOLDEN_HAZE).mul(grey), 0.32F * golden);
+			c.lerp(Palette.tone(Palette.GOLDEN_HAZE, c, 1.0F), 0.4F * golden);
 		}
 		if (blue > 0) {
-			c.mul(new Vector3f(1).lerp(new Vector3f(0.86F, 0.92F, 1.08F), blue));
+			c.lerp(Palette.tone(Palette.DUSK_BLUE, c, 1.0F), 0.3F * blue);
 		}
-		c = grey(c, 0.85F, 0.6F * cloud);
-		float pale = Math.max(0.4F * mist, 0.3F * haze * (1 - landDust));
+		if (cloudStep > 0) {
+			c.lerp(Palette.tone(Palette.OVERCAST_FOG, c, 0.9F), 0.7F * cloudStep);
+		}
+		float pale = Math.max(0.45F * mistStep, 0.35F * hazeStep * (1 - landDust));
 		if (pale > 0) {
-			// mist and damp air: a pale grey
-			float grey = luma(c);
-			c.lerp(new Vector3f(grey * 1.08F + 0.02F), pale);
+			c.lerp(Palette.tone(Palette.MIST, c, 1.1F).add(0.02F, 0.02F, 0.02F), pale);
 		}
-		if (haze * landDust > 0) {
-			// dust: a warm, dry haze
-			float grey = luma(c);
-			c.lerp(new Vector3f(grey * 1.08F, grey * 0.97F, grey * 0.82F), 0.4F * haze * landDust);
+		if (hazeStep * landDust > 0) {
+			c.lerp(Palette.tone(Palette.DUST, c, 1.05F), 0.45F * hazeStep * landDust);
 		}
-		c.mul(Mth.lerp(dark, 1.0F, 0.25F + 0.75F * skyLight));
+		c.mul(Mth.lerp(darkStep, 1.0F, 0.25F + 0.75F * skyLight));
 		return clamp(c);
 	}
 
-	/** The clouds: darker and greyer under a heavy front, unlit on a black night. */
+	/** The clouds: slate under a heavy front, unlit on a black night; in steps. */
 	private static Vector4fc clouds(Vector4fc colour) {
-		Vector4f c = new Vector4f(colour);
-		float grey = luma(new Vector3f(c.x, c.y, c.z)) * Mth.lerp(cloud, 1.0F, 0.62F);
-		float f = 0.75F * cloud;
-		c.x += (grey - c.x) * f;
-		c.y += (grey - c.y) * f;
-		c.z += (grey - c.z) * f;
-		float dim = Mth.lerp(dark, 1.0F, 0.3F + 0.7F * skyLight);
-		return new Vector4f(c.x * dim, c.y * dim, c.z * dim, c.w);
-	}
-
-	/** Blends a colour toward its own grey, darkened to {@code brightness}, by {@code factor} (vanilla's BlendToGray). */
-	private static Vector3f grey(Vector3f c, float brightness, float factor) {
-		if (factor <= 0) {
-			return c;
+		Vector3f rgb = new Vector3f(colour.x(), colour.y(), colour.z());
+		if (cloudStep > 0) {
+			rgb.lerp(Palette.tone(Palette.STORM_CLOUD, rgb, Mth.lerp(cloudStep, 1.0F, 0.7F)), 0.75F * cloudStep);
 		}
-		float grey = luma(c) * brightness;
-		return c.lerp(new Vector3f(grey), factor);
-	}
-
-	private static float luma(Vector3fc c) {
-		return c.x() * 0.3F + c.y() * 0.59F + c.z() * 0.11F;
+		rgb.mul(Mth.lerp(darkStep, 1.0F, 0.3F + 0.7F * skyLight));
+		return new Vector4f(Math.clamp(rgb.x, 0, 1), Math.clamp(rgb.y, 0, 1), Math.clamp(rgb.z, 0, 1), colour.w());
 	}
 
 	private static Vector3f clamp(Vector3f c) {

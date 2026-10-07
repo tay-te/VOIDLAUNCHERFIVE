@@ -34,6 +34,8 @@ public final class GloamSettings {
 	public boolean regionalRain = true;
 	/** How much of their haze the hazy lands keep (cloud forests, bayous, dusty canyons), 0 clear air .. 1. */
 	public double haze = 1.0;
+	/** Whether the sky is drawn pixel-true without a shader pack: in flat bands, the low sun's glow in steps. */
+	public boolean pixelSky = true;
 	/** How many Minecraft days one season lasts. */
 	public int seasonDays = 8;
 
@@ -129,6 +131,7 @@ public final class GloamSettings {
 		this.showers = bool(json, "showers", this.showers);
 		this.regionalRain = bool(json, "regionalRain", this.regionalRain);
 		this.haze = number(json, "haze", this.haze, 0, 1);
+		this.pixelSky = bool(json, "pixelSky", this.pixelSky);
 		this.seasonDays = (int) number(json, "seasonDays", this.seasonDays, 1, 120);
 		this.motes = number(json, "motes", this.motes, 0, 2);
 		this.sound = number(json, "sound", this.sound, 0, 1);
@@ -155,6 +158,7 @@ public final class GloamSettings {
 		json.addProperty("showers", this.showers);
 		json.addProperty("regionalRain", this.regionalRain);
 		json.addProperty("haze", this.haze);
+		json.addProperty("pixelSky", this.pixelSky);
 		json.addProperty("seasonDays", this.seasonDays);
 		json.addProperty("motes", this.motes);
 		json.addProperty("sound", this.sound);

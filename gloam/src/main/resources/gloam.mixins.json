@@ -18,7 +18,8 @@
 		"LevelRendererFarMixin",
 		"LevelRendererMistMixin",
 		"LevelWeatherMixin",
-		"QuadParticleSoftMistMixin"
+		"QuadParticleSoftMistMixin",
+		"SkyRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
