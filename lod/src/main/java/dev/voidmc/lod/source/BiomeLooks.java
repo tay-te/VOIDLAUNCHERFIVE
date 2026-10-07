@@ -109,14 +109,12 @@ public final class BiomeLooks {
 		this.materials = materials;
 		this.badlandsMaterials = this.materials(badlandsStrata(), false);
 		var registry = level.registryAccess().lookupOrThrow(Registries.BIOME);
-		Biome first = null;
-		for (Holder.Reference<Biome> holder : registry.listElements().toList()) {
-			if (first == null) {
-				first = holder.value();
-			}
+		List<Holder.Reference<Biome>> biomes = registry.listElements().toList();
+		// before any look is worked out: a look may need another block's colour (badlands strata), read in any biome
+		this.anyBiome = biomes.isEmpty() ? null : biomes.getFirst().value();
+		for (Holder.Reference<Biome> holder : biomes) {
 			this.looks.put(holder.value(), this.compute(holder));
 		}
-		this.anyBiome = first;
 		this.snowTop = this.top(Blocks.SNOW.defaultBlockState());
 		this.snowSide = this.side(Blocks.GRASS_BLOCK.defaultBlockState().setValue(BlockStateProperties.SNOWY, true));
 		this.stone = this.top(Blocks.STONE.defaultBlockState());
