@@ -443,10 +443,11 @@ Citadel, Palm Harbour, the Logging Camp...) stay: remote, unpeopled places to ex
   Expanse woods and stones (wisteria, redwood, palm, baobab planks; limestone, opal sandstone) with vanilla fallbacks;
   the terrain probe reads the Earth model directly for rivers, coasts and landforms; settlements avoid Expanse
   structures; quests send players to Expanse landmarks and realms; Expanse's villages are left as they are.
-- **Atlas** (optional; VOID's map, not on main yet). Its build is included only when present: `settings.gradle` takes
-  `-Patlas.dir=<an Atlas checkout's atlas/ folder>` or else `../atlas` if it exists, and only then does `build.gradle`
-  add the `atlas` source set (`src/atlas`, `compileOnly 'dev.voidmc:void-atlas'`, shipped in the jar; `-Patlas.run=true`
-  also loads Atlas in the dev runs). Without it the source set does not exist and the `"atlas"` entrypoint line is
+- **Atlas** (optional; VOID's map, not on main yet). Hearth compiles against the artifact Atlas publishes to Maven
+  local (`dev.voidmc:void-atlas`, from Atlas's `./gradlew publishToMavenLocal`; never build inside an Atlas checkout,
+  its game tests run there): when that artifact is present (or `-Patlas=true`; `-Patlas=false` turns it off;
+  `-Patlas.version=` picks the version) `build.gradle` adds the `atlas` source set (`src/atlas`, shipped in the jar;
+  `-Patlas.run=true` also loads Atlas in the dev runs). Without it the source set does not exist and the `"atlas"` entrypoint line is
   filtered out of `fabric.mod.json`. `client.map.atlas.HearthAtlas` (the `"atlas"` entrypoint, which Fabric only loads
   with Atlas) is the only class that names Atlas types. Atlas owns discovery: the map module (server) only sends
   `hearth:map/settlements` — the settlements within `sync_radius` (1024) blocks of the player, with the player's own

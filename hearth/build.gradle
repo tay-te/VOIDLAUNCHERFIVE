@@ -38,12 +38,22 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-// VOID Atlas, the map: an optional partner whose build is only there when settings.gradle found one (../atlas or
-// -Patlas.dir=...). Then the "atlas" source set (src/atlas: the map plugin, the only code that names Atlas types) is
-// compiled against it and shipped in the jar; without it the source set does not exist, the plugin's entrypoint line is
-// left out of fabric.mod.json, and Hearth builds and runs as before. -Patlas.run=true also loads Atlas in the dev runs.
-def hasAtlas = !(gradle.ext.has('hearthAtlasDir') ? gradle.ext.hearthAtlasDir : '').isEmpty()
+// VOID Atlas, the map: an optional partner, compiled against the artifact Atlas publishes to Maven local
+// (dev.voidmc:void-atlas, from Atlas's own `./gradlew publishToMavenLocal`; it carries the client API too). Hearth never
+// builds inside an Atlas checkout. When that artifact is there (or -Patlas=true), the "atlas" source set (src/atlas: the
+// map plugin, the only code that names Atlas types) is compiled against it and shipped in the jar; without it (or with
+// -Patlas=false) the source set does not exist, the plugin's entrypoint line is left out of fabric.mod.json, and Hearth
+// builds and runs as before. -Patlas.version= picks the published version; -Patlas.run=true loads Atlas in the dev runs.
+def atlasVersion = (findProperty('atlas.version') ?: '0.2.0').toString()
+def atlasFlag = findProperty('atlas')?.toString()
+def hasAtlas = atlasFlag != null ? atlasFlag.toBoolean()
+	: new File(System.getProperty('user.home'), ".m2/repository/dev/voidmc/void-atlas/${atlasVersion}/void-atlas-${atlasVersion}.jar").isFile()
 if (hasAtlas) {
+	repositories {
+		mavenLocal {
+			content { includeModule 'dev.voidmc', 'void-atlas' }
+		}
+	}
 	sourceSets {
 		atlas {
 			compileClasspath += sourceSets.client.compileClasspath + sourceSets.main.output + sourceSets.client.output
@@ -52,14 +62,9 @@ if (hasAtlas) {
 	}
 	loom.mods.named('hearth').configure { it.sourceSet sourceSets.atlas }
 	dependencies {
-		atlasCompileOnly 'dev.voidmc:void-atlas'
-		// Atlas's client API (AtlasApi, AtlasHud) lives in its client source set, which the included build does not hand
-		// over (its main one only): its jar, which carries both, is built and put on the compile classpath too.
-		atlasCompileOnly files(new File(gradle.ext.hearthAtlasDir, "build/libs/void-atlas-${findProperty('atlas.version') ?: '0.1.0'}.jar")) {
-			builtBy gradle.includedBuild(new File(gradle.ext.hearthAtlasDir).name).task(':jar')
-		}
+		atlasCompileOnly("dev.voidmc:void-atlas:${atlasVersion}") { transitive = false }
 		if ((findProperty('atlas.run') ?: 'false').toString().toBoolean()) {
-			localRuntime 'dev.voidmc:void-atlas'
+			localRuntime("dev.voidmc:void-atlas:${atlasVersion}") { transitive = false }
 		}
 	}
 	tasks.named('jar') { from sourceSets.atlas.output }
