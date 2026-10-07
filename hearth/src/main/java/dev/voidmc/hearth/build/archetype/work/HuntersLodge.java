@@ -22,6 +22,7 @@ import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Pentice;
 import dev.voidmc.hearth.build.kit.trade.Props;
 import dev.voidmc.hearth.build.kit.trade.Yard;
+import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Role;
@@ -104,6 +105,7 @@ public final class HuntersLodge implements Archetype {
 		if (porch == null) {
 			Pentice.awning(d, front, r[0], r[2], Math.min(2, fz), 0, 3, false, door);
 		}
+		closeGable(d, hall);
 		trophy(d, front, door);
 		hides(d, hall, door, fz);
 
@@ -122,8 +124,37 @@ public final class HuntersLodge implements Archetype {
 		if (logs) {
 			dev.voidmc.hearth.build.kit.refine.LogWalls.keepWays(d, r[0], r[1], r[2], r[3], Math.max(0, h.walls().plinth()));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	/**
+	 * The front gable closed up to the roof: boards in every cell of the triangle the roof and the porch left open (it
+	 * read as a hole in the roof with the trophies seen through it), a little window in its middle.
+	 */
+	private static void closeGable(Draft d, Hall hall) {
+		if (hall.roof == null) {
+			return;
+		}
+		int[] r = hall.rect(0);
+		int z = r[1];
+		int mid = (r[0] + r[2]) / 2;
+		Mat boards = d.mat(Role.GABLE).has(Form.FULL) ? d.mat(Role.GABLE) : d.mat(Role.WALL);
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int x = r[0]; x <= r[2]; x++) {
+				if (!hall.roof.covers(x, z)) {
+					continue;
+				}
+				int under = hall.roof.bottomY(x, z);
+				for (int y = hall.plateY() + 1; y < under; y++) {
+					if (d.isEmpty(x, y, z)) {
+						d.set(x, y, z, x == mid && y == hall.plateY() + 2 ? d.mat(Role.GLASS).pane() : boards.full());
+					}
+				}
+			}
+		}
 	}
 
 	/** Over the door: a skull mounted on the wall between two antlers of bleached wood. */

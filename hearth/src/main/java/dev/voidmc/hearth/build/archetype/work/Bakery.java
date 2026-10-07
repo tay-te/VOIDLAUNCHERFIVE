@@ -136,7 +136,15 @@ public final class Bakery implements Archetype {
 			}
 		}
 
-		interior(d, hall, in, door, ovens, storeys);
+		// the door to the side yard goes in first, so nothing inside is set before it
+		int[] yardDoor = null;
+		if (side > 0) {
+			int dz = in[3] - 1;
+			if (hall.door(0, yardLeft ? Dirs.LEFT : Dirs.RIGHT, dz, 1, false, false)) {
+				yardDoor = new int[]{yardLeft ? in[0] : in[2], dz};
+			}
+		}
+		interior(d, hall, in, door, ovens, storeys, yardDoor);
 		// the street front: a bench under the window, the sign by the door, a lamp
 		int signCol = doorLeft ? door + 1 : door - 1;
 		if (!Signs.bracket(d, front, front.index(signCol), 3, "bakery", "Bakery")) {
@@ -157,6 +165,8 @@ public final class Bakery implements Archetype {
 			// a flat roof is a terrace: a stair up the side, a room set back, an awning
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -171,9 +181,12 @@ public final class Bakery implements Archetype {
 	}
 
 	/** The shop and the bakehouse: counter, racks of bread, sacks of flour, the kneading board; the flour loft above. */
-	private static void interior(Draft d, Hall hall, int[] in, int door, int[][] ovens, int storeys) {
+	private static void interior(Draft d, Hall hall, int[] in, int door, int[][] ovens, int storeys, int[] yardDoor) {
 		Floorplan fp = hall.floor(0).blockHoles(d);
 		fp.keep(door, in[1]);
+		if (yardDoor != null) {
+			fp.keep(yardDoor[0], yardDoor[1]);
+		}
 		for (int[] o : ovens) {
 			fp.block(o[0], o[1]);
 			fp.keep(o[0], o[1] - 1);
@@ -270,11 +283,7 @@ public final class Bakery implements Archetype {
 	/** The yard: a domed oven where the culture bakes outdoors (a woodpile otherwise), a back door, a water butt. */
 	private static void sideYard(Draft d, Hall hall, int x0, int x1, int z0, int z1, boolean left) {
 		Yard.trodden(d, x0, z0, x1, z1, 0);
-		// a door from the bakehouse to the yard
-		Direction wall = left ? Dirs.LEFT : Dirs.RIGHT;
-		int[] in = hall.inner(0);
-		int dz = in[3] - 1;
-		hall.door(0, wall, dz, 1, false, false);
+		// (the door from the bakehouse to the yard is in already)
 		boolean outdoors = Hall.flatCulture(d) || d.habits().roof().weight(RoofForm.FLAT) > 0 || d.habits().walls().kind() == Habits.WallKind.ADOBE
 			|| d.habits().walls().kind() == Habits.WallKind.PLASTER || d.chance(0.35);
 		int cx = (x0 + x1) / 2;

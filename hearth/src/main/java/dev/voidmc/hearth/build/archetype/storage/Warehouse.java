@@ -139,6 +139,10 @@ public final class Warehouse implements Archetype {
 		}
 
 		interior(d, hall, door, wells);
+		// a rail round each stairwell on the floor above
+		for (int k = 0; k < wells.length; k++) {
+			dev.voidmc.hearth.build.kit.craft.Rails.well(d, hall, k, wells[k]);
+		}
 		apron(d, hall, w, fz, door);
 		if (shed) {
 			cartShed(d, hall, shedLeft ? 0 : hx1 + 1, shedLeft ? hx0 - 1 : w - 1, hz0, hz1, shedLeft);
@@ -151,6 +155,8 @@ public final class Warehouse implements Archetype {
 			// a flat roof is a terrace: a stair up the side, a room set back, an awning
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

@@ -86,6 +86,8 @@ public final class Chandler implements Archetype {
 		if (hall.deck != Integer.MIN_VALUE) {
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, s.w - 1, s.dp - 1, hall.top + 2);
 	}
 
@@ -118,10 +120,11 @@ public final class Chandler implements Archetype {
 		}
 		List<int[]> board = Wares.stallBoard(d, f, s.win, s.winW, 0);
 		for (int[] b : board) {
+			// candles in bunches, and between them jars of wax (a honeycomb block on every other cell shouted over the front)
 			if ((b[0] + b[1]) % 2 == 0) {
 				Wares.candles(d, b[0], 1, b[1], 3, false);
 			} else {
-				d.inStage(StageKind.EXTERIOR, () -> d.set(b[0], 1, b[1], Blocks.HONEYCOMB_BLOCK.defaultBlockState()));
+				d.inStage(StageKind.EXTERIOR, () -> d.set(b[0], 1, b[1], States.facing(Blocks.DECORATED_POT, Dirs.FRONT)));
 			}
 		}
 		// lanterns flanking the window, the chandler's own light to the street
@@ -196,8 +199,9 @@ public final class Chandler implements Archetype {
 		if (len >= 1) {
 			int st = start;
 			int n = len;
+			// one cake of wax on the counter at most, candles along it
 			Shop.counter(d, st, 0, cz, Dirs.RIGHT, len, Dirs.BACK, i -> i == 0 ? Wares.candleState(d, st, 1, cz, 4, true)
-				: i == n - 1 && n >= 3 ? null : Blocks.HONEYCOMB_BLOCK.defaultBlockState());
+				: i == 1 ? Blocks.HONEYCOMB_BLOCK.defaultBlockState() : i == n - 1 && n >= 3 ? null : Wares.candleState(d, st + i, 1, cz, 2, false));
 			fp.keep(st + (len - 1) / 2, cz + 1);
 		}
 		// the dipping rack along the wall away from the door: a beam with the wicks hanging from it, the dipper before it

@@ -59,8 +59,8 @@ public final class Huts {
 	/**
 	 * The burner's hut on whole centre (cx, cz): poles leant together into a steep A-frame five wide and five deep,
 	 * shingled with bark (or thatched) down to the ground, its ridge running back from the door, the gable ends of logs
-	 * stood on end with the door in the front one. Inside: the bed down the middle, a chest under the low eave, a
-	 * lantern on a chain from the ridge. Returns the hut, or null without room under the plot's height.
+	 * stood on end with the door in the front one. Inside: the bed down the middle, a barrel under the low eave (a chest
+	 * where the eave leaves its lid room), a lantern on a chain from the ridge. Returns the hut, or null without room under the plot's height.
 	 */
 	public static @Nullable Hut cone(Draft d, int cx, int cz, Direction door, boolean thatch) {
 		int limit = d.maxHeight() - 1;
@@ -138,7 +138,9 @@ public final class Huts {
 		d.inStage(StageKind.INTERIOR, () -> d.bed(cx, 0, cz, bed, door.getOpposite()));
 		int chx = ix + Dirs.dx(side);
 		int chz = iz + Dirs.dz(side);
-		Props.store(d, chx, 0, chz, side.getOpposite(), true, List.of(new Object[]{"minecraft:bread", 4}, new Object[]{"minecraft:iron_shovel", 1}));
+		// under the low eave a chest's lid would strike the poles: a barrel, which opens from the side
+		boolean low = roof.covers(chx, chz) && roof.bottomY(chx, chz) <= 1;
+		Props.store(d, chx, 0, chz, side.getOpposite(), !low, List.of(new Object[]{"minecraft:bread", 4}, new Object[]{"minecraft:iron_shovel", 1}));
 		int ceil = roof.bottomY(ix, iz);
 		if (ceil - 1 >= 2) {
 			Lighting.chandelier(d, ix, iz, ceil, ceil - 1);

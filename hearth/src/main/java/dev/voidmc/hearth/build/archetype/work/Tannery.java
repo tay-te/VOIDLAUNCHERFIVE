@@ -146,6 +146,8 @@ public final class Tannery implements Archetype {
 		}
 		Side front = hall.side(0, Dirs.FRONT);
 		Signs.bracket(d, front, front.index(door + (door < (in[0] + in[2]) / 2 ? -1 : hall.doorWidth)), 3, "tannery", "Tanner");
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 	}
 

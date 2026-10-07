@@ -73,8 +73,12 @@ public final class Sawmill implements Archetype {
 		Groundwork.footings(d, sx0, sz0, sx1, sz1, -1);
 		Mat floor = d.mat(Role.FLOOR);
 		Shed.deck(d, sx0 + 1, sz0 + 1, sx1 - 1, sz1 - 1, -1, floor);
-		Roofs.Roof roof = Shed.open(d, sx0, sz0, sx1, sz1, 0, 4, form, Direction.Axis.X, 1, Dirs.BACK);
+		// boarded at the back and the gable ends, lights in them, open to the yard
+		Roofs.Roof roof = Shed.open(d, sx0, sz0, sx1, sz1, 0, 4, form, Direction.Axis.X, 1, Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
 		d.carve(sx0 + 1, 0, sz0 + 1, sx1 - 1, 3, sz1 - 1);
+		Shed.windows(d, sx0, sz0, sx1, sz1, 0, Dirs.BACK, 3);
+		Shed.windows(d, sx0, sz0, sx1, sz1, 0, Dirs.LEFT, 2);
+		Shed.windows(d, sx0, sz0, sx1, sz1, 0, Dirs.RIGHT, 2);
 		d.body(sx0, sz0, sx1, sz1);
 		d.eave(4);
 		bench(d, sx0, sx1, sz0 + 1, sz1 - 1);
@@ -98,6 +102,8 @@ public final class Sawmill implements Archetype {
 		}
 		Yard.enclose(d, 0, 0, w - 1, sz0, gaps, Dirs.BACK);
 		Signs.post(d, gate + 2, 0, 0, Dirs.LEFT, 3, "sawmill", "Sawmill");
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : 6) + 3);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

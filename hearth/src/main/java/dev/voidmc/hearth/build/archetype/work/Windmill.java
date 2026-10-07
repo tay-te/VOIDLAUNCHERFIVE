@@ -289,6 +289,8 @@ public final class Windmill implements Archetype {
 			(int) Math.ceil(cx + rc) + 2, capTop, (int) Math.ceil(cz + rc) + 2, d.mat(Role.FLOOR).full());
 		interior(d, cx, cz, r0, icx, icz, fdz);
 		yard(d, w, dp, icx, ez);
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(capTop + 3, hubY + len) + 1);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -805,6 +807,8 @@ public final class Windmill implements Archetype {
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, 0, cx);
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, hubY + len) + 1);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

@@ -11,6 +11,9 @@ import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.States;
+import dev.voidmc.hearth.build.kit.Roofs;
+import dev.voidmc.hearth.build.kit.craft.Hatch;
+import dev.voidmc.hearth.build.kit.craft.Rails;
 import dev.voidmc.hearth.build.kit.industry.Pois;
 import dev.voidmc.hearth.build.kit.industry.Ship;
 import dev.voidmc.hearth.build.kit.industry.Timber;
@@ -19,6 +22,7 @@ import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Lifts;
+import dev.voidmc.hearth.build.kit.trade.Shed;
 import dev.voidmc.hearth.build.kit.trade.Signs;
 import dev.voidmc.hearth.build.kit.trade.Yard;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
@@ -41,12 +45,21 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * shores propping her bilges, a staging of planks along her side for the shipwrights. A crane leans over the slip with a
  * baulk on its chain. Down one side the timber racks of seasoning planks and the stacked keel timber; by the street the
  * sail loft, its upper floor spread with sail cloth, a loading door and hoist in its gable; a steam box over a fire for
- * bending planks, a pitch kettle, coils of rope in barrels.
+ * bending planks, a pitch kettle, coils of rope in barrels. By culture:
+ * <ul>
+ *   <li><b>stocks</b> (Bohemia's rivers, the wisteria vale, the bayou): as above;</li>
+ *   <li><b>boathouse</b> (the north, the moor, the coasts, the mountains' lakes): the hull built under a long open shed
+ *   (a naust) over the slip, its roof on posts, the timber racks along the side, no crane;</li>
+ *   <li><b>beach</b> (the Mediterranean, the dry lands, the steppe's rivers): the hull on the strand with no loft, a rope
+ *   walk along the side (posts carrying the rope being laid) and the pitch kettle under a reed shade;</li>
+ *   <li><b>junk</b> (the karst, the tropics): a broad, shallow flat-bottomed hull with staging along both sides.</li>
+ * </ul>
  *
  * <p>Job sites (BOATWRIGHT): on the staging and at the hull's side, at the timber racks, at the steam box, at the sail
  * loft's bench. Storage: chests in the sail loft, barrels of pitch and nails.
  *
- * <p>Params: {@code roof} (the loft's form), {@code variant}.
+ * <p>Params: {@code plan} ({@code stocks}, {@code boathouse}, {@code beach}, {@code junk}; default by culture),
+ * {@code roof} (the loft's form), {@code variant}.
  */
 public final class Shipyard implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("work/shipyard"), ArchetypeCategory.WORKPLACE, Set.of(JobType.BOATWRIGHT), 0,
@@ -55,9 +68,31 @@ public final class Shipyard implements Archetype {
 	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.HIP, RoofForm.GAMBREL, RoofForm.SALTBOX, RoofForm.PAGODA,
 		RoofForm.FLAT};
 
+	/** How a land builds its boats. */
+	private enum Plan {
+		STOCKS, BOATHOUSE, BEACH, JUNK
+	}
+
 	@Override
 	public ArchetypeInfo info() {
 		return INFO;
+	}
+
+	private static Plan plan(Draft d) {
+		String p = d.param("plan", "");
+		if (!p.isEmpty()) {
+			try {
+				return Plan.valueOf(p.toUpperCase(java.util.Locale.ROOT));
+			} catch (IllegalArgumentException e) {
+				// by the culture below
+			}
+		}
+		return switch (Works.culture(d)) {
+			case NORTHERN, TUNDRA, MARITIME, MOORLAND, ALPINE -> Plan.BOATHOUSE;
+			case MEDITERRANEAN, DESERT, MESA, STEPPE -> Plan.BEACH;
+			case KARST, TROPICAL -> Plan.JUNK;
+			default -> Plan.STOCKS;
+		};
 	}
 
 	@Override
@@ -65,6 +100,7 @@ public final class Shipyard implements Archetype {
 		Pois pois = new Pois();
 		int w = d.frontage();
 		int dp = d.depth();
+		Plan plan = plan(d);
 		int ex = Yard.entrance(d);
 		boolean loftLeft = d.chance(0.5);
 		Mat logs = Works.logs(d);
@@ -116,8 +152,8 @@ public final class Shipyard implements Archetype {
 		int zBow = 4;
 		int zStern = Math.min(dp - 1, zw + 1);
 		zStern = Math.min(zStern, zBow + 16);
-		int halfBeam = w >= 15 ? 3 : 2;
-		int depth = Math.max(3, Math.min(4, d.maxHeight() - 6));
+		int halfBeam = (w >= 15 ? 3 : 2) + (plan == Plan.JUNK && w >= 13 ? 1 : 0);
+		int depth = Math.max(3, Math.min(plan == Plan.JUNK ? 3 : 4, d.maxHeight() - 6));
 		int top = depth + 3;
 		if (zStern - zBow >= 6) {
 			// the keel blocks
@@ -132,24 +168,44 @@ public final class Shipyard implements Archetype {
 			Ship.shores(d, hull, 0, 3, frame);
 			top = Math.max(top, hull.top());
 			staging(d, pois, hull, loftLeft);
+			if (plan == Plan.JUNK) {
+				staging(d, pois, hull, !loftLeft);
+			}
+			// the hull's gunwale railed where the shipwrights walk her deck over the drop to the slip
+			for (int y = 1; y <= hull.top() + 1; y++) {
+				Rails.guard(d, slipX - halfBeam - 1, zBow - 1, slipX + halfBeam + 1, zStern + 1, y, List.of());
+			}
 		}
 
-		// the sail loft at the front corner on its side
+		// the boathouse: a long open shed over the hull and its slip, posts outside the staging
+		int sx0 = Math.max(0, slipX - halfBeam - 3);
+		int sx1 = Math.min(w - 1, slipX + halfBeam + 3);
+		if (plan == Plan.BOATHOUSE && zStern - zBow >= 6) {
+			int sh = Math.min(depth + 3, d.maxHeight() - 5);
+			RoofForm sf = Hall.pick(d, RoofForm.GABLE, RoofForm.GABLE, RoofForm.HALF_HIP);
+			Roofs.Roof shed = Shed.open(d, sx0, zBow - 1, sx1, Math.min(zw - 1, zStern), 0, sh, sf, Direction.Axis.Z, 1);
+			top = Math.max(top, shed != null ? shed.ridgeY : sh + 1);
+		}
+
+		// the sail loft at the front corner on its side (none on a beach, nor where the boathouse stands)
 		int lw = Math.min(6, Math.max(5, w - (2 * halfBeam + 6)));
 		int lx0 = loftLeft ? 0 : w - lw;
 		int lx1 = lx0 + lw - 1;
 		int lz0 = 2;
 		int lz1 = Math.min(zw - 1, lz0 + 6);
 		RoofForm form = Hall.pick(d, FORMS);
-		if (lx1 - lx0 >= 4 && lz1 - lz0 >= 4 && Math.abs(slipX - (lx0 + lx1) / 2) > halfBeam + 3) {
+		boolean clear = plan != Plan.BOATHOUSE || lx1 < sx0 || lx0 > sx1;
+		if (plan != Plan.BEACH && clear && lx1 - lx0 >= 4 && lz1 - lz0 >= 4 && Math.abs(slipX - (lx0 + lx1) / 2) > halfBeam + 3) {
 			top = Math.max(top, loft(d, pois, lx0, lz0, lx1, lz1, form, loftLeft));
+		} else if (plan == Plan.BEACH) {
+			ropeWalk(d, pois, loftLeft ? 1 : w - 2, 2, Math.min(zw - 2, 12));
 		}
 
 		// down the far side: timber racks and the keel timber
 		int rx = loftLeft ? w - 1 : 0;
 		int rz0 = 3;
 		int rz1 = Math.min(zw - 2, rz0 + 7);
-		if (rz1 - rz0 >= 3 && Math.abs(rx - slipX) > halfBeam + 2) {
+		if (rz1 - rz0 >= 3 && Math.abs(rx - slipX) > halfBeam + 2 && (plan != Plan.BOATHOUSE || rx < sx0 || rx > sx1)) {
 			Timber.rack(d, rx, 0, rz0, Dirs.BACK, rz1 - rz0 + 1, d.mat(Role.FLOOR));
 			pois.siteIf(d, rx + (loftLeft ? -1 : 1), 0, (rz0 + rz1) / 2, loftLeft ? Dirs.RIGHT : Dirs.LEFT, JobType.BOATWRIGHT);
 		}
@@ -165,13 +221,17 @@ public final class Shipyard implements Archetype {
 				d.set(bx, -1, bz, States.lit(Blocks.CAMPFIRE, true));
 				d.set(bx, 0, bz, Blocks.WATER_CAULDRON.defaultBlockState().setValue(BlockStateProperties.LEVEL_CAULDRON, 3));
 			}
+			if (plan == Plan.BEACH) {
+				// the pitch kettle under a reed shade
+				dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, bx - 1, bz - 1, bx + 1, bz + 1, 0);
+			}
 			pois.siteIf(d, bx, 0, bz - 1, Dirs.BACK, JobType.BOATWRIGHT);
 			pois.store(d, bx + (loftLeft ? 1 : -1), 0, bz, Dirs.FRONT, false, Works.items("minecraft:string", 32, "minecraft:iron_nugget", 64));
 		}
 		// a crane over the slip's head lifting a baulk
 		int cx = slipX + (loftLeft ? -halfBeam - 2 : halfBeam + 2);
 		int cz = Math.max(2, zBow - 1);
-		if (Works.in(d, cx, cz) && d.isEmpty(cx, 0, cz) && Math.abs(cx - ex) > 1) {
+		if ((plan == Plan.STOCKS || plan == Plan.JUNK) && Works.in(d, cx, cz) && d.isEmpty(cx, 0, cz) && Math.abs(cx - ex) > 1) {
 			int jib = Lifts.crane(d, cx, cz, 0, Math.min(9, d.maxHeight() - 2), loftLeft ? Dirs.RIGHT : Dirs.LEFT, Math.abs(cx - slipX),
 				logs.log(Direction.Axis.Z).at(slipX, 2, cz));
 			if (jib != Integer.MIN_VALUE) {
@@ -191,7 +251,33 @@ public final class Shipyard implements Archetype {
 		Works.lampPost(d, slipX + (loftLeft ? halfBeam + 2 : -halfBeam - 2), 0, Math.min(zw - 2, zBow + 5));
 		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{ex, 0, 1}, new int[]{ex, 0, 2});
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, Math.min(dp, zw + 1) - 1, Math.min(d.maxHeight() - 1, top + 1));
+	}
+
+	/**
+	 * A rope walk along column x from z0 to z1: posts every other cell carrying the rope being laid (a beam of stripped
+	 * wood at shoulder height), the spinning wheel (a grindstone) at its head, barrels of hemp. The ropemaker walks it.
+	 */
+	private static void ropeWalk(Draft d, Pois pois, int x, int z0, int z1) {
+		Mat post = Hall.woodFence(d);
+		Mat beam = d.mat(Role.BEAM);
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int z = z0 + 1; z <= z1; z++) {
+				if (!Works.in(d, x, z) || !d.isEmpty(x, 0, z) || !d.isEmpty(x, 1, z)) {
+					continue;
+				}
+				if ((z - z0) % 2 == 1) {
+					d.set(x, 0, z, post.fence());
+				}
+				d.set(x, 1, z, beam.log(Direction.Axis.Z));
+			}
+		}
+		if (Works.in(d, x, z0) && d.isEmpty(x, 0, z0)) {
+			pois.grindstone(d, x, 0, z0, Dirs.FRONT, JobType.BOATWRIGHT);
+		}
+		pois.store(d, x, 0, z1 + 1, Dirs.FRONT, false, Works.items("minecraft:string", 64, "minecraft:lead", 8));
 	}
 
 	/** A staging of planks along the hull's side on posts, reached by a ladder, the shipwrights' places on it and below. */
@@ -237,15 +323,28 @@ public final class Shipyard implements Archetype {
 		h.facade(door, 1, 1, 0.4).ground(false).shell().openings(true);
 		door = h.door != null ? h.door : door;
 		int[] well = h.storeys() >= 2 ? h.switchback(0, left ? Dirs.LEFT : Dirs.RIGHT) : null;
-		if (h.storeys() >= 2 && well == null) {
+		h.roof(form, Direction.Axis.Z, 1, null);
+		// where the turning stair will not fit, a ladder up through a hatch; the stairwell railed on the loft floor
+		int[] ladder = h.storeys() >= 2 && well == null ? Hatch.ladder(d, h, 1, null, Dirs.BACK, left ? Dirs.LEFT : Dirs.RIGHT) : null;
+		if (h.storeys() >= 2 && well == null && ladder == null) {
 			h.openLoft(1);
 		}
-		h.roof(form, Direction.Axis.Z, 1, null);
+		Rails.well(d, h, 0, well);
 		int[] in = h.inner(0);
 		Floorplan fp = h.floor(0).blockHoles(d);
 		fp.keep(door, in[1]);
 		if (well != null) {
+			for (int x = well[4]; x <= well[6]; x++) {
+				for (int z = well[5]; z <= well[7]; z++) {
+					if (x != well[0] || z != well[1]) {
+						fp.block(x, z);
+					}
+				}
+			}
 			fp.keep(well[0], well[1]);
+		}
+		if (ladder != null) {
+			fp.keep(ladder[0], ladder[1]);
 		}
 		// below: chests of pitch and nails, coils of rope, the bench
 		for (Direction wall : new Direction[]{Dirs.BACK, left ? Dirs.RIGHT : Dirs.LEFT}) {
@@ -273,7 +372,7 @@ public final class Shipyard implements Archetype {
 				for (int x = up[0]; x <= up[2]; x++) {
 					for (int z = up[1]; z <= up[3]; z++) {
 						boolean hole = well != null && x >= Math.min(well[4], well[6]) && x <= Math.max(well[4], well[6]) && z >= Math.min(well[5], well[7])
-							&& z <= Math.max(well[5], well[7]);
+							&& z <= Math.max(well[5], well[7]) || ladder != null && Math.abs(x - ladder[0]) + Math.abs(z - ladder[1]) <= 1;
 						if (!hole && d.isEmpty(x, y, z) && d.isSolid(x, y - 1, z) && (x + z) % 3 != 0) {
 							d.set(x, y, z, cloth.defaultBlockState());
 						}

@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
-import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -39,7 +38,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:work/brewery}: the brewhouse and its kiln. Beside the brewhouse rises the malt kiln — an oast with a
- * steep pyramid or cone roof and a white cowl turned to the wind, a landmark of the brewing country — while the
+ * steep pyramid or cone roof and a louvred timber cowl on its apex, a landmark of the brewing country — while the
  * brewhouse holds the copper (cauldrons on a slow fire), the brewing stands on their bench and the barrel racks in two
  * tiers along the cool back wall. Out in the yard the hop bines climb their poles. Where the culture brews wine or rice
  * wine instead, the yard holds rows of great jars under a pergola of vines.
@@ -137,6 +136,8 @@ public final class Brewery implements Archetype {
 			// a flat roof is a terrace: a stair up the side, a room set back, an awning
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, d.maxHeight() - 2) + 1);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -206,7 +207,7 @@ public final class Brewery implements Archetype {
 
 	/**
 	 * The oast: a square kiln of masonry (round on broad plots) rising above the brewhouse, a steep pyramid or cone roof
-	 * and the white cowl on top, a door at its foot.
+	 * and the timber cowl on top, a door at its foot.
 	 */
 	private static void oast(Draft d, int x0, int x1, int z0, int z1, Hall hall) {
 		Mat wall = d.mat(Role.PLINTH);
@@ -216,7 +217,14 @@ public final class Brewery implements Archetype {
 		if (z1 - z0 + 1 < size) {
 			z0 = z1 - size + 1;
 		}
-		if (z0 < 0) {
+		// the door at its foot needs a row of the yard before it (on the street's row its threshold met the street's
+		// slope): a smaller kiln where the yard is shallow
+		while (z0 < 1 && size > 4) {
+			size--;
+			x1 = x0 + size - 1;
+			z0 = z1 - size + 1;
+		}
+		if (z0 < 1) {
 			return;
 		}
 		boolean round = size >= 5 && d.chance(0.6);
@@ -280,16 +288,17 @@ public final class Brewery implements Archetype {
 		int ax = (int) Math.round(cx);
 		int az = (int) Math.round(cz);
 		int top = roof.ridgeY + 1;
-		Block white = Blocks.WOOL.pick(DyeColor.WHITE);
-		if (top + 1 < d.maxHeight()) {
+		// the cowl: a louvred box of boards seated on the apex (its sides open slats), a cap of boards over it, the vane
+		Mat wood = d.mat(Role.FURNITURE);
+		int seat = roof.covers(ax, az) ? roof.surfaceY(ax, az) + 1 : top;
+		if (seat + 1 < d.maxHeight()) {
 			try (var s = d.stage(StageKind.ROOF)) {
-				d.set(ax, top, az, white.defaultBlockState());
-				d.set(ax, top + 1, az, Props.block("minecraft:white_wool_slab", white).defaultBlockState()
-					.trySetValue(BlockStateProperties.SLAB_TYPE, SlabType.BOTTOM));
+				d.set(ax, seat, az, wood.has(Form.TRAPDOOR) ? wood.trapdoor(Dirs.FRONT, net.minecraft.world.level.block.state.properties.Half.BOTTOM, true)
+					: Hall.woodFence(d).fence());
+				d.set(ax, seat + 1, az, wood.slab(SlabType.BOTTOM));
 			}
-			// the cowl's vane
-			if (top + 2 < d.maxHeight()) {
-				d.inStage(StageKind.ROOF, () -> d.set(ax, top + 2, az, Hall.woodFence(d).fence()));
+			if (seat + 2 < d.maxHeight()) {
+				d.inStage(StageKind.ROOF, () -> d.set(ax, seat + 2, az, Hall.woodFence(d).fence()));
 			}
 		}
 		// inside: the drying floor's slatted ceiling and sacks of malt

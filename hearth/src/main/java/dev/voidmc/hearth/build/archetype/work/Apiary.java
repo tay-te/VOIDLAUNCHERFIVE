@@ -212,6 +212,8 @@ public final class Apiary implements Archetype {
 			line.add(new int[]{0, z});
 		}
 		Garden.fence(d, line, gateIdx, Dirs.FRONT);
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, 4) + 2);
 	}
 
@@ -267,7 +269,8 @@ public final class Apiary implements Archetype {
 				bench = true;
 			} else if (!comb && fp.take(c[0], c[1], null)) {
 				comb = true;
-				d.inStage(StageKind.INTERIOR, () -> d.set(c[0], 0, c[1], Blocks.HONEYCOMB_BLOCK.defaultBlockState()));
+				// a spare hive for the swarms, not a block of comb glowing on the floor
+				d.inStage(StageKind.INTERIOR, () -> d.set(c[0], 0, c[1], Blocks.BEEHIVE.defaultBlockState()));
 			}
 		}
 		if (!chest) {

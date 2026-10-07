@@ -71,6 +71,10 @@ public final class Masonry implements Archetype {
 		Roofs.Roof roof = Shed.open(d, 0, sz0, w - 1, sz1, 0, 4, form == RoofForm.FLAT ? RoofForm.SHED : form, Direction.Axis.X, 1, stone,
 			Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
 		d.carve(1, 0, sz0 + 1, w - 2, 3, sz1 - 1);
+		// lights in the back and the ends, so the bankers work in daylight (a blind stone box from three sides before)
+		Shed.windows(d, 0, sz0, w - 1, sz1, 0, Dirs.BACK, 3);
+		Shed.windows(d, 0, sz0, w - 1, sz1, 0, Dirs.LEFT, 2);
+		Shed.windows(d, 0, sz0, w - 1, sz1, 0, Dirs.RIGHT, 2);
 		d.body(0, sz0, w - 1, sz1);
 		d.eave(4);
 		// under it: stonecutters along the back wall, a chest, a rack of chisels
@@ -107,6 +111,8 @@ public final class Masonry implements Archetype {
 		gaps.add(new int[]{gate - 1, 0});
 		wall(d, w, sz0, gaps);
 		Signs.post(d, gate + 1, 0, 0, Dirs.LEFT, 3, "masonry", "Mason");
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : 6) + 3);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

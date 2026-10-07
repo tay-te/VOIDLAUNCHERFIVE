@@ -7,6 +7,7 @@ import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.Noise;
 import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.draft.States;
+import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import java.util.ArrayList;
@@ -39,11 +40,19 @@ public final class Salt {
 	 * with clay, each flooded with brine, drying white or raked into crust by its hash. Returns the pans.
 	 */
 	public static List<Pan> pans(Draft d, int x0, int z0, int x1, int z1, int step, int lane, Mat kerb) {
+		return pans(d, x0, z0, x1, z1, step, step, lane, kerb);
+	}
+
+	/**
+	 * {@link #pans} with kerbs every {@code stepX} cells across and every {@code stepZ} back, so the pans are long strips
+	 * (three across and five back, say) rather than a chequer of little squares.
+	 */
+	public static List<Pan> pans(Draft d, int x0, int z0, int x1, int z1, int stepX, int stepZ, int lane, Mat kerb) {
 		List<Pan> out = new ArrayList<>();
 		try (var s = d.stage(StageKind.EARTHWORK)) {
 			for (int z = z0; z <= z1; z++) {
 				for (int x = x0; x <= x1; x++) {
-					boolean k = x == x0 || x == x1 || z == z0 || z == z1 || (x - x0) % step == 0 || (z - z0) % step == 0 || x == lane;
+					boolean k = x == x0 || x == x1 || z == z0 || z == z1 || (x - x0) % stepX == 0 || (z - z0) % stepZ == 0 || x == lane;
 					d.set(x, -2, z, Blocks.PACKED_MUD.defaultBlockState());
 					if (k) {
 						d.set(x, -1, z, kerb.full());
@@ -52,12 +61,12 @@ public final class Salt {
 			}
 		}
 		// the pans: each run of cells between kerbs
-		for (int pz = z0 + 1; pz < z1; pz += step) {
-			for (int px = x0 + 1; px < x1; px += step) {
+		for (int pz = z0 + 1; pz < z1; pz += stepZ) {
+			for (int px = x0 + 1; px < x1; px += stepX) {
 				int ax = px;
-				int bx = Math.min(x1 - 1, px + step - 2);
+				int bx = Math.min(x1 - 1, px + stepX - 2);
 				int az = pz;
-				int bz = Math.min(z1 - 1, pz + step - 2);
+				int bz = Math.min(z1 - 1, pz + stepZ - 2);
 				// the lane splits a pan
 				List<int[]> spans = new ArrayList<>();
 				if (lane >= ax && lane <= bx) {
@@ -80,12 +89,13 @@ public final class Salt {
 		return out;
 	}
 
+	/** A pan in one state: brine, drying (white from its far end, the brine shrinking toward the near), or crust. */
 	private static void fill(Draft d, int x0, int z0, int x1, int z1, int state) {
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int z = z0; z <= z1; z++) {
 				for (int x = x0; x <= x1; x++) {
 					double u = Noise.unit(d.seed() ^ 0xC2057, x, 0, z);
-					boolean crust = state == 2 || state == 1 && u < 0.5;
+					boolean crust = state == 2 || state == 1 && z > (z0 + z1) / 2;
 					d.set(x, -1, z, crust ? Blocks.CALCITE.defaultBlockState() : Blocks.WATER.defaultBlockState());
 					if (crust && state == 2 && u < 0.35) {
 						// raked into little ridges of salt
@@ -96,15 +106,41 @@ public final class Salt {
 		}
 	}
 
-	/** A cone of salt on whole or half centre (cx, cz): radius r, {@code height} tall, crystalline white. */
+	/**
+	 * A cone of salt on whole or half centre (cx, cz): radius r, {@code height} tall, crystalline white, its slopes
+	 * smooth (a core of calcite under layers of salt, eighths of a block, rather than stairs that read as steps).
+	 * Returns its top.
+	 */
 	public static int cone(Draft d, double cx, double cz, double r, double height) {
-		Paint calcite = Paint.of(Blocks.CALCITE.defaultBlockState());
-		Shape.Skin skin = new Shape.Skin(calcite, Blocks.SMOOTH_QUARTZ_STAIRS, Blocks.SMOOTH_QUARTZ_SLAB);
 		int x0 = (int) Math.floor(cx - r);
 		int z0 = (int) Math.floor(cz - r);
 		int x1 = (int) Math.ceil(cx + r);
 		int z1 = (int) Math.ceil(cz + r);
-		return Shape.body(d, Shape.cone(cx, cz, r, height), 0, x0, z0, x1, z1, skin, calcite, StageKind.EXTERIOR);
+		Roofs.Field f = Shape.cone(cx, cz, r, height);
+		int top = Integer.MIN_VALUE;
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int z = z0; z <= z1; z++) {
+				for (int x = x0; x <= x1; x++) {
+					double h = f.h(x, z);
+					if (Double.isNaN(h) || !Works.in(d, x, z) || !d.isEmpty(x, 0, z)) {
+						continue;
+					}
+					int full = (int) Math.floor(h);
+					int layers = (int) Math.round((h - full) * 8);
+					if (full == 0 && layers == 0) {
+						layers = 2;
+					}
+					for (int y = 0; y < full; y++) {
+						d.set(x, y, z, Blocks.CALCITE.defaultBlockState());
+					}
+					if (layers > 0) {
+						d.set(x, full, z, Blocks.SNOW.defaultBlockState().setValue(net.minecraft.world.level.block.SnowLayerBlock.LAYERS, Math.min(8, layers)));
+					}
+					top = Math.max(top, full);
+				}
+			}
+		}
+		return top;
 	}
 
 	/**
