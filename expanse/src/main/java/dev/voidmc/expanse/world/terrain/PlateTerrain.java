@@ -74,6 +74,9 @@ final class PlateTerrain {
 	private int pieceCount;
 	private final int[] pieceFirst;
 	private final byte[] pieceNum;
+	/** For each grid cell, the river pieces whose box reaches into it: cellPieces[cellFirst[k] .. cellFirst[k + 1]). */
+	private int[] cellFirst;
+	private int[] cellPieces;
 
 	/** Raw per-column values, before the model blends plates and adds detail. */
 	static final class Raw {
@@ -299,6 +302,7 @@ final class PlateTerrain {
 		long t8 = System.nanoTime();
 		// 8. Rivers.
 		this.buildRivers();
+		this.indexRivers();
 
 		long t9 = System.nanoTime();
 		// 9. Values a little way past the border, so interpolation near it has neighbours to use.
@@ -626,9 +630,17 @@ final class PlateTerrain {
 	// ---------------------------------------------------------------------------------------------
 	// Rivers
 
+	/** A river's half width from the land it drains: four-block brooks up to great rivers fifty blocks across. */
 	static float halfWidth(float area) {
-		return Math.min(16.0F, 0.6F + 0.9F * (float) Math.sqrt(area / RIVER_AREA));
+		return Math.min(24.0F, 0.8F + 1.3F * (float) Math.sqrt(area / RIVER_AREA));
 	}
+
+	/** How far round its channel a river piece's box reaches: the widest the valley floor and sides get. */
+	static float pad(float hw) {
+		return Math.max(2.7F * hw + 56, 62);
+	}
+
+
 
 	private boolean isRiver(int k) {
 		return k >= 0 && this.kind[k] == LAND && this.area[k] >= RIVER_AREA;
@@ -701,7 +713,7 @@ final class PlateTerrain {
 		p[o + 9] = hw0;
 		p[o + 10] = hw2;
 		// bounding box, padded by the widest the valley round the channel gets (and a fjord's trough)
-		float pad = Math.max(1.8F * Math.max(hw0, hw2) + 16, 62);
+		float pad = pad(Math.max(hw0, hw2));
 		p[o + 11] = Math.min(x0, Math.min(x1, x2)) - pad;
 		p[o + 12] = Math.max(x0, Math.max(x1, x2)) + pad;
 		p[o + 13] = Math.min(z0, Math.min(z1, z2)) - pad;
@@ -815,21 +827,54 @@ final class PlateTerrain {
 		return 0.5F * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
 	}
 
+	/**
+	 * Files every river piece under each grid cell its box reaches into, so finding the river nearest a point looks
+	 * only at the pieces of the cell the point is in, however wide the valleys (a box reaches well over a hundred
+	 * blocks round a great river's channel).
+	 */
+	private void indexRivers() {
+		int cells = this.w * this.d;
+		int[] first = new int[cells + 1];
+		for (int pass = 0; pass < 2; pass++) {
+			int[] fill = pass == 1 ? first.clone() : null;
+			for (int q = 0; q < this.pieceCount; q++) {
+				int o = q * STRIDE;
+				int ci0 = Math.max(0, Mth.floor(this.pieces[o + 11] / G) - this.i0);
+				int ci1 = Math.min(this.w - 1, Mth.floor(this.pieces[o + 12] / G) - this.i0);
+				int cj0 = Math.max(0, Mth.floor(this.pieces[o + 13] / G) - this.j0);
+				int cj1 = Math.min(this.d - 1, Mth.floor(this.pieces[o + 14] / G) - this.j0);
+				for (int cj = cj0; cj <= cj1; cj++) {
+					for (int ci = ci0; ci <= ci1; ci++) {
+						int k = ci + cj * this.w;
+						if (pass == 0) {
+							first[k + 1]++;
+						} else {
+							this.cellPieces[fill[k]++] = q;
+						}
+					}
+				}
+			}
+			if (pass == 0) {
+				for (int k = 0; k < cells; k++) {
+					first[k + 1] += first[k];
+				}
+				this.cellPieces = new int[first[cells]];
+			}
+		}
+		this.cellFirst = first;
+	}
+
 	private void nearestRiver(float px, float pz, int i, int j, Raw out) {
 		float best = Float.MAX_VALUE;
 		float[] p = this.pieces;
-		for (int nj = j - 2; nj <= j + 3; nj++) {
-			if (nj < 0 || nj >= this.d) {
-				continue;
-			}
-			for (int ni = i - 2; ni <= i + 3; ni++) {
-				if (ni < 0 || ni >= this.w) {
-					continue;
-				}
-				int k = ni + nj * this.w;
-				int num = this.pieceNum[k];
-				for (int q = 0; q < num; q++) {
-					int o = (this.pieceFirst[k] + q) * STRIDE;
+		if (i < 0 || i >= this.w || j < 0 || j >= this.d) {
+			return;
+		}
+		int cell = i + j * this.w;
+		{
+			{
+				for (int c = this.cellFirst[cell]; c < this.cellFirst[cell + 1]; c++) {
+					int o = this.cellPieces[c] * STRIDE;
 					if (px < p[o + 11] || px > p[o + 12] || pz < p[o + 13] || pz > p[o + 14]) {
 						continue;
 					}

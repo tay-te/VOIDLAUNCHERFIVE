@@ -54,6 +54,8 @@ public final class TerrainModel {
 	private static final int NOISES = 18;
 	/** One lake at most in each cell this wide. */
 	private static final int LAKE_CELL = 560;
+	/** One great lake at most in each cell this wide. */
+	private static final int GREAT_CELL = 1400;
 
 	private final long seed;
 	private final PlateMap plates;
@@ -61,6 +63,8 @@ public final class TerrainModel {
 	private final ConcurrentHashMap<Long, Entry> terrains = new ConcurrentHashMap<>();
 	private final AtomicLong clock = new AtomicLong();
 	private final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
+	/** Great lakes by cell, once found (a few hundred bytes each; the cells are 1.4 km across). */
+	private final ConcurrentHashMap<Long, GreatLake> greatLakes = new ConcurrentHashMap<>();
 	private final CavernModel caverns;
 	/** Vanilla's climate noises, made from the same parameters (so the biomes come out in the same proportions). */
 	private final Noise temperature;
@@ -100,10 +104,14 @@ public final class TerrainModel {
 		final PlateTerrain.Raw l = new PlateTerrain.Raw();
 		final PlateMap.Hit hitL = new PlateMap.Hit();
 		float lakeEdge;
+		/** (great lakes) Per great-lake cell: its key and its lake. */
+		final long[] greatKey = new long[32];
+		final GreatLake[] greats = new GreatLake[32];
 
 		Scratch() {
 			java.util.Arrays.fill(this.tepuiKey, Long.MIN_VALUE);
 			java.util.Arrays.fill(this.lakeKey, Long.MIN_VALUE);
+			java.util.Arrays.fill(this.greatKey, Long.MIN_VALUE);
 		}
 
 		/** (tepuis) How high the talus stands over the ground here, at the foot of the nearest cliff. */
@@ -114,6 +122,15 @@ public final class TerrainModel {
 	 * A lake: its centre and radius, the y of its top water block, the depth of its bowl, whether it has
 	 * islands, and a seed for its shape.
 	 */
+	/**
+	 * A great lake: a lowland river valley flooded behind a moraine. Its centre on the river, the radius it may
+	 * reach, the y of its top water block, and the bearing (radians) and half width of the arc where the valley
+	 * leaves it, across which the moraine stands.
+	 */
+	record GreatLake(boolean exists, float x, float z, float r, float level, float outlet, float arc) {
+		static final GreatLake NONE = new GreatLake(false, 0, 0, 0, 0, 0, 0);
+	}
+
 	record Lake(boolean exists, float x, float z, float r, float level, float depth, boolean islands, long seed) {
 		static final Lake NONE = new Lake(false, 0, 0, 0, 0, 0, false, 0);
 	}
@@ -288,6 +305,17 @@ public final class TerrainModel {
 		out.landform = Landform.NONE;
 		boolean land = height > PlateTerrain.SEA + 3;
 
+		// The Bohemian heartland: temperate country well inland and away from the ranges rolls rather than climbs.
+		// Its hills stand lower over their valleys (by up to nearly half), so the land opens out into long gentle
+		// slopes and broad vales, while the mountains and the coasts keep their relief.
+		if (land) {
+			float heart = smooth((temperature + 0.4F) / 0.3F) * smooth((0.6F - temperature) / 0.3F) * smooth((humidity + 0.25F) / 0.3F)
+				* smooth((coast - 400) / 700) * smooth((0.95F - uplift) / 0.5F);
+			if (heart > 0 && height > base) {
+				height = base + (height - base) * (1 - 0.45F * heart);
+			}
+		}
+
 		// Canyon country: dry uplands, terraced into mesas and buttes, their rivers sunk in sheer canyons.
 		float arid = smooth((-0.1F - humidity) / 0.25F) * smooth((temperature - 0.2F) / 0.25F);
 		float canyon = land ? arid * smooth((uplift - 0.22F) / 0.35F)
@@ -425,6 +453,20 @@ public final class TerrainModel {
 			}
 		}
 
+		// Great lakes: here and there a lowland river valley lies flooded behind a moraine the ice left across it.
+		// The water stands over everything below its level, so the shore follows the lie of the land, out along
+		// the river's side valleys; the river comes in at the head and spills out through a notch in the moraine.
+		if (land && out.lake < -900) {
+			GreatLake g = this.greatLakeNear(x, z, s);
+			if (g != null) {
+				float before = height;
+				height = this.flood(g, x, z, height, river && a.riverDist < a.riverHalfWidth + 1.5F, out);
+				if (out.lake > -900) {
+					dry = before;
+				}
+			}
+		}
+
 		// Fjords: on cold mountain coasts the ice ground the river valleys into U-shaped troughs, deepest at
 		// the coast, where the sea has come in: sheer walls round a long arm of the sea.
 		out.fjord = false;
@@ -485,7 +527,8 @@ public final class TerrainModel {
 	private static float valley(float height, float dist, float hw, float water, float canyon) {
 		float floor = water + 1;
 		float depth = Math.max(0, height - floor);
-		float plain = Mth.lerp(canyon, hw + 3 + hw * 0.8F + 10 + Math.min(40, depth), hw + 2.5F);
+		// big rivers lie in broad flat floodplains, half again as wide as the river either side
+		float plain = Mth.lerp(canyon, hw + 13 + hw * 1.3F + Math.min(40, depth), hw + 2.5F);
 		if (dist < hw) {
 			return floor;
 		}
@@ -494,6 +537,199 @@ public final class TerrainModel {
 			return Math.max(floor, Mth.lerp(t, floor, height));
 		}
 		return height;
+	}
+
+	/** The great lake whose water, shore or moraine may reach (x, z); null if none. */
+	private GreatLake greatLakeNear(int x, int z, Scratch s) {
+		int gx = Math.floorDiv(x, GREAT_CELL);
+		int gz = Math.floorDiv(z, GREAT_CELL);
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				GreatLake g = this.greatLake(gx + dx, gz + dz, s);
+				if (g.exists() && Math.hypot(x - g.x(), z - g.z()) < g.r() * 1.15 + 36) {
+					return g;
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The ground at (x, z) as a great lake leaves it, marking the column's water or shore in {@code out}. Toward the
+	 * rim (whose reach wavers with the bearing, so no edge of it is ever an arc) only ever deeper ground is drowned,
+	 * so the shores close in on the valley floor; the shallower ground there is built up into a broad moraine plug
+	 * across the valley rather than a dam along a line, with a notch where the river runs out through it.
+	 */
+	private float flood(GreatLake g, int x, int z, float height, boolean channel, Column out) {
+		double dx = x - g.x();
+		double dz = z - g.z();
+		float d = (float) Math.sqrt(dx * dx + dz * dz);
+		double bearing = Math.atan2(dz, dx);
+		float r = g.r() * (1 + 0.14F * (float) this.noise(N_LAKE, Math.cos(bearing) * 1.7 + g.x() / 97.0, Math.sin(bearing) * 1.7 + g.z() / 97.0));
+		float level = g.level();
+		float rim = smooth((d - (r - 90)) / 86);        // 0 well inside, 1 at the rim
+		float drown = level + 0.5F - 7 * rim;
+		if (d < r - 4 && height < drown) {
+			// the water: the drowned valley floor, a little deeper where it lay lowest
+			float deep = level - height;
+			out.lake = level;
+			out.lakeEdge = 1 + 3 * Math.max(0, deep + 0.5F);
+			return Math.min(height, level - 0.6F - 0.3F * Math.max(0, deep));
+		}
+		float bank = level + 1 + 1.5F * rim;
+		if (d < r - 4 && height < level + 2.5F + 1.5F * rim) {
+			// the shore, and toward the rim the moraine, a block or three over the water
+			out.lake = level;
+			out.lakeEdge = -Math.max(0.5F, height - level - 0.5F) * 1.5F;
+			return channel ? height : Math.max(height, bank);
+		}
+		// beyond the rim the moraine's outer face falls away into the valley below
+		if (d >= r - 4 && d < r + 34 && !channel && height < bank) {
+			float face = Mth.lerp(smooth((d - r + 4) / 38), bank, height);
+			height = Math.max(height, face);
+		}
+		return height;
+	}
+
+	private GreatLake greatLake(int gx, int gz, Scratch s) {
+		long key = (long) gx << 32 ^ gz & 0xFFFF_FFFFL;
+		int slot = (int) (PlateMap.mix(3, gx, gz) & 31);
+		if (s.greatKey[slot] != key) {
+			GreatLake g = this.siteOf(gx, gz, s);
+			// two lakes never overlap (their water would stand at two levels): the higher-ranked cell keeps its own
+			if (g.exists()) {
+				long rank = PlateMap.mix(this.seed ^ 0x52414E4BL, gx, gz);
+				for (int dx = -1; dx <= 1 && g.exists(); dx++) {
+					for (int dz = -1; dz <= 1; dz++) {
+						if (dx == 0 && dz == 0) {
+							continue;
+						}
+						GreatLake o = this.siteOf(gx + dx, gz + dz, s);
+						if (o.exists() && PlateMap.mix(this.seed ^ 0x52414E4BL, gx + dx, gz + dz) > rank
+							&& Math.hypot(o.x() - g.x(), o.z() - g.z()) < (o.r() + g.r()) * 1.15 + 60) {
+							g = GreatLake.NONE;
+							break;
+						}
+					}
+				}
+			}
+			s.greats[slot] = g;
+			s.greatKey[slot] = key;
+		}
+		return s.greats[slot];
+	}
+
+	/**
+	 * A cell's great lake site, whether or not a neighbour's overrules it. Finding one samples the plate a few
+	 * thousand times, so it is done once per cell for every thread.
+	 */
+	private GreatLake siteOf(int gx, int gz, Scratch s) {
+		long key = (long) gx << 32 ^ gz & 0xFFFF_FFFFL;
+		GreatLake g = this.greatLakes.get(key);
+		if (g == null) {
+			g = this.makeGreatLake(gx, gz, s);
+			GreatLake had = this.greatLakes.putIfAbsent(key, g);
+			g = had != null ? had : g;
+		}
+		return g;
+	}
+
+	/**
+	 * Three cells in five may have a great lake, on a river of some size in open lowland country: well inland, temperate
+	 * or cool and not dry, no volcano or plate border near. The cell is searched on a grid for points on such a
+	 * river. The water stands five or six blocks over the river there; the lake's reach grows (up to 700 blocks) until
+	 * the valley upstream has risen out of the water, so the rim has one low gap only, the valley going on downstream,
+	 * where the moraine stands. Lowland rivers fall so gently that most such lakes are long ones, drowning the valley
+	 * for a kilometre and more. A fair share of the land within must lie under the water.
+	 */
+	private GreatLake makeGreatLake(int gx, int gz, Scratch s) {
+		long h = PlateMap.mix(this.seed ^ 0x4752_4541L, gx, gz);
+		if (PlateMap.unit(h) > 0.6) {
+			return GreatLake.NONE;
+		}
+		PlateTerrain.Raw raw = s.l;
+		int samples = 36;
+		float[] low = new float[samples];
+		int grid = 10;
+		int offset = (int) (PlateMap.unit(h >>> 13) * grid * grid);
+		int tried = 0;
+		for (int n = 0; n < grid * grid && tried < 6; n++) {
+			int c = (n * 37 + offset) % (grid * grid);   // the grid in a scrambled order
+			double px = (gx + 0.15 + 0.7 * (c % grid + 0.5) / grid) * GREAT_CELL;
+			double pz = (gz + 0.15 + 0.7 * (c / grid + 0.5) / grid) * GREAT_CELL;
+			this.plates.locate(px, pz, s.hitL);
+			if (s.hitL.border < BLEND + 140) {
+				continue;
+			}
+			PlateTerrain plate = this.terrain(s.hitL.own);
+			plate.sample(px, pz, px, pz, true, raw);
+			if (Float.isNaN(raw.riverWater) || raw.riverDist > raw.riverHalfWidth + 2 || raw.riverHalfWidth < 3
+				|| raw.height > 150 || raw.coast < 700) {
+				continue;
+			}
+			tried++;
+			float centre = raw.riverWater;
+			double sx = this.offset.get(px * 0.25, 0, pz * 0.25) * 4;
+			double sz = this.offset.get(pz * 0.25, px * 0.25, 0) * 4;
+			float temperature = (float) this.temperature.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
+			float humidity = (float) this.vegetation.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
+			if (humidity < -0.2F || smooth(humidity / 0.2F) * smooth((temperature - 0.3F) / 0.2F) > 0.3F) {
+				continue;
+			}
+			boolean volcano = false;
+			for (PlateTerrain.Volcano v : plate.volcanoes()) {
+				volcano |= Math.hypot(px - v.x(), pz - v.z()) < v.radius() + 380;
+			}
+			if (volcano) {
+				continue;
+			}
+			float level = Mth.floor(centre) + 5 + (int) (PlateMap.unit(h >>> (20 + n % 30)) * 2);
+			for (float r = 140; r <= 700; r += 40) {
+				if (s.hitL.border < BLEND + r) {
+					break;
+				}
+				int lows = 0;
+				int arcs = 0;
+				int start = -1;
+				for (int k = 0; k < samples; k++) {
+					double a = k * Mth.TWO_PI / samples;
+					plate.sample(px + Math.cos(a) * r, pz + Math.sin(a) * r, 0, 0, false, raw);
+					low[k] = raw.height;
+				}
+				boolean[] under = new boolean[samples];
+				for (int k = 0; k < samples; k++) {
+					under[k] = low[k] < level + 1;
+					lows += under[k] ? 1 : 0;
+				}
+				for (int k = 0; k < samples; k++) {
+					if (under[k] && !under[(k + samples - 1) % samples]) {
+						arcs++;
+						start = k;
+					}
+				}
+				if (arcs > 1) {
+					continue;   // the valley still runs on below the water upstream: reach further
+				}
+				if (arcs == 0 || lows > 5) {
+					break;
+				}
+				int drowned = 0;
+				for (int k = 0; k < 24; k++) {
+					double a = k * Mth.TWO_PI / 24;
+					for (double f : new double[]{0.3, 0.6}) {
+						plate.sample(px + Math.cos(a) * r * f, pz + Math.sin(a) * r * f, 0, 0, false, raw);
+						drowned += raw.height < level ? 1 : 0;
+					}
+				}
+				if (drowned < 8) {
+					break;
+				}
+				float step = Mth.TWO_PI / samples;
+				float outlet = (start + (lows - 1) * 0.5F) * step;
+				return new GreatLake(true, (float) px, (float) pz, r, level, outlet, (lows * 0.5F + 1) * step);
+			}
+		}
+		return GreatLake.NONE;
 	}
 
 	/**
