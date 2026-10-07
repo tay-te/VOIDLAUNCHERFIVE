@@ -161,15 +161,26 @@ public final class PlanContext {
 	}
 
 	private double extent = -1;
-	private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap waterDistances = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
 
-	/** Distance to water from a column, to three blocks (memoised per call on a 3-block grid: frontage searches ask often). */
+	/**
+	 * Distance to water from a column, to three blocks (measured from the middle of its 3-block cell), memoised in the
+	 * settlement's plan state: the land does not change between calls, and frontage searches ask for every place along
+	 * every street.
+	 */
 	public int waterDistance(int x, int z) {
-		long key = ((long) Math.floorDiv(x, 3) << 32) ^ (Math.floorDiv(z, 3) & 0xFFFFFFFFL);
-		int v = this.waterDistances.getOrDefault(key, -1);
+		it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap memo = this.state.waterDistances;
+		if (this.state.waterProbe != this.ground.probe() || memo.size() > 1 << 18) {
+			memo.clear();
+			this.state.waterProbe = this.ground.probe();
+		}
+		int cx = Math.floorDiv(x, 3);
+		int cz = Math.floorDiv(z, 3);
+		long key = ((long) cx << 32) ^ (cz & 0xFFFFFFFFL);
+		int v = memo.getOrDefault(key, -1);
 		if (v < 0) {
-			v = dev.voidmc.hearth.plan.growth.Parcels.waterDistance(this.ground, x, z);
-			this.waterDistances.put(key, v);
+			// measured from the cell's middle, so the value cannot depend on which column of it was asked first
+			v = dev.voidmc.hearth.plan.growth.Parcels.waterDistance(this.ground, cx * 3 + 1, cz * 3 + 1);
+			memo.put(key, v);
 		}
 		return v;
 	}

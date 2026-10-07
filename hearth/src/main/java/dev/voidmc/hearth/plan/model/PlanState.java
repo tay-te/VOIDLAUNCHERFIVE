@@ -70,6 +70,13 @@ public final class PlanState {
 	public transient @Nullable Occupancy occupancy;
 	/** Plot ids the occupancy grid already shows. */
 	public transient int @Nullable [] knownPlots;
+	/**
+	 * Distance to water per three-block cell ({@code PlanContext.waterDistance}), kept between calls: a pure function of
+	 * the land under {@link #waterProbe}, which frontage searches ask for thousands of times a call (never saved).
+	 */
+	public final transient it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap waterDistances = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+	/** The probe {@link #waterDistances} were measured on. */
+	public transient @Nullable Object waterProbe;
 	/** What each plot is for housing by station, by plot id (derived from its spec; never saved). */
 	public final transient java.util.Map<Integer, dev.voidmc.hearth.plan.society.StationLedger.HomeFacts> homeFacts = new java.util.HashMap<>();
 
