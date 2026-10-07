@@ -53,7 +53,8 @@ import net.minecraft.server.Bootstrap;
  * </pre>
  * Terrains are the synthetic kinds or {@code earth[:x:z]} (Expanse's Earth model, the seed as world seed). Output in
  * build/previews/town/: {@code town_<culture>_<terrain>_s<seed>_d<days>_overview[_night].png} and
- * {@code ..._close<n>_<what>[_night].png}, plus similarity.txt.
+ * {@code ..._close<n>_<what>[_night].png} and {@code ..._floating.txt} (the floating-piece probe, {@link TownFloat}), plus
+ * similarity.txt.
  */
 public final class TownPreview {
 	private static final int DAY_BG = 0xFFE9E4DA;
@@ -139,6 +140,15 @@ public final class TownPreview {
 					new File(out, tag + "_overview_night.png"));
 			}
 			town = null;
+
+			// the floating-piece probe (art review 2): each plot on the town's land, then the composed town
+			List<String> floating = TownFloat.report(plots, real, service, terrain, culture, state.heartX - half, state.heartZ - half, state.heartX + half,
+				state.heartZ + half);
+			java.nio.file.Files.write(new File(out, tag + "_floating.txt").toPath(), floating, java.nio.charset.StandardCharsets.UTF_8);
+			System.out.println("  " + floating.get(0) + " -> " + tag + "_floating.txt");
+			for (int i = 1; i < Math.min(floating.size(), 9); i++) {
+				System.out.println("    " + floating.get(i));
+			}
 
 			// close-ups: the heart, then the prominent buildings, spread apart
 			List<int[]> foci = new ArrayList<>();

@@ -78,7 +78,7 @@ public final class PreviewScene {
 	}
 
 	private static BlockState ground(Culture c, int depth, boolean wet, boolean snowy, int x, int z) {
-		int h = Math.floorMod(x * 31 + z * 17, 7);
+		int h = GroundNoise.patch(x, z, 7);
 		if (wet) {
 			return depth == 0 ? (h < 3 ? Blocks.SAND : h < 5 ? Blocks.GRAVEL : Blocks.DIRT).defaultBlockState() : Blocks.DIRT.defaultBlockState();
 		}
