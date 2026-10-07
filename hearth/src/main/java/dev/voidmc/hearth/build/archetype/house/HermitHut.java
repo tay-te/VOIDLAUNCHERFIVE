@@ -174,6 +174,8 @@ public final class HermitHut implements Archetype {
 		}
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		Household.dress(d, room, room, null);
+		StationHomes.roomToTurn(d, room);
+		StationHomes.windows(d, bx0, bz0, bx1, bz1, base + 1);
 
 		// the way to the street, the shrine by it, the garden beside the hut
 		if (raised) {

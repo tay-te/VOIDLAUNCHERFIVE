@@ -200,6 +200,8 @@ public final class Shack implements Archetype {
 		Household.first(d, down, new int[]{fx, fz});
 		Rooms.furnish(d, down, Rooms.Type.KITCHEN, 0, JobType.NONE);
 		Household.dress(d, down, down, new int[]{fx, fz});
+		StationHomes.roomToTurn(d, down);
+		StationHomes.windows(d, r0[0], r0[1], r0[2], r0[3], base + 1);
 		Lighting.room(d, down);
 		if (two) {
 			int[] r1 = body.rect(1);
@@ -214,6 +216,7 @@ public final class Shack implements Archetype {
 				TownHouses.bedroom(d, up, 1);
 			}
 			Rooms.furnish(d, up, Rooms.Type.STORAGE, 0, JobType.NONE);
+			StationHomes.roomToTurn(d, up);
 			Lighting.room(d, up);
 		}
 

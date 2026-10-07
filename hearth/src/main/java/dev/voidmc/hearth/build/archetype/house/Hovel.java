@@ -217,6 +217,8 @@ public final class Hovel implements Archetype {
 		Household.first(d, room, new int[]{door, bz1 - 1});
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		Household.dress(d, room, room, new int[]{door, bz1 - 1});
+		StationHomes.roomToTurn(d, room);
+		StationHomes.windows(d, bx0, bz0, bx1, bz1, base + 1);
 		doorLight(d, door, base, bz0 - 1, lean && leanLeft);
 
 		// the doorstep's life, the green at the foot of the walls
@@ -495,6 +497,8 @@ public final class Hovel implements Archetype {
 		Household.first(d, room, null);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		Household.dress(d, room, room, null);
+		StationHomes.roomToTurn(d, room);
+		StationHomes.windows(d, bx0, bz0, bx1, bz1, base + 1);
 		Lighting.room(d, room);
 		if (yardFire) {
 			// the fire pit beside the shade
@@ -630,6 +634,7 @@ public final class Hovel implements Archetype {
 		StationHomes.fireAndBeds(d, room, doorX, dz + 1, 2, true);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		Household.dress(d, room, room, null);
+		StationHomes.roomToTurn(d, room);
 		if (dz >= 1) {
 			Groundwork.approach(d, doorX, 0, dz - 1);
 			Garden.path(d, Garden.line(doorX, dz - 1, doorX, 0), 0);
