@@ -53,13 +53,13 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class FarSight {
 	public static final String LOD_MOD = "void_lod";
 	/**
-	 * Far sight's own writer: one low-priority thread, so a burst of tiles is written run after run instead of each run
+	 * Far sight's own writer: one thread, so a burst of tiles is written run after run instead of each run
 	 * waiting behind the workers' chunk and image jobs (and never holds a worker the map needs).
 	 */
 	private static final java.util.concurrent.ScheduledExecutorService WRITER = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
 		Thread t = new Thread(r, "Atlas far sight");
 		t.setDaemon(true);
-		t.setPriority(Thread.NORM_PRIORITY - 2);
+		// the workers' priority: below it, a busy machine starves it and a burst never ends
 		return t;
 	});
 	public static final String LAYER = "far";
@@ -311,10 +311,10 @@ public final class FarSight {
 					break;
 				}
 				if (this.full(session, t)) {
-					// more far land in memory than the disk has caught up with: wait for the IO thread's trim, never
-					// writing (or saving) past the cap in a worker's run
+					// more far land in that store than the disk has caught up with: this tile waits for the IO thread's
+					// trim (never written, or saved, past the cap); tiles for the other store go on
 					backlogged = true;
-					break;
+					continue;
 				}
 				if (!this.pending.remove(t.key(), t)) {
 					continue; // replaced by a newer copy meanwhile: that one is written in its turn
