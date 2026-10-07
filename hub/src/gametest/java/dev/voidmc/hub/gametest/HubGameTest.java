@@ -64,6 +64,10 @@ public class HubGameTest implements FabricClientGameTest {
 				}
 				if (mode.equals("functional") || mode.equals("all")) {
 					new FunctionalTest(context, world, spot).run();
+					new MapTest(context, world).run();
+				}
+				if (mode.equals("map")) {
+					new MapTest(context, world).run();
 				}
 				if (mode.equals("perf") || mode.equals("all")) {
 					TestWorld.fillPlayer(world);

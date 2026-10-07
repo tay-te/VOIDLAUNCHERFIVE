@@ -2,6 +2,7 @@ package dev.voidmc.hub.screen;
 
 import dev.voidmc.hub.layout.HubLayout;
 import dev.voidmc.hub.layout.Rect;
+import dev.voidmc.hub.map.HubMap;
 import dev.voidmc.hub.model.Json;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -18,18 +19,76 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * The VOID inventory over {@code player.inventoryMenu}: armour, offhand, 2x2 crafting with its
- * result, 27 storage and 9 hotbar slots, the live player model (drag to turn), and the
- * hovered-item card.
+ * The hub (R-Shift) and the VOID inventory (E), over {@code player.inventoryMenu}. Its pages are
+ * the hub's: <b>Inventory</b> — armour, offhand, 2x2 crafting with its result, 27 storage and 9
+ * hotbar slots, the live player model (drag to turn) and the hovered-item card — and <b>Map</b>,
+ * VOID Atlas's map in the hub's window (a stand-in without Atlas). Tab, Shift-Tab or the pages
+ * island switch between them; the menu stays open underneath either way.
  */
 public class HubInventoryScreen extends HubScreen<InventoryMenu> {
+
+	public static final String MAP = "map";
+	public static final String INVENTORY = "inventory";
 
 	private static final int[] STORAGE = range(9, 27);
 	private static final int[] HOTBAR = range(36, 9);
 
+	/** The page the hub was last left on (R-Shift opens there); null until the hub first opens. */
+	private static String lastPage;
+
+	private String page;
+
+	/** The inventory page (E). */
 	public HubInventoryScreen(Player player) {
+		this(player, INVENTORY);
+	}
+
+	public HubInventoryScreen(Player player, String page) {
 		// Vanilla's InventoryScreen panel size: the pointer mapping uses vanilla's own geometry.
 		super(player.inventoryMenu, player.getInventory(), Component.translatable("container.crafting"), 176, 166);
+		this.page = MAP.equals(page) ? MAP : INVENTORY;
+		lastPage = this.page;
+	}
+
+	/**
+	 * The page R-Shift opens the hub on: where it was left, and at first the Map when VOID Atlas is
+	 * installed (the Inventory otherwise, rather than a stand-in).
+	 */
+	public static String rShiftPage() {
+		if (lastPage != null) {
+			return lastPage;
+		}
+		return HubMap.available() ? MAP : INVENTORY;
+	}
+
+	/** Forgets the last page (a new world, or tests). */
+	public static void resetLastPage() {
+		lastPage = null;
+	}
+
+	/** Sets the page the next R-Shift opens on (tests). */
+	public static void rememberPage(String page) {
+		lastPage = MAP.equals(page) ? MAP : INVENTORY;
+	}
+
+	@Override
+	public String page() {
+		return this.page;
+	}
+
+	@Override
+	protected boolean hasPages() {
+		return true;
+	}
+
+	@Override
+	public void showPage(String page) {
+		if (!MAP.equals(page) && !INVENTORY.equals(page) || page.equals(this.page)) {
+			return;  // Quests, Mods and Friends are not built yet
+		}
+		this.page = page;
+		lastPage = page;
+		this.pageChanged();
 	}
 
 	static int[] range(int start, int n) {
@@ -42,7 +101,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	@Override
 	protected HubLayout makeLayout(int fbW, int fbH, int guiScale) {
-		return HubLayout.inventory(fbW, fbH, guiScale);
+		return MAP.equals(this.page) ? HubLayout.map(fbW, fbH, guiScale) : HubLayout.inventory(fbW, fbH, guiScale);
 	}
 
 	@Override

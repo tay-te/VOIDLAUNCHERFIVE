@@ -8,7 +8,9 @@
 <body class="inventory">
 <!-- The shell (Figma 261:50520): flat dim, three islands, the centred window, the world strip.
      Wells are positioned by Java (one shared layout); everything inside the window is the
-     design's own coordinates, in CSS px = design units. Item stacks are drawn by Minecraft on top. -->
+     design's own coordinates, in CSS px = design units. Item stacks are drawn by Minecraft on top.
+     On the Map page (Figma 333:32995) the window is only the frame: VOID Atlas draws the whole map
+     page inside it natively; without Atlas the window holds the stand-in below. -->
 <div id="dim"></div>
 
 <div class="island" id="mark">
@@ -17,11 +19,11 @@
 </div>
 
 <div class="island" id="pages">
-  <div class="page">Map</div>
-  <div class="page active">Inventory</div>
-  <div class="page">Quests</div>
-  <div class="page">Mods</div>
-  <div class="page">Friends</div>
+  <div class="page" data-page="map">Map</div>
+  <div class="page active" data-page="inventory">Inventory</div>
+  <div class="page" data-page="quests">Quests</div>
+  <div class="page" data-page="mods">Mods</div>
+  <div class="page" data-page="friends">Friends</div>
   <div class="sep"></div>
   <div class="hint"><span class="keycap">Tab</span></div>
 </div>
@@ -37,9 +39,9 @@
     <div class="name" id="world-name">World</div>
   </div>
   <div class="vsep"></div>
-  <div class="pill-button">
+  <div class="pill-button off" id="pill" data-act="waypoint">
     <svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 14.4C8 14.4 3.4 10.3 3.4 6.9C3.4 5.68 3.88464 4.50998 4.74731 3.64731C5.60998 2.78464 6.78 2.3 8 2.3C9.22 2.3 10.39 2.78464 11.2527 3.64731C12.1154 4.50998 12.6 5.68 12.6 6.9C12.6 10.3 8 14.4 8 14.4Z" stroke="#EDEEEF" stroke-width="1.17" stroke-linejoin="round" fill="none"/><path d="M8.5 5.4H7.5C6.94772 5.4 6.5 5.84772 6.5 6.4V7.4C6.5 7.95228 6.94772 8.4 7.5 8.4H8.5C9.05228 8.4 9.5 7.95228 9.5 7.4V6.4C9.5 5.84772 9.05228 5.4 8.5 5.4Z" fill="#EDEEEF"/></svg>
-    <span>Waypoint here</span>
+    <span id="pill-text">Waypoint here</span>
   </div>
 </div>
 
@@ -141,6 +143,16 @@
     <div class="minicoin"><div class="coinart copper small"></div><span id="mini-copper">0</span></div>
     <div class="minicoin"><div class="coinart iron small"></div><span id="mini-iron">0</span></div>
     <div class="minicoin"><div class="coinart gold small"></div><span id="mini-gold">0</span></div>
+  </div>
+
+  <!-- Map page without VOID Atlas: a quiet stand-in in the window Atlas would fill. -->
+  <div class="page-map">
+    <div class="standin">
+      <div class="standin-art" id="standin-art"></div>
+      <div class="standin-title">Map</div>
+      <div class="standin-text">Install VOID Atlas for the map</div>
+      <div class="eyebrow-inline">VOID ATLAS IS NOT INSTALLED</div>
+    </div>
   </div>
 
   <div class="footer" id="footer-left"></div>

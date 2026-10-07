@@ -23,7 +23,7 @@ import java.util.List;
 public final class HubLayout {
 
 	public enum Kind {
-		INVENTORY, CHEST
+		INVENTORY, CHEST, MAP
 	}
 
 	public enum Role {
@@ -68,6 +68,15 @@ public final class HubLayout {
 	static final double MIN_CELL_PX = 20.0;
 	/** Visible chest rows; longer containers scroll. */
 	public static final int VISIBLE_ROWS = 3;
+	/**
+	 * The Map page's window: the host rectangle of Figma 333:32995 ("Hub · Map (R-Shift) with the
+	 * new map"), 1280 x 744, 36 below the page islands and 30 above the world strip. Atlas's page
+	 * fills it in its own design units.
+	 */
+	public static final int MAP_W = 1280;
+	public static final int MAP_H = 744;
+	static final int MAP_GAP_TOP = 36;
+	static final int MAP_GAP_BOTTOM = 30;
 
 	public final Kind kind;
 	public final int fbW;
@@ -111,11 +120,15 @@ public final class HubLayout {
 		double stripX = (this.fbW - STRIP_W * u) / 2.0;
 		this.strip = Rect.design(stripX, this.fbH - (MARGIN + STRIP_H) * u, 0, 0, STRIP_W, STRIP_H, u);
 
-		// Window: centred, lifted as in the design, never under the top islands.
-		double winX = Math.round((this.fbW - WIN_W * u) / 2.0);
-		double winY = (this.fbH - WIN_H * u) / 2.0 - WIN_LIFT * u;
-		winY = Math.round(Math.max(winY, (MARGIN + PAGES_H + 8) * u));
-		this.window = Rect.design(winX, winY, 0, 0, WIN_W, WIN_H, u);
+		if (kind == Kind.MAP) {
+			this.window = mapWindow(this.fbW, this.fbH, this.guiScale, u);
+		} else {
+			// Window: centred, lifted as in the design, never under the top islands.
+			double winX = Math.round((this.fbW - WIN_W * u) / 2.0);
+			double winY = (this.fbH - WIN_H * u) / 2.0 - WIN_LIFT * u;
+			winY = Math.round(Math.max(winY, (MARGIN + PAGES_H + 8) * u));
+			this.window = Rect.design(winX, winY, 0, 0, WIN_W, WIN_H, u);
+		}
 
 		this.iconPx = iconSize(CELL * u, 0.61);
 		List<Cell> out = new ArrayList<>();
@@ -134,6 +147,10 @@ public final class HubLayout {
 			this.addPlayerRows(out, 9, 352, 516);
 			this.player = this.rect(82, 100, 160, 202);
 			this.detailIcon = this.iconIn(this.rect(533, 117, 72, 72), 64);
+			this.containerGrid = null;
+		} else if (kind == Kind.MAP) {
+			this.player = null;
+			this.detailIcon = new Rect(0, 0, 0, 0);
 			this.containerGrid = null;
 		} else {
 			for (int row = 0; row < VISIBLE_ROWS; row++) {
@@ -155,6 +172,29 @@ public final class HubLayout {
 
 	public static HubLayout inventory(int fbW, int fbH, int guiScale) {
 		return new HubLayout(Kind.INVENTORY, fbW, fbH, guiScale, 0, 0);
+	}
+
+	/** The Map page: the shell's islands as on every page, and the window Atlas's map fills. */
+	public static HubLayout map(int fbW, int fbH, int guiScale) {
+		return new HubLayout(Kind.MAP, fbW, fbH, guiScale, 0, 0);
+	}
+
+	/**
+	 * The Map page's window, physical px: the design's 1280 x 744 at the shell's unit, shrunk to the
+	 * band between the page islands and the world strip (keeping the design's gaps) and to the
+	 * window's width, centred in that band. Every edge lies on the GUI-pixel grid, so the rectangle
+	 * Atlas is given in GUI coordinates is exactly the one the page draws the window at.
+	 */
+	static Rect mapWindow(int fbW, int fbH, int guiScale, double u) {
+		double top = (MARGIN + PAGES_H + MAP_GAP_TOP) * u;
+		double bottom = fbH - (MARGIN + STRIP_H + MAP_GAP_BOTTOM) * u;
+		double w = Math.min(MAP_W * u, fbW - 2 * MARGIN * u);
+		double h = Math.min(MAP_H * u, bottom - top);
+		int gw = Math.max(1, (int) Math.floor(w / guiScale));
+		int gh = Math.max(1, (int) Math.floor(h / guiScale));
+		int gx = (int) Math.round((fbW / (double) guiScale - gw) / 2.0);
+		int gy = (int) Math.round(((top + bottom) / 2.0) / guiScale - gh / 2.0);
+		return new Rect(gx * guiScale, gy * guiScale, gw * guiScale, gh * guiScale);
 	}
 
 	public static HubLayout chest(int fbW, int fbH, int guiScale, int rows, int scrollRow) {

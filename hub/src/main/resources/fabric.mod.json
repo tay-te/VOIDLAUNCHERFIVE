@@ -3,7 +3,7 @@
 	"id": "voidhub",
 	"version": "${version}",
 	"name": "VOID Hub",
-	"description": "The VOID-drawn inventory: Minecraft's real inventory and chest menus, drawn with Ultralight (HTML/CSS) in the VOID design. Ultralight (c) 2024 Ultralight, Inc. All rights reserved. Ultralight is a trademark of Ultralight, Inc.",
+	"description": "The VOID hub and inventory: Minecraft's real inventory and chest menus, drawn with Ultralight (HTML/CSS) in the VOID design, and VOID Atlas's map on its Map page when Atlas is installed. Ultralight (c) 2024 Ultralight, Inc. All rights reserved. Ultralight is a trademark of Ultralight, Inc.",
 	"authors": ["VOID"],
 	"contact": {},
 	"license": "All-Rights-Reserved",
@@ -18,6 +18,9 @@
 		"minecraft": "~26.3",
 		"java": ">=25",
 		"fabric-api": "*"
+	},
+	"suggests": {
+		"atlas": "*"
 	},
 	"custom": {
 		"credits": {

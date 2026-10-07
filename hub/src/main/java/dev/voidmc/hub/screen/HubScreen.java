@@ -5,6 +5,8 @@ import dev.voidmc.hub.VoidHub;
 import dev.voidmc.hub.layout.HubLayout;
 import dev.voidmc.hub.layout.PointerMap;
 import dev.voidmc.hub.layout.Rect;
+import dev.voidmc.hub.map.HubMap;
+import dev.voidmc.hub.map.MapHost;
 import dev.voidmc.hub.model.Bridge;
 import dev.voidmc.hub.model.CardPacer;
 import dev.voidmc.hub.model.Click;
@@ -21,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -62,6 +65,15 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	private HubLayout.Cell hovered;
 	private double lastCssX = Double.NaN;
 	private double lastCssY = Double.NaN;
+	/** Map page: a press began on the map, so its drag and release are the map's wherever they go. */
+	private boolean mapGrab;
+	/** Map page: the pointer is over the map, and the page was told it left (its islands unhovered). */
+	private boolean pointerOnMap;
+	/** Map page: the map has been told it is showing, this open. */
+	private boolean mapShown;
+	/** "Waypoint here" feedback on the strip: what to say, and until when (nanoTime). */
+	private String pillNote = "";
+	private long pillNoteUntil;
 
 	protected HubScreen(T menu, Inventory inventory, Component title, int vanillaW, int vanillaH) {
 		super(menu, inventory, title, vanillaW, vanillaH);
@@ -89,6 +101,39 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		return this.filter;
 	}
 
+	/** The hub page shown: "map" or "inventory" (a chest is its own page of the inventory). */
+	public String page() {
+		return "inventory";
+	}
+
+	/** Whether this screen is the hub, with its pages (the chest screen is not). */
+	protected boolean hasPages() {
+		return false;
+	}
+
+	/** Shows another hub page; only the hub itself has pages. */
+	public void showPage(String page) {
+	}
+
+	public boolean onMap() {
+		return this.layout != null && this.layout.kind == HubLayout.Kind.MAP;
+	}
+
+	/** After a page switch: the new layout, and its first frame waits for the page's paint, as on open. */
+	protected void pageChanged() {
+		this.relayout();
+		this.firstFrame = true;
+		this.mapGrab = false;
+		this.pointerOnMap = false;
+		this.mapShown = false;
+		this.hovered = null;
+		this.hoveredSlot = null;
+		this.turning = false;
+		this.lastCssX = Double.NaN;
+		this.lastCssY = Double.NaN;
+		HubStats.INSTANCE.lastScreenInitNs = System.nanoTime();
+	}
+
 	@Override
 	protected void init() {
 		super.init();
@@ -102,6 +147,9 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		this.sentState = null;
 		this.cardPacer.reset();
 		this.firstFrame = true;
+		this.mapGrab = false;
+		this.pointerOnMap = false;
+		this.mapShown = false;
 	}
 
 	static PointerMap.Geometry geometryOf(AbstractContainerMenu menu, int left, int top, int w, int h) {
@@ -134,7 +182,8 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		int gs = window.getGuiScale();
 		double gx = this.minecraft.mouseHandler.getScaledXPos(window);
 		double gy = this.minecraft.mouseHandler.getScaledYPos(window);
-		HubLayout.Cell cell = this.layout.cellAt(gx * gs, gy * gs);
+		boolean map = this.onMap();
+		HubLayout.Cell cell = map ? null : this.layout.cellAt(gx * gs, gy * gs);
 		this.hovered = cell;
 		Slot hoverSlot = null;
 		if (cell != null) {
@@ -149,25 +198,34 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		this.hub.beginFrame();
 		this.pushLayout();
 		this.pushState();
-		this.pushDetail(cell);
+		if (!map) {
+			this.pushDetail(cell);
+		}
 		if (this.firstFrame) {
 			// The view still holds whatever the last VOID screen showed: let the UI thread paint
 			// this one before its first frame goes out (bounded; it is usually a few ms).
 			this.hub.awaitPainted(200_000_000L);
 		}
-		this.hub.frame();
 
-		// 2. The chrome: one premultiplied quad, 1:1 with the framebuffer.
+		// 2. The chrome: one premultiplied quad, 1:1 with the framebuffer. (Submitted before this
+		//    frame's upload below; the GUI is drawn after both.)
 		graphics.pose().pushMatrix();
 		graphics.pose().scale(1.0F / gs, 1.0F / gs);
 		graphics.blit(RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA, HubView.TEXTURE_ID, 0, 0, 0.0F, 0.0F,
 			this.hub.width(), this.hub.height(), this.hub.texture().width(), this.hub.texture().height());
 		graphics.pose().popMatrix();
 
-		// 3. Native stacks, at the same rects the page drew the wells at.
-		this.extractStacks(graphics, mouseX, mouseY, gs);
-		this.extractDetailIcon(graphics, gs);
-		this.extractExtras(graphics, gx, gy);
+		if (map) {
+			// 3. The map, drawn natively by Atlas into the window the page drew.
+			this.extractMap(graphics, mouseX, mouseY, gs);
+		}
+		this.hub.frame();
+		if (!map) {
+			// 3. Native stacks, at the same rects the page drew the wells at.
+			this.extractStacks(graphics, mouseX, mouseY, gs);
+			this.extractDetailIcon(graphics, gs);
+			this.extractExtras(graphics, gx, gy);
+		}
 
 		// 4. The carried stack follows the pointer, at the wells' icon size.
 		float s = this.layout.iconPx / (16.0F * gs);
@@ -182,6 +240,26 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 			this.firstFrame = false;
 			HubStats.INSTANCE.lastScreenFirstFrameNs = System.nanoTime();
 		}
+	}
+
+	/**
+	 * The Map page's window contents: Atlas's map page, through Minecraft's GUI pipeline, inside the
+	 * window rectangle (on the GUI grid by construction). Without Atlas the page draws the stand-in
+	 * and there is nothing to do here. The widget is made on the first call and kept.
+	 */
+	private void extractMap(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int gs) {
+		MapHost host = HubMap.host();
+		if (host == null) {
+			return;
+		}
+		if (!this.mapShown) {
+			this.mapShown = true;
+			host.shown();
+		}
+		Rect w = this.layout.window;
+		long t0 = System.nanoTime();
+		host.render(graphics, w.x() / gs, w.y() / gs, w.w() / gs, w.h() / gs, mouseX, mouseY);
+		HubStats.INSTANCE.noteMap(System.nanoTime() - t0);
 	}
 
 	private void extractStacks(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int gs) {
@@ -266,6 +344,9 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		w.putInts("filled", filled.stream().mapToInt(Integer::intValue).toArray());
 		w.put("world", worldName());
 		w.put("day", this.minecraft.level == null ? 0 : this.minecraft.level.getOverworldClockTime() / 24000L + 1);
+		w.put("page", this.page());
+		w.put("atlas", HubMap.available());
+		w.put("pill", System.nanoTime() < this.pillNoteUntil ? this.pillNote : "");
 		this.writePurse(w);
 		this.writeState(w);
 		String json = w.end();
@@ -358,9 +439,28 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 			case Bridge.Sort s -> this.queue(this.sortPlan(s.region()));
 			case Bridge.MoveAll mv -> this.queue(this.moveAllPlan(mv.to()));
 			case Bridge.Turn t -> this.yaw += (float) t.degrees();
+			case Bridge.Page p -> this.showPage(p.value());
+			case Bridge.Waypoint wp -> this.waypointHere();
 			default -> {
 			}
 		}
+	}
+
+	/**
+	 * The world strip's "Waypoint here": an Atlas waypoint where the player stands (selected on the
+	 * map when the Map page is showing). Without Atlas the pill is dimmed and does nothing.
+	 */
+	public String waypointHere() {
+		MapHost host = HubMap.available() ? HubMap.host() : null;
+		if (host == null) {
+			return null;
+		}
+		String name = host.addWaypointHere(this.onMap());
+		if (name != null) {
+			this.pillNote = name + " added";
+			this.pillNoteUntil = System.nanoTime() + 1_600_000_000L;
+		}
+		return name;
 	}
 
 	/** Slots of a named region of this menu (storage, hotbar, container). */
@@ -426,10 +526,29 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		return new MouseButtonEvent(p[0], p[1], event.buttonInfo());
 	}
 
+	/** The map, if the Map page is showing and Atlas is there. */
+	private MapHost mapHost() {
+		return this.onMap() ? HubMap.host() : null;
+	}
+
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		double px = this.physX(event.x());
 		double py = this.physY(event.y());
+		if (this.onMap()) {
+			// The map page: the window is the map's, the islands are the page's, and nothing is a
+			// vanilla click (a carried stack is never dropped from here).
+			if (this.layout.window.contains(px, py)) {
+				MapHost host = this.mapHost();
+				if (host != null) {
+					this.mapGrab = true;
+					host.mouseClicked(event.x(), event.y(), event.button());
+				}
+			} else {
+				this.hub.mouseButton(true, this.layout.physToCss(px), this.layout.physToCss(py), event.button());
+			}
+			return true;
+		}
 		PointerMap.Target target = PointerMap.resolve(this.layout, px, py);
 		if (!(target instanceof PointerMap.OnSlot)) {
 			this.hub.mouseButton(true, this.layout.physToCss(px), this.layout.physToCss(py), event.button());
@@ -445,6 +564,18 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	public boolean mouseReleased(MouseButtonEvent event) {
 		double px = this.physX(event.x());
 		double py = this.physY(event.y());
+		if (this.onMap()) {
+			MapHost host = this.mapHost();
+			if (this.mapGrab) {
+				this.mapGrab = false;
+				if (host != null) {
+					host.mouseReleased(event.x(), event.y(), event.button());
+				}
+			} else {
+				this.hub.mouseButton(false, this.layout.physToCss(px), this.layout.physToCss(py), event.button());
+			}
+			return true;
+		}
 		PointerMap.Target target = PointerMap.resolve(this.layout, px, py);
 		this.hub.mouseButton(false, this.layout.physToCss(px), this.layout.physToCss(py), event.button());
 		this.turning = false;
@@ -456,6 +587,13 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		double px = this.physX(event.x());
 		double py = this.physY(event.y());
 		this.forwardMove(px, py);
+		if (this.onMap()) {
+			MapHost host = this.mapHost();
+			if (this.mapGrab && host != null) {
+				host.mouseDragged(event.x(), event.y());
+			}
+			return true;
+		}
 		if (this.turning) {
 			this.yaw += (float) ((px - this.turnLastX) / this.layout.u * 0.9);
 			this.turnLastX = px;
@@ -471,6 +609,18 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	}
 
 	private void forwardMove(double px, double py) {
+		if (this.onMap() && HubMap.available() && (this.mapGrab || this.layout.window.contains(px, py))) {
+			// Over the map the page has nothing to hover: tell it once that the pointer left, then
+			// leave Ultralight alone while the map pans (no messages, no hit-testing, no repaints).
+			if (!this.pointerOnMap) {
+				this.pointerOnMap = true;
+				this.lastCssX = -1;
+				this.lastCssY = -1;
+				this.hub.mouseMove(-1, -1);
+			}
+			return;
+		}
+		this.pointerOnMap = false;
 		double cx = this.layout.physToCss(px);
 		double cy = this.layout.physToCss(py);
 		if (cx != this.lastCssX || cy != this.lastCssY) {
@@ -484,6 +634,13 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
 		double px = this.physX(x);
 		double py = this.physY(y);
+		if (this.onMap()) {
+			MapHost host = this.mapHost();
+			if (host != null && this.layout.window.contains(px, py)) {
+				host.mouseScrolled(x, y, scrollY);
+			}
+			return true;
+		}
 		if (this.layout.containerGrid != null && this.layout.maxScroll > 0 && this.layout.containerGrid.contains(px, py)) {
 			int next = Math.max(0, Math.min(this.layout.maxScroll, this.scrollRow - (int) Math.signum(scrollY)));
 			if (next != this.scrollRow) {
@@ -495,13 +652,69 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		return super.mouseScrolled(x, y, scrollX, scrollY);
 	}
 
+	/**
+	 * Keys. The hub keeps R-Shift (close), Tab / Shift-Tab (pages) and Esc (close); on the Map page
+	 * every other key is the map's, and Esc goes to the map first so it can close its card, menu or
+	 * search before the hub closes. While the map has a text field, keys are text: they all go to
+	 * the map (Tab moves between its search groups, R-Shift types capitals) and only an Esc it does
+	 * not use closes the hub.
+	 */
 	@Override
 	public boolean keyPressed(KeyEvent event) {
+		if (this.onMap()) {
+			this.mapKey(event);
+			return true;
+		}
 		if (VoidHub.openHub != null && VoidHub.openHub.matches(event)) {
 			this.onClose();
 			return true;
 		}
+		if (this.hasPages() && event.isCycleFocus()) {
+			this.cyclePage(event.hasShiftDown());
+			return true;
+		}
 		return super.keyPressed(event);
+	}
+
+	private void mapKey(KeyEvent event) {
+		MapHost host = this.mapHost();
+		if (host != null && host.typing()) {
+			if (!host.keyPressed(event) && event.isEscape()) {
+				this.onClose();
+			}
+			return;
+		}
+		if (VoidHub.openHub != null && VoidHub.openHub.matches(event)) {
+			this.onClose();
+		} else if (event.isCycleFocus()) {
+			this.cyclePage(event.hasShiftDown());
+		} else if (host != null && host.keyPressed(event)) {
+			return;  // the map's
+		} else if (event.isEscape()) {
+			this.onClose();
+		} else if (this.minecraft.options.keyInventory.matches(event)) {
+			this.showPage("inventory");
+		}
+		// Anything else is nobody's: no hotbar swaps or drops from the map page.
+	}
+
+	@Override
+	public boolean charTyped(CharacterEvent event) {
+		MapHost host = this.mapHost();
+		if (host != null) {
+			host.charTyped(event);
+			return true;
+		}
+		return super.charTyped(event);
+	}
+
+	/** The pages Tab steps through: the ones that are built. */
+	private static final List<String> PAGES = List.of("map", "inventory");
+
+	protected void cyclePage(boolean back) {
+		int i = Math.max(0, PAGES.indexOf(this.page()));
+		int n = PAGES.size();
+		this.showPage(PAGES.get((i + (back ? n - 1 : 1)) % n));
 	}
 
 	@Override

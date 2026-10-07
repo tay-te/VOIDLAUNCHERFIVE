@@ -20,7 +20,7 @@ public final class Bridge {
 	private Bridge() {
 	}
 
-	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Invalid {
+	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Page, Waypoint, Invalid {
 	}
 
 	/** The page finished loading and installed {@code hub.apply}. */
@@ -51,6 +51,14 @@ public final class Bridge {
 	public record Turn(double degrees) implements Message {
 	}
 
+	/** A page of the hub's pages island: "map", "inventory", "quests", "mods" or "friends". */
+	public record Page(String value) implements Message {
+	}
+
+	/** The world strip's "Waypoint here" pill. */
+	public record Waypoint() implements Message {
+	}
+
 	public record Invalid(String reason) implements Message {
 	}
 
@@ -58,6 +66,7 @@ public final class Bridge {
 	static final Set<String> SORT_REGIONS = Set.of("container", "storage");
 	static final Set<String> MOVE_TARGETS = Set.of("inventory", "container");
 	static final Set<String> SEGMENTS = Set.of("inventory", "chest", "classes");
+	static final Set<String> PAGES = Set.of("map", "inventory", "quests", "mods", "friends");
 
 	public static Message decode(String json) {
 		Map<String, Object> m;
@@ -77,6 +86,8 @@ public final class Bridge {
 			case "sort" -> oneOf(m, "region", SORT_REGIONS) instanceof String v ? new Sort(v) : new Invalid("sort region");
 			case "moveAll" -> oneOf(m, "to", MOVE_TARGETS) instanceof String v ? new MoveAll(v) : new Invalid("moveAll target");
 			case "segment" -> oneOf(m, "value", SEGMENTS) instanceof String v ? new Segment(v) : new Invalid("segment value");
+			case "page" -> oneOf(m, "value", PAGES) instanceof String v ? new Page(v) : new Invalid("page value");
+			case "waypoint" -> new Waypoint();
 			case "turn" -> m.get("deg") instanceof Double d && Double.isFinite(d) ? new Turn(d) : new Invalid("turn deg");
 			default -> new Invalid("unknown type " + t);
 		};
