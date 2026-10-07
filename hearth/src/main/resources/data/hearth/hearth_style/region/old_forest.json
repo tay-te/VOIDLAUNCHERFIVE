@@ -3,7 +3,7 @@
 	"base_name": "old forest",
 	"region": {"when": {"biomes": ["expanse:ancient_oakwood", "minecraft:dark_forest"]}, "priority": 10, "aliases": ["lumen", "ancient_oakwood"]},
 	"roles": {
-		"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1.6, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:tuff", "w": 0.6}, {"m": "minecraft:stone", "w": 0.5, "high": 1}],
+		"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}, {"m": "minecraft:andesite", "w": 0.15}, {"m": "minecraft:tuff", "w": 0.09}, {"m": "minecraft:stone", "w": 0.09, "high": 8}],
 		"gable": ["wood:minecraft:oak"],
 		"wall_accent": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 1.2}],
 		"plinth": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1.5}, {"m": "minecraft:andesite", "w": 0.5}],
@@ -26,12 +26,12 @@
 		"paving": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1.5}, {"m": "minecraft:mossy_stone_bricks", "w": 1}],
 		"path": [{"m": "minecraft:coarse_dirt", "w": 2}, {"m": "minecraft:podzol", "w": 1}, {"m": "minecraft:dirt_path", "w": 1.5}, {"m": "minecraft:rooted_dirt", "w": 0.5}],
 		"light": ["minecraft:lantern"],
-		"cloth": ["dye:brown", "dye:green", "dye:red"],
+		"cloth": [{"m": "dye:brown", "w": 2}, {"m": "dye:red", "w": 1}, {"m": "dye:white", "w": 1}],
 		"garden": ["minecraft:fern", "minecraft:lily_of_the_valley", "minecraft:brown_mushroom", "minecraft:oxeye_daisy", "minecraft:large_fern"],
 		"hedge": [{"m": "minecraft:dark_oak_leaves", "w": 2}, {"m": "minecraft:oak_leaves", "w": 1}],
 		"tree_log": ["minecraft:dark_oak_log"],
 		"tree_leaves": ["minecraft:dark_oak_leaves"],
-		"masonry": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}]
+		"masonry": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 0.107}, {"m": "minecraft:mossy_cobblestone", "w": 0.053}]
 	},
 	"base_weight": 3,
 	"variants": [
@@ -40,8 +40,8 @@
 			"habits": {"walls": {"kind": "timber_frame", "upper": "timber_frame", "braces": 0.5, "jetty": 0.3}}},
 		{"name": "great hall", "w": 1, "when": [{"categories": ["religious", "grand", "public", "fort"]}, {"stations": ["gentry", "lord", "scholar"]}],
 			"roles": {
-				"wall": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 2, "low": 2, "north": 2}, {"m": "minecraft:cracked_stone_bricks", "w": 0.4, "low": 1}],
-				"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 1.5}],
+				"wall": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 0.09, "low": 12}, {"m": "minecraft:cracked_stone_bricks", "w": 0.09, "low": 12}],
+				"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 0.24}],
 				"wall_accent": ["minecraft:mossy_stone_bricks"],
 				"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.12}],
 				"accent": ["minecraft:chiseled_stone_bricks"]},

@@ -5,15 +5,15 @@
 	"roles": {
 		"foundation": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}, {"m": "minecraft:andesite", "w": 1}],
 		"plinth": [{"m": "minecraft:polished_andesite", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
-		"wall": [{"m": "minecraft:white_concrete", "w": 4}, {"m": "minecraft:calcite", "w": 0.6, "low": 1, "north": 1.5}, {"m": "minecraft:smooth_quartz", "w": 0.6}],
-		"wall_accent": [{"m": "minecraft:polished_andesite", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
+		"wall": [{"m": "minecraft:white_concrete", "w": 4}, {"m": "minecraft:calcite", "w": 0.12, "low": 12}, {"m": "minecraft:smooth_quartz", "w": 0.32}],
+		"wall_accent": ["minecraft:polished_diorite"],
 		"frame": ["wood:minecraft:spruce"],
 		"beam": ["wood:minecraft:spruce"],
 		"floor": ["wood:minecraft:spruce"],
 		"ceiling": ["wood:minecraft:spruce"],
 		"roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:polished_deepslate", "w": 0.5}],
 		"roof_trim": ["minecraft:polished_deepslate"],
-		"gable": [{"m": "minecraft:white_concrete", "w": 2}, {"m": "minecraft:calcite", "w": 2}],
+		"gable": [{"m": "minecraft:white_concrete", "w": 2}, {"m": "minecraft:calcite", "w": 0.16}],
 		"window": ["minecraft:polished_andesite"],
 		"glass": ["minecraft:glass_pane"],
 		"door": [{"m": "wood:minecraft:warped", "w": 2}, {"m": "wood:minecraft:mangrove", "w": 1}, {"m": "wood:minecraft:spruce", "w": 1}],
@@ -25,7 +25,7 @@
 		"light": ["minecraft:lantern"],
 		"chimney": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:polished_andesite", "w": 1}],
 		"furniture": ["wood:minecraft:spruce"],
-		"cloth": ["dye:blue", "dye:white", "dye:light_blue"],
+		"cloth": [{"m": "dye:blue", "w": 2}, {"m": "dye:white", "w": 2}, {"m": "dye:red", "w": 1}],
 		"accent": ["minecraft:chiseled_stone_bricks"],
 		"garden": ["minecraft:blue_orchid", "minecraft:cornflower", "minecraft:oxeye_daisy", "minecraft:short_grass", "minecraft:azure_bluet"],
 		"crops": ["minecraft:potatoes", "minecraft:carrots"],
@@ -37,10 +37,10 @@
 		"stilt": ["wood:minecraft:spruce"],
 		"thatch": [{"m": "minecraft:stripped_oak_wood", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}, {"m": "minecraft:moss_block", "patch": 0.08}],
 		"sheet": [{"m": "minecraft:waxed_oxidized_cut_copper", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}],
-		"masonry": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:polished_andesite", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 0.8, "low": 2, "north": 1.5}]
+		"masonry": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:polished_andesite", "w": 0.24}, {"m": "minecraft:mossy_stone_bricks", "w": 0.09, "low": 12}]
 	},
 	"tiers": {
-		"0": {"wall": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:white_concrete", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.8, "low": 2, "north": 1.5}], "roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.12}], "roof_trim": ["wood:minecraft:spruce"]},
+		"0": {"wall": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:andesite", "w": 0.16}, {"m": "minecraft:mossy_cobblestone", "w": 0.06, "low": 12}], "roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.12}], "roof_trim": ["wood:minecraft:spruce"]},
 		"3": {"chimney": ["minecraft:stone_bricks"], "plinth": ["minecraft:polished_andesite"]}
 	},
 	"base_weight": 2,
@@ -48,10 +48,10 @@
 	"variants": [
 		{"name": "red boards", "w": 1, "roles": {"wall": ["wood:minecraft:mangrove"], "gable": ["wood:minecraft:mangrove"], "frame": ["wood:minecraft:pale_oak"], "window": ["wood:minecraft:pale_oak"]}, "habits": {"walls": {"kind": "plank"}},
 			"tiers": {"0": {"wall": ["wood:minecraft:mangrove"]}}},
-		{"name": "harbour stone", "w": 1, "roles": {"wall": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}], "gable": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}]}, "habits": {"walls": {"kind": "stone", "plinth": 0}},
-			"tiers": {"0": {"wall": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}]}}},
+		{"name": "harbour stone", "w": 1, "roles": {"wall": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 0.08}, {"m": "minecraft:andesite", "w": 0.08}], "gable": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 0.16}]}, "habits": {"walls": {"kind": "stone", "plinth": 0}},
+			"tiers": {"0": {"wall": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:andesite", "w": 0.16}, {"m": "minecraft:mossy_cobblestone", "w": 0.06, "low": 12}]}}},
 		{"name": "yellow plaster", "w": 0.8, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 3}], "gable": ["minecraft:smooth_sandstone"]}},
-		{"name": "colour-washed", "w": 0.8, "roles": {"wall": [{"m": "minecraft:white_terracotta", "w": 3}, {"m": "minecraft:calcite", "w": 0.4, "low": 1}], "gable": ["minecraft:white_terracotta"], "shutter": ["wood:minecraft:pale_oak"], "window": ["minecraft:smooth_quartz"]}}
+		{"name": "colour-washed", "w": 0.8, "roles": {"wall": [{"m": "minecraft:white_terracotta", "w": 3}, {"m": "minecraft:calcite", "w": 0.09, "low": 12}], "gable": ["minecraft:white_terracotta"], "shutter": ["wood:minecraft:pale_oak"], "window": ["minecraft:smooth_quartz"]}}
 	],
 	"substyles": [
 		{
@@ -83,8 +83,8 @@
 			"w": 10,
 			"when": [{"stations": ["merchant", "official", "gentry", "lord"]}, {"archetypes": ["civic/town_hall", "commerce/bank", "commerce/inn", "house/manor"]}],
 			"roles": {
-				"wall": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:polished_andesite", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 0.4, "low": 2, "north": 1.5}],
-				"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:polished_andesite", "w": 1}],
+				"wall": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:polished_andesite", "w": 0.32}, {"m": "minecraft:mossy_stone_bricks", "w": 0.12, "low": 12}],
+				"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:polished_andesite", "w": 0.24}],
 				"wall_accent": ["minecraft:smooth_stone"],
 				"plinth": ["minecraft:polished_andesite"],
 				"window": ["minecraft:smooth_quartz"],

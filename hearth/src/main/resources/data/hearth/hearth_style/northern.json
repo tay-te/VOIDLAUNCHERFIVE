@@ -25,7 +25,7 @@
 		"light": ["minecraft:lantern"],
 		"chimney": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
 		"furniture": ["wood:minecraft:spruce"],
-		"cloth": ["dye:red", "dye:white", "dye:blue"],
+		"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:white", "w": 1.5}, {"m": "dye:blue", "w": 1}],
 		"accent": ["minecraft:chiseled_stone_bricks"],
 		"garden": ["minecraft:fern", "minecraft:lily_of_the_valley", "minecraft:poppy", "minecraft:sweet_berry_bush", "expanse:fireweed|minecraft:allium"],
 		"crops": ["minecraft:potatoes", "minecraft:carrots", "minecraft:beetroots"],
@@ -37,7 +37,7 @@
 		"stilt": ["wood:minecraft:spruce"],
 		"thatch": [{"m": "minecraft:moss_block", "stairs": "minecraft:green_wool_stairs", "slab": "minecraft:green_wool_slab"}],
 		"sheet": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
-		"masonry": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 2}]
+		"masonry": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone_bricks", "w": 0.24}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}]
 	},
 	"tiers": {
 		"0": {
@@ -78,7 +78,7 @@
 				"railing": ["wood:minecraft:spruce"],
 				"plinth": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 2}],
 				"accent": ["minecraft:chiseled_tuff_bricks"],
-				"cloth": ["dye:red", "dye:yellow", "dye:black"]
+				"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:yellow", "w": 1}, {"m": "dye:brown", "w": 1}]
 			},
 			"habits": {
 				"walls": {"kind": "plank", "plinth": 1, "jetty": 0.3, "post_spacing": 2, "braces": 0, "beam_ends": 0.9},
@@ -96,7 +96,7 @@
 			"w": 3,
 			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"]}],
 			"roles": {
-				"wall": [{"m": "minecraft:cobblestone", "log": "minecraft:spruce_log", "stripped_log": "minecraft:stripped_spruce_log", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 2, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:tuff", "w": 0.6}],
+				"wall": [{"m": "minecraft:cobblestone", "log": "minecraft:spruce_log", "stripped_log": "minecraft:stripped_spruce_log", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}, {"m": "minecraft:andesite", "w": 0.15}, {"m": "minecraft:tuff", "w": 0.09}],
 				"wall_accent": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
 				"gable": [{"m": "wood:minecraft:pale_oak", "w": 3}, {"m": "wood:minecraft:poplar", "w": 1}],
 				"roof": [{"m": "minecraft:moss_block", "stairs": "minecraft:green_wool_stairs", "slab": "minecraft:green_wool_slab"}],

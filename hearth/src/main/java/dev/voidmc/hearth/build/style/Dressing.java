@@ -16,8 +16,8 @@ import org.jspecify.annotations.Nullable;
  * <p>Order of resolution for a role at a plot tier:
  * <ol>
  *   <li>the finish tier: the plot tier moved by the station ({@link StationFinish#tier});</li>
- *   <li>the region's own palette for the role at that tier, else the culture dressing's with the culture's matching
- *   overrides ({@link Style.RoleOverride}) over it;</li>
+ *   <li>the region's own palette for the role at that tier, else the culture dressing's; the culture's matching
+ *   overrides ({@link Style.RoleOverride}) over either;</li>
  *   <li>local materials blended in ({@link LocalMaterials#apply}, with the station's share);</li>
  *   <li>the station's own roles (a lord's copper lanterns) over all of that;</li>
  *   <li>the station's weathering, and a poor household's patched roof.</li>
@@ -60,11 +60,12 @@ final class Dressing {
 		Palette p = this.overlay == null ? null : this.overlay.own(role, t, this.overlayVariant);
 		if (p == null) {
 			p = this.root.rawPalette(role, t, variant);
-			for (Style.RoleOverride o : this.overrides) {
-				Palette op = o.palette(role, t);
-				if (op != null) {
-					p = op;
-				}
+		}
+		// the culture's own way for a purpose holds whatever the region (debarked stakes in the glades' palisades too)
+		for (Style.RoleOverride o : this.overrides) {
+			Palette op = o.palette(role, t);
+			if (op != null) {
+				p = op;
 			}
 		}
 		if (this.local != null) {

@@ -11,6 +11,11 @@ art director and the architects work from these pages; the renders under `img/` 
   pastel, coloured or glowing fantasy content (no lumenwood, wisteria wood, prismite, glowcaps, sea lanterns, opal
   sandstone) above ground. Fantasy belongs underground only, in the `deep` region. `StyleModelTest.theSurfaceIsNatural`
   holds every culture and surface region to it.
+- **Colour is natural too.** Cloth (awnings, beds, banners, carpets) is dyed in what a medieval dyer had: madder red,
+  woad blue (`blue`, never `light_blue`), weld yellow, undyed white, light grey and brown; never light blue, cyan,
+  lime, magenta or purple (`StyleModelTest.surfaceClothIsNaturallyDyed`). A house wears one cloth: `cloth` is chosen
+  once per building like the roof, so a house's awning, beds and banners are one dye or undyed. Only the
+  Mediterranean and desert stripe their awnings with white (`"stripes": true` in their habits; `Habits.stripes`).
 - **Temperate is Bohemia.** Expanse's visual target is *Kingdom Come: Deliverance II*'s Bohemia, so the temperate
   culture's main look is the Bohemian countryside: lime-plastered cottages with boarded gables on fieldstone, log
   cottages, shingle and thatch roofs, plank barns, white stone churches with tall towers, market towns of rendered
@@ -56,7 +61,8 @@ order, all deterministic from the spec and the ground:
    biome, a landform, the `region` param; `region=none` refuses it). It names only what it changes; the culture's
    geometry and everything it leaves out stand.
 4. **The culture's overrides** (`overrides` in its JSON): roles it dresses one way for a purpose or a place in every
-   dressing (the steppe's palisades are debarked stakes).
+   dressing and under every region (the steppe's palisades are debarked stakes, the moorland's and the glades' dark
+   stakes rather than birch).
 5. **Local materials** (the `local` param, §7.2) are blended in, then the **station's finish** applies (an explicit
    `station` only).
 
@@ -81,10 +87,10 @@ Expanse's renamed surface biomes match by either id (`When.RENAMED_BIOMES`): `wi
 chosen anywhere, so JSON written before conditions existed draws exactly as it always did (tested).
 
 **Weights do the work.** A matching sub-style competes with the common manner by weight: temperate's Bohemian village
-(`w` 20) dresses about three cottages in four against the English cottage manner's 5.8; Bohemian town (`w` 30) takes
-about 60 % of merchants' houses with burgher brick (14) and the odd timber cottage among them, as real towns mix. To
-exclude a manner from a purpose entirely, give the base a `base_when` (temperate's cottage manner never dresses a lord's
-house, a chapel or a town wall).
+(`w` 20) dresses about seven cottages in eight against the English cottage manner's 2.9; Bohemian town (`w` 30) takes
+about 85 % of merchants' houses with the odd burgher brick (5) among them, as real towns mix. To exclude a manner from
+a purpose entirely, give the base a `base_when` (temperate's cottage manner never dresses a lord's or a merchant's
+house, a chapel, a civic building or a town wall).
 
 **A sub-style keeps its weight.** A sub-style's fashions may carry their own `when` (the Bohemian village's plank barn is
 for farmsteads only): where a fashion's condition fails, its share goes to the sub-style's other dressings, so the
@@ -177,11 +183,21 @@ the region pages carry in-game screenshots too. Every blueprint drawn is checked
 ## 8. Rules for whoever adds a style
 
 - Two or three materials carry a building; a fourth is an accent. Mix by patches, never salt and pepper.
+- A wall is one material (art review item 2): its second material takes under 10 % of the wall, is tonal (calcite in
+  quartz, mud brick in packed mud; never grey in white or white in grey), and comes in patches of four or more
+  blocks (wall, gable, plinth, footing and masonry roles lay their noise broad, `Role.patchiness`). Weathering (moss,
+  cracks, damp) goes at the foot (`low`, a small weight with a strong bias: `{"w": 0.09, "low": 12}` on a main of
+  3) and cleaner render under the eaves (`high`); nothing leans `north` on a wall, since moss over a whole face reads
+  as damage. `StyleModelTest.wallsAreNotCamouflage` holds every surface dressing and tier to it (the main material at
+  least 85 % of a masonry, render or brick wall away from the foot and the eaves).
 - Every dressing needs contrast at 30 blocks: a light wall wants a dark frame or roof, a dark wall light trim.
 - Quoins (the `wall_accent` of stone and brick kinds) alternate course by course at the corners: a strongly contrasting
-  accent reads as a checkerboard on small houses. Use a tonal accent (mud brick on brick) or a light one on rubble.
-  The kits enforce it (`Walls.quoined`, `Walls.tonal`): no quoins on a building under 9 wide or dressed below tier 2,
-  and an accent more than 45 apart in lightness (by map colour) from the walling stays a plain corner strip, untoothed.
+  accent reads as a checkerboard on small houses. Use a tonal accent (mud brick on brick, calcite or polished diorite on
+  render) or a light one on rubble, and one material, not a mix (a mixed accent checkers twice over). The kits enforce
+  it (`Walls.quoined`, `Walls.tonal`): no quoins on a building under 9 wide or dressed below tier 2, and an accent more
+  than 45 apart in lightness (by map colour) from the walling stays a plain corner strip, untoothed.
+- No birch bark on the surface: a light local timber's posts and stakes are hewn (`LocalMaterials.hewn`), and a
+  culture whose garden tree is birch gives its palisades their own stakes (an `overrides` entry for `fort`).
 - Wall roles of terracotta, wool or concrete have no stairs or slabs: give the entry per-form overrides
   (`"stairs": "minecraft:granite_stairs"`) in a stone of the same colour, or copings come out as full blocks.
 - Name vanilla ids exactly (the tests resolve every one) and put Expanse ids first in a chain with a vanilla stand-in of

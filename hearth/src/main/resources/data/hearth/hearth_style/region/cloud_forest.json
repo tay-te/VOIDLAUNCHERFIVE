@@ -3,8 +3,8 @@
 	"base_name": "cloud forest",
 	"region": {"when": {"biomes": ["expanse:cloud_forest"]}, "priority": 10},
 	"roles": {
-		"wall": [{"m": "minecraft:mossy_stone_bricks", "w": 3}, {"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 2}, {"m": "minecraft:cracked_stone_bricks", "w": 0.4}],
-		"gable": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 1}],
+		"wall": [{"m": "minecraft:mossy_stone_bricks", "w": 3}, {"m": "minecraft:stone_bricks", "w": 0.2}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}, {"m": "minecraft:cracked_stone_bricks", "w": 0.04}],
+		"gable": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 0.24}],
 		"wall_accent": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 1}],
 		"plinth": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
 		"foundation": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:tuff", "w": 0.5}],
@@ -18,9 +18,9 @@
 		"stilt": ["wood:minecraft:dark_oak"],
 		"paving": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
 		"chimney": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
-		"cloth": ["dye:red", "dye:orange", "dye:yellow"],
+		"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:yellow", "w": 1.5}, {"m": "dye:brown", "w": 1}],
 		"garden": ["minecraft:fern", "minecraft:blue_orchid", "minecraft:lily_of_the_valley"],
-		"masonry": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}]
+		"masonry": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 0.107}, {"m": "minecraft:mossy_cobblestone", "w": 0.053}]
 	},
 	"habits": {
 		"walls": {"kind": "stone", "upper": "plank", "plinth": 1, "beam_ends": 0.8},

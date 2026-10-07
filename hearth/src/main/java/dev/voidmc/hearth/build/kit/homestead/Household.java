@@ -87,6 +87,21 @@ public final class Household {
 		if (piece != null) {
 			place(d, living, hearth, piece, piece.is(Blocks.CHIPPED_ANVIL));
 		}
+		// a merchant's strongbox keeps its corner too, before a one-room home fills up
+		if (who.known() && moneyed(who)) {
+			strongbox(d, living);
+		}
+	}
+
+	/** Whether the household keeps a strongbox: a trade in coin, or a station that has some. */
+	private static boolean moneyed(Who who) {
+		return switch (who.job()) {
+			case MERCHANT, TRADER, COURIER, INNKEEPER -> true;
+			default -> switch (who.rank()) {
+				case MERCHANT, GENTRY, LORD, OFFICIAL -> true;
+				default -> false;
+			};
+		};
 	}
 
 	/** The one thing that says a trade, or null. */
@@ -189,21 +204,30 @@ public final class Household {
 		}
 	}
 
-	/** Carpets on the open floor, candles on the tables, a strongbox in a corner of the bedroom. */
+	/** Carpets on the open floor, candles on the tables, a strongbox in a corner of the bedroom (unless one stands already). */
 	private static void merchant(Draft d, Rooms.Room living, Rooms.Room sleeping) {
 		carpet(d, living);
 		if (sleeping != living) {
 			carpet(d, sleeping);
 		}
-		int[] c = corner(d, sleeping, null);
-		if (c != null) {
-			Direction into = into(d, sleeping, c);
-			try (var s = d.stage(StageKind.INTERIOR)) {
-				d.set(c[0], sleeping.y, c[1], States.facing(Blocks.CHEST, into),
-					BlockEntities.container(List.of(new Object[]{"minecraft:gold_ingot", 3}, new Object[]{"minecraft:emerald", 4})));
-			}
-			d.poi(PoiType.STRONGBOX, c[0] + Dirs.dx(into), sleeping.y, c[1] + Dirs.dz(into), into.getOpposite());
+		if (d.pois().stream().noneMatch(p -> p.type() == PoiType.STRONGBOX) && !strongbox(d, sleeping) && sleeping != living) {
+			strongbox(d, living);
 		}
+	}
+
+	/** A strongbox (a chest of coin) in a corner the room can spare, registered as STRONGBOX; false when none can. */
+	private static boolean strongbox(Draft d, Rooms.Room r) {
+		int[] c = corner(d, r, null);
+		if (c == null) {
+			return false;
+		}
+		Direction into = into(d, r, c);
+		try (var s = d.stage(StageKind.INTERIOR)) {
+			d.set(c[0], r.y, c[1], States.facing(Blocks.CHEST, into),
+				BlockEntities.container(List.of(new Object[]{"minecraft:gold_ingot", 3}, new Object[]{"minecraft:emerald", 4})));
+		}
+		d.poi(PoiType.STRONGBOX, c[0] + Dirs.dx(into), r.y, c[1] + Dirs.dz(into), into.getOpposite());
+		return true;
 	}
 
 	/** A bookshelf two high in a corner (or one under a low ceiling), {@code n} of them. */

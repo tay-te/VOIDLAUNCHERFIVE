@@ -16,7 +16,7 @@
 		"plinth": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 2}],
 		"stilt": ["wood:minecraft:dark_oak"],
 		"paving": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
-		"cloth": ["dye:red", "dye:white", "dye:blue"]
+		"cloth": [{"m": "dye:red", "w": 2}, {"m": "dye:white", "w": 1.5}, {"m": "dye:blue", "w": 1}]
 	},
 	"habits": {
 		"walls": {"kind": "plank", "upper": "plank", "plinth": 1, "beam_ends": 0.6},

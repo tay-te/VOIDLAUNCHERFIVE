@@ -284,7 +284,7 @@ public final class Fronts {
 
 	/**
 	 * A cloth awning over wall cells {@code i0..i1} at height y (a block out; at least three up when it overhangs the
-	 * street), in stripes of the house colour and white when {@code stripes}.
+	 * street), in stripes of the house colour and white when {@code stripes} and the style stripes its awnings.
 	 */
 	public static void awning(Draft d, Side s, int i0, int i1, int y, boolean stripes) {
 		Mat cloth = d.mat(Role.CLOTH);
@@ -298,7 +298,7 @@ public final class Fronts {
 					continue;
 				}
 				Paint p = cloth.stairsOrSlab(in, Half.BOTTOM);
-				if (stripes && ((i - i0) & 1) == 1) {
+				if (stripes && d.habits().stripes() && ((i - i0) & 1) == 1) {
 					p = Paint.of(States.stairs(whiteStairs, in, Half.BOTTOM));
 				}
 				d.set(x, y, z, p);

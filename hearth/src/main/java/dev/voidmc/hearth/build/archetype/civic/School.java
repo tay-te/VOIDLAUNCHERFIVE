@@ -108,6 +108,12 @@ public final class School implements Archetype {
 		if (colonnade) {
 			Openings.door(d, front, door, base, 1, new Openings.DoorOpts(true, true, true));
 			Portico.build(d, t, x0, x1, z0 - 1, z0 - 1, base, 3, true);
+			// no column before the door (a post-grid front sets it off the middle)
+			if (Portico.column(door - x0, x1 - x0)) {
+				for (int yy = base; yy < base + 3; yy++) {
+					d.air(door, yy, z0 - 1);
+				}
+			}
 		} else if (!raised && z0 - 1 >= 1) {
 			Halls.portal(d, front, door, base, t, tier);
 		} else {

@@ -12,15 +12,23 @@ import net.minecraft.util.RandomSource;
  * it jetties upper storeys, stands on stilts, builds round, flat or domed, and what its yards look like. Archetypes read
  * these to choose among the forms they can build, so each culture's buildings come out in its own manner. Every field
  * has a default, so a style JSON only says what is particular to it.
+ *
+ * <p>{@code stripes}: the culture stripes its awnings with white (the Mediterranean and desert markets); elsewhere an
+ * awning is one cloth, the house's colour or undyed linen.
  */
 public record Habits(Walls walls, Roof roof, Windows windows, Plan plan, Yard yard, double chimney, double porch, double balcony, boolean snow,
-	Local local) {
+	Local local, boolean stripes) {
 	public static final Habits DEFAULT = new Habits(Walls.DEFAULT, Roof.DEFAULT, Windows.DEFAULT, Plan.DEFAULT, Yard.DEFAULT, 0.7, 0.4, 0.3, false,
-		Local.DEFAULT);
+		Local.DEFAULT, false);
 
 	/** Habits without a {@code local} section (the defaults allow every local material). */
 	public Habits(Walls walls, Roof roof, Windows windows, Plan plan, Yard yard, double chimney, double porch, double balcony, boolean snow) {
-		this(walls, roof, windows, plan, yard, chimney, porch, balcony, snow, Local.DEFAULT);
+		this(walls, roof, windows, plan, yard, chimney, porch, balcony, snow, Local.DEFAULT, false);
+	}
+
+	/** Habits without the {@code stripes} key (plain awnings). */
+	public Habits(Walls walls, Roof roof, Windows windows, Plan plan, Yard yard, double chimney, double porch, double balcony, boolean snow, Local local) {
+		this(walls, roof, windows, plan, yard, chimney, porch, balcony, snow, local, false);
 	}
 
 	/** How walls are made. */
@@ -293,7 +301,8 @@ public record Habits(Walls walls, Roof roof, Windows windows, Plan plan, Yard ya
 			Json.doubleOr(o, "porch", d.porch),
 			Json.doubleOr(o, "balcony", d.balcony),
 			Json.boolOr(o, "snow", d.snow),
-			o.has("local") ? Local.parse(o.getAsJsonObject("local"), d.local) : d.local);
+			o.has("local") ? Local.parse(o.getAsJsonObject("local"), d.local) : d.local,
+			Json.boolOr(o, "stripes", d.stripes));
 	}
 
 	/** Small JSON readers with defaults. */
