@@ -78,7 +78,7 @@
         },
         {
           "input_predicate": {
-            "block": "expanse:wisteria_planks",
+            "block": "minecraft:oak_planks",
             "predicate_type": "minecraft:random_block_match",
             "probability": 0.06
           },

@@ -12,8 +12,8 @@
       "axis": "y",
       "from_coordinate": -64,
       "from_value": 2.56,
-      "to_coordinate": 384,
-      "to_value": -15.36
+      "to_coordinate": 640,
+      "to_value": -25.6
     }
   },
   "right": {

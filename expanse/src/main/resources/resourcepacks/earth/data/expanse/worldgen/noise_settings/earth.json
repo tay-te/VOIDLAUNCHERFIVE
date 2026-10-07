@@ -89,7 +89,7 @@
   "legacy_random_source": false,
   "material_rule": "minecraft:overworld",
   "noise": {
-    "height": 448,
+    "height": 704,
     "min_y": -64
   },
   "noise_router": {

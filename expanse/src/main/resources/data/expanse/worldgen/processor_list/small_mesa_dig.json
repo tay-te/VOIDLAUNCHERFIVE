@@ -1,0 +1,133 @@
+{
+  "processors": [
+    {
+      "processor_type": "minecraft:rule",
+      "rules": [
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "minecraft:dark_oak_log",
+              "properties": {
+                "axis": "x"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "minecraft:stripped_dark_oak_log",
+            "properties": {
+              "axis": "x"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "minecraft:dark_oak_log",
+              "properties": {
+                "axis": "y"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "minecraft:stripped_dark_oak_log",
+            "properties": {
+              "axis": "y"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "minecraft:dark_oak_log",
+              "properties": {
+                "axis": "z"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "minecraft:stripped_dark_oak_log",
+            "properties": {
+              "axis": "z"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.3
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:dead_bush"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.35
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:short_dry_grass"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.7
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:air"
+        }
+      ]
+    },
+    {
+      "delegate": {
+        "processor_type": "minecraft:rule",
+        "rules": [
+          {
+            "block_entity_modifier": {
+              "type": "minecraft:append_loot",
+              "loot_table": "expanse:chests/miners_camp_mesa_archaeology"
+            },
+            "input_predicate": {
+              "block": "minecraft:gravel",
+              "predicate_type": "minecraft:block_match"
+            },
+            "location_predicate": {
+              "predicate_type": "minecraft:always_true"
+            },
+            "output_state": {
+              "id": "minecraft:suspicious_gravel",
+              "properties": {
+                "dusted": "0"
+              }
+            }
+          }
+        ]
+      },
+      "limit": 4,
+      "processor_type": "minecraft:capped"
+    }
+  ]
+}

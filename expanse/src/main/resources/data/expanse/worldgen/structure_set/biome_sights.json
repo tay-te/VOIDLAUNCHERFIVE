@@ -53,6 +53,34 @@
     {
       "structure": "expanse:beach_hut",
       "weight": 1
+    },
+    {
+      "structure": "expanse:treehouse_oak",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:treehouse_spruce",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:treehouse_jungle",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:miners_camp_mesa",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:sand_colossus_desert",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:windpump_prairie",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:mammoth_dig_snowfield",
+      "weight": 1
     }
   ]
 }

@@ -36,6 +36,17 @@ final class PlateMap {
 		/** Unit vector from this plate's centre toward {@link #across}'s, for reflecting across the border. */
 		double normalX;
 		double normalZ;
+		/**
+		 * Every other plate whose border lies within {@link #NEAR_REACH} blocks: the plate, the distance to the
+		 * border and the unit vector toward its centre, nearest or not. Where three plates meet, blending toward
+		 * the nearest one alone would switch from one to the other along a line.
+		 */
+		static final double NEAR_REACH = 400;
+		int nearCount;
+		final Plate[] near = new Plate[24];
+		final double[] nearBorder = new double[24];
+		final double[] nearNormalX = new double[24];
+		final double[] nearNormalZ = new double[24];
 	}
 
 	private final long seed;
@@ -134,6 +145,7 @@ final class PlateMap {
 		out.oceanBorder = Double.MAX_VALUE;
 		out.across = null;
 		out.oceanAcross = null;
+		out.nearCount = 0;
 		for (int i = 0; i < n; i++) {
 			Plate p = near[i];
 			if (p == best) {
@@ -148,6 +160,13 @@ final class PlateMap {
 			double mx = (p.cx + best.cx) * 0.5;
 			double mz = (p.cz + best.cz) * 0.5;
 			double d = -((wx - mx) * nx + (wz - mz) * nz);
+			if (d < Hit.NEAR_REACH && out.nearCount < out.near.length) {
+				out.near[out.nearCount] = p;
+				out.nearBorder[out.nearCount] = d;
+				out.nearNormalX[out.nearCount] = nx;
+				out.nearNormalZ[out.nearCount] = nz;
+				out.nearCount++;
+			}
 			if (d < out.border) {
 				out.border = d;
 				out.across = p;

@@ -16,19 +16,28 @@ WAYSIDE = flowers(("fern", 0.2), ("expanse:heather", 0.1), ("poppy", 0.05), ("da
 VALE = flowers(("allium", 0.08), ("pink_tulip", 0.06), ("azure_bluet", 0.08), ("lily_of_the_valley", 0.06),
                ("fern", 0.1), ("air", 0.2))
 PEAKS = flowers(("expanse:edelweiss", 0.15), ("azure_bluet", 0.08), ("fern", 0.1), ("air", 0.35))
-SNOWY = flowers(("expanse:frostbloom", 0.12), ("air", 0.6))
+SNOWY = flowers(("fern", 0.06), ("air", 0.6))
 MUD_WEATHER = [rule("mud_bricks", 0.12, "packed_mud"), rule("packed_mud", 0.05, "mud")]
 SAND_WEATHER = [rule("cut_sandstone", 0.12, "sandstone"), rule("smooth_sandstone", 0.1, "sandstone"),
-                rule("expanse:smooth_opal_sandstone", 0.1, "expanse:opal_sandstone"),
-                rule("expanse:cut_opal_sandstone", 0.08, "expanse:opal_sandstone")]
+                rule("smooth_red_sandstone", 0.1, "red_sandstone"),
+                rule("cut_red_sandstone", 0.08, "red_sandstone")]
 LIMESTONE = [rule("expanse:polished_limestone", 0.08, "expanse:limestone"),
              rule("expanse:limestone_bricks", 0.12, "expanse:mossy_limestone")]
 STONE_ROT = rot(0.9, ["mossy_cobblestone", "cobblestone", "mossy_stone_bricks", "cracked_stone_bricks", "stone_bricks",
                       "expanse:mossy_limestone", "gravel"])
+# the regional variants' flowers (vanilla flowers only, so each looks like the country it stands in)
+MEADOW = flowers(("poppy", 0.07), ("dandelion", 0.07), ("oxeye_daisy", 0.06), ("cornflower", 0.05),
+                 ("azure_bluet", 0.04), ("fern", 0.05), ("air", 0.15))
+WOODS = flowers(("fern", 0.25), ("lily_of_the_valley", 0.05), ("poppy", 0.03), ("brown_mushroom", 0.03), ("air", 0.15))
+TAIGA = flowers(("fern", 0.35), ("brown_mushroom", 0.03), ("air", 0.2))
+JUNGLE = flowers(("fern", 0.35), ("bush", 0.08), ("air", 0.15))
+MESA = flowers(("dead_bush", 0.3), ("short_dry_grass", 0.35), ("air", 0.7))
+PRAIRIE = flowers(("dandelion", 0.06), ("cornflower", 0.05), ("oxeye_daisy", 0.05), ("poppy", 0.04), ("air", 0.2))
+SNOWFIELD = flowers(("air", 0.7), ("fern", 0.05))
 
 PROCS = {
     "small_wayside": plist(STONE_WEATHER, aged_wood("spruce", "dark_oak", "redwood"), WAYSIDE, OVERGROWTH),
-    "small_karst": plist(STONE_WEATHER, LIMESTONE, aged_wood("redwood", "wisteria"), KARST, OVERGROWTH),
+    "small_karst": plist(STONE_WEATHER, LIMESTONE, aged_wood("redwood", "oak"), KARST, OVERGROWTH),
     "small_sand": plist(SAND_WEATHER, aged_wood("acacia", "baobab", "palm"), STEPPE),
     "small_snow": plist(STONE_WEATHER, aged_wood("spruce"), SNOWY, [rule("cobweb", 0.4, "air")]),
     "small_moor": plist(STONE_WEATHER, aged_wood("spruce"), HEATHER, OVERGROWTH),
@@ -37,13 +46,13 @@ PROCS = {
                         archaeology("gravel", "suspicious_gravel", "expanse:chests/shepherd_bothy_archaeology", 3)),
     "small_tundra": plist(STONE_WEATHER, aged_wood("spruce"), TUNDRA),
     "small_forest": plist(aged_wood("redwood", "spruce"), STONE_WEATHER, FOREST, OVERGROWTH),
-    "small_lumen": plist(STONE_WEATHER, aged_wood("lumen"), LUMEN, OVERGROWTH),
+    "small_lumen": plist(STONE_WEATHER, aged_wood("oak"), LUMEN, OVERGROWTH),
     "small_bayou": plist(aged_wood("willow", "spruce"), BAYOU, [rule("moss_carpet", 0.3, "air"),
                                                                 rule("expanse:willow_planks", 0.06, "mud_bricks")]),
     "small_steppe": plist(aged_wood("acacia", "spruce"), STONE_WEATHER, STEPPE),
     "small_steppe_dig": plist(aged_wood("acacia", "spruce"), STEPPE,
                               archaeology("gravel", "suspicious_gravel", "expanse:chests/windpump_archaeology", 3)),
-    "small_dunes": plist(SAND_WEATHER, DUNES, archaeology("expanse:opal_sand", "suspicious_sand",
+    "small_dunes": plist(SAND_WEATHER, DUNES, archaeology("red_sand", "suspicious_sand",
                                                           "expanse:chests/sand_colossus_archaeology", 5)),
     "small_cloud": plist(STONE_WEATHER, aged_wood("spruce", "jungle", "dark_oak"), CLOUD, OVERGROWTH),
     "small_mine": plist(STONE_WEATHER, aged_wood("spruce"), PEAKS),
@@ -55,9 +64,25 @@ PROCS = {
                            archaeology("gravel", "suspicious_gravel", "expanse:chests/old_well_archaeology", 2)),
     "small_grave": plist(STONE_WEATHER, aged_wood("spruce"), WAYSIDE, OVERGROWTH,
                          archaeology("gravel", "suspicious_gravel", "expanse:chests/graveyard_archaeology", 3)),
-    "small_vale": plist(STONE_WEATHER, aged_wood("wisteria", "redwood"), VALE, OVERGROWTH),
+    "small_vale": plist(STONE_WEATHER, aged_wood("oak", "redwood"), VALE, OVERGROWTH),
     "small_dig": plist(TUNDRA, aged_wood("spruce"),
                        archaeology("gravel", "suspicious_gravel", "expanse:chests/mammoth_dig_archaeology", 4)),
+    # regional variants for the vanilla biomes and the newer Expanse biomes
+    "small_meadow": plist(STONE_WEATHER, aged_wood("oak", "spruce"), MEADOW, OVERGROWTH),
+    "small_woods": plist(aged_wood("dark_oak", "oak"), STONE_WEATHER, WOODS, OVERGROWTH),
+    "small_taiga": plist(aged_wood("spruce"), STONE_WEATHER, TAIGA, OVERGROWTH),
+    "small_jungle": plist(aged_wood("jungle"), STONE_WEATHER, JUNGLE, OVERGROWTH),
+    "small_mesa": plist(aged_wood("dark_oak"), STONE_WEATHER, MESA),
+    "small_mesa_dig": plist(aged_wood("dark_oak"), MESA, archaeology(
+        "gravel", "suspicious_gravel", "expanse:chests/miners_camp_mesa_archaeology", 4)),
+    "small_desert": plist(SAND_WEATHER, DUNES, archaeology("sand", "suspicious_sand",
+                                                          "expanse:chests/sand_colossus_desert_archaeology", 5)),
+    "small_prairie": plist(aged_wood("oak", "spruce"), STONE_WEATHER, PRAIRIE),
+    "small_prairie_dig": plist(aged_wood("oak", "spruce"), PRAIRIE, archaeology(
+        "gravel", "suspicious_gravel", "expanse:chests/windpump_prairie_archaeology", 3)),
+    "small_snowfield": plist(STONE_WEATHER, aged_wood("spruce"), SNOWFIELD, [rule("cobweb", 0.4, "air")]),
+    "small_dig_snowfield": plist(SNOWFIELD, aged_wood("spruce"), archaeology(
+        "gravel", "suspicious_gravel", "expanse:chests/mammoth_dig_snowfield_archaeology", 4)),
 }
 
 
@@ -270,35 +295,6 @@ BOOKS["treehouse_hollow"] = {
         "Visitors: knock on the bark. If I do not answer I am out, or asleep, or a mushroom.",
     ]}
 
-BOOKS["fairy_ring"] = {
-    "title": "Things Not To Do", "author": "a worried forester",
-    "pages": [
-        "Do not step inside the ring of glowcaps after dark. Do not step inside it before dark either. Do not "
-        "eat the cake. Nobody knows who bakes the cake.",
-        "Travellers throw coins into the spring for luck, and the luck goes somewhere, and so do the coins. "
-        "I have seen the glint of a box down there. I have not reached for it. See rule one.",
-        "The warden's box in the old stump is for anyone lost in the grove. Take a torch and walk toward the "
-        "lumen trees until they stop following you.",
-    ]}
-BOOKS["fairy_ring_toadstool"] = {
-    "title": "Guest Book", "author": "the Toadstool",
-    "pages": [
-        "Welcome! Please mind your head, your feet, and the ring. The bed is short because we are short. The "
-        "berries on the shelf are for guests; the stew is not.",
-        "Signed: a tired traveller (slept well, dreamed of singing). A forester (left in a hurry). A fox (left "
-        "a feather). Someone very small (left the rug crooked).",
-        "Do not lift the rug. There is nothing under the rug. Especially not a hatch.",
-    ]}
-BOOKS["fairy_ring_moonwell"] = {
-    "title": "On the Moonwell", "author": "Alchemist Vey",
-    "pages": [
-        "The basin glows from beneath though no fire is lit. The water is cold, still, and three fingers "
-        "deep; anything dropped in it is seen forever and reached never, or so the grove folk say.",
-        "I put my hand in. It is three fingers deep. There is a box. I left it, because my notes on the "
-        "lumen trees warn that the grove keeps accounts.",
-        "Offer prismite at the altar and the arches hum. Offer nothing and they hum anyway, but less kindly.",
-    ]}
-
 BOOKS["bayou_shack"] = {
     "title": "Tide and Catch", "author": "Fen the net-mender",
     "pages": [
@@ -371,7 +367,7 @@ BOOKS["sand_colossus_obelisk"] = {
     "pages": [
         "The needle stood when my grandmother crossed these dunes. It fell in the year of the great wind, in "
         "three pieces, as if it had been snapped over a knee.",
-        "The glyph bands tell the hours of the pink sun. The top lies apart, still pointing at the sky out of "
+        "The glyph bands tell the hours of the red sun. The top lies apart, still pointing at the sky out of "
         "habit.",
         "At the break the sand piles deep. Something square lies under it. I had no shovel and no courage.",
     ]}
@@ -604,6 +600,154 @@ BOOKS["old_well_ruin"] = {
         "Leave the barrel full for whoever passes. That much we can still do.",
     ]}
 
+# ------------------------------------------------------------------ journals of the regional variants
+BOOKS["wayside_shrine_meadow"] = {
+    "title": "Pedlar's Round", "author": "Hob the pedlar",
+    "pages": [
+        "Ribbons, needles, tin cups and gossip, Millbrook to Kingsford and back by harvest. The shrines mark the "
+        "miles, and I mark the shrines with a candle each.",
+        "Whatever a traveller leaves on the offering stone is kept beneath it for the next one who needs it. I have "
+        "needed it twice. I have filled it more than twice. That is the bargain.",
+        "Found a fox asleep on the warm stone at noon with poppies all round it, as if somebody had left it there as "
+        "an offering. I did not disturb it.",
+    ]}
+BOOKS["campsite_meadow"] = {
+    "title": "Sketchbook", "author": "Odile Fenn",
+    "pages": [
+        "Day 4. Painted the old oak by the ford three times. The first was too green, the second too brown, and in "
+        "the third a cow walked in and stayed. I am keeping the cow.",
+        "Rain all afternoon; sat in the tent and mixed colours. My purse and the good brushes are buried under the "
+        "bedroll. Paint thieves are rare, but they are very determined.",
+        "Heard bells over the hill at dusk - a village, or a shrine, or sheep. Going to find out at first light. "
+        "Fire banked, kettle full.",
+    ]}
+BOOKS["campsite_snowfield"] = {
+    "title": "Ice Road Log", "author": "Sigrun the courier",
+    "pages": [
+        "Two days from the last village, three to the next. The sled runners need tallow and so do I. Snow fell on "
+        "the tent all night with a sound like sand.",
+        "Wolves at the edge of the firelight, polite as dinner guests. I put the post satchel under the bedroll and "
+        "slept on it. Letters are heavy; promises are heavier.",
+        "Going out on the lake ice to find the road markers. If the wind gets up I will wait it out in the spruces. "
+        "Back for the fire.",
+    ]}
+BOOKS["old_well_meadow"] = {
+    "title": "Parish Well Book", "author": "the churchwarden",
+    "pages": [
+        "New rope at midsummer, new bucket at harvest, the same old crank that squeals in the key of the hymn. The "
+        "water is cold enough to make your teeth ache.",
+        "Coins tossed in for luck settle in the box at the bottom. Once a year we draw it up and spend it on the "
+        "roof. It is the luckiest roof in the parish.",
+        "No washing of sheep, dogs or small brothers in the trough. The trough is for horses. The horses have been "
+        "informed.",
+    ]}
+BOOKS["treehouse_oak"] = {
+    "title": "Woodward's Log", "author": "Woodward Ash",
+    "pages": [
+        "Walked the rides at dawn: two deer, a boar with opinions, nobody cutting where they should not. Hauled water "
+        "up in the basket; the chain wants oil.",
+        "From the crow's nest you can see over the crowns to the meadows and the smoke of three villages. My pay and "
+        "my good knife are in the knot-hole halfway up. Only woodwards climb that far.",
+        "Rule of the old wood: no axe on a living oak, no fire under a branch, and the ladder stays down for whoever "
+        "needs it.",
+    ]}
+BOOKS["treehouse_oak_cabin"] = {
+    "title": "Notes for the New Woodward", "author": "Old Ash",
+    "pages": [
+        "1. Walk the rides at dawn. 2. Count the fallen. 3. Leave the acorns to the pigs and the pigs to the "
+        "swineherd. 4. Feed the dog first.",
+        "The strongbox is under the floor by the table; the hatch sticks in wet weather, which is all weather. "
+        "Rations, coin for the season, a spare bowstring.",
+        "If a traveller comes in out of the rain, give them the bed and the stew. You can have the floor. The dog "
+        "keeps the cushion.",
+    ]}
+BOOKS["treehouse_spruce"] = {
+    "title": "Fire Watch Log", "author": "Watcher Ivo",
+    "pages": [
+        "No smoke on the ridges. A moose in the lake up to its knees, a lynx on the far shore pretending not to see "
+        "it. Wind from the north; the spruces creak like a ship.",
+        "From the nest the taiga goes on to the edge of the world and then a little further. My pay is in the "
+        "knot-hole halfway up, where the bark is worn smooth.",
+        "In fire weather, light the beacon and then run. In any other weather, walk. The forest has been here longer "
+        "than any of us and would burn faster than all of us.",
+    ]}
+BOOKS["treehouse_spruce_cabin"] = {
+    "title": "Trapper's Rules", "author": "the cabin",
+    "pages": [
+        "Bring in wood before you need it. Then bring in more. Bank the stove at night, mend the snowshoes by day, "
+        "and never step on ice you did not watch freeze.",
+        "The strongbox is under the hatch by the table: furs for the trading post, coin, a whetstone, a letter I "
+        "have not sent.",
+        "Whoever finds the cabin empty may stay the winter. Leave the woodpile as high as you found it.",
+    ]}
+BOOKS["treehouse_jungle"] = {
+    "title": "Canopy Notebook", "author": "Dr. Ama Sefa",
+    "pages": [
+        "The nest is above the second layer of leaves, where the light is green and the parrots argue. Counted forty "
+        "kinds of beetle before lunch and named six after my aunts.",
+        "Rain at four, as every day, for exactly as long as it takes to boil rice. My notes and money are in the "
+        "knot-hole halfway up; the ants are trustworthy, the monkeys are not.",
+        "Lianas make a good ladder and a poor bridge. I learned this personally.",
+    ]}
+BOOKS["treehouse_jungle_cabin"] = {
+    "title": "Station Orders", "author": "the field station",
+    "pages": [
+        "1. Shake out your boots. 2. Shake out your bed. 3. Shake out your hat. 4. Do not shake anything that "
+        "hisses.",
+        "The strongbox is under the floor by the table: medicine, coin, seed packets, and the only dry matches for "
+        "a hundred miles.",
+        "Visitors are welcome to the hammock and the coffee. Please return the machete.",
+    ]}
+BOOKS["miners_camp_mesa"] = {
+    "title": "Claim Ledger No. 12", "author": "Ore & Sons",
+    "pages": [
+        "Drove the adit twelve yards into the red butte. Gold showing at the face in threads like a spider's web, "
+        "iron with it. The rails run out to the bin; the bin is never full enough.",
+        "Lamp went blue in the side gallery and Hiram fainted. Boarded it up. Put the strongbox in there afterwards "
+        "- nobody will go past that sign, not even us.",
+        "Dust to the knees and water dearer than whisky. Pay the crew from the bin. Keep the pick sharp and the mule "
+        "happy.",
+    ]}
+BOOKS["sand_colossus_desert"] = {
+    "title": "Field Diary", "author": "Professor Idris Kane",
+    "pages": [
+        "Third season at the sunken king. The camels have learned to sit in his shadow at noon, and the diggers have "
+        "learned to sit in the camels' shadow.",
+        "A crack runs through the back of his skull, wide enough for a thin student. She came out with a jar and the "
+        "news that there is a box in there too, sealed. We are waiting for a fatter permit.",
+        "The sand gives and takes. Brush the drifts slowly; whatever the last storm buried, the next one will bring "
+        "back.",
+    ]}
+BOOKS["sand_colossus_desert_obelisk"] = {
+    "title": "The Broken Needle", "author": "a caravan guide",
+    "pages": [
+        "We camped by the fallen needle, as caravans always have. The guide says it marks the road to the old wells. "
+        "The guide says a great many things.",
+        "Three pieces lie in a line where it fell, and the tip apart, pointing at the sky as if it had been told to "
+        "stay. The bands of carving count the hours.",
+        "The sand is deep at the break and something square is buried there. Every guide knows it. No guide will "
+        "dig for it. Ask them why and they only drink their tea.",
+    ]}
+BOOKS["windpump_prairie"] = {
+    "title": "Pump Ledger", "author": "kept by the trough",
+    "pages": [
+        "Water for any herd that passes, any horse that is thirsty and any rider who asks nicely. Grease the wheel "
+        "when it squeals. It squeals on Tuesdays.",
+        "Dues go in the box under the pump head: a coin a herd, or a nail if you have no coin. We have a great many "
+        "nails.",
+        "Signed: Cobb, 200 head. The Ferrell girls, 40 head and a goose. Anonymous, 1 horse, very muddy.",
+    ]}
+BOOKS["mammoth_dig_snowfield"] = {
+    "title": "Dig Journal, Season 1", "author": "Dr. Ingrid Solvang",
+    "pages": [
+        "First season. The skull came up out of the snowfield like a boulder, until we saw the tusks. The sledge "
+        "dogs will not go near it, which tells you something about sledge dogs.",
+        "Gridded the dig down to the frost line. Brushing the gravel in C3: a flint scraper, a bead of bone, a sherd "
+        "with a wolf on it. Somebody stood here and saw it alive.",
+        "Blizzard coming. The finds are wrapped and buried in the big spoil heap on the windward side. If I do not "
+        "come back, the next season is yours.",
+    ]}
+
 # ------------------------------------------------------------------ loot tables
 TABLES = {}
 
@@ -719,21 +863,6 @@ TABLES["treehouse_hidden"] = table(
          item("iron_sword", 3, enchant=True), item("bow", 3, enchant=True), item("arrow", 5, (8, 16)),
          item("honey_bottle", 4, (1, 3)), item("diamond", 1)),
     pool(1, empty(3), book(3), item("golden_apple", 1), item("name_tag", 1), lore("treehouse", 2)))
-
-TABLES["fairy_ring"] = table(
-    "fairy_ring",
-    pool((3, 6), item("glow_berries", 8, (2, 6)), item("expanse:glowcap", 8, (1, 4)), item("brown_mushroom", 6, (1, 3)),
-         item("red_mushroom", 6, (1, 3)), item("honey_bottle", 4), item("cookie", 5, (2, 5)), item("torch", 5, (2, 6)),
-         item("expanse:lumen_sapling", 3), item("glow_ink_sac", 4, (1, 2)),
-         item("expanse:prismite_cluster", 3, (1, 2))),
-    pool(1, empty(5), item("emerald", 2), item("cake", 1), item("music_disc_mellohi", 1)))
-TABLES["fairy_ring_hidden"] = table(
-    "fairy_ring_hidden",
-    pool((3, 6), item("gold_nugget", 10, (3, 12)), item("emerald", 6, (1, 4)), item("amethyst_shard", 5, (2, 6)),
-         item("expanse:prismite_block", 3, (1, 2)), item("glowstone_dust", 5, (2, 6)),
-         item("experience_bottle", 4, (1, 3)),
-         item("diamond", 1)),
-    pool(1, empty(3), book(3), item("golden_apple", 2), item("name_tag", 1), lore("fairy_ring", 2)))
 
 TABLES["bayou_shack"] = table(
     "bayou_shack",
@@ -895,3 +1024,105 @@ TABLES["graveyard_archaeology"] = table(
     "graveyard_archaeology", pool(1, item("bone", 5), item("gold_nugget", 3), item("iron_nugget", 2),
                                   sherd("mourner", 3), sherd("skull", 2), sherd("heartbreak"), item("emerald"),
                                   item("golden_carrot")), kind="archaeology")
+
+# ------------------------------------------------------------------ loot of the regional variants
+_shrine_tables("wayside_shrine_meadow", [item("poppy", 6, (1, 4)), item("cornflower", 3, (1, 2))],
+               [item("cooked_beef", 6, (1, 3)), item("white_wool", 3, (1, 3))])
+_camp_tables("campsite_meadow", [item("cooked_beef", 8, (1, 3)), item("apple", 6, (1, 3))],
+             [item("paper", 5, (2, 6)), item("white_dye", 3, (1, 3)), item("blue_dye", 3, (1, 3))],
+             [item("bow", 3, enchant=True), item("painting", 3), item("clock", 2)])
+_camp_tables("campsite_snowfield", [item("expanse:cooked_venison", 8, (1, 3)), item("cooked_salmon", 6, (1, 3))],
+             [item("rabbit_hide", 6, (1, 4)), item("paper", 4, (1, 4))],
+             [item("leather_boots", 3, enchant=True), item("rabbit_foot", 2), item("compass", 2)])
+_well_tables("old_well_meadow", [item("wheat", 4, (2, 5)), item("poppy", 3, (1, 3))])
+
+
+def _treehouse_tables(name, food, sapling, log, extra):
+    """As the redwood treehouse's tables, with the palette's food, sapling and timber."""
+    TABLES[name] = table(
+        name,
+        pool((3, 6), item(food, 8, (1, 3)), item("bread", 6, (1, 3)), item("arrow", 8, (2, 10)),
+             item("torch", 6, (2, 6)), item("string", 5, (1, 3)), item("leather", 5, (1, 3)), item(extra, 5, (1, 3)),
+             item(sapling, 4, (1, 2)), item(log, 4, (2, 6)), item("map", 2)),
+        pool(1, empty(5), item("spyglass", 1), item("emerald", 2), item("bow", 2, damage=(0.3, 0.8))))
+    TABLES[f"{name}_hidden"] = table(
+        f"{name}_hidden",
+        pool((2, 5), item("emerald", 8, (2, 5)), item("iron_ingot", 6, (2, 4)), item("gold_ingot", 4, (1, 3)),
+             item("iron_sword", 3, enchant=True), item("bow", 3, enchant=True), item("arrow", 5, (8, 16)),
+             item("honey_bottle", 4, (1, 3)), item("diamond", 1)),
+        pool(1, empty(3), book(3), item("golden_apple", 1), item("name_tag", 1), lore(name, 2)))
+
+
+_treehouse_tables("treehouse_oak", "cooked_porkchop", "dark_oak_sapling", "dark_oak_log", "apple")
+_treehouse_tables("treehouse_spruce", "expanse:cooked_venison", "spruce_sapling", "spruce_log", "sweet_berries")
+_treehouse_tables("treehouse_jungle", "cooked_cod", "jungle_sapling", "jungle_log", "cocoa_beans")
+
+TABLES["miners_camp_mesa"] = table(
+    "miners_camp_mesa",
+    pool((3, 6), item("raw_gold", 8, (1, 3)), item("gold_nugget", 8, (2, 8)), item("coal", 6, (2, 6)),
+         item("torch", 8, (2, 8)), item("bread", 6, (1, 3)), item("rail", 5, (2, 8)), item("terracotta", 4, (4, 12)),
+         item("raw_iron", 5, (1, 4)), item("iron_nugget", 5, (2, 8))),
+    pool(1, empty(5), item("iron_pickaxe", 2, damage=(0.2, 0.7)), item("emerald", 2), item("tnt", 1)))
+TABLES["miners_camp_mesa_hidden"] = table(
+    "miners_camp_mesa_hidden",
+    pool((3, 6), item("gold_ingot", 8, (2, 6)), item("raw_gold", 6, (2, 5)), item("iron_ingot", 6, (1, 4)),
+         item("emerald", 6, (2, 5)), item("diamond", 2, (1, 2)), item("redstone", 4, (4, 10)),
+         item("iron_pickaxe", 3, enchant=True), item("golden_carrot", 3, (2, 5))),
+    pool(1, empty(3), book(2), item("golden_apple", 1), item("golden_pickaxe", 1, enchant=True),
+         lore("miners_camp_mesa", 2)))
+TABLES["miners_camp_mesa_archaeology"] = table(
+    "miners_camp_mesa_archaeology", pool(1, item("gold_nugget", 5), item("raw_gold", 2), item("iron_nugget", 3),
+                                         item("emerald"), sherd("miner", 2), sherd("prize"), sherd("danger"),
+                                         item("bone", 2), item("diamond")), kind="archaeology")
+
+TABLES["sand_colossus_desert"] = table(
+    "sand_colossus_desert",
+    pool((2, 5), item("gold_nugget", 10, (2, 8)), item("bone", 6, (1, 3)), item("sand", 6, (2, 6)),
+         item("rabbit_hide", 4, (1, 2)), item("dried_kelp", 4, (2, 5)), item("torch", 5, (2, 5)),
+         item("paper", 4, (1, 3)), item("cactus", 3, (1, 2))),
+    pool(1, empty(5), item("brush", 3), item("emerald", 2)))
+TABLES["sand_colossus_desert_hidden"] = table(
+    "sand_colossus_desert_hidden",
+    pool((3, 6), item("gold_ingot", 10, (2, 5)), item("gold_nugget", 6, (5, 12)), item("emerald", 8, (2, 5)),
+         item("lapis_lazuli", 5, (3, 8)), item("chiseled_sandstone", 3, (1, 3)), item("diamond", 2),
+         item("golden_horse_armor", 2), sherd("archer", 2), sherd("skull", 2)),
+    pool(1, empty(2), item("golden_apple", 3), book(3), item("music_disc_relic", 1), lore("sand_colossus_desert", 2)))
+TABLES["sand_colossus_desert_archaeology"] = table(
+    "sand_colossus_desert_archaeology", pool(1, item("gold_nugget", 4), item("emerald", 2), item("bone", 2),
+                                             sherd("archer", 2), sherd("prize", 2), sherd("danger"), sherd("skull"),
+                                             item("gold_ingot"), item("lapis_lazuli", 2)), kind="archaeology")
+
+TABLES["windpump_prairie"] = table(
+    "windpump_prairie",
+    pool((3, 6), item("bread", 8, (1, 3)), item("wheat", 8, (2, 6)), item("leather", 6, (1, 3)), item("lead", 4),
+         item("bucket", 3), item("string", 5, (1, 3)), item("iron_nugget", 6, (2, 8)), item("hay_block", 2),
+         item("beef", 5, (1, 3)), item("oak_sapling", 2)),
+    pool(1, empty(5), item("saddle", 2), item("emerald", 2), item("name_tag", 1)))
+TABLES["windpump_prairie_hidden"] = table(
+    "windpump_prairie_hidden",
+    pool((2, 5), item("gold_nugget", 10, (4, 12)), item("emerald", 8, (2, 5)), item("gold_ingot", 4, (1, 3)),
+         item("iron_ingot", 5, (1, 4)), item("iron_horse_armor", 2), item("golden_carrot", 3, (2, 5)),
+         item("copper_ingot", 4, (2, 6))),
+    pool(1, empty(3), book(2), item("golden_horse_armor", 1), item("saddle", 2), lore("windpump_prairie", 2)))
+TABLES["windpump_prairie_archaeology"] = table(
+    "windpump_prairie_archaeology", pool(1, item("bone", 4), item("gold_nugget", 3), item("flint", 2), item("emerald"),
+                                         sherd("plenty", 2), sherd("sheaf", 2), sherd("archer"), item("iron_nugget", 2),
+                                         item("copper_ingot")), kind="archaeology")
+
+TABLES["mammoth_dig_snowfield"] = table(
+    "mammoth_dig_snowfield",
+    pool((3, 6), item("bone", 10, (2, 6)), item("bone_meal", 6, (2, 8)), item("flint", 6, (1, 4)),
+         item("torch", 6, (2, 6)), item("cooked_cod", 6, (1, 3)), item("expanse:cooked_venison", 5, (1, 2)),
+         item("coal", 5, (1, 4)), item("paper", 4, (1, 4)), item("string", 4, (1, 3)), item("snowball", 3, (2, 6))),
+    pool(1, empty(5), item("brush", 3), item("spyglass", 1), item("compass", 1)))
+TABLES["mammoth_dig_snowfield_hidden"] = table(
+    "mammoth_dig_snowfield_hidden",
+    pool((2, 5), item("bone_block", 6, (1, 3)), item("emerald", 8, (2, 5)), item("gold_ingot", 4, (1, 3)),
+         item("amethyst_shard", 5, (1, 4)), item("diamond", 2), item("brush", 4), sherd("howl", 3),
+         sherd("snort", 3), sherd("explorer", 2)),
+    pool(1, empty(3), item("sniffer_egg", 1), item("golden_apple", 1), book(2), lore("mammoth_dig_snowfield", 3)))
+TABLES["mammoth_dig_snowfield_archaeology"] = table(
+    "mammoth_dig_snowfield_archaeology", pool(1, item("bone", 4), item("flint", 3), item("bone_meal", 2),
+                                              item("gold_nugget", 2), sherd("howl", 2), sherd("snort", 2),
+                                              sherd("danger"), item("emerald"), item("arrow", 2), item("sniffer_egg")),
+    kind="archaeology")

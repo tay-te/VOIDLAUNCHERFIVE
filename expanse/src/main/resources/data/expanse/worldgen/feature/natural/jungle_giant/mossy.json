@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:natural/tree/jungle_giant/mossy",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.2,
+      "feature": {
+        "feature": "expanse:natural/tree/jungle_tall/mossy",
+        "placement": []
+      }
+    }
+  ]
+}

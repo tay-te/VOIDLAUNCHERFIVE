@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:natural/tree/birch_tall/super_birch_bees",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.3,
+      "feature": {
+        "feature": "expanse:natural/tree/birch/super_birch_bees",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.02,
+      "feature": {
+        "feature": "expanse:natural/tree/birch_snag",
+        "placement": []
+      }
+    }
+  ]
+}

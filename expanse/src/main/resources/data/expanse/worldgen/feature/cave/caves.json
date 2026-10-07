@@ -1,0 +1,141 @@
+{
+  "type": "expanse:cave_template",
+  "biomes": "#minecraft:is_overworld",
+  "clearance": 4,
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:base_stone_overworld"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:dirt"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:sand"
+      },
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "minecraft:gravel",
+          "minecraft:clay",
+          "minecraft:calcite",
+          "minecraft:dripstone_block",
+          "minecraft:smooth_basalt",
+          "minecraft:basalt",
+          "minecraft:blackstone",
+          "minecraft:sandstone",
+          "minecraft:red_sandstone",
+          "minecraft:snow_block",
+          "minecraft:packed_ice",
+          "minecraft:sulfur",
+          "minecraft:amethyst_block",
+          "expanse:amber",
+          "expanse:limestone",
+          "expanse:salt_block",
+          "expanse:volcanic_ash"
+        ]
+      }
+    ]
+  },
+  "max_relief": 1,
+  "min_depth": 10,
+  "processors": "expanse:cave/stone",
+  "templates": [
+    {
+      "data": "expanse:cave/lamp_post",
+      "weight": 4
+    },
+    {
+      "data": "expanse:cave/lamp_post_copper",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/stake_lantern",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/candle_cairn",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/candle_cairn_deep",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/sign_water",
+      "weight": 1
+    },
+    {
+      "data": "expanse:cave/sign_bad_air",
+      "weight": 1
+    },
+    {
+      "data": "expanse:cave/sign_no_way",
+      "weight": 1
+    },
+    {
+      "data": "expanse:cave/sign_survey",
+      "weight": 1
+    },
+    {
+      "data": "expanse:cave/timber_frame",
+      "weight": 4
+    },
+    {
+      "data": "expanse:cave/timber_frame_broken",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/timber_frame_oak",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/miner_rest",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/remains",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/stash",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/cold_camp",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/cave_in",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/rail_stub",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/rail_stub_empty",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/ore_spill",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/mushroom_patch",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/crystal_pocket",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/spring_pool",
+      "weight": 2
+    }
+  ]
+}

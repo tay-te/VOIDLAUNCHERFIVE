@@ -1,4 +1,4 @@
-"""Fishing shacks of the willow bayou. Placed on the bayou floor (OCEAN_FLOOR_WG):
+"""Fishing shacks of the willow bayou and the swamps. Placed on the bayou floor (OCEAN_FLOOR_WG):
 everything under the decks is structure void, so the shallows stay wet and the
 mud stays muddy around the stilts.
 
@@ -16,11 +16,13 @@ from blocks import AIR, B
 from builder import Build, item, prune_unsupported, slab, stairs, trapdoor
 from kit import roof_gable
 from pieces import Piece
+from regions import SWAMP_LANDS
 from small_data import BOOKS, data_for
 from smallkit import book, ground_item
 
 NAME = "bayou_shack"
-STRUCTURE = dict(biomes=["willow_bayou"], size=1, max_distance=32, set="biome_sights", heightmap="OCEAN_FLOOR_WG")
+STRUCTURE = dict(biomes=["willow_bayou", *SWAMP_LANDS], size=1, max_distance=32, set="biome_sights",
+                 heightmap="OCEAN_FLOOR_WG")
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"
 W = "expanse:willow"

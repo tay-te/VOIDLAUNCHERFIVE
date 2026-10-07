@@ -30,6 +30,10 @@
     {
       "data": "expanse:micro/mushroom_ring",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/hollow_redwood",
+      "weight": 3
     }
   ]
 }

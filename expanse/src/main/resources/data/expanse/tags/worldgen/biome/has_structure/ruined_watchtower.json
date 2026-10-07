@@ -1,7 +1,15 @@
 {
   "values": [
     "expanse:verdant_peaks",
-    "expanse:prismatic_peaks",
-    "expanse:heather_moor"
+    "expanse:dolomite_peaks",
+    "expanse:heather_moor",
+    "expanse:pine_heath",
+    "expanse:fjordlands",
+    "expanse:maple_highlands",
+    "minecraft:windswept_hills",
+    "minecraft:windswept_gravelly_hills",
+    "minecraft:windswept_forest",
+    "minecraft:meadow",
+    "minecraft:stony_peaks"
   ]
 }

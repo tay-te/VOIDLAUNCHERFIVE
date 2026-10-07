@@ -1,7 +1,7 @@
 {
   "type": "minecraft:random_selector",
   "default": {
-    "feature": "minecraft:spruce",
+    "feature": "expanse:natural/spruce_forest/plain",
     "placement": []
   },
   "features": [

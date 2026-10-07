@@ -14,6 +14,20 @@
       },
       "trigger": "minecraft:location"
     },
+    "ancient_oakwood": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:ancient_oakwood"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
     "aspen_parkland": {
       "conditions": {
         "player": {
@@ -84,6 +98,20 @@
       },
       "trigger": "minecraft:location"
     },
+    "dolomite_peaks": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:dolomite_peaks"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
     "fjordlands": {
       "conditions": {
         "player": {
@@ -92,20 +120,6 @@
           "predicate": {
             "minecraft:location": {
               "biomes": "expanse:fjordlands"
-            }
-          }
-        }
-      },
-      "trigger": "minecraft:location"
-    },
-    "frostbloom_tundra": {
-      "conditions": {
-        "player": {
-          "type": "minecraft:entity_properties",
-          "entity": "this",
-          "predicate": {
-            "minecraft:location": {
-              "biomes": "expanse:frostbloom_tundra"
             }
           }
         }
@@ -182,14 +196,14 @@
       },
       "trigger": "minecraft:location"
     },
-    "lumen_grove": {
+    "lichen_tundra": {
       "conditions": {
         "player": {
           "type": "minecraft:entity_properties",
           "entity": "this",
           "predicate": {
             "minecraft:location": {
-              "biomes": "expanse:lumen_grove"
+              "biomes": "expanse:lichen_tundra"
             }
           }
         }
@@ -238,20 +252,6 @@
       },
       "trigger": "minecraft:location"
     },
-    "opal_dunes": {
-      "conditions": {
-        "player": {
-          "type": "minecraft:entity_properties",
-          "entity": "this",
-          "predicate": {
-            "minecraft:location": {
-              "biomes": "expanse:opal_dunes"
-            }
-          }
-        }
-      },
-      "trigger": "minecraft:location"
-    },
     "painted_canyons": {
       "conditions": {
         "player": {
@@ -294,14 +294,14 @@
       },
       "trigger": "minecraft:location"
     },
-    "prismatic_peaks": {
+    "red_dunes": {
       "conditions": {
         "player": {
           "type": "minecraft:entity_properties",
           "entity": "this",
           "predicate": {
             "minecraft:location": {
-              "biomes": "expanse:prismatic_peaks"
+              "biomes": "expanse:red_dunes"
             }
           }
         }
@@ -406,14 +406,14 @@
       },
       "trigger": "minecraft:location"
     },
-    "wisteria_vale": {
+    "woodland_glades": {
       "conditions": {
         "player": {
           "type": "minecraft:entity_properties",
           "entity": "this",
           "predicate": {
             "minecraft:location": {
-              "biomes": "expanse:wisteria_vale"
+              "biomes": "expanse:woodland_glades"
             }
           }
         }
@@ -424,27 +424,27 @@
   "requirements": [
     [
       "amber_steppe",
+      "ancient_oakwood",
       "aspen_parkland",
       "bluebell_woods",
       "boreal_muskeg",
       "cloud_forest",
       "coral_coast",
+      "dolomite_peaks",
       "fjordlands",
-      "frostbloom_tundra",
       "ghost_gum_outback",
       "heather_moor",
       "jade_karst",
       "kapok_rainforest",
       "larch_taiga",
-      "lumen_grove",
+      "lichen_tundra",
       "maple_highlands",
       "monsoon_forest",
       "olive_groves",
-      "opal_dunes",
       "painted_canyons",
       "palm_coast",
       "pine_heath",
-      "prismatic_peaks",
+      "red_dunes",
       "redwood_giants",
       "saguaro_flats",
       "salt_flats",
@@ -452,7 +452,7 @@
       "verdant_peaks",
       "volcanic_highlands",
       "willow_bayou",
-      "wisteria_vale"
+      "woodland_glades"
     ]
   ],
   "display": {
@@ -463,7 +463,7 @@
       "translate": "advancements.expanse.root.description"
     },
     "icon": {
-      "id": "expanse:wisteria_sapling"
+      "id": "minecraft:oak_sapling"
     },
     "background": "minecraft:gui/advancements/backgrounds/adventure",
     "announce_to_chat": false,

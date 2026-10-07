@@ -179,7 +179,7 @@
         {
           "input_predicate": {
             "block_state": {
-              "id": "expanse:wisteria_log",
+              "id": "minecraft:oak_log",
               "properties": {
                 "axis": "x"
               }
@@ -191,7 +191,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "id": "expanse:stripped_wisteria_log",
+            "id": "minecraft:stripped_oak_log",
             "properties": {
               "axis": "x"
             }
@@ -200,7 +200,7 @@
         {
           "input_predicate": {
             "block_state": {
-              "id": "expanse:wisteria_log",
+              "id": "minecraft:oak_log",
               "properties": {
                 "axis": "y"
               }
@@ -212,7 +212,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "id": "expanse:stripped_wisteria_log",
+            "id": "minecraft:stripped_oak_log",
             "properties": {
               "axis": "y"
             }
@@ -221,7 +221,7 @@
         {
           "input_predicate": {
             "block_state": {
-              "id": "expanse:wisteria_log",
+              "id": "minecraft:oak_log",
               "properties": {
                 "axis": "z"
               }
@@ -233,7 +233,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "id": "expanse:stripped_wisteria_log",
+            "id": "minecraft:stripped_oak_log",
             "properties": {
               "axis": "z"
             }

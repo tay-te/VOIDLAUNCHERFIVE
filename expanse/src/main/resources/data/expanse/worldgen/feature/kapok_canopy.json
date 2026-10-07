@@ -1,14 +1,14 @@
 {
   "type": "minecraft:random_selector",
   "default": {
-    "feature": "minecraft:jungle_tree",
+    "feature": "expanse:natural/jungle_wood/plain",
     "placement": []
   },
   "features": [
     {
       "chance": 0.3,
       "feature": {
-        "feature": "minecraft:mega_jungle_tree",
+        "feature": "expanse:natural/jungle_giant/plain",
         "placement": []
       }
     },

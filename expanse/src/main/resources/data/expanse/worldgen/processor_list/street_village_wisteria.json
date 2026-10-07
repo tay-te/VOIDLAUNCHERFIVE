@@ -12,7 +12,7 @@
             "block": "minecraft:water",
             "predicate_type": "minecraft:block_match"
           },
-          "output_state": "expanse:wisteria_planks"
+          "output_state": "minecraft:oak_planks"
         },
         {
           "input_predicate": {
@@ -23,7 +23,7 @@
             "block": "minecraft:ice",
             "predicate_type": "minecraft:block_match"
           },
-          "output_state": "expanse:wisteria_planks"
+          "output_state": "minecraft:oak_planks"
         },
         {
           "input_predicate": {

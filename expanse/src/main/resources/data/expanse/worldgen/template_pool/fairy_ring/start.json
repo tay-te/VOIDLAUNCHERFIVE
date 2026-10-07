@@ -3,7 +3,7 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:fairy_ring/fairy_ring_ring",
+        "location": "expanse:fairy_ring/fairy_ring_meadow",
         "processors": "expanse:small_lumen",
         "projection": "rigid"
       },
@@ -12,7 +12,7 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:fairy_ring/fairy_ring_toadstool",
+        "location": "expanse:fairy_ring/fairy_ring_arc",
         "processors": "expanse:small_lumen",
         "projection": "rigid"
       },
@@ -21,7 +21,7 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:fairy_ring/fairy_ring_moonwell",
+        "location": "expanse:fairy_ring/fairy_ring_stump",
         "processors": "expanse:small_lumen",
         "projection": "rigid"
       },

@@ -1,4 +1,5 @@
-"""Stone circle of the heather moor.
+"""Stone circle of the moors and open uplands (heather moor, pine heath, fjordlands, boreal muskeg,
+meadow, windswept hills).
 
 start pool - three ring layouts, each bold enough to read across the moor haze:
   every ring is 24-26 across, made of sarsens 2x1 / 2x2 in section and 5-9 tall,
@@ -23,11 +24,15 @@ from builder import Build, item, slab, stairs, written_book
 from common import circle_cells
 from lore import BOOKS
 from pieces import Piece
+from regions import mc
 
 NAME = "stone_circle"
-STRUCTURE = dict(biomes=["heather_moor"], spacing=28, separation=10, size=1, max_distance=40,
+STRUCTURE = dict(biomes=["heather_moor", "pine_heath", "fjordlands", "boreal_muskeg",
+                         *mc("meadow", "windswept_hills", "windswept_gravelly_hills")],
+                 spacing=28, separation=10, size=1, max_distance=40,
                  exclusion=("ruined_watchtower", 4),  # both stand on the moors
-                 max_relief=8)                         # settle on gentle ground, not a crag
+                 max_relief=8,                         # settle on gentle ground, not a crag
+                 avoid_vanilla=True)                   # keep clear of villages and the like in the shared biomes
 LOOT = "expanse:chests/stone_circle"
 HIDDEN = "expanse:chests/stone_circle_hidden"
 CRYPT_POOL = "expanse:stone_circle/crypt"

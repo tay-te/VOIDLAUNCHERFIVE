@@ -1,0 +1,15 @@
+{
+  "feature": "expanse:natural/acacia_wood/acacia",
+  "placement": [
+    {
+      "type": "expanse:land_fit"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:would_survive",
+        "state": "minecraft:acacia_sapling"
+      }
+    }
+  ]
+}

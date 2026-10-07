@@ -1,0 +1,75 @@
+{
+  "type": "expanse:cave_template",
+  "biomes": [
+    "minecraft:desert",
+    "minecraft:badlands",
+    "minecraft:eroded_badlands",
+    "minecraft:wooded_badlands",
+    "minecraft:savanna",
+    "minecraft:savanna_plateau",
+    "minecraft:windswept_savanna",
+    "expanse:red_dunes",
+    "expanse:amber_steppe",
+    "expanse:saguaro_flats",
+    "expanse:ghost_gum_outback",
+    "expanse:painted_canyons",
+    "expanse:salt_flats"
+  ],
+  "clearance": 4,
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:base_stone_overworld"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:dirt"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:sand"
+      },
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "minecraft:gravel",
+          "minecraft:clay",
+          "minecraft:calcite",
+          "minecraft:dripstone_block",
+          "minecraft:smooth_basalt",
+          "minecraft:basalt",
+          "minecraft:blackstone",
+          "minecraft:sandstone",
+          "minecraft:red_sandstone",
+          "minecraft:snow_block",
+          "minecraft:packed_ice",
+          "minecraft:sulfur",
+          "minecraft:amethyst_block",
+          "expanse:amber",
+          "expanse:limestone",
+          "expanse:salt_block",
+          "expanse:volcanic_ash"
+        ]
+      }
+    ]
+  },
+  "max_relief": 1,
+  "min_depth": 10,
+  "processors": "expanse:cave/dry",
+  "templates": [
+    {
+      "data": "expanse:cave/sand_shrine",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/pot_cache",
+      "weight": 3
+    },
+    {
+      "data": "expanse:cave/dry_bones",
+      "weight": 2
+    }
+  ]
+}

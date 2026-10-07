@@ -1,17 +1,19 @@
-"""Lumen shrine of the lumen grove: a ruined sanctuary with a glowing crown.
+"""The old chapel under the world (structure lumen_shrine): a ruined sanctuary with a lantern crown, on the floor
+of a deep cavern hall in the green realms (Verdant Hollow, Glowcap Wilds, Root Hollows), where its old oak grew
+without the sun. Underground, so its glowcaps and glow may stay; the surface has none.
 
 start  (two layouts, both on a raised round terrace with steps)
   spire   : broken colonnade around a crystal dais, a 5x5 ruined bell spire ~28 high
-            (climb its ladder to the prismite crown that glows over the canopy), an
-            ancient lumen tree breaking through the terrace
+            (climb its ladder to the lantern crown that shines across the hall), an
+            ancient oak breaking through the terrace
   chapel  : roofless chapel ruin with a tall gable wall and a twin-arched belfry ~26
-            high crowned with prismite, the old tree growing out of the nave
+            high crowned with lanterns, the old oak growing out of the nave
   Both: Alchemist Vey's still built into the ruin - brewing stand, cauldrons, shelves of
-  reagents, glowcap bottles, lore lectern; the public chest on the crystal dais; and
+  reagents, mushroom bottles, lore lectern; the public chest on the candlelit dais; and
   "behind the vines" - a vine-curtained doorway into a niche with the hidden chest.
   Gravel drifts hide up to two suspicious-gravel finds (processor archaeology).
-paths -> grounds (terrain-matching): glowcap ring, moon pool, fallen guardian statue,
-  prismite outcrop, ruined gate arch
+paths -> grounds (terrain-matching): toadstool ring, moon pool, fallen guardian statue,
+  mossy outcrop, ruined gate arch
 """
 import math
 import random
@@ -26,13 +28,16 @@ from pieces import Empty, Piece
 from terrain_paths import connector, path_piece, piece_in
 
 NAME = "lumen_shrine"
-STRUCTURE = dict(biomes=["lumen_grove"], spacing=30, separation=10, size=2, max_distance=48)
+# on the plateau of a deep hall (cavern_halls); the paths are rigid, as terrain_matching would follow the land overhead
+STRUCTURE = dict(biomes=["#minecraft:is_overworld"], realms=["realm_lush", "realm_wilds", "realm_roots"], cavern=True,
+                 set="cavern_halls", weight=2, size=2, max_distance=40)
 LOOT = "expanse:chests/lumen_shrine"
 HIDDEN = "expanse:chests/lumen_shrine_hidden"
 P_PATHS = f"expanse:{NAME}/paths"
 P_GROUNDS = f"expanse:{NAME}/grounds"
 PROC = "lumen_shrine"
-L = "expanse:lumen"
+L = "dark_oak"
+T = "oak"          # the old tree
 STONE = ["mossy_stone_bricks", "mossy_stone_bricks", "stone_bricks", "cracked_stone_bricks", "tuff_bricks"]
 
 
@@ -45,27 +50,27 @@ def st(rng):
     return B(rng.choice(STONE))
 
 
-def lumen_tree(b, x, y, z, rng, h=12, crown=4.5):
-    """Old lumen tree: thick buttressed trunk, branching crown of glowing leaves, hanging moss."""
+def old_oak(b, x, y, z, rng, h=12, crown=4.5):
+    """Old oak: thick buttressed trunk, a broad crown on long limbs, hanging moss."""
     for k in range(h):
-        b.set(x, y + k, z, B(f"{L}_log", axis="y"), clip=True)
+        b.set(x, y + k, z, B(f"{T}_log", axis="y"), clip=True)
         if k < 4:
             for dx, dz in ((1, 0), (0, 1)):
-                b.set(x + dx, y + k, z + dz, B(f"{L}_log", axis="y"), clip=True)
-            b.set(x + 1, y + k, z + 1, B(f"{L}_log", axis="y"), clip=True)
+                b.set(x + dx, y + k, z + dz, B(f"{T}_log", axis="y"), clip=True)
+            b.set(x + 1, y + k, z + 1, B(f"{T}_log", axis="y"), clip=True)
     for dx, dz, ax in ((-1, 0, "x"), (2, 0, "x"), (0, -1, "z"), (0, 2, "z")):
-        b.set(x + dx, y, z + dz, B(f"{L}_wood", axis="y"), clip=True)
+        b.set(x + dx, y, z + dz, B(f"{T}_wood", axis="y"), clip=True)
     tops = []
     for d, (dx, dz) in enumerate(((1, 0), (-1, 0), (0, 1), (0, -1))):
         bx, bz, by = x, z, y + h - 3 - d % 2
         for i in range(3):
             bx, bz, by = bx + dx, bz + dz, by + (1 if i == 2 else 0)
-            b.set(bx, by, bz, B(f"{L}_log", axis="x" if dx else "z"), clip=True)
+            b.set(bx, by, bz, B(f"{T}_log", axis="x" if dx else "z"), clip=True)
         tops.append((bx, by, bz))
     from arch import leaf_ball, leaves
-    leaf_ball(b, x, y + h, z, crown, leaves(f"{L}_leaves"), rng, flat=0.6)
+    leaf_ball(b, x, y + h, z, crown, leaves(f"{T}_leaves"), rng, flat=0.6)
     for (tx, ty, tz) in tops:
-        leaf_ball(b, tx, ty + 1, tz, 2.4, leaves(f"{L}_leaves"), rng, flat=0.7)
+        leaf_ball(b, tx, ty + 1, tz, 2.4, leaves(f"{T}_leaves"), rng, flat=0.7)
     sx, sy, sz = b.size
     for xx in range(int(x - crown - 3), int(x + crown + 4)):
         for zz in range(int(z - crown - 3), int(z + crown + 4)):
@@ -80,14 +85,14 @@ def lumen_tree(b, x, y, z, rng, h=12, crown=4.5):
 
 
 def crown_lamp(b, x, y, z):
-    """Prismite crown: a glowing crystal cluster atop a tower (seen from far away at night)."""
-    b.set(x, y, z, B("expanse:prismite_block"))
-    b.set(x, y + 1, z, B("expanse:prismite_block"))
-    b.set(x, y + 2, z, B("expanse:prismite_cluster", facing="up"))
-    for (dx, dz, f) in ((1, 0, "east"), (-1, 0, "west"), (0, 1, "south"), (0, -1, "north")):
-        b.set(x + dx, y, z + dz, B("expanse:prismite_block"))
-        b.set(x + dx, y + 1, z + dz, B("expanse:prismite_cluster", facing="up"))
-        b.set(x + 2 * dx, y, z + 2 * dz, B("expanse:prismite_cluster", facing=f))
+    """Lantern crown: a stone finial with lanterns on it atop a tower (seen from far away at night)."""
+    b.set(x, y, z, B("chiseled_stone_bricks"))
+    b.set(x, y + 1, z, B("stone_brick_wall"))
+    b.set(x, y + 2, z, B("lantern"))
+    for (dx, dz) in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        b.set(x + dx, y, z + dz, B("stone_bricks"))
+        b.set(x + dx, y + 1, z + dz, B("lantern"))
+        b.set(x + 2 * dx, y, z + 2 * dz, slab("stone_brick"))
 
 
 def terrace(b, rng, cx, cz, r, h=2):
@@ -118,8 +123,8 @@ def dais(b, rng, cx, cz, y):
     b.set(cx, y + 1, cz, B("chiseled_stone_bricks"))
     b.chest(cx, y + 2, cz, "south", LOOT)
     for (dx, dz) in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
-        b.set(cx + dx, y + 1, cz + dz, B("expanse:prismite_block"))
-        b.set(cx + dx, y + 2, cz + dz, B("expanse:prismite_cluster", facing="up"))
+        b.set(cx + dx, y + 1, cz + dz, B("mossy_stone_bricks"))
+        b.set(cx + dx, y + 2, cz + dz, B("candle", candles=3, lit=True))
 
 
 def alchemist_still(b, rng, x0, z0, y, facing_east=True):
@@ -139,11 +144,11 @@ def alchemist_still(b, rng, x0, z0, y, facing_east=True):
     b.set(x0 + 1, y + 1, z0 + 2, B("water_cauldron", level=2))
     b.set(x0 + 1, y + 1, z0 + 3, B("cauldron"))
     b.lectern(x0 + 1, y + 1, z0 + 4, "east", book())
-    b.shelf(x0 + 1, y + 3, z0 + 1, "oak", "east", ["glass_bottle", "glowstone_dust", "expanse:glowcap"])
+    b.shelf(x0 + 1, y + 3, z0 + 1, "oak", "east", ["glass_bottle", "glowstone_dust", "brown_mushroom"])
     b.shelf(x0 + 1, y + 3, z0 + 2, "oak", "east", shelf_items(rng, "alchemy"))
     b.shelf(x0 + 1, y + 3, z0 + 3, "oak", "east", ["potion", "glass_bottle", "spider_eye"])
     b.barrel(x0 + 2, y + 1, z0 + 5, "up")
-    b.set(x0 + 3, y + 1, z0 + 5, B("expanse:potted_glowcap"))
+    b.set(x0 + 3, y + 1, z0 + 5, B("potted_brown_mushroom"))
     b.set(x0 + 2, y + 2, z0 + 5, B("candle", candles=3, lit=True))
     b.campfire(x0 + 3, y + 1, z0 + 2, lit=False)
     chain_lamp(b, x0 + 2, y + 5, z0 + 3, 0)
@@ -173,7 +178,7 @@ def vine_niche(b, rng, x, y, z, out):
     for h in (0, 1, 2):
         b.set(ex, y + h, ez, st(rng))
     b.chest(nx + ox, y, nz + oz, out, HIDDEN)
-    b.set(nx, y, nz, B("expanse:glowcap"))
+    b.set(nx, y, nz, B("brown_mushroom"))
     b.set(nx, y - 1, nz, B("moss_block"))
 
 
@@ -193,7 +198,7 @@ def start_spire():
         h = rng.choice([2, 4, 6, 6, 6]) if i not in (3, 4) else 6
         b.set(x, y + 1, z, B("chiseled_stone_bricks"))
         for yy in range(y + 2, y + 2 + h):
-            b.set(x, yy, z, B(f"{L}_log", axis="y") if yy < y + 1 + h else B("expanse:stripped_lumen_log", axis="y"))
+            b.set(x, yy, z, B(f"{L}_log", axis="y") if yy < y + 1 + h else B("stripped_dark_oak_log", axis="y"))
         if h == 6:
             b.set(x, y + 8, z, B("mossy_stone_bricks"))
     rim = sorted(ring_cells(cx, cz, 7.5), key=lambda p: math.atan2(p[1] - cz, p[0] - cx))
@@ -233,8 +238,8 @@ def start_spire():
     b.set(cx + 1, top - 3, sz0 + 3, B("ladder", facing="north"))
     b.bell(cx - 1, top - 4, sz0 + 1, "ceiling", "north")
     crown_lamp(b, cx, top - 2, sz0 + 2)
-    # the old lumen tree breaking through the terrace (east)
-    lumen_tree(b, cx + 8, y + 1, cz - 2, rng, h=13, crown=4.5)
+    # the old oak breaking through the terrace (east)
+    old_oak(b, cx + 8, y + 1, cz - 2, rng, h=13, crown=4.5)
     # alchemist's still against a ruin wall (west) and the vine-curtained niche beside it
     for z in range(cz - 4, cz + 6):
         for yy in range(y + 1, y + 7 - abs(z - cz) // 3):
@@ -246,7 +251,7 @@ def start_spire():
         b.set(x, y, z, B("gravel"))
     for (x, z) in circle_cells(cx, cz, 11):
         if b.get(x, y + 1, z) is None and rng.random() < 0.25:
-            b.set(x, y + 1, z, B(rng.choice(["short_grass", "short_grass", "expanse:glowcap", "fern",
+            b.set(x, y + 1, z, B(rng.choice(["short_grass", "short_grass", "brown_mushroom", "fern",
                                              "moss_carpet"])))
     vines_on(b, rng, 0.05, ymin=y + 2)
     connector(b, cx, 1, 0, "north", P_PATHS)
@@ -291,10 +296,10 @@ def start_chapel():
     crown_lamp(b, cx, y + 26, z1)
     # rose window
     for dy in (-1, 0, 1):                                 # slit rose window with a crystal eye
-        b.set(cx, y + 11 + dy, z1, B("expanse:prismite_block") if dy == 0 else B("glass_pane"))
+        b.set(cx, y + 11 + dy, z1, B("mossy_stone_bricks") if dy == 0 else B("glass_pane"))
     # altar dais in the apse, the tree in the nave
     dais(b, rng, cx, z1 - 4, y + 1)
-    lumen_tree(b, cx + 2, y + 1, 11, rng, h=12, crown=4.2)
+    old_oak(b, cx + 2, y + 1, 11, rng, h=12, crown=4.2)
     # rubble
     for (x, z) in ((12, 15), (18, 9), (11, 20), (17, 21)):
         b.set(x, y + 1, z, st(rng))
@@ -310,7 +315,7 @@ def start_chapel():
         b.set(x, y, z, B("gravel"))
     for (x, z) in circle_cells(cx, cz, 11):
         if b.get(x, y + 1, z) is None and rng.random() < 0.25:
-            b.set(x, y + 1, z, B(rng.choice(["short_grass", "short_grass", "expanse:glowcap", "fern",
+            b.set(x, y + 1, z, B(rng.choice(["short_grass", "short_grass", "brown_mushroom", "fern",
                                              "moss_carpet"])))
     vines_on(b, rng, 0.05, ymin=y + 2)
     connector(b, cx, 1, 0, "north", P_PATHS)
@@ -330,9 +335,9 @@ def ground_glowcap_ring():
         for z in range(1, 12):
             b.set(x, 0, z, B("moss_block") if rng.random() < 0.6 else B("grass_block"))
     for (x, z) in ring_cells(5, 6, 4):
-        b.set(x, 1, z, B("expanse:glowcap") if rng.random() < 0.8 else B("red_mushroom"))
-    b.set(5, 1, 6, B("expanse:prismite_cluster", facing="up"))
-    b.set(5, 0, 6, B("expanse:prismite_block"))
+        b.set(x, 1, z, B("brown_mushroom") if rng.random() < 0.8 else B("red_mushroom"))
+    b.set(5, 1, 6, B("candle", candles=3, lit=True))
+    b.set(5, 0, 6, B("mossy_stone_bricks"))
     b.set(3, 1, 6, B("brown_mushroom"))
     return b
 
@@ -354,10 +359,10 @@ def ground_moon_pool():
         b.set(x, 1, z, st(rng))
         if rng.random() < 0.3:
             b.set(x, 2, z, slab("mossy_stone_brick"))
-    b.set(6, 0, 7, B("expanse:prismite_block"))
+    b.set(6, 0, 7, B("mossy_stone_bricks"))
     for (x, z) in ((2, 2), (10, 11)):
-        b.set(x, 2, z, B("expanse:prismite_cluster", facing="up"))
-        b.set(x, 1, z, B("expanse:prismite_block"))
+        b.set(x, 2, z, B("candle", candles=3, lit=True))
+        b.set(x, 1, z, B("mossy_stone_bricks"))
     return b
 
 
@@ -377,7 +382,7 @@ def ground_fallen_statue():
     b.set(6, 1, 10, B("stone_brick_stairs", facing="south"))
     b.set(5, 1, 11, B("mossy_stone_bricks"))
     b.set(5, 2, 9, B("moss_carpet"))
-    b.set(7, 1, 7, B("expanse:glowcap"))
+    b.set(7, 1, 7, B("brown_mushroom"))
     b.set(3, 1, 10, B("gravel"))
     return b
 
@@ -392,12 +397,12 @@ def ground_outcrop():
     for (x, z) in circle_cells(5, 6, 2.5):
         h = rng.randint(1, 3)
         for y in range(1, h + 1):
-            b.set(x, y, z, B(rng.choice(["tuff", "stone", "expanse:prismite_block"])))
+            b.set(x, y, z, B(rng.choice(["tuff", "stone", "mossy_cobblestone"])))
     for (x, z, y) in ((5, 6, 4), (4, 5, 3), (6, 7, 3), (3, 7, 2)):
-        b.set(x, y, z, B("expanse:prismite_block"))
-        b.set(x, y + 1, z, B("expanse:prismite_cluster", facing="up"))
+        b.set(x, y, z, B("mossy_cobblestone"))
+        b.set(x, y + 1, z, B("moss_carpet"))
     for (x, z) in ((2, 3), (8, 9), (8, 3)):
-        b.set(x, 1, z, B("expanse:prismite_cluster", facing="up"))
+        b.set(x, 1, z, B("brown_mushroom"))
     return b
 
 
@@ -418,8 +423,8 @@ def ground_gate():
     b.set(6, 6, 3, stairs("stone_brick", "east", "top"))
     b.set(6, 7, 3, slab("mossy_stone_brick"))
     vines_on(b, rng, 0.25, ymin=2)
-    b.set(1, 1, 5, B("expanse:glowcap"))
-    b.set(9, 1, 2, B("expanse:glowcap"))
+    b.set(1, 1, 5, B("brown_mushroom"))
+    b.set(9, 1, 2, B("brown_mushroom"))
     return b
 
 
@@ -428,8 +433,8 @@ def pools():
     mats = (("moss_block", 2), ("gravel", 2), ("mossy_cobblestone", 2), ("coarse_dirt", 2))
     return {
         "start": [Piece(start_spire(), 1, PROC), Piece(start_chapel(), 1, PROC)],
-        "paths": [Piece(path_piece(f"{NAME}_path_a", 6, P_GROUNDS, rp, mats=mats), 3, PROC, "terrain_matching"),
-                  Piece(path_piece(f"{NAME}_path_b", 10, P_GROUNDS, rp, mats=mats), 2, PROC, "terrain_matching"),
+        "paths": [Piece(path_piece(f"{NAME}_path_a", 6, P_GROUNDS, rp, mats=mats), 3, PROC, "rigid"),
+                  Piece(path_piece(f"{NAME}_path_b", 10, P_GROUNDS, rp, mats=mats), 2, PROC, "rigid"),
                   Empty(2)],
         "grounds": [Piece(ground_glowcap_ring(), 3, PROC), Piece(ground_moon_pool(), 2, PROC),
                     Piece(ground_fallen_statue(), 2, PROC), Piece(ground_outcrop(), 2, PROC),

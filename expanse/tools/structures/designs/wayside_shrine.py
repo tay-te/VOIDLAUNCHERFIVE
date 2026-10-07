@@ -1,10 +1,16 @@
 """Wayside shrines: the little roadside devotions travellers keep up.
 
-One design, three material palettes (separate structures so each biome gets
+One design, four material palettes (separate structures so each biome gets
 its own stone and timber):
-  wayside_shrine        timber & cobble  - heather moor, redwood giants, verdant peaks
-  wayside_shrine_karst  limestone        - jade karst, wisteria vale, cloud forest
-  wayside_shrine_sand   sandstone        - amber steppe, opal dunes, palm coast
+  wayside_shrine         timber & cobble  - heather moor, redwood giants, verdant peaks, the taigas, windswept
+                                           hills, pine heath, fjordlands, boreal muskeg, volcanic highlands
+  wayside_shrine_karst   limestone        - jade karst, woodland glades, cloud forest, jungles, cherry grove,
+                                           monsoon and kapok forests, tepui
+  wayside_shrine_sand    sandstone        - amber steppe, red dunes, palm coast, the deserts, savannas and
+                                           badlands, coral coast, outback, saguaro flats, painted canyons,
+                                           salt flats
+  wayside_shrine_meadow  oak & cobble     - plains, the broadleaf woods, meadow, aspen parkland, bluebell
+                                           woods, maple highlands, olive groves
 
 start pool (3 variants)
   post   : a roofed post shrine (in limestone a stone lantern) on a stepped plinth,
@@ -18,6 +24,7 @@ start pool (3 variants)
 from blocks import AIR, B
 from builder import Build, item, slab, stairs, trapdoor
 from pieces import Feature, Piece
+from regions import DRY_LANDS, MEADOW_LANDS, TAIGA_LANDS, WARM_WET_LANDS
 from small_data import BOOKS, data_for
 from smallkit import book, clear, flora, ground_item, pick, plant, ring, rubble, trail, vec
 
@@ -25,7 +32,8 @@ BASE = "wayside_shrine"
 
 PALETTES = {
     "timber": dict(
-        name="wayside_shrine", biomes=["heather_moor", "redwood_giants", "verdant_peaks"], procs="small_wayside",
+        name="wayside_shrine", biomes=["heather_moor", "redwood_giants", "verdant_peaks", *TAIGA_LANDS],
+        procs="small_wayside",
         log="spruce_log", post_wall=None, planks="spruce_planks", wood="spruce", roof="dark_oak",
         stone=[("cobblestone", 4), ("mossy_cobblestone", 2), ("stone", 2), ("andesite", 1)],
         brick="stone_bricks", bstairs="stone_brick", cobble_stairs="cobblestone", slab_="cobblestone",
@@ -37,7 +45,8 @@ PALETTES = {
         sign_lines=["", "Keep a light", "", ""],
         places=["Moorfold", "Old Barrow", "Tarn Cross", "Redwood Hold"], tree="minecraft:spruce_checked"),
     "karst": dict(
-        name="wayside_shrine_karst", biomes=["jade_karst", "wisteria_vale", "cloud_forest"], procs="small_karst",
+        name="wayside_shrine_karst", biomes=["jade_karst", "woodland_glades", "cloud_forest", *WARM_WET_LANDS],
+        procs="small_karst",
         log="expanse:redwood_log", post_wall="expanse:limestone_brick_wall", planks="expanse:redwood_planks",
         wood="expanse:redwood", roof="dark_oak",
         stone=[("expanse:limestone_bricks", 4), ("expanse:limestone", 2), ("expanse:mossy_limestone", 2)],
@@ -45,12 +54,12 @@ PALETTES = {
         slab_="expanse:limestone_brick", wall="expanse:limestone_brick_wall", ledge="expanse:chiseled_limestone",
         fence="bamboo_fence", ground=["grass_block", "grass_block", "moss_block"], soil="grass_block",
         path=[("gravel", 4), ("expanse:limestone", 2), ("coarse_dirt", 2)],
-        pots=["potted_bamboo", "potted_azure_bluet", "potted_lily_of_the_valley", "expanse:potted_wisteria_sapling"],
+        pots=["potted_bamboo", "potted_azure_bluet", "potted_lily_of_the_valley", "potted_azalea_bush"],
         offer=["azure_bluet", "lily_of_the_valley", "allium"], candle="red_candle", icon="kebab", sign="bamboo",
         sign_lines=["", "Rest a while", "", ""],
         places=["Stone Forest", "Jade Ferry", "Mist Steps", "Wisteria Bridge"], tree="minecraft:cherry_checked"),
     "sand": dict(
-        name="wayside_shrine_sand", biomes=["amber_steppe", "opal_dunes", "palm_coast"], procs="small_sand",
+        name="wayside_shrine_sand", biomes=["amber_steppe", "red_dunes", "palm_coast", *DRY_LANDS], procs="small_sand",
         log="acacia_log", post_wall=None, planks="acacia_planks", wood="acacia", roof="acacia",
         stone=[("cut_sandstone", 3), ("sandstone", 3), ("smooth_sandstone", 2)],
         brick="chiseled_sandstone", bstairs="sandstone", cobble_stairs="smooth_sandstone", slab_="cut_sandstone",
@@ -61,6 +70,18 @@ PALETTES = {
         offer=["dead_bush", "short_dry_grass", "orange_tulip"], candle="orange_candle", icon="wasteland", sign="acacia",
         sign_lines=["", "Water is life", "", ""],
         places=["Amber Well", "Opal Gate", "Palm Strand", "Sunstone"], tree="minecraft:acacia_checked"),
+    "meadow": dict(
+        name="wayside_shrine_meadow", biomes=MEADOW_LANDS, procs="small_meadow",
+        log="oak_log", post_wall=None, planks="oak_planks", wood="oak", roof="spruce",
+        stone=[("cobblestone", 3), ("stone_bricks", 2), ("mossy_cobblestone", 2), ("stone", 1)],
+        brick="stone_bricks", bstairs="stone_brick", cobble_stairs="cobblestone", slab_="stone_brick",
+        wall="cobblestone_wall", ledge="chiseled_stone_bricks", fence="oak_fence",
+        ground=["grass_block", "grass_block", "grass_block", "coarse_dirt"], soil="grass_block",
+        path=[("dirt_path", 6), ("coarse_dirt", 2), ("gravel", 1)],
+        pots=["potted_poppy", "potted_cornflower", "potted_oxeye_daisy", "potted_dandelion"],
+        offer=["poppy", "cornflower", "oxeye_daisy", "dandelion"], candle="yellow_candle", icon="plant", sign="oak",
+        sign_lines=["", "Go gently", "", ""],
+        places=["Millbrook", "Hayfield", "Oakhurst", "Kingsford"], tree="minecraft:fancy_oak_checked"),
 }
 
 

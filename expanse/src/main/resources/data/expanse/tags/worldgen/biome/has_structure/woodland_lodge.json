@@ -1,6 +1,20 @@
 {
   "values": [
     "expanse:redwood_giants",
-    "expanse:wisteria_vale"
+    "expanse:woodland_glades",
+    "expanse:maple_highlands",
+    "expanse:bluebell_woods",
+    "expanse:pine_heath",
+    "expanse:larch_taiga",
+    "expanse:fjordlands",
+    "minecraft:taiga",
+    "minecraft:old_growth_pine_taiga",
+    "minecraft:old_growth_spruce_taiga",
+    "minecraft:snowy_taiga",
+    "minecraft:windswept_forest",
+    "minecraft:forest",
+    "minecraft:dark_forest",
+    "minecraft:birch_forest",
+    "minecraft:old_growth_birch_forest"
   ]
 }

@@ -1,0 +1,15 @@
+{
+  "feature": "expanse:natural/tall_birch/super_birch_bees_0002",
+  "placement": [
+    {
+      "type": "expanse:land_fit"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:would_survive",
+        "state": "minecraft:birch_sapling"
+      }
+    }
+  ]
+}

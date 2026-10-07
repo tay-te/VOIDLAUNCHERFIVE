@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:spruce_shrub",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.15,
+      "feature": {
+        "feature": "expanse:shrub_hazel",
+        "placement": []
+      }
+    }
+  ]
+}

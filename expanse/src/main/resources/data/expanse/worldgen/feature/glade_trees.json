@@ -1,0 +1,37 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:glade_oak",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.3,
+      "feature": {
+        "feature": "expanse:natural/birch/plain",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.2,
+      "feature": {
+        "feature": "expanse:natural/big_oak/plain",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.15,
+      "feature": {
+        "feature": "expanse:natural/forest_oak/plain",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.03,
+      "feature": {
+        "feature": "minecraft:fallen_oak_tree",
+        "placement": []
+      }
+    }
+  ]
+}

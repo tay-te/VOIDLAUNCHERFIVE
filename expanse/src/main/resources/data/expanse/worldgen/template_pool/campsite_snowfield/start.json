@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:campsite_snowfield/campsite_snowfield_tent",
+        "processors": "expanse:small_snowfield",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:campsite_snowfield/campsite_snowfield_cart",
+        "processors": "expanse:small_snowfield",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:campsite_snowfield/campsite_snowfield_lean",
+        "processors": "expanse:small_snowfield",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

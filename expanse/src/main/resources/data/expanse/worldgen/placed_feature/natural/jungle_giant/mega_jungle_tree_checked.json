@@ -1,0 +1,15 @@
+{
+  "feature": "expanse:natural/jungle_giant/mega_jungle_tree",
+  "placement": [
+    {
+      "type": "expanse:land_fit"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:would_survive",
+        "state": "minecraft:jungle_sapling"
+      }
+    }
+  ]
+}

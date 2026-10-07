@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:natural/tree/dark_oak_tall/dark_oak_leaf_litter",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.35,
+      "feature": {
+        "feature": "expanse:natural/tree/dark_oak_old/dark_oak_leaf_litter",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.2,
+      "feature": {
+        "feature": "expanse:natural/tree/dark_oak_young/dark_oak_leaf_litter",
+        "placement": []
+      }
+    }
+  ]
+}

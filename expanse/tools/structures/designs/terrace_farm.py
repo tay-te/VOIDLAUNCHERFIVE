@@ -1,4 +1,4 @@
-"""Rice farmers of the jade karst.
+"""Rice farmers of the jade karst, the jungles, the cherry groves and the monsoon forest.
 
 start pool (3 variants)
   paddies : three flooded terraces of young rice stepping up behind limestone walls,
@@ -13,11 +13,14 @@ from blocks import AIR, B
 from builder import Build, item, slab, stairs
 from furnish import scarecrow
 from pieces import Piece
+from regions import mc
 from small_data import BOOKS, data_for
 from smallkit import book, clear, flora, ground_item, pick, trail
 
 NAME = "terrace_farm"
-STRUCTURE = dict(biomes=["jade_karst"], size=1, max_distance=32, set="biome_sights")
+STRUCTURE = dict(biomes=["jade_karst", "monsoon_forest", *mc("jungle", "sparse_jungle", "bamboo_jungle",
+                                                                "cherry_grove")],
+                 size=1, max_distance=32, set="biome_sights")
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"
 LB = "expanse:limestone_brick"
