@@ -31,6 +31,7 @@ import dev.voidmc.hearth.build.kit.civic.Storeys;
 import dev.voidmc.hearth.build.kit.civic.Towers;
 import dev.voidmc.hearth.build.kit.civic.Trade;
 import dev.voidmc.hearth.build.kit.civic.Tradition;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
@@ -39,6 +40,7 @@ import dev.voidmc.hearth.build.terrain.Groundwork;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 
 /**
@@ -133,9 +135,10 @@ public final class MarketHall implements Archetype {
 			Storeys.stoneStorey(d, backBay, 0);
 		}
 		d.carve(x0 + 1, base, zb + 1, x1 - 1, top - 1, z1 - 1);
-		// a door from the market into the back bay, a window in each end
+		// a door from the market into the back bay at the head of the aisle (the counters stand in the side bays, so both
+		// its sides are clear floor), a window in each end
 		Side inner = Side.of(x0, zb, x1, z1, Dirs.FRONT);
-		int doorX = x1 - 2;
+		int doorX = cx;
 		Openings.door(d, inner, doorX, base, 1, new Openings.DoorOpts(false, false, false));
 		// interior columns down the middle of a wide hall
 		int[] midCols = Arches.piers(z0, zb, pitch);
@@ -279,12 +282,15 @@ public final class MarketHall implements Archetype {
 			Signs.wallBanner(d, upFront.outX(upFront.index(cx), 1), bannerY + 1, upFront.outZ(upFront.index(cx), 1), Dirs.FRONT, arms.field(), arms.layers());
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		// rails where the plinth stands high over falling ground and round the stairwell upstairs
+		Edges.guard(d, base - 4, plate - 1);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**
-	 * The loft in a market house's front gable: a door high in the gable under a hoist beam carried out over the square,
-	 * its rope a chain with a lantern at the end (sacks came up this way), where the gable is tall enough.
+	 * The loft in a market house's front gable: a shuttered loading hatch high in the gable (two leaves of boards, shut:
+	 * the loft behind is roof space, nobody's room) under a hoist beam carried out over the square, its rope a chain with
+	 * a lantern at the end (sacks came up this way), where the gable is tall enough.
 	 */
 	static void loft(Draft d, int[] up, int plate, Roofs.Roof roof) {
 		int cx = (up[0] + up[2]) / 2;
@@ -294,8 +300,17 @@ public final class MarketHall implements Archetype {
 			return;
 		}
 		int y = plate + 2;
-		d.inStage(StageKind.OPENINGS, () -> d.door(cx, y, z, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
-			net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+		Block hatch = d.mat(Role.DOOR).mainOr(Form.TRAPDOOR, Blocks.SPRUCE_TRAPDOOR);
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			for (int k = 0; k <= 1; k++) {
+				// the leaves stand shut in the opening (an open trapdoor against the cell's outer face), the wall behind
+				d.set(cx, y + k, z, hatch.defaultBlockState().setValue(net.minecraft.world.level.block.TrapDoorBlock.FACING, Dirs.BACK)
+					.setValue(net.minecraft.world.level.block.TrapDoorBlock.OPEN, true)
+					.setValue(net.minecraft.world.level.block.TrapDoorBlock.HALF, k == 0 ? net.minecraft.world.level.block.state.properties.Half.BOTTOM
+						: net.minecraft.world.level.block.state.properties.Half.TOP));
+				d.set(cx, y + k, z + 1, d.mat(Role.WALL).full());
+			}
+		}
 		int by = Math.min(under - 1, y + 2);
 		if (by < y + 2) {
 			return;
@@ -366,21 +381,18 @@ public final class MarketHall implements Archetype {
 		return Towers.cap(d, x0, z0, 3, yb + bh, cap, maxH);
 	}
 
-	/** A row of small domes on drums over a flat-roofed hall (the covered souk). Returns the top. */
+	/**
+	 * The dome over a flat-roofed hall (the covered souk): one, centred over the hall on its drum, as big as the hall's
+	 * width allows (a dome is {@code 2r + 3} across on a drum two wider). Returns the top.
+	 */
 	static int domes(Draft d, int[] r, int deck, int maxH) {
-		int top = deck;
 		Fam dome = Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
 		if (dome == null) {
-			return top;
+			return deck;
 		}
 		int cx = (r[0] + r[2]) / 2;
-		// as many as stand clear of each other (a dome is five across)
-		int n = Math.max(1, Math.min(3, (r[3] - r[1] - 1) / 6));
-		for (int k = 0; k < n; k++) {
-			int cz = r[1] + (int) Math.round((k + 0.5) * (r[3] - r[1]) / n);
-			// a drum of three lifting it over the parapet, lights in it, then the dome
-			top = Math.max(top, Adobe.dome(d, cx, cz, deck, 1, maxH));
-		}
-		return top;
+		int cz = (r[1] + r[3]) / 2;
+		int rad = Math.min(r[2] - r[0], r[3] - r[1]) >= 10 && deck + 9 <= maxH - 1 ? 2 : 1;
+		return Math.max(deck, Adobe.dome(d, cx, cz, deck, rad, maxH));
 	}
 }

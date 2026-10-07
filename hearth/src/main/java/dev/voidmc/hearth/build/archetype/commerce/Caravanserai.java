@@ -31,7 +31,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.Half;
@@ -76,7 +79,8 @@ public final class Caravanserai implements Archetype {
 		int plate = base + 2 * tier - 1;
 		int upY = base + tier;
 		Ring ring = new Ring(0, zF, w - 1, zB, R, true);
-		int cx = w / 2;
+		// the gate on the ring's own middle, so the partitions either side of it are the passage's walls
+		int cx = (w - 1) / 2;
 
 		Mat wall = d.mat(Role.WALL);
 		Mat found = d.mat(Role.FOUNDATION);
@@ -114,6 +118,23 @@ public final class Caravanserai implements Archetype {
 							p = accent.full();
 						}
 						d.set(x, y, z, p);
+					}
+				}
+			}
+		}
+		// the outer walls dressed: a pilaster of the dressing where each cross wall meets them, a string course at the
+		// gallery's floor (a blank wall a hundred and sixty blocks long is a fortress, not an inn)
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int x = 0; x < w; x++) {
+				for (int z = zF; z <= zB; z++) {
+					if (ring.k(x, z) != 0 || Math.abs(x - cx) <= 3 && z == zF) {
+						continue;
+					}
+					boolean pilaster = pilasterAt(ring, x, z);
+					for (int y = base + 1; y < plate; y++) {
+						if (pilaster || y == upY - 1) {
+							d.set(x, y, z, accent.full());
+						}
 					}
 				}
 			}
@@ -186,28 +207,27 @@ public final class Caravanserai implements Archetype {
 
 		// --- the roof: the deck behind a parapet in the dry lands, else a ring of tiles round the courtyard
 		ring.roof(d, plate, flat, zB);
+		int skyline = plate + 1;
 		// corner towers standing over the walls
 		int towerTop = Math.min(maxH - 1, plate + 3);
 		for (int[] c : new int[][]{{0, zF}, {w - 3, zF}, {0, zB - 2}, {w - 3, zB - 2}}) {
 			tower(d, c[0], c[1], plate, towerTop, flat);
 		}
 
-		// --- the gate: a passage through the front range, the portal standing over it
+		// --- the gate: a passage three wide and three high through the front range (the gate room's and the gallery's
+		// floor kept over it), the great portal standing proud of the wall before it
 		try (var s = d.stage(StageKind.WALLS)) {
 			for (int x = cx - 1; x <= cx + 1; x++) {
 				for (int z = zF; z <= zF + R - 1; z++) {
-					for (int y = base; y < base + 4; y++) {
+					for (int y = base; y < upY - 1; y++) {
 						d.set(x, y, z, Paint.of(Blocks.AIR.defaultBlockState()));
 					}
 					d.set(x, base - 1, z, paving.full());
 				}
 			}
 		}
-		portal(d, cx, zF, base, plate, maxH);
-		d.inStage(StageKind.OPENINGS, () -> {
-			d.door(cx - 1, base, zF, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT, DoorHingeSide.RIGHT);
-			d.door(cx + 1, base, zF, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT, DoorHingeSide.LEFT);
-		});
+		skyline = Math.max(skyline, pishtaq(d, cx, zF, base, plate, maxH));
+		gate(d, cx, zF, base);
 		d.entrance(cx, base, zF - 1);
 		d.poi(PoiType.DOOR, cx, base, zF - 1, Dirs.BACK);
 		Lighting.doorLamp(d, cx - 2, base + 2, zF - 1, Dirs.BACK);
@@ -229,6 +249,10 @@ public final class Caravanserai implements Archetype {
 			int mz = z + Dirs.dz(out);
 			Direction across = Dirs.right(in);
 			if (Math.abs(x - cx) <= 1 && in == Dirs.BACK) {
+				// over the gate: the gatekeeper's lookout, a table under the window into the portal, a stool, a chest
+				lookoutCell(d, mx, mz, in, across, upY);
+				int[] r = cellRect(mx, mz, in, across);
+				Lighting.room(d, r[0], r[1], r[2], r[3], upY);
 				continue;
 			}
 			// below
@@ -280,6 +304,19 @@ public final class Caravanserai implements Archetype {
 		for (int sx : new int[]{R, w - 1 - R}) {
 			int top = zB - R;
 			Stairs.straight(d, sx, base, top - tier + 1, Dirs.BACK, tier, 1);
+			// its courtyard side walled as it climbs (the arcade's piers and the gallery floor guard the other)
+			int px = sx == R ? sx + 1 : sx - 1;
+			// its top course a wall or a rail, never a block to stand on
+			Paint guard = accent.has(Form.WALL) ? accent.wall() : wall.has(Form.WALL) ? wall.wall() : d.mat(Role.RAILING).fence();
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int k = 1; k < tier; k++) {
+					int pz = top - tier + 1 + k;
+					for (int y = base; y <= base + k; y++) {
+						d.set(px, y, pz, wall.full());
+					}
+					d.set(px, base + k + 1, pz, guard);
+				}
+			}
 			try (var s = d.stage(StageKind.INTERIOR)) {
 				// the gallery's parapet opened where the stair arrives
 				d.set(sx, upY, zB - R + 1, Paint.of(Blocks.AIR.defaultBlockState()));
@@ -306,9 +343,14 @@ public final class Caravanserai implements Archetype {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, maxH - 1);
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
-	/** Partitions between cells: every fourth cell along each wing, counted from the wing's middle so the gate falls between. */
+	/**
+	 * Partitions between rooms: the cells run in pairs, a room seven long with two doors and two beds (a three-by-three
+	 * cell with a bed and a chest in it is a cupboard), counted from the wing's middle. In the front wing they stand two
+	 * either side of the middle so the gate passage runs between them; in the others the middle room is a pair too.
+	 */
 	private static boolean isPartition(Ring ring, int x, int z) {
 		Direction in = ring.inward(x, z);
 		int along = in.getAxis() == Direction.Axis.Z ? x - (ring.x0() + ring.x1()) / 2 : z - (ring.z0() + ring.z1()) / 2;
@@ -318,7 +360,19 @@ public final class Caravanserai implements Archetype {
 		if (kx < 4 && kz < 4) {
 			return true;
 		}
-		return Math.floorMod(along - 2, 4) == 0;
+		if (in == Dirs.BACK) {
+			return Math.floorMod(Math.abs(along) - 2, 8) == 0;
+		}
+		return Math.floorMod(along - 2, 8) == 0;
+	}
+
+	/** A pilaster on the outer wall: where the cross walls of the cells (every fourth cell) meet it, and at the corners. */
+	private static boolean pilasterAt(Ring ring, int x, int z) {
+		Direction in = ring.inward(x, z);
+		int along = in.getAxis() == Direction.Axis.Z ? x - (ring.x0() + ring.x1()) / 2 : z - (ring.z0() + ring.z1()) / 2;
+		int kx = Math.min(x - ring.x0(), ring.x1() - x);
+		int kz = Math.min(z - ring.z0(), ring.z1() - z);
+		return kx == 0 && kz == 0 || kx >= 4 || kz >= 4 ? Math.floorMod(along - 2, 4) == 0 : false;
 	}
 
 	/** The door column of a cell: the middle of the three between partitions, clear of the ring's corners. */
@@ -418,6 +472,17 @@ public final class Caravanserai implements Archetype {
 		return 1;
 	}
 
+	/** The gatekeeper's lookout over the gate: a table under the window, a stool before it, a chest against the side wall. */
+	private static void lookoutCell(Draft d, int mx, int mz, Direction in, Direction across, int y) {
+		int[] t = at(mx, mz, in, across, 1, 0);
+		Furniture.table(d, t[0], y, t[1]);
+		d.poi(PoiType.TABLE, t[0], y, t[1], in);
+		int[] ch = at(mx, mz, in, across, 2, 0);
+		Furniture.chair(d, ch[0], y, ch[1], in.getOpposite());
+		int[] c = at(mx, mz, in, across, 1, -1);
+		Furniture.chest(d, c[0], y, c[1], in, List.<Object[]>of(new Object[]{"minecraft:paper", 6}, new Object[]{"minecraft:torch", 8}));
+	}
+
 	/** Lights the ring cells k (the arcade or the gallery) at standing level y, a lantern hung every few cells. */
 	private static void lightRing(Draft d, Ring ring, int k, int y) {
 		int n = 0;
@@ -464,32 +529,73 @@ public final class Caravanserai implements Archetype {
 	}
 
 	/**
-	 * The portal: a tall block of the accent masonry five wide over the gate passage, standing two over the walls, its
-	 * arch three wide and four high framed in a moulding, a band of the trim over it.
+	 * The great portal (the pishtaq) standing proud of the front wall in row {@code zF - 1}: a screen of the walls'
+	 * masonry seven wide rising to four over the roof, framed by pilasters of the dressing, a tall recess (the iwan) cut
+	 * into it over the gate with a pointed head stepped in the dressing's stairs, a keystone, a band of the trim across it
+	 * over the arch and a coping. Returns its top.
 	 */
-	private static void portal(Draft d, int cx, int zF, int base, int plate, int maxH) {
+	private static int pishtaq(Draft d, int cx, int zF, int base, int plate, int maxH) {
+		Mat wall = d.mat(Role.WALL);
 		Mat accent = d.mat(Role.WALL_ACCENT);
 		Mat trim = d.mat(Role.ACCENT);
-		int top = Math.min(maxH - 1, plate + 2);
+		Mat found = d.mat(Role.FOUNDATION);
+		Mat paving = d.mat(Role.PAVING);
+		int z = zF - 1;
+		int top = Math.min(maxH - 1, plate + 4);
+		// the recess: open rows base..rec-1 across five, its head stepping in (rec at three across, rec + 1 at the middle)
+		int rec = Math.min(top - 4, base + 6);
 		try (var s = d.stage(StageKind.WALLS)) {
 			for (int x = cx - 3; x <= cx + 3; x++) {
-				for (int z = zF; z <= zF + 1; z++) {
-					for (int y = base; y <= top; y++) {
-						boolean opening = Math.abs(x - cx) <= 1 && y < base + 4;
-						if (opening) {
-							continue;
-						}
-						if (z == zF + 1 && y < plate) {
-							continue;
-						}
-						d.set(x, y, z, Math.abs(x - cx) == 3 || y == top ? accent.full() : y == base + 5 ? trim.full() : d.mat(Role.WALL).full());
+				int a = Math.abs(x - cx);
+				for (int y = Math.min(d.site().ground(x, z), base) - 1; y < base; y++) {
+					d.set(x, y, z, a <= 2 && y == base - 1 ? paving.full() : found.full());
+				}
+				for (int y = base; y <= top; y++) {
+					boolean open = a <= 2 && y < rec || a <= 1 && y == rec || a == 0 && y == rec + 1;
+					if (open) {
+						d.set(x, y, z, Paint.of(Blocks.AIR.defaultBlockState()));
+						continue;
 					}
+					Paint p;
+					if (a == 3 || y == top) {
+						p = accent.full();
+					} else if (a == 2 && y == rec || a == 1 && y == rec + 1) {
+						// the arch's head stepping in to the keystone
+						p = accent.stairsOrSlab(x < cx ? Dirs.RIGHT : Dirs.LEFT, Half.TOP);
+					} else if (a == 0 && y == rec + 2) {
+						p = trim.full();
+					} else if (y == rec + 3 && a <= 2) {
+						p = trim.full();
+					} else {
+						p = wall.full();
+					}
+					d.set(x, y, z, p);
 				}
 			}
-			// the arch: upside-down stairs at the opening's top corners
-			d.set(cx - 1, base + 3, zF, accent.stairsOrSlab(Dirs.RIGHT, Half.TOP));
-			d.set(cx + 1, base + 3, zF, accent.stairsOrSlab(Dirs.LEFT, Half.TOP));
-			d.set(cx, base + 4, zF, accent.slab(SlabType.BOTTOM));
+			// the coping's ends stepped down over the pilasters
+			for (int x : new int[]{cx - 3, cx + 3}) {
+				if (top + 1 < maxH) {
+					d.set(x, top + 1, z, accent.slab(SlabType.BOTTOM));
+				}
+			}
+		}
+		return Math.min(maxH - 1, top + 1);
+	}
+
+	/**
+	 * The gate in the outer wall behind the portal: a pair of leaves standing open, folded back against the passage's
+	 * sides, under a lintel of the dressing's stairs, the middle open to the passage's full height.
+	 */
+	private static void gate(Draft d, int cx, int zF, int base) {
+		Mat accent = d.mat(Role.WALL_ACCENT);
+		Block door = d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR);
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			for (int x : new int[]{cx - 1, cx + 1}) {
+				DoorHingeSide hinge = x < cx ? DoorHingeSide.RIGHT : DoorHingeSide.LEFT;
+				d.set(x, base, zF, States.door(door, Dirs.FRONT, hinge, DoubleBlockHalf.LOWER).setValue(DoorBlock.OPEN, true));
+				d.set(x, base + 1, zF, States.door(door, Dirs.FRONT, hinge, DoubleBlockHalf.UPPER).setValue(DoorBlock.OPEN, true));
+				d.set(x, base + 2, zF, accent.stairsOrSlab(x < cx ? Dirs.RIGHT : Dirs.LEFT, Half.TOP));
+			}
 		}
 	}
 

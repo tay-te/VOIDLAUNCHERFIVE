@@ -30,6 +30,7 @@ import dev.voidmc.hearth.build.kit.civic.Signs;
 import dev.voidmc.hearth.build.kit.civic.Storeys;
 import dev.voidmc.hearth.build.kit.civic.Towers;
 import dev.voidmc.hearth.build.kit.civic.Tradition;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
@@ -149,17 +150,20 @@ public final class Bank implements Archetype {
 		}
 		int skyline = plate;
 		Signs.Arms arms = new Signs.Arms("yellow", List.of(new String[]{"circle", "orange"}, new String[]{"border", "black"}));
+		// the pediment stands clear under the eave: its ridge (two over the entablature) below the roof's plate, or below the
+		// upper floor's sills on a bank of two storeys
+		int colH = twoStoreys ? h0 - 1 : h0 - 3;
 		if (portico) {
 			int px0 = cx - (w >= 13 ? 4 : 3);
 			int px1 = cx + (w >= 13 ? 4 : 3);
 			int pz0 = deepPortico ? z0 - 2 : z0 - 1;
-			skyline = Math.max(skyline, Portico.build(d, t, Math.max(0, px0), Math.min(w - 1, px1), pz0, z0 - 1, base, h0 - 1, t != Tradition.KARST));
+			skyline = Math.max(skyline, Portico.build(d, t, Math.max(0, px0), Math.min(w - 1, px1), pz0, z0 - 1, base, colH, t != Tradition.KARST));
 			if (base >= 1 && !raised && pz0 - 1 >= 0) {
 				Grounds.flight(d, px0, px1, pz0 - 1, base, base);
 			}
 		} else if (!raised && z0 - 1 >= 1 && x1 - x0 >= 8) {
 			// a smaller bank still has its door of state: two columns and a pediment framing it (an aedicule)
-			skyline = Math.max(skyline, Portico.build(d, t, cx - 2, cx + 2, z0 - 1, z0 - 1, base, Math.min(4, h0 - 1), t != Tradition.KARST));
+			skyline = Math.max(skyline, Portico.build(d, t, cx - 2, cx + 2, z0 - 1, z0 - 1, base, 3, t != Tradition.KARST));
 			if (base >= 1) {
 				Grounds.flight(d, cx - 2, cx + 2, z0 - 2, base, base);
 			}
@@ -271,8 +275,11 @@ public final class Bank implements Archetype {
 			press.keep(land[0], land[1]);
 			press.keepArea(sx, sz - h0 + 1, sx, sz);
 		}
-		int ax = vaultLeft ? up[2] - 1 : up[0] + 1;
-		Direction in = vaultLeft ? Dirs.LEFT : Dirs.RIGHT;
+		// upstairs the press stands along the wall away from the stair, so the flight lands on clear floor; below, away from
+		// the strongroom
+		boolean pressRight = twoStoreys ? sx == ix0 : vaultLeft;
+		int ax = pressRight ? up[2] - 1 : up[0] + 1;
+		Direction in = pressRight ? Dirs.LEFT : Dirs.RIGHT;
 		int az = twoStoreys ? up[1] + 1 : counterZ + 2;
 		if (d.isEmpty(ax, py, az) && d.isEmpty(ax, py, az + 1) && az + 1 < up[3]) {
 			try (var s = d.stage(StageKind.INTERIOR)) {
@@ -282,7 +289,7 @@ public final class Bank implements Archetype {
 			press.block(ax, az);
 			press.block(ax, az + 1);
 			// the coin press itself: a die block under a piston's head
-			if (az + 2 < up[3] && d.isEmpty(ax, py, az + 2) && d.isEmpty(ax, py + 1, az + 2) && d.isEmpty(ax + (vaultLeft ? -1 : 1), py, az + 2)) {
+			if (az + 2 < up[3] && d.isEmpty(ax, py, az + 2) && d.isEmpty(ax, py + 1, az + 2) && d.isEmpty(ax + (pressRight ? -1 : 1), py, az + 2)) {
 				try (var s = d.stage(StageKind.INTERIOR)) {
 					d.set(ax, py, az + 2, Blocks.SMOOTH_STONE.defaultBlockState());
 					d.set(ax, py + 1, az + 2, States.facing(Blocks.PISTON, net.minecraft.core.Direction.DOWN));
@@ -291,12 +298,13 @@ public final class Bank implements Archetype {
 			}
 		}
 		if (twoStoreys) {
-			int lx = vaultLeft ? up[0] + 1 : up[2] - 1;
-			int lz = up[1] + 1;
-			if (d.isEmpty(lx, py, lz)) {
-				d.inStage(StageKind.INTERIOR, () -> d.set(lx, py, lz, States.facing(Blocks.LECTERN, vaultLeft ? Dirs.RIGHT : Dirs.LEFT),
+			// the ledger on its lectern at the back of the press side, read from the room
+			int lx = ax;
+			int lz = up[3] - 1;
+			if (d.isEmpty(lx, py, lz) && d.isEmpty(lx + (pressRight ? -1 : 1), py, lz)) {
+				d.inStage(StageKind.INTERIOR, () -> d.set(lx, py, lz, States.facing(Blocks.LECTERN, in),
 					BlockEntities.lectern("Ledger", "The Minter", List.of("Deposits and loans."))));
-				d.poi(PoiType.LECTERN, lx + (vaultLeft ? 1 : -1), py, lz, vaultLeft ? Dirs.LEFT : Dirs.RIGHT);
+				d.poi(PoiType.LECTERN, lx + (pressRight ? -1 : 1), py, lz, pressRight ? Dirs.RIGHT : Dirs.LEFT);
 				press.block(lx, lz);
 			}
 			Rooms.furnish(d, press, Rooms.Type.STORAGE, 0, JobType.NONE);
@@ -312,6 +320,7 @@ public final class Bank implements Archetype {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, cx);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		Edges.guard(d, base - 4, plate - 1);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
