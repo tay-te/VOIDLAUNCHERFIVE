@@ -36,8 +36,8 @@ Everything else (gates, costs, paths) is shown on the tree itself, so nobody has
   middle one on any two perks.
 - **Points.** One per skill level (20 at level 20). A full tree is roots 6 + paths 20 + mastery 5 = **31**, so every
   player chooses about two thirds of it. Feats, Synergies and Teachings never cost points.
-- **Respec.** Free below character level 5, then a Tome of Reflection or a Hearth scholar (CHARACTER.md §6). It refunds
-  points and the Mastery choice. Earned perks stay.
+- **Respec.** Free below character level 5; after that a Draught of Forgetting brewed for the skill (CHARACTER.md §6).
+  It refunds that tree's points and the Mastery choice. Earned perks stay.
 
 ## 2. Earned perks
 

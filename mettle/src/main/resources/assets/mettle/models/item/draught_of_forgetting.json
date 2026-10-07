@@ -1,0 +1,7 @@
+{
+	"parent": "minecraft:item/generated",
+	"textures": {
+		"layer0": "mettle:item/draught_liquid",
+		"layer1": "mettle:item/draught_of_forgetting"
+	}
+}

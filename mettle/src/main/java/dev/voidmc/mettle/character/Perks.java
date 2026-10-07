@@ -8,6 +8,7 @@ import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
 import dev.voidmc.mettle.character.moment.Moments;
+import dev.voidmc.mettle.character.respec.RespecRules;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
 import dev.voidmc.mettle.core.CharacterState;
 import dev.voidmc.mettle.core.CharacterStore;
@@ -123,7 +124,7 @@ public final class Perks {
 		return true;
 	}
 
-	/** Refunds every bought perk (and, with {@code attributes}, the attribute points from levels). Earned perks stay. */
+	/** Refunds every bought perk (and, with {@code attributes}, every placed attribute point). Earned perks stay. */
 	public static void respec(ServerPlayer player, boolean attributes) {
 		CharacterState state = CharacterStore.get(player);
 		Registry<Perk> perks = registry(player);
@@ -131,24 +132,51 @@ public final class Perks {
 		state.perks().forEach((k, v) -> perks.getOptional(k).filter(p -> !p.kind().bought()).ifPresent(p -> kept.put(k, v)));
 		CharacterState next = state.withPerks(kept);
 		if (attributes) {
-			Background background = CharacterStore.background(player.level().registryAccess(), state);
-			// Keep the Wanderer's free points; return the ones bought with character levels.
-			next = background != null && background.freePoints() > 0 ? next : next.withSpent(Map.of());
+			// A Wanderer's free points come back as free points (attributePoints counts them), so placing is all redone.
+			next = next.withSpent(Map.of());
 		}
 		CharacterStore.set(player, next);
 		EffectsApplier.apply(player);
 		MettleEvents.RESPEC.invoker().respec(player, attributes);
 	}
 
+	/**
+	 * Refunds every bought perk of one skill: roots, path perks and the Mastery (the Draught of Forgetting). Earned perks,
+	 * skill XP and levels stay. Changes nothing when there is nothing to forget.
+	 */
+	public static RespecRules.Forgetting forget(ServerPlayer player, ResourceKey<Skill> skill) {
+		CharacterState state = CharacterStore.get(player);
+		RespecRules.Forgetting result = RespecRules.forget(state.perks(), registry(player)::getOptional, skill);
+		if (!result.nothing()) {
+			CharacterStore.set(player, state.withPerks(result.kept()));
+			EffectsApplier.apply(player);
+			Mettle.LOGGER.info("{} forgot {} perks of {} ({} points)", player.getName().getString(), result.perks(), skill.identifier(), result.points());
+			MettleEvents.RESPEC.invoker().respec(player, false);
+		}
+		return result;
+	}
+
+	/** Returns every placed attribute point to be placed again (the Draught of Unbinding). Returns how many; 0 changes nothing. */
+	public static int unbind(ServerPlayer player) {
+		CharacterState state = CharacterStore.get(player);
+		int placed = RespecRules.placed(state.spent());
+		if (placed > 0) {
+			CharacterStore.set(player, state.withSpent(Map.of()));
+			EffectsApplier.apply(player);
+			Mettle.LOGGER.info("{} unbound {} attribute points", player.getName().getString(), placed);
+			MettleEvents.RESPEC.invoker().respec(player, true);
+		}
+		return placed;
+	}
+
 	// ---------------------------------------------------------------- attribute points
 
-	/** Attribute points from character levels not yet placed: one per level above 1. */
+	/** Attribute points not yet placed: one per character level above 1, plus free and perk points. */
 	public static int attributePoints(Player player) {
 		CharacterState state = CharacterStore.get(player);
 		Background background = CharacterStore.background(player.level().registryAccess(), state);
 		int free = background == null ? 0 : background.freePoints();
-		int placed = state.spent().values().stream().mapToInt(Integer::intValue).sum() - free;
-		return Math.max(0, state.characterLevel() - 1 - placed + bonusPoints(player));
+		return RespecRules.unplaced(state.characterLevel(), RespecRules.placed(state.spent()), free, bonusPoints(player));
 	}
 
 	/** Attribute points granted by perks (Seen It All). Earned, so a respec keeps them. */

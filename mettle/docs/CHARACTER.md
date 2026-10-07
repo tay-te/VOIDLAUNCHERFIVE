@@ -256,14 +256,40 @@ else is a behaviour.
 
 ## 6. Respec
 
+Choices should be brave, not permanent. A player who regrets a tree drinks it away (built 2026-10-07,
+`character.respec`).
+
 | What | How | Cost |
 |---|---|---|
-| Perks and attribute points | K screen → "Reset" | **free while character level < 5**; after that a Tome of Reflection (crafted: book + 4 gold ingots + 1 amethyst shard), or paid to a Hearth scholar or priest (5 gold crowns, rising 2 per use) |
-| Favoured skills (Wanderer) | same | same |
+| One skill's bought perks (roots, path perks, the Mastery) | drink a **Draught of Forgetting** brewed for that skill | crafted: glass bottle + amethyst shard + poppy + the skill's ingredient (BALANCE.md §8) |
+| Placed attribute points | drink a **Draught of Unbinding** | crafted: glass bottle + amethyst shard + fermented spider eye + ender pearl |
+| Everything, below character level 5 | `/mettle respec` | free (ops: any time, any player) |
+| Favoured skills (Wanderer) | — | not yet: an op's background reset |
 | Background | op only (`/mettle background reset`) | — |
 | Skill XP | never | it is what you did |
 
-A reset refunds every point at once and plays no penalty beyond its cost.
+- **Draught of Forgetting** (`mettle:draught_of_forgetting`). The skill it was brewed for is the component
+  `mettle:forgets` (a skill id), so it shows as "Draught of Forgetting (Mining)" and its liquid takes the skill's colour.
+  Drinking it (vanilla drinking, 1.6 s) refunds every **bought** perk of that skill: every root rank, path perk and the
+  Mastery. The points return to the tree to spend again, and the Mastery choice is open again. **Earned** perks (feats,
+  synergies, teachings), skill XP and levels, attributes and other trees are untouched. The chip says "You forget the
+  ways of the Mining tree · 16 points returned".
+- **Draught of Unbinding** (`mettle:draught_of_unbinding`). Returns every attribute point the player placed: the ones
+  from character levels and, for a Wanderer, the four free points too (they come back as free points, so the whole
+  placement is redone). A background's fixed bonus (Soldier's Str +2…) is not placed, so it stays. Perk-granted points
+  (Seen It All) are earned and stay. Perks are not touched: a tree whose tier is now above your attribute keeps its perks
+  until you forget it.
+- **Refused and kept.** A draught with nothing to give back (no perks bought in that tree, no attribute points placed)
+  doesn't start drinking and says why ("You have learned nothing in Mining to forget"). The client checks the synced
+  character first; the server checks again when the drink finishes and only then uses the draught up (the bottle comes
+  back). Everything is decided on the server.
+- No cooldown and no rising price: each draught costs its ingredients, which is the decision. Drinking fires
+  `MettleEvents.RESPEC` (`attributes` = false for Forgetting, true for Unbinding) and re-applies perk effects.
+- Recipes are plain `crafting_shapeless` JSON whose result sets the `mettle:forgets` component, one file per skill
+  (`data/mettle/recipe/draught_of_forgetting_<skill>.json`): servers rebalance a skill's cost by editing one file, add a
+  draught for a wave-2 skill by adding one, and the recipe book shows each draught by name. A custom recipe type or a
+  brewing-stand recipe was not needed (a brewing recipe can't carry the skill without code, and eight of them would be
+  just as many entries).
 
 ## 7. Skill checks (for Hearth and future content)
 

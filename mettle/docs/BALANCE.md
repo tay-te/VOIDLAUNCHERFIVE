@@ -286,3 +286,25 @@ only a character that spreads into four or five attributes.
 Perk points (one per skill level) match the tree: 2 at tier I, 6 at tier II (roots ×4 + the first tier II), 12 at tier
 III (roots 6 + a tier II + a tier III = 11), 18 at tier IV (roots 6 + tier II + tier III + the mastery = 16). A full tree
 costs 31, so 20 points buy about two thirds of it.
+
+## 8. Respec draughts (CHARACTER.md §6)
+
+Crafted shapeless, one recipe per skill (`data/mettle/recipe/draught_of_*.json`). Every draught shares a base of
+**glass bottle + amethyst shard** (a geode is the gate: reachable early, never free) and a flavour ingredient; the
+skill's own ingredient is roughly one tool's worth of that skill's work. Draughts stack to 16 and weigh 0.35 kg.
+
+| Draught | Ingredients besides bottle + amethyst shard |
+|---|---|
+| Forgetting · Blades | poppy, iron sword |
+| Forgetting · Heavy Weapons | poppy, iron axe |
+| Forgetting · Marksmanship | poppy, bow |
+| Forgetting · Defense | poppy, shield |
+| Forgetting · Athletics | poppy, rabbit's foot |
+| Forgetting · Mining | poppy, raw gold |
+| Forgetting · Survival | poppy, campfire |
+| Forgetting · Smithing | poppy, smithing table |
+| Unbinding (attributes) | fermented spider eye, ender pearl |
+
+Poppy is the forgetting (sleep, Lethe); the fermented spider eye is the brewer's "reverser". Recipes unlock in the
+recipe book when an amethyst shard is picked up. No cooldown and no rising cost; tune the ingredients if players
+respec too freely (a second amethyst shard, or a gold ingot, is the next step up).
