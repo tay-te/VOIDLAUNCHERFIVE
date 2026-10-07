@@ -84,6 +84,9 @@ public final class PlanState {
 	public transient dev.voidmc.hearth.plan.growth.Parcels.@Nullable Frontage frontage;
 	/** The lane mouths' probes of the streets ({@code Expand.Probes}), kept with the grid they read (never saved). */
 	public transient dev.voidmc.hearth.plan.growth.Expand.@Nullable Probes laneProbes;
+	/** The residents in id order ({@code StationLedger}), and the same folk as a set to tell whether it still holds (never saved). */
+	public transient java.util.@Nullable List<dev.voidmc.hearth.api.Resident> residentOrder;
+	public final transient java.util.Set<dev.voidmc.hearth.api.Resident> residentSet = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 	/** The probe {@link #waterDistances} were measured on. */
 	public transient @Nullable Object waterProbe;
 	/** What each plot is for housing by station, by plot id (derived from its spec; never saved). */

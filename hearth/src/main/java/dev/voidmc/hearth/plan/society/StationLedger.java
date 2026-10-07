@@ -9,6 +9,7 @@ import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Station;
 import dev.voidmc.hearth.plan.PlanContext;
 import dev.voidmc.hearth.plan.growth.Needs;
+import dev.voidmc.hearth.plan.model.PlanState;
 import dev.voidmc.hearth.plan.model.QueuedProject;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -50,11 +51,10 @@ public final class StationLedger {
 	public static StationLedger of(PlanContext ctx) {
 		StationLedger l = new StationLedger();
 		Map<Integer, HomeFacts> cache = ctx.state.homeFacts;
-		// every level's homes count (a deep town's dwellings house the town's miners)
-		List<PlotView> plots = new ArrayList<>(dev.voidmc.hearth.plan.deep.LevelView.unwrap(ctx.settlement).plots());
-		plots.sort(Comparator.comparingInt(PlotView::id));
+		// every level's homes count (a deep town's dwellings house the town's miners); in any order, as nothing here
+		// depends on it (sums, sets, a map by plot)
 		java.util.HashMap<Integer, Station> byPlot = new java.util.HashMap<>();
-		for (PlotView p : plots) {
+		for (PlotView p : dev.voidmc.hearth.plan.deep.LevelView.unwrap(ctx.settlement).plots()) {
 			if (p.state() == PlotState.DEMOLISHING) {
 				continue;
 			}
@@ -84,9 +84,7 @@ public final class StationLedger {
 		// adults by station; the rest of the household spread over the stations as the adults are
 		int[] adults = new int[STATIONS.length];
 		int dependants = 0;
-		List<Resident> residents = new ArrayList<>(ctx.settlement.residents());
-		residents.sort(Comparator.comparing(r -> r.id));
-		for (Resident r : residents) {
+		for (Resident r : byId(ctx)) {
 			if (!Stations.householder(r)) {
 				dependants++;
 				continue;
@@ -110,6 +108,32 @@ public final class StationLedger {
 			l.demand[Station.PEASANT.ordinal()] = dependants;
 		}
 		return l;
+	}
+
+	/**
+	 * The settlement's residents in id order, kept in the plan state while they are the same folk (ids never change, so
+	 * neither does their order): a city of six hundred is not sorted on every call.
+	 */
+	private static List<Resident> byId(PlanContext ctx) {
+		java.util.Collection<Resident> now = ctx.settlement.residents();
+		PlanState state = ctx.state;
+		boolean same = state.residentOrder != null && state.residentOrder.size() == now.size();
+		if (same) {
+			for (Resident r : now) {
+				if (!state.residentSet.contains(r)) {
+					same = false;
+					break;
+				}
+			}
+		}
+		if (!same) {
+			List<Resident> sorted = new ArrayList<>(now);
+			sorted.sort(Comparator.comparing(r -> r.id));
+			state.residentOrder = sorted;
+			state.residentSet.clear();
+			state.residentSet.addAll(sorted);
+		}
+		return state.residentOrder;
 	}
 
 	/**

@@ -215,8 +215,8 @@ public final class HearthPlanner implements SettlementPlanner {
 	 */
 	static void reconcile(PlanContext ctx) {
 		PlanState state = ctx.state;
+		// sorted by id only where the order counts (marking again, marking new plots): a city has a thousand
 		List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
-		plots.sort(Comparator.comparingInt(PlotView::id));
 		boolean rebuild = state.occupancy == null || state.knownPlots == null;
 		List<int[]> stale = new ArrayList<>();
 		if (!rebuild) {
@@ -247,15 +247,23 @@ public final class HearthPlanner implements SettlementPlanner {
 			ctx.occ = rebuild(ctx);
 		} else {
 			ctx.occ = state.occupancy;
-			for (int[] r : stale) {
-				remark(ctx, r, plots);
+			if (!stale.isEmpty()) {
+				plots.sort(Comparator.comparingInt(PlotView::id));
+				for (int[] r : stale) {
+					remark(ctx, r, plots);
+				}
 			}
 			int[] known = state.knownPlots;
+			List<PlotView> unseen = new ArrayList<>();
 			for (PlotView p : plots) {
 				if (Arrays.binarySearch(known, p.id()) < 0) {
-					PlotGeometry.mark(ctx.occ, p.spec(), ctx.catalogue);
-					remember(state, p);
+					unseen.add(p);
 				}
+			}
+			unseen.sort(Comparator.comparingInt(PlotView::id));
+			for (PlotView p : unseen) {
+				PlotGeometry.mark(ctx.occ, p.spec(), ctx.catalogue);
+				remember(state, p);
 			}
 		}
 		int[] ids = new int[plots.size()];
