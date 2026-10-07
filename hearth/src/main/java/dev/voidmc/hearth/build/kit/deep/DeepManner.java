@@ -86,6 +86,72 @@ public record DeepManner(Culture culture, boolean pointed, boolean gallery, bool
 		return d.style().root().habits(d.variant()).roof().thatch();
 	}
 
+	/**
+	 * Repaints in the culture's own covering at home what a roof material drew in a box: every block of {@code from}'s
+	 * materials there (full blocks, stairs, slabs) becomes the same shape of the culture's {@code role} (its shingles,
+	 * tiles or slates), so a roof rasterised by the kit in the deep region's tiles is laid in what the culture brought
+	 * below. Shapes the culture has no block for are left as they were; a thatching culture keeps the deep tiles (no
+	 * thatch under the vault).
+	 */
+	public static void rehome(Draft d, int x0, int y0, int z0, int x1, int y1, int z1, dev.voidmc.hearth.build.draft.Mat from, Role role) {
+		if (role == Role.ROOF && thatches(d)) {
+			return;
+		}
+		java.util.Set<Block> mine = new java.util.HashSet<>();
+		for (var e : from.palette().entries()) {
+			for (Form f : new Form[]{Form.FULL, Form.STAIRS, Form.SLAB}) {
+				Block b = e.material().block(f);
+				if (b != null) {
+					mine.add(b);
+				}
+			}
+		}
+		Paint full = home(d, role);
+		for (int y = y0; y <= y1; y++) {
+			for (int z = z0; z <= z1; z++) {
+				for (int x = x0; x <= x1; x++) {
+					BlockState s = d.get(x, y, z);
+					if (s == null || !mine.contains(s.getBlock())) {
+						continue;
+					}
+					BlockState n;
+					if (s.getBlock() instanceof net.minecraft.world.level.block.StairBlock) {
+						n = home(d, role, Form.STAIRS, st -> st.getBlock().withPropertiesOf(s)).at(x, y, z);
+					} else if (s.getBlock() instanceof net.minecraft.world.level.block.SlabBlock) {
+						n = home(d, role, Form.SLAB, st -> st.getBlock().withPropertiesOf(s)).at(x, y, z);
+					} else {
+						n = full.at(x, y, z);
+					}
+					if (n != null) {
+						d.restate(x, y, z, n);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * The plan the culture raises its moot hall to (art review 28: one basilica in every culture read as a copy): the
+	 * aisled basilica with its towers (Bohemia, the Alps, the moors and coasts), a stave hall in a gallery under stacked
+	 * roofs (the north), a longhouse (the tundra), a timber hall on a stone terrace under double eaves (the karst, the
+	 * glades), a court behind a portal with the domed hall at its back (the desert) or the earthen hall's buttresses and
+	 * pinnacles (the steppe), a pueblo's stepped terraces (the mesa), a palazzo with its loggia and campanile (the
+	 * Mediterranean), a hall on stilts in a gallery (the tropics, the bayou).
+	 */
+	public String hallForm() {
+		return switch (this.culture) {
+			case TEMPERATE, ALPINE, MOORLAND, MARITIME -> "basilica";
+			case NORTHERN -> "stave";
+			case TUNDRA -> "longhouse";
+			case KARST, WISTERIA -> "pavilion";
+			case DESERT -> "court";
+			case STEPPE -> "sahel";
+			case MESA -> "pueblo";
+			case MEDITERRANEAN -> "loggia";
+			case TROPICAL, BAYOU -> "stilt";
+		};
+	}
+
 	/** Upper storeys framed in timber over the stone (the timber traditions); the south builds them in stone. */
 	public boolean timberUpper() {
 		return switch (this.culture) {
