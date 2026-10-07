@@ -231,6 +231,30 @@ public final class IsoRenderer {
 		int dy = Math.round(q.ny());
 		int dz = Math.round(q.nz());
 		boolean onFace = q.aligned() && (dx != 0 || dy != 0 || dz != 0);
+		if (onFace && light.opaque(bx + dx, by + dy, bz + dz)) {
+			// a face a cutaway opened (the top of a wall cut at head height, solid above in the whole building): it takes
+			// the light of the room beside it, not the dark inside the wall
+			float bl = 0;
+			float sk = 0;
+			for (int ox = -1; ox <= 1; ox++) {
+				for (int oy = -1; oy <= 1; oy++) {
+					for (int oz = -1; oz <= 1; oz++) {
+						int cx = bx + dx + ox;
+						int cy = by + dy + oy;
+						int cz = bz + dz + oz;
+						if (!light.opaque(cx, cy, cz)) {
+							bl = Math.max(bl, light.block(cx, cy, cz) - 1);
+							sk = Math.max(sk, light.sky(cx, cy, cz) - 1);
+						}
+					}
+				}
+			}
+			float[] col = NightLight.colour(Math.max(0, bl), Math.max(0, sk));
+			for (int i = 0; i < 4; i++) {
+				System.arraycopy(col, 0, out, i * 3, 3);
+			}
+			return out;
+		}
 		for (int i = 0; i < 4; i++) {
 			float bl;
 			float sk;

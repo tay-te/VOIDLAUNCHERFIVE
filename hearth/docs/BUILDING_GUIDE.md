@@ -248,13 +248,22 @@ Rooms.Room room = new Rooms.Room(ix0, iz0, ix1, iz1, floorY, airRows);
 room.keep(doorX, iz0);                      // stays free and must stay reachable (inside a door, a stair foot)
 room.keepArea(ax, az, bx, bz);              // stays free (a stair run)
 room.block(x, z);                           // already taken (a chimney breast)
-Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);   // BEDROOM, KITCHEN, LIVING, WORKSHOP, STORAGE, HALL
+Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);   // BEDROOM, KITCHEN, LIVING, WORKSHOP, STORAGE, HALL, DINING
 ```
 
 `furnish` reads what is already built: blocks on the floor are taken, holes (stairwells) cannot be stood on, cells
 under a stair can hold furniture but are not walkways, ladders and carpets are walked through. Every placement is
 tried against a connectivity check, so a bed never cuts the room in two and every bed side, chest front and workstation
-front stays reachable. `room.claim(x, z)` reserves a cell for something you build yourself (a hearth).
+front stays reachable. `room.claim(x, z)` reserves a cell for something you build yourself (a hearth). A kept cell
+taken by a ladder or the hole it climbs through counts as reached from the cell beside it, so a loft reached by a
+ladder is furnished like any other room.
+
+`HALL` is for passages, landings and lobbies (a pot, a shelf). `DINING` is a common room filled to the walls (an
+inn's tap room, a refectory): booths of a table between two benches standing out from both long walls, back to back;
+a long table with benches down the middle where the booths leave a band five wide; then runs of tables backed against
+whatever bounds the free floor (a wall, the bar, the underside of a stair) with a bench before each; settles and side
+tables along what wall is left. Draw the bar, the hearth and the stair first and `keep` their fronts: the furniture
+fills round them and the walkway joins them all.
 
 `Furniture` has the pieces: `bed`, `table`, `longTable`, `chair`, `chest` (registers STORAGE in front),
 `barrel`, `shelf`, `bookshelf`, `hangingLantern`, `wallTorch`, `rug`, `workstation(d, job, x, y, z, facing)` (the
@@ -536,7 +545,39 @@ solid, `.` air, `B` bed, `P`/`p` job site or store (unreached/reached), `E` entr
 `=` planks, `o` stone/brick, `|` glass, `D` door, `f` fence, `t` trapdoor, `NSEW` stairs (lower case: upside down),
 `_`/`‾` bottom/top slab, `@` anything else, `.` drafted air, blank nothing drafted.
 
-`./gradlew settlementPreview` (the plan module's) renders whole settlements with these buildings.
+`./gradlew settlementPreview` (the plan module's) renders whole settlements in map colours. To see your building in a
+town, in textures, use `townPreview`:
+
+```
+./gradlew townPreview -Pculture=temperate -Pdays=200 -Pterrain=hills -Pseed=1 -Pnight=true
+./gradlew townPreview -Pculture=temperate,northern,desert -Pterrain=flat -Pcloseups=3
+./gradlew townPreview -Pculture=mediterranean -Pterrain=earth:1200:-800 -Pseed=8675309
+```
+
+The planner grows the town offline (MiniSim, as `settlementPreview`), every plot is drawn from the real build module's
+blueprint, in id order with the sim's writer rule (a later plot replaces only ground, air, plants and its own blocks),
+as far as each plot is built, and the textured renderer of `blueprintPreview` draws it.
+
+- `culture`: a culture, a comma list, `all`, or `culture/layout` to force a layout. `days`, `terrain` (the synthetic
+  kinds or `earth[:x:z]`), `seed` as `settlementPreview`.
+- `night`: `false` (by day, the default), `true` (by day and by night), `only`. By night the town is lit by its own
+  lamps through the light engine (as the night panels), so dark streets and windows that do not glow show.
+- `closeups` (default 4): the heart, then the town's most prominent buildings (landmarks, then civic and noble, then
+  commerce and law houses), spread apart; `window` (default 60) the close-ups' side in blocks.
+- `similar` (default true): after the towns, the similarity check across cultures over every archetype they built.
+- Output in `build/previews/town/`: `town_<culture>_<terrain>_s<seed>_d<days>_overview[_night].png` (the bulk of the
+  town, from the corner the land falls toward), `..._close<n>_<what>[_night].png` (two opposite corners side by
+  side) and `similarity.txt`. About a minute a culture, more by night; it takes a heavy-JVM slot.
+
+**The similarity check across cultures** (`./gradlew cultureSimilarity -Parchetype=all -Pseeds=2 -Pthreshold=0.8`,
+also run by `townPreview`) catches one plan reused in many cultures, the copies the art review found on the contact
+sheets. Every culture that builds an archetype draws the same spec (seed, size, facing, flat land); the blueprints'
+shapes are compared cell by cell, materials aside (the Jaccard index of the cells they fill), and cultures at least
+`threshold` alike are grouped. An archetype is **FLAG**ged when on every seed one group holds half of its cultures or
+more (and at least four): its plan does not change with the culture, only its palette does. The table also gives the
+mean likeness across cultures and between two seeds of one culture (how far its plan moves at all). A flagged
+archetype wants plans of its own per culture (a karst castle is a walled compound, a northern one a timber borg; see
+the style bible), not another palette.
 
 ## 10. Tests
 
@@ -607,7 +648,10 @@ family's rule still needs, as a builder would, in this order:
 1. **doors**: a lantern on a bracket beside the door at lintel height (a torch in the north and the tropics), else a
    lantern under the eave or porch roof, on a fence or wall post, or the culture's yard light beside the path (up on
    the bank when the door is at its foot);
-2. **rooms**, biggest first: small rooms (up to 24 cells) with a table, barrel, counter or shelf get one or two groups
+2. **rooms**, biggest first, aiming at **10** where it can (`Session.COMFORT`; the check asks 8, but 8 reads dim
+   at night: about two thirds of full brightness on the game's light curve, 10 four fifths). A room its builder lit
+   to the rule keeps its lights and only its dim corners are filled; corners already at 8 get lanterns, candles,
+   lamps and sconces, never light under a rug or a hidden block. In order: small rooms (up to 24 cells) with a table, barrel, counter or shelf get one or two groups
    of candles (2 in a poor house, 3 in an ordinary one, 4 in a fine one); otherwise the fewest ceiling lanterns, evenly
    along the room's middle (over the table when there is one; on chains in tall rooms; a wheel of four lanterns, or of
    candles round a lantern in the north, in halls 7 high; rows of lanterns in the eastern cultures). Then the dark
@@ -642,7 +686,7 @@ The pass lights anything; an archetype that lights its own rooms looks better an
 `Lighting` (in `build/kit/light/`) is the kit component:
 
 ```java
-Lighting.room(d, room);                         // a furnished Rooms.Room to the rule, with the pass's taste (after walls, ceiling, furniture)
+Lighting.room(d, room);                         // a furnished Rooms.Room to the rule (10 where it can), with the pass's taste (after walls, ceiling, furniture)
 Lighting.room(d, x0, z0, x1, z1, floorY);       // any rectangle at a standing level
 Lighting.chandelier(d, x, z, ceilingY, lanternY);   // a lantern on a chain from the ceiling block at ceilingY
 Lighting.wheel(d, x, z, ceilingY, hubY);        // a wheel of four lanterns (candles round a lantern in the north); 3 x 3 free at the hub
@@ -670,7 +714,8 @@ light left, spec by spec (docs/buildings/refine.md).
 
 Night renders: add `night=true` to the preview terrain, e.g.
 `./gradlew blueprintPreview -Parchetype=cottage -Pstyle=temperate -Pseeds=1 -Pterrain="flat;night=true"`. Each
-building gets `<culture>_s<n>_<terrain>_night.png`: both corners by night, then per storey a plan and a cutaway lit by
+building gets `<culture>_s<n>_<terrain>_night.png` (and per storey `_L<k>.png`, a big cutaway, and `_L<k>_plan.png`,
+the same straight down, to read every piece of furniture): both corners by night, then per storey a plan and a cutaway lit by
 the light engine's levels (warm pools round lanterns and candles, faint blue where only the sky reaches), the lights
 hung above each floor kept in the cut, hidden light blocks as lime markers, and unmet needs marked on the floor (red: a
 room under 8, orange: an entrance under 8, magenta: dark ground or a pocket). The title line lists the fixtures.

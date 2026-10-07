@@ -102,6 +102,8 @@ public final class NightPanels {
 			cuts.add(iso);
 			String base = file.getFileName().toString().replace(".png", "");
 			ImageIO.write(r.render(c, new View(yaw, 58), 30, 2, BG, light), "png", file.resolveSibling(base + "_L" + (floor - spec.floorY()) + ".png").toFile());
+			// and straight down, big enough to read every piece of furniture
+			ImageIO.write(r.render(c, View.TOP, 30, 2, BG, light), "png", file.resolveSibling(base + "_L" + (floor - spec.floorY()) + "_plan.png").toFile());
 			String name = "level " + (floor - spec.floorY());
 			labels.add(name + " plan" + (marked > 0 ? " (" + marked + " dark)" : ""));
 			labels.add(name + " cut");
