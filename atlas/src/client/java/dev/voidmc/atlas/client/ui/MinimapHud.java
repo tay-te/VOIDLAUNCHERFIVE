@@ -26,6 +26,9 @@ import net.minecraft.world.level.levelgen.Heightmap;
  */
 public final class MinimapHud {
 	private final AtlasClient atlas;
+	private List<Marker> markersKept = List.of();
+	private long markersAt;
+	private String markersDim = "";
 	private final MapRenderer renderer = new MapRenderer();
 	private double zoom = Double.NaN;
 	private List<Place> edgeFrom = List.of();
@@ -107,14 +110,24 @@ public final class MinimapHud {
 		long t2 = System.nanoTime();
 		ui.flush();
 		ui.g.enableScissor((int) Math.floor(x), (int) Math.floor(y), (int) Math.ceil(x + side), (int) Math.ceil(y + side));
-		List<Marker> markers = new ArrayList<>();
-		double reach = side / f.k;
-		MarkerQuery q = new MarkerQuery(dim, px - reach, pz - reach, px + reach, pz + reach, px, pz, MarkerQuery.Purpose.MINIMAP);
-		for (Marker m : this.atlas.collect(q)) {
-			if (settings.layerVisible(m.layer()) && m.dimension().equals(dim) && m.style() != Marker.Style.LABEL
-				&& MapPanel.shows(m, ceiling ? null : underground, this.zoom)) {
-				markers.add(m);
+		List<Marker> markers;
+		long nowMs = System.currentTimeMillis();
+		if (dev.voidmc.atlas.client.PerfGovernor.light() && nowMs - this.markersAt < 100 && dim.equals(this.markersDim)) {
+			// Light: the markers are looked up ten times a second
+			markers = this.markersKept;
+		} else {
+			markers = new ArrayList<>();
+			double reach = side / f.k;
+			MarkerQuery q = new MarkerQuery(dim, px - reach, pz - reach, px + reach, pz + reach, px, pz, MarkerQuery.Purpose.MINIMAP);
+			for (Marker m : this.atlas.collect(q)) {
+				if (settings.layerVisible(m.layer()) && m.dimension().equals(dim) && m.style() != Marker.Style.LABEL
+					&& MapPanel.shows(m, ceiling ? null : underground, this.zoom)) {
+					markers.add(m);
+				}
 			}
+			this.markersKept = markers;
+			this.markersAt = nowMs;
+			this.markersDim = dim;
 		}
 		MarkerPainter.paint(ui, f, markers, null, null, true, px, pz, this.zoom);
 		boolean light = dev.voidmc.atlas.client.PerfGovernor.light();
@@ -342,13 +355,25 @@ public final class MinimapHud {
 		ui.text(this.infoLine, x + 12, y + 24, Ui.Font.F85, 1, Theme.INK_4);
 		// the quiet note after a server rule: what is off here
 		String off = this.atlas.multiplayer() ? this.atlas.rules().turnedOff() : null;
+		float ny = y + 48;
 		if (off != null) {
-			String note = Character.toUpperCase(off.charAt(0)) + off.substring(1) + " off here";
-			float nw = Math.min(w, 26 + ui.width(note, Ui.Font.F11) + 14);
-			ui.panel(x, y + 48, nw, 24, 12, Theme.ISLAND, Theme.HAIR_8);
-			ui.ring(x + 13, y + 60, 2.5F, 1.1F, Theme.INK_4);
-			ui.text(ui.fit(note, Ui.Font.F11, w - 40), x + 24, y + 53, Ui.Font.F11, Theme.INK_3);
+			ny = quietNote(ui, Character.toUpperCase(off.charAt(0)) + off.substring(1) + " off here", x, ny, w);
 		}
+		if (dev.voidmc.atlas.client.PerfGovernor.light()) {
+			// the Performance setting gone Light (by hand, or Auto while the game struggles)
+			quietNote(ui, LIGHT_NOTE, x, ny, w);
+		}
+	}
+
+	public static final String LIGHT_NOTE = "Light mode on: this PC is busy";
+
+	/** The design's quiet note (atlas/quiet note): a small ring and a line in a pill. Returns the y under it. */
+	static float quietNote(Ui ui, String note, float x, float y, float w) {
+		float nw = Math.min(w, 26 + ui.width(note, Ui.Font.F11) + 14);
+		ui.panel(x, y, nw, 24, 12, Theme.ISLAND, Theme.HAIR_8);
+		ui.ring(x + 13, y + 12, 2.5F, 1.1F, Theme.INK_4);
+		ui.text(ui.fit(note, Ui.Font.F11, w - 40), x + 24, y + 5, Ui.Font.F11, Theme.INK_3);
+		return y + 30;
 	}
 
 	/**

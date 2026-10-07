@@ -124,8 +124,11 @@ public final class Social {
 			try {
 				session.workers.execute(() -> {
 					try {
-						box.pump(t, System.currentTimeMillis());
-						this.mergeShared(session, dimension);
+						if (!PerfGovernor.paused()) {
+							// Light: party tiles wait, both ways
+							box.pump(t, System.currentTimeMillis());
+							this.mergeShared(session, dimension);
+						}
 					} finally {
 						this.merging.set(false);
 					}

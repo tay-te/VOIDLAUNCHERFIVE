@@ -44,6 +44,8 @@ public final class SettingsScreen extends Screen {
 	/** The preview's own minimap (its own zoom easing), drawn in the HUD's corner above the dim. */
 	private final MinimapHud preview;
 	private int tab;
+	/** Each tab's height as last drawn (the panel fits the tab shown). */
+	private final float[] tabHeights = {H, H, H, H};
 	private float scale = 1;
 	// the layout cursor while a tab is drawn
 	private FormKit kit;
@@ -82,7 +84,8 @@ public final class SettingsScreen extends Screen {
 
 	private float unit() {
 		var window = Minecraft.getInstance().getWindow();
-		return Math.min(MinimapHud.hudUnit(), Ui.fit(window.getWidth(), window.getHeight(), W + 48, H + 48));
+		float h = Math.max(H, this.tabHeights[this.tab]);
+		return Math.min(MinimapHud.hudUnit(), Ui.fit(window.getWidth(), window.getHeight(), W + 48, h + 48));
 	}
 
 	@Override
@@ -109,8 +112,9 @@ public final class SettingsScreen extends Screen {
 		float sw = ui.width();
 		float side = sw >= W + SIDE * 2 ? SIDE : Math.max(16, (sw - W) / 2);
 		float px = left ? sw - side - W : side;
-		float py = Math.max(16, (ui.height() - H) / 2);
-		ui.panel(px, py, W, H, 24, Theme.ISLAND, Theme.HAIR_10);
+		float ph = this.tabHeights[this.tab];
+		float py = Math.max(16, (ui.height() - ph) / 2);
+		ui.panel(px, py, W, ph, 24, Theme.ISLAND, Theme.HAIR_10);
 		float cx = px + 19;
 		float cw = W - 38;
 		// the header: the caps line, the tab's name, the Esc keycap
@@ -129,6 +133,7 @@ public final class SettingsScreen extends Screen {
 			case 2 -> this.waypointsTab(s, cw);
 			default -> this.dataTab(cw);
 		}
+		this.tabHeights[this.tab] = Math.max(H, this.ry - py + 10);
 		ui.end();
 		this.kit = null;
 	}
@@ -196,6 +201,7 @@ public final class SettingsScreen extends Screen {
 	}
 
 	private void mapTab(AtlasSettings s, float w) {
+		this.section8(s, w);
 		this.group("MAP LOOK");
 		this.kit.segmented(this.rx, this.ry, w, true, AtlasSettings.MapLook.values(), v -> v.label, s.mapLook, v -> s.mapLook = v);
 		this.ry += FormKit.SEG_H + 8;
@@ -208,15 +214,52 @@ public final class SettingsScreen extends Screen {
 		this.toggle(w, "Coordinates under the minimap", "The biome and where you stand", s.minimapCoordinates, true,
 			() -> s.minimapCoordinates = !s.minimapCoordinates);
 		this.toggle(w, "Compass", "A strip at the top with the places you have sighted", s.compass, true, () -> s.compass = !s.compass);
-		// placeholders for the section 8 design (performance, presets, far sight): plain rows until it is signed off
-		this.group("PERFORMANCE");
-		this.choice(w, "Performance", "Auto turns extras down when frames run slow", AtlasSettings.Performance.values(), v -> v.label, s.performance,
-			v -> s.performance = v);
-		AtlasSettings.Preset current = s.preset == null ? null : parsePreset(s.preset);
-		this.choice(w, "Preset", current == null ? "Sets several at once" : current.detail, AtlasSettings.Preset.values(), v -> v.label, current, s::apply);
+	}
+
+	/**
+	 * The section 8 rows of the Map tab (Figma 375:37216): far sight, friends and party (only with a VOID transport),
+	 * performance (with the quiet note while Light is on) and the journal.
+	 */
+	private void section8(AtlasSettings s, float w) {
 		boolean lod = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(dev.voidmc.atlas.client.FarSight.LOD_MOD);
-		this.toggle(w, "Far sight", lod ? "Land VOID LOD draws far off, mapped as seen from afar" : "Needs VOID LOD", lod && s.farSight, lod,
-			() -> s.farSight = !s.farSight);
+		this.group("FAR SIGHT");
+		this.toggle(w, "Map what you can see (VOID LOD)", lod ? "Chunks VOID LOD draws fill the map; walking adds detail" : "Needs VOID LOD installed",
+			lod && s.farSight, lod, () -> s.farSight = !s.farSight);
+		if (this.atlas.social.available()) {
+			this.group("FRIENDS AND PARTY");
+			this.choice(w, "Share my position", "Who sees you live on their map", dev.voidmc.atlas.api.Privacy.values(), SettingsScreen::privacyLabel,
+				this.atlas.social.privacy(), v -> s.sharePrivacy = v.id());
+			this.toggle(w, "Share explored map with party", "Your walked land fills in their maps, theirs in yours", s.shareMap, true,
+				() -> s.shareMap = !s.shareMap);
+		}
+		this.group("PERFORMANCE");
+		if (dev.voidmc.atlas.client.PerfGovernor.light()) {
+			// the row grows to carry the quiet note while Light is on
+			Ui ui = this.kit.ui;
+			float h = 82;
+			ui.panel(this.rx, this.ry, w, h, 14, Theme.ISLAND, Theme.HAIR_7);
+			ui.text("Performance", this.rx + 17, this.ry + 10.5F, Ui.Font.F13, Theme.INK);
+			ui.text("Auto drops to Light while the game is struggling", this.rx + 17, this.ry + 29.5F, Ui.Font.F105, Theme.INK_3);
+			long min = dev.voidmc.atlas.client.PerfGovernor.lightMillis() / 60_000L;
+			MinimapHud.quietNote(ui, MinimapHud.LIGHT_NOTE + (min >= 1 ? "  ·  " + min + " min" : ""), this.rx + 9, this.ry + 49, w - 220);
+			AtlasSettings.Performance[] values = AtlasSettings.Performance.values();
+			float sw = this.kit.segmentedWidth(values, v -> v.label);
+			this.kit.segmented(this.rx + w - 13 - sw, this.ry + (h - 40) / 2, sw, false, values, v -> v.label, s.performance, v -> s.performance = v);
+			this.ry += h + 10;
+		} else {
+			this.choice(w, "Performance", "Auto drops to Light while the game is struggling", AtlasSettings.Performance.values(), v -> v.label, s.performance,
+				v -> s.performance = v);
+		}
+		this.group("JOURNAL");
+		this.toggle(w, "Journal", "First discoveries by day, explored share per biome area", s.journal, true, () -> s.journal = !s.journal);
+	}
+
+	static String privacyLabel(dev.voidmc.atlas.api.Privacy v) {
+		return switch (v) {
+			case FRIENDS -> "Friends";
+			case PARTY -> "Party";
+			case NOBODY -> "Nobody";
+		};
 	}
 
 	private static AtlasSettings.Preset parsePreset(String name) {
@@ -260,13 +303,10 @@ public final class SettingsScreen extends Screen {
 		this.group("EXPORT AND IMPORT");
 		this.button(w, "Export map as image", "A PNG of the map as it is shown", "Export", () -> this.atlas.openExport());
 		this.button(w, "Import waypoints", "From other map mods in this instance", "Import", () -> this.atlas.offerImport());
-		if (this.atlas.social.available()) {
-			// a placeholder for the section 8 design: who sees you, and whose land you see
-			this.group("FRIENDS");
-			this.choice(w, "Share with", "Your position and explored land; theirs the same way", dev.voidmc.atlas.api.Privacy.values(),
-				v -> v == dev.voidmc.atlas.api.Privacy.FRIENDS ? "Friends" : v == dev.voidmc.atlas.api.Privacy.PARTY ? "Party" : "Nobody",
-				this.atlas.social.privacy(), v -> s.sharePrivacy = v.id());
-		}
+		this.group("PRESET");
+		AtlasSettings.Preset current = s.preset == null ? null : parsePreset(s.preset);
+		this.choice(w, "Start from", current == null ? "Sets several defaults at once" : current.detail, AtlasSettings.Preset.values(), v -> v.label, current,
+			s::apply);
 		this.group("BACKUPS");
 		this.kit.ui.text("Waypoints, places and the region index are backed up as you play", this.rx + 4, this.ry - 4, Ui.Font.F105, Theme.INK_3);
 	}

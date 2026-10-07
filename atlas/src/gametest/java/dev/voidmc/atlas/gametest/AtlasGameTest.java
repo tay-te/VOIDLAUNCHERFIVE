@@ -397,9 +397,9 @@ public class AtlasGameTest implements FabricClientGameTest {
 	private void placeShots(ClientGameTestContext context) {
 		context.runOnClient(mc -> AtlasClient.get().settings().mapZoom = 2);
 		this.mapShot(context, "surface_zoomed_out", this.spawn.getX(), this.spawn.getZ(), 0.25, MapPanel.Kind.SURFACE);
-		context.runOnClient(mc -> ((AtlasScreen) mc.gui.screen()).page.legendTab = true);
+		context.runOnClient(mc -> ((AtlasScreen) mc.gui.screen()).page.rightTab = 1);
 		this.mapShot(context, "surface_legend", this.spawn.getX(), this.spawn.getZ(), 0.5, MapPanel.Kind.SURFACE);
-		context.runOnClient(mc -> ((AtlasScreen) mc.gui.screen()).page.legendTab = false);
+		context.runOnClient(mc -> ((AtlasScreen) mc.gui.screen()).page.rightTab = 0);
 		// a sighted place and a discovered one, near each other if possible
 		String[] picks = context.computeOnClient(mc -> {
 			var session = AtlasClient.get().session();

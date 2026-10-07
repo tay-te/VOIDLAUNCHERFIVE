@@ -218,6 +218,16 @@ public final class FarSight {
 
 	/** Writes waiting tiles, oldest revision first, until the run's budget is spent; then runs again later (worker). */
 	private void drain(MapSession session) {
+		if (PerfGovernor.paused()) {
+			// Light: far sight waits (LOD's tiles stay filed, the newest of each), and looks again in a second
+			this.draining.set(false);
+			try {
+				session.workers.schedule(() -> this.drainLater(session), 1, java.util.concurrent.TimeUnit.SECONDS);
+			} catch (RuntimeException e) {
+				// closing
+			}
+			return;
+		}
 		long t0 = System.nanoTime();
 		try {
 			List<Tile> order = new ArrayList<>(this.pending.values());

@@ -173,6 +173,11 @@ public final class MarkerPainter {
 				if (p != null) {
 					placed.add(p);
 					written.add(p);
+					if (m.id().equals(hovered) && m.source() != null && m.source().kind() == dev.voidmc.atlas.api.Source.Kind.PLUGIN) {
+						// a name a mod gave says so when hovered: "from Expanse" under it
+						float cw = smallSourceChipWidth(ui, m.source());
+						smallSourceChip(ui, m.source(), (p.x0() + p.x1()) / 2 - cw / 2, p.y1() + 4);
+					}
 				}
 			}
 		}
@@ -742,6 +747,24 @@ public final class MarkerPainter {
 		}
 		ui.text(text, x + 8 + 11 + 7, y + 6, Ui.Font.F11, Theme.INK_2);
 		return w;
+	}
+
+	/** The small source chip (20 high) beside a name: the readout's "from Expanse", a region label's on hover. */
+	public static float smallSourceChip(Ui ui, Source source, float x, float y) {
+		String text = source.phrase();
+		float w = smallSourceChipWidth(ui, source);
+		ui.round(x, y, w, 20, 10, Theme.WELL);
+		ui.border(x, y, w, 20, 10, 0, Theme.HAIR_8);
+		int[][] cells = {{0, 0}, {1, 0}, {0, 1}, {2, 1}, {1, 2}, {2, 2}};
+		for (int[] c : cells) {
+			ui.round(x + 7 + c[0] * 3.2F, y + 5.5F + c[1] * 3.2F, 2.4F, 2.4F, 0.8F, Theme.ink(0.55F));
+		}
+		ui.text(text, x + 7 + 9 + 6, y + 4, Ui.Font.F95, Theme.INK_2);
+		return w;
+	}
+
+	public static float smallSourceChipWidth(Ui ui, Source source) {
+		return 7 + 9 + 6 + ui.width(source.phrase(), Ui.Font.F95) + 9;
 	}
 
 	public static float sourceChipWidth(Ui ui, Source source) {

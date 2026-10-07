@@ -129,6 +129,12 @@ public final class AtlasSettings {
 	public boolean farSight = true;
 	/** Who sees the player's position and explored land, and whose they see: friends, party (the default) or nobody. */
 	public String sharePrivacy = "party";
+	/** Party members get the land the player walked (and the player theirs), drawn quieter than one's own. */
+	public boolean shareMap = true;
+	/** The toast when a place is discovered. */
+	public boolean discoveryToasts = true;
+	/** The journal: first discoveries by day and the explored share per biome area. */
+	public boolean journal = true;
 	/** Beams are hidden for 10 s after the player hits or is hit (PvP-safe). */
 	public boolean beamsHideInCombat = false;
 	/** Which of the first-run presets was last applied (null: none, the defaults). */
@@ -137,11 +143,11 @@ public final class AtlasSettings {
 	/** The first-run presets: a whole set of settings, applied at once. */
 	public enum Preset {
 		/** The minimap and nothing else in the HUD. */
-		MINIMAL("Minimal", "The minimap only: no beams, no compass, no radar"),
+		MINIMAL("Minimal", "On: minimap, waypoints. Off: beams, toasts, radar."),
 		/** Everything on. */
-		EXPLORER("Explorer", "Everything on: beams, compass, radar, cave view"),
+		EXPLORER("Explorer", "On: beams, discovery toasts, far sight, journal."),
 		/** Nothing that could be called an advantage in a fight: no radar, no cave view, no beams in combat. */
-		PVP_SAFE("PvP-safe", "No radar, no cave view, beams hidden in combat");
+		PVP_SAFE("PvP-safe", "On: map, waypoints. Off: radar, beams, coordinates.");
 
 		public final String label;
 		public final String detail;
@@ -154,30 +160,35 @@ public final class AtlasSettings {
 
 	/** Applies a preset: every setting it covers changes together (one saved file, one legend change). */
 	public synchronized void apply(Preset p) {
+		// a preset only sets defaults: every one of these can be changed after
 		switch (p) {
 			case MINIMAL -> {
 				this.minimap = true;
 				this.waypointBeams = false;
+				this.discoveryToasts = false;
 				this.compass = false;
 				this.radarPlayers = false;
 				this.radarMobs = false;
-				this.minimapAutoCave = true;
 				this.beamsHideInCombat = false;
 			}
 			case EXPLORER -> {
 				this.minimap = true;
 				this.waypointBeams = true;
+				this.discoveryToasts = true;
+				this.farSight = true;
+				this.journal = true;
 				this.compass = true;
 				this.radarPlayers = true;
 				this.radarMobs = true;
 				this.minimapAutoCave = true;
+				this.minimapCoordinates = true;
 				this.chatCoordinates = true;
 				this.beamsHideInCombat = false;
 			}
 			case PVP_SAFE -> {
 				this.minimap = true;
-				this.waypointBeams = true;
-				this.beamsHideInCombat = true;
+				this.waypointBeams = false;
+				this.minimapCoordinates = false;
 				this.compass = false;
 				this.radarPlayers = false;
 				this.radarMobs = false;

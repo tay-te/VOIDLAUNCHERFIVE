@@ -358,7 +358,9 @@ public final class AtlasClient implements ClientModInitializer {
 		if (this.tiles != null) {
 			this.tiles.beginFrame();
 			long t0 = System.nanoTime();
-			this.tiles.upload(PerfGovernor.uploadNanos());
+			if (PerfGovernor.uploadThisFrame()) {
+				this.tiles.upload(PerfGovernor.uploadNanos());
+			}
 			Perf.upload(System.nanoTime() - t0);
 		}
 		LocalPlayer p = mc.player;
@@ -479,7 +481,12 @@ public final class AtlasClient implements ClientModInitializer {
 		}
 		while (this.openMap.consumeClick()) {
 			if (mc.gui.screen() == null && mc.level != null) {
-				this.openMap();
+				if (this.settings.preset == null) {
+					// the first M: how much map, once
+					mc.gui.setScreen(new dev.voidmc.atlas.client.ui.PresetScreen(this));
+				} else {
+					this.openMap();
+				}
 			}
 		}
 		while (this.toggleMinimap.consumeClick()) {
@@ -527,7 +534,7 @@ public final class AtlasClient implements ClientModInitializer {
 				this.farSight.update();
 			}
 			long day = p.level().getOverworldClockTime() / 24000 + 1;
-			if (this.ticks % 20 == 13) {
+			if (this.ticks % 20 == 13 && this.settings.journal) {
 				this.journal.tick(session, p, dim, day);
 			}
 			if (this.ticks % 20 == 17) {
@@ -585,9 +592,11 @@ public final class AtlasClient implements ClientModInitializer {
 			}
 			for (Place changed : session.places.drainChanges()) {
 				this.places.notify(changed);
-				this.journal.changed(session, changed, day);
+				if (this.settings.journal) {
+					this.journal.changed(session, changed, day);
+				}
 				if (changed.isDiscovered() && changed.dimension().equals(dim) && !changed.kind().equals(Place.RIVER)
-					&& !changed.kind().equals(Place.CAVE_MOUTH) && !changed.kind().equals(Place.RAVINE)) {
+					&& !changed.kind().equals(Place.CAVE_MOUTH) && !changed.kind().equals(Place.RAVINE) && this.settings.discoveryToasts) {
 					// the design's toast, once, as the player comes within reach (or walks into a region)
 					this.overlays.discovered(changed);
 				}

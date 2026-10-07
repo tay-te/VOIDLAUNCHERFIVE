@@ -72,7 +72,8 @@ public final class MapPage {
 	private float lastClickX;
 	private float lastClickY;
 	/** The right panel's tab: places (false) or the legend (true). */
-	public boolean legendTab;
+	/** The right panel's tab above ground: 0 Places, 1 Legend, 2 Journal. */
+	public int rightTab;
 	private boolean scrubbing;
 	private float scrubY0;
 	private float pressY;
@@ -306,6 +307,11 @@ public final class MapPage {
 		}
 		String[] biome = this.atlas.biomeAt(p.blockPosition());
 		Place region = this.atlas.regionHere();
+		if (region != null && this.map.kind == MapPanel.Kind.SURFACE && region.source().kind() == Source.Kind.PLUGIN) {
+			// a mod named the land (Expanse): its name leads, with the source chip, and the biome moves to the second line
+			this.namedReadout(ui, x, y, p, region, biome[0]);
+			return;
+		}
 		String name = region != null && this.map.kind == MapPanel.Kind.SURFACE ? region.name() : biome[0];
 		String tag = region != null && region.source().kind() == Source.Kind.PLUGIN ? region.source().label() : biome[1];
 		String bx = minus(p.getBlockX());
@@ -328,6 +334,21 @@ public final class MapPage {
 		cx = this.coord(ui, "Z", bz, cx, ty);
 		ui.round(cx, ty + 4.5F, 6, 6, 1.8F, Theme.alpha(Theme.VIOLET, 0.95F));
 		ui.text(facing, cx + 11, ty + 0.5F, Ui.Font.F11, Theme.INK_2);
+	}
+
+	/** The readout of a region a mod named (atlas/readout, mod region): "Woodland Glades  [from Expanse]" over "FOREST · X 412 Y 71 Z -1288 · NE". */
+	private void namedReadout(Ui ui, float x, float y, LocalPlayer p, Place region, String biome) {
+		String name = region.name();
+		String line = biome.toUpperCase(java.util.Locale.ROOT) + "  ·  X " + minus(p.getBlockX()) + "  Y " + minus(p.getBlockY()) + "  Z " + minus(p.getBlockZ())
+			+ "  ·  " + facing(p.getYRot());
+		float chip = MarkerPainter.smallSourceChipWidth(ui, region.source());
+		float w1 = ui.width(name, Ui.Font.F13) + 10 + chip;
+		float w2 = ui.width(line, Ui.Font.F85, 1);
+		float w = Math.max(w1, w2) + 30;
+		ui.panel(x, y, w, 59, 14, Theme.ISLAND, Theme.HAIR_8);
+		ui.text(name, x + 15, y + 11, Ui.Font.F13, Theme.INK);
+		MarkerPainter.smallSourceChip(ui, region.source(), x + 15 + ui.width(name, Ui.Font.F13) + 10, y + 9);
+		ui.text(line, x + 15, y + 35, Ui.Font.F85, 1, Theme.INK_4);
 	}
 
 	private float coord(Ui ui, String axis, String value, float x, float y) {
@@ -549,36 +570,45 @@ public final class MapPage {
 		return this.rowCache.computeIfAbsent(section, this::rows);
 	}
 
-	/** The right panel above ground: the Places and Legend tabs. */
+	/** The right panel above ground: the Places, Legend and Journal tabs (Journal while the setting is on). */
 	private void placesPanel(Ui ui, float mx, float my) {
 		float x = this.listX;
 		float y = this.listY;
 		ui.panel(x, y, LIST_W, 42, 14, Theme.WELL, Theme.HAIR_6);
 		int total = this.placeCount(this.map.kind);
-		String[] labels = {"Places", "Legend"};
-		for (int i = 0; i < 2; i++) {
-			boolean active = (i == 1) == this.legendTab;
-			float sx = x + 5 + i * 149;
-			float sw = i == 0 ? 147 : 145;
+		boolean journal = this.atlas.settings().journal;
+		if (!journal && this.rightTab == 2) {
+			this.rightTab = 0;
+		}
+		String[] labels = journal ? new String[]{"Places", "Legend", "Journal"} : new String[]{"Places", "Legend"};
+		int n = labels.length;
+		float tw = (LIST_W - 10 - (n - 1) * 2) / n;
+		for (int i = 0; i < n; i++) {
+			boolean active = i == this.rightTab;
+			float sx = x + 5 + i * (tw + 2);
 			if (active) {
-				ui.panel(sx, y + 5, sw, 32, 10, Theme.RAISED, Theme.HAIR_8);
-			} else if (mx >= sx && mx <= sx + sw && my >= y + 5 && my <= y + 37) {
-				ui.round(sx, y + 5, sw, 32, 10, Theme.ISLAND);
+				ui.panel(sx, y + 5, tw, 32, 10, Theme.RAISED, Theme.HAIR_8);
+			} else if (mx >= sx && mx <= sx + tw && my >= y + 5 && my <= y + 37) {
+				ui.round(sx, y + 5, tw, 32, 10, Theme.ISLAND);
 			}
 			ui.text(labels[i], sx + 14, y + 12, Ui.Font.F13, active ? Theme.INK : Theme.INK_2);
-			if (i == 0) {
+			if (i == 0 && n == 2) {
 				ui.text(String.valueOf(total), sx + 14 + ui.width(labels[0], Ui.Font.F13) + 6, y + 14, Ui.Font.F11, active ? Theme.INK_2 : Theme.INK_4);
 			}
-			boolean legend = i == 1;
-			this.hit(sx, y + 5, sw, 32, () -> {
-				this.legendTab = legend;
+			int tab = i;
+			this.hit(sx, y + 5, tw, 32, () -> {
+				this.rightTab = tab;
 				this.listScroll = 0;
 			});
 		}
 		float top = y + 48;
 		float bottom = this.listY + this.listH;
-		if (this.legendTab) {
+		if (this.rightTab == 1) {
 			this.legend(ui, x, top, bottom, mx, my);
+			return;
+		}
+		if (this.rightTab == 2) {
+			this.journal(ui, x, top, bottom, mx, my);
 			return;
 		}
 		// the marker states key, at the foot of the panel
@@ -586,6 +616,128 @@ public final class MapPage {
 		this.statesKey(ui, x, bottom - keyH);
 		this.list(ui, top, bottom - keyH - 6, mx, my, List.of("sighted", "discovered", "settlements", "waypoints"),
 			List.of("SIGHTED  ·  NOT VISITED", "DISCOVERED", "SETTLEMENTS", "WAYPOINTS"));
+	}
+
+	private static final java.time.format.DateTimeFormatter CLOCK = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+		.withZone(java.time.ZoneId.systemDefault());
+
+	/**
+	 * The Journal tab (Figma 375:37081): the totals (places found, distance travelled, deepest Y), how much of each biome
+	 * area the player explored themselves (atlas/area meter: 20 cells, violet only on the newest cell of the area they
+	 * are in), and the first discoveries by world day with the real clock time (atlas/journal entry).
+	 */
+	private void journal(Ui ui, float x, float top, float bottom, float mx, float my) {
+		MapSession session = this.atlas.session();
+		if (session == null) {
+			return;
+		}
+		var journal = session.journal;
+		var stats = journal.stats();
+		ui.flush();
+		ui.g.enableScissor((int) x - 2, (int) top, (int) (x + LIST_W + 2), (int) bottom);
+		float y = top - this.listScroll;
+		// the totals
+		float cw = (LIST_W - 2 * 7) / 3;
+		String[][] totals = {
+			{String.valueOf(stats.places(dev.voidmc.atlas.api.DiscoveryState.DISCOVERED)), "PLACES FOUND"},
+			{stats.distance() >= 1000 ? Math.round(stats.kilometres()) + " km" : Math.round(stats.distance()) + " m", "TRAVELLED"},
+			{stats.deepestY() == null ? "—" : "Y " + minus(stats.deepestY()), "DEEPEST"}};
+		for (int i = 0; i < 3; i++) {
+			float tx = x + i * (cw + 7);
+			ui.panel(tx, y, cw, 52, 12, Theme.ISLAND, Theme.HAIR_7);
+			ui.text(totals[i][0], tx + 12, y + 9, Ui.Font.F16, Theme.INK);
+			ui.text(totals[i][1], tx + 12, y + 33, Ui.Font.F85, 1, Theme.INK_4);
+		}
+		y += 52 + 20;
+		// explored, by biome area: the one the player is in first, then the most explored
+		Place here = this.atlas.regionHere();
+		List<dev.voidmc.atlas.core.journal.AreaStat> areas = new ArrayList<>();
+		var mine = here == null ? null : journal.area(here.id());
+		if (mine != null) {
+			areas.add(mine);
+		}
+		for (var a : journal.topAreas(6)) {
+			if (areas.size() >= 4) {
+				break;
+			}
+			if (mine == null || !a.id().equals(mine.id())) {
+				areas.add(a);
+			}
+		}
+		ui.text("EXPLORED  ·  BY BIOME AREA", x + 4, y, Ui.Font.F85, 1, Theme.INK_4);
+		y += 20;
+		if (areas.isEmpty()) {
+			ui.text("Walk the land to explore it", x + 4, y, Ui.Font.F11, Theme.INK_4);
+			y += 24;
+		}
+		for (var a : areas) {
+			boolean in = mine != null && a.id().equals(mine.id());
+			String name = a.name() == null || a.name().isEmpty()
+				? prettify(a.biome() == null ? "land" : a.biome().substring(a.biome().indexOf(':') + 1)) : a.name();
+			String pct = a.percent() + "%";
+			ui.text(ui.fit(name, Ui.Font.F12, LIST_W - 140), x + 4, y, Ui.Font.F12, Theme.INK);
+			ui.textRight(pct, x + LIST_W - 6, y + 1, Ui.Font.F105, 0, Theme.INK_2);
+			if (in) {
+				ui.textRight("YOU ARE HERE", x + LIST_W - 6 - ui.width(pct, Ui.Font.F105) - 10, y + 2, Ui.Font.F85, 1, Theme.INK_4);
+			}
+			y += 18;
+			int filled = Math.max(a.explored() > 0 ? 1 : 0, Math.min(20, Math.round(a.percent() / 5F)));
+			float cellW = (LIST_W - 8 - 19 * 3) / 20F;
+			for (int c = 0; c < 20; c++) {
+				int colour = c < filled ? (in && c == filled - 1 ? Theme.VIOLET : Theme.ink(0.5F)) : Theme.HAIR_12;
+				ui.round(x + 4 + c * (cellW + 3), y, cellW, 4, 1.5F, colour);
+			}
+			y += 4 + 18;
+		}
+		// the first discoveries, by world day
+		y += 4;
+		ui.text("DISCOVERIES", x + 4, y, Ui.Font.F85, 1, Theme.INK_4);
+		y += 20;
+		long today = Minecraft.getInstance().level == null ? -1 : Minecraft.getInstance().level.getOverworldClockTime() / 24000 + 1;
+		long day = Long.MIN_VALUE;
+		int shown = 0;
+		for (var e : journal.all()) {
+			if (e.kind() != dev.voidmc.atlas.core.journal.JournalEvent.Kind.DISCOVERY) {
+				continue;
+			}
+			if (e.day() != day) {
+				day = e.day();
+				ui.text("Day " + day + (day == today ? "  ·  today" : ""), x + 6, y + (shown == 0 ? 0 : 6), Ui.Font.F11, Theme.INK_2);
+				y += shown == 0 ? 22 : 28;
+			}
+			Place place = e.placeId() == null ? null : session.places.peek(e.placeId());
+			MarkerGlyph glyph = place == null ? MarkerGlyph.DOT : Kinds.of(place).glyph;
+			String kind = place == null ? "" : Kinds.of(place).word;
+			String sub = kind + (e.y() != 0 ? "  ·  Y " + minus(e.y()) : "");
+			String id = place == null ? null : AtlasClient.placeMarkerId(place);
+			boolean selected = id != null && id.equals(this.map.selected);
+			boolean hover = mx >= x && mx <= x + LIST_W && my >= y && my <= y + 44 && my >= top && my <= bottom;
+			if (selected || hover) {
+				ui.round(x, y, LIST_W, 44, 12, selected ? 0xFF1F2023 : Theme.ISLAND);
+			}
+			ui.text(CLOCK.format(java.time.Instant.ofEpochMilli(e.epoch())), x + 6, y + 15, Ui.Font.F95, Theme.INK_4);
+			ui.panel(x + 50, y + 8, 28, 28, 9, Theme.WELL, Theme.HAIR_5);
+			ui.glyph(glyph, x + 57, y + 15, 14, Theme.ink(0.85F), Theme.INK);
+			String title = place == null ? e.text() : place.name();
+			ui.text(ui.fit(title, Ui.Font.F12, LIST_W - 100), x + 90, y + 7, Ui.Font.F12, Theme.INK);
+			ui.text(ui.fit(sub, Ui.Font.F85, 1, LIST_W - 100), x + 90, y + 26, Ui.Font.F85, 1, Theme.INK_4);
+			if (place != null && y + 44 > top && y < bottom) {
+				Row row = new Row(id, glyph, false, place.name(), sub, "", "", place.x() + 0.5, place.z() + 0.5, place.dimension());
+				this.hit(x, Math.max(y, top), LIST_W, Math.min(y + 44, bottom) - Math.max(y, top), () -> this.select(row));
+			}
+			y += 48;
+			if (++shown >= 200) {
+				break;
+			}
+		}
+		if (shown == 0) {
+			ui.text("Your first discoveries are written here", x + 6, y, Ui.Font.F11, Theme.INK_4);
+			y += 24;
+		}
+		this.listContent = y + this.listScroll - top;
+		ui.flush();
+		ui.g.disableScissor();
+		this.listScroll = Math.max(0, Math.min(Math.max(0, this.listContent - (bottom - top)), this.listScroll));
 	}
 
 	/** The design's "marker states" key: a discovered major and minor tile, and their sighted hollow twins. */
@@ -971,6 +1123,8 @@ public final class MapPage {
 				seen = "  ·  " + (Kinds.sighted(selected) ? "SIGHTED " : "") + MarkerPainter.distance(selected.distanceTo(p.getX(), p.getZ())) + " AWAY";
 			}
 			left = selected.name() + seen + "  ·  " + (Kinds.sighted(selected) ? "NOT VISITED" : "VISITED");
+		} else if (this.rightTab == 2 && session != null) {
+			left = "JOURNAL  ·  SINCE DAY " + Math.max(1, session.journal.stats().firstDay()) + "  ·  ONLY FIRST DISCOVERIES ARE LOGGED";
 		} else {
 			int places = this.placeCount(this.map.kind);
 			int sighted = 0;

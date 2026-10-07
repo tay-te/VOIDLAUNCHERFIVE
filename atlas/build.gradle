@@ -25,8 +25,8 @@ repositories {
 }
 
 // -Patlas.withExpanse=true: the dev runs and game tests also load ../expanse (see settings.gradle).
-// -Patlas.expanseJar=<path>: the same, with a built Expanse jar instead (an Expanse newer than ../expanse, say).
-def expanseJar = findProperty('atlas.expanseJar')
+// -Patlas.expanseJar=<path> (or -Pexpanse=<path>): the same, with a built Expanse jar instead (an Expanse newer than ../expanse).
+def expanseJar = findProperty('atlas.expanseJar') ?: findProperty('expanse')
 def withExpanse = (findProperty('atlas.withExpanse') ?: 'false').toString().toBoolean() || expanseJar != null
 
 loom {

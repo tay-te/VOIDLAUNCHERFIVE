@@ -56,7 +56,13 @@ public enum MarkerGlyph {
 	/** A geode. */
 	GEM(rows("00100", "01010", "10101", "01010", "00100"), 0),
 	/** A pillager outpost, a stronghold, a fortress: a fortified tower. */
-	KEEP(rows("10101", "11111", "01110", "01110", "11111"), 0);
+	KEEP(rows("10101", "11111", "01110", "01110", "11111"), 0),
+	/** Four squares: a plain, small map (the Minimal preset). */
+	GRID(rows("11011", "11011", "00000", "11011", "11011"), 0),
+	/** A shield (the PvP-safe preset). */
+	SHIELD(rows("11111", "11111", "11111", "01110", "00100"), 0),
+	/** A quest step: an exclamation mark. */
+	QUEST(rows("00100", "00100", "00100", "00000", "00100"), 0);
 
 	public final int mask;
 	public final int accent;
