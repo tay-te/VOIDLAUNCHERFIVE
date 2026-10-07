@@ -35,7 +35,7 @@ public interface AtlasApi {
 		return Holder.api != null;
 	}
 
-	/** Atlas's version, like {@code 0.1.0}. */
+	/** Atlas's version, like {@code 0.2.0}. */
 	String version();
 
 	AtlasMarkers markers();
