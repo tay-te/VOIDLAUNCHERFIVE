@@ -111,8 +111,12 @@ public final class MinimapHud {
 			}
 		}
 		MarkerPainter.paint(ui, f, markers, null, null, true, px, pz, this.zoom);
-		this.radar(ui, f, mc, p, px, pz);
-		this.edgeMarkers(ui, f, x, y, side, dim, px, pz, underground, ceiling, rotation);
+		boolean light = dev.voidmc.atlas.client.PerfGovernor.light();
+		if (!light) {
+			// Light: a simpler minimap (no radar, no edge markers, no rim dots)
+			this.radar(ui, f, mc, p, px, pz);
+			this.edgeMarkers(ui, f, x, y, side, dim, px, pz, underground, ceiling, rotation);
+		}
 		long t3 = System.nanoTime();
 		// waypoints beyond the edge: a small dot on the rim, in the direction to walk
 		var session = this.atlas.session();
@@ -133,7 +137,7 @@ public final class MinimapHud {
 		// the nearest few beyond the edge only (each a dot on the rim): more would crowd the rim and cost every frame
 		int shown = 0;
 		int count = 0;
-		for (int i = 0; i < this.rim.size() && count < this.rimNear.length; i++) {
+		for (int i = 0; i < this.rim.size() && count < this.rimNear.length && !light; i++) {
 			var w = this.rim.get(i);
 			float sx = f.screenX(w.x() + 0.5, w.z() + 0.5);
 			float sy = f.screenY(w.x() + 0.5, w.z() + 0.5);

@@ -53,15 +53,18 @@ final class Soak {
 			if (!eula) {
 				throw new SkipServers();
 			}
-			idA = this.serverWorld(context, "atlas-soak-a", 0);
-			idB = this.serverWorld(context, "atlas-soak-b", 1);
-			idA2 = this.serverWorld(context, "atlas-soak-a", 2);
+			// Fabric's test server makes a fresh world each start (its own random seed), so "back to the first world" is the
+			// same running server joined again: A, leave, A again, then B behind the same address
+			String[] ids = this.serverWorlds(context);
+			idA = ids[0];
+			idA2 = ids[1];
+			idB = ids[2];
 		} catch (SkipServers e) {
 			// noted above
 		} catch (RuntimeException e) {
 			this.failures.add("dedicated server part failed: " + e);
 		}
-		this.note("worlds: first " + idA + ", second " + idB + ", first again " + idA2);
+		this.note("worlds: first " + idA + ", first again " + idA2 + ", second " + idB);
 		if (!eula) {
 			// nothing to judge
 		} else if (idA == null || idB == null || idA2 == null) {
@@ -92,15 +95,114 @@ final class Soak {
 	}
 
 	/** Joins a dedicated server with a seed, flies a little, leaves; returns the map Atlas chose. */
+	/**
+	 * Server A joined, flown over and left; joined again (the right map must be picked again); then server B behind the
+	 * same address (it must get its own map, and A's map files must not change while B is played: no terrain mixed).
+	 * Returns the map ids of A, A again and B.
+	 */
+	private String[] serverWorlds(ClientGameTestContext context) {
+		String[] ids = new String[3];
+		Properties a = serverProps("atlas-soak-a");
+		try (TestDedicatedServerContext server = context.worldBuilder().setUseConsistentSettings(false).createServer(a)) {
+			ids[0] = this.join(server, context, 0, "A");
+			context.waitTicks(40);
+			ids[1] = this.join(server, context, 1, "A again");
+		}
+		context.waitTicks(20);
+		java.util.Map<Path, Long> before = mapFiles(ids[0]);
+		try (TestDedicatedServerContext server = context.worldBuilder().setUseConsistentSettings(false).createServer(serverProps("atlas-soak-b"))) {
+			ids[2] = this.join(server, context, 2, "B");
+		}
+		context.waitTicks(20);
+		java.util.Map<Path, Long> after = mapFiles(ids[0]);
+		if (ids[0] != null && !before.isEmpty() && !before.equals(after)) {
+			int changed = 0;
+			for (var e : after.entrySet()) {
+				if (!e.getValue().equals(before.get(e.getKey()))) {
+					changed++;
+				}
+			}
+			this.failures.add("server A's map changed while B was played (" + changed + " region files): terrain mixed");
+		}
+		this.note("server A's map: " + before.size() + " region files, untouched while B was played: " + before.equals(after));
+		return ids;
+	}
+
+	/** Every region file of a server map, with its size and time (to see that nothing wrote to it). */
+	private static java.util.Map<Path, Long> mapFiles(String id) {
+		java.util.Map<Path, Long> out = new java.util.TreeMap<>();
+		if (id == null) {
+			return out;
+		}
+		Path dir = Path.of("atlas", "mp", "localhost_25565", id);
+		if (!Files.isDirectory(dir)) {
+			return out;
+		}
+		try (var walk = Files.walk(dir)) {
+			for (Path f : (Iterable<Path>) walk::iterator) {
+				String n = f.getFileName().toString();
+				if (n.endsWith(".raw") || n.endsWith(".img")) {
+					out.put(f, Files.size(f) * 31 + Files.getLastModifiedTime(f).toMillis());
+				}
+			}
+		} catch (IOException e) {
+			// counted as nothing
+		}
+		return out;
+	}
+
+	private static Properties serverProps(String seed) {
+		Properties props = new Properties();
+		props.setProperty("level-seed", seed);
+		props.setProperty("online-mode", "false");
+		props.setProperty("spawn-protection", "0");
+		props.setProperty("level-type", "minecraft:normal");
+		props.setProperty("level-name", "world-" + seed);
+		props.setProperty("view-distance", "6");
+		props.setProperty("simulation-distance", "4");
+		return props;
+	}
+
+	/** Joins a running server, flies a little, leaves; the map Atlas chose. */
+	private String join(TestDedicatedServerContext server, ClientGameTestContext context, int round, String label) {
+		String id;
+		try (TestDedicatedServerConnection connection = server.connect()) {
+			connection.waitForChunksDownload(2400);
+			context.waitTicks(40);
+			server.runCommand("gamemode spectator @a");
+			id = this.waitForWorld(context);
+			for (int i = 0; i < 6; i++) {
+				server.runCommand(String.format(Locale.ROOT, "tp @a %d 140 %d", i * 48, i * 16));
+				context.waitTicks(20);
+			}
+			context.waitTicks(60);
+			String address = context.computeOnClient(mc -> mc.getCurrentServer() == null ? "?" : mc.getCurrentServer().ip);
+			this.note("round " + round + " (" + label + ") on " + address + ": map " + id);
+			String key = context.computeOnClient(mc -> AtlasClient.get().session() == null ? "" : AtlasClient.get().session().worldKey);
+			if (!key.endsWith("/" + id)) {
+				this.failures.add("the open map " + key + " is not " + id);
+			}
+		}
+		context.waitTicks(40);
+		return id;
+	}
+
 	private String serverWorld(ClientGameTestContext context, String seed, int round) {
 		Properties props = new Properties();
 		props.setProperty("level-seed", seed);
 		props.setProperty("online-mode", "false");
 		props.setProperty("spawn-protection", "0");
+		// real terrain (two flat worlds look alike whatever their seeds), seen near by
+		props.setProperty("level-type", "minecraft:normal");
+		// its own world folder per seed (one folder would be the same world whatever the seed says)
+		props.setProperty("level-name", "world-" + seed);
+		props.setProperty("view-distance", "6");
+		props.setProperty("simulation-distance", "4");
 		String id;
-		try (TestDedicatedServerContext server = context.worldBuilder().createServer(props)) {
+		try (TestDedicatedServerContext server = context.worldBuilder().setUseConsistentSettings(false).createServer(props)) {
 			try (TestDedicatedServerConnection connection = server.connect()) {
-				connection.waitForChunksRender();
+				connection.waitForChunksDownload(2400);
+				context.waitTicks(40);
 				server.runCommand("gamemode spectator @a");
 				id = this.waitForWorld(context);
 				// a little flight so there is a map to tell it apart by next time

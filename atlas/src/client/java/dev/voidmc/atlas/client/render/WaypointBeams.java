@@ -70,6 +70,10 @@ public final class WaypointBeams {
 			|| mc.getDebugOverlay().showDebugScreen()) {
 			return;
 		}
+		if (settings.beamsHideInCombat && inCombat(mc)) {
+			// PvP-safe: no beams while fighting (hit, or hitting, in the last ten seconds)
+			return;
+		}
 		long c0 = dev.voidmc.atlas.client.Perf.cpuNow();
 		long t0 = System.nanoTime();
 		try {
@@ -131,7 +135,7 @@ public final class WaypointBeams {
 			}
 			this.order[b + 1] = val;
 		}
-		n = Math.min(n, MAX_BEAMS);
+		n = Math.min(n, dev.voidmc.atlas.client.PerfGovernor.beams(MAX_BEAMS));
 		Ui ui = new Ui(graphics, MinimapHud.hudUnit());
 		ui.begin();
 		float sw = ui.width();
@@ -226,6 +230,17 @@ public final class WaypointBeams {
 			}
 		}
 		ui.end();
+	}
+
+	/** Whether the player hit or was hit in the last ten seconds. */
+	private static boolean inCombat(Minecraft mc) {
+		var p = mc.player;
+		if (p == null) {
+			return false;
+		}
+		int now = p.tickCount;
+		return p.getLastHurtByMob() != null && now - p.getLastHurtByMobTimestamp() < 200
+			|| p.getLastHurtMob() != null && now - p.getLastHurtMobTimestamp() < 200 || p.hurtTime > 0;
 	}
 
 	private boolean clashes(int placed, float x, float y, float w, float h) {

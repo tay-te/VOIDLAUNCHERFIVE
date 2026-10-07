@@ -113,6 +113,78 @@ public final class AtlasSettings {
 	public MapLook mapLook = MapLook.FOLLOW;
 	/** Every waypoint colour has its own pin head shape (colour-blind safe); on by default. */
 	public boolean shapeMarkers = true;
+	/** How hard Atlas works: Auto (it watches the frame time and its own cost and scales back), Quality, Light. */
+	public enum Performance {
+		AUTO("Auto"), QUALITY("Quality"), LIGHT("Light");
+
+		public final String label;
+
+		Performance(String label) {
+			this.label = label;
+		}
+	}
+
+	public Performance performance = Performance.AUTO;
+	/** Beams are hidden for 10 s after the player hits or is hit (PvP-safe). */
+	public boolean beamsHideInCombat = false;
+	/** Which of the first-run presets was last applied (null: none, the defaults). */
+	public String preset;
+
+	/** The first-run presets: a whole set of settings, applied at once. */
+	public enum Preset {
+		/** The minimap and nothing else in the HUD. */
+		MINIMAL("Minimal", "The minimap only: no beams, no compass, no radar"),
+		/** Everything on. */
+		EXPLORER("Explorer", "Everything on: beams, compass, radar, cave view"),
+		/** Nothing that could be called an advantage in a fight: no radar, no cave view, no beams in combat. */
+		PVP_SAFE("PvP-safe", "No radar, no cave view, beams hidden in combat");
+
+		public final String label;
+		public final String detail;
+
+		Preset(String label, String detail) {
+			this.label = label;
+			this.detail = detail;
+		}
+	}
+
+	/** Applies a preset: every setting it covers changes together (one saved file, one legend change). */
+	public synchronized void apply(Preset p) {
+		switch (p) {
+			case MINIMAL -> {
+				this.minimap = true;
+				this.waypointBeams = false;
+				this.compass = false;
+				this.radarPlayers = false;
+				this.radarMobs = false;
+				this.minimapAutoCave = true;
+				this.beamsHideInCombat = false;
+			}
+			case EXPLORER -> {
+				this.minimap = true;
+				this.waypointBeams = true;
+				this.compass = true;
+				this.radarPlayers = true;
+				this.radarMobs = true;
+				this.minimapAutoCave = true;
+				this.chatCoordinates = true;
+				this.beamsHideInCombat = false;
+			}
+			case PVP_SAFE -> {
+				this.minimap = true;
+				this.waypointBeams = true;
+				this.beamsHideInCombat = true;
+				this.compass = false;
+				this.radarPlayers = false;
+				this.radarMobs = false;
+				this.minimapAutoCave = false;
+			}
+		}
+		this.preset = p.name();
+		this.legendVersion++;
+		this.save();
+	}
+
 	/** The first-run hint has been shown. */
 	public boolean firstRunHintShown = false;
 	/** The import from other map mods has been offered (it is offered once). */
@@ -152,6 +224,9 @@ public final class AtlasSettings {
 		}
 		if (this.hiddenKinds == null) {
 			this.hiddenKinds = new HashSet<>();
+		}
+		if (this.performance == null) {
+			this.performance = Performance.AUTO;
 		}
 		if (this.mapLook == null) {
 			this.mapLook = MapLook.FOLLOW;

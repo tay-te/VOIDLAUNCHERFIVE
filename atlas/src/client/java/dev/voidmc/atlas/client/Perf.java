@@ -68,6 +68,10 @@ public final class Perf {
 		long now = System.nanoTime();
 		if (frameStart != 0) {
 			lastFrameNanos = now - frameStart;
+			AtlasClient atlas = AtlasClient.get();
+			if (atlas != null) {
+				PerfGovernor.frame(lastFrameNanos / 1e6, (ingestNanos + minimapNanos + beamNanos + mapNanos) / 1e6, atlas.settings().performance);
+			}
 			if (recording) {
 				if (n == frames.length) {
 					int size = Math.max(1024, n * 2);

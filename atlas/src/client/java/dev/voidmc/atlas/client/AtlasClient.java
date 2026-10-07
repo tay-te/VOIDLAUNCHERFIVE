@@ -349,7 +349,7 @@ public final class AtlasClient implements ClientModInitializer {
 		if (this.tiles != null) {
 			this.tiles.beginFrame();
 			long t0 = System.nanoTime();
-			this.tiles.upload(1_200_000L);
+			this.tiles.upload(PerfGovernor.uploadNanos());
 			Perf.upload(System.nanoTime() - t0);
 		}
 		LocalPlayer p = mc.player;

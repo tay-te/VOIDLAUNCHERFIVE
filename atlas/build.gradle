@@ -123,6 +123,10 @@ fabricApi {
 def backend = (findProperty('backend') ?: 'opengl').toString()
 // -Patlas.baseline=true: the perf flight with Atlas doing nothing (the game alone), into build/perf-baseline/
 def baseline = (findProperty('atlas.baseline') ?: 'false').toString() == 'true'
+// -Patlas.weak=true: a weak PC (4 cores, a 1280 x 720 window, render distance 6, 2 Atlas workers) with Atlas in Light
+// mode; results as "<backend>-weak", held to the Light budgets
+def weak = (findProperty('atlas.weak') ?: 'false').toString() == 'true'
+def perfName = weak ? "${backend}-weak" : backend
 def testWidth = (findProperty('atlas.test.width') ?: '1920').toString()
 def testHeight = (findProperty('atlas.test.height') ?: '1080').toString()
 def passThrough = ['atlas.test.seed', 'atlas.test.settle', 'atlas.test.only', 'atlas.test.distance', 'atlas.test.frames',
@@ -165,12 +169,17 @@ loom {
 			runDir = 'build/run/atlasPerf'
 			property 'atlas.test', 'perf'
 			property 'atlas.test.backend', backend
-			property 'atlas.test.out', file(baseline ? "build/perf-baseline/${backend}.json" : "build/perf/${backend}.json").absolutePath
+			property 'atlas.test.out', file(baseline ? "build/perf-baseline/${perfName}.json" : "build/perf/${perfName}.json").absolutePath
 			property 'atlas.baseline', baseline.toString()
+			property 'atlas.weak', weak.toString()
 			property 'atlas.test.withExpanse', withExpanse.toString()
 			programArgs '--width', testWidth, '--height', testHeight, '--graphicsBackend', backend
 			// every pause of the whole JVM (GC or not) with its time to reach it, for a long frame that is no phase's fault
 			vmArgs '-Xmx3G', '-Xlog:safepoint=info,gc=info:file=safepoints.log:uptime,tags'
+			if (weak) {
+				vmArgs '-XX:ActiveProcessorCount=4'
+				programArgs '--width', '1280', '--height', '720'
+			}
 		}
 	}
 }
@@ -181,6 +190,8 @@ loom {
 	tasks.matching { it.name == task }.configureEach {
 		doFirst {
 			delete file("build/run/${dir}/saves"), file("build/run/${dir}/atlas"), file("build/run/${dir}/xaero")
+			delete fileTree("build/run/${dir}") { include 'world*/**' }
+			delete files(file("build/run/${dir}").listFiles({ f -> f.isDirectory() && f.name.startsWith('world') } as FileFilter) ?: [])
 		}
 	}
 }
@@ -230,6 +241,18 @@ def budgets = [
 	beamsAvgMs       : 0.15,  // the waypoint beams and labels in the world, per frame while flying (48 waypoints)
 	radarAvgMs       : 0.10   // the minimap's radar, per frame while flying
 ]
+// On the weak profile, in Light mode: Atlas must cost less, the game itself is allowed to be slower
+def weakBudgets = budgets + [
+	minimapAvgMs     : 0.20,
+	mapAvgFrameMs    : 8.0,
+	mapP99FrameMs    : 16.0,
+	underAvgFrameMs  : 8.0,
+	underP99FrameMs  : 16.0,
+	detectMsPerChunk : 1.0,
+	revealMsPerWalk  : 40.0,
+	beamsAvgMs       : 0.06,
+	radarAvgMs       : 0.01
+]
 
 tasks.register('atlasPerf') {
 	group = 'atlas'
@@ -237,11 +260,12 @@ tasks.register('atlasPerf') {
 	dependsOn 'runAtlasPerf'
 	doLast {
 		if (baseline) {
-			def b = new groovy.json.JsonSlurper().parse(file("build/perf-baseline/${backend}.json"))
+			def b = new groovy.json.JsonSlurper().parse(file("build/perf-baseline/${perfName}.json"))
 			println "Vanilla baseline (${backend}), Atlas idle: flight avg ${b.flight.avgFrameMs} ms, p99 ${b.flight.p99FrameMs} ms, worst ${b.flight.maxFrameMs} ms"
 			return
 		}
-		def json = file("build/perf/${backend}.json")
+		def json = file("build/perf/${perfName}.json")
+		def budgets = weak ? weakBudgets : budgets
 		if (!json.isFile()) {
 			throw new GradleException("The perf run wrote no results to ${json}")
 		}

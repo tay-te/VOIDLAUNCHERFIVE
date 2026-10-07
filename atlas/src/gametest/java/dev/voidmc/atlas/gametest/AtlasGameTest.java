@@ -73,6 +73,14 @@ public class AtlasGameTest implements FabricClientGameTest {
 			mc.options.framerateLimit().set(260);
 			mc.options.inactivityFpsLimit().set(InactivityFpsLimit.MINIMIZED);
 			AtlasSettings s = AtlasClient.get().settings();
+			if (Boolean.getBoolean("atlas.weak")) {
+				// the weak PC: 2 workers, a short render distance, Atlas in Light mode
+				s.workerThreads = 2;
+				s.performance = AtlasSettings.Performance.LIGHT;
+				mc.options.renderDistance().set(6);
+			} else {
+				s.performance = AtlasSettings.Performance.QUALITY;
+			}
 			s.minimap = true;
 			s.minimapZoom = 5;
 			s.mapZoom = 6;
