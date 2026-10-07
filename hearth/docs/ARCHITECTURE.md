@@ -209,7 +209,14 @@ Where the result goes:
 
 - **Abstract** completion is recorded per (plot, stage). The chunk applier writes recorded stages into chunks when they
   load, and remembers per chunk what it has applied (so it never re-applies over a player's later edits).
-- **Embodied** builders place the steps themselves; those steps count as applied.
+- **Embodied** builders place the steps themselves; those steps count as applied. A crew works a site together
+  (docs/FOLK.md §6): its builders may place any step of the current stage whose supports are already in place, ahead
+  of the counter, from wherever they stand (the ground, a floor, a ring of scaffolding round the shell), and the site
+  moves the counter on over the done steps from the cursor in one `advanceConstruction(plot, n)`. The counter only ever
+  passes steps that are in the world as the blueprint wants them (or were placed by a builder, or are passed for a
+  block entity), so what the counter and the chunk ledgers record is exactly what one builder placing step after step
+  would have left. `advanceConstruction(plot, 0)` tells the sim a crew is at work on a plot whose counter stands still
+  (scaffolding going up), so abstract labour keeps off it.
 - **Intended overlaps.** The planner overlaps plots on purpose (PLANNING.md §4): a building on a terrace of the
   same footprint, dwellings `stacked_on` another, plaza furniture inside its plaza, a gatehouse `over_road`, towers on
   walls, walkways overhead, rebuilds (`replaces`). These are not "built over"; appliers write both.
@@ -376,7 +383,8 @@ Aim the planner's layouts and the architects' styles at these; they are what mak
   work, free time (the plaza, the inn, a viewpoint, visiting friends), home, sleep — with weather and danger overrides
   (shelter from rain and night monsters, ring the bell and hide in a raid). Cheap goals over vanilla navigation
   (doors, stairs, ladders); pathfinding throttled.
-- **Jobs embodied**: builders fetch from the store, climb scaffolding they put up and take down, and place steps;
+- **Jobs embodied**: builders work a site as a crew sized to it, put a ring of scaffolding up round the building,
+  work from it at every height and take it down when the roof is on, and place every step within reach before moving along;
   farmers till, plant and harvest; foresters fell and replant outside town; merchants keep stalls; guards patrol and
   fight; smiths work the anvil; couriers and caravans travel between settlements (abstract when nobody is near, met on
   the road when someone is).
