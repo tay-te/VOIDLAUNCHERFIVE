@@ -85,7 +85,9 @@ public final class ExpanseSource extends WorldgenSource {
 		// half as many again: plates are not a regular grid, and the game's own chunk generation shares the cache
 		int plates = (int) Math.ceil(1.5 * Math.PI * r * r / (PLATE_SPACING * PLATE_SPACING));
 		int affordable = (int) (Runtime.getRuntime().maxMemory() / 6 / PLATE_BYTES);
-		return Math.min(plates, affordable);
+		// -Dvoid.lod.plates=n: as many as asked, for measuring what the cache costs
+		Integer asked = Integer.getInteger("void.lod.plates");
+		return asked != null ? asked : Math.min(plates, affordable);
 	}
 
 	@Override
