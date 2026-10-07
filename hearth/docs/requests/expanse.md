@@ -24,3 +24,13 @@ lands (it changes heights in temperate country, so the histories of regions not 
 
 
 **Status (2026-10-05, after merging main 7598143c):** 1 done — `ExpanseProbe.modelColumn` reads `lake`/`lakeEdge` beside the crater line. 2 done — `sim/terrain/ExpanseClaims` registers a `LandClaims.Claim` backed by `SimWorld.isPlanned` (thread-safe), from `SimModule.init` when Expanse is loaded.
+
+## From Expanse, 2026-10-07 (main 4b138901, merged into hearth 0d2fa111) — for Hearth's plan lane
+
+- The overworld is taller (top y 639) with bigger relief: ranges to ~600, heartland swells of 60-120 blocks, escarpments,
+  deeper gorges. Live probes read the level's height, so nothing is capped; re-check road grades, territory on mountain
+  flanks and the castle-hill pick on the new relief.
+- `Column.site` from `TerrainModel.sample`: `SITE_HILLTOP` (the level top of a lone volcanic hill) and `SITE_RIM` (the top of
+  an escarpment's edge). Read it in `ExpanseProbe` and let castle and keep siting (plan/society/Nobility) prefer them.
+- Expanse lays crop fields inside hedgerows on open land, skipping LandClaims land; abandoned mine camps (with real ore
+  faces, for prospecting quests), a collapsed hamlet and a burnt logging camp appear only with Hearth, clear of its land.
