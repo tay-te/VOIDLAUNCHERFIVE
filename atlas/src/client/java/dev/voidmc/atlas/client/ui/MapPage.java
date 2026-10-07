@@ -2003,28 +2003,39 @@ public final class MapPage {
 		}
 		List<String> facts = place == null ? List.of() : this.facts(place, region);
 		Source source = place != null ? place.source() : m.source();
-		// the height first, to size the card
-		float h = 17 + 40;
-		if (place != null) {
-			h += 14 + 14;
-		}
-		h += 14 + 60;
-		if (detail != null && detail.meter() != null) {
-			h += 14 + 51;
-		}
+		// the height first, to size the card; a card taller than the map has room for gives up, in turn, Atlas's own
+		// facts (a mod's card speaks for its place), then its last rows, then the meter: never drawn past its panel
+		float room = this.mapH - 88 - 64;
+		MarkerDetail.Meter shownMeter = detail == null ? null : detail.meter();
+		List<List<MarkerDetail.Row>> rows = new ArrayList<>();
 		if (detail != null) {
 			for (MarkerDetail.Section s : detail.sections()) {
-				h += 14 + 11 + s.rows().size() * 42;
+				rows.add(new ArrayList<>(s.rows()));
 			}
 		}
-		if (!facts.isEmpty()) {
-			h += 14 + 11 + 8 + facts.size() * 22 - 8;
+		float h = cardHeight(place != null, shownMeter != null, rows, facts.size(), source != null);
+		if (h > room && !rows.isEmpty() && !facts.isEmpty()) {
+			facts = List.of();
+			h = cardHeight(place != null, shownMeter != null, rows, 0, source != null);
 		}
-		if (source != null) {
-			h += 14 + 26;
+		while (h > room && !facts.isEmpty()) {
+			facts = facts.subList(0, facts.size() - 1);
+			h = cardHeight(place != null, shownMeter != null, rows, facts.size(), source != null);
 		}
-		h += 14 + 40 + 17;
-		h = Math.min(h, this.mapH - 88 - 64);
+		while (h > room && !rows.isEmpty()) {
+			List<MarkerDetail.Row> last = rows.get(rows.size() - 1);
+			if (last.size() > 1) {
+				last.remove(last.size() - 1);
+			} else {
+				rows.remove(rows.size() - 1);
+			}
+			h = cardHeight(place != null, shownMeter != null, rows, facts.size(), source != null);
+		}
+		if (h > room && shownMeter != null) {
+			shownMeter = null;
+			h = cardHeight(place != null, false, rows, facts.size(), source != null);
+		}
+		h = Math.min(h, room);
 		ui.panel(x, y, w, h, 20, Theme.ISLAND, Theme.HAIR_8);
 		float cx = x + 17;
 		float cy = y + 17;
@@ -2076,9 +2087,9 @@ public final class MapPage {
 			ui.text(ui.fit(r.label(), Ui.Font.F85, 1, rw - 20), rx + 13, cy + 38, Ui.Font.F85, 1, Theme.INK_4);
 		}
 		cy += 60;
-		if (detail != null && detail.meter() != null) {
+		if (shownMeter != null) {
 			cy += 14;
-			MarkerDetail.Meter meter = detail.meter();
+			MarkerDetail.Meter meter = shownMeter;
 			ui.text(meter.label().toUpperCase(Locale.ROOT), cx, cy + 2, Ui.Font.F85, 1, Theme.INK_4);
 			ui.textRight(meter.valueText(), cx + 262, cy, Ui.Font.F12, 0, Theme.INK);
 			int cells = 20;
@@ -2094,11 +2105,12 @@ public final class MapPage {
 			cy += 51;
 		}
 		if (detail != null) {
-			for (MarkerDetail.Section s : detail.sections()) {
+			for (int si = 0; si < rows.size(); si++) {
+				MarkerDetail.Section s = detail.sections().get(si);
 				cy += 14;
 				ui.text(s.label().toUpperCase(Locale.ROOT), cx, cy, Ui.Font.F85, 1, Theme.INK_4);
 				cy += 17;
-				for (MarkerDetail.Row row : s.rows()) {
+				for (MarkerDetail.Row row : rows.get(si)) {
 					ui.panel(cx, cy, 262, 36, 12, Theme.WELL, Theme.HAIR_5);
 					ui.text(ui.fit(row.text(), Ui.Font.F12, 180), cx + 11, cy + 10.5F, Ui.Font.F12, row.active() ? Theme.INK : Theme.INK_2);
 					if (row.tag() != null && !row.tag().isEmpty()) {
@@ -2157,6 +2169,28 @@ public final class MapPage {
 
 	private void track(Marker m) {
 		this.atlas.track(m);
+	}
+
+	/** A card's height with what it shows: the status line, the meter, the sections' rows, the facts, the source. */
+	private static float cardHeight(boolean status, boolean meter, List<List<MarkerDetail.Row>> sections, int facts, boolean source) {
+		float h = 17 + 40;
+		if (status) {
+			h += 14 + 14;
+		}
+		h += 14 + 60;
+		if (meter) {
+			h += 14 + 51;
+		}
+		for (List<MarkerDetail.Row> s : sections) {
+			h += 14 + 11 + s.size() * 42;
+		}
+		if (facts > 0) {
+			h += 14 + 11 + 8 + facts * 22 - 8;
+		}
+		if (source) {
+			h += 14 + 26;
+		}
+		return h + 14 + 40 + 17;
 	}
 
 	private void track(String id) {
