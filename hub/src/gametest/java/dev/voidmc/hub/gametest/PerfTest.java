@@ -273,6 +273,10 @@ public final class PerfTest {
 	 * (the left button held while the pointer circles over the map, every frame), interleaved round
 	 * by round like the inventory scenarios. Atlas draws the same page in both; what differs is the
 	 * hub around it (Ultralight's islands and window, the hub's input routing).
+	 *
+	 * <p>Like for like, Atlas's screen runs with its live backdrop on (the world drawn behind the map
+	 * every frame, as the hub draws it behind every page); {@code atlas_map_pan_frozen} is Atlas's
+	 * default (a still of the world, the world itself skipped), for reference, not gated.
 	 */
 	private MapNumbers mapScenarios(double per) {
 		HubStats st = HubStats.INSTANCE;
@@ -293,6 +297,7 @@ public final class PerfTest {
 			this.closeMap();
 		}
 		double[][] path = this.panPath();
+		boolean liveWas = this.context.computeOnClient(mc -> AtlasHooks.setLiveBackdrop(true));
 		for (int round = 0; round < this.rounds; round++) {
 			this.scenario("atlas_map", per, () -> this.openAtlasMap(atlasScreen), this::closeMap);
 			this.scenario("void_map", per, () -> this.openVoidMap(), this::closeMap);
@@ -304,7 +309,16 @@ public final class PerfTest {
 				this.openVoidMap();
 				this.startPan(path);
 			}, this::stopPanAndClose);
+			this.scenario("atlas_map_pan_frozen", per, () -> {
+				this.context.runOnClient(mc -> AtlasHooks.setLiveBackdrop(false));
+				this.openAtlasMap(atlasScreen);
+				this.startPan(path);
+			}, () -> {
+				this.stopPanAndClose();
+				this.context.runOnClient(mc -> AtlasHooks.setLiveBackdrop(true));
+			});
 		}
+		this.context.runOnClient(mc -> AtlasHooks.setLiveBackdrop(liveWas));
 		return new MapNumbers(first, createMs, Dist.of(toArray(reopen)), Dist.of(toArray(atlasOpen)));
 	}
 
@@ -833,7 +847,7 @@ public final class PerfTest {
 				.append("], p99 ").append(signed(this.hoverP99Delta)).append(" ms [").append(this.rounds("hoverP99")).append("]")
 				.append(" · chest avg ").append(signed(this.chestAvgDelta)).append(" ms, p99 ").append(signed(this.chestP99Delta)).append(" ms\n\n");
 			if (this.map != null) {
-				m.append("**Map page vs Atlas's own map screen** (median of the per-round differences): idle avg ").append(signed(this.mapAvgDelta))
+				m.append("**Map page vs Atlas's own map screen**, both drawing the live world behind the map (median of the per-round differences; `atlas_map_pan_frozen` is Atlas's default still backdrop, not gated): idle avg ").append(signed(this.mapAvgDelta))
 					.append(" ms [").append(this.rounds("mapAvg")).append("], p99 ").append(signed(this.mapP99Delta)).append(" ms [").append(this.rounds("mapP99"))
 					.append("] · panning avg ").append(signed(this.mapPanAvgDelta)).append(" ms [").append(this.rounds("mapPanAvg")).append("], p99 ")
 					.append(signed(this.mapPanP99Delta)).append(" ms [").append(this.rounds("mapPanP99")).append("]\n\n");

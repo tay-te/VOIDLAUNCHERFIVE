@@ -105,6 +105,9 @@ copy of the few API signatures it calls (excluded from the jar).
   `MapPage` does: the hub follows dimension changes with `showLayer`, but cannot tell "underground";
 * the map key as API (`AtlasApi.isMapKey(KeyEvent)`), so M could close the hub on the Map page like it
   closes Atlas's screen;
+* the still backdrop as API (`MapWidget` asking for it, or `AtlasApi.freezeWorld(boolean)`): Atlas's own
+  screen draws the world once and then skips it, ~0.7–1.5 ms a frame the hub's Map page could save
+  (docs/PERF.md);
 * the scale as API (`MapWidget.unitFor(width, height)` or a unit the host passes): the hub mirrors
   Atlas's list of scales to size the window so the page lands at exactly 1280×744; at 1920×1080
   (GUI scale 4) that is Atlas at 1.0 while the hub's islands are at 1.27.
