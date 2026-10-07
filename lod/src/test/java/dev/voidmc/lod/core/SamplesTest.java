@@ -17,6 +17,7 @@ class SamplesTest {
 			out.rock = ROCK;
 			out.rockMaterial = ROCK_ID;
 			out.bareWhenSteep = true;
+			out.bareRise = ColumnSample.DEFAULT_BARE_RISE;
 		};
 	}
 

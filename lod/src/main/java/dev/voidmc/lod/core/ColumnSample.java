@@ -76,12 +76,18 @@ public final class ColumnSample {
 	public float seen;
 	/** No ground at all in this column: the void between End islands. Nothing is drawn over it. */
 	public boolean empty;
+	/** {@link #bareRise} where the source says nothing finer: a rise of 2.9 over two blocks. */
+	public static final float DEFAULT_BARE_RISE = 5.8F;
+	/** The range {@link #bareRise} is kept in ({@code core.GeneratorCache}, five bits). */
+	public static final float MIN_BARE_RISE = 3.0F, MAX_BARE_RISE = 9.0F;
 	/**
 	 * The generator strips this column's soil to its {@link #rock} where the ground is steep (Expanse's cliffs): the
-	 * tile builder then tops it and walls it in rock wherever the land around it rises more than
-	 * {@link Samples#STEEP} blocks a block.
+	 * tile builder then tops it and walls it in rock wherever the land across it rises more than {@link #bareRise}
+	 * blocks over four.
 	 */
 	public boolean bareWhenSteep;
+	/** How steep is steep here: the rise over four blocks past which the soil goes ({@link #bareWhenSteep}). */
+	public float bareRise;
 
 	/**
 	 * A close column with land under an overhang: the overhang's underside ({@link Integer#MIN_VALUE}: none), and the land
@@ -128,6 +134,7 @@ public final class ColumnSample {
 		this.seen = 0;
 		this.empty = false;
 		this.bareWhenSteep = false;
+		this.bareRise = DEFAULT_BARE_RISE;
 	}
 
 	/** The rock at height {@code y} (already shifted by the band offset): the band there, or the plain rock. */

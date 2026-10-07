@@ -86,6 +86,7 @@ final class FarModel {
 			f.bed = (int) Math.floor(height);
 			f.landform = ((Number) this.landform.get(c)).intValue();
 			f.rock = this.rock == null ? 0 : ((Number) this.rock.get(c)).intValue();
+			f.outcrop = 0;
 			f.crater = Float.NEGATIVE_INFINITY;
 			f.craterLava = false;
 			f.fjord = false;

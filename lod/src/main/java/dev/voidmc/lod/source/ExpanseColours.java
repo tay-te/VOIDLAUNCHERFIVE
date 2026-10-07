@@ -123,6 +123,7 @@ public final class ExpanseColours {
 			out.bareWhenSteep = out.bands == null && snow < 0.5F
 				&& (look.ground() == BiomeLooks.Ground.GRASS || look.ground() == BiomeLooks.Ground.PODZOL)
 				&& f.height >= this.seaLevel + 1 && !(f.nearRiver && f.riverDist < f.riverHalfWidth + 1.5F);
+			out.bareRise = ColumnSample.DEFAULT_BARE_RISE + 1.6F * f.outcrop;
 			// bare rock above the tree line on high, young ranges
 			float bare = Colors.smooth(135, 175, top) * Colors.smooth(0.95F, 1.25F, f.uplift);
 			if (look.ground() == BiomeLooks.Ground.GRASS || look.ground() == BiomeLooks.Ground.PODZOL) {
