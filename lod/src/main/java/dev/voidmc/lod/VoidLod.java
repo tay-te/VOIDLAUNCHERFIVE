@@ -745,8 +745,9 @@ public final class VoidLod implements ClientModInitializer {
 	 * The camera is down in the ground: no sky light where it is and well under the surface of its column. Past the
 	 * chunks there is then rock, not the land above (which would draw over a cave's vault) nor the sky (which would show
 	 * at the end of a tunnel), so the far land stands down and vanilla's own fog closes the caves off at the render
-	 * distance as it does without it. A house or an overhang is not underground (not deep enough), nor a ravine open to
-	 * the sky; nor anywhere in a dimension without sky light (the Nether, the End).
+	 * distance as it does without it. A house or an overhang is not underground (not deep enough); the foot of a shaft or a
+	 * cenote is, the land all round standing far above it (and so is the floor of a ravine deeper than that); nowhere is in
+	 * a dimension without sky light (the Nether, the End).
 	 */
 	public boolean underground() {
 		return this.underground;
@@ -766,18 +767,34 @@ public final class VoidLod implements ClientModInitializer {
 		}
 		net.minecraft.core.BlockPos eye = net.minecraft.core.BlockPos.containing(mc.gameRenderer.mainCamera().position());
 		int sky = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, eye);
-		int surface = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, eye.getX(), eye.getZ());
-		if (sky <= 3 && eye.getY() < surface - UNDERGROUND_DEPTH) {
+		var type = net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES;
+		int surface = level.getHeight(type, eye.getX(), eye.getZ());
+		// the land around, 16 and 32 blocks out: at the foot of a shaft or a cenote the sky shines straight down and the
+		// column's own surface is its floor, but the ground all round stands far above
+		int around = surface;
+		for (int d = 16; d <= 32; d += 16) {
+			for (int k = 0; k < 8; k++) {
+				int x = eye.getX() + (int) Math.round(d * Math.cos(k * Math.PI / 4)), z = eye.getZ() + (int) Math.round(d * Math.sin(k * Math.PI / 4));
+				if (level.hasChunk(x >> 4, z >> 4)) {
+					around = Math.max(around, level.getHeight(type, x, z));
+				}
+			}
+		}
+		int under = around - eye.getY();
+		if (sky <= 3 && eye.getY() < surface - UNDERGROUND_DEPTH || under > SHAFT_DEPTH) {
 			if (++this.undergroundFrames >= UNDERGROUND_FRAMES) {
 				this.underground = true;
 			}
 		} else {
 			this.undergroundFrames = 0;
-			if (sky >= 7 || eye.getY() >= surface - 4) {
+			if ((sky >= 7 || eye.getY() >= surface - 4) && under < SHAFT_DEPTH - 8) {
 				this.underground = false;
 			}
 		}
 	}
+
+	/** How far under the land all round the camera must be to count as underground even in the sky light of a shaft. */
+	private static final int SHAFT_DEPTH = 32;
 
 	public LodEngine engine() {
 		return this.engine;
