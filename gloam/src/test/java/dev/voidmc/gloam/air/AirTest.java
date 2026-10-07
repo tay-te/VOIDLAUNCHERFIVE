@@ -64,6 +64,21 @@ class AirTest {
 	}
 
 	@Test
+	void vanillaRainRainsEverywhereHardestUnderTheFronts() {
+		for (float front = 0; front <= 1; front += 0.05F) {
+			float rain = Air.rain(1, front, false);
+			assertTrue(rain >= Air.DRIZZLE * 0.999F, "at least a drizzle under vanilla rain, front " + front + ": " + rain);
+			if (front >= 0.3F) {
+				assertEquals(1, rain, 1e-4, "full rain under the front at " + front);
+			}
+		}
+		assertTrue(Air.rain(1, 0.0F, false) < 0.5F, "the clearest gaps only drizzle");
+		assertTrue(Air.rain(0.15F, 0.0F, false) < 0.01F, "rain just setting in leaves the clear gaps dry");
+		assertEquals(0, Air.rain(0, 0.5F, false), 1e-6, "no vanilla rain, no showers: dry");
+		assertTrue(Air.rain(0, 0.85F, true) > 0, "a passing shower under a clear vanilla sky");
+	}
+
+	@Test
 	void mistGathersAtDawnInValleysAndBurnsOffByNoon() {
 		Climate valley = new Climate(0.7F, 0.8F, 1.0F, 0.5F);
 		Climate ridge = new Climate(0.7F, 0.8F, 0.0F, 0.0F);

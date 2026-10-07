@@ -22,6 +22,8 @@ public final class Air {
 	public static final float FRONT_DRIFT = 6.0F;
 	/** The size of a weather system, in blocks: a front is a few kilometres across. */
 	public static final float FRONT_SCALE = 3000.0F;
+	/** The share of vanilla's rain that still falls under the clearest part of the fronts: a drizzle. */
+	public static final float DRIZZLE = 0.35F;
 
 	private final long seed;
 	private final int seasonDays;
@@ -124,14 +126,18 @@ public final class Air {
 	}
 
 	/**
-	 * How hard it rains over a place, 0..1, given vanilla's rain level ({@code vanilla}) and the front there: under
-	 * vanilla rain most of the land is wet and only the clearest parts of the field stay dry; under a clear sky only the
-	 * showers fall (when {@code showers} allows them).
+	 * How hard it rains over a place, 0..1, given vanilla's rain level ({@code vanilla}) and the front there. Under
+	 * vanilla rain it rains everywhere: full strength wherever the front is above about 0.3, and at least a drizzle
+	 * ({@link #DRIZZLE} of vanilla's) under the clearest parts of the field. Only while vanilla's rain is setting in or
+	 * clearing do those clear parts stay dry a little longer, so a downpour arrives and leaves with the fronts. Under
+	 * a clear vanilla sky only the showers fall (when {@code showers} allows them).
 	 */
 	public static float rain(float vanilla, float front, boolean showers) {
-		float under = vanilla * Noise.smoothstep(0.18F, 0.42F, front);
+		float floor = DRIZZLE * Noise.smoothstep(0.2F, 0.7F, vanilla);
+		float under = vanilla * (floor + (1 - floor) * Noise.smoothstep(0.1F, 0.3F, front));
 		return Math.max(under, showers ? showers(front) : 0);
 	}
+
 
 	// ----------------------------------------------------------------------------------------------------- the mist
 

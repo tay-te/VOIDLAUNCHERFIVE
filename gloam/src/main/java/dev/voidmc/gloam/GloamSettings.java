@@ -30,6 +30,8 @@ public final class GloamSettings {
 	public double darkNights = 0.85;
 	/** Whether the fronts bring passing showers under a clear vanilla sky (only their look and sound; vanilla's weather rules). */
 	public boolean showers = true;
+	/** Whether the rain shows where the fronts bring it (vanilla's rain level made regional on the client), or everywhere at once as in vanilla. */
+	public boolean regionalRain = true;
 	/** How many Minecraft days one season lasts. */
 	public int seasonDays = 8;
 
@@ -91,6 +93,7 @@ public final class GloamSettings {
 		this.sky = bool(json, "sky", this.sky);
 		this.darkNights = number(json, "darkNights", this.darkNights, 0, 1);
 		this.showers = bool(json, "showers", this.showers);
+		this.regionalRain = bool(json, "regionalRain", this.regionalRain);
 		this.seasonDays = (int) number(json, "seasonDays", this.seasonDays, 1, 120);
 		this.motes = number(json, "motes", this.motes, 0, 2);
 		this.sound = number(json, "sound", this.sound, 0, 1);
@@ -103,6 +106,7 @@ public final class GloamSettings {
 		json.addProperty("sky", this.sky);
 		json.addProperty("darkNights", this.darkNights);
 		json.addProperty("showers", this.showers);
+		json.addProperty("regionalRain", this.regionalRain);
 		json.addProperty("seasonDays", this.seasonDays);
 		json.addProperty("motes", this.motes);
 		json.addProperty("sound", this.sound);
@@ -112,7 +116,7 @@ public final class GloamSettings {
 
 	private void overrides() {
 		JsonObject props = new JsonObject();
-		for (String name : new String[]{"enabled", "sky", "darkNights", "showers", "seasonDays", "motes", "sound", "far"}) {
+		for (String name : new String[]{"enabled", "sky", "darkNights", "showers", "regionalRain", "seasonDays", "motes", "sound", "far"}) {
 			String value = System.getProperty("gloam." + name);
 			if (value != null) {
 				String v = value.trim().toLowerCase(Locale.ROOT);
