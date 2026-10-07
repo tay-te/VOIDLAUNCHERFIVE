@@ -46,6 +46,8 @@ public final class BuildSite {
 	private long heldAt = Long.MIN_VALUE;
 	private boolean dirty = true;
 	private long lastTouched;
+	/** When the crew last put a block in place (a step or a scaffold): the sim is told they are at it only while they are. */
+	private long activeAt = Long.MIN_VALUE;
 	/** Pending positions (packed), from the last scan: nobody stands in them. */
 	private final it.unimi.dsi.fastutil.longs.LongOpenHashSet pendingAt = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 
@@ -128,9 +130,11 @@ public final class BuildSite {
 				return;
 			}
 			rescan(level, plot, bp, now);
+			wantRing(level, plot, bp);
 		}
-		if (now - this.advancedAt >= 100 && now - this.heldAt >= 100) {
-			// the counter has not moved for a while (the ring going up, work ahead of the cursor): the crew is still at it
+		if (now - this.advancedAt >= 100 && now - this.heldAt >= 100 && now - this.activeAt < 300) {
+			// the counter has not moved for a while (the ring going up, work ahead of the cursor) but the crew is at it: abstract
+			// labour keeps off. A crew that has placed nothing for a while is not covered, so a stalled site never stalls the town
 			this.heldAt = now;
 			settlement.advanceConstruction(plot.id(), 0);
 		}
@@ -192,6 +196,36 @@ public final class BuildSite {
 				this.pendingAt.add(p.pos());
 			}
 		}
+	}
+
+	/**
+	 * The ring goes up before anyone needs it: as soon as the stage has work high on the shell, to the height from which
+	 * its highest course is at eye level (and it stays up, rising as the stage climbs, until the last high stage is done).
+	 */
+	private void wantRing(ServerLevel level, PlotView plot, Blueprint bp) {
+		StepPlan.Scan s = this.scan;
+		if (s == null || s.pending().isEmpty()) {
+			return;
+		}
+		Staging st = staging(level, bp, plot.spec());
+		if (st == null || st.minBase == Staging.NONE) {
+			return;
+		}
+		int top = Integer.MIN_VALUE;
+		for (StepPlan.Pending p : s.pending()) {
+			if (!p.state().isAir() && high(st, p.pos())) {
+				top = Math.max(top, BlockPos.getY(p.pos()));
+			}
+		}
+		if (top != Integer.MIN_VALUE) {
+			// feet two below the course: it is at eye height, and the course above it in reach too
+			st.require(top - 2);
+		}
+	}
+
+	/** The crew put something in place just now. */
+	void active(long now) {
+		this.activeAt = now;
 	}
 
 	/** A step was placed (by index of the current stage). */
@@ -324,17 +358,6 @@ public final class BuildSite {
 		ledger.clear(level, this.ledgerId);
 		this.staging = null;
 		this.columns.clear();
-	}
-
-	private long raiseGaveUpAt = Long.MIN_VALUE;
-
-	/** The ring could not be raised further (nowhere to stand to raise it): not asked again for a minute. */
-	void raiseGaveUp(long now) {
-		this.raiseGaveUpAt = now;
-	}
-
-	boolean mayRaise(long now) {
-		return now - this.raiseGaveUpAt > 1200;
 	}
 
 	/** Forgets the ring once it is down (a later high stage plans a new one). */

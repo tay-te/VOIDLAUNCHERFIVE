@@ -43,6 +43,8 @@ final class Staging {
 	final int[] cap;
 	/** The highest scaffold block in each column, {@code base - 1} if none. */
 	final int[] height;
+	/** Columns nobody could get to the foot of: left short (the ring has a gap there until it comes down). */
+	final boolean[] skipped;
 	/** Ring index by column (packed x, z with y 0). */
 	private final Long2IntOpenHashMap index = new Long2IntOpenHashMap();
 	/** The last stage with high work on the shell: the ring comes down once it is done. */
@@ -62,6 +64,7 @@ final class Staging {
 		this.base = base;
 		this.cap = cap;
 		this.height = new int[this.n];
+		this.skipped = new boolean[this.n];
 		int lo = Integer.MAX_VALUE;
 		for (int i = 0; i < this.n; i++) {
 			this.height[i] = base[i] == NONE ? NONE : base[i] - 1;
@@ -228,13 +231,18 @@ final class Staging {
 
 	/** The top a column is raised to now. */
 	int want(int c) {
-		return this.target == NONE ? this.base[c] - 1 : Math.min(this.target, this.cap[c]);
+		return this.target == NONE || this.skipped[c] ? this.base[c] - 1 : Math.min(this.target, this.cap[c]);
+	}
+
+	/** A column still short of the wanted top. */
+	boolean isShort(int c) {
+		return valid(c) && this.height[c] < want(c);
 	}
 
 	/** Columns still short of the wanted top. */
 	boolean raising() {
 		for (int c = 0; c < this.n; c++) {
-			if (valid(c) && this.height[c] < want(c)) {
+			if (isShort(c)) {
 				return true;
 			}
 		}

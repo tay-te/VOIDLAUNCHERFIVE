@@ -377,6 +377,10 @@ final class BuilderWork implements WorkBehaviour {
 		private int column = -1;
 		private int spotMode;
 		private final LongOpenHashSet badSpots = new LongOpenHashSet();
+		/** Steps of this stage no place one could get to reached lately: passed for the next ready ones a while. */
+		private final it.unimi.dsi.fastutil.ints.IntOpenHashSet badTargets = new it.unimi.dsi.fastutil.ints.IntOpenHashSet();
+		/** Paths asked for in this choice of where to work (they cost: a few at most). */
+		private int pathTries;
 		private int badAge;
 		/** Climbing down off the building: the column beside them and the ground's height there. */
 		private @Nullable BlockPos descend;
@@ -434,11 +438,13 @@ final class BuilderWork implements WorkBehaviour {
 			if (this.badAge > 600) {
 				// places no way was found to may be reachable now (the work moved on, a door was opened)
 				this.badSpots.clear();
+				this.badTargets.clear();
 				this.badAge = 0;
 			}
 			if (stage != this.lastStage) {
 				this.lastStage = stage;
 				this.badSpots.clear();
+				this.badTargets.clear();
 				// one of the crew goes to the store for it (unless someone carries for the site); the rest work on
 				this.fetchFrom = site.hasCarrier(now) || this.walker.onRing(site.staging, brain.folk) || !site.fetchFor(stage) ? null : store(brain, level);
 				this.fetchTicks = 50;
@@ -451,7 +457,11 @@ final class BuilderWork implements WorkBehaviour {
 			}
 			Staging st = site.staging;
 			if (st != null && st.raising()) {
-				return raise(brain, level, site, st, elapsed);
+				return raise(brain, level, site, st, plot, bp, elapsed, now);
+			}
+			if (this.column >= 0) {
+				site.columns.remove(brain.resident.id);
+				this.column = -1;
 			}
 			return work(brain, level, site, plot, bp, elapsed, now);
 		}
@@ -499,6 +509,7 @@ final class BuilderWork implements WorkBehaviour {
 					brain.faceTowards(pos);
 					this.doing = p.state().isAir() ? "clearing" : "placing " + p.state().getBlock().getName().getString().toLowerCase(java.util.Locale.ROOT);
 					if (place(brain, level, site, plot, bp, scan.stage(), p)) {
+						site.active(now);
 						this.cooldown = BuilderStep.ticks(brain);
 						this.placedAt = now;
 						this.placedHere++;
@@ -610,7 +621,121 @@ final class BuilderWork implements WorkBehaviour {
 				this.waitTicks = 10;
 				return false;
 			}
-			StepPlan.Pending target = ready.get(0);
+			// the first ready steps in turn (a step no place one can get to reaches is passed for the next: steps may be
+			// placed ahead, so one awkward block never holds the crew up)
+			this.pathTries = 0;
+			int tried = 0;
+			StepPlan.Pending target = null;
+			for (StepPlan.Pending p : ready) {
+				if (this.badTargets.contains(p.index())) {
+					continue;
+				}
+				if (target == null) {
+					target = p;
+				}
+				Spot best = spotFor(brain, level, site, p, ready);
+				if (best != null) {
+					setSpot(brain, site, best, PLACE);
+					return true;
+				}
+				this.badTargets.add(p.index());
+				if (++tried >= 4 || this.pathTries >= 8) {
+					break;
+				}
+			}
+			if (target == null) {
+				// every ready step has been tried and passed: the first of them again, by the ring or a long reach
+				target = ready.get(0);
+				this.badTargets.clear();
+			}
+			BlockPos t = target.blockPos();
+			Staging st = site.staging;
+			BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+			// Out of reach from anywhere one can stand now: the scaffolding, if a ring can serve it.
+			Staging ring = st != null ? st : site.staging(level, bp, plot.spec());
+			if (ring == null) {
+				trace("N");
+			} else {
+				int need = feetFor(ring, t, eyeH);
+				if (need != Staging.NONE && ring.require(need) && ring.raising()) {
+					trace("R" + need);
+					this.doing = "putting up scaffolding";
+					return false;
+				}
+				trace("r" + (need == Staging.NONE ? "-" : need - ring.minBase));
+			}
+			// Nowhere: placed leaning out from the nearest place one can stand (never stall a town over one block).
+			if (this.stretch != target.index() || this.stretchStage != scan.stage()) {
+				this.stretch = target.index();
+				this.stretchStage = scan.stage();
+				this.stretchSince = this.stepTicks;
+			}
+			trace("S" + target.index());
+			if (reaches(folk.getEyePosition(), target.pos(), LONG_REACH - 0.3) && !this.walker.onRing(site.staging, folk)) {
+				// within a long reach of where they stand: no need to go anywhere
+				setSpot(brain, site, new Spot(folk.blockPosition(), -1), PLACE);
+				return true;
+			}
+			// the nearest places one can stand within a long reach, crowded or not, the first that can be got to
+			List<Spot> near = new ArrayList<>();
+			List<Double> closeness = new ArrayList<>();
+			for (int dy = -6; dy <= 2; dy++) {
+				for (int dx = -4; dx <= 4; dx++) {
+					for (int dz = -4; dz <= 4; dz++) {
+						m.set(t.getX() + dx, t.getY() + dy, t.getZ() + dz);
+						if (!reaches(eyeAt(m, eyeH), target.pos(), LONG_REACH) || !level.isLoaded(m) || this.badSpots.contains(m.asLong())
+							|| site.pendingAt(m.asLong()) || site.pendingAt(BlockPos.asLong(m.getX(), m.getY() + 1, m.getZ())) || !FolkSpots.standable(level, m)) {
+							continue;
+						}
+						near.add(new Spot(m.immutable(), -1));
+						closeness.add(-m.distSqr(t));
+					}
+				}
+			}
+			Staging ringNow = site.staging;
+			if (ringNow != null) {
+				// or from the scaffolding (the ridge of a roof, leaning in from the ring's top)
+				for (int c = 0; c < ringNow.n; c++) {
+					if (!ringNow.valid(c)) {
+						continue;
+					}
+					for (int f = t.getY() - 6; f <= t.getY() + 2; f++) {
+						BlockPos feet = new BlockPos(ringNow.xs[c], f, ringNow.zs[c]);
+						if (ringNow.supports(c, f) && reaches(eyeAt(feet, eyeH), target.pos(), LONG_REACH) && !this.badSpots.contains(feet.asLong())) {
+							near.add(new Spot(feet, c));
+							closeness.add(-feet.distSqr(t) + 2.0);
+						}
+					}
+				}
+			}
+			Spot lean = reachable(brain, site, near, closeness);
+			if (lean == null && !this.walker.onRing(site.staging, folk) && startDescent(level, folk)) {
+				// up on the building with no way on from here: down the wall first, then choose again
+				trace("D");
+				return false;
+			}
+			if (lean == null && folk.getEyePosition().distanceToSqr(Vec3.atCenterOf(t)) > 10 * 10) {
+				// far from it (back from an errand, or the way in is shut): to the front of the site first, then choose again
+				BlockPos front = FolkSpots.standableNear(level, ResidentPlaces.centre(plot.spec()).relative(plot.spec().facing(), plot.spec().depth() / 2 + 2), 4);
+				if (front != null && !this.badSpots.contains(front.asLong())) {
+					trace("G");
+					setSpot(brain, site, new Spot(front, -1), PLACE);
+					return true;
+				}
+			}
+			setSpot(brain, site, lean != null ? lean : new Spot(folk.blockPosition(), -1), PLACE);
+			return true;
+		}
+
+		/**
+		 * The place to work a step from: on the ground, a floor, or the scaffolding as it stands, whichever reaches the most
+		 * ready steps (a little for staying up on the scaffolding once there), not where another builder works, and that
+		 * can be got to. Null if none.
+		 */
+		private @Nullable Spot spotFor(FolkBrain brain, ServerLevel level, BuildSite site, StepPlan.Pending target, List<StepPlan.Pending> ready) {
+			Folk folk = brain.folk;
+			UUID me = brain.resident.id;
+			double eyeH = folk.getEyeHeight();
 			BlockPos t = target.blockPos();
 			List<Spot> spots = new ArrayList<>();
 			List<Double> scores = new ArrayList<>();
@@ -671,75 +796,7 @@ final class BuilderWork implements WorkBehaviour {
 			}
 			Spot best = reachable(brain, site, spots, scores);
 			trace("C" + spots.size() + (best == null ? "x" : best.cell() >= 0 ? "r" : "g"));
-			if (best != null) {
-				setSpot(brain, site, best, PLACE);
-				return true;
-			}
-			// Out of reach from anywhere one can stand now: the scaffolding, if a ring can serve it.
-			Staging ring = st != null ? st : site.staging(level, bp, plot.spec());
-			if (ring == null) {
-				trace("N");
-			} else {
-				int need = feetFor(ring, t, eyeH);
-				if (need != Staging.NONE && site.mayRaise(level.getGameTime()) && ring.require(need) && ring.raising()) {
-					trace("R" + need);
-					this.doing = "putting up scaffolding";
-					return false;
-				}
-				trace("r" + (need == Staging.NONE ? "-" : need - ring.minBase));
-			}
-			// Nowhere: placed leaning out from the nearest place one can stand (never stall a town over one block).
-			if (this.stretch != target.index() || this.stretchStage != scan.stage()) {
-				this.stretch = target.index();
-				this.stretchStage = scan.stage();
-				this.stretchSince = this.stepTicks;
-			}
-			trace("S" + target.index());
-			if (reaches(folk.getEyePosition(), target.pos(), LONG_REACH - 0.3) && !this.walker.onRing(site.staging, folk)) {
-				// within a long reach of where they stand: no need to go anywhere
-				setSpot(brain, site, new Spot(folk.blockPosition(), -1), PLACE);
-				return true;
-			}
-			// the nearest places one can stand within a long reach, crowded or not, the first that can be got to
-			List<Spot> near = new ArrayList<>();
-			List<Double> closeness = new ArrayList<>();
-			for (int dy = -6; dy <= 2; dy++) {
-				for (int dx = -4; dx <= 4; dx++) {
-					for (int dz = -4; dz <= 4; dz++) {
-						m.set(t.getX() + dx, t.getY() + dy, t.getZ() + dz);
-						if (!reaches(eyeAt(m, eyeH), target.pos(), LONG_REACH) || !level.isLoaded(m) || this.badSpots.contains(m.asLong())
-							|| site.pendingAt(m.asLong()) || site.pendingAt(BlockPos.asLong(m.getX(), m.getY() + 1, m.getZ())) || !FolkSpots.standable(level, m)) {
-							continue;
-						}
-						near.add(new Spot(m.immutable(), -1));
-						closeness.add(-m.distSqr(t));
-					}
-				}
-			}
-			Staging ringNow = site.staging;
-			if (ringNow != null) {
-				// or from the scaffolding (the ridge of a roof, leaning in from the ring's top)
-				for (int c = 0; c < ringNow.n; c++) {
-					if (!ringNow.valid(c)) {
-						continue;
-					}
-					for (int f = t.getY() - 6; f <= t.getY() + 2; f++) {
-						BlockPos feet = new BlockPos(ringNow.xs[c], f, ringNow.zs[c]);
-						if (ringNow.supports(c, f) && reaches(eyeAt(feet, eyeH), target.pos(), LONG_REACH) && !this.badSpots.contains(feet.asLong())) {
-							near.add(new Spot(feet, c));
-							closeness.add(-feet.distSqr(t) + 2.0);
-						}
-					}
-				}
-			}
-			Spot lean = reachable(brain, site, near, closeness);
-			if (lean == null && !this.walker.onRing(site.staging, folk) && startDescent(level, folk)) {
-				// up on the building with no way on from here: down the wall first, then choose again
-				trace("D");
-				return false;
-			}
-			setSpot(brain, site, lean != null ? lean : new Spot(folk.blockPosition(), -1), PLACE);
-			return true;
+			return best;
 		}
 
 		/**
@@ -763,8 +820,8 @@ final class BuilderWork implements WorkBehaviour {
 					return s;
 				}
 				BlockPos to = s.cell() >= 0 && st != null ? new BlockPos(st.xs[s.cell()], st.base[s.cell()], st.zs[s.cell()]) : s.feet();
-				if (to.distSqr(folk.blockPosition()) <= 6 * 6) {
-					// close by on the site: just go (a failed walk marks the place)
+				if (to.distSqr(folk.blockPosition()) <= 1) {
+					// already there
 					return s;
 				}
 				if (to.distSqr(folk.blockPosition()) > 24 * 24) {
@@ -772,6 +829,10 @@ final class BuilderWork implements WorkBehaviour {
 					return s;
 				}
 				// (into a scaffold column's foot from beside it is enough: the walker steps in under it)
+				if (this.pathTries >= 8) {
+					break;
+				}
+				this.pathTries++;
 				net.minecraft.world.level.pathfinder.Path path = folk.getNavigation().createPath(to, s.cell() >= 0 ? 1 : 0);
 				if (path != null && path.canReach()) {
 					folk.getNavigation().moveTo(path, 0.65);
@@ -779,7 +840,7 @@ final class BuilderWork implements WorkBehaviour {
 				}
 				this.badSpots.add(s.feet().asLong());
 				trace("P!");
-				if (++tries >= 3) {
+				if (++tries >= 4) {
 					break;
 				}
 			}
@@ -926,76 +987,129 @@ final class BuilderWork implements WorkBehaviour {
 
 		// ------------------------------------------------------------ scaffolding
 
-		/** Putting the ring up to the height asked for, column by column, bottom up, from the ground or from the ring. */
-		private Status raise(FolkBrain brain, ServerLevel level, BuildSite site, Staging st, int elapsed) {
+		/**
+		 * Putting the ring up to the height asked for, a column at a time. From the ground a builder takes the nearest column
+		 * still short that nobody else has, stands beside its foot and runs it up to the top (as clicking the foot of a
+		 * vanilla scaffold column extends it at the top); one already up on the ring runs up the columns in reach of where
+		 * they stand. With every short column in hand, the rest get on with the walls.
+		 */
+		private Status raise(FolkBrain brain, ServerLevel level, BuildSite site, Staging st, PlotView plot, Blueprint bp, int elapsed, long now) {
 			Folk folk = brain.folk;
-			if (this.spot != null && this.spotMode != RAISE) {
-				leaveSpot(brain, site);
+			UUID me = brain.resident.id;
+			if (this.column >= 0 && !st.isShort(this.column)) {
+				site.columns.remove(me);
+				this.column = -1;
+				if (this.spotMode == RAISE) {
+					leaveSpot(brain, site);
+				}
+			}
+			if (this.column < 0 && this.walker.onRing(st, folk)) {
+				// up on the ring: the columns within reach of here, from here
+				int c = reachableColumn(st, folk);
+				if (c < 0) {
+					return work(brain, level, site, plot, bp, elapsed, now);
+				}
+				if (this.spot != null && this.arrived) {
+					this.walker.hold(brain, st, this.spot);
+				}
+				if (this.cooldown <= 0) {
+					brain.hold(new ItemStack(Items.SCAFFOLDING), ItemStack.EMPTY);
+					raiseOne(brain, level, site, st, c, now);
+				}
+				return Status.RUNNING;
+			}
+			if (this.column < 0) {
+				int best = -1;
+				double bestD = Double.MAX_VALUE;
+				for (int c = 0; c < st.n; c++) {
+					if (!st.isShort(c) || site.columns.containsValue(c)) {
+						continue;
+					}
+					double d = Mth.square(st.xs[c] + 0.5 - folk.getX()) + Mth.square(st.zs[c] + 0.5 - folk.getZ());
+					if (d < bestD) {
+						bestD = d;
+						best = c;
+					}
+				}
+				if (best < 0) {
+					// the rest of the ring is in hand
+					return work(brain, level, site, plot, bp, elapsed, now);
+				}
+				if (this.spot != null) {
+					leaveSpot(brain, site);
+				}
+				List<BlockPos> stand = beside(level, st, best);
+				BlockPos at = stand.isEmpty() ? FolkSpots.standableNear(level, new BlockPos(st.xs[best], st.base[best], st.zs[best]), 2) : stand.get(0);
+				if (at == null) {
+					st.skipped[best] = true;
+					return Status.RUNNING;
+				}
+				this.column = best;
+				site.columns.put(me, best);
+				setSpot(brain, site, new Spot(at, -1), RAISE);
 			}
 			brain.hold(new ItemStack(Items.SCAFFOLDING), ItemStack.EMPTY);
-			if (this.spot != null && this.arrived) {
-				this.walker.hold(brain, st, this.spot);
-				if (this.cooldown > 0) {
-					return Status.RUNNING;
-				}
-				int c = nextColumn(st, folk, this.spot);
-				if (c >= 0) {
-					ScaffoldLedger ledger = brain.settlement.data(ScaffoldLedger.KEY);
-					BlockPos at = new BlockPos(st.xs[c], st.height[c] + 1, st.zs[c]);
-					brain.faceTowards(at);
-					if (st.raise(level, ledger, site.ledgerId, c)) {
-						brain.swing();
-						level.playSound(null, at, SoundEvents.SCAFFOLDING_PLACE, SoundSource.BLOCKS, 1.0F, 0.9F + brain.random.nextFloat() * 0.2F);
-						brain.settlement.markDirty();
-					}
-					this.doing = "putting up scaffolding";
-					this.cooldown = BuilderStep.scaffold(brain);
-					return Status.RUNNING;
-				}
-				leaveSpot(brain, site);
-			}
-			if (this.spot == null) {
-				Spot s = raiseSpot(brain, level, site, st);
-				if (s == null) {
-					// nothing within anyone's reach: the ring stays as it is (and is not asked higher for a minute)
-					st.target = Math.min(st.target, maxHeight(st));
-					site.raiseGaveUp(level.getGameTime());
-					this.doing = "putting up scaffolding";
-					return Status.RUNNING;
-				}
-				setSpot(brain, site, s, RAISE);
-			}
-			Status r = walk(brain, level, site, elapsed);
+			int c = this.column;
 			if (!this.arrived) {
-				this.doing = this.walker.onRing(st, folk) ? this.walker.doing() : "carrying scaffolding";
-			}
-			return r;
-		}
-
-		private static int maxHeight(Staging st) {
-			int h = Staging.NONE;
-			for (int c = 0; c < st.n; c++) {
-				if (st.valid(c)) {
-					h = Math.max(h, st.height[c]);
+				this.spotTicks += elapsed;
+				if (this.walker.tick(brain, level, site, this.spot, elapsed)) {
+					this.arrived = true;
+					site.arrived.add(me);
+				} else if (this.walker.failed() || this.spotTicks > this.spotAllowance) {
+					BlockPos foot = new BlockPos(st.xs[c], st.base[c], st.zs[c]);
+					if (foot.distSqr(folk.blockPosition()) <= 6 * 6 && !this.walker.onRing(st, folk)) {
+						// close enough: run it up from here
+						this.arrived = true;
+					} else {
+						trace("K" + c);
+						st.skipped[c] = true;
+						site.columns.remove(me);
+						this.column = -1;
+						leaveSpot(brain, site);
+					}
 				}
+				this.doing = this.walker.onRing(st, folk) ? this.walker.doing() : "carrying scaffolding";
+				return Status.RUNNING;
 			}
-			return h;
+			this.doing = "putting up scaffolding";
+			if (this.cooldown > 0) {
+				return Status.RUNNING;
+			}
+			if (!raiseOne(brain, level, site, st, c, now) && st.isShort(c)) {
+				// not free there after all (or its chunk is gone): left short
+				st.skipped[c] = true;
+			}
+			return Status.RUNNING;
 		}
 
-		/** The column whose next block is lowest within reach of where the builder stands (never their own feet). */
-		private static int nextColumn(Staging st, Folk folk, Spot spot) {
+		/** One scaffold block on top of column {@code c}. */
+		private boolean raiseOne(FolkBrain brain, ServerLevel level, BuildSite site, Staging st, int c, long now) {
+			BlockPos at = new BlockPos(st.xs[c], st.height[c] + 1, st.zs[c]);
+			brain.faceTowards(at);
+			this.doing = "putting up scaffolding";
+			this.cooldown = BuilderStep.scaffold(brain);
+			if (!st.raise(level, brain.settlement.data(ScaffoldLedger.KEY), site.ledgerId, c)) {
+				return false;
+			}
+			brain.swing();
+			level.playSound(null, at, SoundEvents.SCAFFOLDING_PLACE, SoundSource.BLOCKS, 1.0F, 0.9F + brain.random.nextFloat() * 0.2F);
+			brain.settlement.markDirty();
+			site.active(now);
+			return true;
+		}
+
+		/** The short column whose next block is lowest within reach of where the builder stands (never over their own head). */
+		private static int reachableColumn(Staging st, Folk folk) {
 			Vec3 eye = folk.getEyePosition();
+			int here = Walker.ringCell(st, folk);
 			int best = -1;
 			int bestY = Integer.MAX_VALUE;
 			for (int c = 0; c < st.n; c++) {
-				if (!st.valid(c) || st.height[c] >= st.want(c)) {
+				if (!st.isShort(c)) {
 					continue;
 				}
 				int y = st.height[c] + 1;
-				if (c == spot.cell() && y >= spot.feet().getY() - 1) {
-					continue;
-				}
-				if (!reaches(eye, BlockPos.asLong(st.xs[c], y, st.zs[c]), REACH + 0.3)) {
+				if (c == here || !reaches(eye, BlockPos.asLong(st.xs[c], y, st.zs[c]), REACH)) {
 					continue;
 				}
 				if (folk.getBoundingBox().intersects(new AABB(st.xs[c], y, st.zs[c], st.xs[c] + 1, y + 1, st.zs[c] + 1))) {
@@ -1007,61 +1121,6 @@ final class BuilderWork implements WorkBehaviour {
 				}
 			}
 			return best;
-		}
-
-		/**
-		 * Where to raise from: on the ground beside a column still short (inside or outside the ring), or on top of a
-		 * column already up, wherever the most blocks still to put up are within reach and no other builder works.
-		 */
-		private @Nullable Spot raiseSpot(FolkBrain brain, ServerLevel level, BuildSite site, Staging st) {
-			Folk folk = brain.folk;
-			UUID me = brain.resident.id;
-			double eyeH = folk.getEyeHeight();
-			Spot best = null;
-			double bestScore = 0;
-			for (int c = 0; c < st.n; c++) {
-				if (!st.valid(c) || st.height[c] >= st.want(c)) {
-					continue;
-				}
-				List<Spot> options = new ArrayList<>(4);
-				for (BlockPos g : beside(level, st, c)) {
-					options.add(new Spot(g, -1));
-				}
-				for (int k = -2; k <= 2; k++) {
-					int o = st.next(c, k);
-					if (k != 0 && st.valid(o) && st.height[o] >= st.base[o] && st.height[o] + 1 <= st.cap[o] + 1) {
-						options.add(new Spot(new BlockPos(st.xs[o], st.height[o] + 1, st.zs[o]), o));
-					}
-				}
-				for (Spot s : options) {
-					if (site.crowded(me, s.feet(), 3.0) || this.badSpots.contains(s.feet().asLong())) {
-						continue;
-					}
-					double score = raisable(st, eyeAt(s.feet(), eyeH), s) - 0.04 * Math.sqrt(s.feet().distSqr(folk.blockPosition()));
-					if (score > bestScore) {
-						bestScore = score;
-						best = s;
-					}
-				}
-			}
-			return best;
-		}
-
-		/** Blocks still to put up within reach of an eye (bottom up in each column, so a column counts up to its first gap in reach). */
-		private static int raisable(Staging st, Vec3 eye, Spot spot) {
-			int n = 0;
-			for (int c = 0; c < st.n; c++) {
-				if (!st.valid(c)) {
-					continue;
-				}
-				for (int y = st.height[c] + 1; y <= st.want(c); y++) {
-					if (c == spot.cell() && y >= spot.feet().getY() - 1 || !reaches(eye, BlockPos.asLong(st.xs[c], y, st.zs[c]), REACH)) {
-						break;
-					}
-					n++;
-				}
-			}
-			return n;
 		}
 
 		/** Standing places on the ground right beside a column, outside the ring first. */

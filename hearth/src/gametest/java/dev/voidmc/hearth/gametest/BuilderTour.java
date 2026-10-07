@@ -194,6 +194,8 @@ public class BuilderTour implements FabricClientGameTest {
 				}
 			});
 			log("time use (builder-seconds on the site, sampled each second): " + TALLY + " =" + pct);
+			log("crew time use (the site's own crew, carriers left out): " + shares(TALLY));
+			log("crew time use while scaffolding stands: " + shares(TALLY_UP));
 			if (wide != null) {
 				double[] again = world.getServer().computeOnServer(server -> camOk(server.overworld(), wide[0], wide[1], wide[2], 0) ? wide : wideView(server, site));
 				shoot(context, world, "site_later", again != null ? again : wide);
@@ -348,8 +350,23 @@ public class BuilderTour implements FabricClientGameTest {
 
 	/** What the site's builders were doing, one sample per builder each second of the later wait. */
 	private static final java.util.Map<String, Integer> TALLY = new java.util.TreeMap<>();
+	private static final java.util.Map<String, Integer> TALLY_UP = new java.util.TreeMap<>();
+
+	/** Percentages of the crew's own time (not elsewhere, not carrying for the crew). */
+	private static String shares(java.util.Map<String, Integer> tally) {
+		int total = tally.entrySet().stream().filter(e -> !e.getKey().equals("elsewhere") && !e.getKey().equals("carrying for the crew"))
+			.mapToInt(java.util.Map.Entry::getValue).sum();
+		StringBuilder b = new StringBuilder(total + " builder-seconds:");
+		tally.forEach((k, v) -> {
+			if (!k.equals("elsewhere") && !k.equals("carrying for the crew")) {
+				b.append(String.format(Locale.ROOT, " %s %.0f%%;", k, 100.0 * v / Math.max(1, total)));
+			}
+		});
+		return b.toString();
+	}
 
 	private static void tally(MinecraftServer server, Site site) {
+		boolean up = scaffolds(server, site) >= 8;
 		for (Folk f : NpcModule.embodiment().entities()) {
 			if (f.brain() == null || f.brain().settlement.id() != site.town || f.brain().resident.job != JobType.BUILDER) {
 				continue;
@@ -382,6 +399,9 @@ public class BuilderTour implements FabricClientGameTest {
 				k = "other";
 			}
 			TALLY.merge(k, 1, Integer::sum);
+			if (up) {
+				TALLY_UP.merge(k, 1, Integer::sum);
+			}
 		}
 	}
 

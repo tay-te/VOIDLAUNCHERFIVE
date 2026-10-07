@@ -25,6 +25,9 @@ final class Walker {
 	private int stuck;
 	private int towards = -1;
 	private int centring;
+	/** The closest the walk has come to its goal, and for how long it has come no closer. */
+	private double best = Double.MAX_VALUE;
+	private int noCloser;
 	private String doing = "walking to the work";
 
 	void reset() {
@@ -32,6 +35,23 @@ final class Walker {
 		this.stuck = 0;
 		this.towards = -1;
 		this.centring = 0;
+		this.best = Double.MAX_VALUE;
+		this.noCloser = 0;
+	}
+
+	/**
+	 * A walk on the ground that has come no closer for three seconds has failed (a wall in the way the path went round
+	 * and lost, a door shut): known in three seconds rather than ten, so the builder chooses again.
+	 */
+	private boolean stalled(Folk folk, double x, double y, double z, int elapsed) {
+		double d = Math.sqrt(Mth.square(x - folk.getX()) + Mth.square(z - folk.getZ())) + Math.abs(y - folk.getY());
+		if (d < this.best - 0.5) {
+			this.best = d;
+			this.noCloser = 0;
+			return false;
+		}
+		this.noCloser += elapsed;
+		return this.noCloser > 60;
 	}
 
 	boolean failed() {
@@ -75,14 +95,21 @@ final class Walker {
 			}
 			release(folk);
 			this.doing = "walking to the work";
-			boolean at = brain.walk(level, goal, 0.45, 0.65);
-			if (brain.walkFailed() || at && Math.abs(folk.getY() - goal.getY()) >= 0.75) {
+			double gx = goal.getX() + 0.5 - folk.getX();
+			double gz = goal.getZ() + 0.5 - folk.getZ();
+			// the path ends within half a block or so of the spot's middle (the navigation's waypoint slack): the last
+			// stretch is a step across on the same level, not more pathfinding that never gets closer
+			boolean at = gx * gx + gz * gz <= 1.3 * 1.3 && Math.abs(folk.getY() - goal.getY()) < 0.75 || brain.walk(level, goal, 0.45, 0.65);
+			if (!at && brain.walkFailed() || at && Math.abs(folk.getY() - goal.getY()) >= 0.75) {
 				// no way there, or below or above it (a floor or wall top the path does not climb to)
 				this.failed = true;
 				return false;
 			}
 			if (!at) {
 				this.centring = 0;
+				if (stalled(folk, goal.getX() + 0.5, goal.getY(), goal.getZ() + 0.5, elapsed)) {
+					this.failed = true;
+				}
 				return false;
 			}
 			// square on the spot: half a block off and the wall beside them would be "in their way"
@@ -121,8 +148,9 @@ final class Walker {
 			}
 			this.doing = "walking to the scaffold";
 			release(folk);
-			boolean at = brain.walk(level, new BlockPos(st.xs[cell], st.base[cell], st.zs[cell]), 0.5, 0.65);
-			if (brain.walkFailed()) {
+			boolean at = dx * dx + dz * dz <= 1.3 * 1.3 && Math.abs(folk.getY() - st.base[cell]) < 0.75
+				|| brain.walk(level, new BlockPos(st.xs[cell], st.base[cell], st.zs[cell]), 0.5, 0.65);
+			if (!at && brain.walkFailed()) {
 				this.failed = true;
 			} else if (at) {
 				// the path ends near the middle of the column's foot: in under the scaffolding
@@ -136,6 +164,9 @@ final class Walker {
 				}
 			} else {
 				this.centring = 0;
+				if (stalled(folk, st.xs[cell] + 0.5, st.base[cell], st.zs[cell] + 0.5, elapsed)) {
+					this.failed = true;
+				}
 			}
 			return false;
 		}
