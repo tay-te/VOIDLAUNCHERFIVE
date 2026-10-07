@@ -200,6 +200,19 @@ public final class Stairs {
 						opened++;
 					}
 				}
+				// a flight that turns with no landing (a stair one up before or beside its top tread, as in a corkscrew):
+				// whoever steps up round the corner needs a third row of air over the top tread, so a board there is cut
+				for (Direction side : Dirs.HORIZONTAL) {
+					if (side != f.getOpposite()) {
+						BlockState next = d.get(x + Dirs.dx(side), y + 1, z + Dirs.dz(side));
+						if (next != null && next.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+							&& next.getValue(net.minecraft.world.level.block.StairBlock.HALF) == Half.BOTTOM
+							&& d.isEmpty(x, y + 1, z) && d.isEmpty(x, y + 2, z) && open(d, x, y + 3, z, true)) {
+							opened++;
+							break;
+						}
+					}
+				}
 			}
 		}
 		return opened;
