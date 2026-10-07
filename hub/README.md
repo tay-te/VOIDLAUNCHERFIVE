@@ -65,7 +65,7 @@ page: the mark top-left, pages top-centre, close top-right, the world strip bott
   panning costs Ultralight nothing (no messages, no hit-testing, no repaints).
 * **Still backdrop, optional** (`-Dvoidhub.frozenMap=true`): Atlas's still of the world behind the Map
   page (`MapWidget.freezeWorld` / `drawFrozenWorld`), the world itself skipped, released when the page
-  stops showing. It saves 0.5–1.5 ms a frame (docs/PERF.md) but is **off by default**: Atlas dims the
+  stops showing. It saves about 1.1–1.2 ms a frame while panning (docs/PERF.md) but is **off by default**: Atlas dims the
   still to its own map's 76 %, where the hub's design is the live world at 34 % (the hub's dim steps
   aside over the still, so it is not dimmed twice).
 * **Lazy and kept.** The widget is made on the first frame the Map page draws (not at start-up or when
