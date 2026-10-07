@@ -345,51 +345,60 @@ public final class FarSight {
 			String biomeName = t.biomes() == null ? null : t.biomes()[k];
 			biomes[k] = biomeName == null ? NamePalette.NONE : biomeIds.computeIfAbsent(biomeName, session.biomeNames::id);
 		}
-		int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
-		RegionRaw raw = null;
-		RegionRaw own = null;
-		long rawKey = Long.MIN_VALUE;
-		int written = 0;
 		int span = n * scale;
-		for (int dz = 0; dz < span; dz++) {
-			int z = t.minZ() + dz;
-			int j = dz / scale;
-			int cj = Math.max(0, Math.min(n - 1, Math.floorDiv((z & ~15) + 8 - t.minZ(), scale)));
-			for (int dx = 0; dx < span; dx++) {
-				int x = t.minX() + dx;
-				int k = j * n + dx / scale;
-				short y = t.heights()[k];
-				if (y == Short.MIN_VALUE) {
-					continue;
-				}
-				int ci = Math.max(0, Math.min(n - 1, Math.floorDiv((x & ~15) + 8 - t.minX(), scale)));
-				int kc = cj * n + ci;
-				if (t.heights()[kc] == Short.MIN_VALUE) {
-					kc = k;
-				}
-				long key = Coords.pack(Coords.region(x), Coords.region(z));
-				if (key != rawKey) {
-					raw = far.raw(Coords.region(x), Coords.region(z), true);
-					own = walked.raw(Coords.region(x), Coords.region(z), false);
-					rawKey = key;
-				}
-				int lx = Coords.inRegion(x);
-				int lz = Coords.inRegion(z);
-				// walked land needs no far copy, and is never written over: the far layer is only drawn under it
-				if (own != null && own.known(RegionRaw.index(lx, lz))) {
-					continue;
-				}
-				if (raw.set(lx, lz, y, blocks[kc], depths[kc], biomes[kc], RegionRaw.KNOWN)) {
-					written++;
-					minX = Math.min(minX, x);
-					minZ = Math.min(minZ, z);
-					maxX = Math.max(maxX, x);
-					maxZ = Math.max(maxZ, z);
+		// per column of the tile, once: its cell, and the cell at its chunk's middle
+		int[] colCell = new int[span];
+		int[] colChunk = new int[span];
+		for (int dx = 0; dx < span; dx++) {
+			int x = t.minX() + dx;
+			colCell[dx] = dx / scale;
+			colChunk[dx] = Math.max(0, Math.min(n - 1, Math.floorDiv((x & ~15) + 8 - t.minX(), scale)));
+		}
+		short[] heights = t.heights();
+		int written = 0;
+		// region by region: each region's raws looked up once, then its rows written straight in
+		int rx0 = Coords.region(t.minX());
+		int rx1 = Coords.region(t.minX() + span - 1);
+		int rz0 = Coords.region(t.minZ());
+		int rz1 = Coords.region(t.minZ() + span - 1);
+		for (int rz = rz0; rz <= rz1; rz++) {
+			int z0 = Math.max(t.minZ(), rz * Coords.REGION_SIZE);
+			int z1 = Math.min(t.minZ() + span, (rz + 1) * Coords.REGION_SIZE);
+			for (int rx = rx0; rx <= rx1; rx++) {
+				int x0 = Math.max(t.minX(), rx * Coords.REGION_SIZE);
+				int x1 = Math.min(t.minX() + span, (rx + 1) * Coords.REGION_SIZE);
+				RegionRaw raw = far.raw(rx, rz, true);
+				RegionRaw own = walked.raw(rx, rz, false);
+				for (int z = z0; z < z1; z++) {
+					int dz = z - t.minZ();
+					int rowCell = dz / scale * n;
+					int rowChunk = Math.max(0, Math.min(n - 1, Math.floorDiv((z & ~15) + 8 - t.minZ(), scale))) * n;
+					int lz = Coords.inRegion(z);
+					for (int x = x0; x < x1; x++) {
+						int dx = x - t.minX();
+						int k = rowCell + colCell[dx];
+						short y = heights[k];
+						if (y == Short.MIN_VALUE) {
+							continue;
+						}
+						int kc = rowChunk + colChunk[dx];
+						if (heights[kc] == Short.MIN_VALUE) {
+							kc = k;
+						}
+						int lx = Coords.inRegion(x);
+						// walked land needs no far copy, and is never written over: the far layer is only drawn under it
+						if (own != null && own.known(RegionRaw.index(lx, lz))) {
+							continue;
+						}
+						if (raw.set(lx, lz, y, blocks[kc], depths[kc], biomes[kc], RegionRaw.KNOWN)) {
+							written++;
+						}
+					}
 				}
 			}
 		}
-		if (minX <= maxX) {
-			far.dirty(minX, minZ, maxX + 1, maxZ + 1);
+		if (written > 0) {
+			far.dirty(t.minX(), t.minZ(), t.minX() + span, t.minZ() + span);
 		}
 		if (far.rawsInMemory() > MAX_RAWS) {
 			// far land reaches wide: what is not being drawn goes to disk (on the IO thread, never in a worker's run), so
