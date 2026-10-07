@@ -216,6 +216,10 @@ tasks.register('structureAudit', JavaExec) {
 	classpath = sourceSets.gametest.runtimeClasspath
 	mainClass = 'dev.voidmc.hearth.gametest.audit.StructureAudit'
 	jvmArgs '-Djava.awt.headless=true', '-Xmx5g'
+	// -Preach=<path>,<style id path>,<seed>,<facing>,<level>: print that case's walk map (local frame) at a standing level
+	if (project.findProperty('reach')) {
+		jvmArgs "-Daudit.reach=${project.findProperty('reach')}"
+	}
 	args = [
 		project.findProperty('mode') ?: 'metrics',
 		project.findProperty('archetype') ?: 'all',

@@ -54,19 +54,19 @@ public final class StructureAudit {
 
 	static {
 		GROUPS.put("house", "G1 homes");
-		GROUPS.put("work", "G2 work, craft, industry, storage");
-		GROUPS.put("storage", "G2 work, craft, industry, storage");
-		GROUPS.put("civic", "G3 civic, learning, law");
-		GROUPS.put("law", "G3 civic, learning, law");
-		GROUPS.put("commerce", "G4 commerce, social, landscape");
-		GROUPS.put("landscape", "G4 commerce, social, landscape");
-		GROUPS.put("landmark", "G5 landmark, noble, defense");
-		GROUPS.put("noble", "G5 landmark, noble, defense");
-		GROUPS.put("defense", "G5 landmark, noble, defense");
-		GROUPS.put("farm", "G6 farm, infra, extract, deep");
-		GROUPS.put("infra", "G6 farm, infra, extract, deep");
-		GROUPS.put("extract", "G6 farm, infra, extract, deep");
-		GROUPS.put("deep", "G6 farm, infra, extract, deep");
+		GROUPS.put("work", "G2 work-craft-industry-storage");
+		GROUPS.put("storage", "G2 work-craft-industry-storage");
+		GROUPS.put("civic", "G3 civic-learning-law");
+		GROUPS.put("law", "G3 civic-learning-law");
+		GROUPS.put("commerce", "G4 commerce-social-landscape");
+		GROUPS.put("landscape", "G4 commerce-social-landscape");
+		GROUPS.put("landmark", "G5 landmark-noble-defense");
+		GROUPS.put("noble", "G5 landmark-noble-defense");
+		GROUPS.put("defense", "G5 landmark-noble-defense");
+		GROUPS.put("farm", "G6 farm-infra-extract-deep");
+		GROUPS.put("infra", "G6 farm-infra-extract-deep");
+		GROUPS.put("extract", "G6 farm-infra-extract-deep");
+		GROUPS.put("deep", "G6 farm-infra-extract-deep");
 	}
 
 	/** The columns of metrics.csv, in order. */
@@ -74,7 +74,7 @@ public final class StructureAudit {
 		"steps", "beds", "entrances", "error",
 		// playability
 		"check_problems", "floating", "unsupported", "main_entrance_unreached", "beds_unreached_check", "jobs_unreached_check", "walk_cells",
-		"reached_cells", "room_cells", "unreached_room_cells", "unreached_pockets", "unreached_levels", "rooms", "rooms_no3x3", "cramped_rooms",
+		"reached_cells", "room_cells", "unreached_room_cells", "unreached_furnished_cells", "unreached_pockets", "unreached_levels", "rooms", "rooms_no3x3", "cramped_rooms",
 		"empty_rooms", "purposeless_rooms", "tight_headroom_share", "open_roofed_share", "doors", "blocked_doors", "doors_facing_wall",
 		"doors_facing_drop", "unreached_doors", "entrances_unreached", "flights", "bad_flights", "ladders", "dead_ladders", "beds_no_free_side",
 		"workstations", "workstations_unusable", "chest_lids_blocked", "light_min_room", "light_mean_room", "dark_room_cells", "light_unmet",
@@ -82,7 +82,7 @@ public final class StructureAudit {
 		// detail
 		"relief_share", "flat_patch_max", "facade_blocks", "dominant_share", "windows_per_side", "blind_sides", "overhang_mean", "roof_facings",
 		"roof_corners", "roof_levels", "roof_complexity", "height", "height_ratio", "mirror_sym", "repeat_cols", "furniture_per_cell",
-		"empty_room_ratio", "culture_twin", "twin_culture", "shape_hash",
+		"empty_room_ratio", "culture_twin", "twin_culture", "culture_likes", "shape_hash",
 		// scores
 		"play_score", "detail_score", "where", "check_text"};
 
@@ -269,6 +269,13 @@ public final class StructureAudit {
 					who = (String) b.get("culture");
 				}
 			}
+			int likes = 0;
+			for (Map<String, Object> b : flat) {
+				if (a != b && ((Number) b.get("suits")).intValue() != 0 && Measure.jaccard(sa, (LongOpenHashSet) b.get("_shape")) >= 0.8) {
+					likes++;
+				}
+			}
+			a.put("culture_likes", likes);
 			if (best >= 0) {
 				a.put("culture_twin", best);
 				a.put("twin_culture", who);

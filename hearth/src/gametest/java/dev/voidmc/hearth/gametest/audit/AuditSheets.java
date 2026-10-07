@@ -102,8 +102,10 @@ final class AuditSheets {
 			Files.createDirectories(dir);
 			String title = e.info().id() + "  on " + terrain + ", seed 1007 facing south  (" + e.group() + ")";
 			bytes += save(cultures(shots, title), dir.resolve(e.name()), script);
-			if (shots.stream().anyMatch(Shot::rooms)) {
-				bytes += save(cutaways(shots, e.info().id() + "  storey cutaways by day, main floor by night (" + terrain + ", seed 1007)"),
+			// the cutaways show the cultures that build the archetype (all of them when none is marked)
+			List<Shot> built = shots.stream().filter(Shot::suits).toList();
+			if (built.stream().anyMatch(Shot::rooms)) {
+				bytes += save(cutaways(built, e.info().id() + "  storey cutaways by day, main floor by night (" + terrain + ", seed 1007)"),
 					dir.resolve(e.name() + "_cut"), script);
 			}
 			n++;

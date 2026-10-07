@@ -53,7 +53,9 @@ final class Index {
 		md.add("The walk is the invariant checks' own (BlueprintChecks and the light check's Spaces): a mover one block wide and two high (a "
 			+ "player's 0.6 x 1.8), stepping up a stair, slab or one full block with three clear above, dropping at most three, climbing "
 			+ "ladders, passing doors and gates, starting from the street row and the registered entrances. A *room cell* is a walkable cell "
-			+ "in the plot with a roof above and a wall before the roof ends in all four directions (Spaces.enclosed).");
+			+ "in the plot with a roof above and a wall before the roof ends in all four directions (Spaces.enclosed). The light check's walk "
+			+ "does not stand on candles, lanterns, flower pots, cakes or skulls (Spaces.standable); the BlueprintChecks gate does, so a "
+			+ "room reached only by clambering over pots passes the tests but shows here as unreached (desert courtyard house).");
 		md.add("");
 		md.add("| column | meaning |");
 		md.add("|---|---|");
@@ -61,8 +63,9 @@ final class Index {
 			{"check_problems, floating, unsupported, main_entrance_unreached, beds/jobs_unreached_check, check_text",
 				"BlueprintChecks.all as the tests run it (bounds, floating, support, reach, chunks, order, light), parsed"},
 			{"walk_cells, reached_cells, room_cells", "walkable cells in the plot; of them reached from the street; of them room cells"},
-			{"unreached_room_cells, unreached_pockets, unreached_levels", "room cells no one can walk to; such pockets of 4+ cells; whole storeys "
-				+ "(6+ room cells) with nothing reached"},
+			{"unreached_room_cells, unreached_furnished_cells, unreached_pockets, unreached_levels", "room cells no one can walk to; of them "
+				+ "those in rooms with furniture, a POI or a door (the rest are sealed voids under roofs: wasted space that needs a hidden "
+				+ "lamp); unreached pockets of 4+ cells; whole storeys (6+ room cells) with nothing reached"},
 			{"rooms, rooms_no3x3, cramped_rooms, empty_rooms, purposeless_rooms", "reached rooms of 4+ cells (4-connected on one level, doors "
 				+ "split them); rooms of 6+ cells with no 3x3 of clear floor; furnished rooms with < 6 free cells; rooms of 6+ cells with no "
 				+ "furniture; rooms with <= 2 ways out, no POI and <= 1 piece of furniture"},
@@ -97,11 +100,15 @@ final class Index {
 			{"repeat_cols", "share of facade columns repeating another column exactly (bays copied)"},
 			{"furniture_per_cell, empty_room_ratio", "furniture blocks round room cells (feet and head height) per room cell; share of rooms "
 				+ "with none"},
-			{"culture_twin, twin_culture, shape_hash", "flat seed-0 rows only: the Jaccard likeness of the blueprint's filled cells to the "
-				+ "nearest suited culture's (as cultureSimilarity), which culture, and a hash of the shape"},
+			{"culture_twin, twin_culture, culture_likes, shape_hash", "flat seed-0 rows only: the Jaccard likeness of the blueprint's filled "
+				+ "cells to the nearest suited culture's (as cultureSimilarity), which culture, how many suited cultures are >= 0.8 alike "
+				+ "(cultureSimilarity's threshold), and a hash of the shape"},
+			{"where", "the first location of each kind of playability finding, in the plot's frame: x across the front from the left as "
+				+ "seen from the street, y above the floor, z back from the front row (`-Preach=<path>,<culture>,<seed>,<facing>,<y>` prints "
+				+ "that case's walk map)"},
 			{"play_score, detail_score", "reviewer weights (Scores.java): playability starts at 100 and loses points per finding; detail "
 				+ "averages ten 0-1 sub-scores (relief, flat patch, palette, windows, overhang, roof, symmetry, repetition, furniture, "
-				+ "culture likeness)"}};
+				+ "culture likes)"}};
 		for (String[] c : cols) {
 			md.add("| " + c[0] + " | " + c[1] + " |");
 		}

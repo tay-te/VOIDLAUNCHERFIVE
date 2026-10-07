@@ -108,6 +108,26 @@ final class Measure {
 		int floor = spec.floorY();
 		Map<String, String> where = new java.util.LinkedHashMap<>();
 		Frame lf0 = new Frame(new LocalFrame(spec), floor);
+		String dbg = System.getProperty("audit.reach", "");
+		if (!dbg.isEmpty() && dbg.startsWith(spec.archetype().getPath() + "," + spec.style().getPath() + "," + spec.seed() + "," + spec.facing().getSerializedName() + ",")) {
+			// a walk map in the plot's frame at one standing level: r reached, + walkable, # solid, . air; front (z = -1) at the bottom
+			int ly = Integer.parseInt(dbg.substring(dbg.lastIndexOf(',') + 1));
+			LocalFrame lfr = new LocalFrame(spec);
+			StringBuilder sb = new StringBuilder("walk map " + dbg + " (x across, back at top)" + System.lineSeparator());
+			for (int lz = lfr.depth(); lz >= -2; lz--) {
+				for (int lx = -1; lx <= lfr.frontage(); lx++) {
+					int x = lfr.worldX(lx, lz);
+					int z = lfr.worldZ(lx, lz);
+					int y = floor + ly;
+					BlockState st = g.at(x, y, z);
+					sb.append(sp.reached(x, y, z) ? 'r' : sp.walkable(x, y, z) ? '+' : st.isAir() ? '.' : workstation(st) ? 'W' : st.getBlock() instanceof BedBlock ? 'B'
+						: st.getBlock() instanceof DoorBlock ? 'D' : '#');
+				}
+				sb.append(System.lineSeparator());
+			}
+			System.out.println(sb);
+			System.out.println(BlueprintChecks.reachMap(bp, probe, floor + ly) + "entrances " + bp.entrances() + " floor " + floor + " grid y0 " + g.y0);
+		}
 
 		// --- walkable cells in the plot, rooms (enclosed), open-roofed cells
 		int walk = 0;
@@ -171,6 +191,7 @@ final class Measure {
 		int empty = 0;
 		int purposeless = 0;
 		int unreachedCells = 0;
+		int unreachedUsed = 0;
 		int pockets = 0;
 		int roomCellsReached = 0;
 		int furnitureTotal = 0;
@@ -210,9 +231,31 @@ final class Measure {
 			lv[0] += comp.size();
 			if (!any) {
 				unreachedCells += comp.size();
-				at(where, "unreached_room", lf0, comp.getLong(0));
 				if (comp.size() >= 4) {
 					pockets++;
+				}
+				// furnished (furniture, a POI or a door beside it: meant to be used) or a sealed void under a roof
+				boolean used = false;
+				for (int i = 0; i < comp.size() && !used && comp.size() >= 3; i++) {
+					long k = comp.getLong(i);
+					int x = BlockPos.getX(k);
+					int z = BlockPos.getZ(k);
+					for (int dy = -1; dy <= 1 && !used; dy++) {
+						used = poiCells.contains(BlockPos.asLong(x, y + dy, z));
+					}
+					for (int dx = -1; dx <= 1 && !used; dx++) {
+						for (int dz = -1; dz <= 1 && !used; dz++) {
+							BlockState fs = g.at(x + dx, y, z + dz);
+							used = g.placed(x + dx, y, z + dz) && (furniture(fs, 0) && !(fs.getBlock() instanceof StairBlock)
+								|| fs.getBlock() instanceof DoorBlock || fs.getBlock() instanceof BedBlock);
+						}
+					}
+				}
+				if (used) {
+					unreachedUsed += comp.size();
+					at(where, "unreached_furnished_room", lf0, comp.getLong(0));
+				} else {
+					at(where, "sealed_void", lf0, comp.getLong(0));
 				}
 				continue;
 			}
@@ -296,6 +339,7 @@ final class Measure {
 			}
 		}
 		m.put("unreached_room_cells", unreachedCells);
+		m.put("unreached_furnished_cells", unreachedUsed);
 		m.put("unreached_pockets", pockets);
 		m.put("unreached_levels", unreachedLevels);
 		m.put("rooms", rooms);
@@ -861,7 +905,8 @@ final class Measure {
 			for (int r = 0; r < f.rows(); r++) {
 				int c = 0;
 				for (int u = 0; u < f.n(); u++) {
-					if (f.d(u, r) >= 0 && Math.abs(f.d(u, r) - plane) <= 1) {
+					// the wall itself: blocks on the plane (glass and doors too), not eave courses of stairs and slabs
+					if (f.d(u, r) == plane && !(f.s(u, r).getBlock() instanceof StairBlock) && !(f.s(u, r).getBlock() instanceof SlabBlock)) {
 						c++;
 					}
 				}

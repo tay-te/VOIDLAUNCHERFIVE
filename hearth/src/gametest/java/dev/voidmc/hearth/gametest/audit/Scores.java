@@ -29,7 +29,8 @@ final class Scores {
 		new Metric("floating", "floating blocks (not joined to the ground)", true, 0, true),
 		new Metric("unsupported", "blocks lacking support (plants, carpets, lanterns)", true, 0, true),
 		new Metric("main_entrance_unreached", "main entrance not walkable from the street", true, 0, true),
-		new Metric("unreached_room_cells", "room cells (enclosed, walkable) a player cannot reach from the street door", true, 0, true),
+		new Metric("unreached_furnished_cells", "cells of furnished rooms (furniture, a POI or a door) a player cannot reach from the street", true, 0, true),
+		new Metric("unreached_room_cells", "room cells (enclosed, walkable) a player cannot reach, sealed voids under roofs included", true, 0, true),
 		new Metric("unreached_levels", "whole storeys with rooms that no stair or ladder reaches", true, 0, true),
 		new Metric("blocked_doors", "doors with a wall or a drop on one side", true, 0, true),
 		new Metric("unreached_doors", "doors nobody can walk to", true, 0, true),
@@ -50,19 +51,20 @@ final class Scores {
 		new Metric("fall_edge_cells", "walked cells beside an unguarded drop of 4+", true, 0, true),
 		new Metric("lava", "lava placed", true, 0, true),
 		new Metric("water_roofed", "water placed under a roof", true, 0, true),
-		new Metric("relief_share", "facade relief (share of wall area with depth or shaped blocks)", false, 0.15, false),
+		new Metric("relief_share", "facade relief (share of wall area with depth or shaped blocks)", false, 0.06, false),
 		new Metric("flat_patch_max", "largest flat patch of one block on a facade (cells)", true, 24, false),
 		new Metric("facade_blocks", "distinct blocks per facade", false, 2.0, false),
 		new Metric("dominant_share", "share of the commonest block on a facade", true, 0.8, false),
 		new Metric("windows_per_side", "windows per facade (sides 5+ wide)", false, 1.0, false),
 		new Metric("blind_sides", "facades 5+ wide with no window", true, 1, false),
-		new Metric("overhang_mean", "roof overhang beyond the wall (blocks, median per side)", false, 0.5, false),
+		new Metric("overhang_mean", "roof overhang beyond the wall (blocks, median per side)", false, 0.25, false),
 		new Metric("roof_complexity", "roof form complexity (slope facings + hips/valleys + levels)", false, 3.0, false),
 		new Metric("mirror_sym", "left-right mirror likeness of the body", true, 0.95, false),
 		new Metric("repeat_cols", "facade columns repeating another exactly", true, 0.75, false),
 		new Metric("empty_room_ratio", "share of rooms (6+ cells) with no furniture", true, 0.0, false),
 		new Metric("furniture_per_cell", "furniture blocks per room floor cell", false, 0.25, false),
-		new Metric("culture_twin", "plan likeness to the nearest other culture (flat, seed 0)", true, 0.85, false),
+		new Metric("culture_twin", "plan likeness to the nearest other culture (flat, seed 0)", true, 0.9, false),
+		new Metric("culture_likes", "other cultures whose plan is >= 0.8 alike (flat, seed 0; cultureSimilarity's threshold)", true, 5, false),
 		new Metric("height_ratio", "height over the longer side", true, 2.5, false));
 
 	private static double clamp(double v) {
@@ -80,7 +82,9 @@ final class Scores {
 		p -= Math.min(45, 15 * StructureAudit.num(r, "check_problems"));
 		double room = StructureAudit.num(r, "room_cells");
 		if (room > 0) {
-			p -= 40 * StructureAudit.num(r, "unreached_room_cells") / room;
+			// a furnished room nobody can reach is a broken building; a sealed void under a roof is wasted space (and a hidden lamp)
+			p -= 40 * StructureAudit.num(r, "unreached_furnished_cells") / room;
+			p -= 10 * (StructureAudit.num(r, "unreached_room_cells") - StructureAudit.num(r, "unreached_furnished_cells")) / room;
 			p -= 30 * StructureAudit.num(r, "dark_room_cells") / room;
 		}
 		p -= Math.min(15, 5 * StructureAudit.num(r, "unreached_levels"));
@@ -100,8 +104,13 @@ final class Scores {
 		p -= Math.min(20, 10 * StructureAudit.num(r, "lava"));
 		r.put("play_score", Math.max(0, p));
 
+		if (Double.isNaN(StructureAudit.num(r, "relief_share"))) {
+			// no walls to read (a field, a road, a pit, a lamp post): detail is not measured
+			r.put("detail_score", Double.NaN);
+			return;
+		}
 		List<Double> sub = new ArrayList<>();
-		add(sub, clamp(StructureAudit.num(r, "relief_share") / 0.30));
+		add(sub, clamp(StructureAudit.num(r, "relief_share") / 0.20));
 		double patch = StructureAudit.num(r, "flat_patch_max");
 		add(sub, Double.isNaN(StructureAudit.num(r, "relief_share")) ? Double.NaN : clamp(1 - (patch - 9) / 31.0));
 		add(sub, clamp((StructureAudit.num(r, "facade_blocks") - 1) / 2.0) * (StructureAudit.num(r, "dominant_share") > 0.85 ? 0.6 : 1));
@@ -115,8 +124,8 @@ final class Scores {
 		add(sub, Double.isNaN(rep) ? Double.NaN : rep <= 0.5 ? 1 : clamp(1 - (rep - 0.5) / 0.4 * 0.8));
 		double empty = StructureAudit.num(r, "empty_room_ratio");
 		add(sub, Double.isNaN(empty) ? Double.NaN : 1 - empty);
-		double twin = StructureAudit.num(r, "culture_twin");
-		add(sub, Double.isNaN(twin) ? Double.NaN : clamp(1 - (twin - 0.6) / 0.3));
+		double likes = StructureAudit.num(r, "culture_likes");
+		add(sub, Double.isNaN(likes) ? Double.NaN : clamp(1 - likes / 8.0));
 		double s = 0;
 		int n = 0;
 		for (double d : sub) {
@@ -143,9 +152,9 @@ final class Scores {
 		for (Map<String, Object> r : rows) {
 			by.computeIfAbsent((String) r.get("archetype"), k -> new ArrayList<>()).add(r);
 		}
-		String[] keys = {"unreached_room_cells", "blocked_doors", "bad_flights", "beds_no_free_side", "workstations_unusable", "dark_room_cells",
+		String[] keys = {"unreached_furnished_cells", "unreached_room_cells", "blocked_doors", "bad_flights", "beds_no_free_side", "workstations_unusable", "dark_room_cells",
 			"roof_hole_cells", "rooms_no3x3", "relief_share", "flat_patch_max", "windows_per_side", "overhang_mean", "roof_complexity", "mirror_sym",
-			"empty_room_ratio", "culture_twin"};
+			"empty_room_ratio", "culture_likes"};
 		List<String> lines = new ArrayList<>();
 		lines.add("group,category,archetype,natural_terrain,cases,errors,cases_with_check_failures,play_score,play_min,detail_score,overall,"
 			+ String.join(",", keys));
