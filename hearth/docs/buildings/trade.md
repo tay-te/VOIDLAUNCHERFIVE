@@ -44,11 +44,13 @@ warehouse's walls), the largest whole building about 1,400 on average (the wareh
 
 ### `work/builders_yard` (BuildersYard.java)
 A fenced yard entered under a timber gate (capped beam, hanging "Builders" sign). At the back an open work shed under
-a gable; at one end the master builder's office, two storeys, a turning stair, the plans on a lectern, a gallery to
-watch the yard. In the yard: logs on bearers, stickered board stacks, dressed stone on pallets (where there is room),
-stacked scaffolding, sawhorses, a loaded cart, a trial corner of wall in its scaffold, a timber crane swinging a load.
+a gable (in the south, the dry lands, the tropics and the karst a reed shade before a back wall of masonry); at one end
+the master builder's office, two storeys, a turning stair (its well blocked but for its foot, railed above; a ladder
+through a hatch where it will not fit), the plans on a lectern upstairs. In the yard: logs on bearers, stickered board
+stacks, dressed stone on pallets (where there is room), scaffolding stacked two high, sawhorses, a loaded cart, a trial
+corner of wall in its scaffold, a timber crane two rows clear of the shed's eave swinging a load.
 **POIs:** GATE, DOOR (office), JOB_SITE BUILDER ×4–5 (benches, grindstone, sawhorses, crane foot, trial wall),
-JOB_SITE MASON (stone saw), STORAGE ×4 (shed chests, office chest), LECTERN, VIEWPOINT (gallery, about half).
+JOB_SITE MASON (stone saw), STORAGE ×4 (shed chests, office chest), LECTERN.
 **Params:** `roof`, `variant`.
 
 ### `work/smithy` (Smithy.java)
@@ -62,15 +64,18 @@ is three wide (a heap of ore and coal where it is narrower); tie beams across th
 **Params:** `roof`, `variant`.
 
 ### `work/carpentry` (Carpentry.java)
-Gable to the street, double doors open, benches under the windows, a board loft in the roof with a loft door and
-hoist beam at the gable. The lumber store runs along the side under the workshop's eave carried on posts (or as a
+Gable to the street, double doors open, benches under the windows (both door leaves and the side door kept clear), a
+board loft floored over the shop and reached by a ladder through a hatch against a gable wall (`kit/craft/Hatch`), its
+gable loading door a half door (a rail at the sill, the shutter open) under the hoist beam. The lumber store runs along the side under the workshop's eave carried on posts (or as a
 lean-to behind on narrow plots): log racks and stickered boards. Yard: sawhorses with a plank, half-made furniture.
 Karst joiners stack bamboo.
 **POIs:** DOOR ×2, JOB_SITE CARPENTER ×3 (benches, sawhorses), STORAGE ×4.
 **Params:** `roof`, `variant`.
 
 ### `work/masonry` (Masonry.java)
-A banker shed along the back, its back and ends of dressed stone, open front on posts, stonecutters in a row beneath.
+A banker shed along the back, its back and ends of dressed stone with lights in them, open front on posts, stonecutters
+in a row beneath; in the south, the dry lands, the tropics and the karst a walled stone court with the bankers under a
+reed shade instead.
 A paved yard of work in hand: ashlar on pallets, a column carved from base to capital, a gantry with a block on its
 chain, spalls; a low dry-stone wall with the gate and a sign on a post.
 **POIs:** JOB_SITE MASON ×3–4 (stonecutters, the column), STORAGE (chest of dressed stone). No door (open shed).
@@ -106,7 +111,8 @@ STORAGE (cloth chest), TABLE (cutting tables), VIEWPOINT (balcony/terrace, some)
 **Params:** `party_left`, `party_right`, `storeys` (1–3), `roof`, `variant`.
 
 ### `work/sawmill` (Sawmill.java)
-A long saw shed on posts across the back of the yard, boarded at the back: the saw bench on the front row (a
+A long saw shed on posts across the back of the yard, boarded at the back and its ends with lights in them (in the
+south, the dry lands, the tropics and the karst a reed shade before a masonry back wall): the saw bench on the front row (a
 stonecutter for the blade, the log carriage on rails), an aisle, stores along the back row. Logs on bearers in
 pyramids up to three high either side of the gate, lying front to back so the street sees their sawn ends stacked (the
 style's tree logs: baobab on the steppe, birch in the north), a loaded log cart, a chopping block, stickered boards, a
@@ -160,8 +166,9 @@ when the floor is too cramped). Ground-floor pieces move outside by the door whe
 ### `work/watermill` (Watermill.java)
 A stout two-floor mill house with stone lower walls beside a stone-kerbed race from the water behind; the wheel
 (radius 4 on plots 12+ deep and 10+ wide, else 3) turns in the race, its axle through the wall to the stones.
-Sacks in, flour out; the loft stores meal, and where the front wall has room a loading door high in it with a hoist
-beam and a sack of flour on its chain marks the mill from the street side. Storeys budgeted under the roof.
+Sacks in, flour out; the meal floor stores meal, reached by a flight or, where none fits, a ladder through a hatch, and
+where its front wall has room a half loading door (a rail at the sill) with a hoist beam and a sack of flour on its
+chain marks the mill from the street side. Storeys budgeted under the roof.
 **POIs:** DOOR, JOB_SITE BAKER ×2 (millstones), JOB_SITE FARMER (grain bin), STORAGE ×4–5.
 **Params:** `roof`, `variant`.
 
@@ -175,8 +182,8 @@ fletching table, furs, the hearth.
 ### `storage/storehouse` (Storehouse.java)
 **Raised store** (stabbur/raccard; cold and log cultures, plank cultures now and then; plots 9+ deep): a log store on
 posts with stone caps, its upper storey oversailing every side, approach steps that stop short of the door, a height
-budget (upper 3 → 2, posts 2 → 1, else not raised). **Loft store:** double doors over a loading step, a loft with its
-gable door and hoist. **Flat store** (desert, mesa): thick walls, a crowned parapet, jars by the door. Stilt cultures
+budget (upper 3 → 2, posts 2 → 1, else not raised). **Loft store:** double doors over a loading step, a loft reached by a
+flight or a ladder through a hatch, its gable half door (a rail at the sill) under the hoist with a crate on the chain. **Flat store** (desert, mesa): thick walls, a crowned parapet, jars by the door. Stilt cultures
 (tropical, bayou, or water on the plot) raise any of them on stilts with a gallery.
 **POIs:** DOOR, STORAGE ×6 on average, SEAT/VIEWPOINT (terrace, flat stores).
 **Params:** `roof`, `raised` (boolean; ignored on plots under 9 deep, with flat roofs or stilts), `variant`.
@@ -191,10 +198,12 @@ yard, the largest with the door.
 **Params:** `kind` (`staddle`, `bins`, `domes`), `roof`, `variant`.
 
 ### `storage/warehouse` (Warehouse.java)
-Front gable with the loading bay up its middle: cart doors below, a pair of loading doors on every floor above, the
-hoist beam out of the gable peak (or over the parapet) with a barrel on its chain. Floors budgeted under the roof (and
-an attic for the hoist where it fits); a switchback stair, barrel racks in two tiers and crates down the middle on every
-floor; a paved apron with crates and a cart; a cart shed on plots 14+ wide; a hanging sign.
+Front gable with the loading bay up its middle: cart doors below, a pair of half loading doors on every floor above (a
+rail at the sill, the shutters open over it, so nobody walks out four floors up), the hoist beam out of the gable peak
+(or over the parapet) with a crate on its chain. Floors budgeted under the roof (and an attic for the hoist where it
+fits); a switchback stair railed round its well on every floor above, barrel racks in two tiers and crates down the
+middle on every floor (the ground floor's too: its stair foot is kept open), a weigh beam inside the cart doors; a paved
+apron with crates and a cart; a cart shed on plots 14+ wide; a hanging sign.
 **POIs:** DOOR, STORAGE ×4–5 (several per floor).
 **Params:** `storeys` (1–4 floors, default 3), `roof`, `variant`.
 

@@ -387,6 +387,27 @@ public final class AlchemistTower implements Archetype {
 		}
 	}
 
+	/**
+	 * Clears from a wing's rooms what the tower's walls put out on that side before the wing stood there (window sills,
+	 * hoods, shutters): anything inside the wing's walls that is not a full block goes.
+	 */
+	private static void clearInside(Draft d, Hall wing) {
+		int[] in = wing.inner(0);
+		int top = wing.floorY(1) - 1;
+		try (var s = d.stage(StageKind.INTERIOR)) {
+			for (int x = in[0]; x <= in[2]; x++) {
+				for (int z = in[1]; z <= in[3]; z++) {
+					for (int y = wing.floorY(0); y < top; y++) {
+						var st = d.get(x, y, z);
+						if (st != null && !st.isAir() && !st.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)) {
+							d.set(x, y, z, Blocks.AIR.defaultBlockState());
+						}
+					}
+				}
+			}
+		}
+	}
+
 	/** Herb beds before the house between the paths, a lamp by the gate, the fence along the street open at the paths. */
 	private static void frontGarden(Draft d, int w, int z1, List<Integer> paths, int ex) {
 		if (z1 >= 1) {
@@ -455,6 +476,7 @@ public final class AlchemistTower implements Archetype {
 			if (wing.roof == null) {
 				wing.crown();
 			}
+			clearInside(d, wing);
 		}
 		int top = t.top;
 		int[] tin = t.inner(0);
@@ -522,6 +544,7 @@ public final class AlchemistTower implements Archetype {
 			if (lean.roof == null) {
 				lean.crown();
 			}
+			clearInside(d, lean);
 			int lz = (lin[1] + lin[3]) / 2;
 			if (lean.door(0, left ? Dirs.RIGHT : Dirs.LEFT, lz, 1, false, false)) {
 				int[] tin = t.inner(0);
@@ -585,6 +608,7 @@ public final class AlchemistTower implements Archetype {
 			range.ground(false).shell().openings(true);
 			range.roof(RoofForm.FLAT, Direction.Axis.X, 1, null);
 			range.crown();
+			clearInside(d, range);
 			int lz = (rin[1] + rin[3]) / 2;
 			if (range.door(0, left ? Dirs.LEFT : Dirs.RIGHT, lz, 1, false, false)) {
 				int[] tin = t.inner(0);

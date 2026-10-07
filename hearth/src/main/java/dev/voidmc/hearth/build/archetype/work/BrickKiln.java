@@ -360,9 +360,9 @@ public final class BrickKiln implements Archetype {
 		Clayworks.Kiln kiln = Clayworks.dragon(d, x, z0, z1, stoke, Fam.brick());
 		mouths(d, pois, kiln);
 		int top = Math.max(kiln.top(), roof != null ? roof.ridgeY : height + 1);
-		// the drying shed on the other side
-		int sx0 = kilnLeft ? rx1 + 1 : 0;
-		int sx1 = kilnLeft ? w - 1 : rx0 - 1;
+		// the drying shed on the other side, a row clear of the long roof (its eave hung over the climbing walk)
+		int sx0 = kilnLeft ? rx1 + 2 : 0;
+		int sx1 = kilnLeft ? w - 1 : rx0 - 2;
 		int shedTop = sx1 - sx0 >= 2 ? dryingShed(d, pois, sx0, sx1, 4, dp - 1, kilnLeft) : 0;
 		front(d, pois, w, ex, (sx0 + sx1) / 2, 4, kilnLeft ? sx1 - 1 : sx0, 3, kilnLeft);
 		return Math.max(top, shedTop);

@@ -236,6 +236,18 @@ public final class Bakery implements Archetype {
 			if (len >= 1) {
 				Shop.counter(d, start, 0, cz, Dirs.RIGHT, len, Dirs.BACK, i -> i % 2 == 0 ? Blocks.CAKE.defaultBlockState() : null);
 				fp.keep(start + (len - 1) / 2, cz + 1);
+				// the corner the counter stops short of, between its end and the side wall, is nobody's: nothing is set in
+				// it or behind it (a barrel there was worked from a pocket no one could reach)
+				int end = start + len;
+				if (door <= (in[0] + in[2]) / 2) {
+					for (int x = end; x <= in[2]; x++) {
+						for (int z : new int[]{cz, cz + 1}) {
+							if (fp.free(x, z)) {
+								fp.block(x, z);
+							}
+						}
+					}
+				}
 			}
 		}
 		// the flour chest and sacks by the ovens, racks of bread on the walls

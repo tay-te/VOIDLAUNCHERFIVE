@@ -199,10 +199,14 @@ public final class Rails {
 				for (Direction dir : Dirs.HORIZONTAL) {
 					int nx = x + Dirs.dx(dir);
 					int nz = z + Dirs.dz(dir);
-					if (nz < 0 || !pass(d, nx, y, nz) || !pass(d, nx, y + 1, nz) || ladder(d.get(nx, y, nz)) || drop(d, nx, y, nz) < 4) {
+					if (!pass(d, nx, y, nz) || !pass(d, nx, y + 1, nz) || ladder(d.get(nx, y, nz)) || drop(d, nx, y, nz) < 4) {
 						continue;
 					}
-					if (!d.allowed(nx, y, nz) || !d.allowed(nx, y - 1, nz)) {
+					if (nz < 0 && y < 3) {
+						// the street's own edge at its level is the street's business
+						continue;
+					}
+					if (nz < 0 || !d.allowed(nx, y, nz) || !d.allowed(nx, y - 1, nz)) {
 						d.set(x, y, z, rail);
 						n++;
 						break;

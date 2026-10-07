@@ -247,10 +247,28 @@ public final class BuildersYard implements Archetype {
 		Groundwork.footings(d, x0, z0, x1, z1, -1);
 		Yard.pave(d, x0 + 1, z0 + 1, x1 - 1, z1 - 1, 0);
 		RoofForm f = form == RoofForm.FLAT ? RoofForm.SHED : form == RoofForm.HIP ? RoofForm.HALF_HIP : form;
-		Roofs.Roof roof = Shed.open(d, x0, z0, x1, z1, 0, 4, f, Direction.Axis.X, 1, Dirs.BACK, officeLeft ? Dirs.RIGHT : Dirs.LEFT);
-		d.carve(x0 + 1, 0, z0 + 1, x1 - 1, 3, z1 - 1);
-		d.body(x0, z0, x1, z1);
-		d.eave(4);
+		// where the sun is strong the builders work under a reed shade before a back wall of their own masonry (the south,
+		// the dry lands, the tropics, the karst); elsewhere in the open shed
+		boolean shade = dev.voidmc.hearth.build.kit.craft.Craft.southern(d)
+			|| dev.voidmc.hearth.build.kit.industry.Works.culture(d) == dev.voidmc.hearth.api.Culture.TROPICAL
+			|| dev.voidmc.hearth.build.kit.industry.Works.culture(d) == dev.voidmc.hearth.api.Culture.KARST;
+		Roofs.Roof roof = null;
+		if (shade) {
+			Mat back = d.mat(Role.FOUNDATION);
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int x = x0; x <= x1; x++) {
+					for (int y = 0; y <= 2; y++) {
+						d.set(x, y, z1, back.full());
+					}
+				}
+			}
+			dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, x0, z0, x1, z1 - 1, 0);
+		} else {
+			roof = Shed.open(d, x0, z0, x1, z1, 0, 4, f, Direction.Axis.X, 1, Dirs.BACK, officeLeft ? Dirs.RIGHT : Dirs.LEFT);
+			d.carve(x0 + 1, 0, z0 + 1, x1 - 1, 3, z1 - 1);
+			d.body(x0, z0, x1, z1);
+			d.eave(4);
+		}
 		int row = z1 - 1;
 		String[] stations = {"chest", "bench", "saw", "rack", "bench", "chest2", "barrels"};
 		int x = officeLeft ? x0 + 1 : x1 - 1;
