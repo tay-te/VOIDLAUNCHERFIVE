@@ -136,7 +136,7 @@ class PlanBenchTest {
 	}
 
 	/** Samples a thread's stack every millisecond and counts, per planner method, the samples it was on the stack in. */
-	private static final class Sampler extends Thread {
+	static final class Sampler extends Thread {
 		private final Thread target;
 		private final Map<String, Integer> inclusive = new HashMap<>();
 		private final Map<String, Integer> self = new HashMap<>();

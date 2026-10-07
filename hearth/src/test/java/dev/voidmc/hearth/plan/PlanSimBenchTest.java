@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
  */
 class PlanSimBenchTest {
 	@Test
-	void bench() {
+	void bench() throws InterruptedException {
 		if (System.getenv("HEARTH_PLAN_SIMBENCH") == null) {
 			return;
 		}
@@ -52,7 +52,13 @@ class PlanSimBenchTest {
 			SimSettlement s = TestSupport.founded(terrain, seed);
 			long t0 = System.nanoTime();
 			int from = 0;
+			// the second half's calls (the town grown) are profiled together
+			PlanBenchTest.Sampler sampler = null;
 			for (int d = 1; d <= days; d++) {
+				if (d == days / 2 && System.getenv("HEARTH_PLAN_SIMBENCH_PROFILE") != null) {
+					sampler = new PlanBenchTest.Sampler(Thread.currentThread());
+					sampler.start();
+				}
 				for (int h = 1; h <= 24; h++) {
 					SettlementClock.advance(s, (d - 1) * SimRules.DAY + h * (SimRules.DAY / 24));
 				}
@@ -61,6 +67,10 @@ class PlanSimBenchTest {
 						s.plots().size(), s.land().prosperity(), stats(new LongArrayList(times.subList(from, times.size())))));
 					from = times.size();
 				}
+			}
+			if (sampler != null) {
+				sampler.halt();
+				sampler.print();
 			}
 			System.out.println(String.format("sim %s %d: %d days in %.1f s, all calls %s", terrain, seed, days, (System.nanoTime() - t0) / 1e9, stats(times)));
 		} finally {
