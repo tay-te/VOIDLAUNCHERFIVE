@@ -181,17 +181,13 @@ public final class Storeys {
 			}
 			d.set(x + Dirs.dx(dir) * (rise - 1), fy, z + Dirs.dz(dir) * (rise - 1), d.mat(Role.FURNITURE).stairs(dir, Half.BOTTOM));
 		}
-		// a rail along the open side of the stairwell above
-		Mat rail = d.mat(Role.RAILING);
+		// a balustrade round the stairwell above: along its open side and across its lower end
 		Direction side = Dirs.right(dir);
-		for (int i = Math.max(0, rise - 3); i < rise - 1; i++) {
-			int rx = x + Dirs.dx(dir) * i + Dirs.dx(side);
-			int rz = z + Dirs.dz(dir) * i + Dirs.dz(side);
-			int ry = b.floorY(k + 1);
-			if (d.isEmpty(rx, ry, rz) && d.isSolid(rx, ry - 1, rz)) {
-				d.inStage(StageKind.INTERIOR, () -> d.set(rx, ry, rz, rail.fence()));
-			}
-		}
+		int[] r = b.rect(k + 1);
+		int sx = x + Dirs.dx(side);
+		int sz = z + Dirs.dz(side);
+		boolean rightOpen = sx > r[0] && sx < r[2] && sz > r[1] && sz < r[3] && !d.isSolid(sx, b.floorY(k + 1), sz);
+		Stairs.well(d, x, y, z, dir, rise, rightOpen ? side : side.getOpposite());
 		return new int[]{x + Dirs.dx(dir) * rise, z + Dirs.dz(dir) * rise};
 	}
 
