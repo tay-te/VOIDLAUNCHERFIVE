@@ -15,6 +15,7 @@ import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.craft.Hatch;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Lifts;
@@ -94,7 +95,8 @@ public final class Warehouse implements Archetype {
 			}
 			wells[k] = hall.switchback(k, wellWall);
 		}
-		// the loading doors up the middle of the front, one per floor
+		// the loading doors up the middle of the front, one per floor: half doors, a rail at the sill and the shutters
+		// swung open over it, so the goods come in on the hoist and nobody steps out into the street four floors up
 		Side front = hall.side(0, Dirs.FRONT);
 		for (int k = 1; k < hall.storeys(); k++) {
 			if (hall.body.height(k) < 3) {
@@ -108,8 +110,7 @@ public final class Warehouse implements Archetype {
 				if (ii <= 0 || ii >= s.last()) {
 					continue;
 				}
-				d.inStage(StageKind.OPENINGS, () -> d.door(s.x(ii), y, s.z(ii), d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
-					ii == i ? DoorHingeSide.RIGHT : DoorHingeSide.LEFT));
+				Hatch.hoistDoor(d, s.x(ii), y, s.z(ii), Dirs.FRONT);
 			}
 		}
 		Direction.Axis ridge = flat ? Direction.Axis.X : Direction.Axis.Z;
@@ -133,7 +134,8 @@ public final class Warehouse implements Archetype {
 			}
 		}
 		if (beamY != Integer.MIN_VALUE && beamY > hall.floorY(top)) {
-			Lifts.hoist(d, g, hi, beamY, 2, 3, States.facing(Blocks.BARREL, Direction.UP));
+			// a crate of boards on the chain (a barrel hung there read as a store nobody can reach)
+			Lifts.hoist(d, g, hi, beamY, 2, 3, d.mat(Role.FURNITURE).full().at(g.x(hi), 3, g.z(hi)));
 		}
 
 		interior(d, hall, door, wells);
@@ -179,12 +181,16 @@ public final class Warehouse implements Archetype {
 			}
 			if (wells[k] != null) {
 				int[] wl = wells[k];
-				fp.keep(wl[0], wl[1]);
+				// the well is blocked but for its foot (on a tall ground storey the well's rectangle takes in the foot, and a
+				// blocked foot left the whole floor unfurnishable)
 				for (int x = wl[4]; x <= wl[6]; x++) {
 					for (int z = wl[5]; z <= wl[7]; z++) {
-						fp.block(x, z);
+						if (x != wl[0] || z != wl[1]) {
+							fp.block(x, z);
+						}
 					}
 				}
+				fp.keep(wl[0], wl[1]);
 			}
 			// barrel racks along the side walls, two tiers
 			int racks = 0;
@@ -216,9 +222,39 @@ public final class Warehouse implements Archetype {
 					break;
 				}
 			}
+			if (k == 0) {
+				weighBeam(d, fp, door, in);
+			}
 			Rooms.furnish(d, fp.room(), Rooms.Type.STORAGE, 0, JobType.NONE);
 			if (k == 0) {
 				hall.joists(0, Direction.Axis.X);
+			}
+		}
+	}
+
+	/**
+	 * The weigh beam inside the cart doors, where every load is weighed in: a post, the balance beam across its head, a
+	 * chain from the beam's end down to the scale pan on the floor, a sack waiting on it.
+	 */
+	private static void weighBeam(Draft d, Floorplan fp, int door, int[] in) {
+		int z = in[1] + 2;
+		for (int x : new int[]{door - 2, door + 3, door - 3, door + 4}) {
+			int pan = x < door ? x + 1 : x - 1;
+			if (pan == door || pan == door + 1 || fp.height < 4) {
+				continue;
+			}
+			if (fp.take(new int[][]{{x, z}, {pan, z}}, new int[]{pan, z - 1})) {
+				Mat post = d.mat(Role.FRAME);
+				Mat beam = d.mat(Role.BEAM);
+				try (var s = d.stage(StageKind.INTERIOR)) {
+					d.set(x, 0, z, Hall.woodFence(d).fence());
+					d.set(x, 1, z, post.log(Direction.Axis.Y));
+					d.set(x, 2, z, beam.log(Direction.Axis.X));
+					d.set(pan, 2, z, beam.log(Direction.Axis.X));
+					d.set(pan, 1, z, Blocks.IRON_CHAIN.defaultBlockState());
+					d.set(pan, 0, z, Blocks.HEAVY_WEIGHTED_PRESSURE_PLATE.defaultBlockState());
+				}
+				return;
 			}
 		}
 	}

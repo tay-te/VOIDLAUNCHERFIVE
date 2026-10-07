@@ -12,6 +12,7 @@ import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.craft.Hatch;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Lifts;
@@ -132,8 +133,8 @@ public final class Watermill implements Archetype {
 			d.set(inX, cy, cz, axle.log(Direction.Axis.X));
 		});
 
-		interior(d, hall, door, flight, inX, cz, wheelLeft);
-		if (hall.storeys() >= 2 && hall.roof != null) {
+		boolean upper = interior(d, hall, door, flight, inX, cz, wheelLeft);
+		if (upper && hall.roof != null) {
 			mealDoor(d, hall, door);
 		}
 		Side front = hall.side(0, Dirs.FRONT);
@@ -158,8 +159,9 @@ public final class Watermill implements Archetype {
 	 * wheel is not on.
 	 */
 	private static void mealDoor(Draft d, Hall hall, int door) {
-		// the highest floor with room in its front wall, over the street door or the nearest blank wall beside it
-		for (int k = hall.storeys() - 1; k >= 1; k--) {
+		// the meal floor's front wall, over the street door or the nearest blank wall beside it
+		// (only the meal floor the stair or ladder reaches, never the attic over it)
+		for (int k = Math.min(1, hall.storeys() - 1); k >= 1; k--) {
 			Side wall = hall.side(k, Dirs.FRONT);
 			int y = hall.floorY(k);
 			for (int off : new int[]{0, 1, -1, 2, -2}) {
@@ -174,8 +176,8 @@ public final class Watermill implements Archetype {
 					|| !dev.voidmc.hearth.build.kit.Openings.isWallBlock(d, x, y + 1, z)) {
 					continue;
 				}
-				var leaf = d.mat(Role.DOOR).mainOr(dev.voidmc.hearth.build.style.Form.DOOR, Blocks.SPRUCE_DOOR);
-				d.inStage(StageKind.OPENINGS, () -> d.door(x, y, z, leaf, Dirs.FRONT, net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+				// a half door: a rail at the sill, the shutter swung open over it for the hoist
+				Hatch.hoistDoor(d, x, y, z, Dirs.FRONT);
 				if (y + 2 < top) {
 					Lifts.hoist(d, wall, i, y + 2, 2, Math.max(3, y - 1), Blocks.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE).defaultBlockState());
 				}
@@ -211,7 +213,8 @@ public final class Watermill implements Archetype {
 		}
 	}
 
-	private static void interior(Draft d, Hall hall, int door, int[] flight, int inX, int cz, boolean wheelLeft) {
+	/** The ground floor, and the meal floor when a flight or a ladder reaches it; answers whether one does. */
+	private static boolean interior(Draft d, Hall hall, int door, int[] flight, int inX, int cz, boolean wheelLeft) {
 		int[] in = hall.inner(0);
 		Floorplan fp = hall.floor(0).blockHoles(d);
 		fp.keep(door, in[1]);
@@ -224,6 +227,12 @@ public final class Watermill implements Archetype {
 			}
 		}
 		Direction into = wheelLeft ? Dirs.RIGHT : Dirs.LEFT;
+		// no flight fits the meal floor (or the floor is the attic): a ladder up through a hatch, against the back wall or
+		// the side away from the wheel, so the meal floor and its loading door are walked to
+		int[] ladder = null;
+		if (flight == null && hall.storeys() >= 2) {
+			ladder = Hatch.ladder(d, hall, 1, fp, Dirs.BACK, into.getOpposite() == Dirs.LEFT ? Dirs.RIGHT : Dirs.LEFT, Dirs.FRONT);
+		}
 		// the stones by the axle, the miller between them
 		int placed = 0;
 		for (int dz : new int[]{0, 1, -1, 2, -2}) {
@@ -264,10 +273,15 @@ public final class Watermill implements Archetype {
 			}
 		}
 		Rooms.furnish(d, fp.room(), Rooms.Type.STORAGE, 0, JobType.NONE);
-		if (flight != null && hall.storeys() >= 2) {
+		if ((flight != null || ladder != null) && hall.storeys() >= 2) {
 			Floorplan up = hall.floor(1).blockHoles(d);
-			up.keep(flight[2], flight[3]);
-			up.keepArea(flight[4], flight[5], flight[6], flight[7]);
+			if (flight != null) {
+				up.keep(flight[2], flight[3]);
+				up.keepArea(flight[4], flight[5], flight[6], flight[7]);
+			} else {
+				Hatch.keep(up, ladder);
+				up.keep(door, up.z0);
+			}
 			for (int[] c : up.along(Dirs.BACK)) {
 				if (up.take(c[0], c[1], null)) {
 					Props.sacks(d, c[0], up.y, c[1], Dirs.RIGHT, 1, true);
@@ -275,5 +289,6 @@ public final class Watermill implements Archetype {
 			}
 			Rooms.furnish(d, up.room(), Rooms.Type.STORAGE, 0, JobType.NONE);
 		}
+		return (flight != null || ladder != null) && hall.storeys() >= 2;
 	}
 }
