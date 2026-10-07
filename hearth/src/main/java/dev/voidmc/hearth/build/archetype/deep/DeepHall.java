@@ -91,6 +91,8 @@ public final class DeepHall implements Archetype {
 		boolean stairTower;
 		String roof;
 		double pitch;
+		/** The towers' caps: a dark helm (Bohemia), a copper onion (the Alps), crenels on squat towers (the moors, the coasts). */
+		String cap;
 	}
 
 	@Override
@@ -98,6 +100,35 @@ public final class DeepHall implements Archetype {
 		DeepSite ds = DeepSite.of(d);
 		Glow g = Glow.of(ds.character());
 		DeepManner manner = DeepManner.of(d);
+		int h = Math.max(11, Math.min(d.maxHeight(), ds.top() + 1));
+		switch (manner.hallForm()) {
+			case "stave", "longhouse" -> {
+				HallStave.draw(d, g, manner, h);
+				return;
+			}
+			case "pavilion" -> {
+				HallPavilion.draw(d, g, h);
+				return;
+			}
+			case "pueblo" -> {
+				HallPueblo.draw(d, g, h);
+				return;
+			}
+			case "loggia" -> {
+				HallLoggia.draw(d, g, h);
+				return;
+			}
+			case "stilt" -> {
+				HallStilt.draw(d, g, h);
+				return;
+			}
+			case "court", "sahel" -> {
+				HallCourt.draw(d, g, h, manner.hallForm().equals("sahel"));
+				return;
+			}
+			default -> {
+			}
+		}
 		Plan p = plan(d, ds, manner);
 		d.body(p.bx0, p.zf, p.bx1, p.zb);
 
@@ -139,7 +170,14 @@ public final class DeepHall implements Archetype {
 			rise = (int) Math.ceil(half * p.pitch) + 1;
 			p.hn = Math.clamp(p.h - 6 - rise, p.ha + 3, p.ha + 5);
 		}
-		p.towerTop = p.h - 1;
+		p.cap = switch (manner.culture()) {
+			case TEMPERATE -> "helm";
+			case ALPINE -> "onion";
+			case MOORLAND, MARITIME -> "crenel";
+			default -> "spire";
+		};
+		// squat towers stand a little over the nave's eaves; the rest to the top of the plot
+		p.towerTop = p.cap.equals("crenel") ? Math.min(p.h - 1, Math.max(p.hn + 4, 11)) : p.h - 1;
 		// the arcade's piers: every third row from behind the towers to before the dais
 		p.zc0 = p.t + 1;
 		int n = Math.max(2, (p.zb - 2 - p.zc0) / 3 + 1);
@@ -338,7 +376,10 @@ public final class DeepHall implements Archetype {
 				}
 			}
 		}
-		if (p.pitch > 0) {
+		if (p.pitch > 0 && !p.cap.equals("spire")) {
+			// the nave in the culture's own covering (red tile, shingles, slate): copper stays on the aisles and the onions
+			DeepManner.rehome(d, 0, eave - 1, 0, p.w - 1, d.maxHeight() - 1, p.dp - 1, sheet, Role.ROOF);
+		} else if (p.pitch > 0) {
 			Rock.copper(d, 0, eave - 1, 0, p.w - 1, d.maxHeight() - 1, p.dp - 1, sheet, Rock.weathering(d));
 		} else if (p.roof.equals("dome")) {
 			Rock.copper(d, p.xa, eave + 1, p.zf, p.xb, d.maxHeight() - 1, p.zb, sheet, Rock.weathering(d));
@@ -368,8 +409,8 @@ public final class DeepHall implements Archetype {
 		Mat plinth = d.mat(Role.PLINTH);
 		Mat sheet = d.mat(Role.SHEET).has(Form.STAIRS) ? d.mat(Role.SHEET) : d.mat(Role.ROOF);
 		Mat trim = d.mat(Role.ROOF_TRIM);
-		boolean capped = !p.roof.equals("flat");
-		int capH = capped ? (p.t == 5 ? 3 : 2) : 0;
+		boolean capped = !p.roof.equals("flat") && !p.cap.equals("crenel");
+		int capH = !capped ? 0 : p.cap.equals("helm") || p.cap.equals("onion") ? (p.t == 5 ? 4 : 3) : p.t == 5 ? 3 : 2;
 		int wallTop = p.towerTop - capH - (capped ? 0 : 1);
 		for (int side = 0; side < 2; side++) {
 			int tx0 = side == 0 ? p.bx0 : p.bx1 - p.t + 1;
@@ -494,7 +535,8 @@ public final class DeepHall implements Archetype {
 				}
 			}
 			if (capped) {
-				Roofs.Field cap = switch (p.roof) {
+				Roofs.Field cap = p.cap.equals("helm") ? Roofs.hip(tx0, tz0, tx1, tz1, Roofs.Profile.straight(2.0))
+					: p.cap.equals("onion") ? Roofs.dome(mx, mz, p.t / 2.0 + 0.5, 1.1) : switch (p.roof) {
 					case "dome" -> Roofs.dome(mx, mz, p.t / 2.0, 0.9);
 					case "flared" -> Roofs.flared(Roofs.hip(tx0 - 1, tz0 - 1, tx1 + 1, tz1 + 1, Roofs.Profile.curved(1.2)), tx0 - 1, tz0 - 1, tx1 + 1, tz1 + 1,
 						1.0, 2);
@@ -502,11 +544,17 @@ public final class DeepHall implements Archetype {
 				};
 				int cx0 = Math.max(0, tx0 - 1);
 				int cx1 = Math.min(p.w - 1, tx1 + 1);
-				Roofs.raster(d, cap, wallTop + 1, cx0, Math.max(0, tz0 - 1), cx1, tz1 + 1, sheet, trim, Habits.Ridge.FULL);
-				Rock.copper(d, cx0, wallTop + 1, Math.max(0, tz0 - 1), cx1, d.maxHeight() - 1, tz1 + 1, sheet, Rock.weathering(d));
+				Mat capM = p.cap.equals("helm") ? d.mat(Role.ROOF) : sheet;
+				Roofs.Roof capR = Roofs.raster(d, cap, wallTop + 1, cx0, Math.max(0, tz0 - 1), cx1, tz1 + 1, capM, trim, Habits.Ridge.FULL);
+				if (p.cap.equals("onion") || p.cap.equals("helm")) {
+					HallParts.solid(d, capR, wallTop + 1, capM.full());
+				}
+				if (!p.cap.equals("helm")) {
+					Rock.copper(d, cx0, wallTop + 1, Math.max(0, tz0 - 1), cx1, d.maxHeight() - 1, tz1 + 1, sheet, Rock.weathering(d));
+				}
 				// a finial of the realm's glow on the point
-				int top = wallTop + 1 + capH;
-				if (top < d.maxHeight() && d.isAbsent(mx, top, mz)) {
+				int top = capR.ridgeY + 1;
+				if (top < d.maxHeight() && d.isAbsent(mx, top, mz) && d.isSolid(mx, top - 1, mz)) {
 					try (var s = d.stage(StageKind.ROOF)) {
 						d.set(mx, top, mz, g.lamp.defaultBlockState());
 					}

@@ -683,7 +683,19 @@ public final class DeepDwelling implements Archetype {
 				d.set(x, p.deck, zc, trim.stairsOrSlab(Dirs.BACK, Half.TOP));
 			}
 		}
-		Rock.parapet(d, 0, front, p.w - 1, front, p.deck + 1, p.piers.length == 3 ? p.w / 2 : 0);
+		String crown = crown(DeepManner.of(d));
+		if (crown.equals("eave") || crown.equals("flared")) {
+			eave(d, p, front, crown.equals("flared"));
+		} else if (crown.equals("vigas") || crown.equals("torons")) {
+			beamEnds(d, p, front);
+		}
+		if (crown.equals("eave") || crown.equals("flared")) {
+			rail(d, 0, front, p.w - 1, front, p.deck + 1);
+		} else if (crown.equals("merlons") || crown.equals("vigas") || crown.equals("torons")) {
+			merlons(d, p, front, crown.equals("merlons"));
+		} else {
+			Rock.parapet(d, 0, front, p.w - 1, front, p.deck + 1, p.piers.length == 3 ? p.w / 2 : 0);
+		}
 		if (!d.partyLocalLeft()) {
 			Rock.parapet(d, 0, front, 0, p.zb, p.deck + 1, 0);
 		}
@@ -697,6 +709,118 @@ public final class DeepDwelling implements Archetype {
 		if (a >= 0) {
 			try (var s = d.stage(StageKind.ROOF)) {
 				d.air(a, p.deck + 1, front);
+			}
+		}
+	}
+
+	/**
+	 * How the culture closes the top of a house's front (art review 28: the silhouettes, not only the infill): an eave of
+	 * its own covering sloping out over the street under a timber rail (the timber north, the Alps, the tropics, the bayou,
+	 * the Mediterranean's tiles), the eave's corners lifted (the karst and the glades), stepped merlons (the desert),
+	 * the vigas showing under a rounded parapet (the mesa), timber torons through it (the steppe), the stone parapet of
+	 * the silver towns (Bohemia, the moors and coasts). The terrace itself stays clear for a house stacked on it.
+	 */
+	private static String crown(DeepManner m) {
+		return switch (m.culture()) {
+			case NORTHERN, ALPINE, TUNDRA, TROPICAL, BAYOU, MEDITERRANEAN -> "eave";
+			case KARST, WISTERIA -> "flared";
+			case DESERT -> "merlons";
+			case MESA -> "vigas";
+			case STEPPE -> "torons";
+			default -> "parapet";
+		};
+	}
+
+	/** Whether the front's top rows are free at column x in row z (the flight climbs past high in the front row). */
+	private static boolean clearOfFlight(Plan p, int x, int z) {
+		return z != 0 || p.stepAt(x) < p.deck - 4;
+	}
+
+	/**
+	 * An eave over the front: the culture's own roofing in two rows sloping down and out from the top of the front wall,
+	 * the lower row over the street; with {@code flared} its ends turned up and a lantern hung under each.
+	 */
+	private static void eave(Draft d, Plan p, int front, boolean flared) {
+		Mat sheet = d.mat(Role.SHEET).has(Form.STAIRS) ? d.mat(Role.SHEET) : d.mat(Role.ROOF);
+		dev.voidmc.hearth.build.draft.Paint slope = DeepManner.thatches(d) ? sheet.stairsOrSlab(Dirs.BACK, Half.BOTTOM)
+			: DeepManner.home(d, Role.ROOF, Form.STAIRS, st -> st.trySetValue(BlockStateProperties.HORIZONTAL_FACING, Dirs.BACK)
+				.trySetValue(BlockStateProperties.HALF, Half.BOTTOM)).orElse(sheet.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
+		int zc = front - 1;
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int x = 0; x < p.w; x++) {
+				if (clearOfFlight(p, x, zc) && d.allowed(x, p.deck, zc)) {
+					d.set(x, p.deck, zc, slope);
+				}
+				int z2 = zc - 1;
+				if (clearOfFlight(p, x, z2) && d.allowed(x, p.deck - 1, z2) && d.isAbsent(x, p.deck - 1, z2) && d.isAbsent(x, p.deck - 2, z2)
+					&& d.get(x, p.deck, zc) != null) {
+					d.set(x, p.deck - 1, z2, slope);
+				}
+			}
+		}
+		if (!flared) {
+			return;
+		}
+		Mat roof = d.mat(Role.ROOF);
+		for (int x : new int[]{0, p.w - 1}) {
+			if (!clearOfFlight(p, x, zc) || d.get(x, p.deck, zc) == null || !d.allowed(x, p.deck + 1, zc)) {
+				continue;
+			}
+			try (var s = d.stage(StageKind.ROOF)) {
+				d.set(x, p.deck + 1, zc, roof.stairsOrSlab(x == 0 ? Dirs.RIGHT : Dirs.LEFT, Half.BOTTOM));
+			}
+			int z2 = zc - 1;
+			if (d.get(x, p.deck - 1, z2) != null && d.allowed(x, p.deck - 2, z2) && d.isAbsent(x, p.deck - 2, z2) && d.isAbsent(x, p.deck - 3, z2)) {
+				d.inStage(StageKind.EXTERIOR, () -> d.set(x, p.deck - 2, z2, States.lantern(Blocks.LANTERN, true)));
+			}
+		}
+	}
+
+	/** A timber rail along a run at height y: the railing's fence between dressed posts at the ends. */
+	private static void rail(Draft d, int x0, int z0, int x1, int z1, int y) {
+		Mat rail = d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING) : d.mat(Role.FURNITURE);
+		Mat frame = d.mat(Role.FRAME);
+		List<int[]> cells = Rock.line(x0, z0, x1, z1);
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int i = 0; i < cells.size(); i++) {
+				int[] c = cells.get(i);
+				if (d.allowed(c[0], y, c[1])) {
+					d.set(c[0], y, c[1], i == 0 || i == cells.size() - 1 ? frame.log(Direction.Axis.Y) : rail.fence());
+				}
+			}
+		}
+	}
+
+	/** Beam ends through the front under the deck, every other column: the mesa's vigas, the steppe's torons. */
+	private static void beamEnds(Draft d, Plan p, int front) {
+		Mat beam = d.mat(Role.BEAM);
+		int zc = front - 1;
+		int y = p.deck - 1;
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int x = 1; x < p.w - 1; x += 2) {
+				if (clearOfFlight(p, x, zc) && d.allowed(x, y, zc) && d.isAbsent(x, y, zc) && d.isAbsent(x, y - 1, zc)) {
+					d.set(x, y, zc, beam.log(Direction.Axis.Z));
+				}
+			}
+		}
+	}
+
+	/**
+	 * The front's parapet in the culture's own render: stepped merlons (a block and a slab by turns) in the desert, else
+	 * rounded (slabs, a block at each end).
+	 */
+	private static void merlons(Draft d, Plan p, int front, boolean stepped) {
+		dev.voidmc.hearth.build.draft.Paint block = DeepManner.home(d, Role.WALL).orElse(d.mat(Role.WALL).full());
+		dev.voidmc.hearth.build.draft.Paint slab = DeepManner.home(d, Role.WALL, Form.SLAB, st -> st).orElse(Rock.dressing(d).slab(
+			net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
+		int y = p.deck + 1;
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int x = 0; x < p.w; x++) {
+				if (!d.allowed(x, y, front)) {
+					continue;
+				}
+				boolean end = x == 0 || x == p.w - 1;
+				d.set(x, y, front, end || stepped && x % 2 == 0 ? block : slab);
 			}
 		}
 	}
