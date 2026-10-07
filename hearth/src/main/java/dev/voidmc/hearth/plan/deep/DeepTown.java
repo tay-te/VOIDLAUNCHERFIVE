@@ -130,11 +130,12 @@ public final class DeepTown {
 		if (spot == null) {
 			return false;
 		}
-		// the lift's head on the surface, fronting a road, over open floor
+		// the lift's head on the surface, fronting a road, over open floor: from a few dozen places near the spot, not the best
+		// dozen (they can all stand over rock, and with a track already out there the town never grew another way to it)
 		Parcels.Request req = new Parcels.Request(lift, Placement.SITED, null).sited(Siting.near(spot[0], spot[1], 24)).withSize(lift.minFrontage(),
 			lift.minDepth());
 		Parcels.Parcel head = null;
-		for (Parcels.Parcel p : Parcels.find(ctx, req, null, 12)) {
+		for (Parcels.Parcel p : Parcels.find(ctx, req, null, 48)) {
 			if (liftFits(rt, floor, p) && (head == null || p.score > head.score)) {
 				head = p;
 			}
