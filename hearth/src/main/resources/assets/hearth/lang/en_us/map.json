@@ -1,0 +1,19 @@
+{
+  "hearth.map.layer.settlements": "Settlements",
+  "hearth.map.layer.quests": "Quests",
+  "hearth.map.sighted": "Sighted",
+  "hearth.map.subtitle": "HEARTH  ·  %s",
+  "hearth.map.subtitle.sighted": "HEARTH  ·  NOT VISITED YET",
+  "hearth.map.folk": "FOLK",
+  "hearth.map.standing": "YOUR STANDING",
+  "hearth.map.section": "THE SETTLEMENT",
+  "hearth.map.tag.tier": "TIER",
+  "hearth.map.tag.culture": "CULTURE",
+  "hearth.map.tag.title": "YOU",
+  "hearth.map.tag.property": "YOURS",
+  "hearth.map.row.owner": "You own property here",
+  "hearth.map.quest.subtitle": "HEARTH  ·  QUEST",
+  "hearth.map.quest.subtitle.hand_in": "HEARTH  ·  HAND IN",
+  "hearth.map.quest.objectives": "WHAT IS LEFT",
+  "hearth.map.quest.hand_in": "DONE  ·  HAND IT IN"
+}

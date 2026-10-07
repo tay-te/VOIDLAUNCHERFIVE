@@ -8,6 +8,7 @@
 	"license": "All-Rights-Reserved",
 	"environment": "*",
 	"entrypoints": {
+		"atlas": ["dev.voidmc.hearth.client.map.atlas.HearthAtlas"],
 		"main": ["dev.voidmc.hearth.Hearth"],
 		"client": ["dev.voidmc.hearth.client.HearthClient"]
 	},
@@ -37,6 +38,7 @@
 		"fabric-api": "*"
 	},
 	"suggests": {
+		"atlas": "*",
 		"expanse": "*",
 		"void_lod": "*"
 	}

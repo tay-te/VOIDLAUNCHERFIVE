@@ -38,6 +38,29 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// VOID Atlas, the map: an optional partner whose build is only there when settings.gradle found one (../atlas or
+// -Patlas.dir=...). Then the "atlas" source set (src/atlas: the map plugin, the only code that names Atlas types) is
+// compiled against it and shipped in the jar; without it the source set does not exist, the plugin's entrypoint line is
+// left out of fabric.mod.json, and Hearth builds and runs as before. -Patlas.run=true also loads Atlas in the dev runs.
+def hasAtlas = !(gradle.ext.has('hearthAtlasDir') ? gradle.ext.hearthAtlasDir : '').isEmpty()
+if (hasAtlas) {
+	sourceSets {
+		atlas {
+			compileClasspath += sourceSets.client.compileClasspath + sourceSets.main.output + sourceSets.client.output
+			runtimeClasspath += sourceSets.client.runtimeClasspath + sourceSets.main.output + sourceSets.client.output
+		}
+	}
+	loom.mods.named('hearth').configure { it.sourceSet sourceSets.atlas }
+	dependencies {
+		atlasCompileOnly 'dev.voidmc:void-atlas'
+		if ((findProperty('atlas.run') ?: 'false').toString().toBoolean()) {
+			localRuntime 'dev.voidmc:void-atlas'
+		}
+	}
+	tasks.named('jar') { from sourceSets.atlas.output }
+	tasks.withType(Jar).matching { it.name == 'sourcesJar' }.configureEach { from sourceSets.atlas.allSource }
+}
+
 // Each module keeps its own lang fragment (assets/hearth/lang/en_us/<module>.json) so modules never edit one shared
 // file; they are merged into the en_us.json the game reads. A key defined twice with different text fails the build.
 def langFragments = file('src/main/resources/assets/hearth/lang/en_us')
@@ -70,8 +93,13 @@ processResources {
 	from(mergedLang)
 	exclude 'assets/hearth/lang/en_us/**'
 
+	inputs.property "atlas", hasAtlas
 	filesMatching("fabric.mod.json") {
 		expand "version": version
+		if (!hasAtlas) {
+			// the map plugin was not compiled: drop its entrypoint line (kept on a line of its own for this)
+			filter { String line -> line.contains('dev.voidmc.hearth.client.map.atlas.') ? null : line }
+		}
 	}
 }
 

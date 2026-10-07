@@ -72,6 +72,7 @@ This document is the contract between the modules. **Read it all before you writ
 | **law** (phase 3) | — | `dev.voidmc.hearth.law` | `client.law` | `hearth-law[.client]` | `law.json` |
 | **repair** (phase 3) | — | `dev.voidmc.hearth.repair` | `client.repair` | `hearth-repair[.client]` | `repair.json` |
 | **social** (phase 3) | — | `dev.voidmc.hearth.social` | `client.social` | `hearth-social[.client]` | `social.json` |
+| **map** (partner) | — | `dev.voidmc.hearth.map` | `client.map` (+ `src/atlas`: `client.map.atlas`) | — | `map.json` |
 
 Phase 3 (the living world: light, repairs, reputation, law and stealth, the resource economy, more architecture) is
 designed in **`docs/LIVING_WORLD.md`**, which extends this contract; its §8.5 lists the new archetype ids and params.
@@ -442,6 +443,20 @@ Citadel, Palm Harbour, the Logging Camp...) stay: remote, unpeopled places to ex
   Expanse woods and stones (wisteria, redwood, palm, baobab planks; limestone, opal sandstone) with vanilla fallbacks;
   the terrain probe reads the Earth model directly for rivers, coasts and landforms; settlements avoid Expanse
   structures; quests send players to Expanse landmarks and realms; Expanse's villages are left as they are.
+- **Atlas** (optional; VOID's map, not on main yet). Its build is included only when present: `settings.gradle` takes
+  `-Patlas.dir=<an Atlas checkout's atlas/ folder>` or else `../atlas` if it exists, and only then does `build.gradle`
+  add the `atlas` source set (`src/atlas`, `compileOnly 'dev.voidmc:void-atlas'`, shipped in the jar; `-Patlas.run=true`
+  also loads Atlas in the dev runs). Without it the source set does not exist and the `"atlas"` entrypoint line is
+  filtered out of `fabric.mod.json`. `client.map.atlas.HearthAtlas` (the `"atlas"` entrypoint, which Fabric only loads
+  with Atlas) is the only class that names Atlas types. The map module (server) keeps which settlements each player has
+  **sighted** (within 160 blocks of their bounds) and **discovered** (within 24, Atlas's own reach) in the persistent
+  attachment `hearth:map/known`, looks at each player every 40 ticks (staggered), and sends `hearth:map/settlements`
+  (the whole list, sighted ones without name or standing) only when it changed and only to clients that registered the
+  receiver — `client.map.MapClient` does so only when Atlas is loaded. The plugin draws them on a "Settlements" layer
+  (a "?" while sighted; then house / village / keep by tier, folk, tier, culture and the player's own standing meter and
+  title) and the tracked quest's target on a "Quests" layer, from the synced quest attachment (`QuestClient.tracked`).
+  `config/hearth/map.json`: `enabled`, `sight_radius`, `discover_radius`, `interval_ticks`. What Hearth would like
+  changed in Atlas's API: `docs/requests/atlas.md`.
 - **LOD** (optional, later phase): VOID LOD draws settlements at the horizon from `Blueprint.silhouette()` of built
   plots, through a small read-only API the sim module will expose (`sim/LodFootprints`): columns of (wall, roof)
   colour and height, thread-safe, versioned so the LOD rebuilds only tiles that changed.
