@@ -108,7 +108,10 @@ final class Measure {
 		int floor = spec.floorY();
 		Map<String, String> where = new java.util.LinkedHashMap<>();
 		Frame lf0 = new Frame(new LocalFrame(spec), floor);
-		String dbg = System.getProperty("audit.reach", "");
+		for (String dbgSpec : System.getProperty("audit.reach", "").split(";")) for (String dbgLv : dbgSpec.isEmpty() ? new String[0] : dbgSpec.substring(dbgSpec.lastIndexOf(',') + 1).split("/")) {
+		String dbg = dbgSpec.substring(0, dbgSpec.lastIndexOf(',') + 1) + dbgLv;
+		String terr = System.getProperty("audit.reachTerrain", "");
+		if (!terr.isEmpty() && !spec.toString().contains(terr)) continue;
 		if (!dbg.isEmpty() && dbg.startsWith(spec.archetype().getPath() + "," + spec.style().getPath() + "," + spec.seed() + "," + spec.facing().getSerializedName() + ",")) {
 			// a walk map in the plot's frame at one standing level: r reached, + walkable, # solid, . air; front (z = -1) at the bottom
 			int ly = Integer.parseInt(dbg.substring(dbg.lastIndexOf(',') + 1));
@@ -126,7 +129,8 @@ final class Measure {
 				sb.append(System.lineSeparator());
 			}
 			System.out.println(sb);
-			System.out.println(BlueprintChecks.reachMap(bp, probe, floor + ly) + "entrances " + bp.entrances() + " floor " + floor + " grid y0 " + g.y0);
+			System.out.println(BlueprintChecks.reachMap(bp, probe, floor + ly) + "entrances " + bp.entrances() + " floor " + floor + " grid y0 " + g.y0 + " spec " + spec);
+		}
 		}
 
 		// --- walkable cells in the plot, rooms (enclosed), open-roofed cells
