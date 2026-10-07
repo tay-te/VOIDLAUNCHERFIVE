@@ -293,7 +293,7 @@ public final class CliffFace {
 
 	/**
 	 * Lays the quarter out at the founding, after the main street along the foot: reserves the columns' ground and the
-	 * lookout's, plans the four climbs and builds the two that flank the square. Returns the main climb (the one whose
+	 * lookout's, and plans and builds the four climbs. Returns the main climb (the one whose
 	 * head the lookout stands at), or null if the land has no quarter after all (the caller falls back to the plain
 	 * cliff skeleton).
 	 */
@@ -335,9 +335,19 @@ public final class CliffFace {
 		}
 		RoadEdge main = null;
 		for (int i = 0; i < CLIMBS.length; i++) {
+			// the street along the foot built on as far as the climb, so no flight starts off a street not yet laid
+			int[] at = junction(ctx, f, CLIMBS[i]);
+			if (at != null && ctx.state.graph.edge(at[0]).built <= at[1] + 2) {
+				Roads.build(ctx, ctx.state.graph.edge(at[0]), at[1] + 3, "road: the street along the foot of the cliff");
+			}
 			RoadEdge e = climb(ctx, f, CLIMBS[i]);
-			if (e != null && i < 2) {
-				issue(ctx, f, e);
+			if (e == null) {
+				continue;
+			}
+			// every climb is built at once, as the face's own (left to the town's road growth, the outer pair would be
+			// laid as ordinary stair streets, walled up to the old crest)
+			issue(ctx, f, e);
+			if (i < 2) {
 				if (main == null || e.line().points()[e.line().points().length - 2] > main.line().points()[main.line().points().length - 2]) {
 					main = e;
 				}

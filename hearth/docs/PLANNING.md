@@ -180,11 +180,13 @@ the §6.1 and §8.5 defaults (`catalogue/DefaultCatalogue`) stand in.
   half its depth, its back on (or cut into) the slope behind, up to three levels.
 - **The cliff quarter** (`layout/CliffFace`, cliff towns on a face of two courses or more): the founding puts the
   square on the flat just off the toe and reserves the face behind it (`cliff_face/*`) in columns of cliff dwellings
-  either side of the square's own; four stair streets climb straight into the face at one in one with explicit treads
-  (the two flanking the square built at once, the outer two when the outer columns start). Commoners' homes go to the
-  face first (`Housing` → `Stacks.face`): the base course dug into the toe on the main street, then course on course,
-  each set back a course's height on the roof of the one below (`face_column`, `level`, up to six courses), the inner
-  columns before the outer (village+). Terraces of neighbouring columns run on into each other and onto the climbs'
+  either side of the square's own; four stair streets climb straight into the face at one in one with explicit treads,
+  all built at the founding (the street along the foot built out to them). Commoners' homes go to the face first
+  (`Housing` → `Stacks.face`): the base course on the main street, then course on course, each set back a course's
+  height on the roof of the one below (`face_column`, `level`, up to six courses), the inner columns before the outer
+  (village+). Where the rock stands over a course's roof, a terrace plot cuts its ledge back into the face from its
+  floor up to the crest first (the dwelling is `terraced`), so each course stands in the open, the face a staircase of
+  ledges. Terraces of neighbouring columns run on into each other and onto the climbs'
   landings (`open_left`/`open_right`; the stairs leave `gaps` there and `cap` their walls). Once the inner columns
   have climbed halfway, a watchtower lookout (`lookout`) stands on the crest at the head of the main climb. The quarter
   is a pure function of the ground, the heart and the cliff direction, so it is the same on every planning call.

@@ -39,7 +39,8 @@ import org.jspecify.annotations.Nullable;
  * at the foot, their rooms dug into the toe, each course set back a course's height behind the one below (one block in
  * one, the climbs' own grade) and stacked up to the crest, the inner group (behind the square) before the outer. Face
  * plots carry {@code face_column} and {@code level}, and {@code open_left}/{@code open_right} (the dwelling's own
- * sides, as party walls are named) where its terrace runs on into a neighbour's or onto a climb's landing.
+ * sides, as party walls are named) where its terrace runs on into a neighbour's or onto a climb's landing. Where the
+ * rock stands over a course's roof, a terrace plot cuts the course's ledge back into the face first ({@link #cutBack}).
  */
 public final class Stacks {
 	private static final int MAX_LEVEL = 3;
@@ -175,9 +176,6 @@ public final class Stacks {
 						spec = course(ctx, f, info, c, level, below, have, home);
 					}
 					if (spec != null) {
-						if (group == 1) {
-							climbs(ctx, f);
-						}
 						String why = reason != null ? reason : level == 0 ? "stacking: a dwelling dug into the foot of the cliff"
 							: "stacking: a dwelling cut into the cliff on the roof of the one below (course " + (level + 1) + ")";
 						Roads.issue(ctx, spec, why);
@@ -233,8 +231,8 @@ public final class Stacks {
 
 	/**
 	 * A column's base course: its front on the main street (the square for the square's own column), its forecourt on
-	 * the flat at the foot, its rooms dug into the toe. Null where the column's ground is not free or not near the
-	 * street's level at the front.
+	 * the flat at the foot, its rooms dug into the toe. Null where the column's ground is not free or falls away below
+	 * the street at the front.
 	 */
 	private static @Nullable PlotSpec base(PlanContext ctx, CliffFace.Face f, ArchetypeInfo info, int c, @Nullable CompoundTag home) {
 		int t0 = CliffFace.columnStart(c);
@@ -280,11 +278,11 @@ public final class Stacks {
 			}
 			streetY = arm.dense().ys()[index];
 		}
-		// the forecourt is levelled at the street's level: a little cut into the toe, little fill
+		// the forecourt is levelled at the street's level: little fill (where the face rises sheer from the street, the
+		// ledge is cut back into it, cutBack)
 		for (int u = front; u > front - 3; u--) {
 			for (int t = t0; t <= t1; t++) {
-				int g = ctx.ground.ground(f.x(t, u), f.z(t, u));
-				if (g > streetY + 5 || g < streetY - 3) {
+				if (ctx.ground.ground(f.x(t, u), f.z(t, u)) < streetY - 3) {
 					return null;
 				}
 			}
@@ -295,6 +293,7 @@ public final class Stacks {
 		params.putBoolean("cut_into_slope", true);
 		params.putInt("street_y", streetY);
 		params.putString("zone", Build.zoneName(ctx.zone(ex, ez)));
+		cutBack(ctx, f, r, streetY, params);
 		return new PlotSpec(info.id(), ctx.style, ctx.nextSeed(), new BlockPos(r[0], streetY, r[1]), r[2] - r[0] + 1, r[3] - r[1] + 1, f.out(),
 			f.course(), finish(ctx, info, params), params);
 	}
@@ -348,6 +347,7 @@ public final class Stacks {
 				params.putBoolean(side == 0 ? "open_left" : "open_right", true);
 			}
 		}
+		cutBack(ctx, f, r, floor, params);
 		return new PlotSpec(info.id(), ctx.style, ctx.nextSeed(), new BlockPos(r[0], floor, r[1]), b.sizeX(), b.sizeZ(), f.out(), f.course(),
 			b.tier(), params);
 	}
@@ -414,14 +414,27 @@ public final class Stacks {
 		return true;
 	}
 
-	/** Builds the outer climbs (planned at the founding) once the outer group starts. */
-	private static void climbs(PlanContext ctx, CliffFace.Face f) {
-		for (int c : new int[]{30, -30}) {
-			RoadEdge e = CliffFace.climbAt(ctx, f, c);
-			if (e != null) {
-				CliffFace.issue(ctx, f, e);
+	/**
+	 * Cuts the face back over a dwelling's footprint {x0, z0, x1, z1} where the rock stands above its roof: a terrace plot
+	 * dug out from its floor up to the crest, so the course stands in the open on its ledge, its terrace and roof deck
+	 * under the sky and the next course's ledge cut a course higher behind it (a dwelling alone is no taller than itself
+	 * and would leave the face standing over it, the rooms buried). Marks the dwelling {@code terraced}.
+	 */
+	private static void cutBack(PlanContext ctx, CliffFace.Face f, int[] r, int floor, CompoundTag params) {
+		if (!ctx.catalogue.has(Archetypes.TERRACE)) {
+			return;
+		}
+		int hi = Integer.MIN_VALUE;
+		for (int z = r[1]; z <= r[3]; z++) {
+			for (int x = r[0]; x <= r[2]; x++) {
+				hi = Math.max(hi, ctx.ground.ground(x, z));
 			}
 		}
+		if (hi < floor + f.course()) {
+			return;
+		}
+		Roads.issue(ctx, Build.terrace(ctx, r[0], r[1], r[2], r[3], floor, f.out()), "terrace: a ledge cut back into the cliff face for a course of dwellings");
+		params.putBoolean("terraced", true);
 	}
 
 	/** Whether a reserved column is the face quarter's own (and held for nothing else: a castle hill, a lot). */
