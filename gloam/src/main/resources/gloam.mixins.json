@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "dev.voidmc.gloam.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"BiomeManagerAccessor",
+		"LevelAccessor"
+	],
+	"client": [
+		"ClientLevelMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

@@ -1,0 +1,17 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'void-gloam'
+
+// VOID LOD and Expanse are partners, not dependencies: Gloam compiles against LOD's API to put the air over the far
+// terrain, and the dev runs and game tests load both so the screenshots show the whole VOID world.
+includeBuild('../lod')
+includeBuild('../expanse')

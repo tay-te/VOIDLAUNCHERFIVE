@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "void-gloam-gametest",
+	"version": "1.0.0",
+	"name": "VOID Gloam showcase",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.voidmc.gloam.gametest.GloamShowcase"]
+	},
+	"depends": {"gloam": "*"}
+}

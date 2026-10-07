@@ -1,0 +1,120 @@
+plugins {
+	// 26.x ships unobfuscated: the code is written against Mojang's own names, and Loom has nothing to remap.
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+	archivesName = 'void-gloam'
+}
+
+repositories {
+	mavenCentral()
+	// Sodium and Iris, for compatibility: compiled against for their APIs, and in the dev runs only on request
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// VOID LOD's API (the far terrain it draws) and the Earth terrain model, touched only when those mods are loaded.
+	// The dev runs carry both, so the game tests photograph Gloam over the whole VOID world.
+	compileOnly 'dev.voidmc:void-lod'
+	localRuntime 'dev.voidmc:void-lod'
+	compileOnly 'dev.voidmc:void-expanse'
+	localRuntime 'dev.voidmc:void-expanse'
+
+	// Shader packs replace the sky, fog and lighting; Gloam asks Iris whether one is on. -Piris adds Sodium and Iris
+	// to the dev runs and game tests; nothing of either ships.
+	compileOnly "maven.modrinth:sodium:${project.sodium_version}"
+	compileOnly "maven.modrinth:iris:${project.iris_version}"
+	if (project.hasProperty('sodium') || project.hasProperty('iris')) {
+		localRuntime "maven.modrinth:sodium:${project.sodium_version}"
+	}
+	if (project.hasProperty('iris')) {
+		localRuntime "maven.modrinth:iris:${project.iris_version}"
+	}
+
+	testImplementation platform('org.junit:junit-bom:5.13.4')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+test {
+	useJUnitPlatform()
+	workingDir = layout.buildDirectory.dir('test-run').get().asFile
+	doFirst {
+		workingDir.mkdirs()
+	}
+	testLogging {
+		events 'failed'
+		exceptionFormat 'full'
+		showStandardStreams = true
+	}
+}
+
+// Gloam's settings and the showcase's, passed through from Gradle: ./gradlew runClientGameTest -Pgloam.show.only=dawn0
+loom {
+	accessWidenerPath = file("src/main/resources/gloam.accesswidener")
+
+	runs {
+		configureEach {
+			project.properties.each { key, value ->
+				if (key.startsWith('gloam.') || key.startsWith('void.lod.')) {
+					property key, value.toString()
+				}
+			}
+		}
+	}
+}
+
+// The game test's window is the size of its screenshots.
+loom.runs.configureEach {
+	if (it.name == 'clientGameTest') {
+		programArgs '--width', (project.findProperty('gloam.show.width') ?: '1600').toString(),
+			'--height', (project.findProperty('gloam.show.height') ?: '900').toString()
+		property 'void.lod.autoTune', (project.findProperty('void.lod.autoTune') ?: 'false').toString()
+	}
+}
+
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "void-gloam-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+		clearRunDirectory = false
+	}
+}

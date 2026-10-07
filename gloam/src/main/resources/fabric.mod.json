@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "gloam",
+	"version": "${version}",
+	"name": "VOID Gloam",
+	"description": "Living air for the VOID world: mist in the valleys at dawn, weather that moves across the land, dark nights by the moon, drifting leaves, fireflies and a soundscape, out to the horizon with VOID LOD, with or without a shader pack.",
+	"authors": ["VOID"],
+	"license": "All-Rights-Reserved",
+	"environment": "*",
+	"icon": "assets/gloam/icon.png",
+	"entrypoints": {
+		"main": ["dev.voidmc.gloam.GloamCommon"],
+		"client": ["dev.voidmc.gloam.Gloam"]
+	},
+	"mixins": ["gloam.mixins.json"],
+	"accessWidener": "gloam.accesswidener",
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"void_lod": "*",
+		"expanse": "*",
+		"hearth": "*"
+	}
+}
