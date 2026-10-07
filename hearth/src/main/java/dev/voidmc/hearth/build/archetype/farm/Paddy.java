@@ -84,6 +84,10 @@ public final class Paddy implements Archetype {
 		if (d.param("shelter", w >= 11 && dp >= 11)) {
 			shed = shelter(d, t, w, dp, leftSide);
 		}
+		if (shed == null) {
+			// no corner for the shelter: the bin and the seed chest stand on the bund path instead
+			PathStore.beside(d, t, path, JobType.FARMER, List.of(new Object[]{"minecraft:wheat_seeds", 16}, new Object[]{"minecraft:bone_meal", 6}));
+		}
 		// a shrine with a stone lantern at the top, a scarecrow over the biggest sheet
 		shrine(d, t, w, dp, leftSide, shed);
 		// stands on the path beside the beds
@@ -198,9 +202,8 @@ public final class Paddy implements Archetype {
 		}
 		Sheds.lean(d, x0, z0, x1, z1, y, Dirs.FRONT, 3, false);
 		Furniture.workstation(d, JobType.FARMER, x0 + 1, y, z1 - 1, Dirs.FRONT);
-		try (var s = d.stage(StageKind.INTERIOR)) {
-			d.set(x1 - 1, y, z1 - 1, Blocks.HAY_BLOCK.defaultBlockState());
-		}
+		// the sacks of seed rice in a chest beside the bin
+		Furniture.chest(d, x1 - 1, y, z1 - 1, Dirs.FRONT, List.of(new Object[]{"minecraft:wheat_seeds", 16}, new Object[]{"minecraft:bone_meal", 6}));
 		// the pad's path joins the bund path
 		return new int[]{x0, z0, x1, z1};
 	}
