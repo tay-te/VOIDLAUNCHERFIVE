@@ -93,7 +93,8 @@ public final class Turret {
 				return Shapes.stack(d, cx, cz, y, rows, sheet.full(), sheet);
 			}
 		}
-		double pitch = man.culture() == dev.voidmc.hearth.api.Culture.KARST ? 1.0 : r <= 1 ? 2.0 : 2.2;
+		double pitch = man.culture() == dev.voidmc.hearth.api.Culture.KARST ? 1.0 : man.culture() == dev.voidmc.hearth.api.Culture.TEMPERATE ? 1.5
+			: r <= 1 ? 2.0 : 2.2;
 		int x0 = cx - r;
 		int z0 = cz - r;
 		int x1 = cx + r;

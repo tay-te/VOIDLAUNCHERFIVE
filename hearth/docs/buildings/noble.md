@@ -35,15 +35,15 @@ A great building is raised in campaigns (`Draft.campaign(n)`, shared with the ex
 BUILDING_GUIDE.md §"Campaigns"): each
 campaign is a whole run of stages (clearing, footings, walls, floors, roof, openings, interior), so a castle half built
 looks like one, and no single stage asks for more goods than a town's stores hold. The order check allows the stage
-kinds to begin again with each campaign. The castle is raised in nine: the bergfried; the inner curtain in two; the
+kinds to begin again with each campaign. The two-ward castle is raised in nine: the bergfried; the inner curtain in two; the
 inner towers; the palace; the inner gate and chapel; the outer curtain; the outer towers, gatehouse and barbican; the
-outer ward and courts. The palace in seven, the keep in three, the lodge and stables in two.
+outer ward and courts; the other plans in five to eight (each class comment lists them). The palace in seven, the keep in three, the lodge and stables in two.
 
 ## How each culture builds (`kit/noble/Manner`)
 
 | culture | towers | caps (towers / keep) | parapet | halls |
 |---|---|---|---|---|
-| temperate (Bohemia, KCD II) | half round | tall cones, open battlements on outer towers / hoarded bergfried | square merlons, covered walks under a timber pentice | steep hips, dormers |
+| temperate (Bohemia, KCD II) | half round, few and broad | low tile cones and hips / tile helm or hoarded bergfried | square merlons, covered walks under a timber pentice | steep hips, dormers |
 | alpine (Tyrol) | square | needle pyramids / onion | square | steep |
 | moorland | mixed | cones on bartizans / open | square | crow-stepped gables |
 | maritime | round | machicolated open tops | square | slate |
@@ -62,14 +62,26 @@ outer ward and courts. The palace in seven, the keep in three, the lodge and sta
 its chapel niche, the steward's counting room, the guards' head; the bailey's curtain with its walk and round turrets;
 a gate tower over the way in; a range of two storeys along the back (kitchen, household); a stable shed and a well.
 
-**Castle** — Kingdom Come's Bohemia (Rattay, Talmberg, Trosky). From the road: a walled barbican with its own gate
-before a twin-towered gatehouse; the outer ward with stables and smithy in lean-tos against the curtain, a well; the
-cross wall, higher, with the inner gate tower over a ramp up to the inner ward on its raised terrace; the bergfried over
-the cross wall, the tallest thing for miles, the lord's flag on it; across the back the palace of three storeys (kitchen;
-the great hall with the throne; the lord's chamber and the steward's room) with its round stair turret on the court
-(its spiral turned to arrive on the palace's side at every storey), a two-storey wing; the chapel with its ridge belfry
-(or a palace chapel upstairs in the wing where the ward is too small); towers at every turn of the walls. Curtains are
-footed wherever the ground lies and show their full height to the field.
+**Castle** — every culture raises its own plan (`Castle.Layout`, forced with the param `layout`), so the castles
+differ in silhouette, not only in stone:
+
+| layout | cultures | class | silhouette |
+|---|---|---|---|
+| `BOHEMIAN` | temperate | `BohemianCastle` | KCD II (Talmberg, Rattay, Trosky, Pirkštejn): few, broad towers. A square gate tower under a tile hip in the outer bailey, whose front corners are cut back along the brow; one round shell tower under a low cone; the inner gate tower over a ramp; the bergfried astride the cross wall; the palace across the whole back, white render under one great red hip with dormers, its two-storey wing with the chapel and bell turret, a round stair turret in the angle. Palace and wing are the curtain there. |
+| `COMPOUND` | karst | `Compound` | a walled rectangle on its axis: gate tower with corner pavilions, the shrine court, a gate hall, side halls behind verandas, the great hall in two tiers on a stone terrace, the residence behind, the lord's tower under stacked eaves. Horizontal, layered, symmetrical. |
+| `BORG` | northern, tundra | `Borg` | a fieldstone ring wall laid out by eye with a timber breastwork, a stone gate tower under a hoarding, the round kastal with a timber gallery and steep shingle cap, the timber great hall and the household's houses (stave chapel, cookhouse, stable) inside. Low and spread, one tower. |
+| `ORDU` | steppe | `Ordu` | a round royal enclosure: earthen ring with pointed merlons, round towers under cones, the gate between two, the great round hall of audience and the round houses of the household under their cones. |
+| `ROCCA` | mediterranean | `Rocca` | one square court on a battered scarp, squat machicolated corner towers with swallowtail merlons, the tall mastio at a back corner, the palazzo in an L under low tile hips behind loggias. Cubic and flat-topped. |
+| `QASR` | desert, mesa | `Qasr` | a square of high plain walls buttressed by drum towers, flat two-storey ranges round the court at the walk's height, arcades, the domed audience hall, the burj at a back corner, a fountain and planters. |
+| `BASTION` | tropical, bayou | `Bastion` | a low star fort: arrowhead bastions with garitas (domed in the tropics, hipped on the bayou), a pedimented gate, the commandant's house with its arcaded gallery, chapel, cookhouse, barracks round the parade ground. |
+| `TOWER_HOUSE` | moorland | `TowerHouse` | a harled L-plan tower house of five storeys, crow-stepped gables and corbelled bartizans, the stair jamb a storey higher, in a barmkin with round corner turrets, a gate tower and a two-storey range. |
+| `WARDS` | alpine, maritime, wisteria | `Castle` | two wards on a hill: barbican and twin-towered gatehouse, the outer ward with stables and smithy, the cross wall and inner gate tower, the bergfried, the three-storey palace with its stair turret, the chapel, towers at every turn of the walls. |
+
+Curtains are footed wherever the ground lies and show their full height to the field. The polygon wards
+(`kit/noble/Outline`) cut a bailey's corners back along the hill; `Curtain.enclose` walls any outline, `Court.fill` and
+`Court.lamps` pave and light it. The keep (any culture) and the palace (desert, mediterranean, karst) share the castle's
+dress and manner: the palace's karst tower takes the compound tower's stacked eaves (`Range.skirt`), its dome, arcades,
+fountain and planters are the qasr's and rocca's.
 
 **Palace** — a walled precinct: gate tower, forecourt with trees in planters, the great court with a fountain, ranges
 either side with arcades on the court (guards and kitchen; steward and stores; household and the lord's chamber over
@@ -96,5 +108,7 @@ with gate piers.
 - The palace's desert dome reads stepped at preview scale; the karst tower's stacked eaves are single rings, not full
   tiered roofs.
 - The hunting lodge's tower head sits close to the ridge where the plot's height is short.
-- Materials come from the culture's style JSON (owned by refine): the temperate castle renders in the style's pale
-  stone and dark roofs, not the ochre render and red tile of a Bohemian castle; see `docs/requests/b-noble.md`.
+- Materials come from the culture's style JSON (owned by refine). Temperate's `bohemian castle` fashions are white
+  lime or ochre render under red tile (or dark shingle); its `grey stone` fashion no longer dresses the castle or keep.
+- The steppe's ordu reads as one brown mass where the style's walls and roofs share a colour; the qasr's many drum
+  towers read busy at preview scale.

@@ -202,31 +202,16 @@ public final class Palace implements Archetype {
 		int ltop = Math.min(p.y + 26, p.maxTop - headRows);
 		Tower t = Castle.wallTower(d, m, man, lx, p.bz, 7, p.y, p.walk, ltop, round, lcap,
 			Set.of(p.towerLeft ? Dirs.RIGHT : Dirs.LEFT, Dirs.FRONT), Set.of(Dirs.BACK, p.towerLeft ? Dirs.LEFT : Dirs.RIGHT));
+		// (in the karst each storey under a skirt of eaves two deep, as the compound's tower)
+		Range box = new Range(t.x0, t.z0, t.x1, t.z1, p.y, new int[]{1}, Dirs.FRONT);
 		for (int y = p.walk + 5; y < ltop - 3; y += 6) {
 			t.window(d, m, Dirs.FRONT, y, 2);
 			t.window(d, m, p.towerLeft ? Dirs.LEFT : Dirs.RIGHT, y, 2);
 			if (cu == Culture.KARST) {
-				eaves(d, m, t, y + 3);
+				box.skirt(d, m, y + 3, 2);
 			}
 		}
 		t.flag(p.towerLeft ? Dirs.RIGHT : Dirs.LEFT);
-	}
-
-	/** A ring of roof round a tower at row y: the karst tower's stacked eaves, one to each storey. */
-	private static void eaves(Draft d, Dress m, Tower t, int y) {
-		try (var s = d.stage(StageKind.ROOF)) {
-			for (int x = t.x0 - 1; x <= t.x1 + 1; x++) {
-				for (int z = t.z0 - 1; z <= t.z1 + 1; z++) {
-					if (t.in(x, z) || !Mason.ok(d, x, y, z) || !d.isEmpty(x, y, z) || !d.isEmpty(x, y - 1, z)) {
-						continue;
-					}
-					Direction out = x < t.x0 ? Dirs.LEFT : x > t.x1 ? Dirs.RIGHT : z < t.z0 ? Dirs.FRONT : Dirs.BACK;
-					boolean corner = (x < t.x0 || x > t.x1) && (z < t.z0 || z > t.z1);
-					d.set(x, y, z, corner ? m.trim.has(Form.SLAB) ? m.trim.slab(SlabType.BOTTOM) : m.roof.full()
-						: m.roof.stairsOrSlab(out.getOpposite(), Half.BOTTOM));
-				}
-			}
-		}
 	}
 
 	// ------------------------------------------------------------------------------------------------ the audience hall
@@ -301,7 +286,7 @@ public final class Palace implements Archetype {
 	}
 
 	/** A dome of the dressing over a drum: a hemisphere's shell of radius {@code rad} on a ring a block high. */
-	private static void dome(Draft d, Dress m, int cx, int cz, int y, int rad, int maxTop) {
+	static void dome(Draft d, Dress m, int cx, int cz, int y, int rad, int maxTop) {
 		if (rad < 2 || y + rad + 2 > maxTop) {
 			return;
 		}
@@ -330,7 +315,7 @@ public final class Palace implements Archetype {
 	 * piers every other cell, a lintel course with the arches' haunches (upside-down stairs) and a roof of slabs over it;
 	 * in the karst timber posts under a lean-to of the roof covering. Leaves the cell {@code door} (on the run) open.
 	 */
-	private static void arcade(Draft d, Dress m, Manner man, int x0, int z0, int x1, int z1, int y, Direction out, int... doors) {
+	static void arcade(Draft d, Dress m, Manner man, int x0, int z0, int x1, int z1, int y, Direction out, int... doors) {
 		boolean karst = man.culture() == Culture.KARST;
 		Direction along = x0 == x1 ? Dirs.BACK : Dirs.RIGHT;
 		int n = Math.abs(x1 - x0) + Math.abs(z1 - z0) + 1;
@@ -468,7 +453,7 @@ public final class Palace implements Archetype {
 	}
 
 	/** A fountain: a basin five across with a rim of the dressing, water in it, a column with a bowl in the middle. */
-	private static void fountain(Draft d, Dress m, int x, int z, int y) {
+	static void fountain(Draft d, Dress m, int x, int z, int y) {
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int dx = -2; dx <= 2; dx++) {
 				for (int dz = -2; dz <= 2; dz++) {
@@ -489,7 +474,7 @@ public final class Palace implements Archetype {
 	}
 
 	/** A raised square planter round a tree. */
-	private static void planter(Draft d, Dress m, int x, int z, int y) {
+	static void planter(Draft d, Dress m, int x, int z, int y) {
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int dx = -1; dx <= 1; dx++) {
 				for (int dz = -1; dz <= 1; dz++) {

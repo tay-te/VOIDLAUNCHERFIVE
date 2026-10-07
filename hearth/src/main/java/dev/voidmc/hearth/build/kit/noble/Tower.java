@@ -205,6 +205,8 @@ public final class Tower {
 
 	static double conePitch(Manner man, int diam) {
 		return switch (man.culture()) {
+			// Bohemia roofs its towers in tile at the pitch of its houses: a low cone, never a witch's hat
+			case TEMPERATE -> diam <= 5 ? 1.5 : diam <= 7 ? 1.25 : 1.1;
 			case STEPPE -> 1.0;
 			case NORTHERN, TUNDRA -> 1.5;
 			case ALPINE, WISTERIA -> diam <= 5 ? 2.5 : diam <= 7 ? 2.0 : 1.7;
@@ -215,6 +217,7 @@ public final class Tower {
 	static double pyramidPitch(Manner man, int diam) {
 		return switch (man.culture()) {
 			case ALPINE -> 2.5;
+			case TEMPERATE -> diam <= 7 ? 1.25 : 1.0;
 			case BAYOU, TROPICAL, KARST -> 1.0;
 			case NORTHERN, TUNDRA -> 1.5;
 			default -> diam <= 7 ? 2.0 : 1.6;
