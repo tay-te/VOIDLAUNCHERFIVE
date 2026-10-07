@@ -100,6 +100,32 @@ public class WorldgenSource implements TerrainSource {
 		return this.version;
 	}
 
+	/** {@code -Dvoid.lod.trees=false} draws stand-in trees instead of the world's own, placed block by block. */
+	public static final boolean TREES = !"false".equals(System.getProperty("void.lod.trees"));
+	private volatile TreeDecorator trees;
+	private volatile boolean treesTried;
+
+	@Override
+	public dev.voidmc.lod.core.Decorator decorator() {
+		if (!TREES) {
+			return null;
+		}
+		if (!this.treesTried) {
+			synchronized (this) {
+				if (!this.treesTried) {
+					this.trees = TreeDecorator.of(this.level, this::biome, this.looks, this.materials);
+					this.treesTried = true;
+				}
+			}
+		}
+		return this.trees;
+	}
+
+	/** The world's trees as this source places them, or null. */
+	public TreeDecorator trees() {
+		return this.trees;
+	}
+
 	public Materials materials() {
 		return this.materials;
 	}

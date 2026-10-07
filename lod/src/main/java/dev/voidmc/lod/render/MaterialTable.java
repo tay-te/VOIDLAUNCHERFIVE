@@ -182,7 +182,9 @@ final class MaterialTable implements AutoCloseable {
 		float ab = Math.max(bl / 65025.0F, 1 / 255.0F);
 
 		out.position(start);
-		this.layer(base, bt, ar, ag, ab, (turns ? 1 : 0) | (overlay != null ? 2 : 0), out);
+		// leaves: the gaps in their texture show the leaves behind, in their shade (vanilla draws them cut out)
+		boolean leaves = state.is(net.minecraft.tags.BlockTags.LEAVES);
+		this.layer(base, bt, ar, ag, ab, (turns ? 1 : 0) | (overlay != null ? 2 : 0) | (leaves ? 4 : 0), out);
 		if (overlay != null) {
 			this.layer(overlay, ot, ar, ag, ab, 0, out);
 		}

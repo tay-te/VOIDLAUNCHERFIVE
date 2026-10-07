@@ -79,8 +79,17 @@ public final class TileBuilder {
 	public static final int OCCLUDERS = 2;
 	/** An occluder square with a hole in it, a column with no ground: it hides nothing. */
 	public static final short NO_OCCLUDER = Short.MIN_VALUE;
+	/** Time all builders have spent standing the world's trees on their tiles ({@link Decorator}). */
+	public static final java.util.concurrent.atomic.AtomicLong TREE_NANOS = new java.util.concurrent.atomic.AtomicLong();
 	/** Time all builders have spent working out horizons ({@link Horizons}). */
 	public static final java.util.concurrent.atomic.AtomicLong LIGHT_NANOS = new java.util.concurrent.atomic.AtomicLong();
+
+	/**
+	 * The levels whose tiles stand the world's own trees, block by block, where the source can place them
+	 * ({@link Decorator}): those right outside the chunks, where a tree is still several pixels across.
+	 */
+	public static volatile int treeLevels = Integer.getInteger("void.lod.treeLevels", 2);
+	private final Voxels voxels = new Voxels();
 
 	/** The first level drawn smooth; the levels below it are blocky. */
 	public static volatile int smoothFrom = Integer.getInteger("void.lod.smoothFrom", TileKey.MAX_LEVEL + 1);
@@ -164,6 +173,47 @@ public final class TileBuilder {
 			this.horizons.compute(this.samples, heights, level, smooth ? TileKey.TILE + 1 : TileKey.TILE);
 			LIGHT_NANOS.addAndGet(System.nanoTime() - t1);
 		}
+		Decorator decorator = !smooth && !this.compact && level < treeLevels ? source.decorator() : null;
+		this.voxels.clear();
+		if (decorator != null) {
+			long t2 = System.nanoTime();
+			Samples s = this.samples;
+			int minX = TileKey.minX(key), minZ = TileKey.minZ(key), span = TileKey.span(level);
+			boolean ready = decorator.decorate(minX, minZ, minX + span, minZ + span, new Decorator.Ground() {
+				@Override
+				public void column(int x, int z, ColumnSample out) {
+					// the tile's own sample where it has one (on a farther tile, the cell's: rounded ground), else the source's
+					int i = Math.floorDiv(x - minX, s.cell), j = Math.floorDiv(z - minZ, s.cell);
+					if (i >= -s.border && j >= -s.border && i < s.size - s.border && j < s.size - s.border) {
+						int k = s.at(i, j);
+						out.ground = s.ground[k];
+						out.water = s.water[k];
+						out.topMaterial = s.topMaterial[k];
+						out.biome = s.biome[k];
+						out.empty = s.empty[k];
+					} else {
+						source.sample(x, z, s.cell, out);
+					}
+				}
+
+				@Override
+				public boolean exact(int x, int z) {
+					int i = x - minX, j = z - minZ;
+					return s.cell == 1 && i >= -s.border && j >= -s.border && i < s.size - s.border && j < s.size - s.border;
+				}
+
+				@Override
+				public boolean blockExact() {
+					return s.cell == 1;
+				}
+			}, this.voxels);
+			TREE_NANOS.addAndGet(System.nanoTime() - t2);
+			if (!ready) {
+				// placed in the background: drawn crowns until the tile is built again with them
+				decorator = null;
+			}
+		}
+		this.blocky.trees(decorator != null ? this.voxels : null);
 		if (smooth) {
 			indices = this.smooth.mesh();
 			holes = indices > 0 && this.smooth.holes;
@@ -177,7 +227,54 @@ public final class TileBuilder {
 		}
 		int land = this.pack ? this.waterLast() * 6 : indices;
 		this.out.flip();
-		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes, this.compact, land);
+		// a pack's mesh groups its land only: its water is drawn whole, through the pack's water program
+		int[] groups = smooth || this.vertices == 0 ? null : this.groupByFace(this.pack ? land / 6 : this.vertices / 4);
+		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes, this.compact, land,
+			groups);
+	}
+
+	/**
+	 * The order faces are grouped in ({@link #groupByFace}): north, west, up, east, south, down, so that from any side
+	 * of a tile the groups facing the camera are few runs: from the south-east, up, east and south are one.
+	 */
+	public static final int GROUP_NORTH = 0, GROUP_WEST = 1, GROUP_UP = 2, GROUP_EAST = 3, GROUP_SOUTH = 4, GROUP_DOWN = 5;
+	/** A blocky face (0 up, 2 north, 3 south, 4 west, 5 east, 6 down) to its group. */
+	private static final int[] FACE_GROUP = {GROUP_UP, GROUP_UP, GROUP_NORTH, GROUP_SOUTH, GROUP_WEST, GROUP_EAST, GROUP_DOWN, GROUP_UP};
+	/** Distant Horizons' normal numbers (down, up, north, south, west, east) as our faces. */
+	private static final int[] PACK_FACE = {6, 0, 2, 3, 4, 5, 0, 0};
+
+	/**
+	 * Sorts a blocky mesh's quads by the way they face, and returns where each group starts, in quads (seven entries,
+	 * the last the end): the renderer draws only the groups that can face the camera, and a wall facing away from it,
+	 * which is half the walls of most tiles and the walls are most of the quads, never reaches the GPU.
+	 */
+	private int[] groupByFace(int quads) {
+		int quadBytes = 4 * (this.compact ? COMPACT_BYTES : VERTEX_BYTES);
+		int[] group = new int[quads];
+		int[] starts = new int[7];
+		for (int q = 0; q < quads; q++) {
+			int face;
+			if (this.pack) {
+				// Distant Horizons' normals: down, up, north, south, west, east
+				face = PACK_FACE[this.out.get(q * quadBytes + 13) & 7];
+			} else if (this.compact) {
+				face = (this.out.getInt(q * quadBytes) >>> 14) & 7;
+			} else {
+				face = this.out.getShort(q * quadBytes + 6) & 7;
+			}
+			group[q] = FACE_GROUP[face];
+			starts[group[q] + 1]++;
+		}
+		for (int g = 1; g < 7; g++) {
+			starts[g] += starts[g - 1];
+		}
+		byte[] sorted = new byte[quads * quadBytes];
+		int[] next = java.util.Arrays.copyOf(starts, 6);
+		for (int q = 0; q < quads; q++) {
+			this.out.get(q * quadBytes, sorted, next[group[q]]++ * quadBytes, quadBytes);
+		}
+		this.out.put(0, sorted, 0, sorted.length);
+		return starts;
 	}
 
 	/**
@@ -479,11 +576,16 @@ public final class TileBuilder {
 	 * {@code holes}: a smooth mesh with void in it, which only the shader variant that discards can draw.
 	 */
 	public record Mesh(ByteBuffer vertices, int vertexCount, int indexCount, boolean smooth, int minY, int maxY, int firstIndex,
-		short[] occluders, boolean holes, boolean compact, int landIndices) {
+		short[] occluders, boolean holes, boolean compact, int landIndices, int[] groups) {
+		public Mesh(ByteBuffer vertices, int vertexCount, int indexCount, boolean smooth, int minY, int maxY, int firstIndex,
+			short[] occluders, boolean holes, boolean compact, int landIndices) {
+			this(vertices, vertexCount, indexCount, smooth, minY, maxY, firstIndex, occluders, holes, compact, landIndices, null);
+		}
+
 		/** The same mesh over other vertices: the copy handed to the renderer. */
 		public Mesh withVertices(ByteBuffer vertices) {
 			return new Mesh(vertices, this.vertexCount, this.indexCount, this.smooth, this.minY, this.maxY, this.firstIndex, this.occluders,
-				this.holes, this.compact, this.landIndices);
+				this.holes, this.compact, this.landIndices, this.groups);
 		}
 
 		/** Bytes a vertex of this mesh takes. */

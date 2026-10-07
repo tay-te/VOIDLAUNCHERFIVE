@@ -39,6 +39,50 @@ public final class LodApi {
 	}
 
 	/**
+	 * The far terrain's depth as a shader pack drew it, for mods that draw over the pack's finished picture (far air,
+	 * clouds): {@code glTexture} is a GL depth texture, {@code width} x {@code height}, holding the LOD's depth in the
+	 * perspective of {@code projection} (the game's field of view with the LOD's own near and far planes, not the main
+	 * one), seen through {@code modelView}; {@code reversed}: the nearer surface is the greater depth, 0 where there is no
+	 * far terrain. Valid during the frame it was handed out in; the texture is the LOD's, not to be kept or written.
+	 */
+	public record FarDepth(int glTexture, org.joml.Matrix4f projection, org.joml.Matrix4f modelView, boolean reversed, int width, int height) {
+	}
+
+	private static final List<java.util.function.Consumer<FarDepth>> PACK_FRAME = new CopyOnWriteArrayList<>();
+	private static volatile FarDepth farDepth;
+
+	/**
+	 * Calls {@code listener} on the render thread right after a shader pack has finished each frame in which it drew the
+	 * far terrain (its composite passes done), with that frame's far depth. Closing the handle stops it.
+	 */
+	public static AutoCloseable onPackFrame(java.util.function.Consumer<FarDepth> listener) {
+		PACK_FRAME.add(listener);
+		return () -> PACK_FRAME.remove(listener);
+	}
+
+	/** This frame's far depth, once the pack has finished it; null before then, or when no pack drew the far terrain. */
+	public static FarDepth farDepth() {
+		return farDepth;
+	}
+
+	/** A new frame begins: the last one's depth is gone. Render thread. */
+	public static void packFrameStarted() {
+		farDepth = null;
+	}
+
+	/** The pack has finished a frame with the far terrain in it. Render thread. */
+	public static void packFrameFinished(FarDepth depth) {
+		farDepth = depth;
+		for (java.util.function.Consumer<FarDepth> listener : PACK_FRAME) {
+			try {
+				listener.accept(depth);
+			} catch (RuntimeException e) {
+				LoggerFactory.getLogger("VOID LOD").warn("VOID LOD: a pack frame listener failed", e);
+			}
+		}
+	}
+
+	/**
 	 * Calls {@code listener} for every far tile VOID LOD draws for this player: the tiles drawn now (those built since
 	 * anything first listened), then each tile as it is first drawn, and again whenever it is rebuilt. Called on VOID
 	 * LOD's own thread, one tile at a time. Closing the returned handle stops it. Listen early (at client start) to be

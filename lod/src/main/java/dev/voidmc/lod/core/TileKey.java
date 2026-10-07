@@ -15,8 +15,8 @@ public final class TileKey {
 	/** Cells per tile side. 64 keeps a tile's mesh big enough to batch and small enough to cull. */
 	public static final int TILE = 64;
 	public static final int SHIFT = 6;
-	/** The coarsest level: 512-block cells, 32 km tiles. */
-	public static final int MAX_LEVEL = 9;
+	/** The coarsest level: 2048-block cells, 128 km tiles, for a horizon past 32 km. */
+	public static final int MAX_LEVEL = 11;
 
 	private static final int BITS = 29;
 	private static final long MASK = (1L << BITS) - 1;

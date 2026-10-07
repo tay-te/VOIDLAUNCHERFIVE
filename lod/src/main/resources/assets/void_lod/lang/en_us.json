@@ -11,6 +11,7 @@
   "options.void_lod.preset.medium": "Medium",
   "options.void_lod.preset.high": "High",
   "options.void_lod.preset.ultra": "Ultra",
+  "options.void_lod.preset.extreme": "Extreme",
   "options.void_lod.preset.custom": "Custom",
   "options.void_lod.enabled": "Far Terrain",
   "options.void_lod.enabled.tooltip": "Draws the land past your render distance, out to the horizon. F8 turns it on and off in game.",
