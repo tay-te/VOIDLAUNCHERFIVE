@@ -32,7 +32,10 @@ dependencies {
 	// The Earth terrain model, sampled directly when Expanse is present (see ExpanseSource). In the dev
 	// runs Expanse is on the classpath too, so the game tests fly over real Earth terrain.
 	compileOnly 'dev.voidmc:void-expanse'
-	localRuntime 'dev.voidmc:void-expanse'
+	// -Pvanilla: the game tests and runs without Expanse, on vanilla's own generator
+	if (!project.hasProperty('vanilla')) {
+		localRuntime 'dev.voidmc:void-expanse'
+	}
 
 	// Sodium replaces vanilla's chunk rendering and Iris its pipeline; the LOD works with both. Dev runs and
 	// game tests add them with -Psodium (Sodium) or -Piris (Sodium and Iris); nothing of either ships.

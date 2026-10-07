@@ -191,6 +191,9 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private long gpuBytes;
 	private long budgetBytes;
 
+	/** Tiles whose build threw, for the log's sake. */
+	private static final AtomicLong FAILURES = new AtomicLong();
+
 	// statistics, for the debug screen and the benchmarks
 	public final AtomicLong tilesBuilt = new AtomicLong();
 	public final AtomicLong buildNanos = new AtomicLong();
@@ -553,7 +556,14 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				} else {
 					tile.state = Tile.State.DEAD;
 				}
-				org.slf4j.LoggerFactory.getLogger("VOID LOD").warn("Failed to build {}", TileKey.toString(tile.key), t);
+				// the first few in full; after that a count now and then, so a failure on every tile cannot fill a disk
+				long failed = FAILURES.incrementAndGet();
+				if (failed <= 5) {
+					org.slf4j.LoggerFactory.getLogger("VOID LOD").warn("Failed to build {}", TileKey.toString(tile.key), t);
+				} else if (Long.bitCount(failed) == 1) {
+					org.slf4j.LoggerFactory.getLogger("VOID LOD").warn("Failed to build {} tiles so far, the last {}: {}", failed,
+						TileKey.toString(tile.key), t.toString());
+				}
 			}
 			this.buildNanos.addAndGet(System.nanoTime() - t0);
 			this.tilesBuilt.incrementAndGet();

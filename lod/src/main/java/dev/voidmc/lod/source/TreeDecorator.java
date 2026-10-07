@@ -106,6 +106,7 @@ public final class TreeDecorator implements Decorator {
 	private volatile boolean warned;
 	public final AtomicLong chunksPlaced = new AtomicLong();
 	public final AtomicLong chunksRead = new AtomicLong();
+	private final AtomicLong failures = new AtomicLong();
 	/** Where the trees worked out are kept, or null: worked out again each time. */
 	private volatile TreeFiles files;
 
@@ -324,7 +325,10 @@ public final class TreeDecorator implements Decorator {
 					this.chunk(cx, cz, ground);
 				}
 			} catch (RuntimeException | LinkageError e) {
-				LoggerFactory.getLogger("VOID LOD").warn("VOID LOD: could not place the trees of chunk {}, {}", cx, cz, e);
+				long failed = this.failures.incrementAndGet();
+				if (failed <= 3 || Long.bitCount(failed) == 1) {
+					LoggerFactory.getLogger("VOID LOD").warn("VOID LOD: could not place the trees of chunk {}, {} ({} so far)", cx, cz, failed, e);
+				}
 				synchronized (this.chunks) {
 					this.chunks.put(key, new Placed(new long[0], new BlockState[0]));
 				}

@@ -163,6 +163,12 @@ a fraction of the cost.
   samples the generator's own interpolated density (its seeded sampler, from the world's noise router) at those
   corners near the model's height and finds the first air block from above as the chunk does: 87% of columns at
   the chunks' very height (49% before), mean error 0.4 blocks, and the trees stand where the chunks stand them.
+* **Vanilla worlds the same way, many times faster.** Any noise generator's ground is found from its own
+  interpolated density (`NoiseSurface`): looked for near the column sampled before it, corners shared between
+  columns, and on the corner lattice itself (where far tiles sample) one corner column instead of four. Against
+  walking each column down (`getBaseHeight`): a tile in 117 ms instead of 2.5 to 3 s, a chunk's trees in 1.3 ms
+  instead of 49, the ground at the chunks' very height everywhere it was measured. `-Pvanilla` runs the game
+  tests without Expanse.
 * **The sky of a far render distance.** Vanilla pales its sky toward the fog colour the shorter the render
   distance; with the LOD drawing to the horizon it gets the colours it has at 32 chunks.
 * **Light from the land itself** (`core/Horizons`, `core/Heights`). Every vertex carries the land's horizon
