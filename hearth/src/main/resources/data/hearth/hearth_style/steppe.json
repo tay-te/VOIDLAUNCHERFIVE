@@ -3,9 +3,9 @@
 	"name": "Steppe: round houses of mud plaster and dark timber under felt and thatch cones, felt yurts and mud-brick halls, market rings, coarse yards",
 	"base_name": "round house",
 	"roles": {
-		"foundation": [{"m": "minecraft:mud_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 0.3}, {"m": "minecraft:packed_mud", "w": 0.6, "low": 2}],
+		"foundation": [{"m": "minecraft:mud_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 0.1}, {"m": "minecraft:packed_mud", "w": 0.3, "low": 2}],
 		"plinth": [{"m": "minecraft:mud_bricks", "w": 3}, {"m": "minecraft:packed_mud", "w": 0.09, "low": 12}],
-		"wall": [{"m": "minecraft:packed_mud", "w": 4}, {"m": "minecraft:mud_bricks", "w": 0.32}, {"m": "minecraft:coarse_dirt", "w": 0.12, "low": 12}],
+		"wall": [{"m": "minecraft:packed_mud", "w": 4}, {"m": "minecraft:mud_bricks", "w": 0.24}, {"m": "minecraft:coarse_dirt", "w": 0.08, "low": 12}],
 		"wall_accent": ["minecraft:mud_bricks"],
 		"frame": [{"m": "wood:expanse:baobab|wood:minecraft:jungle", "log": "minecraft:dark_oak_log"}],
 		"beam": [{"m": "wood:expanse:baobab|wood:minecraft:jungle", "log": "minecraft:dark_oak_log"}],
@@ -41,15 +41,16 @@
 	},
 	"tiers": {
 		"0": {"wall": [{"m": "minecraft:packed_mud", "w": 2}, {"m": "minecraft:coarse_dirt", "w": 0.06, "low": 12}], "roof": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]},
-		"3": {"wall": [{"m": "minecraft:white_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 4}, {"m": "minecraft:packed_mud", "w": 0.12, "low": 12}], "accent": [{"m": "minecraft:white_glazed_terracotta", "w": 1}, {"m": "minecraft:chiseled_tuff", "w": 1}]}
+		"3": {"wall": [{"m": "minecraft:white_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 4}, {"m": "minecraft:packed_mud", "w": 0.12, "low": 12}], "wall_accent": [{"m": "minecraft:smooth_sandstone", "wall": "minecraft:sandstone_wall"}], "accent": [{"m": "minecraft:white_glazed_terracotta", "w": 1}, {"m": "minecraft:chiseled_tuff", "w": 1}]}
 	},
 	"base_weight": 2,
 	"base_when": {"not": [{"stations": ["gentry", "lord"]}, {"categories": ["religious", "grand"]}]},
 	"variants": [
 		{"name": "felt yurt", "w": 1.4, "roles": {"wall": [{"m": "minecraft:white_wool", "w": 4}, {"m": "minecraft:light_gray_wool", "w": 0.32}], "gable": ["minecraft:white_wool"], "wall_accent": ["wood:minecraft:dark_oak"], "roof": ["minecraft:light_gray_wool"], "roof_trim": ["wood:minecraft:dark_oak"]}, "habits": {"plan": {"round": 1.0}, "roof": {"forms": {"cone": 1}}}},
-		{"name": "mud brick", "w": 1, "roles": {"wall": [{"m": "minecraft:mud_bricks", "w": 4}, {"m": "minecraft:packed_mud", "w": 0.32}], "gable": ["minecraft:mud_bricks"], "wall_accent": ["minecraft:packed_mud"]}, "habits": {"walls": {"kind": "brick"}}},
+		{"name": "mud brick", "w": 1, "roles": {"wall": [{"m": "minecraft:mud_bricks", "w": 4}, {"m": "minecraft:packed_mud", "w": 0.32}], "gable": ["minecraft:mud_bricks"], "wall_accent": [{"m": "minecraft:terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall"}]}, "habits": {"walls": {"kind": "brick"}}},
 		{"name": "timber", "w": 0.8, "roles": {"wall": [{"m": "wood:minecraft:dark_oak", "log": "minecraft:stripped_dark_oak_log"}], "gable": ["wood:minecraft:dark_oak"]}, "habits": {"walls": {"kind": "plank"}}},
-		{"name": "lime white", "w": 0.6, "roles": {"wall": [{"m": "minecraft:white_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 2}, {"m": "minecraft:smooth_sandstone", "w": 0.16}], "gable": ["minecraft:white_terracotta"]}},
+		{"name": "ochre loess", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.2}, {"m": "minecraft:packed_mud", "w": 0.06, "low": 12}], "gable": ["minecraft:smooth_sandstone"], "wall_accent": ["minecraft:cut_sandstone"]}},
+		{"name": "lime white", "w": 0.8, "roles": {"wall": [{"m": "minecraft:white_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 2}, {"m": "minecraft:smooth_sandstone", "w": 0.16}], "gable": ["minecraft:white_terracotta"], "wall_accent": [{"m": "minecraft:smooth_sandstone", "wall": "minecraft:sandstone_wall"}]}},
 		{"name": "thatched", "w": 1, "roles": {"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]}, "habits": {"roof": {"thatch": true, "ridge": "full"}}}
 	],
 	"substyles": [
@@ -58,9 +59,9 @@
 			"w": 7,
 			"when": [{"categories": ["religious", "grand", "public"]}, {"stations": ["gentry", "lord", "official", "merchant"]}],
 			"roles": {
-				"wall": [{"m": "minecraft:packed_mud", "w": 3}, {"m": "minecraft:mud_bricks", "w": 0.24}, {"m": "minecraft:terracotta", "w": 0.09, "low": 12}],
+				"wall": [{"m": "minecraft:packed_mud", "w": 3}, {"m": "minecraft:mud_bricks", "w": 0.15}, {"m": "minecraft:coarse_dirt", "w": 0.05, "low": 12}],
 				"gable": ["minecraft:packed_mud"],
-				"wall_accent": [{"m": "minecraft:mud_bricks", "w": 2}, {"m": "minecraft:white_terracotta", "w": 1}],
+				"wall_accent": [{"m": "minecraft:terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall"}],
 				"plinth": ["minecraft:mud_bricks"],
 				"frame": [{"m": "wood:expanse:baobab|wood:minecraft:jungle", "log": "minecraft:dark_oak_log"}],
 				"beam": [{"m": "wood:expanse:baobab|wood:minecraft:jungle", "log": "minecraft:dark_oak_log"}],
@@ -80,7 +81,7 @@
 		{
 			"name": "herder's hut",
 			"w": 3,
-			"when": [{"stations": ["poor"]}, {"categories": ["farmstead"]}],
+			"when": [{"stations": ["poor"]}, {"categories": ["farmstead"], "not": {"categories": ["noble"]}}],
 			"roles": {
 				"wall": [{"m": "minecraft:packed_mud", "w": 3}, {"m": "minecraft:mud_bricks", "w": 0.24}, {"m": "minecraft:coarse_dirt", "w": 0.09, "low": 12}],
 				"gable": ["minecraft:packed_mud"],
@@ -95,6 +96,7 @@
 		}
 	],
 	"overrides": [
+		{"when": {"categories": ["workshop"]}, "roles": {"tree_log": ["minecraft:oak_log"], "tree_leaves": ["minecraft:oak_leaves"]}},
 		{"when": {"categories": ["fort"]}, "roles": {
 			"tree_log": [{"m": "minecraft:acacia_log", "log": "minecraft:stripped_acacia_log", "stripped_log": "minecraft:acacia_log"}],
 			"frame": [{"m": "wood:minecraft:acacia", "log": "minecraft:dark_oak_log"}]

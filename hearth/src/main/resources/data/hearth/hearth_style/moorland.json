@@ -76,7 +76,7 @@
 		{
 			"name": "blackhouse",
 			"w": 4,
-			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"]}],
+			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"], "not": {"categories": ["noble"]}}],
 			"roles": {
 				"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}, {"m": "minecraft:andesite", "w": 0.171}, {"m": "minecraft:tuff", "w": 0.069}],
 				"gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 0.24}],
@@ -113,6 +113,7 @@
 		}
 	],
 	"overrides": [
+		{"when": {"categories": ["workshop"]}, "roles": {"tree_log": ["minecraft:spruce_log"], "tree_leaves": ["minecraft:spruce_leaves"]}},
 		{"when": {"categories": ["fort"]}, "roles": {"tree_log": ["minecraft:spruce_log"]}}
 	],
 	"habits": {
