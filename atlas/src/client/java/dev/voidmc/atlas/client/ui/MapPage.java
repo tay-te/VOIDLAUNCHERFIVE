@@ -139,6 +139,8 @@ public final class MapPage {
 	/** Shown (again): the layer follows the player's dimension and whether they are underground, as on a first open. */
 	public void shown() {
 		Minecraft mc = Minecraft.getInstance();
+		// the depth follows the player again on each open, as on a first open
+		this.map.setBand(null);
 		boolean nether = mc.level != null && mc.level.dimension().identifier().toString().equals("minecraft:the_nether");
 		if (nether) {
 			this.map.setKind(MapPanel.Kind.NETHER);

@@ -289,7 +289,8 @@ public final class FarSight {
 				continue;
 			}
 			String name = t.blocks() == null ? null : t.blocks()[k];
-			boolean water = "minecraft:water".equals(name);
+			// LOD names the floor under water (sand, gravel); its colour says it is water
+			boolean water = "minecraft:water".equals(name) || looksLikeWater(t.colours()[k]) && (name == null || !name.contains("ice"));
 			// no block, or water (whose bed LOD does not say): the colour LOD drew, through the far names
 			blocks[k] = blockIds.computeIfAbsent(name == null || water ? FarColour.name(t.colours()[k]) : name, session.blockNames::id);
 			depths[k] = (byte) (water ? 4 : 0);
@@ -348,6 +349,12 @@ public final class FarSight {
 		}
 		TILES.incrementAndGet();
 		SAMPLES.addAndGet(written);
+	}
+
+	/** Whether a colour LOD drew is water's: clearly bluer than it is red or green. */
+	static boolean looksLikeWater(int rgb) {
+		int r = rgb >> 16 & 0xFF, g = rgb >> 8 & 0xFF, b = rgb & 0xFF;
+		return b > r + 24 && b > g + 6;
 	}
 
 	/** VOID LOD's API, reached by reflection so Atlas needs nothing of LOD to build or run. */
