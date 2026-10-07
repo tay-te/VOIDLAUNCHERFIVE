@@ -41,7 +41,9 @@ vault) to the stable yard; a side door from the passage into the tap room. The t
 tall windows, a bay, the door under the inn's painted sign hung from a wrought bracket (two fence posts out from the
 wall, a stair brace, the hanging sign on its chains; a wall hanging sign where the forecourt is one row), the name
 painted along the front on a board of wall signs (one of 16, translatable), a settle and casks with a lantern, a barrel
-table with stools in the forecourt's outer row; within, the bar with its kegs racked behind, tables and chairs, the
+table with stools in the forecourt's outer row; within, the bar with its kegs racked behind, the floor furnished to the walls (`Rooms.Type.DINING`: booths of a
+table between two benches out from the long walls, a long table down the middle where there is room, tables backed
+against the bar or the stair with a bench before each, settles along the rest), the
 hearth, lanterns hung from the joists over the tables and the bar. Upstairs, on every floor, a corridor along the back
 with a runner and lanterns, guest rooms along the street (a second flight beside the first on three-storey inns); the
 gallery looks over the yard, and across it stands a gabled stable (stalls behind half doors, hay and water, a hay door

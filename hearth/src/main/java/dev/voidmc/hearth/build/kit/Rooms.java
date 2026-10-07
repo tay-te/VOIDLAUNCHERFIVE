@@ -26,7 +26,9 @@ public final class Rooms {
 	}
 
 	public enum Type {
-		BEDROOM, KITCHEN, LIVING, WORKSHOP, STORAGE, HALL
+		BEDROOM, KITCHEN, LIVING, WORKSHOP, STORAGE, HALL,
+		/** A common room furnished to the walls: an inn's tap room, a tavern, a refectory ({@link #dining}). */
+		DINING
 	}
 
 	/** A room's floor and what must stay free. Coordinates are local; the rectangle is the interior (inside the walls). */
@@ -42,6 +44,8 @@ public final class Rooms {
 		private final boolean[] reserved;
 		/** Cells with something overhead (the underside of a stair): furniture fits, nobody walks there. */
 		private final boolean[] low;
+		/** Cells a ladder climbs through (its foot, or the hole at its head): nobody stands there, they are reached from beside. */
+		private final boolean[] climb;
 		private final List<int[]> reach = new ArrayList<>();
 
 		public Room(int x0, int z0, int x1, int z1, int y, int height) {
@@ -55,6 +59,7 @@ public final class Rooms {
 			this.blocked = new boolean[n];
 			this.reserved = new boolean[n];
 			this.low = new boolean[n];
+			this.climb = new boolean[n];
 		}
 
 		public boolean inside(int x, int z) {
@@ -118,15 +123,27 @@ public final class Rooms {
 			return this.z1 - this.z0 + 1;
 		}
 
-		/** Whether every cell that must be reached still can be, from the first one. */
+		/**
+		 * Whether every cell that must be reached still can be, from the first one. A kept cell nobody stands in (the
+		 * foot or the head of a ladder, taken by the ladder or the hole it climbs through) is reached from beside it.
+		 */
 		boolean connected() {
 			if (this.reach.isEmpty()) {
 				return true;
 			}
 			boolean[] seen = new boolean[this.blocked.length];
 			ArrayDeque<int[]> q = new ArrayDeque<>();
-			int[] s = this.reach.get(0);
-			if (!open(s[0], s[1])) {
+			int[] s = null;
+			for (int[] c : this.reach) {
+				if (open(c[0], c[1])) {
+					s = c;
+					break;
+				}
+				if (!inside(c[0], c[1]) || !this.climb[idx(c[0], c[1])]) {
+					return false;
+				}
+			}
+			if (s == null) {
 				return false;
 			}
 			q.add(s);
@@ -143,7 +160,21 @@ public final class Rooms {
 				}
 			}
 			for (int[] r : this.reach) {
-				if (!inside(r[0], r[1]) || !seen[idx(r[0], r[1])]) {
+				if (!inside(r[0], r[1])) {
+					return false;
+				}
+				if (seen[idx(r[0], r[1])]) {
+					continue;
+				}
+				boolean beside = false;
+				if (this.blocked[idx(r[0], r[1])] && this.climb[idx(r[0], r[1])]) {
+					for (Direction dir : Dirs.HORIZONTAL) {
+						int nx = r[0] + Dirs.dx(dir);
+						int nz = r[1] + Dirs.dz(dir);
+						beside |= inside(nx, nz) && seen[idx(nx, nz)];
+					}
+				}
+				if (!beside) {
 					return false;
 				}
 			}
@@ -229,6 +260,10 @@ public final class Rooms {
 				BlockState below = d.get(x, r.y - 1, z);
 				boolean hole = below != null ? below.isAir() : r.y - 1 >= d.site().ground(x, z);
 				BlockState over = d.get(x, r.y + 1, z);
+				if (s != null && s.getBlock() instanceof net.minecraft.world.level.block.LadderBlock
+					|| hole && (ladder(d.get(x, r.y - 1, z)) || ladder(d.get(x, r.y - 2, z)))) {
+					r.climb[r.idx(x, z)] = true;
+				}
 				boolean through = s != null && (s.getBlock() instanceof net.minecraft.world.level.block.LadderBlock
 					|| s.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO).isEmpty());
 				if (s != null && !s.isAir() && through && !hole) {
@@ -294,11 +329,16 @@ public final class Rooms {
 				wallPieces(d, r, slots, new String[]{"chest", "barrel", "chest", "hay", "barrel", "barrel", "chest"});
 			}
 			case HALL -> wallPieces(d, r, slots, new String[]{"pot", "shelf"});
+			case DINING -> dining(d, r, slots);
 		}
 		light(d, r);
 		if (type == Type.BEDROOM || type == Type.LIVING) {
 			rugInOpen(d, r);
 		}
+	}
+
+	private static boolean ladder(BlockState s) {
+		return s != null && s.getBlock() instanceof net.minecraft.world.level.block.LadderBlock;
 	}
 
 	private static void wallPieces(Draft d, Room r, List<Slot> slots, String[] wants) {
@@ -343,7 +383,7 @@ public final class Rooms {
 						Furniture.bookshelf(d, x, y + 1, z);
 					}
 				}
-				case "armchair" -> Furniture.chair(d, x, y, z, s.into.getOpposite());
+				case "armchair", "settle" -> Furniture.chair(d, x, y, z, s.into.getOpposite());
 				case "shelf", "shelf_kitchen", "shelf_tools" -> {
 					Furniture.barrel(d, x, y, z, Direction.UP);
 					if (!s.underWindow && r.height >= 3) {
@@ -367,6 +407,155 @@ public final class Rooms {
 			case SMITH -> JobType.GUARD;
 			default -> job;
 		};
+	}
+
+	/**
+	 * A common room furnished to the walls, as a busy inn's is: booths (a table between two benches) standing out from
+	 * both long walls, back to back down the room; a long table with benches down the middle where the booths leave a
+	 * band five wide; settles and side tables along what wall is left. Every piece is tried against the walkway, so the
+	 * doors, the bar's front, the hearth and every table's end stay joined.
+	 */
+	private static void dining(Draft d, Room r, List<Slot> slots) {
+		boolean alongX = r.width() >= r.length();
+		int along = alongX ? r.width() : r.length();
+		int across = alongX ? r.length() : r.width();
+		// booths reach in from both long walls, leaving an aisle (two wide in a wide room)
+		int aisle = across >= 8 ? 2 : 1;
+		int reach = Math.min(3, (across - aisle) / 2);
+		int booths = 0;
+		if (reach >= 2) {
+			for (int side = 0; side < 2; side++) {
+				for (int t = 0; t + 2 < along; ) {
+					boolean placed = booth(d, r, alongX, across, side, t, reach);
+					booths += placed ? 1 : 0;
+					t += placed ? 3 : 1;
+				}
+			}
+		}
+		// a long table down the middle, in lengths of up to four with a way through between them
+		int band = across - (booths > 0 ? 2 * reach : 0);
+		if (band >= 5 || booths == 0 && across >= 5) {
+			int mid = across / 2;
+			Direction run = alongX ? Dirs.RIGHT : Dirs.BACK;
+			for (int u = 1; u + 1 < along - 1; ) {
+				boolean done = false;
+				for (int len = Math.min(4, along - 1 - u); len >= 2 && !done; len--) {
+					int[][] cells = new int[len * 3][];
+					for (int k = 0; k < len; k++) {
+						for (int j = 0; j < 3; j++) {
+							cells[k * 3 + j] = cell(r, alongX, u + k, mid - 1 + j);
+						}
+					}
+					if (tryTake(r, cells, cell(r, alongX, u + len, mid))) {
+						int[] c0 = cell(r, alongX, u, mid);
+						Furniture.longTable(d, c0[0], r.y, c0[1], run, len);
+						for (int k = 0; k < len; k++) {
+							int[] a = cell(r, alongX, u + k, mid - 1);
+							int[] b = cell(r, alongX, u + k, mid + 1);
+							Furniture.chair(d, a[0], r.y, a[1], toward(!alongX, -1));
+							Furniture.chair(d, b[0], r.y, b[1], toward(!alongX, 1));
+						}
+						u += len + 1;
+						done = true;
+					}
+				}
+				if (!done) {
+					u++;
+				}
+			}
+		}
+		// what floor is left: tables backed against a wall, a stair or the bar, a bench before each
+		benchRows(d, r);
+		// settles and side tables along the walls the booths left
+		wallPieces(d, r, slots, new String[]{"settle", "pot", "settle", "settle", "barrel", "settle", "pot", "settle", "settle", "pot"});
+	}
+
+	/**
+	 * Runs of tables (up to four long) backed against whatever bounds the free floor (a wall, the bar, the underside of
+	 * a stair), each with a bench before it on the open side and the walkway beyond the bench: how a narrow strip of
+	 * floor beside a bar still seats a row of drinkers.
+	 */
+	private static void benchRows(Draft d, Room r) {
+		for (int z = r.z0; z <= r.z1; z++) {
+			for (int x = r.x0; x <= r.x1; x++) {
+				for (Direction dir : Dirs.HORIZONTAL) {
+					if (!r.free(x, z) || r.free(x - Dirs.dx(dir), z - Dirs.dz(dir))) {
+						continue;
+					}
+					Direction side = Dirs.right(dir);
+					int len = 0;
+					while (len < 4) {
+						int tx = x + Dirs.dx(side) * len;
+						int tz = z + Dirs.dz(side) * len;
+						int bx = tx + Dirs.dx(dir);
+						int bz = tz + Dirs.dz(dir);
+						// the table backs onto something, the bench before it, the walkway before the bench
+						if (r.free(tx - Dirs.dx(dir), tz - Dirs.dz(dir))
+							|| !tryTake(r, new int[][]{{tx, tz}, {bx, bz}}, new int[]{bx + Dirs.dx(dir), bz + Dirs.dz(dir)})) {
+							break;
+						}
+						len++;
+					}
+					if (len == 0) {
+						continue;
+					}
+					if (len >= 2) {
+						Furniture.longTable(d, x, r.y, z, side, len);
+					} else {
+						Furniture.table(d, x, r.y, z);
+					}
+					for (int k = 0; k < len; k++) {
+						Furniture.chair(d, x + Dirs.dx(side) * k + Dirs.dx(dir), r.y, z + Dirs.dz(side) * k + Dirs.dz(dir), dir);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * One booth against a long wall at position {@code t} along it: a table run from the wall into the room between two
+	 * benches, {@code reach} deep (or shorter where that does not fit). Side 0 is the wall before the first row across,
+	 * side 1 the wall after the last. Answers whether it was placed.
+	 */
+	private static boolean booth(Draft d, Room r, boolean alongX, int across, int side, int t, int reach) {
+		int[] wallCell = cell(r, alongX, t + 1, side == 0 ? -1 : across);
+		if (!Openings.isWallBlock(d, wallCell[0], r.y, wallCell[1])) {
+			return false;
+		}
+		for (int len = reach; len >= 2; len--) {
+			int[][] cells = new int[len * 3][];
+			for (int k = 0; k < len; k++) {
+				int v = side == 0 ? k : across - 1 - k;
+				for (int j = 0; j < 3; j++) {
+					cells[k * 3 + j] = cell(r, alongX, t + j, v);
+				}
+			}
+			int[] front = cell(r, alongX, t + 1, side == 0 ? len : across - 1 - len);
+			if (!tryTake(r, cells, front)) {
+				continue;
+			}
+			int[] c0 = cell(r, alongX, t + 1, side == 0 ? 0 : across - 1);
+			Furniture.longTable(d, c0[0], r.y, c0[1], toward(!alongX, side == 0 ? 1 : -1), len);
+			for (int k = 0; k < len; k++) {
+				int v = side == 0 ? k : across - 1 - k;
+				int[] a = cell(r, alongX, t, v);
+				int[] b = cell(r, alongX, t + 2, v);
+				Furniture.chair(d, a[0], r.y, a[1], toward(alongX, -1));
+				Furniture.chair(d, b[0], r.y, b[1], toward(alongX, 1));
+			}
+			return true;
+		}
+		return false;
+	}
+
+	/** The local cell at (u along the room's long side, v across it). */
+	private static int[] cell(Room r, boolean alongX, int u, int v) {
+		return alongX ? new int[]{r.x0 + u, r.z0 + v} : new int[]{r.x0 + v, r.z0 + u};
+	}
+
+	/** The direction in which x grows ({@code inX}) or z grows, signed. */
+	private static Direction toward(boolean inX, int sign) {
+		return inX ? (sign > 0 ? Dirs.RIGHT : Dirs.LEFT) : (sign > 0 ? Dirs.BACK : Dirs.FRONT);
 	}
 
 	/** A table with chairs in the middle of rooms at least 4 × 4 inside. */
