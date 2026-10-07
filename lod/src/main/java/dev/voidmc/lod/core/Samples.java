@@ -54,6 +54,7 @@ final class Samples {
 	/** The biome ({@link BiomeIds}), and whether the chunks the player loaded showed most of the cell. */
 	final int[] biome;
 	final boolean[] seen;
+	final boolean[] bareWhenSteep;
 	/** The land under an overhang ({@link ColumnSample#deckBottom}, {@link Integer#MIN_VALUE} for none), and how it looks. */
 	final int[] deckBottom;
 	final int[] lowerGround;
@@ -105,6 +106,7 @@ final class Samples {
 		this.light = new byte[capacity];
 		this.biome = new int[capacity];
 		this.seen = new boolean[capacity];
+		this.bareWhenSteep = new boolean[capacity];
 		this.deckBottom = new int[capacity];
 		Arrays.fill(this.deckBottom, Integer.MIN_VALUE);
 		this.lowerGround = new int[capacity];
@@ -146,6 +148,40 @@ final class Samples {
 		} finally {
 			source.endTile();
 		}
+		this.bareSteep();
+	}
+
+	/**
+	 * How steep ground must be, in blocks of rise a block, for Expanse's generator to strip it to rock: a rise of more
+	 * than 2.9 blocks between the columns either side of a block ({@code EarthChunkGenerator}).
+	 */
+	static final float STEEP = 2.9F / 2;
+
+	/**
+	 * Tops and walls in rock the columns that strip to it where steep ({@link ColumnSample#bareWhenSteep}), where the land
+	 * between their neighbours in the grid rises more than {@link #STEEP} a block: the chunks' cliffs, from afar. Not
+	 * where the chunks were seen (their own blocks came with them), and not at the grid's rim, which has no neighbours.
+	 * A cell's slope is its average, so far out only slopes steep over a whole cell show as rock, as from afar they do.
+	 */
+	private void bareSteep() {
+		int n = this.size;
+		float limit = STEEP * 2 * this.cell;
+		for (int j = 1; j < n - 1; j++) {
+			for (int i = 1; i < n - 1; i++) {
+				int k = i + j * n;
+				if (!this.bareWhenSteep[k] || this.seen[k] || this.empty[k]) {
+					continue;
+				}
+				float gx = this.ground[k + 1] - this.ground[k - 1];
+				float gz = this.ground[k + n] - this.ground[k - n];
+				if (Math.max(Math.abs(gx), Math.abs(gz)) <= limit) {
+					continue;
+				}
+				this.top[k] = this.side[k] = this.soil[k] = this.rock[k];
+				this.topMaterial[k] = this.sideMaterial[k] = this.soilMaterial[k] = this.rockMaterial[k];
+				this.cover[k] = 0;
+			}
+		}
 	}
 
 	private void sampleGrid(TerrainSource source, long key, boolean corners, int border, SampleCache cache, int inner) {
@@ -184,6 +220,7 @@ final class Samples {
 				this.light[k] = (byte) (lava ? 15 : Math.max(0, Math.min(15, Math.round(s.light))));
 				this.biome[k] = s.biome;
 				this.seen[k] = s.seen >= 0.5F;
+				this.bareWhenSteep[k] = s.bareWhenSteep;
 				this.deckBottom[k] = s.deckBottom;
 				this.lowerGround[k] = s.lowerGround;
 				this.lowerWater[k] = s.lowerWater;
@@ -281,6 +318,7 @@ final class Samples {
 		this.light[k] = from.light[f];
 		this.biome[k] = from.biome[f];
 		this.seen[k] = from.seen[f];
+		this.bareWhenSteep[k] = from.bareWhenSteep[f];
 	}
 
 	int at(int i, int j) {

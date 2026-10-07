@@ -659,6 +659,10 @@ public class LodShowcase implements FabricClientGameTest {
 		System.out.printf(Locale.ROOT, "[lod] seam %s: %d chunks loaded for the far shot (want %d; render distance %s)%n", spot.name(), last, want,
 			distances);
 		this.treeMatch(context, server, spot);
+		// back where the LOD's shot was taken: the player falls while the far chunks load
+		server.runCommand(String.format(Locale.ROOT, "execute in %s run tp @a %d %d %d %.1f %.1f", spot.dimension(), spot.x(), spot.y(), spot.z(),
+			spot.yaw(), spot.pitch()));
+		context.waitTicks(20);
 		java.nio.file.Path vanilla = context.takeScreenshot(TestScreenshotOptions.of("lod_" + spot.name() + "_seam_vanilla").withSize(WIDTH, HEIGHT));
 		context.runOnClient(mc -> {
 			mc.options.renderDistance().set(DISTANCE);

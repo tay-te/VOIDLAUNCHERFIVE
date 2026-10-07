@@ -76,6 +76,12 @@ public final class ColumnSample {
 	public float seen;
 	/** No ground at all in this column: the void between End islands. Nothing is drawn over it. */
 	public boolean empty;
+	/**
+	 * The generator strips this column's soil to its {@link #rock} where the ground is steep (Expanse's cliffs): the
+	 * tile builder then tops it and walls it in rock wherever the land around it rises more than
+	 * {@link Samples#STEEP} blocks a block.
+	 */
+	public boolean bareWhenSteep;
 
 	/**
 	 * A close column with land under an overhang: the overhang's underside ({@link Integer#MIN_VALUE}: none), and the land
@@ -121,6 +127,7 @@ public final class ColumnSample {
 		this.biome = -1;
 		this.seen = 0;
 		this.empty = false;
+		this.bareWhenSteep = false;
 	}
 
 	/** The rock at height {@code y} (already shifted by the band offset): the band there, or the plain rock. */

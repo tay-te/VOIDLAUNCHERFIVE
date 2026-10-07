@@ -23,6 +23,8 @@ final class FarModel {
 	private final Constructor<?> column;
 	private final Method surfaceBiome;
 	private final Field height, water, ocean, landform, coast, uplift;
+	/** The rock under the soil, if this Expanse says (null: stone). */
+	private final Field rock;
 	private final ThreadLocal<Object> columns;
 
 	private FarModel(Method sample, Constructor<?> column, Method surfaceBiome, Class<?> type) throws ReflectiveOperationException {
@@ -35,6 +37,13 @@ final class FarModel {
 		this.landform = type.getField("landform");
 		this.coast = type.getField("coast");
 		this.uplift = type.getField("uplift");
+		Field rock;
+		try {
+			rock = type.getField("rock");
+		} catch (NoSuchFieldException e) {
+			rock = null;
+		}
+		this.rock = rock;
 		this.columns = ThreadLocal.withInitial(() -> {
 			try {
 				return this.column.newInstance();
@@ -76,6 +85,7 @@ final class FarModel {
 			f.waterTop = ocean ? seaLevel : Float.isNaN(water) ? Integer.MIN_VALUE : (int) Math.ceil(water);
 			f.bed = (int) Math.floor(height);
 			f.landform = ((Number) this.landform.get(c)).intValue();
+			f.rock = this.rock == null ? 0 : ((Number) this.rock.get(c)).intValue();
 			f.crater = Float.NEGATIVE_INFINITY;
 			f.craterLava = false;
 			f.fjord = false;

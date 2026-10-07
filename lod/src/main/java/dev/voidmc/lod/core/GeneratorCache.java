@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
 public final class GeneratorCache implements TerrainSource {
 	private static final Logger LOGGER = LoggerFactory.getLogger("VOID LOD");
 	private static final int MAGIC = 0x56474E43;
-	private static final int FORMAT = 4;
+	private static final int FORMAT = 5;
 	private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "VOID LOD generator cache");
 		t.setDaemon(true);
@@ -129,7 +129,7 @@ public final class GeneratorCache implements TerrainSource {
 			i[io + 14] = c.rockMaterial;
 			i[io + 15] = c.leavesMaterial;
 			i[io + 16] = c.biome;
-			this.flags[s] = (byte) ((c.lava ? 1 : 0) | (c.empty ? 2 : 0));
+			this.flags[s] = (byte) ((c.lava ? 1 : 0) | (c.empty ? 2 : 0) | (c.bareWhenSteep ? 4 : 0));
 			this.bands[s] = table(this.colors, c.bands);
 			this.bandMaterials[s] = table(this.materials, c.bands == null ? null : c.bandMaterials);
 			this.known[s] = true;
@@ -167,6 +167,7 @@ public final class GeneratorCache implements TerrainSource {
 			c.biome = i[io + 16];
 			c.lava = (this.flags[s] & 1) != 0;
 			c.empty = (this.flags[s] & 2) != 0;
+			c.bareWhenSteep = (this.flags[s] & 4) != 0;
 			c.bands = this.bands[s] < 0 ? null : this.colors.get(this.bands[s]);
 			c.bandMaterials = this.bandMaterials[s] < 0 ? null : this.materials.get(this.bandMaterials[s]);
 		}

@@ -163,6 +163,15 @@ public final class IngestSource implements TerrainSource {
 
 	/** Adds the {@code size}-block square at {@code (x, z)} (aligned to its size) to the reader's sum. */
 	private void add(Reader r, int x, int z, int size, boolean exact) {
+		if (size > ColumnStore.MAX_SUMMARY) {
+			// the store's summaries go up to a quarter of a region: a coarser square (past 64 km) is theirs added up
+			int h = size >> 1;
+			this.add(r, x, z, h, exact);
+			this.add(r, x + h, z, h, exact);
+			this.add(r, x, z + h, h, exact);
+			this.add(r, x + h, z + h, h, exact);
+			return;
+		}
 		int rx = x >> (ColumnStore.REGION_SHIFT + 4);
 		int rz = z >> (ColumnStore.REGION_SHIFT + 4);
 		long key = ColumnStore.key(rx, rz);

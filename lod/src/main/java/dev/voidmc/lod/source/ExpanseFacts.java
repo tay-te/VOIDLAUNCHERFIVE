@@ -35,6 +35,8 @@ public final class ExpanseFacts {
 	public boolean lava;
 	/** The share of the cell a river narrower than it covers. */
 	public float river;
+	/** The rock under the soil: 0 stone, 1 sandstone, 2 limestone, 3 basalt ({@code Column.rock}). */
+	public int rock;
 
 	/** Takes column {@code c} of the model (read it before the model samples another). */
 	public ExpanseFacts of(Column c) {
@@ -51,6 +53,7 @@ public final class ExpanseFacts {
 		this.fjord = c.fjord;
 		this.coast = c.coast;
 		this.uplift = c.uplift;
+		this.rock = c.rock;
 		return this;
 	}
 
