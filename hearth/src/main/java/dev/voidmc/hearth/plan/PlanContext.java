@@ -36,6 +36,8 @@ public final class PlanContext {
 	public boolean joinPlanned;
 	/** Points a frontage search keeps away from, as {x, z, radius} (farmsteads keep their distance from each other). */
 	public final java.util.List<int[]> avoid = new java.util.ArrayList<>();
+	/** The frontage places this call gathered ({@code Parcels.find}), kept while the grid and the roads stay as they were. */
+	public dev.voidmc.hearth.plan.growth.Parcels.@Nullable Frontage frontage;
 	/** Whether this call has already routed an approach (one per call keeps the worst case cheap). */
 	public boolean routed;
 	/** Buildings (not roads) queued since the counter was last reset: whether a need was really met. */

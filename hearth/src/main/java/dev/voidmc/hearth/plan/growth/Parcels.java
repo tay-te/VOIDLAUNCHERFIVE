@@ -192,6 +192,170 @@ public final class Parcels {
 	private record Pos(int edge, int index, Direction facing, int qx, int qz, double pre) {
 	}
 
+	/**
+	 * Every place along the streets where a plot could front one, whatever the request (the first free column past the
+	 * road's corridor, every {@link #STRIDE} blocks, each side, in each facing the road's slant allows), in the order
+	 * {@link #find} examines them, with what the pre-score reads of each that no request changes: the distance to the
+	 * heart, the stable hash, the district, the ground. A call searches frontage for need after need on the same grid,
+	 * so this is gathered once and kept in the call's context while the grid and the roads stay as they were.
+	 */
+	public static final class Frontage {
+		final Occupancy occ;
+		final long version;
+		final long roads;
+		/** Per edge (by its place in the graph's list), its places are [from, to). */
+		final int[] from;
+		final int[] to;
+		int size;
+		int[] index = new int[256];
+		Direction[] facing = new Direction[256];
+		int[] qx = new int[256];
+		int[] qz = new int[256];
+		double[] dist = new double[256];
+		double[] hash = new double[256];
+		private District[] district = new District[256];
+		private boolean[] districtKnown = new boolean[256];
+		private int[] ground = new int[256];
+
+		private Frontage(Occupancy occ, long roads, int edges) {
+			this.occ = occ;
+			this.version = occ.version();
+			this.roads = roads;
+			this.from = new int[edges];
+			this.to = new int[edges];
+		}
+
+		static Frontage of(PlanContext ctx) {
+			long roads = roads(ctx);
+			Frontage f = ctx.frontage;
+			if (f != null && f.occ == ctx.occ && f.version == ctx.occ.version() && f.roads == roads) {
+				return f;
+			}
+			f = new Frontage(ctx.occ, roads, ctx.state.graph.edges().size());
+			f.gather(ctx);
+			ctx.frontage = f;
+			return f;
+		}
+
+		/** What of the road network the places depend on: the edges, how far each is built, its role and width (and the districts). */
+		private static long roads(PlanContext ctx) {
+			long h = ctx.state.graph.edges().size() * 31L + ctx.state.districts.size();
+			for (RoadEdge e : ctx.state.graph.edges()) {
+				h = h * 1_000_003L + ((long) e.built << 24 ^ (long) e.length() << 8 ^ e.role.ordinal() << 4 ^ e.width);
+			}
+			return h;
+		}
+
+		private void gather(PlanContext ctx) {
+			List<RoadEdge> all = ctx.state.graph.edges();
+			for (int n = 0; n < all.size(); n++) {
+				RoadEdge e = all.get(n);
+				this.from[n] = this.size;
+				boolean square = e.role == RoadEdge.Role.SQUARE;
+				int lim = square ? e.length() : Math.min(e.built, e.length());
+				if (lim >= 2) {
+					Polyline.Dense d = e.dense();
+					int[] xs = d.xs();
+					int[] zs = d.zs();
+					for (int i = 0; i < lim; i += STRIDE) {
+						int a = Math.max(0, i - 2);
+						int b = Math.min(lim - 1, i + 2);
+						int tx = xs[b] - xs[a];
+						int tz = zs[b] - zs[a];
+						if (tx == 0 && tz == 0) {
+							continue;
+						}
+						for (int side = -1; side <= 1; side += 2) {
+							if (square && side > 0) {
+								continue;
+							}
+							// the normal toward the plot side; the plot faces back along it
+							int nx = side < 0 ? tz : -tz;
+							int nz = side < 0 ? -tx : tx;
+							Direction primary = facingToward(-nx, -nz);
+							add(ctx, e, i, primary);
+							int ax = Math.abs(nx);
+							int az = Math.abs(nz);
+							if (ax > 0 && az > 0 && Math.min(ax, az) * 5 >= Math.max(ax, az) * 2) {
+								Direction secondary = ax >= az ? facingToward(0, -nz) : facingToward(-nx, 0);
+								if (secondary != primary) {
+									add(ctx, e, i, secondary);
+								}
+							}
+						}
+					}
+				}
+				this.to[n] = this.size;
+			}
+		}
+
+		private void add(PlanContext ctx, RoadEdge e, int i, Direction facing) {
+			int[] q = across(this.occ, e, i, facing);
+			if (q == null) {
+				return;
+			}
+			if (this.size == this.index.length) {
+				int n = this.size * 2;
+				this.index = java.util.Arrays.copyOf(this.index, n);
+				this.facing = java.util.Arrays.copyOf(this.facing, n);
+				this.qx = java.util.Arrays.copyOf(this.qx, n);
+				this.qz = java.util.Arrays.copyOf(this.qz, n);
+				this.dist = java.util.Arrays.copyOf(this.dist, n);
+				this.hash = java.util.Arrays.copyOf(this.hash, n);
+				this.district = java.util.Arrays.copyOf(this.district, n);
+				this.districtKnown = java.util.Arrays.copyOf(this.districtKnown, n);
+				this.ground = java.util.Arrays.copyOf(this.ground, n);
+			}
+			int k = this.size++;
+			this.index[k] = i;
+			this.facing[k] = facing;
+			this.qx[k] = q[0];
+			this.qz[k] = q[1];
+			this.dist[k] = ctx.distanceToHeart(q[0], q[1]);
+			this.hash[k] = ctx.hash(q[0], q[1], 7);
+			this.ground[k] = Integer.MIN_VALUE;
+		}
+
+		District.@Nullable Kind districtKind(PlanContext ctx, int k) {
+			if (!this.districtKnown[k]) {
+				this.district[k] = ctx.district(this.qx[k], this.qz[k]);
+				this.districtKnown[k] = true;
+			}
+			return this.district[k] == null ? null : this.district[k].kind();
+		}
+
+		int ground(PlanContext ctx, int k) {
+			if (this.ground[k] == Integer.MIN_VALUE) {
+				this.ground[k] = ctx.ground.ground(this.qx[k], this.qz[k]);
+			}
+			return this.ground[k];
+		}
+	}
+
+	/**
+	 * The first column past a road's corridor at a dense index, walking away from the road against {@code facing}, if
+	 * the road is really there and that column is free: {x, z}, or null.
+	 */
+	private static int @Nullable [] across(Occupancy occ, RoadEdge e, int i, Direction facing) {
+		Polyline.Dense d = e.dense();
+		int sx = -facing.getStepX();
+		int sz = -facing.getStepZ();
+		int qx = d.xs()[i];
+		int qz = d.zs()[i];
+		int k = 0;
+		int reach = e.width / 2 + 4;
+		while (k < reach && Cell.isAccess(occ.get(qx, qz))) {
+			qx += sx;
+			qz += sz;
+			k++;
+		}
+		// the road the plot would face must actually be there, and the first column past it free
+		if (k == 0 || !Cell.isVacant(occ.get(qx, qz))) {
+			return null;
+		}
+		return new int[]{qx, qz};
+	}
+
 	/** The best place for the request, or null if no frontage fits. {@code edges} limits the roads searched. */
 	public static @Nullable Parcel best(PlanContext ctx, Request req, @Nullable IntPredicate edges) {
 		List<Parcel> found = find(ctx, req, edges, ENOUGH);
@@ -206,49 +370,19 @@ public final class Parcels {
 
 	public static List<Parcel> find(PlanContext ctx, Request req, @Nullable IntPredicate edges, int enough) {
 		List<Pos> positions = new ArrayList<>();
-		Occupancy occ = ctx.occ;
-		for (RoadEdge e : ctx.state.graph.edges()) {
+		Frontage f = Frontage.of(ctx);
+		List<RoadEdge> all = ctx.state.graph.edges();
+		for (int n = 0; n < all.size(); n++) {
+			RoadEdge e = all.get(n);
 			if (ctx.pastDeadline()) {
 				// a live call out of time: what was gathered so far is all this call looks at
 				break;
 			}
-			boolean square = e.role == RoadEdge.Role.SQUARE;
-			int lim = square ? e.length() : Math.min(e.built, e.length());
-			if (lim < 2 || (edges != null && !edges.test(e.id))) {
+			if (f.from[n] == f.to[n] || (edges != null && !edges.test(e.id)) || !frontsOk(e, req)) {
 				continue;
 			}
-			if (!frontsOk(e, req)) {
-				continue;
-			}
-			Polyline.Dense d = e.dense();
-			int[] xs = d.xs();
-			int[] zs = d.zs();
-			for (int i = 0; i < lim; i += STRIDE) {
-				int a = Math.max(0, i - 2);
-				int b = Math.min(lim - 1, i + 2);
-				int tx = xs[b] - xs[a];
-				int tz = zs[b] - zs[a];
-				if (tx == 0 && tz == 0) {
-					continue;
-				}
-				for (int side = -1; side <= 1; side += 2) {
-					if (square && side > 0) {
-						continue;
-					}
-					// the normal toward the plot side; the plot faces back along it
-					int nx = side < 0 ? tz : -tz;
-					int nz = side < 0 ? -tx : tx;
-					Direction primary = facingToward(-nx, -nz);
-					addPos(ctx, req, e, i, primary, positions, occ);
-					int ax = Math.abs(nx);
-					int az = Math.abs(nz);
-					if (ax > 0 && az > 0 && Math.min(ax, az) * 5 >= Math.max(ax, az) * 2) {
-						Direction secondary = ax >= az ? facingToward(0, -nz) : facingToward(-nx, 0);
-						if (secondary != primary) {
-							addPos(ctx, req, e, i, secondary, positions, occ);
-						}
-					}
-				}
+			for (int k = f.from[n]; k < f.to[n]; k++) {
+				positions.add(new Pos(e.id, f.index[k], f.facing[k], f.qx[k], f.qz[k], preScore(ctx, req, e, f, k)));
 			}
 		}
 		// best first; a city has thousands of places and the search usually stops within the first few dozen, so they are
@@ -405,45 +539,33 @@ public final class Parcels {
 	}
 
 	private static void addPos(PlanContext ctx, Request req, RoadEdge e, int i, Direction facing, List<Pos> out, Occupancy occ) {
-		Polyline.Dense d = e.dense();
-		int sx = -facing.getStepX();
-		int sz = -facing.getStepZ();
-		int qx = d.xs()[i];
-		int qz = d.zs()[i];
-		int k = 0;
-		int reach = e.width / 2 + 4;
-		while (k < reach && Cell.isAccess(occ.get(qx, qz))) {
-			qx += sx;
-			qz += sz;
-			k++;
+		Frontage one = new Frontage(occ, 0, 0);
+		one.add(ctx, e, i, facing);
+		if (one.size > 0) {
+			out.add(new Pos(e.id, i, facing, one.qx[0], one.qz[0], preScore(ctx, req, e, one, 0)));
 		}
-		// the road the plot would face must actually be there, and the first column past it free
-		if (k == 0 || !Cell.isVacant(occ.get(qx, qz))) {
-			return;
-		}
-		double pre = preScore(ctx, req, e, qx, qz);
-		out.add(new Pos(e.id, i, facing, qx, qz, pre));
 	}
 
-	/** The cheap score a place is ranked by before it is examined. */
-	private static double preScore(PlanContext ctx, Request req, RoadEdge e, int x, int z) {
-		double dist = ctx.distanceToHeart(x, z);
+	/** The cheap score a place ({@code k} of a frontage) is ranked by before it is examined. */
+	private static double preScore(PlanContext ctx, Request req, RoadEdge e, Frontage f, int k) {
+		int x = f.qx[k];
+		int z = f.qz[k];
+		double dist = f.dist[k];
 		double core = ctx.coreRadius();
 		Site site = ctx.state.site;
-		Ground g = ctx.ground;
 		double s;
 		switch (req.placement) {
 			case HOME -> s = -dist;
 			case CENTRAL -> s = -dist * 2 + (e.role == RoadEdge.Role.SQUARE ? 40 : 0) + (e.role == RoadEdge.Role.ARM ? 6 : 0);
 			case MAIN -> s = -dist + (e.role == RoadEdge.Role.ARM ? 30 : 0) + (e.role == RoadEdge.Role.SQUARE ? 20 : 0);
-			case CIVIC -> s = -dist * 1.2 + (e.role == RoadEdge.Role.SQUARE ? 35 : 0) + (g.ground(x, z) - ctx.state.heartY) * 0.8;
+			case CIVIC -> s = -dist * 1.2 + (e.role == RoadEdge.Role.SQUARE ? 35 : 0) + (f.ground(ctx, k) - ctx.state.heartY) * 0.8;
 			case RISE -> {
 				double toRise = site == null ? dist : Math.hypot(x - site.riseX(), z - site.riseZ());
-				s = (g.ground(x, z) - ctx.state.heartY) * 2.0 - toRise * 0.6 - dist * 0.1;
+				s = (f.ground(ctx, k) - ctx.state.heartY) * 2.0 - toRise * 0.6 - dist * 0.1;
 			}
 			case SUMMIT -> {
 				double toTop = site == null ? dist : Math.hypot(x - site.summitX(), z - site.summitZ());
-				s = g.ground(x, z) * 2.0 - toTop * 0.4 - dist * 0.05;
+				s = f.ground(ctx, k) * 2.0 - toTop * 0.4 - dist * 0.05;
 			}
 			case WATER, ON_WATER -> s = -dist * 0.4 - ctx.waterDistance(x, z) * 3;
 			case EDGE -> {
@@ -453,14 +575,14 @@ public final class Parcels {
 				s = -Math.abs(dist - ring) - (e.role == RoadEdge.Role.SQUARE ? 100 : 0);
 			}
 			case FARMSTEAD -> s = -Math.abs(dist - core * 2.2 * ctx.config.sprawlBias()) * 0.5 + (e.role == RoadEdge.Role.TRACK ? 30 : 0);
-			case RICH -> s = (g.ground(x, z) - ctx.state.heartY) * 1.5 - Math.abs(dist - core * 0.9) * 0.6;
+			case RICH -> s = (f.ground(ctx, k) - ctx.state.heartY) * 1.5 - Math.abs(dist - core * 0.9) * 0.6;
 			case CRAFTS -> s = -Math.abs(dist - core * 0.9) - ctx.waterDistance(x, z) * 0.5;
 			case ANCHOR -> s = -Math.hypot(x - req.anchorX, z - req.anchorZ) * 2;
 			case HOVELS -> {
 				var t = ctx.territory();
 				// a walled town's poor live in the lanes along the inside of its wall, then in the suburbs outside the gates
 				double ring = ctx.wallLine() > 0 ? ctx.wallLine() * 0.85 : edgeRing(ctx) * 0.9;
-				s = -Math.abs(dist - ring) * 0.8 + t.downwind(x, z) * core * 0.45 - (g.ground(x, z) - ctx.state.heartY) * 0.6;
+				s = -Math.abs(dist - ring) * 0.8 + t.downwind(x, z) * core * 0.45 - (f.ground(ctx, k) - ctx.state.heartY) * 0.6;
 				int[] tannery = t.nearest(dev.voidmc.hearth.plan.catalogue.Archetypes.TANNERY, x, z);
 				if (tannery != null) {
 					s -= Math.hypot(x - tannery[0], z - tannery[1]) * 0.35;
@@ -477,7 +599,7 @@ public final class Parcels {
 				} else {
 					double toAnchor = Math.hypot(x - st.x(), z - st.z());
 					s = -toAnchor * st.anchor() - ctx.waterDistance(x, z) * st.water() + ctx.territory().downwind(x, z) * st.downwind() * core * 0.5
-						- Math.abs(dist - edgeRing(ctx)) * st.edge() + (g.ground(x, z) - ctx.state.heartY) * st.height()
+						- Math.abs(dist - edgeRing(ctx)) * st.edge() + (f.ground(ctx, k) - ctx.state.heartY) * st.height()
 						+ (e.role == RoadEdge.Role.ARM || e.role == RoadEdge.Role.SQUARE ? st.main() * 10 : 0);
 					if (toAnchor > st.maxDistance()) {
 						s -= (toAnchor - st.maxDistance()) * 4;
@@ -491,12 +613,11 @@ public final class Parcels {
 					case ARM, SQUARE, RING -> -45;
 					default -> 0;
 				};
-				District d = ctx.district(x, z);
-				if (d != null && d.kind() == District.Kind.POOR) {
+				if (f.districtKind(ctx, k) == District.Kind.POOR) {
 					s += 30;
 				}
 			}
-			case QUIET -> s = -Math.abs(dist - (edgeRing(ctx) + 60)) * 0.6 + (g.ground(x, z) - ctx.state.heartY) * 1.2
+			case QUIET -> s = -Math.abs(dist - (edgeRing(ctx) + 60)) * 0.6 + (f.ground(ctx, k) - ctx.state.heartY) * 1.2
 				+ (e.role == RoadEdge.Role.TRACK || e.role == RoadEdge.Role.APPROACH ? 6 : 0);
 			default -> s = -dist;
 		}
@@ -506,15 +627,15 @@ public final class Parcels {
 			s -= 60;
 		}
 		if (req.district != null && !ctx.state.districts.isEmpty()) {
-			District d = ctx.district(x, z);
+			District.Kind d = f.districtKind(ctx, k);
 			if (d != null) {
 				boolean home = req.info.category() == ArchetypeCategory.HOUSING && req.station != null;
-				s += d.kind() == req.district ? (home ? 40 : 18) : d.kind() == District.Kind.FARMS && req.info.category() != ArchetypeCategory.FARM ? -25 : 0;
+				s += d == req.district ? (home ? 40 : 18) : d == District.Kind.FARMS && req.info.category() != ArchetypeCategory.FARM ? -25 : 0;
 				// the hill and the castle are kept for the gentry and the lord; the poor quarter is not where others build homes
-				if (req.info.category() == ArchetypeCategory.HOUSING && d.kind() != req.district) {
-					s -= d.kind() == District.Kind.RICH || d.kind() == District.Kind.CASTLE ? (home ? 40 : 22)
-						: d.kind() == District.Kind.POOR ? (home ? 25 : 10)
-						: d.kind() == District.Kind.MARKET && req.station == dev.voidmc.hearth.api.Station.POOR ? 20 : 0;
+				if (req.info.category() == ArchetypeCategory.HOUSING && d != req.district) {
+					s -= d == District.Kind.RICH || d == District.Kind.CASTLE ? (home ? 40 : 22)
+						: d == District.Kind.POOR ? (home ? 25 : 10)
+						: d == District.Kind.MARKET && req.station == dev.voidmc.hearth.api.Station.POOR ? 20 : 0;
 				}
 			}
 		}
@@ -532,14 +653,14 @@ public final class Parcels {
 		}
 		if (req.info.flags().contains(SiteFlag.VERTICAL)) {
 			// towers where they read from afar
-			s += (g.ground(x, z) - ctx.state.heartY) * 0.4;
+			s += (f.ground(ctx, k) - ctx.state.heartY) * 0.4;
 		}
 		for (int[] a : ctx.avoid) {
 			if (Math.abs(x - a[0]) < a[2] && Math.abs(z - a[1]) < a[2] && Math.hypot(x - a[0], z - a[1]) < a[2]) {
 				s -= 500;
 			}
 		}
-		return s + ctx.hash(x, z, 7) * core * 0.08;
+		return s + f.hash[k] * core * 0.08;
 	}
 
 	/** Where the edge of town is: just past the houses and workshops, or past the wall line of a walled town. */

@@ -11,6 +11,7 @@ public final class Occupancy {
 	private final Long2ObjectOpenHashMap<byte[]> tiles = new Long2ObjectOpenHashMap<>();
 	private long lastKey = Long.MIN_VALUE;
 	private byte[] last;
+	private long version;
 	private boolean clipped;
 	private int clipX0;
 	private int clipZ0;
@@ -29,8 +30,17 @@ public final class Occupancy {
 		}
 		byte[] t = tile(x, z, code != Cell.FREE);
 		if (t != null) {
-			t[((z & 15) << 4) | (x & 15)] = code;
+			int i = ((z & 15) << 4) | (x & 15);
+			if (t[i] != code) {
+				t[i] = code;
+				this.version++;
+			}
 		}
+	}
+
+	/** Changes on every write that changes a column: what was read from the grid still holds while it stays the same. */
+	public long version() {
+		return this.version;
 	}
 
 	/** Sets a column only if the code it holds ranks lower (see {@link Cell#rank}); returns whether it did. */
@@ -104,6 +114,7 @@ public final class Occupancy {
 	}
 
 	public void clear() {
+		this.version++;
 		this.tiles.clear();
 		this.lastKey = Long.MIN_VALUE;
 		this.last = null;
