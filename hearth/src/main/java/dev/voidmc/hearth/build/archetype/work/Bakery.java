@@ -278,6 +278,7 @@ public final class Bakery implements Archetype {
 			}
 			Rooms.furnish(d, up.room(), Rooms.Type.STORAGE, 0, JobType.NONE);
 		}
+		dev.voidmc.hearth.build.kit.craft.Rails.flight(d, hall, 0, flight);
 	}
 
 	/** The yard: a domed oven where the culture bakes outdoors (a woodpile otherwise), a back door, a water butt. */

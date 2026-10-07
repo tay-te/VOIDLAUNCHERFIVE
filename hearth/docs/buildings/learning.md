@@ -11,7 +11,7 @@ the little holy places on the roads. Six archetypes, each built in every culture
 | `hearth:civic/shrine` | `archetype/civic/Shrine` | hamlet+ | 3–5 × 3–5 | 6–10 | — |
 | `hearth:civic/university` | `archetype/civic/University` (+ `Precinct`) | city, max 1 | 23–33 × 23–33 | 14–24 | SCHOLAR; 8 beds |
 | `hearth:civic/observatory` | `archetype/civic/Observatory` | city, VERTICAL, max 1 | 11–13 × 11–13 | 16–26 | SCHOLAR |
-| `hearth:work/alchemist_tower` | `archetype/work/AlchemistTower` | town+, VERTICAL, max 1 | 7–9 × 7–9 | 14–22 | SCHOLAR; 1 bed |
+| `hearth:work/alchemist_tower` | `archetype/work/AlchemistTower` | town+, VERTICAL, max 1 | 11–15 × 10–14 | 14–22 | SCHOLAR; 1 bed |
 
 Components: `build/kit/learning/` — `Rite` (how a culture raises its religious houses: walls of the ranges, the arcade,
 the roofs, the church's east end, windows and bell), `Sacra` (crosses, candles, lanterns, cypresses, offerings),
@@ -120,17 +120,23 @@ balustrade (piers only at its angles, nothing on it), a sundial in the forecourt
 platform with the library and the instrument store inside, a terrace of instruments on top reached by the great
 gnomon's stair, or by a stair to a pavilion in the karst). Params: `form` (`tower`, `terrace`).
 
-**Alchemist's tower.** Seven square in the culture's best stone: the workshop with the athanor, the laboratory of
-brewing stands, bottles and the alchemist's lectern, his study under the roof, the roof platform with a still and drying
-herbs behind a parapet, the stair house capped in the culture's manner. The timber towns build the whole shaft in stone;
-only the mountains (boards) and the north (logs) frame the study storey, flush on the stone (a top jettied out on three
-sides read top-heavy). Where the shaft falls back on plain masonry its quoins, courses and window surrounds are the
-plinth stone, not the culture's pale accent (which salted the upper stages with white). Params: `stair_right`.
+**Alchemist's tower.** A squat tower of three storeys (the workshop, the laboratory, the study under the roof) on a
+`Hall` with a turning stair storey by storey (a ladder through a hatch where it will not fit, `kit/craft/Hatch`), its
+stairwells railed, and beside it the laboratory with the athanor under its chimney, in four plans by culture: the
+**stone tower** (Bohemia, the moor, the coasts, the Mediterranean, the bayou) in a back corner under a steep pyramid
+roof with a long low gabled wing against its flank and a herb garden before them; the **tower house** (the north, the
+tundra, the mountains) in the culture's walls under a steep gable with a gabled still-room against its flank; the
+**walled laboratory** (desert, mesa, steppe): a court behind a coped wall, a flat-roofed tower in a back corner, the
+range along the back, the still under a reed shade in the court with the basin and jars; the **pavilion tower** (karst,
+wisteria, tropics) under tiered eaves with an open shed over the elixir furnace and a little pool. The still is a stand
+on a barrel against a wall with its user's cell before it (it was boxed in before); where no wing fits, the athanor and
+its flue stand in the workshop. One plan in fourteen cultures before (`culture_likes` 13), four now (4).
+Params: `plan` (`stone`, `timber`, `court`, `pavilion`), `tower_left`.
 
 ## Params
 
 - `side` (monastery, convent): `left` or `right`, where the church stands (default by seed).
-- `form` (shrine, observatory), `stair_right` (alchemist's tower), `variant` (all).
+- `form` (shrine, observatory), `plan` and `tower_left` (alchemist's tower), `variant` (all).
 
 ## Previews
 

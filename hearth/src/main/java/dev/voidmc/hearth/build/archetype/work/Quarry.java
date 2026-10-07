@@ -39,8 +39,8 @@ import net.minecraft.world.level.block.state.properties.Half;
  * <ul>
  *   <li><b>pit</b> (Bohemia, the wisteria vale, the coasts, the bayou): benches on every side, a gantry over the pit
  *   lowering a block on its chain, the masons' open shed at the top, a fence round the rim;</li>
- *   <li><b>crane</b> (the north, the moor, the mountains): the same pit worked with a jib crane at its edge, the
- *   quarrymen's lodge of the culture's walls in the yard;</li>
+ *   <li><b>crane</b> (the north, the moor, the mountains): the pit cut from one side across, its benches stepping down
+ *   toward a jib crane at its edge that lifts the blocks out;</li>
  *   <li><b>face</b> (the dry lands, the Mediterranean, the steppe, the tropics, the karst): one long face cut back into
  *   the rock across the back of the plot in terraces, its blocks scored out in rows on the floor, a dry-stone wall along
  *   the rim and the masons working under a reed shade in the yard.</li>
@@ -109,7 +109,9 @@ public final class Quarry implements Archetype {
 			for (int z = 0; z < pd; z++) {
 				int dist = Math.min(Math.min(x, pw - 1 - x), Math.min(z, pd - 1 - z));
 				// a face plan cuts back into the rock in terraces from the front edge only, every three rows a bench down
-				int ring = plan == Plan.FACE ? Math.min(rings - 1, z / 3) : Math.min(rings - 1, dist / 2);
+				// (the crane plan's pit is cut from one side across, its benches stepping down toward the crane)
+				int ring = plan == Plan.FACE ? Math.min(rings - 1, z / 3)
+					: plan == Plan.CRANE ? Math.min(rings - 1, (gate > w / 2 ? x : pw - 1 - x) / 3) : Math.min(rings - 1, dist / 2);
 				// a bench is cut only where the ground stands above it; where it falls away, the ground is left as it lies
 				int g = d.site().ground(px0 + x, pz0 + z);
 				lev[x][z] = d.site().isWater(px0 + x, pz0 + z) ? NONE : Math.min(-2 - 2 * ring, g);
@@ -219,16 +221,6 @@ public final class Quarry implements Archetype {
 			Props.store(d, sx1 - 1, 0, fz - 2, Dirs.FRONT, true, List.of(new Object[]{"minecraft:cobblestone", 64}, new Object[]{"minecraft:stone", 32},
 				new Object[]{"minecraft:iron_pickaxe", 2}));
 			lodgeTop = 3;
-		} else if (plan == Plan.CRANE && sx1 - sx0 >= 3) {
-			// the quarrymen's lodge: a cell of the culture's walls, the stonecutter by its door
-			dev.voidmc.hearth.build.kit.industry.Huts.Hut hut = dev.voidmc.hearth.build.kit.industry.Huts.cell(d, sx0, 1, sx1, fz - 1, (sx0 + sx1) / 2);
-			lodgeTop = hut.top();
-			int cx = shedLeft ? sx1 + 1 : sx0 - 1;
-			if (Math.abs(cx - gate) > 1) {
-				Props.station(d, Blocks.STONECUTTER, cx, 0, 2, Dirs.FRONT, JobType.MASON);
-			} else {
-				Props.station(d, Blocks.STONECUTTER, shedLeft ? 1 : w - 2, 0, fz - 1, Dirs.FRONT, JobType.MASON);
-			}
 		} else if (sx1 - sx0 >= 2) {
 			roof = Shed.open(d, sx0, 1, sx1, fz - 1, 0, 3, Hall.pick(d, RoofForm.GABLE, RoofForm.HIP, RoofForm.SHED, RoofForm.PAGODA), Direction.Axis.X, 1,
 				d.mat(Role.FOUNDATION), Dirs.BACK);

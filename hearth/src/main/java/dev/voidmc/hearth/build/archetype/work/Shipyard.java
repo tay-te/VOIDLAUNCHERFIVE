@@ -177,13 +177,15 @@ public final class Shipyard implements Archetype {
 			}
 		}
 
-		// the boathouse: a long open shed over the hull and its slip, posts outside the staging
-		int sx0 = Math.max(0, slipX - halfBeam - 3);
-		int sx1 = Math.min(w - 1, slipX + halfBeam + 3);
-		if (plan == Plan.BOATHOUSE && zStern - zBow >= 6) {
-			int sh = Math.min(depth + 3, d.maxHeight() - 5);
+		// the boathouse: a long open shed down the side of the slip where the sails and gear are kept and strakes are bent, its
+		// back and far side boarded (a roof over the hull itself would close her hold into a room nobody enters)
+		int sx0 = loftLeft ? 0 : Math.max(0, w - 5);
+		int sx1 = loftLeft ? Math.min(w - 1, 4) : w - 1;
+		boolean shedFits = sx1 - sx0 >= 3 && (loftLeft ? sx1 < slipX - halfBeam - 2 : sx0 > slipX + halfBeam + 2);
+		if (plan == Plan.BOATHOUSE && shedFits) {
+			int sh = Math.min(4, d.maxHeight() - 5);
 			RoofForm sf = Hall.pick(d, RoofForm.GABLE, RoofForm.GABLE, RoofForm.HALF_HIP);
-			Roofs.Roof shed = Shed.open(d, sx0, zBow - 1, sx1, Math.min(zw - 1, zStern), 0, sh, sf, Direction.Axis.Z, 1);
+			Roofs.Roof shed = Shed.open(d, sx0, 3, sx1, Math.min(zw - 1, 14), 0, sh, sf, Direction.Axis.Z, 1, loftLeft ? Dirs.LEFT : Dirs.RIGHT, Dirs.BACK);
 			top = Math.max(top, shed != null ? shed.ridgeY : sh + 1);
 		}
 
@@ -194,8 +196,7 @@ public final class Shipyard implements Archetype {
 		int lz0 = 2;
 		int lz1 = Math.min(zw - 1, lz0 + 6);
 		RoofForm form = Hall.pick(d, FORMS);
-		boolean clear = plan != Plan.BOATHOUSE || lx1 < sx0 || lx0 > sx1;
-		if (plan != Plan.BEACH && clear && lx1 - lx0 >= 4 && lz1 - lz0 >= 4 && Math.abs(slipX - (lx0 + lx1) / 2) > halfBeam + 3) {
+		if (plan != Plan.BEACH && plan != Plan.BOATHOUSE && lx1 - lx0 >= 4 && lz1 - lz0 >= 4 && Math.abs(slipX - (lx0 + lx1) / 2) > halfBeam + 3) {
 			top = Math.max(top, loft(d, pois, lx0, lz0, lx1, lz1, form, loftLeft));
 		} else if (plan == Plan.BEACH) {
 			ropeWalk(d, pois, loftLeft ? 1 : w - 2, 2, Math.min(zw - 2, 12));
@@ -205,7 +206,7 @@ public final class Shipyard implements Archetype {
 		int rx = loftLeft ? w - 1 : 0;
 		int rz0 = 3;
 		int rz1 = Math.min(zw - 2, rz0 + 7);
-		if (rz1 - rz0 >= 3 && Math.abs(rx - slipX) > halfBeam + 2 && (plan != Plan.BOATHOUSE || rx < sx0 || rx > sx1)) {
+		if (rz1 - rz0 >= 3 && Math.abs(rx - slipX) > halfBeam + 2) {
 			Timber.rack(d, rx, 0, rz0, Dirs.BACK, rz1 - rz0 + 1, d.mat(Role.FLOOR));
 			pois.siteIf(d, rx + (loftLeft ? -1 : 1), 0, (rz0 + rz1) / 2, loftLeft ? Dirs.RIGHT : Dirs.LEFT, JobType.BOATWRIGHT);
 		}

@@ -150,8 +150,6 @@ public final class AlchemistTower implements Archetype {
 		for (int k = 0; k + 1 < n; k++) {
 			if (wells[k] == null) {
 				ladders[k] = Hatch.ladder(d, t, k + 1, null, Dirs.BACK, wellWall, wellWall.getOpposite());
-			} else {
-				Rails.well(d, t, k, wells[k]);
 			}
 		}
 		return new Tower(t, wells, ladders, door);
@@ -220,6 +218,10 @@ public final class AlchemistTower implements Archetype {
 				study(d, fp);
 			}
 			Rooms.furnish(d, fp.room(), role == 2 ? Rooms.Type.BEDROOM : Rooms.Type.WORKSHOP, 0, JobType.NONE);
+		}
+		// the stairwells railed on the floors above, round what stands beside them too
+		for (int k = 0; k + 1 < n; k++) {
+			Rails.well(d, tw.hall(), k, tw.wells()[k]);
 		}
 	}
 

@@ -18,6 +18,7 @@ import dev.voidmc.hearth.build.kit.Porches;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.craft.Hatch;
+import dev.voidmc.hearth.build.kit.craft.Rails;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Lifts;
@@ -186,6 +187,7 @@ public final class Storehouse implements Archetype {
 		}
 
 		interior(d, hall, door, doorW, flight);
+		Rails.flight(d, hall, 0, flight);
 		yard(d, hall, w, dp, door, doorW, flat, raised || stilts);
 		if (h.snow()) {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, base, door);

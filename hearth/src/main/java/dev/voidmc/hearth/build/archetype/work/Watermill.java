@@ -134,6 +134,7 @@ public final class Watermill implements Archetype {
 		});
 
 		boolean upper = interior(d, hall, door, flight, inX, cz, wheelLeft);
+		dev.voidmc.hearth.build.kit.craft.Rails.flight(d, hall, 0, flight);
 		if (upper && hall.roof != null) {
 			mealDoor(d, hall, door);
 		}

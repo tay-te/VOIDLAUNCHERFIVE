@@ -116,9 +116,12 @@ fence and wide gate. Where water runs at the back of the plot a water wheel on t
 
 ### `work/quarry` (Quarry.java)
 A pit cut in benches two high and two wide, only where the ground stands above the level (on a hillside the benches eat
-back into the slope and the face behind is lined with fresh rock). A ramp of steps from the yard, a gantry over the
-pit lowering a block (its chain clear of the ramp), the masons' shed with stonecutters at the top, block stacks and
-spoil heaps, a fence round the rim.
+back into the slope and the face behind is lined with fresh rock). A ramp of steps from the yard, block stacks and spoil
+heaps. Three plans by culture (param `plan`): **pit** (temperate, wisteria, maritime, bayou), benches on every side, a
+gantry over the pit lowering a block (its chain clear of the ramp), the masons' shed with stonecutters at the top, a
+fence round the rim; **crane** (north, tundra, alpine, moorland), the pit cut from one side across toward a jib crane at
+its edge; **face** (dry lands, Mediterranean, steppe, tropics, karst), one face cut back across the plot in terraces
+with blocks scored out in rows on the floor, a dry-stone wall along the rim and the masons under a reed shade.
 **POIs:** JOB_SITE QUARRIER ×1–2 (pit floor at the face), JOB_SITE MASON (stonecutters), STORAGE ×2.
 **Params:** `roof` (the shed), `variant`.
 
@@ -145,7 +148,11 @@ lattices: a whip from the hub, a hemlath along the trailing edge, and, by pairs,
 the bare frame of sail bars showing against the sky; the Mediterranean star has eight spars with triangles of cloth
 widening to their tips. No sail sweeps lower than a man's height over the yard. **Post mill** (log/snow/plank cultures,
 about two in three, plots 9+ deep): the plank body high on its post and trestle (two storeys where the height allows),
-the stair down behind with the tail pole beside it to the ground, sails on its breast.
+the stair down behind with the tail pole beside it to the ground, sails on its breast, a ladder through a hatch to the
+sack floor. The tower's newel stair keeps a third block of headroom over every tread (the floor over the first treads of
+each turn stopped the climb, so no mill floor was reached before October 2026); the cap's hollow is boarded solid; the
+sails turn in the first plane a block clear of everything below the sweep (stage, curb, bonnet; a post mill's breast)
+and two over the yard, shortened where the plot's front comes first.
 **POIs:** DOOR, JOB_SITE BAKER (millstones), JOB_SITE FARMER (grain bin), STORAGE (flour chest; a barrel by the door
 when the floor is too cramped). Ground-floor pieces move outside by the door when the tower is too small.
 **Params:** `kind` (`tower`, `post`), `sails` (`cross`, `saltire`, `star`), `variant`.
