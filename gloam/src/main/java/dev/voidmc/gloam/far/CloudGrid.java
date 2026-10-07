@@ -142,7 +142,7 @@ final class CloudGrid {
 	 * relative cell (0, 0) is frame cell ({@code originX}, {@code originZ}) of that size, at {@code y} blocks above the
 	 * stack's base, {@code height} high, in tone {@code tone}, all of kind of face {@code face}.
 	 */
-	record Group(int first, int count, int size, int originX, int originZ, int y, int height, int tone, int face) {
+	record Group(int first, int count, int size, int originX, int originZ, int y, int height, int tone, int face, int ring) {
 	}
 
 	/**
@@ -416,7 +416,7 @@ final class CloudGrid {
 			if (at == null) {
 				at = this.keys.size();
 				this.index.put(key, at);
-				this.keys.add(new int[]{size, ox, oz, y, h, tone, face});
+				this.keys.add(new int[]{size, ox, oz, y, h, tone, face, level});
 				this.lists.add(new int[1 + 256]);
 			}
 			int[] f = this.lists.get(at);
@@ -450,7 +450,7 @@ final class CloudGrid {
 					out.put((byte) (packed >> 16)).put((byte) (packed >> 8)).put((byte) packed);
 				}
 				int[] k = this.keys.get(g);
-				groups.add(new Group(first, count, k[0], k[1], k[2], k[3], k[4], k[5], k[6]));
+				groups.add(new Group(first, count, k[0], k[1], k[2], k[3], k[4], k[5], k[6], k[7]));
 				first += count;
 			}
 			return new Mesh(out.flip(), groups, max, fast, null, 0, 0, 0, layers);
