@@ -86,6 +86,7 @@ public final class FarSight {
 	private final AtlasClient atlas;
 	private final Map<Long, Tile> pending = new ConcurrentHashMap<>();
 	private final AtomicBoolean draining = new AtomicBoolean();
+	private final AtomicBoolean trimming = new AtomicBoolean();
 	private volatile boolean on;
 	private AutoCloseable subscription;
 	private String subscribedFor = "";
@@ -343,9 +344,20 @@ public final class FarSight {
 		if (minX <= maxX) {
 			far.dirty(minX, minZ, maxX + 1, maxZ + 1);
 		}
-		if (far.rawsInMemory() > MAX_RAWS) {
-			// far land reaches wide: what is not being drawn goes to disk, so memory stays small
-			far.saveAndTrim(0, MAX_RAWS / 2, MAX_RAWS / 2, false);
+		if (far.rawsInMemory() > MAX_RAWS && this.trimming.compareAndSet(false, true)) {
+			// far land reaches wide: what is not being drawn goes to disk (on the IO thread, never in a worker's run), so
+			// memory stays small
+			try {
+				session.io.execute(() -> {
+					try {
+						far.saveAndTrim(0, MAX_RAWS / 2, MAX_RAWS / 2, false);
+					} finally {
+						this.trimming.set(false);
+					}
+				});
+			} catch (RuntimeException e) {
+				this.trimming.set(false);
+			}
 		}
 		TILES.incrementAndGet();
 		SAMPLES.addAndGet(written);
