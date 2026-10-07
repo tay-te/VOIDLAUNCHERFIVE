@@ -65,12 +65,16 @@ LOD's haze (its `FogRendererMixin` reads them through the camera's probe), and t
 
 ### Motes: `dev.voidmc.gloam.motes` (`Motes`)
 
-Particles, which shader packs draw too. Spawned around the camera from what is really there (leaf blocks overhead,
+Particles, which shader packs draw too, drawn pixel-true (docs/STYLE.md): crisp nearest-filtered sprites at about
+vanilla's particle pixel size, a few flat alpha steps with a Bayer dither between them, fading in and out in steps of a
+quarter, colours from small palettes. Spawned around the camera from what is really there (leaf blocks overhead,
 grass and flowers, water, the mist layer), moved by `Wind`, scaled by the `motes` setting and a frame budget.
 
-- Falling leaves under trees, tinted like the leaves they fall from, more in autumn and in gusts.
+- Falling leaves under trees (4x4 and 5x5 pixels, three greys tinted with one clean colour: their tree's green lifted
+  paler, or one of five autumn colours), more in autumn and in gusts.
 - Pollen and dust motes catching the light in meadows on warm still days.
-- Fireflies over grass and water at dusk in late spring and summer (real fireflies: small, warm, blinking).
+- Fireflies over grass and water at dusk in late spring and summer: 2x2 bright pixels and a darker ring, no glow,
+  blinking on and off in steps.
 - Mist wisps drifting low over the ground and water while the mist is up.
 - Breath in the cold; snow drifting in the wind; spray at waterfalls.
 
@@ -81,17 +85,25 @@ the canopy over it, so falling leaves are always in frame under trees (slow, swi
 to stand out). The ground mist near the camera is a few hundred flat sheets (`MistMote`) out to the chunk edge,
 layered and densest in the lowest blocks, drawn through `MoteLayers.GROUND` with the same look as `FarMist`
 (opacity from the eye's path through the slab, colour leaning from the fog to the cloud colour), so it runs on into the
-far banks. Without a pack (and without improved transparency) the sheets are soft (`SoftMist`): their draw is held
-back from vanilla's particle pass and made right after the main pass, against a copy of the main depth, fading where the
-scene behind comes close, so no sheet ends in a straight line along a slope or a step; a sheet level with the eye fades
-too. Looked down into steeply, a sheet's optical depth is eased toward a ceiling, so mist seen from above (a gorge
+far banks. Each sheet is drawn on the world's own texel grid (`ground_mist.fsh` with `GLOAM_SOFT`): 16 texels a block
+near the camera (8, 4, 2 further off), the sheet's ragged shape and grain from noise on that grid, its opacity in four
+flat steps with a Bayer 4x4 dither on the same grid where one step meets the next, its colour picked from a four-tone
+palette between the fog's shadow tone and near-white. The sheet's centre (x, z modulo 256) comes in as its texture
+coordinate and its size and seed in its colour, and the camera (modulo 256) and the clouds' colour in a uniform
+(`SoftMist`). Without a pack (and without improved transparency) the sheets are soft (`SoftMist`): their draw is held
+back from vanilla's particle pass and made right after the main pass, against a copy of the main depth, fading (in the same
+dithered steps) where the scene behind comes close, so no sheet ends in a straight line along a slope or a step; a
+sheet level with the eye, or within a few blocks of it, fades too. With improved transparency the stepped, dithered
+mist sprites are drawn instead. Looked down into steeply, a sheet's optical depth is eased toward a ceiling, so mist seen from above (a gorge
 floor from its flank) is a thin veil and not a floor; and the number of sheets follows the share of the land around
 that can hold mist (a running survey of places, too steep or above the mist's top), so they are not heaped onto the
 few flat places in mountains. One's own breath shows low in the view and thins close to the camera (under a pack it
-stays a faint wisp, never a lit blob). Under a pack (which treats flat translucent quads as glass) the sheets become upright feathered veils.
-Breath, spray and powder draw through `MoteLayers.MIST` (faint edges kept, no depth writes, the colour of the air at full
-brightness); fireflies through `MoteLayers.GLOW` (additive, never through the lightmap, so dark nights cannot dim them).
-Every soft sprite is feathered to alpha 0 well inside its quad. Under a pack the pipelines go to Iris's translucent
+stays a faint wisp, never a lit blob). Under a pack (which treats flat translucent quads as glass) the sheets become upright
+veils: 128x48 sprites in four alpha steps with a dither between, so the pixels survive the pack's lighting.
+Breath, spray and powder (small stepped pixel puffs and streaks) draw through `MoteLayers.MIST` (no alpha cut, no depth
+writes, the colour of the air at full brightness); fireflies through `MoteLayers.GLOW` (additive, never through the
+lightmap, so dark nights cannot dim them). Every soft sprite leaves its outer pixel empty. Spray is capped at 360 puffs,
+so a canyon of falls cannot take the whole budget. Under a pack the pipelines go to Iris's translucent
 particle program and the pack lights them.
 Sprites and the icon: `tools/gen_motes.py`. Settings: `motes` (density), `moteLimit` (cap), `breath`. Each showcase
 view logs mote counts and their cost per tick.

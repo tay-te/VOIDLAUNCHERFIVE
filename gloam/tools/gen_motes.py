@@ -12,19 +12,18 @@ It writes, deterministically (fixed seeds, no timestamps, so a rerun writes the 
 
 The sprites:
 
-    leaf_0..7     a fallen leaf, grey so the game can tint it like the leaves it fell from
-    pollen_0..2   pollen and dust: a speck with a faint rim, white (tinted pale cream in the game)
-    firefly_0     a firefly's light: a warm yellow-green point with a soft glow, drawn full bright
-    mist_0..3     ground mist: soft, uneven patches drawn lying flat, white, alpha only
-    powder_0..3   powder snow blown off the ground: faint sideways streaks
-    veil_0..3     ground mist as upright veils, wide and low, for when a shader pack draws the mist
-    breath_0..2   a breath in the cold: a small round puff
-    spray_0..3    waterfall spray: a clumpy puff
-    snow_0..1     a fine snow grain
+    leaf_0..7     a falling leaf, 4x4 or 5x5, three greys so the game can tint it with a palette colour
+    pollen_0..2   pollen and dust: a one- to three-pixel speck, white (tinted pale cream in the game)
+    firefly_0     a firefly's light: 2x2 bright pixels and a darker ring, drawn full bright, no glow
+    mist_0..3     ground mist lying flat, 64x64, stepped and dithered (only when ground_mist.fsh cannot draw it)
+    powder_0..3   powder snow blown off the ground: a ragged sideways streak in two steps
+    veil_0..3     ground mist as upright veils, 128x48, for when a shader pack draws the mist
+    breath_0..2   a breath in the cold: an 8x8 puff in three steps
+    spray_0..3    waterfall spray: a 12x12 clumpy puff in three steps
+    snow_0..1     a snow grain, one to three pixels
 
-The mist, breath and spray sprites are drawn through Gloam's own particle pipeline, which does not cut away the faint
-edges the way vanilla's particle shader does (it discards alpha below 0.1), so they carry smooth alpha (with the
-faintest fringe trimmed, see trim()); everything else keeps to alpha a vanilla pipeline draws.
+The look is pixel-true (docs/STYLE.md): every soft sprite is a few flat alpha steps with a Bayer 4x4 dither between
+them and an empty outer pixel, so it stays crisp under nearest sampling and under a shader pack's lighting.
 """
 import json
 import math
@@ -105,57 +104,75 @@ def streaks(rng, size, across, up, octaves):
 	return total / norm
 
 
+# ------------------------------------------------------------------------------------------------------- pixel steps
+
+# The ordered dither every stepped sprite fades with (docs/STYLE.md: steps, not gradients; dithered edges).
+BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
+
+
+def stepped(value, levels):
+	"""
+	A smooth 0..1 field turned into `levels` flat steps above 0 (0, 1/levels, .. 1), each transition an ordered
+	(Bayer 4x4) dither on the sprite's own pixel grid, so it reads as a few hard levels with dithered edges.
+	"""
+	h, w = value.shape
+	y, x = np.mgrid[0:h, 0:w]
+	threshold = BAYER[y % 4, x % 4]
+	return np.clip(np.floor(value * levels + threshold), 0, levels) / levels
+
+
+def margin(alpha, px=1):
+	"""Clears the outermost `px` pixels, so no quad edge can show (nor a neighbour in the atlas bleed in)."""
+	alpha[:px, :] = 0
+	alpha[-px:, :] = 0
+	alpha[:, :px] = 0
+	alpha[:, -px:] = 0
+	return alpha
+
+
 # ------------------------------------------------------------------------------------------------------------ leaves
 
-# Hand-drawn leaves: '.' empty, 'a' the light side, 'b' the leaf, 'c' its shaded side and veins, 's' the stalk.
-# Grey (the game tints them), light enough that the tint is the colour and not a darkening.
+# Hand-drawn leaves, 4x4 and 5x5: '.' empty, 'a' the light side, 'b' the leaf, 'c' its shaded side and veins, 's' the
+# stalk. Three greys (the game tints them with a palette colour), light enough that the tint is the colour.
 LEAVES = [
-	['..ab.',
-	 '.abbc',
-	 'abbc.',
-	 'bbcc.',
-	 's....'],
-	['.aab.',
+	['.ab.',
+	 'abbc',
+	 'bbc.',
+	 's...'],
+	['..ab',
+	 '.abc',
+	 'abc.',
+	 's...'],
+	['.aa.',
+	 'abbc',
+	 'abcc',
+	 '.cs.'],
+	['ab..',
+	 'abb.',
+	 '.bcc',
+	 '..cs'],
+	['..a..',
+	 '.abb.',
 	 'abbbc',
-	 'abcbc',
 	 '.bcc.',
-	 '.s...'],
+	 '..s..'],
+	['.ab..',
+	 'abbb.',
+	 'bbbcc',
+	 '.bcc.',
+	 '...s.'],
 	['...ab',
 	 '..abc',
 	 '.abc.',
 	 'abc..',
 	 's....'],
-	['.ab..',
-	 'abbb.',
-	 'bbcbc',
-	 '.bccc',
-	 '...cs'],
-	['......',
-	 '..abb.',
-	 '.abbbc',
-	 '.bbcbc',
-	 '..bcc.',
-	 's.....'],
-	['.ab...',
-	 'abbb..',
-	 'abcbb.',
-	 '.bbcbc',
-	 '..bccc',
-	 '....cs'],
-	['..a...',
-	 '.abb..',
-	 'abbcb.',
-	 'bbcbbc',
-	 '.bccc.',
-	 '...s..'],
-	['.aab..',
-	 'abbbc.',
-	 'bbcbc.',
-	 '.bcc..',
-	 's.....',
-	 '......'],
+	['.aab.',
+	 'abbbc',
+	 '.bcc.',
+	 '..s..',
+	 '.....'],
 ]
-LEAF_GREY = {'a': 1.0, 'b': 0.86, 'c': 0.70, 's': 0.58}
+LEAF_GREY = {'a': 1.0, 'b': 0.84, 'c': 0.68, 's': 0.56}
 
 
 def leaf(rows):
@@ -171,135 +188,98 @@ def leaf(rows):
 
 # ------------------------------------------------------------------------------------------------------- small motes
 
-def speck(size, core, rim, corner=0.0):
-	"""A white speck: the middle texel(s) solid, the rim faint, the corners fainter still."""
-	out = np.zeros((size, size, 4))
+def speck(rows):
+	"""A white speck drawn by hand: '#' solid, '+' half (a stepped rim), '.' empty."""
+	h, w = len(rows), len(rows[0])
+	out = np.zeros((h, w, 4))
 	out[..., :3] = 1
-	c = (size - 1) / 2
-	for y in range(size):
-		for x in range(size):
-			d = max(abs(x - c), abs(y - c))
-			manhattan = abs(x - c) + abs(y - c)
-			if d < 0.75:
-				out[y, x, 3] = core
-			elif manhattan <= 1.01 + (size - 3):
-				out[y, x, 3] = rim
-			else:
-				out[y, x, 3] = corner
+	for y, row in enumerate(rows):
+		for x, ch in enumerate(row):
+			out[y, x, 3] = {'#': 1.0, '+': 0.5}.get(ch, 0.0)
 	return rgba(out)
 
 
 def firefly():
 	"""
-	A firefly's light (Photinus: yellow-green, ~560 nm), 7x7: a bright pale core and a warm glow falling off around it,
-	its faintest ring kept just above the alpha vanilla's particle shader cuts (0.1), so the glow reads at a distance.
+	A firefly's light (Photinus: yellow-green, ~560 nm), 4x4: two by two bright pale pixels and a ring of darker
+	yellow-green ones beside them (none on the corners). No glow: the light is the pixels.
 	"""
-	n = 7
-	out = np.zeros((n, n, 4))
-	for y in range(n):
-		for x in range(n):
-			d = math.hypot(x - 3, y - 3)
-			if d < 0.5:
-				out[y, x] = (0.95, 1.0, 0.66, 1.0)
-			elif d < 1.2:
-				out[y, x] = (0.82, 0.95, 0.34, 0.72)
-			elif d < 1.6:
-				out[y, x] = (0.74, 0.90, 0.27, 0.42)
-			elif d < 2.3:
-				out[y, x] = (0.70, 0.86, 0.24, 0.22)
-			elif d < 3.0:
-				out[y, x] = (0.66, 0.82, 0.22, 0.12)
+	out = np.zeros((4, 4, 4))
+	for y in range(4):
+		for x in range(4):
+			inner = 1 <= x <= 2 and 1 <= y <= 2
+			corner = x in (0, 3) and y in (0, 3)
+			if inner:
+				out[y, x] = (0.96, 1.0, 0.62, 1.0)
+			elif not corner:
+				out[y, x] = (0.62, 0.80, 0.20, 0.55)
 	return rgba(out)
 
 
-# ------------------------------------------------------------------------------------------------------- soft veils
+# ------------------------------------------------------------------------------------------------ stepped puffs, veils
 
-def feather(n):
-	"""
-	A round window that is exactly 0 from 0.9 of the sprite's half-width out (so on every edge and well inside the
-	corners) and rises softly toward the middle. A soft sprite's alpha is multiplied by it, so no quad edge can ever
-	show, not even where a shader pack's filtering bleeds in the atlas's neighbouring sprites or its lighting lifts a
-	faint fringe.
-	"""
-	y, x = np.mgrid[0:n, 0:n].astype(float)
-	u = np.abs((x + 0.5) / n * 2 - 1)
-	v = np.abs((y + 0.5) / n * 2 - 1)
-	return 1 - smoothstep(0.5, 0.9, np.sqrt(u * u + v * v))
-
-
-def trim(alpha):
-	"""
-	Cuts the faintest alpha to nothing and stretches the rest back over 0..1: a shader pack's particle program writes
-	its translucency data for every pixel it keeps (Complementary darkens what lies behind), so the soft sprites must
-	not leave a near-invisible fringe over the whole quad.
-	"""
-	return np.clip((alpha - 0.05) / 0.95, 0, 1)
-
-
-def sheet(seed):
-	"""
-	A patch of ground mist lying flat, 64x64: an uneven, cloudy blob with soft, ragged edges. Seen at a low angle it
-	stretches into a long low band by itself. Its alpha shapes and breaks up the sheet; how opaque it is comes from the
-	game (the mist's depth and the angle it is seen at).
-	"""
-	n = 64
-	rng = np.random.default_rng(seed)
+def blob(rng, n, clump):
+	"""A round, uneven 0..1 field filling an n x n sprite, 0 toward the rim."""
 	y, x = np.mgrid[0:n, 0:n].astype(float)
 	u = (x + 0.5) / n * 2 - 1
 	v = (y + 0.5) / n * 2 - 1
 	r = np.sqrt(u * u + v * v)
-	shape = 1 - smoothstep(0.3, 1.0, r + (fbm(rng, n, 2, 4) - 0.5) * 0.6)
-	body = 0.45 + 0.55 * fbm(rng, n, 3, 4)
-	out = np.ones((n, n, 4))
-	out[..., 3] = trim(shape * body) * feather(n)
-	return rgba(out)
+	return np.clip(1 - smoothstep(0.2, 0.92, r + (fbm(rng, n, 2, 3) - 0.5) * clump), 0, 1)
 
 
-def veil(seed):
-	"""
-	Ground mist as an upright veil, 64x64, for when a shader pack draws the mist (MistMote): wide and low, lying in long
-	sideways streaks, feathered to nothing inside an ellipse well within the quad, so no edge shows and no flat bottom
-	is cut where it meets the ground.
-	"""
-	n = 64
+def puff(seed, n, clump):
+	"""A small pixel puff (breath, spray): three alpha steps, dithered between, on its own pixel grid."""
 	rng = np.random.default_rng(seed)
-	y, x = np.mgrid[0:n, 0:n].astype(float)
-	u = (x + 0.5) / n * 2 - 1
-	v = (y + 0.5) / n * 2 - 1
-	r = np.sqrt((u / 0.92) ** 2 + (v / 0.34) ** 2)
-	shape = 1 - smoothstep(0.25, 1.0, r + (streaks(rng, n, 2, 7, 3) - 0.5) * 0.5)
-	body = 0.4 + 0.6 * streaks(rng, n, 2, 9, 3)
-	window = 1 - smoothstep(0.75, 1.0, np.sqrt((u / 0.95) ** 2 + (v / 0.42) ** 2))
+	field = blob(rng, n, clump) * (0.75 + 0.25 * fbm(rng, n, 2, 2))
 	out = np.ones((n, n, 4))
-	out[..., 3] = trim(shape * body) * window
+	out[..., 3] = margin(stepped(field, 3))
 	return rgba(out)
 
 
 def streak(seed):
-	"""Powder snow blown off the ground, 16x16: a faint sideways streak, ragged."""
+	"""Powder snow blown off the ground, 16x16: a ragged sideways streak in two alpha steps."""
 	n = 16
 	rng = np.random.default_rng(seed)
 	y, x = np.mgrid[0:n, 0:n].astype(float)
 	u = (x + 0.5) / n * 2 - 1
 	v = (y + 0.5) / n * 2 - 1
-	r = np.sqrt((u / 1.0) ** 2 + (v / 0.38) ** 2)
-	shape = 1 - smoothstep(0.2, 1.0, r + (streaks(rng, n, 1, 3, 2) - 0.5) * 0.6)
+	r = np.sqrt(u * u + (v / 0.3) ** 2)
+	field = (1 - smoothstep(0.2, 1.0, r + (streaks(rng, n, 1, 3, 2) - 0.5) * 0.6)) * 0.8
 	out = np.ones((n, n, 4))
-	out[..., 3] = trim(shape * (0.55 + 0.45 * streaks(rng, n, 1, 4, 2)) * 0.9) * feather(n)
+	out[..., 3] = margin(stepped(field, 2) * 0.8)
 	return rgba(out)
 
 
-def puff(seed, n, clump):
-	"""A small round puff (breath, spray): soft-edged, uneven by `clump`."""
+def sheet(seed):
+	"""
+	A patch of ground mist lying flat, 64x64, for when the mist cannot be drawn with its world-space shader (improved
+	transparency): an uneven blob in four alpha steps, dithered between them. (Normally ground_mist.fsh draws the
+	sheets on the world's own texel grid and this sprite is not used.)
+	"""
+	n = 64
 	rng = np.random.default_rng(seed)
-	y, x = np.mgrid[0:n, 0:n].astype(float)
-	u = (x + 0.5) / n * 2 - 1
-	v = (y + 0.5) / n * 2 - 1
-	r = np.sqrt(u * u + v * v)
-	shape = 1 - smoothstep(0.25, 0.98, r + (fbm(rng, n, 2, 3) - 0.5) * clump)
-	alpha = trim(shape * (0.6 + 0.4 * fbm(rng, n, 2, 3)) * 0.85) * feather(n)
+	field = blob(rng, n, 0.6) * (0.5 + 0.5 * fbm(rng, n, 3, 3))
 	out = np.ones((n, n, 4))
-	out[..., 3] = alpha
+	out[..., 3] = margin(stepped(field, 4), 2)
+	return rgba(out)
+
+
+def veil(seed):
+	"""
+	Ground mist as an upright veil, 128x48, for when a shader pack draws the mist (MistMote): wide and low, in long
+	sideways streaks, four alpha steps with dithered edges, nothing on its outer pixels.
+	"""
+	w, h = 128, 48
+	rng = np.random.default_rng(seed)
+	y, x = np.mgrid[0:h, 0:w].astype(float)
+	u = (x + 0.5) / w * 2 - 1
+	v = (y + 0.5) / h * 2 - 1
+	noise = streaks(rng, 128, 2, 9, 3)[40:88, :]
+	body = streaks(rng, 128, 2, 11, 3)[20:68, :]
+	r = np.sqrt((u / 0.95) ** 2 + (v / 0.8) ** 2)
+	field = (1 - smoothstep(0.2, 0.95, r + (noise - 0.5) * 0.5)) * (0.45 + 0.55 * body)
+	out = np.ones((h, w, 4))
+	out[..., 3] = margin(stepped(field, 4), 2)
 	return rgba(out)
 
 
@@ -399,9 +379,9 @@ def main():
 	sprites = {}
 	for i, rows in enumerate(LEAVES):
 		sprites['leaf_%d' % i] = leaf(rows)
-	sprites['pollen_0'] = speck(3, 1.0, 0.45, 0.0)
-	sprites['pollen_1'] = speck(3, 1.0, 0.25, 0.0)
-	sprites['pollen_2'] = speck(4, 1.0, 0.40, 0.12)
+	sprites['pollen_0'] = speck(['.+.', '+#+', '.+.'])
+	sprites['pollen_1'] = speck(['##', '##'])
+	sprites['pollen_2'] = speck(['.#.', '###', '.#.'])
 	sprites['firefly_0'] = firefly()
 	for i in range(4):
 		sprites['mist_%d' % i] = sheet(9100 + i)
@@ -410,11 +390,11 @@ def main():
 	for i in range(4):
 		sprites['veil_%d' % i] = veil(9500 + i)
 	for i in range(3):
-		sprites['breath_%d' % i] = puff(9200 + i, 16, 0.35)
+		sprites['breath_%d' % i] = puff(9200 + i, 8, 0.35)
 	for i in range(4):
-		sprites['spray_%d' % i] = puff(9300 + i, 16, 0.8)
-	sprites['snow_0'] = speck(3, 1.0, 0.5, 0.0)
-	sprites['snow_1'] = speck(3, 0.95, 0.3, 0.12)
+		sprites['spray_%d' % i] = puff(9300 + i, 12, 0.8)
+	sprites['snow_0'] = speck(['##', '##'])
+	sprites['snow_1'] = speck(['.+.', '+#+', '.+.'])
 	for name, img in sprites.items():
 		save(img, os.path.join(TEXTURES, name + '.png'))
 

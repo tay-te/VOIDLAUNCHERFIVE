@@ -29,6 +29,11 @@ void main() {
     sphericalVertexDistance = fog_spherical_distance(Position);
     cylindricalVertexDistance = fog_cylindrical_distance(Position);
     texCoord0 = UV0;
+#ifdef GLOAM_SOFT
+    // the colour carries the sheet's size and seed, not a tint (MistMote); it is drawn in the mist palette, full bright
+    vertexColor = Color;
+#else
     vertexColor = vec4(Color.rgb * sample_lightmap(Sampler2, UV2).rgb, Color.a);
+#endif
     relative = Position;
 }

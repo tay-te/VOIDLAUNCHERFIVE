@@ -106,10 +106,11 @@ public class GloamShowcase implements FabricClientGameTest {
 	/** Whether the ranges have been looked for in this run (just before the first range view, see place). */
 	private static boolean rangesFound;
 
-	record MotePlaces(int forestX, int forestY, int forestZ, float forestYaw, int coldX, int coldY, int coldZ, float coldYaw, int fallX, int fallY, int fallZ) {
+	record MotePlaces(int forestX, int forestY, int forestZ, float forestYaw, int coldX, int coldY, int coldZ, float coldYaw, int fallX, int fallY, int fallZ,
+		float waterYaw, float valleyYaw) {
 	}
 
-	private static MotePlaces motePlaces = new MotePlaces(0, 80, 0, 0, 0, 80, 0, 0, 0, 80, 0);
+	private static MotePlaces motePlaces = new MotePlaces(0, 80, 0, 0, 0, 80, 0, 0, 0, 80, 0, 0, 0);
 
 	/** The places the views are taken from, found once on the server. */
 	record Places(int peakX, int peakZ, int peakY, int valleyX, int valleyZ, int valleyY, int waterX, int waterZ, int waterY, float toPeak) {
@@ -620,15 +621,16 @@ public class GloamShowcase implements FabricClientGameTest {
 	static void addMoteViews(List<View> views, Places p) {
 		MotePlaces m = motePlaces;
 		// by the water first: water0 is shot from there, so the chunks are already loaded
-		View water = new View("firefly0", p.waterX(), p.waterY() + 2, p.waterZ(), 0, 4, 70, 6 * 24000 + 13200, "clear", 20);
+		View water = new View("firefly0", p.waterX(), p.waterY() + 2, p.waterZ(), m.waterYaw(), 4, 70, 6 * 24000 + 13200, "clear", 20);
 		views.add(water);
 		views.add(water.at("firefly1", 6 * 24000 + 14400, "clear"));
 		views.add(new View("forest0", m.forestX(), m.forestY(), m.forestZ(), m.forestYaw(), -6, 70, 15 * 24000 + 6000, "clear", 15));
 		views.add(new View("pollen0", p.valleyX(), p.valleyY() + 2, p.valleyZ(), p.toPeak() + 90, 6, 70, 6 * 24000 + 5000, "clear", 6));
 		views.add(new View("fall0", m.fallX() - 9, m.fallY() + 3, m.fallZ(), -90, 8, 70, 6 * 24000 + 6000, "clear", 5));
 		views.add(new View("cold0", m.coldX(), m.coldY() + 1, m.coldZ(), m.coldYaw(), -6, 70, 23 * 24000 + 2000, "rain", 8));
-		// a winter dawn in the valley, the breath against the dark grass (the shot waits for a breath, see shoot's caller)
-		views.add(new View("breath0", p.valleyX(), p.valleyY() + 1, p.valleyZ(), p.toPeak() + 90, 10, 70, 23 * 24000 + 23400, "clear", 2));
+		// a winter dawn, the breath against the land (the shot waits for a breath, see shoot's caller)
+		// (in the snowy land: Expanse's valleys are often canyons, under a fall or too mild for breath to show)
+		views.add(new View("breath0", m.coldX(), m.coldY() + 1, m.coldZ(), m.coldYaw(), 10, 70, 23 * 24000 + 23400, "clear", 2));
 	}
 
 	/**
@@ -653,7 +655,8 @@ public class GloamShowcase implements FabricClientGameTest {
 		}
 		level.setBlockAndUpdate(new BlockPos(fallX, fallY + 12, fallZ), Blocks.WATER.defaultBlockState());
 		return new MotePlaces(forest[0], forest[1], forest[2], underCanopy(level, forest[0], forest[1], forest[2]), cold[0], cold[1], cold[2], coldYaw, fallX, fallY,
-			fallZ);
+			fallZ,
+			lowLand(level, p.waterX(), p.waterY(), p.waterZ()), clearest(level, p.valleyX(), p.valleyY(), p.valleyZ(), 24));
 	}
 
 	private static int[] findForest(ServerLevel level, Places p, BlockPos origin) {
@@ -733,6 +736,39 @@ public class GloamShowcase implements FabricClientGameTest {
 			}
 		}
 		return most < 0 ? clearest(level, x, ground, z, 16) : best;
+	}
+
+	/**
+	 * For the fireflies: the yaw (of sixteen) from (x, ground, z) that sees the most low land (ground within three blocks
+	 * of its own, where fireflies wander over the grass and the water) three to sixteen blocks ahead, past whatever stands
+	 * in the way.
+	 */
+	private static float lowLand(ServerLevel level, int x, int ground, int z) {
+		float best = 0;
+		int most = -1;
+		for (int k = 0; k < 16; k++) {
+			float yaw = k * 22.5F;
+			int score = 0;
+			for (int off = -30; off <= 30; off += 10) {
+				double rad = Math.toRadians(yaw + off), dx = -Math.sin(rad), dz = Math.cos(rad);
+				for (int step = 1; step <= 16; step++) {
+					int cx = Mth.floor(x + 0.5 + dx * step), cz = Mth.floor(z + 0.5 + dz * step);
+					level.getChunk(cx >> 4, cz >> 4);
+					int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
+					if (h > ground + 3) {
+						break;
+					}
+					if (step >= 3 && Math.abs(h - ground) <= 3) {
+						score++;
+					}
+				}
+			}
+			if (score > most) {
+				most = score;
+				best = yaw;
+			}
+		}
+		return best;
 	}
 
 	/** The yaw (of eight) from (x, ground, z) with the longest clear view at eye height, up to {@code range} blocks. */

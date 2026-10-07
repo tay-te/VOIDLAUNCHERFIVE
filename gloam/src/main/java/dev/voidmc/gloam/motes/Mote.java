@@ -96,9 +96,19 @@ abstract class Mote extends SingleQuadParticle {
 			if (this.vanishing > 0) {
 				a *= this.vanishing-- / (float) VANISH;
 			}
-			this.alpha = Math.clamp(a, 0, 1);
+			a = Math.clamp(a, 0, 1);
+			// pixel-true (docs/STYLE.md): a mote fades in and out in a few flat steps, not smoothly
+			this.alpha = this.stepped() ? Math.round(a * ALPHA_STEPS) / (float) ALPHA_STEPS : a;
 		}
 		Motes.timeParticle(System.nanoTime() - start);
+	}
+
+	/** How many flat steps a mote's alpha takes between nothing and full. */
+	private static final int ALPHA_STEPS = 4;
+
+	/** Whether this mote's alpha is drawn in steps (not when it carries something else, as the mist's optical depth). */
+	protected boolean stepped() {
+		return true;
 	}
 
 	/** The alpha to draw with, given {@code a} (its strength times its fade): for motes that draw alpha as something else. */
