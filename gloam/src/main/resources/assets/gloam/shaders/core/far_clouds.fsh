@@ -84,17 +84,19 @@ void main() {
     float t = t0 + max(16.0, t0 * 0.06) * hash12(gl_FragCoord.xy);
     bool inside = false;
     int misses = 0;
-    for (int i = 0; i < 88 && t < t1; i++) {
-        float stride = inside ? clamp(t * 0.012, 6.0, 160.0) : max(16.0, t * 0.06);
+    for (int i = 0; i < 120 && t < t1; i++) {
+        float stride = inside ? clamp(t * 0.018, 8.0, 240.0) : max(16.0, t * 0.035);
         vec3 p = dir * t;
+        // past a few kilometres a heap's fraying is under a pixel: the cheaper shape
+        bool coarse = t > 5000.0;
         Column c = column(p.xz);
         float frac;
         // a clear bubble round the camera: clouds thin away as it flies into them instead of standing at its face
-        float d = density(c, cameraY + p.y, p.xz, frac) * smoothstep(24.0, 96.0, t);
+        float d = density(c, cameraY + p.y, p.xz, coarse, frac) * smoothstep(24.0, 96.0, t);
         if (d > 0.001) {
             if (!inside) {
                 inside = true;
-                t = max(t0, t - stride * 0.8);
+                t = max(t0, t - stride);
                 continue;
             }
             misses = 0;
@@ -102,7 +104,9 @@ void main() {
             if (hit < 0.0) {
                 hit = t;
             }
-            light += transmit * a * shade(c, frac, dir);
+            // lit by how high in the deck it is, the same for every heap (each heap's own top would stripe them)
+            float lift = clamp((cameraY + p.y - c.base) / mix(140.0, FarLayer.y * 0.6, c.storm), 0.0, 1.0);
+            light += transmit * a * shade(c, lift, dir);
             transmit *= 1.0 - a;
             if (transmit < 0.01) {
                 break;

@@ -244,9 +244,24 @@ public class GloamShowcase implements FabricClientGameTest {
 					}
 				}
 			}
-			return new float[]{bestYaw, bestScore, bestDist};
+			double bx = cx - Math.sin(Math.toRadians(bestYaw)) * bestDist, bz = cz + Math.cos(Math.toRadians(bestYaw)) * bestDist;
+			return new float[]{bestYaw, bestScore, bestDist, FarAir.frontAt(bx, bz), air.front(bx, bz, mc.level.getGameTime(), year, 0.6F)};
 		});
-		System.out.printf(Locale.ROOT, "[gloam] %s: aiming at yaw %.0f, %.0f blocks off (score %.2f)%n", view.name(), best[0], best[2], best[1]);
+		System.out.printf(Locale.ROOT, "[gloam] %s: aiming at yaw %.0f, %.0f blocks off (score %.2f, front there %.2f on the map, %.2f in the model)%n",
+			view.name(), best[0], best[2], best[1], best.length > 3 ? best[3] : -1, best.length > 4 ? best[4] : -1);
+		// the fronts across the view, for checking the picture against the model
+		String table = context.computeOnClient(mc -> {
+			StringBuilder out = new StringBuilder();
+			for (int da = -40; da <= 40; da += 10) {
+				double rad = Math.toRadians(best[0] + da);
+				out.append(String.format(Locale.ROOT, " %+d:", da));
+				for (int d = 4000; d <= 16000; d += 4000) {
+					out.append(String.format(Locale.ROOT, " %.2f", FarAir.frontAt(view.x() - Math.sin(rad) * d, view.z() + Math.cos(rad) * d)));
+				}
+			}
+			return out.toString();
+		});
+		System.out.printf(Locale.ROOT, "[gloam] %s: fronts by yaw offset at 4/8/12/16 km:%s%n", view.name(), table);
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", view.x(), view.y(), view.z(), best[0], view.pitch()));
 		context.waitTicks(10);
 	}

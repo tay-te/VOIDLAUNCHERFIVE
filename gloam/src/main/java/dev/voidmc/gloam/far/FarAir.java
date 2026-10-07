@@ -118,6 +118,17 @@ public final class FarAir {
 			INSTANCE.cloudState, r == null ? 0 : r.draws);
 	}
 
+	/** The front the far air's weather map holds over world (x, z) now (for the showcase), or -1 without one. */
+	public static float frontAt(double x, double z) {
+		WeatherMap.Picture map = INSTANCE.weather.current();
+		ClientLevel level = INSTANCE.level;
+		if (map == null || level == null) {
+			return -1;
+		}
+		long t = level.getGameTime();
+		return map.at(WeatherMap.frameX(x, t), WeatherMap.frameZ(z, t));
+	}
+
 	/** The far land the air has been told of (for the showcase: whether VOID LOD's tiles reached it). */
 	public static boolean landKnown() {
 		return INSTANCE.land.known();
@@ -285,7 +296,7 @@ public final class FarAir {
 			b.putFloat(0).putFloat(0).putFloat(0).putFloat(0);
 		}
 		// FarLayer: the highest a storm in view tops the base by; fancy or fast; the sun's side
-		b.putFloat(base).putFloat(160 + 440 * this.maxStorm).putFloat(1).putFloat(sunX >= 0 ? 1 : -1);
+		b.putFloat(base).putFloat(160 + 1240 * this.maxStorm).putFloat(1).putFloat(sunX >= 0 ? 1 : -1);
 		// FarWeather
 		b.putFloat(vanilla).putFloat(showers ? 1 : 0).putFloat(Math.max(0, Air.warmth(year))).putFloat(thunder);
 		// FarMap

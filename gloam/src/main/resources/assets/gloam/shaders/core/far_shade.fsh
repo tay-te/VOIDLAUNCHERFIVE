@@ -30,6 +30,8 @@ float sunlight(vec2 rel) {
 void main() {
     vec2 rel = FarShade.xy + texCoord * FarShade.z;
     float here = sunlight(vec2(0.0));
-    float light = sunlight(rel) / max(here, 0.05);
+    // (in a cloud's shadow itself, the camera's chunks are still lit as vanilla lights them: the far fields in the sun
+    // are then hardly brighter than they are)
+    float light = clamp(sunlight(rel) / max(here, 0.5), 0.5, 1.1);
     fragColor = vec4(vec3(clamp(light * 0.5, 0.0, 1.0)), 1.0);
 }
