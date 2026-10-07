@@ -43,4 +43,12 @@ public interface TerrainSource {
 	default boolean keepsAnswers() {
 		return false;
 	}
+
+	/**
+	 * Whether an empty answer may only mean "not known yet" (a server that has not described the place so far): a cache
+	 * above keeps no such answer.
+	 */
+	default boolean partial() {
+		return false;
+	}
 }

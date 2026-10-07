@@ -6,8 +6,9 @@
 	"description": "The land past your render distance, out to the horizon: far terrain sampled straight from the world generator, drawn in one indirect draw on OpenGL or Vulkan.",
 	"authors": ["VOID"],
 	"license": "All-Rights-Reserved",
-	"environment": "client",
+	"environment": "*",
 	"entrypoints": {
+		"main": ["dev.voidmc.lod.LodCommon"],
 		"client": ["dev.voidmc.lod.VoidLod"]
 	},
 	"mixins": ["void_lod.mixins.json", "void_lod.iris.mixins.json"],

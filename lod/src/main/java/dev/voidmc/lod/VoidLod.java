@@ -17,6 +17,7 @@ import dev.voidmc.lod.gui.LodSettingsScreen;
 import dev.voidmc.lod.render.LodRenderer;
 import dev.voidmc.lod.source.ChunkIngest;
 import dev.voidmc.lod.source.MaterialNames;
+import dev.voidmc.lod.source.RemoteSource;
 import dev.voidmc.lod.source.StructureOverlay;
 import dev.voidmc.lod.source.StructureSites;
 import dev.voidmc.lod.source.Materials;
@@ -150,6 +151,16 @@ public final class VoidLod implements ClientModInitializer {
 		this.settings.override(System::getProperty);
 		this.enabled = this.settings.enabled;
 		TileBuilder.smoothFrom = this.settings.smoothFrom;
+		// a server with VOID LOD describes the land past the view (net.FactsService)
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(dev.voidmc.lod.net.LodNet.Hello.TYPE,
+			(hello, context) -> this.hello(hello));
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(dev.voidmc.lod.net.LodNet.TileFacts.TYPE,
+			(facts, context) -> {
+				RemoteSource remote = this.remote;
+				if (remote != null) {
+					remote.receive(facts);
+				}
+			});
 		this.engine = new LodEngine(this.settings.threads, (long) this.settings.budget << 20);
 		this.apply();
 		KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(ID, "lod"));
@@ -182,6 +193,7 @@ public final class VoidLod implements ClientModInitializer {
 		}
 		if (mc.level != this.level) {
 			this.level = mc.level;
+			this.remote = null;
 			this.resets++;
 			this.closeFiles(false);
 			this.ingest = null;
@@ -449,7 +461,16 @@ public final class VoidLod implements ClientModInitializer {
 	private TerrainSource createGenerator(Minecraft mc, Materials materials) {
 		var server = mc.getSingleplayerServer();
 		if (server == null) {
-			// on a remote server the generator and seed are the server's: nothing to sample
+			// on a remote server the generator and seed are the server's: it describes its land if it runs VOID LOD
+			dev.voidmc.lod.net.LodNet.Hello hello = this.serverHello;
+			if (hello != null && hello.version() == dev.voidmc.lod.net.LodNet.VERSION && FabricLoader.getInstance().isModLoaded("expanse")
+				&& hello.dimension().equals(mc.level.dimension().identifier().toString())) {
+				this.generatorIdentity = remoteIdentity(mc, hello);
+				this.remote = new RemoteSource(mc.level, hello, materials, ++this.sourceVersion);
+				this.remote.onFacts(this.engine::invalidate);
+				LOGGER.info("VOID LOD: the server describes the land past the view of {}", hello.dimension());
+				return this.remote;
+			}
 			return null;
 		}
 		ServerLevel serverLevel = server.getLevel(mc.level.dimension());
@@ -524,6 +545,43 @@ public final class VoidLod implements ClientModInitializer {
 				LOGGER.warn("VOID LOD: could not finish saving the far view", e);
 			}
 		}
+	}
+
+	/** What the server said it can describe ({@code net.LodNet.Hello}), and the source made of it. */
+	private volatile dev.voidmc.lod.net.LodNet.Hello serverHello;
+	private RemoteSource remote;
+
+	/** Tiles asked of the server and not answered yet: 0 where it describes nothing. */
+	public int remotePending() {
+		RemoteSource remote = this.remote;
+		return remote == null ? 0 : remote.pending();
+	}
+
+	/** The server offers its land (client thread): the source is made again with it, next frame. */
+	private void hello(dev.voidmc.lod.net.LodNet.Hello hello) {
+		this.serverHello = hello;
+		if (Minecraft.getInstance().getSingleplayerServer() == null && this.remote == null) {
+			// as if the level had changed: the source is made again, now with the server's facts
+			this.level = null;
+		}
+	}
+
+	/** The identity of a server's described land: its address, the dimension and its strata, the mods, the packs. */
+	private static long remoteIdentity(Minecraft mc, dev.voidmc.lod.net.LodNet.Hello hello) {
+		StringBuilder b = new StringBuilder("remote|").append(SAMPLING_VERSION);
+		var data = mc.getCurrentServer();
+		b.append('|').append(data == null ? "" : data.ip).append('|').append(hello.dimension()).append('|').append(hello.seaLevel())
+			.append('|').append(String.join(",", hello.strata()));
+		for (String mod : new String[]{"minecraft", ID, "expanse"}) {
+			FabricLoader.getInstance().getModContainer(mod).ifPresent(c -> b.append('|').append(mod).append(' ')
+				.append(c.getMetadata().getVersion().getFriendlyString()));
+		}
+		b.append('|').append(String.join(",", mc.getResourcePackRepository().getSelectedIds()));
+		long h = 1125899906842597L;
+		for (int i = 0; i < b.length(); i++) {
+			h = 31 * h + b.charAt(i);
+		}
+		return h;
 	}
 
 	/** {@code -Dvoid.lod.generatorCache=false} samples the generator every time, as before the cache. */
@@ -758,6 +816,9 @@ public final class VoidLod implements ClientModInitializer {
 		if (source instanceof GeneratorCache cache) {
 			out.append(" | ").append(cache.stats());
 			source = cache.generator();
+		}
+		if (source instanceof RemoteSource remoteSource) {
+			out.append(" | ").append(remoteSource.stats());
 		}
 		if (source instanceof WorldgenSource w) {
 			out.append(w.diagnostics());

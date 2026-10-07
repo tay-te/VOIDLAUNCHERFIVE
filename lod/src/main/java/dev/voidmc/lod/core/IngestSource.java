@@ -69,7 +69,8 @@ public final class IngestSource implements TerrainSource {
 
 	@Override
 	public boolean covers(int minX, int minZ, int maxX, int maxZ) {
-		return this.fallback != null || this.store.any(minX, minZ, maxX, maxZ);
+		// the fallback first: a generator covers everything; a server's facts only what it has described so far
+		return this.fallback != null && this.fallback.covers(minX, minZ, maxX, maxZ) || this.store.any(minX, minZ, maxX, maxZ);
 	}
 
 	@Override

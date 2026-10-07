@@ -309,9 +309,15 @@ into the LOD (`source/ChunkIngest`), and the far view shows the world as it is:
   most, then it builds anyway); regions come in as they come within reach and are saved and forgotten once
   far out of it, so memory follows the view, not the whole explored world. About 250 bytes a chunk on disk;
   the showcase's 683 chunks are 157 KB, read back in 0.2 s.
-* **Multiplayer.** With no integrated server there is no generator: the LOD draws what the client has
-  seen (this session and every earlier one on that server), and a tile over land nobody has seen is not
-  built at all. Nothing in this path touches server classes.
+* **Multiplayer.** With no integrated server the client has no generator. If the server runs VOID LOD
+  too (and Expanse), it says so on join (`net.LodNet.Hello`, with the trees each biome places, since a
+  client's biomes come without their features) and answers tile requests with its terrain model's facts:
+  heights, water, landforms, biome and strata offset per column, deflated, about 50 KB a tile, worked out
+  on two minimum-priority threads with a bounded queue per player (`net.FactsService`). The client colours
+  them with its own textures (`source.RemoteSource`, sharing `ExpanseColours` with singleplayer), so the
+  far land looks as it does in singleplayer, and keeps them in the generator cache under
+  `void_lod/servers/<address>/generated`. The seed never leaves the server. Without VOID LOD on the server
+  the LOD draws only what the client has seen (this session and every earlier one there).
 
 In the showcase world: a red concrete deck pierced by a gold tower and a trench cut across the land, built
 in loaded chunks, then seen from 480 blocks away (render distance 8: the chunks end at 128 blocks), and
@@ -411,7 +417,7 @@ AutoCloseable handle = LodApi.addVisibleTerrainListener(tile -> {
 
 Every tile drawn is told of once, and again when it is rebuilt; a later `revision` of the same ground is the newer
 picture. `seen` says whether the chunks the player loaded showed a cell or the generator worked it out: generator
-cells exist only where the player's own game has the generator (singleplayer, a LAN host), never on a server.
+cells exist where the player's own game has the generator (singleplayer, a LAN host) or a server with VOID LOD describes them.
 Nothing is kept for the API until something listens (then about 25 KB a tile). Surfaces and generator samples now
 carry their biome (saved by name: region format 3, generator pages format 4).
 
@@ -554,8 +560,9 @@ model, but only loads it when Expanse is installed.
 
 ## Not yet
 
-* **Land on a server nobody has seen.** Without the generator, the far view on a server is what the
-  client has seen; a small server-side companion could stream column summaries of the rest.
+* **Land on a vanilla-generator server nobody has seen.** The server companion describes Expanse worlds;
+  on a server without Expanse the far view is still what the client has seen. Structures on unexplored land
+  are singleplayer-only too.
 * **Far shadows through packs that keep a short shadow map.** BSL and Photon do not shade distant land at
   all, and a pack's shadow map ends near the chunks; long shadows over the far land would need the LOD's
   own horizon lighting fed to the pack, which no pack reads today.

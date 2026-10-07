@@ -183,6 +183,8 @@ public final class GeneratorCache implements TerrainSource {
 		int z0;
 		int cell;
 		int border;
+		/** An answer was not known yet (a server's): the page is not saved, and asked again next time. */
+		boolean incomplete;
 	}
 
 	private final ThreadLocal<Current> current = ThreadLocal.withInitial(Current::new);
@@ -214,8 +216,18 @@ public final class GeneratorCache implements TerrainSource {
 		return this.generator.version();
 	}
 
+	/** What the generator covers, and any tile whose page is on disk: a server's land seen before needs no asking. */
 	@Override
 	public boolean covers(int minX, int minZ, int maxX, int maxZ) {
+		if (this.dir != null && !this.closed) {
+			int span = maxX - minX;
+			int level = Integer.numberOfTrailingZeros(span / TileKey.TILE);
+			long key = TileKey.of(level, Math.floorDiv(minX, span), Math.floorDiv(minZ, span));
+			// blocky tiles sample 66 a side, smooth ones 69
+			if (Files.exists(this.file(key, TileKey.TILE + 2)) || Files.exists(this.file(key, TileKey.TILE + 5))) {
+				return true;
+			}
+		}
 		return this.generator.covers(minX, minZ, maxX, maxZ);
 	}
 
@@ -226,8 +238,10 @@ public final class GeneratorCache implements TerrainSource {
 
 	@Override
 	public void beginTile(long key, int x0, int z0, int cell, int border, int size) {
+		this.generator.beginTile(key, x0, z0, cell, border, size);
 		Current c = this.current.get();
 		c.page = null;
+		c.incomplete = false;
 		if (this.closed) {
 			return;
 		}
@@ -241,10 +255,11 @@ public final class GeneratorCache implements TerrainSource {
 
 	@Override
 	public void endTile() {
+		this.generator.endTile();
 		Current c = this.current.get();
 		Page page = c.page;
 		c.page = null;
-		if (page != null && page.dirty) {
+		if (page != null && page.dirty && !c.incomplete) {
 			this.save(page);
 		}
 	}
@@ -277,6 +292,10 @@ public final class GeneratorCache implements TerrainSource {
 		}
 		this.misses.incrementAndGet();
 		this.generator.sample(x, z, cell, out);
+		if (out.empty && this.generator.partial()) {
+			c.incomplete = true;
+			return;
+		}
 		page.put(s, out);
 	}
 

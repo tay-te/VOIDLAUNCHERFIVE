@@ -7,34 +7,14 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.BiomeTags;
-import net.minecraft.util.RandomSource;
-import net.minecraft.util.valueproviders.IntProvider;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.levelgen.GenerationStep;
-import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.feature.RandomBooleanSelectorFeature;
-import net.minecraft.world.level.levelgen.feature.RandomSelectorFeature;
-import net.minecraft.world.level.levelgen.feature.SimpleRandomSelectorFeature;
-import net.minecraft.world.level.levelgen.feature.TreeFeature;
-import net.minecraft.world.level.levelgen.feature.WeightedPlacedFeature;
-import net.minecraft.world.level.levelgen.feature.WeightedRandomSelectorFeature;
-import net.minecraft.world.level.levelgen.feature.foliageplacers.FoliagePlacer;
-import net.minecraft.world.level.levelgen.feature.foliageplacers.MegaPineFoliagePlacer;
-import net.minecraft.world.level.levelgen.feature.foliageplacers.PineFoliagePlacer;
-import net.minecraft.world.level.levelgen.feature.foliageplacers.SpruceFoliagePlacer;
-import net.minecraft.world.level.levelgen.placement.CountPlacement;
-import net.minecraft.world.level.levelgen.placement.NoiseThresholdCountPlacement;
-import net.minecraft.world.level.levelgen.placement.PlacedFeature;
-import net.minecraft.world.level.levelgen.placement.PlacementModifier;
-import net.minecraft.world.level.levelgen.placement.RarityFilter;
 
 /**
  * What a biome looks like from a long way off, worked out once per biome, from the biome itself and from the
@@ -91,6 +71,7 @@ public final class BiomeLooks {
 	private final Map<Biome, Look> looks = new IdentityHashMap<>();
 	private final LevelAccessor level;
 	private final Materials materials;
+	private final Map<String, List<TreeKinds.Kind>> serverTrees;
 	private final TextureColors textures = new TextureColors();
 	private final Biome anyBiome;
 	public final int snowTop;
@@ -118,7 +99,13 @@ public final class BiomeLooks {
 	}
 
 	public BiomeLooks(LevelAccessor level, Materials materials) {
+		this(level, materials, null);
+	}
+
+	/** @param serverTrees what trees each biome places, by biome name, as a server said (null: read from the biomes) */
+	public BiomeLooks(LevelAccessor level, Materials materials, Map<String, List<TreeKinds.Kind>> serverTrees) {
 		this.level = level;
+		this.serverTrees = serverTrees;
 		this.materials = materials;
 		this.badlandsMaterials = this.materials(badlandsStrata(), false);
 		var registry = level.registryAccess().lookupOrThrow(Registries.BIOME);
@@ -345,12 +332,12 @@ public final class BiomeLooks {
 		}
 
 		Trees trees = new Trees(biome);
-		var steps = biome.getGenerationSettings().features();
-		int vegetal = GenerationStep.Decoration.VEGETAL_DECORATION.ordinal();
-		if (steps.size() > vegetal) {
-			for (Holder<PlacedFeature> placed : steps.get(vegetal)) {
-				trees.visit(placed.value(), 1.0, 0);
-			}
+		// a server's biomes come without their features: it says what trees they place (net.LodNet.Hello)
+		String name = holder.unwrapKey().map(k -> k.identifier().toString()).orElse("");
+		List<TreeKinds.Kind> kinds = this.serverTrees != null && this.serverTrees.containsKey(name) ? this.serverTrees.get(name)
+			: TreeKinds.of(biome, this.level);
+		for (TreeKinds.Kind kind : kinds) {
+			trees.add(kind);
 		}
 		int water = Colors.multiply(0xFFFFFF, biome.getWaterColor());
 		Materials ids = this.materials;
@@ -361,7 +348,6 @@ public final class BiomeLooks {
 
 	/** Accumulates the tree features a biome places, weighted by how many of each it places per chunk. */
 	private final class Trees {
-		private final RandomSource random = RandomSource.create(42);
 		private final Biome biome;
 		/** How many trees per chunk wear each kind of leaves. */
 		private final Map<BlockState, Double> leaves = new IdentityHashMap<>();
@@ -378,62 +364,15 @@ public final class BiomeLooks {
 			this.biome = biome;
 		}
 
-		void visit(PlacedFeature placed, double weight, int depth) {
-			if (depth > 6) {
-				return;
-			}
-			double count = weight * expectedCount(placed);
-			if (count <= 0) {
-				return;
-			}
-			Feature feature = placed.feature().value();
-			switch (feature) {
-				case TreeFeature tree -> this.tree(tree, count);
-				case RandomSelectorFeature sel -> {
-					double rest = 1;
-					for (WeightedPlacedFeature w : sel.features()) {
-						double p = rest * w.chance();
-						this.visit(w.feature().value(), count * p, depth + 1);
-						rest -= p;
-					}
-					this.visit(sel.defaultFeature().value(), count * Math.max(0, rest), depth + 1);
-				}
-				case SimpleRandomSelectorFeature sel -> {
-					int n = sel.features().size();
-					for (Holder<PlacedFeature> f : sel.features()) {
-						this.visit(f.value(), count / n, depth + 1);
-					}
-				}
-				case RandomBooleanSelectorFeature sel -> {
-					this.visit(sel.featureTrue().value(), count / 2, depth + 1);
-					this.visit(sel.featureFalse().value(), count / 2, depth + 1);
-				}
-				case WeightedRandomSelectorFeature sel -> {
-					int total = 0;
-					for (var w : sel.features().unwrap()) {
-						total += w.weight();
-					}
-					for (var w : sel.features().unwrap()) {
-						this.visit(w.value().value(), count * w.weight() / Math.max(1, total), depth + 1);
-					}
-				}
-				default -> {
-				}
-			}
-		}
-
-		private void tree(TreeFeature tree, double count) {
-			int h = 0;
-			for (int i = 0; i < 8; i++) {
-				h += tree.trunkPlacer().getTreeHeight(this.random);
-			}
-			double height = h / 8.0 + 1;
+		/** One kind of tree the biome places: {@code count} a chunk, wearing {@code leaves}. */
+		void add(TreeKinds.Kind kind) {
+			double count = kind.count();
+			double height = kind.height();
 			double radius = 2 + height / 7.0;
-			BlockState state = this.leafState(tree);
-			this.leaves.merge(state, count, Double::sum);
-			int leaves = this.leafColor(state);
+			this.leaves.merge(kind.leaves(), count, Double::sum);
+			int leaves = this.leafColor(kind.leaves());
 			this.perChunk += count;
-			if (isConifer(tree)) {
+			if (kind.conifer()) {
 				this.conifers += count;
 			}
 			this.crownArea += count * Math.PI * radius * radius;
@@ -442,14 +381,6 @@ public final class BiomeLooks {
 			this.r += count * Colors.r(leaves);
 			this.g += count * Colors.g(leaves);
 			this.b += count * Colors.b(leaves);
-		}
-
-		private BlockState leafState(TreeFeature tree) {
-			try {
-				return tree.foliageProvider().value().getState(BiomeLooks.this.level, this.random, BlockPos.ZERO);
-			} catch (RuntimeException e) {
-				return Blocks.OAK_LEAVES.defaultBlockState();
-			}
 		}
 
 		private int leafColor(BlockState state) {
@@ -493,51 +424,5 @@ public final class BiomeLooks {
 			}
 			return Colors.rgb((float) (this.r / this.perChunk), (float) (this.g / this.perChunk), (float) (this.b / this.perChunk));
 		}
-	}
-
-	/** What a modded tree's placers are called when it is a conifer. */
-	private static final List<String> CONIFER_WORDS = List.of("spruce", "pine", "fir", "conifer", "redwood", "sequoia", "larch", "cedar", "cypress",
-		"hemlock", "taiga");
-
-	/**
-	 * Whether a tree is a conifer, a cone of needles (spruce, pine, redwood) rather than a dome of leaves (oak,
-	 * birch, acacia, jungle). Vanilla's foliage placers say so by their kind; a modded tree by the names of its
-	 * placers, its trunk's included, since some mods shape the crown in the trunk placer (Expanse's redwoods).
-	 */
-	private static boolean isConifer(TreeFeature tree) {
-		FoliagePlacer foliage = tree.foliagePlacer();
-		if (foliage instanceof SpruceFoliagePlacer || foliage instanceof PineFoliagePlacer || foliage instanceof MegaPineFoliagePlacer) {
-			return true;
-		}
-		String names = tree.trunkPlacer().getClass().getSimpleName();
-		if (!foliage.getClass().getName().startsWith("net.minecraft.")) {
-			names += " " + foliage.getClass().getSimpleName();
-		}
-		names = names.toLowerCase(Locale.ROOT);
-		for (String word : CONIFER_WORDS) {
-			if (names.contains(word)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/** Trees placed per chunk by one placed feature, on average: its count and rarity placements multiplied. */
-	private static double expectedCount(PlacedFeature placed) {
-		double count = 1;
-		for (PlacementModifier m : placed.placement()) {
-			switch (m) {
-				case CountPlacement c -> count *= mean(c.count());
-				case NoiseThresholdCountPlacement n -> count *= (n.belowNoise() + n.aboveNoise()) / 2.0;
-				case RarityFilter r -> count /= Math.max(1, r.chance());
-				default -> {
-				}
-			}
-		}
-		return count;
-	}
-
-	private static double mean(IntProvider p) {
-		return (p.minInclusive() + p.maxInclusive()) / 2.0;
 	}
 }

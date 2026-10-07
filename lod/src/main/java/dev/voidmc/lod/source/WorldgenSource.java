@@ -195,6 +195,11 @@ public class WorldgenSource implements TerrainSource {
 		}
 	}
 
+	/** How far the world's band noise shifts its strata at (x, z), in blocks. */
+	protected int bandOffset(int x, int z) {
+		return this.strataOffset == null ? 0 : Math.round((float) this.strataOffset.get(x, 0, z) * 4);
+	}
+
 	/** Badlands walls in the world's own strata, where it has them. */
 	protected void strata(int x, int z, ColumnSample out) {
 		if (out.bands != null && this.strata != null) {

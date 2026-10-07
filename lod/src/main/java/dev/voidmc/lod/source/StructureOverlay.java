@@ -36,6 +36,11 @@ public final class StructureOverlay implements TerrainSource {
 	}
 
 	@Override
+	public boolean partial() {
+		return this.generator.partial();
+	}
+
+	@Override
 	public boolean covers(int minX, int minZ, int maxX, int maxZ) {
 		return this.generator.covers(minX, minZ, maxX, maxZ);
 	}
@@ -83,11 +88,13 @@ public final class StructureOverlay implements TerrainSource {
 			return;
 		}
 		int ground = (int) Math.ceil(out.ground);
+		// under water a piece is hidden (ruins, shipwrecks): only what rises above the surface stands
+		int floor = out.water != Integer.MIN_VALUE && out.water > ground ? out.water : ground;
 		if (cell <= 4) {
 			// the tallest building over this column
 			StructureSites.Box top = null;
 			for (StructureSites.Box b : boxes) {
-				if (x >= b.minX() && x <= b.maxX() && z >= b.minZ() && z <= b.maxZ() && b.maxY() + 1 > ground + 1
+				if (x >= b.minX() && x <= b.maxX() && z >= b.minZ() && z <= b.maxZ() && b.maxY() + 1 > floor + 1
 					&& (top == null || b.maxY() > top.maxY())) {
 					top = b;
 				}
@@ -122,7 +129,7 @@ public final class StructureOverlay implements TerrainSource {
 		int look = 0;
 		boolean lit = false;
 		for (StructureSites.Box b : boxes) {
-			if (b.maxY() + 1 <= ground + 1) {
+			if (b.maxY() + 1 <= floor + 1) {
 				continue;
 			}
 			int w = Math.min(b.maxX() + 1, x1) - Math.max(b.minX(), x0);

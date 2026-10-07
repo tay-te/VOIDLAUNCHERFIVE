@@ -235,7 +235,7 @@ public final class StructureSites {
 						continue;
 					}
 					StructureStart start = this.choose(set, c);
-					if (start != null) {
+					if (start != null && !settlesOnPlacement(start.getStructure())) {
 						this.starts.incrementAndGet();
 						var name = this.registries.lookupOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).getKey(start.getStructure());
 						int look = name == null ? 0 : Looks.of(name.getPath());
@@ -284,6 +284,19 @@ public final class StructureSites {
 			total -= entry.weight();
 		}
 		return null;
+	}
+
+	/**
+	 * Pieces whose height is only found when the chunk is decorated (ocean ruins and shipwrecks on the seabed, buried
+	 * treasure, ruined portals sunk or raised to the ground): at generation they float at a placeholder height, so they
+	 * are left out. They are small, and mostly hidden under water or ground anyway.
+	 */
+	private static boolean settlesOnPlacement(net.minecraft.world.level.levelgen.structure.Structure structure) {
+		var type = structure.type();
+		return type == net.minecraft.world.level.levelgen.structure.StructureType.OCEAN_RUIN
+			|| type == net.minecraft.world.level.levelgen.structure.StructureType.SHIPWRECK
+			|| type == net.minecraft.world.level.levelgen.structure.StructureType.BURIED_TREASURE
+			|| type == net.minecraft.world.level.levelgen.structure.StructureType.RUINED_PORTAL;
 	}
 
 	private StructureStart tryStart(StructureSet.StructureSelectionEntry entry, ChunkPos c) {

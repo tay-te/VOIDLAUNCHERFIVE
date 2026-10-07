@@ -343,7 +343,7 @@ public class LodShowcase implements FabricClientGameTest {
 				var engine = VoidLod.get().engine();
 				var ingest = VoidLod.get().ingest();
 				boolean done = engine.frame() - firstFrame > 200 && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0
-					&& (!changes || settled || engine.dirtyDrawn() == 0 && (ingest == null || ingest.queued() == 0));
+					&& VoidLod.get().remotePending() == 0 && (!changes || settled || engine.dirtyDrawn() == 0 && (ingest == null || ingest.queued() == 0));
 				return (done ? "done " : "busy ") + (engine.frame() - firstFrame) + " frames, " + engine.busy();
 			});
 			boolean idle = state.startsWith("done");
@@ -498,7 +498,7 @@ public class LodShowcase implements FabricClientGameTest {
 		properties.setProperty("level-seed", SEED);
 		properties.setProperty("view-distance", String.valueOf(DISTANCE));
 		properties.setProperty("gamemode", "spectator");
-		try (TestDedicatedServerContext server = context.worldBuilder().createServer(properties);
+		try (TestDedicatedServerContext server = context.worldBuilder().setUseConsistentSettings(false).createServer(properties);
 			TestDedicatedServerConnection connection = server.connect()) {
 			server.runCommand("gamerule advance_time false");
 			server.runCommand("gamerule advance_weather false");
@@ -511,6 +511,15 @@ public class LodShowcase implements FabricClientGameTest {
 				return new int[]{spawn.getX(), spawn.getZ()};
 			});
 			this.build(context, server, at[0], at[1], "mp");
+			// the land nobody has loaded: with VOID LOD on the server too, it describes it, and it is drawn as in singleplayer
+			server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d 330 %d 60 18", at[0], at[1]));
+			this.settle(context, SETTLE_MS);
+			context.runOnClient(mc -> VoidLod.get().setEnabled(false));
+			context.waitTicks(20);
+			this.shoot(context, "mp_horizon_off");
+			context.runOnClient(mc -> VoidLod.get().setEnabled(true));
+			this.photograph(context, "mp_horizon", false);
+			System.out.println("[lod] server described " + server.computeOnServer(s -> dev.voidmc.lod.net.FactsService.TILES.get()) + " tiles");
 		}
 	}
 
