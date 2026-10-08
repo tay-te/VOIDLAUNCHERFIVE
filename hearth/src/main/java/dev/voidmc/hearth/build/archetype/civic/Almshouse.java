@@ -162,7 +162,10 @@ public final class Almshouse implements Archetype {
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, 0, r.zF(), w - 1, r.zM(), base, doorX);
 		}
-		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		// the mesa's pueblo: a portal on posts along the front, a stepped room over the flat roof, a ladder up to its terrace
+		if (Pueblo.is(d)) {
+			Pueblo.portalFront(d);
+		}
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
 		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(d.maxHeight() - 1, r.shell().skyline() + 3), pueblo + 2));
@@ -253,7 +256,10 @@ public final class Almshouse implements Archetype {
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, cx0, 1, cx1, zR - 1, base, doorX);
 		}
-		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		// the mesa's pueblo: a portal on posts along the front, a stepped room over the flat roof, a ladder up to its terrace
+		if (Pueblo.is(d)) {
+			Pueblo.portalFront(d);
+		}
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
 		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(d.maxHeight() - 1, roofTop + 3), pueblo + 2));

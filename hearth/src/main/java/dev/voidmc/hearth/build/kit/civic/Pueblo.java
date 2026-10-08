@@ -96,6 +96,49 @@ public final class Pueblo {
 	}
 
 	/**
+	 * {@link #portal} along the front of the draft's body, at the floor of its front door (its registered entrance before
+	 * the front wall), over the widest clear run round the door, two rows deep where the plot allows, one where not.
+	 * Returns whether it was built.
+	 */
+	public static boolean portalFront(Draft d) {
+		int[] r = d.bodyRect();
+		for (int[] e : d.entrances()) {
+			if (e[2] != r[1] - 1 || e[0] <= r[0] || e[0] >= r[2]) {
+				continue;
+			}
+			for (int depth = 2; depth >= 1; depth--) {
+				int zo = r[1] - depth;
+				if (zo < 0) {
+					continue;
+				}
+				// (over the widest run round the door where the vigas' row is clear: a sign or a lamp on the wall ends it)
+				int a = e[0];
+				int b = e[0];
+				while (a - 1 >= r[0] && rowClear(d, a - 1, zo, r[1], e[1] + 3)) {
+					a--;
+				}
+				while (b + 1 <= r[2] && rowClear(d, b + 1, zo, r[1], e[1] + 3)) {
+					b++;
+				}
+				if (rowClear(d, e[0], zo, r[1], e[1] + 3) && b - a >= 3 && portal(d, a, b, r[1], e[1], depth)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/** The cells of column x from row zo to the wall's row (not included) are empty at height y. */
+	private static boolean rowClear(Draft d, int x, int zo, int zWall, int y) {
+		for (int z = zo; z < zWall; z++) {
+			if (!d.isEmpty(x, y, z)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * Stacks a stepped upper room on the back of the draft's flat roof with a ladder up to its terrace through a hatch
 	 * (nothing when the roof is not flat, the deck is taken, the plot is too low or no wall under the terrace takes a ladder). The room fills the deck's back
 	 * part flush with the back and side walls, its front wall set back so the front of the deck is a terrace; inside, the

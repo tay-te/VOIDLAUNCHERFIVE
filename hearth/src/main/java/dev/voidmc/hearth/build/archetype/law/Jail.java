@@ -173,6 +173,11 @@ public final class Jail implements Archetype {
 				// the terrace over the strong storey, a door out to it from the jailer's storey
 				dev.voidmc.hearth.build.kit.Roofs.terrace(d, body.rect(0), body.rect(1), fy - 1);
 				Openings.door(d, up, cx, fy, 1, new Openings.DoorOpts(false, false, false));
+				// a ramada over the jailer's door: the terrace's shade on posts
+				int[] ur = body.rect(1);
+				if (!Pueblo.portal(d, ur[0] + 1, ur[2] - 1, ur[1], fy, 2)) {
+					Pueblo.portal(d, ur[0] + 1, ur[2] - 1, ur[1], fy, 1);
+				}
 			}
 		} else {
 			RoofForm form = t == Tradition.KARST ? RoofForm.PAGODA : RoofForm.HIP;
