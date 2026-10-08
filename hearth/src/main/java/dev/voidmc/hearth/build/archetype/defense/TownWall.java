@@ -274,12 +274,6 @@ public final class TownWall implements Archetype {
 		if (covered) {
 			coveredWalk(d, c, p, q, capStart, capEnd, n);
 		}
-		// lanterns along the town parapet
-		for (Corridor.Cell cell : c.cells) {
-			if (cell.town() && !isPier(cell, capStart, capEnd, n) && Math.floorMod(Math.round(cell.t()), 9) == 4 && !timber) {
-				Lamps.lanternOn(d, cell.x(), q[cell.index()] + 1, cell.z());
-			}
-		}
 		// stairs up from the town side: at the end nearer the street, and at the start too on a long stretch
 		int[] entrance = stair(d, c, p, q, true, capEnd, body, walk);
 		if (n >= 30) {
@@ -287,6 +281,15 @@ public final class TownWall implements Archetype {
 		}
 		if (entrance == null) {
 			entrance = stair(d, c, p, q, false, capStart, body, walk);
+		}
+		// lanterns along the town parapet (after the stairs: none where a flight comes up beside it, whose top it would
+		// block)
+		for (Corridor.Cell cell : c.cells) {
+			int qy = q[cell.index()];
+			if (cell.town() && !isPier(cell, capStart, capEnd, n) && Math.floorMod(Math.round(cell.t()), 9) == 4 && !timber
+				&& d.isSolid(cell.x(), qy, cell.z()) && !besideFlight(d, cell.x(), qy, cell.z())) {
+				Lamps.lanternOn(d, cell.x(), qy + 1, cell.z());
+			}
 		}
 		if (entrance != null) {
 			d.entrance(entrance[0], entrance[1], entrance[2]);
@@ -354,6 +357,22 @@ public final class TownWall implements Archetype {
 				}
 			}
 		}
+	}
+
+	/** A stair tread within a step of (x, z) a few rows under y. */
+	private static boolean besideFlight(Draft d, int x, int y, int z) {
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				for (int yy = y - 4; yy <= y + 1; yy++) {
+					net.minecraft.world.level.block.state.BlockState st = d.get(x + dx, yy, z + dz);
+					if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+						&& st.getValue(net.minecraft.world.level.block.StairBlock.HALF) == Half.BOTTOM) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 
 	/** The ground at a cell is the same a step either way along the wall. */
@@ -530,7 +549,10 @@ public final class TownWall implements Archetype {
 				for (int yy = Math.min(g, y) - 1; yy < y; yy++) {
 					d.set(cell.x(), yy, cell.z(), body.full());
 				}
-				d.set(cell.x(), y, cell.z(), steps.has(Form.STAIRS) && face != null ? steps.stairs(face, Half.BOTTOM) : steps.full());
+				// (where the walk dips under the flight's last step, that step is a landing level with the walk's head
+				// and one steps down onto the walk: a tread there would lead up to nothing)
+				boolean flat = k == topK && g0 + topK > p[cell.index()];
+				d.set(cell.x(), y, cell.z(), steps.has(Form.STAIRS) && face != null && !flat ? steps.stairs(face, Half.BOTTOM) : steps.full());
 				// clear up through the coping (it may stand above the walk) and anything set on it
 				for (int yy = y + 1; yy <= Math.max(y + 3, q[cell.index()] + 1); yy++) {
 					d.set(cell.x(), yy, cell.z(), air);
