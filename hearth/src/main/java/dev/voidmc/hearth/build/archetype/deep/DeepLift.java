@@ -165,7 +165,8 @@ public final class DeepLift implements Archetype {
 			p.lower = null;
 		}
 		p.rise = p.head - p.foot;
-		p.top = Math.min(d.maxHeight() - 1, p.head + 9);
+		// the headframe stands tall over the winding house's eaves (a pit head read from across the town)
+		p.top = Math.min(d.maxHeight() - 1, p.head + 13);
 		// the landing inside the lower door (or at the front for the pit's chamber)
 		Direction side = p.lower == null ? Dirs.FRONT : p.lower;
 		int[] in = {Dirs.dx(side) * 2, Dirs.dz(side) * 2};
@@ -249,8 +250,9 @@ public final class DeepLift implements Archetype {
 						d.set(c[0], y + hh, c[1], Blocks.AIR.defaultBlockState());
 					}
 				}
-				// the head's floor opened over the last steps (headroom), the last step itself in the floor's plane
-				if (y >= p.head - 3 && y <= p.head - 2) {
+				// the head's floor opened over the last steps (headroom: a climber stepping up from a step four under the
+				// floor rises into it), the last step itself in the floor's plane
+				if (y >= p.head - 4 && y <= p.head - 2) {
 					d.set(c[0], p.head - 1, c[1], Blocks.AIR.defaultBlockState());
 				}
 			}
@@ -273,7 +275,9 @@ public final class DeepLift implements Archetype {
 	private static void well(Draft d, Plan p) {
 		Mat frame = d.mat(Role.FRAME);
 		Mat beam = d.mat(Role.BEAM);
-		int cageTop = p.foot + 3;
+		// its roof an upper slab two over the floor (a man stands in it), low enough that the steps beside it never
+		// stand four over the floor without their rail
+		int cageTop = p.foot + 2;
 		// the cage
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			for (int[] o : new int[][]{{-1, -1}, {1, -1}, {-1, 1}, {1, 1}}) {
@@ -283,7 +287,8 @@ public final class DeepLift implements Archetype {
 			}
 			for (int x = p.cx - 1; x <= p.cx + 1; x++) {
 				for (int z = p.cz - 1; z <= p.cz + 1; z++) {
-					d.set(x, cageTop, z, d.mat(Role.FURNITURE).slab(SlabType.BOTTOM));
+					// an upper slab: head room under it for the hauler at the barrel, its top three over the floor
+					d.set(x, cageTop, z, d.mat(Role.FURNITURE).slab(SlabType.TOP));
 				}
 			}
 			Furniture.barrel(d, p.cx, p.foot, p.cz, Direction.UP);
@@ -582,7 +587,15 @@ public final class DeepLift implements Archetype {
 		// the windlass over the hatch, its crank, the haulers' place beside it, light
 		int[] job = ring(p, p.i0 + p.rise + 3);
 		try (var s = d.stage(StageKind.INTERIOR)) {
-			d.set(p.cx - 1, h, p.cz, States.attached(Blocks.GRINDSTONE, AttachFace.FLOOR, Dirs.RIGHT));
+			// the windlass a step back from the hatch, the hatch railed round on all four sides (nobody climbs the
+			// windlass to stand over the drop)
+			d.set(p.cx - 2, h, p.cz, States.attached(Blocks.GRINDSTONE, AttachFace.FLOOR, Dirs.RIGHT));
+			Mat rail = d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING) : d.mat(Role.FURNITURE);
+			for (int[] o : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+				if (d.isEmpty(p.cx + o[0], h, p.cz + o[1])) {
+					d.set(p.cx + o[0], h, p.cz + o[1], rail.fence());
+				}
+			}
 		}
 		d.poi(PoiType.JOB_SITE, job[0], h, job[1], Dirs.FRONT, JobType.HAULER);
 		// lanterns hung from the winding beam either side of the hatch
@@ -670,6 +683,33 @@ public final class DeepLift implements Archetype {
 			for (int[] l : legs) {
 				int bx = l[0] + Integer.signum(p.cx - l[0]);
 				d.set(bx, crown - 1, l[1], brace.stairsOrSlab(Integer.signum(p.cx - l[0]) > 0 ? Dirs.LEFT : Dirs.RIGHT, Half.TOP));
+				int bz = l[1] + Integer.signum(p.cz - l[1]);
+				d.set(l[0], crown - 1, bz, brace.stairsOrSlab(Integer.signum(p.cz - l[1]) > 0 ? Dirs.FRONT : Dirs.BACK, Half.TOP));
+			}
+			// a girt round the legs halfway up, with knee braces under it, where the frame stands tall enough: a trestle,
+			// not four poles
+			int girt = eave + (crown - eave) / 2;
+			if (crown - eave >= 6 && girt > eave + 1) {
+				for (int x = p.cx - 1; x <= p.cx + 1; x++) {
+					for (int z : new int[]{p.cz - 2, p.cz + 2}) {
+						if (d.isEmpty(x, girt, z)) {
+							d.set(x, girt, z, beam.log(Direction.Axis.X));
+						}
+					}
+				}
+				for (int z = p.cz - 1; z <= p.cz + 1; z++) {
+					for (int x : new int[]{p.cx - 2, p.cx + 2}) {
+						if (d.isEmpty(x, girt, z)) {
+							d.set(x, girt, z, beam.log(Direction.Axis.Z));
+						}
+					}
+				}
+				for (int[] l : legs) {
+					int bx = l[0] + Integer.signum(p.cx - l[0]);
+					if (d.isEmpty(bx, girt - 1, l[1])) {
+						d.set(bx, girt - 1, l[1], brace.stairsOrSlab(Integer.signum(p.cx - l[0]) > 0 ? Dirs.LEFT : Dirs.RIGHT, Half.TOP));
+					}
+				}
 			}
 		}
 		// the chain from the axle down through the roof to the winding beam
