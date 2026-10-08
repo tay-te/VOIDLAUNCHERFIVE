@@ -197,9 +197,12 @@ public final class MarketHall implements Archetype {
 		}
 
 		// --- the stair up from the back bay, the stores
-		int sx = x0 + 1;
-		int[] land = Storeys.flight(d, body, 0, sx, z1 - 1, Dirs.RIGHT);
-		Furniture.chest(d, x1 - 1, base, z1 - 1, Dirs.LEFT, List.of(new Object[]{"minecraft:wheat", 16}, new Object[]{"minecraft:emerald", 2}));
+		// (a cell of floor before the first step where the bay is wide enough, so the flight is walked onto from its foot,
+		// not climbed onto from the side)
+		// (it climbs from the right-hand end toward the left, so it lands well clear of the hearth upstairs)
+		int sx = x1 - x0 - 1 >= h0 + 2 ? x1 - 2 : x1 - 1;
+		int[] land = Storeys.flight(d, body, 0, sx, z1 - 1, Dirs.LEFT);
+		Furniture.chest(d, x0 + 1, base, z1 - 1, Dirs.RIGHT, List.of(new Object[]{"minecraft:wheat", 16}, new Object[]{"minecraft:emerald", 2}));
 		Furniture.barrel(d, x1 - 1, base, zb + 1, Direction.UP);
 
 		// --- the market floor: counters in the side bays, merchants behind them, customers in the aisle
@@ -241,9 +244,17 @@ public final class MarketHall implements Archetype {
 			d.poi(PoiType.MEETING_POINT, cx, fy, tz0 - 1, Dirs.BACK);
 		}
 		// the hearth on the back wall of the hall, its chimney through the roof
-		int hx = cx + (up[2] - up[0] >= 8 ? 2 : 1);
+		// (never at the head of the stair: the landing and the cells round it stay clear floor)
 		int hz = up[3] - 1;
-		if (d.isEmpty(hx, fy, hz) && d.isEmpty(hx, fy, hz - 1)) {
+		int hx = Integer.MIN_VALUE;
+		int off = up[2] - up[0] >= 8 ? 2 : 1;
+		for (int x : new int[]{cx + off, cx - off, cx + off + 1, cx - off - 1, cx}) {
+			if (hx == Integer.MIN_VALUE && x > up[0] && x < up[2] && Math.abs(x - land[0]) + Math.abs(hz - land[1]) > 2 && d.isEmpty(x, fy, hz)
+				&& d.isEmpty(x, fy, hz - 1) && !d.isEmpty(x, fy - 1, hz)) {
+				hx = x;
+			}
+		}
+		if (hx != Integer.MIN_VALUE) {
 			Furniture.hearth(d, hx, fy, hz, Dirs.FRONT, false);
 			if (roofTop.roof() != null) {
 				Chimneys.stack(d, hx, hz, fy + 2, roofTop.roof(), roofTop.roof().ridgeY - 1);
@@ -255,6 +266,16 @@ public final class MarketHall implements Archetype {
 			for (int z = up[1] + 2; z <= up[3] - 2; z += 3) {
 				if (d.isEmpty(x, fy + 2, z) && Openings.isWallBlock(d, x + (x == up[0] + 1 ? -1 : 1), fy + 2, z)) {
 					Signs.wallBanner(d, x, fy + 2, z, x == up[0] + 1 ? Dirs.RIGHT : Dirs.LEFT, arms.field(), arms.layers());
+				}
+			}
+		}
+		// sconces on the long walls between the banners, so the hall is lit from its walls (no lanterns on long chains
+		// down from the rafters)
+		for (int x : new int[]{up[0] + 1, up[2] - 1}) {
+			Direction toWall = x == up[0] + 1 ? Dirs.LEFT : Dirs.RIGHT;
+			for (int z = up[1] + 3; z <= up[3] - 2; z += 3) {
+				if (d.isEmpty(x, fy + 2, z) && Openings.isWallBlock(d, x + (x == up[0] + 1 ? -1 : 1), fy + 2, z)) {
+					dev.voidmc.hearth.build.kit.light.Lighting.sconce(d, x, fy + 2, z, toWall);
 				}
 			}
 		}

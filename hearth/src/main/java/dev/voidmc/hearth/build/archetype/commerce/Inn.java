@@ -838,7 +838,9 @@ public final class Inn implements Archetype {
 			Garden.woodpile(d, farX, base, z0, Dirs.BACK, Math.min(2, depth - 3));
 		}
 		int ax = archRight ? px0 - 1 : px1 + 1;
-		if (d.isEmpty(ax, base, z0) && Groundwork.surface(d, ax, z0) == base) {
+		// (not where the stable leaves the yard one row wide: the butt would shut the way along it to the stalls)
+		boolean narrow = depth >= 4 && sx1 - sx0 >= 4 && Math.max(z0 + 1, z1 - 3) <= z0 + 1;
+		if (!narrow && d.isEmpty(ax, base, z0) && Groundwork.surface(d, ax, z0) == base) {
 			Garden.waterButt(d, ax, base, z0);
 		}
 		Garden.barrels(d, archRight ? x0 + 1 : x1 - 1, base, z0, archRight ? Dirs.RIGHT : Dirs.LEFT, 1);

@@ -137,7 +137,7 @@ final class Measure {
 				int clx = Integer.parseInt(col.split(",")[0]);
 				int clz = Integer.parseInt(col.split(",")[1]);
 				StringBuilder cs = new StringBuilder("column " + clx + "," + clz + ":");
-				for (int cy = -3; cy <= 10; cy++) {
+				for (int cy = -3; cy <= 18; cy++) {
 					cs.append(" ").append(cy).append("=").append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(
 						g.at(lfr.worldX(clx, clz), floor + cy, lfr.worldZ(clx, clz)).getBlock()).getPath());
 				}

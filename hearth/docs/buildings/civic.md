@@ -29,7 +29,7 @@ loading hatch under a hoist beam and its lantern, a balcony for proclamations in
 ground floor open on three sides, its piers and arches in the culture's manner (round
 stone arches, pointed ones, braced timber posts, bracketed eastern posts), market counters under it with a merchant's
 place behind each; a back bay closed in for the stores and the stair, its door at the head of the aisle (the counters
-stand in the side bays, so both its sides are clear floor); the hall upstairs with tables and benches under the roof; a
+stand in the side bays, so both its sides are clear floor), the flight up along its back wall walked onto from a cell of floor at its foot and landing clear of the hall's hearth; the hall upstairs with tables and benches under the roof, sconces on its long walls; a
 cupola on the ridge with a bell and, in towns of standing, clock faces (front and back). Flat-roofed traditions raise one
 dome on a drum over the middle of the roof instead (the souk). Dormers light the deepest pitched roofs. Rails stand on
 the plinth where it rises over falling ground (`Edges`).
