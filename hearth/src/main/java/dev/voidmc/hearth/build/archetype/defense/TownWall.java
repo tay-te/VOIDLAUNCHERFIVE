@@ -198,7 +198,9 @@ public final class TownWall implements Archetype {
 						if (recess && y >= g + 2 && y <= top - 2) {
 							continue;
 						}
-						if (recess && y == g + 1 && body.has(Form.STAIRS) && cell.inward() != null) {
+						if (recess && y == g + 1 && body.has(Form.STAIRS) && cell.inward() != null && levelAlong(d, cell, g)) {
+							// (only where the ground is level along the wall: on a slope two taluses a block apart
+							// make a flight up the face to nowhere)
 							// a sloping talus at the foot of the bay
 							paint = body.stairs(cell.inward(), Half.BOTTOM);
 						}
@@ -351,6 +353,19 @@ public final class TownWall implements Archetype {
 				}
 			}
 		}
+	}
+
+	/** The ground at a cell is the same a step either way along the wall. */
+	private static boolean levelAlong(Draft d, Corridor.Cell cell, int g) {
+		Direction a = cell.ahead();
+		for (int s : new int[]{-1, 1}) {
+			int x = cell.x() + a.getStepX() * s;
+			int z = cell.z() + a.getStepZ() * s;
+			if (x >= 0 && x < d.frontage() && z >= 0 && z < d.depth() && d.site().ground(x, z) != g) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private static boolean isPier(Corridor.Cell cell, boolean capStart, boolean capEnd, int n) {

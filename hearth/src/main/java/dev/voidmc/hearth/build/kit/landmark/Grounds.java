@@ -106,6 +106,20 @@ public final class Grounds {
 			Details.arch(d, f, i, 1, y, 3, dress, d.mat(Role.GLASS).pane());
 		}
 		Openings.door(d, f, f.column(i), y, 1, Openings.DoorOpts.MAIN);
+		threshold(d, f, i, 1, y, dress);
+	}
+
+	/** A sill of the dressing under a doorway where the ground was cut away below it (a slope falling to the street). */
+	private static void threshold(Draft d, Side f, int i, int width, int y, Stone dress) {
+		try (var s = d.stage(StageKind.FOUNDATION)) {
+			for (int c = 0; c < width; c++) {
+				int x = f.x(i + c);
+				int z = f.z(i + c);
+				if (!d.isSolid(x, y - 1, z)) {
+					d.set(x, y - 1, z, dress.full());
+				}
+			}
+		}
 	}
 
 	/** A double doorway (two leaves) at cells i, i + 1 under a round head shouldered by stairs. */
@@ -114,6 +128,7 @@ public final class Grounds {
 			Details.arch(d, f, i, 2, y, 3, dress, d.mat(Role.GLASS).pane());
 		}
 		Openings.door(d, f, f.column(i), y, 2, Openings.DoorOpts.MAIN);
+		threshold(d, f, i, 2, y, dress);
 	}
 
 	/**

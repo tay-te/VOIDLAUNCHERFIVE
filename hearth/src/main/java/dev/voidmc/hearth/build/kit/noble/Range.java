@@ -374,6 +374,14 @@ public final class Range {
 			DoorHingeSide hinge = width == 1 ? DoorHingeSide.LEFT : c == 0 ? DoorHingeSide.RIGHT : DoorHingeSide.LEFT;
 			d.inStage(StageKind.OPENINGS, () -> d.door(x, y, z, doorBlock, out, hinge));
 			keep(x, z, y, y + 2);
+			// a window drawn here before the door leaves its sill on the step outside: clear the way in
+			for (int yy = y; yy <= y + 1; yy++) {
+				net.minecraft.world.level.block.state.BlockState there = d.get(s.outX(i, 1), yy, s.outZ(i, 1));
+				if (there != null && (there.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+					|| there.getBlock() instanceof net.minecraft.world.level.block.SlabBlock)) {
+					d.set(s.outX(i, 1), yy, s.outZ(i, 1), Blocks.AIR.defaultBlockState());
+				}
+			}
 		}
 		try (var st = d.stage(StageKind.WALLS)) {
 			for (int c = -1; c <= width; c++) {
@@ -657,23 +665,39 @@ public final class Range {
 	public void partition(Draft d, Dress m, int k, boolean alongZ, int at, int door) {
 		int f = floorY(k);
 		int c = ceiling(k);
+		boolean top = c == plate();
 		try (var st = d.stage(StageKind.WALLS)) {
 			if (alongZ) {
 				for (int z = this.z0 + 1; z < this.z1; z++) {
-					for (int y = f; y < c; y++) {
+					int h = top ? toRoof(d, at, c, z) : c;
+					for (int y = f; y < h; y++) {
 						boolean doorway = z == door && y < f + 2;
 						d.set(at, y, z, doorway ? Blocks.AIR.defaultBlockState() : m.wall.full().at(at, y, z));
 					}
 				}
 			} else {
 				for (int x = this.x0 + 1; x < this.x1; x++) {
-					for (int y = f; y < c; y++) {
+					int h = top ? toRoof(d, x, c, at) : c;
+					for (int y = f; y < h; y++) {
 						boolean doorway = x == door && y < f + 2;
 						d.set(x, y, at, doorway ? Blocks.AIR.defaultBlockState() : m.wall.full().at(x, y, at));
 					}
 				}
 			}
 		}
+	}
+
+	/**
+	 * Under an open roof a partition of the top storey runs on up to the roof drawn over it, so no ledge is left on its
+	 * head under the rafters; where nothing is over it yet, it stops at the plate.
+	 */
+	private static int toRoof(Draft d, int x, int c, int z) {
+		for (int y = c; y < c + 14; y++) {
+			if (!d.isEmpty(x, y, z)) {
+				return y;
+			}
+		}
+		return c;
 	}
 
 	/** A straight run of the plot's cells along this range's court side, one out (where a lamp or a bench goes). */

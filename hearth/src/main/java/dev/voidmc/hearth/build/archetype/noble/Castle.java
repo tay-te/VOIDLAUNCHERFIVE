@@ -204,10 +204,6 @@ public final class Castle implements Archetype {
 		try (var ph = d.campaign(0)) {
 			bergfried(d, m, man, p);
 		}
-		// ---- campaigns 1 to 3: the inner curtain in two, then its towers
-		try (var ph = d.campaign(3)) {
-			innerTowers(d, m, man, p);
-		}
 		// ---- campaign 5: the chapel, the inner gate (drawn before the palace, whose stair turret may pierce its eaves)
 		try (var ph = d.campaign(5)) {
 			innerGate(d, m, man, p);
@@ -218,6 +214,11 @@ public final class Castle implements Archetype {
 		}
 		try (var ph = d.campaign(5)) {
 			chapel(d, m, man, p);
+		}
+		// ---- campaign 3: the inner curtain's towers, drawn once the palace stands, so their doors open into its rooms
+		// and onto what is left of the court rather than into a wall the palace raises later
+		try (var ph = d.campaign(3)) {
+			innerTowers(d, m, man, p);
 		}
 		// ---- campaigns 6 and 7: the outer curtain, then the outer towers, the gatehouse, the barbican
 		try (var ph = d.campaign(7)) {
@@ -618,10 +619,11 @@ public final class Castle implements Archetype {
 		main.windows(d, m, man, 0, 2, 4, Dirs.BACK);
 		main.windows(d, m, man, 1, 4, 3, null);
 		main.windows(d, m, man, 2, 2, 3, null);
-		wing.windows(d, m, man, 0, 2, 3, Dirs.BACK);
-		wing.windows(d, m, man, 1, 2, 3, null);
+		// (the wing's door before its windows, so no window's sill is left on the court before the door)
 		int wdoor = (wx0 + wx1) / 2;
 		wing.door(d, m, Dirs.FRONT, wdoor, 0, 1, false);
+		wing.windows(d, m, man, 0, 2, 3, Dirs.BACK);
+		wing.windows(d, m, man, 1, 2, 3, null);
 		// the chimneys: the hall's hearth on the back wall of the first floor, the kitchen's below the far end
 		int hx = p.keepLeft ? mx0 + 3 : mx1 - 3;
 		int[] hall = main.hearth(d, hx, pz1, 1, Dirs.FRONT);

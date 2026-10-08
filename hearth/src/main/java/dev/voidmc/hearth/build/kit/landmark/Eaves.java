@@ -46,7 +46,9 @@ public final class Eaves {
 					for (int i = 1; i < sd.length() - 1; i += 2) {
 						int ox = sd.outX(i, 1);
 						int oz = sd.outZ(i, 1);
-						if (d.allowed(ox, y - 1, oz) && d.isEmpty(ox, y - 1, oz)) {
+						// (none over a floor two below, where it would catch the head of whoever walks round the
+						// tier: a pagoda's podium, a hall's terrace before its door)
+						if (d.allowed(ox, y - 1, oz) && d.isEmpty(ox, y - 1, oz) && !d.isSolid(ox, y - 3, oz)) {
 							d.set(ox, y - 1, oz, trim.stairs(sd.out().getOpposite(), Half.TOP));
 						}
 					}

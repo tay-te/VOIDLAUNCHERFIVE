@@ -447,7 +447,8 @@ final class StaveCathedral {
 
 		// --- within: pews down the nave, the altar and lectern in the chancel, candles in the apse
 		Sacred.pews(d, kx0 + 1, kx1 - 1, zO0 + 2, zN1 - 2, 0, cx, Dirs.BACK, false);
-		Sacred.altar(d, cx, 0, zCh1 - 1, Dirs.FRONT, hk >= 2, cx + 1 <= hx1 - 1 && hk >= 2 ? cx + 1 : Integer.MIN_VALUE);
+		// the altar a row in from the apse, so the way round it leads to the candles in the apse behind
+		Sacred.altar(d, cx, 0, zCh1 - 2, Dirs.FRONT, hk >= 2, cx + 1 <= hx1 - 1 && hk >= 2 ? cx + 1 : Integer.MIN_VALUE);
 		if (hk < 2) {
 			dev.voidmc.hearth.build.kit.Furniture.workstation(d, dev.voidmc.hearth.api.JobType.PRIEST, cx + 1, 0, zN1 - 1, Dirs.FRONT);
 		}

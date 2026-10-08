@@ -186,7 +186,12 @@ public final class Gatehouse implements Archetype {
 
 	/** The guard room (the stair up to the gate hall) and the store room (the grindstone, arrows, arms). */
 	private static void rooms(Draft d, Look l, G g) {
-		Stairs.switchback(d, 1, 0, 2, Dirs.BACK, g.hall(), Dirs.RIGHT);
+		// the stair up in the guard room; a gate too shallow for its landing gets a ladder in the back corner instead,
+		// climbing through a hatch in the hall's floor a block in from the tower's flank
+		boolean ladder = g.back() < 6;
+		if (!ladder) {
+			Stairs.switchback(d, 1, 0, 2, Dirs.BACK, g.hall(), Dirs.RIGHT);
+		}
 		Openings.door(d, Side.of(0, 0, g.lx1(), g.back(), Dirs.RIGHT), g.back() - 2, 0, 1, Openings.DoorOpts.BACK);
 		Openings.door(d, Side.of(g.rx0(), 0, g.w() - 1, g.back(), Dirs.LEFT), g.back() - 2, 0, 1, Openings.DoorOpts.BACK);
 		Furniture.workstation(d, JobType.GUARD, g.w() - 2, 0, 1, Dirs.BACK);
@@ -196,6 +201,12 @@ public final class Gatehouse implements Archetype {
 		// the floors at the gate hall's level over both rooms (the passage's vault carries the middle)
 		Towers.floor(d, l, 1, 1, g.lx1() - 1, g.back() - 1, g.hall() - 1, false);
 		Towers.floor(d, l, g.rx0() + 1, 1, g.w() - 2, g.back() - 1, g.hall() - 1, false);
+		if (ladder) {
+			try (var s = d.stage(StageKind.FLOORS)) {
+				d.set(2, g.hall() - 1, g.back() - 1, Blocks.AIR.defaultBlockState());
+			}
+			Stairs.ladder(d, 2, g.back() - 1, 0, g.hall(), Dirs.FRONT);
+		}
 		Towers.slit(d, 0, 3, g.cz());
 		Towers.slit(d, g.w() - 1, 3, g.cz());
 	}
@@ -238,10 +249,11 @@ public final class Gatehouse implements Archetype {
 			Towers.string(d, l, 1, 0, w - 2, b, hall + 3);
 		}
 		ledges(d, l, g);
-		// the stair on up from the hall to the guards' room, in the right half
+		// the stair on up from the hall to the guards' room, in the right half: its two lanes inside the tower's wall
+		// (w - 4, w - 3), drawn after the floor so its well is cut through it
 		if (upper) {
-			Stairs.switchback(d, g.rx0() + 1, hall, 2, Dirs.BACK, 4, Dirs.RIGHT);
 			Towers.floor(d, l, 2, 1, w - 3, b - 1, hall + 3, false);
+			Stairs.switchback(d, w - 4, hall, 2, Dirs.BACK, 4, Dirs.RIGHT);
 		}
 		// lights front and back on each storey, the arch's banner and the town's arms over it
 		for (int y : upper ? new int[]{hall + 1, hall + 5} : new int[]{hall + 1}) {
@@ -489,7 +501,8 @@ public final class Gatehouse implements Archetype {
 			}
 			d.set(g.px0(), hall, 1, Lamps.post(d));
 			d.set(g.px1(), hall, 1, Lamps.post(d));
-			d.set(x1, hall, z1 - 1, States.facing(Blocks.BARREL, Direction.UP));
+			// (by the front wall, clear of the stair on up that climbs the back half on the right)
+			d.set(x1, hall, 1, States.facing(Blocks.BARREL, Direction.UP));
 		}
 		Lighting.room(d, x0, 1, x1, z1 - 1, hall);
 	}

@@ -83,6 +83,9 @@ public final class Lighthouse implements Archetype {
 		// the rocks round the tower, out into the water (the tower's door is the main entrance)
 		Grounds.podium(d, 0, 0, w - 1, Math.min(dp - 1, zt - r - 1), 0, true);
 		rocks(d, xt, zt, r, rock);
+		// the keeper's cottage, before the tower, so the shaft cuts the eave that runs into it (a roof drawn after it
+		// broke the wall and let the stair out onto the thatch)
+		cottage(d, side, towerLeft, xt, zt - r - 1);
 
 		// the tower: a flared plinth, the shaft in its livery, windows climbing it
 		// the gallery deck on a whole turn of the stair, so its last step lands by the lantern room's door
@@ -196,8 +199,6 @@ public final class Lighthouse implements Archetype {
 		Shapes.spiral(d, xt, zt, 0, yG, 1, dress, dress.full());
 		Groundwork.approach(d, xt, 0, zt - r - 1);
 
-		// the keeper's cottage
-		cottage(d, side, towerLeft, xt, zt - r - 1);
 		// the jetty, where the water comes into the plot
 		jetty(d, xt, zt, r);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(top, peak + 1));
