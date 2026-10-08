@@ -5,6 +5,12 @@ import dev.voidmc.hub.layout.Rect;
 import dev.voidmc.hub.mettle.MettleLink;
 import dev.voidmc.hub.model.Bridge;
 import dev.voidmc.hub.model.Json;
+import dev.voidmc.hub.model.TooltipModel;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.client.gui.Hud;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
@@ -206,13 +212,59 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 				.filter(i -> !this.menu.slots.get(i).isActive()).toArray();
 			w.putInts("inactive", off);
 		}
+		this.writeEffects(w, p);
 		w.put("armor", p.getArmorValue());
 		w.put("level", p.experienceLevel);
 		w.put("xp", Math.round(p.experienceProgress * 100) / 100.0);
 	}
 
+	/** The effects the Effects card lists, in vanilla's order; their icons are drawn natively in its wells. */
+	private List<MobEffectInstance> effects = List.of();
+
+	private void writeEffects(Json.Writer w, Player p) {
+		List<MobEffectInstance> list = new ArrayList<>();
+		for (MobEffectInstance e : p.getActiveEffects()) {
+			if (e.showIcon()) {
+				list.add(e);
+			}
+		}
+		list.sort(null);
+		this.effects = list;
+		List<String> out = new ArrayList<>();
+		for (MobEffectInstance e : list) {
+			String name = e.getEffect().value().getDisplayName().getString();
+			out.add(Json.object()
+				.put("id", e.getEffect().getRegisteredName())
+				.put("name", name)
+				.put("amp", e.getAmplifier() > 0 ? TooltipModel.roman(e.getAmplifier() + 1) : "")
+				.put("secs", e.isInfiniteDuration() ? -1 : e.getDuration() / 20)
+				.put("colour", String.format(java.util.Locale.ROOT, "#%06X", e.getEffect().value().getColor() & 0xFFFFFF))
+				.end());
+		}
+		w.raw("effects", Json.array(out));
+	}
+
+	private void extractEffects(GuiGraphicsExtractor graphics) {
+		List<Rect> wells = this.layout.effectIcons;
+		if (wells.isEmpty() || this.effects.isEmpty()) {
+			return;
+		}
+		int gs = this.minecraft.getWindow().getGuiScale();
+		graphics.pose().pushMatrix();
+		graphics.pose().scale(1.0F / gs, 1.0F / gs);
+		for (int i = 0; i < wells.size() && i < this.effects.size(); i++) {
+			Rect r = wells.get(i);
+			if (this.tip != null && this.tip.intersects(r)) {
+				continue;
+			}
+			graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Hud.getMobEffectSprite(this.effects.get(i).getEffect()), r.x(), r.y(), r.w(), r.h());
+		}
+		graphics.pose().popMatrix();
+	}
+
 	@Override
 	protected void extractExtras(GuiGraphicsExtractor graphics, double guiMouseX, double guiMouseY) {
+		this.extractEffects(graphics);
 		Rect box = this.layout.player;
 		if (box == null) {
 			return;  // the Gear and Classes pages have no figure

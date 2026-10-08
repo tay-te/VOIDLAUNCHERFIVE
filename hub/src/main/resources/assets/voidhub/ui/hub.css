@@ -199,7 +199,7 @@ body.chest #card-held { top: 209px; border-color: var(--line-3); }
 .h-dur { right: 18px; top: 62px; font-size: 9px; letter-spacing: 0.6px; color: var(--ink-2); }
 
 /* Status (inventory only): load on top with Mettle, then armour and XP level. */
-#card-status { top: 209px; height: 183px; padding: 0; }
+#card-status { top: 100px; height: 183px; padding: 0; }
 body.chest #card-status { display: none; }
 #card-status > * { position: absolute; }
 .st-load { left: 18px; right: 18px; top: 14px; height: 92px; display: none; }
@@ -238,6 +238,28 @@ body.mettle .st-armour { top: 124px; } body.mettle .st-level { top: 152px; }
 #card-purse { top: 404px; height: 158px; display: flex; flex-direction: column; gap: 14px; }
 body.chest #card-purse { display: none; }
 #card-purse-compact { display: none; }
+/* Effects (inventory): under Status, rows of icon well, name, time-left bar and time. */
+#card-effects { display: none; top: 200px; height: 290px; padding: 0; }
+body.inventory #card-effects { display: block; }
+body.inventory.mettle #card-effects { top: 296px; height: 194px; }
+#card-effects > * { position: absolute; }
+.fx-eb { left: 18px; top: 16px; }
+.fx-count { right: 18px; top: 16px; color: var(--ink-3); }
+.fx-empty { left: 0; right: 0; top: 50%; margin-top: -2px; text-align: center; font-size: 12px; color: var(--ink-3); }
+.fx-empty.gone { display: none; }
+#fx-rows { left: 18px; right: 18px; top: 38px; }
+.fx-row { position: absolute; left: 0; right: 0; height: 32px; background: #131315; border: 1px solid var(--line-4); border-radius: 10px; }
+.fx-row > * { position: absolute; }
+.fx-well { left: 6px; top: 3px; width: 24px; height: 24px; border-radius: 6px; }
+.fx-name { left: 40px; top: 8px; right: 190px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx-bar { right: 60px; top: 13px; width: 120px; height: 4px; border-radius: 2px; background: rgba(237, 238, 239, 0.08); overflow: hidden; }
+.fx-bar > i { position: absolute; left: 0; top: 0; height: 4px; border-radius: 2px; }
+.fx-time { right: 12px; top: 9px; font-size: 11px; color: var(--ink-2); }
+.fx-time.low { color: #E8C66A; }
+
+/* The inventory carries the compact purse too: Status and Effects get the room. */
+body.inventory #card-purse, body.inventory #card-held { display: none; }
+body.inventory #card-purse-compact { display: flex; top: 502px; height: 60px; padding: 12px 16px; align-items: center; gap: 10px; }
 body.chest #card-purse-compact { display: flex; top: 484px; height: 60px; padding: 12px 16px; align-items: center; gap: 10px; }
 .phead { display: flex; justify-content: space-between; align-items: center; height: 26px; }
 .ptitle { font-size: 14px; }
@@ -300,4 +322,3 @@ body.chest #card-chest { display: flex; }
 
 /* Without VOID Mettle the Status card is just armour and level: it shrinks and the purse moves up. */
 body.inventory:not(.mettle) #card-status { height: 88px; }
-body.inventory:not(.mettle) #card-purse { top: 300px; }

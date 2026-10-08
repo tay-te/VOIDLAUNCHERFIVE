@@ -70,6 +70,10 @@ public final class MettleTest {
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
 		this.context.waitTicks(5);
 
+		server.runCommand("effect give Player0 minecraft:speed 160 1");
+		server.runCommand("effect give Player0 minecraft:night_vision 300 0");
+		server.runCommand("effect give Player0 minecraft:regeneration 12 0");
+
 		// 1. The inventory page has Back, Belt and Quiver wells beside the figure.
 		this.ui.pressInventory();
 		this.context.waitForScreen(HubInventoryScreen.class);

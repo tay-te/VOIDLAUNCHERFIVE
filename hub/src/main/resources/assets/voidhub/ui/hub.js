@@ -278,6 +278,7 @@
       text($("armour-value"), String(s.armor));
       meter($("level-cells"), 20, 20, Math.floor(s.xp * 20) + 1, true, 8, 12, 2);
       text($("level-value"), String(s.level));
+      effects(s.effects || []);
     } else if (layout && layout.kind === "chest") {
       var title = s.title || "Chest";
       text($("chest-title"), title);
@@ -298,6 +299,48 @@
     }
     prev = {hover: s.hover, heldSlot: heldSlot, drag: drag, dragList: s.drag, filled: filled, filter: s.filter};
     if (ext) ext.state(s);
+  }
+
+  // ---- Effects: rows rebuilt only when the set of effects changes; times and bars update in place.
+  var fxKey = "", fxLongest = {};
+
+  function clock(secs) {
+    if (secs < 0) return "∞";
+    var h = Math.floor(secs / 3600), m = Math.floor(secs / 60) % 60, s = secs % 60;
+    return (h ? h + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function effects(list) {
+    var rows = document.body.classList.contains("mettle") ? 4 : 6;
+    var shown = list.slice(0, rows);
+    var key = JSON.stringify(shown.map(function (e) { return [e.id, e.name, e.amp, e.colour]; }));
+    var box = $("fx-rows");
+    if (key !== fxKey) {
+      fxKey = key;
+      var h = "";
+      for (var i = 0; i < shown.length; i++) {
+        var e = shown[i];
+        h += '<div class="fx-row" style="top:' + i * 38 + 'px"><div class="fx-well" style="background:' + e.colour + "33;border:1px solid " + e.colour + '99"></div>' +
+          '<div class="fx-name">' + escHtml(e.name + (e.amp ? "  " + e.amp : "")) + '</div><div class="fx-bar"><i style="background:' + e.colour + '"></i></div><div class="fx-time"></div></div>';
+      }
+      box.innerHTML = h;
+    }
+    for (var j = 0; j < shown.length; j++) {
+      var ef = shown[j], row = box.children[j];
+      if (!row) break;
+      // Vanilla does not say how long an effect started at: the longest seen stands in for it.
+      var longest = fxLongest[ef.id] = Math.max(fxLongest[ef.id] || 0, ef.secs);
+      var frac = ef.secs < 0 ? 1 : ef.secs / Math.max(1, longest);
+      var w = Math.max(3, Math.round(120 * frac)) + "px";
+      if (row.children[2].firstChild.style.width !== w) row.children[2].firstChild.style.width = w;
+      text(row.children[3], clock(ef.secs));
+      toggle(row.children[3], "low", ef.secs >= 0 && ef.secs < 15);
+    }
+    var gone = {};
+    for (var g = 0; g < list.length; g++) gone[list[g].id] = true;
+    for (var id in fxLongest) if (!gone[id]) delete fxLongest[id];
+    toggle($("fx-empty"), "gone", list.length > 0);
+    text($("fx-count"), !list.length ? "" : list.length > rows ? list.length + " ACTIVE  ·  " + (list.length - rows) + " NOT SHOWN" : list.length + " ACTIVE");
   }
 
   function heldWell(n) {

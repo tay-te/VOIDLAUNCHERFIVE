@@ -103,6 +103,11 @@ public final class HubLayout {
 	public final int scrollRow;
 	public final int maxScroll;
 	public final int iconPx;
+	/**
+	 * The Effects card's icon wells, top row first (inventory only; empty elsewhere). The card sits under Status:
+	 * at 296 with Mettle (Status carries the load), at 200 without.
+	 */
+	public final List<Rect> effectIcons;
 	/** Mettle's gear slots in this layout's menu, or null. */
 	public final GearSlots gear;
 	private final List<Cell> cells;
@@ -155,7 +160,7 @@ public final class HubLayout {
 			out.add(this.cell(0, Role.RESULT, 0, 444, 194));
 			this.addPlayerRows(out, 9, 352, 516);
 			this.player = this.rect(82, 100, 160, 202);
-			this.detailIcon = this.iconIn(this.rect(533, 117, 56, 56), 42);
+			this.detailIcon = null;  // the column is Status, Effects and the purse; hovering shows the tooltip
 			this.containerGrid = null;
 		} else if (kind == Kind.GEAR) {
 			// The Gear page (Figma 387:21106): pack pockets where a chest's rows go, the inventory below, and the worn
@@ -195,7 +200,20 @@ public final class HubLayout {
 			this.containerGrid = this.rect(28, 134, 462, VISIBLE_ROWS * PITCH - (PITCH - CELL));
 		}
 		this.cells = Collections.unmodifiableList(out);
+		List<Rect> fx = new ArrayList<>();
+		if (kind == Kind.INVENTORY) {
+			int top = gear != null ? EFFECTS_TOP_METTLE : EFFECTS_TOP;
+			int rows = gear != null ? 4 : 6;
+			for (int i = 0; i < rows; i++) {
+				fx.add(this.iconIn(this.rect(514 + 18 + 6, top + 38 + i * 38 + 4, 24, 24), 18));
+			}
+		}
+		this.effectIcons = Collections.unmodifiableList(fx);
 	}
+
+	/** Where the Effects card starts (design px), with and without Mettle's load in Status above it. */
+	public static final int EFFECTS_TOP_METTLE = 296;
+	public static final int EFFECTS_TOP = 200;
 
 	public static HubLayout inventory(int fbW, int fbH, int guiScale) {
 		return inventory(fbW, fbH, guiScale, null);

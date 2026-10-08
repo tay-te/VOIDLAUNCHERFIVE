@@ -191,7 +191,7 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	}
 
 	/** Where the page's item tooltip is (physical px), or null: stacks under it are not drawn. */
-	private Rect tip;
+	protected Rect tip;
 
 	private void extractStacks(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int gs) {
 		Rect tip = this.menu.getCarried().isEmpty() ? this.tip : null;
