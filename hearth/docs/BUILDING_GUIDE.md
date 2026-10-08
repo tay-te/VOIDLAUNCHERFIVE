@@ -170,14 +170,17 @@ S1-S4) makes what folk use usable, touching only what is still wrong:
   and over the top tread of a flight that turns with no landing, the board in the third row too;
 - **lofts** (`Lofts.finish`): a roofed, walled level of four cells or more the walk does not reach gets a ladder from
   the reached floor under it (against a wall, through a hatch, with a cell to step off onto). A loft too thin to be a
-  room, or one no ladder fits, is opened to the room below if nothing in it is used. A furnished loft no ladder fits
-  is left as drawn;
+  room, or one no ladder fits, is opened to the room below if nothing in it is used and the walk reaches that room
+  (a loft over a room nobody reaches is left: mend the way into the room). Lamp brackets and litter go with the boards.
+  A furnished loft no ladder fits is left as drawn;
 - **guards** (`Guards.finish`, buildings and grounds only): a rail (a balustrade on a masonry deck) is set on the edge
   cell of a flat floor beside a fall of four or more. It is never set on a roof's slope, where a ladder, hatch, stair
   or door arrives, or where it would cut a way.
 
 Build it right in the archetype anyway: the pass bricks up a door it cannot save, and a rail the pass adds is plainer
-than one you design. `-Dhearth.access.off=true` turns it off to compare.
+than one you design. `-Dhearth.access.off=true` turns it off to compare, `-Dhearth.access.skip=doors,stairs,lofts,guards`
+leaves single steps out, and `AccessCaseProbeTest` (`HEARTH_CASE=archetype,culture,terrain,seed,facing[,variant[,decay]]`)
+prints a case's check problems with each step left out in turn.
 
 The bill of goods per stage is computed from the steps (`MaterialBill`, processed goods as LIVING_WORLD.md §7.5 asks:
 logs → LOGS, timber → WOOD, rubble → STONE, cut stone → DRESSED_STONE, brick and terracotta → BRICK, lanterns → METAL

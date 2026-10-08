@@ -15,7 +15,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 /**
  * A debugging probe, not a gate: one invariant-test case ({@code BuildTestSupport.spec}) compiled with each step of the
  * access pass left out in turn, and the invariant checks' problems printed for each, to find the step that made one.
- * {@code HEARTH_CASE=<archetype>,<culture>,<terrain>,<seed>,<facing>[,<variant>[,<decay>]]}, several separated by ';' (an empty
+ * {@code HEARTH_CASE=<archetype>,<culture>,<terrain>,<seed>,<facing>[,<variant>[,<decay>[,<additions>]]]}, several separated by ';' (an empty
  * variant leaves it to the seed).
  */
 @EnabledIfEnvironmentVariable(named = "HEARTH_CASE", matches = ".+")
@@ -45,8 +45,11 @@ class AccessCaseProbeTest {
 			if (a.length > 5 && !a[5].isEmpty()) {
 				params.putInt("variant", Integer.parseInt(a[5]));
 			}
-			if (a.length > 6) {
+			if (a.length > 6 && !a[6].isEmpty()) {
 				params.putDouble(dev.voidmc.hearth.build.age.Decay.PARAM, Double.parseDouble(a[6]));
+			}
+			if (a.length > 7) {
+				params.putInt(dev.voidmc.hearth.build.age.Accretion.PARAM, Integer.parseInt(a[7]));
 			}
 			PlotSpec spec = BuildTestSupport.spec(info, StyleRegistry.styleId(c), Long.parseLong(a[3]), Direction.valueOf(a[4].toUpperCase(Locale.ROOT)), probe,
 				params);

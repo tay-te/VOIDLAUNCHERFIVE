@@ -28,7 +28,10 @@ before the sealed voids are filled and the light pass runs. It does only what is
   off onto; its foot never beside a door, bed, container, stair or workstation). A loft too thin to be a room (a rim
   of boards round an opened floor, a strip under the eaves), or one no ladder fits, is opened to the room under it if
   nothing in it is used: its boards come up where drawn air runs down to something the building drew (never the
-  ground). A furnished loft no ladder fits is left for its archetype. `-Dhearth.lofts.off=true` turns this step off.
+  ground), and only where the walk reaches the room under it: a loft over a room nobody reaches (the courtyard house's
+  wings while pots close its court) is left for the archetype. A lamp bracket that held by a board, and leaf litter
+  or a carpet on a board left hanging, go with the boards. A furnished loft no ladder fits is left for its archetype.
+  `-Dhearth.lofts.off=true` turns this step off; `-Dhearth.access.skip=doors,stairs,lofts,guards` leaves any steps out.
 - **Guards** (`Guards.finish`): for buildings and grounds (not `defense/*`, not works, roads, workings or fields), every
   reached cell on a flat floor beside a drop of four or more gets a guard **on the edge cell itself**. The guard is the
   culture's rail; on a masonry roof deck it is the wall stone's wall block. It never goes on a roof's slope or ridge, on a
@@ -87,6 +90,9 @@ Ask `ok` once the rooms on both sides are carved and their floors laid, for exam
   `Floors.joists` leaves out a joist over a tread's head room.
 - `Rooms.furnish`, in kitchens, living rooms, stores and workshops (after the trade's own station), keeps a square of
   three by three clear in rooms of nine cells or more, nearest a door.
+
+- `Spaces.enclosed`: a lantern or a candle at head height no longer closes the view (a lamp on a guard's post beside
+  an open strip leaves it a porch, not a room the light check then finds dark).
 
 ### New calls
 
