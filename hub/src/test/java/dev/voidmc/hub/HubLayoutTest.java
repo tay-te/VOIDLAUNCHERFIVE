@@ -180,13 +180,16 @@ class HubLayoutTest {
 	void guiScaleThreeDrawsTheDesignOneToOne() {
 		HubLayout l = HubLayout.inventory(1920, 1080, 3);
 		assertEquals(1.0, l.u, 1e-9);
+		// Page coordinates count from HEADER_CUT above the drawn window (its header was cut, the numbers kept).
+		int top = l.window.y() - HubLayout.HEADER_CUT;
 		Rect hotbar0 = l.cellForSlot(36).cell();
-		assertEquals(new Rect(l.window.x() + 28, l.window.y() + 516, 46, 46), hotbar0);
+		assertEquals(new Rect(l.window.x() + 28, top + 516, 46, 46), hotbar0);
 		Rect craft0 = l.cellForSlot(1).cell();
-		assertEquals(new Rect(l.window.x() + 318, l.window.y() + 168, 46, 46), craft0);
-		assertEquals(new Rect(l.window.x() + 444, l.window.y() + 194, 46, 46), l.cellForSlot(0).cell());
+		assertEquals(new Rect(l.window.x() + 318, top + 168, 46, 46), craft0);
+		assertEquals(new Rect(l.window.x() + 444, top + 194, 46, 46), l.cellForSlot(0).cell());
 		assertEquals(32, l.iconPx, "28/46 of a 46 px well rounds to 32 px (two device px per item texel)");
 		assertEquals(987, l.window.w());
+		assertEquals(606, l.window.h());
 	}
 
 	@Test

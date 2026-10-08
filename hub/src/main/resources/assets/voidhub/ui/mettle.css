@@ -54,8 +54,8 @@ body.gear .segment[data-seg="gear"], body.classes .segment[data-seg="classes"] {
 .m-cells i.live { background: var(--violet); }
 .m-tag { height: 20px; padding: 0 8px; display: flex; align-items: center; border: 1px solid var(--line-2); border-radius: 9px;
   font-size: 8px; letter-spacing: 1px; color: var(--ink-2); white-space: nowrap; }
-.m-source { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 11px 0 8px; left: 28px; top: 39px;
-  background: var(--well); border: 1px solid var(--line-2); border-radius: 12px; font-size: 11px; color: var(--ink-2); }
+.m-source { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 11px 0 8px; left: 28px; top: 49px;
+  background: var(--well); border: 1px solid var(--line-2); border-radius: 13px; font-size: 11px; color: var(--ink-2); }
 .m-source.back { padding: 0 12px; color: var(--ink); }
 .m-source.back:hover { background: var(--raised); }
 .m-icon { position: absolute; image-rendering: pixelated; }

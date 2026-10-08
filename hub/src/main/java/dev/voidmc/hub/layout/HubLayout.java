@@ -50,13 +50,19 @@ public final class HubLayout {
 
 	// ---- design constants (design units) ---------------------------------------------------------
 	public static final int WIN_W = 987;
-	public static final int WIN_H = 630;
+	public static final int WIN_H = 606;
+	/**
+	 * The header was cut by this much (Figma 2e, B): page coordinates still count from the old top, 24 above the
+	 * window's drawn edge, so every slot, card and page keeps its numbers.
+	 */
+	public static final int HEADER_CUT = 24;
 	public static final int CELL = 46;
 	public static final int PITCH = 52;
 	static final int MARGIN = 24;
-	static final int ISLAND_H = 48;
+	static final int ISLAND_H = 42;
+	static final int ISLAND_TOP = 18;
 	static final int PAGES_W = 471;
-	static final int PAGES_H = 50;
+	static final int PAGES_H = 42;
 	static final int MARK_W = 121;
 	static final int CLOSE_W = 108;
 	static final int STRIP_W = 358;
@@ -65,7 +71,7 @@ public final class HubLayout {
 	static final int WIN_LIFT = 11;
 	/** Space the shell needs around the window: 24 + 50 + gap above, 24 + 72 + gap below. */
 	static final int NEED_W = WIN_W + 2 * MARGIN;
-	static final int NEED_H = WIN_H + 2 * (MARGIN + STRIP_H + 16);
+	static final int NEED_H = WIN_H + HEADER_CUT + 2 * (MARGIN + STRIP_H + 16);
 	/** Smallest well, in physical px, that GUI scale alone may produce. */
 	static final double MIN_CELL_PX = 20.0;
 	/** Visible chest rows; longer containers scroll. */
@@ -125,17 +131,17 @@ public final class HubLayout {
 
 		double u = this.u;
 		// Islands.
-		this.mark = Rect.design(0, 0, MARGIN, MARGIN, MARK_W, ISLAND_H, u);
+		this.mark = Rect.design(0, 0, MARGIN, ISLAND_TOP, MARK_W, ISLAND_H, u);
 		double pagesX = (this.fbW - PAGES_W * u) / 2.0;
-		this.pages = Rect.design(pagesX, 0, 0, MARGIN, PAGES_W, PAGES_H, u);
-		this.close = Rect.design(this.fbW - (MARGIN + CLOSE_W) * u, 0, 0, MARGIN, CLOSE_W, ISLAND_H, u);
+		this.pages = Rect.design(pagesX, 0, 0, ISLAND_TOP, PAGES_W, PAGES_H, u);
+		this.close = Rect.design(this.fbW - (MARGIN + CLOSE_W) * u, 0, 0, ISLAND_TOP, CLOSE_W, ISLAND_H, u);
 		double stripX = (this.fbW - STRIP_W * u) / 2.0;
 		this.strip = Rect.design(stripX, this.fbH - (MARGIN + STRIP_H) * u, 0, 0, STRIP_W, STRIP_H, u);
 
 		// Window: centred, lifted as in the design, never under the top islands.
 		double winX = Math.round((this.fbW - WIN_W * u) / 2.0);
 		double winY = (this.fbH - WIN_H * u) / 2.0 - WIN_LIFT * u;
-		winY = Math.round(Math.max(winY, (MARGIN + PAGES_H + 8) * u));
+		winY = Math.round(Math.max(winY, (ISLAND_TOP + PAGES_H + 8) * u));
 		this.window = Rect.design(winX, winY, 0, 0, WIN_W, WIN_H, u);
 
 		this.iconPx = iconSize(CELL * u, 0.61);
@@ -300,7 +306,7 @@ public final class HubLayout {
 	}
 
 	private Rect rect(double dx, double dy, double dw, double dh) {
-		return Rect.design(this.window.x(), this.window.y(), dx, dy, dw, dh, this.u);
+		return Rect.design(this.window.x(), this.window.y(), dx, dy - HEADER_CUT, dw, dh, this.u);
 	}
 
 	private Cell cell(int slot, Role role, int ordinal, double dx, double dy) {

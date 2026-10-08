@@ -175,7 +175,7 @@
     toggle(body, "scrolls", l.maxScroll > 0);
     var win = $("win");
     win.style.left = l.win.x + "px";
-    win.style.top = l.win.y + "px";
+    win.style.top = (l.win.y - 24) + "px";  // the coordinate box starts HEADER_CUT above the drawn window
 
     var seen = {};
     for (var k = 0; k < l.slots.length; k++) {
