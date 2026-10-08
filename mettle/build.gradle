@@ -23,10 +23,104 @@ loom {
 	}
 }
 
+// ---------------------------------------------------------------------------------------------
+// VOID Hearth (optional; INTEGRATION.md §1). Mettle compiles its compat.hearth package against
+// src/hearthApi: a copy of the Hearth api types it calls (see its package-info), in a source set of
+// its own that is compile-only and never packaged. At runtime the real api comes with Hearth, and
+// compat.CompatModule only enters compat.hearth when Fabric reports Hearth loaded.
+//
+//   ./gradlew syncHearth                 build Hearth from a git snapshot of -PhearthRef (default
+//                                        the hearth branch) under build/hearth-snapshot (no Hearth
+//                                        worktree is touched) and stage build/hearth/void-hearth.jar
+//   ./gradlew syncHearth -PhearthJar=<f> stage a Hearth jar you already have instead
+//   ./gradlew runClientGameTest -Phearth the client tour with Hearth loaded (adds the Hearth journey)
+// ---------------------------------------------------------------------------------------------
+sourceSets {
+	hearthApi {
+		compileClasspath += sourceSets.main.compileClasspath
+	}
+}
+sourceSets.main.compileClasspath += sourceSets.hearthApi.output
+// JUnit checks Mettle's tables against Hearth's enums and odds rule (the copy).
+sourceSets.test.compileClasspath += sourceSets.hearthApi.output
+sourceSets.test.runtimeClasspath += sourceSets.hearthApi.output
+
+def hearthJar = file('build/hearth/void-hearth.jar')
+def withHearth = project.hasProperty('hearth') && project.property('hearth').toString() != 'false'
+if (withHearth && !hearthJar.isFile()) {
+	throw new GradleException("-Phearth needs VOID Hearth staged first: ./gradlew syncHearth")
+}
+
+tasks.register('syncHearth') {
+	group = 'mettle'
+	description = 'Stages VOID Hearth as build/hearth/void-hearth.jar (built from a git snapshot of -PhearthRef, default hearth, or copied from -PhearthJar)'
+	notCompatibleWithConfigurationCache('runs git and a nested Gradle build')
+	def given = project.findProperty('hearthJar')
+	def ref = (project.findProperty('hearthRef') ?: 'hearth').toString()
+	def snapshot = file('build/hearth-snapshot')
+	def staged = file('build/hearth')
+	def repoRoot = rootDir.parentFile
+	def javaHome = System.getenv('JAVA_HOME') ?: System.getProperty('java.home')
+	doLast {
+		File jar
+		String origin
+		if (given) {
+			jar = file(given.toString())
+			if (!jar.isFile()) {
+				throw new GradleException("no jar at ${jar}")
+			}
+			origin = jar.absolutePath
+		} else {
+			def sha = ['git', '-C', repoRoot.absolutePath, 'rev-parse', ref].execute().text.trim()
+			project.delete(snapshot)
+			snapshot.mkdirs()
+			def tar = new File(snapshot, 'hearth.tar')
+			// Hearth's settings include ../expanse, so the snapshot carries both, as they stood at that commit.
+			def archive = ['git', '-C', repoRoot.absolutePath, 'archive', '-o', tar.absolutePath, sha, 'hearth', 'expanse'].execute()
+			archive.waitFor()
+			if (archive.exitValue() != 0) {
+				throw new GradleException('git archive failed: ' + archive.errorStream.text)
+			}
+			project.copy {
+				from project.tarTree(tar)
+				into snapshot
+			}
+			def dir = new File(snapshot, 'hearth')
+			def isWindows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')
+			def cmd = isWindows ? ['cmd', '/c', new File(dir, 'gradlew.bat').absolutePath, 'jar', '--no-daemon', '-q', '-Patlas=false'] : ['sh', new File(dir, 'gradlew').absolutePath, 'jar', '--no-daemon', '-q', '-Patlas=false']
+			def pb = new ProcessBuilder(cmd).directory(dir).redirectErrorStream(true)
+			pb.environment().put('JAVA_HOME', javaHome)
+			def build = pb.start()
+			def out = build.inputStream.text
+			if (build.waitFor() != 0) {
+				throw new GradleException('the Hearth snapshot build failed:' + System.lineSeparator() + out)
+			}
+			jar = new File(dir, 'build/libs').listFiles().find { it.name.endsWith('.jar') && !it.name.contains('-sources') }
+			if (jar == null) {
+				throw new GradleException("the Hearth snapshot built no jar in ${dir}/build/libs")
+			}
+			origin = "${ref} @ ${sha}"
+		}
+		staged.mkdirs()
+		project.copy {
+			from jar
+			into staged
+			rename { 'void-hearth.jar' }
+		}
+		new File(staged, 'void-hearth.txt').text = "VOID Hearth staged from ${origin} (${jar.name}) on ${new Date()}" + System.lineSeparator()
+		println "VOID Hearth staged: build/hearth/void-hearth.jar from ${origin}"
+	}
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Hearth itself only in the dev runs, and only with -Phearth.
+	if (withHearth) {
+		localRuntime files(hearthJar)
+	}
 
 	testImplementation platform('org.junit:junit-bom:5.13.4')
 	testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -94,6 +188,14 @@ tasks.withType(JavaCompile).configureEach {
 	it.options.release = 25
 }
 
+// The Hearth api copy is for compiling only; the real classes come with Hearth.
+jar {
+	exclude 'dev/voidmc/hearth/**'
+}
+tasks.matching { it.name == 'sourcesJar' }.configureEach {
+	exclude 'dev/voidmc/hearth/**'
+}
+
 java {
 	withSourcesJar()
 	sourceCompatibility = JavaVersion.VERSION_25
@@ -124,7 +226,12 @@ fabricApi {
 	}
 }
 
+// The tour's Hearth journey compiles against the same api copy (and runs only when Hearth is loaded).
+sourceSets.gametest.compileClasspath += sourceSets.hearthApi.output
+
 // -Dmettle.balance=true turns the client tour into the in-game balance report (gametest BalanceReport).
+// -Dmettle.tour.hearth_only=true (with -Phearth) plays only the Hearth journey.
 tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	systemProperty 'mettle.balance', System.getProperty('mettle.balance', 'false')
+	systemProperty 'mettle.tour.hearth_only', System.getProperty('mettle.tour.hearth_only', 'false')
 }

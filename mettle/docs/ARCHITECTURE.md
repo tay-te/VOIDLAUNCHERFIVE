@@ -289,7 +289,7 @@ the configuration phase with a clear message.
 | 3 | Gear: items, three slots, pockets, menu patches, quiver and belt behaviour, render layer, gear panel | gear, ui | client game test: wear all three, fill them, die, respawn, keepInventory on and off |
 | 4 | Wave 1 skills (8) and their perk trees, anti-farm, level-up feedback, character levels, character screen | character, ui | a fresh survival day feels like progress (playtest) |
 | 5 | Backgrounds: picker, kits, signature perks, respec | character, ui | client game test screenshots of the picker and kits |
-| 6 | Hearth: trainers, books, prices, speech checks, quest XP, coin weight (after the Hearth requests land) | compat | works with Hearth present and absent |
+| 6 | Hearth: trainers, books, prices, speech checks, quest XP, coin weight (after the Hearth requests land). **Built 2026-10-07** (`compat.hearth`, INTEGRATION.md §1.2): the player-skills slot, prices, quest and trade XP, trainers and city masters' Teachings; books and Mettle's own speech-check options still to come | compat | works with Hearth present and absent |
 | 7 | Expanse discovery and lore, wave 2 skills | compat, character | |
 | 8 | Thievery (Hearth's law module provides the minigames), balance pass, 50-player load test | all | 20 TPS with 50 players |
 

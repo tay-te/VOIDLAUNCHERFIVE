@@ -71,9 +71,10 @@ Every value below is multiplied by: favoured ×1.25, Wits +2 %/point, perks, `xp
 | Smithing | per metal unit in a crafted tool, weapon or armour piece (ingot = 1, diamond = 2) | 25 |
 | Smithing | wooden, stone or leather piece · ingot taken from a furnace · anvil job · smithing upgrade | 5 · 4 · 25 + 10 per level spent · 150 |
 | Smithing | salvage at the grindstone (Salvager) · reforge | 1 per unit · 10 |
-| Any | skill check passed / failed | 15 / 5 × difficulty ÷ 10 |
-| Any | Hearth quest completed | 60–200 by type (INTEGRATION.md) |
-| Any | trainer session | see INTEGRATION.md |
+| Speech, Thievery, Stealth | what Hearth reports (`PlayerSkills.award`): a speech check 15–45 by difficulty (a third on failure), a struck haggle 5–40, a picked lock 10 a tier, a lifted pocket 6–30, an unseen crime 5–25 | Hearth's numbers (its ARCHITECTURE.md §11) |
+| Any | Hearth quest completed | 60–150 by type (§9.3) |
+| Any | Hearth trainer's lesson | 40 % of the way to the next level (§9.4) |
+| Speech | business at a Hearth market | 5 per crown, 1 per crown past 20 crowns a sim day (§9.2) |
 
 ## 4. Attributes per point (modifier ids `mettle:attr/<attribute>/<vanilla>`)
 
@@ -88,7 +89,7 @@ Every value below is multiplied by: favoured ×1.25, Wits +2 %/point, perks, `xp
 | Vitality | `max_health` (permanent modifier) | add_value | +1 per 2 points (½ heart) |
 | Vitality | hunger drain | behaviour | −2 % |
 | Wits | skill XP | internal | +2 % |
-| Presence | Hearth prices / reputation gains | compat | ±0.5 % / +3 % |
+| Presence | Hearth prices (§9.2) / Hearth's speech checks | compat | ±0.5 % / Hearth's own factor |
 
 Points below 3 (only via respec mistakes; the minimum is 1) apply the same rates negatively, except capacity, which
 stays at +5 per point from 1.
@@ -308,3 +309,86 @@ skill's own ingredient is roughly one tool's worth of that skill's work. Draught
 Poppy is the forgetting (sleep, Lethe); the fermented spider eye is the brewer's "reverser". Recipes unlock in the
 recipe book when an amethyst shard is picked up. No cooldown and no rising cost; tune the ingredients if players
 respec too freely (a second amethyst shard, or a gold ingot, is the next step up).
+
+## 9. With VOID Hearth (`compat.hearth.HearthRules`)
+
+Hearth owns how the world reacts; these are the numbers Mettle hands it. All in `HearthRules`, checked by
+`HearthRulesTest`. INTEGRATION.md §1.2 says where each one is used.
+
+### 9.1 Checks
+
+`PlayerSkills.check(player, skill, difficulty)`: **odds = 50 % + 5 % × (skill level + governing attribute ÷ 2 −
+difficulty), within 5–95 %** (CHARACTER.md §7; Hearth's `PlayerSkills.odds` documents the same rule). A check is even
+when the difficulty equals the level plus half the attribute; each level is worth 5 %, each attribute point 2.5 %.
+
+| | Easy (5) | Fair (10) | Hard (15) | Heroic (20) |
+|---|---|---|---|---|
+| Fresh (skill 0, attribute 3) | 32.5 % | 7.5 % | 5 % | 5 % |
+| Skill 5, attribute 6 | 65 % | 40 % | 15 % | 5 % |
+| Skill 10, attribute 10 | 95 % | 75 % | 50 % | 25 % |
+| Skill 20, attribute 14 | 95 % | 95 % | 95 % | 85 % |
+
+No XP from the roll itself: Hearth decides what a check is worth and reports it (§3).
+
+### 9.2 Prices and business
+
+The player's **edge** at a Hearth market = 0.5 % × (Presence − 3) + 0.5 % × Speech level + 5 % with Coin Sense
+(Merchant), kept within −10 %…+25 %. Buying costs × (1 − edge), selling pays × (1 + edge). Hearth multiplies every mod's
+factor, clamps the product to 0.5–1.5 and keeps what the town pays under 95 % of what it charges.
+
+| Character | Edge | Buys at | Sells at |
+|---|---|---|---|
+| Fresh (Presence 3, Speech 0) | 0 | 100 % | 100 % |
+| Merchant (Presence 5, Speech 0, Coin Sense) | 6 % | 94 % | 106 % |
+| Presence 10, Speech 10 | 8.5 % | 91.5 % | 108.5 % |
+| Presence 20, Speech 20, Coin Sense | 23.5 % | 76.5 % | 123.5 % |
+| Presence 1 (respec'd down) | −1 % | 101 % | 99 % |
+
+Speech XP for **business**: 5 per crown (100 bits) that changes hands at a counter, bought or sold, for the first 20
+crowns a sim day; 1 per crown after that. Turning goods over to farm it loses the market's spread each time.
+
+### 9.3 Quests
+
+Base skill XP on completion (before favoured and Wits; character XP follows, since it is all skill XP). Failed and
+abandoned quests give nothing.
+
+| Type | Skill | XP |
+|---|---|---|
+| bounty · caravan · law | the combat skill used most since the last fighting quest | 120 |
+| exploration · scouting | Survival | 150 |
+| courier · escort | Athletics | 100 |
+| disaster | combat (wolves) · Mining (mines, surveys) · Survival | 100 |
+| crime | Stealth | 100 |
+| supply · contract | Mining · Smithing · Survival, by the goods | 80 |
+| official | combat (guard work) · by goods (builder) · Speech (reeve, priest, lord) | 80 |
+| personal | Speech | 80 |
+| gathering | Survival | 60 |
+
+An exploration quest is about 13 minutes of focused activity at level 5 rates; a bounty about 10.
+
+### 9.4 Trainers
+
+| Settlement | Teaches up to |
+|---|---|
+| camp | 4 |
+| hamlet | 6 |
+| village | 10 |
+| town | 15 |
+| city | 20 |
+
+A **lesson** (once a sim day per trainer) gives 40 % of the XP between the player's level and the next, rounded, then
+the favoured and Wits multipliers. Its **fee** is 2.5 × (level + 1)² + 15 bits, to the nearest 5.
+
+| Level now → next | Lesson XP | Fee | Worth (at ~700 XP an hour) |
+|---|---|---|---|
+| 0 → 1 | 4 | 20 bits | seconds |
+| 2 → 3 | 49 | 40 bits | 4 minutes |
+| 5 → 6 | 181 | 105 bits (a crown) | 15 minutes |
+| 9 → 10 | 447 | 265 bits | 40 minutes |
+| 14 → 15 | 901 | 580 bits | 1¼ hours |
+| 19 → 20 | 1,474 | 1,015 bits (more than a horse, 800) | 2 hours |
+
+Early lessons are a nudge; near mastery a lesson is hours of work for ten crowns: coin buys time, and the fee's square
+keeps it a choice. Each trainer teaches once a sim day (20 minutes of play), so a city with several smiths can give a
+player who can pay several Smithing lessons a day.
+A **city master's Teaching** costs 1,000 bits (10 crowns) and needs the skill at 6.
