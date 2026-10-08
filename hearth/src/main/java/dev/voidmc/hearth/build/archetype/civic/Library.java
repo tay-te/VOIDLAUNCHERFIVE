@@ -228,6 +228,11 @@ public final class Library implements Archetype {
 					if (lvl == 0 && z < iz0 + 1 || lvl == 1 && (z < gz0 || x == sx && z < gz0 + 1)) {
 						continue;
 					}
+					// (on the gallery only full cases, two high: a lone case under a window is a ledge over the walk that
+					// a body climbs onto)
+					if (lvl == 1 && !(d.isEmpty(x, y + 1, z) && Openings.isWallBlock(d, wx, y + 2, wz))) {
+						continue;
+					}
 					int fx = x;
 					int fz = z;
 					try (var st = d.stage(StageKind.INTERIOR)) {

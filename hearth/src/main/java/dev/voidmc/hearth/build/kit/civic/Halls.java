@@ -443,7 +443,8 @@ public final class Halls {
 	/**
 	 * The last touches every civic and law building takes before its ground is cleared: a lintel over every doorway, a rail
 	 * in the foot of every light a body could walk out of, and a parapet along made ground standing over a fall
-	 * ({@link #lintels}, {@link #walkThroughLights}, {@link Grounds#edgeRails}); the roofed corners nobody furnished take
+	 * ({@link #lintels}, {@link #walkThroughLights}, {@link Grounds#edgeRails}); a step cut wherever folk would climb a
+	 * whole block ({@link Steps#cut}); the roofed corners nobody furnished take
 	 * a bench or a rain butt ({@link Nooks#furnish}); then whatever a body can still walk to beside a fall is guarded
 	 * ({@link Falls#guard}).
 	 */
@@ -451,6 +452,7 @@ public final class Halls {
 		lintels(d);
 		walkThroughLights(d);
 		Grounds.edgeRails(d);
+		Steps.cut(d);
 		Nooks.furnish(d);
 		Falls.guard(d);
 	}
