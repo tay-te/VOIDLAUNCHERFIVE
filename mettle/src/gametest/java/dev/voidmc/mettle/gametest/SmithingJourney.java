@@ -73,6 +73,11 @@ final class SmithingJourney {
 		TestServerContext server = world.getServer();
 		server.runCommand("mettle background set mettle:smith @a");
 		server.runCommand("effect clear @a");
+		// Earlier journeys leave the player high up (y≈200); stand them on a floor so the waits below can't kill them
+		// (a fall took the honed sword, and the husk, out of reach).
+		server.runCommand("execute at Player0 run fill ~-4 ~-1 ~-4 ~4 ~-1 ~4 minecraft:stone");
+		server.runCommand("execute at Player0 run fill ~-4 ~ ~-4 ~4 ~3 ~4 minecraft:air");
+		server.runCommand("execute at Player0 run tp Player0 ~ ~ ~");
 		// The player's things, kept aside and given back at the end; the benches' blocks likewise.
 		List<ItemStack> kept = new ArrayList<>();
 		Map<BlockPos, BlockState> blocks = new HashMap<>();
