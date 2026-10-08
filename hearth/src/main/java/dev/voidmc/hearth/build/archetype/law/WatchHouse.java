@@ -80,6 +80,11 @@ public final class WatchHouse implements Archetype {
 		int base = Grounds.raisedBase(d, x0, x1, z0);
 		int[] heights = flat ? new int[]{4, 4} : new int[]{4, 4, 4};
 		Body body = new Body(x0, z0, x1, z1, base, heights, false, false);
+		// the mesa's watch steps its upper storey back from the front, the lower roof a terrace before it
+		boolean pueblo = Pueblo.is(d) && z1 - z0 >= 8;
+		if (pueblo) {
+			body.setback(1, Dirs.FRONT, 2);
+		}
 		if (!flat) {
 			for (Direction side : Dirs.HORIZONTAL) {
 				body.jetty(2, side);
@@ -101,6 +106,10 @@ public final class WatchHouse implements Archetype {
 		int fy1 = body.floorY(1);
 		Side front = body.side(0, Dirs.FRONT);
 		Openings.door(d, front, cx, base, 1, new Openings.DoorOpts(true, true, true));
+		// the mesa's watch: a portal on posts along its front, where the watch sits out of the sun
+		if (Pueblo.is(d)) {
+			Pueblo.portal(d, x0, x1, z0, base, 1);
+		}
 		d.poi(PoiType.GUARD_POST, cx - 1, base, z0 - 1, Dirs.FRONT);
 		// barred loopholes below, small windows above
 		for (Side s : body.sides(0)) {
@@ -127,7 +136,13 @@ public final class WatchHouse implements Archetype {
 		int lookY;
 		if (flat) {
 			Storeys.Top top = Storeys.roof(d, body, RoofForm.FLAT, Direction.Axis.X, 1.0, 1);
-			Towers.battlements(d, x0, z0, x1, z1, top.deck());
+			int[] tr = body.topRect();
+			Towers.battlements(d, tr[0], tr[1], tr[2], tr[3], top.deck());
+			if (pueblo) {
+				// the terrace over the guard room before the stepped storey, a door out to it from the bunks
+				dev.voidmc.hearth.build.kit.Roofs.terrace(d, body.rect(0), body.rect(1), fy1 - 1);
+				Openings.door(d, body.side(1, Dirs.FRONT), cx, fy1, 1, new Openings.DoorOpts(false, false, false));
+			}
 			lookY = top.deck();
 			// (the mesa's watch keeps its roof for the stepped room of the pueblo, its terrace the lookout)
 			skyline = Pueblo.is(d) ? lookY + 1 : sentryPavilion(d, stairLeft0(d) ? x1 - 3 : x0 + 1, z1 - 3, lookY, tim);
@@ -155,7 +170,7 @@ public final class WatchHouse implements Archetype {
 				Towers.bell(d, bcx, plate - 1, bcz, Direction.Axis.X);
 			}
 		}
-		Towers.lookout(d, cx, lookY, z0 + 1, Dirs.FRONT, true);
+		Towers.lookout(d, cx, lookY, body.topRect()[1] + 1, Dirs.FRONT, true);
 
 		// --- the guard room: the stair up (a switchback in a corner), the grindstone, the rack of arms, a table
 		int ix0 = x0 + 1;
@@ -187,20 +202,27 @@ public final class WatchHouse implements Archetype {
 		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, guard), Rooms.Type.LIVING, 0, JobType.NONE);
 		Lighting.room(d, guard);
 		// --- the bunks
-		Rooms.Room bunks = new Rooms.Room(ix0, iz0, ix1, iz1, fy1, 3);
+		int[] ur = body.rect(1);
+		Rooms.Room bunks = new Rooms.Room(ur[0] + 1, ur[1] + 1, ur[2] - 1, ur[3] - 1, fy1, 3);
+		if (pueblo) {
+			// the way in from the terrace door
+			bunks.keepArea(cx, ur[1] + 1, cx, ur[1] + 2);
+		}
 		int[] land = {sx + Dirs.dx(across), iz1 - 3};
 		bunks.keep(land[0], land[1]);
 		bunks.keepArea(sx, iz1 - 2, sx + Dirs.dx(across), iz1);
 		// the ladder to the lookout through a hatch, in the corner over the stair's head
 		int lx = stairLeft ? ix1 : ix0;
-		int lz = iz1;
+		// (in the mesa at the front of the bunk room, so the back of the roof is clear for the pueblo's stepped room)
+		boolean mesa = Pueblo.is(d);
+		int lz = mesa ? body.rect(1)[1] + 1 : iz1;
 		bunks.keep(lx, lz);
 		if (!flat) {
 			Stairs.ladder(d, lx, lz, fy1, body.floorY(2) - 1, Dirs.FRONT);
 		} else {
-			Stairs.ladder(d, lx, lz, fy1, plate, Dirs.FRONT);
+			Stairs.ladder(d, lx, lz, fy1, plate, mesa ? Dirs.BACK : Dirs.FRONT);
 		}
-		bunks.keep(lx, lz - 1);
+		bunks.keep(lx, mesa ? lz + 1 : lz - 1);
 		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, bunks), Rooms.Type.BEDROOM, 2, JobType.NONE);
 		Lighting.room(d, bunks);
 		if (!flat) {
@@ -216,9 +238,9 @@ public final class WatchHouse implements Archetype {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, cx);
 		}
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
-		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		int crown = Pueblo.is(d) ? Pueblo.crown(d, body.topRect()) : Integer.MIN_VALUE;
 		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(maxH - 1, skyline + 2), pueblo + 2));
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(maxH - 1, skyline + 2), crown + 2));
 	}
 
 	/**

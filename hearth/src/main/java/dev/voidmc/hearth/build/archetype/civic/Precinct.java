@@ -473,9 +473,18 @@ final class Precinct {
 					continue;
 				}
 				Block walling = java.util.Collections.max(count.entrySet(), java.util.Map.Entry.comparingByValue()).getKey();
-				if (walling == strip.at(s.x(1), fy, s.z(1)).getBlock()) {
+				// strips of the dressing, or where the walls are the dressing's own stone, of the accent or the footing
+				Paint str = strip;
+				for (Paint alt : new Paint[]{strip, this.d.mat(Role.WALL_ACCENT).full(), Stone.footing(this.d).full(), this.d.mat(Role.FOUNDATION).full()}) {
+					if (alt.at(s.x(1), fy, s.z(1)).getBlock() != walling) {
+						str = alt;
+						break;
+					}
+				}
+				if (walling == str.at(s.x(1), fy, s.z(1)).getBlock()) {
 					continue;
 				}
+				Paint stripP = str;
 				try (var st = this.d.stage(StageKind.WALLS)) {
 					for (int i = 0; i <= s.last(); i++) {
 						int x = s.x(i);
@@ -489,7 +498,7 @@ final class Precinct {
 							}
 							boolean course = y == fy - 1 || k == 0 && y == fy;
 							if (course || pilaster) {
-								this.d.set(x, y, z, strip);
+								this.d.set(x, y, z, stripP);
 							}
 						}
 					}

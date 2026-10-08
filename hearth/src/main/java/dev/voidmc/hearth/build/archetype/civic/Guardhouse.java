@@ -113,6 +113,10 @@ public final class Guardhouse implements Archetype {
 		Side front = body.side(0, Dirs.FRONT);
 		Integer door = fac.openings(Dirs.FRONT).stream().filter(o -> o.kind() == Facade.Kind.DOOR).map(Facade.Opening::at).findFirst().orElse(cx);
 		Openings.door(d, front, door, base, 1, new Openings.DoorOpts(true, true, true));
+		// the mesa's guard: a portal on posts along the front
+		if (dev.voidmc.hearth.build.kit.civic.Pueblo.is(d)) {
+			dev.voidmc.hearth.build.kit.civic.Pueblo.portal(d, x0, x1, z0, base, Math.min(2, z0));
+		}
 		d.poi(PoiType.GUARD_POST, door + (door > x0 + 1 ? -1 : 1), base, z0 - 1, Dirs.FRONT);
 		Signs.Arms arms = Signs.arms(d);
 		if (Openings.isWallBlock(d, door, fy + 1, body.rect(1)[1]) && body.rect(1)[1] - 1 >= -1) {

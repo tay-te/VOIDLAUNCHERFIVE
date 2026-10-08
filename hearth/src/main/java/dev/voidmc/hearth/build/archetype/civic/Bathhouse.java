@@ -269,6 +269,8 @@ public final class Bathhouse implements Archetype {
 		}
 		d.poi(PoiType.MEETING_POINT, cx, base, hcz - 2, Dirs.BACK);
 		d.poi(PoiType.SEAT, cx, base, hcz, Dirs.FRONT);
+		// the bathers' copper bowl and water jar at a corner of the hot stone
+		d.inStage(StageKind.INTERIOR, () -> d.set(cx + 1, base + 1, hcz + 1, Blocks.DECORATED_POT.defaultBlockState()));
 		Baths.steam(d, cx - 3 > ix0 ? cx - 3 : ix0 + 1, base, hcz + 2);
 		Baths.steam(d, cx + 3 < ix1 ? cx + 3 : ix1 - 1, base, hcz + 2);
 		// basins along the side walls, a bench between each
@@ -431,6 +433,13 @@ public final class Bathhouse implements Archetype {
 		}
 		for (int x = x0 + 1; x <= x1 - 1; x += 2) {
 			d.poi(PoiType.SEAT, x, base, iz1 - 1, Dirs.FRONT);
+		}
+		// the water bucket and the ladle's jar at the end of each tier, for the stones
+		try (var s = d.stage(StageKind.INTERIOR)) {
+			d.set(x1 - 1, base + 2, iz1, Blocks.DECORATED_POT.defaultBlockState());
+			if (iz1 - 1 > pz + 1) {
+				d.set(x1 - 1, base + 1, iz1 - 1, Blocks.DECORATED_POT.defaultBlockState());
+			}
 		}
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			int sx = x0 + 1;

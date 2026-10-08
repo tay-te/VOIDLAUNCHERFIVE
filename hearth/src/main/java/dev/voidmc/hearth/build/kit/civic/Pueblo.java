@@ -41,6 +41,61 @@ public final class Pueblo {
 	}
 
 	/**
+	 * The portal of the mesa's houses of the town: a porch along the front wall (row {@code zWall}) from {@code x0} to
+	 * {@code x1}, {@code depth} rows deep, on posts at its corners and every third column (never before a door), a beam
+	 * along its front, vigas from the wall to the beam and a roof of slabs over them; three rows of head room under it.
+	 * Cells already taken are left as they are. Returns whether it was built.
+	 */
+	public static boolean portal(Draft d, int x0, int x1, int zWall, int base, int depth) {
+		int zo = zWall - depth;
+		if (zo < 0 || x1 - x0 < 3 || base + 5 >= d.maxHeight()) {
+			return false;
+		}
+		// (the vigas' row clear over the whole porch; a lamp or a bench under it may stay, and a course run along the
+		// wall over it serves as the roof's edge there)
+		for (int z = zo; z < zWall; z++) {
+			for (int x = x0; x <= x1; x++) {
+				if (!d.isEmpty(x, base + 3, z)) {
+					return false;
+				}
+			}
+		}
+		Mat beam = d.mat(Role.BEAM);
+		Mat roof = d.mat(Role.WALL_ACCENT).has(Form.SLAB) ? d.mat(Role.WALL_ACCENT) : d.mat(Role.ROOF);
+		java.util.Set<Integer> doors = new java.util.HashSet<>();
+		for (int x = x0; x <= x1; x++) {
+			var st = d.get(x, base, zWall);
+			if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.DoorBlock) {
+				doors.add(x);
+			}
+		}
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int x = x0; x <= x1; x++) {
+				boolean post = (x == x0 || x == x1 || (x - x0) % 3 == 0) && !doors.contains(x) && !doors.contains(x - 1) && !doors.contains(x + 1);
+				if (post && d.isEmpty(x, base, zo) && d.isEmpty(x, base + 1, zo) && d.isEmpty(x, base + 2, zo) && d.isSolid(x, base - 1, zo)) {
+					for (int y = base; y < base + 3; y++) {
+						d.set(x, y, zo, beam.log(Direction.Axis.Y));
+					}
+				}
+				d.set(x, base + 3, zo, beam.log(Direction.Axis.X));
+				for (int z = zo + 1; z < zWall; z++) {
+					d.set(x, base + 3, z, beam.log(Direction.Axis.Z));
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int z = zo; z < zWall; z++) {
+				for (int x = x0; x <= x1; x++) {
+					if (d.isEmpty(x, base + 4, z)) {
+						d.set(x, base + 4, z, roof.slab(SlabType.BOTTOM));
+					}
+				}
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * Stacks a stepped upper room on the back of the draft's flat roof with a ladder up to its terrace through a hatch
 	 * (nothing when the roof is not flat, the deck is taken, the plot is too low or no wall under the terrace takes a ladder). The room fills the deck's back
 	 * part flush with the back and side walls, its front wall set back so the front of the deck is a terrace; inside, the
@@ -58,6 +113,8 @@ public final class Pueblo {
 			return plate;
 		}
 		int deck = plate + 1;
+		// the storey's own roof beams' ends run out through its wall head (where it has none yet), stepped room or none
+		Adobe.vigas(d, r[0], r[1], r[2], r[3], plate - 1);
 		// a flat roof: the deck solid over most of the inside, the air over it clear
 		int solid = 0;
 		int all = 0;
@@ -95,6 +152,10 @@ public final class Pueblo {
 		for (int[] c : rooms) {
 			// up through a hatch from the storey under the terrace (a ladder up an outside wall stands over a drop the whole way)
 			int[] hatch = hatchSpot(d, r, plate, c[0]);
+			// (or the house's own ladder already up through the roof before the room's line: the terrace is reached)
+			if (hatch == null) {
+				hatch = ownHatch(d, r, plate, c[0]);
+			}
 			if (hatch == null) {
 				continue;
 			}
@@ -167,7 +228,9 @@ public final class Pueblo {
 		Lighting.room(d, room);
 		// the terrace before it: kept clear before the door, the ladder from the ground up the side wall
 		d.poi(PoiType.VIEWPOINT, cx, deck, zf - 1, Dirs.FRONT);
-		ladder(d, ladder, deck);
+		if (ladder[4] != 4) {
+			ladder(d, ladder, deck);
+		}
 		return roofTop;
 	}
 
@@ -193,6 +256,22 @@ public final class Pueblo {
 	private static boolean isCoping(Draft d, int x, int y, int z) {
 		var s = d.get(x, y, z);
 		return s != null && (s.getBlock() instanceof net.minecraft.world.level.block.SlabBlock || s.getBlock() instanceof net.minecraft.world.level.block.StairBlock);
+	}
+
+	/**
+	 * A ladder the house already has up through its roof in front of the room's line {@code zf}: {x, z, -, -, 4} (the
+	 * marker that no ladder is to be built), or null.
+	 */
+	private static int[] ownHatch(Draft d, int[] r, int plate, int zf) {
+		for (int z = r[1] + 1; z < zf; z++) {
+			for (int x = r[0] + 1; x < r[2]; x++) {
+				var s = d.get(x, plate, z);
+				if (s != null && s.getBlock() instanceof net.minecraft.world.level.block.LadderBlock) {
+					return new int[]{x, z, 0, 0, 4, 0};
+				}
+			}
+		}
+		return null;
 	}
 
 	/**

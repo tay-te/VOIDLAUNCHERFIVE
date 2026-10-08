@@ -87,7 +87,7 @@ public final class Jail implements Archetype {
 		// the mesa's lock-up steps its jailer's storey back from the front, the strong storey's roof a terrace before it
 		boolean pueblo = Pueblo.is(d);
 		if (pueblo) {
-			body.setback(1, Dirs.FRONT, 2);
+			body.setback(1, Dirs.FRONT, z1 - z0 >= 8 ? 3 : 2);
 		}
 		d.body(x0, z0, x1, z1);
 		int plate = body.plateY();
@@ -127,6 +127,10 @@ public final class Jail implements Archetype {
 			Details.arch(d, front, front.index(doorX), 1, base, 3, dress, dev.voidmc.hearth.build.draft.Paint.of(Blocks.IRON_BARS.defaultBlockState()));
 		}
 		Openings.door(d, front, doorX, base, 1, new Openings.DoorOpts(false, false, true));
+		// the mesa's lock-up: a portal on posts along its front, the jailer's shade
+		if (pueblo) {
+			Pueblo.portal(d, x0, x1, z0, base, 2);
+		}
 		for (int side : new int[]{-1, 1}) {
 			int lx = doorX + side;
 			if (z0 - 1 >= 0 && d.isEmpty(lx, base + 1, z0 - 1)) {
