@@ -59,6 +59,34 @@ public final class Temper {
 		return Math.max(1, p);
 	}
 
+	/**
+	 * The room a merchant gives a skilled talker (a character mod's Speech, 0–20): 2 % more per level, still within
+	 * 0..0.6. Level 0 (no skills mod) leaves it as it was.
+	 */
+	public static double skilled(double room, int speech) {
+		if (speech <= 0) {
+			return room;
+		}
+		return clamp(room * (1 + 0.02 * Math.min(20, speech)), 0, 0.6);
+	}
+
+	/** The factor on a merchant's patience for a skilled talker: 1.5 % more per level of Speech (1 at level 0). */
+	public static double skilledPatience(int speech) {
+		return 1 + 0.015 * Math.clamp(speech, 0, 20);
+	}
+
+	/**
+	 * Speech XP for a struck haggle: nothing for paying the asking price, else 5 plus one per two bits saved (or gained)
+	 * against it, at most 40.
+	 */
+	public static float haggleXp(long list, long agreed) {
+		long won = Math.abs(list - agreed);
+		if (won <= 0) {
+			return 0;
+		}
+		return (float) Math.min(40.0, 5.0 + won / 2.0);
+	}
+
 	/** A resident's traits by name ({@code extra.npc.traits}); empty without the NPC module's data. */
 	public static Set<String> traits(@Nullable Resident resident) {
 		Set<String> out = new HashSet<>();

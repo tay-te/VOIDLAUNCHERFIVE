@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.mojang.serialization.JsonOps;
 import dev.voidmc.hearth.api.Culture;
+import dev.voidmc.hearth.api.QuestType;
 import dev.voidmc.hearth.api.testing.SimpleSettlement;
 import dev.voidmc.hearth.quest.model.Objective;
 import dev.voidmc.hearth.quest.model.ObjectiveKind;
@@ -14,7 +15,6 @@ import dev.voidmc.hearth.quest.model.PlayerQuests;
 import dev.voidmc.hearth.quest.model.QuestInstance;
 import dev.voidmc.hearth.quest.model.QuestReward;
 import dev.voidmc.hearth.quest.model.QuestStatus;
-import dev.voidmc.hearth.quest.model.QuestType;
 import dev.voidmc.hearth.quest.model.SettlementQuests;
 import dev.voidmc.hearth.quest.model.TurnIn;
 import dev.voidmc.hearth.quest.service.Rewards;

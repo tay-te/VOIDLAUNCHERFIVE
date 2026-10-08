@@ -378,7 +378,7 @@ at ~330 work units a day, newcomers while beds are free, jobs from built workpla
 | `nobility` | true | the castle hill, the keep, the castle or palace, stables, gardens, the lodge |
 | `deep_towns`, `deep_share` | true, 0.25 | deep towns, and the share of the town they house |
 | `prevailing_wind` | −1 | degrees clockwise from north the wind blows from; negative: one per world from its seed |
-| `live_time_limit_ms` | 10 | a call on the server thread stops searching frontage after this long and lets the need rest (a cold terrain cache in a big town cost 250 ms once); histories, on their own threads, are never cut short, so they stay deterministic |
+| `live_time_limit_ms` | 10 | a call on the server thread stops after this long (the frontage search, the lane walks, a cart track's route, and before any need it has less than 30 % of its time left for) and lets the need rest (a cold terrain cache in a big town cost 250 ms once); the clock asks again at its next step; histories, on their own threads, are never cut short, so they stay deterministic |
 
 Debug: `/hearth plan info` near a settlement (with why its last call answered nothing); `/hearth plan stats`: live
 `planner.next` calls that answered nothing, counted by reason (`PlanStats`: "housing: no frontage, roads at their
@@ -462,7 +462,10 @@ families into homes of their station (`SettlementClock.assignHomes`, SIM.md §16
 At village tier (with the districts) the **castle hill** is chosen once and kept (`PlanState.castleHill`): the most
 commanding ground within reach of the future city (its core at 150 folk × 2.2, out of today's streets): height over the
 heart, plus 1.6 × its prominence over the land 28 blocks round, less its own unevenness, dry and still four-fifths open
-over a castle's width. It is held (`castle_hill` reservation, open ground only) until the town is a town; then the
+over a castle's width. Where the terrain marks castle sites (`TerrainProbe.site`: Expanse's level tops of lone hills
+and the tops of escarpments' edges), the 24 nearest within reach are candidates too, a hilltop with 14 added to its
+score and a rim (and the points ten blocks to each side of it, the upland behind the edge among them) with 10, so the
+castle takes the hill a builder would pick over ground merely as high. It is held (`castle_hill` reservation, open ground only) until the town is a town; then the
 **keep** (`noble/keep`, 265) goes up on it with a **close** kept round it big enough for the castle (`castle`
 reservation), its frontage reached by a cart road up the hill (stairs only if it must). At city tier (170 folk) the
 **castle** (`noble/castle`), or in the cultures that build them the **palace** (`noble/palace`), replaces the keep over
@@ -485,7 +488,15 @@ past its houses), fronting a road; if no road comes near the site, a **cart trac
 hill demands them, frontage only for what belongs out there, and a budget of its own, 360 + 6 a head, outside the
 town's road budget) runs out to it first. A mine wants a hillside: its footprint runs uphill from the portal (the
 ground rises at least five blocks to its back). A working names its `site`, `kind`, `rock`, `face`, and `depth` or
-`length`; a built (dug-out) working frees its site for the next. The job route (`job/miner` …) and the shortage route
+`length`; a built (dug-out) working frees its site for the next, and no longer counts for the program while the town
+has folk in its trade or still wants its goods (stone under 400 + 4 a head in store, ore, clay or sand under 160 + 2 a
+head): the next is opened beside the old cut (the target skips ground already taken; a short spur runs on from the old
+track when it ends at the old cut) or at the next site, at most three dug out at a site (`Extraction.counted`,
+`DUG_PER_SITE`), one face at a time a work, each working followed by one successor (`GENERATIONS`: twice the
+program's count dug out in all), so a town keeps a face open for its diggers without pocking its hills. A working tries the four nearest sites with room, and two
+points of each pit's site well apart, before it gives up (an ore site under the future streets is passed over; the
+cart track goes to the next site after one that would not route), and a crew waiting for its next face rests its need
+only a few calls after a failed try (`Extraction.faceWanted`). The job route (`job/miner` …) and the shortage route
 (builders waiting on stone) go through the same code; with no survey the phase 2 quarry and sawmill stand in.
 
 **The chains' workshops** stand by their inputs (the `SITED` placement with a `Siting`: an anchor and weights for the
@@ -624,3 +635,47 @@ answers; `PlanModule.underground` falls back to probes paired by hand). A lift i
   keep their full height: they are the skyline. A home rebuilt taller (`Upgrades`: cottages to shophouses to
   townhouses) is measured in the zone it stands in now, not the zone its first house was planned in.
 
+### 14.8 The second live tour's findings (wave 7, requests/w7-tour.md §1, §3–5, w6-plan.md §4–5, expanse.md 2026-10-07)
+
+- **Calls past their limit** (live: 20–95 ms against 10, growth every minute's worst step). `PlanStats` now charges the
+  time a live call spends past its deadline to the stage that ran it ("reconcile", "needs list", "housing",
+  "program"...: `/hearth plan stats`, `/hearth sim stats`); offline `PlanBenchTest` with `HEARTH_PLAN_BENCH_DEADLINE=10`
+  and `HEARTH_PLAN_BENCH_PROFILE=past` profiles only what runs past it. Most of it was the program's needs (a cart track's
+  route, a chapel's approach, the frontage search of a sited workshop), then housing and the needs list. Now:
+  a cart track's or approach's route stops at the deadline (`Router.DEADLINE`; nothing is remembered of a route not
+  found); the lane walks of `Expand.town` stop before the next walk; a need is not begun with less than 30 % of the
+  call's time left (`LEAVE_FOR_A_NEED`); a need cut short twice in a row rests about a day's calls (12–21) rather than be
+  tried at full cost again and again, and after three it gets one try, as a call's first need, with three times the
+  call's time (`WHOLE_AFTER`), or a search longer than a live call would never be finished; an out-of-time answer is not
+  logged (a log line costs the call's time) and the clock asks again at its next step (SIM.md §2) instead of half a
+  day later. The needs list (residents, plots, the program's entries, landmarks, the nobility, gates) is kept between
+  calls while nothing it is read from has changed (`Growth.Memo`: the same folk at the same work, the same plots in the
+  same states, the same queue and shortages, nothing issued since; at most 24 calls), and the sim no longer recounts its
+  derived figures inside the call after a planned plot (SIM.md §2). Offline, five cities' worth of calls with a 10 ms
+  limit (`PlanBenchTest`, temperate hills 1 and river 4, MiniSim, a shared machine): time past the deadline 192 and
+  240 ms before, 207 and 37 ms after; slowest call 27–40 ms before, 31–37 ms after (the three-times tries); calls over
+  15 ms 13 and 2 of ~1 500. The live server is the measure that counts (requests/w7-planner.md §5).
+- **Workings never reopened** (§14.3): a dug-out working no longer counts while the town has its trade's folk or wants
+  its goods; the next site is tried when the nearest lies under the town or has no room; SIM.md §16.3 has the sim's half
+  (one hand for a face being cut, the crews of pits dug out counted once a trade) and the numbers.
+- **Camps that never grow** ("no road could grow (no lane mouth, the main streets built out)" with no streets): a camp
+  or hamlet whose roads will not grow lays its first lane out from its square (`FirstLane`: walked from just outside the
+  square's rim along each of eight headings, straight and along the contour, the longest that grades and builds is
+  laid), and a wall line is no longer drawn in tighter than 28 blocks from the heart off water and crags (on a small
+  mesa top the line ran along the rim and boxed the camp in). On Expanse's taller world (4b138901) the tour's camps
+  founded at their own coordinates offline (`settlementPreview -Pterrain=earthat:x:z`, MiniSim) grow on: Eikholt
+  (northern) 82 souls by day 150, Heathergill (moorland) 110, Frostreach (tundra) 117. Safia (desert, a mesa top about
+  25 blocks across with 40-block cliffs) and Hochdorf (alpine, 10 souls, its square hemmed by the river and its two
+  civic lots) still do not: requests/w7-planner.md §1–3 for the layout lane.
+- **"Every need resting"** in a patron town (Thornley at 95): its housing need was gone because the town stood at its
+  land's carrying capacity (the planner builds no beds past it; settlers left for a daughter hamlet), and every other
+  need rested after failing. Rests are counted in calls, and a town whose calls all answer nothing is asked only every
+  half day, so a need resting forty calls rested twenty days. Now when every need is resting the one that wakes soonest
+  is tried, and the reason says "; beds at the land's capacity" when that is what holds the town (the number is in
+  `/hearth settlement economy`). The patron's deliveries do not raise the capacity (the sim's, from what the land regrows
+  and trade earns).
+- **Castle sites on Expanse's relief** (§14.2): the planner reads `TerrainProbe.site`.
+  On the taller world the founded camps were looked at offline (`settlementPreview -Pterrain=earthat:x:z`, the tour's
+  five camps to day 150): on mountain flanks the streets climb as stair streets and graded lanes (a moorland town of 110
+  on a ridge, 2 809 blocks of road), walled towns keep their line off the lakes, and the probe's `maxY` is the level's
+  (the preview's own probe now 640); nothing in road grading or territory assumed the old relief.

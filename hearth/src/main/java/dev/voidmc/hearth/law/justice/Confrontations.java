@@ -3,13 +3,14 @@ package dev.voidmc.hearth.law.justice;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.EconomyService;
 import dev.voidmc.hearth.api.HearthServices;
-import dev.voidmc.hearth.api.NpcService;
 import dev.voidmc.hearth.api.NpcService.FolkHandle;
+import dev.voidmc.hearth.api.NpcService;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.api.StandingService;
 import dev.voidmc.hearth.law.Law;
 import dev.voidmc.hearth.law.LawConfig;
+import dev.voidmc.hearth.law.LawSkills;
 import dev.voidmc.hearth.law.crime.CrimeDesk;
 import dev.voidmc.hearth.law.folk.FolkTraits;
 import dev.voidmc.hearth.law.net.LawPayloads;
@@ -193,7 +194,9 @@ public final class Confrontations {
 				}
 			}
 			case "persuade" -> {
-				if (player.getRandom().nextDouble() < searchPersuadeOdds(player, s, guard)) {
+				boolean talked = player.getRandom().nextDouble() < searchPersuadeOdds(player, s, guard);
+				LawSkills.speechCheck(player, talked, "persuade_search");
+				if (talked) {
 					Law.state(s).addSuspicion(player.getUUID(), -50);
 					s.markDirty();
 					talk.state = State.SETTLED;
@@ -206,8 +209,12 @@ public final class Confrontations {
 			case "bribe" -> {
 				EconomyService economy = HearthServices.economy();
 				long amount = searchBribe();
-				double odds = SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(guard).listener());
-				if (economy != null && economy.balance(player) >= amount && player.getRandom().nextDouble() < odds) {
+				double odds = LawSkills.speech(player, SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(guard).listener()));
+				boolean took = economy != null && economy.balance(player) >= amount && player.getRandom().nextDouble() < odds;
+				if (economy != null && economy.balance(player) >= amount) {
+					LawSkills.speechCheck(player, took, "bribe_search");
+				}
+				if (took) {
 					economy.bribe(player, s, guard, amount);
 					Law.state(s).addSuspicion(player.getUUID(), -50);
 					s.markDirty();
@@ -230,8 +237,12 @@ public final class Confrontations {
 			case "bribe" -> {
 				EconomyService economy = HearthServices.economy();
 				long amount = SpeechCheck.witnessBribe(fine);
-				double odds = SpeechCheck.bribe(amount, SpeechCheck.witnessBribe(fine), worst(reports), FolkTraits.of(witness).listener());
-				if (economy != null && economy.balance(player) >= amount && player.getRandom().nextDouble() < odds) {
+				double odds = LawSkills.speech(player, SpeechCheck.bribe(amount, SpeechCheck.witnessBribe(fine), worst(reports), FolkTraits.of(witness).listener()));
+				boolean took = economy != null && economy.balance(player) >= amount && player.getRandom().nextDouble() < odds;
+				if (economy != null && economy.balance(player) >= amount) {
+					LawSkills.speechCheck(player, took, "bribe_witness");
+				}
+				if (took) {
 					economy.bribe(player, s, witness, amount);
 					CrimeDesk.silence(s, witness.id, player.getUUID());
 					CrimeDesk.deed(s, player.getUUID(), "law:bribed_witness", -2, witness.id, player.blockPosition(), false);
@@ -243,7 +254,9 @@ public final class Confrontations {
 				}
 			}
 			case "threaten" -> {
-				if (player.getRandom().nextDouble() < threatenOdds(player, witness)) {
+				boolean cowed = player.getRandom().nextDouble() < threatenOdds(player, witness);
+				LawSkills.speechCheck(player, cowed, "threaten_witness");
+				if (cowed) {
 					CrimeDesk.silence(s, witness.id, player.getUUID());
 					CrimeDesk.deed(s, player.getUUID(), "law:threatened_witness", -8, witness.id, player.blockPosition(), false);
 					talk.state = State.SETTLED;
@@ -388,7 +401,7 @@ public final class Confrontations {
 			if (economy != null && Law.config().witnesses().bribes()) {
 				long amount = searchBribe();
 				out.add(new LawPayloads.Choice("bribe", Component.translatable("hearth.law.choice.bribe", economy.format(amount),
-					SpeechCheck.percent(SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(guard).listener()))), Justice.canAfford(player, amount)));
+					SpeechCheck.percent(LawSkills.speech(player, SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(guard).listener())))), Justice.canAfford(player, amount)));
 			}
 		}
 		return out;
@@ -402,7 +415,8 @@ public final class Confrontations {
 		if (economy != null && Law.config().witnesses().bribes()) {
 			long amount = SpeechCheck.witnessBribe(fine);
 			out.add(new LawPayloads.Choice("bribe", Component.translatable("hearth.law.choice.hush", economy.format(amount),
-				SpeechCheck.percent(SpeechCheck.bribe(amount, amount, worst(reports), FolkTraits.of(witness).listener()))), Justice.canAfford(player, amount)));
+				SpeechCheck.percent(LawSkills.speech(player, SpeechCheck.bribe(amount, amount, worst(reports), FolkTraits.of(witness).listener())))),
+				Justice.canAfford(player, amount)));
 		}
 		if (Law.config().witnesses().threats()) {
 			out.add(new LawPayloads.Choice("threaten", Component.translatable("hearth.law.choice.threaten",
@@ -415,7 +429,7 @@ public final class Confrontations {
 	static double threatenOdds(ServerPlayer player, Resident witness) {
 		StandingService standing = HearthServices.standing();
 		float menace = standing != null ? standing.menace(player) : fallbackMenace(player);
-		return SpeechCheck.threaten(menace, FolkTraits.of(witness).listener());
+		return LawSkills.speech(player, SpeechCheck.threaten(menace, FolkTraits.of(witness).listener()));
 	}
 
 	/** Without the standing module: armour and a weapon in hand make a threat. */
@@ -429,7 +443,7 @@ public final class Confrontations {
 		StandingService standing = HearthServices.standing();
 		int st = standing != null ? standing.standing(s.id(), player.getUUID()) : s.reputation(player.getUUID());
 		float charisma = standing != null ? standing.charisma(player) : 0;
-		return SpeechCheck.persuade(st, 0, charisma, 1, FolkTraits.of(guard).listener());
+		return LawSkills.speech(player, SpeechCheck.persuade(st, 0, charisma, 1, FolkTraits.of(guard).listener()));
 	}
 
 	private static long searchBribe() {

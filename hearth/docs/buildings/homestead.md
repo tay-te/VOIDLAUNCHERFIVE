@@ -43,9 +43,11 @@ Params: `shed` (bool), `boundary` (`drystone|hedge|rails|bund|none`), `terraced`
 **`farm/orchard`.** The culture's fruit trees in a quincunx of mixed ages, ground left as it lies (dips filled so it can
 be walked): apples (oak with blossom) in the vale, cherry or wisteria blossom in the karst and wisteria country, leaning
 olives round the Mediterranean, palms in the desert, cocoa in the jungle; berry rows between the trees where it is
-cold. Crowns are lifted clear of the ground under them. A mown path up the middle, beehives on posts, a ladder against a
-grown tree and baskets, a press shed with the compost bin.
-POIs: FARMER job sites (compost bin, stands by the trees), STORAGE. Params: `shed`, `spacing` (4–7), `boundary`.
+cold. Crowns are lifted clear of the ground under them; trunks six or seven apart (palms five), so every crown stands
+clear in its row with grass between. A mown path up the middle, beehives on posts, a picker's short ladder (one rung)
+propped against a grown tree and baskets, a press shed with the compost bin.
+POIs: FARMER job sites (compost bin, stands by the trees), STORAGE. Params: `shed`, `spacing` (4–7, default 6 or 7),
+`boundary`.
 
 **`farm/pasture`.** Stock-proof boundary (a culture whose boundary is a bank or nothing gets rails), wooden gate even in
 walled cultures, a trampled patch round a trough and the herder's feed cauldron, an open-fronted shelter with hay and a
@@ -57,11 +59,13 @@ POIs: HERDER job sites (cauldron, hay rack, gate, out in the grass), STORAGE, an
 **`farm/paddy`** (karst, tropical). Flooded terraces down the hill, each a level sheet of water over mud with rows of
 seagrass rice (tall seagrass sunk a block so its head stays under the surface: it holds water in both halves and would
 spill over the bunds if it stood out), held by stone faces under raised earth bunds, a stepped path at the side, a
-thatched shelter with the compost bin, a scarecrow, a shrine lantern on the top terrace. On level ground, one or two
+thatched shelter with the compost bin and the seed chest (where it has no corner, the bin and the chest stand side by
+side beside the path up: every paddy keeps its job block and store), a scarecrow, a shrine lantern on the top terrace. On level ground, one or two
 flooded fields inside bunds. POIs: FARMER job sites. Params: `shelter`, `terraced`.
 
 **`farm/terrace_field`** (any culture on a hillside). Narrow level terraces behind dry-stone retaining walls with flat
-copings, a stepped path through every wall, a tool hut on the lowest terrace. The crop follows the people: vines on
+copings, a stepped path through every wall, a tool hut on the lowest terrace (where none fits, on a slope's narrow
+bottom terrace, the compost bin and the chest stand side by side beside the path up: `PathStore`). The crop follows the people: vines on
 posts and olives (olive cultures), tea bushes in close rows (blossom cultures), hay meadow with beehives and drying racks
 (cold cultures), watered crop beds elsewhere. POIs: FARMER job sites, STORAGE. Params: `crop`
 (`vines|tea|meadow|beds`), `hut`.
@@ -221,7 +225,9 @@ courtyard houses).
 - `Crops` – watered crop beds (channels, sumps, spill-safe, fallow where dry), crops, cane, scarecrows, ricks, compost.
 - `Bounds` – drystone, hedge, rails and bund boundaries with gates and piers; hedgerow trees.
 - `Sheds` – lean-to and small sheds, pads, granaries on staddles, hen coops (`coopCells` for placement), stores.
-- `Trees` – apple, blossom, olive, palm, cocoa and local fruit trees, berries, ladders, shade trees.
+- `Trees` – apple, blossom, olive, palm, cocoa and local fruit trees, berries, ladders, shade trees, timber (a woodlot's
+  broadleaf or conifer). Broadleaf crowns grow from a leader that steps toward the light, boughs as logs on their sides
+  and lobes of leaves round their ends (ragged, the core full, nothing cut off from the wood); conifers in uneven tiers.
 - `Yard` – trough, well, chopping block, dung heap, bench.
 - `Spots` – standable cells, POI placement (never on the plot ring), `claimed` cells.
 - `Land` – raise-only mending, surface paths, yard levelling without water dykes.

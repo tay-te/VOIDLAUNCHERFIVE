@@ -8,6 +8,7 @@ import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.law.Law;
+import dev.voidmc.hearth.law.LawSkills;
 import dev.voidmc.hearth.law.crime.CrimeDesk;
 import dev.voidmc.hearth.law.folk.FolkTraits;
 import dev.voidmc.hearth.law.item.StolenGoods;
@@ -55,11 +56,11 @@ public final class LawDialogue implements DialogueProvider {
 			int worst = reports.stream().mapToInt(p -> Offences.severity(p.crime().offence())).max().orElse(1);
 			if (economy != null && Law.config().witnesses().bribes()) {
 				long amount = SpeechCheck.witnessBribe(fine);
-				int odds = SpeechCheck.percent(SpeechCheck.bribe(amount, amount, worst, FolkTraits.of(r).listener()));
+				int odds = SpeechCheck.percent(LawSkills.speech(player, SpeechCheck.bribe(amount, amount, worst, FolkTraits.of(r).listener())));
 				out.add(new Option("law:hush", Component.translatable("hearth.law.choice.hush", economy.format(amount), odds), 60));
 			}
 			if (Law.config().witnesses().threats()) {
-				int odds = SpeechCheck.percent(SpeechCheck.threaten(menace(player), FolkTraits.of(r).listener()));
+				int odds = SpeechCheck.percent(LawSkills.speech(player, SpeechCheck.threaten(menace(player), FolkTraits.of(r).listener())));
 				out.add(new Option("law:threaten", Component.translatable("hearth.law.choice.threaten", odds), 61));
 			}
 		}
@@ -108,7 +109,9 @@ public final class LawDialogue implements DialogueProvider {
 			tell(player, r, "hearth.law.guard.unable");
 			return true;
 		}
-		if (player.getRandom().nextDouble() < SpeechCheck.bribe(amount, amount, worst, FolkTraits.of(r).listener())) {
+		boolean took = player.getRandom().nextDouble() < LawSkills.speech(player, SpeechCheck.bribe(amount, amount, worst, FolkTraits.of(r).listener()));
+		LawSkills.speechCheck(player, took, "bribe_witness");
+		if (took) {
 			economy.bribe(player, s, r, amount);
 			CrimeDesk.silence(s, r.id, player.getUUID());
 			CrimeDesk.deed(s, player.getUUID(), "law:bribed_witness", -2, r.id, player.blockPosition(), false);
@@ -125,7 +128,9 @@ public final class LawDialogue implements DialogueProvider {
 		if (reports.isEmpty()) {
 			return false;
 		}
-		if (player.getRandom().nextDouble() < SpeechCheck.threaten(menace(player), FolkTraits.of(r).listener())) {
+		boolean cowed = player.getRandom().nextDouble() < LawSkills.speech(player, SpeechCheck.threaten(menace(player), FolkTraits.of(r).listener()));
+		LawSkills.speechCheck(player, cowed, "threaten_witness");
+		if (cowed) {
 			CrimeDesk.silence(s, r.id, player.getUUID());
 			CrimeDesk.deed(s, player.getUUID(), "law:threatened_witness", -8, r.id, player.blockPosition(), false);
 			tell(player, r, "hearth.law.witness.cowed");

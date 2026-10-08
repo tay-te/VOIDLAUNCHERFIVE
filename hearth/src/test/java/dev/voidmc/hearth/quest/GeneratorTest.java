@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.Goods;
+import dev.voidmc.hearth.api.QuestType;
 import dev.voidmc.hearth.api.testing.SimpleSettlement;
 import dev.voidmc.hearth.quest.gen.GenerationContext;
 import dev.voidmc.hearth.quest.gen.GoodsItems;
@@ -16,7 +17,6 @@ import dev.voidmc.hearth.quest.model.Objective;
 import dev.voidmc.hearth.quest.model.ObjectiveKind;
 import dev.voidmc.hearth.quest.model.QuestInstance;
 import dev.voidmc.hearth.quest.model.QuestStatus;
-import dev.voidmc.hearth.quest.model.QuestType;
 import dev.voidmc.hearth.quest.model.SettlementQuests;
 import dev.voidmc.hearth.quest.template.QuestTemplate;
 import java.util.ArrayList;

@@ -35,6 +35,7 @@ public final class Conversations {
 	private static final class Session {
 		final Folk folk;
 		final Map<String, DialogueProvider> owners = new HashMap<>();
+		final java.util.Set<String> locked = new java.util.HashSet<>();
 		Component speech = Component.empty();
 
 		Session(Folk folk) {
@@ -70,6 +71,11 @@ public final class Conversations {
 			return;
 		}
 		DialogueProvider provider = session.owners.get(optionId);
+		if (provider != null && session.locked.contains(optionId)) {
+			// a locked option cannot be picked (a modified client, or the screen out of date)
+			show(player, session, session.speech, false);
+			return;
+		}
 		if (provider == null) {
 			show(player, session, session.speech, false);
 			return;
@@ -84,10 +90,20 @@ public final class Conversations {
 			show(player, session, reply, false);
 			return;
 		}
-		provider.select(player, brain.settlement, brain.resident, optionId);
-		// Whatever it did (a trade screen, a quest accepted), the options may have changed.
+		Component reply = null;
+		try {
+			if (provider.select(player, brain.settlement, brain.resident, optionId)) {
+				reply = provider.reply(player, brain.settlement, brain.resident, optionId);
+			}
+		} catch (RuntimeException e) {
+			dev.voidmc.hearth.Hearth.LOG.warn("dialogue provider {} failed on {}", provider.getClass().getName(), optionId, e);
+		}
+		// Whatever it did (a trade screen, a quest accepted), the options may have changed; a reply is the folk's new line.
 		if (this.sessions.get(player.getUUID()) == session) {
-			show(player, session, session.speech, false);
+			if (reply != null) {
+				brain.speak();
+			}
+			show(player, session, reply != null ? reply : session.speech, false);
 		}
 	}
 
@@ -117,6 +133,7 @@ public final class Conversations {
 		}
 		session.speech = speech;
 		session.owners.clear();
+		session.locked.clear();
 		List<Ranked> ranked = new ArrayList<>();
 		for (DialogueProvider p : DialogueProvider.providers()) {
 			List<DialogueProvider.Option> out = new ArrayList<>();
@@ -129,6 +146,9 @@ public final class Conversations {
 			for (DialogueProvider.Option o : out) {
 				if (!session.owners.containsKey(o.id())) {
 					session.owners.put(o.id(), p);
+					if (o.locked()) {
+						session.locked.add(o.id());
+					}
 					ranked.add(new Ranked(o, ranked.size()));
 				}
 			}
@@ -136,7 +156,7 @@ public final class Conversations {
 		ranked.sort(Comparator.<Ranked>comparingInt(r -> r.option.order()).thenComparingInt(r -> r.index));
 		List<TalkPayloads.Option> options = new ArrayList<>(ranked.size());
 		for (Ranked r : ranked) {
-			options.add(new TalkPayloads.Option(r.option.id(), r.option.label()));
+			options.add(new TalkPayloads.Option(r.option.id(), r.option.label(), r.option.locked(), r.option.hint(), r.option.tooltip()));
 		}
 		Resident r = brain.resident;
 		String title = r.age == AgeStage.CHILD ? "hearth.npc.child" : "hearth.npc.job." + r.job.getSerializedName();

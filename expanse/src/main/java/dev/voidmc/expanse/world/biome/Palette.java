@@ -17,17 +17,20 @@ import net.minecraft.world.level.biome.Biomes;
  */
 public final class Palette {
 	/** Grass and foliage per biome. */
-	private static final Map<ResourceKey<Biome>, int[]> GREENS = Map.of(
-		Biomes.PLAINS, new int[]{0x8AA856, 0x6F9A3C},
-		Biomes.SUNFLOWER_PLAINS, new int[]{0x8AA856, 0x6F9A3C},
-		Biomes.MEADOW, new int[]{0x7FA45C, 0x689640},
-		Biomes.FOREST, new int[]{0x6F9C4C, 0x4E8632},
-		Biomes.FLOWER_FOREST, new int[]{0x73A050, 0x528A36},
-		Biomes.BIRCH_FOREST, new int[]{0x7AA25A, 0x5F9142},
-		Biomes.OLD_GROWTH_BIRCH_FOREST, new int[]{0x7AA25A, 0x5F9142},
-		Biomes.TAIGA, new int[]{0x789C70, 0x5A8A56},
-		Biomes.OLD_GROWTH_PINE_TAIGA, new int[]{0x7A9A68, 0x5A8650},
-		Biomes.OLD_GROWTH_SPRUCE_TAIGA, new int[]{0x789868, 0x58844E});
+	private static final Map<ResourceKey<Biome>, int[]> GREENS = Map.ofEntries(
+		java.util.Map.entry(Biomes.JUNGLE, new int[]{0x5E9A3A, 0x3F8A2A}),
+		java.util.Map.entry(Biomes.SPARSE_JUNGLE, new int[]{0x6A9E44, 0x4E8E34}),
+		java.util.Map.entry(Biomes.BAMBOO_JUNGLE, new int[]{0x5E9A3A, 0x3F8A2A}),
+		java.util.Map.entry(Biomes.PLAINS, new int[]{0x8AA856, 0x6F9A3C}),
+		java.util.Map.entry(Biomes.SUNFLOWER_PLAINS, new int[]{0x8AA856, 0x6F9A3C}),
+		java.util.Map.entry(Biomes.MEADOW, new int[]{0x7FA45C, 0x689640}),
+		java.util.Map.entry(Biomes.FOREST, new int[]{0x6F9C4C, 0x4E8632}),
+		java.util.Map.entry(Biomes.FLOWER_FOREST, new int[]{0x73A050, 0x528A36}),
+		java.util.Map.entry(Biomes.BIRCH_FOREST, new int[]{0x7AA25A, 0x5F9142}),
+		java.util.Map.entry(Biomes.OLD_GROWTH_BIRCH_FOREST, new int[]{0x7AA25A, 0x5F9142}),
+		java.util.Map.entry(Biomes.TAIGA, new int[]{0x789C70, 0x5A8A56}),
+		java.util.Map.entry(Biomes.OLD_GROWTH_PINE_TAIGA, new int[]{0x7A9A68, 0x5A8650}),
+		java.util.Map.entry(Biomes.OLD_GROWTH_SPRUCE_TAIGA, new int[]{0x789868, 0x58844E}));
 
 	private Palette() {
 	}
