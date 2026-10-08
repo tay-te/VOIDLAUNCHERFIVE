@@ -164,20 +164,25 @@ public final class MapPage {
 
 	// --- drawing ---------------------------------------------------------------------------------------------------
 
+	/** The header: segment bar, search and world picker as 36 px pills, 20 from the top; the map 76 down (VOID Hub's header, Figma 2e B). */
+	static final float HEADER = 76;
+	static final float BAR = 36;
+	static final float BAR_Y = 20;
+
 	/** Draws the page into a window rectangle (design pixels). */
 	public void render(Ui ui, float wx, float wy, float ww, float wh, float mouseX, float mouseY) {
 		this.hits.clear();
 		this.mapX = wx + PAD;
-		this.mapY = wy + 100;
+		this.mapY = wy + HEADER;
 		this.mapW = ww - PAD * 2 - 20 - LIST_W;
-		this.mapH = wh - 100 - 56;
+		this.mapH = wh - HEADER - 56;
 		this.listX = this.mapX + this.mapW + 20;
 		this.listY = this.mapY;
 		this.listH = this.mapH;
 
-		this.segments(ui, wx + ww / 2, wy + 31, mouseX, mouseY);
-		this.searchBox(ui, wx + ww - PAD - 42, wy + 31, mouseX, mouseY);
-		this.worldPicker(ui, wx + PAD, wy + 34, mouseX, mouseY);
+		this.segments(ui, wx + ww / 2, wy + BAR_Y, mouseX, mouseY);
+		this.searchBox(ui, wx + ww - PAD - BAR, wy + BAR_Y, mouseX, mouseY);
+		this.worldPicker(ui, wx + PAD, wy + BAR_Y, mouseX, mouseY);
 		this.lookForImports();
 
 		boolean overCard = this.overCard(mouseX, mouseY);
@@ -221,10 +226,10 @@ public final class MapPage {
 			this.importCard(ui, this.listX, this.listY, LIST_W, mouseX, mouseY);
 		}
 		if (this.searching && !this.search.text.isBlank()) {
-			this.searchResults(ui, wx + ww - PAD - 380, wy + 31 + 48, 380, mouseX, mouseY);
+			this.searchResults(ui, wx + ww - PAD - 380, wy + BAR_Y + BAR + 6, 380, mouseX, mouseY);
 		}
 		if (this.pickerOpen) {
-			this.pickerList(ui, wx + PAD, wy + 34 + 44, mouseX, mouseY);
+			this.pickerList(ui, wx + PAD, wy + BAR_Y + BAR + 8, mouseX, mouseY);
 		}
 		this.layersPopover(ui, mouseX, mouseY);
 		if (this.menu != null) {
@@ -260,63 +265,63 @@ public final class MapPage {
 		MapPanel.Kind[] kinds = MapPanel.Kind.values();
 		float[] widths = new float[kinds.length];
 		String[] counts = new String[kinds.length];
-		float total = 8;
+		float total = 6;
 		for (int i = 0; i < kinds.length; i++) {
 			counts[i] = String.valueOf(this.placeCount(kinds[i]));
 			widths[i] = 28 + ui.width(kinds[i].label, Ui.Font.F13) + 6 + ui.width(counts[i], Ui.Font.F11);
 			total += widths[i] + (i > 0 ? 2 : 0);
 		}
 		float x = centreX - total / 2;
-		ui.panel(x, y, total, 42, 14, Theme.WELL, Theme.HAIR_6);
-		float sx = x + 4;
+		ui.panel(x, y, total, BAR, BAR / 2, Theme.WELL, Theme.HAIR_6);
+		float sx = x + 3;
 		for (int i = 0; i < kinds.length; i++) {
 			MapPanel.Kind k = kinds[i];
 			boolean active = this.map.kind == k;
 			float w = widths[i];
-			boolean hover = !active && mx >= sx && mx <= sx + w && my >= y + 5 && my <= y + 37;
+			boolean hover = !active && mx >= sx && mx <= sx + w && my >= y + 3 && my <= y + 33;
 			if (active) {
-				ui.panel(sx, y + 5, w, 32, 10, Theme.RAISED, Theme.HAIR_8);
+				ui.panel(sx, y + 3, w, 30, 15, Theme.RAISED, Theme.HAIR_8);
 			} else if (hover) {
-				ui.round(sx, y + 5, w, 32, 10, Theme.ISLAND);
+				ui.round(sx, y + 3, w, 30, 15, Theme.ISLAND);
 			}
-			ui.text(k.label, sx + 14, y + 12, Ui.Font.F13, active ? Theme.INK : Theme.INK_2);
-			ui.text(counts[i], sx + 14 + ui.width(k.label, Ui.Font.F13) + 6, y + 14, Ui.Font.F11, active ? Theme.INK_2 : Theme.INK_4);
-			this.hit(sx, y + 5, w, 32, () -> this.map.setKind(k));
+			ui.text(k.label, sx + 14, y + 9, Ui.Font.F13, active ? Theme.INK : Theme.INK_2);
+			ui.text(counts[i], sx + 14 + ui.width(k.label, Ui.Font.F13) + 6, y + 11, Ui.Font.F11, active ? Theme.INK_2 : Theme.INK_4);
+			this.hit(sx, y + 3, w, 30, () -> this.map.setKind(k));
 			sx += w + 2;
 		}
 	}
 
 	private void iconButton(Ui ui, float x, float y, float mx, float my, Runnable icon, Runnable action) {
-		boolean hover = mx >= x && mx <= x + 42 && my >= y && my <= y + 42;
-		ui.panel(x, y, 42, 42, 21, hover ? Theme.ISLAND : Theme.WELL, Theme.HAIR_6);
+		boolean hover = mx >= x && mx <= x + BAR && my >= y && my <= y + BAR;
+		ui.panel(x, y, BAR, BAR, BAR / 2, hover ? Theme.ISLAND : Theme.WELL, Theme.HAIR_6);
 		icon.run();
-		this.hit(x, y, 42, 42, action);
+		this.hit(x, y, BAR, BAR, action);
 	}
 
 	private void searchBox(Ui ui, float x, float y, float mx, float my) {
 		if (!this.searching) {
-			this.iconButton(ui, x, y, mx, my, () -> Icons.search(ui, x + 13.5F, y + 13.5F, Theme.INK_2), () -> {
+			this.iconButton(ui, x, y, mx, my, () -> Icons.search(ui, x + 10.5F, y + 10.5F, Theme.INK_2), () -> {
 				this.searching = true;
 				this.search.focused = true;
 			});
 			return;
 		}
 		float w = 380;
-		float bx = x + 42 - w;
-		ui.panel(bx, y, w, 42, 21, Theme.WELL, this.search.focused ? Theme.HAIR_16 : Theme.HAIR_6);
-		Icons.search(ui, bx + 15, y + 13.5F, Theme.INK_3);
+		float bx = x + BAR - w;
+		ui.panel(bx, y, w, BAR, BAR / 2, Theme.WELL, this.search.focused ? Theme.HAIR_16 : Theme.HAIR_6);
+		Icons.search(ui, bx + 15, y + 10.5F, Theme.INK_3);
 		ui.flush();
-		ui.g.enableScissor((int) (bx + 40), (int) y, (int) (bx + w - 34), (int) (y + 42));
-		this.search.draw(ui, bx + 40, y + 13, w - 76, Ui.Font.F13, Theme.INK, Theme.INK_4);
+		ui.g.enableScissor((int) (bx + 40), (int) y, (int) (bx + w - 34), (int) (y + BAR));
+		this.search.draw(ui, bx + 40, y + 10, w - 76, Ui.Font.F13, Theme.INK, Theme.INK_4);
 		ui.flush();
 		ui.g.disableScissor();
-		Icons.close(ui, bx + w - 28, y + 15, Theme.INK_2);
-		this.hit(bx + w - 34, y, 34, 42, () -> {
+		Icons.close(ui, bx + w - 28, y + 12, Theme.INK_2);
+		this.hit(bx + w - 34, y, 34, BAR, () -> {
 			this.searching = false;
 			this.search.set("");
 			this.search.focused = false;
 		});
-		this.hit(bx, y, w - 34, 42, () -> this.search.focused = true);
+		this.hit(bx, y, w - 34, BAR, () -> this.search.focused = true);
 	}
 
 	/** The readout: the named region (or biome) the player is in, its source, the position and the heading. */

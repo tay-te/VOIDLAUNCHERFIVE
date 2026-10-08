@@ -17,7 +17,7 @@ import net.minecraft.network.chat.Component;
  */
 public final class AtlasScreen extends Screen {
 	public static final float WINDOW_W = 1280;
-	public static final float WINDOW_H = 744;
+	public static final float WINDOW_H = 720;  // the header was cut 24: the map keeps its size
 	private static final float MARGIN = 40;
 
 	private final AtlasClient atlas;
@@ -56,7 +56,7 @@ public final class AtlasScreen extends Screen {
 
 	private float fitUnit() {
 		var window = Minecraft.getInstance().getWindow();
-		return Ui.fit(window.getWidth(), window.getHeight(), WINDOW_W + MARGIN * 2, WINDOW_H + MARGIN * 2);
+		return Ui.fit(window.getWidth(), window.getHeight(), WINDOW_W + MARGIN * 2, WINDOW_H + 24 + MARGIN * 2);  // the scale the 744-high window had
 	}
 
 	@Override
