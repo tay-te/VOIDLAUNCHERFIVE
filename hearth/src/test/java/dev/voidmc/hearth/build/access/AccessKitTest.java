@@ -242,4 +242,53 @@ class AccessKitTest {
 		assertTrue(Lofts.ladder(d, 5, 8, 0, 5, Dirs.BACK, null));
 		assertTrue(d.isSolid(5, 4, 7) || d.isSolid(4, 4, 8) || d.isSolid(6, 4, 8), "a floor cell beside the hatch to step off onto");
 	}
+
+	/** The box with a door in its front and a loft over it (boards at 4, walls 5..7, a roof at 8) no way climbs to. */
+	private static Draft lofted(boolean whole) {
+		Draft d = box(Culture.TEMPERATE);
+		door(d, 5, 0, 1, Dirs.FRONT);
+		try (var s = d.stage(StageKind.WALLS)) {
+			d.clearBox(2, 4, 2, 8, 4, 8);
+		}
+		try (var s = d.stage(StageKind.FLOORS)) {
+			if (whole) {
+				d.fill(2, 4, 2, 8, 4, 8, Blocks.SPRUCE_PLANKS.defaultBlockState());
+			} else {
+				d.fill(2, 4, 8, 8, 4, 8, Blocks.SPRUCE_PLANKS.defaultBlockState());
+			}
+		}
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int y = 5; y <= 7; y++) {
+				for (int i = 1; i <= 9; i++) {
+					d.set(i, y, 1, Blocks.STONE_BRICKS.defaultBlockState());
+					d.set(i, y, 9, Blocks.STONE_BRICKS.defaultBlockState());
+					d.set(1, y, i, Blocks.STONE_BRICKS.defaultBlockState());
+					d.set(9, y, i, Blocks.STONE_BRICKS.defaultBlockState());
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.ROOF)) {
+			d.fill(1, 8, 1, 9, 8, 9, Blocks.SPRUCE_PLANKS.defaultBlockState());
+		}
+		d.carve(2, 5, 2, 8, 7, 8);
+		return d;
+	}
+
+	@Test
+	void anUnreachedLoftIsGivenALadder() {
+		Draft d = lofted(true);
+		assertFalse(Spaces.of(d).reached(5, 5, 5), "nobody reaches the loft as drawn");
+		Lofts.Report r = Lofts.finish(d);
+		assertEquals(1, r.ladders());
+		assertTrue(Spaces.of(d).reached(5, 5, 5), "the loft is reached by its ladder");
+	}
+
+	@Test
+	void aRimOfBoardsNobodyReachesIsOpened() {
+		Draft d = lofted(false);
+		Lofts.Report r = Lofts.finish(d);
+		assertEquals(0, r.ladders());
+		assertEquals(7, r.opened());
+		assertTrue(d.isEmpty(5, 4, 8), "the rim's boards are taken up, the room open to its roof");
+	}
 }

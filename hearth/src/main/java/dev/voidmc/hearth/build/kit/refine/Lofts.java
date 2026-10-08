@@ -280,30 +280,100 @@ public final class Lofts {
 	}
 
 	/**
-	 * Takes up the loft's boards where nothing stands on them and drawn air runs down from them to something the
-	 * building drew (a floor, a rack, a table: never the ground under a plot). Returns how many.
+	 * Takes up the loft's boards where nothing stands on them and drawn air runs down from them to
+	 * something the building drew (a floor, a rack, a table: never the ground under a plot). A lamp hung under a board
+	 * goes with it (the light pass lights the room again). Boards left over that no longer touch a wall or anything
+	 * under them (they would float) come up too. Returns how many boards came up.
 	 */
 	private static int open(Draft d, List<int[]> loft) {
 		int n = 0;
+		Set<Long> left = new HashSet<>();
 		for (int[] c : loft) {
-			int x = c[0];
-			int y = c[1];
-			int z = c[2];
-			Draft.Cell board = d.cell(x, y - 1, z);
-			if (board == null || board.stage() != StageKind.FLOORS || !d.isEmpty(x, y, z) || !drawnAir(d, y - 2, x, z)) {
+			if (openable(d, c[0], c[1], c[2])) {
+				take(d, c[0], c[1], c[2]);
+				n++;
+			} else if (d.isSolid(c[0], c[1] - 1, c[2])) {
+				left.add(Draft.key(c[0], c[1] - 1, c[2]));
+			}
+		}
+		if (n == 0) {
+			return 0;
+		}
+		// what is left in pieces: a piece that touches no wall and stands on nothing is taken up whole
+		Set<Long> seen = new HashSet<>();
+		for (long k : new ArrayList<>(left)) {
+			if (!seen.add(k)) {
 				continue;
 			}
-			int fy = y - 2;
-			while (fy > y - 12 && drawnAir(d, fy - 1, x, z)) {
-				fy--;
+			List<Long> piece = new ArrayList<>();
+			ArrayDeque<Long> q = new ArrayDeque<>();
+			q.add(k);
+			boolean held = false;
+			while (!q.isEmpty()) {
+				long p = q.poll();
+				piece.add(p);
+				int x = Draft.keyX(p);
+				int y = Draft.keyY(p);
+				int z = Draft.keyZ(p);
+				Draft.Cell under = d.cell(x, y - 1, z);
+				held |= under != null && !under.state().isAir() && !Spaces.hangs(under.state());
+				for (Direction dir : Dirs.HORIZONTAL) {
+					long nk = Draft.key(x + Dirs.dx(dir), y, z + Dirs.dz(dir));
+					if (left.contains(nk)) {
+						if (seen.add(nk)) {
+							q.add(nk);
+						}
+					} else if (d.isSolid(x + Dirs.dx(dir), y, z + Dirs.dz(dir))) {
+						held = true;
+					}
+				}
 			}
-			if (d.get(x, fy - 1, z) == null) {
+			if (held) {
 				continue;
 			}
-			d.air(x, y - 1, z);
-			n++;
+			for (long p : piece) {
+				int x = Draft.keyX(p);
+				int y = Draft.keyY(p);
+				int z = Draft.keyZ(p);
+				if (d.isEmpty(x, y + 1, z)) {
+					take(d, x, y + 1, z);
+					n++;
+				}
+			}
 		}
 		return n;
+	}
+
+	/** The board under the loft cell (x, y, z) can come up: nothing on it, drawn air (or hung lamps) under it, then the building. */
+	private static boolean openable(Draft d, int x, int y, int z) {
+		Draft.Cell board = d.cell(x, y - 1, z);
+		if (board == null || board.stage() != StageKind.FLOORS || !d.isSolid(x, y - 1, z) || !d.isEmpty(x, y, z)) {
+			return false;
+		}
+		int fy = y - 2;
+		while (fy > y - 12 && hung(d, fy, x, z)) {
+			fy--;
+		}
+		if (!drawnAir(d, fy, x, z)) {
+			return false;
+		}
+		while (fy > y - 12 && drawnAir(d, fy - 1, x, z)) {
+			fy--;
+		}
+		return d.get(x, fy - 1, z) != null;
+	}
+
+	/** Takes up the board under the loft cell (x, y, z) and the lamps hung from it. */
+	private static void take(Draft d, int x, int y, int z) {
+		for (int fy = y - 2; fy > y - 12 && hung(d, fy, x, z); fy--) {
+			d.air(x, fy, z);
+		}
+		d.air(x, y - 1, z);
+	}
+
+	private static boolean hung(Draft d, int y, int x, int z) {
+		BlockState s = d.get(x, y, z);
+		return s != null && Spaces.hangs(s);
 	}
 
 	private static void debug(String what, int[] at) {
