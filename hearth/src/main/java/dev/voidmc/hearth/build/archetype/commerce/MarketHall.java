@@ -98,7 +98,8 @@ public final class MarketHall implements Archetype {
 		int base = t.raised() ? 0 : Grounds.raisedBase(d, x0, x1, z0);
 		Body body = new Body(x0, z0, x1, z1, base, new int[]{h0, h1}, false, false);
 		if (jetty) {
-			body.jetty(1, Dirs.FRONT).jetty(1, Dirs.LEFT).jetty(1, Dirs.RIGHT).jetty(1, Dirs.BACK);
+			// (not over the back, where the plot's last row would be a dark lane under it walked round to)
+			body.jetty(1, Dirs.FRONT).jetty(1, Dirs.LEFT).jetty(1, Dirs.RIGHT);
 		}
 		d.body(x0, z0, x1, z1);
 		int plate = body.plateY();
@@ -203,7 +204,8 @@ public final class MarketHall implements Archetype {
 		int sx = x1 - x0 - 1 >= h0 + 2 ? x1 - 2 : x1 - 1;
 		int[] land = Storeys.flight(d, body, 0, sx, z1 - 1, Dirs.LEFT);
 		Furniture.chest(d, x0 + 1, base, z1 - 1, Dirs.RIGHT, List.of(new Object[]{"minecraft:wheat", 16}, new Object[]{"minecraft:emerald", 2}));
-		Furniture.barrel(d, x1 - 1, base, zb + 1, Direction.UP);
+		// (the barrel at the left end too, by the chest: the floor before the flight's foot stays clear)
+		Furniture.barrel(d, x0 + 1, base, zb + 1, Direction.UP);
 
 		// --- the market floor: counters in the side bays, merchants behind them, customers in the aisle
 		int lane = 1;
