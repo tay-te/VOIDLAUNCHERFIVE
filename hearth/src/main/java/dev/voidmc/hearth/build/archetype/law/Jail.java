@@ -275,6 +275,10 @@ public final class Jail implements Archetype {
 		quarters.keep(sx, iz0 + h0);
 		quarters.keepArea(sx, iz0, sx, iz0 + h0 - 1);
 		quarters.keepArea(sx + (stairLeft ? 1 : -1), iz0 + h0 - 3, sx + (stairLeft ? 1 : -1), iz0 + h0 - 1);
+		if (pueblo) {
+			// the way in from the terrace door
+			quarters.keepArea(cx, ur[1] + 1, cx, ur[1] + 2);
+		}
 		int hx = stairLeft ? ur[2] - 1 : ur[0] + 1;
 		int hz = (ur[1] + ur[3]) / 2;
 		if (top.roof() != null && quarters.claim(hx, hz)) {

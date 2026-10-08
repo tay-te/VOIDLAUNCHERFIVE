@@ -115,9 +115,9 @@ public final class Orphanage implements Archetype {
 		for (Direction wall : new Direction[]{Dirs.FRONT, Dirs.BACK, Dirs.LEFT, Dirs.RIGHT}) {
 			Wards.row(d, up, wall, 1, false, 12, null);
 		}
-		// (a bed the eaves or its neighbours box in is no bed)
-		Halls.dropBlockedBeds(d, up.x0, up.z0, up.x1, up.z1, up.y);
 		Lighting.room(d, up.x0, up.z0, up.x1, up.z1, up.y);
+		// (a bed the eaves, its neighbours or a floor light's rug box in is no bed)
+		Halls.dropBlockedBeds(d, up.x0, up.z0, up.x1, up.z1, up.y);
 
 		// --- outside: the board, a bench by the door
 		Side front = r.body().side(0, Dirs.FRONT);
@@ -273,6 +273,8 @@ public final class Orphanage implements Archetype {
 			Wards.row(d, dorm, wall, 1, false, 12, null);
 		}
 		Lighting.room(d, dorm.x0, dorm.z0, dorm.x1, dorm.z1, dorm.y);
+		// (a bed the stair's head, its neighbours or a floor light's rug box in is no bed)
+		Halls.dropBlockedBeds(d, dorm.x0, dorm.z0, dorm.x1, dorm.z1, dorm.y);
 
 		// --- the street gable: the foundling wheel beside the door, the board, a bench
 		Side front = body.side(0, Dirs.FRONT);

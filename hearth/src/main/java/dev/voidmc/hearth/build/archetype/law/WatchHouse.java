@@ -129,7 +129,8 @@ public final class WatchHouse implements Archetype {
 			Storeys.Top top = Storeys.roof(d, body, RoofForm.FLAT, Direction.Axis.X, 1.0, 1);
 			Towers.battlements(d, x0, z0, x1, z1, top.deck());
 			lookY = top.deck();
-			skyline = sentryPavilion(d, stairLeft0(d) ? x1 - 3 : x0 + 1, z1 - 3, lookY, tim);
+			// (the mesa's watch keeps its roof for the stepped room of the pueblo, its terrace the lookout)
+			skyline = Pueblo.is(d) ? lookY + 1 : sentryPavilion(d, stairLeft0(d) ? x1 - 3 : x0 + 1, z1 - 3, lookY, tim);
 		} else {
 			int fy2 = body.floorY(2);
 			lookY = fy2;

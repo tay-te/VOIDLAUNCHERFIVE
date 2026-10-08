@@ -440,12 +440,69 @@ public final class Halls {
 	}
 
 	/**
-	 * The last touches every civic and law building takes before its ground is cleared: a lintel over every doorway and a
-	 * parapet along made ground standing over a fall ({@link #lintels}, {@link Grounds#edgeRails}).
+	 * The last touches every civic and law building takes before its ground is cleared: a lintel over every doorway, a rail
+	 * in the foot of every light a body could walk out of, and a parapet along made ground standing over a fall
+	 * ({@link #lintels}, {@link #walkThroughLights}, {@link Grounds#edgeRails}).
 	 */
 	public static void finish(Draft d) {
 		lintels(d);
+		walkThroughLights(d);
 		Grounds.edgeRails(d);
+	}
+
+	/**
+	 * Every latticed light a body could walk through (a trapdoor lattice in a wall over a solid sill, with floor and head
+	 * room on one side of it and nothing in the way on the other) takes a rail in its foot instead, as
+	 * {@link #windowRails} does for one ring: nobody steps out of an upper room onto the eaves or a wing's roof.
+	 */
+	public static void walkThroughLights(Draft d) {
+		Paint rail = rail(d, (Mat) null);
+		java.util.List<int[]> hits = new java.util.ArrayList<>();
+		for (long k : d.keys()) {
+			int x = Draft.keyX(k);
+			int y = Draft.keyY(k);
+			int z = Draft.keyZ(k);
+			net.minecraft.world.level.block.state.BlockState st = d.get(x, y, z);
+			if (st == null || !(st.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) || !d.isSolid(x, y - 1, z)) {
+				continue;
+			}
+			for (Direction across : new Direction[]{Direction.EAST, Direction.SOUTH}) {
+				Direction along = across.getClockWise();
+				// in a wall: solid (or a light's frame) either side of it along the wall
+				boolean wall = (d.isSolid(x + along.getStepX(), y, z + along.getStepZ()) || d.isSolid(x + along.getStepX(), y - 1, z + along.getStepZ()))
+					&& (d.isSolid(x - along.getStepX(), y, z - along.getStepZ()) || d.isSolid(x - along.getStepX(), y - 1, z - along.getStepZ()));
+				if (!wall) {
+					continue;
+				}
+				int ax = x + across.getStepX();
+				int az = z + across.getStepZ();
+				int bx = x - across.getStepX();
+				int bz = z - across.getStepZ();
+				// (open: head room, and nothing full at the feet: air, or a roof's stair or slab to step out onto)
+				boolean aOpen = !d.isSolid(ax, y, az) && d.isEmpty(ax, y + 1, az);
+				boolean bOpen = !d.isSolid(bx, y, bz) && d.isEmpty(bx, y + 1, bz);
+				// (a floor level with the sill, or one below it: the sill is a step up into the light)
+				boolean aFloor = aOpen && d.isEmpty(ax, y, az) && (d.isSolid(ax, y - 1, az) || d.isEmpty(ax, y - 1, az) && d.isSolid(ax, y - 2, az));
+				boolean bFloor = bOpen && d.isEmpty(bx, y, bz) && (d.isSolid(bx, y - 1, bz) || d.isEmpty(bx, y - 1, bz) && d.isSolid(bx, y - 2, bz));
+				if (aOpen && bOpen && (aFloor || bFloor)) {
+					hits.add(new int[]{x, y, z});
+					break;
+				}
+			}
+		}
+		if (hits.isEmpty()) {
+			return;
+		}
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			for (int[] c : hits) {
+				d.set(c[0], c[1], c[2], rail);
+				// a tall light's next row too: a bench or a step before it would carry a body up over a rail of one
+				net.minecraft.world.level.block.state.BlockState above = d.get(c[0], c[1] + 1, c[2]);
+				if (above != null && above.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) {
+					d.set(c[0], c[1] + 1, c[2], rail);
+				}
+			}
+		}
 	}
 
 	/**
@@ -502,8 +559,8 @@ public final class Halls {
 
 	/**
 	 * Takes away every bed in {@code x0..x1 × z0..z1} on row y that nobody can get into: neither half has a cell beside it
-	 * with a floor and two rows of air (a bed under the eaves' slope, or boxed in by its neighbours). Returns how many
-	 * beds stay.
+	 * with a floor and two rows of air (a bed under the eaves' slope, or boxed in by its neighbours), or that stands at the
+	 * open side of a stairwell. Returns how many beds stay.
 	 */
 	public static int dropBlockedBeds(Draft d, int x0, int z0, int x1, int z1, int y) {
 		int kept = 0;
@@ -524,6 +581,16 @@ public final class Halls {
 						int nz = c[1] + Dirs.dz(dir);
 						if ((nx != x || nz != z) && (nx != hx || nz != hz) && d.isEmpty(nx, y, nz) && d.isEmpty(nx, y + 1, nz) && d.isSolid(nx, y - 1, nz)) {
 							ok = true;
+						}
+					}
+				}
+				// (nor a bed beside a stairwell's hole: whoever stands on it to make it stands over the drop)
+				for (int[] c : new int[][]{{x, z}, {hx, hz}}) {
+					for (Direction dir : Dirs.HORIZONTAL) {
+						int nx = c[0] + Dirs.dx(dir);
+						int nz = c[1] + Dirs.dz(dir);
+						if (d.isEmpty(nx, y, nz) && d.isEmpty(nx, y - 1, nz) && d.isEmpty(nx, y - 2, nz) && !d.isAbsent(nx, y - 1, nz)) {
+							ok = false;
 						}
 					}
 				}

@@ -181,7 +181,8 @@ public final class Pueblo {
 						return false;
 					}
 				}
-				if (!ring && !d.isSolid(x, deck - 1, z)) {
+				// (the walls too: a wall over a stair's hatch takes the climber's head off)
+				if (!d.isSolid(x, deck - 1, z)) {
 					return false;
 				}
 			}

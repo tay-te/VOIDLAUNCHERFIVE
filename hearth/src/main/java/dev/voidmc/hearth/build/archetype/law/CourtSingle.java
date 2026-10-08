@@ -106,8 +106,18 @@ final class CourtSingle {
 					for (int i = 0; i < s.length(); i++) {
 						int x = s.x(i);
 						int z = s.z(i);
-						if (d.isEmpty(x, base, z) && !(s.out() == Dirs.FRONT && Math.abs(x - cx) <= 1)) {
+						// (a window's sill run out onto the gallery's edge gives way to the rail)
+						boolean sill = d.get(x, base, z) != null && d.get(x, base, z).getBlock() instanceof net.minecraft.world.level.block.StairBlock;
+						if ((d.isEmpty(x, base, z) || sill) && !(s.out() == Dirs.FRONT && Math.abs(x - cx) <= 1)) {
 							d.set(x, base, z, tim.fence());
+						}
+					}
+				}
+				// the back wall's sills stand over the drop at the gallery's height, a ledge to walk off: none there
+				if (z1 + 1 < dp) {
+					for (int x = x0; x <= x1; x++) {
+						if (d.get(x, base, z1 + 1) != null && d.get(x, base, z1 + 1).getBlock() instanceof net.minecraft.world.level.block.StairBlock) {
+							d.set(x, base, z1 + 1, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
 						}
 					}
 				}
@@ -120,6 +130,8 @@ final class CourtSingle {
 				Halls.lanternUnder(d, x, base, gz0 + 1, 1);
 			}
 			Groundwork.steps(d, cx, base, gz0 - 1, Dirs.FRONT, 3);
+			// the stores among the stilts under the floor
+			Grounds.underStilts(d, gx0, gz0, gx1, z1, base - 1, cx, gz0);
 			// the cupola with the bell over the middle of the hip
 			skyline = Math.max(skyline, Turret.onRidge(d, t, cx - 1, (z0 + z1) / 2 - 1, plate, roof.ridgeY, maxH, Towers.Cap.PYRAMID));
 		} else {

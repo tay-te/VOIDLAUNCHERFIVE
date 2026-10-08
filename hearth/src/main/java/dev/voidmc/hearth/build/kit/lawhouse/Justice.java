@@ -169,14 +169,10 @@ public final class Justice {
 				int px = x + Dirs.dx(along) * i;
 				int pz = z + Dirs.dz(along) * i;
 				if (i == 0 || i == n + 1) {
-					// the posts stand a head higher than the board, capped
+					// (low posts and one board: a capped post or a second board is a stair up onto the dais's edge)
 					d.set(px, y, pz, f.fence());
-					d.set(px, y + 1, pz, f.fence());
-					d.set(px, y + 2, pz, f.slab(SlabType.BOTTOM));
 				} else {
-					// the two halves of the board meeting over the ankles: the lower one up, the upper one down
 					d.set(px, y, pz, t.trapdoor(back.getOpposite(), Half.TOP, false));
-					d.set(px, y + 1, pz, t.trapdoor(back.getOpposite(), Half.BOTTOM, false));
 				}
 				if (i >= 1 && i <= n) {
 					int bx = px + Dirs.dx(back);

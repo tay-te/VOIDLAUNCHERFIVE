@@ -850,6 +850,8 @@ final class Precinct {
 			break;
 		}
 		if (dir == null) {
+			// no run for a flight (a tower's wall or the range's end in the way): the ladder through a hatch instead
+			ladder(r);
 			return;
 		}
 		int c = r.outerC();

@@ -282,8 +282,10 @@ public final class TownHall implements Archetype {
 		}
 		// the flag before the hall and the notice board by the loggia's mouth
 		int fz = Math.max(0, z0 - 3);
-		if (!raised && Groundwork.surface(d, cx + 3, fz) == 0 && cx + 3 < w) {
-			Towers.flagpole(d, centre ? x0 : cx + 3, 0, fz, 5, Dirs.FRONT, arms.field(), arms.layers());
+		int fpx = centre ? x0 : cx + 3;
+		// (the pole stands on the forecourt's own ground, where it is: not over the fall of a slope)
+		if (!raised && fpx < w && Groundwork.surface(d, fpx, fz) == 0) {
+			Towers.flagpole(d, fpx, 0, fz, 5, Dirs.FRONT, arms.field(), arms.layers());
 		}
 		// the notice board in the loggia beside the door (or, failing room there, in the forecourt by the steps)
 		boolean board = false;
@@ -377,7 +379,18 @@ public final class TownHall implements Archetype {
 				}
 			}
 		}
-		// the waiting hall: the town's banner over the benches, a lantern every few blocks
+		// the waiting hall: the town's banner over the benches (one on each wall that has them), a lantern every few blocks
+		for (int x : new int[]{hx0, hx1}) {
+			Direction into = x == hx0 ? Dirs.RIGHT : Dirs.LEFT;
+			for (int z = iz0 + 2; z < iz1 - 1; z++) {
+				var st = d.get(x, base, z);
+				if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.StairBlock && d.isEmpty(x, base + 2, z)
+					&& Openings.isWallBlock(d, x + (x == hx0 ? -1 : 1), base + 2, z)) {
+					Signs.wallBanner(d, x, base + 2, z, into, arms.field(), arms.layers());
+					break;
+				}
+			}
+		}
 		for (int x = hx0 + 2; x <= hx1 - 2; x += 4) {
 			for (int z = iz0 + 1; z <= iz1 - 1; z += 4) {
 				Halls.lanternUnder(d, x, base, z, 1);
@@ -431,6 +444,10 @@ public final class TownHall implements Archetype {
 		}
 		// latticed lights of the chamber railed at their feet (no climbing out onto the eaves)
 		Halls.windowRails(d, x0, z0, x1, z1, fy + 1);
+		if (raised) {
+			// the stores among the stilts under the hall's floor
+			Grounds.underStilts(d, x0, z0, x1, z1, base - 1, doorX, z0);
+		}
 		Halls.finish(d);
 		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
 		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;

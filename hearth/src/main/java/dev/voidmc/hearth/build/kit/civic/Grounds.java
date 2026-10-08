@@ -146,14 +146,15 @@ public final class Grounds {
 	 * A parapet along the plot's sides and back wherever the levelled ground stands four or more above the land beyond
 	 * (a terrace made up on a slope): a low wall in the plinth's stone (the railing's fence where it has no wall), on the
 	 * edge cell itself, so nobody walks off the made ground. Cells taken, and the front row (the street's side, where the
-	 * approach comes in), are left alone. Call it last, when the grounds are made.
+	 * approach comes in) but for its two corners, are left alone. Call it last, when the grounds are made.
 	 */
 	public static void edgeRails(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
 		Paint rail = Halls.rail(d, d.mat(Role.PLINTH));
 		try (var s = d.stage(StageKind.EXTERIOR)) {
-			for (int z = 1; z < dp; z++) {
+			// (the front row's corners too, over a fall to the side: the approach comes in from the street, not the flank)
+			for (int z = 0; z < dp; z++) {
 				for (int x = 0; x < w; x++) {
 					if (x != 0 && x != w - 1 && z != dp - 1) {
 						continue;
@@ -184,6 +185,44 @@ public final class Grounds {
 				}
 			}
 		}
+	}
+
+	/**
+	 * The space under a raised floor ({@code x0..x1 × z0..z1}, the floor's boards at {@code floorY}) put to use as the
+	 * stilt towns use it: barrels, a bale, and a chest of the house's gear stood among the posts on the
+	 * ground every few blocks, where a body can stand beside them, none at the foot of the stair ({@code keepX, keepZ}).
+	 */
+	public static void underStilts(Draft d, int x0, int z0, int x1, int z1, int floorY, int keepX, int keepZ) {
+		int k = 0;
+		for (int z = z0 + 1; z <= z1 - 1; z += 3) {
+			for (int x = x0 + 1 + (k & 1); x <= x1 - 1; x += 4) {
+				k++;
+				if (Math.abs(x - keepX) <= 1 && Math.abs(z - keepZ) <= 2) {
+					continue;
+				}
+				int g = Groundwork.surface(d, x, z);
+				if (g + 2 > floorY || !dev.voidmc.hearth.build.kit.sociallife.Venue.standable(d, x, g, z)) {
+					continue;
+				}
+				// someone can stand beside it
+				boolean side = false;
+				for (net.minecraft.core.Direction dir : Dirs.HORIZONTAL) {
+					side |= dev.voidmc.hearth.build.kit.sociallife.Venue.standable(d, x + Dirs.dx(dir), g, z + Dirs.dz(dir));
+				}
+				if (!side) {
+					continue;
+				}
+				int gy = g;
+				int cx = x;
+				int cz = z;
+				d.inStage(StageKind.INTERIOR, () -> d.set(cx, gy, cz, (k2(cx, cz) ? Blocks.HAY_BLOCK : Blocks.DECORATED_POT).defaultBlockState()));
+			}
+		}
+	}
+
+	/** Which of the two the stilt store at (x, z) is: a bale or a jar. */
+	private static boolean k2(int x, int z) {
+		return ((x * 3 + z) & 1) == 0;
 	}
 
 	/**

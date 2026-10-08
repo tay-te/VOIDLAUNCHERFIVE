@@ -60,7 +60,7 @@ final class Yamen {
 		int fz = 2;
 		int hd = Math.clamp(dp / 2, 7, 9);
 		int zb = dp - hd;
-		boolean wings = w >= 17 && zb - fz >= 6;
+		boolean wings = w >= 17 && zb - fz >= 8;
 		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
 		Groundwork.footings(d, 0, fz, w - 1, dp - 1, -1);
 		Paving.lay(d, 0, 0, w - 1, dp - 1, 0, Paving.paint(d, Paving.pattern(d), cx, (fz + zb) / 2.0, 3, false));
@@ -132,10 +132,9 @@ final class Yamen {
 		// --- the compound: the front wall either side of the gate hall, the side walls, tiled copings
 		compoundWall(d, 0, fz, gx0 - 1, fz, wall, plinth);
 		compoundWall(d, gx1 + 1, fz, w - 1, fz, wall, plinth);
-		if (!wings) {
-			compoundWall(d, 0, fz + 1, 0, zb - 1, wall, plinth);
-			compoundWall(d, w - 1, fz + 1, w - 1, zb - 1, wall, plinth);
-		}
+		// (with the clerks' halls down the sides, the wall closes the gap between their ends and the terrace)
+		compoundWall(d, 0, wings ? zb - 2 : fz + 1, 0, zb - 1, wall, plinth);
+		compoundWall(d, w - 1, wings ? zb - 2 : fz + 1, w - 1, zb - 1, wall, plinth);
 
 		// --- the courtyard: the path, stone lanterns along it, a pine in a corner
 		try (var st = d.stage(StageKind.EXTERIOR)) {
@@ -157,7 +156,8 @@ final class Yamen {
 			for (boolean left : new boolean[]{true, false}) {
 				int x0 = left ? 0 : w - 4;
 				int x1 = left ? 3 : w - 1;
-				skyline = Math.max(skyline, wing(d, x0, fz + 1, x1, zb - 1, left, wall, dress, plinth, tim));
+				// (stopped two short of the terrace: an eave over its edge is a step up onto the roofs)
+				skyline = Math.max(skyline, wing(d, x0, fz + 1, x1, zb - 3, left, wall, dress, plinth, tim));
 			}
 		}
 		// --- the court room in the main hall

@@ -119,6 +119,8 @@ public final class Almshouse implements Archetype {
 			Wards.row(d, up, wall, 2, false, 12, kit);
 		}
 		Lighting.room(d, up.x0, up.z0, up.x1, up.z1, up.y);
+		// (a bed boxed in, or at the stairwell's open side, is no bed)
+		dev.voidmc.hearth.build.kit.civic.Halls.dropBlockedBeds(d, up.x0, up.z0, up.x1, up.z1, up.y);
 
 		// --- outside: a cross over the door, a bench, the board
 		Side front = r.body().side(0, Dirs.FRONT);
@@ -315,6 +317,8 @@ public final class Almshouse implements Archetype {
 			Wards.row(d, up, wall, 2, false, 12, kit);
 		}
 		Lighting.room(d, up.x0, up.z0, up.x1, up.z1, up.y);
+		// (a bed boxed in, or at the stairwell's open side, is no bed)
+		dev.voidmc.hearth.build.kit.civic.Halls.dropBlockedBeds(d, up.x0, up.z0, up.x1, up.z1, up.y);
 
 		// the cross over the door
 		Side front = r.body().side(0, Dirs.FRONT);
