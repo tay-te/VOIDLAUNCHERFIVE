@@ -98,6 +98,8 @@ public final class Paddy implements Archetype {
 				Spots.onGround(d, PoiType.JOB_SITE, xz[0], b.level(), xz[1], into, JobType.FARMER);
 			}
 		}
+		// head room over every step through the banks
+		StepRoom.clear(d, t.minLevel() - 3, t.maxLevel() + 1);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, t.maxLevel() + 6));
 	}
 

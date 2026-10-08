@@ -107,6 +107,8 @@ public final class TerraceField implements Archetype {
 			int[] xz = t.cell(Math.max(t.plantFrom(b), Math.min(t.plantTo(b), (b.from() + b.to()) / 2)), path);
 			Spots.onGround(d, PoiType.JOB_SITE, xz[0], b.level(), xz[1], into, JobType.FARMER);
 		}
+		// head room over every step through the banks
+		StepRoom.clear(d, t.minLevel() - 3, t.maxLevel() + 1);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, t.maxLevel() + 7));
 	}
 
