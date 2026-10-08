@@ -186,9 +186,154 @@ public final class SoftPit implements Archetype {
 			}
 		}
 		try (var p = d.campaign(0)) {
+			rails(d, pit);
 			head.sign(this.clay ? "clay_pit" : "sand_pit", this.clay ? "Clay" : "Sand");
 			Groundwork.clear(d, 0, 0, w - 1, yd, Math.min(d.maxHeight() - 1, 8));
 		}
+	}
+
+	/**
+	 * A rail round the pit's rim (L6 item 4: the yard and bank faces): wherever someone standing on the land beside the
+	 * pit (the yard, the bank, the tip, the top of a hedge) has the pit four or more below the next step, a post and
+	 * rail of the culture's timber; a hedge along the rim gets its rail in the hedge line (a hedge one high is a step up,
+	 * not a guard). The benches inside are the diggers' work and stay open.
+	 */
+	private static void rails(Draft d, Benches pit) {
+		int w = d.frontage();
+		int dp = d.depth();
+		dev.voidmc.hearth.build.draft.Mat rail = dev.voidmc.hearth.build.kit.trade.Hall.woodFence(d);
+		java.util.List<int[]> at = new java.util.ArrayList<>();
+		for (int z = 0; z < dp; z++) {
+			for (int x = 0; x < w; x++) {
+				if (pit.cut(x, z)) {
+					continue;
+				}
+				for (int y = -6; y <= 4; y++) {
+					if (!open(d, x, y, z) || !open(d, x, y + 1, z) || open(d, x, y - 1, z)) {
+						continue;
+					}
+					for (int[] o : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+						int nx = x + o[0];
+						int nz = z + o[1];
+						if (nx >= 0 && nz >= 0 && nx < w && nz < dp && pit.cut(nx, nz) && fall(d, nx, y, nz) >= 4) {
+							at.add(new int[]{x, y, z});
+							break;
+						}
+					}
+				}
+			}
+		}
+		// each rail only where the diggers still walk from the gate to every place they work with it standing (a pit
+		// on falling land is reached along its bank)
+		java.util.Set<Long> solid = new java.util.HashSet<>();
+		java.util.List<int[]> fences = new java.util.ArrayList<>();
+		int need = reached(d, solid);
+		for (int[] c : at) {
+			net.minecraft.world.level.block.state.BlockState under = d.get(c[0], c[1] - 1, c[2]);
+			boolean hedge = under != null && under.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock;
+			int[] f = hedge ? new int[]{c[0], c[1] - 1, c[2]} : c;
+			if (!hedge && !d.allowed(c[0], c[1], c[2])) {
+				continue;
+			}
+			long k = net.minecraft.core.BlockPos.asLong(f[0], f[1], f[2]);
+			solid.add(k);
+			if (reached(d, solid) < need) {
+				solid.remove(k);
+			} else {
+				fences.add(f);
+			}
+		}
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int[] f : fences) {
+				d.set(f[0], f[1], f[2], rail.fence());
+			}
+		}
+	}
+
+	/** How many of the pit's places of work (its POIs) the diggers reach on foot from the gate, with {@code solid} railed. */
+	private static int reached(Draft d, java.util.Set<Long> solid) {
+		int w = d.frontage();
+		int dp = d.depth();
+		java.util.Set<Long> seen = new java.util.HashSet<>();
+		java.util.ArrayDeque<int[]> q = new java.util.ArrayDeque<>();
+		for (int[] e : d.entrances()) {
+			for (int dy = 1; dy >= -3; dy--) {
+				if (stand(d, solid, e[0], e[1] + dy, e[2])) {
+					if (seen.add(net.minecraft.core.BlockPos.asLong(e[0], e[1] + dy, e[2]))) {
+						q.add(new int[]{e[0], e[1] + dy, e[2]});
+					}
+					break;
+				}
+			}
+		}
+		while (!q.isEmpty()) {
+			int[] c = q.poll();
+			for (int[] o : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+				int nx = c[0] + o[0];
+				int nz = c[2] + o[1];
+				if (nx < 0 || nx >= w || nz < -1 || nz >= dp) {
+					continue;
+				}
+				for (int dy = 1; dy >= -3; dy--) {
+					int ny = c[1] + dy;
+					if (dy == 1 && !pass(d, solid, c[0], c[1] + 2, c[2])) {
+						continue;
+					}
+					if (dy < 0 && (!pass(d, solid, nx, c[1], nz) || !pass(d, solid, nx, c[1] + 1, nz))) {
+						break;
+					}
+					if (stand(d, solid, nx, ny, nz)) {
+						if (seen.add(net.minecraft.core.BlockPos.asLong(nx, ny, nz))) {
+							q.add(new int[]{nx, ny, nz});
+						}
+						break;
+					}
+				}
+			}
+		}
+		int n = 0;
+		for (var p : d.pois()) {
+			for (int dy = -1; dy <= 1; dy++) {
+				if (seen.contains(net.minecraft.core.BlockPos.asLong(p.x(), p.y() + dy, p.z()))) {
+					n++;
+					break;
+				}
+			}
+		}
+		return n;
+	}
+
+	private static boolean pass(Draft d, java.util.Set<Long> solid, int x, int y, int z) {
+		return !solid.contains(net.minecraft.core.BlockPos.asLong(x, y, z)) && open(d, x, y, z);
+	}
+
+	/** Someone can stand here: open with head room, on something that is not a rail (a fence is not stepped onto). */
+	private static boolean stand(Draft d, java.util.Set<Long> solid, int x, int y, int z) {
+		if (!pass(d, solid, x, y, z) || !pass(d, solid, x, y + 1, z) || open(d, x, y - 1, z) || solid.contains(net.minecraft.core.BlockPos.asLong(x, y - 1, z))) {
+			return false;
+		}
+		net.minecraft.world.level.block.state.BlockState under = d.get(x, y - 1, z);
+		return under == null || !(under.getBlock() instanceof net.minecraft.world.level.block.FenceBlock
+			|| under.getBlock() instanceof net.minecraft.world.level.block.WallBlock);
+	}
+
+	/** Nothing built here that stops a person (or only what one walks through), above the natural ground. */
+	private static boolean open(Draft d, int x, int y, int z) {
+		net.minecraft.world.level.block.state.BlockState s = d.get(x, y, z);
+		return s == null ? y >= d.site().ground(x, z)
+			: s.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO).isEmpty();
+	}
+
+	/** How far someone stepping into (x, z) at level y falls (0 where it is not open). */
+	private static int fall(Draft d, int x, int y, int z) {
+		if (!open(d, x, y, z) || !open(d, x, y + 1, z)) {
+			return 0;
+		}
+		int n = 0;
+		for (int yy = y - 1; yy > y - 12 && open(d, x, yy, z); yy--) {
+			n++;
+		}
+		return n;
 	}
 
 	/**

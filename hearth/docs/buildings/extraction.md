@@ -97,6 +97,9 @@ land falls away behind the yard), straight faces on three sides and the floor st
 working face; treads are boards of the culture's timber. A small yard with the diggers' lean-to and its bench, a cart
 loaded with clay or sand, heaps on boards; for clay a trough of water where the clay is trodden and a loaf of it souring
 under a slab, for sand a riddle on its post. On wider plots the stripped turf and topsoil make a low tip along one side.
+A post-and-rail of the culture's timber runs round the rim wherever the yard, the bank, the tip or a hedge looks down
+four or more into the pit (in the hedge line where the boundary is a hedge, which is a step up, not a guard), each rail
+kept only where the diggers still walk from the gate to every face with it standing; the benches inside stay open.
 **Params:** `depth`, `site`, `kind`, `face`, `rock` (recorded; red sand in the mesa or for a red `rock`).
 
 ### `extract/plantation` (Plantation.java)
