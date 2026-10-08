@@ -25,33 +25,40 @@ final class Walker {
 	private int stuck;
 	private int towards = -1;
 	private int centring;
-	/** The closest the walk has come to its goal, and for how long it has come no closer. */
-	private double best = Double.MAX_VALUE;
-	private int noCloser;
+	/** Where the walk last made headway, and for how long it has not. */
+	private @Nullable Vec3 anchor;
+	private int noHeadway;
 	private String doing = "walking to the work";
+	/** Why the last walk failed, for the builders' debug trace: w no way, s stalled, h on another level. */
+	private String why = "";
 
 	void reset() {
 		this.failed = false;
 		this.stuck = 0;
 		this.towards = -1;
 		this.centring = 0;
-		this.best = Double.MAX_VALUE;
-		this.noCloser = 0;
+		this.anchor = null;
+		this.noHeadway = 0;
 	}
 
 	/**
-	 * A walk on the ground that has come no closer for three seconds has failed (a wall in the way the path went round
-	 * and lost, a door shut): known in three seconds rather than ten, so the builder chooses again.
+	 * A walk about the site that has got nowhere for three seconds has failed (a wall in the way, a door shut, a path
+	 * that ends short): known in three seconds rather than ten, so the builder chooses again. A long walk (from across
+	 * town) is left to the brain's own walk, which moves a folk nobody sees past what holds it up.
 	 */
-	private boolean stalled(Folk folk, double x, double y, double z, int elapsed) {
-		double d = Math.sqrt(Mth.square(x - folk.getX()) + Mth.square(z - folk.getZ())) + Math.abs(y - folk.getY());
-		if (d < this.best - 0.5) {
-			this.best = d;
-			this.noCloser = 0;
+	private boolean stalled(Folk folk, double x, double z, int elapsed) {
+		if (Mth.square(x - folk.getX()) + Mth.square(z - folk.getZ()) > 24 * 24) {
+			this.anchor = null;
 			return false;
 		}
-		this.noCloser += elapsed;
-		return this.noCloser > 60;
+		Vec3 here = folk.position();
+		if (this.anchor == null || here.distanceToSqr(this.anchor) > 0.5 * 0.5) {
+			this.anchor = here;
+			this.noHeadway = 0;
+			return false;
+		}
+		this.noHeadway += elapsed;
+		return this.noHeadway > 60;
 	}
 
 	boolean failed() {
@@ -60,6 +67,10 @@ final class Walker {
 
 	String doing() {
 		return this.doing;
+	}
+
+	String why() {
+		return this.why;
 	}
 
 	/** The ring column the folk stands in above its foot, or -1 (on the ground, a floor, anywhere else). */
@@ -103,12 +114,15 @@ final class Walker {
 			if (!at && brain.walkFailed() || at && Math.abs(folk.getY() - goal.getY()) >= 0.75) {
 				// no way there, or below or above it (a floor or wall top the path does not climb to)
 				this.failed = true;
+				this.why = (at ? "h" : "w");
 				return false;
 			}
 			if (!at) {
 				this.centring = 0;
-				if (stalled(folk, goal.getX() + 0.5, goal.getY(), goal.getZ() + 0.5, elapsed)) {
+				openHatch(level, folk);
+				if (stalled(folk, goal.getX() + 0.5, goal.getZ() + 0.5, elapsed)) {
 					this.failed = true;
+					this.why = "s";
 				}
 				return false;
 			}
@@ -152,6 +166,7 @@ final class Walker {
 				|| brain.walk(level, new BlockPos(st.xs[cell], st.base[cell], st.zs[cell]), 0.5, 0.65);
 			if (!at && brain.walkFailed()) {
 				this.failed = true;
+				this.why = "w";
 			} else if (at) {
 				// the path ends near the middle of the column's foot: in under the scaffolding
 				folk.getNavigation().stop();
@@ -164,8 +179,9 @@ final class Walker {
 				}
 			} else {
 				this.centring = 0;
-				if (stalled(folk, st.xs[cell] + 0.5, st.base[cell], st.zs[cell] + 0.5, elapsed)) {
+				if (stalled(folk, st.xs[cell] + 0.5, st.zs[cell] + 0.5, elapsed)) {
 					this.failed = true;
+					this.why = "s";
 				}
 			}
 			return false;
@@ -214,6 +230,30 @@ final class Walker {
 			this.stuck = 0;
 		}
 		return false;
+	}
+
+	/**
+	 * Opens a shut trapdoor the path goes through, as a player does: the hatch over a loft ladder that a builder upstairs
+	 * has just fitted (the pathfinder counts trapdoors as open, so the path down goes through it, and the folk would
+	 * stand on it for good). Left open, as a busy builder leaves it.
+	 */
+	static void openHatch(ServerLevel level, Folk folk) {
+		net.minecraft.world.level.pathfinder.Path path = folk.getNavigation().getPath();
+		if (path == null || path.isDone()) {
+			return;
+		}
+		net.minecraft.world.level.pathfinder.Node next = path.getNextNode();
+		BlockPos feet = folk.blockPosition();
+		BlockPos node = next.asBlockPos();
+		BlockPos[] look = next.y < feet.getY() ? new BlockPos[]{feet.below(), node, node.above()}
+			: next.y > feet.getY() ? new BlockPos[]{feet.above(), feet.above(2), node.above()} : new BlockPos[]{node, node.above()};
+		for (BlockPos p : look) {
+			net.minecraft.world.level.block.state.BlockState s = level.getBlockState(p);
+			if (s.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock && !s.getValue(net.minecraft.world.level.block.TrapDoorBlock.OPEN)) {
+				level.setBlock(p, s.setValue(net.minecraft.world.level.block.TrapDoorBlock.OPEN, true), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+				level.playSound(null, p, net.minecraft.sounds.SoundEvents.WOODEN_TRAPDOOR_OPEN, net.minecraft.sounds.SoundSource.BLOCKS, 0.8F, 1.0F);
+			}
+		}
 	}
 
 	/** Which way round the ring (+1, -1) reaches {@code to} from {@code from} at feet height {@code feet}, or 0 if neither does. */

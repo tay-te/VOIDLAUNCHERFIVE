@@ -32,6 +32,10 @@ public final class BuildSite {
 	private static final int SCAN_IDLE = 40;
 	private static final int SCAN_MIN = 6;
 
+	/** Time spent choosing where to work and keeping sites up to date (for the builder tour's cost line). */
+	public static final java.util.concurrent.atomic.LongAdder CHOOSE_NANOS = new java.util.concurrent.atomic.LongAdder();
+	public static final java.util.concurrent.atomic.LongAdder REFRESH_NANOS = new java.util.concurrent.atomic.LongAdder();
+
 	public final int plotId;
 	public final UUID ledgerId;
 	private int stage = -1;
@@ -110,6 +114,15 @@ public final class BuildSite {
 			return;
 		}
 		this.refreshedAt = now;
+		long t0 = System.nanoTime();
+		try {
+			refreshNow(level, settlement, plot, bp, now);
+		} finally {
+			REFRESH_NANOS.add(System.nanoTime() - t0);
+		}
+	}
+
+	private void refreshNow(ServerLevel level, Settlement settlement, PlotView plot, Blueprint bp, long now) {
 		if (plot.stage() != this.stage) {
 			newStage(plot.stage());
 		}

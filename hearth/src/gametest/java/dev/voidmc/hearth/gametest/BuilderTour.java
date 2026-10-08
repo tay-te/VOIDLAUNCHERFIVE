@@ -159,7 +159,7 @@ public class BuilderTour implements FabricClientGameTest {
 			// the same camera, later; until the building is up and its scaffolding down (or the time is spent)
 			long start = System.currentTimeMillis();
 			long until = start + LATER * 1000L;
-			long[] cost0 = world.getServer().computeOnServer(server -> new long[]{Folk.SERVER_TICK_NANOS.sum(), Folk.SERVER_TICKS.sum(), server.getTickCount()});
+			long[] cost0 = world.getServer().computeOnServer(server -> new long[]{Folk.SERVER_TICK_NANOS.sum(), Folk.SERVER_TICKS.sum(), server.getTickCount(), dev.voidmc.hearth.npc.work.BuildSite.CHOOSE_NANOS.sum(), dev.voidmc.hearth.npc.work.BuildSite.REFRESH_NANOS.sum()});
 			double done0 = world.getServer().computeOnServer(server -> done(settlement(server, site.town), settlement(server, site.town).plot(site.plot)));
 			long builtAt = -1;
 			java.util.Set<String> shots = new java.util.HashSet<>();
@@ -177,9 +177,11 @@ public class BuilderTour implements FabricClientGameTest {
 				}
 				log("progress: " + world.getServer().computeOnServer(server -> plotLine(server, site) + "; scaffolding " + scaffolds(server, site) + "; " + builders(server, site)));
 			}
-			long[] cost1 = world.getServer().computeOnServer(server -> new long[]{Folk.SERVER_TICK_NANOS.sum(), Folk.SERVER_TICKS.sum(), server.getTickCount()});
+			long[] cost1 = world.getServer().computeOnServer(server -> new long[]{Folk.SERVER_TICK_NANOS.sum(), Folk.SERVER_TICKS.sum(), server.getTickCount(), dev.voidmc.hearth.npc.work.BuildSite.CHOOSE_NANOS.sum(), dev.voidmc.hearth.npc.work.BuildSite.REFRESH_NANOS.sum()});
 			long folkTicks = cost1[1] - cost0[1];
 			long serverTicks = Math.max(1, cost1[2] - cost0[2]);
+			log(String.format(Locale.ROOT, "builders' share: choosing where to work %.3f ms, site upkeep %.3f ms per server tick",
+				(cost1[3] - cost0[3]) / 1e6 / serverTicks, (cost1[4] - cost0[4]) / 1e6 / serverTicks));
 			log(String.format(Locale.ROOT, "folk cost over the later wait: %.1f µs per folk tick, %.3f ms per server tick (%d folk ticks, %d server ticks)",
 				folkTicks == 0 ? 0 : (cost1[0] - cost0[0]) / 1e3 / folkTicks, (cost1[0] - cost0[0]) / 1e6 / serverTicks, folkTicks, serverTicks));
 			if (builtAt < 0) {

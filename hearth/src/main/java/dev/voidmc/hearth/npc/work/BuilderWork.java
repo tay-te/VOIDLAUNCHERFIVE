@@ -257,6 +257,22 @@ final class BuilderWork implements WorkBehaviour {
 		return new Vec3(feet.getX() + 0.5, feet.getY() + eyeHeight, feet.getZ() + 0.5);
 	}
 
+	/**
+	 * A wall top or a ledge with a drop on two sides: no place to work from (builders work from the ground, a floor or
+	 * the scaffolding, not balanced on the wall they are building), nor one the path can be trusted to reach.
+	 */
+	static boolean perch(ServerLevel level, BlockPos feet) {
+		int drops = 0;
+		BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+		for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+			m.set(feet.getX() + d.getStepX(), feet.getY() - 1, feet.getZ() + d.getStepZ());
+			if (FolkSpots.passable(level, m) && FolkSpots.passable(level, m.move(0, -1, 0)) && ++drops >= 2) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** Placing a solid block where the builder stands would bury them. */
 	private static boolean inside(Folk folk, BlockPos pos, BlockState state) {
 		return !state.isAir() && folk.getBoundingBox().intersects(new AABB(pos)) && !state.getCollisionShape(folk.level(), pos).isEmpty();
@@ -333,6 +349,11 @@ final class BuilderWork implements WorkBehaviour {
 		}
 	}
 
+	/** In front of a site, by the street. */
+	static BlockPos frontOf(PlotSpec spec) {
+		return ResidentPlaces.centre(spec).relative(spec.facing(), spec.depth() / 2 + 2);
+	}
+
 	/** A place to work from: feet, and the ring column stood in ({@code -1} on the ground or a floor). */
 	record Spot(BlockPos feet, int cell) {
 	}
@@ -377,6 +398,11 @@ final class BuilderWork implements WorkBehaviour {
 		private int column = -1;
 		private int spotMode;
 		private final LongOpenHashSet badSpots = new LongOpenHashSet();
+		/** Walks failed in a row from about the same place: a builder shut in somewhere. */
+		private @Nullable BlockPos trappedAt;
+		/** The plot's spec, as last read. */
+		private @Nullable PlotSpec spec;
+		private int trappedFails;
 		/** Steps of this stage no place one could get to reached lately: passed for the next ready ones a while. */
 		private final it.unimi.dsi.fastutil.ints.IntOpenHashSet badTargets = new it.unimi.dsi.fastutil.ints.IntOpenHashSet();
 		/** Paths asked for in this choice of where to work (they cost: a few at most). */
@@ -405,6 +431,9 @@ final class BuilderWork implements WorkBehaviour {
 			this.stepTicks += elapsed;
 			if (plot != null && bp != null && buildable(plot) && plot.stage() < bp.stageCount()) {
 				site.refresh(level, settlement, plot, bp, now);
+			}
+			if (plot != null) {
+				this.spec = plot.spec();
 			}
 			boolean open = plot != null && bp != null && plot.state() == PlotState.BUILDING && plot.stage() < bp.stageCount();
 			if (this.descend != null) {
@@ -539,7 +568,10 @@ final class BuilderWork implements WorkBehaviour {
 					this.waitTicks -= elapsed;
 					return Status.RUNNING;
 				}
-				if (!chooseSpot(brain, level, site, plot, bp, scan)) {
+				long t0 = System.nanoTime();
+				boolean chosen = chooseSpot(brain, level, site, plot, bp, scan);
+				BuildSite.CHOOSE_NANOS.add(System.nanoTime() - t0);
+				if (!chosen) {
 					return Status.RUNNING;
 				}
 			}
@@ -561,9 +593,26 @@ final class BuilderWork implements WorkBehaviour {
 				return Status.RUNNING;
 			}
 			if (this.walker.failed() || this.spotTicks > this.spotAllowance) {
-				trace(this.walker.failed() ? "F" : "T");
+				trace(this.walker.failed() ? "F" + this.walker.why() : "T");
 				this.badSpots.add(this.spot.feet().asLong());
 				leaveSpot(brain, site);
+				BlockPos now = brain.folk.blockPosition();
+				this.trappedFails = this.trappedAt != null && this.trappedAt.closerThan(now, 1.5) ? this.trappedFails + 1 : 1;
+				this.trappedAt = now;
+				if (this.trappedFails >= 6) {
+					// shut in (a room whose way out was walled up, a loft whose hatch is under a block): out by the front
+					// rather than stand there for good. A last resort: half a minute of getting nowhere first
+					BlockPos front = this.spec == null ? null : FolkSpots.standableNear(level, frontOf(this.spec), 4);
+					if (front != null) {
+						trace("O");
+						brain.folk.getNavigation().stop();
+						Walker.release(brain.folk);
+						brain.folk.teleportTo(front.getX() + 0.5, front.getY(), front.getZ() + 0.5);
+					}
+					this.trappedFails = 0;
+					this.badSpots.clear();
+					return Status.RUNNING;
+				}
 				if (!this.walker.onRing(site.staging, brain.folk) && startDescent(level, brain.folk)) {
 					trace("D");
 				}
@@ -670,8 +719,10 @@ final class BuilderWork implements WorkBehaviour {
 				this.stretchStage = scan.stage();
 				this.stretchSince = this.stepTicks;
 			}
-			trace("S" + target.index());
-			if (reaches(folk.getEyePosition(), target.pos(), LONG_REACH - 0.3) && !this.walker.onRing(site.staging, folk)) {
+			trace("S" + target.index() + "@" + t.getX() % 100 + "," + t.getY() + "," + t.getZ() % 100);
+			BlockPos feetNow = folk.blockPosition();
+			boolean onIt = inside(folk, t, target.state()) || t.equals(feetNow) || t.equals(feetNow.above());
+			if (!onIt && reaches(folk.getEyePosition(), target.pos(), LONG_REACH - 0.3) && !this.walker.onRing(site.staging, folk)) {
 				// within a long reach of where they stand: no need to go anywhere
 				setSpot(brain, site, new Spot(folk.blockPosition(), -1), PLACE);
 				return true;
@@ -716,14 +767,24 @@ final class BuilderWork implements WorkBehaviour {
 			}
 			if (lean == null && folk.getEyePosition().distanceToSqr(Vec3.atCenterOf(t)) > 10 * 10) {
 				// far from it (back from an errand, or the way in is shut): to the front of the site first, then choose again
-				BlockPos front = FolkSpots.standableNear(level, ResidentPlaces.centre(plot.spec()).relative(plot.spec().facing(), plot.spec().depth() / 2 + 2), 4);
+				BlockPos front = FolkSpots.standableNear(level, frontOf(plot.spec()), 4);
 				if (front != null && !this.badSpots.contains(front.asLong())) {
 					trace("G");
 					setSpot(brain, site, new Spot(front, -1), PLACE);
 					return true;
 				}
 			}
-			setSpot(brain, site, lean != null ? lean : new Spot(folk.blockPosition(), -1), PLACE);
+			if (lean == null && onIt) {
+				// standing where it goes: a step aside
+				for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+					BlockPos aside = feetNow.relative(d);
+					if (!aside.equals(t) && !aside.above().equals(t) && FolkSpots.standable(level, aside)) {
+						lean = new Spot(aside, -1);
+						break;
+					}
+				}
+			}
+			setSpot(brain, site, lean != null ? lean : new Spot(feetNow, -1), PLACE);
 			return true;
 		}
 
@@ -750,7 +811,7 @@ final class BuilderWork implements WorkBehaviour {
 							continue;
 						}
 						if (site.pendingAt(m.asLong()) || site.pendingAt(BlockPos.asLong(m.getX(), m.getY() + 1, m.getZ())) || !FolkSpots.standable(level, m)
-							|| site.crowded(me, m, 2.5)) {
+							|| site.crowded(me, m, 2.5) || perch(level, m)) {
 							continue;
 						}
 						spots.add(new Spot(m.immutable(), -1));
@@ -785,7 +846,7 @@ final class BuilderWork implements WorkBehaviour {
 							m.set(t.getX() + dx, t.getY() + dy, t.getZ() + dz);
 							Vec3 eye = eyeAt(m, eyeH);
 							if (!reaches(eye, target.pos(), REACH) || !level.isLoaded(m) || this.badSpots.contains(m.asLong()) || site.pendingAt(m.asLong())
-								|| site.pendingAt(BlockPos.asLong(m.getX(), m.getY() + 1, m.getZ())) || !FolkSpots.standable(level, m) || site.crowded(me, m, 0.9)) {
+								|| site.pendingAt(BlockPos.asLong(m.getX(), m.getY() + 1, m.getZ())) || !FolkSpots.standable(level, m) || site.crowded(me, m, 0.9) || perch(level, m)) {
 								continue;
 							}
 							spots.add(new Spot(m.immutable(), -1));
