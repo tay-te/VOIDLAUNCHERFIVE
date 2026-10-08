@@ -109,7 +109,7 @@ public final class Almshouse implements Archetype {
 		}
 		Range.wallBench(d, ground);
 		ground.blockDrawn(d);
-		Rooms.furnish(d, ground.room(), Rooms.Type.HALL, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, ground.room()), Rooms.Type.HALL, 0, JobType.NONE);
 		Lighting.room(d, r.ix0(), r.iz0(), r.ix1(), r.iz1(), base);
 
 		// --- the sleeping floor: a bed for each, a chest or a candle stand at its side
@@ -308,7 +308,7 @@ public final class Almshouse implements Archetype {
 		}
 		Range.wallBench(d, ground);
 		ground.blockDrawn(d);
-		Rooms.furnish(d, ground.room(), Rooms.Type.HALL, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, ground.room()), Rooms.Type.HALL, 0, JobType.NONE);
 		Lighting.room(d, r.ix0(), r.iz0(), r.ix1(), r.iz1(), base);
 
 		Floorplan up = r.upper();

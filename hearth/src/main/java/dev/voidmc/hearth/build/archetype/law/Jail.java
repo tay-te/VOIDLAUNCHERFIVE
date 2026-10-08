@@ -266,7 +266,7 @@ public final class Jail implements Archetype {
 				}
 			}
 		}
-		Rooms.furnish(d, guard, Rooms.Type.LIVING, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, guard), Rooms.Type.LIVING, 0, JobType.NONE);
 		Lighting.room(d, guard);
 
 		// --- upstairs: the jailer's room and the turnkey's bunk, a hearth with its chimney
@@ -295,7 +295,7 @@ public final class Jail implements Archetype {
 				}
 			}
 		}
-		Rooms.furnish(d, quarters, Rooms.Type.BEDROOM, 2, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, quarters), Rooms.Type.BEDROOM, 2, JobType.NONE);
 		Lighting.room(d, quarters);
 
 		Grounds.flight(d, doorX - 1, doorX + 1, z0 - 1, base, base);

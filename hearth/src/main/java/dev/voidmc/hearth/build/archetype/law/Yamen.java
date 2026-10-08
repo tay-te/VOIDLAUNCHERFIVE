@@ -325,7 +325,7 @@ final class Yamen {
 			d.poi(PoiType.LECTERN, lx + (left ? 1 : -1), 0, z1 - 1, left ? Dirs.LEFT : Dirs.RIGHT);
 			room.keep(lx + (left ? 1 : -1), z1 - 1);
 		}
-		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, room), Rooms.Type.STORAGE, 0, JobType.NONE);
 		Lighting.room(d, room);
 		return r.roof().ridgeY + 1;
 	}

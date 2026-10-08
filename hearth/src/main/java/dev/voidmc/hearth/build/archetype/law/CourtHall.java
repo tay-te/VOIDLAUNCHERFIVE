@@ -444,7 +444,7 @@ final class CourtHall {
 				}
 			}
 		}
-		Rooms.furnish(d, lobby, Rooms.Type.HALL, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, lobby), Rooms.Type.HALL, 0, JobType.NONE);
 		Lighting.room(d, lobby);
 		return flue;
 	}

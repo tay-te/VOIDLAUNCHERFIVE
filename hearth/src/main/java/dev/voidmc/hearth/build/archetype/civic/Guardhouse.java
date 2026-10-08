@@ -191,7 +191,7 @@ public final class Guardhouse implements Archetype {
 			room.keep(s0x, iz1 - 1);
 		}
 		// the grindstone, chests and barrels where the room allows; racks of arms set into the side walls
-		Rooms.furnish(d, room, Rooms.Type.WORKSHOP, 0, JobType.GUARD);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, room), Rooms.Type.WORKSHOP, 0, JobType.GUARD);
 		List<List<Object[]>> racks = List.of(
 			List.of(new Object[]{"minecraft:iron_sword", 1, 0}, new Object[]{"minecraft:crossbow", 1, 1}, new Object[]{"minecraft:shield", 1, 2}),
 			List.of(new Object[]{"minecraft:iron_helmet", 1, 0}, new Object[]{"minecraft:iron_chestplate", 1, 1}, new Object[]{"minecraft:iron_helmet", 1, 2}),
@@ -206,7 +206,7 @@ public final class Guardhouse implements Archetype {
 				}
 			}
 		}
-		Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, room), Rooms.Type.LIVING, 0, JobType.NONE);
 		if (room.width() >= 3 && room.length() >= 3) {
 			Halls.lanternUnder(d, cx, base, (iz0 + iz1) / 2, 0);
 		}
@@ -228,7 +228,7 @@ public final class Guardhouse implements Archetype {
 				bunks.keep(rx + (rx == ix0 ? 1 : -1), iz0);
 			}
 		}
-		Rooms.furnish(d, bunks, Rooms.Type.BEDROOM, (up[2] - up[0] - 1) * (up[3] - up[1] - 1) >= 20 ? 3 : 2, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, bunks), Rooms.Type.BEDROOM, (up[2] - up[0] - 1) * (up[3] - up[1] - 1) >= 20 ? 3 : 2, JobType.NONE);
 
 		// --- the yard: a training dummy, a target, a butt of arrows
 		if (yard) {

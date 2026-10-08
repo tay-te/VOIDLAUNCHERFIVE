@@ -107,7 +107,7 @@ public final class Orphanage implements Archetype {
 		}
 		Range.wallBench(d, ground);
 		ground.blockDrawn(d);
-		Rooms.furnish(d, ground.room(), Rooms.Type.HALL, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, ground.room()), Rooms.Type.HALL, 0, JobType.NONE);
 		Lighting.room(d, r.ix0(), r.iz0(), r.ix1(), r.iz1(), base);
 
 		// --- the dormitory: small beds side by side down every wall, each reached from its foot
@@ -258,7 +258,7 @@ public final class Orphanage implements Archetype {
 		}
 		Range.wallBench(d, ground);
 		ground.blockDrawn(d);
-		Rooms.furnish(d, ground.room(), Rooms.Type.HALL, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, ground.room()), Rooms.Type.HALL, 0, JobType.NONE);
 		Lighting.room(d, ix0, iz0, ix1, iz1, base);
 
 		// --- the dormitory under the roof: small beds side by side down both long walls, each reached from its foot

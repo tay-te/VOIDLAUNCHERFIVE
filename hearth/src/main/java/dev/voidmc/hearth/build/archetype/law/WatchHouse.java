@@ -184,7 +184,7 @@ public final class WatchHouse implements Archetype {
 			d.inStage(StageKind.INTERIOR, () -> d.set(rx, base + 1, rz, States.facing(shelf, stairLeft ? Dirs.LEFT : Dirs.RIGHT), BlockEntities.shelf(List.of(
 				new Object[]{"minecraft:iron_sword", 1, 0}, new Object[]{"minecraft:crossbow", 1, 1}, new Object[]{"minecraft:shield", 1, 2}))));
 		}
-		Rooms.furnish(d, guard, Rooms.Type.LIVING, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, guard), Rooms.Type.LIVING, 0, JobType.NONE);
 		Lighting.room(d, guard);
 		// --- the bunks
 		Rooms.Room bunks = new Rooms.Room(ix0, iz0, ix1, iz1, fy1, 3);
@@ -201,7 +201,7 @@ public final class WatchHouse implements Archetype {
 			Stairs.ladder(d, lx, lz, fy1, plate, Dirs.FRONT);
 		}
 		bunks.keep(lx, lz - 1);
-		Rooms.furnish(d, bunks, Rooms.Type.BEDROOM, 2, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, bunks), Rooms.Type.BEDROOM, 2, JobType.NONE);
 		Lighting.room(d, bunks);
 		if (!flat) {
 			int[] r2 = body.rect(2);

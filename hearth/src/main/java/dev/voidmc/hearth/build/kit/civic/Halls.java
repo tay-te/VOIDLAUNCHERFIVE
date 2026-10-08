@@ -7,6 +7,7 @@ import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
+import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Walls;
 import dev.voidmc.hearth.build.style.Form;
@@ -448,6 +449,28 @@ public final class Halls {
 		lintels(d);
 		walkThroughLights(d);
 		Grounds.edgeRails(d);
+	}
+
+	/**
+	 * Keeps the cells of a room at the open side of a stairwell or a ladder's hatch free of furniture: a bed, a chest or a
+	 * table there is a step up from which the next step is the drop. Call before furnishing it, once the stair is cut.
+	 */
+	public static Rooms.Room keepOffWells(Draft d, Rooms.Room room) {
+		int y = room.y;
+		for (int z = room.z0; z <= room.z1; z++) {
+			for (int x = room.x0; x <= room.x1; x++) {
+				for (Direction dir : Dirs.HORIZONTAL) {
+					int nx = x + Dirs.dx(dir);
+					int nz = z + Dirs.dz(dir);
+					// (where the well falls three or more: over a flight's upper steps a bed beside it is harmless)
+					if (d.isEmpty(nx, y, nz) && d.isEmpty(nx, y - 1, nz) && d.isEmpty(nx, y - 2, nz) && d.isEmpty(nx, y - 3, nz)
+						&& !d.isAbsent(nx, y - 1, nz)) {
+						room.keepArea(x, z, x, z);
+					}
+				}
+			}
+		}
+		return room;
 	}
 
 	/**

@@ -190,13 +190,13 @@ public final class TollGate implements Archetype {
 		guard.block(rx, 1);
 		guard.keep(rx, 2);
 		guard.keep(rx0 + 1, dp - 2);
-		Rooms.furnish(d, guard, Rooms.Type.STORAGE, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, guard), Rooms.Type.STORAGE, 0, JobType.NONE);
 		Lighting.room(d, rx0 + 1, 1, w - 2, dp - 2, 0);
 		// --- the keeper's room
 		Rooms.Room keeper = new Rooms.Room(1, 1, w - 2, dp - 2, fy, 3);
 		keeper.keep(rx, 1);
 		keeper.keep(rx, 2);
-		Rooms.furnish(d, keeper, Rooms.Type.BEDROOM, 1, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, keeper), Rooms.Type.BEDROOM, 1, JobType.NONE);
 		Lighting.room(d, keeper);
 
 		// --- the barrier across the road's mouth on the field side: a striped boom at head height, its counterweight

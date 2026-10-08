@@ -396,7 +396,7 @@ public final class TownHall implements Archetype {
 				Halls.lanternUnder(d, x, base, z, 1);
 			}
 		}
-		Rooms.furnish(d, entry, Rooms.Type.HALL, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, entry), Rooms.Type.HALL, 0, JobType.NONE);
 		Floors.joists(d, ix0, iz0, ix1, iz1, fy - 1, Direction.Axis.Z, 3, base);
 		// the chamber: the long table down the middle, the mayor's chair at its head on a dais
 		int[] up = body.rect(1);

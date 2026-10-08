@@ -227,11 +227,13 @@ public final class Playhouse implements Archetype {
 		d.poi(PoiType.MEETING_POINT, w / 2, base, Math.max(yz0, sz0 - 2), Dirs.BACK);
 
 		// --- the galleries: a bench round each tier facing the yard, gaps to get along
+		if (tiers) {
+			// the stair up from the walk of the left wing near the front (before the benches, which keep off its well)
+			Stairs.straight(d, 1, base, zF + 2, Dirs.BACK, tier, 1);
+		}
 		benches(d, w, zF, zT, base);
 		if (tiers) {
 			benches(d, w, zF, zT, upY);
-			// the stair up from the walk of the left wing near the front
-			Stairs.straight(d, 1, base, zF + 2, Dirs.BACK, tier, 1);
 		}
 
 		// --- the tiring house: costume chests and a table, lit
@@ -406,6 +408,16 @@ public final class Playhouse implements Archetype {
 				Direction toYard = dz <= dx0 && dz <= dx1 ? Dirs.BACK : dx0 <= dx1 ? Dirs.RIGHT : Dirs.LEFT;
 				int along = toYard == Dirs.BACK ? x : z;
 				if (along % 4 == 0 || x == w / 2 || x == w / 2 - 1) {
+					continue;
+				}
+				// none beside the stairwell: whoever stands on the bench stands over the well
+				boolean well = false;
+				for (Direction dir : Dirs.HORIZONTAL) {
+					int nx = x + Dirs.dx(dir);
+					int nz = z + Dirs.dz(dir);
+					well |= d.isEmpty(nx, y, nz) && d.isEmpty(nx, y - 1, nz) && d.isEmpty(nx, y - 2, nz) && !d.isAbsent(nx, y - 1, nz);
+				}
+				if (well) {
 					continue;
 				}
 				Venue.bench(d, x, y, z, Dirs.right(toYard), 1, toYard.getOpposite());
