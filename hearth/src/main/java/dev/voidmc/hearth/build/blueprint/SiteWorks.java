@@ -410,8 +410,9 @@ final class SiteWorks {
 					continue;
 				}
 				Draft.Cell c = d.cell(x, y, z);
-				// a roof block of the finished house takes the board's place; elsewhere the board is lifted with the roof
-				boolean roofed = c != null && !c.state().isAir() && c.stage() == StageKind.ROOF;
+				// a roof block of the finished house takes the board's place (or a floor's, where the boards went up with
+				// the walls); elsewhere the board is lifted with the roof
+				boolean roofed = c != null && !c.state().isAir() && c.stage().ordinal() <= StageKind.ROOF.ordinal();
 				out.add(new Work(x, y, z, board(boards, x, y, z), up));
 				if (!roofed) {
 					out.add(new Work(x, y, z, takenDown(d, x, y, z), StageKind.ROOF));

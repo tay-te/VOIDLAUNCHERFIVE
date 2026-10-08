@@ -91,16 +91,21 @@ public final class Compiler {
 	}
 
 	public static BlueprintImpl compile(Draft d) {
+		return compile(d, true);
+	}
+
+	/** {@link #compile}, with or without the building site's works ({@link SiteWorks}; without: for tests and tools). */
+	public static BlueprintImpl compile(Draft d, boolean works) {
 		long t0 = System.nanoTime();
 		try {
-			return compileTimed(d, t0);
+			return compileTimed(d, t0, works);
 		} finally {
 			Timings.TOTAL.add(System.nanoTime() - t0);
 			Timings.COUNT.increment();
 		}
 	}
 
-	private static BlueprintImpl compileTimed(Draft d, long t0) {
+	private static BlueprintImpl compileTimed(Draft d, long t0, boolean works) {
 		Site site = d.site();
 		LocalFrame frame = d.frame();
 		// light what the archetype left dark (docs/LIVING_WORLD.md §1), before shapes are final and steps ordered (the pass
@@ -148,7 +153,7 @@ public final class Compiler {
 		// the building site's works (scaffolding, a fence, a pile of materials, a board roof): put up in an early stage and
 		// taken down in a later one, so the finished blueprint is the drawing (SiteWorks); taking down goes first in its
 		// stage, from the top
-		if (campaignOf == null) {
+		if (works && campaignOf == null) {
 			for (SiteWorks.Work w : SiteWorks.plan(d)) {
 				int dx = w.x() - main[0];
 				int dz = w.z() - main[2];

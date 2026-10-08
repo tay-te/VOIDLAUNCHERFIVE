@@ -76,6 +76,22 @@ public final class Chimneys {
 	public static void pot(Draft d, int x, int y, int z, @Nullable BlockState stone) {
 		BlockState under = stone != null ? stone : d.get(x, y - 1, z);
 		d.set(x, y, z, States.lit(Blocks.CAMPFIRE, true).trySetValue(BlockStateProperties.SIGNAL_FIRE, false));
+		crownOrSink(d, x, y, z, under);
+	}
+
+	/**
+	 * {@link #crown}, or, where the stack reaches the plot's height and no cap may go over the fire, the fire sunk one
+	 * course into the stack and capped where it stood (its smoke still rises clear: a campfire's smoke starts up to two
+	 * blocks over it).
+	 */
+	private static void crownOrSink(Draft d, int x, int y, int z, @Nullable BlockState under) {
+		if (!d.allowed(x, y + 1, z) && under != null && d.isSolid(x, y - 2, z)) {
+			BlockState fire = d.get(x, y, z);
+			d.set(x, y, z, Blocks.AIR.defaultBlockState());
+			d.set(x, y - 1, z, fire);
+			crown(d, x, y - 1, z, under);
+			return;
+		}
 		crown(d, x, y, z, under);
 	}
 
@@ -144,15 +160,17 @@ public final class Chimneys {
 	}
 
 	/**
-	 * Every chimney fire in the draft that stands bare (a lit campfire drawn in stage ROOF on solid masonry, open air
-	 * over it) gets its crown and cap, whichever family drew it (town homes, tower houses, flat roofs, halls draw
+	 * Every chimney fire in the draft that stands bare (a lit campfire on a full block, three or more over the ground,
+	 * open air over it) gets its crown and cap, whichever family drew it (town homes, tower houses, flat roofs, halls draw
 	 * their own stacks). Run by the compiler before shapes are resolved; idempotent. Returns how many it crowned.
 	 */
 	public static int crownBareFires(Draft d) {
 		List<long[]> fires = new ArrayList<>();
 		d.forEach((x, y, z, c) -> {
 			BlockState s = c.state();
-			if (c.stage() != StageKind.ROOF || !(s.getBlock() instanceof CampfireBlock) || !s.getValue(CampfireBlock.LIT)) {
+			// a fire on a stack's head, whatever stage drew it (a roof's chimney, a kiln's or a furnace's stack on its
+			// straw): well over the ground, so not a camp's fire pit (a brazier stands on a wall, not a full block)
+			if (!(s.getBlock() instanceof CampfireBlock) || !s.getValue(CampfireBlock.LIT) || y < d.site().ground(x, z) + 3) {
 				return;
 			}
 			BlockState under = d.get(x, y - 1, z);
@@ -169,8 +187,9 @@ public final class Chimneys {
 			int x = (int) f[0];
 			int y = (int) f[1];
 			int z = (int) f[2];
-			try (var s = d.stage(StageKind.ROOF)) {
-				crown(d, x, y, z, d.get(x, y - 1, z));
+			Draft.Cell fire = d.cell(x, y, z);
+			try (var s = d.stage(fire.stage().ordinal() < StageKind.ROOF.ordinal() ? StageKind.ROOF : fire.stage())) {
+				crownOrSink(d, x, y, z, d.get(x, y - 1, z));
 			}
 		}
 		return fires.size();
