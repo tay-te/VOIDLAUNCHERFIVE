@@ -113,7 +113,10 @@ public final class Compiler {
 			dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 		}
 		// every bare chimney fire crowned, so a roof smokes and shows no flame (art review 2 §8 item 18)
-		dev.voidmc.hearth.build.kit.Chimneys.crownBareFires(d);
+		// (a corbel may close a pocket of air against the roof: the voids are sealed again where any fire was crowned)
+		if (dev.voidmc.hearth.build.kit.Chimneys.crownBareFires(d) > 0) {
+			dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+		}
 		dev.voidmc.hearth.build.kit.light.AutoLighter.light(d);
 		long t1 = System.nanoTime();
 		Timings.LIGHT.add(t1 - t0);

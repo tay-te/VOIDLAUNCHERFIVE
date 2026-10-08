@@ -146,9 +146,9 @@ public final class Chimneys {
 	/**
 	 * Every chimney fire in the draft that stands bare (a lit campfire drawn in stage ROOF on solid masonry, open air
 	 * over it) gets its crown and cap, whichever family drew it (town homes, tower houses, flat roofs, halls draw
-	 * their own stacks). Run by the compiler before shapes are resolved; idempotent.
+	 * their own stacks). Run by the compiler before shapes are resolved; idempotent. Returns how many it crowned.
 	 */
-	public static void crownBareFires(Draft d) {
+	public static int crownBareFires(Draft d) {
 		List<long[]> fires = new ArrayList<>();
 		d.forEach((x, y, z, c) -> {
 			BlockState s = c.state();
@@ -173,6 +173,7 @@ public final class Chimneys {
 				crown(d, x, y, z, d.get(x, y - 1, z));
 			}
 		}
+		return fires.size();
 	}
 
 	/** The stairs cut from a block (stone bricks: stone brick stairs; mud bricks: mud brick stairs), or null. */
