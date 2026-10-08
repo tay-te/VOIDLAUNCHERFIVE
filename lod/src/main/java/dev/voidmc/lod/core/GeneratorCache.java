@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
 public final class GeneratorCache implements TerrainSource {
 	private static final Logger LOGGER = LoggerFactory.getLogger("VOID LOD");
 	private static final int MAGIC = 0x56474E43;
-	private static final int FORMAT = 7;
+	private static final int FORMAT = 8;
 	private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "VOID LOD generator cache");
 		t.setDaemon(true);

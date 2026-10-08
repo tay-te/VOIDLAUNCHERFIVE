@@ -107,6 +107,11 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private final ConcurrentLinkedQueue<Built> built = new ConcurrentLinkedQueue<>();
 	private final ArrayDeque<Built> waiting = new ArrayDeque<>();
 	private final LodSelector selector = new LodSelector();
+
+	/** Top-level tiles nothing covered in the last selection: holes in the far view (statistics). */
+	public int uncovered() {
+		return this.selector.uncovered;
+	}
 	/**
 	 * Building ahead: on the move, the horizon a few seconds ahead is selected too, now and then, its missing tiles
 	 * queued after everything the view needs now, so a fast flight finds its land built when it gets there.

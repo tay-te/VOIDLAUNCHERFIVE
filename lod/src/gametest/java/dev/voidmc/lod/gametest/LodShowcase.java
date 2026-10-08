@@ -294,6 +294,19 @@ public class LodShowcase implements FabricClientGameTest {
 				return found;
 			});
 
+			if (Boolean.getBoolean("lod.show.lake")) {
+				// the nearest lake, from 150 m off its shore and 40 m above it: lake0 from inside the chunks' reach, lake1 from beyond
+				int[] lake = world.getServer().computeOnServer(server -> ExpanseLand.lake(server.overworld(), 0, 0, 6000));
+				if (lake != null) {
+					System.out.printf(Locale.ROOT, "[lod] lake at %d,%d, top water block %d%n", lake[0], lake[1], lake[2]);
+					for (int[] view : new int[][]{{90, 0}, {300, 1}}) {
+						int cx = lake[0] - view[0], cz = lake[1] - view[0];
+						spots.add(new Spot("lake" + view[1], cx, lake[2] + 40, cz, -45, (float) Math.toDegrees(Math.atan2(40, view[0] * 1.414)), 70));
+					}
+				} else {
+					System.out.println("[lod] lake: none within 6 km");
+				}
+			}
 			if (Boolean.getBoolean("lod.show.farCheck")) {
 				String check = world.getServer().computeOnServer(server -> ExpanseLand.farCheck(server.overworld(), 1899, 930, 24000, 384));
 				System.out.println("[lod] far check: " + check);
@@ -370,6 +383,18 @@ public class LodShowcase implements FabricClientGameTest {
 					context.waitTicks(140);
 				}
 
+				if (moved && !OFF) {
+					// how long the far view has holes after arriving (not even a coarse tile over some of it)
+					long t0 = System.currentTimeMillis();
+					// a couple of frames for the selection to see where the camera is now
+					context.waitTicks(2);
+					int ticks = 0;
+					while (ticks++ < 400 && context.computeOnClient(mc -> VoidLod.get().engine().uncovered() > 0
+						|| VoidLod.get().engine().tileCount() == 0)) {
+						context.waitTick();
+					}
+					System.out.printf(Locale.ROOT, "[lod] covered %s in %.1f s%n", spot.name(), (System.currentTimeMillis() - t0) / 1000.0);
+				}
 				if (OFF) {
 					context.runOnClient(mc -> VoidLod.get().setEnabled(false));
 					this.settle(context, moved ? SETTLE_MS : 2_000);
@@ -393,6 +418,18 @@ public class LodShowcase implements FabricClientGameTest {
 				}
 				if (LISTEN) {
 					this.listen(context, spot);
+				}
+				if (Boolean.getBoolean("lod.show.sortCompare")) {
+					double[] sum = new double[2];
+					for (int round = 0; round < 10; round++) {
+						boolean on = round % 2 == 0;
+						context.runOnClient(mc -> LodRenderer.frontToBack = on);
+						context.waitTicks(60);
+						double ms = context.computeOnClient(mc -> VoidLod.get().renderer().gpuMillis);
+						sum[on ? 0 : 1] += ms;
+					}
+					context.runOnClient(mc -> LodRenderer.frontToBack = true);
+					System.out.printf(Locale.ROOT, "[lod] order %s: GPU %.2f ms nearest first, %.2f ms unsorted%n", spot.name(), sum[0] / 5, sum[1] / 5);
 				}
 				if (FACE_COMPARE) {
 					double[] sum = new double[2];

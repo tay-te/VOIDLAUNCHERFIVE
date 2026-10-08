@@ -13,7 +13,7 @@ import java.nio.ByteBuffer;
  */
 public final class ExpanseFacts {
 	/** Bytes one column takes encoded ({@link #write}), its biome and strata offset not included. */
-	public static final int BYTES = 4 * 7 + 4 + 1 + 1;
+	public static final int BYTES = 4 * 9 + 4 + 1 + 1;
 
 	public float height;
 	public float riverDist;
@@ -35,6 +35,13 @@ public final class ExpanseFacts {
 	public boolean lava;
 	/** The share of the cell a river narrower than it covers. */
 	public float river;
+	/**
+	 * A lake over the column or on its shore ({@code Column.lake}): the y of its top water block (below -900: none), and how
+	 * far inside the shoreline the column is (negative on the bank round it).
+	 */
+	public float lake = NO_LAKE;
+	public float lakeEdge;
+	static final float NO_LAKE = -999;
 	/** The rock under the soil: 0 stone, 1 sandstone, 2 limestone, 3 basalt ({@code Column.rock}). */
 	public int rock;
 	/**
@@ -56,6 +63,8 @@ public final class ExpanseFacts {
 		this.crater = c.crater;
 		this.craterLava = c.craterLava;
 		this.fjord = c.fjord;
+		this.lake = c.lake;
+		this.lakeEdge = c.lakeEdge;
 		this.coast = c.coast;
 		this.uplift = c.uplift;
 		this.rock = c.rock;
@@ -79,6 +88,16 @@ public final class ExpanseFacts {
 		} else if (this.fjord || Math.ceil(ground) < seaLevel) {
 			water = seaLevel;
 		}
+		if (this.lake > -900 && water == Integer.MIN_VALUE) {
+			// as the generator lays it: water from the lake's top block down to its bed, and a bank built up to that
+			// level on the three blocks of shore round it
+			int top = (int) Math.floor(this.lake);
+			if (this.lakeEdge > 0 && ground < top + 1) {
+				water = top + 1;
+			} else if (this.lakeEdge > -3) {
+				ground = Math.max(ground, top + 1);
+			}
+		}
 		if (this.crater > ground) {
 			water = Math.max(water, (int) Math.ceil(this.crater));
 			lava = this.craterLava;
@@ -101,7 +120,7 @@ public final class ExpanseFacts {
 
 	public void write(ByteBuffer b) {
 		b.putFloat(this.height).putFloat(this.riverDist).putFloat(this.riverHalfWidth).putFloat(this.crater).putFloat(this.coast)
-			.putFloat(this.uplift).putFloat(this.bed).putInt(this.waterTop).put((byte) this.landform)
+			.putFloat(this.uplift).putFloat(this.bed).putFloat(this.lake).putFloat(this.lakeEdge).putInt(this.waterTop).put((byte) this.landform)
 			.put((byte) ((this.nearRiver ? 1 : 0) | (this.inChannel ? 2 : 0) | (this.craterLava ? 4 : 0) | (this.fjord ? 8 : 0)));
 	}
 
@@ -113,6 +132,8 @@ public final class ExpanseFacts {
 		this.coast = b.getFloat();
 		this.uplift = b.getFloat();
 		this.bed = Math.round(b.getFloat());
+		this.lake = b.getFloat();
+		this.lakeEdge = b.getFloat();
 		this.waterTop = b.getInt();
 		this.landform = b.get();
 		int flags = b.get();

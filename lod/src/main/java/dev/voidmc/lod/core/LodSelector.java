@@ -54,6 +54,8 @@ public final class LodSelector {
 	/** What the split scales are multiplied by for tiles out of view: under 1 when zoomed in. */
 	private double outOfView = 1;
 	private int top;
+	/** Top-level tiles nothing covered last frame (not even a coarser tile): holes in the far view. */
+	int uncovered;
 	private Store store;
 
 	/**
@@ -109,11 +111,15 @@ public final class LodSelector {
 		int tx1 = Math.floorDiv((int) Math.floor(cx + radius), span);
 		int tz0 = Math.floorDiv((int) Math.floor(cz - radius), span);
 		int tz1 = Math.floorDiv((int) Math.floor(cz + radius), span);
+		int holes = 0;
 		for (int tz = tz0; tz <= tz1; tz++) {
 			for (int tx = tx0; tx <= tx1; tx++) {
-				this.collect(TileKey.of(topLevel, tx, tz));
+				if (!this.collect(TileKey.of(topLevel, tx, tz))) {
+					holes++;
+				}
 			}
 		}
+		this.uncovered = holes;
 		this.store = null;
 		this.visibility = null;
 		return this.draw;

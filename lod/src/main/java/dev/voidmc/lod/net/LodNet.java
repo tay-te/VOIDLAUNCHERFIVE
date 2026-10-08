@@ -23,7 +23,7 @@ import net.minecraft.resources.Identifier;
  */
 public final class LodNet {
 	/** Bumped when the facts change shape: a client and server of different versions keep to what they each have. */
-	public static final int VERSION = 3;
+	public static final int VERSION = 4;
 	/** The most a tile's facts may take on the wire: 66 x 66 columns of 40 bytes, deflated, with room to spare. */
 	private static final int MAX_FACTS = 1 << 20;
 

@@ -255,6 +255,10 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 
 	// this frame's draws, grouped by heap and by pipeline variant; groups are kept from frame to frame
 	private final List<Group> order = new ArrayList<>();
+	/** Whether tiles are drawn nearest first (off only to measure what it saves). */
+	public static volatile boolean frontToBack = true;
+	/** This frame's tiles in view, nearest first: each its distance's float bits over its index. */
+	private long[] drawOrder = new long[256];
 	// this frame's tiles in the frustum, waiting for the horizon's verdict
 	private Tile[] inView = new Tile[256];
 	private int[] inViewFade = new int[256];
@@ -524,7 +528,20 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			this.horizon.cull();
 			this.lastOccluded = this.horizon.culled();
 		}
+		// nearest first: the near land fills the depth buffer before the land it hides is shaded (early depth test), which
+		// matters most through a shader pack, where every fragment is dear
+		if (this.drawOrder.length < inView) {
+			this.drawOrder = new long[this.inView.length];
+		}
 		for (int c = 0; c < inView; c++) {
+			float near = (float) nearest(this.inView[c].key, cx, cz);
+			this.drawOrder[c] = (long) Float.floatToIntBits(near) << 32 | c;
+		}
+		if (frontToBack) {
+			Arrays.sort(this.drawOrder, 0, inView);
+		}
+		for (int o = 0; o < inView; o++) {
+			int c = (int) this.drawOrder[o];
 			Tile tile = this.inView[c];
 			TlsfAllocator.Allocation alloc = this.inViewAlloc[c];
 			this.inView[c] = null;

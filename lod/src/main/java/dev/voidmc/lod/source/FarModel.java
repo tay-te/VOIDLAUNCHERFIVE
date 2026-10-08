@@ -117,6 +117,8 @@ final class FarModel {
 			f.crater = Float.NEGATIVE_INFINITY;
 			f.craterLava = false;
 			f.fjord = false;
+			// the coarse model has no lakes of its own: a lake's surface comes in as water over the ground, below
+			f.lake = ExpanseFacts.NO_LAKE;
 			f.coast = coast;
 			f.uplift = ((Number) this.uplift.get(c)).floatValue();
 			if (!ocean && !Float.isNaN(water) && water > height) {

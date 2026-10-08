@@ -103,7 +103,7 @@ loom {
 			['void.lod.radius', 'void.lod.plates', 'void.lod.chunkFade', 'void.lod.treeLevels', 'void.lod.trees', 'void.lod.exactGround', 'void.lod.detail', 'void.lod.farDetail', 'void.lod.threads', 'void.lod.budget', 'void.lod.enabled', 'void.lod.haze', 'void.lod.smoothFrom',
 			 'void.lod.preset', 'void.lod.autoTune', 'void.lod.overPack', 'void.lod.packShadows', 'void.lod.generatorCache', 'void.lod.structures', 'void.lod.occlusion', 'void.lod.ingest', 'lod.show.compare',
 			 'lod.show.seed', 'lod.show.distance', 'lod.show.settle', 'lod.show.views', 'lod.show.width', 'lod.show.height', 'lod.show.off', 'lod.show.only', 'lod.show.trace',
-			 'lod.show.settings', 'lod.show.ingest', 'lod.show.town', 'lod.show.structures', 'lod.show.mp', 'lod.show.time', 'lod.show.seam', 'lod.show.seamFar', 'lod.show.seamSettle', 'lod.show.at', 'lod.show.faceCompare', 'lod.show.listen', 'lod.show.autumn', 'lod.show.hearth', 'lod.show.farCheck'].each { key ->
+			 'lod.show.settings', 'lod.show.ingest', 'lod.show.town', 'lod.show.structures', 'lod.show.mp', 'lod.show.time', 'lod.show.seam', 'lod.show.seamFar', 'lod.show.seamSettle', 'lod.show.at', 'lod.show.faceCompare', 'lod.show.listen', 'lod.show.autumn', 'lod.show.hearth', 'lod.show.farCheck', 'lod.show.lake', 'lod.show.sortCompare'].each { key ->
 				if (project.hasProperty(key)) {
 					property key, project.property(key).toString()
 				}

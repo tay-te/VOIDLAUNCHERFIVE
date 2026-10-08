@@ -58,6 +58,26 @@ final class ExpanseLand implements LodShowcase.Land {
 			points, nearSea, falseSea, inland, meanDiff / points);
 	}
 
+	/** The nearest point at least 12 blocks inside a lake's shore within {@code reach} of (cx, cz): {x, z, its top water block}. */
+	static int[] lake(ServerLevel level, int cx, int cz, int reach) {
+		if (!(level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth)) {
+			return null;
+		}
+		TerrainModel model = earth.model(level.getChunkSource().randomState());
+		for (int d = 0; d <= reach; d += 64) {
+			int n = Math.max(1, d / 16);
+			for (int k = 0; k < n; k++) {
+				double a = k * 2 * Math.PI / n;
+				int x = cx + (int) Math.round(Math.cos(a) * d), z = cz + (int) Math.round(Math.sin(a) * d);
+				var c = model.sample(x, z);
+				if (c.lake > -900 && c.lakeEdge > 12) {
+					return new int[]{x, z, (int) Math.floor(c.lake)};
+				}
+			}
+		}
+		return null;
+	}
+
 	@Override
 	public boolean river(int x, int z) {
 		return this.model.sample(x, z).nearRiver();
