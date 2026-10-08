@@ -870,6 +870,10 @@ public final class VoidLod implements ClientModInitializer {
 			// a pack's tiles have the seasons baked in
 			dev.voidmc.lod.api.LodApi.bakeSeasons();
 		}
+		// vanilla leaves out sections more than its render distance above or below the camera's (SectionOcclusionGraph)
+		int sections = Minecraft.getInstance().options.getEffectiveRenderDistance();
+		this.engine.verticalReach = sections * 16 - 16;
+		this.renderer.verticalSections = sections;
 		this.renderer.prepare(camera, this.radius, clipRadius(Minecraft.getInstance()), 16, this.detail, this.farDetail, this.haze, this.sun, this.sky);
 		LodRenderer r = this.renderer;
 		if (this.settings.autoTune && r.lastTiles > 0 && !this.fogHidesLod

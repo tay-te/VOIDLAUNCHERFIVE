@@ -107,6 +107,8 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private final ConcurrentLinkedQueue<Built> built = new ConcurrentLinkedQueue<>();
 	private final ArrayDeque<Built> waiting = new ArrayDeque<>();
 	private final LodSelector selector = new LodSelector();
+	/** How far above and below the camera vanilla draws its chunks, in blocks: past that the LOD draws even over them. */
+	public volatile double verticalReach;
 
 	/** Top-level tiles nothing covered in the last selection: holes in the far view (statistics). */
 	public int uncovered() {
@@ -340,6 +342,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		this.clip = clip;
 		this.selecting = true;
 		this.asked = null;
+		this.selector.verticalReach = this.verticalReach;
 		LongList draw = this.source == null
 			? new LongList()
 			: this.selector.select(this, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell, visibility, outOfView);

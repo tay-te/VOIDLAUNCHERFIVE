@@ -61,6 +61,9 @@ layout(location = 0) out vec4 vertexColor;
 layout(location = 1) out vec2 horizontal;
 layout(location = 4) flat out float tileFade;
 layout(location = 7) out vec3 hazeColor;
+// 1 where vanilla does not draw its chunks for being too far above or below the camera (more than its render distance in
+// sections): there the LOD draws inside the chunks' radius too
+layout(location = 8) out float beyondChunks;
 #ifdef LOD_SMOOTH
 layout(location = 2) out vec3 sideColor;
 layout(location = 3) out vec4 stair;
@@ -237,4 +240,6 @@ void main() {
     vertexColor = vec4(color, fog);
     horizontal = pos.xz;
     tileFade = float(LodTile.w) / 255.0;
+    float cameraY = float(CameraBlockPos.y) - CameraOffset.y;
+    beyondChunks = LodClip.z > 0.0 && abs(floor(worldY / 16.0) - floor(cameraY / 16.0)) > LodClip.z ? 1.0 : 0.0;
 }

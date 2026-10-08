@@ -9,6 +9,7 @@ layout(location = 0) in vec4 vertexColor;
 layout(location = 1) in vec2 horizontal;
 layout(location = 4) flat in float tileFade;
 layout(location = 7) in vec3 hazeColor;
+layout(location = 8) in float beyondChunks;
 #ifdef LOD_SMOOTH
 layout(location = 2) in vec3 sideColor;
 layout(location = 3) in vec4 stair;
@@ -191,7 +192,8 @@ void main() {
     // the shader has no discard, so the GPU keeps its early depth test for the bulk of the LOD. The seam fades
     // in over LodClip.y blocks; a fade keeps the pixels its complement does not.
     float n = dither(gl_FragCoord.xy);
-    float t = (length(horizontal) - LodClip.x) / max(LodClip.y, 1.0);
+    // inside the chunks' radius only where they draw: not where they are too far above or below the camera
+    float t = beyondChunks > 0.5 ? 1.0 : (length(horizontal) - LodClip.x) / max(LodClip.y, 1.0);
     if (t < n || (tileFade > 0.0 && n >= tileFade) || (tileFade < 0.0 && n < -tileFade)) {
         discard;
     }

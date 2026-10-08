@@ -42,6 +42,8 @@ public final class LodSelector {
 
 	private final LongList draw = new LongList();
 	private final int[] range = new int[2];
+	/** How far above and below the camera vanilla draws its chunks' sections, in blocks (0: as far as it likes). */
+	double verticalReach;
 	private double cx;
 	private double cy;
 	private double cz;
@@ -143,7 +145,12 @@ public final class LodSelector {
 		double fx = Math.max(Math.abs(x0 - this.cx), Math.abs(x1 - this.cx));
 		double fz = Math.max(Math.abs(z0 - this.cz), Math.abs(z1 - this.cz));
 		if (fx * fx + fz * fz < this.clip * this.clip) {
-			return true;
+			// vanilla draws only the sections within its reach above and below the camera too: high over a valley, or on a
+			// cliff top, the land far below goes undrawn by it, and the LOD (the shader cuts what vanilla does draw) stands in
+			if (this.verticalReach <= 0 || this.store.heightRange(key, this.range) && this.range[0] >= this.cy - this.verticalReach
+				&& this.range[1] <= this.cy + this.verticalReach) {
+				return true;
+			}
 		}
 		double dy = 0;
 		// until its heights are known, as tall as worlds go (Expanse's reaches 639)

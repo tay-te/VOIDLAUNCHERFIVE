@@ -255,6 +255,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 
 	// this frame's draws, grouped by heap and by pipeline variant; groups are kept from frame to frame
 	private final List<Group> order = new ArrayList<>();
+	/** How many sections above and below the camera's vanilla draws: past them the LOD draws inside its radius too. */
+	public int verticalSections;
 	/** Whether tiles are drawn nearest first (off only to measure what it saves). */
 	public static volatile boolean frontToBack = true;
 	/** This frame's tiles in view, nearest first: each its distance's float bits over its index. */
@@ -634,7 +636,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		this.info.clear();
 		this.modelView.get(0, this.info);
 		this.info.position(64);
-		this.info.putFloat((float) clip).putFloat((float) fade).putFloat(0).putFloat(0);
+		this.info.putFloat((float) clip).putFloat((float) fade).putFloat(this.verticalSections).putFloat(0);
 		this.info.putFloat(haze[0]).putFloat(haze[1]).putFloat(haze[2]).putFloat(haze[3]);
 		this.info.putFloat(sun[0]).putFloat(sun[1]).putFloat(sun[2]).putFloat(sun[3]);
 		for (float f : sky) {
