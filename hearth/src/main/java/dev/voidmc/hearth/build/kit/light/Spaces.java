@@ -39,7 +39,7 @@ import net.minecraft.world.level.pathfinder.PathComputationType;
  *
  * <p>A cell is <b>roofed</b> when something solid or glazed stands anywhere above the head (leaves, plants, chains and
  * lanterns are not roofs). A roofed cell is <b>enclosed</b> when, looking out level at head height in each of the four
- * directions, a wall (any block a person cannot walk through: masonry, glass, a door, a fence) comes before the roof
+ * directions, a wall (any block a person cannot walk through but a lamp: masonry, glass, a door, a fence) comes before the roof
  * ends: a room. Porches, loggias, galleries round a court, arcades, the space under a stilt house and an open-sided
  * market floor are roofed but not enclosed.
  */
@@ -250,9 +250,17 @@ public final class Spaces {
 		return !s.getCollisionShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO).isEmpty();
 	}
 
-	/** A block that closes a view at head height: anything a person cannot pass, and doors. */
+	/**
+	 * A block that closes a view at head height: anything a person cannot pass, and doors. A lantern or a candle does not
+	 * (a lamp set on a post or a rail beside an open strip leaves it open: the light pass puts them there itself, and
+	 * would otherwise turn the strip into a room it has already lit as a porch).
+	 */
 	private static boolean wallLike(BlockState s) {
-		return !passable(s) || s.getBlock() instanceof DoorBlock || s.getBlock() instanceof FenceGateBlock;
+		Block b = s.getBlock();
+		if (b instanceof LanternBlock || b instanceof net.minecraft.world.level.block.CandleBlock) {
+			return false;
+		}
+		return !passable(s) || b instanceof DoorBlock || b instanceof FenceGateBlock;
 	}
 
 	/** A stair, a bottom slab or a bed: walked up onto from beside it. */

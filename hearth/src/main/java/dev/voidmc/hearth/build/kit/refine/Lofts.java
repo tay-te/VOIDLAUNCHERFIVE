@@ -118,7 +118,7 @@ public final class Lofts {
 					break;
 				}
 				if (!furnished(d, loft)) {
-					int n = open(d, loft);
+					int n = open(d, sp, loft);
 					if (n > 0) {
 						debug("opened " + n + " of " + loft.size(), first);
 						opened += n;
@@ -285,11 +285,11 @@ public final class Lofts {
 	 * goes with it (the light pass lights the room again). Boards left over that no longer touch a wall or anything
 	 * under them (they would float) come up too. Returns how many boards came up.
 	 */
-	private static int open(Draft d, List<int[]> loft) {
+	private static int open(Draft d, Spaces sp, List<int[]> loft) {
 		int n = 0;
 		Set<Long> left = new HashSet<>();
 		for (int[] c : loft) {
-			if (openable(d, c[0], c[1], c[2])) {
+			if (openable(d, sp, c[0], c[1], c[2])) {
 				take(d, c[0], c[1], c[2]);
 				n++;
 			} else if (d.isSolid(c[0], c[1] - 1, c[2])) {
@@ -335,6 +335,10 @@ public final class Lofts {
 				int x = Draft.keyX(p);
 				int y = Draft.keyY(p);
 				int z = Draft.keyZ(p);
+				if (!d.isEmpty(x, y + 1, z) && litter(d, x, y + 1, z)) {
+					// what lies on a board (leaf litter, a carpet, snow: never furniture) goes with it
+					d.air(x, y + 1, z);
+				}
 				if (d.isEmpty(x, y + 1, z)) {
 					take(d, x, y + 1, z);
 					n++;
@@ -344,8 +348,12 @@ public final class Lofts {
 		return n;
 	}
 
-	/** The board under the loft cell (x, y, z) can come up: nothing on it, drawn air (or hung lamps) under it, then the building. */
-	private static boolean openable(Draft d, int x, int y, int z) {
+	/**
+	 * The board under the loft cell (x, y, z) can come up: nothing on it, drawn air (or hung lamps) under it, then the
+	 * building, with a floor the walk reaches at the bottom (a loft over a room nobody reaches either is left: whatever
+	 * cuts that room off is the archetype's to mend, and the loft may be its way in).
+	 */
+	private static boolean openable(Draft d, Spaces sp, int x, int y, int z) {
 		Draft.Cell board = d.cell(x, y - 1, z);
 		if (board == null || board.stage() != StageKind.FLOORS || !d.isSolid(x, y - 1, z) || !d.isEmpty(x, y, z)) {
 			return false;
@@ -360,15 +368,74 @@ public final class Lofts {
 		while (fy > y - 12 && drawnAir(d, fy - 1, x, z)) {
 			fy--;
 		}
-		return d.get(x, fy - 1, z) != null;
+		return d.get(x, fy - 1, z) != null && reachedNear(sp, x, fy, z);
 	}
 
-	/** Takes up the board under the loft cell (x, y, z) and the lamps hung from it. */
+	/** Something lying loose on a floor: a carpet, leaf litter, snow, a pressure plate (nothing used, nothing with a body). */
+	private static boolean litter(Draft d, int x, int y, int z) {
+		BlockState s = d.get(x, y, z);
+		if (s == null || s.isAir() || s.getBlock() instanceof EntityBlock || d.isSolid(x, y, z)) {
+			return false;
+		}
+		for (Draft.LocalPoi p : d.pois()) {
+			if (p.x() == x && p.y() == y && p.z() == z) {
+				return false;
+			}
+		}
+		return s.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO).max(net.minecraft.core.Direction.Axis.Y) <= 0.2
+			&& !(s.getBlock() instanceof LadderBlock);
+	}
+
+	/** The walk reaches the cell (x, y, z), or one beside it at its level or a step up (it stands over a table or a rack). */
+	private static boolean reachedNear(Spaces sp, int x, int y, int z) {
+		for (int dy = 0; dy <= 1; dy++) {
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					if (sp.reached(x + dx, y + dy, z + dz)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Takes up the board under the loft cell (x, y, z) and the lamps hung from it, and a lamp bracket beside it (a fence
+	 * or bars set in the floor's plane, its lamp under it) that held on by this board alone.
+	 */
 	private static void take(Draft d, int x, int y, int z) {
-		for (int fy = y - 2; fy > y - 12 && hung(d, fy, x, z); fy--) {
+		drop(d, x, y - 2, z);
+		d.air(x, y - 1, z);
+		for (Direction dir : Dirs.HORIZONTAL) {
+			int bx = x + Dirs.dx(dir);
+			int bz = z + Dirs.dz(dir);
+			if (hung(d, y - 1, bx, bz) && !held(d, bx, y - 1, bz)) {
+				drop(d, bx, y - 2, bz);
+				d.air(bx, y - 1, bz);
+			}
+		}
+	}
+
+	/** Clears the hung things from (x, y, z) down. */
+	private static void drop(Draft d, int x, int y, int z) {
+		for (int fy = y; fy > y - 10 && hung(d, fy, x, z); fy--) {
 			d.air(x, fy, z);
 		}
-		d.air(x, y - 1, z);
+	}
+
+	/** A hung piece at (x, y, z) still holds on: something solid beside it, or anything but a hung thing over it. */
+	private static boolean held(Draft d, int x, int y, int z) {
+		BlockState over = d.get(x, y + 1, z);
+		if (over != null && !over.isAir() && !hung(d, y + 1, x, z)) {
+			return true;
+		}
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (d.isSolid(x + Dirs.dx(dir), y, z + Dirs.dz(dir))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** A lamp, a chain, or a fence or bars a lamp hangs from (a post standing on a floor is no hung thing: the walk down meets the floor). */
