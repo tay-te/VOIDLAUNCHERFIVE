@@ -6,13 +6,15 @@ import dev.voidmc.hearth.api.HearthServices;
 import dev.voidmc.hearth.api.LawService.Crime;
 import dev.voidmc.hearth.api.LawService.Offence;
 import dev.voidmc.hearth.api.LawService.Owner;
-import dev.voidmc.hearth.api.NpcService;
 import dev.voidmc.hearth.api.NpcService.FolkHandle;
+import dev.voidmc.hearth.api.NpcService;
+import dev.voidmc.hearth.api.PlayerSkills;
 import dev.voidmc.hearth.api.PlotView;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.law.Law;
 import dev.voidmc.hearth.law.LawConfig;
+import dev.voidmc.hearth.law.LawSkills;
 import dev.voidmc.hearth.law.crime.CrimeDesk;
 import dev.voidmc.hearth.law.crime.Witnesses;
 import dev.voidmc.hearth.law.folk.FolkTraits;
@@ -138,7 +140,7 @@ public final class PickpocketSessions {
 		rate *= FolkTraits.of(folk.resident()).observer().alertness();
 		rate *= 0.75 + 0.5 * stance.light() / 15.0;
 		rate *= 1.0 + player.getArmorValue() / 40.0;
-		rate *= 1.0 - PlayerLaw.of(player).pickpocketSkill() * 0.02;
+		rate *= 1.0 - LawSkills.pickpocket(player) * 0.02;
 		return rate;
 	}
 
@@ -219,6 +221,7 @@ public final class PickpocketSessions {
 		settlement.markDirty();
 		ServerLevel level = player.level();
 		Owner owner = new Owner(settlement.id(), r.id, null, Owner.Kind.HOUSEHOLD);
+		long before = s.value;
 		switch (item.kind()) {
 			case COIN -> {
 				EconomyService economy = HearthServices.economy();
@@ -246,6 +249,7 @@ public final class PickpocketSessions {
 				}
 			}
 		}
+		LawSkills.award(player, PlayerSkills.THIEVERY, LawSkills.pocketXp(s.value - before), "pickpocket");
 		level.playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.BUNDLE_REMOVE_ONE, net.minecraft.sounds.SoundSource.PLAYERS, 0.3F, 1.3F);
 	}
 
@@ -285,6 +289,8 @@ public final class PickpocketSessions {
 		}
 		if (!caught && tookAnything && s.value > 0) {
 			PlayerLaw.set(player, PlayerLaw.of(player).addPickpocketing());
+			// slipped away unnoticed: a character mod's Stealth learns from it
+			LawSkills.award(player, PlayerSkills.STEALTH, LawSkills.unseenXp(s.value), "unseen/pickpocketing");
 			Crime crime = new Crime(Offence.PICKPOCKETING, player.getUUID(), settlement.id(), player.blockPosition(), s.resident, s.value, false,
 				player.level().getGameTime());
 			if (!Law.exempt(player)) {

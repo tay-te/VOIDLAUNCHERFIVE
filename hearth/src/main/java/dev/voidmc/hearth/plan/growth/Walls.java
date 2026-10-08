@@ -241,6 +241,9 @@ public final class Walls {
 	 * wall in the grid at once, so streets end at it and houses keep inside it; the main roads pass through where the
 	 * gates will be.
 	 */
+	/** The least distance from the heart a wall line is drawn in to. */
+	static final int MIN_RADIUS = 28;
+
 	public static void reserveLine(PlanContext ctx, int heart) {
 		var n = ctx.state.graph.node(heart);
 		int points = 36;
@@ -253,7 +256,10 @@ public final class Walls {
 			double r = base * (1 + 0.1 * StrictMath.sin(2 * a + phase) + 0.06 * StrictMath.sin(3 * a + phase * 1.7));
 			int x = n.x() + (int) Math.round(StrictMath.cos(a) * r);
 			int z = n.z() + (int) Math.round(StrictMath.sin(a) * r);
-			for (int k = 0; k < 8 && (ctx.ground.isWater(x, z) || ctx.ground.slope(x, z, 2) > 1.2); k++) {
+			// drawn in off water and crags, but never tighter than a hamlet needs inside it: on a small mesa top the line was
+			// pulled in to the rim, and the camp inside it had nowhere to lay a lane (Safia, four souls for 155 days,
+			// requests/w7-tour.md §4)
+			for (int k = 0; k < 8 && r - 3 >= MIN_RADIUS && (ctx.ground.isWater(x, z) || ctx.ground.slope(x, z, 2) > 1.2); k++) {
 				r -= 3;
 				x = n.x() + (int) Math.round(StrictMath.cos(a) * r);
 				z = n.z() + (int) Math.round(StrictMath.sin(a) * r);

@@ -95,9 +95,11 @@ public final class TerraceField implements Archetype {
 			bi++;
 		}
 		t.coping(d);
-		// the tool hut by the gate
-		if (d.param("hut", w >= 11) && t.bands.size() >= 2) {
-			hut(d, t, w, leftSide);
+		// the tool hut by the gate; where it does not fit (a slope's narrow bottom terrace), the bin and the chest stand by
+		// the path up, so the field always has its job block and its store
+		boolean hut = d.param("hut", w >= 11) && t.bands.size() >= 2 && hut(d, t, w, leftSide);
+		if (!hut) {
+			PathStore.beside(d, t, path, JobType.FARMER, List.of(new Object[]{"minecraft:iron_hoe", 1}, new Object[]{"minecraft:wheat_seeds", 12}));
 		}
 		// stands on the path beside each terrace
 		Direction into = t.alongX ? Dirs.BACK : leftSide ? Dirs.RIGHT : Dirs.LEFT;
@@ -105,6 +107,8 @@ public final class TerraceField implements Archetype {
 			int[] xz = t.cell(Math.max(t.plantFrom(b), Math.min(t.plantTo(b), (b.from() + b.to()) / 2)), path);
 			Spots.onGround(d, PoiType.JOB_SITE, xz[0], b.level(), xz[1], into, JobType.FARMER);
 		}
+		// head room over every step through the banks
+		StepRoom.clear(d, t.minLevel() - 3, t.maxLevel() + 1);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, t.maxLevel() + 7));
 	}
 
@@ -247,7 +251,7 @@ public final class TerraceField implements Archetype {
 	}
 
 	/** A tool hut on the lowest terrace by the gate: a little gabled shed with the compost bin, the tools and seed. */
-	private static void hut(Draft d, Terraces t, int w, boolean leftSide) {
+	private static boolean hut(Draft d, Terraces t, int w, boolean leftSide) {
 		Terraces.Band low = t.bands.get(0);
 		for (Terraces.Band b : t.bands) {
 			if (b.level() < low.level()) {
@@ -262,13 +266,13 @@ public final class TerraceField implements Archetype {
 		for (int z = z0; z <= z1 + 1; z++) {
 			for (int x = x0; x <= x1; x++) {
 				if (t.band(x, z) != low || t.along(x, z) < t.plantFrom(low) || t.along(x, z) > t.plantTo(low)) {
-					return;
+					return false;
 				}
 			}
 		}
 		int y = low.level();
 		if (y + 6 >= d.maxHeight()) {
-			return;
+			return false;
 		}
 		for (int z = z0; z <= z1; z++) {
 			for (int x = x0; x <= x1; x++) {
@@ -280,5 +284,6 @@ public final class TerraceField implements Archetype {
 		Sheds.lean(d, x0, z0, x1, z1, y, Dirs.BACK, 3, false);
 		Furniture.workstation(d, JobType.FARMER, x0 + 1, y, z0 + 1, Dirs.BACK);
 		Furniture.chest(d, x1 - 1, y, z0 + 1, Dirs.BACK, List.of(new Object[]{"minecraft:iron_hoe", 1}, new Object[]{"minecraft:wheat_seeds", 12}));
+		return true;
 	}
 }

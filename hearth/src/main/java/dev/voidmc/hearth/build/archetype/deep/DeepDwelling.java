@@ -84,6 +84,8 @@ public final class DeepDwelling implements Archetype {
 		int dp;
 		/** The ground storey's front wall, the upper storey's (one forward over an arcade), the back wall. */
 		int zf;
+		/** The flight's row, against the upper front (or the front wall); its parapet stands in the row before it. */
+		int zs;
 		int zu;
 		int zb;
 		int deck;
@@ -175,6 +177,7 @@ public final class DeepDwelling implements Archetype {
 		interior(d, p);
 		life(d, p);
 		cut(d, p);
+		ledge(d, p);
 		if (!stacked) {
 			Groundwork.clear(d, 0, 0, p.w - 1, p.dp - 1, Math.min(d.maxHeight() - 1, p.deck + 3));
 		}
@@ -201,6 +204,49 @@ public final class DeepDwelling implements Archetype {
 		}
 	}
 
+	/**
+	 * Where the land falls away past a side of the forecourt (a house on a ledge of the realm's wall), a coping along that
+	 * side wherever someone stands three or more over the land beyond: the forecourt and the flight's foot never end at an
+	 * open drop.
+	 */
+	private static void ledge(Draft d, Plan p) {
+		Mat stone = Rock.dressing(d);
+		dev.voidmc.hearth.build.draft.Paint coping = stone.has(Form.WALL) ? stone.wall()
+			: (d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING) : d.mat(Role.FURNITURE)).fence();
+		// the forecourt's edge cells (its two ends and its street row), each with the cell beyond it
+		List<int[]> edge = new ArrayList<>();
+		for (int z = 0; z < p.zf; z++) {
+			edge.add(new int[]{0, z, -1, z});
+			edge.add(new int[]{p.w - 1, z, p.w, z});
+		}
+		// (the street row where the street before it is the land's, the way in left open: HallParts.frontKerbs)
+		boolean[] front = HallParts.frontKerbs(d);
+		for (int x = 0; x < p.w; x++) {
+			if (front[x]) {
+				edge.add(new int[]{x, 0, x, -1});
+			}
+		}
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int[] e : edge) {
+				int x = e[0];
+				int z = e[1];
+				int beyond = d.site().ground(e[2], e[3]);
+				for (int y = 0; y <= p.deck; y++) {
+					if (y - beyond < 3 || !d.allowed(x, y, z) || !d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z)) {
+						continue;
+					}
+					BlockState under = d.get(x, y - 1, z);
+					boolean floor = under == null ? y - 1 < Math.min(0, d.site().ground(x, z)) : !under.isAir();
+					// (never on the flight's own treads: it starts on the high side, see plan)
+					boolean tread = z == p.zs && p.stepAt(x) >= 0;
+					if (floor && !tread) {
+						d.set(x, y, z, coping);
+					}
+				}
+			}
+		}
+	}
+
 	// ------------------------------------------------------------------------------------------------- the plan
 
 	private static Plan plan(Draft d, DeepSite ds, DeepManner manner) {
@@ -209,12 +255,20 @@ public final class DeepDwelling implements Archetype {
 		p.dp = d.depth();
 		int h = Math.max(6, Math.min(d.maxHeight(), ds.top() + 1));
 		p.deck = h - 2;
-		p.zf = 2;
 		p.zb = p.dp - 1;
+		// where the realm's wall stands on over the plot's top (rock the house's cut cannot reach), the terrace comes a
+		// course lower so it keeps two of head room under the rock: a ledge, not a crawl space
+		if (h >= d.maxHeight() && d.site().maxGround(0, 1, p.w - 1, p.zb) > h) {
+			p.deck = h - 3;
+		}
 		p.two = p.deck >= 7;
 		p.up = p.deck >= 10 ? 5 : p.deck >= 8 ? 4 : 3;
-		p.arcade = p.two && p.up >= 4 && d.chance(0.8);
-		p.zu = p.arcade ? 1 : p.zf;
+		// the street row holds the flight's parapet, the next the flight against the house; an arcade takes a row more,
+		// so only a house deep enough for its rooms behind it has one
+		p.arcade = p.two && p.up >= 4 && p.dp >= 9 && d.chance(0.8);
+		p.zf = p.arcade ? 3 : 2;
+		p.zu = p.arcade ? p.zf - 1 : p.zf;
+		p.zs = p.zu - 1;
 		p.timber = p.two && manner.timberUpper();
 		p.piers = p.w >= 9 ? new int[]{0, p.w / 2, p.w - 1} : new int[]{0, p.w - 1};
 		// the upper storey's posts: the corners and every third column or so
@@ -225,13 +279,21 @@ public final class DeepDwelling implements Archetype {
 		}
 		// the flight: to the roof if it fits the frontage, else to the upper floor (a ladder on up the front)
 		p.sx = d.chance(0.5) ? 1 : -1;
+		// on a ledge (the land falling away past one side) the flight starts on the high side and climbs toward the drop,
+		// so its foot is never at the edge where no rail can stand beside it
+		int gl = d.site().minGround(-1, 0, -1, 2);
+		int gr = d.site().minGround(p.w, 0, p.w, 2);
+		if (Math.abs(gl - gr) >= 3) {
+			p.sx = gl > gr ? 1 : -1;
+		}
 		p.xs = p.sx > 0 ? 0 : p.w - 1;
 		int full = p.deck + 1;
-		if (full <= p.w) {
+		// (one column past the flight's head is kept for its newel)
+		if (full <= p.w - 1) {
 			p.rise = full;
 			p.toRoof = true;
 		} else {
-			p.rise = p.two ? p.up + 1 : Math.min(p.w, p.deck);
+			p.rise = p.two ? p.up + 1 : Math.min(p.w - 1, p.deck);
 			p.toRoof = false;
 		}
 		if (p.two) {
@@ -482,7 +544,7 @@ public final class DeepDwelling implements Archetype {
 				if (sill != null && sill.getBlock() instanceof net.minecraft.world.level.block.StairBlock) {
 					d.remove(x, 0, zp);
 				}
-				if (!p.arcade && d.isAbsent(x, 0, zp)) {
+				if (!p.arcade && d.isAbsent(x, 0, zp) && (zp != p.zs || p.stepAt(x) < 0)) {
 					Rock.planter(d, x, 0, zp, g);
 				}
 			}
@@ -540,6 +602,10 @@ public final class DeepDwelling implements Archetype {
 	private static void piers(Draft d, Plan p) {
 		int zp = p.zf - 1;
 		for (int x : p.piers) {
+			// (none where the flight climbs the front row: its own soffit stands there)
+			if (zp == p.zs && p.stepAt(x) >= 0) {
+				continue;
+			}
 			Rock.pier(d, x, zp, -1, p.deck - 1, Dirs.BACK, x != 0 && x != p.w - 1);
 		}
 	}
@@ -607,7 +673,7 @@ public final class DeepDwelling implements Archetype {
 					.trySetValue(BlockStateProperties.HALF, Half.BOTTOM)).orElse(sheet.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
 			try (var s = d.stage(StageKind.ROOF)) {
 				for (int x = 1; x < p.w - 1; x++) {
-					if (p.pier(x) || x == p.xu || x == p.ladder || !d.isAbsent(x, p.up, zp)) {
+					if (p.pier(x) || x == p.xu || x == p.ladder || !d.isAbsent(x, p.up, zp) || zp == p.zs && p.stepAt(x) >= 0) {
 						continue;
 					}
 					d.set(x, p.up, zp, pent);
@@ -655,7 +721,7 @@ public final class DeepDwelling implements Archetype {
 			}
 			boolean clear = true;
 			for (int x = c - 1; x <= c + 1; x++) {
-				if (p.pier(x) || p.xu >= 0 && Math.abs(x - p.xu) <= 1 || x == p.ladder || x == p.hx) {
+				if (p.pier(x) || p.xu >= 0 && Math.abs(x - p.xu) <= 1 || x == p.ladder || x == p.hx || p.stepAt(x) >= 0) {
 					clear = false;
 				}
 			}
@@ -676,7 +742,7 @@ public final class DeepDwelling implements Archetype {
 		Mat trim = d.mat(Role.ROOF_TRIM).has(Form.STAIRS) ? d.mat(Role.ROOF_TRIM) : Rock.dressing(d);
 		try (var s = d.stage(StageKind.WALLS)) {
 			for (int x = 0; x < p.w; x++) {
-				int st = zc == 0 ? p.stepAt(x) : -1;
+				int st = zc == p.zs ? p.stepAt(x) : -1;
 				if (st >= p.deck - 3) {
 					continue;
 				}
@@ -704,11 +770,21 @@ public final class DeepDwelling implements Archetype {
 		}
 		if (d.site().maxGround(0, p.zb, p.w - 1, p.zb + 1) <= p.deck) {
 			Rock.parapet(d, 1, p.zb, p.w - 2, p.zb, p.deck + 1, 0);
+		} else {
+			// the rock behind stands high in places: the back parapet only where the terrace still looks down on the land
+			for (int x = 1; x < p.w - 1; x++) {
+				if (d.site().ground(x, p.zb + 1) < p.deck - 1) {
+					Rock.parapet(d, x, p.zb, x, p.zb, p.deck + 1, 0);
+				}
+			}
 		}
 		int a = p.arrival();
 		if (a >= 0) {
 			try (var s = d.stage(StageKind.ROOF)) {
 				d.air(a, p.deck + 1, front);
+				if (d.allowed(a, p.deck + 2, front)) {
+					d.air(a, p.deck + 2, front);
+				}
 			}
 		}
 	}
@@ -731,9 +807,9 @@ public final class DeepDwelling implements Archetype {
 		};
 	}
 
-	/** Whether the front's top rows are free at column x in row z (the flight climbs past high in the front row). */
+	/** Whether the front's top rows are free at column x in row z (the flight and its parapet climb past high there). */
 	private static boolean clearOfFlight(Plan p, int x, int z) {
-		return z != 0 || p.stepAt(x) < p.deck - 4;
+		return z != p.zs && z != p.zs - 1 || p.stepAt(x) < p.deck - 4;
 	}
 
 	/**
@@ -814,13 +890,21 @@ public final class DeepDwelling implements Archetype {
 		dev.voidmc.hearth.build.draft.Paint slab = DeepManner.home(d, Role.WALL, Form.SLAB, st -> st).orElse(Rock.dressing(d).slab(
 			net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
 		int y = p.deck + 1;
+		Mat railing = d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING) : d.mat(Role.FURNITURE);
 		try (var s = d.stage(StageKind.ROOF)) {
 			for (int x = 0; x < p.w; x++) {
 				if (!d.allowed(x, y, front)) {
 					continue;
 				}
+				// a course of the render with the merlons (or the rounding slab) over it: a guard a block and a half high
+				// that nobody steps up onto and over to the cornice outside; under the plot's top a railing instead
+				if (!d.allowed(x, y + 1, front)) {
+					d.set(x, y, front, railing.fence());
+					continue;
+				}
 				boolean end = x == 0 || x == p.w - 1;
-				d.set(x, y, front, end || stepped && x % 2 == 0 ? block : slab);
+				d.set(x, y, front, block);
+				d.set(x, y + 1, front, end || stepped && x % 2 == 0 ? block : slab);
 			}
 		}
 	}
@@ -834,47 +918,36 @@ public final class DeepDwelling implements Archetype {
 		Mat stone = Rock.dressing(d);
 		Direction dir = p.sx > 0 ? Dirs.RIGHT : Dirs.LEFT;
 		BlockState air = Blocks.AIR.defaultBlockState();
+		int zs = p.zs;
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int i = 0; i < p.rise; i++) {
 				int x = p.xs + p.sx * i;
-				d.set(x, i, 0, stone.stairsOrSlab(dir, Half.BOTTOM));
+				d.set(x, i, zs, stone.stairsOrSlab(dir, Half.BOTTOM));
 				for (int hh = 1; hh <= 2; hh++) {
-					if (d.allowed(x, i + hh, 0)) {
-						d.set(x, i + hh, 0, air);
+					if (d.allowed(x, i + hh, zs)) {
+						d.set(x, i + hh, zs, air);
 					}
 				}
 				if (i >= 1) {
-					d.set(x, i - 1, 0, stone.stairsOrSlab(dir.getOpposite(), Half.TOP));
+					d.set(x, i - 1, zs, stone.stairsOrSlab(dir.getOpposite(), Half.TOP));
 				}
 			}
 			// a pier under the flight's middle where it stands high, the soffit resting on it — its foot an arch of steps
-			// over the front row, which is the way along the front between the arcade's piers
+			// over the way along the front
 			int mid = p.xs + p.sx * (p.rise / 2 + 1);
 			int midH = p.stepAt(mid);
 			if (midH >= 6 && mid != p.dc) {
 				for (int y = 3; y < midH - 1; y++) {
-					d.set(mid, y, 0, stone.full());
+					d.set(mid, y, zs, stone.full());
 				}
-				d.set(mid, 2, 0, stone.stairsOrSlab(dir.getOpposite(), Half.TOP));
+				d.set(mid, 2, zs, stone.stairsOrSlab(dir.getOpposite(), Half.TOP));
 			}
 		}
-		int zp = p.zf - 1;
 		if (p.xu >= 0) {
 			int xu = p.xu;
-			int ez;
-			if (p.arcade) {
-				ez = 0;
-			} else {
-				// the landing across to the upper floor's door
-				try (var s = d.stage(StageKind.FLOORS)) {
-					d.set(xu, p.up, zp, stone.full());
-					d.air(xu, p.up + 1, zp);
-					d.air(xu, p.up + 2, zp);
-				}
-				ez = zp;
-			}
-			d.entrance(xu, p.up + 1, ez);
-			d.poi(PoiType.DOOR, xu, p.up + 1, ez, Dirs.BACK);
+			// the flight runs against the upper front: its step at the door's column is the landing
+			d.entrance(xu, p.up + 1, zs);
+			d.poi(PoiType.DOOR, xu, p.up + 1, zs, Dirs.BACK);
 			// a lantern on a bracket beside the upper door
 			int z = p.zu;
 			for (int side : new int[]{-p.sx, p.sx}) {
@@ -888,17 +961,83 @@ public final class DeepDwelling implements Archetype {
 		}
 		if (!p.toRoof && p.ladder >= 0) {
 			int lx = p.ladder;
-			int lz = (p.two ? p.zu : p.zf) - 1;
 			int from = p.two ? p.up + 1 : p.rise;
 			try (var s = d.stage(StageKind.FLOORS)) {
-				if (!p.two && lz == zp) {
-					d.set(lx, p.rise - 1, zp, stone.full());
-				}
+				// the ladder stands on a block of the stone: the flight's last step, or a corbel beside the landing
+				d.set(lx, from - 1, zs, stone.full());
 				for (int y = from; y <= p.deck; y++) {
-					d.set(lx, y, lz, States.facing(Blocks.LADDER, Dirs.FRONT));
+					d.set(lx, y, zs, States.facing(Blocks.LADDER, Dirs.FRONT));
 				}
 			}
 		}
+		guards(d, p);
+	}
+
+	/**
+	 * The flight's parapet: on the street side of every step standing three or more over the ground, and on its inner
+	 * side where it passes open bays (an arcade's), a coping of the stone on a corbel turned to the flight; a newel past
+	 * its head. So nobody climbing to the upper door or the terrace walks off an edge.
+	 */
+	private static void guards(Draft d, Plan p) {
+		Mat stone = Rock.dressing(d);
+		dev.voidmc.hearth.build.draft.Paint coping = stone.has(Form.WALL) ? stone.wall()
+			: (d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING) : d.mat(Role.FURNITURE)).fence();
+		int zs = p.zs;
+		int last = p.xs + p.sx * (p.rise - 1);
+		int topStand = p.rise;
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int i = 0; i < p.rise; i++) {
+				int x = p.xs + p.sx * i;
+				int stand = i + 1;
+				guard(d, x, stand, zs - 1, Dirs.BACK, stone, coping, false);
+				guard(d, x, stand, zs + 1, Dirs.FRONT, stone, coping, false);
+			}
+			// the newel past the head of the flight (or beside the ladder's foot block)
+			int beyond = (p.ladder >= 0 && !p.toRoof ? p.ladder : last) + p.sx;
+			int stand = p.ladder >= 0 && !p.toRoof ? (p.two ? p.up + 1 : p.rise) : topStand;
+			if (p.ladder >= 0 && !p.toRoof) {
+				// the ladder's street side railed its whole height (a pole of the railing, the ladder's cage), and a hood
+				// over the upper door beside it, so a climber never hangs beside an open drop
+				int from = p.two ? p.up + 1 : p.rise;
+				for (int y = from; y <= p.deck; y++) {
+					if (zs - 1 >= 0 && d.allowed(p.ladder, y, zs - 1) && d.isEmpty(p.ladder, y, zs - 1)) {
+						d.set(p.ladder, y, zs - 1, coping);
+					}
+				}
+				int hx = p.ladder - p.sx;
+				if (p.two && p.up + 3 < p.deck && hx >= 0 && hx < p.w && d.isEmpty(hx, p.up + 3, zs)) {
+					d.set(hx, p.up + 3, zs, stone.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
+				}
+				// at the ladder's head the cornice runs out either side of it over the street: closed with copings
+				guard(d, p.ladder - p.sx, p.deck + 1, zs, Dirs.BACK, stone, coping, true);
+				guard(d, p.ladder + p.sx, p.deck + 1, zs, Dirs.BACK, stone, coping, true);
+				guard(d, p.ladder, p.deck + 1, zs - 1, Dirs.BACK, stone, coping, true);
+			}
+			if (beyond >= 0 && beyond < p.w && p.stepAt(beyond) < 0) {
+				// (always: past the head the cornice runs on as a ledge over the street)
+				guard(d, beyond, stand, zs, p.sx > 0 ? Dirs.LEFT : Dirs.RIGHT, stone, coping, true);
+			}
+		}
+	}
+
+	/** A coping at (x, stand, z) on a corbel under it, where that cell is open over a drop of two or more. */
+	private static void guard(Draft d, int x, int stand, int z, Direction toward, Mat stone, dev.voidmc.hearth.build.draft.Paint coping, boolean always) {
+		if (stand < 3 || z < 0 || x < 0 || x >= d.frontage() || !d.allowed(x, stand, z) || !d.isEmpty(x, stand, z)) {
+			return;
+		}
+		int drop = 0;
+		// (inside the plot the rock is cut back to the floor afterwards (cut): the drop runs to the floor, not the rock)
+		int ground = z >= 0 ? Math.min(0, d.site().ground(x, z)) : d.site().ground(x, z);
+		for (int y = stand - 1; y >= 0 && d.isEmpty(x, y, z) && y >= ground; y--) {
+			drop++;
+		}
+		if (drop < 2 && !always) {
+			return;
+		}
+		if (d.isEmpty(x, stand - 1, z) && stand - 1 >= 2) {
+			d.set(x, stand - 1, z, stone.stairsOrSlab(toward, Half.TOP));
+		}
+		d.set(x, stand, z, coping);
 	}
 
 	/** Side walls open to the air get a window a storey and dressed quoins at the back corners. */
@@ -959,7 +1098,10 @@ public final class DeepDwelling implements Archetype {
 		int x1 = p.w - 2;
 		int z0 = p.zf + 1;
 		int z1 = p.zb - 1;
-		int beds = Math.max(2, Math.min(6, Math.round(4f * Math.min(1.8f, (p.w * p.dp) / 49f))));
+		// a bed to every ten cells of the sleeping room's floor (twelve where the one room is the kitchen too), two at
+		// least, four at most: a chamber with room to walk between the beds, not a dormitory
+		int sleepCells = (x1 - x0 + 1) * (z1 - (p.two ? p.zu + 1 : z0) + 1);
+		int beds = Math.clamp(Math.round(sleepCells / (p.two ? 10f : 12f)), 2, 4);
 		JobType trade = household(d);
 		if (p.two) {
 			int rise = p.up + 1;
@@ -1125,7 +1267,7 @@ public final class DeepDwelling implements Archetype {
 		}
 		int zc = front - 1;
 		for (int x = 1; x < p.w - 1; x++) {
-			if (Noise.unit(d.seed() ^ 0xBE, x, 0, zc) > 0.3 || p.stepAt(x) >= 0 && zc == 0) {
+			if (Noise.unit(d.seed() ^ 0xBE, x, 0, zc) > 0.3 || p.stepAt(x) >= 0 && zc == p.zs) {
 				continue;
 			}
 			int len = 1 + (int) (Noise.unit(d.seed() ^ 0xBF, x, 1, zc) * 2);

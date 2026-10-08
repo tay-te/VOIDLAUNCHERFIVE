@@ -1,0 +1,15 @@
+{
+  "values": [
+    "expanse:aspen_parkland",
+    "expanse:maple_highlands",
+    "expanse:olive_groves",
+    "expanse:heather_moor",
+    "expanse:woodland_glades",
+    "minecraft:plains",
+    "minecraft:sunflower_plains",
+    "minecraft:meadow",
+    "minecraft:forest",
+    "minecraft:flower_forest",
+    "minecraft:birch_forest"
+  ]
+}

@@ -1,5 +1,7 @@
 package dev.voidmc.hearth.standing.speech;
 
+import dev.voidmc.hearth.api.HearthServices;
+import dev.voidmc.hearth.api.PlayerSkills;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.standing.StandingConfig;
@@ -21,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <pre>
  *   SpeechOdds.Odds odds = SpeechCheck.odds(player, town, resident, SpeechKind.PERSUADE, 0.2, 0);
- *   options.add(new Option(id, SpeechCheck.label(odds, Component.literal("Surely you can let it pass?")), 300));
+ *   options.add(new Option(id, SpeechCheck.label(odds, Component.literal("Surely you can let it pass?")), 60));
  *   ...
  *   SpeechCheck.Outcome o = SpeechCheck.attempt(player, town, resident, SpeechKind.PERSUADE, 0.2, 0);
  *   if (o.success()) { ... }
@@ -68,8 +70,10 @@ public final class SpeechCheck {
 		}
 		long expected = expectedBribe(resident, difficulty);
 		double ratio = kind == SpeechKind.BRIBE ? bribeBits / (double) Math.max(1, expected) : 0;
+		PlayerSkills skills = HearthServices.playerSkills();
 		SpeechOdds.Inputs in = new SpeechOdds.Inputs(standing, opinion, look.charisma(), look.menace(), FolkFacts.traits(resident), FolkFacts.mood(resident),
-			resident.station, resident.job, difficulty, ratio, recentTries(engine, resident, player, kind));
+			resident.station, resident.job, difficulty, ratio, recentTries(engine, resident, player, kind), skills.level(player, PlayerSkills.SPEECH),
+			skills.attribute(player, PlayerSkills.PRESENCE));
 		return SpeechOdds.of(kind, in, cfg.speech().minChance(), cfg.speech().maxChance());
 	}
 
@@ -86,7 +90,17 @@ public final class SpeechCheck {
 			engine.remember(resident, player.getUUID(), kind.memoryKind(success), success ? kind.successMemory : kind.failureMemory);
 			settlement.markDirty();
 		}
+		HearthServices.playerSkills().award(player, PlayerSkills.SPEECH, xp(success, difficulty), "hearth:speech/" + kind.getSerializedName());
 		return new Outcome(kind, success, odds.chance(), roll);
+	}
+
+	/**
+	 * Speech XP for a check: 15 for a pass, more for a harder ask (×1 at an easy favour, ×2 asking them to break the law);
+	 * a third of that for a failure (one learns from a refusal too).
+	 */
+	public static float xp(boolean success, double difficulty) {
+		float base = 15.0F * (1.0F + 2.0F * (float) Math.clamp(difficulty, 0.0, 1.0));
+		return success ? base : base / 3.0F;
 	}
 
 	/** What the resident expects to be paid to look the other way, in bits (station, difficulty and the server's multiplier). */
@@ -101,6 +115,13 @@ public final class SpeechCheck {
 		ChatFormatting colour = pct >= 66 ? ChatFormatting.DARK_GREEN : pct >= 40 ? ChatFormatting.GOLD : ChatFormatting.DARK_RED;
 		return Component.literal("[").append(Component.translatable(odds.kind().translationKey())).append(" " + pct + "%] ").withStyle(colour)
 			.append(text.copy().withStyle(ChatFormatting.RESET));
+	}
+
+	/** "Persuade · 65 %": a check's odds as an option's hint ({@code DialogueProvider.Option#hint}), coloured by how good they are. */
+	public static MutableComponent hint(SpeechOdds.Odds odds) {
+		int pct = odds.percent();
+		ChatFormatting colour = pct >= 66 ? ChatFormatting.DARK_GREEN : pct >= 40 ? ChatFormatting.GOLD : ChatFormatting.DARK_RED;
+		return Component.translatable(odds.kind().translationKey()).append(" · " + pct + " %").withStyle(colour);
 	}
 
 	/** Tries of this kind on this resident today (each makes the next one harder). */

@@ -6,17 +6,19 @@ import dev.voidmc.hearth.api.HearthWorld;
 import dev.voidmc.hearth.api.LawService.Crime;
 import dev.voidmc.hearth.api.LawService.Offence;
 import dev.voidmc.hearth.api.NpcService.FolkHandle;
+import dev.voidmc.hearth.api.PlayerSkills;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.api.SettlementEvents;
 import dev.voidmc.hearth.api.StandingService;
 import dev.voidmc.hearth.law.Law;
+import dev.voidmc.hearth.law.LawSkills;
 import dev.voidmc.hearth.law.folk.FolkTraits;
 import dev.voidmc.hearth.law.justice.Offences;
 import dev.voidmc.hearth.law.justice.Warrant;
 import dev.voidmc.hearth.law.state.Codecs;
-import dev.voidmc.hearth.law.state.LawState;
 import dev.voidmc.hearth.law.state.LawState.PendingReport;
+import dev.voidmc.hearth.law.state.LawState;
 import dev.voidmc.hearth.law.stealth.StealthTracker;
 import java.util.List;
 import java.util.UUID;
@@ -75,7 +77,12 @@ public final class CrimeDesk {
 		if (victimFolk != null && victimFolk.awake() && witnesses.stream().noneMatch(w -> w.folk().resident().id.equals(victimFolk.resident().id))) {
 			witnesses.add(0, new Witnesses.Witness(victimFolk, FolkTraits.of(victimFolk.resident()), 1.0, 1.0));
 		}
-		return commitSeen(level, settlement, crime, witnesses);
+		Outcome outcome = commitSeen(level, settlement, crime, witnesses);
+		if (outcome == Outcome.UNSEEN && (offence == Offence.THEFT || offence == Offence.LOCKPICKING)) {
+			// a quiet hand: a character mod's Stealth learns from it
+			LawSkills.award(offender, PlayerSkills.STEALTH, LawSkills.unseenXp(value), "unseen/" + offence.getSerializedName());
+		}
+		return outcome;
 	}
 
 	/** {@link #commit} with the witnesses already found (tests, and crimes whose witnesses are decided elsewhere). */

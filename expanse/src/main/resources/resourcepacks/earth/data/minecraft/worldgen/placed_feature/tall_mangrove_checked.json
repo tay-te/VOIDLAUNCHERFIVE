@@ -1,0 +1,16 @@
+{
+  "feature": "minecraft:tall_mangrove",
+  "placement": [
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:would_survive",
+        "state": "minecraft:mangrove_propagule"
+      }
+    },
+    {
+      "type": "expanse:clear_of_structures",
+      "margin": 5
+    }
+  ]
+}

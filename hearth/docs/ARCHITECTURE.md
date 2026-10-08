@@ -114,6 +114,7 @@ npc         NpcService         npc      optional    folk lookups, perception, Fo
 standing    StandingService    standing optional    reputation layers, deeds, gossip, charisma, speech checks, renown
 law         LawService         law      optional    ownership, stolen goods, wanted status and posters, crime reports, pardons
 repairs     RepairService      repair   optional    damage against blueprints, repair claims
+skills      PlayerSkills       another mod (Mettle)  never null: PlayerSkills.NONE until one registers; levels, attributes, perks, checks, XP
 ```
 
 Plus `DialogueProvider.register(...)` (economy and quest add conversation options; npc owns the screen) and
@@ -470,9 +471,60 @@ Citadel, Palm Harbour, the Logging Camp...) stay: remote, unpeopled places to ex
   while Atlas tracks the quest. The old per-player attachment `hearth:map/known` is still registered so old saves
   load cleanly, and is dropped when the player joins. `config/hearth/map.json`: `enabled`, `sync_radius`,
   `interval_ticks`. What Hearth asked of Atlas (all done): `docs/requests/atlas.md`.
+- **Mettle** (optional; VOID's classes, skills and weight mod, branch `mettle`). **Mettle provides the numbers, Hearth
+  owns how the world reacts** (agreed with the user, 2026-10-03): Mettle keeps skill levels, XP, perks and attributes;
+  Hearth keeps the minigames, the odds rules, witnesses, law, prices and opinion, and decides when XP is earned. Neither
+  compiles against the other: Hearth defines the slots in its api and Mettle fills them from its own `compat.hearth`
+  package when Hearth is loaded. Without Mettle every slot is neutral and Hearth plays exactly as before. The slots:
+  - `api/PlayerSkills` via `HearthServices.setPlayerSkills` / `playerSkills()` (never null; `PlayerSkills.NONE`: level 0,
+    attribute 3, no perks, `award` a no-op). Keys are strings: skills `mettle:speech`, `mettle:thievery`,
+    `mettle:stealth`; attributes `presence`, `agility`, `wits`, `strength`, `vitality`; `check(player, skill, difficulty)`
+    returns `Check(odds, roll)` by Mettle's rule (`PlayerSkills.odds`). Where Hearth reads it, each time on top of its
+    own factors (dress, cleanliness, armour, standing, traits), with level 0 / attribute 3 adding exactly nothing:
+    - speech checks (`standing/speech/SpeechOdds`, behind `StandingService.odds/attempt`): factors `speech` (+1.5 % a
+      level to persuade and flatter, +0.8 % to threaten and bribe) and `presence` (+1.0 / 1.5 / 1.2 % a point above 3 for
+      persuade / intimidate / flatter); the law's own checks (guards, witnesses: `law/LawSkills.speech`) +1 % a level and
+      +1 % a point of Presence above 3, within 5–92 %. Charisma and menace stay Hearth's look of the player.
+    - haggling (`economy/haggle/Temper.skilled`): Speech gives the merchant 2 % more room and 1.5 % more patience a level.
+    - lockpicking and pickpocketing (`law/LawSkills.lockpick/pickpocket`): the better of the law's own practice skill
+      and Thievery feeds the minigames (sweet spot, strain, the mark's awareness).
+    - stealth (`law/stealth/Detection.Stance.stealth`): a sneaking player is seen up to 30 % nearer and makes up to half
+      the noise at Stealth 20; witnesses, guards and the pickpocketing mark all go through it.
+
+    XP Hearth reports (`award(player, skill, xp, reason)`, reasons `hearth:<module>/<what>`): a speech check 15–45 by
+    difficulty (a third on failure, `hearth:speech/<kind>`); a law speech check 20 (7 on failure, `hearth:law/<what>`);
+    a struck haggle 5 + 1 per 2 bits won, at most 40 (`hearth:economy/haggle`); a picked lock 10 a tier
+    (`hearth:law/lockpick`, Thievery); each pocket lift 6 + 1 per 5 bits, at most 30 (`hearth:law/pickpocket`, Thievery);
+    a theft, picked lock or picked pocket nobody saw 5 + 1 per 10 bits, at most 25 (`hearth:law/unseen/<offence>`,
+    Stealth). Mettle applies its own multipliers and anti-farm.
+  - `api/PriceModifier` via `EconomyService.addPriceModifier`: `factor(player, settlement, one, playerBuys)`, applied
+    after reputation in `MarketPricer.quote(one, ServerPlayer, townBuys)` (the market counter, and
+    `EconomyService.price(player, settlement, stack, playerBuys)`); the product of all factors is kept within 0.5–1.5 and
+    what the town pays stays below 95 % of what it charges. No modifiers: a factor of exactly 1.
+  - Dialogue: `DialogueProvider.Option(id, label, order, locked, hint, tooltip)` (the 3-arg constructor stays) and
+    `DialogueProvider.reply(player, settlement, resident, optionId)` (default null): after a `select` that returns true
+    the reply becomes the folk's new line. Locked options are drawn faded and refused by the server; the hint sits at the
+    right ("Persuade · 65 %", `standing.speech.SpeechCheck.hint`), the tooltip shows on hover. Order bands: 0–99 small
+    talk, 100–199 trade and services, 200–299 quests, **300–399 training** (`DialogueProvider.TRAINING_FIRST/LAST`:
+    Mettle's trainers, keyed on `Resident.job`, capped by `Settlement.tier()`), goodbye last (10 000). A trainer charges
+    with `EconomyService.charge(player, settlement, trainer, bits)`, which pays the trainer's shop till or purse.
+  - Events: `api/QuestEvents.COMPLETED / FAILED / ABANDONED` `(player, settlement?, QuestType, template, tier)` (the
+    quest module's old internal `COMPLETED` moved there; `QuestType` is in the api now), and `api/MarketEvents.TRADED`
+    `(player, settlement, item, count, bits, playerBuys)` after every market trade, posted or haggled.
+
+  What Mettle asked (all done): `docs/requests/mettle.md`; Mettle's side: `mettle/docs/INTEGRATION.md` §1 on its branch.
 - **LOD** (optional, later phase): VOID LOD draws settlements at the horizon from `Blueprint.silhouette()` of built
   plots, through a small read-only API the sim module will expose (`sim/LodFootprints`): columns of (wall, roof)
   colour and height, thread-safe, versioned so the LOD rebuilds only tiles that changed.
+  A read never computes: `sample`/`chunk`/`version` look up a ready per-region snapshot (about 0.0002 ms). A region not
+  ready reads `false` (or as it last was) and is queued for a small low-priority pool (nearest the players first, at
+  most two at a time, dropped when nobody has read or polled it for 20 s or it is 24 regions from every player); when it
+  is ready its `version` changes and LOD, which polls versions, rebuilds those tiles. Historic plots are painted from a
+  per-region list of rectangles taken once from the atlas plan (`Atlas.planTransient`, so the far view does not evict
+  world generation's plans) with a *typical* silhouette per kind (archetype, style, tier, shaping params: the first of
+  a kind compiled, the rest scaled to their span: eave within 0.2 blocks, ridge within 0.9); live plots stay exact.
+  The lists are saved per world (`data/hearth/lod/<dimension>.bin`, fingerprinted by seed, Hearth version and sim
+  config), so a restart costs 0.2 ms per region and no plans. See `LodFootprints`' javadoc and `LodFootprintsBench`.
 
 ## 12. Performance rules (every module)
 

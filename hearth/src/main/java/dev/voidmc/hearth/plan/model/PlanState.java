@@ -92,6 +92,13 @@ public final class PlanState {
 	/** What each plot is for housing by station, by plot id (derived from its spec; never saved). */
 	public final transient java.util.Map<Integer, dev.voidmc.hearth.plan.society.StationLedger.HomeFacts> homeFacts = new java.util.HashMap<>();
 
+	/** The last call's needs, reused while nothing they were read from has changed ({@code Growth.Memo}; never saved). */
+	public transient dev.voidmc.hearth.plan.growth.Growth.@Nullable Memo needsMemo;
+	/** Whether the last call answered nothing only because it ran out of time ({@code SettlementPlanner#ranOutOfTime}). */
+	public transient boolean outOfTime;
+	/** Needs cut short by a live call's time limit, by key: how many of their tries in a row were (never saved). */
+	public final transient java.util.Map<String, Integer> outOfTimeRuns = new java.util.HashMap<>();
+
 	public void invalidate() {
 		this.occupancy = null;
 		this.knownPlots = null;
