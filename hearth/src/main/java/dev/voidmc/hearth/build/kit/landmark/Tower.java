@@ -6,6 +6,7 @@ import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.style.Form;
+import dev.voidmc.hearth.build.style.Role;
 import java.util.HashSet;
 import java.util.Set;
 import net.minecraft.core.Direction;
@@ -298,10 +299,18 @@ public final class Tower {
 				int ox = f.x(i) + Dirs.dx(f.out());
 				int oz = f.z(i) + Dirs.dz(f.out());
 				if (d.isEmpty(f.x(i), y, f.z(i)) && d.isEmpty(f.x(i), y + 1, f.z(i)) && d.site().ground(ox, oz) < y - 3) {
-					d.set(f.x(i), y, f.z(i), this.dress.wallOrFull());
+					d.set(f.x(i), y, f.z(i), rail(d));
 				}
 			}
 		}
+	}
+
+	/**
+	 * A balustrade's block: a wall of the dressing, else a rail of the railing. Never a full block, which the top step
+	 * of a stair beside it would climb onto and so out through the light.
+	 */
+	public Paint rail(Draft d) {
+		return this.dress.balustrade(d);
 	}
 
 	private void openingOnly(Draft d, Side f, int y, int height, Opening kind, Paint fill) {
@@ -362,7 +371,24 @@ public final class Tower {
 		if (y1 <= y0) {
 			return start;
 		}
-		return Shapes.spiral(d, this.cx, this.cz, y0, y1 - y0, start, treads, post);
+		int last = Shapes.spiral(d, this.cx, this.cz, y0, y1 - y0, start, treads, post);
+		// in a shaft wider than the stair, a landing of boards round it every turn (every four rows): the gap between
+		// the stair and the walls is then never a drop of more than a turn, and each stage has a floor to stand on
+		if (this.x1 - this.x0 - 1 > 3 || this.z1 - this.z0 - 1 > 3) {
+			Paint boards = d.mat(Role.FLOOR).full();
+			try (var s = d.stage(StageKind.FLOORS)) {
+				for (int y = y0 + 3; y < y1 - 1; y += 4) {
+					for (int z = this.z0 + 1; z <= this.z1 - 1; z++) {
+						for (int x = this.x0 + 1; x <= this.x1 - 1; x++) {
+							if ((Math.abs(x - this.cx) > 1 || Math.abs(z - this.cz) > 1) && d.isEmpty(x, y, z)) {
+								d.set(x, y, z, boards);
+							}
+						}
+					}
+				}
+			}
+		}
+		return last;
 	}
 
 	/** Bells under a beam across the interior at {@code beamY} (the beam's row): one, three or four by size. */

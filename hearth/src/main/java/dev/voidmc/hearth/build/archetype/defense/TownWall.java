@@ -198,9 +198,10 @@ public final class TownWall implements Archetype {
 						if (recess && y >= g + 2 && y <= top - 2) {
 							continue;
 						}
-						if (recess && y == g + 1 && body.has(Form.STAIRS) && cell.inward() != null && levelAlong(d, cell, g)) {
-							// (only where the ground is level along the wall: on a slope two taluses a block apart
-							// make a flight up the face to nowhere)
+						if (recess && y == g + 1 && body.has(Form.STAIRS) && cell.inward() != null && levelAlong(d, cell, g)
+							&& cell.index() > 2 && cell.index() < n - 3) {
+							// (only where the ground is level along the wall and clear of the stretch's ends: beside a
+							// walk step or a slope the talus makes a flight up the face to nowhere)
 							// a sloping talus at the foot of the bay
 							paint = body.stairs(cell.inward(), Half.BOTTOM);
 						}

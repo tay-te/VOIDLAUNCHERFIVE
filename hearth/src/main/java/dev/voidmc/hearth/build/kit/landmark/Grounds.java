@@ -93,8 +93,33 @@ public final class Grounds {
 						d.set(x, y - 1, z, border && g < y ? edge.full() : paving.full());
 					}
 				}
+				// a parapet where the platform stands four or more over the ground beyond it (not on the street side,
+				// where the way down is laid)
+				if (border && z > 0 && y - lowestBeyond(d, x, z, x0, z0, x1, z1) >= 4) {
+					try (var s = d.stage(StageKind.EXTERIOR)) {
+						d.set(x, y, z, edge.balustrade(d));
+					}
+				}
 			}
 		}
+	}
+
+	/** The lowest dry ground beside a border cell of the rectangle, outside it. */
+	private static int lowestBeyond(Draft d, int x, int z, int x0, int z0, int x1, int z1) {
+		int low = Integer.MAX_VALUE;
+		for (Direction dir : Dirs.HORIZONTAL) {
+			int nx = x + Dirs.dx(dir);
+			int nz = z + Dirs.dz(dir);
+			if (nx >= x0 && nx <= x1 && nz >= z0 && nz <= z1) {
+				continue;
+			}
+			if (d.site().isWater(nx, nz)) {
+				// (a drop into water hurts nobody)
+				continue;
+			}
+			low = Math.min(low, d.site().ground(nx, nz));
+		}
+		return low;
 	}
 
 	/**

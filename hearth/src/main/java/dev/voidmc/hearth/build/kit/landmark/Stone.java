@@ -277,6 +277,18 @@ public final class Stone {
 		return has(Form.WALL) ? wall() : full();
 	}
 
+	/**
+	 * A balustrade's block: a wall of this stone, else a rail of the style's railing (iron bars at worst). Never a full
+	 * block, which a stair's top step beside it climbs onto, and so out over the edge.
+	 */
+	public Paint balustrade(Draft d) {
+		if (has(Form.WALL)) {
+			return wall();
+		}
+		var railing = d.mat(dev.voidmc.hearth.build.style.Role.RAILING);
+		return railing.has(Form.FENCE) ? railing.fence() : Paint.of(net.minecraft.world.level.block.Blocks.IRON_BARS.defaultBlockState());
+	}
+
 	/** Stairs if the stone has them, else a slab of the same half, else the full block. */
 	public Paint stairsOrSlab(Direction facing, Half half) {
 		if (has(Form.STAIRS)) {

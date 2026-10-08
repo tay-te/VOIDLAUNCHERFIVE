@@ -288,7 +288,7 @@ public final class ClockTower implements Archetype {
 				}
 				boolean corner = Crowns.isCorner(c, gx0, gz0, gx1, gz1);
 				d.set(c[0], y, c[1], dress.full());
-				d.set(c[0], y + 1, c[1], corner ? dress.full() : dress.wallOrFull());
+				d.set(c[0], y + 1, c[1], corner ? dress.full() : dress.balustrade(d));
 				if (corner && dress.has(Form.SLAB)) {
 					d.set(c[0], y + 2, c[1], dress.slab(SlabType.BOTTOM));
 				}
@@ -378,7 +378,7 @@ public final class ClockTower implements Archetype {
 		if (belfry == Tower.Opening.ARCH) {
 			for (Side f : t.faces()) {
 				for (int i = f.middle() - 1; i <= f.middle() + 1; i++) {
-					d.set(f.x(i), yb + 1, f.z(i), dress.wallOrFull());
+					d.set(f.x(i), yb + 1, f.z(i), dress.balustrade(d));
 				}
 			}
 		}
@@ -641,7 +641,7 @@ public final class ClockTower implements Archetype {
 				int x = (int) (k >> 32);
 				int z = (int) k;
 				d.set(x, balcony, z, dress.full());
-				d.set(x, balcony + 1, z, dress.wallOrFull());
+				d.set(x, balcony + 1, z, dress.balustrade(d));
 				Direction in = Dirs.nearest(cx - x, cz - z);
 				if (d.isEmpty(x, balcony - 1, z)) {
 					d.set(x, balcony - 1, z, dress.stairsOrSlab(in, Half.TOP));
@@ -652,9 +652,10 @@ public final class ClockTower implements Archetype {
 		try (var s = d.stage(StageKind.OPENINGS)) {
 			for (Side f : faces) {
 				int mid = f.middle();
-				for (int y = hs + 1; y <= hs + 2; y++) {
-					d.set(f.x(mid), y, f.z(mid), Blocks.AIR.defaultBlockState());
-				}
+				// a balustrade across each arch's foot, so the lantern is looked out of, not stepped out of onto the
+				// cornice under it
+				d.set(f.x(mid), hs + 1, f.z(mid), dress.balustrade(d));
+				d.set(f.x(mid), hs + 2, f.z(mid), Blocks.AIR.defaultBlockState());
 				d.set(f.x(mid), hs + 3, f.z(mid), dress.full());
 			}
 		}
@@ -680,6 +681,11 @@ public final class ClockTower implements Archetype {
 		t.floor(d, -1, base.full());
 		int start = 1;
 		t.hollow(d, 0, hb - 1);
+		// the keeper's room four high under a ceiling the stair climbs through (a stair rising free in a room six high
+		// leaves its upper treads over a drop)
+		for (int y = 4; y < hb; y++) {
+			t.floor(d, y, d.mat(Role.FLOOR).full());
+		}
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int z = cz - 1; z <= cz + 1; z++) {
 				for (int x = cx - 1; x <= cx + 1; x++) {
@@ -787,7 +793,7 @@ public final class ClockTower implements Archetype {
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int[] c : Draft.ring(podium.x0, podium.z0, podium.x1, podium.z1)) {
 				if (d.allowed(c[0], hp + 1, c[1]) && !(c[1] == podium.z0 && Math.abs(c[0] - podium.cx) <= 0)) {
-					d.set(c[0], hp + 1, c[1], dress.wallOrFull());
+					d.set(c[0], hp + 1, c[1], dress.balustrade(d));
 				}
 			}
 		}
@@ -983,7 +989,7 @@ public final class ClockTower implements Archetype {
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int[] c : Draft.ring(clock.x0, clock.z0, clock.x1, clock.z1)) {
 				if (gallery && d.isEmpty(c[0], ycC + 1, c[1])) {
-					d.set(c[0], ycC + 1, c[1], dress.wallOrFull());
+					d.set(c[0], ycC + 1, c[1], dress.balustrade(d));
 				}
 			}
 		}

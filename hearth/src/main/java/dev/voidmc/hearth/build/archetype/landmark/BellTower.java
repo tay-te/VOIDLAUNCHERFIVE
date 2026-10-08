@@ -208,7 +208,7 @@ public final class BellTower implements Archetype {
 			for (Side f : t.faces()) {
 				int m = f.middle();
 				for (int i = m - 1; i <= m + 1; i++) {
-					d.set(f.x(i), yb + 1, f.z(i), t.dress.wallOrFull());
+					d.set(f.x(i), yb + 1, f.z(i), t.rail(d));
 				}
 			}
 		}
