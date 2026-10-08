@@ -52,8 +52,9 @@ are placed by the sim outside the blueprint, expose them as a function of (spec,
 ## 4. Left for a later gate pass
 
 - Expanse vegetation in `townPreview` (review 2 item 30): Expanse's foliage is world-generation features that need a
-  level, and the offline renderer has no level. A stand-in (Hearth's own `kit/landscape/Trees` scattered on the open
-  land round the town by Expanse's biome rules) would let the countryside transition be judged; not done this wave.
+  level, and the offline renderer has none, so `townPreview` draws a stand-in (`gametest/render/TownCountry`: copses
+  and meadow, spruce, scrub, savanna, jungle, swamp, blossom by culture or the Earth model's biome) on the open land.
+  Expanse lane: if the habitats or densities drift from what Expanse grows, say so here and the stand-in follows.
 - `BlueprintPreview` (gametest root, not this lane's) prints `CHECK` lines from `BlueprintChecks.all`; in report mode
   the play rules are not among them. Printing `PlayChecks.evaluate(bp, probe)` as `GATE ...` lines there would show
   them while drawing. One line; whoever next edits BlueprintPreview.

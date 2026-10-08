@@ -649,7 +649,11 @@ town, in textures, use `townPreview`:
 
 The planner grows the town offline (MiniSim, as `settlementPreview`), every plot is drawn from the real build module's
 blueprint, in id order with the sim's writer rule (a later plot replaces only ground, air, plants and its own blocks),
-as far as each plot is built, and the textured renderer of `blueprintPreview` draws it.
+as far as each plot is built, and the textured renderer of `blueprintPreview` draws it. The open land round and
+between the plots wears a stand-in for Expanse's vegetation (`gametest/render/TownCountry`: copses and meadow in the
+temperate lands, spruce in the north, scrub, savanna, sand, jungle, swamp and blossom by the culture, or by the Earth
+model's biome with `earth`), kept two blocks off anything built, so the edge where the town meets the countryside can
+be judged; `-Dhearth.town.country=false` leaves the land bare. The floating-piece probe never sees it.
 
 - `culture`: a culture, a comma list, `all`, or `culture/layout` to force a layout. `days`, `terrain` (the synthetic
   kinds or `earth[:x:z]`), `seed` as `settlementPreview`.
