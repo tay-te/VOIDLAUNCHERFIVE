@@ -95,7 +95,7 @@ public final class HubLayout {
 	public final Rect strip;
 	/** The live player model's box (inventory only; null for chests). */
 	public final Rect player;
-	/** The hovered-item card's item well icon. */
+	/** The Held card's item icon (what the hotbar's selected slot holds); null on pages without one. */
 	public final Rect detailIcon;
 	/** Container grid viewport (chest only; null otherwise). */
 	public final Rect containerGrid;
@@ -150,12 +150,12 @@ public final class HubLayout {
 			}
 			// 2x2 crafting grid (menu slots 1-4, row-major) and its result (slot 0).
 			for (int i = 0; i < 4; i++) {
-				out.add(this.cell(1 + i, Role.CRAFT, i, 318 + (i % 2) * PITCH, 118 + (i / 2) * PITCH));
+				out.add(this.cell(1 + i, Role.CRAFT, i, 318 + (i % 2) * PITCH, 168 + (i / 2) * PITCH));
 			}
-			out.add(this.cell(0, Role.RESULT, 0, 444, 144));
+			out.add(this.cell(0, Role.RESULT, 0, 444, 194));
 			this.addPlayerRows(out, 9, 352, 516);
 			this.player = this.rect(82, 100, 160, 202);
-			this.detailIcon = this.iconIn(this.rect(533, 117, 72, 72), 64);
+			this.detailIcon = this.iconIn(this.rect(533, 117, 56, 56), 42);
 			this.containerGrid = null;
 		} else if (kind == Kind.GEAR) {
 			// The Gear page (Figma 387:21106): pack pockets where a chest's rows go, the inventory below, and the worn
@@ -172,7 +172,7 @@ public final class HubLayout {
 			this.pockets(out, gear.beltFirst(), gear.beltSlots(), Role.BELT_POCKET, 252 + 56);
 			this.pockets(out, gear.quiverFirst(), gear.quiverSlots(), Role.QUIVER_POCKET, 252 + 112);
 			this.player = null;
-			this.detailIcon = this.iconIn(this.rect(533, 450, 56, 56), 42);
+			this.detailIcon = null;  // hovering shows the tooltip; the column holds load, worn gear and the purse
 			this.containerGrid = null;
 		} else if (kind == Kind.CLASSES) {
 			// Mettle's Classes page draws no slots: the menu stays open underneath, untouched.

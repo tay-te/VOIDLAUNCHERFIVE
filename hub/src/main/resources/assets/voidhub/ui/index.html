@@ -57,16 +57,8 @@
   <!-- Inventory page, left column -->
   <div class="page-inv">
     <div class="player" id="player"><div class="label">DRAG TO TURN</div></div>
-    <div class="eyebrow" style="left:318px;top:100px">CRAFTING</div>
-    <div class="arrow" style="left:423px;top:156px"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="readout">
-      <div class="eyebrow small" style="left:11px;top:11px">ARMOUR</div>
-      <div class="cells" id="armour-cells" style="left:71px;top:12px"></div>
-      <div class="value" id="armour-value" style="top:8px">0</div>
-      <div class="eyebrow small" style="left:11px;top:39px">LEVEL</div>
-      <div class="cells" id="level-cells" style="left:71px;top:40px"></div>
-      <div class="value" id="level-value" style="top:36px">0</div>
-    </div>
+    <div class="eyebrow" style="left:318px;top:150px">CRAFTING</div>
+    <div class="arrow" style="left:423px;top:206px"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="eyebrow" style="left:28px;top:325px">STORAGE</div>
     <div class="chips" style="left:221px;top:316px">
       <div class="chip active" data-filter="all">All</div>
@@ -105,26 +97,21 @@
     <div class="fill"><div class="cells fillcells" id="chest-fill"></div><span id="chest-fill-text">0 / 27</span></div>
   </div>
 
-  <!-- The hovered-item card. Fixed geometry on purpose: a hover only ever changes text, classes
-       and visibility here, never layout, so Ultralight repaints the card and nothing else. -->
-  <div class="card" id="card-detail">
-    <div class="d-empty" id="detail-empty">
-      <div class="eyebrow-inline">NOTHING HOVERED</div>
-      <div class="hint-text">Hover a slot to see its item here.</div>
-    </div>
-    <div class="itemwell d-has"></div>
-    <div class="eyebrow-inline d-label d-has" id="detail-label"></div>
-    <div class="d-name d-has" id="detail-name"></div>
-    <div class="eyebrow-inline d-meta d-has" id="detail-meta"></div>
-    <div class="d-dur" id="detail-durability">
-      <span class="eyebrow-inline">DURABILITY</span><span class="num" id="durability-text"></span>
-      <div class="durcells" id="durability-cells"></div>
-    </div>
-    <div class="d-row d-r1" id="row-r1"><span class="k"></span><span class="lvc"></span><span class="v"></span></div>
-    <div class="eyebrow-inline d-eyebrow" id="ench-eyebrow">ENCHANTMENTS</div>
-    <div class="d-row d-r2" id="row-0"><span class="k"></span><span class="lvc"></span><span class="v"></span></div>
-    <div class="d-row d-r3" id="row-1"><span class="k"></span><span class="lvc"></span><span class="v"></span></div>
-    <div class="d-row d-r4" id="row-2"><span class="k"></span><span class="lvc"></span><span class="v"></span></div>
+  <!-- What the hotbar's selected slot holds. The item is drawn natively in the well. -->
+  <div class="card" id="card-held">
+    <div class="hwell"></div>
+    <div class="h-name" id="held-name">Empty hand</div>
+    <div class="eyebrow-inline h-meta" id="held-meta"></div>
+    <div class="tag h-tag" id="held-tag">HELD</div>
+    <div class="hc" id="held-cells"></div>
+    <div class="h-dur" id="held-dur"></div>
+  </div>
+
+  <!-- Status: load (with VOID Mettle), armour and vanilla's XP level. -->
+  <div class="card" id="card-status">
+    <div class="st-load" id="status-load"></div>
+    <div class="st-row st-armour"><span class="eyebrow-inline">ARMOUR</span><div class="cells" id="armour-cells"></div><span class="st-v" id="armour-value">0</span></div>
+    <div class="st-row st-level"><span class="eyebrow-inline">XP LEVEL</span><div class="cells" id="level-cells"></div><span class="st-v" id="level-value">0</span></div>
   </div>
 
   <div class="card purse" id="card-purse">
@@ -149,6 +136,15 @@
 </div>
 
 <div id="wells"></div>
+
+<!-- The hovered item, beside its well. Built per hover: a handful of boxes, never the whole page. -->
+<div id="tip" class="tip off">
+  <div class="tp-name" id="tip-name"></div>
+  <div class="eyebrow-inline tp-meta" id="tip-meta"></div>
+  <div class="tp-dur" id="tip-dur"><span class="eyebrow-inline">DURABILITY</span><span class="tp-num" id="tip-dur-text"></span><div class="tp-cells" id="tip-dur-cells"></div></div>
+  <div id="tip-rows"></div>
+  <div class="tp-notes" id="tip-notes"></div>
+</div>
 
 <script src="mettle.js"></script>
 <script src="hub.js"></script>

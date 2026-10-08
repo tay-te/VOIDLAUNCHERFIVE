@@ -183,8 +183,8 @@ class HubLayoutTest {
 		Rect hotbar0 = l.cellForSlot(36).cell();
 		assertEquals(new Rect(l.window.x() + 28, l.window.y() + 516, 46, 46), hotbar0);
 		Rect craft0 = l.cellForSlot(1).cell();
-		assertEquals(new Rect(l.window.x() + 318, l.window.y() + 118, 46, 46), craft0);
-		assertEquals(new Rect(l.window.x() + 444, l.window.y() + 144, 46, 46), l.cellForSlot(0).cell());
+		assertEquals(new Rect(l.window.x() + 318, l.window.y() + 168, 46, 46), craft0);
+		assertEquals(new Rect(l.window.x() + 444, l.window.y() + 194, 46, 46), l.cellForSlot(0).cell());
 		assertEquals(32, l.iconPx, "28/46 of a 46 px well rounds to 32 px (two device px per item texel)");
 		assertEquals(987, l.window.w());
 	}

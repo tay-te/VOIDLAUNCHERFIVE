@@ -21,7 +21,11 @@ public final class TooltipModel {
 
 	/** The empty card: nothing hovered and nothing held. */
 	public static String empty() {
-		return Json.object().put("type", "detail").put("has", false).end();
+		return empty("detail");
+	}
+
+	public static String empty(String type) {
+		return Json.object().put("type", type).put("has", false).end();
 	}
 
 	/**
@@ -29,8 +33,17 @@ public final class TooltipModel {
 	 * @param slot the menu slot index (lets the page and the tests tie the card to a well)
 	 */
 	public static String of(ItemFacts f, String label, int slot) {
+		return of(f, label, slot, List.of(), "detail");
+	}
+
+	/**
+	 * The hovered item ({@code type} "detail", drawn as the floating tooltip) or the held one ("held", the right
+	 * column's card). {@code notes} are lines other mods add to the vanilla tooltip (VOID Mettle's weight, Hearth's
+	 * worth...), already filtered of what the model shows itself.
+	 */
+	public static String of(ItemFacts f, String label, int slot, List<String> notes, String type) {
 		Json.Writer w = Json.object();
-		w.put("type", "detail");
+		w.put("type", type);
 		w.put("has", true);
 		w.put("slot", slot);
 		w.put("label", label);
@@ -71,6 +84,11 @@ public final class TooltipModel {
 			lines.add(line("Stack", f.count() + " / " + f.maxStack()));
 		}
 		w.raw("lines", Json.array(lines));
+		List<String> quoted = new ArrayList<>();
+		for (String n : notes) {
+			quoted.add(Json.quote(n));
+		}
+		w.raw("notes", Json.array(quoted));
 		return w.end();
 	}
 

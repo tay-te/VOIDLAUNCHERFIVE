@@ -168,6 +168,7 @@
   // ---- layout ---------------------------------------------------------------------------------
   function applyLayout(l) {
     layout = l;
+    tipShown = "";  // a new screen knows nothing of the tooltip: say it again
     var body = document.body;
     toggle(body, "inventory", l.kind === "inventory");
     toggle(body, "chest", l.kind === "chest");
@@ -272,11 +273,10 @@
     if (layout && layout.kind === "inventory") {
       text($("footer-left"), "36 SLOTS  ·  " + s.used + " USED  ·  PLAYER INVENTORY (VANILLA CONTAINER)");
       text($("footer-right"), "SHIFT-CLICK MOVES  ·  DOUBLE-CLICK GATHERS");
-      var armourLit = Math.round(Math.min(20, s.armor) / 20 * 7);
-      meter($("armour-cells"), 7, 7, armourLit, false, 6, 9, 1.8);
+      // Armour runs to 20: a cell a point. XP: the level's progress over 20 cells.
+      meter($("armour-cells"), 20, 20, Math.min(20, s.armor), false, 8, 12, 2);
       text($("armour-value"), String(s.armor));
-      var xpLit = Math.floor(s.xp * 7);
-      meter($("level-cells"), 7, 7, s.level > 0 ? xpLit + 1 : 0, s.level > 0, 6, 9, 1.8);
+      meter($("level-cells"), 20, 20, Math.floor(s.xp * 20) + 1, true, 8, 12, 2);
       text($("level-value"), String(s.level));
     } else if (layout && layout.kind === "chest") {
       var title = s.title || "Chest";
@@ -292,6 +292,10 @@
       text($("footer-right"), "EVERY CLICK GOES TO THE REAL CONTAINER");
     }
 
+    if (document.body.classList.contains("carrying") !== !!s.carrying) {
+      toggle(document.body, "carrying", !!s.carrying);
+      if (s.carrying) hideTip();
+    }
     prev = {hover: s.hover, heldSlot: heldSlot, drag: drag, dragList: s.drag, filled: filled, filter: s.filter};
     if (ext) ext.state(s);
   }
@@ -308,62 +312,84 @@
     return -1;
   }
 
-  // ---- the hovered-item card ------------------------------------------------------------------
-  // Fixed rows, filled in place: text, classes and visibility only (see index.html).
-  var durCells = $("durability-cells");
+  // ---- the hovered item: a tooltip beside its well ---------------------------------------------
+  // Rebuilt per hover (a few boxes). Native item icons draw over the page, so the page tells Java where
+  // the tooltip sits and Java leaves the stacks under it out.
+  var tip = $("tip"), tipShown = "";
 
   function show(el, on) {
     toggle(el, "hidden-v", !on);
   }
 
-  function fillRow(el, row) {
-    show(el, !!row);
-    if (!row) return;
-    toggle(el, "ench", row.kind === "ench");
-    text(el.children[0], row.k);
-    text(el.children[2], row.v);
-    if (row.kind === "ench") {
-      meter(el.children[1], 5, row.cells, row.lit, false, 7, 10, 2.1);
-    }
+  function tipAt(x, y, w, h) {
+    var k = x + "," + y + "," + w + "," + h;
+    if (k === tipShown) return;
+    tipShown = k;
+    send({type: "tip", x: x, y: y, w: w, h: h});
+  }
+
+  function hideTip() {
+    toggle(tip, "off", true);
+    tipAt(0, 0, 0, 0);
   }
 
   function applyDetail(d) {
-    toggle($("card-detail"), "has", !!d.has);
-    if (!d.has) return;
-    text($("detail-label"), d.label);
-    text($("detail-name"), d.count > 1 ? d.name + "  ×" + d.count : d.name);
-    text($("detail-meta"), d.meta);
+    var well = d.has ? wells[d.slot] : null;
+    if (!well || document.body.classList.contains("carrying")) { hideTip(); return; }
+    var name = $("tip-name");
+    text(name, d.count > 1 ? d.name + "  ×" + d.count : d.name);
+    name.className = "tp-name " + String(d.rarity || "").toLowerCase();
+    text($("tip-meta"), d.meta);
 
-    var lines = [];
-    for (var j = 0; j < d.lines.length; j++) lines.push({kind: "line", k: d.lines[j].k, v: d.lines[j].v});
-    // First row: durability, else the first fact line.
-    show($("detail-durability"), !!d.durability);
+    toggle($("tip-dur"), "gone", !d.durability);
     if (d.durability) {
-      text($("durability-text"), d.durability.text);
-      var lit = d.durability.lit;
-      meter(durCells, 24, 24, lit, true, 10.5, 398.5 / 23, 3);
-      fillRow($("row-r1"), null);
-    } else {
-      fillRow($("row-r1"), lines.shift() || null);
+      text($("tip-dur-text"), d.durability.text);
+      meter($("tip-dur-cells"), 24, 24, d.durability.lit, true, 7, 9.6, 2);
     }
-    // Then enchantments (at most three rows; the third says how many more), else more facts.
-    var rows = [];
-    if (d.ench.length) {
-      for (var e = 0; e < d.ench.length && rows.length < 3; e++) {
-        var en = d.ench[e];
-        if (rows.length === 2 && d.ench.length > 3) {
-          rows.push({kind: "line", k: "+" + (d.ench.length - 2) + " more enchantments", v: ""});
-        } else {
-          rows.push({kind: "ench", k: en.name, v: en.roman, cells: Math.min(5, en.cells), lit: Math.min(5, en.lit)});
-        }
+    var h = "", meters = [];
+    for (var e = 0; e < d.ench.length && e < 4; e++) {
+      var en = d.ench[e];
+      if (e === 3 && d.ench.length > 4) {
+        h += '<div class="tp-row"><span class="k">+' + (d.ench.length - 3) + ' more enchantments</span></div>';
+        break;
       }
-    } else {
-      rows = lines.slice(0, 3);
+      h += '<div class="tp-row ench"><span class="k">' + escHtml(en.name) + '</span><span class="lvc"></span><span class="v">' + escHtml(en.roman) + "</span></div>";
+      meters.push([Math.min(5, en.cells), Math.min(5, en.lit)]);
     }
-    show($("ench-eyebrow"), d.ench.length > 0);
-    fillRow($("row-0"), rows[0] || null);
-    fillRow($("row-1"), rows[1] || null);
-    fillRow($("row-2"), rows[2] || null);
+    for (var j = 0; j < d.lines.length && j < 5; j++) {
+      h += '<div class="tp-row"><span class="k">' + escHtml(d.lines[j].k) + '</span><span class="v">' + escHtml(d.lines[j].v) + "</span></div>";
+    }
+    var rows = $("tip-rows");
+    rows.innerHTML = h;
+    var lv = rows.querySelectorAll(".lvc");
+    for (var m = 0; m < lv.length; m++) meter(lv[m], 5, meters[m][0], meters[m][1], false, 6, 8, 1.6);
+    var notes = "";
+    for (var n = 0; n < (d.notes || []).length; n++) notes += (n ? "<br>" : "") + escHtml(d.notes[n]);
+    $("tip-notes").innerHTML = notes;
+
+    // Beside the well, on the right unless that leaves the screen; kept on screen vertically.
+    toggle(tip, "off", false);
+    var W = tip.offsetWidth, Hh = tip.offsetHeight;
+    var x = well.offsetLeft + well.offsetWidth + 10;
+    if (x + W > window.innerWidth - 8) x = well.offsetLeft - 10 - W;
+    var y = Math.max(8, Math.min(well.offsetTop - 6, window.innerHeight - 8 - Hh));
+    tip.style.left = x + "px";
+    tip.style.top = y + "px";
+    tipAt(x, y, W, Hh);
+  }
+
+  function escHtml(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // ---- the Held card: what the hotbar's selected slot holds -----------------------------------
+  function applyHeld(d) {
+    text($("held-name"), !d.has ? "Empty hand" : d.count > 1 ? d.name + "  ×" + d.count : d.name);
+    text($("held-meta"), d.has ? d.meta : "NOTHING IN HAND");
+    var cellsEl = $("held-cells");
+    show(cellsEl, !!(d.has && d.durability));
+    text($("held-dur"), d.has && d.durability ? d.durability.text : "");
+    if (d.has && d.durability) meter(cellsEl, 16, 16, Math.round(d.durability.lit * 16 / 24), true, 6, 8.5, 1.6);
   }
 
   // ---- input from the page --------------------------------------------------------------------
@@ -387,6 +413,7 @@
         if (m.type === "layout") applyLayout(m);
         else if (m.type === "state") applyState(m);
         else if (m.type === "detail") applyDetail(m);
+        else if (m.type === "held") applyHeld(m);
         else if (ext) ext.apply(m);
       } catch (e) {
         return "error: " + e;

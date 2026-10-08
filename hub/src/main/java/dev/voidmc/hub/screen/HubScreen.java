@@ -149,8 +149,11 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		this.hub.beginFrame();
 		this.pushLayout();
 		this.pushState();
-		if (this.layout.detailIcon != null) {
+		if (!this.layout.cells().isEmpty()) {
 			this.pushDetail(cell);
+		}
+		if (this.layout.detailIcon != null) {
+			this.pushHeld();
 		}
 		this.pushExtra();
 		if (this.firstFrame) {
@@ -187,10 +190,14 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		}
 	}
 
+	/** Where the page's item tooltip is (physical px), or null: stacks under it are not drawn. */
+	private Rect tip;
+
 	private void extractStacks(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int gs) {
+		Rect tip = this.menu.getCarried().isEmpty() ? this.tip : null;
 		for (HubLayout.Cell cell : this.layout.cells()) {
 			Slot slot = this.menu.slots.get(cell.slot());
-			if (!slot.isActive()) {
+			if (!slot.isActive() || tip != null && tip.intersects(cell.cell())) {
 				continue;
 			}
 			boolean previewing = this.isQuickCrafting && this.quickCraftSlots.contains(slot);
@@ -321,38 +328,75 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 			.put("hearth", net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("hearth")).end());
 	}
 
-	/** The stack the card shows: the hovered one, else the held one. */
+	/** The stack the Held card shows: the hotbar's selected slot. */
 	protected ItemStack detailStack() {
-		if (this.hovered != null) {
-			ItemStack s = this.menu.slots.get(this.hovered.slot()).getItem();
-			if (!s.isEmpty()) {
-				return s;
-			}
-		}
 		return this.minecraft.player.getInventory().getSelectedItem();
 	}
 
+	/** The hovered stack, as the floating tooltip beside its well (nothing hovered: no tooltip). */
 	private void pushDetail(HubLayout.Cell cell) {
-		ItemStack hoveredStack = cell == null ? ItemStack.EMPTY : this.menu.slots.get(cell.slot()).getItem();
-		ItemStack stack;
-		String label;
-		int slot;
-		if (!hoveredStack.isEmpty()) {
-			stack = hoveredStack;
-			label = "HOVERED  ·  " + TooltipModel.slotLabel(cell.role().css(), cell.ordinal());
-			slot = cell.slot();
-		} else {
-			int held = this.minecraft.player.getInventory().getSelectedSlot();
-			stack = this.minecraft.player.getInventory().getSelectedItem();
-			label = "HELD  ·  HOTBAR " + (held + 1);
-			HubLayout.Cell heldCell = this.heldCell(held);
-			slot = heldCell == null ? -1 : heldCell.slot();
-		}
-		String key = stack.isEmpty() ? "empty" : slot + ":" + label + ":" + ItemStack.hashItemAndComponents(stack) + ":" + stack.getCount();
+		ItemStack stack = cell == null ? ItemStack.EMPTY : this.menu.slots.get(cell.slot()).getItem();
+		String key = stack.isEmpty() ? "empty" : cell.slot() + ":" + ItemStack.hashItemAndComponents(stack) + ":" + stack.getCount();
 		if (!this.cardPacer.offer(key, System.nanoTime())) {
 			return;
 		}
-		this.hub.sendLatest("detail", stack.isEmpty() ? TooltipModel.empty() : TooltipModel.of(ItemFactsReader.read(stack), label, slot));
+		if (stack.isEmpty()) {
+			this.hub.sendLatest("detail", TooltipModel.empty());
+			return;
+		}
+		String label = TooltipModel.slotLabel(cell.role().css(), cell.ordinal());
+		this.hub.sendLatest("detail", TooltipModel.of(ItemFactsReader.read(stack), label, cell.slot(), notes(stack), "detail"));
+	}
+
+	private String sentHeld;
+
+	/** The Held card: what the hotbar's selected slot holds. Sent only when it changes. */
+	private void pushHeld() {
+		int held = this.minecraft.player.getInventory().getSelectedSlot();
+		ItemStack stack = this.minecraft.player.getInventory().getSelectedItem();
+		String key = held + ":" + (stack.isEmpty() ? "empty" : ItemStack.hashItemAndComponents(stack) + ":" + stack.getCount());
+		if (key.equals(this.sentHeld)) {
+			return;
+		}
+		this.sentHeld = key;
+		String label = "HELD  ·  HOTBAR " + (held + 1);
+		this.hub.sendLatest("held", stack.isEmpty() ? TooltipModel.empty("held")
+			: TooltipModel.of(ItemFactsReader.read(stack), label, -1, List.of(), "held"));
+	}
+
+	/**
+	 * Lines other mods add to the item's tooltip (weight, worth, maker...): the vanilla tooltip minus what the
+	 * model already shows (name, enchantments, attribute lines, durability), at most four.
+	 */
+	private List<String> notes(ItemStack stack) {
+		List<String> out = new ArrayList<>();
+		try {
+			List<Component> lines = stack.getTooltipLines(net.minecraft.world.item.Item.TooltipContext.of(this.minecraft.level), this.minecraft.player,
+				net.minecraft.world.item.TooltipFlag.NORMAL);
+			java.util.Set<String> enchants = new java.util.HashSet<>();
+			for (ItemFacts.Enchant e : ItemFactsReader.read(stack).enchantments()) {
+				enchants.add(e.name());
+			}
+			for (int i = 1; i < lines.size() && out.size() < 4; i++) {
+				String t = lines.get(i).getString().strip();
+				if (t.isEmpty() || t.startsWith("When ") || t.startsWith("Durability") || t.matches("^[+\\-]?\\d+(\\.\\d+)?%? (?!kg\\b).*")) {
+					continue;
+				}
+				boolean ench = false;
+				for (String e : enchants) {
+					if (t.startsWith(e)) {
+						ench = true;
+						break;
+					}
+				}
+				if (!ench) {
+					out.add(t.length() > 64 ? t.substring(0, 63) + "…" : t);
+				}
+			}
+		} catch (RuntimeException e) {
+			// A mod's tooltip callback threw: the tooltip goes without notes.
+		}
+		return out;
 	}
 
 	private HubLayout.Cell heldCell(int held) {
@@ -373,6 +417,8 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 			case Bridge.Sort s -> this.queue(this.sortPlan(s.region()));
 			case Bridge.MoveAll mv -> this.queue(this.moveAllPlan(mv.to()));
 			case Bridge.Turn t -> this.yaw += (float) t.degrees();
+			case Bridge.Tip t -> this.tip = t.w() <= 0 ? null : new Rect((int) Math.floor(t.x() * this.layout.u), (int) Math.floor(t.y() * this.layout.u),
+				(int) Math.ceil(t.w() * this.layout.u), (int) Math.ceil(t.h() * this.layout.u));
 			default -> this.onMessage(m);
 		}
 	}

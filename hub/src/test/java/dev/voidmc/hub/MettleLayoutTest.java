@@ -42,7 +42,7 @@ class MettleLayoutTest {
 		}
 		assertTrue(slots.contains(G.back()) && slots.contains(G.belt()) && slots.contains(G.quiver()));
 		assertEquals(27 + 6 + 4 + 36 + 3, l.cells().size());
-		assertNotNull(l.detailIcon);
+		assertNull(l.detailIcon, "the Gear page has no Held card");
 		assertNull(l.player);
 	}
 

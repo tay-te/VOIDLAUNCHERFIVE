@@ -21,7 +21,7 @@ public final class Bridge {
 	private Bridge() {
 	}
 
-	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, MettleCall, MettleChoose, Invalid {
+	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Tip, MettleCall, MettleChoose, Invalid {
 	}
 
 	/** The page finished loading and installed {@code hub.apply}. */
@@ -50,6 +50,10 @@ public final class Bridge {
 
 	/** The player model was dragged: yaw change in degrees. */
 	public record Turn(double degrees) implements Message {
+	}
+
+	/** Where the page drew the item tooltip (CSS px; w 0 = hidden): Java leaves the stacks under it out. */
+	public record Tip(double x, double y, double w, double h) implements Message {
 	}
 
 	/**
@@ -87,6 +91,18 @@ public final class Bridge {
 	static final Set<String> MOVE_TARGETS = Set.of("inventory", "container");
 	static final Set<String> SEGMENTS = Set.of("inventory", "chest", "gear", "classes");
 
+	private static Message tip(Map<String, Object> m) {
+		double[] v = new double[4];
+		String[] k = {"x", "y", "w", "h"};
+		for (int i = 0; i < 4; i++) {
+			if (!(m.get(k[i]) instanceof Double d) || !Double.isFinite(d) || Math.abs(d) > 100_000) {
+				return new Invalid("tip " + k[i]);
+			}
+			v[i] = d;
+		}
+		return v[2] < 0 || v[3] < 0 ? new Invalid("tip size") : new Tip(v[0], v[1], v[2], v[3]);
+	}
+
 	public static Message decode(String json) {
 		Map<String, Object> m;
 		try {
@@ -105,6 +121,7 @@ public final class Bridge {
 			case "sort" -> oneOf(m, "region", SORT_REGIONS) instanceof String v ? new Sort(v) : new Invalid("sort region");
 			case "moveAll" -> oneOf(m, "to", MOVE_TARGETS) instanceof String v ? new MoveAll(v) : new Invalid("moveAll target");
 			case "segment" -> oneOf(m, "value", SEGMENTS) instanceof String v ? new Segment(v) : new Invalid("segment value");
+			case "tip" -> tip(m);
 			case "turn" -> m.get("deg") instanceof Double d && Double.isFinite(d) ? new Turn(d) : new Invalid("turn deg");
 			case "mettleChoose" -> choose(m);
 			case "mettle" -> oneOf(m, "op", METTLE_OPS) instanceof String op && m.get("arg") instanceof String a && a.length() <= 96

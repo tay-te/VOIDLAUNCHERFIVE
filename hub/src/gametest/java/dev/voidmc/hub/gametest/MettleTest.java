@@ -79,6 +79,17 @@ public final class MettleTest {
 		this.context.waitTicks(3);
 		this.context.takeScreenshot("voidhub_mettle_01_inventory");
 
+		// 1b. Hovering a stack shows the VOID tooltip beside its well (the stacks under it are left out).
+		server.runCommand("give Player0 minecraft:diamond_sword[enchantments={sharpness:3,unbreaking:2,looting:1}]");
+		this.context.waitTicks(5);
+		int sword = this.find("diamond_sword", 9, 45);
+		this.expect(sword >= 0, "the sword is in the inventory");
+		this.ui.hoverSlot(sword);
+		this.context.waitTicks(6);
+		this.context.takeScreenshot("voidhub_mettle_01b_tooltip");
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+
 		// 2. Shift-click puts each piece of gear on.
 		for (String gear : List.of("leather_pack", "belt", "quiver")) {
 			int at = this.find(gear, 9, 45);
@@ -156,6 +167,40 @@ public final class MettleTest {
 		this.context.waitTicks(5);
 		this.context.takeScreenshot("voidhub_mettle_09_gallery");
 
+		// Perf: what the Classes page costs to paint (Ultralight's UI thread) and to upload (render thread).
+		this.ui.parkMouse();
+		this.context.waitTicks(10);
+		this.perf("gallery idle", () -> this.context.waitTicks(60));
+		this.perf("gallery hover sweep", () -> {
+			for (int k = 0; k < 3; k++) {
+				for (String sk : List.of("mining", "blades", "heavy_weapons", "marksmanship", "defense", "athletics", "survival", "smithing")) {
+					this.hoverPage("[data-skill=\"mettle:" + sk + "\"]");
+					this.context.waitTicks(3);
+				}
+			}
+		});
+		this.ui.clickPage("[data-skill=\"mettle:mining\"]");
+		this.context.waitTicks(10);
+		this.perf("tree idle", () -> this.context.waitTicks(60));
+		this.perf("tree select perks", () -> {
+			for (int k = 0; k < 2; k++) {
+				for (String pk : List.of("quarryman", "prospector", "hard_hat", "tunneler", "ore_sense", "motherlode", "sure_footing", "rock_hauler")) {
+					this.ui.clickPage("[data-perk=\"mettle:mining/" + pk + "\"]");
+					this.context.waitTicks(3);
+				}
+			}
+		});
+		this.perf("tree hover sweep", () -> {
+			for (int k = 0; k < 2; k++) {
+				for (String pk : List.of("quarryman", "prospector", "hard_hat", "tunneler", "ore_sense", "motherlode", "sure_footing", "rock_hauler")) {
+					this.hoverPage("[data-perk=\"mettle:mining/" + pk + "\"]");
+					this.context.waitTicks(3);
+				}
+			}
+		});
+		this.ui.clickPage("[data-back]");
+		this.context.waitTicks(5);
+
 		// 7. K opens the hub on Classes.
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
 		this.context.waitTicks(5);
@@ -166,6 +211,44 @@ public final class MettleTest {
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
 		this.context.waitTicks(3);
 		dev.voidmc.hub.VoidHub.LOGGER.info("VOID Hub + Mettle: all steps passed");
+	}
+
+	/** Runs {@code actions} and logs the frames' UI-thread paint and render-thread cost (p50 / p95 / max, ms). */
+	private void perf(String what, Runnable actions) {
+		long from = this.context.computeOnClient(mc -> dev.voidmc.hub.ui.HubStats.INSTANCE.frameCount());
+		actions.run();
+		dev.voidmc.hub.ui.HubStats.Frame[] frames = this.context.computeOnClient(mc -> dev.voidmc.hub.ui.HubStats.INSTANCE.since(from));
+		long[] ui = new long[frames.length];
+		long[] rt = new long[frames.length];
+		long bytes = 0;
+		int painted = 0;
+		for (int i = 0; i < frames.length; i++) {
+			ui[i] = frames[i].uiNs();
+			rt[i] = frames[i].totalNs();
+			bytes += frames[i].bytes;
+			if (frames[i].bytes > 0) {
+				painted++;
+			}
+		}
+		StringBuilder paints = new StringBuilder();
+		for (int i = 0; i < frames.length; i++) {
+			if (frames[i].bytes > 0) {
+				paints.append(String.format(java.util.Locale.ROOT, " %.1f", ui[i] / 1e6));
+			}
+		}
+		dev.voidmc.hub.VoidHub.LOGGER.info("PERF " + what + " painted ui ms:" + paints);
+		java.util.Arrays.sort(ui);
+		java.util.Arrays.sort(rt);
+		dev.voidmc.hub.VoidHub.LOGGER.info(String.format(java.util.Locale.ROOT,
+			"PERF %-20s frames %4d painted %4d  ui p50 %6.2f p95 %6.2f max %6.2f ms  render p50 %5.2f p95 %5.2f max %5.2f ms  upload %6.1f KB/frame",
+			what, frames.length, painted, pct(ui, 50), pct(ui, 95), pct(ui, 100), pct(rt, 50), pct(rt, 95), pct(rt, 100), bytes / 1024.0 / Math.max(1, frames.length)));
+	}
+
+	private static double pct(long[] sorted, int p) {
+		if (sorted.length == 0) {
+			return 0;
+		}
+		return sorted[Math.min(sorted.length - 1, (int) Math.ceil(p / 100.0 * sorted.length) - 1 < 0 ? 0 : (int) Math.ceil(p / 100.0 * sorted.length) - 1)] / 1e6;
 	}
 
 	/** Moves the pointer onto a page element, where the page drew it (no click). */

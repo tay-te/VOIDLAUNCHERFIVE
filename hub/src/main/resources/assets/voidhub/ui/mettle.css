@@ -18,17 +18,13 @@ body.chest .seg-mettle { display: none !important; }
 
 /* Which page shows what. */
 body.gear .page-inv, body.classes .page-inv, body.gear .page-chest, body.classes .page-chest { display: none; }
-body.gear #card-purse, body.classes #card-purse, body.classes #card-detail { display: none; }
+body.gear #card-purse, body.classes #card-purse, body.gear #card-held, body.classes #card-held,
+body.gear #card-status, body.classes #card-status, body.classes .tip { display: none; }
 .page-gear, .page-classes { display: none; position: absolute; inset: 0; }
 body.gear .page-gear, body.classes .page-classes { display: block; }
 .page-gear > *, .page-classes > * { position: absolute; }
 body.gear .segment.active-inv, body.classes .segment.active-inv { background: transparent; border-color: transparent; color: var(--ink-2); }
 body.gear .segment[data-seg="gear"], body.classes .segment[data-seg="classes"] { background: var(--chip); border-color: var(--line-2); color: var(--ink); }
-
-/* The item card on the Gear page: compact, under the worn card (Figma 387:21106). */
-body.gear #card-detail { top: 433px; height: 131px; border-color: var(--line-3);
-  --wellsz: 56px; --well-r: 12px; --title-x: 89px; --label-y: 22px; --name-y: 37px; --meta-y: 66px; --name-size: 16px; }
-body.gear #card-detail .d-dur, body.gear #card-detail .d-row, body.gear #card-detail .d-eyebrow { display: none; }
 
 /* Wells: switched-off pockets, gear placeholders. */
 .well.absent { background: transparent; border: 1px dashed rgba(255, 255, 255, 0.08); }
@@ -68,14 +64,6 @@ body.gear #card-detail .d-dur, body.gear #card-detail .d-row, body.gear #card-de
 .g-hint { left: 28px; width: 462px; top: 256px; text-align: center; }
 .g-mark { position: absolute; width: 2px; height: 16px; border-radius: 1px; background: rgba(237, 238, 239, 0.35); }
 .g-name { font-size: 13px; white-space: nowrap; }
-
-/* ---- Inventory: the LOAD row joins ARMOUR and LEVEL -------------------------------------------- */
-body.mettle .readout.m-has .eyebrow.small, body.mettle .readout.m-has .cells, body.mettle .readout.m-has .value { display: none; }
-.readout .m-load { display: none; position: absolute; inset: 0; }
-body.mettle .readout.m-has .m-load { display: block; }
-.m-load > * { position: absolute; }
-.m-load .k { left: 11px; font-size: 7.5px; letter-spacing: 0.8px; color: var(--ink-4); }
-.m-load .v { right: 11px; font-size: 10px; color: var(--ink); }
 
 /* ---- Classes: each skill in its own colour (Figma 468:9108, O) ---------------------------------
    Colours come from Mettle's skill data and are applied inline; these rules are geometry. */
@@ -124,7 +112,9 @@ body.mettle .readout.m-has .m-load { display: block; }
 .o-svg { left: 0; top: 0; }
 .o-tier { left: 18px; width: 96px; }
 .t-w { position: absolute; width: 56px; height: 56px; }
-.t-ring { position: absolute; }
+.t-ring, .t-halo { position: absolute; }
+.o-learnhalo { position: absolute; left: -24px; top: -20px; width: 155px; height: 84px; }
+.o-learn { position: relative; }
 .t-tile { position: absolute; left: 0; top: 0; width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
 .t-tile.locked, .t-tile.mastery { background: #101012; border: 1.5px dashed rgba(237, 238, 239, 0.16); }
 .t-tile.locked .m-img, .t-tile.mastery .m-img { opacity: 0.4; }
@@ -144,10 +134,10 @@ body.mettle .readout.m-has .m-load { display: block; }
 .o-learn.off { background: var(--well); border: 1px solid var(--line-2); color: var(--ink-3); }
 #classes.has-toast .footer.right { display: none; }
 /* How a skill levels: untried skills always say it; others on hover. */
-.o-how { left: 14px; top: 156px; width: 192px; font-size: 11px; line-height: 14px; display: none; }
-.o-how.always { display: block; }
-.o-card:hover .o-how { display: block; }
-.o-card:hover .o-xpt, .o-card:hover .o-perks { display: none; }
+.o-how { left: 14px; top: 156px; width: 192px; font-size: 11px; line-height: 14px; opacity: 0; }
+.o-how.always { opacity: 1; }
+.o-card:hover .o-how { opacity: 1; }
+.o-card:hover .o-xpt, .o-card:hover .o-perks { opacity: 0; }
 
 /* A perk just learned: one bright pulse. */
 @keyframes t-just { 0% { transform: scale(1); } 35% { transform: scale(1.14); box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.22), 0 0 34px rgba(255, 255, 255, 0.35); } 100% { transform: scale(1); } }

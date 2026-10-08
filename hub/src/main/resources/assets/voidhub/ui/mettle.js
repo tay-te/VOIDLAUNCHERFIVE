@@ -88,42 +88,30 @@
     c.id = "classes";
     win.appendChild(c);
 
-    var readout = document.querySelector(".readout");
-    if (readout) {
-      var load = document.createElement("div");
-      load.className = "m-load";
-      load.id = "m-load";
-      readout.appendChild(load);
-    }
   }
 
-  // ---- inventory: ARMOUR / LOAD / LEVEL ----------------------------------------------------------
+  var BANDS = {light: "MOVING FREELY", burdened: "BURDENED", overburdened: "OVERBURDENED", pinned: "PINNED"};
+
+  // ---- inventory: the Status card's load (armour and level are the hub's) -------------------------
   var last = {};
   function readout(s) {
-    var el = $("m-load");
+    var el = $("status-load");
     if (!el || !M || !M.burden || M.burden.capacity == null) return;
     var b = M.burden;
-    var rows = [
-      ["ARMOUR", Math.round(Math.min(20, s.armor) / 20 * 10), false, String(s.armor)],
-      ["LOAD", Math.min(10, Math.round(b.load / Math.max(1, b.capacity) * 8)), true, Math.round(b.load) + " KG"],
-      ["XP LVL", s.level > 0 ? Math.floor(s.xp * 10) + 1 : 0, false, String(s.level)]
-    ];
-    var key = JSON.stringify(rows);
+    var cap = Math.max(1, b.capacity);
+    var key = JSON.stringify(b);
     if (last.readout === key) return;
     last.readout = key;
-    var h = "";
-    for (var i = 0; i < 3; i++) {
-      var y = 8 + i * 18;
-      h += '<div class="k" style="top:' + y + 'px">' + rows[i][0] + "</div>";
-      h += cells(10, rows[i][1], rows[i][2], 4, 4, 2, 56, y + 2);
-      h += '<div class="v" style="top:' + (y - 3) + 'px">' + esc(rows[i][3]) + "</div>";
-    }
+    var lit = Math.min(32, Math.round(b.load / cap * 26));
+    var h = '<div style="left:0;top:0"><span class="m-eb">LOAD</span></div>';
+    h += '<div class="m-tag" style="right:0;top:-3px">' + (b.exempt ? "CREATIVE" : BANDS[b.band] || "") + "</div>";
+    h += '<div style="left:0;top:20px"><span class="m-h2">' + kg(b.load) + '</span><span class="m-num">  of ' + Math.round(cap) + " kg</span></div>";
+    h += cells(32, lit, true, 9, 10, 3.25, 0, 56);
+    h += '<div class="m-eb m-ink3" style="left:0;top:76px">' + (b.heaviest ? esc(upper("Heaviest: " + b.heaviest.text)) : "NOTHING HEAVY") + "</div>";
     el.innerHTML = h;
-    toggle(el.parentNode, "m-has", true);
   }
 
   // ---- Gear page ---------------------------------------------------------------------------------
-  var BANDS = {light: "MOVING FREELY", burdened: "BURDENED", overburdened: "OVERBURDENED", pinned: "PINNED"};
 
   function gearCards() {
     if (!M || !M.gear) return;
@@ -430,17 +418,18 @@
 
   function tile(p, x, y, hue, sel, big) {
     var st = stateOf(p), light = lightOf(hue), pips = p.maxRank > 1 && !earnedKind(p);
-    var size = 56, style = "";
+    var size = 56, style = "", glow = 0, ga = 0;
     if (st === "learned") {
-      style = "background:radial-gradient(circle at 50% 45%," + rgba(hue, 0.38) + " 0%," + rgba(hue, 0.10) + " 70%)," + mix("#1B1710", hue, 0.12) + ";border:2px solid " + (sel ? light : hue) +
-        ";box-shadow:0 0 " + (sel ? 22 : 16) + "px " + rgba(hue, 0.5) + ", 0 0 4px " + rgba(hue, 0.5) + ";";
+      style = "background:radial-gradient(circle at 50% 45%," + rgba(hue, 0.38) + " 0%," + rgba(hue, 0.10) + " 70%)," + mix("#1B1710", hue, 0.12) + ";border:2px solid " + (sel ? light : hue) + ";";
+      glow = sel ? 22 : 16; ga = 0.5;
     } else if (st === "open") {
-      style = "background:radial-gradient(circle at 50% 45%," + rgba(hue, sel ? 0.34 : 0.18) + " 0%," + rgba(hue, 0.04) + " 70%)," + mix("#17150F", hue, 0.04) + ";border:" + (sel ? "2px solid " + light : "1.5px solid " + rgba(hue, 0.85)) +
-        ";box-shadow:0 0 " + (sel ? 22 : 10) + "px " + rgba(hue, sel ? 0.6 : 0.28) + ";";
+      style = "background:radial-gradient(circle at 50% 45%," + rgba(hue, sel ? 0.34 : 0.18) + " 0%," + rgba(hue, 0.04) + " 70%)," + mix("#17150F", hue, 0.04) + ";border:" + (sel ? "2px solid " + light : "1.5px solid " + rgba(hue, 0.85)) + ";";
+      glow = sel ? 22 : 10; ga = sel ? 0.6 : 0.28;
     } else if (sel) {
       style = "border:2px solid #EDEEEF;";
     }
     var h = '<div class="t-w" data-perk="' + p.id + '" style="left:' + (x - 28) + "px;top:" + y + 'px">';
+    if (glow) h += halo(hue, ga, glow, 56, 14);
     if (st === "open" || (st === "learned" && buyable(p))) {
       var o1 = sel ? 6 : 5, o2 = sel ? 11 : 9;
       h += '<div class="t-ring" style="left:-' + o1 + "px;top:-" + o1 + "px;width:" + (56 + 2 * o1) + "px;height:" + (56 + 2 * o1) + "px;border:1.5px solid " + rgba(hue, sel ? 0.55 : 0.42) + ";border-radius:" + (14 + o1) + 'px"></div>';
@@ -455,6 +444,14 @@
       h += "</div>";
     }
     return h + "</div></div>";
+  }
+
+  // A glow as a gradient behind the box: Ultralight blurs a box-shadow on every repaint it touches
+  // (a perk click repainted ~50 ms of blur); a gradient is a few ms. Looks the same at these sizes.
+  function halo(hue, a, r, size, radius) {
+    var d = size + 2 * r;
+    return '<div class="t-halo" style="left:-' + r + "px;top:-" + r + "px;width:" + d + "px;height:" + d + "px;border-radius:" + (radius + r) +
+      "px;background:radial-gradient(closest-side," + rgba(hue, a) + " " + Math.round(size / d * 100) + "%," + rgba(hue, a * 0.35) + " " + Math.round((size / d * 100 + 100) / 2) + "%," + rgba(hue, 0) + ' 100%)"></div>';
   }
 
   function gateText(p) {
@@ -533,11 +530,16 @@
       }
     }
     h += svg + lit + live + idle + "</svg>";
-    for (var id in L.pos) h += tile(L.pos[id].p, L.pos[id].x, L.pos[id].y, hue, view.perk === id);
+    drawn = {skill: s.id, hue: hue, at: {}};
+    for (var id in L.pos) {
+      drawn.at[id] = {x: L.pos[id].x, y: L.pos[id].y, hue: hue};
+      h += tile(L.pos[id].p, L.pos[id].x, L.pos[id].y, hue, view.perk === id);
+    }
     // Earned column.
     h += '<div class="m-eb" style="left:768px;top:52px;width:67px;text-align:center;color:' + CHAMP + '">EARNED</div>';
     for (var e = 0; e < g.earned.length && e < 4; e++) {
       var ep = g.earned[e], ey = 74 + e * 72;
+      drawn.at[ep.id] = {x: 801, y: ey, hue: CHAMP};
       h += tile(ep, 801, ey, CHAMP, view.perk === ep.id);
       h += '<div class="m-eb" style="left:768px;top:' + (ey + 61) + 'px;width:67px;text-align:center;' + (ep.rank > 0 ? "color:" + CHAMP : "") + '">' + KIND[ep.kind] + "</div>";
     }
@@ -559,7 +561,7 @@
   function actionBar(p, s, hue) {
     if (!p) return "";
     var light = lightOf(hue), ph = earnedKind(p) ? CHAMP : hue, st = stateOf(p);
-    var h = '<div class="o-bar" style="background:' + mix(PANEL, ph, 0.04) + ";border:1px solid " + rgba(ph, 0.30) + ";box-shadow:0 0 28px " + rgba(ph, 0.10) + '">';
+    var h = '<div class="o-bar" style="background:' + mix(PANEL, ph, 0.04) + ";border:1px solid " + rgba(ph, 0.30) + '">';
     h += '<div class="o-barglow" style="background:radial-gradient(ellipse,' + rgba(ph, 0.12) + " 0%," + rgba(ph, 0) + ' 70%)"></div>';
     h += tile(p, 46, 18, ph, true).replace('data-perk="' + p.id + '"', "");
     var label = KIND[p.kind] + (p.tier && !earnedKind(p) ? "  ·  TIER " + ROMAN[p.tier] : "") + (p.kind === "path" && s.paths[p.path] ? "  ·  " + upper(s.paths[p.path]) : "");
@@ -584,7 +586,7 @@
         if (t.attribute) req += reqLine(attr >= t.attribute, attrName(s.attribute) + " " + t.attribute + (attr < t.attribute ? "  ·  " + attr + "/" + t.attribute : ""), hue);
       }
       if (p.rank < p.maxRank) req += '<div class="o-req"><span class="m-ink3">Cost</span>&nbsp;<span style="color:' + light + '">' + p.cost + " of " + s.points + " pts</span></div>";
-      btn = buyable(p) ? '<div class="o-learn" data-learn="' + p.id + '" style="background:' + hue + ";box-shadow:0 0 20px " + rgba(hue, 0.5) + ", 0 0 0 3px " + rgba(hue, 0.16) + '">' + (p.kind === "mastery" ? "Choose" : p.rank > 0 ? "Rank up" : "Learn") + "</div>"
+      btn = buyable(p) ? '<div class="o-learnhalo" style="background:radial-gradient(closest-side,' + rgba(hue, 0.45) + " 55%," + rgba(hue, 0) + ' 100%)"></div><div class="o-learn" data-learn="' + p.id + '" style="background:' + hue + ";box-shadow:0 0 0 3px " + rgba(hue, 0.16) + '">' + (p.kind === "mastery" ? "Choose" : p.rank > 0 ? "Rank up" : "Learn") + "</div>"
         : '<div class="o-learn off">' + (p.rank >= p.maxRank ? "Learned" : "Locked") + "</div>";
     } else {
       req = '<div class="o-req m-ink3">Earned perks never cost points</div>';
@@ -600,13 +602,38 @@
   }
 
   var ranks = null;  // perk id -> rank last drawn, to light up a perk that was just learned
+  var drawn = null;  // the tree on screen: skill, hue, and where each perk's tile is
+
+  function stateKey() {
+    return JSON.stringify([view, pick, M.character, M.skills, M.perks, M.phase, M.result]);
+  }
+
+  // Selecting a perk redraws the old and new tiles and the action bar only: rebuilding the whole tree repaints
+  // every glow (about 80 ms in Ultralight); two tiles and the bar are a few.
+  function select(id) {
+    var el = $("classes"), old = view.perk;
+    view.perk = id;
+    if (!drawn || !el || !view.skill || drawn.skill !== view.skill) { classes(); return; }
+    var s = skillById(view.skill), p = findPerk(id);
+    if (!s || !p || !drawn.at[id]) { classes(); return; }
+    var ids = [old, id];
+    for (var i = 0; i < ids.length; i++) {
+      var at = ids[i] && drawn.at[ids[i]], q = ids[i] && findPerk(ids[i]);
+      var node = at && el.querySelector('.o-panel > [data-perk="' + ids[i] + '"]');
+      if (node && q) node.outerHTML = tile(q, at.x, at.y, at.hue, ids[i] === id);
+    }
+    var bar = el.querySelector(".o-bar");
+    if (bar) bar.outerHTML = actionBar(p, s, drawn.hue);
+    built = stateKey();
+  }
 
   function classes() {
     var el = $("classes");
     if (!el || !M || kind !== "classes") return;
-    var key = JSON.stringify([view, pick, M.character, M.skills, M.perks, M.phase, M.result]);
+    var key = stateKey();
     if (key === built) { toast(); return; }
     built = key;
+    drawn = null;
     el.innerHTML = view.skill && M.phase === "chosen" ? tree() : gallery();
     // A perk whose rank went up since the last draw pulses once.
     var now = {};
@@ -675,7 +702,7 @@
           return;
         }
         if ((v = t.getAttribute("data-attr"))) { send({type: "mettle", op: "spendAttribute", arg: v}); return; }
-        if ((v = t.getAttribute("data-perk"))) { view.perk = v; classes(); return; }
+        if ((v = t.getAttribute("data-perk"))) { if (v !== view.perk) select(v); return; }
         if ((v = t.getAttribute("data-skill"))) { view.skill = v; view.perk = null; classes(); return; }
         if (t.getAttribute("data-back")) { view.skill = null; view.perk = null; classes(); return; }
       }

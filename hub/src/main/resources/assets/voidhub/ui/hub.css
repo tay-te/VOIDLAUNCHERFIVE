@@ -144,12 +144,6 @@ body.chest .page-inv { display: none; }
 .arrow i:nth-child(5) { left: 8px; top: 15px; } .arrow i:nth-child(6) { left: 12px; top: 11px; }
 .arrow i:nth-child(7) { left: 4px; top: 3px; opacity: 0; }
 
-.readout {
-  left: 318px; top: 238px; width: 172px; height: 64px;
-  background: var(--panel); border: 1px solid var(--line-3); border-radius: 14px;
-}
-.readout > * { position: absolute; }
-.readout .value { right: 11px; font-size: 11px; color: var(--ink); }
 .cells { position: absolute; }
 /* meter(): off cells, on cells clipped to the lit width, one live cell (see hub.js). */
 .meter > span { position: absolute; top: 0; height: 100%; overflow: hidden; }
@@ -193,41 +187,53 @@ body.scrolls .scrollbar { display: block; }
   background: var(--panel); border: 1px solid var(--line-3); border-radius: 20px;
   padding: 16px 18px; overflow: hidden;
 }
-#card-detail { top: 100px; height: 277.5px; border-color: var(--line); padding: 0; }
-body.chest #card-detail { top: 209px; height: 263px; border-color: var(--line-3); }
-#card-detail > * { position: absolute; }
-/* Geometry, inventory card (Figma 277:53693) then chest card (278:55531). */
-#card-detail { --wellsz: 72px; --well-r: 14px; --title-x: 106px; --label-y: 24.5px; --name-y: 40.5px; --meta-y: 68.5px; --name-size: 18px;
-  --r1: 100px; --eyebrow: 143.5px; --row0: 160.5px; --pitch: 35px; }
-body.chest #card-detail { --wellsz: 56px; --well-r: 12px; --title-x: 89px; --label-y: 20px; --name-y: 35px; --meta-y: 59px; --name-size: 16px;
-  --r1: 86px; --eyebrow: 129.5px; --row0: 146.5px; }
-.d-empty { left: 18px; top: 18px; display: flex; flex-direction: column; gap: 8px; }
-#card-detail .hint-text { font-size: 13px; color: var(--ink-3); }
-#card-detail.has .d-empty, #card-detail:not(.has) .d-has { opacity: 0; }
-.itemwell { left: 18px; top: 16px; width: var(--wellsz); height: var(--wellsz); background: #131315; border: 1px solid var(--line-4); border-radius: var(--well-r); }
-.d-label { left: var(--title-x); top: var(--label-y); right: 18px; overflow: hidden; }
-.d-name { left: var(--title-x); top: var(--name-y); right: 18px; font-size: var(--name-size); letter-spacing: -0.1px; line-height: 23px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.d-meta { left: var(--title-x); top: var(--meta-y); right: 18px; color: var(--ink-2); overflow: hidden; }
-.d-dur { left: 18px; right: 18px; top: var(--r1); height: 32px; }
-.d-dur > .eyebrow-inline { position: absolute; left: 0; top: 1.5px; }
-.d-dur .num { position: absolute; right: 0; top: 0; font-size: 11px; color: var(--ink-2); }
-.durcells { position: absolute; left: 0; top: 21px; }
-.d-eyebrow { left: 18px; top: var(--eyebrow); }
-.d-row {
-  left: 18px; right: 18px; height: 29px; display: flex; align-items: center; gap: 10px; padding: 0 12px;
-  background: #131315; border: 1px solid var(--line-4); border-radius: 12px;
+/* Held: what the hotbar's selected slot holds (inventory: top of the column; chest: under the chest card). */
+#card-held { top: 100px; height: 97px; padding: 0; border-color: var(--line); }
+body.chest #card-held { top: 209px; border-color: var(--line-3); }
+#card-held > * { position: absolute; }
+.hwell { left: 18px; top: 16px; width: 56px; height: 56px; background: #131315; border: 1px solid var(--line-4); border-radius: 12px; }
+.h-name { left: 90px; top: 20px; right: 150px; font-size: 16px; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-meta { left: 90px; top: 45px; right: 18px; color: var(--ink-2); overflow: hidden; }
+.h-tag { right: 18px; top: 19px; }
+.hc { left: 90px; top: 68px; }
+.h-dur { right: 18px; top: 62px; font-size: 9px; letter-spacing: 0.6px; color: var(--ink-2); }
+
+/* Status (inventory only): load on top with Mettle, then armour and XP level. */
+#card-status { top: 209px; height: 183px; padding: 0; }
+body.chest #card-status { display: none; }
+#card-status > * { position: absolute; }
+.st-load { left: 18px; right: 18px; top: 14px; height: 92px; display: none; }
+body.mettle .st-load { display: block; }
+.st-load > * { position: absolute; }
+.st-row { left: 18px; right: 18px; height: 20px; display: flex; align-items: center; }
+.st-row .eyebrow-inline { width: 92px; }
+.st-row .cells { position: relative; }
+.st-v { margin-left: auto; font-size: 12px; color: var(--ink); }
+.st-armour { top: 28px; } .st-level { top: 60px; }
+body.mettle .st-armour { top: 124px; } body.mettle .st-level { top: 152px; }
+
+/* The floating tooltip. */
+.tip {
+  position: absolute; left: 0; top: 0; width: 264px; padding: 12px 14px 12px; z-index: 6;
+  background: var(--panel); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 16px;
 }
-.d-r1 { top: var(--r1); }
-.d-r2 { top: var(--row0); }
-.d-r3 { top: calc(var(--row0) + var(--pitch)); }
-.d-r4 { top: calc(var(--row0) + 2 * var(--pitch)); }
-.d-row .k { flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.d-row .v { font-size: 12px; color: var(--ink); white-space: nowrap; }
-.d-row.ench .v { width: 22px; text-align: right; font-size: 11px; color: var(--ink-2); }
-.d-row .lvc { position: relative; flex: none; }
-.d-row:not(.ench) .lvc { opacity: 0; }
-/* Hidden by opacity, not visibility: one layer repaint instead of one per descendant. */
+.tip.off, body.carrying .tip { display: none; }
+.tip > * { position: relative; }
+.tp-name { font-size: 15px; line-height: 19px; }
+.tp-name.uncommon { color: #E8C66A; } .tp-name.rare { color: #7FD3E6; } .tp-name.epic { color: #C79BFF; }
+.tp-meta { margin-top: 4px; color: var(--ink-2); white-space: normal; line-height: 12px; }
+.tp-dur { margin-top: 10px; height: 26px; }
+.tp-dur > .eyebrow-inline { position: absolute; left: 0; top: 0; }
+.tp-num { position: absolute; right: 0; top: -1px; font-size: 10px; color: var(--ink-2); }
+.tp-cells { position: absolute; left: 0; top: 16px; }
+.tp-row { margin-top: 5px; height: 24px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #131315; border: 1px solid var(--line-4); border-radius: 9px; }
+.tp-row .k { flex: 1; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-row .v { font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.tp-row .lvc { position: relative; flex: none; }
+.tp-notes { margin-top: 8px; font-size: 11px; line-height: 15px; color: var(--ink-3); }
+.tp-notes:empty { display: none; }
 .hidden-v { opacity: 0; }
+.tp-dur.gone { display: none; }
 
 #card-purse { top: 404px; height: 158px; display: flex; flex-direction: column; gap: 14px; }
 body.chest #card-purse { display: none; }
@@ -291,3 +297,7 @@ body.chest #card-chest { display: flex; }
 .well .ph { position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; }
 .well .ph i { position: absolute; width: 3px; height: 3px; border-radius: 0.9px; background: rgba(237, 238, 239, 0.14); }
 .well.filled .ph { display: none; }
+
+/* Without VOID Mettle the Status card is just armour and level: it shrinks and the purse moves up. */
+body.inventory:not(.mettle) #card-status { height: 88px; }
+body.inventory:not(.mettle) #card-purse { top: 300px; }
