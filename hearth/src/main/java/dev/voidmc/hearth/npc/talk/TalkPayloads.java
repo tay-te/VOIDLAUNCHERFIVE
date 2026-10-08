@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The conversation's packets. The server decides everything; the client shows a name, a line of speech and labelled
@@ -25,8 +26,25 @@ public final class TalkPayloads {
 		PayloadTypeRegistry.clientboundPlay().register(Markers.TYPE, Markers.CODEC);
 	}
 
-	/** An option as shown: its namespaced id and label. */
-	public record Option(String id, Component label) {
+	private static void writeOptional(RegistryFriendlyByteBuf buf, @Nullable Component c) {
+		buf.writeBoolean(c != null);
+		if (c != null) {
+			ComponentSerialization.STREAM_CODEC.encode(buf, c);
+		}
+	}
+
+	private static @Nullable Component readOptional(RegistryFriendlyByteBuf buf) {
+		return buf.readBoolean() ? ComponentSerialization.STREAM_CODEC.decode(buf) : null;
+	}
+
+	/**
+	 * An option as shown: its namespaced id and label; locked ones are drawn dim and cannot be picked; a hint is drawn at
+	 * the right ("Persuade · 65 %") and a tooltip shown on hover ({@code DialogueProvider.Option}).
+	 */
+	public record Option(String id, Component label, boolean locked, @Nullable Component hint, @Nullable Component tooltip) {
+		public Option(String id, Component label) {
+			this(id, label, false, null, null);
+		}
 	}
 
 	/**
@@ -50,6 +68,9 @@ public final class TalkPayloads {
 			for (Option o : p.options) {
 				buf.writeUtf(o.id);
 				ComponentSerialization.STREAM_CODEC.encode(buf, o.label);
+				buf.writeBoolean(o.locked);
+				writeOptional(buf, o.hint);
+				writeOptional(buf, o.tooltip);
 			}
 		}, buf -> {
 			int entity = buf.readVarInt();
@@ -61,7 +82,12 @@ public final class TalkPayloads {
 			int n = Math.min(buf.readVarInt(), 64);
 			List<Option> options = new ArrayList<>(n);
 			for (int i = 0; i < n; i++) {
-				options.add(new Option(buf.readUtf(), ComponentSerialization.STREAM_CODEC.decode(buf)));
+				String id = buf.readUtf();
+				Component label = ComponentSerialization.STREAM_CODEC.decode(buf);
+				boolean locked = buf.readBoolean();
+				Component hint = readOptional(buf);
+				Component tooltip = readOptional(buf);
+				options.add(new Option(id, label, locked, hint, tooltip));
 			}
 			return new Show(entity, open, name, title, settlement, speech, options);
 		});

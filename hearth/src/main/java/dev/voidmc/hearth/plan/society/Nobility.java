@@ -182,6 +182,7 @@ public final class Nobility {
 				candidates.add(new int[]{ctx.heartX() + (int) Math.round(StrictMath.cos(a) * r), ctx.heartZ() + (int) Math.round(StrictMath.sin(a) * r)});
 			}
 		}
+		sited(ctx, reach, outOf, candidates);
 		int[] best = null;
 		double bestScore = Double.NEGATIVE_INFINITY;
 		for (int[] c : candidates) {
@@ -189,7 +190,8 @@ public final class Nobility {
 			if (d > reach + 30 || d < outOf) {
 				continue;
 			}
-			double score = commanding(ctx, c[0], c[1]) - d * 0.06;
+			// a hill or rim the terrain marks as a castle site is preferred to merely high ground
+			double score = commanding(ctx, c[0], c[1]) - d * 0.06 + (c.length > 2 ? c[2] : 0);
 			if (score > bestScore) {
 				bestScore = score;
 				best = c;
@@ -200,6 +202,50 @@ public final class Nobility {
 		}
 		ctx.state.castleHill = new int[]{best[0], best[1]};
 		return ctx.state.castleHill;
+	}
+
+	/** Score added to a candidate on the level top of a lone hill, and on (or just behind) an escarpment's rim. */
+	static final int HILLTOP_BONUS = 14;
+	static final int RIM_BONUS = 10;
+	/** Castle sites the terrain marks that are looked at, nearest the heart first. */
+	private static final int SITED_MAX = 24;
+
+	/**
+	 * The terrain's own castle sites within reach ({@code TerrainProbe#site}: Expanse marks the level tops of lone hills and
+	 * the tops of escarpments' edges), added to the candidates with their bonus. A rim column stands on the edge itself, so
+	 * the points ten blocks to each side of it are tried too: the one on the upland behind the edge is the castle's.
+	 * Looked for on a 12-block grid, once per town (the hill is kept); a probe without sites answers none at once.
+	 */
+	static void sited(PlanContext ctx, double reach, double outOf, List<int[]> candidates) {
+		var probe = ctx.ground.probe();
+		List<int[]> found = new ArrayList<>();
+		int r = (int) reach;
+		for (int dz = -r; dz <= r; dz += 12) {
+			for (int dx = -r; dx <= r; dx += 12) {
+				double d = Math.hypot(dx, dz);
+				if (d > reach || d < outOf) {
+					continue;
+				}
+				int x = ctx.heartX() + dx;
+				int z = ctx.heartZ() + dz;
+				int site = probe.site(x, z);
+				if (site != dev.voidmc.hearth.api.TerrainProbe.SITE_NONE) {
+					found.add(new int[]{x, z, site, (int) d});
+				}
+			}
+		}
+		found.sort(java.util.Comparator.comparingInt((int[] f) -> f[3]));
+		for (int i = 0; i < found.size() && i < SITED_MAX; i++) {
+			int[] f = found.get(i);
+			if (f[2] == dev.voidmc.hearth.api.TerrainProbe.SITE_HILLTOP) {
+				candidates.add(new int[]{f[0], f[1], HILLTOP_BONUS});
+				continue;
+			}
+			candidates.add(new int[]{f[0], f[1], RIM_BONUS});
+			for (Direction dir : Direction.Plane.HORIZONTAL) {
+				candidates.add(new int[]{f[0] + dir.getStepX() * 10, f[1] + dir.getStepZ() * 10, RIM_BONUS});
+			}
+		}
 	}
 
 	/** How commanding a spot is: its height over the heart and over the land round it, if a castle can stand there. */

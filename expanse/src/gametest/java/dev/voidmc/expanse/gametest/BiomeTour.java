@@ -1202,10 +1202,41 @@ public class BiomeTour implements FabricClientGameTest {
 					level.getChunk((x >> 4) + dx, (z >> 4) + dz);
 				}
 			}
+			// what the view shows: the biomes over the loaded ground, and what the fields grow
+			java.util.Map<String, Integer> biomes = new java.util.TreeMap<>();
+			java.util.Map<String, Integer> crops = new java.util.TreeMap<>();
+			int reach = DISTANCE * 16;
+			for (int bx = x - reach; bx <= x + reach; bx += 4) {
+				for (int bz = z - reach; bz <= z + reach; bz += 4) {
+					int top = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+					BlockPos at = new BlockPos(bx, top, bz);
+					if ((bx - x + reach) % 32 == 0 && (bz - z + reach) % 32 == 0) {
+						biomes.merge(level.getBiome(at).unwrapKey().map(k -> k.identifier().getPath()).orElse("?"), 1, Integer::sum);
+					}
+					var st = level.getBlockState(at);
+					var below = level.getBlockState(at.below());
+					if (st.is(net.minecraft.world.level.block.Blocks.WHEAT)) {
+						crops.merge("wheat" + st.getValue(net.minecraft.world.level.block.CropBlock.AGE), 1, Integer::sum);
+					} else if (below.is(net.minecraft.world.level.block.Blocks.FARMLAND)) {
+						crops.merge("farmland", 1, Integer::sum);
+					} else if (below.is(net.minecraft.world.level.block.Blocks.COARSE_DIRT)) {
+						crops.merge("coarse_dirt", 1, Integer::sum);
+					}
+				}
+			}
+			System.out.println("[tour] view " + parts[0] + " biomes " + biomes + " crops (1 in 16 columns) " + crops);
 		});
 		world.getServer().runCommand("time set noon");
 		System.out.println("[tour] view " + parts[0] + " at " + x + ", " + y + ", " + z);
+		// (views named deep... are underground: seen by night vision, as the cavern tour sees them)
+		boolean deep = parts[0].startsWith("deep");
+		if (deep) {
+			world.getServer().runCommand("effect give @a minecraft:night_vision infinite 0 true");
+		}
 		this.shoot(context, world, "view_" + parts[0], x, y, z, Float.parseFloat(v[3].trim()), Float.parseFloat(v[4].trim()));
+		if (deep) {
+			world.getServer().runCommand("effect clear @a minecraft:night_vision");
+		}
 	}
 
 	private void zoo(ClientGameTestContext context, TestSingleplayerContext world) {
