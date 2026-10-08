@@ -56,3 +56,20 @@ what would fix it. Our side already works round each one where it could (noted).
 
 13. `Terraces.build` (ours) now sets a parapet (a wall of the masonry, a rail where it is timber) instead of the coping
     slab on any retaining wall of two or more. `civic/Cemetery` uses it too and gets the same guard.
+
+## Added on resume (same lane)
+
+14. **L0: the walkers stand on the top edge of open trapdoors** (shutter leaves, lattices) and on chains. `Edges` now
+    glazes a lattice, carries a corner post up through it or takes a shutter pair off where that top would lead over a
+    drop, but the walker should not count either as a floor: hanging lanterns on long chains (the light pass's) make
+    three-cell "furnished rooms" under high roofs (market hall, tundra) that we can only avoid by lighting the hall from
+    its walls first.
+15. **L0: a door under a lattice transom** is read as a step up onto the door (item 10 again): the caravan yard's booth
+    door in the karst and the tropics. `CaravanYard` now sets a lintel of the beam over it; the karst and tropical
+    door dressing (`Openings`, L1) could do that itself.
+16. **L1 / npc: the folk pathfinder and the market hall's guild hall.** In the in-game walk the folk could not reach the
+    upstairs store in any culture while the player model and the real player could (all paths completed). The flight is
+    now walked onto from its foot and lands clear of the hearth; if the folk still fail, `ClimbNodeEvaluator` on a
+    one-wide straight flight under a floor is worth a look.
+17. **L1: `Porches.balcony`** (item 2) is no longer used for the inn's yard gallery: `Inn.gallery` builds it two deep with
+    the rail on the outer board and only where a door reaches it. The alpine/karst front balcony still uses the kit's.

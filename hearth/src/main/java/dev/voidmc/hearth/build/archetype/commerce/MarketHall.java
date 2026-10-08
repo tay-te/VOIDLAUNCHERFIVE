@@ -279,7 +279,16 @@ public final class MarketHall implements Archetype {
 				}
 			}
 		}
-		Furniture.chest(d, up[2] - 1, fy, up[1] + 1, Dirs.LEFT, List.of(new Object[]{"minecraft:paper", 12}, new Object[]{"minecraft:book", 3}));
+		// the guild's chest by the stair head at the back (where the clerk comes up), else in the front corner
+		int[] chestAt = {up[2] - 1, up[1] + 1};
+		for (int[] c : new int[][]{{up[2] - 1, up[3] - 1}, {up[2] - 1, up[3] - 2}}) {
+			if (Math.abs(c[0] - land[0]) + Math.abs(c[1] - land[1]) > 2 && d.isEmpty(c[0], fy, c[1]) && d.isEmpty(c[0] - 1, fy, c[1])
+				&& !d.isEmpty(c[0], fy - 1, c[1]) && !d.isEmpty(c[0] - 1, fy - 1, c[1])) {
+				chestAt = c;
+				break;
+			}
+		}
+		Furniture.chest(d, chestAt[0], fy, chestAt[1], Dirs.LEFT, List.of(new Object[]{"minecraft:paper", 12}, new Object[]{"minecraft:book", 3}));
 		Halls.lanternUnder(d, cx, fy, (tz0 + tz1) / 2, 2);
 
 		// --- the front: a flight across the arcade, the way in, lamps, a balcony with the banner in towns
