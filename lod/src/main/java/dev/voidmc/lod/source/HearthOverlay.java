@@ -42,6 +42,10 @@ public final class HearthOverlay implements TerrainSource {
 		this.footprints = footprints;
 	}
 
+	public TerrainSource generator() {
+		return this.generator;
+	}
+
 	public Footprints footprints() {
 		return this.footprints;
 	}

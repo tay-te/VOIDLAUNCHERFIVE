@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
 public final class GeneratorCache implements TerrainSource {
 	private static final Logger LOGGER = LoggerFactory.getLogger("VOID LOD");
 	private static final int MAGIC = 0x56474E43;
-	private static final int FORMAT = 6;
+	private static final int FORMAT = 7;
 	private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "VOID LOD generator cache");
 		t.setDaemon(true);
@@ -131,7 +131,8 @@ public final class GeneratorCache implements TerrainSource {
 			i[io + 16] = c.biome;
 			// the bare-rock threshold in the five bits left, across its range
 			float rise = (c.bareRise - ColumnSample.MIN_BARE_RISE) / (ColumnSample.MAX_BARE_RISE - ColumnSample.MIN_BARE_RISE);
-			int q = Math.max(0, Math.min(31, Math.round(rise * 31)));
+			// (four bits: the eighth, on disk, says the sample is known)
+			int q = Math.max(0, Math.min(15, Math.round(rise * 15)));
 			this.flags[s] = (byte) ((c.lava ? 1 : 0) | (c.empty ? 2 : 0) | (c.bareWhenSteep ? 4 : 0) | q << 3);
 			this.bands[s] = table(this.colors, c.bands);
 			this.bandMaterials[s] = table(this.materials, c.bands == null ? null : c.bandMaterials);
@@ -171,7 +172,7 @@ public final class GeneratorCache implements TerrainSource {
 			c.lava = (this.flags[s] & 1) != 0;
 			c.empty = (this.flags[s] & 2) != 0;
 			c.bareWhenSteep = (this.flags[s] & 4) != 0;
-			c.bareRise = ColumnSample.MIN_BARE_RISE + ((this.flags[s] & 0xFF) >> 3) / 31.0F
+			c.bareRise = ColumnSample.MIN_BARE_RISE + ((this.flags[s] & 0x7F) >> 3) / 15.0F
 				* (ColumnSample.MAX_BARE_RISE - ColumnSample.MIN_BARE_RISE);
 			c.bands = this.bands[s] < 0 ? null : this.colors.get(this.bands[s]);
 			c.bandMaterials = this.bandMaterials[s] < 0 ? null : this.materials.get(this.bandMaterials[s]);
@@ -507,7 +508,7 @@ public final class GeneratorCache implements TerrainSource {
 		h.flush();
 		java.nio.ByteBuffer b = java.nio.ByteBuffer.allocate(n * SAMPLE_BYTES).order(java.nio.ByteOrder.LITTLE_ENDIAN);
 		for (int s = 0; s < n; s++) {
-			b.put((byte) (page.known[s] ? page.flags[s] | 4 : 0));
+			b.put((byte) (page.known[s] ? page.flags[s] | 0x80 : 0));
 		}
 		for (int k = 0; k < 7; k++) {
 			for (int s = 0; s < n; s++) {
@@ -578,9 +579,9 @@ public final class GeneratorCache implements TerrainSource {
 		int n = page.count;
 		java.nio.ByteBuffer b = java.nio.ByteBuffer.wrap(all, 4 + headerSize, n * SAMPLE_BYTES).slice().order(java.nio.ByteOrder.LITTLE_ENDIAN);
 		for (int s = 0; s < n; s++) {
-			int v = b.get();
-			page.known[s] = (v & 4) != 0;
-			page.flags[s] = (byte) (v & 3);
+			int v = b.get() & 0xFF;
+			page.known[s] = (v & 0x80) != 0;
+			page.flags[s] = (byte) (v & 0x7F);
 		}
 		java.nio.FloatBuffer floats = b.slice(n, n * 7 * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
 		for (int k = 0; k < 7; k++) {

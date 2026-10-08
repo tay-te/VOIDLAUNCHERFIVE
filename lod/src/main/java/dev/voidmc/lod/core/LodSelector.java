@@ -98,7 +98,9 @@ public final class LodSelector {
 		this.splitScale = scale / pixelsPerCell;
 		this.draw.clear();
 		int topLevel = 0;
-		while (topLevel < TileKey.MAX_LEVEL && TileKey.span(topLevel) * 2 < radius) {
+		// through a shader pack a vertex's x and z are unsigned shorts from the tile's corner: no wider tiles than that holds
+		int maxLevel = TileBuilder.packFormat ? TileBuilder.PACK_MAX_LEVEL : TileKey.MAX_LEVEL;
+		while (topLevel < maxLevel && TileKey.span(topLevel) * 2 < radius) {
 			topLevel++;
 		}
 		this.top = topLevel;

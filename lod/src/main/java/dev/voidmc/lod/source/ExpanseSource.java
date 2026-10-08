@@ -65,8 +65,10 @@ public final class ExpanseSource extends WorldgenSource {
 	 */
 	@Override
 	public void reach(double radius, boolean building) {
-		// past the plates' reach, the tiles there go to the coarse model from their cell size on
-		this.farCell = radius > PLATE_REACH ? FAR_CELL / 2 : FAR_CELL;
+		// the coarse model from 256-block cells on, whatever the reach: it is laid on a 512-block grid, and in narrower
+		// cells its smoothing between nodes dips coastal plains and broad valleys under the sea; and a reach changed on
+		// the way (auto-tune) must not leave tiles sampled one way beside tiles sampled the other
+		this.farCell = FAR_CELL;
 		int plates = building ? platesFor(radius) : 0;
 		if (plates != this.reserved) {
 			this.reserved = plates;

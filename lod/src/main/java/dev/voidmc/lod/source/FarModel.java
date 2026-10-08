@@ -89,6 +89,14 @@ final class FarModel {
 			float height = ((Number) this.height.get(c)).floatValue();
 			float water = ((Number) this.water.get(c)).floatValue();
 			boolean ocean = this.ocean.getBoolean(c);
+			float coast = ((Number) this.coast.get(c)).floatValue();
+			if (ocean && coast > 0) {
+				// inland, by the model's own reckoning: the coarse grid's curve dipping between a sea node and a low coastal
+				// one, not the sea; land, just above it
+				ocean = false;
+				water = Float.NaN;
+				height = Math.max(height, seaLevel + 1);
+			}
 			if (this.peak != null && toPeak > 0 && !ocean && Float.isNaN(water)) {
 				float peak = ((Number) this.peak.get(c)).floatValue();
 				if (peak > height) {
@@ -109,7 +117,7 @@ final class FarModel {
 			f.crater = Float.NEGATIVE_INFINITY;
 			f.craterLava = false;
 			f.fjord = false;
-			f.coast = ((Number) this.coast.get(c)).floatValue();
+			f.coast = coast;
 			f.uplift = ((Number) this.uplift.get(c)).floatValue();
 			if (!ocean && !Float.isNaN(water) && water > height) {
 				// a lake: drawn as the channel of a river is, its water at its own level

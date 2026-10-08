@@ -294,6 +294,10 @@ public class LodShowcase implements FabricClientGameTest {
 				return found;
 			});
 
+			if (Boolean.getBoolean("lod.show.farCheck")) {
+				String check = world.getServer().computeOnServer(server -> ExpanseLand.farCheck(server.overworld(), 1899, 930, 24000, 384));
+				System.out.println("[lod] far check: " + check);
+			}
 			if (HEARTH) {
 				spots.addAll(world.getServer().computeOnServer(server -> {
 					List<Spot> found = new ArrayList<>();

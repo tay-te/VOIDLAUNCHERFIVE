@@ -411,6 +411,9 @@ public final class VoidLod implements ClientModInitializer {
 		if (source instanceof IngestSource seen) {
 			source = seen.fallback();
 		}
+		if (source instanceof dev.voidmc.lod.source.HearthOverlay towns) {
+			source = towns.generator();
+		}
 		if (source instanceof StructureOverlay overlay) {
 			source = overlay.generator();
 		}
@@ -978,6 +981,9 @@ public final class VoidLod implements ClientModInitializer {
 		TerrainSource source = e.source();
 		if (source instanceof IngestSource seen) {
 			source = seen.fallback();
+		}
+		if (source instanceof dev.voidmc.lod.source.HearthOverlay towns) {
+			source = towns.generator();
 		}
 		if (source instanceof StructureOverlay overlay) {
 			out.append(" | ").append(overlay.sites().stats());

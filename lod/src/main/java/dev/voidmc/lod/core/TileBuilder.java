@@ -61,6 +61,8 @@ public final class TileBuilder {
 	private TileTerrain terrain;
 	/** Added to every height in the pack layout, whose positions are unsigned. */
 	public static final int PACK_Y_OFFSET = 4096;
+	/** The widest tiles built for a shader pack: their x and z, in blocks from the corner, must fit an unsigned short. */
+	public static final int PACK_MAX_LEVEL = 9;
 	/**
 	 * The Distant Horizons material of a face's material id (leaves, stone, grass, water...), which packs shade by: set
 	 * with the world's material registry. Null: everything is stone.
