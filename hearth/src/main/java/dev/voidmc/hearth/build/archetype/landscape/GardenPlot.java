@@ -185,6 +185,15 @@ public final class GardenPlot implements Archetype {
 			Mat cope = d.mat(Role.WALL_ACCENT);
 			List<int[]> all = new ArrayList<>(front);
 			all.addAll(rest);
+			// where the land outside stands as high as the wall's foot plus one, a hand could step up onto a flat coping and
+			// walk the wall over the garden: the whole wall then takes a crest of the masonry's wall instead
+			boolean crest = false;
+			for (int[] c : all) {
+				int ox = c[0] == 0 ? -1 : c[0] == w - 1 ? w : c[0];
+				int oz = c[1] == 0 ? -1 : c[1] == dp - 1 ? dp : c[1];
+				crest |= d.site().ground(ox, oz) >= l.y(c[1]) + 1;
+			}
+			boolean crested = crest && wall.has(Form.WALL);
 			try (var s = d.stage(StageKind.WALLS)) {
 				for (int[] c : all) {
 					int g = l.y(c[1]);
@@ -194,7 +203,8 @@ public final class GardenPlot implements Archetype {
 					}
 					d.set(c[0], g, c[1], wall.full());
 					d.set(c[0], g + 1, c[1], wall.full());
-					d.set(c[0], g + 2, c[1], Manner.wood(cope) ? wall.slab(SlabType.BOTTOM) : cope.slab(SlabType.BOTTOM).orElse(wall.full()));
+					d.set(c[0], g + 2, c[1], crested ? wall.wall() : Manner.wood(cope) ? wall.slab(SlabType.BOTTOM)
+						: cope.slab(SlabType.BOTTOM).orElse(wall.full()));
 				}
 				if (wall.has(Form.STAIRS)) {
 					d.set(l.cx() - 1, l.y(0) + 1, 0, wall.stairs(Dirs.LEFT, Half.TOP));

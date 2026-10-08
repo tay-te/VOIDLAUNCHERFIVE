@@ -340,7 +340,7 @@ public final class Edges {
 		for (Direction dir : Direction.Plane.HORIZONTAL) {
 			int nx = x + dir.getStepX();
 			int nz = z + dir.getStepZ();
-			if (!d.allowed(nx, y - 1, nz) || !d.allowed(nx, y, nz) || !empty(d, nx, y - 1, nz) || !empty(d, nx, y, nz) || !empty(d, nx, y + 1, nz)
+			if (!d.allowed(nx, y - 1, nz) || !d.allowed(nx, y, nz) || !empty(d, nx, y - 1, nz) || !empty(d, nx, y, nz)
 				|| drop(d, nx, y, nz) < DROP || ways.contains(Draft.key(nx, y, nz))) {
 				continue;
 			}
@@ -397,12 +397,23 @@ public final class Edges {
 					continue;
 				}
 				if (n.getBlock() instanceof DoorBlock || n.getBlock() instanceof FenceGateBlock || n.getBlock() instanceof LadderBlock
-					|| n.getBlock() instanceof StairBlock && n.getValue(StairBlock.HALF) == Half.BOTTOM || dy == 0 && used(n)) {
+					|| n.getBlock() instanceof StairBlock && n.getValue(StairBlock.HALF) == Half.BOTTOM && !seat(d, x + dir.getStepX(), y + dy, z + dir.getStepZ())
+					|| dy == 0 && used(n)) {
 					return false;
 				}
 			}
 		}
 		return true;
+	}
+
+	/** A bench's seat (a stair folk sit on, not a step of a flight): a rail may stand behind it. */
+	private static boolean seat(Draft d, int x, int y, int z) {
+		for (Draft.LocalPoi p : d.pois()) {
+			if (p.type() == dev.voidmc.hearth.api.PoiType.SEAT && p.x() == x && p.y() == y && p.z() == z) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Something used from the cell beside it: a bed, a container, a job block. */

@@ -179,6 +179,7 @@ public final class CaravanYard implements Archetype {
 			pois.poi(PoiType.HITCHING_POST, ex + 1, 0, 2, Dirs.FRONT);
 		}
 		Works.keepDoors(d);
+		lintels(d, w, dp);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{ex, 0, 2}, new int[]{ex, 0, 3});
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
 		Edges.guard(d);
@@ -245,6 +246,30 @@ public final class CaravanYard implements Archetype {
 		Lighting.room(d, fp.room());
 	}
 
+	/**
+	 * A lintel of the frame's beam over every door that has a lattice transom over it (the karst's and the tropics'
+	 * doors): a door is a door to be walked through, not a step up to a sill.
+	 */
+	private static void lintels(Draft d, int w, int dp) {
+		Mat beam = d.mat(Role.BEAM);
+		for (int y = -2; y < d.maxHeight() - 2; y++) {
+			for (int z = 0; z < dp; z++) {
+				for (int x = 0; x < w; x++) {
+					net.minecraft.world.level.block.state.BlockState s = d.get(x, y, z);
+					net.minecraft.world.level.block.state.BlockState top = d.get(x, y + 2, z);
+					if (s != null && s.getBlock() instanceof net.minecraft.world.level.block.DoorBlock
+						&& s.getValue(net.minecraft.world.level.block.DoorBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER
+						&& top != null && top.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) {
+						int ly = y + 2;
+						int lx = x;
+						int lz = z;
+						d.inStage(StageKind.OPENINGS, () -> d.set(lx, ly, lz, beam.full()));
+					}
+				}
+			}
+		}
+	}
+
 	/** The pens: fenced runs with gates to the yard, a lean-to over the back, hay racks and troughs. */
 	private static void pens(Draft d, Pois pois, int x0, int z0, int x1, int z1, boolean left) {
 		Mat fence = Works.timber(d);
@@ -263,10 +288,25 @@ public final class CaravanYard implements Archetype {
 					d.set(x, 0, z0, fence.fence());
 				}
 			}
-			// dividers between the runs
+			// the outer side along the plot's edge fenced too (the beasts are kept in, and where the land falls away past the
+			// plot nobody steps off it)
+			int outerX = left ? x0 : x1;
+			for (int z = z0 + 1; z <= z1; z++) {
+				if (fence.has(Form.FENCE) && d.isEmpty(outerX, 0, z)) {
+					d.set(outerX, 0, z, fence.fence());
+				}
+			}
+			// dividers between the runs, each with a gate of its own (a run whose yard gate opens onto a blind alley behind
+			// the warehouse, or a short last run, is still reached through the run before it)
+			int innerGate = left ? x0 + 2 : x1 - 2;
 			for (int z = z0 + 5; z < z1; z += 5) {
 				for (int x = x0; x <= x1; x++) {
-					if (x != gateX && fence.has(Form.FENCE) && d.isEmpty(x, 0, z)) {
+					if (x == gateX || !d.isEmpty(x, 0, z)) {
+						continue;
+					}
+					if (x == innerGate && fence.has(Form.FENCE_GATE)) {
+						d.set(x, 0, z, fence.gate(Dirs.BACK, false));
+					} else if (fence.has(Form.FENCE)) {
 						d.set(x, 0, z, fence.fence());
 					}
 				}
