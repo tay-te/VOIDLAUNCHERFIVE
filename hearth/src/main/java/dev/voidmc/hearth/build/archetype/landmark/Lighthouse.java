@@ -147,7 +147,8 @@ public final class Lighthouse implements Archetype {
 			for (int[] c : Shapes.ring(xt, zt, r + 1)) {
 				if (d.allowed(c[0], yG - 1, c[1])) {
 					d.set(c[0], yG - 1, c[1], dress.has(Form.SLAB) ? dress.slab(SlabType.TOP) : dress.full());
-					d.set(c[0], yG, c[1], Paint.of(Blocks.IRON_BARS.defaultBlockState()));
+					// (a rail taller than a step: iron bars are climbed onto from the deck)
+					d.set(c[0], yG, c[1], dress.balustrade(d));
 				}
 			}
 		}
@@ -197,6 +198,16 @@ public final class Lighthouse implements Archetype {
 			}
 		}
 		Shapes.spiral(d, xt, zt, 0, yG, 1, dress, dress.full());
+		// a landing of boards round the stair every turn, so the shaft beside it is never a drop
+		try (var s = d.stage(StageKind.FLOORS)) {
+			for (int y = 3; y < yG - 2; y += 4) {
+				for (int[] c : disc) {
+					if ((Math.abs(c[0] - xt) > 1 || Math.abs(c[1] - zt) > 1) && d.isEmpty(c[0], y, c[1]) && !onRing(ring, c)) {
+						d.set(c[0], y, c[1], d.mat(Role.FLOOR).full());
+					}
+				}
+			}
+		}
 		Groundwork.approach(d, xt, 0, zt - r - 1);
 
 		// the jetty, where the water comes into the plot
@@ -409,5 +420,14 @@ public final class Lighthouse implements Archetype {
 			Garden.lampPost(d, lastX + (dz != 0 ? 1 : 0), deckY + 1, lastZ + (dx != 0 ? 1 : 0), 2, null);
 			d.poi(PoiType.DOCK, lastX, deckY + 1, lastZ, dx != 0 ? (dx > 0 ? Dirs.RIGHT : Dirs.LEFT) : (dz > 0 ? Dirs.BACK : Dirs.FRONT));
 		}
+	}
+
+	private static boolean onRing(List<int[]> ring, int[] c) {
+		for (int[] r : ring) {
+			if (r[0] == c[0] && r[1] == c[1]) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

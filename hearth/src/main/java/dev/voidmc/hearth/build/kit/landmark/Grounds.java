@@ -226,6 +226,19 @@ public final class Grounds {
 		return d.site().ground(x, z) == y && !d.site().isWater(x, z);
 	}
 
+
+	/** Ground beyond the plot beside (x, z) stands high enough to step from onto a leaf at row y (a bank on a slope). */
+	private static boolean steppedOnto(Draft d, int x, int y, int z) {
+		for (Direction dir : Dirs.HORIZONTAL) {
+			int nx = x + Dirs.dx(dir);
+			int nz = z + Dirs.dz(dir);
+			if (!Walls.inPlot(d, nx, nz) && d.site().ground(nx, nz) >= y - 1) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * A tree on free ground at (x, y, z): a trunk of the style's garden wood and a crown of its leaves in three layers,
 	 * every leaf touching the trunk or another leaf, kept inside the plot. Planted only where the ground bears it.
@@ -254,7 +267,7 @@ public final class Grounds {
 					if (edge && Noise.unit(d.seed() ^ 0x7EE, c[0], yy, c[1]) < 0.3 && k != 1) {
 						continue;
 					}
-					if (Walls.inPlot(d, c[0], c[1]) && d.isEmpty(c[0], yy, c[1]) && d.allowed(c[0], yy, c[1])) {
+					if (Walls.inPlot(d, c[0], c[1]) && d.isEmpty(c[0], yy, c[1]) && d.allowed(c[0], yy, c[1]) && !steppedOnto(d, c[0], yy, c[1])) {
 						d.set(c[0], yy, c[1], leaves.leaves());
 						leaf.add(Draft.key(c[0], yy, c[1]));
 					}

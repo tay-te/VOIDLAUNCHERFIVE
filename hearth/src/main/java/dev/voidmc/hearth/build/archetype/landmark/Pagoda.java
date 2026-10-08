@@ -115,7 +115,13 @@ public final class Pagoda implements Archetype {
 				if (c[1] == pz0 && Math.abs(c[0] - xc) <= 1) {
 					continue;
 				}
-				d.set(c[0], podiumH, c[1], (c[0] + c[1] & 1) == 0 ? dress.full() : dress.wallOrFull());
+				// piers capped with a post of the rail (a bare block is a step up onto the rail and over it)
+				if ((c[0] + c[1] & 1) == 0) {
+					d.set(c[0], podiumH, c[1], dress.full());
+					d.set(c[0], podiumH + 1, c[1], dress.balustrade(d));
+				} else {
+					d.set(c[0], podiumH, c[1], dress.balustrade(d));
+				}
 			}
 			for (int k = 0; k < podiumH; k++) {
 				for (int x = xc - 1; x <= xc + 1; x++) {
