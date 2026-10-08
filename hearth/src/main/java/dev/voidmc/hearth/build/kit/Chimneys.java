@@ -165,19 +165,25 @@ public final class Chimneys {
 	 * their own stacks). Run by the compiler before shapes are resolved; idempotent. Returns how many it crowned.
 	 */
 	public static int crownBareFires(Draft d) {
+		// under a deep realm's vault there is no sky and no street view of a roof: there the stacks' fires glow and light
+		// the roofs and ledges round them (the realm's dark wants every light it has)
+		if (d.params().contains("realm")) {
+			return 0;
+		}
 		List<long[]> fires = new ArrayList<>();
 		d.forEach((x, y, z, c) -> {
 			BlockState s = c.state();
-			// a fire on a stack's head, whatever stage drew it (a roof's chimney, a kiln's or a furnace's stack on its
-			// straw): well over the ground, so not a camp's fire pit (a brazier stands on a wall, not a full block)
-			if (!(s.getBlock() instanceof CampfireBlock) || !s.getValue(CampfireBlock.LIT) || y < d.site().ground(x, z) + 3) {
+			if (!(s.getBlock() instanceof CampfireBlock) || !s.getValue(CampfireBlock.LIT)) {
 				return;
 			}
 			BlockState under = d.get(x, y - 1, z);
-			if (under == null || under.getBlock() instanceof CampfireBlock || !under.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
+			if (under == null || under.getBlock() instanceof CampfireBlock || !full(under) || !d.isEmpty(x, y + 1, z)) {
 				return;
 			}
-			if (!d.isEmpty(x, y + 1, z)) {
+			// a roof's chimney fire; or, whatever stage drew it, open to the sky (not a hearth indoors): a fire on straw
+			// (a kiln's, a furnace's or a stack's, its smoke raised), or one well over the ground (not a camp's fire pit)
+			// on a stack's head, open on a side (not a floor; a brazier stands on a wall, not a full block)
+			if (c.stage() != StageKind.ROOF && !(open(d, x, y, z) && (under.is(Blocks.HAY_BLOCK) || y >= d.site().ground(x, z) + 3 && stackHead(d, x, y - 1, z)))) {
 				return;
 			}
 			fires.add(new long[]{x, y, z});
@@ -193,6 +199,30 @@ public final class Chimneys {
 			}
 		}
 		return fires.size();
+	}
+
+	private static boolean full(@Nullable BlockState s) {
+		return s != null && s.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
+	}
+
+	/** Nothing drawn over (x, y, z) up to the plot's height. */
+	private static boolean open(Draft d, int x, int y, int z) {
+		for (int yy = y + 1; yy < d.maxHeight(); yy++) {
+			if (!d.isEmpty(x, yy, z)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** A stack's top block: on some side of it no full block stands (a floor has floor all round). */
+	private static boolean stackHead(Draft d, int x, int y, int z) {
+		for (Direction side : Direction.Plane.HORIZONTAL) {
+			if (!full(d.get(x + Dirs.dx(side), y, z + Dirs.dz(side)))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** The stairs cut from a block (stone bricks: stone brick stairs; mud bricks: mud brick stairs), or null. */

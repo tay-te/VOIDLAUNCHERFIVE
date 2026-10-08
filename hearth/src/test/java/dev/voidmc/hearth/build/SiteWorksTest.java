@@ -77,8 +77,11 @@ class SiteWorksTest {
 					if (s.getBlock() instanceof CampfireBlock && s.getValue(CampfireBlock.LIT)) {
 						BlockPos p = BlockPos.of(e.getLongKey());
 						BlockState under = a.get(p.below().asLong());
-						// on masonry well over the ground: a stack's head (a camp's fire pit on the ground is meant to burn)
-						boolean onStack = under != null && under.isSolidRender() && p.getY() >= probe.groundY(p.getX(), p.getZ()) + 4;
+						// on a stack: on straw (a kiln's or a furnace's fire), or well over the ground on a block open on a side
+						// (a stack's head, not a floor); a yard's fire (a bonfire, a brazier) is meant to burn
+						boolean onStack = under != null && under.isSolidRender()
+							&& (under.is(Blocks.HAY_BLOCK) || p.getY() >= probe.groundY(p.getX(), p.getZ()) + 4 && sideOpen(a, p.below())
+								&& !stageOf(with, p).equals("exterior"));
 						// open to the sky: a flame seen from the street and the air (a hearth indoors is roofed over)
 						boolean open = true;
 						for (int dy = 1; dy <= 64 && open; dy++) {
@@ -94,6 +97,16 @@ class SiteWorksTest {
 			}
 		}
 		assertTrue(problems.isEmpty(), info.id() + ", " + problems.size() + " problems:\n  " + String.join("\n  ", problems));
+	}
+
+	private static boolean sideOpen(Long2ObjectOpenHashMap<BlockState> a, BlockPos p) {
+		for (Direction d : Direction.Plane.HORIZONTAL) {
+			BlockState s = a.get(p.relative(d).asLong());
+			if (s == null || !s.isSolidRender()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static String stageOf(BlueprintImpl bp, BlockPos p) {

@@ -44,7 +44,7 @@ wall heads (FLOORS or WALLS; lifted in ROOF where the roof does not replace it).
 
 ## Chimneys (for every family lane)
 
-- `Chimneys.crownBareFires` now caps every lit campfire on a full block 3+ over the ground with open air over it, in any
-  stage (kilns, furnaces, `industry/Stack` and `Mound` heads included), and sinks the fire one course where the stack
+- `Chimneys.crownBareFires` now caps, besides every bare `ROOF` fire, every lit campfire on a stack's head (a full block open on
+  a side, 3+ over the ground, open to the sky) in any stage (kilns, furnaces, `industry/Stack` and `Mound` heads included), and sinks the fire one course where the stack
   meets the plot's height limit. A fire meant to be seen must stand on a wall (brazier) or low; `SiteWorksTest` fails
   on an open flame on a stack.
