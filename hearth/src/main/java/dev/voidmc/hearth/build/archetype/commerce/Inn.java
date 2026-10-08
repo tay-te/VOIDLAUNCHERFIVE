@@ -440,15 +440,40 @@ public final class Inn implements Archetype {
 		}
 
 		int yz0 = zM + 1;
-		if (arch && dp - 1 - yz0 >= 3) {
-			// a gallery along the yard side of the first floor, a door out to it from the corridor's end
+		boolean galleried = false;
+		if (arch && dp - 1 - yz0 >= 6) {
+			// a gallery along the yard side of the first floor, two boards deep with its rail on the outer one, over a yard
+			// deep enough to keep it clear of the stable's eave; a door out to it from the corridor (from its end, else the
+			// first free cell along it): no door, no gallery
 			Side upBack = body.side(1, Dirs.BACK);
-			Porches.balcony(d, upBack, upBack.column(1), upBack.column(upBack.last() - 1), fy);
 			int[] up = body.rect(1);
-			int gx = archRight ? up[2] - 1 : up[0] + 1;
-			if (Openings.isWallBlock(d, gx, fy, zM) && d.isEmpty(gx, fy, zM - 1)) {
-				d.inStage(StageKind.OPENINGS, () -> d.door(gx, fy, zM, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.BACK,
+			int gx = Integer.MIN_VALUE;
+			for (int k = 0; k <= up[2] - up[0] - 2 && gx == Integer.MIN_VALUE; k++) {
+				int x = archRight ? up[2] - 1 - k : up[0] + 1 + k;
+				if (Openings.isWallBlock(d, x, fy, zM) && Openings.isWallBlock(d, x, fy + 1, zM) && d.isEmpty(x, fy, zM - 1) && d.isEmpty(x, fy + 1, zM - 1)
+					&& d.isSolid(x, fy - 1, zM - 1)) {
+					gx = x;
+				}
+			}
+			if (gx != Integer.MIN_VALUE && gallery(d, upBack, fy)) {
+				galleried = true;
+				int galleryDoor = gx;
+				d.inStage(StageKind.OPENINGS, () -> d.door(galleryDoor, fy, zM, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.BACK,
 					DoorHingeSide.LEFT));
+			}
+		}
+		if (arch && !galleried && dp - 1 - yz0 >= 1) {
+			// no gallery: a pentice of the roof's stairs along the yard wall over the ground floor's windows
+			Side upBack = body.side(1, Dirs.BACK);
+			Mat pent = d.mat(Role.ROOF);
+			try (var s = d.stage(StageKind.ROOF)) {
+				for (int i = 1; i <= upBack.last() - 1; i++) {
+					int x = upBack.outX(i, 1);
+					int z = upBack.outZ(i, 1);
+					if (d.allowed(x, fy - 1, z) && d.isAbsent(x, fy - 1, z) && pent.has(Form.STAIRS)) {
+						d.set(x, fy - 1, z, pent.stairs(upBack.out().getOpposite(), Half.BOTTOM));
+					}
+				}
 			}
 		}
 		if (arch && dp - 1 - yz0 >= 1) {
@@ -820,6 +845,50 @@ public final class Inn implements Archetype {
 	}
 
 	/**
+	 * A gallery along {@code side} of an upper storey at floor {@code floorY}: a deck of boards two deep on brackets, a
+	 * railing along its outer edge and back to the wall at both ends, the VIEWPOINT on its inner row. Answers whether it
+	 * was built (every cell of it free).
+	 */
+	private static boolean gallery(Draft d, Side side, int floorY) {
+		Mat floor = d.mat(Role.FLOOR);
+		Mat rail = d.mat(Role.RAILING);
+		Mat beam = d.mat(Role.BEAM);
+		Paint railing = rail.has(Form.FENCE) ? rail.fence() : d.mat(Role.FENCE).fence();
+		int ia = 1;
+		int ib = side.last() - 1;
+		for (int i = ia - 1; i <= ib + 1; i++) {
+			for (int k = 1; k <= 2; k++) {
+				int x = side.outX(i, k);
+				int z = side.outZ(i, k);
+				if (!d.allowed(x, floorY, z) || !d.allowed(x, floorY - 1, z) || !d.isAbsent(x, floorY - 1, z) || !d.isAbsent(x, floorY, z)
+					|| !d.isAbsent(x, floorY + 1, z)) {
+					return false;
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int i = ia; i <= ib; i++) {
+				for (int k = 1; k <= 2; k++) {
+					d.set(side.outX(i, k), floorY - 1, side.outZ(i, k), floor.slab(SlabType.TOP));
+				}
+				d.set(side.outX(i, 2), floorY, side.outZ(i, 2), railing);
+				if (i == ia || i == ib || (i - ia) % 3 == 0) {
+					// a bracket under the outer board, back to the wall
+					d.set(side.outX(i, 1), floorY - 2, side.outZ(i, 1), beam.stairsOrSlab(side.out().getOpposite(), Half.TOP));
+				}
+			}
+			for (int i : new int[]{ia - 1, ib + 1}) {
+				for (int k = 1; k <= 2; k++) {
+					d.set(side.outX(i, k), floorY, side.outZ(i, k), railing);
+				}
+			}
+		}
+		int mid = (ia + ib) / 2;
+		d.poi(dev.voidmc.hearth.api.PoiType.VIEWPOINT, side.outX(mid, 1), floorY, side.outZ(mid, 1), side.out());
+		return true;
+	}
+
+	/**
 	 * The stable across the back of the yard: a boarded building under its own gable, ridge along the yard, posts at the
 	 * corners and between the stalls; on the yard side each stall opens over a half door (a gate) with the hay rack and
 	 * the water trough within; a hay door in a gablet over the middle with a bale hung on its beam where the roof is high
@@ -859,7 +928,7 @@ public final class Inn implements Archetype {
 				}
 				boolean doorCell = (x - x0) % 3 == 1;
 				d.set(x, base + 1, z0, Blocks.AIR.defaultBlockState());
-				d.set(x, base, z0, doorCell && gateMat.has(Form.FENCE_GATE) ? gateMat.gate(Dirs.FRONT, false) : Paint.of(Blocks.AIR.defaultBlockState()));
+				d.set(x, base, z0, doorCell && gateMat.has(Form.FENCE_GATE) ? gateMat.gate(Dirs.FRONT, true) : Paint.of(Blocks.AIR.defaultBlockState()));
 			}
 		}
 		try (var s = d.stage(StageKind.INTERIOR)) {

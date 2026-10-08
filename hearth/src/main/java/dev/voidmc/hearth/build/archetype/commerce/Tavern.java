@@ -405,6 +405,7 @@ public final class Tavern implements Archetype {
 				}
 			}
 		}
+		headsClear(d, ix0, iz0, ix1, iz1, base);
 		Lighting.room(d, ix0, iz0, ix1, iz1, base);
 		topsDressed(d, ix0, iz0, ix1, iz1, base, plate);
 
@@ -771,6 +772,33 @@ public final class Tavern implements Archetype {
 						}
 						d.set(x, y, z, ((x + z) & 1) == 0 ? Blocks.FLOWER_POT.defaultBlockState()
 							: Blocks.CANDLE.defaultBlockState().setValue(BlockStateProperties.LIT, false));
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * No lantern at head height over a raised place someone stands on (the stage's boards and its lip, a step, a stool):
+	 * where the tie beams are low a lantern hung over the floor hangs in the face of the player on the stage.
+	 */
+	private static void headsClear(Draft d, int ix0, int iz0, int ix1, int iz1, int base) {
+		for (int z = iz0; z <= iz1; z++) {
+			for (int x = ix0; x <= ix1; x++) {
+				var under = d.get(x, base, z);
+				if (under == null || under.isAir() || !(under.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+					|| under.getBlock() instanceof net.minecraft.world.level.block.SlabBlock || under.isCollisionShapeFullBlock(
+						net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO))) {
+					continue;
+				}
+				for (int yy = base + 1; yy <= base + 2; yy++) {
+					var s = d.get(x, yy, z);
+					if (s != null && s.getBlock() instanceof net.minecraft.world.level.block.LanternBlock) {
+						d.remove(x, yy, z);
+						// and the chain it hung from, down from the beam
+						for (int cy = yy + 1; d.get(x, cy, z) != null && d.get(x, cy, z).getBlock() instanceof net.minecraft.world.level.block.ChainBlock; cy++) {
+							d.remove(x, cy, z);
+						}
 					}
 				}
 			}
