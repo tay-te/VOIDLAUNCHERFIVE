@@ -35,7 +35,11 @@ quarter when it is large).
 - **Ranges.** Walls in the rite's manner (`Rite.ranges`): stone below and the culture's own above in the timber lands
   and the Alps (so a Bohemian abbey is rendered stone under a framed upper storey), rendered or logged or of adobe
   elsewhere. Plain lights with sills and lintels (arched on a masonry ground storey where the culture arches, lattices
-  where it screens), never boxes or shutters. **One roof over all the ranges**: a hip over each merged into one surface,
+  where it screens), never boxes or shutters. The walls read in bays: a plinth course and a string course at every floor
+  in one stone, pilaster strips on every fourth column in another (neither the walling's own, so strip and course never
+  join into one grid), a framed storey's rails barked against its posts, a log wall braced by upright posts; at the end
+  `Bays.divide` splits any field of one stone still wider than 48 blocks on any face (the church's flanks, the ranges'
+  ends, the tower). **One roof over all the ranges**: a hip over each merged into one surface,
   so the outer corners are hipped and the inner ones valleys (curved hips in the karst, one deck behind a parapet with
   beam ends and corner pinnacles or stakes in the dry lands). Chimneys rise from the kitchen, the brewhouse and the
   infirmary.
@@ -85,7 +89,8 @@ a hall of the Buddha under a curved hip with its bell in a pavilion in the garth
 
 Inside: the people's pews (kneeling mats in the karst) either side of the runner, the brethren's choir stalls facing
 each other before the chancel, the altar with candles and the priest's lectern (PRIEST, ALTAR), the font by the door,
-banners between the windows, the door from the choir to the walk.
+banners between the windows, the door from the choir to the walk, and lamps hung on long chains from the roof down the
+nave and the choir every fourth row (two rows of them in a church nine wide), low enough to light the pews.
 
 ## What each one is
 
