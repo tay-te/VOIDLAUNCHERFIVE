@@ -105,6 +105,15 @@ class TownFormTest {
 			LayoutChooser.FORCED.remove();
 		}
 		System.out.println(report(culture + " " + terrain + " s" + seed, sim));
+		// -Dhearth.townform.grep=cathedral,chapel prints the growth log's lines naming any of them (why a building went where)
+		String grep = System.getProperty("hearth.townform.grep");
+		if (grep != null) {
+			for (String line : sim.log()) {
+				if (Arrays.stream(grep.split(",")).anyMatch(line::contains)) {
+					System.out.println("  " + line);
+				}
+			}
+		}
 		if (Boolean.getBoolean("hearth.townform.map")) {
 			System.out.println(map(sim, 90));
 		}

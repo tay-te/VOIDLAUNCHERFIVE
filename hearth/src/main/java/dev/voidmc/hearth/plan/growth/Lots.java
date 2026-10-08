@@ -73,6 +73,14 @@ public final class Lots {
 			// on the square, or on a main street at the corner of it; smaller if the square is small
 			java.util.function.IntPredicate front = e -> e == square || ctx.state.graph.edge(e).role == RoadEdge.Role.ARM;
 			Parcels.Parcel p = Parcels.best(ctx, req, front);
+			if (p == null && id.equals(Archetypes.CHAPEL)) {
+				// the close at the cathedral's least size before the chapel's own: a close no bigger than the chapel sends the
+				// cathedral out of town when the city raises it (ART_REVIEW_2 item 2)
+				int[] least = Landmarks.leastCloseSize(ctx, info);
+				if (least[0] < f || least[1] < d) {
+					p = Parcels.best(ctx, req.withSize(least[0], least[1]), front);
+				}
+			}
 			if (p == null) {
 				p = Parcels.best(ctx, req.withSize(info.minFrontage(), info.minDepth()), front);
 			}
@@ -82,7 +90,9 @@ public final class Lots {
 				Parcels.Request terraced = new Parcels.Request(info, req.placement(), null, 1, f, d, true, 0, 0);
 				p = Parcels.best(ctx, terraced, front);
 			}
-			if (p == null || ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) > ctx.state.plazaHalf + 34) {
+			// (a small square's lots stand on the main streets just off it: a walled town's hall found its lot 46 out, was
+			// refused, and went up outside the gates)
+			if (p == null || ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) > ctx.state.plazaHalf + 40) {
 				continue;
 			}
 			if (Growth.trace) {
@@ -109,11 +119,17 @@ public final class Lots {
 		if (lot == null && KEPT.contains(info.id())) {
 			// no lot (none was free at the founding, or it is gone): the square's side or a street at its corner, on a terrace
 			// if it must be, before the program's own search sends it out to the best raised ground anywhere
-			Parcels.Request near = new Parcels.Request(info, e.placement(), e.district(), -1, -1, -1, true, 0, 0);
-			Parcels.Parcel p = Parcels.best(ctx, near, null);
-			if (p != null && ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) <= ctx.state.plazaHalf + BY_SQUARE) {
-				lot = p;
-				where = " by the square";
+			// (at its least size if it must be; inside a walled town anywhere within the wall, never out past the gates)
+			// (searched nearest the square first: the civic search ranks raised ground, and on a hill found it 90 blocks out)
+			Parcels.Request near = new Parcels.Request(info, Placement.CENTRAL, e.district(), -1, -1, -1, true, 0, 0);
+			double reach = Math.max(ctx.state.plazaHalf + BY_SQUARE, ctx.wallLine() > 0 ? ctx.wallLine() - 4 : 0);
+			for (Parcels.Request r : List.of(near, near.withSize(info.minFrontage(), info.minDepth()))) {
+				Parcels.Parcel p = Parcels.best(ctx, r, null);
+				if (p != null && ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) <= reach) {
+					lot = p;
+					where = " by the square";
+					break;
+				}
 			}
 		}
 		if (lot == null) {

@@ -464,6 +464,11 @@ public final class Growth {
 		}
 		// (a working dug out counts no more while the town wants its goods: the next is opened)
 		int have = dev.voidmc.hearth.plan.resource.Extraction.counted(ctx, info.id(), needs.count(info.id()));
+		if (info.id().equals(Archetypes.CHAPEL)) {
+			// the cathedral or temple risen in the chapel's place is the town's church (a second chapel went up on a rise
+			// at the edge the day it replaced the first)
+			have += needs.count(Archetypes.CATHEDRAL) + needs.count(Archetypes.TEMPLE);
+		}
 		if (info.maxPerSettlement() > 0) {
 			want = Math.min(want, info.maxPerSettlement());
 		}
