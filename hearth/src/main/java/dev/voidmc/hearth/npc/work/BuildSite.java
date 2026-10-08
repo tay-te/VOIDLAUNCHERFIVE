@@ -216,6 +216,8 @@ public final class BuildSite {
 	/**
 	 * The ring goes up before anyone needs it: as soon as the stage has work high on the shell, to the height from which
 	 * its highest course is at eye level (and it stays up, rising as the stage climbs, until the last high stage is done).
+	 * Only the columns within reach of that work go up ({@link Staging#need}): round the whole shell while walls rise,
+	 * along one wall for a gable or an upper floor's windows.
 	 */
 	private void wantRing(ServerLevel level, PlotView plot, Blueprint bp) {
 		StepPlan.Scan s = this.scan;
@@ -227,9 +229,14 @@ public final class BuildSite {
 			return;
 		}
 		int top = Integer.MIN_VALUE;
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet columns = st.allNeeded() ? null : new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 		for (StepPlan.Pending p : s.pending()) {
 			if (!p.state().isAir() && high(st, p.pos())) {
 				top = Math.max(top, BlockPos.getY(p.pos()));
+				// only the stretch of ring within reach of the high work goes up
+				if (columns != null && columns.add(BlockPos.asLong(BlockPos.getX(p.pos()), 0, BlockPos.getZ(p.pos())))) {
+					st.need(BlockPos.getX(p.pos()), BlockPos.getZ(p.pos()));
+				}
 			}
 		}
 		if (top != Integer.MIN_VALUE) {

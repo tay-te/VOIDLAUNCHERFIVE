@@ -792,6 +792,9 @@ final class BuilderWork implements WorkBehaviour {
 				trace("N");
 			} else {
 				int need = feetFor(ring, t, eyeH);
+				if (need != Staging.NONE) {
+					ring.need(t.getX(), t.getZ());
+				}
 				if (need != Staging.NONE && ring.require(need) && ring.raising()) {
 					trace("R" + need);
 					this.doing = "putting up scaffolding";

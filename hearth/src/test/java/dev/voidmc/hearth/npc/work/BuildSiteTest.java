@@ -423,6 +423,62 @@ class BuildSiteTest {
 		return n;
 	}
 
+	// ---------------------------------------------------------------- the ring
+
+	@Test
+	void highWorkAlongOneWallRaisesTheRingAlongThatWallOnly() {
+		// a 9 x 11 cottage on ground at y 64: only its north gable is still to do, high up
+		Staging st = Staging.flat(0, 8, 0, 10, 65, 80, 0);
+		assertFalse(st.raising(), "nothing asked yet");
+		for (int x = 2; x <= 6; x++) {
+			st.need(x, 0);
+		}
+		assertTrue(st.require(72));
+		int north = 0;
+		int south = 0;
+		for (int c = 0; c < st.n; c++) {
+			if (st.isShort(c)) {
+				if (st.zs[c] <= 1) {
+					north++;
+				}
+				if (st.zs[c] >= 9) {
+					south++;
+				}
+			}
+		}
+		assertTrue(north >= 9, "the whole north side goes up, " + north);
+		assertEquals(0, south, "nothing along the south wall");
+		assertFalse(st.allNeeded());
+		// walls going up all round: the whole ring
+		for (int x = 0; x <= 8; x++) {
+			st.need(x, 0);
+			st.need(x, 10);
+		}
+		for (int z = 0; z <= 10; z++) {
+			st.need(0, z);
+			st.need(8, z);
+		}
+		assertTrue(st.allNeeded());
+		for (int c = 0; c < st.n; c++) {
+			assertTrue(st.isShort(c), "column " + c + " wanted");
+		}
+	}
+
+	@Test
+	void aShortGapBetweenWantedColumnsIsBridged() {
+		Staging st = Staging.flat(0, 20, 0, 4, 65, 80, 0);
+		// two stretches of the north wall, eleven blocks apart: two columns between them left out
+		st.need(2, 0);
+		st.need(13, 0);
+		int x7 = st.cellAt(7, -1);
+		int x8 = st.cellAt(8, -1);
+		assertTrue(st.needed[x7] && st.needed[x8], "the gap between the stretches is walked over");
+		Staging far = Staging.flat(0, 30, 0, 4, 65, 80, 0);
+		far.need(2, 0);
+		far.need(25, 0);
+		assertFalse(far.needed[far.cellAt(14, -1)], "a long gap stays a gap");
+	}
+
 	@Test
 	void theSitesLedgerIdIsItsOwn() {
 		assertEquals(BuildSite.ledgerId(5), new BuildSite(5).ledgerId);

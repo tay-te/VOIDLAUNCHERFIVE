@@ -40,6 +40,13 @@ working day by day instead of every ten days, see §3).
    that far out wants its own people placed at it while they work (they are, once there is a quarrier: placement
    puts a worker at their work site), which again needs the trade hired.
 
+**Since** (planner lane, merged into this branch from `hearth`: 6c1d229f, b7e28dd1, `requests/w7-planner.md` §4): a dug-out
+working no longer counts while the town has its trade's folk, a face being cut gets one hand right after the builders,
+and a digger is placed at the open face. With that, `BuilderTour` (after the merge) found the tour town's own quarrier at
+a face: Jessamy Warrick cutting coal ore at `extract/quarry_pit` #73, cursor 6:109 (two of three runs had a working open
+in the tour town). The young dig town (Heronwade, bayou, day 20) still had nobody at its pit: point 4 below stands.
+Points 1-3 are answered; what follows is kept for the record.
+
 **Asked**:
 
 - In `Needs`, treat a dug-out excavation (`BUILT`, not woods, not the salt works: the same test as

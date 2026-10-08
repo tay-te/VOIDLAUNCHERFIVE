@@ -45,6 +45,14 @@ final class Staging {
 	final int[] height;
 	/** Columns nobody could get to the foot of: left short (the ring has a gap there until it comes down). */
 	final boolean[] skipped;
+	/**
+	 * Columns some high work is within reach of (once asked, for the ring's life): only these go up, so a stage with high
+	 * work along one wall (a gable, the windows of an upper floor) gets scaffolding along that wall, not the whole ring.
+	 */
+	final boolean[] needed;
+	private int neededCount;
+	/** How far (horizontally, in blocks) from high work a column is wanted: the reach along the wall, and a column more. */
+	static final int NEED_RADIUS = 5;
 	/** Ring index by column (packed x, z with y 0). */
 	private final Long2IntOpenHashMap index = new Long2IntOpenHashMap();
 	/** The last stage with high work on the shell: the ring comes down once it is done. */
@@ -65,6 +73,7 @@ final class Staging {
 		this.cap = cap;
 		this.height = new int[this.n];
 		this.skipped = new boolean[this.n];
+		this.needed = new boolean[this.n];
 		int lo = Integer.MAX_VALUE;
 		for (int i = 0; i < this.n; i++) {
 			this.height[i] = base[i] == NONE ? NONE : base[i] - 1;
@@ -214,6 +223,39 @@ final class Staging {
 		return new Staging(xs, zs, base, cap, last, new int[]{x0 + 1, x1 - 1, z0 + 1, z1 - 1});
 	}
 
+	/** A ring round the shell box {@code minX..maxX, minZ..maxZ} on flat ground, every column free up to {@code cap} (tests). */
+	static Staging flat(int minX, int maxX, int minZ, int maxZ, int base, int cap, int lastHighStage) {
+		int x0 = minX - 1;
+		int x1 = maxX + 1;
+		int z0 = minZ - 1;
+		int z1 = maxZ + 1;
+		int len = 2 * (x1 - x0) + 2 * (z1 - z0);
+		int[] xs = new int[len];
+		int[] zs = new int[len];
+		int k = 0;
+		for (int x = x0; x < x1; x++, k++) {
+			xs[k] = x;
+			zs[k] = z0;
+		}
+		for (int z = z0; z < z1; z++, k++) {
+			xs[k] = x1;
+			zs[k] = z;
+		}
+		for (int x = x1; x > x0; x--, k++) {
+			xs[k] = x;
+			zs[k] = z1;
+		}
+		for (int z = z1; z > z0; z--, k++) {
+			xs[k] = x0;
+			zs[k] = z;
+		}
+		int[] bases = new int[len];
+		int[] caps = new int[len];
+		java.util.Arrays.fill(bases, base);
+		java.util.Arrays.fill(caps, cap);
+		return new Staging(xs, zs, bases, caps, lastHighStage, new int[]{minX, maxX, minZ, maxZ});
+	}
+
 	/** Within reach (horizontally) of the ring round the shell box: on or near its outer faces. */
 	static boolean nearShell(int x, int z, int minX, int maxX, int minZ, int maxZ) {
 		int in = Math.min(Math.min(x - minX, maxX - x), Math.min(z - minZ, maxZ - z));
@@ -231,7 +273,57 @@ final class Staging {
 
 	/** The top a column is raised to now. */
 	int want(int c) {
-		return this.target == NONE || this.skipped[c] ? this.base[c] - 1 : Math.min(this.target, this.cap[c]);
+		return this.target == NONE || this.skipped[c] || !this.needed[c] ? this.base[c] - 1 : Math.min(this.target, this.cap[c]);
+	}
+
+	/**
+	 * Marks the columns within {@link #NEED_RADIUS} of work high at column {@code x, z} as wanted (they stay wanted for the
+	 * ring's life, so the walkway along a wall never shrinks under the crew). Gaps of one or two columns between wanted
+	 * ones are wanted too, so the crew can walk along the wall they work.
+	 */
+	void need(int x, int z) {
+		if (this.neededCount >= this.n) {
+			return;
+		}
+		boolean any = false;
+		for (int c = 0; c < this.n; c++) {
+			if (!this.needed[c]) {
+				int dx = this.xs[c] - x;
+				int dz = this.zs[c] - z;
+				if (dx * dx + dz * dz <= NEED_RADIUS * NEED_RADIUS) {
+					this.needed[c] = true;
+					this.neededCount++;
+					any = true;
+				}
+			}
+		}
+		if (any) {
+			bridge();
+		}
+	}
+
+	/** Fills short gaps (two columns or fewer) between wanted columns round the ring. */
+	private void bridge() {
+		for (int c = 0; c < this.n; c++) {
+			if (!this.needed[c] || this.needed[next(c, 1)]) {
+				continue;
+			}
+			int gap = 1;
+			while (gap <= 2 && !this.needed[next(c, gap + 1)]) {
+				gap++;
+			}
+			if (gap <= 2 && this.needed[next(c, gap + 1)]) {
+				for (int g = 1; g <= gap; g++) {
+					this.needed[next(c, g)] = true;
+					this.neededCount++;
+				}
+			}
+		}
+	}
+
+	/** Whether every column is wanted (the whole ring). */
+	boolean allNeeded() {
+		return this.neededCount >= this.n;
 	}
 
 	/** A column still short of the wanted top. */

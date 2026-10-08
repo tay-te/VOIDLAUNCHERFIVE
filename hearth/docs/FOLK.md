@@ -206,7 +206,10 @@ put a block, or where something already stands above the floor (a neighbour's wa
 blocks of headroom below anything above it. The ring goes up **before it is needed**: as soon as the stage
 has high work on the shell, the site asks for it to the height from which the stage's highest course is at eye level
 (in lifts of four; and higher whenever a step is out of reach from anywhere one can stand but a ring column could reach
-it). The crew raises it a column at a time: a builder takes the nearest column still short that nobody else has, stands
+it). Only the stretch of ring within reach of high work goes up (every column within five blocks of a high step still to
+do, and gaps of up to two columns between such stretches, so the crew can walk along the wall it works; once wanted a
+column stays wanted while the ring stands): round the whole shell while walls rise, along one wall for a gable or an
+upper floor's windows. The crew raises it a column at a time: a builder takes the nearest column still short that nobody else has, stands
 beside its foot and runs it up to the top, as clicking the foot of a vanilla scaffold column extends it at the top; one
 already up on the ring runs up the columns in reach of where they stand; once every short column is in hand the rest
 get on with the walls. A column nobody can get to the foot of is left short (a gap in the ring). A column of
