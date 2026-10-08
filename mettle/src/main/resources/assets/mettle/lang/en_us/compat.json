@@ -1,0 +1,19 @@
+{
+	"mettle.compat.hearth.train": "Train %s · %s",
+	"mettle.compat.hearth.teach": "Learn %s · %s",
+	"mettle.compat.hearth.hint.xp": "+%s XP",
+	"mettle.compat.hearth.hint.needs": "Needs %s",
+	"mettle.compat.hearth.hint.needs_level": "Needs %s %s",
+	"mettle.compat.hearth.hint.tomorrow": "Tomorrow",
+	"mettle.compat.hearth.hint.beyond": "Beyond them",
+	"mettle.compat.hearth.tip.lesson": "One lesson a day: %s %s, a good part of the way to %s.",
+	"mettle.compat.hearth.tip.beyond": "Your %s is past what %s can teach. Folk here teach up to level %s; a bigger town's master could take you further.",
+	"mettle.compat.hearth.tip.tomorrow": "%s has taught you today. Come back tomorrow.",
+	"mettle.compat.hearth.tip.needs": "The lesson costs %s. You carry %s.",
+	"mettle.compat.hearth.tip.teaching": "A master's secret, taught once: %s",
+	"mettle.compat.hearth.reply.poor": "Come back when you have the coin.",
+	"mettle.compat.hearth.reply.lesson.0": "There. Do that a hundred times and it will be yours.",
+	"mettle.compat.hearth.reply.lesson.1": "Better. Slower is faster, remember that.",
+	"mettle.compat.hearth.reply.lesson.2": "Enough for today. Practise what I showed you.",
+	"mettle.compat.hearth.reply.teaching": "Few ever learn %s. Use it well."
+}

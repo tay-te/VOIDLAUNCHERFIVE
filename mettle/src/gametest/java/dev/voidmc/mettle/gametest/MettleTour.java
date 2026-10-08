@@ -116,21 +116,29 @@ public class MettleTour implements FabricClientGameTest {
 				throw new AssertionError(problem);
 			}
 
-			// Progress moments first, while the character is fresh (it is put back as it was).
-			MomentJourney.run(context, world);
-			signaturePerks(world);
-			miningJourney(world);
-			BladesJourney.run(world);
-			HeavyWeaponsJourney.run(world);
-			MarksmanshipJourney.run(world);
-			DefenseJourney.run(world);
-			BurdenJourney.run(context, world);
-			GearJourney.run(context, world);
-			AthleticsJourney.run(context, world);
-			SurvivalJourney.run(context, world);
-			SmithingJourney.run(context, world);
-			TomeJourney.run(world);
-			RespecJourney.run(context, world);
+			// -Dmettle.tour.hearth_only=true (with -Phearth) plays only the Hearth journey, for a quick check.
+			if (!Boolean.getBoolean("mettle.tour.hearth_only")) {
+				// Progress moments first, while the character is fresh (it is put back as it was).
+				MomentJourney.run(context, world);
+				signaturePerks(world);
+				miningJourney(world);
+				BladesJourney.run(world);
+				HeavyWeaponsJourney.run(world);
+				MarksmanshipJourney.run(world);
+				DefenseJourney.run(world);
+				BurdenJourney.run(context, world);
+				GearJourney.run(context, world);
+				AthleticsJourney.run(context, world);
+				SurvivalJourney.run(context, world);
+				SmithingJourney.run(context, world);
+				TomeJourney.run(world);
+				RespecJourney.run(context, world);
+			}
+			// With VOID Hearth loaded (-Phearth): its slots filled by Mettle. HearthJourney names Hearth types, so it is
+			// only touched then.
+			if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("hearth")) {
+				HearthJourney.run(world);
+			}
 
 			context.setScreen(CharacterScreen::new);
 			context.waitTicks(5);

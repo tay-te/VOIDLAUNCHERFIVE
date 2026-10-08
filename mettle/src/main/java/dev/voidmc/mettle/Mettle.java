@@ -2,6 +2,7 @@ package dev.voidmc.mettle;
 
 import dev.voidmc.mettle.burden.BurdenModule;
 import dev.voidmc.mettle.character.CharacterModule;
+import dev.voidmc.mettle.compat.CompatModule;
 import dev.voidmc.mettle.core.CoreModule;
 import dev.voidmc.mettle.gear.GearModule;
 import net.fabricmc.api.ModInitializer;
@@ -24,5 +25,6 @@ public final class Mettle implements ModInitializer {
 		CharacterModule.init();
 		BurdenModule.init();
 		GearModule.init();
+		CompatModule.init();
 	}
 }
