@@ -290,7 +290,19 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 				int x = pos.getMinBlockX() + lx;
 				int z = pos.getMinBlockZ() + lz;
 				CavernModel.Info c = caverns.info(x, z);
-				if (!c.river || c.riverFalls || c.riverDist >= c.riverHalfWidth + 2) {
+				if (!c.river || c.riverFalls || c.riverDist >= c.riverSpan) {
+					continue;
+				}
+				if (c.riverDist >= c.riverHalfWidth + 2) {
+					// the great rivers' banks: shingle and sand on the dry ledge, where the floor is open over it
+					if (c.riverGreat > 0.3F) {
+						int ledge = c.waterTop();
+						BlockState on = chunk.getBlockState(p.set(x, ledge, z));
+						if (!on.isAir() && on.getFluidState().isEmpty() && chunk.getBlockState(p.set(x, ledge + 1, z)).isAir()) {
+							chunk.setBlockState(p.set(x, ledge, z), (x * 31 + z * 17 & 7) < 5 ? Blocks.GRAVEL.defaultBlockState()
+								: Blocks.SAND.defaultBlockState());
+						}
+					}
 					continue;
 				}
 				int top = c.waterTop();
