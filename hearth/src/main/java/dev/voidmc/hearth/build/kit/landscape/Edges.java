@@ -179,7 +179,7 @@ public final class Edges {
 					int nz = z + dir.getStepZ();
 					BlockState t = d.get(nx, y - 1, nz);
 					if (d.allowed(nx, y - 1, nz) && (t == null || t.isAir()) && passable(d, nx, y - 1, nz) && passable(d, nx, y, nz)
-						&& drop(d, nx, y, nz) >= DROP && drop(d, nx, y - 1, nz) >= 2) {
+						&& drop(d, nx, y, nz) >= DROP && drop(d, nx, y - 1, nz) >= 2 && !overTread(d, nx, y - 1, nz)) {
 						Paint p = rail != null ? rail : railing(d);
 						d.inStage(StageKind.INTERIOR, () -> d.set(nx, y - 1, nz, p));
 						n++;
@@ -321,7 +321,7 @@ public final class Edges {
 			int nx = x + dir.getStepX();
 			int nz = z + dir.getStepZ();
 			if (d.allowed(nx, y, nz) && empty(d, nx, y, nz) && empty(d, nx, y + 1, nz) && drop(d, nx, y, nz) >= DROP && roofed(d, nx, y, nz)
-				&& braced(d, nx, y, nz, dir.getOpposite()) && !ways.contains(Draft.key(nx, y, nz))) {
+				&& braced(d, nx, y, nz, dir.getOpposite()) && !ways.contains(Draft.key(nx, y, nz)) && !overTread(d, nx, y, nz)) {
 				Paint p = rail != null ? rail : railing(d);
 				d.inStage(StageKind.INTERIOR, () -> d.set(nx, y, nz, p));
 				n++;
@@ -358,6 +358,23 @@ public final class Edges {
 			}
 		}
 		return n;
+	}
+
+	/**
+	 * Whether a rail at (x, y, z) would stand one to three over a stair tread: in the cell someone on the tread stands
+	 * in, the head room over it, or the head room the step up from it needs.
+	 */
+	private static boolean overTread(Draft d, int x, int y, int z) {
+		for (int dy = 1; dy <= 3; dy++) {
+			BlockState s = d.get(x, y - dy, z);
+			if (s != null && s.getBlock() instanceof StairBlock && s.getValue(StairBlock.HALF) == Half.BOTTOM) {
+				return true;
+			}
+			if (!passable(d, x, y - dy, z)) {
+				return false;
+			}
+		}
+		return false;
 	}
 
 	/** Beside a lattice: wall, or another lattice leaf facing the same way (a window two wide). */
