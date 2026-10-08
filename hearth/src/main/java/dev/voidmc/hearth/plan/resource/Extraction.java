@@ -286,30 +286,34 @@ public final class Extraction {
 		}
 		// the nearest sites whose rock lies out of town, each with the working it takes (an adit, else a shaft) and where it
 		// goes: an ore site under tomorrow's streets, or one no track reaches, is passed over for the next (a temperate town
-		// of 340 by six ore sites opened no mine in 400 days, every call stopped at the nearest, requests/w7-tour.md §3)
+		// of 340 by six ore sites opened no mine in 400 days, every call stopped at the nearest, requests/w7-tour.md §3).
+		// A plot that fits by a road already there is looked for at each site's best point first, then at a pit's second
+		// point; a live call out of time stops looking (the rest wait for the next call)
 		List<Spot> spots = new java.util.ArrayList<>();
-		for (ResourceSite s : sites) {
-			spots.addAll(spots(ctx, info, s));
+		List<Integer> places = new java.util.ArrayList<>();
+		List<Parcels.Parcel> found = new java.util.ArrayList<>();
+		for (int pass = 0; pass < 2; pass++) {
+			for (ResourceSite s : sites) {
+				if (!spots.isEmpty() && ctx.pastDeadline()) {
+					break;
+				}
+				Spot spot = pass == 0 ? spot(ctx, info, s, null) : second(ctx, s, spots);
+				if (spot == null) {
+					continue;
+				}
+				spots.add(spot);
+				Choice best = spot.best(ctx, found);
+				places.add(found.size());
+				if (best != null) {
+					Build.building(ctx, best.use, best.parcel, reason(best.use, spot.site), params(ctx, best.use, spot.site, best.parcel));
+					return true;
+				}
+			}
 		}
 		if (spots.isEmpty()) {
 			// all of each site lies under the town
 			Growth.why("the site lies under the town");
 			return false;
-		}
-		// a plot that fits by a road already there, at the nearest site that has one
-		List<Parcels.Parcel> found = new java.util.ArrayList<>();
-		int[] places = new int[spots.size()];
-		for (int i = 0; i < spots.size(); i++) {
-			if (i > 0 && ctx.pastDeadline()) {
-				break;
-			}
-			Spot spot = spots.get(i);
-			Choice best = spot.best(ctx, found);
-			places[i] = found.size();
-			if (best != null) {
-				Build.building(ctx, best.use, best.parcel, reason(best.use, spot.site), params(ctx, best.use, spot.site, best.parcel));
-				return true;
-			}
 		}
 		// else a cart track out to one (one route a call): the nearest first, and after each try that would not route the
 		// next (the need's failures turn the list; a cliff between the town and its nearest ore kept every try at it)
@@ -324,7 +328,7 @@ public final class Extraction {
 			}
 			if (accessNear(ctx, target[0], target[1], 14) && !(reopening(ctx, info.id(), spot.site) && !accessNear(ctx, target[0], target[1], 5))) {
 				// a road comes near already: the site is simply full for now
-				Growth.why("no plot fits at the site (" + places[i] + " places by the track)");
+				Growth.why("no plot fits at the site (" + places.get(i) + " places by the track)");
 				continue;
 			}
 			// (the next working at a site cut before: its track ends at the old cut, whose ground the new one may not take, so a
@@ -375,12 +379,8 @@ public final class Extraction {
 	private record Choice(Parcels.Parcel parcel, ArchetypeInfo use) {
 	}
 
-	/**
-	 * Where a working of this archetype would go at a site (none if all of the site lies under the town): its best point,
-	 * and for a pit a second well away from it, so a site whose best point has no room by the track (a bank between the
-	 * river and an old pit) is still worked from its other end.
-	 */
-	private static List<Spot> spots(PlanContext ctx, ArchetypeInfo info, ResourceSite site) {
+	/** Where a working of this archetype would go at a site, or null if all of the site lies under the town. */
+	private static @Nullable Spot spot(PlanContext ctx, ArchetypeInfo info, ResourceSite site, int @Nullable [] apartFrom) {
 		ArchetypeInfo use = info;
 		Face face = null;
 		if (info.id().equals(Archetypes.MINE)) {
@@ -395,13 +395,25 @@ public final class Extraction {
 				use = shaft;
 			}
 		}
-		int[] target = target(ctx, use, site, face, null);
-		if (target == null) {
-			return List.of();
+		int[] target = target(ctx, use, site, face, apartFrom);
+		return target == null ? null : new Spot(site, use, face, target);
+	}
+
+	/**
+	 * A pit's second point at a site, well away from its first, so a site whose best point has no room by the track (a bank
+	 * between the river and an old pit) is still worked from its other end; none for an adit (its hillside is its point).
+	 */
+	private static @Nullable Spot second(PlanContext ctx, ResourceSite site, List<Spot> spots) {
+		for (Spot first : spots) {
+			if (first.site == site) {
+				if (first.face != null) {
+					return null;
+				}
+				int[] target = target(ctx, first.use, site, null, first.target);
+				return target == null ? null : new Spot(site, first.use, null, target);
+			}
 		}
-		Spot first = new Spot(site, use, face, target);
-		int[] other = face == null ? target(ctx, use, site, null, target) : null;
-		return other == null ? List.of(first) : List.of(first, new Spot(site, use, null, other));
+		return null;
 	}
 
 	/** How far a site's second target stands from its first. */
