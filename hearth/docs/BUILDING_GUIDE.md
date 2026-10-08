@@ -240,7 +240,8 @@ backs to the fire) under a slab cap, so the roof smokes and shows no flame or li
 a roof on fire). A family that draws its own stack (a house, a kiln, a furnace's stack on its straw) may end it with a
 bare lit campfire: the compiler crowns and caps every bare fire on a stack (`Chimneys.crownBareFires`: a lit campfire
 on a full block with air over it, drawn in `ROOF`; or in any stage, three or more over the ground, open to the sky and
-on a block open on a side, so a hearth on a floor is left alone), and where the stack meets the plot's height it sinks the
+on straw or on a block open on a side, so a hearth on a floor is left alone; never under a deep realm's vault, where the
+fires light the dark), and where the stack meets the plot's height it sinks the
 fire a course and caps it where it stood. A fire meant to be seen stands low or on a wall (a brazier); `SiteWorksTest`
 fails on any flame left open on a stack. Thatched styles (`habits.roof.thatch`) get their roof and ridge from the `thatch` role automatically.
 
