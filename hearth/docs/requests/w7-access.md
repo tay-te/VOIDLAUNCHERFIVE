@@ -19,6 +19,16 @@ before the sealed voids are filled and the light pass runs. It does only what is
   or, over a drop, a pane. Its `DOOR` points of interest are removed. An entrance (a registered `entrance()` within one
   cell) is never bricked up. Doors whose front cell is outside the plot are left alone.
 - **Chests under a solid block** become barrels (same facing, same goods), which open whatever stands on them.
+- **Head room over flights** (`Stairs.finish`): over every tread of a run of two or more stairs (not a roof's
+  courses), a lamp, chain, joist or shelf in the two rows of head room goes, and a floor board over the second row is
+  cut where nothing stands on it. Where a flight turns with no landing (a stair one up beside or before its top tread,
+  as in a corkscrew), a board in the third row over the top tread is cut too, so whoever steps round the corner fits.
+- **Lofts nobody reaches** (`Lofts.finish`): every level of roofed, walled floor of four cells or more that the walk
+  does not reach gets a ladder from the reached floor under it (against a wall, through a hatch, with a cell to step
+  off onto; its foot never beside a door, bed, container, stair or workstation). A loft too thin to be a room (a rim
+  of boards round an opened floor, a strip under the eaves), or one no ladder fits, is opened to the room under it if
+  nothing in it is used: its boards come up where drawn air runs down to something the building drew (never the
+  ground). A furnished loft no ladder fits is left for its archetype. `-Dhearth.lofts.off=true` turns this step off.
 - **Guards** (`Guards.finish`): for buildings and grounds (not `defense/*`, not works, roads, workings or fields), every
   reached cell on a flat floor beside a drop of four or more gets a guard **on the edge cell itself**. The guard is the
   culture's rail; on a masonry roof deck it is the wall stone's wall block. It never goes on a roof's slope or ridge, on a
@@ -73,8 +83,21 @@ Ask `ok` once the rooms on both sides are carved and their floors laid, for exam
 - `Rooms.read` (and so `Rooms.furnish`) keeps the inside cell of every door in the walls round the room, or a step up
   or down, free and joined. Callers no longer need `keep()` for doors, though it does no harm.
 
-(Further items of this lane, such as landings, stairwell guards, lofts, furnishing and lighting, are listed below as
-they land.)
+- `Storeys.flight` and `Hall.flight` rail their stairwell on the floor they arrive at (`Stairs.well`), and
+  `Floors.joists` leaves out a joist over a tread's head room.
+- `Rooms.furnish`, in kitchens, living rooms, stores and workshops (after the trade's own station), keeps a square of
+  three by three clear in rooms of nine cells or more, nearest a door.
+
+### New calls
+
+| call | does |
+|---|---|
+| `Stairs.well(d, x, y, z, dir, rise, openSide)` | rails a stairwell on the floor it arrives at: along its open side and across its lower end, only where a lane stays open beside the rail |
+| `Stairs.finish(d)` | the head-room pass above (the compiler runs it) |
+| `Lofts.ladder(d, x, z, yFrom, yTo, toWall, roof)` | as before, but only where `Lofts.landing` finds a boarded cell with two air beside the hatch |
+| `Lofts.landing(d, x, z, yTo, toWall, roof)` | that step-off cell, or null |
+| `Lofts.finish(d)` | the loft pass above (the compiler runs it); returns `Report(ladders, opened)` |
+| `Spaces.of(d, false)` | the walk from the street row only (as the invariant checks walk), for passes that must not count a cell reached only from inside |
 
 ## 3. Requests to other lanes
 
@@ -85,3 +108,49 @@ they land.)
   leaf lies on the far edge of the standing cell as a guard in the fall-edge check.
 - The hatch lid over a roof ladder (`Hall.terrace`, open trapdoor) is passable for the walker, so ladder exits work
   as before. Please keep it that way.
+
+### To the archetype lanes: what the kit and the pass cannot reach
+
+Measured with `structureAudit -Pmode=metrics -Pseeds=2` on this branch (all 134 archetypes, 10,356 cases). Coordinates
+are the audit's (`x/y/z` in the plot's frame, y over the floor); reproduce with the case named.
+
+**`bad_flights` left (93 cases outside the castle, from 246).** None is a flight the kit draws; most are roof courses
+the walk climbs onto, so they go with the rule "nobody walks onto roofs" (sills, parapets):
+
+- L4a: `law/courthouse` (36: temperate flat s0, 6/13/4), `civic/town_hall` (12: 6/13/3) and `civic/chapel` (12:
+  1/6/6). The belfry ladder lets the walker out onto the roof's brick courses. A sill in the belfry openings (item 4)
+  closes them.
+- L5: `defense/wall` (14: temperate slope s1, 0/0/2, a flight up the wall walk with its top under the parapet's
+  coping), `landmark/lighthouse` (tropical flat s1, 7/3/8, roof courses), `noble/palace` (karst flat s0, 20/0/29),
+  `landmark/cathedral` (northern hills s1, 15/4/26).
+- L6: `farm/terrace_field` (28: temperate slope s0, 9/-2/1, the terrace steps face down the slope), `infra/dock`
+  (13: temperate slope s1, 11/-2/5), `deep/hall` (12: temperate flat s1, 11/0/24), `deep/dwelling` (wisteria flat s1,
+  8/8/-1), `farm/field` (moorland slope s1, 7/-4/9), `farm/paddy` (tropical slope s1, 14/-3/5).
+- L4b: `commerce/bank` (tropical flat s1, 2/3/10: the vault's piston and smooth stone stand over the top tread; move
+  them off the stair's head), `landscape/statue` (steppe flat s0, 1/0/2: the plinth's steps).
+- L3: `work/logging_camp` (karst flat s0, 6/3/12: roof courses reached).
+- `deep/lift` (84 cases, every one) is fixed here: its corkscrew turns with no landing, and the pass now cuts the
+  board over the top tread of each turn.
+
+**Lofts the pass leaves (`unreached_furnished_cells`).** A furnished loft where no ladder fits (no wall cell with a
+clear column down to a reached floor and a step-off cell) is left as drawn. The biggest: `work/carpentry` (42 cases,
+temperate flat s0, 9/5/2), `work/watermill` (20, temperate flat s1, 4/5/8), `noble/keep` (18), `deep/hall` (24),
+`commerce/tavern` (8), `work/brewery` (7), `storage/storehouse` (6). Give these their stair or ladder in the archetype,
+or call `Lofts.ladder` with a cell you know is clear.
+
+**Dead ladders** (`dead_ladders`, 207 cases from 255): `farm/orchard` (65, temperate flat s0, 2/1/9, the picking
+ladder against the trunk: L6 item 3), `noble/keep` (36) and `noble/palace` (18, L5), `work/barn` (12, desert flat s0,
+0/5/5, L3), `house/farmhouse` (4, mesa flat s0, 11/8/6, L2).
+
+**Other findings in passing.**
+
+- L4a: the library's gallery rail (temperate flat s0, the open trapdoors at 3..5/5/9) has its leaves on the wall
+  side of the walk, not on the drop's side, so the gallery's edge counts as a fall edge. Turn the trapdoors round
+  (or use `Guards.deck`).
+- L2: a water cauldron in the town homes' yards cannot be reached in 13 cases each of rowhouse, scribe house,
+  shophouse and merchant house, 20 in the tenement (`workstations_unusable`, e.g. rowhouse temperate slope s1,
+  4/0/8).
+- L3/L4b: barrels with no free face in racks and cellar corners: tavern (66 cases), warehouse (63), storehouse (15),
+  bakery (12).
+- L3: the bakery's oven top is a walkable enclosed pocket (bakery temperate flat s0, 4/3/5): an unreached "room" the
+  audit counts; cap it or fill it.

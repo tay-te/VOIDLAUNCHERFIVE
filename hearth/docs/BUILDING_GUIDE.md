@@ -166,7 +166,12 @@ S1-S4) makes what folk use usable, touching only what is still wrong:
   bricked up, unless it is an entrance;
 - **chests** under a solid block become barrels (same goods);
 - **flights** (`Stairs.finish`): over every tread of a run of two or more stairs (not a roof's courses), a lamp, chain,
-  joist or shelf in the two rows of head room goes. A floor board over the second row is cut where nothing stands on it;
+  joist or shelf in the two rows of head room goes. A floor board over the second row is cut where nothing stands on it,
+  and over the top tread of a flight that turns with no landing, the board in the third row too;
+- **lofts** (`Lofts.finish`): a roofed, walled level of four cells or more the walk does not reach gets a ladder from
+  the reached floor under it (against a wall, through a hatch, with a cell to step off onto). A loft too thin to be a
+  room, or one no ladder fits, is opened to the room below if nothing in it is used. A furnished loft no ladder fits
+  is left as drawn;
 - **guards** (`Guards.finish`, buildings and grounds only): a rail (a balustrade on a masonry deck) is set on the edge
   cell of a flat floor beside a fall of four or more. It is never set on a roof's slope, where a ladder, hatch, stair
   or door arrives, or where it would cut a way.
