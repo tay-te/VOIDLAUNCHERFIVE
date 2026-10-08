@@ -20,6 +20,7 @@ public final class TerrainPreview {
 	private static final boolean BORDERS = Boolean.getBoolean("expanse.preview.borders");
 	private static final boolean COUNTRIES = Boolean.getBoolean("expanse.preview.countries");
 	private static final boolean WOODS = Boolean.getBoolean("expanse.preview.woods");
+	private static final boolean CLIMATE = Boolean.getBoolean("expanse.preview.climate");
 
 	public static void main(String[] args) throws Exception {
 		long seed = Long.parseLong(args[0]);
@@ -127,7 +128,7 @@ public final class TerrainPreview {
 				for (int x = cx - radius; x <= cx + radius; x += step) {
 					for (int z = cz - radius; z <= cz + radius; z += step) {
 						Column c = model.sample(x, z);
-						if (c.country != kind || c.countryStrength < 0.9F || c.height < 66 || c.temperature < (kind == 4 ? -0.9F : -0.35F) || c.temperature > 0.5F
+						if (c.country != kind || c.countryStrength < 0.9F || c.height < 66 || c.temperature < (kind == 4 ? -0.9F : -0.35F) || c.temperature > 0.2F
 							|| c.humidity < (kind == 4 ? -0.5F : -0.15F) || c.nearRiver() && c.riverDist < c.riverHalfWidth + 8) {
 							continue;
 						}
@@ -259,6 +260,29 @@ public final class TerrainPreview {
 				System.out.printf("vista %s: %d,%d ground %.0f score %.0f yaw %d%n", close, bx, bz, ground, best, yaw);
 				at.append(";").append(String.format("%s:%d,%d,%d,%d,%d,70", close, bx, camY, bz, yaw, pitch));
 			}
+			// fields: a vale in the heartland, open country all round (the hedged fields and their crops)
+			double bestOpen = 1e9;
+			int fx = 0;
+			int fz = 0;
+			for (int x = cx - radius; x <= cx + radius; x += step) {
+				for (int z = cz - radius; z <= cz + radius; z += step) {
+					Column c = model.sample(x, z);
+					if (c.country != 1 || c.countryStrength < 0.8F || c.humidity < 0.05F || c.nearRiver() && c.riverDist < c.riverHalfWidth + 20) {
+						continue;
+					}
+					double wood = 0;
+					for (int k = 0; k < 12; k++) {
+						wood += model.woodland(x + (int) (90 * Math.cos(k * Math.PI / 6)), z + (int) (90 * Math.sin(k * Math.PI / 6)));
+					}
+					if (wood < bestOpen) {
+						bestOpen = wood;
+						fx = x;
+						fz = z;
+					}
+				}
+			}
+			System.out.printf("vista fields: %d,%d open %.2f%n", fx, fz, bestOpen / 12);
+			at.append(String.format(";fields:%d,%d,%d,45,28,70", fx, Math.round(model.sample(fx, fz).height) + 30, fz));
 			System.out.println("lod.show.at=" + at);
 			return;
 		}
@@ -524,6 +548,8 @@ public final class TerrainPreview {
 		byte[] country = new byte[size * size];
 		float[] strength = new float[size * size];
 		float[] woods = new float[size * size];
+		float[] temps = new float[size * size];
+		float[] hums = new float[size * size];
 		long start = System.nanoTime();
 		IntStream.range(0, size).parallel().forEach(j -> {
 			for (int i = 0; i < size; i++) {
@@ -534,6 +560,8 @@ public final class TerrainPreview {
 				plate[i + j * size] = (long) c.plateX << 32 ^ c.plateZ & 0xFFFFFFFFL;
 				country[i + j * size] = (byte) c.country;
 				strength[i + j * size] = c.countryStrength;
+				temps[i + j * size] = c.temperature;
+				hums[i + j * size] = c.humidity;
 				if (WOODS) {
 					woods[i + j * size] = model.woodland(cx - radius + i * step, cz - radius + j * step);
 				}
@@ -618,6 +646,14 @@ public final class TerrainPreview {
 					if (COUNTRIES && country[k] > 0) {
 						int[] tint = {0, 0xE8C860, 0xC07830, 0x7A3A8A, 0x30B0C0, 0xE0E0E0, 0x1A4A20};
 						rgb = mix(rgb, tint[country[k]], 0.5F * strength[k]);
+					}
+					if (CLIMATE) {
+						// (-Pclimate) cold blue, temperate wet green, temperate dry straw, hot dry orange, hot wet deep green
+						float t = temps[k];
+						float hu = hums[k];
+						int tint = t < -0.45F ? 0x6E9FD8 : t > 0.55F ? (hu < -0.1F ? 0xE08A30 : hu > 0.2F ? 0x1E6E2A : 0xB8B040)
+							: hu < -0.25F ? 0xD8C878 : hu > 0.1F ? 0x3C9A3C : 0x9CC060;
+						rgb = mix(rgb, tint, 0.6F);
 					}
 					if (WOODS) {
 						// (-Pwoods) the woods dark green, the open country pale

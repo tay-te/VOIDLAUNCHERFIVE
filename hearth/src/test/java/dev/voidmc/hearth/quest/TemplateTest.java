@@ -7,9 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.Goods;
+import dev.voidmc.hearth.api.QuestType;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.quest.model.ObjectiveKind;
-import dev.voidmc.hearth.quest.model.QuestType;
 import dev.voidmc.hearth.quest.template.Amount;
 import dev.voidmc.hearth.quest.template.QuestTemplate;
 import dev.voidmc.hearth.quest.template.TemplateParser;

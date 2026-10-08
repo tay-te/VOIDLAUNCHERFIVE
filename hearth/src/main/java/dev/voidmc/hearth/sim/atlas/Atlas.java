@@ -111,6 +111,11 @@ public final class Atlas {
 		return this.config.enabled();
 	}
 
+	/** The rules the histories are grown by (VOID LOD's footprint cache fingerprints its plans with them). */
+	public SimRules rules() {
+		return this.rules;
+	}
+
 	// ---------------------------------------------------------------- regions and ids
 
 	public static int region(int block) {
@@ -184,6 +189,24 @@ public final class Atlas {
 			return CompletableFuture.completedFuture(ready);
 		}
 		return CompletableFuture.supplyAsync(() -> plan(rx, rz), WORKER);
+	}
+
+	/**
+	 * The plan, without keeping it if nobody has it yet: for a reader that keeps its own digest of the plan (VOID LOD's
+	 * footprints), so planning the far view does not push world generation's plans out of the cache. Waits for a plan
+	 * another thread is computing; computes one nobody is on this thread.
+	 */
+	public RegionPlan planTransient(int rx, int rz) {
+		Entry e = this.plans.get(regionKey(rx, rz));
+		if (e != null) {
+			return e.future.join();
+		}
+		try {
+			return compute(rx, rz);
+		} catch (Throwable t) {
+			LOG.error("hearth atlas: region {},{} failed; it stays unsettled", rx, rz, t);
+			return empty(rx, rz, 0);
+		}
 	}
 
 	public int cachedPlans() {

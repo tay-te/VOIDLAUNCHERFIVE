@@ -1,4 +1,4 @@
-package dev.voidmc.hearth.quest.model;
+package dev.voidmc.hearth.api;
 
 import net.minecraft.util.StringRepresentable;
 

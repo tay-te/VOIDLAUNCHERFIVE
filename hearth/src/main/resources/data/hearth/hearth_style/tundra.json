@@ -53,7 +53,7 @@
 		{
 			"name": "sod longhouse",
 			"w": 3,
-			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"]}],
+			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"], "not": {"categories": ["noble"]}}],
 			"roles": {
 				"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}, {"m": "minecraft:andesite", "w": 0.24}],
 				"wall_accent": ["minecraft:mossy_cobblestone"],

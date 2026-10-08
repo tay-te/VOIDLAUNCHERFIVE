@@ -24,13 +24,23 @@ public final class Detection {
 	 * @param moving    moving at all this second
 	 * @param armour    armour points worn, 0–20 (chain and plate clank)
 	 * @param invisible under an invisibility effect
+	 * @param stealth   the player's Stealth skill, 0–20 (a character mod's, through {@code PlayerSkills}; 0 without one):
+	 *                  a skilled sneak is seen from nearer and heard less
 	 */
-	public record Stance(int light, boolean sneaking, boolean sprinting, boolean moving, int armour, boolean invisible) {
-		/** How loud the player's body is, 0–1: footsteps and armour. */
+	public record Stance(int light, boolean sneaking, boolean sprinting, boolean moving, int armour, boolean invisible, int stealth) {
+		/** Without a character's Stealth (0), which changes nothing. */
+		public Stance(int light, boolean sneaking, boolean sprinting, boolean moving, int armour, boolean invisible) {
+			this(light, sneaking, sprinting, moving, armour, invisible, 0);
+		}
+
+		/** How loud the player's body is, 0–1: footsteps and armour (a skilled sneak's quieter: up to half at Stealth 20). */
 		public double bodyNoise() {
 			double n = this.sprinting ? 0.7 : this.moving ? (this.sneaking ? 0.06 : 0.3) : 0.02;
 			if (this.moving) {
 				n += Math.clamp(this.armour, 0, 20) / 20.0 * (this.sneaking ? 0.25 : 0.4);
+			}
+			if (this.sneaking && this.stealth > 0) {
+				n *= 1.0 - 0.025 * Math.min(20, this.stealth);
 			}
 			return Math.min(1.0, n);
 		}
@@ -53,6 +63,10 @@ public final class Detection {
 		if (stance.sneaking) {
 			// crouching hides a quiet body well and an armoured one barely
 			stanceFactor = 0.55 + 0.3 * Math.clamp(stance.armour, 0, 20) / 20.0;
+			if (stance.stealth > 0) {
+				// a skilled sneak keeps to the shadows: seen up to 30 % nearer at Stealth 20
+				stanceFactor *= 1.0 - 0.015 * Math.min(20, stance.stealth);
+			}
 		} else if (stance.sprinting) {
 			stanceFactor = 1.15;
 		}

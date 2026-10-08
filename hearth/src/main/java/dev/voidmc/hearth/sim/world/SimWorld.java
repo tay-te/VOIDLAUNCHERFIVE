@@ -122,7 +122,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		var embody = rules.config.embody();
 		this.spatial = new SpatialIndex(embody.radius() + embody.hysteresis(), rules.config.atlas().guardMargin());
 		this.applier = new ChunkApplier(level, this.spatial, blueprints(), this.probe, () -> !INLINE_BLUEPRINTS);
-		this.footprints = new LodFootprints(this.atlas, this.probe);
+		this.footprints = new LodFootprints(this.atlas, this.probe, level);
 		LOG.info("hearth: {} uses the {} probe; {} structure sets avoided", level.dimension().identifier(), this.probe.describe(),
 			avoidance == null ? 0 : avoidance.setCount());
 	}
