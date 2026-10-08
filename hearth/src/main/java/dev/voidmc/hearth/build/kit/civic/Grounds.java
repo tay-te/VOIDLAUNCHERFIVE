@@ -145,8 +145,8 @@ public final class Grounds {
 	/**
 	 * A parapet along the plot's sides and back wherever the levelled ground stands four or more above the land beyond
 	 * (a terrace made up on a slope): a low wall in the plinth's stone (the railing's fence where it has no wall), on the
-	 * edge cell itself, so nobody walks off the made ground. Cells taken, and the front row (the street's side, where the
-	 * approach comes in) but for its two corners, are left alone. Call it last, when the grounds are made.
+	 * edge cell itself, so nobody walks off the made ground. Cells taken, and the front row within two of a way in (where
+	 * the approach comes down from the street), are left alone. Call it last, when the grounds are made.
 	 */
 	public static void edgeRails(Draft d) {
 		int w = d.frontage();
@@ -156,7 +156,11 @@ public final class Grounds {
 			// (the front row's corners too, over a fall to the side: the approach comes in from the street, not the flank)
 			for (int z = 0; z < dp; z++) {
 				for (int x = 0; x < w; x++) {
-					if (x != 0 && x != w - 1 && z != dp - 1) {
+					if (x != 0 && x != w - 1 && z != dp - 1 && z != 0) {
+						continue;
+					}
+					// the front row only away from the ways in (the approach's steps come down there)
+					if (z == 0 && x != 0 && x != w - 1 && nearEntrance(d, x)) {
 						continue;
 					}
 					// where one stands there: the first free cell over something solid, from the made ground up
@@ -174,8 +178,8 @@ public final class Grounds {
 						continue;
 					}
 					int low = Integer.MAX_VALUE;
-					for (int[] o : new int[][]{{x - 1, z}, {x + 1, z}, {x, z + 1}}) {
-						if (o[0] < 0 || o[0] >= w || o[1] >= dp) {
+					for (int[] o : new int[][]{{x - 1, z}, {x + 1, z}, {x, z + 1}, {x, z - 1}}) {
+						if (o[0] < 0 || o[0] >= w || o[1] >= dp || o[1] < 0) {
 							low = Math.min(low, d.site().ground(o[0], o[1]));
 						}
 					}
@@ -187,10 +191,19 @@ public final class Grounds {
 		}
 	}
 
+	/** A registered entrance within two columns of x (its approach comes in over the front row there). */
+	private static boolean nearEntrance(Draft d, int x) {
+		for (int[] e : d.entrances()) {
+			if (Math.abs(e[0] - x) <= 2) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * The space under a raised floor ({@code x0..x1 × z0..z1}, the floor's boards at {@code floorY}) put to use as the
-	 * stilt towns use it: barrels, a bale, and a chest of the house's gear stood among the posts on the
-	 * ground every few blocks, where a body can stand beside them, none at the foot of the stair ({@code keepX, keepZ}).
+	 * stilt towns use it: bales of fodder and storage jars stood among the posts on the ground every few blocks, where a body can stand beside them, none at the foot of the stair ({@code keepX, keepZ}).
 	 */
 	public static void underStilts(Draft d, int x0, int z0, int x1, int z1, int floorY, int keepX, int keepZ) {
 		int k = 0;

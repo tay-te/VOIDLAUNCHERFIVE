@@ -61,18 +61,24 @@ public final class Gallows implements Archetype {
 		Paving.lay(d, 0, 0, w - 1, dp - 1, 0, Paving.paint(d, Paving.pattern(d), (w - 1) / 2.0, (dp - 1) / 2.0, 2, false));
 		int h = 3;
 		// the deck: a column in from each side (the stair takes one), two rows in from the front for the crowd
-		boolean stairLeft = d.chance(0.5);
-		int x0 = 1;
-		int x1 = w - 2;
 		int zA = 2;
 		int zB = dp - 2;
+		int zMid = zA + (zB - zA + 1) / 2;
+		// the stair on the side where the land beyond falls least; where it falls there at all, a column in from the plot's
+		// edge, so the stair's outer rail stands on the plot (a rail can't hang over the neighbour's slope)
+		int dropL = -d.site().ground(-1, zMid);
+		int dropR = -d.site().ground(w, zMid);
+		boolean stairLeft = dropL == dropR ? d.chance(0.5) : dropL < dropR;
+		int inset = Math.min(dropL, dropR) >= 1 && w >= 7 ? 1 : 0;
+		int x0 = stairLeft ? 1 + inset : 1;
+		int x1 = stairLeft ? w - 2 : w - 2 - inset;
 		if (stone) {
 			Scaffold.stone(d, x0, zA, x1, zB, h);
 		} else {
 			Scaffold.timber(d, x0, zA, x1, zB, h);
 		}
 		// the stair up the side, its top step beside the gallows' row
-		int sx = stairLeft ? 0 : w - 1;
+		int sx = stairLeft ? inset : w - 1 - inset;
 		int zF = zA + (zB - zA + 1) / 2;
 		int s0 = zF - (h - 1);
 		Scaffold.stair(d, sx, s0, Dirs.BACK, h, stairLeft ? Dirs.LEFT : Dirs.RIGHT, stone);

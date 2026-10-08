@@ -119,15 +119,23 @@ public final class Cemetery implements Archetype {
 		if (chapel) {
 			chapel(d, t, chx0, chapelZ0, chx1, dp - 1, level[chapelZ0]);
 		}
-		List<int[]> sides = new ArrayList<>();
+		// (where the terraces step up beside a run of wall, the wall rises with them: its coping stays two and a half over
+		// the highest ground inside beside it, so nobody steps from a terrace onto the wall head and along it over the drop)
 		for (int z = 1; z < dp; z++) {
-			sides.add(new int[]{0, z});
-			sides.add(new int[]{w - 1, z});
+			int hi = level[z];
+			for (int k = -1; k <= 1; k++) {
+				if (z + k >= 0 && z + k < dp) {
+					hi = Math.max(hi, level[z + k]);
+				}
+			}
+			int hgt = 2 + hi - level[z];
+			Enclosure.run(d, List.of(new int[]{0, z}, new int[]{w - 1, z}), hgt);
 		}
+		List<int[]> back = new ArrayList<>();
 		for (int x = 1; x < w - 1; x++) {
-			sides.add(new int[]{x, dp - 1});
+			back.add(new int[]{x, dp - 1});
 		}
-		Enclosure.run(d, sides, 2);
+		Enclosure.run(d, back, 2 + Math.max(0, level[Math.max(0, dp - 2)] - level[dp - 1]));
 
 		// --- the walks: the main walk from the gate to the chapel, cross walks every seven rows from the middle one, the
 		// square round the calvary; graves fill the rows between the walks, their feet on a walk, heads away from it
@@ -238,7 +246,8 @@ public final class Cemetery implements Archetype {
 						int[][] cells = Graves.cells(x, fz, head, cross);
 						boolean ok = true;
 						for (int[] c : cells) {
-							ok &= c[0] >= 1 && c[0] <= w - 2 && c[1] >= 1 && c[1] <= dp - 2 && !taken[c[0]][c[1]] && Enclosure.ground(d, c[0], y, c[1]);
+							// (a walk left along the boundary: a headstone against the wall is the step up onto its head)
+							ok &= c[0] >= 2 && c[0] <= w - 3 && c[1] >= 2 && c[1] <= dp - 3 && !taken[c[0]][c[1]] && Enclosure.ground(d, c[0], y, c[1]);
 						}
 						if (!ok) {
 							continue;
