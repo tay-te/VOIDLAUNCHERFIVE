@@ -42,6 +42,7 @@ import net.minecraft.world.level.block.state.properties.Half;
  * <p>Params: {@code level} (walking level on the deck, default the plot's floor), {@code retain_north},
  * {@code retain_south}, {@code retain_east}, {@code retain_west} (world sides standing above the land; default: the
  * sides where a third or more of the land beside lies below the deck), {@code depth} (level − lowest ground, unused).
+ * A side not retained is still faced wherever its fill stands two or more over the land beside it.
  */
 public final class Terrace implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("infra/terrace"), ArchetypeCategory.INFRASTRUCTURE, Set.of(), 0,
@@ -96,9 +97,9 @@ public final class Terrace implements Archetype {
 			Direction out = side.out();
 			Direction world = d.frame().toWorld(out);
 			boolean retained = d.hasParam("retain_" + world.getName()) ? d.param("retain_" + world.getName(), false) : lowSide(d, side, deck);
-			if (retained) {
-				wall(d, lay, side, deck, out == Dirs.FRONT, seed);
-			}
+			// a side the planner does not retain (a neighbour's ground or its own terrace beside it) is still faced where
+			// the fill stands two or more over the land: no raw earth cliffs at the platform's ends
+			wall(d, lay, side, deck, out == Dirs.FRONT, seed, retained ? 1 : 2);
 		}
 	}
 
@@ -114,7 +115,7 @@ public final class Terrace implements Archetype {
 	}
 
 	/** One retaining wall along a side of the platform. */
-	private static void wall(Draft d, Lay lay, Side side, int deck, boolean street, long seed) {
+	private static void wall(Draft d, Lay lay, Side side, int deck, boolean street, long seed, int minVisible) {
 		LineMat face = LineMat.of(lay, Role.FOUNDATION);
 		LineMat plinth = LineMat.of(lay, Role.PLINTH).weathered(0.3);
 		LineMat dressed = LineMat.of(lay, Role.WALL_ACCENT).weathered(0.1);
@@ -131,7 +132,7 @@ public final class Terrace implements Archetype {
 			int ow = d.site().water(side.outX(i, 1), side.outZ(i, 1));
 			int outside = ow == Site.NONE ? og : Math.max(og, ow);
 			int visible = deck - 1 - outside;
-			if (visible < 1) {
+			if (visible < minVisible) {
 				continue;
 			}
 			int g = Math.min(d.site().ground(x, z), og);

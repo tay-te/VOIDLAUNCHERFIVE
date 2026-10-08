@@ -75,19 +75,27 @@ where both ends rest on something, the room lit to the rule).
 
 | plan | cultures | what it is |
 |---|---|---|
-| basilica (`DeepHall`) | temperate, alpine, moorland, maritime | the aisled hall of the silver towns: a tall nave on tie beams, copper lean-to aisles, arcade and clerestory, buttresses, two front towers round a frontispiece with a rose window. The nave wears the culture's own covering; the towers' caps are the culture's: **dark shingle helms** (Bohemia), **copper onions** (the Alps), **squat crenellated towers** (the moors and coasts) |
+| basilica (`DeepHall`) | temperate, alpine, moorland, maritime | the aisled hall of the silver towns: a tall nave on tie beams, copper lean-to aisles, arcade and clerestory, buttresses, two front towers round a frontispiece with a rose window (on the broad halls each tower holds a spiral of slabs from a door on the aisle to a lookout, glazed slits up its faces, the spiral's foot beside the door so the way in stands clear; the dais keeps three rows: step, high table, the reeve's chair). The nave wears the culture's own covering; the towers' caps are the culture's: **dark shingle helms** (Bohemia), **copper onions** (the Alps), **squat crenellated towers** (the moors and coasts) |
 | stave (`HallStave`) | northern | a core of staves on a stone sill in a gallery (*svalgang*) of posts with arched heads under a skirt roof; where the vault leaves room an upper core on masts rising out of a second skirt; a steep top roof with crossed boards at its ends, a ridge turret and spire where it fits; a long fire down the floor |
 | longhouse (`HallStave`) | tundra | one long low hall, a stone footing under timber walls barely a man high, a great half-hipped roof sweeping down along the depth, posts carrying the purlins, a long fire |
 | pavilion (`HallPavilion`) | karst, wisteria | a raised timber hall on a terrace: a dressed platform two or three high with a balustrade and a broad flight, a veranda of columns with brackets under a lower curved eave with lifted corners, lattice windows, triple doors, a flared hipped roof over the hall; a brazier inside |
 | court (`HallCourt`) | desert | walls of the culture's render behind stepped merlons, a pishtaq portal higher than them with a pointed arch over the doors' recess, slim towers under little copper domes, an open court with a pool and arcades down its sides, the hall across the back under a copper dome on a drum |
 | sahel (`HallCourt`) | steppe | the same court built as the Sahel's earthen halls: buttresses every third cell rising to pinnacles, timber torons through the faces, a buttressed tower round the door under a timber lintel, no dome |
-| pueblo (`HallPueblo`) | mesa | a great house of earthen render stepped back in terraces (the moot below, a record room over it, a lookout over that where the vault allows), vigas through the walls, ladders from terrace to terrace, a mission's bell wall over the door |
+| pueblo (`HallPueblo`) | mesa | a great house of earthen render stepped back in terraces (the moot below, a record room over it, a lookout over that where the vault allows), vigas through the walls, a rounded parapet round every terrace (the render capped with a slab, too high to step onto; open where the ladders arrive), ladders from terrace to terrace, a mission's bell wall over the door |
 | loggia (`HallLoggia`) | mediterranean | the *palazzo comunale*: a whitewashed block with quoins and round-arched windows, an open loggia of round arches with a terrace over it, a low hip of tiles, a campanile at the front corner with an arched belfry and a pyramid cap |
 | stilt (`HallStilt`) | tropical, bayou | a timber hall on a grid of posts three over the floor, a gallery two wide round its front and sides behind a railing, shuttered windows, a great hipped roof on deep eaves, a broad flight up the front, lanterns hung under the deck |
 
 The culture's own materials come from `DeepManner.home` (walls, render, columns) and `DeepManner.rehome` (a roof the kit
 rasterised in the deep region's tiles relaid in the culture's own covering); the realm's stone stays in plinths, the
 foot course and terraces, and copper stays where it belongs (the basilica's aisles, the onions and the desert's domes).
+Whatever the plan (wave 7, `HallParts.cut`/`kerb`): the hillside inside the plot is cut back to the floor round the hall,
+so no bank runs up to its eaves (the stave hall's skirt and the longhouse's eaves come flush with the walls, the
+longhouse a row forward, the pueblo drops its side vigas where a bank stands level with them); and wherever the apron,
+the way round or the ground under a raised hall ends at a fall of three or more to the land, a kerb of the foundation's
+wall stands at the edge. The street row is kerbed only where some of the street is there and no water lies before it,
+and never between the street and the way in; a raised hall's flight moves along the front to where the street meets it.
+The pavilion's balustrade posts are capped, the pueblo's ladders railed across their face from a man's height and its
+bell wall's arch a niche over a sill (no door onto the drop).
 **POIs:** DOOR (2–3 in the pueblo), MEETING_POINT, JOB_SITE REEVE + LECTERN, TABLE ×2–3, SEAT, THRONE, STRONGBOX,
 STORAGE (record chests), HEARTH (a wall hearth, a long fire or a brazier), VIEWPOINT (the basilica's towers, the pueblo's
 top terrace), NOTICE_BOARD (most). **Params:** `realm`, `ceiling_y`, `character`, `local`, `variant`.
@@ -97,25 +105,32 @@ A miner's house built the way the silver towns built theirs: a ground storey of 
 piers and arches that make a covered arcade along the street (*loubí*), a jettied upper storey — timber-framed with the
 culture's own infill in the timber traditions, dressed stone in the south's. A cornice and a parapet close a flat roof
 terrace at the top of the plot's height. In front runs the house's stair, a flight of the realm's stone on its own
-soffit, rising past the arcade to the upper door and on to the terrace (a ladder on up the front where the frontage is
-too short). An arched street door with a fanlight and a keystone of the realm's glow; framed windows; planters of the
+soffit against the upper front (the arcade, where there is one, behind it), rising to the upper door and on to the
+terrace (a ladder on up the front where the frontage is too short). The street row before it carries its parapet: a
+coping on a corbel beside every step three or more up, a newel past its head, the ladder railed its whole height on the
+street side and a hood over the upper door beside it (wave 7: the flight's fall edges). On a ledge the flight starts on
+the high side, and the forecourt's ends and street row carry a coping wherever the land beyond lies three or more
+below (the way in left open); where the realm's wall stands on over the plot's top the terrace comes a course lower to
+keep its head room. The desert's merlons and the mesa's and steppe's rounded parapets stand on a course of the render. An arcade only on plots nine or
+more deep, so the rooms behind it keep their depth. An arched street door with a fanlight and a keystone of the realm's glow; framed windows; planters of the
 realm's plants; glow lichen in the damp corners, glow berries hanging from the cornice; a chimney pot smoking on the
 terrace. The top of the front is the culture's: an eave of its own covering sloping out over the street under a timber rail (the north, the Alps, the tundra, the tropics, the bayou, the Mediterranean), its corners lifted with lanterns under them (the karst, the glades), stepped merlons (the desert), vigas under a rounded parapet (the mesa), torons through it (the steppe), the stone parapet and cornice of the silver towns (Bohemia, the moors and coasts). Lower houses keep their piers to the cornice and wear a pent roof or a timber oriel; under a low vault the
-house becomes one room. Inside: the hearth and table below, beds above, the household's tools on a shelf (picks for a
-miner). Where the ground rises behind, the back is cut into it and the rock round the forecourt and terrace is cut
+house becomes one room. Inside: the hearth and table below, beds above (one to every ten cells of the bedroom's floor,
+two to four: a chamber, not a dormitory), the household's tools on a shelf (picks for a miner). Where the ground rises behind, the back is cut into it and the rock round the forecourt and terrace is cut
 back.
-**POIs:** DOOR ×2 (street and upper door), BED ×4–6, HEARTH, TABLE, SEAT, STORAGE ×1–5.
+**POIs:** DOOR ×2 (street and upper door), BED ×2–4, HEARTH, TABLE, SEAT, STORAGE ×1–5.
 **Params:** `stacked` (with `stacked_on`, `level`: the front rows stand on the terrace below; nothing is founded through
 it), `party_left`, `party_right` (no windows, no parapet over a shared wall), `station`, `household` (`job`),
 `realm`, `ceiling_y`, `character`, `local`, `variant`. The terrace's standing level is the plot's height minus one, so a
-dwelling stacked on it (floor at `floorY + maxHeight`) stands one step up from it.
+dwelling stacked on it (floor at `floorY + maxHeight`) stands one step up from it (two where the rock overhangs the
+plot's top and the terrace came a course lower: the stacked plot's cut then opens the rock over it).
 
 ### `deep/market` (DeepMarket.java)
 A paved court open to the street, closed on its other three sides by arcaded wings of stalls: dressed piers and arches,
 a counter in every bay (a barrel of stock and a slab of the furniture's wood) with the merchant behind it, a cloth
 awning out over the court, wares by stall (the deep's own glow berries, mushrooms, ore, iron and the realm's minerals,
 and what comes down the lift: bread, wool, candles). The outer walls have pilasters behind the piers and a window high
-in each bay. The wings are roofed in the culture's own covering; at the back corners two pavilions rise over them under
+in each bay. The wings are roofed in gables of the culture's own covering, pitched a block a block (their street ends walled up); at the back corners two pavilions rise over them under
 copper pyramid roofs with a glow at the finial. In the court a lantern tree — a stone pillar with iron arms hung with
 lanterns over a basin or benches — and festoons of lanterns on chains strung across the court. The merchants' doors go
 through the first pier of each side wing, into the walk behind the counters.
@@ -127,8 +142,11 @@ The deep town's forge on a vent of the realm's fire: a smithy hall of soot-dark 
 great timber beam on corbels. Set in the floor at a back corner a pool of lava rimmed with magma and fenced with iron
 bars; against the back wall the smelting furnace — blast furnaces between stone cheeks under a hood, a lava crucible,
 its broad stack through the roof; down the hall the anvils, the smithing table, a grindstone and the quench trough; ore
-heaped in bins along the side wall with a rail line running in to them from the street; a chest, tools on a shelf. A
-gable roof with a louvre along its ridge, tie beams with lanterns.
+heaped in bins along the side wall with a rail line running in to them from the street; a chest, tools on a shelf; vents
+of iron bars high in the side walls. The roof is the culture's (wave 7, from one deepslate bunker in fourteen towns): a
+steep gable with a louvre on its ridge and its frame showing in the gables, the culture's infill between (Bohemia, the
+north, the Alps, the moors and coasts), a flared hip on wide eaves (karst, glades, tropics, bayou), a flat deck behind a
+capped parapet with beam ends through it (desert, mesa, steppe, Mediterranean); tie beams with lanterns.
 **POIs:** DOOR, JOB_SITE SMITH ×2 (smithing table, the striker's place between the anvils), JOB_SITE SMELTER ×2 (the
 furnace), STORAGE. **Params:** `realm`, `ceiling_y`, `character`, `local`, `variant`.
 
@@ -149,7 +167,10 @@ rail post on the well's side of every step; down the well hangs the hoist's chai
 the winding beam at the head to the cage at the foot. In the realm the shaft stands as a tower on a stepped plinth, slit
 windows up its faces, string courses every eight blocks with lanterns on brackets, and meets the vault on a ring of
 corbels; above the vault it is a lined shaft through the rock. At the head the winding house on the street — the
-surface town's own walls and roof — with a timber headframe and its sheave through the roof, a paved yard with lamps.
+surface town's own walls and roof — with a timber headframe and its sheave through the roof (standing up to nine over
+the eaves where the plot allows, braced under its crown and girt halfway up), the hatch railed on three sides beside the
+windlass, a paved yard with lamps. The cage at the foot is two high, its roof low enough that no step beside it stands
+four over the floor without its rail.
 Built by hand (no `top_y`): a pit-head over a shaft sunk `depth` (default 24) to a landing chamber.
 **POIs:** DOOR ×2 (the street and the deep square), JOB_SITE HAULER ×2 (the windlass at the head, the cage at the
 foot), STORAGE, SEAT. **Params** (the planner's): `top_y`/`street_y` (the street at the head), `bottom_y` (= `origin.y`),

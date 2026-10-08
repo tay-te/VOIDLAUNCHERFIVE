@@ -51,8 +51,15 @@ public final class Router {
 		}
 	}
 
+	/**
+	 * {@code System.nanoTime()} past which a search on this thread gives up as if there were no way ({@code Roads.connect}
+	 * sets it to a live planner call's deadline: a route searched on past it cost 20–95 ms calls, requests/w7-tour.md §1).
+	 */
+	public static final ThreadLocal<long[]> DEADLINE = ThreadLocal.withInitial(() -> new long[]{Long.MAX_VALUE});
+
 	/** The fine path from start to goal as {@code [xs, zs]}, or null if there is none within the window. */
 	public static int @Nullable [][] route(Ground ground, Occupancy occ, int sx, int sz, int gx, int gz, Params p) {
+		long deadline = DEADLINE.get()[0];
 		int c = p.cell;
 		int x0 = Math.floorDiv(Math.min(sx, gx) - p.margin, c);
 		int z0 = Math.floorDiv(Math.min(sz, gz) - p.margin, c);
@@ -96,7 +103,7 @@ public final class Router {
 				continue;
 			}
 			closed[s] = true;
-			if (++expanded > p.maxStates / 4) {
+			if (++expanded > p.maxStates / 4 || (expanded & 1023) == 0 && System.nanoTime() > deadline) {
 				// a bounded search: give up rather than flood a window with no way through
 				return null;
 			}

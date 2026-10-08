@@ -34,6 +34,8 @@ public final class Report {
 			live, ms(PlannerTimings.LIVE_NANOS.sum(), live), pc[0], pc[1],
 			PlannerTimings.LIVE_MAX.get() / 1e6, b[0].sum(), b[1].sum(), b[2].sum(), b[3].sum(), hist,
 			ms(PlannerTimings.HISTORY_NANOS.sum(), hist)));
+		// why the live calls answered nothing, and where an overrunning call's time went (requests/w6-plan.md §1)
+		out.addAll(dev.voidmc.hearth.plan.PlanStats.lines());
 		var a = w.atlas();
 		long plans = a.plansComputed.sum();
 		long settled = a.plansSettled.sum();

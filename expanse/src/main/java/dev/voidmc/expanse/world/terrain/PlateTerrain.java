@@ -183,7 +183,7 @@ final class PlateTerrain {
 						// an inland sea: stretched one way, its shore wandering at several scales
 						double ux = (x - seaX) * seaCos + (z - seaZ) * seaSin;
 						double uz = -(x - seaX) * seaSin + (z - seaZ) * seaCos;
-						double r = Math.hypot(ux / 1.5, uz * 1.2);
+						double r = PlateMap.len(ux / 1.5, uz * 1.2);
 						double shore = seaR * (1 + 0.45 * model.noise(TerrainModel.N_COAST, x / 900 + 7, z / 900) + 0.2 * model.noise(TerrainModel.N_COAST_FINE, x / 220, z / 220));
 						land &= r > shore;
 					}
@@ -357,7 +357,7 @@ final class PlateTerrain {
 		for (int dx = -2; dx <= 2; dx++) {
 			for (int dz = -2; dz <= 2; dz++) {
 				PlateMap.Plate p = plates.plate(this.plate.gx() + dx, this.plate.gz() + dz);
-				if (p != this.plate && !p.continental() && Math.hypot(p.cx() - this.plate.cx(), p.cz() - this.plate.cz()) < 1.7 * PlateMap.SPACING) {
+				if (p != this.plate && !p.continental() && PlateMap.len(p.cx() - this.plate.cx(), p.cz() - this.plate.cz()) < 1.7 * PlateMap.SPACING) {
 					return true;
 				}
 			}
@@ -417,7 +417,7 @@ final class PlateTerrain {
 	private double volcanicUplift(double x, double z) {
 		double u = 0;
 		for (Volcano v : this.volcanoes) {
-			double d = Math.hypot(x - v.x(), z - v.z());
+			double d = PlateMap.len(x - v.x(), z - v.z());
 			if (d < v.radius()) {
 				u = Math.max(u, v.strength() * Math.pow(1 - d / v.radius(), 1.3));
 			}
@@ -466,7 +466,7 @@ final class PlateTerrain {
 			double qx = x + r * 0.7 * model.noise(TerrainModel.N_COAST, x / 260 + 13, z / 260);
 			double qz = z + r * 0.7 * model.noise(TerrainModel.N_COAST, x / 260 - 29, z / 260);
 			double ragged = 0.3 * model.noise(TerrainModel.N_COAST_FINE, x / 90, z / 90);
-			if (Math.hypot(qx - hx, qz - hz) < r * (1 + ragged)) {
+			if (PlateMap.len(qx - hx, qz - hz) < r * (1 + ragged)) {
 				return true;
 			}
 		}

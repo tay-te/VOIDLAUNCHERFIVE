@@ -92,6 +92,7 @@ public final class HearthPlanner implements SettlementPlanner {
 
 	@Override
 	public @Nullable GrowthProject next(Settlement settlement, TerrainProbe terrain, RandomSource random) {
+		PlanStats.start();
 		PlanState state = settlement.data(this.key);
 		state.calls++;
 		// a settlement with a deep town is planned level by level: the surface sees only its own plots (and the lift)
@@ -103,6 +104,7 @@ public final class HearthPlanner implements SettlementPlanner {
 			// a live call's time limit off the server thread, to see offline what a city's 20 ms do to its plan
 			ctx.deadline = System.nanoTime() + (long) (DEV_DEADLINE_MS * 1_000_000L);
 		}
+		PlanStats.deadlineNow = ctx.deadline;
 		if (!state.founded) {
 			// a settlement the planner never laid out (an old save, a record made by hand): lay it out now
 			reconcile(ctx);
@@ -119,6 +121,7 @@ public final class HearthPlanner implements SettlementPlanner {
 			onTier(ctx, state.lastTier, tier);
 			state.lastTier = tier;
 		}
+		PlanStats.lap(ctx, "reconcile");
 		String why = null;
 		if (state.queue.isEmpty() && (state.deep == null || state.deep.queue.isEmpty())) {
 			why = Growth.plan(ctx);
@@ -134,6 +137,8 @@ public final class HearthPlanner implements SettlementPlanner {
 			deep = true;
 		}
 		boolean live = ctx.deadline != Long.MAX_VALUE || PlanStats.everyCall;
+		PlanStats.lap(ctx, "the queue");
+		state.outOfTime = project == null && why != null && why.contains("out of time");
 		if (project == null) {
 			if (live) {
 				PlanStats.nothing(settlement.id(), settlement.name(), settlement.population(), why != null ? why
@@ -154,6 +159,12 @@ public final class HearthPlanner implements SettlementPlanner {
 		state.serial++;
 		settlement.markDirty();
 		return new GrowthProject(project.spec(), project.replaces(), project.reason());
+	}
+
+	/** Whether the last call answered nothing only because it ran out of time: the clock asks again at its next step. */
+	@Override
+	public boolean ranOutOfTime(Settlement settlement) {
+		return settlement.data(this.key).outOfTime;
 	}
 
 	/** Founds the layout, forcing the dev layout ({@code -Dhearth.dev.plan.layout}) on whatever thread this runs. */

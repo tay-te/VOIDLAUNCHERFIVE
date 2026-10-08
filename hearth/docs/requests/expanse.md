@@ -61,3 +61,8 @@ lands (it changes heights in temperate country, so the histories of regions not 
 - Expanse sites (knoll, summit, pass, wood_edge, border) for its ruins and sights, all behind LandClaims. The pass refuge is
   "peopled" (stands down with Hearth): Hearth adds a kept **pass hospice** small settlement (with the caravan stop,
   mountain monastery, nomad camp, fishing harbour, shepherd's farmstead).
+
+Landed in Expanse main ea6fe529 (merged into hearth): `ExpanseSights.greatMines`, `ExpanseUnderground.sampler(level).water/at`,
+rope bridges/landings and the Great Mine pithead stand down under LandClaims; `pass_refuge` is PEOPLED (never generates
+with Hearth: the pass hospice takes the saddle). Site definitions (`SitedJigsawStructure.siteScore`): a knoll stands 12+
+over the ring at radius 56; a pass rises 12+ along one axis at ±48 and falls 8+ across it.

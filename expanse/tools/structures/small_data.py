@@ -83,6 +83,9 @@ PROCS = {
     "small_snowfield": plist(STONE_WEATHER, aged_wood("spruce"), SNOWFIELD, [rule("cobweb", 0.4, "air")]),
     "small_dig_snowfield": plist(SNOWFIELD, aged_wood("spruce"), archaeology(
         "gravel", "suspicious_gravel", "expanse:chests/mammoth_dig_snowfield_archaeology", 4)),
+    # a bare hill: thin grass, the odd fern, hardly a flower (the gallows hills)
+    "small_bare": plist(STONE_WEATHER, aged_wood("dark_oak", "spruce"),
+                        flowers(("air", 0.5), ("fern", 0.08), ("dandelion", 0.02)), [rule("moss_carpet", 0.3, "air")]),
 }
 
 
@@ -1126,3 +1129,116 @@ TABLES["mammoth_dig_snowfield_archaeology"] = table(
                                               item("gold_nugget", 2), sherd("howl", 2), sherd("snort", 2),
                                               sherd("danger"), item("emerald"), item("arrow", 2), item("sniffer_egg")),
     kind="archaeology")
+
+# ------------------------------------------------------------------ the sited places (site=...): journals
+BOOKS["pass_refuge"] = {
+    "title": "Hut Book of the Pass", "author": "the wardens of the pass",
+    "pages": [
+        "This hut is kept by the parishes on both sides of the mountain for whoever the weather catches. "
+        "Shut the door. Bank the fire. Leave the hut as you would wish to find it.",
+        "Wood is cut in summer and carried up on the mules. Burn what you need and no more. The chest is for "
+        "the snowbound, not for the merely hungry. Write your name and the day.",
+        "Crossed with six mules and salt for the market, fog to the waist, all well. - Jakub. "
+        "Snow at the top, waited two days, ate the warden's bread. God keep him. - a pilgrim.",
+    ]}
+BOOKS["summit_cross"] = {
+    "title": "Summit Book", "author": "kept at the cross",
+    "pages": [
+        "The cross was carried up in pieces by the men of the valley and raised on the feast of Saint James. "
+        "Whoever reaches it: give thanks, write your name, and close the box against the snow.",
+        "Up from the pass in four hours, the whole country laid out to the west. - Ondrej. "
+        "Came up for the view and got cloud. Came up again. Worth it. - V.",
+        "The lightning struck the cross in the storm of August and did it no harm but to blacken the iron. "
+        "The valley says it was well placed.",
+    ]}
+BOOKS["hill_chapel"] = {
+    "title": "Chapel of the Hill", "author": "Father Matej",
+    "pages": [
+        "The chapel was old when the village below was new. The pilgrims climb up on the feast day, the bell "
+        "is rung, and for one afternoon the hill is full of people again.",
+        "The roof over the nave came in during the winter of the great snow. The bishop has been written to. "
+        "The bishop has been written to again.",
+        "What the parish keeps is under the loose flag before the altar. The dead in the yard are ours; the "
+        "lime tree is older than all of them.",
+    ]}
+BOOKS["hunters_hide"] = {
+    "title": "Tally of the Stand", "author": "Vojtech, gamekeeper",
+    "pages": [
+        "Sat from dusk. Roe doe and two kids at the salt, a fox along the hedge, nothing for the pot. Hay "
+        "put out in the rack for the hard weather.",
+        "A stag at first light, ten tines, came out of the beeches and stood broadside at the lick. Did not "
+        "shoot. Some mornings are for looking.",
+        "Somebody has been at the rack with a snare. If it is you, the lord's warden knows your boot prints. "
+        "My spare string and arrows are in the box under the rack.",
+    ]}
+
+# ------------------------------------------------------------------ the sited places: loot
+TABLES["pass_refuge"] = table(
+    "pass_refuge",
+    pool((3, 6), item("bread", 10, (1, 3)), item("cooked_mutton", 6, (1, 2)), item("coal", 8, (2, 6)),
+         item("torch", 6, (2, 5)), item("candle", 6, (1, 3)), item("string", 5, (1, 3)), item("leather", 4, (1, 2)),
+         item("white_wool", 4, (1, 3)), item("stick", 5, (2, 6)), item("flint", 3, (1, 2))),
+    pool(1, empty(5), item("lead", 3), item("lantern", 2), item("flint_and_steel", 1), item("compass", 1)))
+TABLES["pass_refuge_hidden"] = table(
+    "pass_refuge_hidden",
+    pool((2, 4), item("iron_nugget", 10, (3, 9)), item("gold_nugget", 6, (2, 6)), item("emerald", 4, (1, 2)),
+         item("iron_ingot", 3, (1, 2)), item("golden_carrot", 3, (1, 3)), item("honey_bottle", 3),
+         item("leather_boots", 2, damage=(0.4, 0.8)), item("lead", 4, (1, 2))),
+    pool(1, empty(3), item("name_tag", 1), lore("pass_refuge", 3)))
+TABLES["summit_cross"] = table(
+    "summit_cross",
+    pool((1, 3), item("paper", 8, (1, 4)), item("feather", 5, (1, 2)), item("ink_sac", 4), item("candle", 4),
+         item("expanse:edelweiss", 5, (1, 2)), item("bread", 4), item("string", 3, (1, 2))),
+    pool(1, lore("summit_cross", 4), item("writable_book", 1)))
+TABLES["summit_cross_hidden"] = table(
+    "summit_cross_hidden",
+    pool((2, 4), item("iron_nugget", 10, (2, 8)), item("gold_nugget", 6, (2, 5)), item("emerald", 3, (1, 2)),
+         item("golden_carrot", 4, (1, 3)), item("honey_bottle", 3), item("lead", 4), item("iron_ingot", 2)),
+    pool(1, empty(4), item("spyglass", 1), item("compass", 2)))
+TABLES["hill_chapel"] = table(
+    "hill_chapel",
+    pool((2, 4), item("candle", 10, (1, 3)), item("gold_nugget", 6, (1, 4)), item("iron_nugget", 6, (1, 5)),
+         item("paper", 4, (1, 3)), item("bread", 4, (1, 2)), item("poppy", 4, (1, 3)), item("white_wool", 3, (1, 2)),
+         item("glass_bottle", 3)),
+    pool(1, empty(6), item("book", 2), item("emerald", 1)))
+TABLES["hill_chapel_hidden"] = table(
+    "hill_chapel_hidden",
+    pool((2, 4), item("gold_nugget", 10, (3, 9)), item("gold_ingot", 3, (1, 2)), item("emerald", 5, (1, 3)),
+         item("candle", 6, (2, 4)), item("iron_ingot", 3, (1, 2)), item("copper_ingot", 3, (1, 3))),
+    pool(1, empty(3), book(2), item("golden_apple", 1), lore("hill_chapel", 3)))
+TABLES["ruined_keep"] = table(
+    "ruined_keep",
+    pool((2, 5), item("arrow", 8, (2, 8)), item("iron_nugget", 8, (2, 7)), item("coal", 6, (1, 4)),
+         item("flint", 5, (1, 3)), item("string", 5, (1, 3)), item("bone", 4, (1, 2)), item("leather", 4, (1, 2)),
+         item("torch", 4, (1, 4)), item("bread", 3)),
+    pool(1, empty(6), item("iron_ingot", 2), item("emerald", 1)))
+TABLES["ruined_keep_hidden"] = table(
+    "ruined_keep_hidden",
+    pool((2, 4), item("iron_ingot", 8, (1, 3)), item("gold_ingot", 3, (1, 2)), item("emerald", 5, (1, 3)),
+         item("gold_nugget", 6, (3, 8)), item("iron_sword", 3, damage=(0.3, 0.7)),
+         item("crossbow", 2, damage=(0.4, 0.8)), item("chainmail_helmet", 2), item("arrow", 4, (4, 12))),
+    pool(1, empty(3), book(2), item("shield", 1), item("name_tag", 1)))
+TABLES["gallows_hill"] = table(
+    "gallows_hill",
+    pool((2, 4), item("lead", 8, (1, 2)), item("string", 8, (1, 4)), item("iron_nugget", 6, (1, 5)),
+         item("coal", 5, (1, 3)), item("candle", 4, (1, 2)), item("bread", 4), item("stick", 4, (1, 4)),
+         item("iron_shovel", 2, damage=(0.3, 0.8))),
+    pool(1, empty(6), item("iron_chain", 2), item("emerald", 1)))
+TABLES["gallows_hill_hidden"] = table(
+    "gallows_hill_hidden",
+    pool((2, 4), item("gold_nugget", 8, (2, 6)), item("copper_ingot", 5, (1, 3)), item("emerald", 4, (1, 2)),
+         item("paper", 4, (1, 2)), item("leather_boots", 3, damage=(0.5, 0.9)), item("iron_sword", 2, damage=(0.6, 0.9)),
+         item("clock", 1)),
+    pool(1, empty(4), item("name_tag", 1), item("music_disc_13", 1)))
+TABLES["hunters_hide"] = table(
+    "hunters_hide",
+    pool((2, 5), item("arrow", 10, (2, 8)), item("bread", 8, (1, 2)), item("expanse:cooked_venison", 6, (1, 2)),
+         item("string", 6, (1, 3)), item("leather", 5, (1, 2)), item("rabbit_hide", 4, (1, 2)), item("feather", 5, (1, 3)),
+         item("wheat", 4, (2, 5)), item("stick", 4, (1, 4))),
+    pool(1, empty(6), item("lead", 2), item("spyglass", 1)))
+TABLES["hunters_hide_hidden"] = table(
+    "hunters_hide_hidden",
+    pool((2, 4), item("arrow", 10, (6, 16)), item("string", 6, (2, 4)), item("iron_ingot", 4, (1, 2)),
+         item("emerald", 4, (1, 2)), item("leather_chestplate", 2, damage=(0.3, 0.7)), item("rabbit_foot", 2),
+         item("bow", 3, enchant=True)),
+    pool(1, empty(3), item("name_tag", 1), lore("hunters_hide", 3)))

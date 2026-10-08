@@ -1228,7 +1228,15 @@ public class BiomeTour implements FabricClientGameTest {
 		});
 		world.getServer().runCommand("time set noon");
 		System.out.println("[tour] view " + parts[0] + " at " + x + ", " + y + ", " + z);
+		// (views named deep... are underground: seen by night vision, as the cavern tour sees them)
+		boolean deep = parts[0].startsWith("deep");
+		if (deep) {
+			world.getServer().runCommand("effect give @a minecraft:night_vision infinite 0 true");
+		}
 		this.shoot(context, world, "view_" + parts[0], x, y, z, Float.parseFloat(v[3].trim()), Float.parseFloat(v[4].trim()));
+		if (deep) {
+			world.getServer().runCommand("effect clear @a minecraft:night_vision");
+		}
 	}
 
 	private void zoo(ClientGameTestContext context, TestSingleplayerContext world) {

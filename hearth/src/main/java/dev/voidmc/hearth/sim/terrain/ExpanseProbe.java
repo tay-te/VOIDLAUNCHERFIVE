@@ -49,6 +49,24 @@ public final class ExpanseProbe extends GeneratorProbe {
 			public String describe() {
 				return "Expanse terrain model (uncorrected)";
 			}
+
+			@Override
+			public int site(int x, int z) {
+				return self.site(x, z);
+			}
+		};
+	}
+
+	/**
+	 * The model's castle sites ({@code Column.site}, Expanse 2026-10-07): the level top of a lone volcanic hill, the top of
+	 * an escarpment's edge. Not cached: the planner asks for a few hundred columns once, when it picks the castle hill.
+	 */
+	@Override
+	public int site(int x, int z) {
+		return switch (this.model.sample(x, z).site) {
+			case Column.SITE_HILLTOP -> SITE_HILLTOP;
+			case Column.SITE_RIM -> SITE_RIM;
+			default -> SITE_NONE;
 		};
 	}
 
