@@ -194,7 +194,7 @@ public final class Trees {
 			for (int k = 1; k <= reach; k++) {
 				int nx = lx + Dirs.dx(dir) * k;
 				int nz = lz + Dirs.dz(dir) * k;
-				if (!inPlot(d, nx, nz) || by < floor) {
+				if (!inPlot(d, nx, nz) || by < floor || by < Spots.level(d, nx, nz) + 2) {
 					break;
 				}
 				if (radius >= 2) {
@@ -218,7 +218,8 @@ public final class Trees {
 				for (int dz = -span; dz <= span; dz++) {
 					int px = x + dx;
 					int pz = z + dz;
-					if (!inPlot(d, px, pz)) {
+					// never at head height over the ground under it (a lobe reaching out over a rising slope stops short)
+					if (!inPlot(d, px, pz) || ly < Spots.level(d, px, pz) + 2) {
 						continue;
 					}
 					double best = 9;
@@ -244,7 +245,11 @@ public final class Trees {
 				}
 			}
 		}
-		// leaves the ragged edge cut off from the boughs are taken away (nothing hangs in the air on its own)
+		prune(d, wood, leaf);
+	}
+
+	/** Takes away leaves that touch no wood through other leaves (a ragged edge never leaves a leaf hanging on its own). */
+	private static void prune(Draft d, java.util.List<long[]> wood, java.util.Set<Long> leaf) {
 		java.util.Set<Long> held = new java.util.HashSet<>();
 		java.util.ArrayDeque<Long> q = new java.util.ArrayDeque<>();
 		for (long[] w0 : wood) {
@@ -296,6 +301,7 @@ public final class Trees {
 		}
 		int base = y + h;
 		int r = size == 0 ? 1 : 2;
+		java.util.Set<Long> leaf = new java.util.HashSet<>();
 		for (int dy = 0; dy <= 1; dy++) {
 			int rr = dy == 1 ? r - 1 + (size >= 2 ? 1 : 0) : r;
 			for (int dx = -rr; dx <= rr; dx++) {
@@ -306,13 +312,16 @@ public final class Trees {
 					}
 					int lx = tx + dx;
 					int lz = tz + dz;
-					if (inPlot(d, lx, lz)) {
-						d.setIfAbsent(lx, base + dy, lz, Paint.of(States.leaves(leaves)));
+					if (inPlot(d, lx, lz) && d.isAbsent(lx, base + dy, lz)) {
+						d.set(lx, base + dy, lz, States.leaves(leaves));
+						leaf.add(key(lx, base + dy, lz));
 					}
 				}
 			}
 		}
 		d.set(tx, base, tz, States.axis(log, Direction.Axis.Y));
+		leaf.remove(key(tx, base, tz));
+		prune(d, java.util.List.of(new long[]{tx, base, tz}), leaf);
 	}
 
 	/** The lowest a crown of radius r round (x, z) may start: two above the highest ground under it. */
@@ -477,6 +486,10 @@ public final class Trees {
 			if (!conifer) {
 				int ch = height >= 8 ? 4 : 3;
 				int trunk = Math.max(Math.max(2, height - ch - 1), headroom(d, x, z, 2) - y);
+				if (y + trunk + ch >= d.maxHeight()) {
+					// no room under the plot's top for a crown clear of heads: a sapling's worth is left unplanted
+					return y;
+				}
 				for (int t = 0; t < trunk; t++) {
 					d.set(x, y + t, z, States.axis(log, Direction.Axis.Y));
 				}
@@ -485,6 +498,9 @@ public final class Trees {
 			}
 			int skirt = Math.max(2, headroom(d, x, z, 2) - y);
 			int top = y + Math.max(skirt + 3, height - 1);
+			if (top >= d.maxHeight()) {
+				return y;
+			}
 			for (int yy = y; yy < top; yy++) {
 				d.set(x, yy, z, States.axis(log, Direction.Axis.Y));
 			}
