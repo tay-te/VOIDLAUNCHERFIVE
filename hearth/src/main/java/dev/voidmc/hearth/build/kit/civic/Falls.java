@@ -326,10 +326,10 @@ public final class Falls {
 		if (inPlot) {
 			return railAt(d, wk, nx, y, nz, rail);
 		}
-		// at the plot's edge, over the land beyond: a rail on the cell itself (a corner of the yard; never beside an approach's
-		// steps, and taken back by the caller where it is the way in)
+		// at the plot's edge, over the land beyond: a rail on the cell itself (a corner of the yard; never beside a raised
+		// approach's steps, and taken back by the caller where it is the way in)
 		if (!nearDoor(d, x, y, z) && !(u != null && (u.getBlock() instanceof StairBlock || u.getBlock() instanceof SlabBlock)) && !poi(d, x, y, z)
-			&& !onApproach(d, x, y, z)
+			&& !(y >= 2 && onApproach(d, x, y, z))
 			&& d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && d.allowed(x, y, z)) {
 			d.inStage(StageKind.EXTERIOR, () -> d.set(x, y, z, rail));
 			return true;
