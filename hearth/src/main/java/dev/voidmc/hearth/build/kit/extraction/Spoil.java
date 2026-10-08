@@ -66,7 +66,53 @@ public final class Spoil {
 				}
 			}
 		}
+		taper();
+		best = 0;
+		for (double h : this.height) {
+			best = Math.max(best, h);
+		}
 		this.top = best;
+	}
+
+	/**
+	 * Tipped waste runs out to its angle of repose on every side, the plot's edge and the yard's included: no column of
+	 * the finished tip stands more than a block over a neighbour (bare ground counting as its own height), so the tip is
+	 * a mound stepping down to the land all round, never a loaf with a cliff where the allowed ground ends, and nobody
+	 * walking its crest stands over a drop.
+	 */
+	private void taper() {
+		for (int pass = 0; pass < 8; pass++) {
+			boolean changed = false;
+			for (int z = 0; z < this.dp; z++) {
+				for (int x = 0; x < this.w; x++) {
+					int i = z * this.w + x;
+					double h = this.height[i];
+					if (h < 0.45) {
+						continue;
+					}
+					double cap = h;
+					for (int[] o : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+						int nx = x + o[0];
+						int nz = z + o[1];
+						int top;
+						if (nx >= 0 && nz >= 0 && nx < this.w && nz < this.dp) {
+							int j = nz * this.w + nx;
+							top = this.height[j] >= 0.45 ? this.base[j] + (int) Math.round(this.height[j]) : dev.voidmc.hearth.build.terrain.Groundwork.surface(this.d, nx, nz);
+						} else {
+							top = this.d.site().ground(nx, nz);
+						}
+						cap = Math.min(cap, top - this.base[i] + 1.45);
+					}
+					if (cap < h) {
+						this.height[i] = cap < 0.45 ? 0 : cap;
+						changed = true;
+					}
+				}
+			}
+			if (!changed) {
+				break;
+			}
+		}
 	}
 
 	private static double segment(double x, double z, double ax, double az, double bx, double bz) {

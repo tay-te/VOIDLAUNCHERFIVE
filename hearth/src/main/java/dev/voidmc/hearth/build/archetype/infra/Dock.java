@@ -61,7 +61,13 @@ public final class Dock implements Archetype {
 		if (pts == null) {
 			width = Demo.odd(Math.min(3, d.frontage()));
 			int cx = d.frontage() / 2;
-			int[][] r = Course.run(lay.wx(cx, d.depth() - 1), lay.wz(cx, d.depth() - 1), lay.wx(cx, 0), lay.wz(cx, 0));
+			// alone (tests, previews): from the land out over the water where the plot has a shore, the way the planner
+			// lays it (front to back when the back is wet)
+			boolean backWet = lay.wet(lay.wx(cx, d.depth() - 1), lay.wz(cx, d.depth() - 1));
+			boolean frontWet = lay.wet(lay.wx(cx, 0), lay.wz(cx, 0));
+			int za = backWet && !frontWet ? 0 : d.depth() - 1;
+			int zb = za == 0 ? d.depth() - 1 : 0;
+			int[][] r = Course.run(lay.wx(cx, za), lay.wz(cx, za), lay.wx(cx, zb), lay.wz(cx, zb));
 			int end = lay.surface(r[0][r[0].length - 1], r[1][r[0].length - 1]);
 			int land = Math.clamp(lay.surface(r[0][0], r[1][0]), end - r[0].length + 2, end + r[0].length - 2);
 			land = Math.min(land, lay.floorY() + d.maxHeight() - 4);
@@ -206,11 +212,14 @@ public final class Dock implements Archetype {
 				}
 				continue;
 			}
-			// mooring posts along the edges
-			boolean post = stone ? k % 4 == 2 : k % 3 == 1 && lay.wet(col.x(), col.z());
+			// mooring posts along the edges: on a timber pier a pile's head left standing through the deck as a fence post,
+			// every sixth step, the sides in turn, so the walk down the middle stays clear (no slalom of log stumps)
+			boolean post = stone ? k % 4 == 2 : k % 6 == 1 && (k / 6 % 2 == 0) == right && lay.wet(col.x(), col.z());
+			// (never on a flight of the steps down to the deck, its head or its foot)
+			post &= lv[k - 1] == l && (k + 1 >= n || lv[k + 1] == l);
 			if (post && l <= top && lay.empty(col.x(), l, col.z())) {
 				try (var s = d.stage(StageKind.EXTERIOR)) {
-					lay.set(col.x(), l, col.z(), stone ? found.has(Form.WALL) ? found.wall() : found.full() : pile.log(Direction.Axis.Y));
+					lay.set(col.x(), l, col.z(), stone ? found.has(Form.WALL) ? found.wall() : found.full() : fence.post());
 				}
 			}
 		}
@@ -234,7 +243,9 @@ public final class Dock implements Archetype {
 			for (Course.Col col : cols) {
 				int k = col.k();
 				int l = lv[k];
-				if (col.ring() != 0 || k < 2 || k > 4 || lv[k] != pier || l + 1 > top) {
+				// (on the level deck only, never at the head or the foot of a flight of the steps)
+				boolean level = k >= 1 && lv[k - 1] == pier && (k + 1 >= n || lv[k + 1] == pier);
+				if (col.ring() != 0 || k < 2 || k > 4 || lv[k] != pier || !level || l + 1 > top) {
 					continue;
 				}
 				try (var s = d.stage(StageKind.EXTERIOR)) {

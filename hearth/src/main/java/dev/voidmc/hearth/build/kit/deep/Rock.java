@@ -182,10 +182,19 @@ public final class Rock {
 					continue;
 				}
 				boolean post = i == 0 || i == cells.size() - 1 || postEvery > 0 && i % postEvery == 0;
-				if (post) {
+				// a guard a person cannot step up onto: a wall block (a block and a half), or a block under a capping slab;
+				// where there is no room over it for the cap (the plot's top), a wall block or the railing's fence
+				boolean room = d.allowed(c[0], y + 1, c[1]);
+				Paint low = wall.has(Form.WALL) ? wall.wall() : dress.has(Form.WALL) ? dress.wall()
+					: (d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING) : d.mat(Role.FURNITURE)).fence();
+				if (post && room) {
 					d.set(c[0], y, c[1], dress.full());
+					d.set(c[0], y + 1, c[1], dress.slab(SlabType.BOTTOM));
+				} else if (wall.has(Form.WALL) || !room) {
+					d.set(c[0], y, c[1], low);
 				} else {
-					d.set(c[0], y, c[1], wall.has(Form.WALL) ? wall.wall() : dress.slab(SlabType.BOTTOM));
+					d.set(c[0], y, c[1], dress.full());
+					d.set(c[0], y + 1, c[1], dress.slab(SlabType.BOTTOM));
 				}
 			}
 		}
