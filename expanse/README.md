@@ -198,6 +198,11 @@ from plate tectonics and erosion rather than from noise alone:
   glacial lakes and old forest in the cold, gorges and volcanic hills here and there in the warm; the steppe,
   deserts and tropics keep their own landforms. Neighbouring countries grade into each other over about a
   kilometre. `./gradlew terrainPreview -Pcountries=true` tints them on the map.
+- **Waterfalls.** Where the land breaks off in a face of rock (an escarpment, a gorge wall, a rock town, a crag)
+  a spring now and then breaks out under the rim, and its water falls the height of the face in a white ribbon
+  (`world/feature/CliffFallsFeature.java`).
+- **Meanders.** Rivers swing either side of their course, and in some country twice as wide, looping through their
+  vales.
 - **Cliffs are rock.** Wherever the ground is steeper than soil will lie (some 55 degrees), the soil is stripped and
   the rock shows: stone, or the country's own sandstone, limestone or basalt. A gorge wall or a hill's crag is a
   face of rock, not a staircase of dirt with grass on every step.
@@ -234,6 +239,12 @@ from plate tectonics and erosion rather than from noise alone:
   - The river comes in at the head and goes on from the outlet; under the water it is the lake's.
   - Two great lakes never overlap; the site search is done once per cell for every thread, so the lakes
     cost the terrain next to nothing.
+- **The climate follows the land.** The air warms and cools over broad zones tens of kilometres across; the rain
+  comes in off the sea on a westerly wind, so the coasts are wet and the land dries the further it lies inland, and
+  a great range wrings the rain out of the wind, leaving the country in its lee dry for tens of kilometres (the rain
+  shadow) while its windward foothills are the wettest of all. So the steppe lies behind the mountains and the
+  green heartland where the rain falls: every country and biome lies where it does for a reason
+  (`TerrainModel.climateAt`; `terrainPreview -Pclimate=true` shows it).
 - **Biomes follow the land.** The climate values the biome source reads come from the terrain:
   - continentalness from distance to the coast;
   - erosion from how mountainous the land is;
@@ -277,6 +288,31 @@ from plate tectonics and erosion rather than from noise alone:
     arched roofs, rising and falling between y 12 and 44.
   - **River tunnels:** one family carries rivers, with a channel down the middle, a dry ledge either side
     and waterfalls where the level drops.
+    - *The great rivers:* along some stretches (a slow noise) a river broadens to forty blocks and more of
+      dark water between shingle beaches, under a vault up to seventy blocks high, sinking deeper as it goes
+      so it steps down into them in falls. Glowworm silk hangs thick from their vaults (a sky of faint green
+      stars over the water), bats roost up there, and salmon and cod swim in the deep water.
+    - *Bridges and landings:* in about two cells of 192 blocks in three where a river runs, a rope bridge
+      slung across from ledge to ledge (a walk of slabs sagging over the middle, chains for hand ropes, a
+      lantern on an end post) or a landing on one bank (a jetty on posts, a boat tied up alongside, barrels
+      and a lantern post behind it): the rivers were roads once (`world/terrain/RiverSights.java`,
+      `-Pslice=riversights` lists them).
+  - **Buried seas:** one 6.4 km cell in three holds a flooded cavern a kilometre and more across, far bigger
+    than a realm, in place of any realm there: still water from shore to shore under a vault up to a hundred
+    blocks high, hung with spires; craggy islands and stacks standing out of it, shingle shores round it, the
+    rivers that reach it pouring in from their tunnels. Glow squid in the water, bats under the vault
+    (`-Pslice=deep` lists the seas and the great rivers).
+  - **The great mines:** where a realm lies under a high mountain, men sank a shaft into the mountain's
+    flank to reach it (one at most in each 2.4 km cell, about one in five). High on the slope stands the
+    pithead: a deck of planks on stilts, a timber headframe over the shaft carrying the winding chain, a
+    spoil heap tipped down the hill. The shaft drops straight down, five blocks square, ladder up its north
+    wall and timber sets every eight blocks, 120 to 360 blocks through the rock. Every 24–34 blocks a level
+    opens off it: a timbered station with a railing, barrels and a lantern, and drifts running out along the
+    veins, five wide and five high, framed every four blocks, rails down the middle, a frame here and there
+    fallen in, ore in the walls and at the faces where they stopped (coal and copper high up, iron lower,
+    gold and redstone deep). The lowest working level is sometimes dammed off and flooded. At the foot the
+    great drift, seven wide, runs on level into the realm's wall and breaks out on its floor: the way the
+    miners found the deep (`world/terrain/GreatMines.java`, `MineLife.java`; `-Pslice=mines` lists them).
   - **Realms:** about one every 1.5 km, 110 to 440 blocks across, deep in the deepslate under vaults up to
     130 high. A dry tunnel comes out high on a realm's wall with a scree ramp down from its mouth; a river
     pours out of its tunnel in a waterfall, into a plunge pool it has scoured. Below:
@@ -342,7 +378,8 @@ from plate tectonics and erosion rather than from noise alone:
     frostblooms, magma, glow lichen and lava light the realms in places, so they are a dark land of lit
     places rather than a black void.
   - **Dry:** the aquifers flood nothing (through their `exclusion`), so the water and lava lie where the
-    model puts them; below y -54 every open space is lava, as in vanilla.
+    model puts them; below y -54 every open space is lava, as in vanilla. Lava springs (vanilla's twenty a chunk,
+    which would pour out of every cavern wall) come four a chunk, below y -24 only.
   - **Safety:** apart from the ways in (and the abysses and lava-tube skylights, which are ways in too),
     nothing comes within 16 blocks of the ground above or lies under the sea.
   - **Preview:** `./gradlew terrainPreview -Pslice=plan` maps it from above (realm floors hill-shaded and
@@ -477,8 +514,9 @@ on the rises, light open country between.
   mostly wood. Above about y 185 the trees give out.
 - **Hedgerows** divide the open country into fields wherever it lies: on the Earth terrain in the open land of
   the temperate forests and meadows too, never inside a wood.
-- **Fields.** Inside the hedges each field is farmed as a whole: ripe wheat gold from end to end, green wheat,
-  fallow earth turned over, hay meadow grown tall, or pasture. From a hill the vale below is a quilt of gold and
+- **Fields.** Inside the hedges each field is farmed as a whole: ripe wheat gold from end to end, a field being
+  reaped (stubble, the sheaves stood up in stooks in rows), green wheat, fallow earth turned over, hay meadow grown
+  tall round its haystack, or pasture with a flock of sheep or a few cattle grazing it. From a hill the vale below is a quilt of gold and
   green and brown, under the dark woods on the rises.
 - **The greens** of the temperate land are muted and olive, as in a real countryside: vanilla's temperate biomes
   take greens of their own (`world/biome/Palette.java`) instead of the colour map's bright lime.
@@ -627,6 +665,24 @@ chest and a hidden one, and most have a lore book or journal.
 | Lighthouse, keeper's cottage and jetty | Palm Coast, Coral Coast, Beach |
 | Nomad camp: yurts, dyers, a llama corral | Amber Steppe, Savanna, Savanna Plateau |
 
+**Sited places.** Seven kinds stand only where the land itself gives them a reason to be there
+(`SitedJigsawStructure`'s `site`): each grid point looks up to 48 blocks round it in the terrain model for the best
+spot of its kind and builds there, its middle on the spot, at the ground's height. So the chapel is on the hilltop
+you can see it from, the refuge is on the saddle the road goes over, the boundary stones are on the border.
+
+| Place | Site | What's there |
+|---|---|---|
+| Hill chapel (2 variants) | `knoll`, a rise a dozen blocks and more over the land round it | A small ruined Romanesque chapel: round apse, bell gable or squat belfry, part of the roof fallen, pews and altar, a churchyard wall, graves with crosses, an old oak |
+| Ruined keep (2) | `knoll` | A tower house of plain stone, a corner or a whole face come down, floors and fireplaces open to the sky, a stretch of curtain wall, a well |
+| Gallows hill (2) | `knoll` | A braced gallows or a gibbet with its cage, a breaking wheel on a pole, unmarked graves, a weathered board |
+| Summit cross (3) | `summit`, a mountain top y 190 and up | An Alpine summit cross of dark timber on a stone plinth, chain stays, the summit book in its box, a bench; or a new cross beside the old one's stump |
+| Pass refuge (2) | `pass`, a saddle between heights | A drystone mountain hut with a hearth, bunks and stores, a shrine, a woodpile, a trough and a hitching rail by the pass road. With VOID Hearth installed it stands down (Hearth keeps a pass hospice there instead) |
+| Hunters' hide (2) | `wood_edge`, where a wood gives onto open land | A raised hunting stand on poles, or a closed pulpit with a door and shutters; a salt lick and a hay rack in front |
+| Boundary stone (3) | `border`, where one country gives way to another | A dressed stone post with its number and date, a bounds-walkers' cairn, or two stones facing across the line |
+
+The chapel, keep and gallows share one grid (`knolls`), so two never take the same hill; all keep clear of the
+small sights' grids and of land a settlement has claimed.
+
 **Small sights.** 17 kinds, 108 variants (36 structures with three layouts each), on two shared grids
 (every 12 and 14 chunks). Every land biome, vanilla or Expanse, takes part in both grids (the beaches in
 one; the stony and snowy shores and the mushroom islands in neither), so wherever you go you pass one every
@@ -732,11 +788,22 @@ country, humidity, temperature, how low it lies, how far from water and the sea,
 air's character) for mods that dress it, such as VOID Gloam's mist and haze. It is a pure function of the
 seed and the coordinates, cheap enough to ask every tick.
 
+`dev.voidmc.expanse.api.ExpanseUnderground.sampler(level)` says what a point underground is like (`at(x, y, z)`:
+how open, its floor and roof, the nearest cavern water and its surface, the realm, whether a great river runs
+there, glowworms, bats, dripping water, a great mine) for VOID Gloam's mist, drip and echo, and where the water
+lies in the caverns under a column (`water(x, z)`: river, buried sea, a realm's lake or lava, with its surface) for
+VOID Hearth's river landings. `ExpanseSights.greatMines(level, x, z, radius)` lists the great mines near a place
+(pithead, shaft bottom, the levels, where the great drift breaks into the realm), for Hearth to people a pithead
+or send a quest down one. Both come from the seed, the same before and after the chunks are generated.
+
 `TerrainModel.sampleFar(x, z, out)` gives a far view (VOID LOD's horizon past 32 km) the land averaged over cells of
 `TerrainModel.FAR_GRID` (512) blocks and up: the same plates, drainage, climate and countries, each plate worked out
-again on a 512-block grid (some 30 KB, cached apart), so a 100 km horizon never builds a full plate. It agrees with
-`sample` to within about 7 blocks over a cell on average, at a few microseconds a call (`terrainPreview
--Pslice=far` measures it). `TerrainModel.sample` is what LOD reads nearer in; `reservePlates` lets it keep more
+again on a 512-block grid (some 30 KB, cached apart), so a 100 km horizon never builds a full plate. The coarse grid
+can't hold the mountains' ridges, so its land is lifted back by what that comes to (by uplift, measured with
+`-Pslice=farpeaks`): it agrees with the fine ground's mean over a cell to within a few blocks at every height, and
+`out.peak` gives the cell's high ground (about the 90th percentile of the fine ground) for skylines. Its climate is
+read on a grid of its own, a kilometre apart, so a call takes a few microseconds (`terrainPreview -Pslice=far`
+measures it). `TerrainModel.sample` is what LOD reads nearer in; `reservePlates` lets it keep more
 plates built while it does.
 
 ### Extras

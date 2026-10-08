@@ -293,6 +293,15 @@ public final class SettlementClock {
 				project = null;
 			}
 			PlannerTimings.record(c.eventWorld() != null, System.nanoTime() - t0);
+			if (project == null && k.outOfTimeRuns < MAX_OUT_OF_TIME_RETRIES && planner.ranOutOfTime(s)) {
+				// nothing only because the call ran out of time (a live call's limit, a city's long searches): the needs it did not
+				// reach are asked at the next step, not half a day later (requests/w6-plan.md §4, w7-tour.md §1); the planner rests
+				// the needs that ran out of time, so the next call tries the others
+				k.outOfTimeRuns++;
+				k.noGrowthUntil = k.simTick + 1;
+				return;
+			}
+			k.outOfTimeRuns = 0;
 			if (project == null || !c.allows(s, project.spec())) {
 				k.noGrowthUntil = k.simTick + SimRules.DAY / 2;
 				return;
@@ -307,6 +316,9 @@ public final class SettlementClock {
 			active++;
 		}
 	}
+
+	/** Out-of-time answers in a row asked again at the next step before the clock waits its half day as for any other. */
+	static final int MAX_OUT_OF_TIME_RETRIES = 4;
 
 	/** Roads handed out in a row before the clock stops asking within one step. */
 	static final int MAX_ROADS_IN_A_ROW = 4;
@@ -976,8 +988,37 @@ public final class SettlementClock {
 				order.add(j);
 			}
 		}
+		// after the builders (and the food trades while food is short), one hand for each trade with a working being cut: an
+		// excavation is dug by its trade alone, and in a small town the trades before it in the list took every hand (a shaft
+		// staked out for 200 days with no miner in a town of 28, requests/w7-tour.md §3). One, not the face's whole crew: the
+		// rest come as the list reaches them, and a face cut by a full crew in a day or two stood closed for weeks before the
+		// next was staked out, where one cut slowly has someone at it every day
+		int[] digging = new int[jobs];
+		for (SimPlot p : s.plots.values()) {
+			if (p.digs && p.isActive()) {
+				for (int j = 0; j < jobs; j++) {
+					digging[j] += p.jobSlots(JobType.values()[j]);
+				}
+			}
+		}
+		int crewsAfter = hungry ? 4 : 1;
 		int next = 0;
-		for (JobType job : order) {
+		for (int o = 0; o < order.size(); o++) {
+			if (o == crewsAfter) {
+				for (int j = 0; j < jobs; j++) {
+					int crew = Math.min(slots[j], Math.min(1, digging[j]));
+					while (filled[j] < crew && next < idle.size()) {
+						Resident res = idle.get(next++);
+						res.job = JobType.values()[j];
+						res.work = workplaceFor(s, res.job, usedAt, jobs);
+						if (res.work != Resident.NO_PLOT) {
+							usedAt.addTo(res.work * jobs + j, 1);
+						}
+						filled[j]++;
+					}
+				}
+			}
+			JobType job = order.get(o);
 			int j = job.ordinal();
 			while (filled[j] < slots[j] && next < idle.size()) {
 				Resident res = idle.get(next++);
@@ -997,6 +1038,12 @@ public final class SettlementClock {
 
 	/** A standing plot with a free job site for this job, or none (builders without a yard work from home). */
 	private static int workplaceFor(SimSettlement s, JobType job, it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap usedAt, int jobs) {
+		// a digger to the face being cut before a pit dug out (requests/w7-tour.md §3)
+		for (SimPlot p : s.plots.values()) {
+			if (p.digs && p.isActive() && usedAt.get(p.id() * jobs + job.ordinal()) < p.jobSlots(job)) {
+				return p.id();
+			}
+		}
 		for (SimPlot p : s.plots.values()) {
 			if (p.employs() && usedAt.get(p.id() * jobs + job.ordinal()) < p.jobSlots(job)) {
 				return p.id();

@@ -34,7 +34,17 @@ public final class EarthProbe implements TerrainProbe {
 
 	@Override
 	public int maxY() {
-		return 384;
+		// Expanse's taller overworld (2026-10-07: ranges to ~600)
+		return 640;
+	}
+
+	@Override
+	public synchronized int site(int x, int z) {
+		return switch (this.model.sample(x, z).site) {
+			case Column.SITE_HILLTOP -> SITE_HILLTOP;
+			case Column.SITE_RIM -> SITE_RIM;
+			default -> SITE_NONE;
+		};
 	}
 
 	@Override

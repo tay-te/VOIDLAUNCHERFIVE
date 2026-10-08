@@ -49,6 +49,8 @@ final class HallStilt {
 		int cz0 = pz0 + 2;
 		int cz1 = pz1 - 1;
 		int c = (cx0 + cx1) / 2;
+		// the flight's first column: before the doors, unless the street falls away there
+		int sx = HallParts.flightX(d, c - 1, 3, px0 + 1, px1 - 3);
 		int plate = y0 + 4;
 		int dmax = (w - 1) / 2;
 		double pitch = 0.4;
@@ -106,7 +108,7 @@ final class HallStilt {
 			for (int[] p : Draft.ring(px0, pz0, px1, pz1)) {
 				int x = p[0];
 				int z = p[1];
-				boolean stair = z == pz0 && Math.abs(x - c) <= 1;
+				boolean stair = z == pz0 && x >= sx && x <= sx + 2;
 				boolean post = isPost(x, z, px0, pz0, px1, pz1) && !stair;
 				if (post) {
 					for (int y = y0; y < plate; y++) {
@@ -168,7 +170,7 @@ final class HallStilt {
 			}
 		}
 		// the steps up the front, three wide
-		Stairs.straight(d, c - 1, 0, 0, Dirs.BACK, lift, 3);
+		Stairs.straight(d, sx, 0, 0, Dirs.BACK, lift, 3);
 		// double doors
 		Block door = d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR);
 		for (int x = c; x <= c + 1 && x < cx1; x++) {

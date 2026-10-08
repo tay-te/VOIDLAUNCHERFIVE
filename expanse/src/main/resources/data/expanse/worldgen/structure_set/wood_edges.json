@@ -1,0 +1,14 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 930417491,
+    "separation": 6,
+    "spacing": 14
+  },
+  "structures": [
+    {
+      "structure": "expanse:hunters_hide",
+      "weight": 1
+    }
+  ]
+}

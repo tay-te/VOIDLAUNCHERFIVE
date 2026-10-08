@@ -32,7 +32,7 @@
     },
     {
       "type": "expanse:clear_of_structures",
-      "margin": 3
+      "margin": 5
     }
   ]
 }

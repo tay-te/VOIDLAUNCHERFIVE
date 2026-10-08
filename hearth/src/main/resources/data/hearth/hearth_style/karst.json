@@ -1,11 +1,11 @@
 {
 	"culture": "karst",
-	"name": "Jade Karst: bamboo and dark timber on limestone sills, sweeping green-tiled roofs with lifted corners, lattices",
-	"base_name": "bamboo house",
+	"name": "Jade Karst: fir boards in dark timber frames on limestone sills, rammed earth, sweeping green-tiled roofs with lifted corners, bamboo screens and lattices",
+	"base_name": "fir house",
 	"roles": {
 		"foundation": [{"m": "expanse:limestone_bricks|minecraft:polished_diorite", "w": 3}, {"m": "expanse:mossy_limestone|minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}],
 		"plinth": [{"m": "expanse:limestone_bricks|minecraft:polished_diorite", "w": 3}, {"m": "expanse:mossy_limestone|minecraft:mossy_stone_bricks", "w": 1, "low": 2}],
-		"wall": [{"m": "minecraft:bamboo_planks", "w": 3}, {"m": "minecraft:stripped_bamboo_block", "w": 0.5}],
+		"wall": ["wood:minecraft:spruce"],
 		"wall_accent": ["expanse:polished_limestone|minecraft:polished_diorite"],
 		"frame": ["wood:minecraft:dark_oak"],
 		"beam": ["wood:minecraft:dark_oak"],
@@ -13,7 +13,7 @@
 		"ceiling": ["wood:minecraft:dark_oak"],
 		"roof": [{"m": "minecraft:dark_prismarine", "w": 4}, {"m": "minecraft:prismarine_bricks", "w": 0.5}],
 		"roof_trim": ["minecraft:dark_prismarine"],
-		"gable": ["minecraft:bamboo_planks"],
+		"gable": ["wood:minecraft:spruce"],
 		"window": ["wood:minecraft:dark_oak"],
 		"glass": ["minecraft:glass_pane"],
 		"door": ["wood:minecraft:bamboo"],
@@ -40,7 +40,7 @@
 		"masonry": [{"m": "expanse:limestone_bricks|minecraft:polished_diorite", "w": 3}, {"m": "expanse:limestone|minecraft:diorite", "w": 0.24}, {"m": "expanse:mossy_limestone|minecraft:mossy_stone_bricks", "w": 0.09, "low": 12}]
 	},
 	"tiers": {
-		"0": {"wall": [{"m": "minecraft:bamboo_planks", "w": 2}, {"m": "minecraft:bamboo_block", "w": 1}], "roof": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}], "roof_trim": ["wood:minecraft:bamboo"]},
+		"0": {"wall": [{"m": "minecraft:packed_mud", "w": 4}, {"m": "minecraft:mud_bricks", "w": 0.2}], "roof": [{"m": "minecraft:stripped_oak_wood", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}], "roof_trim": ["wood:minecraft:bamboo"]},
 		"3": {"railing": ["wood:minecraft:dark_oak"], "accent": ["expanse:chiseled_limestone|minecraft:chiseled_stone_bricks"]}
 	},
 	"base_weight": 2,
@@ -103,6 +103,9 @@
 				"roof": {"forms": {"pagoda": 6, "hip": 1}, "flare": true, "eaves": 2, "brackets": true}
 			}
 		}
+	],
+	"overrides": [
+		{"when": {"categories": ["workshop"]}, "roles": {"tree_log": ["minecraft:spruce_log"], "tree_leaves": ["minecraft:spruce_leaves"]}}
 	],
 	"habits": {
 		"walls": {"kind": "bamboo", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 2, "braces": 0, "beam_ends": 0.5},

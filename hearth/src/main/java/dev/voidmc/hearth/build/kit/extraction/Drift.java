@@ -85,10 +85,13 @@ public final class Drift {
 				// the land falls away from the street faster than the cutting can follow: no embankment out over it
 				break;
 			}
+			boolean stepped = next != l || z == z0 && next != 0;
 			l = next;
 			this.level[z - z0] = l;
 			this.end = z;
-			if (this.portal == Integer.MAX_VALUE && g - l >= 6) {
+			// the portal stands on a level stretch: a step down under its lantern and doubled set is a step nobody can take
+			// upright, so the cutting runs on a row at the new level before the hill closes over it
+			if (this.portal == Integer.MAX_VALUE && g - l >= 6 && !stepped) {
 				this.portal = z;
 			}
 		}
@@ -184,6 +187,12 @@ public final class Drift {
 				}
 				// the treads where the floor steps down (cut into the rock left standing) at the sides; the rails take the axis
 				try (var o = this.d.order(key)) {
+					// the first step down off the yard's floor, where the cutting starts below it
+					if (za == this.z0 && this.z0 >= 1 && level(this.z0) < 0) {
+						for (int x : new int[]{this.c - 1, this.c + 1}) {
+							this.d.set(x, -1, this.z0 - 1, States.stairs(this.rock.stairs(), Dirs.FRONT, Half.BOTTOM));
+						}
+					}
 					for (int z = Math.max(za, this.z0); z <= zb; z++) {
 						if (z + 1 <= this.end && level(z + 1) < level(z)) {
 							for (int x : new int[]{this.c - 1, this.c + 1}) {
@@ -195,6 +204,7 @@ public final class Drift {
 			}
 			if (za == this.z0) {
 				portal(frame, beam);
+				parapet();
 			}
 			// the timber sets: two posts and a cap, the cap across the crown
 			try (var st = this.d.stage(StageKind.FRAME)) {
@@ -236,14 +246,22 @@ public final class Drift {
 		}
 	}
 
-	/** A set at row z: posts at the sides to the cap, the cap across the crown. */
+	/**
+	 * A set at row z: posts let into the sides to the cap, the cap across the crown resting on them. The posts stand in
+	 * the rock's line, not in the gallery: the whole three-wide floor stays clear, the rails down the middle and a way
+	 * either side of them for the miners (folk will not walk a rail they did not start on, so a set that left only the
+	 * track between its posts would shut them out of the drift).
+	 */
 	private void timberSet(Mat frame, Mat beam, int z) {
 		int l = level(z);
-		for (int y = l; y < l + SIDE; y++) {
-			this.d.set(this.c - 1, y, z, frame.log(Direction.Axis.Y));
-			this.d.set(this.c + 1, y, z, frame.log(Direction.Axis.Y));
+		for (int y = l - 1; y < l + SIDE; y++) {
+			for (int x : new int[]{this.c - 2, this.c + 2}) {
+				if (x >= 0 && x < this.d.frontage()) {
+					this.d.set(x, y, z, frame.log(Direction.Axis.Y));
+				}
+			}
 		}
-		for (int x = this.c - 1; x <= this.c + 1; x++) {
+		for (int x = Math.max(0, this.c - 2); x <= Math.min(this.d.frontage() - 1, this.c + 2); x++) {
 			this.d.set(x, l + SIDE, z, beam.log(Direction.Axis.X));
 		}
 	}
@@ -281,8 +299,14 @@ public final class Drift {
 						if (was != null && !was.isAir()) {
 							continue;
 						}
+						// laid in courses: a dressed course every other one over the floor, dry rubble between (not a heap)
 						double u = Noise.unit(this.d.seed() ^ 0xD5A2, x, y, out);
-						this.d.set(x, y, out, (u < 0.75 ? this.rock.rough() : this.rock.natural()).defaultBlockState());
+						boolean dressed = y >= l && ((y - l) & 1) == 1;
+						this.d.set(x, y, out, (dressed ? this.rock.dressed() : u < 0.75 ? this.rock.rough() : this.rock.natural()).defaultBlockState());
+					}
+					// a coping of slabs where the headwall stands clear of the hill
+					if (top < this.d.maxHeight() && this.d.site().ground(x, out) <= top && this.d.isEmpty(x, top, out)) {
+						this.d.set(x, top, out, States.slab(this.rock.slab(), net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
 					}
 				}
 			}
@@ -311,6 +335,64 @@ public final class Drift {
 		Block lantern = this.d.mat(Role.LIGHT).mainOr(Form.FULL, Blocks.LANTERN);
 		try (var st = this.d.stage(StageKind.EXTERIOR)) {
 			this.d.set(this.c, l + 2, this.portal, States.lantern(lantern, true));
+		}
+	}
+
+	/**
+	 * The cutting's rims: where the land beside the open cutting stands three or more over its floor, a course of the
+	 * rough stone is laid on the rim (the wing walls carried up a course past the turf), so nobody walking the hillside
+	 * steps off into the cutting; the same over the headwall where the hill stands high over the hood.
+	 */
+	private void parapet() {
+		int last = Math.min(this.portal - 1, this.end);
+		// a dry-stone wall's coping (a wall block: too high to step onto), or a post-and-rail fence where the style has none
+		Mat stone = this.d.mat(Role.FOUNDATION);
+		dev.voidmc.hearth.build.draft.Paint guard = stone.has(Form.WALL) ? stone.wall() : dev.voidmc.hearth.build.kit.trade.Hall.woodFence(this.d).fence();
+		try (var st = this.d.stage(StageKind.FOUNDATION)) {
+			for (int z = this.z0; z <= last; z++) {
+				int l = level(z);
+				for (int x = this.c - 1; x <= this.c + 1; x++) {
+					// the rims beside the cutting and across its end where it stops in the open
+					for (int[] o : new int[][]{{-1, 0}, {1, 0}, {0, 1}}) {
+						int nx = x + o[0];
+						int nz = z + o[1];
+						boolean inCut = Math.abs(nx - this.c) <= 1 && nz <= last;
+						if (inCut || nz >= this.portal && this.portal <= this.end || nx < 0 || nx >= this.d.frontage() || nz >= this.d.depth()) {
+							continue;
+						}
+						int g = this.d.site().ground(nx, nz);
+						// on the rim's own ground (never over a cut or a drafted void)
+						BlockState under = this.d.get(nx, g - 1, nz);
+						boolean held = under == null || !under.isAir();
+						if (g - l >= 3 && g < this.d.maxHeight() && held && this.d.isEmpty(nx, g, nz)) {
+							this.d.set(nx, g, nz, guard);
+						}
+					}
+				}
+			}
+			if (this.portal <= this.end && this.portal - 1 >= this.z0) {
+				// a rail along the hood: from the hill or the tip beside the portal the hood is a ledge over the cutting
+				int l = level(this.portal);
+				int out = this.portal - 1;
+				int hy = l + SIDE + 2;
+				for (int x = Math.max(0, this.c - 2); x <= Math.min(this.d.frontage() - 1, this.c + 2); x++) {
+					BlockState hood = this.d.get(x, hy - 1, out);
+					if (hy < this.d.maxHeight() && hood != null && !hood.isAir() && this.d.isEmpty(x, hy, out)) {
+						this.d.set(x, hy, out, guard);
+					}
+				}
+			}
+			if (this.portal <= this.end) {
+				int l = level(this.portal);
+				for (int x = Math.max(0, this.c - 3); x <= Math.min(this.d.frontage() - 1, this.c + 3); x++) {
+					int g = this.d.site().ground(x, this.portal);
+					BlockState under = this.d.get(x, g - 1, this.portal);
+					// the hood is at l + SIDE + 1 over the outer row: a drop of four or more onto it, or onto the cutting
+					if (g - (l + SIDE + 2) >= 3 && g < this.d.maxHeight() && (under == null || !under.isAir()) && this.d.isEmpty(x, g, this.portal)) {
+						this.d.set(x, g, this.portal, guard);
+					}
+				}
+			}
 		}
 	}
 
