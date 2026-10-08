@@ -586,8 +586,11 @@ the single progress counter, the applier and its edit safety, abstract and embod
 up) no longer counts for the planner's program while the town has folk in its trade (a worked-out pit keeps its job
 sites, so its crew stays) or still draws on its goods (stone under 400 + 4 a head in store, ore, clay or sand under
 160 + 2 a head): the next working opens beside the old cut on the same site (the planner skips ground an old working
-took, and runs a short spur on from the old track to the fresh rock) or at the next site, up to four dug out at one
-site before the next site is taken. The stores alone were not enough: the live tour's towns sat on thousands of stone
+took, and runs a short spur on from the old track to the fresh rock) or at the next site, up to three dug out at one
+site before the next site is taken; one face at a time for each work, and each working followed by one successor
+(twice the program's count dug out in all, `Extraction.GENERATIONS`), then no more: MiniSim, which digs as fast as it
+builds, pocked a city's hills with eighty pits in 300 days without that bound (twelve with it). A working cut deeper in
+place would keep a face open for good (requests/w7-planner.md §6). The stores alone were not enough: the live tour's towns sat on thousands of stone
 from their quarriers' surface work. The planner tries the four nearest sites with room (and two points of each pit's
 site, well apart) before it gives up, passing over an ore site under the town's future streets; a crew waiting for
 its next face rests its need only a few calls after a try that found no room. Workings are dug by their own trades, not
@@ -600,12 +603,12 @@ placed at the face being cut before a pit dug out.
 
 Measured with `sim.settlement.RealGrowthTest.aTownKeepsItsDiggersAtAFace` (the sim's harness, real archetypes, a
 temperate town under a cliff with six ore and seven stone sites): before, its first working (a quarry pit) opened on day
-225 at 340 souls and nothing was dug after it; now the first (a shaft) on day 56, 14 workings by 200 days later, a face
-cut further on 45 of those 200 days (open on 66). On a slope (`HEARTH_DIG_TERRAIN=slope`, a hamlet of 30) its shaft
-waited 200 days for a miner, now five more are dug; by a river (`river`) a town of 200 opens its first clay pit on day 98
-and three in 200 days, cut on 17 (no plot fits by the bank track for the next: the layout of the banks). The gaps
-between faces are the planner's tries that find no room and the land's rests; in the cliff town a quarry pit on the
-cliff's foot draws with no cuts at all and is dug out the day it opens (requests/w7-planner.md).
+225 at 340 souls and nothing was dug after it; now the first (a shaft) on day 56, 8 workings by 200 days later, a face
+cut further on 34 of those 200 days (open on 50). On a slope (`HEARTH_DIG_TERRAIN=slope`, a hamlet of 30) its shaft
+waited 200 days for a miner, now six more are dug (cut on 61 days); by a river (`river`) a town of 200 opens its first
+clay pit on day 98 and one more, cut on 5 (no plot fits by the bank track for the next: the layout of the banks). The
+gaps between faces are the planner's tries that find no room and the land's rests; in the cliff town a quarry pit on
+the cliff's foot draws with no cuts at all and is dug out the day it opens (requests/w7-planner.md).
 `plan.RealGrowthTest.workingsDugOutAreFollowedByTheNext` (MiniSim, which digs as fast as it builds) checks the next
 opens as the old are dug out.
 

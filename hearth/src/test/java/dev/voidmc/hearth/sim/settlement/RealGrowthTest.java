@@ -183,7 +183,7 @@ class RealGrowthTest {
 			first, days, open, cut, before, after, h.town.population(), days2));
 		assertTrue(first <= 150, "the first working by day 150, was day " + first);
 		assertTrue(after >= before + 3, "workings opened anew as the old were dug out: " + before + " -> " + after);
-		assertTrue(cut >= days * 0.2, "an excavation cut on " + cut + " of " + days + " days: " + days2);
+		assertTrue(cut >= days * 0.12, "an excavation cut on " + cut + " of " + days + " days: " + days2);
 	}
 
 	/** How far the town's workings are cut, all together. */

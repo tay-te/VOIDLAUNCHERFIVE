@@ -59,6 +59,12 @@ towns under "every need resting"), requests/w6-plan.md §1, §4 and §5, and req
    (`PlotFacts.cuts` all 0: work [0, 87]), so each is "dug out" the day it opens and yields nothing. Planner-side the
    reopening is held to four dug out at a site, but such pits are scars with nothing taken out. Worth a look: a pit
    that cannot fit a bench should cut at least its floor, or say so (so the planner can pass the spot over).
+6. **Workings cut deeper in place**: a town now opens each working's successor once (twice the program's count dug out
+   in all, `Extraction.GENERATIONS`) and then stops, since every new working is a new pit, shed and track on the hills
+   (MiniSim pocked a city with eighty in 300 days without the bound). A quarry pit taking its next bench, a shaft its
+   next level or a mine its next drift as a change in place (`SimSettlement.inPlace`: the same spec but for a `depth`
+   or `length` param the archetype reads as an addition, so the old stays standing while the new cuts go in) would let
+   a town keep a face open for good on one scar. The planner would then plan the extension instead of the successor.
 
 ## Open for the next wave (planner)
 
@@ -71,12 +77,12 @@ towns under "every need resting"), requests/w6-plan.md §1, §4 and §5, and req
 
 ## For the tour lane
 
-6. **Measure again live** (`LiveTown`): the out-of-time calls (the clock now asks again at its next step, up to four
+7. **Measure again live** (`LiveTown`): the out-of-time calls (the clock now asks again at its next step, up to four
    times, rather than half a day later; a need cut short twice rests about a day's calls and its third try has three
    times the call's time); the planner's past-the-deadline line in `PlanStats.lines()` (now in `/hearth sim stats`)
    shows which stage ran on. Offline (`PlanBenchTest`, `HEARTH_PLAN_BENCH_DEADLINE=10`, `HEARTH_PLAN_BENCH_PROFILE=past`
    samples only what runs past the deadline) the numbers are in PLANNING.md §14.8; the live server's load is what the
    offline bench cannot show.
-7. The tour's scale towns are founded on a fixed 640-block grid, so some land where no settler would (Safia's mesa top).
+8. The tour's scale towns are founded on a fixed 640-block grid, so some land where no settler would (Safia's mesa top).
    The atlas places real towns by the land; a tour town that never grows on such a site says more about the grid than
    about the planner.

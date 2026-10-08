@@ -111,10 +111,29 @@ public final class Extraction {
 				open++;
 			}
 		}
-		if (out == 0 || !wanted(ctx, id) && !employs(ctx, id)) {
+		if (out == 0 || !wanted(ctx, id) && !employs(ctx, id) || out >= GENERATIONS * entryCount(ctx, id)) {
 			return Math.max(have, open);
 		}
-		return open;
+		// one face at a time for the crew: wanted again only when none is open or queued
+		return open > 0 ? Math.max(have, open) : 0;
+	}
+
+	/**
+	 * How many times over its program's count a work is dug out and followed by the next before the town stops opening
+	 * new ones: each working's successor, and then no more, so a city does not pock its hills with pits (MiniSim, which
+	 * digs as fast as it builds, opened eighty in 300 days with no bound). A working cut deeper bench by bench in place
+	 * would keep a face open for good; until the archetypes do that, a long-lived town's faces close in the end.
+	 */
+	static final int GENERATIONS = 2;
+
+	/** The program's count for this work at the town's size (a mine and a shaft count as the mine), at least 1. */
+	private static int entryCount(PlanContext ctx, Identifier id) {
+		for (dev.voidmc.hearth.plan.growth.Program.Entry e : dev.voidmc.hearth.plan.growth.Program.ENTRIES) {
+			if (sameWork(id, e.id())) {
+				return Math.max(1, e.count().applyAsInt(Math.max(ctx.population, e.minPop())));
+			}
+		}
+		return 1;
 	}
 
 	/**
@@ -229,7 +248,7 @@ public final class Extraction {
 				return false;
 			}
 		}
-		return out && employs(ctx, id);
+		return out && employs(ctx, id) && dugOut(ctx, id).values().stream().mapToInt(Integer::intValue).sum() < GENERATIONS * entryCount(ctx, id);
 	}
 
 	/** Whether a working of this work was dug out at this site before (the next is a new bench beside the old cut). */
@@ -241,7 +260,7 @@ public final class Extraction {
 	 * Workings dug out at one site after which the next opens at another: a quarry grows bench by bench beside its old
 	 * cuts, but not without end, so a town that keeps a face open for its diggers spreads its scars over its sites.
 	 */
-	static final int DUG_PER_SITE = 4;
+	static final int DUG_PER_SITE = 3;
 
 	/** Workings of this work (a mine and a shaft together) dug out or given up, by site id. */
 	private static Map<Integer, Integer> dugOut(PlanContext ctx, Identifier id) {

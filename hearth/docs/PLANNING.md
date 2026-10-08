@@ -491,8 +491,9 @@ ground rises at least five blocks to its back). A working names its `site`, `kin
 `length`; a built (dug-out) working frees its site for the next, and no longer counts for the program while the town
 has folk in its trade or still wants its goods (stone under 400 + 4 a head in store, ore, clay or sand under 160 + 2 a
 head): the next is opened beside the old cut (the target skips ground already taken; a short spur runs on from the old
-track when it ends at the old cut) or at the next site, at most four dug out at a site (`Extraction.counted`,
-`DUG_PER_SITE`), so a town keeps a face open for its diggers. A working tries the four nearest sites with room, and two
+track when it ends at the old cut) or at the next site, at most three dug out at a site (`Extraction.counted`,
+`DUG_PER_SITE`), one face at a time a work, each working followed by one successor (`GENERATIONS`: twice the
+program's count dug out in all), so a town keeps a face open for its diggers without pocking its hills. A working tries the four nearest sites with room, and two
 points of each pit's site well apart, before it gives up (an ore site under the future streets is passed over; the
 cart track goes to the next site after one that would not route), and a crew waiting for its next face rests its need
 only a few calls after a failed try (`Extraction.faceWanted`). The job route (`job/miner` …) and the shortage route
