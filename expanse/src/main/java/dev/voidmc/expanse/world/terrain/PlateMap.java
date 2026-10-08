@@ -26,6 +26,10 @@ final class PlateMap {
 
 	/** Where a point lies: its plate, and how far it is from the border with each kind of neighbour. */
 	static final class Hit {
+		/** (the plates round the last grid cell asked about, kept with the hit so no thread-local is read per call) */
+		int hoodX = Integer.MIN_VALUE;
+		int hoodZ;
+		final Plate[] hood = new Plate[25];
 		Plate own;
 		/** Distance (blocks, in warped space) to the nearest border of any kind, and the plate across it. */
 		double border;
@@ -104,31 +108,22 @@ final class PlateMap {
 	}
 
 	/** The plates round the last cell looked up, per thread: neighbouring lookups nearly always share them. */
-	private static final class Neighbourhood {
-		int gx = Integer.MIN_VALUE;
-		int gz;
-		final Plate[] plates = new Plate[25];
-	}
-
-	private final ThreadLocal<Neighbourhood> neighbourhood = ThreadLocal.withInitial(Neighbourhood::new);
-
 	/** The plate at (x, z) and its distances to the borders round it. */
 	void locate(double x, double z, Hit out) {
 		double wx = this.warpedX(x, z);
 		double wz = this.warpedZ(x, z);
 		int gx = Mth.floor(wx / SPACING);
 		int gz = Mth.floor(wz / SPACING);
-		Neighbourhood hood = this.neighbourhood.get();
-		Plate[] near = hood.plates;
-		if (hood.gx != gx || hood.gz != gz) {
+		Plate[] near = out.hood;
+		if (out.hoodX != gx || out.hoodZ != gz) {
 			int c = 0;
 			for (int dx = -2; dx <= 2; dx++) {
 				for (int dz = -2; dz <= 2; dz++) {
 					near[c++] = this.plate(gx + dx, gz + dz);
 				}
 			}
-			hood.gx = gx;
-			hood.gz = gz;
+			out.hoodX = gx;
+			out.hoodZ = gz;
 		}
 		int n = near.length;
 		Plate best = null;
@@ -207,6 +202,11 @@ final class PlateMap {
 	}
 
 	/** The low 21 bits of h as a number in [0, 1). */
+	/** The length of (a, b): Math.hypot without its care over overflow, which costs (and is never needed here). */
+	static double len(double a, double b) {
+		return Math.sqrt(a * a + b * b);
+	}
+
 	static double unit(long h) {
 		return (h & 0x1F_FFFF) / (double) 0x20_0000;
 	}

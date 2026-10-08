@@ -108,6 +108,7 @@ public final class CavernModel {
 	private final SimplexNoise[] n = new SimplexNoise[48];
 	/** The cave systems of their own: lava tubes, mazes, abysses, rift halls, geodes. */
 	private final CaveSystems systems;
+	private final RiverSights riverSights;
 	private final ThreadLocal<Cache> cache = ThreadLocal.withInitial(Cache::new);
 	/** Mixed into the hashes that place things, so each world has its own. */
 	private final long salt;
@@ -137,10 +138,14 @@ public final class CavernModel {
 		public float riverHalfWidth;
 		public float riverWater;
 		public float riverDepth;
+		/** How far out from the river's line its tunnel reaches: the water and the dry banks either side. */
+		public float riverSpan;
+		/** 0 to 1: how far this stretch is one of the great rivers (wide water, beaches, a high vault). */
+		public float riverGreat;
 		public float tunnelRoof;
 		/** The river pours out of its tunnel here into a realm far below: no water in this column. */
 		public boolean riverFalls;
-		boolean riverOn;
+		public boolean riverOn;
 		float riverTop;
 		// the dry tunnel family
 		public boolean tunnel;
@@ -170,6 +175,8 @@ public final class CavernModel {
 		public float pool;
 		/** Near a realm. */
 		boolean nearRealm;
+		/** Under a buried sea (the column's realm fields are the sea's). */
+		public boolean sea;
 		/** A cenote: a shaft from the realm's vault up to the open sky, its distance from the axis, radius at the lip, top and bottom. */
 		public boolean cenote;
 		public float cenoteDist;
@@ -251,6 +258,8 @@ public final class CavernModel {
 		public long geodeSeed;
 		public int geodeBeams;
 		/** Whether any of the small spaces is here, and the heights between which they lie. */
+		/** The great mine whose shaft, stations or drifts reach the column, if one does. */
+		public GreatMines.Mine mine;
 		public boolean fine;
 		public float fineLow;
 		public float fineHigh;
@@ -303,6 +312,8 @@ public final class CavernModel {
 		final Hall[] halls = new Hall[64];
 		final long[] aditKeys = new long[64];
 		final Adit[] adits = new Adit[64];
+		final long[] mineKeys = new long[16];
+		final GreatMines.Mine[] mines = new GreatMines.Mine[16];
 		// scratch for the passage networks
 		final double[] nodeX = new double[9];
 		final double[] nodeZ = new double[9];
@@ -319,6 +330,12 @@ public final class CavernModel {
 		}
 		this.salt = PlateMap.mix(seed, 0x5341_4C54L, 0x4445_4550L);
 		this.systems = new CaveSystems(this, terrain, seed);
+		this.riverSights = new RiverSights(this, this.salt);
+	}
+
+	/** The bridges and landings on the river tunnels. */
+	public RiverSights riverSights() {
+		return this.riverSights;
 	}
 
 	/** The cave systems of their own (lava tubes, mazes, abysses, rift halls, geodes). */
@@ -359,16 +376,25 @@ public final class CavernModel {
 		// The river tunnels (nothing reads them further off than this, so far from one nothing more is worked out)
 		out.riverDist = this.tunnelDistance(8, x, z, 900.0, 6, NEAR);
 		if (out.riverDist < NEAR) {
-			out.riverHalfWidth = (float) (7 + 5 * (0.5 + 0.5 * this.noise(9, x / 600.0, z / 600.0)));
-			out.riverWater = this.riverLevel(x, z);
+			// The great rivers: along some stretches (a slow noise) the river broadens to forty blocks and more of
+			// dark water between shingle beaches, sinking lower as it goes (so it steps down into them in falls),
+			// under a vault rising seventy blocks wherever the rock over it leaves the room.
+			float great = this.riverGreat(x, z);
+			out.riverGreat = great;
+			out.riverHalfWidth = (float) (7 + 5 * (0.5 + 0.5 * this.noise(9, x / 600.0, z / 600.0))) * (1 + 0.85F * great);
+			out.riverWater = this.riverLevel(x, z, great);
 			out.riverDepth = 1.5F + out.riverHalfWidth * 0.3F;
-			float span = out.riverHalfWidth + 4;
-			float riverHeight = (float) (18 + 14 * (0.5 + 0.5 * this.noise(11, x / 700.0, z / 700.0)));
+			float span = out.riverHalfWidth + 4 + 12 * great;
+			out.riverSpan = span;
+			float riverHeight = (float) (18 + 14 * (0.5 + 0.5 * this.noise(11, x / 700.0, z / 700.0))) * (1 + 1.3F * great);
+			riverHeight = Math.min(riverHeight, out.cap - out.riverWater - 1);
 			out.riverTop = out.riverWater + 1 + riverHeight;
 			out.tunnelRoof = out.riverWater + 1 + riverHeight * (float) Math.sqrt(Math.max(0, 1 - sq(out.riverDist / span)));
-			out.riverOn = this.noise(12, x / 2000.0, z / 2000.0) > -0.2 && out.riverTop < out.cap;
+			out.riverOn = this.noise(12, x / 2000.0, z / 2000.0) > -0.2 && riverHeight >= 14;
 			out.river = out.riverOn && out.riverDist < span;
 		} else {
+			out.riverSpan = 11;
+			out.riverGreat = 0;
 			out.riverHalfWidth = 7;
 			out.riverWater = -999;
 			out.riverDepth = 1;
@@ -432,6 +458,10 @@ public final class CavernModel {
 			this.realm(best, x, z, bestEdge, out);
 		}
 
+		// a buried sea, where there is one, rather than the realm
+		out.sea = false;
+		this.sea(x, z, out);
+
 		// a river meeting a realm pours out of its tunnel mouth; one across a realm's floor runs on through it
 		out.riverFalls = false;
 		if (out.river && out.hall && out.hallEdge > 0) {
@@ -456,6 +486,7 @@ public final class CavernModel {
 		}
 		this.fissure(x, z, out);
 		this.adits(c, x, z, out);
+		this.mines(c, x, z, out);
 		// the cave systems of their own, the mazes at the shallow passages' depth
 		this.systems.compute(x, z, out, this.levelFloor(0, x, z, out, cover));
 	}
@@ -558,6 +589,89 @@ public final class CavernModel {
 		out.hall = edge > -8 && roof - floor > 3;
 	}
 
+	/** One buried sea at most in each cell this wide. */
+	private static final int SEA_CELL = 6400;
+
+	/**
+	 * A buried sea: here and there (one 6.4 km cell in three) a flooded cavern a kilometre and more across, far
+	 * bigger than a realm: dark still water from shore to shore under a vault up to a hundred blocks high, hung
+	 * with spires; islands and stacks standing out of it, shingle shores round it, the rivers that reach it pouring
+	 * in from their tunnels as waterfalls. It lives as the lake realms do ({@link #MERE}). Where it is, it takes the
+	 * place of any realm; nowhere under the sea, nor where the rock over it is thin.
+	 */
+	private void sea(int x, int z, Info out) {
+		int cx = Math.floorDiv(x, SEA_CELL);
+		int cz = Math.floorDiv(z, SEA_CELL);
+		float bestEdge = -Float.MAX_VALUE;
+		float px = 0;
+		float pz = 0;
+		float r = 0;
+		long seed = 0;
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				long h = PlateMap.mix(this.salt ^ 0x5345_4153L, cx + dx, cz + dz);
+				if (PlateMap.unit(h) > 0.34) {
+					continue;
+				}
+				float sx = (float) ((cx + dx + 0.3 + 0.4 * PlateMap.unit(h >>> 11)) * SEA_CELL);
+				float sz = (float) ((cz + dz + 0.3 + 0.4 * PlateMap.unit(h >>> 31)) * SEA_CELL);
+				float radius = 650 + 600 * (float) PlateMap.unit(h >>> 5);
+				double d = Math.sqrt(sq(x - sx) + sq(z - sz));
+				if (d > radius + 160) {
+					continue;
+				}
+				// (its shore swings in and out with the bearing, into long arms and bays, and wanders at smaller scales)
+				double bearing = Math.atan2(z - sz, x - sx);
+				float ragged = (float) (0.28 * radius * this.noise(46, Math.cos(bearing) * 1.4 + sx / 97.0, Math.sin(bearing) * 1.4 + sz / 97.0)
+					+ 110 * this.noise(41, x / 520.0, z / 520.0) + 35 * this.noise(42, x / 130.0, z / 130.0));
+				float edge = (float) (radius - d - ragged);
+				if (edge > bestEdge) {
+					bestEdge = edge;
+					px = sx;
+					pz = sz;
+					r = radius;
+					seed = h;
+				}
+			}
+		}
+		if (bestEdge < -24 || out.hall && out.hallEdge > bestEdge) {
+			return;
+		}
+		float water = -14 + 6 * Mth.floor(4 * PlateMap.unit(seed >>> 41));
+		float inward = Math.max(0, bestEdge);
+		// the bed: shelving from the shore into the deep, islands and stacks standing out of it
+		float depth = 5 + 38 * smooth(inward / 260);
+		float floor = water - depth;
+		float isle = (float) this.noise(43, x / 170.0, z / 170.0) + 0.35F * (float) this.noise(44, x / 45.0, z / 45.0);
+		// the islands: steep-sided, craggy, their tops broken into knolls and stacks, never flat
+		float lift = smooth((isle - 0.45F) / 0.13F);
+		float crag = 3 + 22 * (float) Math.abs(this.noise(47, x / 34.0, z / 34.0)) + 5 * (float) this.noise(45, x / 9.0 + 300, z / 9.0);
+		floor = Mth.lerp(lift, floor, water + crag * (0.4F + 0.6F * smooth((isle - 0.5F) / 0.35F)));
+		floor = Math.max(floor, water + 2 - 2.5F * inward);         // the shore: shingle rising to the wall
+		// the vault, high over the open water, coming down to the shores, hung with spires
+		float roof = water + 18 + 85 * smooth(inward / 320) + (float) (8 * this.noise(45, x / 60.0, z / 60.0));
+		roof -= this.cones(0x5345_4148L ^ seed, x, z, 70, 0.35F, 55, 0.3F, 0.25F, true) * smooth(inward / 200);
+		roof = Math.min(roof, out.cap);
+		if (roof - floor < 6 || roof < water + 6) {
+			return;
+		}
+		out.sea = true;
+		out.hall = bestEdge > -8;
+		out.nearRealm = true;
+		out.hallEdge = bestEdge;
+		out.hallX = (int) px;
+		out.hallZ = (int) pz;
+		out.hallRadius = r;
+		out.theme = MERE;
+		out.lava = false;
+		out.floor = floor;
+		out.roof = roof;
+		out.lake = water;
+		out.pool = -999;
+		out.cenote = false;
+		out.pillar = this.columnDistance(x, z, 0.1F);
+	}
+
 	/**
 	 * The height added by cones on a grid of {@code cell}-block cells, one in each cell with the given
 	 * chance: concave, so they stand as needles and peaks rather than mounds; or {@code rounded}, as the
@@ -632,9 +746,21 @@ public final class CavernModel {
 		return (float) (Math.abs(p) / Math.max(1.0E-4, Math.sqrt(gx * gx + gz * gz)));
 	}
 
-	/** The river tunnels' water level: steady for long stretches, stepping down six blocks at a time. */
+	/**
+	 * The river tunnels' water level: steady for long stretches, stepping down six blocks at a time; the great
+	 * rivers lie lower, deep in the rock.
+	 */
 	private float riverLevel(int x, int z) {
-		float floor = (float) (28 + 16 * this.noise(10, x / 1000.0, z / 1000.0));
+		return this.riverLevel(x, z, this.riverGreat(x, z));
+	}
+
+	/** How far (x, z) lies on a great river's stretch, 0 to 1. */
+	private float riverGreat(int x, int z) {
+		return smooth((float) (this.noise(40, x / 2600.0, z / 2600.0) - 0.05) / 0.45F);
+	}
+
+	private float riverLevel(int x, int z, float great) {
+		float floor = (float) (28 + 16 * this.noise(10, x / 1000.0, z / 1000.0)) - 24 * great;
 		return 6 * Mth.floor(floor / 6) + 2;
 	}
 
@@ -1358,6 +1484,193 @@ public final class CavernModel {
 		return best;
 	}
 
+	// ------------------------------------------------------------------ the great mines
+
+	private final java.util.concurrent.ConcurrentHashMap<Long, GreatMines.Mine> sharedMines = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** The great mine of mine cell (mx, mz) ({@link GreatMines#CELL} blocks), or {@link GreatMines.Mine#exists() none}. */
+	public GreatMines.Mine mine(int mx, int mz) {
+		return this.mine(this.cache.get(), mx, mz);
+	}
+
+	/** The great mine that reaches the column, if one does. */
+	private void mines(Cache c, int x, int z, Info out) {
+		out.mine = null;
+		int mx = Math.floorDiv(x, GreatMines.CELL);
+		int mz = Math.floorDiv(z, GreatMines.CELL);
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				// (only the cells within reach)
+				if (dx != 0 && Math.floorDiv(x + dx * GreatMines.REACH, GreatMines.CELL) == mx
+					|| dz != 0 && Math.floorDiv(z + dz * GreatMines.REACH, GreatMines.CELL) == mz) {
+					continue;
+				}
+				GreatMines.Mine m = this.mine(c, mx + dx, mz + dz);
+				if (m.exists() && Math.abs(x - m.x()) <= GreatMines.REACH && Math.abs(z - m.z()) <= GreatMines.REACH
+					&& GreatMines.reach(m, x, z, out)) {
+					out.mine = m;
+					return;
+				}
+			}
+		}
+	}
+
+	private GreatMines.Mine mine(Cache c, int mx, int mz) {
+		long key = (long) mx << 32 ^ mz & 0xFFFF_FFFFL;
+		int slot = (int) (PlateMap.mix(6, mx, mz) & 15);
+		GreatMines.Mine cached = c.mines[slot];
+		if (cached != null && c.mineKeys[slot] == key) {
+			return cached;
+		}
+		Long shared = PlateMap.scramble(key);
+		GreatMines.Mine mine = this.sharedMines.get(shared);
+		if (mine == null) {
+			mine = this.makeMine(c, mx, mz);
+			if (this.sharedMines.size() > 20_000) {
+				this.sharedMines.clear();
+			}
+			this.sharedMines.putIfAbsent(shared, mine);
+		}
+		c.mineKeys[slot] = key;
+		c.mines[slot] = mine;
+		return mine;
+	}
+
+	/**
+	 * The great mine of mine cell (mx, mz), if it has one. For each realm centred in the cell, four places for a
+	 * pithead, one on each side of it (just outside its wall, so the great drift runs straight in along an axis):
+	 * the best is the highest, steadiest ground on a mountain's shoulder ({@code y} 130 and up, with the mountain rising
+	 * another eighteen blocks and more behind it, not by a river, no other realm or buried sea
+	 * under it) over a realm floor that is open, dry and at least eighty blocks down. From there the levels are laid
+	 * out up the shaft, each drift cut short where the rock over it thins or the realm's wall comes near.
+	 */
+	private GreatMines.Mine makeMine(Cache c, int mx, int mz) {
+		long h = PlateMap.mix(0x4D49_4E45L ^ this.salt, mx, mz);
+		if (PlateMap.unit(h) >= 0.85) {
+			return GreatMines.Mine.NONE;
+		}
+		int x0 = mx * GreatMines.CELL;
+		int z0 = mz * GreatMines.CELL;
+		float bestScore = -Float.MAX_VALUE;
+		GreatMines.Mine best = GreatMines.Mine.NONE;
+		for (int hx = Math.floorDiv(x0, HALL_CELL); hx <= Math.floorDiv(x0 + GreatMines.CELL - 1, HALL_CELL); hx++) {
+			for (int hz = Math.floorDiv(z0, HALL_CELL); hz <= Math.floorDiv(z0 + GreatMines.CELL - 1, HALL_CELL); hz++) {
+				Hall hall = this.hall(c, hx, hz);
+				if (!hall.exists() || hall.theme() == EMBER || Math.floorDiv(hall.x(), GreatMines.CELL) != mx
+					|| Math.floorDiv(hall.z(), GreatMines.CELL) != mz) {
+					continue;
+				}
+				for (int side = 0; side < 4; side++) {
+					long hs = PlateMap.mix(h, hx * 4L + side, hz);
+					boolean alongX = side < 2;
+					int sign = (side & 1) == 0 ? 1 : -1;
+					float offset = (float) (PlateMap.unit(hs) - 0.5) * 0.6F * hall.radius();
+					float out = hall.radius() + 40 + 30 * (float) PlateMap.unit(hs >>> 20);
+					int px = alongX ? Math.round(hall.x() - sign * out) : Math.round(hall.x() + offset);
+					int pz = alongX ? Math.round(hall.z() + offset) : Math.round(hall.z() - sign * out);
+					Column land = this.terrain.sample(px, pz);
+					if (land.height < 130 || !this.openable(land, 16)) {
+						continue;
+					}
+					float ground = land.height;
+					float rough = 0;
+					for (int[] o : new int[][]{{6, 0}, {-6, 0}, {0, 6}, {0, -6}}) {
+						rough = Math.max(rough, Math.abs(this.terrain.sample(px + o[0], pz + o[1]).height - ground));
+					}
+					// a shoulder of the mountain, not its top: steady ground with the peak still rising behind it
+					if (rough > 5) {
+						continue;
+					}
+					float behind = 0;
+					for (int k = 0; k < 8; k++) {
+						double a = k * Math.PI / 4;
+						behind = Math.max(behind, this.terrain.sample(px + (int) Math.round(48 * Math.cos(a)), pz + (int) Math.round(48 * Math.sin(a))).height - ground);
+					}
+					if (behind < 18) {
+						continue;
+					}
+					// the mouth: well in from the realm's wall, on open, dry floor
+					float reach = (float) Math.sqrt(Math.max(0, sq(0.8F * hall.radius()) - sq(offset)));
+					int ex = alongX ? Math.round(hall.x() - sign * reach) : px;
+					int ez = alongX ? pz : Math.round(hall.z() - sign * reach);
+					Info probe = new Info();
+					probe.cap = this.capAt(c, ex, ez);
+					this.realm(hall, ex, ez, hall.radius() - (float) Math.sqrt(sq(ex - hall.x()) + sq(ez - hall.z())), probe);
+					if (probe.roof - probe.floor < 12 || probe.lake > probe.floor - 1) {
+						continue;
+					}
+					int floor = Mth.ceil(probe.floor);
+					int top = Math.round(ground);
+					if (top - floor < 80 || this.otherRealm(c, px, pz, hall)) {
+						continue;
+					}
+					// nor over a buried sea
+					Info sea = new Info();
+					sea.cap = this.capAt(c, px, pz);
+					sea.hallEdge = -Float.MAX_VALUE;
+					this.sea(px, pz, sea);
+					if (sea.sea) {
+						continue;
+					}
+					float score = ground - 6 * rough + 25 * (float) PlateMap.unit(hs >>> 40);
+					if (score <= bestScore) {
+						continue;
+					}
+					bestScore = score;
+					java.util.List<GreatMines.Drift> drifts = new java.util.ArrayList<>();
+					drifts.add(new GreatMines.Drift(alongX, sign, floor, Math.round(out - reach), 3, 6, true));
+					// the levels up the shaft, every twenty-four to thirty-four blocks, a drift or two off each
+					int y = floor + 26 + (int) (8 * PlateMap.unit(hs >>> 30));
+					while (y < top - 30 && drifts.size() < 28) {
+						int opened = 0;
+						for (int d = 0; d < 4 && opened < 2; d++) {
+							long hd = PlateMap.mix(hs, y, d);
+							if (PlateMap.unit(hd) > 0.5) {
+								continue;
+							}
+							boolean ax = d < 2;
+							int sg = (d & 1) == 0 ? 1 : -1;
+							int length = 24 + (int) (64 * PlateMap.unit(hd >>> 10));
+							// in the rock: cut short where the ground over it comes within a dozen blocks, or the realm's wall near
+							int ok = 0;
+							for (int l = 8; l <= length; l += 8) {
+								int qx = ax ? px + sg * l : px;
+								int qz = ax ? pz : pz + sg * l;
+								if (this.terrain.sample(qx, qz).height < y + 5 + 12
+									|| Math.sqrt(sq(qx - hall.x()) + sq(qz - hall.z())) < hall.radius() + 20) {
+									break;
+								}
+								ok = l;
+							}
+							if (ok >= 16) {
+								drifts.add(new GreatMines.Drift(ax, sg, y, ok, 2, 5, false));
+								opened++;
+							}
+						}
+						y += 24 + (int) (10 * PlateMap.unit(PlateMap.mix(hs, y, 9)));
+					}
+					best = new GreatMines.Mine(true, px, pz, top, floor, hall.x(), hall.z(), java.util.List.copyOf(drifts));
+				}
+			}
+		}
+		return best;
+	}
+
+	/** Whether any realm but {@code mine} lies under (x, z) or within forty blocks of it. */
+	private boolean otherRealm(Cache c, int x, int z, Hall mine) {
+		int hx = Math.floorDiv(x, HALL_CELL);
+		int hz = Math.floorDiv(z, HALL_CELL);
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				Hall h = this.hall(c, hx + dx, hz + dz);
+				if (h.exists() && (h.x() != mine.x() || h.z() != mine.z()) && Math.sqrt(sq(x - h.x()) + sq(z - h.z())) < h.radius() + 40) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	// ------------------------------------------------------------------ density
 
 	/**
@@ -1377,7 +1690,7 @@ public final class CavernModel {
 	public float coarse(Info c, int x, int y, int z) {
 		float best = -64;
 		if (c.river) {
-			float span = c.riverHalfWidth + 4;
+			float span = c.riverSpan;
 			float bottom = c.riverDist < c.riverHalfWidth ? c.bed() - 0.5F : c.riverWater + 1;
 			best = Math.max(best, Math.min(Math.min(y - bottom, c.tunnelRoof - y), span - c.riverDist));
 		}
@@ -1455,6 +1768,13 @@ public final class CavernModel {
 		if (c.adit) {
 			float roof = c.aditFloor + c.aditHeight * (0.4F + 0.6F * (float) Math.sqrt(Math.max(0, 1 - sq(c.aditDist / c.aditHalfWidth))));
 			best = Math.max(best, Math.min(Math.min(y - c.aditFloor, roof - y), c.aditHalfWidth - c.aditDist));
+		}
+		if (c.mine != null) {
+			float in = GreatMines.inside(c.mine, x, y, z);
+			if (in > best) {
+				best = in;
+				rough = 0.12F;
+			}
 		}
 		if (c.shaft) {
 			// a funnel at the top, where the ground has slumped in
