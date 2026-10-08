@@ -105,14 +105,15 @@ house it meets is not built (art review 2 item 5); nothing else stands in the st
 Stone cultures: an enclosed passage on a flying arch with small windows and a coped flat roof. Timber: a gallery on
 beams with knee braces against the facades, the culture's infill, a glazed band, a gable roof. Karst and wisteria: an
 open roofed pavilion walk. Bayou and tropical: an open plank walk with rope rails. Lanterns under it and inside. A
-VIEWPOINT mid-span.
+VIEWPOINT mid-span. Without `points` (tests, previews) no house stands at either end, so it is railed across them.
 
 ### `hearth:infra/dock` — `Dock`
 Params: `points` (land column by the road at road level, out over the water), `width` (3). Info flags: WATERFRONT.
 Steps down from the road to a deck a block over the water ending in a landing stage flush with it (a DOCK point).
 Timber pier: a pile's head left standing through the deck as a fence post every sixth step, the sides in turn (the walk
 down the middle stays clear), lanterns on the end posts, a fish rack hung with nets,
-barrels and a chest of gear (STORAGE), a jib crane over the landing stage in a town. Stone quay (maritime,
+barrels and a chest of gear (STORAGE), a jib crane over the landing stage in a town (posts, the rack and the gear only on
+the level deck, never at the head or the foot of the steps). Stone quay (maritime,
 mediterranean, desert, mesa towns): masonry from the bed, dressed coping, stone bollards, steps into the water, a street
 lamp. Without `points` (tests, previews) the course runs from the plot's dry side out over its wet one, so the demo on
 `coast` and `river` is measured over water.

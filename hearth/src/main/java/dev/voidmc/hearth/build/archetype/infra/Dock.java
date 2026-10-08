@@ -215,6 +215,8 @@ public final class Dock implements Archetype {
 			// mooring posts along the edges: on a timber pier a pile's head left standing through the deck as a fence post,
 			// every sixth step, the sides in turn, so the walk down the middle stays clear (no slalom of log stumps)
 			boolean post = stone ? k % 4 == 2 : k % 6 == 1 && (k / 6 % 2 == 0) == right && lay.wet(col.x(), col.z());
+			// (never on a flight of the steps down to the deck, its head or its foot)
+			post &= lv[k - 1] == l && (k + 1 >= n || lv[k + 1] == l);
 			if (post && l <= top && lay.empty(col.x(), l, col.z())) {
 				try (var s = d.stage(StageKind.EXTERIOR)) {
 					lay.set(col.x(), l, col.z(), stone ? found.has(Form.WALL) ? found.wall() : found.full() : fence.post());
@@ -241,7 +243,9 @@ public final class Dock implements Archetype {
 			for (Course.Col col : cols) {
 				int k = col.k();
 				int l = lv[k];
-				if (col.ring() != 0 || k < 2 || k > 4 || lv[k] != pier || l + 1 > top) {
+				// (on the level deck only, never at the head or the foot of a flight of the steps)
+				boolean level = k >= 1 && lv[k - 1] == pier && (k + 1 >= n || lv[k + 1] == pier);
+				if (col.ring() != 0 || k < 2 || k > 4 || lv[k] != pier || !level || l + 1 > top) {
 					continue;
 				}
 				try (var s = d.stage(StageKind.EXTERIOR)) {

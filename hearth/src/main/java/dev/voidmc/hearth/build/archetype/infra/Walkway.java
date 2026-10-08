@@ -76,12 +76,14 @@ public final class Walkway implements Archetype {
 		Culture culture = d.style().culture();
 		Make make = make(culture);
 		int n = c.steps();
-		// the ends: the doors the houses open onto it (in a test, the street under its front end)
+		// the ends: the doors the houses open onto it (in a test, the street under its front end: with no house at either
+		// end the gallery is railed across them, see below)
 		if (demo) {
 			lay.entrance(c.dx(n - 1), lay.surface(c.dx(n - 1), c.dz(n - 1)), c.dz(n - 1));
+		} else {
+			lay.entrance(c.dx(n - 1), deck, c.dz(n - 1));
+			lay.entrance(c.dx(0), deck, c.dz(0));
 		}
-		lay.entrance(c.dx(n - 1), deck, c.dz(n - 1));
-		lay.entrance(c.dx(0), deck, c.dz(0));
 		LineMat wood = LineMat.of(lay, Role.STILT);
 		LineMat beam = LineMat.of(lay, Role.BEAM);
 		LineMat frame = LineMat.of(lay, Role.FRAME);
@@ -245,6 +247,18 @@ public final class Walkway implements Archetype {
 					if (lay.absent(col.x(), y, col.z()) || lay.empty(col.x(), y, col.z())) {
 						lay.set(col.x(), y, col.z(), make == Make.STONE ? stone.full() : make == Make.PLANK ? wood.log(Direction.Axis.Y)
 							: frame.log(Direction.Axis.Y));
+					}
+				}
+			}
+		}
+		// standing alone (tests, previews): no house at either end, so the gallery is railed across its ends
+		if (demo) {
+			LineMat bar = LineMat.of(lay, Role.RAILING);
+			for (Course.Col col : c.cols()) {
+				int k = col.k();
+				if (!col.beyond() && col.ring() != 0 && (k == 0 || k == n - 1) && lay.allowed(col.x(), deck, col.z()) && lay.empty(col.x(), deck, col.z())) {
+					try (var s = d.stage(StageKind.EXTERIOR)) {
+						lay.set(col.x(), deck, col.z(), bar.post());
 					}
 				}
 			}
