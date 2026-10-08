@@ -421,6 +421,22 @@ final class PrecinctChurch {
 		if (d.isEmpty(fx, 0, fz) && !p.kept(fx, 0, fz)) {
 			d.inStage(StageKind.INTERIOR, () -> d.set(fx, 0, fz, Blocks.WATER_CAULDRON.defaultBlockState().setValue(BlockStateProperties.LEVEL_CAULDRON, 3)));
 		}
+		// lamps hung down the nave and the choir on long chains from the roof, in two rows either side of the runner (one
+		// over it in a narrow church), every fourth row, low enough to light the pews: the church's light is its own
+		int[] lampX = x1 - x0 >= 8 ? new int[]{cx - 2, cx + 2} : new int[]{cx};
+		for (int z = zN0 + 2; z <= Math.max(zEnd, zC1 - 2); z += 4) {
+			for (int lx : lampX) {
+				int ceil = Integer.MIN_VALUE;
+				for (int y = 3; y < hn + 12 && ceil == Integer.MIN_VALUE; y++) {
+					if (!d.isEmpty(lx, y, z)) {
+						ceil = y;
+					}
+				}
+				if (ceil != Integer.MIN_VALUE && ceil >= 6 && d.isEmpty(lx, ceil - 1, z)) {
+					dev.voidmc.hearth.build.kit.light.Lighting.chandelier(d, lx, z, ceil, Math.min(ceil - 2, 4));
+				}
+			}
+		}
 		// banners of the house's colours between the windows
 		List<String> colours = Signs.clothColours(d);
 		String field = colours.get(0);

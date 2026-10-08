@@ -286,6 +286,10 @@ final class Yamen {
 		if (x - 1 < 0 || !d.isEmpty(x, y, z) || !d.isEmpty(x - 1, y, z) || !d.isEmpty(x + 1, y, z)) {
 			return;
 		}
+		// (struck from the street: none where the street falls away below the gate's terrace)
+		if (z == 0 && d.site().ground(x, -1) < y - 1) {
+			return;
+		}
 		try (var st = d.stage(StageKind.EXTERIOR)) {
 			for (int dx : new int[]{-1, 1}) {
 				d.set(x + dx, y, z, tim.post());
