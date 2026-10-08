@@ -196,7 +196,9 @@ final class HallPueblo {
 			}
 			for (int z = z0 + 1; z < z1; z += 2) {
 				for (int x : new int[]{x0 - 1, x1 + 1}) {
-					if (x >= 0 && x < d.frontage() && d.isAbsent(x, y, z)) {
+					// (none where the bank beside stands level with them: stepping stones onto the roof)
+					int beyond = x + (x < x0 ? -1 : 1);
+					if (x >= 0 && x < d.frontage() && d.isAbsent(x, y, z) && d.site().ground(beyond, z) < y - 1) {
 						d.set(x, y, z, beam.log(Direction.Axis.X));
 					}
 				}
@@ -237,12 +239,29 @@ final class HallPueblo {
 		Lighting.room(d, x0 + 1, z0 + 1, x1 - 1, z1 - 1, y);
 	}
 
-	/** A ladder up the face of a wall from the standing level {@code y0} to the terrace at {@code y1}. */
+	/**
+	 * A ladder up the face of a wall from the standing level {@code y0} to the terrace at {@code y1}, its poles standing
+	 * either side of it from head height to a block over the parapet (the pueblo's ladder poles over the roofline; they
+	 * also keep a climber from stepping off sideways high up).
+	 */
 	private static void ladder(Draft d, int x, int z, int y0, int y1) {
+		Mat pole = d.mat(Role.FRAME).has(Form.FENCE) ? d.mat(Role.FRAME) : d.mat(Role.FURNITURE);
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int y = y0; y < y1; y++) {
 				if (d.allowed(x, y, z)) {
 					d.set(x, y, z, States.facing(Blocks.LADDER, Dirs.FRONT));
+				}
+			}
+			for (int y = y0 + 2; y <= y1 + 1; y++) {
+				for (int px : new int[]{x - 1, x + 1}) {
+					if (d.allowed(px, y, z) && d.isEmpty(px, y, z)) {
+						d.set(px, y, z, pole.fence());
+					}
+				}
+				// and a rung of rail across its open face from a man's height over the foot (a cage: whoever lets go high
+				// up stays on the ladder; the foot stays open to step onto it)
+				if (y >= y0 + 3 && d.allowed(x, y, z - 1) && d.isEmpty(x, y, z - 1)) {
+					d.set(x, y, z - 1, pole.fence());
 				}
 			}
 		}
@@ -276,8 +295,8 @@ final class HallPueblo {
 				d.set(c, y + 3, z, dress.slab(SlabType.BOTTOM));
 			}
 		}
+		// the arch a niche over a sill of the parapet's height (an opening at the terrace's floor would be a door onto the drop)
 		try (var s = d.stage(StageKind.OPENINGS)) {
-			d.set(c, y, z, Blocks.AIR.defaultBlockState());
 			d.set(c, y + 1, z, Blocks.AIR.defaultBlockState());
 		}
 		Lighting.chandelier(d, c, z, y + 2, y + 1);

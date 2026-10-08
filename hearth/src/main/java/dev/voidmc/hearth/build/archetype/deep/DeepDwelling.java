@@ -177,6 +177,7 @@ public final class DeepDwelling implements Archetype {
 		interior(d, p);
 		life(d, p);
 		cut(d, p);
+		ledge(d, p);
 		if (!stacked) {
 			Groundwork.clear(d, 0, 0, p.w - 1, p.dp - 1, Math.min(d.maxHeight() - 1, p.deck + 3));
 		}
@@ -203,6 +204,49 @@ public final class DeepDwelling implements Archetype {
 		}
 	}
 
+	/**
+	 * Where the land falls away past a side of the forecourt (a house on a ledge of the realm's wall), a coping along that
+	 * side wherever someone stands three or more over the land beyond: the forecourt and the flight's foot never end at an
+	 * open drop.
+	 */
+	private static void ledge(Draft d, Plan p) {
+		Mat stone = Rock.dressing(d);
+		dev.voidmc.hearth.build.draft.Paint coping = stone.has(Form.WALL) ? stone.wall()
+			: (d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING) : d.mat(Role.FURNITURE)).fence();
+		// the forecourt's edge cells (its two ends and its street row), each with the cell beyond it
+		List<int[]> edge = new ArrayList<>();
+		for (int z = 0; z < p.zf; z++) {
+			edge.add(new int[]{0, z, -1, z});
+			edge.add(new int[]{p.w - 1, z, p.w, z});
+		}
+		// (the street row where the street before it is the land's, the way in left open: HallParts.frontKerbs)
+		boolean[] front = HallParts.frontKerbs(d);
+		for (int x = 0; x < p.w; x++) {
+			if (front[x]) {
+				edge.add(new int[]{x, 0, x, -1});
+			}
+		}
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int[] e : edge) {
+				int x = e[0];
+				int z = e[1];
+				int beyond = d.site().ground(e[2], e[3]);
+				for (int y = 0; y <= p.deck; y++) {
+					if (y - beyond < 3 || !d.allowed(x, y, z) || !d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z)) {
+						continue;
+					}
+					BlockState under = d.get(x, y - 1, z);
+					boolean floor = under == null ? y - 1 < Math.min(0, d.site().ground(x, z)) : !under.isAir();
+					// (never on the flight's own treads: it starts on the high side, see plan)
+					boolean tread = z == p.zs && p.stepAt(x) >= 0;
+					if (floor && !tread) {
+						d.set(x, y, z, coping);
+					}
+				}
+			}
+		}
+	}
+
 	// ------------------------------------------------------------------------------------------------- the plan
 
 	private static Plan plan(Draft d, DeepSite ds, DeepManner manner) {
@@ -212,6 +256,11 @@ public final class DeepDwelling implements Archetype {
 		int h = Math.max(6, Math.min(d.maxHeight(), ds.top() + 1));
 		p.deck = h - 2;
 		p.zb = p.dp - 1;
+		// where the realm's wall stands on over the plot's top (rock the house's cut cannot reach), the terrace comes a
+		// course lower so it keeps two of head room under the rock: a ledge, not a crawl space
+		if (h >= d.maxHeight() && d.site().maxGround(0, 1, p.w - 1, p.zb) > h) {
+			p.deck = h - 3;
+		}
 		p.two = p.deck >= 7;
 		p.up = p.deck >= 10 ? 5 : p.deck >= 8 ? 4 : 3;
 		// the street row holds the flight's parapet, the next the flight against the house; an arcade takes a row more,
@@ -230,6 +279,13 @@ public final class DeepDwelling implements Archetype {
 		}
 		// the flight: to the roof if it fits the frontage, else to the upper floor (a ladder on up the front)
 		p.sx = d.chance(0.5) ? 1 : -1;
+		// on a ledge (the land falling away past one side) the flight starts on the high side and climbs toward the drop,
+		// so its foot is never at the edge where no rail can stand beside it
+		int gl = d.site().minGround(-1, 0, -1, 2);
+		int gr = d.site().minGround(p.w, 0, p.w, 2);
+		if (Math.abs(gl - gr) >= 3) {
+			p.sx = gl > gr ? 1 : -1;
+		}
 		p.xs = p.sx > 0 ? 0 : p.w - 1;
 		int full = p.deck + 1;
 		// (one column past the flight's head is kept for its newel)
@@ -834,13 +890,21 @@ public final class DeepDwelling implements Archetype {
 		dev.voidmc.hearth.build.draft.Paint slab = DeepManner.home(d, Role.WALL, Form.SLAB, st -> st).orElse(Rock.dressing(d).slab(
 			net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
 		int y = p.deck + 1;
+		Mat railing = d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING) : d.mat(Role.FURNITURE);
 		try (var s = d.stage(StageKind.ROOF)) {
 			for (int x = 0; x < p.w; x++) {
 				if (!d.allowed(x, y, front)) {
 					continue;
 				}
+				// a course of the render with the merlons (or the rounding slab) over it: a guard a block and a half high
+				// that nobody steps up onto and over to the cornice outside; under the plot's top a railing instead
+				if (!d.allowed(x, y + 1, front)) {
+					d.set(x, y, front, railing.fence());
+					continue;
+				}
 				boolean end = x == 0 || x == p.w - 1;
-				d.set(x, y, front, end || stepped && x % 2 == 0 ? block : slab);
+				d.set(x, y, front, block);
+				d.set(x, y + 1, front, end || stepped && x % 2 == 0 ? block : slab);
 			}
 		}
 	}
@@ -962,7 +1026,9 @@ public final class DeepDwelling implements Archetype {
 			return;
 		}
 		int drop = 0;
-		for (int y = stand - 1; y >= 0 && d.isEmpty(x, y, z) && y >= d.site().ground(x, z); y--) {
+		// (inside the plot the rock is cut back to the floor afterwards (cut): the drop runs to the floor, not the rock)
+		int ground = z >= 0 ? Math.min(0, d.site().ground(x, z)) : d.site().ground(x, z);
+		for (int y = stand - 1; y >= 0 && d.isEmpty(x, y, z) && y >= ground; y--) {
 			drop++;
 		}
 		if (drop < 2 && !always) {

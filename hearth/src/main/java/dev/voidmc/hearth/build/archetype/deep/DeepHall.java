@@ -97,6 +97,14 @@ public final class DeepHall implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		int top = form(d);
+		// whatever the plan: the hill cut back round it, a kerb wherever its ground ends at a fall
+		HallParts.cut(d, top);
+		HallParts.kerb(d, 3);
+	}
+
+	/** Draws the culture's hall; returns the highest level its cut reaches. */
+	private int form(Draft d) {
 		DeepSite ds = DeepSite.of(d);
 		Glow g = Glow.of(ds.character());
 		DeepManner manner = DeepManner.of(d);
@@ -104,27 +112,27 @@ public final class DeepHall implements Archetype {
 		switch (manner.hallForm()) {
 			case "stave", "longhouse" -> {
 				HallStave.draw(d, g, manner, h);
-				return;
+				return h;
 			}
 			case "pavilion" -> {
 				HallPavilion.draw(d, g, h);
-				return;
+				return h;
 			}
 			case "pueblo" -> {
 				HallPueblo.draw(d, g, h);
-				return;
+				return h;
 			}
 			case "loggia" -> {
 				HallLoggia.draw(d, g, h);
-				return;
+				return h;
 			}
 			case "stilt" -> {
 				HallStilt.draw(d, g, h);
-				return;
+				return h;
 			}
 			case "court", "sahel" -> {
 				HallCourt.draw(d, g, h, manner.hallForm().equals("sahel"));
-				return;
+				return h;
 			}
 			default -> {
 			}
@@ -142,6 +150,7 @@ public final class DeepHall implements Archetype {
 		interior(d, p, g);
 		apron(d, p, g);
 		Groundwork.clear(d, 0, 0, p.w - 1, p.dp - 1, Math.min(d.maxHeight() - 1, p.towerTop + 2));
+		return p.towerTop + 2;
 	}
 
 	private static Plan plan(Draft d, DeepSite ds, DeepManner manner) {
