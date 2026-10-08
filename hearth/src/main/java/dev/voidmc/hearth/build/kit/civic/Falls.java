@@ -76,10 +76,10 @@ public final class Falls {
 	}
 
 	/** The walk over the drawing: its grid and who reaches where. */
-	private record Walk(Grid g, Spaces sp) {
+	record Walk(Grid g, Spaces sp) {
 	}
 
-	private static Walk walk(Draft d) {
+	static Walk walk(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
 		int[] yr = {0, 0};
@@ -145,13 +145,14 @@ public final class Falls {
 		return new Walk(g, new Spaces(g, starts));
 	}
 
-	/** Takes away every shutter leaf or closed bracket someone reaches the top of; whether any went. */
+	/** Takes away every shutter leaf or closed bracket hung over air that someone reaches the top of; whether any went. */
 	private static boolean shutters(Draft d, Walk wk) {
 		List<int[]> hit = new ArrayList<>();
 		d.forEach((x, y, z, c) -> {
 			BlockState s = c.state();
 			if (s.getBlock() instanceof TrapDoorBlock && (c.stage() == StageKind.OPENINGS || c.stage() == StageKind.EXTERIOR)
-				&& (s.getValue(TrapDoorBlock.OPEN) || s.getValue(TrapDoorBlock.HALF) == Half.TOP) && wk.sp().reached(x, y + 1, z)) {
+				&& (s.getValue(TrapDoorBlock.OPEN) || s.getValue(TrapDoorBlock.HALF) == Half.TOP) && wk.sp().reached(x, y + 1, z)
+				&& wk.g().at(x, y - 1, z).isAir()) {
 				hit.add(new int[]{x, y, z});
 			}
 		});
