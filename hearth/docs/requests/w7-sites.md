@@ -32,3 +32,19 @@ wall heads (FLOORS or WALLS; lifted in ROOF where the roof does not replace it).
 
 - `Projects`/stage durations: stages FOUNDATION, FRAME/WALLS and FLOORS now carry a few dozen to a few hundred more
   steps of work (the works); OPENINGS, ROOF and EXTERIOR start with their removal steps. No goods change.
+
+## To the preview lane (T12, art review 2 §8 item 30)
+
+- `townPreview` cannot show a building site today: the offline MiniSim towns have no plot in state `BUILDING` at any
+  day tried (temperate hills d120 s2, d250 s1 farmsteads and walled, flat d200), so every plot renders finished.
+  `TownScene` already draws a `BUILDING` plot through `p.stage()` whole stages, works included (scaffolding, fence,
+  pile, board roof). To judge sites in a town, let MiniSim leave the plots it started in the last few days at their
+  stage (or add `-Psites=<n>` to stop n random plots at a random stage). Until then, `blueprintPreview
+  -Pterrain="flat;stage=floors"` is the check.
+
+## Chimneys (for every family lane)
+
+- `Chimneys.crownBareFires` now caps every lit campfire on a full block 3+ over the ground with open air over it, in any
+  stage (kilns, furnaces, `industry/Stack` and `Mound` heads included), and sinks the fire one course where the stack
+  meets the plot's height limit. A fire meant to be seen must stand on a wall (brazier) or low; `SiteWorksTest` fails
+  on an open flame on a stack.
