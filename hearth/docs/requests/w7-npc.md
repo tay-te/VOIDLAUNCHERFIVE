@@ -35,6 +35,10 @@ working day by day instead of every ten days, see §3).
    day 24-25) opened `extract/quarry_pit` with no quarrier among its people (embodied besides builders: one mason),
    so nobody embodied cut it (in another run a quarrier, Bard Brekke, did walk to its face). The npc lane now sends an
    idle builder to cut an open working nobody is at (docs/FOLK.md §6), but the trade should come with the working.
+   Ulfell's pit also lies about 190 blocks from the town's centre: residents are placed (and so embodied) by their
+   routine about the town, so with the tour's camera at the pit nobody of Ulfell was embodied there at all. A working
+   that far out wants its own people placed at it while they work (they are, once there is a quarrier: placement
+   puts a worker at their work site), which again needs the trade hired.
 
 **Asked**:
 

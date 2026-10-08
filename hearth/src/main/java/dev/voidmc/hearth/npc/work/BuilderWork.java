@@ -87,6 +87,18 @@ final class BuilderWork implements WorkBehaviour {
 
 	@Override
 	public @Nullable Task next(FolkBrain brain, ServerLevel level) {
+		// Scaffolding whose work is done (its house finished while the crew was called off to mend or shelter) comes down
+		// before anything else: the town is not left wearing it until the housekeeping pass clears it.
+		for (BuildSite site : brain.town.sites.values()) {
+			if (!site.hasScaffolding()) {
+				continue;
+			}
+			PlotView p = brain.settlement.plot(site.plotId);
+			if (site.scaffoldDone(p != null && p.state() == PlotState.BUILDING ? p : null) && brain.town.claimsOn(site.plotId) < 4) {
+				brain.town.builderClaims.put(brain.resident.id, site.plotId);
+				return new Build(site.plotId);
+			}
+		}
 		PlotView plot = pick(brain.settlement, brain.town.builderClaims, brain.resident.id, brain.folk.blockPosition());
 		if (plot == null) {
 			brain.town.builderClaims.remove(brain.resident.id);
@@ -664,6 +676,10 @@ final class BuilderWork implements WorkBehaviour {
 			}
 			if (this.walker.failed() || this.spotTicks > this.spotAllowance) {
 				trace(this.walker.failed() ? "F" + this.walker.why() : "T");
+				if (DEBUG) {
+					LOG.info("[builder] {} {} walk to {}: {}", brain.resident.id.toString().substring(0, 4), this.walker.failed() ? "failed " + this.walker.why() : "timed out",
+						this.spot.cell() >= 0 ? "ring" : "ground", Walker.stallInfo(brain.folk, this.spot.feet()));
+				}
 				this.badSpots.add(this.spot.feet().asLong());
 				leaveSpot(brain, site);
 				BlockPos now = brain.folk.blockPosition();
@@ -943,7 +959,9 @@ final class BuilderWork implements WorkBehaviour {
 			}
 			java.util.Arrays.sort(order, (a, b) -> Double.compare(scores.get(b), scores.get(a)));
 			Staging st = site.staging;
-			boolean byHand = this.walker.onRing(st, folk) || !folk.onGround();
+			// up on the ring the walker gets about by hand; standing in a column's foot no path can start (the walker
+			// steps out first, and a walk that then fails marks the place): the best is taken untested
+			boolean byHand = this.walker.onRing(st, folk) || Walker.inFoot(st, folk);
 			int tries = 0;
 			for (int i : order) {
 				Spot s = spots.get(i);

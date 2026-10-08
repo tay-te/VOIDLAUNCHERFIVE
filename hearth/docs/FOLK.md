@@ -213,10 +213,13 @@ get on with the walls. A column nobody can get to the foot of is left short (a g
 scaffolding is climbed inside and stood in at any height, as players use it, so the ring is a walkway at every level:
 builders climb in at a column's foot, rise inside it (0.15 a tick), walk along the ring at the height they stand
 (`work/Walker`; the pathfinder does not walk on scaffolding, so the ring is moved on by hand, round the other way past a
-gap or another builder, or down and round by the ground), and are not pushed by others while up there. The ring stays
+gap or another builder, or down and round by the ground), and are not pushed by others while up there. Back at a
+column's foot they step out of it by hand before walking anywhere on the ground (no path starts inside scaffolding). The ring stays
 up through every stage with high work on the shell (walls, floors, roof) and comes down when the last of them is done:
 the crew pulls each column down from the ground (the whole column at once, as pulling the foot of vanilla scaffolding
-does), and every other column within an arm's length of where they stand before moving along. Every block is in the settlement's `ScaffoldLedger` (`HearthDataKey hearth:npc/scaffolds`) under the site's own
+does), and every other column within an arm's length of where they stand before moving along. A ring whose work is
+done but which still stands (its crew called off to mend or shelter as the house was finished) is the first thing an
+idle builder sees to. Every block is in the settlement's `ScaffoldLedger` (`HearthDataKey hearth:npc/scaffolds`) under the site's own
 id; the ring comes down at once when the last of its crew folds away, and the housekeeping pass clears the scaffolding of
 a site nobody claims (after a minute) and of builders no longer embodied, so a town is never left wearing it. Scaffolding
 is never a blueprint step. A step nobody can reach from anywhere is placed leaning out from the nearest place one can

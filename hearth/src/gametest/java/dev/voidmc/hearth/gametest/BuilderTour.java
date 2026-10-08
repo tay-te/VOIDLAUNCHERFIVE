@@ -389,7 +389,7 @@ public class BuilderTour implements FabricClientGameTest {
 				k = "raising scaffolding";
 			} else if (d.contains("taking down scaffolding") || d.contains("climbing down")) {
 				k = "taking scaffolding down";
-			} else if (d.contains("along the scaffold") || d.contains("climbing the scaffold") || d.contains("onto the scaffold")) {
+			} else if (d.contains("along the scaffold") || d.contains("climbing the scaffold") || d.contains("onto the scaffold") || d.contains("out of the scaffold")) {
 				k = "on the scaffold (moving)";
 			} else if (d.contains("fetching") || d.contains("waiting for materials")) {
 				k = "fetching";

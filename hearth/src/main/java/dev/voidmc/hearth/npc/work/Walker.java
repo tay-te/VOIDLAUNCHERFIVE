@@ -1,6 +1,7 @@
 package dev.voidmc.hearth.npc.work;
 
 import dev.voidmc.hearth.npc.entity.Folk;
+import dev.voidmc.hearth.npc.entity.FolkSpots;
 import dev.voidmc.hearth.npc.routine.FolkBrain;
 import java.util.Map;
 import java.util.UUID;
@@ -29,6 +30,9 @@ final class Walker {
 	private @Nullable Vec3 anchor;
 	private int noHeadway;
 	private String doing = "walking to the work";
+	/** Where a builder standing in a column's foot steps out to, and for how long they have been at it. */
+	private @Nullable BlockPos out;
+	private int outTicks;
 	/** Why the last walk failed, for the builders' debug trace: w no way, s stalled, h on another level. */
 	private String why = "";
 
@@ -39,6 +43,56 @@ final class Walker {
 		this.centring = 0;
 		this.anchor = null;
 		this.noHeadway = 0;
+		this.out = null;
+		this.outTicks = 0;
+	}
+
+	/** Standing in the foot of a ring column (in its scaffolding), where no path can start. */
+	static boolean inFoot(@Nullable Staging st, Folk folk) {
+		BlockPos feet = folk.blockPosition();
+		return st != null && st.cellAt(feet.getX(), feet.getZ()) >= 0 && folk.level().getBlockState(feet).is(net.minecraft.world.level.block.Blocks.SCAFFOLDING);
+	}
+
+	/**
+	 * Out of a column's foot before walking anywhere on the ground: no path starts inside scaffolding, so the builder
+	 * steps out by hand to the side nearest the goal that is not another column. True while stepping out.
+	 */
+	private boolean stepOut(ServerLevel level, @Nullable Staging st, Folk folk, BlockPos goal, int elapsed) {
+		if (!inFoot(st, folk)) {
+			this.out = null;
+			return false;
+		}
+		BlockPos feet = folk.blockPosition();
+		if (this.out == null) {
+			double bestD = Double.MAX_VALUE;
+			for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+				BlockPos p = feet.relative(d);
+				if (st.cellAt(p.getX(), p.getZ()) >= 0 && level.getBlockState(p).is(net.minecraft.world.level.block.Blocks.SCAFFOLDING)
+					|| !FolkSpots.standable(level, p)) {
+					continue;
+				}
+				double dist = p.distSqr(goal);
+				if (dist < bestD) {
+					bestD = dist;
+					this.out = p;
+				}
+			}
+			if (this.out == null) {
+				return false;
+			}
+			this.outTicks = 0;
+		}
+		folk.getNavigation().stop();
+		double x = this.out.getX() + 0.5;
+		double z = this.out.getZ() + 0.5;
+		this.outTicks += elapsed;
+		if (this.outTicks > 15) {
+			folk.setPos(x, this.out.getY(), z);
+			folk.setDeltaMovement(Vec3.ZERO);
+		} else {
+			folk.getMoveControl().setWantedPosition(x, this.out.getY(), z, 0.5);
+		}
+		return true;
 	}
 
 	/**
@@ -73,6 +127,29 @@ final class Walker {
 		return this.why;
 	}
 
+	/** Where a failed walk stood, for the builders' debug log. */
+	static String stallInfo(Folk folk, BlockPos goal) {
+		net.minecraft.world.level.pathfinder.Path path = folk.getNavigation().getPath();
+		StringBuilder b = new StringBuilder();
+		b.append(String.format(java.util.Locale.ROOT, "at %.2f,%.2f,%.2f goal %s", folk.getX(), folk.getY(), folk.getZ(), goal.toShortString()));
+		b.append(" in ").append(folk.level().getBlockState(folk.blockPosition()).getBlock().getName().getString());
+		b.append(" on ").append(folk.level().getBlockState(folk.blockPosition().below()).getBlock().getName().getString());
+		if (path == null) {
+			b.append(" path none");
+		} else {
+			b.append(" path ").append(path.getNextNodeIndex()).append('/').append(path.getNodeCount()).append(path.isDone() ? " done" : "")
+				.append(path.canReach() ? " reach" : " short");
+			if (!path.isDone()) {
+				BlockPos n = path.getNextNodePos();
+				b.append(" next ").append(n.toShortString()).append(' ').append(folk.level().getBlockState(n).getBlock().getName().getString())
+					.append(" over ").append(folk.level().getBlockState(n.below()).getBlock().getName().getString());
+			}
+		}
+		b.append(" nav ").append(folk.getNavigation().isDone() ? "idle" : "moving").append(folk.isPushable() ? "" : " steady")
+			.append(folk.isNoGravity() ? " nograv" : "").append(folk.onGround() ? " ground" : " air");
+		return b.toString();
+	}
+
 	/** The ring column the folk stands in above its foot, or -1 (on the ground, a floor, anywhere else). */
 	static int ringCell(@Nullable Staging st, Folk folk) {
 		if (st == null) {
@@ -105,6 +182,10 @@ final class Walker {
 				return false;
 			}
 			release(folk);
+			if (stepOut(level, st, folk, goal, elapsed)) {
+				this.doing = "stepping out of the scaffold";
+				return false;
+			}
 			this.doing = "walking to the work";
 			double gx = goal.getX() + 0.5 - folk.getX();
 			double gz = goal.getZ() + 0.5 - folk.getZ();
@@ -160,8 +241,12 @@ final class Walker {
 				vertical(folk, st, cell, feet, elapsed);
 				return false;
 			}
-			this.doing = "walking to the scaffold";
 			release(folk);
+			if (stepOut(level, st, folk, new BlockPos(st.xs[cell], st.base[cell], st.zs[cell]), elapsed)) {
+				this.doing = "stepping out of the scaffold";
+				return false;
+			}
+			this.doing = "walking to the scaffold";
 			boolean at = dx * dx + dz * dz <= 1.3 * 1.3 && Math.abs(folk.getY() - st.base[cell]) < 0.75
 				|| brain.walk(level, new BlockPos(st.xs[cell], st.base[cell], st.zs[cell]), 0.5, 0.65);
 			if (!at && brain.walkFailed()) {
