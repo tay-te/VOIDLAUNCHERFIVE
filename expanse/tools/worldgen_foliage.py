@@ -65,7 +65,7 @@ def features(W):
 
     # ---- placements: each for the Expanse biomes and, as vanilla/<name>, for vanilla's
     under = lambda per_chunk, sapling: [per_chunk, W.IN_SQUARE, W.heightmap(W.GROUND), W.water_depth(0),
-                                        W.predicate(W.survives(sapling)), W.BIOME, W.clear(3)]
+                                        W.predicate(W.survives(sapling)), W.BIOME, W.clear(W.TREE_CLEAR)]
     W.both('kcd_woodland_shrubs', e('shrubs_broadleaf'), under(W.drifts(-0.1, 3, 7), 'minecraft:oak_sapling'), S['veg'])
     W.both('kcd_conifer_shrubs', e('shrubs_conifer'), under(W.drifts(0.0, 2, 5), 'minecraft:spruce_sapling'), S['veg'])
     W.both('kcd_open_shrubs', e('shrubs_broadleaf'), under(W.drifts(0.3, 0, 2), 'minecraft:oak_sapling'), S['veg'])
@@ -107,7 +107,8 @@ def features(W):
 
     # ---- lone trees: a veteran oak on the crest of an open rise, a mark on the skyline seen for miles (HilltopFilter)
     W.both('kcd_lone_trees', e('natural/tree/oak_veteran/plain'),
-           [W.count(4), W.IN_SQUARE, W.heightmap('WORLD_SURFACE_WG'), {'type': e('hilltop')}, W.BIOME], S['veg'])
+           [W.count(4), W.IN_SQUARE, W.heightmap('WORLD_SURFACE_WG'), {'type': e('hilltop')}, W.BIOME, W.clear(10)], S['veg'])
+    # (the hilltops are where the chapels, keeps and gallows stand too: a veteran's crown is wide, so it keeps well clear)
 
 
 WOODLAND = ['kcd_fishponds', 'kcd_cliff_falls', 'kcd_woodland_shrubs', 'kcd_woodland_floor', 'kcd_brambles', 'kcd_bank_trees', 'kcd_lone_trees']
