@@ -299,8 +299,14 @@ public final class Drift {
 						if (was != null && !was.isAir()) {
 							continue;
 						}
+						// laid in courses: a dressed course every other one over the floor, dry rubble between (not a heap)
 						double u = Noise.unit(this.d.seed() ^ 0xD5A2, x, y, out);
-						this.d.set(x, y, out, (u < 0.75 ? this.rock.rough() : this.rock.natural()).defaultBlockState());
+						boolean dressed = y >= l && ((y - l) & 1) == 1;
+						this.d.set(x, y, out, (dressed ? this.rock.dressed() : u < 0.75 ? this.rock.rough() : this.rock.natural()).defaultBlockState());
+					}
+					// a coping of slabs where the headwall stands clear of the hill
+					if (top < this.d.maxHeight() && this.d.site().ground(x, out) <= top && this.d.isEmpty(x, top, out)) {
+						this.d.set(x, top, out, States.slab(this.rock.slab(), net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
 					}
 				}
 			}
@@ -355,7 +361,10 @@ public final class Drift {
 							continue;
 						}
 						int g = this.d.site().ground(nx, nz);
-						if (g - l >= 3 && g < this.d.maxHeight() && this.d.isEmpty(nx, g, nz)) {
+						// on the rim's own ground (never over a cut or a drafted void)
+						BlockState under = this.d.get(nx, g - 1, nz);
+						boolean held = under == null || !under.isAir();
+						if (g - l >= 3 && g < this.d.maxHeight() && held && this.d.isEmpty(nx, g, nz)) {
 							this.d.set(nx, g, nz, guard);
 						}
 					}
@@ -377,8 +386,9 @@ public final class Drift {
 				int l = level(this.portal);
 				for (int x = Math.max(0, this.c - 3); x <= Math.min(this.d.frontage() - 1, this.c + 3); x++) {
 					int g = this.d.site().ground(x, this.portal);
+					BlockState under = this.d.get(x, g - 1, this.portal);
 					// the hood is at l + SIDE + 1 over the outer row: a drop of four or more onto it, or onto the cutting
-					if (g - (l + SIDE + 2) >= 3 && g < this.d.maxHeight() && this.d.isEmpty(x, g, this.portal)) {
+					if (g - (l + SIDE + 2) >= 3 && g < this.d.maxHeight() && (under == null || !under.isAir()) && this.d.isEmpty(x, g, this.portal)) {
 						this.d.set(x, g, this.portal, guard);
 					}
 				}

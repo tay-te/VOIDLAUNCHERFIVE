@@ -64,12 +64,17 @@ grows with every bench. **Params:** `depth` (default 9–15), `rock`, `site`, `k
 
 ### `extract/mine` (Mine.java)
 An adit driven into an ore hill. A levelled yard by the street (the miners' lean-to, the ore heaped for the carts,
-a cart, the lamp), and behind it the way in: on a hillside a dry-stone headwall against the hill's face with the
-timbered portal in it (a doubled set under a hood of boards, a lantern under its cap); on gentler ground a cutting
-that goes down a block a step, its sides lined with dry-stone wing walls, until two courses of land stand over the
-crown. The drift runs straight back, three wide, its sides three high and its crown four, a timber set (two posts and
-a cap) every three blocks, a lantern under every other cap, rails down the middle (ascending where the floor steps,
-treads at the sides), a stall opened into alternate sides in every segment where the ore was followed. Where the land
+a cart, the lamp), and behind it the way in: on a hillside a headwall against the hill's face laid in courses (dressed
+every other one, dry rubble between, a slab coping where it stands clear) with the timbered portal in it (a doubled set
+under a hood of boards railed along its top, a lantern under its cap); on gentler ground a cutting that goes down a
+block a step (a tread off the yard's floor at the first), its sides lined with dry-stone wing walls, until two courses
+of land stand over the crown, and the portal always on a level row. A wall coping (or a fence) runs along the cutting's
+rims and across its end wherever they stand three or more over its floor. The drift runs straight back, three wide,
+its sides three high and its crown four, a timber set every three blocks (two posts let into the rock's line, a cap
+across the crown, so the whole floor stays clear), a lantern under every other cap, rails down the middle (ascending
+where the floor steps, treads at the sides) and a way either side of them: folk will not walk a rail they did not
+start on, so the miners walk beside the track to every face. A stall is opened into alternate sides in every segment
+where the ore was followed. Where the land
 over it falls away the drift dips a step; it stops short of daylight and never runs under water. Where the land falls
 away from the street (no hill to drive into) the cutting stops and the miners sink a trial pit at its end (a ladder
 down, a lantern at its foot). The waste tip grows beside the yard with every segment. **Params:** `length` (rows from
@@ -101,7 +106,9 @@ where the land rises faster than a step a row, embanked where it falls, stopping
 coupes across the depth, each closed by a wood bank (a ditch a block deep, its earth thrown up on the coupe's side),
 each at its age in the rotation: just cut (stumps of the timber tree, saplings set between them, cordwood stacked by
 the ride, a standard or two left), regrowing (coppice stools bushing up a man's height, a standard here and there),
-or grown (the culture's tree, tall). Crowns are kept off the ride. **Params:** `coupes` (2–5), `site`, `kind`.
+or grown (the culture's tree, tall). Crowns are kept off the ride. The timber is the culture's own tree unless that is a
+garden or orchard tree no forester plants for wood: the karst's cherry gives way to fir, the olive to an oak coppice, the
+wet tropics' palm to jungle hardwood (`Trees.timber`). **Params:** `coupes` (2–5), `site`, `kind`.
 
 ## The kit (`build/kit/extraction/`)
 
@@ -113,7 +120,8 @@ or grown (the culture's tree, tall). Crowns are kept off the ride. **Params:** `
 - `Pithead`: the yard and its pieces (levelled yard, the way in (`path` for a pit, `way` for a mine or a shaft),
   rig, shed, stacks, cart, lamp, sign, fence, stair down; `reserve` and `keep` hold cells for the working's own works).
 - `Rigs`: treadwheel crane, gallows derrick, shear legs, and the chain let down campaign by campaign.
-- `Spoil`: a tip on its spine growing campaign by campaign.
+- `Spoil`: a tip on its spine growing campaign by campaign, tapered so no column stands more than a block over a
+  neighbour or the land beside it (a mound to the angle of repose on every side, never a loaf with a cliff).
 - `Drift`: an adit planned row by row (level profile, portal, stalls) and driven segment by segment.
 
 ## Previews
