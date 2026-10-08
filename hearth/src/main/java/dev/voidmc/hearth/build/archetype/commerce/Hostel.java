@@ -227,6 +227,14 @@ public final class Hostel implements Archetype {
 				if (!ok || !ground.free(end[0], end[1]) || !ground.take(cells, end)) {
 					continue;
 				}
+				// each bench is sat down on from its end: the floor at one end of each kept clear
+				for (int bz : new int[]{z - 1, z + 1}) {
+					if (ground.free(x + 3, bz)) {
+						ground.keep(x + 3, bz);
+					} else if (ground.free(x - 1, bz)) {
+						ground.keep(x - 1, bz);
+					}
+				}
 				Venue.trestle(d, x, base, z, Dirs.RIGHT, 3);
 				Venue.candles(d, x + 1, base + 1, z, 2);
 				tabled = true;

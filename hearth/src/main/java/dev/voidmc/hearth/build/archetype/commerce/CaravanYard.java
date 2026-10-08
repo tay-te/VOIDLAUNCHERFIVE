@@ -314,7 +314,15 @@ public final class CaravanYard implements Archetype {
 		}
 		// a shelter of posts and a roof over the back of the pens
 		int lz0 = Math.max(z0 + 1, z1 - 4);
-		Shed.open(d, x0, lz0, x1, z1, 0, 3, Hall.pick(d, RoofForm.GABLE, RoofForm.HIP, RoofForm.PAGODA), Direction.Axis.Z, 1);
+		// a block higher where the land beyond the plot's edge rises beside it, so its eaves are no step up onto the roof
+		int beyond = left ? x0 - 1 : x1 + 1;
+		int shelter = 3;
+		for (int z = lz0 - 2; z <= z1 + 1; z++) {
+			if (d.site().ground(beyond, z) >= 1) {
+				shelter = 4;
+			}
+		}
+		Shed.open(d, x0, lz0, x1, z1, 0, shelter, Hall.pick(d, RoofForm.GABLE, RoofForm.HIP, RoofForm.PAGODA), Direction.Axis.Z, 1);
 		// troughs and hay
 		int inner = left ? x0 + 1 : x1 - 1;
 		for (int z = z0 + 1; z < z1; z += 5) {
