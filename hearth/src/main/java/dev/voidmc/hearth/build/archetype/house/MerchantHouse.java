@@ -232,7 +232,7 @@ public final class MerchantHouse implements Archetype {
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
 		if (flat) {
-			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.6));
+			deck = TownHouses.flat(d, body, false);
 			flatHoist(d, body);
 		} else {
 			boolean dormers = d.chance(Math.max(0.5, h.roof().dormers()));

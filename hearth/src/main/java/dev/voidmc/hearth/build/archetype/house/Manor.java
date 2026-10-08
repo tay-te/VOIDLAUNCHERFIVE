@@ -189,7 +189,7 @@ public final class Manor implements Archetype {
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
 		if (flat) {
-			deck = TownHouses.flat(d, main, t.walls() == WallKind.ADOBE && d.chance(0.7));
+			deck = TownHouses.flat(d, main, false);
 			if (wings) {
 				Roofs.flat(d, left.x0, left.z0, left.x1, left.z1, left.plateY(), true);
 				Roofs.flat(d, right.x0, right.z0, right.x1, right.z1, right.plateY(), true);

@@ -184,7 +184,7 @@ public final class ScribeHouse implements Archetype {
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
 		if (flat) {
-			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.5));
+			deck = TownHouses.flat(d, body, false);
 		} else {
 			boolean dormers = d.chance(Math.max(0.5, h.roof().dormers()));
 			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, dormers, false);

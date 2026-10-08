@@ -203,7 +203,7 @@ public final class Tenement implements Archetype {
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
 		if (flat) {
-			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.5));
+			deck = TownHouses.flat(d, body, false);
 		} else {
 			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, true, false, true);
 		}

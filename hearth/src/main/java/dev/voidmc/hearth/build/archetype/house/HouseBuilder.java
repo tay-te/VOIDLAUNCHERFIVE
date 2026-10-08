@@ -688,10 +688,10 @@ final class HouseBuilder {
 		// a home's parapet: plain coping with rounded shoulders (merlons are for forts, seats and the law, not a cottage)
 		var kind = t.pueblo() ? dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED : dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.SHOULDERED;
 		int[] tr = b.topRect();
-		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, tr[0], tr[1], tr[2], tr[3], deck, kind);
+		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, tr[0], tr[1], tr[2], tr[3], deck, kind, true);
 		if (terraceY != Integer.MIN_VALUE) {
 			int[] r0 = b.rect(0);
-			dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, r0[0], r0[1], r0[2], r0[3], terraceY, kind);
+			dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, r0[0], r0[1], r0[2], r0[3], terraceY, kind, true);
 		}
 		// a wind tower over the back corner away from the stair hatch
 		if (!t.pueblo() && d.chance(0.8)) {

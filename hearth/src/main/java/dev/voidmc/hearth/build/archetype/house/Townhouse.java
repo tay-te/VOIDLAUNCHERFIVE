@@ -224,7 +224,7 @@ public final class Townhouse implements Archetype {
 			if (terraced) {
 				terraceDoor = TownHouses.setbackTerrace(d, body, full);
 			}
-			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.6));
+			deck = TownHouses.flat(d, body, false);
 		} else {
 			boolean dormers = d.chance(Math.max(0.5, h.roof().dormers()));
 			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, dormers, crow);

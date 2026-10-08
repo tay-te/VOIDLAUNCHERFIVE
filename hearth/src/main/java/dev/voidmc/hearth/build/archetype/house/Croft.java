@@ -837,7 +837,7 @@ public final class Croft implements Archetype {
 		byreDoor(d, L, yardWall, byreU, base);
 		windows(d, L, p1, p2, hall, base, plate, doorU);
 		int deck = Roofs.flat(d, L.x0(), L.z0(), L.x1(), L.z1(), plate, true);
-		Adobe.parapet(d, L.x0(), L.z0(), L.x1(), L.z1(), deck, Adobe.Parapet.ROUNDED);
+		Adobe.parapet(d, L.x0(), L.z0(), L.x1(), L.z1(), deck, Adobe.Parapet.ROUNDED, true);
 		int hu = hall ? p1 + 1 : p1 - 1;
 		int hx = L.x(hu, wid - 2);
 		int hz = L.z(hu, wid - 2);

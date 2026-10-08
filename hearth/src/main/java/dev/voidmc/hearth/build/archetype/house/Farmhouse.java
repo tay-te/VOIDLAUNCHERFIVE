@@ -470,8 +470,8 @@ public final class Farmhouse implements Archetype {
 				int lx0 = stableLeft ? w - 1 - sw : 1;
 				int lx1 = stableLeft ? w - 2 : sw;
 				int deck = Math.max(4, d.habits().walls().storeyHeight()) - 1 + 1;
-				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, rx0, sz0, rx1, sz1, deck, kind);
-				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, lx0, sz0, lx1, sz1, deck, kind);
+				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, rx0, sz0, rx1, sz1, deck, kind, true);
+				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, lx0, sz0, lx1, sz1, deck, kind, true);
 			}
 			gate(d, gateX);
 		}

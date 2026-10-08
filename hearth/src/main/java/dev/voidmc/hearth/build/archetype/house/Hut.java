@@ -161,7 +161,7 @@ public final class Hut implements Archetype {
 	 */
 	private static void flatDress(Draft d, int x0, int z0, int x1, int z1, int base, int deck, int door, boolean stilted) {
 		// a mud cell's parapet is rounded over (pinnacles on a hut five wide would make it a tower)
-		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, x0, z0, x1, z1, deck, dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED);
+		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, x0, z0, x1, z1, deck, dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED, true);
 		if (stilted) {
 			return;
 		}

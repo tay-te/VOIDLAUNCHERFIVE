@@ -20,6 +20,7 @@ import dev.voidmc.hearth.build.kit.townhome.Fronts;
 import dev.voidmc.hearth.build.kit.townhome.Life;
 import dev.voidmc.hearth.build.kit.townhome.Rooflines;
 import dev.voidmc.hearth.build.kit.townhome.StairCore;
+import dev.voidmc.hearth.build.kit.homestead.Adobe;
 import dev.voidmc.hearth.build.kit.townhome.Traits;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
@@ -470,13 +471,15 @@ final class TownHouses {
 	}
 
 	/**
-	 * A flat roof deck over the top storey with its parapet (crenellated where the culture builds merlons), returning
-	 * the deck's standing level.
+	 * A flat roof deck over the top storey with its parapet. A town home's deck is lived on (washing, beds set out in the
+	 * heat), so its parapet stands breast high under a plain coping with rounded shoulders, the pueblo's coping rounded
+	 * over ({@link Adobe#parapet}): never merlons, which make a street of homes a street of little forts (art review 2
+	 * item 7), except on the tower house, a fortified house ({@code merlons}).
 	 */
-	static int flat(Draft d, Body b, boolean crenels) {
+	static int flat(Draft d, Body b, boolean merlons) {
 		int[] tr = b.topRect();
 		int deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], b.plateY(), true);
-		if (crenels && deck + 2 < d.maxHeight()) {
+		if (merlons && deck + 2 < d.maxHeight()) {
 			Mat wall = d.mat(Role.WALL);
 			try (var s = d.stage(StageKind.ROOF)) {
 				for (Side side : Side.of(tr[0], tr[1], tr[2], tr[3])) {
@@ -495,6 +498,8 @@ final class TownHouses {
 					}
 				}
 			}
+		} else if (!merlons) {
+			Adobe.parapet(d, tr[0], tr[1], tr[2], tr[3], deck, Traits.of(d).pueblo() ? Adobe.Parapet.ROUNDED : Adobe.Parapet.SHOULDERED, true);
 		}
 		return deck;
 	}

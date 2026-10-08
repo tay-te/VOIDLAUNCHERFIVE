@@ -164,8 +164,8 @@ final class SeatHouses {
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
 		if (flat) {
-			// merlons on the reeve's roof now and then (the lord's man), never on the priest's
-			deck = TownHouses.flat(d, body, office == Office.REEVE && t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.5));
+			// a lived deck behind a breast-high parapet, no merlons: the reeve is the lord's man, not his castle
+			deck = TownHouses.flat(d, body, false);
 		} else {
 			boolean dormers = d.chance(Math.max(0.4, h.roof().dormers()));
 			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, dormers && !bohemian, false);
