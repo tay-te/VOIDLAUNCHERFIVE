@@ -99,9 +99,10 @@ public final class Extraction {
 			if (!sameWork(id, p.spec().archetype()) || p.state() == PlotState.DEMOLISHING) {
 				continue;
 			}
-			if (p.state() == PlotState.BUILT) {
+			if (p.state() == PlotState.BUILT || p.state() == PlotState.ABANDONED) {
+				// (one given up, built over or with no blueprint, is no face either)
 				out++;
-			} else if (p.state() != PlotState.ABANDONED) {
+			} else {
 				open++;
 			}
 		}
@@ -110,10 +111,43 @@ public final class Extraction {
 				open++;
 			}
 		}
-		if (out == 0 || !wanted(ctx, id)) {
+		if (out == 0 || !wanted(ctx, id) && !employs(ctx, id)) {
 			return Math.max(have, open);
 		}
 		return open;
+	}
+
+	/**
+	 * Whether the town has folk in the trade that digs this working (quarriers, miners, clay diggers): a worked-out pit keeps
+	 * its job sites, so its crew stays, and they want a face to cut while a site of its kind holds rock, however much
+	 * stone is in store (the live tour's towns sat on thousands from their quarriers' surface work, so a reopening gated on
+	 * the stores alone never came, requests/w7-tour.md §3).
+	 */
+	static boolean employs(PlanContext ctx, Identifier id) {
+		dev.voidmc.hearth.api.JobType job = trade(id);
+		if (job == null) {
+			return false;
+		}
+		for (dev.voidmc.hearth.api.Resident r : ctx.settlement.residents()) {
+			if (r.job == job) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** The trade that digs a working, or null. */
+	static dev.voidmc.hearth.api.@Nullable JobType trade(Identifier id) {
+		ResourceSite.Kind kind = kind(id);
+		if (kind == null) {
+			return null;
+		}
+		return switch (kind) {
+			case STONE -> dev.voidmc.hearth.api.JobType.QUARRIER;
+			case ORE -> dev.voidmc.hearth.api.JobType.MINER;
+			case CLAY, SAND -> dev.voidmc.hearth.api.JobType.CLAY_DIGGER;
+			default -> null;
+		};
 	}
 
 	/**
@@ -146,17 +180,78 @@ public final class Extraction {
 
 	/** The site an archetype would go to next: the nearest workable site of its kind with room for another working. */
 	public static @Nullable ResourceSite site(PlanContext ctx, Identifier id) {
+		List<ResourceSite> sites = sites(ctx, id, 1);
+		return sites.isEmpty() ? null : sites.get(0);
+	}
+
+	/** The nearest {@code max} workable sites of its kind with room for another working, nearest first. */
+	private static List<ResourceSite> sites(PlanContext ctx, Identifier id, int max) {
 		ResourceSite.Kind kind = kind(id);
 		if (kind == null || !ctx.config.living().extraction()) {
-			return null;
+			return List.of();
 		}
 		Map<Integer, Integer> active = active(ctx, id);
+		Map<Integer, Integer> out = digsOut(id) ? dugOut(ctx, id) : Map.of();
+		List<ResourceSite> found = new java.util.ArrayList<>();
 		for (ResourceSite s : ctx.territory().workable(kind)) {
-			if (active.getOrDefault(s.id(), 0) < PER_SITE) {
-				return s;
+			if (active.getOrDefault(s.id(), 0) < PER_SITE && out.getOrDefault(s.id(), 0) < DUG_PER_SITE) {
+				found.add(s);
+				if (found.size() >= max) {
+					break;
+				}
 			}
 		}
-		return null;
+		return found;
+	}
+
+	/** Sites looked at in turn for a working whose nearest site lies under the town. */
+	private static final int SITES_TRIED = 4;
+
+	/**
+	 * Whether a crew waits for its next face: a working of this work was dug out, none is open or queued, and the town has
+	 * folk in its trade. Its need rests only a few calls after a try that found no room, as the vital needs do.
+	 */
+	public static boolean faceWanted(PlanContext ctx, Identifier id) {
+		if (!digsOut(id)) {
+			return false;
+		}
+		boolean out = false;
+		for (PlotView p : ctx.settlement.plots()) {
+			if (sameWork(id, p.spec().archetype())) {
+				if (p.state() == PlotState.PLANNED || p.state() == PlotState.BUILDING) {
+					return false;
+				}
+				out |= p.state() == PlotState.BUILT || p.state() == PlotState.ABANDONED;
+			}
+		}
+		for (QueuedProject q : ctx.state.queue) {
+			if (sameWork(id, q.spec().archetype())) {
+				return false;
+			}
+		}
+		return out && employs(ctx, id);
+	}
+
+	/** Whether a working of this work was dug out at this site before (the next is a new bench beside the old cut). */
+	private static boolean reopening(PlanContext ctx, Identifier id, ResourceSite site) {
+		return digsOut(id) && dugOut(ctx, id).getOrDefault(site.id(), 0) > 0;
+	}
+
+	/**
+	 * Workings dug out at one site after which the next opens at another: a quarry grows bench by bench beside its old
+	 * cuts, but not without end, so a town that keeps a face open for its diggers spreads its scars over its sites.
+	 */
+	static final int DUG_PER_SITE = 4;
+
+	/** Workings of this work (a mine and a shaft together) dug out or given up, by site id. */
+	private static Map<Integer, Integer> dugOut(PlanContext ctx, Identifier id) {
+		Map<Integer, Integer> out = new HashMap<>();
+		for (PlotView p : ctx.settlement.plots()) {
+			if (sameWork(id, p.spec().archetype()) && (p.state() == PlotState.BUILT || p.state() == PlotState.ABANDONED)) {
+				out.merge(p.spec().params().getIntOr("site", -1), 1, Integer::sum);
+			}
+		}
+		return out;
 	}
 
 	/** Unfinished workings of an archetype by site id (a dug-out working leaves its site free for the next). */
@@ -184,77 +279,133 @@ public final class Extraction {
 	 * fronting a road there, or, if no road reaches the site yet, the cart track out to it. True if anything was queued.
 	 */
 	public static boolean place(PlanContext ctx, ArchetypeInfo info) {
-		ResourceSite site = site(ctx, info.id());
-		if (site == null) {
+		List<ResourceSite> sites = sites(ctx, info.id(), SITES_TRIED);
+		if (sites.isEmpty()) {
 			Growth.why("no workable site");
 			return false;
 		}
-		Identifier id = info.id();
+		// the nearest sites whose rock lies out of town, each with the working it takes (an adit, else a shaft) and where it
+		// goes: an ore site under tomorrow's streets, or one no track reaches, is passed over for the next (a temperate town
+		// of 340 by six ore sites opened no mine in 400 days, every call stopped at the nearest, requests/w7-tour.md §3)
+		List<Spot> spots = new java.util.ArrayList<>();
+		for (ResourceSite s : sites) {
+			spots.addAll(spots(ctx, info, s));
+		}
+		if (spots.isEmpty()) {
+			// all of each site lies under the town
+			Growth.why("the site lies under the town");
+			return false;
+		}
+		// a plot that fits by a road already there, at the nearest site that has one
+		List<Parcels.Parcel> found = new java.util.ArrayList<>();
+		int[] places = new int[spots.size()];
+		for (int i = 0; i < spots.size(); i++) {
+			if (i > 0 && ctx.pastDeadline()) {
+				break;
+			}
+			Spot spot = spots.get(i);
+			Choice best = spot.best(ctx, found);
+			places[i] = found.size();
+			if (best != null) {
+				Build.building(ctx, best.use, best.parcel, reason(best.use, spot.site), params(ctx, best.use, spot.site, best.parcel));
+				return true;
+			}
+		}
+		// else a cart track out to one (one route a call): the nearest first, and after each try that would not route the
+		// next (the need's failures turn the list; a cliff between the town and its nearest ore kept every try at it)
+		int turn = ctx.state.failures.getOrDefault("program/" + info.id().getPath(), 0);
+		for (int k = 0; k < spots.size(); k++) {
+			int i = (k + turn) % spots.size();
+			Spot spot = spots.get(i);
+			int[] target = spot.target;
+			if (ctx.distanceToHeart(target[0], target[1]) > ctx.config.living().haulMaxDistance()) {
+				Growth.why("the site is beyond hauling");
+				continue;
+			}
+			if (accessNear(ctx, target[0], target[1], 14) && !(reopening(ctx, info.id(), spot.site) && !accessNear(ctx, target[0], target[1], 5))) {
+				// a road comes near already: the site is simply full for now
+				Growth.why("no plot fits at the site (" + places[i] + " places by the track)");
+				continue;
+			}
+			// (the next working at a site cut before: its track ends at the old cut, whose ground the new one may not take, so a
+			// short spur runs on from it to the fresh rock; once one comes within a few blocks of the target this stops)
+			ResourceSite site = spot.site;
+			String what = site.kind() == ResourceSite.Kind.ORE ? "ore" : site.kind().getSerializedName();
+			if (Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, false,
+				"road: a cart track out to the " + what + " for the " + Build.shortName(spot.use)) != null) {
+				return true;
+			}
+			// too steep for carts all the way: a track with steps where it must (pack animals and porters)
+			ctx.routed = false;
+			if (Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, true,
+				"road: a track with steps up to the " + what + " for the " + Build.shortName(spot.use)) != null) {
+				return true;
+			}
+			Growth.why(ctx.haulMayGrow() ? "no track could reach the site" : "cart tracks at their budget");
+			return false;
+		}
+		return false;
+	}
+
+	/** A site, the working it takes there (an adit, else a shaft; the archetype itself otherwise), its hillside and target. */
+	private record Spot(ResourceSite site, ArchetypeInfo use, @Nullable Face face, int[] target) {
+		/** The best plot by a road already there, or null (the shaft by the track when no adit lies along it). */
+		@Nullable Choice best(PlanContext ctx, List<Parcels.Parcel> found) {
+			Parcels.Parcel best = Extraction.best(ctx, this.use, this.site, this.target, this.face, found);
+			if (best != null) {
+				return new Choice(best, this.use);
+			}
+			if (this.face != null && accessNear(ctx, this.target[0], this.target[1], 14)) {
+				// the track is at the hill's foot but no adit lies along it or across its end with its back into the slope (a
+				// track that comes down the hill to the mouth has only the contour beside it): a shaft with its headframe by the
+				// track instead, so a town by an ore hill still mines it (requests/w5-tour.md §3)
+				ArchetypeInfo shaft = ctx.catalogue.info(Archetypes.SHAFT);
+				if (shaft != null && Catalogue.allowed(shaft, ctx.culture, ctx.tier)) {
+					Parcels.Parcel p = Extraction.best(ctx, shaft, this.site, this.target, null, found);
+					if (p != null) {
+						return new Choice(p, shaft);
+					}
+				}
+			}
+			return null;
+		}
+	}
+
+	/** A plot for a working and the archetype it is. */
+	private record Choice(Parcels.Parcel parcel, ArchetypeInfo use) {
+	}
+
+	/**
+	 * Where a working of this archetype would go at a site (none if all of the site lies under the town): its best point,
+	 * and for a pit a second well away from it, so a site whose best point has no room by the track (a bank between the
+	 * river and an old pit) is still worked from its other end.
+	 */
+	private static List<Spot> spots(PlanContext ctx, ArchetypeInfo info, ResourceSite site) {
 		ArchetypeInfo use = info;
 		Face face = null;
-		if (id.equals(Archetypes.MINE)) {
+		if (info.id().equals(Archetypes.MINE)) {
 			face = hillside(ctx, site);
 			if (face == null) {
 				// ore under flat ground: a shaft with its headframe instead of an adit
 				ArchetypeInfo shaft = ctx.catalogue.info(Archetypes.SHAFT);
 				if (shaft == null || !Catalogue.allowed(shaft, ctx.culture, ctx.tier)) {
 					Growth.why("no hillside for an adit, and no shaft allowed");
-					return false;
+					return null;
 				}
 				use = shaft;
 			}
 		}
-		int[] target = target(ctx, use, site, face);
+		int[] target = target(ctx, use, site, face, null);
 		if (target == null) {
-			// all of the site lies under the town
-			Growth.why("the site lies under the town");
-			return false;
+			return List.of();
 		}
-		List<Parcels.Parcel> found = new java.util.ArrayList<>();
-		Parcels.Parcel best = best(ctx, use, site, target, face, found);
-		if (best == null && face != null && accessNear(ctx, target[0], target[1], 14)) {
-			// the track is at the hill's foot but no adit lies along it or across its end with its back into the slope (a
-			// track that comes down the hill to the mouth has only the contour beside it): a shaft with its headframe by the
-			// track instead, so a town by an ore hill still mines it (requests/w5-tour.md §3)
-			ArchetypeInfo shaft = ctx.catalogue.info(Archetypes.SHAFT);
-			if (shaft != null && Catalogue.allowed(shaft, ctx.culture, ctx.tier)) {
-				Parcels.Parcel p = best(ctx, shaft, site, target, null, found);
-				if (p != null) {
-					use = shaft;
-					face = null;
-					best = p;
-				}
-			}
-		}
-		if (best == null) {
-			// no road out there yet: a cart track to the site (no stairs; carts and haulers use it); if a road already comes
-			// near, the site is simply full for now
-			if (ctx.distanceToHeart(target[0], target[1]) > ctx.config.living().haulMaxDistance()) {
-				Growth.why("the site is beyond hauling");
-				return false;
-			}
-			if (accessNear(ctx, target[0], target[1], 14)) {
-				Growth.why("no plot fits at the site (" + found.size() + " places by the track)");
-				return false;
-			}
-			String what = site.kind() == ResourceSite.Kind.ORE ? "ore" : site.kind().getSerializedName();
-			if (Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, false,
-				"road: a cart track out to the " + what + " for the " + Build.shortName(use)) != null) {
-				return true;
-			}
-			// too steep for carts all the way: a track with steps where it must (pack animals and porters)
-			ctx.routed = false;
-			if (Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, true,
-				"road: a track with steps up to the " + what + " for the " + Build.shortName(use)) != null) {
-				return true;
-			}
-			Growth.why(ctx.haulMayGrow() ? "no track could reach the site" : "cart tracks at their budget");
-			return false;
-		}
-		Build.building(ctx, use, best, reason(use, site), params(ctx, use, site, best));
-		return true;
+		Spot first = new Spot(site, use, face, target);
+		int[] other = face == null ? target(ctx, use, site, null, target) : null;
+		return other == null ? List.of(first) : List.of(first, new Spot(site, use, null, other));
 	}
 
+	/** How far a site's second target stands from its first. */
+	private static final int SECOND_TARGET_APART = 24;
 	/**
 	 * The best plot for a working at its target, or null: along the roads near it and, for an adit, also across the end of a
 	 * track there. {@code found} gets what was looked at (for the reason when nothing fits).
@@ -423,7 +574,7 @@ public final class Extraction {
 	 * bank for a clay or sand pit or the salt pans, the wood's edge toward the town for a logging camp or woodlot, the site
 	 * itself otherwise. Null if none of the site lies out of town.
 	 */
-	private static int @Nullable [] target(PlanContext ctx, ArchetypeInfo info, ResourceSite site, @Nullable Face face) {
+	private static int @Nullable [] target(PlanContext ctx, ArchetypeInfo info, ResourceSite site, @Nullable Face face, int @Nullable [] apartFrom) {
 		if (face != null) {
 			return new int[]{face.x, face.z};
 		}
@@ -441,7 +592,8 @@ public final class Extraction {
 		for (int z = a.minZ(); z <= a.maxZ(); z += step) {
 			for (int x = a.minX(); x <= a.maxX(); x += step) {
 				double d = ctx.distanceToHeart(x, z);
-				if (d < minD || g.isWater(x, z) || !dev.voidmc.hearth.plan.grid.Cell.isBuildable(ctx.occ.get(x, z))) {
+				if (d < minD || g.isWater(x, z) || !dev.voidmc.hearth.plan.grid.Cell.isBuildable(ctx.occ.get(x, z))
+					|| apartFrom != null && Math.hypot(x - apartFrom[0], z - apartFrom[1]) < SECOND_TARGET_APART) {
 					// (not where an old working has cut already: the next bench opens on the rock beside it)
 					continue;
 				}

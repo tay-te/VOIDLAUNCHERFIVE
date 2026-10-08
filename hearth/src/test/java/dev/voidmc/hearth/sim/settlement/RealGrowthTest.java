@@ -136,14 +136,16 @@ class RealGrowthTest {
 	}
 
 	/**
-	 * A town with rock and ore in reach keeps an excavation open (staked out or being cut) on most days once it works its
-	 * land (requests/w7-tour.md §3: across 71 settlements live one excavation was open, every other worked out, and the
-	 * diggers did abstract work by their pits): a working dug out no longer counts for the program while the town wants
-	 * its goods, so the next is opened beside it or at the next site.
+	 * A town with rock and ore in reach keeps its diggers at a face (requests/w7-tour.md §3: across 71 settlements live one
+	 * excavation was open, every other worked out, and the diggers did abstract work by their pits): a working dug out no
+	 * longer counts for the program while the town has folk in its trade, so the next is opened beside it or at the next
+	 * site; an ore site under the town's future streets is passed over for the next; the face being cut gets a hand of
+	 * its trade before the other workshops take every one. Measured as days on which some excavation was cut further
+	 * (before: the town of this harness opened its first working, a quarry pit, on day 225, and dug nothing after it).
 	 */
 	@Test
-	void aTownKeepsAnExcavationOpen() {
-		GrowthHarness h = GrowthHarness.found(System.getenv().getOrDefault("HEARTH_DIG_TERRAIN", "slope"), Long.parseLong(System.getenv().getOrDefault("HEARTH_DIG_SEED", "3")), true);
+	void aTownKeepsItsDiggersAtAFace() {
+		GrowthHarness h = GrowthHarness.found(System.getenv().getOrDefault("HEARTH_DIG_TERRAIN", "cliff"), Long.parseLong(System.getenv().getOrDefault("HEARTH_DIG_SEED", "3")), true);
 		dev.voidmc.hearth.plan.PlanStats.everyCall = true;
 		dev.voidmc.hearth.plan.PlanStats.reset();
 		int first = -1;
@@ -162,18 +164,37 @@ class RealGrowthTest {
 			+ String.join("\n", dev.voidmc.hearth.plan.PlanStats.lines()));
 		int days = 200;
 		int open = 0;
+		int cut = 0;
 		int before = digs(h, false);
+		long last = cursor(h);
+		// D: cut further that day; o: open, nobody at it; .: none open
+		StringBuilder days2 = new StringBuilder();
 		for (int d = 0; d < days; d++) {
 			h.day();
-			if (digs(h, true) > 0) {
-				open++;
-			}
+			long now = cursor(h);
+			boolean isOpen = digs(h, true) > 0;
+			open += isOpen ? 1 : 0;
+			cut += now > last ? 1 : 0;
+			days2.append(now > last ? 'D' : isOpen ? 'o' : '.');
+			last = now;
 		}
 		int after = digs(h, false);
-		System.out.println(String.format("first working on day %d; over %d days after it an excavation open on %d, workings %d -> %d; %d souls",
-			first, days, open, before, after, h.town.population()));
-		assertTrue(open >= days * 0.7, "an excavation open on " + open + " of " + days + " days (workings " + before + " -> " + after + ", "
-			+ h.town.population() + " souls)");
+		System.out.println(String.format("first working on day %d; over %d days after it an excavation open on %d, cut on %d, workings %d -> %d; %d souls%n%s",
+			first, days, open, cut, before, after, h.town.population(), days2));
+		assertTrue(first <= 150, "the first working by day 150, was day " + first);
+		assertTrue(after >= before + 3, "workings opened anew as the old were dug out: " + before + " -> " + after);
+		assertTrue(cut >= days * 0.2, "an excavation cut on " + cut + " of " + days + " days: " + days2);
+	}
+
+	/** How far the town's workings are cut, all together. */
+	private static long cursor(GrowthHarness h) {
+		long n = 0;
+		for (SimPlot p : h.town.plots()) {
+			if (dev.voidmc.hearth.plan.resource.Extraction.digsOut(p.spec().archetype())) {
+				n += p.stage() * 1000L + p.step();
+			}
+		}
+		return n;
 	}
 
 	/** The town's quarry pits, mines, shafts, clay and sand pits: all, or only those staked out or being cut. */

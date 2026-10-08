@@ -1073,6 +1073,12 @@ public final class SimSettlement implements Settlement {
 		}
 	}
 
+	/** Whether a standing plot is a working dug out (a quarry or clay pit, a mine; not a woodlot, which works on). */
+	private boolean workedOut(SimPlot p) {
+		var x = this.ctx.data().extraction(p.spec().archetype());
+		return x != null && x.kind() != dev.voidmc.hearth.api.ResourceSite.Kind.WOODS && !x.yieldsByCampaign();
+	}
+
 	/** Excavations whose blueprints were not ready at the last count of the derived figures, or null. */
 	private int @Nullable [] waitingDigs;
 
@@ -1086,6 +1092,10 @@ public final class SimSettlement implements Settlement {
 		this.buildings = 0;
 		java.util.Arrays.fill(this.jobSlots, 0);
 		this.activeDigs = 0;
+		// the job sites of workings dug out count once a trade, as the most any one of them has: their crew stays (to cut
+		// the next face, and to gather at the surface meanwhile), but a town that has worked out ten pits does not keep ten
+		// pits' crews (the next opens as the last is cut out, requests/w7-tour.md §3)
+		int[] dugOut = new int[this.jobSlots.length];
 		for (SimPlot p : this.plots.values()) {
 			if (p.isActive() && this.ctx != null && this.ctx.data().extraction(p.spec().archetype()) != null) {
 				// an excavation employs its diggers while it is being dug
@@ -1114,14 +1124,22 @@ public final class SimSettlement implements Settlement {
 				// (a save from before job sites were kept to the archetype's trades)
 				p.jobs = PlotFacts.listed(p.jobs, this.ctx.blueprints().archetype(p.spec().archetype()));
 			}
+			boolean worked = this.ctx != null && workedOut(p);
 			for (int j = 0; j < p.jobs.length && j < this.jobSlots.length; j++) {
-				this.jobSlots[j] += p.jobs[j];
+				if (worked) {
+					dugOut[j] = Math.max(dugOut[j], p.jobs[j]);
+				} else {
+					this.jobSlots[j] += p.jobs[j];
+				}
 			}
 			if (p.storage) {
 				this.storageBuildings++;
 			} else {
 				this.buildings++;
 			}
+		}
+		for (int j = 0; j < dugOut.length; j++) {
+			this.jobSlots[j] += dugOut[j];
 		}
 		SimRules rules = this.ctx == null ? null : this.ctx.rules();
 		if (rules != null) {

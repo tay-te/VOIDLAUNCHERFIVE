@@ -182,7 +182,10 @@ public final class Growth {
 			// a need that keeps finding no room rests longer each time (up to eight times as long), so a town that has no
 			// place for its observatory does not search for one on every other call
 			int failed = ctx.state.failures.merge(need.key, 1, Integer::sum);
-			boolean vital = need.key.equals("housing") || need.key.equals("food") || need.key.startsWith("short/");
+			// (and the next working for a crew whose face is cut out: its diggers stand idle until it is staked out)
+			boolean vital = need.key.equals("housing") || need.key.equals("food") || need.key.startsWith("short/")
+				|| need.key.startsWith("program/extract/") && dev.voidmc.hearth.plan.resource.Extraction.faceWanted(ctx,
+					dev.voidmc.hearth.Hearth.id(need.key.substring("program/".length())));
 			ctx.state.cooldowns.put(need.key, ctx.state.calls + (4 + ctx.random.nextInt(5)) * (vital ? 1 : Math.min(8, failed)));
 			if (++attempts >= MAX_ATTEMPTS) {
 				break;
