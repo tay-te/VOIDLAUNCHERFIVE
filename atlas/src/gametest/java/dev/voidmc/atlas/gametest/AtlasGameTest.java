@@ -589,6 +589,8 @@ public class AtlasGameTest implements FabricClientGameTest {
 				var surfaceOf = w.getMethod("surface");
 				var distanceOf = w.getMethod("distance");
 				// rivers first (the commonest), then seas and lakes: open air over the water, under the land
+				java.util.Map<String, Integer> hits = new java.util.TreeMap<>();
+				String firstMiss = null;
 				for (String want : new String[]{"river", "sea", "lake"}) {
 					for (int r = 0; r <= 2048; r += 32) {
 						int n = Math.max(1, r / 32);
@@ -600,17 +602,39 @@ public class AtlasGameTest implements FabricClientGameTest {
 							if (!want.equals(kindOf.invoke(here)) || (Float) distanceOf.invoke(here) > 0) {
 								continue;
 							}
+							hits.merge(want, 1, Integer::sum);
 							int surface = (Integer) surfaceOf.invoke(here);
 							level.getChunk(x >> 4, z >> 4);
 							int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-							BlockPos above = new BlockPos(x, surface + 3, z);
-							if (surface < ground - 16 && level.getBlockState(above).isAir() && level.getBlockState(above.above()).isAir()
-								&& !level.getFluidState(new BlockPos(x, surface, z)).isEmpty()) {
-								return new int[]{x, surface, z, want.equals("river") ? 1 : want.equals("sea") ? 2 : 3};
+							// the water's top block within two of the caverns' surface, then two of air within six over it
+							int top = Integer.MIN_VALUE;
+							for (int y = surface + 2; y >= surface - 2 && top == Integer.MIN_VALUE; y--) {
+								if (!level.getFluidState(new BlockPos(x, y, z)).isEmpty()) {
+									top = y;
+								}
+							}
+							int air = Integer.MIN_VALUE;
+							for (int y = top + 1; top != Integer.MIN_VALUE && y <= top + 6 && air == Integer.MIN_VALUE; y++) {
+								if (level.getBlockState(new BlockPos(x, y, z)).isAir() && level.getBlockState(new BlockPos(x, y + 1, z)).isAir()) {
+									air = y;
+								}
+							}
+							if (top != Integer.MIN_VALUE && air != Integer.MIN_VALUE && top < ground - 12) {
+								log("caverns: " + hits + " columns over cavern water before this one");
+								return new int[]{x, top, z, want.equals("river") ? 1 : want.equals("sea") ? 2 : 3, air};
+							}
+							if (firstMiss == null) {
+								StringBuilder b = new StringBuilder();
+								for (int y = surface + 4; y >= surface - 3; y--) {
+									b.append(y).append('=').append(level.getBlockState(new BlockPos(x, y, z)).getBlock().getDescriptionId()
+										.replace("block.minecraft.", "")).append(' ');
+								}
+								firstMiss = String.format(Locale.ROOT, "%s at (%d, %d) surface %d ground %d: %s", want, x, z, surface, ground, b);
 							}
 						}
 					}
 				}
+				log("caverns: cavern water by kind within 2048 blocks: " + hits + "; none with open air over it; the first: " + firstMiss);
 			} catch (ReflectiveOperationException e) {
 				log("caverns: no Expanse underground API (" + e + ")");
 			}
@@ -628,10 +652,10 @@ public class AtlasGameTest implements FabricClientGameTest {
 		for (int i = 0; i < 9; i++) {
 			int x = found[0] + (i % 3 - 1) * 12;
 			int z = found[2] + (i / 3 - 1) * 12;
-			world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", x, found[1] + 3, z));
+			world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", x, found[4], z));
 			context.waitTicks(10);
 		}
-		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", found[0], found[1] + 3, found[2]));
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", found[0], found[4], found[2]));
 		this.settle(context, SETTLE_MS * 2);
 		int band = Math.floorDiv(found[1], dev.voidmc.atlas.client.data.DimensionData.BAND);
 		String tinted = context.computeOnClient(mc -> {
@@ -649,6 +673,7 @@ public class AtlasGameTest implements FabricClientGameTest {
 					for (var l : d.layers()) {
 						l.forgetImages();
 					}
+					AtlasClient.get().tiles().clear();
 				}
 				if (!(mc.gui.screen() instanceof AtlasScreen)) {
 					AtlasClient.get().openMap();
