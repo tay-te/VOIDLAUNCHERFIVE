@@ -70,6 +70,7 @@ public final class Settle {
 		openPockets(d);
 		pockets(d);
 		guards(d);
+		ledges(d);
 		// (a gallery door whose lattice became a rail is a window now; a yard thing a rail cut off is not put out)
 		doors(d);
 		yardDoors(d);
@@ -739,6 +740,354 @@ public final class Settle {
 
 	// ------------------------------------------------------------------------------------------------- guards
 
+	/**
+	 * The walked cells in the plot beside a drop of four or more that nothing guards (the audit's fall edges): the drop's
+	 * cell lets feet and head through and falls four or more to something solid, not into water.
+	 */
+	static LongArrayList falls(Draft d, LongOpenHashSet reached) {
+		LongArrayList out = new LongArrayList();
+		for (long k : reached) {
+			int x = Draft.keyX(k);
+			int y = Draft.keyY(k);
+			int z = Draft.keyZ(k);
+			if (!inPlot(d, x, z) || wet(d, x, y, z)) {
+				continue;
+			}
+			for (Direction dir : Dirs.HORIZONTAL) {
+				int nx = x + Dirs.dx(dir);
+				int nz = z + Dirs.dz(dir);
+				if (passable(at(d, nx, y, nz)) && passable(at(d, nx, y + 1, nz)) && drop(d, nx, y, nz) >= 4) {
+					out.add(k);
+					break;
+				}
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * What the guards could not close: the last ledges someone could walk off (a gallery one deep at the plot's edge, a
+	 * roof slope stepped onto from a gallery, a coping reached from a bed, a cornice beside a balcony). Each is shut the
+	 * way a builder would, the first way that leaves every bed, store, job, door and ladder walked to as before, gives up
+	 * no room's floor, and leaves fewer edges:
+	 * <ol>
+	 *   <li>a door that opens onto a ledge walled up to a window: the ledge is a French balcony;</li>
+	 *   <li>a roof's slope railed off along the line where the walk comes onto it (on its first course);</li>
+	 *   <li>the way to the ledge cut where it leaves the floors that matter: the stepping stone it climbs taken away (a
+	 *   jar, a cauldron, a barrel), else a rail across it;</li>
+	 *   <li>the ledge railed in itself, the rail standing on its floor.</li>
+	 * </ol>
+	 * Answers how many were shut.
+	 */
+	public static int ledges(Draft d) {
+		int shut = 0;
+		LongOpenHashSet tried = new LongOpenHashSet();
+		LongOpenHashSet cutTried = new LongOpenHashSet();
+		LongOpenHashSet roofTried = new LongOpenHashSet();
+		Mat fence = d.mat(Role.FENCE);
+		Traits t = Traits.of(d);
+		Mat wall = d.mat(Role.WALL);
+		boolean masonry = (t.flat() || t.masonry() && !t.timber()) && wall.has(Form.WALL);
+		var guard = masonry ? wall.wall() : fence.fence();
+		for (int round = 0; round < 64; round++) {
+			LongOpenHashSet reached = walk(d);
+			LongArrayList f = falls(d, reached);
+			int count = f.size();
+			if (count == 0) {
+				return shut;
+			}
+			LongOpenHashSet need = needed(d, reached);
+			boolean done = false;
+			// 2. a door onto a ledge: walled up
+			for (int i = 0; i < f.size() && !done; i++) {
+				long k = f.getLong(i);
+				int x = Draft.keyX(k);
+				int y = Draft.keyY(k);
+				int z = Draft.keyZ(k);
+				for (Direction dir : Dirs.HORIZONTAL) {
+					int dx = x + Dirs.dx(dir);
+					int dz = z + Dirs.dz(dir);
+					BlockState door = d.get(dx, y, dz);
+					if (door == null || !(door.getBlock() instanceof DoorBlock) || door.getValue(DoorBlock.HALF) != DoubleBlockHalf.LOWER
+						|| entrance(d, dx, y, dz) || tried.contains(Draft.key(dx, y, dz))) {
+						continue;
+					}
+					tried.add(Draft.key(dx, y, dz));
+					Draft.Cell lo = d.cell(dx, y, dz);
+					Draft.Cell hi = d.cell(dx, y + 1, dz);
+					wallUp(d, dx, y, dz, door.getValue(DoorBlock.FACING));
+					if (better(d, reached, need, count, LongArrayList.of(Draft.key(dx, y, dz), Draft.key(dx, y + 1, dz)), Long.MIN_VALUE, 12)) {
+						note(d, "door", dx, y, dz, door);
+						done = true;
+						break;
+					}
+					d.inStage(lo.stage(), () -> d.set(dx, y, dz, lo.state(), lo.tag()));
+					if (hi != null) {
+						d.inStage(hi.stage(), () -> d.set(dx, y + 1, dz, hi.state(), hi.tag()));
+					}
+				}
+			}
+			// 2. a roof's slope someone stepped up onto (from a gallery beside its eave, a stair's head): railed off along
+			// the line where the walk comes onto it, on its first course
+			for (int i = 0; i < f.size() && !done; i++) {
+				long fk = f.getLong(i);
+				if (roofTried.contains(fk) || !slope(d, Draft.keyX(fk), Draft.keyY(fk), Draft.keyZ(fk))) {
+					continue;
+				}
+				LongOpenHashSet region = new LongOpenHashSet();
+				LongArrayFIFOQueue q = new LongArrayFIFOQueue();
+				region.add(fk);
+				q.enqueue(fk);
+				LongArrayList rim = new LongArrayList();
+				while (!q.isEmpty()) {
+					long c = q.dequeueLong();
+					boolean edge = false;
+					for (Direction dir : Dirs.HORIZONTAL) {
+						for (int dy = 1; dy >= -3; dy--) {
+							long n = Draft.key(Draft.keyX(c) + Dirs.dx(dir), Draft.keyY(c) + dy, Draft.keyZ(c) + Dirs.dz(dir));
+							if (!reached.contains(n)) {
+								continue;
+							}
+							if (slope(d, Draft.keyX(n), Draft.keyY(n), Draft.keyZ(n)) && !need.contains(n)) {
+								if (region.add(n)) {
+									q.enqueue(n);
+								}
+							} else {
+								edge = true;
+							}
+						}
+					}
+					if (edge) {
+						rim.add(c);
+					}
+				}
+				roofTried.addAll(region);
+				boolean free = !rim.isEmpty();
+				for (int j = 0; j < rim.size() && free; j++) {
+					long c = rim.getLong(j);
+					free = d.allowed(Draft.keyX(c), Draft.keyY(c), Draft.keyZ(c)) && d.isEmpty(Draft.keyX(c), Draft.keyY(c), Draft.keyZ(c))
+						&& !access(d, Draft.keyX(c), Draft.keyY(c), Draft.keyZ(c));
+				}
+				if (!free) {
+					continue;
+				}
+				d.inStage(StageKind.EXTERIOR, () -> {
+					for (int j = 0; j < rim.size(); j++) {
+						long c = rim.getLong(j);
+						d.set(Draft.keyX(c), Draft.keyY(c), Draft.keyZ(c), guard);
+					}
+				});
+				if (better(d, reached, need, count, rim, fk, 0)) {
+					note(d, "roof" + rim.size(), Draft.keyX(fk), Draft.keyY(fk), Draft.keyZ(fk), at(d, Draft.keyX(fk), Draft.keyY(fk) - 1, Draft.keyZ(fk)));
+					done = true;
+				} else {
+					for (int j = 0; j < rim.size(); j++) {
+						long c = rim.getLong(j);
+						d.remove(Draft.keyX(c), Draft.keyY(c), Draft.keyZ(c));
+					}
+				}
+			}
+			// 2b. the way onto the ledge cut where it leaves the floors that matter: along the walk from the street to the
+			// ledge, from the street end, the first cell that can be shut (the stepping stone it stands on taken away, else a
+			// rail across it) leaving everything that mattered walked and the ledge not
+			for (int i = 0; i < f.size() && i < 3 && !done; i++) {
+				long fk = f.getLong(i);
+				it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap from = new it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap();
+				walk(d, from);
+				LongArrayList chain = new LongArrayList();
+				long c = fk;
+				for (int n = 0; n < 256 && from.containsKey(c); n++) {
+					chain.add(c);
+					long p = from.get(c);
+					if (p == c) {
+						break;
+					}
+					c = p;
+				}
+				if (debug(d)) {
+					StringBuilder sb = new StringBuilder("settle chain to " + key(fk) + ":");
+					for (int j = chain.size() - 1; j >= 0; j--) {
+						long k = chain.getLong(j);
+						sb.append(' ').append(key(k)).append(need.contains(k) ? "n" : "").append(access(d, Draft.keyX(k), Draft.keyY(k), Draft.keyZ(k)) ? "a" : "");
+					}
+					System.out.println(sb);
+				}
+				for (int j = chain.size() - 1; j >= 0 && !done; j--) {
+					long k = chain.getLong(j);
+					int x = Draft.keyX(k);
+					int y = Draft.keyY(k);
+					int z = Draft.keyZ(k);
+					if (need.contains(k) || cutTried.contains(k) || !inPlot(d, x, z) || !d.allowed(x, y, z) || access(d, x, y, z)) {
+						continue;
+					}
+					cutTried.add(k);
+					Draft.Cell under = d.cell(x, y - 1, z);
+					if (under != null && stone(under.state()) && !jobAt(d, x, y - 1, z)) {
+						d.inStage(StageKind.INTERIOR, () -> d.set(x, y - 1, z, Blocks.AIR.defaultBlockState()));
+						if (better(d, reached, need, count, LongArrayList.of(k, Draft.key(x, y - 1, z)), fk, 0)) {
+							d.retainPois(p -> !(p.x() == x && p.z() == z && Math.abs(p.y() - y) <= 2));
+							BlockState on = d.get(x, y, z);
+							if (on != null && rests(on)) {
+								d.inStage(StageKind.INTERIOR, () -> d.set(x, y, z, Blocks.AIR.defaultBlockState()));
+							}
+							note(d, "stone", x, y - 1, z, under.state());
+							done = true;
+						} else {
+							d.inStage(under.stage(), () -> d.set(x, y - 1, z, under.state(), under.tag()));
+						}
+						continue;
+					}
+					BlockState feet = d.get(x, y, z);
+					if (feet != null && !feet.isAir() && !(feet.getBlock() instanceof CarpetBlock) && !(feet.getBlock() instanceof VegetationBlock)) {
+						continue;
+					}
+					Draft.Cell was = d.cell(x, y, z);
+					d.inStage(StageKind.EXTERIOR, () -> d.set(x, y, z, guard));
+					if (better(d, reached, need, count, LongArrayList.of(k), fk, 0)) {
+						note(d, "cut", x, y, z, at(d, x, y - 1, z));
+						done = true;
+					} else if (was == null) {
+						d.remove(x, y, z);
+					} else {
+						d.inStage(was.stage(), () -> d.set(x, y, z, was.state(), was.tag()));
+					}
+				}
+			}
+			// 3. the ledge railed in itself
+			for (int i = 0; i < f.size() && !done; i++) {
+				long k = f.getLong(i);
+				int x = Draft.keyX(k);
+				int y = Draft.keyY(k);
+				int z = Draft.keyZ(k);
+				BlockState feet = d.get(x, y, z);
+				if (tried.contains(k) || !d.allowed(x, y, z) || feet != null && !feet.isAir() && !(feet.getBlock() instanceof CarpetBlock)
+					&& !(feet.getBlock() instanceof VegetationBlock) && !(feet.getBlock() instanceof TrapDoorBlock)) {
+					continue;
+				}
+				tried.add(k);
+				Draft.Cell was = d.cell(x, y, z);
+				d.inStage(StageKind.EXTERIOR, () -> d.set(x, y, z, guard));
+				if (better(d, reached, need, count, LongArrayList.of(k), Long.MIN_VALUE, 0)) {
+					note(d, "rail", x, y, z, at(d, x, y - 1, z));
+					done = true;
+				} else if (was == null) {
+					d.remove(x, y, z);
+				} else {
+					d.inStage(was.stage(), () -> d.set(x, y, z, was.state(), was.tag()));
+				}
+			}
+			if (!done) {
+				return shut;
+			}
+			shut++;
+		}
+		return shut;
+	}
+
+	private static String key(long k) {
+		return Draft.keyX(k) + "/" + Draft.keyY(k) + "/" + Draft.keyZ(k);
+	}
+
+	private static void note(Draft d, String what, int x, int y, int z, BlockState s) {
+		if (debug(d)) {
+			System.out.println("settle ledge " + d.spec().archetype().getPath() + " " + d.style().id().getPath() + " " + what + " " + x + "/" + y + "/" + z + " " + s.getBlock());
+		}
+	}
+
+	/** A small thing one could climb onto: a jar, a cauldron, a barrel, a crate, a composter, a pot. */
+	private static boolean stone(BlockState s) {
+		Block b = s.getBlock();
+		return b instanceof net.minecraft.world.level.block.DecoratedPotBlock || b instanceof net.minecraft.world.level.block.AbstractCauldronBlock
+			|| b instanceof net.minecraft.world.level.block.BarrelBlock || b instanceof net.minecraft.world.level.block.ComposterBlock
+			|| b == Blocks.HAY_BLOCK || b instanceof net.minecraft.world.level.block.CarvedPumpkinBlock || b instanceof net.minecraft.world.level.block.BeehiveBlock;
+	}
+
+	/**
+	 * After a change: whether there are fewer fall edges than {@code count} and every cell that mattered (bar the changed
+	 * cells and the views from a ledge) is walked still.
+	 */
+	private static boolean better(Draft d, LongOpenHashSet before, LongOpenHashSet need, int count, LongArrayList changed, long gone, int roofedLoss) {
+		LongOpenHashSet after = walk(d);
+		if (after.contains(gone) || falls(d, after).size() >= count) {
+			if (debug(d)) {
+				System.out.println("settle better " + key(changed.getLong(0)) + " gone=" + after.contains(gone) + " falls " + falls(d, after).size() + "/" + count);
+			}
+			return false;
+		}
+		// only open ground may be given up (a roof's slope, a coping, a ledge): never a room's floor (behind a walled-up
+		// door, a balcony under the one above it may go, a few cells)
+		int lost = 0;
+		for (long k : before) {
+			if (!after.contains(k) && !changed.contains(k) && inPlot(d, Draft.keyX(k), Draft.keyZ(k)) && roofed(d, Draft.keyX(k), Draft.keyY(k), Draft.keyZ(k))
+				&& !onRoof(d, Draft.keyX(k), Draft.keyY(k), Draft.keyZ(k)) && ++lost > roofedLoss) {
+				if (debug(d)) {
+					System.out.println("settle better " + key(changed.getLong(0)) + " loses roofed " + key(k) + " on " + d.cell(Draft.keyX(k), Draft.keyY(k) - 1, Draft.keyZ(k)));
+				}
+				return false;
+			}
+		}
+		LongOpenHashSet views = new LongOpenHashSet();
+		for (Draft.LocalPoi p : d.pois()) {
+			if (p.type() == dev.voidmc.hearth.api.PoiType.VIEWPOINT) {
+				for (int dy = -1; dy <= 1; dy++) {
+					views.add(Draft.key(p.x(), p.y() + dy, p.z()));
+				}
+			}
+		}
+		for (long k : need) {
+			if (after.contains(k) || changed.contains(k) || changed.contains(Draft.key(Draft.keyX(k), Draft.keyY(k) - 1, Draft.keyZ(k)))) {
+				continue;
+			}
+			if (views.contains(k) && !nearUsed(d, k)) {
+				continue;
+			}
+			if (debug(d)) {
+				System.out.println("settle better " + key(changed.getLong(0)) + " loses needed " + key(k));
+			}
+			return false;
+		}
+		// a view nobody can reach any more is no view
+		d.retainPois(p -> p.type() != dev.voidmc.hearth.api.PoiType.VIEWPOINT || after.contains(Draft.key(p.x(), p.y(), p.z()))
+			|| after.contains(Draft.key(p.x(), p.y() + 1, p.z())) || after.contains(Draft.key(p.x(), p.y() - 1, p.z())));
+		return true;
+	}
+
+	private static boolean roofStage(Draft d, int x, int y, int z) {
+		Draft.Cell c = d.cell(x, y, z);
+		return c != null && c.stage() == StageKind.ROOF;
+	}
+
+	/** Whether the cell stands on a roof's slope: a stair or a slab laid in the roof's stage. */
+	private static boolean slope(Draft d, int x, int y, int z) {
+		Draft.Cell c = d.cell(x, y - 1, z);
+		return c != null && c.stage() == StageKind.ROOF && (c.state().getBlock() instanceof StairBlock || c.state().getBlock() instanceof SlabBlock);
+	}
+
+	/** Whether the cell stands on a roof (a block laid in the roof's stage): its slope or its coping, never a floor. */
+	private static boolean onRoof(Draft d, int x, int y, int z) {
+		Draft.Cell c = d.cell(x, y - 1, z);
+		return c != null && c.stage() == StageKind.ROOF;
+	}
+
+	/** Whether a walked cell matters for more than a view: a door, a ladder or something used beside it. */
+	private static boolean nearUsed(Draft d, long k) {
+		int x = Draft.keyX(k);
+		int y = Draft.keyY(k);
+		int z = Draft.keyZ(k);
+		Block here = at(d, x, y, z).getBlock();
+		if (here instanceof DoorBlock || here instanceof LadderBlock || here instanceof FenceGateBlock) {
+			return true;
+		}
+		for (Direction dir : Dirs.HORIZONTAL) {
+			for (int dy = -1; dy <= 1; dy++) {
+				if (used(at(d, x + Dirs.dx(dir), y + dy, z + Dirs.dz(dir)))) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	/** Rails every walked edge over a drop of four or more; answers how many guards were set. */
 	public static int guards(Draft d) {
 		LongOpenHashSet reached = walk(d);
@@ -747,6 +1096,8 @@ public final class Settle {
 		Mat wall = d.mat(Role.WALL);
 		boolean masonry = (t.flat() || t.masonry() && !t.timber()) && wall.has(Form.WALL);
 		var guard = masonry ? wall.wall() : fence.fence();
+		Mat floor = d.mat(Role.FLOOR);
+		var lip = masonry && wall.has(Form.SLAB) ? wall.slab(SlabType.TOP) : floor.slab(SlabType.TOP);
 		LongOpenHashSet guarded = new LongOpenHashSet();
 		// walked cells at the plot's edge whose drop lies outside it, where a rail cannot stand: railed in themselves
 		LongArrayList edge = new LongArrayList();
@@ -781,6 +1132,10 @@ public final class Settle {
 					int gx = nx;
 					int gz = nz;
 					d.inStage(StageKind.EXTERIOR, () -> d.set(gx, y, gz, guard));
+					// the floor carried out a lip under the rail, so it stands on something rather than hanging off the edge
+					if (d.allowed(gx, y - 1, gz) && d.isEmpty(gx, y - 1, gz)) {
+						d.inStage(StageKind.EXTERIOR, () -> d.set(gx, y - 1, gz, lip));
+					}
 				}
 			}
 		}
@@ -948,8 +1303,12 @@ public final class Settle {
 		for (Direction dir : Dirs.HORIZONTAL) {
 			BlockState n = at(d, x + Dirs.dx(dir), y, z + Dirs.dz(dir));
 			BlockState below = at(d, x + Dirs.dx(dir), y - 1, z + Dirs.dz(dir));
+			int nx = x + Dirs.dx(dir);
+			int nz = z + Dirs.dz(dir);
+			// (a stair of the roof or its coping is no flight)
 			if (n.getBlock() instanceof DoorBlock || n.getBlock() instanceof LadderBlock || below.getBlock() instanceof LadderBlock
-				|| n.getBlock() instanceof StairBlock || below.getBlock() instanceof StairBlock || n.getBlock() instanceof FenceGateBlock) {
+				|| n.getBlock() instanceof StairBlock && !roofStage(d, nx, y, nz) || below.getBlock() instanceof StairBlock && !roofStage(d, nx, y - 1, nz)
+				|| n.getBlock() instanceof FenceGateBlock) {
 				return true;
 			}
 		}
@@ -1059,6 +1418,11 @@ public final class Settle {
 
 	/** Every cell walked to from the entrances and the street, within the plot and four round it. */
 	public static LongOpenHashSet walk(Draft d) {
+		return walk(d, null);
+	}
+
+	/** As {@link #walk(Draft)}; {@code from}, when given, gets each walked cell's predecessor (a start's is itself). */
+	static LongOpenHashSet walk(Draft d, it.unimi.dsi.fastutil.longs.@org.jspecify.annotations.Nullable Long2LongOpenHashMap from) {
 		int m = 4;
 		int x0 = -m;
 		int x1 = d.frontage() - 1 + m;
@@ -1078,12 +1442,14 @@ public final class Settle {
 				if (walkable(d, p[0], p[1] + dy, p[2])) {
 					if (seen.add(Draft.key(p[0], p[1] + dy, p[2]))) {
 						q.enqueue(Draft.key(p[0], p[1] + dy, p[2]));
+						link(from, Draft.key(p[0], p[1] + dy, p[2]), Draft.key(p[0], p[1] + dy, p[2]));
 					}
 					break;
 				}
 			}
 			if (walkable(d, p[0], p[1] + 1, p[2]) && seen.add(Draft.key(p[0], p[1] + 1, p[2]))) {
 				q.enqueue(Draft.key(p[0], p[1] + 1, p[2]));
+				link(from, Draft.key(p[0], p[1] + 1, p[2]), Draft.key(p[0], p[1] + 1, p[2]));
 			}
 		}
 		while (!q.isEmpty()) {
@@ -1107,6 +1473,7 @@ public final class Settle {
 					if (walkable(d, nx, ny, nz)) {
 						if (seen.add(Draft.key(nx, ny, nz))) {
 							q.enqueue(Draft.key(nx, ny, nz));
+							link(from, Draft.key(nx, ny, nz), k);
 						}
 						break;
 					}
@@ -1114,6 +1481,7 @@ public final class Settle {
 					if (dy == 0 && step(there) && walkable(d, nx, ny + 1, nz) && headroom) {
 						if (seen.add(Draft.key(nx, ny + 1, nz))) {
 							q.enqueue(Draft.key(nx, ny + 1, nz));
+							link(from, Draft.key(nx, ny + 1, nz), k);
 						}
 						break;
 					}
@@ -1126,10 +1494,17 @@ public final class Settle {
 				for (int dy : new int[]{1, -1}) {
 					if ((walkable(d, x, y + dy, z) || at(d, x, y + dy, z).getBlock() instanceof LadderBlock) && seen.add(Draft.key(x, y + dy, z))) {
 						q.enqueue(Draft.key(x, y + dy, z));
+						link(from, Draft.key(x, y + dy, z), k);
 					}
 				}
 			}
 		}
 		return seen;
+	}
+
+	private static void link(it.unimi.dsi.fastutil.longs.@org.jspecify.annotations.Nullable Long2LongOpenHashMap from, long to, long by) {
+		if (from != null) {
+			from.put(to, by);
+		}
 	}
 }
