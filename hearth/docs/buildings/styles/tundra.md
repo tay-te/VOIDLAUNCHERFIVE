@@ -40,7 +40,7 @@ Tier 0 is old spruce shingles with a little moss; tier 3 slate. Cloth is madder 
 
 ## Local materials
 
-Local timber becomes hewn log walls.
+Local timber becomes hewn log walls. The sod longhouse is never a noble building's dressing: the lord's stables wear the fire hall (audit L7 item 4).
 
 ---
 

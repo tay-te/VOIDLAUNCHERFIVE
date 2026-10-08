@@ -20,6 +20,7 @@ public final class TerrainPreview {
 	private static final boolean BORDERS = Boolean.getBoolean("expanse.preview.borders");
 	private static final boolean COUNTRIES = Boolean.getBoolean("expanse.preview.countries");
 	private static final boolean WOODS = Boolean.getBoolean("expanse.preview.woods");
+	private static final boolean CLIMATE = Boolean.getBoolean("expanse.preview.climate");
 
 	public static void main(String[] args) throws Exception {
 		long seed = Long.parseLong(args[0]);
@@ -34,7 +35,7 @@ public final class TerrainPreview {
 			// a vertical section along x at z = cz, y -64 to 256 (one pixel a block, scaled by step across):
 			// sky, land, deepslate below y 0, open space dark, lakes blue, lava orange
 			int width = 2 * radius / step;
-			int top = 256;
+			int top = Integer.getInteger("expanse.preview.top", 256);
 			int bottom = -64;
 			BufferedImage img = new BufferedImage(width, top - bottom, BufferedImage.TYPE_INT_RGB);
 			var caverns = model.caverns();
@@ -64,6 +65,191 @@ public final class TerrainPreview {
 			});
 			ImageIO.write(img, "png", out);
 			System.out.printf("side section at z=%d, x %d..%d -> %s%n", cz, cx - radius, cx + radius, out);
+			return;
+		}
+		if (slice.equals("riversights")) {
+			// (-Pslice=riversights) the bridges and landings on the river tunnels in the square
+			var rs = model.caverns().riverSights();
+			int cell = dev.voidmc.expanse.world.terrain.RiverSights.CELL;
+			int bridges = 0;
+			int landings = 0;
+			for (int gx = Math.floorDiv(cx - radius, cell); gx <= Math.floorDiv(cx + radius, cell); gx++) {
+				for (int gz = Math.floorDiv(cz - radius, cell); gz <= Math.floorDiv(cz + radius, cell); gz++) {
+					var s = rs.sight(gx, gz);
+					if (s.exists()) {
+						if (s.bridge()) {
+							bridges++;
+						} else {
+							landings++;
+						}
+						if (bridges + landings <= 12) {
+							System.out.printf("%s at %d,%d water %d half %d across %s side %d%n", s.bridge() ? "bridge" : "landing", s.x(), s.z(), s.water(),
+								s.half(), s.acrossX() ? "x" : "z", s.side());
+						}
+					}
+				}
+			}
+			System.out.printf("%d bridges, %d landings%n", bridges, landings);
+			return;
+		}
+		if (slice.equals("realmviews")) {
+			// (-Pslice=realmviews) for each realm character, the biggest realm in the square and a viewpoint in it: half way
+			// out from the centre, a little under half way up, looking back across it (name:x,y,z,yaw,pitch for the tours)
+			var cav = model.caverns();
+			String[] names = {"wilds", "lush", "dripstone", "crystal", "ember", "mere", "frozen", "roots", "fossil", "tidal", "amber", "brimstone"};
+			var best = new dev.voidmc.expanse.world.terrain.CavernModel.Hall[names.length];
+			int cell = 640;
+			for (int hx = Math.floorDiv(cx - radius, cell); hx <= Math.floorDiv(cx + radius, cell); hx++) {
+				for (int hz = Math.floorDiv(cz - radius, cell); hz <= Math.floorDiv(cz + radius, cell); hz++) {
+					var hall = cav.hall(hx, hz);
+					if (!hall.exists() || cav.info(hall.x(), hall.z()).sea) {
+						continue;
+					}
+					if (best[hall.theme()] == null || hall.radius() > best[hall.theme()].radius()) {
+						best[hall.theme()] = hall;
+					}
+				}
+			}
+			StringBuilder views = new StringBuilder();
+			for (int t = 0; t < names.length; t++) {
+				var hall = best[t];
+				if (hall == null) {
+					continue;
+				}
+				// the viewpoint: try eight bearings for one over open floor with room under the vault
+				for (int k = 0; k < 8; k++) {
+					double a = k * Math.PI / 4;
+					int vx = hall.x() + (int) Math.round(0.5 * hall.radius() * Math.cos(a));
+					int vz = hall.z() + (int) Math.round(0.5 * hall.radius() * Math.sin(a));
+					var c = cav.info(vx, vz);
+					float floor = Math.max(c.floor, c.liquid());
+					if (!c.hall || c.roof - floor < 24) {
+						continue;
+					}
+					int vy = Math.round(floor + 0.3F * (c.roof - floor));
+					float yaw = (float) Math.toDegrees(Math.atan2(-(hall.x() - vx), hall.z() - vz));
+					System.out.printf("%s r %.0f at %d,%d floor %.0f roof %.0f%n", names[t], hall.radius(), hall.x(), hall.z(), c.floor, c.roof);
+					views.append(String.format("deep%s:%d,%d,%d,%.0f,8;", names[t], vx, vy, vz, (yaw + 360) % 360));
+					break;
+				}
+			}
+			System.out.println(views);
+			return;
+		}
+		if (slice.equals("samplebench")) {
+			// (-Pslice=samplebench) the cost of TerrainModel.sample with its plates built: four threads over fresh columns
+			int w = 1536;
+			IntStream.range(0, 4).parallel().forEach(t -> {
+				for (int i = 0; i < w; i += 16) {
+					for (int j = 0; j < w; j += 16) {
+						model.sample(cx + i + t * w, cz + j);
+					}
+				}
+			});
+			for (int round = 0; round < 3; round++) {
+				int off = round + 1;
+				long t0 = System.nanoTime();
+				IntStream.range(0, 4).parallel().forEach(t -> {
+					for (int i = 0; i < w; i += 2) {
+						for (int j = 0; j < w; j += 2) {
+							model.sample(cx + i + off + t * w, cz + j + off);
+						}
+					}
+				});
+				long ns = System.nanoTime() - t0;
+				System.out.printf("round %d: %.2f us a column (4 threads, %d columns)%n", round, ns / 1e3 / (4.0 * (w / 2) * (w / 2)) * 4, 4 * (w / 2) * (w / 2));
+			}
+			return;
+		}
+		if (slice.equals("mines")) {
+			// (-Pslice=mines) the great mines in the square: pithead, depth, levels, the realm they reach
+			var cav = model.caverns();
+			int cell = dev.voidmc.expanse.world.terrain.GreatMines.CELL;
+			int n = 0;
+			int cells = 0;
+			for (int mx = Math.floorDiv(cx - radius, cell); mx <= Math.floorDiv(cx + radius, cell); mx++) {
+				for (int mz = Math.floorDiv(cz - radius, cell); mz <= Math.floorDiv(cz + radius, cell); mz++) {
+					cells++;
+					var m = cav.mine(mx, mz);
+					if (!m.exists()) {
+						continue;
+					}
+					n++;
+					var g = m.great();
+					System.out.printf("mine at %d,%d ground %d bottom %d (%d deep), %d drifts, great drift %s%s %d long to %d,%d; realm %d,%d%n", m.x(), m.z(),
+						m.ground(), m.bottom(), m.ground() - m.bottom(), m.drifts().size(), g.sign() > 0 ? "+" : "-", g.alongX() ? "x" : "z", g.length(),
+						m.mouthX(), m.mouthZ(), m.realmX(), m.realmZ());
+					for (var d : m.drifts()) {
+						System.out.printf("    drift floor %d %s%s %d long%n", d.floor(), d.sign() > 0 ? "+" : "-", d.alongX() ? "x" : "z", d.length());
+					}
+				}
+			}
+			System.out.printf("%d mines in %d cells%n", n, cells);
+			return;
+		}
+		if (slice.equals("deep")) {
+			// (-Pslice=deep) where the buried seas and the great rivers are, with their water and vaults, for views
+			var cav = model.caverns();
+			int seas = 0;
+			int rivers = 0;
+			for (int x = cx - radius; x <= cx + radius && (seas < 4 || rivers < 4); x += step) {
+				for (int z = cz - radius; z <= cz + radius; z += step) {
+					var c = cav.info(x, z);
+					if (c.sea && c.hall && c.hallEdge > 250 && c.roof - c.lake > 40 && seas < 4) {
+						System.out.printf("sea at %d,%d water %.0f floor %.0f roof %.0f (centre %d,%d r %.0f)%n", x, z, c.lake, c.floor, c.roof, c.hallX, c.hallZ, c.hallRadius);
+						seas++;
+						x += 2000;
+						break;
+					}
+					if (c.river && c.riverGreat > 0.85F && c.riverDist < 2 && c.tunnelRoof - c.riverWater > 45 && rivers < 4) {
+						System.out.printf("great river at %d,%d water %.0f roof %.0f half width %.0f%n", x, z, c.riverWater, c.tunnelRoof, c.riverHalfWidth);
+						rivers++;
+						z += 1500;
+					}
+				}
+			}
+			return;
+		}
+		if (slice.equals("farpeaks")) {
+			// (-Pslice=farpeaks) how far each far cell's height (step = cell) sits under the fine ground's high points
+			// in it (90th percentile and highest of 8 x 8 samples), by the cell's uplift and its height over the sea
+			TerrainModel.FarColumn far = new TerrainModel.FarColumn();
+			int cells = 2 * radius / step;
+			double[][] sums = new double[8][5];
+			for (int j = 0; j < cells; j += 2) {
+				for (int i = 0; i < cells; i += 2) {
+					int x0 = cx - radius + i * step;
+					int z0 = cz - radius + j * step;
+					float[] hs = new float[64];
+					int k = 0;
+					double mean = 0;
+					for (int u = 0; u < 8; u++) {
+						for (int v = 0; v < 8; v++) {
+							hs[k] = Math.max(63, model.sample(x0 + u * step / 8 + step / 16, z0 + v * step / 8 + step / 16).height);
+							mean += hs[k++];
+						}
+					}
+					mean /= 64;
+					java.util.Arrays.sort(hs);
+					model.sampleFar(x0 + step / 2, z0 + step / 2, far);
+					if (far.height < 70) {
+						continue;
+					}
+					int bin = Math.min(7, Math.max(0, (int) ((far.uplift + 0.5F) / 0.5F)));
+					sums[bin][0]++;
+					sums[bin][1] += hs[57] - far.peak;
+					sums[bin][2] += hs[63] - far.height;
+					sums[bin][3] += mean - far.height;
+					sums[bin][4] += far.height - 63;
+				}
+			}
+			for (int bin = 0; bin < 8; bin++) {
+				double c = sums[bin][0];
+				if (c > 0) {
+					System.out.printf("uplift %4.1f-%4.1f: %4.0f cells, far %5.1f over sea, p90 %+6.1f, max %+6.1f, mean %+6.1f%n", bin * 0.5 - 0.5, bin * 0.5, c,
+						sums[bin][4] / c, sums[bin][1] / c, sums[bin][2] / c, sums[bin][3] / c);
+				}
+			}
 			return;
 		}
 		if (slice.equals("far")) {
@@ -127,7 +313,7 @@ public final class TerrainPreview {
 				for (int x = cx - radius; x <= cx + radius; x += step) {
 					for (int z = cz - radius; z <= cz + radius; z += step) {
 						Column c = model.sample(x, z);
-						if (c.country != kind || c.countryStrength < 0.9F || c.height < 66 || c.temperature < (kind == 4 ? -0.9F : -0.35F) || c.temperature > 0.5F
+						if (c.country != kind || c.countryStrength < 0.9F || c.height < 66 || c.temperature < (kind == 4 ? -0.9F : -0.35F) || c.temperature > 0.2F
 							|| c.humidity < (kind == 4 ? -0.5F : -0.15F) || c.nearRiver() && c.riverDist < c.riverHalfWidth + 8) {
 							continue;
 						}
@@ -259,6 +445,29 @@ public final class TerrainPreview {
 				System.out.printf("vista %s: %d,%d ground %.0f score %.0f yaw %d%n", close, bx, bz, ground, best, yaw);
 				at.append(";").append(String.format("%s:%d,%d,%d,%d,%d,70", close, bx, camY, bz, yaw, pitch));
 			}
+			// fields: a vale in the heartland, open country all round (the hedged fields and their crops)
+			double bestOpen = 1e9;
+			int fx = 0;
+			int fz = 0;
+			for (int x = cx - radius; x <= cx + radius; x += step) {
+				for (int z = cz - radius; z <= cz + radius; z += step) {
+					Column c = model.sample(x, z);
+					if (c.country != 1 || c.countryStrength < 0.8F || c.humidity < 0.05F || c.nearRiver() && c.riverDist < c.riverHalfWidth + 20) {
+						continue;
+					}
+					double wood = 0;
+					for (int k = 0; k < 12; k++) {
+						wood += model.woodland(x + (int) (90 * Math.cos(k * Math.PI / 6)), z + (int) (90 * Math.sin(k * Math.PI / 6)));
+					}
+					if (wood < bestOpen) {
+						bestOpen = wood;
+						fx = x;
+						fz = z;
+					}
+				}
+			}
+			System.out.printf("vista fields: %d,%d open %.2f%n", fx, fz, bestOpen / 12);
+			at.append(String.format(";fields:%d,%d,%d,45,28,70", fx, Math.round(model.sample(fx, fz).height) + 30, fz));
 			System.out.println("lod.show.at=" + at);
 			return;
 		}
@@ -524,6 +733,8 @@ public final class TerrainPreview {
 		byte[] country = new byte[size * size];
 		float[] strength = new float[size * size];
 		float[] woods = new float[size * size];
+		float[] temps = new float[size * size];
+		float[] hums = new float[size * size];
 		long start = System.nanoTime();
 		IntStream.range(0, size).parallel().forEach(j -> {
 			for (int i = 0; i < size; i++) {
@@ -534,6 +745,8 @@ public final class TerrainPreview {
 				plate[i + j * size] = (long) c.plateX << 32 ^ c.plateZ & 0xFFFFFFFFL;
 				country[i + j * size] = (byte) c.country;
 				strength[i + j * size] = c.countryStrength;
+				temps[i + j * size] = c.temperature;
+				hums[i + j * size] = c.humidity;
 				if (WOODS) {
 					woods[i + j * size] = model.woodland(cx - radius + i * step, cz - radius + j * step);
 				}
@@ -618,6 +831,14 @@ public final class TerrainPreview {
 					if (COUNTRIES && country[k] > 0) {
 						int[] tint = {0, 0xE8C860, 0xC07830, 0x7A3A8A, 0x30B0C0, 0xE0E0E0, 0x1A4A20};
 						rgb = mix(rgb, tint[country[k]], 0.5F * strength[k]);
+					}
+					if (CLIMATE) {
+						// (-Pclimate) cold blue, temperate wet green, temperate dry straw, hot dry orange, hot wet deep green
+						float t = temps[k];
+						float hu = hums[k];
+						int tint = t < -0.45F ? 0x6E9FD8 : t > 0.55F ? (hu < -0.1F ? 0xE08A30 : hu > 0.2F ? 0x1E6E2A : 0xB8B040)
+							: hu < -0.25F ? 0xD8C878 : hu > 0.1F ? 0x3C9A3C : 0x9CC060;
+						rgb = mix(rgb, tint, 0.6F);
 					}
 					if (WOODS) {
 						// (-Pwoods) the woods dark green, the open country pale

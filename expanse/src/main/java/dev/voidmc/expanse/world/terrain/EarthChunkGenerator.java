@@ -177,9 +177,12 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 				Column c = m.sample(x, z);
 				int rock = c.rock;
 				boolean wet = c.height < SEA_LEVEL + 1 || c.nearRiver() && c.riverDist < c.riverHalfWidth + 1.5F;
-				float gx = m.sample(x + 1, z).height - m.sample(x - 1, z).height;
-				float gz = m.sample(x, z + 1).height - m.sample(x, z - 1).height;
-				boolean steep = !wet && Math.max(Math.abs(gx), Math.abs(gz)) > 2.9F;
+				// the slope over four blocks, against a threshold that wavers in patches: rock shows in outcrops and
+				// faces, never in a checkerboard where a slope hovers at the limit from column to column
+				float gx = m.sample(x + 2, z).height - m.sample(x - 2, z).height;
+				float gz = m.sample(x, z + 2).height - m.sample(x, z - 2).height;
+				float limit = 5.8F + 1.6F * (float) m.outcrop(x, z);
+				boolean steep = !wet && Math.max(Math.abs(gx), Math.abs(gz)) > limit;
 				if (rock == 0 && !steep) {
 					continue;
 				}
@@ -287,7 +290,19 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 				int x = pos.getMinBlockX() + lx;
 				int z = pos.getMinBlockZ() + lz;
 				CavernModel.Info c = caverns.info(x, z);
-				if (!c.river || c.riverFalls || c.riverDist >= c.riverHalfWidth + 2) {
+				if (!c.river || c.riverFalls || c.riverDist >= c.riverSpan) {
+					continue;
+				}
+				if (c.riverDist >= c.riverHalfWidth + 2) {
+					// the great rivers' banks: shingle and sand on the dry ledge, where the floor is open over it
+					if (c.riverGreat > 0.3F) {
+						int ledge = c.waterTop();
+						BlockState on = chunk.getBlockState(p.set(x, ledge, z));
+						if (!on.isAir() && on.getFluidState().isEmpty() && chunk.getBlockState(p.set(x, ledge + 1, z)).isAir()) {
+							chunk.setBlockState(p.set(x, ledge, z), (x * 31 + z * 17 & 7) < 5 ? Blocks.GRAVEL.defaultBlockState()
+								: Blocks.SAND.defaultBlockState());
+						}
+					}
 					continue;
 				}
 				int top = c.waterTop();

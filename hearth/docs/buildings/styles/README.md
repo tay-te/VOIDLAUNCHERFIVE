@@ -196,6 +196,19 @@ the region pages carry in-game screenshots too. Every blueprint drawn is checked
   render) or a light one on rubble, and one material, not a mix (a mixed accent checkers twice over). The kits enforce
   it (`Walls.quoined`, `Walls.tonal`): no quoins on a building under 9 wide or dressed below tier 2, and an accent more
   than 45 apart in lightness (by map colour) from the walling stays a plain corner strip, untoothed.
+- The `wall_accent` heads every lintel, arch, door head and coping on stone, brick, render and adobe walls, so it shows
+  as a block over every window: one material, tonal with the wall and not the wall's own block (polished granite on
+  terracotta, cut sandstone on smooth sandstone, mud brick on packed mud, smooth sandstone on white terracotta). A
+  contrasting or mixed accent mottles the facade (art review 2 items 6 and 23, the dry cultures' blotches).
+- No bamboo planks as a wall or gable (audit L7: lemon-yellow towns from afar); bamboo is for screens, doors, fences,
+  railings, furniture and trim. Give a culture two or three wall and roof families at town scale (fashions, and
+  per-building roof entries such as the tropical dark, oak-brown and straw thatch), so a town is not one colour from 100
+  blocks (art review 2 item 15).
+- Working yards fell timber (audit L7): a culture whose garden tree is cherry, mangrove, birch or acacia gives the
+  `workshop` category spruce, oak or dark oak `tree_log` and `tree_leaves` by an `overrides` entry, so billets, log decks
+  and woodlots are not pink, red, white or grey-barked.
+- Noble archetypes wear the gentry's dressing: a rustic sub-style that answers `farmstead` (sod, rubble, cliff masonry,
+  herders' huts) says `"not": {"categories": ["noble"]}` in that clause, so the lord's stables are not a sod hut.
 - No birch bark on the surface: a light local timber's posts and stakes are hewn (`LocalMaterials.hewn`), and a
   culture whose garden tree is birch gives its palisades their own stakes (an `overrides` entry for `fort`).
 - Wall roles of terracotta, wool or concrete have no stairs or slabs: give the entry per-form overrides

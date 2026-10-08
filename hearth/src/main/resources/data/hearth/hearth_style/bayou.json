@@ -96,6 +96,9 @@
 			}
 		}
 	],
+	"overrides": [
+		{"when": {"categories": ["workshop"]}, "roles": {"tree_log": ["minecraft:dark_oak_log"], "tree_leaves": ["minecraft:dark_oak_leaves"]}}
+	],
 	"habits": {
 		"walls": {"kind": "plank", "storey_height": 4, "plinth": 0, "jetty": 0.0, "post_spacing": 2, "braces": 0, "beam_ends": 0.3},
 		"roof": {"forms": {"gable": 3, "hip": 2, "shed": 0.5}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "slab", "dormers": 0.0, "brackets": false},

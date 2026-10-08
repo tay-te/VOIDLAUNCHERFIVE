@@ -36,7 +36,8 @@ import net.minecraft.world.level.levelgen.synth.SimplexNoise;
  * may lie in a forest biome as well as on the plains; elsewhere only on the plains.
  *
  * <p>On the Earth terrain the fields inside the hedges are farmed too, each field one crop as a whole: ripe wheat
- * gold from end to end, green wheat, fallow earth turned over, hay meadow grown tall, or left as pasture. So from a
+ * gold from end to end or being reaped (stubble with the sheaves stood up in stooks in rows), green wheat, fallow
+ * earth turned over, hay meadow grown tall round its haystack, or left as pasture. So from a
  * hill the vale below is a quilt of gold and green and brown within its hedges, under the dark woods on the rises.
  *
  * <p>Placed once per chunk; it works column by column, so a hedge carries on unbroken from chunk to chunk.
@@ -121,7 +122,7 @@ public record HedgerowFeature(Holder<PlacedFeature> shrub, Holder<PlacedFeature>
 				if (!across && !along) {
 					// inside the field, a block or two in from the hedge: its crop
 					if (model != null && du > 2.5 && dv > 2.5 && this.field - du > 1.5 && this.field - dv > 1.5) {
-						this.sow(level, model, buildings, mix(level.getSeed() ^ 0x43, row, col), x, z, p);
+						this.sow(level, model, buildings, mix(level.getSeed() ^ 0x43, row, col), x, z, du, dv, p);
 					}
 					continue;
 				}
@@ -189,10 +190,14 @@ public record HedgerowFeature(Holder<PlacedFeature> shrub, Holder<PlacedFeature>
 	 * Only in open country on level, dry soil, clear of anything built and of land a settlement has planned.
 	 */
 	private void sow(WorldGenLevel level, dev.voidmc.expanse.world.terrain.TerrainModel model, List<BoundingBox> buildings, long fieldSeed, int x,
-		int z, BlockPos.MutableBlockPos p) {
+		int z, double du, double dv, BlockPos.MutableBlockPos p) {
 		double kind = unit(fieldSeed);
 		if (kind >= 0.86) {
-			return;   // pasture
+			// pasture, and in the middle of it the flock or the herd that grazes it
+			if (Math.abs(du - this.field / 2.0) < 0.5 && Math.abs(dv - this.field / 2.0) < 0.5) {
+				this.graze(level, model, fieldSeed, x, z);
+			}
+			return;
 		}
 		if (model.woodland(x, z) > 0.35F || dev.voidmc.expanse.api.LandClaims.claimed(level, x, z)) {
 			return;
@@ -217,7 +222,13 @@ public record HedgerowFeature(Holder<PlacedFeature> shrub, Holder<PlacedFeature>
 		long spot = mix(fieldSeed, x, z);
 		BlockPos below = p.below().immutable();
 		BlockPos at = p.immutable();
-		if (kind < 0.55) {
+		if (kind < 0.1) {
+			// a field being reaped: stubble, and the sheaves stood up in stooks in rows across it
+			level.setBlock(below, net.minecraft.world.level.block.Blocks.FARMLAND.defaultBlockState(), 2);
+			boolean stook = Math.floorMod((int) Math.floor(du), 7) == 3 && Math.floorMod((int) Math.floor(dv), 5) == 2;
+			level.setBlock(at, stook ? net.minecraft.world.level.block.Blocks.HAY_BLOCK.defaultBlockState()
+				: net.minecraft.world.level.block.Blocks.WHEAT.defaultBlockState().setValue(net.minecraft.world.level.block.CropBlock.AGE, 0), 2);
+		} else if (kind < 0.55) {
 			// wheat, ripe (or for a field in three, still green and growing)
 			int age = kind < 0.4 ? 7 : 3 + (int) (unit(fieldSeed >>> 7) * 3);
 			level.setBlock(below, net.minecraft.world.level.block.Blocks.FARMLAND.defaultBlockState(), 2);
@@ -230,6 +241,12 @@ public record HedgerowFeature(Holder<PlacedFeature> shrub, Holder<PlacedFeature>
 			if (!level.getBlockState(at).isAir()) {
 				level.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
 			}
+		} else if (Math.abs(du - this.field / 2.0) < 1.5 && Math.abs(dv - this.field / 2.0) < 1.5) {
+			// the haystack in the middle of the hay meadow
+			level.setBlock(at, net.minecraft.world.level.block.Blocks.HAY_BLOCK.defaultBlockState(), 2);
+			if (Math.abs(du - this.field / 2.0) < 0.75 && Math.abs(dv - this.field / 2.0) < 0.75) {
+				level.setBlock(at.above(), net.minecraft.world.level.block.Blocks.HAY_BLOCK.defaultBlockState(), 2);
+			}
 		} else {
 			// hay meadow, grown tall for the scythe
 			if (unit(spot) < 0.7 && level.getBlockState(at.above()).isAir()) {
@@ -241,6 +258,36 @@ public record HedgerowFeature(Holder<PlacedFeature> shrub, Holder<PlacedFeature>
 			}
 		}
 		SOWN.incrementAndGet();
+	}
+
+	/**
+	 * A flock of sheep (or, in two pastures in five, a few cattle) put out to graze a pasture: three to six beasts round
+	 * its middle, on open, level, dry grass. Only in a real level (a far view's stand-in has no world to put them in).
+	 */
+	private void graze(WorldGenLevel level, dev.voidmc.expanse.world.terrain.TerrainModel model, long fieldSeed, int x, int z) {
+		if (level.getLevel() == null || model.woodland(x, z) > 0.35F || dev.voidmc.expanse.api.LandClaims.claimed(level, x, z)) {
+			return;
+		}
+		net.minecraft.world.entity.EntityType<? extends net.minecraft.world.entity.Mob> type = unit(fieldSeed >>> 9) < 0.6
+			? net.minecraft.world.entity.EntityTypes.SHEEP : net.minecraft.world.entity.EntityTypes.COW;
+		int count = 3 + (int) (unit(fieldSeed >>> 17) * 4);
+		for (int n = 0; n < count; n++) {
+			long h = mix(fieldSeed, n, 31);
+			int bx = x + (int) ((unit(h) - 0.5) * 12);
+			int bz = z + (int) ((unit(h >>> 21) - 0.5) * 12);
+			int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+			BlockPos at = new BlockPos(bx, top, bz);
+			if (!level.getBlockState(at.below()).is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK) || !level.getFluidState(at).isEmpty()) {
+				continue;
+			}
+			var mob = type.create(level.getLevel(), net.minecraft.world.entity.EntitySpawnReason.CHUNK_GENERATION);
+			if (mob == null) {
+				continue;
+			}
+			mob.snapTo(bx + 0.5, top, bz + 0.5, (float) (unit(h >>> 40) * 360), 0);
+			mob.finalizeSpawn(level, level.getCurrentDifficultyAt(at), net.minecraft.world.entity.EntitySpawnReason.CHUNK_GENERATION, null);
+			level.addFreshEntityWithPassengers(mob);
+		}
 	}
 
 	private static double noise(SimplexNoise noise, double x, double z) {
