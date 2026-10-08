@@ -53,6 +53,40 @@ public final class ExpanseNames {
 		};
 	}
 
+	/** Saints a chapel may be raised to (Bohemia's own first). */
+	private static final String[] SAINTS = {"Prokop", "Wenceslas", "Ludmila", "George", "Martin", "Adalbert", "Anne", "Gall", "Nicholas",
+		"Barbara", "Giles", "James", "Catherine", "Lawrence"};
+
+	/**
+	 * The name of one of the Expanse's structures (Atlas's {@code atlas:structure} queries), or null to leave it to
+	 * Atlas: the places the land gives a reason to be where they are, named as folk there would name them.
+	 *
+	 * @param structure the structure's id, like {@code expanse:hill_chapel} ({@code expanse:great_mine} for a mine)
+	 */
+	public static String structure(String structure, String biome, int x, int z, long seedHash) {
+		if (structure == null || !structure.startsWith("expanse:")) {
+			return null;
+		}
+		Land land = land(biome);
+		Tongue tongue = tongue(land);
+		long h = mix(seedHash ^ structure.hashCode() * 0x9E3779B97F4A7C15L, x, z);
+		String place = word(tongue, h);
+		return switch (structure.substring("expanse:".length())) {
+			case "hill_chapel" -> pick(h >>> 40, "Chapel of St %s", "St %s's Chapel", "Chapel of St %s").formatted(pick(h >>> 13, (Object[]) SAINTS));
+			case "ruined_keep" -> pick(h >>> 40, "%s Keep", "Ruins of %s", "Old %s Castle", "%s Tower").formatted(place);
+			case "gallows_hill" -> pick(h >>> 40, "%s Gallows", "Gallows Hill", "Hangman's Hill", "%s Gibbet").formatted(place);
+			case "summit_cross" -> pick(h >>> 40, "%s Cross", "Summit Cross of %s", "%s Cross").formatted(place);
+			case "pass_refuge" -> pick(h >>> 40, "%s Pass Refuge", "%s Hut", "Refuge on the %s Pass").formatted(place);
+			case "hunters_hide" -> pick(h >>> 40, "%s Hunting Stand", "%s Hide", "Forester's Stand").formatted(place);
+			case "boundary_stone" -> "Boundary Stone No. " + (1 + Long.remainderUnsigned(h >>> 8, 120));
+			case "ruined_watchtower" -> pick(h >>> 40, "%s Watchtower", "Ruins of %s Watch").formatted(place);
+			case "summit_cairn" -> pick(h >>> 40, "%s Cairn", "Cairn of %s").formatted(place);
+			case "graveyard" -> pick(h >>> 40, "%s Graveyard", "Old %s Churchyard").formatted(place);
+			case "great_mine" -> pick(h >>> 40, "%s Mine", "The %s Pits", "Great Mine of %s", "%s Deep Mine").formatted(place);
+			default -> null;
+		};
+	}
+
 	private static String region(Land land, Tongue tongue, long area, long h) {
 		String w = word(tongue, h);
 		long p = h >>> 40;
