@@ -135,6 +135,13 @@ public final class Housing {
 					site = Parcels.best(ctx, req, null);
 				}
 			}
+			if (site == null && ctx.tier.ordinal() < SettlementTier.VILLAGE.ordinal() && Lots.releaseForHomes(ctx)) {
+				// a camp or hamlet hemmed in (a river on one side, the hall's and market hall's lots on the other) builds its
+				// first houses round its square on the lots kept for the halls; they are kept again from village tier
+				// (requests/w7-planner.md §2: Hochdorf's streets ended at 10 souls)
+				req = request(probe, new Home(Placement.HOME, home.district, null), station);
+				site = Parcels.best(ctx, req, null);
+			}
 			if (site == null) {
 				Growth.why(grew ? "no frontage by the new road" : ctx.roadsMayGrow() ? "no frontage, and no road could grow" : "no frontage, roads at their budget");
 				return grew;

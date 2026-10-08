@@ -33,7 +33,9 @@ public final class Lots {
 	 * it is looked for again while the town is small, before the square's frontage is all taken.
 	 */
 	public static boolean missing(PlanContext ctx) {
-		if (ctx.state.squareEdge < 0 || ctx.tier.ordinal() >= dev.voidmc.hearth.api.SettlementTier.TOWN.ordinal()) {
+		// (nor in a camp or hamlet whose homes found no other room and were given its halls' lots, see releaseForHomes)
+		if (ctx.state.squareEdge < 0 || ctx.tier.ordinal() >= dev.voidmc.hearth.api.SettlementTier.TOWN.ordinal()
+			|| ctx.tier.ordinal() < dev.voidmc.hearth.api.SettlementTier.VILLAGE.ordinal() && ctx.state.cooldowns.containsKey(RELEASED)) {
 			return false;
 		}
 		for (Identifier id : KEPT) {
@@ -138,6 +140,25 @@ public final class Lots {
 		Build.building(ctx, info, lot, Growth.reasonFor(info, e.placement()) + where, null);
 		return true;
 	}
+
+	/**
+	 * Frees the halls' and the court's lots on the square (not the church's) for homes; true if one was kept. For a camp
+	 * or hamlet whose houses find no other frontage: they are looked for again from village tier ({@link #missing}).
+	 */
+	static boolean releaseForHomes(PlanContext ctx) {
+		boolean any = false;
+		for (Identifier id : KEPT) {
+			any |= release(ctx, id);
+		}
+		if (any) {
+			// a marker, never counted down: the lots are not kept again before village tier
+			ctx.state.cooldowns.put(RELEASED, ctx.state.calls);
+		}
+		return any;
+	}
+
+	/** Marks a camp or hamlet that gave its halls' lots to its homes (a key in the plan state's cooldowns). */
+	private static final String RELEASED = "lots/released";
 
 	/**
 	 * Frees the lot kept for an archetype (if there is one) so it can be built on now. The church's lot is not freed here:
