@@ -423,10 +423,10 @@ final class Blocky {
 		if (this.done[i + j * N] || this.s.empty[o] || !this.uniform(i, j) || this.ao[(i + j * N) * 4] != level) {
 			return false;
 		}
-		int mask = this.out.compact() ? COMPACT_COLOR : -1;
+		int mask = this.out.coarseColour() ? COMPACT_COLOR : -1;
 		return this.top[o] == this.top[k] && (this.color[o] & mask) == (this.color[k] & mask) && this.wet[o] == this.wet[k]
 			&& this.season[o] == this.season[k]
-			&& (this.out.compact() || this.material[o] == this.material[k]) && this.out.sameLight(o, k);
+			&& (this.out.compact() || this.out.sameMaterial(this.material[o], this.material[k])) && this.out.sameLight(o, k);
 	}
 
 	private void top(int i, int j, int w, int d, int k, int a0, int a1, int a2, int a3) {
@@ -629,7 +629,7 @@ final class Blocky {
 		}
 		// a compact vertex keeps 5 bits a channel and no materials: what it cannot tell apart merges
 		boolean compact = this.out.compact();
-		int mask = compact ? COMPACT_COLOR : -1;
+		int mask = this.out.coarseColour() ? COMPACT_COLOR : -1;
 		if (this.wet[a]) {
 			return (this.color[a] & mask) == (this.color[b] & mask);
 		}
@@ -643,11 +643,13 @@ final class Blocky {
 				&& (this.rock[a] & mask) == (this.rock[b] & mask) && s.soilDepth[a] == s.soilDepth[b]
 				&& s.bands[a] == s.bands[b] && s.bandHeight[a] == s.bandHeight[b] && s.bandOffset[a] == s.bandOffset[b];
 		}
-		return this.ground[a] == this.ground[b] && this.crown[a] == this.crown[b] && (this.crown[a] < 0 || this.under[a] == this.under[b])
-			&& (this.crown[a] < 0 || s.leavesMaterial[a] == s.leavesMaterial[b])
-			&& this.side[a] == this.side[b] && s.sideMaterial[a] == s.sideMaterial[b]
-			&& this.soil[a] == this.soil[b] && s.soilMaterial[a] == s.soilMaterial[b]
-			&& this.rock[a] == this.rock[b] && s.rockMaterial[a] == s.rockMaterial[b] && s.soilDepth[a] == s.soilDepth[b]
+		// (through a pack, far out, colours as finely as a compact vertex keeps them and materials as the pack draws them)
+		TileBuilder o = this.out;
+		return this.ground[a] == this.ground[b] && (this.crown[a] & mask) == (this.crown[b] & mask) && (this.crown[a] < 0 || this.under[a] == this.under[b])
+			&& (this.crown[a] < 0 || o.sameMaterial(s.leavesMaterial[a], s.leavesMaterial[b]))
+			&& (this.side[a] & mask) == (this.side[b] & mask) && o.sameMaterial(s.sideMaterial[a], s.sideMaterial[b])
+			&& (this.soil[a] & mask) == (this.soil[b] & mask) && o.sameMaterial(s.soilMaterial[a], s.soilMaterial[b])
+			&& (this.rock[a] & mask) == (this.rock[b] & mask) && o.sameMaterial(s.rockMaterial[a], s.rockMaterial[b]) && s.soilDepth[a] == s.soilDepth[b]
 			&& s.bands[a] == s.bands[b] && s.bandMaterials[a] == s.bandMaterials[b] && s.bandHeight[a] == s.bandHeight[b]
 			&& s.bandOffset[a] == s.bandOffset[b];
 	}

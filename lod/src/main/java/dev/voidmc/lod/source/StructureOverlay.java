@@ -16,6 +16,14 @@ public final class StructureOverlay implements TerrainSource {
 	private final TerrainSource generator;
 	private final StructureSites sites;
 	private final ThreadLocal<List<StructureSites.Box>> found = ThreadLocal.withInitial(ArrayList::new);
+	/** Per worker, the boxes reaching into the tile it is building, gathered once ({@link #beginTile}), and its bounds. */
+	private final ThreadLocal<Tile> tiles = ThreadLocal.withInitial(Tile::new);
+
+	private static final class Tile {
+		final List<StructureSites.Box> boxes = new ArrayList<>();
+		boolean active;
+		int minX, minZ, maxX, maxZ;
+	}
 
 	public StructureOverlay(TerrainSource generator, StructureSites sites) {
 		this.generator = generator;
@@ -48,11 +56,39 @@ public final class StructureOverlay implements TerrainSource {
 	@Override
 	public void beginTile(long key, int x0, int z0, int cell, int border, int size) {
 		this.generator.beginTile(key, x0, z0, cell, border, size);
+		// every sample's square lies in here: from half a cell before the first sample to half a cell past the last
+		Tile t = this.tiles.get();
+		int c = Math.max(1, cell);
+		t.minX = x0 - border * c - c;
+		t.minZ = z0 - border * c - c;
+		t.maxX = x0 + (size - border) * c + c;
+		t.maxZ = z0 + (size - border) * c + c;
+		t.boxes.clear();
+		this.gather(t.minX, t.minZ, t.maxX, t.maxZ, t.boxes);
+		t.active = true;
 	}
 
 	@Override
 	public void endTile() {
 		this.generator.endTile();
+		this.tiles.get().active = false;
+	}
+
+	/** The boxes reaching into the block square [x0, x1) x [z0, z1), into {@code out}. */
+	private void gather(int x0, int z0, int x1, int z1, List<StructureSites.Box> out) {
+		for (int rz = StructureSites.region(z0); rz <= StructureSites.region(z1 - 1); rz++) {
+			for (int rx = StructureSites.region(x0); rx <= StructureSites.region(x1 - 1); rx++) {
+				List<StructureSites.Box> region = this.sites.boxes(rx, rz);
+				if (region == null) {
+					continue;
+				}
+				for (StructureSites.Box b : region) {
+					if (b.maxX() >= x0 && b.minX() < x1 && b.maxZ() >= z0 && b.minZ() < z1) {
+						out.add(b);
+					}
+				}
+			}
+		}
 	}
 
 	@Override
@@ -76,18 +112,19 @@ public final class StructureOverlay implements TerrainSource {
 		int x0 = x - half, z0 = z - half, x1 = x0 + Math.max(1, cell), z1 = z0 + Math.max(1, cell);
 		List<StructureSites.Box> boxes = this.found.get();
 		boxes.clear();
-		for (int rz = StructureSites.region(z0); rz <= StructureSites.region(z1 - 1); rz++) {
-			for (int rx = StructureSites.region(x0); rx <= StructureSites.region(x1 - 1); rx++) {
-				List<StructureSites.Box> region = this.sites.boxes(rx, rz);
-				if (region == null) {
-					continue;
-				}
-				for (StructureSites.Box b : region) {
-					if (b.maxX() >= x0 && b.minX() < x1 && b.maxZ() >= z0 && b.minZ() < z1) {
-						boxes.add(b);
-					}
+		Tile t = this.tiles.get();
+		if (t.active && x0 >= t.minX && z0 >= t.minZ && x1 <= t.maxX && z1 <= t.maxZ) {
+			// the tile's own boxes, gathered once: most tiles have none
+			if (t.boxes.isEmpty()) {
+				return;
+			}
+			for (StructureSites.Box b : t.boxes) {
+				if (b.maxX() >= x0 && b.minX() < x1 && b.maxZ() >= z0 && b.minZ() < z1) {
+					boxes.add(b);
 				}
 			}
+		} else {
+			this.gather(x0, z0, x1, z1, boxes);
 		}
 		if (boxes.isEmpty()) {
 			return;

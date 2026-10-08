@@ -164,6 +164,7 @@ public final class TileBuilder {
 		this.pack = packFormat;
 		boolean smooth = !this.pack && level >= smoothFrom;
 		this.compact = !this.pack && !smooth && level >= COMPACT_FROM;
+		this.level = level;
 		int indices;
 		int firstIndex = 0;
 		boolean holes = false;
@@ -559,6 +560,26 @@ public final class TileBuilder {
 		return this.compact;
 	}
 
+	/** The level being built. */
+	private int level;
+
+	/**
+	 * Whether faces merge at the precision a far vertex keeps colour at (5 bits a channel): compact tiles, and from the
+	 * same level the tiles built for a shader pack, whose colours are under a pixel's difference out there too.
+	 */
+	boolean coarseColour() {
+		return this.compact || this.pack && this.level >= COMPACT_FROM;
+	}
+
+	/** Whether two faces' materials draw alike: the same, or through a pack the same Distant Horizons material. */
+	boolean sameMaterial(int a, int b) {
+		if (a == b) {
+			return true;
+		}
+		java.util.function.IntUnaryOperator materials = packMaterials;
+		return this.pack && materials != null && a != 0 && b != 0 && materials.applyAsInt(a) == materials.applyAsInt(b);
+	}
+
 	/** No light for the vertices after this: faces the sun and the sky never reach, such as an island's underside. */
 	void unlit() {
 		this.season = 0;
@@ -567,6 +588,13 @@ public final class TileBuilder {
 
 	/** Whether two samples' light is close enough for their faces to merge into one. */
 	boolean sameLight(int a, int b) {
+		if (this.pack) {
+			// a pack's vertex keeps the block light and a sky level made of the occlusion, and nothing of the horizons
+			if (this.samples.light[a] != this.samples.light[b]) {
+				return false;
+			}
+			return !this.lit || packSky(this.horizons.occlusion[a] & 0xF8) == packSky(this.horizons.occlusion[b] & 0xF8);
+		}
 		if (this.compact) {
 			// exactly as finely as a compact vertex keeps it: what it cannot tell apart may as well be one face
 			if (this.samples.light[a] >> 2 != this.samples.light[b] >> 2) {
@@ -651,6 +679,11 @@ public final class TileBuilder {
 	/** Our faces (0 up, 2..5 north, south, west, east, 6 down) as Distant Horizons numbers them (down, up, n, s, w, e). */
 	private static final int[] PACK_NORMAL = {1, 1, 2, 3, 4, 5, 0, 0};
 
+	/** The sky light a pack's vertex carries for a sample whose land hides {@code occlusion} 255ths of the sky. */
+	private static int packSky(int occlusion) {
+		return Math.max(8, 15 - Math.round(occlusion * 7 / 255.0F));
+	}
+
 	private void packVertex(int x, float y, int z, int flags, int top, int side) {
 		if (this.out.remaining() < VERTEX_BYTES) {
 			ByteBuffer bigger = ByteBuffer.allocateDirect(this.out.capacity() * 2).order(ByteOrder.nativeOrder());
@@ -661,8 +694,7 @@ public final class TileBuilder {
 		int cell = this.samples.cell;
 		int yb = Math.max(-PACK_Y_OFFSET, Math.min(65535 - PACK_Y_OFFSET, Math.round(y)));
 		// sky light from how much of the sky the land around hides: the pack's ambient light, darker down in valleys
-		int occlusion = this.lightFlags >> 8 & 0xF8;
-		int sky = Math.max(8, 15 - Math.round(occlusion * 7 / 255.0F));
+		int sky = packSky(this.lightFlags >> 8 & 0xF8);
 		int material;
 		if ((flags & WATER) != 0) {
 			material = PACK_WATER;

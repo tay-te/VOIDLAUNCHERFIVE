@@ -37,6 +37,13 @@ public final class Heights {
 	}
 
 	private final ConcurrentHashMap<Long, Grid> grids = new ConcurrentHashMap<>();
+	/** Per worker, the grid it last looked in: a ray of the light sweep crosses a few tiles in hundreds of steps. */
+	private final ThreadLocal<Memo> memo = ThreadLocal.withInitial(Memo::new);
+
+	private static final class Memo {
+		long key = Long.MIN_VALUE;
+		Grid grid;
+	}
 	/** The fine grids, oldest first: only these are let go. The coarse ones carry every long shadow, and are few. */
 	private final ConcurrentLinkedQueue<Long> fine = new ConcurrentLinkedQueue<>();
 
@@ -78,11 +85,16 @@ public final class Heights {
 	 */
 	float at(double x, double z, int level) {
 		int bx = (int) Math.floor(x), bz = (int) Math.floor(z);
+		Memo m = this.memo.get();
 		for (int l = level; l <= TileKey.MAX_LEVEL; l++) {
 			int span = TileKey.span(l);
 			int tx = Math.floorDiv(bx, span), tz = Math.floorDiv(bz, span);
-			Grid g = this.grids.get(TileKey.of(l, tx, tz));
+			long key = TileKey.of(l, tx, tz);
+			// grids are never replaced (only let go, and one let go still holds the land as it was)
+			Grid g = key == m.key ? m.grid : this.grids.get(key);
 			if (g != null) {
+				m.key = key;
+				m.grid = g;
 				return interpolate(g, x, z, l, tx, tz);
 			}
 			if (l == level) {

@@ -6,6 +6,7 @@
 		"ChunkGeneratorAccessor",
 		"MaterialSystemAccessor",
 		"RandomStateAccessor",
+		"StructurePaletteMixin",
 		"StructureTemplateMixin",
 		"TreeFeatureMixin"
 	],

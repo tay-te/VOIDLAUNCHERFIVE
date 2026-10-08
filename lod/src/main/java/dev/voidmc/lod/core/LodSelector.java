@@ -17,6 +17,8 @@ package dev.voidmc.lod.core;
  * whole region at the cost of any other tile.
  */
 public final class LodSelector {
+	/** How much farther a tile out of view counts for the build queue's order. */
+	static final float OUT_OF_VIEW_WAIT = 4;
 	/** What the selector needs to know about tiles it does not own. */
 	public interface Store {
 		boolean ready(long key);
@@ -146,12 +148,15 @@ public final class LodSelector {
 		double distance = Math.sqrt(horizontal * horizontal + dy * dy);
 		int cell = TileKey.cell(level);
 		double splitScale = level - 1 >= TileBuilder.smoothFrom ? this.farSplitScale : this.splitScale;
-		if (this.outOfView < 1 && this.visibility != null && !this.visibility.visible(x0, y0, z0, x1, y1, z1)) {
+		boolean inView = this.visibility == null || this.visibility.visible(x0, y0, z0, x1, y1, z1);
+		if (this.outOfView < 1 && !inView) {
 			splitScale *= this.outOfView;
 		}
 		boolean split = level > 0 && distance < cell * splitScale;
 		boolean ready = this.store.ready(key);
-		float priority = (float) (distance / cell);
+		// what the camera sees first: a tile out of view waits as if it were farther, so after a teleport the view
+		// fills in before what is behind the player
+		float priority = (float) (distance / cell) * (inView ? 1 : OUT_OF_VIEW_WAIT);
 		if (!split) {
 			if (ready) {
 				this.draw.add(key);

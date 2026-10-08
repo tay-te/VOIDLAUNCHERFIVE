@@ -197,8 +197,9 @@ public final class GeneratorCache implements TerrainSource {
 	private volatile boolean closed;
 
 	// statistics
-	public final AtomicLong hits = new AtomicLong();
-	public final AtomicLong misses = new AtomicLong();
+	// adders, not atomics: every worker counts every sample, and one shared counter would be fought over
+	public final java.util.concurrent.atomic.LongAdder hits = new java.util.concurrent.atomic.LongAdder();
+	public final java.util.concurrent.atomic.LongAdder misses = new java.util.concurrent.atomic.LongAdder();
 	public final AtomicLong pagesRead = new AtomicLong();
 	public final AtomicLong pagesWritten = new AtomicLong();
 
@@ -298,10 +299,10 @@ public final class GeneratorCache implements TerrainSource {
 		}
 		if (page.known[s]) {
 			page.get(s, out);
-			this.hits.incrementAndGet();
+			this.hits.increment();
 			return;
 		}
-		this.misses.incrementAndGet();
+		this.misses.increment();
 		this.generator.sample(x, z, cell, out);
 		if (out.empty && this.generator.partial()) {
 			c.incomplete = true;
@@ -412,7 +413,7 @@ public final class GeneratorCache implements TerrainSource {
 	}
 
 	public String stats() {
-		long h = this.hits.get(), m = this.misses.get();
+		long h = this.hits.sum(), m = this.misses.sum();
 		return String.format(java.util.Locale.ROOT, "generator cache %.0f%% of %,d samples from it, %d pages read, %d written", h + m == 0 ? 0 : 100.0 * h / (h + m),
 			h + m, this.pagesRead.get(), this.pagesWritten.get());
 	}
