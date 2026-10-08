@@ -779,7 +779,13 @@ the temperate heartland is Bohemian (Brezek Forest, Lake Maletz, the Olsava), th
 (Hamarvik Barrens, Ulfdal Cleft), dry and tropical land southern (Zaroma Desert). A world counts as an
 Expanse world when its biomes include the Expanse's; elsewhere Atlas names its places itself. The build
 compiles against stand-ins for Atlas's API (`src/atlasApi`), never shipped, so the Expanse needs nothing of
-Atlas to build or run.
+Atlas to build or run (copies of Atlas's API classes, kept exactly as Atlas has them).
+
+The Expanse's own structures are named on the map too: Chapel of St Prokop, Dubovice Keep, Hangman's Hill, the
+Kamenov Cross, Refuge on the Olsany Pass, Boundary Stone No. 47 and the like, after the country they stand in. In
+singleplayer the great mines are reported to Atlas as places of their own: the pithead a mineshaft on the map once
+found, its card telling how deep the shaft goes and its levels, and the great drift's mouth in the realm a place
+underground at its depth.
 
 ### For other mods
 
@@ -800,7 +806,10 @@ or send a quest down one. Both come from the seed, the same before and after the
 `TerrainModel.FAR_GRID` (512) blocks and up: the same plates, drainage, climate and countries, each plate worked out
 again on a 512-block grid (some 30 KB, cached apart), so a 100 km horizon never builds a full plate. The coarse grid
 can't hold the mountains' ridges, so its land is lifted back by what that comes to (by uplift, measured with
-`-Pslice=farpeaks`): it agrees with the fine ground's mean over a cell to within a few blocks at every height, and
+`-Pslice=farpeaks`), and the coastal plains, which the coarse grid's step down to the sea floor would pull under the
+sea, by up to 16 blocks at the shore (`-Pslice=farcoast`): it agrees with the fine ground's mean over a cell to within
+a few blocks at every height and calls land and sea as the fine ground does but for the cell or so either side of
+the shore, and
 `out.peak` gives the cell's high ground (about the 90th percentile of the fine ground) for skylines. Its climate is
 read on a grid of its own, a kilometre apart, so a call takes a few microseconds (`terrainPreview -Pslice=far`
 measures it). `TerrainModel.sample` is what LOD reads nearer in; `reservePlates` lets it keep more

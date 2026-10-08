@@ -210,6 +210,96 @@ public final class TerrainPreview {
 			}
 			return;
 		}
+		if (slice.equals("farcoast")) {
+			// (-Pslice=farcoast) does the far view call land and sea where the fine model does? Every `step` blocks in the
+			// square: the far view's ocean against the fine ground's, under a few rules, and how far the far land sits
+			// below the fine ground near the coast
+			TerrainModel.FarColumn far = new TerrainModel.FarColumn();
+			int land = 0;
+			int sea = 0;
+			int[] wrongSea = new int[4];
+			int[] wrongLand = new int[4];
+			double[] gap = new double[6];
+			int[] gapN = new int[6];
+			for (int x = cx - radius; x <= cx + radius; x += step) {
+				for (int z = cz - radius; z <= cz + radius; z += step) {
+					var c = model.sample(x, z);
+					boolean fineLand = c.height >= 64 && !c.underWater(0);
+					boolean fineSea = c.height < 62 && c.coast < 0;
+					if (!fineLand && !fineSea) {
+						continue;
+					}
+					model.sampleFar(x, z, far);
+					boolean[] ocean = {far.ocean, far.ocean && far.coast <= 0, far.coast < 0, far.coast < -64};
+					for (int r = 0; r < 4; r++) {
+						if (fineLand && ocean[r]) {
+							wrongSea[r]++;
+						}
+						if (fineSea && !ocean[r]) {
+							wrongLand[r]++;
+						}
+					}
+					if (fineLand) {
+						land++;
+						int bin = c.coast < 250 ? 0 : c.coast < 500 ? 1 : c.coast < 1000 ? 2 : c.coast < 2000 ? 3 : c.coast < 4000 ? 4 : 5;
+						gap[bin] += c.height - far.height;
+						gapN[bin]++;
+					} else {
+						sea++;
+					}
+				}
+			}
+			// candidate coastal lifts: h + a * (1 - smooth(coast / s)) inland, then ocean where the lifted height is under the sea
+			if (Boolean.getBoolean("expanse.preview.stats")) {
+				for (float amp : new float[]{8, 12, 16}) {
+					for (float scale : new float[]{600, 1200, 2000}) {
+						int ws = 0;
+						int wl = 0;
+						double g0 = 0;
+						double g1 = 0;
+						int n0 = 0;
+						int n1 = 0;
+						for (int x = cx - radius; x <= cx + radius; x += step) {
+							for (int z = cz - radius; z <= cz + radius; z += step) {
+								var c = model.sample(x, z);
+								boolean fineLand = c.height >= 64 && !c.underWater(0);
+								boolean fineSea = c.height < 62 && c.coast < 0;
+								if (!fineLand && !fineSea) {
+									continue;
+								}
+								model.sampleFar(x, z, far);
+								float t = Math.max(0, Math.min(1, far.coast / scale));
+								float h = far.coast > 0 ? far.height + amp * (1 - t * t * (3 - 2 * t)) : far.height;
+								boolean ocean = h < 63;
+								ws += fineLand && ocean ? 1 : 0;
+								wl += fineSea && !ocean ? 1 : 0;
+								if (fineLand && c.coast < 500) {
+									g0 += c.height - h;
+									n0++;
+								} else if (fineLand && c.coast < 2000) {
+									g1 += c.height - h;
+									n1++;
+								}
+							}
+						}
+						System.out.printf("  lift %2.0f over %4.0f: land called sea %4.1f%%, sea called land %4.1f%%, gap <500 %+5.1f, 500-2k %+5.1f%n", amp, scale,
+							100.0 * ws / land, 100.0 * wl / sea, g0 / n0, g1 / n1);
+					}
+				}
+			}
+			String[] rules = {"height < sea", "height < sea, coast <= 0", "coast < 0", "coast < -64"};
+			System.out.printf("%d land, %d sea points%n", land, sea);
+			for (int r = 0; r < 4; r++) {
+				System.out.printf("  %-26s land called sea %5.1f%%, sea called land %5.1f%%%n", rules[r], 100.0 * wrongSea[r] / land, 100.0 * wrongLand[r] / sea);
+			}
+			String[] bins = {"<250", "250-500", "500-1k", "1-2k", "2-4k", ">4k"};
+			for (int i = 0; i < 6; i++) {
+				if (gapN[i] > 0) {
+					System.out.printf("  coast %-8s fine - far %+6.1f (%d)%n", bins[i], gap[i] / gapN[i], gapN[i]);
+				}
+			}
+			return;
+		}
 		if (slice.equals("farpeaks")) {
 			// (-Pslice=farpeaks) how far each far cell's height (step = cell) sits under the fine ground's high points
 			// in it (90th percentile and highest of 8 x 8 samples), by the cell's uplift and its height over the sea

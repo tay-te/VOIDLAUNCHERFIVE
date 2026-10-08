@@ -133,6 +133,9 @@ public final class TerrainModel {
 		final float[] climT = new float[CLIMATE];
 		final float[] climH = new float[CLIMATE];
 		final PlateMap.Hit climHit = new PlateMap.Hit();
+		/** (climate) one hit for each of the upwind and windward samples, so each keeps its own plates round it */
+		final PlateMap.Hit[] climHits = {new PlateMap.Hit(), new PlateMap.Hit(), new PlateMap.Hit(), new PlateMap.Hit(), new PlateMap.Hit(),
+			new PlateMap.Hit(), new PlateMap.Hit(), new PlateMap.Hit(), new PlateMap.Hit()};
 		final PlateTerrain.Raw climRaw = new PlateTerrain.Raw();
 
 		Scratch() {
@@ -270,15 +273,18 @@ public final class TerrainModel {
 			float maritime = 0.3F * (1 - smooth(coast / 4500)) - 0.25F * smooth((coast - 3500) / 6000);
 			float shadow = 0;
 			float windward = 0;
+			int k = 0;
 			for (int d = 1500; d <= 9000; d += 1500) {
-				this.plates.locate(x - d, z, s.climHit);
-				this.farTerrain(s.climHit.own).sample(x - d, z, x - d, z, false, r);
+				PlateMap.Hit hit = s.climHits[k++];
+				this.plates.locate(x - d, z, hit);
+				this.farTerrain(hit.own).sample(x - d, z, x - d, z, false, r);
 				float range = smooth((r.uplift - 0.9F) / 1.0F);
 				shadow = Math.max(shadow, range * (1 - d / 10000.0F));
 			}
 			for (int d = 600; d <= 2400; d += 900) {
-				this.plates.locate(x + d, z, s.climHit);
-				this.farTerrain(s.climHit.own).sample(x + d, z, x + d, z, false, r);
+				PlateMap.Hit hit = s.climHits[k++];
+				this.plates.locate(x + d, z, hit);
+				this.farTerrain(hit.own).sample(x + d, z, x + d, z, false, r);
 				windward = Math.max(windward, smooth((r.uplift - 0.9F) / 1.0F) * (1 - d / 3000.0F));
 			}
 			float humidity = Mth.clamp(0.8F * noise + maritime - 0.5F * shadow + 0.2F * windward * (1 - shadow), -1.2F, 1.2F);
@@ -444,6 +450,13 @@ public final class TerrainModel {
 		if (land) {
 			height += 37 * Math.min(ranges, 3.0F);
 			peak = 22 + 40 * Math.min(ranges, 2.2F);
+		}
+		// The coarse grid's coastline steps from the land down to the sea floor across a whole cell, which pulls the
+		// coastal plains under the sea (land read as sea, and the shore a dozen blocks low): lifted back by up to 16
+		// blocks at the shore, nothing two kilometres inland (-Pslice=farcoast). What is left wrong is the cell or so
+		// either side of the shore that the coarse grid can't place.
+		if (coast > 0) {
+			height += 16 * (1 - smooth(coast / 2000));
 		}
 		// the volcanoes' cones, which stand out over any distance
 		out.landform = Landform.NONE;
