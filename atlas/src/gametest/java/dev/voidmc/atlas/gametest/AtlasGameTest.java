@@ -300,6 +300,9 @@ public class AtlasGameTest implements FabricClientGameTest {
 		if (this.want("underground")) {
 			this.undergroundShots(context, world);
 		}
+		if (this.want("caverns") && net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("expanse")) {
+			this.cavernShots(context, world);
+		}
 		if (this.want("parity")) {
 			context.runOnClient(mc -> mc.gui.setScreen(null));
 			new ParityShots(this, context, world, this.spawn).run();
@@ -567,6 +570,108 @@ public class AtlasGameTest implements FabricClientGameTest {
 	}
 
 	/**
+	 * With VOID Expanse (-Pexpanse=<jar> with its underground API): cave water the player reveals is tinted by what
+	 * Expanse's caverns say it is (a river, a buried sea, a lake). Finds such water near spawn from Expanse's own
+	 * model, takes the player to it, and shoots the underground map with the tint and without.
+	 */
+	private void cavernShots(ClientGameTestContext context, TestSingleplayerContext world) {
+		int[] found = world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			try {
+				Class<?> api = Class.forName("dev.voidmc.expanse.api.ExpanseUnderground");
+				Object sampler = api.getMethod("sampler", ServerLevel.class).invoke(null, level);
+				if (sampler == null) {
+					return null;
+				}
+				var water = Class.forName("dev.voidmc.expanse.api.ExpanseUnderground$Sampler").getMethod("water", int.class, int.class);
+				Class<?> w = Class.forName("dev.voidmc.expanse.api.ExpanseUnderground$Water");
+				var kindOf = w.getMethod("kind");
+				var surfaceOf = w.getMethod("surface");
+				var distanceOf = w.getMethod("distance");
+				// rivers first (the commonest), then seas and lakes: open air over the water, under the land
+				for (String want : new String[]{"river", "sea", "lake"}) {
+					for (int r = 0; r <= 2048; r += 32) {
+						int n = Math.max(1, r / 32);
+						for (int a = 0; a < n; a++) {
+							double ang = a * Math.PI * 2 / n;
+							int x = this.spawn.getX() + (int) Math.round(Math.cos(ang) * r);
+							int z = this.spawn.getZ() + (int) Math.round(Math.sin(ang) * r);
+							Object here = water.invoke(sampler, x, z);
+							if (!want.equals(kindOf.invoke(here)) || (Float) distanceOf.invoke(here) > 0) {
+								continue;
+							}
+							int surface = (Integer) surfaceOf.invoke(here);
+							level.getChunk(x >> 4, z >> 4);
+							int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+							BlockPos above = new BlockPos(x, surface + 3, z);
+							if (surface < ground - 16 && level.getBlockState(above).isAir() && level.getBlockState(above.above()).isAir()
+								&& !level.getFluidState(new BlockPos(x, surface, z)).isEmpty()) {
+								return new int[]{x, surface, z, want.equals("river") ? 1 : want.equals("sea") ? 2 : 3};
+							}
+						}
+					}
+				}
+			} catch (ReflectiveOperationException e) {
+				log("caverns: no Expanse underground API (" + e + ")");
+			}
+			return null;
+		});
+		if (found == null) {
+			log("caverns: no cavern water with open air over it found near spawn");
+			return;
+		}
+		String kind = found[3] == 1 ? "river" : found[3] == 2 ? "sea" : "lake";
+		log(String.format(Locale.ROOT, "caverns: %s water at (%d, %d, %d)", kind, found[0], found[1], found[2]));
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		world.getServer().runCommand("gamemode spectator @a");
+		// along the water a little each way, so the cave round it is revealed
+		for (int i = 0; i < 9; i++) {
+			int x = found[0] + (i % 3 - 1) * 12;
+			int z = found[2] + (i / 3 - 1) * 12;
+			world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", x, found[1] + 3, z));
+			context.waitTicks(10);
+		}
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", found[0], found[1] + 3, found[2]));
+		this.settle(context, SETTLE_MS * 2);
+		int band = Math.floorDiv(found[1], dev.voidmc.atlas.client.data.DimensionData.BAND);
+		String tinted = context.computeOnClient(mc -> {
+			var d = AtlasClient.get().session().dimension(mc.level.dimension().identifier().toString(), false);
+			return d.cavernWater == null ? "no cavern water source" : "here: kind " + d.cavernWater.at(found[0], found[2], found[1]);
+		});
+		log("caverns: " + tinted + " (1 river, 2 sea, 3 lake, 4 lava)");
+		for (int pass = 0; pass < 2; pass++) {
+			boolean plain = pass == 1;
+			context.runOnClient(mc -> {
+				if (plain) {
+					// without the tint, to compare: the cave layers drawn again from their raw regions
+					var d = AtlasClient.get().session().dimension(mc.level.dimension().identifier().toString(), false);
+					d.cavernWater = null;
+					for (var l : d.layers()) {
+						l.forgetImages();
+					}
+				}
+				if (!(mc.gui.screen() instanceof AtlasScreen)) {
+					AtlasClient.get().openMap();
+				}
+				AtlasScreen screen = (AtlasScreen) mc.gui.screen();
+				screen.page.map.setKind(MapPanel.Kind.UNDERGROUND);
+				screen.page.map.setBiomeLook(false);
+				screen.page.map.setBand(band);
+				screen.page.map.centreOn(found[0], found[2]);
+				screen.page.map.setZoom(3);
+				screen.page.map.selected = null;
+			});
+			this.settle(context, SETTLE_MS);
+			context.waitTicks(20);
+			this.shoot(context, plain ? "caverns_water_plain" : "caverns_water");
+		}
+		context.runOnClient(mc -> {
+			((AtlasScreen) mc.gui.screen()).page.map.setKind(MapPanel.Kind.SURFACE);
+			mc.gui.setScreen(null);
+		});
+	}
+
+	/**
 	 * With VOID LOD installed (-Plod=<jar>): far sight end to end. LOD draws the land beyond the loaded chunks and hands
 	 * each tile to Atlas through its API; the map shows the walked land beside the land seen from afar, the edge
 	 * between them, and the hover's readout.
@@ -752,9 +857,11 @@ public class AtlasGameTest implements FabricClientGameTest {
 			}
 			return new int[]{bx, by, bz, level.getMinY(), level.getMinY() + level.getHeight() - 1};
 		});
-		log(String.format(Locale.ROOT, "tall world: y %d to %d; the highest ground found: %d at (%d, %d); elevation lift there +%.3f L (capped from y %d); "
-			+ "%d contour lines of 16 blocks and %d of 64 from the sea up", peak[3], peak[4], peak[1], peak[0], peak[2],
-			Math.min(0.032, 0.004 * Math.floor((peak[1] - 63) / 16.0)), 63 + 8 * 16, (peak[1] - 63) / 16, (peak[1] - 63) / 64));
+		// the elevation lift as the art spreads it over the world's height (every 16 blocks to y 191 in vanilla)
+		double liftStep = Math.max(16, (peak[4] - 64 - 63) * 2 / 3.0 / 8);
+		log(String.format(Locale.ROOT, "tall world: y %d to %d; the highest ground found: %d at (%d, %d); elevation lift there +%.3f L (a step every "
+			+ "%.0f blocks, full from y %.0f); %d contour lines of 16 blocks and %d of 64 from the sea up", peak[3], peak[4], peak[1], peak[0], peak[2],
+			Math.min(0.032, 0.004 * Math.floor((peak[1] - 63) / liftStep)), liftStep, 63 + 8 * liftStep, (peak[1] - 63) / 16, (peak[1] - 63) / 64));
 		// fly over the range so it is mapped
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		world.getServer().runCommand("gamemode spectator @a");
@@ -790,6 +897,11 @@ public class AtlasGameTest implements FabricClientGameTest {
 			context.waitTicks(20);
 			this.shoot(context, "tall_" + style.name().toLowerCase(Locale.ROOT));
 		}
+		// zoomed out (1:4): the minor contours fade where they would crowd the screen, the 64-block lines stay
+		map.accept(new double[]{peak[0], peak[2], 0.25, 0});
+		this.settle(context, SETTLE_MS);
+		context.waitTicks(20);
+		this.shoot(context, "tall_topographic_far");
 		context.runOnClient(mc -> AtlasClient.get().settings().mapStyle = dev.voidmc.atlas.core.MapArt.Style.NATURAL);
 		map.accept(new double[]{peak[0], peak[2], 1, 1});
 		this.settle(context, SETTLE_MS);

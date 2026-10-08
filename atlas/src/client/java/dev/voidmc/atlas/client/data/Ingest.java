@@ -56,6 +56,11 @@ public final class Ingest {
 		this.session = session;
 		this.level = level;
 		this.dimension = session.dimension(level.dimension().identifier().toString(), level.dimensionType().hasCeiling());
+		// the world's height before its first chunk is drawn, so no tile takes vanilla's elevation lift in a tall world
+		this.dimension.top = level.getMinY() + level.getHeight() - 1;
+		// singleplayer on VOID Expanse's Earth: its caverns' water, to tint what the player reveals
+		var server = net.minecraft.client.Minecraft.getInstance().getSingleplayerServer();
+		this.dimension.cavernWater = server == null ? null : dev.voidmc.atlas.client.compat.ExpanseCaverns.of(server.getLevel(level.dimension()));
 	}
 
 	public DimensionData dimension() {

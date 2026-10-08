@@ -24,6 +24,8 @@ public final class DimensionData {
 	public final boolean ceiling;
 	/** The highest block of this dimension's world (its own height: 319 in vanilla, 639 in VOID Expanse's Earth). */
 	public volatile int top = 319;
+	/** In singleplayer on VOID Expanse's Earth, what its caverns hold under a column (to tint revealed cave water); else null. */
+	public volatile dev.voidmc.atlas.core.CavernWater cavernWater;
 	public final Detections detections = new Detections();
 	public final AreaIndex areas = new AreaIndex();
 	/** The cave biomes seen underground, for their names on the underground map. */

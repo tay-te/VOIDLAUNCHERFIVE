@@ -188,6 +188,25 @@ public final class Palette {
 		return Oklab.toRgb(Math.max(0.06F, lab[0] - 0.02F), lab[1], lab[2]);
 	}
 
+	/** The hues cave water is drawn towards by its kind ({@link CavernWater}): a river, a buried sea, a lake, lava. */
+	private static final float[][] CAVERN_HUES = {null, Oklab.fromRgb(0x3E8C8A), Oklab.fromRgb(0x1F4F86), Oklab.fromRgb(0x3D7A9E),
+		Oklab.fromRgb(0xE0702A)};
+	/** Each kind's lightness step: a river a little lighter (it runs), a sea deeper, lava a little hotter. */
+	private static final float[] CAVERN_L = {0, 0.025F, -0.03F, 0, 0.03F};
+
+	/**
+	 * Revealed cave water (or lava) tinted by what the world says it is ({@link CavernWater}): its hue half way to
+	 * the kind's, its lightness a step; {@link CavernWater#NONE} leaves it as it is.
+	 */
+	public static int cavernTint(int rgb, int kind) {
+		if (kind <= CavernWater.NONE || kind >= CAVERN_HUES.length) {
+			return rgb;
+		}
+		float[] lab = Oklab.fromRgb(rgb);
+		float[] hue = CAVERN_HUES[kind];
+		return Oklab.toRgb(Math.max(0.06F, Math.min(0.9F, lab[0] + CAVERN_L[kind])), (lab[1] + hue[1]) * 0.5F, (lab[2] + hue[2]) * 0.5F);
+	}
+
 	/**
 	 * How much of a known pixel shows, 0..255, by its distance (Chebyshev, in pixels) to the nearest unknown one:
 	 * the two-pixel dithered edge of the explored land.

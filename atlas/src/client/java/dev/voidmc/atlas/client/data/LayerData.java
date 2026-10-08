@@ -118,6 +118,10 @@ public final class LayerData {
 	 */
 	public int paletteVersion() {
 		int v = this.dimension.session.paletteVersion() * 31 + this.dimension.session.artVersion(this.variant);
+		if (this.mode == TileRenderer.Mode.CAVE && this.dimension.cavernWater != null) {
+			// cave water tinted by the caverns' own kinds
+			v = v * 31 + 0xCA7;
+		}
 		return this.mode == TileRenderer.Mode.CAVE && !this.dimension.session.caveFluids() ? v ^ 0x51F1D5 : v;
 	}
 
@@ -128,6 +132,7 @@ public final class LayerData {
 		// the coarse far store's samples are 32 blocks
 		r.farSample = this.rawName().equals("farc") ? 32 : 1;
 		r.worldTop = this.dimension.top;
+		r.cavernWater = this.mode == TileRenderer.Mode.CAVE ? this.dimension.cavernWater : null;
 		this.dimension.session.configure(r);
 		return r;
 	}

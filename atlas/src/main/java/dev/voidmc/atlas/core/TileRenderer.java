@@ -103,6 +103,8 @@ public final class TileRenderer {
 	public Variant variant = Variant.TERRAIN;
 	public MapArt.Style style = MapArt.Style.NATURAL;
 	public boolean contours;
+	/** Underground: what the world's generator says lies where cave water was revealed (it only tints); null for none. */
+	public CavernWater cavernWater;
 	/** In the biome view, the family kept bright (the others dimmed); null for none. */
 	public MapArt.Family highlight;
 	/** The new map art (section 9); off: the shipped palette (kept for comparison). */
@@ -113,10 +115,21 @@ public final class TileRenderer {
 	int[] biomes = new int[0];
 	byte[] depths = new byte[0];
 	byte[] lights = new byte[0];
-	private float[][] scratch = new float[12][0];
+	private float[][] scratch = new float[17][0];
 	/** The top of the world drawn (its highest block): the elevation lift spreads over its height (319 in vanilla). */
 	public int worldTop = 319;
 	private byte[] scratchBytes = new byte[0];
+	private byte[] scratchBytes2 = new byte[0];
+	/**
+	 * The minor (16-block) contour lines' share of each level-0 pixel (the pixel with its line less without it, in
+	 * RGB) and the ground's grade there, so the mip chain fades a line where it would crowd the screen; written by
+	 * the art when it draws contours ({@link #linesDrawn}), in region pixels.
+	 */
+	float[] lineR = new float[0];
+	float[] lineG = new float[0];
+	float[] lineB = new float[0];
+	float[] lineGrade = new float[0];
+	boolean linesDrawn;
 	/** The rectangle's region origin in blocks (for patterns that line up across regions). */
 	int originX;
 	int originZ;
@@ -139,6 +152,113 @@ public final class TileRenderer {
 			this.scratchBytes = new byte[n];
 		}
 		return this.scratchBytes;
+	}
+
+	byte[] scratchBytes2(int n) {
+		if (this.scratchBytes2.length < n) {
+			this.scratchBytes2 = new byte[n];
+		}
+		return this.scratchBytes2;
+	}
+
+	/** Makes the minor contour lines' arrays ready (a region's level-0 pixels), for the art to fill. */
+	void linesReady() {
+		int n = Coords.REGION_SIZE * Coords.REGION_SIZE;
+		if (this.lineR.length < n) {
+			this.lineR = new float[n];
+			this.lineG = new float[n];
+			this.lineB = new float[n];
+			this.lineGrade = new float[n];
+		}
+		this.linesDrawn = true;
+	}
+
+	/**
+	 * How much of a minor (16-block) contour line a mip level keeps where the ground's grade is {@code grade}: all of
+	 * it while the lines are 5 screen pixels apart or more at the furthest zoom the level is drawn at (1 / 2^level
+	 * pixels a block), none under 3 (the 64-block lines always stay).
+	 */
+	static float minorKeep(int level, float grade) {
+		if (grade <= 0.01F) {
+			return 1;
+		}
+		double spacing = 16.0 / grade / (1 << level);
+		return (float) Math.max(0, Math.min(1, (spacing - 3) / 2));
+	}
+
+	/**
+	 * Levels 1..5 over a level-0 rectangle as {@link RegionImage#downsample} makes them, but each minor contour line
+	 * faded as its level's on-screen spacing asks ({@link #minorKeep}); in place in the line arrays, a level's data at
+	 * its own pixel index. A pixel of a coarser level whose source lies partly outside the rectangle takes those
+	 * pixels as they are.
+	 */
+	private void downsampleFading(RegionImage image, int x0, int z0, int x1, int z1) {
+		float[] dr = this.lineR, dg = this.lineG, db = this.lineB, gr = this.lineGrade;
+		for (int level = 1; level < RegionImage.LEVELS; level++) {
+			int[] src = image.levelOrCreate(level - 1);
+			int[] dst = image.levelOrCreate(level);
+			int srcSize = Coords.regionImageSize(level - 1);
+			int size = Coords.regionImageSize(level);
+			int sx0 = x0, sz0 = z0, sx1 = x1, sz1 = z1;
+			x0 >>= 1;
+			z0 >>= 1;
+			x1 = (x1 + 1) >> 1;
+			z1 = (z1 + 1) >> 1;
+			for (int z = z0; z < z1; z++) {
+				for (int x = x0; x < x1; x++) {
+					float c = 0, sr = 0, sg = 0, sb = 0, lr = 0, lg = 0, lb = 0, sgr = 0;
+					for (int k = 0; k < 4; k++) {
+						int cx = (x << 1) + (k & 1);
+						int cz = (z << 1) + (k >> 1);
+						int i = cz * srcSize + cx;
+						int p = src[i];
+						int cc = p >>> 24;
+						if (cc == 0) {
+							continue;
+						}
+						float pr = p >> 16 & 0xFF, pg = p >> 8 & 0xFF, pb = p & 0xFF;
+						if (cx >= sx0 && cx < sx1 && cz >= sz0 && cz < sz1) {
+							float ar = dr[i], ag = dg[i], ab = db[i], grade = gr[i];
+							if (ar != 0 || ag != 0 || ab != 0) {
+								float before = minorKeep(level - 1, grade);
+								float kept = before <= 0 ? 0 : minorKeep(level, grade) / before;
+								pr -= ar * (1 - kept);
+								pg -= ag * (1 - kept);
+								pb -= ab * (1 - kept);
+								ar *= kept;
+								ag *= kept;
+								ab *= kept;
+							}
+							lr += ar * cc;
+							lg += ag * cc;
+							lb += ab * cc;
+							sgr += grade * cc;
+						}
+						sr += pr * cc;
+						sg += pg * cc;
+						sb += pb * cc;
+						c += cc;
+					}
+					int d = z * size + x;
+					if (c == 0) {
+						dst[d] = 0;
+						dr[d] = 0;
+						dg[d] = 0;
+						db[d] = 0;
+						gr[d] = 0;
+						continue;
+					}
+					int r = Math.max(0, Math.min(255, Math.round(sr / c)));
+					int g = Math.max(0, Math.min(255, Math.round(sg / c)));
+					int b = Math.max(0, Math.min(255, Math.round(sb / c)));
+					dst[d] = ((int) c + 2) / 4 << 24 | r << 16 | g << 8 | b;
+					dr[d] = lr / c;
+					dg[d] = lg / c;
+					db[d] = lb / c;
+					gr[d] = sgr / c;
+				}
+			}
+		}
 	}
 
 	/** Forgets cached colours (after the looks change: a resource reload). */
@@ -230,11 +350,16 @@ public final class TileRenderer {
 		int[] out = image.levelOrCreate(0);
 		if (this.art && (mode != Mode.CAVE || this.variant == Variant.BIOMES)) {
 			// the section 9 map art: the surface, far and shared land, and the biome view everywhere
+			this.linesDrawn = false;
 			this.painter.paintSurface(this, mode, x0, z0, x1, z1, m, gw, gh, out, 0, 0);
 			if (this.variant == Variant.NIGHT) {
 				this.night(out, x0, z0, x1, z1, m, gw);
 			}
-			image.downsample(x0, z0, x1, z1);
+			if (this.linesDrawn) {
+				this.downsampleFading(image, x0, z0, x1, z1);
+			} else {
+				image.downsample(x0, z0, x1, z1);
+			}
 			image.touch();
 			return;
 		}
@@ -272,6 +397,13 @@ public final class TileRenderer {
 					int depth = this.depths[g] & 0xFF;
 					rgb = mode == Mode.CAVE ? Palette.caveWater(depth, shore, this.water(this.biomes[g]))
 						: Palette.water(depth, shore, this.water(this.biomes[g]));
+					if (mode == Mode.CAVE && this.cavernWater != null) {
+						// revealed water: tinted as a river, a buried sea or a lake where the caverns hold one here
+						int k = this.cavernWater.at(this.originX + x, this.originZ + z, this.heights[g]);
+						if (k != CavernWater.LAVA) {
+							rgb = Palette.cavernTint(rgb, k);
+						}
+					}
 					if (mode == Mode.FAR || mode == Mode.SHARED) {
 						rgb = quiet(rgb, mode);
 					}
@@ -288,6 +420,11 @@ public final class TileRenderer {
 						}
 						int below = caveTop == Integer.MIN_VALUE ? 0 : Math.max(0, caveTop - this.heights[g]);
 						rgb = !this.fluids && material == Material.LAVA ? Palette.CAVE_WALL : Palette.caveFloor(tone, material, step, below);
+						if (material == Material.LAVA && this.fluids && this.cavernWater != null
+							&& this.cavernWater.at(this.originX + x, this.originZ + z, this.heights[g]) == CavernWater.LAVA) {
+							// revealed lava where the caverns hold a lava lake
+							rgb = Palette.cavernTint(rgb, CavernWater.LAVA);
+						}
 					} else if (mode == Mode.FAR) {
 						// half the hillshade, 40% less colour, 14% darker
 						float L = (tone[0] + step * material.shade * 0.5F + Palette.band(this.heights[g]) * material.band) * 0.86F;
