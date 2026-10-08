@@ -145,8 +145,8 @@ public final class Grounds {
 	/**
 	 * A parapet along the plot's sides and back wherever the levelled ground stands four or more above the land beyond
 	 * (a terrace made up on a slope): a low wall in the plinth's stone (the railing's fence where it has no wall), on the
-	 * edge cell itself, so nobody walks off the made ground. Cells taken, and the front row within two of a way in (where
-	 * the approach comes down from the street), are left alone. Call it last, when the grounds are made.
+	 * edge cell itself, so nobody walks off the made ground. Cells taken, and the front row where a way in crosses it
+	 * (where the approach comes down from the street), are left alone. Call it last, when the grounds are made.
 	 */
 	public static void edgeRails(Draft d) {
 		int w = d.frontage();
@@ -191,11 +191,22 @@ public final class Grounds {
 		}
 	}
 
-	/** A registered entrance within two columns of x (its approach comes in over the front row there). */
+	/**
+	 * A way in over the front row at column x: a registered entrance in this column or the next (its approach comes in
+	 * there), or steps already laid in the front row or just outside it.
+	 */
 	private static boolean nearEntrance(Draft d, int x) {
 		for (int[] e : d.entrances()) {
-			if (Math.abs(e[0] - x) <= 2) {
+			if (Math.abs(e[0] - x) <= 1) {
 				return true;
+			}
+		}
+		for (int z = -1; z <= 0; z++) {
+			for (int y = -8; y <= 4; y++) {
+				net.minecraft.world.level.block.state.BlockState s = d.get(x, y, z);
+				if (s != null && (s.getBlock() instanceof net.minecraft.world.level.block.StairBlock || s.getBlock() instanceof net.minecraft.world.level.block.SlabBlock)) {
+					return true;
+				}
 			}
 		}
 		return false;

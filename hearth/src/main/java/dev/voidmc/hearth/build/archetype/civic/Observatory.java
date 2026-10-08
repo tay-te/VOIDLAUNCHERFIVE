@@ -718,8 +718,9 @@ public final class Observatory implements Archetype {
 		boolean karst = t == Tradition.KARST;
 		// a monument on its own levelled ground (a bank embanked)
 		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
-		// the platform: as broad as the plot allows less a walk round, set to the back; the upper storey a block in
-		int x0 = 1;
+		// the platform: as broad as the plot allows less a walk round, set to the back; the upper storey a block in (in the
+		// dry lands a column more on the left, where the sundial's stair climbs with its parapet on the plot)
+		int x0 = karst ? 1 : 2;
 		int x1 = w - 2;
 		int z1 = dp - 1;
 		int z0 = Math.max(3, dp - (x1 - x0 + 1));
@@ -748,12 +749,16 @@ public final class Observatory implements Archetype {
 					d.set(c[0], y, c[1], y == 0 ? base.full() : corner ? dress.full() : body.full());
 				}
 			}
-			// the step to the upper storey: a ledge a block wide round it, coped
+			// the step to the upper storey: a ledge a block wide round it, coped, a balustrade along its edge (in the dry
+			// lands, where the sundial's stair passes it: nobody steps off the stair onto the ledge and round it)
 			for (int z = z0; z <= z1; z++) {
 				for (int x = x0; x <= x1; x++) {
 					boolean inner = x >= ux0 && x <= ux1 && z >= uz0 && z <= uz1;
 					if (!inner) {
 						d.set(x, h0 - 1, z, dress.full());
+						if (!karst) {
+							d.set(x, h0, z, dev.voidmc.hearth.build.kit.civic.Halls.rail(d, dress));
+						}
 					}
 				}
 			}
@@ -789,7 +794,7 @@ public final class Observatory implements Archetype {
 				} else {
 					d.set(c[0], deck, c[1], body.full());
 					if (((c[0] + c[1]) & 1) == 0 || corner) {
-						d.set(c[0], deck + 1, c[1], dress.has(Form.SLAB) ? dress.slab(SlabType.BOTTOM) : dress.full());
+						d.set(c[0], deck + 1, c[1], dev.voidmc.hearth.build.kit.civic.Halls.rail(d, dress));
 					}
 				}
 			}
@@ -875,6 +880,14 @@ public final class Observatory implements Archetype {
 				d.set(sx, y, z, paving.has(Form.STAIRS) ? paving.stairs(Dirs.BACK, Half.BOTTOM) : dress.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
 				d.set(sx, y + 1, z, Blocks.AIR.defaultBlockState());
 				d.set(sx, y + 2, z, Blocks.AIR.defaultBlockState());
+				// the parapet on the open side, stepping up with the stair, a course over each tread
+				if (sx - 1 >= 0) {
+					int gp = d.site().ground(sx - 1, z);
+					for (int yy = Math.min(gp, 0) - 1; yy <= y; yy++) {
+						d.set(sx - 1, yy, z, yy < 0 ? d.mat(Role.FOUNDATION).full() : body.full());
+					}
+					d.set(sx - 1, y + 1, z, dev.voidmc.hearth.build.kit.civic.Halls.rail(d, dress));
+				}
 			}
 			// the head: a landing beyond the top step, a bridge over the ledge, the parapet opened to the terrace
 			int zl = zTop + 1;
@@ -883,6 +896,15 @@ public final class Observatory implements Archetype {
 			}
 			d.set(sx, deck - 1, zl, dress.full());
 			d.set(x0, deck - 1, zl, dress.full());
+			// the landing's parapet, round its open sides
+			for (int[] c : new int[][]{{sx - 1, zl}, {sx - 1, zl + 1}, {sx, zl + 1}}) {
+				if (c[0] >= 0 && c[1] < d.depth() && d.isEmpty(c[0], deck, c[1])) {
+					for (int yy = Math.min(d.site().ground(c[0], c[1]), 0) - 1; yy <= deck; yy++) {
+						d.set(c[0], yy, c[1], yy < 0 ? d.mat(Role.FOUNDATION).full() : body.full());
+					}
+					d.set(c[0], deck + 1, c[1], dev.voidmc.hearth.build.kit.civic.Halls.rail(d, dress));
+				}
+			}
 			for (int y = deck; y <= deck + 1; y++) {
 				d.set(sx, y, zl, Blocks.AIR.defaultBlockState());
 				d.set(x0, y, zl, Blocks.AIR.defaultBlockState());

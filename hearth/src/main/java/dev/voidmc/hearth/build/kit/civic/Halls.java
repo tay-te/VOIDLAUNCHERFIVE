@@ -473,6 +473,16 @@ public final class Halls {
 		return room;
 	}
 
+	/** Something to stand on at y: a full block, an upper slab or a stair (a floor, a gallery's boards, a bench). */
+	private static boolean floor(Draft d, int x, int y, int z) {
+		if (d.isSolid(x, y, z)) {
+			return true;
+		}
+		net.minecraft.world.level.block.state.BlockState s = d.get(x, y, z);
+		return s != null && (s.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+			|| s.getBlock() instanceof net.minecraft.world.level.block.SlabBlock && s.getValue(net.minecraft.world.level.block.SlabBlock.TYPE) != SlabType.BOTTOM);
+	}
+
 	/**
 	 * Every latticed light a body could walk through (a trapdoor lattice in a wall over a solid sill, with floor and head
 	 * room on one side of it and nothing in the way on the other) takes a rail in its foot instead, as
@@ -505,8 +515,8 @@ public final class Halls {
 				boolean aOpen = !d.isSolid(ax, y, az) && d.isEmpty(ax, y + 1, az);
 				boolean bOpen = !d.isSolid(bx, y, bz) && d.isEmpty(bx, y + 1, bz);
 				// (a floor level with the sill, or one below it: the sill is a step up into the light)
-				boolean aFloor = aOpen && d.isEmpty(ax, y, az) && (d.isSolid(ax, y - 1, az) || d.isEmpty(ax, y - 1, az) && d.isSolid(ax, y - 2, az));
-				boolean bFloor = bOpen && d.isEmpty(bx, y, bz) && (d.isSolid(bx, y - 1, bz) || d.isEmpty(bx, y - 1, bz) && d.isSolid(bx, y - 2, bz));
+				boolean aFloor = aOpen && d.isEmpty(ax, y, az) && (floor(d, ax, y - 1, az) || !d.isSolid(ax, y - 1, az) && floor(d, ax, y - 2, az));
+				boolean bFloor = bOpen && d.isEmpty(bx, y, bz) && (floor(d, bx, y - 1, bz) || !d.isSolid(bx, y - 1, bz) && floor(d, bx, y - 2, bz));
 				if (aOpen && bOpen && (aFloor || bFloor)) {
 					hits.add(new int[]{x, y, z});
 					break;
