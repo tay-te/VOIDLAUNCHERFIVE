@@ -326,12 +326,20 @@ public final class Trees {
 		Paint log = logM.log(Direction.Axis.Y).orElse(logM.full());
 		Paint wood = logM.has(Form.WOOD) ? logM.wood() : log;
 		int trunk = Math.max(2, h / 2);
-		Direction kink = Dirs.HORIZONTAL[(int) (Noise.unit(seed, 2, 9, 4) * 4) % 4];
+		int k0 = (int) (Noise.unit(seed, 2, 9, 4) * 4) % 4;
+		Direction kink = null;
+		// the kink toward a side the tree may grow into (else the trunk goes straight up)
+		for (int i = 0; i < 4 && kink == null; i++) {
+			Direction c = Dirs.HORIZONTAL[(k0 + i) % 4];
+			if (r.ok(x + Dirs.dx(c), y + 1, z + Dirs.dz(c))) {
+				kink = c;
+			}
+		}
 		logAt(d, r, x, y, z, wood);
 		int tx = x;
 		int tz = z;
 		for (int k = 1; k < trunk; k++) {
-			if (k == 1) {
+			if (k == 1 && kink != null) {
 				logAt(d, r, x + Dirs.dx(kink), y + 1, z + Dirs.dz(kink), wood);
 				tx = x + Dirs.dx(kink);
 				tz = z + Dirs.dz(kink);

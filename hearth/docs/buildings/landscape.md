@@ -90,8 +90,8 @@ a blossom tree, a stone lantern, a viewing deck); tropical; rock (dry-stone wall
 (steps where it climbs a terrace), a cross walk on each terrace, a loop walk on level ground, a pond with lilies and
 reeds in one quarter, the culture's trees standing one or two to a lawn in the others, five apart, some lawns left open
 with flowers (`Trees`: broadleaf, conifer with its leader of leaves over the last whorl, birch, palm, blossom, olive,
-acacia, willow with hanging moss; crowns of several lumps, pruned so nothing floats), borders by the gate,
-benches and lamps along the walk, and at city tier a bandstand (a pavilion) where the walks meet.
+acacia, willow with hanging moss; crowns of several lumps, pruned so nothing floats; an olive's kinked trunk leans only
+into its own lawn), borders by the gate, benches and lamps along the walk where no tree's trunk or crown leans over it, and at city tier a bandstand (a pavilion) where the walks meet.
 
 **Palisade.** One stake thick along the planner's line, stakes of the local tree a block into the ground, set in panels
 of three to five whose tops step down a slope panel by panel (`TownWall.crest`), ragged heights,

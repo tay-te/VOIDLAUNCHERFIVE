@@ -187,7 +187,8 @@ public final class Park implements Archetype {
 		}
 		for (int z = 5; z < dp - 2; z += 5) {
 			for (int x : new int[]{cx - half - 1, cx + half + 1}) {
-				if (x < 1 || x > w - 2 || used[x][z] || level[z - 1] != level[z] || level[z + 1] != level[z]) {
+				if (x < 1 || x > w - 2 || used[x][z] || level[z - 1] != level[z] || level[z + 1] != level[z] || !clearable(d, x, level[z], z)
+					|| !clearable(d, x, level[z] + 1, z)) {
 					continue;
 				}
 				boolean lamp = ((z / 5) & 1) == (x < cx ? 0 : 1);
@@ -313,6 +314,12 @@ public final class Park implements Archetype {
 			used[bx][bz] = true;
 		}
 		return y + 2;
+	}
+
+	/** Nothing there but air or a plant (never a tree's trunk or crown leaning over the walk). */
+	private static boolean clearable(Draft d, int x, int y, int z) {
+		var s = d.get(x, y, z);
+		return s == null || s.isAir() || s.getBlock() instanceof net.minecraft.world.level.block.VegetationBlock;
 	}
 
 	/**
