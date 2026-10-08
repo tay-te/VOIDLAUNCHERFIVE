@@ -371,9 +371,11 @@ public final class Lofts {
 		d.air(x, y - 1, z);
 	}
 
+	/** A lamp, a chain, or a fence or bars a lamp hangs from (a post standing on a floor is no hung thing: the walk down meets the floor). */
 	private static boolean hung(Draft d, int y, int x, int z) {
 		BlockState s = d.get(x, y, z);
-		return s != null && Spaces.hangs(s);
+		return s != null && (Spaces.hangs(s) || s.getBlock() instanceof net.minecraft.world.level.block.FenceBlock
+			|| s.getBlock() instanceof net.minecraft.world.level.block.IronBarsBlock || s.getBlock() instanceof net.minecraft.world.level.block.WallBlock);
 	}
 
 	private static void debug(String what, int[] at) {

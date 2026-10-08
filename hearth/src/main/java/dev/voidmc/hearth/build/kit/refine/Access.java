@@ -25,13 +25,16 @@ public final class Access {
 		if (Boolean.getBoolean("hearth.access.off")) {
 			return new Report(0, 0, 0, 0, 0);
 		}
-		Doors.Report r = Doors.finish(d);
-		dev.voidmc.hearth.build.kit.Stairs.finish(d);
-		// -Dhearth.lofts.off=true: without the loft pass (to measure it alone)
-		if (!Boolean.getBoolean("hearth.lofts.off")) {
+		// -Dhearth.access.skip=doors,stairs,lofts,guards: leave steps out (to find which one did something)
+		String skip = System.getProperty("hearth.access.skip", "");
+		Doors.Report r = skip.contains("doors") ? new Doors.Report(0, 0, 0, 0) : Doors.finish(d);
+		if (!skip.contains("stairs")) {
+			dev.voidmc.hearth.build.kit.Stairs.finish(d);
+		}
+		if (!skip.contains("lofts") && !Boolean.getBoolean("hearth.lofts.off")) {
 			Lofts.finish(d);
 		}
-		int guards = Guards.finish(d);
+		int guards = skip.contains("guards") ? 0 : Guards.finish(d);
 		return new Report(r.doors(), r.cleared(), r.bricked(), r.lids(), guards);
 	}
 }
