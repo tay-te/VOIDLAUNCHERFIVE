@@ -81,7 +81,7 @@ the island's corners, seats back to back against the post.
 **Garden.** Terraced where the ground rises or falls behind the street (`Terraces`: retaining walls with a coping, a
 parapet where the wall stands three or more, steps on the path). Cottage (fence or hedge, a path to an arbour with a bench, a cross path, borders, a fruit tree, a
 beehive, a bird bath); kitchen (rows of crops with water channels, a scarecrow, compost, water butt, an olive or fruit
-tree); riad (walled with a coping and an arched gate, tiled walks quartering it round a little fountain, palms, a dry
+tree); riad (walled with a coping, a crest of the masonry's wall where the land outside stands high enough to step onto it, and an arched gate, tiled walks quartering it round a little fountain, palms, a dry
 garden, stone benches); cactus garden under a ramada (mesa); zen (raked gravel, moss islands, weathered stones, a pool,
 a blossom tree, a stone lantern, a viewing deck); tropical; rock (dry-stone walled, heather, boulders, a birch); bog
 (pools, mud, a boardwalk, a willow hung with moss); winter garden (spruces, a fire bowl with log seats).

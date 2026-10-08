@@ -242,9 +242,11 @@ facing)` (last resort). Cut the stairwell in the floor above yourself and keep i
 `kit/landscape/Edges.guard(d)` (last, after `Groundwork.clear`) walks the draft from its entrances as the folk do and
 guards every walked edge over a drop of three: a balustrade in a stairwell against its wall, a rail (or a low wall on
 open ground) on a floor with floor behind it, a one-wide deck carried out a board under its rail, a jug on a chest
-someone could climb beside a well, lattice windows over an eave glazed in their lower row. Doorways, stair heads and
-feet, ladder heads and POI cells stay open, and a rail is set only where every door and POI walked to before is still
-walked to after. `Edges.guard(d, y0, y1)` limits it to standing levels. It is a net under the archetype's own guards
+someone could climb beside a well, lattice windows over an eave or down to a raised floor glazed, a lattice band
+carried round a corner post given the post back, shutter leaves whose tops could be stood on over a drop taken off.
+Doorways, stair heads and feet, ladder heads and POI cells stay open (a bench seat is no stair head: a rail may stand
+behind it); beside the way in and beside an outdoor flight a board and a rail go on the open side instead, and a rail
+is set only where every door and POI walked to before is still walked to after. `Edges.guard(d, y0, y1)` limits it to standing levels. It is a net under the archetype's own guards
 (a stair's rail, a balcony's balustrade), not a replacement for them: what it cannot rail (a one-wide walk along the
 plot's edge, the top of a roof) it leaves for the archetype to widen or close.
 
