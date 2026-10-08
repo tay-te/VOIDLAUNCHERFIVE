@@ -21,8 +21,9 @@ import net.minecraft.world.level.block.state.properties.Half;
 /**
  * A step wherever folk climb a whole block out of doors: the finished drawing is walked (as {@link Falls} walks it) and
  * every place where a walked yard, base or terrace stands a full block over the ground beside it with no stair between
- * gets one, as a builder sets a step there: a stair in the low cell climbing to the high one. A player then walks up
- * instead of jumping. Doorways, flights and ladders already there and the cells beside them are left as they are.
+ * gets one, as a builder sets a step there: a stair in the low cell climbing to the high one (or, where the low side is
+ * the ground beyond the plot, the edge's own block cut back into the stair, under a loggia's corner too). A player then
+ * walks up instead of jumping. Doorways, flights and ladders already there and the cells beside them are left as they are.
  */
 public final class Steps {
 	private Steps() {
@@ -57,8 +58,10 @@ public final class Steps {
 						// (out of doors only, clear of doors and of any stair, slab or ladder already there: a flight is not cut
 						// into)
 						boolean roofed = sp.roofed(x, y, z) || sp.roofed(ax, y - 1, az);
-						if (roofed || nearEntrance(d, ax, az) || nearDoor(g, x, y, z) || nearDoor(g, ax, y - 1, az) || nearStep(g, ax, y - 1, az) || nearStep(g, x, y, z)
-							|| !done.add(BlockPos.asLong(x, y, z))) {
+						boolean inPlotA = ax >= 0 && az >= 0 && ax < d.frontage() && az < d.depth();
+						// (a covered floor at the plot's edge, entered from the ground beyond it, takes its step in its own edge)
+						if (roofed && inPlotA || nearEntrance(d, ax, az) || nearDoor(g, x, y, z) || nearDoor(g, ax, y - 1, az) || nearStep(g, ax, y - 1, az)
+							|| nearStep(g, x, y, z) || !done.add(BlockPos.asLong(x, y, z))) {
 							continue;
 						}
 						Paint step = stair(d, dir, roofed);
@@ -72,6 +75,11 @@ public final class Steps {
 						if (inPlot && d.isEmpty(ax, y - 1, az) && d.isEmpty(ax, y, az) && Spaces.passable(g.at(ax, y + 1, az)) && d.allowed(ax, y - 1, az)) {
 							// a stair in the low cell, climbing to the high one
 							d.inStage(roofed ? StageKind.FLOORS : StageKind.EXTERIOR, () -> d.set(ax, fy - 1, az, step));
+						} else if (!inPlot && !((x == 0 || x == d.frontage() - 1) && (z == 0 || z == d.depth() - 1)) && d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && sp.reached(x + Dirs.dx(dir), y, z + Dirs.dz(dir))
+							&& (under == null || under.stage() == StageKind.FLOORS || under.stage() == StageKind.FOUNDATION || under.stage() == StageKind.EXTERIOR
+							|| under.stage() == StageKind.EARTHWORK)) {
+							// the ground beyond the plot: the edge's own block cut back into the stair
+							d.inStage(roofed ? StageKind.FLOORS : StageKind.EXTERIOR, () -> d.set(fx, fy - 1, fz, step));
 						}
 						break;
 					}

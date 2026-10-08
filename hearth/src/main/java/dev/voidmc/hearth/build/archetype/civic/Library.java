@@ -198,6 +198,14 @@ public final class Library implements Archetype {
 			for (int x = railX; x < ix1; x++) {
 				d.set(x, gy, railZ, rail);
 			}
+			// newel posts a head high at the balustrade's corner and every third baluster (the rail's top is no walk)
+			d.set(railX, gy + 1, railZ, rail);
+			for (int z = railZ - 3; z >= gz0 - 1; z -= 3) {
+				d.set(railX, gy + 1, z, rail);
+			}
+			for (int x = railX + 3; x < ix1; x += 3) {
+				d.set(x, gy + 1, railZ, rail);
+			}
 		}
 		try (var s = d.stage(StageKind.FRAME)) {
 			for (int z = gz0 + 1; z < iz1 - 1; z += 2) {
@@ -279,9 +287,16 @@ public final class Library implements Archetype {
 		}
 		// the ledge's gaps (before a window) railed: nobody steps off the gallery onto it
 		try (var st = d.stage(StageKind.INTERIOR)) {
+			int run = 0;
 			for (int z = gz0; z < railZ; z++) {
 				if (d.isEmpty(ix1, gy, z)) {
 					d.set(ix1, gy, z, rail);
+					// (a run of rail broken by a post a head high every third baluster)
+					if (++run % 3 == 0 && d.isEmpty(ix1, gy + 1, z)) {
+						d.set(ix1, gy + 1, z, rail);
+					}
+				} else {
+					run = 0;
 				}
 			}
 		}
