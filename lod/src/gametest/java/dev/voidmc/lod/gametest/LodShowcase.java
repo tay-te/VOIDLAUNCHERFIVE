@@ -85,6 +85,13 @@ public class LodShowcase implements FabricClientGameTest {
 	 * Listens for the drawn tiles' terrain: {@code true} only once the view is built, as a map mod that starts late does;
 	 * {@code early} from client start, before the world exists, as one that starts with the game does.
 	 */
+	/**
+	 * Another LOD mod to compare with (-Plod.show.rival=dh, with its jar on the classpath): VOID LOD stays off, and each view
+	 * is shot 10, 30, 90 and 180 s after arriving, then its frame rate averaged. -Plod.show.timeline does the same shots for
+	 * VOID LOD before its usual photograph.
+	 */
+	private static final String RIVAL = System.getProperty("lod.show.rival", "");
+	private static final boolean TIMELINE = Boolean.getBoolean("lod.show.timeline") || !RIVAL.isEmpty();
 	/** Views of VOID Hearth's nearest town (with -Phearth=<jar>): town0 from 400 m, town1 from 1200 m. */
 	private static final boolean HEARTH = Boolean.getBoolean("lod.show.hearth");
 	/** An autumn through LodApi's seasons: broadleaf crowns red, orange, gold and late green, the grass gone to straw. */
@@ -383,6 +390,22 @@ public class LodShowcase implements FabricClientGameTest {
 					context.waitTicks(140);
 				}
 
+				if (!RIVAL.isEmpty()) {
+					context.runOnClient(mc -> VoidLod.get().setEnabled(false));
+					this.timeline(context, world.getServer(), spot, spot.name() + "_" + RIVAL);
+					this.place(world.getServer(), spot);
+					this.frameRate(context, spot.name() + " " + RIVAL + " at 3 min");
+					// and once it has had time to finish generating: its steady state
+					this.settle(context, 420_000);
+					this.place(world.getServer(), spot);
+					context.waitTicks(40);
+					this.shoot(context, spot.name() + "_" + RIVAL + "_10min");
+					this.frameRate(context, spot.name() + " " + RIVAL + " at 10 min");
+					continue;
+				}
+				if (TIMELINE && moved) {
+					this.timeline(context, world.getServer(), spot, spot.name() + "_void");
+				}
 				if (moved && !OFF) {
 					// how long the far view has holes after arriving (not even a coarse tile over some of it)
 					long t0 = System.currentTimeMillis();
@@ -405,6 +428,11 @@ public class LodShowcase implements FabricClientGameTest {
 
 				context.runOnClient(mc -> VoidLod.get().setEnabled(true));
 				this.photograph(context, spot.name(), false);
+				if (TIMELINE) {
+					this.place(world.getServer(), spot);
+					context.waitTicks(40);
+					this.frameRate(context, spot.name() + " void");
+				}
 				if (COMPARE) {
 					context.runOnClient(mc -> LodRenderer.occlusion = false);
 					context.waitTicks(4);
@@ -479,6 +507,36 @@ public class LodShowcase implements FabricClientGameTest {
 	 * teleport yet does not count), then a few frames more to upload and fade in; photographs it and logs what it
 	 * drew and cost. With {@code changes}, also waits (a while at most) for tiles whose land changed to be rebuilt.
 	 */
+	/** Shots 10, 30, 90 and 180 s after arriving: how the far view fills in (back at the spot each time: the player falls). */
+	private void timeline(ClientGameTestContext context, TestServerContext server, Spot spot, String name) {
+		long t0 = System.currentTimeMillis();
+		for (int at : new int[]{10, 30, 90, 180}) {
+			this.settle(context, Math.max(0, at * 1000L - (System.currentTimeMillis() - t0)));
+			this.place(server, spot);
+			context.waitTicks(2);
+			this.shoot(context, name + "_" + at + "s");
+		}
+	}
+
+	/** Puts the player back at {@code spot}, facing its way. */
+	private void place(TestServerContext server, Spot spot) {
+		server.runCommand(String.format(Locale.ROOT, "execute in %s run tp @a %d %d %d %.1f %.1f", spot.dimension(), spot.x(), spot.y(), spot.z(),
+			spot.yaw(), spot.pitch()));
+	}
+
+	/** The frame rate over ten seconds standing still: its average and its worst second. */
+	private void frameRate(ClientGameTestContext context, String name) {
+		int sum = 0, worst = Integer.MAX_VALUE;
+		for (int i = 0; i < 10; i++) {
+			this.settle(context, 1000);
+			int fps = context.computeOnClient(net.minecraft.client.Minecraft::getFps);
+			sum += fps;
+			worst = Math.min(worst, fps);
+		}
+		long heap = context.computeOnClient(mc -> (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) >> 20);
+		System.out.printf(Locale.ROOT, "[lod] frame rate %s: %d fps on average, %d at worst, heap %d MB%n", name, sum / 10, worst, heap);
+	}
+
 	private void photograph(ClientGameTestContext context, String name, boolean changes) {
 		long start = System.currentTimeMillis();
 		long firstFrame = context.computeOnClient(mc -> VoidLod.get().engine().frame());
