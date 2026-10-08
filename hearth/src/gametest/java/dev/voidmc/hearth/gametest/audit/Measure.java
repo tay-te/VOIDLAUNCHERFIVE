@@ -526,6 +526,10 @@ final class Measure {
 			if (sp.wet(x, y, z)) {
 				continue;
 			}
+			// a climber on a ladder holds on: the open air beside its rungs is not a ledge anyone stands at (w7-land §3)
+			if (g.at(x, y, z).getBlock() instanceof LadderBlock) {
+				continue;
+			}
 			for (Direction d : Direction.Plane.HORIZONTAL) {
 				int nx = x + d.getStepX();
 				int nz = z + d.getStepZ();
