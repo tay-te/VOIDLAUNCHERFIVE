@@ -129,21 +129,30 @@ public final class DeepForge implements Archetype {
 		d.carve(1, 0, zf, w - 2, wallTop - 2, zb - 1);
 		d.carve(1, wallTop - 1, zf + 1, w - 2, wallTop, zb - 1);
 
-		// the roof: a gable along the hall with a louvre on its ridge; tie beams across
+		// the roof by the culture (art review: not one deepslate bunker in fourteen towns): a steep gable with its frame
+		// showing in the gables where the north and Bohemia build in timber, a flared hip on wide eaves in the karst and the
+		// wet south, a flat deck behind a parapet in the dry lands; the culture's own covering, tie beams across
 		int cx = w / 2;
+		DeepManner manner = DeepManner.of(d);
+		String form = switch (manner.culture()) {
+			case KARST, WISTERIA, TROPICAL, BAYOU -> "hip";
+			case DESERT, MESA, STEPPE, MEDITERRANEAN -> "flat";
+			default -> "gable";
+		};
 		Mat roofM = d.mat(Role.ROOF);
 		Mat trim = d.mat(Role.ROOF_TRIM);
-		double pitch = Math.min(1.0, (h - wallTop - 3) / ((w + 1) / 2.0));
-		Roofs.Field f = Roofs.gable(-1 + 1, zf - 1 + 1, w - 1, zb, Direction.Axis.Z, Roofs.Profile.straight(Math.max(0.5, pitch)));
-		Roofs.Roof roof = Roofs.raster(d, f, wallTop + 1, 0, zf, w - 1, zb, roofM, trim, Habits.Ridge.TRIM);
-		try (var s = d.stage(StageKind.WALLS)) {
-			for (int z : new int[]{zf, zb}) {
-				for (int x = 1; x < w - 1; x++) {
-					for (int y = wallTop + 1; y < roof.bottomY(x, z); y++) {
-						d.set(x, y, z, wall.full());
-					}
-				}
+		Roofs.Roof roof = null;
+		if (form.equals("flat")) {
+			flat(d, w, zf, zb, wallTop);
+		} else {
+			double pitch = Math.min(form.equals("gable") ? 1.0 : 0.75, (h - wallTop - 3) / ((w + 1) / 2.0));
+			Roofs.Field f = form.equals("gable") ? Roofs.gable(0, zf, w - 1, zb, Direction.Axis.Z, Roofs.Profile.straight(Math.max(0.5, pitch)))
+				: Roofs.flared(Roofs.hip(0, zf, w - 1, zb, Roofs.Profile.curved(Math.max(0.5, pitch))), 0, zf, w - 1, zb, 1.0, 2);
+			roof = Roofs.raster(d, f, wallTop + 1, 0, zf, w - 1, zb, roofM, trim, Habits.Ridge.TRIM);
+			if (form.equals("gable")) {
+				gables(d, w, zf, zb, wallTop, roof, wall);
 			}
+			DeepManner.rehome(d, 0, wallTop + 1, 0, w - 1, d.maxHeight() - 1, dp - 1, roofM, Role.ROOF);
 		}
 		try (var s = d.stage(StageKind.FRAME)) {
 			for (int z = zf + 2; z < zb; z += 3) {
@@ -152,7 +161,17 @@ public final class DeepForge implements Archetype {
 				}
 			}
 		}
-		louvre(d, cx, zf + 2, zb - 2, roof, h);
+		if (roof != null) {
+			louvre(d, cx, zf + 2, zb - 2, roof, h);
+		}
+		// vents high in the side walls between the tie beams, to let the heat and the smoke out
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			for (int z = zf + 3; z < zb - 1; z += 3) {
+				for (int x : new int[]{0, w - 1}) {
+					d.set(x, wallTop - 1, z, Blocks.IRON_BARS.defaultBlockState());
+				}
+			}
+		}
 
 		// the vent: a pool of lava in the floor at a back corner, rimmed in magma, fenced with bars
 		int px = w >= 11 ? 2 : 1;
@@ -181,7 +200,7 @@ public final class DeepForge implements Archetype {
 		}
 		d.poi(PoiType.JOB_SITE, fx, 0, zb - 2, Dirs.BACK, JobType.SMELTER);
 		d.poi(PoiType.JOB_SITE, fx + 1, 0, zb - 2, Dirs.BACK, JobType.SMELTER);
-		Forge.stack(d, new int[][]{{fx, zb}, {fx + 1, zb}, {fx, zb - 1}, {fx + 1, zb - 1}}, 3, h - 1, roof);
+		Forge.stack(d, new int[][]{{fx, zb}, {fx + 1, zb}, {fx, zb - 1}, {fx + 1, zb - 1}}, 3, form.equals("flat") ? wallTop + 4 : h - 1, roof);
 		// the smith's place: anvils, the smithing table (his job site), a grindstone, the quench trough
 		int sz = zf + 2;
 		try (var s = d.stage(StageKind.INTERIOR)) {
@@ -218,6 +237,60 @@ public final class DeepForge implements Archetype {
 		d.entrance(cx, 0, -1);
 		d.poi(PoiType.DOOR, cx, 0, 0, Dirs.BACK);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, h));
+	}
+
+	/**
+	 * The gables of a timber culture's forge: the frame showing over the stone walls (a collar beam under the ridge, posts
+	 * at the quarters, the culture's own infill between), the gable's foot a beam on the wall head.
+	 */
+	private static void gables(Draft d, int w, int zf, int zb, int wallTop, Roofs.Roof roof, Mat wall) {
+		Mat frame = d.mat(Role.FRAME);
+		Mat beam = d.mat(Role.BEAM);
+		Paint infill = DeepManner.home(d, Role.WALL).orElse(wall.full());
+		int cx = w / 2;
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int z : new int[]{zf, zb}) {
+				for (int x = 1; x < w - 1; x++) {
+					int under = roof.bottomY(x, z);
+					for (int y = wallTop + 1; y < under; y++) {
+						boolean post = x == cx || x == (1 + cx) / 2 || x == (cx + w - 2 + 1) / 2;
+						d.set(x, y, z, y == wallTop + 1 ? beam.log(Direction.Axis.X) : post ? frame.log(Direction.Axis.Y) : infill);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * The dry lands' forge roof: a deck of the roofing on the walls' heads, a parapet round it of the walls' stone
+	 * capped with a slab (too high to step over), water spouts of beam ends through it at the sides.
+	 */
+	private static void flat(Draft d, int w, int zf, int zb, int wallTop) {
+		Paint deck = DeepManner.home(d, Role.ROOF).orElse(d.mat(Role.ROOF).full());
+		Paint render = DeepManner.home(d, Role.WALL).orElse(d.mat(Role.WALL).full());
+		Mat dress = Rock.dressing(d);
+		Mat beam = d.mat(Role.BEAM);
+		int y = wallTop + 1;
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int z = zf; z <= zb; z++) {
+				for (int x = 0; x < w; x++) {
+					boolean edge = x == 0 || x == w - 1 || z == zf || z == zb;
+					d.set(x, y, z, edge ? render : deck);
+					if (edge && y + 1 < d.maxHeight()) {
+						d.set(x, y + 1, z, render);
+						if (y + 2 < d.maxHeight()) {
+							d.set(x, y + 2, z, dress.slab(SlabType.BOTTOM));
+						}
+					}
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int z = zf + 2; z < zb; z += 3) {
+				d.set(0, y, z, beam.log(Direction.Axis.X));
+				d.set(w - 1, y, z, beam.log(Direction.Axis.X));
+			}
+		}
 	}
 
 	/** A louvre along the ridge: a little roof of slabs raised on posts over a slot in the ridge, to let the heat out. */

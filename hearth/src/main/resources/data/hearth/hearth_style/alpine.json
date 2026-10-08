@@ -96,7 +96,7 @@
 		{
 			"name": "hayloft barn",
 			"w": 4,
-			"when": [{"categories": ["farmstead", "storage"]}, {"stations": ["poor"]}],
+			"when": [{"categories": ["farmstead", "storage"], "not": {"categories": ["noble"]}}, {"stations": ["poor"]}],
 			"roles": {
 				"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 0.24}, {"m": "minecraft:mossy_cobblestone", "w": 0.09, "low": 12}],
 				"gable": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}],

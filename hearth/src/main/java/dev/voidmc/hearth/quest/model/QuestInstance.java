@@ -2,6 +2,7 @@ package dev.voidmc.hearth.quest.model;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.voidmc.hearth.api.QuestType;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;

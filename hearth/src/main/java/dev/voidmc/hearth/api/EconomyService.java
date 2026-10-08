@@ -30,6 +30,21 @@ public interface EconomyService {
 	 */
 	long price(Settlement settlement, ItemStack stack, boolean playerBuys);
 
+	/**
+	 * As {@link #price(Settlement, ItemStack, boolean)} for this player: their standing in the settlement and every
+	 * {@link PriceModifier} apply, as at the market counter.
+	 */
+	default long price(ServerPlayer player, Settlement settlement, ItemStack stack, boolean playerBuys) {
+		return price(settlement, stack, playerBuys);
+	}
+
+	/**
+	 * Adds a player price modifier (a character mod's speech perks, say), applied to every market price a player sees
+	 * after reputation: the product of all modifiers, kept within {@link PriceModifier#MIN}–{@link PriceModifier#MAX}.
+	 */
+	default void addPriceModifier(PriceModifier modifier) {
+	}
+
 	// ---- phase 3: money through people (docs/LIVING_WORLD.md §7.7)
 
 	/** Coin a resident holds (their purse), in bits. */
@@ -68,6 +83,25 @@ public interface EconomyService {
 			return false;
 		}
 		settlement.deposit(bits);
+		return true;
+	}
+
+	/**
+	 * A fee for a resident's own service (a trainer's lesson, a scribe's letter): player → the resident's shop till if they
+	 * keep one, else their purse; with no {@code payee}, the treasury. False (nothing taken) if the player cannot pay.
+	 */
+	default boolean charge(ServerPlayer player, Settlement settlement, @Nullable Resident payee, long bits) {
+		if (bits <= 0) {
+			return true;
+		}
+		if (!charge(player, bits)) {
+			return false;
+		}
+		if (payee != null) {
+			payResident(settlement, payee, bits);
+		} else {
+			settlement.deposit(bits);
+		}
 		return true;
 	}
 

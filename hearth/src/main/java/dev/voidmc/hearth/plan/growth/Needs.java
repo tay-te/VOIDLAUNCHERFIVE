@@ -183,6 +183,13 @@ public final class Needs {
 		return want - this.beds - this.plannedBeds;
 	}
 
+	/** Points a call at what these needs have already worked out (the station ledger), when a kept list is reused. */
+	void attach(PlanContext ctx) {
+		if (this.stations != null) {
+			ctx.ledger = this.stations;
+		}
+	}
+
 	/** Housing by station (built on first use; see {@link StationLedger}). */
 	public StationLedger stations(PlanContext ctx) {
 		if (this.stations == null) {

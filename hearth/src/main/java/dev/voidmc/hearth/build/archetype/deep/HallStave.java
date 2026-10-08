@@ -111,7 +111,9 @@ final class HallStave {
 		d.carve(cx0 + 1, 0, cz0 + 1, cx1 - 1, hn1 - 1, cz1 - 1);
 		gallery(d, gx0, gz0, gx1, cz1, cx0, cx1, cz0, c);
 		// the skirt roof over the gallery, leaning on the core
-		Roofs.Roof skirt = Eaves.skirt(d, gx0, gz0, gx1, cz1, cx0, cz0, cx1, cz1, 3, 1, 0.6, false, false);
+		// (flush with the gallery where the hillside beside the plot stands near its eaves: an eave out to the plot's edge
+		// is a step off the bank onto the roof)
+		Roofs.Roof skirt = Eaves.skirt(d, gx0, gz0, gx1, cz1, cx0, cz0, cx1, cz1, 3, HallParts.banked(d, 2) ? 0 : 1, 0.6, false, false);
 		DeepManner.rehome(d, 0, 0, 0, w - 1, hn1, dp - 1, d.mat(Role.ROOF), Role.ROOF);
 		if (tiered) {
 			// the masts down the hall carrying the upper core, beams along their heads, its staves over them, the second
@@ -372,9 +374,10 @@ final class HallStave {
 		int bx0 = 1;
 		int bx1 = w - 2;
 		int bz0 = 2;
-		int bz1 = dp - 1;
-		int c = w / 2;
 		int hn = 3;
+		// a row clear behind the hall where the bank there stands near its eaves (the back hip a step off the bank)
+		int bz1 = dp - 1 - (d.site().maxGround(0, dp, w - 1, dp) >= hn - 1 ? 1 : 0);
+		int c = w / 2;
 		int dmax = (w - 1) / 2;
 		double pitch = 0.5;
 		for (double p : new double[]{1.0, 0.85, 0.75, 0.6, 0.5}) {
@@ -417,8 +420,11 @@ final class HallStave {
 		d.carve(bx0 + 1, 0, bz0 + 1, bx1 - 1, hn - 1, bz1 - 1);
 		Mat roofM = d.mat(Role.ROOF);
 		Mat trim = d.mat(Role.ROOF_TRIM);
-		Roofs.Roof r = Roofs.raster(d, Roofs.halfHip(0, bz0 - 1, w - 1, bz1, Direction.Axis.Z, Roofs.Profile.straight(pitch), 2), hn, 0, bz0 - 1, w - 1,
-			bz1, roofM, trim, Habits.Ridge.FULL);
+		// the eaves a block out over the walls, or flush with them where the hillside beside the plot stands near them (a
+		// bank level with the eaves is a step onto the roof)
+		int ex = HallParts.banked(d, hn - 1) ? 1 : 0;
+		Roofs.Roof r = Roofs.raster(d, Roofs.halfHip(ex, bz0 - 1, w - 1 - ex, bz1, Direction.Axis.Z, Roofs.Profile.straight(pitch), 2), hn, ex, bz0 - 1,
+			w - 1 - ex, bz1, roofM, trim, Habits.Ridge.FULL);
 		try (var s = d.stage(StageKind.WALLS)) {
 			for (int z : new int[]{bz0, bz1}) {
 				for (int x = bx0; x <= bx1; x++) {

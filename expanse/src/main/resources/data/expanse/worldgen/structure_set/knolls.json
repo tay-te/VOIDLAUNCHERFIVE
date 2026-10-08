@@ -1,0 +1,22 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 930417487,
+    "separation": 4,
+    "spacing": 10
+  },
+  "structures": [
+    {
+      "structure": "expanse:hill_chapel",
+      "weight": 3
+    },
+    {
+      "structure": "expanse:ruined_keep",
+      "weight": 2
+    },
+    {
+      "structure": "expanse:gallows_hill",
+      "weight": 2
+    }
+  ]
+}

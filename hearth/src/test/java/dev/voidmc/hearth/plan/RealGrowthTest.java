@@ -131,6 +131,38 @@ class RealGrowthTest {
 		assertTrue(tall > 0 || sim.settlement.tier().ordinal() < dev.voidmc.hearth.api.SettlementTier.TOWN.ordinal(), "a town has tall homes: " + summary(sim));
 	}
 
+	/**
+	 * Workings dug out are followed by the next while the town wants their goods (requests/w7-tour.md §3: one excavation
+	 * open across 71 settlements live, every other worked out and nothing reopening them). MiniSim builds an excavation
+	 * as fast as a house, so here a town of a few hundred with ore and rock in reach must open new workings as the old are
+	 * dug out; the sim's harness ({@code sim.settlement.RealGrowthTest.aTownKeepsAnExcavationOpen}) checks one is open
+	 * on most days at the sim's own digging pace.
+	 */
+	@Test
+	void workingsDugOutAreFollowedByTheNext() {
+		MiniSim sim = grow(Culture.ALPINE, "steep", 3, 320);
+		for (int d = 0; d < 400 && sim.settlement.population() < 150; d += 10) {
+			sim.run(10);
+		}
+		assertTrue(sim.settlement.population() >= 150, "the town grows: " + summary(sim));
+		int before = digs(sim, false);
+		sim.run(120);
+		int after = digs(sim, false);
+		assertTrue(after >= before + 2, "workings opened anew as the old were dug out: " + before + " then " + after + "; " + summary(sim));
+	}
+
+	/** Quarry pits, mines, shafts, clay and sand pits: all of them, or only those not yet dug out (planned or being cut). */
+	private static int digs(MiniSim sim, boolean openOnly) {
+		int n = 0;
+		for (PlotView p : sim.settlement.plots()) {
+			if (dev.voidmc.hearth.plan.resource.Extraction.digsOut(p.spec().archetype())
+				&& (!openOnly || p.state() == PlotState.PLANNED || p.state() == PlotState.BUILDING)) {
+				n++;
+			}
+		}
+		return n;
+	}
+
 	private static int count(MiniSim sim, Identifier id) {
 		int n = 0;
 		for (PlotView p : sim.settlement.plots()) {

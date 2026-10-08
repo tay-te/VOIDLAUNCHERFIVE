@@ -160,6 +160,8 @@ public final class Field implements Archetype {
 		Bounds.around(d, 0, 0, w - 1, dp - 1, boundary, gates);
 		// a tree or two standing in the boundary at the corners away from the gate
 		corners(d, t, boundary, gateX, w, dp, shed);
+		// head room over every step through the banks
+		StepRoom.clear(d, t.minLevel() - 3, t.maxLevel() + 1);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, t.maxLevel() + 7));
 	}
 

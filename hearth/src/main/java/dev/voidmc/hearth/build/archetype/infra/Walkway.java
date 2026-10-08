@@ -35,11 +35,12 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  *   manner, an open plank walk with rope rails on the bayou and in the tropics.</li>
  * </ul>
  *
- * A lantern hangs under it over the street, another inside. Without {@code points} (tests, previews) it stands on four
- * posts of its own, so it can be looked at alone.
+ * A lantern hangs under it over the street, another inside. Posts (stone piers under the stone passage) carry it to
+ * the ground at both ends and at least every fourth step along both edges, so it never hangs on the facades alone.
  *
  * <p>Params: {@code points} (two ends just outside the two facades at the deck's walking level), {@code width} (3),
- * {@code deck_y} (walking level on the deck), {@code street_y} (the street below).
+ * {@code deck_y} (walking level on the deck), {@code street_y} (the street below), {@code posts} (default true: false
+ * only where the planner knows both facades stand built to carry it).
  */
 public final class Walkway implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("infra/walkway"), ArchetypeCategory.INFRASTRUCTURE, Set.of(), 0,
@@ -75,12 +76,14 @@ public final class Walkway implements Archetype {
 		Culture culture = d.style().culture();
 		Make make = make(culture);
 		int n = c.steps();
-		// the ends: the doors the houses open onto it (in a test, the street under its front end)
+		// the ends: the doors the houses open onto it (in a test, the street under its front end: with no house at either
+		// end the gallery is railed across them, see below)
 		if (demo) {
 			lay.entrance(c.dx(n - 1), lay.surface(c.dx(n - 1), c.dz(n - 1)), c.dz(n - 1));
+		} else {
+			lay.entrance(c.dx(n - 1), deck, c.dz(n - 1));
+			lay.entrance(c.dx(0), deck, c.dz(0));
 		}
-		lay.entrance(c.dx(n - 1), deck, c.dz(n - 1));
-		lay.entrance(c.dx(0), deck, c.dz(0));
 		LineMat wood = LineMat.of(lay, Role.STILT);
 		LineMat beam = LineMat.of(lay, Role.BEAM);
 		LineMat frame = LineMat.of(lay, Role.FRAME);
@@ -229,15 +232,33 @@ public final class Walkway implements Archetype {
 				}
 			}
 		}
-		// standing alone (tests, previews): four posts carry it
-		if (demo) {
-			for (Course.Col col : c.cols()) {
-				if (col.beyond() || col.ring() != 0 || col.k() != 0 && col.k() != n - 1 || !lay.allowed(col.x(), deck, col.z())) {
-					continue;
+		// posts to the ground at both ends and at least every fourth step along both edges (art review 2 item 5): the
+		// facades carry its ends, but a gallery whose house is not yet built, or stands back from it, never hangs in the
+		// air on its own. Stone piers under the stone passage, the frame's posts under timber, piles under the planks.
+		boolean posts = d.param("posts", true);
+		for (Course.Col col : c.cols()) {
+			int k = col.k();
+			boolean carried = posts && (k == 0 || k == n - 1 || k % 4 == 0 || k == half && n < 8);
+			if (col.beyond() || col.ring() != 0 || !carried || !lay.allowed(col.x(), deck, col.z())) {
+				continue;
+			}
+			try (var s = d.stage(StageKind.FRAME)) {
+				for (int y = lay.ground(col.x(), col.z()) - 1; y < deck - 1; y++) {
+					if (lay.absent(col.x(), y, col.z()) || lay.empty(col.x(), y, col.z())) {
+						lay.set(col.x(), y, col.z(), make == Make.STONE ? stone.full() : make == Make.PLANK ? wood.log(Direction.Axis.Y)
+							: frame.log(Direction.Axis.Y));
+					}
 				}
-				try (var s = d.stage(StageKind.FRAME)) {
-					for (int y = lay.ground(col.x(), col.z()) - 1; y < deck - 2; y++) {
-						lay.set(col.x(), y, col.z(), make == Make.STONE ? stone.full() : frame.log(Direction.Axis.Y));
+			}
+		}
+		// standing alone (tests, previews): no house at either end, so the gallery is railed across its ends
+		if (demo) {
+			LineMat bar = LineMat.of(lay, Role.RAILING);
+			for (Course.Col col : c.cols()) {
+				int k = col.k();
+				if (!col.beyond() && col.ring() != 0 && (k == 0 || k == n - 1) && lay.allowed(col.x(), deck, col.z()) && lay.empty(col.x(), deck, col.z())) {
+					try (var s = d.stage(StageKind.EXTERIOR)) {
+						lay.set(col.x(), deck, col.z(), bar.post());
 					}
 				}
 			}

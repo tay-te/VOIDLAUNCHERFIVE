@@ -47,7 +47,7 @@ Slate-roofed dressings roof tier 0 in rough cobbled deepslate (old stone slates)
 
 ## Local materials
 
-Local stone goes into everything that is stone, graded as the culture grades it. Palisades are dark spruce stakes (an override), never the birch bark of the garden trees.
+Local stone goes into everything that is stone, graded as the culture grades it. Palisades are dark spruce stakes (an override), never the birch bark of the garden trees. Working yards (category workshop) fell spruce (Scots pine), not birch.
 
 ---
 

@@ -1,12 +1,14 @@
 package dev.voidmc.hearth.economy;
 
 import dev.voidmc.hearth.api.EconomyService;
+import dev.voidmc.hearth.api.PriceModifier;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.economy.coin.CoinFormat;
 import dev.voidmc.hearth.economy.coin.PlayerPurse;
 import dev.voidmc.hearth.economy.holdings.BusinessMarket;
 import dev.voidmc.hearth.economy.price.MarketPricer;
+import dev.voidmc.hearth.economy.price.PriceModifiers;
 import dev.voidmc.hearth.economy.purse.Households;
 import dev.voidmc.hearth.economy.purse.Purses;
 import dev.voidmc.hearth.economy.shop.Shop;
@@ -52,7 +54,31 @@ public final class EconomyServiceImpl implements EconomyService {
 
 	@Override
 	public long price(Settlement settlement, ItemStack stack, boolean playerBuys) {
-		return new MarketPricer(settlement).price(stack, null, playerBuys);
+		return new MarketPricer(settlement).price(stack, (UUID) null, playerBuys);
+	}
+
+	/** The whole stack's price for this player: their standing and the player price modifiers apply. */
+	@Override
+	public long price(ServerPlayer player, Settlement settlement, ItemStack stack, boolean playerBuys) {
+		return new MarketPricer(settlement).price(stack, player, playerBuys);
+	}
+
+	@Override
+	public void addPriceModifier(PriceModifier modifier) {
+		PriceModifiers.add(modifier);
+	}
+
+	/** A resident's fee: into their shop's till if they keep one, else their purse; with no payee, the treasury. */
+	@Override
+	public boolean charge(ServerPlayer player, Settlement settlement, @Nullable Resident payee, long bits) {
+		if (bits <= 0) {
+			return true;
+		}
+		if (!PlayerPurse.charge(player, bits)) {
+			return false;
+		}
+		receive(settlement, payee == null ? null : payee.id, bits);
+		return true;
 	}
 
 	// ---------------------------------------------------------------- phase 3 (api since the phase 3 integration)

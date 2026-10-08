@@ -9,6 +9,7 @@ import dev.voidmc.hearth.economy.EconomyModule;
 import dev.voidmc.hearth.economy.Reputation;
 import dev.voidmc.hearth.economy.market.MarketLedger;
 import java.util.UUID;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.Nullable;
 
@@ -128,6 +129,27 @@ public final class MarketPricer {
 		return new Quote(g, PriceTable.units(one.getItem()), mid, buy, sell, lot, PriceModel.lotPrice(buy, lot, true), PriceModel.lotPrice(sell, lot, false));
 	}
 
+	/**
+	 * As {@link #quote(ItemStack, UUID, boolean)} for a player at the counter: then every player price modifier
+	 * ({@link PriceModifiers}) moves the prices too, after reputation.
+	 */
+	public Quote quote(ItemStack one, ServerPlayer player, boolean townBuys) {
+		Quote q = quote(one, player.getUUID(), townBuys);
+		if (!PriceModifiers.any()) {
+			return q;
+		}
+		return q.adjusted(PriceModifiers.factor(player, this.settlement, one, true), PriceModifiers.factor(player, this.settlement, one, false));
+	}
+
+	/** {@link #price(ItemStack, UUID, boolean)} with the player's price modifiers. */
+	public long price(ItemStack stack, ServerPlayer player, boolean playerBuys) {
+		if (stack.isEmpty()) {
+			return 0;
+		}
+		Quote q = quote(stack.copyWithCount(1), player, true);
+		return PriceModel.lotPrice(playerBuys ? q.buyUnit : q.sellUnit, stack.getCount(), playerBuys);
+	}
+
 	/** The price of the whole stack ({@code stack.getCount()} items), as the market would charge or pay it. */
 	public long price(ItemStack stack, @Nullable UUID player, boolean playerBuys) {
 		if (stack.isEmpty()) {
@@ -148,5 +170,18 @@ public final class MarketPricer {
 	 * @param lotSell  what the town pays for a lot (whole bits)
 	 */
 	public record Quote(@Nullable Goods goods, int units, double mid, double buyUnit, double sellUnit, int lot, long lotBuy, long lotSell) {
+		/**
+		 * This quote with a player's price factors applied: {@code buyFactor} on what they pay, {@code sellFactor} on what
+		 * they are paid, which still stays below 95 % of what they would pay.
+		 */
+		public Quote adjusted(double buyFactor, double sellFactor) {
+			if (buyFactor == 1.0 && sellFactor == 1.0) {
+				return this;
+			}
+			double buy = this.buyUnit * buyFactor;
+			double sell = Math.min(this.sellUnit * sellFactor, buy * 0.95);
+			return new Quote(this.goods, this.units, this.mid, buy, sell, this.lot, PriceModel.lotPrice(buy, this.lot, true),
+				PriceModel.lotPrice(sell, this.lot, false));
+		}
 	}
 }
