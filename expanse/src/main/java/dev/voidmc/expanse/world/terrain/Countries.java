@@ -58,6 +58,12 @@ final class Countries {
 
 	/** Where (x, z) lies on the map of countries. */
 	static final class Here {
+		/** (the sites of the 9 x 9 cells round (siteX, siteZ), and their kinds once asked: -1 not yet) */
+		int siteX = Integer.MIN_VALUE;
+		int siteZ;
+		final double[] px = new double[81];
+		final double[] pz = new double[81];
+		final int[] kinds = new int[81];
 		int kind;
 		/** 1 well inside the country, falling to 0 at a border with another kind. */
 		float strength;
@@ -70,45 +76,58 @@ final class Countries {
 		double wz = z + WARP * this.model.noise(TerrainModel.N_COUNTRY, x / 4100.0 + 57, z / 4100.0 - 31);
 		int cx = Math.floorDiv((int) wx, CELL);
 		int cz = Math.floorDiv((int) wz, CELL);
+		// the sites round about, worked out once for every column near them (cells are kilometres across)
+		if (out.siteX == Integer.MIN_VALUE || Math.abs(cx - out.siteX) > 1 || Math.abs(cz - out.siteZ) > 1) {
+			for (int dx = -4; dx <= 4; dx++) {
+				for (int dz = -4; dz <= 4; dz++) {
+					int i = (dx + 4) * 9 + dz + 4;
+					long h = PlateMap.mix(this.seed ^ 0x434F_554EL, cx + dx, cz + dz);
+					out.px[i] = (cx + dx + 0.1 + 0.8 * PlateMap.unit(h)) * CELL;
+					out.pz[i] = (cz + dz + 0.1 + 0.8 * PlateMap.unit(h >>> 21)) * CELL;
+					out.kinds[i] = -1;
+				}
+			}
+			out.siteX = cx;
+			out.siteZ = cz;
+		}
+		int ox0 = out.siteX - 4;
+		int oz0 = out.siteZ - 4;
 		// the nearest site, then how far it is to the border with the nearest site of another kind
 		double best = Double.MAX_VALUE;
 		int bx = 0;
 		int bz = 0;
-		double sx = 0;
-		double sz = 0;
 		for (int dx = -1; dx <= 1; dx++) {
 			for (int dz = -1; dz <= 1; dz++) {
-				long h = PlateMap.mix(this.seed ^ 0x434F_554EL, cx + dx, cz + dz);
-				double px = (cx + dx + 0.1 + 0.8 * PlateMap.unit(h)) * CELL;
-				double pz = (cz + dz + 0.1 + 0.8 * PlateMap.unit(h >>> 21)) * CELL;
-				double d = (wx - px) * (wx - px) + (wz - pz) * (wz - pz);
+				int i = (cx + dx - ox0) * 9 + cz + dz - oz0;
+				double d = (wx - out.px[i]) * (wx - out.px[i]) + (wz - out.pz[i]) * (wz - out.pz[i]);
 				if (d < best) {
 					best = d;
 					bx = cx + dx;
 					bz = cz + dz;
-					sx = px;
-					sz = pz;
 				}
 			}
 		}
-		int kind = this.kindOf(bx, bz, sx, sz);
+		int bi = (bx - ox0) * 9 + bz - oz0;
+		double sx = out.px[bi];
+		double sz = out.pz[bi];
+		int kind = this.kindAt(out, bi, bx, bz);
 		double border = Double.MAX_VALUE;
 		for (int dx = -2; dx <= 2; dx++) {
 			for (int dz = -2; dz <= 2; dz++) {
-				int ox = bx + dx;
-				int oz = bz + dz;
 				if (dx == 0 && dz == 0) {
 					continue;
 				}
-				long h = PlateMap.mix(this.seed ^ 0x434F_554EL, ox, oz);
-				double px = (ox + 0.1 + 0.8 * PlateMap.unit(h)) * CELL;
-				double pz = (oz + 0.1 + 0.8 * PlateMap.unit(h >>> 21)) * CELL;
+				int ox = bx + dx;
+				int oz = bz + dz;
+				int i = (ox - ox0) * 9 + oz - oz0;
+				double px = out.px[i];
+				double pz = out.pz[i];
 				// distance to the bisector between the two sites
 				double ex = px - sx;
 				double ez = pz - sz;
 				double len = Math.sqrt(ex * ex + ez * ez);
 				double toBisector = (((px * px + pz * pz) - (sx * sx + sz * sz)) * 0.5 - (wx * ex + wz * ez)) / len;
-				if (toBisector < border && this.kindOf(ox, oz, px, pz) != kind) {
+				if (toBisector < border && this.kindAt(out, i, ox, oz) != kind) {
 					border = toBisector;
 				}
 			}
@@ -116,6 +135,15 @@ final class Countries {
 		out.kind = kind;
 		out.strength = smooth((float) (border / FADE));
 		out.seed = PlateMap.mix(this.seed ^ 0x5345_4544L, bx, bz);
+	}
+
+	/** The kind of site {@code i} of the Here's block (cell (cx, cz)), asked once. */
+	private int kindAt(Here out, int i, int cx, int cz) {
+		int k = out.kinds[i];
+		if (k < 0) {
+			k = out.kinds[i] = this.kindOf(cx, cz, out.px[i], out.pz[i]);
+		}
+		return k;
 	}
 
 	/** A per-thread cache in front of {@link #kinds} (a column asks after 25 sites; the shared map boxes every key). */
@@ -285,7 +313,7 @@ final class Countries {
 				long h = PlateMap.mix(this.seed ^ 0x524F_434BL, ix + dx, iz + dz);
 				double px = (ix + dx + 0.15 + 0.7 * PlateMap.unit(h)) * g;
 				double pz = (iz + dz + 0.15 + 0.7 * PlateMap.unit(h >>> 21)) * g;
-				double d = Math.hypot(x - px, z - pz);
+				double d = PlateMap.len(x - px, z - pz);
 				if (d < f1) {
 					f2 = f1;
 					f1 = d;
@@ -370,7 +398,7 @@ final class Countries {
 				double px = (cx + 0.25 + 0.5 * PlateMap.unit(h >>> 9)) * g;
 				double pz = (cz + 0.25 + 0.5 * PlateMap.unit(h >>> 29)) * g;
 				double r = 6 + 7 * PlateMap.unit(h >>> 17);
-				double t = Math.hypot(x - px, z - pz) / r;
+				double t = PlateMap.len(x - px, z - pz) / r;
 				if (t < 1) {
 					depth = Math.max(depth, (3 + 4 * (float) PlateMap.unit(h >>> 41)) * (float) (1 - t * t));
 				}

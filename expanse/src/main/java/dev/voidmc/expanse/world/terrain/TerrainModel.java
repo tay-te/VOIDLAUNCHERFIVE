@@ -222,9 +222,17 @@ public final class TerrainModel {
 	 * between them; per-thread cached.
 	 */
 	float[] climateAt(double x, double z) {
+		return this.climateAt(x, z, CLIMATE_CELL);
+	}
+
+	/** The far view's climate grid's spacing (blocks): its cells are half a kilometre and more. */
+	private static final int CLIMATE_FAR_CELL = 1024;
+
+	/** {@link #climateAt}, on a grid of {@code cell}-block nodes ({@value #CLIMATE_CELL}, or the far view's). */
+	private float[] climateAt(double x, double z, int cell) {
 		Scratch s = this.scratch.get();
-		double fx = x / CLIMATE_CELL;
-		double fz = z / CLIMATE_CELL;
+		double fx = x / cell;
+		double fz = z / cell;
 		int ix = Mth.floor(fx);
 		int iz = Mth.floor(fz);
 		float tx = (float) (fx - ix);
@@ -235,19 +243,20 @@ public final class TerrainModel {
 			int nx = ix + (c & 1);
 			int nz = iz + (c >> 1);
 			float w = ((c & 1) == 0 ? 1 - tx : tx) * ((c >> 1) == 0 ? 1 - tz : tz);
-			int slot = this.climateNode(nx, nz, s);
+			int slot = this.climateNode(nx, nz, cell, s);
 			t += w * s.climT[slot];
 			h += w * s.climH[slot];
 		}
 		return new float[]{t, h};
 	}
 
-	private int climateNode(int nx, int nz, Scratch s) {
-		long key = (long) nx << 32 ^ nz & 0xFFFF_FFFFL;
-		int slot = (int) (PlateMap.mix(5, nx, nz) & (Scratch.CLIMATE - 1));
+	private int climateNode(int nx, int nz, int cell, Scratch s) {
+		// (the two grids share the slots, told apart by their keys)
+		long key = ((long) nx << 32 ^ nz & 0xFFFF_FFFFL) + (cell == CLIMATE_CELL ? 0 : 0x4641_5200_0000_0000L);
+		int slot = (int) (PlateMap.mix(cell, nx, nz) & (Scratch.CLIMATE - 1));
 		if (s.climKey[slot] != key) {
-			double x = (double) nx * CLIMATE_CELL;
-			double z = (double) nz * CLIMATE_CELL;
+			double x = (double) nx * cell;
+			double z = (double) nz * cell;
 			double sx = this.offset.get(x * 0.25, 0, z * 0.25) * 4;
 			double sz = this.offset.get(z * 0.25, x * 0.25, 0) * 4;
 			// broad zones: vanilla's noises at a third of the scale
@@ -296,8 +305,10 @@ public final class TerrainModel {
 
 	/** A far-view column ({@link #sampleFar}): the land averaged over a cell of half a kilometre and more. */
 	public static final class FarColumn {
-		/** The ground's height, smoothed over the cell. */
+		/** The ground's height, smoothed over the cell (the mean of the fine ground in it). */
 		public float height;
+		/** The cell's high ground: its ridges and peaks (about the 90th percentile of the fine ground), for skylines. */
+		public float peak;
 		/** The water's surface (y) where water stands over the ground (the sea), NaN on dry land. */
 		public float water;
 		public boolean ocean;
@@ -361,7 +372,7 @@ public final class TerrainModel {
 		// the coarse grid's drainage paths take longer steps between nodes, and so climb a little less: lifted back
 		// by what that comes to on average (measured against the fine grid, -Pslice=far)
 		height += FAR_LIFT * smooth((height - PlateTerrain.SEA) / 20);
-		float[] clim = this.climateAt(x, z);
+		float[] clim = this.climateAt(x, z, CLIMATE_FAR_CELL);
 		float temperature = clim[0];
 		float humidity = clim[1];
 		boolean land = height > PlateTerrain.SEA + 3;
@@ -423,12 +434,23 @@ public final class TerrainModel {
 				}
 			}
 		}
+		// The coarse grid can't hold the mountains' ridges, only the broad valleys between them, so the higher the
+		// land is pushed the lower it comes out against the fine ground averaged over the cell: lifted back by what
+		// that comes to (measured by uplift, -Pslice=farpeaks: about 37 blocks for each unit of uplift over 0.6).
+		// The cell's high ground (its ridges and peaks, about the 90th percentile of the fine ground in it) stands
+		// a further 22 blocks and more over that: the far view's skyline.
+		float ranges = Math.max(0, uplift - 0.6F);
+		float peak = 0;
+		if (land) {
+			height += 37 * Math.min(ranges, 3.0F);
+			peak = 22 + 40 * Math.min(ranges, 2.2F);
+		}
 		// the volcanoes' cones, which stand out over any distance
 		out.landform = Landform.NONE;
 		java.util.List<PlateTerrain.Volcano> volcanoes = plate.volcanoes();
 		for (int v = 0; v < volcanoes.size(); v++) {
 			PlateTerrain.Volcano volcano = volcanoes.get(v);
-			double d = Math.hypot(x - volcano.x(), z - volcano.z());
+			double d = PlateMap.len(x - volcano.x(), z - volcano.z());
 			double r = volcano.radius();
 			if (d >= r) {
 				continue;
@@ -441,6 +463,7 @@ public final class TerrainModel {
 			}
 		}
 		out.height = height;
+		out.peak = out.landform == Landform.VOLCANIC ? height : Math.min(height + peak, 630);
 		out.ocean = height < PlateTerrain.SEA;
 		out.water = out.ocean ? PlateTerrain.SEA : Float.NaN;
 		out.coast = coast;
@@ -1071,7 +1094,7 @@ public final class TerrainModel {
 		for (int dx = -1; dx <= 1; dx++) {
 			for (int dz = -1; dz <= 1; dz++) {
 				GreatLake g = this.greatLake(gx + dx, gz + dz, s);
-				if (g.exists() && Math.hypot(x - g.x(), z - g.z()) < g.r() * 1.15 + 36) {
+				if (g.exists() && PlateMap.len(x - g.x(), z - g.z()) < g.r() * 1.15 + 36) {
 					return g;
 				}
 			}
@@ -1131,7 +1154,7 @@ public final class TerrainModel {
 						}
 						GreatLake o = this.siteOf(gx + dx, gz + dz, s);
 						if (o.exists() && PlateMap.mix(this.seed ^ 0x52414E4BL, gx + dx, gz + dz) > rank
-							&& Math.hypot(o.x() - g.x(), o.z() - g.z()) < (o.r() + g.r()) * 1.15 + 60) {
+							&& PlateMap.len(o.x() - g.x(), o.z() - g.z()) < (o.r() + g.r()) * 1.15 + 60) {
 							g = GreatLake.NONE;
 							break;
 						}
@@ -1203,7 +1226,7 @@ public final class TerrainModel {
 			}
 			boolean volcano = false;
 			for (PlateTerrain.Volcano v : plate.volcanoes()) {
-				volcano |= Math.hypot(px - v.x(), pz - v.z()) < v.radius() + 380;
+				volcano |= PlateMap.len(px - v.x(), pz - v.z()) < v.radius() + 380;
 			}
 			if (volcano) {
 				continue;
@@ -1273,7 +1296,7 @@ public final class TerrainModel {
 				if (!lake.exists()) {
 					continue;
 				}
-				double d = Math.hypot(x - lake.x(), z - lake.z());
+				double d = PlateMap.len(x - lake.x(), z - lake.z());
 				if (d > lake.r() * 1.6 + 30) {
 					continue;
 				}
@@ -1352,7 +1375,7 @@ public final class TerrainModel {
 			}
 			boolean volcano = false;
 			for (PlateTerrain.Volcano v : plate.volcanoes()) {
-				volcano |= Math.hypot(px - v.x(), pz - v.z()) < v.radius() + r + 40;
+				volcano |= PlateMap.len(px - v.x(), pz - v.z()) < v.radius() + r + 40;
 			}
 			if (volcano) {
 				continue;
@@ -1416,7 +1439,7 @@ public final class TerrainModel {
 				double px = (cx + dx + 0.25 + 0.5 * PlateMap.unit(h >>> 21)) * cell;
 				double pz = (cz + dz + 0.25 + 0.5 * PlateMap.unit(h >>> 42)) * cell;
 				double r = 150 + 150 * PlateMap.unit(h >>> 7);
-				double centre = Math.hypot(x - px, z - pz);
+				double centre = PlateMap.len(x - px, z - pz);
 				if (centre > r * 1.4 + TALUS_REACH + 4) {
 					continue;  // beyond its widest outline and talus
 				}

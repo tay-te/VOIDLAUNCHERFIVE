@@ -1,0 +1,16 @@
+{
+  "values": [
+    "expanse:verdant_peaks",
+    "expanse:dolomite_peaks",
+    "expanse:volcanic_highlands",
+    "expanse:fjordlands",
+    "minecraft:stony_peaks",
+    "minecraft:jagged_peaks",
+    "minecraft:frozen_peaks",
+    "minecraft:snowy_slopes",
+    "minecraft:grove",
+    "minecraft:meadow",
+    "minecraft:windswept_hills",
+    "minecraft:windswept_gravelly_hills"
+  ]
+}
