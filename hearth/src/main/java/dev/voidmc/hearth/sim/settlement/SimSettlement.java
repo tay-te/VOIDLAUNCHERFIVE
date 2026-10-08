@@ -539,8 +539,12 @@ public final class SimSettlement implements Settlement {
 			// its blueprint made in the background from now, so it is ready by the time its builders need it
 			blueprintsReady(p);
 		}
-		// an excavation employs its diggers from the day it is staked out
-		this.derivedDirty = true;
+		// an excavation employs its diggers from the day it is staked out; any other planned plot changes none of the derived
+		// figures (beds, job places and store room count standing buildings), so the planner's next call, asked in the same
+		// step, does not recompute them (7.6 % of planner.next in a city, requests/w6-plan.md §5)
+		if (this.ctx == null || this.ctx.data().extraction(spec.archetype()) != null) {
+			this.derivedDirty = true;
+		}
 		markDirty();
 		if (this.ctx != null) {
 			this.ctx.plotsChanged(this);
@@ -1053,20 +1057,45 @@ public final class SimSettlement implements Settlement {
 	}
 
 	private void ensureDerived() {
+		if (!this.derivedDirty && this.waitingDigs != null) {
+			// an excavation's blueprint was being made at the last count: count again once one of them is ready, not on
+			// every read meanwhile (each read of beds() or the stockpile recomputed the whole town)
+			for (int id : this.waitingDigs) {
+				SimPlot p = this.plots.get(id);
+				if (p == null || !p.isActive() || factsReady(p)) {
+					this.derivedDirty = true;
+					break;
+				}
+			}
+		}
 		if (this.derivedDirty) {
 			recomputeDerived();
 		}
 	}
 
+	/** Whether a standing plot is a working dug out (a quarry or clay pit, a mine; not a woodlot, which works on). */
+	private boolean workedOut(SimPlot p) {
+		var x = this.ctx.data().extraction(p.spec().archetype());
+		return x != null && x.kind() != dev.voidmc.hearth.api.ResourceSite.Kind.WOODS && !x.yieldsByCampaign();
+	}
+
+	/** Excavations whose blueprints were not ready at the last count of the derived figures, or null. */
+	private int @Nullable [] waitingDigs;
+
 	/** Beds, job slots and storage from the standing buildings. */
 	public void recomputeDerived() {
 		this.derivedDirty = false;
-		boolean retryDerived = false;
+		this.waitingDigs = null;
+		it.unimi.dsi.fastutil.ints.IntArrayList waiting = null;
 		this.beds = 0;
 		this.storageBuildings = 0;
 		this.buildings = 0;
 		java.util.Arrays.fill(this.jobSlots, 0);
 		this.activeDigs = 0;
+		// the job sites of workings dug out count once a trade, as the most any one of them has: their crew stays (to cut
+		// the next face, and to gather at the surface meanwhile), but a town that has worked out ten pits does not keep ten
+		// pits' crews (the next opens as the last is cut out, requests/w7-tour.md §3)
+		int[] dugOut = new int[this.jobSlots.length];
 		for (SimPlot p : this.plots.values()) {
 			if (p.isActive() && this.ctx != null && this.ctx.data().extraction(p.spec().archetype()) != null) {
 				// an excavation employs its diggers while it is being dug
@@ -1074,7 +1103,10 @@ public final class SimSettlement implements Settlement {
 				this.activeDigs++;
 				if (!factsReady(p)) {
 					// its blueprint is being made: counted again (with its diggers' places) once it is ready
-					retryDerived = true;
+					if (waiting == null) {
+						waiting = new it.unimi.dsi.fastutil.ints.IntArrayList();
+					}
+					waiting.add(p.id());
 					continue;
 				}
 				int[] jobs = facts(p).jobs();
@@ -1092,14 +1124,22 @@ public final class SimSettlement implements Settlement {
 				// (a save from before job sites were kept to the archetype's trades)
 				p.jobs = PlotFacts.listed(p.jobs, this.ctx.blueprints().archetype(p.spec().archetype()));
 			}
+			boolean worked = this.ctx != null && workedOut(p);
 			for (int j = 0; j < p.jobs.length && j < this.jobSlots.length; j++) {
-				this.jobSlots[j] += p.jobs[j];
+				if (worked) {
+					dugOut[j] = Math.max(dugOut[j], p.jobs[j]);
+				} else {
+					this.jobSlots[j] += p.jobs[j];
+				}
 			}
 			if (p.storage) {
 				this.storageBuildings++;
 			} else {
 				this.buildings++;
 			}
+		}
+		for (int j = 0; j < dugOut.length; j++) {
+			this.jobSlots[j] += dugOut[j];
 		}
 		SimRules rules = this.ctx == null ? null : this.ctx.rules();
 		if (rules != null) {
@@ -1133,8 +1173,8 @@ public final class SimSettlement implements Settlement {
 			}
 			this.stockpile.setCapacity(cap);
 		}
-		if (retryDerived) {
-			this.derivedDirty = true;
+		if (waiting != null) {
+			this.waitingDigs = waiting.toIntArray();
 		}
 	}
 
@@ -1272,6 +1312,8 @@ public final class SimSettlement implements Settlement {
 		double coinFraction;
 		/** The planner had nothing to propose; do not ask again before this sim tick. */
 		long noGrowthUntil = Long.MIN_VALUE;
+		/** Answers in a row that were nothing only because the call ran out of time (asked again at the next step; never saved). */
+		int outOfTimeRuns;
 		long daysLived;
 		/** Days in a row with no free bed (settlers set out for a daughter hamlet after a few). */
 		int crowdedDays;
