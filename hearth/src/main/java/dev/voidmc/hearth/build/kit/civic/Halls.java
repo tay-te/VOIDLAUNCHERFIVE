@@ -473,6 +473,13 @@ public final class Halls {
 		return room;
 	}
 
+	/** A cell of a wall's line at row y beside a light: the wall, or the next light of a wide window (a lattice or a sill under it). */
+	private static boolean inWallLine(Draft d, int x, int y, int z) {
+		net.minecraft.world.level.block.state.BlockState s = d.get(x, y, z);
+		return d.isSolid(x, y, z) || floor(d, x, y - 1, z) && s != null && !s.isAir()
+			|| s != null && s.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock;
+	}
+
 	/** Something to stand on at y: a full block, an upper slab or a stair (a floor, a gallery's boards, a bench). */
 	private static boolean floor(Draft d, int x, int y, int z) {
 		if (d.isSolid(x, y, z)) {
@@ -496,14 +503,15 @@ public final class Halls {
 			int y = Draft.keyY(k);
 			int z = Draft.keyZ(k);
 			net.minecraft.world.level.block.state.BlockState st = d.get(x, y, z);
-			if (st == null || !(st.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) || !d.isSolid(x, y - 1, z)) {
+			// (over a sill: a full block, or a stair or a slab laid as one, a roof's edge run under it)
+			if (st == null || !(st.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) || d.isEmpty(x, y - 1, z)
+				|| d.get(x, y - 1, z).getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) {
 				continue;
 			}
 			for (Direction across : new Direction[]{Direction.EAST, Direction.SOUTH}) {
 				Direction along = across.getClockWise();
 				// in a wall: solid (or a light's frame) either side of it along the wall
-				boolean wall = (d.isSolid(x + along.getStepX(), y, z + along.getStepZ()) || d.isSolid(x + along.getStepX(), y - 1, z + along.getStepZ()))
-					&& (d.isSolid(x - along.getStepX(), y, z - along.getStepZ()) || d.isSolid(x - along.getStepX(), y - 1, z - along.getStepZ()));
+				boolean wall = inWallLine(d, x + along.getStepX(), y, z + along.getStepZ()) && inWallLine(d, x - along.getStepX(), y, z - along.getStepZ());
 				if (!wall) {
 					continue;
 				}

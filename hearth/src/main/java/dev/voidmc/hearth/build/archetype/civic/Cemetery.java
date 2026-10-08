@@ -113,7 +113,7 @@ public final class Cemetery implements Archetype {
 				front.add(new int[]{x, 0});
 			}
 		}
-		Enclosure.run(d, front, 2);
+		boundary(d, front, 2, level);
 
 		// --- the chapel, its back (and in a corner its side) in the boundary
 		if (chapel) {
@@ -129,13 +129,13 @@ public final class Cemetery implements Archetype {
 				}
 			}
 			int hgt = 2 + hi - level[z];
-			Enclosure.run(d, List.of(new int[]{0, z}, new int[]{w - 1, z}), hgt);
+			boundary(d, List.of(new int[]{0, z}, new int[]{w - 1, z}), hgt, level);
 		}
 		List<int[]> back = new ArrayList<>();
 		for (int x = 1; x < w - 1; x++) {
 			back.add(new int[]{x, dp - 1});
 		}
-		Enclosure.run(d, back, 2 + Math.max(0, level[Math.max(0, dp - 2)] - level[dp - 1]));
+		boundary(d, back, 2 + Math.max(0, level[Math.max(0, dp - 2)] - level[dp - 1]), level);
 
 		// --- the walks: the main walk from the gate to the chapel, cross walks every seven rows from the middle one, the
 		// square round the calvary; graves fill the rows between the walks, their feet on a walk, heads away from it
@@ -362,5 +362,28 @@ public final class Cemetery implements Archetype {
 			Sacred.pews(d, x0 + 1, x1 - 1, z0 + 2, iz1 - 3, y, cx, Dirs.BACK, false);
 		}
 		Lighting.room(d, x0 + 1, z0 + 1, x1 - 1, z1 - 1, y);
+	}
+
+	/**
+	 * The boundary over the cells, each at least {@code height} high, and higher where the land outside rises toward the
+	 * wall's head (a retaining wall on the uphill side): its coping stands two and a half over the ground beyond it too, so
+	 * nobody walks from the hillside onto the wall head and along it over the drop inside.
+	 */
+	private static void boundary(Draft d, List<int[]> cells, int height, int[] level) {
+		int w = d.frontage();
+		int dp = d.depth();
+		for (int[] c : cells) {
+			int x = c[0];
+			int z = c[1];
+			int out = Integer.MIN_VALUE;
+			for (int[] o : new int[][]{{x - 1, z}, {x + 1, z}, {x, z - 1}, {x, z + 1}}) {
+				if (o[0] < 0 || o[0] >= w || o[1] < 0 || o[1] >= dp) {
+					out = Math.max(out, d.site().ground(o[0], o[1]));
+				}
+			}
+			int g = level[Math.clamp(z, 0, dp - 1)];
+			int h = out == Integer.MIN_VALUE ? height : Math.max(height, out - g + 2);
+			Enclosure.run(d, List.of(c), h);
+		}
 	}
 }
