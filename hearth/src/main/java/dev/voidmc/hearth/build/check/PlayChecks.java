@@ -572,6 +572,11 @@ public final class PlayChecks {
 	 * one). Each column counts once (its highest gap). Left out: a column over a fire (a smoke hole) and a column down to
 	 * a ladder, a stair, a trapdoor or scaffolding (a hatch onto a roof terrace). Walkable or not: a gap over a wall head
 	 * or an attic void lets the rain in as surely as one over a floor.
+	 *
+	 * <p>A roof is built and spans: what closes a gap is blocks the blueprint placed (never the hillside the plot is cut
+	 * into), not rails (fences, walls, bars, panes: a scaffold's or a balcony's railing is no roof), and a gap is one only
+	 * where open air lies under it (air over a floor is a deck, a yard or a platform: the gallows' drop, a light well's
+	 * foot). Covered space beside it counts, and so does a closing block with air under it (a roof course over a room).
 	 */
 	public static LongArrayList roofHoles(Grid g, Spaces sp, PlotSpec spec) {
 		int floor = spec.floorY();
@@ -591,12 +596,15 @@ public final class PlayChecks {
 					seen.add(start);
 					q.enqueue(start);
 					boolean closed = true;
+					boolean overAir = false;
 					int covered = 0;
 					while (!q.isEmpty()) {
 						long k = q.dequeueLong();
 						comp.add(k);
 						int cx = BlockPos.getX(k);
 						int cz = BlockPos.getZ(k);
+						BlockState under = g.at(cx, y - 1, cz);
+						overAir |= Spaces.passable(under) && !(under.getBlock() instanceof LiquidBlock);
 						for (Direction d : Direction.Plane.HORIZONTAL) {
 							int nx = cx + d.getStepX();
 							int nz = cz + d.getStepZ();
@@ -615,13 +623,16 @@ public final class PlayChecks {
 							boolean roofedAir = Spaces.passable(ns) && sp.roofY(nx, y - 1, nz) != Integer.MAX_VALUE;
 							if (roofedAir) {
 								covered++;
-							} else if (!Spaces.roofLike(ns)) {
+							} else if (!Spaces.roofLike(ns) || !g.placed(nx, y, nz) || rail(ns)) {
 								closed = false;
+							} else if (Spaces.passable(g.at(nx, y - 1, nz))) {
+								// a roof course spanning a space
+								covered++;
 							}
 						}
 					}
 					// a gap in a roof opens onto covered space on two sides or more (a gap beside one beam end is not one)
-					if (!closed || covered < 2 || comp.size() > 6) {
+					if (!closed || !overAir || covered < 2 || comp.size() > 6) {
 						continue;
 					}
 					for (int i = 0; i < comp.size(); i++) {
@@ -646,6 +657,12 @@ public final class PlayChecks {
 		BlockState s = g.at(x, y, z);
 		return Spaces.passable(s) && !(s.getBlock() instanceof LiquidBlock) && !(s.getBlock() instanceof DoorBlock) && !Spaces.roofLike(s)
 			&& sp.roofY(x, y - 1, z) == Integer.MAX_VALUE;
+	}
+
+	/** A railing, not a roof: fences, walls, bars and panes. */
+	private static boolean rail(BlockState s) {
+		Block b = s.getBlock();
+		return b instanceof FenceBlock || b instanceof net.minecraft.world.level.block.WallBlock || b instanceof IronBarsBlock;
 	}
 
 	/** A ladder, a stair, a trapdoor or scaffolding below in the open column: the gap is a hatch onto a roof or a deck. */
