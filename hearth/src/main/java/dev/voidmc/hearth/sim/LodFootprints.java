@@ -338,7 +338,21 @@ public final class LodFootprints {
 
 	// ---------------------------------------------------------------- queries (any thread, never compute)
 
-	/** Changes whenever the region's drawing changes (a new snapshot is ready). 0 for a region never read. */
+	/**
+	 * Whether the region's ready snapshot has any finished building in it (false while it is not ready yet). Cheap; LOD may
+	 * skip rebuilding a region's tiles when this is false.
+	 */
+	public boolean any(int regionX, int regionZ) {
+		Region r = this.regions.get(Atlas.regionKey(regionX, regionZ));
+		Snapshot snap = r == null ? null : r.snapshot;
+		return snap != null && !snap.chunks.isEmpty();
+	}
+
+	/**
+	 * Changes whenever the region's drawing changes (a new snapshot with something in it, or one that empties it). A region
+	 * with nothing to draw keeps its version when it becomes ready, so LOD rebuilds only where towns are. 0 for a region
+	 * never read.
+	 */
 	public long version(int regionX, int regionZ) {
 		Region r = this.regions.get(Atlas.regionKey(regionX, regionZ));
 		if (r == null) {
@@ -568,8 +582,12 @@ public final class LodFootprints {
 			if (r.snapshot == null) {
 				this.snapshots.incrementAndGet();
 			}
+			Snapshot was = r.snapshot;
 			r.snapshot = snap;
-			r.version++;
+			// a region with nothing to draw before and after keeps its version: LOD rebuilds only where towns appear or change
+			if (!(chunks.isEmpty() && (was == null || was.chunks.isEmpty()))) {
+				r.version++;
+			}
 			fresh = r.content == content;
 			r.state = IDLE;
 		}
