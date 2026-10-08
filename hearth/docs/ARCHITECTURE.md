@@ -473,6 +473,15 @@ Citadel, Palm Harbour, the Logging Camp...) stay: remote, unpeopled places to ex
 - **LOD** (optional, later phase): VOID LOD draws settlements at the horizon from `Blueprint.silhouette()` of built
   plots, through a small read-only API the sim module will expose (`sim/LodFootprints`): columns of (wall, roof)
   colour and height, thread-safe, versioned so the LOD rebuilds only tiles that changed.
+  A read never computes: `sample`/`chunk`/`version` look up a ready per-region snapshot (about 0.0002 ms). A region not
+  ready reads `false` (or as it last was) and is queued for a small low-priority pool (nearest the players first, at
+  most two at a time, dropped when nobody has read or polled it for 20 s or it is 24 regions from every player); when it
+  is ready its `version` changes and LOD, which polls versions, rebuilds those tiles. Historic plots are painted from a
+  per-region list of rectangles taken once from the atlas plan (`Atlas.planTransient`, so the far view does not evict
+  world generation's plans) with a *typical* silhouette per kind (archetype, style, tier, shaping params: the first of
+  a kind compiled, the rest scaled to their span: eave within 0.2 blocks, ridge within 0.9); live plots stay exact.
+  The lists are saved per world (`data/hearth/lod/<dimension>.bin`, fingerprinted by seed, Hearth version and sim
+  config), so a restart costs 0.2 ms per region and no plans. See `LodFootprints`' javadoc and `LodFootprintsBench`.
 
 ## 12. Performance rules (every module)
 
