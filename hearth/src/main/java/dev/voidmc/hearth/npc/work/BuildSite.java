@@ -35,6 +35,8 @@ public final class BuildSite {
 	/** Time spent choosing where to work and keeping sites up to date (for the builder tour's cost line). */
 	public static final java.util.concurrent.atomic.LongAdder CHOOSE_NANOS = new java.util.concurrent.atomic.LongAdder();
 	public static final java.util.concurrent.atomic.LongAdder REFRESH_NANOS = new java.util.concurrent.atomic.LongAdder();
+	/** Time spent in builders' building task altogether (choosing and upkeep included). */
+	public static final java.util.concurrent.atomic.LongAdder BUILD_NANOS = new java.util.concurrent.atomic.LongAdder();
 
 	public final int plotId;
 	public final UUID ledgerId;

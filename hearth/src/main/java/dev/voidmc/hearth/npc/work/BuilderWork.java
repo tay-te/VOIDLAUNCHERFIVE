@@ -2,6 +2,7 @@ package dev.voidmc.hearth.npc.work;
 
 import com.mojang.logging.LogUtils;
 import dev.voidmc.hearth.api.Blueprint;
+import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.api.PlotView;
@@ -72,6 +73,12 @@ final class BuilderWork implements WorkBehaviour {
 	static final double REACH = 4.6;
 	/** A step out of reach from anywhere one can stand is placed leaning out from this close (never stall a town). */
 	static final double LONG_REACH = 7.0;
+	/**
+	 * What a block's walk is worth against one more step in reach, choosing where to work: a place a few blocks off
+	 * must reach a few more steps to be worth the walk (and the climb), so a builder works along the wall in front of
+	 * them rather than across the site.
+	 */
+	static final double NEAR = 0.15;
 
 	private static final boolean DEBUG = Boolean.getBoolean("hearth.debug.builders");
 
@@ -83,6 +90,12 @@ final class BuilderWork implements WorkBehaviour {
 		PlotView plot = pick(brain.settlement, brain.town.builderClaims, brain.resident.id, brain.folk.blockPosition());
 		if (plot == null) {
 			brain.town.builderClaims.remove(brain.resident.id);
+			// Nothing to build: a working (quarry pit, mine, clay pit) open with nobody of its trade at it is cut by a builder.
+			Task dig = digUnmanned(brain, level);
+			if (dig != null) {
+				return dig;
+			}
+			brain.town.gatherClaims.remove(brain.resident.id);
 			// Every site has its crew: carry materials for the nearest one, else work at the yard.
 			PlotView help = nearestSite(brain.settlement, brain.folk.blockPosition());
 			BlockPos from = help == null ? null : store(brain, level);
@@ -96,6 +109,7 @@ final class BuilderWork implements WorkBehaviour {
 				ItemStack.EMPTY, Tasks.every(20, SoundEvents.WOOD_HIT, 0.5F, null, true), "at the builders' yard");
 		}
 		brain.town.builderClaims.put(brain.resident.id, plot.id());
+		brain.town.gatherClaims.remove(brain.resident.id);
 		// The master builder walks the other sites with the plans between stints of building.
 		if (++this.rounds % 3 == 0 && brain.town.office(brain.settlement, brain.resident) == Office.MASTER_BUILDER) {
 			PlotView other = inspect(brain, plot);
@@ -107,6 +121,52 @@ final class BuilderWork implements WorkBehaviour {
 		}
 		return new Build(plot.id());
 	}
+
+	/**
+	 * A builder with nothing to build cuts an open working nobody is at (a young town opens its quarry pit before it has
+	 * a quarrier): as the trade that fits the working would, through {@link ExcavationWork}, one builder to a working.
+	 * Null when every open working has its gatherer, or none is open. Woods are the foresters' and stay so.
+	 */
+	private @Nullable Task digUnmanned(FolkBrain brain, ServerLevel level) {
+		Integer mine = brain.town.gatherClaims.get(brain.resident.id);
+		for (PlotView p : brain.settlement.plots()) {
+			if (!Extraction.workable(p) || brain.town.gatherClaimsOn(p.id()) > (mine != null && mine == p.id() ? 1 : 0)) {
+				continue;
+			}
+			JobType trade = trade(Extraction.kind(p));
+			if (trade == null) {
+				continue;
+			}
+			brain.town.gatherClaims.put(brain.resident.id, p.id());
+			Task t = new ExcavationWork(trade, NOTHING).next(brain, level);
+			if (t != null) {
+				return t;
+			}
+		}
+		return null;
+	}
+
+	/** The trade that works a kind of working, or null for one builders leave alone. */
+	private static @Nullable JobType trade(dev.voidmc.hearth.api.ResourceSite.@Nullable Kind kind) {
+		if (kind == null) {
+			return JobType.QUARRIER;
+		}
+		return switch (kind) {
+			case ORE, SPECIALTY -> JobType.MINER;
+			case STONE -> JobType.QUARRIER;
+			case CLAY, SAND -> JobType.CLAY_DIGGER;
+			case SALT -> JobType.SALTER;
+			default -> null;
+		};
+	}
+
+	/** No old work to fall back on (the builder's own idle work follows in {@link #next}). */
+	private static final WorkBehaviour NOTHING = new WorkBehaviour() {
+		@Override
+		public @Nullable Task next(FolkBrain brain, ServerLevel level) {
+			return null;
+		}
+	};
 
 	/** Another site under construction where builders are at work: where the master builder goes to look in. */
 	private static @Nullable PlotView inspect(FolkBrain brain, PlotView mine) {
@@ -123,6 +183,7 @@ final class BuilderWork implements WorkBehaviour {
 	public void onFold(FolkBrain brain, ServerLevel level) {
 		UUID me = brain.resident.id;
 		brain.town.builderClaims.remove(me);
+		brain.town.gatherClaims.remove(me);
 		ScaffoldLedger ledger = brain.settlement.data(ScaffoldLedger.KEY);
 		for (BuildSite site : brain.town.sites.values()) {
 			site.leave(me);
@@ -422,6 +483,15 @@ final class BuilderWork implements WorkBehaviour {
 
 		@Override
 		public Status tick(FolkBrain brain, ServerLevel level, int elapsed) {
+			long t0 = System.nanoTime();
+			try {
+				return tickNow(brain, level, elapsed);
+			} finally {
+				BuildSite.BUILD_NANOS.add(System.nanoTime() - t0);
+			}
+		}
+
+		private Status tickNow(FolkBrain brain, ServerLevel level, int elapsed) {
 			long now = level.getGameTime();
 			Settlement settlement = brain.settlement;
 			PlotView plot = settlement.plot(this.plotId);
@@ -815,7 +885,7 @@ final class BuilderWork implements WorkBehaviour {
 							continue;
 						}
 						spots.add(new Spot(m.immutable(), -1));
-						scores.add(served(eye, ready) - 0.06 * Math.sqrt(m.distSqr(folk.blockPosition())));
+						scores.add(served(eye, ready) - NEAR * Math.sqrt(m.distSqr(folk.blockPosition())));
 					}
 				}
 			}
@@ -834,7 +904,7 @@ final class BuilderWork implements WorkBehaviour {
 						}
 						// a little for the scaffolding: once up there, staying up beats coming down
 						spots.add(new Spot(feet, c));
-						scores.add(served(eye, ready) - 0.06 * Math.sqrt(feet.distSqr(folk.blockPosition())) + (this.walker.onRing(st, folk) ? 0.5 : -0.5));
+						scores.add(served(eye, ready) - NEAR * Math.sqrt(feet.distSqr(folk.blockPosition())) + (this.walker.onRing(st, folk) ? 0.5 : -0.5));
 					}
 				}
 			}
@@ -850,7 +920,7 @@ final class BuilderWork implements WorkBehaviour {
 								continue;
 							}
 							spots.add(new Spot(m.immutable(), -1));
-							scores.add(served(eye, ready) - 0.06 * Math.sqrt(m.distSqr(folk.blockPosition())));
+							scores.add(served(eye, ready) - NEAR * Math.sqrt(m.distSqr(folk.blockPosition())));
 						}
 					}
 				}
@@ -1235,6 +1305,21 @@ final class BuilderWork implements WorkBehaviour {
 					st.takeDown(level, brain.settlement.data(ScaffoldLedger.KEY), site.ledgerId, this.column);
 					brain.settlement.markDirty();
 					this.cooldown = BuilderStep.scaffold(brain) * 3;
+				}
+				// the next column standing within an arm's length of here (nobody else's): pulled from where they stand
+				int next = -1;
+				for (int c = 0; c < st.n; c++) {
+					if (st.valid(c) && st.height[c] >= st.base[c] && !site.columns.containsValue(c)
+						&& Mth.square(st.xs[c] + 0.5 - folk.getX()) + Mth.square(st.zs[c] + 0.5 - folk.getZ()) <= 2.6 * 2.6
+						&& Math.abs(st.base[c] - folk.getY()) < 2) {
+						next = c;
+						break;
+					}
+				}
+				if (next >= 0) {
+					this.column = next;
+					site.columns.put(me, next);
+					return Status.RUNNING;
 				}
 				leaveSpot(brain, site);
 				return Status.RUNNING;

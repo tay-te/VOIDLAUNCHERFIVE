@@ -216,7 +216,7 @@ builders climb in at a column's foot, rise inside it (0.15 a tick), walk along t
 gap or another builder, or down and round by the ground), and are not pushed by others while up there. The ring stays
 up through every stage with high work on the shell (walls, floors, roof) and comes down when the last of them is done:
 the crew pulls each column down from the ground (the whole column at once, as pulling the foot of vanilla scaffolding
-does). Every block is in the settlement's `ScaffoldLedger` (`HearthDataKey hearth:npc/scaffolds`) under the site's own
+does), and every other column within an arm's length of where they stand before moving along. Every block is in the settlement's `ScaffoldLedger` (`HearthDataKey hearth:npc/scaffolds`) under the site's own
 id; the ring comes down at once when the last of its crew folds away, and the housekeeping pass clears the scaffolding of
 a site nobody claims (after a minute) and of builders no longer embodied, so a town is never left wearing it. Scaffolding
 is never a blueprint step. A step nobody can reach from anywhere is placed leaning out from the nearest place one can
@@ -224,7 +224,10 @@ stand (7 blocks), and after a fair try (10 s) from wherever the builder is (with
 to the front of the site first), rather than stall the town.
 
 When a stage begins, builders first fetch materials from the work storage or the nearest store (unless someone carries
-for the site, or they are up on the scaffolding). With nothing to build, builders work at their yard.
+for the site, or they are up on the scaffolding). With nothing to build, a builder cuts an open working (quarry pit,
+mine, clay or sand pit, salt works) that nobody is at — a young town opens its quarry pit before it has a quarrier — as
+the trade that fits it would (`ExcavationWork`, one builder to a working; woods stay the foresters'); else they carry
+for a site whose crew is full, else work at their yard.
 
 **Farmers** farm the real crops of the town's farm plots (or the tilled earth round their job site): harvest ripe crops
 and re-sow at once (1 FOOD to the stockpile per harvest), sow bare farmland with the culture's crop (wheat, potatoes in

@@ -31,6 +31,11 @@ working day by day instead of every ten days, see §3).
 3. **A working's life is fixed by its blueprint.** A quarry pit or mine is cut in campaigns (`Blueprint.campaign`), and
    once the last one is cut the plot is `BUILT` for good. Nothing reopens it or plans its next level.
 
+4. **A young town's working opens before it has the trade to work it.** `BuilderTour`'s dig town (Ulfell, northern,
+   day 24-25) opened `extract/quarry_pit` with no quarrier among its people (embodied besides builders: one mason),
+   so nobody embodied cut it (in another run a quarrier, Bard Brekke, did walk to its face). The npc lane now sends an
+   idle builder to cut an open working nobody is at (docs/FOLK.md §6), but the trade should come with the working.
+
 **Asked**:
 
 - In `Needs`, treat a dug-out excavation (`BUILT`, not woods, not the salt works: the same test as
@@ -42,5 +47,7 @@ working day by day instead of every ten days, see §3).
   same archetype with a param that starts the blueprint at its next campaign (`replaces` as upgrades do), so the pit
   grows down and out instead of a new hole beside it. That needs the build lane's extraction blueprints to take the
   param.
+- When an excavation opens (`BUILDING`), let its job slots hire (or count as wanting) its trade, so a quarry pit being
+  cut has its quarriers (Ulfell's pit had none for the day the tour watched it; not traced further from the npc side).
 - A test: a 300-soul town with an ore site keeps at least one excavation `BUILDING` over 200 days (requests/w7-tour.md
   §3), and `BuilderTour`'s dig town finds one open within 60 days.
