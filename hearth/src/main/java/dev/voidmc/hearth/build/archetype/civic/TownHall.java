@@ -406,7 +406,7 @@ public final class TownHall implements Archetype {
 		int tz = centre ? Math.max(cz0 + 1, tz0 + tsz + 1) : cz0 + 1;
 		int tl = Math.max(3, Math.min(7, cz1 - tz));
 		// (never over the stairwell or the landing: the table ends a row short of where the flight comes up)
-		while (tl > 2 && !clearOfWell(d, cx, fy, tz, tz + tl, land)) {
+		while (tl > 1 && !clearOfWell(d, cx, fy, tz, tz + tl - 1, land)) {
 			tl--;
 		}
 		Furniture.longTable(d, cx, fy, tz, Dirs.BACK, tl);
