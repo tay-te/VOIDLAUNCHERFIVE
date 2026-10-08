@@ -177,31 +177,8 @@ public final class FestivalGround implements Archetype {
 			}
 		}
 
-		// --- booths down either side of the floor, facing it, a row of them the length of the green
-		for (int side : new int[]{-1, 1}) {
-			for (int bz = 3; bz + 3 <= dp - 2; bz += 5) {
-				// the booth's front-left corner seen from the floor
-				Direction face = side < 0 ? Dirs.RIGHT : Dirs.LEFT;
-				int bx = side < 0 ? cx - ring - 6 : cx + ring + 6;
-				if (bx < 1 || bx > w - 2) {
-					continue;
-				}
-				int[][] cells = boothCells(bx, bz, face);
-				boolean ok = true;
-				for (int[] c : cells) {
-					ok &= inside(d, c[0], c[1]) && c[0] >= 1 && c[0] <= w - 2 && !taken[c[0]][c[1]] && level[c[1]] == y && Enclosure.ground(d, c[0], y, c[1]);
-				}
-				if (!ok) {
-					continue;
-				}
-				Fair.booth(d, bx, y, bz, face);
-				for (int[] c : cells) {
-					taken[c[0]][c[1]] = true;
-				}
-			}
-		}
-
-		// --- the feast's trestles round the floor, either side of the walk and behind the booths
+		// --- the feast's trestles round the floor, either side of the walk (laid out before the booths, which fill in round
+		// them)
 		int placedTables = 0;
 		for (int[] c : new int[][]{{cx - 8, cz - ring - 3}, {cx + 4, cz - ring - 3}, {cx - ring - 10, cz + ring + 3}, {cx + ring + 6, cz + ring + 3},
 			{cx - 13, cz - ring - 3}, {cx + 9, cz - ring - 3}}) {
@@ -226,6 +203,30 @@ public final class FestivalGround implements Archetype {
 			for (int x = tx - 1; x <= tx + 5; x++) {
 				for (int z = tz - 1; z <= tz + 1; z++) {
 					taken[x][z] = true;
+				}
+			}
+		}
+
+		// --- booths down either side of the floor, facing it, a row of them the length of the green
+		for (int side : new int[]{-1, 1}) {
+			for (int bz = 3; bz + 3 <= dp - 2; bz += 5) {
+				// the booth's front-left corner seen from the floor
+				Direction face = side < 0 ? Dirs.RIGHT : Dirs.LEFT;
+				int bx = side < 0 ? cx - ring - 6 : cx + ring + 6;
+				if (bx < 1 || bx > w - 2) {
+					continue;
+				}
+				int[][] cells = boothCells(bx, bz, face);
+				boolean ok = true;
+				for (int[] c : cells) {
+					ok &= inside(d, c[0], c[1]) && c[0] >= 1 && c[0] <= w - 2 && !taken[c[0]][c[1]] && level[c[1]] == y && Enclosure.ground(d, c[0], y, c[1]);
+				}
+				if (!ok) {
+					continue;
+				}
+				Fair.booth(d, bx, y, bz, face);
+				for (int[] c : cells) {
+					taken[c[0]][c[1]] = true;
 				}
 			}
 		}
