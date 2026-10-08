@@ -131,6 +131,11 @@ public final class MarketStall implements Archetype {
 		Mat wood = d.mat(Role.FURNITURE);
 		String trade = d.param("wares", WARES[(int) (Noise.unit(d.seed() ^ 0x3A7E, 0, 0, 0) * WARES.length) % WARES.length]);
 		int gap = Noise.unit(d.seed() ^ 0x6A9, 1, 0, 0) < 0.5 ? x0 + 1 : x1 - 1;
+		// on a bank the levelling may dyke part of the front row against the water: the gap on the side the customers'
+		// row reaches from the middle
+		if (!frontOpen(d, w / 2, gap) && frontOpen(d, w / 2, gap == x0 + 1 ? x1 - 1 : x0 + 1)) {
+			gap = gap == x0 + 1 ? x1 - 1 : x0 + 1;
+		}
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			for (int x = x0; x <= x1; x++) {
 				if (x == gap || kind == Kind.BARROW && (x <= x0 + 1 || x >= x1 - 1)) {
@@ -183,11 +188,31 @@ public final class MarketStall implements Archetype {
 			int lz = Math.max(zc + 1, zb - 1);
 			if (d.isEmpty(mid, 2, lz) && !d.isEmpty(mid, 3, lz)) {
 				Furniture.hangingLantern(d, mid, 3, lz, 0);
+			} else {
+				// too shallow to hang one under the hood: a lantern stood on the trestle's far end from the gap
+				int ex = gap == x0 + 1 ? x1 : x0;
+				try (var s = d.stage(StageKind.INTERIOR)) {
+					d.set(ex, 1, zc, States.lantern(Blocks.LANTERN, false));
+				}
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, 5));
 		Edges.guard(d);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	/**
+	 * Whether the front row is open floor from beside the way in (column {@code mid}) to the gap at column {@code to}
+	 * (nothing levelled up on it).
+	 */
+	private static boolean frontOpen(Draft d, int mid, int to) {
+		int from = to < mid ? mid - 1 : mid + 1;
+		for (int x = Math.min(from, to); x <= Math.max(from, to); x++) {
+			if (!d.isEmpty(x, 0, 0) || !d.isEmpty(x, 1, 0)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** What a culture's market puts up. */

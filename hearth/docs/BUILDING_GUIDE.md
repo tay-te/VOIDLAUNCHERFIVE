@@ -93,6 +93,10 @@ Draft.ring(x0, z0, x1, z1)  Draft.ellipseCells(cx, cz, rx, rz, filled)  Draft.re
 Reading back: `d.get(x, y, z)` (null where nothing is drawn), `d.cell(...)` (state, tag, stage),
 `d.isAbsent`, `d.isEmpty` (nothing or air), `d.isSolid`.
 
+To take a lantern, a rug or a trial rail back out, draw air (`d.air`) or put back the `d.cell` it replaced; never
+`d.remove` a cell that was dug out: undrawn, it is natural ground again (on a hillside, a block of earth in the head
+room of a stair or in front of a bar).
+
 Two-part blocks have helpers that place both halves: `d.door(x, y, z, doorBlock, facing, hinge)`,
 `d.bed(x, y, z, bedBlock, facing)`, `d.tallPlant(x, y, z, plant)`.
 
@@ -246,7 +250,9 @@ someone could climb beside a well, lattice windows over an eave or down to a rai
 carried round a corner post given the post back, shutter leaves whose tops could be stood on over a drop taken off.
 Doorways, stair heads and feet, ladder heads and POI cells stay open (a bench seat is no stair head: a rail may stand
 behind it); beside the way in and beside an outdoor flight a board and a rail go on the open side instead, and a rail
-is set only where every door and POI walked to before is still walked to after. `Edges.guard(d, y0, y1)` limits it to standing levels. It is a net under the archetype's own guards
+is set only where every door and POI walked to before is still walked to after and the way in from the street stays
+open (a street over water is waded, as the audit does). A trial rail it takes off again puts back what the cell held,
+and it never carries a board out over a flight's head room. `Edges.guard(d, y0, y1)` limits it to standing levels. It is a net under the archetype's own guards
 (a stair's rail, a balcony's balustrade), not a replacement for them: what it cannot rail (a one-wide walk along the
 plot's edge, the top of a roof) it leaves for the archetype to widen or close.
 
@@ -445,6 +451,10 @@ public void draw(Draft d) {
 	Mat wood = d.mat(Role.FURNITURE);
 	String trade = d.param("wares", WARES[(int) (Noise.unit(d.seed() ^ 0x3A7E, 0, 0, 0) * WARES.length) % WARES.length]);
 	int gap = Noise.unit(d.seed() ^ 0x6A9, 1, 0, 0) < 0.5 ? x0 + 1 : x1 - 1;
+	// (on a bank the levelling may dyke part of the front row: the gap goes to the side the customers' row reaches)
+	if (!frontOpen(d, w / 2, gap) && frontOpen(d, w / 2, gap == x0 + 1 ? x1 - 1 : x0 + 1)) {
+		gap = gap == x0 + 1 ? x1 - 1 : x0 + 1;
+	}
 	try (var s = d.stage(StageKind.INTERIOR)) {
 		for (int x = x0; x <= x1; x++) {
 			if (x != gap) {
@@ -461,7 +471,8 @@ public void draw(Draft d) {
 	Furniture.workstation(d, JobType.MERCHANT, x0 + 1, 0, zb, Dirs.FRONT);
 	Furniture.chest(d, x1 - 1, 0, zb, Dirs.FRONT, List.of(new Object[]{"minecraft:bread", 6}, new Object[]{"minecraft:apple", 4}));
 	Props.sacks(d, x0 + 2, 0, zb, Dirs.RIGHT, 1, trade.equals("bread"));
-	// a lantern hung under the roof (under the high back of the plain canopy)
+	// a lantern hung under the roof (under the high back of the plain canopy; on a booth too shallow to hang one, stood
+	// on the trestle's far end), so the way in is lit
 	Furniture.hangingLantern(d, mid, 3, rise(zb - 1, zc, zb) == 2 ? zb - 1 : zb, 0);
 	Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, 5));
 	Edges.guard(d);   // rails (or a jug on the goods) where a slope falls away behind
