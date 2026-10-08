@@ -522,9 +522,10 @@ public final class Halls {
 				// (open: head room, and nothing full at the feet: air, or a roof's stair or slab to step out onto)
 				boolean aOpen = !d.isSolid(ax, y, az) && d.isEmpty(ax, y + 1, az);
 				boolean bOpen = !d.isSolid(bx, y, bz) && d.isEmpty(bx, y + 1, bz);
-				// (a floor level with the sill, or one below it: the sill is a step up into the light)
-				boolean aFloor = aOpen && d.isEmpty(ax, y, az) && (floor(d, ax, y - 1, az) || !d.isSolid(ax, y - 1, az) && floor(d, ax, y - 2, az));
-				boolean bFloor = bOpen && d.isEmpty(bx, y, bz) && (floor(d, bx, y - 1, bz) || !d.isSolid(bx, y - 1, bz) && floor(d, bx, y - 2, bz));
+				// (something to stand on level with the sill or a row below it: a floor, a slab, a bed or a bench, from which the
+				// sill is a step up into the light)
+				boolean aFloor = aOpen && (!d.isEmpty(ax, y - 1, az) || !d.isEmpty(ax, y - 2, az));
+				boolean bFloor = bOpen && (!d.isEmpty(bx, y - 1, bz) || !d.isEmpty(bx, y - 2, bz));
 				if (aOpen && bOpen && (aFloor || bFloor)) {
 					hits.add(new int[]{x, y, z});
 					break;
