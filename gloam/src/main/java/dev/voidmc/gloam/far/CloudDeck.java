@@ -40,6 +40,42 @@ final class CloudDeck implements AutoCloseable {
 	private int stride;
 	private int drawn;
 
+	private static final float[] STORM = {0.5F, 0.53F, 0.6F}, SHOWER = {0.72F, 0.74F, 0.79F};
+	/** The dusk palette (docs/STYLE.md): cream, gold, orange, rose, violet, dusk blue, and a pale lilac for near tops. */
+	private static final float[] CREAM = {1.0F, 0.94F, 0.82F}, GOLD = {1.0F, 0.84F, 0.55F}, ORANGE = {1.0F, 0.66F, 0.4F},
+		ROSE = {0.94F, 0.6F, 0.64F}, LILAC = {0.86F, 0.84F, 0.93F}, VIOLET = {0.64F, 0.55F, 0.76F}, DUSK_BLUE = {0.42F, 0.48F, 0.68F};
+	/** How far toward the horizon's colour each ring of cells is taken: none near, then in steps. */
+	private static final float[] RING_FOG = {0.0F, 0.0F, 0.12F, 0.26F, 0.42F, 0.58F};
+
+	/**
+	 * The dawn or dusk band a group of faces takes, by which way they face, which half of the sky they are in and how
+	 * far off they are: in the sun's half the tops go cream near, gold further, orange toward the horizon, the sides
+	 * facing it orange and the undersides rose; in the other half the tops lilac near and violet further, the undersides
+	 * dusk blue.
+	 */
+	private static float[] band(CloudGrid.Group gr, float sunX) {
+		int f = gr.face();
+		boolean east = f == CloudGrid.FACE_EAST || f == CloudGrid.FACE_BOTTOM_EAST || f == CloudGrid.FACE_TOP_EAST;
+		boolean west = f == CloudGrid.FACE_WEST || f == CloudGrid.FACE_BOTTOM || f == CloudGrid.FACE_TOP;
+		boolean sunHalf = east ? sunX > 0 : west && sunX < 0;
+		boolean top = f == CloudGrid.FACE_TOP || f == CloudGrid.FACE_TOP_EAST;
+		boolean bottom = f == CloudGrid.FACE_BOTTOM || f == CloudGrid.FACE_BOTTOM_EAST;
+		int ring = gr.ring();
+		if (f == CloudGrid.FACE_NS) {
+			return ring < 3 ? LILAC : VIOLET;
+		}
+		if (sunHalf) {
+			if (top) {
+				return ring < 2 ? CREAM : ring < 4 ? GOLD : ORANGE;
+			}
+			return bottom ? ROSE : ORANGE;
+		}
+		if (top) {
+			return ring < 3 ? LILAC : VIOLET;
+		}
+		return bottom ? DUSK_BLUE : VIOLET;
+	}
+
 	CloudDeck() {
 		this.shade = this.device.createTexture("VOID Gloam cloud shadows", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
 			GpuFormat.RGBA8_UNORM, CloudGrid.SHADE, CloudGrid.SHADE, 1, 1);
@@ -83,38 +119,35 @@ final class CloudDeck implements AutoCloseable {
 		this.infos.clear();
 		float r = ARGB.red(color) / 255.0F, g = ARGB.green(color) / 255.0F, b = ARGB.blue(color) / 255.0F, a = ARGB.alpha(color) / 255.0F;
 		float sunX = light[0], glow = light[5];
+		float bright = Math.max(r, Math.max(g, b));
 		for (int i = 0; i < this.groups.size(); i++) {
 			CloudGrid.Group gr = this.groups.get(i);
 			int at = i * this.stride;
-			// showers greyer, storms dark, a little bluish, as the deck is thick and the light comes through little
-			float dim = gr.tone() == 2 ? 0.52F : gr.tone() == 1 ? 0.76F : 1.0F;
-			float cr = r * dim, cg = g * dim, cb = b * dim * (gr.tone() == 2 ? 1.06F : 1.0F);
-			if (glow > 0) {
-				// The low sun's colour (without a shader pack, which lights the clouds itself): warm on the side toward it
-				// and on the tops, cool blue-grey on the side away from it and underneath.
-				// The low sun's colour (without a shader pack, which lights the clouds itself): warm on the sides toward it, and
-				// on the undersides and tops of the clouds in its half of the sky, which it lights from below and across;
-				// cool blue-grey on the sides away from it and in the other half of the sky.
-				int f = gr.face();
-				boolean east = f == CloudGrid.FACE_EAST || f == CloudGrid.FACE_BOTTOM_EAST || f == CloudGrid.FACE_TOP_EAST;
-				boolean west = f == CloudGrid.FACE_WEST || f == CloudGrid.FACE_BOTTOM || f == CloudGrid.FACE_TOP;
-				boolean sunHalf = east ? sunX > 0 : west && sunX < 0;
-				boolean side = f == CloudGrid.FACE_EAST || f == CloudGrid.FACE_WEST;
-				boolean top = f == CloudGrid.FACE_TOP || f == CloudGrid.FACE_TOP_EAST;
-				boolean toward = side && sunHalf;
-				float warm = sunHalf ? (side ? 0.8F : top ? 0.55F : 0.5F) : f == CloudGrid.FACE_NS ? 0.3F : top ? 0.25F : 0;
-				float cool = !sunHalf && f != CloudGrid.FACE_NS ? (side ? 0.55F : top ? 0.2F : 0.45F) : 0;
-				float lift = toward ? 1.35F : 1.15F;
-				float w = warm * glow * (gr.tone() == 2 ? 0.5F : 1.0F), c = cool * glow;
-				float bright = Math.max(cr, Math.max(cg, cb));
-				cr += (light[2] * bright * lift - cr) * w;
-				cg += (light[3] * bright * lift - cg) * w;
-				cb += (light[4] * bright * lift - cb) * w;
-				cr += (bright * 0.72F - cr) * c;
-				cg += (bright * 0.78F - cg) * c;
-				cb += (bright * 0.95F - cb) * c;
+			// The palette (docs/STYLE.md: chosen, never blended freely): vanilla's cloud colour, a shower grey, a storm grey;
+			// vanilla's shading gives each its lit top, its sides and its shadowed underside in flat steps.
+			float[] c = gr.tone() == 2 ? STORM : gr.tone() == 1 ? SHOWER : null;
+			float cr = c == null ? r : c[0] * bright, cg = c == null ? g : c[1] * bright, cb = c == null ? b : c[2] * bright;
+			if (glow > 0.15F) {
+				// Dawn and dusk in bands, without a shader pack (which lights the clouds itself): gold on the tops and the
+				// high deck in the sun's half of the sky, orange on the sides toward it and the undersides of the main deck,
+				// rose under the low stratus and on the sides along it, violet on the far side, dusk blue underneath away
+				// from it. Two steps in: half, then whole.
+				float[] band = band(gr, sunX);
+				float k = Math.clamp(bright * 1.15F, 0.35F, 1.0F) * (gr.tone() == 2 ? 0.7F : 1.0F);
+				float w = glow > 0.5F ? 1.0F : 0.5F;
+				cr += (band[0] * k - cr) * w;
+				cg += (band[1] * k - cg) * w;
+				cb += (band[2] * k - cb) * w;
 			}
-			this.infos.putFloat(at, cr).putFloat(at + 4, cg).putFloat(at + 8, cb).putFloat(at + 12, a);
+			// The air between, in steps, one per ring of cells (each twice as far as the last): the far clouds paler and
+			// crisper (whole, not vanilla's translucent near clouds), sinking toward the horizon's colour band by band.
+			int ring = Math.min(gr.ring(), RING_FOG.length - 1);
+			float fogged = RING_FOG[ring];
+			cr += (light[6] - cr) * fogged;
+			cg += (light[7] - cg) * fogged;
+			cb += (light[8] - cb) * fogged;
+			float alpha = ring >= 2 ? Math.min(1.0F, a * 1.25F) * (1.0F - fogged * 0.5F) : a;
+			this.infos.putFloat(at, cr).putFloat(at + 4, cg).putFloat(at + 8, cb).putFloat(at + 12, alpha);
 			this.infos.putFloat(at + 16, (float) (gr.originX() * (double) gr.size() - frameX));
 			this.infos.putFloat(at + 20, (float) (gr.y() - below));
 			this.infos.putFloat(at + 24, (float) (gr.originZ() * (double) gr.size() - frameZ));

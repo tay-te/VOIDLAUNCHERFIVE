@@ -45,7 +45,7 @@ public final class FarAir {
 	private float cloudBase;
 	private CloudGrid.Layers layers;
 	/** The sun's side and height and the sunrise colour for the clouds' low-sun light; [5] 0 with a shader pack. */
-	private final float[] sunLight = new float[6];
+	private final float[] sunLight = new float[9];
 	private final ByteBuffer info = MemoryUtil.memAlloc(FarRenderer.INFO_BYTES);
 	private FarRenderer renderer;
 	private ClientLevel level;
@@ -274,6 +274,12 @@ public final class FarAir {
 		this.sunLight[3] = rise == null ? 1 : rise.y();
 		this.sunLight[4] = rise == null ? 1 : rise.z();
 		this.sunLight[5] = rise == null || Shaders.packInUse() ? 0 : rise.w();
+		// the horizon's colour, which the far rings of cloud sink toward in steps
+		org.joml.Vector3fc fogColor = mc.gameRenderer.mainCamera().attributeProbe().getValue(net.minecraft.world.attribute.EnvironmentAttributes.FOG_COLOR,
+			partial);
+		this.sunLight[6] = fogColor.x();
+		this.sunLight[7] = fogColor.y();
+		this.sunLight[8] = fogColor.z();
 		// the deck reaches a little past the far land (inside the far plane, which VOID LOD puts at 1.5 times its radius),
 		// thinning into the sky all the way out
 		this.cloudReach = lodRadius > 0 ? lodRadius * 1.45 : reach;
