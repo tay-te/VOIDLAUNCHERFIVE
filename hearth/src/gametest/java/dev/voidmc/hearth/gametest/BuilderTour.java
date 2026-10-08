@@ -229,12 +229,15 @@ public class BuilderTour implements FabricClientGameTest {
 		BlockPos spawn = level.getRespawnData().pos();
 		BlockPos best = null;
 		int bestRelief = Integer.MAX_VALUE;
-		for (int r = 128; r <= 1600 && (best == null || bestRelief > 3 || r < 512); r += 64) {
+		// why spots were passed over, printed when none is found (the world's climate moves with Expanse)
+		java.util.Map<String, Integer> why = new java.util.TreeMap<>();
+		for (int r = 128; r <= 4000 && (best == null || bestRelief > 3 || r < 512); r += 64) {
 			for (int k = 0; k < 16; k++) {
 				double a = k * Math.PI / 8 + r * 0.01;
 				BlockPos at = new BlockPos(spawn.getX() + (int) (Math.cos(a) * r), 0, spawn.getZ() + (int) (Math.sin(a) * r));
 				int g = w.terrain().groundY(at.getX(), at.getZ());
 				if (g <= w.terrain().seaLevel() + 2) {
+					why.merge("water", 1, Integer::sum);
 					continue;
 				}
 				int lo = g;
@@ -250,7 +253,13 @@ public class BuilderTour implements FabricClientGameTest {
 					continue;
 				}
 				Culture c = CultureVote.at(at.getX(), at.getZ(), w.probe()::biomeHolder, HearthServices::culture);
-				if (c != Culture.TEMPERATE || w.whyNotFound(at, SimWorld.FOUND_SPACING, true) != null) {
+				if (c != Culture.TEMPERATE) {
+					why.merge(c.getSerializedName(), 1, Integer::sum);
+					continue;
+				}
+				String not = w.whyNotFound(at, SimWorld.FOUND_SPACING, true);
+				if (not != null) {
+					why.merge(not, 1, Integer::sum);
 					continue;
 				}
 				bestRelief = hi - lo;
@@ -258,6 +267,7 @@ public class BuilderTour implements FabricClientGameTest {
 			}
 		}
 		if (best == null) {
+			log("spots passed over: " + why);
 			return null;
 		}
 		SimSettlement s = w.found(best, Culture.TEMPERATE, null);
