@@ -326,9 +326,10 @@ public final class Falls {
 		if (inPlot) {
 			return railAt(d, wk, nx, y, nz, rail);
 		}
-		// at the plot's edge, over the land beyond: a rail on the cell itself (a corner of the yard; taken back by the caller
-		// where it is the way in)
+		// at the plot's edge, over the land beyond: a rail on the cell itself (a corner of the yard; never beside an approach's
+		// steps, and taken back by the caller where it is the way in)
 		if (!nearDoor(d, x, y, z) && !(u != null && (u.getBlock() instanceof StairBlock || u.getBlock() instanceof SlabBlock)) && !poi(d, x, y, z)
+			&& !onApproach(d, x, y, z)
 			&& d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && d.allowed(x, y, z)) {
 			d.inStage(StageKind.EXTERIOR, () -> d.set(x, y, z, rail));
 			return true;
@@ -365,6 +366,10 @@ public final class Falls {
 		}
 		int f = foot;
 		boolean posted = outdoors;
+		// (a rail with no post must touch something that stands: a face or an edge against the building or the ground)
+		if (!posted && !touches(g, x, y, z)) {
+			return false;
+		}
 		d.inStage(StageKind.EXTERIOR, () -> {
 			d.set(x, y, z, rail);
 			if (posted) {
@@ -376,6 +381,29 @@ public final class Falls {
 			}
 		});
 		return true;
+	}
+
+	/** Whether a cell shares a face or an edge with anything solid (built or natural): what a rail needs to hold on to. */
+	private static boolean touches(Grid g, int x, int y, int z) {
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					int n = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
+					if (n == 0 || n == 3) {
+						continue;
+					}
+					BlockState s = g.at(x + dx, y + dy, z + dz);
+					if (s.isAir()) {
+						continue;
+					}
+					// (built work holds it by a face or an edge; the natural ground only by a face)
+					if (g.placed(x + dx, y + dy, z + dz) || n == 1) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 
 	/** Something drawn over the cell within a few rows (a roof or a floor): indoors. */
@@ -427,6 +455,21 @@ public final class Falls {
 				for (int dy = -1; dy <= 0; dy++) {
 					@Nullable BlockState s = d.get(x + dx, y + dy, z + dz);
 					if (s != null && s.getBlock() instanceof DoorBlock) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/** A step of a flight (a stair or a slab) beside the cell, level with its floor or a row or two under it: an approach. */
+	private static boolean onApproach(Draft d, int x, int y, int z) {
+		for (int dz = -1; dz <= 1; dz++) {
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dy = -3; dy <= 0; dy++) {
+					@Nullable BlockState s = d.get(x + dx, y + dy, z + dz);
+					if (s != null && (s.getBlock() instanceof StairBlock || s.getBlock() instanceof SlabBlock) && (dx != 0 || dz != 0)) {
 						return true;
 					}
 				}

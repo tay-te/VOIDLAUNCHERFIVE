@@ -410,7 +410,8 @@ public final class TownHall implements Archetype {
 			tl--;
 		}
 		Furniture.longTable(d, cx, fy, tz, Dirs.BACK, tl);
-		for (int z = tz + 1; z < tz + tl - 1; z++) {
+		// (chairs down both sides; along the whole of a short table)
+		for (int z = tl < 4 ? tz : tz + 1; z < (tl < 4 ? tz + tl : tz + tl - 1); z++) {
 			for (int x : new int[]{cx - 1, cx + 1}) {
 				if (d.isEmpty(x, fy, z) && d.isSolid(x, fy - 1, z)) {
 					Furniture.chair(d, x, fy, z, x < cx ? Dirs.LEFT : Dirs.RIGHT);

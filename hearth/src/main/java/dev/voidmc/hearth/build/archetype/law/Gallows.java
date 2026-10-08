@@ -122,6 +122,18 @@ public final class Gallows implements Archetype {
 				top = Math.max(top, Lamps.standard(d, lx, 0, 0, 4, Manner.lamp(d), null));
 			}
 		}
+		// and a low lamp by the foot of the way up (the corners' stand too far off to light it where the street falls away)
+		int wx = (w - 1) / 2;
+		for (int lx : new int[]{wx + 2, wx - 2, wx + 3, wx - 3}) {
+			if (lx < 0 || lx >= w) {
+				continue;
+			}
+			int g = Groundwork.surface(d, lx, 0);
+			if (Math.abs(g) <= 1 && d.isEmpty(lx, g, 0) && d.isEmpty(lx, g + 1, 0) && d.isEmpty(lx, g + 2, 0)) {
+				top = Math.max(top, Lamps.standard(d, lx, g, 0, 3, Manner.lamp(d), null));
+				break;
+			}
+		}
 		d.poi(PoiType.MEETING_POINT, (w - 1) / 2, 0, -1, Dirs.BACK);
 		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
@@ -260,14 +272,16 @@ public final class Gallows implements Archetype {
 				lamps++;
 			}
 		}
-		// (the corners off level on a slope: a lamp beside the way up instead, where its foot stands on the ground)
-		for (int lx : new int[]{cx - 2, cx + 2, cx - 3, cx + 3}) {
+		// (and one by the way up whatever the corners hold: the corners' lamps stand too far off to light its foot)
+		lamps = 0;
+		for (int lx : new int[]{cx - 1, cx + 1, cx - 2, cx + 2, cx - 3, cx + 3}) {
 			if (lamps > 0 || lx < 0 || lx >= w) {
 				continue;
 			}
 			int g = Groundwork.surface(d, lx, 0);
-			if (Math.abs(g) <= 1 && d.isEmpty(lx, g, 0) && d.isEmpty(lx, g + 1, 0)) {
-				sky = Math.max(sky, Lamps.standard(d, lx, g, 0, 4, Manner.lamp(d), null));
+			if (Math.abs(g) <= 1 && d.isEmpty(lx, g, 0) && d.isEmpty(lx, g + 1, 0) && d.isEmpty(lx, g + 2, 0)) {
+				// (a low lamp: its light falls to the street's level before the steps)
+				sky = Math.max(sky, Lamps.standard(d, lx, g, 0, 2, Manner.lamp(d), null));
 				lamps++;
 			}
 		}
