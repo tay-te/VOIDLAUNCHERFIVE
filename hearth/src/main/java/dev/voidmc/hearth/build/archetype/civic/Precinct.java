@@ -449,62 +449,158 @@ final class Precinct {
 
 	/**
 	 * The ranges' walls dressed as a house of the orders builds them, regular and articulated rather than one plane: a
-	 * plinth course of the dressing at the foot, a string course at every floor, and pilaster strips of the dressing on the
-	 * facade's posts (every fourth column) up each masonry storey, so the long walls read in bays. Only the range's own
-	 * walling is replaced (a timber-framed storey keeps its frame, windows and doors are left alone).
+	 * plinth course at the foot, a string course at every floor, and pilaster strips on the facade's posts (every fourth
+	 * column) up each masonry storey, so the long walls read in bays. The strips and the courses are of two different
+	 * stones, neither the walling's own (the dressing, the accent, the plinth, the footing, else a plain ashlar), so each
+	 * reads as its own member and the bays between them stay small. A framed storey keeps its frame with its rails in
+	 * barked timber against the posts; a log wall is braced by barked posts on the same columns. Windows and doors are
+	 * left alone.
 	 */
 	private void relief(Range r) {
-		Stone dress = Stone.dressing(this.d);
-		Paint strip = dress.full();
 		for (int k = 0; k < storeys(); k++) {
-			boolean timber = rangeKinds()[k] == WallKind.TIMBER_FRAME || rangeKinds()[k] == WallKind.LOG;
+			WallKind kind = rangeKinds()[k];
+			boolean timber = kind == WallKind.TIMBER_FRAME || kind == WallKind.LOG;
 			int fy = r.body.floorY(k);
 			int top = k + 1 < storeys() ? r.body.floorY(k + 1) - 1 : r.body.plateY();
 			for (Side s : r.body.sides(k)) {
-				// the walling of this storey on this side: the commonest full block between its ends
+				if (timber) {
+					timberRelief(s, fy, top, kind == WallKind.LOG);
+					continue;
+				}
+				// the walling of this storey on this side: the commonest full block between its ends, over its height
 				java.util.Map<Block, Integer> count = new java.util.HashMap<>();
 				for (int i = 1; i < s.last(); i++) {
-					BlockState st = this.d.get(s.x(i), fy + 1, s.z(i));
-					if (st != null && dev.voidmc.hearth.build.kit.Openings.isWallBlock(this.d, s.x(i), fy + 1, s.z(i))) {
-						count.merge(st.getBlock(), 1, Integer::sum);
+					for (int y = fy + 1; y < top; y++) {
+						BlockState st = this.d.get(s.x(i), y, s.z(i));
+						if (st != null && dev.voidmc.hearth.build.kit.Openings.isWallBlock(this.d, s.x(i), y, s.z(i))) {
+							count.merge(st.getBlock(), 1, Integer::sum);
+						}
 					}
 				}
 				if (count.isEmpty()) {
 					continue;
 				}
 				Block walling = java.util.Collections.max(count.entrySet(), java.util.Map.Entry.comparingByValue()).getKey();
-				// strips of the dressing, or where the walls are the dressing's own stone, of the accent or the footing
-				Paint str = strip;
-				for (Paint alt : new Paint[]{strip, this.d.mat(Role.WALL_ACCENT).full(), Stone.footing(this.d).full(), this.d.mat(Role.FOUNDATION).full()}) {
-					if (alt.at(s.x(1), fy, s.z(1)).getBlock() != walling) {
-						str = alt;
-						break;
-					}
-				}
-				if (walling == str.at(s.x(1), fy, s.z(1)).getBlock()) {
+				Paint[] two = reliefStones(walling, s.x(1), fy, s.z(1));
+				if (two[0] == null) {
 					continue;
 				}
-				Paint stripP = str;
+				Paint pil = two[0];
+				Paint course = two[1];
 				try (var st = this.d.stage(StageKind.WALLS)) {
 					for (int i = 0; i <= s.last(); i++) {
 						int x = s.x(i);
 						int z = s.z(i);
 						int col = s.column(i);
-						boolean pilaster = !timber && (i == 0 || i == s.last() || Math.floorMod(col - s.column(0), 4) == 0);
+						boolean pilaster = i == 0 || i == s.last() || Math.floorMod(col - s.column(0), 4) == 0;
 						for (int y = fy - 1; y <= top; y++) {
 							BlockState b = this.d.get(x, y, z);
 							if (b == null || b.getBlock() != walling) {
 								continue;
 							}
-							boolean course = y == fy - 1 || k == 0 && y == fy;
-							if (course || pilaster) {
-								this.d.set(x, y, z, stripP);
+							boolean isCourse = y == fy - 1 || k == 0 && y == fy;
+							if (isCourse && course != null) {
+								this.d.set(x, y, z, course);
+							} else if (pilaster) {
+								this.d.set(x, y, z, pil);
 							}
 						}
 					}
 				}
 			}
 		}
+	}
+
+	/**
+	 * Two stones for a wall of {@code walling}, both unlike it and unlike each other: {pilasters, courses} (the courses
+	 * null where no second stone differs; both null where none does).
+	 */
+	private Paint[] reliefStones(Block walling, int x, int y, int z) {
+		java.util.List<Paint> cands = new java.util.ArrayList<>();
+		cands.add(Stone.dressing(this.d).full());
+		for (Role role : new Role[]{Role.WALL_ACCENT, Role.PLINTH, Role.MASONRY}) {
+			if (this.d.mat(role).has(dev.voidmc.hearth.build.style.Form.FULL)) {
+				cands.add(this.d.mat(role).full());
+			}
+		}
+		cands.add(Stone.footing(this.d).full());
+		cands.add(this.d.mat(Role.FOUNDATION).full());
+		// (a plain ashlar of the walling's own kind where the style's stones are all one)
+		cands.add(Stone.fixed(this.d, StageKind.WALLS, ashlar(walling)).full());
+		Paint pil = null;
+		Paint course = null;
+		Block pb = null;
+		for (Paint c : cands) {
+			BlockState st = c.at(x, y, z);
+			if (st == null || st.getBlock() == walling || !st.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)) {
+				continue;
+			}
+			if (pil == null) {
+				pil = c;
+				pb = st.getBlock();
+			} else if (st.getBlock() != pb) {
+				course = c;
+				break;
+			}
+		}
+		return new Paint[]{pil, course};
+	}
+
+	/** A dressed stone that goes with a walling block: its smooth or chiselled kin. */
+	private static String ashlar(Block walling) {
+		String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(walling).getPath();
+		if (id.contains("mud")) {
+			return id.equals("packed_mud") ? "minecraft:mud_bricks" : "minecraft:packed_mud";
+		}
+		if (id.contains("sandstone")) {
+			return id.contains("red") ? (id.equals("cut_red_sandstone") ? "minecraft:smooth_red_sandstone" : "minecraft:cut_red_sandstone")
+				: id.equals("cut_sandstone") ? "minecraft:smooth_sandstone" : "minecraft:cut_sandstone";
+		}
+		if (id.contains("terracotta")) {
+			return id.equals("terracotta") ? "minecraft:brown_terracotta" : "minecraft:terracotta";
+		}
+		if (id.contains("deepslate")) {
+			return id.equals("polished_deepslate") ? "minecraft:deepslate_bricks" : "minecraft:polished_deepslate";
+		}
+		return id.equals("polished_andesite") ? "minecraft:stone_bricks" : id.equals("stone_bricks") ? "minecraft:polished_andesite" : "minecraft:smooth_stone";
+	}
+
+	/**
+	 * A timber storey's side: a frame's rails (its horizontal logs) in the other face of the timber, barked against
+	 * stripped or stripped against barked, so post and rail read as members; a log wall braced by upright posts in the
+	 * other face on every fourth column.
+	 */
+	private void timberRelief(Side s, int fy, int top, boolean logWall) {
+		try (var st = this.d.stage(StageKind.FRAME)) {
+			for (int i = 0; i <= s.last(); i++) {
+				int x = s.x(i);
+				int z = s.z(i);
+				boolean post = i == 0 || i == s.last() || Math.floorMod(s.column(i) - s.column(0), 4) == 0;
+				for (int y = fy; y <= top; y++) {
+					BlockState b = this.d.get(x, y, z);
+					if (b == null || !(b.getBlock() instanceof net.minecraft.world.level.block.RotatedPillarBlock)
+						|| !net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b.getBlock()).getPath().matches(".*_(log|stem|wood)$")) {
+						continue;
+					}
+					Block other = otherFace(b.getBlock());
+					if (other == null) {
+						continue;
+					}
+					Direction.Axis ax = b.getValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS);
+					if (logWall ? post : ax != Direction.Axis.Y) {
+						this.d.set(x, y, z, other.defaultBlockState().setValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS, logWall ? Direction.Axis.Y : ax));
+					}
+				}
+			}
+		}
+	}
+
+	/** The stripped log of a barked one, or the barked log of a stripped one (null where there is none). */
+	private static @org.jspecify.annotations.Nullable Block otherFace(Block b) {
+		net.minecraft.resources.Identifier id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b);
+		String path = id.getPath();
+		String alt = path.startsWith("stripped_") ? path.substring("stripped_".length()) : "stripped_" + path;
+		return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getOptional(net.minecraft.resources.Identifier.fromNamespaceAndPath(id.getNamespace(), alt)).orElse(null);
 	}
 
 	/**
@@ -2308,9 +2404,11 @@ final class Precinct {
 		}
 	}
 
-	/** The finishing pass: natural ground cleared over the plot up to the skyline. */
+	/** The finishing pass: the long faces divided into bays, natural ground cleared over the plot up to the skyline. */
 	void finish() {
 		clearThresholds();
+		// (a house of the orders never shows a long blank field: the church's flanks and the ranges' ends too)
+		dev.voidmc.hearth.build.kit.civic.Bays.divide(this.d, 48);
 		Halls.finish(this.d);
 		Groundwork.clear(this.d, 0, 0, this.w - 1, this.dp - 1, Math.min(this.top, this.skyline + 2));
 	}
