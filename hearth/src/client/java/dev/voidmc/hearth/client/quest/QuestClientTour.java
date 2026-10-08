@@ -2,11 +2,11 @@ package dev.voidmc.hearth.client.quest;
 
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.Culture;
+import dev.voidmc.hearth.api.QuestType;
 import dev.voidmc.hearth.api.testing.SimpleSettlement;
 import dev.voidmc.hearth.quest.block.NoticeBoardBlock;
 import dev.voidmc.hearth.quest.model.Objective;
 import dev.voidmc.hearth.quest.model.QuestInstance;
-import dev.voidmc.hearth.quest.model.QuestType;
 import dev.voidmc.hearth.quest.service.QuestManager;
 import dev.voidmc.hearth.quest.service.QuestStore;
 import dev.voidmc.hearth.quest.world.QuestSandbox;

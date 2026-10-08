@@ -44,6 +44,21 @@ public interface TerrainProbe {
 		return null;
 	}
 
+	/** {@link #site}: nothing in particular. */
+	int SITE_NONE = 0;
+	/** {@link #site}: the level top of a lone hill standing proud of the land round it. */
+	int SITE_HILLTOP = 1;
+	/** {@link #site}: the top of an escarpment's edge, the land falling away before it. */
+	int SITE_RIM = 2;
+
+	/**
+	 * A place a builder would pick for a castle, as the terrain generator knows it ({@link #SITE_HILLTOP}, {@link #SITE_RIM}),
+	 * else {@link #SITE_NONE}: Expanse's Earth terrain marks them; other probes know none.
+	 */
+	default int site(int x, int z) {
+		return SITE_NONE;
+	}
+
 	default boolean isWater(int x, int z) {
 		return waterY(x, z) != NO_WATER;
 	}

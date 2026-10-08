@@ -71,11 +71,19 @@ public final class Growth {
 	 * stats, {@code /hearth plan stats}).
 	 */
 	public static @Nullable String plan(PlanContext ctx) {
-		Needs needs = Needs.of(ctx);
-		List<Need> list = needs(ctx, needs);
+		Memo memo = memo(ctx);
+		Needs needs = memo.needs;
+		List<Need> list = memo.list;
+		needs.attach(ctx);
+		dev.voidmc.hearth.plan.PlanStats.lap(ctx, "needs list");
+		// a live call stops before a need it has too little of its time left for: a need in a city takes a few milliseconds,
+		// and one begun with the time nearly spent ran on past the limit (calls of 20–95 ms against 10, requests/w7-tour.md §1)
+		long started = System.nanoTime();
+		long late = ctx.deadline == Long.MAX_VALUE ? Long.MAX_VALUE : ctx.deadline - (long) ((ctx.deadline - started) * LEAVE_FOR_A_NEED);
 		if (list.isEmpty()) {
-			return "nothing wanted";
+			return "nothing wanted" + capped(ctx, needs);
 		}
+		wakeSoonest(ctx, list);
 		// a little chance in the order, so towns differ even with the same needs
 		List<double[]> order = new ArrayList<>();
 		for (int i = 0; i < list.size(); i++) {
@@ -94,12 +102,30 @@ public final class Growth {
 			if (until != null && until > ctx.state.calls) {
 				continue;
 			}
+			if (attempts > 0 && System.nanoTime() > late) {
+				return (first != null ? first + "; then " : "") + "out of time";
+			}
 			long t0 = System.nanoTime();
 			int before = ctx.state.queue.size();
 			int deepBefore = ctx.state.deep == null ? 0 : ctx.state.deep.queue.size();
 			ctx.buildings = 0;
 			WHY.remove();
-			boolean met = need.plan.test(ctx);
+			// a need cut short by the time limit time after time is given a long try after its rests (one slow call a day or
+			// so), or a search that needs more than a live call's time (a long cart track) would never be finished
+			long deadline = ctx.deadline;
+			boolean whole = deadline != Long.MAX_VALUE && attempts == 0 && ctx.state.outOfTimeRuns.getOrDefault(need.key, 0) >= WHOLE_AFTER;
+			if (whole) {
+				// (three times the call's time at most, and only as the call's first need)
+				ctx.deadline = Math.max(deadline, System.nanoTime() + 2 * Math.max(deadline - started, 2_000_000L));
+			}
+			boolean met;
+			try {
+				met = need.plan.test(ctx);
+			} finally {
+				ctx.deadline = deadline;
+			}
+			dev.voidmc.hearth.plan.PlanStats.lap(ctx, group(need.key));
+			boolean cut = !whole && ctx.pastDeadline();
 			String why = WHY.get();
 			WHY.remove();
 			if (trace) {
@@ -120,6 +146,9 @@ public final class Growth {
 				}
 				continue;
 			}
+			if (!cut) {
+				ctx.state.outOfTimeRuns.remove(need.key);
+			}
 			if (met) {
 				ctx.state.failures.remove(need.key);
 				if (ctx.buildings > 0) {
@@ -130,12 +159,22 @@ public final class Growth {
 				}
 				return null;
 			}
-			if (ctx.pastDeadline()) {
+			if (cut) {
 				// cut short by the call's time limit, not refused by the land: it rests a call or two so the needs after it get
 				// their turn, but does not count as a failure, so a city whose searches run out of time does not shelve its
-				// workings and workshops for ever (requests/w5-tour.md §3)
-				ctx.state.cooldowns.put(need.key, ctx.state.calls + 1 + ctx.random.nextInt(2));
+				// workings and workshops for ever (requests/w5-tour.md §3). Cut short twice in a row, it rests about a day's calls
+				// rather than be tried at full cost again and again (Anchorcove's "then noble: out of time" 47 calls running)
+				int runs = ctx.state.outOfTimeRuns.merge(need.key, 1, Integer::sum);
+				ctx.state.cooldowns.put(need.key, ctx.state.calls + (runs >= 2 ? 4 + 4 * Math.min(4, runs) : 1) + ctx.random.nextInt(2));
 				return (first != null ? first + "; then " : "") + group(need.key) + ": out of time";
+			}
+			if (firstLanes && FirstLane.wanted(ctx, why) && !resting(ctx, FIRST_LANE)) {
+				// a camp with no street to grow from: its first lane out from the square, and the need waits for it
+				if (FirstLane.lay(ctx)) {
+					ctx.state.cooldowns.put(need.key, ctx.state.calls + 2);
+					return null;
+				}
+				ctx.state.cooldowns.put(FIRST_LANE, ctx.state.calls + 12);
 			}
 			if (first == null) {
 				first = group(need.key) + ": " + (why == null ? "no room" : why);
@@ -143,13 +182,150 @@ public final class Growth {
 			// a need that keeps finding no room rests longer each time (up to eight times as long), so a town that has no
 			// place for its observatory does not search for one on every other call
 			int failed = ctx.state.failures.merge(need.key, 1, Integer::sum);
-			boolean vital = need.key.equals("housing") || need.key.equals("food") || need.key.startsWith("short/");
+			// (and the next working for a crew whose face is cut out: its diggers stand idle until it is staked out)
+			boolean vital = need.key.equals("housing") || need.key.equals("food") || need.key.startsWith("short/")
+				|| need.key.startsWith("program/extract/") && dev.voidmc.hearth.plan.resource.Extraction.faceWanted(ctx,
+					dev.voidmc.hearth.Hearth.id(need.key.substring("program/".length())));
 			ctx.state.cooldowns.put(need.key, ctx.state.calls + (4 + ctx.random.nextInt(5)) * (vital ? 1 : Math.min(8, failed)));
 			if (++attempts >= MAX_ATTEMPTS) {
 				break;
 			}
 		}
-		return first != null ? first : "every need resting";
+		return (first != null ? first : "every need resting") + capped(ctx, needs);
+	}
+
+	/**
+	 * When every need is resting, their rests are drawn in so the soonest ends within {@link #IDLE_WAKE} calls, keeping
+	 * their order. Rests are counted in calls, and a town whose calls all answer nothing is asked only every half day, so a
+	 * need resting forty calls rested twenty days while the town's builders stood idle (Thornley, a patron town of 95 under
+	 * "every need resting" for forty days, requests/w7-tour.md §5).
+	 */
+	static void wakeSoonest(PlanContext ctx, List<Need> list) {
+		if (!wake || list.isEmpty()) {
+			return;
+		}
+		long soonest = Long.MAX_VALUE;
+		for (Need n : list) {
+			Long until = ctx.state.cooldowns.get(n.key);
+			if (until == null || until <= ctx.state.calls) {
+				return;
+			}
+			soonest = Math.min(soonest, until);
+		}
+		long early = soonest - ctx.state.calls - IDLE_WAKE;
+		if (early <= 0) {
+			return;
+		}
+		for (Need n : list) {
+			ctx.state.cooldowns.put(n.key, ctx.state.cooldowns.get(n.key) - early);
+		}
+	}
+
+	/** Calls within which the soonest of a town's resting needs wakes when all of them rest. */
+	static final int IDLE_WAKE = 3;
+
+	/**
+	 * "; beds at the land's capacity" when the town would want beds but its land carries no more folk (LIVING_WORLD.md §7.2):
+	 * the planner builds no spare beds past the carrying capacity, so newcomers stop. Said with the reason, so a town that
+	 * stopped growing shows that its land, not a resting need, holds it (requests/w7-tour.md §5; the number is in
+	 * {@code /hearth settlement economy}).
+	 */
+	private static String capped(PlanContext ctx, Needs needs) {
+		int capacity = ctx.territory().capacity();
+		double margin = ctx.config.housingMargin();
+		if (capacity > 0 && needs.housingDeficit(margin, 0) > 0 && needs.housingDeficit(margin, capacity) <= 0) {
+			return "; beds at the land's capacity";
+		}
+		return "";
+	}
+
+	/** The share of a live call's time (after its needs are read) a need must have left to be begun. */
+	static final double LEAVE_FOR_A_NEED = 0.3;
+	/** Tries in a row cut short by the time limit after which a need's next try (as a call's first) has three times as long. */
+	static final int WHOLE_AFTER = 3;
+	/** Calls a kept needs list serves at most before it is read again. */
+	static final int MEMO_CALLS = 24;
+
+	/**
+	 * The needs of the last call, kept while what they are read from stands still (requests/w7-tour.md §1: a town whose
+	 * needs keep finding nothing read them all again on every call, its residents, plots, program and landmarks): the same
+	 * folk at the same work, the same plots in the same states, the same queue and stores, nothing issued since. Any
+	 * project handed out changes the issue count, so a list is never reused after the town changed it; at most
+	 * {@link #MEMO_CALLS} calls.
+	 */
+	public static final class Memo {
+		final long key;
+		final long serial;
+		final long calls;
+		final Needs needs;
+		final List<Need> list;
+
+		Memo(long key, long serial, long calls, Needs needs, List<Need> list) {
+			this.key = key;
+			this.serial = serial;
+			this.calls = calls;
+			this.needs = needs;
+			this.list = list;
+		}
+	}
+
+	/** {@code -Dhearth.dev.plan.memo=false}: the needs read afresh on every call (to compare). */
+	static boolean memoise = !"false".equals(System.getProperty("hearth.dev.plan.memo"));
+	/** {@code -Dhearth.dev.plan.wake=false}: a town with every need resting waits for its rests (to compare). */
+	static boolean wake = !"false".equals(System.getProperty("hearth.dev.plan.wake"));
+	/** {@code -Dhearth.dev.plan.firstLane=false}: no first lane off the square (to compare). */
+	static boolean firstLanes = !"false".equals(System.getProperty("hearth.dev.plan.firstLane"));
+
+	private static Memo memo(PlanContext ctx) {
+		long key = memoKey(ctx);
+		Memo m = ctx.state.needsMemo;
+		if (memoise && m != null && m.key == key && m.serial == ctx.state.serial && ctx.state.calls - m.calls < MEMO_CALLS) {
+			return m;
+		}
+		Needs needs = Needs.of(ctx);
+		m = new Memo(key, ctx.state.serial, ctx.state.calls, needs, needs(ctx, needs));
+		ctx.state.needsMemo = m;
+		return m;
+	}
+
+	/** What the needs are read from, as a hash: folk and their work, plots and their states, the queue, the stores' shortages. */
+	static long memoKey(PlanContext ctx) {
+		long h = ctx.population * 31L + ctx.tier.ordinal();
+		long folk = 0;
+		for (dev.voidmc.hearth.api.Resident r : ctx.settlement.residents()) {
+			folk += mix(r.id.getLeastSignificantBits() ^ (long) r.job.ordinal() << 40 ^ (long) r.work << 8 ^ r.age.ordinal());
+		}
+		long plots = 0;
+		int n = 0;
+		for (dev.voidmc.hearth.api.PlotView p : ctx.settlement.plots()) {
+			plots += mix((long) p.id() << 8 ^ p.state().ordinal() << 2 ^ (p.waitingForGoods() ? 1 : 0));
+			n++;
+		}
+		h = h * 31 + folk;
+		h = h * 31 + plots;
+		h = h * 31 + n;
+		h = h * 31 + ctx.state.queue.size() + (ctx.state.deep == null ? 0 : 1000L * ctx.state.deep.queue.size());
+		h = h * 31 + ctx.settlement.beds();
+		long shortages = 0;
+		for (int i = 0; i < SHORTAGES.size(); i++) {
+			if (ctx.settlement.stockpile().get(SHORTAGES.get(i).goods) < SHORTAGES.get(i).below) {
+				shortages |= 1L << i;
+			}
+		}
+		return h * 31 + shortages;
+	}
+
+	private static long mix(long x) {
+		x *= 0x9E3779B97F4A7C15L;
+		return x ^ (x >>> 29);
+	}
+
+	/** The rest of {@link FirstLane} when no lane would walk out from the square (a cooldown, not a need). */
+	private static final String FIRST_LANE = "first_lane";
+
+	private static boolean resting(PlanContext ctx, String key) {
+		Long until = ctx.state.cooldowns.get(key);
+		return until != null && until > ctx.state.calls;
 	}
 
 	/** A need's key without the archetype (program/smithy → program), so the stats count reasons, not buildings. */
@@ -204,6 +380,15 @@ public final class Growth {
 				}
 			}
 		}
+		// workings (quarry pits, mines, shafts, clay and sand pits) are dug by their own trades, not built by the builders,
+		// so the cap on what waits for the builders does not hold them back; a town past twice an entry's size with no face
+		// open at all wants one before its next field (a temperate town of 341 by its rock and ore, and one of 323 by its
+		// clay, opened none in 400 days: every call had something more urgent, or was busy)
+		for (Program.Entry e : Program.ENTRIES) {
+			if (dev.voidmc.hearth.plan.resource.Extraction.digsOut(e.id())) {
+				programNeed(ctx, needs, list, e);
+			}
+		}
 		if (busy) {
 			return list;
 		}
@@ -217,23 +402,8 @@ public final class Growth {
 			}
 		}
 		for (Program.Entry e : Program.ENTRIES) {
-			if (pop < e.minPop() || !e.when().test(ctx)) {
-				continue;
-			}
-			int want = e.count().applyAsInt(pop);
-			// the living world's buildings are what they are: a monastery never falls back to a library
-			ArchetypeInfo info = dev.voidmc.hearth.plan.catalogue.DefaultCatalogue.isPhase3(e.id()) ? exact(ctx, e.id())
-				: ctx.catalogue.resolve(e.id(), ctx.culture, tier);
-			if (info == null) {
-				continue;
-			}
-			int have = needs.count(info.id());
-			if (info.maxPerSettlement() > 0) {
-				want = Math.min(want, info.maxPerSettlement());
-			}
-			if (have < want) {
-				Identifier id = info.id();
-				list.add(new Need("program/" + id.getPath(), e.priority() - have * 15, c -> program(c, e, info)));
+			if (!dev.voidmc.hearth.plan.resource.Extraction.digsOut(e.id())) {
+				programNeed(ctx, needs, list, e);
 			}
 		}
 		if (Lots.missing(ctx)) {
@@ -278,6 +448,36 @@ public final class Growth {
 		}
 		return list;
 	}
+
+	/** A program entry's need, if the town is big enough for it and has fewer of it than its size wants. */
+	private static void programNeed(PlanContext ctx, Needs needs, List<Need> list, Program.Entry e) {
+		int pop = ctx.population;
+		if (pop < e.minPop() || !e.when().test(ctx)) {
+			return;
+		}
+		int want = e.count().applyAsInt(pop);
+		// the living world's buildings are what they are: a monastery never falls back to a library
+		ArchetypeInfo info = dev.voidmc.hearth.plan.catalogue.DefaultCatalogue.isPhase3(e.id()) ? exact(ctx, e.id())
+			: ctx.catalogue.resolve(e.id(), ctx.culture, ctx.tier);
+		if (info == null) {
+			return;
+		}
+		// (a working dug out counts no more while the town wants its goods: the next is opened)
+		int have = dev.voidmc.hearth.plan.resource.Extraction.counted(ctx, info.id(), needs.count(info.id()));
+		if (info.maxPerSettlement() > 0) {
+			want = Math.min(want, info.maxPerSettlement());
+		}
+		if (have < want) {
+			double priority = e.priority() - have * 15;
+			if (have == 0 && pop >= 2 * Math.max(8, e.minPop()) && dev.voidmc.hearth.plan.resource.Extraction.digsOut(info.id())) {
+				priority = Math.max(priority, DIG_PRIORITY);
+			}
+			list.add(new Need("program/" + info.id().getPath(), priority, c -> program(c, e, info)));
+		}
+	}
+
+	/** A working's priority when a town twice its size has none open: above a field, below beds. */
+	static final double DIG_PRIORITY = 450;
 
 	/**
 	 * A good builders may wait for, the trades that make it (the last step of its chain first, then what feeds it), how
@@ -372,7 +572,8 @@ public final class Growth {
 			if (info.category() == ArchetypeCategory.FARM) {
 				return true;
 			}
-			if (info.category() != ArchetypeCategory.UNDERGROUND && info.category() != ArchetypeCategory.HOUSING && needs.count(info.id()) < wanted(ctx, info)) {
+			if (info.category() != ArchetypeCategory.UNDERGROUND && info.category() != ArchetypeCategory.HOUSING
+				&& dev.voidmc.hearth.plan.resource.Extraction.counted(ctx, info.id(), needs.count(info.id())) < wanted(ctx, info)) {
 				return true;
 			}
 		}
@@ -390,7 +591,8 @@ public final class Growth {
 			if (info.category() == ArchetypeCategory.UNDERGROUND) {
 				continue;
 			}
-			if (info.category() == ArchetypeCategory.HOUSING || counts.count(info.id()) >= wanted(ctx, info)) {
+			if (info.category() == ArchetypeCategory.HOUSING
+				|| dev.voidmc.hearth.plan.resource.Extraction.counted(ctx, info.id(), counts.count(info.id())) >= wanted(ctx, info)) {
 				// a home is not built for its workshop; a trade's workshops stop at what the town's size wants
 				continue;
 			}

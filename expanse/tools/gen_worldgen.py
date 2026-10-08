@@ -43,6 +43,42 @@ written = []
 FOREIGN_DIRS = {'micro', 'living', 'cave'}  # living/: tools/gen_living.py's firefly features; cave/: tools/structures/gen_caves.py's
 
 
+SPRING_LAVA = {
+    'feature': 'minecraft:spring_lava_overworld',
+    'placement': [
+        {'type': 'minecraft:count', 'count': 4},
+        {'type': 'minecraft:in_square'},
+        {'type': 'minecraft:height_range', 'height': {'type': 'minecraft:uniform', 'min_inclusive': {'absolute': -60},
+                                                      'max_inclusive': {'absolute': -24}}},
+        {'type': 'minecraft:biome'},
+    ],
+}
+
+
+# Vanilla's tree placements (its biomes' own trees, which the Expanse biomes' trees replace elsewhere): on the Earth
+# terrain they keep clear of the structures as the Expanse's trees do, so a gallows hill or a hill chapel stands in a
+# clearing rather than under an acacia that grew through it.
+VANILLA_TREES = ['trees_badlands', 'trees_birch', 'trees_birch_and_oak_leaf_litter', 'trees_cherry', 'trees_dappled_forest',
+                 'trees_flower_forest', 'trees_grove', 'trees_jungle', 'trees_mangrove', 'trees_meadow', 'trees_old_growth_pine_taiga',
+                 'trees_old_growth_spruce_taiga', 'trees_plains', 'trees_savanna', 'trees_snowy', 'trees_sparse_jungle', 'trees_swamp',
+                 'trees_taiga', 'trees_water', 'trees_windswept_forest', 'trees_windswept_hills', 'trees_windswept_savanna',
+                 'dark_forest_vegetation', 'birch_tall', 'jungle_bush', 'bamboo_vegetation', 'pale_garden_vegetation', 'mangrove_checked',
+                 'tall_mangrove_checked', 'fallen_birch_tree', 'fallen_jungle_tree', 'fallen_oak_tree', 'fallen_poplar_tree',
+                 'fallen_spruce_tree', 'fallen_super_birch_tree']
+
+
+def clear_vanilla_trees(out, read):
+    """Writes the Earth pack's copies of VANILLA_TREES with the structure clearance added (before the biome filter).
+    `read(name)` gives a placed feature as it stands without the pack (the Expanse's own override, else vanilla's)."""
+    for name in VANILLA_TREES:
+        obj = read(name)
+        steps = [s for s in obj['placement'] if s.get('type') != e('clear_of_structures')]
+        at = next((i for i, s in enumerate(steps) if s.get('type') == 'minecraft:biome'), len(steps))
+        steps.insert(at, clear(TREE_CLEAR))
+        obj['placement'] = steps
+        out(f'minecraft/worldgen/placed_feature/{name}.json', obj)
+
+
 def write(path, obj):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w') as f:
@@ -130,9 +166,14 @@ def scatter(tries, xz=7, y=3):
     return [count(tries), {'type': 'minecraft:offset', 'x': trapezoid(-xz, xz), 'y': trapezoid(-y, y), 'z': trapezoid(-xz, xz)}]
 
 
+# How far a tree's trunk keeps from a structure: far enough that its crown (olives and oaks spread four or five blocks)
+# doesn't hang over the building.
+TREE_CLEAR = 5
+
+
 def tree_placement(per_chunk, sapling):
     return [count(per_chunk), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
-            predicate(survives(sapling if isinstance(sapling, (str, dict)) else sapling)), BIOME, clear(3)]
+            predicate(survives(sapling if isinstance(sapling, (str, dict)) else sapling)), BIOME, clear(TREE_CLEAR)]
 
 
 def patch_placement(frequency, tries, block_for_survival, xz=7, y=3, hm='MOTION_BLOCKING', extra=None):
@@ -1108,6 +1149,18 @@ def build_earth(jar):
     dim['height'] = HEIGHT
     dim['logical_height'] = HEIGHT
     out('minecraft/dimension_type/overworld.json', dim)
+
+    # Lava springs: vanilla's twenty a chunk, biased low but spread over the whole (here 704-tall) column, would pour
+    # out of every cavern wall and river tunnel. In the Earth's caves lava belongs to the deep: a few springs a chunk,
+    # down where the fire realms and the lava passages are.
+    out('minecraft/worldgen/placed_feature/spring_lava.json', SPRING_LAVA)
+
+    def read_placed(name):
+        own = os.path.join(RES, 'data', 'minecraft', 'worldgen', 'placed_feature', name + '.json')
+        if os.path.exists(own):
+            return json.load(open(own))
+        return json.loads(jar.read(f'data/minecraft/worldgen/placed_feature/{name}.json'))
+    clear_vanilla_trees(out, read_placed)
 
     write(os.path.join(EARTH, 'pack.mcmeta'), {'pack': {
         'description': 'VOID Expanse: Earth — tectonic plates, eroded mountain ranges, rivers that run to the sea',

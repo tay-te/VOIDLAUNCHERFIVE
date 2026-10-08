@@ -80,7 +80,7 @@ class PlanBenchTest {
 		int cityFrom = -1;
 		for (int d = 0; d < days; d += spell) {
 			int from = sim.callNanos.size();
-			if (profile && sampler == null && sim.settlement.plots().size() >= 500) {
+			if (profile && sampler == null && (Sampler.PAST_ONLY || sim.settlement.plots().size() >= 500)) {
 				sampler = new Sampler(Thread.currentThread());
 				sampler.start();
 			}
@@ -101,6 +101,13 @@ class PlanBenchTest {
 		}
 		System.out.println(String.format("%s: grown in %.1f s, all calls %s, fingerprint %016x", name, (System.nanoTime() - t0) / 1e9, stats(sim.callNanos),
 			fingerprint(sim)));
+		if (HearthPlanner.DEV_DEADLINE_MS > 0) {
+			// why calls answered nothing, and where the time past the deadline went (requests/w7-tour.md §1)
+			for (String line : PlanStats.lines()) {
+				System.out.println(name + ": " + line);
+			}
+		}
+		PlanStats.reset();
 	}
 
 	private static String stats(LongArrayList nanos) {
@@ -113,8 +120,14 @@ class PlanBenchTest {
 		for (long v : t) {
 			sum += v;
 		}
-		return String.format("%d calls: median %.2f ms, p90 %.2f ms, max %.2f ms, mean %.2f ms", t.length, t[t.length / 2] / 1e6,
-			t[t.length * 9 / 10] / 1e6, t[t.length - 1] / 1e6, sum / t.length / 1e6);
+		int over15 = 0;
+		int over25 = 0;
+		for (long v : t) {
+			over15 += v > 15_000_000L ? 1 : 0;
+			over25 += v > 25_000_000L ? 1 : 0;
+		}
+		return String.format("%d calls: median %.2f ms, p90 %.2f ms, max %.2f ms, mean %.2f ms, %d over 15 ms, %d over 25 ms", t.length,
+			t[t.length / 2] / 1e6, t[t.length * 9 / 10] / 1e6, t[t.length - 1] / 1e6, sum / t.length / 1e6, over15, over25);
 	}
 
 	/** Every plot (in id order) and queued project, as a hash: two runs that plan the same town print the same value. */
@@ -140,6 +153,7 @@ class PlanBenchTest {
 
 	/** Samples a thread's stack every millisecond and counts, per planner method, the samples it was on the stack in. */
 	static final class Sampler extends Thread {
+		private static final boolean PAST_ONLY = "past".equals(System.getenv("HEARTH_PLAN_BENCH_PROFILE"));
 		private final Thread target;
 		private final Map<String, Integer> inclusive = new HashMap<>();
 		private final Map<String, Integer> self = new HashMap<>();
@@ -161,6 +175,10 @@ class PlanBenchTest {
 						top = i;
 						break;
 					}
+				}
+				// HEARTH_PLAN_BENCH_PROFILE=past: only what a call does after its deadline (requests/w7-tour.md §1)
+				if (top >= 0 && PAST_ONLY && System.nanoTime() <= PlanStats.deadlineNow) {
+					top = -1;
 				}
 				if (top >= 0) {
 					this.samples++;

@@ -95,7 +95,7 @@ final class HallPavilion {
 		}
 		// the flight up the front, five wide (three on narrow plots), and the balustrade round the terrace's edge
 		int fw = w >= 19 ? 5 : 3;
-		int fx = c - fw / 2;
+		int fx = HallParts.flightX(d, c - fw / 2, fw, tx0 + 1, tx1 - fw);
 		Rock.steps(d, fx, 0, 0, Dirs.BACK, lift, fw, -1, dress);
 		balustrade(d, tx0, tz0, tx1, dp - 1, y0, fx, fx + fw - 1);
 		// the columns: round the veranda (front and sides) and at the hall's corners, brackets at their heads, a beam along
@@ -232,7 +232,16 @@ final class HallPavilion {
 					continue;
 				}
 				boolean post = (x + z) % 4 == 0 || (x == x0 || x == x1) && (z == z0 || z == z1);
-				d.set(x, y, z, post ? dress.full() : wall.has(Form.WALL) ? wall.wall() : dress.slab(SlabType.BOTTOM));
+				// posts capped with a slab, a block and a half like the walls between: nobody steps up onto the rail
+				boolean cap = d.allowed(x, y + 1, z) && d.isAbsent(x, y + 1, z);
+				if (!post && (wall.has(Form.WALL) || dress.has(Form.WALL))) {
+					d.set(x, y, z, wall.has(Form.WALL) ? wall.wall() : dress.wall());
+				} else {
+					d.set(x, y, z, dress.full());
+					if (cap) {
+						d.set(x, y + 1, z, dress.slab(SlabType.BOTTOM));
+					}
+				}
 			}
 		}
 	}

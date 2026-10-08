@@ -72,6 +72,8 @@ public final class TerrainModel {
 	private final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
 	/** Great lakes by cell, once found (a few hundred bytes each; the cells are 1.4 km across). */
 	private final ConcurrentHashMap<Long, GreatLake> greatLakes = new ConcurrentHashMap<>();
+	/** Lakes by cell, once found (shared, so a far view's thousands of cells are each searched once). */
+	private final ConcurrentHashMap<Long, Lake> lakes = new ConcurrentHashMap<>();
 	private final CavernModel caverns;
 	/** The countries laid over the relief ({@link Countries}). */
 	private final Countries countries;
@@ -125,11 +127,19 @@ public final class TerrainModel {
 		final Countries.Here here = new Countries.Here();
 		final Countries.Here hereL = new Countries.Here();
 		final float[] core = new float[2];
+		/** (climate) the climate grid's nodes, direct-mapped */
+		static final int CLIMATE = 1024;
+		final long[] climKey = new long[CLIMATE];
+		final float[] climT = new float[CLIMATE];
+		final float[] climH = new float[CLIMATE];
+		final PlateMap.Hit climHit = new PlateMap.Hit();
+		final PlateTerrain.Raw climRaw = new PlateTerrain.Raw();
 
 		Scratch() {
 			java.util.Arrays.fill(this.tepuiKey, Long.MIN_VALUE);
 			java.util.Arrays.fill(this.lakeKey, Long.MIN_VALUE);
 			java.util.Arrays.fill(this.greatKey, Long.MIN_VALUE);
+			java.util.Arrays.fill(this.climKey, Long.MIN_VALUE);
 		}
 
 		/** (tepuis) How high the talus stands over the ground here, at the foot of the nearest cliff. */
@@ -193,9 +203,90 @@ public final class TerrainModel {
 
 	/** The temperature and humidity at (x, z) before the lapse with height, as the columns have them. */
 	float[] climate(double x, double z) {
-		double sx = this.offset.get(x * 0.25, 0, z * 0.25) * 4;
-		double sz = this.offset.get(z * 0.25, x * 0.25, 0) * 4;
-		return new float[]{(float) this.temperature.get(x * 0.2 + sx, 0, z * 0.2 + sz), (float) this.vegetation.get(x * 0.2 + sx, 0, z * 0.2 + sz)};
+		return this.climateAt(x, z);
+	}
+
+	// ------------------------------------------------------------------------------------------------ the climate
+
+	/** The climate grid's spacing (blocks): climate changes over kilometres, so it is worked out at nodes and blended. */
+	private static final int CLIMATE_CELL = 128;
+
+	/**
+	 * The temperature and humidity at (x, z) before the lapse with height: the climate as the land makes it, so every
+	 * country lies where it does for a reason. The air warms and cools over broad zones tens of kilometres across
+	 * (vanilla's temperature noise, stretched); the rain comes in off the sea on a westerly wind, so the coasts are
+	 * wet and the land dries the further it lies inland, and a great range wrings the rain out of the wind, leaving the
+	 * country in its lee dry for tens of kilometres (the rain shadow) while its windward foothills are the wettest of
+	 * all. Over that a broad noise, as vanilla's humidity, so no two coasts are alike. Worked out on a grid of
+	 * {@value #CLIMATE_CELL}-block nodes from the far view's coarse plates (never building a full plate) and blended
+	 * between them; per-thread cached.
+	 */
+	float[] climateAt(double x, double z) {
+		return this.climateAt(x, z, CLIMATE_CELL);
+	}
+
+	/** The far view's climate grid's spacing (blocks): its cells are half a kilometre and more. */
+	private static final int CLIMATE_FAR_CELL = 1024;
+
+	/** {@link #climateAt}, on a grid of {@code cell}-block nodes ({@value #CLIMATE_CELL}, or the far view's). */
+	private float[] climateAt(double x, double z, int cell) {
+		Scratch s = this.scratch.get();
+		double fx = x / cell;
+		double fz = z / cell;
+		int ix = Mth.floor(fx);
+		int iz = Mth.floor(fz);
+		float tx = (float) (fx - ix);
+		float tz = (float) (fz - iz);
+		float t = 0;
+		float h = 0;
+		for (int c = 0; c < 4; c++) {
+			int nx = ix + (c & 1);
+			int nz = iz + (c >> 1);
+			float w = ((c & 1) == 0 ? 1 - tx : tx) * ((c >> 1) == 0 ? 1 - tz : tz);
+			int slot = this.climateNode(nx, nz, cell, s);
+			t += w * s.climT[slot];
+			h += w * s.climH[slot];
+		}
+		return new float[]{t, h};
+	}
+
+	private int climateNode(int nx, int nz, int cell, Scratch s) {
+		// (the two grids share the slots, told apart by their keys)
+		long key = ((long) nx << 32 ^ nz & 0xFFFF_FFFFL) + (cell == CLIMATE_CELL ? 0 : 0x4641_5200_0000_0000L);
+		int slot = (int) (PlateMap.mix(cell, nx, nz) & (Scratch.CLIMATE - 1));
+		if (s.climKey[slot] != key) {
+			double x = (double) nx * cell;
+			double z = (double) nz * cell;
+			double sx = this.offset.get(x * 0.25, 0, z * 0.25) * 4;
+			double sz = this.offset.get(z * 0.25, x * 0.25, 0) * 4;
+			// broad zones: vanilla's noises at a third of the scale
+			float temperature = (float) this.temperature.get(x * 0.07 + sx, 0, z * 0.07 + sz);
+			float noise = (float) this.vegetation.get(x * 0.08 + sx, 0, z * 0.08 + sz);
+			// the sea's rain and the ranges' shadow, from the coarse plates
+			PlateTerrain.Raw r = s.climRaw;
+			this.plates.locate(x, z, s.climHit);
+			this.farTerrain(s.climHit.own).sample(x, z, x, z, false, r);
+			float coast = r.coast;
+			float maritime = 0.3F * (1 - smooth(coast / 4500)) - 0.25F * smooth((coast - 3500) / 6000);
+			float shadow = 0;
+			float windward = 0;
+			for (int d = 1500; d <= 9000; d += 1500) {
+				this.plates.locate(x - d, z, s.climHit);
+				this.farTerrain(s.climHit.own).sample(x - d, z, x - d, z, false, r);
+				float range = smooth((r.uplift - 0.9F) / 1.0F);
+				shadow = Math.max(shadow, range * (1 - d / 10000.0F));
+			}
+			for (int d = 600; d <= 2400; d += 900) {
+				this.plates.locate(x + d, z, s.climHit);
+				this.farTerrain(s.climHit.own).sample(x + d, z, x + d, z, false, r);
+				windward = Math.max(windward, smooth((r.uplift - 0.9F) / 1.0F) * (1 - d / 3000.0F));
+			}
+			float humidity = Mth.clamp(0.8F * noise + maritime - 0.5F * shadow + 0.2F * windward * (1 - shadow), -1.2F, 1.2F);
+			s.climKey[slot] = key;
+			s.climT[slot] = temperature;
+			s.climH[slot] = humidity;
+		}
+		return slot;
 	}
 
 	// ------------------------------------------------------------------------------------------------ the far view
@@ -210,11 +301,14 @@ public final class TerrainModel {
 	/** How much higher the far view's land stands than its coarse plates make it (see sampleFar). */
 	private static final float FAR_LIFT = 7.5F;
 	private final ConcurrentHashMap<Long, Entry> farTerrains = new ConcurrentHashMap<>();
+	private final java.util.concurrent.atomic.AtomicBoolean farEvicting = new java.util.concurrent.atomic.AtomicBoolean();
 
 	/** A far-view column ({@link #sampleFar}): the land averaged over a cell of half a kilometre and more. */
 	public static final class FarColumn {
-		/** The ground's height, smoothed over the cell. */
+		/** The ground's height, smoothed over the cell (the mean of the fine ground in it). */
 		public float height;
+		/** The cell's high ground: its ridges and peaks (about the 90th percentile of the fine ground), for skylines. */
+		public float peak;
 		/** The water's surface (y) where water stands over the ground (the sea), NaN on dry land. */
 		public float water;
 		public boolean ocean;
@@ -278,10 +372,9 @@ public final class TerrainModel {
 		// the coarse grid's drainage paths take longer steps between nodes, and so climb a little less: lifted back
 		// by what that comes to on average (measured against the fine grid, -Pslice=far)
 		height += FAR_LIFT * smooth((height - PlateTerrain.SEA) / 20);
-		double sx = this.offset.get(x * 0.25, 0, z * 0.25) * 4;
-		double sz = this.offset.get(z * 0.25, x * 0.25, 0) * 4;
-		float temperature = (float) this.temperature.get(x * 0.2 + sx, 0, z * 0.2 + sz);
-		float humidity = (float) this.vegetation.get(x * 0.2 + sx, 0, z * 0.2 + sz);
+		float[] clim = this.climateAt(x, z, CLIMATE_FAR_CELL);
+		float temperature = clim[0];
+		float humidity = clim[1];
 		boolean land = height > PlateTerrain.SEA + 3;
 		if (land) {
 			float alpine = smooth((uplift - 0.9F) / 1.3F);
@@ -291,7 +384,7 @@ public final class TerrainModel {
 			if (height > 560) {
 				height = 560 + 60 * (1 - (float) Math.exp(-(height - 560) / 60));
 			}
-			float heart = smooth((temperature + 0.4F) / 0.3F) * smooth((0.6F - temperature) / 0.3F) * smooth((humidity + 0.25F) / 0.3F)
+			float heart = smooth((temperature + 0.42F) / 0.25F) * smooth((0.24F - temperature) / 0.2F) * smooth((humidity + 0.2F) / 0.3F)
 				* smooth((coast - 400) / 700) * smooth((0.95F - uplift) / 0.5F);
 			if (heart > 0) {
 				if (height > lowland) {
@@ -341,12 +434,23 @@ public final class TerrainModel {
 				}
 			}
 		}
+		// The coarse grid can't hold the mountains' ridges, only the broad valleys between them, so the higher the
+		// land is pushed the lower it comes out against the fine ground averaged over the cell: lifted back by what
+		// that comes to (measured by uplift, -Pslice=farpeaks: about 37 blocks for each unit of uplift over 0.6).
+		// The cell's high ground (its ridges and peaks, about the 90th percentile of the fine ground in it) stands
+		// a further 22 blocks and more over that: the far view's skyline.
+		float ranges = Math.max(0, uplift - 0.6F);
+		float peak = 0;
+		if (land) {
+			height += 37 * Math.min(ranges, 3.0F);
+			peak = 22 + 40 * Math.min(ranges, 2.2F);
+		}
 		// the volcanoes' cones, which stand out over any distance
 		out.landform = Landform.NONE;
 		java.util.List<PlateTerrain.Volcano> volcanoes = plate.volcanoes();
 		for (int v = 0; v < volcanoes.size(); v++) {
 			PlateTerrain.Volcano volcano = volcanoes.get(v);
-			double d = Math.hypot(x - volcano.x(), z - volcano.z());
+			double d = PlateMap.len(x - volcano.x(), z - volcano.z());
 			double r = volcano.radius();
 			if (d >= r) {
 				continue;
@@ -359,6 +463,7 @@ public final class TerrainModel {
 			}
 		}
 		out.height = height;
+		out.peak = out.landform == Landform.VOLCANIC ? height : Math.min(height + peak, 630);
 		out.ocean = height < PlateTerrain.SEA;
 		out.water = out.ocean ? PlateTerrain.SEA : Float.NaN;
 		out.coast = coast;
@@ -388,11 +493,25 @@ public final class TerrainModel {
 					this.farTerrains.remove(plate.key(), mine);
 					throw t;
 				}
-				if (this.farTerrains.size() > MAX_FAR_PLATES) {
-					// the least recently used half goes at once (rather than one at a time, each a scan of thousands)
-					this.farTerrains.entrySet().stream().filter(e -> e.getValue().terrain.isDone())
-						.sorted(java.util.Comparator.comparingLong(e -> e.getValue().used)).limit(MAX_FAR_PLATES / 2)
-						.toList().forEach(e -> this.farTerrains.remove(e.getKey(), e.getValue()));
+				if (this.farTerrains.size() > MAX_FAR_PLATES && this.farEvicting.compareAndSet(false, true)) {
+					// the least recently used half goes at once (rather than one at a time, each a scan of thousands), one
+					// thread at a time; sorted on a snapshot of when each was used, which other threads go on changing
+					try {
+						record Used(Long key, Entry entry, long used) {
+						}
+						java.util.List<Used> all = new java.util.ArrayList<>();
+						for (Map.Entry<Long, Entry> e : this.farTerrains.entrySet()) {
+							if (e.getValue().terrain.isDone()) {
+								all.add(new Used(e.getKey(), e.getValue(), e.getValue().used));
+							}
+						}
+						all.sort(java.util.Comparator.comparingLong(Used::used));
+						for (int i = 0; i < Math.min(all.size(), MAX_FAR_PLATES / 2); i++) {
+							this.farTerrains.remove(all.get(i).key(), all.get(i).entry());
+						}
+					} finally {
+						this.farEvicting.set(false);
+					}
 				}
 			}
 		}
@@ -404,7 +523,9 @@ public final class TerrainModel {
 	private static final float[] ESCARPED = {0, 0.6F, 1.0F, 0.4F, 0, 0.8F, 0.6F};
 
 	/** How open each kind of country is (Countries order): the share of its land left as fields and meadow. */
-	private static final float[] OPENNESS = {0.12F, 0.45F, -0.35F, 0.38F, 0.3F, 0.22F, -0.45F};
+	private static final float[] OPENNESS = {0.12F, 0.42F, -0.35F, 0.38F, 0.3F, 0.22F, -0.45F};
+	/** How strongly the woods keep to the rises and slopes in each kind of country (the heartland's swells are farmed). */
+	private static final float[] RISES = {1, 0.65F, 1, 0.85F, 1, 1, 1};
 
 	/**
 	 * How likely a tree is to stand at (x, z), 0 to 1: the woods and the open country. A broad noise lays out woods
@@ -428,7 +549,8 @@ public final class TerrainModel {
 		float gz = this.sample(x, z + 4).height - height;
 		float slope = (float) Math.sqrt(gx * gx + gz * gz) / 4;
 		float mask = (float) (0.8 * this.noise(N_WOOD, x / 540.0, z / 540.0) + 0.3 * this.noise(N_WOOD, x / 150.0 + 70, z / 150.0));
-		mask += 0.012F * Mth.clamp(above - 14, -14, 40) + 0.6F * Math.min(slope, 1);
+		float rises = 1 + (RISES[country] - 1) * strength;
+		mask += rises * (0.012F * Mth.clamp(above - 14, -14, 40) + 0.6F * Math.min(slope, 1));
 		mask -= 0.12F + (OPENNESS[country] - 0.12F) * strength;
 		float keep = 0.05F + 0.95F * smooth((mask + 0.07F) / 0.14F);
 		if (nearRiver && riverDist < 22 && above < 5) {
@@ -445,7 +567,8 @@ public final class TerrainModel {
 	public boolean crest(int x, int z) {
 		Column c = this.sample(x, z);
 		float height = c.height;
-		if (height < PlateTerrain.SEA + 6 || height > 175 || c.nearRiver() && c.riverDist < c.riverHalfWidth + 30) {
+		if (height < PlateTerrain.SEA + 6 || height > 175 || c.nearRiver() && c.riverDist < c.riverHalfWidth + 30
+			|| this.woodland(x, z) >= 0.3F) {
 			return false;
 		}
 		float lower = 0;
@@ -456,7 +579,7 @@ public final class TerrainModel {
 			}
 			lower += this.sample(x + (int) Math.round(Math.cos(a) * 40), z + (int) Math.round(Math.sin(a) * 40)).height;
 		}
-		return height - lower / 8 > 6 && this.woodland(x, z) < 0.3F;
+		return height - lower / 8 > 6;
 	}
 
 	/** How far from (x, z) the nearest river's bank is (blocks; far when there is none near). */
@@ -550,9 +673,11 @@ public final class TerrainModel {
 		this.plates.locate(x, z, hit);
 		PlateMap.Plate own = hit.own;
 		PlateTerrain.Raw a = s.a;
-		// Rivers wander either side of their course: long swings and short wiggles.
-		double mx = x + 9 * this.noise(N_MEANDER_X, x / 110.0, z / 110.0) + 3 * this.noise(N_MEANDER_Z, x / 37.0 + 5, z / 37.0);
-		double mz = z + 9 * this.noise(N_MEANDER_Z, x / 110.0, z / 110.0) + 3 * this.noise(N_MEANDER_X, x / 37.0 - 5, z / 37.0);
+		// Rivers wander either side of their course: long swings and short wiggles; in some country (a broad noise)
+		// the swings grow to twice that and more, and the rivers loop through their vales.
+		double swing = 9 + 11 * smooth((float) (this.noise(N_MEANDER_X, x / 4200.0 + 90, z / 4200.0 - 40) + 0.1) / 0.6F);
+		double mx = x + swing * this.noise(N_MEANDER_X, x / (100 + swing), z / (100 + swing)) + 3 * this.noise(N_MEANDER_Z, x / 37.0 + 5, z / 37.0);
+		double mz = z + swing * this.noise(N_MEANDER_Z, x / (100 + swing), z / (100 + swing)) + 3 * this.noise(N_MEANDER_X, x / 37.0 - 5, z / 37.0);
 		this.terrain(own).sample(x, z, mx, mz, true, a);
 		float height = a.height;
 		float uplift = a.uplift;
@@ -614,10 +739,9 @@ public final class TerrainModel {
 		// The climate, which the landforms below ask after: vanilla's temperature and humidity noises, sampled
 		// as vanilla samples them (shifted by the offset noise) at a fifth of the block scale rather than a
 		// quarter, for climate zones a little larger than vanilla's. The lapse is added once the height is known.
-		double sx = this.offset.get(x * 0.25, 0, z * 0.25) * 4;
-		double sz = this.offset.get(z * 0.25, x * 0.25, 0) * 4;
-		float temperature = this.temperature.get(x * 0.2 + sx, 0, z * 0.2 + sz);
-		float humidity = this.vegetation.get(x * 0.2 + sx, 0, z * 0.2 + sz);
+		float[] clim = this.climateAt(x, z);
+		float temperature = clim[0];
+		float humidity = clim[1];
 		out.landform = Landform.NONE;
 		boolean land = height > PlateTerrain.SEA + 3;
 
@@ -639,7 +763,7 @@ public final class TerrainModel {
 		// 40 blocks over the vales between them, a kilometre and more across, so ridge behind ridge stands against
 		// the sky; the mountains and the coasts keep their relief.
 		if (land) {
-			float heart = smooth((temperature + 0.4F) / 0.3F) * smooth((0.6F - temperature) / 0.3F) * smooth((humidity + 0.25F) / 0.3F)
+			float heart = smooth((temperature + 0.42F) / 0.25F) * smooth((0.24F - temperature) / 0.2F) * smooth((humidity + 0.2F) / 0.3F)
 				* smooth((coast - 400) / 700) * smooth((0.95F - uplift) / 0.5F);
 			if (heart > 0) {
 				if (height > lowland) {
@@ -970,7 +1094,7 @@ public final class TerrainModel {
 		for (int dx = -1; dx <= 1; dx++) {
 			for (int dz = -1; dz <= 1; dz++) {
 				GreatLake g = this.greatLake(gx + dx, gz + dz, s);
-				if (g.exists() && Math.hypot(x - g.x(), z - g.z()) < g.r() * 1.15 + 36) {
+				if (g.exists() && PlateMap.len(x - g.x(), z - g.z()) < g.r() * 1.15 + 36) {
 					return g;
 				}
 			}
@@ -1030,7 +1154,7 @@ public final class TerrainModel {
 						}
 						GreatLake o = this.siteOf(gx + dx, gz + dz, s);
 						if (o.exists() && PlateMap.mix(this.seed ^ 0x52414E4BL, gx + dx, gz + dz) > rank
-							&& Math.hypot(o.x() - g.x(), o.z() - g.z()) < (o.r() + g.r()) * 1.15 + 60) {
+							&& PlateMap.len(o.x() - g.x(), o.z() - g.z()) < (o.r() + g.r()) * 1.15 + 60) {
 							g = GreatLake.NONE;
 							break;
 						}
@@ -1049,6 +1173,7 @@ public final class TerrainModel {
 	 */
 	private GreatLake siteOf(int gx, int gz, Scratch s) {
 		long key = (long) gx << 32 ^ gz & 0xFFFF_FFFFL;
+		key = PlateMap.scramble(key);   // (so the keys hash evenly: the packed pair alone hashes to gx ^ gz)
 		GreatLake g = this.greatLakes.get(key);
 		if (g == null) {
 			g = this.makeGreatLake(gx, gz, s);
@@ -1068,8 +1193,7 @@ public final class TerrainModel {
 	 */
 	private GreatLake makeGreatLake(int gx, int gz, Scratch s) {
 		long h = PlateMap.mix(this.seed ^ 0x4752_4541L, gx, gz);
-		boolean district = this.countryAt((gx + 0.5) * GREAT_CELL, (gz + 0.5) * GREAT_CELL, s) == Countries.LAKE_DISTRICT;
-		if (PlateMap.unit(h) > (district ? 1.0 : 0.6)) {
+		if (PlateMap.unit(h) > 0.6 && this.countryAt((gx + 0.5) * GREAT_CELL, (gz + 0.5) * GREAT_CELL, s) != Countries.LAKE_DISTRICT) {
 			return GreatLake.NONE;
 		}
 		PlateTerrain.Raw raw = s.l;
@@ -1094,16 +1218,15 @@ public final class TerrainModel {
 			}
 			tried++;
 			float centre = raw.riverWater;
-			double sx = this.offset.get(px * 0.25, 0, pz * 0.25) * 4;
-			double sz = this.offset.get(pz * 0.25, px * 0.25, 0) * 4;
-			float temperature = (float) this.temperature.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
-			float humidity = (float) this.vegetation.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
+			float[] clim = this.climateAt(px, pz);
+			float temperature = clim[0];
+			float humidity = clim[1];
 			if (humidity < -0.2F || smooth(humidity / 0.2F) * smooth((temperature - 0.3F) / 0.2F) > 0.3F) {
 				continue;
 			}
 			boolean volcano = false;
 			for (PlateTerrain.Volcano v : plate.volcanoes()) {
-				volcano |= Math.hypot(px - v.x(), pz - v.z()) < v.radius() + 380;
+				volcano |= PlateMap.len(px - v.x(), pz - v.z()) < v.radius() + 380;
 			}
 			if (volcano) {
 				continue;
@@ -1173,7 +1296,7 @@ public final class TerrainModel {
 				if (!lake.exists()) {
 					continue;
 				}
-				double d = Math.hypot(x - lake.x(), z - lake.z());
+				double d = PlateMap.len(x - lake.x(), z - lake.z());
 				if (d > lake.r() * 1.6 + 30) {
 					continue;
 				}
@@ -1194,7 +1317,18 @@ public final class TerrainModel {
 		long key = (long) lx << 32 ^ lz & 0xFFFF_FFFFL;
 		int slot = (int) (PlateMap.mix(2, lx, lz) & 63);
 		if (s.lakeKey[slot] != key) {
-			s.lakes[slot] = this.makeLake(lx, lz, s);
+			// a lake's site search samples the plate a few dozen times: done once per cell for every thread
+			// (a far view samples thousands of cells, far more than a thread's slots hold)
+			long shared = PlateMap.scramble(key);
+			Lake lake = this.lakes.get(shared);
+			if (lake == null) {
+				lake = this.makeLake(lx, lz, s);
+				if (this.lakes.size() > 400_000) {
+					this.lakes.clear();
+				}
+				this.lakes.putIfAbsent(shared, lake);
+			}
+			s.lakes[slot] = lake;
 			s.lakeKey[slot] = key;
 		}
 		return s.lakes[slot];
@@ -1209,8 +1343,8 @@ public final class TerrainModel {
 	 */
 	private Lake makeLake(int lx, int lz, Scratch s) {
 		long h = PlateMap.mix(this.seed ^ 0x4C41_4B45L, lx, lz);
-		boolean district = this.countryAt((lx + 0.5) * LAKE_CELL, (lz + 0.5) * LAKE_CELL, s) == Countries.LAKE_DISTRICT;
-		if (PlateMap.unit(h) > (district ? 1.0 : 0.6)) {
+		// three cells in five have a lake, and in the lake district all of them (asked only when it matters)
+		if (PlateMap.unit(h) > 0.6 && this.countryAt((lx + 0.5) * LAKE_CELL, (lz + 0.5) * LAKE_CELL, s) != Countries.LAKE_DISTRICT) {
 			return Lake.NONE;
 		}
 		PlateTerrain.Raw raw = s.l;
@@ -1228,10 +1362,9 @@ public final class TerrainModel {
 			if (ground < PlateTerrain.SEA + 8 || raw.coast < 300) {
 				continue;
 			}
-			double sx = this.offset.get(px * 0.25, 0, pz * 0.25) * 4;
-			double sz = this.offset.get(pz * 0.25, px * 0.25, 0) * 4;
-			float temperature = (float) this.temperature.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
-			float humidity = (float) this.vegetation.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
+			float[] clim = this.climateAt(px, pz);
+			float temperature = clim[0];
+			float humidity = clim[1];
 			if (humidity < -0.15F || smooth(humidity / 0.2F) * smooth((temperature - 0.3F) / 0.2F) > 0.3F) {
 				continue;
 			}
@@ -1242,7 +1375,7 @@ public final class TerrainModel {
 			}
 			boolean volcano = false;
 			for (PlateTerrain.Volcano v : plate.volcanoes()) {
-				volcano |= Math.hypot(px - v.x(), pz - v.z()) < v.radius() + r + 40;
+				volcano |= PlateMap.len(px - v.x(), pz - v.z()) < v.radius() + r + 40;
 			}
 			if (volcano) {
 				continue;
@@ -1306,7 +1439,7 @@ public final class TerrainModel {
 				double px = (cx + dx + 0.25 + 0.5 * PlateMap.unit(h >>> 21)) * cell;
 				double pz = (cz + dz + 0.25 + 0.5 * PlateMap.unit(h >>> 42)) * cell;
 				double r = 150 + 150 * PlateMap.unit(h >>> 7);
-				double centre = Math.hypot(x - px, z - pz);
+				double centre = PlateMap.len(x - px, z - pz);
 				if (centre > r * 1.4 + TALUS_REACH + 4) {
 					continue;  // beyond its widest outline and talus
 				}
@@ -1350,10 +1483,9 @@ public final class TerrainModel {
 		long key = (long) cellX << 32 ^ cellZ & 0xFFFF_FFFFL;
 		int slot = (int) (PlateMap.mix(1, cellX, cellZ) & 63);
 		if (s.tepuiKey[slot] != key) {
-			double sx = this.offset.get(px * 0.25, 0, pz * 0.25) * 4;
-			double sz = this.offset.get(pz * 0.25, px * 0.25, 0) * 4;
-			float temperature = (float) this.temperature.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
-			float humidity = (float) this.vegetation.get(px * 0.2 + sx, 0, pz * 0.2 + sz);
+			float[] clim = this.climateAt(px, pz);
+			float temperature = clim[0];
+			float humidity = clim[1];
 			s.tepuiTropical[slot] = smooth(humidity / 0.2F) * smooth((temperature - 0.3F) / 0.2F);
 			this.plates.locate(px, pz, s.hitC);
 			this.terrain(s.hitC.own).sample(px, pz, px, pz, false, s.e);
@@ -1392,6 +1524,11 @@ public final class TerrainModel {
 			return Mth.lerp((-coast - 400) / 1100, -0.40F, -0.85F);
 		}
 		return -0.9F;
+	}
+
+	/** A patchy noise (-1 to 1, some ten blocks across) for where bare rock breaks through on steep ground. */
+	public double outcrop(int x, int z) {
+		return this.noise(N_ROCK, x / 9.0 - 500, z / 9.0 + 230);
 	}
 
 	/** Whether the river's first ring of bank at (x, z) lies level with the water: about half of it, in stretches. */

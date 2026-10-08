@@ -1,5 +1,6 @@
 package dev.voidmc.hearth.law.stealth;
 
+import dev.voidmc.hearth.law.LawSkills;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -40,6 +41,7 @@ public final class Visibility {
 		BlockPos eyes = BlockPos.containing(player.getEyePosition());
 		int light = player.level().getMaxLocalRawBrightness(eyes);
 		boolean moving = MOVING.getOrDefault(player.getUUID(), false) || player.isSprinting();
-		return new Detection.Stance(light, player.isShiftKeyDown(), player.isSprinting(), moving, player.getArmorValue(), player.isInvisible());
+		return new Detection.Stance(light, player.isShiftKeyDown(), player.isSprinting(), moving, player.getArmorValue(), player.isInvisible(),
+			LawSkills.stealth(player));
 	}
 }

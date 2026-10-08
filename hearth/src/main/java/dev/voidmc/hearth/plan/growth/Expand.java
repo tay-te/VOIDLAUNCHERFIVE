@@ -184,6 +184,10 @@ public final class Expand {
 			return true;
 		}
 		for (Branch b : branches) {
+			if (ctx.pastDeadline()) {
+				// a live call out of time: the walks wait for the next call (nothing is remembered of a walk not tried)
+				return false;
+			}
 			if (b.distance < core * laneReach && walkBranch(ctx, b)) {
 				return true;
 			}
@@ -196,6 +200,9 @@ public final class Expand {
 			return true;
 		}
 		for (Branch b : branches) {
+			if (ctx.pastDeadline()) {
+				return false;
+			}
 			if ((arm == null || b.distance <= armDist) && walkBranch(ctx, b)) {
 				return true;
 			}
@@ -214,9 +221,16 @@ public final class Expand {
 		// the town has filled the streets it was given: it grows a new quarter beyond them — a lane off a street out past
 		// the built-up town, else the main road runs on into the country and the houses follow it
 		for (Branch b : branches(ctx, true, 4)) {
+			if (ctx.pastDeadline()) {
+				return false;
+			}
 			if (walkBranch(ctx, b)) {
 				return true;
 			}
+		}
+		if (ctx.pastDeadline()) {
+			// (an arm's end that will not run on is closed for good: not for want of time)
+			return false;
 		}
 		if (continueArm(ctx)) {
 			return true;
@@ -226,7 +240,7 @@ public final class Expand {
 		// (every third call: a town with nothing else to grow does not pay for these walks on every call)
 		int tries = ctx.state.calls % 3 == 0 ? 0 : 3;
 		for (Branch b : fresh) {
-			if (tries >= 3) {
+			if (tries >= 3 || ctx.pastDeadline()) {
 				break;
 			}
 			if (branches.contains(b)) {

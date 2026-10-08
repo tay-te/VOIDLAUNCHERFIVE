@@ -44,11 +44,13 @@ Params: `points` (world centreline at walking level), `width` (odd), `kind` (`st
 `highway`). Info: 1–56 × 1–56, height 1–24, camp+.
 
 - **street** (5): setts (the foundation's cobble where it is cobbled, else the paving) with dressed kerbs of a
-  contrasting stone (smooth quartz in the mediterranean and steppe, laid logs in the north); on level stretches the
+  contrasting stone (the plinth's grey stone in the Mediterranean, not white quartz that reads as painted lines down a
+  hillside; the accent in the steppe; laid logs in the north); on level stretches the
   carriageway lies half a block below the kerbs; worn patches in a village; lamps on the kerb line alternating sides,
   every 20 blocks on a street laid at a camp's founding, 14 in a village or town, 10 in a city; iron grates over sumps in the gutters of a town's stone streets. Timber cultures
   (bayou, tropical): a plank boardwalk with log edges.
-- **lane** (3): a dirt lane in a hamlet (a tuft or a flower along its edges), half cobbled in a village, paved and kerbed in a city; rubble in the stone towns
+- **lane** (3): a cart track in a hamlet (two worn ruts, grass between), packed earth with a little rubble trodden in
+  in a village, paved and kerbed in a city (review 2 item 16: the hierarchy reads from afar); rubble in the stone towns
   (mediterranean, moorland, maritime, desert, mesa); laid-log edges in the north ("mud and wood"), bamboo edges in the
   karst; planks on the bayou.
 - **alley** (3): rubble setts with a kennel down the middle.
@@ -90,24 +92,31 @@ Params: `level`, `retain_north/south/east/west` (world sides; default: the plann
 building replaces freely with its own floor and yard). Retaining walls: footings, a weathered face, pilasters every four
 and at the corners, a plinth course, a dressed coping, weep holes; walls of five or more get blind arches between the
 pilasters with ivy hanging in them and here and there a stone bench in the niche (a SEAT). The street side keeps its top
-three courses in earth so the building's own steps can be cut in. Nothing is drawn at or above the deck. Buildings on a
+three courses in earth so the building's own steps can be cut in. A side the planner does not retain is still faced
+wherever its fill stands two or more over the land beside it (no raw earth cliffs at the platform's ends). Nothing is
+drawn at or above the deck. Buildings on a
 terrace (`terraced: true`) see their footprint's ground at their floor (shared edit) and stand on the deck.
 
 ### `hearth:infra/walkway` — `Walkway`
 Params: `points` (two ends just outside the two facades, at deck level), `width` (3), `deck_y`, `street_y`. It rests
-on the facades (nothing below the deck but its own soffit; `LinearWorksTest` checks nothing stands in the street).
+on the facades and on posts to the ground at both ends and every fourth step along both edges (stone piers under the
+stone passage, the frame's posts under timber, piles under the planks), so it never hangs in the air on its own when a
+house it meets is not built (art review 2 item 5); nothing else stands in the street (`LinearWorksTest`).
 Stone cultures: an enclosed passage on a flying arch with small windows and a coped flat roof. Timber: a gallery on
 beams with knee braces against the facades, the culture's infill, a glazed band, a gable roof. Karst and wisteria: an
 open roofed pavilion walk. Bayou and tropical: an open plank walk with rope rails. Lanterns under it and inside. A
-VIEWPOINT mid-span. Without `points` it stands on four posts (tests, previews).
+VIEWPOINT mid-span. Without `points` (tests, previews) no house stands at either end, so it is railed across them.
 
 ### `hearth:infra/dock` — `Dock`
 Params: `points` (land column by the road at road level, out over the water), `width` (3). Info flags: WATERFRONT.
 Steps down from the road to a deck a block over the water ending in a landing stage flush with it (a DOCK point).
-Timber pier: piles standing up through the deck as mooring posts, lanterns on the end posts, a fish rack hung with nets,
-barrels and a chest of gear (STORAGE), a jib crane over the landing stage in a town. Stone quay (maritime,
+Timber pier: a pile's head left standing through the deck as a fence post every sixth step, the sides in turn (the walk
+down the middle stays clear), lanterns on the end posts, a fish rack hung with nets,
+barrels and a chest of gear (STORAGE), a jib crane over the landing stage in a town (posts, the rack and the gear only on
+the level deck, never at the head or the foot of the steps). Stone quay (maritime,
 mediterranean, desert, mesa towns): masonry from the bed, dressed coping, stone bollards, steps into the water, a street
-lamp.
+lamp. Without `points` (tests, previews) the course runs from the plot's dry side out over its wet one, so the demo on
+`coast` and `river` is measured over water.
 
 ## Stages and goods
 

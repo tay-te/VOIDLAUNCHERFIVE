@@ -1,0 +1,24 @@
+{
+  "values": [
+    "expanse:verdant_peaks",
+    "expanse:dolomite_peaks",
+    "expanse:fjordlands",
+    "expanse:volcanic_highlands",
+    "expanse:pine_heath",
+    "expanse:heather_moor",
+    "expanse:maple_highlands",
+    "expanse:larch_taiga",
+    "minecraft:meadow",
+    "minecraft:grove",
+    "minecraft:snowy_slopes",
+    "minecraft:stony_peaks",
+    "minecraft:frozen_peaks",
+    "minecraft:windswept_hills",
+    "minecraft:windswept_gravelly_hills",
+    "minecraft:windswept_forest",
+    "minecraft:taiga",
+    "minecraft:snowy_taiga",
+    "minecraft:old_growth_spruce_taiga",
+    "minecraft:old_growth_pine_taiga"
+  ]
+}

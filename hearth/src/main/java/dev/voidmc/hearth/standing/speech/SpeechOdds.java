@@ -31,9 +31,38 @@ public final class SpeechOdds {
 	 * @param difficulty how hard the ask is: 0 an easy favour … 0.5 asking them to break the law
 	 * @param bribeRatio the coin offered over what they expect (bribes only)
 	 * @param repeats    times the player tried this on them recently (each try makes the next harder)
+	 * @param speech     the player's Speech skill, 0–20 (a character mod's, through {@code PlayerSkills}; 0 without one)
+	 * @param presence   the player's Presence attribute, 1–20 (3, the starting value, adds nothing)
 	 */
 	public record Inputs(int standing, int opinion, double charisma, double menace, Set<String> traits, int mood, Station station, JobType job,
-		double difficulty, double bribeRatio, int repeats) {
+		double difficulty, double bribeRatio, int repeats, int speech, int presence) {
+		/** Without a character's skills: Speech 0 and Presence 3, which leave the odds as Hearth alone sets them. */
+		public Inputs(int standing, int opinion, double charisma, double menace, Set<String> traits, int mood, Station station, JobType job,
+			double difficulty, double bribeRatio, int repeats) {
+			this(standing, opinion, charisma, menace, traits, mood, station, job, difficulty, bribeRatio, repeats, 0, 3);
+		}
+	}
+
+	/**
+	 * What a character's Speech level and Presence add to a check of this kind: up to +0.30 from Speech 20 for persuading
+	 * and flattering (+0.16 for threats and bribes, where the coin and the steel speak louder), and a little per point of
+	 * Presence above 3 (most for threats). Speech 0 and Presence 3 add nothing.
+	 */
+	public static void skills(List<Factor> f, SpeechKind kind, int speech, int presence) {
+		int level = Math.clamp(speech, 0, 20);
+		int above = Math.clamp(presence, 1, 20) - 3;
+		double perLevel = switch (kind) {
+			case PERSUADE, FLATTER -> 0.015;
+			case INTIMIDATE, BRIBE -> 0.008;
+		};
+		double perPoint = switch (kind) {
+			case PERSUADE -> 0.010;
+			case INTIMIDATE -> 0.015;
+			case FLATTER -> 0.012;
+			case BRIBE -> 0.0;
+		};
+		add(f, "speech", level * perLevel);
+		add(f, "presence", above * perPoint);
 	}
 
 	/** One reason the odds are what they are: a translation key under {@code hearth.standing.factor.} and its share. */
@@ -123,6 +152,7 @@ public final class SpeechOdds {
 				add(f, "station", in.station == Station.GENTRY || in.station == Station.LORD ? 0.05 : 0);
 			}
 		}
+		skills(f, kind, in.speech, in.presence);
 		add(f, "difficulty", -in.difficulty);
 		add(f, "repeats", -0.2 * Math.max(0, in.repeats));
 		double chance = base;
