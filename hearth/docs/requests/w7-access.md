@@ -160,3 +160,13 @@ ladder against the trunk: L6 item 3), `noble/keep` (36) and `noble/palace` (18, 
   bakery (12).
 - L3: the bakery's oven top is a walkable enclosed pocket (bakery temperate flat s0, 4/3/5): an unreached "room" the
   audit counts; cap it or fill it.
+
+### To the planner lane: `RealGrowthTest.aTownKeepsItsDiggersAtAFace` is a knife edge
+
+After merging `hearth` (4b2c8ef1) the full build passes but for this test: seed 3 cuts on 21 days of 200 against the
+threshold of 24 (0.12). With the access pass off it passes; leaving out only the loft step gives 38, only the guards
+step 40, so no one step does it: any change to what the buildings cost moves the town's days about. Across seeds the
+same test gives (pass on / off) seed 1: 41 / 59, seed 2: 36 / 37, seed 4: 9 / 23 (fails either way), seed 5: 37 / 43.
+The gaps in the failing run are stretches of 40+ days with no working open at all (`........`), the planner not
+opening the next one. Please make the test robust (several seeds, or a lower bound that a building change cannot
+cross), or look at why no working is opened for weeks at a time.
