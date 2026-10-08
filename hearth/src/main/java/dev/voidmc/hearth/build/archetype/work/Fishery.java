@@ -123,9 +123,11 @@ public final class Fishery implements Archetype {
 		if (base > 0) {
 			Groundwork.approach(d, door, base, hz0 - 1);
 		}
-		// the back door to the jetty
-		hall.door(0, Dirs.BACK, in[2] - 1 > door ? in[2] - 1 : in[0] + 1, 1, false, false);
+		// the back door to the jetty, where the land behind is no higher than the floor (a hillside behind gets none)
 		int backDoor = in[2] - 1 > door ? in[2] - 1 : in[0] + 1;
+		if (hz1 + 1 >= dp || d.site().ground(backDoor, hz1 + 1) <= base) {
+			hall.door(0, Dirs.BACK, backDoor, 1, false, false);
+		}
 
 		Direction.Axis ridge = tall || d.chance(Math.max(0.5, h.roof().frontGable())) ? Direction.Axis.Z : Direction.Axis.X;
 		hall.roof(form, ridge, 2, null);

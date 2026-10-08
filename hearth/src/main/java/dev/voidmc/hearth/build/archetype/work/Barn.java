@@ -270,7 +270,15 @@ public final class Barn implements Archetype {
 		boolean troughLeft = d.chance(0.5);
 		int tz = z0 - 1;
 		// water by the doors: a stone or wooden trough against the wall
-		int tx = troughLeft ? mid - 4 : mid + 3;
+		// a shade before the doors (the dry country's ramada) keeps the trough and the rick a cell off: stood beside it,
+		// either is a step onto its roof and from there onto the roof beams' ends over the yard
+		int gap = 0;
+		for (int x = mid - 2; x <= mid + 2; x++) {
+			if (!d.isAbsent(x, y + 2, tz)) {
+				gap = 1;
+			}
+		}
+		int tx = troughLeft ? mid - 4 - gap : mid + 3 + gap;
 		if (tx >= h.x0() + 1 && tx + 1 <= h.x1() - 1) {
 			try (var s = d.stage(StageKind.EXTERIOR)) {
 				for (int k = 0; k < 2; k++) {
@@ -280,9 +288,15 @@ public final class Barn implements Archetype {
 			}
 			Spots.at(d, PoiType.JOB_SITE, tx, y, tz - 1, Dirs.BACK, JobType.HERDER);
 		}
-		int ox = troughLeft ? mid + 3 : mid - 4;
+		int ox = troughLeft ? mid + 3 + gap : mid - 4 - gap;
 		if (ox >= 1 && ox + 1 <= w - 2 && z0 >= 3) {
-			if (d.chance(0.5)) {
+			// a rick's ridge two high beside anything standing taller before the wall (door leaves folded back, a
+			// shutter) is a stair onto it; a dung heap stays low
+			boolean tall = false;
+			for (int k = 0; k < 2; k++) {
+				tall |= !d.isAbsent(ox + k, y + 2, tz) || !d.isAbsent(ox + k, y + 2, tz - 2);
+			}
+			if (tall || d.chance(0.5)) {
 				Yard.dungHeap(d, ox, y, tz, Dirs.RIGHT);
 			} else {
 				Crops.rick(d, ox, y, tz - 1, Dirs.RIGHT, 2);

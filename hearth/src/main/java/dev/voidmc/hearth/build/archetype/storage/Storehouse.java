@@ -383,7 +383,18 @@ public final class Storehouse implements Archetype {
 		if (r[0] >= 1 && r[3] - r[1] >= 3 && d.chance(0.6)) {
 			Garden.woodpile(d, r[0] - 1, 0, r[3] - 1, Dirs.FRONT, Math.min(3, r[3] - r[1] - 1));
 		} else if (r[2] <= w - 2 && r[3] - r[1] >= 3) {
-			Props.crates(d, r[2] + 1, 0, r[3] - 1, Dirs.FRONT, 2);
+			// two deep only where the strip beside the wall is wide enough to reach the back one from its side; on
+			// level ground only, with a clear cell before them to work them from (a slope leaves them over a fall)
+			int cx = r[2] + 1;
+			int cz = r[3] - 1;
+			int n = r[2] <= w - 3 ? 2 : 1;
+			boolean level = true;
+			for (int k = 0; k <= n; k++) {
+				level &= d.site().ground(cx, cz - k) == 0 && d.isAbsent(cx, 0, cz - k);
+			}
+			if (level) {
+				Props.crates(d, cx, 0, cz, Dirs.FRONT, n);
+			}
 		}
 	}
 }

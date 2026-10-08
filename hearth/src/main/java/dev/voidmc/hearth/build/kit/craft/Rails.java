@@ -207,8 +207,12 @@ public final class Rails {
 						continue;
 					}
 					if (nz < 0 || !d.allowed(nx, y, nz) || !d.allowed(nx, y - 1, nz)) {
-						d.set(x, y, z, rail);
-						n++;
+						// the rail goes on the cell itself, unless the cell is the way through (a landing at a flight's
+						// head, a one-wide walk): a fence there would cut off what lies beyond it
+						if (!through(seen, x, y, z, y0, sx, sy, sz)) {
+							d.set(x, y, z, rail);
+							n++;
+						}
 						break;
 					}
 					BlockState deck = d.get(x, y - 1, z);
@@ -220,6 +224,69 @@ public final class Rails {
 			}
 		}
 		return n;
+	}
+
+	/** Ring of the eight cells round a cell, in order (each 4-adjacent to the next). */
+	private static final int[][] RING = {{0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}};
+
+	/**
+	 * Whether filling the walked cell (x, y, z) would split the walk: its walked side neighbours (a level up or down
+	 * included) are not all joined to each other round it through walked cells.
+	 */
+	private static boolean through(boolean[] seen, int x, int y, int z, int y0, int sx, int sy, int sz) {
+		int[] lv = new int[8];
+		boolean[] on = new boolean[8];
+		for (int i = 0; i < 8; i++) {
+			for (int dy : new int[]{0, 1, -1}) {
+				if (seenAt(seen, x + RING[i][0], y + dy, z + RING[i][1], y0, sx, sy, sz)) {
+					on[i] = true;
+					lv[i] = y + dy;
+					break;
+				}
+			}
+		}
+		// the arcs of joined cells round the ring; the side neighbours walked to must all lie on one
+		int[] arc = new int[8];
+		java.util.Arrays.fill(arc, -1);
+		int arcs = 0;
+		int start = -1;
+		for (int i = 0; i < 8; i++) {
+			if (!on[i]) {
+				start = i;
+				break;
+			}
+		}
+		if (start < 0) {
+			return false;
+		}
+		for (int k = 1; k <= 8; k++) {
+			int i = (start + k) % 8;
+			if (!on[i]) {
+				continue;
+			}
+			int prev = (i + 7) % 8;
+			arc[i] = on[prev] && Math.abs(lv[prev] - lv[i]) <= 1 && arc[prev] >= 0 ? arc[prev] : arcs++;
+		}
+		int one = -1;
+		for (int i = 0; i < 8; i += 2) {
+			if (on[i]) {
+				if (one >= 0 && arc[i] != one) {
+					return true;
+				}
+				one = arc[i];
+			}
+		}
+		return false;
+	}
+
+	private static boolean seenAt(boolean[] seen, int x, int y, int z, int y0, int sx, int sy, int sz) {
+		int ix = x + 1;
+		int iz = z + 1;
+		int iy = y - y0;
+		if (ix < 0 || iz < 0 || iy < 0 || ix >= sx || iz >= sz || iy >= sy) {
+			return false;
+		}
+		return seen[(iy * sz + iz) * sx + ix];
 	}
 
 	private static void mark(boolean[] seen, java.util.ArrayDeque<int[]> q, int x, int y, int z, int y0, int sx, int sy, int sz) {

@@ -236,6 +236,8 @@ public final class Bakery implements Archetype {
 			if (len >= 1) {
 				Shop.counter(d, start, 0, cz, Dirs.RIGHT, len, Dirs.BACK, i -> i % 2 == 0 ? Blocks.CAKE.defaultBlockState() : null);
 				fp.keep(start + (len - 1) / 2, cz + 1);
+				// a counter of three or more ends in a barrel worked from behind: the cell behind it stays clear
+				fp.keep(start + len - 1, cz + 1);
 				// the corner the counter stops short of, between its end and the side wall, is nobody's: nothing is set in
 				// it or behind it (a barrel there was worked from a pocket no one could reach)
 				int end = start + len;
