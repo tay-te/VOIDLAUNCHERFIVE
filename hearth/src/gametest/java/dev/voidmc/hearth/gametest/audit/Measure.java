@@ -536,6 +536,11 @@ final class Measure {
 				if (!Spaces.passable(g.at(nx, y, nz)) || !Spaces.passable(g.at(nx, y + 1, nz))) {
 					continue;
 				}
+				// the street before the plot: the planner lays it at the plot's floor, where the audit's slope and cliff may
+				// fall away; stepping onto it from the floor's level is no fall (w7-land §3)
+				if (lf0.f().localZ(nx, nz) < 0 && y - floor <= 1) {
+					continue;
+				}
 				// how far someone stepping off here falls: passable cells below the feet until something stops them
 				int drop = 0;
 				boolean water = false;
