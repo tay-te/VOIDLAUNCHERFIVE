@@ -507,7 +507,7 @@ public final class Inn implements Archetype {
 				for (Direction dir : Dirs.HORIZONTAL) {
 					var n = d.get(x + Dirs.dx(dir), y, z + Dirs.dz(dir));
 					if (n != null && n.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock) {
-						d.remove(x + Dirs.dx(dir), y, z + Dirs.dz(dir));
+						d.air(x + Dirs.dx(dir), y, z + Dirs.dz(dir));
 					}
 				}
 			}

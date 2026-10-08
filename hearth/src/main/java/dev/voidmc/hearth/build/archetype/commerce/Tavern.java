@@ -794,10 +794,11 @@ public final class Tavern implements Archetype {
 				for (int yy = base + 1; yy <= base + 2; yy++) {
 					var s = d.get(x, yy, z);
 					if (s != null && s.getBlock() instanceof net.minecraft.world.level.block.LanternBlock) {
-						d.remove(x, yy, z);
+						// (air, not forgotten: on a hillside the cell is dug out of the ground)
+						d.air(x, yy, z);
 						// and the chain it hung from, down from the beam
 						for (int cy = yy + 1; d.get(x, cy, z) != null && d.get(x, cy, z).getBlock() instanceof net.minecraft.world.level.block.ChainBlock; cy++) {
-							d.remove(x, cy, z);
+							d.air(x, cy, z);
 						}
 					}
 				}

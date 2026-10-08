@@ -73,3 +73,12 @@ what would fix it. Our side already works round each one where it could (noted).
     one-wide straight flight under a floor is worth a look.
 17. **L1: `Porches.balcony`** (item 2) is no longer used for the inn's yard gallery: `Inn.gallery` builds it two deep with
     the rail on the outer board and only where a door reaches it. The alpine/karst front balcony still uses the kit's.
+18. **All lanes: `d.remove` on a dug-out cell brings the ground back.** On a hillside the tavern's lantern taken off
+    over the bar, the inn's rug lifted off a bedside and `Edges`' trial rails taken off again left a block of natural
+    earth in a stair's head room or before a bar (unit-test failures on steep terrain). Ours now draw air or put back
+    the cell they replaced (BUILDING_GUIDE §2 says so); other kits that `remove` inside a room dug out of a slope may
+    want the same look.
+19. **Terrain (`Groundwork.level`, fill water)** dykes every edge cell where the water stands above the level, the
+    front row too: a stall on a river bank had its customers' row walled where the street is the river. `MarketStall`
+    now puts its trestle gap on the side the row reaches; a dyke only where the cell beyond is water as high would
+    leave fronts open.

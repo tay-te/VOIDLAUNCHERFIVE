@@ -211,11 +211,21 @@ public final class Edges {
 					int nx = x + dir.getStepX();
 					int nz = z + dir.getStepZ();
 					if (d.allowed(nx, y - 1, nz) && d.allowed(nx, y, nz) && empty(d, nx, y - 1, nz) && empty(d, nx, y, nz) && empty(d, nx, y + 1, nz)
-						&& drop(d, nx, y, nz) >= DROP && !ways.contains(Draft.key(nx, y, nz))) {
+						&& drop(d, nx, y, nz) >= DROP && !ways.contains(Draft.key(nx, y, nz)) && !overTread(d, nx, y - 1, nz)) {
+						// (never a board over a stairwell's flight, nor one that cuts a way walked before)
+						int before = inPlot(d, walk(d));
+						int street = fromStreet(d);
+						Draft.Cell wasRail = d.cell(nx, y, nz);
+						Draft.Cell wasBoard = d.cell(nx, y - 1, nz);
 						Paint p = rail != null ? rail : railing(d);
 						BlockState deck = under;
 						d.inStage(StageKind.FLOORS, () -> d.set(nx, y - 1, nz, deck));
 						d.inStage(StageKind.EXTERIOR, () -> d.set(nx, y, nz, p));
+						if (fromStreet(d) < street || inPlot(d, walk(d)) < before) {
+							restore(d, nx, y, nz, wasRail);
+							restore(d, nx, y - 1, nz, wasBoard);
+							continue;
+						}
 						n++;
 						carried = true;
 					}
@@ -233,6 +243,7 @@ public final class Edges {
 		// before is walked to after): a rail never cuts the way to a room
 		if (!lastResort.isEmpty()) {
 			int count = inPlot(d, walk(d));
+			int street = fromStreet(d);
 			for (int[] e : lastResort) {
 				int x = e[0];
 				int y = e[1];
@@ -241,8 +252,9 @@ public final class Edges {
 					continue;
 				}
 				Paint p = rail != null ? rail : railFor(d, x, y, z);
+				Draft.Cell was = d.cell(x, y, z);
 				d.inStage(StageKind.EXTERIOR, () -> d.set(x, y, z, p));
-				int now = inPlot(d, walk(d));
+				int now = fromStreet(d) < street ? -1 : inPlot(d, walk(d));
 				if (trace) {
 					System.out.println("  last " + x + "/" + y + "/" + z + " count " + count + " now " + now);
 				}
@@ -250,7 +262,7 @@ public final class Edges {
 					count = now;
 					n++;
 				} else {
-					d.remove(x, y, z);
+					restore(d, x, y, z, was);
 				}
 			}
 		}
@@ -345,19 +357,34 @@ public final class Edges {
 				continue;
 			}
 			int before = inPlot(d, walk(d));
+			int street = fromStreet(d);
 			Mat floor = d.mat(Role.FLOOR);
 			Paint board = floor.has(Form.SLAB) ? floor.slab(SlabType.TOP) : floor.full();
 			Paint p = rail != null ? rail : railing(d);
+			Draft.Cell wasRail = d.cell(nx, y, nz);
+			Draft.Cell wasBoard = d.cell(nx, y - 1, nz);
 			d.inStage(StageKind.FLOORS, () -> d.set(nx, y - 1, nz, board));
 			d.inStage(StageKind.EXTERIOR, () -> d.set(nx, y, nz, p));
-			if (inPlot(d, walk(d)) < before) {
-				d.remove(nx, y, nz);
-				d.remove(nx, y - 1, nz);
+			if (fromStreet(d) < street || inPlot(d, walk(d)) < before) {
+				restore(d, nx, y, nz, wasRail);
+				restore(d, nx, y - 1, nz, wasBoard);
 			} else {
 				n++;
 			}
 		}
 		return n;
+	}
+
+	/**
+	 * Puts back what was placed at a cell before a trial rail or board (the air a stair's head room was cleared to stays
+	 * air, never the natural ground under it again).
+	 */
+	private static void restore(Draft d, int x, int y, int z, Draft.@Nullable Cell was) {
+		if (was == null) {
+			d.remove(x, y, z);
+		} else {
+			d.inStage(was.stage(), () -> d.set(x, y, z, was.state(), was.tag()));
+		}
 	}
 
 	/**
@@ -570,9 +597,6 @@ public final class Edges {
 	private static LongOpenHashSet walk(Draft d) {
 		LongOpenHashSet reached = new LongOpenHashSet();
 		LongArrayFIFOQueue q = new LongArrayFIFOQueue();
-		int w = d.frontage();
-		int dp = d.depth();
-		int top = d.maxHeight() + 2;
 		for (int[] e : d.entrances()) {
 			for (int dy = 0; dy >= -2; dy--) {
 				if (walkable(d, e[0], e[1] + dy, e[2])) {
@@ -584,6 +608,54 @@ public final class Edges {
 				}
 			}
 		}
+		return flood(d, reached, q);
+	}
+
+	/**
+	 * How many of the entrances are walked to from the street before the plot (its row z = -1, at the natural ground or
+	 * the water's surface): a rail must never cut the way in from the street.
+	 */
+	private static int fromStreet(Draft d) {
+		LongOpenHashSet reached = new LongOpenHashSet();
+		LongArrayFIFOQueue q = new LongArrayFIFOQueue();
+		for (int x = 0; x < d.frontage(); x++) {
+			int g = d.site().ground(x, -1);
+			int wy = d.site().water(x, -1);
+			if (d.site().isWater(x, -1) && wy > g && passable(d, x, wy, -1) && passable(d, x, wy + 1, -1)) {
+				// a street over water (a ford, a river front) is waded, as the audit walks it: its surface is the street
+				long k = Draft.key(x, wy, -1);
+				if (reached.add(k)) {
+					q.enqueue(k);
+				}
+				continue;
+			}
+			for (int y = g + 1; y >= g - 2; y--) {
+				if (walkable(d, x, y, -1)) {
+					long k = Draft.key(x, y, -1);
+					if (reached.add(k)) {
+						q.enqueue(k);
+					}
+					break;
+				}
+			}
+		}
+		flood(d, reached, q);
+		int n = 0;
+		for (int[] e : d.entrances()) {
+			for (int dy = 0; dy >= -2; dy--) {
+				if (reached.contains(Draft.key(e[0], e[1] + dy, e[2]))) {
+					n++;
+					break;
+				}
+			}
+		}
+		return n;
+	}
+
+	private static LongOpenHashSet flood(Draft d, LongOpenHashSet reached, LongArrayFIFOQueue q) {
+		int w = d.frontage();
+		int dp = d.depth();
+		int top = d.maxHeight() + 2;
 		while (!q.isEmpty()) {
 			long k = q.dequeueLong();
 			int x = Draft.keyX(k);
