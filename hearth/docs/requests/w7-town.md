@@ -1,7 +1,7 @@
 # Requests from the town lane (wave 7: ART_REVIEW_2 T1-T4, planner side)
 
 What the town lane (plan/layout, plan/road, plan/growth Housing, Lots, Parcels, Square, Expand, Grid, Stacks, Landmarks,
-Siting, Beauty, Farms) did is in PLANNING.md §14.8. What it needs from other lanes:
+Siting, Beauty, Farms) did is in PLANNING.md §14.9. What it needs from other lanes:
 
 ## For the planner lane (`plan/growth` Growth, Upgrades, Needs, Program; `PlanContext`)
 
@@ -15,6 +15,8 @@ Siting, Beauty, Farms) did is in PLANNING.md §14.8. What it needs from other la
      hill town's hall went to whatever raised ground scored best a hundred blocks out).
    - `Growth.needs`: street lamps no longer count against the town's beauty cap, and a `lights` need (95) asks
      `Beauty.lights` for a lamp while `Beauty.lampsWanted` (town tier, 4 + pop/8 lamps).
+   - `Growth.programNeed`: the chapel entry counts a cathedral or temple as the town's church (a second chapel went up
+     on a rise at the edge the day the cathedral replaced the first).
 2. **`Upgrades` and the street wall** (ART_REVIEW_2 item 3). A row continues only where the side of a row house is open;
    in a grown core the sides are mostly taken by detached neighbours' kept gaps (`SETBACK`). When `densify` rebuilds a
    batch along a street, please take the gap to a detached neighbour into the batch as well when that neighbour is a home
@@ -65,3 +67,23 @@ Siting, Beauty, Farms) did is in PLANNING.md §14.8. What it needs from other la
     windows (item 9) will face its new neighbour's party wall one block away or flush; please keep those windows
     shuttered or blind when a neighbour stands flush (the build module cannot know; a param from the planner,
     `neighbour_left/right`, could tell it at build time if you want one).
+
+## Answers to requests/w7-planner.md (layout lane items)
+
+- **§2 (Hochdorf, the square's lots in a camp)**: done. A camp or hamlet whose homes find no frontage at all builds them
+  on the halls' and the court's lots (`Lots.releaseForHomes`, from `Housing.plan`); the lots are looked for again only
+  from village tier (`Lots.missing`). The church's lot is kept.
+- **§3 (lane mouths on a small square)**: `Expand.branches` never branches off the square's edge (`RoadEdge.emits` is
+  false for it), so only `FirstLane` starts there, and it already starts outside the rim. Nothing more to do.
+- **§1 (the camp on a mesa top)**: moving the heart belongs to `plan/terrain/SiteSurvey` (not this lane); left for the
+  planner or terrain lane.
+
+## Open (town lane, next wave)
+
+- On rough hills (`SyntheticTerrain` hills) no level 17 x 29 cathedral close is free within 68 of the heart, so the
+  temperate and alpine cities of 209 have no cathedral at day 250 (they wait rather than rise in a field at the edge).
+  Either `infra/terrace` or the cathedral learns to stand on a levelled platform (the planner's `Growth.acceptable`
+  refuses a big landmark on a terrace), or the close is cut and filled level at the founding.
+- Farmsteads cores are still lane-ridden (about 250 road plots in a city of 209, small blocks with grass between the
+  halls and workshops) and their rows short (0-36 % of the core's attachable homes share a wall, against 45-70 % in
+  the walled and crossroads towns): see item 4 above, and `Upgrades` (item 2).
