@@ -445,9 +445,8 @@ public final class Halls {
 	 * in the foot of every light a body could walk out of, and a parapet along made ground standing over a fall
 	 * ({@link #lintels}, {@link #walkThroughLights}, {@link Grounds#edgeRails}); a step cut wherever folk would climb a
 	 * whole block ({@link Steps#cut}); the hollows under the roofs nobody can enter packed ({@link Hollows#pack}); the
-	 * roofed corners nobody furnished take
-	 * a bench or a rain butt ({@link Nooks#furnish}); then whatever a body can still walk to beside a fall is guarded
-	 * ({@link Falls#guard}).
+	 * roofed corners nobody furnished take a bench, a rain butt, a jar or a banner ({@link Nooks#furnish}); then whatever
+	 * a body can still walk to beside a fall is guarded ({@link Falls#guard}).
 	 */
 	public static void finish(Draft d) {
 		lintels(d);

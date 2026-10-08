@@ -405,16 +405,20 @@ public final class TownHall implements Archetype {
 		// (clear of a middle tower's back wall and the arch into its room)
 		int tz = centre ? Math.max(cz0 + 1, tz0 + tsz + 1) : cz0 + 1;
 		int tl = Math.max(3, Math.min(7, cz1 - tz));
+		// (never over the stairwell or the landing: the table ends a row short of where the flight comes up)
+		while (tl > 2 && !clearOfWell(d, cx, fy, tz, tz + tl, land)) {
+			tl--;
+		}
 		Furniture.longTable(d, cx, fy, tz, Dirs.BACK, tl);
 		for (int z = tz + 1; z < tz + tl - 1; z++) {
 			for (int x : new int[]{cx - 1, cx + 1}) {
-				if (d.isEmpty(x, fy, z)) {
+				if (d.isEmpty(x, fy, z) && d.isSolid(x, fy - 1, z)) {
 					Furniture.chair(d, x, fy, z, x < cx ? Dirs.LEFT : Dirs.RIGHT);
 				}
 			}
 		}
 		int headZ = tz + tl;
-		if (headZ < up[3] - 1 && d.isEmpty(cx, fy, headZ)) {
+		if (headZ < up[3] - 1 && d.isEmpty(cx, fy, headZ) && clearOfWell(d, cx, fy, headZ, headZ, land)) {
 			Furniture.chair(d, cx, fy, headZ, Dirs.BACK);
 		}
 		d.poi(PoiType.MEETING_POINT, cx - 1 >= up[0] + 1 && d.isEmpty(cx - 2, fy, tz) ? cx - 2 : cx, fy, tz, Dirs.RIGHT);
@@ -813,6 +817,17 @@ public final class TownHall implements Archetype {
 			int ax = x0 + size / 2;
 			int az = z0 + size - 1;
 			d.clearBox(ax, fy, az, ax, fy + 2, az);
+			// (a threshold under the arch, level with both floors)
+			d.inStage(StageKind.FLOORS, () -> d.set(ax, fy - 1, az, d.mat(Role.FLOOR).full()));
+			// a second arch through the tower's inner side wall, so the room is not shut off when the council's table and
+			// the stairwell's rail close the corner of the chamber behind the first
+			int sx = x0 + size - 1 < d.frontage() / 2 + 1 && x0 < d.frontage() / 2 ? x0 + size - 1 : x0;
+			int ox = sx == x0 ? -1 : 1;
+			int sz = z0 + size / 2;
+			if (d.isEmpty(sx + ox, fy, sz) && d.isEmpty(sx + ox, fy + 1, sz) && d.isSolid(sx + ox, fy - 1, sz)) {
+				d.clearBox(sx, fy, sz, sx, fy + 2, sz);
+				d.inStage(StageKind.FLOORS, () -> d.set(sx, fy - 1, sz, d.mat(Role.FLOOR).full()));
+			}
 			int lx = x0 + size - 2;
 			int lz = z0 + 1;
 			Halls.landings(d, x0 + 1, z0 + 1, x0 + size - 2, z0 + size - 2, fy - 1, yb - 1, lx, lz, d.mat(Role.FLOOR).full());
@@ -831,5 +846,23 @@ public final class TownHall implements Archetype {
 			top = Towers.cap(d, x0 + 1, z0 + 1, size - 2, top + 1, Towers.Cap.PAGODA, maxH);
 		}
 		return top;
+	}
+
+	/**
+	 * Whether the cells of column x from row z0 to z1 (and the columns either side) on the chamber floor fy stand on whole
+	 * floor (not over the stairwell, nor its top step) and clear of the landing {@code land} by a cell.
+	 */
+	private static boolean clearOfWell(Draft d, int x, int fy, int z0, int z1, int[] land) {
+		for (int z = z0; z <= z1; z++) {
+			for (int xx = x - 1; xx <= x + 1; xx++) {
+				if (!d.isSolid(xx, fy - 1, z)) {
+					return false;
+				}
+			}
+			if (land != null && Math.abs(x - land[0]) <= 1 && Math.abs(z - land[1]) <= 1) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

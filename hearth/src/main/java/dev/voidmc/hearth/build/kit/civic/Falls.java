@@ -67,12 +67,86 @@ public final class Falls {
 			}
 			boolean changed = false;
 			for (int[] e : edges) {
-				changed |= fix(d, wk, e, rail);
+				// (a guard that shuts anyone out of a door, a bed or a place of work is taken back: the way matters more)
+				java.util.Map<Long, Draft.Cell> before = snapshot(d, e);
+				if (!fix(d, wk, e, rail)) {
+					continue;
+				}
+				Walk after = walk(d);
+				if (cutsOff(d, wk, after)) {
+					restore(d, before);
+				} else {
+					changed = true;
+					wk = after;
+				}
 			}
 			if (!changed) {
 				return;
 			}
 		}
+	}
+
+	/** The cells round an edge a fix may touch (its feet, the open side, a post down to the ground), as they stand. */
+	private static java.util.Map<Long, Draft.Cell> snapshot(Draft d, int[] e) {
+		java.util.Map<Long, Draft.Cell> m = new java.util.HashMap<>();
+		for (int x = Math.min(e[0], e[3]) - 1; x <= Math.max(e[0], e[3]) + 1; x++) {
+			for (int z = Math.min(e[2], e[4]) - 1; z <= Math.max(e[2], e[4]) + 1; z++) {
+				for (int y = e[1] - 14; y <= e[1] + 2; y++) {
+					m.put(BlockPos.asLong(x, y, z), d.cell(x, y, z));
+				}
+			}
+		}
+		return m;
+	}
+
+	/** Puts the cells of a snapshot back as they stood. */
+	private static void restore(Draft d, java.util.Map<Long, Draft.Cell> m) {
+		for (var en : m.entrySet()) {
+			int x = BlockPos.getX(en.getKey());
+			int y = BlockPos.getY(en.getKey());
+			int z = BlockPos.getZ(en.getKey());
+			Draft.Cell c = en.getValue();
+			Draft.Cell now = d.cell(x, y, z);
+			if (c == null) {
+				if (now != null) {
+					d.remove(x, y, z);
+				}
+			} else if (now == null || now.state() != c.state()) {
+				d.inStage(c.stage(), () -> d.set(x, y, z, c.state(), c.tag()));
+			}
+		}
+	}
+
+	/** Whether a way in, or a point of interest someone walked to before, is no longer walked to. */
+	private static boolean cutsOff(Draft d, Walk before, Walk after) {
+		for (int[] en : d.entrances()) {
+			if (reachedNear(before, en[0], en[1], en[2], -2, 1) && !reachedNear(after, en[0], en[1], en[2], -2, 1)) {
+				return true;
+			}
+		}
+		for (Draft.LocalPoi p : d.pois()) {
+			boolean was = false;
+			boolean is = false;
+			for (Direction dir : Dirs.HORIZONTAL) {
+				was |= reachedNear(before, p.x() + Dirs.dx(dir), p.y(), p.z() + Dirs.dz(dir), -1, 1);
+				is |= reachedNear(after, p.x() + Dirs.dx(dir), p.y(), p.z() + Dirs.dz(dir), -1, 1);
+			}
+			was |= reachedNear(before, p.x(), p.y(), p.z(), -1, 1);
+			is |= reachedNear(after, p.x(), p.y(), p.z(), -1, 1);
+			if (was && !is) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean reachedNear(Walk wk, int x, int y, int z, int dy0, int dy1) {
+		for (int dy = dy0; dy <= dy1; dy++) {
+			if (wk.sp().reached(x, y + dy, z)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** The walk over the drawing: its grid and who reaches where. */
@@ -236,7 +310,7 @@ public final class Falls {
 		// a wall's head, a coping or a roof: a rail on it, so nobody stands there (never before a door)
 		if (under != null && (under.stage() == StageKind.ROOF || under.stage() == StageKind.WALLS || under.stage() == StageKind.FRAME)
 			&& !nearDoor(d, x, y, z)) {
-			if (d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && d.allowed(x, y, z)) {
+			if (d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && d.allowed(x, y, z) && !poi(d, x, y, z)) {
 				d.inStage(StageKind.EXTERIOR, () -> d.set(x, y, z, rail));
 				return true;
 			}
@@ -252,8 +326,9 @@ public final class Falls {
 		if (inPlot) {
 			return railAt(d, wk, nx, y, nz, rail);
 		}
-		// at the plot's edge, over the land beyond: a rail on the cell itself where it is no way in (a corner of the yard)
-		if (!nearDoor(d, x, y, z) && !(u != null && (u.getBlock() instanceof StairBlock || u.getBlock() instanceof SlabBlock)) && !nearEntrance(d, x, z)
+		// at the plot's edge, over the land beyond: a rail on the cell itself (a corner of the yard; taken back by the caller
+		// where it is the way in)
+		if (!nearDoor(d, x, y, z) && !(u != null && (u.getBlock() instanceof StairBlock || u.getBlock() instanceof SlabBlock)) && !poi(d, x, y, z)
 			&& d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && d.allowed(x, y, z)) {
 			d.inStage(StageKind.EXTERIOR, () -> d.set(x, y, z, rail));
 			return true;
@@ -263,7 +338,7 @@ public final class Falls {
 
 	/** A rail at (x, y, z) over the drop, footed on a post down to the ground where the column under it is clear. */
 	private static boolean railAt(Draft d, Walk wk, int x, int y, int z, Paint rail) {
-		if (!d.isEmpty(x, y, z) || !d.allowed(x, y, z)) {
+		if (!d.isEmpty(x, y, z) || !d.allowed(x, y, z) || poi(d, x, y, z)) {
 			return false;
 		}
 		Grid g = wk.g();
@@ -282,10 +357,17 @@ public final class Falls {
 		}
 		// (only outdoors: a post through a stairwell would stand in the flight's way)
 		boolean outdoors = foot != Integer.MIN_VALUE && !roofedAbove(d, x, y, z);
+		// (no post down through a place where someone stands to use something)
+		for (int yy = foot; outdoors && yy < y; yy++) {
+			if (poi(d, x, yy, z)) {
+				outdoors = false;
+			}
+		}
 		int f = foot;
+		boolean posted = outdoors;
 		d.inStage(StageKind.EXTERIOR, () -> {
 			d.set(x, y, z, rail);
-			if (outdoors) {
+			if (posted) {
 				for (int yy = f; yy < y; yy++) {
 					if (d.isEmpty(x, yy, z)) {
 						d.set(x, yy, z, rail);
@@ -353,10 +435,10 @@ public final class Falls {
 		return false;
 	}
 
-	/** A registered way in within a column of (x, z). */
-	private static boolean nearEntrance(Draft d, int x, int z) {
-		for (int[] en : d.entrances()) {
-			if (Math.abs(en[0] - x) <= 1 && Math.abs(en[2] - z) <= 1) {
+	/** A point of interest at the cell or the one over or under it (where someone stands to use something). */
+	private static boolean poi(Draft d, int x, int y, int z) {
+		for (Draft.LocalPoi p : d.pois()) {
+			if (p.x() == x && p.z() == z && Math.abs(p.y() - y) <= 1) {
 				return true;
 			}
 		}

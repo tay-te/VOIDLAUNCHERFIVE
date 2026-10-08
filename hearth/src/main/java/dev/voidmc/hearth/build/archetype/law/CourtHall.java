@@ -185,7 +185,10 @@ final class CourtHall {
 			&& d.isEmpty(px, 1, 2)) {
 			dev.voidmc.hearth.build.kit.lawhouse.Justice.column(d, px, 0, 1, Dirs.FRONT);
 		}
-		noticeBoard(d, cx, 1, cx - run - 3, cx + run + 1);
+		if (!noticeBoard(d, cx, 1, cx - run - 3, cx + run + 1)) {
+			// (the forecourt taken by the steps and the pillory: anywhere before the hall clear of the flights)
+			noticeBoard(d, cx, Math.max(1, z0 - 1), cx - run, cx + run);
+		}
 		Halls.lamp(d, 0, 0, 0, 2);
 		Halls.lamp(d, w - 1, 0, 0, 2);
 		if (h.snow()) {
@@ -474,6 +477,14 @@ final class CourtHall {
 					Signs.noticeBoard(d, nx, Groundwork.surface(d, nx, zz), zz, Dirs.FRONT);
 					return true;
 				}
+			}
+		}
+		// (a forecourt all perron: the board on the front row by the street, toward an end)
+		for (int k = 0; k < w; k++) {
+			int nx = k % 2 == 0 ? 1 + k / 2 : w - 2 - k / 2;
+			if (nx >= 1 && nx < w - 1 && (nx < avoid0 || nx > avoid1) && boardFits(d, nx, 0)) {
+				Signs.noticeBoard(d, nx, Groundwork.surface(d, nx, 0), 0, Dirs.FRONT);
+				return true;
 			}
 		}
 		return false;

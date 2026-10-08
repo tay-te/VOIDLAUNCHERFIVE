@@ -253,9 +253,22 @@ public final class Gallows implements Archetype {
 		d.entrance(cx, 0, -1);
 		d.poi(PoiType.MEETING_POINT, cx, 0, -1, Dirs.BACK);
 		int sky = top + 1;
+		int lamps = 0;
 		for (int lx : new int[]{0, w - 1}) {
 			if (d.isEmpty(lx, 0, 0) && d.isEmpty(lx, 1, 0) && Groundwork.surface(d, lx, 0) == 0) {
 				sky = Math.max(sky, Lamps.standard(d, lx, 0, 0, 4, Manner.lamp(d), null));
+				lamps++;
+			}
+		}
+		// (the corners off level on a slope: a lamp beside the way up instead, where its foot stands on the ground)
+		for (int lx : new int[]{cx - 2, cx + 2, cx - 3, cx + 3}) {
+			if (lamps > 0 || lx < 0 || lx >= w) {
+				continue;
+			}
+			int g = Groundwork.surface(d, lx, 0);
+			if (Math.abs(g) <= 1 && d.isEmpty(lx, g, 0) && d.isEmpty(lx, g + 1, 0)) {
+				sky = Math.max(sky, Lamps.standard(d, lx, g, 0, 4, Manner.lamp(d), null));
+				lamps++;
 			}
 		}
 		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);

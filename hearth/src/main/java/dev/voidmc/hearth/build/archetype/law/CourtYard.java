@@ -43,7 +43,8 @@ final class CourtYard {
 
 	/**
 	 * A pueblo gateway in wall s at column cx: three wide and three high from the ground, a lintel of the beam's logs over
-	 * it with their ends run through the wall either side, the wall above it carried up as it was (up to {@code top}).
+	 * it with their ends run through the wall either side, the wall above it carried up as it was (up to {@code top});
+	 * registered as a way in (an entrance and its DOOR) before it.
 	 */
 	static void gateway(Draft d, Side s, int cx, int top) {
 		int i = s.index(cx);
@@ -65,6 +66,11 @@ final class CourtYard {
 				}
 			}
 		}
+		// the way in: an open gateway is the building's door
+		int ex = s.outX(i, 1);
+		int ez = s.outZ(i, 1);
+		d.entrance(ex, 0, ez);
+		d.poi(dev.voidmc.hearth.api.PoiType.DOOR, ex, 0, ez, s.out().getOpposite());
 	}
 
 	static void draw(Draft d) {

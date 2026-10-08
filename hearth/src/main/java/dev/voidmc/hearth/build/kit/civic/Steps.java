@@ -72,7 +72,9 @@ public final class Steps {
 						int fy = y;
 						int fx = x;
 						int fz = z;
-						if (inPlot && d.isEmpty(ax, y - 1, az) && d.isEmpty(ax, y, az) && Spaces.passable(g.at(ax, y + 1, az)) && d.allowed(ax, y - 1, az)) {
+						// (never in the plot's edge rows: a step there stands over the land beyond)
+						boolean edgeRow = ax == 0 || az == 0 || ax == d.frontage() - 1 || az == d.depth() - 1;
+						if (inPlot && !edgeRow && d.isEmpty(ax, y - 1, az) && d.isEmpty(ax, y, az) && Spaces.passable(g.at(ax, y + 1, az)) && d.allowed(ax, y - 1, az)) {
 							// a stair in the low cell, climbing to the high one
 							d.inStage(roofed ? StageKind.FLOORS : StageKind.EXTERIOR, () -> d.set(ax, fy - 1, az, step));
 						} else if (!inPlot && !((x == 0 || x == d.frontage() - 1) && (z == 0 || z == d.depth() - 1)) && d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && sp.reached(x + Dirs.dx(dir), y, z + Dirs.dz(dir))

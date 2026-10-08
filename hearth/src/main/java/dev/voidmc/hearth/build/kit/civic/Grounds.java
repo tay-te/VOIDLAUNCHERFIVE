@@ -159,8 +159,9 @@ public final class Grounds {
 					if (x != 0 && x != w - 1 && z != dp - 1 && z != 0) {
 						continue;
 					}
-					// the front row only away from the ways in (the approach's steps come down there)
-					if (z == 0 && x != 0 && x != w - 1 && nearEntrance(d, x)) {
+					// the front row only away from the ways in (the approach's steps come down there), and never on a way in
+					// at the sides or the back
+					if (z == 0 && x != 0 && x != w - 1 && nearEntrance(d, x) || besideEntrance(d, x, z)) {
 						continue;
 					}
 					// where one stands there: the first free cell over something solid, from the made ground up
@@ -183,12 +184,33 @@ public final class Grounds {
 							low = Math.min(low, d.site().ground(o[0], o[1]));
 						}
 					}
-					if (low != Integer.MAX_VALUE && g - low >= 4) {
+					// (nor on the paving of a way: the approach runs along the front row to the street)
+					Draft.Cell walked = d.cell(x, g - 1, z);
+					boolean way = z == 0 && walked != null && walked.stage() == dev.voidmc.hearth.api.StageKind.EXTERIOR;
+					// (and only where the walk along the edge goes on beside the rail: an edge strip one wide between the
+					// building and the fall is a way, kept)
+					int ix = x == 0 ? 1 : x == w - 1 ? w - 2 : x;
+					int iz = z == 0 ? 1 : z == dp - 1 ? dp - 2 : z;
+					boolean along = d.isEmpty(ix, g, iz) && d.isEmpty(ix, g + 1, iz) && (d.isSolid(ix, g - 1, iz) || d.isAbsent(ix, g - 1, iz) && g - 1 < d.site().ground(ix, iz));
+					if (low != Integer.MAX_VALUE && g - low >= 4 && !way && along) {
 						d.set(x, g, z, rail);
 					}
 				}
 			}
 		}
+	}
+
+	/**
+	 * A registered entrance within a cell of (x, z), the row before the plot's edge included; or, in the front row, one on
+	 * the street within four columns (its way in runs along the front row there, corners and all).
+	 */
+	private static boolean besideEntrance(Draft d, int x, int z) {
+		for (int[] e : d.entrances()) {
+			if (Math.abs(e[0] - x) <= 1 && Math.abs(e[2] - z) <= 1 || z == 0 && e[2] <= 0 && Math.abs(e[0] - x) <= 4) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

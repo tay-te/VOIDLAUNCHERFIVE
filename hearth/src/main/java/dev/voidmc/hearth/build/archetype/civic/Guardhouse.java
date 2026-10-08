@@ -117,7 +117,12 @@ public final class Guardhouse implements Archetype {
 		if (dev.voidmc.hearth.build.kit.civic.Pueblo.is(d)) {
 			dev.voidmc.hearth.build.kit.civic.Pueblo.portal(d, x0, x1, z0, base, Math.min(2, z0));
 		}
-		d.poi(PoiType.GUARD_POST, door + (door > x0 + 1 ? -1 : 1), base, z0 - 1, Dirs.FRONT);
+		// (the guard stands by the door; on stilts, inside it, not on the landing's edge over the drop)
+		if (raised) {
+			d.poi(PoiType.GUARD_POST, door, base, z0 + 1, Dirs.FRONT);
+		} else {
+			d.poi(PoiType.GUARD_POST, door + (door > x0 + 1 ? -1 : 1), base, z0 - 1, Dirs.FRONT);
+		}
 		Signs.Arms arms = Signs.arms(d);
 		if (Openings.isWallBlock(d, door, fy + 1, body.rect(1)[1]) && body.rect(1)[1] - 1 >= -1) {
 			int bz = body.rect(1)[1] - 1;

@@ -230,10 +230,12 @@ public final class TiltYard implements Archetype {
 		// (inside the fence, a block off it)
 		int px = w - 4;
 		Tent kind = Tent.of(d);
+		int tents = 0;
 		for (int[] tz : new int[][]{{z0 + 2, 0}, {z1 - 2, 1}}) {
 			if (!fits(d, px - 2, tz[0] - 3, px + 2, tz[0] + 3, base)) {
 				continue;
 			}
+			tents++;
 			tent(d, kind, px, base, tz[0], colours[0], colours[tz[1]], maxH);
 			// the horses' trough and the squire's grindstone by the tent's door
 			int wx = px - 3;
@@ -246,6 +248,10 @@ public final class TiltYard implements Archetype {
 			if (Venue.standable(d, wx, base, gz)) {
 				d.inStage(StageKind.EXTERIOR, () -> d.set(wx, base, gz, States.facing(Blocks.GRINDSTONE, Dirs.LEFT)));
 			}
+		}
+		// no ground level enough for a tent: the arms chest and a barrel stand in the open on the tents' side, by the lists
+		if (tents == 0) {
+			armsChest(d, px, base, z0, z1);
 		}
 		// the common folk's low stand along the far side, between the tents, facing the tilt
 		for (int z = z0 + 7; z <= z1 - 7; z++) {
@@ -343,6 +349,26 @@ public final class TiltYard implements Archetype {
 				case ADOBE -> dev.voidmc.hearth.build.kit.civic.Pueblo.is(d) ? RAMADA : SHADE;
 				default -> RIDGE;
 			};
+		}
+	}
+
+	/**
+	 * The arms chest where no tent could be pitched: on the first standable cell of the tents' side (column {@code px} and
+	 * its neighbours, from the near end) with a standable cell before it toward the lists, a barrel beside it.
+	 */
+	private static void armsChest(Draft d, int px, int y, int z0, int z1) {
+		for (int z = z0; z <= z1; z++) {
+			for (int x : new int[]{px, px + 1, px - 1, px + 2}) {
+				if (x - 1 < 0 || x >= d.frontage() || !Venue.standable(d, x, y, z) || !Venue.standable(d, x - 1, y, z)) {
+					continue;
+				}
+				Furniture.chest(d, x, y, z, Dirs.LEFT, List.of(new Object[]{"minecraft:iron_sword", 1}, new Object[]{"minecraft:shield", 1},
+					new Object[]{"minecraft:stick", 4}));
+				if (z + 1 <= z1 && Venue.standable(d, x, y, z + 1)) {
+					Furniture.barrel(d, x, y, z + 1, Dirs.LEFT);
+				}
+				return;
+			}
 		}
 	}
 
