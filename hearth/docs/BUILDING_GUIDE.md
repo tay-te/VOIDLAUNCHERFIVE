@@ -237,9 +237,11 @@ parapet, spouts and vigas; `Roofs.terrace(d, outer, inner, deckY)` the roof of a
 one. `Chimneys.stack(d, x, z, fromY, roof, minTop)` runs a chimney up through the roof to a smoking pot:
 `Chimneys.pot(d, x, y, z, stone)` puts the lit campfire in a crown of corbels (upside-down stairs of the stack's stone,
 backs to the fire) under a slab cap, so the roof smokes and shows no flame or light (a bare campfire on a stack reads as
-a roof on fire). A family that draws its own stack may end it with a bare lit campfire in stage `ROOF`: the compiler
-crowns and caps every such fire (`Chimneys.crownBareFires`); a brazier or a fire meant to be seen goes in another
-stage. Thatched styles (`habits.roof.thatch`) get their roof and ridge from the `thatch` role automatically.
+a roof on fire). A family that draws its own stack (a house, a kiln, a furnace's stack on its straw) may end it with a
+bare lit campfire: the compiler crowns and caps every lit campfire on a full block three or more over the ground with
+open air over it, in any stage (`Chimneys.crownBareFires`), and where the stack meets the plot's height it sinks the
+fire a course and caps it where it stood. A fire meant to be seen stands low or on a wall (a brazier); `SiteWorksTest`
+fails on any flame left open on a stack. Thatched styles (`habits.roof.thatch`) get their roof and ridge from the `thatch` role automatically.
 
 ### Porches, stairs, floors
 
