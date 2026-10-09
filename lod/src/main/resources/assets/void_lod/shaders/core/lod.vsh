@@ -15,12 +15,16 @@
 // with ambient occlusion (tops) or height above the floor (walls) in its alpha, and carry what they are made of in
 // the second: a 16-bit material id, low byte in red (0: untextured). Smooth vertices carry the colour of the tops
 // and of the risers, with the slope along x and z in the two alphas.
-// Far blocky tiles (LOD_COMPACT) have no vertices: one record per quad (TileBuilder.RECORD_BYTES), read for each
-// corner by the vertex's index. Its lowest corner (x, z, face and water, y in whole blocks); its size along the face,
-// the rotation of its corners and each top corner's occlusion level, the block light; the colour along its top and
-// along its foot in 5 bits a channel; the horizons in 4 bits each and the sky's occlusion in 5. They are untextured.
+// Far blocky tiles (LOD_COMPACT) have no vertices: one record per quad (TileBuilder.RECORD_BYTES), two to a texel,
+// read for each corner by the vertex's index. Its style (an index into the tile's palette), its lowest corner's x and
+// z, its face; its y in whole blocks above the tile's lowest, and its size along the face: a wall's width and height,
+// a top's or an underside's width, depth and one shade of occlusion, or a single cell's occlusion corner by corner and
+// the rotation of its corners. The style, an entry of the palette that follows the tile's records: the colour along
+// its top and along its foot in 5 bits a channel, the block light; the horizons in 4 bits each, the sky's occlusion in
+// 5, the season code and the water flag. They are untextured.
 // Per tile (one instance each): its corner in blocks, its level, and its cross-fade (Fades: 0 solid, +n fading in,
-// -n fading out, in 255ths).
+// -n fading out, in 255ths); for a far blocky tile the level, the fade and its lowest y share the third word (5, 9 and
+// 18 bits), and the fourth is where its palette starts, in records.
 #ifdef LOD_COMPACT
 layout(location = 1) in ivec4 LodTile;
 uniform usamplerBuffer LodQuads;
@@ -111,31 +115,49 @@ void main() {
     vec4 top;
     vec4 side;
     float horizonEast, horizonWest, skyHidden, blockLight;
+    int tileLevel, tileFadeCode;
 #ifdef LOD_COMPACT
-    uvec4 quad = texelFetch(LodQuads, gl_VertexIndex >> 2);
+    tileLevel = LodTile.z & 31;
+    tileFadeCode = (LodTile.z << 18) >> 23;
+    int q = gl_VertexIndex >> 2;
+    uvec4 pair = texelFetch(LodQuads, q >> 1);
+    uvec2 quad = (q & 1) == 0 ? pair.xy : pair.zw;
     uint w0 = quad.x, w1 = quad.y;
-    int f = int((w0 >> 14) & 7u);
-    int c = ((gl_VertexIndex & 3) + int((w1 >> 20) & 3u)) & 3;
+    int s = LodTile.w + int(w0 & 131071u);
+    uvec4 stylePair = texelFetch(LodQuads, s >> 1);
+    uvec2 style = (s & 1) == 0 ? stylePair.xy : stylePair.zw;
+    int f = int(w0 >> 29);
+    // a top or an underside
+    bool lying = f == 0 || f == 6;
+    // a single cell shaded corner by corner, in its own rotation; else one shade all over, either diagonal alike
+    bool corners = lying && (w1 >> 31) != 0u;
+    int c = ((gl_VertexIndex & 3) + (corners ? int((w1 >> 21) & 3u) : 0)) & 3;
     int uv = CORNERS[f * 4 + c];
-    int du = (uv & 1) * int(w1 & 127u), dv = (uv >> 1) * int((w1 >> 7) & 8191u);
-    ivec3 at = ivec3(int(w0 & 127u), int(w0) >> 18, int((w0 >> 7) & 127u));
-    at += f == 0 || f == 6 ? ivec3(du, 0, dv) : f >= 4 ? ivec3(0, dv, du) : ivec3(du, dv, 0);
-    vpos = ivec4(at.x, at.y * 8, at.z, int((w0 >> 14) & 15u));
+    int du = corners ? 1 : int((w1 >> 13) & 63u) + 1;
+    int dv = corners ? 1 : lying ? int((w1 >> 19) & 63u) + 1 : int(w1 >> 19);
+    du *= uv & 1;
+    dv *= uv >> 1;
+    // a wall on the far edge of its cells (south, east) stands one past them
+    ivec3 at = ivec3(int((w0 >> 17) & 63u) + (f == 5 ? 1 : 0), (LodTile.z >> 14) + int(w1 & 8191u), int((w0 >> 23) & 63u) + (f == 3 ? 1 : 0));
+    at += lying ? ivec3(du, 0, dv) : f >= 4 ? ivec3(0, dv, du) : ivec3(du, dv, 0);
+    vpos = ivec4(at.x, at.y * 8, at.z, f | int((style.y >> 17) & 8u));
     // a top's alpha is its corner occlusion, one of vanilla's four shades; a wall's floor shading is under a pixel;
     // a wall's colour runs from its top's down to its foot's
     const float AO[4] = float[4](1.0, 0.8, 0.62, 0.48);
-    uint rgb = (uv >> 1) != 0 || f == 0 || f == 6 ? quad.z & 32767u : (quad.z >> 15) & 32767u;
+    uint rgb = (uv >> 1) != 0 || lying ? style.x & 32767u : (style.x >> 15) & 32767u;
     top = vec4(vec3(float(rgb & 31u), float((rgb >> 5) & 31u), float((rgb >> 10) & 31u)) / 31.0,
-        f == 0 ? AO[(w1 >> (22 + 2 * c)) & 3u] : 1.0);
+        f == 0 ? AO[corners ? (w1 >> (13 + 2 * c)) & 3u : (w1 >> 25) & 3u] : 1.0);
     side = vec4(0.0);
     // 4 or 5 bits of what was 8: the middle of each step, and none for none
-    uint e = quad.w & 15u, w = (quad.w >> 4) & 15u, b = w1 >> 30, o = (quad.w >> 8) & 31u;
-    top.rgb = season(top.rgb, int((quad.w >> 13) & 127u));
+    uint e = style.y & 15u, w = (style.y >> 4) & 15u, b = style.x >> 30, o = (style.y >> 8) & 31u;
+    top.rgb = season(top.rgb, int((style.y >> 13) & 127u));
     horizonEast = e == 0u ? 0.0 : float(e * 16u + 8u) * (1.5707963 / 255.0);
     horizonWest = w == 0u ? 0.0 : float(w * 16u + 8u) * (1.5707963 / 255.0);
     skyHidden = o == 0u ? 0.0 : float(o * 8u + 4u) / 255.0;
     blockLight = float(b) * 5.0;
 #else
+    tileLevel = LodTile.z;
+    tileFadeCode = LodTile.w;
     vpos = ivec4(LodPos.x & 255, LodPos.y, LodPos.z & 255, LodPos.w & 255);
     top = LodTop;
     side = LodSide;
@@ -151,7 +173,7 @@ void main() {
 #endif
 
     // Integer arithmetic until the camera is subtracted, so the far edge of the world keeps its precision.
-    int cell = 1 << LodTile.z;
+    int cell = 1 << tileLevel;
     float worldY = float(vpos.y) * 0.125;
     ivec2 rel = ivec2(LodTile.x + vpos.x * cell, LodTile.y + vpos.z * cell) - CameraBlockPos.xz;
     vec3 pos = vec3(float(rel.x), worldY - float(CameraBlockPos.y), float(rel.y)) + CameraOffset;
@@ -239,7 +261,7 @@ void main() {
     }
     vertexColor = vec4(color, fog);
     horizontal = pos.xz;
-    tileFade = float(LodTile.w) / 255.0;
+    tileFade = float(tileFadeCode) / 255.0;
     float cameraY = float(CameraBlockPos.y) - CameraOffset.y;
     beyondChunks = LodClip.z > 0.0 && abs(floor(worldY / 16.0) - floor(cameraY / 16.0)) > LodClip.z ? 1.0 : 0.0;
 }

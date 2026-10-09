@@ -115,8 +115,9 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private static final int COMMAND_BYTES = 20;
 
 	/**
-	 * The far blocky tiles' quads, one record of four words each ({@link TileBuilder#RECORD_BYTES}): the shader reads
-	 * its quad's record for each corner, by the vertex's index, so they have no vertex attributes of their own.
+	 * The far blocky tiles' quads, one record of two words each ({@link TileBuilder#RECORD_BYTES}), two to a texel, and
+	 * after each tile's records its palette: the shader reads its quad's record for each corner, by the vertex's index,
+	 * and the style the record picks, so they have no vertex attributes of their own.
 	 */
 	public static final BindGroupLayout LOD_QUADS = BindGroupLayout.builder()
 		.withUniform("LodQuads", UniformType.TEXEL_BUFFER, GpuFormat.RGBA32_UINT)
@@ -573,10 +574,16 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			Group group = this.group(heap, kind(tile), this.inViewClipped[c]);
 			int instance = this.lastTiles++;
 			this.ensureInstances(instance + 1);
-			this.instances.putInt(TileKey.minX(tile.key)).putInt(TileKey.minZ(tile.key)).putInt(level).putInt(this.inViewFade[c]);
-			// a compact quad's four corners all read its record, at the vertex's index over four
+				// a compact quad's four corners all read its record, at the vertex's index over four
 			int stride = tile.compact ? TileBuilder.COMPACT_BYTES : TileBuilder.VERTEX_BYTES;
 			int baseVertex = (int) (alloc.getOffsetFromHeap() / stride);
+			this.instances.putInt(TileKey.minX(tile.key)).putInt(TileKey.minZ(tile.key));
+			if (tile.compact) {
+				// the level, the fade and the lowest its records stand on in one word; where its palette starts, in records
+				this.instances.putInt(level | (this.inViewFade[c] & 511) << 5 | tile.minY << 14).putInt(baseVertex / 4 + tile.quads);
+			} else {
+				this.instances.putInt(level).putInt(this.inViewFade[c]);
+			}
 			int[] faces = tile.groups;
 			if (faces == null) {
 				group.add(tile.indices, tile.firstIndex, baseVertex, instance);

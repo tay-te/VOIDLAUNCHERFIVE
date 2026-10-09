@@ -201,13 +201,12 @@ class TileBuilderTest {
 			nearLights.add(v.getShort(i * TileBuilder.VERTEX_BYTES + 6) >> 8 & 7);
 		}
 		assertEquals(java.util.Set.of(0, 7), nearLights, "dark, and lit (14 and 15 both round to 7)");
-		// far: 2 bits of the second word
+		// far: the top 2 bits of the style's first word
 		TileBuilder.Mesh far = builder().build(town, TileKey.of(TileBuilder.COMPACT_FROM, 0, 0));
 		assertTrue(far.compact());
 		java.util.Set<Integer> farLights = new java.util.TreeSet<>();
-		v = vertices(far);
 		for (int q = 0; q < far.vertexCount() / 4; q++) {
-			farLights.add(v.getInt(q * TileBuilder.RECORD_BYTES + 4) >>> 30);
+			farLights.add((int) TileBuilder.style(far, q) >>> 30);
 		}
 		assertEquals(java.util.Set.of(0, 3), farLights);
 		// through a pack: Distant Horizons' block light nibble
@@ -657,5 +656,113 @@ class TileBuilderTest {
 		long[] a = {p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
 		long[] b = {p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]};
 		return new long[]{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+	}
+
+	/**
+	 * Rough land of every kind a far tile meets: hills, a cliff two kilometres tall, lakes, lit towns, forests whose
+	 * flanks run down into their shade, colours that drift from block to block.
+	 */
+	private static final TerrainSource ROUGH = (x, z, cell, out) -> {
+		int h = Math.floorMod(x * 7919 + z * 104729, 97);
+		out.ground = (x < 96 ? -1400 : 600) + (float) (40 * Math.sin(x / 37.0) * Math.cos(z / 23.0)) + h % 5;
+		out.top = 0x204010 + (h << 16) + (h * 3 % 200 << 8);
+		out.side = 0x7F6B42 ^ h;
+		out.soil = 0x5A4030 + (h % 7 << 8);
+		out.soilDepth = 1 + h % 4;
+		out.rock = 0x808080 - (h % 11) * 0x030303;
+		out.light = (x / 16 + z / 32) % 16;
+		out.biome = h % 3;
+		out.topMaterial = 1 + h % 2;
+		if (h % 13 == 0) {
+			out.water = (int) out.ground + 3;
+			out.waterColor = 0x2050C0;
+		} else if (z > 160) {
+			out.canopy = 6 + h % 9;
+			out.cover = 0.8F;
+			out.crown = h / 97.0F;
+			out.leaves = 0x305828 + h;
+			out.leavesTop = out.leaves;
+			out.conifer = h % 2;
+			out.leavesMaterial = 3;
+		}
+	};
+
+	@Test
+	void everyFarQuadComesBackFromItsRecordAndStyle() {
+		dev.voidmc.lod.api.LodApi.setSeasons((kind, biome, material, conifer) -> 1 + kind * 3 + biome);
+		List<String> traced = new ArrayList<>();
+		TileBuilder.recordTrace = r -> {
+			int[][] corners = new int[4][];
+			for (int k = 0; k < 4; k++) {
+				corners[k] = new int[] {r[k * 5], r[k * 5 + 1], r[k * 5 + 2], r[k * 5 + 3], r[k * 5 + 4]};
+			}
+			traced.add(quad(corners, r[20], r[21], r[22], r[23], r[24], r[25]));
+		};
+		long styles = 0, quads = 0;
+		try {
+			for (TerrainSource source : List.of(ROUGH, island(128, 128, 90), flat(-60))) {
+				for (int level = TileBuilder.COMPACT_FROM; level <= TileBuilder.COMPACT_FROM + 3; level++) {
+					for (boolean lit : new boolean[] {false, true}) {
+						traced.clear();
+						long key = TileKey.of(level, 0, 0);
+						TileBuilder.Mesh mesh = new TileBuilder(true).build(source, key, lit ? new Heights() : null);
+						assertTrue(mesh.compact());
+						List<String> decoded = new ArrayList<>();
+						int[] c = new int[5];
+						ByteBuffer v = mesh.vertices();
+						for (int q = 0; q < mesh.quads(); q++) {
+							int w0 = v.getInt(q * TileBuilder.RECORD_BYTES), w1 = v.getInt(q * TileBuilder.RECORD_BYTES + 4);
+							long style = TileBuilder.style(mesh, q);
+							int[][] corners = new int[4][];
+							int low = Integer.MAX_VALUE;
+							for (int k = 0; k < 4; k++) {
+								TileBuilder.recordCorner(w0, w1, mesh.minY(), k, c);
+								corners[k] = new int[] {c[0], c[1], c[2], 0, c[4]};
+								low = Math.min(low, c[1]);
+							}
+							int face = w0 >>> 29;
+							boolean lying = face == TileBuilder.UP || face == TileBuilder.DOWN;
+							for (int[] corner : corners) {
+								// as the shader picks it: a wall's colour A along its top, B along its foot
+								corner[3] = (int) (lying || corner[1] > low ? style : style >> 15) & 32767;
+							}
+							int hi = (int) (style >>> 32);
+							decoded.add(quad(corners, face | hi >> 17 & TileBuilder.WATER, (int) style >>> 30, hi & 15, hi >> 4 & 15, hi >> 8 & 31,
+								hi >> 13 & 127));
+						}
+						traced.sort(null);
+						decoded.sort(null);
+						assertEquals(traced, decoded, "level " + level + (lit ? ", lit" : ""));
+						styles += (mesh.bytes() - mesh.quads() * TileBuilder.RECORD_BYTES) / TileBuilder.RECORD_BYTES;
+						quads += mesh.quads();
+					}
+				}
+			}
+		} finally {
+			TileBuilder.recordTrace = null;
+			dev.voidmc.lod.api.LodApi.setSeasons(null);
+		}
+		assertTrue(styles * 2 < quads, styles + " styles for " + quads + " quads");
+	}
+
+	/**
+	 * A quad as it draws: its corners (x, y, z, colour, occlusion) in drawing order, from whichever corner comes first
+	 * in a fixed order unless its corners are shaded apart (then the diagonal it splits along matters), then its face
+	 * and light.
+	 */
+	private static String quad(int[][] corners, int face, int block, int east, int west, int occlusion, int season) {
+		String[] cs = new String[4];
+		for (int k = 0; k < 4; k++) {
+			cs[k] = java.util.Arrays.toString(corners[k]);
+		}
+		boolean shaded = corners[0][4] != corners[1][4] || corners[0][4] != corners[2][4] || corners[0][4] != corners[3][4];
+		String best = null;
+		for (int r = 0; r < (shaded ? 1 : 4); r++) {
+			String s = cs[r] + cs[r + 1 & 3] + cs[r + 2 & 3] + cs[r + 3 & 3];
+			if (best == null || s.compareTo(best) < 0) {
+				best = s;
+			}
+		}
+		return best + " face " + face + " light " + block + "/" + east + "/" + west + "/" + occlusion + " season " + season;
 	}
 }

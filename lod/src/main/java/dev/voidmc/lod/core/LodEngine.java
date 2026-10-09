@@ -648,6 +648,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			}
 			tile.quads = mesh.quads();
 			tile.vertices = mesh.vertexCount();
+			tile.bytes = mesh.bytes();
 			tile.indices = mesh.indexCount();
 			tile.landIndices = mesh.landIndices();
 			tile.firstIndex = mesh.firstIndex();
@@ -914,6 +915,17 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 
 	public long gpuBytes() {
 		return this.gpuBytes;
+	}
+
+	/** Of {@link #gpuBytes}, the far blocky tiles' (compact quad records). */
+	public long farBytes() {
+		long bytes = 0;
+		for (Tile tile : this.tiles.values()) {
+			if (tile.state == Tile.State.READY && tile.compact) {
+				bytes += tile.bytes();
+			}
+		}
+		return bytes;
 	}
 
 	public long frame() {

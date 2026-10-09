@@ -39,14 +39,13 @@ class SeasonsTest {
 		}
 		assertEquals(Set.of(5), tops);
 		assertEquals(Set.of(0), walls, "the skirts are soil and rock, which never change");
-		// far: bits 13.. of a record's last word
+		// far: bits 13.. of the second word of a record's style
 		TileBuilder.Mesh far = new TileBuilder(false).build(FLAT, TileKey.of(TileBuilder.COMPACT_FROM, 0, 0));
 		assertTrue(far.compact());
 		Set<Integer> farTops = new TreeSet<>();
 		for (int q = 0; q < far.vertexCount() / 4; q++) {
-			int o = q * TileBuilder.RECORD_BYTES;
-			if ((far.vertices().getInt(o) >> 14 & 7) == TileBuilder.UP) {
-				farTops.add(far.vertices().getInt(o + 12) >>> 13 & 127);
+			if (far.vertices().getInt(q * TileBuilder.RECORD_BYTES) >>> 29 == TileBuilder.UP) {
+				farTops.add((int) (TileBuilder.style(far, q) >>> 32 + 13) & 127);
 			}
 		}
 		assertEquals(Set.of(5), farTops);

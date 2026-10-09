@@ -965,10 +965,10 @@ public final class VoidLod implements ClientModInitializer {
 		long built = e.tilesBuilt.get();
 		long samples = TileBuilder.SAMPLES.get();
 		StringBuilder out = new StringBuilder(String.format(Locale.ROOT,
-			"LOD %s: %d cached, %d queued, %d built (%.2f ms avg, %.2f sampling, %.0f%% of samples reused), GPU %.1f MB",
+			"LOD %s: %d cached, %d queued, %d built (%.2f ms avg, %.2f sampling, %.0f%% of samples reused), GPU %.1f MB (%.1f far)",
 			this.active() ? "on" : "off", e.tileCount(), e.queued(), built, built == 0 ? 0 : e.buildNanos.get() / 1e6 / built,
 			built == 0 ? 0 : TileBuilder.SAMPLE_NANOS.get() / 1e6 / built, samples == 0 ? 0 : 100.0 * TileBuilder.SAMPLES_REUSED.get() / samples,
-			e.gpuBytes() / 1048576.0));
+			e.gpuBytes() / 1048576.0, e.farBytes() / 1048576.0));
 		if (r != null) {
 			out.append(String.format(Locale.ROOT,
 				" | %d tiles drawn (%d more behind the horizon), %,d quads, prepare %.2f ms (engine %.2f, staging %.2f, buffers %.2f), GPU draw %.2f ms",

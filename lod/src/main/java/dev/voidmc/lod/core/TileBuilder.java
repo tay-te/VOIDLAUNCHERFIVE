@@ -35,18 +35,29 @@ import java.nio.ByteOrder;
 public final class TileBuilder {
 	public static final int VERTEX_BYTES = 16;
 	/**
-	 * A far blocky tile's quad ({@link Mesh#compact}) is one record of four 32-bit words ({@link #RECORD_BYTES}),
-	 * which the shader reads for each of the quad's corners: its lowest corner's x and z (7 bits each), the face and
-	 * water flag (4 bits) and y in whole blocks (14 bits, signed); its size along the face (7 bits across, 13 up a
-	 * wall), the rotation of its corners (the diagonal it splits along), the occlusion level of each corner of a top
-	 * (2 bits each) and the block light (2 bits); the colour along its top and along its foot (5 bits a channel each);
-	 * and the light (the sun's horizon east and west, 4 bits each; the sky's occlusion, 5). Out there a block texture
-	 * is under a pixel and so is the lowest block of a wall, so the near tiles' material id and per-block floor
-	 * shading go, and a quad takes a quarter of the memory. Counted per vertex: {@value} bytes a vertex.
+	 * A far blocky tile's quad ({@link Mesh#compact}) is one record of two 32-bit words ({@link #RECORD_BYTES}), which
+	 * the shader reads for each of the quad's corners. Its shape: its lowest corner's x and z in cells (6 bits each; a
+	 * wall on the far edge of its cells, facing south or east, one less) and its face (3 bits); y in whole blocks above
+	 * the tile's lowest ({@link Mesh#minY}, 13 bits) and its size along the face. A wall is {@code du} across (6 bits,
+	 * less one) and {@code dv} up (13 bits); a top or an underside either one shade of occlusion all over, {@code du}
+	 * by {@code dv} (6 bits each, less one) with the shade's level (2 bits), or a single cell shaded corner by corner,
+	 * with each corner's level (2 bits each) and the rotation of its corners, the diagonal it splits along (2 bits).
+	 *
+	 * <p>And its style ({@link #STYLE_BITS}), an index into the tile's palette, which follows the records, one entry
+	 * the size of a record for each way of drawing a quad that the tile has: the colour along its top and along its
+	 * foot (5 bits a channel each), the block light (2 bits), the light (the sun's horizon east and west, 4 bits each;
+	 * the sky's occlusion, 5), the season code (7) and whether it is water. A tile draws its many quads in a few
+	 * thousand styles at most (about a quarter as many as it has quads), so the palette costs little.
+	 *
+	 * <p>Out there a block texture is under a pixel and so is the lowest block of a wall, so the near tiles' material
+	 * id and per-block floor shading go: a quad takes an eighth of the memory, and a little more for its share of the
+	 * palette. Counted per vertex: {@value} bytes a vertex.
 	 */
-	public static final int COMPACT_BYTES = 4;
-	/** A compact quad's record: four of its vertices' worth ({@link #COMPACT_BYTES}). */
+	public static final int COMPACT_BYTES = 2;
+	/** A compact quad's record, and a palette entry: four of its vertices' worth ({@link #COMPACT_BYTES}). */
 	public static final int RECORD_BYTES = 4 * COMPACT_BYTES;
+	/** The bits of a compact record that pick its style from the tile's palette. */
+	static final int STYLE_BITS = 17;
 	/** The first level whose blocky tiles are compact. */
 	public static final int COMPACT_FROM = 2;
 	/**
@@ -249,6 +260,8 @@ public final class TileBuilder {
 		}
 		if (this.vertices == 0) {
 			this.minY = this.maxY = 0;
+		} else if (this.compact) {
+			this.finishCompact();
 		}
 		int land = this.pack ? this.waterLast() * 6 : indices;
 		this.out.flip();
@@ -427,7 +440,7 @@ public final class TileBuilder {
 				// Distant Horizons' normals: down, up, north, south, west, east
 				face = PACK_FACE[this.out.get(q * quadBytes + 13) & 7];
 			} else if (this.compact) {
-				face = (this.out.getInt(q * quadBytes) >>> 14) & 7;
+				face = this.out.getInt(q * quadBytes) >>> 29;
 			} else {
 				face = this.out.getShort(q * quadBytes + 6) & 7;
 			}
@@ -635,6 +648,9 @@ public final class TileBuilder {
 		this.out.clear();
 		this.vertices = 0;
 		this.corners = 0;
+		this.records = 0;
+		this.styles.clear();
+		this.palette = 0;
 		this.minY = Integer.MAX_VALUE;
 		this.maxY = Integer.MIN_VALUE;
 	}
@@ -737,11 +753,31 @@ public final class TileBuilder {
 		0, 1, 3, 2, // down
 		0, 0, 0, 0,
 	};
-	/** Compact quads whose corners came in no order {@link #CORNERS} knows, drawn wrong: for tests, which want none. */
+	/**
+	 * Compact quads whose corners came in no order {@link #CORNERS} knows, or that a record cannot hold (a top shaded
+	 * corner by corner bigger than a cell, a size or a place out of range, more styles than {@link #STYLE_BITS} can
+	 * pick), drawn wrong: for tests, which want none.
+	 */
 	static final java.util.concurrent.atomic.AtomicInteger MISFITS = new java.util.concurrent.atomic.AtomicInteger();
+	/**
+	 * For tests: told each compact quad as it goes into its record, before it is packed: per corner in drawing order its
+	 * x, y, z, colour and occlusion level, then the face, the block light, the horizons, the occlusion and the season.
+	 */
+	static volatile java.util.function.Consumer<int[]> recordTrace;
 	private final int[] cornerX = new int[4], cornerY = new int[4], cornerZ = new int[4], cornerFace = new int[4];
 	private final int[] cornerRgb = new int[4], cornerAo = new int[4];
 	private int corners;
+	/** Compact records written so far, and each one's y (whole blocks), made relative once the tile's lowest is known. */
+	private int records;
+	private int[] recordY = new int[4096];
+	/** This tile's palette: each style to its index, and the entries in order ({@link #COMPACT_BYTES}). */
+	private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap styles = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+	private long[] paletteEntries = new long[1024];
+	private int palette;
+
+	{
+		this.styles.defaultReturnValue(-1);
+	}
 
 	/** A compact vertex: kept until its quad's four are in, then written as one record ({@link #RECORD_BYTES}). */
 	private void compactVertex(int x, float y, int z, int flags, int top, int topAlpha) {
@@ -793,8 +829,8 @@ public final class TileBuilder {
 				rot = r;
 			}
 		}
-		if (rot < 0) {
-			MISFITS.incrementAndGet();
+		boolean misfit = rot < 0;
+		if (misfit) {
 			rot = 0;
 		}
 		int du = max(us) - u0, dv = max(vs) - v0;
@@ -809,14 +845,83 @@ public final class TileBuilder {
 			}
 			ao |= this.cornerAo[k] << 2 * (k + rot & 3);
 		}
+		int shape;
 		if (f == UP || f == DOWN) {
 			high = low = this.cornerRgb[0];
+			if (ao == (ao & 3) * 0x55) {
+				// one shade all over: the diagonal it splits along changes nothing
+				shape = du - 1 | dv - 1 << 6 | (ao & 3) << 12;
+				misfit |= du < 1 || du > 64 || dv < 1 || dv > 64;
+			} else {
+				shape = ao | rot << 8 | 1 << 18;
+				misfit |= du != 1 || dv != 1;
+			}
+		} else {
+			// a wall's colour runs straight down it: either diagonal draws it alike
+			shape = du - 1 | dv << 6;
+			misfit |= du < 1 || du > 64 || dv < 1 || dv > 8191;
 		}
+		// a wall on the far edge of its cells (south, east) stands one past them
+		int x = x0 - (f == EAST ? 1 : 0), z = z0 - (f == SOUTH ? 1 : 0);
+		misfit |= x < 0 || x > 63 || z < 0 || z > 63;
 		int east = this.lightX >> 12 & 15, west = this.lightZ >> 12 & 15, occ = this.lightFlags >> 11 & 31;
-		this.out.putInt(x0 & 127 | (z0 & 127) << 7 | face << 14 | y0 << 18);
-		this.out.putInt(du & 127 | (dv & 8191) << 7 | rot << 20 | ao << 22 | (this.lightBlock >> 2) << 30);
-		this.out.putInt(high | low << 15);
-		this.out.putInt(east | west << 4 | occ << 8 | (this.season & 127) << 13);
+		long style = (high | low << 15 | (this.lightBlock >> 2) << 30) & 0xFFFFFFFFL
+			| (long) (east | west << 4 | occ << 8 | (this.season & 127) << 13 | (face & WATER) << 17) << 32;
+		int index = this.styles.get(style);
+		if (index < 0) {
+			index = this.palette;
+			if (index >= 1 << STYLE_BITS) {
+				misfit = true;
+				index = 0;
+			} else {
+				if (index == this.paletteEntries.length) {
+					this.paletteEntries = java.util.Arrays.copyOf(this.paletteEntries, index * 2);
+				}
+				this.paletteEntries[index] = style;
+				this.palette++;
+				this.styles.put(style, index);
+			}
+		}
+		if (misfit) {
+			MISFITS.incrementAndGet();
+		}
+		java.util.function.Consumer<int[]> trace = recordTrace;
+		if (trace != null) {
+			trace.accept(new int[] {this.cornerX[0], this.cornerY[0], this.cornerZ[0], this.cornerRgb[0], this.cornerAo[0], this.cornerX[1],
+				this.cornerY[1], this.cornerZ[1], this.cornerRgb[1], this.cornerAo[1], this.cornerX[2], this.cornerY[2], this.cornerZ[2],
+				this.cornerRgb[2], this.cornerAo[2], this.cornerX[3], this.cornerY[3], this.cornerZ[3], this.cornerRgb[3], this.cornerAo[3], face,
+				this.lightBlock >> 2, east, west, occ, this.season & 127});
+		}
+		if (this.records == this.recordY.length) {
+			this.recordY = java.util.Arrays.copyOf(this.recordY, this.records * 2);
+		}
+		this.recordY[this.records++] = y0;
+		this.out.putInt(index | (x & 63) << 17 | (z & 63) << 23 | f << 29);
+		// y goes in once the tile's lowest is known (finishCompact)
+		this.out.putInt((shape & 0x7FFFF) << 13);
+	}
+
+	/** Puts each compact record's y in, above the tile's lowest, and the palette after the records. */
+	private void finishCompact() {
+		for (int q = 0; q < this.records; q++) {
+			int y = this.recordY[q] - this.minY;
+			if (y > 8191) {
+				MISFITS.incrementAndGet();
+				y = 8191;
+			}
+			int at = q * RECORD_BYTES + 4;
+			this.out.putInt(at, this.out.getInt(at) | y);
+		}
+		if (this.out.remaining() < this.palette * RECORD_BYTES) {
+			ByteBuffer bigger = ByteBuffer.allocateDirect(this.out.position() + this.palette * RECORD_BYTES).order(ByteOrder.nativeOrder());
+			this.out.flip();
+			bigger.put(this.out);
+			this.out = bigger;
+		}
+		for (int i = 0; i < this.palette; i++) {
+			long style = this.paletteEntries[i];
+			this.out.putInt((int) style).putInt((int) (style >>> 32));
+		}
 	}
 
 	private static int min(int[] a) {
@@ -828,17 +933,21 @@ public final class TileBuilder {
 	}
 
 	/**
-	 * Corner {@code corner} (in drawing order) of the compact record whose first two words are {@code w0} and
-	 * {@code w1}, into {@code out}: x, y (whole blocks) and z, and its canonical corner (for the occlusion level).
-	 * As the shader does it.
+	 * Corner {@code corner} (in drawing order) of the compact record whose words are {@code w0} and {@code w1}, in a
+	 * tile whose lowest is {@code minY}, into {@code out}: x, y (whole blocks) and z, its canonical corner, and its
+	 * occlusion level (on a top). As the shader does it.
 	 */
-	static void recordCorner(int w0, int w1, int corner, int[] out) {
-		int face = w0 >> 14 & 7, rot = w1 >> 20 & 3;
-		int c = corner + rot & 3;
+	static void recordCorner(int w0, int w1, int minY, int corner, int[] out) {
+		int face = w0 >>> 29;
+		boolean flat = face == UP || face == DOWN, corners = flat && w1 < 0;
+		int c = corner + (corners ? w1 >> 21 & 3 : 0) & 3;
 		int code = CORNERS[face * 4 + c];
-		int du = (code & 1) * (w1 & 127), dv = (code >> 1) * (w1 >> 7 & 8191);
-		int x = w0 & 127, z = w0 >> 7 & 127, y = w0 >> 18;
-		if (face == UP || face == DOWN) {
+		int du = corners ? 1 : (w1 >> 13 & 63) + 1;
+		int dv = corners ? 1 : flat ? (w1 >> 19 & 63) + 1 : w1 >>> 19;
+		int x = (w0 >> 17 & 63) + (face == EAST ? 1 : 0), z = (w0 >> 23 & 63) + (face == SOUTH ? 1 : 0), y = minY + (w1 & 8191);
+		du *= code & 1;
+		dv *= code >> 1;
+		if (flat) {
 			x += du;
 			z += dv;
 		} else if (face == WEST || face == EAST) {
@@ -852,6 +961,17 @@ public final class TileBuilder {
 		out[1] = y;
 		out[2] = z;
 		out[3] = c;
+		out[4] = face != UP ? 0 : corners ? w1 >> 13 + 2 * c & 3 : w1 >> 25 & 3;
+	}
+
+	/**
+	 * The style of quad {@code quad} of compact {@code mesh}, its palette entry: the first word in the low half (colour
+	 * A, colour B, block light), the second in the high half (horizons, occlusion, season code, water). For tests and tools.
+	 */
+	static long style(Mesh mesh, int quad) {
+		ByteBuffer v = mesh.vertices();
+		int at = (mesh.quads() + (v.getInt(quad * RECORD_BYTES) & (1 << STYLE_BITS) - 1)) * RECORD_BYTES;
+		return v.getInt(at) & 0xFFFFFFFFL | (long) v.getInt(at + 4) << 32;
 	}
 
 	/**
@@ -862,12 +982,12 @@ public final class TileBuilder {
 		ByteBuffer v = mesh.vertices();
 		if (mesh.compact()) {
 			int w0 = v.getInt((i >> 2) * RECORD_BYTES);
-			int[] corner = new int[4];
-			recordCorner(w0, v.getInt((i >> 2) * RECORD_BYTES + 4), i & 3, corner);
+			int[] corner = new int[5];
+			recordCorner(w0, v.getInt((i >> 2) * RECORD_BYTES + 4), mesh.minY(), i & 3, corner);
 			out[0] = corner[0];
 			out[1] = corner[1] * 8;
 			out[2] = corner[2];
-			out[3] = w0 >> 14 & 15;
+			out[3] = w0 >>> 29 | (int) (style(mesh, i >> 2) >>> 32 + 17) & WATER;
 			return;
 		}
 		int o = i * VERTEX_BYTES;
@@ -912,13 +1032,14 @@ public final class TileBuilder {
 				this.holes, this.compact, this.landIndices, this.groups);
 		}
 
-		/** Bytes a vertex of this mesh takes. */
+		/** Bytes a vertex of this mesh takes (a compact mesh's palette left out). */
 		public int vertexBytes() {
 			return this.compact ? COMPACT_BYTES : VERTEX_BYTES;
 		}
 
+		/** Bytes the mesh takes on the GPU: a compact mesh's palette follows its records. */
 		public int bytes() {
-			return this.vertexCount * this.vertexBytes();
+			return this.compact ? this.vertices.limit() : this.vertexCount * this.vertexBytes();
 		}
 
 		/** Quads, or quad-equivalents for a smooth mesh: what the statistics count. */

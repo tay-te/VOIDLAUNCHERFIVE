@@ -105,11 +105,12 @@ a fraction of the cost.
 
   ![the far field, smooth and in blocks](docs/far_blocks.jpg)
 
-  What keeps that affordable: from level 2 on, a quad has no vertices at all but one 16-byte record
-  (its corner, size and face, colour along its top and foot in 5 bits a channel, each corner's occlusion,
-  and light, `TileBuilder.RECORD_BYTES`), which the shader reads for each corner by the vertex's index: a
-  quarter of the near tiles' 64 bytes a quad, since out there a texture and the lowest block of a wall are
-  under a pixel; heights are rounded to a quarter of a cell, a step under a
+  What keeps that affordable: from level 2 on, a quad has no vertices at all but one 8-byte record
+  (its corner, size and face, each corner's occlusion, and the style it is drawn in, `TileBuilder.RECORD_BYTES`),
+  which the shader reads for each corner by the vertex's index, with the style from the tile's palette after
+  its records (colour along its top and foot in 5 bits a channel, light, season; a tile has about a quarter as
+  many styles as quads): about a sixth of the near tiles' 64 bytes a quad, since out there a texture and the
+  lowest block of a wall are under a pixel; heights are rounded to a quarter of a cell, a step under a
   pixel, so level neighbours merge; and wall bands thinner than a quarter of a cell (a grass rim, a few
   blocks of soil, thin strata) are left out. At 16 km on Ultra that is about 400 to 600 MB of GPU memory and
   1 to 2 ms of GPU time on an RTX 4060; High is half that. Built the way the chunks are:

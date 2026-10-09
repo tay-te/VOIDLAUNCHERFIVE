@@ -22,6 +22,8 @@ public final class Tile {
 	/** Quads, or their equivalent for a smooth tile: for the statistics. */
 	public int quads;
 	public int vertices;
+	/** What the mesh takes on the GPU ({@link TileBuilder.Mesh#bytes}). */
+	int bytes;
 	public int indices;
 	/** Of those, the land's: a pack-layout tile's water comes after it ({@link TileBuilder#packFormat}). */
 	public int landIndices;
@@ -30,7 +32,7 @@ public final class Tile {
 	/** Where each group of faces starts, in quads ({@code TileBuilder.GROUP_*}, the last entry the end), or null: one draw. */
 	public int[] groups;
 	public boolean smooth;
-	/** A far blocky tile in compact quad records ({@link TileBuilder#RECORD_BYTES}). */
+	/** A far blocky tile in compact quad records ({@link TileBuilder#RECORD_BYTES}), its palette after them. */
 	public boolean compact;
 	/** A smooth tile with void in it (between End islands): drawn with the shader variant that cuts it out. */
 	public boolean holes;
@@ -66,6 +68,6 @@ public final class Tile {
 	}
 
 	public int bytes() {
-		return this.vertices * (this.compact ? TileBuilder.COMPACT_BYTES : TileBuilder.VERTEX_BYTES);
+		return this.bytes;
 	}
 }
