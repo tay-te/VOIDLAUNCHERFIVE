@@ -31,7 +31,7 @@ import net.minecraft.world.item.Items;
  * in escrow by a crash coming back on join. Everything is put back.
  */
 final class TradeJourney {
-	private static final UUID BREE = UUID.fromString("6f1e0c39-6a7e-4c1e-9d11-6b7e0de1b4a2");
+	private static FakePlayer standIn;
 
 	private TradeJourney() {
 	}
@@ -54,6 +54,10 @@ final class TradeJourney {
 		check(server.computeOnServer(s -> {
 			ServerPlayer a = player(s);
 			ServerPlayer b = bree(s, a);
+			if (!a.isAlive() || !b.isAlive()) {
+				return "before trading: player alive " + a.isAlive() + " (health " + a.getHealth() + "), stand-in alive " + b.isAlive() + " (health "
+					+ b.getHealth() + ", removed " + b.isRemoved() + ")";
+			}
 			Cards.clear(a);
 			Cards.clear(b);
 			mine[0] = card(a, MiningSkill.QUARRYMAN, "brutal").id();
@@ -164,8 +168,14 @@ final class TradeJourney {
 	}
 
 	private static ServerPlayer bree(MinecraftServer s, ServerPlayer near) {
-		FakePlayer b = FakePlayer.get(s.overworld(), new GameProfile(BREE, "Bree"));
+		// A fresh stand-in each run (Fabric caches fake players per profile, and a cached one may have been hurt or removed).
+		if (standIn == null || standIn.isRemoved() || !standIn.isAlive()) {
+			standIn = FakePlayer.get(s.overworld(), new GameProfile(UUID.randomUUID(), "Bree"));
+		}
+		FakePlayer b = standIn;
 		b.snapTo(near.getX() + 2, near.getY(), near.getZ(), 0, 0);
+		b.setHealth(b.getMaxHealth());
+		near.setHealth(near.getMaxHealth());
 		Trades.standIn(b);
 		return b;
 	}
