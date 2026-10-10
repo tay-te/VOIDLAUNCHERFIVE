@@ -174,6 +174,13 @@ cards: {
     maxCards: 9; maxItems: 9;
   };
 };
+// Wave D (Mythics)
+cards.mythics: { all: { id; name; lore; effect; deed; source: "world_first" | "deed" | "drawn"; icon; skill?;
+                        claimed: boolean; holder: string; day: number; copies: number }[];   // the Hall of Firsts
+                 drawnWaiting: number; slots: 2 };
+cards.reveal: null | { id; name; lore; effect; deed; source; icon; how: string; ageMs };       // a Mythic just earned (30 s)
+cards.players: { name; mythics: (as above, without claimed)[] }[];   // everyone in sight: their Mythics (name cards)
+// Mythic cards appear in the binder with rarity "mythic", kind "mythic", lore, the effect as description, no traits.
 type TradeSide = {
   cards: (Card-like: id, code, perk, name, rarity, frame, keywords, traits, needs, scars, owners, drawnBy;
           on `them`: warning "Needs Mining 12 · you have Mining 9 · attunes in 20 min", meetsRequirement)[];
@@ -216,12 +223,13 @@ comma-separated):
 | `pinSets("mettle:swift,mettle:keen")` | pins up to three sets (empty string: automatic); once an in-game day |
 | `releaseCards("3,8,9")` | at a Card Shrine: three binder cards of one skill for a reroll |
 | `rebuildCards("12,15")` | at a sitting: takes cards of one deck out, paying a free way if one covers them, else the Draught of Forgetting (once a sitting), the fees and the scars. `unslotCards` does the same when a sitting is open |
+| `slotCard(id, slot, deck)` | a Mythic into any deck (`"mettle:blades"`); two slotted at most, never two in one deck |
+| `fuseCards("3,8,9")` | at a Card Shrine (or a trainer of the skill): three binder copies of one perk and rarity into one of the next rarity, for its rebuild fee |
 | `tradeRequest(name)` · `tradeAccept()` | ask a player within 8 blocks to trade; accept the waiting request |
 | `tradeOfferCard(id)` · `tradeTakeBackCard(id)` | a binder card (attuned, not slotted) into or out of the trade; any change unlocks both |
 | `tradeOfferItem(slot)` · `tradeTakeBackItem(index)` | the stack in an inventory slot (-1: the main hand) into escrow; back out by its index in `trade.me.items` |
 | `tradeCoin(bits)` · `tradeLock()` · `tradeConfirm()` · `tradeCancel()` | Hearth coin; lock your side; with both locked start the 3 s countdown; call it off (everything goes back) |
 | `closeSitting()` | ends the sitting (walking 8 blocks away does too) |
-| `fuseCards(ids)` | at a Card Shrine: fuse three cards of a perk (not built yet; answered "Only at a Card Shrine") |
 
 Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`
 (the text says what happened and names the heaviest stack), so the HUD can show the chip without polling.

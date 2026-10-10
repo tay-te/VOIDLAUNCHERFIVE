@@ -1,6 +1,6 @@
 # VOID Mettle — cards v2: rolled cards, decks, sets, trading, Mythics
 
-**Status: waves A, B and C built (2026-10-10, branch `mettle-cards`), see §20–§22; waves D–E and fusion designed.** Builds on the perk draft
+**Status: waves A–D and fusion built (2026-10-10, branch `mettle-cards`), see §20–§24; wave E (partners, `CardService`) designed.** Builds on the perk draft
 ([DRAFT.md](DRAFT.md)): the draft stays the source of cards. Where this doc and DRAFT.md disagree, this doc wins once
 wave A ships (§16). Screens go to Figma first (§13).
 
@@ -1060,4 +1060,52 @@ their owner joins.
 2. The trade screen is the Hub's (§13.4) from `cards.trade`; until then `/mettle trade card|item|coin|lock|confirm|cancel`.
 3. The tour's second player is a Fabric fake player: the server-side rules are the same; the request and countdown run
    as for two real players, the swap is driven by the test.
+
+## 23. Built (wave D, 2026-10-10)
+
+Code: `api.Mythic` and the `mettle:mythic` registry (`data/mettle/mettle/mythic/*.json`, generated with their lang lines
+and stand-in white-gold sigils by `tools/cards/cards_data.py`), `character.cards.Mythics` (earning, triggers, the Hall
+of Firsts, the public sync `mettle:character/mythics`), `MythicRules` (pure: card keys, the draw, credit),
+`MythicEffects` (all twenty), `mixin.cards` `CardsServerLevelMixin` (Hush), `CardsMobMixin` (eggs, commands and
+spawners never count), `CardsPlayerDropsMixin` + `dropExperience` (Pardon), `canBeAffected` (Witherbane), client
+`Stride` (the dash), payloads `mythic_reveal`, `hall_of_firsts` (S→C) and `dash` (C→S), ops' `/mettle cards mythic
+grant|move|reset`. Checks: `MythicRulesTest` (7: the twenty, two slotted never two in a deck, never scarred or released
+and no keywords, Polymath's slot, the 0.5 % draw from 15 that never re-rolls, one claim per world and numbered deeds,
+credit by most damage with ties to the killing blow), `MythicJourney` in the tour (written, see the report).
+
+**How it plays.** A Mythic is a card of rarity MYTHIC (`mettle:mythic/<id>` as its perk key) with no keywords, traits or
+requirement. It fits any deck (`slotCard(id, slot, deck)`), two at most and never two in one deck, and comes out for a
+free swap or 1,000 bits (24 emeralds) at a rebuild, never scarred. World firsts go to the boss fight's top damage dealer
+(ties: the killing blow; a one-hit kill is all theirs), never to creative or spectator players, never for spawned mobs;
+the Far Horizon is checked every 2 s; First of Masters on a skill reaching 20; The Open Hand on Hero of the Village
+(Hearth's "Honoured" event isn't asked yet). Deeds are numbered ("the 3rd in this world"): the Unclad (a Warden killed
+with no armour), Hundredth Dawn (100 in-game days since the last death), the Lone Banner (a raid won with nobody within
+96 blocks), Long Walker (100 km in the walking, sprinting, swimming and crouching statistics), Polymath (all eight at
+15). From skill 15 each draft rolls 0.5 % (from the seed and the hand's place) for its skill's drawn Mythic while it
+waits; the offer survives rerolls; keeping it claims it. The world is told; the overlay gets a reveal (`cards.reveal`),
+the Hall (`cards.mythics`: every Mythic, its holder or none, deed copies, drawn ones still waiting) and every visible
+player's Mythics (`cards.players`).
+
+**Where it differs, and why:**
+
+1. The Lone Banner's "no other player within 96 blocks for the whole raid" is checked when the raid is won; Long Walker
+   counts the vanilla travel statistics, so walking before cards counts too; Hundredth Dawn starts counting at a
+   character's first join with cards.
+2. Pardon keeps the vanilla inventory and XP; worn gear follows Mettle's own death rules (it may still drop).
+3. Effects read closely: the Dragon Standard lends the holder's highest active set at its tier to allies within 24 (it
+   shows in their sets and modifiers); Seeking Fletch bends full-draw arrows 30 % a tick towards the holder's last mob
+   while it lies within 20 degrees; Aegis stops projectiles fired from outside its 3-block dome; the Wild Hunt's wolves
+   follow and take the holder's last foe while everyone stays in the wolves' biome; Seven-League Stride is a client dash
+   the server forgives the fall of; Homeward teleports to the respawn point (or world spawn); Hearth folk knowing an Open
+   Hand holder's name waits for Hearth's dialogue condition (request 10).
+4. Mythic art is a stand-in sigil per Mythic until the Figma M1-M4 frames are drawn in pixel art.
+
+## 24. Built (fusion, 2026-10-10)
+
+`CardRules.canFuse` / `fuse` / `bestTrait` (pure) and `Rebuilds.fuse` (`fuseCards(ids)`, `/mettle cards fuse`), at a
+Card Shrine or a trainer of the skill (capped as a rebuild): three binder copies of one perk and one rarity, attuned,
+fuse into one card of the next rarity (Common → Rare → Epic; Epic, Cursed and Mythic never), with fresh traits and
+keywords rolled at it, the best trait of the three (the highest share of its cap) kept at its old value, the new card's
+rebuild fee paid (no draught, no scar), the three released, the new card drawn "Fused from three" (`how: fused`).
+Checks: `FusionRulesTest` (3) and a fusion step in `ShrineJourney`.
 

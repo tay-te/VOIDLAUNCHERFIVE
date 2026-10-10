@@ -303,6 +303,58 @@ public final class Rebuilds {
 		return Optional.empty();
 	}
 
+	// ---------------------------------------------------------------- fusing (§18.1, rulings 2–4)
+
+	/**
+	 * At a Card Shrine (or a trainer of the skill): three binder copies of a perk fuse into one card of the next rarity,
+	 * for the new card's rebuild fee (no draught, no scar). The three leave the world; the new card says "Fused from three".
+	 */
+	public static Optional<CardRules.Refusal> fuse(ServerPlayer player, List<Long> ids) {
+		Optional<Sitting> open = sitting(player);
+		if (open.isEmpty()) {
+			return Optional.of(CardRules.Refusal.NOT_AT_SHRINE);
+		}
+		CardsState state = CardStore.get(player);
+		List<CardData> picked = new ArrayList<>();
+		for (long id : ids) {
+			Optional<CardData> c = state.card(id);
+			if (c.isEmpty()) {
+				return Optional.of(CardRules.Refusal.NO_CARD);
+			}
+			picked.add(c.get());
+		}
+		Optional<CardRules.Refusal> no = CardRules.canFuse(picked, now(player));
+		if (no.isPresent()) {
+			return no;
+		}
+		if (!open.get().allows(picked.getFirst().skill())) {
+			return Optional.of(CardRules.Refusal.WRONG_SKILL);
+		}
+		var registries = player.level().registryAccess();
+		Perk perk = registries.lookupOrThrow(MettleRegistries.PERK).getValueOrThrow(picked.getFirst().perk());
+		long seed = 0;
+		for (CardData c : picked) {
+			seed = seed * 31 + c.scarSeed() + c.id();
+		}
+		dev.voidmc.mettle.core.DraftState.Card result = CardRules.fuse(picked, perk, Cards.data(registries), new java.util.Random(seed));
+		if (result.needs() > open.get().cap()) {
+			return Optional.of(CardRules.Refusal.OVER_CAP);
+		}
+		int bits = CardRules.feeBits(result.needs());
+		int emeralds = CardRules.feeEmeralds(result.needs());
+		if (!fees.canPay(player, bits, emeralds, open.get().payee()) || !fees.pay(player, bits, emeralds, open.get().payee())) {
+			return Optional.of(CardRules.Refusal.CANT_PAY);
+		}
+		CardLedger ledger = Cards.ledger(player.level().getServer());
+		picked.forEach(c -> ledger.update(c.id(), x -> x.withPlace(CardData.Place.RELEASED)));
+		CardData made = Cards.create(player, ledger, result, CharacterStore.get(player).level(perk.skill()), CardData.How.FUSED, CardData.Place.BINDER);
+		Cards.sync(player);
+		SignaturePerks.feedback(player, Mettle.id("cards/fused"), Component.translatable("mettle.cards.fused", CardText.name(perk, made.rank()),
+			Component.translatable("mettle.draft.rarity." + made.rarity().getSerializedName()), fees.describe(bits, emeralds)));
+		Mettle.LOGGER.info("{} fused cards {} into {} ({})", player.getName().getString(), ids, made.id(), made.rarity().getSerializedName());
+		return Optional.empty();
+	}
+
 	// ---------------------------------------------------------------- the sitting in chat (until the Hub draws it)
 
 	/** Lists every deck the sitting can rebuild, each slotted card with its fee and scar, clickable to take it out. */

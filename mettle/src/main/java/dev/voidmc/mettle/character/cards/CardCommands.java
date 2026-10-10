@@ -83,6 +83,11 @@ public final class CardCommands {
 					.then(Commands.argument("cards", StringArgumentType.greedyString()).executes(CardCommands::rebuild)))
 				.then(Commands.literal("release")
 					.then(Commands.argument("cards", StringArgumentType.greedyString()).executes(CardCommands::release)))
+				.then(Commands.literal("fuse")
+					.then(Commands.argument("cards", StringArgumentType.greedyString()).executes(c -> {
+						ServerPlayer p = c.getSource().getPlayerOrException();
+						return trade2(c, Rebuilds.fuse(p, cards(p, StringArgumentType.getString(c, "cards"))));
+					})))
 				.then(Commands.literal("close").executes(c -> {
 					Rebuilds.close(c.getSource().getPlayerOrException());
 					return 1;

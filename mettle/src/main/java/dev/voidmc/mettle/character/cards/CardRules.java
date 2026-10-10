@@ -473,7 +473,7 @@ public final class CardRules {
 	/** Why a card can't go in a slot (lang {@code mettle.cards.refused.<name>}). */
 	public enum Refusal {
 		NO_CARD, NOT_IN_BINDER, ATTUNING, NEEDS_LEVEL, NO_SLOT, SLOT_TAKEN, SAME_PERK, ONE_MASTERY, MASTERY_SIDE, NOT_SLOTTED, NO_FREE_WAY,
-		BINDER_FULL, NOT_AT_SHRINE, ONE_MYTHIC_A_DECK, TWO_MYTHICS, MYTHIC, NO_DRAUGHT, CANT_PAY, OVER_CAP, WRONG_SKILL, NOT_ENOUGH_CARDS, MIXED_SKILLS, REROLLS_FULL, PINS_TODAY, BAD_PINS;
+		BINDER_FULL, NOT_AT_SHRINE, ONE_MYTHIC_A_DECK, TWO_MYTHICS, MYTHIC, NOT_ONE_PERK, TOP_RARITY, NO_DRAUGHT, CANT_PAY, OVER_CAP, WRONG_SKILL, NOT_ENOUGH_CARDS, MIXED_SKILLS, REROLLS_FULL, PINS_TODAY, BAD_PINS;
 
 		public String translationKey() {
 			return "mettle.cards.refused." + name().toLowerCase(Locale.ROOT);
@@ -913,6 +913,85 @@ public final class CardRules {
 			}
 		}
 		return new HashSet<>(cards.stream().map(CardData::id).toList()).size() == cards.size() ? Optional.empty() : Optional.of(Refusal.NOT_ENOUGH_CARDS);
+	}
+
+	// ---------------------------------------------------------------- fusion (§18.1, rulings 2–4)
+
+	/** The rarity three cards fuse into: Common → Rare → Epic; Epic, Cursed and Mythic cards don't fuse. */
+	public static Optional<Rarity> fusesInto(Rarity rarity) {
+		return switch (rarity) {
+			case COMMON -> Optional.of(Rarity.RARE);
+			case RARE -> Optional.of(Rarity.EPIC);
+			default -> Optional.empty();
+		};
+	}
+
+	/** Why these cards can't fuse, or empty: three binder cards, attuned, one perk, one rarity that fuses. */
+	public static Optional<Refusal> canFuse(List<CardData> cards, long gameTime) {
+		if (cards.size() != 3 || new HashSet<>(cards.stream().map(CardData::id).toList()).size() != 3) {
+			return Optional.of(Refusal.NOT_ENOUGH_CARDS);
+		}
+		CardData first = cards.getFirst();
+		for (CardData c : cards) {
+			if (c.mythic()) {
+				return Optional.of(Refusal.MYTHIC);
+			}
+			if (c.place().kind() != CardData.PlaceKind.BINDER) {
+				return Optional.of(Refusal.NOT_IN_BINDER);
+			}
+			if (!c.attuned(gameTime)) {
+				return Optional.of(Refusal.ATTUNING);
+			}
+			if (!c.perk().equals(first.perk()) || c.rarity() != first.rarity()) {
+				return Optional.of(Refusal.NOT_ONE_PERK);
+			}
+		}
+		return fusesInto(first.rarity()).isPresent() ? Optional.empty() : Optional.of(Refusal.TOP_RARITY);
+	}
+
+	/** The best trait among the cards: the highest share of its card cap, at its rolled value (ruling 3). */
+	public static Optional<TraitRoll> bestTrait(List<CardData> cards, Data data) {
+		TraitRoll best = null;
+		double share = -1;
+		for (CardData c : cards) {
+			for (TraitRoll t : c.traits()) {
+				Optional<Trait> def = data.trait(t.trait());
+				double s = def.map(d -> t.value() / cardCap(d)).orElse(0.0);
+				if (s > share) {
+					share = s;
+					best = t;
+				}
+			}
+		}
+		return Optional.ofNullable(best);
+	}
+
+	/**
+	 * The card three copies fuse into (§18.1): the next rarity, fresh traits and keywords rolled at it, the best trait of
+	 * the three kept at its own value (it replaces a fresh roll of the same trait, or the last fresh trait).
+	 */
+	public static Card fuse(List<CardData> cards, Perk perk, Data data, Random random) {
+		CardData first = cards.getFirst();
+		Rarity rarity = fusesInto(first.rarity()).orElseThrow();
+		Card fresh = roll(first.perk(), perk, rarity, data, random, false);
+		List<TraitRoll> traits = new ArrayList<>(fresh.traits());
+		Optional<TraitRoll> best = bestTrait(cards, data);
+		if (best.isPresent()) {
+			int same = -1;
+			for (int i = 0; i < traits.size(); i++) {
+				if (traits.get(i).trait().equals(best.get().trait())) {
+					same = i;
+				}
+			}
+			if (same >= 0) {
+				traits.set(same, best.get());
+			} else if (traits.isEmpty()) {
+				traits.add(best.get());
+			} else {
+				traits.set(traits.size() - 1, best.get());
+			}
+		}
+		return new Card(fresh.perk(), fresh.rank(), rarity, false, fresh.keywords(), traits, fresh.needs());
 	}
 
 	// ---------------------------------------------------------------- the ledger and the cache

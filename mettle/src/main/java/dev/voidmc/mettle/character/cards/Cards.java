@@ -517,7 +517,7 @@ public final class Cards {
 			case PIN -> pin(player, a.keywords());
 			case RELEASE -> Rebuilds.release(player, a.cards());
 			case REBUILD -> Rebuilds.rebuild(player, a.cards());
-			case FUSE -> Optional.of(CardRules.Refusal.NOT_AT_SHRINE);
+			case FUSE -> Rebuilds.fuse(player, a.cards());
 			case CLOSE -> {
 				Rebuilds.close(player);
 				yield Optional.empty();

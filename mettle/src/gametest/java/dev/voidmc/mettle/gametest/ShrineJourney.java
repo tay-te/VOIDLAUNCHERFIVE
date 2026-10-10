@@ -182,6 +182,22 @@ final class ShrineJourney {
 				|| Cards.ledger(s).get(extra.id()).orElseThrow().place().kind() != CardData.PlaceKind.RELEASED) {
 				return "after release: rerolls " + CharacterStore.get(p).drafts().rerolls() + ", cards " + CardStore.get(p).cards().size();
 			}
+			// Fusion (CARDS.md §18.1): three Common Tunnelers become one Rare, for its rebuild fee (3 emeralds).
+			List<Long> trio = new java.util.ArrayList<>();
+			for (int i = 0; i < 3; i++) {
+				trio.add(Cards.giveExact(p, new DraftState.Card(Perks.key(MiningSkill.TUNNELER), 1, DraftState.Rarity.COMMON, false, List.of(id("echo")),
+					List.of(new CardData.TraitRoll(id("mining/lucky"), 3 + i)), 6)).id());
+			}
+			int emeraldsBefore = p.getInventory().countItem(Items.EMERALD);
+			var fused = Rebuilds.fuse(p, trio);
+			if (fused.isPresent()) {
+				return "fusing three Tunnelers was refused: " + fused.get();
+			}
+			CardData rare = CardStore.get(p).cards().stream().filter(c -> c.drawn().how() == CardData.How.FUSED).findFirst().orElse(null);
+			if (rare == null || rare.rarity() != DraftState.Rarity.RARE || trio.stream().anyMatch(t -> CardStore.get(p).card(t).isPresent())
+				|| !rare.traits().contains(new CardData.TraitRoll(id("mining/lucky"), 5)) || p.getInventory().countItem(Items.EMERALD) != emeraldsBefore - 3) {
+				return "after fusing: " + rare + ", emeralds " + p.getInventory().countItem(Items.EMERALD) + " of " + emeraldsBefore;
+			}
 			// Walking away ends the sitting.
 			p.teleportTo(p.getX() + 20, p.getY(), p.getZ());
 			return Rebuilds.sitting(p).isEmpty() ? null : "the sitting stayed open 20 blocks away";
