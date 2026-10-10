@@ -7,6 +7,7 @@
 	"mettle.draft.rarity.common": "Common",
 	"mettle.draft.rarity.cursed": "Cursed",
 	"mettle.draft.rarity.epic": "Epic",
+	"mettle.draft.rarity.mythic": "Mythic",
 	"mettle.draft.rarity.rare": "Rare",
 	"mettle.draft.refused.no_card": "No such card in the hand",
 	"mettle.draft.refused.no_draft": "No draft waiting in that skill",

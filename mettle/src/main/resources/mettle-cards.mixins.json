@@ -7,8 +7,11 @@
 		"CardsEntityMixin",
 		"CardsItemStackMixin",
 		"CardsLivingEntityMixin",
+		"CardsMobMixin",
 		"CardsPacketListenerMixin",
-		"CardsPlayerMixin"
+		"CardsPlayerDropsMixin",
+		"CardsPlayerMixin",
+		"CardsServerLevelMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

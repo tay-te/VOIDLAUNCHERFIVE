@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.hundredth_dawn"
+	},
+	"lore": {
+		"translate": "mettle.mythic.hundredth_dawn.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.hundredth_dawn.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.hundredth_dawn.deed"
+	},
+	"source": "deed",
+	"trigger": "hundred_days",
+	"icon": "mettle:textures/gui/mythic/hundredth_dawn.png"
+}

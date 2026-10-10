@@ -165,6 +165,19 @@ cards: {
                     master: boolean;                               // a city master: one card in two keeps its trait
                     coin: boolean };                               // fees in Hearth coin (else emeralds)
   attuneTicks: 24000;
+  trade: null | {                          // an open trade, or a request this player made
+    open: boolean; asking: boolean;        // asking: waiting for `partner` to accept
+    partner: string;
+    me: TradeSide; them: TradeSide;
+    countdownSeconds: number;              // -1 when the countdown isn't running
+    coin: boolean;                         // coin can be offered (Hearth); else emeralds go in as items
+    maxCards: 9; maxItems: 9;
+  };
+};
+type TradeSide = {
+  cards: (Card-like: id, code, perk, name, rarity, frame, keywords, traits, needs, scars, owners, drawnBy;
+          on `them`: warning "Needs Mining 12 · you have Mining 9 · attunes in 20 min", meetsRequirement)[];
+  items: { item; name; count }[]; coin: number; locked: boolean;
 };
 type Card = {
   id: string;                              // the ledger id (a number, as a string)
@@ -203,6 +216,10 @@ comma-separated):
 | `pinSets("mettle:swift,mettle:keen")` | pins up to three sets (empty string: automatic); once an in-game day |
 | `releaseCards("3,8,9")` | at a Card Shrine: three binder cards of one skill for a reroll |
 | `rebuildCards("12,15")` | at a sitting: takes cards of one deck out, paying a free way if one covers them, else the Draught of Forgetting (once a sitting), the fees and the scars. `unslotCards` does the same when a sitting is open |
+| `tradeRequest(name)` · `tradeAccept()` | ask a player within 8 blocks to trade; accept the waiting request |
+| `tradeOfferCard(id)` · `tradeTakeBackCard(id)` | a binder card (attuned, not slotted) into or out of the trade; any change unlocks both |
+| `tradeOfferItem(slot)` · `tradeTakeBackItem(index)` | the stack in an inventory slot (-1: the main hand) into escrow; back out by its index in `trade.me.items` |
+| `tradeCoin(bits)` · `tradeLock()` · `tradeConfirm()` · `tradeCancel()` | Hearth coin; lock your side; with both locked start the 3 s countdown; call it off (everything goes back) |
 | `closeSitting()` | ends the sitting (walking 8 blocks away does too) |
 | `fuseCards(ids)` | at a Card Shrine: fuse three cards of a perk (not built yet; answered "Only at a Card Shrine") |
 

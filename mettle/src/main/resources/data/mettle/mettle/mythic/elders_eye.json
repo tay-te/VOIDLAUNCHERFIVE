@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.elders_eye"
+	},
+	"lore": {
+		"translate": "mettle.mythic.elders_eye.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.elders_eye.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.elders_eye.deed"
+	},
+	"source": "world_first",
+	"trigger": "first_elder_guardian",
+	"icon": "mettle:textures/gui/mythic/elders_eye.png"
+}

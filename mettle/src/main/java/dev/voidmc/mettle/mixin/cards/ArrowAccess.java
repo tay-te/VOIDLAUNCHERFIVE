@@ -9,4 +9,8 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface ArrowAccess {
 	@Invoker("setPierceLevel")
 	void mettle$setPierceLevel(byte level);
+
+	/** The Seeking Fletch stops steering an arrow that has landed. */
+	@Invoker("isInGround")
+	boolean mettle$isInGround();
 }

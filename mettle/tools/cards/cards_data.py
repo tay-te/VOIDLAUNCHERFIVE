@@ -234,6 +234,71 @@ KEYWORDS = {
         6: ('Rally Cry: sneak and swing an empty hand: allies within 16 blocks get Speed I and Strength I for 8 s (90 s cooldown).', [], 'set_kin_6')}),
 }
 
+
+# id: (name, source, trigger, skill or None, deed, effect, lore)
+MYTHICS = {
+    'dragonfall': ('Dragonfall', 'world_first', 'first_dragon', None, 'First to fell the Ender Dragon',
+                   'Sneak-use any banner to raise the Dragon Standard for 60 s (10 min cooldown): allies within 24 blocks gain your best active set bonus as if it were theirs.',
+                   'The last wingbeat over the End is still falling.'),
+    'wardens_hush': ("The Warden's Hush", 'world_first', 'first_warden', None, 'First to kill a Warden',
+                     'You make no vibrations: sculk sensors, shriekers and wardens never hear you. Allies sneaking within 6 blocks of you are hushed too.',
+                     'The deep dark learned to hold its breath around you.'),
+    'witherbane': ('Witherbane', 'world_first', 'first_wither', None, 'First to kill the Wither',
+                   'Wither and poison never touch you; allies within 12 blocks take them at half strength for half as long.',
+                   'Three skulls, one name, and none of them yours.'),
+    'far_horizon': ('The Far Horizon', 'world_first', 'first_far', None, 'First to stand 10,000 blocks from world spawn',
+                    'Homeward: hold a compass and sneak for 5 s to return to your bed or respawn point (once per in-game day).',
+                    'Whoever walks that far learns the way back.'),
+    'elders_eye': ("The Elder's Eye", 'world_first', 'first_elder_guardian', None, 'First to kill an Elder Guardian',
+                   'You and allies within 12 blocks breathe under water, see clearly in it, and mine there at full speed.',
+                   'Its eye still watches the sea, now for you.'),
+    'open_hand': ('The Open Hand', 'world_first', 'first_honoured', None, 'First to be Honoured in a Hearth city (without Hearth: first Hero of the Village)',
+                  'Your Hearth market edge also applies to allies within 8 blocks of you at a counter, and Hearth folk know your name.',
+                  'A town remembers who stood in its gate.'),
+    'first_of_masters': ('First of Masters', 'world_first', 'first_master', None, 'First to bring any skill to 20',
+                         'Mentor: allies within 16 blocks gain skill XP 20 % faster in every skill where yours is higher than theirs.',
+                         'Someone had to be first. Everyone after learns faster.'),
+    'unclad': ('The Unclad', 'deed', 'unclad_warden', None, 'Kill a Warden wearing no armour',
+               'With no armour worn, you take 25 % less damage and move 10 % faster.',
+               'Skin, nerve, and nothing else.'),
+    'hundredth_dawn': ('Hundredth Dawn', 'deed', 'hundred_days', None, 'Live through 100 in-game days without dying',
+                       'Pardon: once every 7 in-game days, when you die you keep everything you carry and your vanilla XP.',
+                       'A hundred sunrises owe you one more.'),
+    'lone_banner': ('The Lone Banner', 'deed', 'lone_raid', None, 'Win a raid with no other player within 96 blocks',
+                    'With no ally within 24 blocks, you deal 15 % more and take 15 % less.',
+                    'One flag held a village.'),
+    'long_walker': ('Long Walker', 'deed', 'walk_100km', None, 'Travel 100 km on foot (walked, sprinted, swum)',
+                    'Trailmaker: allies within 16 blocks behind you move 10 % faster, and none of you pay hunger to sprint on paths and roads.',
+                    'Roads are just walks that went on long enough.'),
+    'polymath': ('Polymath', 'deed', 'all_fifteen', None, 'Reach 15 in all eight wave-1 skills',
+                 '+1 deck slot in every skill (it pays for its own).',
+                 'Good at everything is its own kind of good.'),
+    'heart_of_the_mountain': ('Heart of the Mountain', 'drawn', 'draw', 'mining', 'Drawn from the Mining deck (0.5 % a draft from 15)',
+                              'Sneak-use a pickaxe on stone to bore a 1 × 2 tunnel 8 blocks deep at once; each block costs durability and drops as normal (30 s cooldown).',
+                              'The stone opens for one hand in a world.'),
+    'twin_edge': ('The Twin Edge', 'drawn', 'draw', 'blades', 'Drawn from the Blades deck (0.5 % a draft from 15)',
+                  'Every fourth blade hit on the same target is struck again by a spectral twin, for full damage.',
+                  'Two blades, one wrist.'),
+    'worldsplitter': ('Worldsplitter', 'drawn', 'draw', 'heavy_weapons', 'Drawn from the Heavy Weapons deck (0.5 % a draft from 15)',
+                      'A fully charged sneak-attack sends a shockwave 8 blocks along the ground: every mob in its line takes half the hit and is thrown up (10 s cooldown; no blocks broken).',
+                      'The ground remembers the blow.'),
+    'seeking_fletch': ('The Seeking Fletch', 'drawn', 'draw', 'marksmanship', 'Drawn from the Marksmanship deck (0.5 % a draft from 15)',
+                       'Fully drawn arrows bend towards the last mob you hit, within 20°.',
+                       'The feathers know who you meant.'),
+    'aegis': ('Aegis', 'drawn', 'draw', 'defense', 'Drawn from the Defense deck (0.5 % a draft from 15)',
+              'Hold your shield up for 1 s to raise a dome (3 blocks, 4 s): nothing fired from outside passes it, for everyone inside (45 s cooldown).',
+              'Behind it, the rain stops.'),
+    'seven_league_stride': ('Seven-League Stride', 'drawn', 'draw', 'athletics', 'Drawn from the Athletics deck (0.5 % a draft from 15)',
+                            "Double-tap forward while sprinting to dash 6 blocks; the fall after a dash doesn't hurt (8 s cooldown).",
+                            'Seven leagues, one step.'),
+    'wild_hunt': ('The Wild Hunt', 'drawn', 'draw', 'survival', 'Drawn from the Survival deck (0.5 % a draft from 15)',
+                  'Up to three wild wolves within 24 blocks join you as a pack while you stay in their biome, and fight what you fight.',
+                  'The pack runs with you, not for you.'),
+    'first_hammer': ('The First Hammer', 'drawn', 'draw', 'smithing', 'Drawn from the Smithing deck (0.5 % a draft from 15)',
+                     'Tools, weapons and armour you craft last 20 % longer and carry your mark in gold.',
+                     'Every hammer since has been a copy.'),
+}
+
 # skill -> (prefix, pool, {perk: native keyword})
 SKILLS = {
     'mining': ('MN', ['deep', 'hoard', 'brutal', 'echo', 'iron', 'ember'], {
@@ -302,7 +367,7 @@ def write(path, obj):
 
 def main():
     lang = {}
-    for sub in ('trait', 'keyword', 'card_skill'):
+    for sub in ('trait', 'keyword', 'card_skill', 'mythic'):
         shutil.rmtree(os.path.join(DATA, sub), ignore_errors=True)
     for skill, traits in TRAITS.items():
         for (tid, name, desc, lo, hi, step, unit, kind, scope, effect, arsenal) in traits:
@@ -340,7 +405,19 @@ def main():
         write(os.path.join(DATA, 'card_skill', skill + '.json'), {
             'prefix': prefix, 'keyword_pool': ['mettle:' + k for k in pool],
             'natives': {'mettle:%s/%s' % (skill, p): 'mettle:' + k for p, k in sorted(natives.items())}})
+    for mid, (name, source, trigger, skill, deed, effect, lore) in MYTHICS.items():
+        key = 'mettle.mythic.' + mid
+        lang[key] = name
+        lang[key + '.lore'] = lore
+        lang[key + '.effect'] = effect
+        lang[key + '.deed'] = deed
+        obj = {'name': comp(key), 'lore': comp(key + '.lore'), 'effect': comp(key + '.effect'), 'deed': comp(key + '.deed'),
+               'source': source, 'trigger': trigger, 'icon': 'mettle:textures/gui/mythic/%s.png' % mid}
+        if skill:
+            obj['skill'] = 'mettle:' + skill
+        write(os.path.join(DATA, 'mythic', mid + '.json'), obj)
     write(LANG, dict(sorted(lang.items())))
+    mythic_icons()
     glyphs()
     print('traits %d, keywords %d, skills %d' % (sum(len(t) for t in TRAITS.values()), len(KEYWORDS), len(SKILLS)))
 
@@ -356,6 +433,28 @@ def glyphs():
                     img.putpixel((x, y), (255, 255, 255, 255))
         # White ink: the UI tints it with the keyword colour (one neutral colour for all).
         img.save(os.path.join(GLYPHS, kid + '.png'))
+
+
+def mythic_icons():
+    """A 16 x 16 sigil per Mythic on white-gold (the Mythic frame colour), a plain stand-in for the card art."""
+    from PIL import Image
+    out = os.path.join(RES, 'assets', 'mettle', 'textures', 'gui', 'mythic')
+    os.makedirs(out, exist_ok=True)
+    gold = [(242, 230, 194, 255), (214, 186, 118, 255), (150, 112, 48, 255)]
+    for n, mid in enumerate(sorted(MYTHICS)):
+        img = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
+        for y in range(16):
+            for x in range(16):
+                d = abs(x - 7.5) + abs(y - 7.5)
+                if d < 7.5:
+                    img.putpixel((x, y), gold[0] if d < 4.5 else gold[1])
+        seed = sum(ord(c) for c in mid) + n * 7
+        for i in range(10):
+            x = 5 + (seed * (i + 3)) % 6
+            y = 5 + (seed * (i + 5) // 3) % 6
+            img.putpixel((x, y), gold[2])
+            img.putpixel((15 - x, y), gold[2])
+        img.save(os.path.join(out, mid + '.png'))
 
 
 if __name__ == '__main__':

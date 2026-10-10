@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.witherbane"
+	},
+	"lore": {
+		"translate": "mettle.mythic.witherbane.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.witherbane.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.witherbane.deed"
+	},
+	"source": "world_first",
+	"trigger": "first_wither",
+	"icon": "mettle:textures/gui/mythic/witherbane.png"
+}

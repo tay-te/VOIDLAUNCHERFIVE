@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.unclad"
+	},
+	"lore": {
+		"translate": "mettle.mythic.unclad.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.unclad.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.unclad.deed"
+	},
+	"source": "deed",
+	"trigger": "unclad_warden",
+	"icon": "mettle:textures/gui/mythic/unclad.png"
+}

@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.far_horizon"
+	},
+	"lore": {
+		"translate": "mettle.mythic.far_horizon.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.far_horizon.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.far_horizon.deed"
+	},
+	"source": "world_first",
+	"trigger": "first_far",
+	"icon": "mettle:textures/gui/mythic/far_horizon.png"
+}

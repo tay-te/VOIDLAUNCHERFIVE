@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.dragonfall"
+	},
+	"lore": {
+		"translate": "mettle.mythic.dragonfall.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.dragonfall.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.dragonfall.deed"
+	},
+	"source": "world_first",
+	"trigger": "first_dragon",
+	"icon": "mettle:textures/gui/mythic/dragonfall.png"
+}

@@ -164,6 +164,12 @@ public final class Swings {
 		current = null;
 	}
 
+	/** How charged this player's swing being resolved now is (0–1), or 0 outside a swing (cards: Worldsplitter). */
+	public static float strength(ServerPlayer player) {
+		Swing s = current;
+		return s != null && s.player == player ? s.strength : 0f;
+	}
+
 	/** Whether this player's swing being resolved now is a critical (cards: Keen, the Keen set). */
 	public static boolean critical(ServerPlayer player) {
 		Swing s = current;

@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.wardens_hush"
+	},
+	"lore": {
+		"translate": "mettle.mythic.wardens_hush.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.wardens_hush.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.wardens_hush.deed"
+	},
+	"source": "world_first",
+	"trigger": "first_warden",
+	"icon": "mettle:textures/gui/mythic/wardens_hush.png"
+}

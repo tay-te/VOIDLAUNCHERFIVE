@@ -1,0 +1,18 @@
+{
+	"name": {
+		"translate": "mettle.mythic.aegis"
+	},
+	"lore": {
+		"translate": "mettle.mythic.aegis.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.aegis.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.aegis.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/aegis.png",
+	"skill": "mettle:defense"
+}

@@ -1,0 +1,18 @@
+{
+	"name": {
+		"translate": "mettle.mythic.worldsplitter"
+	},
+	"lore": {
+		"translate": "mettle.mythic.worldsplitter.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.worldsplitter.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.worldsplitter.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/worldsplitter.png",
+	"skill": "mettle:heavy_weapons"
+}

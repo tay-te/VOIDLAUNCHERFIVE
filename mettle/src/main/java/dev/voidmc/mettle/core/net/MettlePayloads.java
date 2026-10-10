@@ -331,4 +331,51 @@ public final class MettlePayloads {
 			return TYPE;
 		}
 	}
+
+	/** Server → client: a Mythic was just earned by this player: the reveal (docs/CARDS.md §13.6). */
+	public record MythicReveal(Identifier mythic, String how) implements CustomPacketPayload {
+		public static final Type<MythicReveal> TYPE = new Type<>(Mettle.id("character/mythic_reveal"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, MythicReveal> STREAM_CODEC = StreamCodec.composite(
+			Identifier.STREAM_CODEC, MythicReveal::mythic,
+			ByteBufCodecs.stringUtf8(128), MythicReveal::how,
+			MythicReveal::new);
+
+		@Override
+		public Type<MythicReveal> type() {
+			return TYPE;
+		}
+	}
+
+	/** One Mythic in the Hall of Firsts: who holds the first (or drew it), on which day, and how many deed copies exist. */
+	public record HallEntry(Identifier mythic, String holder, long day, int copies) {
+		public static final StreamCodec<RegistryFriendlyByteBuf, HallEntry> STREAM_CODEC = StreamCodec.composite(
+			Identifier.STREAM_CODEC, HallEntry::mythic,
+			ByteBufCodecs.stringUtf8(64), HallEntry::holder,
+			ByteBufCodecs.VAR_LONG, HallEntry::day,
+			ByteBufCodecs.VAR_INT, HallEntry::copies,
+			HallEntry::new);
+	}
+
+	/** Server → client: the Hall of Firsts (on join and whenever a Mythic is earned). */
+	public record HallOfFirsts(List<HallEntry> entries) implements CustomPacketPayload {
+		public static final Type<HallOfFirsts> TYPE = new Type<>(Mettle.id("character/hall_of_firsts"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, HallOfFirsts> STREAM_CODEC = StreamCodec.composite(
+			HallEntry.STREAM_CODEC.apply(ByteBufCodecs.list(64)), HallOfFirsts::entries, HallOfFirsts::new);
+
+		@Override
+		public Type<HallOfFirsts> type() {
+			return TYPE;
+		}
+	}
+
+	/** Client → server: the Seven-League Stride's dash the client just made (the server checks the Mythic and cooldown). */
+	public record Dash() implements CustomPacketPayload {
+		public static final Type<Dash> TYPE = new Type<>(Mettle.id("character/dash"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Dash> STREAM_CODEC = StreamCodec.unit(new Dash());
+
+		@Override
+		public Type<Dash> type() {
+			return TYPE;
+		}
+	}
 }

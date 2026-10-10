@@ -31,6 +31,7 @@ public final class CoreModule {
 		DynamicRegistries.registerSynced(MettleRegistries.TRAIT, dev.voidmc.mettle.api.Trait.CODEC);
 		DynamicRegistries.registerSynced(MettleRegistries.KEYWORD, dev.voidmc.mettle.api.Keyword.CODEC);
 		DynamicRegistries.registerSynced(MettleRegistries.CARD_SKILL, dev.voidmc.mettle.api.CardSkill.CODEC);
+		DynamicRegistries.registerSynced(MettleRegistries.MYTHIC, dev.voidmc.mettle.api.Mythic.CODEC);
 		CharacterStore.init();
 		CardStore.init();
 		MettleAttributes.init();
@@ -51,6 +52,9 @@ public final class CoreModule {
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.Updraft.TYPE, MettlePayloads.Updraft.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.TradeAction.TYPE, MettlePayloads.TradeAction.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.TradeView.TYPE, MettlePayloads.TradeView.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.MythicReveal.TYPE, MettlePayloads.MythicReveal.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.HallOfFirsts.TYPE, MettlePayloads.HallOfFirsts.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.Dash.TYPE, MettlePayloads.Dash.STREAM_CODEC);
 
 		ServerPlayerEvents.JOIN.register(EffectsApplier::apply);
 		ServerPlayerEvents.AFTER_RESPAWN.addPhaseOrdering(Event.DEFAULT_PHASE, AFTER_ATTACHMENTS);

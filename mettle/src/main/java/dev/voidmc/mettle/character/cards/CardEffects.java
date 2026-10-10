@@ -122,7 +122,10 @@ public final class CardEffects {
 				}
 			}
 		}));
-		cards.tiers().forEach((id, reached) -> keywords.getOptional(id).ifPresent(k -> {
+		Map<Identifier, Integer> tiers = new HashMap<>(cards.tiers());
+		// A Dragon Standard lends its holder's best set to allies near it (Dragonfall).
+		MythicEffects.borrowed(player).forEach((k, t) -> tiers.merge(k, t, Math::max));
+		tiers.forEach((id, reached) -> keywords.getOptional(id).ifPresent(k -> {
 			for (int tier : new int[] {2, 4, 6}) {
 				Keyword.SetBonus bonus = k.sets().get(tier);
 				if (tier > reached || bonus == null) {

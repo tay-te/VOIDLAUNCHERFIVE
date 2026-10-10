@@ -151,7 +151,8 @@ public final class Drafts {
 	/** Deals every hand that is due and re-deals hands holding a card that went bad (or a v1 hand from before cards). */
 	public static void refresh(ServerPlayer player) {
 		CharacterState state = dev.voidmc.mettle.character.cards.Cards.ensure(player);
-		Settled settled = settle(player.level().registryAccess(), state, CardStore.get(player));
+		Settled settled = settle(player.level().registryAccess(), state, CardStore.get(player),
+			id -> dev.voidmc.mettle.character.cards.Mythics.drawable(player.level().getServer(), id));
 		if (!settled.state().equals(state)) {
 			CharacterStore.set(player, settled.state());
 		}
@@ -166,6 +167,12 @@ public final class Drafts {
 	}
 
 	public static Settled settle(RegistryAccess registries, CharacterState state, CardsState cards) {
+		return settle(registries, state, cards, id -> false);
+	}
+
+	/** {@link #settle}, with whether each drawn Mythic still waits in the world (the server's ledger knows). */
+	public static Settled settle(RegistryAccess registries, CharacterState state, CardsState cards,
+		java.util.function.Predicate<net.minecraft.resources.Identifier> mythicWaits) {
 		DraftState d = state.drafts();
 		DraftRules.Deck deck = deck(registries);
 		CardRules.Sheet sheet = Cards.sheet(registries, state, cards);
@@ -182,7 +189,17 @@ public final class Drafts {
 			if (!hand.isEmpty() && hand.stream().allMatch(c -> CardRules.valid(c, sheet, deck))) {
 				continue;
 			}
-			List<Card> cardsDealt = CardRules.deal(skill, sheet, deck, data, DraftRules.random(d.seed(), d.dealt()), d.recent(), Set.of());
+			List<Card> cardsDealt = new ArrayList<>(CardRules.deal(skill, sheet, deck, data, DraftRules.random(d.seed(), d.dealt()), d.recent(), Set.of()));
+			// The Mythic roll (CARDS.md §3.5): once per draft, from skill 15, while the skill's drawn Mythic waits.
+			Optional<net.minecraft.resources.Identifier> drawn = dev.voidmc.mettle.character.cards.Mythics.drawnOf(registries, skill);
+			if (!cardsDealt.isEmpty() && drawn.isPresent() && mythicWaits.test(drawn.get())
+				&& dev.voidmc.mettle.character.cards.Mythics.rolls(d.seed(), d.dealt(), sheet.level(skill))) {
+				if (cardsDealt.size() >= DraftRules.HAND) {
+					cardsDealt.set(DraftRules.HAND - 1, dev.voidmc.mettle.character.cards.Mythics.offer(drawn.get()));
+				} else {
+					cardsDealt.add(dev.voidmc.mettle.character.cards.Mythics.offer(drawn.get()));
+				}
+			}
 			d = cardsDealt.isEmpty() ? d.withHand(skill, List.of()) : d.nextDeal().withHand(skill, cardsDealt);
 		}
 		return new Settled(state.withDraft(d), Map.of());
@@ -255,6 +272,20 @@ public final class Drafts {
 		RegistryAccess registries = player.level().registryAccess();
 		DraftRules.Deck deck = deck(registries);
 		Card card = hand.get(index);
+		if (card.rarity() == DraftState.Rarity.MYTHIC) {
+			// A drawn Mythic: claimed in the world the moment it is kept (CARDS.md §9.3).
+			net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.fromNamespaceAndPath(card.perk().identifier().getNamespace(),
+				card.perk().identifier().getPath().substring("mythic/".length()));
+			if (!dev.voidmc.mettle.character.cards.Mythics.drawable(player.level().getServer(), id)) {
+				CharacterStore.set(player, state.withDraft(d.withHand(skill, List.of())));
+				refresh(player);
+				return Optional.of(Refusal.STALE);
+			}
+			CharacterStore.set(player, state.withDraft(d.addQueued(skill, -1).withHand(skill, List.of())));
+			dev.voidmc.mettle.character.cards.Mythics.grant(player, id, false);
+			refresh(player);
+			return Optional.empty();
+		}
 		if (!CardRules.valid(card, Cards.sheet(registries, state, CardStore.get(player)), deck)) {
 			refresh(player);
 			return Optional.of(Refusal.STALE);
@@ -291,6 +322,13 @@ public final class Drafts {
 		if (cards.isEmpty()) {
 			refresh(player);
 			return Optional.of(Refusal.STALE);
+		}
+		// A Mythic offer survives rerolls: the other two slots are dealt again (CARDS.md §3.5).
+		Optional<Card> mythic = hand.stream().filter(c -> c.rarity() == DraftState.Rarity.MYTHIC).findFirst();
+		if (mythic.isPresent()) {
+			List<Card> kept = new ArrayList<>(cards.subList(0, Math.min(cards.size(), DraftRules.HAND - 1)));
+			kept.add(mythic.get());
+			cards = kept;
 		}
 		DraftState next = d.withRerolls(d.rerolls() - 1).nextDeal().withHand(skill, cards);
 		CharacterStore.set(player, state.withDraft(next));

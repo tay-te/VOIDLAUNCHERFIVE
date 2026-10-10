@@ -160,6 +160,7 @@ public final class CardRules {
 			case RARE -> r < 0.6 ? 1 : 2;
 			case EPIC -> r < 0.6 ? 2 : 3;
 			case CURSED -> r < 0.5 ? 1 : 2;
+			case MYTHIC -> 0;
 		};
 	}
 
@@ -191,6 +192,7 @@ public final class CardRules {
 			case RARE -> 0.3;
 			case EPIC -> 0.7;
 			case CURSED -> 1.0;
+			case MYTHIC -> 0.0;
 		};
 	}
 
@@ -423,6 +425,10 @@ public final class CardRules {
 
 	/** An offer that is still good: rolled under v2 and its perk can still be dealt. */
 	public static boolean valid(Card card, Sheet sheet, DraftRules.Deck deck) {
+		if (card.rarity() == Rarity.MYTHIC) {
+			// A Mythic offer stays until kept; whether it still waits in the world is checked when it is.
+			return true;
+		}
 		Optional<Perk> perk = deck.get(card.perk());
 		return card.rolled() && perk.isPresent() && dealable(card.perk(), perk.get(), sheet, deck).isEmpty();
 	}
@@ -467,7 +473,7 @@ public final class CardRules {
 	/** Why a card can't go in a slot (lang {@code mettle.cards.refused.<name>}). */
 	public enum Refusal {
 		NO_CARD, NOT_IN_BINDER, ATTUNING, NEEDS_LEVEL, NO_SLOT, SLOT_TAKEN, SAME_PERK, ONE_MASTERY, MASTERY_SIDE, NOT_SLOTTED, NO_FREE_WAY,
-		BINDER_FULL, NOT_AT_SHRINE, NO_DRAUGHT, CANT_PAY, OVER_CAP, WRONG_SKILL, NOT_ENOUGH_CARDS, MIXED_SKILLS, REROLLS_FULL, PINS_TODAY, BAD_PINS;
+		BINDER_FULL, NOT_AT_SHRINE, ONE_MYTHIC_A_DECK, TWO_MYTHICS, MYTHIC, NO_DRAUGHT, CANT_PAY, OVER_CAP, WRONG_SKILL, NOT_ENOUGH_CARDS, MIXED_SKILLS, REROLLS_FULL, PINS_TODAY, BAD_PINS;
 
 		public String translationKey() {
 			return "mettle.cards.refused." + name().toLowerCase(Locale.ROOT);
@@ -493,6 +499,15 @@ public final class CardRules {
 	 */
 	public static Optional<Refusal> canSlot(CardData card, int index, List<CardData> deckCards, int level, int wits, long gameTime,
 		Function<ResourceKey<Perk>, Optional<Perk>> perks) {
+		return canSlot(card, index, deckCards, level, wits, gameTime, perks, List.of(), 0);
+	}
+
+	/**
+	 * {@link #canSlot} knowing every slotted card ({@code allSlotted}, for the Mythic limits: two slotted, never two in one
+	 * deck, §5.2) and the extra slots a slotted Polymath gives.
+	 */
+	public static Optional<Refusal> canSlot(CardData card, int index, List<CardData> deckCards, int level, int wits, long gameTime,
+		Function<ResourceKey<Perk>, Optional<Perk>> perks, List<CardData> allSlotted, int extraSlots) {
 		if (card.place().kind() != CardData.PlaceKind.BINDER) {
 			return Optional.of(Refusal.NOT_IN_BINDER);
 		}
@@ -502,7 +517,16 @@ public final class CardRules {
 		if (level < card.needs()) {
 			return Optional.of(Refusal.NEEDS_LEVEL);
 		}
-		int slots = slots(level, wits);
+		if (card.mythic()) {
+			if (deckCards.stream().anyMatch(CardData::mythic)) {
+				return Optional.of(Refusal.ONE_MYTHIC_A_DECK);
+			}
+			if (allSlotted.stream().filter(CardData::mythic).count() >= CardConfig.get().mythic_slots) {
+				return Optional.of(Refusal.TWO_MYTHICS);
+			}
+		}
+		int base = slots(level, wits);
+		int slots = base == 0 ? 0 : base + extraSlots;
 		int at = index < 0 ? firstFree(deckCards, slots) : index;
 		if (at < 0 || at >= slots) {
 			return Optional.of(Refusal.NO_SLOT);
@@ -592,9 +616,11 @@ public final class CardRules {
 			}
 		}
 		Set<Long> dormant = new HashSet<>();
+		int extra = extraSlots(cards);
 		for (Map.Entry<ResourceKey<Skill>, List<CardData>> e : decks.entrySet()) {
 			int level = levels.applyAsInt(e.getKey());
-			int slots = slots(level, wits);
+			int base = slots(level, wits);
+			int slots = base == 0 ? 0 : base + extra;
 			List<CardData> deck = e.getValue();
 			deck.sort(Comparator.comparingInt(c -> c.place().index()));
 			for (CardData c : deck) {
@@ -646,6 +672,18 @@ public final class CardRules {
 		List<Long> dormantList = new ArrayList<>(dormant);
 		dormantList.sort(Long::compare);
 		return new Derived(nextOrder, active, dormantList, traits, sets, tiers);
+	}
+
+	/** The Polymath Mythic, slotted anywhere, gives every deck one more slot (it pays for its own). */
+	public static final Identifier POLYMATH = Identifier.fromNamespaceAndPath("mettle", "polymath");
+
+	public static int extraSlots(List<CardData> cards) {
+		for (CardData c : cards) {
+			if (c.slotted() && c.mythicId().map(POLYMATH::equals).orElse(false)) {
+				return 1;
+			}
+		}
+		return 0;
 	}
 
 	/** The tier a keyword reaches (§6.1): 2, 4, 6 cards; the 6 needs cards from two decks. */
@@ -824,6 +862,10 @@ public final class CardRules {
 	}
 
 	public static Scar scar(CardData card, boolean master) {
+		if (card.mythic()) {
+			// Mythics are never scarred (§9.1).
+			return new Scar(java.util.Optional.empty(), true);
+		}
 		Random r = new Random(card.scarSeed() * 0x9E3779B97F4A7C15L + card.scars() * 0xC2B2AE3D27D4EB4FL + 1);
 		double spare = r.nextDouble();
 		int pick = r.nextInt(1 << 16);
@@ -857,6 +899,9 @@ public final class CardRules {
 		}
 		ResourceKey<Skill> skill = cards.getFirst().skill();
 		for (CardData c : cards) {
+			if (c.mythic()) {
+				return Optional.of(Refusal.MYTHIC);
+			}
 			if (c.place().kind() != CardData.PlaceKind.BINDER) {
 				return Optional.of(Refusal.NOT_IN_BINDER);
 			}

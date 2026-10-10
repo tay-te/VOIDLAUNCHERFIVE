@@ -49,6 +49,19 @@ public final class MettleCards {
 
 	private static dev.voidmc.mettle.core.net.MettlePayloads.@org.jspecify.annotations.Nullable TradeView trade;
 
+	private static java.util.List<dev.voidmc.mettle.core.net.MettlePayloads.HallEntry> hall = java.util.List.of();
+	private static dev.voidmc.mettle.core.net.MettlePayloads.@org.jspecify.annotations.Nullable MythicReveal reveal;
+	private static long revealAt;
+
+	public static void hall(dev.voidmc.mettle.core.net.MettlePayloads.HallOfFirsts h) {
+		hall = h.entries();
+	}
+
+	public static void reveal(dev.voidmc.mettle.core.net.MettlePayloads.MythicReveal r) {
+		reveal = r;
+		revealAt = net.minecraft.util.Util.getMillis();
+	}
+
 	/** The trade as the server last showed it to this player, or null. */
 	public static void trade(dev.voidmc.mettle.core.net.MettlePayloads.@org.jspecify.annotations.Nullable TradeView view) {
 		trade = view;
@@ -154,7 +167,72 @@ public final class MettleCards {
 		}
 		root.addProperty("attuneTicks", config.attune_ticks);
 		root.add("trade", trade(registries, character, attributes));
+		root.add("mythics", mythics(registries));
+		var r = reveal;
+		if (r != null && net.minecraft.util.Util.getMillis() - revealAt < 30_000) {
+			JsonObject ro = mythic(registries, r.mythic());
+			ro.addProperty("how", r.how());
+			ro.addProperty("ageMs", net.minecraft.util.Util.getMillis() - revealAt);
+			root.add("reveal", ro);
+		} else {
+			root.add("reveal", JsonNull.INSTANCE);
+		}
+		// Name cards (§13.7): the Mythics every player in sight holds, from the public sync.
+		JsonArray people = new JsonArray();
+		for (var p : mc.level.players()) {
+			java.util.List<Identifier> held = p.getAttached(dev.voidmc.mettle.character.cards.Mythics.PUBLIC);
+			JsonObject po = new JsonObject();
+			po.addProperty("name", p.getGameProfile().name());
+			JsonArray ms = new JsonArray();
+			if (held != null) {
+				held.forEach(id -> ms.add(mythic(registries, id)));
+			}
+			po.add("mythics", ms);
+			people.add(po);
+		}
+		root.add("players", people);
 		return root;
+	}
+
+	private static JsonObject mythic(RegistryAccess registries, Identifier id) {
+		JsonObject o = new JsonObject();
+		o.addProperty("id", id.toString());
+		registries.lookupOrThrow(MettleRegistries.MYTHIC).getOptional(id).ifPresent(m -> {
+			o.addProperty("name", m.name().getString());
+			o.addProperty("lore", m.lore().getString());
+			o.addProperty("effect", m.effect().getString());
+			o.addProperty("deed", m.deed().getString());
+			o.addProperty("source", m.source().getSerializedName());
+			o.addProperty("icon", m.icon().toString());
+			m.skill().ifPresent(s -> o.addProperty("skill", s.identifier().toString()));
+		});
+		return o;
+	}
+
+	/** {@code cards.mythics}: the Hall of Firsts, every Mythic with its holder (or none yet) and copies. */
+	private static JsonObject mythics(RegistryAccess registries) {
+		JsonObject out = new JsonObject();
+		JsonArray all = new JsonArray();
+		int drawnWaiting = 0;
+		Map<Identifier, dev.voidmc.mettle.core.net.MettlePayloads.HallEntry> byId = new HashMap<>();
+		hall.forEach(e -> byId.put(e.mythic(), e));
+		for (var ref : registries.lookupOrThrow(MettleRegistries.MYTHIC).listElements().sorted(Comparator.comparing(r -> r.key().identifier().toString())).toList()) {
+			JsonObject o = mythic(registries, ref.key().identifier());
+			var e = byId.get(ref.key().identifier());
+			boolean claimed = e != null && !e.holder().isEmpty();
+			o.addProperty("claimed", claimed);
+			o.addProperty("holder", claimed ? e.holder() : "");
+			o.addProperty("day", claimed ? e.day() : -1);
+			o.addProperty("copies", e == null ? 0 : e.copies());
+			if (ref.value().source() == dev.voidmc.mettle.api.Mythic.Source.DRAWN && !claimed) {
+				drawnWaiting++;
+			}
+			all.add(o);
+		}
+		out.add("all", all);
+		out.addProperty("drawnWaiting", drawnWaiting);
+		out.addProperty("slots", CardConfig.get().mythic_slots);
+		return out;
 	}
 
 	/** {@code cards.trade}: null when no trade is open or asked for (OVERLAY.md "Trading"). */
@@ -220,6 +298,15 @@ public final class MettleCards {
 		o.addProperty("code", Cards.printId(registries, c));
 		Optional<Perk> perk = registries.lookupOrThrow(MettleRegistries.PERK).getOptional(c.perk());
 		common(o, registries, c.perk(), perk, c.skill(), c.rank(), c.rarity(), c.keywords(), c.traits(), c.needs(), attributes);
+		o.addProperty("mythic", c.mythic());
+		c.mythicId().ifPresent(id -> {
+			JsonObject m = mythic(registries, id);
+			o.addProperty("name", m.has("name") ? m.get("name").getAsString() : id.getPath());
+			o.addProperty("lore", m.has("lore") ? m.get("lore").getAsString() : "");
+			o.addProperty("description", m.has("effect") ? m.get("effect").getAsString() : "");
+			o.addProperty("icon", m.has("icon") ? m.get("icon").getAsString() : "");
+			o.addProperty("kind", "mythic");
+		});
 		int level = character.level(c.skill());
 		boolean attuned = c.attuned(now);
 		o.addProperty("attuned", attuned);

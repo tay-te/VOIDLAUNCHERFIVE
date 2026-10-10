@@ -42,7 +42,9 @@ public record DraftState(
 		COMMON(0xB9BEC6),
 		RARE(0x4DA3F5),
 		EPIC(0xB27CFF),
-		CURSED(0xD8453B);
+		CURSED(0xD8453B),
+		/** A Mythic (docs/CARDS.md §9): no rarity of its own; the white-gold frame (the user's answer of 2026-10-10). */
+		MYTHIC(0xF2E6C2);
 
 		public static final StringRepresentable.EnumCodec<Rarity> CODEC = StringRepresentable.fromEnum(Rarity::values);
 
@@ -94,9 +96,9 @@ public record DraftState(
 			this(perk, rank, rarity, wildcard, List.of(), List.of(), 0);
 		}
 
-		/** Whether it was rolled under cards v2 (a v1 hand has no keywords and is dealt again). */
+		/** Whether it was rolled under cards v2 (a v1 hand has no keywords and is dealt again). A Mythic offer has none. */
 		public boolean rolled() {
-			return !this.keywords.isEmpty();
+			return !this.keywords.isEmpty() || this.rarity == Rarity.MYTHIC;
 		}
 	}
 

@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.first_of_masters"
+	},
+	"lore": {
+		"translate": "mettle.mythic.first_of_masters.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.first_of_masters.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.first_of_masters.deed"
+	},
+	"source": "world_first",
+	"trigger": "first_master",
+	"icon": "mettle:textures/gui/mythic/first_of_masters.png"
+}

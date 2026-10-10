@@ -195,4 +195,15 @@ public record CardData(
 	public boolean slotted() {
 		return this.place.slotted();
 	}
+
+	/** A Mythic card (§9): its perk key is {@code mettle:mythic/<id>}, its rarity MYTHIC. */
+	public boolean mythic() {
+		return this.rarity == Rarity.MYTHIC;
+	}
+
+	/** The Mythic's id ({@code mettle:twin_edge}), or empty for an ordinary card. */
+	public Optional<Identifier> mythicId() {
+		return mythic() ? Optional.of(Identifier.fromNamespaceAndPath(this.perk.identifier().getNamespace(),
+			this.perk.identifier().getPath().substring(this.perk.identifier().getPath().indexOf('/') + 1))) : Optional.empty();
+	}
 }

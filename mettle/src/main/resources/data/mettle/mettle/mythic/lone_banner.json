@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.lone_banner"
+	},
+	"lore": {
+		"translate": "mettle.mythic.lone_banner.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.lone_banner.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.lone_banner.deed"
+	},
+	"source": "deed",
+	"trigger": "lone_raid",
+	"icon": "mettle:textures/gui/mythic/lone_banner.png"
+}

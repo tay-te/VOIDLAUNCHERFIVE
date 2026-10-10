@@ -1,0 +1,18 @@
+{
+	"name": {
+		"translate": "mettle.mythic.seven_league_stride"
+	},
+	"lore": {
+		"translate": "mettle.mythic.seven_league_stride.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.seven_league_stride.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.seven_league_stride.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/seven_league_stride.png",
+	"skill": "mettle:athletics"
+}

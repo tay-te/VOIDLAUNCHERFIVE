@@ -192,6 +192,7 @@ future mod's cart could).
 |---|---|---|---|---|
 | `mettle:core/character` | background, spent attribute points, XP per skill, learned perks, drafts (queued per skill, dealt hands, rerolls, seed, recent skills) | yes | yes | `targetOnly` |
 | `mettle:character/cards` | the owner's cards (a cache of the world ledger `data/mettle/cards.dat`, rebuilt on join), free swaps, pins, and what the deck makes active (perks, dormant cards, trait totals, sets) (CARDS.md §2.1) | yes | yes | `targetOnly` |
+| `mettle:character/escrow` | items a player has put up in a trade (back on join after a crash) | yes | yes | no |
 | `mettle:character/journal` | books read, places discovered, trainer sessions, anti-farm memory | yes | yes | no |
 | `mettle:burden/load` | `(load, capacity, band, heaviest item id + kg)` | no (derived) | no | `targetOnly` |
 | `mettle:gear/worn` | the three worn gear stacks (pockets live inside them) | yes | only with keepInventory | `all()` (others draw it) |
@@ -274,6 +275,8 @@ All client→server payloads are requests the server validates against the chara
 | `mettle:character/learn_perk` `(perk)` | C→S | character (answered "perks come from drafts now") |
 | `mettle:character/pick_card` `(skill, index)` · `mettle:character/reroll` `(skill)` | C→S | character (DRAFT.md) |
 | `mettle:character/keep_card` `(skill, index, slot)` · `mettle:character/card_action` `(action, cards[], index, keywords[])` | C→S | character (CARDS.md) |
+| `mettle:character/trade_action` · `mettle:character/updraft` | C→S | character (CARDS.md §8, §6.3) |
+| `mettle:character/card_sitting` · `mettle:character/trade_view` | S→C | character |
 | `mettle:character/respec` `(kind)` | C→S | character |
 | `mettle:gear/belt_use` `(pocket)` | C→S | gear |
 | `mettle:core/open_picker` | S→C | core (first join, after a background reset) |

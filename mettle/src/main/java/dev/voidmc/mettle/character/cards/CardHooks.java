@@ -95,12 +95,14 @@ public final class CardHooks {
 	}
 
 	public static int set(Player player, String keyword) {
-		return CardStore.get(player).tier(t(keyword));
+		Identifier k = t(keyword);
+		// A Dragon Standard (Dragonfall) may lend this player a set tier they don't have.
+		return Math.max(CardStore.get(player).tier(k), MythicEffects.borrowed(player).getOrDefault(k, 0));
 	}
 
 	private static boolean any(Player player) {
 		CardsState s = CardStore.get(player);
-		return !s.traits().isEmpty() || !s.tiers().isEmpty();
+		return !s.traits().isEmpty() || !s.tiers().isEmpty() || !MythicEffects.borrowed(player).isEmpty();
 	}
 
 	private static boolean roll(Player player, double chance) {
@@ -261,8 +263,11 @@ public final class CardHooks {
 		}
 		double m = 1;
 		Entity attackerEntity = source.getEntity();
-		if (attackerEntity instanceof ServerPlayer player && player != target && any(player)) {
-			m *= dealt(player, target, source, damage);
+		if (attackerEntity instanceof ServerPlayer player && player != target) {
+			if (any(player)) {
+				m *= dealt(player, target, source, damage);
+			}
+			m *= MythicEffects.dealt(player);
 		}
 		double[] mark = MARKED.get(target);
 		if (mark != null && attackerEntity != null && target.level().getGameTime() <= mark[1]) {
@@ -277,6 +282,7 @@ public final class CardHooks {
 		}
 		if (target instanceof ServerPlayer victim) {
 			m *= taken(victim, source, damage);
+			m *= MythicEffects.taken(victim);
 		}
 		return (float) (damage * m);
 	}
@@ -845,7 +851,13 @@ public final class CardHooks {
 
 	/** Player#causeFoodExhaustion: Iron-gut, Tireless (digging), Windless (sprinting). */
 	public static float exhaustion(Player player, float amount) {
-		if (amount <= 0 || !any(player)) {
+		if (amount <= 0) {
+			return amount;
+		}
+		if (MythicEffects.trailFree(player) && Math.abs(amount - 0.005f) > 1e-6) {
+			return 0f;
+		}
+		if (!any(player)) {
 			return amount;
 		}
 		double m = 1 - pct(player, "survival/iron_gut");
@@ -865,6 +877,10 @@ public final class CardHooks {
 
 	/** LivingEntity#addEffect: Resolute, Antidote, Unshaken (shorter), Herbwise (potions drunk last longer). */
 	public static MobEffectInstance effect(LivingEntity entity, MobEffectInstance effect) {
+		if (entity instanceof ServerPlayer hero && Mythics.isHero(effect)) {
+			Mythics.heroOfTheVillage(hero);
+		}
+		effect = MythicEffects.effect(entity, effect);
 		if (!(entity instanceof ServerPlayer player) || effect.isInfiniteDuration() || effect.getDuration() <= 1 || !any(player)) {
 			return effect;
 		}
@@ -994,6 +1010,10 @@ public final class CardHooks {
 		if (armour && flat(player, "smithing/proofing") > 0) {
 			out.put("proofing", flat(player, "smithing/proofing"));
 		}
+		// The First Hammer (a Mythic): what you craft lasts 20 % longer and carries your mark in gold.
+		if (Mythics.active(player, "first_hammer")) {
+			out.put("first_hammer", 0.2);
+		}
 		return out;
 	}
 
@@ -1033,6 +1053,7 @@ public final class CardHooks {
 
 	/** An arrow just loosed by this player: Piercing, and whether they stood still for Poised. */
 	public static void loosed(ServerPlayer player, AbstractArrow arrow) {
+		MythicEffects.loosed(player, arrow);
 		if (!any(player)) {
 			return;
 		}

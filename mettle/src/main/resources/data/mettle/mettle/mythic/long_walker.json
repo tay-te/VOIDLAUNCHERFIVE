@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.long_walker"
+	},
+	"lore": {
+		"translate": "mettle.mythic.long_walker.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.long_walker.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.long_walker.deed"
+	},
+	"source": "deed",
+	"trigger": "walk_100km",
+	"icon": "mettle:textures/gui/mythic/long_walker.png"
+}

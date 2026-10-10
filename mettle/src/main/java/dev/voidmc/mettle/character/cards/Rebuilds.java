@@ -169,15 +169,17 @@ public final class Rebuilds {
 		int emeralds = 0;
 		for (CardData c : picked) {
 			boolean dormant = state.isDormant(c.id());
-			int b = dormant || free.isPresent() ? 0 : CardRules.feeBits(c.needs());
-			int e = dormant || free.isPresent() ? 0 : CardRules.feeEmeralds(c.needs());
+			// A Mythic: 1,000 bits (24 emeralds), no draught, never scarred (§7.1, §9.1).
+			int b = dormant || free.isPresent() ? 0 : c.mythic() ? CardConfig.get().mythic_fee : CardRules.feeBits(c.needs());
+			int e = dormant || free.isPresent() ? 0 : c.mythic() ? CardConfig.get().rebuild_emeralds[4] : CardRules.feeEmeralds(c.needs());
 			CardRules.Scar scar = dormant || free.isPresent() ? new CardRules.Scar(Optional.empty(), true) : CardRules.scar(c, sitting.master());
 			lines.add(new Line(c, b, e, scar, dormant));
 			bits += b;
 			emeralds += e;
 		}
 		ResourceKey<Skill> skill = picked.isEmpty() ? null : picked.getFirst().place().deck().orElse(picked.getFirst().skill());
-		boolean draught = free.isEmpty() && bits > 0 && skill != null && !sitting.spent().contains(skill);
+		boolean ordinary = lines.stream().anyMatch(l -> !l.dormant() && !l.card().mythic());
+		boolean draught = free.isEmpty() && ordinary && skill != null && !sitting.spent().contains(skill);
 		return new Preview(lines, bits, emeralds, draught, free);
 	}
 

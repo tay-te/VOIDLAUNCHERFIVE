@@ -1,0 +1,18 @@
+{
+	"name": {
+		"translate": "mettle.mythic.wild_hunt"
+	},
+	"lore": {
+		"translate": "mettle.mythic.wild_hunt.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.wild_hunt.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.wild_hunt.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/wild_hunt.png",
+	"skill": "mettle:survival"
+}

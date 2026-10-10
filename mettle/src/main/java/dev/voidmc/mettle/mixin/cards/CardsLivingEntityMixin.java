@@ -2,6 +2,7 @@ package dev.voidmc.mettle.mixin.cards;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import dev.voidmc.mettle.character.cards.CardHooks;
+import dev.voidmc.mettle.character.cards.MythicEffects;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -26,6 +27,18 @@ abstract class CardsLivingEntityMixin {
 		argsOnly = true, ordinal = 0)
 	private MobEffectInstance mettle$cardsEffect(MobEffectInstance effect) {
 		return CardHooks.effect((LivingEntity) (Object) this, effect);
+	}
+
+	@ModifyReturnValue(method = "canBeAffected", at = @At("RETURN"))
+	private boolean mettle$witherbane(boolean original, MobEffectInstance effect) {
+		return MythicEffects.canBeAffected((LivingEntity) (Object) this, effect, original);
+	}
+
+	@org.spongepowered.asm.mixin.injection.Inject(method = "dropExperience", at = @At("HEAD"), cancellable = true)
+	private void mettle$pardonXp(ServerLevel level, net.minecraft.world.entity.Entity killer, org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+		if (MythicEffects.pardoned((LivingEntity) (Object) this)) {
+			ci.cancel();
+		}
 	}
 
 	@ModifyReturnValue(method = "getVisibilityPercent", at = @At("RETURN"))

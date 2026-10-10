@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.polymath"
+	},
+	"lore": {
+		"translate": "mettle.mythic.polymath.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.polymath.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.polymath.deed"
+	},
+	"source": "deed",
+	"trigger": "all_fifteen",
+	"icon": "mettle:textures/gui/mythic/polymath.png"
+}

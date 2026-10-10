@@ -86,6 +86,8 @@ public final class Cards {
 		CardBlocks.init();
 		Rebuilds.init();
 		Trades.init();
+		Mythics.init();
+		MythicEffects.init();
 	}
 
 	// ---------------------------------------------------------------- reading
@@ -183,6 +185,7 @@ public final class Cards {
 			CardStore.set(player, cache.withCards(r.cards()));
 		}
 		EffectsApplier.apply(player);
+		Mythics.publish(player);
 	}
 
 	/** Works out dormancy, active perks, trait totals and sets from the cache; sets it when anything changed. */
@@ -299,6 +302,11 @@ public final class Cards {
 
 	/** Puts a binder card in slot {@code index} (-1: the first free) of its skill's deck. Free, anywhere (§5.2). */
 	public static Optional<CardRules.Refusal> slot(ServerPlayer player, long id, int index) {
+		return slot(player, id, index, null);
+	}
+
+	/** {@link #slot} into a chosen deck: a Mythic fits any deck (§5.2); other cards always go in their own skill's. */
+	public static Optional<CardRules.Refusal> slot(ServerPlayer player, long id, int index, @org.jspecify.annotations.Nullable ResourceKey<Skill> deckSkill) {
 		CharacterState state = ensure(player);
 		CardsState cards = CardStore.get(player);
 		Optional<CardData> card = cards.card(id);
@@ -306,21 +314,28 @@ public final class Cards {
 			return Optional.of(CardRules.Refusal.NO_CARD);
 		}
 		RegistryAccess registries = player.level().registryAccess();
-		ResourceKey<Skill> skill = card.get().skill();
+		ResourceKey<Skill> skill = card.get().mythic() && deckSkill != null ? deckSkill : card.get().skill();
+		if (card.get().mythic() && deckSkill == null && registries.lookupOrThrow(MettleRegistries.SKILL).getOptional(skill).isEmpty()) {
+			return Optional.of(CardRules.Refusal.NO_SLOT);
+		}
 		List<CardData> deck = cards.deck(skill);
 		int level = state.level(skill);
 		int wits = wits(registries, state);
 		long now = player.level().getServer().overworld().getGameTime();
 		Registry<Perk> perks = registries.lookupOrThrow(MettleRegistries.PERK);
-		Optional<CardRules.Refusal> no = CardRules.canSlot(card.get(), index, deck, level, wits, now, perks::getOptional);
+		int extra = CardRules.extraSlots(cards.cards());
+		Optional<CardRules.Refusal> no = CardRules.canSlot(card.get(), index, deck, level, wits, now, perks::getOptional, cards.slotted(), extra);
 		if (no.isPresent()) {
 			return no;
 		}
-		int at = index < 0 ? CardRules.firstFree(deck, CardRules.slots(level, wits)) : index;
+		int base = CardRules.slots(level, wits);
+		int at = index < 0 ? CardRules.firstFree(deck, base == 0 ? 0 : base + extra) : index;
 		ledger(player.level().getServer()).update(id, c -> c.withPlace(CardData.Place.slotted(skill, at)));
 		sync(player);
 		perks.getOptional(card.get().perk()).ifPresent(p -> SignaturePerks.feedback(player, Mettle.id("cards/" + skill.identifier().getPath()),
 			Component.translatable("mettle.cards.slotted", p.name(), skillName(player, skill), at + 1)));
+		card.get().mythicId().flatMap(m -> Mythics.def(registries, m)).ifPresent(m -> SignaturePerks.feedback(player,
+			Mettle.id("cards/" + skill.identifier().getPath()), Component.translatable("mettle.cards.slotted", m.name(), skillName(player, skill), at + 1)));
 		return Optional.empty();
 	}
 
@@ -496,7 +511,8 @@ public final class Cards {
 
 	private static void act(ServerPlayer player, MettlePayloads.CardAction a) {
 		Optional<CardRules.Refusal> no = switch (a.action()) {
-			case SLOT -> a.cards().isEmpty() ? Optional.of(CardRules.Refusal.NO_CARD) : slot(player, a.cards().getFirst(), a.index());
+			case SLOT -> a.cards().isEmpty() ? Optional.of(CardRules.Refusal.NO_CARD) : slot(player, a.cards().getFirst(), a.index(),
+				a.keywords().isEmpty() ? null : ResourceKey.create(MettleRegistries.SKILL, a.keywords().getFirst()));
 			case UNSLOT -> unslot(player, a.cards(), false);
 			case PIN -> pin(player, a.keywords());
 			case RELEASE -> Rebuilds.release(player, a.cards());

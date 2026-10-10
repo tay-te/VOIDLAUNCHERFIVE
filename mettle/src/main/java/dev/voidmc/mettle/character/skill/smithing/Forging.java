@@ -201,6 +201,9 @@ public final class Forging {
 			if (forged != null && forged.trait("tempered") > 0 && (isWeapon(stack) || isDigTool(stack))) {
 				max = (int) Math.round(max * (1 + forged.trait("tempered")));
 			}
+			if (forged != null && forged.trait("first_hammer") > 0) {
+				max = (int) Math.round(max * (1 + forged.trait("first_hammer")));
+			}
 			stack.set(DataComponents.MAX_DAMAGE, max);
 			if (stack.getDamageValue() >= max) {
 				stack.setDamageValue(max - 1);
@@ -276,7 +279,7 @@ public final class Forging {
 		if (protoName != null) {
 			stack.set(DataComponents.ITEM_NAME, forged != null && forged.has(Mark.MASTERWORK)
 				? Component.translatable("mettle.smithing.masterwork_name", protoName).withStyle(ChatFormatting.GOLD)
-				: protoName);
+				: forged != null && forged.trait("first_hammer") > 0 ? protoName.copy().withStyle(ChatFormatting.GOLD) : protoName);
 		}
 
 		BlocksAttacks blocks = proto.get(DataComponents.BLOCKS_ATTACKS);

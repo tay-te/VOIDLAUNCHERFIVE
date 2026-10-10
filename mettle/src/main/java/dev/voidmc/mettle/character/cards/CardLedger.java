@@ -25,11 +25,15 @@ import net.minecraft.world.level.saveddata.SavedDataType;
 public final class CardLedger extends SavedData {
 	public static final Codec<CardLedger> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.LONG.optionalFieldOf("next_id", 1L).forGetter(l -> l.nextId),
-		CardData.CODEC.listOf().optionalFieldOf("cards", List.of()).forGetter(l -> List.copyOf(l.cards.values()))
-	).apply(i, (next, cards) -> {
+		CardData.CODEC.listOf().optionalFieldOf("cards", List.of()).forGetter(l -> List.copyOf(l.cards.values())),
+		Codec.unboundedMap(Codec.STRING, CardData.Holder.CODEC).optionalFieldOf("firsts", Map.of()).forGetter(l -> Map.copyOf(l.firsts)),
+		Codec.unboundedMap(Codec.STRING, net.minecraft.core.UUIDUtil.CODEC.listOf()).optionalFieldOf("deeds", Map.of()).forGetter(l -> Map.copyOf(l.deeds))
+	).apply(i, (next, cards, firsts, deeds) -> {
 		CardLedger l = new CardLedger();
 		l.nextId = next;
 		cards.forEach(l::index);
+		l.firsts.putAll(firsts);
+		deeds.forEach((k, v) -> l.deeds.put(k, new ArrayList<>(v)));
 		return l;
 	}));
 
@@ -38,6 +42,10 @@ public final class CardLedger extends SavedData {
 	private long nextId = 1;
 	private final Map<Long, CardData> cards = new LinkedHashMap<>();
 	private final Map<UUID, List<Long>> byOwner = new HashMap<>();
+	/** The Hall of Firsts (§9.1): each world-first or drawn Mythic claimed, with who earned it and when. */
+	private final Map<String, CardData.Holder> firsts = new LinkedHashMap<>();
+	/** Each deed Mythic: who earned a copy, in order (the n-th copy in this world). */
+	private final Map<String, List<UUID>> deeds = new LinkedHashMap<>();
 
 	public CardLedger() {
 	}
@@ -109,6 +117,38 @@ public final class CardLedger extends SavedData {
 		}
 		out.sort(Comparator.comparingLong(CardData::id));
 		return out;
+	}
+
+	public java.util.Optional<CardData.Holder> first(String mythic) {
+		return java.util.Optional.ofNullable(this.firsts.get(mythic));
+	}
+
+	public Map<String, CardData.Holder> firsts() {
+		return Map.copyOf(this.firsts);
+	}
+
+	public void claim(String mythic, CardData.Holder holder) {
+		this.firsts.put(mythic, holder);
+		setDirty();
+	}
+
+	/** An op's reset: the first (or the draw) can be earned again. */
+	public void unclaim(String mythic) {
+		if (this.firsts.remove(mythic) != null | this.deeds.remove(mythic) != null) {
+			setDirty();
+		}
+	}
+
+	public List<UUID> deeds(String mythic) {
+		return List.copyOf(this.deeds.getOrDefault(mythic, List.of()));
+	}
+
+	/** Records a deed copy; returns which copy it is (1 = the first in this world). */
+	public int deed(String mythic, UUID player) {
+		List<UUID> who = this.deeds.computeIfAbsent(mythic, k -> new ArrayList<>());
+		who.add(player);
+		setDirty();
+		return who.size();
 	}
 
 	/** Every card ever made, released ones too. */

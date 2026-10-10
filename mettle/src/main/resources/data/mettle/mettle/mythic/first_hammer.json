@@ -1,0 +1,18 @@
+{
+	"name": {
+		"translate": "mettle.mythic.first_hammer"
+	},
+	"lore": {
+		"translate": "mettle.mythic.first_hammer.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.first_hammer.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.first_hammer.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/first_hammer.png",
+	"skill": "mettle:smithing"
+}

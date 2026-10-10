@@ -25,6 +25,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -102,6 +103,21 @@ public final class CardCommands {
 					.then(Commands.argument("skill", ResourceKeyArgument.key(MettleRegistries.SKILL))
 						.executes(c -> roll(c, 1))
 						.then(Commands.argument("hands", IntegerArgumentType.integer(1, 10)).executes(c -> roll(c, IntegerArgumentType.getInteger(c, "hands"))))))
+				.then(Commands.literal("slotin")
+					.then(Commands.argument("card", StringArgumentType.word())
+						.then(Commands.argument("deck", ResourceKeyArgument.key(MettleRegistries.SKILL)).executes(c -> {
+							ServerPlayer p = c.getSource().getPlayerOrException();
+							return trade2(c, Cards.slot(p, find(p, StringArgumentType.getString(c, "card")).id(), -1,
+								ResourceKeyArgument.getRegistryKey(c, "deck", MettleRegistries.SKILL, UNKNOWN)));
+						}))))
+				.then(Commands.literal("mythic")
+					.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+					.then(Commands.literal("grant").then(Commands.argument("mythic", ResourceKeyArgument.key(MettleRegistries.MYTHIC))
+						.executes(c -> mythicGrant(c, List.of(c.getSource().getPlayerOrException())))
+						.then(Commands.argument("players", EntityArgument.players()).executes(c -> mythicGrant(c, EntityArgument.getPlayers(c, "players"))))))
+					.then(Commands.literal("move").then(Commands.argument("card", com.mojang.brigadier.arguments.LongArgumentType.longArg(1))
+						.then(Commands.argument("player", EntityArgument.player()).executes(CardCommands::mythicMove))))
+					.then(Commands.literal("reset").then(Commands.argument("mythic", ResourceKeyArgument.key(MettleRegistries.MYTHIC)).executes(CardCommands::mythicReset))))
 				.then(Commands.literal("swaps")
 					.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 					.then(Commands.argument("count", IntegerArgumentType.integer(0, 3))
@@ -111,6 +127,74 @@ public final class CardCommands {
 					.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 					.executes(c -> clear(c, List.of(c.getSource().getPlayerOrException())))
 					.then(Commands.argument("players", EntityArgument.players()).executes(c -> clear(c, EntityArgument.getPlayers(c, "players")))))));
+	}
+
+	private static int trade2(CommandContext<CommandSourceStack> c, Optional<CardRules.Refusal> why) {
+		if (why.isPresent()) {
+			c.getSource().sendFailure(Component.translatable(why.get().translationKey()));
+			return 0;
+		}
+		return 1;
+	}
+
+	private static int mythicGrant(CommandContext<CommandSourceStack> c, Collection<ServerPlayer> players) throws CommandSyntaxException {
+		var key = ResourceKeyArgument.getRegistryKey(c, "mythic", MettleRegistries.MYTHIC, UNKNOWN);
+		int n = 0;
+		for (ServerPlayer p : players) {
+			if (Mythics.grant(p, key.identifier(), true).isPresent()) {
+				n++;
+				dev.voidmc.mettle.Mettle.LOGGER.info("op {} granted the Mythic {} to {}", c.getSource().getTextName(), key.identifier(), p.getName().getString());
+			}
+		}
+		int granted = n;
+		c.getSource().sendSuccess(() -> Component.translatable("mettle.mythic.granted", key.identifier().toString(), granted), true);
+		return n;
+	}
+
+	/** Moves a Mythic card to another player (an op's fix): owner, history and the Hall of Firsts follow. */
+	private static int mythicMove(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		long id = com.mojang.brigadier.arguments.LongArgumentType.getLong(c, "card");
+		ServerPlayer to = EntityArgument.getPlayer(c, "player");
+		var server = c.getSource().getServer();
+		var ledger = Cards.ledger(server);
+		var card = ledger.get(id).filter(CardData::mythic);
+		if (card.isEmpty()) {
+			throw NO_CARD.create(String.valueOf(id));
+		}
+		UUID from = card.get().owner();
+		ledger.update(id, x -> TradeRules.received(x, to.getUUID(), to.getGameProfile().name(), Cards.day(server), 0));
+		card.get().mythicId().ifPresent(m -> ledger.first(m.getPath()).ifPresent(h -> ledger.claim(m.getPath(),
+			new CardData.Holder(to.getUUID(), to.getGameProfile().name(), h.day()))));
+		ServerPlayer old = server.getPlayerList().getPlayer(from);
+		if (old != null) {
+			Cards.sync(old);
+		}
+		Cards.sync(to);
+		dev.voidmc.mettle.Mettle.LOGGER.info("op {} moved Mythic card {} to {}", c.getSource().getTextName(), id, to.getName().getString());
+		c.getSource().sendSuccess(() -> Component.translatable("mettle.mythic.moved", id, to.getName()), true);
+		return 1;
+	}
+
+	/** Resets a Mythic: its cards leave the world and the first (or draw) can be earned again. */
+	private static int mythicReset(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		var key = ResourceKeyArgument.getRegistryKey(c, "mythic", MettleRegistries.MYTHIC, UNKNOWN);
+		var server = c.getSource().getServer();
+		var ledger = Cards.ledger(server);
+		ledger.unclaim(key.identifier().getPath());
+		int n = 0;
+		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+			for (CardData card : ledger.owned(p.getUUID())) {
+				if (card.mythicId().map(key.identifier()::equals).orElse(false)) {
+					ledger.update(card.id(), x -> x.withPlace(CardData.Place.RELEASED));
+					n++;
+				}
+			}
+			Cards.sync(p);
+		}
+		int gone = n;
+		dev.voidmc.mettle.Mettle.LOGGER.info("op {} reset the Mythic {} ({} cards released)", c.getSource().getTextName(), key.identifier(), gone);
+		c.getSource().sendSuccess(() -> Component.translatable("mettle.mythic.reset", key.identifier().toString(), gone), true);
+		return 1;
 	}
 
 	private static int trade(CommandContext<CommandSourceStack> c, Optional<TradeRules.Refusal> why) {
@@ -149,6 +233,15 @@ public final class CardCommands {
 		CardsState state = CardStore.get(player);
 		Optional<Perk> perk = CardText.perk(registries, card.perk());
 		MutableComponent out = Component.literal(Cards.printId(registries, card) + " ").withStyle(ChatFormatting.DARK_GRAY);
+		if (card.mythic()) {
+			var m = card.mythicId().flatMap(id -> Mythics.def(registries, id));
+			out.append(m.map(x -> x.name().copy()).orElse(Component.literal("?")).withStyle(s -> s.withColor(TextColor.fromRgb(card.rarity().colour)).withBold(true)));
+			m.ifPresent(x -> out.append(Component.literal(" · ").withStyle(ChatFormatting.DARK_GRAY)).append(x.effect().copy().withStyle(ChatFormatting.GRAY)));
+			out.append(Component.literal(" · ").withStyle(ChatFormatting.DARK_GRAY)).append((card.slotted()
+				? Component.translatable("mettle.cards.where.slotted", card.place().index() + 1) : Component.translatable("mettle.cards.where.mythic"))
+				.copy().withStyle(card.slotted() ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+			return out;
+		}
 		out.append(perk.map(p -> CardText.name(p, card.rank())).orElse(Component.literal(card.perk().identifier().toString()))
 			.withStyle(s -> s.withColor(TextColor.fromRgb(card.rarity().colour)).withBold(true)));
 		out.append(Component.literal(" · ").withStyle(ChatFormatting.DARK_GRAY)).append(CardText.keywords(registries, card.keywords()).withStyle(ChatFormatting.GRAY));

@@ -1,6 +1,6 @@
 # VOID Mettle — cards v2: rolled cards, decks, sets, trading, Mythics
 
-**Status: waves A and B built (2026-10-10, branch `mettle-cards`), see §20–§21; waves C–E designed.** Builds on the perk draft
+**Status: waves A, B and C built (2026-10-10, branch `mettle-cards`), see §20–§22; waves D–E and fusion designed.** Builds on the perk draft
 ([DRAFT.md](DRAFT.md)): the draft stays the source of cards. Where this doc and DRAFT.md disagree, this doc wins once
 wave A ships (§16). Screens go to Figma first (§13).
 
@@ -1034,4 +1034,30 @@ hostile's visibility of the player), Tide's tridents.
    gravel or open-sky stone (Hearth's settlement bounds aren't asked); Undertow's clear sight is night vision under water;
    Magpie's extra roll is a copy of the chest's first roll; Gale 4's thrown things other than arrows aren't faster yet.
 4. Fusion (§18.1, rulings 2–4) is not built yet; it comes after trading and Mythics as the user ordered.
+
+## 22. Built (wave C, 2026-10-10)
+
+Code: `character.cards.Trades` (sessions, escrow, swap), `TradeRules` (pure), the `mettle:character/escrow`
+attachment, payloads `character/trade_action` (C→S) and `character/trade_view` (S→C), `/mettle trade …`, overlay
+`cards.trade` and the `trade*` actions (OVERLAY.md). Checks: `TradeRulesTest` (4: range, calm and life; only attuned
+binder cards of your own; history and attunement; room for cards and items), `TradeJourney` in the client tour (a Fabric
+fake player stands in for the second player: request and accept, escrow, any change unlocking both, countdown and swap,
+owners, history and attunement, an attuning card refused a slot and a new trade, a cancel that returns everything,
+escrowed items back after a crash).
+
+**How it plays.** Sneak and use an empty hand on a player (or `/mettle trade <player>`, or the Hub's Trade); they get a
+chip and a clickable [Accept]. Each side offers up to nine binder cards (a slotted card is rebuilt out first), nine item
+stacks (taken from the inventory into a saved escrow) and Hearth coin (without Hearth, emeralds go in as items). Any
+change unlocks both; with both locked, Confirm starts the 3 s countdown, which moving past 8 blocks or anyone being hurt
+stops; leaving cancels the trade. The swap checks both binders (300) and both inventories, and both purses, first; then
+the cards change owner in the ledger (history extended, attuning for 24,000 ticks), the items and coin change hands, all
+in one server tick. After a crash, `TRADE` cards go back to their owners when the server starts and escrowed items when
+their owner joins.
+
+**Where it differs, and why:**
+
+1. Coin moves by Hearth's `charge` and `pay` in the same tick (INTEGRATION.md request 8 would make it one call).
+2. The trade screen is the Hub's (§13.4) from `cards.trade`; until then `/mettle trade card|item|coin|lock|confirm|cancel`.
+3. The tour's second player is a Fabric fake player: the server-side rules are the same; the request and countdown run
+   as for two real players, the swap is driven by the test.
 

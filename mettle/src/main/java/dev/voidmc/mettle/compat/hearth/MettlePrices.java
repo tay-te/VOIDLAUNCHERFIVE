@@ -23,7 +23,7 @@ final class MettlePrices implements PriceModifier {
 
 	@Override
 	public double factor(ServerPlayer player, Settlement settlement, ItemStack one, boolean playerBuys) {
-		double factor = HearthRules.priceFactor(edge(player), playerBuys);
+		double factor = HearthRules.priceFactor(edgeWithAllies(player), playerBuys);
 		// Signature (a card trait): goods marked "Forged by you" sell for more.
 		var forged = one.get(dev.voidmc.mettle.character.skill.smithing.SmithingComponents.FORGED);
 		if (!playerBuys && forged != null && forged.smith().equals(player.getName().getString())) {
@@ -39,5 +39,10 @@ final class MettlePrices implements PriceModifier {
 		// Magpie (Hoard 6, a card set): 5 % more edge.
 		double magpie = dev.voidmc.mettle.character.cards.CardHooks.set(player, "hoard") >= 6 ? 0.05 : 0;
 		return HearthRules.priceEdge(presence, speech, SignaturePerks.has(player, SignaturePerks.COIN_SENSE)) + magpie;
+	}
+
+	/** The edge with The Open Hand (a Mythic): a holder within 8 blocks lends their edge if it is better. */
+	static double edgeWithAllies(ServerPlayer player) {
+		return Math.max(edge(player), dev.voidmc.mettle.character.cards.MythicEffects.openHandEdge(player, MettlePrices::edge));
 	}
 }

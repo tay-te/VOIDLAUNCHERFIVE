@@ -97,6 +97,11 @@ public final class MettleActions {
 		cardAction(MettlePayloads.CardActionKind.SLOT, ids(card), slot, List.of());
 	}
 
+	/** Puts a Mythic in any deck ({@code "mettle:blades"}): at most two slotted, never two in one deck. */
+	public static void slotCard(String card, int slot, String deck) {
+		cardAction(MettlePayloads.CardActionKind.SLOT, ids(card), slot, List.of(Identifier.parse(deck)));
+	}
+
 	/**
 	 * Takes slotted cards of one deck back to the binder ({@code "12"} or {@code "12,15"}): free below character level 5,
 	 * for dormant cards, on a deck's first rebuild after the migration, or with free swaps ({@code cards.costs}). Away

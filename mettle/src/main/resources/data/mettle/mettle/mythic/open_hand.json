@@ -1,0 +1,17 @@
+{
+	"name": {
+		"translate": "mettle.mythic.open_hand"
+	},
+	"lore": {
+		"translate": "mettle.mythic.open_hand.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.open_hand.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.open_hand.deed"
+	},
+	"source": "world_first",
+	"trigger": "first_honoured",
+	"icon": "mettle:textures/gui/mythic/open_hand.png"
+}
