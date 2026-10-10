@@ -321,7 +321,10 @@ public final class MettleCards {
 		}
 		// Whether the card could go in its deck now (in the binder, attuned, level, a free legal slot) and, if not, why.
 		Optional<CardRules.Refusal> no = c.slotted() ? Optional.of(CardRules.Refusal.NOT_IN_BINDER)
-			: CardRules.canSlot(c, -1, cards.deck(c.skill()), level, Cards.wits(registries, character), now, registries.lookupOrThrow(MettleRegistries.PERK)::getOptional);
+			: c.mythic() ? (cards.slotted().stream().filter(CardData::mythic).count() >= CardConfig.get().mythic_slots
+				? Optional.of(CardRules.Refusal.TWO_MYTHICS) : Optional.empty())
+			: CardRules.canSlot(c, -1, cards.deck(c.skill()), level, Cards.wits(registries, character), now,
+				registries.lookupOrThrow(MettleRegistries.PERK)::getOptional, cards.slotted(), CardRules.extraSlots(cards.cards()));
 		o.addProperty("canSlot", no.isEmpty());
 		if (no.isPresent() && !c.slotted()) {
 			o.addProperty("lockedReason", no.get() == CardRules.Refusal.NEEDS_LEVEL
@@ -467,6 +470,10 @@ public final class MettleCards {
 		int level = character.level(key);
 		int base = CardRules.baseSlots(level);
 		int slots = CardRules.slots(level, wits);
+		if (slots > 0) {
+			// The Polymath Mythic adds a slot to every deck.
+			slots += CardRules.extraSlots(cards.cards());
+		}
 		JsonObject d = new JsonObject();
 		d.addProperty("skill", key.identifier().toString());
 		d.addProperty("name", skill.name().getString());
