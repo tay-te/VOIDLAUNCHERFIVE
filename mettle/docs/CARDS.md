@@ -903,7 +903,7 @@ preview, the trainer rebuild, the trade screen both sides, a Mythic reveal, a na
 
 ---
 
-## 17. Decisions made here (for the user to confirm)
+## 17. Decisions (confirmed by the user, 2026-10-10: "I agree with all of your decisions")
 
 1. Rarity is rolled apart from depth; the v1 rarity odds become depth odds; new rarity odds Common 70 − 1.5 L, Rare
    24 + L, Epic 6 + 0.5 L.
@@ -926,13 +926,13 @@ preview, the trainer rebuild, the trade screen both sides, a Mythic reveal, a na
     swap or 1,000 bits.
 14. Binder cap 300; release three for a reroll.
 
-## 18. Open questions
+## 18. Answered (user, 2026-10-10)
 
-1. **Fusion**: should three copies of a perk fuse into one of the next rarity at a shrine (a sink that makes
-   duplicates valuable)? Not designed; it would be wave B+.
-2. **Cards across worlds**: cards live in the world's ledger, so they don't travel to another world or server, unlike
-   items in a copied player file. Is that right for VOID's servers?
-3. **The Mythic frame colour** (ivory proposed) and whether keyword glyphs get a colour each or one neutral colour.
-4. **Do earned perks become cards?** This design keeps feats, synergies and teachings always on and outside the deck.
-5. **Reroll scarcity**: releasing three cards for a reroll may make rerolls plentiful late; watch it in play.
-6. **The Far Horizon's Homeward** is the only teleport in Mettle; keep it, or swap for a travel effect that isn't one?
+1. **Fusion: yes.** Three copies of a perk fuse into one card of the next rarity at a Card Shrine (or a trainer): the
+   new card rolls fresh traits at its rarity, keeps the best trait of the three, and records "Fused from three". Epic
+   triples do not fuse (Epic is the top rarity; Mythics are never made). Design it in the wave that builds the shrine.
+2. **Cards stay in their world.** The ledger is per world/server; nothing travels.
+3. **Mythic frame: white-gold**, as designed in Figma (section 2f, M1–M4). Keyword glyphs: one neutral colour.
+4. **Earned perks stay always on**, outside the deck (rewards for deeds, not build choices).
+5. **Reroll supply**: keep "release three for a reroll"; watch it in play and tune `RELEASE_FOR_REROLL`.
+6. **The Far Horizon** keeps Homeward (once a day) for now.
