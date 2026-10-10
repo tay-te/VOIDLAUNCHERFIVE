@@ -853,6 +853,25 @@ rather than from memory.
 | `tools/structures/gen_structures.py` | Every structure: templates (`.nbt`) built by `designs/*.py`, template pools, processor lists, structure sets, chest loot and tags. It validates its output against vanilla's block states and can render isometric previews (`--preview DIR`). |
 | `tools/structures/gen_caves.py` | The things underground: cave templates (`structure/cave/`), their processor lists, loot, journals and the `expanse:cave_template` features, one per group in `CaveThings.java` (it checks the two agree). Validates with the structure validator; `--preview DIR` renders a contact sheet. |
 
+### Generation speed, and proving it changed nothing
+
+`-Dexpanse.genbench=true` on the client game test (`GenBench`) runs a fixed benchmark instead of the tour: a world on
+seed 8675309, three 12 x 12-chunk areas (lowland, mountains, coast) timed to FULL, then a fingerprint of every block
+of 192 chunks at TERRAIN status and a check of the fast base heights against vanilla's. Any speed-up must leave the
+fingerprints byte for byte as they were. Three are in place, each exact:
+
+- **Surface rules only where they can act** (`SurfaceBands`, `EarthSurfaceMixin`, `MaterialSystemMixin`,
+  `MaterialRuleContextMixin`): on the Earth world, stone between y 50 and the preliminary surface is no longer put to
+  the rules (none of them can change it there, worked out from the rule tree itself), and the ore veins are sampled
+  only up to y 49. About a tenth off chunk generation.
+- **Base heights** (`NoiseColumnScan`): one scan answers every heightmap type, starting just above the land rather
+  than at the top of the world and without vanilla's per-column noise chunk, cached: 5 us a call against 282, which
+  is what structure placement, `/locate` and VOID LOD's distant structures ask for.
+- **The aquifer** (`EarthAquiferMixin`) answers at once where its twelve neighbouring centres agree (the Earth's
+  caves are dry, so they mostly do).
+
+The last two can be switched off (`-Dexpanse.fast.baseheight2=false`, `-Dexpanse.fast.noaquifer=false`).
+
 ### How this was checked without a monitor
 
 - **Dedicated server smoke test.** Running the server with `-Dexpanse.dev.locate=6000

@@ -2,6 +2,7 @@ package dev.voidmc.expanse.world.terrain;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.voidmc.expanse.mixin.NoiseBasedChunkGeneratorAccessor;
 import dev.voidmc.expanse.world.biome.EarthBiomeSource;
 import java.util.EnumSet;
 import java.util.List;
@@ -34,6 +35,7 @@ import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.blending.Blender;
 import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@code expanse:earth}: the overworld's chunk generator.
@@ -64,9 +66,13 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 	private static final BlockState LAVA = Blocks.LAVA.defaultBlockState();
 	private static final BlockState[] BED = {Blocks.GRAVEL.defaultBlockState(), Blocks.SAND.defaultBlockState(), Blocks.CLAY.defaultBlockState()};
 	private static final BlockState BANK = Blocks.DIRT.defaultBlockState();
+	/** Base heights by {@link NoiseColumnScan} for the Earth's noise settings; off ({@code -Dexpanse.fast.baseheight2=false}), the noise generator's own. */
+	private static final boolean FAST_BASE_HEIGHT = Boolean.parseBoolean(System.getProperty("expanse.fast.baseheight2", "true"));
 
 	private final Holder<NoiseGeneratorSettings> settings;
 	private final NoiseBasedChunkGenerator noise;
+	/** The noise's base heights from a short stretch of the column, kept by column, for the Earth's own noise settings (null for any other, or when switched off). */
+	private final @Nullable NoiseColumnScan scan;
 	private volatile long modelWorldSeed;
 	private volatile TerrainModel model;
 	private final List<Holder<Biome>> realms;
@@ -79,6 +85,9 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 			.map(n -> biomes.get(ResourceKey.create(Registries.BIOME, dev.voidmc.expanse.Expanse.id(n))).<Holder<Biome>>map(h -> h).orElse(null))
 			.toList();
 		this.noise = new NoiseBasedChunkGenerator(this.biomeSource, settings);
+		this.scan = FAST_BASE_HEIGHT && settings.is(NoiseColumnScan.SETTINGS)
+			? new NoiseColumnScan(settings, ((NoiseBasedChunkGeneratorAccessor) (Object) this.noise).expanse$globalFluidPicker())
+			: null;
 	}
 
 	public Holder<NoiseGeneratorSettings> generatorSettings() {
@@ -490,7 +499,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 
 	@Override
 	public int getBaseHeight(int x, int z, Heightmap.Types type, LevelHeightAccessor heightAccessor, RandomState randomState) {
-		int base = this.noise.getBaseHeight(x, z, type, heightAccessor, randomState);
+		int base = this.noiseHeight(x, z, type, heightAccessor, randomState);
 		Column c = this.model(randomState).sample(x, z);
 		if (!c.inChannel()) {
 			return base;
@@ -500,6 +509,26 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 			case OCEAN_FLOOR, OCEAN_FLOOR_WG -> Math.min(base, c.bed());
 			default -> c.waterTop();
 		};
+	}
+
+	/** The noise's own base height, before the rivers: the noise generator's, worked out much faster ({@link NoiseColumnScan}). */
+	public int noiseHeight(int x, int z, Heightmap.Types type, LevelHeightAccessor heightAccessor, RandomState randomState) {
+		if (this.scan == null) {
+			return this.noiseHeightVanilla(x, z, type, heightAccessor, randomState);
+		}
+		return this.scan.height(this.model(randomState), x, z, type, heightAccessor, randomState);
+	}
+
+	/** {@link #noiseHeight} the noise generator's own way, the whole column from the top of the world: slow, kept to check the other against. */
+	public int noiseHeightVanilla(int x, int z, Heightmap.Types type, LevelHeightAccessor heightAccessor, RandomState randomState) {
+		return this.noise.getBaseHeight(x, z, type, heightAccessor, randomState);
+	}
+
+	/** Forgets the base heights {@link #noiseHeight} keeps, so the next are worked out afresh: for timing them. */
+	public void forgetNoiseHeights() {
+		if (this.scan != null) {
+			this.scan.forget();
+		}
 	}
 
 	@Override
