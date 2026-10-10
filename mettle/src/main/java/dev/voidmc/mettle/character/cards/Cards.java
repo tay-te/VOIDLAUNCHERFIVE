@@ -255,11 +255,17 @@ public final class Cards {
 	/** Makes a card from an offer and puts it in the ledger. */
 	static CardData create(ServerPlayer player, CardLedger ledger, Card offer, int level, CardData.How how, CardData.Place place) {
 		long id = ledger.allocate();
-		Perk perk = player.level().registryAccess().lookupOrThrow(MettleRegistries.PERK).getValueOrThrow(offer.perk());
+		RegistryAccess registries = player.level().registryAccess();
+		// A Mythic's perk key isn't a perk: its deck skill is the drawn skill, or none of its own.
+		ResourceKey<Skill> skill = offer.rarity() == Rarity.MYTHIC
+			? Mythics.def(registries, Identifier.fromNamespaceAndPath(offer.perk().identifier().getNamespace(),
+				offer.perk().identifier().getPath().substring("mythic/".length()))).flatMap(m -> m.skill())
+				.orElse(ResourceKey.create(MettleRegistries.SKILL, Mettle.id("mythic")))
+			: registries.lookupOrThrow(MettleRegistries.PERK).getValueOrThrow(offer.perk()).skill();
 		long day = day(player.level().getServer());
 		String name = player.getGameProfile().name();
 		long scarSeed = new Random(CharacterStore.get(player).drafts().seed() * 31 + id).nextLong();
-		CardData card = new CardData(id, perk.skill(), offer.perk(), offer.rarity(), offer.rank(), offer.keywords(), offer.traits(), offer.needs(),
+		CardData card = new CardData(id, skill, offer.perk(), offer.rarity(), offer.rank(), offer.keywords(), offer.traits(), offer.needs(),
 			new CardData.Drawn(player.getUUID(), name, level, day, System.currentTimeMillis(), how), player.getUUID(),
 			CardData.History.first(new CardData.Holder(player.getUUID(), name, day)), 0, scarSeed, place, 0L);
 		ledger.add(card);

@@ -90,6 +90,9 @@ final class MythicJourney {
 				return "The Twin Edge was not claimed: " + CardStore.get(p).cards();
 			}
 			// It fits any deck: slot it in Mining.
+			if (CharacterStore.get(p).level(MiningSkill.MINING) < 2) {
+				s.getCommands().performPrefixedCommand(s.createCommandSourceStack(), "mettle xp mettle:mining 200 @a");
+			}
 			var slotted = Cards.slot(p, twin.id(), -1, MiningSkill.MINING);
 			if (slotted.isPresent() || !Mythics.active(p, "twin_edge")) {
 				return "The Twin Edge in the Mining deck: " + slotted;
