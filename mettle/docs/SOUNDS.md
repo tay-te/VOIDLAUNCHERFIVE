@@ -95,6 +95,7 @@ MettleActions.cardSound(String cue, String arg)   // or cardSound("cue#arg")
 | `("deal", "mettle:mining")` | a skill's hand starts to fan out (the first card's slide starts now). Mettle reads the hand and adds the rarity stinger itself |
 | `("hover", "epic")` or `("hover", "mettle:mining#2")` | the pointer reaches a card: its rarity (`common rare epic mastery cursed wildcard earned mythic`) or the skill and card index. Hovering a Mythic starts its shimmer; hovering anything else lets it go |
 | `("unhover", "")` | the pointer leaves the cards |
+| | (with `skill#index`, Mettle picks the voice: the card's rarity (CARDS.md: Common, Rare, Epic, Cursed, Mythic), a Mastery perk as Mastery, an earned perk as Earned, and a Common/Rare/Epic wildcard as Wildcard) |
 | `("mythic_reveal", "")` | the reveal starts; time the visuals to `draft.sound.markers.mythic_reveal` (`dark`, `cracks`, `swell`, `flip`, `settled`) |
 | `("slot", "")`, `("set_complete", "")` | a card lands in a deck slot; a set or deck completes |
 | `("stop", "")` | the draft closes or the reveal is skipped: every pending layer and the shimmer stop |

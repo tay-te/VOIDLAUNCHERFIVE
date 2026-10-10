@@ -2,6 +2,7 @@ package dev.voidmc.mettle.client.draft;
 
 import com.google.gson.JsonObject;
 import dev.voidmc.mettle.api.MettleRegistries;
+import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
 import dev.voidmc.mettle.character.draft.CardCues;
 import dev.voidmc.mettle.character.draft.Drafts;
@@ -106,7 +107,7 @@ public final class CardAudio {
 		play("deal", 0, skill);
 		Set<String> keys = new LinkedHashSet<>();
 		for (DraftState.Card card : hand(skill)) {
-			keys.add(CardCues.rarityKey(card.rarity().getSerializedName(), card.wildcard()));
+			keys.add(key(card));
 		}
 		if (!keys.contains("mythic")) {
 			cues.stinger(keys).ifPresent(s -> play(s, cues.rules().stingerAtMs(), skill));
@@ -135,7 +136,7 @@ public final class CardAudio {
 		List<DraftState.Card> hand = hand(skill);
 		if (index >= 0 && index < hand.size()) {
 			DraftState.Card card = hand.get(index);
-			hover(CardCues.rarityKey(card.rarity().getSerializedName(), card.wildcard()));
+			hover(key(card));
 		}
 	}
 
@@ -178,7 +179,7 @@ public final class CardAudio {
 		String key = "common";
 		if (index >= 0 && index < hand.size()) {
 			DraftState.Card card = hand.get(index);
-			key = CardCues.rarityKey(card.rarity().getSerializedName(), card.wildcard());
+			key = key(card);
 		}
 		pickSounds(key);
 	}
@@ -301,6 +302,21 @@ public final class CardAudio {
 				play("nudge", 0, "");
 			}
 		}
+	}
+
+	/** How a dealt card sounds: its rarity, a Mastery as a Mastery, an earned perk in gold, a wildcard as a wildcard. */
+	private static String key(DraftState.Card card) {
+		String rarity = card.rarity().getSerializedName();
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player != null && !rarity.equals("cursed") && !rarity.equals("mythic")) {
+			Perk perk = mc.player.level().registryAccess().lookupOrThrow(MettleRegistries.PERK).getValue(card.perk());
+			if (perk != null && perk.kind() == Perk.Kind.MASTERY) {
+				rarity = "mastery";
+			} else if (perk != null && !perk.kind().drafted()) {
+				rarity = "earned";
+			}
+		}
+		return CardCues.rarityKey(rarity, card.wildcard());
 	}
 
 	private static List<DraftState.Card> hand(String skill) {
