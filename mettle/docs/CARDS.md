@@ -1,6 +1,6 @@
 # VOID Mettle — cards v2: rolled cards, decks, sets, trading, Mythics
 
-**Status: DESIGN (2026-10-10), approved in outline by the user; nothing built.** Builds on the perk draft
+**Status: wave A built (2026-10-10, branch `mettle-cards`), see §20; waves B–E designed.** Builds on the perk draft
 ([DRAFT.md](DRAFT.md)): the draft stays the source of cards. Where this doc and DRAFT.md disagree, this doc wins once
 wave A ships (§16). Screens go to Figma first (§13).
 
@@ -947,3 +947,52 @@ preview, the trainer rebuild, the trade screen both sides, a Mythic reveal, a na
 4. **A slotted card can't be fused or released directly**: unslot it first (a rebuild or a free swap).
 5. **Release happens at a Card Shrine**, but the binder shows a Release action that explains "at a Card Shrine" when
    the player isn't at one; the overlay state says whether the player is at a shrine (`cards.atShrine`).
+
+## 20. Built (wave A, 2026-10-10)
+
+Code: `character.cards` (`CardRules` pure, `CardLedger`, `Cards`, `CardEffects`, `CardHooks`, `CardCommands`,
+`CardText`, `CardConfig`, `RegistryCardData`), `core.CardData` / `CardsState` / `CardStore` (the cache attachment
+`mettle:character/cards`), the offer fields on `core.DraftState.Card`, `api.Trait` / `Keyword` / `CardSkill` and their
+registries, `mixin.cards` (`mettle-cards.mixins.json`), overlay `client.overlay.MettleCards` (OVERLAY.md "Cards v2").
+Data: `data/mettle/mettle/{trait,keyword,card_skill}`, generated with the lang lines and keyword glyphs by
+`tools/cards/cards_data.py` (edit the tables there). Checks: `CardRulesTest` (19), `CardReportTest` (the §14
+simulator, `-Dmettle.balance=true` → `build/reports/mettle-cards.md`), `CardJourney` in the client tour
+(`-Dmettle.tour.cards_only=true` plays only the draft and card journeys).
+
+**What wave A does.** A kept offer is a card in the world ledger (`data/mettle/cards.dat`) with a counter id printed
+`MN-7Q4K-2F` (a 30-bit bijection in Crockford base 32); the player's cache is rebuilt from the ledger on join (the
+ledger wins both ways, logged). Rolling, requirements, slots, slot rules, dormancy, trait totals and caps, sets with
+three active (ties to the keyword counted first, or the player's pins) and the v1 → v2 migration are as §3–§6 and §12.
+`Perks.rank` / `has` (and so `CharacterService.hasPerk` and Hearth's `PlayerSkills.hasPerk`) read slotted,
+non-dormant cards plus the record's own perks. Every one of the 120 traits does something (attribute traits as
+`mettle:trait/<skill>/<trait>` modifiers, behaviour traits through `CardHooks`), and so do the 2 and 4 tiers of every
+set (attribute tiers as `mettle:set/<keyword>/<tier>`). Free swaps (one per character level, held to 3) and pins are
+built, since without them nothing could leave a slot before wave B.
+
+**Simulator (3,000 careers a skill):** a skill-20 deck holds 21.6 perk points + 9.2 trait points = **30.9 against
+v1's 27.9 (1.11×; limit 1.15×)**, **33.8 with Wits 14 (1.21×; limit 1.3×)**, the same in all eight skills; no trait
+total passes its cap; two careers' Mining decks share 16 % of their perk + trait pairs (limit 30 %) and no two of
+3,000 are the same; an early Epic waits 2.9 levels on average; every v1 career migrates to a deck worth more than it
+had (34 points against 28, three drafts back); an all-eight character reaches a 2-set at character level 5, a 4-set
+at 9 and a 6-set at 17; Tide never reaches 6 when sets aren't chased, Kin 15 %, Deep 2 % (the hardest, as meant).
+
+**Where it differs from the design above, and why:**
+
+1. Native keywords, pools and prefixes live in `card_skill/<skill>.json`, not on the perk and skill JSON: `Perk`'s
+   codec is at `RecordCodecBuilder`'s sixteen-field limit, and one file per skill is easier to balance.
+2. A drafted perk an op gives with `/mettle perk learn` stays outside the deck (always active, like an earned perk);
+   tests and fixing characters need that, players never get perks that way.
+3. A card's cap is its trait's max × 1.25 (`card_cap_boost`), so a broad 12 % reaches 15 % and a narrow 25 % 31 %;
+   a trait's total is capped at twice that. Resolute is narrow (its 15 % would break the broad cap).
+4. The old `pickCard` (and the chat pick) is "Keep & slot when a legal slot is free, else the binder", so hosts written
+   for v1 keep working; `keepCard(skill, index, slot)` is the explicit choice.
+5. Some trait effects are close readings rather than exact: Crushing adds the damage the ignored armour share would
+   have stopped; Headhunting is an arrow at the target's eye height; Seamfinder is the first ore of a kind within 8
+   blocks in a minute; Shieldbreaker re-adds the shield cooldown 5 s × (1 + X); Steady-handed and Mender's work on
+   anvil repairs and renames (the jobs Tinker touches); Recovering and Kin 4 add a quarter heart a second × the rate;
+   Tempo, Flourishing, Long-winded and Pacesetting are short-lived `mettle:trait_timed/*` modifiers. Ember 4's
+   campfire-food heal, Deep 4, Tide 4's tridents and Gale 4's thrown things come with the 6 tiers in wave B.
+6. The Echo set shortens cooldowns kept by `Cooldowns` (Last Stand, Second Wind, Still Standing); perks that time
+   themselves elsewhere are untouched until they move there.
+7. `pvp_perks` (BALANCE.md §6) is not built anywhere in Mettle yet, so traits and sets apply in PvP as perks do today.
+8. `config/mettle/cards.json` is read by the server at start; clients draw with the defaults (only display numbers).

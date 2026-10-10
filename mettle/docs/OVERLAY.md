@@ -112,6 +112,88 @@ old `learnPerk(id)` sends nothing and adds a `mettle:draft/no_buying` chip ("Per
 `character/learn_perk` packet is still registered and answered the same way. The level moment's subtitle now says
 "A draft to pick · press K", and the hotbar nudge counts drafts plus attribute points ("3 waiting").
 
+**Cards v2 (CARDS.md, wave A built 2026-10-10)** changes and adds. Built in `client.overlay.MettleCards`; every number
+comes from the synced card cache (`mettle:character/cards`) and the data registries, so the Hub only reads.
+
+- `skills[].hand[]` cards are **rolled offers** now: the v1 fields stay, and each card also has `keywords: {id, name,
+  icon}[]`, `traits: {id, name, kind, attribute, value, valueText, boosted, boostedText, cap, description, arsenal?}[]`
+  (`boosted` = the value after the viewer's attributes, CARDS.md §4.3), `needs` (skill level to slot), `needsText`
+  ("Needs Mining 7"), `meetsRequirement`, `slotsAt` ("Slots at Mining 7", empty when it can be slotted now),
+  `rarityName`, `baseName` and `name` (a root's name carries its rank: "Quarryman III"), `tierName` ("I", "II", "III",
+  "M"). A root's `rank` is its rarity (Common I, Rare II, Epic III).
+- `skills[].odds` is each **frame's** chance per card of a hand dealt now: `cursed` by depth, `common` / `rare` / `epic`
+  by the rolled rarity odds (Common 70 − 1.5 L, Rare 24 + L, Epic 6 + 0.5 L).
+- `perks[]`: `rank` is the **active** rank (earned, or from a slotted card), `owned` counts cards of the perk the player
+  holds anywhere, and `locked` / `inDeck` follow cards v2's dealing (owning a perk never takes it out of the deck).
+
+```ts
+cards: {
+  version: 0 | 1;                          // 1 once the character went through the v2 migration
+  binder: { count: number; max: 300;
+            cards: Card[] };               // every card the player owns (binder and decks), newest first
+  decks: {                                 // one per released skill
+    skill: string; name: string; colour: string; level: number;
+    baseSlots: number; witsSlots: number; slots: number;   // slots open now (3 at skill 2 … 8, +1 Wits 8, +2 Wits 14)
+    row: { index: number; card: string | null;            // card id in this slot
+           dormant: boolean; open: boolean;
+           locked?: string }[];                             // closed slots: "Opens at Mining 11" or "Wits 14"
+    nextSlotAt: number;                    // skill level of the next base slot (0 = all open)
+    freeRebuild: boolean;                  // this deck's first rebuild after the migration is still free
+    rebuildHint: string;                   // "Visit a Mining trainer or a Card Shrine"
+  }[];
+  sets: {                                  // all fourteen keywords, for the set tracker strip
+    id: string; name: string; theme: string; icon: string; colour: string;
+    count: number;                         // slotted, non-dormant cards carrying it (each keyword of a card counts)
+    decks: number;                         // how many decks those cards sit in (the 6 tier needs two)
+    tier: 0 | 2 | 4 | 6;                   // reached
+    active: boolean; pinned: boolean;      // one of the three active sets; pinned by the player
+    bonuses: { tier: 2 | 4 | 6; description: string; reached: boolean; active: boolean }[];
+  }[];
+  traits: { id; name; skill; value: number; cap: number;   // active totals against twice the card cap
+            text: string;                  // "Deepborn 24 % of 30 %"
+            description: string }[];
+  costs: { fees: { needsFrom; needsTo; bits; emeralds }[];  // rebuild fee per card by requirement (§7.1)
+           mythicBits: 1000; mythicEmeralds: 24;
+           freeSwaps: number; maxFreeSwaps: 3; freeRebuilds: string[];  // skills whose first rebuild is free
+           freeBelowLevel: 5; lowLevel: boolean;           // below character level 5 every rebuild is free
+           cityMasterScarChance: 0.5 };
+  pins: { keywords: string[]; max: 3; canChange: boolean }; // pins change once an in-game day
+  keywords: { id; name; icon; colour }[];  // the legend (one neutral glyph colour, white ink to tint)
+  atShrine: boolean;                       // the player has a Card Shrine (or trainer) sitting open (wave B)
+  attuneTicks: 24000;
+};
+type Card = {
+  id: string;                              // the ledger id (a number, as a string)
+  code: string;                            // printed id, "MN-7Q4K-2F"
+  perk; skill; skillName; colour; rarity; rarityName; frame; rank; icon;
+  name; baseName; description; kind; tier; tierName; path; cursed; downside;
+  needs; needsText; meetsRequirement;
+  keywords: { id; name; icon }[]; traits: (as in the hand)[];
+  place: "binder" | "slotted" | "trade" | "listed";
+  slot: number;                            // -1 unless slotted
+  deck: string;                            // the deck it belongs to (its own skill)
+  dormant: boolean; dormantReason?: string; // "Needs two cards of its side", "Slot lost with Wits"…
+  canSlot: boolean; lockedReason: string | null;           // why it can't go in its deck now ("Slots at Mining 7")
+  attuned: boolean; attuningMinutes: number;
+  scars: number;
+  drawn: { by; level; day; millis; how; howText; text };   // "Drawn by Ashford at Mining 9 · day 41 · …"
+  owners: number; lastOwners: { name; day }[];
+};
+```
+
+Card actions (`MettleActions`, all answered by a `mettleFeedback` chip; card ids are the `id` strings, lists are
+comma-separated):
+
+| Call | Effect |
+|---|---|
+| `keepCard(skill, index, slot)` | keeps a hand's card: `slot` false = "Keep" (binder), true = "Keep & slot" (a free legal slot) |
+| `pickCard(skill, index)` | the old keep: slots the card when a legal slot is free, else the binder |
+| `slotCard(id)` / `slotCard(id, slot)` | puts a binder card in the first free slot (or slot `slot`, 0-based) of its deck; free, anywhere |
+| `unslotCard(id)` / `unslotCards("12,15")` | takes slotted cards of one deck out: free below character level 5, for dormant cards, on a deck's first free rebuild, or with free swaps; otherwise refused with "visit a trainer or a Card Shrine" |
+| `pinSets("mettle:swift,mettle:keen")` | pins up to three sets (empty string: automatic); once an in-game day |
+| `releaseCards("3,8,9")` | at a Card Shrine: three binder cards of one skill for a reroll |
+| `rebuildCards(ids)` · `fuseCards(ids)` · `closeSitting()` | at a Card Shrine or trainer (wave B) |
+
 Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`
 (the text says what happened and names the heaviest stack), so the HUD can show the chip without polling.
 

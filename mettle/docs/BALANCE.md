@@ -420,7 +420,7 @@ own table (§11).
 | Rerolls | start 2; +1 per character level, odd skill level from 7, feat, Hearth lesson, spent-deck draft; hold at most 5 | `START_REROLLS`, `MAX_REROLLS` |
 | Cursed cards | two per released skill, tier II and III; numbers in DRAFT.md §4 | `character.draft.Cursed`, perk data |
 
-## 11. Cards v2 (CARDS.md, designed 2026-10-10, not built)
+## 11. Cards v2 (CARDS.md, wave A built 2026-10-10)
 
 Every lever, in `config/mettle/cards.json` (CARDS.md §15). The power limits and the simulator's checks are CARDS.md §14.
 
@@ -440,3 +440,7 @@ Every lever, in `config/mettle/cards.json` (CARDS.md §15). The power limits and
 | Trading | 8 blocks, Lock, 3 s countdown; attunement 24,000 ticks | `trade_*`, `attune_ticks` |
 | Binder | 300 cards; release 3 for 1 reroll | `binder_max`, `release_per_reroll` |
 | Mythics | 0.5 % per draft from skill 15 (once per draft, each drawn Mythic once per world); 2 slotted | `mythic_*` |
+
+Simulated (`CardReportTest`, CARDS.md §20): a skill-20 deck is 1.11× v1's draft with base slots and 1.21× with Wits 14
+(limits 1.15× and 1.3×); a full deck rebuild costs about 520 bits at skill 10, 1,220 at 15 and 2,350 at 20, plus a
+draught. Levers added in code: `card_cap_boost` 1.25 (a card's trait cap over its max), `free_rebuild_below_level` 5.

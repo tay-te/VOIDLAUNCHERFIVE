@@ -191,6 +191,7 @@ future mod's cart could).
 | Attachment | Holds | Persistent | Copy on death | Sync |
 |---|---|---|---|---|
 | `mettle:core/character` | background, spent attribute points, XP per skill, learned perks, drafts (queued per skill, dealt hands, rerolls, seed, recent skills) | yes | yes | `targetOnly` |
+| `mettle:character/cards` | the owner's cards (a cache of the world ledger `data/mettle/cards.dat`, rebuilt on join), free swaps, pins, and what the deck makes active (perks, dormant cards, trait totals, sets) (CARDS.md §2.1) | yes | yes | `targetOnly` |
 | `mettle:character/journal` | books read, places discovered, trainer sessions, anti-farm memory | yes | yes | no |
 | `mettle:burden/load` | `(load, capacity, band, heaviest item id + kg)` | no (derived) | no | `targetOnly` |
 | `mettle:gear/worn` | the three worn gear stacks (pockets live inside them) | yes | only with keepInventory | `all()` (others draw it) |
@@ -251,6 +252,9 @@ expresses the effect.
 | Perks | `data/<ns>/mettle/perk/<skill>/*.json` | dynamic registry `mettle:perk` | yes |
 | XP rules | `data/<ns>/mettle/xp/*.json` | reload listener (`/reload`) | no (server only) |
 | Item weights | `data/<ns>/mettle/weight/*.json` | reload listener | yes, payload `mettle:burden/weights` on join and after reload |
+| Card traits | `data/<ns>/mettle/trait/<skill>/*.json` | dynamic registry `mettle:trait` | yes |
+| Card keywords and sets | `data/<ns>/mettle/keyword/*.json` | dynamic registry `mettle:keyword` | yes |
+| Card skills (prefix, native keywords, pool) | `data/<ns>/mettle/card_skill/<skill>.json` | dynamic registry `mettle:card_skill` | yes |
 | Kits | the `kit` list in each background JSON | with the background registry | yes |
 
 Dynamic registries load with the world (a restart applies changes to backgrounds, skills and perks). XP and weight
@@ -269,6 +273,7 @@ All client→server payloads are requests the server validates against the chara
 | `mettle:character/spend_attribute` `(attribute)` | C→S | character |
 | `mettle:character/learn_perk` `(perk)` | C→S | character (answered "perks come from drafts now") |
 | `mettle:character/pick_card` `(skill, index)` · `mettle:character/reroll` `(skill)` | C→S | character (DRAFT.md) |
+| `mettle:character/keep_card` `(skill, index, slot)` · `mettle:character/card_action` `(action, cards[], index, keywords[])` | C→S | character (CARDS.md) |
 | `mettle:character/respec` `(kind)` | C→S | character |
 | `mettle:gear/belt_use` `(pocket)` | C→S | gear |
 | `mettle:core/open_picker` | S→C | core (first join, after a background reset) |

@@ -5,7 +5,7 @@ longer bought with points from a tree; every skill level deals a **draft**: a ha
 one. Supersedes "points buy perks" in TREES.md §1 and CHARACTER.md §4. Earned perks (feats, synergies, teachings) and
 attribute points are unchanged.
 
-> **Cards v2 ([CARDS.md](CARDS.md), designed 2026-10-10, not built).** The draft stays the source of cards, at the same
+> **Cards v2 ([CARDS.md](CARDS.md), wave A built 2026-10-10).** The draft stays the source of cards, at the same
 > cadence, but a kept card becomes a unique **rolled card** (perk, rolled rarity, keywords, traits) in a binder, and
 > only cards **slotted** in a skill's deck are active. What changes here: rarity is rolled apart from depth (§3), ranks
 > and duplicates (§2), the spent deck goes (§1), the budget (§6), migration (§7), respec becomes rebuilding (§8), and a
