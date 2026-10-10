@@ -10,7 +10,13 @@ import java.util.Map;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * VOID Mettle inside the hub ({@code -Dvoidhub.test=mettle}, Mettle's jar on the run's classpath:
@@ -127,94 +133,460 @@ public final class MettleTest {
 		this.context.waitTicks(15);
 		this.context.takeScreenshot("voidhub_mettle_03_gear_page");
 
-		// 4. Classes: the overview.
+		// 4. Classes. The XP above levelled skills, so drafts wait: the page deals the first hand at once (Figma D1).
+		server.runCommand("mettle draft rerolls 3 Player0");
+		server.runCommand("give Player0 minecraft:emerald 40");
+		this.context.waitTicks(5);
 		this.ui.clickPage("[data-seg=\"classes\"]");
-		this.context.waitTicks(25);
+		this.context.waitTicks(5);
 		this.expect(this.ui.layout().kind == HubLayout.Kind.CLASSES, "the Classes segment switched the layout");
+		this.dumpState("classes");
+		this.waitPage("MC.ov.kind()==='draft' && !!document.querySelector('.dr-hand .hc')", 100, "a draft hand dealt on the Classes page");
 		this.ui.parkMouse();
-		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_04_gallery");
+		this.context.waitTicks(12);
+		this.context.takeScreenshot("voidhub_mettle_04_draft_hand");
+		this.dumpState("draft");
+		this.perf("draft hand idle", () -> this.context.waitTicks(60));
+		if (Boolean.getBoolean("voidhub.test.explore")) {
+			// Exploratory: which layers cost the paint (each variant hides one kind of layer for 40 ticks).
+			String[][] variants = {{"no pixel names", ".hc-name"}, {"no card text", ".hc-flow,.hc-eb,.hc-need"}, {"no face", ".hc-face"},
+				{"only edges", ".ov-halo,.hc-halo,.emb,.emb-hot,.hot,.hc-face,.ov-dim,#dr-title,#dr-keys,#dr-act"},
+				{"no backdrop", ".ov-halo,.hc-halo,.ov-dim"}, {"no embers", ".emb,.emb-hot"}};
+			for (String[] v : variants) {
+				this.js("(function(){var s=document.getElementById('xp');if(!s){s=document.createElement('style');s.id='xp';document.head.appendChild(s);}s.textContent='" + v[1] + "{display:none !important}';return 1;})()");
+				this.context.waitTicks(4);
+				this.perf("x " + v[0], () -> this.context.waitTicks(40));
+			}
+			this.js("(function(){var s=document.getElementById('xp');if(s)s.textContent='';return 1;})()");
+		}
 
-		// 5. Place an attribute point by clicking +.
-		int strength = this.attribute("strength");
-		this.ui.clickPage("[data-attr=\"strength\"]");
-		this.context.waitTicks(20);
-		this.expect(this.attribute("strength") == strength + 1, "+ placed a point in Strength: " + strength + " -> " + this.attribute("strength"));
+		// 5. Hover: the card lifts onto its hot frame, the others cool down (D3).
+		int hand = Integer.parseInt(this.js("String(document.querySelectorAll('.dr-hand .hc').length)"));
+		this.perf("draft hover sweep", () -> {
+			for (int k = 0; k < 3; k++) {
+				for (int c = 0; c < hand; c++) {
+					this.hoverPage(".dr-hand .hc[data-hand=\"" + c + "\"] .hc-art");
+					this.context.waitTicks(4);
+				}
+			}
+		});
+		this.hoverPage(".dr-hand .hc[data-hand=\"1\"] .hc-art");
+		this.context.waitTicks(8);
+		this.expect("1".equals(this.js("String(document.querySelector('.dr-hand .hc.hov') ? document.querySelector('.dr-hand .hc.hov').getAttribute('data-hand') : '')")),
+			"hovering the middle card lifted it");
+		this.context.takeScreenshot("voidhub_mettle_05_draft_hover");
 
-		// 6. A skill tree: open Mining from the gallery, pick Prospector, learn it.
-		this.ui.clickPage("[data-skill=\"mettle:mining\"]");
-		this.context.waitTicks(3);
-		this.ui.clickPage("[data-perk=\"mettle:mining/prospector\"]");
-		this.context.waitTicks(3);
+		// 6. Pick with the 2 key: the kept card flares, the other two burn away, the next draft deals (D4).
+		String skillId = this.js("String(MC.ov && document.querySelector('#dr-chip .nm') ? document.querySelector('#dr-chip .nm').textContent : '')");
+		int binderBefore = this.binderCount();
+		long waitingBefore = this.waiting();
+		this.perf("draft pick", () -> {
+			this.context.getInput().pressKey(InputConstants.KEY_2);
+			this.context.waitTicks(3);
+			this.context.takeScreenshot("voidhub_mettle_06a_draft_pick_flare");
+			this.context.waitTicks(5);
+			this.context.takeScreenshot("voidhub_mettle_06b_draft_pick_burn");
+			this.context.waitTicks(6);
+			this.context.takeScreenshot("voidhub_mettle_06c_draft_pick_ash");
+			this.context.waitTicks(26);
+		});
+		this.expect(this.binderCount() == binderBefore + 1, "the pick kept one card (" + skillId + "): binder " + binderBefore + " -> " + this.binderCount());
+		this.expect(this.waiting() == waitingBefore - 1, "the pick used one draft: " + waitingBefore + " -> " + this.waiting());
+		this.waitPage("MC.ov.kind()==='draft' && !document.querySelector('.dr-hand .hc.kept') && !!document.querySelector('.dr-hand .hc')", 80, "the next draft dealt after the pick");
 		this.ui.parkMouse();
-		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_05_tree_before");
-		this.ui.clickPage("[data-learn]");
-		this.context.waitTicks(25);
-		this.expect(this.rank("mettle:mining/prospector") == 1, "Learn bought Prospector's first rank: " + this.rank("mettle:mining/prospector"));
+		this.context.waitTicks(10);
+		this.context.takeScreenshot("voidhub_mettle_07_draft_next");
+
+		// 7. Redeal all spends a reroll and deals a fresh hand.
+		long rerolls = this.rerolls();
+		this.ui.clickPage("[data-redeal]");
+		this.context.waitTicks(30);
+		this.expect(this.rerolls() == rerolls - 1, "Redeal all spent a reroll: " + rerolls + " -> " + this.rerolls());
 		this.ui.parkMouse();
-		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_06_tree_learned");
-		this.ui.clickPage("[data-perk=\"mettle:mining/ore_sense\"]");
-		this.context.waitTicks(3);
+		this.context.waitTicks(6);
+		this.context.takeScreenshot("voidhub_mettle_08_draft_redealt");
+
+		// 8. Esc keeps the draft for later: the window stays open on the gallery.
+		long keep = this.waiting();
+		this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+		this.context.waitTicks(5);
+		this.expect(this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubInventoryScreen), "Esc closed the draft, not the window");
+		this.expect("false".equals(this.js("String(MC.ov.active())")), "Esc closed the draft overlay");
+		this.expect(this.waiting() == keep, "Esc kept the drafts waiting: " + keep + " -> " + this.waiting());
 		this.ui.parkMouse();
-		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_07_tree_locked");
-		this.ui.clickPage(".o-rail [data-skill=\"mettle:marksmanship\"]");
-		this.context.waitTicks(3);
-		this.ui.parkMouse();
-		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_08_tree_marksmanship");
-		this.ui.clickPage("[data-back]");
-		this.context.waitTicks(3);
-		this.hoverPage("[data-skill=\"mettle:survival\"]");
 		this.context.waitTicks(5);
 		this.context.takeScreenshot("voidhub_mettle_09_gallery");
-
-		// Perf: what the Classes page costs to paint (Ultralight's UI thread) and to upload (render thread).
-		this.ui.parkMouse();
-		this.context.waitTicks(10);
-		this.perf("gallery idle", () -> this.context.waitTicks(60));
+		this.perf("gallery idle", () -> this.context.waitTicks(40));
 		this.perf("gallery hover sweep", () -> {
-			for (int k = 0; k < 3; k++) {
+			for (int k = 0; k < 2; k++) {
 				for (String sk : List.of("mining", "blades", "heavy_weapons", "marksmanship", "defense", "athletics", "survival", "smithing")) {
-					this.hoverPage("[data-skill=\"mettle:" + sk + "\"]");
+					this.hoverPage(".sk-wrap [data-skill=\"mettle:" + sk + "\"]");
 					this.context.waitTicks(3);
 				}
 			}
 		});
-		this.ui.clickPage("[data-skill=\"mettle:mining\"]");
-		this.context.waitTicks(10);
-		this.perf("tree idle", () -> this.context.waitTicks(60));
-		this.perf("tree select perks", () -> {
-			for (int k = 0; k < 2; k++) {
-				for (String pk : List.of("quarryman", "prospector", "hard_hat", "tunneler", "ore_sense", "motherlode", "sure_footing", "rock_hauler")) {
-					this.ui.clickPage("[data-perk=\"mettle:mining/" + pk + "\"]");
-					this.context.waitTicks(3);
-				}
-			}
-		});
-		this.perf("tree hover sweep", () -> {
-			for (int k = 0; k < 2; k++) {
-				for (String pk : List.of("quarryman", "prospector", "hard_hat", "tunneler", "ore_sense", "motherlode", "sure_footing", "rock_hauler")) {
-					this.hoverPage("[data-perk=\"mettle:mining/" + pk + "\"]");
-					this.context.waitTicks(3);
-				}
-			}
-		});
-		this.ui.clickPage("[data-back]");
-		this.context.waitTicks(5);
 
-		// 7. K opens the hub on Classes.
+		// 9. A Mythic dealt in a draft (the 0.5 % roll forced): the room darkens, the card cracks, flips into a burst (M2, M3).
+		server.runCommand("mettle xp mettle:blades 20000 Player0");
+		this.context.waitTicks(5);
+		this.world.getServer().runOnServer(s -> {
+			var p = s.getPlayerList().getPlayers().getFirst();
+			double was = MettleServer.mythicChance(1.0);
+			try {
+				MettleServer.freshDrafts(p, "blades", 1);
+			} finally {
+				MettleServer.mythicChance(was);
+			}
+		});
+		this.context.waitTicks(15);
+		if (!"true".equals(this.js("String(MC.ov.active())"))) {
+			this.ui.clickPage("[data-deal=\"mettle:blades\"]");
+		}
+		this.waitPage("!!document.getElementById('rv-stage')", 40, "a Mythic in the Blades hand turns over");
+		this.ui.parkMouse();
+		this.perf("mythic reveal", () -> {
+			this.context.waitTicks(26);
+			this.context.takeScreenshot("voidhub_mettle_10_mythic_cracks");
+			this.context.waitTicks(25);
+			this.context.takeScreenshot("voidhub_mettle_11_mythic_burst");
+			this.context.waitTicks(30);
+		});
+		this.waitPage("!!document.querySelector('[data-claim]')", 60, "the Mythic settled with Claim");
+		this.context.takeScreenshot("voidhub_mettle_12_mythic_settled");
+		this.perf("mythic settled idle", () -> this.context.waitTicks(40));
+		if (Boolean.getBoolean("voidhub.test.explore")) {
+			String[][] variants = {{"my no rays", ".my-rays"}, {"my no motes", ".mote"}, {"my no ring", ".my-ring"}, {"my no blooms", ".au-bloom,.rv-glow,.my-bloom,.au-prism"},
+				{"my no edge+foil", ".my-edge,.my-foil"}, {"my only card", ".aura,.rv-glow,.rv-dim,.ov-dim"}};
+			for (String[] v : variants) {
+				this.js("(function(){var s=document.getElementById('xp');if(!s){s=document.createElement('style');s.id='xp';document.head.appendChild(s);}s.textContent='" + v[1] + "{display:none !important}';return 1;})()");
+				this.context.waitTicks(4);
+				this.perf("x " + v[0], () -> this.context.waitTicks(40));
+			}
+			this.js("(function(){var s=document.getElementById('xp');if(s)s.textContent='';return 1;})()");
+		}
+		int mythicsBefore = this.mythicsOwned();
+		this.ui.clickPage("[data-claim]");
+		this.context.waitTicks(40);
+		this.expect(this.mythicsOwned() == mythicsBefore + 1, "Claim kept the Mythic: " + mythicsBefore + " -> " + this.mythicsOwned());
+		if ("true".equals(this.js("String(MC.ov.active())"))) {
+			this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+			this.context.waitTicks(3);
+		}
+
+		// 10. A world first earned outside a draft: the reveal on its own (cards.reveal), then Continue.
+		server.runCommand("mettle cards mythic grant mettle:wardens_hush Player0");
+		this.waitPage("MC.ov.kind()==='reveal'", 60, "a Mythic earned outside a draft is revealed");
+		this.waitPage("!!document.querySelector('[data-close-ov]')", 120, "the reveal settled");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.context.takeScreenshot("voidhub_mettle_13_reveal_world_first");
+		this.ui.clickPage("[data-close-ov]");
+		this.context.waitTicks(3);
+
+		// 11. The Hall of Firsts and the binder.
+		this.ui.clickPage("[data-tab=\"hall\"]");
+		this.context.waitTicks(4);
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.context.takeScreenshot("voidhub_mettle_14_hall_of_firsts");
+		this.world.getServer().runOnServer(s -> {
+			var p = s.getPlayerList().getPlayers().getFirst();
+			String[][] more = {{"mining/prospector", "COMMON"}, {"mining/quarryman", "RARE"}, {"mining/hard_hat", "EPIC"}, {"mining/rock_hauler", "COMMON"},
+				{"mining/tunneler", "RARE"}, {"mining/prospector", "RARE"}, {"mining/quarryman", "COMMON"}, {"mining/hard_hat", "COMMON"}};
+			for (String[] m : more) {
+				MettleServer.giveExact(p, m[0], m[1], List.of("hoard"), List.of("mining/lucky=4"), 2);
+			}
+		});
+		this.context.waitTicks(15);
+		this.ui.clickPage("[data-tab=\"cards\"]");
+		this.context.waitTicks(4);
+		this.ui.clickPage("#bg-0 [data-bcard]");
+		this.context.waitTicks(4);
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.context.takeScreenshot("voidhub_mettle_15_binder");
+		this.perf("binder scroll and hover", () -> {
+			for (int k = 0; k < 3; k++) {
+				this.hoverPage("#bg-5");
+				this.context.getInput().scroll(-1);
+				this.context.waitTicks(4);
+				for (int t = 0; t < 4; t++) {
+					this.hoverPage("#bg-" + (t * 3));
+					this.context.waitTicks(3);
+				}
+				this.hoverPage("#bg-5");
+				this.context.getInput().scroll(1);
+				this.context.waitTicks(4);
+			}
+		});
+
+		// 12. The deck builder: drag a binder card into an open slot; a second Deep card completes the Deep 2 set (2g-6).
+		long[] deep = new long[2];
+		this.world.getServer().runOnServer(s -> {
+			var p = s.getPlayerList().getPlayers().getFirst();
+			deep[0] = MettleServer.giveExact(p, "mining/tunneler", "RARE", List.of("deep", "echo"), List.of("mining/deepborn=9", "mining/echoing=8"), 2);
+			deep[1] = MettleServer.giveExact(p, "mining/hard_hat", "RARE", List.of("deep", "iron"), List.of("mining/stonehide=15"), 2);
+		});
+		this.context.waitTicks(3);
+		server.runCommand("execute as Player0 run mettle cards slot " + deep[0]);
+		this.context.waitTicks(15);
+		this.ui.clickPage("[data-tab=\"skills\"]");
+		this.context.waitTicks(3);
+		this.ui.clickPage(".sk-wrap [data-skill=\"mettle:mining\"]");
+		this.context.waitTicks(6);
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.expect(this.slotted(deep[0]), "the first Deep card is slotted");
+		this.context.takeScreenshot("voidhub_mettle_16_deck");
+		this.dumpState("deck");
+		String from = "[data-dcard=\"" + deep[1] + "\"]";
+		this.waitPage("!!document.querySelector('" + from.replace("\"", "\\\"") + "')", 20, "the second Deep card is in the deck's binder");
+		this.perf("deck builder drag", () -> {
+			double[] a = this.pageCentre(from);
+			double[] b = this.pageCentre(".dk-row .slot.empty");
+			this.ui.moveTo(a[0], a[1]);
+			this.context.waitTicks(2);
+			this.ui.press(Ui.LEFT, 0);
+			for (int i = 1; i <= 12; i++) {
+				this.ui.moveTo(a[0] + (b[0] - a[0]) * i / 12.0, a[1] + (b[1] - a[1]) * i / 12.0);
+				this.context.waitTicks(2);
+				if (i == 8) {
+					this.context.takeScreenshot("voidhub_mettle_17_deck_drag");
+				}
+			}
+			this.ui.release(Ui.LEFT, 0);
+			this.context.waitTicks(4);
+		});
+		this.ui.settle();
+		this.context.waitTicks(6);
+		this.expect(this.slotted(deep[1]), "dragging the card onto an open slot slotted it");
+		this.waitPage("MC.ov.kind()==='set'", 40, "two Deep cards completed the Deep 2 set: the moment plays");
+		this.context.waitTicks(6);
+		this.context.takeScreenshot("voidhub_mettle_18_set_complete");
+		this.ui.clickPage("#c-ov");
+		this.context.waitTicks(3);
+		this.ui.clickPage("[data-scard=\"" + deep[0] + "\"]");
+		this.context.waitTicks(3);
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.context.takeScreenshot("voidhub_mettle_19_deck_take_out");
+		this.ui.clickPage("[data-popclose]");
+		this.ui.clickPage("[data-stab=\"tree\"]");
+		this.context.waitTicks(4);
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.context.takeScreenshot("voidhub_mettle_20_tree");
+		this.ui.clickPage("[data-stab=\"deck\"]");
+		this.context.waitTicks(3);
+
+		// 13. A Card Shrine: used as a player would, the hub shows the sitting; rebuild one card, fuse three, release.
+		this.world.getServer().runOnServer(s -> {
+			var p = s.getPlayerList().getPlayers().getFirst();
+			MettleServer.freeSwaps(p, 0);
+			ItemStack draught = MettleServer.draught("mining");
+			if (!p.getInventory().add(draught)) {
+				p.getInventory().setItem(35, draught);
+			}
+			for (int i = 0; i < 3; i++) {
+				MettleServer.giveExact(p, "mining/prospector", "COMMON", List.of("hoard"), List.of("mining/lucky=" + (3 + i)), 2);
+			}
+			BlockPos at = p.blockPosition().relative(p.getDirection(), 2);
+			s.overworld().setBlockAndUpdate(at, BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath("mettle", "card_shrine")).defaultBlockState());
+			s.overworld().getBlockState(at).useWithoutItem(s.overworld(), p, new BlockHitResult(Vec3.atCenterOf(at), Direction.UP, at, false));
+		});
+		this.waitPage("document.getElementById('cv').className.indexOf('scr-shrine')>=0", 40, "the Card Shrine sitting shows on the Classes page");
+		this.ui.clickPage("[data-rbskill=\"mettle:mining\"]");
+		this.context.waitTicks(3);
+		this.ui.clickPage("[data-rbpick=\"" + deep[0] + "\"]");
+		this.context.waitTicks(3);
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.context.takeScreenshot("voidhub_mettle_21_shrine_rebuild");
+		this.ui.clickPage("[data-rebuild]");
+		this.context.waitTicks(20);
+		this.expect(!this.slotted(deep[0]), "the shrine rebuild took the Tunneler out");
+		this.ui.clickPage("[data-shtab=\"fuse\"]");
+		this.context.waitTicks(3);
+		for (int i = 0; i < 3; i++) {
+			this.ui.clickPage("#fu-r" + i + " [data-fupick]");
+			this.context.waitTicks(2);
+		}
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.context.takeScreenshot("voidhub_mettle_22_shrine_fuse");
+		int cardsBefore = this.binderCount();
+		this.ui.clickPage("[data-fuse]");
+		this.context.waitTicks(20);
+		this.expect(this.binderCount() == cardsBefore - 2, "fusing three cards left one: " + cardsBefore + " -> " + this.binderCount());
+		this.ui.clickPage("[data-shtab=\"release\"]");
+		this.context.waitTicks(3);
+		for (int i = 0; i < 3; i++) {
+			this.ui.clickPage("#rl-r" + i + " [data-rlpick]");
+			this.context.waitTicks(2);
+		}
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.context.takeScreenshot("voidhub_mettle_23_shrine_release");
+		this.ui.clickPage("[data-closesit]");
+		this.context.waitTicks(10);
+		this.expect(this.js("document.getElementById('cv').className").indexOf("scr-shrine") < 0, "Leave ended the sitting");
+
+		// 14. A trade with a stand-in partner (Bree): both sides, lock, the countdown, the swap (2h-4).
+		long[] theirs = new long[1];
+		this.context.waitTicks(105);  // nobody trades within 5 s of being hurt
+		this.world.getServer().runOnServer(s -> {
+			var a = s.getPlayerList().getPlayers().getFirst();
+			var b = standIn(s);
+			b.snapTo(a.getX() + 2, a.getY(), a.getZ(), 0, 0);
+			b.setHealth(b.getMaxHealth());
+			a.setHealth(a.getMaxHealth());
+			MettleServer.trade("standIn", b);
+			MettleServer.clearCards(b);
+			theirs[0] = MettleServer.giveExact(b, "mining/quarryman", "EPIC", List.of("brutal", "deep"), List.of("mining/deepborn=8"), 9);
+			Object asked = MettleServer.trade("request", a, b);
+			Object accepted = MettleServer.trade("accept", b);
+			this.expect(asked.toString().equals("Optional.empty") && accepted.toString().equals("Optional.empty"), "the trade opened: " + asked + " / " + accepted);
+			MettleServer.trade("offerCard", b, theirs[0]);
+		});
+		this.waitPage("document.getElementById('cv').className.indexOf('scr-trade')>=0 && !document.getElementById('tr-ask')", 60, "the trade shows on the Classes page");
+		this.ui.clickPage("[data-tadd=\"1\"]");
+		this.context.waitTicks(3);
+		this.ui.parkMouse();
+		this.context.waitTicks(2);
+		this.context.takeScreenshot("voidhub_mettle_24_trade_add");
+		this.ui.clickPage(".tr-pick [data-toffer]");
+		this.context.waitTicks(4);
+		this.ui.clickPage("[data-tadd=\"0\"]");
+		this.context.waitTicks(3);
+		this.ui.clickPage("[data-tlock]");
+		this.context.waitTicks(4);
+		this.world.getServer().runOnServer(s -> MettleServer.trade("lock", standIn(s)));
+		this.context.waitTicks(5);
+		this.ui.parkMouse();
+		this.context.waitTicks(2);
+		this.context.takeScreenshot("voidhub_mettle_25_trade_locked");
+		this.dumpState("trade");
+		this.ui.clickPage("[data-tconfirm]");
+		this.context.waitTicks(22);
+		this.context.takeScreenshot("voidhub_mettle_26_trade_countdown");
+		this.context.waitTicks(45);
+		// The countdown runs in Mettle's server tick for real players; a stand-in's trade is finished the way Mettle's own
+		// TradeJourney does it, once the countdown is over.
+		this.world.getServer().runOnServer(s -> MettleServer.trade("finishNow", s, s.getPlayerList().getPlayers().getFirst()));
+		this.context.waitTicks(15);
+		this.expect(this.ownsCard(theirs[0]), "the swap brought Bree's card into the binder");
+		this.expect(this.js("document.getElementById('cv').className").indexOf("scr-trade") < 0, "the trade screen closed after the swap");
+
+		// 15. K opens the hub on Classes.
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
 		this.context.waitTicks(5);
 		this.context.getInput().pressKey(InputConstants.KEY_K);
 		this.context.waitForScreen(HubInventoryScreen.class);
 		this.context.waitTicks(10);
 		this.expect("classes".equals(this.context.computeOnClient(mc -> ((HubInventoryScreen) mc.gui.screen()).page())), "K opened the hub on Classes");
+		if ("true".equals(this.js("String(MC.ov.active())"))) {
+			this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+			this.context.waitTicks(3);
+		}
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
 		this.context.waitTicks(3);
 		dev.voidmc.hub.VoidHub.LOGGER.info("VOID Hub + Mettle: all steps passed");
+	}
+
+	private static net.minecraft.server.level.ServerPlayer standIn(net.minecraft.server.MinecraftServer s) {
+		return net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(BREE, "Bree"));
+	}
+
+	private static final java.util.UUID BREE = java.util.UUID.randomUUID();
+
+	/** Writes Mettle's state message next to the perf reports (page work outside the game uses it). */
+	private void dumpState(String name) {
+		String json = this.context.computeOnClient(mc -> MettleLink.state());
+		try {
+			java.nio.file.Path dir = java.nio.file.Path.of(System.getProperty("voidhub.test.out", "build/perf"));
+			java.nio.file.Files.createDirectories(dir);
+			java.nio.file.Files.writeString(dir.resolve("mettle-state-" + name + ".json"), json == null ? "null" : json);
+		} catch (java.io.IOException e) {
+			dev.voidmc.hub.VoidHub.LOGGER.warn("could not write the state dump", e);
+		}
+	}
+
+	/** Runs script in the page and returns its string result. */
+	private String js(String expr) {
+		return this.context.computeOnClient(mc -> dev.voidmc.hub.ui.HubView.get().eval(expr));
+	}
+
+	/** Waits (ticks) until a page expression is true. */
+	private void waitPage(String cond, int ticks, String what) {
+		for (int i = 0; i < ticks; i++) {
+			if ("true".equals(this.js("String(!!(" + cond + "))"))) {
+				this.expect(true, what);
+				return;
+			}
+			this.context.waitTicks(1);
+		}
+		this.context.takeScreenshot("voidhub_mettle_FAILED");
+		throw new AssertionError("VOID Hub + Mettle: " + what + " (page: " + this.js("String(document.getElementById('cv') && document.getElementById('cv').className) + ' err=' + window.__hubError + ' ' + MC.debug()") + ")");
+	}
+
+	private double[] pageCentre(String selector) {
+		String json = this.js("(function(){var e=document.querySelector(" + Json.quote(selector) + ");if(!e)return '';var r=e.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});})()");
+		this.expect(json != null && !json.isEmpty(), "the page has " + selector);
+		Map<String, Object> p = Json.parseObject(json);
+		double u = this.ui.layout().u;
+		return new double[] {(Double) p.get("x") * u, (Double) p.get("y") * u};
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> cards() {
+		return (Map<String, Object>) this.state().get("cards");
+	}
+
+	@SuppressWarnings("unchecked")
+	private List<Map<String, Object>> binder() {
+		return (List<Map<String, Object>>) ((Map<String, Object>) this.cards().get("binder")).get("cards");
+	}
+
+	private int binderCount() {
+		return this.binder().size();
+	}
+
+	private int mythicsOwned() {
+		int n = 0;
+		for (Map<String, Object> c : this.binder()) {
+			if ("mythic".equals(c.get("kind")) || "mythic".equals(c.get("rarity"))) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	private boolean ownsCard(long id) {
+		for (Map<String, Object> c : this.binder()) {
+			if (String.valueOf(id).equals(c.get("id"))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean slotted(long id) {
+		for (Map<String, Object> c : this.binder()) {
+			if (String.valueOf(id).equals(c.get("id"))) {
+				return "slotted".equals(c.get("place"));
+			}
+		}
+		return false;
+	}
+
+	@SuppressWarnings("unchecked")
+	private long waiting() {
+		return ((Number) ((Map<String, Object>) this.state().get("draft")).get("waiting")).longValue();
+	}
+
+	@SuppressWarnings("unchecked")
+	private long rerolls() {
+		return ((Number) ((Map<String, Object>) this.state().get("draft")).get("rerolls")).longValue();
 	}
 
 	/** Runs {@code actions} and logs the frames' UI-thread paint and render-thread cost (p50 / p95 / max, ms). */

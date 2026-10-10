@@ -21,7 +21,7 @@ public final class Bridge {
 	private Bridge() {
 	}
 
-	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Tip, MettleCall, MettleChoose, Invalid {
+	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Tip, MettleCall, MettleChoose, MettleUi, Invalid {
 	}
 
 	/** The page finished loading and installed {@code hub.apply}. */
@@ -57,10 +57,18 @@ public final class Bridge {
 	}
 
 	/**
-	 * A VOID Mettle action from the Classes page: {@code learnPerk} (arg: perk id) or {@code spendAttribute} (arg:
-	 * attribute name). The server validates both; the page only asks.
+	 * A VOID Mettle action from the Classes page ({@link #METTLE_OPS}: the op and the shape its one string argument
+	 * must have, mettle/docs/OVERLAY.md). Mettle's server validates every action; the bridge only checks shapes, so a
+	 * broken page can never pass Mettle something it would not take from its own overlay.
 	 */
 	public record MettleCall(String op, String arg) implements Message {
+	}
+
+	/**
+	 * The Classes page says what owns the keyboard: {@code modal} (a draft, reveal or moment is up: Esc closes it,
+	 * not the window; 1-3 pick) and {@code text} (a search field takes typing).
+	 */
+	public record MettleUi(boolean modal, boolean text) implements Message {
 	}
 
 	/**
@@ -85,9 +93,55 @@ public final class Bridge {
 
 	static final Set<String> FILTERS = Set.of("all", "tools", "blocks", "food");
 	static final Set<String> SORT_REGIONS = Set.of("container", "storage");
-	static final Set<String> METTLE_OPS = Set.of("learnPerk", "spendAttribute");
 	/** Ids and attribute names: namespaced lowercase paths, nothing longer than a real one. */
 	static final java.util.regex.Pattern METTLE_ARG = java.util.regex.Pattern.compile("[a-z0-9_.-]+(:[a-z0-9_./-]+)?");
+	private static final String ID = "[a-z0-9_.-]+(?::[a-z0-9_./-]+)?";
+	/** Card ids (the ledger's numbers), one to twelve of them, comma-separated. */
+	private static final String IDS = "\\d{1,18}(?:,\\d{1,18}){0,11}";
+	/**
+	 * Every Mettle action the page may ask for and the exact shape of its argument (empty for none). One string per
+	 * call keeps the bridge thin; {@code MettleLink.act} splits it.
+	 */
+	static final Map<String, java.util.regex.Pattern> METTLE_OPS = Map.ofEntries(
+		op("learnPerk", ID),
+		op("spendAttribute", ID),
+		op("pickCard", ID + "#[0-2]"),
+		op("keepCard", ID + "#[0-2]#[01]"),
+		op("reroll", ID),
+		op("slotCard", "\\d{1,18}(?:#-?\\d{1,2}(?:#" + ID + ")?)?"),
+		op("unslotCards", IDS),
+		op("rebuildCards", IDS),
+		op("releaseCards", IDS),
+		op("fuseCards", IDS),
+		op("pinSets", "(?:" + ID + "(?:," + ID + "){0,2})?"),
+		op("closeSitting", ""),
+		op("tradeRequest", "[A-Za-z0-9_]{1,16}"),
+		op("tradeAccept", ""),
+		op("tradeOfferCard", "\\d{1,18}"),
+		op("tradeTakeBackCard", "\\d{1,18}"),
+		op("tradeOfferItem", "-1|\\d{1,2}"),
+		op("tradeTakeBackItem", "\\d"),
+		op("tradeCoin", "\\d{1,12}"),
+		op("tradeLock", ""),
+		op("tradeConfirm", ""),
+		op("tradeCancel", ""),
+		op("cardSound", "(?:deal|hover|unhover|mythic_reveal|slot|set_complete|stop|pick|burn)#[a-z0-9_:./#-]{0,64}"));
+
+	private static Map.Entry<String, java.util.regex.Pattern> op(String name, String argShape) {
+		return Map.entry(name, java.util.regex.Pattern.compile(argShape));
+	}
+
+	private static Message mettle(Map<String, Object> m) {
+		if (!(m.get("op") instanceof String op) || !METTLE_OPS.containsKey(op)) {
+			return new Invalid("mettle op");
+		}
+		Object a = m.get("arg");
+		String arg = a == null ? "" : a instanceof String s ? s : null;
+		if (arg == null || arg.length() > 256 || !METTLE_OPS.get(op).matcher(arg).matches()) {
+			return new Invalid("mettle " + op + " arg");
+		}
+		return new MettleCall(op, arg);
+	}
 	static final Set<String> MOVE_TARGETS = Set.of("inventory", "container");
 	static final Set<String> SEGMENTS = Set.of("inventory", "chest", "gear", "classes");
 
@@ -124,8 +178,8 @@ public final class Bridge {
 			case "tip" -> tip(m);
 			case "turn" -> m.get("deg") instanceof Double d && Double.isFinite(d) ? new Turn(d) : new Invalid("turn deg");
 			case "mettleChoose" -> choose(m);
-			case "mettle" -> oneOf(m, "op", METTLE_OPS) instanceof String op && m.get("arg") instanceof String a && a.length() <= 96
-				&& METTLE_ARG.matcher(a).matches() ? new MettleCall(op, a) : new Invalid("mettle call");
+			case "mettle" -> mettle(m);
+			case "mettleUi" -> new MettleUi(Boolean.TRUE.equals(m.get("modal")), Boolean.TRUE.equals(m.get("text")));
 			default -> new Invalid("unknown type " + t);
 		};
 	}

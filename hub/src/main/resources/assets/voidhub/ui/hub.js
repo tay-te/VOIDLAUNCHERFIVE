@@ -459,6 +459,7 @@
         else if (m.type === "held") applyHeld(m);
         else if (ext) ext.apply(m);
       } catch (e) {
+        window.__hubError = String(e) + (e && e.stack ? " @ " + String(e.stack).split("\n")[0] : "");
         return "error: " + e;
       }
       return "ok";
@@ -476,5 +477,7 @@
     }
   };
 
+  // The last script error, for the game tests (the page never throws into the host).
+  window.onerror = function (msg, src, line) { window.__hubError = msg + " (" + String(src).replace(/^.*\//, "") + ":" + line + ")"; };
   send({type: "ready"});
 })();

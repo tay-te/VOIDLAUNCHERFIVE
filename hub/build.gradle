@@ -124,6 +124,7 @@ def hubTestRun = { String name, String mode ->
 		property 'voidhub.test.out', file('build/perf').absolutePath
 		property 'voidhub.test.docs', file('docs').absolutePath
 		property 'voidhub.test.seconds', (project.findProperty('seconds') ?: '10').toString()
+		property 'voidhub.test.explore', (project.findProperty('explore') ?: 'false').toString()
 		property 'voidhub.test.halt', 'true'
 		// The perf run measures Ultralight's cold start on the first open (and its memory), so it
 		// does not pre-warm at world join; the gate's first-open number excludes that one-off cost.

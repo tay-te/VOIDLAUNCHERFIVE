@@ -61,6 +61,11 @@ public final class VoidHub implements ClientModInitializer {
 					mc.gui.setScreen(new HubInventoryScreen(mc.player));
 				}
 			}
+			// A Card Shrine was used: Mettle opens no screen of its own, the hub opens on Classes, where the page
+			// shows the shrine while the sitting lasts.
+			if (MettleLink.sittingJustOpened() && mc.player != null && mc.gui.screen() == null && HubView.available()) {
+				mc.gui.setScreen(new HubInventoryScreen(mc.player, "classes"));
+			}
 			// Pay Ultralight's start-up (natives, renderer, page load) while the world loads in,
 			// not on the first key press.
 			if (!this.prewarmed && mc.player != null && HubConfig.prewarm()) {

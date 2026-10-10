@@ -11,7 +11,7 @@
   "use strict";
 
   var $ = function (id) { return document.getElementById(id); };
-  var ICONS = {};
+  var ICONS = window.MC ? window.MC.icons : {};
   var M = null;          // the last mettle state
   var kind = "inventory";
   var view = {skill: null, perk: null, tab: 0};
@@ -493,7 +493,7 @@
     h += '<div class="m-row" style="right:16px;top:7px;height:30px;gap:12px"><span class="m-eb">' + (s.level >= 20 ? "MASTERED" : fmt(s.xp) + " / " + fmt(s.nextXp) + " XP TO " + (s.level + 1)) + "</span>" +
       hcells(20, s.level >= 20 ? 20 : Math.max(1, Math.round(frac(s) * 20)), 9, 6, 3, hue) +
       (s.points > 0 ? '<div class="o-pill big" style="background:' + mix(WELL, hue, 0.2) + ";border:1px solid " + rgba(hue, 0.65) + ";color:" + light + ";box-shadow:0 0 14px " + rgba(hue, 0.32) + '"><b style="background:' + hue + '"></b>' +
-        s.points + " point" + (s.points > 1 ? "s" : "") + "</div>" : "") + "</div>";
+        s.points + (M.cards ? (s.points > 1 ? " drafts" : " draft") : " point" + (s.points > 1 ? "s" : "")) + "</div>" : "") + "</div>";
     var hb = "background:" + mix(WELL, hue, 0.025) + ";border:1px solid " + rgba(hue, 0.10);
     h += '<div class="o-half" style="left:124px;top:44px;width:632px;height:68px;' + hb + '"></div>';
     h += '<div class="o-half" style="left:124px;top:120px;width:306px;height:246px;' + hb + '"></div>';
@@ -579,7 +579,16 @@
     h += '<div style="left:318px;top:13px;width:262px"><div class="m-eb">' + atRank + '</div><div class="o-eff">' + esc(main) + '</div><div class="o-eff2">' + esc(ranks) + "</div></div>";
     // Requirements and the button.
     var req = "", btn;
-    if (!earnedKind(p)) {
+    if (M.cards && !earnedKind(p)) {
+      // Cards v2: perks come as cards from drafts; the tree says what the deck can deal and what you hold.
+      var t2 = M.tiers[p.tier - 1], at2 = M.character.attributes[s.attribute];
+      if (t2) {
+        req += reqLine(s.level >= t2.skillLevel, s.name + " " + t2.skillLevel, hue);
+        if (t2.attribute) req += reqLine(at2 >= t2.attribute, attrName(s.attribute) + " " + t2.attribute, hue);
+      }
+      req += '<div class="o-req"><span class="m-ink3">' + (p.locked ? esc(p.locked) : "In the deal now") + "</span></div>";
+      btn = '<div class="o-learn off" style="' + (p.owned ? "color:" + light + ";border-color:" + rgba(hue, 0.5) : "") + '">' + (p.owned ? "Held ×" + p.owned : "Not held") + "</div>";
+    } else if (!earnedKind(p)) {
       var t = M.tiers[p.tier - 1], attr = M.character.attributes[s.attribute];
       if (t) {
         req += reqLine(s.level >= t.skillLevel, s.name + " " + t.skillLevel, hue);
@@ -630,6 +639,14 @@
   function classes() {
     var el = $("classes");
     if (!el || !M || kind !== "classes") return;
+    // Cards v2 (Mettle with the card system): the Classes page is the card screens (cards-pages.js), which patch
+    // themselves; the picker and the trees below are still drawn here.
+    if (window.MC && M.cards && M.phase === "chosen" && bg()) {
+      if (!window.MC.attached) window.MC.attach(el);
+      window.MC.render();
+      return;
+    }
+    if (window.MC && window.MC.attached) { window.MC.detach(); built = ""; }
     var key = stateKey();
     if (key === built) { toast(); return; }
     built = key;
@@ -667,11 +684,12 @@
 
   function segPoints() {
     if (!M || !M.character) return;
-    var n = M.character.points || 0;
-    for (var i = 0; i < M.skills.length; i++) if (M.skills[i].released) n += M.skills[i].points || 0;
+    var drafts = M.draft ? M.draft.waiting || 0 : 0, n = (M.character.points || 0) + drafts;
+    if (!M.draft) for (var i = 0; i < M.skills.length; i++) if (M.skills[i].released) n += M.skills[i].points || 0;
     var el = $("seg-classes-pts");
     if (!el) return;
     text(el.lastChild, String(n));
+    toggle(el, "drafts", drafts > 0);
     el.style.visibility = n > 0 ? "visible" : "hidden";
   }
 
@@ -717,6 +735,13 @@
   });
 
   window.hubMettle = {
+    /** The skill tree (Tree tab of a skill in cards v2), drawn by this file. */
+    treeHtml: function (skillId) {
+      if (view.skill !== skillId) { view.skill = skillId; view.perk = null; }
+      var h = tree();
+      return h.replace(/<div class="m-source back"[^>]*>[^<]*<\/div>/, "").replace(/<div class="footer[^"]*"[^>]*>[\s\S]*?<\/div>/g, "");
+    },
+    treeSelect: function (id) { if (id !== view.perk) select(id); },
     placeholders: {
       back: ["..####..", ".#....#.", "#.####.#", "#.#..#.#", "#.####.#", "########"],
       belt: ["........", "########", "#..##..#", "########"],
@@ -724,6 +749,7 @@
     },
     layout: function (l) {
       kind = l.kind;
+      if (window.MC) window.MC.layout(l);
       toggle(document.body, "gear", kind === "gear");
       toggle(document.body, "classes", kind === "classes");
       built = "";
@@ -754,9 +780,15 @@
       if (m.type === "icons") {
         for (var k in m.map) ICONS[k] = m.map[k];
         built = "";
+        if (window.MC) window.MC.iconsChanged();
         classes();
+      } else if (m.type === "key") {
+        if (window.MC && kind === "classes") window.MC.key(m);
+      } else if (m.type === "wheel") {
+        if (window.MC && kind === "classes") window.MC.wheel(m);
       } else if (m.type === "mettle") {
         M = m.state;
+        if (window.MC) window.MC.state(M);
         segPoints();
         gearCount();
         if (kind === "classes") classes();

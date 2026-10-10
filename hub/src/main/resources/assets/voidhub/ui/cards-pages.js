@@ -1,0 +1,1095 @@
+// VOID Mettle cards v2: the Classes page's screens (Figma 295:2 §2h "Mettle cards v2 — cleanup" 546:23595: deck
+// builder 546:23599, binder 546:23854, trade 546:24109, shrine rebuild 546:24364, shrine fuse 546:24619; the skill
+// gallery and attributes strip the page had before stay as the home).
+//
+// Each screen builds its parts once (MC.part) and patches them by key (MC.patch) on every state message: a state
+// tick that changes nothing visible repaints nothing, a hover repaints one card, a scroll rewrites twelve tiles.
+// Coordinates are the design's window-local numbers + 24 (the page's box starts 24 above the drawn window).
+(function () {
+  "use strict";
+
+  var MC = window.MC, esc = MC.esc, upper = MC.upper, part = MC.part, patch = MC.patch;
+  var Y = function (y) { return y + 24; };
+
+  var nav = MC.nav = {view: "home", tab: "skills", skill: null, stab: "deck", shrine: "rebuild"};
+  var st = MC.st = {
+    binder: {skill: "", rarity: "", kw: "", slot: false, att: false, sort: "newest", q: "", scroll: 0, sel: null},
+    deck: {rarity: "", kw: "", slot: false, sort: "rarity", scroll: 0, sel: null, pop: null, totals: false},
+    rebuild: {skill: null, pick: {}}, fuse: {pick: []}, release: {pick: []}, trade: {adding: false, scroll: 0}, hall: {scroll: 0}
+  };
+  var root = null, cv = null, screen = "", byId = {}, lastWaitingSeen = -1, dismissedWaiting = 0, seenReveal = {}, prevTiers = null;
+  var justSlotted = null, slotSoundFor = null, kind = "inventory";
+  MC.attached = false;
+  MC.textFocus = false;
+
+  // ---- data ---------------------------------------------------------------------------------------------------
+  function M() { return MC.M; }
+  function skills() { var out = []; for (var i = 0; i < M().skills.length; i++) if (M().skills[i].released) out.push(M().skills[i]); return out; }
+  function skill(id) { for (var i = 0; i < M().skills.length; i++) if (M().skills[i].id === id) return M().skills[i]; return null; }
+  function deck(id) { var d = M().cards.decks; for (var i = 0; i < d.length; i++) if (d[i].skill === id) return d[i]; return null; }
+  function cards() { return M().cards.binder.cards; }
+  var RANK = {mythic: 5, epic: 4, rare: 3, cursed: 2, common: 1};
+  function sortCards(list, how) {
+    var idx = {};
+    for (var i = 0; i < list.length; i++) idx[list[i].id] = i;
+    return list.slice().sort(function (a, b) {
+      if (how === "rarity") return (RANK[MC.isMythic(b) ? "mythic" : MC.rarityOf(b)] || 0) - (RANK[MC.isMythic(a) ? "mythic" : MC.rarityOf(a)] || 0) || idx[a.id] - idx[b.id];
+      if (how === "requirement") return (a.needs || 0) - (b.needs || 0) || idx[a.id] - idx[b.id];
+      return idx[a.id] - idx[b.id];
+    });
+  }
+  function kwNames(c) { var o = []; for (var i = 0; i < (c.keywords || []).length; i++) o.push(c.keywords[i].name); return o.join(", "); }
+  function bits(n, coin) { return coin === false ? n + (n === 1 ? " emerald" : " emeralds") : n + " bits"; }
+  function feeText(rb) {
+    if (!rb) return "";
+    var coin = !M().cards.sitting || M().cards.sitting.coin;
+    return coin ? rb.bits + " bits" : rb.emeralds + (rb.emeralds === 1 ? " emerald" : " emeralds");
+  }
+
+  // ---- header pieces ------------------------------------------------------------------------------------------
+  function tabs(list, on, attr, w) {
+    var h = '<div class="hd-tabs" style="width:' + (w || 230) + 'px">', x = 2;
+    for (var i = 0; i < list.length; i++) {
+      var tw = list[i][2] || 72;
+      h += '<div class="hd-tab' + (list[i][0] === on ? " on" : "") + '" ' + attr + '="' + list[i][0] + '" style="left:' + x + "px;width:" + tw + 'px">' + esc(list[i][1]) + "</div>";
+      x += tw + 3;
+    }
+    return h + "</div>";
+  }
+  function skillChip(s, back) {
+    return '<div class="hd-chip skill' + (back ? " back" : "") + '"' + (back ? ' data-nav="home"' : "") + '><div class="sig" style="border-color:' + MC.rgba(s.colour, 0.55) + '">' + MC.img(s.icon, 16) +
+      '</div><span class="nm">' + esc(s.name) + '</span><span class="lv" style="color:' + s.colour + '">LV ' + s.level + "</span></div>";
+  }
+  function head(left, right) {
+    patch(part(cv, "c-hl", "c-hl"), left, left);
+    patch(part(cv, "c-hr", "c-hr"), right, right);
+  }
+  function footer(l, r) {
+    MC.text(part(cv, "c-fl", "footer c-foot"), l || "");
+    MC.text(part(cv, "c-fr", "footer right c-foot"), r || "");
+  }
+  function draftsBadge() {
+    var n = M().draft ? M().draft.waiting : 0;
+    return n > 0 ? '<div class="ov-badge hd-badge" data-deal-any="1"><i class="backs"></i><span>' + n + (n === 1 ? " draft waiting" : " drafts waiting") + "</span></div>" : "";
+  }
+
+  // ---- the router ------------------------------------------------------------------------------------------------
+  function screenId() {
+    var c = M().cards;
+    if (c.sitting) return "shrine";
+    if (c.trade) return "trade";
+    if (nav.view === "skill" && nav.skill && skill(nav.skill)) return "skill-" + nav.stab;
+    return "home-" + nav.tab;
+  }
+
+  /** Draws the current screen: builds its skeleton when the screen changed, then patches what the state changed. */
+  MC.render = function () {
+    if (!MC.attached || !M() || !M().cards || kind !== "classes") return;
+    var id = screenId();
+    if (id !== screen) {
+      screen = id;
+      cv.innerHTML = "";
+      cv.className = "scr scr-" + id;
+      st.deck.pop = null;
+      if (MC.textFocus) { MC.textFocus = false; ui(); }
+    }
+    var f = SCREENS[id] || SCREENS["home-skills"];
+    f();
+    toast();
+    moments();
+  };
+
+  // Mettle answers every card action with a chip (a refusal says why); the page shows the newest for a few seconds.
+  var toastShown = "", toastTimer = null;
+  function toast() {
+    var fb = M().feedback, f = fb && fb.length ? fb[fb.length - 1] : null, key = f ? f.perk + "|" + f.text : "";
+    if (key === toastShown) return;
+    toastShown = key;
+    var el = part(root, "c-toast", "c-toast");
+    if (!f || (f.ageMs || 0) > 3500) { el.style.display = "none"; MC.toggle(root, "has-toast", false); return; }
+    el.style.display = "";
+    MC.toggle(root, "has-toast", true);
+    MC.text(el, f.text);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.style.display = "none"; MC.toggle(root, "has-toast", false); }, 3500 - (f.ageMs || 0));
+  }
+
+  function ui() { MC.send({type: "mettleUi", modal: MC.ov.active(), text: MC.textFocus}); }
+
+  /** Opens a draft, a reveal or a set moment when one is due and nothing else is up. */
+  function moments() {
+    if (MC.ov.active() || screen === "shrine" || screen === "trade") return;
+    var c = M().cards, r = c.reveal;
+    if (r && !seenReveal[r.id]) {
+      seenReveal[r.id] = true;
+      if (Date.now() - (MC.lastClaimAt || 0) < 30000 && r.source === "drawn") return;  // just claimed in the draft: seen
+      if ((r.ageMs || 0) < 30000 && MC.ov.reveal(r)) return;
+    }
+    if (pendingSet && MC.ov.setDone(pendingSet.set, pendingSet.cards, pendingSet.slotted)) { pendingSet = null; return; }
+    var waiting = M().draft ? M().draft.waiting : 0;
+    if (waiting < dismissedWaiting) dismissedWaiting = waiting;
+    if (waiting > dismissedWaiting) {
+      var list = skills();
+      for (var i = 0; i < list.length; i++) if (list[i].drafts > 0 && list[i].hand && list[i].hand.length) { MC.ov.draft(list[i].id); return; }
+    }
+  }
+  MC.onDraftClosed = function () { dismissedWaiting = M().draft ? M().draft.waiting : 0; };
+
+  var pendingSet = null;
+  /** A slot change crossed a 2 / 4 / 6 tier of an active set: the moment (Figma 2g-6) is queued. */
+  function watchSets() {
+    var tiers = {}, best = null;
+    var sets = M().cards.sets;
+    for (var i = 0; i < sets.length; i++) {
+      tiers[sets[i].id] = sets[i].tier;
+      if (prevTiers && sets[i].active && sets[i].tier > (prevTiers[sets[i].id] || 0) && (!best || sets[i].tier > best.tier)) best = sets[i];
+    }
+    prevTiers = tiers;
+    if (best) {
+      var counted = [];
+      var all = cards();
+      for (var k = 0; k < all.length; k++) {
+        var c = all[k];
+        if (c.place !== "slotted" || c.dormant) continue;
+        for (var q = 0; q < (c.keywords || []).length; q++) if (c.keywords[q].id === best.id) { counted.push(c); break; }
+      }
+      pendingSet = {set: best, cards: counted, slotted: justSlotted};
+    }
+  }
+
+  // ---- home: Skills (the gallery and the attributes strip) ----------------------------------------------------
+  function bg() {
+    for (var i = 0; i < M().backgrounds.length; i++) if (M().backgrounds[i].id === M().character.background) return M().backgrounds[i];
+    return null;
+  }
+
+  function homeHead(on) {
+    var right = on === "cards" ? countBox() : draftsBadge();
+    head(tabs([["skills", "Skills"], ["cards", "Cards"], ["hall", "Hall of Firsts", 146]], on, "data-tab", 300), right);
+  }
+  function countBox() {
+    var b = M().cards.binder, w = Math.round(78 * Math.min(1, b.count / Math.max(1, b.max)));
+    return '<div class="hd-count"><span>' + b.count + " / " + b.max + '</span><i class="tr"></i><i class="fl" style="width:' + w + 'px"></i></div>';
+  }
+
+  function strip() {
+    var c = M().character, b = bg();
+    var h = '<div class="o-art">' + MC.img(b ? b.art : "", 96) + "</div>";
+    h += '<div style="left:122px;top:9px"><div class="m-eb">BACKGROUND</div><div class="m-h3" style="margin-top:3px">' + esc(b ? b.name : "") + "</div></div>";
+    h += '<div style="left:212px;top:9px"><div class="m-eb">CHARACTER LEVEL</div><div class="o-lv">' + c.level + "</div></div>";
+    h += '<div class="o-sep" style="left:326px"></div>';
+    for (var k = 0; k < M().attributes.length; k++) {
+      var at = M().attributes[k];
+      h += '<div class="o-at" style="left:' + (338 + k * 94) + 'px"><div class="m-eb" style="left:10px;top:6px">' + esc(upper(at.name).slice(0, 3)) +
+        '</div><div class="o-av">' + c.attributes[at.id] + "</div>" + (c.points > 0 && c.attributes[at.id] < c.maxAttribute ? '<div class="o-plus" data-attr="' + at.id + '">+</div>' : "") + "</div>";
+    }
+    if (c.points > 0) h += '<div class="pts big" style="right:12px;top:11px"><b></b>' + c.points + " to place</div>";
+    return h;
+  }
+
+  function skillTile(s) {
+    var hue = s.colour, light = MC.mix(hue, "#FFFFFF", 0.42), d = deck(s.id), hot = s.drafts > 0;
+    var h = '<div class="sk-halo" style="background:radial-gradient(closest-side,' + MC.rgba(hue, hot ? 0.30 : 0.10) + " 0%," + MC.rgba(hue, 0) + ' 100%)"></div>';
+    h += '<div class="o-card" data-skill="' + s.id + '" style="background:' + MC.mix("#191A1C", hue, hot ? 0.075 : 0.05) + ";border:1.5px solid " + MC.rgba(hue, hot ? 0.85 : 0.28) + '">';
+    h += '<div class="o-plate" style="background:' + MC.mix("#131315", hue, 0.09) + '"><div class="o-halo" style="background:radial-gradient(circle,' + MC.rgba(hue, 0.5) + " 0%," + MC.rgba(hue, 0.16) + " 45%," + MC.rgba(hue, 0) + ' 72%)"></div>';
+    h += '<div style="left:12px;top:9px">' + MC.img(s.icon, 64, "m-img") + '</div><div class="o-num" style="color:' + light + '">' + s.level + '</div><div class="m-eb" style="right:14px;top:56px;color:' + MC.rgba(hue, 0.7) + '">LEVEL</div></div>';
+    h += '<div class="m-h3" style="left:14px;top:100px">' + esc(s.name) + "</div>";
+    if (hot) h += '<div class="o-pill deal" data-deal="' + s.id + '" style="right:12px;top:98px;background:' + MC.mix("#131315", hue, 0.22) + ";border:1px solid " + MC.rgba(hue, 0.7) + ";color:" + light + '"><b style="background:' + hue + '"></b>Deal ' + s.drafts + "</div>";
+    h += '<div class="o-title" style="color:' + MC.mix("#9A9DA1", hue, 0.35) + '">' + esc(s.level > 0 ? s.title : "Untried") + "</div>";
+    var frac = s.level >= 20 ? 1 : Math.max(0, Math.min(1, (s.xp - s.levelXp) / Math.max(1, s.nextXp - s.levelXp)));
+    h += '<div class="sk-xp" style="left:14px;top:146px;background:' + MC.mix("#131315", hue, 0.3) + '"><i style="width:' + Math.round(192 * (s.level >= 20 ? 1 : frac)) + "px;background:" + hue + '"></i></div>';
+    h += '<div class="o-how' + (s.level === 0 ? " always" : "") + '" style="color:' + MC.mix("#B5B8BC", hue, 0.25) + '"><span class="m-eb" style="color:' + MC.rgba(hue, 0.85) + '">HOW IT LEVELS</span><br>' + esc(s.levelsBy || "") + "</div>";
+    if (s.level > 0) h += '<div class="m-eb o-xpt" style="left:14px;top:158px;color:' + MC.mix("#626569", hue, 0.3) + '">' + (s.level >= 20 ? "MASTERED" : fmt(s.xp) + " / " + fmt(s.nextXp) + " XP") + "</div>";
+    // The deck: its slotted cards' icons in their rarity colours.
+    var row = "", n = 0, extra = 0;
+    if (d) {
+      for (var i = 0; i < d.row.length; i++) {
+        var c = d.row[i].card && byId[d.row[i].card];
+        if (!c) continue;
+        if (n < 6) {
+          var rc = MC.RARITY[MC.isMythic(c) ? "mythic" : MC.rarityOf(c)];
+          row += '<div class="o-perk" style="background:' + MC.shade(hue) + ";border:1px solid " + MC.rgba(rc, 0.7) + '">' + MC.img(c.icon, 20) + "</div>";
+          n++;
+        } else extra++;
+      }
+    }
+    if (extra) row += '<div class="o-more">+' + extra + "</div>";
+    if (!n) row = '<span class="m-eb">' + (d && d.slots ? "DECK EMPTY  ·  " + d.slots + " SLOTS" : "NO DECK YET") + "</span>";
+    if (s.level === 0) row = "";
+    h += '<div class="o-perks">' + row + "</div>";
+    return h + "</div>";
+  }
+  function fmt(n) { return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+  var SCREENS = {};
+  SCREENS["home-skills"] = function () {
+    homeHead("skills");
+    var c = M().character, b = bg();
+    patch(part(cv, "h-strip", "o-strip"), JSON.stringify([c, b && b.id, MC.icons[b && b.art] ? 1 : 0]), strip);
+    var list = skills();
+    for (var i = 0; i < 8; i++) {
+      var s = list[i], el = part(cv, "sk-" + i, "sk-wrap", "left:" + (28 + (i % 4) * 237) + "px;top:" + (156 + Math.floor(i / 4) * 216) + "px" + (s ? "" : ";display:none"));
+      if (!s) continue;
+      var d = deck(s.id), key = JSON.stringify([s.id, s.level, s.xp, s.drafts, s.title, d && d.row, MC.icons[s.icon] ? 1 : 0, iconsKey]);
+      patch(el, key, function () { return skillTile(s); });
+    }
+    var all = cards(), slotted = 0;
+    for (var k = 0; k < all.length; k++) if (all[k].place === "slotted") slotted++;
+    var w = M().draft ? M().draft.waiting : 0;
+    footer(list.length + " SKILLS  ·  " + all.length + " CARDS  ·  " + slotted + " SLOTTED  ·  " + w + (w === 1 ? " DRAFT WAITING" : " DRAFTS WAITING"), "CLICK A SKILL TO OPEN ITS DECK");
+  };
+
+  // ---- the binder (home Cards, and a skill's Cards tab) --------------------------------------------------------
+  var BIN = {x: 204, y: 105, cols: 4, rows: 3};
+
+  function binderList(fixed) {
+    var b = st.binder, out = [], all = cards(), q = b.q.toLowerCase();
+    var sk = fixed || b.skill;
+    for (var i = 0; i < all.length; i++) {
+      var c = all[i];
+      if (sk && c.skill !== sk && !(MC.isMythic(c) && c.deck === sk)) continue;
+      if (b.rarity && (MC.isMythic(c) ? "mythic" : MC.rarityOf(c)) !== b.rarity) continue;
+      if (b.kw && !hasKw(c, b.kw)) continue;
+      if (b.slot && !c.canSlot) continue;
+      if (b.att && c.attuned !== false) continue;
+      if (q && (c.name + " " + kwNames(c) + " " + (c.code || "") + " " + traitText(c)).toLowerCase().indexOf(q) < 0) continue;
+      out.push(c);
+    }
+    return sortCards(out, b.sort);
+  }
+  function hasKw(c, id) { for (var i = 0; i < (c.keywords || []).length; i++) if (c.keywords[i].id === id) return true; return false; }
+  function traitText(c) { var o = ""; for (var i = 0; i < (c.traits || []).length; i++) o += c.traits[i].name + " "; return o; }
+  function kwName(id) { var k = M().cards.keywords; for (var i = 0; i < k.length; i++) if (k[i].id === id) return k[i].name; return id; }
+
+  function binderLeft(fixed) {
+    var b = st.binder, all = cards(), counts = {}, h = "";
+    for (var i = 0; i < all.length; i++) counts[all[i].skill] = (counts[all[i].skill] || 0) + 1;
+    h += '<div class="eb9" style="left:28px;top:' + Y(73) + 'px">SKILL</div>';
+    if (!fixed) {
+      h += '<div class="bl-row' + (!b.skill ? " on" : "") + '" data-bskill="" style="top:' + Y(91) + 'px"><span class="n">All skills</span><span class="c">' + all.length + "</span></div>";
+      var list = skills();
+      for (var k = 0; k < list.length && k < 10; k++) {
+        var s = list[k];
+        h += '<div class="bl-row' + (b.skill === s.id ? " on" : "") + '" data-bskill="' + s.id + '" style="top:' + Y(115 + k * 24) + 'px"><i style="background:' + s.colour + '"></i><span class="n">' + esc(s.name) + '</span><span class="c">' + (counts[s.id] || 0) + "</span></div>";
+      }
+    } else {
+      var fs = skill(fixed);
+      h += '<div class="bl-row on" style="top:' + Y(91) + 'px"><i style="background:' + fs.colour + '"></i><span class="n">' + esc(fs.name) + '</span><span class="c">' + (counts[fixed] || 0) + "</span></div>";
+    }
+    h += '<div class="eb9" style="left:28px;top:' + Y(321) + 'px">SHOW</div>';
+    h += '<div class="bl-f" data-bf="rarity" style="top:' + Y(339) + 'px">' + (b.rarity ? upper(b.rarity.charAt(0)) + b.rarity.slice(1) : "Any rarity") + '<i class="dd"></i></div>';
+    h += '<div class="bl-f" data-bf="kw" style="top:' + Y(371) + 'px">' + (b.kw ? esc(kwName(b.kw)) : "Any keyword") + '<i class="dd"></i></div>';
+    h += '<div class="bl-f' + (b.slot ? " on" : "") + '" data-bf="slot" style="top:' + Y(403) + 'px">Slottable now</div>';
+    h += '<div class="bl-f' + (b.att ? " on" : "") + '" data-bf="att" style="top:' + Y(435) + 'px">Attuning</div>';
+    var mine = null;
+    for (var m = 0; m < all.length; m++) if (MC.isMythic(all[m])) { mine = all[m]; break; }
+    h += '<div class="bl-my" data-tab="hall" style="top:' + Y(517) + 'px"><div class="t">' + (mine ? MC.img(mine.icon, 24) : "") + '</div><div class="n">' + esc(mine ? mine.name : "No Mythic yet") +
+      '</div><div class="s">Hall of Firsts ›</div></div>';
+    return h;
+  }
+
+  function binderGrid(list, id) {
+    var b = st.binder, maxScroll = Math.max(0, Math.ceil(list.length / BIN.cols) - BIN.rows);
+    b.scroll = Math.max(0, Math.min(b.scroll, maxScroll));
+    var grid = part(cv, id, "bin-grid", "left:" + BIN.x + "px;top:" + Y(BIN.y) + "px");
+    grid.setAttribute("data-scroll", "binder");
+    for (var i = 0; i < BIN.cols * BIN.rows; i++) {
+      var c = list[b.scroll * BIN.cols + i];
+      var t = part(grid, id + "-" + i, "tile", "left:" + (i % BIN.cols) * 104 + "px;top:" + Math.floor(i / BIN.cols) * 136 + "px");
+      patch(t, c ? cardKey(c) + (b.sel === c.id) : "-", c ? function () { return MC.ccard(c, {sel: b.sel === c.id, check: b.sel === c.id, attrs: ' data-bcard="' + c.id + '"'}); } : "");
+    }
+    return maxScroll;
+  }
+  function cardKey(c) { return c.id + ":" + JSON.stringify([c.place, c.slot, c.attuned, c.attuningMinutes, c.meetsRequirement, c.dormant, c.traits && c.traits.length, c.canSlot, MC.icons[c.icon] ? 1 : 0]); }
+
+  function detail(c) {
+    if (!c) return '<div class="bd-empty">Pick a card to see its traits and history.</div>';
+    var mythic = MC.isMythic(c);
+    var h = '<div class="bd-big">' + MC.ccard(c, {}) + "</div>";
+    var inDeck = c.place === "slotted" ? (skill(c.deck) ? skill(c.deck).name : "") + " · slot " + (c.slot + 1) : c.place === "trade" ? "In a trade" : "Binder";
+    var facts = [["Rarity", mythic ? "Mythic" : (c.rarityName || "") + " · " + (c.tierName || "")], ["Keywords", mythic ? "—" : kwNames(c) || "—"], ["Needs", mythic ? "Any deck" : String(c.needsText || "").replace(/^Needs /, "")], ["In deck", inDeck]];
+    for (var i = 0; i < facts.length; i++) h += '<div class="bd-k" style="top:' + (21 + i * 40) + 'px">' + facts[i][0] + '</div><div class="bd-v" style="top:' + (35 + i * 40) + 'px">' + esc(facts[i][1]) + "</div>";
+    var y = 225;
+    if (mythic) {
+      h += '<div class="eb9" style="left:15px;top:' + y + 'px">MYTHIC</div><div class="bd-h" style="top:' + (y + 18) + 'px">' + esc(c.description || "") + "</div>";
+      if (c.lore) h += '<div class="bd-h my" style="top:' + (y + 54) + 'px">“' + esc(c.lore) + "”</div>";
+      y += 92;
+    } else {
+      h += '<div class="eb9" style="left:15px;top:' + y + 'px">TRAITS</div>';
+      y += 18;
+      var ts = c.traits || [];
+      if (!ts.length) { h += '<div class="bd-h" style="top:' + y + 'px">No traits: the perk alone.</div>'; y += 22; }
+      for (var t = 0; t < ts.length && t < 3; t++) {
+        var tr = ts[t], boost = tr.boostedText && tr.boostedText !== tr.valueText;
+        h += '<div class="bd-t" style="top:' + y + 'px"><span class="n">' + esc(tr.name) + '</span><span class="v">' + esc(tr.valueText) + '</span><span class="b">' + (boost ? esc(tr.boostedText) + " with " + esc(attrName(tr.attribute)) : "") + "</span></div>";
+        y += 22;
+      }
+      y += 10;
+    }
+    h += '<div class="eb9" style="left:15px;top:' + y + 'px">HISTORY</div>';
+    y += 18;
+    var lines = [];
+    if (c.drawn && c.drawn.text) lines.push(c.drawn.text);
+    if (c.owners > 1 && c.lastOwners) {
+      var o = [];
+      for (var k = 0; k < c.lastOwners.length; k++) o.push(c.lastOwners[k].name + " on day " + c.lastOwners[k].day);
+      lines.push("Held by " + c.owners + " · " + o.join(", "));
+    }
+    if (c.scars) lines.push("Scar ×" + c.scars);
+    if (c.dormant && c.dormantReason) lines.push("Dormant: " + c.dormantReason);
+    if (c.attuned === false && c.attuningMinutes > 0) lines.push("Attuning · " + c.attuningMinutes + " min");
+    for (var l = 0; l < lines.length && l < 4; l++) { h += '<div class="bd-h" style="top:' + y + 'px">' + esc(lines[l]) + "</div>"; y += 19; }
+    if (c.code) h += '<div class="bd-code" style="top:' + (y + 2) + 'px">' + esc(c.code) + "</div>";
+    // Actions: slot or take out, trade.
+    var a1, a2, at = M().cards.atShrine, tr2 = M().cards.trade;
+    if (c.place === "slotted") a1 = '<div class="bd-a" data-takeout="' + c.id + '">Take out…</div>';
+    else if (c.canSlot) a1 = '<div class="bd-a" data-slotbest="' + c.id + '">Slot</div>';
+    else a1 = '<div class="bd-a off" title="' + esc(c.lockedReason || "") + '">' + esc(c.lockedReason ? c.lockedReason : "Can't slot") + "</div>";
+    if (tr2 && tr2.open && c.place === "binder" && c.attuned !== false) a2 = '<div class="bd-a" data-toffer="' + c.id + '">Offer in trade</div>';
+    else if (at && c.place === "binder") a2 = '<div class="bd-a" data-goshrine="release">Release at the shrine</div>';
+    else a2 = '<div class="bd-a off">Trade</div>';
+    h += '<div class="bd-acts">' + a1 + a2 + "</div>";
+    return h;
+  }
+  function attrName(id) { for (var i = 0; i < M().attributes.length; i++) if (M().attributes[i].id === id) return M().attributes[i].name + " " + M().character.attributes[id]; return id; }
+
+  function binderScreen(fixed) {
+    var b = st.binder;
+    if (fixed && b.skill !== "") b.skill = "";
+    var list = binderList(fixed);
+    patch(part(cv, "b-left", "b-left"), JSON.stringify([b, fixed, cards().length, MC.icons ? iconsKey : 0]), function () { return binderLeft(fixed); });
+    var search = '<div class="b-search' + (MC.textFocus ? " on" : "") + '" data-search="1">' + (b.q ? esc(b.q) + (MC.textFocus ? '<i class="caret"></i>' : "") : (MC.textFocus ? '<i class="caret"></i>' : '<span class="ph">Search cards, traits, ids</span>')) + "</div>";
+    search += '<div class="b-sort" data-bsort="1">' + {newest: "Newest", rarity: "Rarity", requirement: "Requirement"}[b.sort] + '<i class="dd"></i></div>';
+    patch(part(cv, "b-top", "b-top"), b.q + MC.textFocus + b.sort, search);
+    var maxScroll = binderGrid(list, "bg");
+    var shown = Math.min(list.length - b.scroll * BIN.cols, BIN.cols * BIN.rows);
+    MC.text(part(cv, "b-note", "b-note", "left:204px;top:" + Y(515) + "px"), Math.max(0, shown) + " of " + list.length + (maxScroll > 0 ? " · scroll" : "") + "  ·  release three of one skill for a reroll at a Card Shrine");
+    var sel = b.sel ? byId[b.sel] : null;
+    if (b.sel && !sel) b.sel = null;
+    patch(part(cv, "b-detail", "b-detail"), sel ? cardKey(sel) + JSON.stringify([sel.traits, sel.drawn, M().cards.atShrine, !!M().cards.trade]) : "none", function () { return detail(sel); });
+  }
+
+  SCREENS["home-cards"] = function () {
+    homeHead("cards");
+    binderScreen(null);
+    footer("", "");
+  };
+
+  // ---- the Hall of Firsts ----------------------------------------------------------------------------------------
+  SCREENS["home-hall"] = function () {
+    homeHead("hall");
+    var my = M().cards.mythics || {all: []}, all = my.all || [], mineIds = {}, owned = cards();
+    for (var i = 0; i < owned.length; i++) if (MC.isMythic(owned[i]) && owned[i].perk) mineIds[String(owned[i].perk).replace("mythic/", "")] = true;
+    // Yours first, then the claimed ones with their holders, then the silhouettes.
+    all = all.slice().sort(function (a, b) { return (mineIds[b.id] ? 2 : b.claimed ? 1 : 0) - (mineIds[a.id] ? 2 : a.claimed ? 1 : 0); });
+    var known = 0, mine = 0;
+    for (var k = 0; k < all.length; k++) { if (all[k].claimed) known++; if (mineIds[all[k].id]) mine++; }
+    var panel = part(cv, "hall", "hall");
+    panel.setAttribute("data-scroll", "hall");
+    var rows = Math.ceil(all.length / 5), maxScroll = Math.max(0, rows - 2);
+    st.hall.scroll = Math.max(0, Math.min(st.hall.scroll, maxScroll));
+    patch(panel, JSON.stringify([all, st.hall.scroll, mineIds, iconsKey]), function () {
+      var h = '<div class="hall-glow"></div><div class="eb9" style="left:20px;top:16px">MYTHICS IN THIS WORLD</div><div class="hall-sub">' + known + " known · " + mine + " yours · each exists once per world" +
+        (my.drawnWaiting ? "  ·  " + my.drawnWaiting + " drawn Mythics still wait" : "") + "</div>";
+      for (var j = 0; j < 10; j++) {
+        var m = all[st.hall.scroll * 5 + j];
+        if (!m) break;
+        var x = 20 + (j % 5) * 180, y = 46 + Math.floor(j / 5) * 220, isMine = !!mineIds[m.id];
+        h += '<div class="hall-t" style="left:' + x + "px;top:" + y + 'px">' + MC.miniMythic(m, isMine) + '<div class="hall-n">' + esc(m.claimed || isMine ? m.name : m.name) + '</div><div class="hall-h' + (isMine ? " mine" : "") + '">' +
+          esc(isMine ? "Yours" + (m.day >= 0 ? " · day " + m.day : "") : m.claimed ? "Held by " + m.holder : m.source === "drawn" ? "Unclaimed · dealt from skill 15" : "Unclaimed · " + (m.deed || "")) + "</div></div>";
+      }
+      return h;
+    });
+    footer("YOUR MYTHIC SITS ABOVE YOUR SKILL HANDS  ·  OTHERS' MYTHICS ARE PUBLIC", maxScroll > 0 ? "SCROLL FOR MORE" : "");
+  };
+
+  // ---- a skill: Deck / Tree / Cards ------------------------------------------------------------------------------
+  function skillHead(s, on) {
+    head(skillChip(s, true), tabs([["deck", "Deck"], ["tree", "Tree"], ["cards", "Cards"]], on, "data-stab", 230));
+  }
+
+  var SLOT = {x: 28, y: 95, pitch: 104};
+
+  function slotHtml(d, r, i, s) {
+    var dz = st.deck.drag || st.deck.sel;
+    if (r.card) {
+      var c = byId[r.card];
+      if (!c) return "";
+      return MC.ccard(c, {sel: st.deck.pop === c.id, check: st.deck.pop === c.id, attrs: ' data-scard="' + c.id + '" data-slot="' + i + '"', cls: r.dormant ? "dormant" : ""});
+    }
+    if (r.open) {
+      if (dz) return '<div class="slot drop" data-slot="' + i + '"><div class="t">Drag a card<br>here · free</div></div>';
+      return '<div class="slot empty" data-slot="' + i + '"><div class="t">Empty</div></div>';
+    }
+    var amber = r.locked && r.locked.indexOf(s.name) >= 0;
+    return '<div class="slot locked"><i class="lock big' + (amber ? " amber" : "") + '"></i><div class="t' + (amber ? " amber" : "") + '">' + esc(r.locked || "Locked").replace(/^Opens at /, "Opens at<br>") + "</div></div>";
+  }
+
+  function setsColumn() {
+    var sets = M().cards.sets, pins = M().cards.pins, h = "", y = 41, active = 0;
+    var shown = sets.slice().sort(function (a, b) { return (b.active ? 1 : 0) - (a.active ? 1 : 0) || b.count - a.count; });
+    for (var i = 0; i < sets.length; i++) if (sets[i].active) active++;
+    h += '<div class="eb9" style="left:15px;top:13px">SETS · ' + active + " ACTIVE</div>";
+    h += '<div class="sc-pin" data-pinauto="1">' + (pins.keywords.length ? "Pinned" : "Automatic") + (pins.canChange ? "" : " · once a day") + "</div>";
+    if (st.deck.totals) {
+      var tr = M().cards.traits;
+      for (var t = 0; t < tr.length && y < 270; t++) { h += '<div class="sc-tt" style="top:' + y + 'px">' + esc(tr[t].text) + "</div>"; y += 22; }
+      if (!tr.length) h += '<div class="sc-tt" style="top:' + y + 'px">No traits slotted yet.</div>';
+    } else {
+      for (var k = 0; k < shown.length && y < 270; k++) {
+        var s = shown[k];
+        if (!s.active && !s.count) continue;
+        var pinned = pins.keywords.indexOf(s.id) >= 0;
+        if (s.active) {
+          h += '<div class="sc-set on" data-pin="' + s.id + '" style="top:' + y + 'px">' + MC.glyph(s, 16) + '<span class="n">' + esc(s.name) + '</span><span class="c">' + s.count + "</span>" + pips(s.tier, true) +
+            (pinned ? '<span class="pinmark">PINNED</span>' : "") + '<div class="sub">' + esc(setSkills(s)) + "</div></div>";
+          y += 50;
+        } else {
+          h += '<div class="sc-set" data-pin="' + s.id + '" style="top:' + y + 'px">' + MC.glyph(s, 16) + '<span class="n">' + esc(s.name) + '</span><span class="c">' + s.count + "</span>" + pips(s.tier, false) + "</div>";
+          y += 34;
+        }
+      }
+    }
+    h += '<div class="sc-tog" data-totals="1"><span>Trait totals</span><span class="r">' + (st.deck.totals ? "hide ‹" : "show ›") + "</span></div>";
+    return h;
+  }
+  function pips(tier, on) {
+    var h = '<span class="pips3">';
+    for (var i = 0; i < 3; i++) h += '<i class="' + (tier >= (i + 1) * 2 ? (on ? "on" : "dim") : on ? "" : "off") + '"></i>';
+    return h + "</span>";
+  }
+  function setSkills(set) {
+    var per = {}, order = [], all = cards();
+    for (var i = 0; i < all.length; i++) {
+      var c = all[i];
+      if (c.place !== "slotted" || c.dormant || !hasKw(c, set.id)) continue;
+      var n = skill(c.deck) ? skill(c.deck).name : c.skillName;
+      if (!per[n]) { per[n] = 0; order.push(n); }
+      per[n]++;
+    }
+    var o = [];
+    for (var k = 0; k < order.length; k++) o.push(order[k] + " " + per[order[k]]);
+    return o.join(" · ");
+  }
+
+  function deckBinderList(s) {
+    var b = st.deck, out = [], all = cards();
+    for (var i = 0; i < all.length; i++) {
+      var c = all[i];
+      if (c.place !== "binder") continue;
+      if (c.skill !== s.id && !MC.isMythic(c)) continue;
+      if (b.rarity && (MC.isMythic(c) ? "mythic" : MC.rarityOf(c)) !== b.rarity) continue;
+      if (b.kw && !hasKw(c, b.kw)) continue;
+      if (b.slot && !c.canSlot) continue;
+      out.push(c);
+    }
+    return sortCards(out, b.sort);
+  }
+
+  function popover(c, d, s) {
+    var rb = c.rebuild || {}, costs = M().cards.costs, free = c.dormant || costs.lowLevel || d.freeRebuild || costs.freeSwaps > 0;
+    var how = c.dormant ? "Take it out (dormant: free)" : costs.lowLevel ? "Take it out (free below level " + costs.freeBelowLevel + ")" : d.freeRebuild ? "Use the free rebuild" : costs.freeSwaps > 0 ? "Use a free swap" : "";
+    var slot = d.row.indexOf ? 0 : 0;
+    for (var i = 0; i < d.row.length; i++) if (d.row[i].card === c.id) slot = i;
+    var x = Math.max(28, Math.min(669, SLOT.x + slot * SLOT.pitch - 20));
+    var h = '<div class="pop" style="left:' + x + "px;top:" + Y(231) + 'px"><i class="ptr" style="left:' + (SLOT.x + slot * SLOT.pitch + 40 - x) + 'px"></i>';
+    h += '<div class="pt">Take ' + esc(c.baseName || c.name) + " out</div>";
+    h += '<div class="pk" style="top:41px">Fee</div><div class="pv" style="top:40px">' + (free ? "free" : esc(feeText(rb))) + "</div>";
+    h += '<div class="pk" style="top:63px">Draught</div><div class="pv" style="top:62px">' + (free ? "none" : "Forgetting · " + esc(s.name) + " · once a sitting") + "</div>";
+    h += '<div class="pk" style="top:85px">Scar</div><div class="pv" style="top:84px">' + (free || !rb.loses ? (rb.spared ? "spared" : "none") : "loses " + esc(rb.loses.text)) + "</div>";
+    h += '<div class="pn">' + esc(free ? "Free swaps refill as you level. Rebuilds happen at a trainer or a Card Shrine." : d.rebuildHint || "") + "</div>";
+    if (free) h += '<div class="pb pri" data-unslot="' + c.id + '">' + esc(how) + "</div>";
+    else if (M().cards.atShrine) h += '<div class="pb pri" data-goshrine="rebuild">Rebuild at the shrine</div>';
+    else h += '<div class="pb pri off">Needs a trainer or a shrine</div>';
+    h += '<div class="pb" data-popclose="1">Cancel</div>';
+    return h + "</div>";
+  }
+
+  SCREENS["skill-deck"] = function () {
+    var s = skill(nav.skill), d = deck(s.id);
+    skillHead(s, "deck");
+    if (!d) { patch(part(cv, "dk-none", "dk-none"), "none", "This skill has no deck yet: it opens at level 2."); footer("", ""); return; }
+    var used = 0;
+    for (var i = 0; i < d.row.length; i++) if (d.row[i].card) used++;
+    var costs = M().cards.costs, sw = "";
+    for (var p = 0; p < costs.maxFreeSwaps; p++) sw += '<i class="' + (p < costs.freeSwaps ? "on" : "") + '"></i>';
+    patch(part(cv, "dk-head", "dk-head"), JSON.stringify([s.name, used, d.slots, costs.freeSwaps, costs.maxFreeSwaps]),
+      '<div class="eb9" style="left:28px;top:' + Y(71) + 'px">' + esc(upper(s.name)) + ' DECK</div><div class="dk-n" style="left:' + (28 + upper(s.name).length * 9 + 50) + "px;top:" + Y(69) + 'px">' + used + " of " + d.slots + " slots</div>" +
+      '<div class="dk-swaps"><span class="pp">' + sw + "</span>" + costs.freeSwaps + (costs.freeSwaps === 1 ? " free swap" : " free swaps") + "</div>");
+    var row = part(cv, "dk-row", "dk-row", "left:" + SLOT.x + "px;top:" + Y(SLOT.y) + "px");
+    var n = d.row.length, scale = n > 9 ? 929 / (n * SLOT.pitch - 8) : 1;
+    row.style.transform = scale < 1 ? "scale(" + scale.toFixed(4) + ")" : "";
+    for (var k = 0; k < Math.max(n, 9); k++) {
+      var r = d.row[k], el = part(row, "dk-s" + k, "tile", "left:" + k * SLOT.pitch + "px;top:0" + (r ? "" : ";display:none"));
+      if (!r) continue;
+      var c = r.card && byId[r.card];
+      patch(el, JSON.stringify([r, c ? cardKey(c) : 0, !!(st.deck.drag || st.deck.sel), st.deck.pop]), function () { return slotHtml(d, r, k, s); });
+    }
+    // The binder under the deck.
+    var b = st.deck, list = deckBinderList(s), cols = 6, rows = 2;
+    var filters = '<div class="eb9" style="left:28px;top:' + Y(247) + 'px">BINDER · ' + esc(upper(s.name)) + '</div><div class="dk-n" style="left:' + (28 + upper(s.name).length * 9 + 76) + "px;top:" + Y(245) + 'px">' + list.length + (list.length === 1 ? " card" : " cards") + "</div>";
+    filters += '<div class="pf" data-df="rarity" style="left:360px">' + (b.rarity ? upper(b.rarity.charAt(0)) + b.rarity.slice(1) : "Rarity") + '<i class="dd"></i></div>';
+    filters += '<div class="pf" data-df="kw" style="left:424px">' + (b.kw ? esc(kwName(b.kw)) : "Keyword") + '<i class="dd"></i></div>';
+    filters += '<div class="pf' + (b.slot ? " on" : "") + '" data-df="slot" style="left:501px">Slottable</div>';
+    filters += '<div class="pf" data-df="sort" style="left:569px">Sort: ' + {rarity: "Rarity", newest: "Newest", requirement: "Need"}[b.sort] + '<i class="dd"></i></div>';
+    patch(part(cv, "dk-bh", "dk-bh"), JSON.stringify([b.rarity, b.kw, b.slot, b.sort, list.length, s.name]), filters);
+    var maxScroll = Math.max(0, Math.ceil(list.length / cols) - rows);
+    b.scroll = Math.max(0, Math.min(b.scroll, maxScroll));
+    var grid = part(cv, "dk-grid", "bin-grid", "left:28px;top:" + Y(275) + "px");
+    grid.setAttribute("data-scroll", "deck");
+    for (var g = 0; g < cols * rows; g++) {
+      var bc = list[b.scroll * cols + g];
+      var t = part(grid, "dk-g" + g, "tile", "left:" + (g % cols) * 104 + "px;top:" + Math.floor(g / cols) * 136 + "px");
+      patch(t, bc ? cardKey(bc) + (st.deck.sel === bc.id) + (st.deck.drag && st.deck.drag.id === bc.id) : "-", bc ? function () {
+        return MC.ccard(bc, {sel: st.deck.sel === bc.id, check: st.deck.sel === bc.id, attrs: ' data-dcard="' + bc.id + '"', cls: st.deck.drag && st.deck.drag.id === bc.id ? "lifted" : ""});
+      } : "");
+    }
+    var shown = Math.max(0, Math.min(list.length - b.scroll * cols, cols * rows));
+    MC.text(part(cv, "dk-note", "b-note", "left:28px;top:" + Y(551) + "px"), shown + " of " + list.length + (maxScroll > 0 ? " · scroll for more" : "") + (st.deck.sel ? "  ·  click an open slot, or drag the card there" : ""));
+    patch(part(cv, "dk-sets", "dk-sets"), JSON.stringify([M().cards.sets, M().cards.pins, st.deck.totals, st.deck.totals ? M().cards.traits : 0, iconsKey]), setsColumn);
+    var pc = st.deck.pop && byId[st.deck.pop];
+    if (st.deck.pop && !pc) st.deck.pop = null;
+    patch(part(cv, "dk-pop", "dk-pop"), pc ? cardKey(pc) + JSON.stringify([pc.rebuild, costs, M().cards.atShrine]) : "", pc ? function () { return popover(pc, d, s); } : "");
+    footer(upper(s.name) + " " + s.level + "  ·  " + (d.nextSlotAt ? "NEXT SLOT AT " + upper(s.name) + " " + d.nextSlotAt : "EVERY SLOT OPEN") + "  ·  SLOTTING IS FREE, ANYWHERE", upper(d.rebuildHint || ""));
+  };
+
+  SCREENS["skill-tree"] = function () {
+    var s = skill(nav.skill);
+    skillHead(s, "tree");
+    var key = JSON.stringify([s, M().perks, M().character, MC.treeSel, iconsKey]);
+    patch(part(cv, "tree", "c-tree"), key, function () { return window.hubMettle && window.hubMettle.treeHtml ? window.hubMettle.treeHtml(s.id) : ""; });
+    footer("", "");
+  };
+
+  SCREENS["skill-cards"] = function () {
+    var s = skill(nav.skill);
+    skillHead(s, "cards");
+    binderScreen(s.id);
+    footer("", "");
+  };
+
+  // ---- the Card Shrine (a sitting: a shrine, or a trainer from conversation) --------------------------------------
+  function sittingSkills() {
+    var sit = M().cards.sitting, out = [];
+    var list = skills();
+    for (var i = 0; i < list.length; i++) if (!sit.skills.length || sit.skills.indexOf(list[i].id) >= 0) out.push(list[i]);
+    return out;
+  }
+
+  function shrineHead() {
+    var sit = M().cards.sitting, name = sit.kind === "shrine" ? "Card Shrine" : (sit.master ? "Master trainer" : "Trainer") + (sit.skills.length === 1 && skill(sit.skills[0]) ? " · " + skill(sit.skills[0]).name : "");
+    var t = sit.kind === "shrine" ? [["rebuild", "Rebuild"], ["fuse", "Fuse"], ["release", "Release"]] : [["rebuild", "Rebuild"], ["fuse", "Fuse"]];
+    if (sit.kind !== "shrine" && nav.shrine === "release") nav.shrine = "rebuild";
+    head('<div class="hd-chip plain"><span class="nm">' + esc(name) + "</span></div>", tabs(t, nav.shrine, "data-shtab", 230));
+  }
+
+  var LIST_Y = 131, ROW = 60;
+  SCREENS.shrine = function () {
+    shrineHead();
+    var sit = M().cards.sitting;
+    if (nav.shrine === "fuse") fuseTab();
+    else if (nav.shrine === "release") releaseTab();
+    else rebuildTab();
+    footer(sit.kind === "shrine" ? "THE SHRINE BURNS ITS FEES  ·  WALK 8 BLOCKS AWAY TO LEAVE" : "A TRAINER KEEPS THE FEE  ·  CAPS CARDS BY ITS TIER", "");
+    patch(part(cv, "sh-leave", "sh-leave"), "1", '<span data-closesit="1">LEAVE THE ' + (sit.kind === "shrine" ? "SHRINE" : "TRAINER") + "</span>");
+  };
+
+  function shrineClear(keep) {
+    var ids = ["rb-chips", "rb-heads", "rb-list", "rb-total", "fu-head", "fu-list", "fu-arrow", "fu-result", "fu-bar", "rl-head", "rl-list", "rl-bar"];
+    for (var i = 0; i < ids.length; i++) {
+      if (keep.indexOf(ids[i].slice(0, 2)) === 0) continue;
+      var el = MC.$(ids[i]);
+      if (el) el.parentNode.removeChild(el);
+    }
+  }
+
+  function rebuildTab() {
+    shrineClear("rb");
+    var sit = M().cards.sitting, rb = st.rebuild, list = sittingSkills().filter(function (x) {
+      var dk = deck(x.id);
+      if (!dk) return false;
+      for (var i = 0; i < dk.row.length; i++) if (dk.row[i].card) return true;
+      return false;
+    });
+    if (!rb.skill || !skill(rb.skill) || list.map(function (x) { return x.id; }).indexOf(rb.skill) < 0) rb.skill = list.length ? list[0].id : null;
+    var chips = "";
+    for (var i = 0, x = 28; i < list.length; i++) {
+      var s = list[i], w = 34 + s.name.length * 6.6;
+      if (x + w > 664) break;
+      chips += '<div class="sk-chip' + (rb.skill === s.id ? " on" : "") + '" data-rbskill="' + s.id + '" style="left:' + Math.round(x) + 'px"><i style="background:' + s.colour + '"></i>' + esc(s.name) + "</div>";
+      x += w + 8;
+    }
+    var cur = skill(rb.skill);
+    chips += '<div class="draught"><i class="dr"></i>Draught of Forgetting · ' + esc(cur ? cur.name : "") + " · drunk once a sitting</div>";
+    patch(part(cv, "rb-chips", "rb-chips"), JSON.stringify([rb.skill, list.length]), chips);
+    patch(part(cv, "rb-heads", "rb-heads"), "1", '<div class="eb9" style="left:72px;top:' + Y(111) + 'px">CARD</div><div class="eb9" style="left:324px;top:' + Y(111) + 'px">TRAITS</div><div class="eb9 r" style="right:186px;top:' + Y(111) +
+      'px">FEE</div><div class="eb9 r" style="right:46px;top:' + Y(111) + 'px">SCAR IF TAKEN OUT</div>');
+    var d = deck(rb.skill), rows = [];
+    if (d) for (var k = 0; k < d.row.length; k++) if (d.row[k].card && byId[d.row[k].card]) rows.push(byId[d.row[k].card]);
+    for (var p in rb.pick) if (rows.map(function (c) { return c.id; }).indexOf(p) < 0) delete rb.pick[p];
+    var listEl = part(cv, "rb-list", "rb-list", "left:28px;top:" + Y(LIST_Y) + "px");
+    listEl.setAttribute("data-scroll", "rebuild");
+    var coin = sit.coin, n = 0, fee = 0, scars = 0;
+    for (var r = 0; r < 5; r++) {
+      var c = rows[r + (rb.scroll || 0)], el = part(listEl, "rb-r" + r, "rwrap", "top:" + r * ROW + "px");
+      patch(el, c ? cardKey(c) + JSON.stringify([c.rebuild, !!rb.pick[c.id], coin]) : "-", c ? (function (c) {
+        return function () {
+          var b = c.rebuild || {}, over = b.overCap;
+          var right = MC.cols([{r: 176, text: over ? "over the cap" : coin ? b.bits + " bits" : b.emeralds + " emeralds", colour: rb.pick[c.id] ? "#EDEEEF" : over ? MC.AMBER : "#9A9DA1"},
+            {r: 16, text: b.spared || !b.loses ? (c.dormant ? "dormant · free" : b.spared ? "spared" : "mark only") : "− " + b.loses.text, colour: rb.pick[c.id] ? "#EDEEEF" : b.loses && !b.spared ? "#9A9DA1" : "#626569"}]);
+          return MC.row(c, {check: !!rb.pick[c.id], sel: !!rb.pick[c.id], attrs: ' data-rbpick="' + c.id + '"', right: right, traitX: 296, glyphX: 246, traitW: 360});
+        };
+      })(c) : "");
+    }
+    for (var q in rb.pick) { var pc = byId[q]; if (!pc) continue; n++; var pb = pc.rebuild || {}; fee += coin ? pb.bits || 0 : pb.emeralds || 0; if (pb.loses && !pb.spared) scars++; }
+    if (!rows.length) patch(part(listEl, "rb-r0", "rwrap", "top:0"), "none", '<div class="rw-empty">Nothing slotted in this deck.</div>');
+    var free = M().cards.costs.lowLevel || (d && d.freeRebuild);
+    patch(part(cv, "rb-total", "tbar", "top:" + Y(445) + "px;height:120px"), JSON.stringify([n, fee, scars, coin, free]),
+      '<div class="eb9" style="left:19px;top:17px">' + n + ' SELECTED</div><div class="tb-big" style="top:35px">' + (free ? "Free" : bits(fee, coin)) + "  ·  " + (n && !free ? "1 draught" : "no draught") + "  ·  " + scars + (scars === 1 ? " scar" : " scars") +
+      '</div><div class="tb-note" style="top:65px">' + esc(sit.kind === "shrine" ? "The shrine burns the fee. A trainer keeps it, caps cards by its tier, and a city master scars only one card in two. The scar shown never changes: nothing to fish for." :
+        "This trainer keeps the fee and takes out cards up to its cap" + (sit.master ? "; a master's hand spares one card in two." : ".")) + '</div><div class="tb-go' + (n ? "" : " off") + '" data-rebuild="1" style="top:39px">' + (n ? "Rebuild " + n + (n === 1 ? " card" : " cards") : "Pick cards to take out") + "</div>");
+  }
+
+  function fuseGroups() {
+    var groups = {}, order = [], all = cards();
+    for (var i = 0; i < all.length; i++) {
+      var c = all[i];
+      if (c.place !== "binder" || MC.isMythic(c) || c.rarity === "epic" || c.attuned === false) continue;
+      var k = c.perk + "|" + c.rarity;
+      if (!groups[k]) { groups[k] = []; order.push(k); }
+      groups[k].push(c);
+    }
+    var out = [];
+    for (var j = 0; j < order.length; j++) if (groups[order[j]].length >= 3) out.push(groups[order[j]]);
+    return out;
+  }
+  function bestTrait(list) {
+    var best = null, score = -1;
+    for (var i = 0; i < list.length; i++) for (var t = 0; t < (list[i].traits || []).length; t++) {
+      var tr = list[i].traits[t], v = tr.value / Math.max(0.0001, tr.cap || 1);
+      if (v > score) { score = v; best = tr; }
+    }
+    return best;
+  }
+  var NEXT_RARITY = {common: "rare", rare: "epic", cursed: "cursed"};
+
+  function fuseTab() {
+    shrineClear("fu");
+    var f = st.fuse, groups = fuseGroups(), picked = [];
+    for (var i = 0; i < f.pick.length; i++) if (byId[f.pick[i]] && byId[f.pick[i]].place === "binder") picked.push(byId[f.pick[i]]);
+    f.pick = picked.map(function (c) { return c.id; });
+    var pg = picked.length ? picked[0].perk + "|" + picked[0].rarity : null;
+    patch(part(cv, "fu-head", "fu-head"), JSON.stringify([f.pick, groups.length]), '<div class="eb9" style="left:28px;top:' + Y(75) + 'px">THREE COPIES OF ONE PERK AND RARITY → ONE CARD OF THE NEXT RARITY</div>' +
+      '<div class="fu-count">' + (picked.length ? esc(picked[0].baseName + " · " + picked[0].rarityName + " · " + picked.length + " of 3 picked") : groups.length ? "Pick three copies" : "") + "</div>");
+    var rows = [];
+    if (picked.length) { for (var g = 0; g < groups.length; g++) if (groups[g][0].perk + "|" + groups[g][0].rarity === pg) rows = groups[g]; }
+    else for (var h = 0; h < groups.length; h++) rows = rows.concat(groups[h]);
+    var best = bestTrait(picked.length === 3 ? picked : rows.filter(function (c) { return f.pick.indexOf(c.id) >= 0; }));
+    var listEl = part(cv, "fu-list", "rb-list", "left:28px;top:" + Y(103) + "px");
+    listEl.setAttribute("data-scroll", "fuse");
+    var max = picked.length === 3 ? 3 : 5;
+    for (var r = 0; r < 5; r++) {
+      var c = r < max ? rows[r + (picked.length ? 0 : f.scroll || 0)] : null, el = part(listEl, "fu-r" + r, "rwrap", "top:" + r * ROW + "px");
+      var on = c && f.pick.indexOf(c.id) >= 0;
+      patch(el, c ? cardKey(c) + on + (best && best.id) : "-", c ? (function (c, on) {
+        return function () {
+          var isBest = on && best && (c.traits || []).some(function (t) { return t === best; });
+          return MC.row(c, {check: on, sel: on, attrs: ' data-fupick="' + c.id + '"', best: isBest ? best.id : null, traitX: 296, glyphX: 246,
+            right: on ? MC.cols([{r: 16, text: isBest ? "best trait · kept" : "used up", colour: isBest ? MC.TEMPER : "#626569"}]) : ""});
+        };
+      })(c, on) : "");
+    }
+    if (!groups.length) patch(part(listEl, "fu-r0", "rwrap", "top:0"), "none", '<div class="rw-empty">No three copies of one perk and rarity in your binder yet.</div>');
+    var full = picked.length === 3, p0 = picked[0];
+    patch(part(cv, "fu-arrow", "fu-arrow", full ? "" : "display:none"), String(full), '<svg width="16" height="22" viewBox="0 0 16 22"><path d="M8 1v19M1.5 13.5L8 20l6.5-6.5" stroke="#9A9DA1" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+    var fees = M().cards.costs.fees, fee = null;
+    if (p0) for (var q = 0; q < fees.length; q++) if (p0.needs >= fees[q].needsFrom && p0.needs <= fees[q].needsTo) fee = fees[q];
+    var coin = M().cards.sitting.coin;
+    patch(part(cv, "fu-result", "fu-result", full ? "" : "display:none"), full ? JSON.stringify([f.pick, best && best.id]) : "-", full ? function () {
+      var nr = NEXT_RARITY[p0.rarity] || "epic", rc = MC.RARITY[nr];
+      return '<div class="fr-b" style="border-color:' + MC.rgba(rc, 0.6) + '"></div><div class="fr-tile" style="background:' + MC.shade(p0.colour) + '">' + MC.img(p0.icon, 64) + '</div><div class="fr-gem" style="background:' + rc + '"></div>' +
+        '<div class="fr-eb" style="color:' + rc + '">' + esc(upper(p0.baseName)) + '</div><div class="fr-t">' + esc(upper(nr.charAt(0)) + nr.slice(1) + " · " + (p0.tierName || "I") + " · " + kwNames(p0) + " + one rolled keyword") + "</div>" +
+        '<div class="fr-k" style="left:138px">Keeps</div><div class="fr-v tb" style="left:138px">' + esc(best ? best.name + " " + best.valueText : "nothing") + "</div>" +
+        '<div class="fr-k" style="left:328px">Rolls</div><div class="fr-v" style="left:328px">1–2 new traits, top two thirds</div>' +
+        '<div class="fr-k" style="left:518px">Needs</div><div class="fr-v" style="left:518px">' + esc(String(p0.needsText || "").replace(/^Needs /, "")) + "</div>" +
+        '<div class="fr-k" style="left:708px">History</div><div class="fr-v" style="left:708px">Fused from three</div>';
+    } : "");
+    patch(part(cv, "fu-bar", "tbar", "top:" + Y(469) + "px;height:96px" + (full ? "" : ";display:none")), JSON.stringify([full, fee, coin]), full ? '<div class="eb9" style="left:19px;top:15px">COST</div><div class="tb-big" style="top:33px;font-size:14px">The three ' +
+      esc((p0.rarityName || "") + " " + p0.baseName) + ' cards are used up</div><div class="tb-note" style="top:59px">' + esc(fee ? "Fee: " + (coin ? fee.bits + " bits" : bits(fee.emeralds, false)) + " (the result's rebuild fee). Epic triples don't fuse; slotted copies need a rebuild first." : "") +
+      '</div><div class="tb-go" data-fuse="1" style="top:27px">Fuse three</div>' : "");
+  }
+
+  function releaseTab() {
+    shrineClear("rl");
+    var r = st.release, all = cards(), picked = [];
+    for (var i = 0; i < r.pick.length; i++) if (byId[r.pick[i]] && byId[r.pick[i]].place === "binder") picked.push(byId[r.pick[i]]);
+    r.pick = picked.map(function (c) { return c.id; });
+    var sk = picked.length ? picked[0].skill : null, rows = [];
+    for (var k = 0; k < all.length; k++) if (all[k].place === "binder" && !MC.isMythic(all[k]) && (!sk || all[k].skill === sk)) rows.push(all[k]);
+    patch(part(cv, "rl-head", "fu-head"), JSON.stringify([r.pick, rows.length]), '<div class="eb9" style="left:28px;top:' + Y(75) + 'px">THREE BINDER CARDS OF ONE SKILL → ONE REROLL</div><div class="fu-count">' +
+      (picked.length ? esc(picked[0].skillName + " · " + picked.length + " of 3 picked") : "Rerolls: " + (M().draft ? M().draft.rerolls : 0) + " of " + (M().draft ? M().draft.maxRerolls : 5)) + "</div>");
+    var listEl = part(cv, "rl-list", "rb-list", "left:28px;top:" + Y(103) + "px");
+    listEl.setAttribute("data-scroll", "release");
+    r.scroll = Math.max(0, Math.min(r.scroll || 0, Math.max(0, rows.length - 5)));
+    for (var j = 0; j < 5; j++) {
+      var c = rows[j + r.scroll], el = part(listEl, "rl-r" + j, "rwrap", "top:" + j * ROW + "px"), on = c && r.pick.indexOf(c.id) >= 0;
+      patch(el, c ? cardKey(c) + on : "-", c ? (function (c, on) { return function () { return MC.row(c, {check: on, sel: on, attrs: ' data-rlpick="' + c.id + '"', traitX: 296, glyphX: 246}); }; })(c, on) : "");
+    }
+    var full = picked.length === 3;
+    patch(part(cv, "rl-bar", "tbar", "top:" + Y(445) + "px;height:120px"), JSON.stringify([r.pick]), '<div class="eb9" style="left:19px;top:17px">' + picked.length + ' SELECTED</div><div class="tb-big" style="top:35px">' +
+      (full ? "Three " + esc(picked[0].skillName) + " cards → one reroll" : "Pick three cards of one skill") + '</div><div class="tb-note" style="top:65px">Released cards are gone for good. A reroll redeals a whole draft hand (Redeal all).</div><div class="tb-go' + (full ? "" : " off") +
+      '" data-release="1" style="top:39px">Release three</div>');
+  }
+
+  // ---- trade (CARDS.md §8.1, Figma 2h-4) --------------------------------------------------------------------------
+  function tradeRows(side, mine, x) {
+    var h = "", list = side.cards || [];
+    for (var i = 0; i < list.length && i < 5; i++) {
+      var c = list[i], need = c.needs ? (c.skillName || "") + " " + c.needs : "";
+      var lvl = skill(c.skill) ? skill(c.skill).level : 0;
+      var right = MC.cols([{r: 16, text: need, sub: mine ? "" : "you have " + lvl, colour: mine ? "#9A9DA1" : c.meetsRequirement === false ? MC.AMBER : "#9A9DA1"}]);
+      h += MC.row(c, {style: "left:" + x + "px;top:" + Y(103 + i * 60) + "px;width:456px", attrs: mine ? ' data-ttake="' + c.id + '"' : (c.warning ? ' title="' + esc(c.warning) + '"' : ""), glyphX: 176, traitX: 218, traitW: 140, maxTraits: 1, right: right});
+    }
+    return h;
+  }
+  function itemSlots(side, mine, x) {
+    var h = "";
+    for (var i = 0; i < 9; i++) {
+      var it = side.items[i];
+      h += '<div class="it-slot' + (it ? " full" : "") + '"' + (mine ? (it ? ' data-titem="' + i + '"' : i === side.items.length ? ' data-toffitem="1"' : "") : "") + ' style="left:' + (x + i * 51) + "px;top:" + Y(319) + 'px">' +
+        (it ? '<span class="nm">' + esc(it.name.slice(0, 2)) + '</span><span class="ct">' + it.count + "</span>" : mine && i === side.items.length ? '<span class="plus">+</span>' : "") + "</div>";
+    }
+    return h;
+  }
+
+  SCREENS.trade = function () {
+    var t = M().cards.trade;
+    head('<div class="hd-chip trade"><span class="nm">Trade · ' + esc(t.partner) + '</span><i class="dot"></i><span class="sub">max 8 blocks</span></div>', "");
+    if (!t.open) {
+      patch(part(cv, "tr-ask", "tr-ask"), t.partner, '<div class="t">Waiting for ' + esc(t.partner) + ' to accept…</div><div class="s">They see an Accept chip. Walking 8 blocks apart calls it off.</div><div class="tb-go" data-tcancel="1">Cancel</div>');
+      footer("", "");
+      return;
+    }
+    var ask = MC.$("tr-ask");
+    if (ask) ask.parentNode.removeChild(ask);
+    var me = t.me, them = t.them;
+    var lockPill = function (locked, mine, x) {
+      return '<div class="lockp' + (locked ? " on" : "") + '"' + (mine && !locked ? ' data-tlock="1"' : "") + ' style="left:' + x + "px;top:" + Y(67) + 'px">' + (locked ? '<i class="tick"></i>Locked' : mine ? "Lock my side" : "Not locked") + "</div>";
+    };
+    patch(part(cv, "tr-me", "tr-col"), JSON.stringify([me, iconsKey, st.trade.adding]), function () {
+      var h = '<div class="eb9" style="left:28px;top:' + Y(75) + 'px">YOU OFFER</div>' + lockPill(me.locked, true, 392) + tradeRows(me, true, 28);
+      var n = me.cards.length;
+      if (n < (t.maxCards || 9)) h += '<div class="tr-add" data-tadd="1" style="top:' + Y(103 + Math.min(n, 5) * 60) + 'px">+ Add a card from your binder (up to ' + (t.maxCards || 9) + ")</div>";
+      h += '<div class="eb9" style="left:28px;top:' + Y(301) + 'px">ITEMS</div>' + itemSlots(me, true, 28);
+      h += '<div class="eb9" style="left:28px;top:' + Y(381) + 'px">COIN</div><div class="coinf" data-scroll="coin" style="left:28px;top:' + Y(399) + 'px"><i></i>' + (t.coin ? me.coin + " bits" : "Emeralds as items") + "</div>";
+      return h;
+    });
+    patch(part(cv, "tr-them", "tr-col"), JSON.stringify([them, iconsKey, t.partner]), function () {
+      var h = '<div class="eb9" style="left:500px;top:' + Y(75) + 'px">' + esc(upper(t.partner)) + " OFFERS</div>" + lockPill(them.locked, false, 864) + tradeRows(them, false, 500);
+      h += '<div class="eb9" style="left:500px;top:' + Y(301) + 'px">ITEMS</div>' + itemSlots(them, false, 500);
+      h += '<div class="eb9" style="left:500px;top:' + Y(381) + 'px">COIN</div><div class="coinf" style="left:500px;top:' + Y(399) + 'px"><i></i>' + them.coin + "</div>";
+      return h;
+    });
+    part(cv, "tr-div", "tr-div");
+    var both = me.locked && them.locked, cd = t.countdownSeconds;
+    patch(part(cv, "tr-foot", "tr-foot"), JSON.stringify([both, cd, me.locked, them.locked]), function () {
+      var h = '<div class="tr-note">Cards you get attune for 20 minutes: no slotting, trading or listing until then. Amber = you can\'t slot it yet.</div>';
+      h += '<div class="tr-status"><i class="tick' + (both ? "" : " off") + '"></i>' + (both ? "Both sides locked" : me.locked ? "Waiting for " + esc(t.partner) + " to lock" : "Lock your side when it's right") + "</div>";
+      if (cd >= 0) h += '<div class="tr-go cd">Swapping in ' + cd + '<i class="bar"><b style="width:' + Math.round(120 * (1 - cd / 3)) + 'px"></b></i></div>';
+      else h += '<div class="tr-go' + (both ? "" : " off") + '"' + (both ? ' data-tconfirm="1"' : "") + ">" + (both ? "Confirm swap" : "Confirm") + "</div>";
+      h += '<div class="tr-warn">Any change, 8+ blocks apart or damage cancels.</div><div class="tr-cancel" data-tcancel="1">Cancel</div>';
+      return h;
+    });
+    // The binder picker for "+ Add a card".
+    var picker = part(cv, "tr-pick", "tr-pick", st.trade.adding ? "" : "display:none");
+    if (st.trade.adding) {
+      var list = [], all = cards(), offered = {};
+      for (var o = 0; o < me.cards.length; o++) offered[me.cards[o].id] = true;
+      for (var i = 0; i < all.length; i++) if (all[i].place === "binder" && all[i].attuned !== false && !offered[all[i].id]) list.push(all[i]);
+      st.trade.scroll = Math.max(0, Math.min(st.trade.scroll, Math.max(0, list.length - 6)));
+      picker.setAttribute("data-scroll", "tpick");
+      patch(picker, JSON.stringify([list.map(function (c) { return c.id; }), st.trade.scroll, iconsKey]), function () {
+        var h = '<div class="tp-h">Add a card · ' + list.length + ' you can trade</div><div class="tp-done" data-tadd="0">Done</div>';
+        for (var j = 0; j < 6; j++) {
+          var c = list[j + st.trade.scroll];
+          if (c) h += MC.row(c, {style: "left:12px;top:" + (40 + j * 58) + "px;width:432px", attrs: ' data-toffer="' + c.id + '"', glyphX: 176, traitX: 218, traitW: 160, maxTraits: 1});
+        }
+        if (!list.length) h += '<div class="rw-empty" style="top:60px">No attuned binder cards to offer.</div>';
+        return h;
+      });
+    }
+    footer("", "");
+  };
+
+  // ---- input --------------------------------------------------------------------------------------------------
+  function closest(t, attr) {
+    while (t && t !== document.body) {
+      if (t.getAttribute && t.getAttribute(attr) != null) return t;
+      t = t.parentNode;
+    }
+    return null;
+  }
+  function cycle(list, cur) { var i = list.indexOf(cur); return list[(i + 1) % list.length]; }
+  var RARITIES = ["", "common", "rare", "epic", "cursed", "mythic"];
+  function kwList() { var o = [""], k = M().cards.keywords; for (var i = 0; i < k.length; i++) o.push(k[i].id); return o; }
+
+  function bestSlot(c) {
+    var d = deck(MC.isMythic(c) ? (nav.skill || c.deck) : c.skill);
+    if (!d) return -1;
+    for (var i = 0; i < d.row.length; i++) if (d.row[i].open && !d.row[i].card) return i;
+    return -1;
+  }
+  function slotCard(c, slot, deckId) {
+    justSlotted = c.id;
+    slotSoundFor = c.id;
+    if (MC.isMythic(c)) MC.act("slotCard", c.id + "#" + (slot == null ? -1 : slot) + "#" + (deckId || nav.skill || c.deck));
+    else MC.act("slotCard", slot == null || slot < 0 ? c.id : c.id + "#" + slot);
+    MC.sound("slot", "");
+  }
+
+  /** Clicks on the cards screens (capture phase: mettle.js's own handler never sees them). */
+  function onClick(ev) {
+    if (!MC.attached || kind !== "classes" || !M() || !M().cards) return;
+    var t = ev.target, el, v;
+    if (MC.ov.active()) {
+      if (MC.ov.click(t)) { ev.stopPropagation(); ev.preventDefault(); }
+      return;
+    }
+    if (dragJustEnded) { dragJustEnded = false; ev.stopPropagation(); return; }
+    var handled = true;
+    if (!closest(t, "data-search") && MC.textFocus) { MC.textFocus = false; ui(); }
+    if ((el = closest(t, "data-tab"))) { nav.view = "home"; nav.tab = el.getAttribute("data-tab"); }
+    else if ((el = closest(t, "data-nav"))) { nav.view = "home"; nav.tab = "skills"; }
+    else if ((el = closest(t, "data-deal"))) { MC.ov.draft(el.getAttribute("data-deal")); }
+    else if ((el = closest(t, "data-deal-any"))) { var l = skills(); for (var i = 0; i < l.length; i++) if (l[i].drafts > 0) { MC.ov.draft(l[i].id); break; } }
+    else if ((el = closest(t, "data-stab"))) { nav.stab = el.getAttribute("data-stab"); }
+    else if ((el = closest(t, "data-shtab"))) { nav.shrine = el.getAttribute("data-shtab"); }
+    else if (screen === "skill-tree" && (el = closest(t, "data-perk"))) { MC.treeSel = el.getAttribute("data-perk"); if (window.hubMettle) window.hubMettle.treeSelect(MC.treeSel); handled = true; }
+    else if ((el = closest(t, "data-skill"))) { nav.view = "skill"; nav.skill = el.getAttribute("data-skill"); if (screen !== "skill-tree") nav.stab = "deck"; st.deck.sel = null; st.deck.pop = null; st.deck.scroll = 0; }
+    else if ((el = closest(t, "data-bskill")) != null && el) { st.binder.skill = el.getAttribute("data-bskill"); st.binder.scroll = 0; }
+    else if ((el = closest(t, "data-bf"))) {
+      v = el.getAttribute("data-bf");
+      if (v === "rarity") st.binder.rarity = cycle(RARITIES, st.binder.rarity);
+      if (v === "kw") st.binder.kw = cycle(kwList(), st.binder.kw);
+      if (v === "slot") st.binder.slot = !st.binder.slot;
+      if (v === "att") st.binder.att = !st.binder.att;
+      st.binder.scroll = 0;
+    }
+    else if ((el = closest(t, "data-bsort"))) { st.binder.sort = cycle(["newest", "rarity", "requirement"], st.binder.sort); }
+    else if ((el = closest(t, "data-search"))) { MC.textFocus = true; ui(); }
+    else if ((el = closest(t, "data-bcard"))) { v = el.getAttribute("data-bcard"); st.binder.sel = st.binder.sel === v ? null : v; }
+    else if ((el = closest(t, "data-df"))) {
+      v = el.getAttribute("data-df");
+      if (v === "rarity") st.deck.rarity = cycle(RARITIES, st.deck.rarity);
+      if (v === "kw") st.deck.kw = cycle(kwList(), st.deck.kw);
+      if (v === "slot") st.deck.slot = !st.deck.slot;
+      if (v === "sort") st.deck.sort = cycle(["rarity", "newest", "requirement"], st.deck.sort);
+      st.deck.scroll = 0;
+    }
+    else if ((el = closest(t, "data-dcard"))) { v = el.getAttribute("data-dcard"); st.deck.sel = st.deck.sel === v ? null : v; st.deck.pop = null; }
+    else if ((el = closest(t, "data-scard"))) { v = el.getAttribute("data-scard"); st.deck.pop = st.deck.pop === v ? null : v; st.deck.sel = null; }
+    else if ((el = closest(t, "data-slot")) && st.deck.sel && byId[st.deck.sel]) { slotCard(byId[st.deck.sel], +el.getAttribute("data-slot")); st.deck.sel = null; }
+    else if ((el = closest(t, "data-unslot"))) { MC.act("unslotCards", el.getAttribute("data-unslot")); st.deck.pop = null; }
+    else if ((el = closest(t, "data-popclose"))) { st.deck.pop = null; }
+    else if ((el = closest(t, "data-goshrine"))) { nav.shrine = el.getAttribute("data-goshrine"); st.deck.pop = null; }
+    else if ((el = closest(t, "data-takeout"))) {
+      var tc = byId[el.getAttribute("data-takeout")];
+      if (tc) { nav.view = "skill"; nav.skill = tc.deck; nav.stab = "deck"; st.deck.pop = tc.id; }
+    }
+    else if ((el = closest(t, "data-slotbest"))) { var sc = byId[el.getAttribute("data-slotbest")]; if (sc) slotCard(sc, bestSlot(sc)); }
+    else if ((el = closest(t, "data-totals"))) { st.deck.totals = !st.deck.totals; }
+    else if ((el = closest(t, "data-pin"))) {
+      var pins = M().cards.pins, id = el.getAttribute("data-pin"), list = pins.keywords.slice(), at = list.indexOf(id);
+      if (pins.canChange) { if (at >= 0) list.splice(at, 1); else if (list.length < pins.max) list.push(id); MC.act("pinSets", list.join(",")); }
+    }
+    else if ((el = closest(t, "data-pinauto"))) { if (M().cards.pins.canChange && M().cards.pins.keywords.length) MC.act("pinSets", ""); }
+    else if ((el = closest(t, "data-rbskill"))) { st.rebuild.skill = el.getAttribute("data-rbskill"); st.rebuild.pick = {}; }
+    else if ((el = closest(t, "data-rbpick"))) { v = el.getAttribute("data-rbpick"); if (st.rebuild.pick[v]) delete st.rebuild.pick[v]; else st.rebuild.pick[v] = true; }
+    else if ((el = closest(t, "data-rebuild"))) { var ids = Object.keys(st.rebuild.pick); if (ids.length) { MC.act("rebuildCards", ids.join(",")); st.rebuild.pick = {}; } }
+    else if ((el = closest(t, "data-fupick"))) { toggleTrio(st.fuse, el.getAttribute("data-fupick"), function (a, b) { return a.perk === b.perk && a.rarity === b.rarity; }); }
+    else if ((el = closest(t, "data-fuse"))) { if (st.fuse.pick.length === 3) { MC.act("fuseCards", st.fuse.pick.join(",")); st.fuse.pick = []; } }
+    else if ((el = closest(t, "data-rlpick"))) { toggleTrio(st.release, el.getAttribute("data-rlpick"), function (a, b) { return a.skill === b.skill; }); }
+    else if ((el = closest(t, "data-release"))) { if (st.release.pick.length === 3) { MC.act("releaseCards", st.release.pick.join(",")); st.release.pick = []; } }
+    else if ((el = closest(t, "data-closesit"))) { MC.act("closeSitting", ""); }
+    else if ((el = closest(t, "data-tlock"))) { MC.act("tradeLock", ""); }
+    else if ((el = closest(t, "data-tconfirm"))) { MC.act("tradeConfirm", ""); }
+    else if ((el = closest(t, "data-tcancel"))) { MC.act("tradeCancel", ""); st.trade.adding = false; }
+    else if ((el = closest(t, "data-tadd"))) { st.trade.adding = el.getAttribute("data-tadd") === "1"; }
+    else if ((el = closest(t, "data-toffer"))) { MC.act("tradeOfferCard", el.getAttribute("data-toffer")); }
+    else if ((el = closest(t, "data-ttake"))) { MC.act("tradeTakeBackCard", el.getAttribute("data-ttake")); }
+    else if ((el = closest(t, "data-titem"))) { MC.act("tradeTakeBackItem", el.getAttribute("data-titem")); }
+    else if ((el = closest(t, "data-toffitem"))) { MC.act("tradeOfferItem", "-1"); }
+    else if (closest(t, "data-attr")) handled = false;  // mettle.js places attribute points
+    else handled = false;
+    if (handled) {
+      ev.stopPropagation();
+      MC.render();
+    }
+  }
+
+  function toggleTrio(sel, id, same) {
+    var at = sel.pick.indexOf(id), c = byId[id];
+    if (!c) return;
+    if (at >= 0) { sel.pick.splice(at, 1); return; }
+    if (sel.pick.length && !same(byId[sel.pick[0]], c)) sel.pick = [];
+    if (sel.pick.length < 3) sel.pick.push(id);
+  }
+
+  // ---- drag a card into a deck slot (Figma anatomy: "Drag: -5° tilt; the drop slot pulses 1 s") ----------------
+  var press = null, dragJustEnded = false;
+  function onDown(ev) {
+    if (!MC.attached || kind !== "classes" || MC.ov.active() || screen !== "skill-deck") return;
+    var el = closest(ev.target, "data-dcard") || closest(ev.target, "data-scard");
+    if (!el) return;
+    var id = el.getAttribute("data-dcard") || el.getAttribute("data-scard");
+    var r = el.getBoundingClientRect();
+    press = {id: id, x: ev.clientX, y: ev.clientY, ox: ev.clientX - r.left, oy: ev.clientY - r.top, from: el.getAttribute("data-scard") ? "slot" : "binder"};
+  }
+  function onMove(ev) {
+    if (MC.ov.kind() === "draft") { MC.ov.hover(ev.target); return; }
+    if (!press) return;
+    var d = st.deck.drag;
+    if (!d) {
+      if (Math.abs(ev.clientX - press.x) + Math.abs(ev.clientY - press.y) < 5) return;
+      var c = byId[press.id];
+      if (!c) { press = null; return; }
+      st.deck.drag = d = {id: press.id, from: press.from};
+      st.deck.sel = null;
+      st.deck.pop = null;
+      var ghost = part(root, "c-ghost", "ghost");
+      ghost.innerHTML = MC.ccard(c, {});
+      MC.render();
+    }
+    var g = MC.$("c-ghost"), win = MC.$("win");
+    var wx = win ? win.offsetLeft : 0, wy = win ? win.offsetTop : 0;
+    if (g) g.style.transform = "translate(" + Math.round(ev.clientX - wx - press.ox) + "px," + Math.round(ev.clientY - wy - press.oy) + "px) rotate(-5deg)";
+    var over = slotUnder(ev.clientX, ev.clientY);
+    if (over !== d.over) {
+      var row = MC.$("dk-row");
+      if (row) {
+        var old = MC.$("dk-s" + d.over), now = MC.$("dk-s" + over);
+        if (old) MC.toggle(old, "over", false);
+        if (now) MC.toggle(now, "over", true);
+      }
+      d.over = over;
+    }
+  }
+  function slotUnder(x, y) {
+    var row = MC.$("dk-row");
+    if (!row) return -1;
+    for (var i = 0; i < row.children.length; i++) {
+      var r = row.children[i].getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && row.children[i].querySelector("[data-slot]")) return i;
+    }
+    return -1;
+  }
+  function onUp(ev) {
+    var d = st.deck.drag;
+    press = null;
+    if (!d) return;
+    st.deck.drag = null;
+    dragJustEnded = true;
+    setTimeout(function () { dragJustEnded = false; }, 50);
+    var g = MC.$("c-ghost");
+    if (g) g.parentNode.removeChild(g);
+    var c = byId[d.id], s = skill(nav.skill), dk = deck(nav.skill);
+    if (c && d.over >= 0 && dk && dk.row[d.over] && dk.row[d.over].open && !dk.row[d.over].card && d.from === "binder") slotCard(c, d.over);
+    else if (c && d.from === "slot" && d.over < 0) { st.deck.pop = c.id; }
+    MC.render();
+  }
+
+  // ---- keys and wheel from Java ----------------------------------------------------------------------------------
+  MC.key = function (m) {
+    if (MC.ov.key(m.key)) return;
+    if (MC.textFocus) {
+      var b = st.binder;
+      if (m.ch) b.q = (b.q + m.ch).slice(0, 40);
+      else if (m.key === "Backspace") b.q = b.q.slice(0, -1);
+      else if (m.key === "Escape" || m.key === "Enter") { MC.textFocus = false; ui(); }
+      b.scroll = 0;
+      MC.render();
+      return;
+    }
+    if (m.key === "Escape" && st.deck.pop) { st.deck.pop = null; MC.render(); }
+  };
+
+  MC.wheel = function (m) {
+    if (MC.ov.active()) return;
+    var el = document.elementFromPoint(m.x, m.y), box = closest(el, "data-scroll");
+    if (!box) return;
+    var step = m.dy > 0 ? -1 : 1, which = box.getAttribute("data-scroll");
+    if (which === "binder") st.binder.scroll = Math.max(0, st.binder.scroll + step);
+    else if (which === "deck") st.deck.scroll = Math.max(0, st.deck.scroll + step);
+    else if (which === "hall") st.hall.scroll = Math.max(0, st.hall.scroll + step);
+    else if (which === "rebuild") st.rebuild.scroll = Math.max(0, (st.rebuild.scroll || 0) + step);
+    else if (which === "fuse") st.fuse.scroll = Math.max(0, (st.fuse.scroll || 0) + step);
+    else if (which === "release") st.release.scroll = Math.max(0, (st.release.scroll || 0) + step);
+    else if (which === "tpick") st.trade.scroll = Math.max(0, st.trade.scroll + step);
+    else if (which === "coin") { var t = M().cards.trade; if (t && t.coin) MC.act("tradeCoin", String(Math.max(0, t.me.coin + (step > 0 ? -10 : 10)))); return; }
+    MC.render();
+  };
+
+  // ---- hooks mettle.js calls -----------------------------------------------------------------------------------
+  var iconsKey = 0;
+  MC.iconsChanged = function () { iconsKey++; MC.render(); };
+
+  /** Takes over #classes (cards mode). */
+  MC.attach = function (el) {
+    root = el;
+    root.innerHTML = '<div id="cv"></div><div id="c-ov"></div>';
+    cv = MC.$("cv");
+    screen = "";
+    MC.attached = true;
+  };
+  MC.detach = function () {
+    if (!MC.attached) return;
+    MC.ov.close(true);
+    MC.attached = false;
+    if (root) root.innerHTML = "";
+    screen = "";
+  };
+
+  /** A new Mettle state. */
+  MC.state = function (state) {
+    MC.M = state;
+    if (!state || !state.cards) return;
+    byId = {};
+    var all = state.cards.binder.cards;
+    for (var i = 0; i < all.length; i++) byId[all[i].id] = all[i];
+    watchSets();
+    if (slotSoundFor && byId[slotSoundFor] && byId[slotSoundFor].place === "slotted") slotSoundFor = null;
+    MC.ov.onState();
+  };
+
+  /** The window switched page (inventory, gear, classes). Leaving Classes ends any moment quietly. */
+  MC.layout = function (l) {
+    kind = l.kind;
+    MC.css(l.u || 1);
+    if (kind !== "classes") {
+      if (MC.ov.active()) MC.ov.close(false);
+      if (MC.textFocus) MC.textFocus = false;
+      press = null;
+      st.deck.drag = null;
+      ui();
+    } else {
+      screen = "";
+      // Opening Classes (K after "a draft to pick", or the segment) deals what waits; Esc keeps it for this visit.
+      dismissedWaiting = 0;
+    }
+  };
+
+  /** What the tests print when a step fails. */
+  MC.debug = function () {
+    var out = {screen: screen, attached: MC.attached, kind: kind, dismissed: dismissedWaiting, ov: MC.ov.kind()};
+    if (M() && M().skills) {
+      out.waiting = M().draft ? M().draft.waiting : null;
+      out.hands = skills().map(function (s) { return s.id + ":" + s.drafts + ":" + (s.hand ? s.hand.length : "none"); }).join(" ");
+    }
+    return JSON.stringify(out);
+  };
+
+  document.addEventListener("click", onClick, true);
+  document.addEventListener("mousedown", onDown, true);
+  document.addEventListener("mousemove", onMove, true);
+  document.addEventListener("mouseup", onUp, true);
+})();

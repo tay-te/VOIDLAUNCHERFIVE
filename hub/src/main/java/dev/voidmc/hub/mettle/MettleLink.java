@@ -158,6 +158,117 @@ public final class MettleLink {
 		}
 	}
 
+	// ---- cards v2 (mettle/docs/OVERLAY.md "Cards v2", SOUNDS.md §5) ------------------------------------------------
+
+	/** MettleActions methods by name and parameter types, looked up on first use; a missing one is remembered. */
+	private static final Map<String, Optional<MethodHandle>> ACTIONS = new HashMap<>();
+
+	private static MethodHandle action(String name, Class<?>... params) {
+		String key = name + params.length;
+		Optional<MethodHandle> hit = ACTIONS.get(key);
+		if (hit == null) {
+			hit = Optional.empty();
+			try {
+				hit = Optional.of(MethodHandles.publicLookup().findStatic(Class.forName(OVERLAY + "MettleActions"), name,
+					MethodType.methodType(void.class, params)));
+			} catch (ReflectiveOperationException | LinkageError e) {
+				VoidHub.LOGGER.warn("VOID Hub: this Mettle has no MettleActions.{}({} args); that action stays off", name, params.length);
+			}
+			ACTIONS.put(key, hit);
+		}
+		return hit.orElse(null);
+	}
+
+	/**
+	 * One action from the Classes page: {@code op} is a {@code MettleActions} method, {@code arg} its arguments in one
+	 * string, already shape-checked by {@code Bridge.METTLE_OPS} ({@code "mettle:mining#2"}, {@code "12,15"},
+	 * {@code "hover#epic"}). Mettle's server decides; Mettle answers with a feedback chip in the state.
+	 */
+	public static void act(String op, String arg) {
+		if (!present()) {
+			return;
+		}
+		String[] p = arg.split("#", -1);
+		try {
+			switch (op) {
+				case "learnPerk" -> learnPerk(arg);
+				case "spendAttribute" -> spendAttribute(arg);
+				case "pickCard" -> invoke(action("pickCard", String.class, int.class), p[0], Integer.parseInt(p[1]));
+				case "keepCard" -> invoke(action("keepCard", String.class, int.class, boolean.class), p[0], Integer.parseInt(p[1]), "1".equals(p[2]));
+				case "reroll" -> invoke(action("reroll", String.class), arg);
+				case "slotCard" -> {
+					if (p.length == 1) {
+						invoke(action("slotCard", String.class), p[0]);
+					} else if (p.length == 2) {
+						invoke(action("slotCard", String.class, int.class), p[0], Integer.parseInt(p[1]));
+					} else {
+						invoke(action("slotCard", String.class, int.class, String.class), p[0], Integer.parseInt(p[1]), p[2]);
+					}
+				}
+				case "unslotCards", "rebuildCards", "releaseCards", "fuseCards", "pinSets", "tradeRequest", "tradeOfferCard", "tradeTakeBackCard" ->
+					invoke(action(op, String.class), arg);
+				case "closeSitting", "tradeAccept", "tradeLock", "tradeConfirm", "tradeCancel" -> invoke(action(op));
+				case "tradeOfferItem", "tradeTakeBackItem" -> invoke(action(op, int.class), Integer.parseInt(arg));
+				case "tradeCoin" -> invoke(action(op, long.class), Long.parseLong(arg));
+				case "cardSound" -> {
+					int hash = arg.indexOf('#');
+					invoke(action("cardSound", String.class, String.class), arg.substring(0, hash), arg.substring(hash + 1));
+				}
+				default -> {
+				}
+			}
+		} catch (RuntimeException e) {
+			VoidHub.LOGGER.warn("VOID Hub: Mettle {}({}) could not be read", op, arg, e);
+		}
+	}
+
+	private static void invoke(MethodHandle handle, Object... args) {
+		if (handle == null) {
+			return;
+		}
+		try {
+			handle.invokeWithArguments(args);
+		} catch (Throwable t) {
+			VoidHub.LOGGER.error("VOID Hub: Mettle call failed", t);
+		}
+	}
+
+	private static java.lang.reflect.Field sittingField;
+	private static boolean sittingLooked;
+	private static boolean sittingWas;
+
+	/**
+	 * True once when a Card Shrine (or trainer) sitting opens: Mettle remembers the open sitting in
+	 * {@code MettleCards.sitting} but opens no screen of its own, so the hub opens on the shrine. A field read, cheap
+	 * enough for every tick; false forever on a Mettle without it.
+	 */
+	public static boolean sittingJustOpened() {
+		if (!present()) {
+			return false;
+		}
+		if (!sittingLooked) {
+			sittingLooked = true;
+			try {
+				sittingField = Class.forName(OVERLAY + "MettleCards").getDeclaredField("sitting");
+				sittingField.setAccessible(true);
+			} catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+				sittingField = null;
+			}
+		}
+		if (sittingField == null) {
+			return false;
+		}
+		boolean open;
+		try {
+			open = sittingField.get(null) != null;
+		} catch (IllegalAccessException e) {
+			return false;
+		}
+		boolean opened = open && !sittingWas;
+		sittingWas = open;
+		return opened;
+	}
+
 	private static void call(MethodHandle handle, String arg) {
 		if (!present()) {
 			return;

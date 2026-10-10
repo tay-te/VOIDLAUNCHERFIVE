@@ -1,5 +1,6 @@
 package dev.voidmc.hub.screen;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.hub.layout.HubLayout;
 import dev.voidmc.hub.layout.Rect;
 import dev.voidmc.hub.mettle.MettleLink;
@@ -45,6 +46,11 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	private String page;
 	private String sentMettle;
+	/** The state last sent, without the ages of chips and moments that change every build. */
+	private String sentMettleKey;
+	/** The Classes page has a draft, reveal or moment up (Esc and 1-3 are its), or a search field has the keyboard. */
+	private boolean pageModal;
+	private boolean pageText;
 	private boolean sentIcons;
 	private int mettleAge = Integer.MAX_VALUE;
 
@@ -87,6 +93,8 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 			return;
 		}
 		this.page = next;
+		this.pageModal = false;
+		this.pageText = false;
 		this.mettleAge = Integer.MAX_VALUE;
 		this.relayout();
 		this.resendLayout();
@@ -101,13 +109,14 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 				this.mettleAge = METTLE_EVERY - 2;
 			}
 			case Bridge.MettleCall call -> {
-				switch (call.op()) {
-					case "learnPerk" -> MettleLink.learnPerk(call.arg());
-					case "spendAttribute" -> MettleLink.spendAttribute(call.arg());
-					default -> {
-					}
+				MettleLink.act(call.op(), call.arg());
+				if (!"cardSound".equals(call.op())) {
+					this.mettleAge = METTLE_EVERY - 2;  // the server's answer lands in a tick or two
 				}
-				this.mettleAge = METTLE_EVERY - 2;  // the server's answer lands in a tick or two
+			}
+			case Bridge.MettleUi ui -> {
+				this.pageModal = ui.modal();
+				this.pageText = ui.text();
 			}
 			default -> {
 			}
@@ -139,12 +148,94 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		if (json == null || json.equals(this.sentMettle)) {
 			return;
 		}
+		// Chips and moments carry their age in ms, so the state differs on every build while one shows: send it when
+		// something else changed (the page diffs what it draws; a message it would ignore still costs a parse).
+		String key = AGES.matcher(json).replaceAll("");
+		if (key.equals(this.sentMettleKey)) {
+			return;
+		}
+		this.sentMettleKey = key;
 		if (!this.sentIcons) {
 			this.sentIcons = true;
 			this.hub.send(icons(json));
 		}
 		this.hub.sendLatest("mettle", "{\"type\":\"mettle\",\"state\":" + json + "}");
 		this.sentMettle = json;
+	}
+
+	private static final java.util.regex.Pattern AGES = java.util.regex.Pattern.compile("\"ageMs\":-?\\d+");
+
+	// ---- the Classes page's keys and wheel ---------------------------------------------------------------------
+
+	/** Keys the Classes page uses, by GLFW key code. */
+	private static String pageKey(int key) {
+		if (key == InputConstants.KEY_ESCAPE) {
+			return "Escape";
+		}
+		if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
+			return "Enter";
+		}
+		if (key == InputConstants.KEY_BACKSPACE) {
+			return "Backspace";
+		}
+		if (key == InputConstants.KEY_LEFT) {
+			return "Left";
+		}
+		if (key == InputConstants.KEY_RIGHT) {
+			return "Right";
+		}
+		if (key == InputConstants.KEY_R) {
+			return "r";
+		}
+		return key >= InputConstants.KEY_1 && key <= InputConstants.KEY_9 ? String.valueOf((char) ('1' + key - InputConstants.KEY_1)) : null;
+	}
+
+	@Override
+	public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+		if ("classes".equals(this.page) && MettleLink.present()) {
+			String name = pageKey(event.key());
+			if (this.pageText) {
+				if (name != null && !name.equals("r") && !Character.isDigit(name.charAt(0))) {
+					this.hub.send(Json.object().put("type", "key").put("key", name).end());
+				}
+				return true;  // typing in the search field: no hotbar keys, no E closing the window
+			}
+			if (name != null && (this.pageModal || !name.equals("Escape"))) {
+				this.hub.send(Json.object().put("type", "key").put("key", name).end());
+				if (this.pageModal) {
+					return true;  // Esc closes the draft or the moment, not the window; 1-3 pick
+				}
+			}
+		}
+		return super.keyPressed(event);
+	}
+
+	@Override
+	public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
+		if ("classes".equals(this.page) && this.pageText && event.isAllowedChatCharacter()) {
+			this.hub.send(Json.object().put("type", "key").put("ch", event.codepointAsString()).end());
+			return true;
+		}
+		return super.charTyped(event);
+	}
+
+	@Override
+	public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+		if ("classes".equals(this.page) && MettleLink.present()) {
+			int gs = this.minecraft.getWindow().getGuiScale();
+			this.hub.send(Json.object().put("type", "wheel").put("x", this.layout.physToCss(x * gs)).put("y", this.layout.physToCss(y * gs))
+				.put("dy", scrollY).end());
+			return true;
+		}
+		return super.mouseScrolled(x, y, scrollX, scrollY);
+	}
+
+	@Override
+	public void removed() {
+		super.removed();
+		if (MettleLink.present()) {
+			MettleLink.act("cardSound", "stop#");  // a draft or reveal left half-played goes quiet with the window
+		}
 	}
 
 	/** Every {@code "icon"} / {@code "art"} texture the state names, as one icons message. */
