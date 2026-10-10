@@ -20,10 +20,13 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * VOID Mettle inside the hub ({@code -Dvoidhub.test=mettle}, Mettle's jar on the run's classpath:
- * {@code ./gradlew hubMettle}). Everything goes through real input: gear is put on by shift-clicking
- * it in the VOID inventory (Mettle's own quick-move sends gear to its slot), the Gear page takes a
- * stack into the pack, and the Classes page learns a perk and places an attribute point by
- * clicking the page. Each step is photographed.
+ * {@code ./gradlew hubMettle}). Everything the player does goes through real input: gear is put on by shift-clicking it,
+ * the Gear page takes a stack into the pack, and the Classes page (cards v2) is driven by clicks, keys, the wheel and a
+ * drag: a draft (hover, 2 to keep, Redeal all, Esc), a Mythic dealt in a draft (the roll forced) and one earned outside
+ * it, the Hall of Firsts, the binder, the deck builder (drag into a slot, the set moment, the take-out popover), the
+ * tree, a Card Shrine (rebuild, fuse, release) and a trade with a stand-in partner. The server side Mettle offers no
+ * command for (exact cards, the forced roll, the stand-in) goes through {@link MettleServer}. Each step is photographed;
+ * PERF lines give the UI thread's paints and the render thread's cost ({@code -Pexplore=true} adds layer experiments).
  */
 public final class MettleTest {
 
@@ -158,6 +161,13 @@ public final class MettleTest {
 				this.perf("x " + v[0], () -> this.context.waitTicks(40));
 			}
 			this.js("(function(){var s=document.getElementById('xp');if(s)s.textContent='';return 1;})()");
+			this.js("(function(){MC.css(1);return 1;})()");
+			this.context.waitTicks(4);
+			this.perf("x x1 strips", () -> this.context.waitTicks(40));
+			this.js("(function(){MC.css(3);return 1;})()");
+			this.context.waitTicks(4);
+			this.perf("x x3 strips", () -> this.context.waitTicks(40));
+			this.js("(function(){MC.css(1.26);return 1;})()");
 		}
 
 		// 5. Hover: the card lifts onto its hot frame, the others cool down (D3).
@@ -254,6 +264,8 @@ public final class MettleTest {
 		this.waitPage("!!document.querySelector('[data-claim]')", 60, "the Mythic settled with Claim");
 		this.context.takeScreenshot("voidhub_mettle_12_mythic_settled");
 		this.perf("mythic settled idle", () -> this.context.waitTicks(40));
+		this.context.waitTicks(25);
+		this.perf("mythic calm idle", () -> this.context.waitTicks(40));
 		if (Boolean.getBoolean("voidhub.test.explore")) {
 			String[][] variants = {{"my no rays", ".my-rays"}, {"my no motes", ".mote"}, {"my no ring", ".my-ring"}, {"my no blooms", ".au-bloom,.rv-glow,.my-bloom,.au-prism"},
 				{"my no edge+foil", ".my-edge,.my-foil"}, {"my only card", ".aura,.rv-glow,.rv-dim,.ov-dim"}};

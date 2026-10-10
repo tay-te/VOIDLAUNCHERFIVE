@@ -34,6 +34,26 @@ class BridgeTest {
 	}
 
 	@Test
+	void cardActionsKeepTheirShapes() {
+		String[][] ok = {{"pickCard", "mettle:mining#2"}, {"keepCard", "mettle:blades#0#1"}, {"reroll", "mettle:mining"}, {"slotCard", "12"},
+			{"slotCard", "12#3"}, {"slotCard", "7#-1#mettle:blades"}, {"rebuildCards", "12,15"}, {"fuseCards", "3,8,9"}, {"releaseCards", "3,8,9"},
+			{"unslotCards", "12"}, {"pinSets", ""}, {"pinSets", "mettle:swift,mettle:keen"}, {"closeSitting", ""}, {"tradeRequest", "Bree"},
+			{"tradeOfferCard", "44"}, {"tradeOfferItem", "-1"}, {"tradeTakeBackItem", "0"}, {"tradeCoin", "250"}, {"tradeLock", ""},
+			{"cardSound", "hover#mettle:mining#2"}, {"cardSound", "deal#mettle:mining"}, {"cardSound", "unhover#"}, {"cardSound", "pick#mythic"}};
+		for (String[] c : ok) {
+			assertEquals(new Bridge.MettleCall(c[0], c[1]), Bridge.decode(Json.object().put("type", "mettle").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
+		}
+		assertEquals(new Bridge.MettleCall("tradeAccept", ""), Bridge.decode("{\"type\":\"mettle\",\"op\":\"tradeAccept\"}"));
+		String[][] bad = {{"pickCard", "mettle:mining#3"}, {"pickCard", "mettle:mining"}, {"slotCard", "12#x"}, {"rebuildCards", "12;15"},
+			{"rebuildCards", "1,2,3,4,5,6,7,8,9,10,11,12,13"}, {"pinSets", "a:b,c:d,e:f,g:h"}, {"closeSitting", "x"}, {"tradeRequest", "Bree Smith"},
+			{"tradeOfferItem", "-2"}, {"tradeCoin", "-5"}, {"cardSound", "explode#"}, {"cardSound", "hover#<script>"}};
+		for (String[] c : bad) {
+			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(Json.object().put("type", "mettle").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
+		}
+		assertEquals(new Bridge.MettleUi(true, false), Bridge.decode("{\"type\":\"mettleUi\",\"modal\":true,\"text\":false}"));
+	}
+
+	@Test
 	void whatTheWriterEncodesTheDecoderReads() {
 		String msg = Json.object().put("type", "filter").put("value", "food").end();
 		assertEquals(new Bridge.Filter("food"), Bridge.decode(msg));

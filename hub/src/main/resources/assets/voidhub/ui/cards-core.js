@@ -204,7 +204,7 @@
     "my-burst": ["mythic/burst", 10, 448, 448, -100, -60, "c"],
     "my-ring": ["mythic/ring", 1, 480, 480, -116, -76, "c"],
     "set-rays": ["set/rays", 12, 384, 256, 300, 103, "c"],
-    "set-sparks": ["set/sparks", 12, 384, 256, 300, 103, "m"],
+    "set-sparks": ["set/sparks_fill", 12, 384, 256, 300, 103, "m"],
     "h-common": ["collection/hover_common", 2, 112, 144, -8, -8, "fg"],
     "h-rare": ["collection/hover_rare", 2, 112, 144, -8, -8, "fg"],
     "h-epic": ["collection/hover_epic", 2, 112, 144, -8, -8, "fg"],
@@ -371,9 +371,10 @@
     h += '<div class="hc-face my-face">';
     h += '<div class="my-head"><i class="star" style="left:38px"></i>' + '<div class="my-hl">' + MC.pix("MYTHIC", 2, "#F3D28B") + '</div><i class="star" style="left:204px"></i></div>';
     h += '<div class="my-art"><div class="my-halo"></div>' + MC.img(c.icon, 80) + '<div class="my-foil my-foil-a"></div></div>';
-    h += '<div class="hc-name my-n">' + MC.pix(c.name || "", 2, "#FFF1C9", 196) + "</div>";
+    h += '<div class="my-flow"><div class="hc-name">' + MC.pix(c.name || "", 2, "#FFF1C9", 192) + "</div>";
     h += '<div class="my-eff">' + esc(c.effect || c.description || "") + "</div>";
     if (c.lore) h += '<div class="my-lore">“' + esc(String(c.lore).replace(/^“|”$/g, "")) + "”</div>";
+    h += "</div>";
     h += '<div class="my-dots"></div>';
     h += '<div class="my-prov">' + esc(MC.upper(c.how || c.deed || "")) + "</div>";
     if (holder) h += '<div class="my-prov2">' + esc(MC.upper(holder)) + "</div>";
@@ -395,8 +396,8 @@
     var kwn = [];
     for (var k = 0; k < (c.keywords || []).length; k++) kwn.push(c.keywords[k].name);
     var sub = mythic ? "Mythic" : (c.rarityName || rar) + " · " + (c.tierName || "I") + (kwn.length ? " · " + kwn.join(", ") : "") + (c.scars ? " · scar ×" + c.scars : "");
-    h += '<div class="rw-n" style="left:' + (x + 52) + 'px">' + esc(c.baseName || c.name) + '</div><div class="rw-s" style="left:' + (x + 52) + 'px">' + esc(opt.sub || sub) + "</div>";
-    var gx = opt.glyphX || (x + 202);
+    var gx = opt.glyphX || (x + 202), tw = "max-width:" + (gx - x - 60) + "px";
+    h += '<div class="rw-n" style="left:' + (x + 52) + "px;" + tw + '">' + esc(c.baseName || c.name) + '</div><div class="rw-s" style="left:' + (x + 52) + "px;" + tw + '">' + esc(opt.sub || sub) + "</div>";
     var g = glyphRow(c.keywords, 16, 4);
     if (g.html) h += '<div class="rw-k" style="left:' + gx + 'px">' + g.html + "</div>";
     var tx = opt.traitX || (gx + 50), ts = c.traits || [], shown = 0;

@@ -78,6 +78,7 @@
     var c = M().cards;
     if (c.sitting) return "shrine";
     if (c.trade) return "trade";
+    if (nav.view === "shrine-info") return "shrine-info";
     if (nav.view === "skill" && nav.skill && skill(nav.skill)) return "skill-" + nav.stab;
     return "home-" + nav.tab;
   }
@@ -281,6 +282,7 @@
     h += '<div class="bl-f" data-bf="kw" style="top:' + Y(371) + 'px">' + (b.kw ? esc(kwName(b.kw)) : "Any keyword") + '<i class="dd"></i></div>';
     h += '<div class="bl-f' + (b.slot ? " on" : "") + '" data-bf="slot" style="top:' + Y(403) + 'px">Slottable now</div>';
     h += '<div class="bl-f' + (b.att ? " on" : "") + '" data-bf="att" style="top:' + Y(435) + 'px">Attuning</div>';
+    h += '<div class="bl-f" data-shrineinfo="1" style="top:' + Y(467) + 'px">Card Shrine ›</div>';
     var mine = null;
     for (var m = 0; m < all.length; m++) if (MC.isMythic(all[m])) { mine = all[m]; break; }
     h += '<div class="bl-my" data-tab="hall" style="top:' + Y(517) + 'px"><div class="t">' + (mine ? MC.img(mine.icon, 24) : "") + '</div><div class="n">' + esc(mine ? mine.name : "No Mythic yet") +
@@ -741,6 +743,21 @@
       '" data-release="1" style="top:39px">Release three</div>');
   }
 
+  // ---- the Card Shrine away from one: what it does, and that it opens here when used ----------------------------
+  SCREENS["shrine-info"] = function () {
+    head('<div class="hd-chip plain back" data-nav="home"><span class="nm">Card Shrine</span></div>',
+      '<div class="hd-tabs" style="width:230px"><div class="hd-tab off" style="left:2px;width:72px">Rebuild</div><div class="hd-tab off" style="left:77px;width:72px">Fuse</div><div class="hd-tab off" style="left:152px;width:72px">Release</div></div>');
+    var costs = M().cards.costs, fees = costs.fees || [], f = [];
+    for (var i = 0; i < fees.length; i++) f.push("needs " + fees[i].needsFrom + "–" + fees[i].needsTo + ": " + fees[i].bits + " bits or " + bits(fees[i].emeralds, false));
+    patch(part(cv, "si", "si"), JSON.stringify([fees, costs.freeSwaps, costs.lowLevel]), '<div class="t">You are not at a Card Shrine</div><div class="s">Card Shrines stand in the world. Use one and this page opens on it: rebuild a deck, fuse three copies into the next rarity, or release cards for a reroll. A trainer of a skill rebuilds and fuses that skill’s cards too.</div>' +
+      '<div class="box" style="left:28px"><div class="h">Rebuild</div><div class="b">Take slotted cards out of one deck. A Draught of Forgetting opens the sitting, each card pays its fee, and a card may lose one trait (a scar). ' +
+      (costs.lowLevel ? "Below character level " + costs.freeBelowLevel + " it is free." : costs.freeSwaps ? "You also hold " + costs.freeSwaps + " free swaps, usable anywhere from the deck." : "") + '</div></div>' +
+      '<div class="box" style="left:348px"><div class="h">Fuse</div><div class="b">Three binder copies of one perk and rarity become one card of the next rarity. The best trait of the three is kept; one or two new traits roll.</div></div>' +
+      '<div class="box" style="left:668px"><div class="h">Release</div><div class="b">Three binder cards of one skill are given up for one reroll (Redeal all in a draft). Released cards are gone for good.</div></div>' +
+      '<div class="fees">Fees by requirement  ·  ' + esc(f.join("  ·  ")) + "</div>");
+    footer("SLOTTING INTO AN OPEN SLOT IS FREE, ANYWHERE", "");
+  };
+
   // ---- trade (CARDS.md §8.1, Figma 2h-4) --------------------------------------------------------------------------
   function tradeRows(side, mine, x) {
     var h = "", list = side.cards || [];
@@ -875,6 +892,7 @@
       if (v === "att") st.binder.att = !st.binder.att;
       st.binder.scroll = 0;
     }
+    else if ((el = closest(t, "data-shrineinfo"))) { nav.view = "shrine-info"; }
     else if ((el = closest(t, "data-bsort"))) { st.binder.sort = cycle(["newest", "rarity", "requirement"], st.binder.sort); }
     else if ((el = closest(t, "data-search"))) { MC.textFocus = true; ui(); }
     else if ((el = closest(t, "data-bcard"))) { v = el.getAttribute("data-bcard"); st.binder.sel = st.binder.sel === v ? null : v; }
@@ -891,7 +909,7 @@
     else if ((el = closest(t, "data-slot")) && st.deck.sel && byId[st.deck.sel]) { slotCard(byId[st.deck.sel], +el.getAttribute("data-slot")); st.deck.sel = null; }
     else if ((el = closest(t, "data-unslot"))) { MC.act("unslotCards", el.getAttribute("data-unslot")); st.deck.pop = null; }
     else if ((el = closest(t, "data-popclose"))) { st.deck.pop = null; }
-    else if ((el = closest(t, "data-goshrine"))) { nav.shrine = el.getAttribute("data-goshrine"); st.deck.pop = null; }
+    else if ((el = closest(t, "data-goshrine"))) { nav.shrine = el.getAttribute("data-goshrine"); st.deck.pop = null; if (!M().cards.sitting) nav.view = "shrine-info"; }
     else if ((el = closest(t, "data-takeout"))) {
       var tc = byId[el.getAttribute("data-takeout")];
       if (tc) { nav.view = "skill"; nav.skill = tc.deck; nav.stab = "deck"; st.deck.pop = tc.id; }

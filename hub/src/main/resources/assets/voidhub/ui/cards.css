@@ -129,21 +129,27 @@
 @keyframes k-deal { from { opacity: 0; transform: translateY(40px) scale(.94); } to { opacity: 1; transform: none; } }
 .dr-hand.sweep .hc { opacity: 0; -webkit-transform: translateY(-24px); transform: translateY(-24px); -webkit-transition: opacity .2s linear, -webkit-transform .2s ease-in; transition: opacity .2s linear, transform .2s ease-in; }
 .hc.faded { opacity: .22; }
+/* Faded behind a Mythic, the other two cards hold one frame: their 8 fps fire would double the aura's repaints. */
+.hc.faded .ed .f, .hc.faded .ed .g { -webkit-animation: none; animation: none; }
+.hc.faded .emb { display: none; }
+.si { position: absolute; left: 0; top: 0; width: 987px; }
+.si > * { position: absolute; }
+.si .t { left: 0; top: 150px; width: 987px; text-align: center; font-size: 18px; }
+.si .s { left: 193px; top: 182px; width: 600px; text-align: center; font-size: 12px; line-height: 18px; color: #9A9DA1; }
+.si .box { top: 262px; width: 290px; height: 150px; border-radius: 16px; background: #131315; border: 1px solid rgba(255, 255, 255, 0.06); }
+.si .box > * { position: absolute; }
+.si .box .h { left: 18px; top: 16px; font-size: 13.5px; }
+.si .box .b { left: 18px; top: 40px; width: 254px; font-size: 11px; line-height: 16px; color: #C9C2B8; }
+.si .fees { left: 28px; top: 438px; width: 929px; font-size: 11px; color: #9A9DA1; text-align: center; white-space: nowrap; }
+.hd-tab.off { color: #4A4C50; }
 /* Pick: the kept card flares 200 ms (4 frames) under a halo and sinks into the hand; the others burn away. */
 .hc.kept { z-index: 2; -webkit-transform: translateY(-8px) scale(1.04); transform: translateY(-8px) scale(1.04); }
 .kept-halo { left: -110px; top: -90px; width: 468px; height: 508px; pointer-events: none; -webkit-animation: k-halo 1.2s linear forwards; animation: k-halo 1.2s linear forwards; }
 @-webkit-keyframes k-halo { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: .5; } }
 @keyframes k-halo { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: .5; } }
-.ed.once .f, .ed.once .g, .ed.once { -webkit-mask-position: 304px 0; background-position: 304px 0; }
-.flare .f { -webkit-animation: kf1216 .2s steps(4) forwards; animation: kf1216 .2s steps(4) forwards; }
-.flare .g { -webkit-animation: kb1216 .2s steps(4) forwards; animation: kb1216 .2s steps(4) forwards; }
 .hc.burn .ed:not(.once), .hc.burn .hc-halo { opacity: 0; -webkit-transition: opacity .2s linear .26s; transition: opacity .2s linear .26s; }
-.hc-face.burnmask { -webkit-animation: k-burn .6s steps(8) forwards; animation: k-burn .6s steps(8) forwards; }
 @-webkit-keyframes k-burn { from { -webkit-mask-position: -248px 0; } to { -webkit-mask-position: -2232px 0; } }
 @keyframes k-burn { from { -webkit-mask-position: -248px 0; } to { -webkit-mask-position: -2232px 0; } }
-.bfront .f { -webkit-animation: kf2432 .6s steps(8) forwards; animation: kf2432 .6s steps(8) forwards; }
-.bfront .g { -webkit-animation: kb2432 .6s steps(8) forwards; animation: kb2432 .6s steps(8) forwards; }
-.burnash { -webkit-animation: kb2432 .6s steps(8) forwards; animation: kb2432 .6s steps(8) forwards; }
 
 /* Strip keyframes by strip width: mask (kf) and background (kb). */
 @-webkit-keyframes kf224 { from { -webkit-mask-position: 0 0; } to { -webkit-mask-position: -224px 0; } }
@@ -187,9 +193,9 @@
 .my-foil-a { -webkit-animation: k-foil 4s infinite; animation: k-foil 4s infinite; }
 @-webkit-keyframes k-foil { 0% { background-position: 0 0; -webkit-animation-timing-function: steps(16); } 40% { background-position: -3968px 0; } 100% { background-position: -3968px 0; } }
 @keyframes k-foil { 0% { background-position: 0 0; animation-timing-function: steps(16); } 40% { background-position: -3968px 0; } 100% { background-position: -3968px 0; } }
-.hc-name.my-n { left: 26px; top: 166px; width: 196px; display: flex; justify-content: center; }
-.my-eff { left: 36px; top: 192px; width: 176px; text-align: center; font-size: 12px; line-height: 16px; color: #ECE3D2; }
-.my-lore { left: 36px; top: 232px; width: 176px; text-align: center; font-size: 10.5px; line-height: 14px; color: #B9A57A; }
+.my-flow { left: 28px; top: 164px; width: 192px; height: 104px; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
+.my-eff { margin-top: 6px; width: 184px; text-align: center; font-size: 11.5px; line-height: 15px; color: #ECE3D2; }
+.my-lore { margin-top: 5px; width: 184px; text-align: center; font-size: 10.5px; line-height: 14px; color: #B9A57A; }
 .my-dots { left: 62px; top: 272px; width: 124px; height: 3px; background: repeating-linear-gradient(90deg, #8A7A55 0, #8A7A55 3px, rgba(0, 0, 0, 0) 3px, rgba(0, 0, 0, 0) 7px); }
 .my-prov { left: 28px; top: 282px; width: 192px; text-align: center; font-size: 8px; letter-spacing: .96px; color: #F3D28B; white-space: nowrap; overflow: hidden; }
 .my-prov2 { left: 28px; top: 296px; width: 192px; text-align: center; font-size: 8px; letter-spacing: .96px; color: #9C8A66; }
@@ -201,7 +207,8 @@
   background: radial-gradient(closest-side, rgba(106, 15, 24, 0.55) 0%, rgba(58, 7, 13, 0.30) 55%, rgba(11, 11, 12, 0) 100%); }
 #dr-chip { left: 28px; top: 43px; }
 #dr-badge { right: 75px; top: 43px; }
-#dr-title { left: 0; top: 95px; width: 987px; height: 50px; }
+#dr-title { left: 0; top: 95px; width: 987px; height: 50px; z-index: 3; }
+#dr-act { z-index: 3; }
 .ov-eb { position: absolute; left: 0; top: 2px; width: 987px; text-align: center; font-size: 9px; letter-spacing: 1.98px; white-space: pre; }
 .ov-title { position: absolute; left: 0; top: 20px; width: 987px; display: flex; justify-content: center; }
 .dr-hand { left: 0; top: 0; width: 987px; height: 630px; }
@@ -227,7 +234,7 @@
 .rv { position: absolute; left: 0; top: 0; width: 987px; height: 630px; }
 .rv > * { position: absolute; }
 .rv-dim { left: 1px; top: 25px; width: 985px; height: 604px; border-radius: 31px; background: rgba(0, 0, 0, 0.55); opacity: 0; -webkit-transition: opacity .6s linear; transition: opacity .6s linear; }
-.rv .hc.my .my-bloom { display: none; }
+.rv .hc.my .my-bloom, .rv-glow { display: none; }
 .rv-glow { left: -61px; top: -17px; width: 1107px; height: 700px; opacity: 0; pointer-events: none; background: radial-gradient(closest-side, rgba(243, 210, 139, 0.22) 0%, rgba(120, 90, 200, 0.10) 50%, rgba(0, 0, 0, 0) 100%);
   -webkit-transition: opacity 1s linear; transition: opacity 1s linear; }
 .rv.rv-dark .rv-dim, .rv.rv-crack .rv-dim, .rv.rv-swell .rv-dim, .rv.rv-flip .rv-dim, .rv.rv-settled .rv-dim { opacity: 1; }
@@ -271,15 +278,19 @@
 .au-prism { left: -26px; top: -26px; width: 300px; height: 380px; background: radial-gradient(closest-side, rgba(0, 0, 0, 0) 78%, rgba(143, 240, 255, 0.20) 86%, rgba(255, 155, 234, 0.16) 93%, rgba(0, 0, 0, 0) 100%); }
 .mote { width: 10px; height: 10px; background-size: 120px 10px; background-repeat: no-repeat;
   -webkit-animation: k-mote 1.2s steps(12) infinite, k-drift 3s steps(30) infinite alternate; animation: k-mote 1.2s steps(12) infinite, k-drift 3s steps(30) infinite alternate; }
+/* Calm (3 s after it settles): the motes and the pulse ring rest where they are and the rays turn a step a second, so
+   Ultralight repaints the whole aura once a second instead of ten times; the card's own fire and foil keep going. */
+.rv.rv-calm .mote, .rv.rv-calm .my-ring { -webkit-animation-play-state: paused; animation-play-state: paused; }
+.rv.rv-calm .my-rays.a { -webkit-animation: k-rot2 60s steps(60) infinite; animation: k-rot2 60s steps(60) infinite; }
+.rv.rv-calm .my-rays.b { -webkit-animation: k-rot2 60s steps(60) infinite reverse; animation: k-rot2 60s steps(60) infinite reverse; }
+@-webkit-keyframes k-rot2 { from { -webkit-transform: rotate(0); } to { -webkit-transform: rotate(360deg); } }
+@keyframes k-rot2 { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 @-webkit-keyframes k-drift { from { -webkit-transform: translateY(0); } to { -webkit-transform: translateY(-12px); } }
 @keyframes k-drift { from { transform: translateY(0); } to { transform: translateY(-12px); } }
 
 /* Set complete (2g-6): 1.2 s of rays and sparks, then it holds until a click (or four seconds). */
 .ov-set .ov-dim { background: rgba(11, 11, 12, 0.86); }
 .st-bloom { left: 192px; top: 33px; width: 600px; height: 440px; background: radial-gradient(closest-side, rgba(216, 205, 187, 0.24) 0%, rgba(216, 205, 187, 0.06) 55%, rgba(0, 0, 0, 0) 100%); }
-.set-rays, .set-sparks { left: 300px; top: 103px; background-position: 384px 0; -webkit-mask-position: 384px 0; }
-.set-rays { -webkit-animation: kb4608 1.2s steps(12) forwards; animation: kb4608 1.2s steps(12) forwards; }
-.set-sparks { -webkit-mask-repeat: no-repeat; -webkit-animation: kf4608 1.2s steps(12) forwards; animation: kf4608 1.2s steps(12) forwards; }
 .set-sparks.flip { -webkit-transform: scaleX(-1); transform: scaleX(-1); }
 .st-tile { left: 452px; top: 191px; width: 80px; height: 80px; border-radius: 20px; background: #141216; border: 1.5px solid rgba(216, 205, 187, 0.6); -webkit-animation: k-pop .3s ease-out backwards; animation: k-pop .3s ease-out backwards; }
 .st-tile .gl { position: absolute; left: 6.5px; top: 6.5px; }
@@ -459,8 +470,8 @@
 .rw-i { top: 6px; width: 40px; height: 40px; border-radius: 8px; }
 .rw-i .mc-img { position: absolute; left: 4px; top: 4px; }
 .rw-gem { top: 1px; width: 6px; height: 6px; -webkit-transform: rotate(45deg); transform: rotate(45deg); }
-.rw-n { top: 8px; font-size: 12.5px; white-space: nowrap; }
-.rw-s { top: 28px; font-size: 10.5px; color: #9A9DA1; white-space: nowrap; }
+.rw-n { top: 8px; font-size: 12.5px; white-space: nowrap; overflow: hidden; }
+.rw-s { top: 28px; font-size: 10.5px; color: #9A9DA1; white-space: nowrap; overflow: hidden; }
 .rw-k { top: 18px; height: 16px; white-space: nowrap; }
 .rw-k .gl { margin-right: 4px; }
 .rw-ts { top: 15px; height: 22px; display: flex; gap: 6px; overflow: hidden; }
@@ -554,3 +565,31 @@
 .gl.g24 { width: 24px; height: 24px; background-size: 336px 24px; }
 .gl.g64 { width: 64px; height: 64px; background-size: 896px 64px; }
 .gem { display: inline-block; -webkit-transform: rotate(45deg); transform: rotate(45deg); }
+
+/* One-shot strips. Ultralight ignores a mask positioned past its strip and paints the whole box in the tint
+   (cards/README.md), so a one-shot layer is gated by opacity: hidden before it starts (delay) and after its last frame. */
+.ed.once, .ed.once .f, .ed.once .g, .set-sparks, .set-rays { opacity: 0; }
+.flare .f { -webkit-animation: os-m1216 .2s forwards; animation: os-m1216 .2s forwards; -webkit-animation-timing-function: steps(4); animation-timing-function: steps(4); }
+.flare .g { -webkit-animation: os-b1216 .2s forwards; animation: os-b1216 .2s forwards; -webkit-animation-timing-function: steps(4); animation-timing-function: steps(4); }
+.bfront .f { -webkit-animation: os-m2432 .6s forwards; animation: os-m2432 .6s forwards; -webkit-animation-timing-function: steps(8); animation-timing-function: steps(8); }
+.bfront .g { -webkit-animation: os-b2432 .6s forwards; animation: os-b2432 .6s forwards; -webkit-animation-timing-function: steps(8); animation-timing-function: steps(8); }
+.burnash { -webkit-animation: os-b2432 .6s forwards; animation: os-b2432 .6s forwards; -webkit-animation-timing-function: steps(8); animation-timing-function: steps(8); }
+.ed.once { opacity: 1; }
+.ed.burnash { opacity: 0; }
+.set-rays { -webkit-animation: os-b4608 1.2s forwards; animation: os-b4608 1.2s forwards; -webkit-animation-timing-function: steps(12); animation-timing-function: steps(12); }
+.set-sparks { -webkit-mask-repeat: no-repeat; -webkit-animation: os-m4608 1.2s forwards; animation: os-m4608 1.2s forwards; -webkit-animation-timing-function: steps(12); animation-timing-function: steps(12); }
+@-webkit-keyframes os-m1216 { 0% { -webkit-mask-position: 0 0; opacity: 1; } 99.9% { -webkit-mask-position: -1216px 0; opacity: 1; } 100% { -webkit-mask-position: 0 0; opacity: 0; } }
+@keyframes os-m1216 { 0% { -webkit-mask-position: 0 0; opacity: 1; } 99.9% { -webkit-mask-position: -1216px 0; opacity: 1; } 100% { -webkit-mask-position: 0 0; opacity: 0; } }
+@-webkit-keyframes os-b1216 { 0% { background-position: 0 0; opacity: 1; } 99.9% { background-position: -1216px 0; opacity: 1; } 100% { background-position: 0 0; opacity: 0; } }
+@keyframes os-b1216 { 0% { background-position: 0 0; opacity: 1; } 99.9% { background-position: -1216px 0; opacity: 1; } 100% { background-position: 0 0; opacity: 0; } }
+@-webkit-keyframes os-m2432 { 0% { -webkit-mask-position: 0 0; opacity: 1; } 99.9% { -webkit-mask-position: -2432px 0; opacity: 1; } 100% { -webkit-mask-position: 0 0; opacity: 0; } }
+@keyframes os-m2432 { 0% { -webkit-mask-position: 0 0; opacity: 1; } 99.9% { -webkit-mask-position: -2432px 0; opacity: 1; } 100% { -webkit-mask-position: 0 0; opacity: 0; } }
+@-webkit-keyframes os-b2432 { 0% { background-position: 0 0; opacity: 1; } 99.9% { background-position: -2432px 0; opacity: 1; } 100% { background-position: 0 0; opacity: 0; } }
+@keyframes os-b2432 { 0% { background-position: 0 0; opacity: 1; } 99.9% { background-position: -2432px 0; opacity: 1; } 100% { background-position: 0 0; opacity: 0; } }
+@-webkit-keyframes os-m4608 { 0% { -webkit-mask-position: 0 0; opacity: 1; } 99.9% { -webkit-mask-position: -4608px 0; opacity: 1; } 100% { -webkit-mask-position: 0 0; opacity: 0; } }
+@keyframes os-m4608 { 0% { -webkit-mask-position: 0 0; opacity: 1; } 99.9% { -webkit-mask-position: -4608px 0; opacity: 1; } 100% { -webkit-mask-position: 0 0; opacity: 0; } }
+@-webkit-keyframes os-b4608 { 0% { background-position: 0 0; opacity: 1; } 99.9% { background-position: -4608px 0; opacity: 1; } 100% { background-position: 0 0; opacity: 0; } }
+@keyframes os-b4608 { 0% { background-position: 0 0; opacity: 1; } 99.9% { background-position: -4608px 0; opacity: 1; } 100% { background-position: 0 0; opacity: 0; } }
+.hc-face.burnmask { -webkit-animation: os-burn .6s forwards; animation: os-burn .6s forwards; -webkit-animation-timing-function: steps(8); animation-timing-function: steps(8); }
+@-webkit-keyframes os-burn { 0% { -webkit-mask-position: -248px 0; opacity: 1; } 99.9% { -webkit-mask-position: -2232px 0; opacity: 1; } 100% { -webkit-mask-position: 0 0; opacity: 0; } }
+@keyframes os-burn { 0% { -webkit-mask-position: -248px 0; opacity: 1; } 99.9% { -webkit-mask-position: -2232px 0; opacity: 1; } 100% { -webkit-mask-position: 0 0; opacity: 0; } }

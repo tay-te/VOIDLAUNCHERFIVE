@@ -267,6 +267,9 @@
     later(m.swell, function () { revealStage(stage, "rv-swell"); });
     later(m.flip, function () { revealStage(stage, "rv-flip"); });
     later(m.flip + 1000, function () { revealStage(stage, "rv-settled"); if (then) then(); });
+    // Three seconds after it settles the aura calms to 5 fps (the moment is over; a Mythic left on screen should not
+    // keep Ultralight painting the whole aura ten times a second).
+    later(m.flip + 4000, function () { stage.classList.add("rv-calm"); });
   }
 
   /** Skips to the settled card (Esc or a click after the flip). */
@@ -283,7 +286,7 @@
   function mythicStage(c, x, y) {
     return '<div id="rv-stage" class="rv"><div class="rv-dim"></div><div class="rv-glow"></div>' + aura(x, y) +
       '<div class="rv-card" style="left:' + x + "px;top:" + y + 'px"><div class="rv-back"><div class="ed cardback"></div><div class="ed my-crack once"></div></div>' +
-      '<div class="rv-face">' + MC.mythicCard(c, null) + '</div><div class="rv-burst my-burst once"></div><div class="rv-flash"></div></div></div>';
+      '<div class="rv-face">' + MC.mythicCard(c, null, c.holderLine || "1 of 1 in this world") + '</div><div class="rv-burst my-burst once"></div><div class="rv-flash"></div></div></div>';
   }
 
   /** A hand dealt with a Mythic in it (M2 storyboard): the other two fade back, the Mythic turns over. */
@@ -297,7 +300,7 @@
         out.id = id; out.name = all[i].name; out.effect = all[i].effect; out.lore = all[i].lore; out.icon = all[i].icon; out.source = all[i].source; out.deed = all[i].deed;
       }
     }
-    if (s && !out.how) out.how = "Dealt at " + s.name + " " + s.level + "  ·  1 of 1 in this world";
+    if (s && !out.how) out.how = "Dealt at " + s.name + " " + s.level;
     return out;
   };
 
@@ -347,7 +350,8 @@
     setUi();
     var el = host();
     el.className = "ov-reveal";
-    var x = 369, y = 175;
+    var x = 369, y = 175, all = MC.M.cards.mythics ? MC.M.cards.mythics.all : [];
+    for (var i = 0; i < all.length; i++) if (all[i].id === r.id && r.source === "deed" && all[i].copies > 1) r.holderLine = "No. " + all[i].copies + " in this world";
     el.innerHTML = '<div class="ov-dim"></div><div id="dr-title"></div>' + mythicStage(r, x, y) + '<div id="dr-act"></div><div class="footer ov-fl" id="dr-fl"></div><div class="footer right ov-fr" id="dr-fr"></div>';
     cur.afterReveal = function () {
       MC.$("dr-title").innerHTML = title(r.source === "world_first" ? "A WORLD FIRST" : r.source === "drawn" ? "A MYTHIC WAS DEALT" : "A LEGEND WAS MADE", r.name || "", "#F3D28B", 3);
