@@ -1,5 +1,12 @@
 # VOID Mettle — skill trees and special perks
 
+> **Since 2026-10-10 the trees are the decks of the perk draft ([DRAFT.md](DRAFT.md)).** Nothing below is bought with
+> points any more: every skill level (every other one from 7) deals three cards from the skill's tree and you keep one.
+> The tree's shape still decides what can be dealt: tiers open at the same skill levels, a tier III path perk still
+> needs a tier II of its path, a Mastery still needs two perks of its side and holding one removes the other two. The
+> attribute gate is soft (it changes a card's odds), the costs only say how deep a perk is (and its rarity), and each
+> skill's deck also holds two **cursed** cards (DRAFT.md §4). Feats, Synergies and Teachings are earned as before.
+
 Supersedes the flat 4 × 3 grids in CHARACTER.md §4. The goal: **very powerful, deep, never complicated.** A player has
 to understand only three ideas:
 

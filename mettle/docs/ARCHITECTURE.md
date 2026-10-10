@@ -2,7 +2,7 @@
 
 VOID Mettle is who you become. You pick a **background** once (Soldier, Ranger, Smith…), which only decides where you
 start. From there you get better at what you actually do: mine and Mining rises, fight with a sword and Blades rises.
-Every skill level is a point to spend in that skill's **perk tree**, and perks change how you play (break a whole ore
+Every skill level deals a **draft** from that skill's perk deck (three cards, keep one; [DRAFT.md](DRAFT.md)), and perks change how you play (break a whole ore
 vein, fell a tree in one cut, raise a shield instantly), not +2 % somewhere. Your **character level** comes from all of
 it and buys **attribute** points (Strength, Agility, Vitality, Wits, Presence) that open the deeper tiers of the trees.
 
@@ -190,7 +190,7 @@ future mod's cart could).
 
 | Attachment | Holds | Persistent | Copy on death | Sync |
 |---|---|---|---|---|
-| `mettle:core/character` | background, spent attribute points, XP per skill, learned perks, respec count, free-respec flag | yes | yes | `targetOnly` |
+| `mettle:core/character` | background, spent attribute points, XP per skill, learned perks, drafts (queued per skill, dealt hands, rerolls, seed, recent skills) | yes | yes | `targetOnly` |
 | `mettle:character/journal` | books read, places discovered, trainer sessions, anti-farm memory | yes | yes | no |
 | `mettle:burden/load` | `(load, capacity, band, heaviest item id + kg)` | no (derived) | no | `targetOnly` |
 | `mettle:gear/worn` | the three worn gear stacks (pockets live inside them) | yes | only with keepInventory | `all()` (others draw it) |
@@ -267,7 +267,8 @@ All client→server payloads are requests the server validates against the chara
 |---|---|---|
 | `mettle:character/choose_background` `(background, favoured[] for Wanderer)` | C→S | character |
 | `mettle:character/spend_attribute` `(attribute)` | C→S | character |
-| `mettle:character/learn_perk` `(perk)` | C→S | character |
+| `mettle:character/learn_perk` `(perk)` | C→S | character (answered "perks come from drafts now") |
+| `mettle:character/pick_card` `(skill, index)` · `mettle:character/reroll` `(skill)` | C→S | character (DRAFT.md) |
 | `mettle:character/respec` `(kind)` | C→S | character |
 | `mettle:gear/belt_use` `(pocket)` | C→S | gear |
 | `mettle:core/open_picker` | S→C | core (first join, after a background reset) |

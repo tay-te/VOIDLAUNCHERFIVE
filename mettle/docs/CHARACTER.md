@@ -8,8 +8,8 @@ The whole model in one picture:
 ```
 Background (chosen once)   → +4 attribute points placed for you, 2 favoured skills (+25 % XP), a kit, a signature perk
 Attributes (5 × 1–20)      ← start 3 each; +1 point per character level
-Skills (15 × 0–20)         ← rise by doing; every level = 1 perk point in that skill's tree
-Perk trees (12 perks each) ← 4 tiers; a tier needs the skill level AND the governing attribute
+Skills (15 × 0–20)         ← rise by doing; levels deal perk drafts (three cards, keep one; DRAFT.md)
+Perk decks (the trees)     ← 4 tiers; a tier opens at a skill level, the governing attribute makes its cards likelier
 Character level (1–50)     ← all skill XP added together
 ```
 
@@ -132,7 +132,7 @@ hooks above cover what it can't (weapon type, distance, block hardness).
 
 ## 4. Perk trees
 
-> **Superseded by [TREES.md](TREES.md) (2026-10-05).** Every tree now has ranked roots, two named paths and three
+> **Since 2026-10-10 perks are drafted, not bought ([DRAFT.md](DRAFT.md)).** **Superseded by [TREES.md](TREES.md) (2026-10-05).** Every tree now has ranked roots, two named paths and three
 > Masteries (pick one), plus earned Feats, Synergies and Teachings. The grids below are the original ideas the trees
 > were built from; where they disagree, TREES.md wins. Mining is built and verified in game; the other trees are
 > designed there and built next.
@@ -261,7 +261,7 @@ Choices should be brave, not permanent. A player who regrets a tree drinks it aw
 
 | What | How | Cost |
 |---|---|---|
-| One skill's bought perks (roots, path perks, the Mastery) | drink a **Draught of Forgetting** brewed for that skill | crafted: glass bottle + amethyst shard + poppy + the skill's ingredient (BALANCE.md §8) |
+| One skill's drafted perks (roots, path perks, cursed cards, the Mastery), each rank back as a draft | drink a **Draught of Forgetting** brewed for that skill | crafted: glass bottle + amethyst shard + poppy + the skill's ingredient (BALANCE.md §8) |
 | Placed attribute points | drink a **Draught of Unbinding** | crafted: glass bottle + amethyst shard + fermented spider eye + ender pearl |
 | Everything, below character level 5 | `/mettle respec` | free (ops: any time, any player) |
 | Favoured skills (Wanderer) | — | not yet: an op's background reset |

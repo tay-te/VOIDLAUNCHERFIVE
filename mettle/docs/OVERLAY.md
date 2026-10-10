@@ -76,10 +76,41 @@ type Attr = "strength" | "agility" | "vitality" | "wits" | "presence";
 ```
 
 Skill trees add, per skill: `skills[].level`, `skills[].xp`, `skills[].levelXp`, `skills[].nextXp`,
-`skills[].points`, `skills[].paths {a, b}`, and `perks[]`: `{ id, skill, kind: "root"|"path"|"mastery"|"feat"|"synergy"|"teaching",
-tier, path, side (masteries: a | b | any), rank, maxRank, cost, order, name, description (at the next rank), rankValues (e.g. ["5 %",
-"10 %", "15 %"]), synergy ({skill: level}, synergies only), hint (feats, until earned), locked: reason | null }`.
-Actions: `learnPerk(id)`, `spendAttribute(attribute)`; answers come back as `mettleFeedback` chips.
+`skills[].paths {a, b}`, and `perks[]`: `{ id, skill, kind: "root"|"path"|"mastery"|"feat"|"synergy"|"teaching"|"cursed",
+tier, path, side (masteries: a | b | any), rank, maxRank, cost (depth only), order, name, description (at the next rank),
+rankValues (e.g. ["5 %", "10 %", "15 %"]), synergy ({skill: level}, synergies only), hint (feats, until earned),
+downside (cursed only), rarity + rarityColour (drafted kinds), locked: reason | null (null = in the deck now),
+inDeck: boolean }`.
+
+**The perk draft (DRAFT.md, 2026-10-10)** adds, per skill:
+
+```ts
+skills[]: {
+  drafts: number;          // drafts waiting (badge); a hand is dealt for the first of them
+  points: number;          // the same number, kept for hosts written for the old trees
+  rerolls: number;         // the character's rerolls (one pool), repeated here for convenience
+  odds: { common, rare, epic, cursed };   // % chance per slot of a hand dealt now (after empty rarities and the soft gate)
+  hand: {                  // [] when nothing can be dealt yet (the draft waits) or nothing waits
+    index: number;         // 0–2, what pickCard takes
+    perk: string;          // "mettle:mining/tunneler"
+    name: string; description: string;    // at the rank the card gives
+    rank: number; maxRank: number;        // the rank keeping it gives (roots 1–3)
+    rarity: "common" | "rare" | "epic" | "cursed"; frame: "#4DA3F5";   // frame colour by rarity
+    cursed: boolean; downside: string | null;
+    wildcard: boolean;     // from another skill used lately; dealt into this skill's hand
+    skill: string; skillName: string; colour: string;   // the card's own skill (differs for a wildcard) and its hue
+    kind: string; tier: number; path: string; icon: string;
+  }[];
+}[];
+draft: { rerolls: number; maxRerolls: 5; waiting: number /* all skills */; handSize: 3; wildcardChance: 0.12;
+         rarities: { id, name, colour }[] };
+```
+
+Actions: `pickCard(skill, index)` (or `pickCard("mettle:mining#0")` for a one-string bridge), `reroll(skill)`,
+`spendAttribute(attribute)`; answers come back as `mettleFeedback` chips (ids `mettle:draft/<skill>` and the perk). The
+old `learnPerk(id)` sends nothing and adds a `mettle:draft/no_buying` chip ("Perks come from drafts now"); the
+`character/learn_perk` packet is still registered and answered the same way. The level moment's subtitle now says
+"A draft to pick · press K", and the hotbar nudge counts drafts plus attribute points ("3 waiting").
 
 Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`
 (the text says what happened and names the heaviest stack), so the HUD can show the chip without polling.
@@ -103,7 +134,7 @@ resource manager (a `mettle://` scheme or data URLs).
 
 The VOID Hub (`hub/`, branch `claude/hub-mettle`) is the first host: its window gains a **Gear** page (pack pockets,
 belt and quiver, load) and a **Classes** page (overview, skill trees) over the player's own `InventoryMenu`. It reaches
-this API by reflection (`MettleState.build`, `MettleActions.learnPerk` / `spendAttribute`,
+this API by reflection (`MettleState.build`, `MettleActions.pickCard` / `reroll` / `spendAttribute` (and the old `learnPerk`),
 `MettleScreens.setCharacterOpener`), so neither mod needs the other to build. A host like this draws Mettle's
 screens but not the HUD, so it does **not** register with `OverlayBridge` (a listener there takes over the picker,
 chips and the dev burden line); it pulls `MettleState.build` while its pages are open.

@@ -284,11 +284,19 @@ character level 8 (about 1½ hours); Mining 12 arrives at 9½ hours with 26 poin
 points) are affordable before the first tier III opens, and three at 14 (33) before the first tier IV. The gates bind
 only a character that spreads into four or five attributes.
 
-Perk points (one per skill level) match the tree: 2 at tier I, 6 at tier II (roots ×4 + the first tier II), 12 at tier
+Perk points (one per skill level) matched the tree: 2 at tier I, 6 at tier II (roots ×4 + the first tier II), 12 at tier
 III (roots 6 + a tier II + a tier III = 11), 18 at tier IV (roots 6 + tier II + tier III + the mastery = 16). A full tree
-costs 31, so 20 points buy about two thirds of it.
+costs 31, so 20 points bought about two thirds of it.
+
+**Since the draft (2026-10-10, [DRAFT.md](DRAFT.md)) perks are not bought.** Every skill level to 6 deals a draft (three
+cards, keep one), then every even level; odd levels from 7 bring a reroll. Thirteen drafts to skill 20 keep this budget:
+the draft simulator (`DraftReportTest`) holds 9 ranks at skill 12 against the old 9, and 13 at 20 against 12, at about a
+third more depth (DRAFT.md §6). A draft on every level would have handed over the whole deck by skill 18. The attribute
+gate above is now soft: below it a card is dealt 0.4 times as often, never hidden; the table still says when it bites.
 
 ## 8. Respec draughts (CHARACTER.md §6)
+
+Since the draft, forgetting a skill turns each of its drafted ranks back into a waiting draft of that skill (DRAFT.md §8).
 
 Crafted shapeless, one recipe per skill (`data/mettle/recipe/draught_of_*.json`). Every draught shares a base of
 **glass bottle + amethyst shard** (a geode is the gate: reachable early, never free) and a flavour ingredient; the
@@ -311,6 +319,8 @@ recipe book when an amethyst shard is picked up. No cooldown and no rising cost;
 respec too freely (a second amethyst shard, or a gold ingot, is the next step up).
 
 ## 9. With VOID Hearth (`compat.hearth.HearthRules`)
+
+A trainer's lesson also brings one draft reroll (DRAFT.md §5).
 
 Hearth owns how the world reacts; these are the numbers Mettle hands it. All in `HearthRules`, checked by
 `HearthRulesTest`. INTEGRATION.md §1.2 says where each one is used.
@@ -392,3 +402,15 @@ Early lessons are a nudge; near mastery a lesson is hours of work for ten crowns
 keeps it a choice. Each trainer teaches once a sim day (20 minutes of play), so a city with several smiths can give a
 player who can pay several Smithing lessons a day.
 A **city master's Teaching** costs 1,000 bits (10 crowns) and needs the skill at 6.
+
+## 10. The draft (DRAFT.md)
+
+| | Value | Where |
+|---|---|---|
+| Drafts | one per skill level to 6, then one per even level (13 to skill 20); odd levels from 7 give a reroll | `DraftRules.HALF_RATE_FROM` = 7 |
+| Hand | 3 cards, keep one | `HAND` |
+| Slot odds at skill L | Common 62 − 1.5 L · Rare 26 + 0.8 L · Epic 8 + 0.6 L · Cursed 4 + 0.1 L (%) | `odds` |
+| Soft attribute gate | a card below its tier's attribute is dealt 0.4× as often | `UNDER_GATE_WEIGHT` |
+| Wildcard | 12 % of hands, one card from one of the last four skills used | `WILDCARD_CHANCE` |
+| Rerolls | start 2; +1 per character level, odd skill level from 7, feat, Hearth lesson, spent-deck draft; hold at most 5 | `START_REROLLS`, `MAX_REROLLS` |
+| Cursed cards | two per released skill, tier II and III; numbers in DRAFT.md §4 | `character.draft.Cursed`, perk data |
