@@ -87,6 +87,12 @@ public final class Cursed {
 		return skill.equals(SMITHING) && state.rank(ResourceKey.create(dev.voidmc.mettle.api.MettleRegistries.PERK, SLAPDASH)) > 0 ? SLAPDASH_XP : 1.0;
 	}
 
+	/** Slapdash held only through a slotted card (the record's perks don't show it): its XP multiplier, else 1. */
+	public static double cardXp(Player player, CharacterState state, ResourceKey<Skill> skill) {
+		ResourceKey<dev.voidmc.mettle.api.Perk> key = ResourceKey.create(dev.voidmc.mettle.api.MettleRegistries.PERK, SLAPDASH);
+		return skill.equals(SMITHING) && state.rank(key) == 0 && dev.voidmc.mettle.core.CardStore.get(player).activeRank(key) > 0 ? SLAPDASH_XP : 1.0;
+	}
+
 	/** Greedy Pick: what an ore crumbles to (the stone it sat in). */
 	public static Item crumble(BlockState ore) {
 		String path = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(ore.getBlock()).getPath();

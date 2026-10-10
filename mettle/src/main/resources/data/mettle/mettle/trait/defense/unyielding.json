@@ -1,0 +1,20 @@
+{
+	"skill": "mettle:defense",
+	"kind": "might",
+	"scope": "broad",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"attribute": "minecraft:knockback_resistance",
+		"operation": "add_value",
+		"scale": 0.01
+	},
+	"name": {
+		"translate": "mettle.trait.defense.unyielding"
+	},
+	"description": {
+		"translate": "mettle.trait.defense.unyielding.description"
+	}
+}

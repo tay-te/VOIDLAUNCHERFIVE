@@ -185,4 +185,56 @@ public final class MettlePayloads {
 			return TYPE;
 		}
 	}
+
+	/**
+	 * Client → server: keep the {@code index}-th card of a skill's hand, to the binder or (with {@code slot}) straight into
+	 * a free legal slot of its deck (docs/CARDS.md §5.2, "Keep" and "Keep &amp; slot").
+	 */
+	public record KeepCard(ResourceKey<Skill> skill, int index, boolean slot) implements CustomPacketPayload {
+		public static final Type<KeepCard> TYPE = new Type<>(Mettle.id("character/keep_card"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, KeepCard> STREAM_CODEC = StreamCodec.composite(
+			ResourceKey.streamCodec(MettleRegistries.SKILL), KeepCard::skill,
+			ByteBufCodecs.VAR_INT, KeepCard::index,
+			ByteBufCodecs.BOOL, KeepCard::slot,
+			KeepCard::new);
+
+		@Override
+		public Type<KeepCard> type() {
+			return TYPE;
+		}
+	}
+
+	/** What a {@link CardAction} asks for. */
+	public enum CardActionKind {
+		/** Put {@code cards[0]} in slot {@code index} (-1: the first free) of its deck. */
+		SLOT,
+		/** Take {@code cards} (one deck) out to the binder: a free swap or another free way, or at a rebuild place. */
+		UNSLOT,
+		/** Pin {@code keywords} as the active sets (empty: automatic). */
+		PIN,
+		/** Release {@code cards} (three of one skill) at a Card Shrine for a reroll. */
+		RELEASE,
+		/** At a rebuild place (shrine or trainer): take {@code cards} out, paying with a draught, fees and scars. */
+		REBUILD,
+		/** At a Card Shrine: fuse three cards of one perk ({@code cards}) into one of the next rarity. */
+		FUSE,
+		/** Close the shrine or trainer sitting. */
+		CLOSE
+	}
+
+	/** Client → server: a card request from the binder, the deck or a shrine screen. The server checks everything. */
+	public record CardAction(CardActionKind action, List<Long> cards, int index, List<Identifier> keywords) implements CustomPacketPayload {
+		public static final Type<CardAction> TYPE = new Type<>(Mettle.id("character/card_action"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, CardAction> STREAM_CODEC = StreamCodec.composite(
+			ByteBufCodecs.idMapper(i -> CardActionKind.values()[i], Enum::ordinal), CardAction::action,
+			ByteBufCodecs.VAR_LONG.apply(ByteBufCodecs.list(400)), CardAction::cards,
+			ByteBufCodecs.VAR_INT, CardAction::index,
+			Identifier.STREAM_CODEC.apply(ByteBufCodecs.list(8)), CardAction::keywords,
+			CardAction::new);
+
+		@Override
+		public Type<CardAction> type() {
+			return TYPE;
+		}
+	}
 }

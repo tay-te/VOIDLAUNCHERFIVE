@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:mining",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:extra_metal_ore"
+	},
+	"name": {
+		"translate": "mettle.trait.mining.greedy"
+	},
+	"description": {
+		"translate": "mettle.trait.mining.greedy.description"
+	}
+}

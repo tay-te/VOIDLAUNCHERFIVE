@@ -1,0 +1,27 @@
+{
+	"prefix": "SM",
+	"keyword_pool": [
+		"mettle:ember",
+		"mettle:iron",
+		"mettle:hoard",
+		"mettle:keen",
+		"mettle:kin"
+	],
+	"natives": {
+		"mettle:smithing/brittle_edge": "mettle:hex",
+		"mettle:smithing/forged": "mettle:ember",
+		"mettle:smithing/honing": "mettle:keen",
+		"mettle:smithing/keen_edge": "mettle:keen",
+		"mettle:smithing/light_hand": "mettle:iron",
+		"mettle:smithing/masterwork": "mettle:ember",
+		"mettle:smithing/proofed": "mettle:iron",
+		"mettle:smithing/reforge": "mettle:echo",
+		"mettle:smithing/riveted": "mettle:iron",
+		"mettle:smithing/salvager": "mettle:hoard",
+		"mettle:smithing/shieldwright": "mettle:warden",
+		"mettle:smithing/slapdash": "mettle:hex",
+		"mettle:smithing/thrifty": "mettle:hoard",
+		"mettle:smithing/tinker": "mettle:ember",
+		"mettle:smithing/true_temper": "mettle:ember"
+	}
+}

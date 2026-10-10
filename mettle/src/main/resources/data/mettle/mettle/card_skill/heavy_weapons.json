@@ -1,0 +1,27 @@
+{
+	"prefix": "HW",
+	"keyword_pool": [
+		"mettle:brutal",
+		"mettle:iron",
+		"mettle:ember",
+		"mettle:echo",
+		"mettle:wild"
+	],
+	"natives": {
+		"mettle:heavy_weapons/armour_crusher": "mettle:brutal",
+		"mettle:heavy_weapons/berserker": "mettle:ember",
+		"mettle:heavy_weapons/bloodrage": "mettle:hex",
+		"mettle:heavy_weapons/bone_breaker": "mettle:brutal",
+		"mettle:heavy_weapons/cleave": "mettle:echo",
+		"mettle:heavy_weapons/earthshaker": "mettle:brutal",
+		"mettle:heavy_weapons/feller": "mettle:wild",
+		"mettle:heavy_weapons/heft": "mettle:brutal",
+		"mettle:heavy_weapons/immovable": "mettle:hex",
+		"mettle:heavy_weapons/iron_grip": "mettle:iron",
+		"mettle:heavy_weapons/log_hauler": "mettle:hoard",
+		"mettle:heavy_weapons/rhythm_of_the_axe": "mettle:echo",
+		"mettle:heavy_weapons/stagger": "mettle:keen",
+		"mettle:heavy_weapons/throwing_axe": "mettle:gale",
+		"mettle:heavy_weapons/timber": "mettle:wild"
+	}
+}

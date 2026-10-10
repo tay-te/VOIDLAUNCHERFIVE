@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "fortune",
+	"scope": "broad",
+	"min": 4,
+	"max": 10,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:arrow_save"
+	},
+	"name": {
+		"translate": "mettle.trait.marksmanship.thrifty"
+	},
+	"description": {
+		"translate": "mettle.trait.marksmanship.thrifty.description"
+	}
+}

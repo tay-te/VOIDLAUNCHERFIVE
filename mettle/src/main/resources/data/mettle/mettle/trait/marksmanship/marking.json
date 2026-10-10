@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "fortune",
+	"scope": "broad",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:arrow_mark"
+	},
+	"name": {
+		"translate": "mettle.trait.marksmanship.marking"
+	},
+	"description": {
+		"translate": "mettle.trait.marksmanship.marking.description"
+	}
+}

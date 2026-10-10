@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:mining",
+	"kind": "might",
+	"scope": "broad",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:dig_below_zero"
+	},
+	"name": {
+		"translate": "mettle.trait.mining.deepborn"
+	},
+	"description": {
+		"translate": "mettle.trait.mining.deepborn.description"
+	}
+}

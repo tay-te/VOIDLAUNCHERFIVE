@@ -1,0 +1,20 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 6,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"attribute": "minecraft:water_movement_efficiency",
+		"operation": "add_value",
+		"scale": 0.01
+	},
+	"name": {
+		"translate": "mettle.trait.athletics.waterborn"
+	},
+	"description": {
+		"translate": "mettle.trait.athletics.waterborn.description"
+	}
+}

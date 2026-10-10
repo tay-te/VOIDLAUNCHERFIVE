@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:extra_logs"
+	},
+	"name": {
+		"translate": "mettle.trait.heavy_weapons.splitting"
+	},
+	"description": {
+		"translate": "mettle.trait.heavy_weapons.splitting.description"
+	}
+}

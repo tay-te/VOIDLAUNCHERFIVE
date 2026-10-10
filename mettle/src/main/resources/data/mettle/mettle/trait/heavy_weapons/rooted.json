@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"attribute": "minecraft:knockback_resistance",
+		"operation": "add_value",
+		"scale": 0.01,
+		"when": "holding_heavy"
+	},
+	"name": {
+		"translate": "mettle.trait.heavy_weapons.rooted"
+	},
+	"description": {
+		"translate": "mettle.trait.heavy_weapons.rooted.description"
+	}
+}

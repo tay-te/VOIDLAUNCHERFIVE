@@ -1,0 +1,27 @@
+{
+	"prefix": "MK",
+	"keyword_pool": [
+		"mettle:keen",
+		"mettle:gale",
+		"mettle:swift",
+		"mettle:wild",
+		"mettle:echo"
+	],
+	"natives": {
+		"mettle:marksmanship/arrowstorm": "mettle:gale",
+		"mettle:marksmanship/deadeye": "mettle:keen",
+		"mettle:marksmanship/double_nock": "mettle:echo",
+		"mettle:marksmanship/fletcher": "mettle:hoard",
+		"mettle:marksmanship/heavy_draw": "mettle:hex",
+		"mettle:marksmanship/hunters_mark": "mettle:wild",
+		"mettle:marksmanship/long_shot": "mettle:keen",
+		"mettle:marksmanship/pinning_shot": "mettle:keen",
+		"mettle:marksmanship/quick_nock": "mettle:swift",
+		"mettle:marksmanship/quiverwise": "mettle:swift",
+		"mettle:marksmanship/retrieval": "mettle:hoard",
+		"mettle:marksmanship/snap_shot": "mettle:hex",
+		"mettle:marksmanship/steady_aim": "mettle:keen",
+		"mettle:marksmanship/steady_breath": "mettle:gale",
+		"mettle:marksmanship/volley": "mettle:echo"
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:arrow_animals"
+	},
+	"name": {
+		"translate": "mettle.trait.marksmanship.game_hunters"
+	},
+	"description": {
+		"translate": "mettle.trait.marksmanship.game_hunters.description"
+	}
+}

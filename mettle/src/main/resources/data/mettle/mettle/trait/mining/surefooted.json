@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:mining",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:dig_unsteady"
+	},
+	"name": {
+		"translate": "mettle.trait.mining.surefooted"
+	},
+	"description": {
+		"translate": "mettle.trait.mining.surefooted.description"
+	}
+}

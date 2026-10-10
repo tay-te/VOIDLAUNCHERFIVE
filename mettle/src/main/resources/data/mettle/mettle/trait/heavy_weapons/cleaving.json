@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "might",
+	"scope": "broad",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:heavy_cleave"
+	},
+	"name": {
+		"translate": "mettle.trait.heavy_weapons.cleaving"
+	},
+	"description": {
+		"translate": "mettle.trait.heavy_weapons.cleaving.description"
+	}
+}

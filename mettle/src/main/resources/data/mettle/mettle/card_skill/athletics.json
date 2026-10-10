@@ -1,0 +1,27 @@
+{
+	"prefix": "AT",
+	"keyword_pool": [
+		"mettle:swift",
+		"mettle:gale",
+		"mettle:tide",
+		"mettle:hoard",
+		"mettle:kin"
+	],
+	"natives": {
+		"mettle:athletics/beast_of_burden": "mettle:hoard",
+		"mettle:athletics/bulls_back": "mettle:hex",
+		"mettle:athletics/featherweight": "mettle:hex",
+		"mettle:athletics/freerunner": "mettle:gale",
+		"mettle:athletics/haulers_stride": "mettle:swift",
+		"mettle:athletics/marathon": "mettle:swift",
+		"mettle:athletics/ox": "mettle:hoard",
+		"mettle:athletics/pack_mule": "mettle:hoard",
+		"mettle:athletics/runner": "mettle:swift",
+		"mettle:athletics/soft_landing": "mettle:gale",
+		"mettle:athletics/spring": "mettle:gale",
+		"mettle:athletics/steady_pace": "mettle:swift",
+		"mettle:athletics/strong_back": "mettle:hoard",
+		"mettle:athletics/swimmer": "mettle:tide",
+		"mettle:athletics/vaulter": "mettle:gale"
+	}
+}

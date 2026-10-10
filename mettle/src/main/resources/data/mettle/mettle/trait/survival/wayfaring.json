@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:survival",
+	"kind": "finesse",
+	"scope": "broad",
+	"min": 4,
+	"max": 10,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"attribute": "minecraft:movement_speed",
+		"operation": "add_multiplied_base",
+		"scale": 0.01,
+		"when": "on_path"
+	},
+	"name": {
+		"translate": "mettle.trait.survival.wayfaring"
+	},
+	"description": {
+		"translate": "mettle.trait.survival.wayfaring.description"
+	}
+}

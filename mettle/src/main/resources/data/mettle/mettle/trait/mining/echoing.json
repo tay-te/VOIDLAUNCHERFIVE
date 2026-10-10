@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:mining",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 4,
+	"max": 10,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:echo_ore"
+	},
+	"name": {
+		"translate": "mettle.trait.mining.echoing"
+	},
+	"description": {
+		"translate": "mettle.trait.mining.echoing.description"
+	}
+}

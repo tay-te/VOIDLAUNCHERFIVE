@@ -1,0 +1,44 @@
+{
+	"name": {
+		"translate": "mettle.keyword.gale"
+	},
+	"theme": {
+		"translate": "mettle.keyword.gale.theme"
+	},
+	"colour": "#C9CCD1",
+	"icon": "mettle:textures/gui/keyword/gale.png",
+	"sets": {
+		"2": {
+			"description": {
+				"translate": "mettle.keyword.gale.set.2"
+			},
+			"effects": [
+				{
+					"attribute": "minecraft:safe_fall_distance",
+					"amount": 1.5,
+					"operation": "add_value"
+				}
+			]
+		},
+		"4": {
+			"description": {
+				"translate": "mettle.keyword.gale.set.4"
+			},
+			"effects": [
+				{
+					"attribute": "minecraft:jump_strength",
+					"amount": 0.1,
+					"operation": "add_multiplied_base",
+					"when": "sprinting"
+				}
+			],
+			"behaviour": "mettle:set_gale_4"
+		},
+		"6": {
+			"description": {
+				"translate": "mettle.keyword.gale.set.6"
+			},
+			"behaviour": "mettle:set_gale_6"
+		}
+	}
+}

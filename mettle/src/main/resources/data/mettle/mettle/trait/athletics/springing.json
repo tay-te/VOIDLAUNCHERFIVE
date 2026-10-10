@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "finesse",
+	"scope": "broad",
+	"min": 4,
+	"max": 10,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"attribute": "minecraft:jump_strength",
+		"operation": "add_multiplied_base",
+		"scale": 0.01,
+		"when": "sprinting"
+	},
+	"name": {
+		"translate": "mettle.trait.athletics.springing"
+	},
+	"description": {
+		"translate": "mettle.trait.athletics.springing.description"
+	}
+}

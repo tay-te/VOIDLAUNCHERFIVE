@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:blades",
+	"kind": "might",
+	"scope": "broad",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:blade_finishing"
+	},
+	"name": {
+		"translate": "mettle.trait.blades.finishing"
+	},
+	"description": {
+		"translate": "mettle.trait.blades.finishing.description"
+	}
+}

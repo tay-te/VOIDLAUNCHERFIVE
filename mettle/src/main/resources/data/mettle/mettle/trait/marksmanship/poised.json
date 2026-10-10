@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "endurance",
+	"scope": "broad",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:arrow_poised"
+	},
+	"name": {
+		"translate": "mettle.trait.marksmanship.poised"
+	},
+	"description": {
+		"translate": "mettle.trait.marksmanship.poised.description"
+	}
+}

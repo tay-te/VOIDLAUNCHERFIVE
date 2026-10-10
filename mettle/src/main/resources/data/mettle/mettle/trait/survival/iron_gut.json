@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "endurance",
+	"scope": "broad",
+	"min": 4,
+	"max": 10,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:hunger_slower"
+	},
+	"name": {
+		"translate": "mettle.trait.survival.iron_gut"
+	},
+	"description": {
+		"translate": "mettle.trait.survival.iron_gut.description"
+	}
+}

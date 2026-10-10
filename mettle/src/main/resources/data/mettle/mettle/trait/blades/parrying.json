@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:blades",
+	"kind": "finesse",
+	"scope": "broad",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:blade_parry"
+	},
+	"name": {
+		"translate": "mettle.trait.blades.parrying"
+	},
+	"description": {
+		"translate": "mettle.trait.blades.parrying.description"
+	}
+}

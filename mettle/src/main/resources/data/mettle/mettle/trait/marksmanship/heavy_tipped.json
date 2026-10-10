@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "might",
+	"scope": "broad",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:arrow_damage"
+	},
+	"name": {
+		"translate": "mettle.trait.marksmanship.heavy_tipped"
+	},
+	"description": {
+		"translate": "mettle.trait.marksmanship.heavy_tipped.description"
+	}
+}

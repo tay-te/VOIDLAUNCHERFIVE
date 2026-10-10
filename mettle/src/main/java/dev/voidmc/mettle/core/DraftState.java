@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.StringRepresentable;
 
@@ -63,17 +64,40 @@ public record DraftState(
 	}
 
 	/**
-	 * One card in a hand: the perk and the rank picking it gives.
+	 * One card in a hand, an <b>offer</b> (docs/CARDS.md §2.1): the rolled perk, rarity, rank, keywords, traits and
+	 * requirement. It gets an id and enters the world ledger only when kept; rerolled offers never existed. A v1 hand
+	 * (stored before cards v2) has no keywords or traits and is dealt again.
 	 *
+	 * @param rank     roots: the rank the rarity gives (Common I, Rare II, Epic III); 1 otherwise
 	 * @param wildcard a card from another skill the player used recently, dealt into this skill's hand
+	 * @param needs    the skill level needed to slot it (0 on a v1 offer)
 	 */
-	public record Card(ResourceKey<Perk> perk, int rank, Rarity rarity, boolean wildcard) {
+	public record Card(ResourceKey<Perk> perk, int rank, Rarity rarity, boolean wildcard, List<Identifier> keywords,
+		List<CardData.TraitRoll> traits, int needs) {
 		public static final Codec<Card> CODEC = RecordCodecBuilder.create(i -> i.group(
 			ResourceKey.codec(MettleRegistries.PERK).fieldOf("perk").forGetter(Card::perk),
 			Codec.intRange(1, 5).fieldOf("rank").forGetter(Card::rank),
 			Rarity.CODEC.fieldOf("rarity").forGetter(Card::rarity),
-			Codec.BOOL.optionalFieldOf("wildcard", false).forGetter(Card::wildcard)
+			Codec.BOOL.optionalFieldOf("wildcard", false).forGetter(Card::wildcard),
+			Identifier.CODEC.listOf().optionalFieldOf("keywords", List.of()).forGetter(Card::keywords),
+			CardData.TraitRoll.CODEC.listOf().optionalFieldOf("traits", List.of()).forGetter(Card::traits),
+			Codec.INT.optionalFieldOf("needs", 0).forGetter(Card::needs)
 		).apply(i, Card::new));
+
+		public Card {
+			keywords = List.copyOf(keywords);
+			traits = List.copyOf(traits);
+		}
+
+		/** A v1 card (the draft before cards): no keywords, traits or requirement. */
+		public Card(ResourceKey<Perk> perk, int rank, Rarity rarity, boolean wildcard) {
+			this(perk, rank, rarity, wildcard, List.of(), List.of(), 0);
+		}
+
+		/** Whether it was rolled under cards v2 (a v1 hand has no keywords and is dealt again). */
+		public boolean rolled() {
+			return !this.keywords.isEmpty();
+		}
 	}
 
 	public static final Codec<DraftState> CODEC = RecordCodecBuilder.create(i -> i.group(

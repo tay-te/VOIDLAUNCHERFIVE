@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:blades",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:blade_taunt"
+	},
+	"name": {
+		"translate": "mettle.trait.blades.taunting"
+	},
+	"description": {
+		"translate": "mettle.trait.blades.taunting.description"
+	}
+}

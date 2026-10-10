@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "finesse",
+	"scope": "broad",
+	"min": 2,
+	"max": 6,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"attribute": "minecraft:movement_speed",
+		"operation": "add_multiplied_base",
+		"scale": 0.01,
+		"when": "sprinting"
+	},
+	"name": {
+		"translate": "mettle.trait.athletics.fleet"
+	},
+	"description": {
+		"translate": "mettle.trait.athletics.fleet.description"
+	}
+}

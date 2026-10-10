@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:mining",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 6,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:durability_pickaxe"
+	},
+	"name": {
+		"translate": "mettle.trait.mining.unworn"
+	},
+	"description": {
+		"translate": "mettle.trait.mining.unworn.description"
+	}
+}

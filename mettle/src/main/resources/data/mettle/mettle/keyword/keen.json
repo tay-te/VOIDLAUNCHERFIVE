@@ -1,0 +1,30 @@
+{
+	"name": {
+		"translate": "mettle.keyword.keen"
+	},
+	"theme": {
+		"translate": "mettle.keyword.keen.theme"
+	},
+	"colour": "#C9CCD1",
+	"icon": "mettle:textures/gui/keyword/keen.png",
+	"sets": {
+		"2": {
+			"description": {
+				"translate": "mettle.keyword.keen.set.2"
+			},
+			"behaviour": "mettle:set_keen_2"
+		},
+		"4": {
+			"description": {
+				"translate": "mettle.keyword.keen.set.4"
+			},
+			"behaviour": "mettle:set_keen_4"
+		},
+		"6": {
+			"description": {
+				"translate": "mettle.keyword.keen.set.6"
+			},
+			"behaviour": "mettle:set_keen_6"
+		}
+	}
+}

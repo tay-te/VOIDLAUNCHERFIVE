@@ -1,0 +1,36 @@
+{
+	"name": {
+		"translate": "mettle.keyword.brutal"
+	},
+	"theme": {
+		"translate": "mettle.keyword.brutal.theme"
+	},
+	"colour": "#C9CCD1",
+	"icon": "mettle:textures/gui/keyword/brutal.png",
+	"sets": {
+		"2": {
+			"description": {
+				"translate": "mettle.keyword.brutal.set.2"
+			},
+			"effects": [
+				{
+					"attribute": "minecraft:attack_damage",
+					"amount": 0.04,
+					"operation": "add_multiplied_base"
+				}
+			]
+		},
+		"4": {
+			"description": {
+				"translate": "mettle.keyword.brutal.set.4"
+			},
+			"behaviour": "mettle:set_brutal_4"
+		},
+		"6": {
+			"description": {
+				"translate": "mettle.keyword.brutal.set.6"
+			},
+			"behaviour": "mettle:set_brutal_6"
+		}
+	}
+}

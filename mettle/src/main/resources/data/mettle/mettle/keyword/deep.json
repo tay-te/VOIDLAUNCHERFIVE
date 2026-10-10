@@ -1,0 +1,30 @@
+{
+	"name": {
+		"translate": "mettle.keyword.deep"
+	},
+	"theme": {
+		"translate": "mettle.keyword.deep.theme"
+	},
+	"colour": "#C9CCD1",
+	"icon": "mettle:textures/gui/keyword/deep.png",
+	"sets": {
+		"2": {
+			"description": {
+				"translate": "mettle.keyword.deep.set.2"
+			},
+			"behaviour": "mettle:set_deep_2"
+		},
+		"4": {
+			"description": {
+				"translate": "mettle.keyword.deep.set.4"
+			},
+			"behaviour": "mettle:set_deep_4"
+		},
+		"6": {
+			"description": {
+				"translate": "mettle.keyword.deep.set.6"
+			},
+			"behaviour": "mettle:set_deep_6"
+		}
+	}
+}

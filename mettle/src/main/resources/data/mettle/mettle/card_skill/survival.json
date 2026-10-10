@@ -1,0 +1,27 @@
+{
+	"prefix": "SV",
+	"keyword_pool": [
+		"mettle:wild",
+		"mettle:ember",
+		"mettle:tide",
+		"mettle:kin",
+		"mettle:deep"
+	],
+	"natives": {
+		"mettle:survival/campfire_rest": "mettle:ember",
+		"mettle:survival/field_cook": "mettle:ember",
+		"mettle:survival/gatherer": "mettle:wild",
+		"mettle:survival/iron_stomach": "mettle:iron",
+		"mettle:survival/lay_of_the_land": "mettle:kin",
+		"mettle:survival/living_off_the_land": "mettle:wild",
+		"mettle:survival/pathfinder": "mettle:swift",
+		"mettle:survival/quiet_approach": "mettle:wild",
+		"mettle:survival/self_sufficient": "mettle:wild",
+		"mettle:survival/sixth_sense": "mettle:deep",
+		"mettle:survival/skinner": "mettle:hoard",
+		"mettle:survival/stalker": "mettle:keen",
+		"mettle:survival/tracker": "mettle:wild",
+		"mettle:survival/wild_luck": "mettle:hex",
+		"mettle:survival/wolfs_hunger": "mettle:hex"
+	}
+}

@@ -1,0 +1,30 @@
+{
+	"name": {
+		"translate": "mettle.keyword.kin"
+	},
+	"theme": {
+		"translate": "mettle.keyword.kin.theme"
+	},
+	"colour": "#C9CCD1",
+	"icon": "mettle:textures/gui/keyword/kin.png",
+	"sets": {
+		"2": {
+			"description": {
+				"translate": "mettle.keyword.kin.set.2"
+			},
+			"behaviour": "mettle:set_kin_2"
+		},
+		"4": {
+			"description": {
+				"translate": "mettle.keyword.kin.set.4"
+			},
+			"behaviour": "mettle:set_kin_4"
+		},
+		"6": {
+			"description": {
+				"translate": "mettle.keyword.kin.set.6"
+			},
+			"behaviour": "mettle:set_kin_6"
+		}
+	}
+}

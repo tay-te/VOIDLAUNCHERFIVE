@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:extra_plants"
+	},
+	"name": {
+		"translate": "mettle.trait.survival.foraging"
+	},
+	"description": {
+		"translate": "mettle.trait.survival.foraging.description"
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:mining",
+	"kind": "might",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:dig_nether"
+	},
+	"name": {
+		"translate": "mettle.trait.mining.netherborn"
+	},
+	"description": {
+		"translate": "mettle.trait.mining.netherborn.description"
+	}
+}

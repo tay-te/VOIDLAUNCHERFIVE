@@ -1,0 +1,28 @@
+{
+	"prefix": "MN",
+	"keyword_pool": [
+		"mettle:deep",
+		"mettle:hoard",
+		"mettle:brutal",
+		"mettle:echo",
+		"mettle:iron",
+		"mettle:ember"
+	],
+	"natives": {
+		"mettle:mining/black_lung": "mettle:hex",
+		"mettle:mining/deep_delver": "mettle:deep",
+		"mettle:mining/gem_cutter": "mettle:keen",
+		"mettle:mining/greedy_pick": "mettle:hex",
+		"mettle:mining/hard_hat": "mettle:iron",
+		"mettle:mining/lantern_eyes": "mettle:deep",
+		"mettle:mining/motherlode": "mettle:echo",
+		"mettle:mining/mountain_breaker": "mettle:brutal",
+		"mettle:mining/ore_sense": "mettle:deep",
+		"mettle:mining/prospector": "mettle:hoard",
+		"mettle:mining/quarryman": "mettle:brutal",
+		"mettle:mining/rock_hauler": "mettle:hoard",
+		"mettle:mining/strike_the_seam": "mettle:hoard",
+		"mettle:mining/sure_footing": "mettle:gale",
+		"mettle:mining/tunneler": "mettle:echo"
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "endurance",
+	"scope": "broad",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:sprint_long"
+	},
+	"name": {
+		"translate": "mettle.trait.athletics.long_winded"
+	},
+	"description": {
+		"translate": "mettle.trait.athletics.long_winded.description"
+	}
+}

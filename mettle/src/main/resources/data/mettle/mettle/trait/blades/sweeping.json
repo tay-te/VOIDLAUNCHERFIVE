@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:blades",
+	"kind": "might",
+	"scope": "narrow",
+	"min": 8,
+	"max": 20,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:sweep_damage"
+	},
+	"name": {
+		"translate": "mettle.trait.blades.sweeping"
+	},
+	"description": {
+		"translate": "mettle.trait.blades.sweeping.description"
+	}
+}

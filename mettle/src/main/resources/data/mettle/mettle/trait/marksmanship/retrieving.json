@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 8,
+	"max": 20,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:arrow_retrieve"
+	},
+	"name": {
+		"translate": "mettle.trait.marksmanship.retrieving"
+	},
+	"description": {
+		"translate": "mettle.trait.marksmanship.retrieving.description"
+	}
+}

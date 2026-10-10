@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:smelt_xp"
+	},
+	"name": {
+		"translate": "mettle.trait.smithing.hot_forged"
+	},
+	"description": {
+		"translate": "mettle.trait.smithing.hot_forged.description"
+	},
+	"arsenal": {
+		"translate": "mettle.trait.smithing.hot_forged.arsenal"
+	}
+}

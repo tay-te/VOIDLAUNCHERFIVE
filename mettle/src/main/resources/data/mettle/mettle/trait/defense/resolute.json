@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:defense",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 8,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:effects_shorter"
+	},
+	"name": {
+		"translate": "mettle.trait.defense.resolute"
+	},
+	"description": {
+		"translate": "mettle.trait.defense.resolute.description"
+	}
+}

@@ -39,9 +39,17 @@ public final class Perks {
 		return ResourceKey.create(MettleRegistries.PERK, id);
 	}
 
-	/** The rank a player holds in a perk (0 when not held). Works on both sides. */
+	/**
+	 * The rank a player has active in a perk (0 when not): an earned perk, or a drafted perk from a slotted, non-dormant
+	 * card (docs/CARDS.md §5.3), the higher where both give one. Works on both sides.
+	 */
 	public static int rank(Player player, Identifier perk) {
-		return CharacterStore.get(player).rank(key(perk));
+		ResourceKey<Perk> key = key(perk);
+		return Math.max(CharacterStore.get(player).rank(key), dev.voidmc.mettle.core.CardStore.get(player).activeRank(key));
+	}
+
+	public static int rank(Player player, ResourceKey<Perk> perk) {
+		return Math.max(CharacterStore.get(player).rank(perk), dev.voidmc.mettle.core.CardStore.get(player).activeRank(perk));
 	}
 
 	public static boolean has(Player player, Identifier perk) {
@@ -144,6 +152,8 @@ public final class Perks {
 			next = next.withSpent(Map.of());
 		}
 		CharacterStore.set(player, next);
+		// Cards v2 (docs/CARDS.md §7.6): every card goes back to the binder, unscarred.
+		dev.voidmc.mettle.character.cards.Cards.unslotAll(player);
 		Drafts.refresh(player);
 		EffectsApplier.apply(player);
 		MettleEvents.RESPEC.invoker().respec(player, attributes);

@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:salvage_more"
+	},
+	"name": {
+		"translate": "mettle.trait.smithing.salvaging"
+	},
+	"description": {
+		"translate": "mettle.trait.smithing.salvaging.description"
+	},
+	"arsenal": {
+		"translate": "mettle.trait.smithing.salvaging.arsenal"
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:blades",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 6,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:durability_blade"
+	},
+	"name": {
+		"translate": "mettle.trait.blades.honed"
+	},
+	"description": {
+		"translate": "mettle.trait.blades.honed.description"
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:defense",
+	"kind": "might",
+	"scope": "narrow",
+	"min": 8,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:lighter_armour"
+	},
+	"name": {
+		"translate": "mettle.trait.defense.fitted"
+	},
+	"description": {
+		"translate": "mettle.trait.defense.fitted.description"
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "might",
+	"scope": "broad",
+	"min": 4,
+	"max": 10,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:heavy_daze"
+	},
+	"name": {
+		"translate": "mettle.trait.heavy_weapons.staggering"
+	},
+	"description": {
+		"translate": "mettle.trait.heavy_weapons.staggering.description"
+	}
+}

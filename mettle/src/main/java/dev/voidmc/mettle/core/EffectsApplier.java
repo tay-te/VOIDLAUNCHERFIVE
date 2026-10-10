@@ -5,7 +5,9 @@ import dev.voidmc.mettle.api.Background;
 import dev.voidmc.mettle.api.CharacterAttribute;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Perk;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -32,10 +34,36 @@ public final class EffectsApplier {
 	public static final double CAPACITY_PER_STRENGTH = 5.0;
 	private static final double OLD_BASE_CARRY_CAPACITY = 40.0;
 
+	/**
+	 * Run first on every {@link #apply}: work that the modifiers depend on (cards v2 works out which slotted cards are
+	 * active, docs/CARDS.md §5.3). They may set attachments but never call {@link #apply}.
+	 */
+	public static final List<java.util.function.Consumer<ServerPlayer>> BEFORE = new java.util.concurrent.CopyOnWriteArrayList<>();
+	/** Run last on every {@link #apply}: other modifiers with fixed ids (card traits and sets). */
+	public static final List<java.util.function.Consumer<ServerPlayer>> AFTER = new java.util.concurrent.CopyOnWriteArrayList<>();
+	/** The keyword whose set softens cursed cards (docs/CARDS.md §6.3, Hex 2 and 4). */
+	private static final Identifier HEX = Identifier.fromNamespaceAndPath(Mettle.ID, "hex");
+
 	private EffectsApplier() {
 	}
 
+	/**
+	 * The perks a player has active: those in the character record (earned perks, and drafted ones an op gave outside
+	 * the deck) and those of slotted, non-dormant cards (docs/CARDS.md §5.3), the higher rank where both give one.
+	 */
+	public static Map<net.minecraft.resources.ResourceKey<Perk>, Integer> activePerks(CharacterState state, CardsState cards) {
+		if (cards.active().isEmpty()) {
+			return state.perks();
+		}
+		Map<net.minecraft.resources.ResourceKey<Perk>, Integer> out = new HashMap<>(state.perks());
+		cards.active().forEach((k, v) -> out.merge(k, v, Math::max));
+		return out;
+	}
+
 	public static void apply(ServerPlayer player) {
+		for (var hook : BEFORE) {
+			hook.accept(player);
+		}
 		CharacterState state = CharacterStore.get(player);
 		Background background = CharacterStore.background(player.level().registryAccess(), state);
 
@@ -61,6 +89,9 @@ public final class EffectsApplier {
 		// the vanilla 20 when the world loads.
 		set(player, Attributes.MAX_HEALTH, CharacterAttribute.VITALITY, "max_health", Math.floorDiv(vOver, 2), AttributeModifier.Operation.ADD_VALUE, true);
 		perkEffects(player, state);
+		for (var hook : AFTER) {
+			hook.accept(player);
+		}
 	}
 
 	/**
@@ -70,7 +101,9 @@ public final class EffectsApplier {
 	private static void perkEffects(ServerPlayer player, CharacterState state) {
 		Registry<Perk> perks = player.level().registryAccess().lookupOrThrow(MettleRegistries.PERK);
 		Set<Identifier> wanted = new HashSet<>();
-		state.perks().forEach((key, rank) -> perks.getOptional(key).ifPresent(perk -> {
+		CardsState cards = CardStore.get(player);
+		int hex = cards.tier(HEX);
+		activePerks(state, cards).forEach((key, rank) -> perks.getOptional(key).ifPresent(perk -> {
 			for (Perk.AttributeEffect e : perk.effects()) {
 				Optional<Holder.Reference<Attribute>> attribute = BuiltInRegistries.ATTRIBUTE.get(e.attribute());
 				if (attribute.isEmpty() || e.amounts().isEmpty()) {
@@ -79,6 +112,9 @@ public final class EffectsApplier {
 				Identifier id = Mettle.id("perk/" + key.identifier().getPath() + "/" + e.attribute().getPath());
 				wanted.add(id);
 				double amount = e.amounts().get(Math.min(rank, e.amounts().size()) - 1);
+				if (perk.kind() == Perk.Kind.CURSED && hex >= 2) {
+					amount = hexed(e.attribute(), amount, hex);
+				}
 				AttributeModifier.Operation op = switch (e.operation()) {
 					case "add_multiplied_base" -> AttributeModifier.Operation.ADD_MULTIPLIED_BASE;
 					case "add_multiplied_total" -> AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL;
@@ -113,6 +149,18 @@ public final class EffectsApplier {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Hex 2: a cursed card's downside is 25 % smaller; Hex 4: its upside 15 % stronger. A downside is a negative amount,
+	 * except fall damage, where more is worse.
+	 */
+	static double hexed(Identifier attribute, double amount, int hexTier) {
+		boolean worse = attribute.getPath().equals("fall_damage_multiplier") ? amount > 0 : amount < 0;
+		if (worse) {
+			return amount * 0.75;
+		}
+		return hexTier >= 4 ? amount * 1.15 : amount;
 	}
 
 	private static void set(ServerPlayer player, Holder<Attribute> attribute, CharacterAttribute source, String target, double amount,

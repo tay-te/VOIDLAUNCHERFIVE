@@ -77,6 +77,88 @@ public final class MettleActions {
 		ClientPlayNetworking.send(new MettlePayloads.Reroll(ResourceKey.create(MettleRegistries.SKILL, Identifier.parse(skill))));
 	}
 
+	// ---------------------------------------------------------------- cards v2 (docs/CARDS.md, OVERLAY.md "Cards v2")
+
+	/**
+	 * Keeps a hand's card into the binder ({@code slot} false, "Keep") or straight into a free legal slot of its deck
+	 * ({@code slot} true, "Keep &amp; slot"). {@link #pickCard} is the old keep: it slots when a legal slot is free.
+	 */
+	public static void keepCard(String skill, int index, boolean slot) {
+		ClientPlayNetworking.send(new MettlePayloads.KeepCard(ResourceKey.create(MettleRegistries.SKILL, Identifier.parse(skill)), index, slot));
+	}
+
+	/** Puts a binder card ({@code cards.binder.cards[].id}) in the first free slot of its deck. Free, anywhere. */
+	public static void slotCard(String card) {
+		slotCard(card, -1);
+	}
+
+	/** Puts a binder card in slot {@code slot} (0-based, {@code decks[].row[].index}; -1 = first free) of its deck. */
+	public static void slotCard(String card, int slot) {
+		cardAction(MettlePayloads.CardActionKind.SLOT, ids(card), slot, List.of());
+	}
+
+	/**
+	 * Takes slotted cards of one deck back to the binder ({@code "12"} or {@code "12,15"}): free below character level 5,
+	 * for dormant cards, on a deck's first rebuild after the migration, or with free swaps ({@code cards.costs}). Away
+	 * from a trainer or Card Shrine nothing else pays; the server answers with a chip either way.
+	 */
+	public static void unslotCards(String cards) {
+		cardAction(MettlePayloads.CardActionKind.UNSLOT, ids(cards), 0, List.of());
+	}
+
+	public static void unslotCard(String card) {
+		unslotCards(card);
+	}
+
+	/** Pins up to three keywords as the active sets ({@code "mettle:swift,mettle:keen"}; empty = automatic). Once a day. */
+	public static void pinSets(String keywords) {
+		List<Identifier> out = new ArrayList<>();
+		for (String k : keywords.split(",")) {
+			if (!k.isBlank()) {
+				out.add(Identifier.parse(k.trim()));
+			}
+		}
+		cardAction(MettlePayloads.CardActionKind.PIN, List.of(), 0, out);
+	}
+
+	/** At a Card Shrine: releases three binder cards of one skill for a reroll ({@code "3,8,9"}). Elsewhere a chip says where. */
+	public static void releaseCards(String cards) {
+		cardAction(MettlePayloads.CardActionKind.RELEASE, ids(cards), 0, List.of());
+	}
+
+	/** At a Card Shrine or trainer: rebuilds (takes out) these slotted cards of one deck, paying the draught, fees and scars. */
+	public static void rebuildCards(String cards) {
+		cardAction(MettlePayloads.CardActionKind.REBUILD, ids(cards), 0, List.of());
+	}
+
+	/** At a Card Shrine: fuses three binder cards of one perk and rarity into one of the next rarity. */
+	public static void fuseCards(String cards) {
+		cardAction(MettlePayloads.CardActionKind.FUSE, ids(cards), 0, List.of());
+	}
+
+	/** Ends a shrine or trainer sitting (the draught is spent once anything was taken out). */
+	public static void closeSitting() {
+		cardAction(MettlePayloads.CardActionKind.CLOSE, List.of(), 0, List.of());
+	}
+
+	private static void cardAction(MettlePayloads.CardActionKind kind, List<Long> cards, int index, List<Identifier> keywords) {
+		ClientPlayNetworking.send(new MettlePayloads.CardAction(kind, cards, index, keywords));
+	}
+
+	private static List<Long> ids(String text) {
+		List<Long> out = new ArrayList<>();
+		for (String part : text.split(",")) {
+			try {
+				if (!part.isBlank()) {
+					out.add(Long.parseLong(part.trim()));
+				}
+			} catch (NumberFormatException ignored) {
+				// A malformed id from a page: skipped.
+			}
+		}
+		return out;
+	}
+
 	public static void spendAttribute(String attribute) {
 		CharacterAttribute a = CharacterAttribute.CODEC.byName(attribute);
 		if (a != null) {

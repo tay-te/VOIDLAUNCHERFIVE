@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 15,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:hurt_thorns"
+	},
+	"name": {
+		"translate": "mettle.trait.survival.thornwalker"
+	},
+	"description": {
+		"translate": "mettle.trait.survival.thornwalker.description"
+	}
+}

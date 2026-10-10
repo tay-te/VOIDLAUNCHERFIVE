@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:arrow_flying"
+	},
+	"name": {
+		"translate": "mettle.trait.marksmanship.winged"
+	},
+	"description": {
+		"translate": "mettle.trait.marksmanship.winged.description"
+	}
+}

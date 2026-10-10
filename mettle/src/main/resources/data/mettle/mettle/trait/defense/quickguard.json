@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:defense",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 15,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:shield_raise"
+	},
+	"name": {
+		"translate": "mettle.trait.defense.quickguard"
+	},
+	"description": {
+		"translate": "mettle.trait.defense.quickguard.description"
+	}
+}

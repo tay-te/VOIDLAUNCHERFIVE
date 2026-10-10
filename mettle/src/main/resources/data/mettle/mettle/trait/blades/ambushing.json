@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:blades",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 6,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:blade_ambush"
+	},
+	"name": {
+		"translate": "mettle.trait.blades.ambushing"
+	},
+	"description": {
+		"translate": "mettle.trait.blades.ambushing.description"
+	}
+}

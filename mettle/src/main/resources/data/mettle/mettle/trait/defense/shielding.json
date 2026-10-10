@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:defense",
+	"kind": "fortune",
+	"scope": "broad",
+	"min": 4,
+	"max": 10,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:shield_allies"
+	},
+	"name": {
+		"translate": "mettle.trait.defense.shielding"
+	},
+	"description": {
+		"translate": "mettle.trait.defense.shielding.description"
+	}
+}

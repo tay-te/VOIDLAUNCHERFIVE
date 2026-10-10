@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 8,
+	"max": 20,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:anvil_cheaper"
+	},
+	"name": {
+		"translate": "mettle.trait.smithing.steady_handed"
+	},
+	"description": {
+		"translate": "mettle.trait.smithing.steady_handed.description"
+	},
+	"arsenal": {
+		"translate": "mettle.trait.smithing.steady_handed.arsenal"
+	}
+}

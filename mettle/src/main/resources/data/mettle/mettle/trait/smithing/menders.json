@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:anvil_repair"
+	},
+	"name": {
+		"translate": "mettle.trait.smithing.menders"
+	},
+	"description": {
+		"translate": "mettle.trait.smithing.menders.description"
+	},
+	"arsenal": {
+		"translate": "mettle.trait.smithing.menders.arsenal"
+	}
+}

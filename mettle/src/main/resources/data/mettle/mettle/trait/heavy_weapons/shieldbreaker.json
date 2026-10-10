@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "might",
+	"scope": "narrow",
+	"min": 15,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:heavy_shieldbreak"
+	},
+	"name": {
+		"translate": "mettle.trait.heavy_weapons.shieldbreaker"
+	},
+	"description": {
+		"translate": "mettle.trait.heavy_weapons.shieldbreaker.description"
+	}
+}

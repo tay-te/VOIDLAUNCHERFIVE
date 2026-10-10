@@ -1,0 +1,20 @@
+{
+	"skill": "mettle:defense",
+	"kind": "endurance",
+	"scope": "broad",
+	"min": 0.5,
+	"max": 1,
+	"step": 0.5,
+	"unit": "flat",
+	"effect": {
+		"attribute": "minecraft:max_health",
+		"operation": "add_value",
+		"scale": 2.0
+	},
+	"name": {
+		"translate": "mettle.trait.defense.stout"
+	},
+	"description": {
+		"translate": "mettle.trait.defense.stout.description"
+	}
+}

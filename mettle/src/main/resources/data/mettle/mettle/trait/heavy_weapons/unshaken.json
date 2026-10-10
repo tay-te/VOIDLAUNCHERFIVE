@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 15,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:heavy_unshaken"
+	},
+	"name": {
+		"translate": "mettle.trait.heavy_weapons.unshaken"
+	},
+	"description": {
+		"translate": "mettle.trait.heavy_weapons.unshaken.description"
+	}
+}

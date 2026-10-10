@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:blades",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:blade_flourish"
+	},
+	"name": {
+		"translate": "mettle.trait.blades.flourishing"
+	},
+	"description": {
+		"translate": "mettle.trait.blades.flourishing.description"
+	}
+}

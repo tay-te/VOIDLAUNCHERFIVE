@@ -79,7 +79,7 @@ public final class DraftCommands {
 			List<Card> hand = d.hand(skillKey);
 			c.getSource().sendSystemMessage(Component.translatable(hand.isEmpty() ? "mettle.draft.skill_waiting" : "mettle.draft.skill", name, d.queued(skillKey)));
 			for (int i = 0; i < hand.size(); i++) {
-				c.getSource().sendSystemMessage(line(skillKey, i, hand.get(i), perks.getOptional(hand.get(i).perk()), skills));
+				c.getSource().sendSystemMessage(line(skillKey, i, hand.get(i), perks.getOptional(hand.get(i).perk()), skills, player.level().registryAccess()));
 			}
 			if (!hand.isEmpty() && d.rerolls() > 0) {
 				String cmd = "/mettle draft reroll " + skillKey.identifier();
@@ -91,12 +91,12 @@ public final class DraftCommands {
 	}
 
 	private static Component line(ResourceKey<Skill> skill, int index, Card card, Optional<Perk> perk,
-		net.minecraft.core.Registry<Skill> skills) {
+		net.minecraft.core.Registry<Skill> skills, net.minecraft.core.RegistryAccess registries) {
 		String cmd = "/mettle draft pick " + skill.identifier() + " " + (index + 1);
 		MutableComponent out = Component.literal("  [" + (index + 1) + "] ").withStyle(ChatFormatting.GRAY);
 		MutableComponent name = perk.map(p -> p.name().copy()).orElse(Component.literal(card.perk().identifier().toString()));
 		if (perk.isPresent() && perk.get().ranks() > 1) {
-			name.append(" " + card.rank() + "/" + perk.get().ranks());
+			name.append(" " + dev.voidmc.mettle.character.cards.CardText.roman(card.rank()));
 		}
 		out.append(name.withStyle(s -> s.withColor(TextColor.fromRgb(card.rarity().colour)).withBold(true)));
 		out.append(Component.literal(" · ").withStyle(ChatFormatting.DARK_GRAY))
@@ -105,6 +105,7 @@ public final class DraftCommands {
 			Component from = skills.getOptional(perk.get().skill()).map(Skill::name).orElse(Component.empty());
 			out.append(Component.literal(" · ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.translatable("mettle.draft.wildcard", from).withStyle(ChatFormatting.GOLD));
 		}
+		out.append(dev.voidmc.mettle.character.cards.CardCommands.offer(registries, card));
 		if (perk.isPresent()) {
 			out.append(Component.literal(" — ").withStyle(ChatFormatting.DARK_GRAY)).append(PerkText.description(perk.get(), card.rank()).copy().withStyle(ChatFormatting.GRAY));
 			perk.get().downside().ifPresent(down -> out.append(Component.literal(" ").append(Component.translatable("mettle.draft.but", down)).withStyle(ChatFormatting.RED)));

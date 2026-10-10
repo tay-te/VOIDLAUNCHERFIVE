@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 15,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:sticky_blocks"
+	},
+	"name": {
+		"translate": "mettle.trait.athletics.surefoot"
+	},
+	"description": {
+		"translate": "mettle.trait.athletics.surefoot.description"
+	}
+}

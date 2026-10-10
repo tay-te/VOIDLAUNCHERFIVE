@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 15,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:poison_shorter"
+	},
+	"name": {
+		"translate": "mettle.trait.survival.antidote"
+	},
+	"description": {
+		"translate": "mettle.trait.survival.antidote.description"
+	}
+}

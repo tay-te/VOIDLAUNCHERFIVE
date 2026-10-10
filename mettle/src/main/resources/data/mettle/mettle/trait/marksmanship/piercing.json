@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "might",
+	"scope": "narrow",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:arrow_pierce"
+	},
+	"name": {
+		"translate": "mettle.trait.marksmanship.piercing"
+	},
+	"description": {
+		"translate": "mettle.trait.marksmanship.piercing.description"
+	}
+}

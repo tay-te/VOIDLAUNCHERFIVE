@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 2,
+	"max": 5,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:craft_masterwork"
+	},
+	"name": {
+		"translate": "mettle.trait.smithing.masterly"
+	},
+	"description": {
+		"translate": "mettle.trait.smithing.masterly.description"
+	},
+	"arsenal": {
+		"translate": "mettle.trait.smithing.masterly.arsenal"
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "fortune",
+	"scope": "broad",
+	"min": 2,
+	"max": 5,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:allies_sprint"
+	},
+	"name": {
+		"translate": "mettle.trait.athletics.pacesetting"
+	},
+	"description": {
+		"translate": "mettle.trait.athletics.pacesetting.description"
+	}
+}

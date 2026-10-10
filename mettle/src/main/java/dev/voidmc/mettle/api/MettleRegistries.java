@@ -12,6 +12,12 @@ public final class MettleRegistries {
 	public static final ResourceKey<Registry<Background>> BACKGROUND = ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("mettle", "background"));
 	public static final ResourceKey<Registry<Perk>> PERK = ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("mettle", "perk"));
 	public static final ResourceKey<Registry<Skill>> SKILL = ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("mettle", "skill"));
+	/** Card traits (docs/CARDS.md §4), {@code .../trait/<skill>/<id>.json}. */
+	public static final ResourceKey<Registry<Trait>> TRAIT = ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("mettle", "trait"));
+	/** Card keywords and their set bonuses (§6), {@code .../keyword/<id>.json}. */
+	public static final ResourceKey<Registry<Keyword>> KEYWORD = ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("mettle", "keyword"));
+	/** Each skill's card prefix, native keywords and keyword pool (§2.1, §6.2), {@code .../card_skill/<skill>.json}. */
+	public static final ResourceKey<Registry<CardSkill>> CARD_SKILL = ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("mettle", "card_skill"));
 
 	private MettleRegistries() {
 	}

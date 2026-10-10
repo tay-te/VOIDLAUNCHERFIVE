@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:craft_refund"
+	},
+	"name": {
+		"translate": "mettle.trait.smithing.thrifty"
+	},
+	"description": {
+		"translate": "mettle.trait.smithing.thrifty.description"
+	},
+	"arsenal": {
+		"translate": "mettle.trait.smithing.thrifty.arsenal"
+	}
+}

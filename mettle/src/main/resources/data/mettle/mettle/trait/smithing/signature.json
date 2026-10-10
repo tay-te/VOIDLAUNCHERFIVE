@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:market_signature"
+	},
+	"name": {
+		"translate": "mettle.trait.smithing.signature"
+	},
+	"description": {
+		"translate": "mettle.trait.smithing.signature.description"
+	}
+}

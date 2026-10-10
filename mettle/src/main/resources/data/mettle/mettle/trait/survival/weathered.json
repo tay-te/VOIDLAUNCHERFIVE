@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 15,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:hurt_freeze_drown"
+	},
+	"name": {
+		"translate": "mettle.trait.survival.weathered"
+	},
+	"description": {
+		"translate": "mettle.trait.survival.weathered.description"
+	}
+}

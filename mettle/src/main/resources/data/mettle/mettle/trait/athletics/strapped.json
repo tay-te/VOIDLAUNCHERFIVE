@@ -1,0 +1,20 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "might",
+	"scope": "broad",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "flat",
+	"effect": {
+		"attribute": "mettle:carry_capacity",
+		"operation": "add_value",
+		"scale": 1.0
+	},
+	"name": {
+		"translate": "mettle.trait.athletics.strapped"
+	},
+	"description": {
+		"translate": "mettle.trait.athletics.strapped.description"
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "might",
+	"scope": "broad",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:heavy_armour_pierce"
+	},
+	"name": {
+		"translate": "mettle.trait.heavy_weapons.crushing"
+	},
+	"description": {
+		"translate": "mettle.trait.heavy_weapons.crushing.description"
+	}
+}

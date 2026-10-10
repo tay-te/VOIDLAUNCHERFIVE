@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "might",
+	"scope": "broad",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:crafted_durability"
+	},
+	"name": {
+		"translate": "mettle.trait.smithing.tempered"
+	},
+	"description": {
+		"translate": "mettle.trait.smithing.tempered.description"
+	},
+	"arsenal": {
+		"translate": "mettle.trait.smithing.tempered.arsenal"
+	}
+}

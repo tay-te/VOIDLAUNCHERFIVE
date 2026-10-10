@@ -1,0 +1,28 @@
+{
+	"prefix": "BL",
+	"keyword_pool": [
+		"mettle:swift",
+		"mettle:keen",
+		"mettle:echo",
+		"mettle:brutal",
+		"mettle:warden",
+		"mettle:gale"
+	],
+	"natives": {
+		"mettle:blades/bleed": "mettle:brutal",
+		"mettle:blades/cut_and_run": "mettle:swift",
+		"mettle:blades/disarm": "mettle:warden",
+		"mettle:blades/duelist": "mettle:warden",
+		"mettle:blades/executioner": "mettle:brutal",
+		"mettle:blades/fencer": "mettle:swift",
+		"mettle:blades/glass_dancer": "mettle:hex",
+		"mettle:blades/light_feet": "mettle:swift",
+		"mettle:blades/measure": "mettle:keen",
+		"mettle:blades/momentum": "mettle:echo",
+		"mettle:blades/quick_draw": "mettle:keen",
+		"mettle:blades/reckless_edge": "mettle:hex",
+		"mettle:blades/single_combat": "mettle:keen",
+		"mettle:blades/whirlwind": "mettle:echo",
+		"mettle:blades/wide_arc": "mettle:brutal"
+	}
+}

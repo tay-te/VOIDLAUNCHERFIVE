@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 8,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:sprint_hunger"
+	},
+	"name": {
+		"translate": "mettle.trait.athletics.windless"
+	},
+	"description": {
+		"translate": "mettle.trait.athletics.windless.description"
+	}
+}

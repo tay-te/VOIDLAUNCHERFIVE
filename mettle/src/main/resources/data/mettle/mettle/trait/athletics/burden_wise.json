@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "might",
+	"scope": "broad",
+	"min": 2,
+	"max": 5,
+	"step": 1,
+	"unit": "flat",
+	"effect": {
+		"behaviour": "mettle:burden_later"
+	},
+	"name": {
+		"translate": "mettle.trait.athletics.burden_wise"
+	},
+	"description": {
+		"translate": "mettle.trait.athletics.burden_wise.description"
+	}
+}

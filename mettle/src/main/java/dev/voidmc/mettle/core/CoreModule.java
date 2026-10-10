@@ -27,7 +27,12 @@ public final class CoreModule {
 		DynamicRegistries.registerSynced(MettleRegistries.SKILL, Skill.CODEC);
 		DynamicRegistries.registerSynced(MettleRegistries.BACKGROUND, Background.CODEC);
 		DynamicRegistries.registerSynced(MettleRegistries.PERK, Perk.CODEC);
+		// Cards v2 (docs/CARDS.md): traits, keywords and each skill's card data.
+		DynamicRegistries.registerSynced(MettleRegistries.TRAIT, dev.voidmc.mettle.api.Trait.CODEC);
+		DynamicRegistries.registerSynced(MettleRegistries.KEYWORD, dev.voidmc.mettle.api.Keyword.CODEC);
+		DynamicRegistries.registerSynced(MettleRegistries.CARD_SKILL, dev.voidmc.mettle.api.CardSkill.CODEC);
 		CharacterStore.init();
+		CardStore.init();
 		MettleAttributes.init();
 
 		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.OpenPicker.TYPE, MettlePayloads.OpenPicker.STREAM_CODEC);
@@ -40,6 +45,8 @@ public final class CoreModule {
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.SpendAttribute.TYPE, MettlePayloads.SpendAttribute.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.PickCard.TYPE, MettlePayloads.PickCard.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.Reroll.TYPE, MettlePayloads.Reroll.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.KeepCard.TYPE, MettlePayloads.KeepCard.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.CardAction.TYPE, MettlePayloads.CardAction.STREAM_CODEC);
 
 		ServerPlayerEvents.JOIN.register(EffectsApplier::apply);
 		ServerPlayerEvents.AFTER_RESPAWN.addPhaseOrdering(Event.DEFAULT_PHASE, AFTER_ATTACHMENTS);

@@ -1,0 +1,27 @@
+{
+	"prefix": "DF",
+	"keyword_pool": [
+		"mettle:iron",
+		"mettle:warden",
+		"mettle:kin",
+		"mettle:brutal",
+		"mettle:ember"
+	],
+	"natives": {
+		"mettle:defense/armour_training": "mettle:iron",
+		"mettle:defense/bastion": "mettle:hex",
+		"mettle:defense/bulwark": "mettle:warden",
+		"mettle:defense/guardian": "mettle:kin",
+		"mettle:defense/hold_the_line": "mettle:iron",
+		"mettle:defense/iron_hide": "mettle:hex",
+		"mettle:defense/juggernaut": "mettle:brutal",
+		"mettle:defense/last_stand": "mettle:ember",
+		"mettle:defense/mender": "mettle:iron",
+		"mettle:defense/perfect_block": "mettle:keen",
+		"mettle:defense/second_wind": "mettle:ember",
+		"mettle:defense/shield_bash": "mettle:brutal",
+		"mettle:defense/shield_up": "mettle:warden",
+		"mettle:defense/thick_skin": "mettle:iron",
+		"mettle:defense/unbowed": "mettle:warden"
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:defense",
+	"kind": "might",
+	"scope": "broad",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:shield_thorns"
+	},
+	"name": {
+		"translate": "mettle.trait.defense.thorned"
+	},
+	"description": {
+		"translate": "mettle.trait.defense.thorned.description"
+	}
+}

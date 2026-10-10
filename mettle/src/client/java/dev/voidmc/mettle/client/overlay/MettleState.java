@@ -149,8 +149,11 @@ public final class MettleState {
 		// The perk draft (docs/DRAFT.md): one deck and one reading of the character serve every skill and perk below.
 		DraftState drafts = state.drafts();
 		DraftRules.Deck deck = Drafts.deck(registries);
-		DraftRules.Sheet sheet = Drafts.sheet(registries, state);
+		dev.voidmc.mettle.character.cards.CardRules.Sheet cardSheet = dev.voidmc.mettle.character.cards.Cards.sheet(registries, state,
+			dev.voidmc.mettle.core.CardStore.get(mc.player));
 		root.add("draft", draft(drafts));
+		// Cards v2 (docs/CARDS.md): the binder, decks, sets, trait totals and costs.
+		root.add("cards", MettleCards.build(mc, registries));
 
 		JsonArray skills = new JsonArray();
 		registries.lookupOrThrow(MettleRegistries.SKILL).listElements()
@@ -173,9 +176,10 @@ public final class MettleState {
 				s.addProperty("drafts", waiting);
 				s.addProperty("points", waiting);
 				s.addProperty("rerolls", drafts.rerolls());
-				s.add("hand", hand(registries, drafts.hand(ref.key())));
+				s.add("hand", hand(registries, drafts.hand(ref.key()), state));
+				// Cards v2: each frame's chance per card of a hand dealt now (cursed by depth, the rest by rolled rarity).
 				JsonObject odds = new JsonObject();
-				DraftRules.slotOdds(ref.key(), sheet, deck).forEach((r, v) -> odds.addProperty(r.getSerializedName(), Math.round(v * 10) / 10.0));
+				dev.voidmc.mettle.character.cards.CardRules.frameOdds(ref.key(), cardSheet, deck).forEach((r, v) -> odds.addProperty(r.getSerializedName(), Math.round(v * 10) / 10.0));
 				s.add("odds", odds);
 				// Rank title by level band ("Journeyman Miner") and the skill's line of lore.
 				String path = ref.key().identifier().getPath();
@@ -192,8 +196,10 @@ public final class MettleState {
 		JsonArray perks = new JsonArray();
 		registries.lookupOrThrow(MettleRegistries.PERK).listElements().forEach(ref -> {
 			Perk p = ref.value();
-			int rank = state.rank(ref.key());
+			// Active rank: earned, or from a slotted card (cards v2); "owned" counts the cards of it in the binder and decks.
+			int rank = Perks.rank(mc.player, ref.key());
 			JsonObject o = new JsonObject();
+			o.addProperty("owned", (int) dev.voidmc.mettle.core.CardStore.get(mc.player).cards().stream().filter(c -> c.perk().equals(ref.key())).count());
 			o.addProperty("id", ref.key().identifier().toString());
 			o.addProperty("skill", p.skill().identifier().toString());
 			o.addProperty("kind", p.kind().getSerializedName());
@@ -222,9 +228,10 @@ public final class MettleState {
 				o.addProperty("rarity", rarity.getSerializedName());
 				o.addProperty("rarityColour", rarity.hex());
 			}
-			if (p.kind().drafted() && rank < p.ranks()) {
-				// The same rules the server deals by: null when the next rank is in the deck now, else why not.
-				var why = DraftRules.eligible(ref.key(), p, sheet, deck);
+			if (p.kind().drafted()) {
+				// The same rules the server deals by (cards v2: owning a perk never stops it being dealt): null when it
+				// can be dealt now, else why not.
+				var why = dev.voidmc.mettle.character.cards.CardRules.dealable(ref.key(), p, cardSheet, deck);
 				why.ifPresentOrElse(r -> o.addProperty("locked", Component.translatable(r.translationKey()).getString()), () -> o.add("locked", JsonNull.INSTANCE));
 				o.addProperty("inDeck", why.isEmpty());
 			} else {
@@ -310,7 +317,7 @@ public final class MettleState {
 	}
 
 	/** A skill's dealt hand as cards the overlay draws: what keeping each one gives. */
-	private static JsonArray hand(RegistryAccess registries, List<DraftState.Card> cards) {
+	private static JsonArray hand(RegistryAccess registries, List<DraftState.Card> cards, CharacterState character) {
 		JsonArray out = new JsonArray();
 		var perks = registries.lookupOrThrow(MettleRegistries.PERK);
 		var skills = registries.lookupOrThrow(MettleRegistries.SKILL);
@@ -338,6 +345,8 @@ public final class MettleState {
 				Skill from = skills.getValue(p.skill());
 				o.addProperty("skillName", from == null ? p.skill().identifier().getPath() : from.name().getString());
 				o.addProperty("colour", String.format(Locale.ROOT, "#%06X", from == null ? Skill.NO_COLOUR : from.colour()));
+				// The rolled card (CARDS.md §2): keywords, traits, requirement, the rank name ("Quarryman III").
+				MettleCards.offer(o, registries, character, card);
 			}
 			out.add(o);
 		}

@@ -1,0 +1,30 @@
+{
+	"name": {
+		"translate": "mettle.keyword.wild"
+	},
+	"theme": {
+		"translate": "mettle.keyword.wild.theme"
+	},
+	"colour": "#C9CCD1",
+	"icon": "mettle:textures/gui/keyword/wild.png",
+	"sets": {
+		"2": {
+			"description": {
+				"translate": "mettle.keyword.wild.set.2"
+			},
+			"behaviour": "mettle:set_wild_2"
+		},
+		"4": {
+			"description": {
+				"translate": "mettle.keyword.wild.set.4"
+			},
+			"behaviour": "mettle:set_wild_4"
+		},
+		"6": {
+			"description": {
+				"translate": "mettle.keyword.wild.set.6"
+			},
+			"behaviour": "mettle:set_wild_6"
+		}
+	}
+}

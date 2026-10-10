@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:survival",
+	"kind": "endurance",
+	"scope": "broad",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:food_fill"
+	},
+	"name": {
+		"translate": "mettle.trait.survival.hearty"
+	},
+	"description": {
+		"translate": "mettle.trait.survival.hearty.description"
+	}
+}

@@ -1,0 +1,44 @@
+{
+	"name": {
+		"translate": "mettle.keyword.tide"
+	},
+	"theme": {
+		"translate": "mettle.keyword.tide.theme"
+	},
+	"colour": "#C9CCD1",
+	"icon": "mettle:textures/gui/keyword/tide.png",
+	"sets": {
+		"2": {
+			"description": {
+				"translate": "mettle.keyword.tide.set.2"
+			},
+			"effects": [
+				{
+					"attribute": "minecraft:water_movement_efficiency",
+					"amount": 0.1,
+					"operation": "add_value"
+				}
+			],
+			"behaviour": "mettle:set_tide_2"
+		},
+		"4": {
+			"description": {
+				"translate": "mettle.keyword.tide.set.4"
+			},
+			"effects": [
+				{
+					"attribute": "minecraft:submerged_mining_speed",
+					"amount": 0.8,
+					"operation": "add_value"
+				}
+			],
+			"behaviour": "mettle:set_tide_4"
+		},
+		"6": {
+			"description": {
+				"translate": "mettle.keyword.tide.set.6"
+			},
+			"behaviour": "mettle:set_tide_6"
+		}
+	}
+}

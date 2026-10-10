@@ -9,6 +9,11 @@ import dev.voidmc.mettle.api.Skill;
 import dev.voidmc.mettle.character.Perks;
 import dev.voidmc.mettle.character.moment.Moments;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
+import dev.voidmc.mettle.character.cards.CardRules;
+import dev.voidmc.mettle.character.cards.Cards;
+import dev.voidmc.mettle.core.CardData;
+import dev.voidmc.mettle.core.CardStore;
+import dev.voidmc.mettle.core.CardsState;
 import dev.voidmc.mettle.core.CharacterState;
 import dev.voidmc.mettle.core.CharacterStore;
 import dev.voidmc.mettle.core.DraftState;
@@ -49,7 +54,9 @@ public final class Drafts {
 		NO_CARD,
 		/** The card stopped being good (learned another way, a Mastery taken): a fresh hand was dealt, free. */
 		STALE,
-		NO_REROLLS;
+		NO_REROLLS,
+		/** The binder holds 300 cards: the draft waits (docs/CARDS.md §7.5). */
+		BINDER_FULL;
 
 		public String translationKey() {
 			return "mettle.draft.refused." + name().toLowerCase(Locale.ROOT);
@@ -60,8 +67,11 @@ public final class Drafts {
 	}
 
 	public static void init() {
-		// Migrate old saves (unspent points become drafts) and deal any hand that is due, before anything else asks.
+		// Migrate old saves (unspent points become drafts, drafted perks cards) and deal any hand that is due.
 		ServerPlayerEvents.JOIN.register(Drafts::refresh);
+		ServerPlayNetworking.registerGlobalReceiver(MettlePayloads.KeepCard.TYPE, (payload, context) ->
+			keep(context.player(), payload.skill(), payload.index(), payload.slot() ? Cards.Keep.SLOT : Cards.Keep.BINDER)
+				.ifPresent(r -> refused(context.player(), payload.skill(), r)));
 		ServerPlayNetworking.registerGlobalReceiver(MettlePayloads.PickCard.TYPE, (payload, context) ->
 			pick(context.player(), payload.skill(), payload.index()).ifPresent(r -> refused(context.player(), payload.skill(), r)));
 		ServerPlayNetworking.registerGlobalReceiver(MettlePayloads.Reroll.TYPE, (payload, context) ->
@@ -138,30 +148,28 @@ public final class Drafts {
 		return next;
 	}
 
-	/** Deals every hand that is due, re-deals hands holding a card that went bad, and turns spent decks' drafts into rerolls. */
+	/** Deals every hand that is due and re-deals hands holding a card that went bad (or a v1 hand from before cards). */
 	public static void refresh(ServerPlayer player) {
-		CharacterState state = ensure(player);
-		Settled settled = settle(player.level().registryAccess(), state);
+		CharacterState state = dev.voidmc.mettle.character.cards.Cards.ensure(player);
+		Settled settled = settle(player.level().registryAccess(), state, CardStore.get(player));
 		if (!settled.state().equals(state)) {
 			CharacterStore.set(player, settled.state());
 		}
-		settled.spent().forEach((skill, n) -> SignaturePerks.feedback(player, Mettle.id("draft/" + skill.identifier().getPath()),
-			Component.translatable(n == 1 ? "mettle.draft.spent.one" : "mettle.draft.spent", skillName(player, skill), n)));
 	}
 
 	/**
 	 * What {@link #refresh} does, on a state rather than a player.
 	 *
-	 * @param spent skills whose decks are spent, with how many drafts became rerolls
+	 * @param spent v1 only (a spent deck's drafts became rerolls); cards v2 never spends a deck, so it is always empty
 	 */
 	public record Settled(CharacterState state, Map<ResourceKey<Skill>, Integer> spent) {
 	}
 
-	public static Settled settle(RegistryAccess registries, CharacterState state) {
+	public static Settled settle(RegistryAccess registries, CharacterState state, CardsState cards) {
 		DraftState d = state.drafts();
 		DraftRules.Deck deck = deck(registries);
-		DraftRules.Sheet sheet = sheet(registries, state);
-		Map<ResourceKey<Skill>, Integer> spent = new LinkedHashMap<>();
+		CardRules.Sheet sheet = Cards.sheet(registries, state, cards);
+		CardRules.Data data = Cards.data(registries);
 		Set<ResourceKey<Skill>> skills = new HashSet<>(d.queued().keySet());
 		skills.addAll(d.hands().keySet());
 		List<ResourceKey<Skill>> order = skills.stream().sorted(Comparator.comparing(k -> k.identifier().toString())).toList();
@@ -171,19 +179,13 @@ public final class Drafts {
 				d = d.withHand(skill, List.of());
 				continue;
 			}
-			if (!hand.isEmpty() && hand.stream().allMatch(c -> DraftRules.valid(c, sheet, deck))) {
+			if (!hand.isEmpty() && hand.stream().allMatch(c -> CardRules.valid(c, sheet, deck))) {
 				continue;
 			}
-			if (DraftRules.exhausted(skill, sheet, deck)) {
-				int n = d.queued(skill);
-				spent.put(skill, n);
-				d = d.withQueued(skill, 0).withHand(skill, List.of()).withRerolls(DraftRules.addRerolls(d.rerolls(), n));
-				continue;
-			}
-			List<Card> cards = DraftRules.deal(skill, sheet, deck, DraftRules.random(d.seed(), d.dealt()), d.recent(), Set.of());
-			d = cards.isEmpty() ? d.withHand(skill, List.of()) : d.nextDeal().withHand(skill, cards);
+			List<Card> cardsDealt = CardRules.deal(skill, sheet, deck, data, DraftRules.random(d.seed(), d.dealt()), d.recent(), Set.of());
+			d = cardsDealt.isEmpty() ? d.withHand(skill, List.of()) : d.nextDeal().withHand(skill, cardsDealt);
 		}
-		return new Settled(state.withDraft(d), spent);
+		return new Settled(state.withDraft(d), Map.of());
 	}
 
 	// ---------------------------------------------------------------- what changes it
@@ -228,9 +230,17 @@ public final class Drafts {
 		return state.withDraft(d);
 	}
 
-	/** Keeps the {@code index}-th card of a skill's hand: its perk gains that rank, and the next draft (if any) is dealt. */
+	/**
+	 * Keeps the {@code index}-th card of a skill's hand (the old pick): it becomes a card, slotted when a legal slot is
+	 * free, else in the binder (docs/CARDS.md §5.2); the next draft (if any) is dealt.
+	 */
 	public static Optional<Refusal> pick(ServerPlayer player, ResourceKey<Skill> skill, int index) {
-		CharacterState state = ensure(player);
+		return keep(player, skill, index, Cards.Keep.AUTO);
+	}
+
+	/** Keeps a card of a skill's hand into the binder, a slot, or a slot when one is free (§5.2 "Keep" / "Keep &amp; slot"). */
+	public static Optional<Refusal> keep(ServerPlayer player, ResourceKey<Skill> skill, int index, Cards.Keep how) {
+		CharacterState state = Cards.ensure(player);
 		DraftState d = state.drafts();
 		List<Card> hand = d.hand(skill);
 		if (d.queued(skill) <= 0 || hand.isEmpty()) {
@@ -239,34 +249,32 @@ public final class Drafts {
 		if (index < 0 || index >= hand.size()) {
 			return Optional.of(Refusal.NO_CARD);
 		}
+		if (!Cards.binderRoom(player)) {
+			return Optional.of(Refusal.BINDER_FULL);
+		}
 		RegistryAccess registries = player.level().registryAccess();
 		DraftRules.Deck deck = deck(registries);
 		Card card = hand.get(index);
-		if (!DraftRules.valid(card, sheet(registries, state), deck)) {
+		if (!CardRules.valid(card, Cards.sheet(registries, state, CardStore.get(player)), deck)) {
 			refresh(player);
 			return Optional.of(Refusal.STALE);
 		}
 		Perk perk = deck.get(card.perk()).orElseThrow();
-		Map<ResourceKey<Perk>, Integer> held = new HashMap<>(state.perks());
-		held.put(card.perk(), card.rank());
-		CharacterState next = state.withPerks(held).withDraft(d.addQueued(skill, -1).withHand(skill, List.of()));
-		CharacterStore.set(player, next);
+		CharacterStore.set(player, state.withDraft(d.addQueued(skill, -1).withHand(skill, List.of())));
+		CardData kept = Cards.keep(player, card, how);
 		refresh(player);
-		EffectsApplier.apply(player);
-		Component text = perk.kind() == Perk.Kind.MASTERY
-			? Component.translatable("mettle.feedback.mastery", perk.name())
-			: Component.translatable("mettle.feedback.learned", perk.name(), card.rank());
 		Moments.perk(player, card.perk(), perk, card.rank());
+		Component text = Component.translatable(kept.slotted() ? "mettle.cards.kept_slotted" : "mettle.cards.kept", perk.name(),
+			Component.translatable("mettle.draft.rarity." + card.rarity().getSerializedName()), Cards.printId(registries, kept));
 		SignaturePerks.feedback(player, card.perk().identifier(), text);
-		Mettle.LOGGER.info("{} drafted {} rank {} ({}{}) for {}", player.getName().getString(), card.perk().identifier(), card.rank(),
-			card.rarity().getSerializedName(), card.wildcard() ? ", wildcard" : "", skill.identifier());
-		MettleEvents.PERK_LEARNED.invoker().learned(player, card.perk(), card.rank());
+		Mettle.LOGGER.info("{} kept {} {} ({}{}) for {} as card {}{}", player.getName().getString(), card.perk().identifier(), card.rank(),
+			card.rarity().getSerializedName(), card.wildcard() ? ", wildcard" : "", skill.identifier(), kept.id(), kept.slotted() ? ", slotted" : "");
 		return Optional.empty();
 	}
 
 	/** Spends a reroll: the skill's hand is dealt again, avoiding the cards it held while others are left. */
 	public static Optional<Refusal> reroll(ServerPlayer player, ResourceKey<Skill> skill) {
-		CharacterState state = ensure(player);
+		CharacterState state = Cards.ensure(player);
 		DraftState d = state.drafts();
 		List<Card> hand = d.hand(skill);
 		if (d.queued(skill) <= 0 || hand.isEmpty()) {
@@ -278,7 +286,8 @@ public final class Drafts {
 		RegistryAccess registries = player.level().registryAccess();
 		Set<ResourceKey<Perk>> avoid = new HashSet<>();
 		hand.forEach(c -> avoid.add(c.perk()));
-		List<Card> cards = DraftRules.deal(skill, sheet(registries, state), deck(registries), DraftRules.random(d.seed(), d.dealt()), d.recent(), avoid);
+		List<Card> cards = CardRules.deal(skill, Cards.sheet(registries, state, CardStore.get(player)), deck(registries), Cards.data(registries),
+			DraftRules.random(d.seed(), d.dealt()), d.recent(), avoid);
 		if (cards.isEmpty()) {
 			refresh(player);
 			return Optional.of(Refusal.STALE);

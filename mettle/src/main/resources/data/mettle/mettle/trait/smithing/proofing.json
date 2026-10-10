@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "endurance",
+	"scope": "broad",
+	"min": 0.25,
+	"max": 0.5,
+	"step": 0.25,
+	"unit": "flat",
+	"effect": {
+		"behaviour": "mettle:crafted_toughness"
+	},
+	"name": {
+		"translate": "mettle.trait.smithing.proofing"
+	},
+	"description": {
+		"translate": "mettle.trait.smithing.proofing.description"
+	}
+}

@@ -1,0 +1,30 @@
+{
+	"name": {
+		"translate": "mettle.keyword.echo"
+	},
+	"theme": {
+		"translate": "mettle.keyword.echo.theme"
+	},
+	"colour": "#C9CCD1",
+	"icon": "mettle:textures/gui/keyword/echo.png",
+	"sets": {
+		"2": {
+			"description": {
+				"translate": "mettle.keyword.echo.set.2"
+			},
+			"behaviour": "mettle:set_echo_2"
+		},
+		"4": {
+			"description": {
+				"translate": "mettle.keyword.echo.set.4"
+			},
+			"behaviour": "mettle:set_echo_4"
+		},
+		"6": {
+			"description": {
+				"translate": "mettle.keyword.echo.set.6"
+			},
+			"behaviour": "mettle:set_echo_6"
+		}
+	}
+}

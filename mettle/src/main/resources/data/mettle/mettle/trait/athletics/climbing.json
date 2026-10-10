@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:climb_speed"
+	},
+	"name": {
+		"translate": "mettle.trait.athletics.climbing"
+	},
+	"description": {
+		"translate": "mettle.trait.athletics.climbing.description"
+	}
+}

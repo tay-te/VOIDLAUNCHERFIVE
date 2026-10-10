@@ -1,0 +1,36 @@
+{
+	"name": {
+		"translate": "mettle.keyword.warden"
+	},
+	"theme": {
+		"translate": "mettle.keyword.warden.theme"
+	},
+	"colour": "#C9CCD1",
+	"icon": "mettle:textures/gui/keyword/warden.png",
+	"sets": {
+		"2": {
+			"description": {
+				"translate": "mettle.keyword.warden.set.2"
+			},
+			"effects": [
+				{
+					"attribute": "minecraft:armor",
+					"amount": 1.0,
+					"operation": "add_value"
+				}
+			]
+		},
+		"4": {
+			"description": {
+				"translate": "mettle.keyword.warden.set.4"
+			},
+			"behaviour": "mettle:set_warden_4"
+		},
+		"6": {
+			"description": {
+				"translate": "mettle.keyword.warden.set.6"
+			},
+			"behaviour": "mettle:set_warden_6"
+		}
+	}
+}

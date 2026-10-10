@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 8,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:crossbow_load"
+	},
+	"name": {
+		"translate": "mettle.trait.marksmanship.cranking"
+	},
+	"description": {
+		"translate": "mettle.trait.marksmanship.cranking.description"
+	}
+}

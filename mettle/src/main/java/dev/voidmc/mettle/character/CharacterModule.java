@@ -38,6 +38,7 @@ public final class CharacterModule {
 			Progress.forget(player.getUUID());
 			MiningSkill.forget(player.getUUID());
 		});
+		dev.voidmc.mettle.character.cards.Cards.init();
 		dev.voidmc.mettle.character.draft.Drafts.init();
 		SignaturePerks.init();
 		PlacedBlocks.init();
@@ -58,6 +59,7 @@ public final class CharacterModule {
 			CharacterCommands.register(dispatcher, context);
 			TreeCommands.register(dispatcher);
 			dev.voidmc.mettle.character.draft.DraftCommands.register(dispatcher);
+			dev.voidmc.mettle.character.cards.CardCommands.register(dispatcher);
 		});
 	}
 }

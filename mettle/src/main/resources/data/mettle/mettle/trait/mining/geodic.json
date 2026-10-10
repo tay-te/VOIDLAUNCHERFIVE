@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:mining",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 15,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:extra_amethyst"
+	},
+	"name": {
+		"translate": "mettle.trait.mining.geodic"
+	},
+	"description": {
+		"translate": "mettle.trait.mining.geodic.description"
+	}
+}

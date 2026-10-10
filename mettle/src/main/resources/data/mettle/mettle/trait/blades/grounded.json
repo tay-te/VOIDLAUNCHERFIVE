@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:blades",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"attribute": "minecraft:knockback_resistance",
+		"operation": "add_value",
+		"scale": 0.01,
+		"when": "holding_blade"
+	},
+	"name": {
+		"translate": "mettle.trait.blades.grounded"
+	},
+	"description": {
+		"translate": "mettle.trait.blades.grounded.description"
+	}
+}

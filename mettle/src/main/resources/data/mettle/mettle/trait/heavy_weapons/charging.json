@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 6,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:heavy_charge"
+	},
+	"name": {
+		"translate": "mettle.trait.heavy_weapons.charging"
+	},
+	"description": {
+		"translate": "mettle.trait.heavy_weapons.charging.description"
+	}
+}

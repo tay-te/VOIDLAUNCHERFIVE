@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:defense",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:regen_rest"
+	},
+	"name": {
+		"translate": "mettle.trait.defense.recovering"
+	},
+	"description": {
+		"translate": "mettle.trait.defense.recovering.description"
+	}
+}

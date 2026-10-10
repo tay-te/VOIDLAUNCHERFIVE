@@ -79,9 +79,9 @@ public final class Progress {
 			return;
 		}
 		// An old save is migrated first, so a level gained now is a draft and never also counted as an unspent point.
-		CharacterState state = Drafts.ensure(player);
+		CharacterState state = dev.voidmc.mettle.character.cards.Cards.ensure(player);
 		Background background = CharacterStore.background(player.level().registryAccess(), state);
-		double gained = MettleEvents.MODIFY_XP.invoker().modify(player, skill, base * multiplier(state, background, skill));
+		double gained = MettleEvents.MODIFY_XP.invoker().modify(player, skill, base * multiplier(state, background, skill) * dev.voidmc.mettle.character.draft.Cursed.cardXp(player, state, skill));
 		if (gained <= 0) {
 			return;
 		}

@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "finesse",
+	"scope": "broad",
+	"min": 4,
+	"max": 10,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:bow_draw"
+	},
+	"name": {
+		"translate": "mettle.trait.marksmanship.quickdraw"
+	},
+	"description": {
+		"translate": "mettle.trait.marksmanship.quickdraw.description"
+	}
+}

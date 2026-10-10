@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "endurance",
+	"scope": "broad",
+	"min": 2,
+	"max": 4,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:heavy_rage"
+	},
+	"name": {
+		"translate": "mettle.trait.heavy_weapons.raging"
+	},
+	"description": {
+		"translate": "mettle.trait.heavy_weapons.raging.description"
+	}
+}

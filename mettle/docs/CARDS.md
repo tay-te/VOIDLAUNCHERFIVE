@@ -936,3 +936,14 @@ preview, the trainer rebuild, the trade screen both sides, a Mythic reveal, a na
 4. **Earned perks stay always on**, outside the deck (rewards for deeds, not build choices).
 5. **Reroll supply**: keep "release three for a reroll"; watch it in play and tune `RELEASE_FOR_REROLL`.
 6. **The Far Horizon** keeps Homeward (once a day) for now.
+
+## 19. Rulings (coordinator, for the Figma designer's questions, 2026-10-10)
+
+1. **Card look: direction D.** A pixel edge burning in the skill colour; rarity shows in the gem and in how much of the
+   edge burns. It replaces the flat "rarity frame + skill band" of §13.
+2. **Fusion cost** = the resulting card's rebuild fee for its requirement band (§7.1); no draught, no scar.
+3. **Fusion's "best trait"** = the trait with the highest share of its cap among the three inputs; it is kept at its
+   old rolled value (not rerolled).
+4. **A slotted card can't be fused or released directly**: unslot it first (a rebuild or a free swap).
+5. **Release happens at a Card Shrine**, but the binder shows a Release action that explains "at a Card Shrine" when
+   the player isn't at one; the overlay state says whether the player is at a shrine (`cards.atShrine`).

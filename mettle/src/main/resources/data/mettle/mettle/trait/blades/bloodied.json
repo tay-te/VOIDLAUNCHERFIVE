@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:blades",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"attribute": "minecraft:attack_speed",
+		"operation": "add_multiplied_base",
+		"scale": 0.01,
+		"when": "bloodied_blade"
+	},
+	"name": {
+		"translate": "mettle.trait.blades.bloodied"
+	},
+	"description": {
+		"translate": "mettle.trait.blades.bloodied.description"
+	}
+}

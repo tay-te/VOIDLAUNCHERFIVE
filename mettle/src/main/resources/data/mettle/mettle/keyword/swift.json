@@ -1,0 +1,43 @@
+{
+	"name": {
+		"translate": "mettle.keyword.swift"
+	},
+	"theme": {
+		"translate": "mettle.keyword.swift.theme"
+	},
+	"colour": "#C9CCD1",
+	"icon": "mettle:textures/gui/keyword/swift.png",
+	"sets": {
+		"2": {
+			"description": {
+				"translate": "mettle.keyword.swift.set.2"
+			},
+			"effects": [
+				{
+					"attribute": "minecraft:movement_speed",
+					"amount": 0.03,
+					"operation": "add_multiplied_base"
+				}
+			]
+		},
+		"4": {
+			"description": {
+				"translate": "mettle.keyword.swift.set.4"
+			},
+			"effects": [
+				{
+					"attribute": "minecraft:attack_speed",
+					"amount": 0.05,
+					"operation": "add_multiplied_base"
+				}
+			],
+			"behaviour": "mettle:set_swift_4"
+		},
+		"6": {
+			"description": {
+				"translate": "mettle.keyword.swift.set.6"
+			},
+			"behaviour": "mettle:set_swift_6"
+		}
+	}
+}

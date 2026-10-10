@@ -1,0 +1,21 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "finesse",
+	"scope": "broad",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"attribute": "minecraft:attack_speed",
+		"operation": "add_multiplied_base",
+		"scale": 0.01,
+		"when": "holding_heavy"
+	},
+	"name": {
+		"translate": "mettle.trait.heavy_weapons.swinging"
+	},
+	"description": {
+		"translate": "mettle.trait.heavy_weapons.swinging.description"
+	}
+}
