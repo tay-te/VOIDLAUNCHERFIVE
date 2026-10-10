@@ -98,7 +98,38 @@
     f();
     toast();
     moments();
+    pageFx();
   };
+
+  // ---- native layers of the page itself (CardFx): the collection hover flicker and the drop-slot pulse --------------
+  // Both loop, so neither is CSS: the page reports where they are and Java draws them over the still page.
+  var hoverEl = null, hoverN = 0;
+  function setHover(el) {
+    if (el === hoverEl) return;
+    hoverEl = el;
+    if (!el) { MC.fxSet("hover", []); return; }
+    hoverN = (hoverN + 1) % 100000;
+    var a = MC.abs(el);
+    // The card itself lifts 4 px in CSS (a 96 x 128 repaint); the flicker sits on the lifted card.
+    MC.fxSet("hover", [{i: "hv" + hoverN, k: el.getAttribute("data-fxhover"), x: a.x, y: a.y - 4, c: el.getAttribute("data-fxtint") || "#9A9DA1"}]);
+  }
+  function hoverFrom(target) {
+    var el = closest(target, "data-fxhover");
+    if (el && (st.deck.drag || MC.ov.active() || kind !== "classes" || closest(el, "data-nofx"))) el = null;
+    setHover(el);
+  }
+  function pageFx() {
+    var items = [];
+    if (MC.attached && kind === "classes" && !MC.ov.active() && screen === "skill-deck" && (st.deck.drag || st.deck.sel)) {
+      var ds = cv.querySelectorAll(".slot.drop");
+      for (var i = 0; i < ds.length; i++) {
+        var a = MC.abs(ds[i]);
+        items.push({i: "pl" + ds[i].getAttribute("data-slot"), k: "pulse", x: a.x, y: a.y, w: ds[i].offsetWidth, h: ds[i].offsetHeight, c: "#F5B03C", a: 0.16});
+      }
+    }
+    MC.fxSet("pulse", items);
+    if (hoverEl && (!document.documentElement.contains(hoverEl) || st.deck.drag || MC.ov.active())) setHover(null);
+  }
 
   // Mettle answers every card action with a chip (a refusal says why); the page shows the newest for a few seconds.
   var toastShown = "", toastTimer = null;
@@ -307,7 +338,7 @@
   function detail(c) {
     if (!c) return '<div class="bd-empty">Pick a card to see its traits and history.</div>';
     var mythic = MC.isMythic(c);
-    var h = '<div class="bd-big">' + MC.ccard(c, {}) + "</div>";
+    var h = '<div class="bd-big" data-nofx="1">' + MC.ccard(c, {}) + "</div>";
     var inDeck = c.place === "slotted" ? (skill(c.deck) ? skill(c.deck).name : "") + " · slot " + (c.slot + 1) : c.place === "trade" ? "In a trade" : "Binder";
     var facts = [["Rarity", mythic ? "Mythic" : (c.rarityName || "") + " · " + (c.tierName || "")], ["Keywords", mythic ? "—" : kwNames(c) || "—"], ["Needs", mythic ? "Any deck" : String(c.needsText || "").replace(/^Needs /, "")], ["In deck", inDeck]];
     for (var i = 0; i < facts.length; i++) h += '<div class="bd-k" style="top:' + (21 + i * 40) + 'px">' + facts[i][0] + '</div><div class="bd-v" style="top:' + (35 + i * 40) + 'px">' + esc(facts[i][1]) + "</div>";
@@ -965,7 +996,12 @@
   }
   function onMove(ev) {
     if (MC.ov.kind() === "draft") { MC.ov.hover(ev.target); return; }
-    if (!press) return;
+    if (!press) {
+      // Only the Classes page has card hovers; any other page's moves (and every drag) pass through untouched.
+      if (MC.attached && kind === "classes" && !ev.buttons) hoverFrom(ev.target);
+      else if (hoverEl) setHover(null);
+      return;
+    }
     var d = st.deck.drag;
     if (!d) {
       if (Math.abs(ev.clientX - press.x) + Math.abs(ev.clientY - press.y) < 5) return;
@@ -1062,6 +1098,8 @@
   MC.detach = function () {
     if (!MC.attached) return;
     MC.ov.close(true);
+    hoverEl = null;
+    MC.fxClear();
     MC.attached = false;
     if (root) root.innerHTML = "";
     screen = "";
@@ -1088,9 +1126,16 @@
       if (MC.textFocus) MC.textFocus = false;
       press = null;
       st.deck.drag = null;
+      hoverEl = null;
+      MC.fxClear();
       ui();
     } else {
       screen = "";
+      // Java drops the native layers when the window changes page or size: send them again (positions may move).
+      hoverEl = null;
+      MC.fxSet("hover", []);
+      MC.fxResend();
+      if (MC.ov.active()) MC.ov.refx();
       // Opening Classes (K after "a draft to pick", or the segment) deals what waits; Esc keeps it for this visit.
       dismissedWaiting = 0;
     }

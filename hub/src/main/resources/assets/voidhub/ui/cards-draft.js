@@ -2,6 +2,7 @@
 // 525:20667, D4 pick 525:20922; Mythic M1-M3 533:20975/20977/20979) and §2g (set complete 539:23542).
 //
 //   MC.ov.draft(skill)  deal the skill's hand: three cards fan in 80 ms apart; hover lifts a card onto its hot frame;
+//                       a Mythic offer turns over first and is claimed on top of the keep (Mettle's claimMythic);
 //                       1-3 or a click keeps one (it flares, the other two burn away); R redeals; Esc keeps the draft
 //   MC.ov.reveal(m)     a Mythic turns over (dark, tremble, cracks, swell, flip into a burst, the aura settles)
 //   MC.ov.setDone(set)  a set reached a 2 / 4 / 6 tier
@@ -35,6 +36,8 @@
 
   ov.active = function () { return !!cur; };
   ov.kind = function () { return cur ? cur.kind : null; };
+  /** The hovered hand card's index, or -1 (tests). */
+  ov.hovered = function () { return cur && cur.kind === "draft" ? cur.hover : -1; };
 
   /** Closes whatever is up. quiet: no stop (the burn-away is still sounding after a pick). */
   ov.close = function (quiet) {
@@ -44,6 +47,7 @@
     clearTimers();
     var el = host();
     if (el) { el.innerHTML = ""; el.className = ""; }
+    MC.fxSet("draft", []);
     MC.toggle(MC.$("classes"), "ov-up", false);
     if (!quiet) MC.sound("stop", "");
     if (was.kind === "draft" && MC.onDraftClosed) MC.onDraftClosed(was);
@@ -66,12 +70,47 @@
   }
 
   // ---- the draft -----------------------------------------------------------------------------------------------
-  var TOP = 175;
+  // The page draws each card once and keeps still. Everything that moves (the burning edge, embers, the hot frame,
+  // the hovered card's lift and haze, the others cooling, the pick's flare, the burn-away's fire and ash) is a layer
+  // reported to Java (MC.fxSet "draft") and drawn natively over the page; only the burn mask eating the two faces is
+  // a short CSS one-shot here.
+  var TOP = 175, gen = 0;
   /** Card x for a hand of n (3 fills the window as in D1; fewer centre). */
   function leftOf(i, n) { return Math.round(493.5 - (n * 248 + (n - 1) * 30) / 2) + i * 278; }
+  function burnDelay() { return (MC.M.draft && MC.M.draft.sound && MC.M.draft.sound.burnAfterPickMs) || 260; }
+  function tintOf(c) { return c.cursed ? MC.CURSED : c.colour || "#9A9DA1"; }
 
-  /** Deals the skill's hand. A hand with a Mythic in it turns that card over first. */
-  ov.draft = function (skillId) {
+  /** The hand's native layers, from the overlay's state (hover, pick, deal), in draw order. */
+  function draftFx() {
+    if (!cur || cur.kind !== "draft") return;
+    var w = MC.win(), items = [], n = Math.min(3, cur.hand.length);
+    for (var k = 0; k < n; k++) {
+      var c = cur.hand[k];
+      if (!c || cur.pos[k] == null || MC.isMythic(c) || cur.faded) continue;
+      var x = w.x + cur.pos[k], y = w.y + TOP, tint = tintOf(c), id = "g" + cur.gen + "c" + k;
+      if (cur.burnt && cur.burnt[k]) {
+        items.push({i: id + "-bf", k: "bfront", x: x, y: y, c: tint, d: burnDelay()});
+        items.push({i: id + "-ash", k: "ash", x: x, y: y, d: burnDelay()});
+        continue;
+      }
+      var hov = cur.picked < 0 && cur.hover === k, kept = cur.picked === k, cool = cur.picked < 0 && cur.hover >= 0 && !hov;
+      if (hov || kept) {
+        items.push({i: id + "-b", k: "bloom", x: x + 124, y: y + 164, w: 348, h: 408, c: tint, a: kept ? 0.55 : 0.34, q: 120});
+        items.push({i: id, k: "lift", x: x, y: y, w: 248, h: 328, p: kept ? -8 : -16, q: kept ? 1.04 : 1.05});
+      }
+      if (cool) items.push({i: id + "-cool", k: "rect", x: x - 1, y: y - 1, w: 250, h: 330, c: "#0B0A0B", a: 0.6, q: 120});
+      var edge = MC.edgeOf(c), dense = hov || edge === "epic" || edge === "cursed", d = cur.dealing ? k * 80 + 240 : 0;
+      items.push({i: id + "-e", k: "edge-" + edge, x: x, y: y, c: tint, a: cool ? 0.4 : 1, d: d});
+      items.push({i: id + "-m" + (dense ? "d" : "s"), k: dense ? "embers-dense" : "embers-sparse", x: x, y: y, c: tint, a: cool ? 0.4 : 1, d: d});
+      if (hov) items.push({i: id + "-h", k: "edge-hot", x: x, y: y, c: tint});
+      if (kept) items.push({i: id + "-f", k: "flare", x: x, y: y, c: tint});
+    }
+    MC.fxSet("draft", items.concat(cur.mythicFx || []));
+  }
+  ov.refx = function () { if (cur && cur.kind === "draft") draftFx(); else if (cur && cur.mythicFx) MC.fxSet("draft", cur.mythicFx); };
+
+  /** Deals the skill's hand. A hand with a Mythic offer turns that card over first. again: the same draft, re-shown. */
+  ov.draft = function (skillId, again) {
     var s = skill(skillId);
     if (!s) return;
     if (cur && cur.kind !== "draft") ov.close(true);
@@ -81,9 +120,17 @@
     cur.hover = -1;
     cur.lock = true;
     cur.picked = -1;
+    cur.burnt = null;
+    cur.faded = false;
+    cur.mythicFx = null;
+    cur.revealing = false;
+    cur.claimed = false;
+    cur.waitClaim = false;
     cur.hand = (s.hand || []).slice();
     cur.handKey = handKey(s);
-    cur.n++;
+    cur.gen = ++gen;
+    cur.pos = {};
+    if (!again) cur.n++;
     var el = host();
     el.className = "ov-draft";
     if (first) setUi();
@@ -91,35 +138,40 @@
     h += '<div id="dr-title"></div><div class="dr-hand" id="dr-hand"></div><div id="dr-keys"></div><div id="dr-act"></div>';
     h += '<div class="footer ov-fl" id="dr-fl"></div><div class="footer right ov-fr" id="dr-fr"></div>';
     el.innerHTML = h;
-    var mythicAt = -1;
-    for (var i = 0; i < cur.hand.length; i++) if (MC.isMythic(cur.hand[i])) mythicAt = i;
+    var mythicAt = s.mythicOffer != null && s.mythicOffer >= 0 ? s.mythicOffer : -1;
+    for (var i = 0; mythicAt < 0 && i < cur.hand.length; i++) if (MC.isMythic(cur.hand[i])) mythicAt = i;
     if (!cur.hand.length) {
       MC.$("dr-title").innerHTML = title(MC.upper(s.name) + "  ·  A DRAFT WAITS", "NOTHING TO DEAL YET", "#9A9DA1", 2);
       MC.$("dr-act").innerHTML = '<div class="dr-wait">This draft waits for a card it can deal. It keeps; press Esc.</div>';
       cur.lock = false;
+      MC.fxSet("draft", []);
       return;
     }
     if (mythicAt >= 0) { dealMythic(s, mythicAt); return; }
     MC.$("dr-title").innerHTML = title("LEVEL UP  ·  DRAFT " + cur.n + " OF " + Math.max(cur.n, cur.total) + "  ·  KEEP ONE, THE OTHER TWO BURN",
       MC.upper(s.name) + " REACHED LEVEL " + s.level);
-    var hand = "";
-    for (var k = 0; k < cur.hand.length && k < 3; k++) {
-      hand += MC.hcard(cur.hand[k], k, s, {cls: "deal", style: "left:" + leftOf(k, Math.min(3, cur.hand.length)) + "px;top:" + TOP + "px;animation-delay:" + k * 80 + "ms"});
+    var hand = "", n = Math.min(3, cur.hand.length);
+    for (var k = 0; k < n; k++) {
+      cur.pos[k] = leftOf(k, n);
+      hand += MC.hcard(cur.hand[k], k, s, {cls: "deal", style: "left:" + cur.pos[k] + "px;top:" + TOP + "px;animation-delay:" + k * 80 + "ms"});
     }
     MC.$("dr-hand").innerHTML = hand;
     keys();
     redeal(s);
     footer(s);
-    MC.sound("deal", skillId);
+    if (!again) MC.sound("deal", skillId);
+    cur.dealing = true;
+    draftFx();
     later(80 * 2 + 260, function () { if (cur && cur.kind === "draft") cur.lock = false; });
   };
 
   function keys() {
-    var h = "";
-    for (var i = 0; i < cur.hand.length && i < 3; i++) {
+    var h = "", n = Math.min(3, cur.hand.length);
+    for (var i = 0; i < n; i++) {
+      if (cur.pos[i] == null) continue;
       var on = cur.hover === i, c = cur.hand[i];
-      var x = leftOf(i, Math.min(3, cur.hand.length)) + 124;
-      h += '<div class="dr-key' + (on ? " on" : "") + '" style="left:' + (x - 40) + "px;" + (on ? "--c:" + (c.cursed ? MC.CURSED : c.colour) : "") + '"><span class="kc">' + (i + 1) +
+      var x = cur.pos[i] + 124;
+      h += '<div class="dr-key' + (on ? " on" : "") + '" style="left:' + (x - 40) + "px;" + (on ? "--c:" + tintOf(c) : "") + '"><span class="kc">' + (i + 1) +
         '</span><span class="kl">' + (on ? "Keep " + esc(c.baseName || c.name) : "Keep") + "</span></div>";
     }
     MC.patch(MC.$("dr-keys"), cur.hover + ":" + cur.handKey, h);
@@ -139,64 +191,57 @@
     MC.text(MC.$("dr-fr"), "CLICK A CARD OR PRESS 1–3  ·  ESC SAVES THE DRAFT FOR LATER");
   }
 
-  /** The pointer moved over the hand: lift the card under it onto its hot frame, cool the others. */
+  /** The pointer moved over the hand. The page only relabels the keycap; the lift and hot frame are native. */
   ov.hover = function (target) {
-    if (!cur || cur.kind !== "draft" || cur.picked >= 0) return;
+    if (!cur || cur.kind !== "draft" || cur.picked >= 0 || cur.revealing || cur.faded) return;
+    var i = -1;
     var hc = target && target.closest ? target.closest(".dr-hand .hc") : null;
-    var i = hc ? +hc.getAttribute("data-hand") : -1;
+    if (hc) i = +hc.getAttribute("data-hand");
     if (isNaN(i) || i === cur.hover) return;
-    var hand = MC.$("dr-hand");
-    if (!hand) return;
-    var cards = hand.children;
-    for (var k = 0; k < cards.length; k++) MC.toggle(cards[k], "hov", k === i);
-    MC.toggle(hand, "has-hov", i >= 0);
     var was = cur.hover;
     cur.hover = i;
+    cur.dealing = false;
     keys();
+    draftFx();
     if (i >= 0) MC.sound("hover", cur.skill + "#" + i);
     else if (was >= 0) MC.sound("unhover", "");
   };
 
   /** Keeps card i: it flares, the other two burn away, and the next draft deals (or the page returns). */
   ov.pick = function (i) {
-    if (!cur || cur.kind !== "draft" || cur.lock || cur.picked >= 0 || !cur.hand[i]) return;
+    if (!cur || cur.kind !== "draft" || cur.lock || cur.picked >= 0 || !cur.hand[i] || cur.pos[i] == null) return;
     var c = cur.hand[i];
     if (MC.isMythic(c)) { claim(i); return; }
     cur.picked = i;
     cur.lock = true;
     MC.act("pickCard", cur.skill + "#" + i);  // plays the flare, the thunk and the burn (SOUNDS.md)
-    burnAway(i, c);
+    burnAway(i);
     var more = waiting() - 1;
     MC.$("dr-title").innerHTML = title("KEPT  ·  THE OTHER TWO BURN", (c.baseName || c.name) + " JOINS YOUR HAND");
     MC.$("dr-badge").innerHTML = badge(more - 1 < 0 ? 0 : more);
     MC.$("dr-keys").innerHTML = "";
-    MC.$("dr-act").innerHTML = '<div class="dr-toast" style="--c:' + (c.cursed ? MC.CURSED : c.colour) + '">Kept ' + esc(c.baseName || c.name) + "  ·  " +
+    MC.$("dr-act").innerHTML = '<div class="dr-toast" style="--c:' + tintOf(c) + '">Kept ' + esc(c.baseName || c.name) + "  ·  " +
       (more > 0 ? "next draft deals in a moment" : "back to your cards") + "</div>";
     MC.text(MC.$("dr-fl"), MC.upper(skill(cur.skill).name) + "  ·  DRAFT " + cur.n + " OF " + Math.max(cur.n, cur.total) + " DONE");
     MC.text(MC.$("dr-fr"), "THE NEXT DEAL TAKES INPUT AGAIN");
     later(1250, next);
   };
 
-  function burnAway(i, c) {
-    var hand = MC.$("dr-hand");
-    MC.toggle(hand, "has-hov", false);
-    var cards = hand.children, delay = ((MC.M.draft && MC.M.draft.sound && MC.M.draft.sound.burnAfterPickMs) || 260) / 1000;
+  /** The kept card flares (native), the others' faces burn away (one CSS mask strip) under native fire and ash. */
+  function burnAway(i) {
+    var cards = MC.$("dr-hand").children;
+    cur.burnt = {};
+    cur.hover = -1;
+    cur.dealing = false;
     for (var k = 0; k < cards.length; k++) {
-      var el = cards[k];
-      MC.toggle(el, "hov", false);
+      var el = cards[k], idx = +el.getAttribute("data-hand");
       MC.toggle(el, "deal", false);
-      if (k === i) {
-        el.classList.add("kept");
-        el.insertAdjacentHTML("afterbegin", '<div class="kept-halo" style="background:radial-gradient(closest-side,' + MC.rgba(c.cursed ? MC.CURSED : c.colour, 0.55) + " 0%," + MC.rgba(c.cursed ? MC.CURSED : c.colour, 0) + ' 100%)"></div>');
-        el.insertAdjacentHTML("beforeend", '<div class="ed flare once"><i class="f"></i><i class="g"></i></div>');
-      } else {
-        el.classList.add("burn");
-        var face = el.querySelector(".hc-face");
-        if (face) { face.classList.add("burnmask"); face.style.animationDelay = delay + "s"; }
-        el.insertAdjacentHTML("beforeend", '<div class="ed bfront once" style="animation-delay:' + delay + 's"><i class="f" style="animation-delay:' + delay + 's"></i><i class="g" style="animation-delay:' + delay +
-          's"></i></div><div class="ed burnash once" style="animation-delay:' + delay + 's"></div>');
-      }
+      if (idx === i) continue;
+      cur.burnt[idx] = true;
+      var face = el.querySelector(".hc-face");
+      if (face) { face.style.animationDelay = burnDelay() / 1000 + "s"; face.classList.add("burnmask"); }
     }
+    draftFx();
   }
 
   function next() {
@@ -218,24 +263,23 @@
 
   /** Redeal all: the hand sweeps off, Mettle plays the shuffle, the new hand fans in when it arrives. */
   ov.reroll = function () {
-    if (!cur || cur.kind !== "draft" || cur.lock || cur.picked >= 0) return;
+    if (!cur || cur.kind !== "draft" || cur.lock || cur.picked >= 0 || cur.revealing) return;
     var d = MC.M.draft || {};
     MC.act("reroll", cur.skill);  // Mettle plays the shuffle, or the dull "no"
     if (!d.rerolls) return;
     cur.lock = true;
     cur.rerolling = true;
-    var hand = MC.$("dr-hand");
-    MC.toggle(hand, "has-hov", false);
-    hand.classList.add("sweep");
     cur.hover = -1;
+    MC.$("dr-hand").classList.add("sweep");
+    MC.fxSet("draft", []);
     later(650, function () { if (cur && cur.rerolling) cur.rerollReady = true; tryRedeal(); });
-    later(3000, function () { if (cur && cur.rerolling) { cur.rerolling = false; ov.draft(cur.skill); } });
+    later(3000, function () { if (cur && cur.rerolling) { cur.rerolling = false; ov.draft(cur.skill, true); } });
   };
 
   function tryRedeal() {
     if (!cur || !cur.rerolling || !cur.rerollReady) return;
     var s = skill(cur.skill);
-    if (s && handKey(s) !== cur.handKey) { cur.rerolling = false; cur.n--; ov.draft(cur.skill); }
+    if (s && handKey(s) !== cur.handKey) { cur.rerolling = false; ov.draft(cur.skill, true); MC.sound("deal", cur.skill); }
   }
 
   // ---- the Mythic --------------------------------------------------------------------------------------------
@@ -244,52 +288,78 @@
     return {dark: m ? m.dark || 0 : 0, cracks: m && m.cracks ? m.cracks : [900, 1300, 1650], swell: m ? m.swell || 1500 : 1500, flip: m ? m.flip || 2500 : 2500};
   }
 
-  /** The aura around a Mythic (Figma M1 "aura, back to front"): bloom, rays x2, pulse ring, prismatic halo, motes. */
-  function aura(x, y) {
-    var h = '<div class="aura" style="left:' + x + "px;top:" + y + 'px"><div class="au-bloom"></div><div class="my-rays a"></div><div class="my-rays b"></div><div class="my-ring"></div><div class="au-prism"></div>';
-    var cols = ["white", "gold", "cyan", "pink"];
-    for (var i = 0; i < 22; i++) {
-      var a = i * 2.39996, r = 150 + (i * 37) % 70;
-      var mx = Math.round(124 + Math.cos(a) * r * 1.05 - 5), my = Math.round(164 + Math.sin(a) * r * 0.95 - 5);
-      h += '<i class="mote ' + cols[i % 4] + '" style="left:' + mx + "px;top:" + my + "px;animation-delay:-" + (i % 12) / 10 + "s,-" + (i % 30) / 10 + 's"></i>';
+  /**
+   * The reveal's native layers at a stage (Figma M1 "aura, back to front", M2 storyboard): the back trembling, cracks,
+   * a bloom and two counter-rotating ray copies swelling, motes; at the flip a burst and a white flash; settled, the
+   * pulse ring, the prismatic halo, the card (a copy of the page's face, so the aura stays behind it), its white-gold
+   * fire and the foil sweep.
+   */
+  function mythicFx(stage, x, y) {
+    var w = MC.win(), X = w.x + x, Y = w.y + y, cx = X + 124, cy = Y + 164, m = markers(), items = [];
+    var lit = stage !== "dark" && stage !== "crack", flipped = stage === "flip" || stage === "settled";
+    if (lit) {
+      items.push({i: "mbl", k: "bloom", x: cx, y: cy, w: 760, h: 700, c: "#FFF1C9", a: flipped ? 0.32 : 0.16, q: 1000});
+      items.push({i: "mra", k: "rays", x: cx, y: cy, a: flipped ? 1 : 0.45, p: 1, q: 1000});
+      items.push({i: "mrb", k: "rays", x: cx, y: cy, a: flipped ? 0.6 : 0.27, p: -1, q: 1000});
+      var cols = ["white", "gold", "cyan", "pink"];
+      for (var i = 0; i < 22; i++) {
+        var a = i * 2.39996, r = 150 + (i * 37) % 70;
+        items.push({i: "mm" + i, k: "mote-" + cols[i % 4], x: Math.round(cx + Math.cos(a) * r * 1.05 - 5), y: Math.round(cy + Math.sin(a) * r * 0.95 - 5),
+          a: flipped ? 1 : 0.45, p: (i % 12) * 100 + (i % 30) * 1000});
+      }
     }
-    return h + "</div>";
+    if (flipped) {
+      items.push({i: "mri", k: "ring", x: cx, y: cy});
+      items.push({i: "mpr", k: "prism", x: cx, y: cy, w: 300, h: 380});
+      items.push({i: "mcp", k: "lift", x: X, y: Y, w: 248, h: 328, p: 0, q: 1, d: 150});
+      items.push({i: "med", k: "my-edge", x: X, y: Y});
+      items.push({i: "mfo", k: "foil", x: X, y: Y, clip: [X + 32, Y + 46, 184, 112]});
+      if (stage === "flip") {
+        items.push({i: "mbu", k: "burst", x: X, y: Y});
+        items.push({i: "mfl", k: "bloom", x: cx, y: cy, w: 600, h: 600, c: "#FFFFFF", a: 1, p: 450});
+      }
+    } else {
+      items.push({i: "mbk", k: "back", x: X, y: Y, p: m.flip - (stage === "dark" ? 0 : m.cracks[0])});
+      if (stage !== "dark") items.push({i: "mck", k: "crack", x: X, y: Y});
+    }
+    return items;
   }
 
-  function revealStage(el, stage) { el.className = el.className.replace(/\brv-\w+/g, "").trim() + " " + stage; }
+  function revealStage(stageEl, stage, x, y) {
+    stageEl.className = "rv rv-" + stage;
+    if (!cur) return;
+    cur.mythicFx = mythicFx(stage, x, y);
+    if (cur.kind === "draft") draftFx(); else MC.fxSet("draft", cur.mythicFx);
+  }
 
-  /** Runs the reveal on the card element at (x, y): the back trembles and cracks, flips into a burst, settles. */
-  function runReveal(stage, then) {
+  /** Runs the reveal at (x, y): the back trembles and cracks, flips into a burst, settles. Timed to the sound. */
+  function runReveal(stageEl, x, y, then) {
     var m = markers();
     MC.sound("mythic_reveal", "");
-    revealStage(stage, "rv-dark");
-    later(m.cracks[0], function () { revealStage(stage, "rv-crack"); });
-    later(m.swell, function () { revealStage(stage, "rv-swell"); });
-    later(m.flip, function () { revealStage(stage, "rv-flip"); });
-    later(m.flip + 1000, function () { revealStage(stage, "rv-settled"); if (then) then(); });
-    // Three seconds after it settles the aura calms to 5 fps (the moment is over; a Mythic left on screen should not
-    // keep Ultralight painting the whole aura ten times a second).
-    later(m.flip + 4000, function () { stage.classList.add("rv-calm"); });
+    revealStage(stageEl, "dark", x, y);
+    later(m.cracks[0], function () { revealStage(stageEl, "crack", x, y); });
+    later(m.swell, function () { revealStage(stageEl, "swell", x, y); });
+    later(m.flip, function () { revealStage(stageEl, "flip", x, y); });
+    later(m.flip + 1000, function () { revealStage(stageEl, "settled", x, y); if (then) then(); });
   }
 
-  /** Skips to the settled card (Esc or a click after the flip). */
+  /** Skips to the settled card (Esc or a click). */
   function skipReveal() {
     if (!cur || !cur.revealing) return;
     clearTimers();
     MC.sound("stop", "");
-    var stage = MC.$("rv-stage");
-    if (stage) revealStage(stage, "rv-settled");
+    var stageEl = MC.$("rv-stage");
+    if (stageEl) revealStage(stageEl, "settled", cur.rvX, cur.rvY);
     cur.revealing = false;
     if (cur.afterReveal) cur.afterReveal();
   }
 
+  /** The page's part of a reveal: the dark, and the Mythic's face (shown at the flip). The rest is native. */
   function mythicStage(c, x, y) {
-    return '<div id="rv-stage" class="rv"><div class="rv-dim"></div><div class="rv-glow"></div>' + aura(x, y) +
-      '<div class="rv-card" style="left:' + x + "px;top:" + y + 'px"><div class="rv-back"><div class="ed cardback"></div><div class="ed my-crack once"></div></div>' +
-      '<div class="rv-face">' + MC.mythicCard(c, null, c.holderLine || "1 of 1 in this world") + '</div><div class="rv-burst my-burst once"></div><div class="rv-flash"></div></div></div>';
+    return '<div id="rv-stage" class="rv"><div class="rv-dim"></div><div class="rv-card" style="left:' + x + "px;top:" + y + 'px"><div class="rv-face">' +
+      MC.mythicCard(c, null, c.holderLine || "1 of 1 in this world") + "</div></div></div>";
   }
 
-  /** A hand dealt with a Mythic in it (M2 storyboard): the other two fade back, the Mythic turns over. */
   /** A Mythic offer in a hand carries only its perk key (mettle:mythic/<id>): the rest comes from the Hall's list. */
   MC.mythicInfo = function (c, s) {
     var id = String(c.perk || c.id || "").replace("mythic/", ""), all = MC.M.cards && MC.M.cards.mythics ? MC.M.cards.mythics.all : [];
@@ -304,20 +374,26 @@
     return out;
   };
 
+  /** A hand dealt with a Mythic offer (M2 storyboard): the other cards fade back, the Mythic turns over in the middle. */
   function dealMythic(s, at) {
-    var c = MC.mythicInfo(cur.hand[at], s), n = Math.min(3, cur.hand.length), slot = n === 3 ? 1 : at, free = [0, 2], f = 0;
+    var c = MC.mythicInfo(cur.hand[at], s), n = Math.min(3, cur.hand.length), slot = n === 3 ? 1 : at, free = n === 3 ? [0, 2] : [0, 1], f = 0;
     cur.mythicAt = at;
     cur.revealing = true;
+    cur.faded = true;
     MC.$("dr-title").innerHTML = "";
     var others = "";
-    for (var k = 0; k < cur.hand.length && k < 3; k++) {
+    for (var k = 0; k < n; k++) {
       if (k === at) continue;
       var pos = n === 3 ? free[f++] : k;
-      others += MC.hcard(cur.hand[k], k, s, {cls: "faded", style: "left:" + leftOf(pos, n) + "px;top:" + TOP + "px"});
+      cur.pos[k] = leftOf(pos, n);
+      others += MC.hcard(cur.hand[k], k, s, {cls: "faded", style: "left:" + cur.pos[k] + "px;top:" + TOP + "px"});
     }
     MC.$("dr-hand").innerHTML = others;
-    MC.$("dr-hand").insertAdjacentHTML("afterend", mythicStage(c, leftOf(slot, n), TOP));
-    MC.text(MC.$("dr-fl"), "KEEPING A MYTHIC USES THIS DRAFT'S PICK  ·  THE OTHER TWO BURN");
+    cur.rvX = leftOf(slot, n);
+    cur.rvY = TOP;
+    MC.$("dr-hand").insertAdjacentHTML("afterend", mythicStage(c, cur.rvX, cur.rvY));
+    var claimOnly = s.mythicOffer != null;  // Mettle with claimMythic: claiming keeps the draft open
+    MC.text(MC.$("dr-fl"), claimOnly ? "MYTHICS DON'T USE YOUR PICK  ·  YOU STILL KEEP ONE OF THE OTHERS" : "KEEPING A MYTHIC USES THIS DRAFT'S PICK  ·  THE OTHER TWO BURN");
     MC.text(MC.$("dr-fr"), "");
     cur.afterReveal = function () {
       cur.lock = false;
@@ -325,20 +401,33 @@
       MC.$("dr-act").innerHTML = '<div class="claim" data-claim="' + at + '">Claim Mythic</div>';
       MC.text(MC.$("dr-fr"), "ONE OF ONE IN THIS WORLD");
     };
-    runReveal(MC.$("rv-stage"), function () { cur.revealing = false; cur.afterReveal(); });
+    runReveal(MC.$("rv-stage"), cur.rvX, cur.rvY, function () { cur.revealing = false; cur.afterReveal(); });
   }
 
-  /** Claims the Mythic offer: keeping it claims it for the world (CARDS.md §9); the other two burn. */
+  /**
+   * Claims the Mythic offer. With Mettle's claimMythic the claim does not use the draft: the Mythic leaves the hand
+   * and the hand stays open for a keep. An older Mettle keeps it as the draft's pick (the others burn).
+   */
   function claim(i) {
     if (!cur || cur.lock) return;
-    var c = cur.hand[i];
-    cur.picked = i;
+    var c = MC.mythicInfo(cur.hand[i], skill(cur.skill)), s = skill(cur.skill);
     cur.lock = true;
-    MC.act("keepCard", cur.skill + "#" + i + "#0");
     MC.lastClaimAt = Date.now();
     MC.sound("pick", "mythic");
+    if (s && s.mythicOffer != null) {
+      MC.act("claimMythic", cur.skill);
+      cur.claimed = true;
+      MC.$("dr-act").innerHTML = '<div class="dr-toast my">Claimed ' + esc(c.name) + "  ·  now keep one of the others</div>";
+      cur.mythicFx = (cur.mythicFx || []).concat([{i: "mfl2", k: "bloom", x: MC.win().x + cur.rvX + 124, y: MC.win().y + cur.rvY + 164, w: 520, h: 520, c: "#FFF1C9", a: 0.9, p: 600}]);
+      draftFx();
+      cur.waitClaim = true;
+      later(3000, function () { if (cur && cur.waitClaim) { cur.waitClaim = false; ov.draft(cur.skill, true); } });
+      return;
+    }
+    cur.picked = i;
+    MC.act("keepCard", cur.skill + "#" + i + "#0");
     later(260, function () { MC.sound("burn", ""); });
-    burnAway(-1, c);
+    burnAway(-1);
     MC.$("dr-act").innerHTML = '<div class="dr-toast my">Claimed ' + esc(c.name) + "  ·  the world is told</div>";
     later(1600, next);
   }
@@ -346,25 +435,25 @@
   /** A Mythic just earned outside a draft (cards.reveal): the reveal on its own, then Continue. */
   ov.reveal = function (r) {
     if (cur) return false;
-    cur = {kind: "reveal", id: r.id, revealing: true};
+    cur = {kind: "reveal", id: r.id, revealing: true, rvX: 369, rvY: 175};
     setUi();
     var el = host();
     el.className = "ov-reveal";
-    var x = 369, y = 175, all = MC.M.cards.mythics ? MC.M.cards.mythics.all : [];
+    var all = MC.M.cards.mythics ? MC.M.cards.mythics.all : [];
     for (var i = 0; i < all.length; i++) if (all[i].id === r.id && r.source === "deed" && all[i].copies > 1) r.holderLine = "No. " + all[i].copies + " in this world";
-    el.innerHTML = '<div class="ov-dim"></div><div id="dr-title"></div>' + mythicStage(r, x, y) + '<div id="dr-act"></div><div class="footer ov-fl" id="dr-fl"></div><div class="footer right ov-fr" id="dr-fr"></div>';
+    el.innerHTML = '<div class="ov-dim"></div><div id="dr-title"></div>' + mythicStage(r, cur.rvX, cur.rvY) + '<div id="dr-act"></div><div class="footer ov-fl" id="dr-fl"></div><div class="footer right ov-fr" id="dr-fr"></div>';
     cur.afterReveal = function () {
       MC.$("dr-title").innerHTML = title(r.source === "world_first" ? "A WORLD FIRST" : r.source === "drawn" ? "A MYTHIC WAS DEALT" : "A LEGEND WAS MADE", r.name || "", "#F3D28B", 3);
       MC.$("dr-act").innerHTML = '<div class="claim" data-close-ov="1">Continue</div>';
       MC.text(MC.$("dr-fl"), MC.upper(r.how || ""));
       MC.text(MC.$("dr-fr"), "IT FITS ANY DECK  ·  TWO SLOTTED AT MOST");
     };
-    runReveal(MC.$("rv-stage"), function () { cur.revealing = false; cur.afterReveal(); });
+    runReveal(MC.$("rv-stage"), cur.rvX, cur.rvY, function () { cur.revealing = false; cur.afterReveal(); });
     return true;
   };
 
   // ---- set complete -------------------------------------------------------------------------------------------
-  /** A set crossed a tier (Figma 2g-6): the glyph scales in, rays and sparks burst once; any click continues. */
+  /** A set crossed a tier (Figma 2g-6): rays and sparks burst once (native) around the glyph; any click continues. */
   ov.setDone = function (set, cards, justSlotted) {
     if (cur) return false;
     cur = {kind: "set", id: set.id};
@@ -379,8 +468,7 @@
     }
     var bonus = null;
     for (var b = 0; b < set.bonuses.length; b++) if (set.bonuses[b].tier === set.tier) bonus = set.bonuses[b];
-    var h = '<div class="ov-dim"></div><div class="st-bloom"></div><div class="set-rays once"></div>';
-    for (var k = 0; k < order.length && k < 2; k++) h += '<div class="set-sparks once' + (k ? " flip" : "") + '" style="background-color:' + skills[order[k]].colour + '"></div>';
+    var h = '<div class="ov-dim"></div>';
     h += '<div class="st-tile">' + MC.glyph(set, 64) + "</div>";
     h += '<div class="st-eb">SET COMPLETE</div><div class="st-title">' + MC.pix(set.name + " " + set.tier + (set.theme ? " · " + String(set.theme).split(/[.,;]/)[0] : ""), 3, "#F4EEE6", 900) + "</div>";
     h += '<div class="st-pips">';
@@ -402,6 +490,12 @@
     for (var a = 0; a < MC.M.cards.sets.length; a++) if (MC.M.cards.sets[a].active) act.push(MC.M.cards.sets[a].name + " " + MC.M.cards.sets[a].count);
     h += '<div class="st-active">Active sets: ' + esc(act.join(" · ")) + "</div>";
     el.innerHTML = h;
+    // Native: the bloom, the rays and sparks (one per counted skill, the second mirrored), the glyph tile over them.
+    var wo = MC.win(), fx = [{i: "sbl", k: "bloom", x: wo.x + 492, y: wo.y + 253, w: 600, h: 440, c: "#D8CDBB", a: 0.24}, {i: "sra", k: "set-rays", x: wo.x + 300, y: wo.y + 103}];
+    for (var sk = 0; sk < order.length && sk < 2; sk++) fx.push({i: "ssp" + sk, k: "set-sparks", x: wo.x + 300, y: wo.y + 103, c: skills[order[sk]].colour, p: sk});
+    fx.push({i: "stl", k: "lift", x: wo.x + 451, y: wo.y + 190, w: 82, h: 82, p: 0, q: 1});
+    cur.mythicFx = fx;
+    MC.fxSet("draft", fx);
     MC.sound("set_complete", "");
     later(4200, function () { if (cur && cur.kind === "set") ov.close(true); });
     return true;
@@ -412,8 +506,7 @@
   ov.key = function (k) {
     if (!cur) return false;
     if (k === "Escape") {
-      if (cur.kind === "draft" && cur.revealing) { skipReveal(); return true; }
-      if (cur.kind === "reveal" && cur.revealing) { skipReveal(); return true; }
+      if (cur.revealing) { skipReveal(); return true; }
       ov.close(false);
       return true;
     }
@@ -445,15 +538,16 @@
     return false;
   };
 
-  /** A new state while an overlay is up: a waiting next hand, a finished reroll, the badge. */
+  /** A new state while an overlay is up: a waiting next hand, a finished reroll or claim, the badge. */
   ov.onState = function () {
     if (!cur || cur.kind !== "draft") return;
     var s = skill(cur.skill);
+    if (cur.waitClaim && s && handKey(s) !== cur.handKey) { cur.waitClaim = false; ov.draft(cur.skill, true); return; }
     if (cur.waitNext && s && handKey(s) !== cur.handKey) { cur.waitNext = false; next(); return; }
     if (cur.rerolling) { tryRedeal(); return; }
-    if (cur.picked < 0 && !cur.revealing) {
+    if (cur.picked < 0 && !cur.revealing && !cur.claimed) {
       MC.patch(MC.$("dr-badge"), String(waiting()), badge(waiting() - 1));
-      if (s && s.hand && s.hand.length && handKey(s) !== cur.handKey && !cur.lock) { cur.n--; ov.draft(cur.skill); }
+      if (s && s.hand && s.hand.length && handKey(s) !== cur.handKey && !cur.lock) { ov.draft(cur.skill, true); }
     }
   };
 })();

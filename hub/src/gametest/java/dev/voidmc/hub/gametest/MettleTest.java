@@ -150,25 +150,6 @@ public final class MettleTest {
 		this.context.takeScreenshot("voidhub_mettle_04_draft_hand");
 		this.dumpState("draft");
 		this.perf("draft hand idle", () -> this.context.waitTicks(60));
-		if (Boolean.getBoolean("voidhub.test.explore")) {
-			// Exploratory: which layers cost the paint (each variant hides one kind of layer for 40 ticks).
-			String[][] variants = {{"no pixel names", ".hc-name"}, {"no card text", ".hc-flow,.hc-eb,.hc-need"}, {"no face", ".hc-face"},
-				{"only edges", ".ov-halo,.hc-halo,.emb,.emb-hot,.hot,.hc-face,.ov-dim,#dr-title,#dr-keys,#dr-act"},
-				{"no backdrop", ".ov-halo,.hc-halo,.ov-dim"}, {"no embers", ".emb,.emb-hot"}};
-			for (String[] v : variants) {
-				this.js("(function(){var s=document.getElementById('xp');if(!s){s=document.createElement('style');s.id='xp';document.head.appendChild(s);}s.textContent='" + v[1] + "{display:none !important}';return 1;})()");
-				this.context.waitTicks(4);
-				this.perf("x " + v[0], () -> this.context.waitTicks(40));
-			}
-			this.js("(function(){var s=document.getElementById('xp');if(s)s.textContent='';return 1;})()");
-			this.js("(function(){MC.css(1);return 1;})()");
-			this.context.waitTicks(4);
-			this.perf("x x1 strips", () -> this.context.waitTicks(40));
-			this.js("(function(){MC.css(3);return 1;})()");
-			this.context.waitTicks(4);
-			this.perf("x x3 strips", () -> this.context.waitTicks(40));
-			this.js("(function(){MC.css(1.26);return 1;})()");
-		}
 
 		// 5. Hover: the card lifts onto its hot frame, the others cool down (D3).
 		int hand = Integer.parseInt(this.js("String(document.querySelectorAll('.dr-hand .hc').length)"));
@@ -182,8 +163,9 @@ public final class MettleTest {
 		});
 		this.hoverPage(".dr-hand .hc[data-hand=\"1\"] .hc-art");
 		this.context.waitTicks(8);
-		this.expect("1".equals(this.js("String(document.querySelector('.dr-hand .hc.hov') ? document.querySelector('.dr-hand .hc.hov').getAttribute('data-hand') : '')")),
-			"hovering the middle card lifted it");
+		this.expect("1".equals(this.js("String(MC.ov.hovered())")), "hovering the middle card made it the hovered one");
+		this.expect("true".equals(this.js("String(MC.fxDebug().indexOf('\"k\":\"lift\"') >= 0 && MC.fxDebug().indexOf('\"k\":\"edge-hot\"') >= 0)")),
+			"the hovered card lifts onto its hot frame natively: " + this.js("String(MC.fxDebug()).slice(0, 300)"));
 		this.context.takeScreenshot("voidhub_mettle_05_draft_hover");
 
 		// 6. Pick with the 2 key: the kept card flares, the other two burn away, the next draft deals (D4).
@@ -264,22 +246,26 @@ public final class MettleTest {
 		this.waitPage("!!document.querySelector('[data-claim]')", 60, "the Mythic settled with Claim");
 		this.context.takeScreenshot("voidhub_mettle_12_mythic_settled");
 		this.perf("mythic settled idle", () -> this.context.waitTicks(40));
-		this.context.waitTicks(25);
-		this.perf("mythic calm idle", () -> this.context.waitTicks(40));
-		if (Boolean.getBoolean("voidhub.test.explore")) {
-			String[][] variants = {{"my no rays", ".my-rays"}, {"my no motes", ".mote"}, {"my no ring", ".my-ring"}, {"my no blooms", ".au-bloom,.rv-glow,.my-bloom,.au-prism"},
-				{"my no edge+foil", ".my-edge,.my-foil"}, {"my only card", ".aura,.rv-glow,.rv-dim,.ov-dim"}};
-			for (String[] v : variants) {
-				this.js("(function(){var s=document.getElementById('xp');if(!s){s=document.createElement('style');s.id='xp';document.head.appendChild(s);}s.textContent='" + v[1] + "{display:none !important}';return 1;})()");
-				this.context.waitTicks(4);
-				this.perf("x " + v[0], () -> this.context.waitTicks(40));
-			}
-			this.js("(function(){var s=document.getElementById('xp');if(s)s.textContent='';return 1;})()");
-		}
+		// Claim Mythic: Mettle's claimMythic keeps it without using the draft, so the hand stays open for a keep.
 		int mythicsBefore = this.mythicsOwned();
+		long draftsBeforeClaim = this.waiting();
 		this.ui.clickPage("[data-claim]");
-		this.context.waitTicks(40);
+		this.context.waitTicks(6);
+		this.context.takeScreenshot("voidhub_mettle_12b_mythic_claimed");
+		this.waitPage("MC.ov.kind()==='draft' && !document.getElementById('rv-stage') && !!document.querySelector('.dr-hand .hc:not(.faded)')", 100,
+			"after the claim the hand stays open with the other cards");
 		this.expect(this.mythicsOwned() == mythicsBefore + 1, "Claim kept the Mythic: " + mythicsBefore + " -> " + this.mythicsOwned());
+		this.expect(this.waiting() == draftsBeforeClaim, "the claim did not use the draft: " + draftsBeforeClaim + " -> " + this.waiting());
+		this.expect("-1".equals(this.js("String((MC.M.skills.filter(function(s){return s.id==='mettle:blades';})[0]||{}).mythicOffer)")),
+			"the Mythic left the hand (mythicOffer -1)");
+		this.ui.parkMouse();
+		this.context.waitTicks(10);
+		this.context.takeScreenshot("voidhub_mettle_12c_mythic_then_keep");
+		int binderBeforeKeep = this.binderCount();
+		this.context.getInput().pressKey(InputConstants.KEY_1);
+		this.context.waitTicks(40);
+		this.expect(this.binderCount() == binderBeforeKeep + 1, "the keep after the claim kept a card: " + binderBeforeKeep + " -> " + this.binderCount());
+		this.expect(this.waiting() == draftsBeforeClaim - 1, "the keep used the draft: " + draftsBeforeClaim + " -> " + this.waiting());
 		if ("true".equals(this.js("String(MC.ov.active())"))) {
 			this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 			this.context.waitTicks(3);

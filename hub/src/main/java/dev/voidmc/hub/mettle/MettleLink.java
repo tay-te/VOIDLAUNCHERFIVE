@@ -196,6 +196,7 @@ public final class MettleLink {
 				case "pickCard" -> invoke(action("pickCard", String.class, int.class), p[0], Integer.parseInt(p[1]));
 				case "keepCard" -> invoke(action("keepCard", String.class, int.class, boolean.class), p[0], Integer.parseInt(p[1]), "1".equals(p[2]));
 				case "reroll" -> invoke(action("reroll", String.class), arg);
+				case "claimMythic" -> invoke(action("claimMythic", String.class), arg);
 				case "slotCard" -> {
 					if (p.length == 1) {
 						invoke(action("slotCard", String.class), p[0]);

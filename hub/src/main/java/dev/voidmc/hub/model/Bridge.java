@@ -21,7 +21,7 @@ public final class Bridge {
 	private Bridge() {
 	}
 
-	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Tip, MettleCall, MettleChoose, MettleUi, Invalid {
+	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Tip, MettleCall, MettleChoose, MettleUi, Fx, Invalid {
 	}
 
 	/** The page finished loading and installed {@code hub.apply}. */
@@ -91,6 +91,74 @@ public final class Bridge {
 	public record Invalid(String reason) implements Message {
 	}
 
+	/**
+	 * The page's animated layers, drawn natively over the page by {@code CardFx} (the page itself stays still: every
+	 * looping strip, glow and lift is Java's). The whole set each time it changes; an item keeps its start time across
+	 * messages by its {@code id}. Positions and sizes in CSS px; {@code colour} ARGB-less RGB; {@code delay} ms.
+	 */
+	public record Fx(List<FxItem> items) implements Message {
+	}
+
+	/** One animated layer: kind (FX_KINDS), anchor box, tint, alpha, start delay, two kind-specific numbers, a clip. */
+	public record FxItem(String id, String kind, double x, double y, double w, double h, int colour, double alpha, double delay, double p, double q,
+		double[] clip) {
+	}
+
+	static final Set<String> FX_KINDS = Set.of("edge-common", "edge-rare", "edge-epic", "edge-cursed", "edge-wildcard", "edge-hot", "embers-sparse",
+		"embers-dense", "flare", "bfront", "ash", "back", "my-edge", "crack", "burst", "foil", "set-rays", "set-sparks", "hover-common", "hover-rare",
+		"hover-epic", "hover-cursed", "hover-wildcard", "mote-white", "mote-gold", "mote-cyan", "mote-pink", "rays", "ring", "bloom", "prism", "rect",
+		"lift", "pulse");
+	private static final java.util.regex.Pattern FX_ID = java.util.regex.Pattern.compile("[a-z0-9_-]{1,32}");
+	private static final java.util.regex.Pattern RGB = java.util.regex.Pattern.compile("#[0-9A-Fa-f]{6}");
+
+	private static Message fx(Map<String, Object> m) {
+		if (!(m.get("items") instanceof List<?> list) || list.size() > 128) {
+			return new Invalid("fx items");
+		}
+		java.util.ArrayList<FxItem> out = new java.util.ArrayList<>();
+		for (Object o : list) {
+			if (!(o instanceof Map<?, ?> it) || !(it.get("i") instanceof String id) || !FX_ID.matcher(id).matches() || !(it.get("k") instanceof String k)
+				|| !FX_KINDS.contains(k)) {
+				return new Invalid("fx item");
+			}
+			double[] v = new double[8];
+			String[] keys = {"x", "y", "w", "h", "a", "d", "p", "q"};
+			double[] dflt = {0, 0, 0, 0, 1, 0, 0, 0};
+			for (int i = 0; i < keys.length; i++) {
+				Object n = it.get(keys[i]);
+				if (n == null) {
+					v[i] = dflt[i];
+				} else if (n instanceof Double d && Double.isFinite(d) && Math.abs(d) <= 100_000) {
+					v[i] = d;
+				} else {
+					return new Invalid("fx " + keys[i]);
+				}
+			}
+			int colour = 0xFFFFFF;
+			if (it.get("c") != null) {
+				if (!(it.get("c") instanceof String c) || !RGB.matcher(c).matches()) {
+					return new Invalid("fx colour");
+				}
+				colour = Integer.parseInt(c.substring(1), 16);
+			}
+			double[] clip = null;
+			if (it.get("clip") != null) {
+				if (!(it.get("clip") instanceof List<?> cl) || cl.size() != 4) {
+					return new Invalid("fx clip");
+				}
+				clip = new double[4];
+				for (int i = 0; i < 4; i++) {
+					if (!(cl.get(i) instanceof Double d) || !Double.isFinite(d) || Math.abs(d) > 100_000) {
+						return new Invalid("fx clip");
+					}
+					clip[i] = d;
+				}
+			}
+			out.add(new FxItem(id, k, v[0], v[1], v[2], v[3], colour, Math.max(0, Math.min(1, v[4])), v[5], v[6], v[7], clip));
+		}
+		return new Fx(List.copyOf(out));
+	}
+
 	static final Set<String> FILTERS = Set.of("all", "tools", "blocks", "food");
 	static final Set<String> SORT_REGIONS = Set.of("container", "storage");
 	/** Ids and attribute names: namespaced lowercase paths, nothing longer than a real one. */
@@ -107,6 +175,7 @@ public final class Bridge {
 		op("spendAttribute", ID),
 		op("pickCard", ID + "#[0-2]"),
 		op("keepCard", ID + "#[0-2]#[01]"),
+		op("claimMythic", ID),
 		op("reroll", ID),
 		op("slotCard", "\\d{1,18}(?:#-?\\d{1,2}(?:#" + ID + ")?)?"),
 		op("unslotCards", IDS),
@@ -179,6 +248,7 @@ public final class Bridge {
 			case "turn" -> m.get("deg") instanceof Double d && Double.isFinite(d) ? new Turn(d) : new Invalid("turn deg");
 			case "mettleChoose" -> choose(m);
 			case "mettle" -> mettle(m);
+			case "fx" -> fx(m);
 			case "mettleUi" -> new MettleUi(Boolean.TRUE.equals(m.get("modal")), Boolean.TRUE.equals(m.get("text")));
 			default -> new Invalid("unknown type " + t);
 		};

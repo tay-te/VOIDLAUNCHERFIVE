@@ -5,9 +5,9 @@
 //   MC.css(scale)           the texture rules for the device scale (README: never let Ultralight enlarge a strip)
 //   MC.ccard / hcard / row  the three card modes: collection 96x128, hand 248x328, row 52 high
 //
-// Rules this file keeps (cards/README.md): masked layers never sit under an ancestor with overflow:hidden AND
-// border-radius; glows are radial gradients or PNG strips, never blurred box-shadows; every animation is a sprite
-// strip stepped with steps(), so an idle page repaints only where a strip changes frame.
+// The page is still: every moving part of a card (burning edges, embers, the hot frame, flares, burn-away, the
+// Mythic's fire, rays, motes, ring and foil, glows, a hovered card's lift) is reported to Java with MC.fx and drawn
+// natively over the page (dev.voidmc.hub.screen.CardFx), so Ultralight only repaints when something really changes.
 (function () {
   "use strict";
 
@@ -50,6 +50,39 @@
     if (style != null && el.__s !== style) { el.__s = style; el.setAttribute("style", style); }
     return el;
   };
+  // ---- native effects (CardFx): the page reports its moving layers, Java draws them --------------------------------
+  var fxGroups = {}, fxOrder = [], fxSent = "";
+  /** Replaces one group's layers (draft, hover, pulse, …) and sends the whole set when it changed. */
+  MC.fxSet = function (group, items) {
+    if (fxOrder.indexOf(group) < 0) fxOrder.push(group);
+    fxGroups[group] = items || [];
+    var all = [];
+    for (var i = 0; i < fxOrder.length; i++) all = all.concat(fxGroups[fxOrder[i]] || []);
+    var key = JSON.stringify(all);
+    if (key === fxSent) return;
+    fxSent = key;
+    MC.send({type: "fx", items: all});
+  };
+  /** The last set sent to Java, as JSON (tests). */
+  MC.fxDebug = function () { return fxSent; };
+  /** Sends the current set again even if unchanged (Java cleared its copy). */
+  MC.fxResend = function () { fxSent = "!"; MC.fxSet("draft", fxGroups.draft || []); };
+  MC.fxClear = function () {
+    for (var g in fxGroups) fxGroups[g] = [];
+    MC.fxSet("draft", []);
+  };
+  /** The window's top-left in page px (the page's own coordinates for #win children are relative to it). */
+  MC.win = function () {
+    var w = document.getElementById("win");
+    return w ? {x: w.offsetLeft, y: w.offsetTop} : {x: 0, y: 0};
+  };
+  /** An element's untransformed top-left in page px (offset chain: a running transform does not move it). */
+  MC.abs = function (el) {
+    var x = 0, y = 0;
+    while (el && el !== document.body) { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; }
+    return {x: x, y: y};
+  };
+
   MC.toggle = function (el, cls, on) { if (el && el.classList.contains(cls) !== !!on) el.classList.toggle(cls, !!on); };
   MC.text = function (el, s) { if (el && el.textContent !== s) el.textContent = s; };
 
@@ -182,36 +215,9 @@
   };
 
   // ---- textures by device scale ---------------------------------------------------------------------------------
-  // README: draw every strip at its x1 CSS size and pick the file whose scale is at least the device scale, so
-  // Ultralight only ever shrinks it. The rules are generated once per scale into one <style>.
-  var STRIPS = {
-    // name: [path, frames, w, h, x, y, layers ("fg" fill+glow, "c" colour, "m" mask)]
-    "e-common": ["hand/edge_common", 4, 304, 384, -28, -28, "fg"],
-    "e-rare": ["hand/edge_rare", 4, 304, 384, -28, -28, "fg"],
-    "e-epic": ["hand/edge_epic", 4, 304, 384, -28, -28, "fg"],
-    "e-cursed": ["hand/edge_cursed", 4, 304, 384, -28, -28, "fg"],
-    "e-wildcard": ["hand/edge_wildcard", 4, 304, 384, -28, -28, "fg"],
-    "e-hot": ["hand/edge_hover", 4, 304, 384, -28, -28, "fg"],
-    "em-sparse": ["hand/embers_sparse", 6, 304, 384, -28, -28, "fg"],
-    "em-dense": ["hand/embers_dense", 6, 304, 384, -28, -28, "fg"],
-    "flare": ["hand/flare", 4, 304, 384, -28, -28, "fg"],
-    "bfront": ["hand/burn_front", 8, 304, 384, -28, -28, "fg"],
-    "burnash": ["hand/burn_ash", 8, 304, 384, -28, -28, "c"],
-    "cardback": ["hand/back", 1, 304, 384, -28, -28, "c"],
-    "my-edge": ["mythic/edge", 6, 304, 384, -28, -28, "c"],
-    "my-crack": ["mythic/crack", 8, 304, 384, -28, -28, "c"],
-    "my-foil": ["mythic/foil", 16, 248, 328, -32, -46, "c"],
-    "my-burst": ["mythic/burst", 10, 448, 448, -100, -60, "c"],
-    "my-ring": ["mythic/ring", 1, 480, 480, -116, -76, "c"],
-    "set-rays": ["set/rays", 12, 384, 256, 300, 103, "c"],
-    "set-sparks": ["set/sparks_fill", 12, 384, 256, 300, 103, "m"],
-    "h-common": ["collection/hover_common", 2, 112, 144, -8, -8, "fg"],
-    "h-rare": ["collection/hover_rare", 2, 112, 144, -8, -8, "fg"],
-    "h-epic": ["collection/hover_epic", 2, 112, 144, -8, -8, "fg"],
-    "h-cursed": ["collection/hover_cursed", 2, 112, 144, -8, -8, "fg"],
-    "h-wildcard": ["collection/hover_wildcard", 2, 112, 144, -8, -8, "fg"]
-  };
-  var MOTES = ["white", "gold", "cyan", "pink"];
+  // Every looping strip (edges, embers, hovers, the Mythic's aura, the set moment) is drawn natively by CardFx from
+  // the same _px files; the page keeps only the burn mask (a one-shot) and the glyph sheets, at the file whose
+  // scale is at least the device scale so Ultralight only ever shrinks them.
   var cssScale = 0;
 
   /** The texture rules for this device scale (1, 2 or 3): one stylesheet, replaced when the scale changes. */
@@ -220,22 +226,7 @@
     if (sx === cssScale) return;
     cssScale = sx;
     var f = "_x" + sx + ".png", r = "";
-    for (var name in STRIPS) {
-      var a = STRIPS[name], size = a[1] * a[2] + "px " + a[3] + "px";
-      var box = "left:" + a[4] + "px;top:" + a[5] + "px;width:" + a[2] + "px;height:" + a[3] + "px;";
-      r += "." + name + "{" + box + "}";
-      if (a[6] === "fg") {
-        r += "." + name + " .f{-webkit-mask-image:url(cards/" + a[0] + "_fill" + f + ");-webkit-mask-size:" + size + "}";
-        r += "." + name + " .g{background-image:url(cards/" + a[0] + "_glow" + f + ");background-size:" + size + "}";
-      } else if (a[6] === "m") {
-        r += "." + name + "{-webkit-mask-image:url(cards/" + a[0] + f + ");-webkit-mask-size:" + size + "}";
-      } else {
-        r += "." + name + "{background-image:url(cards/" + a[0] + f + ");background-size:" + size + "}";
-      }
-    }
     r += ".burnmask{-webkit-mask-image:url(cards/hand/burn_mask" + f + ")}";
-    for (var m = 0; m < MOTES.length; m++) r += ".mote." + MOTES[m] + "{background-image:url(cards/mythic/mote_" + MOTES[m] + f + ")}";
-    r += ".my-rays{background-image:url(cards/mythic/rays_x" + Math.min(2, sx) + ".png)}";
     r += ".gl{background-image:url(cards/icons/glyphs" + f + ")}";
     r += ".gl.g24{background-image:url(cards/icons/glyphs_x" + Math.min(3, Math.max(2, sx + 1)) + ".png)}";
     r += ".gl.g64{background-image:url(cards/icons/glyphs_x5.png)}";
@@ -286,10 +277,12 @@
     opt = opt || {};
     var mythic = MC.isMythic(c), rar = mythic ? "mythic" : MC.rarityOf(c), rc = MC.RARITY[rar] || MC.RARITY.common;
     var hue = mythic ? MC.RARITY.mythic : c.colour || "#9A9DA1";
-    var hov = mythic ? "" : "h-" + (c.cursed ? "cursed" : c.wildcard ? "wildcard" : rar === "mythic" ? "epic" : rar);
-    var h = '<div class="cc' + (opt.sel ? " sel" : "") + (opt.cls ? " " + opt.cls : "") + '"' + (opt.attrs || "") + ' style="--c:' + (c.cursed ? MC.CURSED : hue) + (opt.style ? ";" + opt.style : "") + '">';
+    var hov = mythic ? "" : "hover-" + (c.cursed ? "cursed" : c.wildcard ? "wildcard" : rar);
+    var long = String(c.baseName || c.name || "").length > 13;
+    var bare = !(c.keywords || []).length && !(c.traits || []).length;
+    var h = '<div class="cc' + (long ? " long" : "") + (bare ? " bare" : "") + (opt.sel ? " sel" : "") + (opt.cls ? " " + opt.cls : "") + '"' + (hov ? ' data-fxhover="' + hov + '"' : "") +
+      ' data-fxtint="' + (c.cursed ? MC.CURSED : hue) + '"' + (opt.attrs || "") + ' style="--c:' + (c.cursed ? MC.CURSED : hue) + (opt.style ? ";" + opt.style : "") + '">';
     if (opt.sel) h += '<div class="cc-sel"></div>';
-    if (hov) h += '<div class="cc-h ' + hov + '"><i class="f"></i><i class="g"></i></div>';
     h += '<div class="cc-b' + (mythic ? " my" : "") + '" style="border-color:' + MC.rgba(rc, 0.7) + '"></div>';
     h += '<div class="cc-p" style="background:' + (mythic ? "#2a2236" : MC.shade(hue)) + '">' + MC.img(c.icon, 48) + "</div>";
     h += '<div class="cc-gem" style="background:' + rc + '"></div>';
@@ -328,7 +321,6 @@
     var hue = c.colour || "#9A9DA1", tint = c.cursed ? MC.CURSED : hue;
     var dense = edge === "epic" || edge === "cursed";
     var h = '<div class="hc' + (opt.cls ? " " + opt.cls : "") + '" data-hand="' + i + '" style="--c:' + tint + (opt.style ? ";" + opt.style : "") + '">';
-    h += '<div class="hc-halo" style="background:radial-gradient(closest-side,' + MC.rgba(tint, 0.30) + " 0%," + MC.rgba(tint, 0.10) + " 55%," + MC.rgba(tint, 0) + ' 100%)"></div>';
     h += '<div class="hc-face">';
     var eyebrow = c.wildcard ? "WILDCARD  ·  " + MC.upper(c.skillName) : MC.upper(c.rarityName || rar) + (c.tierName ? "  ·  " + c.tierName : "");
     h += '<div class="hc-gem" style="background:' + rc + '"></div><div class="hc-eb" style="color:' + (c.wildcard ? hue : rc) + '">' + esc(eyebrow) + "</div>";
@@ -336,7 +328,8 @@
     h += '<div class="hc-art" style="background:radial-gradient(closest-side,' + MC.rgba(hue, 0.28) + " 0%," + MC.rgba(hue, 0) + " 100%)," + MC.shade(hue) + '">' + MC.img(c.icon, 64) + "</div>";
     // Name, rules, keywords, the price or a divider, traits: one column in the 28 px safe area, so a long name or
     // rule pushes the rest down instead of overlapping it.
-    h += '<div class="hc-flow"><div class="hc-name">' + MC.pix(c.name || "", 2, "#F4EEE6", 192) + "</div>";
+    var sparse = !(c.traits || []).length && !(c.cursed && c.downside);
+    h += '<div class="hc-flow' + (sparse ? " sparse" : "") + '"><div class="hc-name">' + MC.pix(c.name || "", 2, "#F4EEE6", 192) + "</div>";
     h += '<div class="hc-desc">' + esc(c.description) + "</div>";
     if (c.keywords && c.keywords.length) {
       h += '<div class="hc-kws">';
@@ -356,21 +349,16 @@
     h += "</div>";
     if (c.slotsAt) h += '<div class="hc-need"><i class="lock"></i>' + esc(c.slotsAt) + "</div>";
     h += "</div>";
-    // The burning edge: rarity strip, the hot frame (cross-faded in on hover), embers.
-    h += '<div class="ed e-' + edge + '"><i class="f"></i><i class="g"></i></div>';
-    h += '<div class="ed e-hot hot"><i class="f"></i><i class="g"></i></div>';
-    h += '<div class="ed em-' + (dense ? "dense" : "sparse") + ' emb"><i class="f"></i><i class="g"></i></div>';
-    h += '<div class="ed em-dense emb-hot hot"><i class="f"></i><i class="g"></i></div>';
+    // The burning edge, embers, the hot frame and the lift are CardFx layers (cards-draft.js draftFx), not markup.
     return h + "</div>";
   };
 
   /** A Mythic in hand mode (Figma "mettle / draft / mythic card"): white-gold, never tinted, never flickers. */
   MC.mythicCard = function (c, i, holder) {
     var h = '<div class="hc my" data-hand="' + (i == null ? "" : i) + '">';
-    h += '<div class="my-bloom"></div>';
     h += '<div class="hc-face my-face">';
     h += '<div class="my-head"><i class="star" style="left:38px"></i>' + '<div class="my-hl">' + MC.pix("MYTHIC", 2, "#F3D28B") + '</div><i class="star" style="left:204px"></i></div>';
-    h += '<div class="my-art"><div class="my-halo"></div>' + MC.img(c.icon, 80) + '<div class="my-foil my-foil-a"></div></div>';
+    h += '<div class="my-art"><div class="my-halo"></div>' + MC.img(c.icon, 80) + "</div>";
     h += '<div class="my-flow"><div class="hc-name">' + MC.pix(c.name || "", 2, "#FFF1C9", 192) + "</div>";
     h += '<div class="my-eff">' + esc(c.effect || c.description || "") + "</div>";
     if (c.lore) h += '<div class="my-lore">“' + esc(String(c.lore).replace(/^“|”$/g, "")) + "”</div>";
@@ -379,7 +367,6 @@
     h += '<div class="my-prov">' + esc(MC.upper(c.how || c.deed || "")) + "</div>";
     if (holder) h += '<div class="my-prov2">' + esc(MC.upper(holder)) + "</div>";
     h += "</div>";
-    h += '<div class="ed my-edge"></div>';
     return h + "</div>";
   };
 

@@ -51,6 +51,8 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	/** The Classes page has a draft, reveal or moment up (Esc and 1-3 are its), or a search field has the keyboard. */
 	private boolean pageModal;
 	private boolean pageText;
+	/** The Classes page's moving parts, drawn natively over the still page. */
+	private final CardFx fx = new CardFx();
 	private boolean sentIcons;
 	private int mettleAge = Integer.MAX_VALUE;
 
@@ -93,6 +95,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 			return;
 		}
 		this.page = next;
+		this.fx.clear();
 		this.pageModal = false;
 		this.pageText = false;
 		this.mettleAge = Integer.MAX_VALUE;
@@ -112,6 +115,11 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 				MettleLink.act(call.op(), call.arg());
 				if (!"cardSound".equals(call.op())) {
 					this.mettleAge = METTLE_EVERY - 2;  // the server's answer lands in a tick or two
+				}
+			}
+			case Bridge.Fx f -> {
+				if ("classes".equals(this.page)) {
+					this.fx.set(f.items());
 				}
 			}
 			case Bridge.MettleUi ui -> {
@@ -233,6 +241,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	@Override
 	public void removed() {
 		super.removed();
+		this.fx.clear();
 		if (MettleLink.present()) {
 			MettleLink.act("cardSound", "stop#");  // a draft or reveal left half-played goes quiet with the window
 		}
@@ -356,6 +365,9 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	@Override
 	protected void extractExtras(GuiGraphicsExtractor graphics, double guiMouseX, double guiMouseY) {
 		this.extractEffects(graphics);
+		if ("classes".equals(this.page) && this.fx.active() && this.hub.texture() != null) {
+			this.fx.extract(graphics, this.layout.u, this.minecraft.getWindow().getGuiScale(), this.hub.texture().width(), this.hub.texture().height());
+		}
 		Rect box = this.layout.player;
 		if (box == null) {
 			return;  // the Gear and Classes pages have no figure

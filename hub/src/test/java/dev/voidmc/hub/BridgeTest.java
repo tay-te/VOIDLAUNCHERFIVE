@@ -39,18 +39,41 @@ class BridgeTest {
 			{"slotCard", "12#3"}, {"slotCard", "7#-1#mettle:blades"}, {"rebuildCards", "12,15"}, {"fuseCards", "3,8,9"}, {"releaseCards", "3,8,9"},
 			{"unslotCards", "12"}, {"pinSets", ""}, {"pinSets", "mettle:swift,mettle:keen"}, {"closeSitting", ""}, {"tradeRequest", "Bree"},
 			{"tradeOfferCard", "44"}, {"tradeOfferItem", "-1"}, {"tradeTakeBackItem", "0"}, {"tradeCoin", "250"}, {"tradeLock", ""},
-			{"cardSound", "hover#mettle:mining#2"}, {"cardSound", "deal#mettle:mining"}, {"cardSound", "unhover#"}, {"cardSound", "pick#mythic"}};
+			{"cardSound", "hover#mettle:mining#2"}, {"cardSound", "deal#mettle:mining"}, {"cardSound", "unhover#"}, {"cardSound", "pick#mythic"},
+			{"claimMythic", "mettle:blades"}};
 		for (String[] c : ok) {
 			assertEquals(new Bridge.MettleCall(c[0], c[1]), Bridge.decode(Json.object().put("type", "mettle").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
 		}
 		assertEquals(new Bridge.MettleCall("tradeAccept", ""), Bridge.decode("{\"type\":\"mettle\",\"op\":\"tradeAccept\"}"));
 		String[][] bad = {{"pickCard", "mettle:mining#3"}, {"pickCard", "mettle:mining"}, {"slotCard", "12#x"}, {"rebuildCards", "12;15"},
 			{"rebuildCards", "1,2,3,4,5,6,7,8,9,10,11,12,13"}, {"pinSets", "a:b,c:d,e:f,g:h"}, {"closeSitting", "x"}, {"tradeRequest", "Bree Smith"},
-			{"tradeOfferItem", "-2"}, {"tradeCoin", "-5"}, {"cardSound", "explode#"}, {"cardSound", "hover#<script>"}};
+			{"tradeOfferItem", "-2"}, {"tradeCoin", "-5"}, {"cardSound", "explode#"}, {"cardSound", "hover#<script>"},
+			{"claimMythic", "mettle:blades#1"}, {"claimMythic", ""}};
 		for (String[] c : bad) {
 			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(Json.object().put("type", "mettle").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
 		}
 		assertEquals(new Bridge.MettleUi(true, false), Bridge.decode("{\"type\":\"mettleUi\",\"modal\":true,\"text\":false}"));
+	}
+
+	@Test
+	void nativeCardLayersAreChecked() {
+		Bridge.Message m = Bridge.decode("{\"type\":\"fx\",\"items\":[{\"i\":\"g1c0-e\",\"k\":\"edge-rare\",\"x\":120,\"y\":199,\"c\":\"#4DA3F5\",\"a\":0.4,"
+			+ "\"d\":240},{\"i\":\"mfoil\",\"k\":\"foil\",\"x\":1,\"y\":2,\"clip\":[1,2,3,4]}]}");
+		Bridge.Fx fx = assertInstanceOf(Bridge.Fx.class, m);
+		assertEquals(2, fx.items().size());
+		Bridge.FxItem e = fx.items().getFirst();
+		assertEquals("edge-rare", e.kind());
+		assertEquals(0x4DA3F5, e.colour());
+		assertEquals(0.4, e.alpha(), 1e-9);
+		assertEquals(240, e.delay(), 1e-9);
+		assertEquals(0xFFFFFF, fx.items().get(1).colour());
+		assertEquals(4, fx.items().get(1).clip()[3], 1e-9);
+		assertEquals(new Bridge.Fx(List.of()), Bridge.decode("{\"type\":\"fx\",\"items\":[]}"));
+		for (String bad : List.of("{\"type\":\"fx\"}", "{\"type\":\"fx\",\"items\":[{\"i\":\"a\",\"k\":\"explode\"}]}",
+			"{\"type\":\"fx\",\"items\":[{\"i\":\"A B\",\"k\":\"rect\"}]}", "{\"type\":\"fx\",\"items\":[{\"i\":\"a\",\"k\":\"rect\",\"x\":1e9}]}",
+			"{\"type\":\"fx\",\"items\":[{\"i\":\"a\",\"k\":\"rect\",\"c\":\"red\"}]}", "{\"type\":\"fx\",\"items\":[{\"i\":\"a\",\"k\":\"foil\",\"clip\":[1,2]}]}")) {
+			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(bad), bad);
+		}
 	}
 
 	@Test
