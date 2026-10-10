@@ -214,6 +214,13 @@ From skill 15, each **draft** (not each hand: rerolls never roll it) has a **0.5
 skill's drawn Mythic, if no one in the world has drawn it yet (§9.3). A Mythic offer survives rerolls: rerolling deals
 the other two slots again.
 
+**Claiming a Mythic does not use the draft's keep** (ruled 2026-10-10). The player claims the Mythic (binder, Hall of
+Firsts, world chip, reveal) and it leaves the hand; the hand stays open with its other cards, and the player still
+keeps one of them as usual, which spends the draft. The claim is stored at once (a reconnect shows the hand without the
+Mythic), so it can't be claimed twice; if someone else drew it first the offer just goes and the draft stays. A hand
+left empty by the claim (none is dealt that way: a Mythic always comes with at least one card) is dealt again with the
+draft still waiting. Overlay: `skills[].mythicOffer`, `claimMythic(skill)` (OVERLAY.md).
+
 ---
 
 ## 4. Traits
@@ -1082,7 +1089,7 @@ the Far Horizon is checked every 2 s; First of Masters on a skill reaching 20; T
 with no armour), Hundredth Dawn (100 in-game days since the last death), the Lone Banner (a raid won with nobody within
 96 blocks), Long Walker (100 km in the walking, sprinting, swimming and crouching statistics), Polymath (all eight at
 15). From skill 15 each draft rolls 0.5 % (from the seed and the hand's place) for its skill's drawn Mythic while it
-waits; the offer survives rerolls; keeping it claims it. The world is told; the overlay gets a reveal (`cards.reveal`),
+waits; the offer survives rerolls; claiming it does not use the keep (§3.5: the hand stays open for one more card). The world is told; the overlay gets a reveal (`cards.reveal`),
 the Hall (`cards.mythics`: every Mythic, its holder or none, deed copies, drawn ones still waiting) and every visible
 player's Mythics (`cards.players`).
 

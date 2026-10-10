@@ -117,6 +117,31 @@ class MythicRulesTest {
 	}
 
 	@Test
+	void claimingAMythicLeavesTheHandOpenAndTheDraftWaiting() {
+		var blades = TestCards.skill("blades");
+		DraftState.Card a = new DraftState.Card(TestCards.perk("mining/quarryman"), 1, Rarity.COMMON, false, List.of(TestCards.id("brutal")), List.of(), 2);
+		DraftState.Card b = new DraftState.Card(TestCards.perk("mining/quarryman"), 2, Rarity.RARE, false, List.of(TestCards.id("brutal")), List.of(), 2);
+		DraftState.Card twin = MythicRules.offer(TestCards.id("twin_edge"));
+		DraftState d = DraftState.fresh(7L, 0).addQueued(blades, 2).withHand(blades, List.of(a, b, twin));
+		assertEquals(2, MythicRules.offerIndex(d.hand(blades)));
+
+		DraftState after = MythicRules.claimed(d, blades);
+		assertEquals(List.of(a, b), after.hand(blades), "the Mythic leaves, the other cards stay in place");
+		assertEquals(2, after.queued(blades), "the claim does not spend the draft");
+		assertEquals(-1, MythicRules.offerIndex(after.hand(blades)), "nothing left to claim twice");
+		assertEquals(after, MythicRules.claimed(after, blades), "claiming again changes nothing");
+		// A reconnect reads the saved record: the open hand without the Mythic comes back as it was.
+		var saved = DraftState.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, after).getOrThrow();
+		assertEquals(after, DraftState.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, saved).getOrThrow());
+
+		// A hand of only the Mythic is left empty, the draft still waiting (the next settle deals it again).
+		DraftState lone = DraftState.fresh(7L, 0).addQueued(blades, 1).withHand(blades, List.of(twin));
+		DraftState loneAfter = MythicRules.claimed(lone, blades);
+		assertTrue(loneAfter.hand(blades).isEmpty());
+		assertEquals(1, loneAfter.queued(blades));
+	}
+
+	@Test
 	void mostDamageWinsTiesGoToTheKillingBlow() {
 		UUID a = new UUID(1, 1);
 		UUID b = new UUID(2, 2);

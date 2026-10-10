@@ -59,7 +59,10 @@ public final class MettleActions {
 	 */
 	public static void pickCard(String skill, int index) {
 		// The flare, the thunk and the other two burning away play at once (docs/SOUNDS.md); the overlay plays nothing.
-		CardAudio.pick(skill, index);
+		// A Mythic claimed this way leaves the hand open (no burn): its reveal arrives as cards.reveal.
+		if (index != mythicIndex(skill)) {
+			CardAudio.pick(skill, index);
+		}
 		ClientPlayNetworking.send(new MettlePayloads.PickCard(ResourceKey.create(MettleRegistries.SKILL, Identifier.parse(skill)), index));
 	}
 
@@ -89,6 +92,30 @@ public final class MettleActions {
 	 */
 	public static void keepCard(String skill, int index, boolean slot) {
 		ClientPlayNetworking.send(new MettlePayloads.KeepCard(ResourceKey.create(MettleRegistries.SKILL, Identifier.parse(skill)), index, slot));
+	}
+
+	/**
+	 * Claims the Mythic offer in a skill's draft hand ({@code skills[].mythicOffer} ≥ 0; docs/CARDS.md §3.5): it goes to
+	 * the binder and the Hall of Firsts, leaves the hand, and the hand stays open, since claiming a Mythic does not use the
+	 * draft's keep: the player still keeps one of the other cards. The reveal arrives as {@code cards.reveal}. Nothing is
+	 * sent when the hand holds no Mythic. {@link #keepCard} / {@link #pickCard} at the Mythic's index do the same.
+	 */
+	public static void claimMythic(String skill) {
+		int at = mythicIndex(skill);
+		if (at >= 0) {
+			ClientPlayNetworking.send(new MettlePayloads.KeepCard(ResourceKey.create(MettleRegistries.SKILL, Identifier.parse(skill)), at, false));
+		}
+	}
+
+	/** Where the synced hand of a skill holds its Mythic offer, or -1. */
+	private static int mythicIndex(String skill) {
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		Identifier id = skill == null ? null : Identifier.tryParse(skill.trim());
+		if (mc.player == null || id == null) {
+			return -1;
+		}
+		return dev.voidmc.mettle.character.cards.MythicRules.offerIndex(
+			dev.voidmc.mettle.core.CharacterStore.get(mc.player).drafts().hand(ResourceKey.create(MettleRegistries.SKILL, id)));
 	}
 
 	/** Puts a binder card ({@code cards.binder.cards[].id}) in the first free slot of its deck. Free, anywhere. */

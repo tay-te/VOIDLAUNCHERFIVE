@@ -100,7 +100,9 @@ skills[]: {
     wildcard: boolean;     // from another skill used lately; dealt into this skill's hand
     skill: string; skillName: string; colour: string;   // the card's own skill (differs for a wildcard) and its hue
     kind: string; tier: number; path: string; icon: string;
+    claim: boolean;        // a Mythic offer: claimed on top of the keep, the hand stays open (claimMythic)
   }[];
+  mythicOffer: number;     // the hand's Mythic offer index, or -1 (CARDS.md §3.5)
 }[];
 draft: { rerolls: number; maxRerolls: 5; waiting: number /* all skills */; handSize: 3; wildcardChance: 0.12;
          rarities: { id, name, colour }[] };
@@ -218,6 +220,7 @@ comma-separated):
 |---|---|
 | `keepCard(skill, index, slot)` | keeps a hand's card: `slot` false = "Keep" (binder), true = "Keep & slot" (a free legal slot) |
 | `pickCard(skill, index)` | the old keep: slots the card when a legal slot is free, else the binder |
+| `claimMythic(skill)` | claims the hand's Mythic offer (`skills[].mythicOffer` ≥ 0): binder, Hall of Firsts and reveal (`cards.reveal`) as before, but it does **not** use the draft's keep: the Mythic leaves the hand and the hand stays open, so the player still keeps one of the other cards with `keepCard`. Nothing is sent without an offer. `keepCard` / `pickCard` at the Mythic's index do the same (and play no pick/burn) |
 | `slotCard(id)` / `slotCard(id, slot)` | puts a binder card in the first free slot (or slot `slot`, 0-based) of its deck; free, anywhere |
 | `unslotCard(id)` / `unslotCards("12,15")` | takes slotted cards of one deck out: free below character level 5, for dormant cards, on a deck's first free rebuild, or with free swaps; otherwise refused with "visit a trainer or a Card Shrine" |
 | `pinSets("mettle:swift,mettle:keen")` | pins up to three sets (empty string: automatic); once an in-game day |

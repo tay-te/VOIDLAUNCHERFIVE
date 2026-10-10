@@ -177,6 +177,8 @@ public final class MettleState {
 				s.addProperty("points", waiting);
 				s.addProperty("rerolls", drafts.rerolls());
 				s.add("hand", hand(registries, drafts.hand(ref.key()), state));
+				// The Mythic offer's index in the hand, or -1: claimMythic takes it without using the keep (CARDS.md §3.5).
+				s.addProperty("mythicOffer", dev.voidmc.mettle.character.cards.MythicRules.offerIndex(drafts.hand(ref.key())));
 				// Cards v2: each frame's chance per card of a hand dealt now (cursed by depth, the rest by rolled rarity).
 				JsonObject odds = new JsonObject();
 				dev.voidmc.mettle.character.cards.CardRules.frameOdds(ref.key(), cardSheet, deck).forEach((r, v) -> odds.addProperty(r.getSerializedName(), Math.round(v * 10) / 10.0));
@@ -333,6 +335,8 @@ public final class MettleState {
 			o.addProperty("frame", card.rarity().hex());
 			o.addProperty("cursed", card.rarity() == DraftState.Rarity.CURSED);
 			o.addProperty("wildcard", card.wildcard());
+			// A Mythic offer is claimed on top of the keep: the hand stays open after it (MettleActions.claimMythic).
+			o.addProperty("claim", card.rarity() == DraftState.Rarity.MYTHIC);
 			o.addProperty("icon", Perk.icon(card.perk()).toString());
 			Perk p = perks.getValue(card.perk());
 			if (p != null) {

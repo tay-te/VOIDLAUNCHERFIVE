@@ -81,9 +81,27 @@ final class MythicJourney {
 				return "a reroll lost the Mythic offer";
 			}
 			at = hand.indexOf(hand.stream().filter(c -> c.rarity() == DraftState.Rarity.MYTHIC).findFirst().orElseThrow());
+			List<DraftState.Card> others = new java.util.ArrayList<>(hand);
+			others.remove(at);
+			int queued = CharacterStore.get(p).drafts().queued(blades);
+			// Claiming the Mythic does not use the keep: it leaves the hand, which stays open with the other cards.
 			var kept = Drafts.keep(p, blades, at, Cards.Keep.BINDER);
 			if (kept.isPresent()) {
-				return "keeping the Mythic was refused: " + kept.get();
+				return "claiming the Mythic was refused: " + kept.get();
+			}
+			DraftState afterClaim = CharacterStore.get(p).drafts();
+			if (!afterClaim.hand(blades).equals(others) || afterClaim.queued(blades) != queued) {
+				return "the claim closed the hand: " + Drafts.describe(afterClaim.hand(blades)) + ", drafts " + afterClaim.queued(blades) + " (was " + queued + ")";
+			}
+			// Never twice: no offer is left to claim.
+			var again = Drafts.claimMythic(p, blades);
+			if (again.isEmpty() || again.get() != Drafts.Refusal.NO_CARD
+				|| CardStore.get(p).cards().stream().filter(c -> c.mythicId().map(TWIN::equals).orElse(false)).count() != 1) {
+				return "the Mythic could be claimed twice: " + again;
+			}
+			// The keep still waits: one of the other cards is kept, and that spends the draft.
+			if (Drafts.keep(p, blades, 0, Cards.Keep.BINDER).isPresent() || CharacterStore.get(p).drafts().queued(blades) != queued - 1) {
+				return "keeping a card after the claim did not spend the draft";
 			}
 			CardData twin = CardStore.get(p).cards().stream().filter(c -> c.mythicId().map(TWIN::equals).orElse(false)).findFirst().orElse(null);
 			if (twin == null || Cards.ledger(s).first("twin_edge").isEmpty() || Mythics.drawable(s, TWIN)) {

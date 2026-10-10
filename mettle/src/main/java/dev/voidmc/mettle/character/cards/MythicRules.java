@@ -25,6 +25,32 @@ public final class MythicRules {
 		return new DraftState.Card(key(id), 1, DraftState.Rarity.MYTHIC, false, List.of(), List.of(), 0);
 	}
 
+	/** Where a hand holds its Mythic offer, or -1 (a hand holds one at most). */
+	public static int offerIndex(List<DraftState.Card> hand) {
+		for (int i = 0; i < hand.size(); i++) {
+			if (hand.get(i).rarity() == DraftState.Rarity.MYTHIC) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	/**
+	 * The draft once its Mythic offer is claimed (§3.5): the Mythic leaves the hand, which stays open with its other
+	 * cards; the draft is not spent, so the player still keeps one of them. A hand that held nothing else is left empty
+	 * and dealt again by the next settle, with the draft still waiting. Unchanged when the hand holds no Mythic.
+	 */
+	public static DraftState claimed(DraftState d, net.minecraft.resources.ResourceKey<dev.voidmc.mettle.api.Skill> skill) {
+		List<DraftState.Card> hand = d.hand(skill);
+		int at = offerIndex(hand);
+		if (at < 0) {
+			return d;
+		}
+		List<DraftState.Card> rest = new java.util.ArrayList<>(hand);
+		rest.remove(at);
+		return d.withHand(skill, rest);
+	}
+
 	/**
 	 * The draft's Mythic roll (§3.5): from skill 15, once per draft (not per reroll), 0.5 %. Decided from the player's
 	 * seed and the hand's place, so it never re-rolls.

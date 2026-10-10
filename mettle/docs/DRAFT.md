@@ -195,7 +195,8 @@ character level 5, op respec and background reset return cards to the binder uns
 ## 9. Determinism and fairness
 
 *v2: the same, for every roll (traits, keywords, values); offers enter the world ledger with an id only when kept; the
-0.5 % Mythic roll from skill 15 is made once per draft, never per reroll (CARDS.md §3.5, §11).*
+0.5 % Mythic roll from skill 15 is made once per draft, never per reroll (CARDS.md §3.5, §11). Claiming a Mythic offer
+does not spend the draft: it leaves the hand and the player still keeps one of the other cards.*
 
 - Everything is decided on the server. The client sends `pick_card (skill, index)` and `reroll (skill)`; the server
   checks the draft, the card and the reroll count, and answers with a chip either way.

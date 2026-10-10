@@ -273,18 +273,7 @@ public final class Drafts {
 		DraftRules.Deck deck = deck(registries);
 		Card card = hand.get(index);
 		if (card.rarity() == DraftState.Rarity.MYTHIC) {
-			// A drawn Mythic: claimed in the world the moment it is kept (CARDS.md §9.3).
-			net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.fromNamespaceAndPath(card.perk().identifier().getNamespace(),
-				card.perk().identifier().getPath().substring("mythic/".length()));
-			if (!dev.voidmc.mettle.character.cards.Mythics.drawable(player.level().getServer(), id)) {
-				CharacterStore.set(player, state.withDraft(d.withHand(skill, List.of())));
-				refresh(player);
-				return Optional.of(Refusal.STALE);
-			}
-			CharacterStore.set(player, state.withDraft(d.addQueued(skill, -1).withHand(skill, List.of())));
-			dev.voidmc.mettle.character.cards.Mythics.grant(player, id, false);
-			refresh(player);
-			return Optional.empty();
+			return claimMythic(player, skill, state, card);
 		}
 		if (!CardRules.valid(card, Cards.sheet(registries, state, CardStore.get(player)), deck)) {
 			refresh(player);
@@ -300,6 +289,45 @@ public final class Drafts {
 		SignaturePerks.feedback(player, card.perk().identifier(), text);
 		Mettle.LOGGER.info("{} kept {} {} ({}{}) for {} as card {}{}", player.getName().getString(), card.perk().identifier(), card.rank(),
 			card.rarity().getSerializedName(), card.wildcard() ? ", wildcard" : "", skill.identifier(), kept.id(), kept.slotted() ? ", slotted" : "");
+		return Optional.empty();
+	}
+
+	/**
+	 * Claims the Mythic offer of a skill's hand (CARDS.md §3.5, §9.3): it goes to the binder and the Hall of Firsts, and
+	 * leaves the hand, which stays open; claiming does not use the draft's keep, so the player still keeps one of the
+	 * other cards. {@link #keep} at the Mythic's index does the same.
+	 */
+	public static Optional<Refusal> claimMythic(ServerPlayer player, ResourceKey<Skill> skill) {
+		CharacterState state = Cards.ensure(player);
+		DraftState d = state.drafts();
+		List<Card> hand = d.hand(skill);
+		if (d.queued(skill) <= 0 || hand.isEmpty()) {
+			return Optional.of(Refusal.NO_DRAFT);
+		}
+		int at = dev.voidmc.mettle.character.cards.MythicRules.offerIndex(hand);
+		if (at < 0) {
+			return Optional.of(Refusal.NO_CARD);
+		}
+		if (!Cards.binderRoom(player)) {
+			return Optional.of(Refusal.BINDER_FULL);
+		}
+		return claimMythic(player, skill, state, hand.get(at));
+	}
+
+	private static Optional<Refusal> claimMythic(ServerPlayer player, ResourceKey<Skill> skill, CharacterState state, Card card) {
+		DraftState d = state.drafts();
+		net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.fromNamespaceAndPath(card.perk().identifier().getNamespace(),
+			card.perk().identifier().getPath().substring("mythic/".length()));
+		// Out of the hand first, whatever happens: the offer can never be claimed twice, and the rest of the hand stays.
+		CharacterStore.set(player, state.withDraft(dev.voidmc.mettle.character.cards.MythicRules.claimed(d, skill)));
+		if (!dev.voidmc.mettle.character.cards.Mythics.drawable(player.level().getServer(), id)
+			|| dev.voidmc.mettle.character.cards.Mythics.grant(player, id, false).isEmpty()) {
+			// Someone else drew it first: the offer goes, the draft stays.
+			refresh(player);
+			return Optional.of(Refusal.STALE);
+		}
+		refresh(player);
+		Mettle.LOGGER.info("{} claimed the Mythic {} from a {} draft; the hand stays open", player.getName().getString(), id, skill.identifier());
 		return Optional.empty();
 	}
 
