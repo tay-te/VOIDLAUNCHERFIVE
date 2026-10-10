@@ -38,7 +38,13 @@ public final class Cooldowns {
 	}
 
 	public static void start(ServerPlayer player, String what, int ticks) {
-		set(player, what, now(player) + ticks);
+		// The Echo set (cards) shortens every perk cooldown (docs/CARDS.md §6.3, Cooldowns.scale).
+		set(player, what, now(player) + Math.round(ticks * scale(player)));
+	}
+
+	/** How long cooldowns last for this player (1 = as written): the Echo set's 2 and 4 tiers make them shorter. */
+	public static float scale(net.minecraft.world.entity.player.Player player) {
+		return dev.voidmc.mettle.character.cards.CardHooks.cooldownScale(player);
 	}
 
 	/** Makes one ready now (tests, a future "rested" bonus). */

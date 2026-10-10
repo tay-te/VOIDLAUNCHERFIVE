@@ -28,6 +28,7 @@
 		"mettle-smithing.mixins.json",
 		"mettle-burden.mixins.json",
 		"mettle-gear.mixins.json",
+		"mettle-cards.mixins.json",
 		{
 			"config": "mettle-character.client.mixins.json",
 			"environment": "client"

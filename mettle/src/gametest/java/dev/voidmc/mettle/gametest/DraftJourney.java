@@ -82,9 +82,12 @@ final class DraftJourney {
 			if (hand.size() != 2 || distinct.size() != 2) {
 				return "expected a hand of the two Athletics roots, got " + Drafts.describe(hand);
 			}
+			// Cards v2: each offer is rolled (rarity, keywords, traits); a root's rank is its rarity.
 			for (DraftState.Card c : hand) {
-				if (c.rank() != 1 || c.rarity() != DraftState.Rarity.COMMON || c.wildcard()) {
-					return "unexpected card " + Drafts.describe(List.of(c));
+				Perk def = Perks.registry(p).getValueOrThrow(c.perk());
+				if (!c.rolled() || c.wildcard() || c.rank() != dev.voidmc.mettle.character.cards.CardRules.rank(def, c.rarity())
+					|| c.needs() != dev.voidmc.mettle.character.cards.CardRules.needs(def, c.rarity())) {
+					return "unexpected card " + Drafts.describe(List.of(c)) + " " + c;
 				}
 			}
 			// A reconnect (join refresh) deals nothing new: the stored hand stands.
@@ -105,7 +108,8 @@ final class DraftJourney {
 				return "overlay state: " + skill.get("drafts") + " drafts, hand " + hand;
 			}
 			JsonObject card = hand.get(0).getAsJsonObject();
-			for (String field : new String[] {"perk", "name", "description", "rank", "rarity", "frame", "cursed", "wildcard", "skill", "icon", "colour"}) {
+			for (String field : new String[] {"perk", "name", "description", "rank", "rarity", "frame", "cursed", "wildcard", "skill", "icon", "colour",
+				"keywords", "traits", "needs", "slotsAt"}) {
 				if (!card.has(field)) {
 					return "a card in the overlay state has no " + field + ": " + card;
 				}
@@ -140,17 +144,13 @@ final class DraftJourney {
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
 			CharacterState state = CharacterStore.get(p);
-			if (state.rank(kept[0]) != 1) {
-				return "keeping " + kept[0].identifier() + " did not learn it: " + state.perks();
+			// Cards v2: keeping makes a card (slotted when a legal slot is free, else in the binder).
+			if (dev.voidmc.mettle.core.CardStore.get(p).cards().stream().noneMatch(c -> c.perk().equals(kept[0]))) {
+				return "keeping " + kept[0].identifier() + " made no card: " + dev.voidmc.mettle.core.CardStore.get(p).cards();
 			}
 			DraftState d = state.drafts();
 			if (d.queued(ATHLETICS) != 1 || d.hand(ATHLETICS).isEmpty()) {
 				return "after keeping a card: " + d.queued(ATHLETICS) + " drafts, hand " + Drafts.describe(d.hand(ATHLETICS));
-			}
-			for (DraftState.Card c : d.hand(ATHLETICS)) {
-				if (c.perk().equals(kept[0]) && c.rank() != 2) {
-					return "the kept root came back at the wrong rank: " + Drafts.describe(List.of(c));
-				}
 			}
 			// The one-string form a page bridge uses, and a refusal for a card that is not there.
 			Optional<Drafts.Refusal> none = Drafts.pick(p, ATHLETICS, 5);
@@ -196,6 +196,8 @@ final class DraftJourney {
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
 			CharacterStore.set(p, saved[0]);
+			// The cards this journey kept leave the world (their ids are never reused).
+			dev.voidmc.mettle.character.cards.Cards.clear(p);
 			EffectsApplier.apply(p);
 			return null;
 		}));

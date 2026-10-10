@@ -19,6 +19,8 @@ import org.spongepowered.asm.mixin.injection.At;
 abstract class CrossbowItemMixin {
 	@ModifyReturnValue(method = "getChargeDuration", at = @At("RETURN"))
 	private static int mettle$quiverwise(int ticks, @Local(argsOnly = true) LivingEntity user) {
-		return user instanceof Player player && Perks.has(player, MarksmanshipSkill.QUIVERWISE) ? MarksmanshipRules.crossbowCharge(ticks) : ticks;
+		int base = user instanceof Player player && Perks.has(player, MarksmanshipSkill.QUIVERWISE) ? MarksmanshipRules.crossbowCharge(ticks) : ticks;
+		// Cranking (card trait): crossbows load faster.
+		return user instanceof Player player ? dev.voidmc.mettle.character.cards.CardHooks.crossbowCharge(player, base) : base;
 	}
 }

@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "dev.voidmc.mettle.mixin.cards",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"ArrowAccess",
+		"CardsEntityMixin",
+		"CardsItemStackMixin",
+		"CardsLivingEntityMixin",
+		"CardsPlayerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

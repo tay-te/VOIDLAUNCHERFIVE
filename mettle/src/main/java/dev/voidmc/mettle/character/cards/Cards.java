@@ -81,6 +81,7 @@ public final class Cards {
 		EffectsApplier.AFTER.add(CardEffects::apply);
 		ServerPlayNetworking.registerGlobalReceiver(MettlePayloads.CardAction.TYPE, (payload, context) -> act(context.player(), payload));
 		CardEffects.init();
+		CardHooks.init();
 	}
 
 	// ---------------------------------------------------------------- reading
@@ -498,6 +499,20 @@ public final class Cards {
 		};
 		no.ifPresent(r -> refused(player, r));
 	}
+
+	/** A chip when a trait did something worth saying (Parrying turned a hit, Echoing took an ore), at most every 5 s. */
+	static void feedback(ServerPlayer player, String trait) {
+		long now = player.level().getGameTime();
+		Long last = LAST_TRAIT_CHIP.put(player.getUUID().toString() + trait, now);
+		if (last != null && now - last < 100) {
+			return;
+		}
+		Identifier id = Mettle.id(trait);
+		player.level().registryAccess().lookupOrThrow(MettleRegistries.TRAIT).getOptional(id).ifPresent(t ->
+			SignaturePerks.feedback(player, Mettle.id("trait/" + trait), t.name()));
+	}
+
+	private static final Map<String, Long> LAST_TRAIT_CHIP = new HashMap<>();
 
 	static void refused(ServerPlayer player, CardRules.Refusal refusal) {
 		SignaturePerks.feedback(player, Mettle.id("cards/refused"), Component.translatable(refusal.translationKey()));

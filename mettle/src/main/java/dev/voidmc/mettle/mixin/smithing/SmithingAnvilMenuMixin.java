@@ -56,6 +56,19 @@ abstract class SmithingAnvilMenuMixin {
 		return original.call(baseCost);
 	}
 
+	/** Mender's (a card trait): a repair restores more durability. */
+	@Inject(method = "createResult", at = @At("TAIL"))
+	private void mettle$menders(CallbackInfo ci) {
+		Player player = ((SmithingCombinerAccess) this).mettle$smithingPlayer();
+		ItemStack input = ((SmithingCombinerAccess) this).mettle$smithingInputs().getItem(0);
+		ItemStack result = ((SmithingCombinerAccess) this).mettle$smithingResults().getItem(0);
+		double more = dev.voidmc.mettle.character.cards.CardHooks.pct(player, "smithing/menders");
+		if (more > 0 && !result.isEmpty() && result.isDamageableItem() && input.isDamageableItem() && result.getDamageValue() < input.getDamageValue()) {
+			int restored = input.getDamageValue() - result.getDamageValue();
+			result.setDamageValue(Math.max(0, result.getDamageValue() - (int) Math.round(restored * more)));
+		}
+	}
+
 	@Inject(method = "onTake", at = @At("HEAD"))
 	private void mettle$saved(Player player, ItemStack carried, CallbackInfo ci) {
 		if (this.mettle$saved > 0 && player instanceof ServerPlayer sp && !player.hasInfiniteMaterials()) {

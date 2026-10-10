@@ -163,4 +163,16 @@ public final class Swings {
 	public static void clear() {
 		current = null;
 	}
+
+	/** Whether this player's swing being resolved now is a critical (cards: Keen, the Keen set). */
+	public static boolean critical(ServerPlayer player) {
+		Swing s = current;
+		return s != null && s.player == player && s.critical;
+	}
+
+	/** Whether {@code target} is caught by this player's swing without being the foe it was aimed at (a sweep). */
+	public static boolean swept(ServerPlayer player, Entity target) {
+		Swing s = current;
+		return s != null && s.player == player && s.target != target;
+	}
 }

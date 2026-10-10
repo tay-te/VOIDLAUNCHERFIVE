@@ -22,10 +22,14 @@ abstract class SurvivalAvoidEntityGoalMixin {
 	@Shadow
 	protected @Nullable LivingEntity toAvoid;
 
+	@Shadow
+	@Final
+	protected float maxDist;
+
 	@Inject(method = "canUse", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/ai/goal/AvoidEntityGoal;toAvoid:Lnet/minecraft/world/entity/LivingEntity;",
 		opcode = org.objectweb.asm.Opcodes.PUTFIELD, shift = At.Shift.AFTER), cancellable = true)
 	private void mettle$quietApproach(CallbackInfoReturnable<Boolean> cir) {
-		if (Hunting.staysCalm(this.mob, this.toAvoid)) {
+		if (Hunting.staysCalm(this.mob, this.toAvoid) || dev.voidmc.mettle.character.cards.CardHooks.unnoticed(this.mob, this.toAvoid, this.maxDist)) {
 			this.toAvoid = null;
 			cir.setReturnValue(false);
 		}

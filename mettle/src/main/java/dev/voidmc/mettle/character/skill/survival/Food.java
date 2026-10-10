@@ -27,6 +27,11 @@ public final class Food {
 	public static FoodProperties fill(Player player, ItemStack stack, FoodProperties food) {
 		boolean cooked = stack.is(SurvivalSkill.COOKED_FOOD);
 		boolean wild = stack.is(SurvivalSkill.WILD_FOOD);
+		// Hearty (a card trait): any food fills more.
+		double hearty = dev.voidmc.mettle.character.cards.CardHooks.pct(player, "survival/hearty");
+		if (hearty > 0) {
+			food = new FoodProperties(SurvivalRules.nutrition(food.nutrition(), 1 + hearty), (float) (food.saturation() * (1 + hearty)), food.canAlwaysEat());
+		}
 		if (!cooked && !wild) {
 			return food;
 		}
@@ -46,6 +51,23 @@ public final class Food {
 		return new FoodProperties(SurvivalRules.nutrition(food.nutrition(), m), (float) (food.saturation() * m), food.canAlwaysEat());
 	}
 
+	/** Cook's (a card trait): food you cook comes out one extra some of the time. */
+	private static void extraCooked(ServerPlayer player, ItemStack stack, int count) {
+		double chance = dev.voidmc.mettle.character.cards.CardHooks.pct(player, "survival/cooks");
+		int extra = 0;
+		for (int i = 0; i < count && chance > 0; i++) {
+			if (player.getRandom().nextDouble() < chance) {
+				extra++;
+			}
+		}
+		if (extra > 0) {
+			ItemStack more = stack.copyWithCount(extra);
+			if (!player.getInventory().add(more)) {
+				player.drop(more, false, net.minecraft.util.Prediction.SERVER_ONLY);
+			}
+		}
+	}
+
 	/** ApplyStatusEffectsConsumeEffect#apply: Iron Stomach shrugs off what raw meat, rotten flesh and spider eyes do. */
 	public static boolean ironStomach(LivingEntity user, ItemStack stack) {
 		if (user instanceof Player player && stack.is(SurvivalSkill.RAW_FOOD) && Perks.has(player, SurvivalSkill.IRON_STOMACH)) {
@@ -61,6 +83,7 @@ public final class Food {
 	public static void taken(Player player, ItemStack stack, int count) {
 		if (player instanceof ServerPlayer sp && count > 0 && stack.has(DataComponents.FOOD)) {
 			SurvivalSkill.award(sp, "cook", SurvivalRules.XP_COOKED * count);
+			extraCooked(sp, stack, count);
 		}
 	}
 
@@ -72,6 +95,7 @@ public final class Food {
 		ServerPlayer player = server.getPlayerList().getPlayer(cook);
 		if (player != null) {
 			SurvivalSkill.award(player, "cook", SurvivalRules.XP_COOKED * result.getCount());
+			extraCooked(player, result, result.getCount());
 		}
 	}
 }

@@ -169,7 +169,8 @@ public final class Forging {
 		if ((armour || weapon || dig) && isIron(stack) && Perks.has(player, SmithingSkill.FOLDED_STEEL)) {
 			marks.add(Mark.FOLDED_STEEL);
 		}
-		if ((armour || weapon || dig) && Perks.has(player, SmithingSkill.MASTERWORK) && SmithingRules.masterwork(seed(player), n)) {
+		if ((armour || weapon || dig) && (Perks.has(player, SmithingSkill.MASTERWORK) && SmithingRules.masterwork(seed(player), n)
+			|| dev.voidmc.mettle.character.cards.CardHooks.masterly(player, n))) {
 			marks.add(Mark.MASTERWORK);
 		}
 		if (weapon && Perks.has(player, dev.voidmc.mettle.character.draft.Cursed.BRITTLE_EDGE)) {
@@ -178,7 +179,8 @@ public final class Forging {
 		if (Perks.has(player, dev.voidmc.mettle.character.draft.Cursed.SLAPDASH)) {
 			marks.add(Mark.SLAPDASH);
 		}
-		return marks.isEmpty() ? null : new Forged(player.getName().getString(), marks, Reforge.NONE);
+		java.util.Map<String, Double> traits = dev.voidmc.mettle.character.cards.CardHooks.forgedTraits(player, armour, weapon, dig);
+		return marks.isEmpty() && traits.isEmpty() ? null : new Forged(player.getName().getString(), marks, Reforge.NONE, traits);
 	}
 
 	public static long seed(Player player) {
@@ -196,6 +198,9 @@ public final class Forging {
 		Integer protoMax = proto.get(DataComponents.MAX_DAMAGE);
 		if (protoMax != null) {
 			int max = forged == null ? protoMax : SmithingRules.maxDamage(protoMax, forged);
+			if (forged != null && forged.trait("tempered") > 0 && (isWeapon(stack) || isDigTool(stack))) {
+				max = (int) Math.round(max * (1 + forged.trait("tempered")));
+			}
 			stack.set(DataComponents.MAX_DAMAGE, max);
 			if (stack.getDamageValue() >= max) {
 				stack.setDamageValue(max - 1);
@@ -225,6 +230,16 @@ public final class Forging {
 			}
 			if (forged.has(Mark.TRUE_TEMPER) && dig) {
 				digBonus += SmithingRules.TRUE_TEMPER * speed;
+			}
+			// Card traits stamped when it was made (Edged, Quenched, Proofing).
+			if (weapon && forged.trait("edged") > 0) {
+				damage += baseDamage(proto) * forged.trait("edged");
+			}
+			if (dig && forged.trait("quenched") > 0) {
+				digBonus += forged.trait("quenched") * speed;
+			}
+			if (armourSlot != null) {
+				toughness += forged.trait("proofing");
 			}
 			if (forged.has(Mark.MASTERWORK)) {
 				if (weapon) {
@@ -270,6 +285,17 @@ public final class Forging {
 		}
 	}
 
+	/** The item's own attack damage (its main-hand modifier) plus the player's base of 1. */
+	private static double baseDamage(DataComponentMap proto) {
+		double d = 1;
+		for (ItemAttributeModifiers.Entry e : proto.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY).modifiers()) {
+			if (e.attribute().equals(Attributes.ATTACK_DAMAGE) && e.modifier().operation() == AttributeModifier.Operation.ADD_VALUE) {
+				d += e.modifier().amount();
+			}
+		}
+		return d;
+	}
+
 	/** Shieldwright: no raise delay, half the wear per block. */
 	public static BlocksAttacks shieldwright(BlocksAttacks b) {
 		BlocksAttacks.ItemDamageFunction wear = b.itemDamage();
@@ -304,7 +330,7 @@ public final class Forging {
 	/** Light Hand and a Light reforge, as a {@code WeightModifier}: the stamp travels, so it is lighter for anyone. */
 	public static float weight(Player player, ItemInstance stack) {
 		Forged forged = stack.get(SmithingComponents.FORGED);
-		return forged == null ? 1f : SmithingRules.weight(forged);
+		return forged == null ? 1f : (float) (SmithingRules.weight(forged) * (1 - forged.trait("lightened")));
 	}
 
 	/**
@@ -313,7 +339,7 @@ public final class Forging {
 	 */
 	public static void thrifty(ServerPlayer player, Container grid, ItemStack result) {
 		int rank = Perks.rank(player, SmithingSkill.THRIFTY);
-		if (rank <= 0 || result.isEmpty() || result.is(ConventionalItemTags.INGOTS) || result.is(ConventionalItemTags.NUGGETS)
+		if (rank <= 0 && dev.voidmc.mettle.character.cards.CardHooks.pct(player, "smithing/thrifty") <= 0 || result.isEmpty() || result.is(ConventionalItemTags.INGOTS) || result.is(ConventionalItemTags.NUGGETS)
 			|| result.is(ConventionalItemTags.STORAGE_BLOCKS)) {
 			return;
 		}
@@ -324,7 +350,7 @@ public final class Forging {
 				ingots.add(s);
 			}
 		}
-		if (ingots.isEmpty() || player.getRandom().nextDouble() >= rank * SmithingRules.THRIFTY_PER_RANK) {
+		if (ingots.isEmpty() || player.getRandom().nextDouble() >= rank * SmithingRules.THRIFTY_PER_RANK + dev.voidmc.mettle.character.cards.CardHooks.pct(player, "smithing/thrifty")) {
 			return;
 		}
 		ItemStack back = ingots.get(player.getRandom().nextInt(ingots.size())).copyWithCount(1);

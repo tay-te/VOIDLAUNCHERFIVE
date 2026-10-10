@@ -19,6 +19,10 @@ public final class Ammo {
 
 	/** Quiverwise: one arrow in four is fired without leaving the stack. */
 	public static boolean keepArrow(ServerPlayer player, ItemStack projectile) {
+		// Thrifty (card trait): an arrow isn't used up some of the time.
+		if (projectile.is(ItemTags.ARROWS) && dev.voidmc.mettle.character.cards.CardHooks.keepArrow(player)) {
+			return true;
+		}
 		if (!projectile.is(ItemTags.ARROWS) || !Perks.has(player, MarksmanshipSkill.QUIVERWISE)
 			|| player.getRandom().nextFloat() >= MarksmanshipRules.QUIVERWISE_KEEP) {
 			return false;

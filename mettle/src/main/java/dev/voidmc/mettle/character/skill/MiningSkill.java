@@ -195,7 +195,7 @@ public final class MiningSkill {
 		if (placed || player.isCreative()) {
 			return;
 		}
-		Progress.award(player, MINING, xp);
+		Progress.award(player, MINING, xp * dev.voidmc.mettle.character.cards.CardHooks.oreXp(player, state));
 		if (state.is(ConventionalBlockTags.DIAMOND_ORES)) {
 			FeatCounters.add(player, "mine_diamond_ore", 1);
 		}

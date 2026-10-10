@@ -96,6 +96,8 @@ final class MomentJourney {
 		check(world.getServer().computeOnServer(s -> {
 			ServerPlayer p = s.getPlayerList().getPlayers().getFirst();
 			CharacterStore.set(p, saved[0]);
+			// The Quarryman card kept here leaves the world, so later journeys start without cards.
+			dev.voidmc.mettle.character.cards.Cards.clear(p);
 			EffectsApplier.apply(p);
 			return null;
 		}));

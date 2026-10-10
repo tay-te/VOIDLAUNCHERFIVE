@@ -108,10 +108,12 @@ public final class Camp {
 			RESTED.remove(id);
 			return;
 		}
-		int rested = RESTED.merge(id, 20, Integer::sum);
-		if (rested % SurvivalRules.CAMPFIRE_REST_INTERVAL == 0) {
+		// Fireside (a card trait): Campfire Rest works faster.
+		int step = (int) Math.round(20 * (1 + dev.voidmc.mettle.character.cards.CardHooks.pct(player, "survival/fireside")));
+		int rested = RESTED.merge(id, step, Integer::sum);
+		if (rested / SurvivalRules.CAMPFIRE_REST_INTERVAL > (rested - step) / SurvivalRules.CAMPFIRE_REST_INTERVAL) {
 			player.heal(SurvivalRules.CAMPFIRE_REST_HEAL);
-			if (rested == SurvivalRules.CAMPFIRE_REST_INTERVAL) {
+			if (rested - step < SurvivalRules.CAMPFIRE_REST_INTERVAL) {
 				SurvivalSkill.chip(player, SurvivalSkill.CAMPFIRE_REST, "campfire_rest");
 			}
 		}

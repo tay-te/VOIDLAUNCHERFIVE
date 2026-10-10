@@ -54,6 +54,10 @@ public final class Grinding {
 		}
 		if (Perks.has(player, SmithingSkill.SALVAGER) && !EnchantmentHelper.hasAnyEnchantments(item)) {
 			ItemStack nuggets = salvage(item);
+			double more = dev.voidmc.mettle.character.cards.CardHooks.pct(player, "smithing/salvaging");
+			if (!nuggets.isEmpty() && more > 0) {
+				nuggets.setCount(Math.min(nuggets.getMaxStackSize(), (int) Math.round(nuggets.getCount() * (1 + more))));
+			}
 			if (!nuggets.isEmpty()) {
 				return new Outcome(nuggets, Mode.SALVAGE);
 			}

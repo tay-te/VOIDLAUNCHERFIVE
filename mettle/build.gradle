@@ -234,4 +234,5 @@ sourceSets.gametest.compileClasspath += sourceSets.hearthApi.output
 tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	systemProperty 'mettle.balance', System.getProperty('mettle.balance', 'false')
 	systemProperty 'mettle.tour.hearth_only', System.getProperty('mettle.tour.hearth_only', 'false')
+	systemProperty 'mettle.tour.cards_only', System.getProperty('mettle.tour.cards_only', 'false')
 }

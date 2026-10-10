@@ -17,15 +17,29 @@ import net.minecraft.util.StringRepresentable;
  * @param marks   the perks folded into it, in the order they were applied
  * @param reforge a Reforge at a smithing table ({@link Reforge#NONE} when never reforged)
  */
-public record Forged(String smith, List<Mark> marks, Reforge reforge) {
+public record Forged(String smith, List<Mark> marks, Reforge reforge, java.util.Map<String, Double> traits) {
 	public static final Codec<Forged> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.STRING.optionalFieldOf("smith", "").forGetter(Forged::smith),
 		Mark.CODEC.listOf().optionalFieldOf("marks", List.of()).forGetter(Forged::marks),
-		Reforge.CODEC.optionalFieldOf("reforge", Reforge.NONE).forGetter(Forged::reforge)
+		Reforge.CODEC.optionalFieldOf("reforge", Reforge.NONE).forGetter(Forged::reforge),
+		Codec.unboundedMap(Codec.STRING, Codec.DOUBLE).optionalFieldOf("traits", java.util.Map.of()).forGetter(Forged::traits)
 	).apply(i, Forged::new));
 
 	public Forged {
 		marks = List.copyOf(marks);
+		traits = java.util.Map.copyOf(traits);
+	}
+
+	public Forged(String smith, List<Mark> marks, Reforge reforge) {
+		this(smith, marks, reforge, java.util.Map.of());
+	}
+
+	/**
+	 * A Smithing card trait folded in when it was made (docs/CARDS.md 4.2): tempered (durability), edged (damage),
+	 * lightened (weight), quenched (dig speed) as fractions; proofing as toughness.
+	 */
+	public double trait(String name) {
+		return traits.getOrDefault(name, 0.0);
 	}
 
 	public boolean has(Mark mark) {
@@ -33,7 +47,7 @@ public record Forged(String smith, List<Mark> marks, Reforge reforge) {
 	}
 
 	public Forged withReforge(Reforge next) {
-		return new Forged(smith, marks, next);
+		return new Forged(smith, marks, next, traits);
 	}
 
 	public Forged withMark(Mark mark) {
@@ -42,7 +56,7 @@ public record Forged(String smith, List<Mark> marks, Reforge reforge) {
 		}
 		List<Mark> next = new ArrayList<>(marks);
 		next.add(mark);
-		return new Forged(smith, next, reforge);
+		return new Forged(smith, next, reforge, traits);
 	}
 
 	/** A Smithing perk folded into a crafted item. */

@@ -20,6 +20,8 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -80,6 +82,27 @@ abstract class SurvivalCampfireBlockEntityMixin implements CampfireCooks {
 	@Override
 	public @Nullable UUID[] mettle$cooks() {
 		return this.mettle$cooks;
+	}
+
+	@Inject(method = "cookTick", at = @At("HEAD"))
+	private static void mettle$fireside(ServerLevel level, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.state.BlockState state,
+		CampfireBlockEntity entity, net.minecraft.world.item.crafting.RecipeManager.CachedCheck<?, ?> cache, CallbackInfo ci) {
+		@Nullable UUID[] cooks = ((CampfireCooks) entity).mettle$cooks();
+		for (int slot = 0; slot < cooks.length; slot++) {
+			if (cooks[slot] != null) {
+				ServerPlayer cook = level.getServer().getPlayerList().getPlayer(cooks[slot]);
+				if (cook != null && level.getRandom().nextDouble() < dev.voidmc.mettle.character.cards.CardHooks.pct(cook, "survival/fireside")) {
+					((CampfireCooks) entity).mettle$hurry(slot);
+				}
+			}
+		}
+	}
+
+	@Override
+	public void mettle$hurry(int slot) {
+		if (slot < this.cookingProgress.length && !this.items.get(slot).isEmpty()) {
+			this.cookingProgress[slot]++;
+		}
 	}
 
 	@Override

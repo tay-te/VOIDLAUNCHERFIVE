@@ -24,7 +24,10 @@ public final class Anvils {
 
 	/** The price after Tinker and A Hundred Hammers ({@code cost} is vanilla's, {@code tax} its prior-work part). */
 	public static long cost(Player player, long cost, long tax) {
-		return SmithingRules.anvilCost(cost, tax, Perks.rank(player, SmithingSkill.TINKER), Perks.has(player, SmithingSkill.HUNDRED_HAMMERS));
+		long base = SmithingRules.anvilCost(cost, tax, Perks.rank(player, SmithingSkill.TINKER), Perks.has(player, SmithingSkill.HUNDRED_HAMMERS));
+		// Steady-handed (a card trait): fewer levels, never below 1.
+		double cheaper = dev.voidmc.mettle.character.cards.CardHooks.pct(player, "smithing/steady_handed");
+		return cheaper <= 0 ? base : Math.max(1, Math.round(base * (1 - cheaper)));
 	}
 
 	public static boolean keepsPriorWork(Player player) {

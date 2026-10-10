@@ -116,8 +116,13 @@ public class MettleTour implements FabricClientGameTest {
 				throw new AssertionError(problem);
 			}
 
+			// -Dmettle.tour.cards_only=true plays only the card journeys (cards v2), for a quick check.
+			if (Boolean.getBoolean("mettle.tour.cards_only")) {
+				DraftJourney.run(context, world);
+				CardJourney.run(context, world);
+			}
 			// -Dmettle.tour.hearth_only=true (with -Phearth) plays only the Hearth journey, for a quick check.
-			if (!Boolean.getBoolean("mettle.tour.hearth_only")) {
+			if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.cards_only")) {
 				// Progress moments first, while the character is fresh (it is put back as it was).
 				MomentJourney.run(context, world);
 				signaturePerks(world);
@@ -134,6 +139,7 @@ public class MettleTour implements FabricClientGameTest {
 				TomeJourney.run(world);
 				RespecJourney.run(context, world);
 				DraftJourney.run(context, world);
+				CardJourney.run(context, world);
 			}
 			// With VOID Hearth loaded (-Phearth): its slots filled by Mettle. HearthJourney names Hearth types, so it is
 			// only touched then.

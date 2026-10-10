@@ -146,6 +146,8 @@ final class RespecJourney {
 		// With nothing bought in the tree the draught is refused, and kept.
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
+			// The card kept above leaves the world, so later journeys start without cards.
+			dev.voidmc.mettle.character.cards.Cards.clear(p);
 			Perks.forget(p, MiningSkill.MINING);
 			p.setItemInHand(InteractionHand.MAIN_HAND, Draughts.forgetting(MINING));
 			return null;

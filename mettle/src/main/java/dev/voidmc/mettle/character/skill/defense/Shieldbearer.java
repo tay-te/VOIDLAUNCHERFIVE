@@ -40,7 +40,11 @@ public final class Shieldbearer {
 	 * shield is up the moment the player presses use, not a quarter second later.
 	 */
 	public static int blockDelay(LivingEntity entity, int delay) {
-		return delay > 0 && entity instanceof Player player && Perks.has(player, DefenseSkill.SHIELD_UP) ? 0 : delay;
+		if (delay > 0 && entity instanceof Player player && Perks.has(player, DefenseSkill.SHIELD_UP)) {
+			return 0;
+		}
+		// Quickguard (card trait): the shield raises faster.
+		return delay > 0 && entity instanceof Player player ? dev.voidmc.mettle.character.cards.CardHooks.blockDelay(player, delay) : delay;
 	}
 
 	/** Shield Up: nothing knocks you back while you block. Returns whether this knockback is ignored. */

@@ -62,6 +62,9 @@ public final class Shots {
 		float speed = 1f;
 		float spread = 0f;
 
+		// Cards: Swift-flighted and the Gale set fly faster; Steady spreads less while moving.
+		speed *= dev.voidmc.mettle.character.cards.CardHooks.arrowSpeed(player);
+		uncertainty = dev.voidmc.mettle.character.cards.CardHooks.uncertainty(player, uncertainty);
 		if (Perks.has(player, MarksmanshipSkill.SIXTY_PACES)) {
 			speed *= MarksmanshipRules.SIXTY_PACES_SPEED;
 		}
@@ -107,6 +110,14 @@ public final class Shots {
 				MarksmanshipSkill.chip(player, MarksmanshipSkill.DOUBLE_NOCK, MarksmanshipSkill.text(MarksmanshipSkill.DOUBLE_NOCK));
 			}
 		}
+		// Twinned (card trait): a second arrow beside the first, drawn from the player's own supply.
+		if (!arrows.isEmpty() && dev.voidmc.mettle.character.cards.CardHooks.twin(player)) {
+			ItemStack ammo = player.getProjectile(weapon);
+			if (!ammo.isEmpty()) {
+				arrows.addAll(ProjectileWeaponItemInvoker.mettle$draw(weapon, ammo, player));
+				spread = Math.max(spread, MarksmanshipRules.DOUBLE_NOCK_SPREAD);
+			}
+		}
 		return new Plan(arrows, power * speed, uncertainty, crit, spread, speed, fullDraw, player.getEyePosition());
 	}
 
@@ -120,6 +131,9 @@ public final class Shots {
 		Plan plan = current;
 		if (plan != null && projectile instanceof ShotArrow arrow) {
 			arrow.mettle$loosed(plan.origin(), plan.fullDraw(), plan.speed());
+			if (projectile instanceof net.minecraft.world.entity.projectile.arrow.AbstractArrow a && a.getOwner() instanceof ServerPlayer shooter) {
+				dev.voidmc.mettle.character.cards.CardHooks.loosed(shooter, a);
+			}
 		}
 	}
 

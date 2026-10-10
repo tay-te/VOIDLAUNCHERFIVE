@@ -143,7 +143,7 @@ public final class SurvivalSkill {
 			return;
 		}
 		Repetition rep = REPETITION.computeIfAbsent(player.getUUID(), u -> new HashMap<>()).computeIfAbsent(kind, k -> new Repetition());
-		Progress.award(player, SURVIVAL, base * rep.next(player.level().getGameTime()));
+		Progress.award(player, SURVIVAL, base * rep.next(player.level().getGameTime()) * dev.voidmc.mettle.character.cards.CardHooks.discoveryXp(player, kind));
 	}
 
 	/** A feedback chip, {@code mettle.feedback.survival.<key>}. */

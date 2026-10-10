@@ -23,7 +23,13 @@ final class MettlePrices implements PriceModifier {
 
 	@Override
 	public double factor(ServerPlayer player, Settlement settlement, ItemStack one, boolean playerBuys) {
-		return HearthRules.priceFactor(edge(player), playerBuys);
+		double factor = HearthRules.priceFactor(edge(player), playerBuys);
+		// Signature (a card trait): goods marked "Forged by you" sell for more.
+		var forged = one.get(dev.voidmc.mettle.character.skill.smithing.SmithingComponents.FORGED);
+		if (!playerBuys && forged != null && forged.smith().equals(player.getName().getString())) {
+			factor *= 1 + dev.voidmc.mettle.character.cards.CardHooks.pct(player, "smithing/signature");
+		}
+		return factor;
 	}
 
 	static double edge(ServerPlayer player) {

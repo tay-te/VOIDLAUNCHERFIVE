@@ -8,4 +8,7 @@ public interface CampfireCooks {
 	@Nullable UUID[] mettle$cooks();
 
 	void mettle$finishCooking();
+
+	/** One tick more of cooking for a slot (Fireside, a card trait). */
+	void mettle$hurry(int slot);
 }

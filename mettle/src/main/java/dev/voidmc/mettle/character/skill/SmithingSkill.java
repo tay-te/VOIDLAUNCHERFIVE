@@ -112,7 +112,7 @@ public final class SmithingSkill {
 		}
 		if (menu instanceof AbstractFurnaceMenu) {
 			if (path.endsWith("_ingot")) {
-				Progress.award(player, SMITHING, XP_INGOT * count);
+				Progress.award(player, SMITHING, XP_INGOT * count * dev.voidmc.mettle.character.cards.CardHooks.smeltXp(player));
 			}
 			return;
 		}
@@ -168,7 +168,7 @@ public final class SmithingSkill {
 
 	/** Anvil job taken: XP grows with the levels it cost. */
 	public static void anvil(ServerPlayer player, int cost) {
-		Progress.award(player, SMITHING, XP_ANVIL + XP_ANVIL_PER_LEVEL * Math.max(0, cost));
+		Progress.award(player, SMITHING, (XP_ANVIL + XP_ANVIL_PER_LEVEL * Math.max(0, cost)) * dev.voidmc.mettle.character.cards.CardHooks.anvilXp(player));
 	}
 
 	/** Metal units in a tool, weapon, armour piece or shield (as in its recipe), or 0. */
