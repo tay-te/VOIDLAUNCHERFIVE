@@ -1,6 +1,6 @@
-# VOID Arsenal — design
+# Arsenal — design
 
-VOID Arsenal is what you fight with, and how you make it. A weapon is no longer one item from a crafting grid: it is
+Arsenal is what you fight with, and how you make it. A weapon is no longer one item from a crafting grid: it is
 **parts** you forged yourself (a blade, a guard, a grip, a pommel), **attachments** that change what it can do (a
 poisoned edge, a hooked guard that disarms, a split arrowhead), and **runes** inscribed into its sockets (the
 enchantment table, rebuilt). You heat metal at a **forge**, shape it on an **anvil**, quench it, grind it, and put
@@ -26,10 +26,17 @@ Status: **DESIGN** (2026-10-10). Nothing built. Screens go to Figma before code 
    well makes a better part; doing it badly still makes a part.
 3. **Randomness you choose.** The fun gamble is yours: overload a weapon with runes and it may crack, curse, or
    come out brilliant. Nothing is random behind your back (no lapis slot machine).
+6. **Crafted, and unique to its maker.** (The user, 2026-10-10: weapons should feel crafted and unique to players.)
+   Arsenal weapons come from the forge and the workbench, never the crafting grid. Every forged part carries its
+   **maker's mark** and small natural variation (a few % in its numbers, its exact look), so no two are identical.
+   A weapon you assemble gets a **name** (generated, or yours to give at the workbench) and keeps a short
+   **history**: who made it, from what, its kills of note ("felled the Warden of Kestrel Ford"), its runes' story.
+   Old weapons become heirlooms; a weapon from another player feels like theirs.
 4. **Readable at a glance.** The workbench shows the weapon, its sockets and what each part does, in plain words.
    The tooltip lists the parts. You always know why a weapon is good.
-5. **Vanilla stays playable.** A vanilla sword still works and still crafts. It is simply a weapon with fixed,
-   plain parts that you can later take apart and rebuild. Old enchanted gear keeps its enchantments as runes.
+5. **Vanilla stays playable.** Vanilla weapons already in the world (loot, old saves, mobs' drops) still work: each is
+   a weapon with fixed, plain parts you can take apart and rebuild. Their crafting-grid recipes are removed: new
+   weapons are forged (§1.6). Old enchanted gear keeps its enchantments as runes.
 
 ## 2. The loop
 
@@ -41,7 +48,8 @@ Status: **DESIGN** (2026-10-10). Nothing built. Screens go to Figma before code 
                 └──────────────────► INSCRIBING TABLE (runes into sockets) ◄────────┘
 ```
 
-A player's first hour: salvage a vanilla iron sword at the workbench → its blade, guard and grip come out → swap the
+A player's first hour: a small forge (cobblestone, a furnace, an iron ingot) and the anvil make a Crude iron blade;
+the workbench puts it on a plain grip. Or: salvage a vanilla iron sword at the workbench → its blade, guard and grip come out → swap the
 grip for a long oak haft → now it is a slower, longer-reaching blade. Later: a steel bloom from the forge, a
 masterwork blade off the anvil, an oil-quenched edge, a hooked guard, and a rune of Kindling in its one socket.
 
@@ -146,6 +154,15 @@ into.
 | **VOID Expanse** | Rune tablets and lost parts in ruins; ores where they make sense. | Expanse owns the structures; Arsenal owns loot tables it adds to them. |
 | **VOID Hub** | Every station screen is a Hub page (workbench, forge, inscribing table); the hover tooltip lists parts and runes. | Hub owns the chrome; Arsenal sends state like Mettle does. |
 
+## 7b. Maker's mark and history
+
+- **Mark:** the forging player's name and a mark (an icon they pick once, shown on the workbench and the tooltip).
+- **Variation:** each forged part rolls ±4 % on its numbers within its quality, and a small cosmetic variation
+  (blade notch, wrap colour, pommel shape) drawn by the composed model.
+- **Name:** generated from material, shape and maker ("Ashford's Long Steel"), renamable at the workbench.
+- **History:** up to five lines kept on the weapon: forged by, notable kills (named or boss mobs, players), runes
+  inscribed, repairs at a smith. Shown in the tooltip's last section.
+
 ## 8. Technical sketch
 
 - **One data component** on the stack: `arsenal:build` = family, parts (material, shape, quality, temper,
@@ -170,7 +187,7 @@ into.
 
 ## 10. Open questions for the user
 
-1. **Name**: "VOID Arsenal" (working name).
-2. **Vanilla crafting**: keep the crafting-grid sword as a quick plain option (recommended), or forge-only?
+1. ~~Name~~: **Arsenal** (decided 2026-10-10).
+2. ~~Vanilla crafting~~: forge-only for new weapons, so they feel crafted and unique (decided 2026-10-10).
 3. **Forge game**: the anvil timing game (recommended), or no minigame (quality from heat and skill only)?
 4. **Great forge**: multiblock bonus build (recommended), or single blocks only?
