@@ -62,6 +62,8 @@
 	"mettle.smithing.tooltip.keen_edge": "Keen Edge · +1 damage",
 	"mettle.smithing.tooltip.true_temper": "True Temper · digs 15%% faster",
 	"mettle.smithing.tooltip.folded_steel": "Folded Steel · lasts twice as long",
+	"mettle.smithing.tooltip.brittle_edge": "Brittle Edge · +2 damage, half the durability",
+	"mettle.smithing.tooltip.slapdash": "Slapdash · lasts a quarter less",
 	"mettle.smithing.tooltip.reforge.light": "Reforged Light · half the weight",
 	"mettle.smithing.tooltip.reforge.sturdy": "Reforged Sturdy · lasts 50%% longer",
 	"mettle.smithing.tooltip.reforge.warded": "Reforged Warded · +1 toughness",

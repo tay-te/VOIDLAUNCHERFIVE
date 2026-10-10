@@ -107,7 +107,14 @@ class DefenseRulesTest {
 		Map<String, AtomicInteger> paths = new java.util.HashMap<>();
 		List<Path> files;
 		try (Stream<Path> s = Files.list(PERKS)) {
-			files = s.filter(p -> p.toString().endsWith(".json")).sorted().toList();
+			// The tree's own perks; its cursed cards belong to the draft (DraftRulesTest).
+			files = s.filter(p -> p.toString().endsWith(".json")).filter(p -> {
+				try {
+					return !Files.readString(p, StandardCharsets.UTF_8).contains("\"cursed\"");
+				} catch (IOException e) {
+					throw new java.io.UncheckedIOException(e);
+				}
+			}).sorted().toList();
 		}
 		assertEquals(18, files.size());
 		for (Path file : files) {

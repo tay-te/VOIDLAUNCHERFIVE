@@ -13,7 +13,7 @@ public enum MomentKind {
 	TIER,
 	/** The character level rose: one more attribute point. */
 	CHARACTER,
-	/** A root or path perk was bought (a rank of it). */
+	/** A root, path or cursed perk was drafted (a rank of it). */
 	LEARNED,
 	/** A mastery was chosen. */
 	MASTERY,
@@ -30,12 +30,12 @@ public enum MomentKind {
 		return this == FEAT || this == SYNERGY || this == TEACHING;
 	}
 
-	/** Moments that come from XP: they bring points to spend, so they wake the points nudge. */
+	/** Moments that come from XP: they bring drafts and attribute points, so they wake the nudge. */
 	public boolean levelUp() {
 		return this == LEVEL || this == TIER || this == CHARACTER;
 	}
 
-	/** Moments the player caused by spending points (usually from a screen that already shows the change). */
+	/** Moments the player caused by picking a card (usually from a screen that already shows the change). */
 	public boolean bought() {
 		return this == LEARNED || this == MASTERY;
 	}

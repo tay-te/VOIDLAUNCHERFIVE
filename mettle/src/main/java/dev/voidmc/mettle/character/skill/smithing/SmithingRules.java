@@ -44,11 +44,18 @@ public final class SmithingRules {
 		if (forged.reforge() == Reforge.STURDY) {
 			bonus += STURDY;
 		}
+		// Cursed cards take some away.
+		if (forged.has(Mark.BRITTLE_EDGE)) {
+			bonus += dev.voidmc.mettle.character.draft.Cursed.BRITTLE_EDGE_DURABILITY;
+		}
+		if (forged.has(Mark.SLAPDASH)) {
+			bonus += dev.voidmc.mettle.character.draft.Cursed.SLAPDASH_DURABILITY;
+		}
 		return bonus;
 	}
 
 	public static int maxDamage(int base, Forged forged) {
-		return base <= 0 ? base : (int) Math.round(base * (1 + durabilityBonus(forged)));
+		return base <= 0 ? base : (int) Math.max(1, Math.round(base * Math.max(0.1, 1 + durabilityBonus(forged))));
 	}
 
 	/** What a stamped item weighs against its plain weight (Light Hand and a Light reforge multiply). */

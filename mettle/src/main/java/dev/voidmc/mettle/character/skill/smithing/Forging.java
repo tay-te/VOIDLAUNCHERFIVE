@@ -172,6 +172,12 @@ public final class Forging {
 		if ((armour || weapon || dig) && Perks.has(player, SmithingSkill.MASTERWORK) && SmithingRules.masterwork(seed(player), n)) {
 			marks.add(Mark.MASTERWORK);
 		}
+		if (weapon && Perks.has(player, dev.voidmc.mettle.character.draft.Cursed.BRITTLE_EDGE)) {
+			marks.add(Mark.BRITTLE_EDGE);
+		}
+		if (Perks.has(player, dev.voidmc.mettle.character.draft.Cursed.SLAPDASH)) {
+			marks.add(Mark.SLAPDASH);
+		}
 		return marks.isEmpty() ? null : new Forged(player.getName().getString(), marks, Reforge.NONE);
 	}
 
@@ -207,6 +213,9 @@ public final class Forging {
 		if (forged != null) {
 			if (forged.has(Mark.KEEN_EDGE) && weapon) {
 				damage += 1;
+			}
+			if (forged.has(Mark.BRITTLE_EDGE) && weapon) {
+				damage += dev.voidmc.mettle.character.draft.Cursed.BRITTLE_EDGE_DAMAGE;
 			}
 			if (forged.has(Mark.PROOFED) && armourSlot != null) {
 				armor += 1;

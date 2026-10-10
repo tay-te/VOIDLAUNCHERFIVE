@@ -123,6 +123,8 @@ public final class Hits {
 		if (headshot) {
 			multiplier *= 2f;
 		}
+		// Heavy Draw and Snap Shot (cursed cards).
+		multiplier *= dev.voidmc.mettle.character.draft.Cursed.arrowDamage(player);
 		// Speed perks make arrows fly faster, and vanilla turns speed into damage; take that back out.
 		if (arrow instanceof ShotArrow shot && shot.mettle$speed() > 0) {
 			multiplier /= shot.mettle$speed();

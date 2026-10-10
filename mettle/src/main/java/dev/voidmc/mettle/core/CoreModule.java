@@ -38,6 +38,8 @@ public final class CoreModule {
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.ChooseBackground.TYPE, MettlePayloads.ChooseBackground.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.LearnPerk.TYPE, MettlePayloads.LearnPerk.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.SpendAttribute.TYPE, MettlePayloads.SpendAttribute.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.PickCard.TYPE, MettlePayloads.PickCard.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.Reroll.TYPE, MettlePayloads.Reroll.STREAM_CODEC);
 
 		ServerPlayerEvents.JOIN.register(EffectsApplier::apply);
 		ServerPlayerEvents.AFTER_RESPAWN.addPhaseOrdering(Event.DEFAULT_PHASE, AFTER_ATTACHMENTS);

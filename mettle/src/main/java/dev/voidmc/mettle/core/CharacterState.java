@@ -23,27 +23,36 @@ import org.jspecify.annotations.Nullable;
  * @param spent      attribute points the player placed (the Wanderer's free points, then points from character levels)
  * @param favoured   skills the player picked to favour (only for backgrounds that let them pick)
  * @param xp         XP per skill
- * @param perks      perks held, with their rank (bought and earned alike)
+ * @param perks      perks held, with their rank (drafted and earned alike)
+ * @param draft      the perk drafts (docs/DRAFT.md); empty for a character saved before drafts, which the server migrates on
+ *                   join (unspent perk points become drafts)
  */
 public record CharacterState(
 	Optional<ResourceKey<Background>> background,
 	Map<CharacterAttribute, Integer> spent,
 	List<ResourceKey<Skill>> favoured,
 	Map<ResourceKey<Skill>, Double> xp,
-	Map<ResourceKey<Perk>, Integer> perks
+	Map<ResourceKey<Perk>, Integer> perks,
+	Optional<DraftState> draft
 ) {
-	public static final CharacterState EMPTY = new CharacterState(Optional.empty(), Map.of(), List.of(), Map.of(), Map.of());
+	public static final CharacterState EMPTY = new CharacterState(Optional.empty(), Map.of(), List.of(), Map.of(), Map.of(), Optional.empty());
 
 	public static final Codec<CharacterState> CODEC = RecordCodecBuilder.create(i -> i.group(
 		ResourceKey.codec(MettleRegistries.BACKGROUND).optionalFieldOf("background").forGetter(CharacterState::background),
 		Codec.unboundedMap(CharacterAttribute.CODEC, Codec.intRange(0, CharacterAttribute.MAX)).optionalFieldOf("spent", Map.of()).forGetter(CharacterState::spent),
 		ResourceKey.codec(MettleRegistries.SKILL).listOf().optionalFieldOf("favoured", List.of()).forGetter(CharacterState::favoured),
 		Codec.unboundedMap(ResourceKey.codec(MettleRegistries.SKILL), Codec.DOUBLE).optionalFieldOf("xp", Map.of()).forGetter(CharacterState::xp),
-		Codec.unboundedMap(ResourceKey.codec(MettleRegistries.PERK), Codec.intRange(1, 5)).optionalFieldOf("perks", Map.of()).forGetter(CharacterState::perks)
+		Codec.unboundedMap(ResourceKey.codec(MettleRegistries.PERK), Codec.intRange(1, 5)).optionalFieldOf("perks", Map.of()).forGetter(CharacterState::perks),
+		DraftState.CODEC.optionalFieldOf("draft").forGetter(CharacterState::draft)
 	).apply(i, CharacterState::new));
 
 	public CharacterState(Optional<ResourceKey<Background>> background, Map<CharacterAttribute, Integer> spent, List<ResourceKey<Skill>> favoured) {
-		this(background, spent, favoured, Map.of(), Map.of());
+		this(background, spent, favoured, Map.of(), Map.of(), Optional.empty());
+	}
+
+	public CharacterState(Optional<ResourceKey<Background>> background, Map<CharacterAttribute, Integer> spent, List<ResourceKey<Skill>> favoured,
+		Map<ResourceKey<Skill>, Double> xp, Map<ResourceKey<Perk>, Integer> perks) {
+		this(background, spent, favoured, xp, perks, Optional.empty());
 	}
 
 	public boolean hasBackground() {
@@ -82,20 +91,29 @@ public record CharacterState(
 	}
 
 	public CharacterState withBackground(Optional<ResourceKey<Background>> b, Map<CharacterAttribute, Integer> s, List<ResourceKey<Skill>> f) {
-		return new CharacterState(b, s, f, this.xp, this.perks);
+		return new CharacterState(b, s, f, this.xp, this.perks, this.draft);
 	}
 
 	public CharacterState withSpent(Map<CharacterAttribute, Integer> s) {
-		return new CharacterState(this.background, Map.copyOf(s), this.favoured, this.xp, this.perks);
+		return new CharacterState(this.background, Map.copyOf(s), this.favoured, this.xp, this.perks, this.draft);
 	}
 
 	public CharacterState withXp(ResourceKey<Skill> skill, double value) {
 		Map<ResourceKey<Skill>, Double> copy = new HashMap<>(this.xp);
 		copy.put(skill, value);
-		return new CharacterState(this.background, this.spent, this.favoured, Map.copyOf(copy), this.perks);
+		return new CharacterState(this.background, this.spent, this.favoured, Map.copyOf(copy), this.perks, this.draft);
 	}
 
 	public CharacterState withPerks(Map<ResourceKey<Perk>, Integer> p) {
-		return new CharacterState(this.background, this.spent, this.favoured, this.xp, Map.copyOf(p));
+		return new CharacterState(this.background, this.spent, this.favoured, this.xp, Map.copyOf(p), this.draft);
+	}
+
+	public CharacterState withDraft(DraftState d) {
+		return new CharacterState(this.background, this.spent, this.favoured, this.xp, this.perks, Optional.of(d));
+	}
+
+	/** The drafts, or an empty set for a character not yet migrated (the client shows nothing waiting). */
+	public DraftState drafts() {
+		return this.draft.orElse(DraftState.fresh(0L, 0));
 	}
 }

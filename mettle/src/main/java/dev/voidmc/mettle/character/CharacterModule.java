@@ -30,14 +30,15 @@ public final class CharacterModule {
 				ServerPlayNetworking.send(player, new MettlePayloads.OpenPicker(false));
 			}
 		});
+		// Perks come from drafts now (docs/DRAFT.md): an older host asking to buy one is told so.
 		ServerPlayNetworking.registerGlobalReceiver(MettlePayloads.LearnPerk.TYPE, (payload, context) ->
-			Perks.learn(context.player(), payload.perk()).ifPresent(reason ->
-				SignaturePerks.feedback(context.player(), payload.perk().identifier(), Component.translatable(reason.translationKey()))));
+			SignaturePerks.feedback(context.player(), payload.perk().identifier(), Component.translatable("mettle.draft.no_buying")));
 		ServerPlayNetworking.registerGlobalReceiver(MettlePayloads.SpendAttribute.TYPE, (payload, context) -> Perks.spendAttribute(context.player(), payload.attribute()));
 		ServerPlayerEvents.LEAVE.register(player -> {
 			Progress.forget(player.getUUID());
 			MiningSkill.forget(player.getUUID());
 		});
+		dev.voidmc.mettle.character.draft.Drafts.init();
 		SignaturePerks.init();
 		PlacedBlocks.init();
 		FeatCounters.init();
@@ -56,6 +57,7 @@ public final class CharacterModule {
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> {
 			CharacterCommands.register(dispatcher, context);
 			TreeCommands.register(dispatcher);
+			dev.voidmc.mettle.character.draft.DraftCommands.register(dispatcher);
 		});
 	}
 }

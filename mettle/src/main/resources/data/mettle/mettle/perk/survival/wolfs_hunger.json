@@ -1,0 +1,24 @@
+{
+	"skill": "mettle:survival",
+	"kind": "cursed",
+	"tier": 2,
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.survival.wolfs_hunger"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.wolfs_hunger.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.survival.wolfs_hunger.downside"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:max_health",
+			"amounts": [
+				4.0
+			]
+		}
+	],
+	"order": 20
+}

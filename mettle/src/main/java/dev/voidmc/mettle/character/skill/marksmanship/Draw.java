@@ -38,7 +38,7 @@ public final class Draw {
 	/** How many times faster than vanilla this player is drawing the bow they have held for {@code ticksHeld}. */
 	public static float speed(Player player, int ticksHeld) {
 		return MarksmanshipRules.drawSpeed(Perks.rank(player, MarksmanshipSkill.STEADY_AIM), quickNock(player, ticksHeld),
-			Perks.has(player, MarksmanshipSkill.STEPPE_DRAW));
+			Perks.has(player, MarksmanshipSkill.STEPPE_DRAW)) * dev.voidmc.mettle.character.draft.Cursed.drawSpeed(player);
 	}
 
 	/** The draw ticks the bow counts after perks (vanilla reaches full power at 20). */

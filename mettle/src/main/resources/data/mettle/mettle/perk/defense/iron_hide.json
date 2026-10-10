@@ -1,0 +1,31 @@
+{
+	"skill": "mettle:defense",
+	"kind": "cursed",
+	"tier": 2,
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.defense.iron_hide"
+	},
+	"description": {
+		"translate": "mettle.perk.defense.iron_hide.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.defense.iron_hide.downside"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:armor",
+			"amounts": [
+				4.0
+			]
+		},
+		{
+			"attribute": "minecraft:movement_speed",
+			"amounts": [
+				-0.1
+			],
+			"operation": "add_multiplied_base"
+		}
+	],
+	"order": 20
+}

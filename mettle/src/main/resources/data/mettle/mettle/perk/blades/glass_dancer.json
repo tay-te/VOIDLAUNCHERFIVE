@@ -1,0 +1,38 @@
+{
+	"skill": "mettle:blades",
+	"kind": "cursed",
+	"tier": 3,
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.blades.glass_dancer"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.glass_dancer.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.blades.glass_dancer.downside"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:attack_speed",
+			"amounts": [
+				0.2
+			],
+			"operation": "add_multiplied_total"
+		},
+		{
+			"attribute": "minecraft:movement_speed",
+			"amounts": [
+				0.1
+			],
+			"operation": "add_multiplied_base"
+		},
+		{
+			"attribute": "minecraft:max_health",
+			"amounts": [
+				-6.0
+			]
+		}
+	],
+	"order": 21
+}

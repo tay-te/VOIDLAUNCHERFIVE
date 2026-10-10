@@ -287,6 +287,15 @@ public final class MiningSkill {
 			return;
 		}
 		var random = level.getRandom();
+		// Greedy Pick (cursed): now and then an ore crumbles to the stone it sat in, and nothing else drops.
+		if (isOre(state) && Perks.has(player, dev.voidmc.mettle.character.draft.Cursed.GREEDY_PICK)
+			&& random.nextFloat() < dev.voidmc.mettle.character.draft.Cursed.GREEDY_PICK_CRUMBLE) {
+			drops.clear();
+			drops.add(new ItemStack(dev.voidmc.mettle.character.draft.Cursed.crumble(state)));
+			dev.voidmc.mettle.character.signature.SignaturePerks.feedback(player, dev.voidmc.mettle.character.draft.Cursed.GREEDY_PICK,
+				net.minecraft.network.chat.Component.translatable("mettle.perk.mining.greedy_pick.crumbled"));
+			return;
+		}
 		List<ItemStack> extra = new ArrayList<>();
 		ItemStack main = drops.getFirst();
 

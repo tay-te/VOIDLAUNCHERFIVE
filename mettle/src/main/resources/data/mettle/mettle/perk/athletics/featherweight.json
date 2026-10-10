@@ -1,0 +1,31 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "cursed",
+	"tier": 2,
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.athletics.featherweight"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.featherweight.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.athletics.featherweight.downside"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:movement_speed",
+			"amounts": [
+				0.15
+			],
+			"operation": "add_multiplied_base"
+		},
+		{
+			"attribute": "mettle:carry_capacity",
+			"amounts": [
+				-20.0
+			]
+		}
+	],
+	"order": 20
+}

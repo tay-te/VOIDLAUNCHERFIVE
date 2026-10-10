@@ -7,6 +7,8 @@ import dev.voidmc.mettle.api.MettleEvents;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
+import dev.voidmc.mettle.character.draft.DraftRules;
+import dev.voidmc.mettle.character.draft.Drafts;
 import dev.voidmc.mettle.character.moment.Moments;
 import dev.voidmc.mettle.character.respec.RespecRules;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
@@ -25,7 +27,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
-/** Holding, buying, earning and refunding perks, and spending attribute points. Server thread. */
+/**
+ * Holding, earning and refunding perks, and spending attribute points. Server thread. Drafted perks are picked from
+ * draft hands ({@link dev.voidmc.mettle.character.draft.Drafts}); {@link #learn} remains only for ops and tests.
+ */
 public final class Perks {
 	private Perks() {
 	}
@@ -47,22 +52,6 @@ public final class Perks {
 		return player.level().registryAccess().lookupOrThrow(MettleRegistries.PERK);
 	}
 
-	/** Points spent on bought perks in one skill. */
-	public static int spentPoints(CharacterState state, Registry<Perk> perks, ResourceKey<Skill> skill) {
-		int spent = 0;
-		for (Map.Entry<ResourceKey<Perk>, Integer> e : state.perks().entrySet()) {
-			Optional<Perk> p = perks.getOptional(e.getKey());
-			if (p.isPresent() && p.get().kind().bought() && p.get().skill().equals(skill)) {
-				spent += p.get().cost() * e.getValue();
-			}
-		}
-		return spent;
-	}
-
-	public static int points(CharacterState state, Registry<Perk> perks, ResourceKey<Skill> skill) {
-		return Math.max(0, state.level(skill) - spentPoints(state, perks, skill));
-	}
-
 	/** Everything {@link PerkRules} needs about one of a player's trees. */
 	public static PerkRules.TreeView tree(Player player, ResourceKey<Skill> skillKey) {
 		CharacterState state = CharacterStore.get(player);
@@ -78,16 +67,19 @@ public final class Perks {
 				held.put(r.key(), rank);
 			}
 		});
-		return new PerkRules.TreeView(state.level(skillKey), state.attribute(skill.attribute(), background), points(state, perks, skillKey), held, inTree);
+		return new PerkRules.TreeView(state.level(skillKey), state.attribute(skill.attribute(), background), state.drafts().queued(skillKey), held, inTree);
 	}
 
-	/** Buys the next rank of a perk; returns why not, or empty on success. */
+	/**
+	 * Learns the next rank of a drafted perk without a draft (ops' {@code /mettle perk learn} and tests); the tree's shape
+	 * rules still apply ({@link PerkRules#eligible}). Players get perks from drafts. Returns why not, or empty on success.
+	 */
 	public static Optional<PerkRules.Reason> learn(ServerPlayer player, ResourceKey<Perk> key) {
 		Optional<Perk> perk = registry(player).getOptional(key);
 		if (perk.isEmpty()) {
 			return Optional.of(PerkRules.Reason.NOT_BOUGHT);
 		}
-		Optional<PerkRules.Reason> blocked = PerkRules.check(key, perk.get(), tree(player, perk.get().skill()));
+		Optional<PerkRules.Reason> blocked = PerkRules.eligible(key, perk.get(), tree(player, perk.get().skill()));
 		if (blocked.isPresent()) {
 			return blocked;
 		}
@@ -102,6 +94,8 @@ public final class Perks {
 		Moments.perk(player, key, perk.get(), rank);
 		SignaturePerks.feedback(player, key.identifier(), text);
 		MettleEvents.PERK_LEARNED.invoker().learned(player, key, rank);
+		// A hand may hold a card for the rank just learned: it is dealt again.
+		Drafts.refresh(player);
 		return Optional.empty();
 	}
 
@@ -121,36 +115,53 @@ public final class Perks {
 		SignaturePerks.feedback(player, key.identifier(), Component.translatable("mettle.feedback.earned." + kind, perk.get().name()));
 		Mettle.LOGGER.info("{} earned {} {}", player.getName().getString(), kind, key.identifier());
 		MettleEvents.PERK_LEARNED.invoker().learned(player, key, 1);
+		// A deed is luck too: every feat brings a reroll (docs/DRAFT.md §5).
+		if (perk.get().kind() == Perk.Kind.FEAT) {
+			Drafts.addRerolls(player, DraftRules.REROLLS_PER_FEAT);
+		}
 		return true;
 	}
 
-	/** Refunds every bought perk (and, with {@code attributes}, every placed attribute point). Earned perks stay. */
+	/**
+	 * Refunds every drafted perk, each rank back as a draft of its skill (and, with {@code attributes}, every placed
+	 * attribute point). Earned perks stay.
+	 */
 	public static void respec(ServerPlayer player, boolean attributes) {
-		CharacterState state = CharacterStore.get(player);
+		CharacterState state = Drafts.ensure(player);
 		Registry<Perk> perks = registry(player);
 		Map<ResourceKey<Perk>, Integer> kept = new HashMap<>();
-		state.perks().forEach((k, v) -> perks.getOptional(k).filter(p -> !p.kind().bought()).ifPresent(p -> kept.put(k, v)));
-		CharacterState next = state.withPerks(kept);
+		Map<ResourceKey<Perk>, Integer> removed = new HashMap<>();
+		state.perks().forEach((k, v) -> {
+			if (perks.getOptional(k).map(p -> p.kind().drafted()).orElse(false)) {
+				removed.put(k, v);
+			} else {
+				kept.put(k, v);
+			}
+		});
+		CharacterState next = Drafts.returnDrafts(player.level().registryAccess(), state.withPerks(kept), removed);
 		if (attributes) {
 			// A Wanderer's free points come back as free points (attributePoints counts them), so placing is all redone.
 			next = next.withSpent(Map.of());
 		}
 		CharacterStore.set(player, next);
+		Drafts.refresh(player);
 		EffectsApplier.apply(player);
 		MettleEvents.RESPEC.invoker().respec(player, attributes);
 	}
 
 	/**
-	 * Refunds every bought perk of one skill: roots, path perks and the Mastery (the Draught of Forgetting). Earned perks,
-	 * skill XP and levels stay. Changes nothing when there is nothing to forget.
+	 * Refunds every drafted perk of one skill: roots, path perks, cursed cards and the Mastery (the Draught of Forgetting).
+	 * Each rank comes back as a draft of that skill. Earned perks, skill XP and levels stay. Changes nothing when there is
+	 * nothing to forget.
 	 */
 	public static RespecRules.Forgetting forget(ServerPlayer player, ResourceKey<Skill> skill) {
-		CharacterState state = CharacterStore.get(player);
+		CharacterState state = Drafts.ensure(player);
 		RespecRules.Forgetting result = RespecRules.forget(state.perks(), registry(player)::getOptional, skill);
 		if (!result.nothing()) {
-			CharacterStore.set(player, state.withPerks(result.kept()));
+			CharacterStore.set(player, state.withPerks(result.kept()).withDraft(state.drafts().addQueued(skill, result.drafts())));
+			Drafts.refresh(player);
 			EffectsApplier.apply(player);
-			Mettle.LOGGER.info("{} forgot {} perks of {} ({} points)", player.getName().getString(), result.perks(), skill.identifier(), result.points());
+			Mettle.LOGGER.info("{} forgot {} perks of {} ({} drafts back)", player.getName().getString(), result.perks(), skill.identifier(), result.drafts());
 			MettleEvents.RESPEC.invoker().respec(player, false);
 		}
 		return result;

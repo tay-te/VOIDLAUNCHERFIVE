@@ -78,8 +78,8 @@ public final class DraughtItem extends Item {
 		if (this.kind == Kind.FORGETTING) {
 			ResourceKey<Skill> skill = skill(stack).orElseThrow();
 			RespecRules.Forgetting forgot = Perks.forget(player, skill);
-			text = Component.translatable(forgot.points() == 1 ? "mettle.feedback.forgetting.one" : "mettle.feedback.forgetting",
-				skillName(player.level(), skill), forgot.points());
+			text = Component.translatable(forgot.drafts() == 1 ? "mettle.feedback.forgetting.one" : "mettle.feedback.forgetting",
+				skillName(player.level(), skill), forgot.drafts());
 		} else {
 			int points = Perks.unbind(player);
 			text = Component.translatable(points == 1 ? "mettle.feedback.unbinding.one" : "mettle.feedback.unbinding", points);

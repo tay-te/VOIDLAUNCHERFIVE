@@ -8,8 +8,10 @@ import java.util.Optional;
 import net.minecraft.resources.ResourceKey;
 
 /**
- * Whether a perk can be bought right now (TREES.md §1), free of players and worlds so it can be tested. The tree screen
- * shows the same reason the server would give.
+ * The tree's shape rules (TREES.md §1), free of players and worlds so they can be tested. Since the draft (docs/DRAFT.md)
+ * nothing is bought: {@link #eligible} says whether a perk's next rank may be dealt as a card (skill gate, path order,
+ * one Mastery), and the tree screen shows the same reason. {@link #check} is the old purchase rule, kept for the
+ * attribute gate and points it adds.
  */
 public final class PerkRules {
 	public enum Reason {
@@ -46,8 +48,20 @@ public final class PerkRules {
 	private PerkRules() {
 	}
 
-	/** Empty when the next rank of {@code perk} can be bought; otherwise the first thing in the way. */
+	/**
+	 * Empty when the next rank of {@code perk} may be dealt in a draft; otherwise the first thing in the way. Attribute gates
+	 * are soft in the draft (they change a card's odds, docs/DRAFT.md §3) and nothing costs points, so neither is checked.
+	 */
+	public static Optional<Reason> eligible(ResourceKey<Perk> key, Perk perk, TreeView tree) {
+		return rules(key, perk, tree, false);
+	}
+
+	/** The old purchase rule: {@link #eligible} plus the hard attribute gate and the points. */
 	public static Optional<Reason> check(ResourceKey<Perk> key, Perk perk, TreeView tree) {
+		return rules(key, perk, tree, true);
+	}
+
+	private static Optional<Reason> rules(ResourceKey<Perk> key, Perk perk, TreeView tree, boolean purchase) {
 		if (!perk.kind().bought()) {
 			return Optional.of(Reason.NOT_BOUGHT);
 		}
@@ -57,7 +71,7 @@ public final class PerkRules {
 		if (tree.skillLevel() < Curves.tierSkillGate(perk.tier())) {
 			return Optional.of(Reason.SKILL_TOO_LOW);
 		}
-		if (tree.attribute() < Curves.tierAttributeGate(perk.tier())) {
+		if (purchase && tree.attribute() < Curves.tierAttributeGate(perk.tier())) {
 			return Optional.of(Reason.ATTRIBUTE_TOO_LOW);
 		}
 		if (perk.kind() == Perk.Kind.PATH && perk.tier() >= 3 && tree.heldOnPath(perk.path(), 2) == 0) {
@@ -72,7 +86,7 @@ public final class PerkRules {
 				return Optional.of(Reason.NEEDS_TWO_PATH_PERKS);
 			}
 		}
-		if (tree.points() < perk.cost()) {
+		if (purchase && tree.points() < perk.cost()) {
 			return Optional.of(Reason.NO_POINTS);
 		}
 		return Optional.empty();

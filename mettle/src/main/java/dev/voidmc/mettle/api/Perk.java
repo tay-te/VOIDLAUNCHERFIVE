@@ -14,16 +14,18 @@ import net.minecraft.util.StringRepresentable;
 /**
  * A perk in a skill tree, or an earned one (TREES.md). Data, synced to clients so the overlay can draw the tree.
  *
- * <p>Bought perks: {@code ROOT} (tier 1, ranked), {@code PATH} (tier 2 or 3, on path A or B) and {@code MASTERY}
- * (tier 4, one per skill). Earned perks cost nothing: {@code FEAT} (a deed, see {@code feat}), {@code SYNERGY} (two
- * skills at a level, see {@code synergy}) and {@code TEACHING} (taught or read).
+ * <p>Drafted perks are the cards of a skill's deck (docs/DRAFT.md): {@code ROOT} (tier 1, ranked), {@code PATH} (tier 2
+ * or 3, on path A or B), {@code MASTERY} (tier 4, one per skill) and {@code CURSED} (a strong effect with a real
+ * downside, see {@code downside}). Earned perks are never drafted: {@code FEAT} (a deed, see {@code feat}),
+ * {@code SYNERGY} (two skills at a level, see {@code synergy}) and {@code TEACHING} (taught or read).
  *
  * @param skill       the tree it belongs to (a synergy lists its first skill here)
- * @param ranks       how many times it can be bought (roots 3, others 1)
- * @param cost        points per rank
+ * @param ranks       how many times it can be drafted (roots 3, others 1)
+ * @param cost        the old tree's points per rank: no longer spent, it only says how deep a perk is (BALANCE.md §7.3)
  * @param side        for masteries: which path's perks it needs ({@code "a"}, {@code "b"} or {@code "any"})
  * @param description one plain sentence; ranked perks use {@code %s} for the rank value from {@code rankValues}
  * @param effects     attribute modifiers it adds per rank (behaviours are code, keyed by the perk id)
+ * @param downside    for cursed perks: the price, one plain sentence ("One ore in eight crumbles to cobblestone.")
  */
 public record Perk(
 	ResourceKey<Skill> skill,
@@ -40,10 +42,11 @@ public record Perk(
 	Optional<Feat> feat,
 	Map<ResourceKey<Skill>, Integer> synergy,
 	List<AttributeEffect> effects,
-	int order
+	int order,
+	Optional<Component> downside
 ) {
 	public enum Kind implements StringRepresentable {
-		ROOT, PATH, MASTERY, FEAT, SYNERGY, TEACHING;
+		ROOT, PATH, MASTERY, FEAT, SYNERGY, TEACHING, CURSED;
 
 		public static final StringRepresentable.EnumCodec<Kind> CODEC = StringRepresentable.fromEnum(Kind::values);
 
@@ -52,9 +55,17 @@ public record Perk(
 			return name().toLowerCase(java.util.Locale.ROOT);
 		}
 
-		/** Bought with points (and refunded by a respec); the rest are earned and kept. */
+		/**
+		 * Dealt as draft cards (and refunded by a respec, back into drafts); the rest are earned and kept. Named for the
+		 * old trees, where these were bought with points.
+		 */
 		public boolean bought() {
-			return this == ROOT || this == PATH || this == MASTERY;
+			return this == ROOT || this == PATH || this == MASTERY || this == CURSED;
+		}
+
+		/** The same as {@link #bought()}: perks that come from drafts. */
+		public boolean drafted() {
+			return bought();
 		}
 	}
 
@@ -90,8 +101,15 @@ public record Perk(
 		Feat.CODEC.optionalFieldOf("feat").forGetter(Perk::feat),
 		Codec.unboundedMap(ResourceKey.codec(MettleRegistries.SKILL), Codec.intRange(1, 20)).optionalFieldOf("synergy", Map.of()).forGetter(Perk::synergy),
 		AttributeEffect.CODEC.listOf().optionalFieldOf("effects", List.of()).forGetter(Perk::effects),
-		Codec.INT.optionalFieldOf("order", 0).forGetter(Perk::order)
+		Codec.INT.optionalFieldOf("order", 0).forGetter(Perk::order),
+		ComponentSerialization.CODEC.optionalFieldOf("downside").forGetter(Perk::downside)
 	).apply(i, Perk::new));
+
+	/** The legacy constructor, without a downside (every perk but the cursed ones). */
+	public Perk(ResourceKey<Skill> skill, Kind kind, int tier, String path, int ranks, int cost, String side, Component name, Component description,
+		List<String> rankValues, Optional<Component> hint, Optional<Feat> feat, Map<ResourceKey<Skill>, Integer> synergy, List<AttributeEffect> effects, int order) {
+		this(skill, kind, tier, path, ranks, cost, side, name, description, rankValues, hint, feat, synergy, effects, order, Optional.empty());
+	}
 
 	/** The perk's 16×16 pixel-art icon. */
 	public static Identifier icon(ResourceKey<Perk> key) {

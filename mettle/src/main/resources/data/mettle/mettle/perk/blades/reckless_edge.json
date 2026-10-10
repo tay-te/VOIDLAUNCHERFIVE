@@ -1,0 +1,31 @@
+{
+	"skill": "mettle:blades",
+	"kind": "cursed",
+	"tier": 2,
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.blades.reckless_edge"
+	},
+	"description": {
+		"translate": "mettle.perk.blades.reckless_edge.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.blades.reckless_edge.downside"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:attack_damage",
+			"amounts": [
+				0.2
+			],
+			"operation": "add_multiplied_total"
+		},
+		{
+			"attribute": "minecraft:armor",
+			"amounts": [
+				-4.0
+			]
+		}
+	],
+	"order": 20
+}

@@ -28,9 +28,9 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * The skill tree from chat, until the overlay draws it: {@code /mettle tree <skill>}, {@code /mettle perk learn <perk>},
- * {@code /mettle attribute <name>} for everyone; XP, grants and respecs for ops (and a free respec below character
- * level 5).
+ * The skill tree from chat, until the overlay draws it: {@code /mettle tree <skill>} (the deck: what is held and what can
+ * be dealt) and {@code /mettle attribute <name>} for everyone; perks come from drafts ({@code /mettle draft}). Learning a
+ * perk without a draft, XP, grants and respecs are for ops (and a free respec below character level 5).
  */
 public final class TreeCommands {
 	private static final DynamicCommandExceptionType UNKNOWN = new DynamicCommandExceptionType(id -> Component.translatable("mettle.command.unknown", String.valueOf(id)));
@@ -45,6 +45,7 @@ public final class TreeCommands {
 					.executes(c -> tree(c, c.getSource().getPlayerOrException()))))
 			.then(Commands.literal("perk")
 				.then(Commands.literal("learn")
+					.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 					.then(Commands.argument("perk", ResourceKeyArgument.key(MettleRegistries.PERK))
 						.executes(TreeCommands::learn)))
 				.then(Commands.literal("grant")
@@ -103,6 +104,7 @@ public final class TreeCommands {
 			case FEAT -> "Feat";
 			case SYNERGY -> "Synergy";
 			case TEACHING -> "Teaching";
+			case CURSED -> "Cursed";
 		};
 		out.append(Component.literal("[" + where + "] ").withStyle(ChatFormatting.GRAY));
 		boolean hidden = p.kind() == Perk.Kind.FEAT && !held;
@@ -112,10 +114,10 @@ public final class TreeCommands {
 		}
 		Component detail = hidden ? p.hint().orElse(Component.empty()) : PerkText.description(p, Math.max(1, Math.min(rank + 1, p.ranks())));
 		out.append(Component.literal(" — ").withStyle(ChatFormatting.DARK_GRAY)).append(detail.copy().withStyle(ChatFormatting.GRAY));
-		if (p.kind().bought() && rank < p.ranks()) {
-			Optional<PerkRules.Reason> why = PerkRules.check(ref.key(), p, view);
+		if (p.kind().drafted() && rank < p.ranks()) {
+			Optional<PerkRules.Reason> why = PerkRules.eligible(ref.key(), p, view);
 			out.append(why.isEmpty()
-				? Component.translatable("mettle.tree.can_learn", p.cost()).withStyle(ChatFormatting.GREEN)
+				? Component.translatable("mettle.tree.in_deck").withStyle(ChatFormatting.GREEN)
 				: Component.literal("  (").append(Component.translatable(why.get().translationKey())).append(")").withStyle(ChatFormatting.DARK_GRAY));
 		}
 		return out;

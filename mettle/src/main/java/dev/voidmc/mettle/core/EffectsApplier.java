@@ -99,8 +99,13 @@ public final class EffectsApplier {
 				}
 			}
 		}));
-		// Drop the modifiers of refunded perks (positional ones such as Hard Hat's armour manage themselves).
-		for (AttributeInstance instance : player.getAttributes().getSyncableAttributes()) {
+		// Drop the modifiers of refunded perks (positional ones such as Hard Hat's armour manage themselves). Every
+		// attribute, not only the synced ones: attack damage is server-only, and cursed cards change it.
+		for (Holder.Reference<Attribute> attribute : BuiltInRegistries.ATTRIBUTE.listElements().toList()) {
+			AttributeInstance instance = player.getAttributes().getInstance(attribute);
+			if (instance == null) {
+				continue;
+			}
 			for (AttributeModifier m : List.copyOf(instance.getModifiers())) {
 				String path = m.id().getPath();
 				if (m.id().getNamespace().equals(Mettle.ID) && path.startsWith("perk/") && !path.endsWith("_armor") && !wanted.contains(m.id())) {

@@ -64,7 +64,11 @@ public record Forged(String smith, List<Mark> marks, Reforge reforge) {
 		/** Folded Steel: iron gear lasts twice as long. */
 		FOLDED_STEEL,
 		/** Masterwork: +1 to the main stat, a third more durability, a gold name. */
-		MASTERWORK;
+		MASTERWORK,
+		/** Brittle Edge (cursed): +2 damage, half the durability. */
+		BRITTLE_EDGE,
+		/** Slapdash (cursed): a quarter less durability. */
+		SLAPDASH;
 
 		public static final Codec<Mark> CODEC = StringRepresentable.fromEnum(Mark::values);
 

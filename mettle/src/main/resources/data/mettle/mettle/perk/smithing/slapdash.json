@@ -1,0 +1,16 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "cursed",
+	"tier": 3,
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.smithing.slapdash"
+	},
+	"description": {
+		"translate": "mettle.perk.smithing.slapdash.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.smithing.slapdash.downside"
+	},
+	"order": 21
+}

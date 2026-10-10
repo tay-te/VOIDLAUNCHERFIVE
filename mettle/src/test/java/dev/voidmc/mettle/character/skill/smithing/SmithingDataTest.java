@@ -86,6 +86,9 @@ class SmithingDataTest {
 	@Test
 	void everyFeedbackChipHasText() throws IOException {
 		JsonObject lang = JsonParser.parseString(Files.readString(Path.of("src/main/resources/assets/mettle/lang/en_us/smithing.json"))).getAsJsonObject();
+		// The cursed cards' names live with the draft's text.
+		JsonParser.parseString(Files.readString(Path.of("src/main/resources/assets/mettle/lang/en_us/draft.json"))).getAsJsonObject().entrySet()
+			.forEach(e -> lang.add(e.getKey(), e.getValue()));
 		// Every chip key the code sends, spelled out once here.
 		for (String key : new String[] {"thrifty", "masterwork", "stamped", "anvil", "salvager", "honing.weapon", "honing.tool", "honing.worn",
 			"reforge", "black_iron"}) {

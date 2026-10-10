@@ -161,6 +161,8 @@ public final class SmithingSkill {
 			case TRUE_TEMPER -> TRUE_TEMPER;
 			case FOLDED_STEEL -> FOLDED_STEEL;
 			case MASTERWORK -> MASTERWORK;
+			case BRITTLE_EDGE -> dev.voidmc.mettle.character.draft.Cursed.BRITTLE_EDGE;
+			case SLAPDASH -> dev.voidmc.mettle.character.draft.Cursed.SLAPDASH;
 		};
 	}
 

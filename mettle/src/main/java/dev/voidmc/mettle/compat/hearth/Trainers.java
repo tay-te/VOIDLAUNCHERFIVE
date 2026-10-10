@@ -152,6 +152,8 @@ final class Trainers implements DialogueProvider {
 		}
 		TrainerSessions.record(player, resident.id, day);
 		Progress.award(player, key, HearthRules.lessonXp(level));
+		// A master shows you another way to do it: a lesson also brings a draft reroll (docs/DRAFT.md §5).
+		dev.voidmc.mettle.character.draft.Drafts.addRerolls(player, dev.voidmc.mettle.character.draft.DraftRules.REROLLS_PER_LESSON);
 		Mettle.LOGGER.info("{} trained {} with {} of {} for {} bits", player.getName().getString(), key.identifier().getPath(),
 			resident.fullName(), settlement.name(), fee);
 		this.replies.put(player.getUUID(), Component.translatable(LANG + "reply.lesson." + player.getRandom().nextInt(3)));

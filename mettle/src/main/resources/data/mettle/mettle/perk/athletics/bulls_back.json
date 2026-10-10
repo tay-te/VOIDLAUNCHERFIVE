@@ -1,0 +1,30 @@
+{
+	"skill": "mettle:athletics",
+	"kind": "cursed",
+	"tier": 3,
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.athletics.bulls_back"
+	},
+	"description": {
+		"translate": "mettle.perk.athletics.bulls_back.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.athletics.bulls_back.downside"
+	},
+	"effects": [
+		{
+			"attribute": "mettle:carry_capacity",
+			"amounts": [
+				30.0
+			]
+		},
+		{
+			"attribute": "minecraft:fall_damage_multiplier",
+			"amounts": [
+				0.5
+			]
+		}
+	],
+	"order": 21
+}

@@ -116,21 +116,13 @@ public final class MomentClient {
 		return Math.min(1f, Math.min(age / 300f, (NUDGE_MS - age) / 1200f));
 	}
 
-	/** Perk points in every released skill plus attribute points waiting to be placed, from the synced character. */
+	/** Drafts waiting in every released skill plus attribute points waiting to be placed, from the synced character. */
 	public static int unspentPoints(Player player) {
 		CharacterState state = CharacterStore.get(player);
 		if (!state.hasBackground()) {
 			return 0;
 		}
-		Registry<Skill> skills = player.level().registryAccess().lookupOrThrow(MettleRegistries.SKILL);
-		var perks = Perks.registry(player);
-		int points = Perks.attributePoints(player);
-		for (var ref : skills.listElements().toList()) {
-			if (ref.value().released()) {
-				points += Perks.points(state, perks, ref.key());
-			}
-		}
-		return points;
+		return Perks.attributePoints(player) + dev.voidmc.mettle.character.draft.Drafts.queuedReleased(player);
 	}
 
 	static JsonObject json(MettlePayloads.Moment m) {

@@ -23,7 +23,7 @@ public final class Moments {
 
 	public static void perk(ServerPlayer player, ResourceKey<Perk> key, Perk perk, int rank) {
 		MomentKind kind = switch (perk.kind()) {
-			case ROOT, PATH -> MomentKind.LEARNED;
+			case ROOT, PATH, CURSED -> MomentKind.LEARNED;
 			case MASTERY -> MomentKind.MASTERY;
 			case FEAT -> MomentKind.FEAT;
 			case SYNERGY -> MomentKind.SYNERGY;

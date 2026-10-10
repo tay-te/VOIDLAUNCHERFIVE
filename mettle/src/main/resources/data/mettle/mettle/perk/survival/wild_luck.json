@@ -1,0 +1,30 @@
+{
+	"skill": "mettle:survival",
+	"kind": "cursed",
+	"tier": 3,
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.survival.wild_luck"
+	},
+	"description": {
+		"translate": "mettle.perk.survival.wild_luck.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.survival.wild_luck.downside"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:luck",
+			"amounts": [
+				3.0
+			]
+		},
+		{
+			"attribute": "minecraft:max_health",
+			"amounts": [
+				-4.0
+			]
+		}
+	],
+	"order": 21
+}

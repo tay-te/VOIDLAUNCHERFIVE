@@ -184,14 +184,14 @@
 	"mettle.tome.teaches": "Teaches %s · hold use to read",
 	"mettle.tooltip.durability": "Durability %s / %s",
 	"mettle.tooltip.herb_lore": "+50%% Herb Lore",
-	"mettle.tree.can_learn": "  → learn · %s pt",
-	"mettle.tree.header": "%s · level %s · %s / %s XP · %s points",
+	"mettle.tree.in_deck": "  → in your deck",
+	"mettle.tree.header": "%s · level %s · %s / %s XP · %s drafts waiting",
 	"mettle.tree.locked.attribute_too_low": "Attribute too low for this tier",
 	"mettle.tree.locked.mastery_taken": "You already hold a Mastery in this skill",
 	"mettle.tree.locked.max_rank": "Fully learned",
 	"mettle.tree.locked.needs_path_perk": "Needs a tier II perk on this path",
 	"mettle.tree.locked.needs_two_path_perks": "Needs two perks from its path",
 	"mettle.tree.locked.no_points": "Not enough points",
-	"mettle.tree.locked.not_bought": "Earned, not bought",
+	"mettle.tree.locked.not_bought": "Earned, never drafted",
 	"mettle.tree.locked.skill_too_low": "Skill level too low for this tier"
 }

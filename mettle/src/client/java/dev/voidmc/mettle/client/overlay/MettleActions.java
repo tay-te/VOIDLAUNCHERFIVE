@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 
@@ -42,9 +43,38 @@ public final class MettleActions {
 		ClientPlayNetworking.send(new MettlePayloads.ChooseBackground(background, spent, favoured));
 	}
 
-	/** Buys the next rank of a perk; the server answers with a feedback chip. */
+	/**
+	 * The old "buy the next rank of a perk". Perks come from drafts now (docs/DRAFT.md): nothing is sent, and a feedback
+	 * chip ({@code mettle:draft/no_buying}) says so. Kept so a host that still calls it gets an answer, not a crash; use
+	 * {@link #pickCard} and {@link #reroll}.
+	 */
 	public static void learnPerk(String id) {
-		ClientPlayNetworking.send(new MettlePayloads.LearnPerk(ResourceKey.create(MettleRegistries.PERK, Identifier.parse(id))));
+		MettleState.remember("mettle:draft/no_buying", Component.translatable("mettle.draft.no_buying").getString());
+	}
+
+	/**
+	 * Keeps the {@code index}-th card (0–2) of a skill's draft hand ({@code skills[].hand}); the server checks it and
+	 * answers with a chip, and the next hand (if any) arrives with the synced character.
+	 */
+	public static void pickCard(String skill, int index) {
+		ClientPlayNetworking.send(new MettlePayloads.PickCard(ResourceKey.create(MettleRegistries.SKILL, Identifier.parse(skill)), index));
+	}
+
+	/** {@link #pickCard(String, int)} for hosts that pass one string: {@code "mettle:mining#1"} (skill, {@code #}, index 0–2). */
+	public static void pickCard(String skillAndIndex) {
+		int hash = skillAndIndex.lastIndexOf('#');
+		if (hash > 0) {
+			try {
+				pickCard(skillAndIndex.substring(0, hash), Integer.parseInt(skillAndIndex.substring(hash + 1).trim()));
+			} catch (NumberFormatException ignored) {
+				// A malformed call from a page: nothing to send.
+			}
+		}
+	}
+
+	/** Spends a reroll on a fresh hand for a skill's draft ({@code draft.rerolls} says how many are left). */
+	public static void reroll(String skill) {
+		ClientPlayNetworking.send(new MettlePayloads.Reroll(ResourceKey.create(MettleRegistries.SKILL, Identifier.parse(skill))));
 	}
 
 	public static void spendAttribute(String attribute) {

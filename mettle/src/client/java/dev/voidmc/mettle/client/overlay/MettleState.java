@@ -13,12 +13,14 @@ import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
 import dev.voidmc.mettle.burden.LoadState;
 import dev.voidmc.mettle.burden.LoadTracker;
-import dev.voidmc.mettle.character.PerkRules;
+import dev.voidmc.mettle.character.draft.DraftRules;
+import dev.voidmc.mettle.character.draft.Drafts;
 import dev.voidmc.mettle.character.PerkText;
 import dev.voidmc.mettle.character.Perks;
 import dev.voidmc.mettle.core.Curves;
 import dev.voidmc.mettle.core.CharacterState;
 import dev.voidmc.mettle.core.CharacterStore;
+import dev.voidmc.mettle.core.DraftState;
 import dev.voidmc.mettle.core.MettleAttributes;
 import java.util.Comparator;
 import java.util.List;
@@ -144,6 +146,12 @@ public final class MettleState {
 			.forEach(ref -> backgrounds.add(background(ref)));
 		root.add("backgrounds", backgrounds);
 
+		// The perk draft (docs/DRAFT.md): one deck and one reading of the character serve every skill and perk below.
+		DraftState drafts = state.drafts();
+		DraftRules.Deck deck = Drafts.deck(registries);
+		DraftRules.Sheet sheet = Drafts.sheet(registries, state);
+		root.add("draft", draft(drafts));
+
 		JsonArray skills = new JsonArray();
 		registries.lookupOrThrow(MettleRegistries.SKILL).listElements()
 			.sorted(Comparator.comparingInt(r -> r.value().order()))
@@ -160,7 +168,15 @@ public final class MettleState {
 				s.addProperty("xp", state.xp(ref.key()));
 				s.addProperty("levelXp", Curves.skillXpFor(level));
 				s.addProperty("nextXp", Curves.skillXpFor(Math.min(level + 1, Curves.SKILL_CAP)));
-				s.addProperty("points", Perks.points(state, registries.lookupOrThrow(MettleRegistries.PERK), ref.key()));
+				// Drafts waiting; "points" is the same number, kept for hosts written for the old trees.
+				int waiting = drafts.queued(ref.key());
+				s.addProperty("drafts", waiting);
+				s.addProperty("points", waiting);
+				s.addProperty("rerolls", drafts.rerolls());
+				s.add("hand", hand(registries, drafts.hand(ref.key())));
+				JsonObject odds = new JsonObject();
+				DraftRules.slotOdds(ref.key(), sheet, deck).forEach((r, v) -> odds.addProperty(r.getSerializedName(), Math.round(v * 10) / 10.0));
+				s.add("odds", odds);
 				// Rank title by level band ("Journeyman Miner") and the skill's line of lore.
 				String path = ref.key().identifier().getPath();
 				s.addProperty("title", Component.translatable("mettle.title." + titleBand(level), Component.translatable("mettle.skill." + path + ".noun")).getString());
@@ -200,10 +216,19 @@ public final class MettleState {
 			o.addProperty("name", hidden ? "" : p.name().getString());
 			o.addProperty("description", hidden ? "" : PerkText.description(p, Math.max(1, Math.min(rank + 1, p.ranks()))).getString());
 			p.hint().ifPresent(h -> o.addProperty("hint", h.getString()));
-			if (p.kind().bought() && rank < p.ranks()) {
-				// The same rules the server applies, so the tree can show exactly why a perk is locked.
-				PerkRules.check(ref.key(), p, Perks.tree(mc.player, p.skill()))
-					.ifPresentOrElse(r -> o.addProperty("locked", Component.translatable(r.translationKey()).getString()), () -> o.add("locked", JsonNull.INSTANCE));
+			p.downside().ifPresent(d -> o.addProperty("downside", d.getString()));
+			if (p.kind().drafted()) {
+				DraftState.Rarity rarity = DraftRules.rarity(p);
+				o.addProperty("rarity", rarity.getSerializedName());
+				o.addProperty("rarityColour", rarity.hex());
+			}
+			if (p.kind().drafted() && rank < p.ranks()) {
+				// The same rules the server deals by: null when the next rank is in the deck now, else why not.
+				var why = DraftRules.eligible(ref.key(), p, sheet, deck);
+				why.ifPresentOrElse(r -> o.addProperty("locked", Component.translatable(r.translationKey()).getString()), () -> o.add("locked", JsonNull.INSTANCE));
+				o.addProperty("inDeck", why.isEmpty());
+			} else {
+				o.addProperty("inDeck", false);
 			}
 			o.addProperty("icon", Perk.icon(ref.key()).toString());
 			perks.add(o);
@@ -262,6 +287,61 @@ public final class MettleState {
 		root.add("burden", burden(mc.player));
 		root.add("gear", gear(mc.player));
 		return root;
+	}
+
+	/** The draft's character-wide numbers and the rarity legend (docs/DRAFT.md, OVERLAY.md). */
+	private static JsonObject draft(DraftState drafts) {
+		JsonObject o = new JsonObject();
+		o.addProperty("rerolls", drafts.rerolls());
+		o.addProperty("maxRerolls", DraftRules.MAX_REROLLS);
+		o.addProperty("waiting", drafts.totalQueued());
+		o.addProperty("handSize", DraftRules.HAND);
+		o.addProperty("wildcardChance", DraftRules.WILDCARD_CHANCE);
+		JsonArray rarities = new JsonArray();
+		for (DraftState.Rarity r : DraftState.Rarity.values()) {
+			JsonObject ro = new JsonObject();
+			ro.addProperty("id", r.getSerializedName());
+			ro.addProperty("name", Component.translatable("mettle.draft.rarity." + r.getSerializedName()).getString());
+			ro.addProperty("colour", r.hex());
+			rarities.add(ro);
+		}
+		o.add("rarities", rarities);
+		return o;
+	}
+
+	/** A skill's dealt hand as cards the overlay draws: what keeping each one gives. */
+	private static JsonArray hand(RegistryAccess registries, List<DraftState.Card> cards) {
+		JsonArray out = new JsonArray();
+		var perks = registries.lookupOrThrow(MettleRegistries.PERK);
+		var skills = registries.lookupOrThrow(MettleRegistries.SKILL);
+		for (int i = 0; i < cards.size(); i++) {
+			DraftState.Card card = cards.get(i);
+			JsonObject o = new JsonObject();
+			o.addProperty("index", i);
+			o.addProperty("perk", card.perk().identifier().toString());
+			o.addProperty("rank", card.rank());
+			o.addProperty("rarity", card.rarity().getSerializedName());
+			o.addProperty("frame", card.rarity().hex());
+			o.addProperty("cursed", card.rarity() == DraftState.Rarity.CURSED);
+			o.addProperty("wildcard", card.wildcard());
+			o.addProperty("icon", Perk.icon(card.perk()).toString());
+			Perk p = perks.getValue(card.perk());
+			if (p != null) {
+				o.addProperty("name", p.name().getString());
+				o.addProperty("description", PerkText.description(p, card.rank()).getString());
+				o.addProperty("maxRank", p.ranks());
+				o.addProperty("kind", p.kind().getSerializedName());
+				o.addProperty("tier", p.tier());
+				o.addProperty("path", p.path());
+				p.downside().ifPresentOrElse(d -> o.addProperty("downside", d.getString()), () -> o.add("downside", JsonNull.INSTANCE));
+				o.addProperty("skill", p.skill().identifier().toString());
+				Skill from = skills.getValue(p.skill());
+				o.addProperty("skillName", from == null ? p.skill().identifier().getPath() : from.name().getString());
+				o.addProperty("colour", String.format(Locale.ROOT, "#%06X", from == null ? Skill.NO_COLOUR : from.colour()));
+			}
+			out.add(o);
+		}
+		return out;
 	}
 
 	/** The synced load (BURDEN.md §3), for the HUD chip and the gear panel's meter. Empty until the first sync. */

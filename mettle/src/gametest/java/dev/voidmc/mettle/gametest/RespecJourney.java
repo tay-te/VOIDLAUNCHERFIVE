@@ -29,14 +29,14 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.Blocks;
 
 /**
- * The player's respec, drunk for real with the use key: a Mining career with a Mastery is forgotten (points back, perks
- * gone, earned perks and XP kept), an empty draught is refused and kept, the Draught of Unbinding returns placed
+ * The player's respec, drunk for real with the use key: a Mining career with a Mastery is forgotten (every rank back as a
+ * draft, perks gone, earned perks and XP kept), an empty draught is refused and kept, the Draught of Unbinding returns placed
  * attribute points, and the recipes brew what they say.
  */
 final class RespecJourney {
 	private static final Identifier MINING = MiningSkill.MINING.identifier();
-	/** Roots 3 + 1, Tunneler 2, Rock Hauler 2, Strike the Seam 3, Motherlode 5. */
-	private static final int SPENT = 16;
+	/** Ranks held: Quarryman 3, Prospector, Tunneler, Rock Hauler, Strike the Seam, Motherlode; each comes back as a draft. */
+	private static final int DRAFTS = 8;
 	private static final int STRENGTH = 11;
 
 	private RespecJourney() {
@@ -48,6 +48,7 @@ final class RespecJourney {
 		ItemStack[] held = new ItemStack[1];
 		double[] xp = new double[1];
 		int[] level = new int[1];
+		int[] queued = new int[1];
 		float[] baseSpeed = new float[1];
 		List<ResourceKey<Perk>> earned = new ArrayList<>();
 
@@ -87,10 +88,7 @@ final class RespecJourney {
 			state.perks().keySet().stream().filter(k -> all.containsKey(k) && !all.get(k).kind().bought()).forEach(earned::add);
 			xp[0] = state.xp(MiningSkill.MINING);
 			level[0] = state.level(MiningSkill.MINING);
-			int points = Perks.points(state, Perks.registry(p), MiningSkill.MINING);
-			if (points != level[0] - SPENT) {
-				return "Mining points " + points + " before drinking, expected " + (level[0] - SPENT);
-			}
+			queued[0] = state.drafts().queued(MiningSkill.MINING);
 			if (p.getDestroySpeed(Blocks.STONE.defaultBlockState()) <= baseSpeed[0]) {
 				return "Quarryman III did not speed up mining";
 			}
@@ -114,9 +112,12 @@ final class RespecJourney {
 			if (!bought.isEmpty()) {
 				return "bought Mining perks survived the draught: " + bought;
 			}
-			int points = Perks.points(state, Perks.registry(p), MiningSkill.MINING);
-			if (points != level[0]) {
-				return "Mining points " + points + " after drinking, expected all " + level[0];
+			int drafts = state.drafts().queued(MiningSkill.MINING);
+			if (drafts != queued[0] + DRAFTS) {
+				return "Mining drafts " + drafts + " after drinking, expected " + queued[0] + " + " + DRAFTS;
+			}
+			if (state.drafts().hand(MiningSkill.MINING).isEmpty()) {
+				return "no Mining hand dealt after forgetting";
 			}
 			for (ResourceKey<Perk> k : earned) {
 				if (state.rank(k) == 0) {
@@ -137,10 +138,10 @@ final class RespecJourney {
 			if (Math.abs(speed - baseSpeed[0]) > 0.01f) {
 				return "stone mining speed " + speed + " after forgetting, expected " + baseSpeed[0];
 			}
-			// The points spend again.
-			return Perks.learn(p, Perks.key(Mettle.id("mining/quarryman"))).map(r -> "could not buy a root again: " + r).orElse(null);
+			// The drafts are dealt again: keep a card.
+			return dev.voidmc.mettle.character.draft.Drafts.pick(p, MiningSkill.MINING, 0).map(r -> "could not keep a card again: " + r).orElse(null);
 		}));
-		chip(context, "You forget the ways of the Mining tree · " + SPENT + " points returned");
+		chip(context, "You forget the ways of the Mining tree · " + DRAFTS + " drafts returned");
 
 		// With nothing bought in the tree the draught is refused, and kept.
 		check(server.computeOnServer(s -> {

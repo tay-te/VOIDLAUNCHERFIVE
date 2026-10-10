@@ -1,0 +1,25 @@
+{
+	"skill": "mettle:mining",
+	"kind": "cursed",
+	"tier": 2,
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.mining.greedy_pick"
+	},
+	"description": {
+		"translate": "mettle.perk.mining.greedy_pick.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.mining.greedy_pick.downside"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:block_break_speed",
+			"amounts": [
+				0.3
+			],
+			"operation": "add_multiplied_base"
+		}
+	],
+	"order": 20
+}

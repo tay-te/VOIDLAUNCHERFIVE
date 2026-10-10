@@ -41,7 +41,8 @@ final class MomentText {
 
 		switch (kind) {
 			case LEVEL, TIER -> {
-				int points = skillKey == null ? 0 : Perks.points(CharacterStore.get(mc.player), Perks.registry(mc.player), skillKey);
+				// Drafts waiting in the skill (the level just gained dealt one).
+				int points = skillKey == null ? 0 : CharacterStore.get(mc.player).drafts().queued(skillKey);
 				Component sub = points > 0
 					? Component.translatable(points == 1 ? "mettle.moment.points.one" : "mettle.moment.points", points, key)
 					: Component.translatable("mettle.hint.press_k", key);

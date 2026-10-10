@@ -1,0 +1,16 @@
+{
+	"skill": "mettle:smithing",
+	"kind": "cursed",
+	"tier": 2,
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.smithing.brittle_edge"
+	},
+	"description": {
+		"translate": "mettle.perk.smithing.brittle_edge.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.smithing.brittle_edge.downside"
+	},
+	"order": 20
+}

@@ -21,34 +21,37 @@ public final class RespecRules {
 	 * One tree forgotten.
 	 *
 	 * @param kept    every perk the character still holds (other skills, earned perks, perks no longer in the data)
-	 * @param points  perk points returned to the forgotten skill
+	 * @param points  what the forgotten perks cost in the old trees' points (a measure of depth, no longer refunded)
 	 * @param perks   how many perks were forgotten (a ranked root counts once)
 	 * @param mastery whether the Mastery was among them
+	 * @param drafts  drafts returned to the skill: one per forgotten rank, since every rank was one card (docs/DRAFT.md §8)
 	 */
-	public record Forgetting(Map<ResourceKey<Perk>, Integer> kept, int points, int perks, boolean mastery) {
+	public record Forgetting(Map<ResourceKey<Perk>, Integer> kept, int points, int perks, boolean mastery, int drafts) {
 		/** Nothing bought in that tree: the draught is refused and kept. */
 		public boolean nothing() {
 			return this.perks == 0;
 		}
 	}
 
-	/** Refunds every bought perk (roots, paths, the Mastery) of {@code skill}. Feats, synergies and teachings stay. */
+	/** Refunds every drafted perk (roots, paths, cursed cards, the Mastery) of {@code skill}. Feats, synergies and teachings stay. */
 	public static Forgetting forget(Map<ResourceKey<Perk>, Integer> held, Function<ResourceKey<Perk>, Optional<Perk>> lookup, ResourceKey<Skill> skill) {
 		Map<ResourceKey<Perk>, Integer> kept = new HashMap<>();
 		int points = 0;
 		int perks = 0;
+		int drafts = 0;
 		boolean mastery = false;
 		for (Map.Entry<ResourceKey<Perk>, Integer> e : held.entrySet()) {
 			Optional<Perk> perk = lookup.apply(e.getKey());
 			if (perk.isPresent() && perk.get().kind().bought() && perk.get().skill().equals(skill)) {
 				points += perk.get().cost() * e.getValue();
+				drafts += e.getValue();
 				perks++;
 				mastery |= perk.get().kind() == Perk.Kind.MASTERY;
 			} else {
 				kept.put(e.getKey(), e.getValue());
 			}
 		}
-		return new Forgetting(Map.copyOf(kept), points, perks, mastery);
+		return new Forgetting(Map.copyOf(kept), points, perks, mastery, drafts);
 	}
 
 	/**

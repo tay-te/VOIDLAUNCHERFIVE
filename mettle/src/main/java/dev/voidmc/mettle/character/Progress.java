@@ -7,6 +7,8 @@ import dev.voidmc.mettle.api.MettleEvents;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Skill;
+import dev.voidmc.mettle.character.draft.DraftRules;
+import dev.voidmc.mettle.character.draft.Drafts;
 import dev.voidmc.mettle.character.moment.Moments;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
 import dev.voidmc.mettle.core.CharacterState;
@@ -66,6 +68,8 @@ public final class Progress {
 		m += WITS_PER_POINT * (state.attribute(CharacterAttribute.WITS, background) - CharacterAttribute.BASE);
 		// Perks that speed learning: Jack of All Trades (skills below 10).
 		m *= dev.voidmc.mettle.character.skill.survival.GeneralFeats.jackBonus(state, skill);
+		// Cursed cards that speed learning (Slapdash: Smithing).
+		m *= dev.voidmc.mettle.character.draft.Cursed.xp(state, skill);
 		return Math.max(0.1, m);
 	}
 
@@ -74,7 +78,8 @@ public final class Progress {
 		if (base <= 0 || player.isSpectator()) {
 			return;
 		}
-		CharacterState state = CharacterStore.get(player);
+		// An old save is migrated first, so a level gained now is a draft and never also counted as an unspent point.
+		CharacterState state = Drafts.ensure(player);
 		Background background = CharacterStore.background(player.level().registryAccess(), state);
 		double gained = MettleEvents.MODIFY_XP.invoker().modify(player, skill, base * multiplier(state, background, skill));
 		if (gained <= 0) {
@@ -82,13 +87,16 @@ public final class Progress {
 		}
 		int levelBefore = state.level(skill);
 		int characterBefore = state.characterLevel();
-		CharacterState next = state.withXp(skill, state.xp(skill) + gained);
+		// The skill is also remembered as used lately: wildcards in other skills' drafts come from those.
+		CharacterState next = Drafts.used(state.withXp(skill, state.xp(skill) + gained), skill);
 		CharacterStore.set(player, next);
 		PENDING_CHIPS.computeIfAbsent(player.getUUID(), u -> new LinkedHashMap<>()).merge(skill, gained, Double::sum);
 		MettleEvents.XP_GAINED.invoker().gained(player, skill, gained);
 
 		int levelAfter = next.level(skill);
 		if (levelAfter > levelBefore) {
+			// One draft per level gained, dealt now (docs/DRAFT.md §1), before the moment that says so.
+			Drafts.levelUp(player, skill, levelBefore, levelAfter);
 			Skill s = player.level().registryAccess().lookupOrThrow(MettleRegistries.SKILL).getValueOrThrow(skill);
 			Component text = Component.translatable("mettle.feedback.level", s.name(), levelAfter);
 			int opened = 0;
@@ -106,6 +114,7 @@ public final class Progress {
 		}
 		int characterAfter = next.characterLevel();
 		if (characterAfter > characterBefore) {
+			Drafts.addRerolls(player, DraftRules.REROLLS_PER_CHARACTER_LEVEL * (characterAfter - characterBefore));
 			Moments.character(player, characterAfter);
 			SignaturePerks.feedback(player, Mettle.id("level/character"), Component.translatable("mettle.feedback.character_level", characterAfter));
 			MettleEvents.CHARACTER_LEVEL_UP.invoker().levelUp(player, characterBefore, characterAfter);

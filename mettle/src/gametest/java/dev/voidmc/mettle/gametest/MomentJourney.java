@@ -19,8 +19,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Progress moments (UI.md §6b), on a fresh character: real Mining XP up to level 2 (which opens Tier I) and Quarryman
- * learned reach the client as moments, queue as toasts at the top of the screen (screenshots {@code mettle_moment_toast}
+ * Progress moments (UI.md §6b), on a fresh character: real Mining XP up to level 2 (which opens Tier I and deals a
+ * draft) and Quarryman kept from the hand reach the client as moments, queue as toasts at the top of the screen (screenshots {@code mettle_moment_toast}
  * and {@code mettle_moment_toast_learned}) and wake the points nudge by the hotbar. The character is put back exactly
  * as it was afterwards, so the journeys after it start from the same fresh Ranger.
  */
@@ -52,7 +52,18 @@ final class MomentJourney {
 			if (CharacterStore.get(p).level(mining) != Curves.tierSkillGate(1)) {
 				return "Mining reached " + CharacterStore.get(p).level(mining) + ", expected " + Curves.tierSkillGate(1);
 			}
-			return Perks.learn(p, Perks.key(MiningSkill.QUARRYMAN)).map(r -> "Quarryman not learned: " + r).orElse(null);
+			// Tier I deals a draft; Quarryman is kept from it.
+			var hand = CharacterStore.get(p).drafts().hand(mining);
+			int index = -1;
+			for (int i = 0; i < hand.size(); i++) {
+				if (hand.get(i).perk().equals(Perks.key(MiningSkill.QUARRYMAN))) {
+					index = i;
+				}
+			}
+			if (index < 0) {
+				return "no Quarryman card in the Mining hand: " + dev.voidmc.mettle.character.draft.Drafts.describe(hand);
+			}
+			return dev.voidmc.mettle.character.draft.Drafts.pick(p, mining, index).map(r -> "Quarryman not drafted: " + r).orElse(null);
 		}));
 
 		// The tier toast comes first (with the points nudge by the hotbar).
@@ -72,7 +83,7 @@ final class MomentJourney {
 				return "no toast was drawn";
 			}
 			if (!MomentClient.nudgeShowing()) {
-				return "the points nudge is not showing after a level-up (" + MomentClient.unspentPoints(mc.player) + " points)";
+				return "the nudge is not showing after a level-up (" + MomentClient.unspentPoints(mc.player) + " waiting)";
 			}
 			return null;
 		}));

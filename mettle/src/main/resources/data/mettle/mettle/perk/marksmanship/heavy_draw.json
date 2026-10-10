@@ -1,0 +1,16 @@
+{
+	"skill": "mettle:marksmanship",
+	"kind": "cursed",
+	"tier": 2,
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.marksmanship.heavy_draw"
+	},
+	"description": {
+		"translate": "mettle.perk.marksmanship.heavy_draw.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.marksmanship.heavy_draw.downside"
+	},
+	"order": 20
+}

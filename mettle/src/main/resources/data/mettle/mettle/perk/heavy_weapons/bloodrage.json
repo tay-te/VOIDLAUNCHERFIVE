@@ -1,0 +1,32 @@
+{
+	"skill": "mettle:heavy_weapons",
+	"kind": "cursed",
+	"tier": 2,
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.heavy_weapons.bloodrage"
+	},
+	"description": {
+		"translate": "mettle.perk.heavy_weapons.bloodrage.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.heavy_weapons.bloodrage.downside"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:attack_damage",
+			"amounts": [
+				0.3
+			],
+			"operation": "add_multiplied_total"
+		},
+		{
+			"attribute": "minecraft:attack_speed",
+			"amounts": [
+				-0.2
+			],
+			"operation": "add_multiplied_total"
+		}
+	],
+	"order": 20
+}

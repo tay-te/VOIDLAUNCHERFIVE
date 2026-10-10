@@ -54,7 +54,12 @@ public final class Camp {
 
 	/** Player#causeFoodExhaustion. */
 	public static float exhaustion(Player player, float amount) {
-		return amount > 0 && Perks.has(player, SurvivalSkill.SELF_SUFFICIENT) ? amount * SurvivalRules.SELF_SUFFICIENT : amount;
+		if (amount <= 0) {
+			return amount;
+		}
+		// Wolf's Hunger (cursed) drains faster; Self-Sufficient slower. They multiply.
+		float scaled = amount * dev.voidmc.mettle.character.draft.Cursed.hunger(player);
+		return Perks.has(player, SurvivalSkill.SELF_SUFFICIENT) ? scaled * SurvivalRules.SELF_SUFFICIENT : scaled;
 	}
 
 	/** SweetBerryBushBlock#entityInside: Pathfinder walks through berry bushes unslowed and unscratched (both sides). */

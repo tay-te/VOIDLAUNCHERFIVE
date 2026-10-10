@@ -133,7 +133,10 @@ public final class MettlePayloads {
 		}
 	}
 
-	/** Client → server: buy the next rank of a perk. Answered with a feedback chip either way. */
+	/**
+	 * Client → server: the old "buy the next rank of a perk". Perks come from drafts now (docs/DRAFT.md); the server answers
+	 * with a chip that says so. Kept registered so an older host that still sends it is told, not disconnected.
+	 */
 	public record LearnPerk(ResourceKey<Perk> perk) implements CustomPacketPayload {
 		public static final Type<LearnPerk> TYPE = new Type<>(Mettle.id("character/learn_perk"));
 		public static final StreamCodec<RegistryFriendlyByteBuf, LearnPerk> STREAM_CODEC = StreamCodec.composite(
@@ -141,6 +144,32 @@ public final class MettlePayloads {
 
 		@Override
 		public Type<LearnPerk> type() {
+			return TYPE;
+		}
+	}
+
+	/** Client → server: keep the {@code index}-th card (0–2) of a skill's draft hand. Answered with a chip either way. */
+	public record PickCard(ResourceKey<Skill> skill, int index) implements CustomPacketPayload {
+		public static final Type<PickCard> TYPE = new Type<>(Mettle.id("character/pick_card"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, PickCard> STREAM_CODEC = StreamCodec.composite(
+			ResourceKey.streamCodec(MettleRegistries.SKILL), PickCard::skill,
+			ByteBufCodecs.VAR_INT, PickCard::index,
+			PickCard::new);
+
+		@Override
+		public Type<PickCard> type() {
+			return TYPE;
+		}
+	}
+
+	/** Client → server: spend a reroll on a fresh hand for a skill's draft. */
+	public record Reroll(ResourceKey<Skill> skill) implements CustomPacketPayload {
+		public static final Type<Reroll> TYPE = new Type<>(Mettle.id("character/reroll"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Reroll> STREAM_CODEC = StreamCodec.composite(
+			ResourceKey.streamCodec(MettleRegistries.SKILL), Reroll::skill, Reroll::new);
+
+		@Override
+		public Type<Reroll> type() {
 			return TYPE;
 		}
 	}
