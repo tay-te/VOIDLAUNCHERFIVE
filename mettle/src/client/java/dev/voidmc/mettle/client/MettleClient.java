@@ -52,6 +52,7 @@ public final class MettleClient implements ClientModInitializer {
 		BurdenClient.init();
 		GearClient.init();
 		MomentClient.init();
+		dev.voidmc.mettle.client.draft.CardAudio.init();
 		dev.voidmc.mettle.client.respec.RespecClient.init();
 		dev.voidmc.mettle.client.cards.CardsClient.init();
 		characterKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.mettle.character", InputConstants.KEY_K,

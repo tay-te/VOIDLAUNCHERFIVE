@@ -40,6 +40,7 @@ public final class CharacterModule {
 		});
 		dev.voidmc.mettle.character.cards.Cards.init();
 		dev.voidmc.mettle.character.draft.Drafts.init();
+		dev.voidmc.mettle.character.draft.CardSounds.init();
 		SignaturePerks.init();
 		PlacedBlocks.init();
 		FeatCounters.init();

@@ -146,6 +146,7 @@ public class MettleTour implements FabricClientGameTest {
 				ShrineJourney.run(context, world);
 				TradeJourney.run(context, world);
 				MythicJourney.run(context, world);
+				CardSoundJourney.run(context);
 			}
 			// With VOID Hearth loaded (-Phearth): its slots filled by Mettle. HearthJourney names Hearth types, so it is
 			// only touched then.
