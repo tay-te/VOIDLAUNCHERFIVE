@@ -269,4 +269,66 @@ public final class MettlePayloads {
 			return TYPE;
 		}
 	}
+
+	/** What a {@link TradeAction} asks for (docs/CARDS.md §8.1). */
+	public enum TradeActionKind {
+		/** Ask the player named {@code text} to trade. */
+		REQUEST,
+		/** Accept the waiting request. */
+		ACCEPT,
+		/** Offer binder card {@code number}; take it back. */
+		OFFER_CARD, TAKE_CARD,
+		/** Offer the stack in inventory slot {@code number} (-1: the main hand); take back offered stack {@code number}. */
+		OFFER_ITEM, TAKE_ITEM,
+		/** Offer {@code number} bits of Hearth coin. */
+		COIN,
+		LOCK, CONFIRM, CANCEL
+	}
+
+	/** Client → server: a trade request or change. The server checks everything. */
+	public record TradeAction(TradeActionKind action, long number, String text) implements CustomPacketPayload {
+		public static final Type<TradeAction> TYPE = new Type<>(Mettle.id("character/trade_action"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, TradeAction> STREAM_CODEC = StreamCodec.composite(
+			ByteBufCodecs.idMapper(i -> TradeActionKind.values()[i], Enum::ordinal), TradeAction::action,
+			ByteBufCodecs.VAR_LONG, TradeAction::number,
+			ByteBufCodecs.stringUtf8(64), TradeAction::text,
+			TradeAction::new);
+
+		@Override
+		public Type<TradeAction> type() {
+			return TYPE;
+		}
+	}
+
+	/** One side of a trade as it shows: the cards (full records), the item stacks, the coin, locked or not. */
+	public record TradeSide(List<dev.voidmc.mettle.core.CardData> cards, List<net.minecraft.world.item.ItemStack> items, long coin, boolean locked) {
+		public static final TradeSide EMPTY = new TradeSide(List.of(), List.of(), 0, false);
+		public static final StreamCodec<RegistryFriendlyByteBuf, TradeSide> STREAM_CODEC = StreamCodec.composite(
+			ByteBufCodecs.fromCodecWithRegistriesTrusted(dev.voidmc.mettle.core.CardData.CODEC).apply(ByteBufCodecs.list(16)), TradeSide::cards,
+			net.minecraft.world.item.ItemStack.OPTIONAL_LIST_STREAM_CODEC, TradeSide::items,
+			ByteBufCodecs.VAR_LONG, TradeSide::coin,
+			ByteBufCodecs.BOOL, TradeSide::locked,
+			TradeSide::new);
+	}
+
+	/**
+	 * Server → client: the trade as this player sees it ({@code open} false: none; {@code partner} then names whoever they
+	 * are asking, if anyone). {@code countdown} is ticks left of the 3 s countdown, -1 when it isn't running.
+	 */
+	public record TradeView(boolean open, String partner, TradeSide me, TradeSide them, int countdown, boolean coin) implements CustomPacketPayload {
+		public static final Type<TradeView> TYPE = new Type<>(Mettle.id("character/trade_view"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, TradeView> STREAM_CODEC = StreamCodec.composite(
+			ByteBufCodecs.BOOL, TradeView::open,
+			ByteBufCodecs.stringUtf8(64), TradeView::partner,
+			TradeSide.STREAM_CODEC, TradeView::me,
+			TradeSide.STREAM_CODEC, TradeView::them,
+			ByteBufCodecs.VAR_INT, TradeView::countdown,
+			ByteBufCodecs.BOOL, TradeView::coin,
+			TradeView::new);
+
+		@Override
+		public Type<TradeView> type() {
+			return TYPE;
+		}
+	}
 }

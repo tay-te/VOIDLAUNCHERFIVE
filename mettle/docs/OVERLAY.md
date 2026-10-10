@@ -159,7 +159,11 @@ cards: {
            cityMasterScarChance: 0.5 };
   pins: { keywords: string[]; max: 3; canChange: boolean }; // pins change once an in-game day
   keywords: { id; name; icon; colour }[];  // the legend (one neutral glyph colour, white ink to tint)
-  atShrine: boolean;                       // the player has a Card Shrine (or trainer) sitting open (wave B)
+  atShrine: boolean;                       // the player is at a Card Shrine (a shrine sitting is open)
+  sitting: null | { kind: "shrine" | "trainer"; skills: string[];   // empty = any deck
+                    cap: number;                                   // highest requirement it can take out (trainer tier)
+                    master: boolean;                               // a city master: one card in two keeps its trait
+                    coin: boolean };                               // fees in Hearth coin (else emeralds)
   attuneTicks: 24000;
 };
 type Card = {
@@ -178,6 +182,12 @@ type Card = {
   scars: number;
   drawn: { by; level; day; millis; how; howText; text };   // "Drawn by Ashford at Mining 9 · day 41 · …"
   owners: number; lastOwners: { name; day }[];
+  rebuild?: {                              // slotted cards: what taking it out costs at a rebuild (CARDS.md §7)
+    bits: number; emeralds: number;        // 0 for a dormant card
+    loses: { id; text } | null;            // the trait its scar takes ("Echoing 8 %"), null for none
+    spared: boolean;                       // dormant, or a master's hand passes it over
+    overCap: boolean;                      // beyond the open trainer sitting's cap
+  };
 };
 ```
 
@@ -192,7 +202,9 @@ comma-separated):
 | `unslotCard(id)` / `unslotCards("12,15")` | takes slotted cards of one deck out: free below character level 5, for dormant cards, on a deck's first free rebuild, or with free swaps; otherwise refused with "visit a trainer or a Card Shrine" |
 | `pinSets("mettle:swift,mettle:keen")` | pins up to three sets (empty string: automatic); once an in-game day |
 | `releaseCards("3,8,9")` | at a Card Shrine: three binder cards of one skill for a reroll |
-| `rebuildCards(ids)` · `fuseCards(ids)` · `closeSitting()` | at a Card Shrine or trainer (wave B) |
+| `rebuildCards("12,15")` | at a sitting: takes cards of one deck out, paying a free way if one covers them, else the Draught of Forgetting (once a sitting), the fees and the scars. `unslotCards` does the same when a sitting is open |
+| `closeSitting()` | ends the sitting (walking 8 blocks away does too) |
+| `fuseCards(ids)` | at a Card Shrine: fuse three cards of a perk (not built yet; answered "Only at a Card Shrine") |
 
 Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`
 (the text says what happened and names the heaviest stack), so the HUD can show the chip without polling.

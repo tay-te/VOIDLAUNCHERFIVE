@@ -158,7 +158,8 @@ final class RespecJourney {
 			return hand.is(Draughts.FORGETTING) && hand.getCount() == 1 && MINING.equals(hand.get(Draughts.FORGETS))
 				? null : "an empty draught was not kept: " + hand;
 		}));
-		chip(context, "You have learned nothing in Mining to forget");
+		// Cards v2: with nothing outside the deck, the draught is a rebuild key and says where to take it.
+		chip(context, "Take it to a Card Shrine or a Mining trainer: it opens your deck for a rebuild");
 
 		// The Draught of Unbinding returns the eleven Strength points to be placed again.
 		int[] before = new int[1];

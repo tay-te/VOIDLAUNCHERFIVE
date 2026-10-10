@@ -1,6 +1,6 @@
 # VOID Mettle — cards v2: rolled cards, decks, sets, trading, Mythics
 
-**Status: wave A built (2026-10-10, branch `mettle-cards`), see §20; waves B–E designed.** Builds on the perk draft
+**Status: waves A and B built (2026-10-10, branch `mettle-cards`), see §20–§21; waves C–E designed.** Builds on the perk draft
 ([DRAFT.md](DRAFT.md)): the draft stays the source of cards. Where this doc and DRAFT.md disagree, this doc wins once
 wave A ships (§16). Screens go to Figma first (§13).
 
@@ -996,3 +996,42 @@ at 9 and a 6-set at 17; Tide never reaches 6 when sets aren't chased, Kin 15 %, 
    themselves elsewhere are untouched until they move there.
 7. `pvp_perks` (BALANCE.md §6) is not built anywhere in Mettle yet, so traits and sets apply in PvP as perks do today.
 8. `config/mettle/cards.json` is read by the server at start; clients draw with the defaults (only display numbers).
+
+## 21. Built (wave B, 2026-10-10)
+
+Code: `character.cards.Rebuilds` (sittings, rebuilds, releases), `CardShrineBlock` / `CardBlocks`, `CardFees` (emeralds;
+`compat.hearth.HearthFees` pays in coin), the 6-tier and remaining 4-tier sets in `CardHooks`, `client.cards`
+(`CardsClient`, `Updraft`), `mixin.cards.CardsPacketListenerMixin` (Rally Cry). Data: the block, its recipe, model,
+textures, loot and 6 kg weight. Checks: `RebuildRulesTest` (5), `ShrineJourney` in the client tour (refused without a
+free way; the shrine opens a sitting; the overlay previews fee and scar; no draught refused; too few emeralds refused;
+the card comes out scarred as previewed; one draught for the sitting; release three for a reroll; walking away ends it;
+Ironskin from six Iron cards in two decks), and the trainer's rebuild in `HearthJourney` (`-Phearth`).
+
+**How it plays.** Using a Card Shrine opens a **sitting** (it ends 8 blocks away, after ten minutes, or on `close`); a
+Hearth trainer's "Rebuild your Mining deck" opens one for the skills they teach, capped by the settlement's tier, a
+city master sparing one card in two. In a sitting, taking cards out first uses a free way (§7.4); otherwise it spends
+one Draught of Forgetting for that skill (once per sitting), the fee per card by its requirement (Hearth coin, to the
+trainer or burned by the shrine; emeralds without Hearth) and scars each working card (dormant cards come out free and
+whole). The scar is drawn from the card's own seed and scar count, so the overlay's preview (`rebuild.loses`) is what
+happens. A shrine sitting also releases three binder cards of one skill for a reroll (never slotted cards, never while
+holding 5). The Draught of Forgetting no longer refunds anything: drunk away from a shrine it is refused with the way to
+use it (it still forgets drafted perks held outside the deck, from before cards or an op).
+
+**Sets, every tier.** The 6 tiers: Kindled, Underdark, Slipstream, Overkill, Reverberate (through `Cooldowns`),
+Bodyguard, Weak Point, Feral, Ironskin, Undertow, Updraft (a client-side mid-air jump, told to the server, which forgives
+the fall and keeps the 8 s cooldown), Magpie (loot chests and Hearth's market edge), Pact, Rally Cry (an empty swing
+while sneaking reaches the server as a punch). The 4-tier rest: Ember's campfire-food heal, Deep's "noticed closer" (a
+hostile's visibility of the player), Tide's tridents.
+
+**Where it differs, and why:**
+
+1. The shrine has no screen of its own yet: the Hub draws it from `cards.sitting` / `atShrine` / each card's `rebuild`
+   preview and calls `rebuildCards` / `releaseCards` / `closeSitting` (OVERLAY.md); until then the sitting lists every
+   deck in chat with clickable "take out · fee · loses X" lines, and `/mettle cards rebuild|release|close`.
+2. A city master's spared card keeps its traits and gets no scar mark.
+3. Close readings: Slipstream adds its +30 % but doesn't yet keep the sprint; Overkill's spill is the blow's damage before
+   armour less the health it met; Ironskin takes its 3 off before armour; Feral's "natural ground" is soil, sand, snow,
+   gravel or open-sky stone (Hearth's settlement bounds aren't asked); Undertow's clear sight is night vision under water;
+   Magpie's extra roll is a copy of the chest's first roll; Gale 4's thrown things other than arrows aren't faster yet.
+4. Fusion (§18.1, rulings 2–4) is not built yet; it comes after trading and Mythics as the user ordered.
+

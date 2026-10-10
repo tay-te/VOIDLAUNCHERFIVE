@@ -28,7 +28,7 @@ witnesses, crime). Neither builds the other's half.
 | **Coin weight** | 0.01 kg per coin, loose or in a pouch (512 coins = 5.1 kg); Merchant halves it; the bank is weightless. This is the reason to change bits up into crowns and to bank. | — (reads `hearth:pouch_contents`) |
 | **Carrying relief** | Hearth tanners and tailors sell Frame Packs and Hunter's Quivers. Later: hired pack mules (stables) and inn rooms as stashes. | Hearth phase 3 |
 | **Backgrounds in conversation** | Optional greeting lines by background ("A soldier? The captain's always hiring"). | Hearth dialogue data condition `background` (later) |
-| **Deck rebuilds** (cards v2) | A trainer also offers "Rebuild your Mining deck · fee": unslot cards needing up to the trainer's cap, with a Draught of Forgetting; the fee goes to the trainer; a city master scars half as often (CARDS.md §7.3). | — (training band, `charge`) |
+| **Deck rebuilds** (cards v2, **built**) | A trainer also offers "Rebuild your Mining deck" (order lesson + 2, in the training band): it opens a rebuild sitting for the skills they teach, cards needing up to the trainer's cap, a Draught of Forgetting, the fee to the trainer (`HearthFees`, `charge(player, settlement, resident, bits)`); a city master scars half as often (CARDS.md §7.3, §21). A Card Shrine burns its fee (`charge(player, bits)`). | — (training band, `charge`) |
 | **Coin in trades** (cards v2) | The face-to-face trade screen carries coin beside cards and items (CARDS.md §8.1). | Request 8 (or `charge` + `pay` meanwhile) |
 | **Card broker** (cards v2) | Players list cards for coin at a broker in towns and cities; Hearth runs the board, fees, escrow and payouts (CARDS.md §8.2). | Request 7 |
 | **Mythics in the world** (cards v2) | The Open Hand goes to the first player Honoured in a Hearth city; folk may greet legends; The Open Hand shares the market edge (CARDS.md §9). | Requests 9 and 10 |
@@ -134,7 +134,9 @@ All six done by Hearth on 2026-10-07 (`hearth/docs/requests/mettle.md`, Hearth A
 Written 2026-10-10 in [hearth/docs/requests/mettle-cards.md](../../hearth/docs/requests/mettle-cards.md) (a new file, so
 it never collides with Hearth's answers in `mettle.md`): 7 virtual goods and the card broker, 8 a player-to-player coin
 transfer, 9 a standing event for "Honoured", 10 Mythic titles readable by dialogue, 11 (FYI) the trainer's rebuild
-option in the training band. Mettle's side calls them through `compat.hearth`, like the first six.
+option in the training band. Mettle's side calls them through `compat.hearth`, like the first six. Built without new requests: the trainer's rebuild
+option and coin fees (`HearthFees`), the Signature trait (forged goods sell for more, in `MettlePrices`) and the Hoard 6
+set's 5 % market edge.
 
 ## 2. Expanse
 

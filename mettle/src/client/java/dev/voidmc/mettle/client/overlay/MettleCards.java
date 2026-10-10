@@ -1,6 +1,7 @@
 package dev.voidmc.mettle.client.overlay;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import dev.voidmc.mettle.api.Keyword;
@@ -44,6 +45,13 @@ public final class MettleCards {
 	private static dev.voidmc.mettle.core.net.MettlePayloads.@org.jspecify.annotations.Nullable CardSitting sitting;
 
 	private MettleCards() {
+	}
+
+	private static dev.voidmc.mettle.core.net.MettlePayloads.@org.jspecify.annotations.Nullable TradeView trade;
+
+	/** The trade as the server last showed it to this player, or null. */
+	public static void trade(dev.voidmc.mettle.core.net.MettlePayloads.@org.jspecify.annotations.Nullable TradeView view) {
+		trade = view;
 	}
 
 	/** The rebuild sitting the server says is open (a Card Shrine or a trainer), or null. */
@@ -145,7 +153,64 @@ public final class MettleCards {
 			root.add("sitting", JsonNull.INSTANCE);
 		}
 		root.addProperty("attuneTicks", config.attune_ticks);
+		root.add("trade", trade(registries, character, attributes));
 		return root;
+	}
+
+	/** {@code cards.trade}: null when no trade is open or asked for (OVERLAY.md "Trading"). */
+	private static JsonElement trade(RegistryAccess registries, CharacterState character, CardRules.Attributes attributes) {
+		var t = trade;
+		if (t == null || !t.open() && t.partner().isEmpty()) {
+			return JsonNull.INSTANCE;
+		}
+		JsonObject o = new JsonObject();
+		o.addProperty("open", t.open());
+		o.addProperty("partner", t.partner());
+		o.addProperty("asking", !t.open());
+		o.add("me", tradeSide(registries, character, attributes, t.me(), false));
+		o.add("them", tradeSide(registries, character, attributes, t.them(), true));
+		o.addProperty("countdownSeconds", t.countdown() < 0 ? -1 : (t.countdown() + 19) / 20);
+		o.addProperty("coin", t.coin());
+		o.addProperty("maxCards", dev.voidmc.mettle.character.cards.TradeRules.MAX_CARDS);
+		o.addProperty("maxItems", dev.voidmc.mettle.character.cards.TradeRules.MAX_ITEMS);
+		return o;
+	}
+
+	private static JsonObject tradeSide(RegistryAccess registries, CharacterState character, CardRules.Attributes attributes,
+		dev.voidmc.mettle.core.net.MettlePayloads.TradeSide side, boolean incoming) {
+		JsonObject o = new JsonObject();
+		JsonArray cards = new JsonArray();
+		for (CardData c : side.cards()) {
+			JsonObject card = new JsonObject();
+			card.addProperty("id", String.valueOf(c.id()));
+			card.addProperty("code", Cards.printId(registries, c));
+			Optional<Perk> perk = registries.lookupOrThrow(MettleRegistries.PERK).getOptional(c.perk());
+			common(card, registries, c.perk(), perk, c.skill(), c.rank(), c.rarity(), c.keywords(), c.traits(), c.needs(), attributes);
+			card.addProperty("scars", c.scars());
+			card.addProperty("owners", c.history().owners());
+			card.addProperty("drawnBy", c.drawn().name());
+			if (incoming) {
+				// What receiving it means for this player: its requirement against their skill, and a day of attuning.
+				int level = character.level(c.skill());
+				card.addProperty("warning", Component.translatable("mettle.trade.warning", skillName(registries, c.skill()), c.needs(), level,
+					CardConfig.get().attune_ticks / 1200).getString());
+				card.addProperty("meetsRequirement", level >= c.needs());
+			}
+			cards.add(card);
+		}
+		o.add("cards", cards);
+		JsonArray items = new JsonArray();
+		for (net.minecraft.world.item.ItemStack st : side.items()) {
+			JsonObject it = new JsonObject();
+			it.addProperty("item", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).toString());
+			it.addProperty("name", st.getHoverName().getString());
+			it.addProperty("count", st.getCount());
+			items.add(it);
+		}
+		o.add("items", items);
+		o.addProperty("coin", side.coin());
+		o.addProperty("locked", side.locked());
+		return o;
 	}
 
 	/** One card as the binder, the deck and the hand draw it. */

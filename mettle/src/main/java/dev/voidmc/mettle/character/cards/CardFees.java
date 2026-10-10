@@ -23,6 +23,16 @@ public interface CardFees {
 	/** Whether fees are in coin (the overlay says bits) rather than emeralds. */
 	boolean coin();
 
+	/** Coin the player can spend (0 without Hearth: emeralds go in a trade as items). */
+	default long balance(ServerPlayer player) {
+		return 0;
+	}
+
+	/** Moves coin from one player to another (a trade); false when it can't. */
+	default boolean transfer(ServerPlayer from, ServerPlayer to, long bits) {
+		return bits <= 0;
+	}
+
 	/** Without Hearth: emeralds from the inventory. */
 	CardFees EMERALDS = new CardFees() {
 		@Override

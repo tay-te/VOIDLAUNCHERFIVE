@@ -141,6 +141,63 @@ public final class MettleActions {
 		cardAction(MettlePayloads.CardActionKind.CLOSE, List.of(), 0, List.of());
 	}
 
+	// ---------------------------------------------------------------- trading (docs/CARDS.md §8.1)
+
+	/** Asks the named player to trade (they must be within 8 blocks); they get a chip with Accept. */
+	public static void tradeRequest(String player) {
+		trade(MettlePayloads.TradeActionKind.REQUEST, 0, player);
+	}
+
+	public static void tradeAccept() {
+		trade(MettlePayloads.TradeActionKind.ACCEPT, 0, "");
+	}
+
+	/** Offers a binder card (attuned, not slotted). Any change unlocks both sides. */
+	public static void tradeOfferCard(String card) {
+		trade(MettlePayloads.TradeActionKind.OFFER_CARD, first(card), "");
+	}
+
+	public static void tradeTakeBackCard(String card) {
+		trade(MettlePayloads.TradeActionKind.TAKE_CARD, first(card), "");
+	}
+
+	/** Offers the stack in inventory slot {@code slot} (-1: the main hand); it waits in escrow. */
+	public static void tradeOfferItem(int slot) {
+		trade(MettlePayloads.TradeActionKind.OFFER_ITEM, slot, "");
+	}
+
+	/** Takes back offered stack {@code index} ({@code trade.me.items[index]}). */
+	public static void tradeTakeBackItem(int index) {
+		trade(MettlePayloads.TradeActionKind.TAKE_ITEM, index, "");
+	}
+
+	/** Offers Hearth coin, in bits (refused without Hearth: emeralds go in as items). */
+	public static void tradeCoin(long bits) {
+		trade(MettlePayloads.TradeActionKind.COIN, bits, "");
+	}
+
+	public static void tradeLock() {
+		trade(MettlePayloads.TradeActionKind.LOCK, 0, "");
+	}
+
+	/** With both sides locked: starts the 3 s countdown. */
+	public static void tradeConfirm() {
+		trade(MettlePayloads.TradeActionKind.CONFIRM, 0, "");
+	}
+
+	public static void tradeCancel() {
+		trade(MettlePayloads.TradeActionKind.CANCEL, 0, "");
+	}
+
+	private static void trade(MettlePayloads.TradeActionKind kind, long number, String text) {
+		ClientPlayNetworking.send(new MettlePayloads.TradeAction(kind, number, text));
+	}
+
+	private static long first(String ids) {
+		List<Long> all = ids(ids);
+		return all.isEmpty() ? -1 : all.getFirst();
+	}
+
 	private static void cardAction(MettlePayloads.CardActionKind kind, List<Long> cards, int index, List<Identifier> keywords) {
 		ClientPlayNetworking.send(new MettlePayloads.CardAction(kind, cards, index, keywords));
 	}

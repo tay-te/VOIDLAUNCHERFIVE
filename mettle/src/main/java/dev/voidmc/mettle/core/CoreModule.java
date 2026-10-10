@@ -49,6 +49,8 @@ public final class CoreModule {
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.KeepCard.TYPE, MettlePayloads.KeepCard.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.CardAction.TYPE, MettlePayloads.CardAction.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.Updraft.TYPE, MettlePayloads.Updraft.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.TradeAction.TYPE, MettlePayloads.TradeAction.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.TradeView.TYPE, MettlePayloads.TradeView.STREAM_CODEC);
 
 		ServerPlayerEvents.JOIN.register(EffectsApplier::apply);
 		ServerPlayerEvents.AFTER_RESPAWN.addPhaseOrdering(Event.DEFAULT_PHASE, AFTER_ATTACHMENTS);

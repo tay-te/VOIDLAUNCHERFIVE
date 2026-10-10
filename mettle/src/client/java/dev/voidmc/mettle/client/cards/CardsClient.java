@@ -12,7 +12,11 @@ public final class CardsClient {
 
 	public static void init() {
 		ClientPlayNetworking.registerGlobalReceiver(MettlePayloads.CardSitting.TYPE, (payload, context) -> MettleCards.sitting(payload.open() ? payload : null));
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> MettleCards.sitting(null));
+		ClientPlayNetworking.registerGlobalReceiver(MettlePayloads.TradeView.TYPE, (payload, context) -> MettleCards.trade(payload));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			MettleCards.sitting(null);
+			MettleCards.trade(null);
+		});
 		Updraft.init();
 	}
 }

@@ -85,6 +85,7 @@ public final class Cards {
 		CardHooks.init();
 		CardBlocks.init();
 		Rebuilds.init();
+		Trades.init();
 	}
 
 	// ---------------------------------------------------------------- reading

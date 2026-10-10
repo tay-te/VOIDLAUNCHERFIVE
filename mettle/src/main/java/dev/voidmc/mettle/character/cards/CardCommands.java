@@ -55,6 +55,19 @@ public final class CardCommands {
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("mettle")
+			.then(Commands.literal("trade")
+				.executes(c -> 1)
+				.then(Commands.literal("accept").executes(c -> trade(c, Trades.accept(c.getSource().getPlayerOrException()))))
+				.then(Commands.literal("cancel").executes(c -> trade(c, Trades.cancel(c.getSource().getPlayerOrException()))))
+				.then(Commands.literal("lock").executes(c -> trade(c, Trades.lock(c.getSource().getPlayerOrException()))))
+				.then(Commands.literal("confirm").executes(c -> trade(c, Trades.confirm(c.getSource().getPlayerOrException()))))
+				.then(Commands.literal("card").then(Commands.argument("card", StringArgumentType.word()).executes(c ->
+					trade(c, Trades.offerCard(c.getSource().getPlayerOrException(), find(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "card")).id())))))
+				.then(Commands.literal("item").executes(c -> trade(c, Trades.offerItem(c.getSource().getPlayerOrException(), -1))))
+				.then(Commands.literal("coin").then(Commands.argument("bits", com.mojang.brigadier.arguments.LongArgumentType.longArg(0)).executes(c ->
+					trade(c, Trades.setCoin(c.getSource().getPlayerOrException(), com.mojang.brigadier.arguments.LongArgumentType.getLong(c, "bits"))))))
+				.then(Commands.argument("player", EntityArgument.player()).executes(c ->
+					trade(c, Trades.request(c.getSource().getPlayerOrException(), EntityArgument.getPlayer(c, "player"))))))
 			.then(Commands.literal("cards")
 				.executes(c -> list(c, c.getSource().getPlayerOrException()))
 				.then(Commands.literal("show")
@@ -98,6 +111,14 @@ public final class CardCommands {
 					.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 					.executes(c -> clear(c, List.of(c.getSource().getPlayerOrException())))
 					.then(Commands.argument("players", EntityArgument.players()).executes(c -> clear(c, EntityArgument.getPlayers(c, "players")))))));
+	}
+
+	private static int trade(CommandContext<CommandSourceStack> c, Optional<TradeRules.Refusal> why) {
+		if (why.isPresent()) {
+			c.getSource().sendFailure(Component.translatable(why.get().translationKey()));
+			return 0;
+		}
+		return 1;
 	}
 
 	/** A card of the player's by number ({@code 12}) or printed id ({@code MN-7Q4K-2F}). */

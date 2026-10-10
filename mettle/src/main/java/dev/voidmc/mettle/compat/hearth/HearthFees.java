@@ -46,6 +46,26 @@ final class HearthFees implements CardFees {
 	}
 
 	@Override
+	public long balance(ServerPlayer player) {
+		EconomyService economy = HearthServices.economy();
+		return economy == null ? 0 : economy.balance(player);
+	}
+
+	/** A trade's coin: charged from one, paid to the other, in the same tick (request 8 would make it one call). */
+	@Override
+	public boolean transfer(ServerPlayer from, ServerPlayer to, long bits) {
+		EconomyService economy = HearthServices.economy();
+		if (economy == null || bits <= 0) {
+			return bits <= 0;
+		}
+		if (!economy.charge(from, bits)) {
+			return false;
+		}
+		economy.pay(to, bits);
+		return true;
+	}
+
+	@Override
 	public boolean coin() {
 		return HearthServices.economy() != null;
 	}

@@ -241,6 +241,12 @@ final class HearthJourney {
 			return "a " + tier + " smith (cap " + cap + ") offered " + beyond + " to a Smithing " + cap + " player";
 		}
 
+		// Cards v2: the same smith rebuilds a Smithing deck: a draught, the fee to the trainer, a scar.
+		String rebuild = rebuildAtTrainer(player, economy, town, trainers, second, cap);
+		if (rebuild != null) {
+			return rebuild;
+		}
+
 		// No coin, no lesson.
 		set(player, CharacterStore.get(player).withXp(SMITHING, 0), 0);
 		economy.charge(player, economy.balance(player));
@@ -260,6 +266,45 @@ final class HearthJourney {
 		if (!farmer.isEmpty()) {
 			return "a farmer offered " + farmer;
 		}
+		return null;
+	}
+
+	/** A trainer's rebuild (CARDS.md §7.3): offered with a deck, opens a sitting capped by the tier, charges the fee to them. */
+	private static @Nullable String rebuildAtTrainer(ServerPlayer player, EconomyService economy, Settlement town, DialogueProvider trainers,
+		Resident smith, int cap) {
+		String id = "mettle:rebuild/smithing";
+		dev.voidmc.mettle.character.cards.Cards.clear(player);
+		var card = dev.voidmc.mettle.character.cards.Cards.giveExact(player, new dev.voidmc.mettle.core.DraftState.Card(
+			dev.voidmc.mettle.character.Perks.key(net.minecraft.resources.Identifier.fromNamespaceAndPath("mettle", "smithing/tinker")), 1,
+			dev.voidmc.mettle.core.DraftState.Rarity.COMMON, false, List.of(net.minecraft.resources.Identifier.fromNamespaceAndPath("mettle", "ember")),
+			List.of(new dev.voidmc.mettle.core.CardData.TraitRoll(net.minecraft.resources.Identifier.fromNamespaceAndPath("mettle", "smithing/diligent"), 8)), 2));
+		if (dev.voidmc.mettle.character.cards.Cards.slot(player, card.id(), -1).isPresent()) {
+			return "could not slot a Tinker card at Smithing " + cap;
+		}
+		dev.voidmc.mettle.core.CardStore.set(player, dev.voidmc.mettle.core.CardStore.get(player).withFreeSwaps(0).withFreeRebuilds(List.of()));
+		DialogueProvider.Option offer = option(trainers, player, town, smith, id);
+		if (offer == null || offer.locked() || offer.order() < DialogueProvider.TRAINING_FIRST || offer.order() > DialogueProvider.TRAINING_LAST) {
+			return "a smith offered no open rebuild to a player with a Smithing deck: " + offer;
+		}
+		if (!trainers.select(player, town, smith, id) || dev.voidmc.mettle.character.cards.Rebuilds.sitting(player)
+			.map(s -> s.kind() != dev.voidmc.mettle.character.cards.Rebuilds.Kind.TRAINER || s.cap() != cap).orElse(true)) {
+			return "the rebuild option opened no trainer sitting capped at " + cap;
+		}
+		player.getInventory().add(dev.voidmc.mettle.character.respec.Draughts.forgetting(net.minecraft.resources.Identifier.fromNamespaceAndPath("mettle", "smithing")));
+		long fee = dev.voidmc.mettle.character.cards.CardRules.feeBits(card.needs());
+		economy.pay(player, fee + 10);
+		long before = economy.balance(player);
+		var no = dev.voidmc.mettle.character.cards.Rebuilds.rebuild(player, List.of(card.id()));
+		if (no.isPresent()) {
+			return "the trainer's rebuild was refused: " + no.get();
+		}
+		var after = dev.voidmc.mettle.core.CardStore.get(player).card(card.id()).orElseThrow();
+		boolean master = town.tier() == SettlementTier.CITY;
+		if (after.slotted() || before - economy.balance(player) != fee || (!master && after.scars() != 1)) {
+			return "after the trainer's rebuild: " + after + ", paid " + (before - economy.balance(player)) + " of " + fee;
+		}
+		dev.voidmc.mettle.character.cards.Rebuilds.close(player);
+		dev.voidmc.mettle.character.cards.Cards.clear(player);
 		return null;
 	}
 
