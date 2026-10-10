@@ -28,6 +28,10 @@ witnesses, crime). Neither builds the other's half.
 | **Coin weight** | 0.01 kg per coin, loose or in a pouch (512 coins = 5.1 kg); Merchant halves it; the bank is weightless. This is the reason to change bits up into crowns and to bank. | — (reads `hearth:pouch_contents`) |
 | **Carrying relief** | Hearth tanners and tailors sell Frame Packs and Hunter's Quivers. Later: hired pack mules (stables) and inn rooms as stashes. | Hearth phase 3 |
 | **Backgrounds in conversation** | Optional greeting lines by background ("A soldier? The captain's always hiring"). | Hearth dialogue data condition `background` (later) |
+| **Deck rebuilds** (cards v2) | A trainer also offers "Rebuild your Mining deck · fee": unslot cards needing up to the trainer's cap, with a Draught of Forgetting; the fee goes to the trainer; a city master scars half as often (CARDS.md §7.3). | — (training band, `charge`) |
+| **Coin in trades** (cards v2) | The face-to-face trade screen carries coin beside cards and items (CARDS.md §8.1). | Request 8 (or `charge` + `pay` meanwhile) |
+| **Card broker** (cards v2) | Players list cards for coin at a broker in towns and cities; Hearth runs the board, fees, escrow and payouts (CARDS.md §8.2). | Request 7 |
+| **Mythics in the world** (cards v2) | The Open Hand goes to the first player Honoured in a Hearth city; folk may greet legends; The Open Hand shares the market edge (CARDS.md §9). | Requests 9 and 10 |
 
 ### 1.2 Built (2026-10-07)
 
@@ -125,6 +129,13 @@ All six done by Hearth on 2026-10-07 (`hearth/docs/requests/mettle.md`, Hearth A
 5. **Dialogue order band 300–399 reserved for training** (0–99 small talk, 100–199 trade, 200–299 quests today).
 6. **A market trade event**: `(player, settlement, item, count, bits, playerBuys)`, fired by `Market.trade`, for Speech XP and stats.
 
+### 1.4 Requests for cards v2
+
+Written 2026-10-10 in [hearth/docs/requests/mettle-cards.md](../../hearth/docs/requests/mettle-cards.md) (a new file, so
+it never collides with Hearth's answers in `mettle.md`): 7 virtual goods and the card broker, 8 a player-to-player coin
+transfer, 9 a standing event for "Honoured", 10 Mythic titles readable by dialogue, 11 (FYI) the trainer's rebuild
+option in the training band. Mettle's side calls them through `compat.hearth`, like the first six.
+
 ## 2. Expanse
 
 | Feature | How |
@@ -153,6 +164,9 @@ Where the tomes lie (`Tomes.SOURCES`; TREES.md names the landmarks, mapped to th
 
 The other half is built: a city's master of the trade TREES.md names teaches it for 10 crowns (§1.2, Trainers).
 
+Cards v2: Expanse needs nothing new. The Far Horizon (a world-first Mythic) counts blocks from spawn, not landmarks,
+so it works without Expanse; Seen It All and Lay of the Land are unchanged.
+
 ## 3. LOD
 
 Nothing to integrate. Mettle renders worn gear on players, adds GUI screens and HUD chips, and touches no world
@@ -163,7 +177,16 @@ rendering.
 `pvp/` is a separate 1.8.9 client and never meets this 26.3 mod. On 26.3 servers that want fair PvP, `pvp_perks`
 (`full` / `reduced` / `off`) and `pvp_xp_scale` decide how perks and XP apply between players.
 
-## 5. Launcher
+## 5. Arsenal
+
+VOID Arsenal (`arsenal/docs/DESIGN.md`, design only) makes weapons from forged parts. **Smithing becomes its forging
+skill**, on the Hearth split: Mettle owns the numbers (strike window, steel and Masterwork gates, trait and perk
+values), Arsenal owns the items and stations and reports forging XP through `CharacterService.award`. Every Smithing
+trait has a vanilla and an Arsenal meaning, Smithing perks gain forging meanings, The First Hammer Mythic marks parts in
+gold, and Arsenal's technique cooldowns read the Echo set's scale. All in CARDS.md §10, with the `CardService` api
+Arsenal reads. Built in `compat.arsenal` behind `isModLoaded("arsenal")` when Arsenal's wave 1 lands.
+
+## 6. Launcher
 
 The VOID launcher installs mods only from Modrinth, so VOID's own mods (Expanse, LOD, Hearth, Mettle) reach players
 as hand-copied jars today. A first-party install path is outside this mod but needed before release.

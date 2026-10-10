@@ -297,6 +297,8 @@ gate above is now soft: below it a card is dealt 0.4 times as often, never hidde
 ## 8. Respec draughts (CHARACTER.md §6)
 
 Since the draft, forgetting a skill turns each of its drafted ranks back into a waiting draft of that skill (DRAFT.md §8).
+**Cards v2 changes this (CARDS.md §7):** the Draught of Forgetting becomes the key to a rebuild sitting at a trainer or
+Card Shrine (plus a fee per card and a scar); it no longer refunds drafts. The recipes below stay.
 
 Crafted shapeless, one recipe per skill (`data/mettle/recipe/draught_of_*.json`). Every draught shares a base of
 **glass bottle + amethyst shard** (a geode is the gate: reachable early, never free) and a flavour ingredient; the
@@ -405,6 +407,9 @@ A **city master's Teaching** costs 1,000 bits (10 crowns) and needs the skill at
 
 ## 10. The draft (DRAFT.md)
 
+Cards v2 keeps the cadence, hand, wildcard and reroll rows; the rarity row becomes the depth odds, and rarity gets its
+own table (§11).
+
 | | Value | Where |
 |---|---|---|
 | Drafts | one per skill level to 6, then one per even level (13 to skill 20); odd levels from 7 give a reroll | `DraftRules.HALF_RATE_FROM` = 7 |
@@ -414,3 +419,24 @@ A **city master's Teaching** costs 1,000 bits (10 crowns) and needs the skill at
 | Wildcard | 12 % of hands, one card from one of the last four skills used | `WILDCARD_CHANCE` |
 | Rerolls | start 2; +1 per character level, odd skill level from 7, feat, Hearth lesson, spent-deck draft; hold at most 5 | `START_REROLLS`, `MAX_REROLLS` |
 | Cursed cards | two per released skill, tier II and III; numbers in DRAFT.md §4 | `character.draft.Cursed`, perk data |
+
+## 11. Cards v2 (CARDS.md, designed 2026-10-10, not built)
+
+Every lever, in `config/mettle/cards.json` (CARDS.md §15). The power limits and the simulator's checks are CARDS.md §14.
+
+| | Value | Where |
+|---|---|---|
+| Rarity at skill L | Common 70 − 1.5 L · Rare 24 + L · Epic 6 + 0.5 L (%); cursed perks always Cursed | `rarity_odds` |
+| Root rank | Common I · Rare II · Epic III | rule |
+| Traits | Common 0–1 · Rare 1–2 · Epic 2–3 · Cursed 1–2; values low two thirds / whole / top two thirds of the range | trait data |
+| Trait caps | broad ≤ 12 % rolled (15 % boosted) · narrow ≤ 25 % (30 %) · one trait's total ≤ 2 × its card cap | `trait_total_cap` |
+| Attribute boost | +1.5 % of a trait's value per point of its attribute above 3 (×1.255 at 20) | `trait_boost_per_point` |
+| Requirement | tier I 2 / 4 / 7 · II 6 / 7 / 9 · III 12 / 13 / 15 · Mastery 18 / 19 / 20 (Common / Rare / Epic); cursed 6 / 12 | rule |
+| Deck slots | 3 at skill 2, +1 every 3 levels, 8 at 17; +1 at Wits 8, +2 at Wits 14 | `slots_*`, `wits_slots` |
+| Duplicates | dealt at ½ weight per copy owned, at least ¼ | `duplicate_weight` |
+| Sets | 14 keywords; 2 / 4 / 6 cards; 6 needs two skills; 3 active; a pin changes once an in-game day | `active_sets` |
+| Rebuild | one Draught of Forgetting per skill per sitting + 40 / 120 / 350 / 900 bits per card by requirement (Mythic 1,000, no draught); emeralds 1 / 3 / 8 / 20 / 24 without Hearth; one scar per card (a city master: one in two) | `rebuild_fees` |
+| Free swaps | one per character level, held up to 3 | `free_swaps_max` |
+| Trading | 8 blocks, Lock, 3 s countdown; attunement 24,000 ticks | `trade_*`, `attune_ticks` |
+| Binder | 300 cards; release 3 for 1 reroll | `binder_max`, `release_per_reroll` |
+| Mythics | 0.5 % per draft from skill 15 (once per draft, each drawn Mythic once per world); 2 slotted | `mythic_*` |

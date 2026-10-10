@@ -5,6 +5,12 @@ longer bought with points from a tree; every skill level deals a **draft**: a ha
 one. Supersedes "points buy perks" in TREES.md §1 and CHARACTER.md §4. Earned perks (feats, synergies, teachings) and
 attribute points are unchanged.
 
+> **Cards v2 ([CARDS.md](CARDS.md), designed 2026-10-10, not built).** The draft stays the source of cards, at the same
+> cadence, but a kept card becomes a unique **rolled card** (perk, rolled rarity, keywords, traits) in a binder, and
+> only cards **slotted** in a skill's deck are active. What changes here: rarity is rolled apart from depth (§3), ranks
+> and duplicates (§2), the spent deck goes (§1), the budget (§6), migration (§7), respec becomes rebuilding (§8), and a
+> Mythic roll joins the draft (§9). Each section below says so in one line.
+
 Code: `character.draft` (`DraftRules` pure and tested, `Drafts` on the server, `Cursed`, `DraftCommands`),
 `core.DraftState` (the synced record), overlay fields in `client.overlay.MettleState` / `MettleActions` (OVERLAY.md).
 Checks: `DraftRulesTest` (19 tests), `DraftJourney` in the client tour, and the simulator `DraftReportTest`
@@ -32,10 +38,14 @@ A player has to know four things:
 - **A spent deck.** When every card of a skill is at its last rank (and a Mastery is held), its waiting drafts turn into
   rerolls, with a chip ("Your Mining deck is spent · 2 drafts became rerolls"). A skill with no deck at all (wave 2:
   Speech, Stealth…, which Hearth already levels) keeps its drafts for when its tree ships.
+  *v2: gone. Owning a perk never removes it from the deck; a duplicate is a new rolled card (CARDS.md §3.1).*
 - **Stale cards.** If a card in a hand stops being good (its rank was learned another way, another Mastery was taken),
   the hand is dealt again for free; keeping a stale card is refused the same way.
 
 ## 2. The deck
+
+*v2: "learned" reads "owned" in every rule below; the Maxed rule goes (a root's rank is its rarity, and a perk you own
+is dealt at half weight per copy); you may own all three Masteries but slot one (CARDS.md §3.1, §5.2).*
 
 A skill's deck is its tree: every drafted perk (`Perk.Kind` root, path, mastery, cursed), as "perk X, next rank".
 
@@ -55,6 +65,10 @@ nothing into Strength. It cannot break the budget, because how *many* cards you 
 gate.
 
 ## 3. Rarity and odds
+
+*v2: the table below becomes the **depth odds** (which perk is drawn); each card's rarity is then rolled on its own
+table, Common 70 − 1.5 L, Rare 24 + L, Epic 6 + 0.5 L, and sets its rank, trait count and requirement (CARDS.md
+§3.2–§3.4). Cursed perks stay Cursed.*
 
 Rarity follows depth: **roots Common, tier II path perks Rare, tier III and Masteries Epic, cursed cards Cursed.** Frame
 colours (`DraftState.Rarity`): Common `#B9BEC6`, Rare `#4DA3F5`, Epic `#B27CFF`, Cursed `#D8453B`.
@@ -122,10 +136,16 @@ thrown back while others are left.
 | A spent deck's waiting drafts | +1 each |
 | Held at most | **5** (`MAX_REROLLS`); more are lost, so they stay worth spending |
 
+*v2: one more source, releasing three binder cards of a skill at a Card Shrine (CARDS.md §7.5); a spent deck no longer
+gives any.*
+
 There is no reroll draught: a draught recipe is the next step if rerolls turn out too scarce, and the trainer hook shows
 the pattern for any other source.
 
 ## 6. Balance: the power budget
+
+*v2: the draft count is unchanged (13 to skill 20), but only the slotted cards count (8 at skill 20, 10 with Wits 14),
+plus traits and sets. Limits and the new simulator `CardReportTest` are in CARDS.md §14.*
 
 The old trees gave one point per level and charged 1 / 2 / 3 / 5 per perk by depth, so 20 points bought about two
 thirds of a 31-point tree (BALANCE.md §7.3). A card costs one draft whatever its depth, and a skill's deck holds 17
@@ -150,12 +170,19 @@ level 2 (in the first five minutes), the first tier II card turns up at 6.2 on a
 
 ## 7. Old saves (migration)
 
+*v2: a v1 save migrates once more: each drafted perk becomes one card, a rank-r root gives back r − 1 drafts, migrated
+cards need only their tier's level, and the first rebuild of each deck is free (CARDS.md §12).*
+
 A character saved before drafts has no `draft` in its record. On join (and before any XP is counted) the server
 migrates it: **perks already learned stay learned; each skill's unspent perk points become that many waiting drafts**
 (points = level − the old cost of its bought perks), the seed is made, two rerolls are given and the hands are dealt.
 Mining 9 with Quarryman III and Tunneler (5 points spent) gets 4 drafts.
 
 ## 8. Respec
+
+*v2: replaced. A Draught of Forgetting no longer refunds drafts: it opens one skill's deck for a **rebuild** at a Hearth
+trainer or a Card Shrine, with a fee per card, and every card taken out loses a trait (CARDS.md §7). Free below
+character level 5, op respec and background reset return cards to the binder unscarred.*
 
 - **Draught of Forgetting (one skill):** every drafted perk of that skill (roots, paths, cursed cards, the Mastery) is
   forgotten, and **each rank comes back as a waiting draft of that skill** ("· 8 drafts returned"). A hand is dealt at
@@ -166,6 +193,9 @@ Mining 9 with Quarryman III and Tunneler (5 points spent) gets 4 drafts.
   same, and returning points would let a deep perk be traded for three cards.
 
 ## 9. Determinism and fairness
+
+*v2: the same, for every roll (traits, keywords, values); offers enter the world ledger with an id only when kept; the
+0.5 % Mythic roll from skill 15 is made once per draft, never per reroll (CARDS.md §3.5, §11).*
 
 - Everything is decided on the server. The client sends `pick_card (skill, index)` and `reroll (skill)`; the server
   checks the draft, the card and the reroll count, and answers with a chip either way.
