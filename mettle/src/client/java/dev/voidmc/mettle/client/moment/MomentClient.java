@@ -65,7 +65,9 @@ public final class MomentClient {
 		OverlayBridge.push("mettleMoment", json);
 		MettleState.rememberMoment(json);
 		MomentKind kind = m.kind();
-		if (MettleClientOptions.sounds() && THROTTLE.allow(kind, now)) {
+		// A card kept through the overlay already played its flare and thunk (CardAudio): no chime on top.
+		boolean hushed = kind.bought() && dev.voidmc.mettle.client.draft.CardAudio.hushesMoment();
+		if (MettleClientOptions.sounds() && !hushed && THROTTLE.allow(kind, now)) {
 			MomentSounds.play(kind);
 		}
 		// A perk bought from a screen: that screen already shows it, so no toast; the click-chime is the answer.

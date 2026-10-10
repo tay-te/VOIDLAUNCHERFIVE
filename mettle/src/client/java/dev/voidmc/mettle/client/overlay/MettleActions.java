@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import dev.voidmc.mettle.api.CharacterAttribute;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Skill;
+import dev.voidmc.mettle.client.draft.CardAudio;
 import dev.voidmc.mettle.core.net.MettlePayloads;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,6 +58,8 @@ public final class MettleActions {
 	 * answers with a chip, and the next hand (if any) arrives with the synced character.
 	 */
 	public static void pickCard(String skill, int index) {
+		// The flare, the thunk and the other two burning away play at once (docs/SOUNDS.md); the overlay plays nothing.
+		CardAudio.pick(skill, index);
 		ClientPlayNetworking.send(new MettlePayloads.PickCard(ResourceKey.create(MettleRegistries.SKILL, Identifier.parse(skill)), index));
 	}
 
@@ -74,7 +77,28 @@ public final class MettleActions {
 
 	/** Spends a reroll on a fresh hand for a skill's draft ({@code draft.rerolls} says how many are left). */
 	public static void reroll(String skill) {
+		CardAudio.reroll(skill);
 		ClientPlayNetworking.send(new MettlePayloads.Reroll(ResourceKey.create(MettleRegistries.SKILL, Identifier.parse(skill))));
+	}
+
+	/**
+	 * The card sounds the overlay times to its animations (docs/SOUNDS.md §5): {@code cardSound("deal", "mettle:mining")}
+	 * as a hand fans out (its rarity stinger follows), {@code ("hover", "epic")} or {@code ("hover", "mettle:mining#2")}
+	 * as the pointer reaches a card, {@code ("unhover", "")}, {@code ("mythic_reveal", "")} as the reveal starts (its
+	 * markers are in {@code draft.sound}), {@code ("stop", "")} when the draft closes, and {@code ("slot", "")} /
+	 * {@code ("set_complete", "")}. Picks and rerolls sound by themselves through {@link #pickCard} and {@link #reroll}.
+	 */
+	public static void cardSound(String cue, String arg) {
+		CardAudio.call(cue, arg);
+	}
+
+	/** {@link #cardSound(String, String)} for hosts that pass one string: {@code "hover#epic"}, {@code "deal#mettle:mining"}. */
+	public static void cardSound(String cueAndArg) {
+		if (cueAndArg == null) {
+			return;
+		}
+		int hash = cueAndArg.indexOf('#');
+		CardAudio.call(hash < 0 ? cueAndArg : cueAndArg.substring(0, hash), hash < 0 ? "" : cueAndArg.substring(hash + 1));
 	}
 
 	public static void spendAttribute(String attribute) {

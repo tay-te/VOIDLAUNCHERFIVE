@@ -1,0 +1,246 @@
+{
+  "card.ash": {
+    "sounds": [
+      "mettle:card/ash1",
+      "mettle:card/ash2",
+      "mettle:card/ash3"
+    ]
+  },
+  "card.burn": {
+    "sounds": [
+      "mettle:card/burn1",
+      "mettle:card/burn2",
+      "mettle:card/burn3"
+    ],
+    "subtitle": "subtitles.mettle.card.burn"
+  },
+  "card.crackle": {
+    "sounds": [
+      "mettle:card/crackle1",
+      "mettle:card/crackle2",
+      "mettle:card/crackle3",
+      "mettle:card/crackle4",
+      "mettle:card/crackle5",
+      "mettle:card/crackle6"
+    ]
+  },
+  "card.deny": {
+    "sounds": [
+      "minecraft:item/bundle/insert_fail"
+    ]
+  },
+  "card.ember": {
+    "sounds": [
+      "minecraft:liquid/lavapop"
+    ]
+  },
+  "card.enchant": {
+    "sounds": [
+      "minecraft:block/enchantment_table/enchant1",
+      "minecraft:block/enchantment_table/enchant2",
+      "minecraft:block/enchantment_table/enchant3"
+    ]
+  },
+  "card.fizz": {
+    "sounds": [
+      "minecraft:random/fizz"
+    ]
+  },
+  "card.flare": {
+    "sounds": [
+      "mettle:card/flare1",
+      "mettle:card/flare2",
+      "mettle:card/flare3"
+    ],
+    "subtitle": "subtitles.mettle.card.keep"
+  },
+  "card.flip": {
+    "sounds": [
+      "minecraft:item/book/open_flip1",
+      "minecraft:item/book/open_flip2",
+      "minecraft:item/book/open_flip3"
+    ]
+  },
+  "card.glow": {
+    "sounds": [
+      "mettle:card/glow"
+    ]
+  },
+  "card.gold": {
+    "sounds": [
+      "mettle:card/gold1",
+      "mettle:card/gold2"
+    ]
+  },
+  "card.ignite": {
+    "sounds": [
+      "minecraft:fire/ignite"
+    ]
+  },
+  "card.ominous": {
+    "sounds": [
+      "minecraft:item/ominous_bottle/dispose"
+    ]
+  },
+  "card.put": {
+    "sounds": [
+      "minecraft:item/book/close_put1",
+      "minecraft:item/book/close_put2"
+    ]
+  },
+  "card.riffle": {
+    "sounds": [
+      "mettle:card/riffle1",
+      "mettle:card/riffle2"
+    ],
+    "subtitle": "subtitles.mettle.card.shuffle"
+  },
+  "card.sizzle": {
+    "sounds": [
+      "mettle:card/sizzle1",
+      "mettle:card/sizzle2"
+    ]
+  },
+  "card.slide": {
+    "sounds": [
+      "mettle:card/slide1",
+      "mettle:card/slide2",
+      "mettle:card/slide3",
+      "mettle:card/slide4"
+    ],
+    "subtitle": "subtitles.mettle.card.deal"
+  },
+  "card.slot": {
+    "sounds": [
+      "minecraft:block/chiseled_bookshelf/insert1",
+      "minecraft:block/chiseled_bookshelf/insert2",
+      "minecraft:block/chiseled_bookshelf/insert3",
+      "minecraft:block/chiseled_bookshelf/insert4"
+    ]
+  },
+  "card.slot_enchanted": {
+    "sounds": [
+      "minecraft:block/chiseled_bookshelf/insert_enchanted1",
+      "minecraft:block/chiseled_bookshelf/insert_enchanted2",
+      "minecraft:block/chiseled_bookshelf/insert_enchanted3",
+      "minecraft:block/chiseled_bookshelf/insert_enchanted4"
+    ]
+  },
+  "card.tap": {
+    "sounds": [
+      "minecraft:entity/itemframe/add_item1",
+      "minecraft:entity/itemframe/add_item2",
+      "minecraft:entity/itemframe/add_item3",
+      "minecraft:entity/itemframe/add_item4"
+    ]
+  },
+  "card.turn": {
+    "sounds": [
+      "minecraft:entity/itemframe/rotate_item1",
+      "minecraft:entity/itemframe/rotate_item2",
+      "minecraft:entity/itemframe/rotate_item3",
+      "minecraft:entity/itemframe/rotate_item4"
+    ]
+  },
+  "card.weight": {
+    "sounds": [
+      "minecraft:block/lodestone/place1",
+      "minecraft:block/lodestone/place2",
+      "minecraft:block/lodestone/place3",
+      "minecraft:block/lodestone/place4"
+    ]
+  },
+  "card.whoosh": {
+    "sounds": [
+      "mettle:card/whoosh1",
+      "mettle:card/whoosh2"
+    ]
+  },
+  "card.wrong": {
+    "sounds": [
+      "mettle:card/wrong1",
+      "mettle:card/wrong2"
+    ],
+    "subtitle": "subtitles.mettle.card.cursed"
+  },
+  "mythic.bloom": {
+    "sounds": [
+      "minecraft:block/respawn_anchor/set_spawn1",
+      "minecraft:block/respawn_anchor/set_spawn2",
+      "minecraft:block/respawn_anchor/set_spawn3"
+    ]
+  },
+  "mythic.burst": {
+    "sounds": [
+      "mettle:mythic/burst"
+    ],
+    "subtitle": "subtitles.mettle.mythic.reveal"
+  },
+  "mythic.crack": {
+    "sounds": [
+      "mettle:mythic/crack1",
+      "mettle:mythic/crack2",
+      "mettle:mythic/crack3"
+    ]
+  },
+  "mythic.dim": {
+    "sounds": [
+      "minecraft:block/respawn_anchor/deplete1",
+      "minecraft:block/respawn_anchor/deplete2"
+    ]
+  },
+  "mythic.eye": {
+    "sounds": [
+      "minecraft:block/end_portal/eyeplace1",
+      "minecraft:block/end_portal/eyeplace2",
+      "minecraft:block/end_portal/eyeplace3"
+    ]
+  },
+  "mythic.glimmer": {
+    "sounds": [
+      "minecraft:block/amethyst/shimmer"
+    ]
+  },
+  "mythic.heartbeat": {
+    "sounds": [
+      "minecraft:mob/warden/heartbeat_1",
+      "minecraft:mob/warden/heartbeat_2",
+      "minecraft:mob/warden/heartbeat_3",
+      "minecraft:mob/warden/heartbeat_4"
+    ]
+  },
+  "mythic.idle": {
+    "sounds": [
+      "mettle:mythic/idle"
+    ]
+  },
+  "mythic.rise": {
+    "sounds": [
+      "minecraft:block/beacon/activate"
+    ]
+  },
+  "mythic.rumble": {
+    "sounds": [
+      "mettle:mythic/rumble"
+    ],
+    "subtitle": "subtitles.mettle.mythic.stir"
+  },
+  "mythic.shard": {
+    "sounds": [
+      "minecraft:block/amethyst/break1",
+      "minecraft:block/amethyst/break2",
+      "minecraft:block/amethyst/break3",
+      "minecraft:block/amethyst/break4"
+    ]
+  },
+  "mythic.swell": {
+    "sounds": [
+      "mettle:mythic/swell"
+    ]
+  },
+  "mythic.tail": {
+    "sounds": [
+      "mettle:mythic/tail"
+    ]
+  }
+}

@@ -306,6 +306,8 @@ public final class MettleState {
 			rarities.add(ro);
 		}
 		o.add("rarities", rarities);
+		// When the card sounds land, so the overlay can time its animations to them (docs/SOUNDS.md §5).
+		o.add("sound", dev.voidmc.mettle.client.draft.CardAudio.describe());
 		return o;
 	}
 

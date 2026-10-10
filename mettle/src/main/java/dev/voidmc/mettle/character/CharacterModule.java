@@ -39,6 +39,7 @@ public final class CharacterModule {
 			MiningSkill.forget(player.getUUID());
 		});
 		dev.voidmc.mettle.character.draft.Drafts.init();
+		dev.voidmc.mettle.character.draft.CardSounds.init();
 		SignaturePerks.init();
 		PlacedBlocks.init();
 		FeatCounters.init();

@@ -1,0 +1,208 @@
+{
+  "_doc": "The card draft's sound cues (docs/SOUNDS.md). A cue is layers [at ms, sound event, pitch, volume, pitch jitter]; an event without a namespace is mettle's (assets/mettle/sounds.json). Pitch and volume multiply the event's own, as in Minecraft (final pitch 0.5-2, final volume at most 1). Played by client.draft.CardAudio; rendered offline by tools/sounds/preview.py, so a preview is what the game plays.",
+  "cues": {
+    "deal": [
+      [0, "card.slide", 1.0, 0.21, 0.06],
+      [0, "card.flip", 1.45, 0.48, 0.05],
+      [75, "card.slide", 1.06, 0.19, 0.06],
+      [75, "card.flip", 1.55, 0.45, 0.05],
+      [150, "card.slide", 1.12, 0.19, 0.06],
+      [150, "card.flip", 1.65, 0.42, 0.05],
+      [240, "card.tap", 0.8, 0.25, 0.04],
+      [260, "card.crackle", 1.0, 0.26, 0.08],
+      [310, "card.crackle", 1.15, 0.2, 0.08]
+    ],
+    "hover.common": [
+      [0, "card.crackle", 1.0, 0.29, 0.08]
+    ],
+    "hover.rare": [
+      [0, "card.crackle", 1.0, 0.34, 0.08],
+      [25, "card.crackle", 1.25, 0.2, 0.1]
+    ],
+    "hover.epic": [
+      [0, "card.crackle", 0.95, 0.34, 0.08],
+      [0, "card.sizzle", 1.0, 0.1, 0.06],
+      [30, "card.crackle", 1.3, 0.2, 0.1]
+    ],
+    "hover.mastery": [
+      [0, "card.crackle", 0.95, 0.34, 0.08],
+      [0, "card.sizzle", 0.95, 0.1, 0.06],
+      [20, "minecraft:block.note_block.chime", 1.6818, 0.09, 0.0]
+    ],
+    "hover.cursed": [
+      [0, "card.crackle", 0.75, 0.3, 0.06],
+      [0, "card.wrong", 1.0, 0.21, 0.04]
+    ],
+    "hover.wildcard": [
+      [0, "card.crackle", 1.05, 0.32, 0.08],
+      [0, "card.turn", 1.3, 0.45, 0.05]
+    ],
+    "hover.earned": [
+      [0, "card.crackle", 1.15, 0.26, 0.08],
+      [0, "card.gold", 1.0, 0.07, 0.03]
+    ],
+    "hover.mythic": [
+      [0, "card.crackle", 0.9, 0.36, 0.06],
+      [0, "card.sizzle", 0.9, 0.12, 0.05],
+      [0, "mythic.glimmer", 1.0, 1.0, 0.0]
+    ],
+    "pick": [
+      [0, "card.flare", 1.0, 0.32, 0.05],
+      [0, "card.ignite", 1.3, 0.38, 0.05],
+      [70, "card.slot", 0.85, 0.7, 0.04],
+      [70, "card.put", 0.8, 1.0, 0.04],
+      [70, "card.weight", 1.5, 0.24, 0.03]
+    ],
+    "pick.rare": [
+      [110, "minecraft:block.note_block.chime", 1.4983, 0.25, 0.0]
+    ],
+    "pick.epic": [
+      [110, "minecraft:block.note_block.chime", 1.2599, 0.18, 0.0],
+      [150, "minecraft:block.note_block.chime", 1.6818, 0.2, 0.0]
+    ],
+    "pick.mastery": [
+      [110, "minecraft:block.note_block.chime", 1.2599, 0.2, 0.0],
+      [150, "minecraft:block.note_block.chime", 1.6818, 0.22, 0.0],
+      [150, "minecraft:block.note_block.bell", 1.2599, 0.14, 0.0]
+    ],
+    "pick.cursed": [
+      [90, "minecraft:block.note_block.bass", 0.7071, 0.16, 0.0],
+      [90, "minecraft:block.note_block.bass", 1.0, 0.1, 0.0],
+      [110, "card.ominous", 0.9, 0.12, 0.03]
+    ],
+    "pick.wildcard": [
+      [110, "minecraft:block.note_block.pling", 1.4983, 0.1, 0.0],
+      [170, "minecraft:block.note_block.pling", 2.0, 0.085, 0.0]
+    ],
+    "pick.earned": [
+      [110, "minecraft:block.note_block.bell", 1.4983, 0.14, 0.0],
+      [110, "minecraft:block.note_block.chime", 2.0, 0.14, 0.0],
+      [110, "card.gold", 1.0, 0.08, 0.02]
+    ],
+    "pick.mythic": [
+      [110, "minecraft:block.note_block.chime", 1.0, 0.2, 0.0],
+      [140, "minecraft:block.note_block.chime", 1.2599, 0.2, 0.0],
+      [170, "minecraft:block.note_block.chime", 1.4983, 0.22, 0.0],
+      [200, "minecraft:block.note_block.chime", 2.0, 0.24, 0.0],
+      [200, "minecraft:block.note_block.bell", 2.0, 0.12, 0.0],
+      [110, "mythic.glimmer", 1.0, 1.0, 0.0]
+    ],
+    "burn": [
+      [0, "card.burn", 1.0, 0.145, 0.05],
+      [90, "card.burn", 1.08, 0.128, 0.05],
+      [0, "card.fizz", 1.4, 0.076, 0.05],
+      [160, "card.ember", 1.6, 0.17, 0.1],
+      [420, "card.ember", 1.8, 0.128, 0.1],
+      [650, "card.ash", 1.0, 0.204, 0.06],
+      [730, "card.ash", 1.1, 0.145, 0.06]
+    ],
+    "reroll": [
+      [0, "card.whoosh", 1.0, 0.2, 0.05],
+      [60, "card.flip", 1.7, 0.4, 0.05],
+      [140, "card.riffle", 1.0, 0.29, 0.04],
+      [600, "card.tap", 0.85, 0.25, 0.04]
+    ],
+    "reroll_denied": [
+      [0, "card.deny", 1.0, 0.14, 0.03],
+      [0, "card.crackle", 0.7, 0.12, 0.05]
+    ],
+    "stinger.epic": [
+      [0, "card.enchant", 1.15, 0.3, 0.04],
+      [0, "minecraft:block.note_block.chime", 1.2599, 0.14, 0.0],
+      [80, "minecraft:block.note_block.chime", 1.8877, 0.14, 0.0]
+    ],
+    "stinger.mastery": [
+      [0, "card.enchant", 1.0, 0.3, 0.04],
+      [0, "minecraft:block.note_block.chime", 1.0, 0.16, 0.0],
+      [70, "minecraft:block.note_block.chime", 1.4983, 0.16, 0.0],
+      [140, "minecraft:block.note_block.bell", 2.0, 0.1, 0.0]
+    ],
+    "stinger.cursed": [
+      [0, "card.ominous", 0.85, 0.141, 0.03],
+      [0, "minecraft:block.note_block.bass", 1.0, 0.123, 0.0],
+      [160, "minecraft:block.note_block.bass", 0.7071, 0.185, 0.0],
+      [60, "card.wrong", 0.9, 0.194, 0.03]
+    ],
+    "stinger.wildcard": [
+      [0, "card.turn", 1.2, 0.4, 0.04],
+      [40, "minecraft:block.note_block.pling", 1.4983, 0.12, 0.0],
+      [130, "minecraft:block.note_block.pling", 2.0, 0.1, 0.0]
+    ],
+    "stinger.earned": [
+      [0, "card.gold", 1.0, 0.085, 0.02],
+      [0, "minecraft:block.note_block.bell", 1.4983, 0.2, 0.0],
+      [90, "minecraft:block.note_block.chime", 2.0, 0.22, 0.0]
+    ],
+    "nudge": [
+      [0, "card.flip", 1.7, 0.23, 0.05],
+      [40, "card.crackle", 1.2, 0.25, 0.08]
+    ],
+    "slot": [
+      [0, "card.slot_enchanted", 1.0, 0.7, 0.04],
+      [60, "card.put", 0.9, 0.42, 0.04],
+      [90, "minecraft:block.note_block.chime", 1.4983, 0.17, 0.0]
+    ],
+    "set_complete": [
+      [0, "card.glow", 1.0, 0.2, 0.0],
+      [0, "card.flare", 0.8, 0.16, 0.04],
+      [0, "minecraft:block.note_block.harp", 0.5, 0.14, 0.0],
+      [0, "minecraft:block.note_block.chime", 1.0, 0.18, 0.0],
+      [45, "minecraft:block.note_block.chime", 1.2599, 0.18, 0.0],
+      [90, "minecraft:block.note_block.chime", 1.4983, 0.2, 0.0],
+      [135, "minecraft:block.note_block.chime", 2.0, 0.22, 0.0],
+      [135, "minecraft:block.note_block.bell", 2.0, 0.1, 0.0],
+      [0, "mythic.glimmer", 1.0, 1.0, 0.0]
+    ],
+    "mythic_reveal": [
+      [0, "mythic.dim", 0.8, 0.17, 0.0],
+      [0, "mythic.rumble", 1.0, 0.55, 0.0],
+      [250, "mythic.heartbeat", 0.9, 0.13, 0.0],
+      [1050, "mythic.heartbeat", 0.95, 0.15, 0.0],
+      [900, "mythic.crack", 1.0, 0.4, 0.05],
+      [900, "mythic.shard", 1.7, 0.18, 0.03],
+      [1300, "mythic.crack", 0.95, 0.4, 0.05],
+      [1300, "mythic.eye", 1.4, 0.3, 0.03],
+      [1650, "mythic.crack", 1.05, 0.42, 0.05],
+      [1650, "mythic.shard", 1.9, 0.2, 0.03],
+      [1500, "mythic.swell", 1.0, 0.36, 0.0],
+      [1500, "mythic.rise", 1.25, 0.22, 0.0],
+      [2500, "mythic.burst", 1.0, 0.55, 0.0],
+      [2500, "mythic.bloom", 1.1, 0.3, 0.0],
+      [2500, "mythic.shard", 1.0, 0.32, 0.0],
+      [2500, "card.ignite", 0.8, 0.32, 0.0],
+      [2500, "minecraft:block.note_block.chime", 1.0, 0.22, 0.0],
+      [2540, "minecraft:block.note_block.chime", 1.2599, 0.22, 0.0],
+      [2580, "minecraft:block.note_block.chime", 1.4983, 0.24, 0.0],
+      [2620, "minecraft:block.note_block.chime", 2.0, 0.26, 0.0],
+      [2620, "minecraft:block.note_block.bell", 2.0, 0.14, 0.0],
+      [2650, "mythic.tail", 1.0, 0.22, 0.0],
+      [2700, "mythic.glimmer", 1.0, 1.0, 0.0]
+    ]
+  },
+  "loops": {
+    "mythic_idle": {
+      "sound": "mythic.idle",
+      "volume": 0.14,
+      "fadeInMs": 300,
+      "fadeOutMs": 450
+    }
+  },
+  "markers": {
+    "mythic_reveal": {
+      "dark": 0,
+      "cracks": [900, 1300, 1650],
+      "swell": 1500,
+      "flip": 2500,
+      "settled": 5300
+    }
+  },
+  "rules": {
+    "hoverGapMs": 60,
+    "stingerAtMs": 380,
+    "burnAfterPickMs": 260,
+    "stingerOrder": ["cursed", "earned", "mastery", "wildcard", "epic"],
+    "nudgeDelayMs": 900,
+    "nudgeGapMs": 20000,
+    "pickHushesMomentMs": 2500
+  }
+}
