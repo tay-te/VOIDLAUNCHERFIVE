@@ -80,8 +80,11 @@ public final class Cards {
 		EffectsApplier.BEFORE.add(Cards::derive);
 		EffectsApplier.AFTER.add(CardEffects::apply);
 		ServerPlayNetworking.registerGlobalReceiver(MettlePayloads.CardAction.TYPE, (payload, context) -> act(context.player(), payload));
+		ServerPlayNetworking.registerGlobalReceiver(MettlePayloads.Updraft.TYPE, (payload, context) -> CardHooks.updraft(context.player()));
 		CardEffects.init();
 		CardHooks.init();
+		CardBlocks.init();
+		Rebuilds.init();
 	}
 
 	// ---------------------------------------------------------------- reading
@@ -367,7 +370,8 @@ public final class Cards {
 		}
 		Way way = op ? Way.OP : freeWay(player, picked).orElse(null);
 		if (way == null) {
-			return Optional.of(CardRules.Refusal.NO_FREE_WAY);
+			// At a shrine or a trainer, the paid rebuild (draught, fees, scars); elsewhere nothing pays.
+			return Rebuilds.sitting(player).isPresent() ? Rebuilds.rebuild(player, ids) : Optional.of(CardRules.Refusal.NO_FREE_WAY);
 		}
 		take(player, picked, way);
 		return Optional.empty();
@@ -494,8 +498,13 @@ public final class Cards {
 			case SLOT -> a.cards().isEmpty() ? Optional.of(CardRules.Refusal.NO_CARD) : slot(player, a.cards().getFirst(), a.index());
 			case UNSLOT -> unslot(player, a.cards(), false);
 			case PIN -> pin(player, a.keywords());
-			case RELEASE -> CardShrine.release(player, a.cards());
-			case REBUILD, FUSE, CLOSE -> Optional.of(CardRules.Refusal.NOT_AT_SHRINE);
+			case RELEASE -> Rebuilds.release(player, a.cards());
+			case REBUILD -> Rebuilds.rebuild(player, a.cards());
+			case FUSE -> Optional.of(CardRules.Refusal.NOT_AT_SHRINE);
+			case CLOSE -> {
+				Rebuilds.close(player);
+				yield Optional.empty();
+			}
 		};
 		no.ifPresent(r -> refused(player, r));
 	}
@@ -513,6 +522,17 @@ public final class Cards {
 	}
 
 	private static final Map<String, Long> LAST_TRAIT_CHIP = new HashMap<>();
+
+	/** A chip when a 6-card set fires (Kindled, Bodyguard, Pact, Rally Cry), at most every 5 s. */
+	static void setFeedback(ServerPlayer player, String keyword) {
+		long now = player.level().getGameTime();
+		Long last = LAST_TRAIT_CHIP.put(player.getUUID().toString() + "set/" + keyword, now);
+		if (last != null && now - last < 100) {
+			return;
+		}
+		player.level().registryAccess().lookupOrThrow(MettleRegistries.KEYWORD).getOptional(Mettle.id(keyword)).ifPresent(k ->
+			SignaturePerks.feedback(player, Mettle.id("set/" + keyword), Component.translatable("mettle.cards.set_fired", k.name())));
+	}
 
 	static void refused(ServerPlayer player, CardRules.Refusal refusal) {
 		SignaturePerks.feedback(player, Mettle.id("cards/refused"), Component.translatable(refusal.translationKey()));

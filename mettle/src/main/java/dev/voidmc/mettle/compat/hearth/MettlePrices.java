@@ -36,6 +36,8 @@ final class MettlePrices implements PriceModifier {
 		CharacterState state = CharacterStore.get(player);
 		int presence = state.attribute(CharacterAttribute.PRESENCE, CharacterStore.background(player.level().registryAccess(), state));
 		int speech = state.level(SPEECH);
-		return HearthRules.priceEdge(presence, speech, SignaturePerks.has(player, SignaturePerks.COIN_SENSE));
+		// Magpie (Hoard 6, a card set): 5 % more edge.
+		double magpie = dev.voidmc.mettle.character.cards.CardHooks.set(player, "hoard") >= 6 ? 0.05 : 0;
+		return HearthRules.priceEdge(presence, speech, SignaturePerks.has(player, SignaturePerks.COIN_SENSE)) + magpie;
 	}
 }

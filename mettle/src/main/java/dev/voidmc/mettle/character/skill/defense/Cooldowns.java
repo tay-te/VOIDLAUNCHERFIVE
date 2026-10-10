@@ -39,7 +39,8 @@ public final class Cooldowns {
 
 	public static void start(ServerPlayer player, String what, int ticks) {
 		// The Echo set (cards) shortens every perk cooldown (docs/CARDS.md §6.3, Cooldowns.scale).
-		set(player, what, now(player) + Math.round(ticks * scale(player)));
+		// Echo 6 (Reverberate): one time in four the perk is ready again at once.
+		set(player, what, now(player) + (dev.voidmc.mettle.character.cards.CardHooks.reverberates(player) ? 0 : Math.round(ticks * scale(player))));
 	}
 
 	/** How long cooldowns last for this player (1 = as written): the Echo set's 2 and 4 tiers make them shorter. */

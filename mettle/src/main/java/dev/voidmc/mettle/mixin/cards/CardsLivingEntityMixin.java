@@ -28,6 +28,11 @@ abstract class CardsLivingEntityMixin {
 		return CardHooks.effect((LivingEntity) (Object) this, effect);
 	}
 
+	@ModifyReturnValue(method = "getVisibilityPercent", at = @At("RETURN"))
+	private double mettle$cardsUnseen(double percent, ServerLevel level, net.minecraft.world.entity.Entity looking) {
+		return CardHooks.visibility((LivingEntity) (Object) this, looking, percent);
+	}
+
 	@ModifyReturnValue(method = "decreaseAirSupply", at = @At("RETURN"))
 	private int mettle$cardsBreath(int next, int current) {
 		return CardHooks.air((LivingEntity) (Object) this, current, next);

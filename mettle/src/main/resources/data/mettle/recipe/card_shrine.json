@@ -1,0 +1,19 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"category": "misc",
+	"pattern": [
+		"SGS",
+		"DLD",
+		"SGS"
+	],
+	"key": {
+		"S": "minecraft:amethyst_shard",
+		"G": "minecraft:gold_ingot",
+		"D": "minecraft:polished_deepslate",
+		"L": "minecraft:lectern"
+	},
+	"result": {
+		"id": "mettle:card_shrine",
+		"count": 1
+	}
+}

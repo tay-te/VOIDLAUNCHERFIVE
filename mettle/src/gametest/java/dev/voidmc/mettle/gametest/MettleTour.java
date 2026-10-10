@@ -120,6 +120,7 @@ public class MettleTour implements FabricClientGameTest {
 			if (Boolean.getBoolean("mettle.tour.cards_only")) {
 				DraftJourney.run(context, world);
 				CardJourney.run(context, world);
+				ShrineJourney.run(context, world);
 			}
 			// -Dmettle.tour.hearth_only=true (with -Phearth) plays only the Hearth journey, for a quick check.
 			if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.cards_only")) {
@@ -140,6 +141,7 @@ public class MettleTour implements FabricClientGameTest {
 				RespecJourney.run(context, world);
 				DraftJourney.run(context, world);
 				CardJourney.run(context, world);
+				ShrineJourney.run(context, world);
 			}
 			// With VOID Hearth loaded (-Phearth): its slots filled by Mettle. HearthJourney names Hearth types, so it is
 			// only touched then.

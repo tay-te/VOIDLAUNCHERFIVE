@@ -126,6 +126,18 @@ public final class CardHooks {
 		long stillSince;
 		Set<Integer> keenFirst = new HashSet<>();
 		long oreAt = -1000;
+		long kindledUntil;
+		long kindledReady;
+		long underdarkReady;
+		long slipArmedUntil;
+		long ironskinReady;
+		long bodyguardReady;
+		long pactReady;
+		long rallyReady;
+		long updraftReady;
+		int weakTarget = -1;
+		long weakFirst;
+		int weakHits;
 		BlockPos orePos = BlockPos.ZERO;
 		BlockState ore = Blocks.AIR.defaultBlockState();
 	}
@@ -139,6 +151,11 @@ public final class CardHooks {
 	private static final Map<LivingEntity, double[]> BLEEDS = new IdentityHashMap<>();
 	private static final Map<LivingEntity, UUID> BLEED_BY = new IdentityHashMap<>();
 	private static boolean inner;
+	/** Overkill (Brutal 6): the hit that is about to kill, and the health it met. */
+	private static final Map<LivingEntity, float[]> OVERKILL = new WeakHashMap<>();
+	/** Weak Point (Keen 6): when each target may be exposed again. */
+	private static final Map<LivingEntity, Long> WEAK_READY = new WeakHashMap<>();
+	private static final Identifier PACT = Mettle.id("set/hex/6/pact");
 
 	private static Memory memory(Player player) {
 		return MEMORY.computeIfAbsent(player.getUUID(), u -> new Memory());
@@ -170,6 +187,14 @@ public final class CardHooks {
 			}
 			BlockState block = context.getOptional(LootContextParams.BLOCK_STATE);
 			Entity self = context.getOptional(LootContextParams.THIS_ENTITY);
+			// Magpie (Hoard 6): a loot chest a player opens first rolls one extra time, one time in four.
+			if (block == null && self instanceof ServerPlayer opener && table.unwrapKey().map(k -> k.identifier().getPath().startsWith("chests/")).orElse(false)
+				&& set(opener, "hoard") >= 6 && opener.getRandom().nextInt(4) == 0) {
+				List<ItemStack> again = new ArrayList<>();
+				drops.forEach(d -> again.add(d.copy()));
+				drops.addAll(again);
+				return;
+			}
 			if (block != null && self instanceof ServerPlayer player) {
 				blockDrops(player, block, drops);
 			} else if (self instanceof LivingEntity killed && !(self instanceof Player)
@@ -178,6 +203,15 @@ public final class CardHooks {
 			}
 		});
 		MettleEvents.MODIFY_XP.register((player, skill, xp) -> xp * xpBonus(player, skill));
+		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> !(entity instanceof ServerPlayer p && pact(p)));
+		net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents.STOP_SLEEPING.register((entity, pos) -> {
+			if (entity instanceof ServerPlayer p) {
+				AttributeInstance health = p.getAttribute(Attributes.MAX_HEALTH);
+				if (health != null && health.getModifier(PACT) != null) {
+					health.removeModifier(PACT);
+				}
+			}
+		});
 		MettleServices.addBandModifier((player, rules) -> {
 			double later = flat(player, "athletics/burden_wise");
 			return later <= 0 ? rules : new dev.voidmc.mettle.api.BandRules((float) (rules.burdened() + later / 100.0), rules.overburdened(),
@@ -305,7 +339,43 @@ public final class CardHooks {
 				m *= 1 + pct(player, "marksmanship/poised");
 			}
 		}
+		long now = player.level().getGameTime();
+		Memory mem6 = memory(player);
 		if (weapon != null) {
+			// Kindled (Ember 6), Slipstream (Swift 6), Undertow (Tide 6), Underdark's first hit from the dark (Deep 6).
+			if (now <= mem6.kindledUntil) {
+				m *= 1.15;
+			}
+			if (now <= mem6.slipArmedUntil) {
+				m *= 1.3;
+				mem6.slipArmedUntil = 0;
+			}
+			if (set(player, "tide") >= 6 && (player.isInWater() || player.level().isRainingAt(player.blockPosition()))) {
+				m *= 1.15;
+			}
+			if (set(player, "deep") >= 6 && target instanceof Mob && now >= mem6.underdarkReady && player.level().getMaxLocalRawBrightness(player.blockPosition()) <= 4) {
+				m *= 1.5;
+				mem6.underdarkReady = now + 200;
+			}
+			if (source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.arrow.ThrownTrident && set(player, "tide") >= 4) {
+				m *= 1.1;
+			}
+			// Weak Point (Keen 6): three hits on one target within 4 s expose it to everyone for 4 s.
+			if (set(player, "keen") >= 6) {
+				if (mem6.weakTarget != target.getId() || now - mem6.weakFirst > 80) {
+					mem6.weakTarget = target.getId();
+					mem6.weakFirst = now;
+					mem6.weakHits = 0;
+				}
+				if (++mem6.weakHits >= 3 && now >= WEAK_READY.getOrDefault(target, 0L)) {
+					MARKED.put(target, new double[] {Math.max(0.2, mark(target)), now + 80});
+					WEAK_READY.put(target, now + 200);
+					mem6.weakHits = 0;
+				}
+			}
+			if (set(player, "brutal") >= 6 && target instanceof Mob) {
+				OVERKILL.put(target, new float[] {(float) (damage * m), target.getHealth()});
+			}
 			if (crit && set(player, "keen") >= 2) {
 				m *= 1.08;
 			}
@@ -358,6 +428,17 @@ public final class CardHooks {
 				Cards.feedback(player, "blades/parrying");
 			}
 		}
+		long now = player.level().getGameTime();
+		Memory mem6 = memory(player);
+		if (source.is(DamageTypeTags.IS_FIRE) && set(player, "ember") >= 6 && now >= mem6.kindledReady) {
+			mem6.kindledUntil = now + 160;
+			mem6.kindledReady = now + 600;
+			Cards.setFeedback(player, "ember");
+		}
+		if (set(player, "iron") >= 6 && now >= mem6.ironskinReady && damage > 0) {
+			mem6.ironskinReady = now + 160;
+			m *= Math.max(0, damage - 3) / damage;
+		}
 		// Allies around: the best Shielding of a blocking player within 4, the best Warden 4 within 6.
 		double shield = 0;
 		boolean warden = false;
@@ -380,6 +461,27 @@ public final class CardHooks {
 		m *= 1 - shield;
 		if (warden) {
 			m *= 0.92;
+		}
+		// Bodyguard (Warden 6): an ally within 6 takes a third of a big hit instead (4 s cooldown).
+		if (damage * m > 4 && !inner) {
+			for (ServerPlayer other : player.level().players()) {
+				if (other != player && allies(player, other) && other.distanceToSqr(player) <= 36 && set(other, "warden") >= 6) {
+					Memory om = memory(other);
+					if (now >= om.bodyguardReady) {
+						om.bodyguardReady = now + 80;
+						float share = (float) (damage * m / 3);
+						m *= 2.0 / 3.0;
+						inner = true;
+						try {
+							other.hurtServer((ServerLevel) other.level(), other.damageSources().generic(), share);
+						} finally {
+							inner = false;
+						}
+						Cards.setFeedback(other, "warden");
+						break;
+					}
+				}
+			}
 		}
 		return m;
 	}
@@ -489,6 +591,12 @@ public final class CardHooks {
 				MARKED.put(target, new double[] {mark, now + 60});
 			}
 		}
+		if (now <= memory(player).kindledUntil) {
+			target.igniteForSeconds(3);
+		}
+		if (set(player, "tide") >= 6 && (player.isInWater() || level.isRainingAt(player.blockPosition()))) {
+			target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 20, 0), player);
+		}
 		if ((weapon == Combat.Weapon.BLADE || weapon == Combat.Weapon.HEAVY) && set(player, "ember") >= 4 && player.getRandom().nextInt(8) == 0) {
 			target.igniteForSeconds(3);
 		}
@@ -500,8 +608,31 @@ public final class CardHooks {
 
 	/** Kills: Flourishing, Bloodthirsty, Retrieving. */
 	private static void afterDeath(LivingEntity killed, DamageSource source) {
+		float[] over = OVERKILL.remove(killed);
 		if (!(source.getEntity() instanceof ServerPlayer player) || player == killed || !any(player)) {
 			return;
+		}
+		// Overkill (Brutal 6): what the killing blow had left spills onto the nearest enemy within 4 blocks (up to 10).
+		if (over != null && !inner && killed.level() instanceof ServerLevel level) {
+			float spill = Math.min(10f, over[0] - over[1]);
+			if (spill > 0) {
+				LivingEntity next = null;
+				double best = 16;
+				for (Mob m : level.getEntitiesOfClass(Mob.class, killed.getBoundingBox().inflate(4))) {
+					if (m != killed && m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && m.distanceToSqr(killed) < best) {
+						best = m.distanceToSqr(killed);
+						next = m;
+					}
+				}
+				if (next != null) {
+					inner = true;
+					try {
+						next.hurtServer(level, player.damageSources().playerAttack(player), spill);
+					} finally {
+						inner = false;
+					}
+				}
+			}
 		}
 		Combat.Weapon weapon = Combat.weapon(source, player);
 		long now = player.level().getGameTime();
@@ -982,6 +1113,106 @@ public final class CardHooks {
 			if (now % 20 == 0) {
 				regen(player, mem, now);
 			}
+			sixes(player, mem, now);
+		}
+	}
+
+	/** The 6-tier sets that run over time (every 10 ticks). */
+	private static void sixes(ServerPlayer player, Memory mem, long now) {
+		if (now <= mem.kindledUntil && player.getRemainingFireTicks() > 40) {
+			player.setRemainingFireTicks(40);
+		}
+		if (set(player, "swift") >= 6 && mem.sprintStart >= 0 && now - mem.sprintStart >= 60) {
+			mem.slipArmedUntil = now + 40;
+		}
+		boolean hurtable = player.getHealth() < player.getMaxHealth() && !player.isDeadOrDying();
+		if (set(player, "deep") >= 6 && hurtable && now % 100 == 0 && player.level().getMaxLocalRawBrightness(player.blockPosition()) <= 4) {
+			player.heal(1f);
+		}
+		boolean feral = set(player, "wild") >= 6 && natural(player);
+		timed(player, Attributes.MOVEMENT_SPEED, FERAL, feral ? 0.08 : 0);
+		if (feral && hurtable && now % 80 == 0 && player.getFoodData().getFoodLevel() < 18) {
+			player.heal(1f);
+		}
+		if (set(player, "tide") >= 6 && player.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) {
+			MobEffectInstance sight = player.getEffect(MobEffects.NIGHT_VISION);
+			if (sight == null || sight.getDuration() < 200) {
+				player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 260, 0, true, false, false));
+			}
+		}
+	}
+
+	/** Natural ground for Feral: standing on soil, sand, snow or moss (not a floor someone laid). */
+	private static boolean natural(Player player) {
+		BlockState below = player.level().getBlockState(player.getOnPos());
+		return player.onGround() && (below.is(BlockTags.DIRT) || below.is(BlockTags.SAND) || below.is(Blocks.SNOW_BLOCK) || below.is(Blocks.SNOW)
+			|| below.is(Blocks.GRAVEL) || below.is(BlockTags.BASE_STONE_OVERWORLD) && player.level().canSeeSky(player.blockPosition()));
+	}
+
+	/** Pact (Hex 6): a killing blow leaves the player on 4 hearts, strong and quick, and 3 max hearts short until they sleep. */
+	private static boolean pact(ServerPlayer player) {
+		long now = player.level().getGameTime();
+		Memory mem = memory(player);
+		if (set(player, "hex") < 6 || now < mem.pactReady) {
+			return false;
+		}
+		mem.pactReady = now + 6000;
+		AttributeInstance health = player.getAttribute(Attributes.MAX_HEALTH);
+		if (health != null && health.getModifier(PACT) == null) {
+			health.addPermanentModifier(new AttributeModifier(PACT, -6, AttributeModifier.Operation.ADD_VALUE));
+		}
+		player.setHealth(Math.min(8f, player.getMaxHealth()));
+		player.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 160, 0));
+		player.addEffect(new MobEffectInstance(MobEffects.SPEED, 160, 0));
+		Cards.setFeedback(player, "hex");
+		return true;
+	}
+
+	/** Rally Cry (Kin 6): sneak and swing an empty hand: allies within 16 blocks get Speed I and Strength I for 8 s. */
+	public static void punched(ServerPlayer player) {
+		long now = player.level().getGameTime();
+		Memory mem = memory(player);
+		if (!player.isShiftKeyDown() || !player.getMainHandItem().isEmpty() || set(player, "kin") < 6 || now < mem.rallyReady) {
+			return;
+		}
+		mem.rallyReady = now + 1800;
+		for (ServerPlayer other : player.level().players()) {
+			if ((other == player || allies(player, other)) && other.distanceToSqr(player) <= 256) {
+				other.addEffect(new MobEffectInstance(MobEffects.SPEED, 160, 0), player);
+				other.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 160, 0), player);
+			}
+		}
+		Cards.setFeedback(player, "kin");
+	}
+
+	/** Updraft (Gale 6): the client asked for the mid-air jump it already made; the server allows it every 8 s. */
+	public static void updraft(ServerPlayer player) {
+		long now = player.level().getGameTime();
+		Memory mem = memory(player);
+		if (set(player, "gale") < 6 || player.onGround() || now < mem.updraftReady || player.getAbilities().flying) {
+			return;
+		}
+		mem.updraftReady = now + 150;
+		player.resetFallDistance();
+	}
+
+	/** Echo 6 (Reverberate): a perk cooldown just started is ready again at once, one time in four. */
+	public static boolean reverberates(Player player) {
+		return set(player, "echo") >= 6 && player.getRandom().nextInt(4) == 0;
+	}
+
+	/** Deep 4: below y 0, hostiles see this player 25 % less far (LivingEntity#getVisibilityPercent). */
+	public static double visibility(LivingEntity self, @org.jspecify.annotations.Nullable Entity looking, double percent) {
+		if (self instanceof Player player && looking instanceof net.minecraft.world.entity.monster.Enemy && player.getY() < 0 && set(player, "deep") >= 4) {
+			return percent * 0.75;
+		}
+		return percent;
+	}
+
+	/** Ember 4: campfire food heals a heart when eaten. */
+	public static void ateCooked(ServerPlayer player) {
+		if (set(player, "ember") >= 4) {
+			player.heal(2f);
 		}
 	}
 

@@ -37,6 +37,8 @@ import org.jspecify.annotations.Nullable;
 final class Trainers implements DialogueProvider {
 	static final String LESSON = "mettle:train/";
 	static final String TEACHING = "mettle:teach/";
+	/** Cards v2 (docs/CARDS.md §7.3): a trainer also rebuilds the decks of the skills they teach. */
+	static final String REBUILD = "mettle:rebuild/";
 	private static final String LANG = "mettle.compat.hearth.";
 
 	/** What the trainer says after the player's last pick, read once by {@link #reply}. */
@@ -70,6 +72,14 @@ final class Trainers implements DialogueProvider {
 				if (teaching != null) {
 					out.add(teaching);
 				}
+			}
+			if (!dev.voidmc.mettle.core.CardStore.get(player).deck(key).isEmpty()) {
+				Component tip = Component.translatable(LANG + "rebuild.tooltip", HearthRules.trainerCap(tier));
+				if ("city".equals(tier)) {
+					tip = tip.copy().append(" ").append(Component.translatable(LANG + "rebuild.master"));
+				}
+				out.add(new Option(REBUILD + path, Component.translatable(LANG + "rebuild", skill.name()), order + 2, false,
+					Component.translatable(LANG + "rebuild.hint", economy.format(dev.voidmc.mettle.character.cards.CardRules.feeBits(2))), tip));
 			}
 		}
 	}
@@ -122,6 +132,9 @@ final class Trainers implements DialogueProvider {
 
 	@Override
 	public boolean select(ServerPlayer player, Settlement settlement, Resident resident, String optionId) {
+		if (optionId.startsWith(REBUILD)) {
+			return rebuild(player, settlement, resident, optionId.substring(REBUILD.length()));
+		}
 		boolean lesson = optionId.startsWith(LESSON);
 		if (!lesson && !optionId.startsWith(TEACHING)) {
 			return false;
@@ -135,6 +148,19 @@ final class Trainers implements DialogueProvider {
 			return false;
 		}
 		return lesson ? teachLesson(player, settlement, resident, economy, key, tier) : teachTeaching(player, settlement, resident, economy, key, job, tier, path);
+	}
+
+	/** Opens a rebuild sitting for this trainer's skill: their cap, their till, a city master's gentler hand. */
+	private boolean rebuild(ServerPlayer player, Settlement settlement, Resident resident, String path) {
+		ResourceKey<Skill> key = MettlePlayerSkills.skillKey(player, path);
+		String tier = settlement.tier().getSerializedName();
+		if (key == null || resident.age == AgeStage.CHILD || !HearthRules.trains(resident.job.getSerializedName()).contains(path)) {
+			return false;
+		}
+		dev.voidmc.mettle.character.cards.Rebuilds.openTrainer(player, java.util.List.of(key), HearthRules.trainerCap(tier), "city".equals(tier),
+			player.position(), new HearthFees.Trainer(settlement, resident));
+		this.replies.put(player.getUUID(), Component.translatable(LANG + "rebuild.reply"));
+		return true;
 	}
 
 	private boolean teachLesson(ServerPlayer player, Settlement settlement, Resident resident, EconomyService economy, ResourceKey<Skill> key, String tier) {

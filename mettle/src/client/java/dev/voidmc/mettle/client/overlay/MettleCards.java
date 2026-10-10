@@ -41,7 +41,14 @@ import net.minecraft.world.entity.player.Player;
  * hand. Everything is read from the synced card cache and the data registries.
  */
 public final class MettleCards {
+	private static dev.voidmc.mettle.core.net.MettlePayloads.@org.jspecify.annotations.Nullable CardSitting sitting;
+
 	private MettleCards() {
+	}
+
+	/** The rebuild sitting the server says is open (a Card Shrine or a trainer), or null. */
+	public static void sitting(dev.voidmc.mettle.core.net.MettlePayloads.@org.jspecify.annotations.Nullable CardSitting s) {
+		sitting = s;
 	}
 
 	private static String hex(int rgb) {
@@ -121,7 +128,22 @@ public final class MettleCards {
 			keywords.add(k);
 		});
 		root.add("keywords", keywords);
-		root.addProperty("atShrine", false);
+		// The open rebuild sitting (CARDS.md §7.3): where the player is rebuilding, and what it can take out.
+		var s = sitting;
+		root.addProperty("atShrine", s != null && s.kind() == 0);
+		if (s != null) {
+			JsonObject so = new JsonObject();
+			so.addProperty("kind", s.kind() == 0 ? "shrine" : "trainer");
+			JsonArray allowed = new JsonArray();
+			s.skills().forEach(k -> allowed.add(k.identifier().toString()));
+			so.add("skills", allowed);
+			so.addProperty("cap", s.cap());
+			so.addProperty("master", s.master());
+			so.addProperty("coin", s.coin());
+			root.add("sitting", so);
+		} else {
+			root.add("sitting", JsonNull.INSTANCE);
+		}
 		root.addProperty("attuneTicks", config.attune_ticks);
 		return root;
 	}
@@ -159,6 +181,26 @@ public final class MettleCards {
 		}
 		o.addProperty("meetsRequirement", level >= c.needs());
 		o.addProperty("scars", c.scars());
+		if (c.slotted()) {
+			// What taking it out costs at a rebuild (a city master's hand at an open master sitting): fee and the scar.
+			var s = sitting;
+			CardRules.Scar scar = CardRules.scar(c, s != null && s.master());
+			JsonObject rb = new JsonObject();
+			rb.addProperty("bits", dormant ? 0 : CardRules.feeBits(c.needs()));
+			rb.addProperty("emeralds", dormant ? 0 : CardRules.feeEmeralds(c.needs()));
+			rb.addProperty("spared", dormant || scar.spared());
+			if (!dormant && scar.loses().isPresent()) {
+				CardData.TraitRoll t = scar.loses().get();
+				JsonObject lose = new JsonObject();
+				lose.addProperty("id", t.trait().toString());
+				lose.addProperty("text", CardText.trait(registries, t, Optional.empty()).getString());
+				rb.add("loses", lose);
+			} else {
+				rb.add("loses", JsonNull.INSTANCE);
+			}
+			rb.addProperty("overCap", s != null && c.needs() > s.cap());
+			o.add("rebuild", rb);
+		}
 		JsonObject drawn = new JsonObject();
 		drawn.addProperty("by", c.drawn().name());
 		drawn.addProperty("level", c.drawn().level());

@@ -32,6 +32,9 @@ public final class Food {
 		if (hearty > 0) {
 			food = new FoodProperties(SurvivalRules.nutrition(food.nutrition(), 1 + hearty), (float) (food.saturation() * (1 + hearty)), food.canAlwaysEat());
 		}
+		if (cooked && player instanceof ServerPlayer sp) {
+			dev.voidmc.mettle.character.cards.CardHooks.ateCooked(sp);
+		}
 		if (!cooked && !wild) {
 			return food;
 		}

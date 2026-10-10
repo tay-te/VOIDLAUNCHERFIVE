@@ -24,6 +24,8 @@ public final class HearthCompat {
 		HearthServices.setPlayerSkills(new MettlePlayerSkills());
 		DialogueProvider.register(TRAINERS);
 		HearthXp.init();
+		// Cards v2: rebuild fees in coin (to a trainer, or burned at a Card Shrine).
+		dev.voidmc.mettle.character.cards.Rebuilds.setFees(new HearthFees());
 		// Hearth's economy module registers its service during Hearth's own init, which may run after Mettle's.
 		ServerLifecycleEvents.SERVER_STARTING.register(server -> addPrices());
 		ServerPlayerEvents.LEAVE.register(player -> {

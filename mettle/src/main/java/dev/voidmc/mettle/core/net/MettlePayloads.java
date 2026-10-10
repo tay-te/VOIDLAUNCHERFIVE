@@ -237,4 +237,36 @@ public final class MettlePayloads {
 			return TYPE;
 		}
 	}
+
+	/**
+	 * Server → client: a rebuild sitting opened (a Card Shrine, or a Hearth trainer) or closed (docs/CARDS.md §7.3), so
+	 * the overlay can show fees, scars and the Release tab. {@code kind} 0 shrine, 1 trainer; {@code skills} empty = any.
+	 */
+	public record CardSitting(boolean open, int kind, List<ResourceKey<Skill>> skills, int cap, boolean master, boolean coin) implements CustomPacketPayload {
+		public static final Type<CardSitting> TYPE = new Type<>(Mettle.id("character/card_sitting"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, CardSitting> STREAM_CODEC = StreamCodec.composite(
+			ByteBufCodecs.BOOL, CardSitting::open,
+			ByteBufCodecs.VAR_INT, CardSitting::kind,
+			ResourceKey.streamCodec(MettleRegistries.SKILL).apply(ByteBufCodecs.list(32)), CardSitting::skills,
+			ByteBufCodecs.VAR_INT, CardSitting::cap,
+			ByteBufCodecs.BOOL, CardSitting::master,
+			ByteBufCodecs.BOOL, CardSitting::coin,
+			CardSitting::new);
+
+		@Override
+		public Type<CardSitting> type() {
+			return TYPE;
+		}
+	}
+
+	/** Client → server: the Updraft mid-air jump (Gale 6) the client just made; the server checks the set and the cooldown. */
+	public record Updraft() implements CustomPacketPayload {
+		public static final Type<Updraft> TYPE = new Type<>(Mettle.id("character/updraft"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Updraft> STREAM_CODEC = StreamCodec.unit(new Updraft());
+
+		@Override
+		public Type<Updraft> type() {
+			return TYPE;
+		}
+	}
 }

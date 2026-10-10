@@ -467,7 +467,7 @@ public final class CardRules {
 	/** Why a card can't go in a slot (lang {@code mettle.cards.refused.<name>}). */
 	public enum Refusal {
 		NO_CARD, NOT_IN_BINDER, ATTUNING, NEEDS_LEVEL, NO_SLOT, SLOT_TAKEN, SAME_PERK, ONE_MASTERY, MASTERY_SIDE, NOT_SLOTTED, NO_FREE_WAY,
-		BINDER_FULL, NOT_AT_SHRINE, NOT_ENOUGH_CARDS, MIXED_SKILLS, REROLLS_FULL, PINS_TODAY, BAD_PINS;
+		BINDER_FULL, NOT_AT_SHRINE, NO_DRAUGHT, CANT_PAY, OVER_CAP, WRONG_SKILL, NOT_ENOUGH_CARDS, MIXED_SKILLS, REROLLS_FULL, PINS_TODAY, BAD_PINS;
 
 		public String translationKey() {
 			return "mettle.cards.refused." + name().toLowerCase(Locale.ROOT);
@@ -795,6 +795,79 @@ public final class CardRules {
 			}
 		}
 		return out;
+	}
+
+	// ---------------------------------------------------------------- rebuilding (§7)
+
+	/** The fee band of a card's requirement: 0 for 2–5, 1 for 6–11, 2 for 12–17, 3 for 18–20. */
+	public static int feeBand(int needs) {
+		return needs >= 18 ? 3 : needs >= 12 ? 2 : needs >= 6 ? 1 : 0;
+	}
+
+	/** The rebuild fee for taking one card out, in Hearth bits (§7.1). */
+	public static int feeBits(int needs) {
+		return CardConfig.get().rebuild_fees[feeBand(needs)];
+	}
+
+	/** The same without Hearth, in emeralds. */
+	public static int feeEmeralds(int needs) {
+		return CardConfig.get().rebuild_emeralds[feeBand(needs)];
+	}
+
+	/**
+	 * What a rebuild does to one card (§7.2): the trait its scar takes (empty when it has none left, or a city master's
+	 * hand spared it), decided by the card's own seed and scar count, so the preview always equals the scar.
+	 *
+	 * @param spared a city master's hand passed this card over (one in two)
+	 */
+	public record Scar(java.util.Optional<TraitRoll> loses, boolean spared) {
+	}
+
+	public static Scar scar(CardData card, boolean master) {
+		Random r = new Random(card.scarSeed() * 0x9E3779B97F4A7C15L + card.scars() * 0xC2B2AE3D27D4EB4FL + 1);
+		double spare = r.nextDouble();
+		int pick = r.nextInt(1 << 16);
+		if (master && spare < CardConfig.get().city_master_scar_chance) {
+			return new Scar(java.util.Optional.empty(), true);
+		}
+		if (card.traits().isEmpty()) {
+			return new Scar(java.util.Optional.empty(), false);
+		}
+		return new Scar(java.util.Optional.of(card.traits().get(pick % card.traits().size())), false);
+	}
+
+	/** The card after its scar: one trait fewer (none when spared or bare), one more scar mark unless spared. */
+	public static CardData scarred(CardData card, boolean master) {
+		Scar s = scar(card, master);
+		if (s.spared()) {
+			return card;
+		}
+		List<TraitRoll> left = new ArrayList<>(card.traits());
+		s.loses().ifPresent(left::remove);
+		return card.withTraits(left, card.scars() + 1);
+	}
+
+	/** Why these binder cards can't be released for a reroll (§7.5), or empty. */
+	public static Optional<Refusal> canRelease(List<CardData> cards, int rerolls, long gameTime) {
+		if (cards.size() != CardConfig.get().release_per_reroll) {
+			return Optional.of(Refusal.NOT_ENOUGH_CARDS);
+		}
+		if (rerolls >= DraftRules.MAX_REROLLS) {
+			return Optional.of(Refusal.REROLLS_FULL);
+		}
+		ResourceKey<Skill> skill = cards.getFirst().skill();
+		for (CardData c : cards) {
+			if (c.place().kind() != CardData.PlaceKind.BINDER) {
+				return Optional.of(Refusal.NOT_IN_BINDER);
+			}
+			if (!c.attuned(gameTime)) {
+				return Optional.of(Refusal.ATTUNING);
+			}
+			if (!c.skill().equals(skill)) {
+				return Optional.of(Refusal.MIXED_SKILLS);
+			}
+		}
+		return new HashSet<>(cards.stream().map(CardData::id).toList()).size() == cards.size() ? Optional.empty() : Optional.of(Refusal.NOT_ENOUGH_CARDS);
 	}
 
 	// ---------------------------------------------------------------- the ledger and the cache

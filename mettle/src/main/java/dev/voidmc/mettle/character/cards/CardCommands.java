@@ -65,6 +65,14 @@ public final class CardCommands {
 						.then(Commands.argument("slot", IntegerArgumentType.integer(1, 12)).executes(c -> slot(c, IntegerArgumentType.getInteger(c, "slot") - 1)))))
 				.then(Commands.literal("unslot")
 					.then(Commands.argument("card", StringArgumentType.word()).executes(CardCommands::unslot)))
+				.then(Commands.literal("rebuild")
+					.then(Commands.argument("cards", StringArgumentType.greedyString()).executes(CardCommands::rebuild)))
+				.then(Commands.literal("release")
+					.then(Commands.argument("cards", StringArgumentType.greedyString()).executes(CardCommands::release)))
+				.then(Commands.literal("close").executes(c -> {
+					Rebuilds.close(c.getSource().getPlayerOrException());
+					return 1;
+				}))
 				.then(Commands.literal("pin")
 					.executes(c -> pin(c, ""))
 					.then(Commands.argument("keywords", StringArgumentType.greedyString()).executes(c -> pin(c, StringArgumentType.getString(c, "keywords")))))
@@ -197,6 +205,37 @@ public final class CardCommands {
 		ServerPlayer player = c.getSource().getPlayerOrException();
 		CardData card = find(player, StringArgumentType.getString(c, "card"));
 		Optional<CardRules.Refusal> why = Cards.unslot(player, List.of(card.id()), Commands.hasPermission(Commands.LEVEL_GAMEMASTERS).test(c.getSource()));
+		if (why.isPresent()) {
+			c.getSource().sendFailure(Component.translatable(why.get().translationKey()));
+			return 0;
+		}
+		return 1;
+	}
+
+	private static List<Long> cards(ServerPlayer player, String words) throws CommandSyntaxException {
+		List<Long> ids = new ArrayList<>();
+		for (String w : words.trim().split("[\\s,]+")) {
+			if (!w.isBlank()) {
+				ids.add(find(player, w).id());
+			}
+		}
+		return ids;
+	}
+
+	private static int rebuild(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		ServerPlayer player = c.getSource().getPlayerOrException();
+		Optional<CardRules.Refusal> why = Rebuilds.rebuild(player, cards(player, StringArgumentType.getString(c, "cards")));
+		if (why.isPresent()) {
+			c.getSource().sendFailure(Component.translatable(why.get().translationKey()));
+			return 0;
+		}
+		Rebuilds.list(player);
+		return 1;
+	}
+
+	private static int release(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		ServerPlayer player = c.getSource().getPlayerOrException();
+		Optional<CardRules.Refusal> why = Rebuilds.release(player, cards(player, StringArgumentType.getString(c, "cards")));
 		if (why.isPresent()) {
 			c.getSource().sendFailure(Component.translatable(why.get().translationKey()));
 			return 0;

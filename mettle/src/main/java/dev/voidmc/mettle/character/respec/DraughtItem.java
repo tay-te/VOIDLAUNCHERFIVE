@@ -31,7 +31,7 @@ import net.minecraft.world.level.Level;
  */
 public final class DraughtItem extends Item {
 	public enum Kind {
-		/** Refunds one skill's bought perks (the skill is the stack's {@link Draughts#FORGETS}). */
+		/** Opens one skill's deck for a rebuild at a Card Shrine or trainer (the skill is the stack's {@link Draughts#FORGETS}). */
 		FORGETTING,
 		/** Returns every placed attribute point. */
 		UNBINDING
@@ -100,9 +100,11 @@ public final class DraughtItem extends Item {
 		if (skill.isEmpty() || player.level().registryAccess().lookupOrThrow(MettleRegistries.SKILL).getOptional(skill.get()).isEmpty()) {
 			return Optional.of(Component.translatable("mettle.feedback.forgetting.unknown"));
 		}
+		// Cards v2 (docs/CARDS.md §7.6): the draught is the key to a rebuild at a Card Shrine or a trainer, not a drink. It is
+		// still drunk to forget drafted perks held outside the deck (from before cards, or given by an op).
 		boolean nothing = RespecRules.forget(CharacterStore.get(player).perks(), Perks.registry(player)::getOptional, skill.get()).nothing();
 		return nothing
-			? Optional.of(Component.translatable("mettle.feedback.forgetting.nothing", skillName(player.level(), skill.get())))
+			? Optional.of(Component.translatable("mettle.feedback.forgetting.shrine", skillName(player.level(), skill.get())))
 			: Optional.empty();
 	}
 
