@@ -73,9 +73,10 @@ final class LightPlaces {
 
 	/**
 	 * The deepest cut near the nearest stretch of the Expanse's gorges country (within 24 km), else near (nearX, nearZ):
-	 * the floor lowest against the ground 40 blocks round it. The eye stands 24 blocks back along the cut (the way the
-	 * ground 64 blocks out stays lowest) and a few blocks over its rim, looking down along it at 20 to 32 degrees, so the
-	 * far wall, the floor and the edge of the walls' shadow on it are all in the frame.
+	 * the floor lowest against the ground 40 blocks round it. The eye stands 40 blocks back along the cut (the way the
+	 * ground 64 blocks out stays lowest), about 18 blocks over its rim and 6 over anything within 12 blocks of it (the
+	 * rim's trees too), looking down along it at 18 to 35 degrees, so the far wall, the floor and the edge of the walls'
+	 * shadow on it are all in the frame.
 	 */
 	private static int[] canyon(ServerLevel level, int nearX, int nearZ) {
 		ExpanseCountry.Sampler s = ExpanseCountry.sampler(level);
@@ -133,11 +134,18 @@ final class LightPlaces {
 		level.getChunk(bx >> 4, bz >> 4);
 		int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
 		double rad = Math.toRadians(yaw);
-		int ex = bx + (int) Math.round(Math.sin(rad) * 24), ez = bz - (int) Math.round(Math.cos(rad) * 24);
-		level.getChunk(ex >> 4, ez >> 4);
-		int y = Math.max(ground + Math.max(14, (int) best + 4), level.getHeight(Heightmap.Types.MOTION_BLOCKING, ex, ez) + 6);
-		// looking down at the floor 24 blocks past the deepest point
-		float pitch = Math.clamp((float) Math.toDegrees(Math.atan2(y - ground, 48)), 20.0F, 32.0F);
+		int ex = bx + (int) Math.round(Math.sin(rad) * 40), ez = bz - (int) Math.round(Math.cos(rad) * 40);
+		// clear of everything round the eye, trees on the rim too (a jungle rim's crowns filled the frame from 24 back)
+		int top = 0;
+		for (int dx = -12; dx <= 12; dx += 3) {
+			for (int dz = -12; dz <= 12; dz += 3) {
+				level.getChunk((ex + dx) >> 4, (ez + dz) >> 4);
+				top = Math.max(top, level.getHeight(Heightmap.Types.MOTION_BLOCKING, ex + dx, ez + dz));
+			}
+		}
+		int y = Math.max(ground + Math.max(14, (int) best + 18), top + 6);
+		// looking down at the floor 24 blocks past the deepest point, 64 blocks out
+		float pitch = Math.clamp((float) Math.toDegrees(Math.atan2(y - ground, 64)), 18.0F, 35.0F);
 		System.out.printf(Locale.ROOT, "[gloam] light spot canyon: %s at %d %d (floor %.0f, ground %d, depth %.0f), eye %d %d %d yaw %.1f pitch %.1f%n",
 			s.at(bx, bz).country(), bx, bz, floor, ground, best, ex, y, ez, yaw, pitch);
 		return new int[]{ex, y, ez, (int) yaw, Math.round(pitch)};
