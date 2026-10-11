@@ -168,7 +168,7 @@ public class GloamShowcase implements FabricClientGameTest {
 				if (view.name().startsWith("storm")) {
 					this.aimAtStorm(context, world, view, places);
 				}
-				if (moved && view.name().startsWith("wvale")) {
+				if (moved && (view.name().startsWith("wvale") || view.name().startsWith("wlight"))) {
 					// Welkin's comparisons (mist on and off, the uniforms and the header mirror) are only fair with the
 					// same land drawn in each run: wait for the chunks round the camera, then for the LOD's tiles
 					awaitChunks(context, view);
@@ -281,6 +281,7 @@ public class GloamShowcase implements FabricClientGameTest {
 		addRangeViews(views);
 		addSeasonViews(views, p);
 		addWelkinViews(views, p);
+		addLightViews(views, p);
 		return views;
 	}
 
@@ -322,6 +323,34 @@ public class GloamShowcase implements FabricClientGameTest {
 			views.add(v);
 			views.add(v.at(n + "1", 2000, "clear"));
 			views.add(v.at(n + "2", 6000, "clear"));
+		}
+	}
+
+	/**
+	 * VOID Welkin's sunlight and near shadows: on an early-summer day (day 6) at noon, mid-afternoon, late afternoon and
+	 * dusk (6000, 9800, 11600, 12300), from 40 blocks over the forest's crowns looking north, so the afternoon sun comes
+	 * from the left (wlightA: crowns, trunks and the clearings between them), and from 28 blocks over the valley floor
+	 * looking south across it (wlightB: slopes, cliffs and the woods on the rim); then under the canopy at noon (wlightC0).
+	 * A chosen spot can be added with -Pgloam.show.light=x,y,z,yaw,pitch (wlightD, the same four times; a negative y
+	 * stands that many blocks over the highest ground near it). Their names start with "w", so each logs its frame time.
+	 */
+	static void addLightViews(List<View> views, Places p) {
+		MotePlaces m = motePlaces;
+		long day = 6 * 24000L;
+		long[] times = {6000, 9800, 11600, 12300};
+		for (int i = 0; i < times.length; i++) {
+			views.add(new View("wlightA" + i, m.forestX(), m.forestY() + 40, m.forestZ(), 180, 30, 70, day + times[i], "clear", 2));
+		}
+		for (int i = 0; i < times.length; i++) {
+			views.add(new View("wlightB" + i, p.valleyX(), p.valleyY() + 28, p.valleyZ(), 0, 12, 70, day + times[i], "clear", 2));
+		}
+		views.add(new View("wlightC0", m.forestX(), m.forestY(), m.forestZ(), m.forestYaw(), -4, 70, day + 6000, "clear", 2));
+		String[] at = System.getProperty("gloam.show.light", "").split(",");
+		if (at.length == 5) {
+			for (int i = 0; i < times.length; i++) {
+				views.add(new View("wlightD" + i, Integer.parseInt(at[0]), Integer.parseInt(at[1]), Integer.parseInt(at[2]), Float.parseFloat(at[3]),
+					Float.parseFloat(at[4]), 70, day + times[i], "clear", 2));
+			}
 		}
 	}
 
@@ -622,7 +651,7 @@ public class GloamShowcase implements FabricClientGameTest {
 	/** Where a view is shot: the overcast and haze views go looking for their place, the rest stay where they are. */
 	private View place(TestSingleplayerContext world, View planned, View last) {
 		// a Welkin vale view given a negative y stands that many blocks over the highest ground within 16 blocks
-		if (planned.name().startsWith("wvale") && planned.y() < 0) {
+		if ((planned.name().startsWith("wvale") || planned.name().startsWith("wlightD")) && planned.y() < 0) {
 			int ground = world.getServer().computeOnServer(server -> {
 				ServerLevel level = server.overworld();
 				int top = level.getMinY();
