@@ -1,14 +1,17 @@
 // VOID Welkin: deferred. Lights the opaque world after the chunks and the LOD have drawn, before translucents.
 //
 // The surface is the chunks' (depthtex0) where they drew and the LOD's (dhDepthTex0) elsewhere, each through its own
-// projection (lib/depth.glsl). Pixels marked in colortex2.x get the stepped light ramp (lib/light.glsl) with its band edges
-// dithered on the world's 16-pixel grid; the rest lit themselves in their gbuffers program. Wet ground (M2,
-// lib/haze/wet.glsl) darkens open ground before the light and lays its puddles on after it. Then, only while the haze
-// is off, the far edge fades into the horizon colour (lib/fade.glsl); with the haze on, composite's haze draws the edge
-// in the air's colour. The sky is left as gbuffers_skybasic drew it.
+// projection (lib/depth.glsl). Pixels marked in colortex2.x get the stepped light ramp (lib/light.glsl) with its band
+// edges dithered on the world's 16-pixel grid, the sun's share cut by the clouds' shadows (M3); the rest lit
+// themselves in their gbuffers program. Wet ground (M2, lib/haze/wet.glsl) darkens open ground before the light and
+// lays its puddles on after it. Then, only while the haze is off, the far edge fades into the horizon colour
+// (lib/fade.glsl); with the haze on, composite2's haze draws the edge in the air's colour. The sky is left as
+// gbuffers_skybasic drew it.
 
 #include "/lib/common.glsl"
 #include "/lib/buffers.glsl"
+// M3: Iris reads colortex6/7/8's formats from a program that always runs
+#include "/lib/clouds/buffers.glsl"
 
 #ifdef VERTEX_SHADER
 
@@ -53,6 +56,10 @@ uniform mat4 gbufferProjection;
 uniform float viewHeight;
 #endif
 
+// ---- M3 clouds: cloud shadows
+#if defined WORLD_OVERWORLD && defined CLOUDS && CLOUD_SHADOWS > 0
+#include "/lib/clouds/shadow.glsl"
+#endif
 // ---- M2 haze: wet ground (deferred declares gbufferProjection and viewHeight itself)
 #if defined WET_ENABLED && defined WORLD_OVERWORLD
 #define HZ_HAVE_VIEW_UNIFORMS
@@ -85,6 +92,13 @@ void main() {
 #if DEBUG_VIEW != 4
 	if (flags.x > 0.5) {
 		vec3 albedo = color.rgb;
+		vec3 sunShare = vec3(1.0);
+#if defined WORLD_OVERWORLD && defined CLOUDS && CLOUD_SHADOWS > 0
+		// the decks' shadow, only where the light could reach
+		if (g.w > 0.0 && dot(n, lightDirWorld()) > 0.0) {
+			sunShare *= welkinCloudShadow(eyePos, welkinCloudEnv());
+		}
+#endif
 #ifdef WELKIN_WET
 		// wet ground before the light: darkens open ground, picks the puddles
 		HzState st = hzState();
@@ -93,7 +107,7 @@ void main() {
 #endif
 		vec2 lm = g.zw;
 		lm.x = welkinHandBlockLight(lm.x, dist); // a torch in hand lights the ground in the same steps
-		color.rgb = welkinLight(albedo, n, lm, flags.z, d);
+		color.rgb = welkinLightEx(albedo, n, lm, flags.z, d, sunShare, vec3(1.0));
 #ifdef WELKIN_WET
 		// puddles mirror the sky (the sky table's horizon), glint toward the light, flick with drops
 		color.rgb = welkinWetLight(st, color.rgb, wet, lightDirWorld(), skyDirectLight(), skyHorizon(false));

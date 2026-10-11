@@ -11,6 +11,8 @@ screen.SKY=Sky
 screen.SKY.comment=The sky's pixel grid, the sun, the moon and the stars.
 screen.AIR=Haze and mist
 screen.AIR.comment=The air over the land: distance haze coloured by the country you are in, and valley mist.
+screen.CLOUDS=Clouds
+screen.CLOUDS.comment=Block clouds shaped by the weather.
 screen.WEATHER=Weather and seasons
 screen.WEATHER.comment=Wet ground, distant rain, frost and the light of each season.
 screen.PLANTS=Plants and wind
@@ -100,6 +102,26 @@ option.MIST_SAMPLES.comment=How many points across the land the mist looks at to
 value.MIST_SAMPLES.2=Low
 value.MIST_SAMPLES.3=Medium
 value.MIST_SAMPLES.4=High
+
+option.CLOUDS=Block clouds
+option.CLOUDS.comment=Solid clouds made of blocks, drawn by the shader and shaped by the weather. Off brings back the normal Minecraft clouds.
+
+option.CLOUD_QUALITY=Cloud quality
+option.CLOUD_QUALITY.comment=How far the finest cloud blocks reach and how far clouds are drawn before they turn into flat sheets.
+value.CLOUD_QUALITY.1=Low
+value.CLOUD_QUALITY.2=Medium
+value.CLOUD_QUALITY.3=High
+
+option.CLOUD_SHADOWS=Cloud shadows
+option.CLOUD_SHADOWS.comment=Clouds cast large, slow-moving shadows on the land. Off, or shadows from the main layer, the main and low layers, or all three.
+value.CLOUD_SHADOWS.0=Off
+value.CLOUD_SHADOWS.1=Main layer
+value.CLOUD_SHADOWS.2=Main and low
+value.CLOUD_SHADOWS.3=All layers
+
+option.CLOUD_FAIR=Fair-weather cloud
+option.CLOUD_FAIR.comment=How much of a fair sky still has cloud. 34 gives about as many scattered clouds as vanilla.
+suffix.CLOUD_FAIR=%
 
 option.WET_ENABLED=Wet ground
 option.WET_ENABLED.comment=Rain darkens the ground and it dries out slowly afterwards. Sand and soil soak up more than stone.
