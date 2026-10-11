@@ -346,14 +346,31 @@ public class GloamShowcase implements FabricClientGameTest {
 			views.add(new View("wlightB" + i, p.valleyX(), p.valleyY() + 28, p.valleyZ(), 0, 12, 70, day + times[i], "clear", 2));
 		}
 		views.add(new View("wlightC0", m.forestX(), m.forestY(), m.forestZ(), m.forestYaw(), -4, 70, day + 6000, "clear", 2));
-		String[] at = System.getProperty("gloam.show.light", "").split(",");
-		if (at.length == 5) {
-			for (int i = 0; i < times.length; i++) {
-				views.add(new View("wlightD" + i, Integer.parseInt(at[0]), Integer.parseInt(at[1]), Integer.parseInt(at[2]), Float.parseFloat(at[3]),
-					Float.parseFloat(at[4]), 70, day + times[i], "clear", 2));
+		// the same view a few seconds later, so the two frames show the leaves' shadows swaying with the leaves
+		views.add(new View("wlightC1", m.forestX(), m.forestY(), m.forestZ(), m.forestYaw(), -4, 70, day + 6000, "clear", 2));
+		// chosen spots, ';' between them (wlightD.., wlightE.., ...): x,y,z,yaw,pitch, or a name LightPlaces finds when shot
+		// (village, canyon); a found spot stands at (letter, 0, 0) until place() looks it up
+		String[] spots = System.getProperty("gloam.show.light", "").split(";");
+		for (int s = 0; s < spots.length; s++) {
+			String n = "wlight" + (char) ('D' + s);
+			String[] at = spots[s].trim().split(",");
+			if (at.length == 1 && !at[0].isEmpty()) {
+				lightFinds.put(n, at[0]);
+				for (int i = 0; i < times.length; i++) {
+					views.add(new View(n + i, s, 0, 0, 0, 0, 70, day + times[i], "clear", 2));
+				}
+			} else if (at.length == 5) {
+				for (int i = 0; i < times.length; i++) {
+					views.add(new View(n + i, Integer.parseInt(at[0]), Integer.parseInt(at[1]), Integer.parseInt(at[2]), Float.parseFloat(at[3]),
+						Float.parseFloat(at[4]), 70, day + times[i], "clear", 2));
+				}
 			}
 		}
 	}
+
+	/** The light views' spots found by name (view prefix to LightPlaces' name), and where they were found. */
+	private static final java.util.Map<String, String> lightFinds = new java.util.HashMap<>();
+	private static final java.util.Map<String, int[]> lightFound = new java.util.HashMap<>();
 
 	/**
 	 * VOID Welkin's sky, haze, night and rain (wave 2 check): the sky across a day from the summit (pre-dawn, sunrise and
@@ -740,8 +757,20 @@ public class GloamShowcase implements FabricClientGameTest {
 
 	/** Where a view is shot: the overcast and haze views go looking for their place, the rest stay where they are. */
 	private View place(TestSingleplayerContext world, View planned, View last) {
-		// a Welkin vale view given a negative y stands that many blocks over the highest ground within 16 blocks
-		if ((planned.name().startsWith("wvale") || planned.name().startsWith("wlightD")) && planned.y() < 0) {
+		// a light view at a spot found by name: looked up once (near the forest), then every time of day shot from there
+		if (planned.name().startsWith("wlight") && planned.name().length() > 7) {
+			String prefix = planned.name().substring(0, 7);
+			String find = lightFinds.get(prefix);
+			if (find != null) {
+				int[] c = lightFound.computeIfAbsent(prefix, k -> {
+					int[] f = world.getServer().computeOnServer(server -> LightPlaces.find(server.overworld(), find, motePlaces.forestX(), motePlaces.forestZ()));
+					return f != null ? f : new int[]{motePlaces.forestX(), motePlaces.forestY() + 40, motePlaces.forestZ(), 180, 30};
+				});
+				return new View(planned.name(), c[0], c[1], c[2], c[3], c[4], planned.fov(), planned.time(), planned.weather(), planned.linger());
+			}
+		}
+		// a Welkin vale or light view given a negative y stands that many blocks over the highest ground within 16 blocks
+		if ((planned.name().startsWith("wvale") || planned.name().startsWith("wlight")) && planned.y() < 0) {
 			int ground = world.getServer().computeOnServer(server -> {
 				ServerLevel level = server.overworld();
 				int top = level.getMinY();
