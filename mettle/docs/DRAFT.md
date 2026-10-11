@@ -33,6 +33,12 @@ A player has to know four things:
   lever; `Integer.MAX_VALUE` gives a draft on every level.
 - **The hand** is dealt at once and stored in the character record, so a reconnect shows the same cards. One hand per
   skill at a time; keeping a card deals that skill's next hand if more drafts wait.
+- **Hand size.** A hand is three cards whenever three different cards of the skill can be dealt. It is smaller only
+  when fewer can: below the tier II gate (skill 6) a deck deals only its two roots, so a Blades 5 hand is two cards
+  (a 12 % wildcard can make it three); after a Mythic offer is claimed the hand keeps its other two (CARDS.md §3.5).
+  A hand dealt short is filled up when a later level opens more of the deck: its cards stay where they were and the
+  missing ones are dealt beside them (`CardRules.topUp`, on level-up), so a hand dealt at Blades 5 is three cards once
+  Blades reaches 6.
 - **Waiting.** A draft with nothing to deal (Mining 1: tier I opens at 2) waits until the skill grows. A draft never
   expires.
 - **A spent deck.** When every card of a skill is at its last rank (and a Mastery is held), its waiting drafts turn into

@@ -199,8 +199,13 @@ final class ShrineJourney {
 				return "after fusing: " + rare + ", emeralds " + p.getInventory().countItem(Items.EMERALD) + " of " + emeraldsBefore;
 			}
 			// Walking away ends the sitting.
-			p.teleportTo(p.getX() + 20, p.getY(), p.getZ());
-			return Rebuilds.sitting(p).isEmpty() ? null : "the sitting stayed open 20 blocks away";
+			double x = p.getX();
+			p.teleportTo(x + 20, p.getY(), p.getZ());
+			boolean closed = Rebuilds.sitting(p).isEmpty();
+			// Back onto the ground it stood on (20 blocks out may be open air: a fall would end the journeys after this).
+			p.teleportTo(x, p.getY(), p.getZ());
+			p.fallDistance = 0;
+			return closed ? null : "the sitting stayed open 20 blocks away";
 		}));
 
 		// Ironskin (Iron 6 from two decks): the first hit every 8 s is 3 lighter.

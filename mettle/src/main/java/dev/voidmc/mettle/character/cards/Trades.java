@@ -126,6 +126,11 @@ public final class Trades {
 		return server.overworld().getGameTime();
 	}
 
+	/** Whether a player has gone unhurt long enough to trade (TradeRules' calm window). */
+	public static boolean calm(ServerPlayer p) {
+		return now(p.level().getServer()) - LAST_HURT.getOrDefault(p.getUUID(), Long.MIN_VALUE / 2) >= TradeRules.CALM_TICKS;
+	}
+
 	private static Optional<TradeRules.Refusal> meet(ServerPlayer a, ServerPlayer b) {
 		long now = now(a.level().getServer());
 		double distance = a.level() == b.level() ? a.distanceTo(b) : Double.MAX_VALUE;

@@ -32,6 +32,8 @@ import net.minecraft.world.item.Items;
  */
 final class TradeJourney {
 	private static FakePlayer standIn;
+	private static boolean LISTENING;
+	private static String LAST_HURT_BY = "nothing";
 
 	private TradeJourney() {
 	}
@@ -48,8 +50,28 @@ final class TradeJourney {
 		var server = world.getServer();
 		long[] mine = new long[1];
 		long[] theirs = new long[1];
-		// Nobody trades within 5 s of being hurt (the journeys before this one hurt the player).
+		// Nobody trades within 5 s of being hurt (the journeys before this one hurt the player): wait until both are calm,
+		// saying what hurt them when it keeps happening.
+		if (!LISTENING) {
+			LISTENING = true;
+			net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
+				if (entity instanceof ServerPlayer && taken > 0) {
+					LAST_HURT_BY = entity.getName().getString() + " by " + source.getMsgId() + " (" + taken + ")";
+				}
+			});
+		}
 		context.waitTicks(105);
+		for (int i = 0; i < 15; i++) {
+			boolean calm = server.computeOnServer(s -> {
+				ServerPlayer a = player(s);
+				return Trades.calm(a) && Trades.calm(bree(s, a));
+			});
+			if (calm) {
+				break;
+			}
+			dev.voidmc.mettle.Mettle.LOGGER.info("trade journey: waiting, last hurt {}", LAST_HURT_BY);
+			context.waitTicks(20);
+		}
 
 		check(server.computeOnServer(s -> {
 			ServerPlayer a = player(s);

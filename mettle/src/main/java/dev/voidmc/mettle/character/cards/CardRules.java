@@ -385,6 +385,38 @@ public final class CardRules {
 	}
 
 	/**
+	 * Fills a short hand up to {@link DraftRules#HAND} cards with new offers of its own skill (§3.1), keeping the cards it
+	 * holds and their places (a Mythic offer stays last). A hand is short when it was dealt while fewer than three cards
+	 * of the deck could be dealt (below the tier II gate a skill has only its two roots); when a level opens more of the
+	 * deck, the stored hand gets the missing cards instead of staying at two. Never a perk the hand already holds; the
+	 * hand is returned unchanged when it is full or nothing new can be dealt.
+	 */
+	public static List<Card> topUp(List<Card> hand, ResourceKey<Skill> skill, Sheet sheet, DraftRules.Deck deck, Data data, Random random) {
+		if (hand.isEmpty() || hand.size() >= DraftRules.HAND) {
+			return hand;
+		}
+		long[] rollSeeds = {random.nextLong(), random.nextLong(), random.nextLong()};
+		List<Card> out = new ArrayList<>();
+		List<Card> mythic = new ArrayList<>();
+		Set<ResourceKey<Perk>> taken = new HashSet<>();
+		for (Card c : hand) {
+			(c.rarity() == Rarity.MYTHIC ? mythic : out).add(c);
+			taken.add(c.perk());
+		}
+		List<ResourceKey<Perk>> own = candidates(skill, sheet, deck);
+		for (int i = 0; out.size() + mythic.size() < DraftRules.HAND; i++) {
+			ResourceKey<Perk> key = draw(own, sheet.level(skill), sheet.attribute(skill), sheet, deck, random, taken, Set.of());
+			if (key == null) {
+				break;
+			}
+			out.add(roll(key, deck.get(key).orElseThrow(), sheet.level(skill), data, new Random(rollSeeds[i]), false));
+			taken.add(key);
+		}
+		out.addAll(mythic);
+		return out.size() == hand.size() ? hand : out;
+	}
+
+	/**
 	 * The chance, in percent, that one card of a hand dealt now has each frame (§3.2): cursed by depth (a cursed perk
 	 * is always Cursed), the rest split by the rolled rarity odds. What the card frame legend shows.
 	 */

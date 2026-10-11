@@ -54,6 +54,7 @@ final class CardJourney {
 		var server = world.getServer();
 		CharacterState[] saved = new CharacterState[1];
 		long[] keptId = new long[1];
+		int[] easiest = new int[1];
 		ResourceKey<Perk>[] keptPerk = perkRef();
 
 		// A clean slate: no cards, Athletics at 0 with nothing waiting, no recent skills (no wildcard).
@@ -75,6 +76,12 @@ final class CardJourney {
 			if (!CardStore.get(p).cards().isEmpty()) {
 				return "cards before keeping one: " + CardStore.get(p).cards();
 			}
+			// Keep the card with the lowest requirement, so slotting it later needs the least Athletics.
+			for (int i = 0; i < hand.size(); i++) {
+				if (hand.get(i).needs() < hand.get(easiest[0]).needs()) {
+					easiest[0] = i;
+				}
+			}
 			return null;
 		}));
 
@@ -95,7 +102,7 @@ final class CardJourney {
 		}));
 
 		// Keep (to the binder) from the overlay: a card with an id, in the binder, nothing active yet.
-		context.runOnClient(mc -> MettleActions.keepCard(ID, 0, false));
+		context.runOnClient(mc -> MettleActions.keepCard(ID, easiest[0], false));
 		context.waitTicks(5);
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
@@ -129,8 +136,15 @@ final class CardJourney {
 			return "binder".equals(card.get("place").getAsString()) ? null : "the kept card is " + card.get("place");
 		}));
 
-		// Slot it from the overlay (its rarity may need a higher Athletics: raise it first so any root fits).
-		server.runCommand("mettle xp mettle:athletics 400 @a");
+		// Slot it from the overlay (its rarity may need a higher Athletics: raise it to the card's requirement first,
+		// an Epic root needs 7, whatever the seed dealt).
+		server.runOnServer(s -> {
+			ServerPlayer p = player(s);
+			int needs = CardStore.get(p).card(keptId[0]).orElseThrow().needs();
+			for (int i = 0; i < 20 && CharacterStore.get(p).level(ATHLETICS) < needs; i++) {
+				s.getCommands().performPrefixedCommand(s.createCommandSourceStack(), "mettle xp mettle:athletics 400 @a");
+			}
+		});
 		context.runOnClient(mc -> MettleActions.slotCard(String.valueOf(keptId[0])));
 		context.waitTicks(5);
 		check(server.computeOnServer(s -> {
@@ -193,7 +207,8 @@ final class CardJourney {
 		// A set: two Swift cards (Runner and Steady Pace) make Swift 2, +3 % movement speed.
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
-			if (CharacterStore.get(p).level(ATHLETICS) < 6) {
+			// Athletics 6 for the two cards (how far 900 XP goes depends on the cards already slotted).
+			for (int i = 0; i < 10 && CharacterStore.get(p).level(ATHLETICS) < 6; i++) {
 				s.getCommands().performPrefixedCommand(s.createCommandSourceStack(), "mettle xp mettle:athletics 900 @a");
 			}
 			for (String perk : new String[] {"athletics/runner", "athletics/steady_pace"}) {

@@ -219,6 +219,16 @@ public final class Drafts {
 		int drafts = DraftRules.draftsFor(before, after);
 		DraftState d = state.drafts().addQueued(skill, drafts);
 		d = d.withRerolls(DraftRules.addRerolls(d.rerolls(), after - before - drafts));
+		// A hand dealt short (fewer than three cards could be dealt then) gets the cards the new level opens (DRAFT.md §2).
+		List<Card> hand = d.hand(skill);
+		if (!hand.isEmpty() && hand.size() < DraftRules.HAND) {
+			RegistryAccess registries = player.level().registryAccess();
+			List<Card> full = CardRules.topUp(hand, skill, Cards.sheet(registries, state, CardStore.get(player)), deck(registries), Cards.data(registries),
+				DraftRules.random(d.seed(), d.dealt()));
+			if (full != hand) {
+				d = d.nextDeal().withHand(skill, full);
+			}
+		}
 		CharacterStore.set(player, state.withDraft(d));
 		refresh(player);
 	}
