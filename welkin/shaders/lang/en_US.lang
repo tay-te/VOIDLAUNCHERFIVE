@@ -1,0 +1,62 @@
+profile.LOW=Low
+profile.MEDIUM=Medium
+profile.HIGH=High
+profile.comment=Low drops the far land's pixel texture. Medium and High differ in how fine it stays with distance.
+
+screen.LOOK=Look
+screen.LOOK.comment=Flat steps and dither: how pixel-true the picture is.
+screen.ATMOSPHERE=Atmosphere
+screen.ATMOSPHERE.comment=Mist, and later haze and fog. Needs VOID Gloam for the world's weather and land.
+screen.DEBUG=Debug
+screen.DEBUG.comment=Views for checking the pack, the LOD join and the VOID bridge.
+
+option.COLOR_STEPS=Colour Steps
+option.COLOR_STEPS.comment=Levels per colour channel in the final picture, with a dither between them. Off keeps full colour.
+value.COLOR_STEPS.0=Off
+
+option.DITHER=Dither
+option.DITHER.comment=A 4x4 ordered dither at colour steps and at the edges of light bands, on the world's 16-pixel grid.
+
+option.LIGHT_STEPS=Light Steps
+option.LIGHT_STEPS.comment=How many flat levels the sky light and block light have.
+
+option.sunPathRotation=Sun Path Tilt
+option.sunPathRotation.comment=How far the sun's path leans south. Vanilla is 0.
+suffix.sunPathRotation=°
+
+option.FAR_TEXTURE=Far Land Texture
+option.FAR_TEXTURE.comment=A pixel texture on far land, on the world grid, coarser with distance.
+
+option.FAR_TEXTURE_PIXELS=Far Texel Size
+option.FAR_TEXTURE_PIXELS.comment=How many screen pixels a far texel spans before it doubles in size.
+suffix.FAR_TEXTURE_PIXELS= px
+
+option.FAR_FADE=Far Fade
+option.FAR_FADE.comment=Far land fades into the horizon in steps toward the edge of what is drawn.
+
+option.VALLEY_MIST=Valley Mist
+option.VALLEY_MIST.comment=Mist pooling in valleys and along water at dawn, thinner after sunset, gone by mid-morning. Needs VOID Gloam.
+
+option.MIST_SAMPLES=Mist Samples
+option.MIST_SAMPLES.comment=How many places along each view ray the mist is read at. More follows the valleys more closely.
+
+option.MIST_THICKNESS=Mist Thickness
+option.MIST_THICKNESS.comment=How opaque the mist is, as a share of the default.
+suffix.MIST_THICKNESS=x
+
+option.MIST_FORCE=Force Mist
+option.MIST_FORCE.comment=Lays the mist at this percentage of full strength whatever the hour, to check it. Off uses VOID Gloam's time of day.
+value.MIST_FORCE.0=Off
+option.DEBUG_JOIN=Mark LOD Join
+option.DEBUG_JOIN.comment=A magenta line where the chunks end and the LOD's land begins, over the finished picture.
+
+option.DEBUG_VIEW=Debug View
+option.DEBUG_VIEW.comment=Depth: chunks warm, LOD cool, bands at each doubling of distance; magenta where the LOD is in front of the chunks, red where its depth is read wrong.
+value.DEBUG_VIEW.0=Off
+value.DEBUG_VIEW.1=Depth
+value.DEBUG_VIEW.2=Normals
+value.DEBUG_VIEW.3=Light Map
+value.DEBUG_VIEW.4=Albedo
+value.DEBUG_VIEW.5=G-buffer Flags
+value.DEBUG_VIEW.6=VOID Bridge
+value.DEBUG_VIEW.7=VOID Near Tiles
