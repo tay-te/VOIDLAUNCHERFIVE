@@ -65,6 +65,15 @@ public class GloamShowcase implements FabricClientGameTest {
 	private static final String PACK_AB = System.getProperty("gloam.show.packAB", "");
 	/** Whether the pack runs the ab values now. */
 	private static boolean packAbNow;
+	/**
+	 * A per-pass profile of the pack: option changes separated by semicolons, each one or more KEY=value:base pairs
+	 * separated by commas (for example {@code -Pgloam.show.packSweep=CLOUDS=false:true;SHADOWS=false:true}). After each
+	 * Welkin view's own frame time, each change in turn is made (one Iris reload), the frame time logged as
+	 * {@code <view>_sweep_<change>} (with a screenshot of that name), and the base values put back, so what a pass costs
+	 * is the view's time minus that line's. The first frames after a reload can stall (shadow chunks rebuilding): a
+	 * reading far above the view's own is that, not the change.
+	 */
+	private static final String PACK_SWEEP = System.getProperty("gloam.show.packSweep", "");
 
 	private static final CloudStatus CLOUDS = switch (System.getProperty("gloam.show.clouds", "fancy")) {
 		case "off" -> CloudStatus.OFF;
@@ -225,6 +234,24 @@ public class GloamShowcase implements FabricClientGameTest {
 				System.out.printf(Locale.ROOT, "[gloam] %s seasons: %s%n", view.name(), season);
 				if (view.name().startsWith("w") && !view.name().startsWith("water") && !view.name().startsWith("winter")) {
 					logFrameTime(context, view.name() + abSuffix());
+					if (!PACK_SWEEP.isEmpty()) {
+						for (String change : PACK_SWEEP.split(";")) {
+							if (change.isBlank()) {
+								continue;
+							}
+							packSet(context, change, true);
+							awaitChunks(context, view);
+							awaitLod(context, view);
+							context.waitTicks(40);
+							String label = view.name() + "_sweep_" + change.trim().replaceAll("[=:,]", "_");
+							this.shoot(context, label);
+							logFrameTime(context, label);
+							packSet(context, change, false);
+						}
+						awaitChunks(context, view);
+						awaitLod(context, view);
+						context.waitTicks(20);
+					}
 					if (!PACK_AB.isEmpty()) {
 						// the same view with the other option values: same spot, land and clock, one reload between
 						packOptions(context, !packAbNow);
@@ -387,7 +414,8 @@ public class GloamShowcase implements FabricClientGameTest {
 	 * morning looking east, noon south, afternoon and sunset west, dusk west, the full moon rising in the east and a
 	 * new-moon night overhead: wsky*), one view per haze kind at the same hour of an early-summer morning (10:00, day 6),
 	 * each in its own Expanse country or air (found when shot, see findCountry: whaze_*), the overcast under a front
-	 * (wover0), rain in the valley and the ground still wet after it (wrain0, wwet0, wwet1), and the night's darkness on
+	 * (wover0), rain on a meadow and the ground still wet after it (wrainB0, wwetB0, wwetB1), the near water at noon
+	 * (wwater0, its reflection), and the night's darkness on
 	 * the valley under a full and a new moon (wnight0, wnight1). Their names start with "w", so each logs its frame time.
 	 */
 	static void addSkyViews(List<View> views, Places p) {
@@ -407,10 +435,9 @@ public class GloamShowcase implements FabricClientGameTest {
 			views.add(new View("whaze_" + kind, p.valleyX(), p.valleyY() + 30, p.valleyZ(), 180, 5, 70, hour, "clear", 2));
 		}
 		views.add(new View("wover0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), 90, -4, 70, 6 * 24000L + 6000, "clear", 2));
-		View rain = new View("wrain0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), 2, 70, 6 * 24000L + 6000, "rain", 20);
-		views.add(rain);
-		views.add(rain.at("wwet0", 6 * 24000L + 6000, "clear").looking("wwet0", p.toPeak(), 30));
-		views.add(rain.at("wwet1", 6 * 24000L + 6000, "clear").looking("wwet1", p.toPeak(), 4));
+		// (the valley's rain and wet views were a stone gorge and water, which say nothing of rain or wet ground: rain and
+		// wetness are judged on the meadow below; the water's reflection at noon on the near water, wwater0)
+		views.add(new View("wwater0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), 180, 8, 70, 6 * 24000L + 6000, "clear", 2));
 		// rain and the wet ground after it on open grass (the old forest country's meadows, found as for whaze_old_forest)
 		View meadow = new View("wrainB0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), 180, 20, 70, 6 * 24000L + 6000, "rain", 20);
 		views.add(meadow);
@@ -817,6 +844,15 @@ public class GloamShowcase implements FabricClientGameTest {
 			}
 			// four blocks over the meadow, looking down on the grass
 			return new View(planned.name(), c[0], c[1] - 30 + 4, c[2], c[3], planned.pitch(), planned.fov(), planned.time(), planned.weather(), planned.linger());
+		}
+		if (planned.name().startsWith("wwater")) {
+			// the lake district's shore (found as for whaze_lake_district), a few blocks over the ground, looking out
+			// over the lake at a low angle: the sky's reflection on near and far water
+			int[] c = world.getServer().computeOnServer(server -> findCountry(server.overworld(), planned, "lake_district"));
+			if (c == null) {
+				return planned;
+			}
+			return new View(planned.name(), c[0], c[1] - 30 + 6, c[2], c[3], planned.pitch(), planned.fov(), planned.time(), planned.weather(), planned.linger());
 		}
 		if (planned.name().startsWith("whaze_")) {
 			String kind = planned.name().substring("whaze_".length());
@@ -1261,8 +1297,14 @@ public class GloamShowcase implements FabricClientGameTest {
 
 	/** Switches the pack to gloam.show.packAB's ab values (or back to the base ones) through Iris's option queue, and reloads it. */
 	private static void packOptions(ClientGameTestContext context, boolean ab) {
+		packSet(context, PACK_AB, ab);
+		packAbNow = ab;
+	}
+
+	/** Sets the KEY=ab:base pairs of {@code pairs} to their ab (or base) values through Iris's option queue, and reloads the pack. */
+	private static void packSet(ClientGameTestContext context, String pairs, boolean ab) {
 		java.util.Map<String, String> set = new java.util.LinkedHashMap<>();
-		for (String kv : PACK_AB.split(",")) {
+		for (String kv : pairs.split(",")) {
 			String[] a = kv.trim().split("=", 2);
 			String[] v = a.length == 2 ? a[1].split(":", 2) : new String[0];
 			if (v.length == 2) {
@@ -1277,10 +1319,9 @@ public class GloamShowcase implements FabricClientGameTest {
 				queue.putAll(set);
 				iris.getMethod("reload").invoke(null);
 			} catch (ReflectiveOperationException e) {
-				throw new IllegalStateException("gloam.show.packAB needs Iris (-Piris)", e);
+				throw new IllegalStateException("gloam.show.packAB and packSweep need Iris (-Piris)", e);
 			}
 		});
-		packAbNow = ab;
 		System.out.printf(Locale.ROOT, "[gloam] pack options now %s (%s)%n", set, ab ? "ab" : "base");
 	}
 
