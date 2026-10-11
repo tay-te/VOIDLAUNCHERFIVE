@@ -62,6 +62,7 @@ welkin/
 | `shadow` | The near shadow map: chunks inside `shadowDistance` and entities, seen from the sun or moon, with swaying leaves and plants; overworld only, off on LOW; never the LOD |
 | `deferred` | The surface from `depthtex0` where the chunks drew, else `dhDepthTex0`; the light ramp with the sun or moon through the near shadow map (the sky-light gate past it and on the LOD); wet ground; cloud shadows; the far fade into the horizon |
 | `composite` | Water fog, then valley mist from VOID Gloam's near tiles (`lib/mist.glsl`, M1); debug views. **The atmosphere goes here** (haze M2, underground fog M5), then voxel clouds (M3) and `composite1` far weather (M4) |
+| `composite1` | Far weather, overworld only (P5, `lib/far_weather/`): the water fog, then the far air past the near haze's seam at 1912 blocks, far valley mist carrying on from the near mist, and rain curtains under rainy far weather cells |
 | `final` | A soft shoulder past white, then invisible anti-banding (one 8-bit step of fixed triangular noise) |
 
 ### Buffers

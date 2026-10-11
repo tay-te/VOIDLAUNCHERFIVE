@@ -1,6 +1,8 @@
 // VOID Welkin: the near atmosphere (composite2 in every dimension). The scene so far, with the air laid over it, or a
 // debug view (DEBUG_VIEW, lib/settings.glsl). Before it, in the overworld only: composite, the voxel clouds (M3: they
-// wrote colortex0 and their distance in colortex6), and composite1, far weather (M4, still to come).
+// wrote colortex0 and their distance in colortex6), and composite1, far weather (P5: in the overworld it lays the water
+// fog, then the far air, far valley mist and rain curtains; on a sky pixel whose curtain it finished it writes the
+// curtain's distance to colortex6, so this pass treats it as a cloud: no haze again, the valley mist still in front).
 //
 // Order per pixel:
 //   1. water fog (lib/water.glsl), so the far water's bed (LOD) and the near water's bed (chunks) read the same under
@@ -55,7 +57,7 @@ uniform sampler2D colortex0;
 #define WU_sunPosition
 uniform vec3 sunPosition;
 #endif
-#if defined WORLD_OVERWORLD && defined CLOUDS
+#if defined WORLD_OVERWORLD // P5 far weather: was `&& defined CLOUDS`; composite1 writes colortex6 too
 #ifndef WU_colortex6
 #define WU_colortex6
 uniform sampler2D colortex6;
@@ -123,13 +125,16 @@ void main() {
 #if DEBUG_VIEW == 0
 	// M3: a cloud drawn here (composite), nearer than whatever lies behind it; it fogged itself by ring
 	bool cloud = false;
-#if defined WORLD_OVERWORLD && defined CLOUDS
+#if defined WORLD_OVERWORLD // P5 far weather: was `&& defined CLOUDS` (a curtain over the sky, composite1)
 	cloud = isEyeInWater == 0 && texelFetch(colortex6, p, 0).r < 999.0;
 #endif
-	// 1. water fog (not over a cloud in front of a lake, seen from above the deck)
+	// 1. water fog (not over a cloud in front of a lake, seen from above the deck). P5 far weather: in the overworld
+	// composite1 lays it, before the far air and layers (which must lie over a lake's water as over the land).
+#if !defined WORLD_OVERWORLD
 	if (!cloud) {
 		color.rgb = waterFog(p, texcoord, color.rgb);
 	}
+#endif
 #if defined WORLD_OVERWORLD
 	if (isEyeInWater == 0) {
 		Surface s = surfaceAt(p, texcoord);
