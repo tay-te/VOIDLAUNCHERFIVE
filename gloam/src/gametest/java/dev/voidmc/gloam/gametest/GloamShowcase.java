@@ -408,7 +408,7 @@ public class GloamShowcase implements FabricClientGameTest {
 	/**
 	 * For a whaze_ view: the nearest place to {@code near} (within 24 km) well inside the Expanse country it names, or with
 	 * the haze hint it names (dusty, clear_alpine), from Expanse's country map; the eye 30 blocks over the highest ground
-	 * within 32 blocks, looking out over the lowest land round it. Null without Expanse or a match.
+	 * within 32 blocks and under the lowest clouds (6 blocks over it for alpine air), looking out over the lowest land round it. Null without Expanse or a match.
 	 */
 	static int[] findCountry(ServerLevel level, View near, String kind) {
 		dev.voidmc.expanse.api.ExpanseCountry.Sampler s = dev.voidmc.expanse.api.ExpanseCountry.sampler(level);
@@ -422,8 +422,10 @@ public class GloamShowcase implements FabricClientGameTest {
 				double a = 2 * Math.PI * i / n;
 				int x = near.x() + (int) (Math.cos(a) * r), z = near.z() + (int) (Math.sin(a) * r);
 				var h = s.at(x, z);
-				boolean match = byHaze ? h.haze().equals(kind) && h.altitude() > level.getSeaLevel() + 2
-					: h.country().equals(kind) && h.strength() > 0.85F && h.altitude() > level.getSeaLevel() + 2;
+				// under the lowest cloud layer (about y 208), so the eye is not inside a cloud; alpine air is shot from just over its ground
+				boolean alpine = kind.equals("clear_alpine");
+				boolean match = byHaze ? h.haze().equals(kind) && h.altitude() > level.getSeaLevel() + 2 && (alpine || h.altitude() < 150)
+					: h.country().equals(kind) && h.strength() > 0.85F && h.altitude() > level.getSeaLevel() + 2 && h.altitude() < 150;
 				if (!match) {
 					continue;
 				}
@@ -443,6 +445,10 @@ public class GloamShowcase implements FabricClientGameTest {
 						top = Math.max(top, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x + dx, z + dz));
 					}
 				}
+				int lift = alpine ? 6 : 30;
+				if (!alpine && top + lift > 185) {
+					continue;
+				}
 				// the yaw (of eight) over the lowest land 300 blocks out
 				float yaw = 180, lowest = Float.MAX_VALUE;
 				for (int k = 0; k < 8; k++) {
@@ -455,7 +461,7 @@ public class GloamShowcase implements FabricClientGameTest {
 				}
 				System.out.printf(Locale.ROOT, "[gloam] %s: %s at %d %d (country %s %.2f, haze %s, ground %d)%n", near.name(), kind, x, z, h.country(),
 					h.strength(), h.haze(), top);
-				return new int[]{x, top + 30, z, (int) yaw};
+				return new int[]{x, top + lift, z, (int) yaw};
 			}
 		}
 		return null;
