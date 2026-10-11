@@ -122,6 +122,13 @@ setting.
   in warm lands. No insects in winter, few birds.
 - Water: a brook nearby (flowing water, or a long narrow ribbon of water above the sea), waves on the shore of open
   water. These and the frogs are heard from the direction they lie in.
+- Under ground (seven cave beds, driven by Expanse's `ExpanseUnderground`): drips close in a passage and echoing in a
+  great hall (more after rain, fewer in the frozen and ember realms), bats (waking at dusk), an underground river (the
+  great rivers loud and low), the lapping of a buried sea or a realm's lake, the creak of a great mine, and the wind
+  moaning in great caverns. River, sea and bats are heard from their side. All are scaled by how far under the land
+  the camera is (`Hollow.under`: 0 at a cave mouth that still sees the sky), so a cave mouth crossfades from the land's
+  beds to these. Without Expanse (another generator, a remote server) `Caves` probes the loaded blocks instead: drips
+  from dripstone, lush blocks and water, glow lichen, mine timber and rails, real bats; no great rivers or buried seas.
 
 | Class | What it is |
 |---|---|
@@ -130,9 +137,12 @@ setting.
 | `Land`, `Surroundings` | The land read: 16 directions x 6 radii out to 34 blocks plus the columns overhead (~300 lookups), eased between reads. |
 | `Bed`, `BedSound` | The beds and their gains; one looping, self-easing sound instance each (starts silent, stops itself once faded). |
 | `ThunderRoll` | One distant roll from a random direction. |
+| `Caves`, `CaveSurvey`, `CaveProbe` | The underground around the camera: one probe a tick (Expanse's `ExpanseUnderground` through `compat.ExpanseCaves`, or the blocks), the eye plus a 16-point ring, one survey every 24 ticks (`CaveSurveyTest`). |
+| `Hollow` | The eased survey: depth under the land, openness, vault, realm, nearest water and its side, glowworms, bats, drips, great-river nearness. `Soundscape.caves()` hands it to the bridge, which sends it as `void_underground` and `void_cave`, so the pack's cave fog and the sound agree. |
+| `CaveMix`, `CaveKinds` | Pure: the seven cave beds' volumes, pitches and offsets (`CaveMixTest`); the stable realm (0..13) and water (none, river, sea, lake, lava) ids shared with the bridge. |
 
-Clips are synthesised by `tools/gen_sounds.py` (numpy, written with `soundfile`) into `assets/gloam/sounds`: 13 beds
-and 4 thunder rolls, mono 24 kHz Vorbis q3, 1.3 MB in all. Each bed is one period of a periodic signal, so it loops
+Clips are synthesised by `tools/gen_sounds.py` (numpy, written with `soundfile`) into `assets/gloam/sounds`: 20 beds
+(13 of the land, 7 under it) and 4 thunder rolls, mono 24 kHz Vorbis q3, 2.1 MB in all. Each bed is one period of a periodic signal, so it loops
 without a seam; `--check` decodes them back and checks length, levels and the seam, `--png` draws spectrograms;
 `ClipsTest` decodes them with Minecraft's own decoder. Nothing is registered: the clips are played by name from
 `sounds.json`, so a server needs none of it. Expanse keeps its creatures' own calls; Gloam is the bed underneath.

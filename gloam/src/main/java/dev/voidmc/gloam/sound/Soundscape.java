@@ -24,7 +24,9 @@ import net.minecraft.world.phys.Vec3;
  * ({@link Atmosphere#here()}) and the land around it ({@link Land}, read every {@link #SCAN_TICKS} ticks), times the
  * {@code sound} setting, and hands that to the bed's {@link BedSound}, which eases toward it. A bed that should be
  * heard and is not playing is started (silent, then fading in); one that has faded out stops itself. Under a storm,
- * distant thunder rolls now and then ({@link ThunderRoll}). Everything is on the ambient category, so Minecraft's
+ * distant thunder rolls now and then ({@link ThunderRoll}). Under the land, {@link Caves} surveys the caverns a point a
+ * tick and {@link CaveMix} sets the underground beds (drips, bats, cavern rivers, the buried sea, mine timbers, cavern
+ * wind) the same way. Everything is on the ambient category, so Minecraft's
  * ambient slider scales it, and all of it fades out when Gloam is switched off, under water, and where there is no
  * sky (the Nether, the End).
  *
@@ -40,6 +42,7 @@ public final class Soundscape {
 	private static final BedSound[] PLAYING = new BedSound[BEDS.length];
 	private static final float[] VOLUMES = new float[BEDS.length];
 	private static final Land LAND = new Land();
+	private static final Caves CAVES = new Caves();
 	private static final RandomSource RANDOM = RandomSource.create();
 
 	private static ClientLevel level;
@@ -73,6 +76,7 @@ public final class Soundscape {
 			stopAll(sounds);
 			level = mc.level;
 			LAND.reset();
+			CAVES.reset();
 			ticks = 0;
 			rolls = 0;
 		}
@@ -85,10 +89,16 @@ public final class Soundscape {
 		if (on && ticks++ % SCAN_TICKS == 0) {
 			LAND.read(level, eye);
 		}
+		if (settings.enabled && level.dimensionType().hasSkyLight()) {
+			// the caves are surveyed even with the sound off or under water: the bridge sends them to the pack's cave fog
+			CAVES.tick(level, eye);
+		}
 		AirSample air = Atmosphere.get().here();
 		Surroundings land = LAND.now();
+		Hollow cave = CAVES.now();
 		if (on) {
 			Mix.volumes(air, land, VOLUMES);
+			CaveMix.volumes(air, cave, VOLUMES);
 		} else {
 			Arrays.fill(VOLUMES, 0);
 		}
@@ -111,9 +121,15 @@ public final class Soundscape {
 				PLAYING[i] = sound;
 			}
 			if (sound != null) {
-				float pitch = bed == Bed.WIND_OPEN || bed == Bed.WIND_LEAVES || bed == Bed.WIND_HIGH ? windPitch : 1;
+				float pitch = bed.underground() ? CaveMix.pitch(bed, cave, air)
+					: bed == Bed.WIND_OPEN || bed == Bed.WIND_LEAVES || bed == Bed.WIND_HIGH ? windPitch : 1;
 				float ox = 0, oz = 0;
 				switch (bed) {
+					case UNDER_RIVER, BURIED_SEA, BATS -> {
+						float[] at = CaveMix.offset(bed, cave);
+						ox = at[0];
+						oz = at[1];
+					}
 					case STREAM -> {
 						ox = land.runningX();
 						oz = land.runningZ();
@@ -154,6 +170,14 @@ public final class Soundscape {
 			rolls++;
 			nextRoll = 200; // never two rolls within ten seconds
 		}
+	}
+
+	/**
+	 * The underground around the camera as the soundscape last surveyed it ({@link Hollow#NONE} under the sky): the
+	 * bridge reads {@code void_underground} and {@code void_cave} from it.
+	 */
+	public static Hollow caves() {
+		return CAVES.now();
 	}
 
 	private static void stopAll(SoundManager sounds) {
@@ -202,6 +226,13 @@ public final class Soundscape {
 		out.append(String.format(Locale.ROOT, "land: canopy %.2f trees %.2f grass %.2f sand %.2f snow %.2f still %.2f running %.2f shore %.2f "
 				+ "height %.0f exposure %.2f roof %.2f buried %.2f; thunder rolls %d", l.canopy(), l.trees(), l.grass(), l.sand(), l.snow(),
 			l.still(), l.running(), l.shore(), l.height(), l.exposure(), l.roof(), l.buried(), rolls));
+		Hollow c = CAVES.now();
+		if (c.under() > 0.01F) {
+			out.append(String.format(Locale.ROOT, "; caves: under %.2f cover %.0f space %.1f vault %.0f open %.2f river %.2f great %.2f sea %.2f lake %.2f "
+					+ "lava %.2f glowworms %.2f bats %.2f drip %.2f mine %.2f realm %s water %s", c.under(), c.cover(), c.space(), c.vault(),
+				c.openness(), c.river(), c.great(), c.sea(), c.lake(), c.lava(), c.glowworms(), c.bats(), c.drip(), c.mine(),
+				CaveKinds.realmName(c.realm()), CaveKinds.waterName(c.water())));
+		}
 		return out.toString();
 	}
 }

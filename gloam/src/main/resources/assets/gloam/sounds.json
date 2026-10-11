@@ -90,6 +90,55 @@
 			}
 		]
 	},
+	"bed.drip_near": {
+		"sounds": [
+			{
+				"name": "gloam:bed/drip_near"
+			}
+		]
+	},
+	"bed.drip_hall": {
+		"sounds": [
+			{
+				"name": "gloam:bed/drip_hall"
+			}
+		]
+	},
+	"bed.bats": {
+		"sounds": [
+			{
+				"name": "gloam:bed/bats"
+			}
+		]
+	},
+	"bed.under_river": {
+		"sounds": [
+			{
+				"name": "gloam:bed/under_river"
+			}
+		]
+	},
+	"bed.buried_sea": {
+		"sounds": [
+			{
+				"name": "gloam:bed/buried_sea"
+			}
+		]
+	},
+	"bed.mine_creak": {
+		"sounds": [
+			{
+				"name": "gloam:bed/mine_creak"
+			}
+		]
+	},
+	"bed.cavern_wind": {
+		"sounds": [
+			{
+				"name": "gloam:bed/cavern_wind"
+			}
+		]
+	},
 	"thunder": {
 		"sounds": [
 			{

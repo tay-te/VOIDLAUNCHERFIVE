@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-The soundscape's clips: the ambient beds Gloam lays under the world (wind, rain, birds, insects, frogs, water) and the
-distant thunder rolls, all synthesised here from noise and sine waves.
+The soundscape's clips: the ambient beds Gloam lays under the world (wind, rain, birds, insects, frogs, water), the
+caverns' beds under the land (drips, bats, cavern rivers, the buried sea, mine timbers, cavern wind) and the distant
+thunder rolls, all synthesised here from noise and sine waves.
 
     python tools/gen_sounds.py            write the clips and sounds.json
     python tools/gen_sounds.py --check    decode every clip back and report its length, levels and loop seam;
@@ -569,6 +570,181 @@ def thunder(n, rng, sr=22050):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# the caverns (CaveMix): drips, bats, the cavern rivers, the buried sea, the mines' timbers, the great caverns' wind.
+# Underground everything rings: each bed carries its own echo, short in a passage, long in a hall.
+
+
+def drip(rng, sr=SR):
+	"""One drop: a plink rising in pitch as the bubble it leaves behind rings (into a pool), or a tick on wet stone."""
+	if rng.random() < 0.65:
+		m = int(0.12 * sr)
+		f0 = math.exp(rng.uniform(math.log(700), math.log(2400)))
+		y = ring(m, f0, rng.uniform(0.012, 0.035), rng, rise=rng.uniform(0.5, 1.4)) + burst(m, rng, 1500, 7000, 0.0012) * 0.25
+	else:
+		m = int(0.03 * sr)
+		y = burst(m, rng, 1800, 8000, rng.uniform(0.0008, 0.002)) + ring(m, rng.uniform(2500, 4500), 0.003, rng) * 0.4
+	return y
+
+
+def drips(n, rng, rate, regular):
+	"""Drops through the loop: a few steady drips (one crack in the roof, every second or two) and stray ones."""
+	out = np.zeros(n)
+	for k in range(regular):
+		period = rng.uniform(1.2, 2.6) * SR
+		count = max(1, round(n / period))
+		period = n / count  # a whole number of drops over the loop
+		phase = rng.uniform(0, period)
+		y0 = drip(rng)  # one crack drips much the same drop each time
+		for i in range(count):
+			put(out, y0 * rng.uniform(0.75, 1.0), phase + i * period + rng.normal(0, 0.03 * SR))
+	for at in poisson(rng, n, rate):
+		put(out, drip(rng) * rng.uniform(0.25, 0.9), at)
+	return out
+
+
+def drip_near(n, rng):
+	"""Drips in a passage: close, clear drops off the roof into pools, a short hard echo, the hush of the rock."""
+	out = drips(n, rng, 0.9, 2)
+	room = shaped(n, rng, mul(tilt(-6, 100), band(30, 400, 2)))
+	return echo(out, rng, 0.55, 0.35, 5000) + room * 0.02
+
+
+def drip_hall(n, rng):
+	"""Drips in a great cavern: drops near and far, each ringing on through the hall, a deep room tone beneath."""
+	near = drips(n, rng, 0.5, 1)
+	distant = far(drips(n, rng, 1.6, 2), 3500) * 0.45
+	room = shaped(n, rng, mul(tilt(-6, 60), band(25, 250, 2)))
+	return echo(near + distant, rng, 2.8, 0.6, 3000) + room * 0.03
+
+
+def bat_chirp(rng, sr=SR):
+	"""A bat's squeak as an ear hears it: a quick downward sweep, 9 to 4 kHz, a few milliseconds long."""
+	dur = rng.uniform(0.006, 0.018)
+	m = int(dur * sr)
+	t = np.arange(m) / sr
+	f = rng.uniform(7500, 10500) * (1 - rng.uniform(0.3, 0.55) * t / dur)
+	return np.sin(2 * np.pi * np.cumsum(f) / sr) * env_ar(m, 0.001, dur * 0.7, sr)
+
+
+def bats(n, rng):
+	"""A roost: bursts of chittering, near and far, and now and then the flutter of wings going by."""
+	out = np.zeros(n)
+	for at in poisson(rng, n, 1.4):  # chitter bouts: a run of squeaks at 15-35 a second
+		d = rng.uniform(0.15, 1.0)
+		rate = rng.uniform(15, 35)
+		parts = [(1 / rate * rng.uniform(0.6, 1.4) if i else 0, bat_chirp(rng)) for i in range(rng.integers(3, 12))]
+		put(out, far(seq(parts), 4000 + 7000 * d) * d, at)
+	for at in poisson(rng, n, 0.25):  # wings: a soft flapping (10-14 beats a second), passing in about half a second
+		dur = rng.uniform(0.4, 0.9)
+		m = int(dur * SR)
+		tt = np.arange(m) / SR
+		beats = (0.5 + 0.5 * np.sin(2 * np.pi * rng.uniform(10, 14) * tt)) ** 3
+		y = burst(m, rng, 250, 2500, 10.0) * beats * np.sin(np.pi * tt / dur) ** 2
+		put(out, y * rng.uniform(0.15, 0.35), at)
+	return echo(out, rng, 1.2, 0.4, 6000)
+
+
+def under_river(n, rng):
+	"""A great river in its vault: a deep, churning roar, white water at its edges, the whole hall roaring back."""
+	surge = swell(n, rng, 0.15, 0.7, 1.0)
+	roar = shaped(n, rng, mul(tilt(-6, 120), band(30, 700, 2)))
+	churn = shaped(n, rng, mul(tilt(-3, 800), band(300, 3000, 1)))
+	white = shaped(n, rng, band(2000, 7000, 2))
+	gurgle = swell(n, rng, 3.0, 0.2, 1.0)
+	out = np.zeros(n)
+	for at in poisson(rng, n, 70):  # big slow bubbles and glugs in the current
+		f0 = math.exp(rng.uniform(math.log(150), math.log(900)))
+		tau = 0.03 * (300 / f0) ** 0.7 * rng.uniform(0.6, 1.4)
+		m = min(int(tau * 6 * SR), int(0.25 * SR))
+		put(out, ring(m, f0, tau, rng, rise=rng.uniform(0.05, 0.3)) * rng.exponential(1.0) ** 1.5 * gurgle[at], at)
+	out /= np.sqrt(np.mean(out ** 2)) + 1e-12
+	y = roar * 0.8 * surge + churn * 0.45 * (0.5 + 0.5 * gurgle) * surge + white * 0.1 + out * 0.25
+	return echo(y, rng, 2.0, 0.5, 2500)
+
+
+def buried_sea(n, rng):
+	"""A sea under the land: slow swells lapping on stone, clopping in the hollows, drawing back, in a vast hall."""
+	t = np.arange(n) / SR
+	wash = np.zeros(n)
+	starts = []
+	at = 0.0
+	while at < n / SR - 4:
+		starts.append(at)
+		at += rng.uniform(5.0, 8.0)
+	starts = [s * (n / SR) / at for s in starts]  # spaced so the last swell's gap wraps evenly
+	out = np.zeros(n)
+	for s in starts:
+		size = rng.uniform(0.5, 1.0)
+		dt = (t - s) % (n / SR)
+		wash += size * np.where(dt < 3.5, np.sin(np.pi * np.clip(dt / 3.5, 0, 1)) ** 2, 0)
+		for k in range(rng.integers(2, 6)):  # the water slapping into the rock's hollows
+			m = int(0.08 * SR)
+			y = ring(m, rng.uniform(250, 650), rng.uniform(0.01, 0.025), rng, rise=-0.2) + burst(m, rng, 300, 2500, 0.006) * 0.6
+			put(out, y * size * rng.uniform(0.4, 1.0), (s + rng.uniform(0.3, 1.6)) * SR)
+		for k in range(rng.integers(3, 8)):  # the trickle off the stone as it draws back
+			m = int(0.05 * SR)
+			put(out, ring(m, rng.uniform(900, 2200), 0.008, rng, rise=0.6) * size * rng.uniform(0.1, 0.3), (s + rng.uniform(2.2, 4.0)) * SR)
+	out /= np.sqrt(np.mean(out ** 2)) + 1e-12
+	body = shaped(n, rng, mul(tilt(-5, 150), band(30, 900, 2)))
+	hiss = shaped(n, rng, band(600, 4000, 1))
+	y = body * (0.15 + 0.7 * wash) + hiss * 0.18 * wash + out * 0.35
+	return echo(y, rng, 3.5, 0.65, 2500)
+
+
+def creak(rng, dur, rate0, rate1, body, sr=SR):
+	"""Wood under load: stick-slip, a train of tiny slips sped up or slowed through the creak, ringing in the beam."""
+	m = int(dur * sr)
+	t = np.arange(m) / sr
+	rate = rate0 + (rate1 - rate0) * (t / dur) ** rng.uniform(0.6, 1.6)
+	rate = rate * (1 + 0.15 * np.sin(2 * np.pi * rng.uniform(2, 5) * t))
+	ph = np.cumsum(rate) / sr
+	pulses = np.maximum(0, np.diff(np.floor(ph), prepend=0)) * rng.uniform(0.6, 1.0, m)
+	k = int(0.03 * sr)
+	beam = sum(ring(k, f, rng.uniform(0.004, 0.012), rng) * a for f, a in ((body, 1.0), (body * 2.3, 0.5), (body * 4.1, 0.25)))
+	y = np.convolve(pulses, beam)[:m]
+	return y * env_ar(m, dur * 0.25, dur * 0.4, sr)
+
+
+def mine_creak(n, rng):
+	"""An old mine's timbers: creaks and groans as the props take the weight, grit trickling down, a draught."""
+	out = np.zeros(n)
+	for at in poisson(rng, n, 0.22):  # creaks: half a second to a second and a half
+		y = creak(rng, rng.uniform(0.4, 1.5), rng.uniform(25, 60), rng.uniform(40, 110), rng.uniform(350, 900))
+		put(out, far(y, rng.uniform(2500, 6000)) * rng.uniform(0.5, 1.0), at)
+	for at in poisson(rng, n, 0.06):  # a long low groan
+		y = creak(rng, rng.uniform(1.5, 3.0), rng.uniform(8, 14), rng.uniform(12, 22), rng.uniform(140, 260))
+		put(out, y * rng.uniform(0.8, 1.2), at)
+	for at in poisson(rng, n, 0.12):  # grit and small stones trickling from a crack
+		dur = rng.uniform(0.3, 1.0)
+		m = int(dur * SR)
+		grains = cconv(impulses(m, rng, rng.uniform(60, 180)), burst(int(0.004 * SR), rng, 2000, 7000, 0.0008))
+		put(out, grains * np.sin(np.pi * np.arange(m) / m) * rng.uniform(0.1, 0.25), at)
+	out /= np.abs(out).max() + 1e-12
+	draught = shaped(n, rng, mul(tilt(-4, 200), band(60, 900, 2))) * swell(n, rng, 0.1, 0.4, 1.0)
+	return echo(out, rng, 0.9, 0.4, 4000) + draught * 0.025
+
+
+def cavern_wind(n, rng):
+	"""Air moving through a great cavern: a slow hollow moan from the openings, a deep rumble, hardly a hiss."""
+	out = np.zeros(n)
+	for k in range(3):  # the openings sound like vast bottles: narrow, slowly drifting tones
+		f_mid = rng.uniform(80, 240)
+		drift = swell(n, rng, 0.05, -1, 1)
+		f = f_mid * (1 + 0.12 * drift)
+		cycles = round(np.sum(f) / SR)
+		f *= cycles * SR / np.sum(f)  # a whole number of cycles over the loop, so the tone wraps
+		carrier = np.sin(2 * np.pi * np.cumsum(f) / SR)
+		breath = shaped(n, rng, lambda fr: np.exp(-(fr / 12.0) ** 2))
+		amp = swell(n, rng, 0.05, 0.0, 1.0) ** 2
+		out += carrier * breath * amp * (0.6 / (k + 1) ** 0.5)
+	hollow = shaped(n, rng, lambda fr: np.exp(-((np.log(fr) - np.log(150)) / 0.4) ** 2))
+	rumble = shaped(n, rng, mul(tilt(-6, 60), band(20, 200, 2)))
+	hiss = shaped(n, rng, band(800, 3000, 2))
+	gust = swell(n, rng, 0.06, 0.3, 1.0)
+	y = out * 0.8 + hollow * 0.4 * gust + rumble * 0.7 * (0.6 + 0.4 * gust) + hiss * 0.04 * gust ** 2
+	return echo(y, rng, 2.5, 0.5, 2000)
+
+# ---------------------------------------------------------------------------------------------------------------------
 # the catalogue: (name, maker, seconds, seed, level), level ('rms', dBFS) or ('peak', dBFS)
 
 BEDS = [
@@ -585,6 +761,13 @@ BEDS = [
 	('cicadas', cicadas, 20, 111, ('rms', -20)),
 	('stream', stream, 16, 112, ('rms', -18)),
 	('waves', waves, 24, 113, ('rms', -18)),
+	('drip_near', drip_near, 18, 114, ('peak', -4)),
+	('drip_hall', drip_hall, 22, 115, ('peak', -4)),
+	('bats', bats, 20, 116, ('peak', -4)),
+	('under_river', under_river, 18, 117, ('rms', -18)),
+	('buried_sea', buried_sea, 24, 118, ('rms', -19)),
+	('mine_creak', mine_creak, 24, 119, ('peak', -4)),
+	('cavern_wind', cavern_wind, 22, 120, ('rms', -19)),
 ]
 THUNDER = [(f'roll{i}', 7 + i, 200 + i) for i in range(1, 5)]
 PEAK_CEILING = 10 ** (-1.5 / 20)  # nothing goes above -1.5 dBFS: headroom for the encoder's overshoot
