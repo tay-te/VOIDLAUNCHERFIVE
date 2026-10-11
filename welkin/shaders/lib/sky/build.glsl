@@ -99,9 +99,11 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	m.glow = mix(dayHalo, sunset, m.tw);
 	m.spread = mix(0.14, 0.95, m.tw);
 	m.moonGlow = skyLevel(s.moon * m.clear * m.nightStep);
-	// stars: Gloam's count (fewer under a bright moon, none under cloud) from the blue hour on
-	// (the first stars wait until the sun is well down: the stepped version's first third came at a sixth of the way)
-	m.stars = clamp(s.light.y, 0.0, 1.0) * skySmooth(0.2, 1.0, skyStarTime(s.u)) * (1.0 - s.blind);
+	// stars: Gloam's count (fewer under a bright moon, none under cloud), by the sun's depth under the horizon: the
+	// first come out when the sun is 6 degrees down (the end of civil twilight, while the west still glows), all of them
+	// by 16 degrees; none by day whatever the clock says, and none under a closed overcast
+	float starDark = skySmooth(0.105, 0.276, -sunW.y);
+	m.stars = clamp(s.light.y, 0.0, 1.0) * starDark * (1.0 - m.overcast) * (1.0 - s.blind);
 
 	// ---- sun and moon discs ----
 	m.sunVis = skyLevel(1.0 - skySmooth(0.55, 1.0, s.cover)) * (1.0 - s.blind);
@@ -125,7 +127,11 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	m.moonLight = moonCol * 0.11 * m.moonStrength;
 	// the sky's ambient: vanilla's day/night light curve, times Gloam's gameplay scale (void_light.z), a little
 	// less under a heavy overcast by day (SKY_LIGHT_FACTOR's layer) and in rain
-	m.ambientFactor = mix(1.0, NIGHT_SKYLIGHT, m.nightStep) * clamp(s.light.z, 0.0, 1.0)
+	// (Gloam's dark nights scale the gameplay light hard: a new moon's 0.3 left the land a near-black screen with no
+	// shapes. The eye's fill takes the square root of it, so the darkest night is still about a third darker than a
+	// clear moonlit one and the land's silhouettes read; the gameplay light itself is Gloam's)
+	float lightScale = clamp(s.light.z, 0.0, 1.0);
+	m.ambientFactor = mix(1.0, NIGHT_SKYLIGHT, m.nightStep) * mix(lightScale, sqrt(lightScale), m.nightStep)
 		* (1.0 - 0.15 * m.cloudStep * (1.0 - m.night)) * (1.0 - 0.28 * m.rainStep);
 	// the shade at the golden hour stays the blue sky's, a little dimmer, so it sets off the warm sun
 	vec3 dayAmb = mix(vec3(0.66, 0.72, 0.82), vec3(0.60, 0.62, 0.72), 0.6 * s.golden);
