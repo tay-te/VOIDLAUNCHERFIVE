@@ -55,6 +55,17 @@ public class GloamShowcase implements FabricClientGameTest {
 	private static final boolean OFF = !"false".equals(System.getProperty("gloam.show.off"));
 	private static final int WIDTH = Integer.getInteger("gloam.show.width", 1600);
 	private static final int HEIGHT = Integer.getInteger("gloam.show.height", 900);
+	/**
+	 * Shader pack options to compare within one run, as KEY=ab:base pairs separated by commas (for example
+	 * {@code -Pgloam.show.packAB=SHADOWS=false:true}): every Welkin view is shot twice from the same spot, the same land
+	 * and the same clock, once with the pack's base values and once with the ab ones, each with its frame time, with one
+	 * Iris reload between them (the order alternates view by view, so each view costs one reload). The ab shots end
+	 * in _ab. A/B comparisons across runs are not fair while the world's generation is not repeatable.
+	 */
+	private static final String PACK_AB = System.getProperty("gloam.show.packAB", "");
+	/** Whether the pack runs the ab values now. */
+	private static boolean packAbNow;
+
 	private static final CloudStatus CLOUDS = switch (System.getProperty("gloam.show.clouds", "fancy")) {
 		case "off" -> CloudStatus.OFF;
 		case "fast" -> CloudStatus.FAST;
@@ -189,7 +200,7 @@ public class GloamShowcase implements FabricClientGameTest {
 				context.waitTicks(20 + view.linger() * 20);
 				awaitSeasons(context);
 				awaitBreath(context, view);
-				this.shoot(context, view.name() + "_on");
+				this.shoot(context, view.name() + "_on" + abSuffix());
 				AirSample air = context.computeOnClient(mc -> Atmosphere.get().here());
 				int fps = context.computeOnClient(mc -> mc.getFps());
 				System.out.printf(Locale.ROOT, "[gloam] %s: %s, hour %.1f, front %.2f, cloud %.2f, rain %.2f, storm %.2f, mist %.2f (top y=%.0f), wind %.1f+%.2f, "
@@ -213,21 +224,17 @@ public class GloamShowcase implements FabricClientGameTest {
 				String season = context.computeOnClient(mc -> Seasons.stats());
 				System.out.printf(Locale.ROOT, "[gloam] %s seasons: %s%n", view.name(), season);
 				if (view.name().startsWith("w") && !view.name().startsWith("water") && !view.name().startsWith("winter")) {
-					// Welkin's pass costs are a fraction of a millisecond: one fps reading is too noisy to judge them, so
-					// average the frame time over gloam.show.fpsSamples one-second readings (getFps counts the last whole second)
-					int samples = Integer.getInteger("gloam.show.fpsSamples", 8);
-					double ms = 0;
-					int min = Integer.MAX_VALUE, max = 0;
-					for (int i = 0; i < samples; i++) {
-						context.waitTicks(21);
-						int f = Math.max(1, context.computeOnClient(mc -> mc.getFps()));
-						ms += 1000.0 / f;
-						min = Math.min(min, f);
-						max = Math.max(max, f);
+					logFrameTime(context, view.name() + abSuffix());
+					if (!PACK_AB.isEmpty()) {
+						// the same view with the other option values: same spot, land and clock, one reload between
+						packOptions(context, !packAbNow);
+						awaitChunks(context, view);
+						awaitLod(context, view);
+						context.waitTicks(40 + view.linger() * 20);
+						awaitSeasons(context);
+						this.shoot(context, view.name() + "_on" + abSuffix());
+						logFrameTime(context, view.name() + abSuffix());
 					}
-					ms /= samples;
-					System.out.printf(Locale.ROOT, "[gloam] %s frame time: %.3f ms mean over %d s (%.0f fps; %d..%d)%n", view.name(), ms, samples, 1000.0 / ms,
-						min, max);
 				}
 				last = view;
 			}
@@ -1242,6 +1249,55 @@ public class GloamShowcase implements FabricClientGameTest {
 		System.out.printf(Locale.ROOT, "[gloam] %s: fronts by yaw offset at 4/8/12/16 km:%s%n", view.name(), table);
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", view.x(), view.y(), view.z(), best[0], view.pitch()));
 		context.waitTicks(10);
+	}
+
+	/** "_ab" while the pack runs gloam.show.packAB's ab values, else "". */
+	private static String abSuffix() {
+		return !PACK_AB.isEmpty() && packAbNow ? "_ab" : "";
+	}
+
+	/** Switches the pack to gloam.show.packAB's ab values (or back to the base ones) through Iris's option queue, and reloads it. */
+	private static void packOptions(ClientGameTestContext context, boolean ab) {
+		java.util.Map<String, String> set = new java.util.LinkedHashMap<>();
+		for (String kv : PACK_AB.split(",")) {
+			String[] a = kv.trim().split("=", 2);
+			String[] v = a.length == 2 ? a[1].split(":", 2) : new String[0];
+			if (v.length == 2) {
+				set.put(a[0], ab ? v[0] : v[1]);
+			}
+		}
+		context.runOnClient(mc -> {
+			try {
+				Class<?> iris = Class.forName("net.irisshaders.iris.Iris");
+				@SuppressWarnings("unchecked")
+				java.util.Map<String, String> queue = (java.util.Map<String, String>) iris.getMethod("getShaderPackOptionQueue").invoke(null);
+				queue.putAll(set);
+				iris.getMethod("reload").invoke(null);
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("gloam.show.packAB needs Iris (-Piris)", e);
+			}
+		});
+		packAbNow = ab;
+		System.out.printf(Locale.ROOT, "[gloam] pack options now %s (%s)%n", set, ab ? "ab" : "base");
+	}
+
+	/**
+	 * Welkin's pass costs are a fraction of a millisecond: one fps reading is too noisy to judge them, so this averages
+	 * the frame time over gloam.show.fpsSamples one-second readings (getFps counts the last whole second).
+	 */
+	private static void logFrameTime(ClientGameTestContext context, String label) {
+		int samples = Integer.getInteger("gloam.show.fpsSamples", 8);
+		double ms = 0;
+		int min = Integer.MAX_VALUE, max = 0;
+		for (int i = 0; i < samples; i++) {
+			context.waitTicks(21);
+			int f = Math.max(1, context.computeOnClient(mc -> mc.getFps()));
+			ms += 1000.0 / f;
+			min = Math.min(min, f);
+			max = Math.max(max, f);
+		}
+		ms /= samples;
+		System.out.printf(Locale.ROOT, "[gloam] %s frame time: %.3f ms mean over %d s (%.0f fps; %d..%d)%n", label, ms, samples, 1000.0 / ms, min, max);
 	}
 
 	private void shoot(ClientGameTestContext context, String name) {
