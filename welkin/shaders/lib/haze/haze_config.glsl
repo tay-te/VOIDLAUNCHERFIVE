@@ -115,7 +115,8 @@ const vec3 HZ_PUDDLE_ICE = vec3(0.78, 0.86, 0.96);
 #define WET_POROUS 2    // soil, grass block, sand, gravel, clay, wood, cloth, moss: darkens most, holds puddles
 #define WET_PLANT 3     // leaves and plants: darkens a touch, a grazing sheen, no puddles
 #define WET_SHINY 4     // metal, gems: no darkening, sheen, holds puddles
-float hzWetDark(int c) { return c == WET_POROUS ? 0.36 : (c == WET_SOLID ? 0.20 : (c == WET_PLANT ? 0.14 : 0.0)); }
-float hzWetSheen(int c) { return c == WET_SHINY ? 0.45 : (c == WET_PLANT ? 0.25 : (c == WET_SOLID ? 0.20 : (c == WET_POROUS ? 0.12 : 0.0))); }
+// soaked through: soil and grass about a quarter darker, plants a fifth, stone a sixth (scaled by the wetness)
+float hzWetDark(int c) { return c == WET_POROUS ? 0.30 : (c == WET_SOLID ? 0.17 : (c == WET_PLANT ? 0.24 : 0.0)); }
+float hzWetSheen(int c) { return c == WET_SHINY ? 0.45 : (c == WET_PLANT ? 0.35 : (c == WET_SOLID ? 0.28 : (c == WET_POROUS ? 0.22 : 0.0))); }
 
 #endif

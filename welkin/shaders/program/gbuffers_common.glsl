@@ -17,6 +17,7 @@
 // Terrain's vertex colour carries Minecraft's corner shading in its alpha (separateAo, shaders.properties): G_BLOCKID
 // programs take it out of the albedo and hand it to the light ramp, which lays it on the sky's fill only.
 //   G_WATERFLAG  also write colortex3: the water's own lit colour where the pixel is water, for composite's water fog
+//   G_WEATHER    rain and snow: the texture's shape only, as a thin grey-white veil in the sky's light (gbuffers_weather)
 //
 // Without G_DEFERRED the program lights itself with the same light ramp deferred uses (lib/light.glsl).
 
@@ -254,6 +255,18 @@ void main() {
 #else
 	vec3 lit = welkinLight(albedo.rgb, normalize(normalW), lm, emission, d);
 #endif
+#endif
+#ifdef G_WEATHER
+	{
+		// rain: vanilla's streaks are saturated blue and near opaque. Here they are the texture's shape only, a pale
+		// grey-white in the light that falls on them (the sky's fill, a little of the sun or moon, a torch nearby),
+		// half as opaque; snow keeps its white. The air's own haze still lies over them in composite2.
+		float lum = dot(albedo.rgb, vec3(0.2126, 0.7152, 0.0722));
+		float blue = clamp((albedo.b - max(albedo.r, albedo.g)) * 3.0, 0.0, 1.0); // rain's texture is blue, snow's white
+		vec3 veil = welkinLight(vec3(0.82, 0.85, 0.90), vec3(0.0, 1.0, 0.0), lm, 0.0, d);
+		lit = mix(lit, veil * mix(1.0, 0.8 + 0.4 * lum, 0.5), blue);
+		albedo.a *= mix(1.0, 0.42, blue);
+	}
 #endif
 	outColor = vec4(lit, albedo.a);
 #ifdef G_FLAG

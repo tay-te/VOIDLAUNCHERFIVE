@@ -102,12 +102,13 @@ WelkinWet welkinWetSurface(HzState s, inout vec3 albedo, vec3 rel, vec3 n, float
         float edge = mix(0.86, 0.58, smoothstep(0.3, 1.0, s.wet));
         if (field > edge) {
             w.puddle = (s.temp < -0.2 || s.snow > 0.5) ? 3 : 2;
-        } else if (field > edge - 0.035 && w.wet > 0.0) {
+        } else if (field > edge - 0.07 && w.wet > 0.0) {
+            // the soaked ground round a puddle: darker the nearer the water
             w.puddle = 1;
-            albedo *= 1.0 - 0.12 * w.fade;
+            albedo *= 1.0 - 0.18 * w.fade * smoothstep(edge - 0.07, edge, field);
         }
         if (w.puddle == 2) {
-            albedo *= 1.0 - 0.45 * w.fade;      // a dark film of water over the ground; the sky shows in it later
+            albedo *= 1.0 - 0.5 * w.fade;       // the ground seen through the water is darker; the sky shows in it later
         } else if (w.puddle == 3) {
             albedo = mix(albedo, HZ_PUDDLE_ICE * max(hzLuma(albedo) * 1.6, 0.35), 0.6 * w.fade);
         }
@@ -117,19 +118,21 @@ WelkinWet welkinWetSurface(HzState s, inout vec3 albedo, vec3 rel, vec3 n, float
     return w;
 }
 
-// After lighting: the sky in the puddles, glints and drops, and a grazing sheen on wet ground. lightDir: toward the
-// sun or moon (world, unit; Iris shadowLightPosition turned to world); lightColor: its light as the pack lights with
-// it (0 when hidden); skyReflect: the sky colour toward reflect(view, up) (the sky table).
-vec3 welkinWetLight(HzState s, vec3 lit, WelkinWet w, vec3 lightDir, vec3 lightColor, vec3 skyReflect) {
+// After lighting: the sky in the puddles, glints and drops, and a wet sheen. n: the surface's world normal; lightDir:
+// toward the sun or moon (world, unit; Iris shadowLightPosition turned to world); lightColor: its light as the pack
+// lights with it (0 when hidden); skyReflect: what the surface mirrors along reflect(view, normal), the sky with its
+// gradient (and in puddles the clouds overhead), worked out by the caller.
+vec3 welkinWetLight(HzState s, vec3 lit, WelkinWet w, vec3 n, vec3 lightDir, vec3 lightColor, vec3 skyReflect) {
 #ifdef WET_ENABLED
     if (w.wet <= 0.0 && w.puddle == 0) return lit;
     vec3 v = normalize(w.relSnap);
-    float c = clamp(-v.y, 0.0, 1.0);                            // cosine to the up normal
     if (w.puddle >= 2) {
-        // the sky by angle: dull looking down, a bright mirror at a low angle
-        float fres = max(0.2 + 0.7 * pow(1.0 - c, 4.0), 1.0 / 3.0);
+        float c = clamp(-v.y, 0.0, 1.0);                        // cosine to the up normal
+        // a water film: the darkened ground under it, the sky over it by a Fresnel term (a fifth looking straight
+        // down, nearly a mirror at a low angle)
+        float fres = 0.22 + 0.72 * pow(1.0 - c, 3.0);
         vec3 mirror = w.puddle == 3 ? mix(skyReflect, HZ_PUDDLE_ICE * hzLuma(skyReflect) * 1.2, 0.4) : skyReflect;
-        lit = mix(lit, mirror, fres * (w.puddle == 3 ? 0.5 : 0.85) * w.fade);
+        lit = mix(lit, mirror, fres * (w.puddle == 3 ? 0.5 : 1.0) * w.fade);
         // the light's glint: a small soft spot where the reflected view meets the sun or moon
         vec3 r = reflect(v, vec3(0.0, 1.0, 0.0));
         float g = dot(r, lightDir);
@@ -144,10 +147,15 @@ vec3 welkinWetLight(HzState s, vec3 lit, WelkinWet w, vec3 lightDir, vec3 lightC
                 lit = mix(lit, skyReflect * 1.25 + 0.04, 0.6 * w.fade);
             }
         }
-    } else if (w.sheen > 0.0) {
-        // wet ground catches the sky at a grazing angle
-        float sheen = clamp(w.wet * w.sheen * pow(1.0 - c, 5.0) * 2.0, 0.0, 1.0);
-        lit = mix(lit, skyReflect, sheen * 0.5);
+    } else if (w.sheen > 0.0 && w.wet > 0.0) {
+        // wet ground and leaves: a thin gloss of the sky, stronger at a low angle, and a soft highlight of the sun
+        float gloss = w.wet * w.sheen;
+        float c = clamp(dot(-v, n), 0.0, 1.0);
+        float fres = 0.05 + 0.7 * pow(1.0 - c, 4.0);
+        lit = mix(lit, skyReflect, clamp(gloss * fres * 1.6, 0.0, 0.5));
+        vec3 hv = normalize(lightDir - v);
+        float spec = pow(clamp(dot(n, hv), 0.0, 1.0), 48.0) * gloss * 1.1 * step(0.0, dot(n, lightDir));
+        lit += lightColor * spec;
     }
 #endif
     return lit;

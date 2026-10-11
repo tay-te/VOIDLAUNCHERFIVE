@@ -66,7 +66,13 @@ uniform float viewHeight;
 #if defined WET_ENABLED && defined WORLD_OVERWORLD
 #define HZ_HAVE_VIEW_UNIFORMS
 #include "/lib/haze/wet.glsl"
+#include "/lib/watersurf.glsl"
 #define WELKIN_WET
+#if defined CLOUDS && defined WET_PUDDLES
+// the clouds overhead in the puddles: the decks as sheets along the reflected ray (lib/clouds/march.glsl)
+#include "/lib/clouds/shade.glsl"
+#define WELKIN_WET_CLOUDS
+#endif
 #endif
 
 /* RENDERTARGETS: 0 */
@@ -122,7 +128,24 @@ void main() {
 		color.rgb = welkinLightFull(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, flags.w);
 #ifdef WELKIN_WET
 		// puddles mirror the sky (the sky table's horizon), glint toward the light where it reaches, flick with drops
-		color.rgb = welkinWetLight(st, color.rgb, wet, lightDir, skyDirectLight() * reach * sunShare, skyHorizon(false));
+		vec3 skyR = skyHorizon(false);
+		if (wet.wet > 0.0 || wet.puddle > 0) {
+			// what the wet surface mirrors: the sky's gradient along the reflected view (a puddle is level), and in a
+			// puddle the clouds overhead
+			vec3 r = reflect(normalize(eyePos), wet.puddle >= 2 ? vec3(0.0, 1.0, 0.0) : n);
+			skyR = waterSkyColour(r) * smoothstep(0.45, 0.95, g.w);
+#ifdef WELKIN_WET_CLOUDS
+			if (wet.puddle == 2 && r.y > 0.02) {
+				CloudEnv ce = welkinCloudEnv();
+				CloudHit ch = welkinCloudSheets(eyePos, r, 0.0, WC_FAR, ce, wcNoHit());
+				if (ch.hit) {
+					float pixAngle = 2.0 / (gbufferProjection[1][1] * viewHeight);
+					skyR = welkinCloudColor(ch, eyePos, r, ce, pixAngle);
+				}
+			}
+#endif
+		}
+		color.rgb = welkinWetLight(st, color.rgb, wet, n, lightDir, skyDirectLight() * reach * sunShare, skyR);
 #if HAZE_DEBUG == 4
 		color.rgb = welkinWetDebug(wet);
 #endif
