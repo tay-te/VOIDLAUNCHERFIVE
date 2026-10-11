@@ -2,4 +2,5 @@
 #define G_TEXTURED
 #define G_FLAG
 #define G_ENTITY
+#define G_ENTITYID
 #include "/program/gbuffers_common.glsl"

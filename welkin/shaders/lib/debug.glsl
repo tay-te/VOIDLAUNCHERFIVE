@@ -12,6 +12,8 @@
 //              data, the N0 tile drawn 1:1 next to it (blue: lowness)
 //   7 tiles    the VOID near tiles (N0, N1) projected onto the land, with their centre and the mist's top
 //              (lib/mist.glsl, mistDebugTiles)
+//   8 classes  material class per pixel (welkinMatDebugColour); pixels lit in their own program drawn dark
+//   9 lights   light colour class per pixel, brighter where it glows; near black for no light class
 
 #ifndef WELKIN_DEBUG
 #define WELKIN_DEBUG
@@ -88,6 +90,12 @@ vec3 debugView(ivec2 p, vec2 uv, vec3 scene) {
 	return scene;
 #elif DEBUG_VIEW == 7
 	return mistDebugTiles(p, uv, scene);
+#elif DEBUG_VIEW == 8
+	vec4 f = texelFetch(colortex2, p, 0);
+	return f.x > 0.5 ? welkinMatDebugColour(int(f.y * 255.0 + 0.5)) : scene * 0.25;
+#elif DEBUG_VIEW == 9
+	vec4 f = texelFetch(colortex2, p, 0);
+	return f.x > 0.5 ? welkinLightDebugColour(int(f.w * 15.0 + 0.5), f.z) : scene * 0.25;
 #else
 	return scene;
 #endif

@@ -2,4 +2,5 @@
 #define G_TEXTURED
 #define G_DEFERRED
 #define G_BLOCKID
+#define G_SWAY
 #include "/program/gbuffers_common.glsl"

@@ -91,7 +91,7 @@ vec3 welkinLight(vec3 albedo, vec3 n, vec2 lm, float emission, float dither) {
 	float open = steps(clamp((lm.y - 0.55) * 2.6, 0.0, 1.0), 2.0, dither);
 	vec3 direct = lightCol * lit * open;
 #endif
-	vec3 light = ambient + direct + blockCol * block;
+	vec3 light = ambient + direct + blockCol * block * BLOCKLIGHT_STRENGTH;
 	light = max(light, vec3(0.045)); // never quite black: cave walls still read
 	light = mix(light, max(light, vec3(0.55)), nightVision);
 	return albedo * light + albedo * emission;

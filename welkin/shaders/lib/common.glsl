@@ -4,6 +4,7 @@
 #define WELKIN_COMMON
 
 #include "/lib/settings.glsl"
+#include "/lib/materials.glsl"
 
 // G-buffer material ids (colortex2.y * 255), from block.properties and the Distant Horizons materials.
 #define MAT_NONE     0
@@ -18,9 +19,10 @@
 #define MAT_LAVA     9
 #define MAT_CLOUD    10 // vanilla's clouds (gbuffers_clouds): no ground, never under the mist
 
-// block.properties ids are 10000 + the material above.
+// block.properties ids are 10000 + M + 100 * L (lib/materials.glsl): M 0..9 are the materials above, finer
+// classes start at 10, L is the light colour. This returns the fine class; welkinCoarseMat() maps it to MAT_*.
 int materialFromBlockId(int id) {
-	return (id >= 10000 && id < 10100) ? id - 10000 : MAT_NONE;
+	return welkinMat(id);
 }
 
 // 4x4 ordered (Bayer) dither threshold in (0, 1) for an integer cell. The same matrix as

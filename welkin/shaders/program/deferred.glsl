@@ -24,6 +24,7 @@ void main() {
 #include "/lib/depth.glsl"
 #include "/lib/grid.glsl"
 #include "/lib/light.glsl"
+#include "/lib/handlight.glsl"
 #include "/lib/fade.glsl"
 
 in vec2 texcoord;
@@ -73,7 +74,9 @@ void main() {
 #endif
 #if DEBUG_VIEW != 4
 	if (flags.x > 0.5) {
-		color.rgb = welkinLight(color.rgb, n, g.zw, flags.z, d);
+		vec2 lm = g.zw;
+		lm.x = welkinHandBlockLight(lm.x, dist); // a torch in hand lights the ground in the same steps
+		color.rgb = welkinLight(color.rgb, n, lm, flags.z, d);
 	}
 #endif
 #if defined FAR_FADE && DEBUG_VIEW == 0

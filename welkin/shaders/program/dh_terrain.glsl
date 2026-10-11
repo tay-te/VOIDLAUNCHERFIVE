@@ -14,6 +14,7 @@ out vec2 lmcoord;
 out vec3 eyePos;
 flat out vec3 normalW;
 flat out int material;
+flat out int lightClass;
 
 #ifndef WU_gbufferModelViewInverse
 #define WU_gbufferModelViewInverse
@@ -27,15 +28,8 @@ void main() {
 	// Distant Horizons normals are world axes already
 	normalW = gl_Normal;
 	eyePos = (gbufferModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz;
-	int m = dhMaterialId;
-	material = m == DH_BLOCK_LEAVES ? MAT_LEAVES
-		: m == DH_BLOCK_GRASS ? MAT_FOLIAGE
-		: m == DH_BLOCK_WATER ? MAT_WATER
-		: m == DH_BLOCK_SNOW ? MAT_SNOW
-		: m == DH_BLOCK_SAND ? MAT_SAND
-		: m == DH_BLOCK_LAVA ? MAT_LAVA
-		: m == DH_BLOCK_ILLUMINATED ? MAT_EMISSIVE
-		: MAT_STONE;
+	material = welkinDhMat(dhMaterialId);
+	lightClass = welkinDhLight(dhMaterialId);
 }
 
 #endif
@@ -49,6 +43,7 @@ in vec2 lmcoord;
 in vec3 eyePos;
 flat in vec3 normalW;
 flat in int material;
+flat in int lightClass;
 
 #ifndef WU_clipDistance
 #define WU_clipDistance
@@ -83,10 +78,10 @@ void main() {
 	float h = hash01(cell);
 	albedo *= h < 0.3 ? 0.93 : (h > 0.78 ? 1.06 : 1.0);
 #endif
-	float emission = material == MAT_EMISSIVE || material == MAT_LAVA ? 0.85 : 0.0;
+	float emission = lightClass != L_NONE ? 0.85 : 0.0; // lava and lit blocks; far land has no glow mask
 	outColor = vec4(albedo, 1.0);
 	outNormal = vec4(octEncode(normalW), lmcoord);
-	outFlags = vec4(1.0, float(material) / 255.0, emission, 1.0);
+	outFlags = vec4(1.0, float(material) / 255.0, emission, float(lightClass) / 15.0);
 }
 
 #endif

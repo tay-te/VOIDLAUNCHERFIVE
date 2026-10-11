@@ -67,10 +67,13 @@ int voidHeaderVersion() {
 
 // Which channel the pack may read this frame. A newer major contract than VOID_CONTRACT counts as no Gloam.
 int voidMode() {
+#if BRIDGE_MODE == 2
+	return VOID_MODE_NONE; // test switch: as if Gloam were not installed
+#endif
 	if (!voidMagic()) {
 		return VOID_MODE_NONE;
 	}
-	if (void_bridge == 1) {
+	if (void_bridge == 1 && BRIDGE_MODE == 0) { // BRIDGE_MODE 1 tests the header mirror, as if the mixin failed
 		return void_version >= 1 && void_version <= VOID_CONTRACT ? VOID_MODE_FULL : VOID_MODE_NONE;
 	}
 	int v = voidHeaderVersion();
