@@ -7,6 +7,8 @@ profile.comment=Quick settings that set the options costing the most. Low: for o
 
 screen.LIGHT=Light and shadows
 screen.LIGHT.comment=Sunlight, shadows, torch light and glowing blocks.
+screen.SKY=Sky
+screen.SKY.comment=The sky's pixel grid, the sun, the moon and the stars.
 screen.AIR=Haze and mist
 screen.AIR.comment=The air over the land: distance haze coloured by the country you are in, and valley mist.
 screen.PLANTS=Plants and wind
@@ -33,6 +35,33 @@ option.HANDHELD_LIGHT.comment=A torch or other glowing item in your hand lights 
 
 option.EMISSIVE_BLOCKS=Glowing pixels
 option.EMISSIVE_BLOCKS.comment=The bright pixels of torches, lanterns, lava, glowing ores and cave growths glow in their own colour, even in the dark.
+
+option.SKY_PIXEL_SUN=Pixel sun and moon
+option.SKY_PIXEL_SUN.comment=Draws the sun and the moon, with all eight moon phases, as crisp pixel art in the sky instead of the vanilla pictures.
+
+option.SUN_SIZE=Sun size
+option.SUN_SIZE.comment=How large the sun is, in art pixels across its radius.
+
+option.MOON_SIZE=Moon size
+option.MOON_SIZE.comment=How large the moon is, in art pixels across its radius.
+
+option.SKY_ART_PIXEL=Sun and moon pixel size
+option.SKY_ART_PIXEL.comment=How big one pixel of the sun and moon art is. 94 matches one pixel of the vanilla sun.
+
+option.SKY_TEXELS=Sky pixel grid
+option.SKY_TEXELS.comment=How fine the sky's pixel grid is. Colour bands, the dither and the stars all sit on it. Lower looks chunkier.
+
+option.STAR_DENSITY=Number of stars
+option.STAR_DENSITY.comment=How many stars fill a clear, moonless night.
+
+option.STAR_TWINKLE=Twinkling stars
+option.STAR_TWINKLE.comment=Now and then a star drops one step of brightness for a moment.
+
+option.SUN_HALO=Sun ring
+option.SUN_HALO.comment=A thin dithered ring of light around the sun. There is no glow or bloom.
+
+option.NIGHT_SKYLIGHT=Night sky light
+option.NIGHT_SKYLIGHT.comment=How much light the night sky gives, as a share of the day's. VOID Gloam's dark nights then darken it further, as in the game.
 
 option.VALLEY_MIST=Valley mist
 option.VALLEY_MIST.comment=Mist gathers in valleys, hollows and along water at dawn and thins away by midday. Needs VOID Gloam.
@@ -103,3 +132,9 @@ suffix.MIST_FORCE=%
 
 option.DEBUG_JOIN=Show the far land join
 option.DEBUG_JOIN.comment=Draws a magenta line along the join between the near chunks and the far land from VOID LOD, over the finished picture. For testing only.
+
+option.SKY_DEBUG=Sky debug
+option.SKY_DEBUG.comment=Sky test views: the sky colour table, or the sky's bands and rings.
+value.SKY_DEBUG.0=Off
+value.SKY_DEBUG.1=Sky table
+value.SKY_DEBUG.2=Bands

@@ -1,11 +1,12 @@
 // VOID Welkin: the far edge. Land fades into the horizon colour in four flat steps toward the end of what is drawn
 // (the LOD's reach with VOID LOD, the render distance without), so the world never ends in a hard cut against the
-// sky. M2's haze by country replaces the colour; the steps stay.
+// sky. The colour is the sky table's horizon (lib/sky/table.glsl); M2's haze by country tints it further.
 
 #ifndef WELKIN_FADE
 #define WELKIN_FADE
 
 #include "/lib/common.glsl"
+#include "/lib/sky/table.glsl"
 
 #ifndef WU_fogColor
 #define WU_fogColor
@@ -33,8 +34,10 @@ float farFade(float horizontal, float d) {
 	return steps(t * t, 4.0, d);
 }
 
+// The sky table's horizon colour away from the sun (M2; in the Nether and the End the table is a flat fogColor). The
+// haze (M2) fades into its own per-kind horizon; this stays the far edge's colour.
 vec3 horizonColor() {
-	return fogColor;
+	return skyHorizon(false);
 }
 
 #endif

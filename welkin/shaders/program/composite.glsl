@@ -41,6 +41,9 @@ uniform sampler2D colortex0;
 #if DEBUG_VIEW != 0
 #include "/lib/debug.glsl"
 #endif
+#if SKY_DEBUG == 1
+#include "/lib/sky/debug.glsl"
+#endif
 
 #ifdef DEBUG_JOIN
 #ifndef WU_viewWidth
@@ -103,6 +106,9 @@ void main() {
 #endif
 #ifdef DEBUG_JOIN
 	color.rgb = joinLine(p, color.rgb);
+#endif
+#if SKY_DEBUG == 1
+	color.rgb = skyDebugOverlay(p, color.rgb); // the sky table, 8x, bottom left
 #endif
 	outColor = color;
 }

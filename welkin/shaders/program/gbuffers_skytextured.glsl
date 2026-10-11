@@ -1,6 +1,10 @@
-// VOID Welkin: gbuffers_skytextured. The sun and moon (and the End sky): vanilla's pixel-art textures, unlit.
+// VOID Welkin: gbuffers_skytextured. With SKY_PIXEL_SUN (the default) the sun and the moon are the dome's own pixel
+// art (gbuffers_skybasic) and shaders.properties turns vanilla's quads off; their stages are discarded here as well,
+// in case a mod draws them anyway. Everything else (the End sky, a resource pack's custom sky layers, and vanilla's
+// sun and moon with SKY_PIXEL_SUN off) is its texture, unlit.
 
 #include "/lib/common.glsl"
+#include "/lib/sky/settings.glsl"
 
 #ifdef VERTEX_SHADER
 
@@ -24,11 +28,20 @@ in vec4 glcolor;
 #define WU_gtexture
 uniform sampler2D gtexture;
 #endif
+#ifndef WU_renderStage
+#define WU_renderStage
+uniform int renderStage;
+#endif
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
 
 void main() {
+#if defined SKY_PIXEL_SUN && !defined WORLD_NETHER && !defined WORLD_END
+	if (renderStage == MC_RENDER_STAGE_SUN || renderStage == MC_RENDER_STAGE_MOON) {
+		discard;
+	}
+#endif
 	outColor = texture(gtexture, texcoord) * glcolor;
 }
 

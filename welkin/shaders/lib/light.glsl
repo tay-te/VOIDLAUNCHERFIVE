@@ -9,6 +9,8 @@
 #define WELKIN_LIGHT
 
 #include "/lib/common.glsl"
+// the sky table (prepare, colortex5): ambient and direct light, dark nights and lightning already in
+#include "/lib/sky/table.glsl"
 
 #ifndef WU_shadowLightPosition
 #define WU_shadowLightPosition
@@ -62,8 +64,10 @@ float faceShade(vec3 n) {
 }
 
 // The lit colour of `albedo` with world normal `n`, light map levels `lm` (x block, y sky, both 0..1), emission
-// 0..1 and the dither threshold.
-vec3 welkinLight(vec3 albedo, vec3 n, vec2 lm, float emission, float dither) {
+// 0..1 and the dither threshold. sunShare: what of the direct light reaches the face, as a colour (cloud shadow,
+// shadow-map visibility and the tint through glass or water, the season's sun tint); ambientTint: the season's shade
+// tint. welkinLight() passes 1 for both.
+vec3 welkinLightEx(vec3 albedo, vec3 n, vec2 lm, float emission, float dither, vec3 sunShare, vec3 ambientTint) {
 	float face = faceShade(n);
 	float block = rampStep(lm.x, dither);
 	vec3 blockCol = vec3(1.00, 0.80, 0.56) * 1.15;
@@ -75,26 +79,25 @@ vec3 welkinLight(vec3 albedo, vec3 n, vec2 lm, float emission, float dither) {
 	vec3 direct = vec3(0.0);
 #else
 	float sky = rampStep(lm.y, dither);
-	float day = dayAmount();
-	float low = 1.0 - clamp(sunHeight() * 3.5, 0.0, 1.0);
-	vec3 skyDay = mix(vec3(0.60, 0.66, 0.76), vec3(0.62, 0.56, 0.58), low * 0.6);
-	vec3 skyNight = vec3(0.14, 0.16, 0.25);
-	vec3 skyCol = mix(skyNight, skyDay, day) * mix(1.0, 0.72, rainStrength);
-	vec3 ambient = skyCol * sky * face;
+	// the day/night curve x Gloam's gameplay sky light (dark nights) x rain and overcast, plus lightning
+	vec3 ambient = skyAmbientLight() * sky * face * ambientTint;
 
 	// the sun (or the moon) on faces turned to it, in three flat steps, only where the sky reaches
-	vec3 sunCol = mix(vec3(1.00, 0.95, 0.86), vec3(1.00, 0.70, 0.42), low) * 0.50;
-	vec3 moonCol = vec3(0.30, 0.36, 0.52) * 0.30;
-	vec3 lightCol = mix(moonCol, sunCol, day) * (1.0 - rainStrength * 0.85);
+	// (sun or moon as shadowLightPosition, its strength stepped, through the cloud cover)
+	vec3 lightCol = skyDirectLight();
 	float ndl = dot(n, lightDirWorld());
 	float lit = ndl > 0.6 ? 1.0 : (ndl > 0.2 ? 0.6 : (ndl > 0.0 ? 0.3 : 0.0));
 	float open = steps(clamp((lm.y - 0.55) * 2.6, 0.0, 1.0), 2.0, dither);
-	vec3 direct = lightCol * lit * open;
+	vec3 direct = lightCol * lit * open * sunShare;
 #endif
 	vec3 light = ambient + direct + blockCol * block * BLOCKLIGHT_STRENGTH;
 	light = max(light, vec3(0.045)); // never quite black: cave walls still read
 	light = mix(light, max(light, vec3(0.55)), nightVision);
 	return albedo * light + albedo * emission;
+}
+
+vec3 welkinLight(vec3 albedo, vec3 n, vec2 lm, float emission, float dither) {
+	return welkinLightEx(albedo, n, lm, emission, dither, vec3(1.0), vec3(1.0));
 }
 
 #endif

@@ -1,6 +1,12 @@
-// VOID Welkin: gbuffers_skybasic. The sky dome in flat bands: the vanilla sky colour overhead stepping down to the
-// fog colour at the horizon, in five bands with Bayer-dithered edges. Stars and the sunrise fan keep vanilla's
-// geometry; the fan's fade is cut into steps too. (M2 replaces the colours with the prepare pass's sky table.)
+// VOID Welkin: gbuffers_skybasic. The sky dome, drawn per pixel from the prepare pass's sky table (lib/sky/dome.glsl):
+// flat bands from the horizon to the zenith, the dusk palette's glow rings round the sun and the moon's halo, all on
+// the sky's own pixel grid with Bayer-dithered edges; then the stars (count from Gloam's void_light, twinkling in
+// steps), the moon by phase and the sun as pixel art.
+//
+// Every piece of sky geometry vanilla and Iris send through here (the sky disc, Iris's horizon, the dark disc below)
+// gets the same per-pixel colour from its view direction, so the geometry only decides coverage. Vanilla's stars and
+// sunrise fan are discarded: the dome draws its own. Sky pixels keep colortex2 clear, so deferred leaves them alone.
+// The Nether and the End keep M0's banded vanilla colours.
 
 #include "/lib/common.glsl"
 
@@ -23,14 +29,6 @@ in vec4 glcolor;
 #define WU_renderStage
 uniform int renderStage;
 #endif
-#ifndef WU_skyColor
-#define WU_skyColor
-uniform vec3 skyColor;
-#endif
-#ifndef WU_fogColor
-#define WU_fogColor
-uniform vec3 fogColor;
-#endif
 #ifndef WU_viewWidth
 #define WU_viewWidth
 uniform float viewWidth;
@@ -39,17 +37,44 @@ uniform float viewWidth;
 #define WU_viewHeight
 uniform float viewHeight;
 #endif
+#ifndef WELKIN_DEPTH
 #ifndef WU_gbufferProjectionInverse
 #define WU_gbufferProjectionInverse
 uniform mat4 gbufferProjectionInverse;
+#endif
+#endif
+
+/* RENDERTARGETS: 0 */
+layout(location = 0) out vec4 outColor;
+
+#if !defined WORLD_NETHER && !defined WORLD_END
+
+#include "/lib/sky/dome.glsl"
+
+void main() {
+	if (renderStage == MC_RENDER_STAGE_STARS || renderStage == MC_RENDER_STAGE_SUNSET) {
+		discard;
+	}
+	vec4 ndc = vec4(gl_FragCoord.xy / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0);
+	vec4 view = gbufferProjectionInverse * ndc;
+	vec3 dir = mat3(gbufferModelViewInverse) * (view.xyz / view.w);
+	outColor = vec4(skyFull(dir), 1.0);
+}
+
+#else
+
+#ifndef WU_skyColor
+#define WU_skyColor
+uniform vec3 skyColor;
+#endif
+#ifndef WU_fogColor
+#define WU_fogColor
+uniform vec3 fogColor;
 #endif
 #ifndef WU_gbufferModelViewInverse
 #define WU_gbufferModelViewInverse
 uniform mat4 gbufferModelViewInverse;
 #endif
-
-/* RENDERTARGETS: 0 */
-layout(location = 0) out vec4 outColor;
 
 float skyDither() {
 #ifdef DITHER
@@ -65,17 +90,16 @@ void main() {
 		return;
 	}
 	if (renderStage == MC_RENDER_STAGE_SUNSET) {
-		// the sunrise and sunset fan: its colour, its fade in four steps
 		outColor = vec4(glcolor.rgb, steps(glcolor.a, 4.0, skyDither()));
 		return;
 	}
 	vec4 ndc = vec4(gl_FragCoord.xy / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0);
 	vec4 view = gbufferProjectionInverse * ndc;
 	vec3 dir = normalize(mat3(gbufferModelViewInverse) * (view.xyz / view.w));
-	float t = clamp(dir.y * 2.4 + 0.08, 0.0, 1.0);
-	t = sqrt(t);
-	float band = steps(t, 5.0, skyDither());
-	outColor = vec4(mix(fogColor, skyColor, band), 1.0);
+	float t = sqrt(clamp(dir.y * 2.4 + 0.08, 0.0, 1.0));
+	outColor = vec4(mix(fogColor, skyColor, steps(t, 5.0, skyDither())), 1.0);
 }
+
+#endif
 
 #endif
