@@ -1,5 +1,6 @@
 package dev.voidmc.gloam.gametest;
 
+import dev.voidmc.expanse.api.ExpanseUnderground;
 import dev.voidmc.expanse.world.terrain.EarthChunkGenerator;
 import dev.voidmc.expanse.world.terrain.TerrainModel;
 import dev.voidmc.gloam.GloamSettings;
@@ -300,6 +301,9 @@ public class GloamShowcase implements FabricClientGameTest {
 		views.add(new View("wtiles0", p.valleyX(), p.valleyY() + 40, p.valleyZ(), toWater, 35, 70, 23500, "clear", 2));
 		views.add(new View("wtiles1", p.valleyX() + 160, p.valleyY() + 40, p.valleyZ(), toWater, 35, 70, 23500, "clear", 2));
 		views.add(new View("wfar0", p.peakX(), p.peakY() + 20, p.peakZ(), p.toPeak() + 180, 8, 70, 23500, "clear", 2));
+		// under the land: the widest cavern Expanse knows near the valley (found when shot, see findCave), for the
+		// underground tile U, void_underground / void_cave and the cave beds
+		views.add(new View("wcave0", p.valleyX(), p.valleyY() - 40, p.valleyZ(), 0, 10, 70, 6000, "clear", 6));
 		// a survey from 40 blocks over the valley floor, four ways round, to find the view with the most hollows
 		for (int i = 0; i < 4; i++) {
 			views.add(new View("wsurvey" + i, p.valleyX(), p.valleyY() + 40, p.valleyZ(), i * 90, 20, 70, 23500, "clear", 2));
@@ -506,6 +510,34 @@ public class GloamShowcase implements FabricClientGameTest {
 	 * there in vanilla (warm enough at that height) but is cool enough to snow in deep winter, looking back down to the
 	 * valley.
 	 */
+	/**
+	 * The most open point Expanse's caverns have within 1.5 km of {@code near} and 24..96 blocks under the land: the eye
+	 * three blocks over its floor (x, y, z, space). Without Expanse, {@code near} as it is.
+	 */
+	static int[] findCave(ServerLevel level, View near) {
+		ExpanseUnderground.Sampler caves = ExpanseUnderground.sampler(level);
+		if (caves == null || !(level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth)) {
+			return new int[]{near.x(), near.y(), near.z(), 0};
+		}
+		TerrainModel model = earth.model(level.getChunkSource().randomState());
+		int[] best = {near.x(), near.y(), near.z(), 0};
+		float most = 0;
+		for (int dx = -1536; dx <= 1536; dx += 96) {
+			for (int dz = -1536; dz <= 1536; dz += 96) {
+				int x = near.x() + dx, z = near.z() + dz;
+				int top = (int) model.sample(x, z).height;
+				for (int y = top - 24; y >= top - 96 && y > level.getMinY() + 8; y -= 8) {
+					ExpanseUnderground.Here h = caves.at(x, y, z);
+					if (h.underground() && h.space() > most && h.ceiling() - h.floor() >= 8 && h.waterDistance() > 3) {
+						most = h.space();
+						best = new int[]{x, h.floor() + 3, z, (int) h.space()};
+					}
+				}
+			}
+		}
+		return best;
+	}
+
 	static int[] findHill(ServerLevel level, Places p) {
 		if (!(level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth)) {
 			return new int[]{p.valleyX(), p.valleyY(), p.valleyZ(), 0};
@@ -605,6 +637,12 @@ public class GloamShowcase implements FabricClientGameTest {
 			System.out.printf(Locale.ROOT, "[gloam] %s: ground %d at %d %d%n", planned.name(), ground, planned.x(), planned.z());
 			return new View(planned.name(), planned.x(), ground - planned.y(), planned.z(), planned.yaw(), planned.pitch(), planned.fov(), planned.time(),
 				planned.weather(), planned.linger());
+		}
+		if (planned.name().startsWith("wcave")) {
+			int[] c = world.getServer().computeOnServer(server -> findCave(server.overworld(), planned));
+			System.out.printf(Locale.ROOT, "[gloam] %s: cavern at %d %d %d, space %d%n", planned.name(), c[0], c[1], c[2], c[3]);
+			return new View(planned.name(), c[0], c[1], c[2], planned.yaw(), planned.pitch(), planned.fov(), planned.time(), planned.weather(),
+				planned.linger());
 		}
 		if (planned.name().startsWith("range")) {
 			if (!rangesFound) {

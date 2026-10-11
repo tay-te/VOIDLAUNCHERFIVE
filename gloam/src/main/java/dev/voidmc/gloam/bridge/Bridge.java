@@ -138,12 +138,16 @@ public final class Bridge {
 		String name = on ? Shaders.packName() : null;
 		welkin = on && name != null && name.toLowerCase(Locale.ROOT).contains("welkin");
 		packOn = on;
+		int more = 0;
 		if (level == null || !GloamSettings.get().enabled || Atmosphere.get().level() != level) {
 			source = null;
 			sourceOf = null;
 			tiles = 0;
+			BridgeWorld.reset();
 		} else {
 			values(mc, level);
+			// the weather, far land and underground tiles (written while no pack is on too, so they are whole when one comes on)
+			more = BridgeWorld.write(mc, level, texture.bytes, texture::mark, on);
 		}
 		if (!on) {
 			wasOn = false;
@@ -174,7 +178,8 @@ public final class Bridge {
 		Contract.header(b, flags, frame++);
 		Contract.centre(b, Contract.N0, centreX, centreZ);
 		Contract.centre(b, Contract.N1, centreX, centreZ);
-		Contract.masks(b, tiles, Uniforms.LIVE);
+		Contract.masks(b, tiles | more, Uniforms.LIVE);
+		BridgeWorld.mirrorFrameValues();
 		Uniforms.mirror(b);
 		texture.markHeader();
 		texture.upload();
@@ -214,6 +219,8 @@ public final class Bridge {
 		GloamSky.light(LIGHT);
 		// the star factor (Night.stars, up to 1.5) goes over as the contract's 0..1 star amount
 		Uniforms.set(Slot.LIGHT, LIGHT[0], LIGHT[1] / 1.5F, LIGHT[2], LIGHT[3]);
+		// the rest of section 2.2, and the weather tiles
+		BridgeWorld.values(mc, level);
 
 		Camera camera = mc.gameRenderer.mainCamera();
 		Vec3 eye = camera.isInitialized() ? camera.position() : mc.player != null ? mc.player.getEyePosition() : Vec3.ZERO;
@@ -253,7 +260,8 @@ public final class Bridge {
 				+ "upload %.1f KB and %.1f calls a tick (peak %.1f KB), %.3f ms a tick; at the camera: %s",
 			Shaders.packName(), welkin, registered ? "registered" : "MISSING", Uniforms.ENABLED ? "on" : "off", Uniforms.injected,
 			centreX, centreZ, LAND.filling() ? "filling" : "full", LAND.cells(), workerStrips == 0 ? 0 : workerNanos / 1e6 / workerStrips,
-			sentBytes / 1024.0 / ticks, sentCalls / (double) ticks, peakBytes / 1024.0, sentNanos / 1e6 / ticks, sample);
+			sentBytes / 1024.0 / ticks, sentCalls / (double) ticks, peakBytes / 1024.0, sentNanos / 1e6 / ticks, sample) + "; " + BridgeWorld.stats()
+			+ "; header tile mask " + Integer.toBinaryString(0x80 | tiles | BridgeWorld.mask()).substring(1) + " (U W1 W0 F1 F0 N1 N0)";
 		sentBytes = sentCalls = sentTicks = sentNanos = peakBytes = 0;
 		return s;
 	}

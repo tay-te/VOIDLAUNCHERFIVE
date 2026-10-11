@@ -1,6 +1,8 @@
 package dev.voidmc.gloam.far;
 
 import dev.voidmc.gloam.Gloam;
+import dev.voidmc.gloam.bridge.FarTiles;
+import dev.voidmc.gloam.bridge.TileCodec;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,7 +23,7 @@ import net.minecraft.world.level.material.Fluids;
  *
  * <p>Kept in regions of {@value #REGION} x {@value #REGION} cells (4 km); regions far from the camera are let go.
  */
-public final class FarLand {
+public final class FarLand implements FarTiles.FarSource {
 	/** Cell size in blocks. */
 	public static final int CELL = 128;
 	static final int REGION = 32;
@@ -54,6 +56,8 @@ public final class FarLand {
 
 	private final Map<Long, Region> regions = new ConcurrentHashMap<>();
 	private final Map<ResourceKey<Biome>, float[]> climates = new ConcurrentHashMap<>();
+	/** The bridge's far cells ({@link TileCodec#FAR_CELL}) new land arrived in, for {@link FarTiles}. */
+	private final java.util.Set<Long> arrivals = ConcurrentHashMap.newKeySet();
 	private volatile ResourceKey<Level> dimension;
 	private volatile boolean listening;
 
@@ -82,11 +86,12 @@ public final class FarLand {
 	/** Forgets everything (a new level). */
 	void reset() {
 		this.regions.clear();
+		this.arrivals.clear();
 		this.dimension = null;
 	}
 
 	/** Lets go of regions further than {@code reach} blocks from (x, z). */
-	void trim(double x, double z, double reach) {
+	public void trim(double x, double z, double reach) {
 		double r = reach + REGION_BLOCKS;
 		this.regions.keySet().removeIf(k -> {
 			double cx = ((int) (k >> 32) + 0.5) * REGION_BLOCKS, cz = ((int) (long) k + 0.5) * REGION_BLOCKS;
@@ -166,6 +171,10 @@ public final class FarLand {
 					continue;
 				}
 				r.height[at] = (short) Math.round(sum / n);
+				if (this.arrivals.size() < 70_000) {
+					// (unbounded only if no pack ever drains it: the far tiles read every cell afresh when they fill it anyway)
+					this.arrivals.add(key(Math.floorDiv(cx * CELL, TileCodec.FAR_CELL), Math.floorDiv(cz * CELL, TileCodec.FAR_CELL)));
+				}
 				r.detail[at] = (byte) detail;
 				r.water[at] = (byte) Math.round(255.0F * waters / n);
 				// asked of Expanse again with the new land (its wetness takes the downfall's place once more)
@@ -178,6 +187,58 @@ public final class FarLand {
 					r.downfall[at] = (byte) Math.round(0.6F * 255);
 				}
 			}
+		}
+	}
+
+	/**
+	 * Sums up the known cells in the square {@code minX .. minX + size} (blocks; whole cells) for the bridge's far tiles:
+	 * how many are known, the lower quartile and the mean of their ground, their water share, and their biomes' mean
+	 * temperature and downfall. Any thread (the cells are written by VOID LOD's listener meanwhile; a torn cell is as
+	 * good as the next tile's).
+	 */
+	@Override
+	public boolean summary(int minX, int minZ, int size, FarTiles.Summary out) {
+		int c0x = Math.floorDiv(minX, CELL), c0z = Math.floorDiv(minZ, CELL), n = Math.max(1, size / CELL);
+		short[] heights = new short[n * n];
+		int known = 0;
+		float sum = 0, water = 0, temp = 0, wet = 0;
+		for (int cz = c0z; cz < c0z + n; cz++) {
+			for (int cx = c0x; cx < c0x + n; cx++) {
+				Region r = this.region(cx, cz);
+				if (r == null) {
+					continue;
+				}
+				int at = Math.floorMod(cz, REGION) * REGION + Math.floorMod(cx, REGION);
+				short h = r.height[at];
+				if (h == UNKNOWN) {
+					continue;
+				}
+				heights[known++] = h;
+				sum += h;
+				water += (r.water[at] & 255) / 255.0F;
+				temp += (r.temperature[at] & 255) / 64.0F - 1;
+				wet += (r.downfall[at] & 255) / 255.0F;
+			}
+		}
+		out.known = known;
+		if (known == 0) {
+			return false;
+		}
+		java.util.Arrays.sort(heights, 0, known);
+		out.floor = heights[(known - 1) / 4];
+		out.mean = sum / known;
+		out.water = water / known;
+		out.temperature = temp / known;
+		out.downfall = wet / known;
+		return true;
+	}
+
+	/** Hands over the far cells new land arrived in since the last call. */
+	@Override
+	public void drainArrivals(java.util.function.LongConsumer cells) {
+		for (java.util.Iterator<Long> it = this.arrivals.iterator(); it.hasNext(); ) {
+			cells.accept(it.next());
+			it.remove();
 		}
 	}
 

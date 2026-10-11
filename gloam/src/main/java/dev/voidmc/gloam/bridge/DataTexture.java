@@ -21,8 +21,11 @@ import org.lwjgl.system.MemoryUtil;
 final class DataTexture extends AbstractTexture {
 	/** The header's texel columns that hold anything (row 0's fields and the mirror's slots). */
 	private static final int HEADER_USED = 64;
-	/** More dirty lines than this in a tile and the whole tile goes up instead. */
-	private static final int WHOLE_TILE = 48;
+	/**
+	 * More dirty lines than this in a tile and the whole tile goes up instead. Runs of neighbouring lines go up as one
+	 * rectangle, so a band of rows (the weather tiles' rebuild, 64 rows a tick) is one call, not 64.
+	 */
+	private static final int WHOLE_TILE = 160;
 
 	final byte[] bytes = new byte[Contract.WIDTH * Contract.HEIGHT * 4];
 	private final BitSet[] rows = new BitSet[Contract.TILES], columns = new BitSet[Contract.TILES];
@@ -80,13 +83,17 @@ final class DataTexture extends AbstractTexture {
 				sent += this.send(encoder, x0, y0, Contract.TILE, Contract.TILE);
 				calls++;
 			} else {
-				for (int i = r.nextSetBit(0); i >= 0; i = r.nextSetBit(i + 1)) {
-					sent += this.send(encoder, x0, y0 + i, Contract.TILE, 1);
+				for (int i = r.nextSetBit(0); i >= 0; ) {
+					int end = r.nextClearBit(i);
+					sent += this.send(encoder, x0, y0 + i, Contract.TILE, end - i);
 					calls++;
+					i = r.nextSetBit(end);
 				}
-				for (int i = c.nextSetBit(0); i >= 0; i = c.nextSetBit(i + 1)) {
-					sent += this.send(encoder, x0 + i, y0, 1, Contract.TILE);
+				for (int i = c.nextSetBit(0); i >= 0; ) {
+					int end = c.nextClearBit(i);
+					sent += this.send(encoder, x0 + i, y0, end - i, Contract.TILE);
 					calls++;
+					i = c.nextSetBit(end);
 				}
 			}
 			this.whole[t] = false;

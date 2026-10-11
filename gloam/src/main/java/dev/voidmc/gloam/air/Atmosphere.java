@@ -2,6 +2,8 @@ package dev.voidmc.gloam.air;
 
 import dev.voidmc.gloam.Gloam;
 import dev.voidmc.gloam.GloamSettings;
+import dev.voidmc.gloam.bridge.BridgeWorld;
+import dev.voidmc.gloam.bridge.RainShadow;
 import dev.voidmc.gloam.compat.Expanse;
 import dev.voidmc.gloam.mixin.BiomeManagerAccessor;
 import dev.voidmc.gloam.mixin.LevelAccessor;
@@ -96,7 +98,10 @@ public final class Atmosphere {
 		long clock = level.getOverworldClockTime();
 		long gameTime = level.getGameTime();
 		float year = this.air.year(clock);
-		float front = level.dimensionType().hasSkyLight() ? this.air.front(eye.x, eye.z, gameTime, year, this.downfall) : 0;
+		// the fronts, leaned on by the land's rain shadows as the bridge's weather tiles hold them (last tick's wind), so the
+		// rain here, its sound and the shader pack's clouds agree
+		float front = level.dimensionType().hasSkyLight()
+			? RainShadow.front(this.air.front(eye.x, eye.z, gameTime, year, this.downfall), BridgeWorld.leanAt(eye.x, eye.z, this.here.wind())) : 0;
 		float vanilla = vanillaRain(level, 1.0F);
 		boolean precipitation = level.canHaveWeather() && biome.hasPrecipitation();
 		float rain = precipitation ? Air.rain(vanilla, front, GloamSettings.get().showers) : 0;

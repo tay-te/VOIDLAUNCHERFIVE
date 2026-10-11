@@ -3,6 +3,7 @@ package dev.voidmc.gloam.bridge;
 import dev.voidmc.gloam.Gloam;
 import dev.voidmc.gloam.bridge.Contract.Slot;
 import org.joml.Vector2i;
+import org.joml.Vector3i;
 import org.joml.Vector4f;
 
 /**
@@ -20,10 +21,9 @@ public final class Uniforms {
 	static final int[] INTS = new int[Slot.values().length * 3];
 	private static final Vector4f[] VEC4 = new Vector4f[Slot.values().length];
 	private static final Vector2i[] IVEC2 = new Vector2i[Slot.values().length];
+	private static final Vector3i[] IVEC3 = new Vector3i[Slot.values().length];
 	/** The slots Gloam fills in this version: the uniforms it declares to Iris and the header's live mask. */
-	static final int LIVE = bits(Slot.BRIDGE, Slot.VERSION, Slot.SEED, Slot.YEAR, Slot.WARMTH, Slot.SEASON, Slot.WIND, Slot.FRONT,
-		Slot.CLOUD_COVER, Slot.RAIN, Slot.SHOWERS, Slot.STORM, Slot.MIST, Slot.MIST_TOP, Slot.MIST_TIME, Slot.WETNESS, Slot.LIGHT,
-		Slot.NEAR_CENTRE);
+	static final int LIVE = all();
 	/** Whether Iris asked for the uniforms (the injection applied), and how many times. */
 	static volatile int injected;
 
@@ -31,6 +31,7 @@ public final class Uniforms {
 		for (int i = 0; i < VEC4.length; i++) {
 			VEC4[i] = new Vector4f();
 			IVEC2[i] = new Vector2i();
+			IVEC3[i] = new Vector3i();
 		}
 		INTS[Slot.BRIDGE.ordinal() * 3] = 1;
 		INTS[Slot.VERSION.ordinal() * 3] = Contract.VERSION;
@@ -39,9 +40,10 @@ public final class Uniforms {
 	private Uniforms() {
 	}
 
-	private static int bits(Slot... slots) {
+	/** Every slot of the contract: with {@link BridgeWorld} the whole of design section 2.2 is filled. */
+	private static int all() {
 		int m = 0;
-		for (Slot s : slots) {
+		for (Slot s : Slot.values()) {
 			m |= s.bit();
 		}
 		return m;
@@ -74,6 +76,17 @@ public final class Uniforms {
 		Vector2i v = IVEC2[slot.ordinal()];
 		if (v.x != x || v.y != y) {
 			IVEC2[slot.ordinal()] = new Vector2i(x, y);
+		}
+	}
+
+	static void set(Slot slot, int x, int y, int z) {
+		int o = slot.ordinal() * 3;
+		INTS[o] = x;
+		INTS[o + 1] = y;
+		INTS[o + 2] = z;
+		Vector3i v = IVEC3[slot.ordinal()];
+		if (v.x != x || v.y != y || v.z != z) {
+			IVEC3[slot.ordinal()] = new Vector3i(x, y, z);
 		}
 	}
 
@@ -115,10 +128,13 @@ public final class Uniforms {
 			net.irisshaders.iris.gl.uniform.UniformHolder u = (net.irisshaders.iris.gl.uniform.UniformHolder) h;
 			net.irisshaders.iris.gl.uniform.UniformUpdateFrequency once = net.irisshaders.iris.gl.uniform.UniformUpdateFrequency.ONCE;
 			net.irisshaders.iris.gl.uniform.UniformUpdateFrequency frame = net.irisshaders.iris.gl.uniform.UniformUpdateFrequency.PER_FRAME;
+			// the two that move between ticks: worked out for the frame (the wind eased, the fronts' frame drifting)
+			u.uniform4f(frame, Slot.WIND.glsl, BridgeWorld::windNow);
+			u.uniform4f(frame, Slot.WEATHER_SHIFT.glsl, BridgeWorld::weatherShiftNow);
 			u.uniform1i(once, Slot.BRIDGE.glsl, () -> 1);
 			u.uniform1i(once, Slot.VERSION.glsl, () -> Contract.VERSION);
 			for (Slot slot : Slot.values()) {
-				if (slot == Slot.BRIDGE || slot == Slot.VERSION || (LIVE & slot.bit()) == 0) {
+				if (slot == Slot.BRIDGE || slot == Slot.VERSION || slot == Slot.WIND || slot == Slot.WEATHER_SHIFT || (LIVE & slot.bit()) == 0) {
 					continue;
 				}
 				int i = slot.ordinal();
@@ -127,9 +143,7 @@ public final class Uniforms {
 					case FLOAT -> u.uniform1f(frame, slot.glsl, (net.irisshaders.iris.gl.uniform.FloatSupplier) () -> FLOATS[i * 4]);
 					case VEC4 -> u.uniform4f(frame, slot.glsl, () -> VEC4[i]);
 					case IVEC2 -> u.uniform2i(frame, slot.glsl, () -> IVEC2[i]);
-					case IVEC3 -> {
-						// none live in this version
-					}
+					case IVEC3 -> u.uniform3i(frame, slot.glsl, () -> IVEC3[i]);
 				}
 			}
 		}

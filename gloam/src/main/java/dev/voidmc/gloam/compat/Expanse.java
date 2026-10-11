@@ -57,6 +57,17 @@ public final class Expanse {
 	@FunctionalInterface
 	public interface RawSampler {
 		Raw at(int x, int z);
+
+		/**
+		 * The land averaged over a cell of half a kilometre and more round (x, z), for the bridge's far tiles and the
+		 * weather tiles' land lattices: Expanse's far-view model (its plates on a 512-block grid, a few microseconds a
+		 * call), which never builds a full plate, so sampling a 300 km reach neither takes minutes nor evicts the plates
+		 * the chunk generator is using. No rivers, lakes or local lowness: {@code waterDistance} is 1000 and
+		 * {@code lowness} 0 on land. Without the far model, {@link #at}.
+		 */
+		default Raw far(int x, int z) {
+			return this.at(x, z);
+		}
 	}
 
 	private static IntegratedServer server;
@@ -125,10 +136,62 @@ public final class Expanse {
 			if (s == null) {
 				return null;
 			}
-			return (x, z) -> {
-				dev.voidmc.expanse.api.ExpanseCountry.Here h = s.at(x, z);
-				return new Raw(h.humidity(), h.temperature(), h.lowness(), h.waterDistance(), h.coastDistance(), h.altitude(), h.haze());
+			RawSampler far = far(level);
+			return new RawSampler() {
+				@Override
+				public Raw at(int x, int z) {
+					dev.voidmc.expanse.api.ExpanseCountry.Here h = s.at(x, z);
+					return new Raw(h.humidity(), h.temperature(), h.lowness(), h.waterDistance(), h.coastDistance(), h.altitude(), h.haze());
+				}
+
+				@Override
+				public Raw far(int x, int z) {
+					return far == null ? this.at(x, z) : far.at(x, z);
+				}
 			};
+		}
+
+		/**
+		 * Expanse's far-view column ({@code TerrainModel.sampleFar}) in {@link Raw}'s terms, or null if that part of
+		 * Expanse is not what Gloam expects. Expanse's API has no far call yet, so this reaches into its terrain model
+		 * (public, but not API); the haze hint follows {@code ExpanseCountry}'s rule.
+		 */
+		private static RawSampler far(net.minecraft.server.level.ServerLevel level) {
+			try {
+				if (!(level.getChunkSource().getGenerator() instanceof dev.voidmc.expanse.world.terrain.EarthChunkGenerator earth)) {
+					return null;
+				}
+				dev.voidmc.expanse.world.terrain.TerrainModel model = earth.model(level.getChunkSource().randomState());
+				ThreadLocal<dev.voidmc.expanse.world.terrain.TerrainModel.FarColumn> columns =
+					ThreadLocal.withInitial(dev.voidmc.expanse.world.terrain.TerrainModel.FarColumn::new);
+				RawSampler far = (x, z) -> {
+					dev.voidmc.expanse.world.terrain.TerrainModel.FarColumn c = columns.get();
+					model.sampleFar(x, z, c);
+					float humidity = Math.clamp((c.humidity + 1) / 2, 0F, 1F);
+					float coast = c.ocean ? Math.min(c.coast, -1) : c.coast;
+					String haze;
+					if (c.temperature < -0.2F && c.height > 150) {
+						haze = "clear_alpine";
+					} else if (humidity < 0.35F && c.temperature > 0.2F) {
+						haze = "dusty";
+					} else if (c.country == 4) {
+						haze = "misty_lakes";
+					} else if (c.country == 6 || c.country == 2) {
+						haze = "forest_damp";
+					} else if (humidity > 0.6F && c.height < 100) {
+						haze = "humid_lowland";
+					} else {
+						haze = "temperate";
+					}
+					return new Raw(humidity, c.temperature, 0, 1000, coast, c.height, haze);
+				};
+				// once here, so a changed far model fails now (and is caught) rather than on the bridge's worker
+				far.at(0, 0);
+				return far;
+			} catch (LinkageError | RuntimeException e) {
+				Gloam.LOGGER.warn("VOID Gloam: Expanse's far-view model is not what Gloam expects; the far tiles sample its countries instead", e);
+				return null;
+			}
 		}
 	}
 }

@@ -199,6 +199,11 @@ public final class FarAir {
 		return l == null || !INSTANCE.replacing ? null : new int[]{l.low(), l.main(), l.high()};
 	}
 
+	/** The far land VOID LOD's tiles have told Gloam of (for the shader-pack bridge's far tiles and rain shadow). */
+	public static FarLand land() {
+		return INSTANCE.land;
+	}
+
 	/** The far land the air has been told of (for the showcase: whether VOID LOD's tiles reached it). */
 	public static boolean landKnown() {
 		return INSTANCE.land.known();

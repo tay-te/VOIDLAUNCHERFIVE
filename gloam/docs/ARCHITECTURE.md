@@ -241,16 +241,22 @@ With their own clouds the packs still follow Gloam's weather through the rain le
 ## The bridge to VOID Welkin: `dev.voidmc.gloam.bridge` (`Bridge`)
 
 VOID Welkin (the VOID shader pack, branch `welkin`) draws every pixel; Gloam works out the world's state and hands it
-over through two channels (contract version 1; the design is the Welkin design document, section 2). M1 is built: the
-uniforms below, the header and the near land tiles N0/N1. The other tiles stay zero until their milestones.
+over through two channels (contract version 1; the design is the Welkin design document, section 2). Built: every
+uniform of section 2.2 (31 slots, all live), the header and its mirror, and every tile: the near land N0/N1 (M1), the
+weather W0/W1, the far land F0/F1 and the underground U (wave 2, `BridgeWorld`).
 
 | Class | What it is |
 |---|---|
-| `Bridge` | The client tick (after the atmosphere and the sky): the uniforms' values, the camera's 16 m cell, the header, and the upload of what changed. Registers the texture at `CLIENT_STARTED`. Nothing is uploaded, and the worker rests, while no shader pack is on. `stats()` for the showcase's log. |
+| `Bridge` | The client tick (after the atmosphere and the sky): the uniforms' values, the camera's 16 m cell, the header, and the upload of what changed. Registers the texture at `CLIENT_STARTED`. Nothing is uploaded, and the near and far workers rest, while no shader pack is on; the weather tiles keep running into the CPU bytes (the camera's rain leans on their land), so they are whole when a pack comes on. `stats()` for the showcase's log. |
 | `Contract` | Pure: the texture's layout, wrap addressing, h16 heights, the cell texels, the uniform order and ranges, the header mirror (`ContractTest`). |
 | `Uniforms` | The `void_*` values (plain field reads for Iris every frame) and Iris's side in a nested class. |
 | `LandTiles` | N0/N1 rolling with the camera: a worker works out the strip that came into range (256 cells) from Expanse's country sampler; strips reach the render thread with the centre they belong to (`LandTilesTest`). |
 | `DataTexture` | `gloam:pack/data`, RGBA8 1024x516, one mip; uploads the used header columns and per tile the changed rows or columns (or the whole tile when many). |
+| `BridgeWorld` | Wave 2's half of the tick: the uniforms `Bridge` does not set (season state, max storm, haze, haze kind, climate, shelter, sky, cloud layers, underground, cave, far and underground centres; wind and weather shift per frame), and the W, F and U tiles' jobs on one worker ("VOID Gloam bridge tiles", minimum priority). `stats()` ends `Bridge.stats()`. |
+| `WeatherTiles`, `RainShadow`, `LandRaster` | W0/W1: the fronts on a drifting frame (128- and 1024-block cells, 256² each), rebuilt every 200 ticks or when vanilla's rain or thunder moves (spread over 4 ticks), stepped a line when the frame cell changes. The land's lean (rain shadow, windward lift) from a 512/4096-block lattice of land heights; the camera's own front takes the same lean (`Atmosphere`), so rain and sound agree with the pack's clouds (`WeatherTilesTest`, `RainShadowTest`). |
+| `FarTiles` | F0/F1: 1024-block cells, 256² round the camera, from Expanse (five samples a cell within 16 km, one beyond) and VOID LOD's far land (`FarLand.summary`), nearest rows first, one line a km crossed (`FarTilesTest`). |
+| `UndergroundTile`, `ClientCaves` | U: 4-block cells, a 128² window at the eye's height (base re-set past 6 blocks), every 10 ticks while the eye is under the land; from `ExpanseUnderground` on the worker, else from the loaded blocks on the client thread (`UndergroundTileTest`). |
+| `TileCodec`, `TileStrip`, `RollingWindow`, `StripQueue`, `SeasonSnow`, `AirReadout` | Pure: the W/F/U byte layouts and weather-shift wrap, strips and their hand-over with a per-tick line budget, the snowline height, and the readouts the uniforms share with the old far air and sky (`TileCodecTest`, `RollingWindowTest`, `StripQueueTest`, `SeasonSnowTest`, `AirReadoutTest`, `BridgeAgreementTest`). |
 | `mixin/iris/CommonUniformsMixin` | `@Inject(TAIL, require = 0)` into Iris's `CommonUniforms.addNonDynamicUniforms`, in the optional `gloam.iris.mixins.json` (plugin: Iris loaded). |
 
 **Uniforms (M1).** `void_bridge` (int, 1), `void_version` (int, 1), `void_seed` (int), `void_year`, `void_warmth`
@@ -258,7 +264,18 @@ uniforms below, the header and the near land tiles N0/N1. The other tiles stay z
 `void_rain` (the client's rain level, regional), `void_showers`, `void_storm`, `void_mist`, `void_mistTop` (world y),
 `void_mistTime` (`Air.mistTime`: the hour's and season's part of the mist), `void_wetness` (float), `void_light` (vec4:
 moon light, the star amount 0..1 (`Night.stars` / 1.5), sky-light scale, dark-nights setting), `void_nearCentre` (ivec2, the N tiles' centre cell). All are
-updated per client tick. `-Dgloam.bridge.uniforms=false` (`-Pgloam.bridge.uniforms=false`) leaves them out, to test the
+updated per client tick.
+
+**Uniforms (wave 2, `BridgeWorld`).** `void_seasonState` (bare, turned, cold, snowline y), `void_maxStorm` (the strongest
+storm over W1 within the far view, `smoothstep(0, 0.5)`), `void_haze` (x the haziness 0..1 on `Haze`'s log scale after
+the hour and the setting; y dust share; z curtain 0..0.8; w far haze thickness), `void_hazeKind` (int 0..6, Expanse's
+hint first), `void_climate` (temperature on the tiles' -1..1 scale, downfall, lowness, water), `void_shelter` (indoors,
+canopy, roof, buried), `void_sky` (golden, blue, vivid, sunset step 0..4), `void_cloudLayers` (low, main, high, tower top,
+world y; -1 none), `void_underground` (depth factor, openness, realm id, water id) and `void_cave` (glowworms, bats,
+drip, great-river nearness), both from the soundscape's `Hollow` so the cave fog and the cave beds agree,
+`void_farCentre` (ivec2) and `void_ugCentre` (ivec3: centre x·4, slice base y, centre z·4), each set when its tile's
+strip is written. `void_wind` and `void_weatherShift` (W0's shift mod 32768 in xy, W1's mod 262144 in zw) are worked
+out per frame from the partial tick; the header mirror has their tick values. `-Dgloam.bridge.uniforms=false` (`-Pgloam.bridge.uniforms=false`) leaves them out, to test the
 pack's fallback to the header.
 
 **Texture.** Header row 0: texel 0 `VOID`; texel 1 version, flags (1 Expanse, 2 VOID LOD, 4 singleplayer, 8 uniforms
@@ -270,6 +287,22 @@ the low byte), ints as four little-endian bytes in row 1, an ivec's component k 
 (`(hi*256+lo)/32 - 1024`; the sea's surface out at sea), B lowness, A water distance (4 blocks a step, 255 a km or
 more); N1 R mist potential (`Air.mistPotential`), G temperature (-1..1), B humidity, A haze kind (high nibble) and flags
 (low nibble: 1 present, 2 Expanse, 4 snow, 8 water). A cell is at `cell & 255`; valid within 127 cells of the centre.
+W0/W1 (128 and 1024 blocks, a frame drifting with the fronts: camera position mod the period plus `void_weatherShift`):
+R front (with the land's lean), G cloud cover, B rain, A storm. F0 RG valley floor h16 (the lower quartile of the ground,
+not its mean), B lowness, A water share; F1 R mist potential, G temperature, B humidity, A haze kind and flags as N1's.
+U: R open space in half blocks (0 rock), G floor and B roof minus the slice base plus 128, A water kind in the high
+nibble (`CaveKinds`: river 1, sea 2, lake 3, lava 4; only water at the cell) and flags in the low nibble (glowworms 1,
+drip 2, great river 4, present 8). The header's tile mask (texel 10 R) has a bit per tile holding data: N0 1, N1 2,
+F0 4, F1 8, W0 16, W1 32, U 64. The showcase logs it as `header tile mask` (U..N0); after a minute in an Expanse world
+with a trip under ground it reads `1111111`.
+
+**Expanse's far view.** Expanse's `ExpanseCountry.at` works from its full plate terrain (a few MB a plate, 40 kept), so
+asking it across the 300 km the weather lattices and the far tiles reach built plates for minutes and evicted the ones the
+chunk generator was using (in game: 30 ms a lattice point, the tiles never filling). Past 16 km the far tiles, and the
+weather tiles' land lattices everywhere, use `Expanse.RawSampler.far`: Expanse's far-view model
+(`TerrainModel.sampleFar`, 512-block plate grids, cached apart), which has no rivers, lakes or local lowness. Expanse's
+API has no far call yet, so `compat.Expanse` reaches into its terrain model behind a `LinkageError` guard and falls back
+to the full sampler.
 
 **Welkin.** When the pack Iris has loaded is VOID Welkin (its name contains `welkin`), Gloam's ground-mist sheets go
 (Welkin lays the valley mist itself). Everything else of Gloam's still draws until its milestone replaces it: the sky
