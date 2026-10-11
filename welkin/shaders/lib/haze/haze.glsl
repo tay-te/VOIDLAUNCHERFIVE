@@ -175,8 +175,13 @@ void hzMurkSegment(inout HzMurk m, HzState s, HzLand land, float a, float b, flo
     float x = m.tm.y + seenBy * a;
     float seen = t.y / (1.0 + x * (1.0 + 0.5 * x));
     m.tm += t;
-    hzMurkAddKind(m, k, seen * (1.0 - land.share2));
-    if (land.share2 > 0.0) hzMurkAddKind(m, land.kind2, seen * land.share2);
+    // Far off, the air's colour is the sky's in that direction, whatever country lies there: a far country's kind
+    // tints its land less with distance (from 3 km, gone by 16 km) and the camera's own kind takes its share. Else a
+    // dusty country's land far off, fully hazed in ochre against the blue sky over it, stood up as glowing columns.
+    float own = smoothstep(3000.0, 16000.0, b);
+    hzMurkAddKind(m, k, seen * (1.0 - land.share2) * (1.0 - own));
+    if (land.share2 > 0.0) hzMurkAddKind(m, land.kind2, seen * land.share2 * (1.0 - own));
+    if (own > 0.0) hzMurkAddKind(m, s.here.kind, seen * own);
 }
 
 // The land for a segment's sample: N or F, at distance tS along the ray. The sky reads the camera's own land for
@@ -184,7 +189,12 @@ void hzMurkSegment(inout HzMurk m, HzState s, HzLand land, float a, float b, flo
 // print its 1 km cells into the sky as blocks of colour (and cost fetches).
 HzLand hzSegmentLand(HzState s, bool sky, vec3 dir, float a, float b, bool far) {
     if (sky) return s.here;
-    float tS = sqrt(a * max(b, a));
+    // The far segment (2 km out to the land, 1 km cells) reads the land where the ray ends, the land seen. Read at the
+    // segment's geometric middle, the far land's pixels took the ground and kind of a cell tens of km in front of
+    // them: wherever that point fell on high ground (a ridge, a plateau) its murk lay over the whole segment, and the
+    // pixels whose middles shared that cell stood up as a bright column of haze over the land behind it. Read at the
+    // end, the haze follows the land seen, smoothly. The near segments keep the middle (16 m cells, short spans).
+    float tS = far ? b : sqrt(a * max(b, a));
     return hzLandIn(s, cameraPositionFract.xz + dir.xz * tS, far);
 }
 
@@ -197,7 +207,8 @@ HzLand hzSegmentLand(HzState s, bool sky, vec3 dir, float a, float b, bool far) 
 //   air    the sky's colour toward the horizon in this view direction (the sky table's horizon row at this azimuth,
 //          skyHazeHorizon); the haze converges to it, so far land meets the sky without a seam
 //   frag   gl_FragCoord.xy
-WelkinHaze welkinHaze(HzState s, vec3 rel, vec3 n, bool isSky, float split, vec3 air, vec2 frag) {
+//   edge   whether the world's far edge applies (false for a cloud, which stands in the sky past the land's edge)
+WelkinHaze welkinHazeEx(HzState s, vec3 rel, vec3 n, bool isSky, float split, vec3 air, vec2 frag, bool edge) {
     WelkinHaze h;
     h.air = air;
     h.rainLook = 0.0;
@@ -298,12 +309,16 @@ WelkinHaze welkinHaze(HzState s, vec3 rel, vec3 n, bool isSky, float split, vec3
     // two opacities: the camera to the split, then the split to the surface; the world's edge under the back
     float aFront = 1.0 - exp(-tauF);
     float aBack = 1.0 - exp(tauF - tauW);
-    float e = isSky ? 0.0 : hzEdgeFade(edgeH);
+    float e = isSky || !edge ? 0.0 : hzEdgeFade(edgeH);
     float A = 1.0 - (1.0 - e) * (1.0 - aBack);
     h.front = vec4(col, aFront);
     h.back = vec4(A > 1e-4 ? (airR * e * (1.0 - aBack) + col * aBack) / A : col, A);
 #endif
     return h;
+}
+
+WelkinHaze welkinHaze(HzState s, vec3 rel, vec3 n, bool isSky, float split, vec3 air, vec2 frag) {
+    return welkinHazeEx(s, rel, n, isSky, split, air, frag, true);
 }
 
 vec3 welkinHazeBack(vec3 c, WelkinHaze h) {
