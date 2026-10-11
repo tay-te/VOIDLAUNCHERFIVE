@@ -68,6 +68,16 @@ uniform float viewHeight;
 #include "/lib/haze/wet.glsl"
 #define WELKIN_WET
 #endif
+// ---- M6 water (welkin-water): the wet band at the water's edge, frost, the season's light (lib/ws/surface.glsl)
+#if defined WORLD_OVERWORLD && (defined WS_SHORE_WET || defined WS_FROST || defined WS_SEASON_LIGHT)
+#include "/lib/sway.glsl"
+#include "/lib/ws/config.glsl"
+#include "/lib/ws/inputs.glsl"
+#include "/lib/ws/season.glsl"
+#include "/lib/ws/surface.glsl"
+#define WELKIN_WS_DEFERRED
+#endif
+// ---- end M6 water
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
@@ -111,9 +121,29 @@ void main() {
 		HzState st = hzState();
 		WelkinWet wet = welkinWetSurface(st, albedo, eyePos, n, g.w, hzWetClass(material));
 #endif
+		// ---- M6 water (welkin-water): the shore's wet band (the wetter of it and the rain's), frost, the season's
+		// tints of the sun and the shade
+		vec3 wsAmbientTint = vec3(1.0);
+#ifdef WELKIN_WS_DEFERRED
+#ifdef WELKIN_WET
+		float wsRainWet = wet.wet;
+#else
+		float wsRainWet = 0.0;
+#endif
+		WsDeferred wsd = wsDeferredSurface(albedo, eyePos, n, g.w, material, flags.z, wsRainWet, reach * facing,
+			blocksPerPixelAt(dist, gbufferProjection[1][1], viewHeight));
+		sunShare *= wsd.sunTint;
+		wsAmbientTint = wsd.ambientTint;
+#endif
+		// ---- end M6 water
 		vec2 lm = g.zw;
 		lm.x = welkinHandBlockLight(lm.x, dist); // a torch in hand lights the ground on the same ramp
-		color.rgb = welkinLightCore(albedo, n, lm, flags.z, sunShare, vec3(1.0), reach, facing);
+		color.rgb = welkinLightCore(albedo, n, lm, flags.z, sunShare, wsAmbientTint, reach, facing);
+#ifdef WELKIN_WS_DEFERRED
+		// M6 water: glints on frost and snow where the direct light reaches; the WS_DEBUG views
+		color.rgb += wsDeferredSparkle(wsd, eyePos, n, material, skyDirectLight() * LIGHT_SUN_GAIN * reach * facing * sunShare);
+		color.rgb = wsDeferredDebug(wsd, color.rgb);
+#endif
 #ifdef WELKIN_WET
 		// puddles mirror the sky (the sky table's horizon), glint toward the light where it reaches, flick with drops
 		color.rgb = welkinWetLight(st, color.rgb, wet, lightDir, skyDirectLight() * reach * sunShare, skyHorizon(false));

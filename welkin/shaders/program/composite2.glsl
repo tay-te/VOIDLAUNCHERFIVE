@@ -11,7 +11,7 @@
 //      while it is on). Cloud pixels (colortex6 < 999, M3) get no haze and no water fog: the clouds fogged themselves
 //      by ring; the mist only lies in front of a cloud against the sky.
 //   3. debug views
-// Still to come here: the underground air (M5) and the near-water reflections (M6, HIGH).
+// Still to come here: the underground air (M5). Near-water reflections of terrain (M6, HIGH) come first.
 
 #define WELKIN_DEPTH_BEHIND
 #include "/lib/common.glsl"
@@ -61,6 +61,26 @@ uniform vec3 sunPosition;
 uniform sampler2D colortex6;
 #endif
 #endif
+// ---- M6 water (welkin-water): reflections of terrain in near water (WS_WATER_SSR, on HIGH; lib/ws/ssr.glsl)
+#if defined WS_WATER_SSR && defined WORLD_OVERWORLD
+#include "/lib/sky/dome.glsl"
+#include "/lib/ws/config.glsl"
+#ifndef WU_colortex4
+#define WU_colortex4
+uniform sampler2D colortex4;
+#endif
+#ifndef WU_gbufferModelView
+#define WU_gbufferModelView
+uniform mat4 gbufferModelView;
+#endif
+#ifndef WU_viewWidth
+#define WU_viewWidth
+uniform float viewWidth;
+#endif
+#include "/lib/ws/ssr.glsl"
+#define WELKIN_WS_SSR_ON
+#endif
+// ---- end M6 water
 
 #if DEBUG_VIEW != 0
 #include "/lib/debug.glsl"
@@ -125,6 +145,12 @@ void main() {
 	bool cloud = false;
 #if defined WORLD_OVERWORLD && defined CLOUDS
 	cloud = isEyeInWater == 0 && texelFetch(colortex6, p, 0).r < 999.0;
+#endif
+#ifdef WELKIN_WS_SSR_ON
+	// M6 water: the terrain near water reflects, before any air (not on a cloud drawn in front of the water)
+	if (!cloud && isEyeInWater == 0) {
+		color.rgb = wsWaterSSR(color.rgb, p);
+	}
 #endif
 	// 1. water fog (not over a cloud in front of a lake, seen from above the deck)
 	if (!cloud) {

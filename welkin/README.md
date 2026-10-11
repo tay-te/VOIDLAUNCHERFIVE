@@ -55,7 +55,7 @@ welkin/
 | `gbuffers_terrain` | Chunk terrain: albedo, normal, light map and material into the G-buffer, lit in `deferred` |
 | `dh_terrain` | The LOD's far land: the same G-buffer; a hash texture on the world grid, coarser with distance; cut inside `clipDistance` |
 | `gbuffers_entities`, `block`, `hand`, `basic`, `textured`, `textured_lit` | Light themselves with the same ramp; clear the deferred flag |
-| `gbuffers_water`, `dh_water` | Light themselves; mark water in `colortex3` for the water fog. `dh_water` is cut where the chunks' water stands |
+| `gbuffers_water`, `dh_water` | Water (M6, `lib/ws/`): smooth ripples in VOID Gloam's wind, the sky table's dome in the reflection, the sun's glint, the body's opacity from the depth of water crossed; glass and ice lit with the sky's reflection. Premultiplied; mark water in `colortex3` and write `colortex4` for the reflections of terrain (HIGH). `dh_water` is cut where the chunks' water stands |
 | `gbuffers_skybasic`, `skytextured` | The sky dome from the sky table (smooth, in soft bands), pixel stars, the pixel-art sun and moon |
 | `gbuffers_clouds`, `weather` | Vanilla clouds (until M3) cut against the LOD's depth; rain and snow |
 | `gbuffers_damagedblock`, `spidereyes`, `armor_glint`, `beaconbeam` | Unlit |
@@ -71,7 +71,8 @@ welkin/
 | `colortex0` | RGBA16F | albedo from the deferred-lit programs, then the lit scene |
 | `colortex1` | RGBA16 | octahedral world normal (xy), light map (z block, w sky) |
 | `colortex2` | RGBA8 | x lit in deferred, y material / 255, z emission |
-| `colortex3` | RGBA8 | water in front: its lit colour (rgb) and how much fog to apply (a) |
+| `colortex3` | RGBA8 | water in front: its lit colour (rgb) and how much of it the far fade leaves (a); the valley mist reads it |
+| `colortex4` | RGBA8 | water info (M6): its normal (rg), the sky reflection's weight (b), the kind (a: 1 near water, 0.66 far, 0.33 glass) |
 
 Self-lit programs write `colortex2.x = 0` with blending off for that buffer (`shaders.properties`), so deferred never
 lights a pixel twice, whatever order Iris draws in.

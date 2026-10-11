@@ -1,6 +1,7 @@
-// VOID Welkin: water fog, for composite. Looking into water, the bed fades smoothly toward the water's own lit colour
-// with the depth of water in front of it; under water, the whole view fades to deep water with distance. The same for the chunks' water and the LOD's: gbuffers_water and
-// dh_water mark their pixels in colortex3 with their lit colour (alpha: how much fog the far fade leaves).
+// VOID Welkin: water fog, for composite. Under water, the whole view fades to deep water with distance. Looking into
+// water from above, the water's body does it itself (M6, lib/ws/water.glsl: its opacity from the depth crossed).
+// gbuffers_water and dh_water mark their pixels in colortex3 with their lit colour (alpha: how much the far fade
+// leaves), which the valley mist reads.
 
 #ifndef WELKIN_WATER
 #define WELKIN_WATER
@@ -34,14 +35,10 @@ vec3 waterFog(ivec2 p, vec2 uv, vec3 scene) {
 		float dist = front.sky ? 256.0 : frontDist;
 		return mix(scene, deep, 1.0 - exp(-dist * 0.045));
 	}
-	vec4 w = texelFetch(colortex3, p, 0);
-	if (w.a <= 0.0 || front.sky) {
-		return scene;
-	}
-	Surface back = surfaceBehind(p, uv);
-	float thick = back.sky ? 128.0 : max(length(back.view) - frontDist, 0.0);
-	float f = (1.0 - exp(-thick * 0.07)) * 0.85 * w.a;
-	return mix(scene, w.rgb * 0.6, f);
+	// ---- M6 water (welkin-water): looking into water from above, the water's own body already covers the bed by the
+	// depth of water the view crosses (gbuffers_water and dh_water, lib/ws/water.glsl), so there is no fog to add here.
+	// colortex3 still marks the water (its lit colour, alpha 1) for the valley mist.
+	return scene;
 }
 
 #endif
