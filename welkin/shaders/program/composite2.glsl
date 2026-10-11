@@ -44,6 +44,11 @@ void main() {
 #include "/lib/haze/haze_debug.glsl"
 #endif
 #endif
+// ---- M5 underground (P6): the cave air (lib/underground/)
+#include "/lib/underground/ug_atmosphere.glsl"
+#if UG_DEBUG != 0
+#include "/lib/underground/ug_debug.glsl"
+#endif
 
 in vec2 texcoord;
 
@@ -130,8 +135,9 @@ void main() {
 	if (!cloud) {
 		color.rgb = waterFog(p, texcoord, color.rgb);
 	}
+	UgState ug = ugState(); // M5 underground (P6): amount 0 above ground
 #if defined WORLD_OVERWORLD
-	if (isEyeInWater == 0) {
+	if (isEyeInWater == 0 && ug.amount < 1.0) {
 		Surface s = surfaceAt(p, texcoord);
 		vec3 eyePos = mat3(gbufferModelViewInverse) * s.view;
 		// 2. haze behind the mist, the valley mist, haze in front. The split is 0 until M1 exposes the slab's entry
@@ -144,18 +150,28 @@ void main() {
 			h.back.a = 0.0;
 			h.front.a = 0.0;
 		}
+		// M5 underground (P6): the surface air hands over to the cave air at cave mouths
+		h.back.a *= 1.0 - ug.amount;
+		h.front.a *= 1.0 - ug.amount;
 		color.rgb = welkinHazeBack(color.rgb, h);
+		vec3 ugBeforeMist = color.rgb;
 #ifdef WELKIN_VALLEY_MIST
 		// the mist lies far below the decks: in front of a cloud only when the cloud is against the sky
 		if (!cloud || s.sky) {
 			color.rgb = valleyMist(p, texcoord, color.rgb);
 		}
 #endif
+		color.rgb = mix(color.rgb, ugBeforeMist, ug.amount); // M5: the valley mist hands over too
 		color.rgb = welkinHazeFront(color.rgb, h);
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 		welkinHazeDebug(st, h, eyePos, s.sky, color.rgb);
 #endif
 	}
+#endif
+	// ---- M5 underground (P6): the cave air under the land, the eye in water included; then its debug overlay
+	color.rgb = ugComposite(ug, p, texcoord, color.rgb);
+#if UG_DEBUG != 0
+	color.rgb = ugDebug(ug, p, color.rgb);
 #endif
 #else
 	color.rgb = debugView(p, texcoord, color.rgb);

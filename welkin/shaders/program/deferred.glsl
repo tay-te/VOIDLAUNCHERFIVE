@@ -68,6 +68,8 @@ uniform float viewHeight;
 #include "/lib/haze/wet.glsl"
 #define WELKIN_WET
 #endif
+// ---- M5 underground (P6): damp walls, realm, glowworm and lava light (lib/underground/ug_surface.glsl)
+#include "/lib/underground/ug_surface.glsl"
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
@@ -111,9 +113,17 @@ void main() {
 		HzState st = hzState();
 		WelkinWet wet = welkinWetSurface(st, albedo, eyePos, n, g.w, hzWetClass(material));
 #endif
+		// ---- M5 underground (P6): damp, darker rock before the light (not on the LOD's land)
+		UgSurface us = UgSurface(vec3(1.0), vec3(0.0), vec3(0.0));
+		if (!s.fromLod) {
+			us = ugSurface(ugState(), eyePos, n, dist);
+		}
+		albedo *= us.albedo;
+		// ---- end M5
 		vec2 lm = g.zw;
 		lm.x = welkinHandBlockLight(lm.x, dist); // a torch in hand lights the ground on the same ramp
 		color.rgb = welkinLightCore(albedo, n, lm, flags.z, sunShare, vec3(1.0), reach, facing);
+		color.rgb += albedo * us.light + us.glow; // M5 underground (P6): realm, glowworm and lava light
 #ifdef WELKIN_WET
 		// puddles mirror the sky (the sky table's horizon), glint toward the light where it reaches, flick with drops
 		color.rgb = welkinWetLight(st, color.rgb, wet, lightDir, skyDirectLight() * reach * sunShare, skyHorizon(false));
