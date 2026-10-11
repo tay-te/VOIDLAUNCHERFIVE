@@ -11,6 +11,8 @@ screen.SKY=Sky
 screen.SKY.comment=The sky's pixel grid, the sun, the moon and the stars.
 screen.AIR=Haze and mist
 screen.AIR.comment=The air over the land: distance haze coloured by the country you are in, and valley mist.
+screen.WEATHER=Weather and seasons
+screen.WEATHER.comment=Wet ground, distant rain, frost and the light of each season.
 screen.PLANTS=Plants and wind
 screen.PLANTS.comment=How leaves, grass and water plants move in the wind.
 screen.FAR=Far land
@@ -63,6 +65,30 @@ option.SUN_HALO.comment=A thin dithered ring of light around the sun. There is n
 option.NIGHT_SKYLIGHT=Night sky light
 option.NIGHT_SKYLIGHT.comment=How much light the night sky gives, as a share of the day's. VOID Gloam's dark nights then darken it further, as in the game.
 
+option.HAZE_ENABLED=Distance haze
+option.HAZE_ENABLED.comment=Faraway land fades into air coloured by the country you are in: blue-grey over wet lowlands, warm over dry ones, thin and blue in the mountains.
+
+option.HAZE_STRENGTH=Haze strength
+option.HAZE_STRENGTH.comment=How thick the haze is over hazy lands.
+
+option.HAZE_SAMPLES=Haze detail
+option.HAZE_SAMPLES.comment=How many points along each view the haze looks at to pick a country's colour. More blends borders between lands more smoothly.
+value.HAZE_SAMPLES.2=Low
+value.HAZE_SAMPLES.3=Medium
+value.HAZE_SAMPLES.4=High
+
+option.HAZE_STEPS=Haze steps
+option.HAZE_STEPS.comment=How many flat steps the haze thickens through. Fewer looks bolder.
+
+option.HAZE_RAIN=Haze in rain
+option.HAZE_RAIN.comment=How much a downpour closes the distance in.
+
+option.HAZE_ON_SKY=Haze on the sky
+option.HAZE_ON_SKY.comment=The haze also tints the sky near the horizon, in the same colours as the land.
+
+option.HAZE_SEA_LEVEL=Haze base height
+option.HAZE_SEA_LEVEL.comment=The height the clear-air haze starts from. Leave at 63 unless the world's sea level is different.
+
 option.VALLEY_MIST=Valley mist
 option.VALLEY_MIST.comment=Mist gathers in valleys, hollows and along water at dawn and thins away by midday. Needs VOID Gloam.
 
@@ -74,6 +100,16 @@ option.MIST_SAMPLES.comment=How many points across the land the mist looks at to
 value.MIST_SAMPLES.2=Low
 value.MIST_SAMPLES.3=Medium
 value.MIST_SAMPLES.4=High
+
+option.WET_ENABLED=Wet ground
+option.WET_ENABLED.comment=Rain darkens the ground and it dries out slowly afterwards. Sand and soil soak up more than stone.
+
+option.WET_PUDDLES=Puddles
+option.WET_PUDDLES.comment=Pixel puddles shine on open flat ground while it is wet.
+
+option.WET_PUDDLE_REACH=Puddle distance
+option.WET_PUDDLE_REACH.comment=How far away puddles are still drawn.
+suffix.WET_PUDDLE_REACH= blocks
 
 option.WAVING_LEAVES=Moving leaves
 option.WAVING_LEAVES.comment=Leaves move with the wind. With VOID Gloam the wind changes with the weather.
@@ -132,6 +168,14 @@ suffix.MIST_FORCE=%
 
 option.DEBUG_JOIN=Show the far land join
 option.DEBUG_JOIN.comment=Draws a magenta line along the join between the near chunks and the far land from VOID LOD, over the finished picture. For testing only.
+
+option.HAZE_DEBUG=Haze debug
+option.HAZE_DEBUG.comment=Haze test views: the country map, the haze steps, where the data came from, and wet ground with puddles.
+value.HAZE_DEBUG.0=Off
+value.HAZE_DEBUG.1=Haze kinds
+value.HAZE_DEBUG.2=Haze steps
+value.HAZE_DEBUG.3=Data source
+value.HAZE_DEBUG.4=Wet and puddles
 
 option.SKY_DEBUG=Sky debug
 option.SKY_DEBUG.comment=Sky test views: the sky colour table, or the sky's bands and rings.
