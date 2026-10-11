@@ -81,10 +81,15 @@ void main() {
 	float amount = 1.0 - smoothstep(1024.0, 6144.0, dist);
 	albedo *= 1.0 + (h < 0.3 ? -0.05 : (h > 0.78 ? 0.04 : 0.0)) * amount;
 #endif
+	if (matIsLeaves(material)) {
+		// a far crown is one flat colour, the texture's average; near leaves show the darker leaves behind their holes,
+		// so the far crowns come down to their tone (a little darker, a little less saturated)
+		albedo = mix(vec3(dot(albedo, vec3(0.2126, 0.7152, 0.0722))), albedo, 0.88) * 0.86;
+	}
 	float emission = lightClass != L_NONE ? 0.85 : 0.0; // lava and lit blocks; far land has no glow mask
 	outColor = vec4(albedo, 1.0);
 	outNormal = vec4(octEncode(normalW), lmcoord);
-	outFlags = vec4(1.0, float(material) / 255.0, emission, float(lightClass) / 15.0);
+	outFlags = vec4(1.0, float(material) / 255.0, packEmitClass(emission, lightClass), 1.0);
 }
 
 #endif

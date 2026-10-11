@@ -1,4 +1,4 @@
-// VOID Welkin: water fog, for composite. Looking into water, the bed fades smoothly toward the water's own lit colour
+// VOID Welkin: water fog, for composite. Looking into water, the bed fades smoothly toward the water's deep colour
 // with the depth of water in front of it; under water, the whole view fades to deep water with distance. The same for the chunks' water and the LOD's: gbuffers_water and
 // dh_water mark their pixels in colortex3 with their lit colour (alpha: how much fog the far fade leaves).
 
@@ -41,7 +41,7 @@ vec3 waterFog(ivec2 p, vec2 uv, vec3 scene) {
 	Surface back = surfaceBehind(p, uv);
 	float thick = back.sky ? 128.0 : max(length(back.view) - frontDist, 0.0);
 	float f = (1.0 - exp(-thick * 0.07)) * 0.85 * w.a;
-	return mix(scene, w.rgb * 0.6, f);
+	return mix(scene, w.rgb, f); // w.rgb: the deep colour (lib/watersurf.glsl), shade and sky already in
 }
 
 #endif

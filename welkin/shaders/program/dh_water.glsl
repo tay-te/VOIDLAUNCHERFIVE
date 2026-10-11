@@ -32,6 +32,7 @@ void main() {
 #include "/lib/light.glsl"
 #include "/lib/fade.glsl"
 #include "/lib/depth.glsl"
+#include "/lib/watersurf.glsl"
 
 in vec4 glcolor;
 in vec2 lmcoord;
@@ -74,10 +75,14 @@ void main() {
 		}
 	}
 	float d = 0.5; // no dither: the light and the far fade are smooth
-	vec3 lit = welkinLight(glcolor.rgb, normalW, lmcoord, 0.0, d);
-	float alpha = glcolor.a;
-	// the water's own colour for composite's water fog, less of it where the far fade has taken over
-	outWater = vec4(lit, 1.0);
+	// the same surface as the chunks' water (lib/watersurf.glsl), with the sky-light gate for the sun's reach
+	vec3 n = normalize(normalW);
+	WaterSurface ws = welkinWaterSurface(glcolor, n, eyePos, lmcoord, vec3(1.0), sunOpen(lmcoord.y),
+		sunFacing(dot(n, lightDirWorld())));
+	vec3 lit = ws.color;
+	float alpha = ws.alpha;
+	// the water's deep colour for composite's water fog, less of it where the far fade has taken over
+	outWater = vec4(ws.deep, 1.0);
 #ifdef FAR_FADE
 	float fade = farFade(horizontal, d);
 	outWater.a = 1.0 - fade;

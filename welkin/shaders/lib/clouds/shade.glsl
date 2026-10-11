@@ -149,12 +149,39 @@ float wcFog(CloudHit h) {
 	return mix(f, min(1.0, f * 1.4 + 0.08), smoothstep(0.2, 0.8, rainStrength));
 }
 
-// The finished colour of a cloud hit, from the ray's origin `ro` (camera-relative) along `rd`. `pixAngle` is kept
-// for the callers (the band change used to dither on the grid it chose).
+// How thin a side face is on screen, 0 (a broad face) .. 1 (a strip a pixel or two across): the deck's 4 blocks seen
+// from afar or nearly edge-on. Far and low in the sky the sides of the slabs shrink to hairlines between the cap faces;
+// lit differently from them they read as bright streaks and outlines, so a thin side takes its cap's colour instead.
+float wcSideThin(CloudHit h, vec3 rd, float pixAngle) {
+	if (abs(h.n.y) > 0.5) {
+		return 0.0;
+	}
+	float tall = WC_DECK * sqrt(max(1.0 - rd.y * rd.y, 0.0)) / max(h.t * pixAngle, 1e-6); // pixels up the face
+	float across = abs(dot(h.n, rd));                                                     // how squarely it is seen
+	return max(1.0 - smoothstep(1.5, 6.0, tall), 1.0 - smoothstep(0.04, 0.22, across));
+}
+
+// How far a cloud low over the horizon sinks into the horizon colour beyond its distance fog: a grazing view sees the
+// far slabs stretched into thin stair-stepped bands, so there the air takes over (smooth with the elevation).
+float wcGrazeFog(vec3 rd) {
+	return 0.75 * (1.0 - smoothstep(0.02, 0.3, abs(rd.y)));
+}
+
+// The finished colour of a cloud hit, from the ray's origin `ro` (camera-relative) along `rd`. `pixAngle`: radians
+// per screen pixel.
 vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) {
 	float y = e.camY + ro.y + rd.y * h.t - h.n.y * 0.01;
 	vec3 c = welkinCloudFace(h, rd, y, e);
-	return mix(c, wcHorizon(rd, e), wcFog(h));
+	float thin = wcSideThin(h, rd, pixAngle);
+	if (thin > 0.0) {
+		// the cap the strip runs along: the underside looking up, the top looking down
+		CloudHit cap = h;
+		cap.n = vec3(0.0, rd.y > 0.0 ? -1.0 : 1.0, 0.0);
+		c = mix(c, welkinCloudFace(cap, rd, y, e), thin);
+	}
+	float fog = wcFog(h);
+	fog = fog + (1.0 - fog) * wcGrazeFog(rd);
+	return mix(c, wcHorizon(rd, e), fog);
 }
 
 // Inside a cloud: the screen veiled half way toward the cloud's own light, seen side-on.

@@ -80,6 +80,19 @@ void main() {
 	playerPos += welkinSway(material, worldPos, at_midBlock.xyz, frameTimeCounter, wind);
 	view = shadowModelView * vec4(playerPos, 1.0);
 #endif
+	// Low plants (grass, flowers, crops, ground cover) cast only near the eye, where the map's texels are a small
+	// share of a block; farther out their shadows would be blobs a block wide that dim a whole meadow. They shrink
+	// smoothly to their foot between 12 and 28 blocks, so no shadow pops. Tall plants, vines and leaves always cast.
+	if (material == M_PLANT || material == M_CROP || material == M_GROUND_COVER) {
+		vec3 pp = (shadowModelViewInverse * view).xyz;
+		float keep = 1.0 - smoothstep(12.0, 28.0, length(pp));
+		if (keep <= 0.0) {
+			gl_Position = vec4(0.0, 0.0, -2.0, 1.0); // outside the clip volume: nothing is drawn
+			return;
+		}
+		vec3 foot = pp + at_midBlock.xyz / 64.0 - vec3(0.0, 0.5, 0.0);
+		view = shadowModelView * vec4(mix(foot, pp, keep), 1.0);
+	}
 	gl_Position = gl_ProjectionMatrix * view;
 	gl_Position.xyz = shadowDistort(gl_Position.xyz);
 }

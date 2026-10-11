@@ -121,6 +121,23 @@ vec2 lightmapLevel(vec2 lmcoord) {
 	return clamp((lmcoord - 1.0 / 32.0) * 16.0 / 15.0, 0.0, 1.0);
 }
 
+// colortex2.z holds the emission level and the light colour class together (one RGBA8 channel), so colortex2.w is
+// free for Minecraft's corner shading (separateAo). Emission comes in four levels (none, dim 0.5, lit 0.85, full);
+// the class is 0..15.
+float packEmitClass(float emission, int lightClass) {
+	int e = emission > 0.95 ? 3 : (emission > 0.7 ? 2 : (emission > 0.25 ? 1 : 0));
+	return float(e * 16 + clamp(lightClass, 0, 15)) / 255.0;
+}
+
+float unpackEmission(float z) {
+	int e = int(z * 255.0 + 0.5) >> 4;
+	return e == 3 ? 1.0 : (e == 2 ? 0.85 : (e == 1 ? 0.5 : 0.0));
+}
+
+int unpackLightClass(float z) {
+	return int(z * 255.0 + 0.5) & 15;
+}
+
 // The two axes of the face a world normal points out of, for anything laid out on a block face.
 ivec2 faceAxes(ivec3 cell, vec3 n) {
 	vec3 a = abs(n);

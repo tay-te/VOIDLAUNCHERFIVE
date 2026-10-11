@@ -13,7 +13,9 @@
 //   G_SWAY       move leaves and plants with the wind (lib/sway.glsl; gbuffers_terrain)
 //   G_SHADOW     take the near shadow map's sun (lib/shadow.glsl) when lighting itself (entities, block entities,
 //                translucents); the other self-lit programs use the ramp's sky-light gate
-// colortex2 = (lit, M / 255, emission, L / 15); materials in lib/materials.glsl.
+// colortex2 = (lit, M / 255, emission and L packed (packEmitClass), corner shading); materials in lib/materials.glsl.
+// Terrain's vertex colour carries Minecraft's corner shading in its alpha (separateAo, shaders.properties): G_BLOCKID
+// programs take it out of the albedo and hand it to the light ramp, which lays it on the sky's fill only.
 //   G_WATERFLAG  also write colortex3: the water's own lit colour where the pixel is water, for composite's water fog
 //
 // Without G_DEFERRED the program lights itself with the same light ramp deferred uses (lib/light.glsl).
@@ -168,6 +170,9 @@ uniform int entityId;
 #ifdef G_SHADOW
 #include "/lib/shadow.glsl"
 #endif
+#ifdef G_WATERFLAG
+#include "/lib/watersurf.glsl"
+#endif
 #endif
 
 #if defined G_DEFERRED
@@ -190,6 +195,12 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
 	vec4 albedo = glcolor;
+	float ao = 1.0;
+#ifdef G_BLOCKID
+	// separateAo: the corner shading is the vertex alpha, not part of the colour (nor of the alpha test)
+	ao = glcolor.a;
+	albedo.a = 1.0;
+#endif
 #ifdef G_TEXTURED
 	albedo *= texture(gtexture, texcoord);
 #endif
@@ -217,7 +228,7 @@ void main() {
 #if defined G_DEFERRED
 	outColor = vec4(albedo.rgb, 1.0);
 	outNormal = vec4(octEncode(normalize(normalW)), lmcoord);
-	outFlags = vec4(1.0, float(material) / 255.0, emission, float(lightClass) / 15.0);
+	outFlags = vec4(1.0, float(material) / 255.0, packEmitClass(emission, lightClass), ao);
 #else
 #ifdef G_UNLIT
 	vec3 lit = albedo.rgb;
@@ -230,7 +241,16 @@ void main() {
 	float facing = sunFacingMat(nW, lightDirWorld(), material);
 	vec3 sunShare = vec3(1.0);
 	float reach = welkinSunReach(eyePos, nW, lm.y, material, facing, sunShare);
-	vec3 lit = welkinLightCore(albedo.rgb, nW, lm, emission, sunShare, vec3(1.0), reach, facing);
+	vec3 lit = welkinLightFull(albedo.rgb, nW, lm, emission, sunShare, vec3(1.0), reach, facing, ao);
+#ifdef G_WATERFLAG
+	vec3 waterDeep = vec3(0.0);
+	if (matIsWater(material)) {
+		WaterSurface ws = welkinWaterSurface(albedo, nW, eyePos, lm, sunShare, reach, facing);
+		lit = ws.color;
+		albedo.a = ws.alpha;
+		waterDeep = ws.deep;
+	}
+#endif
 #else
 	vec3 lit = welkinLight(albedo.rgb, normalize(normalW), lm, emission, d);
 #endif
@@ -240,7 +260,7 @@ void main() {
 	outFlags = vec4(0.0, 0.0, 0.0, 0.0);
 #endif
 #ifdef G_WATERFLAG
-	outWater = material == MAT_WATER ? vec4(lit, 1.0) : vec4(0.0);
+	outWater = matIsWater(material) ? vec4(waterDeep, 1.0) : vec4(0.0);
 #endif
 #endif
 }

@@ -132,12 +132,14 @@ float shadowVisibility(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, out vec
 #include "/lib/light.glsl"
 
 // How far the sun reaches a surface (the ramp's sunReach), with what it lets through multiplied into sunShare: the
-// shadow map where it covers, fading over its last 20 % into the sky-light gate the far chunks, the LOD and LOW use.
+// shadow map where it covers, fading over its last 20 % into the sky-light gate the far chunks, the LOD and LOW use
+// (for leaves, times the crown's average self-shade, farCanopySun, as the LOD's leaves take it: the tones meet).
 // playerPos camera-relative, n the world normal, sky the sky light level, m plumbing's material class, facing the
 // face's sunFacingMat (no lookup where it is 0: no direct light there anyway).
 float welkinSunReach(vec3 playerPos, vec3 n, float sky, int m, float facing, inout vec3 sunShare) {
 	float reach = sunOpen(sky);
 #ifdef WELKIN_SHADOWS_LIVE
+	reach *= farCanopySun(m);
 	float fade = shadowFade(playerPos);
 	if (fade < 1.0 && facing > 0.0) {
 		vec3 tint;

@@ -95,7 +95,7 @@ vec3 debugView(ivec2 p, vec2 uv, vec3 scene) {
 	return f.x > 0.5 ? welkinMatDebugColour(int(f.y * 255.0 + 0.5)) : scene * 0.25;
 #elif DEBUG_VIEW == 9
 	vec4 f = texelFetch(colortex2, p, 0);
-	return f.x > 0.5 ? welkinLightDebugColour(int(f.w * 15.0 + 0.5), f.z) : scene * 0.25;
+	return f.x > 0.5 ? welkinLightDebugColour(unpackLightClass(f.z), unpackEmission(f.z)) : scene * 0.25;
 #else
 	return scene;
 #endif

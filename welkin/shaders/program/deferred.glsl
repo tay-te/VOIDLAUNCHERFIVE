@@ -113,7 +113,13 @@ void main() {
 #endif
 		vec2 lm = g.zw;
 		lm.x = welkinHandBlockLight(lm.x, dist); // a torch in hand lights the ground on the same ramp
-		color.rgb = welkinLightCore(albedo, n, lm, flags.z, sunShare, vec3(1.0), reach, facing);
+		// the LOD's leaves: the crown's average self-shade the near shadow map gives near crowns (lib/light.glsl)
+		vec3 fill = vec3(1.0);
+		if (s.fromLod) {
+			reach *= farCanopySun(material);
+			fill = vec3(farCanopyFill(material));
+		}
+		color.rgb = welkinLightFull(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, flags.w);
 #ifdef WELKIN_WET
 		// puddles mirror the sky (the sky table's horizon), glint toward the light where it reaches, flick with drops
 		color.rgb = welkinWetLight(st, color.rgb, wet, lightDir, skyDirectLight() * reach * sunShare, skyHorizon(false));
