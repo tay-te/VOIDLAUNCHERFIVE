@@ -212,7 +212,8 @@ public final class Bridge {
 		Uniforms.set(Slot.MIST_TIME, sky ? Air.mistTime(clock, air.year()) : 0);
 		Uniforms.set(Slot.WETNESS, air.wetness());
 		GloamSky.light(LIGHT);
-		Uniforms.set(Slot.LIGHT, LIGHT[0], LIGHT[1], LIGHT[2], LIGHT[3]);
+		// the star factor (Night.stars, up to 1.5) goes over as the contract's 0..1 star amount
+		Uniforms.set(Slot.LIGHT, LIGHT[0], LIGHT[1] / 1.5F, LIGHT[2], LIGHT[3]);
 
 		Camera camera = mc.gameRenderer.mainCamera();
 		Vec3 eye = camera.isInitialized() ? camera.position() : mc.player != null ? mc.player.getEyePosition() : Vec3.ZERO;

@@ -247,7 +247,7 @@ uniforms below, the header and the near land tiles N0/N1. The other tiles stay z
 (float), `void_season` (int 0..3), `void_wind` (vec4: x, z, blocks/s, gust), `void_front`, `void_cloudCover`,
 `void_rain` (the client's rain level, regional), `void_showers`, `void_storm`, `void_mist`, `void_mistTop` (world y),
 `void_mistTime` (`Air.mistTime`: the hour's and season's part of the mist), `void_wetness` (float), `void_light` (vec4:
-moon light, stars, sky-light scale, dark-nights setting), `void_nearCentre` (ivec2, the N tiles' centre cell). All are
+moon light, the star amount 0..1 (`Night.stars` / 1.5), sky-light scale, dark-nights setting), `void_nearCentre` (ivec2, the N tiles' centre cell). All are
 updated per client tick. `-Dgloam.bridge.uniforms=false` (`-Pgloam.bridge.uniforms=false`) leaves them out, to test the
 pack's fallback to the header.
 
