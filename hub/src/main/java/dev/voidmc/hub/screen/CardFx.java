@@ -341,19 +341,24 @@ public final class CardFx {
 		}
 		boolean mirror = "set-sparks".equals(it.kind()) && it.p() > 0;
 		if (s.layers() == FILL_GLOW) {
-			this.frame(g, s, "_fill_px.png", x, y, frame, argb(it.colour(), alpha), mirror, u);
-			this.frame(g, s, "_glow_px.png", x, y, frame, argb(0xFFFFFF, alpha), mirror, u);
+			this.frame(g, s, "_fill_px.png", x, y, frame, argb(it.colour(), alpha), mirror, u, it.h());
+			this.frame(g, s, "_glow_px.png", x, y, frame, argb(0xFFFFFF, alpha), mirror, u, it.h());
 		} else if (s.layers() == MASK) {
-			this.frame(g, s, "_fill_px.png", x, y, frame, argb(it.colour(), alpha), mirror, u);
+			this.frame(g, s, "_fill_px.png", x, y, frame, argb(it.colour(), alpha), mirror, u, it.h());
 		} else {
-			this.frame(g, s, "_px.png", x, y, frame, argb(0xFFFFFF, alpha), mirror, u);
+			this.frame(g, s, "_px.png", x, y, frame, argb(0xFFFFFF, alpha), mirror, u, it.h());
 		}
 		if (it.clip() != null) {
 			g.disableScissor();
 		}
 	}
 
-	private void frame(GuiGraphicsExtractor g, Strip s, String suffix, double x, double y, int frame, int colour, boolean mirror, double u) {
+	/**
+	 * One frame of a strip. {@code cardH} > 0 on a hand-card strip (304 x 384 around a 248 x 328 card) fits it to a card
+	 * of that height: the frame's top half and bottom half are drawn as they are and meet in the middle (the sides of a
+	 * burning edge are the same all the way down), so the corners and the flames keep their pixels.
+	 */
+	private void frame(GuiGraphicsExtractor g, Strip s, String suffix, double x, double y, int frame, int colour, boolean mirror, double u, double cardH) {
 		Tex t = tex(s.path() + suffix, false);
 		if (t == null || (colour >>> 24) == 0) {
 			return;
@@ -369,7 +374,20 @@ public final class CardFx {
 			g.pose().scale(-1, 1);
 			g.pose().translate(-(X + W / 2.0F), 0);
 		}
-		g.blit(RenderPipelines.GUI_TEXTURED, t.id(), X, Y, frame * sw, 0, W, H, sw, t.h(), t.w(), t.h(), colour);
+		double fitted = cardH - s.oy() * 2;  // the strip's height around a card of cardH
+		if (cardH > 0 && s.fh() == 384 && s.oy() == -28 && Math.abs(fitted - s.fh()) >= 1) {
+			double cssPerTexel = (double) s.fh() / t.h();
+			int all = (int) Math.round(fitted / cssPerTexel);
+			int top = Math.min(t.h(), all / 2);
+			int bottom = Math.min(t.h(), all - top);
+			int topH = (int) Math.round(top * cssPerTexel * u);
+			int botY = (int) Math.round((y + s.oy() + top * cssPerTexel) * u);
+			int botH = (int) Math.round((y + s.oy() + all * cssPerTexel) * u) - botY;
+			g.blit(RenderPipelines.GUI_TEXTURED, t.id(), X, Y, frame * sw, 0, W, topH, sw, top, t.w(), t.h(), colour);
+			g.blit(RenderPipelines.GUI_TEXTURED, t.id(), X, botY, frame * sw, t.h() - bottom, W, botH, sw, bottom, t.w(), t.h(), colour);
+		} else {
+			g.blit(RenderPipelines.GUI_TEXTURED, t.id(), X, Y, frame * sw, 0, W, H, sw, t.h(), t.w(), t.h(), colour);
+		}
 		if (mirror) {
 			g.pose().popMatrix();
 		}

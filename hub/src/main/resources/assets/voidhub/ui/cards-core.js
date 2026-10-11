@@ -280,10 +280,11 @@
     var hov = mythic ? "" : "hover-" + (c.cursed ? "cursed" : c.wildcard ? "wildcard" : rar);
     var long = String(c.baseName || c.name || "").length > 13;
     var bare = !(c.keywords || []).length && !(c.traits || []).length;
-    var h = '<div class="cc' + (long ? " long" : "") + (bare ? " bare" : "") + (opt.sel ? " sel" : "") + (opt.cls ? " " + opt.cls : "") + '"' + (hov ? ' data-fxhover="' + hov + '"' : "") +
+    var h = '<div class="cc' + (mythic ? " my" : "") + (long ? " long" : "") + (bare ? " bare" : "") + (opt.sel ? " sel" : "") + (opt.cls ? " " + opt.cls : "") + '"' + (hov ? ' data-fxhover="' + hov + '"' : "") +
       ' data-fxtint="' + (c.cursed ? MC.CURSED : hue) + '"' + (opt.attrs || "") + ' style="--c:' + (c.cursed ? MC.CURSED : hue) + (opt.style ? ";" + opt.style : "") + '">';
     if (opt.sel) h += '<div class="cc-sel"></div>';
-    h += '<div class="cc-b' + (mythic ? " my" : "") + '" style="border-color:' + MC.rgba(rc, 0.7) + '"></div>';
+    if (mythic) h += '<div class="cc-glow"></div>';  // the steady white-gold glow (a still texture: no idle paints)
+    h += '<div class="cc-b' + (mythic ? " my" : "") + '" style="border-color:' + (mythic ? "#F3D28B" : MC.rgba(rc, 0.7)) + '"></div>';
     h += '<div class="cc-p" style="background:' + (mythic ? "#2a2236" : MC.shade(hue)) + '">' + MC.img(c.icon, 48) + "</div>";
     h += '<div class="cc-gem" style="background:' + rc + '"></div>';
     h += '<div class="cc-n">' + esc(c.baseName || c.name) + "</div>";
@@ -328,8 +329,7 @@
     h += '<div class="hc-art" style="background:radial-gradient(closest-side,' + MC.rgba(hue, 0.28) + " 0%," + MC.rgba(hue, 0) + " 100%)," + MC.shade(hue) + '">' + MC.img(c.icon, 64) + "</div>";
     // Name, rules, keywords, the price or a divider, traits: one column in the 28 px safe area, so a long name or
     // rule pushes the rest down instead of overlapping it.
-    var sparse = !(c.traits || []).length && !(c.cursed && c.downside);
-    h += '<div class="hc-flow' + (sparse ? " sparse" : "") + '"><div class="hc-name">' + MC.pix(c.name || "", 2, "#F4EEE6", 192) + "</div>";
+    h += '<div class="hc-flow"><div class="hc-name">' + MC.pix(c.name || "", 2, "#F4EEE6", 192) + "</div>";
     h += '<div class="hc-desc">' + esc(c.description) + "</div>";
     if (c.keywords && c.keywords.length) {
       h += '<div class="hc-kws">';

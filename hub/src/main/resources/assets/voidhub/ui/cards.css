@@ -51,7 +51,10 @@
 .cc:hover, .cc.lifted { -webkit-transform: translateY(-4px); transform: translateY(-4px); }
 .cc.lifted { opacity: .35; }
 .cc-b { left: 0; top: 0; width: 96px; height: 128px; border-radius: 10px; background: #141416; border: 1.5px solid rgba(185, 190, 198, 0.7); }
-.cc-b.my { background: #17131D; }
+/* A Mythic in the binder: a steady white-gold glow round a gold frame, an inner light line and a lit face. Still. */
+.cc-glow { left: -8px; top: -8px; width: 112px; height: 144px; pointer-events: none; background: url(cards/fx/mythic_glow.png) 0 0 / 112px 144px no-repeat; }
+.cc-b.my { background: linear-gradient(180deg, #2A2136 0%, #17131D 70%); border-width: 1.5px; box-shadow: inset 0 0 0 2px rgba(23, 19, 29, 1), inset 0 0 0 3px rgba(255, 241, 201, 0.35); }
+.cc.my .cc-n { color: #FFF1C9; }
 .cc-sel { left: -4px; top: -4px; width: 104px; height: 136px; border-radius: 13px; border: 2px solid #EDEEEF; }
 .cc-check { left: 80px; top: -8px; width: 20px; height: 20px; border-radius: 10px; background: #EDEEEF; }
 .cc-check::after { content: ""; position: absolute; left: 6px; top: 4px; width: 5px; height: 9px; border: solid #0B0B0C; border-width: 0 2px 2px 0; -webkit-transform: rotate(45deg); transform: rotate(45deg); }
@@ -82,7 +85,8 @@
 /* ---- hand card (248 x 328) --------------------------------------------------------------------------------- */
 .hc { position: absolute; width: 248px; height: 328px; -webkit-transition: -webkit-transform .16s ease-out, opacity .12s linear; transition: transform .16s ease-out, opacity .12s linear; }
 .hc > * { position: absolute; }
-.hc-face { left: 0; top: 0; width: 248px; height: 328px; border-radius: 4px; background: #110D0F; -webkit-mask-repeat: no-repeat; -webkit-mask-size: 2232px 328px; -webkit-mask-position: 0 0; }
+/* A hand card is 248 wide and as tall as the tallest card in its hand needs (cards-draft.js fitHand, 248 to 328). */
+.hc-face { left: 0; top: 0; width: 248px; height: 100%; border-radius: 4px; background: #110D0F; -webkit-mask-repeat: no-repeat; -webkit-mask-size: 2232px 100%; -webkit-mask-position: 0 0; }
 .hc-face > * { position: absolute; }
 .hc-gem { left: 28px; top: 26px; width: 9px; height: 9px; border: 1px solid rgba(0, 0, 0, 0.5); -webkit-transform: rotate(45deg); transform: rotate(45deg); }
 .hc-eb { left: 44px; top: 28px; font-size: 9.5px; letter-spacing: 1.33px; white-space: pre; }
@@ -90,9 +94,8 @@
 .hc-sig .mc-img { position: absolute; left: 3px; top: 3px; }
 .hc-art { left: 28px; top: 56px; width: 192px; height: 64px; border-radius: 6px; }
 .hc-art .mc-img { position: absolute; left: 64px; top: 0; }
-.hc-flow { left: 28px; top: 128px; width: 192px; height: 160px; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
-/* A card with no traits and no price: its few lines sit in the middle of the lower half instead of leaving it empty. */
-.hc-flow.sparse { justify-content: center; padding-bottom: 12px; box-sizing: border-box; }
+/* The title sits right under the art; the card's height follows this column (no empty lower half). */
+.hc-flow { left: 28px; top: 128px; width: 192px; max-height: 172px; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
 .hc-name { position: relative; }
 .hc-desc { margin-top: 7px; font-size: 11px; line-height: 15px; color: #C9C2B8; text-align: center; width: 192px; }
 .hc-kws { margin-top: 7px; display: flex; gap: 6px; justify-content: center; }
@@ -103,9 +106,9 @@
 .hc-pt { margin-top: 2px; font-size: 11px; line-height: 14px; color: #FF9C9C; }
 .hc-tr { margin-top: 4px; width: 192px; height: 15px; display: flex; font-size: 11px; white-space: nowrap; flex: none; }
 .hc-tr .n { flex: 1; color: #EDE6DA; overflow: hidden; }
-.hc-tr .v { width: 44px; text-align: right; color: #FFFFFF; }
+.hc-tr .v { min-width: 44px; padding-left: 6px; text-align: right; color: #FFFFFF; flex: none; }
 .hc-tr .b { width: 62px; text-align: right; color: #8EC5FF; font-size: 10.5px; }
-.hc-need { left: 28px; top: 294px; width: 192px; display: flex; gap: 5px; justify-content: center; align-items: center; font-size: 10.5px; color: #E8A84A; white-space: nowrap; }
+.hc-need { left: 28px; bottom: 22px; width: 192px; display: flex; gap: 5px; justify-content: center; align-items: center; font-size: 10.5px; color: #E8A84A; white-space: nowrap; }
 .hc.deal { -webkit-animation: k-deal .24s ease-out backwards; animation: k-deal .24s ease-out backwards; }
 @-webkit-keyframes k-deal { from { opacity: 0; -webkit-transform: translateY(40px) scale(.94); } to { opacity: 1; -webkit-transform: none; } }
 @keyframes k-deal { from { opacity: 0; transform: translateY(40px) scale(.94); } to { opacity: 1; transform: none; } }
@@ -144,8 +147,9 @@
    the dim is near-opaque and the red warmth behind the hand is a low, wide wash rather than a tint over everything. */
 #classes.ov-up #cv { visibility: hidden; }
 .ov-dim { left: 1px; top: 25px; width: 985px; height: 604px; border-radius: 31px; background: rgba(11, 11, 12, 0.97); }
-.ov-halo { left: 90px; top: 150px; width: 805px; height: 420px; pointer-events: none;
-  background: radial-gradient(closest-side, rgba(106, 15, 24, 0.32) 0%, rgba(58, 7, 13, 0.14) 60%, rgba(11, 11, 12, 0) 100%); }
+/* The warmth behind the hand: a smooth texture (fx/halo.png reaches zero at its edge, so no hard line), fitted to the
+   hand's box by fitHand so it ends above the keys and the redeal. */
+.ov-halo { left: 90px; top: 142px; width: 805px; height: 388px; pointer-events: none; background: url(cards/fx/halo.png) 0 0 / 100% 100% no-repeat; }
 #dr-chip { left: 28px; top: 43px; }
 #dr-badge { right: 75px; top: 43px; }
 #dr-title { left: 0; top: 95px; width: 987px; height: 50px; z-index: 3; }
@@ -158,11 +162,13 @@
 .dr-key .kc { width: 20px; height: 20px; border-radius: 6px; background: #131315; border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; flex: none; }
 .dr-key.on { color: var(--c); }
 .dr-key.on .kc { border-color: var(--c); color: var(--c); }
-.dr-redeal { position: absolute; left: 411px; top: 553px; width: 165px; height: 34px; border-radius: 17px; background: #191A1C; border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; padding-left: 13px; gap: 8px; font-size: 12px; white-space: nowrap; }
+/* Sized to its content (icon, label, pips) with equal padding; redeal() centres it on the hand. */
+.dr-redeal { position: absolute; left: 411px; top: 553px; height: 34px; box-sizing: border-box; border-radius: 17px; background: #191A1C; border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; padding: 0 14px; gap: 9px; font-size: 12px; line-height: 14px; white-space: nowrap; }
+.dr-redeal svg { display: block; flex: none; }
 .dr-redeal:hover { background: #212225; }
 .dr-redeal.off { opacity: .45; }
-.dr-redeal .pips { position: relative; height: 8px; margin-left: 4px; display: flex; gap: 6px; }
-.dr-redeal .pips i { width: 8px; height: 8px; border: 1px solid rgba(255, 122, 74, 0.45); flex: none; }
+.dr-redeal .pips { position: relative; height: 8px; display: flex; gap: 5px; flex: none; }
+.dr-redeal .pips i { display: block; box-sizing: border-box; width: 8px; height: 8px; border: 1px solid rgba(255, 122, 74, 0.45); flex: none; }
 .dr-redeal .pips i.on { background: #FF7A4A; border-color: #FF7A4A; }
 .dr-toast { position: absolute; left: 333px; top: 543px; width: 320px; height: 36px; border-radius: 18px; background: #0F1A1A; border: 1px solid var(--c); color: #EDEEEF; font-size: 12px; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
 .dr-toast.my { border-color: #F3D28B; background: #2A2112; color: #FFF1C9; }
@@ -248,7 +254,7 @@
 .bd-k { left: 185px; font-size: 10.5px; color: #626569; }
 .bd-v { left: 185px; width: 130px; font-size: 11px; color: #EDEEEF; white-space: nowrap; overflow: hidden; }
 .bd-t { left: 15px; width: 297px; height: 18px; display: flex; font-size: 11.5px; white-space: nowrap; }
-.bd-t .n { width: 104px; overflow: hidden; } .bd-t .v { width: 50px; }
+.bd-t .n { width: 104px; overflow: hidden; } .bd-t .v { min-width: 50px; padding-right: 6px; }
 .bd-t .b { flex: 1; text-align: right; font-size: 10.5px; color: #8EC5FF; }
 .bd-h { left: 15px; width: 297px; font-size: 10.5px; line-height: 15px; color: #C9C2B8; }
 .bd-h.my { color: #B9A57A; }

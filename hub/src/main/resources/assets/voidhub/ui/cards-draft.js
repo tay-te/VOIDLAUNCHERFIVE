@@ -63,7 +63,8 @@
   }
   function badge(n) {
     if (n <= 0) return "";
-    return '<div class="ov-badge"><i class="backs"></i><span>' + n + (n === 1 ? " more draft waiting" : " more drafts waiting") + "</span></div>";
+    // The badge counts every skill's drafts (Mettle's draft.waiting), so it says so: the title's "draft 1 of 1" is this skill's.
+    return '<div class="ov-badge"><i class="backs"></i><span>' + n + (n === 1 ? " more draft across your skills" : " more drafts across your skills") + "</span></div>";
   }
   function title(eb, text, ebColour, t) {
     return '<div class="ov-eb" style="color:' + (ebColour || "#FF7A4A") + '">' + esc(eb) + '</div><div class="ov-title">' + MC.pix(text, t || 3, "#F4EEE6", 900) + "</div>";
@@ -74,7 +75,33 @@
   // the hovered card's lift and haze, the others cooling, the pick's flare, the burn-away's fire and ash) is a layer
   // reported to Java (MC.fxSet "draft") and drawn natively over the page; only the burn mask eating the two faces is
   // a short CSS one-shot here.
-  var TOP = 175, gen = 0;
+  // The hand sits low enough that a lifted card's flames (16 px lift, 5 % grow, 28 px of fire) stay under the title.
+  var TOP = 192, gen = 0, OLD_BOTTOM = 175 + 328;
+  /** What burns when one of n cards is kept. */
+  function burnText(n) { return n >= 3 ? "THE OTHER TWO BURN" : n === 2 ? "THE OTHER ONE BURNS" : "NOTHING ELSE BURNS"; }
+  function keepText(n) { return n >= 3 ? "KEEP ONE, THE OTHER TWO BURN" : n === 2 ? "KEEP ONE, THE OTHER ONE BURNS" : "KEEP IT"; }
+  /**
+   * Fits the hand's cards to their content (no empty lower half): every card takes the tallest card's height, never
+   * under 248 or over 328, in 4 px steps so the native fire's texels line up. Moves the keys, the redeal and the toast
+   * with the hand's bottom, and the glow behind the hand with it. Returns the height.
+   */
+  function fitHand(els, minH) {
+    var H = 248;
+    for (var k = 0; k < els.length; k++) {
+      var flow = els[k].querySelector(".hc-flow"), need = els[k].querySelector(".hc-need");
+      if (!flow) continue;
+      H = Math.max(H, 128 + flow.scrollHeight + (need ? 34 : 0) + 24);
+    }
+    H = Math.min(328, Math.ceil(H / 4) * 4);
+    for (var j = 0; j < els.length; j++) if (els[j].querySelector(".hc-flow")) els[j].style.height = H + "px";
+    cur.H = H;
+    var bottom = TOP + Math.max(H, minH || 0), dy = bottom - OLD_BOTTOM;
+    var keys = MC.$("dr-keys"), act = MC.$("dr-act"), halo = MC.$("dr-halo");
+    if (keys) keys.style.top = dy + "px";
+    if (act) act.style.top = dy + "px";
+    if (halo) { halo.style.top = (TOP - 50) + "px"; halo.style.height = (bottom - TOP + 60) + "px"; }
+    return H;
+  }
   /** Card x for a hand of n (3 fills the window as in D1; fewer centre). */
   function leftOf(i, n) { return Math.round(493.5 - (n * 248 + (n - 1) * 30) / 2) + i * 278; }
   function burnDelay() { return (MC.M.draft && MC.M.draft.sound && MC.M.draft.sound.burnAfterPickMs) || 260; }
@@ -87,23 +114,23 @@
     for (var k = 0; k < n; k++) {
       var c = cur.hand[k];
       if (!c || cur.pos[k] == null || MC.isMythic(c) || cur.faded) continue;
-      var x = w.x + cur.pos[k], y = w.y + TOP, tint = tintOf(c), id = "g" + cur.gen + "c" + k;
+      var x = w.x + cur.pos[k], y = w.y + TOP, H = cur.H || 328, tint = tintOf(c), id = "g" + cur.gen + "c" + k;
       if (cur.burnt && cur.burnt[k]) {
-        items.push({i: id + "-bf", k: "bfront", x: x, y: y, c: tint, d: burnDelay()});
-        items.push({i: id + "-ash", k: "ash", x: x, y: y, d: burnDelay()});
+        items.push({i: id + "-bf", k: "bfront", x: x, y: y, h: H, c: tint, d: burnDelay()});
+        items.push({i: id + "-ash", k: "ash", x: x, y: y, h: H, d: burnDelay()});
         continue;
       }
       var hov = cur.picked < 0 && cur.hover === k, kept = cur.picked === k, cool = cur.picked < 0 && cur.hover >= 0 && !hov;
       if (hov || kept) {
-        items.push({i: id + "-b", k: "bloom", x: x + 124, y: y + 164, w: 348, h: 408, c: tint, a: kept ? 0.55 : 0.34, q: 120});
-        items.push({i: id, k: "lift", x: x, y: y, w: 248, h: 328, p: kept ? -8 : -16, q: kept ? 1.04 : 1.05});
+        items.push({i: id + "-b", k: "bloom", x: x + 124, y: y + H / 2, w: 348, h: H + 80, c: tint, a: kept ? 0.55 : 0.34, q: 120});
+        items.push({i: id, k: "lift", x: x, y: y, w: 248, h: H, p: kept ? -8 : -16, q: kept ? 1.04 : 1.05});
       }
-      if (cool) items.push({i: id + "-cool", k: "rect", x: x - 1, y: y - 1, w: 250, h: 330, c: "#0B0A0B", a: 0.6, q: 120});
+      if (cool) items.push({i: id + "-cool", k: "rect", x: x - 1, y: y - 1, w: 250, h: H + 2, c: "#0B0A0B", a: 0.6, q: 120});
       var edge = MC.edgeOf(c), dense = hov || edge === "epic" || edge === "cursed", d = cur.dealing ? k * 80 + 240 : 0;
-      items.push({i: id + "-e", k: "edge-" + edge, x: x, y: y, c: tint, a: cool ? 0.4 : 1, d: d});
-      items.push({i: id + "-m" + (dense ? "d" : "s"), k: dense ? "embers-dense" : "embers-sparse", x: x, y: y, c: tint, a: cool ? 0.4 : 1, d: d});
-      if (hov) items.push({i: id + "-h", k: "edge-hot", x: x, y: y, c: tint});
-      if (kept) items.push({i: id + "-f", k: "flare", x: x, y: y, c: tint});
+      items.push({i: id + "-e", k: "edge-" + edge, x: x, y: y, h: H, c: tint, a: cool ? 0.4 : 1, d: d});
+      items.push({i: id + "-m" + (dense ? "d" : "s"), k: dense ? "embers-dense" : "embers-sparse", x: x, y: y, h: H, c: tint, a: cool ? 0.4 : 1, d: d});
+      if (hov) items.push({i: id + "-h", k: "edge-hot", x: x, y: y, h: H, c: tint});
+      if (kept) items.push({i: id + "-f", k: "flare", x: x, y: y, h: H, c: tint});
     }
     MC.fxSet("draft", items.concat(cur.mythicFx || []));
   }
@@ -126,6 +153,8 @@
     cur.revealing = false;
     cur.claimed = false;
     cur.waitClaim = false;
+    if (!again) cur.afterClaim = null;
+    cur.H = 328;
     cur.hand = (s.hand || []).slice();
     cur.handKey = handKey(s);
     cur.gen = ++gen;
@@ -134,7 +163,7 @@
     var el = host();
     el.className = "ov-draft";
     if (first) setUi();
-    var h = '<div class="ov-dim"></div><div class="ov-halo"></div><div id="dr-chip">' + chip(s) + '</div><div id="dr-badge">' + badge(waiting() - 1) + "</div>";
+    var h = '<div class="ov-dim"></div><div class="ov-halo" id="dr-halo"></div><div id="dr-chip">' + chip(s) + '</div><div id="dr-badge">' + badge(waiting() - 1) + "</div>";
     h += '<div id="dr-title"></div><div class="dr-hand" id="dr-hand"></div><div id="dr-keys"></div><div id="dr-act"></div>';
     h += '<div class="footer ov-fl" id="dr-fl"></div><div class="footer right ov-fr" id="dr-fr"></div>';
     el.innerHTML = h;
@@ -148,9 +177,10 @@
       return;
     }
     if (mythicAt >= 0) { dealMythic(s, mythicAt); return; }
-    MC.$("dr-title").innerHTML = title("LEVEL UP  ·  DRAFT " + cur.n + " OF " + Math.max(cur.n, cur.total) + "  ·  KEEP ONE, THE OTHER TWO BURN",
-      MC.upper(s.name) + " REACHED LEVEL " + s.level);
     var hand = "", n = Math.min(3, cur.hand.length);
+    MC.$("dr-title").innerHTML = cur.afterClaim
+      ? title("MYTHIC CLAIMED  ·  IT DID NOT USE THIS DRAFT  ·  " + keepText(n), (n === 1 ? "NOW KEEP THIS ONE" : n === 2 ? "NOW KEEP ONE OF THESE TWO" : "NOW KEEP ONE OF THESE THREE"), "#F3D28B")
+      : title("LEVEL UP  ·  DRAFT " + cur.n + " OF " + Math.max(cur.n, cur.total) + "  ·  " + keepText(n), MC.upper(s.name) + " REACHED LEVEL " + s.level);
     for (var k = 0; k < n; k++) {
       cur.pos[k] = leftOf(k, n);
       hand += MC.hcard(cur.hand[k], k, s, {cls: "deal", style: "left:" + cur.pos[k] + "px;top:" + TOP + "px;animation-delay:" + k * 80 + "ms"});
@@ -158,6 +188,7 @@
     MC.$("dr-hand").innerHTML = hand;
     keys();
     redeal(s);
+    fitHand(MC.$("dr-hand").children);
     footer(s);
     if (!again) MC.sound("deal", skillId);
     cur.dealing = true;
@@ -182,7 +213,9 @@
     var pips = "";
     for (var i = 0; i < max; i++) pips += '<i class="' + (i < n ? "on" : "") + '"></i>';
     MC.$("dr-act").innerHTML = '<div class="dr-redeal' + (n ? "" : " off") + '" data-redeal="1"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M11.6 5.2A5 5 0 1 0 12 8" stroke="#EDEEEF" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M12.2 1.8v3.6H8.6" stroke="#EDEEEF" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-      '<span>Redeal all</span><span class="pips" style="width:' + (max * 14 - 6) + 'px">' + pips + "</span></div>";
+      '<span>Redeal all</span><span class="pips">' + pips + "</span></div>";
+    var b = MC.$("dr-act").firstChild;
+    if (b) b.style.left = Math.round(493.5 - b.offsetWidth / 2) + "px";  // centred on the hand, whatever its width
   }
 
   function footer(s) {
@@ -217,7 +250,7 @@
     MC.act("pickCard", cur.skill + "#" + i);  // plays the flare, the thunk and the burn (SOUNDS.md)
     burnAway(i);
     var more = waiting() - 1;
-    MC.$("dr-title").innerHTML = title("KEPT  ·  THE OTHER TWO BURN", (c.baseName || c.name) + " JOINS YOUR HAND");
+    MC.$("dr-title").innerHTML = title("KEPT  ·  " + burnText(Math.min(3, cur.hand.length)), (c.baseName || c.name) + " JOINS YOUR HAND");
     MC.$("dr-badge").innerHTML = badge(more - 1 < 0 ? 0 : more);
     MC.$("dr-keys").innerHTML = "";
     MC.$("dr-act").innerHTML = '<div class="dr-toast" style="--c:' + tintOf(c) + '">Kept ' + esc(c.baseName || c.name) + "  ·  " +
@@ -389,11 +422,12 @@
       others += MC.hcard(cur.hand[k], k, s, {cls: "faded", style: "left:" + cur.pos[k] + "px;top:" + TOP + "px"});
     }
     MC.$("dr-hand").innerHTML = others;
+    fitHand(MC.$("dr-hand").children, 328);  // the Mythic stays 328 tall; the faded others fit their content
     cur.rvX = leftOf(slot, n);
     cur.rvY = TOP;
     MC.$("dr-hand").insertAdjacentHTML("afterend", mythicStage(c, cur.rvX, cur.rvY));
     var claimOnly = s.mythicOffer != null;  // Mettle with claimMythic: claiming keeps the draft open
-    MC.text(MC.$("dr-fl"), claimOnly ? "MYTHICS DON'T USE YOUR PICK  ·  YOU STILL KEEP ONE OF THE OTHERS" : "KEEPING A MYTHIC USES THIS DRAFT'S PICK  ·  THE OTHER TWO BURN");
+    MC.text(MC.$("dr-fl"), claimOnly ? "MYTHICS DON'T USE YOUR PICK  ·  " + (n - 1 >= 2 ? "YOU STILL KEEP ONE OF THE OTHERS" : n - 1 === 1 ? "YOU STILL KEEP THE OTHER CARD TOO" : "A NEW HAND DEALS AFTER") : "KEEPING A MYTHIC USES THIS DRAFT'S PICK  ·  " + burnText(n));
     MC.text(MC.$("dr-fr"), "");
     cur.afterReveal = function () {
       cur.lock = false;
@@ -417,10 +451,11 @@
     if (s && s.mythicOffer != null) {
       MC.act("claimMythic", cur.skill);
       cur.claimed = true;
-      MC.$("dr-act").innerHTML = '<div class="dr-toast my">Claimed ' + esc(c.name) + "  ·  now keep one of the others</div>";
+      MC.$("dr-act").innerHTML = '<div class="dr-toast my">Claimed ' + esc(c.name) + "  ·  " + (cur.hand.length - 1 >= 2 ? "now keep one of the others" : cur.hand.length - 1 === 1 ? "the other card is yours to keep" : "a new hand deals") + "</div>";
       cur.mythicFx = (cur.mythicFx || []).concat([{i: "mfl2", k: "bloom", x: MC.win().x + cur.rvX + 124, y: MC.win().y + cur.rvY + 164, w: 520, h: 520, c: "#FFF1C9", a: 0.9, p: 600}]);
       draftFx();
       cur.waitClaim = true;
+      cur.afterClaim = c.name || "the Mythic";
       later(3000, function () { if (cur && cur.waitClaim) { cur.waitClaim = false; ov.draft(cur.skill, true); } });
       return;
     }

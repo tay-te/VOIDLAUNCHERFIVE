@@ -3,7 +3,9 @@
 	"package": "dev.voidmc.hub.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"GuiMixin"
+		"GuiMixin",
+		"ToastInstanceAccess",
+		"ToastManagerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

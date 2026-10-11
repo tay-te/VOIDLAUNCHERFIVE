@@ -1105,10 +1105,52 @@
     screen = "";
   };
 
+  // ---- one voice for Mettle's numbers ----------------------------------------------------------------------------
+  // Mettle counts days from 0 (the day the world began); the hub's world island says "Day 1" for that day. Every day the
+  // cards show goes through the hub's numbering. A trait's value always carries its unit: Mettle's text has it for
+  // percentages ("10 %"); a bare number ("0.2") takes the unit its own description gives it ("reach 0.2 blocks further"
+  // -> "+0.2 blocks"), or at least a sign.
+  function hubDay(d) { return typeof d === "number" && d >= 0 ? d + 1 : d; }
+  function dayText(t) { return String(t).replace(/\bday (\d+)\b/g, function (_, d) { return "day " + (+d + 1); }); }
+  function withUnit(text, desc) {
+    var v = String(text == null ? "" : text).trim();
+    if (!/^[+-]?\d+(\.\d+)?$/.test(v)) return v;  // has a unit already
+    var m = String(desc || "").match(new RegExp(v.replace(/[.+]/g, "\\$&") + "\\s+([A-Za-z]+)"));
+    var unit = m ? m[1] : "";
+    return (v.charAt(0) === "-" || v.charAt(0) === "+" ? v : "+" + v) + (unit ? " " + unit : "");
+  }
+  function unitTraits(c) {
+    if (!c || c.__units) return;
+    c.__units = true;
+    var ts = c.traits || [];
+    for (var i = 0; i < ts.length; i++) {
+      ts[i].valueText = withUnit(ts[i].valueText, ts[i].description);
+      if (ts[i].boostedText) ts[i].boostedText = withUnit(ts[i].boostedText, ts[i].description);
+    }
+    if (c.drawn && c.drawn.text) c.drawn.text = dayText(c.drawn.text);
+    if (c.drawn) c.drawn.day = hubDay(c.drawn.day);
+    if (c.lastOwners) for (var k = 0; k < c.lastOwners.length; k++) c.lastOwners[k].day = hubDay(c.lastOwners[k].day);
+  }
+  function normalise(state) {
+    var cs = state.cards || {}, b = cs.binder ? cs.binder.cards : [];
+    for (var i = 0; i < b.length; i++) unitTraits(b[i]);
+    var sk = state.skills || [];
+    for (var j = 0; j < sk.length; j++) for (var k = 0; sk[j].hand && k < sk[j].hand.length; k++) unitTraits(sk[j].hand[k]);
+    var t = cs.trade;
+    if (t && t.me) for (var a = 0; t.me.cards && a < t.me.cards.length; a++) unitTraits(t.me.cards[a]);
+    if (t && t.them) for (var e = 0; t.them.cards && e < t.them.cards.length; e++) unitTraits(t.them.cards[e]);
+    var my = cs.mythics, lists = my ? [my.all || [], my.mine || []] : [];
+    for (var l = 0; l < lists.length; l++) for (var n = 0; n < lists[l].length; n++) {
+      if (!lists[l][n].__day) { lists[l][n].__day = true; lists[l][n].day = hubDay(lists[l][n].day); }
+    }
+  }
+  MC.withUnit = withUnit;
+
   /** A new Mettle state. */
   MC.state = function (state) {
     MC.M = state;
     if (!state || !state.cards) return;
+    normalise(state);
     byId = {};
     var all = state.cards.binder.cards;
     for (var i = 0; i < all.length; i++) byId[all[i].id] = all[i];

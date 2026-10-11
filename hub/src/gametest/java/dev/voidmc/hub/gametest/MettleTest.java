@@ -149,6 +149,19 @@ public final class MettleTest {
 		this.context.waitTicks(12);
 		this.context.takeScreenshot("voidhub_mettle_04_draft_hand");
 		this.dumpState("draft");
+		// The copy matches the hand, the badge says it counts every skill, cards fit their content, values carry units.
+		String copy = this.js("(function(){var n=document.querySelectorAll('.dr-hand .hc').length,e=document.querySelector('#dr-title .ov-eb').textContent;"
+			+ "return n+'|'+e+'|'+(document.querySelector('#dr-badge')?document.querySelector('#dr-badge').textContent:'');})()");
+		String[] cp = copy.split(java.util.regex.Pattern.quote("|"), -1);
+		this.expect(cp[1].contains("3".equals(cp[0]) ? "THE OTHER TWO BURN" : "2".equals(cp[0]) ? "THE OTHER ONE BURNS" : "KEEP IT"), "the draft copy matches a hand of " + cp[0] + ": " + cp[1]);
+		this.expect(cp[2].isEmpty() || cp[2].contains("across your skills"), "the badge says it counts every skill: " + cp[2]);
+		String fit = this.js("(function(){var h=[],cs=document.querySelectorAll('.dr-hand .hc');for(var i=0;i<cs.length;i++)h.push(cs[i].offsetHeight);"
+			+ "var bare=[],v=document.querySelectorAll('.hc-tr .v');for(var j=0;j<v.length;j++)if(/^[+-]?[0-9.]+$/.test(v[j].textContent.trim()))bare.push(v[j].textContent);"
+			+ "return h.join(',')+'|'+bare.join(',');})()");
+		String[] fp = fit.split(java.util.regex.Pattern.quote("|"), -1);
+		this.expect(java.util.Arrays.stream(fp[0].split(",")).distinct().count() == 1 && Integer.parseInt(fp[0].split(",")[0]) <= 328,
+			"every card in the hand has the same fitted height: " + fp[0]);
+		this.expect(fp[1].isEmpty(), "every trait value shows a unit: " + fp[1]);
 		this.perf("draft hand idle", () -> this.context.waitTicks(60));
 
 		// 5. Hover: the card lifts onto its hot frame, the others cool down (D3).
@@ -258,6 +271,10 @@ public final class MettleTest {
 		this.expect(this.waiting() == draftsBeforeClaim, "the claim did not use the draft: " + draftsBeforeClaim + " -> " + this.waiting());
 		this.expect("-1".equals(this.js("String((MC.M.skills.filter(function(s){return s.id==='mettle:blades';})[0]||{}).mythicOffer)")),
 			"the Mythic left the hand (mythicOffer -1)");
+		this.expect(this.js("document.querySelector('#dr-title .ov-eb').textContent").contains("MYTHIC CLAIMED"), "after the claim the title says so: "
+			+ this.js("document.querySelector('#dr-title').textContent"));
+		this.expect("visible".equals(this.js("(function(){var f=document.getElementById('dr-fr');return f&&f.textContent&&getComputedStyle(f).display!=='none'?'visible':'hidden';})()")),
+			"the draft's right footer shows after the claim");
 		this.ui.parkMouse();
 		this.context.waitTicks(10);
 		this.context.takeScreenshot("voidhub_mettle_12c_mythic_then_keep");
@@ -486,8 +503,15 @@ public final class MettleTest {
 			this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 			this.context.waitTicks(3);
 		}
+		// Vanilla toasts wait while the hub is open (they would cover the close island) and show once it closes.
+		this.context.runOnClient(mc -> net.minecraft.client.gui.components.toasts.SystemToast.add(mc.gui.toastManager(),
+			net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.NARRATOR_TOGGLE, net.minecraft.network.chat.Component.literal("VOID Hub test"),
+			net.minecraft.network.chat.Component.literal("A toast held while the hub was open")));
+		this.context.waitTicks(20);
+		this.context.takeScreenshot("voidhub_mettle_27_toast_held");
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
-		this.context.waitTicks(3);
+		this.context.waitTicks(20);
+		this.context.takeScreenshot("voidhub_mettle_28_toast_after_close");
 		dev.voidmc.hub.VoidHub.LOGGER.info("VOID Hub + Mettle: all steps passed");
 	}
 

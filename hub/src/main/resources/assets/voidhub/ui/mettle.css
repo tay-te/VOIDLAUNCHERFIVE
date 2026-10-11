@@ -132,7 +132,7 @@ body.gear .segment[data-seg="gear"], body.classes .segment[data-seg="classes"] {
 .o-req { margin-top: 5px; font-size: 12px; white-space: nowrap; }
 .o-learn { width: 107px; height: 44px; border-radius: 13px; font-size: 14px; display: flex; align-items: center; justify-content: center; color: #160F06; }
 .o-learn.off { background: var(--well); border: 1px solid var(--line-2); color: var(--ink-3); }
-#classes.has-toast .footer.right { display: none; }
+#classes.has-toast .footer.right:not(.ov-fr) { display: none; }  /* the toast is hidden under an overlay, so its footer stays */
 /* How a skill levels: untried skills always say it; others on hover. */
 .o-how { left: 14px; top: 156px; width: 192px; font-size: 11px; line-height: 14px; opacity: 0; }
 .o-how.always { opacity: 1; }
