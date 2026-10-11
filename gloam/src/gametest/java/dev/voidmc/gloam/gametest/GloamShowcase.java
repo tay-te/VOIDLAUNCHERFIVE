@@ -401,6 +401,11 @@ public class GloamShowcase implements FabricClientGameTest {
 		views.add(rain);
 		views.add(rain.at("wwet0", 6 * 24000L + 6000, "clear").looking("wwet0", p.toPeak(), 30));
 		views.add(rain.at("wwet1", 6 * 24000L + 6000, "clear").looking("wwet1", p.toPeak(), 4));
+		// rain and the wet ground after it on open grass (the old forest country's meadows, found as for whaze_old_forest)
+		View meadow = new View("wrainB0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), 180, 20, 70, 6 * 24000L + 6000, "rain", 20);
+		views.add(meadow);
+		views.add(meadow.at("wwetB0", 6 * 24000L + 6000, "clear").looking("wwetB0", 180, 35));
+		views.add(meadow.at("wwetB1", 6 * 24000L + 9800, "clear").looking("wwetB1", 180, 20));
 		views.add(new View("wnight0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), 4, 70, 18000, "clear", 2));
 		views.add(new View("wnight1", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), 4, 70, 4 * 24000 + 18000, "clear", 2));
 	}
@@ -791,6 +796,17 @@ public class GloamShowcase implements FabricClientGameTest {
 			System.out.printf(Locale.ROOT, "[gloam] %s: ground %d at %d %d%n", planned.name(), ground, planned.x(), planned.z());
 			return new View(planned.name(), planned.x(), ground - planned.y(), planned.z(), planned.yaw(), planned.pitch(), planned.fov(), planned.time(),
 				planned.weather(), planned.linger());
+		}
+		if (planned.name().startsWith("wrainB") || planned.name().startsWith("wwetB")) {
+			if (last != null && (last.name().startsWith("wrainB") || last.name().startsWith("wwetB"))) {
+				return planned.at(last);
+			}
+			int[] c = world.getServer().computeOnServer(server -> findCountry(server.overworld(), planned, "old_forest"));
+			if (c == null) {
+				return planned;
+			}
+			// four blocks over the meadow, looking down on the grass
+			return new View(planned.name(), c[0], c[1] - 30 + 4, c[2], c[3], planned.pitch(), planned.fov(), planned.time(), planned.weather(), planned.linger());
 		}
 		if (planned.name().startsWith("whaze_")) {
 			String kind = planned.name().substring("whaze_".length());
