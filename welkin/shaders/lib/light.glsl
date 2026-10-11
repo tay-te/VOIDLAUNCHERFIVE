@@ -76,7 +76,7 @@ float rampSky(float level) {
 // roof's edge). Out in the open shade (sky light 15) it is 0, so a house's or a cliff's shadow keeps its contrast; in a
 // cave it is 0. It only fills the part of the face the sun does not light already.
 float canopyLeak(float skyLevel) {
-	return 0.3 * smoothstep(0.25, 0.55, skyLevel) * (1.0 - smoothstep(0.84, 0.97, skyLevel));
+	return 0.35 * smoothstep(0.25, 0.55, skyLevel) * (1.0 - smoothstep(0.84, 0.97, skyLevel));
 }
 
 // The old name, for callers not yet moved over; the dither threshold is ignored.
@@ -223,7 +223,7 @@ float farCanopySun(int m) {
 
 float farCanopyFill(int m) {
 #if defined SHADOWS && defined WORLD_OVERWORLD
-	return matIsLeaves(m) ? 0.88 : 1.0;
+	return matIsLeaves(m) ? 0.8 : 1.0;
 #else
 	return 1.0;
 #endif
