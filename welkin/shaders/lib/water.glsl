@@ -10,10 +10,22 @@
 #include "/lib/grid.glsl"
 #include "/lib/light.glsl"
 
+#ifndef WU_colortex3
+#define WU_colortex3
 uniform sampler2D colortex3;
+#endif
+#ifndef WU_isEyeInWater
+#define WU_isEyeInWater
 uniform int isEyeInWater;
+#endif
+#ifndef WU_gbufferProjection
+#define WU_gbufferProjection
 uniform mat4 gbufferProjection;
+#endif
+#ifndef WU_viewHeight
+#define WU_viewHeight
 uniform float viewHeight;
+#endif
 
 vec3 waterFog(ivec2 p, vec2 uv, vec3 scene) {
 	Surface front = surfaceAt(p, uv);

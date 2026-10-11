@@ -23,12 +23,24 @@
 
 #ifndef WELKIN_GBUFFER_SAMPLERS
 #define WELKIN_GBUFFER_SAMPLERS
+#ifndef WU_colortex1
+#define WU_colortex1
 uniform sampler2D colortex1;
+#endif
+#ifndef WU_colortex2
+#define WU_colortex2
 uniform sampler2D colortex2;
 #endif
+#endif
 #ifdef DISTANT_HORIZONS
+#ifndef WU_dhNearPlane
+#define WU_dhNearPlane
 uniform float dhNearPlane;
+#endif
+#ifndef WU_dhFarPlane
+#define WU_dhFarPlane
 uniform float dhFarPlane;
+#endif
 #endif
 
 vec3 debugView(ivec2 p, vec2 uv, vec3 scene) {

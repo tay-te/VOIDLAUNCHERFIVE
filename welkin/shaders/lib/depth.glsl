@@ -9,17 +9,35 @@
 #ifndef WELKIN_DEPTH
 #define WELKIN_DEPTH
 
+#ifndef WU_depthtex0
+#define WU_depthtex0
 uniform sampler2D depthtex0;
+#endif
+#ifndef WU_gbufferProjectionInverse
+#define WU_gbufferProjectionInverse
 uniform mat4 gbufferProjectionInverse;
+#endif
 #ifdef DISTANT_HORIZONS
+#ifndef WU_dhDepthTex0
+#define WU_dhDepthTex0
 uniform sampler2D dhDepthTex0;
+#endif
+#ifndef WU_dhProjectionInverse
+#define WU_dhProjectionInverse
 uniform mat4 dhProjectionInverse;
+#endif
 #endif
 // define WELKIN_DEPTH_BEHIND before including for surfaceBehind (composite passes only: depthtex1, dhDepthTex1)
 #ifdef WELKIN_DEPTH_BEHIND
+#ifndef WU_depthtex1
+#define WU_depthtex1
 uniform sampler2D depthtex1;
+#endif
 #ifdef DISTANT_HORIZONS
+#ifndef WU_dhDepthTex1
+#define WU_dhDepthTex1
 uniform sampler2D dhDepthTex1;
+#endif
 #endif
 #endif
 

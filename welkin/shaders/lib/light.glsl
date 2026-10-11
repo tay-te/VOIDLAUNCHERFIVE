@@ -10,12 +10,30 @@
 
 #include "/lib/common.glsl"
 
+#ifndef WU_shadowLightPosition
+#define WU_shadowLightPosition
 uniform vec3 shadowLightPosition; // the sun by day, the moon by night, in view space
+#endif
+#ifndef WU_sunPosition
+#define WU_sunPosition
 uniform vec3 sunPosition;
+#endif
+#ifndef WU_sunAngle
+#define WU_sunAngle
 uniform float sunAngle;           // 0 sunrise, 0.25 noon, 0.5 sunset
+#endif
+#ifndef WU_rainStrength
+#define WU_rainStrength
 uniform float rainStrength;
+#endif
+#ifndef WU_nightVision
+#define WU_nightVision
 uniform float nightVision;
+#endif
+#ifndef WU_gbufferModelViewInverse
+#define WU_gbufferModelViewInverse
 uniform mat4 gbufferModelViewInverse;
+#endif
 
 // How high the sun stands: -1..1.
 float sunHeight() {

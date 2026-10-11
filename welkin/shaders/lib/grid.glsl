@@ -8,8 +8,14 @@
 
 #include "/lib/common.glsl"
 
+#ifndef WU_cameraPositionInt
+#define WU_cameraPositionInt
 uniform ivec3 cameraPositionInt;
+#endif
+#ifndef WU_cameraPositionFract
+#define WU_cameraPositionFract
 uniform vec3 cameraPositionFract;
+#endif
 
 // The world texel containing `eyePos` (a world position minus cameraPosition), at `level` (0: 16 texels a block,
 // 1: 8, ... 4: one a block, 5: one per 2 blocks, ...). Exact integer maths for the camera's part.

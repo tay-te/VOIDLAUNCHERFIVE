@@ -7,10 +7,19 @@
 
 #include "/lib/common.glsl"
 
+#ifndef WU_fogColor
+#define WU_fogColor
 uniform vec3 fogColor;
+#endif
+#ifndef WU_far
+#define WU_far
 uniform float far;
+#endif
 #ifdef DISTANT_HORIZONS
+#ifndef WU_dhRenderDistance
+#define WU_dhRenderDistance
 uniform int dhRenderDistance;
+#endif
 #endif
 
 // 0 near to 1 at the edge, in four steps; `d` is the dither threshold.

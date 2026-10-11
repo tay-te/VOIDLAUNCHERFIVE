@@ -11,7 +11,10 @@ out vec2 lmcoord;
 out vec3 eyePos;
 flat out vec3 normalW;
 
+#ifndef WU_gbufferModelViewInverse
+#define WU_gbufferModelViewInverse
 uniform mat4 gbufferModelViewInverse;
+#endif
 
 void main() {
 	gl_Position = ftransform();
@@ -35,10 +38,22 @@ in vec2 lmcoord;
 in vec3 eyePos;
 flat in vec3 normalW;
 
+#ifndef WU_clipDistance
+#define WU_clipDistance
 uniform float clipDistance;
+#endif
+#ifndef WU_gbufferProjection
+#define WU_gbufferProjection
 uniform mat4 gbufferProjection;
+#endif
+#ifndef WU_viewWidth
+#define WU_viewWidth
 uniform float viewWidth;
+#endif
+#ifndef WU_viewHeight
+#define WU_viewHeight
 uniform float viewHeight;
+#endif
 
 /* RENDERTARGETS: 0,3 */
 layout(location = 0) out vec4 outColor;

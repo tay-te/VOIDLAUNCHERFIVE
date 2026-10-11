@@ -33,19 +33,31 @@ void main() {
 
 in vec2 texcoord;
 
+#ifndef WU_colortex0
+#define WU_colortex0
 uniform sampler2D colortex0;
+#endif
 
 #if DEBUG_VIEW != 0
 #include "/lib/debug.glsl"
 #endif
 
 #ifdef DEBUG_JOIN
+#ifndef WU_viewWidth
+#define WU_viewWidth
 uniform float viewWidth;
+#endif
 
 #ifndef WELKIN_GBUFFER_SAMPLERS
 #define WELKIN_GBUFFER_SAMPLERS
+#ifndef WU_colortex1
+#define WU_colortex1
 uniform sampler2D colortex1;
+#endif
+#ifndef WU_colortex2
+#define WU_colortex2
 uniform sampler2D colortex2;
+#endif
 #endif
 
 // Whether the chunks' land is at `q` (1), the LOD's (0), or neither (-1: the sky, or vanilla's clouds, marked in

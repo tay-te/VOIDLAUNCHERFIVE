@@ -20,7 +20,10 @@ void main() {
 in vec2 texcoord;
 in vec4 glcolor;
 
+#ifndef WU_gtexture
+#define WU_gtexture
 uniform sampler2D gtexture;
+#endif
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;

@@ -23,10 +23,13 @@ int materialFromBlockId(int id) {
 	return (id >= 10000 && id < 10100) ? id - 10000 : MAT_NONE;
 }
 
-// 4x4 ordered (Bayer) dither threshold in (0, 1) for an integer cell.
+// 4x4 ordered (Bayer) dither threshold in (0, 1) for an integer cell. The same matrix as
+// (0, 8, 2, 10 / 12, 4, 14, 6 / 3, 11, 1, 9 / 15, 7, 13, 5), built from the bits of the cell: a runtime-indexed const
+// array spills to local memory on NVIDIA (measured at about 3 ms over a frame of haze), the bit form is a few ALU ops.
 float bayer4(ivec2 p) {
-	const int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
-	return (float(m[(p.y & 3) * 4 + (p.x & 3)]) + 0.5) / 16.0;
+	int t = p.x ^ p.y;
+	int v = ((t & 1) << 3) | ((p.y & 1) << 2) | (t & 2) | ((p.y >> 1) & 1);
+	return (float(v) + 0.5) * (1.0 / 16.0);
 }
 
 // x in [0, 1] rounded to one of `steps` + 1 flat levels; `d` is the dither threshold (0.5 for no dither).

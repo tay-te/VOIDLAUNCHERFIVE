@@ -28,11 +28,26 @@ void main() {
 
 in vec2 texcoord;
 
+#ifndef WU_colortex0
+#define WU_colortex0
 uniform sampler2D colortex0;
+#endif
+#ifndef WU_colortex1
+#define WU_colortex1
 uniform sampler2D colortex1;
+#endif
+#ifndef WU_colortex2
+#define WU_colortex2
 uniform sampler2D colortex2;
+#endif
+#ifndef WU_gbufferProjection
+#define WU_gbufferProjection
 uniform mat4 gbufferProjection;
+#endif
+#ifndef WU_viewHeight
+#define WU_viewHeight
 uniform float viewHeight;
+#endif
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;

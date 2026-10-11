@@ -20,7 +20,10 @@ void main() {
 
 in vec2 texcoord;
 
+#ifndef WU_colortex0
+#define WU_colortex0
 uniform sampler2D colortex0;
+#endif
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;

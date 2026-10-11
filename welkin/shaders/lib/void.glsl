@@ -25,10 +25,22 @@
 #define VOID_TEX_W 1024
 #define VOID_TEX_H 516
 
+#ifndef WU_void_data
+#define WU_void_data
 uniform sampler2D void_data; // read only with texelFetch: Iris binds it MIPPED_NEAREST_REPEAT whatever Gloam asks
+#endif
+#ifndef WU_void_bridge
+#define WU_void_bridge
 uniform int void_bridge;     // 1 when Gloam's uniform mixin is live; undeclared by Iris means 0
+#endif
+#ifndef WU_void_version
+#define WU_void_version
 uniform int void_version;    // the contract version Gloam speaks
+#endif
+#ifndef WU_void_mistTime
+#define WU_void_mistTime
 uniform float void_mistTime; // the hour's and season's part of the mist, 0..1 (times a cell's mist potential)
+#endif
 
 // Header row 0 (Gloam's Contract): texels 2..9 the tile centres, 10 the mask of tiles holding data, 11 the mask of
 // live uniform slots. Rows 1..3: the uniform mirror, one texel column per slot in design table 2.2's order.

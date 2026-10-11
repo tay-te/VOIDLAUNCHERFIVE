@@ -26,9 +26,18 @@ void main() {
 in vec4 glcolor;
 in vec3 viewPos;
 
+#ifndef WU_alphaTestRef
+#define WU_alphaTestRef
 uniform float alphaTestRef;
+#endif
+#ifndef WU_viewWidth
+#define WU_viewWidth
 uniform float viewWidth;
+#endif
+#ifndef WU_viewHeight
+#define WU_viewHeight
 uniform float viewHeight;
+#endif
 
 /* RENDERTARGETS: 0,2 */
 layout(location = 0) out vec4 outColor;

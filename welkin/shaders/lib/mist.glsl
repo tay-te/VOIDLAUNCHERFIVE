@@ -39,8 +39,14 @@
 
 #ifndef WELKIN_GBUFFER_SAMPLERS
 #define WELKIN_GBUFFER_SAMPLERS
+#ifndef WU_colortex1
+#define WU_colortex1
 uniform sampler2D colortex1;
+#endif
+#ifndef WU_colortex2
+#define WU_colortex2
 uniform sampler2D colortex2;
+#endif
 #endif
 
 // How sharply the soft minimum of the ground round a place leans to the lowest of its four cells (per block).

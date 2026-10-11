@@ -22,7 +22,10 @@ out vec3 normalW;
 out vec3 eyePos;
 flat out int material;
 
+#ifndef WU_gbufferModelViewInverse
+#define WU_gbufferModelViewInverse
 uniform mat4 gbufferModelViewInverse;
+#endif
 #ifdef G_BLOCKID
 in vec4 mc_Entity;
 #endif
@@ -52,10 +55,19 @@ in vec3 normalW;
 in vec3 eyePos;
 flat in int material;
 
+#ifndef WU_gtexture
+#define WU_gtexture
 uniform sampler2D gtexture;
+#endif
+#ifndef WU_alphaTestRef
+#define WU_alphaTestRef
 uniform float alphaTestRef;
+#endif
 #ifdef G_ENTITY
+#ifndef WU_entityColor
+#define WU_entityColor
 uniform vec4 entityColor;
+#endif
 #endif
 
 #if !defined G_DEFERRED && !defined G_UNLIT
