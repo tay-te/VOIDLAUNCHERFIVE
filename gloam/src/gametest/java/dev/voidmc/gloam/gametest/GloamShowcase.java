@@ -238,6 +238,9 @@ public class GloamShowcase implements FabricClientGameTest {
 				}
 				last = view;
 			}
+			if (packAbNow) {
+				packOptions(context, false); // Iris saved the ab values to the pack's settings file: leave the base ones there
+			}
 			String clips = context.computeOnClient(mc -> Soundscape.loadedClips());
 			System.out.printf(Locale.ROOT, "[gloam] sound clips %s%n", clips);
 		}
