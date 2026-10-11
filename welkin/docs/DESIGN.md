@@ -4,7 +4,7 @@ Status: accepted, October 2026. Built from three read-only research passes: Iris
 
 ## 0. The decision in one paragraph
 
-All world visuals move into VOID Welkin, a new shader pack for Iris, written from scratch. Gloam stops drawing anything. Instead it works out the world's state (seasons, wind, weather fronts, mist, haze, light) and hands it to the pack through a small bridge: one data texture, which needs no Iris mixin, and a set of `void_*` uniforms added by one small mixin. It keeps the whole soundscape and gains underground sound beds. Expanse is unchanged as the source of land data. LOD keeps drawing far terrain through the pack's Distant Horizons programs, and gets the bridge data with no changes. The look stays Minecraft: flat steps, a 16-pixel grid, dither and voxel clouds, with no soft volumetrics.
+All world visuals move into VOID Welkin, a new shader pack for Iris, written from scratch. Gloam stops drawing anything. Instead it works out the world's state (seasons, wind, weather fronts, mist, haze, light) and hands it to the pack through a small bridge: one data texture, which needs no Iris mixin, and a set of `void_*` uniforms added by one small mixin. It keeps the whole soundscape and gains underground sound beds. Expanse is unchanged as the source of land data. LOD keeps drawing far terrain through the pack's Distant Horizons programs, and gets the bridge data with no changes. The look stays Minecraft, lightly stylized and of high quality: smooth gradients with gentle banding, directional sunlight and shadows, crisp pixel art only for the sun, moon, stars and voxel clouds, and no visible dither, TAA, bloom haze or fuzzy volumetrics (section 3.2).
 
 ---
 
@@ -22,7 +22,7 @@ All world visuals move into VOID Welkin, a new shader pack for Iris, written fro
 | Goes | Why |
 |---|---|
 | Sky colour layers (`SKY_COLOR`, `FOG_COLOR`, `CLOUD_COLOR`, `SUNRISE_SUNSET_COLOR`, `SKY_LIGHT_COLOR`, `STAR_BRIGHTNESS`, the colour part of fog distance) | The pack draws the sky. Gloam sends the inputs: golden, blue, vivid, sunset step, moon and cover. |
-| `SkyBands` and the banded sky shaders | Becomes the pack's stepped sky table. |
+| `SkyBands` and the banded sky shaders | Becomes the pack's sky table. |
 | Ground mist (`MistMote`, `SoftMist`, veil sprites, `ground_mist.*`, the soft-mist mixins, the depth copy) | The pack's composite pass does the mist slab with real depth. This removes Gloam's riskiest code. |
 | Clouds (`CloudGrid`, `CloudDeck`, `CloudNoise`, cloud mixins, the cloud-shadow picture) | The pack ray-marches voxel clouds from the weather data. `CloudGrid` becomes the GLSL reference. It stays until the pack's clouds pass review (milestone M3). |
 | Far air (`FarRenderer`, `FarMist` mesh, `FarRain`, `far_depth_merge`, `BorrowedDepth`, `Shaders.withoutPackShaders`, `LevelRendererFarMixin`, the `ImmediateState.bypass` hack) | This path only existed to paint over a pack. It moves into the pack's DH and composite programs. |
@@ -218,15 +218,22 @@ These come from the Expanse country `haze` hint, or from Gloam's biome table whe
 
 **Where it lives:** `welkin/` in the repo, on branch `welkin` with its worktree at `.claude/worktrees/welkin`. `welkin/tools/pack.sh` zips it into a game-test run folder's `shaderpacks/` as `Welkin.zip` and selects it.
 
-### 3.2 Look rules (from STYLE.md and the user's notes)
+### 3.2 Look rules (set by the user on 2026-10-11)
 
-- It must still feel like Minecraft. It adds texture; it is stylized, not realistic, with no fuzz.
-- Light, fog, mist and sky use flat colour steps (3–5 per ramp), not smooth gradients.
-- Transitions use a 4×4 Bayer dither. Effects that cover the world (mist, haze edges, cloud rims) snap to a 16-pixel world grid.
-- Clouds are voxel cells (12×12×4 near, doubling with distance), opaque, with dithered rims. No ray-marched soft volumes.
-- No TAA (it smears pixel art), no bloom haze, no SSAO or SSR on far pixels. Everything renders at full resolution.
+These replace the first rules (flat colour steps and a 4×4 Bayer dither everywhere), which the user dropped on
+2026-10-11. Gloam's STYLE.md and the staged wave-2 modules still describe the old rules; they are adapted as they are
+integrated.
+
+- It must still feel like Minecraft: lightly stylized, not realistic, and of very high quality, on a par with good shader packs.
+- Light, fog, haze, mist and sky are smooth gradients with gentle banding: a ramp may gather softly at a few levels (`softBands`, the `SOFT_BANDS` option), but never in flat steps with edges.
+- No heavy or visible dither or checkerboard anywhere. The only noise is final's anti-banding: one 8-bit step of fixed triangular noise, which cannot be seen.
+- Pixel-crisp detail only where it looks good: the sun, the moon, the stars and the voxel clouds. Everything that covers the world (haze, mist, water fog, wet ground) is smooth and is worked out at the pixel's own point, not snapped to a texel grid. Puddle outlines sit on the block textures' own texel grid, like texture.
+- Clouds are voxel cells (12×12×4 near, doubling with distance), opaque, with hard edges and no dithered rims. No ray-marched soft volumes.
+- Directional sunlight and shadows are the foundation of the quality: the sun lights faces by how squarely they face it, smoothly, and the shadow map (M6) carries it.
+- No TAA (it smears pixel art), no bloom haze, no fuzzy volumetrics, no SSAO or SSR on far pixels. Everything renders at full resolution.
 - Surface colours stay natural and real-world, with no glowing fantasy tints. Underground may be fantastical (glowworm light, coloured cave water).
-- Each palette is small and lives in a pack file, keyed by haze kind, season and time.
+- Each palette is small and lives in a pack file, keyed by haze kind, season and time. Palettes are control points: the colour runs smoothly between them, and every weight on them changes smoothly with the hour and the weather.
+- The budgets of section 3.5 still hold.
 
 ### 3.3 Files and programs
 
@@ -240,16 +247,16 @@ These come from the Expanse country `haze` hint, or from Gloam's biome table whe
 
 | Pass | Programs | Job and bridge use |
 |---|---|---|
-| prepare | `prepare` | 64×32 stepped sky table from the sun angle, `void_sky`, `void_light`, `void_cloudCover`, `void_hazeKind` |
+| prepare | `prepare` | 64×32 sky table (smooth control points) from the sun angle, `void_sky`, `void_light`, `void_cloudCover`, `void_hazeKind` |
 | shadow | `shadow` | Near chunks only (about 128–160 blocks, 1024–2048²). No LOD. Off on LOW. |
 | opaque | `gbuffers_terrain`, `entities`, `block`, `hand`, `basic`, `textured`, `textured_lit`, `skybasic`, `skytextured`, `spidereyes`, `armor_glint`, `beaconbeam` | Albedo, octahedral normal and material, and lightmap into 3 targets. Leaf and grass sway from `void_wind`. Pixel-art sun, moon and stars (`void_light.y`). Motes come through `textured` and `textured_lit`. |
 | far land | `dh_terrain` | The same layout. Material from `dhMaterialId`. A hash-based 16-pixel texture on the world grid that coarsens with distance. No `discard`, no texture fetch except `void_data`. |
 | deferred | `deferred` | Lights opaques using `depthtex0` where the chunks drew and `dhDepthTex0` elsewhere (section 7). Stepped light ramp scaled by `void_light.z`, so dark nights match gameplay. Near shadow map. Cloud shadows from W0/W1 cover along the sun direction. Underground ambient from U openness. |
 | translucent | `gbuffers_water`, `dh_water` | Forward shading with pixel ripples (wind-driven). Far water reflects the sky table; no SSR past about 2 km. Wetness darkens shores. |
-| clouds | composite pass (from M3) | Voxel DDA through the cloud decks (`void_cloudLayers`) over W0/W1 cover. Cells are on or off by a `void_seed` hash against cover. Faces are lit in steps from the sun side. |
-| atmosphere | `composite` | Height haze with an exact formula, taking 2–4 samples of N/F tiles along the view ray. Valley mist slab, underground fog, water fog. All stepped and dithered. |
-| far weather | `composite1` | Rain curtains under rainy W1 cells, as stepped 2.5D sheets between cloud base and F0 ground. Far valley mist over F tiles. |
-| final | `final` | Palette steps, dither, light tone curve |
+| clouds | composite pass (from M3) | Voxel DDA through the cloud decks (`void_cloudLayers`) over W0/W1 cover. Cells are on or off by a `void_seed` hash against cover. Crisp faces, lit by the sky table's ambient and the sun or moon. |
+| atmosphere | `composite` | Height haze with an exact formula, taking 2–4 samples of N/F tiles along the view ray. Valley mist slab, underground fog, water fog. All smooth, no dither. |
+| far weather | `composite1` | Rain curtains under rainy W1 cells, as smooth 2.5D sheets between cloud base and F0 ground. Far valley mist over F tiles. |
+| final | `final` | A soft shoulder past white and invisible anti-banding (one 8-bit step of fixed noise); no palette steps |
 
 **LOD and DH**
 - LOD's `StandardMacrosMixin` defines `DISTANT_HORIZONS`. Far material IDs come from `DH_BLOCK_*` (LEAVES 1 … ILLUMINATED 15).
@@ -261,14 +268,14 @@ These come from the Expanse country `haze` hint, or from Gloam's biome table whe
 
 | Feature | Inputs | How |
 |---|---|---|
-| **Valley mist at dawn** | N0 ground and lowness, N1 mist potential, `void_mistTime`, F tiles beyond 2 km | mist = potential × `void_mistTime`. The slab top is the lowest nearby ground + 1 + (4 + 32·mist)·pool and its density mist·pool², where pool comes from the land's relief (N0 lowness) and nearness to water, so mist pools in hollows and along water and high flat land gets none. Composite intersects the view ray with the slab exactly (2–4 tile samples, no marching). Optical depth is cut into 4 steps and Bayer-dithered. The sun-side tint comes from the sky table (the horizon colour until M2). Sunrise is thick, midday is gone, after sunset is a thin veil. |
+| **Valley mist at dawn** | N0 ground and lowness, N1 mist potential, `void_mistTime`, F tiles beyond 2 km | mist = potential × `void_mistTime`. The slab top is the lowest nearby ground + 1 + (4 + 32·mist)·pool and its density mist·pool², where pool comes from the land's relief (N0 lowness) and nearness to water, so mist pools in hollows and along water and high flat land gets none. Composite intersects the view ray with the slab exactly (2–4 tile samples, no marching). The opacity follows the optical depth smoothly. The sun-side tint comes from the sky table (the horizon colour until M2). Sunrise is thick, midday is gone, after sunset is a thin veil. |
 | **Cloud cover from humidity and rain shadow** | W0/W1 cover, `void_cloudLayers`, `void_storm`, `void_maxStorm`, `void_seed` | Gloam bakes the bias into W: the front field (4-octave fbm over 3 km cells, drifting east at 6 blocks/s) times Expanse humidity, reduced downwind of high ground (new: sample altitude upwind along `void_wind`). The pack only thresholds cover per cell, so the CPU and pack agree, and so do rain and sound. Storm cells grow towers to the tower-top height. |
 | **Haze colour by country** | N1/F1 haze kind, `void_haze`, `void_hazeKind` | Each kind picks a small palette: humid_lowland pale blue-grey, misty_lakes cool white, forest_damp green-grey, dusty warm ochre, temperate neutral, clear_alpine thin and blue. Strength comes from `void_haze.x` (thinned at midday), `void_haze.w` for far land, and the dust share. Along the view ray, kinds are blended through the 2–4 samples. |
-| **Seasons** | `void_year`, `void_warmth`, `void_seasonState`, block tints already baked by Gloam | Blocks arrive already tinted, so the pack adds touches only: frost sparkle steps when cold, low winter sun palette, autumn haze warmth, snowline-aware wet or snow-covered shading. |
-| **Underground fog by openness** | U openness, floor and ceiling, water kind, `void_underground`, `void_cave` | Fog reach follows openness: tight in tunnels, long in great caverns and the underground seas. Mist rises over great rivers. Glowworm caves get a stepped teal glow. Dripping caves get damp, darker walls. Fog thickness is stepped; colours stay fantastical but flat. |
-| **Rain and wet ground** | `void_rain`, `void_showers`, `void_wetness`, W1 rain | Near rain stays vanilla particles. Far rain becomes curtains in `composite1`. Wet ground darkens with `void_wetness`, and puddle highlights appear in steps. |
+| **Seasons** | `void_year`, `void_warmth`, `void_seasonState`, block tints already baked by Gloam | Blocks arrive already tinted, so the pack adds touches only: frost sparkle when cold, low winter sun palette, autumn haze warmth, snowline-aware wet or snow-covered shading. |
+| **Underground fog by openness** | U openness, floor and ceiling, water kind, `void_underground`, `void_cave` | Fog reach follows openness: tight in tunnels, long in great caverns and the underground seas. Mist rises over great rivers. Glowworm caves get a teal glow. Dripping caves get damp, darker walls. Fog thickness is smooth; colours may stay fantastical. |
+| **Rain and wet ground** | `void_rain`, `void_showers`, `void_wetness`, W1 rain | Near rain stays vanilla particles. Far rain becomes curtains in `composite1`. Wet ground darkens with `void_wetness`, and puddles mirror the sky. |
 | **Night** | `void_light` | Moonlit or clouded sky colour, star count, and a light ramp that matches the gameplay light factor. |
-| **Lightning** | Iris lightning uniforms, `void_storm` | A flash in steps; the timing gate stays in Gloam. |
+| **Lightning** | Iris lightning uniforms, `void_storm` | A flash; the timing gate stays in Gloam. |
 
 ### 3.5 Performance budget (1080p, mid-range GPU, MEDIUM)
 
@@ -304,7 +311,7 @@ Cost must grow with screen resolution, not distance:
 | Custom texture not bound in `dh_terrain` | Low, untested | It is the first check in M1. If it fails, a one-line LOD fix in `PackLodProgram`. |
 | GPU cost of voxel clouds to 128 km | Medium | Bounded DDA and distance-doubled cells. The cloud pass has its own profile setting. Gloam's `CloudGrid` mesh stays until the pack's clouds meet the 0.6 ms budget. |
 | `dh_*` cost shrinks the LOD radius | Medium | Trivial far programs with budgets measured in every game test. |
-| Look drifts toward realism or fuzz | Medium | STYLE.md rules in the pack's README. Every milestone is reviewed against screenshots by the user. |
+| Look drifts toward realism or fuzz | Medium | The look rules (3.2) in the pack's README. Every milestone is reviewed against screenshots by the user. |
 | Multiplayer has no Expanse data | Certain today | Fallback flags in the tiles. M8 adds a server packet. |
 | Licence | Low with our own pack | No copied code. Only MIT snippets from their original sources, with credit. The pack is under VOID's own terms (section 7). |
 | Shared working tree | Ongoing | Pack work is in its own worktree. One game test at a time, using the mkdir lock and `lod-gametest.sh`. No stash, checkout or reset in VOID's checkout. |
@@ -361,7 +368,7 @@ Each one ends with game-test screenshots taken with Welkin (and LOD's vista shot
 | Motes and seasonal crowns | Stay in Gloam (question 3). The pack lights motes. Gloam's seasonal crowns are model swaps onto existing leaves, so `block.properties` already covers them. |
 | Subagent effort | High at most (section 5). |
 | Derived uniforms | `welkin_*`, declared only under `#ifdef VOID_GLOAM` (section 2.1). |
-| Look | The rules of section 3.2 are absolute: Minecraft-like and stylized (adds texture, not realism), flat colour steps, Bayer dither, the 16-pixel world grid for anything covering the world, voxel clouds, no TAA, no soft volumetrics, natural surface colours. |
+| Look | The rules of section 3.2 are absolute. Since 2026-10-11: Minecraft-like and lightly stylized, very high quality; smooth gradients with gentle banding; no visible dither anywhere (only invisible anti-banding); pixel-crisp sun, moon, stars and voxel clouds; directional sunlight and shadows first; no TAA, bloom haze or fuzzy volumetrics; natural surface colours. (Before: flat colour steps, Bayer dither and the 16-pixel grid for everything covering the world.) |
 
 ### M0 as built (the skeleton)
 
@@ -377,7 +384,21 @@ Each one ends with game-test screenshots taken with Welkin (and LOD's vista shot
 - `lib/mist.glsl`, called from `composite` after the water fog, in the overworld only (`VALLEY_MIST`). It reads N0 and N1 with `texelFetch` through `voidTexel`, only after `voidMode()` has passed the magic check and header texel 10 says both tiles hold data. The tiles' centre is read from the header (texel 2), not `void_nearCentre`, because the header's centre always matches the tile data beside it. `void_mistTime` comes from the uniform in full mode and from the header mirror (slot 16, both bytes, only if bit 16 of the live mask is set) in header mode. With no Gloam, or tiles not yet filled, there is no mist.
 - **The slab:** mist = potential × `void_mistTime`; pool = max(smoothstep(0.08, 0.65, lowness), 0.6 · water nearness) (water nearness 1 on water, fading from 16 to 96 blocks away), bilinear over the lattice nodes; top = floor + 1 + (4 + 32 · mist) · pool; density = mist · pool². The mist potential alone put a 4 + 26 · mist blanket over any high flat land with some potential (the M1 review: the plateau and the savanna got the same veil as the canyon); measured against relief, level land with nothing lower round it gets a 1-block layer of no density, and a canyon (lowness 1) fills to a level top. "Lowest nearby ground" is a soft minimum over the four nodes of a 32 m lattice (every second cell, anchored to world cells), each node's bilinear weight times exp(−0.2 · (height − lowest)). It leans to the lowest node but stays continuous, so the top does not step at cell edges.
 - **The ray:** sampled at `MIST_SAMPLES` places (2, 3 or 4, the camera's included; LOW 2, MEDIUM 3, HIGH 4) at fixed shares of the ray, with the same count for every pixel so no rings appear. The top and density run straight between samples, so the ray's entry and exit and the integral of density are exact for each piece. No marching. The ray stops where it leaves the tiles' square; density fades over the last 16 cells, and where a fill is still in progress.
-- **The look:** cover is 1 − exp(−0.09 · `MIST_THICKNESS` · density · blocks), cut into 4 flat opacity steps (0.40, 0.64, 0.82, 0.95, so the first step reads as mist and a deep hollow is near-opaque) with a Bayer dither. The dither lies on the 16-pixel world grid at the surface the ray ends on (land with its normal, water and LOD land as up-facing): 1/16 block near by, doubling with distance and on grazing faces (blocks per pixel divided by |n · view|, at least 0.25) so a texel never drops under 2 screen pixels. Only sky pixels use the screen's Bayer. (M1 review: dithering on the mist's top with a texel of 1 pixel read as a 1-pixel screen checker over every surface.) Colour: a light cool white from first light (sun height −0.12 up), so dawn mist lifts the scene instead of greying it; dark blue-grey at night; toward a low sun it warms in 3 steps with the horizon's hue (normalised `fogColor`, so a dark fog colour cannot darken it) mixed with a fixed warm white; darker in rain. The sky table replaces the tint in M2.
+- **The look** (as built in M1; since the style pivot the opacity is 0.72 · cover, smooth, with no dither): cover is 1 − exp(−0.09 · `MIST_THICKNESS` · density · blocks), cut into 4 flat opacity steps (0.40, 0.64, 0.82, 0.95, so the first step reads as mist and a deep hollow is near-opaque) with a Bayer dither. The dither lies on the 16-pixel world grid at the surface the ray ends on (land with its normal, water and LOD land as up-facing): 1/16 block near by, doubling with distance and on grazing faces (blocks per pixel divided by |n · view|, at least 0.25) so a texel never drops under 2 screen pixels. Only sky pixels use the screen's Bayer. (M1 review: dithering on the mist's top with a texel of 1 pixel read as a 1-pixel screen checker over every surface.) Colour: a light cool white from first light (sun height −0.12 up), so dawn mist lifts the scene instead of greying it; dark blue-grey at night; toward a low sun it warms in 3 steps with the horizon's hue (normalised `fogColor`, so a dark fog colour cannot darken it) mixed with a fixed warm white; darker in rain. The sky table replaces the tint in M2.
 - **Gates:** no mist with the eye in water, and none on land the sky light does not reach (sky level below 0.35, fully on from 0.65). Water and sky pixels count as open.
 - **LOD land:** the surface comes from `surfaceAt`, so rays to `dh_terrain` pixels get the same slab out to where the tiles end (about 2 km). F tiles take over in M4.
 - **Debug:** `DEBUG_VIEW=7` projects the tiles onto the land (red potential, green lowness, blue water nearness, full blue on water; dark checker for unfilled cells; dim red outside). Magenta is the tiles' centre cell, yellow the camera's cell, and orange and red the 112- and 127-cell rings. White hatching marks land under the mist's top where the mist is not nil. Cell edges are lined when near. `MIST_FORCE` (25/50/75/100) overrides `void_mistTime` to show the slab at any hour. The bridge status square in views 6 and 7 is now top left (it was bottom left, since `gl_FragCoord` counts from the bottom).
+
+### The style pivot (2026-10-11)
+
+The user set the new look of section 3.2 over the flat-steps-and-dither rules. What changed in the pack:
+
+- **final:** no `COLOR_STEPS` palette and no 4×4 Bayer. A soft shoulder, then one 8-bit step of triangular noise per pixel (fixed, from a hash), which removes contour lines from the 8-bit output and cannot be seen.
+- **The light ramp** (`lib/light.glsl`): sky and block light follow vanilla's curve smoothly, eased into `LIGHT_BANDS` soft bands (`lib/common.glsl` `softBands`: a smoothstep inside each band, mixed in by `SOFT_BANDS`, 50 % by default). The sun lights a face by Lambert with a slight wrap (no three-step n·l), where the sky reaches (sky light 0.55 to 0.93, smooth). No dither.
+- **The sky table and dome:** every weight in the mood is continuous (night, dark, overcast, rain, storm, golden and blue hour, sun and moon strength, glow, stars, flash), so the sky, the land's light and the clouds change with the hour without jumping. The sunset palette position is smooth (each of Twilight's steps eased in over 500 ticks). The dome reads the table as control points: band, sun ring and moon ring are continuous positions for the exact view direction, eased into soft bands and blended from neighbouring texels (4 fetches, 6 more near the moon). The glow rings start where the stepped first ring did, so a faint glow does not tint the whole dome. The sky grid is now only the stars'. The sun ring is a solid pixel ring, not a checker. The first stars wait until the sun is well down.
+- **Haze:** worked out at the pixel's own point (no texel snapping); opacities, the kinds' mix, the dust share and the world's edge are smooth; the land is blended bilinearly between the four nearest tile cells (8 fetches per segment instead of 2), and a border between kinds is a blend of both, density included. The haze's air turns smoothly toward the sun's horizon inside the glow (`skyHazeAir`), instead of switching at 90° from the sun.
+- **Valley mist, water fog, the far fade, wet ground:** smooth. The mist's opacity is 0.72 · cover; puddles fade out toward their reach instead of dithering out; the puddle outlines keep the block texel grid.
+- **Far land:** the far texture is fainter (−5 %/+4 %) and fades out between 1 and 6 km, so hazy distance never turns to pixel noise.
+- **Gloam's stepped values:** Gloam sends golden, blue and the sunset step already cut into its palette steps (`void_sky.xyw`); the pack now works them out from the clock with the same maths and takes only vivid from Gloam (`void_sky.z`, read as 0.75..1.5; before, it was read as 0..1, which dimmed every sunset).
+- **Options:** `COLOR_STEPS`, `DITHER` and `HAZE_STEPS` are gone; `LIGHT_STEPS` is now `LIGHT_BANDS`; `SOFT_BANDS` (0..100 %) is new, on the Colour and finish screen.
+- **Kept for the staged modules:** `bayer4`, `steps`, `worldDither`, `hzBayer` and `hzSteps` still exist so far weather, underground and water and shadows compile until they are adapted (the note at the top of the wave-2 INTEGRATION.md).

@@ -106,15 +106,15 @@ struct SkyInputs {
 	float rain;
 	float storm;
 	vec4 light;       // void_light: moon light share, stars (0..1), sky light scale, dark-nights setting
-	float golden;     // void_sky.x, stepped
-	float blue;       // void_sky.y, stepped
-	float vivid;      // void_sky.z, about 0.75..1.25
-	int sunsetIndex;  // void_sky.w, 0 gold .. 4 dusk blue
+	float golden;     // the golden hour, 0..1, smooth
+	float blue;       // the blue hour, 0..1, smooth
+	float vivid;      // how fiery the evening is, 0.75..1.5 (void_sky.z, or an average evening)
+	float sunset;     // the sunset palette's position, 0 gold .. 4 dusk blue, smooth
 	int hazeKind;
 	float hazeStrength; // 0..1: how strongly the haze kind tints the horizon
 	float moon;       // the moon's brightness by phase, 0 new .. 1 full
 	int moonPhase;
-	float flash;      // lightning, 0..1 in thirds
+	float flash;      // lightning, 0..1
 	float blind;      // blindness or the darkness effect, 0..1
 };
 
@@ -150,19 +150,18 @@ SkyInputs skyInputs() {
 		s.light = full ? void_light : skyMirror(VOID_SLOT_LIGHT, vec4(0.0), vec4(1.0));
 	}
 
-	// The dusk palette: Gloam's numbers if it sends them, else the same maths from the clock (vivid needs the
-	// world seed, so it stays at an average evening).
+	// The dusk palette from the clock, with Gloam's own maths (lib/sky/palette.glsl mirrors Twilight exactly), but
+	// smooth: Gloam sends golden, blue and the sunset step already cut into its palette steps (void_sky.xyw), so the
+	// pack works them out itself and takes only vivid from Gloam, which needs the world seed. void_sky.z is vivid's
+	// 0.75..1.5 sent as 0..1 (AirReadout.vivid); without Gloam the evening is an average one.
 	float clear = skyClear(s.cover);
-	s.golden = skyStep(skyGolden(s.u) * clear, 3.0);
-	s.blue = skyStep(skyBlue(s.u) * clear, 3.0);
+	s.golden = skyGolden(s.u) * clear;
+	s.blue = skyBlue(s.u) * clear;
 	s.vivid = 1.0;
-	s.sunsetIndex = skySunsetIndex(s.u);
+	s.sunset = skySunsetPos(s.u);
 	if (skyLive(live, VOID_SLOT_SKY)) {
 		vec4 k = full ? void_sky : skyMirror(VOID_SLOT_SKY, vec4(0.0), vec4(1.0, 1.0, 1.0, 4.0));
-		s.golden = k.x;
-		s.blue = k.y;
-		s.vivid = k.z;
-		s.sunsetIndex = clamp(int(k.w + 0.5), 0, 4);
+		s.vivid = 0.75 + 0.75 * clamp(k.z, 0.0, 1.0);
 	}
 
 	// One temperate haze without Gloam (design 2.5).
@@ -179,13 +178,13 @@ SkyInputs skyInputs() {
 		s.hazeStrength = clamp(haziness, 0.0, 1.0);
 	}
 
-	// Lightning: Iris's bolt, smoothed in shaders.properties, in thirds. Gloam lets a bolt flash the sky only under
+	// Lightning: Iris's bolt, smoothed in shaders.properties. Gloam lets a bolt flash the sky only under
 	// a storm (ClientLevelFlashMixin); with Gloam's storm known, the pack keeps the same gate.
 	float flash = welkin_flash;
 	if (skyLive(live, VOID_SLOT_STORM) && s.storm <= 0.25) {
 		flash = 0.0;
 	}
-	s.flash = floor(clamp(flash, 0.0, 1.0) * 3.0 + 0.35) / 3.0;
+	s.flash = clamp(flash, 0.0, 1.0);
 	s.blind = clamp(max(blindness, darknessFactor), 0.0, 1.0);
 	return s;
 }

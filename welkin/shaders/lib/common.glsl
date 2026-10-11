@@ -25,6 +25,43 @@ int materialFromBlockId(int id) {
 	return welkinMat(id);
 }
 
+// ---- The look (2026-10-11): smooth gradients with gentle banding, no visible dither anywhere.
+// Light, sky, haze and mist are continuous. Where a ramp should still read as a few bands, softBands() eases it into
+// them without any edge; the only noise in the pack is final's anti-banding, one 8-bit step, invisible.
+
+// The share of the terrace softBands() applies, from SOFT_BANDS (0..100 %).
+float softBandsAmount() {
+	return float(SOFT_BANDS) * 0.01;
+}
+
+// x in [0, 1] through `n` soft bands: within each band the ramp eases off near the band's level and on again toward
+// the next (a smoothstep across the band), so the gradient stays continuous and monotonic, with no edge and nothing to
+// dither, while the bands still read. k 0 is the plain gradient, 1 the full smoothstep terrace (its slope 0 at each
+// level, 1.5 between them).
+float softBands(float x, float n, float k) {
+	float y = clamp(x, 0.0, 1.0) * n;
+	float i = min(floor(y), n - 1.0);
+	float f = y - i;
+	return (i + mix(f, f * f * (3.0 - 2.0 * f), k)) / n;
+}
+
+// The same with the pack's SOFT_BANDS share.
+float softBands(float x, float n) {
+	return softBands(x, n, softBandsAmount());
+}
+
+// A 32-bit integer hash of a pixel (and a salt), for final's anti-banding noise.
+uint pixelHash(ivec2 p, uint salt) {
+	uint h = uint(p.x) * 0x8da6b343u ^ uint(p.y) * 0xd8163841u ^ salt * 0xcb1ab31fu;
+	h = (h ^ (h >> 15u)) * 0x2c1b3c6du;
+	h = (h ^ (h >> 12u)) * 0x297a2d39u;
+	return h ^ (h >> 15u);
+}
+
+// ---- Legacy (the old flat-step look). Nothing in the pack uses these for its look any more; they stay so the staged
+// wave-2 modules (far weather, underground, water and shadows) still compile until they are adapted (see the note at
+// the top of the scratchpad's INTEGRATION.md). Debug views may still use bayer4.
+
 // 4x4 ordered (Bayer) dither threshold in (0, 1) for an integer cell. The same matrix as
 // (0, 8, 2, 10 / 12, 4, 14, 6 / 3, 11, 1, 9 / 15, 7, 13, 5), built from the bits of the cell: a runtime-indexed const
 // array spills to local memory on NVIDIA (measured at about 3 ms over a frame of haze), the bit form is a few ALU ops.
@@ -34,7 +71,7 @@ float bayer4(ivec2 p) {
 	return (float(v) + 0.5) * (1.0 / 16.0);
 }
 
-// x in [0, 1] rounded to one of `steps` + 1 flat levels; `d` is the dither threshold (0.5 for no dither).
+// x in [0, 1] rounded to one of `steps` + 1 flat levels; `d` is the dither threshold (0.5 for no dither). Legacy.
 float steps(float x, float n, float d) {
 	return clamp(floor(x * n + d) / n, 0.0, 1.0);
 }

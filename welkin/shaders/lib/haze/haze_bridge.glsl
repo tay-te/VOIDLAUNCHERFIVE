@@ -30,13 +30,15 @@ bool hzMagic() {
 }
 
 // The land under a point along the view ray, from the N tiles (16 m) within their reach and the F tiles (1 km)
-// beyond, with a dithered hand-over between them and between neighbouring cells: the Bayer threshold picks the cell,
-// so a border between two kinds comes out as a pixel dither instead of a hard line, at one fetch per tile.
+// beyond, blended bilinearly between the four nearest cells (hzLandIn), so the haze runs smoothly across cell edges
+// and a border between two kinds is a soft blend of both, never a line or a dither.
 struct HzLand {
     float ground;       // world y of the ground
     float low;          // lowness 0..1 (Expanse: smoothstep 0..24 blocks below the land around)
     float water;        // 0..1 nearness or share of water
-    int   kind;         // 1..6
+    int   kind;         // 1..6: the kind with the most weight among the four cells
+    int   kind2;        // the other kind among them (= kind when there is one)
+    float share2;       // kind2's share of the weight, 0..0.5
     int   source;       // 0 fallback, 1 near, 2 far
 };
 
@@ -50,6 +52,8 @@ HzLand hzLandDefault(int kind) {
     d.low = 0.5;
     d.water = 0.0;
     d.kind = kind;
+    d.kind2 = kind;
+    d.share2 = 0.0;
     d.source = 0;
     return d;
 }
@@ -157,36 +161,68 @@ HzState hzState() {
     return s;
 }
 
-// The land in the N (far = false) or F (far = true) cell at a point, without the reach check: for ray segments whose
-// sample distance is known to lie inside that tile's reach (welkinHaze's segment layout guarantees it). The cell is
-// chosen with the Bayer threshold b, so a border between two kinds comes out as a pixel dither instead of a line.
-HzLand hzLandIn(HzState s, vec2 local, float b, bool far) {
+// One cell's land for the bilinear blend; a cell without data reads as the fallback (sea-level ground, the camera's
+// kind), weighted like any other, so the land eases into the fallback instead of stopping at a line.
+void hzLandCell(HzState s, ivec2 cell, bool far, out vec3 glw, out int kind, out bool ok) {
+    ivec4 g = hzBytes(hzTexelOf(far ? HZ_T_F0 : HZ_T_N0, cell));
+    ivec4 k = hzBytes(hzTexelOf(far ? HZ_T_F1 : HZ_T_N1, cell));
+    ok = (k.a & 1) != 0;
+    glw = ok ? vec3(hzHeight16(g.r, g.g), float(g.b) / 255.0,
+                    far ? float(g.a) / 255.0 : 1.0 - smoothstep(0.0, 16.0, float(g.a)))
+             : vec3(HAZE_SEA_LEVEL, 0.5, 0.0);
+    kind = ok ? hzKindIndex(k.a >> 4) : s.kind;
+}
+
+// The land in the N (far = false) or F (far = true) tiles at a point, without the reach check: for ray segments whose
+// sample distance is known to lie inside that tile's reach (welkinHaze's segment layout guarantees it). Ground,
+// lowness and water are blended bilinearly between the four nearest cells (8 fetches, neighbouring pixels share
+// them); the kinds become the heaviest one and, if a second is present, the other with its share of the weight.
+HzLand hzLandIn(HzState s, vec2 local, bool far) {
     if (s.mode == HZ_NONE) return hzLandDefault(s.kind);
     int size = far ? HZ_FAR_CELL : HZ_NEAR_CELL;
     int shift = far ? HZ_FAR_SHIFT : HZ_NEAR_SHIFT;
     ivec2 cam = cameraPositionInt.xz;
     vec2 f = (vec2(cam & (size - 1)) + local) / float(size) - 0.5;
     vec2 f0 = floor(f);
-    ivec2 cell = (cam >> shift) + ivec2(f0) + ivec2(step(vec2(b, 1.0 - b), f - f0));
-    ivec4 g = hzBytes(hzTexelOf(far ? HZ_T_F0 : HZ_T_N0, cell));
-    ivec4 k = hzBytes(hzTexelOf(far ? HZ_T_F1 : HZ_T_N1, cell));
-    HzLand d;
-    bool ok = (k.a & 1) != 0;
-    d.ground = ok ? hzHeight16(g.r, g.g) : HAZE_SEA_LEVEL;
-    d.low = ok ? float(g.b) / 255.0 : 0.5;
-    d.water = ok ? (far ? float(g.a) / 255.0 : 1.0 - smoothstep(0.0, 16.0, float(g.a))) : 0.0;
-    d.kind = ok ? hzKindIndex(k.a >> 4) : s.kind;
-    d.source = ok ? (far ? 2 : 1) : 0;
-    return d;
+    vec2 t = f - f0;
+    ivec2 c0 = (cam >> shift) + ivec2(f0);
+    vec4 w = vec4((1.0 - t.x) * (1.0 - t.y), t.x * (1.0 - t.y), (1.0 - t.x) * t.y, t.x * t.y);
+    vec3 a, b, c, d;
+    int ka, kb, kc, kd;
+    bool oa, ob, oc, od;
+    hzLandCell(s, c0, far, a, ka, oa);
+    hzLandCell(s, c0 + ivec2(1, 0), far, b, kb, ob);
+    hzLandCell(s, c0 + ivec2(0, 1), far, c, kc, oc);
+    hzLandCell(s, c0 + ivec2(1, 1), far, d, kd, od);
+    HzLand l;
+    vec3 glw = a * w.x + b * w.y + c * w.z + d * w.w;
+    l.ground = glw.x;
+    l.low = glw.y;
+    l.water = glw.z;
+    // the first kind is the heaviest corner's; the second is any other kind there, with the weight of all corners
+    // holding it (a third kind in one square is rare and counts as the first)
+    int k1 = ka;
+    float best = w.x;
+    if (w.y > best) { best = w.y; k1 = kb; }
+    if (w.z > best) { best = w.z; k1 = kc; }
+    if (w.w > best) { best = w.w; k1 = kd; }
+    int k2 = ka != k1 ? ka : (kb != k1 ? kb : (kc != k1 ? kc : kd));
+    float w2 = (ka == k2 && ka != k1 ? w.x : 0.0) + (kb == k2 && kb != k1 ? w.y : 0.0)
+             + (kc == k2 && kc != k1 ? w.z : 0.0) + (kd == k2 && kd != k1 ? w.w : 0.0);
+    l.kind = k1;
+    l.kind2 = k2 != k1 ? k2 : k1;
+    l.share2 = k2 != k1 ? w2 : 0.0;
+    l.source = (oa || ob || oc || od) ? (far ? 2 : 1) : 0;
+    return l;
 }
 
 // local: the point's x, z relative to the camera's block corner (cameraPositionFract.xz + offset), in blocks.
-// One tile pair is chosen first (near inside its reach, with a dithered hand-over to far), then both of its texels
-// are fetched together, so the two fetches overlap instead of waiting on each other. A cell without data (flag bit 0
-// clear) reads as the fallback: the camera's kind over sea-level ground.
+// The nearest cell, for the debug views only (HAZE_DEBUG 1 and 3): one tile pair is chosen (near inside its reach,
+// else far), then both of its texels are fetched. A cell without data (flag bit 0 clear) reads as the fallback: the
+// camera's kind over sea-level ground. `dp` is no longer used (it was the dither texel).
 HzLand hzLand(HzState s, vec2 local, ivec2 dp) {
     if (s.mode == HZ_NONE) return hzLandDefault(s.kind);
-    vec2 b = vec2(hzBayer(dp), hzBayer(hzAlt1(dp)));
+    vec2 b = vec2(0.5);
     ivec2 cam = cameraPositionInt.xz;
 
     vec2 nf = (vec2(cam & (HZ_NEAR_CELL - 1)) + local) / float(HZ_NEAR_CELL) - 0.5;
@@ -210,6 +246,8 @@ HzLand hzLand(HzState s, vec2 local, ivec2 dp) {
     // near: water distance in 4 m steps (within 64 m counts); far: the cell's water fraction
     d.water = near ? 1.0 - smoothstep(0.0, 16.0, float(g.a)) : float(g.a) / 255.0;
     d.kind = hzKindIndex(k.a >> 4);
+    d.kind2 = d.kind;
+    d.share2 = 0.0;
     d.source = near ? 1 : 2;
     return d;
 }

@@ -3,7 +3,7 @@
 //
 // Vanilla-style reach: an item of light level N lights a pixel d blocks from the eye at level N - d, the same
 // falloff a placed block of that level would give. The result is a block-light level 0..1 that the caller maxes
-// into its light map's block term BEFORE the stepped ramp, so held light falls in the same flat steps as torches.
+// into its light map's block term BEFORE the ramp, so held light falls off along the same soft bands as torches.
 //
 //   lm.x = welkinHandBlockLight(lm.x, length(eyePos));                 // deferred and forward lighting
 //   vec3 tint = welkinHandTint(lm.x, length(eyePos));                  // optional: colour of the held light

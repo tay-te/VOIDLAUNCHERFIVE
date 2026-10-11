@@ -1,12 +1,12 @@
 // VOID Welkin: gbuffers_skybasic. The sky dome, drawn per pixel from the prepare pass's sky table (lib/sky/dome.glsl):
-// flat bands from the horizon to the zenith, the dusk palette's glow rings round the sun and the moon's halo, all on
-// the sky's own pixel grid with Bayer-dithered edges; then the stars (count from Gloam's void_light, twinkling in
-// steps), the moon by phase and the sun as pixel art.
+// a smooth gradient from the horizon to the zenith with gentle bands, the dusk palette's glow round the sun and the
+// moon's halo; then the stars on the sky's own pixel grid (count from Gloam's void_light, twinkling), the moon by
+// phase and the sun as crisp pixel art.
 //
 // Every piece of sky geometry vanilla and Iris send through here (the sky disc, Iris's horizon, the dark disc below)
 // gets the same per-pixel colour from its view direction, so the geometry only decides coverage. Vanilla's stars and
 // sunrise fan are discarded: the dome draws its own. Sky pixels keep colortex2 clear, so deferred leaves them alone.
-// The Nether and the End keep M0's banded vanilla colours.
+// The Nether and the End keep vanilla's colours, as a smooth gradient.
 
 #include "/lib/common.glsl"
 
@@ -76,28 +76,20 @@ uniform vec3 fogColor;
 uniform mat4 gbufferModelViewInverse;
 #endif
 
-float skyDither() {
-#ifdef DITHER
-	return bayer4(ivec2(gl_FragCoord.xy));
-#else
-	return 0.5;
-#endif
-}
-
 void main() {
 	if (renderStage == MC_RENDER_STAGE_STARS) {
 		outColor = glcolor;
 		return;
 	}
 	if (renderStage == MC_RENDER_STAGE_SUNSET) {
-		outColor = vec4(glcolor.rgb, steps(glcolor.a, 4.0, skyDither()));
+		outColor = glcolor;
 		return;
 	}
 	vec4 ndc = vec4(gl_FragCoord.xy / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0);
 	vec4 view = gbufferProjectionInverse * ndc;
 	vec3 dir = normalize(mat3(gbufferModelViewInverse) * (view.xyz / view.w));
 	float t = sqrt(clamp(dir.y * 2.4 + 0.08, 0.0, 1.0));
-	outColor = vec4(mix(fogColor, skyColor, steps(t, 5.0, skyDither())), 1.0);
+	outColor = vec4(mix(fogColor, skyColor, softBands(t, 5.0)), 1.0);
 }
 
 #endif

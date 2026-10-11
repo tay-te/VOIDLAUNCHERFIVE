@@ -1,6 +1,7 @@
-// VOID Welkin: final. A gentle shoulder for anything lit past white, then the palette steps: every channel rounded
-// to one of COLOR_STEPS levels with a 4x4 Bayer dither between neighbouring levels, the way a limited palette would
-// draw it. No other post effects: no bloom, no TAA, no blur.
+// VOID Welkin: final. A gentle shoulder for anything lit past white, then invisible anti-banding: one 8-bit step of
+// triangular noise, fixed per pixel, so the smooth gradients of the sky, the haze and the light leave the 8-bit
+// screen without contour lines. At that size the noise cannot be seen as a pattern. No other post effects: no bloom,
+// no TAA, no blur, no palette steps.
 
 #include "/lib/common.glsl"
 #include "/lib/buffers.glsl"
@@ -37,13 +38,10 @@ vec3 shoulder(vec3 c) {
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec3 c = shoulder(max(texelFetch(colortex0, p, 0).rgb, 0.0));
-#if COLOR_STEPS > 0
-	float d = 0.5;
-#ifdef DITHER
-	d = bayer4(p);
-#endif
-	c = steps3(c, float(COLOR_STEPS), d);
-#endif
+	// two uniform values per pixel summed: a triangle from -1 to +1 of one 8-bit step, mean zero
+	uint h = pixelHash(p, 7u);
+	float tri = (float(h & 0xFFFFu) + float(h >> 16u)) / 65535.0 - 1.0;
+	c = clamp(c + tri / 255.0, 0.0, 1.0);
 	outColor = vec4(c, 1.0);
 }
 

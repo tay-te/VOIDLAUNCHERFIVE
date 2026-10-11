@@ -1,6 +1,7 @@
-// VOID Welkin: the world's 16-pixel grid. Effects that cover the world (dither, far texture, later mist and haze)
-// snap to the texels a 16x16 block texture would have, coarsening by doubling with distance, so they read as
-// texture, not as screen noise. All maths is camera-relative with the integer camera position kept apart, so the grid
+// VOID Welkin: the world's 16-pixel grid: the texels a 16x16 block texture would have, coarsening by doubling with
+// distance. Since the look of 2026-10-11 only things that should read as texture use it (the far land's faint
+// texture, puddle outlines, cloud shadow edges); haze, mist and light are smooth and do not. worldDither is legacy,
+// kept for the staged modules. All maths is camera-relative with the integer camera position kept apart, so the grid
 // holds its precision 30 million blocks out.
 
 #ifndef WELKIN_GRID

@@ -54,14 +54,15 @@ const vec3 SKY_HAZE_KIND[7] = vec3[7](
 const float SKY_HAZE_WEIGHT[7] = float[7](0.0, 0.15, 0.35, 0.40, 0.35, 0.45, 0.25);
 
 // The dome's bands: 0 below the horizon, 1 the horizon .. 5 the zenith; how far each sits from the horizon colour
-// toward the zenith colour.
+// toward the zenith colour. These are the table's control points: the dome runs smoothly between them
+// (lib/sky/dome.glsl), easing into soft bands at each.
 const float SKY_BAND_MIX[6] = float[6](0.0, 0.0, 0.30, 0.55, 0.78, 1.0);
 // Glow rings round the sun, 0 none .. 4 nearest: how much of the glow colour each takes.
 const float SKY_RING_MIX[5] = float[5](0.0, 0.22, 0.42, 0.62, 0.80);
 // Halo rings round the moon, 0 none .. 3 nearest.
 const float SKY_MOON_RING_MIX[4] = float[4](0.0, 0.10, 0.20, 0.32);
-// Which sunset step each band's glow takes, past the hour's own: higher bands run cooler, so a sunset reads as
-// stripes of orange, rose and violet.
+// How far along the sunset palette each band's glow runs past the hour's own: higher bands run cooler, so a sunset
+// grades from orange through rose to violet overhead (smoothly between the bands).
 const int SKY_GLOW_SHIFT[6] = int[6](0, 0, 0, 1, 2, 2);
 
 // vanilla's DimensionType.MOON_BRIGHTNESS_PER_PHASE (phase 0 full .. 4 new)
@@ -73,9 +74,15 @@ float skySmooth(float e0, float e1, float x) {
 	return t * t * (3.0 - 2.0 * t);
 }
 
-// Gloam's Palette.step: x in n flat steps, the nearest one.
+// Gloam's Palette.step: x in n flat steps, the nearest one. Legacy: since the look of 2026-10-11 the sky's weights
+// are continuous (skyLevel); Gloam still steps what it sends, which the pack no longer reads for that reason.
 float skyStep(float x, float n) {
 	return floor(clamp(x, 0.0, 1.0) * n + 0.5) / n;
+}
+
+// A weight as it is: clamped to 0..1, no steps.
+float skyLevel(float x) {
+	return clamp(x, 0.0, 1.0);
 }
 
 float skyLuma(vec3 c) {
@@ -116,9 +123,26 @@ float skyBlue(float u) {
 	return skySmooth(12550.0, 13150.0, u) * (1.0 - skySmooth(13500.0, 14300.0, u));
 }
 
-// The sunset palette step for the hour: 0 gold (sun up) .. 4 dusk blue (Twilight.FROM).
+// The sunset palette step for the hour: 0 gold (sun up) .. 4 dusk blue (Twilight.FROM). Gloam's own stepping.
 int skySunsetIndex(float u) {
 	return u >= 14000.0 ? 4 : (u >= 13500.0 ? 3 : (u >= 12700.0 ? 2 : (u >= 12000.0 ? 1 : 0)));
+}
+
+// The same as a smooth position, 0 gold .. 4 dusk blue: each step of Twilight.FROM eased in over 500 ticks round its
+// time (the last two are 500 apart), so the dusk palette slides from one colour to the next instead of switching.
+float skySunsetPos(float u) {
+	return skySmooth(11750.0, 12250.0, u) + skySmooth(12450.0, 12950.0, u)
+		+ skySmooth(13250.0, 13750.0, u) + skySmooth(13750.0, 14250.0, u);
+}
+
+// The sunset palette at a smooth position 0..4.
+vec3 skySunsetColour(float p) {
+	p = clamp(p, 0.0, 4.0);
+	float i = min(floor(p), 3.0);
+	int a = int(i);
+	vec3 c0 = a == 0 ? SKY_GOLD : (a == 1 ? SKY_ORANGE : (a == 2 ? SKY_ROSE : SKY_VIOLET));
+	vec3 c1 = a == 0 ? SKY_ORANGE : (a == 1 ? SKY_ROSE : (a == 2 ? SKY_VIOLET : SKY_DUSK_BLUE));
+	return mix(c0, c1, p - i);
 }
 
 // How much of the sky glows round the sun for dawn and dusk: from late afternoon to the end of the afterglow.

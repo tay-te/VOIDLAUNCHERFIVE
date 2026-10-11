@@ -1,4 +1,4 @@
-// VOID Welkin: the far edge. Land fades into the horizon colour in four flat steps toward the end of what is drawn
+// VOID Welkin: the far edge. Land fades smoothly into the horizon colour toward the end of what is drawn
 // (the LOD's reach with VOID LOD, the render distance without), so the world never ends in a hard cut against the
 // sky. The colour is the sky table's horizon (lib/sky/table.glsl); M2's haze by country tints it further.
 
@@ -23,7 +23,7 @@ uniform int dhRenderDistance;
 #endif
 #endif
 
-// 0 near to 1 at the edge, in four steps; `d` is the dither threshold.
+// 0 near to 1 at the edge, a smooth ease-in. `d` (the old dither threshold) is ignored.
 float farFade(float horizontal, float d) {
 #ifdef DISTANT_HORIZONS
 	float edge = max(float(dhRenderDistance), far);
@@ -31,7 +31,7 @@ float farFade(float horizontal, float d) {
 #else
 	float t = clamp((horizontal - far * 0.8) / (far * 0.2), 0.0, 1.0);
 #endif
-	return steps(t * t, 4.0, d);
+	return t * t;
 }
 
 // The sky table's horizon colour away from the sun (M2; in the Nether and the End the table is a flat fogColor). The

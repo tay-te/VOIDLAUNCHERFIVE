@@ -1,8 +1,8 @@
 // VOID Welkin: deferred. Lights the opaque world after the chunks and the LOD have drawn, before translucents.
 //
 // The surface is the chunks' (depthtex0) where they drew and the LOD's (dhDepthTex0) elsewhere, each through its own
-// projection (lib/depth.glsl). Pixels marked in colortex2.x get the stepped light ramp (lib/light.glsl) with its band
-// edges dithered on the world's 16-pixel grid, the sun's share cut by the clouds' shadows (M3); the rest lit
+// projection (lib/depth.glsl). Pixels marked in colortex2.x get the light ramp (lib/light.glsl: smooth, in soft
+// bands), the sun's share cut by the clouds' shadows (M3); the rest lit
 // themselves in their gbuffers program. Wet ground (M2, lib/haze/wet.glsl) darkens open ground before the light and
 // lays its puddles on after it. Then, only while the haze is off, the far edge fades into the horizon colour
 // (lib/fade.glsl); with the haze on, composite2's haze draws the edge in the air's colour. The sky is left as
@@ -84,11 +84,7 @@ void main() {
 	vec4 g = texelFetch(colortex1, p, 0);
 	vec3 n = octDecode(g.xy);
 
-	float d = 0.5;
-#ifdef DITHER
-	int level = gridLevel(blocksPerPixelAt(dist, gbufferProjection[1][1], viewHeight), 1.0);
-	d = worldDither(eyePos, n, level);
-#endif
+	float d = 0.5; // the old dither threshold: no dither any more
 #if DEBUG_VIEW != 4
 	if (flags.x > 0.5) {
 		vec3 albedo = color.rgb;
@@ -106,7 +102,7 @@ void main() {
 		WelkinWet wet = welkinWetSurface(st, albedo, eyePos, n, g.w, hzWetClass(material));
 #endif
 		vec2 lm = g.zw;
-		lm.x = welkinHandBlockLight(lm.x, dist); // a torch in hand lights the ground in the same steps
+		lm.x = welkinHandBlockLight(lm.x, dist); // a torch in hand lights the ground on the same ramp
 		color.rgb = welkinLightEx(albedo, n, lm, flags.z, d, sunShare, vec3(1.0));
 #ifdef WELKIN_WET
 		// puddles mirror the sky (the sky table's horizon), glint toward the light, flick with drops

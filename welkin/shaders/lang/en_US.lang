@@ -20,7 +20,7 @@ screen.PLANTS.comment=How leaves, grass and water plants move in the wind.
 screen.FAR=Far land
 screen.FAR.comment=How the far land drawn by VOID LOD looks.
 screen.LOOK=Colour and finish
-screen.LOOK.comment=Colour steps and dither in the final picture.
+screen.LOOK.comment=How gently light and the sky gather into soft bands.
 screen.DEBUG=Debug
 screen.DEBUG.comment=Views and switches for testing the shader. Leave these alone for normal play.
 
@@ -28,8 +28,8 @@ option.sunPathRotation=Sun path tilt
 option.sunPathRotation.comment=How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.
 suffix.sunPathRotation= degrees
 
-option.LIGHT_STEPS=Light steps
-option.LIGHT_STEPS.comment=How many flat levels sky light and torch light fall through. Fewer steps look bolder and more painted.
+option.LIGHT_BANDS=Light bands
+option.LIGHT_BANDS.comment=How many soft bands sky light and torch light fade through. The light stays a smooth gradient; Soft bands sets how much it gathers at each band.
 
 option.BLOCKLIGHT_STRENGTH=Torch light strength
 option.BLOCKLIGHT_STRENGTH.comment=How bright the light from torches, lanterns and other glowing blocks looks. The game's light levels do not change.
@@ -53,16 +53,16 @@ option.SKY_ART_PIXEL=Sun and moon pixel size
 option.SKY_ART_PIXEL.comment=How big one pixel of the sun and moon art is. 94 matches one pixel of the vanilla sun.
 
 option.SKY_TEXELS=Sky pixel grid
-option.SKY_TEXELS.comment=How fine the sky's pixel grid is. Colour bands, the dither and the stars all sit on it. Lower looks chunkier.
+option.SKY_TEXELS.comment=How fine the grid the stars sit on is. Lower gives fewer, chunkier star pixels. The sky's colours are smooth whatever this is.
 
 option.STAR_DENSITY=Number of stars
 option.STAR_DENSITY.comment=How many stars fill a clear, moonless night.
 
 option.STAR_TWINKLE=Twinkling stars
-option.STAR_TWINKLE.comment=Now and then a star drops one step of brightness for a moment.
+option.STAR_TWINKLE.comment=Now and then a star dims for a moment.
 
 option.SUN_HALO=Sun ring
-option.SUN_HALO.comment=A thin dithered ring of light around the sun. There is no glow or bloom.
+option.SUN_HALO.comment=A thin ring of pale light around the sun, one art pixel wide. There is no glow or bloom.
 
 option.NIGHT_SKYLIGHT=Night sky light
 option.NIGHT_SKYLIGHT.comment=How much light the night sky gives, as a share of the day's. VOID Gloam's dark nights then darken it further, as in the game.
@@ -78,9 +78,6 @@ option.HAZE_SAMPLES.comment=How many points along each view the haze looks at to
 value.HAZE_SAMPLES.2=Low
 value.HAZE_SAMPLES.3=Medium
 value.HAZE_SAMPLES.4=High
-
-option.HAZE_STEPS=Haze steps
-option.HAZE_STEPS.comment=How many flat steps the haze thickens through. Fewer looks bolder.
 
 option.HAZE_RAIN=Haze in rain
 option.HAZE_RAIN.comment=How much a downpour closes the distance in.
@@ -146,21 +143,19 @@ option.WAVE_STRENGTH=Wind strength
 option.WAVE_STRENGTH.comment=How far leaves and plants move. They never move more than two texture pixels.
 
 option.FAR_TEXTURE=Far land texture
-option.FAR_TEXTURE.comment=Gives the far land drawn by VOID LOD a pixel texture on the world's grid, getting coarser with distance.
+option.FAR_TEXTURE.comment=Gives the far land drawn by VOID LOD a faint pixel texture on the world's grid, getting coarser with distance and fading out into the haze.
 
 option.FAR_TEXTURE_PIXELS=Far texture size
 option.FAR_TEXTURE_PIXELS.comment=How many screen pixels one far texture pixel covers before it doubles in size. Smaller is finer.
 suffix.FAR_TEXTURE_PIXELS= px
 
 option.FAR_FADE=Far fade
-option.FAR_FADE.comment=The far land fades into the horizon in steps towards the edge of what is drawn.
+option.FAR_FADE.comment=The far land fades smoothly into the horizon towards the edge of what is drawn.
 
-option.COLOR_STEPS=Colour steps
-option.COLOR_STEPS.comment=How many levels each colour channel has in the final picture, with a dither between them. Off keeps full colour.
-value.COLOR_STEPS.0=Off
-
-option.DITHER=Dither
-option.DITHER.comment=A fine 4 by 4 checker pattern at colour steps and at the edges of light bands, on the world's 16-pixel grid.
+option.SOFT_BANDS=Soft bands
+option.SOFT_BANDS.comment=How much light, the sky and the glow round the sun gather into gentle bands. 0 is a plain smooth gradient. There is never a hard edge or a dither pattern.
+value.SOFT_BANDS.0=Off
+suffix.SOFT_BANDS=%
 
 option.DEBUG_VIEW=Debug view
 option.DEBUG_VIEW.comment=Shows one of the shader's inner pictures instead of the world. For testing only.
@@ -192,10 +187,10 @@ option.DEBUG_JOIN=Show the far land join
 option.DEBUG_JOIN.comment=Draws a magenta line along the join between the near chunks and the far land from VOID LOD, over the finished picture. For testing only.
 
 option.HAZE_DEBUG=Haze debug
-option.HAZE_DEBUG.comment=Haze test views: the country map, the haze steps, where the data came from, and wet ground with puddles.
+option.HAZE_DEBUG.comment=Haze test views: the country map, how thick the haze is, where the data came from, and wet ground with puddles.
 value.HAZE_DEBUG.0=Off
 value.HAZE_DEBUG.1=Haze kinds
-value.HAZE_DEBUG.2=Haze steps
+value.HAZE_DEBUG.2=Haze thickness
 value.HAZE_DEBUG.3=Data source
 value.HAZE_DEBUG.4=Wet and puddles
 

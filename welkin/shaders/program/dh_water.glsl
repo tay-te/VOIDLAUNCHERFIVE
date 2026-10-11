@@ -1,5 +1,5 @@
 // VOID Welkin: dh_water. The far water, drawn by VOID LOD after the world's translucents and before composite,
-// lit here with the same stepped ramp (deferred has already run), blended per shaders.properties' blend.dh_water.
+// lit here with the same light ramp (deferred has already run), blended per shaders.properties' blend.dh_water.
 // Fades into the horizon with the far land (FAR_FADE). Marks its pixels in colortex3 for composite's water fog.
 
 #include "/lib/common.glsl"
@@ -73,12 +73,7 @@ void main() {
 			discard;
 		}
 	}
-	float bpp = blocksPerPixelAt(length(eyePos), gbufferProjection[1][1], viewHeight);
-	int level = gridLevel(bpp, 2.0);
-	float d = 0.5;
-#ifdef DITHER
-	d = worldDither(eyePos, normalW, level);
-#endif
+	float d = 0.5; // no dither: the light and the far fade are smooth
 	vec3 lit = welkinLight(glcolor.rgb, normalW, lmcoord, 0.0, d);
 	float alpha = glcolor.a;
 	// the water's own colour for composite's water fog, less of it where the far fade has taken over

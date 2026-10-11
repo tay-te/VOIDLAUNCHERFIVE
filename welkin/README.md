@@ -5,7 +5,8 @@ VOID world: sky, light, water, and later haze, valley mist, voxel clouds and far
 VOID Gloam through a small bridge, and draws the far land of VOID LOD to 128 km through its Distant Horizons programs,
 so near and far land are lit the same way.
 
-It still looks like Minecraft. Welkin adds texture; it does not make the game look real.
+It still looks like Minecraft, lightly stylized and of very high quality: smooth light and air, directional sunlight,
+and crisp pixel art where it belongs. It does not make the game look real.
 
 The design, the bridge contract with Gloam and the milestones are in [docs/DESIGN.md](docs/DESIGN.md). The terms are
 in [LICENSE](LICENSE): free to use and to share unchanged, the source open to read, no changed versions shared without
@@ -13,17 +14,23 @@ VOID's permission.
 
 ## The look rules
 
-These rules are absolute. Every change is checked against them on screenshots.
+Set by the user on 2026-10-11 (they replace the first rules of flat colour steps and Bayer dither). They are
+absolute; every change is checked against them on screenshots.
 
-1. **Minecraft first.** Stylized, not realistic. It adds texture to the game the way a careful texture pack would.
-2. **Flat colour steps.** Light, fog, mist and sky change in a few flat steps (3 to 5 per ramp), never smooth gradients.
-3. **Bayer dither.** Where a step needs softening, a 4x4 ordered dither, never alpha blur.
-4. **The 16-pixel world grid.** Anything that covers the world (dither on light bands, far texture, later mist and
-   haze) snaps to the texels a 16x16 block texture would have, coarsening by doubling with distance (`lib/grid.glsl`).
-5. **Voxel clouds.** Clouds are cells, opaque, with dithered rims. Never soft ray-marched volumes.
-6. **No TAA, no bloom haze, no soft volumetrics, no blur.** Everything renders at full resolution.
-7. **Natural surface colours.** The surface stays real-world: nothing glowing or fantasy-tinted. Underground may be
+1. **Minecraft first.** Lightly stylized, not realistic, and of very high quality: on a par with good shader packs.
+2. **Smooth gradients with gentle banding.** Light, fog, haze, mist and sky are smooth. A ramp may gather softly at
+   a few levels (`softBands` in `lib/common.glsl`, the `SOFT_BANDS` option), never in flat steps with edges.
+3. **No visible dither.** No checkerboard or Bayer pattern anywhere. The only noise is final's anti-banding, one
+   8-bit step of fixed noise, which cannot be seen.
+4. **Pixel-crisp only where it looks good:** the sun, the moon, the stars and the voxel clouds. Haze, mist, water
+   fog and wet ground are smooth, worked out at each pixel's own point. (Puddle outlines and the far land's faint
+   texture sit on the world texel grid, like block texture.)
+5. **Voxel clouds.** Clouds are cells, opaque, with crisp edges. Never soft ray-marched volumes.
+6. **Directional sunlight and shadows first.** They are the foundation of the quality.
+7. **No TAA, no bloom haze, no fuzzy volumetrics, no blur.** Everything renders at full resolution.
+8. **Natural surface colours.** The surface stays real-world: nothing glowing or fantasy-tinted. Underground may be
    fantastical.
+9. **Within budget.** The pass budgets of DESIGN.md section 3.5 hold.
 
 ## Layout
 
@@ -49,12 +56,12 @@ welkin/
 | `dh_terrain` | The LOD's far land: the same G-buffer; a hash texture on the world grid, coarser with distance; cut inside `clipDistance` |
 | `gbuffers_entities`, `block`, `hand`, `basic`, `textured`, `textured_lit` | Light themselves with the same ramp; clear the deferred flag |
 | `gbuffers_water`, `dh_water` | Light themselves; mark water in `colortex3` for the water fog. `dh_water` is cut where the chunks' water stands |
-| `gbuffers_skybasic`, `skytextured` | Stepped sky bands (fog colour to sky colour), vanilla stars, the sunset fan in steps, the sun and moon |
+| `gbuffers_skybasic`, `skytextured` | The sky dome from the sky table (smooth, in soft bands), pixel stars, the pixel-art sun and moon |
 | `gbuffers_clouds`, `weather` | Vanilla clouds (until M3) cut against the LOD's depth; rain and snow |
 | `gbuffers_damagedblock`, `spidereyes`, `armor_glint`, `beaconbeam` | Unlit |
-| `deferred` | The surface from `depthtex0` where the chunks drew, else `dhDepthTex0`; the stepped light ramp; the far fade into the horizon |
+| `deferred` | The surface from `depthtex0` where the chunks drew, else `dhDepthTex0`; the light ramp; wet ground; cloud shadows; the far fade into the horizon |
 | `composite` | Water fog, then valley mist from VOID Gloam's near tiles (`lib/mist.glsl`, M1); debug views. **The atmosphere goes here** (haze M2, underground fog M5), then voxel clouds (M3) and `composite1` far weather (M4) |
-| `final` | A soft shoulder past white, then palette steps (`COLOR_STEPS` per channel) with a Bayer dither |
+| `final` | A soft shoulder past white, then invisible anti-banding (one 8-bit step of fixed triangular noise) |
 
 ### Buffers
 
@@ -81,13 +88,12 @@ In `lib/settings.glsl`, named in `lang/en_US.lang`. Profiles LOW, MEDIUM (defaul
 
 | Option | Default | |
 |---|---|---|
-| `COLOR_STEPS` | 32 | colour levels per channel in `final` (0 off) |
-| `DITHER` | on | Bayer dither at colour steps and light-band edges |
-| `LIGHT_STEPS` | 5 | levels of the sky and block light ramps |
+| `SOFT_BANDS` | 50 | how much light, the sky and the sun's glow gather into gentle bands (0 a plain gradient) |
+| `LIGHT_BANDS` | 5 | soft bands in the sky and block light ramps |
 | `sunPathRotation` | -20 | the sun's path leans south |
 | `FAR_TEXTURE` | on | the LOD's world-grid texture (off on LOW) |
 | `FAR_TEXTURE_PIXELS` | 2 | screen pixels per far texel before it doubles |
-| `FAR_FADE` | on | far land fades into the horizon in steps |
+| `FAR_FADE` | on | far land fades smoothly into the horizon (while the haze is off) |
 | `VALLEY_MIST` | on | valley mist at dawn from VOID Gloam's near tiles |
 | `MIST_SAMPLES` | 3 | places along each view ray the mist slab is read at (2 LOW, 4 HIGH) |
 | `MIST_THICKNESS` | 1.0 | the mist's opacity per block, as a share of the default |
@@ -107,7 +113,7 @@ There is nothing to compile: the pack is GLSL, compiled by Iris when it loads.
 # install into a game-test run (zips shaders/, selects it in that run's config/iris.properties)
 welkin/tools/pack.sh <run>/shaderpacks
 # the same with options, written to Welkin.zip.txt (Iris's per-pack settings)
-welkin/tools/pack.sh <run>/shaderpacks DEBUG_VIEW=1 COLOR_STEPS=0
+welkin/tools/pack.sh <run>/shaderpacks DEBUG_VIEW=1 SOFT_BANDS=0
 # after adding or removing a program in shaders/program/
 welkin/tools/wrappers.sh
 ```
@@ -123,7 +129,8 @@ Testing is by game-test screenshots, one Minecraft at a time across all sessions
   Gloam game-test script with `-Piris`.
 
 After each run, check the log for Iris shader errors (`grep "(Iris)" build/gametest.log`; a program that fails to
-compile is named there), then look at the screenshots at full size, and a 200x200 crop: the pixel grid, the steps and
-the dither should all be visible, and nothing should look airbrushed.
+compile is named there), then look at the screenshots at full size, and a 200x200 crop: gradients smooth, with no
+checker, dither or contour lines (the dusk sky and hazy distance especially), crisp pixels only on the sun, moon,
+stars and clouds, and nothing fuzzy or airbrushed.
 
 Each milestone also gets screenshots with Complementary, to confirm Gloam and LOD still work with other packs.

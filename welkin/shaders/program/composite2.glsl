@@ -137,8 +137,7 @@ void main() {
 		// 2. haze behind the mist, the valley mist, haze in front. The split is 0 until M1 exposes the slab's entry
 		// distance (MistRay.enter): then near mist banks stay crisp and far ones are hazed exactly.
 		HzState st = hzState();
-		bool towardSun = dot(eyePos, mat3(gbufferModelViewInverse) * sunPosition) > 0.0;
-		vec3 air = skyHazeHorizon(st.kind, towardSun);
+		vec3 air = skyHazeAir(st.kind, normalize(eyePos), normalize(mat3(gbufferModelViewInverse) * sunPosition));
 		vec3 n = s.sky ? vec3(0.0, 1.0, 0.0) : hzScreenNormal(eyePos);
 		WelkinHaze h = welkinHaze(st, eyePos, n, s.sky, 0.0, air, gl_FragCoord.xy);
 		if (cloud) {

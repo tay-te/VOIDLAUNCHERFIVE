@@ -1,9 +1,10 @@
 #ifndef WELKIN_HAZE_PIXEL
 #define WELKIN_HAZE_PIXEL
 
-// The pixel-true look (STYLE.md, Gloam's pixel.glsl): world-space texels at 16 a block near, coarser with distance
-// as VOID LOD's blocks are; values in a few flat steps; the edge between two steps an ordered 4x4 Bayer dither on
-// that texel grid, so the pattern sticks to the world and does not crawl when the camera turns.
+// The haze module's small helpers: the world texel grid (hzTexel: puddle shapes sit on the 16-a-block texels of the
+// block textures), hashes, value noise and Palette.tone. Since the look of 2026-10-11 the haze and the wet ground are
+// smooth: hzBayer, hzSteps and hzStepsB (flat steps with a Bayer border) are legacy and used by nothing here; they
+// stay for the staged modules until those are adapted (INTEGRATION.md).
 // Prefixed hz so it cannot clash with the pack's own copy; swap for the shared one if names and maths match.
 
 // The 4x4 Bayer matrix, 0..1, at an integer texel: the same values as Gloam's bayer4 (rows 0 8 2 10 / 12 4 14 6 /

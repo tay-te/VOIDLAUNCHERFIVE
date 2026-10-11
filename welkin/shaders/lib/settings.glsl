@@ -7,8 +7,8 @@
 // ---- Light and shadows
 // Sun path tilt: How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.  [skeleton]
 const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
-// Light steps: How many flat levels sky light and torch light fall through. Fewer steps look bolder and more painted.  [skeleton]
-#define LIGHT_STEPS 5 // [3 4 5 6 8]
+// Light bands: How many soft bands sky light and torch light fade through. The light stays a smooth gradient; Soft bands sets how much it gathers at each band.  [skeleton]
+#define LIGHT_BANDS 5 // [3 4 5 6 8]
 // Torch light strength: How bright the light from torches, lanterns and other glowing blocks looks. The game's light levels do not change.  [plumbing]
 #define BLOCKLIGHT_STRENGTH 1.0 // [0.6 0.8 1.0 1.2 1.4]
 // Light from held items: A torch or other glowing item in your hand lights the area around you. This is only a look: mobs still see the real light level.  [plumbing]
@@ -24,13 +24,13 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define MOON_SIZE 5 // [4 5 6 7]
 // Sun and moon pixel size: How big one pixel of the sun and moon art is. 94 matches one pixel of the vanilla sun.  [sky]
 #define SKY_ART_PIXEL 94 // [70 80 94 110 130]
-// Sky pixel grid: How fine the sky's pixel grid is. Colour bands, the dither and the stars all sit on it. Lower looks chunkier.  [sky]
+// Sky pixel grid: How fine the grid the stars sit on is. Lower gives fewer, chunkier star pixels. The sky's colours are smooth whatever this is.  [sky]
 #define SKY_TEXELS 256 // [128 192 256 320 384]
 // Number of stars: How many stars fill a clear, moonless night.  [sky]
 #define STAR_DENSITY 10 // [4 6 8 10 14 18]
-// Twinkling stars: Now and then a star drops one step of brightness for a moment.  [sky]
+// Twinkling stars: Now and then a star dims for a moment.  [sky]
 #define STAR_TWINKLE
-// Sun ring: A thin dithered ring of light around the sun. There is no glow or bloom.  [sky]
+// Sun ring: A thin ring of pale light around the sun, one art pixel wide. There is no glow or bloom.  [sky]
 #define SUN_HALO
 // Night sky light: How much light the night sky gives, as a share of the day's. VOID Gloam's dark nights then darken it further, as in the game.  [sky]
 #define NIGHT_SKYLIGHT 0.18 // [0.10 0.14 0.18 0.22 0.26]
@@ -41,8 +41,6 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define HAZE_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 // Haze detail: How many points along each view the haze looks at to pick a country's colour. More blends borders between lands more smoothly.  [haze]
 #define HAZE_SAMPLES 3 // [2 3 4]
-// Haze steps: How many flat steps the haze thickens through. Fewer looks bolder.  [haze]
-#define HAZE_STEPS 4 // [3 4 5]
 // Haze in rain: How much a downpour closes the distance in.  [haze]
 #define HAZE_RAIN 1.0 // [0.0 0.5 1.0 1.5]
 // Haze on the sky: The haze also tints the sky near the horizon, in the same colours as the land.  [haze]
@@ -81,17 +79,15 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 // Wind strength: How far leaves and plants move. They never move more than two texture pixels.  [plumbing]
 #define WAVE_STRENGTH 1.0 // [0.5 0.75 1.0 1.25 1.5]
 // ---- Far land
-// Far land texture: Gives the far land drawn by VOID LOD a pixel texture on the world's grid, getting coarser with distance.  [skeleton]
+// Far land texture: Gives the far land drawn by VOID LOD a faint pixel texture on the world's grid, getting coarser with distance and fading out into the haze.  [skeleton]
 #define FAR_TEXTURE
 // Far texture size: How many screen pixels one far texture pixel covers before it doubles in size. Smaller is finer.  [skeleton]
 #define FAR_TEXTURE_PIXELS 2 // [1 2 3 4]
-// Far fade: The far land fades into the horizon in steps towards the edge of what is drawn.  [skeleton]
+// Far fade: The far land fades smoothly into the horizon towards the edge of what is drawn.  [skeleton]
 #define FAR_FADE
 // ---- Colour and finish
-// Colour steps: How many levels each colour channel has in the final picture, with a dither between them. Off keeps full colour.  [skeleton]
-#define COLOR_STEPS 32 // [0 16 24 32 48 64]
-// Dither: A fine 4 by 4 checker pattern at colour steps and at the edges of light bands, on the world's 16-pixel grid.  [skeleton]
-#define DITHER
+// Soft bands: How much light, the sky and the glow round the sun gather into gentle bands. 0 is a plain smooth gradient. There is never a hard edge or a dither pattern.  [skeleton]
+#define SOFT_BANDS 50 // [0 25 50 75 100]
 // ---- Debug
 // Debug view: Shows one of the shader's inner pictures instead of the world. For testing only.  [skeleton]
 #define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11]
@@ -101,7 +97,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define MIST_FORCE 0 // [0 25 50 75 100]
 // Show the far land join: Draws a magenta line along the join between the near chunks and the far land from VOID LOD, over the finished picture. For testing only.  [skeleton]
 //#define DEBUG_JOIN
-// Haze debug: Haze test views: the country map, the haze steps, where the data came from, and wet ground with puddles.  [haze]
+// Haze debug: Haze test views: the country map, how thick the haze is, where the data came from, and wet ground with puddles.  [haze]
 #define HAZE_DEBUG 0 // [0 1 2 3 4]
 // Sky debug: Sky test views: the sky colour table, or the sky's bands and rings.  [sky]
 #define SKY_DEBUG 0 // [0 1 2]
@@ -139,8 +135,6 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #ifdef FAR_TEXTURE
 #endif
 #ifdef FAR_FADE
-#endif
-#ifdef DITHER
 #endif
 #ifdef DEBUG_JOIN
 #endif

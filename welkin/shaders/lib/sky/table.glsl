@@ -2,22 +2,23 @@
 // (64x32 RGBA8, size.buffer in shaders.properties) once a frame; anything after it reads it with texelFetch: the sky
 // dome (gbuffers_skybasic), the light ramp (lib/light.glsl), the far fade and haze, water reflections, clouds.
 //
-// Every colour in it is already stepped (palette steps), and in the same display space as the pack's albedo and
-// Minecraft's own sky and fog colours. Texel (x, y), y counted from the bottom row:
+// Its colours are control points: readers blend between neighbouring texels where they need a gradient (the dome),
+// and every weight behind them changes smoothly with the hour and the weather. They are in the same display space as
+// the pack's albedo and Minecraft's own sky and fog colours. Texel (x, y), y counted from the bottom row:
 //
 //   y 0..4    the dome, sun-glow ring g = y (0 none .. 4 nearest the sun); x = band 0 below the horizon,
 //             1 horizon .. 5 zenith (x 6, 7 repeat the zenith)
 //   y 5       light and state:
-//               x 0  sun direct light, premultiplied by its stepped strength (a: strength)
+//               x 0  sun direct light, premultiplied by its strength (a: strength)
 //               x 1  moon direct light, premultiplied (a: strength)
 //               x 2  sky ambient light: colour times the day/night factor times Gloam's gameplay scale (a: factor)
 //               x 3  the shadow light (sun by day, moon by night, as Iris's shadowLightPosition), premultiplied
 //               x 4  horizon colour away from the sun   x 5  horizon toward the sun   x 6  zenith colour
 //               x 7  lightning flash light (rgb premultiplied, a: flash step)
-//               x 8  r sky light scale (void_light.z or 1), g night step, b dark step, a overcast step
+//               x 8  r sky light scale (void_light.z or 1), g night 0..1, b dark 0..1, a overcast 0..1
 //               x 9  r sun-glow amount / 1.5, g moon-halo amount, b star amount, a glow spread / 2
 //               x 10 r sun visibility, g moon visibility, b moon opacity, a flash step
-//               x 11 r golden step, g blue-hour step, b sunset index / 4, a moon brightness by phase
+//               x 11 r golden hour, g blue hour, b sunset palette position / 4, a moon brightness by phase
 //   y 6       horizon colour away from the sun for haze kind x (0..15)
 //   y 7       the same toward the sun
 //   y 8       cloud faces: x 0 top, 1 sun side, 2 shade side, 3 base, 4 storm base, 5 rim
@@ -73,7 +74,7 @@ vec4 skyTable(int x, int y) {
 
 // --- for the light ramp (lib/light.glsl), deferred and forward programs ---
 
-// The sky's ambient light colour, ready to multiply by the stepped sky light level. Dark nights already in.
+// The sky's ambient light colour, ready to multiply by the sky light level (the ramp). Dark nights already in.
 vec3 skyAmbientLight() {
 	return skyTable(SKY_X_AMBIENT, SKY_ROW_LIGHT).rgb;
 }
@@ -101,7 +102,7 @@ float skyLightScale() {
 	return skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).r;
 }
 
-// The night's step, 0 day .. 1 night, in quarters.
+// The night, 0 day .. 1 night, smooth.
 float skyNightStep() {
 	return skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).g;
 }
@@ -121,6 +122,19 @@ vec3 skyZenith() {
 // far pixel into when the ray's samples carry that kind.
 vec3 skyHazeHorizon(int kind, bool towardSun) {
 	return skyTable(clamp(kind, 0, 15), towardSun ? SKY_ROW_HAZE_SUN : SKY_ROW_HAZE_AWAY).rgb;
+}
+
+// How far direction `dir` (unit, world) lies inside the sun's glow, 0..1: 1 straight at the sun, easing out as wide as
+// the table says the glow reaches. The same reach the clouds' horizon uses (lib/clouds/shade.glsl wcHorizon).
+float skyGlowToward(vec3 dir, vec3 sunW) {
+	float spread = max(skyTable(SKY_X_STATE_GLOW, SKY_ROW_LIGHT).a * 2.0, 0.05);
+	return 1.0 - smoothstep(0.0, spread, 1.0 - dot(dir, sunW));
+}
+
+// The haze kind's horizon along `dir`: the horizon away from the sun, warming smoothly into the one toward it inside
+// the sun's glow, so the air has no seam across the screen.
+vec3 skyHazeAir(int kind, vec3 dir, vec3 sunW) {
+	return mix(skyHazeHorizon(kind, false), skyHazeHorizon(kind, true), skyGlowToward(dir, sunW));
 }
 
 // --- for clouds (vanilla's until M3, then the pack's voxel clouds) ---

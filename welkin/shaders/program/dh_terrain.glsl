@@ -70,13 +70,16 @@ void main() {
 	}
 	vec3 albedo = glcolor.rgb;
 #ifdef FAR_TEXTURE
-	// one shade per world texel, three flat shades, texels doubling in size so each spans FAR_TEXTURE_PIXELS pixels
-	float bpp = blocksPerPixelAt(length(eyePos), gbufferProjection[1][1], viewHeight);
+	// one shade per world texel (the far land's stand-in for block texture), texels doubling in size so each spans
+	// FAR_TEXTURE_PIXELS pixels; faint, and fading out with distance so hazy far land never turns to pixel noise
+	float dist = length(eyePos);
+	float bpp = blocksPerPixelAt(dist, gbufferProjection[1][1], viewHeight);
 	int level = gridLevel(bpp, float(FAR_TEXTURE_PIXELS));
 	float texel = exp2(float(level)) / 16.0;
 	ivec3 cell = worldTexel(eyePos - normalW * (0.5 * texel), level);
 	float h = hash01(cell);
-	albedo *= h < 0.3 ? 0.93 : (h > 0.78 ? 1.06 : 1.0);
+	float amount = 1.0 - smoothstep(1024.0, 6144.0, dist);
+	albedo *= 1.0 + (h < 0.3 ? -0.05 : (h > 0.78 ? 0.04 : 0.0)) * amount;
 #endif
 	float emission = lightClass != L_NONE ? 0.85 : 0.0; // lava and lit blocks; far land has no glow mask
 	outColor = vec4(albedo, 1.0);

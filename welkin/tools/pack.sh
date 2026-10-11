@@ -4,7 +4,7 @@
 #   tools/pack.sh <shaderpacks dir> [OPTION=value ...]
 #
 # The run's config/iris.properties (beside shaderpacks/) gets shaderPack=Welkin.zip and enableShaders=true. Options
-# given after the folder (e.g. DEBUG_VIEW=1 COLOR_STEPS=0, or a bare DEBUG_JOIN for DEBUG_JOIN=true) are written to
+# given after the folder (e.g. DEBUG_VIEW=1 SOFT_BANDS=0, or a bare DEBUG_JOIN for DEBUG_JOIN=true) are written to
 # Welkin.zip.txt, Iris's per-pack settings file; with none given that file is removed, so the pack runs on its defaults (the MEDIUM profile's values).
 #
 # Examples:

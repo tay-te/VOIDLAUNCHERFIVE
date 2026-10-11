@@ -12,10 +12,11 @@
 //
 // Wet ground: as void_wetness soaks in, open ground darkens (porous ground most, stone a little, metal not at all)
 // and grows a little more saturated; walls take half, undersides none, and ground under a roof stays dry (sky light
-// in the lightmap, its edge a dithered step). Puddles: on open flat ground near the camera, pixel blobs on the world
-// texel grid that grow with the wetness; their water mirrors the sky in three flat steps by angle, the sun (or moon)
-// glints in a few texels, and rain drops flick single texels; a darker wet rim lies round them. In frost, puddles are
-// ice. Everything wet is in flat steps on the world texel grid (16 a block near).
+// in the lightmap, eased off under the eaves). Puddles: on open flat ground near the camera, blobs whose outline sits
+// on the block textures' own texel grid (16 a block near), growing with the wetness; their water mirrors the sky,
+// more at a low angle, the sun (or moon) glints in a small soft spot, and rain drops flick single texels; a darker
+// wet rim lies round them. In frost, puddles are ice. All the shading is smooth (the look of 2026-10-11): no steps,
+// no dither; the puddles fade out smoothly toward their reach.
 
 #include "/lib/haze/haze_config.glsl"
 #include "/lib/haze/haze_uniforms.glsl"
@@ -52,9 +53,10 @@ struct WelkinWet {
     float wet;          // 0..1 how wet this surface is (wetness x exposure x facing x distance), continuous in time
     int   puddle;       // 0 none, 1 wet rim, 2 water, 3 ice
     float sheen;        // 0..1 grazing sheen strength for the class
-    ivec2 grid;         // world texel id (Bayer and hashes)
+    ivec2 grid;         // world texel id (hashes)
     vec3  relSnap;      // texel centre relative to the camera
     float texel;        // blocks per texel
+    float fade;         // 1 near .. 0 at WET_PUDDLE_REACH: how much of the puddle shows
 };
 
 // Before lighting: darkens `albedo` in place and works out the puddle. rel: the surface relative to the camera;
@@ -69,14 +71,15 @@ WelkinWet welkinWetSurface(HzState s, inout vec3 albedo, vec3 rel, vec3 n, float
     w.grid = tx.id;
     w.relSnap = tx.relSnap;
     w.texel = tx.size;
+    w.fade = 0.0;
 #ifdef WET_ENABLED
     if (s.wet <= 0.002 || wetClass == WET_DRY) return w;
 
-    // open to the sky (a dithered step at the eaves), facing up, near enough (the wet look fades out over the far
+    // open to the sky (eased off under the eaves), facing up, near enough (the wet look fades out over the far
     // land, where the camera's wetness says nothing), and not frozen
-    float open = hzSteps(smoothstep(0.78, 0.94, skyLight), 2.0, w.grid);
+    float open = smoothstep(0.78, 0.94, skyLight);
     float facing = n.y > 0.5 ? 1.0 : (n.y > -0.5 ? 0.55 : 0.0);
-    float near = hzSteps(1.0 - smoothstep(1024.0, 2048.0, L), 2.0, hzAlt1(w.grid));
+    float near = 1.0 - smoothstep(1024.0, 2048.0, L);
     float soaked = s.wet * open * facing * near;
     if (soaked <= 0.0) return w;
     // in frost the ground is frozen, not wet: no darkening, and what puddles there are have frozen over
@@ -90,8 +93,8 @@ WelkinWet welkinWetSurface(HzState s, inout vec3 albedo, vec3 rel, vec3 n, float
 #ifdef WET_PUDDLES
     bool level = n.y > 0.9 && wetClass != WET_PLANT && skyLight > 0.9 && L < WET_PUDDLE_REACH;
     if (level && soaked > 0.3) {
-        // dithered fade toward the reach
-        if (hzBayer(hzAlt2(w.grid)) < smoothstep(0.7 * WET_PUDDLE_REACH, WET_PUDDLE_REACH, L)) return w;
+        // a smooth fade toward the reach
+        w.fade = 1.0 - smoothstep(0.7 * WET_PUDDLE_REACH, WET_PUDDLE_REACH, L);
         // the puddle field at the texel's centre: blobs of a few blocks, broken at the block scale
         vec2 local = cameraPositionFract.xz + tx.relSnap.xz;
         float field = 0.65 * hzWorldNoise(cameraPositionInt.xz, local, 2, 17) + 0.35 * hzWorldNoise(cameraPositionInt.xz, local, 1, 29);
@@ -101,12 +104,12 @@ WelkinWet welkinWetSurface(HzState s, inout vec3 albedo, vec3 rel, vec3 n, float
             w.puddle = (s.temp < -0.2 || s.snow > 0.5) ? 3 : 2;
         } else if (field > edge - 0.035 && w.wet > 0.0) {
             w.puddle = 1;
-            albedo *= 0.88;
+            albedo *= 1.0 - 0.12 * w.fade;
         }
         if (w.puddle == 2) {
-            albedo *= 0.55;                     // a dark film of water over the ground; the sky shows in it later
+            albedo *= 1.0 - 0.45 * w.fade;      // a dark film of water over the ground; the sky shows in it later
         } else if (w.puddle == 3) {
-            albedo = mix(albedo, HZ_PUDDLE_ICE * max(hzLuma(albedo) * 1.6, 0.35), 0.6);
+            albedo = mix(albedo, HZ_PUDDLE_ICE * max(hzLuma(albedo) * 1.6, 0.35), 0.6 * w.fade);
         }
     }
 #endif
@@ -123,27 +126,27 @@ vec3 welkinWetLight(HzState s, vec3 lit, WelkinWet w, vec3 lightDir, vec3 lightC
     vec3 v = normalize(w.relSnap);
     float c = clamp(-v.y, 0.0, 1.0);                            // cosine to the up normal
     if (w.puddle >= 2) {
-        // the sky by angle in three flat steps: dull looking down, bright mirror at a low angle
-        float fres = max(hzSteps(0.2 + 0.7 * pow(1.0 - c, 4.0), 3.0, w.grid), 1.0 / 3.0);
+        // the sky by angle: dull looking down, a bright mirror at a low angle
+        float fres = max(0.2 + 0.7 * pow(1.0 - c, 4.0), 1.0 / 3.0);
         vec3 mirror = w.puddle == 3 ? mix(skyReflect, HZ_PUDDLE_ICE * hzLuma(skyReflect) * 1.2, 0.4) : skyReflect;
-        lit = mix(lit, mirror, fres * (w.puddle == 3 ? 0.5 : 0.85));
-        // the light's glint: a few texels where the reflected view meets the sun or moon, in two steps
+        lit = mix(lit, mirror, fres * (w.puddle == 3 ? 0.5 : 0.85) * w.fade);
+        // the light's glint: a small soft spot where the reflected view meets the sun or moon
         vec3 r = reflect(v, vec3(0.0, 1.0, 0.0));
         float g = dot(r, lightDir);
-        float glint = g > 0.9997 ? 1.0 : (g > 0.9988 ? 0.5 : 0.0);
-        lit += lightColor * glint * 0.9 * (1.0 - 0.8 * s.rain) * step(0.0, lightDir.y);
+        float glint = smoothstep(0.9984, 0.9998, g);
+        lit += lightColor * glint * 0.9 * (1.0 - 0.8 * s.rain) * step(0.0, lightDir.y) * w.fade;
         // drops: a texel (an eighth of a block near) flicks to the bright step and back, as often as it rains
         if (w.puddle == 2 && s.rain > 0.05) {
             ivec2 drop = w.grid >> 1;
             float phase = hzHash(drop, 5);
             float tick = floor(frameTimeCounter * 8.0 + phase * 8.0);
             if (hzHash(drop + ivec2(int(tick) * 7, 0), 11) < 0.035 * s.rain) {
-                lit = mix(lit, skyReflect * 1.25 + 0.04, 0.6);
+                lit = mix(lit, skyReflect * 1.25 + 0.04, 0.6 * w.fade);
             }
         }
     } else if (w.sheen > 0.0) {
-        // wet ground catches the sky at a grazing angle: one or two flat steps, never a gloss gradient
-        float sheen = hzSteps(w.wet * w.sheen * pow(1.0 - c, 5.0) * 2.0, 2.0, hzAlt1(w.grid));
+        // wet ground catches the sky at a grazing angle
+        float sheen = clamp(w.wet * w.sheen * pow(1.0 - c, 5.0) * 2.0, 0.0, 1.0);
         lit = mix(lit, skyReflect, sheen * 0.5);
     }
 #endif

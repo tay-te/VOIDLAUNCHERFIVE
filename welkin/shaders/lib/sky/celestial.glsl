@@ -2,8 +2,8 @@
 //
 // Two grids, both pixel-true:
 //   - the sky grid: an equal-angle cube map of the direction, SKY_TEXELS cells per 90 degrees (about 0.35 degrees a
-//     texel at 256). The dome's band edges and dither snap to it in world directions, so turning the camera never
-//     moves them; the stars sit on the same grid turned with the celestial sphere, so they wheel with the sun.
+//     texel at 256). The stars sit on it, turned with the celestial sphere, so they wheel with the sun. (The dome
+//     itself is smooth since the look of 2026-10-11 and no longer uses the grid.)
 //   - the art grid of the sun and the moon: SKY_ART_PIXEL radians a pixel (vanilla's sun texel by default), laid on
 //     a plane facing the body and aligned with its path, like vanilla's quads.
 // No texture is sampled; each body is a few comparisons per pixel, and only near it.
@@ -98,8 +98,8 @@ int skySunPixel(ivec2 ip) {
 		return 3;
 	}
 #ifdef SUN_HALO
-	// one pixel ring, every other pixel: a halo you can count, not a bloom
-	if (d2 < (r + 1.6) * (r + 1.6) && ((ip.x + ip.y) & 1) == 0) {
+	// one solid pixel ring of pale light: a halo you can count, not a bloom (and no checker)
+	if (d2 < (r + 1.6) * (r + 1.6)) {
 		return 4;
 	}
 #endif

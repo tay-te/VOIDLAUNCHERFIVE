@@ -21,7 +21,8 @@
 // rest one N or F tile pair: ground, lowness, water, haze kind) and integrates its murk exactly. The two kinds
 // with the most murk (weighted by how much of it is seen past what lies in front) colour the haze.
 // The result: one colour and two opacities, in front of and behind the split distance where M1's mist slab begins,
-// in flat steps with a dithered border on the world texel grid.
+// all smooth (the look of 2026-10-11): worked out at the pixel's own point, the land blended bilinearly between tile
+// cells, no steps and no dither.
 
 #include "/lib/haze/haze_config.glsl"
 #include "/lib/haze/haze_uniforms.glsl"
@@ -29,11 +30,11 @@
 #include "/lib/haze/haze_bridge.glsl"
 
 struct WelkinHaze {
-    vec4  back;         // rgb colour, a stepped opacity: from the split to the surface, with the world's edge
-    vec4  front;        // rgb colour, a stepped opacity: from the camera to the split
+    vec4  back;         // rgb colour, a opacity: from the split to the surface, with the world's edge
+    vec4  front;        // rgb colour, a opacity: from the camera to the split
     vec3  air;          // the air colour after the rain look, for other modules (mist, curtains) to match
     float rainLook;     // 0..1, how much of the rain look is on (for debug and for others)
-    ivec2 dp;           // the dither texel used (world texel on surfaces, screen pixel on the sky)
+    ivec2 dp;           // the screen pixel (was the dither texel; kept for the debug views)
 };
 
 // ------------------------------------------------------------------------------------------------------- reaches
@@ -84,18 +85,18 @@ vec2 hzLayer2(float rho0, float base, float H, float ta, float tc, float tb, vec
     return rho0 * vec2(piece, whole);
 }
 
-// The world's edge: land sinks fully into the air before the drawn world ends, in four flat steps. The same curve as
+// The world's edge: land sinks fully into the air before the drawn world ends, smoothly. The same curve as
 // M0's farFade (lib/fade.glsl: horizontal distance, from half the LOD's reach, or the last fifth of the render
 // distance without it), which this replaces: with the haze on, deferred skips its own FAR_FADE (NOTES step 4) and
 // the edge takes the haze's air colour, over water too.
-float hzEdgeFade(float horizontal, float b) {
+float hzEdgeFade(float horizontal) {
 #ifdef DISTANT_HORIZONS
     float edge = max(float(dhRenderDistance), far);
     float t = clamp((horizontal - edge * 0.5) / (edge * 0.5), 0.0, 1.0);
 #else
     float t = clamp((horizontal - far * 0.8) / (far * 0.2), 0.0, 1.0);
 #endif
-    return hzStepsB(t * t, 4.0, b);
+    return t * t;
 }
 
 // ------------------------------------------------------------------------------------------------------- colours
@@ -140,22 +141,9 @@ struct HzMurk {
     float w2;
 };
 
-void hzMurkSegment(inout HzMurk m, HzState s, HzLand land, float a, float b, float split, vec3 dir, float camY,
-                   float murkMul, float seenBy) {
-    if (b <= a) return;
-    int k = land.kind;
-    vec3 ka = hzKindAir(k);
-    // its haziness thinned by the hour, or the camera's own (a cloud forest in a clear country) near the camera
-    float tS = a <= 0.0 ? 0.5 * b : sqrt(a * b);
-    float hz = max(ka.x * s.daily, s.haze.x * exp2(-tS / 1024.0));
-    float rho = hzMurkDensity(hz) * murkMul * (0.75 + 0.5 * land.low) * (1.0 + 0.3 * land.water);
-    vec2 t = hzLayer2(rho, land.ground, ka.y, a, clamp(split, a, b), b, dir, camY, HZ_MURK_CAP);
-    // how much of this murk is seen, past everything in front of it (1 / (1 + x + x^2/2) for e^-x: it only ranks
-    // the kinds, and spares the exponential)
-    float x = m.tm.y + seenBy * a;
-    float seen = t.y / (1.0 + x * (1.0 + 0.5 * x));
-    m.tm += t;
-    // the two kinds seen most (a third on one ray is rare: it takes the second's place only if it outweighs it)
+// Counts `seen` murk of kind k into the two kinds seen most (a third on one ray is rare: it takes the second's place
+// only if it outweighs it).
+void hzMurkAddKind(inout HzMurk m, int k, float seen) {
     bool in1 = k == m.k1;
     bool in2 = !in1 && (k == m.k2 || m.w2 <= 0.0);
     bool take = !in1 && !in2 && seen > m.w2;
@@ -171,13 +159,33 @@ void hzMurkSegment(inout HzMurk m, HzState s, HzLand land, float a, float b, flo
     m.w2 = swap ? ww : m.w2;
 }
 
+void hzMurkSegment(inout HzMurk m, HzState s, HzLand land, float a, float b, float split, vec3 dir, float camY,
+                   float murkMul, float seenBy) {
+    if (b <= a) return;
+    int k = land.kind;
+    // the air of the land's kinds, blended by their shares, so density runs smoothly over a border between kinds
+    vec3 ka = mix(hzKindAir(k), hzKindAir(land.kind2), land.share2);
+    // its haziness thinned by the hour, or the camera's own (a cloud forest in a clear country) near the camera
+    float tS = a <= 0.0 ? 0.5 * b : sqrt(a * b);
+    float hz = max(ka.x * s.daily, s.haze.x * exp2(-tS / 1024.0));
+    float rho = hzMurkDensity(hz) * murkMul * (0.75 + 0.5 * land.low) * (1.0 + 0.3 * land.water);
+    vec2 t = hzLayer2(rho, land.ground, ka.y, a, clamp(split, a, b), b, dir, camY, HZ_MURK_CAP);
+    // how much of this murk is seen, past everything in front of it (1 / (1 + x + x^2/2) for e^-x: it only ranks
+    // the kinds, and spares the exponential)
+    float x = m.tm.y + seenBy * a;
+    float seen = t.y / (1.0 + x * (1.0 + 0.5 * x));
+    m.tm += t;
+    hzMurkAddKind(m, k, seen * (1.0 - land.share2));
+    if (land.share2 > 0.0) hzMurkAddKind(m, land.kind2, seen * land.share2);
+}
+
 // The land for a segment's sample: N or F, at distance tS along the ray. The sky reads the camera's own land for
 // every segment: a sky ray climbs out of the murk within a few hundred blocks, and the land far under it would only
 // print its 1 km cells into the sky as blocks of colour (and cost fetches).
-HzLand hzSegmentLand(HzState s, bool sky, vec3 dir, float a, float b, float bayer, bool far) {
+HzLand hzSegmentLand(HzState s, bool sky, vec3 dir, float a, float b, bool far) {
     if (sky) return s.here;
     float tS = sqrt(a * max(b, a));
-    return hzLandIn(s, cameraPositionFract.xz + dir.xz * tS, bayer, far);
+    return hzLandIn(s, cameraPositionFract.xz + dir.xz * tS, far);
 }
 
 // The haze for one pixel.
@@ -207,25 +215,19 @@ WelkinHaze welkinHaze(HzState s, vec3 rel, vec3 n, bool isSky, float split, vec3
     float reach = hzWorldReach();
     float camY = float(cameraPositionInt.y) + cameraPositionFract.y;
 
-    // the dither grid: the world's texels on surfaces (and the haze worked out at the texel's centre, so a texel is
-    // one colour), the screen's pixels on the sky
+    // worked out at the pixel's own point (no texel snapping: the haze is a smooth gradient over the land)
     if (isSky) {
         L = reach;
-    } else {
-        HzTexel tx = hzTexel(rel, n, hzTexelBlocks(hzFootprint(L)));
-        h.dp = tx.id;
-        L = length(tx.relSnap);
     }
-    // three thresholds at this texel: the Bayer value, its mirror, and the transposed matrix's
-    float b0 = hzBayer(h.dp), b1 = 1.0 - b0, b2 = hzBayer(h.dp.yx);
     // the world's edge is measured at the real surface, whoever owns the haze past the near tiles
     float edgeH = length(dir.xz) * L;
 #if defined WF_FAR_HAZE && defined DISTANT_HORIZONS
     // With far weather's far haze on (WF_FAR_HAZE, an option in the shared lib/settings.glsl), far weather
     // (composite1, wf_haze.glsl) integrates the same clear air from the near tiles' fade band outwards
-    // (1792..2032 blocks horizontal, dithered per texel there); this pass then owns only the ray up to the band, so
-    // the two add up to one integral and LOD land is never hazed twice (wave-2 cross-check, INTEGRATION.md).
-    if (!isSky) L = min(L, mix(HZ_HANDOFF_START, HZ_HANDOFF_END, b0) / max(length(dir.xz), 1e-4));
+    // (1792..2032 blocks horizontal); this pass then owns only the ray up to the band, so the two add up to one
+    // integral and LOD land is never hazed twice (wave-2 cross-check, INTEGRATION.md). The hand-over is at the band's
+    // middle, with no dither: far weather must start its integral at the same line (see INTEGRATION.md's note).
+    if (!isSky) L = min(L, 0.5 * (HZ_HANDOFF_START + HZ_HANDOFF_END) / max(length(dir.xz), 1e-4));
 #endif
     split = (split < 0.0) ? L : clamp(split, 0.0, L);
 
@@ -247,37 +249,37 @@ WelkinHaze welkinHaze(HzState s, vec3 rel, vec3 n, bool isSky, float split, vec3
     HzMurk m = HzMurk(vec2(0.0), s.here.kind, 0.0, s.here.kind, 0.0);
 #if HAZE_SAMPLES == 2
     hzMurkSegment(m, s, s.here, 0.0, min(2048.0, L), split, dir, camY, murkMul, seenBy);
-    if (L > 2048.0) hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 2048.0, L, b1, true), 2048.0, L, split, dir, camY, murkMul, seenBy);
+    if (L > 2048.0) hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 2048.0, L, true), 2048.0, L, split, dir, camY, murkMul, seenBy);
 #elif HAZE_SAMPLES == 3
     hzMurkSegment(m, s, s.here, 0.0, min(192.0, L), split, dir, camY, murkMul, seenBy);
     if (L > 192.0) {
         float e = min(2048.0, L);
-        hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 192.0, e, b1, false), 192.0, e, split, dir, camY, murkMul, seenBy);
+        hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 192.0, e, false), 192.0, e, split, dir, camY, murkMul, seenBy);
     }
-    if (L > 2048.0) hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 2048.0, L, b2, true), 2048.0, L, split, dir, camY, murkMul, seenBy);
+    if (L > 2048.0) hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 2048.0, L, true), 2048.0, L, split, dir, camY, murkMul, seenBy);
 #else
     hzMurkSegment(m, s, s.here, 0.0, min(96.0, L), split, dir, camY, murkMul, seenBy);
     if (L > 96.0) {
         float e = min(640.0, L);
-        hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 96.0, e, b1, false), 96.0, e, split, dir, camY, murkMul, seenBy);
+        hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 96.0, e, false), 96.0, e, split, dir, camY, murkMul, seenBy);
     }
     if (L > 640.0) {
         float e = min(4096.0, L);
-        hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 640.0, e, b2, false), 640.0, e, split, dir, camY, murkMul, seenBy);
+        hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 640.0, e, false), 640.0, e, split, dir, camY, murkMul, seenBy);
     }
-    if (L > 4096.0) hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 4096.0, L, b1, true), 4096.0, L, split, dir, camY, murkMul, seenBy);
+    if (L > 4096.0) hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 4096.0, L, true), 4096.0, L, split, dir, camY, murkMul, seenBy);
 #endif
     vec2 tm = m.tm;
     int k1 = m.k1, k2 = m.k2;
     float w1 = m.w1, w2 = m.w2;
 
-    // one colour: the air, pulled toward the ray's two kinds (their mix in flat steps), as far as the murk's share
-    // of the haze goes (in flat steps)
+    // one colour: the air, pulled toward the ray's two kinds (by their shares), as far as the murk's share of the
+    // haze goes
     float tauF = tc.x + tr.x + tm.x;
     float tauW = tc.y + tr.y + tm.y;
     vec3 col = airR;
     if (tm.y > 1e-5) {
-        float t = hzStepsB(w2 / max(w1 + w2, 1e-9), 2.0, b1);
+        float t = w2 / max(w1 + w2, 1e-9);
         vec4 look = hzKindLook(k1);
         vec3 tint = hzSeasonTint(look.rgb, k1, s);
         if (t > 0.0) {
@@ -287,17 +289,16 @@ WelkinHaze welkinHaze(HzState s, vec3 rel, vec3 n, bool isSky, float split, vec3
         }
         // dust on the wind (Gloam's dust share) over a land whose own kind is not dust
         if (s.haze.y > 0.0 && k1 != HZ_K_DUSTY) {
-            tint = mix(tint, hzKindLook(HZ_K_DUSTY).rgb, hzStepsB(s.haze.y * 0.6, 2.0, b2));
+            tint = mix(tint, hzKindLook(HZ_K_DUSTY).rgb, clamp(s.haze.y * 0.6, 0.0, 1.0));
         }
         vec3 kc = clamp(tint * hzLuma(airR), 0.0, 1.0);
-        col = mix(airR, kc, hzStepsB(tm.y / tauW, 3.0, b2) * look.a * hzKindStrength(s));
+        col = mix(airR, kc, clamp(tm.y / max(tauW, 1e-9), 0.0, 1.0) * look.a * hzKindStrength(s));
     }
 
     // two opacities: the camera to the split, then the split to the surface; the world's edge under the back
-    float steps = float(HAZE_STEPS);
-    float aFront = hzStepsB(1.0 - exp(-tauF), steps, b0);
-    float aBack = hzStepsB(1.0 - exp(tauF - tauW), steps, b0);
-    float e = isSky ? 0.0 : hzEdgeFade(edgeH, b0);
+    float aFront = 1.0 - exp(-tauF);
+    float aBack = 1.0 - exp(tauF - tauW);
+    float e = isSky ? 0.0 : hzEdgeFade(edgeH);
     float A = 1.0 - (1.0 - e) * (1.0 - aBack);
     h.front = vec4(col, aFront);
     h.back = vec4(A > 1e-4 ? (airR * e * (1.0 - aBack) + col * aBack) / A : col, A);

@@ -14,7 +14,7 @@
 // colortex2 = (lit, M / 255, emission, L / 15); materials in lib/materials.glsl.
 //   G_WATERFLAG  also write colortex3: the water's own lit colour where the pixel is water, for composite's water fog
 //
-// Without G_DEFERRED the program lights itself with the same stepped ramp deferred uses (lib/light.glsl).
+// Without G_DEFERRED the program lights itself with the same light ramp deferred uses (lib/light.glsl).
 
 #include "/lib/common.glsl"
 
@@ -217,11 +217,7 @@ void main() {
 #ifdef G_UNLIT
 	vec3 lit = albedo.rgb;
 #else
-	// a screen-pixel Bayer here: these are small things (entities, particles) on no world grid of their own
-	float d = 0.5;
-#ifdef DITHER
-	d = bayer4(ivec2(gl_FragCoord.xy));
-#endif
+	float d = 0.5; // no dither: the ramp is smooth
 	vec2 lm = lmcoord;
 	lm.x = welkinHandBlockLight(lm.x, length(eyePos));
 	vec3 lit = welkinLight(albedo.rgb, normalize(normalW), lm, emission, d);

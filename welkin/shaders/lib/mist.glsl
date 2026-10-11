@@ -15,13 +15,10 @@
 //
 // No marching: the slab is sampled at MIST_SAMPLES places along the view ray (the camera's included), its top and
 // density run straight between them, and the ray meets each straight piece exactly. The optical depth comes out
-// whole, then is cut into four flat opacity steps (the top one still lets the land show through), each flat, with a
-// 4x4 Bayer dither only in a narrow band at each step's edge. The dither lies on the world's 16-pixel grid at the
-// surface the ray ends on (1/16 block near by, doubling with distance and on grazing faces so a texel never shrinks
-// under MIST_DITHER_PIXELS screen pixels); only the sky and vanilla's clouds, which are no ground, are dithered in
-// screen space. Its colour is a small flat palette: a light cool white by day and from first light, warming toward a
-// low sun in three steps with the horizon's hue, dark blue-grey at night; the two thin steps lean toward the sky's
-// colour on that side.
+// whole and turns into a smooth opacity (the thickest mist still lets the land show through): no steps, no dither
+// (the look of 2026-10-11). Its colour is a small palette: a light cool white by day and from first light, warming
+// smoothly toward a low sun with the horizon's hue, dark blue-grey at night; thin mist leans toward the sky's colour
+// on that side.
 //
 // The near tiles reach to the LOD's land as well (their 4 km), and fade out over their last 16 cells. Without Gloam,
 // or before the tiles are filled, there is no mist at all.
@@ -88,16 +85,9 @@ uniform sampler2D colortex2;
 #define MIST_FLOOR 0.08
 // Opacity per block of mist at full strength (1 - exp(-this x blocks)); 20 blocks of full mist cover 83 %.
 #define MIST_EXTINCTION 0.09
-// The four steps' opacities. The first is a faint veil in a colour near the sky's, the top one leaves the land under it
-// readable (a river still shows through a full canyon).
-#define MIST_STEP1 0.18
-#define MIST_STEP2 0.38
-#define MIST_STEP3 0.56
-#define MIST_STEP4 0.72
-// How wide the dithered band at each step's edge is, in steps (the rest of each step is flat).
-#define MIST_BAND 0.3
-// The smallest a dither texel of the mist may be on screen, in pixels.
-#define MIST_DITHER_PIXELS 2.0
+// The opacity of the thickest mist (a full cover): it leaves the land under it readable (a river still shows through
+// a full canyon). Thinner mist runs smoothly down from it.
+#define MIST_OPACITY 0.72
 
 struct MistTiles {
 	bool data;      // the near tiles hold Gloam's data
@@ -309,46 +299,33 @@ float mistTileReach(vec3 dir, MistTiles t) {
 	return max(reach, 0.0);
 }
 
-// The mist's colour looking along `dir`, for opacity step `level` (1..4), in flat steps (`d` the dither threshold).
+// The mist's colour looking along `dir`, for a cover 0..1.
 // Mist is lit water: from first light (before the land's own day light is up) it is a light cool white, so the dawn mist
 // lifts the scene rather than greying it. Toward a low sun it warms in three steps, its hue from the horizon (the sky's
 // lowest band, fogColor, until M2's sky table) mixed with a fixed warm white and kept at full brightness, so a dark fog
-// colour cannot darken it. Dark blue-grey at night. The two thin steps lean toward the sky's own colour on that side
-// (warm toward the sun, cool blue away from it) at the mist's brightness, so a thin veil reads as air, not as frost.
-vec3 mistColor(vec3 dir, int level, float d) {
+// colour cannot darken it. Dark blue-grey at night. Thin mist leans toward the sky's own colour on that side (warm
+// toward the sun, cool blue away from it) at the mist's brightness, so a thin veil reads as air, not as frost.
+vec3 mistColor(vec3 dir, float cover) {
 	float sh = sunHeight();
 	float light = clamp(sh * 5.0 + 0.6, 0.0, 1.0);
 	float low = 1.0 - clamp(sh * 3.0, 0.0, 1.0);
 	vec3 dayMist = mix(vec3(0.88, 0.91, 0.95), vec3(0.80, 0.84, 0.92), low);
 	vec3 nightMist = vec3(0.12, 0.14, 0.20);
 	vec3 c = mix(nightMist, dayMist, light);
-	// toward a low sun the mist warms, in three flat steps
+	// toward a low sun the mist warms
 	vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
 	float toward = clamp((dot(dir, sunW) - 0.25) / 0.75, 0.0, 1.0);
-	float side = steps(toward * toward, 3.0, d);
+	float side = toward * toward;
 	vec3 hue = fogColor / max(max(fogColor.r, max(fogColor.g, fogColor.b)), 0.05);
 	vec3 warm = mix(vec3(1.00, 0.85, 0.68), hue * 0.98, 0.35);
 	c = mix(c, warm, side * low * light * 0.65);
-	if (level <= 2) {
+	float lean = 0.6 * (1.0 - smoothstep(0.15, 0.75, cover));
+	if (lean > 0.0) {
 		float bright = max(c.r, max(c.g, c.b));
 		vec3 sky = mix(vec3(0.62, 0.72, 0.88), mix(hue, warm, 0.5), side * low) * bright;
-		c = mix(c, sky, level == 1 ? 0.6 : 0.3);
+		c = mix(c, sky, lean);
 	}
 	return c * mix(1.0, 0.8, rainStrength);
-}
-
-// The opacity step (0..4) for a cover in [0, 1]: four flat steps, dithered (`d` the threshold) only in a band
-// MIST_BAND steps wide round each step's edge, so a wide stretch of thin mist is one flat faint step, not a checker.
-int mistLevel(float cover, float d) {
-	float x = cover * 4.0;
-	float edge = floor(x + 0.5);
-	float u = clamp((x - edge) / MIST_BAND + 0.5, 0.0, 1.0);
-	return int(clamp(edge - 1.0 + (u > d ? 1.0 : 0.0), 0.0, 4.0));
-}
-
-float mistOpacity(int level) {
-	const float o[5] = float[5](0.0, MIST_STEP1, MIST_STEP2, MIST_STEP3, MIST_STEP4);
-	return o[level];
 }
 
 // Whether vanilla's clouds drew this pixel (gbuffers_clouds marks colortex2 with MAT_CLOUD): their depth is no ground.
@@ -434,29 +411,7 @@ vec3 valleyMist(ivec2 p, vec2 uv, vec3 scene) {
 		return scene;
 	}
 	float cover = 1.0 - exp(-r.depth * MIST_EXTINCTION * MIST_THICKNESS * open);
-
-	// The dither lies on the world's 16-pixel grid at the surface the ray ends on (the land, the water's surface or
-	// the LOD's land), so the steps' edges read as texture on the blocks: 1/16 block near by, doubling with distance.
-	// A grazing face counts its texels as smaller on screen, so the grid coarsens there before it can break into a
-	// screen-pixel checker. The sky has no world position: there the dither is the screen's.
-	float d = 0.5;
-#ifdef DITHER
-	if (s.sky || cloud) {
-		d = bayer4(p);
-	} else {
-		vec3 n = vec3(0.0, 1.0, 0.0);
-		if (!water && flags.x > 0.5) {
-			n = octDecode(g.xy);
-		}
-		float bpp = blocksPerPixelAt(max(dist, 0.05), gbufferProjection[1][1], viewHeight) / max(abs(dot(n, dir)), 0.25);
-		d = worldDither(eye, n, gridLevel(bpp, MIST_DITHER_PIXELS));
-	}
-#endif
-	int level = mistLevel(cover, d);
-	if (level == 0) {
-		return scene;
-	}
-	return mix(scene, mistColor(dir, level, d), mistOpacity(level));
+	return mix(scene, mistColor(dir, cover), MIST_OPACITY * cover);
 }
 
 // DEBUG_VIEW 7: the near tiles projected onto the land. Red: mist potential; green: the pool weight the mist uses

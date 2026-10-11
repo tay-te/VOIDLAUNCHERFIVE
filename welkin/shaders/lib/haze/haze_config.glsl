@@ -6,7 +6,7 @@
 // table and the wet classes. Names are prefixed HAZE_ / WET_ / HZ_ so they cannot clash with other modules.
 
 // ------------------------------------------------------------------------------------------------------- options
-// HAZE_ENABLED, HAZE_SAMPLES, HAZE_STEPS, HAZE_STRENGTH, HAZE_RAIN, HAZE_ON_SKY, HAZE_SEA_LEVEL, WET_ENABLED,
+// HAZE_ENABLED, HAZE_SAMPLES, HAZE_STRENGTH, HAZE_RAIN, HAZE_ON_SKY, HAZE_SEA_LEVEL, WET_ENABLED,
 // WET_PUDDLES, WET_PUDDLE_REACH and HAZE_DEBUG live in lib/settings.glsl with every other option, generated from
 // plumbing's option table, so Iris sees each option line once.
 #include "/lib/settings.glsl"
@@ -26,7 +26,7 @@
 #define HZ_FAR_SHIFT 10
 #define HZ_HANDOFF_START 1792.0     // far weather's WF_NEAR_FADE_START / _END: where its far haze takes over (blocks, horizontal)
 #define HZ_HANDOFF_END 2032.0
-#define HZ_FADE_IN 112.0            // tile cells: valid to 127, dithered hand-over from 112 (2.3)
+#define HZ_FADE_IN 112.0            // tile cells: valid to 127, hand-over from 112 (2.3; the debug views' reach)
 
 // -------------------------------------------------------------------------------------------------- the haze model
 // Two exponential layers, integrated exactly over each ray segment (no marching):
@@ -46,7 +46,7 @@
 #define HZ_MURK_FLOOR 80.0          // never a wall nearer than this (GloamSky: Haze.reach(haze, 80))
 #define HZ_CLEAR_CAP 4.0            // density cap below the clear-air base, as lod.vsh (e^4)
 #define HZ_MURK_CAP 1.0             // density cap below the murk's ground (it does not pile up in caves)
-#define HZ_DITHER 0.35              // share of each step that is dithered (the rest is flat; Gloam's ground mist uses 0.5)
+#define HZ_DITHER 0.35              // legacy (hzSteps): share of each step that was dithered; the haze is smooth now
 
 // ------------------------------------------------------------------------------------------- haze kinds (table 2.4)
 // 0 none/vanilla (read as temperate), 1 temperate, 2 humid_lowland, 3 misty_lakes, 4 forest_damp, 5 dusty,
