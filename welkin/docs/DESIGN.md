@@ -411,3 +411,46 @@ The user set the new look of section 3.2 over the flat-steps-and-dither rules. W
 - **Forward programs:** entities, block entities and water and glass (`G_SHADOW`) read the map too; the other self-lit programs (hand, particles, basic) use the sky-light gate.
 - **Options:** `SHADOWS`, `shadowMapResolution`, `shadowDistance`, `SHADOW_SOFTNESS` (Crisp, Slightly soft, Soft) on the Light screen and in the profiles; water_shadows' `WS_SHADOWS` and `WS_SHADOW_TAPS` are gone from the option table. `DEBUG_VIEW` 12 shows the sun's reach x facing with what glass, water and clouds let through, the LOD's land tinted blue.
 - **Cost** (RTX 4060, 1600x900, MEDIUM, test world A, shadows on against off): 0.9 ms over the open valley, 1.1-1.4 ms over the dense forest, at the top of the 0.8-1.2 ms budget. Most of it is the shadow pass's leaf geometry, not the lookups.
+
+### The sky, haze, night and rain review (2026-10-11)
+
+- **Stars** come out by the sun's depth, not the clock: none until the sun is 6 degrees down, all by 16 (sky table
+  `m.stars`), none by day and none under a closed overcast. The white specks the review took for stars were other
+  things: in daytime water they were pinholes between VOID LOD's water tiles where the sky shone through (composite2
+  now draws a lone sky pixel well under the horizon, with land on both sides, as its neighbour); over the summit's
+  clouds and in the heartland's overcast they were Gloam's powder and snow motes, drawn in front of the clouds as they
+  should be.
+- **Lit far land:** the orange mounds glowing at night were VOID LOD's stand-ins for structures and settlements, which
+  carry block light 11..13 over every face so a lit town glows from afar; the near ramp lit them like day. `dh_terrain`
+  now takes a third of the LOD's block light (a faint warm glow of windows). Their orange by day is the LOD's roof
+  colour, not light.
+- **The glowing columns** over far land under a clear sky were the haze: its far segment read the land at its
+  geometric middle, so wherever that point fell on high ground its murk lay over the whole segment and every pixel
+  sharing it stood up as a bright column. The far segment now reads the land where the ray ends. Storm towers also
+  need rain (or a storm) in their W1 cell now; a high front alone raised lone towers and anvils on the horizon.
+- **Clouds** (`lib/clouds/shade.glsl`): tops by the light's height, sides by facing (a side is its top's colour in
+  less light, also in the dusk palette, so the thin sides under an outline read as thickness, not a lilac sliver),
+  undersides darkest in a big cloud's middle and lighter near an open edge (`wcInterior`, from the finished map's edge
+  bits, the edges' shares multiplied so corners have no crease); a closed overcast's base is as bright as the horizon
+  under it. Far off and at a grazing angle a deck is a **band** (`wcBandOf`): where its cells would span under about
+  five pixels front to back it melts into one colour, the cloud's and the sky's mixed by how much of the deck the
+  weather fills, the same for a cell and a gap, so the horizon has no streaks; the march stops at a deck that is all
+  band. composite2 now lays the **haze** over cloud pixels at their distance (not the world's edge), so far decks sink
+  into the same air as the land beyond them. A deck at **eye height** gives way to a fog bank: its near cells fade
+  out, and the ray's path through the slab, by the deck's share of cloud over the camera, veils the view
+  (`wcSlabFog`); **inside a cell** the view is veiled by the path through the eye's own cloud (`CloudHit.tOut`).
+- **Wet ground:** soil and grass about a quarter darker when soaked, plants a fifth; wet surfaces gloss with the sky
+  at a low angle and take a soft sun highlight; puddles are a water film over the darkened ground with the sky's
+  gradient and the clouds overhead (the decks as sheets along the reflected ray) by a Fresnel term, with a wider dark
+  rim. Rain streaks are the texture's shape only, a pale grey-white in the sky's light, about half as opaque.
+- **Night:** the valley mist is lit as the land is at night (the sky's fill and the moon), never brighter than it, and
+  half as thick; the dark-nights scale reaches the eye's fill as its square root, so a new moon is still darkest but
+  the land's shapes read.
+- **Far water:** VOID LOD bakes a depth-darkened bed into the water colour (as vanilla would show it with no pack);
+  the pack draws the bed under it anyway, so `dh_water` takes the bed back out and the far water matches the chunks'.
+- **Cost** (RTX 4060, 1600x900, MEDIUM, test world A, frame-time sweeps in one run, `gloam.show.packSweep`): clouds
+  about 0.9-1.1 ms over vanilla's (the march and its shading; the map passes now work out only the cells each ring
+  can draw), shadows 0.2-0.7 ms (1 ms in a forested gorge), haze 0.2-0.3 ms, valley mist 0.1-0.3 ms (the camera's
+  sample is worked out once in the vertex shader; it was 0.7 ms in a misty gorge), wet ground 0.2-0.3 ms. Whole
+  frames run 2.1-3.5 ms by day and about 4 ms at night in the gorge. The review's 4-9 ms frames came from another
+  session's game test running on the same GPU at the same time. The clouds stay over their 0.6 ms budget.
