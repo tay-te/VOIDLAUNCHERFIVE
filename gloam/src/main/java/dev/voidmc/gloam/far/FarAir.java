@@ -137,7 +137,7 @@ public final class FarAir {
 	public static void draw(RenderPass pass) {
 		FarRenderer r = INSTANCE.renderer;
 		if (r != null && !Shaders.packInUse()) {
-			r.draw(pass);
+			r.drawInMainPass(pass, INSTANCE.fog);
 		}
 	}
 

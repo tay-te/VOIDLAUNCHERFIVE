@@ -96,7 +96,12 @@ final class FarRenderer implements AutoCloseable {
 	private GpuBufferSlice infoSlice;
 	private GpuBuffer mist;
 	private int mistQuads;
-	private GpuBufferSlice rain;
+	/**
+	 * The curtains' vertices: a buffer of Gloam's own, grown when the curtains outgrow it and rewritten in place each
+	 * frame, so the draw never reads a slice of a frame's transient memory that a later frame has taken back.
+	 */
+	private GpuBuffer rain;
+	private long rainBytes;
 	private int rainQuads;
 	/** What this frame draws (set by {@link #prepare}). */
 	private boolean drawMist, drawRain;
@@ -153,9 +158,20 @@ final class FarRenderer implements AutoCloseable {
 		this.info.flip();
 		this.infoSlice = transientMemory.uploadGpu(this.info, this.device.getDeviceInfo().limits().minUniformOffsetAlignment(), GpuBuffer.USAGE_UNIFORM);
 		this.rainQuads = drawRain ? rain.count() : 0;
-		this.rain = this.rainQuads > 0 ? transientMemory.uploadGpu(rain.vertices(), 16, GpuBuffer.USAGE_VERTEX) : null;
+		if (this.rainQuads > 0) {
+			ByteBuffer vertices = rain.vertices().duplicate();
+			long bytes = vertices.remaining();
+			if (this.rain == null || this.rainBytes < bytes) {
+				if (this.rain != null) {
+					this.rain.close();
+				}
+				this.rainBytes = Math.max(bytes, Math.max(64 * 1024, this.rainBytes * 2));
+				this.rain = this.device.createBuffer(() -> "VOID Gloam far rain", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, this.rainBytes);
+			}
+			encoder.writeToBuffer(this.rain.slice(0, bytes), vertices);
+		}
 		this.drawMist = mist && this.mist != null && this.mistQuads > 0;
-		this.drawRain = this.rainQuads > 0;
+		this.drawRain = this.rainQuads > 0 && this.rain != null;
 		int quads = Math.max(this.drawMist ? this.mistQuads : 0, this.rainQuads);
 		if (quads > 0) {
 			// grown now, outside any pass; vanilla may grow it further before the draw, so it is fetched again there
@@ -174,9 +190,28 @@ final class FarRenderer implements AutoCloseable {
 		return this.prepared && (this.drawMist || this.drawRain);
 	}
 
-	/** Draws the prepared far air into {@code pass} (vanilla's main pass, or one of its own). */
-	void draw(RenderPass pass) {
+	/**
+	 * Draws the prepared far air into vanilla's main pass. That pass may not hold every uniform the far air's pipelines
+	 * read (with Iris loaded and no pack in use, Fog is not set there), so they are bound here first: an unset uniform
+	 * is a null slice in the GL backend's draw, which crashed the game.
+	 */
+	void drawInMainPass(RenderPass pass, GpuBufferSlice fog) {
 		if (!this.anything()) {
+			return;
+		}
+		RenderSystem.bindDefaultUniforms(pass);
+		if (fog != null) {
+			pass.setUniform("Fog", fog);
+		} else if (RenderSystem.getShaderFog() == null) {
+			this.prepared = false; // no fog to draw with: skip this frame rather than draw with an unset uniform
+			return;
+		}
+		this.draw(pass);
+	}
+
+	/** Draws the prepared far air into {@code pass}, whose default uniforms are bound. */
+	void draw(RenderPass pass) {
+		if (!this.anything() || this.infoSlice == null) {
 			return;
 		}
 		this.prepared = false;
@@ -198,7 +233,7 @@ final class FarRenderer implements AutoCloseable {
 		if (this.drawRain) {
 			pass.setPipeline(RenderSystem.getCompiledPipeline(RAIN));
 			pass.setIndexBuffer(quads.getBuffer(), quads.type());
-			pass.setVertexBuffer(0, this.rain);
+			pass.setVertexBuffer(0, this.rain.slice());
 			pass.drawIndexed(this.rainQuads * 6, 1, 0, 0, 0);
 		}
 		if (timed) {
@@ -286,6 +321,9 @@ final class FarRenderer implements AutoCloseable {
 		}
 		if (this.mist != null) {
 			this.mist.close();
+		}
+		if (this.rain != null) {
+			this.rain.close();
 		}
 		this.noiseView.close();
 		this.noise.close();
