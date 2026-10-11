@@ -112,7 +112,9 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	// ---- the light ----
 	// sun: Minecraft's warm white, gold then orange as it sinks; through cloud only a little gets through
 	vec3 sunCol = mix(vec3(1.00, 0.95, 0.86), vec3(1.00, 0.70, 0.42), m.sunLow);
-	m.sunStrength = skyLevel(skySmooth(-0.02, 0.22, sunW.y)) * (1.0 - 0.85 * m.overcast) * (1.0 - 0.5 * m.stormStep);
+	// (strong until the sun is low, so the late afternoon and the golden hour keep a clear, warm direct light that
+	// the shadows carry; it fades out over the last few degrees above the horizon)
+	m.sunStrength = skyLevel(skySmooth(-0.03, 0.13, sunW.y)) * (1.0 - 0.85 * m.overcast) * (1.0 - 0.5 * m.stormStep);
 	m.sunLight = sunCol * 0.55 * m.sunStrength;
 	// moon: silver-blue under a clear sky, slate blue under cloud; as strong as Gloam's dark nights allow
 	vec3 moonCol = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
@@ -122,7 +124,8 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	// less under a heavy overcast by day (SKY_LIGHT_FACTOR's layer) and in rain
 	m.ambientFactor = mix(1.0, NIGHT_SKYLIGHT, m.nightStep) * clamp(s.light.z, 0.0, 1.0)
 		* (1.0 - 0.15 * m.cloudStep * (1.0 - m.night)) * (1.0 - 0.28 * m.rainStep);
-	vec3 dayAmb = mix(vec3(0.66, 0.72, 0.82), vec3(0.70, 0.64, 0.62), 0.6 * s.golden);
+	// the shade at the golden hour stays the blue sky's, a little dimmer, so it sets off the warm sun
+	vec3 dayAmb = mix(vec3(0.66, 0.72, 0.82), vec3(0.60, 0.62, 0.72), 0.6 * s.golden);
 	dayAmb = mix(dayAmb, vec3(0.70, 0.72, 0.76), 0.7 * max(m.cloudStep, m.rainStep));
 	vec3 nightAmb = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
 	m.ambient = mix(dayAmb, nightAmb, m.nightStep) * m.ambientFactor * (1.0 - s.blind);

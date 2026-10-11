@@ -3,7 +3,7 @@
 profile.LOW=Low
 profile.MEDIUM=Medium
 profile.HIGH=High
-profile.comment=Quick settings that set the options costing the most. Low: for older or laptop graphics: no shadows, one cloud layer, simpler haze, mist and cave fog, no distant rain (about 2 ms at 1080p). Medium: the intended look: shadows, two cloud layers, puddles, distant rain and far mist (about 4 ms). High: sharper, longer shadows with a soft edge step, all cloud layers to 64 km, near reflections in water (about 5.5 ms).
+profile.comment=Quick settings that set the options costing the most. Low: for older or laptop graphics: no shadows, one cloud layer, simpler haze, mist and cave fog, no distant rain (about 2 ms at 1080p). Medium: the intended look: shadows, two cloud layers, puddles, distant rain and far mist (about 4 ms). High: sharper, longer, softer-edged shadows, all cloud layers to 64 km, near reflections in water (about 5.5 ms).
 
 screen.LIGHT=Light and shadows
 screen.LIGHT.comment=Sunlight, shadows, torch light and glowing blocks.
@@ -23,6 +23,26 @@ screen.LOOK=Colour and finish
 screen.LOOK.comment=How gently light and the sky gather into soft bands.
 screen.DEBUG=Debug
 screen.DEBUG.comment=Views and switches for testing the shader. Leave these alone for normal play.
+
+option.SHADOWS=Sun and moon shadows
+option.SHADOWS.comment=Blocks and creatures near you cast shadows from the sun and the moon, and leaves and grass sway in them. Turning this off saves more time than any other option.
+
+option.shadowMapResolution=Shadow detail
+option.shadowMapResolution.comment=How finely shadows are drawn. Higher gives cleaner shadow edges on small things like fences and leaves, and costs more.
+value.shadowMapResolution.1024=Low
+value.shadowMapResolution.1536=Medium
+value.shadowMapResolution.2048=High
+value.shadowMapResolution.3072=Very high
+
+option.shadowDistance=Shadow distance
+option.shadowDistance.comment=How far away blocks still cast shadows. Past this the light is worked out from the sky light alone, and the change is a smooth fade. Far land from VOID LOD never casts shadows.
+suffix.shadowDistance= blocks
+
+option.SHADOW_SOFTNESS=Shadow edges
+option.SHADOW_SOFTNESS.comment=How softly a shadow's edge fades. Crisp is a clean edge; soft blurs it a little more, the same everywhere. There is never any noise.
+value.SHADOW_SOFTNESS.0=Crisp
+value.SHADOW_SOFTNESS.1=Slightly soft
+value.SHADOW_SOFTNESS.2=Soft
 
 option.sunPathRotation=Sun path tilt
 option.sunPathRotation.comment=How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.
@@ -171,6 +191,7 @@ value.DEBUG_VIEW.8=Material classes
 value.DEBUG_VIEW.9=Light colours
 value.DEBUG_VIEW.10=Cloud cost
 value.DEBUG_VIEW.11=Cloud rings
+value.DEBUG_VIEW.12=Sun and shadows
 
 option.BRIDGE_MODE=VOID Gloam link
 option.BRIDGE_MODE.comment=Normal reads live data from VOID Gloam. Backup only reads the coarser backup copy, as if the link had failed. Off ignores Gloam. For testing only.

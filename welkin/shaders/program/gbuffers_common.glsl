@@ -11,6 +11,8 @@
 //   G_ITEMID     read currentRenderedItemId for the material (the hand and held items)
 //   G_ENTITYID   read entityId: glowing mobs and effects glow (entities)
 //   G_SWAY       move leaves and plants with the wind (lib/sway.glsl; gbuffers_terrain)
+//   G_SHADOW     take the near shadow map's sun (lib/shadow.glsl) when lighting itself (entities, block entities,
+//                translucents); the other self-lit programs use the ramp's sky-light gate
 // colortex2 = (lit, M / 255, emission, L / 15); materials in lib/materials.glsl.
 //   G_WATERFLAG  also write colortex3: the water's own lit colour where the pixel is water, for composite's water fog
 //
@@ -163,6 +165,9 @@ uniform int entityId;
 #if !defined G_DEFERRED && !defined G_UNLIT
 #include "/lib/light.glsl"
 #include "/lib/handlight.glsl"
+#ifdef G_SHADOW
+#include "/lib/shadow.glsl"
+#endif
 #endif
 
 #if defined G_DEFERRED
@@ -220,7 +225,15 @@ void main() {
 	float d = 0.5; // no dither: the ramp is smooth
 	vec2 lm = lmcoord;
 	lm.x = welkinHandBlockLight(lm.x, length(eyePos));
+#ifdef G_SHADOW
+	vec3 nW = normalize(normalW);
+	float facing = sunFacingMat(nW, lightDirWorld(), material);
+	vec3 sunShare = vec3(1.0);
+	float reach = welkinSunReach(eyePos, nW, lm.y, material, facing, sunShare);
+	vec3 lit = welkinLightCore(albedo.rgb, nW, lm, emission, sunShare, vec3(1.0), reach, facing);
+#else
 	vec3 lit = welkinLight(albedo.rgb, normalize(normalW), lm, emission, d);
+#endif
 #endif
 	outColor = vec4(lit, albedo.a);
 #ifdef G_FLAG

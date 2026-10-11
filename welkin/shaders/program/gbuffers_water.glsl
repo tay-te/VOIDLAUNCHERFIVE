@@ -2,4 +2,5 @@
 #define G_TEXTURED
 #define G_BLOCKID
 #define G_WATERFLAG
+#define G_SHADOW
 #include "/program/gbuffers_common.glsl"
