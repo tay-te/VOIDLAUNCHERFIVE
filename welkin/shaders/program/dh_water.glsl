@@ -77,7 +77,14 @@ void main() {
 	float d = 0.5; // no dither: the light and the far fade are smooth
 	// the same surface as the chunks' water (lib/watersurf.glsl), with the sky-light gate for the sun's reach
 	vec3 n = normalize(normalW);
-	WaterSurface ws = welkinWaterSurface(glcolor, n, eyePos, lmcoord, vec3(1.0), sunOpen(lmcoord.y),
+	// VOID LOD hands its water over as vanilla would see it with no pack: the water texture's grey in the biome's tint,
+	// 0.706 of it, laid over a bed already darkened by the depth (Colors.water), at the texture's alpha (180). The
+	// pack draws the LOD's own bed under it and fogs it by depth (composite), so the bed baked into the colour is
+	// counted twice and the far water came out a darker, greyer slate than the chunks' water beside it. Take the bed
+	// back out (as a deep, dim bed: most far water is deep) to leave the surface the chunks' water has.
+	vec4 albedo = glcolor;
+	albedo.rgb = clamp((glcolor.rgb - 0.294 * 0.06) / 0.706, vec3(0.0), glcolor.rgb * 1.45);
+	WaterSurface ws = welkinWaterSurface(albedo, n, eyePos, lmcoord, vec3(1.0), sunOpen(lmcoord.y),
 		sunFacing(dot(n, lightDirWorld())));
 	vec3 lit = ws.color;
 	float alpha = ws.alpha;

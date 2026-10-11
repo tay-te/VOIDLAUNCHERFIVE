@@ -25,6 +25,10 @@ void main() {
 	gl_Position = ftransform();
 	glcolor = gl_Color;
 	lmcoord = lightmapLevel((gl_TextureMatrix[1] * gl_MultiTexCoord1).xy);
+	// The LOD's block light is a whole cell's: a lit town or ruin stand-in (VOID LOD's structure and settlement
+	// overlays) carries level 11..13 over its every face, which through the near ramp lit the whole mound like day at
+	// night. From afar a lit place should read as a faint warm glow of windows, so the far land takes a third of it.
+	lmcoord.x *= 0.33;
 	// Distant Horizons normals are world axes already
 	normalW = gl_Normal;
 	eyePos = (gbufferModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz;
