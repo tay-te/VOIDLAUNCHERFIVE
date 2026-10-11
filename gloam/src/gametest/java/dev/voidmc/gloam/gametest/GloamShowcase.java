@@ -168,7 +168,7 @@ public class GloamShowcase implements FabricClientGameTest {
 				if (view.name().startsWith("storm")) {
 					this.aimAtStorm(context, world, view, places);
 				}
-				if (moved && (view.name().startsWith("wvale") || view.name().startsWith("wlight"))) {
+				if (moved && (view.name().startsWith("wvale") || view.name().startsWith("wlight") || view.name().startsWith("whaze"))) {
 					// Welkin's comparisons (mist on and off, the uniforms and the header mirror) are only fair with the
 					// same land drawn in each run: wait for the chunks round the camera, then for the LOD's tiles
 					awaitChunks(context, view);
@@ -282,6 +282,7 @@ public class GloamShowcase implements FabricClientGameTest {
 		addSeasonViews(views, p);
 		addWelkinViews(views, p);
 		addLightViews(views, p);
+		addSkyViews(views, p);
 		return views;
 	}
 
@@ -352,6 +353,95 @@ public class GloamShowcase implements FabricClientGameTest {
 					Float.parseFloat(at[4]), 70, day + times[i], "clear", 2));
 			}
 		}
+	}
+
+	/**
+	 * VOID Welkin's sky, haze, night and rain (wave 2 check): the sky across a day from the summit (pre-dawn, sunrise and
+	 * morning looking east, noon south, afternoon and sunset west, dusk west, the full moon rising in the east and a
+	 * new-moon night overhead: wsky*), one view per haze kind at the same hour of an early-summer morning (10:00, day 6),
+	 * each in its own Expanse country or air (found when shot, see findCountry: whaze_*), the overcast under a front
+	 * (wover0), rain in the valley and the ground still wet after it (wrain0, wwet0, wwet1), and the night's darkness on
+	 * the valley under a full and a new moon (wnight0, wnight1). Their names start with "w", so each logs its frame time.
+	 */
+	static void addSkyViews(List<View> views, Places p) {
+		int py = p.peakY() + 20;
+		views.add(new View("wsky0_predawn", p.peakX(), py, p.peakZ(), -90, -6, 70, 22900, "clear", 2));
+		views.add(new View("wsky1_sunrise", p.peakX(), py, p.peakZ(), -90, -6, 70, 23700, "clear", 2));
+		views.add(new View("wsky2_morning", p.peakX(), py, p.peakZ(), -90, -12, 70, 1500, "clear", 2));
+		views.add(new View("wsky3_noon", p.peakX(), py, p.peakZ(), 0, -18, 70, 6000, "clear", 2));
+		views.add(new View("wsky4_afternoon", p.peakX(), py, p.peakZ(), 90, -6, 70, 10500, "clear", 2));
+		views.add(new View("wsky5_sunset", p.peakX(), py, p.peakZ(), 90, -4, 70, 12400, "clear", 2));
+		views.add(new View("wsky6_dusk", p.peakX(), py, p.peakZ(), 90, -6, 70, 13300, "clear", 2));
+		views.add(new View("wsky7_moonrise", p.peakX(), py, p.peakZ(), -90, -30, 70, 15800, "clear", 2));
+		views.add(new View("wsky8_fullmoon", p.peakX(), py, p.peakZ(), 0, -40, 70, 17300, "clear", 2));
+		views.add(new View("wsky9_newmoon", p.peakX(), py, p.peakZ(), 0, -40, 70, 4 * 24000 + 18000, "clear", 2));
+		long hour = 6 * 24000L + 4000;
+		for (String kind : new String[]{"heartland", "lake_district", "gorges", "rock_city", "old_forest", "dusty", "clear_alpine"}) {
+			views.add(new View("whaze_" + kind, p.valleyX(), p.valleyY() + 30, p.valleyZ(), 180, 5, 70, hour, "clear", 2));
+		}
+		views.add(new View("wover0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), 90, -4, 70, 6 * 24000L + 6000, "clear", 2));
+		View rain = new View("wrain0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), 2, 70, 6 * 24000L + 6000, "rain", 20);
+		views.add(rain);
+		views.add(rain.at("wwet0", 6 * 24000L + 6000, "clear").looking("wwet0", p.toPeak(), 30));
+		views.add(rain.at("wwet1", 6 * 24000L + 6000, "clear").looking("wwet1", p.toPeak(), 4));
+		views.add(new View("wnight0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), 4, 70, 18000, "clear", 2));
+		views.add(new View("wnight1", p.valleyX(), p.valleyY() + 3, p.valleyZ(), p.toPeak(), 4, 70, 4 * 24000 + 18000, "clear", 2));
+	}
+
+	/**
+	 * For a whaze_ view: the nearest place to {@code near} (within 24 km) well inside the Expanse country it names, or with
+	 * the haze hint it names (dusty, clear_alpine), from Expanse's country map; the eye 30 blocks over the highest ground
+	 * within 32 blocks, looking out over the lowest land round it. Null without Expanse or a match.
+	 */
+	static int[] findCountry(ServerLevel level, View near, String kind) {
+		dev.voidmc.expanse.api.ExpanseCountry.Sampler s = dev.voidmc.expanse.api.ExpanseCountry.sampler(level);
+		if (s == null) {
+			return null;
+		}
+		boolean byHaze = kind.equals("dusty") || kind.equals("clear_alpine");
+		for (int r = 0; r <= 24000; r += 192) {
+			int n = r == 0 ? 1 : Math.max(8, (int) (2 * Math.PI * r / 192));
+			for (int i = 0; i < n; i++) {
+				double a = 2 * Math.PI * i / n;
+				int x = near.x() + (int) (Math.cos(a) * r), z = near.z() + (int) (Math.sin(a) * r);
+				var h = s.at(x, z);
+				boolean match = byHaze ? h.haze().equals(kind) && h.altitude() > level.getSeaLevel() + 2
+					: h.country().equals(kind) && h.strength() > 0.85F && h.altitude() > level.getSeaLevel() + 2;
+				if (!match) {
+					continue;
+				}
+				// the same kind all round, so the view looks across it
+				boolean all = true;
+				for (int[] d : new int[][]{{-400, 0}, {400, 0}, {0, -400}, {0, 400}}) {
+					var o = s.at(x + d[0], z + d[1]);
+					all &= byHaze ? o.haze().equals(kind) : o.country().equals(kind);
+				}
+				if (!all) {
+					continue;
+				}
+				int top = level.getMinY();
+				for (int dx = -32; dx <= 32; dx += 16) {
+					for (int dz = -32; dz <= 32; dz += 16) {
+						level.getChunk((x + dx) >> 4, (z + dz) >> 4);
+						top = Math.max(top, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x + dx, z + dz));
+					}
+				}
+				// the yaw (of eight) over the lowest land 300 blocks out
+				float yaw = 180, lowest = Float.MAX_VALUE;
+				for (int k = 0; k < 8; k++) {
+					double rad = Math.toRadians(k * 45);
+					float far = s.at(x - (int) (Math.sin(rad) * 300), z + (int) (Math.cos(rad) * 300)).altitude();
+					if (far < lowest) {
+						lowest = far;
+						yaw = k * 45;
+					}
+				}
+				System.out.printf(Locale.ROOT, "[gloam] %s: %s at %d %d (country %s %.2f, haze %s, ground %d)%n", near.name(), kind, x, z, h.country(),
+					h.strength(), h.haze(), top);
+				return new int[]{x, top + 30, z, (int) yaw};
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -630,7 +720,7 @@ public class GloamShowcase implements FabricClientGameTest {
 	}
 
 	private static void awaitLod(ClientGameTestContext context, View view) {
-		if (!(view.name().endsWith("far0") || view.name().startsWith("wvale")) || !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("void_lod")) {
+		if (!(view.name().endsWith("far0") || view.name().startsWith("wvale") || view.name().startsWith("whaze") || view.name().startsWith("wsky")) || !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("void_lod")) {
 			return;
 		}
 		long until = System.currentTimeMillis() + 120_000;
@@ -667,6 +757,15 @@ public class GloamShowcase implements FabricClientGameTest {
 			return new View(planned.name(), planned.x(), ground - planned.y(), planned.z(), planned.yaw(), planned.pitch(), planned.fov(), planned.time(),
 				planned.weather(), planned.linger());
 		}
+		if (planned.name().startsWith("whaze_")) {
+			String kind = planned.name().substring("whaze_".length());
+			int[] c = world.getServer().computeOnServer(server -> findCountry(server.overworld(), planned, kind));
+			if (c == null) {
+				System.out.printf(Locale.ROOT, "[gloam] %s: no %s found%n", planned.name(), kind);
+				return planned;
+			}
+			return new View(planned.name(), c[0], c[1], c[2], c[3], planned.pitch(), planned.fov(), planned.time(), planned.weather(), planned.linger());
+		}
 		if (planned.name().startsWith("wcave")) {
 			int[] c = world.getServer().computeOnServer(server -> findCave(server.overworld(), planned));
 			System.out.printf(Locale.ROOT, "[gloam] %s: cavern at %d %d %d, space %d%n", planned.name(), c[0], c[1], c[2], c[3]);
@@ -682,6 +781,9 @@ public class GloamShowcase implements FabricClientGameTest {
 			List<View> fresh = new ArrayList<>();
 			addRangeViews(fresh);
 			return fresh.stream().filter(v -> v.name().equals(planned.name())).findFirst().orElse(planned);
+		}
+		if (planned.name().startsWith("wover")) {
+			return this.underFront(world, planned);
 		}
 		for (String kind : new String[]{"overcast", "haze"}) {
 			if (planned.name().startsWith(kind)) {
