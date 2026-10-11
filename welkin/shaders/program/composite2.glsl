@@ -21,9 +21,22 @@
 
 out vec2 texcoord;
 
+#if defined VALLEY_MIST && defined WORLD_OVERWORLD && DEBUG_VIEW == 0
+// the valley mist's camera sample, the same for every pixel: worked out here, once a corner, not once a pixel
+#include "/lib/mist.glsl"
+flat out vec4 mistCam;    // the camera's slab top, its density, the hour's mist, the mist on
+flat out ivec4 mistCamCells; // the camera's cell, the tiles' centre
+#endif
+
 void main() {
 	gl_Position = ftransform();
 	texcoord = gl_MultiTexCoord0.xy;
+#if defined VALLEY_MIST && defined WORLD_OVERWORLD && DEBUG_VIEW == 0
+	MistTiles t = mistTiles();
+	MistPoint a = mistAt(vec2(0.0), t);
+	mistCam = vec4(a.top, a.density, t.time, t.on ? 1.0 : 0.0);
+	mistCamCells = ivec4(t.camCell, t.centre);
+#endif
 }
 
 #endif
@@ -46,6 +59,10 @@ void main() {
 #endif
 
 in vec2 texcoord;
+#if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
+flat in vec4 mistCam;
+flat in ivec4 mistCamCells;
+#endif
 
 #ifndef WU_colortex0
 #define WU_colortex0
@@ -69,11 +86,15 @@ uniform sampler2D colortex6;
 #include "/lib/sky/debug.glsl"
 #endif
 
-#ifdef DEBUG_JOIN
 #ifndef WU_viewWidth
 #define WU_viewWidth
 uniform float viewWidth;
 #endif
+#ifndef WU_viewHeight
+#define WU_viewHeight
+uniform float viewHeight;
+#endif
+#ifdef DEBUG_JOIN
 
 #ifndef WELKIN_GBUFFER_SAMPLERS
 #define WELKIN_GBUFFER_SAMPLERS
@@ -117,38 +138,89 @@ vec3 joinLine(ivec2 p, vec3 c) {
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
 
+// A pinhole in the far land or water: a lone sky pixel well under the horizon with land on both sides of it (a crack
+// between two of the LOD's tiles, where the sky shone through as a white speck on the far water). It is drawn as its
+// neighbour: the pixel to read instead, or p itself.
+ivec2 pinholeFill(ivec2 p, vec2 uv) {
+	Surface s = surfaceAt(p, uv);
+	if (!s.sky) {
+		return p;
+	}
+	vec3 d = mat3(gbufferModelViewInverse) * viewFromDepth(uv, 1.0, gbufferProjectionInverse);
+	if (d.y > -0.006 * length(d)) {
+		return p;
+	}
+	vec2 px = 1.0 / vec2(viewWidth, viewHeight);
+	bool l = !surfaceAt(p + ivec2(-1, 0), uv - vec2(px.x, 0.0)).sky;
+	bool r = !surfaceAt(p + ivec2(1, 0), uv + vec2(px.x, 0.0)).sky;
+	if (l && r) {
+		return p + ivec2(-1, 0);
+	}
+	bool dn = !surfaceAt(p + ivec2(0, -1), uv - vec2(0.0, px.y)).sky;
+	bool up = !surfaceAt(p + ivec2(0, 1), uv + vec2(0.0, px.y)).sky;
+	return dn && up ? p + ivec2(0, 1) : p;
+}
+
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
+	vec2 uv = texcoord;
+#if DEBUG_VIEW == 0
+	{
+		ivec2 q = pinholeFill(p, uv);
+		if (q != p) {
+			uv += vec2(q - p) / vec2(viewWidth, viewHeight);
+			p = q;
+		}
+	}
+#endif
 	vec4 color = texelFetch(colortex0, p, 0);
 #if DEBUG_VIEW == 0
 	// M3: a cloud drawn here (composite), nearer than whatever lies behind it; it fogged itself by ring
 	bool cloud = false;
+	float cloudKm = 1000.0;
 #if defined WORLD_OVERWORLD && defined CLOUDS
-	cloud = isEyeInWater == 0 && texelFetch(colortex6, p, 0).r < 999.0;
+	cloudKm = texelFetch(colortex6, p, 0).r;
+	cloud = isEyeInWater == 0 && cloudKm < 999.0;
 #endif
 	// 1. water fog (not over a cloud in front of a lake, seen from above the deck)
 	if (!cloud) {
-		color.rgb = waterFog(p, texcoord, color.rgb);
+		color.rgb = waterFog(p, uv, color.rgb);
 	}
 #if defined WORLD_OVERWORLD
 	if (isEyeInWater == 0) {
-		Surface s = surfaceAt(p, texcoord);
+		Surface s = surfaceAt(p, uv);
 		vec3 eyePos = mat3(gbufferModelViewInverse) * s.view;
 		// 2. haze behind the mist, the valley mist, haze in front. The split is 0 until M1 exposes the slab's entry
 		// distance (MistRay.enter): then near mist banks stay crisp and far ones are hazed exactly.
 		HzState st = hzState();
 		vec3 air = skyHazeAir(st.kind, normalize(eyePos), normalize(mat3(gbufferModelViewInverse) * sunPosition));
 		vec3 n = s.sky ? vec3(0.0, 1.0, 0.0) : hzScreenNormal(eyePos);
-		WelkinHaze h = welkinHaze(st, eyePos, n, s.sky, 0.0, air, gl_FragCoord.xy);
+		WelkinHaze h;
 		if (cloud) {
-			h.back.a = 0.0;
-			h.front.a = 0.0;
+			// a cloud takes the same air as land at its distance (the clear air thins with height, so a deck overhead
+			// keeps its colour and the far decks low over the horizon sink into the haze the land beyond them meets),
+			// but not the world's far edge: the clouds stand past the land
+			vec3 rdW = normalize(mat3(gbufferModelViewInverse) * viewFromDepth(uv, 1.0, gbufferProjectionInverse));
+			h = welkinHazeEx(st, rdW * (cloudKm * 1000.0), vec3(0.0, 1.0, 0.0), false, 0.0, air, gl_FragCoord.xy, false);
+		} else {
+			h = welkinHaze(st, eyePos, n, s.sky, 0.0, air, gl_FragCoord.xy);
 		}
 		color.rgb = welkinHazeBack(color.rgb, h);
 #ifdef WELKIN_VALLEY_MIST
 		// the mist lies far below the decks: in front of a cloud only when the cloud is against the sky
 		if (!cloud || s.sky) {
-			color.rgb = valleyMist(p, texcoord, color.rgb);
+			MistTiles mt;
+			mt.data = mistCam.w > 0.5;
+			mt.on = mt.data;
+			mt.time = mistCam.z;
+			mt.camCell = mistCamCells.xy;
+			mt.centre = mistCamCells.zw;
+			MistPoint ma;
+			ma.top = mistCam.x;
+			ma.density = mistCam.y;
+			ma.pool = 0.0;
+			ma.rise = 0.0;
+			color.rgb = valleyMistWith(p, uv, color.rgb, mt, ma);
 		}
 #endif
 		color.rgb = welkinHazeFront(color.rgb, h);
@@ -158,7 +230,7 @@ void main() {
 	}
 #endif
 #else
-	color.rgb = debugView(p, texcoord, color.rgb);
+	color.rgb = debugView(p, uv, color.rgb);
 #endif
 #ifdef DEBUG_JOIN
 	color.rgb = joinLine(p, color.rgb);

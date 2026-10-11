@@ -310,7 +310,10 @@ vec3 mistColor(vec3 dir, float cover) {
 	float light = clamp(sh * 5.0 + 0.6, 0.0, 1.0);
 	float low = 1.0 - clamp(sh * 3.0, 0.0, 1.0);
 	vec3 dayMist = mix(vec3(0.88, 0.91, 0.95), vec3(0.80, 0.84, 0.92), low);
-	vec3 nightMist = vec3(0.12, 0.14, 0.20);
+	// at night the mist is lit as the land is (the sky's moonlit or starlit fill and the moon), a little cooler, never
+	// brighter than open ground in the same light: a fixed grey was brighter than the land under a new moon and turned
+	// the valley into a flat murk
+	vec3 nightMist = 0.82 * (skyAmbientLight() + 0.6 * skyDirectLight()) * vec3(0.92, 0.96, 1.08) + vec3(0.003, 0.004, 0.006);
 	vec3 c = mix(nightMist, dayMist, light);
 	// toward a low sun the mist warms
 	vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
@@ -333,11 +336,19 @@ bool mistIsCloud(vec4 flags) {
 	return flags.x < 0.5 && int(flags.y * 255.0 + 0.5) == MAT_CLOUD;
 }
 
+// The valley mist over `scene` at pixel p, with the tiles' state `t` and the camera's own sample `a` (mistAt at the
+// eye): both are the same for every pixel of the frame, so composite2 works them out once, in its vertex shader.
+vec3 valleyMistWith(ivec2 p, vec2 uv, vec3 scene, MistTiles t, MistPoint a);
+
 vec3 valleyMist(ivec2 p, vec2 uv, vec3 scene) {
+	MistTiles t = mistTiles();
+	return valleyMistWith(p, uv, scene, t, mistAt(vec2(0.0), t));
+}
+
+vec3 valleyMistWith(ivec2 p, vec2 uv, vec3 scene, MistTiles t, MistPoint a) {
 	if (isEyeInWater != 0) {
 		return scene;
 	}
-	MistTiles t = mistTiles();
 	if (!t.on) {
 		return scene;
 	}
@@ -371,7 +382,6 @@ vec3 valleyMist(ivec2 p, vec2 uv, vec3 scene) {
 	r.depth = 0.0;
 	r.enter = 1e9;
 	r.exit = 0.0;
-	MistPoint a = mistAt(vec2(0.0), t);
 	// A ray to the sky or a cloud that climbs from over the camera's own slab meets no mist (slabs lie in hollows,
 	// under the camera that looks out over them): half the screen saves its samples.
 	if ((s.sky || cloud) && dir.y > 0.0 && a.top < 0.0) {
@@ -411,7 +421,9 @@ vec3 valleyMist(ivec2 p, vec2 uv, vec3 scene) {
 		return scene;
 	}
 	float cover = 1.0 - exp(-r.depth * MIST_EXTINCTION * MIST_THICKNESS * open);
-	return mix(scene, mistColor(dir, cover), MIST_OPACITY * cover);
+	// at night a thinner veil, so the land's moonlit shapes still read through it
+	float day = clamp(sunHeight() * 5.0 + 0.6, 0.0, 1.0);
+	return mix(scene, mistColor(dir, cover), MIST_OPACITY * mix(0.5, 1.0, day) * cover);
 }
 
 // DEBUG_VIEW 7: the near tiles projected onto the land. Red: mist potential; green: the pool weight the mist uses

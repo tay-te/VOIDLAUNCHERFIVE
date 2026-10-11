@@ -43,6 +43,17 @@ uniform sampler2D colortex8; // the finished map, read by everything after
 #endif
 #endif
 
+// Only the last ring (the sheets out to WC_FAR) needs its whole square: ring k is drawn only out to WC_RING0 * 2^k,
+// which is WC_RING0 / 12 of its cells from the centre whatever k is, so the other rings' squares are worked out only
+// that far, with a margin for the rims' neighbours and the 4 x 4 tower blocks; the rest of each square is left empty.
+// Saves about two thirds of the map passes' work.
+#define WC_MAP_INNER (int(WC_RING0) / WC_CELL + 8)
+
+bool wcMapUsed(ivec2 local, int lv) {
+	ivec2 d = abs(local - WC_MAP_HALF);
+	return lv >= WC_MAX_LEVEL || max(d.x, d.y) <= WC_MAP_INNER;
+}
+
 // The camera's cell in ring lv: the square's centre.
 ivec2 wcMapAnchor(int lv, CloudEnv e) {
 	return e.frame12 >> lv;

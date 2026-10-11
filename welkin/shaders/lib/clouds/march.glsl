@@ -29,6 +29,7 @@
 struct CloudHit {
 	bool hit;
 	bool inside;   // the eye is inside a cloud (that cell is skipped and the screen veiled)
+	float tOut;    // inside: how far the ray runs before it leaves the eye's own cloud
 	bool sheet;    // met as a flat sheet, past the DDA
 	float t;       // distance along the ray
 	vec3 n;        // the face's world normal
@@ -44,6 +45,7 @@ CloudHit wcNoHit() {
 	CloudHit h;
 	h.hit = false;
 	h.inside = false;
+	h.tOut = 0.0;
 	h.sheet = false;
 	h.t = 1e30;
 	h.n = vec3(0.0, 1.0, 0.0);
@@ -338,6 +340,12 @@ CloudHit welkinCloudMarch(vec3 ro, vec3 rd, float tScene, float pixAngle, CloudE
 		if (th < 1e29) {
 			if (!towerStep && first && t == 0.0 && th == 0.0) {
 				h.inside = true; // the eye's own cell: see out of it
+				// where the ray leaves it: through the column's side, or out of the top or bottom of the cloud the eye
+				// is in (whichever of its intervals holds the eye)
+				vec2 iv = wcIn(c.low, y0) ? c.low : (wcIn(c.main, y0) ? c.main : (wcIn(c.high, y0) ? c.high
+					: (wcIn(c.tower, y0) ? c.tower : c.anvil)));
+				float tY = ((rd.y > 0.0 ? iv.y : iv.x) - y0) * invDy;
+				h.tOut = min(t1, max(tY, 0.0));
 			} else {
 				h.hit = true;
 				h.t = th;

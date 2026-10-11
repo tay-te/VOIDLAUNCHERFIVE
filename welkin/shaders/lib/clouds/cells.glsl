@@ -229,6 +229,11 @@ void wcTower(ivec2 tc, int lv, CloudEnv e, inout TCache t) {
 	if (tw.x <= 0.18) {
 		return; // nothing rises here (an anvil needs the storm past 0.55, which this bounds too)
 	}
+	// towers stand only where it rains (or a storm is up): a high front alone, under a clear sky, raised them as lone
+	// pillars and slabs on the horizon
+	if (wf.b < 0.12 && wf.a < 0.35) {
+		return;
+	}
 	t.tone = tw.y > 0.45 ? 2 : 1;
 	float swell = clamp((wcPuffs(m, ts, 1536, 512, 0, e.seed + 41u) - 0.5) * 0.85 + 0.5, 0.0, 1.0);
 	float strength = tw.x * (0.35 + 0.65 * swell);

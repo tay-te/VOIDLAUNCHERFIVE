@@ -28,6 +28,10 @@ void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	int lv = min(p.y / WC_MAP, WC_MAX_LEVEL);
 	ivec2 local = ivec2(p.x, p.y - lv * WC_MAP);
+	if (!wcMapUsed(local, lv)) {
+		outMap = vec4(0.0);
+		return;
+	}
 	CloudEnv e = welkinCloudEnv();
 	TCache tq = wcTCacheNew();
 	ivec2 cell = wcMapAnchor(lv, e) + local - WC_MAP_HALF;

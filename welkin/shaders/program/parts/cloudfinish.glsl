@@ -26,6 +26,10 @@ layout(location = 0) out vec4 outMap;
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	int lv = min(p.y / WC_MAP, WC_MAX_LEVEL);
+	if (!wcMapUsed(ivec2(p.x, p.y - lv * WC_MAP), lv)) {
+		outMap = vec4(0.0);
+		return;
+	}
 	CloudEnv e = welkinCloudEnv();
 	ivec2 cell = wcMapAnchor(lv, e) + ivec2(p.x, p.y - lv * WC_MAP) - WC_MAP_HALF;
 	ivec2 own = ivec2(texelFetch(colortex7, p, 0).rg * 255.0 + 0.5);

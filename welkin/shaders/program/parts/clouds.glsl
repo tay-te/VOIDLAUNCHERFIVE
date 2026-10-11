@@ -58,14 +58,53 @@ void main() {
 	float pixAngle = 2.0 / (gbufferProjection[1][1] * viewHeight);
 
 	CloudEnv e = welkinCloudEnv();
-	CloudHit h = welkinCloudMarch(ro, rd, tScene, pixAngle, e);
+	// where each deck turns into a far band (lib/clouds/shade.glsl wcBandOf): past a deck that is all band the march
+	// has nothing left to draw, so it stops there
+	vec4 band0 = wcBandOf(0, ro, rd, pixAngle, e);
+	vec4 band1 = wcBandOf(1, ro, rd, pixAngle, e);
+	vec4 band2 = wcBandOf(2, ro, rd, pixAngle, e);
+	float tCut = tScene;
+	tCut = band0.z >= 0.999 ? min(tCut, band0.x) : tCut;
+	tCut = band1.z >= 0.999 ? min(tCut, band1.x) : tCut;
+	tCut = band2.z >= 0.999 ? min(tCut, band2.x) : tCut;
+	CloudHit h = welkinCloudMarch(ro, rd, tCut, pixAngle, e);
 	steps = vec3(h.steps, h.gapCols, h.jumps);
+	float opacity = 1.0;
 	if (h.hit) {
-		color.rgb = welkinCloudColor(h, ro, rd, e, pixAngle);
-		km = h.t / 1000.0;
+		vec3 cc = welkinCloudColor(h, ro, rd, e, pixAngle);
+		// a deck at eye height: its near cells give way to the fog bank below (wcSlabFog), its far ones stay
+		int k = wcDeckAt(e.camY + rd.y * h.t - h.n.y * 0.01, e);
+		opacity = k >= 0 ? mix(1.0, smoothstep(150.0, 600.0, h.t), wcNearDeck(k, e)) : 1.0;
+		color.rgb = mix(color.rgb, cc, opacity);
+		km = opacity > 0.5 ? h.t / 1000.0 : km;
+	}
+	// the decks near the eye's height as fog banks, as far as the eye sees: to the land, or to a cloud face that is
+	// drawn whole (a near face given way to the fog must not cut the fog short, or its outline would show in it)
+	if (wcNearDeck(0, e) + wcNearDeck(1, e) + wcNearDeck(2, e) > 0.0) {
+		vec4 wHere = wcWeatherAt(vec2(0.0), true, e);
+		float seen = h.hit && opacity >= 0.99 ? h.t : tScene;
+		for (int k = 0; k < 3; k++) {
+			float f = wcSlabFog(k, rd, seen, wcDeckShare(k, wHere, e), e);
+			if (f > 0.0) {
+				color.rgb = welkinCloudVeil(color.rgb, rd, 1e30, e) * f + color.rgb * (1.0 - f);
+			}
+		}
+	}
+	// the far bands, the farthest first; each lies over what is behind it (a gap's sky, or the cell hit inside it)
+	if (band0.x < band1.x) { vec4 t = band0; band0 = band1; band1 = t; }
+	if (band1.x < band2.x) { vec4 t = band1; band1 = band2; band2 = t; }
+	if (band0.x < band1.x) { vec4 t = band0; band0 = band1; band1 = t; }
+	for (int i = 0; i < 3; i++) {
+		vec4 b = i == 0 ? band0 : (i == 1 ? band1 : band2);
+		if (b.z > 0.0 && b.x < tScene && (!h.hit || h.t >= b.x - 1.0)) {
+			color.rgb = mix(color.rgb, wcBandColour(rd, b.y, b.w, e), b.z);
+			if (b.z > 0.5) {
+				km = min(km, b.y / 1000.0);
+			}
+		}
 	}
 	if (h.inside) {
-		color.rgb = welkinCloudVeil(color.rgb, rd, e);
+		color.rgb = welkinCloudVeil(color.rgb, rd, min(h.tOut, tScene), e);
 	}
 #if DEBUG_VIEW == 10
 	// the cost map: columns and jumps per pixel, blue few .. red at the cap (WC_STEPS)
