@@ -49,7 +49,7 @@ public final class GloamSky {
 	private static boolean regional;
 	/** {@link #cloud} and {@link #dark} in the palette's steps, for the colours. */
 	private static float cloudStep, darkStep, mistStep, hazeStep;
-	private static float night, dark, skyLight, ambient, cloud, cover, moon, stars, golden, blue, mist, mistEnd;
+	private static float night, dark, skyLight, ambient, cloud, cover, moon, moonLight, stars, golden, blue, mist, mistEnd;
 	/** The haze of the land round the camera (0..1, eased over biome edges), how much of it is dust, and the fog it makes. */
 	private static float landHaze, landDust, haze, hazeEnd, curtain;
 	private static ClientLevel hazeLevel;
@@ -126,6 +126,7 @@ public final class GloamSky {
 		night = Twilight.night(clock);
 		dark = Twilight.dark(clock);
 		float light = Night.light(moon, cover);
+		moonLight = light;
 		skyLight = Night.scale(light, dark, strength);
 		// the ambient floor of the light, in sight of the sky only, so caves stay as dark as vanilla made them
 		ambient = Night.scale(0.3F + 0.7F * light, dark, strength * outdoors);
@@ -169,6 +170,17 @@ public final class GloamSky {
 		curtain = Math.min(0.8F, mistCurtain + Haze.curtain(haze));
 		mistStep = Palette.step(mist, 3);
 		hazeStep = Palette.step(haze, 3);
+	}
+
+	/**
+	 * The light for the shader-pack bridge's {@code void_light}: the moon's light through the cloud (0..1), the stars' share
+	 * (0..1), the scale on the sky light (the gameplay darkness, 1 by day or with Gloam's sky off) and the dark-nights setting.
+	 */
+	public static void light(float[] out) {
+		out[0] = lit ? moonLight : 0;
+		out[1] = lit ? stars : 1;
+		out[2] = lit ? skyLight : 1;
+		out[3] = (float) GloamSettings.get().darkNights;
 	}
 
 	/** What the sky is doing, for the showcase's log and debugging. */

@@ -18,6 +18,11 @@ public final class Shaders {
 		return IRIS && Iris.packInUse();
 	}
 
+	/** The name of the shader pack Iris has loaded (its file or folder name), or null without Iris or a pack. */
+	public static String packName() {
+		return IRIS ? Iris.packName() : null;
+	}
+
 	/**
 	 * Runs {@code draw} with Iris's shader overrides held off: for Gloam's own pipelines drawn over a pack's finished
 	 * picture, which must keep their own shaders (and which Iris would otherwise report missing from its override list).
@@ -34,6 +39,14 @@ public final class Shaders {
 	private static final class Iris {
 		static boolean packInUse() {
 			return net.irisshaders.iris.api.v0.IrisApi.getInstance().isShaderPackInUse();
+		}
+
+		static String packName() {
+			try {
+				return net.irisshaders.iris.Iris.getCurrentPackName();
+			} catch (LinkageError e) {
+				return null;
+			}
 		}
 
 		static void withoutOverrides(Runnable draw) {

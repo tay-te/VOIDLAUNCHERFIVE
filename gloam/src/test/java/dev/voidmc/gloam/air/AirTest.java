@@ -98,4 +98,29 @@ class AirTest {
 			assertTrue(w.gust() >= 0 && w.gust() <= 1);
 		}
 	}
+
+	@Test
+	void theMistsTimePartPeaksAtSunriseAndIsGoneByNoon() {
+		float spring = 0.15F;
+		// clock 0 is sunrise (6 am), 6000 noon, 18000 midnight
+		assertEquals(0, Air.mistTime(6000, spring), 1e-6, "noon");
+		assertTrue(Air.mistTime(0, spring) > 0.9F, "sunrise");
+		assertTrue(Air.mistTime(22000, spring) > Air.mistTime(20000, spring), "it gathers toward dawn");
+		assertTrue(Air.mistTime(15000, spring) > 0 && Air.mistTime(15000, spring) < 0.5F, "a thin veil after sunset");
+		assertTrue(Air.mistTime(0, 0.55F) >= Air.mistTime(0, 0.3F), "autumn makes more than summer");
+	}
+
+	@Test
+	void theMistsPlacePartRisesWithLownessWaterAndWet() {
+		float flat = Air.mistPotential(0, 0, 0.5F, 0, 0);
+		assertTrue(Air.mistPotential(1, 0, 0.5F, 0, 0) > flat, "hollows");
+		assertTrue(Air.mistPotential(0, 1, 0.5F, 0, 0) > flat, "water");
+		assertTrue(Air.mistPotential(0, 0, 0.5F, 1, 0) > flat, "wet ground");
+		assertEquals(0, Air.mistPotential(1, 1, 1, 1, 1), 1e-6, "deserts have none");
+		// at dawn in a wet valley the two parts together come near the whole mist the camera sees
+		Climate valley = new Climate(0.7F, 0.8F, 0.9F, 0.3F);
+		float whole = Air.mist(0, 0.15F, valley, 0);
+		float split = Air.mistTime(0, 0.15F) * Air.mistPotential(0.9F, 0.3F, 0.8F, 0, 0);
+		assertEquals(whole, split, 0.15F);
+	}
 }

@@ -149,29 +149,64 @@ public final class Air {
 	 */
 	public static float mist(long clock, float year, Climate climate, float wetness) {
 		float hour = hour(clock);
-		float dawn;
-		if (hour >= 1 && hour < 6.2F) {
-			dawn = Noise.smoothstep(1.0F, 6.0F, hour);
-		} else if (hour >= 6.2F && hour < 10) {
-			dawn = 1 - Noise.smoothstep(6.4F, 9.6F, hour);
-		} else {
-			dawn = 0;
-		}
-		float evening = hour >= 18.5F ? Noise.smoothstep(18.5F, 21.0F, hour) : hour < 1 ? 1 : 0;
+		float dawn = dawn(hour);
+		float evening = evening(hour);
 		float humid = Math.clamp(climate.downfall(), 0, 1);
 		float dry = Noise.smoothstep(1.2F, 2.0F, climate.temperature());
-		float season = switch (Season.of(year)) {
-			case SPRING -> 1.0F;
-			case SUMMER -> 0.7F;
-			case AUTUMN -> 1.5F;
-			case WINTER -> 1.15F;
-		};
+		float season = mistSeason(year);
 		float settle = 0.35F + 0.65F * climate.lowness();
 		float m = dawn * (0.3F + 0.7F * humid) * settle * season;
 		m += evening * 0.35F * Math.max(climate.water(), climate.lowness() * humid) * season;
 		m += Math.min(1, wetness) * 0.35F * (0.4F + 0.6F * Math.max(dawn, evening));
 		m += climate.water() * 0.15F * Math.max(dawn, evening);
 		return Math.clamp(m * (1 - dry), 0.0F, 1.0F);
+	}
+
+	/**
+	 * The hour's and the season's part of the mist, 0..1, for shader packs (the VOID Welkin bridge's
+	 * {@code void_mistTime}): rising after midnight to its peak at sunrise, gone by mid-morning, a thinner veil after
+	 * sunset; more in autumn and winter, less in summer. Multiplied by a place's {@link #mistPotential} it comes close to
+	 * {@link #mist} there, so the pack can lay the mist over every place at once from one number and a map.
+	 */
+	public static float mistTime(long clock, float year) {
+		float hour = hour(clock);
+		return Math.clamp(Math.max(dawn(hour), 0.4F * evening(hour)) * mistSeason(year), 0.0F, 1.0F);
+	}
+
+	/**
+	 * The place's part of the mist, 0..1 (the bridge's mist potential): how readily mist lies here, from how low the
+	 * place lies (0..1, as {@link Climate#lowness}), how near water (0..1), how humid the land is (0..1), how wet the ground
+	 * still is from rain (0..1), and how hot and dry it is (0..1, 1 a desert, which has none).
+	 */
+	public static float mistPotential(float lowness, float water, float humid, float wetness, float dry) {
+		float settle = 0.35F + 0.65F * Math.clamp(lowness, 0, 1);
+		float m = (0.3F + 0.7F * Math.clamp(humid, 0, 1)) * settle + 0.15F * Math.clamp(water, 0, 1) + 0.35F * Math.clamp(wetness, 0, 1);
+		return Math.clamp(m * (1 - Math.clamp(dry, 0, 1)), 0.0F, 1.0F);
+	}
+
+	/** How far toward the dawn mist the hour is, 0..1: from 1 am up to sunrise, then burning off by mid-morning. */
+	private static float dawn(float hour) {
+		if (hour >= 1 && hour < 6.2F) {
+			return Noise.smoothstep(1.0F, 6.0F, hour);
+		} else if (hour >= 6.2F && hour < 10) {
+			return 1 - Noise.smoothstep(6.4F, 9.6F, hour);
+		}
+		return 0;
+	}
+
+	/** How far into the evening veil the hour is, 0..1: from half past six in the evening until 1 am. */
+	private static float evening(float hour) {
+		return hour >= 18.5F ? Noise.smoothstep(18.5F, 21.0F, hour) : hour < 1 ? 1 : 0;
+	}
+
+	/** How much mist the season makes: most in autumn, least in high summer. */
+	private static float mistSeason(float year) {
+		return switch (Season.of(year)) {
+			case SPRING -> 1.0F;
+			case SUMMER -> 0.7F;
+			case AUTUMN -> 1.5F;
+			case WINTER -> 1.15F;
+		};
 	}
 
 	/**

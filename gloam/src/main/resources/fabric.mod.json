@@ -12,7 +12,7 @@
 		"main": ["dev.voidmc.gloam.GloamCommon"],
 		"client": ["dev.voidmc.gloam.Gloam"]
 	},
-	"mixins": ["gloam.mixins.json"],
+	"mixins": ["gloam.mixins.json", "gloam.iris.mixins.json"],
 	"accessWidener": "gloam.accesswidener",
 	"depends": {
 		"fabricloader": ">=0.19.5",

@@ -1,0 +1,12 @@
+{
+	"required": false,
+	"package": "dev.voidmc.gloam.mixin.iris",
+	"plugin": "dev.voidmc.gloam.mixin.iris.IrisMixinPlugin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"CommonUniformsMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

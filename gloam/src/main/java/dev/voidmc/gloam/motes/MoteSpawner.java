@@ -5,6 +5,7 @@ import dev.voidmc.gloam.air.Air;
 import dev.voidmc.gloam.air.AirSample;
 import dev.voidmc.gloam.air.Noise;
 import dev.voidmc.gloam.air.Wind;
+import dev.voidmc.gloam.bridge.Bridge;
 import dev.voidmc.gloam.season.Seasons;
 import it.unimi.dsi.fastutil.longs.Long2IntMap;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
@@ -502,6 +503,14 @@ final class MoteSpawner {
 	 * the mist's top, over water, none on steep ground, which mist does not lie on.
 	 */
 	private void mist(AirSample air, Vec3 eye, int reach, float density) {
+		if (Bridge.welkin()) {
+			// VOID Welkin lays the valley mist in its own composite pass, from the bridge's land tiles: the sheets go at
+			// once (a sheet fading out over a second would still show as a soft grey puff over the pack's stepped mist)
+			for (Mote sheet : Motes.Kind.MIST.live) {
+				sheet.remove();
+			}
+			return;
+		}
 		float mist = air.mist();
 		if (mist < 0.04F) {
 			return;
@@ -758,13 +767,21 @@ final class MoteSpawner {
 				if (camera.isDetached()) {
 					look = player.getLookAngle();
 					mouth = player.getEyePosition().add(look.scale(0.35)).add(0, -0.1, 0);
+				} else if (Bridge.welkin()) {
+					// under VOID Welkin one's own breath, half a block from the eye, would hang over the view as a big
+					// translucent blob in front of the pack's stepped air: only others' breath shows (and one's own in
+					// third person)
+					look = null;
+					mouth = null;
 				} else {
 					Vector3fc f = camera.forwardVector();
 					look = new Vec3(f.x(), f.y(), f.z());
 					// a little low, so one's own breath shows toward the bottom of the view, as it does
 					mouth = eye.add(look.scale(0.45)).add(0, -0.3, 0);
 				}
-				this.puff(mouth, look, cold);
+				if (mouth != null) {
+					this.puff(mouth, look, cold);
+				}
 			}
 		}
 		if (this.tick % 10 == 0) {

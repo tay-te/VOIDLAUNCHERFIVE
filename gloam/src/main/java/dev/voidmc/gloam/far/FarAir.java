@@ -7,6 +7,7 @@ import dev.voidmc.gloam.air.Air;
 import dev.voidmc.gloam.air.AirSample;
 import dev.voidmc.gloam.air.Atmosphere;
 import dev.voidmc.gloam.air.Noise;
+import dev.voidmc.gloam.bridge.Bridge;
 import dev.voidmc.gloam.compat.Expanse;
 import dev.voidmc.gloam.compat.Lod;
 import dev.voidmc.gloam.compat.Shaders;
@@ -116,10 +117,11 @@ public final class FarAir {
 
 	/**
 	 * Whether the mist and the curtains are drawn: always without a shader pack; with one, only when VOID LOD hands over
-	 * the far land's depth after the pack's picture (they are drawn over it then).
+	 * the far land's depth after the pack's picture (they are drawn over it then), and never over VOID Welkin, which
+	 * draws the world's mist itself (its soft slabs would sit over the pack's stepped ones).
 	 */
 	private static boolean belowClouds() {
-		return !Shaders.packInUse() || (Lod.LOADED && GloamSettings.get().farOverPack);
+		return !Shaders.packInUse() || (Lod.LOADED && GloamSettings.get().farOverPack && !Bridge.welkin());
 	}
 
 	/**

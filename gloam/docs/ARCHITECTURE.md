@@ -228,6 +228,43 @@ How the packs tested take Gloam's clouds (vanilla's cloud geometry, drawn throug
 | Photon v1.3b | always `clouds=off`; its own volumetric and blocky clouds | never |
 
 With their own clouds the packs still follow Gloam's weather through the rain level and the attributes.
+## The bridge to VOID Welkin: `dev.voidmc.gloam.bridge` (`Bridge`)
+
+VOID Welkin (the VOID shader pack, branch `welkin`) draws every pixel; Gloam works out the world's state and hands it
+over through two channels (contract version 1; the design is the Welkin design document, section 2). M1 is built: the
+uniforms below, the header and the near land tiles N0/N1. The other tiles stay zero until their milestones.
+
+| Class | What it is |
+|---|---|
+| `Bridge` | The client tick (after the atmosphere and the sky): the uniforms' values, the camera's 16 m cell, the header, and the upload of what changed. Registers the texture at `CLIENT_STARTED`. Nothing is uploaded, and the worker rests, while no shader pack is on. `stats()` for the showcase's log. |
+| `Contract` | Pure: the texture's layout, wrap addressing, h16 heights, the cell texels, the uniform order and ranges, the header mirror (`ContractTest`). |
+| `Uniforms` | The `void_*` values (plain field reads for Iris every frame) and Iris's side in a nested class. |
+| `LandTiles` | N0/N1 rolling with the camera: a worker works out the strip that came into range (256 cells) from Expanse's country sampler; strips reach the render thread with the centre they belong to (`LandTilesTest`). |
+| `DataTexture` | `gloam:pack/data`, RGBA8 1024x516, one mip; uploads the used header columns and per tile the changed rows or columns (or the whole tile when many). |
+| `mixin/iris/CommonUniformsMixin` | `@Inject(TAIL, require = 0)` into Iris's `CommonUniforms.addNonDynamicUniforms`, in the optional `gloam.iris.mixins.json` (plugin: Iris loaded). |
+
+**Uniforms (M1).** `void_bridge` (int, 1), `void_version` (int, 1), `void_seed` (int), `void_year`, `void_warmth`
+(float), `void_season` (int 0..3), `void_wind` (vec4: x, z, blocks/s, gust), `void_front`, `void_cloudCover`,
+`void_rain` (the client's rain level, regional), `void_showers`, `void_storm`, `void_mist`, `void_mistTop` (world y),
+`void_mistTime` (`Air.mistTime`: the hour's and season's part of the mist), `void_wetness` (float), `void_light` (vec4:
+moon light, stars, sky-light scale, dark-nights setting), `void_nearCentre` (ivec2, the N tiles' centre cell). All are
+updated per client tick. `-Dgloam.bridge.uniforms=false` (`-Pgloam.bridge.uniforms=false`) leaves them out, to test the
+pack's fallback to the header.
+
+**Texture.** Header row 0: texel 0 `VOID`; texel 1 version, flags (1 Expanse, 2 VOID LOD, 4 singleplayer, 8 uniforms
+injected), 16-bit frame counter in BA; texels 2..9 the centres of tiles 0..7 (RG x, BA z, the cell's low 16 bits, to be
+unwrapped against `cameraPositionInt`); texel 10 R the mask of tiles holding data; texel 11 the 32-bit mask of live
+uniform slots. Rows 1..3: the uniform mirror, texel column = the uniform's place in the design's table (31 slots, from
+`void_bridge` 0 to `void_ugCentre` 30): floats as 16 bits over the slot's range (row 1 the high byte, enough alone; row 2
+the low byte), ints as four little-endian bytes in row 1, an ivec's component k in row 1 + k. Tiles: N0 RG ground h16
+(`(hi*256+lo)/32 - 1024`; the sea's surface out at sea), B lowness, A water distance (4 blocks a step, 255 a km or
+more); N1 R mist potential (`Air.mistPotential`), G temperature (-1..1), B humidity, A haze kind (high nibble) and flags
+(low nibble: 1 present, 2 Expanse, 4 snow, 8 water). A cell is at `cell & 255`; valid within 127 cells of the centre.
+
+**Welkin.** When the pack Iris has loaded is VOID Welkin (its name contains `welkin`), Gloam's ground-mist sheets go
+(Welkin lays the valley mist itself). Everything else of Gloam's still draws until its milestone replaces it: the sky
+layers and mist fog, the far mist and rain curtains over VOID LOD, the clouds, motes, seasons.
+
 ## Partners
 
 - **VOID LOD** (`void_lod`): optional. `compat.Lod`, `LodApi`. Gloam is cut from `claude/lod-quality`, so LOD changes

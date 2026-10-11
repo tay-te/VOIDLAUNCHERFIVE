@@ -6,6 +6,7 @@ import dev.voidmc.gloam.GloamSettings;
 import dev.voidmc.gloam.air.Atmosphere;
 import dev.voidmc.gloam.air.Air;
 import dev.voidmc.gloam.air.AirSample;
+import dev.voidmc.gloam.bridge.Bridge;
 import dev.voidmc.gloam.compat.Expanse;
 import dev.voidmc.gloam.sky.GloamSky;
 import dev.voidmc.gloam.sky.Haze;
@@ -166,6 +167,11 @@ public class GloamShowcase implements FabricClientGameTest {
 				if (view.name().startsWith("storm")) {
 					this.aimAtStorm(context, world, view, places);
 				}
+				if (moved && view.name().startsWith("wvale")) {
+					// Welkin's comparisons (mist on and off, the uniforms and the header mirror) are only fair with the
+					// same land drawn in each run: wait for the chunks round the camera, then for the LOD's tiles
+					awaitChunks(context, view);
+				}
 				awaitLod(context, view);
 				int fpsOff = -1;
 				if (OFF) {
@@ -201,8 +207,27 @@ public class GloamShowcase implements FabricClientGameTest {
 				System.out.printf(Locale.ROOT, "[gloam] %s motes: %s; %d fps off, %d on%n", view.name(), motes, fpsOff, fps);
 				String far = context.computeOnClient(mc -> FarAir.stats());
 				System.out.printf(Locale.ROOT, "[gloam] %s: %s; %d fps off, %d fps on%n", view.name(), far, fpsOff, fps);
+				String bridge = context.computeOnClient(mc -> Bridge.stats());
+				System.out.printf(Locale.ROOT, "[gloam] %s %s%n", view.name(), bridge);
 				String season = context.computeOnClient(mc -> Seasons.stats());
 				System.out.printf(Locale.ROOT, "[gloam] %s seasons: %s%n", view.name(), season);
+				if (view.name().startsWith("w") && !view.name().startsWith("water") && !view.name().startsWith("winter")) {
+					// Welkin's pass costs are a fraction of a millisecond: one fps reading is too noisy to judge them, so
+					// average the frame time over gloam.show.fpsSamples one-second readings (getFps counts the last whole second)
+					int samples = Integer.getInteger("gloam.show.fpsSamples", 8);
+					double ms = 0;
+					int min = Integer.MAX_VALUE, max = 0;
+					for (int i = 0; i < samples; i++) {
+						context.waitTicks(21);
+						int f = Math.max(1, context.computeOnClient(mc -> mc.getFps()));
+						ms += 1000.0 / f;
+						min = Math.min(min, f);
+						max = Math.max(max, f);
+					}
+					ms /= samples;
+					System.out.printf(Locale.ROOT, "[gloam] %s frame time: %.3f ms mean over %d s (%.0f fps; %d..%d)%n", view.name(), ms, samples, 1000.0 / ms,
+						min, max);
+				}
 				last = view;
 			}
 			String clips = context.computeOnClient(mc -> Soundscape.loadedClips());
@@ -254,7 +279,46 @@ public class GloamShowcase implements FabricClientGameTest {
 		views.add(low);
 		addRangeViews(views);
 		addSeasonViews(views, p);
+		addWelkinViews(views, p);
 		return views;
+	}
+
+	/**
+	 * VOID Welkin's valley mist (bridge M1): the valley floor seen from 20 blocks up, looking toward the nearest water, at
+	 * 05:30, 08:00 and noon; the same spot looking down (for the pack's tile debug view, DEBUG_VIEW=7) and again 160
+	 * blocks east, to show the tiles following the camera; and the land below the peak at 05:30 with the far land in view.
+	 */
+	static void addWelkinViews(List<View> views, Places p) {
+		float toWater = (float) Math.toDegrees(Math.atan2(-(p.waterX() - p.valleyX()), p.waterZ() - p.valleyZ()));
+		if (p.waterX() == p.valleyX() && p.waterZ() == p.valleyZ()) {
+			toWater = p.toPeak() + 180;
+		}
+		View vale = new View("wmist0", p.valleyX(), p.valleyY() + 20, p.valleyZ(), toWater, 10, 70, 23500, "clear", 2);
+		views.add(vale);
+		views.add(vale.at("wmist1", 2000, "clear"));
+		views.add(vale.at("wmist2", 6000, "clear"));
+		views.add(new View("wtiles0", p.valleyX(), p.valleyY() + 40, p.valleyZ(), toWater, 35, 70, 23500, "clear", 2));
+		views.add(new View("wtiles1", p.valleyX() + 160, p.valleyY() + 40, p.valleyZ(), toWater, 35, 70, 23500, "clear", 2));
+		views.add(new View("wfar0", p.peakX(), p.peakY() + 20, p.peakZ(), p.toPeak() + 180, 8, 70, 23500, "clear", 2));
+		// a survey from 40 blocks over the valley floor, four ways round, to find the view with the most hollows
+		for (int i = 0; i < 4; i++) {
+			views.add(new View("wsurvey" + i, p.valleyX(), p.valleyY() + 40, p.valleyZ(), i * 90, 20, 70, 23500, "clear", 2));
+		}
+		// the chosen vale view (-Pgloam.show.welkin=x,y,z,yaw,pitch), at 05:30, 08:00 and noon
+		// (several separated by ';': wvale0.., wvaleB0.., wvaleC0..)
+		String[] spots = System.getProperty("gloam.show.welkin", "").split(";");
+		for (int s = 0; s < spots.length; s++) {
+			String[] at = spots[s].split(",");
+			if (at.length != 5) {
+				continue;
+			}
+			String n = "wvale" + (s == 0 ? "" : String.valueOf((char) ('A' + s)));
+			View v = new View(n + "0", Integer.parseInt(at[0]), Integer.parseInt(at[1]), Integer.parseInt(at[2]), Float.parseFloat(at[3]),
+				Float.parseFloat(at[4]), 70, 23500, "clear", 2);
+			views.add(v);
+			views.add(v.at(n + "1", 2000, "clear"));
+			views.add(v.at(n + "2", 6000, "clear"));
+		}
 	}
 
 	/**
@@ -485,8 +549,27 @@ public class GloamShowcase implements FabricClientGameTest {
 	}
 
 	/** For the far view: waits (up to two minutes) until VOID LOD has rebuilt the tiles on screen in the season's colours. */
+	/**
+	 * Waits (90 s at most) until the chunks within the render distance are loaded and drawn: at least 80 % of the circle
+	 * loaded, the count unchanged over three checks two seconds apart, and every section built.
+	 */
+	private static void awaitChunks(ClientGameTestContext context, View view) {
+		long start = System.currentTimeMillis(), until = start + 90_000;
+		int want = (int) (0.8 * Math.PI * DISTANCE * DISTANCE);
+		int last = -1, calm = 0;
+		while (System.currentTimeMillis() < until && calm < 3) {
+			context.waitTicks(40);
+			int[] state = context.computeOnClient(mc -> new int[]{mc.level.getChunkSource().getLoadedChunksCount(),
+				mc.levelRenderer.hasRenderedAllSections() ? 1 : 0});
+			calm = state[0] >= want && state[0] == last && state[1] == 1 ? calm + 1 : 0;
+			last = state[0];
+		}
+		System.out.printf(Locale.ROOT, "[gloam] %s: %d chunks loaded and drawn after %.1f s (want %d, %s)%n", view.name(), last,
+			(System.currentTimeMillis() - start) / 1000.0, want, calm >= 3 ? "settled" : "timed out");
+	}
+
 	private static void awaitLod(ClientGameTestContext context, View view) {
-		if (!view.name().endsWith("far0") || !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("void_lod")) {
+		if (!(view.name().endsWith("far0") || view.name().startsWith("wvale")) || !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("void_lod")) {
 			return;
 		}
 		long until = System.currentTimeMillis() + 120_000;
@@ -506,6 +589,23 @@ public class GloamShowcase implements FabricClientGameTest {
 
 	/** Where a view is shot: the overcast and haze views go looking for their place, the rest stay where they are. */
 	private View place(TestSingleplayerContext world, View planned, View last) {
+		// a Welkin vale view given a negative y stands that many blocks over the highest ground within 16 blocks
+		if (planned.name().startsWith("wvale") && planned.y() < 0) {
+			int ground = world.getServer().computeOnServer(server -> {
+				ServerLevel level = server.overworld();
+				int top = level.getMinY();
+				for (int dx = -16; dx <= 16; dx += 8) {
+					for (int dz = -16; dz <= 16; dz += 8) {
+						level.getChunk((planned.x() + dx) >> 4, (planned.z() + dz) >> 4);
+						top = Math.max(top, level.getHeight(Heightmap.Types.MOTION_BLOCKING, planned.x() + dx, planned.z() + dz));
+					}
+				}
+				return top;
+			});
+			System.out.printf(Locale.ROOT, "[gloam] %s: ground %d at %d %d%n", planned.name(), ground, planned.x(), planned.z());
+			return new View(planned.name(), planned.x(), ground - planned.y(), planned.z(), planned.yaw(), planned.pitch(), planned.fov(), planned.time(),
+				planned.weather(), planned.linger());
+		}
 		if (planned.name().startsWith("range")) {
 			if (!rangesFound) {
 				rangesFound = true;

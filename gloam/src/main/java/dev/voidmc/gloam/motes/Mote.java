@@ -3,6 +3,7 @@ package dev.voidmc.gloam.motes;
 import dev.voidmc.gloam.air.AirSample;
 import dev.voidmc.gloam.air.Atmosphere;
 import dev.voidmc.gloam.air.Wind;
+import dev.voidmc.gloam.bridge.Bridge;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.core.BlockPos;
@@ -171,7 +172,9 @@ abstract class Mote extends SingleQuadParticle {
 
 	@Override
 	protected Layer getLayer() {
-		return this.misty > 0 ? MoteLayers.MIST : Layer.TRANSLUCENT;
+		// under VOID Welkin the misty motes (spray, breath, powder) are plain particles like any other: pixel sprites
+		// with vanilla's alpha cut, which the pack lights, and no soft-edged veil layer over its stepped mist
+		return this.misty > 0 && !Bridge.welkin() ? MoteLayers.MIST : Layer.TRANSLUCENT;
 	}
 
 	@Override

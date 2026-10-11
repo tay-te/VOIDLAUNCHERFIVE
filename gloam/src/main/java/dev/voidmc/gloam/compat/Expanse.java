@@ -39,8 +39,29 @@ public final class Expanse {
 		Land at(int x, int z);
 	}
 
+	/**
+	 * The land at one column in Expanse's own terms, for the shader-pack bridge's land tiles.
+	 *
+	 * @param humidity      0 (desert) .. 1 (rainforest)
+	 * @param temperature   about -1 .. 1, cooler with height
+	 * @param lowness       blocks below the mean ground about 100 blocks round (negative on rises)
+	 * @param waterDistance blocks to the nearest river bank or lake shore (0 on the water, 1000 with none near)
+	 * @param coastDistance blocks to the sea (negative out at sea)
+	 * @param altitude      the ground's height (y)
+	 * @param haze          the haze hint, a key of {@code Haze.HINTS}
+	 */
+	public record Raw(float humidity, float temperature, float lowness, float waterDistance, float coastDistance, float altitude, String haze) {
+	}
+
+	/** {@link Sampler}'s raw form; safe from any thread. */
+	@FunctionalInterface
+	public interface RawSampler {
+		Raw at(int x, int z);
+	}
+
 	private static IntegratedServer server;
 	private static Sampler sampler;
+	private static RawSampler raw;
 	private static boolean broken;
 
 	private Expanse() {
@@ -58,19 +79,31 @@ public final class Expanse {
 		if (s == null) {
 			server = null;
 			sampler = null;
+			raw = null;
 			return null;
 		}
 		if (s != server) {
 			server = s;
 			try {
-				sampler = Api.sampler(s.overworld());
+				raw = Api.sampler(s.overworld());
+				RawSampler r = raw;
+				sampler = r == null ? null : (x, z) -> {
+					Raw h = r.at(x, z);
+					return new Land(h.humidity(), lowness(h.lowness()), water(h.waterDistance(), h.coastDistance()), h.altitude(), h.haze());
+				};
 			} catch (LinkageError | RuntimeException e) {
 				broken = true;
 				sampler = null;
+				raw = null;
 				Gloam.LOGGER.warn("VOID Gloam: Expanse's country API is not what Gloam expects; the air reads the land without it", e);
 			}
 		}
 		return sampler;
+	}
+
+	/** The raw sampler for the land {@code level} shows, or null, as {@link #sampler}. Call on the client thread. */
+	public static RawSampler raw(ClientLevel level) {
+		return sampler(level) == null ? null : raw;
 	}
 
 	/** Expanse's lowness (blocks below the mean ground about 100 blocks round) as Gloam's 0..1, like the heightmap read's. */
@@ -87,14 +120,14 @@ public final class Expanse {
 
 	/** Expanse's side, in a class of its own, so the JVM only resolves it once Expanse is known to be there. */
 	private static final class Api {
-		static Sampler sampler(net.minecraft.server.level.ServerLevel level) {
+		static RawSampler sampler(net.minecraft.server.level.ServerLevel level) {
 			dev.voidmc.expanse.api.ExpanseCountry.Sampler s = level == null ? null : dev.voidmc.expanse.api.ExpanseCountry.sampler(level);
 			if (s == null) {
 				return null;
 			}
 			return (x, z) -> {
 				dev.voidmc.expanse.api.ExpanseCountry.Here h = s.at(x, z);
-				return new Land(h.humidity(), lowness(h.lowness()), water(h.waterDistance(), h.coastDistance()), h.altitude(), h.haze());
+				return new Raw(h.humidity(), h.temperature(), h.lowness(), h.waterDistance(), h.coastDistance(), h.altitude(), h.haze());
 			};
 		}
 	}

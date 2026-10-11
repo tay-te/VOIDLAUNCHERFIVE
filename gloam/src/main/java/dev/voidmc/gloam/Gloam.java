@@ -1,6 +1,7 @@
 package dev.voidmc.gloam;
 
 import dev.voidmc.gloam.air.Atmosphere;
+import dev.voidmc.gloam.bridge.Bridge;
 import dev.voidmc.gloam.far.FarAir;
 import dev.voidmc.gloam.motes.Motes;
 import dev.voidmc.gloam.season.Seasons;
@@ -23,7 +24,8 @@ import org.slf4j.LoggerFactory;
  *   <li>{@link Motes}: the small things in the air, as particles, which shader packs draw too;</li>
  *   <li>{@link Soundscape}: the ambient beds of the land, the weather and the hour;</li>
  *   <li>{@link FarAir}: the air over VOID LOD's far terrain, out to the horizon;</li>
- *   <li>{@link Seasons}: the year on the land: grass and leaves through the seasons, bare winter crowns, the snowline.</li>
+ *   <li>{@link Seasons}: the year on the land: grass and leaves through the seasons, bare winter crowns, the snowline;</li>
+ *   <li>{@link Bridge}: the world's state handed to the VOID Welkin shader pack, as uniforms and a data texture.</li>
  * </ul>
  * Settings live in {@code config/gloam.json} ({@link GloamSettings}); {@code gloam.*} system properties override it.
  */
@@ -49,6 +51,7 @@ public final class Gloam implements ClientModInitializer {
 		Soundscape.init();
 		FarAir.init();
 		Seasons.init();
+		Bridge.init();
 		LOGGER.info("VOID Gloam: the air is up");
 	}
 
