@@ -310,6 +310,26 @@
   MC.traitLine = traitLine;
 
   /**
+   * Lays a hand card out inside its fixed 248 x 328 face (the design's 3:4, never resized): the art panel at 56 grows
+   * (64 to 140 tall) into whatever room the text leaves, the name block sits 8 under it, and the traits block (price
+   * or divider plus traits) is anchored to the bottom safe area, above the "Slots at" line when there is one. A card
+   * with no traits gets the tallest art; one with a lot of text keeps the 64 px art. Measures, so call it once the
+   * card is in the page.
+   */
+  MC.layoutCard = function (el) {
+    var art = el.querySelector(".hc-art"), top = el.querySelector(".hc-flow"), bot = el.querySelector(".hc-bot");
+    if (!art || !top || !bot) return;
+    var need = el.querySelector(".hc-need"), limit = need ? 328 - 22 - 16 - 8 : 328 - 28;
+    var botH = bot.offsetHeight, topH = top.scrollHeight, gap = botH ? 10 : 0;
+    var a = Math.max(64, Math.min(140, limit - botH - gap - topH - 8 - 56));
+    art.style.height = a + "px";
+    var img = art.querySelector(".mc-img");
+    if (img) img.style.top = Math.round((a - 64) / 2) + "px";
+    top.style.top = (56 + a + 8) + "px";
+    bot.style.top = (limit - botH) + "px";
+  };
+
+  /**
    * Hand mode (Figma "mettle / card v2 / hand · clean 248x328"): the obsidian face plus sibling layers for the burning
    * edge, the hot frame and embers (strips tinted with the card's skill colour through a mask). Text keeps the 28 px
    * safe area; the burn never passes 12 px.
@@ -327,8 +347,8 @@
     h += '<div class="hc-gem" style="background:' + rc + '"></div><div class="hc-eb" style="color:' + (c.wildcard ? hue : rc) + '">' + esc(eyebrow) + "</div>";
     h += '<div class="hc-sig" style="border-color:' + MC.rgba(hue, 0.6) + '">' + MC.img(MC.skillIcon(c.skill), 16) + "</div>";
     h += '<div class="hc-art" style="background:radial-gradient(closest-side,' + MC.rgba(hue, 0.28) + " 0%," + MC.rgba(hue, 0) + " 100%)," + MC.shade(hue) + '">' + MC.img(c.icon, 64) + "</div>";
-    // Name, rules, keywords, the price or a divider, traits: one column in the 28 px safe area, so a long name or
-    // rule pushes the rest down instead of overlapping it.
+    // Inside the fixed 248 x 328 card (MC.layoutCard places them): name, rules and keywords right under the art; the
+    // price or divider and the traits anchored to the bottom safe area, above the "Slots at" line.
     h += '<div class="hc-flow"><div class="hc-name">' + MC.pix(c.name || "", 2, "#F4EEE6", 192) + "</div>";
     h += '<div class="hc-desc">' + esc(c.description) + "</div>";
     if (c.keywords && c.keywords.length) {
@@ -336,6 +356,7 @@
       for (var k = 0; k < c.keywords.length; k++) h += '<span class="hc-kw">' + MC.glyph(c.keywords[k], 16) + esc(c.keywords[k].name) + "</span>";
       h += "</div>";
     }
+    h += '</div><div class="hc-bot">';
     if (c.cursed && c.downside) {
       h += '<div class="hc-price"><div class="hc-pl">THE PRICE</div><div class="hc-pt">' + esc(c.downside) + "</div></div>";
     } else if ((c.traits || []).length) {
@@ -350,6 +371,7 @@
     if (c.slotsAt) h += '<div class="hc-need"><i class="lock"></i>' + esc(c.slotsAt) + "</div>";
     h += "</div>";
     // The burning edge, embers, the hot frame and the lift are CardFx layers (cards-draft.js draftFx), not markup.
+    // MC.layoutCard sizes the art and places the two blocks once the card is in the page.
     return h + "</div>";
   };
 

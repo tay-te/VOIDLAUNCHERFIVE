@@ -51,7 +51,7 @@ public final class MettleTest {
 		this.context.waitTicks(20);
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_00_picker");
+		this.shot("voidhub_mettle_00_picker");
 		this.ui.clickPage("[data-bg=\"mettle:wanderer\"]");
 		this.context.waitTicks(2);
 		for (int i = 0; i < 4; i++) {
@@ -62,7 +62,7 @@ public final class MettleTest {
 		this.context.waitTicks(2);
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_00b_picker_wanderer");
+		this.shot("voidhub_mettle_00b_picker_wanderer");
 		this.ui.clickPage("[data-begin]");
 		this.context.waitTicks(30);
 		this.expect("chosen".equals(this.state().get("phase")), "the hub's picker began the character: " + this.state().get("phase"));
@@ -79,9 +79,11 @@ public final class MettleTest {
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
 		this.context.waitTicks(5);
 
-		server.runCommand("effect give Player0 minecraft:speed 160 1");
-		server.runCommand("effect give Player0 minecraft:night_vision 300 0");
-		server.runCommand("effect give Player0 minecraft:regeneration 12 0");
+		// Particles hidden: the player's own effect swirls drift in front of the camera as big flat-tinted squares (Speed's
+		// cyan), which the screenshots' outside-the-window scan would rightly flag as not-the-world.
+		server.runCommand("effect give Player0 minecraft:speed 160 1 true");
+		server.runCommand("effect give Player0 minecraft:night_vision 300 0 true");
+		server.runCommand("effect give Player0 minecraft:regeneration 12 0 true");
 
 		// 1. The inventory page has Back, Belt and Quiver wells beside the figure.
 		this.ui.pressInventory();
@@ -90,7 +92,7 @@ public final class MettleTest {
 		this.expect(this.ui.layout().cellForSlot(MettleLink.BACK) != null, "the inventory page shows the Back well");
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_01_inventory");
+		this.shot("voidhub_mettle_01_inventory");
 
 		// 1b. Hovering a stack shows the VOID tooltip beside its well (the stacks under it are left out).
 		server.runCommand("give Player0 minecraft:diamond_sword[enchantments={sharpness:3,unbreaking:2,looting:1}]");
@@ -99,7 +101,7 @@ public final class MettleTest {
 		this.expect(sword >= 0, "the sword is in the inventory");
 		this.ui.hoverSlot(sword);
 		this.context.waitTicks(6);
-		this.context.takeScreenshot("voidhub_mettle_01b_tooltip");
+		this.shot("voidhub_mettle_01b_tooltip");
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
 
@@ -115,7 +117,7 @@ public final class MettleTest {
 		this.expect(this.item(MettleLink.QUIVER).equals("quiver"), "shift-click wore the quiver: " + this.item(MettleLink.QUIVER));
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_02_gear_worn");
+		this.shot("voidhub_mettle_02_gear_worn");
 
 		// 3. The Gear segment: pack pockets on top, the inventory below.
 		this.ui.clickPage("[data-seg=\"gear\"]");
@@ -134,7 +136,7 @@ public final class MettleTest {
 		this.expect(this.activePockets(MettleLink.PACK_FIRST, MettleLink.PACK_SLOTS) == 18, "a Leather Pack has 18 pockets");
 		this.ui.hoverSlot(this.find("cobblestone", MettleLink.PACK_FIRST, MettleLink.PACK_FIRST + MettleLink.PACK_SLOTS));
 		this.context.waitTicks(15);
-		this.context.takeScreenshot("voidhub_mettle_03_gear_page");
+		this.shot("voidhub_mettle_03_gear_page");
 
 		// 4. Classes. The XP above levelled skills, so drafts wait: the page deals the first hand at once (Figma D1).
 		server.runCommand("mettle draft rerolls 3 Player0");
@@ -147,7 +149,7 @@ public final class MettleTest {
 		this.waitPage("MC.ov.kind()==='draft' && !!document.querySelector('.dr-hand .hc')", 100, "a draft hand dealt on the Classes page");
 		this.ui.parkMouse();
 		this.context.waitTicks(12);
-		this.context.takeScreenshot("voidhub_mettle_04_draft_hand");
+		this.shot("voidhub_mettle_04_draft_hand");
 		this.dumpState("draft");
 		// The copy matches the hand, the badge says it counts every skill, cards fit their content, values carry units.
 		String copy = this.js("(function(){var n=document.querySelectorAll('.dr-hand .hc').length,e=document.querySelector('#dr-title .ov-eb').textContent;"
@@ -159,8 +161,14 @@ public final class MettleTest {
 			+ "var bare=[],v=document.querySelectorAll('.hc-tr .v');for(var j=0;j<v.length;j++)if(/^[+-]?[0-9.]+$/.test(v[j].textContent.trim()))bare.push(v[j].textContent);"
 			+ "return h.join(',')+'|'+bare.join(',');})()");
 		String[] fp = fit.split(java.util.regex.Pattern.quote("|"), -1);
-		this.expect(java.util.Arrays.stream(fp[0].split(",")).distinct().count() == 1 && Integer.parseInt(fp[0].split(",")[0]) <= 328,
-			"every card in the hand has the same fitted height: " + fp[0]);
+		this.expect(java.util.Arrays.stream(fp[0].split(",")).allMatch("328"::equals), "every hand card keeps the design's 248 x 328: " + fp[0]);
+		String lay = this.js("(function(){var o=[],cs=document.querySelectorAll('.dr-hand .hc');for(var i=0;i<cs.length;i++){var a=cs[i].querySelector('.hc-art'),"
+			+ "t=cs[i].querySelector('.hc-flow'),b=cs[i].querySelector('.hc-bot');o.push((t.offsetTop-a.offsetTop-a.offsetHeight)+':'+(b.offsetTop+b.offsetHeight)+':'"
+			+ "+(t.offsetTop+t.scrollHeight<=b.offsetTop+1));}return o.join(',');})()");
+		for (String c : lay.split(",")) {
+			String[] v = c.split(":");
+			this.expect("8".equals(v[0]) && Integer.parseInt(v[1]) <= 300 && "true".equals(v[2]), "a card's name sits under its art and its traits on the bottom safe area: " + lay);
+		}
 		this.expect(fp[1].isEmpty(), "every trait value shows a unit: " + fp[1]);
 		this.perf("draft hand idle", () -> this.context.waitTicks(60));
 
@@ -179,7 +187,7 @@ public final class MettleTest {
 		this.expect("1".equals(this.js("String(MC.ov.hovered())")), "hovering the middle card made it the hovered one");
 		this.expect("true".equals(this.js("String(MC.fxDebug().indexOf('\"k\":\"lift\"') >= 0 && MC.fxDebug().indexOf('\"k\":\"edge-hot\"') >= 0)")),
 			"the hovered card lifts onto its hot frame natively: " + this.js("String(MC.fxDebug()).slice(0, 300)"));
-		this.context.takeScreenshot("voidhub_mettle_05_draft_hover");
+		this.shot("voidhub_mettle_05_draft_hover");
 
 		// 6. Pick with the 2 key: the kept card flares, the other two burn away, the next draft deals (D4).
 		String skillId = this.js("String(MC.ov && document.querySelector('#dr-chip .nm') ? document.querySelector('#dr-chip .nm').textContent : '')");
@@ -188,11 +196,11 @@ public final class MettleTest {
 		this.perf("draft pick", () -> {
 			this.context.getInput().pressKey(InputConstants.KEY_2);
 			this.context.waitTicks(3);
-			this.context.takeScreenshot("voidhub_mettle_06a_draft_pick_flare");
+			this.shot("voidhub_mettle_06a_draft_pick_flare");
 			this.context.waitTicks(5);
-			this.context.takeScreenshot("voidhub_mettle_06b_draft_pick_burn");
+			this.shot("voidhub_mettle_06b_draft_pick_burn");
 			this.context.waitTicks(6);
-			this.context.takeScreenshot("voidhub_mettle_06c_draft_pick_ash");
+			this.shot("voidhub_mettle_06c_draft_pick_ash");
 			this.context.waitTicks(26);
 		});
 		this.expect(this.binderCount() == binderBefore + 1, "the pick kept one card (" + skillId + "): binder " + binderBefore + " -> " + this.binderCount());
@@ -200,7 +208,7 @@ public final class MettleTest {
 		this.waitPage("MC.ov.kind()==='draft' && !document.querySelector('.dr-hand .hc.kept') && !!document.querySelector('.dr-hand .hc')", 80, "the next draft dealt after the pick");
 		this.ui.parkMouse();
 		this.context.waitTicks(10);
-		this.context.takeScreenshot("voidhub_mettle_07_draft_next");
+		this.shot("voidhub_mettle_07_draft_next");
 
 		// 7. Redeal all spends a reroll and deals a fresh hand.
 		long rerolls = this.rerolls();
@@ -209,7 +217,7 @@ public final class MettleTest {
 		this.expect(this.rerolls() == rerolls - 1, "Redeal all spent a reroll: " + rerolls + " -> " + this.rerolls());
 		this.ui.parkMouse();
 		this.context.waitTicks(6);
-		this.context.takeScreenshot("voidhub_mettle_08_draft_redealt");
+		this.shot("voidhub_mettle_08_draft_redealt");
 
 		// 8. Esc keeps the draft for later: the window stays open on the gallery.
 		long keep = this.waiting();
@@ -220,7 +228,7 @@ public final class MettleTest {
 		this.expect(this.waiting() == keep, "Esc kept the drafts waiting: " + keep + " -> " + this.waiting());
 		this.ui.parkMouse();
 		this.context.waitTicks(5);
-		this.context.takeScreenshot("voidhub_mettle_09_gallery");
+		this.shot("voidhub_mettle_09_gallery");
 		this.perf("gallery idle", () -> this.context.waitTicks(40));
 		this.perf("gallery hover sweep", () -> {
 			for (int k = 0; k < 2; k++) {
@@ -251,20 +259,20 @@ public final class MettleTest {
 		this.ui.parkMouse();
 		this.perf("mythic reveal", () -> {
 			this.context.waitTicks(26);
-			this.context.takeScreenshot("voidhub_mettle_10_mythic_cracks");
+			this.shot("voidhub_mettle_10_mythic_cracks");
 			this.context.waitTicks(25);
-			this.context.takeScreenshot("voidhub_mettle_11_mythic_burst");
+			this.shot("voidhub_mettle_11_mythic_burst");
 			this.context.waitTicks(30);
 		});
 		this.waitPage("!!document.querySelector('[data-claim]')", 60, "the Mythic settled with Claim");
-		this.context.takeScreenshot("voidhub_mettle_12_mythic_settled");
+		this.shot("voidhub_mettle_12_mythic_settled");
 		this.perf("mythic settled idle", () -> this.context.waitTicks(40));
 		// Claim Mythic: Mettle's claimMythic keeps it without using the draft, so the hand stays open for a keep.
 		int mythicsBefore = this.mythicsOwned();
 		long draftsBeforeClaim = this.waiting();
 		this.ui.clickPage("[data-claim]");
 		this.context.waitTicks(6);
-		this.context.takeScreenshot("voidhub_mettle_12b_mythic_claimed");
+		this.shot("voidhub_mettle_12b_mythic_claimed");
 		this.waitPage("MC.ov.kind()==='draft' && !document.getElementById('rv-stage') && !!document.querySelector('.dr-hand .hc:not(.faded)')", 100,
 			"after the claim the hand stays open with the other cards");
 		this.expect(this.mythicsOwned() == mythicsBefore + 1, "Claim kept the Mythic: " + mythicsBefore + " -> " + this.mythicsOwned());
@@ -277,7 +285,7 @@ public final class MettleTest {
 			"the draft's right footer shows after the claim");
 		this.ui.parkMouse();
 		this.context.waitTicks(10);
-		this.context.takeScreenshot("voidhub_mettle_12c_mythic_then_keep");
+		this.shot("voidhub_mettle_12c_mythic_then_keep");
 		int binderBeforeKeep = this.binderCount();
 		this.context.getInput().pressKey(InputConstants.KEY_1);
 		this.context.waitTicks(40);
@@ -294,7 +302,7 @@ public final class MettleTest {
 		this.waitPage("!!document.querySelector('[data-close-ov]')", 120, "the reveal settled");
 		this.ui.parkMouse();
 		this.context.waitTicks(4);
-		this.context.takeScreenshot("voidhub_mettle_13_reveal_world_first");
+		this.shot("voidhub_mettle_13_reveal_world_first");
 		this.ui.clickPage("[data-close-ov]");
 		this.context.waitTicks(3);
 
@@ -303,7 +311,7 @@ public final class MettleTest {
 		this.context.waitTicks(4);
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_14_hall_of_firsts");
+		this.shot("voidhub_mettle_14_hall_of_firsts");
 		this.world.getServer().runOnServer(s -> {
 			var p = s.getPlayerList().getPlayers().getFirst();
 			String[][] more = {{"mining/prospector", "COMMON"}, {"mining/quarryman", "RARE"}, {"mining/hard_hat", "EPIC"}, {"mining/rock_hauler", "COMMON"},
@@ -319,7 +327,7 @@ public final class MettleTest {
 		this.context.waitTicks(4);
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_15_binder");
+		this.shot("voidhub_mettle_15_binder");
 		this.perf("binder scroll and hover", () -> {
 			for (int k = 0; k < 3; k++) {
 				this.hoverPage("#bg-5");
@@ -352,7 +360,7 @@ public final class MettleTest {
 		this.ui.parkMouse();
 		this.context.waitTicks(4);
 		this.expect(this.slotted(deep[0]), "the first Deep card is slotted");
-		this.context.takeScreenshot("voidhub_mettle_16_deck");
+		this.shot("voidhub_mettle_16_deck");
 		this.dumpState("deck");
 		String from = "[data-dcard=\"" + deep[1] + "\"]";
 		this.waitPage("!!document.querySelector('" + from.replace("\"", "\\\"") + "')", 20, "the second Deep card is in the deck's binder");
@@ -366,7 +374,7 @@ public final class MettleTest {
 				this.ui.moveTo(a[0] + (b[0] - a[0]) * i / 12.0, a[1] + (b[1] - a[1]) * i / 12.0);
 				this.context.waitTicks(2);
 				if (i == 8) {
-					this.context.takeScreenshot("voidhub_mettle_17_deck_drag");
+					this.shot("voidhub_mettle_17_deck_drag");
 				}
 			}
 			this.ui.release(Ui.LEFT, 0);
@@ -377,20 +385,20 @@ public final class MettleTest {
 		this.expect(this.slotted(deep[1]), "dragging the card onto an open slot slotted it");
 		this.waitPage("MC.ov.kind()==='set'", 40, "two Deep cards completed the Deep 2 set: the moment plays");
 		this.context.waitTicks(6);
-		this.context.takeScreenshot("voidhub_mettle_18_set_complete");
+		this.shot("voidhub_mettle_18_set_complete");
 		this.ui.clickPage("#c-ov");
 		this.context.waitTicks(3);
 		this.ui.clickPage("[data-scard=\"" + deep[0] + "\"]");
 		this.context.waitTicks(3);
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_19_deck_take_out");
+		this.shot("voidhub_mettle_19_deck_take_out");
 		this.ui.clickPage("[data-popclose]");
 		this.ui.clickPage("[data-stab=\"tree\"]");
 		this.context.waitTicks(4);
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_20_tree");
+		this.shot("voidhub_mettle_20_tree");
 		this.ui.clickPage("[data-stab=\"deck\"]");
 		this.context.waitTicks(3);
 
@@ -416,7 +424,7 @@ public final class MettleTest {
 		this.context.waitTicks(3);
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_21_shrine_rebuild");
+		this.shot("voidhub_mettle_21_shrine_rebuild");
 		this.ui.clickPage("[data-rebuild]");
 		this.context.waitTicks(20);
 		this.expect(!this.slotted(deep[0]), "the shrine rebuild took the Tunneler out");
@@ -428,7 +436,7 @@ public final class MettleTest {
 		}
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_22_shrine_fuse");
+		this.shot("voidhub_mettle_22_shrine_fuse");
 		int cardsBefore = this.binderCount();
 		this.ui.clickPage("[data-fuse]");
 		this.context.waitTicks(20);
@@ -441,7 +449,7 @@ public final class MettleTest {
 		}
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
-		this.context.takeScreenshot("voidhub_mettle_23_shrine_release");
+		this.shot("voidhub_mettle_23_shrine_release");
 		this.ui.clickPage("[data-closesit]");
 		this.context.waitTicks(10);
 		this.expect(this.js("document.getElementById('cv').className").indexOf("scr-shrine") < 0, "Leave ended the sitting");
@@ -468,7 +476,7 @@ public final class MettleTest {
 		this.context.waitTicks(3);
 		this.ui.parkMouse();
 		this.context.waitTicks(2);
-		this.context.takeScreenshot("voidhub_mettle_24_trade_add");
+		this.shot("voidhub_mettle_24_trade_add");
 		this.ui.clickPage(".tr-pick [data-toffer]");
 		this.context.waitTicks(4);
 		this.ui.clickPage("[data-tadd=\"0\"]");
@@ -479,11 +487,11 @@ public final class MettleTest {
 		this.context.waitTicks(5);
 		this.ui.parkMouse();
 		this.context.waitTicks(2);
-		this.context.takeScreenshot("voidhub_mettle_25_trade_locked");
+		this.shot("voidhub_mettle_25_trade_locked");
 		this.dumpState("trade");
 		this.ui.clickPage("[data-tconfirm]");
 		this.context.waitTicks(22);
-		this.context.takeScreenshot("voidhub_mettle_26_trade_countdown");
+		this.shot("voidhub_mettle_26_trade_countdown");
 		this.context.waitTicks(45);
 		// The countdown runs in Mettle's server tick for real players; a stand-in's trade is finished the way Mettle's own
 		// TradeJourney does it, once the countdown is over.
@@ -508,10 +516,11 @@ public final class MettleTest {
 			net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.NARRATOR_TOGGLE, net.minecraft.network.chat.Component.literal("VOID Hub test"),
 			net.minecraft.network.chat.Component.literal("A toast held while the hub was open")));
 		this.context.waitTicks(20);
-		this.context.takeScreenshot("voidhub_mettle_27_toast_held");
+		this.shot("voidhub_mettle_27_toast_held");
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
 		this.context.waitTicks(20);
-		this.context.takeScreenshot("voidhub_mettle_28_toast_after_close");
+		this.shot("voidhub_mettle_28_toast_after_close");
+		this.expect(this.flatRuns.isEmpty(), "no flat untextured colour outside the window in any screenshot: " + this.flatRuns);
 		dev.voidmc.hub.VoidHub.LOGGER.info("VOID Hub + Mettle: all steps passed");
 	}
 
@@ -534,6 +543,79 @@ public final class MettleTest {
 	}
 
 	/** Runs script in the page and returns its string result. */
+	/** Flat-colour runs found outside the window, per screenshot (see shot). */
+	private final java.util.List<String> flatRuns = new java.util.ArrayList<>();
+
+	/**
+	 * Takes a screenshot and scans the world around the window for long runs of one flat colour (a texture drawn
+	 * where none belongs; the world and the held item are textured). Logs what the player holds, for context.
+	 */
+	private void shot(String name) {
+		java.nio.file.Path p = this.context.takeScreenshot(name);
+		String held = this.context.computeOnClient(mc -> mc.player == null ? "-" : "slot " + mc.player.getInventory().getSelectedSlot() + " "
+			+ net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(mc.player.getMainHandItem().getItem()) + " / "
+			+ net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(mc.player.getOffhandItem().getItem()));
+		HubLayout l = this.ui.layout();
+		try {
+			java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(p.toFile());
+			java.util.List<dev.voidmc.hub.layout.Rect> keep = new java.util.ArrayList<>();
+			if (l != null) {
+				for (dev.voidmc.hub.layout.Rect r : new dev.voidmc.hub.layout.Rect[] {l.window, l.mark, l.pages, l.close, l.strip}) {
+					if (r != null) {
+						keep.add(r);
+					}
+				}
+			}
+			// A 48 px square of one exact, saturated colour outside the window is not the world: blocks are textured
+			// and smooth-lit, stone, dirt and wood are greys and browns, foliage is dark. (Effect particles in front of
+			// the camera were exactly that: Speed's cyan swirls, flat-tinted, ~70 px squares.)
+			if (keep.isEmpty()) {
+				return;  // not a hub screen (the picker, the world after closing): nothing to compare the outside with
+			}
+			int runs = 0;
+			java.util.Map<Integer, Integer> colours = new java.util.TreeMap<>();
+			int B = 48;
+			for (int y = 0; y + B <= img.getHeight(); y += 24) {
+				for (int x = 0; x + B <= img.getWidth(); x += 24) {
+					if (overlaps(keep, x, y, B)) {
+						continue;
+					}
+					int c = img.getRGB(x, y) & 0xFFFFFF;
+					boolean flat = true;
+					for (int dy = 0; dy < B && flat; dy += 4) {
+						for (int dx = 0; dx < B && flat; dx += 4) {
+							flat = (img.getRGB(x + dx, y + dy) & 0xFFFFFF) == c;
+						}
+					}
+					float[] hsv = java.awt.Color.RGBtoHSB(c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF, null);
+					if (flat && hsv[1] >= 0.55F && hsv[2] >= 0.5F) {
+						runs++;
+						colours.merge(c, 1, Integer::sum);
+					}
+				}
+			}
+			StringBuilder top = new StringBuilder();
+			colours.entrySet().stream().sorted((x1, x2) -> x2.getValue() - x1.getValue()).limit(4)
+				.forEach(e -> top.append(String.format("#%06X x%d ", e.getKey(), e.getValue())));
+			dev.voidmc.hub.VoidHub.LOGGER.info("SCAN " + name + " held " + held + " flat squares " + runs + " " + top);
+			if (runs > 0) {
+				this.flatRuns.add(name + " (" + runs + ": " + top.toString().trim() + ")");
+			}
+		} catch (java.io.IOException e) {
+			throw new java.io.UncheckedIOException(e);
+		}
+	}
+
+	/** A B-px square touching the window or an island (screenshot pixels are the layout's physical pixels). */
+	private static boolean overlaps(java.util.List<dev.voidmc.hub.layout.Rect> rs, int x, int y, int b) {
+		for (dev.voidmc.hub.layout.Rect r : rs) {
+			if (x + b > r.x() - 6 && x < r.right() + 6 && y + b > r.y() - 6 && y < r.y() + r.h() + 6) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private String js(String expr) {
 		return this.context.computeOnClient(mc -> dev.voidmc.hub.ui.HubView.get().eval(expr));
 	}
@@ -547,7 +629,7 @@ public final class MettleTest {
 			}
 			this.context.waitTicks(1);
 		}
-		this.context.takeScreenshot("voidhub_mettle_FAILED");
+		this.shot("voidhub_mettle_FAILED");
 		throw new AssertionError("VOID Hub + Mettle: " + what + " (page: " + this.js("String(document.getElementById('cv') && document.getElementById('cv').className) + ' err=' + window.__hubError + ' ' + MC.debug()") + ")");
 	}
 

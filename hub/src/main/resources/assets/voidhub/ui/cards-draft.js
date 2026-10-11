@@ -81,21 +81,13 @@
   function burnText(n) { return n >= 3 ? "THE OTHER TWO BURN" : n === 2 ? "THE OTHER ONE BURNS" : "NOTHING ELSE BURNS"; }
   function keepText(n) { return n >= 3 ? "KEEP ONE, THE OTHER TWO BURN" : n === 2 ? "KEEP ONE, THE OTHER ONE BURNS" : "KEEP IT"; }
   /**
-   * Fits the hand's cards to their content (no empty lower half): every card takes the tallest card's height, never
-   * under 248 or over 328, in 4 px steps so the native fire's texels line up. Moves the keys, the redeal and the toast
-   * with the hand's bottom, and the glow behind the hand with it. Returns the height.
+   * Lays out the hand's cards inside their fixed 248 x 328 faces (MC.layoutCard: no empty lower half, no resizing)
+   * and places the keys, the redeal, the toast and the glow behind the hand under the lowered hand.
    */
-  function fitHand(els, minH) {
-    var H = 248;
-    for (var k = 0; k < els.length; k++) {
-      var flow = els[k].querySelector(".hc-flow"), need = els[k].querySelector(".hc-need");
-      if (!flow) continue;
-      H = Math.max(H, 128 + flow.scrollHeight + (need ? 34 : 0) + 24);
-    }
-    H = Math.min(328, Math.ceil(H / 4) * 4);
-    for (var j = 0; j < els.length; j++) if (els[j].querySelector(".hc-flow")) els[j].style.height = H + "px";
-    cur.H = H;
-    var bottom = TOP + Math.max(H, minH || 0), dy = bottom - OLD_BOTTOM;
+  function fitHand(els) {
+    for (var k = 0; k < els.length; k++) MC.layoutCard(els[k]);
+    var H = cur.H = 328;
+    var bottom = TOP + H, dy = bottom - OLD_BOTTOM;
     var keys = MC.$("dr-keys"), act = MC.$("dr-act"), halo = MC.$("dr-halo");
     if (keys) keys.style.top = dy + "px";
     if (act) act.style.top = dy + "px";
@@ -116,8 +108,8 @@
       if (!c || cur.pos[k] == null || MC.isMythic(c) || cur.faded) continue;
       var x = w.x + cur.pos[k], y = w.y + TOP, H = cur.H || 328, tint = tintOf(c), id = "g" + cur.gen + "c" + k;
       if (cur.burnt && cur.burnt[k]) {
-        items.push({i: id + "-bf", k: "bfront", x: x, y: y, h: H, c: tint, d: burnDelay()});
-        items.push({i: id + "-ash", k: "ash", x: x, y: y, h: H, d: burnDelay()});
+        items.push({i: id + "-bf", k: "bfront", x: x, y: y, c: tint, d: burnDelay()});
+        items.push({i: id + "-ash", k: "ash", x: x, y: y, d: burnDelay()});
         continue;
       }
       var hov = cur.picked < 0 && cur.hover === k, kept = cur.picked === k, cool = cur.picked < 0 && cur.hover >= 0 && !hov;
@@ -127,10 +119,10 @@
       }
       if (cool) items.push({i: id + "-cool", k: "rect", x: x - 1, y: y - 1, w: 250, h: H + 2, c: "#0B0A0B", a: 0.6, q: 120});
       var edge = MC.edgeOf(c), dense = hov || edge === "epic" || edge === "cursed", d = cur.dealing ? k * 80 + 240 : 0;
-      items.push({i: id + "-e", k: "edge-" + edge, x: x, y: y, h: H, c: tint, a: cool ? 0.4 : 1, d: d});
-      items.push({i: id + "-m" + (dense ? "d" : "s"), k: dense ? "embers-dense" : "embers-sparse", x: x, y: y, h: H, c: tint, a: cool ? 0.4 : 1, d: d});
-      if (hov) items.push({i: id + "-h", k: "edge-hot", x: x, y: y, h: H, c: tint});
-      if (kept) items.push({i: id + "-f", k: "flare", x: x, y: y, h: H, c: tint});
+      items.push({i: id + "-e", k: "edge-" + edge, x: x, y: y, c: tint, a: cool ? 0.4 : 1, d: d});
+      items.push({i: id + "-m" + (dense ? "d" : "s"), k: dense ? "embers-dense" : "embers-sparse", x: x, y: y, c: tint, a: cool ? 0.4 : 1, d: d});
+      if (hov) items.push({i: id + "-h", k: "edge-hot", x: x, y: y, c: tint});
+      if (kept) items.push({i: id + "-f", k: "flare", x: x, y: y, c: tint});
     }
     MC.fxSet("draft", items.concat(cur.mythicFx || []));
   }
@@ -422,7 +414,7 @@
       others += MC.hcard(cur.hand[k], k, s, {cls: "faded", style: "left:" + cur.pos[k] + "px;top:" + TOP + "px"});
     }
     MC.$("dr-hand").innerHTML = others;
-    fitHand(MC.$("dr-hand").children, 328);  // the Mythic stays 328 tall; the faded others fit their content
+    fitHand(MC.$("dr-hand").children);
     cur.rvX = leftOf(slot, n);
     cur.rvY = TOP;
     MC.$("dr-hand").insertAdjacentHTML("afterend", mythicStage(c, cur.rvX, cur.rvY));
