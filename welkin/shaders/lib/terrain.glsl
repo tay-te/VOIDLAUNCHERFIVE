@@ -43,8 +43,9 @@ uniform vec3 cameraPosition;
 const float TERRAIN_CELL = 16.0;     // blocks per cell (N0)
 const float TERRAIN_SPREAD = 0.03;   // the penumbra's half width per block of distance to the caster
 const float TERRAIN_BIAS = 1.0;      // blocks: a point this far under the line still counts as on it
-// a stylization: the land's relief counts this much for its own shade (a ridge 60 blocks over the valley throws the
-// shadow of one 90 blocks over it), so the far land's form reads at the golden hour as a storybook map's hill shading
+// a stylization: while the sun stands high enough the land's relief counts up to this much for its own shade (a ridge
+// 60 blocks over the valley throws the shadow of one 90 blocks over it), so the far land's form reads as a storybook
+// map's hill shading; toward a low sun it eases back to the true relief (terrainBuild)
 const float TERRAIN_SHADOW_RELIEF = 1.5;
 const float TERRAIN_FLOOR = 32.0;    // a line never lower than this under the cell's ground (lit anyway; keeps the
                                      // bilinear blend between cells on the scale of the land)
@@ -116,6 +117,7 @@ vec4 terrainBuild(ivec2 p, vec3 lightDir, float nearReach) {
 	float ysOut = floorY, tOut = 16.0;
 	// out to 2 km, or until the ray stands 400 blocks over the cell (no land that tall round it)
 	float tMax = min(2048.0, 400.0 / tanE);
+	float relief = mix(1.0, TERRAIN_SHADOW_RELIEF, smoothstep(0.15, 0.35, lightDir.y));
 	float tt = 0.0;
 	for (int i = 0; i < 72; i++) {
 		// 16-block steps, growing by a third of a cell a step (out to 2 km in about 60 steps)
@@ -128,7 +130,7 @@ vec4 terrainBuild(ivec2 p, vec3 lightDir, float nearReach) {
 		if (max(abs(dc.x), abs(dc.y)) > 126) {
 			break; // off the tile
 		}
-		float v = g0 + (terrainGroundAt(q) - g0) * TERRAIN_SHADOW_RELIEF - tt * tanE;
+		float v = g0 + (terrainGroundAt(q) - g0) * relief - tt * tanE;
 		if (v > ysAll) {
 			ysAll = v;
 			tAll = tt;
@@ -152,6 +154,7 @@ uniform sampler2D colortex15;
 struct TerrainCell {
 	vec4 line;   // ys over all casters, its half width, ys over the far casters, its half width
 	vec2 grad;   // the ground's gradient (dy/dx, dy/dz)
+	float ground; // the tile's ground there (bilinear)
 	float w;     // how far to trust it: 0 without data, fading out toward the tile's edge (1.6..1.9 km)
 };
 
@@ -160,6 +163,7 @@ TerrainCell terrainAt(vec3 playerPos) {
 	TerrainCell r;
 	r.line = vec4(-1e4, 1.0, -1e4, 1.0);
 	r.grad = vec2(0.0);
+	r.ground = -1e4;
 	r.w = 0.0;
 	vec2 wxz = cameraPosition.xz + playerPos.xz;
 	vec2 pq = wxz / TERRAIN_CELL - 0.5;
@@ -189,6 +193,7 @@ TerrainCell terrainAt(vec3 playerPos) {
 	}
 	r.line = line / ws;
 	r.grad = land.xy / ws;
+	r.ground = land.z / ws;
 	r.w = edge * clamp(ws * 4.0, 0.0, 1.0);
 	return r;
 }
@@ -200,15 +205,26 @@ float terrainLineVis(float y, float ys, float h) {
 
 // The terrain's shadow at a camera-relative point: all (every caster; past the near map) and far (only the casters past
 // the near map's reach; for points inside it). longFade: lib/shadow.glsl shadowLongFadeStrength now.
-void terrainShadow(TerrainCell tc, vec3 playerPos, float longFade, out float all, out float far) {
-	float y = cameraPosition.y + playerPos.y;
+// lightY: the light's height (world direction's y). lowSun: 1 by day, 0 under the moon.
+void terrainShadow(TerrainCell tc, vec3 playerPos, float longFade, float lightY, float lowSun, out float all,
+		out float far) {
+	// the point's height over the tile's own ground, never under it: the tile's heights and the blocks' differ by a
+	// block or two, and a point a little under the tile's ground must not fall into the shade of its own cell's slope
+	// (at a grazing sun that put level fields in patchy shade); what stands over the land (a crown, a roof) keeps
+	// its height
+	float y = max(cameraPosition.y + playerPos.y, tc.ground);
 	all = terrainLineVis(y, tc.line.x, tc.line.y);
 	far = terrainLineVis(y, tc.line.z, tc.line.w);
 	// the low sun's long shadows thin with their length, as the map's (the half width says how far the caster stands)
 	float ta = (tc.line.y - 0.75) / TERRAIN_SPREAD;
 	float tf = (tc.line.w - 0.75) / TERRAIN_SPREAD;
-	all = mix(all, 1.0, longFade * smoothstep(56.0, 144.0, ta));
-	far = mix(far, 1.0, longFade * smoothstep(56.0, 144.0, tf));
+	// and in the last degrees before sunset (and after sunrise) the terrain's shadows give way altogether, so the golden
+	// hour reaches the horizon (the user's rule: a meadow or a village field is not put out by a ridge a kilometre
+	// off; and at a grazing sun a block's difference between the tile's heights and the land's own put level fields
+	// in patchy shade): the slopes' own light (terrainSlopeFacing) carries the land's form then
+	float low = lowSun * (1.0 - smoothstep(0.08, 0.25, lightY));
+	all = mix(all, 1.0, max(longFade * smoothstep(56.0, 144.0, ta), low));
+	far = mix(far, 1.0, max(longFade * smoothstep(56.0, 144.0, tf), low));
 	all = mix(1.0, all, tc.w);
 	far = mix(1.0, far, tc.w);
 }

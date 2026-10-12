@@ -123,7 +123,8 @@ void shadowTerms(Surface s, vec3 playerPos, vec3 n, float sky, int material, flo
 #ifdef WELKIN_TERRAIN_LIVE
 	if (facing > 0.0 || matHas(material, MATF_SSS)) {
 		float tAll, tFar;
-		terrainShadow(terrainAt(playerPos), playerPos, shadowLongFadeStrength(lightDir), tAll, tFar);
+		terrainShadow(terrainAt(playerPos), playerPos, shadowLongFadeStrength(lightDir), lightDir.y,
+			sunAngle < 0.5 ? 1.0 : 0.0, tAll, tFar);
 		farVis = min(farVis, tAll);
 		terrainNear = tFar;
 	}

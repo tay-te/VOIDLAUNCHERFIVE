@@ -98,7 +98,8 @@ float lightShadowFetch(ivec2 p, Surface s, vec3 playerPos, vec3 n, float sky, in
 #ifdef WELKIN_TERRAIN_LIVE
 	if (facing > 0.0 || matHas(m, MATF_SSS)) {
 		float tAll, tFar;
-		terrainShadow(terrainAt(playerPos), playerPos, shadowLongFadeStrength(lightDirWorld()), tAll, tFar);
+		terrainShadow(terrainAt(playerPos), playerPos, shadowLongFadeStrength(lightDirWorld()), lightDirWorld().y,
+			sunAngle < 0.5 ? 1.0 : 0.0, tAll, tFar);
 		farVis = min(farVis, tAll);
 	}
 #endif
