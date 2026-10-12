@@ -281,7 +281,10 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	// shade on open ground stays deep), and in a near-neutral colour (the albedo a quarter, the sun's colour half), so
 	// shaded pale stone reads cool light grey and not a warm, muddy brown-grey: the sky's blue carries its hue.
 	vec3 dl = skyLandDirect();
+	// (only pale surfaces take it: a pale cliff stands among pale neighbours, a dirt bank among dark ones, so its shade
+	// stays a deep earth brown and open ground keeps its sun-to-shade contrast)
 	ambient += mix(vec3(lumaLin(a)), a, 0.25) * mix(vec3(lumaLin(dl)), dl, 0.5) * (LAND_SELF_BOUNCE
+		* smoothstep(0.1, 0.45, lumaLin(a))
 		* max(lightDirWorld().y, 0.0) * (1.0 - 0.8 * max(n.y, 0.0))
 		* rampSkyLin(lm.y) * (1.0 - canopyShade(lm.y, sunReach)));
 	// the sun (or the moon) on faces turned to it, where it reaches; under a canopy a little of it filters through
