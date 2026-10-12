@@ -631,3 +631,40 @@ Closes GAPS.md gaps 5, 6 and 8 (water stays with P7).
 - **Cost (1080p, RTX 4060, MEDIUM, best second of 8 per sweep step in game):** the map with its filter 0.28-0.63 ms,
   far shadows 0-0.36 ms, the contact shade 0.08-0.2 ms (forest, village, valley, meadow); HIGH's 192-block map adds
   0.2-0.4 ms. Inside 3.5's shadow line plus the deferred line.
+
+### The lighting review, round 1: deeper cool shade, a leading sun, gold at the low sun (2026-10-12)
+
+The review of the step 2 bench (test worlds A and B against Complementary, Unbound + Euphoria and Hysteria) asked for
+more sun against shade, cool blue shade instead of olive grey, deep pools under the canopy, a natural (not lime) light
+through leaves, amber that lasts until the sun touches the horizon, and less clipping on pale stone. Measured from
+here on with the pack's own cloud shadows off (`CLOUD_SHADOWS=0`) and the same view list in every run, because
+Gloam's weather (and with it the cloud shadow over the near land) changes from run to run.
+
+- **Sun and fill (`lib/tone.glsl`, `lib/sky/build.glsl skyLand`):** the noon sun 2.65 (was 2.4) in a neutral-warm
+  white (1, 0.955, 0.85); the sky's fill 0.17 at noon (was 0.245), falling faster than the sun through the afternoon
+  (`skyLandFillLevel`: 0.53 + 0.47 smoothstep(0.1, 0.92, h)^1.6), in a clearer blue; the ground's bounce 0.2 (was
+  0.36), a less yellow ground. The sun's strength 0.5..1 of noon by height (was 0.6..1).
+- **The low sun:** the last ten degrees take the low colour (amber at dusk 1, 0.42, 0.16; rose-gold at dawn 1, 0.46,
+  0.29), so sunlit grass tips and crowns turn gold, not lime; the colour mixes over sun height 0.02..0.18.
+- **Canopy shade (`lib/light.glsl canopyShade`):** by day, where the sky is partly hidden (sky light 0.35..0.97) and
+  the sun does not reach, the fill is cut by up to 55 %; the canopy leak is 0.035 (was 0.12). Forest floors and a
+  crown's inner leaves sink into deep, readable shade between the sun patches; nights unchanged.
+- **Short-range bounce (`LAND_SELF_BOUNCE` 0.13):** a face takes back 0.13 x the sun on level ground x its own colour
+  (half desaturated), more on walls than tops, under open sky: pale stone's shaded steps read a light grey, grass and
+  dirt keep their deep shade.
+- **Light through leaves:** the sun's colour times the leaf at half its saturation (was the leaf's colour twice over,
+  tinted yellow), at most 0.7 x a narrow lobe 0.06 + 0.94 c^4 for leaves (0.32 for plants), widening at a low sun
+  (0.4 + 0.6 c^2) so crowns seen from the side glow gold at dawn and dusk. Leaves take 0.36 + 0.64 of their Lambert
+  share (was 0.45 + 0.55). Far plants (24..64 blocks) lose their glow and a quarter of their sun: no bright specks.
+- **Tone:** a hyperbolic shoulder from 0.45 (sRGB 177; was an exponential from 0.52), so pale faces in full sun keep
+  their texture at sRGB 220..240; the S-curve 1.26 (was 1.22). Glowing texels go through `welkinToneEmit`, which keeps
+  their hue into white (a torch's flame stays yellow-orange).
+- **Torches:** `rampBlockLin` to the 2.05th power (was 2.3) and a ninth stronger: wider, cosier pools.
+- **Overcast nights:** the night's fill x (1 + 0.9 overcast), so a clouded night stays readable.
+- **Sky and clouds:** the dusk glow's spread 1.25 (was 0.95) and its rings eased at both ends (no seam between a rose
+  half and a grey half); a rose band opposite a low sun along the horizon; the clouds' sides and bases lit much more
+  (light scattered through the body: base sky view 0.9 and diffuse 0.3, sides wrapped to -0.7), and by a low sun from
+  below (peach bases toward the sun, rose away from it); the dusk palette's sunward blend a smooth lobe over the whole
+  sky (was a 40 degree step).
+- **Cost:** a few dozen ALU operations per pixel in deferred; the bench's frame times stayed within run-to-run noise
+  (3.6..5.6 ms at 1600x900 MEDIUM).
