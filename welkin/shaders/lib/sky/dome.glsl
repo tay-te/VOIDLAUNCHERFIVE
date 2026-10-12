@@ -111,8 +111,8 @@ vec3 skyLowSunBandOver(vec3 col, vec3 d, SkyFrame f) {
 		az = dot(normalize(d.xz), normalize(sz));
 	}
 	float wAz = 0.5 + 0.5 * az;
-	wAz *= wAz * wAz;
-	float wEl = exp(-max(d.y, 0.0) / 0.075) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
+	wAz *= wAz;
+	float wEl = exp(-max(d.y, 0.0) / 0.10) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
 	float w = clamp(b.a * wAz * wEl, 0.0, 1.0);
 	return mix(col, max(col, b.rgb), w);
 }

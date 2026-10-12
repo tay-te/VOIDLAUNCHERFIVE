@@ -183,18 +183,18 @@ vec3 skyLandSunColour(float h, float morning) {
 	// (the warmth comes mostly out of the blue, little out of the green, so sunlit grass stays green, not olive)
 	vec3 noon = vec3(1.00, 0.97, 0.90);
 	vec3 aft  = mix(vec3(1.00, 0.83, 0.48), vec3(1.00, 0.89, 0.64), morning);
-	vec3 gold = mix(vec3(1.00, 0.79, 0.48), vec3(1.00, 0.78, 0.56), morning);
-	vec3 low  = mix(vec3(1.00, 0.60, 0.28), vec3(1.00, 0.60, 0.38), morning);
+	vec3 gold = mix(vec3(1.00, 0.73, 0.40), vec3(1.00, 0.72, 0.55), morning);
+	vec3 low  = mix(vec3(1.00, 0.54, 0.24), vec3(1.00, 0.55, 0.42), morning);
 	vec3 c = mix(aft, noon, smoothstep(0.52, 0.92, h));
 	c = mix(gold, c, smoothstep(0.08, 0.36, h));
-	c = mix(low, c, smoothstep(-0.01, 0.09, h));
+	c = mix(low, c, smoothstep(-0.01, 0.14, h));
 	return skyUnitLuma(c);
 }
 
-// The sun's strength on the land for its height: full high up, about half at the golden hour (the shade loses more,
+// The sun's strength on the land for its height: full high up, about two thirds at the golden hour (the shade loses more,
 // so the contrast grows), on until the disc touches the horizon and gone a moment after.
 float skyLandSunStrength(float h) {
-	return LAND_SUN * (0.52 + 0.48 * smoothstep(0.0, 0.5, h)) * smoothstep(-0.012, 0.03, h);
+	return LAND_SUN * (0.6 + 0.4 * smoothstep(0.0, 0.5, h)) * smoothstep(-0.012, 0.03, h);
 }
 
 // The open sky's fill on an upward face, relative to noon: it dims slowly as the sun sinks, then fast through the

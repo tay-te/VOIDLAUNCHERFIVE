@@ -552,16 +552,18 @@ shade that is deep, sky-tinted and readable.
 - **Linear light and one tone curve** (`lib/tone.glsl`, `lib/light.glsl` `welkinLightFull`): the albedo goes to linear;
   the sun or moon, the sky's fill, the ground's bounce and the torches add as light does; one filmic curve per pixel
   brings the sum to the display values the rest of the pack works in (exposure, a gentle S on luminance round mid
-  grey that fades out in the deep dark so nights keep their level, a soft shoulder mostly on luminance so sunlit grass
+  grey that fades out in the deep dark so nights keep their level and eases off in the highlights so a sunlit pale
+  face keeps its texture, a soft shoulder mostly on luminance so sunlit grass
   stays green and a pale face in full sun rolls into near white without clipping, saturation 0.97). No neighbourhood,
   no adaptation, no bloom, no TAA. The sky, the clouds and the haze keep their display values and final's shoulder.
 - **The land's light in the sky table** (`lib/sky/build.glsl` `skyLand`, row 5 x 12..15; the table is now RGBA16 so a
   moonless night's linear fill keeps its precision): the shadow light's direct light, the sky's fill on an upward face,
   the ground's bounce on a downward face, and the warm horizon band, all smooth in the sun's height h:
-  - **sun:** 2.4 at noon, about half at the golden hour, on until the disc touches the horizon (out over h 0.03..-0.012);
-    a clean warm white high up (1, 0.97, 0.90), warming through the afternoon (1, 0.83, 0.48), amber at the golden hour
-    and deep amber at the horizon; the warmth comes out of the blue more than the green, so sunlit grass stays green;
-    the morning takes the same path a touch paler and rosier. Overcast and storms cut it as before.
+  - **sun:** 2.4 at noon, about two thirds at the golden hour, on until the disc touches the horizon (out over h
+    0.03..-0.012); a clean warm white high up (1, 0.97, 0.90), warming through the afternoon (1, 0.83, 0.48), amber at
+    the golden hour (1, 0.73, 0.40) and deep amber at the horizon (1, 0.54, 0.24); the warmth comes out of the blue more
+    than the green, so sunlit grass stays green; the morning takes the same path paler and rosier (a rose-gold dawn,
+    1, 0.55, 0.42 at the horizon). Overcast and storms cut it as before.
   - **fill:** 0.245 on an upward face at noon, a clear blue that cools as the sun sinks and bluer still in the blue hour,
     dimming slowly with the sun and fast after sunset; grey and brighter under a closed sky; the night's fill is the old
     moonlit look taken to linear (x 1.6 for the linear sum), so nights read as before.

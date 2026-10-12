@@ -77,7 +77,8 @@ vec3 welkinTone(vec3 x) {
 	// the S round mid grey, on luminance (the hue stays): it fades out in the deep dark, so a moonlit night or a dim
 	// cave keeps its level and only the daylight's shade deepens
 	float y0 = lumaLin(x);
-	float k = (LAND_CONTRAST - 1.0) * smoothstep(0.002, 0.03, y0);
+	// (and eases off in the highlights, so a sunlit pale face keeps its texture instead of being pushed into the shoulder)
+	float k = (LAND_CONTRAST - 1.0) * smoothstep(0.002, 0.03, y0) * (1.0 - smoothstep(0.3, 1.5, y0));
 	x *= pow(max(y0, 1e-6) / 0.18, k);
 	// the shoulder: per channel, and on luminance with the hue kept (then pulled back under white)
 	vec3 perChannel = toneShoulder(x);
