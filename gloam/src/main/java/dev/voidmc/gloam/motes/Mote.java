@@ -20,6 +20,13 @@ import org.joml.Vector3fc;
 abstract class Mote extends SingleQuadParticle {
 	/** How much more opaque the soft motes are drawn under a shader pack. */
 	private static final float PACK_BODY = 2.5F;
+	/**
+	 * The same under VOID Welkin, which lights them as the level land round them and draws them with a smooth alpha:
+	 * fine water and powder, a faint veil, never a bright speckled blob (the waterfall's spray at night).
+	 */
+	private static final float WELKIN_BODY = 1.2F;
+	/** The soft motes' colour under VOID Welkin: a pale grey, so lit like the land they are no brighter than it. */
+	private static final Vector3fc WELKIN_GREY = new org.joml.Vector3f(0.72F, 0.74F, 0.78F);
 	/** Ticks a mote takes to vanish once the motes are switched off. */
 	private static final int VANISH = 8;
 
@@ -83,7 +90,7 @@ abstract class Mote extends SingleQuadParticle {
 		} else {
 			this.step(Atmosphere.get().here());
 			if (this.misty > 0) {
-				Vector3fc air = Motes.pack() ? ONE : Motes.mist();
+				Vector3fc air = Motes.pack() ? (Bridge.welkin() ? WELKIN_GREY : ONE) : Motes.mist();
 				// clamped: the packed colour wraps past 1 into the next channel
 				this.setColor(Math.min(1, air.x() * this.misty), Math.min(1, air.y() * this.misty), Math.min(1, air.z() * this.misty));
 			}
@@ -91,15 +98,16 @@ abstract class Mote extends SingleQuadParticle {
 			if (this.misty > 0 && Motes.pack()) {
 				// a pack lights the soft motes like any particle (dim in the low light of dawn, where mist shows most)
 				// instead of in the bright colour of the air, so they need more body to show at all
-				a *= PACK_BODY;
+				a *= Bridge.welkin() ? WELKIN_BODY : PACK_BODY;
 			}
 			a = this.finish(a);
 			if (this.vanishing > 0) {
 				a *= this.vanishing-- / (float) VANISH;
 			}
 			a = Math.clamp(a, 0, 1);
-			// pixel-true (docs/STYLE.md): a mote fades in and out in a few flat steps, not smoothly
-			this.alpha = this.stepped() ? Math.round(a * ALPHA_STEPS) / (float) ALPHA_STEPS : a;
+			// pixel-true (docs/STYLE.md): a mote fades in and out in a few flat steps, not smoothly; under VOID Welkin
+			// (its look of 2026-10-11: smooth, no visible steps or dither) smoothly
+			this.alpha = this.stepped() && !Bridge.welkin() ? Math.round(a * ALPHA_STEPS) / (float) ALPHA_STEPS : a;
 		}
 		Motes.timeParticle(System.nanoTime() - start);
 	}

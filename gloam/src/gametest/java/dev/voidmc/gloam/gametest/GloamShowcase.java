@@ -49,6 +49,10 @@ import net.minecraft.world.level.levelgen.Heightmap;
  */
 public class GloamShowcase implements FabricClientGameTest {
 	private static final String SEED = System.getProperty("gloam.show.seed", "8675309");
+	/** The Earth world's low cloud deck (Gloam's CloudGrid.Layers on a world 600+ tall: low = 208) and a deck's thickness. */
+	private static final int LOW_DECK = 208, WC_DECK_THICK = 4;
+	/** The front under which the sky is still clear (cloud cover about 0.1: front 0.38 gave 0.08, 0.44 gave 0.22). */
+	private static final float CLEAR_FRONT = 0.38F;
 	private static final int DISTANCE = Integer.getInteger("gloam.show.distance", 12);
 	private static final long SETTLE_MS = Long.getLong("gloam.show.settle", 20_000L);
 	private static final String ONLY = System.getProperty("gloam.show.only", "");
@@ -435,6 +439,10 @@ public class GloamShowcase implements FabricClientGameTest {
 			views.add(new View("whaze_" + kind, p.valleyX(), p.valleyY() + 30, p.valleyZ(), 180, 5, 70, hour, "clear", 2));
 		}
 		views.add(new View("wover0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), 90, -4, 70, 6 * 24000L + 6000, "clear", 2));
+		// the eye at the low deck over the valley in the rain (a wet front thickens the stratus): inside its slab, and 13
+		// blocks over it, the fog of a deck at eye height and the inside of a cloud (y is the eye's height, not an offset)
+		views.add(new View("wdeck0", p.valleyX(), LOW_DECK + 2, p.valleyZ(), 90, 4, 70, 6 * 24000L + 6000, "rain", 4));
+		views.add(new View("wdeck1", p.valleyX(), LOW_DECK + 17, p.valleyZ(), 90, 4, 70, 6 * 24000L + 6000, "rain", 4));
 		// (the valley's rain and wet views were a stone gorge and water, which say nothing of rain or wet ground: rain and
 		// wetness are judged on the meadow below; the water's reflection at noon on the near water, wwater0)
 		views.add(new View("wwater0", p.valleyX(), p.valleyY() + 3, p.valleyZ(), 180, 8, 70, 6 * 24000L + 6000, "clear", 2));
@@ -458,6 +466,11 @@ public class GloamShowcase implements FabricClientGameTest {
 			return null;
 		}
 		boolean byHaze = kind.equals("dusty") || kind.equals("clear_alpine");
+		// clear alpine air is judged under a clear sky: the fronts over the place (and round it, for the drift while the
+		// chunks load) at the hour it is shot, as underFront reads them
+		Air air = new Air(BiomeManager.obfuscateSeed(level.getSeed()), GloamSettings.get().seasonDays);
+		long gameTime = level.getGameTime() + SETTLE_MS / 50 + 60;
+		float year = air.year(near.time());
 		for (int r = 0; r <= 24000; r += 192) {
 			int n = r == 0 ? 1 : Math.max(8, (int) (2 * Math.PI * r / 192));
 			for (int i = 0; i < n; i++) {
@@ -490,6 +503,19 @@ public class GloamShowcase implements FabricClientGameTest {
 				int lift = alpine ? 6 : 30;
 				if (!alpine && top + lift > 185) {
 					continue;
+				}
+				if (alpine) {
+					// out of the low deck's slab (and its fog bank), over it if the ground stands close under it
+					if (top + lift > LOW_DECK - 12 && top + lift < LOW_DECK + WC_DECK_THICK + 12) {
+						lift = LOW_DECK + WC_DECK_THICK + 12 - top;
+					}
+					float worst = 0;
+					for (int[] d : new int[][]{{0, 0}, {-320, 0}, {320, 0}, {0, -320}, {0, 320}}) {
+						worst = Math.max(worst, air.front(x + d[0], z + d[1], gameTime, year, 0.6F));
+					}
+					if (worst > CLEAR_FRONT) {
+						continue;
+					}
 				}
 				// the yaw (of eight) over the lowest land 300 blocks out
 				float yaw = 180, lowest = Float.MAX_VALUE;
