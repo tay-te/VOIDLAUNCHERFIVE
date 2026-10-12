@@ -113,6 +113,7 @@ struct ShadowSample {
 	float vis;
 	vec3 tint;
 	float depth;
+	float cover; // the share of the search that found a caster (0 in the open)
 };
 
 // What of the sun's (or the moon's) direct light reaches a point: playerPos camera-relative (feet-relative as
@@ -120,11 +121,14 @@ struct ShadowSample {
 // thin: a plant's quad (double-sided, its normal means little): the lookup steps toward the light instead of off the
 // face. water: the point is on water's surface, which other water in front of it never tints (a slope's or a fall's
 // upper steps would otherwise dim its lower ones in patches).
-ShadowSample shadowSample(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, bool water) {
+// minWidth: the narrowest penumbra (half width, blocks): leaves take a wide one, so the light through a crown falls on
+// its own leaves as soft dapples instead of the long streaks a grazing sun draws from each leaf pixel.
+ShadowSample shadowSampleW(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, bool water, float minWidth) {
 	ShadowSample r;
 	r.vis = 1.0;
 	r.tint = vec3(1.0);
 	r.depth = 0.0;
+	r.cover = 0.0;
 	vec3 sp = (shadowProjection * (shadowModelView * vec4(playerPos, 1.0))).xyz;
 	float f = shadowDistortFactor(sp.xy);
 	// one map texel in blocks here: the distortion's slope (1 - k) / f^2 at this radius
@@ -161,13 +165,14 @@ ShadowSample shadowSample(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, bool
 	if (count > 0.0) {
 		float above = (uvz.z - sum / count) * depthBlocks; // blocks from the casters down to the point
 		r.depth = above;
+		r.cover = count / 9.0;
 #if SHADOW_SOFTNESS == 0
 		r.vis = centre;
 #else
 		if (count > 8.5 && centre < 0.001) {
 			r.vis = 0.0; // deep inside a shadow
 		} else {
-			float width = SHADOW_SPREAD * above + 0.015; // the penumbra's half width, blocks
+			float width = max(SHADOW_SPREAD * above + 0.015, minWidth); // the penumbra's half width, blocks
 			r.vis = shadowPcf(uvz, min(width / texelBlocks, SHADOW_MAX_TEXELS));
 		}
 #endif
@@ -191,6 +196,10 @@ ShadowSample shadowSample(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, bool
 	return r;
 }
 
+ShadowSample shadowSample(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, bool water) {
+	return shadowSampleW(playerPos, n, lightDir, thin, water, 0.0);
+}
+
 // The old form, for callers that want only the visibility and the tint.
 float shadowVisibility(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, bool water, out vec3 tint) {
 	ShadowSample s = shadowSample(playerPos, n, lightDir, thin, water);
@@ -208,20 +217,25 @@ float shadowVisibility(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, bool wa
 // times farVis there: the far shadows found on screen (lib/farshadow.glsl; 1 without them). playerPos camera-relative,
 // n the world normal, sky the sky light level, m plumbing's material class, facing the face's sunFacingMat (no lookup
 // where it is 0: no direct light there anyway). through: the share of the light that passes the leaves between the
-// light and a leaf or a plant (for their glow; 1 in the open, and with no shadow map).
+// light and a leaf or a plant, with the sky-light gate in it (for their glow).
 float welkinSunReachEx(vec3 playerPos, vec3 n, float sky, int m, float facing, float farVis, inout vec3 sunShare,
 		out float through) {
 	float reach = sunOpen(sky) * farVis;
-	through = 1.0;
+	// past the map: a crown's leaves pass about a third of the light on average (the LOD's leaves take the same)
+	through = (matIsLeaves(m) ? 0.35 : 1.0) * reach;
 #ifdef WELKIN_SHADOWS_LIVE
 	reach *= farCanopySun(m);
 	float fade = shadowFade(playerPos);
-	if (fade < 1.0 && facing > 0.0) {
-		ShadowSample sh = shadowSample(playerPos, n, lightDirWorld(), matThin(m), matIsWater(m));
-		reach = mix(sh.vis * sunLeakGate(sky), reach, fade);
+	// leaves and plants look the map up on their shaded faces too, for the light through them
+	if (fade < 1.0 && (facing > 0.0 || matHas(m, MATF_SSS))) {
+		ShadowSample sh = shadowSampleW(playerPos, n, lightDirWorld(), matThin(m), matIsWater(m),
+			matIsLeaves(m) ? 0.22 : 0.0);
+		float gate = sunLeakGate(sky);
+		reach = mix(sh.vis * gate, reach, fade);
 		sunShare *= mix(sh.tint, vec3(1.0), fade);
-		// leaves: about a block of leaves lets 0.45 through, three blocks a tenth
-		through = mix(exp(-0.8 * sh.depth), 1.0, fade);
+		// what passes the casters round the point: the gaps whole, about a block of leaves 0.45, three a tenth
+		float pass = (1.0 - sh.cover) + sh.cover * exp(-0.8 * sh.depth);
+		through = mix(pass * gate, through, fade);
 	}
 #endif
 	return reach;

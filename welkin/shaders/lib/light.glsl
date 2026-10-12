@@ -94,8 +94,15 @@ vec3 torchColour(float lv) {
 // with no direction, in the shade of places partly open to the sky (sky light about 6..13: under leaves, beneath a
 // roof's edge). Out in the open shade (sky light 15) it is 0, so a house's or a cliff's shadow keeps its contrast; in a
 // cave it is 0. It only fills the part of the face the sun does not light already.
+// With the shadow map on, the sun's own patches through the gaps carry the light under a wood, so the leak is less
+// (the floor's shade stays deep between the patches).
 float canopyLeak(float skyLevel) {
-	return 0.2 * smoothstep(0.25, 0.55, skyLevel) * (1.0 - smoothstep(0.84, 0.97, skyLevel));
+#if defined SHADOWS && defined WORLD_OVERWORLD
+	const float leak = 0.12;
+#else
+	const float leak = 0.2;
+#endif
+	return leak * smoothstep(0.25, 0.55, skyLevel) * (1.0 - smoothstep(0.84, 0.97, skyLevel));
 }
 
 // The old name, for callers not yet moved over; the dither threshold is ignored.
@@ -128,18 +135,35 @@ vec3 sunSideGlow(vec3 n, vec4 fill) {
 	return warm * (lumaLin(fill.rgb) * fill.a * 0.65 * side);
 }
 
-// The same for a material (plumbing's class, M_*): leaves let a little light through to their shaded faces, and a
-// plant's crossed quads (double-sided, their normal means little) take the light on both sides, more where a quad
-// faces it. The shadow map decides where the light actually reaches.
+// The same for a material (plumbing's class, M_*): a plant's crossed quads (double-sided, their normal means little)
+// take the light on both sides, more where a quad faces it; leaves take it on the faces turned to it, and their
+// shaded faces get the light that comes through them instead (welkinGlow). The shadow map decides where the light
+// actually reaches.
 float sunFacingMat(vec3 n, vec3 l, int m) {
 	float ndl = dot(n, l);
-	if (matHas(m, MATF_SSS)) {
-		if (matIsLeaves(m)) {
-			return mix(sunFacing(ndl), 1.0, 0.3);
-		}
+	if (matHas(m, MATF_SSS) && !matIsLeaves(m)) {
 		return 0.62 + 0.38 * abs(ndl);
 	}
 	return sunFacing(ndl);
+}
+
+// The light that comes through leaves and plants toward the eye, as a share of the direct light (0 for everything
+// else): a leaf's face turned from the sun glows where the sun stands behind it, most when the eye looks toward the
+// sun (a forward lobe; a little from every side, as a leaf scatters), and a grass blade or a flower lit from behind
+// glows the same way. through: what the leaves between the sun and the face let pass, with the sky-light gate
+// (lib/shadow.glsl welkinSunReachEx). v the direction from the eye to the point, n the face's world normal, l the
+// light's.
+float welkinGlow(vec3 v, vec3 n, vec3 l, int m, float through) {
+	if (!matHas(m, MATF_SSS)) {
+		return 0.0;
+	}
+	float c = clamp(dot(v, l), 0.0, 1.0);
+	float lobe = 0.25 + 1.5 * c * c * c;
+	if (matIsLeaves(m)) {
+		// the faces turned away from the light (half on an edge-on face)
+		return 1.2 * lobe * through * clamp(0.5 - dot(n, l), 0.0, 1.0);
+	}
+	return 0.6 * lobe * through;
 }
 
 // Whether a material is a plant's thin quad (for the shadow lookup, which then steps toward the light).
@@ -190,10 +214,14 @@ float blockLightDaylight(float skyLevel) {
 // the face meets the light (sunFacing or sunFacingMat). ao: Minecraft's corner shading, 1 for none. The shadow map, the
 // clouds and the facing only ever scale the direct term; the sky's fill and the torch light are the same in the sun
 // and the shade.
-vec3 welkinLightFull(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
-		float facing, float ao) {
+// glow: the light through leaves and plants (welkinGlow), as a share of the direct light: it takes the leaf's own
+// colour twice over (light through a leaf is a deeper, warmer green than light off it). contact: the contact
+// occlusion (lib/ao.glsl, 1 for none): it darkens the fill and the torch light, and the sun a little, so plants and
+// corners sit in their own small shade even in the sun.
+vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
+		float facing, float ao, float glow, float contact) {
 	vec3 a = toLinear(albedo);
-	float aoFill = pow(clamp(ao, 0.0, 1.0), LIGHT_AO_POW);
+	float aoFill = pow(clamp(ao, 0.0, 1.0), LIGHT_AO_POW) * contact;
 	float lv = rampLevel(lm.x);
 	vec3 block = torchColour(lv) * (rampBlockLin(lm.x) * blockLightDaylight(lm.y) * pow(BLOCKLIGHT_STRENGTH, 2.2));
 #if defined WORLD_NETHER
@@ -212,11 +240,21 @@ vec3 welkinLightFull(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	// the sun (or the moon) on faces turned to it, where it reaches; under a canopy a little of it filters through
 	float lit = facing * sunReach;
 	vec3 direct = skyLandDirect() * (lit + canopyLeak(lm.y) * (1.0 - lit)) * sunShare;
+	if (glow > 0.0) {
+		// through the leaf: its own hue at its own brightness, warmed (the light through chlorophyll is yellow-green)
+		vec3 hue = mix(vec3(1.0), min(a / max(lumaLin(a), 0.004), vec3(3.0)), 0.75) * vec3(1.2, 1.05, 0.55);
+		direct += skyLandDirect() * sunShare * hue * glow;
+	}
 #endif
-	vec3 light = (ambient + block) * aoFill + direct;
+	vec3 light = (ambient + block) * aoFill + direct * mix(1.0, contact, 0.3);
 	light = max(light, vec3(LAND_FLOOR)); // never quite black: cave walls still read
 	light = mix(light, max(light, vec3(0.27)), nightVision);
 	return welkinTone(a * light + a * (emission * LAND_EMIT));
+}
+
+vec3 welkinLightFull(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
+		float facing, float ao) {
+	return welkinLightGlow(albedo, n, lm, emission, sunShare, ambientTint, sunReach, facing, ao, 0.0, 1.0);
 }
 
 vec3 welkinLightCore(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,

@@ -15,6 +15,8 @@ const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
 #define SHADOW_SOFTNESS 1 // [0 1 2]
 // Far shadows: Beyond the shadow distance, houses, trees, hills and the far land still cast long shadows, worked out from what is on screen. Something off the screen casts none there.  [light]
 #define FAR_SHADOWS
+// Contact shade: A soft shade in inside corners and at the feet of plants, fences and walls, on top of the game's own corner shading, so things sit on the ground.  [light]
+#define CONTACT_AO
 // Sun path tilt: How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.  [skeleton]
 const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
 // Light bands: How many soft bands sky light and torch light fade through. The light stays a smooth gradient; Soft bands sets how much it gathers at each band.  [skeleton]
@@ -100,7 +102,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define SOFT_BANDS 50 // [0 25 50 75 100]
 // ---- Debug
 // Debug view: Shows one of the shader's inner pictures instead of the world. For testing only.  [skeleton]
-#define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12]
+#define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14]
 // VOID Gloam link: Normal reads live data from VOID Gloam. Backup only reads the coarser backup copy, as if the link had failed. Off ignores Gloam. For testing only.  [plumbing]
 #define BRIDGE_MODE 0 // [0 1 2]
 // Force mist: Forces the mist's time of day to this share, to see the slab at any hour. 0 leaves VOID Gloam's value. For testing only.  [mist]
@@ -117,6 +119,8 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #ifdef SHADOWS
 #endif
 #ifdef FAR_SHADOWS
+#endif
+#ifdef CONTACT_AO
 #endif
 #ifdef HANDHELD_LIGHT
 #endif

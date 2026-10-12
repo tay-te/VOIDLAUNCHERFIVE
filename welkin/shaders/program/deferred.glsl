@@ -34,6 +34,7 @@ void main() {
 #include "/lib/fade.glsl"
 #include "/lib/shadow.glsl"
 #include "/lib/void.glsl"
+#include "/lib/ao.glsl"
 #if defined FAR_SHADOWS && defined WORLD_OVERWORLD
 #include "/lib/farshadow.glsl"
 #define WELKIN_FAR_SHADOWS
@@ -124,10 +125,12 @@ void main() {
 		}
 #endif
 		float reach = sunOpen(g.w) * farVis;
-		float through = 1.0;
+		float through = (matIsLeaves(material) ? 0.35 : 1.0) * reach;
 		if (!s.fromLod) {
 			reach = welkinSunReachEx(playerPos, n, g.w, material, facing, farVis, sunShare, through);
 		}
+		// the light through leaves and plants (lib/light.glsl welkinGlow)
+		float glow = welkinGlow(normalize(eyePos), n, lightDir, material, through);
 #ifdef WELKIN_WET
 		// wet ground before the light: darkens open ground, picks the puddles
 		HzState st = hzState();
@@ -141,7 +144,15 @@ void main() {
 			reach *= farCanopySun(material);
 			fill = vec3(farCanopyFill(material));
 		}
-		color.rgb = welkinLightFull(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, flags.w);
+		// the contact occlusion round near points (program/deferred_ao.glsl, lib/ao.glsl)
+		float contact = 1.0;
+#ifdef CONTACT_AO
+		if (!s.fromLod) {
+			contact = welkinContactAo(p, -s.view.z);
+		}
+#endif
+		color.rgb = welkinLightGlow(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, flags.w, glow,
+			contact);
 #ifdef WELKIN_WET
 		// puddles mirror the sky (the sky table's horizon), glint toward the light where it reaches, flick with drops
 		vec3 skyR = skyHorizon(false);
@@ -169,6 +180,12 @@ void main() {
 #if DEBUG_VIEW == 12
 		// the sun's reach x facing, with what glass, water and the clouds let through; the LOD's land tinted blue
 		color.rgb = vec3(reach * facing) * sunShare * (s.fromLod ? vec3(0.55, 0.7, 1.0) : vec3(1.0));
+#elif DEBUG_VIEW == 13
+		// the contact shade (white: none) over the far shadows (blue: in shadow past the map)
+		color.rgb = vec3(contact) * mix(vec3(0.3, 0.45, 1.0), vec3(1.0), farVis);
+#elif DEBUG_VIEW == 14
+		// the light through leaves and plants (green), what passes the casters (red)
+		color.rgb = vec3(through, min(glow * 2.0, 1.0), 0.0);
 #endif
 	}
 #endif

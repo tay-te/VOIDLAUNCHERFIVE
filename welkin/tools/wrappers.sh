@@ -9,6 +9,9 @@ here="$(cd "$(dirname "$0")/.." && pwd)"
 shaders="$here/shaders"
 
 declare -A dims=([world0]=WORLD_OVERWORLD [world-1]=WORLD_NETHER [world1]=WORLD_END)
+# Programs that run as an Iris pass of another name: the contact occlusion (deferred_ao) must run before the light, so
+# it is Iris's deferred and the light (program/deferred.glsl) is deferred1.
+declare -A passes=([deferred_ao]=deferred [deferred]=deferred1)
 
 programs=()
 for f in "$shaders"/program/*.glsl; do
@@ -26,7 +29,7 @@ for dim in "${!dims[@]}"; do
 		for stage in vsh fsh; do
 			[ "$stage" = vsh ] && define=VERTEX_SHADER || define=FRAGMENT_SHADER
 			printf '#version 330 compatibility\n#define %s\n#define %s\n#include "/program/%s.glsl"\n' \
-				"${dims[$dim]}" "$define" "$name" > "$dir/$name.$stage"
+				"${dims[$dim]}" "$define" "$name" > "$dir/${passes[$name]:-$name}.$stage"
 		done
 	done
 done
