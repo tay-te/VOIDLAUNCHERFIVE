@@ -208,9 +208,12 @@ float skyLandSunStrength(float h) {
 	// (round 2: the high noon sun a sixteenth less, so a noon field reads bright but not blown)
 	// (round 2: the last degrees a little dimmer, 0.44 of noon at 4 degrees, so a pale face in the red low sun keeps
 	// its amber instead of rolling into a cream white on the shoulder)
-	// (round 3: the low sun keeps more of its strength, 0.55 of noon at the horizon rather than 0.4, and goes out only as
+	// (round 3: the low sun keeps more of its strength, 0.6 of noon at the horizon rather than 0.4, and goes out only as
 	// the disc meets it: the golden hour's sun-facing faces stay lit amber between the long cool shadows)
-	return LAND_SUN * (0.55 + 0.45 * smoothstep(0.0, 0.45, h)) * (1.0 - 0.065 * smoothstep(0.6, 0.92, h))
+	// (round 3: and a tenth more through the morning and the afternoon, from about 15 to 45 degrees, so 08:00 and 16:30
+	// stand as bright as the hours round noon; noon itself as before)
+	return LAND_SUN * (0.6 + 0.4 * smoothstep(0.0, 0.45, h)) * (1.0 - 0.065 * smoothstep(0.6, 0.92, h))
+		* (1.0 + 0.1 * smoothstep(0.25, 0.5, h) * (1.0 - smoothstep(0.66, 0.9, h)))
 		* smoothstep(-0.01, 0.022, h);
 }
 
@@ -224,7 +227,8 @@ float skyLandFillLevel(float h) {
 	// (round 3: 0.31, on a smaller LAND_FILL, so a level top in the low sun's shade takes about what it did; lib/light.glsl
 	// takes the walls' share down instead (sideW), so the shade there sinks cool and deep while the sun stays strong)
 	float low = 0.31 * (1.0 - smoothstep(0.05, 0.3, h));
-	return h > 0.0 ? 0.53 + 0.47 * pow(smoothstep(0.1, 0.92, h), 1.6) + low : 0.84 * exp(h * 15.0);
+	// (round 3: the afternoon's fill falls a little faster, pow 2, so 16:30's shade is deeper against its sun)
+	return h > 0.0 ? 0.53 + 0.47 * pow(smoothstep(0.1, 0.92, h), 2.0) + low : 0.84 * exp(h * 15.0);
 }
 
 struct SkyLand {

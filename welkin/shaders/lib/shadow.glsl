@@ -127,6 +127,21 @@ float shadowPcf(vec3 uvz, float r, vec2 grad) {
 	return v * (1.0 / 16.0);
 }
 
+// The same over a narrow penumbra (r up to about 1.5 texels: the far land, where a texel is wide, and the crisp feet of
+// near casters): a 2x2 grid of the hardware's 2x2 taps covers it as smoothly at a quarter of the reads (round 3: at a
+// low sun most of the land sits near some caster and the 16-tap filter alone cost about 0.75 ms).
+float shadowPcf4(vec3 uvz, float r, vec2 grad) {
+	float s = max(r, 0.5) / float(shadowMapResolution);
+	float v = 0.0;
+	for (int y = 0; y < 2; y++) {
+		for (int x = 0; x < 2; x++) {
+			vec2 o = (vec2(x, y) - 0.5) * s;
+			v += texture(shadowtex1, vec3(uvz.xy + o, uvz.z + dot(grad, o)));
+		}
+	}
+	return v * 0.25;
+}
+
 // A camera-relative point to the map's distorted (uv, depth), 0..1.
 vec3 shadowMapPos(vec3 playerPos) {
 	return shadowDistort((shadowProjection * (shadowModelView * vec4(playerPos, 1.0))).xyz) * 0.5 + 0.5;
@@ -244,6 +259,12 @@ ShadowSample shadowSampleW(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, boo
 		r.underWater = true;
 	}
 	float px = 1.0 / float(shadowMapResolution);
+	if (sunAngle >= 0.5) {
+		// round 3: under the moon one compare (its hardware 2x2 blend), no search and no filter: a night's shadows are
+		// faint, and their soft edges were most of what the pass cost at night
+		r.vis = texture(shadowtex1, uvz);
+		return r;
+	}
 	// round 2: the receiver's own plane (not for a plant's quad, whose normal means little): a grazing light on level
 	// ground no longer finds the ground a few texels toward the light "above" it (the self-shadow that dimmed a
 	// meadow and striped a lake under a low sun)
@@ -279,7 +300,8 @@ ShadowSample shadowSampleW(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, boo
 			r.vis = 0.0; // deep inside a shadow
 		} else {
 			float width = max(SHADOW_SPREAD * above + 0.015, minWidth); // the penumbra's half width, blocks
-			r.vis = shadowPcf(uvz, min(width / texelBlocks, SHADOW_MAX_TEXELS), grad);
+			float rt = min(width / texelBlocks, SHADOW_MAX_TEXELS);
+			r.vis = rt <= 1.5 ? shadowPcf4(uvz, rt, grad) : shadowPcf(uvz, rt, grad);
 		}
 #endif
 	} else {
@@ -338,7 +360,13 @@ float welkinSunReachEx(vec3 playerPos, vec3 n, float sky, int m, float facing, f
 		ShadowSample sh = shadowSampleW(playerPos, n, lightDirWorld(), matThin(m), matIsWater(m),
 			matIsLeaves(m) ? 0.22 : 0.0);
 		float gate = sunLeakGate(sky);
-		reach = mix(sh.vis * gate, reach, fade);
+		// what passes the casters round the point: the gaps whole, about a block of leaves 0.45, three a tenth
+		float pass = clamp((1.0 - sh.cover) + sh.cover * exp(-0.8 * sh.depth), 0.0, 1.0);
+		// round 3: a leaf in the shade of the leaves just above or before it still takes some of the sun through them
+		// (half of what passes): a crown's sunward side glows green a block or two deep instead of going dark behind
+		// its outermost leaves, while its heart and the floor under it stay in deep shade
+		float vis = matIsLeaves(m) ? max(sh.vis, 0.5 * pass) : sh.vis;
+		reach = mix(vis * gate, reach, fade);
 		vec3 tint = sh.tint;
 		if (sh.underWater && !matHas(m, MATF_SSS) && facing > 0.0) {
 			// under water the light comes down steeper than it stands in the sky (bent at the surface), so a lake bed
@@ -349,8 +377,6 @@ float welkinSunReachEx(vec3 playerPos, vec3 n, float sky, int m, float facing, f
 			tint *= clamp(sunFacing(dot(n, lr)) / facing, 1.0, 4.0);
 		}
 		sunShare *= mix(tint, vec3(1.0), fade);
-		// what passes the casters round the point: the gaps whole, about a block of leaves 0.45, three a tenth
-		float pass = clamp((1.0 - sh.cover) + sh.cover * exp(-0.8 * sh.depth), 0.0, 1.0);
 		through = mix(pass * gate, through, fade);
 	}
 #endif

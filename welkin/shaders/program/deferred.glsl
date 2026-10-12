@@ -162,8 +162,9 @@ void main() {
 			contact = welkinContactAo(p, -s.view.z);
 		}
 #endif
-		// plants' crossed quads take the sky's fill as from above (lib/light.glsl lightFillUp)
-		lightFillUp = matThin(material) ? 0.7 : 0.0; // (0.7: and 1.3x the fill, lib/light.glsl)
+		// plants' crossed quads take the sky's fill as from above, and 1.45x (lib/light.glsl lightFillUp)
+		// (and leaves, as a cube of small leaves turned every way, a little: a crown's sides are not walls)
+		lightFillUp = matThin(material) ? 0.7 : (matIsLeaves(material) ? 0.35 : 0.0);
 		color.rgb = welkinLightGlow(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, flags.w, glow,
 			contact);
 #ifdef WELKIN_WET

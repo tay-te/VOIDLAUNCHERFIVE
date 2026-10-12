@@ -173,7 +173,9 @@ float sunFacingMat(vec3 n, vec3 l, int m) {
 	float ndl = dot(n, l);
 	if (matHas(m, MATF_SSS)) {
 		if (matIsLeaves(m)) {
-			return 0.36 + 0.64 * sunFacing(ndl);
+			// (round 3: half the light on any face, not 0.36: a crown's sides read sunlit green where the map lets the
+			// sun reach them, as a cube of leaves turned every way does)
+			return 0.5 + 0.5 * sunFacing(ndl);
 		}
 		return 0.62 + 0.38 * abs(ndl);
 	}
@@ -288,15 +290,15 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	vec3 nf = lightFillUp > 0.0 ? normalize(mix(n, vec3(0.0, 1.0, 0.0), lightFillUp)) : n;
 	// (round 2: an upright face sees the bright band of sky along the horizon as well as the zenith, so it takes 0.6 of
 	// an upward face's fill, not half: the shade side of a cliff or a wall reads a clear, cool sky-lit grey)
-	// (round 3: 0.54 by day, and 0.36 while the sun is low: the shade's light comes from above, so in the long shadows
+	// (round 3: 0.5 by day, and 0.36 while the sun is low: the shade's light comes from above, so in the long shadows
 	// of the golden hour tops and tufts read light against dark sides and the land keeps its form; the sky-lit grey of a
 	// pale wall comes from its own bounce, below)
-	float sideW = mix(0.54, 0.36, lowSunShare());
+	float sideW = mix(0.5, 0.36, lowSunShare());
 	float skyW = nf.y >= 0.0 ? sideW + (1.0 - sideW) * nf.y : sideW * (1.0 + nf.y);
 	vec3 hemi = fill.rgb * skyW + skyLandBounce() * (0.5 - 0.5 * nf.y);
-	// (a plant's thin blades take the sky on both their faces and pass some through: up to 1.3x a top's fill, so in the
+	// (a plant's thin blades take the sky on both their faces and pass some through: up to 1.45x a top's fill, so in the
 	// shade a meadow's tufts and stalks read light against the ground, as dry grass does at dusk)
-	hemi = (hemi * mix(1.0, faceShade(nf), 0.45) + sunSideGlow(nf, fill)) * (1.0 + 0.43 * lightFillUp);
+	hemi = (hemi * mix(1.0, faceShade(nf), 0.45) + sunSideGlow(nf, fill)) * (1.0 + 0.64 * lightFillUp);
 	// (round 3: the fill under a canopy cut by 0.8, not 0.68: the forest floor between the sun patches sinks deeper)
 	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - 0.8 * canopyShade(lm.y, sunReach));
 	// the short-range bounce (round 1): a shaded face among sunlit surfaces like itself takes back a share of the sun

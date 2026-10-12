@@ -116,7 +116,10 @@ vec3 wcDusk(vec3 n, float far, float sunward, vec3 sun) {
 	if (n.y < -0.5) {
 		// (round 1: while the sun stands just over the horizon it shines under the decks, so their bases glow peach
 		// toward it and rose away from it, as at a real sunset, instead of a dusk blue)
-		return mix(mix(WC_DUSK, WC_ROSE, sunward), mix(WC_ROSE, WC_ORANGE, 0.6 * sunward), wcUnderLit(sun.y));
+		// (round 3: the under-light's colour fades away from the sun: peach over the sun's side, rose overhead, the
+		// dusk lavender-blue over the far side, so a dawn deck is graded across the sky, not one salmon slab)
+		return mix(mix(WC_DUSK, WC_ROSE, sunward), mix(WC_ROSE, WC_ORANGE, 0.6 * sunward),
+			wcUnderLit(sun.y) * mix(0.25, 1.0, sunward));
 	}
 	float toward = dot(n.xz, normalize(sun.xz + vec2(1e-5)));
 	vec3 lit = mix(top, WC_ORANGE, 0.3 * sunward);
@@ -261,7 +264,9 @@ vec3 wcFaceColour(vec3 n, float up, float interior, float dens, int tone, vec3 r
 		// from it), so the whole deck glows and the sky has no dark half
 		if (n.y < 0.5) {
 			float under = wcUnderLit(e.sun.y) * (1.0 - skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a);
-			ref = mix(ref, max(ref, wcLuma(skyHorizon(true)) * mix(0.55, 0.9, sw)), under);
+			// (round 3: brightest over the sun's side, falling off faster away from it: a lit rim toward the sun, a
+			// darker deck behind)
+			ref = mix(ref, max(ref, wcLuma(skyHorizon(true)) * mix(0.32, 0.92, sw * sw)), under);
 		}
 		float earth = mix(0.45, 1.0, smoothstep(-0.10, 0.03, e.sun.y));
 		vec3 d = p * (face * ref * earth / max(wcLuma(p), 1e-3));
