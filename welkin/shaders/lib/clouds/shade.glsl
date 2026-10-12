@@ -202,7 +202,7 @@ vec3 wcLit(vec3 n, float up, float interior, float dens, int tone, vec3 rd, vec3
 	if (top) {
 		skyView = 1.0;
 		diffuse = clamp((ndl + 0.25) / 1.25, 0.0, 1.0);
-		ao = mix(0.84, 1.0, interior) * mix(0.88, 1.03, dens);
+		ao = 1.0; // (the rim and the thickness shade the top after the shoulder: wcFaceColour)
 	} else if (under) {
 		skyView = 0.74;
 		// (one flat shade a cell: a lighter rim along a base's outline read as a bright line round every cloud)
@@ -235,7 +235,7 @@ vec3 wcFaceColour(vec3 n, float up, float interior, float dens, int tone, vec3 r
 		vec3 p = wcDusk(n, wcFar(t), sw, e.sun) * (tone == 2 ? 0.7 : (tone == 1 ? 0.85 : 1.0));
 		float face, ref;
 		if (n.y > 0.5) {
-			face = mix(0.84, 1.0, interior) * mix(0.88, 1.03, dens);
+			face = 1.0;
 			ref = wcLuma(wcHorizon(rd, e)) * mix(0.75, 1.05, sw);
 		} else if (n.y < -0.5) {
 			face = 0.91 * mix(1.02, 0.84, dens) * (1.0 - 0.2 * thick);
@@ -254,13 +254,15 @@ vec3 wcFaceColour(vec3 n, float up, float interior, float dens, int tone, vec3 r
 	// the grey sky round it
 	if (n.y < -0.5) {
 		float closed = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
-		vec3 dome = wcDome(rd, e) * 0.95 * mix(1.02, 0.9, dens);
+		vec3 dome = wcDome(rd, e) * 0.95 * mix(1.01, 0.95, dens);
 		c = mix(c, dome, closed);
 	}
 	if (e.flash && tone == 2) {
 		c = mix(c, vec3(0.86, 0.86, 1.0), 0.5);
 	}
-	return wcShoulder(c);
+	// a top's crisp rim and its thickness shade it after the shoulder, which would squeeze a noon-lit top's shades
+	// into one flat white
+	return wcShoulder(c) * (n.y > 0.5 ? mix(0.84, 1.0, interior) * mix(0.86, 1.02, dens) : 1.0);
 }
 
 // The colour of a cloud face at altitude `y`, `interior` as wcInterior (the hit's own face, no shadow from above).
