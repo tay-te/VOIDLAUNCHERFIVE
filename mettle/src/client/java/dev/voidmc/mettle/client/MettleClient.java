@@ -58,6 +58,14 @@ public final class MettleClient implements ClientModInitializer {
 		characterKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.mettle.character", InputConstants.KEY_K,
 			KeyMapping.Category.register(Mettle.id("character"))));
 
+		// The login version check (core.MettleHandshake): answer the server's hello with this client's protocol.
+		net.fabricmc.fabric.api.client.networking.v1.ClientConfigurationNetworking.registerGlobalReceiver(MettlePayloads.Hello.TYPE, (payload, context) -> {
+			if (payload.protocol() != dev.voidmc.mettle.core.MettleHandshake.PROTOCOL) {
+				Mettle.LOGGER.warn("the server runs VOID Mettle {} (protocol {}); this client is {} (protocol {})", payload.version(), payload.protocol(),
+					dev.voidmc.mettle.core.MettleHandshake.version(), dev.voidmc.mettle.core.MettleHandshake.PROTOCOL);
+			}
+			context.responseSender().sendPacket(new MettlePayloads.Hello(dev.voidmc.mettle.core.MettleHandshake.PROTOCOL, dev.voidmc.mettle.core.MettleHandshake.version()));
+		});
 		ClientPlayNetworking.registerGlobalReceiver(MettlePayloads.OpenPicker.TYPE, (payload, context) -> {
 			JsonObject open = new JsonObject();
 			open.addProperty("byOperator", payload.byOperator());
