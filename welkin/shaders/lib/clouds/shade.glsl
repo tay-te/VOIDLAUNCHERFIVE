@@ -149,9 +149,11 @@ vec3 wcLit(vec3 n, float up, float interior, int tone, vec3 rd, vec3 l) {
 		diffuse = clamp((ndl + 0.25) / 1.25, 0.0, 1.0);
 		ao = mix(1.02, 0.93, interior);
 	} else if (under) {
+		// (kept gentle: the interior is worked out cell by cell, so in a patchy deck a strong one outlined every cell
+		// as a tile on the ceiling)
 		skyView = 0.80;
-		diffuse = 0.14 + 0.12 * (1.0 - interior);
-		ao = mix(0.98, 0.84, interior);
+		diffuse = 0.15 + 0.07 * (1.0 - interior);
+		ao = mix(0.97, 0.91, interior);
 	} else {
 		skyView = 0.86;
 		diffuse = clamp((ndl + 0.45) / 1.45, 0.0, 1.0) * 0.95;
@@ -173,17 +175,18 @@ vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 	if (dusk > 0.0) {
 		vec3 p = wcDusk(h.n, wcFar(h.t), wcSunward(rd, e), e.sun) * (h.tone == 2 ? 0.7 : (h.tone == 1 ? 0.85 : 1.0));
 		float face = h.n.y > 0.5 ? mix(1.02, 0.93, interior)
-			: (h.n.y < -0.5 ? mix(0.90, 0.78, interior) : 0.94 * mix(WC_SIDE_FOOT, WC_SIDE_BROW, up));
+			: (h.n.y < -0.5 ? mix(0.88, 0.82, interior) : 0.94 * mix(WC_SIDE_FOOT, WC_SIDE_BROW, up));
 		vec3 d = p * face * mix(0.40, 0.90, smoothstep(-0.16, 0.08, e.sun.y));
 		d *= max(1.0, wcLuma(c) / max(wcLuma(d), 1e-3));
 		c = mix(c, d, dusk);
 	}
-	// a closed overcast's base is the sky: as bright as the horizon under it (a touch darker in its thick middle), not
-	// a dark slab over a brighter haze
+	// a closed overcast's base is the sky: the overcast dome's own colour in that direction (the horizon's low down, the
+	// zenith's overhead, a touch darker in a thick middle), not a dark slab over a brighter haze, nor a pale sheet
+	// brighter than the grey sky round it
 	if (h.n.y < -0.5) {
 		float closed = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
-		vec3 hor = wcHorizon(rd, e) * mix(0.96, 0.88, interior);
-		c = mix(c, max(c, hor), closed);
+		vec3 dome = mix(wcHorizon(rd, e), skyZenith(), smoothstep(0.02, 0.7, rd.y)) * mix(0.97, 0.92, interior);
+		c = mix(c, dome, closed);
 	}
 	if (e.flash && h.tone == 2) {
 		c = mix(c, vec3(0.86, 0.86, 1.0), 0.5);

@@ -33,6 +33,8 @@
 #define WC_ANVIL 0.55        // the storm at which an anvil spreads (CloudGrid)
 #define WC_MAX_LEVEL 7       // the coarsest ring: 12 << 7 = 1536 m cells
 #define WC_W0_REACH 10000.0  // decks read W0 this far, then W1 across 2 km
+#define WC_TOWER_NEAR (6.0 * WC_RING0)   // towers stand whole this far (2.3 km at MEDIUM) ..
+#define WC_TOWER_FAR (14.0 * WC_RING0)   // .. and have sunk into their deck by here (5.4 km)
 
 const vec2 WC_EMPTY = vec2(1.0, 0.0);
 
@@ -237,6 +239,10 @@ void wcTower(ivec2 tc, int lv, CloudEnv e, inout TCache t) {
 	t.tone = tw.y > 0.45 ? 2 : 1;
 	float swell = clamp((wcPuffs(m, ts, 1536, 512, 0, e.seed + 41u) - 0.5) * 0.85 + 0.5, 0.0, 1.0);
 	float strength = tw.x * (0.35 + 0.65 * swell);
+	// far off a tower sinks back into its deck: a tower cell doubles with the rings, so a storm 6 km out stood up as
+	// one hard-edged box 1.5 km wide on the horizon. Lowering a tower keeps the march's corner bound (an upper bound).
+	vec2 rel = vec2(m - e.frameInt) - e.frameFract;
+	strength *= 1.0 - smoothstep(WC_TOWER_NEAR, WC_TOWER_FAR, length(rel));
 	if (strength > 0.18 && (wf.g > 0.5 || tw.y > 0.4)) {
 		t.top = wcTowerTop(strength, e);
 	}

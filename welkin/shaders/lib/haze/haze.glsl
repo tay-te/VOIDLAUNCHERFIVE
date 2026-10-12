@@ -195,7 +195,11 @@ HzLand hzSegmentLand(HzState s, bool sky, vec3 dir, float a, float b, bool far) 
     // pixels whose middles shared that cell stood up as a bright column of haze over the land behind it. Read at the
     // end, the haze follows the land seen, smoothly. The near segments keep the middle (16 m cells, short spans).
     float tS = far ? b : sqrt(a * max(b, a));
-    return hzLandIn(s, cameraPositionFract.xz + dir.xz * tS, far);
+    vec2 local = cameraPositionFract.xz + dir.xz * tS;
+    HzLand l = hzLandIn(s, local, far);
+    // a near segment takes its kinds over 1 km (hzSmoothKinds): no walls of dust over the far land
+    if (!far) hzSmoothKinds(s, local, l);
+    return l;
 }
 
 // The haze for one pixel.

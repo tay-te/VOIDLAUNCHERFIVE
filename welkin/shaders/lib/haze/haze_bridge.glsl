@@ -216,6 +216,43 @@ HzLand hzLandIn(HzState s, vec2 local, bool far) {
     return l;
 }
 
+// The kinds of a near segment's land blended over 128 blocks instead of N's 16 (4 fetches, on a lattice of every
+// eighth N cell): every far pixel reads its middle segment's land at the same distance (about 600 blocks at MEDIUM), so
+// a border between kinds crossing there switched the whole segment's murk over 16 blocks, a few pixels, and stood up
+// as a vertical wall of dust (or of clear air) over the far land. Over 128 blocks the kinds blend across a wide arc of
+// the view. The ground, lowness and water stay N's own.
+#define HZ_KIND_LATTICE_SHIFT 7
+void hzSmoothKinds(HzState s, vec2 local, inout HzLand l) {
+    if (s.mode == HZ_NONE) return;
+    const int size = 1 << HZ_KIND_LATTICE_SHIFT;
+    ivec2 cam = cameraPositionInt.xz;
+    vec2 f = (vec2(cam & (size - 1)) + local) / float(size) - 0.5;
+    vec2 f0 = floor(f);
+    vec2 t = f - f0;
+    ivec2 c0 = (cam >> HZ_KIND_LATTICE_SHIFT) + ivec2(f0);
+    vec4 w = vec4((1.0 - t.x) * (1.0 - t.y), t.x * (1.0 - t.y), (1.0 - t.x) * t.y, t.x * t.y);
+    // the N cell at the middle of each lattice square
+    int sh = HZ_KIND_LATTICE_SHIFT - HZ_NEAR_SHIFT;
+    ivec2 mid = ivec2(1 << (sh - 1));
+    ivec4 ra = hzBytes(hzTexelOf(HZ_T_N1, (c0 << sh) + mid));
+    ivec4 rb = hzBytes(hzTexelOf(HZ_T_N1, ((c0 + ivec2(1, 0)) << sh) + mid));
+    ivec4 rc = hzBytes(hzTexelOf(HZ_T_N1, ((c0 + ivec2(0, 1)) << sh) + mid));
+    ivec4 rd = hzBytes(hzTexelOf(HZ_T_N1, ((c0 + ivec2(1, 1)) << sh) + mid));
+    if (((ra.a & rb.a & rc.a & rd.a) & 1) == 0) return; // the near tile does not cover it all: keep the point's
+    int ka = hzKindIndex(ra.a >> 4), kb = hzKindIndex(rb.a >> 4), kc = hzKindIndex(rc.a >> 4), kd = hzKindIndex(rd.a >> 4);
+    int k1 = ka;
+    float best = w.x;
+    if (w.y > best) { best = w.y; k1 = kb; }
+    if (w.z > best) { best = w.z; k1 = kc; }
+    if (w.w > best) { best = w.w; k1 = kd; }
+    int k2 = ka != k1 ? ka : (kb != k1 ? kb : (kc != k1 ? kc : kd));
+    float w2 = (ka == k2 && ka != k1 ? w.x : 0.0) + (kb == k2 && kb != k1 ? w.y : 0.0)
+             + (kc == k2 && kc != k1 ? w.z : 0.0) + (kd == k2 && kd != k1 ? w.w : 0.0);
+    l.kind = k1;
+    l.kind2 = k2 != k1 ? k2 : k1;
+    l.share2 = k2 != k1 ? w2 : 0.0;
+}
+
 // local: the point's x, z relative to the camera's block corner (cameraPositionFract.xz + offset), in blocks.
 // The nearest cell, for the debug views only (HAZE_DEBUG 1 and 3): one tile pair is chosen (near inside its reach,
 // else far), then both of its texels are fetched. A cell without data (flag bit 0 clear) reads as the fallback: the

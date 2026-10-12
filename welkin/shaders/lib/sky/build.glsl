@@ -124,14 +124,19 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	// moon: silver-blue under a clear sky, slate blue under cloud; as strong as Gloam's dark nights allow
 	vec3 moonCol = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
 	m.moonStrength = m.nightStep * clamp(s.light.z, 0.0, 1.0) * skyLevel(skySmooth(-0.02, 0.2, moonW.y)) * (1.0 - 0.7 * m.overcast);
-	m.moonLight = moonCol * 0.11 * m.moonStrength;
+	// (strong enough to model the land from above under a full moon: tops and moon-facing slopes read against the
+	// shade, with the moon's own shadows; a new moon's is Gloam's dark-nights share of it)
+	m.moonLight = moonCol * 0.22 * m.moonStrength;
 	// the sky's ambient: vanilla's day/night light curve, times Gloam's gameplay scale (void_light.z), a little
 	// less under a heavy overcast by day (SKY_LIGHT_FACTOR's layer) and in rain
 	// (Gloam's dark nights scale the gameplay light hard: a new moon's 0.3 left the land a near-black screen with no
 	// shapes. The eye's fill takes the square root of it, so the darkest night is still about a third darker than a
 	// clear moonlit one and the land's silhouettes read; the gameplay light itself is Gloam's)
 	float lightScale = clamp(s.light.z, 0.0, 1.0);
-	m.ambientFactor = mix(1.0, NIGHT_SKYLIGHT, m.nightStep) * mix(lightScale, sqrt(lightScale), m.nightStep)
+	// a moonlit sky fills the shade more than a moonless one: a clear full moon lifts the night's fill by 70%, so
+	// a full-moon night reads at least as well as vanilla's, while a new moon keeps NIGHT_SKYLIGHT alone
+	float moonFill = 1.0 + 0.7 * clamp(s.moon, 0.0, 1.0) * m.clear;
+	m.ambientFactor = mix(1.0, NIGHT_SKYLIGHT * moonFill, m.nightStep) * mix(lightScale, sqrt(lightScale), m.nightStep)
 		* (1.0 - 0.15 * m.cloudStep * (1.0 - m.night)) * (1.0 - 0.28 * m.rainStep);
 	// the shade at the golden hour stays the blue sky's, a little dimmer, so it sets off the warm sun
 	vec3 dayAmb = mix(vec3(0.66, 0.72, 0.82), vec3(0.60, 0.62, 0.72), 0.6 * s.golden);
