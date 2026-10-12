@@ -195,6 +195,10 @@ public class ServerAudit implements FabricClientGameTest {
 					server.runCommand("gamerule keep_inventory false");
 					server.runCommand("gamerule immediate_respawn true");
 					server.runCommand("kill " + holder);
+					// The holder respawns at spawn, out of the other's sight: bring the other over so it tracks them again.
+					c.waitTicks(40);
+					server.runCommand("tp " + other + " " + holder);
+					c.waitTicks(20);
 				}
 				mark("killed");
 				respawn(c, "B", server);
