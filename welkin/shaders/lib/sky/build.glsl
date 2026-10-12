@@ -391,6 +391,9 @@ float skyRingMix(float r) {
 	return mix(SKY_RING_MIX[a], SKY_RING_MIX[a + 1], r - i);
 }
 
+// ---- Light: ambient (B): the sky's irradiance from the dome, row 13 (lib/sky/irradiance.glsl)
+#include "/lib/sky/irradiance.glsl"
+
 // The texel at t: what prepare writes.
 vec4 skyBuildTexel(ivec2 t) {
 	if (t.y == SKY_ROW_CHECK) {
@@ -461,6 +464,10 @@ vec4 skyBuildTexel(ivec2 t) {
 	}
 	if (t.y == SKY_ROW_SPRITE) {
 		return vec4(skySprite(m, s, t.x), 1.0);
+	}
+	// ---- Light: ambient (B)
+	if (t.y == SKY_ROW_IRRADIANCE) {
+		return t.x < 9 ? skyIrradianceTexel(m, s, sunW, moonW, t.x) : vec4(0.0);
 	}
 	return vec4(0.0);
 #endif

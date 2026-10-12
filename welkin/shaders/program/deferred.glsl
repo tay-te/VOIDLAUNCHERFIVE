@@ -200,6 +200,9 @@ void main() {
 #elif DEBUG_VIEW == 14
 		// the light through leaves and plants (green), what passes the casters (red)
 		color.rgb = vec3(through, min(glow * 2.0, 1.0), 0.0);
+#elif DEBUG_VIEW == 20
+		// Light: ambient (B): the sky's irradiance along the (bent) normal, relative to an upward face: 0.4 is 1
+		color.rgb = skyIrradiance(normalize(n + lightAoBend)) * 0.4;
 #endif
 	}
 #endif

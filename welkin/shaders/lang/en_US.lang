@@ -229,3 +229,10 @@ option.SKY_DEBUG.comment=Sky test views: the sky colour table, or the sky's band
 value.SKY_DEBUG.0=Off
 value.SKY_DEBUG.1=Sky table
 value.SKY_DEBUG.2=Bands
+
+# ---- Light: ambient (B)
+option.AO_STRENGTH=Occlusion strength
+option.AO_STRENGTH.comment=How deep corners, the feet of walls, the inside of crowns and the roots of grass sink into shade. 1 is the natural depth; the shade never goes black.
+value.DEBUG_VIEW.18=Ambient occlusion
+value.DEBUG_VIEW.19=Bent normals
+value.DEBUG_VIEW.20=Sky light by direction
