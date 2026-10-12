@@ -757,3 +757,48 @@ pass's cost at a low sun and at night, and a salmon dawn deck.
 - **Not done here:** the shore's water (Fresnel sky reflection, a glitter path, the 18:30 murk, the gorge's opaque
   blue) and the hard white mist band on the dawn lake's horizon belong to P7 and the mist; the noon "grey-white wash"
   at the top of the frame is the cloud decks' bases, not the sky's zenith (the dome deepens to 131, 171, 233 there).
+
+### Lighting techniques, workstream A: soft shadows, the shadow buffers and the terrain's light (2026-10-12)
+
+The user allowed noise inside a lighting term that a depth-aware resolve smooths until no grain shows (TECHNIQUES.md),
+then judged the 4K vistas "still pretty flat from time to time": worst in the middle and far distance, past the shadow
+map, where the steppe, the woods and the hills read evenly lit.
+
+- **The shared noise and resolve (`lib/noise.glsl`, `lib/denoise.glsl`):** interleaved gradient noise, a 4x4-tiled R2
+  lighting noise (a 4x4 window always holds the tile's sixteen values once), the Vogel disk; a plane- and
+  normal-weighted 4x4 resolve with the window's range, reprojection, the history clamp and a material-aware history
+  weight. A pixel the plane test leaves nearly alone (a leaf's mip edge) takes its neighbours at a looser depth test,
+  so its own noisy value never shows as a speck. Workstream A owns both; the others include them.
+- **The pass layout:** `prepare3` the terrain's light (`colortex15`), `deferred` the occlusion (B), `deferred1` the
+  shadow's raw terms (`colortex10`), `deferred2` the resolve (`colortex11`), `deferred3` the light; forward programs
+  keep the fixed-grid lookup (`shadowSampleW`).
+- **Soft shadows:** PCSS on a noise-turned Vogel disk (8 search taps over the penumbra of casters up to 32 blocks
+  above, the casters' height averaged harmonically so the nearest rules and a stem's foot stays crisp; 10 compare
+  taps with the receiver plane; 0.025 blocks of half width per block, 0.04 on Soft; at least 1.5 map texels, at most
+  28). MEDIUM's map is 2048 at 128 blocks with the distortion 0.8 (HIGH 3072 at 192). Contact rays (8 steps, out to
+  48 blocks) and the far ray (14 steps) start where the noise puts them; everything goes through the resolve.
+  `TEMPORAL_LIGHT` exists (reprojection, clamp, 0.5 on swaying leaves) but ships off: the spatial floor alone passes
+  the grain check and the camera-pan shots showed no gain worth its ghosting risk on swaying leaves.
+- **The long low-sun shadows (`SHADOW_LONG_FADE`, 0..4, default 2):** the round 3 "low-sun bug" at plain and valley
+  18:30 was measured to be the shade of casters 25-170 blocks off, not self-shadowing: in the last degrees before
+  sunset a caster's shadow thins from 56 to 144 blocks along the light (two fifths gone on the default), keyed on the
+  casters at the point itself (no noise), so the golden hour reaches the horizon.
+- **The terrain's light past the map (`lib/terrain.glsl`, `TERRAIN_SHADOWS`, `TERRAIN_SLOPE`):** the LOD's land is
+  columns whose every top faces up, so a hillside turned from the sun took the same sun as one turned to it, and
+  nothing off the screen cast a shadow. Once a frame `prepare3` reads Gloam's near land tile (N0, the ground every 16
+  blocks, 4 km round the camera) and works out for every cell (a) the shadow line toward the light: the height above
+  which the column sees it, the max over a march out to 2 km of ground(t) - t tan(elevation), with the caster's
+  distance for the penumbra (0.75 + 0.03 per block); the relief counts 1.5x while the sun stands above 0.35, easing
+  to the true relief by 0.15 (a stylized hill shading); a second line of only the casters past the map's reach, for
+  the points inside it; and (b) the land's Sobel slope. `deferred1` lets a point (never taken under the tile's own
+  ground) under the line into shade over a soft edge, bilinear between cells, no noise. The light pass turns a top
+  face's sun by the hillside it stands on, its slope steepened `TERRAIN_SLOPE` % (default 300), at most 3x, fading
+  in from 40 to 160 blocks. The terrain's shadows give way in the last degrees (sun height 0.25 -> 0.08; the
+  golden-hour rule; the slopes' own light carries the form then). Without Gloam every cell reads lit and level.
+  `DEBUG_VIEW` 21.
+- **Cost (RTX 4060, 1600x900, MEDIUM; frame times noisy while another game ran):** the terrain pass (65 536 cells,
+  about 60 steps of 4 fetches) and its lookups were under the run-to-run noise (on/off within about +-0.3 ms in the
+  three vistas); estimated 0.05-0.15 ms. The PCSS, contact and far rays and the resolve as measured for A2-A3.
+- **Open:** casters off the screen past 2 km cast nothing (Gloam's 1 km F0 tile could carry the same lines further);
+  the far land's sky fill does not yet see its valleys (a sky-openness term from the same heights would be the
+  ambient workstream's); forward programs keep the fixed grid.

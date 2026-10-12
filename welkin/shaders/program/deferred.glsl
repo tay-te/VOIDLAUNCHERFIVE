@@ -35,14 +35,8 @@ void main() {
 #include "/lib/shadow.glsl"
 #include "/lib/void.glsl"
 #include "/lib/ao.glsl"
-#if defined FAR_SHADOWS && defined WORLD_OVERWORLD
-#include "/lib/farshadow.glsl"
-#define WELKIN_FAR_SHADOWS
-#ifndef WU_gbufferModelView
-#define WU_gbufferModelView
-uniform mat4 gbufferModelView;
-#endif
-#endif
+// the sun's reach: the shadow buffers (deferred_shadow, deferred_resolve), or worked out here without the map
+#include "/lib/shadowfetch.glsl"
 
 in vec2 texcoord;
 
@@ -122,17 +116,8 @@ void main() {
 		// LOD's land (which never casts or takes map shadows), fading from one to the other over the map's last 20 %
 		// past the map, and on the LOD's land, the far shadows found on screen (lib/farshadow.glsl)
 		vec3 playerPos = (gbufferModelViewInverse * vec4(s.view, 1.0)).xyz;
-		float farVis = 1.0;
-#ifdef WELKIN_FAR_SHADOWS
-		if (facing > 0.0 && g.w > 0.5 && (s.fromLod || farShadowNeed(playerPos) > 0.0)) {
-			farVis = farShadow(s.view, mat3(gbufferModelView) * n, normalize(shadowLightPosition));
-		}
-#endif
-		float reach = sunOpen(g.w) * farVis;
-		float through = (matIsLeaves(material) ? 0.35 : 1.0) * reach;
-		if (!s.fromLod) {
-			reach = welkinSunReachEx(playerPos, n, g.w, material, facing, farVis, sunShare, through);
-		}
+		float through;
+		float reach = lightShadowFetch(p, s, playerPos, n, g.w, material, facing, sunShare, through);
 		// the light through leaves and plants (lib/light.glsl welkinGlow)
 		float glow = welkinGlow(normalize(eyePos), n, lightDir, material, through);
 		if (matThin(material)) {
@@ -196,10 +181,22 @@ void main() {
 		color.rgb = vec3(reach * facing) * sunShare * (s.fromLod ? vec3(0.55, 0.7, 1.0) : vec3(1.0));
 #elif DEBUG_VIEW == 13
 		// the contact shade (white: none) over the far shadows (blue: in shadow past the map)
-		color.rgb = vec3(contact) * mix(vec3(0.3, 0.45, 1.0), vec3(1.0), farVis);
+		color.rgb = vec3(contact) * mix(vec3(0.3, 0.45, 1.0), vec3(1.0),
+			(s.fromLod || farShadowNeed(playerPos) > 0.0) ? reach : 1.0);
 #elif DEBUG_VIEW == 14
 		// the light through leaves and plants (green), what passes the casters (red)
 		color.rgb = vec3(through, min(glow * 2.0, 1.0), 0.0);
+#elif DEBUG_VIEW == 21
+		// the terrain's light (workstream A, lib/terrain.glsl): red the sun's reach, green the slope's factor / 2,
+		// blue where the terrain's data is
+		color.rgb = vec3(reach, terrainSlopeLast * 0.5, terrainWLast);
+#elif DEBUG_VIEW >= 15 && DEBUG_VIEW <= 17 && defined WELKIN_SHADOW_BUFFERS
+		// the shadow buffers (workstream A): 15 the raw reach (noisy), 16 the resolved reach, 17 the history weight
+		// (green kept, red where the clamp acted; black: no history)
+		vec4 sraw = texelFetch(colortex10, p, 0);
+		vec4 sres = texelFetch(colortex11, p, 0);
+		color.rgb = DEBUG_VIEW == 15 ? vec3(sraw.r) : (DEBUG_VIEW == 16 ? vec3(sres.r)
+			: vec3(max(-sres.b, 0.0), max(sres.b, 0.0), 0.0));
 #endif
 	}
 #endif
