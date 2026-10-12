@@ -186,8 +186,12 @@ Mettle's Back, Belt and Quiver wells beside the figure plus a LOAD row:
 * **Gear** — the worn pack's pockets where a chest's rows go, the inventory under them, and on the right the load
   meter, the worn gear with the belt's and quiver's pockets, and a compact item card. Works like the chest page
   (move all, sort, shift-click sends to the pack first).
-* **Classes** — Mettle's character and skills, each skill in its own colour: a gallery of skill cards (attributes with
-  + above), and per skill a tree with a skill rail and an action bar that learns perks. K opens it.
+* **Classes** — Mettle's character and its perk cards (cards v2, Figma 295:2 §2h): the draft hand and the Mythic
+  reveal, a deck builder per skill, the binder with filter menus (rarity, keyword, trait, sort), the Hall of Firsts,
+  the Card Shrine, and trades ("Trade ›" asks a player within 8 blocks; offered stacks are drawn by Minecraft at the
+  page's wells, coin is typed or stepped). K opens it. The page is still; every looping card effect is drawn natively
+  by `screen/CardFx`. Card names in hand mode use a hand-drawn pixel font (`MC.pix`, no font file; `PixelFontTest`
+  checks it covers every perk and Mythic name).
 
 The hub reaches Mettle only through `dev.voidmc.hub.mettle.MettleLink` (method handles on Mettle's client overlay API,
 mettle/docs/OVERLAY.md), so it builds and runs without Mettle. The page side is `ui/mettle.js` + `ui/mettle.css`,
