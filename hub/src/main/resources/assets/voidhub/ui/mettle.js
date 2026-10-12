@@ -784,6 +784,8 @@
         classes();
       } else if (m.type === "key") {
         if (window.MC && kind === "classes") window.MC.key(m);
+      } else if (m.type === "nearby") {
+        if (window.MC && window.MC.nearby) window.MC.nearby(m.players);
       } else if (m.type === "wheel") {
         if (window.MC && kind === "classes") window.MC.wheel(m);
       } else if (m.type === "mettle") {

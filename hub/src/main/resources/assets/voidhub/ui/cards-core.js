@@ -27,7 +27,8 @@
     return null;
   };
   /** One Mettle action (Bridge.METTLE_OPS): the op and its one string argument. */
-  MC.act = function (op, arg) { MC.send({type: "mettle", op: op, arg: arg == null ? "" : String(arg)}); };
+  MC.act = function (op, arg) { MC.lastAct = op + " " + (arg == null ? "" : String(arg)); MC.send({type: "mettle", op: op, arg: arg == null ? "" : String(arg)}); };
+  MC.lastAct = "";  // the last action sent (the game test reads it)
   /** A card sound Mettle times to our animation (SOUNDS.md §5). */
   MC.sound = function (cue, arg) { MC.act("cardSound", cue + "#" + (arg || "")); };
 
@@ -66,6 +67,16 @@
   /** The last set sent to Java, as JSON (tests). */
   MC.fxDebug = function () { return fxSent; };
   /** Sends the current set again even if unchanged (Java cleared its copy). */
+  // Item stacks in the page's own wells (the trade): Java draws them natively at these page-px rects. Sent on change.
+  var itemsSent = "[]";
+  MC.itemsSet = function (list) {
+    var key = JSON.stringify(list || []);
+    if (key === itemsSent) return;
+    itemsSent = key;
+    MC.send({type: "items", items: list || []});
+  };
+  /** Java dropped them (another page): the next set goes out even if it is the same. */
+  MC.itemsReset = function () { itemsSent = "!"; MC.itemsSet([]); };
   MC.fxResend = function () { fxSent = "!"; MC.fxSet("draft", fxGroups.draft || []); };
   MC.fxClear = function () {
     for (var g in fxGroups) fxGroups[g] = [];
@@ -134,7 +145,10 @@
 
   // ---- the pixel font (Figma uses Pixelify Sans Bold for names in hand mode) ----------------------------------
   // 5x7 capitals, digits and the punctuation names use, drawn bold (each texel smeared one to the right). One SVG
-  // path per name: no font file, no per-letter elements, crisp edges at every device scale.
+  // path per name: no font file, no per-letter elements, crisp edges at every device scale. Glyphs whose strokes are
+  // one texel apart (M, N, W, Q, 0) would fill solid when smeared: those start with "=" and are drawn bold already.
+  // Every perk and Mythic name must be covered: HubGameTest's MettleTest photographs them all (voidhub_mettle_29_names)
+  // and PixelFontTest checks the names in libs/void-mettle.jar against this table.
   var FONT = {
     A: ".###.|#...#|#...#|#####|#...#|#...#|#...#", B: "####.|#...#|#...#|####.|#...#|#...#|####.",
     C: ".###.|#...#|#....|#....|#....|#...#|.###.", D: "####.|#...#|#...#|#...#|#...#|#...#|####.",
@@ -142,14 +156,14 @@
     G: ".###.|#...#|#....|#.###|#...#|#...#|.####", H: "#...#|#...#|#...#|#####|#...#|#...#|#...#",
     I: "###|.#.|.#.|.#.|.#.|.#.|###", J: "..###|...#.|...#.|...#.|#..#.|#..#.|.##..",
     K: "#...#|#..#.|#.#..|##...|#.#..|#..#.|#...#", L: "#....|#....|#....|#....|#....|#....|#####",
-    M: "#...#|##.##|#.#.#|#.#.#|#...#|#...#|#...#", N: "#...#|##..#|#.#.#|#..##|#...#|#...#|#...#",
+    M: "=##...##|###.###|##.#.##|##.#.##|##...##|##...##|##...##", N: "=##...##|###..##|####.##|##.####|##..###|##...##|##...##",
     O: ".###.|#...#|#...#|#...#|#...#|#...#|.###.", P: "####.|#...#|#...#|####.|#....|#....|#....",
-    Q: ".###.|#...#|#...#|#...#|#.#.#|#..#.|.##.#", R: "####.|#...#|#...#|####.|#.#..|#..#.|#...#",
+    Q: "=.####.|##..##|##..##|##..##|##.###|.####.|....##", R: "####.|#...#|#...#|####.|#.#..|#..#.|#...#",
     S: ".####|#....|#....|.###.|....#|....#|####.", T: "#####|..#..|..#..|..#..|..#..|..#..|..#..",
     U: "#...#|#...#|#...#|#...#|#...#|#...#|.###.", V: "#...#|#...#|#...#|#...#|#...#|.#.#.|..#..",
-    W: "#...#|#...#|#...#|#.#.#|#.#.#|##.##|#...#", X: "#...#|#...#|.#.#.|..#..|.#.#.|#...#|#...#",
+    W: "=##...##|##...##|##...##|##.#.##|##.#.##|###.###|##...##", X: "#...#|#...#|.#.#.|..#..|.#.#.|#...#|#...#",
     Y: "#...#|#...#|.#.#.|..#..|..#..|..#..|..#..", Z: "#####|....#|...#.|..#..|.#...|#....|#####",
-    "0": ".###.|#...#|#..##|#.#.#|##..#|#...#|.###.", "1": "..#..|.##..|..#..|..#..|..#..|..#..|.###.",
+    "0": "=.####.|##..##|##.###|###.##|##..##|##..##|.####.", "1": "..#..|.##..|..#..|..#..|..#..|..#..|.###.",
     "2": ".###.|#...#|....#|...#.|..#..|.#...|#####", "3": "####.|....#|....#|.###.|....#|....#|####.",
     "4": "...#.|..##.|.#.#.|#..#.|#####|...#.|...#.", "5": "#####|#....|####.|....#|....#|#...#|.###.",
     "6": ".###.|#....|#....|####.|#...#|#...#|.###.", "7": "#####|....#|...#.|..#..|.#...|.#...|.#...",
@@ -163,7 +177,9 @@
   var bold = {};
   function glyphRows(ch) {
     if (bold[ch]) return bold[ch];
-    var src = FONT[ch] || FONT[" "], rows = src.split("|"), out = [];
+    var src = FONT[ch] || FONT[" "];
+    if (src.charAt(0) === "=") return (bold[ch] = src.slice(1).split("|"));
+    var rows = src.split("|"), out = [];
     for (var r = 0; r < rows.length; r++) {
       var row = rows[r] + ".", b = "";
       for (var x = 0; x < row.length; x++) b += row.charAt(x) === "#" || (x > 0 && row.charAt(x - 1) === "#") ? "#" : ".";
@@ -171,6 +187,8 @@
     }
     return (bold[ch] = out);
   }
+  /** The characters the pixel font draws (anything else would show as a space). */
+  MC.pixChars = function () { return Object.keys(FONT).join(""); };
   /** Width in texels of a line of pixel text (1 texel of space between letters). */
   function pixWidth(text) {
     var w = 0;

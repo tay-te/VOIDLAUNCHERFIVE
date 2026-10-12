@@ -22,7 +22,7 @@ public final class Bridge {
 	}
 
 	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Page, Waypoint, Tip, MettleCall, MettleChoose, MettleUi, Fx,
-		Invalid {
+		Items, Invalid {
 	}
 
 	/** The page finished loading and installed {@code hub.apply}. */
@@ -168,6 +168,44 @@ public final class Bridge {
 		return new Fx(List.copyOf(out));
 	}
 
+	/**
+	 * Item stacks the page shows in its own wells (the Classes page's trade): Minecraft draws them natively at these
+	 * rects, as it draws the inventory's stacks at the layout's wells. The whole set each time it changes.
+	 */
+	public record Items(List<ItemIcon> items) implements Message {
+	}
+
+	/** One stack: an item id, its count, and the well it sits in (CSS px, page coordinates). */
+	public record ItemIcon(String item, int count, double x, double y, double w, double h) {
+	}
+
+	private static final java.util.regex.Pattern ITEM_ID = java.util.regex.Pattern.compile("[a-z0-9_.-]{1,64}:[a-z0-9_./-]{1,128}");
+
+	private static Message items(Map<String, Object> m) {
+		if (!(m.get("items") instanceof List<?> list) || list.size() > 32) {
+			return new Invalid("items");
+		}
+		java.util.ArrayList<ItemIcon> out = new java.util.ArrayList<>();
+		for (Object o : list) {
+			if (!(o instanceof Map<?, ?> it) || !(it.get("id") instanceof String id) || !ITEM_ID.matcher(id).matches()) {
+				return new Invalid("items id");
+			}
+			double[] v = new double[5];
+			String[] keys = {"n", "x", "y", "w", "h"};
+			for (int i = 0; i < keys.length; i++) {
+				if (!(it.get(keys[i]) instanceof Double d) || !Double.isFinite(d) || Math.abs(d) > 100_000) {
+					return new Invalid("items " + keys[i]);
+				}
+				v[i] = d;
+			}
+			if (v[0] < 0 || v[0] > 99_999 || v[3] <= 0 || v[4] <= 0) {
+				return new Invalid("items size");
+			}
+			out.add(new ItemIcon(id, (int) v[0], v[1], v[2], v[3], v[4]));
+		}
+		return new Items(List.copyOf(out));
+	}
+
 	static final Set<String> FILTERS = Set.of("all", "tools", "blocks", "food");
 	static final Set<String> SORT_REGIONS = Set.of("container", "storage");
 	/** Ids and attribute names: namespaced lowercase paths, nothing longer than a real one. */
@@ -261,6 +299,7 @@ public final class Bridge {
 			case "mettleChoose" -> choose(m);
 			case "mettle" -> mettle(m);
 			case "fx" -> fx(m);
+			case "items" -> items(m);
 			case "mettleUi" -> new MettleUi(Boolean.TRUE.equals(m.get("modal")), Boolean.TRUE.equals(m.get("text")));
 			default -> new Invalid("unknown type " + t);
 		};

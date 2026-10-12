@@ -343,6 +343,41 @@ public final class MettleTest {
 			}
 		});
 
+		// 11b. The binder's filters and sort are real menus (rarity, keyword, trait, sort): open, pick, Esc closes.
+		this.ui.clickPage(".b-left [data-dd=\"b-kw\"]");
+		this.context.waitTicks(3);
+		this.expect("b-kw".equals(this.js("MC.st.menu?MC.st.menu.id:''")), "the keyword menu opened");
+		this.expect(Integer.parseInt(this.js("String(document.querySelectorAll('.ddm [data-ddv]').length)")) >= 8, "the keyword menu lists the keywords");
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.shot("voidhub_mettle_15b_binder_keyword_menu");
+		this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+		this.context.waitTicks(3);
+		this.expect("".equals(this.js("MC.st.menu?'open':''")) && this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubInventoryScreen),
+			"Esc closed the menu, not the hub");
+		this.ui.clickPage(".b-left [data-dd=\"b-rarity\"]");
+		this.context.waitTicks(3);
+		this.ui.clickPage(".ddm [data-ddv=\"rare\"]");
+		this.context.waitTicks(3);
+		this.expect("rare".equals(this.js("MC.st.binder.rarity")) && "".equals(this.js("MC.st.menu?'open':''")), "picking Rare set the filter and closed the menu");
+		this.expect("true".equals(this.js(ALL_SHOWN.replace("TEST", "MC.rarityOf(c)==='rare'"))), "the binder shows only Rare cards");
+		this.ui.clickPage(".b-left [data-dd=\"b-trait\"]");
+		this.context.waitTicks(3);
+		String trait = this.js("(function(){var e=document.querySelectorAll('.ddm [data-ddv]');return e.length>1?e[1].getAttribute('data-ddv'):''})()");
+		this.expect(!trait.isEmpty(), "the trait menu lists the binder's traits");
+		this.ui.clickPage(".ddm [data-ddv=\"" + trait + "\"]");
+		this.context.waitTicks(3);
+		this.expect(trait.equals(this.js("MC.st.binder.trait")), "picking a trait set the filter");
+		this.expect("true".equals(this.js(ALL_SHOWN.replace("TEST", "(c.traits||[]).some(function(t){return t.id===" + Json.quote(trait) + "})"))),
+			"the binder shows only cards with " + trait);
+		this.ui.clickPage("[data-dd=\"b-sort\"]");
+		this.context.waitTicks(3);
+		this.ui.clickPage(".ddm [data-ddv=\"name\"]");
+		this.context.waitTicks(3);
+		this.expect("name".equals(this.js("MC.st.binder.sort")), "the sort menu sorts by name");
+		this.js("MC.st.binder.rarity='';MC.st.binder.trait='';MC.st.binder.sort='newest';MC.render();''");
+		this.context.waitTicks(2);
+
 		// 12. The deck builder: drag a binder card into an open slot; a second Deep card completes the Deep 2 set (2g-6).
 		long[] deep = new long[2];
 		this.world.getServer().runOnServer(s -> {
@@ -362,6 +397,23 @@ public final class MettleTest {
 		this.expect(this.slotted(deep[0]), "the first Deep card is slotted");
 		this.shot("voidhub_mettle_16_deck");
 		this.dumpState("deck");
+		this.ui.clickPage("[data-dd=\"d-sort\"]");
+		this.context.waitTicks(3);
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.shot("voidhub_mettle_16b_deck_sort_menu");
+		this.ui.clickPage(".ddm [data-ddv=\"requirement\"]");
+		this.context.waitTicks(3);
+		this.expect("requirement".equals(this.js("MC.st.deck.sort")), "the deck's sort menu picked Requirement");
+		this.ui.clickPage("[data-dd=\"d-kw\"]");
+		this.context.waitTicks(3);
+		this.ui.clickPage(".ddm [data-ddv=\"mettle:deep\"]");
+		this.context.waitTicks(3);
+		this.expect("mettle:deep".equals(this.js("MC.st.deck.kw")), "the deck's keyword menu picked Deep");
+		this.expect("true".equals(this.js(ALL_SHOWN.replace(".bin-grid [data-bcard]", "#dk-grid [data-dcard]").replace("data-bcard", "data-dcard")
+			.replace("TEST", "(c.keywords||[]).some(function(k){return k.id==='mettle:deep'})"))), "the deck's binder shows only Deep cards");
+		this.js("MC.st.deck.kw='';MC.st.deck.sort='rarity';MC.render();''");
+		this.context.waitTicks(2);
 		String from = "[data-dcard=\"" + deep[1] + "\"]";
 		this.waitPage("!!document.querySelector('" + from.replace("\"", "\\\"") + "')", 20, "the second Deep card is in the deck's binder");
 		this.perf("deck builder drag", () -> {
@@ -454,7 +506,24 @@ public final class MettleTest {
 		this.context.waitTicks(10);
 		this.expect(this.js("document.getElementById('cv').className").indexOf("scr-shrine") < 0, "Leave ended the sitting");
 
-		// 14. A trade with a stand-in partner (Bree): both sides, lock, the countdown, the swap (2h-4).
+		// 13b. "Trade ›" lists the players within 8 blocks; picking one asks them (Mettle's tradeRequest). A server-side
+		//      stand-in is not in the client's level, so the test names the players in reach.
+		this.js("MC.nav.view='home';MC.nav.tab='cards';MC.render();''");
+		this.context.runOnClient(mc -> HubInventoryScreen.testNearby = List.of(Map.entry("Bree", 2.4), Map.entry("Ashford", 6.7)));
+		this.waitPage("MC.near.length===2", 40, "the players in reach reached the page");
+		this.ui.clickPage(".b-left [data-dd=\"trade-req\"]");
+		this.context.waitTicks(3);
+		this.expect("2".equals(this.js("String(document.querySelectorAll('.ddm [data-ddv]').length)")), "the request list shows both players");
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.shot("voidhub_mettle_23b_trade_request");
+		this.ui.clickPage(".ddm [data-ddv=\"Bree\"]");
+		this.context.waitTicks(3);
+		this.expect("tradeRequest Bree".equals(this.js("MC.lastAct")), "picking Bree sent the trade request: " + this.js("MC.lastAct"));
+		this.context.runOnClient(mc -> HubInventoryScreen.testNearby = null);
+
+		// 14. A trade with a stand-in partner (Bree): both sides, items drawn natively, the coin entry, lock, the
+		//     countdown, the swap (2h-4).
 		long[] theirs = new long[1];
 		this.context.waitTicks(105);  // nobody trades within 5 s of being hurt
 		this.world.getServer().runOnServer(s -> {
@@ -465,13 +534,24 @@ public final class MettleTest {
 			a.setHealth(a.getMaxHealth());
 			MettleServer.trade("standIn", b);
 			MettleServer.clearCards(b);
+			b.getInventory().setItem(0, new ItemStack(net.minecraft.world.item.Items.DIAMOND, 5));
+			b.getInventory().setItem(1, new ItemStack(net.minecraft.world.item.Items.GOLDEN_APPLE, 2));
+			a.getInventory().setItem(a.getInventory().getSelectedSlot(), new ItemStack(net.minecraft.world.item.Items.EMERALD, 12));
 			theirs[0] = MettleServer.giveExact(b, "mining/quarryman", "EPIC", List.of("brutal", "deep"), List.of("mining/deepborn=8"), 9);
 			Object asked = MettleServer.trade("request", a, b);
 			Object accepted = MettleServer.trade("accept", b);
 			this.expect(asked.toString().equals("Optional.empty") && accepted.toString().equals("Optional.empty"), "the trade opened: " + asked + " / " + accepted);
 			MettleServer.trade("offerCard", b, theirs[0]);
+			MettleServer.trade("offerItem", b, 0);
+			MettleServer.trade("offerItem", b, 1);
 		});
 		this.waitPage("document.getElementById('cv').className.indexOf('scr-trade')>=0 && !document.getElementById('tr-ask')", 60, "the trade shows on the Classes page");
+		this.ui.clickPage("[data-toffitem]");  // the stack in hand: 12 emeralds
+		this.waitPage("document.querySelectorAll('.it-slot.full').length===3", 40, "both sides' items show");
+		this.context.waitTicks(3);
+		String drawn = this.context.computeOnClient(mc -> ((HubInventoryScreen) mc.gui.screen()).pageItems().stream()
+			.map(i -> i.item() + "x" + i.count()).sorted().toList().toString());
+		this.expect("[minecraft:diamondx5, minecraft:emeraldx12, minecraft:golden_applex2]".equals(drawn), "Minecraft draws the trade's stacks: " + drawn);
 		this.ui.clickPage("[data-tadd=\"1\"]");
 		this.context.waitTicks(3);
 		this.ui.parkMouse();
@@ -481,12 +561,36 @@ public final class MettleTest {
 		this.context.waitTicks(4);
 		this.ui.clickPage("[data-tadd=\"0\"]");
 		this.context.waitTicks(3);
+		// The coin entry (Hearth coin): this world has no Hearth, so the page is shown a coin trade to test the field.
+		String coinOn = "MC.M.cards.trade.coin=true;MC.M.cards.trade.me.coin=40;MC.render();''";
+		this.js(coinOn);
+		this.context.waitTicks(2);
+		this.ui.clickPage("[data-tcstep=\"10\"]");
+		this.expect("tradeCoin 50".equals(this.js("MC.lastAct")), "+ steps the coin by 10 bits: " + this.js("MC.lastAct"));
+		this.context.waitTicks(15);  // Mettle answers the step (refused here: no Hearth) before the field is tested
+		this.js(coinOn);
+		this.context.waitTicks(2);
+		this.ui.clickPage("[data-tcoinf]");
+		this.context.waitTicks(2);
+		this.context.getInput().typeChars("250");
+		this.context.waitTicks(3);
+		this.expect("250".equals(this.js("MC.st.trade.coinDraft")), "typing fills the coin field: " + this.js("MC.st.trade.coinDraft"));
+		this.ui.parkMouse();
+		this.js(coinOn);  // Mettle's answers replace the stand-in state; the field and the typed amount stay
+		this.context.waitTicks(1);
+		this.shot("voidhub_mettle_24b_trade_coin");
+		this.js(coinOn);
+		this.context.getInput().pressKey(InputConstants.KEY_RETURN);
+		this.context.waitTicks(3);
+		this.expect("tradeCoin 250".equals(this.js("MC.lastAct")), "Enter offers the typed bits: " + this.js("MC.lastAct"));
+		this.js("MC.M.cards.trade.coin=false;MC.render();''");
 		this.ui.clickPage("[data-tlock]");
 		this.context.waitTicks(4);
 		this.world.getServer().runOnServer(s -> MettleServer.trade("lock", standIn(s)));
 		this.context.waitTicks(5);
-		this.ui.parkMouse();
-		this.context.waitTicks(2);
+		this.hoverPage("#tr-them [data-itn]");
+		this.context.waitTicks(3);
+		this.expect(this.js("document.getElementById('tr-them-items').textContent").contains("DIAMOND"), "hovering a stack names it");
 		this.shot("voidhub_mettle_25_trade_locked");
 		this.dumpState("trade");
 		this.ui.clickPage("[data-tconfirm]");
@@ -499,6 +603,16 @@ public final class MettleTest {
 		this.context.waitTicks(15);
 		this.expect(this.ownsCard(theirs[0]), "the swap brought Bree's card into the binder");
 		this.expect(this.js("document.getElementById('cv').className").indexOf("scr-trade") < 0, "the trade screen closed after the swap");
+		this.expect("[]".equals(this.context.computeOnClient(mc -> ((HubInventoryScreen) mc.gui.screen()).pageItems().toString())), "no stacks drawn after the trade");
+
+		// 14b. Every perk and Mythic name in the hand-mode pixel font, on one sheet (and none with a character it lacks).
+		this.ui.parkMouse();
+		String missing = this.js(NAMES_SHEET);
+		this.expect(missing.isEmpty(), "names the pixel font cannot draw: " + missing);
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_29_names");
+		this.js("(function(){var d=document.getElementById('name-sheet');if(d)d.parentNode.removeChild(d);return ''})()");
+		this.context.waitTicks(2);
 
 		// 15. K opens the hub on Classes.
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
@@ -523,6 +637,22 @@ public final class MettleTest {
 		this.expect(this.flatRuns.isEmpty(), "no flat untextured colour outside the window in any screenshot: " + this.flatRuns);
 		dev.voidmc.hub.VoidHub.LOGGER.info("VOID Hub + Mettle: all steps passed");
 	}
+
+	/** True when every card the grid shows passes TEST (an expression of c, the card). */
+	private static final String ALL_SHOWN = "(function(){var ids=[].map.call(document.querySelectorAll('.bin-grid [data-bcard]'),function(e){return e.getAttribute('data-bcard')});"
+		+ "var all=MC.M.cards.binder.cards,by={};for(var i=0;i<all.length;i++)by[all[i].id]=all[i];"
+		+ "return String(ids.length>0&&ids.every(function(id){var c=by[id];return !!c&&(TEST)}))})()";
+
+	/** Draws every perk and Mythic name (and the ranks) with MC.pix over the page; returns the names it cannot draw. */
+	private static final String NAMES_SHEET = "(function(){var M=MC.M,names=[],seen={},i;"
+		+ "for(i=0;i<(M.perks||[]).length;i++){var n=M.perks[i].name;if(n&&!seen[n]){seen[n]=1;names.push(n)}}"
+		+ "var my=(M.cards.mythics||{}).all||[];for(i=0;i<my.length;i++){if(!seen[my[i].name]){seen[my[i].name]=1;names.push(my[i].name)}}"
+		+ "var count=names.length;names.push('I II III');var ok=MC.pixChars(),bad=[];"
+		+ "names.forEach(function(n){var u=n.toUpperCase();for(var k=0;k<u.length;k++)if(ok.indexOf(u.charAt(k))<0&&bad.indexOf(n)<0)bad.push(n)});"
+		+ "var d=document.createElement('div');d.id='name-sheet';d.style.cssText='position:absolute;left:0;top:0;width:100%;height:100%;background:#0B0B0C;z-index:50';"
+		+ "var h='<div style=\"position:absolute;left:16px;top:10px;font-size:11px;color:#9A9DA1\">'+count+' perk and Mythic names and the ranks, hand-mode pixel font</div>';"
+		+ "names.forEach(function(n,k){h+='<div style=\"position:absolute;left:'+(16+Math.floor(k/40)*300)+'px;top:'+(32+(k%40)*19)+'px\">'+MC.pix(n,2,'#EDEEEF')+'</div>'});"
+		+ "d.innerHTML=h;document.body.appendChild(d);return bad.join(' | ')})()";
 
 	private static net.minecraft.server.level.ServerPlayer standIn(net.minecraft.server.MinecraftServer s) {
 		return net.fabricmc.fabric.api.entity.FakePlayer.get(s.overworld(), new com.mojang.authlib.GameProfile(BREE, "Bree"));

@@ -13,10 +13,14 @@
 
   var nav = MC.nav = {view: "home", tab: "skills", skill: null, stab: "deck", shrine: "rebuild"};
   var st = MC.st = {
-    binder: {skill: "", rarity: "", kw: "", slot: false, att: false, sort: "newest", q: "", scroll: 0, sel: null},
-    deck: {rarity: "", kw: "", slot: false, sort: "rarity", scroll: 0, sel: null, pop: null, totals: false},
-    rebuild: {skill: null, pick: {}}, fuse: {pick: []}, release: {pick: []}, trade: {adding: false, scroll: 0}, hall: {scroll: 0}
+    binder: {skill: "", rarity: "", kw: "", trait: "", slot: false, att: false, sort: "newest", q: "", scroll: 0, sel: null},
+    deck: {rarity: "", kw: "", trait: "", slot: false, sort: "rarity", scroll: 0, sel: null, pop: null, totals: false},
+    rebuild: {skill: null, pick: {}}, fuse: {pick: []}, release: {pick: []}, hall: {scroll: 0},
+    trade: {adding: false, scroll: 0, coinDraft: null, req: null},
+    menu: null,           // the open dropdown: {id, x, y, w, scroll, card}
+    textTarget: "search"  // what typing goes to while MC.textFocus: the binder search or the trade's coin field
   };
+  MC.near = [];           // players within trade reach, nearest first ({name, d}), from Java's "nearby" message
   var root = null, cv = null, screen = "", byId = {}, lastWaitingSeen = -1, dismissedWaiting = 0, seenReveal = {}, prevTiers = null;
   var justSlotted = null, slotSoundFor = null, kind = "inventory";
   MC.attached = false;
@@ -35,6 +39,7 @@
     return list.slice().sort(function (a, b) {
       if (how === "rarity") return (RANK[MC.isMythic(b) ? "mythic" : MC.rarityOf(b)] || 0) - (RANK[MC.isMythic(a) ? "mythic" : MC.rarityOf(a)] || 0) || idx[a.id] - idx[b.id];
       if (how === "requirement") return (a.needs || 0) - (b.needs || 0) || idx[a.id] - idx[b.id];
+      if (how === "name") return String(a.name).localeCompare(String(b.name)) || idx[a.id] - idx[b.id];
       return idx[a.id] - idx[b.id];
     });
   }
@@ -92,10 +97,13 @@
       cv.innerHTML = "";
       cv.className = "scr scr-" + id;
       st.deck.pop = null;
+      st.menu = null;
       if (MC.textFocus) { MC.textFocus = false; ui(); }
     }
     var f = SCREENS[id] || SCREENS["home-skills"];
     f();
+    menu();
+    if (id !== "trade") MC.itemsSet([]);
     toast();
     moments();
     pageFx();
@@ -146,7 +154,8 @@
     toastTimer = setTimeout(function () { el.style.display = "none"; MC.toggle(root, "has-toast", false); }, 3500 - (f.ageMs || 0));
   }
 
-  function ui() { MC.send({type: "mettleUi", modal: MC.ov.active(), text: MC.textFocus}); }
+  // A menu is modal too: Esc closes it (not the window) and the hotbar keys stay quiet.
+  function ui() { MC.send({type: "mettleUi", modal: MC.ov.active() || !!st.menu, text: MC.textFocus}); }
 
   /** Opens a draft, a reveal or a set moment when one is due and nothing else is up. */
   function moments() {
@@ -282,6 +291,7 @@
       if (sk && c.skill !== sk && !(MC.isMythic(c) && c.deck === sk)) continue;
       if (b.rarity && (MC.isMythic(c) ? "mythic" : MC.rarityOf(c)) !== b.rarity) continue;
       if (b.kw && !hasKw(c, b.kw)) continue;
+      if (b.trait && !hasTrait(c, b.trait)) continue;
       if (b.slot && !c.canSlot) continue;
       if (b.att && c.attuned !== false) continue;
       if (q && (c.name + " " + kwNames(c) + " " + (c.code || "") + " " + traitText(c)).toLowerCase().indexOf(q) < 0) continue;
@@ -290,6 +300,7 @@
     return sortCards(out, b.sort);
   }
   function hasKw(c, id) { for (var i = 0; i < (c.keywords || []).length; i++) if (c.keywords[i].id === id) return true; return false; }
+  function hasTrait(c, id) { for (var i = 0; i < (c.traits || []).length; i++) if (c.traits[i].id === id) return true; return false; }
   function traitText(c) { var o = ""; for (var i = 0; i < (c.traits || []).length; i++) o += c.traits[i].name + " "; return o; }
   function kwName(id) { var k = M().cards.keywords; for (var i = 0; i < k.length; i++) if (k[i].id === id) return k[i].name; return id; }
 
@@ -309,11 +320,13 @@
       h += '<div class="bl-row on" style="top:' + Y(91) + 'px"><i style="background:' + fs.colour + '"></i><span class="n">' + esc(fs.name) + '</span><span class="c">' + (counts[fixed] || 0) + "</span></div>";
     }
     h += '<div class="eb9" style="left:28px;top:' + Y(321) + 'px">SHOW</div>';
-    h += '<div class="bl-f" data-bf="rarity" style="top:' + Y(339) + 'px">' + (b.rarity ? upper(b.rarity.charAt(0)) + b.rarity.slice(1) : "Any rarity") + '<i class="dd"></i></div>';
-    h += '<div class="bl-f" data-bf="kw" style="top:' + Y(371) + 'px">' + (b.kw ? esc(kwName(b.kw)) : "Any keyword") + '<i class="dd"></i></div>';
-    h += '<div class="bl-f' + (b.slot ? " on" : "") + '" data-bf="slot" style="top:' + Y(403) + 'px">Slottable now</div>';
-    h += '<div class="bl-f' + (b.att ? " on" : "") + '" data-bf="att" style="top:' + Y(435) + 'px">Attuning</div>';
-    h += '<div class="bl-f" data-shrineinfo="1" style="top:' + Y(467) + 'px">Card Shrine ›</div>';
+    h += ddPill("bl-f", "b-rarity", b.rarity ? rarityLabel(b.rarity) : "Any rarity", !!b.rarity, "top:" + Y(339) + "px");
+    h += ddPill("bl-f", "b-kw", b.kw ? kwName(b.kw) : "Any keyword", !!b.kw, "top:" + Y(371) + "px");
+    h += ddPill("bl-f", "b-trait", b.trait ? traitName(b.trait) : "Any trait", !!b.trait, "top:" + Y(403) + "px");
+    h += '<div class="bl-f half' + (b.slot ? " on" : "") + '" data-bf="slot" style="top:' + Y(435) + 'px">Slottable</div>';
+    h += '<div class="bl-f half r' + (b.att ? " on" : "") + '" data-bf="att" style="top:' + Y(435) + 'px">Attuning</div>';
+    h += '<div class="bl-f half" data-shrineinfo="1" style="top:' + Y(467) + 'px">Shrine ›</div>';
+    h += '<div class="bl-f half r" data-dd="trade-req" style="top:' + Y(467) + 'px">Trade ›</div>';
     var mine = null;
     for (var m = 0; m < all.length; m++) if (MC.isMythic(all[m])) { mine = all[m]; break; }
     h += '<div class="bl-my" data-tab="hall" style="top:' + Y(517) + 'px"><div class="t">' + (mine ? MC.img(mine.icon, 24) : "") + '</div><div class="n">' + esc(mine ? mine.name : "No Mythic yet") +
@@ -377,10 +390,14 @@
     var a1, a2, at = M().cards.atShrine, tr2 = M().cards.trade;
     if (c.place === "slotted") a1 = '<div class="bd-a" data-takeout="' + c.id + '">Take out…</div>';
     else if (c.canSlot) a1 = '<div class="bd-a" data-slotbest="' + c.id + '">Slot</div>';
-    else a1 = '<div class="bd-a off" title="' + esc(c.lockedReason || "") + '">' + esc(c.lockedReason ? c.lockedReason : "Can't slot") + "</div>";
+    else {
+      a1 = '<div class="bd-a off">Can’t slot</div>';
+      if (c.lockedReason) h += '<div class="bd-why">' + esc(c.lockedReason) + "</div>";
+    }
     if (tr2 && tr2.open && c.place === "binder" && c.attuned !== false) a2 = '<div class="bd-a" data-toffer="' + c.id + '">Offer in trade</div>';
     else if (at && c.place === "binder") a2 = '<div class="bd-a" data-goshrine="release">Release at the shrine</div>';
-    else a2 = '<div class="bd-a off">Trade</div>';
+    else if (!tr2 && c.place === "binder" && c.attuned !== false) a2 = '<div class="bd-a" data-dd="trade-req" data-ddcard="' + c.id + '">Trade…</div>';
+    else a2 = '<div class="bd-a off">' + (c.attuned === false ? "Attuning" : "Trade") + "</div>";
     h += '<div class="bd-acts">' + a1 + a2 + "</div>";
     return h;
   }
@@ -390,10 +407,10 @@
     var b = st.binder;
     if (fixed && b.skill !== "") b.skill = "";
     var list = binderList(fixed);
-    patch(part(cv, "b-left", "b-left"), JSON.stringify([b, fixed, cards().length, MC.icons ? iconsKey : 0]), function () { return binderLeft(fixed); });
+    patch(part(cv, "b-left", "b-left"), JSON.stringify([b, fixed, cards().length, MC.icons ? iconsKey : 0, st.menu && st.menu.id]), function () { return binderLeft(fixed); });
     var search = '<div class="b-search' + (MC.textFocus ? " on" : "") + '" data-search="1">' + (b.q ? esc(b.q) + (MC.textFocus ? '<i class="caret"></i>' : "") : (MC.textFocus ? '<i class="caret"></i>' : '<span class="ph">Search cards, traits, ids</span>')) + "</div>";
-    search += '<div class="b-sort" data-bsort="1">' + {newest: "Newest", rarity: "Rarity", requirement: "Requirement"}[b.sort] + '<i class="dd"></i></div>';
-    patch(part(cv, "b-top", "b-top"), b.q + MC.textFocus + b.sort, search);
+    search += ddPill("b-sort", "b-sort", sortLabel(b.sort), false, "", st.menu && st.menu.id === "b-sort");
+    patch(part(cv, "b-top", "b-top"), b.q + MC.textFocus + b.sort + (st.menu && st.menu.id), search);
     var maxScroll = binderGrid(list, "bg");
     var shown = Math.min(list.length - b.scroll * BIN.cols, BIN.cols * BIN.rows);
     MC.text(part(cv, "b-note", "b-note", "left:204px;top:" + Y(515) + "px"), Math.max(0, shown) + " of " + list.length + (maxScroll > 0 ? " · scroll" : "") + "  ·  release three of one skill for a reroll at a Card Shrine");
@@ -513,6 +530,7 @@
       if (c.skill !== s.id && !MC.isMythic(c)) continue;
       if (b.rarity && (MC.isMythic(c) ? "mythic" : MC.rarityOf(c)) !== b.rarity) continue;
       if (b.kw && !hasKw(c, b.kw)) continue;
+      if (b.trait && !hasTrait(c, b.trait)) continue;
       if (b.slot && !c.canSlot) continue;
       out.push(c);
     }
@@ -561,11 +579,15 @@
     // The binder under the deck.
     var b = st.deck, list = deckBinderList(s), cols = 6, rows = 2;
     var filters = '<div class="eb9" style="left:28px;top:' + Y(247) + 'px">BINDER · ' + esc(upper(s.name)) + '</div><div class="dk-n" style="left:' + (28 + upper(s.name).length * 9 + 76) + "px;top:" + Y(245) + 'px">' + list.length + (list.length === 1 ? " card" : " cards") + "</div>";
-    filters += '<div class="pf" data-df="rarity" style="left:360px">' + (b.rarity ? upper(b.rarity.charAt(0)) + b.rarity.slice(1) : "Rarity") + '<i class="dd"></i></div>';
-    filters += '<div class="pf" data-df="kw" style="left:424px">' + (b.kw ? esc(kwName(b.kw)) : "Keyword") + '<i class="dd"></i></div>';
-    filters += '<div class="pf' + (b.slot ? " on" : "") + '" data-df="slot" style="left:501px">Slottable</div>';
-    filters += '<div class="pf" data-df="sort" style="left:569px">Sort: ' + {rarity: "Rarity", newest: "Newest", requirement: "Need"}[b.sort] + '<i class="dd"></i></div>';
-    patch(part(cv, "dk-bh", "dk-bh"), JSON.stringify([b.rarity, b.kw, b.slot, b.sort, list.length, s.name]), filters);
+    // The filter bar: right-aligned pills ending where the sets column begins.
+    filters += '<div class="pf-bar">';
+    filters += ddPill("pf", "d-rarity", b.rarity ? rarityLabel(b.rarity) : "Rarity", !!b.rarity);
+    filters += ddPill("pf", "d-kw", b.kw ? kwName(b.kw) : "Keyword", !!b.kw);
+    filters += ddPill("pf", "d-trait", b.trait ? traitName(b.trait) : "Trait", !!b.trait);
+    filters += '<div class="pf' + (b.slot ? " on" : "") + '" data-df="slot">Slottable</div>';
+    filters += ddPill("pf", "d-sort", "Sort: " + (b.sort === "requirement" ? "Need" : sortLabel(b.sort)), false);
+    filters += "</div>";
+    patch(part(cv, "dk-bh", "dk-bh"), JSON.stringify([b.rarity, b.kw, b.trait, b.slot, b.sort, list.length, s.name, st.menu && st.menu.id]), filters);
     var maxScroll = Math.max(0, Math.ceil(list.length / cols) - rows);
     b.scroll = Math.max(0, Math.min(b.scroll, maxScroll));
     var grid = part(cv, "dk-grid", "bin-grid", "left:28px;top:" + Y(275) + "px");
@@ -800,21 +822,64 @@
     }
     return h;
   }
+  // Item wells: Minecraft draws the stacks (icon and count) natively at the rects the page reports (MC.itemsSet), as
+  // it draws the inventory's; the page draws only the well, and the hovered stack's name in the ITEMS line.
   function itemSlots(side, mine, x) {
     var h = "";
     for (var i = 0; i < 9; i++) {
       var it = side.items[i];
-      h += '<div class="it-slot' + (it ? " full" : "") + '"' + (mine ? (it ? ' data-titem="' + i + '"' : i === side.items.length ? ' data-toffitem="1"' : "") : "") + ' style="left:' + (x + i * 51) + "px;top:" + Y(319) + 'px">' +
-        (it ? '<span class="nm">' + esc(it.name.slice(0, 2)) + '</span><span class="ct">' + it.count + "</span>" : mine && i === side.items.length ? '<span class="plus">+</span>' : "") + "</div>";
+      var attrs = mine ? (it ? ' data-titem="' + i + '"' : i === side.items.length ? ' data-toffitem="1"' : "") : "";
+      if (it) attrs += ' data-itid="' + esc(it.item) + '" data-itc="' + it.count + '" data-itn="' + esc(it.name + (it.count > 1 ? " ×" + it.count : "")) + '"';
+      h += '<div class="it-slot' + (it ? " full" : "") + '"' + attrs + ' style="left:' + (x + i * 51) + "px;top:" + Y(319) + 'px">' +
+        (!it && mine && i === side.items.length ? '<span class="plus">+</span>' : "") + "</div>";
     }
     return h;
+  }
+  function tradeItems() {
+    var out = [];
+    if (MC.ov.active()) return out;
+    var els = cv.querySelectorAll(".it-slot.full"), pick = st.trade.adding ? MC.$("tr-pick") : null;
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (pick && el.getAttribute("data-titem") != null) continue;  // under the binder picker
+      var p = MC.abs(el);
+      out.push({id: el.getAttribute("data-itid"), n: +el.getAttribute("data-itc"), x: p.x, y: p.y, w: el.offsetWidth, h: el.offsetHeight});
+    }
+    return out;
+  }
+  /** The coin row: a typed amount or steps of 10 bits (and the wheel), with Hearth; else emeralds go in as items. */
+  function coinRow(t, me) {
+    var h = '<div class="eb9" style="left:28px;top:' + Y(381) + 'px">COIN</div>';
+    if (!t.coin) return h + '<div class="coinf off" style="left:28px;top:' + Y(399) + 'px"><i></i>Emeralds as items</div><div class="coin-hint" style="top:' + Y(409) + 'px">No Hearth coin in this world: offer emeralds from your hand</div>';
+    var typing = MC.textFocus && st.textTarget === "coin";
+    var shown = typing ? (st.trade.coinDraft || "") : String(me.coin);
+    h += '<div class="coin-step" data-tcstep="-10" style="left:28px;top:' + Y(399) + 'px">−</div>';
+    h += '<div class="coinf in' + (typing ? " on" : "") + '" data-tcoinf="1" data-scroll="coin" style="left:66px;top:' + Y(399) + 'px"><i></i>' + esc(shown || "0") + (typing ? '<i class="caret"></i>' : "") + '<span class="u">bits</span></div>';
+    h += '<div class="coin-step" data-tcstep="10" style="left:232px;top:' + Y(399) + 'px">+</div>';
+    h += '<div class="coin-hint" style="top:' + Y(409) + 'px">' + (typing ? "Type the bits · Enter to offer · Esc to cancel" : "Click to type · ± 10 bits · or scroll") + "</div>";
+    return h;
+  }
+  function setCoin(bits) {
+    var t = M().cards.trade;
+    if (!t || !t.coin) return;
+    bits = Math.max(0, Math.min(999999999, Math.floor(bits) || 0));
+    if (bits !== t.me.coin) MC.act("tradeCoin", String(bits));
+  }
+  function commitCoin() {
+    if (st.trade.coinDraft != null && st.trade.coinDraft !== "") setCoin(+st.trade.coinDraft);
+    st.trade.coinDraft = null;
   }
 
   SCREENS.trade = function () {
     var t = M().cards.trade;
+    // A trade asked for from a card's Trade… opens with that card offered.
+    var rq = st.trade.req;
+    if (rq && (Date.now() - rq.at > 120000 || t.open && t.partner !== rq.name)) st.trade.req = rq = null;
+    if (rq && t.open && rq.card && byId[rq.card] && byId[rq.card].place === "binder") { MC.act("tradeOfferCard", rq.card); st.trade.req = null; }
     head('<div class="hd-chip trade"><span class="nm">Trade · ' + esc(t.partner) + '</span><i class="dot"></i><span class="sub">max 8 blocks</span></div>', "");
     if (!t.open) {
       patch(part(cv, "tr-ask", "tr-ask"), t.partner, '<div class="t">Waiting for ' + esc(t.partner) + ' to accept…</div><div class="s">They see an Accept chip. Walking 8 blocks apart calls it off.</div><div class="tb-go" data-tcancel="1">Cancel</div>');
+      MC.itemsSet([]);
       footer("", "");
       return;
     }
@@ -824,18 +889,19 @@
     var lockPill = function (locked, mine, x) {
       return '<div class="lockp' + (locked ? " on" : "") + '"' + (mine && !locked ? ' data-tlock="1"' : "") + ' style="left:' + x + "px;top:" + Y(67) + 'px">' + (locked ? '<i class="tick"></i>Locked' : mine ? "Lock my side" : "Not locked") + "</div>";
     };
-    patch(part(cv, "tr-me", "tr-col"), JSON.stringify([me, iconsKey, st.trade.adding]), function () {
+    var coinKey = [MC.textFocus && st.textTarget === "coin", st.trade.coinDraft];
+    patch(part(cv, "tr-me", "tr-col"), JSON.stringify([me, iconsKey, st.trade.adding, t.coin, coinKey]), function () {
       var h = '<div class="eb9" style="left:28px;top:' + Y(75) + 'px">YOU OFFER</div>' + lockPill(me.locked, true, 392) + tradeRows(me, true, 28);
       var n = me.cards.length;
       if (n < (t.maxCards || 9)) h += '<div class="tr-add" data-tadd="1" style="top:' + Y(103 + Math.min(n, 5) * 60) + 'px">+ Add a card from your binder (up to ' + (t.maxCards || 9) + ")</div>";
-      h += '<div class="eb9" style="left:28px;top:' + Y(301) + 'px">ITEMS</div>' + itemSlots(me, true, 28);
-      h += '<div class="eb9" style="left:28px;top:' + Y(381) + 'px">COIN</div><div class="coinf" data-scroll="coin" style="left:28px;top:' + Y(399) + 'px"><i></i>' + (t.coin ? me.coin + " bits" : "Emeralds as items") + "</div>";
+      h += '<div class="eb9" id="tr-me-items" style="left:28px;top:' + Y(301) + 'px">ITEMS</div>' + itemSlots(me, true, 28);
+      h += coinRow(t, me);
       return h;
     });
     patch(part(cv, "tr-them", "tr-col"), JSON.stringify([them, iconsKey, t.partner]), function () {
       var h = '<div class="eb9" style="left:500px;top:' + Y(75) + 'px">' + esc(upper(t.partner)) + " OFFERS</div>" + lockPill(them.locked, false, 864) + tradeRows(them, false, 500);
-      h += '<div class="eb9" style="left:500px;top:' + Y(301) + 'px">ITEMS</div>' + itemSlots(them, false, 500);
-      h += '<div class="eb9" style="left:500px;top:' + Y(381) + 'px">COIN</div><div class="coinf" style="left:500px;top:' + Y(399) + 'px"><i></i>' + them.coin + "</div>";
+      h += '<div class="eb9" id="tr-them-items" style="left:500px;top:' + Y(301) + 'px">ITEMS</div>' + itemSlots(them, false, 500);
+      h += '<div class="eb9" style="left:500px;top:' + Y(381) + 'px">COIN</div><div class="coinf" style="left:500px;top:' + Y(399) + 'px"><i></i>' + (t.coin ? them.coin + " bits" : "Emeralds as items") + "</div>";
       return h;
     });
     part(cv, "tr-div", "tr-div");
@@ -866,7 +932,110 @@
         return h;
       });
     }
+    MC.itemsSet(tradeItems());
     footer("", "");
+  };
+
+  // ---- dropdown menus (binder and deck filters and sort, the trade request list; Figma 2h-2 / 2h-3) ---------------
+  // One menu at a time, drawn last in #cv under its opener (or above it when there is no room below). Options are
+  // [value, label, extra]; the current one is ticked. Esc, a click outside or a pick closes it.
+  var SORTS = [["newest", "Newest"], ["rarity", "Rarity"], ["requirement", "Requirement"], ["name", "Name"]];
+  var RARITY_NAMES = [["common", "Common"], ["rare", "Rare"], ["epic", "Epic"], ["cursed", "Cursed"], ["mythic", "Mythic"]];
+  function rarityLabel(r) { for (var i = 0; i < RARITY_NAMES.length; i++) if (RARITY_NAMES[i][0] === r) return RARITY_NAMES[i][1]; return r; }
+  function sortLabel(v) { for (var i = 0; i < SORTS.length; i++) if (SORTS[i][0] === v) return SORTS[i][1]; return v; }
+  function short(t, n) { t = String(t || ""); return t.length > n ? t.slice(0, n - 1) + "…" : t; }
+  function ddPill(cls, id, label, on, style, open) {
+    var isOpen = open || (st.menu && st.menu.id === id);
+    return '<div class="' + cls + " dd-pill" + (on ? " set" : "") + (isOpen ? " open" : "") + '" data-dd="' + id + '"' + (style ? ' style="' + style + '"' : "") + ">" + esc(short(label, 16)) + '<i class="dd"></i></div>';
+  }
+  /** Every trait the given cards carry, by name. */
+  function traitsOf(list) {
+    var seen = {}, out = [];
+    for (var i = 0; i < list.length; i++) for (var k = 0; k < (list[i].traits || []).length; k++) {
+      var tr = list[i].traits[k];
+      if (!seen[tr.id]) { seen[tr.id] = true; out.push([tr.id, tr.name]); }
+    }
+    return out.sort(function (a, b) { return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0; });
+  }
+  function traitName(id) { var all = traitsOf(cards()); for (var i = 0; i < all.length; i++) if (all[i][0] === id) return all[i][1]; return id; }
+  function deckCards() { var s = skill(nav.skill), out = [], all = cards(); for (var i = 0; i < all.length; i++) if (s && all[i].place === "binder" && all[i].skill === s.id) out.push(all[i]); return out; }
+  function binderCards() { var sk = st.binder.skill || (screen === "skill-cards" ? nav.skill : ""), all = cards(), out = []; for (var i = 0; i < all.length; i++) if (!sk || all[i].skill === sk) out.push(all[i]); return out; }
+  function menuSpec(id) {
+    var b = st.binder, d = st.deck, kws = [["", "Any keyword"]], k = M().cards.keywords, i;
+    for (i = 0; i < k.length; i++) kws.push([k[i].id, k[i].name, MC.glyph(k[i], 16)]);
+    var rar = [["", "Any rarity"]];
+    for (i = 0; i < RARITY_NAMES.length; i++) rar.push([RARITY_NAMES[i][0], RARITY_NAMES[i][1], MC.gem(RARITY_NAMES[i][0], 7)]);
+    switch (id) {
+      case "b-rarity": return {title: "Rarity", opts: rar, cur: b.rarity};
+      case "b-kw": return {title: "Keyword", opts: kws, cur: b.kw};
+      case "b-trait": return {title: "Trait", opts: [["", "Any trait"]].concat(traitsOf(binderCards())), cur: b.trait};
+      case "b-sort": return {title: "Sort by", opts: SORTS, cur: b.sort};
+      case "d-rarity": return {title: "Rarity", opts: rar, cur: d.rarity};
+      case "d-kw": return {title: "Keyword", opts: kws, cur: d.kw};
+      case "d-trait": return {title: "Trait", opts: [["", "Any trait"]].concat(traitsOf(deckCards())), cur: d.trait};
+      case "d-sort": return {title: "Sort by", opts: SORTS, cur: d.sort};
+      case "trade-req":
+        var rows = [];
+        for (i = 0; i < MC.near.length; i++) rows.push([MC.near[i].name, MC.near[i].name, '<span class="ddo-d">' + Math.max(1, Math.round(MC.near[i].d)) + " m</span>"]);
+        return {title: "Request a trade · within 8 blocks", opts: rows, cur: null, empty: "Nobody within 8 blocks. Stand next to the player you want to trade with.", wide: true};
+    }
+    return {opts: []};
+  }
+  function menuPick(id, v) {
+    var b = st.binder, d = st.deck;
+    switch (id) {
+      case "b-rarity": b.rarity = v; b.scroll = 0; break;
+      case "b-kw": b.kw = v; b.scroll = 0; break;
+      case "b-trait": b.trait = v; b.scroll = 0; break;
+      case "b-sort": b.sort = v; break;
+      case "d-rarity": d.rarity = v; d.scroll = 0; break;
+      case "d-kw": d.kw = v; d.scroll = 0; break;
+      case "d-trait": d.trait = v; d.scroll = 0; break;
+      case "d-sort": d.sort = v; break;
+      case "trade-req":
+        MC.act("tradeRequest", v);
+        st.trade.req = {name: v, at: Date.now(), card: st.menu && st.menu.card || null};
+        break;
+    }
+  }
+  var MENU_ROWS = 9, MENU_ROW = 26;
+  function menuHeight(count) { return count ? 34 + Math.min(MENU_ROWS, count) * MENU_ROW + 6 : 34 + 44; }
+  function openMenu(id, el) {
+    var p = MC.abs(el), o = MC.abs(cv), spec = menuSpec(id);
+    var w = spec.wide ? 260 : Math.max(el.offsetWidth, 176);
+    var h = menuHeight(spec.opts.length);
+    var x = Math.max(12, Math.min(987 - w - 12, p.x - o.x)), below = p.y - o.y + el.offsetHeight + 4, above = p.y - o.y - h - 4;
+    st.menu = {id: id, x: x, y: below + h <= 618 || above < 30 ? below : above, w: w, scroll: 0, card: el.getAttribute("data-ddcard")};
+    if (st.menu.y + h > 622) st.menu.y = Math.max(30, 622 - h);
+    ui();
+  }
+  function closeMenu() {
+    if (!st.menu) return;
+    st.menu = null;
+    ui();
+  }
+  function menu() {
+    var m = st.menu, spec = m ? menuSpec(m.id) : null, opts = spec ? spec.opts : [], n = Math.min(MENU_ROWS, opts.length);
+    var el = part(cv, "c-menu", "ddm", m ? "left:" + m.x + "px;top:" + m.y + "px;width:" + m.w + "px;height:" + menuHeight(opts.length) + "px" : "display:none");
+    if (!m) { patch(el, "", ""); return; }
+    m.scroll = Math.max(0, Math.min(m.scroll, opts.length - n));
+    el.setAttribute("data-scroll", "menu");
+    el.setAttribute("data-ddm", "1");
+    patch(el, JSON.stringify([m, opts.map(function (o) { return o[0] + o[1]; }), spec.cur, iconsKey]), function () {
+      var h = '<div class="ddm-h">' + esc(spec.title || "") + (opts.length > MENU_ROWS ? '<span class="ddm-n">' + (m.scroll + 1) + "–" + (m.scroll + n) + " of " + opts.length + "</span>" : "") + "</div>";
+      for (var i = 0; i < n; i++) {
+        var o = opts[i + m.scroll], on = spec.cur === o[0];
+        h += '<div class="ddo' + (on ? " on" : "") + '" data-ddv="' + esc(o[0]) + '" style="top:' + (34 + i * MENU_ROW) + 'px">' + (o[2] && m.id !== "trade-req" ? '<span class="ddo-i">' + o[2] + "</span>" : "") +
+          '<span class="ddo-l">' + esc(o[1]) + "</span>" + (m.id === "trade-req" ? o[2] : "") + (on ? '<i class="tick"></i>' : "") + "</div>";
+      }
+      if (!opts.length) h += '<div class="ddm-e">' + esc(spec.empty || "Nothing to choose") + "</div>";
+      return h;
+    });
+  }
+  /** Players in trade reach, from Java (HubInventoryScreen.pushNearby). */
+  MC.nearby = function (list) {
+    MC.near = list || [];
+    if (st.menu && st.menu.id === "trade-req") MC.render();
   };
 
   // ---- input --------------------------------------------------------------------------------------------------
@@ -877,9 +1046,6 @@
     }
     return null;
   }
-  function cycle(list, cur) { var i = list.indexOf(cur); return list[(i + 1) % list.length]; }
-  var RARITIES = ["", "common", "rare", "epic", "cursed", "mythic"];
-  function kwList() { var o = [""], k = M().cards.keywords; for (var i = 0; i < k.length; i++) o.push(k[i].id); return o; }
 
   function bestSlot(c) {
     var d = deck(MC.isMythic(c) ? (nav.skill || c.deck) : c.skill);
@@ -905,8 +1071,24 @@
     }
     if (dragJustEnded) { dragJustEnded = false; ev.stopPropagation(); return; }
     var handled = true;
-    if (!closest(t, "data-search") && MC.textFocus) { MC.textFocus = false; ui(); }
-    if ((el = closest(t, "data-tab"))) { nav.view = "home"; nav.tab = el.getAttribute("data-tab"); }
+    if (st.menu) {
+      // An open menu takes the click: a pick, its own opener (toggles it shut), or anywhere else (just closes it).
+      var opt = closest(t, "data-ddv"), opener = closest(t, "data-dd"), id = st.menu.id;
+      if (opt) menuPick(id, opt.getAttribute("data-ddv"));
+      if (opt || !closest(t, "data-ddm") || opener) closeMenu();
+      ev.stopPropagation();
+      MC.render();
+      return;
+    }
+    if (MC.textFocus && !closest(t, st.textTarget === "coin" ? "data-tcoinf" : "data-search")) {
+      if (st.textTarget === "coin") commitCoin();
+      MC.textFocus = false;
+      ui();
+    }
+    if ((el = closest(t, "data-dd"))) { openMenu(el.getAttribute("data-dd"), el); }
+    else if ((el = closest(t, "data-tcstep"))) { var tt = M().cards.trade; if (tt && tt.coin) setCoin(tt.me.coin + (+el.getAttribute("data-tcstep"))); }
+    else if ((el = closest(t, "data-tcoinf"))) { if (!MC.textFocus) { MC.textFocus = true; st.textTarget = "coin"; st.trade.coinDraft = ""; ui(); } }
+    else if ((el = closest(t, "data-tab"))) { nav.view = "home"; nav.tab = el.getAttribute("data-tab"); }
     else if ((el = closest(t, "data-nav"))) { nav.view = "home"; nav.tab = "skills"; }
     else if ((el = closest(t, "data-deal"))) { MC.ov.draft(el.getAttribute("data-deal")); }
     else if ((el = closest(t, "data-deal-any"))) { var l = skills(); for (var i = 0; i < l.length; i++) if (l[i].drafts > 0) { MC.ov.draft(l[i].id); break; } }
@@ -917,22 +1099,16 @@
     else if ((el = closest(t, "data-bskill")) != null && el) { st.binder.skill = el.getAttribute("data-bskill"); st.binder.scroll = 0; }
     else if ((el = closest(t, "data-bf"))) {
       v = el.getAttribute("data-bf");
-      if (v === "rarity") st.binder.rarity = cycle(RARITIES, st.binder.rarity);
-      if (v === "kw") st.binder.kw = cycle(kwList(), st.binder.kw);
       if (v === "slot") st.binder.slot = !st.binder.slot;
       if (v === "att") st.binder.att = !st.binder.att;
       st.binder.scroll = 0;
     }
     else if ((el = closest(t, "data-shrineinfo"))) { nav.view = "shrine-info"; }
-    else if ((el = closest(t, "data-bsort"))) { st.binder.sort = cycle(["newest", "rarity", "requirement"], st.binder.sort); }
-    else if ((el = closest(t, "data-search"))) { MC.textFocus = true; ui(); }
+    else if ((el = closest(t, "data-search"))) { MC.textFocus = true; st.textTarget = "search"; ui(); }
     else if ((el = closest(t, "data-bcard"))) { v = el.getAttribute("data-bcard"); st.binder.sel = st.binder.sel === v ? null : v; }
     else if ((el = closest(t, "data-df"))) {
       v = el.getAttribute("data-df");
-      if (v === "rarity") st.deck.rarity = cycle(RARITIES, st.deck.rarity);
-      if (v === "kw") st.deck.kw = cycle(kwList(), st.deck.kw);
       if (v === "slot") st.deck.slot = !st.deck.slot;
-      if (v === "sort") st.deck.sort = cycle(["rarity", "newest", "requirement"], st.deck.sort);
       st.deck.scroll = 0;
     }
     else if ((el = closest(t, "data-dcard"))) { v = el.getAttribute("data-dcard"); st.deck.sel = st.deck.sel === v ? null : v; st.deck.pop = null; }
@@ -998,7 +1174,7 @@
     if (MC.ov.kind() === "draft") { MC.ov.hover(ev.target); return; }
     if (!press) {
       // Only the Classes page has card hovers; any other page's moves (and every drag) pass through untouched.
-      if (MC.attached && kind === "classes" && !ev.buttons) hoverFrom(ev.target);
+      if (MC.attached && kind === "classes" && !ev.buttons) { hoverFrom(ev.target); itemHover(ev.target); }
       else if (hoverEl) setHover(null);
       return;
     }
@@ -1028,6 +1204,17 @@
       d.over = over;
     }
   }
+  var itemShown = null;
+  function itemHover(target) {
+    if (screen !== "trade") return;
+    var el = closest(target, "data-itn");
+    if (el === itemShown) return;
+    var me = MC.$("tr-me-items"), them = MC.$("tr-them-items");
+    MC.text(me, "ITEMS");
+    MC.text(them, "ITEMS");
+    itemShown = el;
+    if (el) MC.text(el.getAttribute("data-titem") != null ? me : them, "ITEMS  ·  " + upper(el.getAttribute("data-itn")));
+  }
   function slotUnder(x, y) {
     var row = MC.$("dk-row");
     if (!row) return -1;
@@ -1055,6 +1242,20 @@
   // ---- keys and wheel from Java ----------------------------------------------------------------------------------
   MC.key = function (m) {
     if (MC.ov.key(m.key)) return;
+    if (st.menu) {
+      if (m.key === "Escape") { closeMenu(); MC.render(); }
+      return;
+    }
+    if (MC.textFocus && st.textTarget === "coin") {
+      var d = st.trade.coinDraft || "";
+      if (m.ch && /^[0-9]$/.test(m.ch)) d = (d + m.ch).replace(/^0+(?=\d)/, "").slice(0, 9);
+      else if (m.key === "Backspace") d = d.slice(0, -1);
+      else if (m.key === "Enter") { st.trade.coinDraft = d; commitCoin(); MC.textFocus = false; ui(); MC.render(); return; }
+      else if (m.key === "Escape") { st.trade.coinDraft = null; MC.textFocus = false; ui(); MC.render(); return; }
+      st.trade.coinDraft = d;
+      MC.render();
+      return;
+    }
     if (MC.textFocus) {
       var b = st.binder;
       if (m.ch) b.q = (b.q + m.ch).slice(0, 40);
@@ -1072,14 +1273,15 @@
     var el = document.elementFromPoint(m.x, m.y), box = closest(el, "data-scroll");
     if (!box) return;
     var step = m.dy > 0 ? -1 : 1, which = box.getAttribute("data-scroll");
-    if (which === "binder") st.binder.scroll = Math.max(0, st.binder.scroll + step);
+    if (which === "menu") { if (st.menu) st.menu.scroll = Math.max(0, st.menu.scroll + step); }
+    else if (which === "binder") st.binder.scroll = Math.max(0, st.binder.scroll + step);
     else if (which === "deck") st.deck.scroll = Math.max(0, st.deck.scroll + step);
     else if (which === "hall") st.hall.scroll = Math.max(0, st.hall.scroll + step);
     else if (which === "rebuild") st.rebuild.scroll = Math.max(0, (st.rebuild.scroll || 0) + step);
     else if (which === "fuse") st.fuse.scroll = Math.max(0, (st.fuse.scroll || 0) + step);
     else if (which === "release") st.release.scroll = Math.max(0, (st.release.scroll || 0) + step);
     else if (which === "tpick") st.trade.scroll = Math.max(0, st.trade.scroll + step);
-    else if (which === "coin") { var t = M().cards.trade; if (t && t.coin) MC.act("tradeCoin", String(Math.max(0, t.me.coin + (step > 0 ? -10 : 10)))); return; }
+    else if (which === "coin") { var t = M().cards.trade; if (t && t.coin && !MC.textFocus) setCoin(t.me.coin + (step > 0 ? -10 : 10)); return; }
     MC.render();
   };
 
@@ -1166,6 +1368,9 @@
     if (kind !== "classes") {
       if (MC.ov.active()) MC.ov.close(false);
       if (MC.textFocus) MC.textFocus = false;
+      st.menu = null;
+      st.trade.coinDraft = null;
+      MC.itemsReset();
       press = null;
       st.deck.drag = null;
       hoverEl = null;

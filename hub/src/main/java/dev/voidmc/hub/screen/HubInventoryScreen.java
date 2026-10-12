@@ -67,6 +67,15 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	private final CardFx fx = new CardFx();
 	private boolean sentIcons;
 	private int mettleAge = Integer.MAX_VALUE;
+	/** Stacks the Classes page shows in its own wells (the trade's items), drawn natively at its rects. */
+	private List<Bridge.ItemIcon> pageItems = List.of();
+	/** The players within trade reach last told to the page (the trade request list), and when to look again. */
+	private String sentNearby;
+
+	/** Mettle's trade reach (TradeRules: 8 blocks). */
+	public static final double TRADE_REACH = 8.0;
+	/** Tests: stands in for the players in reach (name, distance), since a server-side stand-in is not in the client's level. */
+	public static volatile List<java.util.Map.Entry<String, Double>> testNearby;
 
 	/** The inventory page (E). */
 	public HubInventoryScreen(Player player) {
@@ -139,6 +148,8 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	/** The Classes page's moving parts and keyboard claims end with it. */
 	private void leaveSegment() {
 		this.fx.clear();
+		this.pageItems = List.of();
+		this.sentNearby = null;
 		this.pageModal = false;
 		this.pageText = false;
 		this.mettleAge = Integer.MAX_VALUE;
@@ -195,6 +206,11 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 					this.fx.set(f.items());
 				}
 			}
+			case Bridge.Items it -> {
+				if (this.onClasses()) {
+					this.pageItems = it.items();
+				}
+			}
 			case Bridge.MettleUi ui -> {
 				this.pageModal = ui.modal();
 				this.pageText = ui.text();
@@ -225,6 +241,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 			return;
 		}
 		this.mettleAge = 0;
+		this.pushNearby();
 		String json = MettleLink.state();
 		if (json == null || json.equals(this.sentMettle)) {
 			return;
@@ -242,6 +259,48 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		}
 		this.hub.sendLatest("mettle", "{\"type\":\"mettle\",\"state\":" + json + "}");
 		this.sentMettle = json;
+	}
+
+	/**
+	 * The players a trade can be asked of (within {@link #TRADE_REACH}, nearest first), for the Classes page's
+	 * "Request trade" list: sent with Mettle's state, only when it changed.
+	 */
+	private void pushNearby() {
+		if (!this.onClasses()) {
+			return;
+		}
+		List<java.util.Map.Entry<String, Double>> near = nearby(this.minecraft);
+		List<String> rows = new ArrayList<>();
+		for (java.util.Map.Entry<String, Double> e : near) {
+			rows.add(Json.object().put("name", e.getKey()).put("d", Math.round(e.getValue() * 10) / 10.0).end());
+		}
+		String json = Json.object().put("type", "nearby").raw("players", Json.array(rows)).end();
+		if (!json.equals(this.sentNearby)) {
+			this.sentNearby = json;
+			this.hub.send(json);
+		}
+	}
+
+	static List<java.util.Map.Entry<String, Double>> nearby(Minecraft mc) {
+		List<java.util.Map.Entry<String, Double>> test = testNearby;
+		if (test != null) {
+			return test;
+		}
+		List<java.util.Map.Entry<String, Double>> out = new ArrayList<>();
+		if (mc.level == null || mc.player == null) {
+			return out;
+		}
+		for (Player p : mc.level.players()) {
+			if (p == mc.player || p.isSpectator() || !p.isAlive()) {
+				continue;
+			}
+			double d = p.distanceTo(mc.player);
+			if (d <= TRADE_REACH) {
+				out.add(java.util.Map.entry(p.getName().getString(), d));
+			}
+		}
+		out.sort(java.util.Map.Entry.comparingByValue());
+		return out.size() > 8 ? out.subList(0, 8) : out;
 	}
 
 	private static final java.util.regex.Pattern AGES = java.util.regex.Pattern.compile("\"ageMs\":-?\\d+");
@@ -438,9 +497,48 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		graphics.pose().popMatrix();
 	}
 
+	/** The page's item wells (the trade): the stacks at the icon size of the inventory's wells, centred in each. */
+	private void extractPageItems(GuiGraphicsExtractor graphics) {
+		if (this.pageItems.isEmpty()) {
+			return;
+		}
+		int gs = this.minecraft.getWindow().getGuiScale();
+		double u = this.layout.u;
+		int icon = this.layout.iconPx;
+		for (Bridge.ItemIcon it : this.pageItems) {
+			net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.tryParse(it.item());
+			if (id == null || it.count() <= 0) {
+				continue;
+			}
+			var item = net.minecraft.core.registries.BuiltInRegistries.ITEM.getOptional(id);
+			if (item.isEmpty()) {
+				continue;
+			}
+			net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item.get(), it.count());
+			// Centred in the well on whole physical px; whole multiples of 16 keep the item's pixel art crisp.
+			int px = (int) Math.round((it.x() + it.w() / 2.0) * u - icon / 2.0);
+			int py = (int) Math.round((it.y() + it.h() / 2.0) * u - icon / 2.0);
+			float sc = icon / (16.0F * gs);
+			graphics.pose().pushMatrix();
+			graphics.pose().translate(px / (float) gs, py / (float) gs);
+			graphics.pose().scale(sc, sc);
+			graphics.item(stack, 0, 0);
+			graphics.itemDecorations(this.font, stack, 0, 0);
+			graphics.pose().popMatrix();
+		}
+	}
+
+	/** Tests: the stacks the page last asked to be drawn. */
+	public List<Bridge.ItemIcon> pageItems() {
+		return this.pageItems;
+	}
+
 	@Override
 	protected void extractExtras(GuiGraphicsExtractor graphics, double guiMouseX, double guiMouseY) {
 		this.extractEffects(graphics);
+		if (this.onClasses()) {
+			this.extractPageItems(graphics);
+		}
 		if (this.onClasses() && this.fx.active() && this.hub.texture() != null) {
 			this.fx.extract(graphics, this.layout.u, this.minecraft.getWindow().getGuiScale(), this.hub.texture().width(), this.hub.texture().height());
 		}

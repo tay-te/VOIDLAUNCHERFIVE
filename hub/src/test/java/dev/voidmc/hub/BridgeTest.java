@@ -79,6 +79,20 @@ class BridgeTest {
 	}
 
 	@Test
+	void pageItemWellsAreChecked() {
+		Bridge.Items it = assertInstanceOf(Bridge.Items.class,
+			Bridge.decode("{\"type\":\"items\",\"items\":[{\"id\":\"minecraft:diamond\",\"n\":5,\"x\":120.5,\"y\":343,\"w\":45,\"h\":45}]}"));
+		assertEquals(new Bridge.ItemIcon("minecraft:diamond", 5, 120.5, 343, 45, 45), it.items().getFirst());
+		assertEquals(new Bridge.Items(List.of()), Bridge.decode("{\"type\":\"items\",\"items\":[]}"));
+		for (String bad : List.of("{\"type\":\"items\"}", "{\"type\":\"items\",\"items\":[{\"id\":\"Diamond\",\"n\":1,\"x\":0,\"y\":0,\"w\":1,\"h\":1}]}",
+			"{\"type\":\"items\",\"items\":[{\"id\":\"minecraft:diamond\",\"n\":-1,\"x\":0,\"y\":0,\"w\":1,\"h\":1}]}",
+			"{\"type\":\"items\",\"items\":[{\"id\":\"minecraft:diamond\",\"n\":1,\"x\":0,\"y\":0,\"w\":0,\"h\":1}]}",
+			"{\"type\":\"items\",\"items\":[{\"id\":\"minecraft:diamond\",\"n\":1,\"x\":1e9,\"y\":0,\"w\":1,\"h\":1}]}")) {
+			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(bad), bad);
+		}
+	}
+
+	@Test
 	void whatTheWriterEncodesTheDecoderReads() {
 		String msg = Json.object().put("type", "filter").put("value", "food").end();
 		assertEquals(new Bridge.Filter("food"), Bridge.decode(msg));

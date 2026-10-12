@@ -264,6 +264,7 @@
 .bd-a { flex: 1; height: 32px; border-radius: 16px; background: #1C1C1F; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 11.5px; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; padding: 0 8px; }
 .bd-a:not(.off):hover { background: #26272B; }
 .bd-a.off { color: #626569; }
+.bd-why { left: 15px; top: 425px; width: 297px; font-size: 10.5px; color: #9A9DA1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- the deck builder ---------------------------------------------------------------------------------------- */
 .dk-n { font-size: 11px; color: #9A9DA1; white-space: nowrap; }
@@ -465,3 +466,37 @@
 .hc-face.burnmask { -webkit-animation: os-burn .6s forwards; animation: os-burn .6s forwards; -webkit-animation-timing-function: steps(8); animation-timing-function: steps(8); }
 @-webkit-keyframes os-burn { 0% { -webkit-mask-position: -248px 0; opacity: 1; } 99.9% { -webkit-mask-position: -2232px 0; opacity: 1; } 100% { -webkit-mask-position: 0 0; opacity: 0; } }
 @keyframes os-burn { 0% { -webkit-mask-position: -248px 0; opacity: 1; } 99.9% { -webkit-mask-position: -2232px 0; opacity: 1; } 100% { -webkit-mask-position: 0 0; opacity: 0; } }
+
+/* ---- dropdown menus (filters, sort, the trade request list) ------------------------------------------------------ */
+.bl-f.half { width: 77px; padding: 4px 0; text-align: center; white-space: nowrap; }
+.bl-f.half.r { left: 111px; }
+.dd-pill { white-space: nowrap; overflow: hidden; }
+.dd-pill .dd { opacity: 0.7; }
+.dd-pill.set { color: #EDEEEF; border-color: rgba(255, 255, 255, 0.22); }
+.dd-pill.open { background: #232327; border-color: rgba(255, 255, 255, 0.3); color: #EDEEEF; }
+.pf-bar { left: 240px; top: 265px; width: 426px; height: 24px; display: flex; justify-content: flex-end; gap: 6px; }
+.pf-bar .pf { position: relative; top: auto; left: auto; flex: none; }
+.ddm { position: absolute; box-sizing: border-box; border-radius: 12px; background: #18181B; border: 1px solid rgba(255, 255, 255, 0.14); z-index: 5; }
+.ddm > * { position: absolute; }
+.ddm-h { left: 14px; right: 14px; top: 11px; font-size: 9.5px; letter-spacing: 1.2px; color: #626569; text-transform: uppercase; white-space: nowrap; }
+.ddm-n { position: absolute; right: 0; top: 0; letter-spacing: 0; text-transform: none; }
+.ddo { left: 6px; right: 6px; height: 24px; border-radius: 8px; font-size: 11.5px; color: #C9C2B8; display: flex; align-items: center; padding: 0 10px 0 8px; white-space: nowrap; }
+.ddo:hover { background: #232327; color: #EDEEEF; }
+.ddo.on { color: #EDEEEF; }
+.ddo-i { width: 16px; height: 16px; margin-right: 8px; display: flex; align-items: center; justify-content: center; flex: none; }
+.ddo-l { flex: 1; overflow: hidden; }
+.ddo-d { font-size: 10.5px; color: #9A9DA1; margin-left: 8px; }
+.ddo .tick { margin-left: 8px; width: 9px; height: 5px; }
+.ddm-e { left: 14px; right: 14px; top: 36px; font-size: 11px; line-height: 15px; color: #9A9DA1; }
+
+/* ---- trade: coin entry ---------------------------------------------------------------------------------------- */
+.coin-step { width: 34px; height: 34px; border-radius: 12px; background: #1C1C1F; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 16px; color: #EDEEEF; display: flex; align-items: center; justify-content: center; }
+.coin-step:hover { background: #26272B; }
+.coinf.in { width: 160px; }
+.coinf.in:hover { border-color: rgba(255, 255, 255, 0.18); }
+.coinf.on { border-color: rgba(255, 255, 255, 0.35); background: #1A1A1D; }
+.coinf.off { color: #9A9DA1; }
+.coinf .u { margin-left: 5px; color: #9A9DA1; font-size: 11px; }
+.coinf .caret { position: static; display: inline-block; width: 1px; height: 13px; border-radius: 0; background: #EDEEEF; vertical-align: -2px; margin-left: 1px; }
+.coin-hint { left: 276px; width: 200px; font-size: 10px; line-height: 13px; color: #626569; }
+.coinf.off + .coin-hint { left: 200px; width: 280px; }
