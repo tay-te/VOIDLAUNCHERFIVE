@@ -57,6 +57,11 @@ vec3 skyIrradiance(vec3 n) {
 
 // how many directions over the upper hemisphere (a Fibonacci spiral, even in solid angle)
 #define SKY_IRR_SAMPLES 128
+// How much of the low sky a face sees: the land, hills and trees round about hide most of the last few degrees over
+// the horizon (the occlusion pass only sees a block or two), so the sky's radiance is taken at this share at the
+// horizon, rising to all of it by about 17 degrees up. A wall then takes about what round 3's tuned fill gave it,
+// with the low sky's colour (the afterglow, the rose band) still showing on what faces it.
+#define SKY_IRR_HORIZON 0.5
 
 // the dome's control points as the table's rows 0..4 hold them (ring r, band e at r * 6 + e)
 vec3 skyIrrDome[30];
@@ -119,7 +124,8 @@ vec4 skyIrradianceTexel(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW, int k) {
 		float a = float(i) * 2.3999632;
 		float r = sqrt(max(1.0 - h * h, 0.0));
 		vec3 d = vec3(r * cos(a), h, r * sin(a));
-		vec3 L = pow(max(skyIrrDomeAt(d, sunW, m.glow, m.spread, lowBand), 0.0), vec3(2.2));
+		vec3 L = pow(max(skyIrrDomeAt(d, sunW, m.glow, m.spread, lowBand), 0.0), vec3(2.2))
+			* mix(SKY_IRR_HORIZON, 1.0, smoothstep(0.0, 0.3, h));
 		skyShBasis(d, y);
 		for (int j = 0; j < 9; j++) {
 			c[j] += L * y[j];

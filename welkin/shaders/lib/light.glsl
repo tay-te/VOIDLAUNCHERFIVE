@@ -288,7 +288,7 @@ float blockLightDaylight(float skyLevel) {
 // and the shade.
 // glow: the light through leaves and plants (welkinGlow), as a share of the direct light: it takes the leaf's own
 // colour twice over (light through a leaf is a deeper, warmer green than light off it). contact: the ambient
-// occlusion's visibility (lib/ao.glsl lightAoFetch, 1 for none), with lightAoCover and lightAoBend: it darkens the
+// occlusion's visibility (lib/ao.glsl lightAoFetch, 1 for none; not faded), with lightAoCover and lightAoBend: it darkens the
 // sky's fill and the ground's bounce fully and the torch light by half, never the sun (the shadows carry that).
 vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
 		float facing, float ao, float glow, float contact) {
@@ -296,11 +296,13 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	// ---- Light: ambient (B): the occlusion of the fill and the torch light
 	// Minecraft's corner shading: round 2's depth where the pack's occlusion does not reach, a gentle partner where it
 	// does; the pack's occlusion with its multi-bounce on top
+	// (the two blend as wholes over the occlusion's fade, so the corners keep their depth through it)
 	float aoV = clamp(ao, 0.0, 1.0);
-	float aoVanilla = mix(mix(LIGHT_AO_FLOOR, 1.0, pow(aoV, LIGHT_AO_POW)), mix(1.0, aoV, AO_VANILLA), lightAoCover);
+	float aoFar = mix(LIGHT_AO_FLOOR, 1.0, pow(aoV, LIGHT_AO_POW));
+	float aoNear = mix(1.0, aoV, AO_VANILLA);
 	vec3 aoPack = aoMultiBounce(pow(clamp(contact, 0.0, 1.0), AO_STRENGTH), a);
-	vec3 aoFill = max(aoVanilla * aoPack, vec3(AO_FLOOR * lightAoCover));
-	vec3 aoBlock = aoVanilla * mix(vec3(1.0), aoPack, 0.5);
+	vec3 aoFill = mix(vec3(aoFar), max(aoNear * aoPack, vec3(AO_FLOOR)), lightAoCover);
+	vec3 aoBlock = mix(vec3(aoFar), aoNear * mix(vec3(1.0), aoPack, 0.5), lightAoCover);
 	float lv = rampLevel(lm.x);
 	vec3 block = torchColour(lv) * (1.35 * rampBlockLin(lm.x) * blockLightDaylight(lm.y) * pow(BLOCKLIGHT_STRENGTH, 2.2));
 #if defined WORLD_NETHER

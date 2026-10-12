@@ -268,7 +268,7 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 	vec3 fillCol = skyUnitLuma(mix(clearFill, greyFill, grey));
 	// a closed sky scatters the sun it hides into the shade: brighter fill under cloud by day, less in rain
 	float fillWeather = (1.0 + 0.55 * m.overcast * (1.0 - m.rainStep)) * (1.0 - 0.35 * m.rainStep) * (1.0 - 0.3 * m.stormStep);
-	vec3 dayFill = fillCol * (LAND_FILL * skyLandFillLevel(h) * fillWeather * lightScale);
+	vec3 dayFill = fillCol * (landFillAt(h) * skyLandFillLevel(h) * fillWeather * lightScale); // (ambient (B): landFillAt)
 	// the night's fill: the moonlit look as it was (display values to linear), lifted for the linear sum
 	vec3 nightAmb = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
 	nightAmb = mix(nightAmb, vec3(dot(nightAmb, vec3(0.2126, 0.7152, 0.0722))), 0.3);

@@ -206,7 +206,8 @@ void main() {
 		color.rgb = vec3(through, min(glow * 2.0, 1.0), 0.0);
 #elif DEBUG_VIEW == 18
 		// Light: ambient (B): the occlusion of the fill as it is laid on (with the multi-bounce on this albedo)
-		color.rgb = aoMultiBounce(pow(contact, AO_STRENGTH), toLinear(albedo)) * mix(1.0, flags.w, AO_VANILLA * lightAoCover);
+		color.rgb = mix(vec3(mix(LIGHT_AO_FLOOR, 1.0, pow(flags.w, LIGHT_AO_POW))), max(aoMultiBounce(pow(contact, AO_STRENGTH),
+			toLinear(albedo)) * mix(1.0, flags.w, AO_VANILLA), vec3(AO_FLOOR)), lightAoCover);
 #elif DEBUG_VIEW == 19
 		// the bent normal the sky's light is looked up along (world, 0.5 + 0.5 xyz)
 		color.rgb = normalize(n + lightAoBend) * 0.5 + 0.5;

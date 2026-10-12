@@ -62,7 +62,7 @@ uniform mat4 gbufferModelView;
 #endif
 
 struct AoSample {
-	float vis;   // the visibility, 1 for none
+	float vis;   // the visibility, 1 for none (where it covers: lib/light.glsl fades it out by the cover)
 	vec3 bend;   // the bent normal minus the normal the pass worked with (world), times the cover
 	float cover; // how far the occlusion covers here: 1 near, fading out by AO_FAR
 };
@@ -86,7 +86,7 @@ AoSample lightAoFetch(ivec2 p, vec3 v, vec3 n, int m) {
 	ivec2 q = p / 2;
 	vec4 r = resolveSpatial4x4(colortex9, q, 2, v, vn, plant ? vec3(0.0) : n, colortex1);
 	vec3 t = r.a > 0.02 ? r.rgb : texelFetch(colortex9, clamp(q, ivec2(0), textureSize(colortex9, 0) - 1), 0).rgb;
-	a.vis = mix(1.0, clamp(t.x, 0.0, 1.0), a.cover);
+	a.vis = clamp(t.x, 0.0, 1.0);
 	vec2 tb = t.yz;
 	float l2 = dot(tb, tb);
 	if (l2 > 1.0) {
