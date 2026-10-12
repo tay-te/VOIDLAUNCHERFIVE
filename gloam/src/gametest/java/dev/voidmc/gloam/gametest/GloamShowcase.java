@@ -354,12 +354,17 @@ public class GloamShowcase implements FabricClientGameTest {
 	 */
 	static final java.util.Map<String, String> BENCH_PLACES = new java.util.LinkedHashMap<>();
 	static {
-		BENCH_PLACES.put("plain", "-1009,-3,-1386,180,6");
-		BENCH_PLACES.put("forest", "find:forestfloor@-1009,-1386");
+		// found once (2026-10-11, seed 8675309) and fixed here, so every run and both test worlds shoot the same eyes:
+		// an open meadow in the old forest country looking north; under a flower forest's canopy (found by
+		// find:forestfloor@-1009,-1386); a steppe village from 64 south and 34 up; the valley's river gorge looking south;
+		// a lake district lake from its bank looking west over the water (find:shore@3200,488, then lifted to see it);
+		// and a street of the same village by its torches (find:street@2256,-544)
+		BENCH_PLACES.put("plain", "-1009,148,-1386,180,6");
+		BENCH_PLACES.put("forest", "-1109,138,-1530,135,2");
 		BENCH_PLACES.put("village", "2256,148,-480,180,28");
 		BENCH_PLACES.put("valley", "3200,100,488,0,12");
-		BENCH_PLACES.put("shore", "find:shore@3200,488");
-		BENCH_PLACES.put("torch", "find:street@2256,-544");
+		BENCH_PLACES.put("shore", "14140,66,10239,105,10");
+		BENCH_PLACES.put("torch", "2251,114,-557,338,4");
 		for (String kv : System.getProperty("gloam.show.benchAt", "").split(";")) {
 			String[] a = kv.trim().split("=", 2);
 			if (a.length == 2) {

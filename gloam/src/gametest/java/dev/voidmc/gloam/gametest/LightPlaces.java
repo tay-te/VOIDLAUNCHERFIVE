@@ -202,7 +202,8 @@ final class LightPlaces {
 						int px = Mth.floor(x + 0.5 + sx * step), pz = Mth.floor(z + 0.5 + sz * step);
 						level.getChunk(px >> 4, pz >> 4);
 						int g = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, px, pz);
-						if (g > ground + 2 || !standable(level, px, Math.max(g, ground), pz) && !standable(level, px, ground + 1, pz)) {
+						if (g > ground + 2 || !standable(level, px, Math.max(g, ground), pz) && !standable(level, px, ground + 1, pz)
+							|| level.getBlockState(new BlockPos(px, g - 1, pz)).getFluidState().is(FluidTags.WATER)) {
 							break;
 						}
 						clear = step;
@@ -210,8 +211,10 @@ final class LightPlaces {
 							roof++;
 						}
 					}
-					float score = clear * (0.25F + roof / (float) Math.max(1, clear));
-					if (clear >= 8 && score > best) {
+					// a floor running on under a closed roof: no river, clearing or open sky ahead
+					float roofed = roof / (float) Math.max(1, clear);
+					float score = Math.min(clear, 20) * roofed * roofed;
+					if (clear >= 10 && roofed >= 0.75F && score > best) {
 						best = score;
 						eye = new int[]{x, ground, z, k * 45, 2};
 					}
@@ -238,12 +241,28 @@ final class LightPlaces {
 			int x = Mth.floor(c[0] + 0.5 + sx * d), z = Mth.floor(c[2] + 0.5 + sz * d);
 			level.getChunk(x >> 4, z >> 4);
 			int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1;
-			if (level.getBlockState(new BlockPos(x, top, z)).getFluidState().is(FluidTags.WATER)) {
-				int ex = Mth.floor(c[0] + 0.5 + sx * Math.max(0, d - 5)), ez = Mth.floor(c[2] + 0.5 + sz * Math.max(0, d - 5));
+			if (!level.getBlockState(new BlockPos(x, top, z)).getFluidState().is(FluidTags.WATER)) {
+				continue;
+			}
+			// back from the water's edge onto the first dry bank at most 4 over the water, the eye clear over the water
+			for (int back = 2; back <= 14; back++) {
+				int ex = Mth.floor(c[0] + 0.5 + sx * (d - back)), ez = Mth.floor(c[2] + 0.5 + sz * (d - back));
 				level.getChunk(ex >> 4, ez >> 4);
 				int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, ex, ez);
-				System.out.printf(Locale.ROOT, "[gloam] light spot shore: water at %d %d %d, eye %d %d %d yaw %d%n", x, top, z, ex, ground + 1, ez, c[3]);
-				return new int[]{ex, ground + 1, ez, c[3], 3};
+				boolean wet = level.getBlockState(new BlockPos(ex, ground - 1, ez)).getFluidState().is(FluidTags.WATER);
+				if (wet || ground < top + 1 || ground > top + 5 || !standable(level, ex, ground, ez)) {
+					continue;
+				}
+				boolean seen = true;
+				for (int step = 1; step < back + 4; step++) {
+					int px = Mth.floor(ex + 0.5 + sx * step), pz = Mth.floor(ez + 0.5 + sz * step);
+					seen &= standable(level, px, ground + 1, pz);
+				}
+				if (!seen) {
+					continue;
+				}
+				System.out.printf(Locale.ROOT, "[gloam] light spot shore: water at %d %d %d, eye %d %d %d yaw %d%n", x, top, z, ex, ground, ez, c[3]);
+				return new int[]{ex, ground, ez, c[3], 4};
 			}
 		}
 		return null;
