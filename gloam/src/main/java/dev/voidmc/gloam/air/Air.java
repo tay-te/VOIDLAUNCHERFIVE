@@ -24,6 +24,12 @@ public final class Air {
 	public static final float FRONT_SCALE = 3000.0F;
 	/** The share of vanilla's rain that still falls under the clearest part of the fronts: a drizzle. */
 	public static final float DRIZZLE = 0.35F;
+	/**
+	 * For game tests only: {@code -Dgloam.test.front=0.38} (or {@code -Pgloam.test.front} through Gradle) holds every
+	 * front, near and far and in the pack's tiles, at that value, so shots of the same place compare like with like
+	 * whatever the fronts would be doing there; -1 (unset) in play.
+	 */
+	private static final float PINNED_FRONT = pinnedFront();
 
 	private final long seed;
 	private final int seasonDays;
@@ -96,12 +102,24 @@ public final class Air {
 	 * autumn and wet biomes are cloudier, summer clearer, deserts nearly always clear.
 	 */
 	public float front(double x, double z, long gameTime, float year, float downfall) {
+		if (PINNED_FRONT >= 0) {
+			return PINNED_FRONT;
+		}
 		double seconds = gameTime / 20.0;
 		double fx = (x - FRONT_DRIFT * seconds) / FRONT_SCALE;
 		double fz = (z - FRONT_DRIFT * 0.2 * seconds) / FRONT_SCALE;
 		float field = Noise.fbm(this.seed + 21, fx, fz, seconds / 7200.0, 4);
 		float stretched = (field - 0.5F) * 1.6F + 0.5F;
 		return Math.clamp(stretched + seasonBias(year) + (downfall - 0.5F) * 0.16F, 0.0F, 1.0F);
+	}
+
+	private static float pinnedFront() {
+		String pin = System.getProperty("gloam.test.front", "");
+		try {
+			return pin.isEmpty() ? -1 : Math.clamp(Float.parseFloat(pin), 0.0F, 1.0F);
+		} catch (NumberFormatException e) {
+			return -1;
+		}
 	}
 
 	/** How much wetter or drier than the year's average the season runs: wettest in autumn, driest in high summer. */
