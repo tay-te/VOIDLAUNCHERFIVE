@@ -43,6 +43,7 @@ struct CloudCol {
 	vec2 tower;            // the tower's interval
 	vec2 anvil;            // the anvil's interval
 	int tone;              // 0 fair, 1 showers, 2 storm
+	vec3 dens;             // how thick each deck's cell is (low, main, high), 0 a ragged edge cell .. 1 deep inside
 };
 
 // The last tower cell asked about: a tower cell spans 4 x 4 deck columns, so most asks repeat.
@@ -269,6 +270,7 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 	c.tower = WC_EMPTY;
 	c.anvil = WC_EMPTY;
 	c.tone = 0;
+	c.dens = vec3(0.0);
 
 	float base = wcTowerBase(e);
 	if (wcOverlaps(vec2(base, e.layers.w + WC_DECK), lo, hi)) {
@@ -319,8 +321,11 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 			n += (wcU01(ch) - 0.5) * 0.08; // a ragged cell here and there at the edges
 		}
 		float cover = max(w.g, e.fair);
-		if (n > (1.0 - cover) * 0.92 + 0.04 || wide > 0.5) {
+		float thr = (1.0 - cover) * 0.92 + 0.04;
+		if (n > thr || wide > 0.5) {
 			c.main = mainIv;
+			// how far the puffs clear the threshold: thin at a cloud's ragged edge, thick inside it (the shading's body)
+			c.dens.y = wide > 0.5 ? 1.0 : clamp((n - thr) / 0.22, 0.0, 1.0);
 		}
 	}
 	// the low stratus: wide grey sheets under wet fronts
@@ -330,6 +335,7 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 		float n = wcPuffs(m, s, 768, 256, 96, e.seed + 7u);
 		if (stratus > 0.05 && n > 1.0 - stratus * 0.9) {
 			c.low = lowIv;
+			c.dens.x = clamp((n - 1.0 + stratus * 0.9) / 0.22, 0.0, 1.0);
 		}
 	}
 	// the high deck: thin wide sheets, more ahead of a front
@@ -338,6 +344,7 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 		float n = wcPuffs(m, s, 1536, 512, 192, e.seed + 13u);
 		if (n > 1.0 - sheets) {
 			c.high = highIv;
+			c.dens.z = clamp((n - 1.0 + sheets) / 0.22, 0.0, 1.0);
 		}
 	}
 	return c;

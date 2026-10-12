@@ -102,7 +102,14 @@ void main() {
 	texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
 	lmcoord = lightmapLevel((gl_TextureMatrix[1] * gl_MultiTexCoord1).xy);
 	glcolor = gl_Color;
+#if defined G_TEXTURED && !defined G_BLOCKID && !defined G_DEFERRED
+	// particles carry no normal (the attribute reads as zero, and normalising it gave NaN light): a sprite turned to
+	// the camera is lit as a level surface, the way the land round it is, never brighter for facing the sun or moon
+	normalW = dot(gl_Normal, gl_Normal) > 0.01 ? normalize(mat3(gbufferModelViewInverse) * normalize(gl_NormalMatrix * gl_Normal))
+		: vec3(0.0, 1.0, 0.0);
+#else
 	normalW = normalize(mat3(gbufferModelViewInverse) * normalize(gl_NormalMatrix * gl_Normal));
+#endif
 	eyePos = (gbufferModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz;
 	int id = -1;
 #if defined G_BLOCKID

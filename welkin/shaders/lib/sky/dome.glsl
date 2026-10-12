@@ -52,7 +52,10 @@ vec3 skyDomePos(vec3 d, SkyFrame f) {
 	float band;
 	if (h >= 0.0) {
 		// band centres near 0.7, 4, 11, 21 and 40 degrees: thin near the horizon, broad overhead
-		band = 1.0 + 4.0 * softBands(clamp(sqrt(h) * 4.6 - 0.5, 0.0, 4.0) / 4.0, 4.0);
+		// (the lowest bands, where a dawn or dusk sky changes fastest, are not terraced: there a soft band read as a
+		// hard step)
+		float x = clamp(sqrt(h) * 4.6 - 0.5, 0.0, 4.0) / 4.0;
+		band = 1.0 + 4.0 * mix(x, softBands(x, 4.0), smoothstep(0.25, 0.6, x));
 	} else {
 		band = 1.0 - smoothstep(0.0, SKY_BELOW_EASE, -h);
 	}
@@ -62,7 +65,9 @@ vec3 skyDomePos(vec3 d, SkyFrame f) {
 	shape *= mix(0.6, mix(1.0, 0.5, clamp(h * 2.5, 0.0, 1.0)), smoothstep(-0.02, 0.0, h)); // hugs the horizon
 	// the rings start where the stepped version's first ring did (a quarter of the glow's strength; a third for the
 	// moon's), so a faint glow does not tint the whole dome, and reach the last at full strength
-	float ring = 4.0 * softBands(clamp((shape * amount * 4.0 - 0.5) / 3.5, 0.0, 1.0), 4.0);
+	// (the rings hug the horizon, where they are not terraced either: in the low sky they lay as hard steps)
+	float rx = clamp((shape * amount * 4.0 - 0.5) / 3.5, 0.0, 1.0);
+	float ring = 4.0 * mix(rx, softBands(rx, 4.0), smoothstep(0.08, 0.3, h));
 	float shapeM = clamp(1.0 - (1.0 - dot(d, f.moonW)) / 0.05, 0.0, 1.0);
 	float moonRing = 3.0 * softBands(clamp((shapeM * f.glow.g * 3.0 - 0.5) / 2.5, 0.0, 1.0), 3.0);
 	return vec3(band, ring, moonRing);
@@ -107,10 +112,14 @@ vec3 skyFull(vec3 dirW, SkyFrame f) {
 		return col;
 	}
 
-	// stars, on the celestial sphere: the view direction in the sun's turning frame
-	if (f.glow.b > 0.0) {
+	// stars, on the celestial sphere: the view direction in the sun's turning frame. They lie behind the sky's own
+	// light: over a bright sky (the day, a lit dusk, a moonlit haze near the horizon) they fade out whatever the star
+	// amount says, so no star ever shows on a day sky or in its reflection
+	float skyLight = dot(col, vec3(0.2126, 0.7152, 0.0722));
+	float behind = 1.0 - smoothstep(0.08, 0.22, skyLight);
+	if (f.glow.b * behind > 0.0) {
 		vec3 c = vec3(dot(d, f.sunW), dot(d, f.axis), dot(d, cross(f.sunW, f.axis)));
-		col = max(col, skyStars(c, f.glow.b, d.y));
+		col = max(col, mix(col, skyStars(c, f.glow.b, d.y), behind));
 	}
 
 #ifdef SKY_PIXEL_SUN

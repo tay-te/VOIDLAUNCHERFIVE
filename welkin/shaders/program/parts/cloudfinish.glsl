@@ -1,7 +1,8 @@
 // VOID Welkin: the finished cloud map (M3), prepare pass 2, right after the raw map (prepare1). Copies each cell and
 // adds what the march would otherwise have to fetch around it (lib/clouds/map.glsl):
 //   its edges: which neighbours lack each of its decks, or its anvil, or stand lower in tower;
-//   its block: the deck and anvil bits ORed over the 4 x 4 cells of its tower cell.
+//   its block: the deck and anvil bits ORed over the 4 x 4 cells of its tower cell;
+//   its decks' thickness, from the raw map's B.
 // 21 fetches of colortex7 a cell, into colortex8 (RGBA16, 160 x 1280, size.buffer.colortex8). Overworld only.
 
 #include "/lib/common.glsl"
@@ -32,7 +33,7 @@ void main() {
 	}
 	CloudEnv e = welkinCloudEnv();
 	ivec2 cell = wcMapAnchor(lv, e) + ivec2(p.x, p.y - lv * WC_MAP) - WC_MAP_HALF;
-	ivec2 own = ivec2(texelFetch(colortex7, p, 0).rg * 255.0 + 0.5);
+	ivec3 own = ivec3(texelFetch(colortex7, p, 0).rgb * 255.0 + 0.5);
 	int bits = own.x, rise = own.y;
 
 	// the edges, toward -x, +x, -z, +z
@@ -55,7 +56,7 @@ void main() {
 			block |= wcRawCell(b0 + ivec2(i, j), lv, e).x & 15;
 		}
 	}
-	outMap = vec4(float(bits | (block << 8)), float(rise), float(deckEdges), float(towerEdges)) / 65535.0;
+	outMap = vec4(float(bits | (block << 8) | wcMapDensityBits(own.z)), float(rise), float(deckEdges), float(towerEdges)) / 65535.0;
 }
 
 #endif

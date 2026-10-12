@@ -207,6 +207,7 @@ CloudHit welkinCloudMarch(vec3 ro, vec3 rd, float tScene, float pixAngle, CloudE
 	int axis = -1;         // how the ray came into this column: 0 through an x side, 1 a z side, -1 through a plane
 	int gaps = 0;
 	bool first = true;
+	bool insideRun = false;   // the ray is still inside the cloud the eye is in
 	float searchUntil = -1.0; // inside a W1 cell already found to hold a tower that may reach the ray, until here,
 	float searchTop = -1e9;   // up to this height,
 	bool searchAnvil = false; // and an anvil
@@ -257,6 +258,7 @@ CloudHit welkinCloudMarch(vec3 ro, vec3 rd, float tScene, float pixAngle, CloudE
 					|| (rise > 0.0 && wcOverlaps(vec2(base, base + rise), blo, bhi));
 				if (!held) {
 					h.jumps++;
+					insideRun = false;
 					first = false;
 					t = max(tB2, t + 1e-3);
 					fresh = true;
@@ -309,6 +311,7 @@ CloudHit welkinCloudMarch(vec3 ro, vec3 rd, float tScene, float pixAngle, CloudE
 			}
 			if (!search) {
 				h.jumps++;
+				insideRun = false;
 				gaps++;
 				first = false;
 				t = max(tJump, t + 1e-3);
@@ -338,20 +341,46 @@ CloudHit welkinCloudMarch(vec3 ro, vec3 rd, float tScene, float pixAngle, CloudE
 		CloudCol c = wcMapDecode(raw.x, raw.y, e);
 		float th = (raw.x & 15) + raw.y > 0 ? wcColumnEnterInv(c, y0, invDy, t, t1) : 1e30;
 		if (th < 1e29) {
-			if (!towerStep && first && t == 0.0 && th == 0.0) {
-				h.inside = true; // the eye's own cell: see out of it
-				// where the ray leaves it: through the column's side, or out of the top or bottom of the cloud the eye
-				// is in (whichever of its intervals holds the eye)
-				vec2 iv = wcIn(c.low, y0) ? c.low : (wcIn(c.main, y0) ? c.main : (wcIn(c.high, y0) ? c.high
-					: (wcIn(c.tower, y0) ? c.tower : c.anvil)));
-				float tY = ((rd.y > 0.0 ? iv.y : iv.x) - y0) * invDy;
-				h.tOut = min(t1, max(tY, 0.0));
+			bool atEntry = th <= t * (1.0 + 1e-5) + 1e-4;
+			if ((first && t == 0.0 && th == 0.0) || (insideRun && atEntry)) {
+				// the eye's own cloud (a deck cell, a tower or an anvil): see out of it, through as many of its cells as
+				// the ray crosses before it comes out into the open, so its inside is one smooth fog (welkinCloudVeil)
+				// and never the faces of its own neighbouring cells
+				h.inside = true;
+				float yc = y0 + rd.y * min(t + 0.01, t1);
+				vec2 iv = wcIn(c.low, yc) ? c.low : (wcIn(c.main, yc) ? c.main : (wcIn(c.high, yc) ? c.high
+					: (wcIn(c.tower, yc) ? c.tower : (wcIn(c.anvil, yc) ? c.anvil : vec2(yc)))));
+				float tY = abs(rd.y) < 1e-6 ? 1e30 : ((rd.y > 0.0 ? iv.y : iv.x) - y0) * invDy;
+				h.tOut = min(t1, max(tY, t));
+				insideRun = tY >= t1; // out through the column's side: perhaps into more of the same cloud
+				float th2 = insideRun ? 1e30 : wcColumnEnterInv(c, y0, invDy, h.tOut + 1e-3, t1);
+				if (th2 < 1e29) {
+					// out of its top or bottom, then into another of the column's clouds: that one's cap
+					h.hit = true;
+					h.t = th2;
+					h.level = lv;
+					h.tone = c.tone;
+					h.n = vec3(0.0, rd.y > 0.0 ? -1.0 : 1.0, 0.0);
+					h.cell = towerStep ? wcCellOf((ro + rd * th2).xz, lv, e) : cell;
+					return h;
+				}
 			} else {
+				insideRun = false;
 				h.hit = true;
 				h.t = th;
 				h.level = lv;
 				h.tone = c.tone;
-				bool side = axis >= 0 && th <= t * (1.0 + 1e-5) + 1e-4;
+				// a side face where the ray came in through a side of this column (or tower cell) and met the cloud right
+				// there. After a ring change the point may lie inside the new, wider cell, not on its side: then the
+				// cloud is met inside the slab, and drawn as its cap (a side there was a wall standing on the ring's edge)
+				bool side = axis >= 0 && atEntry;
+				if (side) {
+					int sz = towerStep ? (WC_CELL * 4) << lv : WC_CELL << lv;
+					vec2 corner = wcCellCorner(towerStep ? cell >> 2 : cell, sz, e);
+					vec2 pe = ro.xz + rd.xz * t;
+					float bound = axis == 0 ? (stepI.x > 0 ? corner.x : corner.x + float(sz)) : (stepI.y > 0 ? corner.y : corner.y + float(sz));
+					side = abs((axis == 0 ? pe.x : pe.y) - bound) < 0.05 + t * 2e-5;
+				}
 				h.n = side ? (axis == 0 ? vec3(-float(stepI.x), 0.0, 0.0) : vec3(0.0, 0.0, -float(stepI.y)))
 					: vec3(0.0, rd.y > 0.0 ? -1.0 : 1.0, 0.0);
 				vec3 ph = ro + rd * th;
@@ -364,6 +393,8 @@ CloudHit welkinCloudMarch(vec3 ro, vec3 rd, float tScene, float pixAngle, CloudE
 				h.hit = false; // through the rim's opening: on behind it
 				towerStep = true; // so the next column is found afresh
 			}
+		} else {
+			insideRun = false;
 		}
 		first = false;
 		if (towerStep) {

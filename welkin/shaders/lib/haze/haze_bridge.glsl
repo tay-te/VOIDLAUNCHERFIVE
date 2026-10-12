@@ -220,9 +220,13 @@ HzLand hzLandIn(HzState s, vec2 local, bool far) {
 // eighth N cell): every far pixel reads its middle segment's land at the same distance (about 600 blocks at MEDIUM), so
 // a border between kinds crossing there switched the whole segment's murk over 16 blocks, a few pixels, and stood up
 // as a vertical wall of dust (or of clear air) over the far land. Over 128 blocks the kinds blend across a wide arc of
-// the view. The ground, lowness and water stay N's own.
+// the view. `ground` (0..1) takes the ground, lowness and water over the same lattice as well (4 more fetches): the
+// one point the long middle segment reads stands for over a kilometre of land, and where it fell on a knoll or a
+// ridge its murk (which grows with the ground's height) lay over the whole segment, so the far land behind it stood
+// up in narrow bright columns of haze; blended over 128 blocks the land under the segment varies only gently across
+// the view.
 #define HZ_KIND_LATTICE_SHIFT 7
-void hzSmoothKinds(HzState s, vec2 local, inout HzLand l) {
+void hzSmoothKinds(HzState s, vec2 local, inout HzLand l, float ground) {
     if (s.mode == HZ_NONE) return;
     const int size = 1 << HZ_KIND_LATTICE_SHIFT;
     ivec2 cam = cameraPositionInt.xz;
@@ -239,6 +243,18 @@ void hzSmoothKinds(HzState s, vec2 local, inout HzLand l) {
     ivec4 rc = hzBytes(hzTexelOf(HZ_T_N1, ((c0 + ivec2(0, 1)) << sh) + mid));
     ivec4 rd = hzBytes(hzTexelOf(HZ_T_N1, ((c0 + ivec2(1, 1)) << sh) + mid));
     if (((ra.a & rb.a & rc.a & rd.a) & 1) == 0) return; // the near tile does not cover it all: keep the point's
+    if (ground > 0.0) {
+        ivec4 ga = hzBytes(hzTexelOf(HZ_T_N0, (c0 << sh) + mid));
+        ivec4 gb = hzBytes(hzTexelOf(HZ_T_N0, ((c0 + ivec2(1, 0)) << sh) + mid));
+        ivec4 gc = hzBytes(hzTexelOf(HZ_T_N0, ((c0 + ivec2(0, 1)) << sh) + mid));
+        ivec4 gd = hzBytes(hzTexelOf(HZ_T_N0, ((c0 + ivec2(1, 1)) << sh) + mid));
+        float g = hzHeight16(ga.r, ga.g) * w.x + hzHeight16(gb.r, gb.g) * w.y + hzHeight16(gc.r, gc.g) * w.z + hzHeight16(gd.r, gd.g) * w.w;
+        vec4 lowness = vec4(ga.b, gb.b, gc.b, gd.b) / 255.0;
+        vec4 water = 1.0 - smoothstep(vec4(0.0), vec4(16.0), vec4(ga.a, gb.a, gc.a, gd.a));
+        l.ground = mix(l.ground, g, ground);
+        l.low = mix(l.low, dot(lowness, w), ground);
+        l.water = mix(l.water, dot(water, w), ground);
+    }
     int ka = hzKindIndex(ra.a >> 4), kb = hzKindIndex(rb.a >> 4), kc = hzKindIndex(rc.a >> 4), kd = hzKindIndex(rd.a >> 4);
     int k1 = ka;
     float best = w.x;

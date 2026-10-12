@@ -138,27 +138,49 @@ vec3 joinLine(ivec2 p, vec3 c) {
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
 
-// A pinhole in the far land or water: a lone sky pixel well under the horizon with land on both sides of it (a crack
-// between two of the LOD's tiles, where the sky shone through as a white speck on the far water). It is drawn as its
-// neighbour: the pixel to read instead, or p itself.
+// A pinhole in the far land or water: a lone pixel well under the horizon that shows what lies behind a surface
+// through a crack between two of the LOD's tiles, with that surface on both sides of it. Either the sky shone through
+// (a white speck on the far water), or the bed under the far water did (the water is drawn by dh_water, a separate
+// mesh: its tiles' seams and T-joins let the lit bed through as specks and faint straight lines across a lake). It is
+// drawn as its neighbour: the pixel to read instead, or p itself.
+bool pinholeWater(ivec2 q) {
+	return texelFetch(colortex3, q, 0).a > 0.0;
+}
+
 ivec2 pinholeFill(ivec2 p, vec2 uv) {
 	Surface s = surfaceAt(p, uv);
-	if (!s.sky) {
-		return p;
-	}
-	vec3 d = mat3(gbufferModelViewInverse) * viewFromDepth(uv, 1.0, gbufferProjectionInverse);
+	vec3 d = mat3(gbufferModelViewInverse) * (s.sky ? viewFromDepth(uv, 1.0, gbufferProjectionInverse) : s.view);
 	if (d.y > -0.006 * length(d)) {
 		return p;
 	}
 	vec2 px = 1.0 / vec2(viewWidth, viewHeight);
-	bool l = !surfaceAt(p + ivec2(-1, 0), uv - vec2(px.x, 0.0)).sky;
-	bool r = !surfaceAt(p + ivec2(1, 0), uv + vec2(px.x, 0.0)).sky;
-	if (l && r) {
-		return p + ivec2(-1, 0);
+	if (s.sky) {
+		bool l = !surfaceAt(p + ivec2(-1, 0), uv - vec2(px.x, 0.0)).sky;
+		bool r = !surfaceAt(p + ivec2(1, 0), uv + vec2(px.x, 0.0)).sky;
+		if (l && r) {
+			return p + ivec2(-1, 0);
+		}
+		bool dn = !surfaceAt(p + ivec2(0, -1), uv - vec2(0.0, px.y)).sky;
+		bool up = !surfaceAt(p + ivec2(0, 1), uv + vec2(0.0, px.y)).sky;
+		return dn && up ? p + ivec2(0, 1) : p;
 	}
-	bool dn = !surfaceAt(p + ivec2(0, -1), uv - vec2(0.0, px.y)).sky;
-	bool up = !surfaceAt(p + ivec2(0, 1), uv + vec2(0.0, px.y)).sky;
-	return dn && up ? p + ivec2(0, 1) : p;
+	// the far water's seams: a pixel with no water on it, water on both sides, and itself farther than the water there
+	if (!s.fromLod || pinholeWater(p)) {
+		return p;
+	}
+	float dist = length(s.view);
+	for (int k = 0; k < 2; k++) {
+		ivec2 o = k == 0 ? ivec2(1, 0) : ivec2(0, 1);
+		vec2 ou = vec2(o) * px;
+		if (pinholeWater(p - o) && pinholeWater(p + o)) {
+			Surface a = surfaceAt(p - o, uv - ou);
+			Surface b = surfaceAt(p + o, uv + ou);
+			if (!a.sky && !b.sky && dist > max(length(a.view), length(b.view)) + 0.5) {
+				return p - o;
+			}
+		}
+	}
+	return p;
 }
 
 void main() {

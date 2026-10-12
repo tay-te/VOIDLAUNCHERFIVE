@@ -197,8 +197,9 @@ HzLand hzSegmentLand(HzState s, bool sky, vec3 dir, float a, float b, bool far) 
     float tS = far ? b : sqrt(a * max(b, a));
     vec2 local = cameraPositionFract.xz + dir.xz * tS;
     HzLand l = hzLandIn(s, local, far);
-    // a near segment takes its kinds over 1 km (hzSmoothKinds): no walls of dust over the far land
-    if (!far) hzSmoothKinds(s, local, l);
+    // a near segment takes its kinds over 128 blocks (hzSmoothKinds): no walls of dust over the far land; a long one
+    // (out past a few hundred blocks) its ground too, so no columns of haze stand over the land behind a knoll
+    if (!far) hzSmoothKinds(s, local, l, smoothstep(320.0, 1200.0, b));
     return l;
 }
 

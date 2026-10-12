@@ -97,7 +97,9 @@ void main() {
 	for (int i = 0; i < 3; i++) {
 		vec4 b = i == 0 ? band0 : (i == 1 ? band1 : band2);
 		if (b.z > 0.0 && b.x < tScene && (!h.hit || h.t >= b.x - 1.0)) {
-			color.rgb = mix(color.rgb, wcBandColour(rd, b.y, b.w, e), b.z);
+			// a cell hit inside the band keeps more of its body than a gap: the band only softens it toward the sky
+			bool cell = h.hit && h.t <= b.y + (b.y - b.x) + 1.0;
+			color.rgb = mix(color.rgb, wcBandColour(rd, b.y, cell ? mix(b.w, 1.0, 0.6) : b.w, e), b.z);
 			if (b.z > 0.5) {
 				km = min(km, b.y / 1000.0);
 			}

@@ -13,7 +13,9 @@
 //
 //   R  bit 0 low deck, 1 main deck, 2 high deck, 3 anvil, 4..5 tone (0 fair, 1 showers, 2 storm); in the finished
 //      map also bits 8..11: bits 0..3 ORed over the cell's block (its 4 x 4 tower cell), so with G (one tower per
-//      block) the march crosses a block with nothing at the ray's height in one step
+//      block) the march crosses a block with nothing at the ray's height in one step; and (finished) each deck
+//      cell's thickness in four steps (wcMapDensity): the low deck's in bits 6..7, the main's in 12..13, the high's
+//      in 14..15 (in the raw map: B, 2 bits a deck)
 //   G  the tower's rise above its base, in 4-block units (0: no tower)
 //   B  (finished) deck edges: bit 4 k + d where the neighbour in direction d (0 -x, 1 +x, 2 -z, 3 +z) lacks deck k
 //      (0 low, 1 main, 2 high) that this cell has
@@ -73,7 +75,18 @@ vec4 wcMapEncode(CloudCol c, CloudEnv e) {
 	int bits = (c.low.x <= c.low.y ? 1 : 0) | (c.main.x <= c.main.y ? 2 : 0) | (c.high.x <= c.high.y ? 4 : 0)
 		| (c.anvil.x <= c.anvil.y ? 8 : 0) | (c.tone << 4);
 	float rise = c.tower.x <= c.tower.y ? clamp(floor((c.tower.y - c.tower.x) / 4.0 + 0.5), 1.0, 255.0) : 0.0;
-	return vec4(float(bits) / 255.0, rise / 255.0, 0.0, 0.0);
+	ivec3 q = min(ivec3(sqrt(clamp(c.dens, 0.0, 1.0)) * 4.0), ivec3(3));
+	return vec4(float(bits) / 255.0, rise / 255.0, float(q.x | (q.y << 2) | (q.z << 4)) / 255.0, 0.0);
+}
+
+// The raw map's B (2 bits of thickness a deck) as the finished map's R bits 6..7, 12..15.
+int wcMapDensityBits(int raw) {
+	return ((raw & 3) << 6) | (((raw >> 2) & 3) << 12) | (((raw >> 4) & 3) << 14);
+}
+
+// Each deck cell's thickness (low, main, high), 0..1 in four steps, from the finished map's R.
+vec3 wcMapDensity(int r) {
+	return vec3((r >> 6) & 3, (r >> 12) & 3, (r >> 14) & 3) / 3.0;
 }
 
 CloudCol wcMapDecode(int bits, int rise, CloudEnv e) {
@@ -83,6 +96,7 @@ CloudCol wcMapDecode(int bits, int rise, CloudEnv e) {
 	c.high = (bits & 4) != 0 ? vec2(e.layers.z, e.layers.z + WC_DECK) : WC_EMPTY;
 	c.anvil = (bits & 8) != 0 ? vec2(e.layers.w - WC_TOWER_STEP, e.layers.w + WC_DECK) : WC_EMPTY;
 	c.tone = (bits >> 4) & 3;
+	c.dens = vec3(1.0); // (wcMapDensity reads it from the finished map's R where it matters)
 	float base = wcTowerBase(e);
 	c.tower = rise > 0 ? vec2(base, base + 4.0 * float(rise)) : WC_EMPTY;
 	return c;
