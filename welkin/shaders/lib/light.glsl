@@ -158,12 +158,12 @@ float welkinGlow(vec3 v, vec3 n, vec3 l, int m, float through) {
 		return 0.0;
 	}
 	float c = clamp(dot(v, l), 0.0, 1.0);
-	float lobe = 0.25 + 1.5 * c * c * c;
+	float lobe = 0.1 + 1.4 * c * c * c;
 	if (matIsLeaves(m)) {
 		// the faces turned away from the light (half on an edge-on face)
-		return 1.2 * lobe * through * clamp(0.5 - dot(n, l), 0.0, 1.0);
+		return 0.8 * lobe * through * clamp(0.5 - dot(n, l), 0.0, 1.0);
 	}
-	return 0.6 * lobe * through;
+	return 0.5 * lobe * through;
 }
 
 // Whether a material is a plant's thin quad (for the shadow lookup, which then steps toward the light).
@@ -242,7 +242,7 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	vec3 direct = skyLandDirect() * (lit + canopyLeak(lm.y) * (1.0 - lit)) * sunShare;
 	if (glow > 0.0) {
 		// through the leaf: its own hue at its own brightness, warmed (the light through chlorophyll is yellow-green)
-		vec3 hue = mix(vec3(1.0), min(a / max(lumaLin(a), 0.004), vec3(3.0)), 0.75) * vec3(1.2, 1.05, 0.55);
+		vec3 hue = mix(vec3(1.0), min(a / max(lumaLin(a), 0.004), vec3(3.0)), 0.6) * vec3(1.2, 1.05, 0.55);
 		direct += skyLandDirect() * sunShare * hue * glow;
 	}
 #endif
