@@ -54,6 +54,78 @@ public final class MettleState {
 	private MettleState() {
 	}
 
+	// ---------------------------------------------------------------- the change counter (docs/OVERLAY.md §revision)
+
+	private static long revision;
+	private static long events;
+	private static long lastPrint = Long.MIN_VALUE;
+
+	/**
+	 * Something {@link #build} shows arrived or changed that the inputs below can't see (a payload: feedback, a moment, a
+	 * trade view, the Hall of Firsts, a sitting, a reveal, a picker result; a client option). Client thread.
+	 */
+	public static void bump() {
+		events++;
+	}
+
+	/**
+	 * A cheap change counter for hosts (the VOID Hub calls it by reflection): it goes up whenever anything {@link #build}
+	 * outputs may have changed, so a host can skip rebuilding the state while it stays the same. It looks at the inputs,
+	 * not the output: the synced character, cards and load (by identity: every sync is a new value), the inventory's
+	 * change count, worn gear, carry capacity, each visible player's public Mythics, the server's card config, the
+	 * client options, every Mettle payload; and time where the output shows it: once a second while a card attunes, four
+	 * times a second while feedback, moments or a Mythic reveal are showing (their {@code ageMs}). Never goes down within a
+	 * session. Client thread.
+	 */
+	public static synchronized long revision() {
+		long print = fingerprint(net.minecraft.client.Minecraft.getInstance());
+		if (print != lastPrint) {
+			lastPrint = print;
+			revision++;
+		}
+		return revision;
+	}
+
+	private static long mix(long h, long v) {
+		h ^= v + 0x9E3779B97F4A7C15L + (h << 6) + (h >>> 2);
+		return h;
+	}
+
+	private static long fingerprint(net.minecraft.client.Minecraft mc) {
+		long h = mix(17, events);
+		h = mix(h, dev.voidmc.mettle.character.cards.CardConfig.clientRevision());
+		h = mix(h, dev.voidmc.mettle.client.MettleClientOptions.revision());
+		Player player = mc.player;
+		h = mix(h, System.identityHashCode(player));
+		h = mix(h, System.identityHashCode(mc.getConnection()));
+		if (player == null || mc.level == null) {
+			return h;
+		}
+		h = mix(h, System.identityHashCode(mc.level));
+		h = mix(h, System.identityHashCode(player.getAttached(dev.voidmc.mettle.core.CharacterStore.CHARACTER)));
+		dev.voidmc.mettle.core.CardsState cards = dev.voidmc.mettle.core.CardStore.get(player);
+		h = mix(h, System.identityHashCode(cards));
+		h = mix(h, System.identityHashCode(player.getAttached(LoadState.ATTACHMENT)));
+		h = mix(h, System.identityHashCode(player.getAttached(dev.voidmc.mettle.gear.WornGear.TYPE)));
+		h = mix(h, player.getInventory().getTimesChanged());
+		h = mix(h, Double.doubleToLongBits(player.getAttributeValue(MettleAttributes.CARRY_CAPACITY)));
+		h = mix(h, mc.level.players().size());
+		for (Player p : mc.level.players()) {
+			h = mix(h, System.identityHashCode(p.getAttached(dev.voidmc.mettle.character.cards.Mythics.PUBLIC)));
+		}
+		long now = net.minecraft.util.Util.getMillis();
+		long gameTime = player.level().getGameTime();
+		boolean attuning = cards.cards().stream().anyMatch(c -> !c.attuned(gameTime));
+		if (attuning) {
+			h = mix(h, gameTime / 20);
+		}
+		boolean showing = RECENT.stream().anyMatch(f -> now - f.at() < FEEDBACK_MS) || MOMENTS.stream().anyMatch(m -> now - m.at() < FEEDBACK_MS);
+		if (showing || MettleCards.revealing()) {
+			h = mix(h, now / 250);
+		}
+		return h;
+	}
+
 	private static final long FEEDBACK_MS = 4000;
 	private static final java.util.Deque<Feedback> RECENT = new java.util.ArrayDeque<>();
 
@@ -65,6 +137,7 @@ public final class MettleState {
 
 	/** The server's answer to a background choice, for a hosted picker ({@code result}). */
 	public static void rememberResult(boolean ok, String reason) {
+		events++;
 		JsonObject r = new JsonObject();
 		r.addProperty("ok", ok);
 		if (reason != null) {
@@ -77,11 +150,13 @@ public final class MettleState {
 
 	/** Whether the open picker was asked for by an operator's reset ({@code pickerByOperator}). */
 	public static void rememberPicker(boolean byOperator) {
+		events++;
 		pickerByOperator = byOperator;
 	}
 
 	/** A feedback chip arrived (MettleClient); kept a few seconds for {@code feedback}. */
 	public static void remember(String perk, String text) {
+		events++;
 		RECENT.addLast(new Feedback(perk, text, net.minecraft.util.Util.getMillis()));
 		while (RECENT.size() > 4) {
 			RECENT.removeFirst();
@@ -95,6 +170,7 @@ public final class MettleState {
 
 	/** A progress moment arrived (MomentClient); kept a few seconds for {@code moments}, like {@link #remember}. */
 	public static void rememberMoment(JsonObject json) {
+		events++;
 		MOMENTS.addLast(new Moment(json, net.minecraft.util.Util.getMillis()));
 		while (MOMENTS.size() > 6) {
 			MOMENTS.removeFirst();

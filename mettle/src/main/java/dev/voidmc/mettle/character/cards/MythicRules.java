@@ -66,7 +66,7 @@ public final class MythicRules {
 		if (level < c.mythic_draw_from) {
 			return false;
 		}
-		return new Random(seed * 0x2545F4914F6CDD1DL + dealt * 31L + 0x6D).nextDouble() < c.mythic_draw_chance;
+		return new Random(dev.voidmc.mettle.core.MettleSecret.hash(seed, "mythic", dealt)).nextDouble() < c.mythic_draw_chance;
 	}
 
 	/** Most damage in the fight wins; a tie goes to the killing blow (§9.2). */

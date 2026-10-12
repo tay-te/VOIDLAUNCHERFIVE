@@ -168,17 +168,18 @@ public final class Rebuilds {
 		int bits = 0;
 		int emeralds = 0;
 		for (CardData c : picked) {
+			// A dormant card pays like any other: dormancy is not a free way out (CardRules.freeWay).
 			boolean dormant = state.isDormant(c.id());
 			// A Mythic: 1,000 bits (24 emeralds), no draught, never scarred (§7.1, §9.1).
-			int b = dormant || free.isPresent() ? 0 : c.mythic() ? CardConfig.get().mythic_fee : CardRules.feeBits(c.needs());
-			int e = dormant || free.isPresent() ? 0 : c.mythic() ? CardConfig.get().rebuild_emeralds[4] : CardRules.feeEmeralds(c.needs());
-			CardRules.Scar scar = dormant || free.isPresent() ? new CardRules.Scar(Optional.empty(), true) : CardRules.scar(c, sitting.master());
+			int b = free.isPresent() ? 0 : c.mythic() ? CardConfig.get().mythic_fee : CardRules.feeBits(c.needs());
+			int e = free.isPresent() ? 0 : c.mythic() ? CardConfig.get().rebuild_emeralds[4] : CardRules.feeEmeralds(c.needs());
+			CardRules.Scar scar = free.isPresent() ? new CardRules.Scar(Optional.empty(), true) : CardRules.scar(c, sitting.master());
 			lines.add(new Line(c, b, e, scar, dormant));
 			bits += b;
 			emeralds += e;
 		}
 		ResourceKey<Skill> skill = picked.isEmpty() ? null : picked.getFirst().place().deck().orElse(picked.getFirst().skill());
-		boolean ordinary = lines.stream().anyMatch(l -> !l.dormant() && !l.card().mythic());
+		boolean ordinary = lines.stream().anyMatch(l -> !l.card().mythic());
 		boolean draught = free.isEmpty() && ordinary && skill != null && !sitting.spent().contains(skill);
 		return new Preview(lines, bits, emeralds, draught, free);
 	}
@@ -246,7 +247,7 @@ public final class Rebuilds {
 		CardLedger ledger = Cards.ledger(player.level().getServer());
 		List<Component> scars = new ArrayList<>();
 		for (Line line : preview.lines()) {
-			CardData after = line.dormant() ? line.card() : CardRules.scarred(line.card(), sitting.master());
+			CardData after = CardRules.scarred(line.card(), sitting.master());
 			ledger.update(line.card().id(), x -> after.withPlace(CardData.Place.BINDER));
 			line.scar().loses().ifPresent(t -> scars.add(CardText.trait(player.level().registryAccess(), t, Optional.empty())));
 		}
@@ -333,11 +334,8 @@ public final class Rebuilds {
 		}
 		var registries = player.level().registryAccess();
 		Perk perk = registries.lookupOrThrow(MettleRegistries.PERK).getValueOrThrow(picked.getFirst().perk());
-		long seed = 0;
-		for (CardData c : picked) {
-			seed = seed * 31 + c.scarSeed() + c.id();
-		}
-		dev.voidmc.mettle.core.DraftState.Card result = CardRules.fuse(picked, perk, Cards.data(registries), new java.util.Random(seed));
+		dev.voidmc.mettle.core.DraftState.Card result = CardRules.fuseFair(picked, perk, Cards.data(registries),
+			dev.voidmc.mettle.core.MettleSecret.salt(player.level().getServer()));
 		if (result.needs() > open.get().cap()) {
 			return Optional.of(CardRules.Refusal.OVER_CAP);
 		}

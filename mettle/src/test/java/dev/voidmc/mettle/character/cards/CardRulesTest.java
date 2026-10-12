@@ -397,11 +397,11 @@ class CardRulesTest {
 		CardData a = TestCards.plain("mining/quarryman", Rarity.COMMON, 0);
 		CardData b = TestCards.plain("mining/prospector", Rarity.COMMON, -1);
 		CardData c = TestCards.plain("mining/hard_hat", Rarity.RARE, -1);
-		CardRules.Reconciled r = CardRules.reconcile(List.of(a, b), List.of(b, c));
+		CardRules.Reconciled r = CardRules.reconcile(TestCards.PLAYER, List.of(a, b), List.of(b, c), id -> true);
 		assertEquals(List.of(a.id()), r.dropped(), "a card the ledger gives to someone else is dropped");
 		assertEquals(List.of(c.id()), r.restored(), "a card the cache lacks is put back");
 		assertEquals(List.of(b, c), r.cards());
-		assertFalse(CardRules.reconcile(List.of(b, c), List.of(b, c)).changed());
+		assertFalse(CardRules.reconcile(TestCards.PLAYER, List.of(b, c), List.of(b, c), id -> true).changed());
 	}
 
 	@Test

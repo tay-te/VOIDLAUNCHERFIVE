@@ -6,11 +6,12 @@
 # Extra JVM args in $JVM_EXTRA, program args in $PROG_ARGS. Output: <runDir>/console.log. The caller holds the game lock.
 set -u
 J=/c/Users/bitto/VOID/.tools/jdk-25/bin/java.exe
-A=C:/Users/bitto/VOID/.claude/worktrees/audit-server/mettle/build/audit
+W=$(cd "$(dirname "$0")/../.." && pwd -W)
+A=$W/build/audit
 KIND=$1; DIR=$2; RUN=${RUN:?}; JVM_EXTRA=${JVM_EXTRA:-}; PROG_ARGS=${PROG_ARGS:-}
 mkdir -p "$DIR"
 cd "$DIR" || exit 1
-CFG="-Dfabric.dli.config=C:/Users/bitto/VOID/.claude/worktrees/audit-server/mettle/.gradle/loom-cache/launch.cfg"
+CFG="-Dfabric.dli.config=$W/.gradle/loom-cache/launch.cfg"
 COMMON="--enable-native-access=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow -Dfile.encoding=UTF-8 -Duser.language=en -Duser.country=US"
 if [ "$KIND" = server ]; then
   : > console.in

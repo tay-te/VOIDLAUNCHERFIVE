@@ -52,8 +52,6 @@ public final class Cards {
 	public enum Way {
 		/** Below character level 5 every rebuild is free. */
 		LOW_LEVEL,
-		/** Only dormant cards: free. */
-		DORMANT,
 		/** The first rebuild of a deck after the v2 migration. */
 		FREE_REBUILD,
 		/** Free swaps, one per card. */
@@ -68,6 +66,11 @@ public final class Cards {
 	}
 
 	public static void init() {
+		// The ledger is read before anything can touch it; an unreadable one (and backup) stops the start (LedgerFile).
+		ServerLifecycleEvents.SERVER_STARTING.register(LedgerFile::get);
+		ServerLifecycleEvents.AFTER_SAVE.register((server, flush, force) -> LedgerFile.save(server));
+		ServerLifecycleEvents.SERVER_STOPPED.register(LedgerFile::close);
+		ServerPlayerEvents.AFTER_RESPAWN.register(dev.voidmc.mettle.core.CoreModule.AFTER_ATTACHMENTS, (oldPlayer, newPlayer, alive) -> sync(newPlayer));
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			CardConfig.load(FabricLoader.getInstance().getConfigDir());
 			int back = ledger(server).recoverTrades();
@@ -138,9 +141,12 @@ public final class Cards {
 		return state.attribute(CharacterAttribute.WITS, CharacterStore.background(registries, state));
 	}
 
-	/** The in-game day (for card history and the once-a-day pin). */
+	/**
+	 * The in-game day (for card history, the once-a-day pin and Hundredth Dawn): from the world's game time, which always
+	 * runs on, not the clock ({@code /time set} turns that back; with the daylight cycle off it stands still).
+	 */
 	public static long day(MinecraftServer server) {
-		return server.overworld().getOverworldClockTime() / 24000L;
+		return server.overworld().getGameTime() / 24000L;
 	}
 
 	public static String printId(RegistryAccess registries, CardData card) {
@@ -150,8 +156,62 @@ public final class Cards {
 	// ---------------------------------------------------------------- keeping the cache in step
 
 	private static void join(ServerPlayer player) {
+		if (ServerPlayNetworking.canSend(player, MettlePayloads.CardsConfig.TYPE)) {
+			ServerPlayNetworking.send(player, new MettlePayloads.CardsConfig(CardConfig.wire()));
+		}
 		ensure(player);
+		reconcileOnJoin(player);
 		sync(player);
+	}
+
+	/**
+	 * The player's saved copy of their cards against the ledger (§2.1), once on join: the ledger wins for every id it
+	 * knows; a card it doesn't know (the ledger on disk was older than the player's file, or lost) is adopted back into
+	 * it, a Mythic's claim with it. Every difference is logged: here they mean something went wrong.
+	 */
+	static void reconcileOnJoin(ServerPlayer player) {
+		MinecraftServer server = player.level().getServer();
+		CardLedger ledger = ledger(server);
+		CardsState cache = CardStore.get(player);
+		CardRules.Reconciled r = CardRules.reconcile(player.getUUID(), cache.cards(), ledger.owned(player.getUUID()), ledger::known);
+		if (!r.changed()) {
+			return;
+		}
+		String name = player.getName().getString();
+		for (CardData c : r.adopted()) {
+			ledger.adopt(c);
+			c.mythicId().ifPresent(m -> reclaim(player, ledger, c, m));
+		}
+		if (!r.adopted().isEmpty()) {
+			Mettle.LOGGER.warn("{}: the ledger did not know cards {} from the player's own copy (it was older than the player file); adopted back",
+				name, r.adopted().stream().map(CardData::id).toList());
+		}
+		if (!r.dropped().isEmpty()) {
+			Mettle.LOGGER.warn("{}: cached cards {} belong to someone else in the ledger (or were released); dropped", name, r.dropped());
+		}
+		if (!r.restored().isEmpty() && !cache.cards().isEmpty()) {
+			Mettle.LOGGER.warn("{}: cards {} were missing from the player's own copy; put back from the ledger", name, r.restored());
+		}
+		CardStore.set(player, cache.withCards(r.cards()));
+		if (!r.adopted().isEmpty()) {
+			LedgerFile.commit(server, player);
+		}
+	}
+
+	/** An adopted Mythic card claims its first (or its deed copy) again when the ledger lost that too. */
+	private static void reclaim(ServerPlayer player, CardLedger ledger, CardData card, Identifier mythic) {
+		Optional<dev.voidmc.mettle.api.Mythic> def = Mythics.def(player.level().registryAccess(), mythic);
+		String path = mythic.getPath();
+		if (def.map(m -> m.source() == dev.voidmc.mettle.api.Mythic.Source.DEED).orElse(false)) {
+			if (!ledger.deeds(path).contains(card.owner())) {
+				ledger.deed(path, card.owner());
+			}
+		} else if (ledger.first(path).isEmpty()) {
+			ledger.claim(path, new CardData.Holder(card.owner(), card.drawn().name(), card.drawn().day()));
+		} else if (!ledger.first(path).get().player().equals(card.owner())) {
+			Mettle.LOGGER.warn("{}: adopted Mythic card {} ({}) whose first the ledger gives to {}", player.getName().getString(), card.id(), mythic,
+				ledger.first(path).get().name());
+		}
 	}
 
 	/**
@@ -168,22 +228,15 @@ public final class Cards {
 	}
 
 	/**
-	 * Rebuilds the player's cache from the ledger (an id the ledger gives to someone else is dropped and logged; a card
-	 * it gives this player is put back), works out what the deck makes active, and re-applies effects.
+	 * After a change the server made in the ledger (a card kept, slotted, traded, released): the player's cache becomes
+	 * the ledger's view of their cards, what the deck makes active is worked out again and effects are re-applied. The
+	 * difference is expected here, so nothing is logged (the join's {@link #reconcileOnJoin} logs real ones).
 	 */
 	public static void sync(ServerPlayer player) {
 		CardsState cache = CardStore.get(player);
-		CardRules.Reconciled r = CardRules.reconcile(cache.cards(), ledger(player.level().getServer()).owned(player.getUUID()));
-		if (r.changed()) {
-			if (!r.dropped().isEmpty()) {
-				Mettle.LOGGER.warn("{}: cached cards {} belong to someone else in the ledger; dropped", player.getName().getString(), r.dropped());
-			}
-			if (!r.restored().isEmpty() && !cache.cards().isEmpty()) {
-				Mettle.LOGGER.warn("{}: cards {} were missing from the cache; put back", player.getName().getString(), r.restored());
-			}
-		}
-		if (!r.cards().equals(cache.cards())) {
-			CardStore.set(player, cache.withCards(r.cards()));
+		List<CardData> mine = ledger(player.level().getServer()).owned(player.getUUID());
+		if (!mine.equals(cache.cards())) {
+			CardStore.set(player, cache.withCards(mine));
 		}
 		EffectsApplier.apply(player);
 		Mythics.publish(player);
@@ -250,6 +303,10 @@ public final class Cards {
 		Drafts.refresh(player);
 		EffectsApplier.apply(player);
 		if (!made.isEmpty()) {
+			// The cards exist in the ledger and the perks left the record: both on disk now, together.
+			LedgerFile.commit(player.level().getServer(), player);
+		}
+		if (!made.isEmpty()) {
 			SignaturePerks.feedback(player, Mettle.id("cards/migrated"), Component.translatable("mettle.cards.migrated", made.size()));
 		}
 	}
@@ -266,7 +323,9 @@ public final class Cards {
 			: registries.lookupOrThrow(MettleRegistries.PERK).getValueOrThrow(offer.perk()).skill();
 		long day = day(player.level().getServer());
 		String name = player.getGameProfile().name();
-		long scarSeed = new Random(CharacterStore.get(player).drafts().seed() * 31 + id).nextLong();
+		// One-way from the world's secret: the scar seed is shown to the owner, it must not give the draft seed away.
+		long scarSeed = dev.voidmc.mettle.core.MettleSecret.hash(dev.voidmc.mettle.core.MettleSecret.salt(player.level().getServer()), "scar",
+			CharacterStore.get(player).drafts().seed(), id);
 		CardData card = new CardData(id, skill, offer.perk(), offer.rarity(), offer.rank(), offer.keywords(), offer.traits(), offer.needs(),
 			new CardData.Drawn(player.getUUID(), name, level, day, System.currentTimeMillis(), how), player.getUUID(),
 			CardData.History.first(new CardData.Holder(player.getUUID(), name, day)), 0, scarSeed, place, 0L);
@@ -281,9 +340,9 @@ public final class Cards {
 		BINDER, SLOT, AUTO
 	}
 
-	/** Whether the binder has room for one more card. */
+	/** Whether the binder has room for one more card. Mythics don't count: they always fit (§9, {@link CardRules#binderCount}). */
 	public static boolean binderRoom(Player player) {
-		return CardStore.get(player).cards().size() < CardConfig.get().binder_max;
+		return CardRules.binderCount(CardStore.get(player).cards()) < CardConfig.get().binder_max;
 	}
 
 	/**
@@ -352,20 +411,8 @@ public final class Cards {
 	/** How unslotting these cards would be paid for now, without a rebuild place: a free way, or empty. */
 	public static Optional<Way> freeWay(ServerPlayer player, List<CardData> cards) {
 		CardsState state = CardStore.get(player);
-		if (CharacterStore.get(player).characterLevel() < CardConfig.get().free_rebuild_below_level) {
-			return Optional.of(Way.LOW_LEVEL);
-		}
-		long live = cards.stream().filter(c -> !state.isDormant(c.id())).count();
-		if (live == 0) {
-			return Optional.of(Way.DORMANT);
-		}
-		if (!cards.isEmpty() && state.freeRebuilds().contains(cards.getFirst().skill())) {
-			return Optional.of(Way.FREE_REBUILD);
-		}
-		if (state.freeSwaps() >= live) {
-			return Optional.of(Way.FREE_SWAP);
-		}
-		return Optional.empty();
+		return CardRules.freeWay(CharacterStore.get(player).characterLevel(), cards, state.freeRebuilds(), state.freeSwaps())
+			.map(w -> Way.valueOf(w.name()));
 	}
 
 	/**
@@ -408,7 +455,8 @@ public final class Cards {
 		CardsState state = CardStore.get(player);
 		CardLedger ledger = ledger(player.level().getServer());
 		picked.forEach(c -> ledger.update(c.id(), x -> x.withPlace(CardData.Place.BINDER)));
-		long live = picked.stream().filter(c -> !state.isDormant(c.id())).count();
+		// Every card a free swap covers counts, dormant ones too (a dormant card is not a free way out).
+		long live = picked.size();
 		CardsState next = CardStore.get(player);
 		ResourceKey<Skill> skill = picked.getFirst().place().deck().orElse(picked.getFirst().skill());
 		if (way == Way.FREE_SWAP) {
@@ -455,7 +503,9 @@ public final class Cards {
 			return Optional.of(CardRules.Refusal.BAD_PINS);
 		}
 		long today = day(player.level().getServer());
-		if (state.pinDay() >= 0 && today - state.pinDay() < CardConfig.get().set_pin_cooldown_days && !distinct.equals(state.pins())) {
+		// A pin day ahead of today was counted on the old clock-based day: it no longer holds the pins back.
+		if (state.pinDay() >= 0 && state.pinDay() <= today && today - state.pinDay() < CardConfig.get().set_pin_cooldown_days
+			&& !distinct.equals(state.pins())) {
 			return Optional.of(CardRules.Refusal.PINS_TODAY);
 		}
 		CardStore.set(player, state.withPins(distinct, today));
@@ -488,7 +538,8 @@ public final class Cards {
 		CharacterState state = ensure(player);
 		RegistryAccess registries = player.level().registryAccess();
 		Perk perk = registries.lookupOrThrow(MettleRegistries.PERK).getValueOrThrow(key);
-		Random random = new Random(state.drafts().seed() ^ ledger(player.level().getServer()).nextId() * 0x9E3779B97F4A7C15L);
+		Random random = new Random(dev.voidmc.mettle.core.MettleSecret.hash(dev.voidmc.mettle.core.MettleSecret.salt(player.level().getServer()), "give",
+			state.drafts().seed(), ledger(player.level().getServer()).nextId()));
 		Card offer = rarity == null
 			? CardRules.roll(key, perk, state.level(perk.skill()), data(registries), random, false)
 			: CardRules.roll(key, perk, rarity, data(registries), random, false);

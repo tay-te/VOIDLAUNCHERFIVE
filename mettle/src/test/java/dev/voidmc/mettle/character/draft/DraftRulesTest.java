@@ -232,7 +232,7 @@ class DraftRulesTest {
 		// A new deck object (another load, another hash order) deals the same.
 		DraftRules.Deck again = TestDeck.deck();
 		assertEquals(deal(sheet, 3, List.of()), DraftRules.deal(MINING, sheet, again, DraftRules.random(42L, 3), List.of(), Set.of()));
-		assertNotEquals(DraftRules.seed(java.util.UUID.randomUUID()), DraftRules.seed(java.util.UUID.randomUUID()));
+		assertNotEquals(DraftRules.seed(java.util.UUID.randomUUID(), 7L), DraftRules.seed(java.util.UUID.randomUUID(), 7L));
 	}
 
 	@Test

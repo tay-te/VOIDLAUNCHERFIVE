@@ -78,7 +78,7 @@ public record DraftState(
 		List<CardData.TraitRoll> traits, int needs) {
 		public static final Codec<Card> CODEC = RecordCodecBuilder.create(i -> i.group(
 			ResourceKey.codec(MettleRegistries.PERK).fieldOf("perk").forGetter(Card::perk),
-			Codec.intRange(1, 5).fieldOf("rank").forGetter(Card::rank),
+			MettleCodecs.clampedInt(1, 5).fieldOf("rank").forGetter(Card::rank),
 			Rarity.CODEC.fieldOf("rarity").forGetter(Card::rarity),
 			Codec.BOOL.optionalFieldOf("wildcard", false).forGetter(Card::wildcard),
 			Identifier.CODEC.listOf().optionalFieldOf("keywords", List.of()).forGetter(Card::keywords),
@@ -87,6 +87,7 @@ public record DraftState(
 		).apply(i, Card::new));
 
 		public Card {
+			rank = Math.clamp(rank, 1, 5);
 			keywords = List.copyOf(keywords);
 			traits = List.copyOf(traits);
 		}
@@ -102,9 +103,14 @@ public record DraftState(
 		}
 	}
 
+	/** The most drafts one skill can hold waiting; more are dropped (an op's give, a long career), never an error. */
+	public static final int MAX_QUEUED = 1000;
+
 	public static final Codec<DraftState> CODEC = RecordCodecBuilder.create(i -> i.group(
-		Codec.unboundedMap(ResourceKey.codec(MettleRegistries.SKILL), Codec.intRange(0, 1000)).optionalFieldOf("queued", Map.of()).forGetter(DraftState::queued),
-		Codec.unboundedMap(ResourceKey.codec(MettleRegistries.SKILL), Card.CODEC.listOf()).optionalFieldOf("hands", Map.of()).forGetter(DraftState::hands),
+		MettleCodecs.lenientMap(ResourceKey.codec(MettleRegistries.SKILL), MettleCodecs.clampedInt(0, MAX_QUEUED), "queued draft").optionalFieldOf("queued", Map.of())
+			.forGetter(DraftState::queued),
+		MettleCodecs.lenientMap(ResourceKey.codec(MettleRegistries.SKILL), MettleCodecs.lenientList(Card.CODEC, "card in a hand"), "hand")
+			.optionalFieldOf("hands", Map.of()).forGetter(DraftState::hands),
 		Codec.INT.optionalFieldOf("rerolls", 0).forGetter(DraftState::rerolls),
 		Codec.LONG.optionalFieldOf("seed", 0L).forGetter(DraftState::seed),
 		Codec.INT.optionalFieldOf("dealt", 0).forGetter(DraftState::dealt),
@@ -112,7 +118,15 @@ public record DraftState(
 	).apply(i, DraftState::new));
 
 	public DraftState {
-		queued = Map.copyOf(queued);
+		Map<ResourceKey<Skill>, Integer> q = new HashMap<>();
+		queued.forEach((k, v) -> {
+			if (v != null && v > 0) {
+				q.put(k, Math.min(v, MAX_QUEUED));
+			}
+		});
+		queued = Map.copyOf(q);
+		rerolls = Math.max(0, rerolls);
+		dealt = Math.max(0, dealt);
 		hands = Map.copyOf(hands);
 		recent = List.copyOf(recent);
 	}
@@ -161,6 +175,10 @@ public record DraftState(
 
 	public DraftState withRerolls(int count) {
 		return new DraftState(this.queued, this.hands, Math.max(0, count), this.seed, this.dealt, this.recent);
+	}
+
+	public DraftState withSeed(long s) {
+		return new DraftState(this.queued, this.hands, this.rerolls, s, this.dealt, this.recent);
 	}
 
 	/** One more hand dealt from the seed. */

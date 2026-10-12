@@ -12,7 +12,7 @@ for want in $(seq 1 "$N"); do
   until [ -n "$got" ]; do
     for i in 1 2; do
       if [[ " ${HELD[*]} " != *" $L/game$i "* ]] && mkdir "$L/game$i" 2>/dev/null; then
-        echo "mettle-audit-server $(date +%T)" > "$L/game$i/owner"
+        echo "mettle-audit $(basename "$PWD") $(date +%T)" > "$L/game$i/owner"
         HELD+=("$L/game$i"); got=1; break
       fi
     done

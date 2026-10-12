@@ -7,7 +7,6 @@ import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.world.entity.player.Player;
 import org.jspecify.annotations.Nullable;
 
@@ -19,7 +18,7 @@ public final class CharacterStore {
 	public static final AttachmentType<CharacterState> CHARACTER = AttachmentRegistry.create(Mettle.id("core/character"), b -> b
 		.persistent(CharacterState.CODEC)
 		.copyOnDeath()
-		.syncWith(ByteBufCodecs.fromCodecTrusted(CharacterState.CODEC), AttachmentSyncPredicate.targetOnly()));
+		.syncWith(CharacterState.SYNC_CODEC, AttachmentSyncPredicate.targetOnly()));
 
 	private CharacterStore() {
 	}

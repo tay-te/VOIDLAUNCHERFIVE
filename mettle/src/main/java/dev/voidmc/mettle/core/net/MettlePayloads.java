@@ -26,6 +26,37 @@ public final class MettlePayloads {
 	private MettlePayloads() {
 	}
 
+	/**
+	 * Server → client, on join: the server's card config (config/mettle/cards.json) as JSON, so the overlay and the
+	 * client's card sums use the server's numbers (CardConfig.receive). The client goes back to the defaults when it leaves.
+	 */
+	public record CardsConfig(String json) implements CustomPacketPayload {
+		public static final Type<CardsConfig> TYPE = new Type<>(Mettle.id("cards/config"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, CardsConfig> STREAM_CODEC = StreamCodec.composite(
+			ByteBufCodecs.stringUtf8(1 << 16), CardsConfig::json, CardsConfig::new);
+
+		@Override
+		public Type<CardsConfig> type() {
+			return TYPE;
+		}
+	}
+
+	/**
+	 * Configuration phase, both ways: Mettle's protocol and version. The server asks, the client answers; a client whose
+	 * protocol differs (or that can't answer: no Mettle, or one from before this check) is refused with
+	 * "VOID Mettle x required (you have y)".
+	 */
+	public record Hello(int protocol, String version) implements CustomPacketPayload {
+		public static final Type<Hello> TYPE = new Type<>(Mettle.id("core/hello"));
+		public static final StreamCodec<io.netty.buffer.ByteBuf, Hello> STREAM_CODEC = StreamCodec.composite(
+			ByteBufCodecs.VAR_INT, Hello::protocol, ByteBufCodecs.stringUtf8(64), Hello::version, Hello::new);
+
+		@Override
+		public Type<Hello> type() {
+			return TYPE;
+		}
+	}
+
 	/** Server → client: show the background picker (first join, or after an op reset, which the picker mentions). */
 	public record OpenPicker(boolean byOperator) implements CustomPacketPayload {
 		public static final Type<OpenPicker> TYPE = new Type<>(Mettle.id("core/open_picker"));

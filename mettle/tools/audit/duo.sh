@@ -6,8 +6,8 @@
 # (Dave, the pristine Mojang client jar), and a client with an older Mettle (Erin, -Dold.jar=...).
 # Everything lands in build/audit/<tag>/.
 set -u
-P=/c/Users/bitto/VOID/.claude/worktrees/audit-server/mettle
-W=C:/Users/bitto/VOID/.claude/worktrees/audit-server/mettle
+P=$(cd "$(dirname "$0")/../.." && pwd)
+W=$(cd "$P" && pwd -W)
 TAG=${1:?tag}; shift
 OUT=$P/build/audit/$TAG
 WOUT=$W/build/audit/$TAG

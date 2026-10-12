@@ -999,6 +999,21 @@ public final class CardRules {
 	}
 
 	/**
+	 * The fusion the server makes (§18.1): the cards in id order whatever order the client sent them in, seeded from their
+	 * ids and scar seeds salted with the world's secret, so neither the order nor anything the client holds picks the result.
+	 */
+	public static Card fuseFair(List<CardData> cards, Perk perk, Data data, long salt) {
+		List<CardData> sorted = new ArrayList<>(cards);
+		sorted.sort(Comparator.comparingLong(CardData::id));
+		long[] parts = new long[sorted.size() * 2];
+		for (int i = 0; i < sorted.size(); i++) {
+			parts[2 * i] = sorted.get(i).id();
+			parts[2 * i + 1] = sorted.get(i).scarSeed();
+		}
+		return fuse(sorted, perk, data, new Random(dev.voidmc.mettle.core.MettleSecret.hash(salt, "fuse", parts)));
+	}
+
+	/**
 	 * The card three copies fuse into (§18.1): the next rarity, fresh traits and keywords rolled at it, the best trait of
 	 * the three kept at its own value (it replaces a fresh roll of the same trait, or the last fresh trait).
 	 */
@@ -1026,29 +1041,92 @@ public final class CardRules {
 		return new Card(fresh.perk(), fresh.rank(), rarity, false, fresh.keywords(), traits, fresh.needs());
 	}
 
+	// ---------------------------------------------------------------- free ways out (§7.4)
+
+	/** The free ways out of a deck (§7.4), as {@code Cards.Way} names them. */
+	public enum FreeWay {
+		LOW_LEVEL, FREE_REBUILD, FREE_SWAP
+	}
+
+	/**
+	 * How taking these slotted cards out of one deck is paid for without a rebuild (§7.4), or empty when only a rebuild
+	 * (draught, fee, scar) can. Dormancy is not a free way: Unbinding takes Wits down for a few ingredients and would make
+	 * the top slots of every deck dormant, a scar-free rebuild of each. The free first rebuild belongs to the deck the
+	 * cards sit in (a Mythic fits any deck: its own skill is not the deck's).
+	 */
+	public static Optional<FreeWay> freeWay(int characterLevel, List<CardData> picked, Collection<ResourceKey<Skill>> freeRebuilds, int freeSwaps) {
+		if (characterLevel < CardConfig.get().free_rebuild_below_level) {
+			return Optional.of(FreeWay.LOW_LEVEL);
+		}
+		if (!picked.isEmpty() && freeRebuilds.contains(picked.getFirst().place().deck().orElse(picked.getFirst().skill()))) {
+			return Optional.of(FreeWay.FREE_REBUILD);
+		}
+		if (!picked.isEmpty() && freeSwaps >= picked.size()) {
+			return Optional.of(FreeWay.FREE_SWAP);
+		}
+		return Optional.empty();
+	}
+
+	/** Cards that count against the binder's size: Mythics always fit (§9.1), so they don't. */
+	public static int binderCount(Collection<CardData> cards) {
+		int n = 0;
+		for (CardData c : cards) {
+			if (!c.mythic()) {
+				n++;
+			}
+		}
+		return n;
+	}
+
 	// ---------------------------------------------------------------- the ledger and the cache
 
-	/** A player's cache made to agree with the ledger: what it holds now, and what had to be dropped or put back. */
-	public record Reconciled(List<CardData> cards, List<Long> dropped, List<Long> restored) {
+	/**
+	 * A player's cache made to agree with the ledger: what it holds now, what had to be dropped (the ledger gives it to
+	 * someone else, or released it), put back (the ledger has it, the cache didn't) or adopted (the cache has a card the
+	 * ledger never heard of: the ledger on disk was older than the player's file, or was lost; it goes back in the ledger).
+	 */
+	public record Reconciled(List<CardData> cards, List<Long> dropped, List<Long> restored, List<CardData> adopted) {
 		public boolean changed() {
-			return !this.dropped.isEmpty() || !this.restored.isEmpty();
+			return !this.dropped.isEmpty() || !this.restored.isEmpty() || !this.adopted.isEmpty();
 		}
 	}
 
 	/**
-	 * The ledger is the truth (§2.1): a cached id the ledger gives to someone else (or released) is dropped; a card the
-	 * ledger gives this player and the cache lacks is put back. Cards both hold are taken from the ledger.
+	 * The ledger is the truth (§2.1) for every id it knows: a cached id the ledger gives to someone else (or released) is
+	 * dropped; a card the ledger gives this player and the cache lacks is put back; cards both hold are taken from the
+	 * ledger. A cached card whose id the ledger doesn't know at all (at or past its next id, or a gap: the ledger is older
+	 * than the player's file) is never dropped: it is adopted back into the ledger as the cache has it, out of any trade.
+	 *
+	 * A cached card that names another owner is never adopted (it is dropped).
+	 *
+	 * @param player the cache's owner
+	 * @param mine   the ledger's cards owned by this player
+	 * @param known  whether the ledger ever gave out an id (a card, a released card, an unreadable entry)
 	 */
-	public static Reconciled reconcile(List<CardData> cache, List<CardData> ledger) {
-		Set<Long> mine = new HashSet<>();
-		ledger.forEach(c -> mine.add(c.id()));
+	public static Reconciled reconcile(java.util.UUID player, List<CardData> cache, List<CardData> mine, java.util.function.LongPredicate known) {
+		Set<Long> ledgerMine = new HashSet<>();
+		mine.forEach(c -> ledgerMine.add(c.id()));
 		Set<Long> cached = new HashSet<>();
 		cache.forEach(c -> cached.add(c.id()));
-		List<Long> dropped = cache.stream().map(CardData::id).filter(id -> !mine.contains(id)).sorted().toList();
-		List<Long> restored = ledger.stream().map(CardData::id).filter(id -> !cached.contains(id)).sorted().toList();
-		List<CardData> cards = new ArrayList<>(ledger);
+		List<Long> dropped = new ArrayList<>();
+		List<CardData> adopted = new ArrayList<>();
+		for (CardData c : cache) {
+			if (ledgerMine.contains(c.id())) {
+				continue;
+			}
+			if (known.test(c.id()) || !c.owner().equals(player)) {
+				dropped.add(c.id());
+			} else {
+				adopted.add(c.place().kind() == CardData.PlaceKind.TRADE ? c.withPlace(CardData.Place.BINDER) : c);
+			}
+		}
+		dropped.sort(Long::compare);
+		adopted.sort(Comparator.comparingLong(CardData::id));
+		List<Long> restored = mine.stream().map(CardData::id).filter(id -> !cached.contains(id)).sorted().toList();
+		List<CardData> cards = new ArrayList<>(mine);
+		cards.addAll(adopted);
 		cards.sort(Comparator.comparingLong(CardData::id));
-		return new Reconciled(cards, dropped, restored);
+		return new Reconciled(cards, dropped, restored, adopted);
 	}
 
 	// ---------------------------------------------------------------- helpers

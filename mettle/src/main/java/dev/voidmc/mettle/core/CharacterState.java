@@ -39,12 +39,44 @@ public record CharacterState(
 
 	public static final Codec<CharacterState> CODEC = RecordCodecBuilder.create(i -> i.group(
 		ResourceKey.codec(MettleRegistries.BACKGROUND).optionalFieldOf("background").forGetter(CharacterState::background),
-		Codec.unboundedMap(CharacterAttribute.CODEC, Codec.intRange(0, CharacterAttribute.MAX)).optionalFieldOf("spent", Map.of()).forGetter(CharacterState::spent),
+		MettleCodecs.lenientMap(CharacterAttribute.CODEC, MettleCodecs.clampedInt(0, CharacterAttribute.MAX), "placed attribute point")
+			.optionalFieldOf("spent", Map.of()).forGetter(CharacterState::spent),
 		ResourceKey.codec(MettleRegistries.SKILL).listOf().optionalFieldOf("favoured", List.of()).forGetter(CharacterState::favoured),
-		Codec.unboundedMap(ResourceKey.codec(MettleRegistries.SKILL), Codec.DOUBLE).optionalFieldOf("xp", Map.of()).forGetter(CharacterState::xp),
-		Codec.unboundedMap(ResourceKey.codec(MettleRegistries.PERK), Codec.intRange(1, 5)).optionalFieldOf("perks", Map.of()).forGetter(CharacterState::perks),
+		MettleCodecs.lenientMap(ResourceKey.codec(MettleRegistries.SKILL), Codec.DOUBLE, "skill XP").optionalFieldOf("xp", Map.of()).forGetter(CharacterState::xp),
+		MettleCodecs.lenientMap(ResourceKey.codec(MettleRegistries.PERK), MettleCodecs.clampedInt(1, 5), "perk rank").optionalFieldOf("perks", Map.of())
+			.forGetter(CharacterState::perks),
 		DraftState.CODEC.optionalFieldOf("draft").forGetter(CharacterState::draft)
 	).apply(i, CharacterState::new));
+
+	/** Every value kept in range whatever made it (a command, an old save), so the record always saves (MettleCodecs). */
+	public CharacterState {
+		Map<CharacterAttribute, Integer> s = new HashMap<>();
+		spent.forEach((a, v) -> s.put(a, Math.clamp(v, 0, CharacterAttribute.MAX)));
+		spent = Map.copyOf(s);
+		Map<ResourceKey<Perk>, Integer> p = new HashMap<>();
+		perks.forEach((k, v) -> {
+			if (v > 0) {
+				p.put(k, Math.min(v, 5));
+			}
+		});
+		perks = Map.copyOf(p);
+		Map<ResourceKey<Skill>, Double> x = new HashMap<>();
+		xp.forEach((k, v) -> x.put(k, Double.isFinite(v) ? Math.max(0, v) : 0));
+		xp = Map.copyOf(x);
+		favoured = List.copyOf(favoured);
+	}
+
+	/**
+	 * What the owner's client is sent: the record without the draft seed (it, with the world's secret, decides every future
+	 * hand; the client only needs the hands already dealt).
+	 */
+	public static final net.minecraft.network.codec.StreamCodec<io.netty.buffer.ByteBuf, CharacterState> SYNC_CODEC =
+		net.minecraft.network.codec.ByteBufCodecs.fromCodecTrusted(CODEC).map(s -> s, CharacterState::forClient);
+
+	/** This record as its owner's client sees it (no draft seed). */
+	public CharacterState forClient() {
+		return this.draft.isEmpty() || this.draft.get().seed() == 0 ? this : withDraft(this.draft.get().withSeed(0));
+	}
 
 	public CharacterState(Optional<ResourceKey<Background>> background, Map<CharacterAttribute, Integer> spent, List<ResourceKey<Skill>> favoured) {
 		this(background, spent, favoured, Map.of(), Map.of(), Optional.empty());

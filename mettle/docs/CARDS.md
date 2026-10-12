@@ -86,8 +86,8 @@ Mythics have a name, art, a line of lore, one effect and a history: no rarity, t
 
 ### 2.1 The data model
 
-**World ledger** (`character.cards.CardLedger`, a `SavedData` in the overworld's data storage, `mettle_cards.dat`) is
-the single truth for every card that exists. A card is one record:
+**World ledger** (`character.cards.CardLedger`, saved as `<world>/data/mettle/cards.dat` by `character.cards.LedgerFile`)
+is the single truth for every card that exists. A card is one record:
 
 ```
 Card
@@ -109,11 +109,34 @@ Card
 The ledger also holds `nextId`, and the **Hall of Firsts**: each world-first Mythic → (holder of record, the deed's
 date) and each drawn Mythic → claimed or not (§9).
 
-**Player side** (`mettle:character/cards`, persistent, copied on death, synced to its owner): only a cache of the
-owner's view (`binder` ids, the `deck` per skill, `freeSwaps`, `activeSets`, `setsChangedDay`). On join the server
-rebuilds it from the ledger, so a rolled-back or copied `playerdata` file can neither lose nor duplicate a card: an id
-the ledger gives to someone else is dropped from the cache and logged; a card the ledger gives to this player and the
-cache lacks is put back.
+**Player side** (`mettle:character/cards`, persistent, copied on death): only a cache of the owner's view (`binder` ids,
+the `deck` per skill, `freeSwaps`, `activeSets`, `setsChangedDay`). Its owner's client gets it through
+`mettle:character/cards_view` (synced to the owner only, not saved), set once at the end of a server tick in which the
+cache changed: one action sends the binder once, however many steps it took. On join the server reconciles the cache
+with the ledger, so a rolled-back or copied `playerdata` file can neither lose nor duplicate a card: an id the ledger
+gives to someone else (or released) is dropped from the cache and logged; a card the ledger gives to this player and the
+cache lacks is put back; a cached card whose id the ledger never gave out (the ledger on disk was older than the player
+file, or was lost) is **adopted** back into the ledger, its Mythic claim with it, and logged.
+
+**Keeping the ledger safe** (audit fixes, 2026-10-12):
+
+- **Written atomically**: a temp file, then it replaces `cards.dat`; the previous file stays as `cards.dat_old`.
+- **Never older than a player file**: it is saved before any player file is (autosave, a player leaving, the server
+  stopping), right after every trade swap (then both players' files), every Mythic claim (then the holder's file) and
+  every v1 → v2 migration, and with the world.
+- **A bad file never empties it**: a `cards.dat` that can't be read is copied aside (`cards.dat.unreadable-<time>`) and
+  the backup loads; when the backup can't be read either, the server refuses to start with a message saying what to do
+  (restore `data/mettle`, or move both files away: players' cards then come back from their own copies as they join).
+- **One bad card is kept, not dropped**: an entry this version can't read stays in the ledger as it was read, is
+  written back unchanged and logged as an error; its id is never handed out again.
+- **Released cards are archived**: only their ids are written (`released`), so old worlds stay small; at 30,000 live
+  cards a save takes about 0.3 s (0.5 s before, on the server thread); with two thirds of them released, 0.15 s.
+
+**The world secret** (`core.MettleSecret`, `data/mettle/secret.dat`, never sent to a client) salts every roll a player
+could otherwise work out in advance: each player's draft seed (from their UUID and the secret, and the seed itself is
+not synced), each hand and the drawn-Mythic roll (a one-way hash of the seed and the deal's place), scar seeds and
+fusion results (the three cards in id order, so the order the client sends doesn't matter). Game tests pin it with
+`-Dmettle.salt`.
 
 **Public side** (`mettle:character/mythics`, not persistent, synced to all trackers): the ids of the Mythics a player
 holds, for name cards and tooltips (§9.4).
@@ -445,8 +468,9 @@ are always a few more cards than slots, so a deck is a choice from the first hou
    is whole again.
 4. Wildcards are cards of their own skill: a Blades card dealt into a Mining hand goes in the Blades deck.
 5. **Mythics** fit any deck and take one of its slots; at most **two** slotted per character, never two in one deck.
-6. If slots shrink (a Draught of Unbinding takes Wits below 8 or 14), the last slots go dormant; their cards come out
-   free and unscarred.
+6. If slots shrink (a Draught of Unbinding takes Wits below 8 or 14), the last slots go dormant. Dormant cards come out
+   like any other (a free way, or a rebuild with draught, fee and scar): otherwise one cheap Unbinding would be a
+   scar-free rebuild of the top slots of every deck (audit X5, 2026-10-12).
 
 **Slotting is free and works anywhere**: open the Deck, pick an empty slot, pick a card. Taking one out is a rebuild
 (§7). The draft's pick offers both **Keep** (to the binder) and **Keep & slot** when a legal slot is free.
@@ -571,11 +595,12 @@ cards (§7.5).
 |---|---|---|---|
 | **A free swap**: one is earned with each character level, held up to **3** | no | no | no |
 | Below character level 5 (the old free-respec rule) | no | no | no |
-| A dormant card (slots lost to Unbinding; a Mastery without its side) | no | no | no |
 | The **first rebuild of each deck after the v2 migration** (§12) | no | no | no |
 | An op (`/mettle cards unslot`) | no | no | no |
 
-A free swap works anywhere, from the Deck screen. Fifty character levels give fifty free swaps over a career: many
+Dormancy is not a free way out (audit X5): a dormant card is paid for like a working one. The free first rebuild belongs
+to the deck the cards sit in (a Mythic slotted in the Mining deck uses Mining's). A free swap works anywhere, from the
+Deck screen. Fifty character levels give fifty free swaps over a career: many
 early, when mistakes should be cheap, and about one every two hours of play past level 30.
 
 ### 7.5 Releasing cards
@@ -644,6 +669,8 @@ NPCs never sell cards of their own; the broker only lists players' cards.
 - **Never sold by NPCs, never destroyed, never dropped on death, never released or scarred.** The only way to lose one
   is to trade it away. Unslotting one costs a free swap or 1,000 bits at a shrine, no draught.
 - Takes a deck slot, any deck; at most two slotted, never two in one deck.
+- **Always fits**: Mythics don't count against the binder's size (`binder_max`), so a full binder never refuses one,
+  whether earned, drawn, granted or traded.
 - **Public**: the world is told when one is earned ("Ashford has drawn a Mythic: The Twin Edge"), a player's Mythics
   show on their name card and on the hover of their name in chat, and the binder's **Hall of Firsts** page shows every
   world first with its holder (unclaimed ones as silhouettes with their deed) and how many of the eight drawn Mythics
@@ -743,7 +770,12 @@ plus the binder, decks, hands and any card by id; the designed `MYTHIC_EARNED` s
 | Alts drafting for a main | Alts must level the skill like anyone (anti-farm applies); cards they draw are ordinary cards with their name on them. This is trading working as meant. |
 | Farming Mythic draws | Skill 15 first, once per draft, each drawn Mythic once per world. |
 | Cheesing world firsts | Most damage wins; creative, spawn-egg, command and spawner mobs never count; ops' grants are logged. |
-| Binder bloat | 300 cards at most; release three for a reroll. |
+| Binder bloat | 300 cards at most (Mythics not counted; `binder_max` can't exceed 1,500, the most one synced binder carries); release three for a reroll. |
+| Predicting draws | Seeds are salted with the world's secret and the seed is never synced (§2.1). |
+| Steering a fusion | The server fuses the cards in id order, seeded with the world's secret (§2.1). |
+| Free rebuilds through Unbinding | Dormant cards are paid for (§7.4). |
+| Changing an offer during the countdown | The swap checks every offered card is still in the trade, as offered; otherwise it is cancelled. A coin transfer that fails undoes the other and nothing moves. |
+| Dying mid-trade | Offered items wait in the escrow, which is kept on death, and come back on respawn. |
 | Set stacking | Three active sets; six needs two skills; a pinned choice changes once a day. |
 | Stacking a trait | One trait's total from all cards is capped at twice its card cap (§4.1). |
 | Slot dodging with Wits | Slots lost to Unbinding go dormant (no bonus, no count) until Wits returns. |
@@ -838,6 +870,11 @@ the best legal deck:
 
 ## 15. Config (`config/mettle/cards.json`)
 
+Read at server start; a value out of range is set back into it with a warning in the log. The server sends it to each
+client on join (`mettle:cards/config`), so the overlay and the client's card sums use the server's numbers; the client
+goes back to the defaults when it leaves. In-game days (card history, the once-a-day pin, Hundredth Dawn) count the
+world's game time, which `/time set` and a stopped daylight cycle don't touch.
+
 | Field | Default |
 |---|---|
 | `slots_base` / `slots_every` / `slots_max` | 3 / 3 / 8 |
@@ -852,7 +889,7 @@ the best legal deck:
 | `free_swaps_max` | 3 |
 | `attune_ticks` | 24,000 |
 | `trade_range` / `trade_countdown_s` | 8 / 3 |
-| `binder_max` / `release_per_reroll` | 300 / 3 |
+| `binder_max` / `release_per_reroll` | 300 (at most 1,500; Mythics don't count) / 3 |
 | `mythic_draw_chance` / `mythic_draw_from` / `mythic_slots` | 0.005 / 15 / 2 |
 | `far_horizon_blocks` | 10,000 |
 
@@ -1010,8 +1047,8 @@ Ironskin from six Iron cards in two decks), and the trainer's rebuild in `Hearth
 Hearth trainer's "Rebuild your Mining deck" opens one for the skills they teach, capped by the settlement's tier, a
 city master sparing one card in two. In a sitting, taking cards out first uses a free way (§7.4); otherwise it spends
 one Draught of Forgetting for that skill (once per sitting), the fee per card by its requirement (Hearth coin, to the
-trainer or burned by the shrine; emeralds without Hearth) and scars each working card (dormant cards come out free and
-whole). The scar is drawn from the card's own seed and scar count, so the overlay's preview (`rebuild.loses`) is what
+trainer or burned by the shrine; emeralds without Hearth) and scars each card (dormant cards came out free and whole
+until the 2026-10-12 audit; they pay like the rest now, §7.4). The scar is drawn from the card's own seed and scar count, so the overlay's preview (`rebuild.loses`) is what
 happens. A shrine sitting also releases three binder cards of one skill for a reroll (never slotted cards, never while
 holding 5). The Draught of Forgetting no longer refunds anything: drunk away from a shrine it is refused with the way to
 use it (it still forgets drafted perks held outside the deck, from before cards or an op).

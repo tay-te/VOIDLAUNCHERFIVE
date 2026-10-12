@@ -123,6 +123,7 @@
 	"mettle.trade.asking": "Asked %s to trade",
 	"mettle.trade.cancelled": "Trade cancelled · everything went back",
 	"mettle.trade.cancelled.apart": "Trade cancelled · you moved apart · everything went back",
+	"mettle.trade.cancelled.changed": "Trade cancelled · an offer changed before the swap · everything went back",
 	"mettle.trade.cancelled.left": "Trade cancelled · they left · everything went back",
 	"mettle.trade.done": "Traded with %s · received cards attune for a day",
 	"mettle.trade.refused.attuning": "That card is still attuning to you",

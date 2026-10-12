@@ -131,7 +131,15 @@ public final class MettleClientOptions {
 		}
 	}
 
+	private static volatile long revision;
+
+	/** Goes up whenever an option changes (MettleState.revision). */
+	public static long revision() {
+		return revision;
+	}
+
 	private static synchronized void save() {
+		revision++;
 		Properties p = new Properties();
 		p.setProperty("toasts", Boolean.toString(toasts));
 		p.setProperty("sounds", Boolean.toString(sounds));

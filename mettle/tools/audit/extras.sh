@@ -5,8 +5,8 @@
 #   2. a Fabric server without Mettle (BareHost, :25598): a client with Mettle (ServerAudit role M) joins and uses Mettle.
 # Output: build/audit/<tag>/.
 set -u
-P=/c/Users/bitto/VOID/.claude/worktrees/audit-server/mettle
-W=C:/Users/bitto/VOID/.claude/worktrees/audit-server/mettle
+P=$(cd "$(dirname "$0")/../.." && pwd)
+W=$(cd "$P" && pwd -W)
 TAG=${1:?tag}; shift
 OUT=$P/build/audit/$TAG
 WOUT=$W/build/audit/$TAG

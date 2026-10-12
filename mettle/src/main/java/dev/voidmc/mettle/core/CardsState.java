@@ -50,13 +50,13 @@ public record CardsState(
 
 	public static final Codec<CardsState> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.INT.optionalFieldOf("version", 0).forGetter(CardsState::version),
-		CardData.CODEC.listOf().optionalFieldOf("cards", List.of()).forGetter(CardsState::cards),
+		MettleCodecs.lenientList(CardData.CODEC, "cached card").optionalFieldOf("cards", List.of()).forGetter(CardsState::cards),
 		Codec.INT.optionalFieldOf("free_swaps", 0).forGetter(CardsState::freeSwaps),
 		ResourceKey.codec(MettleRegistries.SKILL).listOf().optionalFieldOf("free_rebuilds", List.of()).forGetter(CardsState::freeRebuilds),
 		Identifier.CODEC.listOf().optionalFieldOf("pins", List.of()).forGetter(CardsState::pins),
 		Codec.LONG.optionalFieldOf("pin_day", -1L).forGetter(CardsState::pinDay),
 		Identifier.CODEC.listOf().optionalFieldOf("set_order", List.of()).forGetter(CardsState::setOrder),
-		Codec.unboundedMap(ResourceKey.codec(MettleRegistries.PERK), Codec.INT).optionalFieldOf("active", Map.of()).forGetter(CardsState::active),
+		MettleCodecs.lenientMap(ResourceKey.codec(MettleRegistries.PERK), Codec.INT, "active perk").optionalFieldOf("active", Map.of()).forGetter(CardsState::active),
 		Codec.LONG.listOf().optionalFieldOf("dormant", List.of()).forGetter(CardsState::dormant),
 		Codec.unboundedMap(Identifier.CODEC, Codec.DOUBLE).optionalFieldOf("traits", Map.of()).forGetter(CardsState::traits),
 		Codec.unboundedMap(Identifier.CODEC, Codec.INT).optionalFieldOf("sets", Map.of()).forGetter(CardsState::sets),

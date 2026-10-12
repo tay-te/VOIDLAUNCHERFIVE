@@ -57,6 +57,11 @@ public final class MettleCards {
 		hall = h.entries();
 	}
 
+	/** Whether a Mythic reveal is showing ({@code reveal}, 30 s), for MettleState.revision. */
+	public static boolean revealing() {
+		return reveal != null && net.minecraft.util.Util.getMillis() - revealAt < 30_000;
+	}
+
 	public static void reveal(dev.voidmc.mettle.core.net.MettlePayloads.MythicReveal r) {
 		reveal = r;
 		revealAt = net.minecraft.util.Util.getMillis();
@@ -89,7 +94,8 @@ public final class MettleCards {
 		root.addProperty("version", cards.version());
 
 		JsonObject binder = new JsonObject();
-		binder.addProperty("count", cards.cards().size());
+		// Mythics always fit: the count against max leaves them out (CardRules.binderCount); "cards" lists them all.
+		binder.addProperty("count", CardRules.binderCount(cards.cards()));
 		binder.addProperty("max", config.binder_max);
 		JsonArray all = new JsonArray();
 		cards.cards().stream().sorted(Comparator.comparingLong(CardData::id).reversed())
@@ -135,8 +141,9 @@ public final class MettleCards {
 		cards.pins().forEach(k -> pinned.add(k.toString()));
 		pins.add("keywords", pinned);
 		pins.addProperty("max", config.active_sets);
-		long today = player.level().getOverworldClockTime() / 24000L;
-		pins.addProperty("canChange", cards.pinDay() < 0 || today - cards.pinDay() >= config.set_pin_cooldown_days);
+		// The server counts days by game time (Cards.day); a pin day ahead of today was counted on the old clock.
+		long today = player.level().getGameTime() / 24000L;
+		pins.addProperty("canChange", cards.pinDay() < 0 || cards.pinDay() > today || today - cards.pinDay() >= config.set_pin_cooldown_days);
 		root.add("pins", pins);
 
 		JsonArray keywords = new JsonArray();

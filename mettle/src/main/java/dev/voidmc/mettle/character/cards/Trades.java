@@ -100,6 +100,8 @@ public final class Trades {
 		});
 		ServerTickEvents.END_SERVER_TICK.register(Trades::tick);
 		ServerPlayerEvents.JOIN.register(Trades::returnEscrow);
+		// Items offered by a player who died mid-trade waited in the escrow (kept on death); they come back on respawn.
+		ServerPlayerEvents.AFTER_RESPAWN.register(dev.voidmc.mettle.core.CoreModule.AFTER_ATTACHMENTS, (oldPlayer, newPlayer, alive) -> returnEscrow(newPlayer));
 		ServerPlayerEvents.LEAVE.register(p -> {
 			Session s = SESSIONS.get(p.getUUID());
 			if (s != null) {
@@ -388,7 +390,13 @@ public final class Trades {
 	}
 
 	private static void swap(MinecraftServer server, Session s, ServerPlayer a, ServerPlayer b) {
-		Optional<TradeRules.Refusal> room = room(a, s.a, s.b).or(() -> room(b, s.b, s.a));
+		CardLedger ledger = Cards.ledger(server);
+		// Everything offered must still be in this trade, as offered: anything else and nothing changes hands.
+		if (!stillOffered(ledger, s, s.a) || !stillOffered(ledger, s, s.b)) {
+			cancel(server, s, "mettle.trade.cancelled.changed");
+			return;
+		}
+		Optional<TradeRules.Refusal> room = room(a, s.a, s.b, ledger).or(() -> room(b, s.b, s.a, ledger));
 		CardFees fees = Rebuilds.fees();
 		if (room.isEmpty() && (fees.balance(a) < s.a.coin || fees.balance(b) < s.b.coin)) {
 			room = Optional.of(TradeRules.Refusal.CANT_PAY);
@@ -397,9 +405,21 @@ public final class Trades {
 			unlock(server, s, room.get().translationKey());
 			return;
 		}
+		// Coin first: when a transfer fails, the one already made goes back and nothing else moves.
+		if (s.a.coin > 0 && !fees.transfer(a, b, s.a.coin)) {
+			unlock(server, s, TradeRules.Refusal.CANT_PAY.translationKey());
+			return;
+		}
+		if (s.b.coin > 0 && !fees.transfer(b, a, s.b.coin)) {
+			if (s.a.coin > 0 && !fees.transfer(b, a, s.a.coin)) {
+				Mettle.LOGGER.error("trade {}: {} bits from {} to {} could not be given back after the other side's transfer failed", s.id, s.a.coin,
+					a.getName().getString(), b.getName().getString());
+			}
+			unlock(server, s, TradeRules.Refusal.CANT_PAY.translationKey());
+			return;
+		}
 		long now = now(server);
 		long day = Cards.day(server);
-		CardLedger ledger = Cards.ledger(server);
 		for (long id : s.a.cards) {
 			ledger.update(id, c -> TradeRules.received(c, b.getUUID(), b.getGameProfile().name(), day, now));
 		}
@@ -412,15 +432,11 @@ public final class Trades {
 		s.b.items.clear();
 		a.removeAttached(ESCROW);
 		b.removeAttached(ESCROW);
-		if (s.a.coin > 0) {
-			fees.transfer(a, b, s.a.coin);
-		}
-		if (s.b.coin > 0) {
-			fees.transfer(b, a, s.b.coin);
-		}
 		end(s);
 		Cards.sync(a);
 		Cards.sync(b);
+		// Both sides and the ledger on disk now, ledger first: a crash can't leave one side traded and the other not.
+		LedgerFile.commit(server, a, b);
 		CardApi.traded(a, b, List.copyOf(s.a.cards));
 		CardApi.traded(b, a, List.copyOf(s.b.cards));
 		for (ServerPlayer p : List.of(a, b)) {
@@ -431,10 +447,27 @@ public final class Trades {
 			s.a.cards.size(), s.a.items.size(), s.a.coin, b.getName().getString(), s.b.cards.size(), s.b.items.size(), s.b.coin);
 	}
 
-	/** Whether {@code player} can take what the other side offers: binder room for the cards, inventory room for the items. */
-	private static Optional<TradeRules.Refusal> room(ServerPlayer player, Side mine, Side theirs) {
-		int owned = CardStore.get(player).cards().size();
-		if (!TradeRules.binderRoom(owned, 0, theirs.cards.size())) {
+	/** Whether each card a side offered is still in this trade, theirs, as offered (X7: re-checked at the swap). */
+	private static boolean stillOffered(CardLedger ledger, Session s, Side side) {
+		for (long id : side.cards) {
+			Optional<CardData> c = ledger.get(id);
+			if (c.isEmpty() || !c.get().owner().equals(side.player) || c.get().place().kind() != CardData.PlaceKind.TRADE || c.get().place().ref() != s.id) {
+				Mettle.LOGGER.warn("trade {}: card {} is no longer offered in it ({}); the trade is cancelled", s.id, id, c.map(x -> x.place().toString()).orElse("gone"));
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Whether {@code player} can take what the other side offers: binder room for the cards (Mythics always fit),
+	 * inventory room for the items.
+	 */
+	private static Optional<TradeRules.Refusal> room(ServerPlayer player, Side mine, Side theirs, CardLedger ledger) {
+		int owned = CardRules.binderCount(CardStore.get(player).cards());
+		int giving = (int) mine.cards.stream().filter(id -> ledger.get(id).map(c -> !c.mythic()).orElse(false)).count();
+		int receiving = (int) theirs.cards.stream().filter(id -> ledger.get(id).map(c -> !c.mythic()).orElse(false)).count();
+		if (receiving > 0 && !TradeRules.binderRoom(owned, giving, receiving)) {
 			return Optional.of(TradeRules.Refusal.BINDER_FULL);
 		}
 		List<ItemStack> slots = new ArrayList<>();
@@ -456,7 +489,14 @@ public final class Trades {
 		for (Side side : List.of(s.a, s.b)) {
 			side.cards.forEach(id -> ledger.update(id, c -> c.withPlace(CardData.Place.BINDER)));
 			ServerPlayer p = player(server, side.player);
-			if (p != null) {
+			if (p != null && !p.isAlive()) {
+				// Dead mid-trade: what they offered stays in the escrow, which is kept on death, and comes back on respawn
+				// (given to the corpse now, it would be lost with keepInventory off).
+				side.items.clear();
+				Cards.sync(p);
+				view(p, null, null);
+				SignaturePerks.feedback(p, Mettle.id("trade"), Component.translatable(why));
+			} else if (p != null) {
 				side.items.forEach(st -> give(p, st));
 				side.items.clear();
 				p.removeAttached(ESCROW);
@@ -506,7 +546,8 @@ public final class Trades {
 	/** On join: items left in escrow by a crash or a disconnect come back. Public for the tour. */
 	public static void returnEscrow(ServerPlayer player) {
 		List<ItemStack> left = player.getAttached(ESCROW);
-		if (left != null && !SESSIONS.containsKey(player.getUUID())) {
+		// A player who joins dead gets it after respawning (AFTER_RESPAWN), not into the inventory death empties.
+		if (left != null && !SESSIONS.containsKey(player.getUUID()) && player.isAlive()) {
 			player.removeAttached(ESCROW);
 			left.forEach(st -> give(player, st));
 			Mettle.LOGGER.info("{}: {} stacks from an unfinished trade came back", player.getName().getString(), left.size());

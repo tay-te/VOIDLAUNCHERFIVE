@@ -186,16 +186,18 @@ public final class CardCommands {
 		var server = c.getSource().getServer();
 		var ledger = Cards.ledger(server);
 		ledger.unclaim(key.identifier().getPath());
+		// Every holder, offline ones too: the ledger holds every card; online holders see it now, the rest when they join.
 		int n = 0;
-		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-			for (CardData card : ledger.owned(p.getUUID())) {
-				if (card.mythicId().map(key.identifier()::equals).orElse(false)) {
-					ledger.update(card.id(), x -> x.withPlace(CardData.Place.RELEASED));
-					n++;
-				}
+		for (CardData card : List.copyOf(ledger.all())) {
+			if (card.place().kind() != CardData.PlaceKind.RELEASED && card.mythicId().map(key.identifier()::equals).orElse(false)) {
+				ledger.update(card.id(), x -> x.withPlace(CardData.Place.RELEASED));
+				n++;
 			}
+		}
+		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
 			Cards.sync(p);
 		}
+		LedgerFile.save(server);
 		int gone = n;
 		dev.voidmc.mettle.Mettle.LOGGER.info("op {} reset the Mythic {} ({} cards released)", c.getSource().getTextName(), key.identifier(), gone);
 		c.getSource().sendSuccess(() -> Component.translatable("mettle.mythic.reset", key.identifier().toString(), gone), true);
@@ -267,7 +269,7 @@ public final class CardCommands {
 		CardsState state = CardStore.get(player);
 		CharacterState character = CharacterStore.get(player);
 		RegistryAccess registries = player.level().registryAccess();
-		c.getSource().sendSystemMessage(Component.translatable("mettle.cards.header", state.cards().size(), CardConfig.get().binder_max, state.freeSwaps(),
+		c.getSource().sendSystemMessage(Component.translatable("mettle.cards.header", CardRules.binderCount(state.cards()), CardConfig.get().binder_max, state.freeSwaps(),
 			CardConfig.get().free_swaps_max).withStyle(ChatFormatting.BOLD));
 		var skills = registries.lookupOrThrow(MettleRegistries.SKILL);
 		skills.listElements().sorted(java.util.Comparator.comparingInt(r -> r.value().order())).forEach(ref -> {

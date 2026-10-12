@@ -55,6 +55,8 @@ public final class CoreModule {
 		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.MythicReveal.TYPE, MettlePayloads.MythicReveal.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.HallOfFirsts.TYPE, MettlePayloads.HallOfFirsts.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.Dash.TYPE, MettlePayloads.Dash.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.CardsConfig.TYPE, MettlePayloads.CardsConfig.STREAM_CODEC);
+		MettleHandshake.init();
 
 		ServerPlayerEvents.JOIN.register(EffectsApplier::apply);
 		ServerPlayerEvents.AFTER_RESPAWN.addPhaseOrdering(Event.DEFAULT_PHASE, AFTER_ATTACHMENTS);

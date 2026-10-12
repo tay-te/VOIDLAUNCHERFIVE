@@ -256,6 +256,19 @@ resource manager (a `mettle://` scheme or data URLs).
 
 ## Hosts
 
+**`MettleState.revision()`** (`public static long`, client thread): a cheap change counter. It goes up whenever anything
+`MettleState.build` outputs may have changed: a new synced character, cards or load (each sync is a new value), the
+inventory's change count, worn gear, carry capacity, any visible player's public Mythics, the server's card config
+(`mettle:cards/config`), a client option, and every Mettle payload (feedback, moments, trade view, Hall of Firsts,
+sitting, reveal, picker results). Where the output shows time it also goes up with it: once a second while a card
+attunes, four times a second while feedback, moments or a Mythic reveal show (their `ageMs`). A host keeps the last
+value and calls `build` only when it changed; it never goes down within a session. The Hub reaches it by reflection
+like `build`.
+
+`cards.binder.count` counts the cards that fill the binder against `cards.binder.max`: Mythics always fit, so they are
+left out (they are still listed in `cards.binder.cards`). `cards.binder.max` and the other card numbers are the
+server's (`config/mettle/cards.json`, sent on join).
+
 The VOID Hub (`hub/`, branch `claude/hub-mettle`) is the first host: its window gains a **Gear** page (pack pockets,
 belt and quiver, load) and a **Classes** page (overview, skill trees) over the player's own `InventoryMenu`. It reaches
 this API by reflection (`MettleState.build`, `MettleActions.pickCard` / `reroll` / `spendAttribute` (and the old `learnPerk`),

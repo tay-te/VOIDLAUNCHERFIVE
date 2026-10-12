@@ -210,14 +210,25 @@ public final class DraftRules {
 
 	// ---------------------------------------------------------------- dealing
 
-	/** The player's own seed, from their id. */
-	public static long seed(UUID player) {
+	/**
+	 * The player's own seed in this world: their id salted with the world's secret ({@code core.MettleSecret}), so it
+	 * can't be worked out from the public UUID. It is never sent to the client (CharacterState.SYNC_CODEC).
+	 */
+	public static long seed(UUID player, long salt) {
+		return dev.voidmc.mettle.core.MettleSecret.hash(salt, "draft", player.getMostSignificantBits(), player.getLeastSignificantBits());
+	}
+
+	/** The seed drafts used before the world secret (from the UUID alone); a character still on it is moved to {@link #seed(UUID, long)}. */
+	public static long legacySeed(UUID player) {
 		return mix(player.getMostSignificantBits() ^ Long.rotateLeft(player.getLeastSignificantBits(), 29));
 	}
 
-	/** The random source for the {@code dealt}-th hand. */
+	/**
+	 * The random source for the {@code dealt}-th hand: a one-way hash of the seed and the place, so the cards a hand
+	 * shows tell nothing of the next one.
+	 */
 	public static Random random(long seed, int dealt) {
-		return new Random(mix(seed + (dealt + 1L) * 0x9E3779B97F4A7C15L));
+		return new Random(dev.voidmc.mettle.core.MettleSecret.hash(seed, "deal", dealt));
 	}
 
 	private static long mix(long z) {

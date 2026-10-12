@@ -20,8 +20,9 @@ import net.minecraft.world.item.Items;
 public class MettleTour implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		if (BalanceReport.enabled()) {
-			// A balance run (-Dmettle.balance=true) only measures; BalanceReport does that.
+		if (BalanceReport.enabled() || !ServerAudit.ROLE.isEmpty()) {
+			// A balance run (-Dmettle.balance=true) only measures; BalanceReport does that. An audit run (-Dmettle.audit.role)
+			// is ServerAudit's.
 			return;
 		}
 		// Load every class Mettle mixes into, so a broken injection fails the tour instead of a player's game.

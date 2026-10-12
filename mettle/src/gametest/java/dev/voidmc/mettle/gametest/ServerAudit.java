@@ -55,7 +55,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Audit only (branch audit-server): Mettle on a real dedicated server with two real clients.
+ * The dedicated-server audit (from branch audit-server, flipped to assert the fixed behaviour; every check that fails is
+ * logged as PROBLEM and fails the role at the end): Mettle on a real dedicated server with two real clients.
  *
  * <p>Role A ({@code -Dmettle.audit.role=A}, run through runClientGameTest so the project's EULA opt-in for test runs
  * applies) hosts Fabric's in-process {@code DedicatedServer} on port 25599 and joins it over TCP as Alice. Role B (a second
@@ -75,6 +76,15 @@ public class ServerAudit implements FabricClientGameTest {
 	static final AtomicLong WIRE_IN = new AtomicLong();
 	static final AtomicLong RAW_IN = new AtomicLong();
 	static final Map<String, AtomicLong> PACKETS = new ConcurrentHashMap<>();
+	static final List<String> PROBLEMS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+	/** A check: logged OK or PROBLEM; any PROBLEM fails the role once its script is done. */
+	static void expect(boolean ok, String what) {
+		log((ok ? "OK " : "PROBLEM ") + what);
+		if (!ok) {
+			PROBLEMS.add(what);
+		}
+	}
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
@@ -91,7 +101,10 @@ public class ServerAudit implements FabricClientGameTest {
 			} else {
 				guest(context);
 			}
-			log("role " + ROLE + " end");
+			log("role " + ROLE + " end; problems: " + PROBLEMS);
+			if (!PROBLEMS.isEmpty()) {
+				throw new AssertionError("audit problems: " + PROBLEMS);
+			}
 		} catch (Throwable t) {
 			StringWriter w = new StringWriter();
 			t.printStackTrace(new PrintWriter(w));
@@ -157,12 +170,49 @@ public class ServerAudit implements FabricClientGameTest {
 				String holder = server.computeOnServer(sv -> sv.getPlayerList().getPlayers().stream()
 					.filter(pl -> pl.getAttached(Mythics.PUBLIC) != null).map(pl -> pl.getName().getString()).findFirst().orElse(""));
 				log("RESPAWN holder before death: " + holder);
+				expect(!holder.isEmpty(), "someone holds far_horizon");
+				String other = holder.equals("Bob") ? c.computeOnClient(mc -> mc.getUser().getName()) : "Bob";
 				if (!holder.isEmpty()) {
+					// P3: the holder dies mid-trade with 3 diamonds offered (keepInventory off): they come back on respawn.
+					server.runCommand("tp " + other + " " + holder);
+					server.runCommand("clear " + holder + " minecraft:diamond");
+					server.runCommand("give " + holder + " minecraft:diamond 3");
+					c.waitTicks(10);
+					String offered = server.computeOnServer(sv -> {
+						ServerPlayer h = sv.getPlayerList().getPlayerByName(holder);
+						ServerPlayer o = sv.getPlayerList().getPlayerByName(other);
+						var open = dev.voidmc.mettle.character.cards.Trades.open(h, o);
+						int slot = -1;
+						for (int i = 0; i < h.getInventory().getContainerSize(); i++) {
+							if (h.getInventory().getItem(i).is(net.minecraft.world.item.Items.DIAMOND)) {
+								slot = i;
+							}
+						}
+						return "open " + open + ", offer " + (slot < 0 ? "no diamonds" : dev.voidmc.mettle.character.cards.Trades.offerItem(h, slot))
+							+ ", escrow " + h.getAttached(dev.voidmc.mettle.character.cards.Trades.ESCROW);
+					});
+					log("P3 trade before the death: " + offered);
+					server.runCommand("gamerule keep_inventory false");
 					server.runCommand("gamerule immediate_respawn true");
 					server.runCommand("kill " + holder);
 				}
 				mark("killed");
 				respawn(c, "B", server);
+				if (!holder.isEmpty()) {
+					String back = server.computeOnServer(sv -> {
+						ServerPlayer h = sv.getPlayerList().getPlayerByName(holder);
+						int diamonds = 0;
+						for (int i = 0; i < h.getInventory().getContainerSize(); i++) {
+							if (h.getInventory().getItem(i).is(net.minecraft.world.item.Items.DIAMOND)) {
+								diamonds += h.getInventory().getItem(i).getCount();
+							}
+						}
+						return diamonds + " diamonds, alive " + h.isAlive() + ", escrow " + h.getAttached(dev.voidmc.mettle.character.cards.Trades.ESCROW)
+							+ ", public " + h.getAttached(Mythics.PUBLIC);
+					});
+					expect(back.startsWith("3 diamonds") && back.contains("escrow null"), "P3 offered items came back after dying mid-trade: " + back);
+					expect(back.contains("far_horizon"), "M2 the holder's public Mythics survive the death on the server: " + back);
+				}
 
 				await("B", "done", 600, c);
 				log("server avg tick ms " + server.computeOnServer(s -> s.getAverageTickTimeNanos() / 1e6));
@@ -290,7 +340,8 @@ public class ServerAudit implements FabricClientGameTest {
 
 		// 3. Config the server changed: what the remote client's overlay says.
 		JsonObject cards = c.computeOnClient(mc -> MettleState.build(mc).getAsJsonObject("cards"));
-		log("CONFIG overlay binder.max on client = " + cards.getAsJsonObject("binder").get("max") + " (server cards.json binder_max = 280)");
+		expect(cards.getAsJsonObject("binder").get("max").getAsInt() == 280, "M1 CONFIG overlay binder.max on client = "
+			+ cards.getAsJsonObject("binder").get("max") + " (server cards.json binder_max = 280)");
 		mark("drafted");
 		await(other, "drafted", 120, c);
 
@@ -335,7 +386,7 @@ public class ServerAudit implements FabricClientGameTest {
 		}
 		boolean got = untilSoft(c, 20, () -> c.computeOnClient(mc -> CardStore.get(mc.player).card(theirs).isPresent()
 			&& CardStore.get(mc.player).card(binderCard.id()).isEmpty()));
-		log("TRADE swap seen on this client: " + (got ? "OK" : "PROBLEM") + "; mine now " + c.computeOnClient(mc -> CardStore.get(mc.player).cards().stream()
+		expect(got, "TRADE swap seen on this client; mine now " + c.computeOnClient(mc -> CardStore.get(mc.player).cards().stream()
 			.map(cd -> cd.id() + ":" + cd.place().kind()).toList()) + "; feedback " + c.computeOnClient(mc -> MettleState.build(mc).get("feedback")));
 		mark("traded");
 		await(other, "traded", 60, c);
@@ -371,6 +422,10 @@ public class ServerAudit implements FabricClientGameTest {
 			mc.level.players().forEach(p -> b.append(p.getName().getString()).append('=').append(p.getAttached(Mythics.PUBLIC)).append(' '));
 			return b.toString();
 		}) + "; my cards still synced: " + c.computeOnClient(mc -> CardStore.get(mc.player).cards().size()));
+		expect(c.computeOnClient(mc -> mc.level.players().stream().anyMatch(p -> {
+			List<Identifier> held = p.getAttached(Mythics.PUBLIC);
+			return held != null && held.contains(dev.voidmc.mettle.Mettle.id("far_horizon"));
+		})), "M2 this client still sees the holder's far_horizon after the death and respawn");
 		if (server != null) {
 			log("RESPAWN server side: " + server.computeOnServer(sv -> {
 				StringBuilder b = new StringBuilder();
@@ -426,8 +481,12 @@ public class ServerAudit implements FabricClientGameTest {
 		s = snapshot();
 		c.runOnClient(mc -> MettleActions.slotCard(String.valueOf(binderId)));
 		sleep(c, 3);
+		long syncsBefore = SNAP.getOrDefault("attachment mettle:character/cards_view", 0L);
 		report("one slot action (300 cards)", s);
-		log("slotted now: " + c.computeOnClient(mc -> CardStore.get(mc.player).card(binderId).map(CardData::slotted).orElse(false)));
+		boolean slottedNow = c.computeOnClient(mc -> CardStore.get(mc.player).card(binderId).map(CardData::slotted).orElse(false));
+		long syncs = PACKETS.getOrDefault("attachment mettle:character/cards_view", new AtomicLong()).get() - syncsBefore;
+		log("slotted now: " + slottedNow);
+		expect(slottedNow ? syncs == 1 : syncs <= 1, "N1 one slot action sent the binder " + syncs + " time(s) (slotted " + slottedNow + ")");
 		log("CONFIG overlay binder count/max on client: " + c.computeOnClient(mc -> MettleState.build(mc).getAsJsonObject("cards").getAsJsonObject("binder").get("count"))
 			+ "/" + c.computeOnClient(mc -> MettleState.build(mc).getAsJsonObject("cards").getAsJsonObject("binder").get("max")));
 	}

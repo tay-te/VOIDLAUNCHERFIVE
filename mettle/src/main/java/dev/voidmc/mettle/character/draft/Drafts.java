@@ -132,6 +132,13 @@ public final class Drafts {
 	public static CharacterState ensure(ServerPlayer player) {
 		CharacterState state = CharacterStore.get(player);
 		if (state.draft().isPresent()) {
+			DraftState d = state.drafts();
+			if (d.seed() == DraftRules.legacySeed(player.getUUID()) || d.seed() == 0) {
+				// A seed from before the world secret (public: the UUID alone) is salted; hands already dealt stay.
+				CharacterState salted = state.withDraft(d.withSeed(DraftRules.seed(player.getUUID(), dev.voidmc.mettle.core.MettleSecret.salt(player.level().getServer()))));
+				CharacterStore.set(player, salted);
+				return salted;
+			}
 			return state;
 		}
 		RegistryAccess registries = player.level().registryAccess();
@@ -139,7 +146,7 @@ public final class Drafts {
 		Map<ResourceKey<Skill>, Integer> levels = new HashMap<>();
 		List<ResourceKey<Skill>> skills = registries.lookupOrThrow(MettleRegistries.SKILL).listElements().map(Holder.Reference::key).toList();
 		skills.forEach(s -> levels.put(s, state.level(s)));
-		DraftState drafts = DraftRules.migrate(DraftRules.seed(player.getUUID()), skills, levels, state.perks(), deck);
+		DraftState drafts = DraftRules.migrate(DraftRules.seed(player.getUUID(), dev.voidmc.mettle.core.MettleSecret.salt(player.level().getServer())), skills, levels, state.perks(), deck);
 		if (drafts.totalQueued() > 0) {
 			Mettle.LOGGER.info("{}: unspent perk points became drafts {}", player.getName().getString(), drafts.queued());
 		}

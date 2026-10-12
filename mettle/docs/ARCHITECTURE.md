@@ -291,9 +291,13 @@ All client→server payloads are requests the server validates against the chara
 | `mettle:core/open_picker` | S→C | core (first join, after a background reset) |
 | `mettle:character/xp_chip` `(skill, xp)` batched each second | S→C | character |
 | `mettle:burden/weights` `(item → kg table)` | S→C | burden |
+| `mettle:cards/config` `(cards.json as JSON)` on join | S→C | cards (CardConfig.receive; the client goes back to the defaults on leaving) |
+| `mettle:core/hello` `(protocol, version)` | configuration phase, both ways | core (`core.MettleHandshake`) |
 
 The client mod is required: Fabric's attachment sync and the extra menu slots need it. A vanilla client is refused at
-the configuration phase with a clear message.
+the configuration phase with a clear message. At login the server sends `mettle:core/hello` with its protocol
+(`MettleHandshake.PROTOCOL`, bumped whenever server and client must match); a client on another protocol, or one that
+can't answer (no Mettle, or a Mettle older than 0.2), is refused with "VOID Mettle 0.2.0 required (you have ...)".
 
 ---
 

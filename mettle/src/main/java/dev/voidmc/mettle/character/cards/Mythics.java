@@ -52,8 +52,12 @@ import net.minecraft.world.level.Level;
  * earned, the Hall of Firsts keeps who holds what, and every player's Mythics are public ({@code mettle:character/mythics}).
  */
 public final class Mythics {
-	/** The Mythics a player holds, synced to everyone (name cards, chat). Not saved: rebuilt from the ledger. */
+	/**
+	 * The Mythics a player holds, synced to everyone (name cards, chat). Not saved: rebuilt from the ledger on join, kept
+	 * through death and published again on respawn (Cards.sync).
+	 */
 	public static final AttachmentType<List<Identifier>> PUBLIC = AttachmentRegistry.create(Mettle.id("character/mythics"), b -> b
+		.copyOnDeath()
 		.syncWith(ByteBufCodecs.<io.netty.buffer.ByteBuf, Identifier>list().apply(Identifier.STREAM_CODEC).cast(), AttachmentSyncPredicate.all()));
 
 	/** The bosses whose first kill is a world first, and their Mythic. */
@@ -147,7 +151,9 @@ public final class Mythics {
 
 	/**
 	 * Makes a Mythic card for the player and tells the world. World firsts and drawn Mythics are claimed in the Hall of
-	 * Firsts (refused when already claimed, unless {@code op}); deeds are numbered.
+	 * Firsts (refused when already claimed, unless {@code op}); deeds are numbered. A Mythic always fits: the binder's
+	 * size doesn't count Mythics (CardRules.binderCount), so a full binder never refuses one. The claim and the card are
+	 * on disk at once (the ledger, then the player's file).
 	 */
 	public static Optional<CardData> grant(ServerPlayer player, Identifier id, boolean op) {
 		MinecraftServer server = player.level().getServer();
@@ -185,6 +191,7 @@ public final class Mythics {
 		SignaturePerks.feedback(player, Mettle.id("mythic/" + id.getPath()), Component.translatable("mettle.mythic.yours", m.name(), how));
 		ServerPlayNetworking.send(player, new MettlePayloads.MythicReveal(id, how.getString()));
 		server.getPlayerList().getPlayers().forEach(Mythics::hall);
+		LedgerFile.commit(server, player);
 		Mettle.LOGGER.info("{} earned the Mythic {} ({}, card {})", player.getName().getString(), id, how.getString(), card.id());
 		return Optional.of(card);
 	}
@@ -349,7 +356,13 @@ public final class Mythics {
 
 		static long since(ServerPlayer player) {
 			Long d = player.getAttached(ALIVE_SINCE);
-			return d == null ? Cards.day(player.level().getServer()) : d;
+			long today = Cards.day(player.level().getServer());
+			if (d != null && d > today) {
+				// Counted on the old clock-based day (which /time set could turn back): start counting again from today.
+				player.setAttached(ALIVE_SINCE, today);
+				return today;
+			}
+			return d == null ? today : d;
 		}
 	}
 }

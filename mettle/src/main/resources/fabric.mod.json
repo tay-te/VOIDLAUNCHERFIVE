@@ -18,6 +18,7 @@
 		]
 	},
 	"mixins": [
+		"mettle-core.mixins.json",
 		"mettle-character.mixins.json",
 		"mettle-blades.mixins.json",
 		"mettle-heavyweapons.mixins.json",
