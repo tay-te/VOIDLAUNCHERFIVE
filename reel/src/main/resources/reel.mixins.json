@@ -1,0 +1,16 @@
+{
+	"required": true,
+	"package": "dev.voidmc.reel.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"CameraMixin",
+		"ClockInstanceAccessor",
+		"GameRendererMixin",
+		"IntegratedServerMixin",
+		"MinecraftMixin",
+		"TimerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

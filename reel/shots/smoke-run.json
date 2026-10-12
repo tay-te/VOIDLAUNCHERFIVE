@@ -1,0 +1,12 @@
+{
+	"notes": "The running world and motion blur: a slow dolly at sunset with the world ticking, eight samples a frame.",
+	"fps": 30,
+	"duration": 3,
+	"size": [960, 540],
+	"world": { "time": 12000, "timeRate": 20 },
+	"camera": {
+		"face": "path",
+		"keys": [ { "pos": [-20, 110, 0], "pitch": 25 }, { "pos": [20, 105, 10], "pitch": 25 } ]
+	},
+	"render": { "samples": 8, "preroll": 1 }
+}

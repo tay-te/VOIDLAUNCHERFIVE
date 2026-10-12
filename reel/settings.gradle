@@ -1,0 +1,16 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'void-reel'
+
+// Expanse is a set, not a dependency: the studio runs (-Pexpanse) put it on the classpath so shots are filmed
+// over real Earth terrain. Nothing of it is compiled against or shipped.
+includeBuild('../expanse')

@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "reel-studio",
+	"version": "1.0.0",
+	"name": "VOID Reel studio",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.voidmc.reel.studio.ReelStudio"]
+	},
+	"depends": {"reel": "*"}
+}

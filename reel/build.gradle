@@ -1,0 +1,141 @@
+plugins {
+	// 26.x ships unobfuscated, so there is no mappings line: the code is written against Mojang's own
+	// names, and Loom has nothing to remap.
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+	archivesName = 'void-reel'
+}
+
+repositories {
+	mavenCentral()
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Sets and looks for the studio runs, never shipped: -Pexpanse films over Earth terrain, -Piris under a
+	// shader pack (Sodium and Iris), -Pmods=<jar>;<jar> adds any other mod (LOD, Hearth, Gloam builds).
+	if (project.hasProperty('expanse')) {
+		localRuntime 'dev.voidmc:void-expanse'
+	}
+	if (project.hasProperty('iris')) {
+		localRuntime "maven.modrinth:sodium:${project.sodium_version}"
+		localRuntime "maven.modrinth:iris:${project.iris_version}"
+	}
+	if (project.hasProperty('mods')) {
+		localRuntime files(project.property('mods').toString().split(';'))
+	}
+
+	testImplementation platform('org.junit:junit-bom:5.13.4')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+test {
+	useJUnitPlatform()
+	workingDir = layout.buildDirectory.dir('test-run').get().asFile
+	systemProperty 'reel.shots', file('shots').absolutePath
+	doFirst {
+		workingDir.mkdirs()
+	}
+	testLogging {
+		events 'failed'
+		exceptionFormat 'full'
+	}
+}
+
+// Reel's own settings pass through from Gradle to every run: -Preel.control=7341 -Preel.shots=a,b ...
+def reelKeys = ['reel.control', 'reel.shots', 'reel.mode', 'reel.out', 'reel.dir', 'reel.studio', 'reel.seed', 'reel.distance', 'reel.ffmpeg', 'reel.codec']
+loom {
+	runs {
+		configureEach {
+			property 'reel.dir', file('shots').absolutePath
+			property 'reel.out', file('renders').absolutePath
+			reelKeys.each { key ->
+				if (project.hasProperty(key)) {
+					property key, project.property(key).toString()
+				}
+			}
+		}
+	}
+}
+
+// The studio: a client game test that makes (or reopens) a world, then films the shots named in -Preel.shots,
+// or with -Preel.studio=<minutes> stays open and takes orders over the control port (tools/reel.sh).
+loom.runs.configureEach {
+	if (it.name == 'clientGameTest') {
+		programArgs '--width', (project.findProperty('reel.width') ?: '1280').toString(),
+			'--height', (project.findProperty('reel.height') ?: '720').toString()
+	}
+}
+
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "reel-studio"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+		clearRunDirectory = false
+	}
+}
+
+// Draws a shot's camera path (plan and elevation, with frame ticks, look directions and FOV) to
+// build/reel/<shot>-path.png without starting the game, and prints its timing.
+//   ./gradlew pathPreview -Pshot=valley-dawn
+tasks.register('pathPreview', JavaExec) {
+	group = 'reel'
+	description = 'Plots a shot\'s camera path to build/reel/<shot>-path.png'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'dev.voidmc.reel.tool.PathPreview'
+	jvmArgs '-Djava.awt.headless=true'
+	args = [file('shots').absolutePath, (project.findProperty('shot') ?: 'example').toString(),
+		layout.buildDirectory.dir('reel').get().asFile.absolutePath]
+}
+
+// Tiles a render's frames into one contact sheet image (every Nth frame, labelled with its time).
+//   ./gradlew contactSheet -Pshot=valley-dawn [-Pevery=30]
+tasks.register('contactSheet', JavaExec) {
+	group = 'reel'
+	description = 'Tiles a rendered shot into renders/<shot>/contact.png'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'dev.voidmc.reel.tool.ContactSheet'
+	jvmArgs '-Djava.awt.headless=true'
+	args = [file('renders').absolutePath, (project.findProperty('shot') ?: 'example').toString(),
+		(project.findProperty('every') ?: '0').toString()]
+}

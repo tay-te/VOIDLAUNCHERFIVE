@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 1,
+	"id": "reel",
+	"version": "${version}",
+	"name": "VOID Reel",
+	"description": "Cinematic shots for Minecraft: camera moves written as files, filmed frame by frame at any size, with motion blur, an exact world clock and no pop-in.",
+	"authors": ["VOID"],
+	"license": "All-Rights-Reserved",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["dev.voidmc.reel.client.ReelClient"]
+	},
+	"mixins": ["reel.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

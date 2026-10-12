@@ -1,0 +1,19 @@
+{
+	"notes": "A slow rising dolly toward a point on the horizon at dawn, the light coming up as it moves. Positions are relative to spawn in a fresh world; edit them for yours.",
+	"fps": 60,
+	"duration": 12,
+	"size": [1920, 1080],
+	"world": { "time": 23200, "timeRate": 12, "weather": "clear" },
+	"camera": {
+		"ease": "inOutSine",
+		"look": [260, 90, 0],
+		"lens": 35,
+		"keys": [
+			{ "pos": [-40, 95, -30] },
+			{ "pos": [0, 110, -12] },
+			{ "pos": [40, 128, 0] }
+		]
+	},
+	"shake": { "amount": 0.25, "speed": 0.2 },
+	"render": { "samples": 8, "shutter": 180, "preroll": 2 }
+}

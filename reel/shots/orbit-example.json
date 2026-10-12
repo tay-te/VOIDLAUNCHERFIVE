@@ -1,0 +1,11 @@
+{
+	"notes": "A quarter turn around a point, closing in and dropping as it goes: the reveal of a landmark.",
+	"fps": 60,
+	"duration": 16,
+	"world": { "time": 12500, "timeRate": 0, "tick": "freeze" },
+	"camera": {
+		"orbit": { "center": [0, 70, 0], "radius": [90, 55], "height": [45, 18], "aim": 8, "from": 0, "sweep": 90 },
+		"ease": "inOutSine",
+		"fov": 50
+	}
+}

@@ -1,0 +1,11 @@
+{
+	"notes": "A short check of the whole pipeline: a half turn above spawn, the world frozen, small frames.",
+	"fps": 30,
+	"duration": 4,
+	"size": [960, 540],
+	"world": { "time": 6000, "timeRate": 0, "tick": "freeze" },
+	"camera": {
+		"orbit": { "center": [0, 70, 0], "radius": 70, "height": 60, "aim": 0, "from": 30, "sweep": 120 },
+		"fov": 60
+	}
+}
