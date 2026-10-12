@@ -419,12 +419,15 @@ public class ServerAudit implements FabricClientGameTest {
 		sleep(c, 2);
 		report("20 small XP gains (300 cards)", s);
 
-		long binderId = c.computeOnClient(mc -> CardStore.get(mc.player).cards().stream().filter(cd -> !cd.slotted() && cd.mythicId().isEmpty())
+		long binderId = c.computeOnClient(mc -> CardStore.get(mc.player).cards().stream().filter(cd -> !cd.slotted() && cd.mythicId().isEmpty()
+			&& cd.needs() <= CharacterStore.get(mc.player).level(MINING) && cd.perk().identifier().getPath().equals("mining/quarryman"))
 			.mapToLong(CardData::id).max().orElse(-1));
+		log("slotting binder card " + binderId);
 		s = snapshot();
 		c.runOnClient(mc -> MettleActions.slotCard(String.valueOf(binderId)));
 		sleep(c, 3);
 		report("one slot action (300 cards)", s);
+		log("slotted now: " + c.computeOnClient(mc -> CardStore.get(mc.player).card(binderId).map(CardData::slotted).orElse(false)));
 		log("CONFIG overlay binder count/max on client: " + c.computeOnClient(mc -> MettleState.build(mc).getAsJsonObject("cards").getAsJsonObject("binder").get("count"))
 			+ "/" + c.computeOnClient(mc -> MettleState.build(mc).getAsJsonObject("cards").getAsJsonObject("binder").get("max")));
 	}
