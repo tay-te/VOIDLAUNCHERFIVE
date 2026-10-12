@@ -8,7 +8,7 @@
 // colortex3  RGBA8    water in front (gbuffers_water, dh_water): rgb its lit colour, a 1; 0 elsewhere
 // colortex4  RGBA8    water and shadow info (water_shadows); cleared to 0
 // colortex5  RGBA16   the sky table, 64x32 (prepare; lib/sky/table.glsl reads it); never cleared, rewritten each frame
-// colortex9  RG16F    half size: the contact shade's raw term and view distance (deferred_ao, run as deferred; lib/ao.glsl)
+// colortex9  RGBA16F  half size: the ambient occlusion's raw term, bent normal and view depth (deferred_ao; lib/ao.glsl)
 //
 // Programs that light themselves (entities, hand, particles, lines) write colortex2.x = 0 (blending off for
 // colortex2 in shaders.properties), so whichever order Iris draws them in, deferred never lights a pixel twice.

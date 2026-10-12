@@ -26,8 +26,12 @@ const bool colortex9Clear = false;
 #define AO_RADIUS_PLANT 1.0
 // the widest it looks on screen, full-resolution pixels (near the eye the radius is cut to this)
 #define AO_MAX_PX 96.0
-// no occlusion past this view distance (blocks); it fades out over the last 40 %
-#define AO_FAR 96.0
+// past a few dozen blocks the radius grows with the distance: it never looks narrower on screen than this (full-
+// resolution pixels at 900 lines; scaled with the screen), so the middle and far land, the LOD's too, take an
+// occlusion at their own scale (hollows and terrace steps a hundred blocks off, the floor of a far wood, a valley)
+#define AO_WIDE_PX 40.0
+// no occlusion past this view distance (blocks), where the haze has the land; it fades out over the last half
+#define AO_FAR 4096.0
 // how much thinner than it looks something standing out in front of a point along the view counts
 #define AO_THICKNESS 0.5
 // slices and depth reads per side of each slice (AO_QUALITY 1 or 2)
@@ -44,6 +48,22 @@ const bool colortex9Clear = false;
 mat3 aoFrame(vec3 n) {
 	vec3 t = normalize(abs(n.y) < 0.9 ? cross(n, vec3(0.0, 1.0, 0.0)) : cross(n, vec3(1.0, 0.0, 0.0)));
 	return mat3(t, cross(n, t), n);
+}
+
+// ---- The sun past the shadow map (AO_SUN_FAR): the occlusion's visibility and bent normal read as a cone of open sky
+// (ambient aperture lighting, Oat and Sander 2007; the cone of GTAO's specular occlusion, Jimenez et al. 2016): a
+// cosine-weighted visibility v is a cone round the bent normal with sin^2 of its half-angle = v. Where the sun stands
+// well outside that cone (the floor between a far wood's crowns, the shaded side of a gully, a hollow's far wall at a
+// low sun), the sun is taken off, softly, over AO_SUN_SOFT radians past the cone's edge (plus AO_SUN_MARGIN, so open
+// ground with a little relief keeps its sun to the horizon). Only where the shadow map does not reach (past it and on
+// the LOD's land), where nothing else gives the land's own shade; never inside the map.
+#define AO_SUN_MARGIN 0.12
+#define AO_SUN_SOFT 0.35
+
+float aoSunCone(float vis, vec3 bentN, vec3 l) {
+	float th = asin(sqrt(clamp(vis, 0.0, 1.0)));
+	float a = acos(clamp(dot(bentN, l), -1.0, 1.0));
+	return 1.0 - smoothstep(th + AO_SUN_MARGIN, th + AO_SUN_MARGIN + AO_SUN_SOFT, a);
 }
 
 #if defined AMBIENT_OCCLUSION && !defined WELKIN_AO_PASS
@@ -73,7 +93,7 @@ AoSample lightAoFetch(ivec2 p, vec3 v, vec3 n, int m) {
 	a.vis = 1.0;
 	a.bend = vec3(0.0);
 	float z = -v.z;
-	a.cover = 1.0 - smoothstep(0.6 * AO_FAR, AO_FAR, z);
+	a.cover = 1.0 - smoothstep(0.5 * AO_FAR, AO_FAR, z);
 	if (a.cover <= 0.0) {
 		a.cover = 0.0;
 		return a;

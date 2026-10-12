@@ -242,9 +242,10 @@ const float AO_FLOOR = 0.12;
 // How much of Minecraft's face shading (top 1, sides 0.8 and 0.6, bottom 0.5) stays on the sky's fill, by day and at
 // night: the sky's own irradiance (lib/sky/irradiance.glsl) gives each orientation its light, and this keeps the
 // game's look on top (a block's sides a step below its top), as round 3 had it, so the shade side of things stays
-// darker than open ground in shade and the land keeps its form
+// darker than open ground in shade and the land keeps its form (a little less at night, so the moonlit land keeps
+// round 3's level under the occlusion)
 const float AMB_FACE_SHADE = 0.45;
-const float AMB_FACE_SHADE_NIGHT = 0.45;
+const float AMB_FACE_SHADE_NIGHT = 0.3;
 // How much of the sky's hue by orientation the fill takes (its brightness by orientation is taken whole): at noon a
 // wall facing the pale horizon sees a whiter sky than a top under the deep zenith, at dusk one facing the afterglow a
 // warmer one; half of that keeps the shade on walls a clear, cool sky-blue while dusk's faces still warm and cool.

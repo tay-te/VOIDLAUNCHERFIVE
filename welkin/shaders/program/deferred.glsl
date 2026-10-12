@@ -157,14 +157,21 @@ void main() {
 		}
 		// ---- Light: ambient (B): the ambient occlusion round near points and its bent normal (program/deferred_ao.glsl,
 		// lib/ao.glsl); lib/light.glsl lays it on the fill and the torch light
+		// (the LOD's land too: the middle and far land take it at their own, wider scale)
 		float contact = 1.0;
 #ifdef AMBIENT_OCCLUSION
-		if (!s.fromLod) {
-			AoSample aoS = lightAoFetch(p, s.view, n, material);
-			contact = aoS.vis;
-			lightAoCover = aoS.cover;
-			lightAoBend = aoS.bend;
-		}
+		AoSample aoS = lightAoFetch(p, s.view, n, material);
+		contact = aoS.vis;
+		lightAoCover = aoS.cover;
+		lightAoBend = aoS.bend;
+#if AO_SUN_FAR > 0 && defined WORLD_OVERWORLD
+		// past the shadow map and on the LOD's land, the sun outside the occlusion's open cone is taken off (lib/ao.glsl)
+		float aoFar = s.fromLod ? 1.0 : smoothstep(0.8 * shadowDistance, shadowDistance, length(playerPos));
+		// (a plant's quads were taken as facing up by the occlusion: its cone stands round the up direction)
+		vec3 nCone = matThin(material) ? vec3(0.0, 1.0, 0.0) : n;
+		reach *= mix(1.0, aoSunCone(pow(contact, AO_STRENGTH), normalize(nCone + lightAoBend), lightDir),
+			aoFar * aoS.cover * float(AO_SUN_FAR) * 0.01);
+#endif
 #endif
 		// plants' crossed quads take the sky's fill as from above, and 1.45x (lib/light.glsl lightFillUp)
 		// (and leaves, as a cube of small leaves turned every way, a little: a crown's sides are not walls)
@@ -211,6 +218,9 @@ void main() {
 #elif DEBUG_VIEW == 19
 		// the bent normal the sky's light is looked up along (world, 0.5 + 0.5 xyz)
 		color.rgb = normalize(n + lightAoBend) * 0.5 + 0.5;
+#elif DEBUG_VIEW == 21
+		// Light: ambient (B): the sun's reach x facing after the far land's own shade (AO_SUN_FAR), the occlusion beneath
+		color.rgb = vec3(reach * facing) * 0.75 + 0.25 * vec3(contact);
 #elif DEBUG_VIEW == 20
 		// Light: ambient (B): the sky's irradiance along the (bent) normal, relative to an upward face: 0.4 is 1
 		color.rgb = skyIrradiance(normalize(n + lightAoBend)) * 0.4;

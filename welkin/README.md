@@ -60,8 +60,8 @@ welkin/
 | `gbuffers_clouds`, `weather` | Vanilla clouds (until M3) cut against the LOD's depth; rain and snow |
 | `gbuffers_damagedblock`, `spidereyes`, `armor_glint`, `beaconbeam` | Unlit |
 | `shadow`, `shadow_solid` | The near shadow map: chunks inside `shadowDistance` (128 on MEDIUM) and entities within half of it, seen from the sun or moon, with swaying leaves and plants; faces turned from the light left out on solid blocks and leaves; under the moon only blocks within half the reach (plus 24); overworld only, off on LOW; never the LOD |
-| `deferred` (`program/deferred_ao.glsl`) | The contact shade's raw term at half resolution into `colortex9` (with `CONTACT_AO`) |
-| `deferred1` (`program/deferred.glsl`) | The surface from `depthtex0` where the chunks drew, else `dhDepthTex0`; the light in linear light (sun or moon through the near shadow map with contact-hardening edges, the far shadows found on screen past it and on the LOD; the light through leaves; the sky's fill as a hemisphere with the ground's bounce, under the blurred contact shade; torches) brought to the screen by the land's filmic tone curve (`lib/tone.glsl`); wet ground; cloud shadows; the far fade into the horizon |
+| `deferred` (`program/deferred_ao.glsl`) | Ground-truth ambient occlusion at half resolution into `colortex9`: visibility, the bent normal, the view depth (the chunks' land and the LOD's, at a radius that grows with the distance past a few dozen blocks, so the middle and far land get occlusion at their own scale); turned by the 4x4-tiled lighting noise (`lib/noise.glsl`), resolved grain-free in the light pass (with `AMBIENT_OCCLUSION`) |
+| `deferred1` (`program/deferred.glsl`) | The surface from `depthtex0` where the chunks drew, else `dhDepthTex0`; the light in linear light (sun or moon through the near shadow map with contact-hardening edges, the far shadows found on screen past it and on the LOD; the light through leaves; the sky's fill from the dome's irradiance along the bent normal (`lib/sky/irradiance.glsl`) with the ground's bounce, under the resolved ambient occlusion with its multi-bounce (`lib/ao.glsl`, `lib/denoise.glsl`), and past the map and on the LOD the sun outside the occlusion's open cone taken off (`AO_SUN_FAR`); torches) brought to the screen by the land's filmic tone curve (`lib/tone.glsl`); wet ground; cloud shadows; the far fade into the horizon |
 | `composite` | Water fog, then valley mist from VOID Gloam's near tiles (`lib/mist.glsl`, M1); debug views. **The atmosphere goes here** (haze M2, underground fog M5), then voxel clouds (M3) and `composite1` far weather (M4) |
 | `final` | A soft shoulder past white, then invisible anti-banding (one 8-bit step of fixed triangular noise) |
 
@@ -73,7 +73,7 @@ welkin/
 | `colortex1` | RGBA16 | octahedral world normal (xy), light map (z block, w sky) |
 | `colortex2` | RGBA8 | x lit in deferred, y material / 255, z emission |
 | `colortex3` | RGBA8 | water in front: its lit colour (rgb) and how much fog to apply (a) |
-| `colortex9` | RG16F, half size | the contact shade's raw term (r) and view distance (g) |
+| `colortex9` | RGBA16F, half size | the ambient occlusion's raw term: visibility (r), the bent normal's tangent parts in the face's frame (g, b), view depth (a) |
 
 Self-lit programs write `colortex2.x = 0` with blending off for that buffer (`shaders.properties`), so deferred never
 lights a pixel twice, whatever order Iris draws in.

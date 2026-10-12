@@ -15,7 +15,9 @@
 // pixel, their start offset by the second noise value), falling off over the radius' outer 40 % and with a thickness
 // guess (what stands well in front of the point along the view counts as thinner), integrated against the cosine.
 // Leaves look wider (a crown's heart sinks into its own shade); plants' crossed quads are taken as facing up (a tuft
-// shades its own root, the tip stays open). Out by AO_FAR (the LOD and the far land keep Minecraft's corner shading).
+// shades its own root, the tip stays open). Past a few dozen blocks the radius grows with the distance (never under
+// AO_WIDE_PX on screen), and the LOD's land (dhDepthTex0, where the chunks drew nothing) takes it as well, so the middle
+// and far land get occlusion at their own scale: hollows, steps, gullies, the floor of a far wood. Out by AO_FAR.
 
 #define WELKIN_AO_PASS
 #include "/lib/common.glsl"
@@ -71,32 +73,43 @@ uniform float viewHeight;
 /* RENDERTARGETS: 9 */
 layout(location = 0) out vec4 outAo;
 
-// the view position at full-resolution pixel f, or z = 0 where nothing near was drawn
-vec3 aoViewAt(ivec2 f, vec2 size) {
+// the view position at screen position uv of the surface lit there (the chunks' where they drew, else the LOD's, as
+// lib/depth.glsl pickSurface chooses), from full-resolution pixel f's depths, or z = 0 where nothing was drawn
+vec3 aoSurfaceAt(ivec2 f, vec2 uv) {
 	float d = texelFetch(depthtex0, f, 0).r;
-	if (d >= 1.0) {
-		return vec3(0.0);
+	if (d < 1.0) {
+		return viewFromDepth(uv, d, gbufferProjectionInverse);
 	}
-	return viewFromDepth((vec2(f) + 0.5) / size, d, gbufferProjectionInverse);
+#ifdef DISTANT_HORIZONS
+	float dh = texelFetch(dhDepthTex0, f, 0).r;
+	if (dh < 1.0) {
+		return viewFromDepth(uv, dh, dhProjectionInverse);
+	}
+#endif
+	return vec3(0.0);
+}
+
+vec3 aoViewAt(ivec2 f, vec2 size) {
+	return aoSurfaceAt(f, (vec2(f) + 0.5) / size);
 }
 
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy); // the half-resolution texel
 	vec2 size = vec2(viewWidth, viewHeight);
 	ivec2 full = ivec2(texcoord * size); // the full-resolution pixel under it
-	float d = texelFetch(depthtex0, full, 0).r;
-	// (the position at the texel's centre, as lib/denoise.glsl's resolve places it)
-	vec3 P = viewFromDepth(texcoord, d, gbufferProjectionInverse);
+	// (the position at the texel's centre, as lib/denoise.glsl's resolve places it; the LOD's land too, so the middle
+	// and far land take the wide occlusion)
+	vec3 P = aoSurfaceAt(full, texcoord);
 	float z = -P.z;
-	if (d >= 1.0 || z > AO_FAR) {
-		outAo = vec4(1.0, 0.0, 0.0, d >= 1.0 ? 1e4 : z);
+	if (P.z == 0.0 || z > AO_FAR) {
+		outAo = vec4(1.0, 0.0, 0.0, P.z == 0.0 ? 6e4 : min(z, 6e4));
 		return;
 	}
 	vec4 flags = texelFetch(colortex2, full, 0);
 	int m = int(flags.y * 255.0 + 0.5);
 	if (flags.x < 0.5) {
 		// self-lit things: none
-		outAo = vec4(1.0, 0.0, 0.0, z);
+		outAo = vec4(1.0, 0.0, 0.0, min(z, 6e4));
 		return;
 	}
 	bool plant = matHas(m, MATF_SSS) && !matIsLeaves(m);
@@ -106,8 +119,11 @@ void main() {
 
 	// the radius: wider in a crown, narrower in a tuft; on screen, in full-resolution pixels, capped
 	float radius = matIsLeaves(m) ? AO_RADIUS_LEAVES : (plant ? AO_RADIUS_PLANT : AO_RADIUS);
+	// (and never under AO_WIDE_PX on screen: past a few dozen blocks the radius grows with the distance, so the middle
+	// and far land, the LOD's too, take an occlusion at their own scale: the hollows, terrace steps and gullies of a
+	// hillside at a hundred blocks, the floor between a far wood's crowns, a valley's sides a kilometre off)
 	float pxPerBlock = gbufferProjection[1][1] * 0.5 * size.y / max(z, 0.05);
-	float radiusPx = min(radius * pxPerBlock, AO_MAX_PX);
+	float radiusPx = clamp(radius * pxPerBlock, AO_WIDE_PX * size.y / 900.0, AO_MAX_PX);
 	radius = radiusPx / pxPerBlock;
 	if (radiusPx < 2.0) {
 		outAo = vec4(1.0, 0.0, 0.0, z);
@@ -187,7 +203,7 @@ void main() {
 		bW = normalize(bW + nW * (0.05 - dot(bW, nW)));
 	}
 	mat3 fr = aoFrame(nW);
-	outAo = vec4(vis, dot(bW, fr[0]), dot(bW, fr[1]), z);
+	outAo = vec4(vis, dot(bW, fr[0]), dot(bW, fr[1]), min(z, 6e4));
 }
 
 #endif
