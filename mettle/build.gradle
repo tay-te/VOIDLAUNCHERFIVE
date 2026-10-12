@@ -235,4 +235,115 @@ tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	systemProperty 'mettle.balance', System.getProperty('mettle.balance', 'false')
 	systemProperty 'mettle.tour.hearth_only', System.getProperty('mettle.tour.hearth_only', 'false')
 	systemProperty 'mettle.tour.cards_only', System.getProperty('mettle.tour.cards_only', 'false')
+	systemProperty 'mettle.audit.role', System.getProperty('mettle.audit.role', '')
+	systemProperty 'mettle.audit.dir', System.getProperty('mettle.audit.dir', 'audit')
+}
+
+// ---------------------------------------------------------------------------------------------
+// audit-server (audit branch only): dedicated-server / multiplayer runs driven outside Gradle.
+//   ./gradlew auditLaunchers   writes build/audit/<run>.args (JVM args, classpath, main class, program args)
+//   so several game JVMs (server + clients) can run at once with `java @build/audit/<run>.args`.
+// ---------------------------------------------------------------------------------------------
+sourceSets {
+	// A classpath with Minecraft and Fabric API but no Mettle: a plain Fabric server or client.
+	auditBare {
+	}
+	// A client game test without Mettle that hosts a plain Fabric dedicated server (a Mettle client tries to join it).
+	auditBareHost {
+	}
+	// A server game test (Fabric's headless game-test server): the dedicated-server environment, no client classes.
+	auditServerTest {
+		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+	}
+}
+afterEvaluate {
+	sourceSets.auditBare.runtimeClasspath = sourceSets.client.runtimeClasspath - sourceSets.main.output - sourceSets.client.output - sourceSets.hearthApi.output
+	sourceSets.auditBareHost.compileClasspath = sourceSets.gametest.compileClasspath - sourceSets.main.output - sourceSets.client.output - sourceSets.hearthApi.output
+	sourceSets.auditBareHost.runtimeClasspath = sourceSets.gametest.runtimeClasspath - sourceSets.main.output - sourceSets.client.output - sourceSets.hearthApi.output - sourceSets.gametest.output + sourceSets.auditBareHost.output
+}
+
+loom {
+	mods {
+		"audit-bare-host" {
+			sourceSet sourceSets.auditBareHost
+		}
+		"mettle-audit-server" {
+			sourceSet sourceSets.auditServerTest
+		}
+	}
+	runs {
+		auditServer {
+			server()
+			source sourceSets.main
+			runDir 'build/run/auditServer'
+			ideConfigGenerated false
+		}
+		auditServerTest {
+			server()
+			source sourceSets.auditServerTest
+			runDir 'build/run/auditServerTest'
+			ideConfigGenerated false
+		}
+		auditBareHost {
+			client()
+			source sourceSets.auditBareHost
+			runDir 'build/run/clientGameTest'
+			ideConfigGenerated false
+		}
+		auditServerBare {
+			server()
+			source sourceSets.auditBare
+			runDir 'build/run/auditServerBare'
+			ideConfigGenerated false
+		}
+		auditClientBare {
+			client()
+			source sourceSets.auditBare
+			runDir 'build/run/auditBare'
+			ideConfigGenerated false
+			programArgs '--username', 'Carol'
+		}
+		auditA {
+			client()
+			source sourceSets.gametest
+			runDir 'build/run/auditA'
+			ideConfigGenerated false
+			vmArg '-Dfabric.client.gametest'
+			vmArg "-Dfabric.client.gametest.testModResourcesPath=${file('src/gametest/resources').absolutePath}"
+			property 'mettle.audit.role', 'A'
+			programArgs '--username', 'Alice'
+		}
+		auditB {
+			client()
+			source sourceSets.gametest
+			runDir 'build/run/auditB'
+			ideConfigGenerated false
+			vmArg '-Dfabric.client.gametest'
+			vmArg "-Dfabric.client.gametest.testModResourcesPath=${file('src/gametest/resources').absolutePath}"
+			property 'mettle.audit.role', 'B'
+			programArgs '--username', 'Bob'
+		}
+	}
+}
+
+tasks.register('auditLaunchers') {
+	notCompatibleWithConfigurationCache('audit')
+	dependsOn 'classes', 'clientClasses', 'gametestClasses', 'auditServerTestClasses', 'auditBareHostClasses', 'configureLaunch'
+	doLast {
+		def out = file('build/audit')
+		out.mkdirs()
+		['runAuditServer', 'runAuditBareHost', 'runAuditServerTest', 'runAuditServerBare', 'runAuditClientBare', 'runAuditA', 'runAuditB'].each { n ->
+			def t = tasks.getByName(n)
+			def lines = []
+			t.jvmArgs.each { lines << it }
+			t.systemProperties.each { k, v -> lines << "-D${k}=${v}" }
+			lines << '-cp'
+			lines << t.classpath.asPath
+			lines << t.mainClass.get()
+			t.args.each { lines << it }
+			new File(out, n + '.args').setText(lines.collect { '"' + it.toString().replace((char) 92, (char) 47) + '"' }.join(System.lineSeparator()), 'UTF-8')
+			new File(out, n + '.dir').text = t.workingDir.absolutePath
+		}
+	}
 }

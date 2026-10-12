@@ -1,0 +1,10 @@
+{
+	"schemaVersion": 1,
+	"id": "audit-bare-host",
+	"version": "1.0.0",
+	"name": "Audit: a Fabric server without Mettle",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.voidmc.audit.BareHost"]
+	}
+}
