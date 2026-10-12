@@ -183,6 +183,8 @@ public class GloamShowcase implements FabricClientGameTest {
 			if (!ONLY.isEmpty()) {
 				List<String> names = List.of(ONLY.split(","));
 				views.removeIf(v -> !names.contains(v.name()));
+			} else if (!System.getProperty("gloam.show.bench", "").isEmpty()) {
+				views.removeIf(v -> !v.name().startsWith("bench_")); // a bench run shoots the bench alone
 			}
 			View last = null;
 			for (View planned : views) {
