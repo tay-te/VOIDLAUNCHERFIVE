@@ -184,13 +184,17 @@ vec3 skyLandSunColour(float h, float morning) {
 	// round 1: noon a neutral-warm white (about 5600 K: stone in the sun reads white, not blue-grey); the low sun a
 	// clear amber at dusk (sun-facing crowns, roofs and grass tips glow amber against cool shade) and a softer
 	// rose-gold at dawn (more red than yellow, so dawn crowns gild instead of turning lime)
-	vec3 noon = vec3(1.00, 0.955, 0.85);
-	// (round 2: the morning a touch warmer, a fresh gold rather than a cool white)
-	vec3 aft  = mix(vec3(1.00, 0.83, 0.48), vec3(1.00, 0.86, 0.59), morning);
-	vec3 gold = mix(vec3(1.00, 0.67, 0.34), vec3(1.00, 0.68, 0.48), morning);
+	// (round 3: noon a cleaner white, so pale stone in the sun reads white, not cream; the morning fresher, a clean
+	// pale gold with less yellow in it, so 08:00's grass reads green; the afternoon a touch less yellow)
+	vec3 noon = vec3(1.00, 0.965, 0.90);
+	vec3 aft  = mix(vec3(1.00, 0.84, 0.52), vec3(1.00, 0.89, 0.72), morning);
+	// (round 3: the gold and the last degrees deeper still: in linear light a pale stone face in the low sun needs green at
+	// about a third of red and blue near nothing to read amber on screen and not peach-cream; dawn keeps more blue,
+	// rose-gold)
+	vec3 gold = mix(vec3(1.00, 0.63, 0.28), vec3(1.00, 0.64, 0.40), morning);
 	// (round 2: the last degrees a deep amber, a little rosier at dawn: in linear light the blue must fall to about a
 	// seventh of the red for a white trunk or a crown it meets to read amber on screen rather than a pale cream)
-	vec3 low  = mix(vec3(1.00, 0.42, 0.11), vec3(1.00, 0.46, 0.15), morning);
+	vec3 low  = mix(vec3(1.00, 0.36, 0.07), vec3(1.00, 0.39, 0.12), morning);
 	vec3 c = mix(aft, noon, smoothstep(0.52, 0.92, h));
 	c = mix(gold, c, smoothstep(0.08, 0.36, h));
 	// (the last ten degrees are the low sun's: red enough that a green crown turns gold in it, not lime)
@@ -204,8 +208,10 @@ float skyLandSunStrength(float h) {
 	// (round 2: the high noon sun a sixteenth less, so a noon field reads bright but not blown)
 	// (round 2: the last degrees a little dimmer, 0.44 of noon at 4 degrees, so a pale face in the red low sun keeps
 	// its amber instead of rolling into a cream white on the shoulder)
-	return LAND_SUN * (0.4 + 0.6 * smoothstep(0.0, 0.5, h)) * (1.0 - 0.065 * smoothstep(0.6, 0.92, h))
-		* smoothstep(-0.012, 0.03, h);
+	// (round 3: the low sun keeps more of its strength, 0.55 of noon at the horizon rather than 0.4, and goes out only as
+	// the disc meets it: the golden hour's sun-facing faces stay lit amber between the long cool shadows)
+	return LAND_SUN * (0.55 + 0.45 * smoothstep(0.0, 0.45, h)) * (1.0 - 0.065 * smoothstep(0.6, 0.92, h))
+		* smoothstep(-0.01, 0.022, h);
 }
 
 // The open sky's fill on an upward face, relative to noon: it falls faster than the sun through the afternoon (round 1:
@@ -215,8 +221,10 @@ float skyLandSunStrength(float h) {
 float skyLandFillLevel(float h) {
 	// (round 2: the last degrees before sunset hold a fuller fill, 0.73: the long shadows at the golden hour's end
 	// stay luminous and take the sky's colours instead of sinking into an olive grey)
-	float low = 0.2 * (1.0 - smoothstep(0.05, 0.3, h));
-	return h > 0.0 ? 0.53 + 0.47 * pow(smoothstep(0.1, 0.92, h), 1.6) + low : 0.73 * exp(h * 15.0);
+	// (round 3: 0.31, on a smaller LAND_FILL, so a level top in the low sun's shade takes about what it did; lib/light.glsl
+	// takes the walls' share down instead (sideW), so the shade there sinks cool and deep while the sun stays strong)
+	float low = 0.31 * (1.0 - smoothstep(0.05, 0.3, h));
+	return h > 0.0 ? 0.53 + 0.47 * pow(smoothstep(0.1, 0.92, h), 1.6) + low : 0.84 * exp(h * 15.0);
 }
 
 struct SkyLand {
@@ -248,9 +256,11 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 	// round 2: round sunrise and sunset the shade takes the colour of the sky it sees, the dome's own zenith and
 	// horizon: a rose-lavender at dawn (more of the glowing horizon), a cooler violet-blue at dusk (more of the
 	// deepening zenith), so the land under a pink sky picks the pink up instead of reading neutral grey
+	// (round 3: less of the dome's colour, and more of its zenith: the low sun's shade a cool blue-lavender, set off
+	// against the amber light, not a warm rose-grey that flattened it)
 	float dome = (1.0 - smoothstep(0.1, 0.35, h)) * smoothstep(-0.14, 0.0, h) * (1.0 - grey);
-	vec3 domeCol = skyUnitLuma(skyToLinear(mix(m.zen, m.horBase, mix(0.35, 0.6, morning))) + 1e-4);
-	clearFill = skyUnitLuma(mix(skyUnitLuma(clearFill), domeCol, 0.6 * dome));
+	vec3 domeCol = skyUnitLuma(skyToLinear(mix(m.zen, m.horBase, mix(0.2, 0.45, morning))) + 1e-4);
+	clearFill = skyUnitLuma(mix(skyUnitLuma(clearFill), domeCol, 0.4 * dome));
 	vec3 fillCol = skyUnitLuma(mix(clearFill, greyFill, grey));
 	// a closed sky scatters the sun it hides into the shade: brighter fill under cloud by day, less in rain
 	float fillWeather = (1.0 + 0.55 * m.overcast * (1.0 - m.rainStep)) * (1.0 - 0.35 * m.rainStep) * (1.0 - 0.3 * m.stormStep);

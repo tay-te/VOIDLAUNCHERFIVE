@@ -22,10 +22,12 @@
 
 // ---- the light model (linear irradiance on a face square to the light; mid grey albedo is 0.18)
 // the noon sun (round 1 of the lighting review: a tenth stronger, so the sun clearly leads)
-#define LAND_SUN 2.65
+// (round 3: 2.75, paying for the fill's cut: the noon field's median stays, its sun-to-shade grows past 5:1)
+#define LAND_SUN 2.75
 // the open sky's fill on an upward face at noon (round 1: about a quarter less, so the shade is deeper and the sun's
 // side carries the form; lib/sky/build.glsl skyLandFillLevel takes it down faster as the sun sinks)
-#define LAND_FILL 0.155
+// (round 3: 0.134: open ground's shade about 15 % deeper and a clearer blue)
+#define LAND_FILL 0.134
 // the ground's bounce: the share of the sunlit ground's light that reaches a downward face (round 1: less, so a wall's
 // shade side reads the sky's cool blue, warmed a little by the ground, not an olive grey)
 #define LAND_BOUNCE 0.2
@@ -57,6 +59,8 @@
 // saturation of the result, 1 as it comes
 // (round 2: 0.95, paying back the highlights' kept saturation, so noon's sunlit grass and sand do not turn louder)
 #define LAND_SATURATION 0.95
+// how much saturation a face gives up as it reaches white (round 3)
+#define LAND_HIGHLIGHT_DESAT 0.35
 
 vec3 toLinear(vec3 c) {
 	return pow(max(c, 0.0), vec3(2.2));
@@ -82,6 +86,9 @@ vec3 toneShoulder(vec3 x) {
 	return vec3(toneShoulder(x.r), toneShoulder(x.g), toneShoulder(x.b));
 }
 
+// The highlights' desaturation now (lib/light.glsl sets it from the sun's height before it tones; others keep this).
+float toneHighlightDesat = LAND_HIGHLIGHT_DESAT;
+
 // Linear light (albedo x irradiance) to the display value the rest of the pack works in.
 vec3 welkinTone(vec3 x) {
 	x = max(x, 0.0) * LAND_EXPOSURE;
@@ -104,7 +111,10 @@ vec3 welkinTone(vec3 x) {
 		hueKept = mix(desat, hueKept / peak, 0.75);
 	}
 	x = mix(perChannel, hueKept, LAND_HUE_KEEP);
-	x = mix(vec3(lumaLin(x)), x, LAND_SATURATION);
+	// round 3: the highlights give up a little saturation as they near white (up to LAND_HIGHLIGHT_DESAT at it), so
+	// sunlit pale stone and sand read a clean near-white, not cream; the mids and the shade keep their colour
+	float yl = lumaLin(x);
+	x = mix(vec3(yl), x, LAND_SATURATION * (1.0 - toneHighlightDesat * smoothstep(0.35, 0.85, yl)));
 	return toDisplay(clamp(x, 0.0, 1.0));
 }
 

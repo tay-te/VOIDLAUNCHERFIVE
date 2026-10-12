@@ -82,7 +82,9 @@ float rampSkyLin(float level) {
 }
 
 float rampBlockLin(float level) {
-	return pow(rampLevel(level), 2.05);
+	// (round 3: 1.9, and the torch a third stronger below: a lamp's glow on a wall reads at dusk and at night as it did
+	// before the linear light, the flame still orange and the pool still a pool)
+	return pow(rampLevel(level), 1.9);
 }
 
 // A torch's light, linear: orange at the source, a little paler as it spreads (round 1: a little stronger and wider at
@@ -120,6 +122,13 @@ float canopyShade(float skyLevel, float sunReach) {
 #endif
 }
 
+// How much the hour is the low sun's, 0..1: 1 from the sun's last few degrees to its setting, 0 once it stands about
+// 17 degrees up and at night.
+float lowSunShare() {
+	float h = sunHeight();
+	return (1.0 - smoothstep(0.08, 0.3, h)) * smoothstep(-0.1, 0.0, h);
+}
+
 // The old name, for callers not yet moved over; the dither threshold is ignored.
 float rampStep(float level, float dither) {
 	return rampLevel(level);
@@ -146,11 +155,13 @@ vec3 sunSideGlow(vec3 n, vec4 fill) {
 	vec2 toSun = normalize(sunW.xz + vec2(1e-5));
 	// (round 2: twice as strong on what faces the low sun, and a quarter of it on level ground, which sees that bright
 	// low sky at a slant: the shade on the sun's side of things takes the sunset's warmth, the rest the sky's blue)
-	float side = mix(0.25, clamp((dot(n.xz, toSun) + 0.25) / 1.25, 0.0, 1.0), 1.0 - abs(n.y));
+	// (round 3: two thirds of that, and half as much on level ground: the bright low sky had lifted every shade at the
+	// golden hour until the land read flat; now the shade stays cool and deep and the sun's own amber carries the hour)
+	float side = mix(0.12, clamp((dot(n.xz, toSun) + 0.25) / 1.25, 0.0, 1.0), 1.0 - abs(n.y));
 	side *= 1.0 - max(-n.y, 0.0);
 	vec3 warm = toLinear(skyHorizon(true));
 	warm /= max(lumaLin(warm), 1e-4);
-	return warm * (lumaLin(fill.rgb) * fill.a * 0.85 * side);
+	return warm * (lumaLin(fill.rgb) * fill.a * 0.6 * side);
 }
 
 // The same for a material (plumbing's class, M_*): a plant's crossed quads (double-sided, their normal means little)
@@ -179,6 +190,9 @@ float welkinGlow(vec3 v, vec3 n, vec3 l, int m, float through) {
 	if (!matHas(m, MATF_SSS)) {
 		return 0.0;
 	}
+	// (round 3: what passes is a share, never more than all of it; and the moon's light through leaves is a faint
+	// silver rim, not a glow)
+	through = clamp(through, 0.0, 1.0) * (sunAngle < 0.5 ? 1.0 : 0.35);
 	// round 1: a rim, not a glow: mostly when the eye looks toward the light (a narrow forward lobe), at most half the
 	// direct light, so back-lit crowns read as warm-rimmed silhouettes instead of neon-lit ones
 	float c = clamp(dot(v, l), 0.0, 1.0);
@@ -194,6 +208,11 @@ float welkinGlow(vec3 v, vec3 n, vec3 l, int m, float through) {
 	}
 	return 0.32 * lobe * through;
 }
+
+// How far the sky's fill takes a face as facing up, 0..1 (round 3: deferred sets it for plants' crossed quads, whose
+// normal means little: a grass blade or a flower sees the open sky above it, so in the shade it reads as light as the
+// ground's top, not as dark as a wall; the land's shade then shows its tops and tufts against the dark sides).
+float lightFillUp = 0.0;
 
 // Whether a material is a plant's thin quad (for the shadow lookup, which then steps toward the light).
 bool matThin(int m) {
@@ -255,7 +274,7 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	vec3 a = toLinear(albedo);
 	float aoFill = mix(LIGHT_AO_FLOOR, 1.0, pow(clamp(ao, 0.0, 1.0), LIGHT_AO_POW) * contact);
 	float lv = rampLevel(lm.x);
-	vec3 block = torchColour(lv) * (rampBlockLin(lm.x) * blockLightDaylight(lm.y) * pow(BLOCKLIGHT_STRENGTH, 2.2));
+	vec3 block = torchColour(lv) * (1.35 * rampBlockLin(lm.x) * blockLightDaylight(lm.y) * pow(BLOCKLIGHT_STRENGTH, 2.2));
 #if defined WORLD_NETHER
 	vec3 ambient = toLinear(vec3(0.52, 0.40, 0.34) * faceShade(n));
 	vec3 direct = vec3(0.0);
@@ -266,12 +285,20 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	// the sky's fill as a hemisphere: the sky above, the ground's bounce below, Minecraft's face shading softened on
 	// top (the sun now does the modelling), the bright sky round a low sun on what faces it
 	vec4 fill = skyLandFill();
+	vec3 nf = lightFillUp > 0.0 ? normalize(mix(n, vec3(0.0, 1.0, 0.0), lightFillUp)) : n;
 	// (round 2: an upright face sees the bright band of sky along the horizon as well as the zenith, so it takes 0.6 of
 	// an upward face's fill, not half: the shade side of a cliff or a wall reads a clear, cool sky-lit grey)
-	float skyW = n.y >= 0.0 ? 0.6 + 0.4 * n.y : 0.6 * (1.0 + n.y);
-	vec3 hemi = fill.rgb * skyW + skyLandBounce() * (0.5 - 0.5 * n.y);
-	hemi = hemi * mix(1.0, faceShade(n), 0.45) + sunSideGlow(n, fill);
-	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - 0.68 * canopyShade(lm.y, sunReach));
+	// (round 3: 0.54 by day, and 0.36 while the sun is low: the shade's light comes from above, so in the long shadows
+	// of the golden hour tops and tufts read light against dark sides and the land keeps its form; the sky-lit grey of a
+	// pale wall comes from its own bounce, below)
+	float sideW = mix(0.54, 0.36, lowSunShare());
+	float skyW = nf.y >= 0.0 ? sideW + (1.0 - sideW) * nf.y : sideW * (1.0 + nf.y);
+	vec3 hemi = fill.rgb * skyW + skyLandBounce() * (0.5 - 0.5 * nf.y);
+	// (a plant's thin blades take the sky on both their faces and pass some through: up to 1.3x a top's fill, so in the
+	// shade a meadow's tufts and stalks read light against the ground, as dry grass does at dusk)
+	hemi = (hemi * mix(1.0, faceShade(nf), 0.45) + sunSideGlow(nf, fill)) * (1.0 + 0.43 * lightFillUp);
+	// (round 3: the fill under a canopy cut by 0.8, not 0.68: the forest floor between the sun patches sinks deeper)
+	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - 0.8 * canopyShade(lm.y, sunReach));
 	// the short-range bounce (round 1): a shaded face among sunlit surfaces like itself takes back a share of the sun
 	// in its own colour, more on walls than on tops, so its light follows its albedo: the shade side of pale stone or
 	// sand reads a soft light grey (its colour half desaturated, so the bounce does not saturate the shade) instead of a near-black square beside a sunlit face, while grass and dirt (dark,
@@ -306,6 +333,8 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 #else
 	vec3 lin = a * light + through;
 #endif
+	// the highlights' pull toward white only while the sun stands high (a face in the low sun keeps its amber)
+	toneHighlightDesat = LAND_HIGHLIGHT_DESAT * smoothstep(0.15, 0.4, sunHeight());
 	vec3 c = welkinTone(lin);
 	if (emission > 0.0) {
 		// a glowing texel keeps its hue into white (lib/tone.glsl welkinToneEmit): a flame stays yellow

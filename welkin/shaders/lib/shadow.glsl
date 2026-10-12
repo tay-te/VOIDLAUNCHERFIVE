@@ -44,6 +44,24 @@ vec3 shadowDistort(vec3 clip) {
 	return vec3(clip.xy / shadowDistortFactor(clip.xy), clip.z * SHADOW_Z_SCALE);
 }
 
+#ifndef WU_sunAngle
+#define WU_sunAngle
+uniform float sunAngle;           // 0 sunrise, 0.25 noon, 0.5 sunset
+#endif
+
+// round 3: the moon's shadows reach half as far as the sun's (the map's own size and texels stay): the shadow pass
+// leaves out what stands further than that and a little more (program/shadow.glsl), and the land past it takes the
+// far shadows and the sky-light gate, as past the sun's reach. A night's shadows are short and dim; this paid about
+// half the pass for them.
+const float SHADOW_NIGHT_REACH = 0.5;
+// how much further than the reach the casters are drawn (a caster just outside still shades the land inside)
+const float SHADOW_NIGHT_MARGIN = 24.0;
+
+// How far the map's shadows reach now, blocks.
+float shadowReach() {
+	return sunAngle < 0.5 ? shadowDistance : shadowDistance * SHADOW_NIGHT_REACH;
+}
+
 #if defined SHADOWS && defined WORLD_OVERWORLD && !defined WELKIN_SHADOW_PASS
 #define WELKIN_SHADOWS_LIVE
 
@@ -68,9 +86,10 @@ uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 #endif
 
-// How far into the fade at the map's edge a point is: 0 inside 80 % of shadowDistance, 1 at it.
+// How far into the fade at the map's edge a point is: 0 inside 80 % of the reach (shadowDistance by day), 1 at it.
 float shadowFade(vec3 playerPos) {
-	return smoothstep(0.8 * shadowDistance, shadowDistance, length(playerPos));
+	float r = shadowReach();
+	return smoothstep(0.8 * r, r, length(playerPos));
 }
 
 // Blocks along the light per unit of the map's depth (its 0..1 depth range, after the squeeze).
@@ -247,7 +266,10 @@ ShadowSample shadowSampleW(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, boo
 	}
 	float centre = texture(shadowtex1, uvz);
 	if (count > 0.0) {
-		float above = (uvz.z - sum / count) * depthBlocks; // blocks from the casters down to the point
+		// blocks from the casters down to the point (round 3: never under 0: with the receiver plane's slope in the test
+		// a caster's mean depth can land past the point's own, and the light through leaves, exp(-0.8 * depth), then
+		// grew past 1: crowns seen toward a low sun glowed lime by day and cyan-white under the moon)
+		float above = max((uvz.z - sum / count) * depthBlocks, 0.0);
 		r.depth = above;
 		r.cover = count / 9.0;
 #if SHADOW_SOFTNESS == 0
@@ -328,7 +350,7 @@ float welkinSunReachEx(vec3 playerPos, vec3 n, float sky, int m, float facing, f
 		}
 		sunShare *= mix(tint, vec3(1.0), fade);
 		// what passes the casters round the point: the gaps whole, about a block of leaves 0.45, three a tenth
-		float pass = (1.0 - sh.cover) + sh.cover * exp(-0.8 * sh.depth);
+		float pass = clamp((1.0 - sh.cover) + sh.cover * exp(-0.8 * sh.depth), 0.0, 1.0);
 		through = mix(pass * gate, through, fade);
 	}
 #endif

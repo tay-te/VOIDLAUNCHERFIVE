@@ -85,6 +85,15 @@ void main() {
 		return;
 	}
 	vec4 view = gl_ModelViewMatrix * gl_Vertex; // shadow view space
+	// round 3: under the moon only the casters within its shorter reach (lib/shadow.glsl shadowReach), by the block's
+	// centre so a block's faces go together (creatures, with no block centre, cast within half the map's reach anyway)
+	if (sunAngle >= 0.5) {
+		vec3 centre = (shadowModelViewInverse * view).xyz + at_midBlock.xyz / 64.0;
+		if (length(centre.xz) > shadowReach() + SHADOW_NIGHT_MARGIN) {
+			gl_Position = vec4(0.0, 0.0, -2.0, 1.0); // outside the clip volume: nothing is drawn
+			return;
+		}
+	}
 #ifdef WELKIN_SHADOW_SWAY
 	// the same offset gbuffers_terrain adds, from the same camera-relative position, wind and clock
 	vec3 playerPos = (shadowModelViewInverse * view).xyz;
