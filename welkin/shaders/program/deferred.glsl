@@ -131,6 +131,13 @@ void main() {
 		}
 		// the light through leaves and plants (lib/light.glsl welkinGlow)
 		float glow = welkinGlow(normalize(eyePos), n, lightDir, material, through);
+		if (matThin(material)) {
+			// far grass and flowers: their sunlit quads (often pale petals) would read as bright specks over a field, so
+			// past about 24 blocks their glow fades and they take the sun a little less squarely
+			float farPlant = smoothstep(24.0, 64.0, dist);
+			glow *= 1.0 - farPlant;
+			facing *= 1.0 - 0.25 * farPlant;
+		}
 #ifdef WELKIN_WET
 		// wet ground before the light: darkens open ground, picks the puddles
 		HzState st = hzState();

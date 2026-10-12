@@ -21,12 +21,14 @@
 #define WELKIN_TONE
 
 // ---- the light model (linear irradiance on a face square to the light; mid grey albedo is 0.18)
-// the noon sun
-#define LAND_SUN 2.4
-// the open sky's fill on an upward face at noon
-#define LAND_FILL 0.245
-// the ground's bounce: the share of the sunlit ground's light that reaches a downward face
-#define LAND_BOUNCE 0.36
+// the noon sun (round 1 of the lighting review: a tenth stronger, so the sun clearly leads)
+#define LAND_SUN 2.65
+// the open sky's fill on an upward face at noon (round 1: about a quarter less, so the shade is deeper and the sun's
+// side carries the form; lib/sky/build.glsl skyLandFillLevel takes it down faster as the sun sinks)
+#define LAND_FILL 0.18
+// the ground's bounce: the share of the sunlit ground's light that reaches a downward face (round 1: less, so a wall's
+// shade side reads the sky's cool blue, warmed a little by the ground, not an olive grey)
+#define LAND_BOUNCE 0.26
 // the night (fill and moon) against its old display-space look: the linear sum of fill and moon is darker than the
 // old display sum, so it is lifted to read as before
 #define LAND_NIGHT 1.6
@@ -42,8 +44,8 @@
 #define LAND_EXPOSURE 1.0
 // the S round mid grey: 1 is none
 #define LAND_CONTRAST 1.22
-// where the shoulder starts (linear) and how much of it keeps the hue
-#define LAND_KNEE 0.52
+// where the shoulder starts (linear, about sRGB 177) and how much of it keeps the hue
+#define LAND_KNEE 0.45
 #define LAND_HUE_KEEP 0.8
 // saturation of the result, 1 as it comes
 #define LAND_SATURATION 0.97
@@ -60,11 +62,12 @@ float lumaLin(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
 
-// the soft shoulder for one value: linear to the knee, then an exponential roll that meets 1 at infinity with the
-// same slope at the knee
+// the soft shoulder for one value: linear to the knee, then a hyperbolic roll that meets 1 at infinity with the
+// same slope at the knee. Gentler than an exponential far up, so a pale face in full sun keeps its texture (sand and
+// snow at sRGB 220..240, not a flat white) and nothing clips.
 float toneShoulder(float x) {
 	float over = max(x - LAND_KNEE, 0.0);
-	return min(x, LAND_KNEE) + (1.0 - LAND_KNEE) * (1.0 - exp(-over / (1.0 - LAND_KNEE)));
+	return min(x, LAND_KNEE) + over / (1.0 + over / (1.0 - LAND_KNEE));
 }
 
 vec3 toneShoulder(vec3 x) {
@@ -88,6 +91,16 @@ vec3 welkinTone(vec3 x) {
 	hueKept = peak > 1.0 ? mix(vec3(toneShoulder(y)), hueKept, (1.0 - toneShoulder(y)) / max(peak - toneShoulder(y), 1e-4)) : hueKept;
 	x = mix(perChannel, hueKept, LAND_HUE_KEEP);
 	x = mix(vec3(lumaLin(x)), x, LAND_SATURATION);
+	return toDisplay(clamp(x, 0.0, 1.0));
+}
+
+// A glowing texel (a torch's flame, a lamp, lava) in linear light to display, keeping its hue: its brightest channel
+// rolls into white on the shoulder and the others follow in proportion, so a flame stays yellow-orange instead of
+// washing out to white as the per-channel and luminance shoulders would push it.
+vec3 welkinToneEmit(vec3 x) {
+	x = max(x, 0.0) * LAND_EXPOSURE;
+	float peak = max(x.r, max(x.g, x.b));
+	x *= toneShoulder(peak) / max(peak, 1e-6);
 	return toDisplay(clamp(x, 0.0, 1.0));
 }
 

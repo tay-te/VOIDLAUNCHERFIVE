@@ -82,12 +82,13 @@ float rampSkyLin(float level) {
 }
 
 float rampBlockLin(float level) {
-	return pow(rampLevel(level), 2.3);
+	return pow(rampLevel(level), 2.05);
 }
 
-// A torch's light, linear: orange at the source, a little paler as it spreads.
+// A torch's light, linear: orange at the source, a little paler as it spreads (round 1: a little stronger and wider at
+// levels 4..10, so a lamp's pool reads cosy and a village's lamps glow).
 vec3 torchColour(float lv) {
-	return mix(vec3(1.52, 0.96, 0.48), vec3(1.76, 0.95, 0.35), lv * lv);
+	return mix(vec3(1.66, 1.03, 0.50), vec3(1.86, 0.98, 0.34), lv * lv);
 }
 
 // Sunlight that filters down through a canopy or bounces in under an overhang: a share of the direct light's colour,
@@ -98,11 +99,25 @@ vec3 torchColour(float lv) {
 // (the floor's shade stays deep between the patches).
 float canopyLeak(float skyLevel) {
 #if defined SHADOWS && defined WORLD_OVERWORLD
-	const float leak = 0.12;
+	const float leak = 0.035;
 #else
-	const float leak = 0.2;
+	const float leak = 0.12;
 #endif
 	return leak * smoothstep(0.25, 0.55, skyLevel) * (1.0 - smoothstep(0.84, 0.97, skyLevel));
+}
+
+// How deep a place lies under a canopy or an overhang by day, 0..1: partly open to the sky (sky light about 9..13) and
+// out of the sun. There the sky's fill is cut further (round 1: the forest floor between the sun patches, and a
+// crown's inner leaves, sink into deep, readable shade, about sRGB 10..12 at their darkest, instead of an even mid
+// green), while the patches the sun reaches keep it. In the open (sky light 15) and in caves (the ramp is dark
+// already) it is 0; by night it fades out, so moonlit woods keep their level.
+float canopyShade(float skyLevel, float sunReach) {
+#ifdef WORLD_OVERWORLD
+	float under = smoothstep(0.35, 0.6, skyLevel) * (1.0 - smoothstep(0.82, 0.97, skyLevel));
+	return under * (1.0 - clamp(sunReach, 0.0, 1.0)) * smoothstep(-0.02, 0.12, sunHeight());
+#else
+	return 0.0;
+#endif
 }
 
 // The old name, for callers not yet moved over; the dither threshold is ignored.
@@ -132,7 +147,7 @@ vec3 sunSideGlow(vec3 n, vec4 fill) {
 	float side = clamp((dot(n.xz, toSun) + 0.25) / 1.25, 0.0, 1.0) * (1.0 - 0.5 * abs(n.y));
 	vec3 warm = toLinear(skyHorizon(true));
 	warm /= max(lumaLin(warm), 1e-4);
-	return warm * (lumaLin(fill.rgb) * fill.a * 0.65 * side);
+	return warm * (lumaLin(fill.rgb) * fill.a * 0.45 * side);
 }
 
 // The same for a material (plumbing's class, M_*): a plant's crossed quads (double-sided, their normal means little)
@@ -144,7 +159,7 @@ float sunFacingMat(vec3 n, vec3 l, int m) {
 	float ndl = dot(n, l);
 	if (matHas(m, MATF_SSS)) {
 		if (matIsLeaves(m)) {
-			return 0.45 + 0.55 * sunFacing(ndl);
+			return 0.36 + 0.64 * sunFacing(ndl);
 		}
 		return 0.62 + 0.38 * abs(ndl);
 	}
@@ -161,13 +176,16 @@ float welkinGlow(vec3 v, vec3 n, vec3 l, int m, float through) {
 	if (!matHas(m, MATF_SSS)) {
 		return 0.0;
 	}
+	// round 1: a rim, not a glow: mostly when the eye looks toward the light (a narrow forward lobe), at most half the
+	// direct light, so back-lit crowns read as warm-rimmed silhouettes instead of neon-lit ones
 	float c = clamp(dot(v, l), 0.0, 1.0);
-	float lobe = 0.1 + 1.4 * c * c * c;
+	float c2 = c * c;
+	float lobe = 0.06 + 0.94 * c2 * c2;
 	if (matIsLeaves(m)) {
 		// the faces turned away from the light (half on an edge-on face)
-		return 0.8 * lobe * through * clamp(0.5 - dot(n, l), 0.0, 1.0);
+		return 0.5 * lobe * through * clamp(0.5 - dot(n, l), 0.0, 1.0);
 	}
-	return 0.5 * lobe * through;
+	return 0.32 * lobe * through;
 }
 
 // Whether a material is a plant's thin quad (for the shadow lookup, which then steps toward the light).
@@ -240,20 +258,32 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	vec4 fill = skyLandFill();
 	vec3 hemi = fill.rgb * (0.5 + 0.5 * n.y) + skyLandBounce() * (0.5 - 0.5 * n.y);
 	hemi = hemi * mix(1.0, faceShade(n), 0.45) + sunSideGlow(n, fill);
-	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint;
+	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - 0.55 * canopyShade(lm.y, sunReach));
 	// the sun (or the moon) on faces turned to it, where it reaches; under a canopy a little of it filters through
 	float lit = facing * sunReach;
 	vec3 direct = skyLandDirect() * (lit + canopyLeak(lm.y) * (1.0 - lit)) * sunShare;
+	// through the leaf (round 1): the light keeps the sun's colour (amber at a low sun) and takes only half the leaf's
+	// saturation, so a back-lit crown rims warm instead of glowing lime
+	vec3 through = vec3(0.0);
 	if (glow > 0.0) {
-		// through the leaf: its own hue at its own brightness, warmed (the light through chlorophyll is yellow-green)
-		vec3 hue = mix(vec3(1.0), min(a / max(lumaLin(a), 0.004), vec3(3.0)), 0.6) * vec3(1.2, 1.05, 0.55);
-		direct += skyLandDirect() * sunShare * hue * glow;
+		vec3 aT = mix(vec3(lumaLin(a)), a, 0.5);
+		through = aT * skyLandDirect() * sunShare * glow;
 	}
 #endif
 	vec3 light = (ambient + block) * aoFill + direct * mix(1.0, contact, 0.3);
 	light = max(light, vec3(LAND_FLOOR)); // never quite black: cave walls still read
 	light = mix(light, max(light, vec3(0.27)), nightVision);
-	return welkinTone(a * light + a * (emission * LAND_EMIT));
+#if defined WORLD_NETHER || defined WORLD_END
+	vec3 lin = a * light;
+#else
+	vec3 lin = a * light + through;
+#endif
+	vec3 c = welkinTone(lin);
+	if (emission > 0.0) {
+		// a glowing texel keeps its hue into white (lib/tone.glsl welkinToneEmit): a flame stays yellow
+		c = mix(c, max(c, welkinToneEmit(lin + a * (emission * LAND_EMIT))), clamp(emission / 0.85, 0.0, 1.0));
+	}
+	return c;
 }
 
 vec3 welkinLightFull(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,

@@ -87,8 +87,11 @@ float wcFar(float t) {
 }
 
 // 0 for a view away from the sun's side of the sky .. 1 toward it (horizontally).
+// Round 1: a wide cosine lobe over the whole sky (it was a step across 40 degrees, which split a dusk sky into a rose
+// half and a grey-blue half along a seam through the deck).
 float wcSunward(vec3 rd, CloudEnv e) {
-	return smoothstep(-0.35, 0.35, dot(normalize(rd.xz + vec2(1e-5)), normalize(e.sun.xz + vec2(1e-5))));
+	float c = 0.5 + 0.5 * dot(normalize(rd.xz + vec2(1e-5)), normalize(e.sun.xz + vec2(1e-5)));
+	return c * c * (3.0 - 2.0 * c);
 }
 
 // Gloam's dusk palette for a face (CloudDeck.band). `sunward` 0..1 (wcSunward), `far` the continuous ring (0 near ..
@@ -199,19 +202,21 @@ vec3 wcLit(vec3 n, float up, float interior, float dens, int tone, vec3 rd, vec3
 	bool top = n.y > 0.5, under = n.y < -0.5;
 	float ndl = dot(n, l);
 	float skyView, diffuse, ao;
+	// (round 1: a cloud scatters the sun through its whole body, so its sides and base are much brighter than a block's
+	// shade: a light blue-grey base and soft white sides under a white top, never a grey slab darker than the land)
 	if (top) {
 		skyView = 1.0;
 		diffuse = clamp((ndl + 0.25) / 1.25, 0.0, 1.0);
 		ao = 1.0; // (the rim and the thickness shade the top after the shoulder: wcFaceColour)
 	} else if (under) {
-		skyView = 0.74;
+		skyView = 0.9;
 		// (one flat shade a cell: a lighter rim along a base's outline read as a bright line round every cloud)
-		diffuse = 0.11;
-		ao = 0.93 * mix(1.02, 0.84, dens) * (1.0 - 0.2 * thick);
+		diffuse = 0.3;
+		ao = 0.95 * mix(1.03, 0.86, dens) * (1.0 - 0.2 * thick);
 	} else {
-		skyView = 0.84;
-		diffuse = clamp((ndl + 0.45) / 1.45, 0.0, 1.0) * 0.92;
-		ao = mix(0.76, 1.0, up);
+		skyView = 0.95;
+		diffuse = clamp((ndl + 0.7) / 1.7, 0.0, 1.0);
+		ao = mix(0.84, 1.0, up);
 	}
 	// forward scatter: looking toward the light, the sides and undersides glow at the edges
 	float forward = pow(clamp(dot(rd, l), 0.0, 1.0), 8.0) * (top ? 0.10 : (under ? 0.15 : 0.30));
