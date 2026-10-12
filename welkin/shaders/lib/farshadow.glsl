@@ -87,7 +87,7 @@ float farShadowRay(vec3 v, vec3 vn, vec3 vl, float jitter, float longFade) {
 		// along the ray (the steps spread out) and far off
 		float thick = 2.0 + 0.6 * t + 0.02 * rz;
 		float o1 = smoothstep(margin, 2.5 * margin, behind) * (1.0 - smoothstep(thick, 1.5 * thick, behind));
-		occ = max(occ, o1 * (1.0 - longFade * smoothstep(40.0, 120.0, t)));
+		occ = max(occ, o1 * (1.0 - longFade * smoothstep(56.0, 144.0, t)));
 		if (occ > 0.995) {
 			break;
 		}

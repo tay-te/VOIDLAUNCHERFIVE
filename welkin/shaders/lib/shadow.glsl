@@ -68,7 +68,7 @@ float shadowReach() {
 // the light.
 float shadowLongFadeStrength(vec3 lightDir) {
 #if SHADOW_LONG_FADE > 0
-	return sunAngle < 0.5 ? 0.8 * (1.0 - smoothstep(0.10, 0.30, lightDir.y)) : 0.0;
+	return sunAngle < 0.5 ? 0.2 * float(SHADOW_LONG_FADE) * (1.0 - smoothstep(0.10, 0.30, lightDir.y)) : 0.0;
 #else
 	return 0.0;
 #endif
@@ -413,13 +413,14 @@ const float PCSS_SEARCH_HEIGHT = 32.0;  // the search covers the penumbra of cas
 const int PCSS_SEARCH_TAPS = 8;
 const int PCSS_FILTER_TAPS = 10;
 
-// The low sun's long shadows thin out with their length (a stylization, SHADOW_LONG_FADE): in the last degrees before
-// sunset a caster's shadow fades from about 48 blocks along the light to four fifths gone at 128, so the golden hour
+// The low sun's long shadows thin out with their length (a stylization, SHADOW_LONG_FADE 0..4, a fifth each; default
+// 2): in the last degrees before sunset a caster's shadow fades from about 56 blocks along the light to (on the
+// default) two fifths gone at 144, so the golden hour
 // lasts to the horizon: a meadow or a gorge is not all under the shadow of a hill or a wood 100 blocks off, while
 // houses, trees and terrain steps still throw long, defined shadows between the amber faces. No effect once the sun
 // stands about 17 degrees up. above: the caster's distance along the light, blocks.
 float shadowLongFade(float above, vec3 lightDir) {
-	return shadowLongFadeStrength(lightDir) * smoothstep(48.0, 128.0, above);
+	return shadowLongFadeStrength(lightDir) * smoothstep(56.0, 144.0, above);
 }
 
 // ---- Leaves (marked for workstream C: the leaf rules of the lookup live here, nowhere else)
