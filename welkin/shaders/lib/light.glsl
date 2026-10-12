@@ -182,6 +182,10 @@ float welkinGlow(vec3 v, vec3 n, vec3 l, int m, float through) {
 	float c2 = c * c;
 	float lobe = 0.06 + 0.94 * c2 * c2;
 	if (matIsLeaves(m)) {
+		// at a low sun the light through a crown spreads wider (the long path through the leaves scatters it), so a
+		// crown seen from the side glows gold at dawn and at the golden hour, as the sun's colour makes it
+		float low = 1.0 - smoothstep(0.06, 0.3, l.y);
+		lobe = mix(lobe, 0.4 + 0.6 * c2, low);
 		// the faces turned away from the light (half on an edge-on face)
 		return 0.5 * lobe * through * clamp(0.5 - dot(n, l), 0.0, 1.0);
 	}

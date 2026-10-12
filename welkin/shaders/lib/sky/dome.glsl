@@ -67,6 +67,9 @@ vec3 skyDomePos(vec3 d, SkyFrame f) {
 	// moon's), so a faint glow does not tint the whole dome, and reach the last at full strength
 	// (the rings hug the horizon, where they are not terraced either: in the low sky they lay as hard steps)
 	float rx = clamp((shape * amount * 4.0 - 0.5) / 3.5, 0.0, 1.0);
+	// (round 1: eased at both ends, so the glow's edge has no kink: a corner in the gradient read as a seam between a
+	// rose half and a grey-blue half of a dusk sky)
+	rx = rx * rx * (3.0 - 2.0 * rx);
 	float ring = 4.0 * mix(rx, softBands(rx, 4.0), smoothstep(0.08, 0.3, h));
 	float shapeM = clamp(1.0 - (1.0 - dot(d, f.moonW)) / 0.05, 0.0, 1.0);
 	float moonRing = 3.0 * softBands(clamp((shapeM * f.glow.g * 3.0 - 0.5) / 2.5, 0.0, 1.0), 3.0);

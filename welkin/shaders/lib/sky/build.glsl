@@ -98,7 +98,7 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	float sunset = (1.0 - 0.75 * closed) * min(1.25, s.vivid) * (1.0 - 0.8 * m.rainStep);
 	float dayHalo = 0.45 * (1.0 - 0.8 * m.overcast) * (1.0 - m.nightStep);
 	m.glow = mix(dayHalo, sunset, m.tw);
-	m.spread = mix(0.14, 0.95, m.tw);
+	m.spread = mix(0.14, 1.25, m.tw); // (round 1: wider at dusk, so the glow eases out over the dome without a seam)
 	m.moonGlow = skyLevel(s.moon * m.clear * m.nightStep);
 	// stars: Gloam's count (fewer under a bright moon, none under cloud), by the sun's depth under the horizon: the
 	// first come out when the sun is 6 degrees down (the end of civil twilight, while the west still glows), all of them
@@ -205,7 +205,7 @@ float skyLandSunStrength(float h) {
 // evening and the sun's side carries the mood), holds at about half from the golden hour to sunset (the shade at the
 // golden hour stays readable), then dims fast through the blue hour.
 float skyLandFillLevel(float h) {
-	return h > 0.0 ? 0.47 + 0.53 * smoothstep(0.08, 0.85, h) : 0.47 * exp(h * 15.0);
+	return h > 0.0 ? 0.47 + 0.53 * pow(smoothstep(0.1, 0.92, h), 1.6) : 0.47 * exp(h * 15.0);
 }
 
 struct SkyLand {

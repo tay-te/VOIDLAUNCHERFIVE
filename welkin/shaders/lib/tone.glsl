@@ -25,10 +25,10 @@
 #define LAND_SUN 2.65
 // the open sky's fill on an upward face at noon (round 1: about a quarter less, so the shade is deeper and the sun's
 // side carries the form; lib/sky/build.glsl skyLandFillLevel takes it down faster as the sun sinks)
-#define LAND_FILL 0.18
+#define LAND_FILL 0.17
 // the ground's bounce: the share of the sunlit ground's light that reaches a downward face (round 1: less, so a wall's
 // shade side reads the sky's cool blue, warmed a little by the ground, not an olive grey)
-#define LAND_BOUNCE 0.26
+#define LAND_BOUNCE 0.2
 // the night (fill and moon) against its old display-space look: the linear sum of fill and moon is darker than the
 // old display sum, so it is lifted to read as before
 #define LAND_NIGHT 1.6
