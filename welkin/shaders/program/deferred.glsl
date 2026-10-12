@@ -186,6 +186,10 @@ void main() {
 #elif DEBUG_VIEW == 14
 		// the light through leaves and plants (green), what passes the casters (red)
 		color.rgb = vec3(through, min(glow * 2.0, 1.0), 0.0);
+#elif DEBUG_VIEW == 21
+		// the terrain's light (workstream A, lib/terrain.glsl): red the sun's reach, green the slope's factor / 2,
+		// blue where the terrain's data is
+		color.rgb = vec3(reach, terrainSlopeLast * 0.5, terrainWLast);
 #elif DEBUG_VIEW >= 15 && DEBUG_VIEW <= 17 && defined WELKIN_SHADOW_BUFFERS
 		// the shadow buffers (workstream A): 15 the raw reach (noisy), 16 the resolved reach, 17 the history weight
 		// (green kept, red where the clamp acted; black: no history)

@@ -595,10 +595,11 @@ float welkinSunReachEx(vec3 playerPos, vec3 n, float sky, int m, float facing, f
 // it, lib/shadowfetch.glsl reads it back): welkinSunReachEx's rules (the map, its fade into the sky-light gate, the
 // far shadows in farVis, the leaf rules), with the PCSS lookup (SHADOW_FILTER 1, noise from lib/noise.glsl) or the
 // fixed grid (0). The tint is not here (it is not noisy: the light pass looks it up). through: as welkinSunReachEx.
+// nearVis: what the casters the map cannot see let through, inside its reach (lib/terrain.glsl; 1 for none).
 // travelThick: the blocks of water the light passed (0 or more: the point is under water), else -1 - the blocks from
 // the point up to the first thing the light meets at its own texel (-1: open, or no lookup).
-float welkinSunReachRaw(vec3 playerPos, vec3 n, float sky, int m, float facing, float farVis, vec2 noise,
-		out float through, out float travelThick) {
+float welkinSunReachRaw(vec3 playerPos, vec3 n, float sky, int m, float facing, float farVis, float nearVis,
+		vec2 noise, out float through, out float travelThick) {
 	float reach = sunOpen(sky) * farVis;
 	through = (matIsLeaves(m) ? 0.35 : 1.0) * reach;
 	travelThick = -1.0;
@@ -617,8 +618,8 @@ float welkinSunReachRaw(vec3 playerPos, vec3 n, float sky, int m, float facing, 
 		// what passes the casters round the point: the gaps whole, about a block of leaves 0.45, three a tenth
 		float pass = clamp((1.0 - sh.cover) + sh.cover * exp(-0.8 * sh.depth), 0.0, 1.0);
 		float vis = shadowLeafAdjust(m, sh.vis, pass);
-		reach = mix(vis * gate, reach, fade);
-		through = mix(pass * gate, through, fade);
+		reach = mix(vis * gate * nearVis, reach, fade);
+		through = mix(pass * gate * nearVis, through, fade);
 		travelThick = sh.underWater ? sh.travel : -1.0 - sh.thick;
 	}
 #endif

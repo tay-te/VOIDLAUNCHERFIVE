@@ -14,7 +14,9 @@ declare -A dims=([world0]=WORLD_OVERWORLD [world-1]=WORLD_NETHER [world1]=WORLD_
 #   deferred1  deferred_shadow   the shadow's raw terms (colortex10)
 #   deferred2  deferred_resolve  the resolve (colortex11, and the occlusion's history)
 #   deferred3  deferred          the light
-declare -A passes=([deferred_ao]=deferred [deferred_shadow]=deferred1 [deferred_resolve]=deferred2 [deferred]=deferred3)
+#   prepare3   prepare_terrain   the terrain's light (colortex15; prepare1/2 are the clouds')
+declare -A passes=([deferred_ao]=deferred [deferred_shadow]=deferred1 [deferred_resolve]=deferred2 [deferred]=deferred3
+	[prepare_terrain]=prepare3)
 
 programs=()
 for f in "$shaders"/program/*.glsl; do

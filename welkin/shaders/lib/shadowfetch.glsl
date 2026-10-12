@@ -17,6 +17,8 @@ uniform mat4 gbufferModelView;
 #endif
 #endif
 
+#include "/lib/terrain.glsl"
+
 #ifdef WELKIN_SHADOWS_LIVE
 #define WELKIN_SHADOW_BUFFERS
 #ifndef WU_colortex10
@@ -29,12 +31,35 @@ uniform sampler2D colortex11;
 #endif
 #endif
 
+// The terrain's slope (lib/terrain.glsl) on a top face in the middle and far distance: it takes the sun as the hillside
+// it stands on would (Lambert on the land's own normal, steepened TERRAIN_SLOPE % for a stylized hill shading, against
+// the face's; at most 3x), fading in from 40 to 160 blocks, where the blocks' own sides stop showing the slope.
+// facing: the face's sunFacingMat, changed in place.
+float terrainSlopeLast = 1.0; // the factor applied (DEBUG_VIEW 21)
+float terrainWLast = 0.0;
+void terrainSlopeFacing(vec3 playerPos, vec3 n, inout float facing) {
+#ifdef WELKIN_TERRAIN_LIVE
+	float w = smoothstep(40.0, 160.0, length(playerPos)) * smoothstep(0.6, 0.95, n.y);
+	if (TERRAIN_SLOPE == 0 || w <= 0.0 || facing <= 0.0) {
+		return;
+	}
+	TerrainCell tc = terrainAt(playerPos);
+	terrainWLast = tc.w;
+	vec3 l = lightDirWorld();
+	float ratio = clamp(sunFacing(dot(terrainNormal(tc, float(TERRAIN_SLOPE) * 0.01), l))
+		/ max(sunFacing(dot(n, l)), 0.05), 0.0, 3.0);
+	terrainSlopeLast = mix(1.0, ratio, w * tc.w);
+	facing *= terrainSlopeLast;
+#endif
+}
+
 // The sun's reach at screen pixel p (the ramp's sunReach, before the face's facing), with the light's tint multiplied
-// into sunShare. s the surface there, playerPos camera-relative, n the world normal, sky the sky light level, m
+// into sunShare. facing: as in, and on the far land's tops it takes the terrain's slope (terrainSlopeFacing). s the surface there, playerPos camera-relative, n the world normal, sky the sky light level, m
 // plumbing's material class, facing sunFacingMat. through: the share of the light that passes the leaves between the
 // light and a leaf or a plant (for their glow).
-float lightShadowFetch(ivec2 p, Surface s, vec3 playerPos, vec3 n, float sky, int m, float facing,
+float lightShadowFetch(ivec2 p, Surface s, vec3 playerPos, vec3 n, float sky, int m, inout float facing,
 		inout vec3 sunShare, out float through) {
+	terrainSlopeFacing(playerPos, n, facing);
 #ifdef WELKIN_SHADOW_BUFFERS
 	vec2 res = texelFetch(colortex11, p, 0).rg;
 	through = res.g;
@@ -68,6 +93,13 @@ float lightShadowFetch(ivec2 p, Surface s, vec3 playerPos, vec3 n, float sky, in
 	if (facing > 0.0 && sky > 0.5 && (s.fromLod || farShadowNeed(playerPos) > 0.0)) {
 		farVis = farShadowRay(s.view, mat3(gbufferModelView) * n, normalize(shadowLightPosition), 1.0,
 			shadowLongFadeStrength(lightDirWorld()));
+	}
+#endif
+#ifdef WELKIN_TERRAIN_LIVE
+	if (facing > 0.0 || matHas(m, MATF_SSS)) {
+		float tAll, tFar;
+		terrainShadow(terrainAt(playerPos), playerPos, shadowLongFadeStrength(lightDirWorld()), tAll, tFar);
+		farVis = min(farVis, tAll);
 	}
 #endif
 	float reach = sunOpen(sky) * farVis;

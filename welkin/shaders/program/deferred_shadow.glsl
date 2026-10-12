@@ -40,6 +40,7 @@ void main() {
 #endif
 #define WELKIN_CONTACT_SHADOWS
 #endif
+#include "/lib/terrain.glsl"
 
 in vec2 texcoord;
 
@@ -116,11 +117,22 @@ void shadowTerms(Surface s, vec3 playerPos, vec3 n, float sky, int material, flo
 #endif
 	}
 #endif
+	// the terrain's own shadow (lib/terrain.glsl): every caster past the map and on the LOD's land, and inside the map
+	// the casters past its reach, which it cannot see (a ridge a kilometre off shading the valley at a low sun)
+	float terrainNear = 1.0;
+#ifdef WELKIN_TERRAIN_LIVE
+	if (facing > 0.0 || matHas(material, MATF_SSS)) {
+		float tAll, tFar;
+		terrainShadow(terrainAt(playerPos), playerPos, shadowLongFadeStrength(lightDir), tAll, tFar);
+		farVis = min(farVis, tAll);
+		terrainNear = tFar;
+	}
+#endif
 	reach = sunOpen(sky) * farVis;
 	through = (matIsLeaves(material) ? 0.35 : 1.0) * reach;
 	travelThick = -1.0;
 	if (!s.fromLod) {
-		reach = welkinSunReachRaw(playerPos, n, sky, material, facing, farVis, nz, through, travelThick);
+		reach = welkinSunReachRaw(playerPos, n, sky, material, facing, farVis, terrainNear, nz, through, travelThick);
 	}
 #ifdef WELKIN_CONTACT_SHADOWS
 	// what the map is too coarse to see, near the eye and at mid range (not on leaves: the map and the light through

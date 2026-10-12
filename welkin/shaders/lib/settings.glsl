@@ -28,6 +28,10 @@ const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
 #define SHADOW_REFERENCE 0 // [0 1]
 // Steadier light: Blends the shadows with the last frames' to smooth them further. Smoothing never touches textures.  [shadows]
 //#define TEMPORAL_LIGHT
+// Terrain shadows: Hills and ridges shade the land behind them as far as 2 km off, even from off the screen, and slopes turned from the sun lie in their own shade. Needs VOID Gloam.  [shadows]
+#define TERRAIN_SHADOWS
+// Terrain slopes: How strongly the far land's slopes take the sun by how they face it (a hillside turned to a low sun glows, one turned away dims). 100 % is the land's true slope; more steepens it, as a map's hill shading does.  [shadows]
+#define TERRAIN_SLOPE 250 // [0 100 150 200 250 300 400]
 // Sun path tilt: How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.  [skeleton]
 const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
 // Light bands: How many soft bands sky light and torch light fade through. The light stays a smooth gradient; Soft bands sets how much it gathers at each band.  [skeleton]
@@ -113,7 +117,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define SOFT_BANDS 50 // [0 25 50 75 100]
 // ---- Debug
 // Debug view: Shows one of the shader's inner pictures instead of the world. For testing only.  [skeleton]
-#define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17]
+#define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 21]
 // VOID Gloam link: Normal reads live data from VOID Gloam. Backup only reads the coarser backup copy, as if the link had failed. Off ignores Gloam. For testing only.  [plumbing]
 #define BRIDGE_MODE 0 // [0 1 2]
 // Force mist: Forces the mist's time of day to this share, to see the slab at any hour. 0 leaves VOID Gloam's value. For testing only.  [mist]
@@ -136,6 +140,8 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #ifdef CONTACT_SHADOWS
 #endif
 #ifdef TEMPORAL_LIGHT
+#endif
+#ifdef TERRAIN_SHADOWS
 #endif
 #ifdef HANDHELD_LIGHT
 #endif
