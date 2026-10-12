@@ -587,3 +587,46 @@ shade that is deep, sky-tinted and readable.
   water's glint, caves (the dark end of the curve is untouched), rain and overcast.
 - **Left for step 2:** shadows past the map (at the golden hour the map's edge shows as a lit ring where a hill shades
   the near land), light through leaves and sun patches under the canopy, contact shadow, water.
+
+### The lighting rebuild, step 2: shadow reach, edges, contact shade, light through leaves (2026-10-12)
+
+Closes GAPS.md gaps 5, 6 and 8 (water stays with P7).
+
+- **Reach by profile:** MEDIUM's map reaches 128 blocks at 1536 (was 96), HIGH 192 at 2048; the option now offers
+  64..256 and 1024..4096. The pass pays for it: faces turned away from the light are left out wherever a closed shape
+  stands behind them (every solid block, through the new `shadow_solid` program, which also skips the texture and the
+  alpha test so the depth test runs early; and leaves), and creatures cast only within half the reach
+  (`entityShadowDistanceMul`). What the light meets first of a closed shape is always a face turned to it, so the map
+  is unchanged.
+- **Edges (contact hardening, `lib/shadow.glsl` `shadowSampleW`):** a 3x3 search of the map's depths round the point
+  finds its casters and how far above it they stand; the penumbra's half width is 0.02 blocks per block of that height
+  (0.034 on Soft) plus 0.015, filtered by a 4x4 grid of hardware-compared taps over at most 6 texels. A post's foot is
+  crisp, a tree's shadow on the ground 20 blocks below softens, a house's evening shadow widens toward its end. Points
+  with no caster round them, or deep inside a shadow, stop after the search. Fixed offsets, no rotation, no noise.
+  `SHADOW_SOFTNESS` is now Crisp (the hardware tap only), Natural (default), Soft.
+- **Far shadows (`FAR_SHADOWS`, `lib/farshadow.glsl`):** past the map's 80 % (everywhere with the map off) and on the
+  LOD's land, the lit point steps 14 fixed, quadratically spread steps toward the light through the chunks' depth and
+  then the LOD's, over 0.3 of its distance (8..192 blocks); a step behind a surface by more than a depth margin and
+  less than a thickness counts as shadow, faded smoothly over both. Houses and trees 100-200 blocks off throw long
+  shadows, ridges shade the slopes behind them, the far hills their own valleys. It fades in over the map's last 20 %,
+  so there is no lit ring. What is off the screen casts nothing there (checked against a 256-block map in the same
+  views: the same shadows on screen; at 18:30 the map also had hills off screen to the west shading more of the land).
+- **Contact shade (`CONTACT_AO`, `program/deferred_ao.glsl` run as Iris's `deferred`, `lib/ao.glsl`):** the light
+  pass is now Iris's `deferred1` (`tools/wrappers.sh` maps the names; the file is still `program/deferred.glsl`). At
+  half resolution (colortex9 RG16F: the raw term and the view distance), four samples on a disc in the face's plane,
+  0.6 blocks, turned by the texel's place in a 4x4 tile; the light pass averages each 4x4 tile back with depth weights,
+  so the result is smooth and stable without noise. It darkens the fill and torch light in inside corners and round
+  plants' feet, the sun by 30 % of it; half on leaves; none on plants' own quads; out past 72 blocks. On top of
+  Minecraft's corner shading.
+- **Light through leaves (`lib/light.glsl` `welkinGlow`, `welkinLightGlow`):** a leaf's face turned from the sun takes
+  the light that comes through the leaves (0.8 x a lobe 0.1 + 1.4 c^3 toward the sun x what passes), in its own colour
+  twice over, warmed (a deeper yellow-green); back-lit plants the same at 0.5. What passes is the search's: the gaps
+  whole, the rest exp(-0.8 x the blocks of leaves). Leaves no longer take a flat 30 % of the sun on their shaded faces,
+  and take a penumbra at least 0.22 blocks wide, so a crown's own leaves are dappled softly instead of streaked by a
+  grazing sun. With the map on, the canopy leak is 0.12 (was 0.2), so the floor's sun patches stand out between deep
+  green shade.
+- **Debug:** `DEBUG_VIEW` 13 the contact shade (blue: far shadow), 14 what passes the leaves (red) and the glow
+  (green).
+- **Cost (1080p, RTX 4060, MEDIUM, best second of 8 per sweep step in game):** the map with its filter 0.28-0.63 ms,
+  far shadows 0-0.36 ms, the contact shade 0.08-0.2 ms (forest, village, valley, meadow); HIGH's 192-block map adds
+  0.2-0.4 ms. Inside 3.5's shadow line plus the deferred line.
