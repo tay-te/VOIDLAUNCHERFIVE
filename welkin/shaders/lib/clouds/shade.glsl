@@ -33,6 +33,7 @@
 
 #include "/lib/clouds/march.glsl"
 #include "/lib/clouds/shadow.glsl"
+#include "/lib/sky/dome.glsl"
 #include "/lib/fade.glsl"
 
 #define WC_CREAM vec3(1.00, 0.94, 0.82)
@@ -190,8 +191,8 @@ float wcThick() {
 //     and a broad deck is not one flat sheet;
 //   - sides take the light by how squarely they face it, wrapped (light scatters through a cloud), and darken toward
 //     their foot;
-//   - undersides see little of the dome and almost none of the light: a little leaks in near an open edge, the middle
-//     of a big cloud's base is its darkest part, and a thick cover's base is darker still.
+//   - undersides see little of the dome and almost none of the light, one flat shade a cell: a thick cell's base is
+//     darker, and a thick cover's darker still.
 vec3 wcLit(vec3 n, float up, float interior, float dens, int tone, vec3 rd, vec3 l, float sun, float thick) {
 	bool top = n.y > 0.5, under = n.y < -0.5;
 	float ndl = dot(n, l);
@@ -202,15 +203,16 @@ vec3 wcLit(vec3 n, float up, float interior, float dens, int tone, vec3 rd, vec3
 		ao = mix(0.84, 1.0, interior) * mix(0.88, 1.03, dens);
 	} else if (under) {
 		skyView = 0.74;
-		diffuse = 0.10 + 0.04 * (1.0 - interior);
-		ao = mix(0.97, 0.91, interior) * mix(1.02, 0.84, dens) * (1.0 - 0.2 * thick);
+		// (one flat shade a cell: a lighter rim along a base's outline read as a bright line round every cloud)
+		diffuse = 0.11;
+		ao = 0.93 * mix(1.02, 0.84, dens) * (1.0 - 0.2 * thick);
 	} else {
 		skyView = 0.84;
 		diffuse = clamp((ndl + 0.45) / 1.45, 0.0, 1.0) * 0.92;
 		ao = mix(0.76, 1.0, up);
 	}
 	// forward scatter: looking toward the light, the sides and undersides glow at the edges
-	float forward = pow(clamp(dot(rd, l), 0.0, 1.0), 8.0) * (top ? 0.10 : (under ? 0.25 * (1.0 - interior) : 0.30));
+	float forward = pow(clamp(dot(rd, l), 0.0, 1.0), 8.0) * (top ? 0.10 : (under ? 0.15 : 0.30));
 	vec3 light = skyAmbientLight() * skyView + skyDirectLight() * (diffuse + forward) * sun;
 	return wcAlbedo(tone) * light * ao;
 }
@@ -234,7 +236,7 @@ vec3 wcFaceColour(vec3 n, float up, float interior, float dens, int tone, vec3 r
 			face = mix(0.84, 1.0, interior) * mix(0.88, 1.03, dens);
 			ref = wcLuma(wcHorizon(rd, e)) * mix(0.75, 1.05, sw);
 		} else if (n.y < -0.5) {
-			face = mix(0.94, 0.88, interior) * mix(1.02, 0.84, dens) * (1.0 - 0.2 * thick);
+			face = 0.91 * mix(1.02, 0.84, dens) * (1.0 - 0.2 * thick);
 			ref = wcLuma(wcDome(rd, e)) * mix(0.80, 1.05, sw);
 		} else {
 			face = mix(WC_SIDE_FOOT, WC_SIDE_BROW, up) * 0.92;
@@ -250,7 +252,7 @@ vec3 wcFaceColour(vec3 n, float up, float interior, float dens, int tone, vec3 r
 	// the grey sky round it
 	if (n.y < -0.5) {
 		float closed = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
-		vec3 dome = wcDome(rd, e) * mix(0.98, 0.93, interior) * mix(1.02, 0.9, dens);
+		vec3 dome = wcDome(rd, e) * 0.95 * mix(1.02, 0.9, dens);
 		c = mix(c, dome, closed);
 	}
 	if (e.flash && tone == 2) {
@@ -263,6 +265,13 @@ vec3 wcFaceColour(vec3 n, float up, float interior, float dens, int tone, vec3 r
 vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 	float up = abs(h.n.y) > 0.5 ? 0.5 : wcSideHeight(y, e);
 	return wcFaceColour(h.n, up, interior, 0.6, h.tone, rd, h.t, 1.0, e);
+}
+
+// What a far cloud sinks into: the sky behind it (a deck over the eye fades into the sky at its height, not into
+// the paler horizon, which made far cells brighter than the sky round them, as if seen through), the horizon for a
+// deck seen from above.
+vec3 wcFogTarget(vec3 rd, CloudEnv e) {
+	return rd.y > 0.0 ? skyDomeOnly(rd, skyFrame()) : wcHorizon(rd, e);
 }
 
 // How far a hit sinks into the horizon colour: a little from a few hundred blocks out, then smoothly more with each
@@ -315,14 +324,14 @@ vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) 
 		vec3 capN = vec3(0.0, rd.y > 0.0 ? -1.0 : 1.0, 0.0);
 		vec3 cap = wcFaceColour(capN, 0.5, 0.0, dens, h.tone, rd, h.t, sun, e);
 		// a side is never brighter than that body in a diffuse light (an overcast, the dusk, the night): only in a
-		// strong direct sun may a sunlit side seen from below stand out over its darker base, and then by a half; and
+		// strong direct sun may a sunlit side seen from below stand out over its darker base, and then by a quarter; and
 		// it leans to the body's hue, so a dusk side is no olive strip along a rose base
-		float allow = rd.y > 0.0 ? mix(1.0, 1.5, smoothstep(0.25, 0.5, wcDirectShare()) * smoothstep(0.05, 0.2, e.sun.y)) : 1.0;
+		float allow = rd.y > 0.0 ? mix(1.0, 1.25, smoothstep(0.25, 0.5, wcDirectShare()) * smoothstep(0.05, 0.2, e.sun.y)) : 1.0;
 		c *= min(1.0, allow * wcLuma(cap) / max(wcLuma(c), 1e-4));
 		c = mix(c, cap * (wcLuma(c) / max(wcLuma(cap), 1e-4)), 0.6);
 		c = mix(c, cap, wcSideThin(h, rd, pixAngle));
 	}
-	return mix(c, wcHorizon(rd, e), wcFog(h));
+	return mix(c, wcFogTarget(rd, e), wcFog(h));
 }
 
 // ------------------------------------------------------------------------------------------- the far band
@@ -395,7 +404,7 @@ vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
 	f.n = vec3(0.0, rd.y > 0.0 ? -1.0 : 1.0, 0.0);
 	float y = e.camY + rd.y * tMid;
 	vec3 hor = wcHorizon(rd, e);
-	vec3 cloud = mix(welkinCloudFace(f, rd, y, 0.5, e), hor, wcFog(f));
+	vec3 cloud = mix(welkinCloudFace(f, rd, y, 0.5, e), wcFogTarget(rd, e), wcFog(f));
 	return mix(hor, cloud, share);
 }
 

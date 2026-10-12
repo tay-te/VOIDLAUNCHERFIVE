@@ -63,6 +63,11 @@ void main() {
 	vec4 band0 = wcBandOf(0, ro, rd, pixAngle, e);
 	vec4 band1 = wcBandOf(1, ro, rd, pixAngle, e);
 	vec4 band2 = wcBandOf(2, ro, rd, pixAngle, e);
+	// a deck near the eye's height is its fog bank instead (wcSlabFog): its band would draw the deck's far edge as a
+	// hard line on the horizon over the fog
+	band0.z *= 1.0 - wcNearDeck(0, e);
+	band1.z *= 1.0 - wcNearDeck(1, e);
+	band2.z *= 1.0 - wcNearDeck(2, e);
 	float tCut = tScene;
 	tCut = band0.z >= 0.999 ? min(tCut, band0.x) : tCut;
 	tCut = band1.z >= 0.999 ? min(tCut, band1.x) : tCut;
@@ -72,23 +77,12 @@ void main() {
 	float opacity = 1.0;
 	if (h.hit) {
 		vec3 cc = welkinCloudColor(h, ro, rd, e, pixAngle);
-		// a deck at eye height: its near cells give way to the fog bank below (wcSlabFog), its far ones stay
+		// a deck at eye height: its cells give way to the fog bank below (wcSlabFog) out to a few kilometres, where
+		// the bank covers them (seen edge-on, the far cells of a thin bank stood as hard dark lines on the horizon)
 		int k = wcDeckAt(e.camY + rd.y * h.t - h.n.y * 0.01, e);
-		opacity = k >= 0 ? mix(1.0, smoothstep(150.0, 600.0, h.t), wcNearDeck(k, e)) : 1.0;
+		opacity = k >= 0 ? mix(1.0, smoothstep(300.0, 3000.0, h.t), wcNearDeck(k, e)) : 1.0;
 		color.rgb = mix(color.rgb, cc, opacity);
 		km = opacity > 0.5 ? h.t / 1000.0 : km;
-	}
-	// the decks near the eye's height as fog banks, as far as the eye sees: to the land, or to a cloud face that is
-	// drawn whole (a near face given way to the fog must not cut the fog short, or its outline would show in it)
-	if (wcNearDeck(0, e) + wcNearDeck(1, e) + wcNearDeck(2, e) > 0.0) {
-		vec4 wHere = wcWeatherAt(vec2(0.0), true, e);
-		float seen = h.hit && opacity >= 0.99 ? h.t : tScene;
-		for (int k = 0; k < 3; k++) {
-			float f = wcSlabFog(k, rd, seen, wcDeckShare(k, wHere, e), e);
-			if (f > 0.0) {
-				color.rgb = welkinCloudVeil(color.rgb, rd, 1e30, e) * f + color.rgb * (1.0 - f);
-			}
-		}
 	}
 	// the far bands, the farthest first; each lies over what is behind it (a gap's sky, or the cell hit inside it)
 	if (band0.x < band1.x) { vec4 t = band0; band0 = band1; band1 = t; }
@@ -102,6 +96,19 @@ void main() {
 			color.rgb = mix(color.rgb, wcBandColour(rd, b.y, cell ? mix(b.w, 1.0, 0.6) : b.w, e), b.z);
 			if (b.z > 0.5) {
 				km = min(km, b.y / 1000.0);
+			}
+		}
+	}
+	// the decks near the eye's height as fog banks, as far as the eye sees: to the land, or to a cloud face that is
+	// drawn whole (a near face given way to the fog must not cut the fog short, or its outline would show in it); in
+	// front of everything else the clouds drew
+	if (wcNearDeck(0, e) + wcNearDeck(1, e) + wcNearDeck(2, e) > 0.0) {
+		vec4 wHere = wcWeatherAt(vec2(0.0), true, e);
+		float seen = h.hit && opacity >= 0.99 ? h.t : tScene;
+		for (int k = 0; k < 3; k++) {
+			float f = wcSlabFog(k, rd, seen, wcDeckShare(k, wHere, e), e);
+			if (f > 0.0) {
+				color.rgb = welkinCloudVeil(color.rgb, rd, 1e30, e) * f + color.rgb * (1.0 - f);
 			}
 		}
 	}
