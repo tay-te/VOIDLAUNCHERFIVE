@@ -239,6 +239,24 @@ public final class MettleTest {
 			}
 		});
 
+		// 8b. Card sounds: the header's speaker opens Mettle's client option (on or off, and the volume).
+		this.ui.clickPage("[data-dd=\"sound\"]");
+		this.context.waitTicks(3);
+		this.expect("sound".equals(this.js("MC.st.menu?MC.st.menu.id:''")), "the card sounds popover opened");
+		this.expect("true".equals(this.js("String(MC.M.draft.sound.enabled)")), "card sounds start on");
+		this.ui.clickPage("[data-sndtoggle]");
+		this.waitPage("MC.M.draft.sound.enabled===false", 40, "turning card sounds off reached Mettle");
+		this.ui.clickPage("[data-sndvol]");  // the middle of the track: 50 %, and on again
+		this.waitPage("MC.M.draft.sound.volume===50&&MC.M.draft.sound.enabled===true", 40, "the volume slider set Mettle's card sound volume");
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.shot("voidhub_mettle_09b_card_sounds");
+		this.js("MC.act('setCardSoundsVolume','100');''");
+		this.waitPage("MC.M.draft.sound.volume===100", 40, "the card sound volume back at 100 %");
+		this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+		this.context.waitTicks(3);
+		this.expect("".equals(this.js("MC.st.menu?'open':''")), "Esc closed the card sounds popover");
+
 		// 9. A Mythic dealt in a draft (the 0.5 % roll forced): the room darkens, the card cracks, flips into a burst (M2, M3).
 		server.runCommand("mettle xp mettle:blades 20000 Player0");
 		this.context.waitTicks(5);

@@ -241,6 +241,8 @@ public final class Bridge {
 		op("tradeLock", ""),
 		op("tradeConfirm", ""),
 		op("tradeCancel", ""),
+		op("setCardSounds", "[01]"),
+		op("setCardSoundsVolume", "100|[1-9]?\\d"),
 		op("cardSound", "(?:deal|hover|unhover|mythic_reveal|slot|set_complete|stop|pick|burn)#[a-z0-9_:./#-]{0,64}"));
 
 	private static Map.Entry<String, java.util.regex.Pattern> op(String name, String argShape) {

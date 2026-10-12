@@ -206,7 +206,41 @@
 
   function homeHead(on) {
     var right = on === "cards" ? countBox() : draftsBadge();
-    head(tabs([["skills", "Skills"], ["cards", "Cards"], ["hall", "Hall of Firsts", 146]], on, "data-tab", 300), right);
+    head(tabs([["skills", "Skills"], ["cards", "Cards"], ["hall", "Hall of Firsts", 146]], on, "data-tab", 300),
+      '<div class="hd-row">' + right + soundButton() + "</div>");
+  }
+
+  // ---- card sounds (Mettle's client option, SOUNDS.md §8): a speaker in the home header opens a small popover ------
+  var sndLocal = null;  // what was just asked for, shown until Mettle's state says so (a tick or two)
+  function sound() {
+    var s = (M().draft && M().draft.sound) || {};
+    var st0 = {enabled: s.enabled !== false, volume: typeof s.volume === "number" ? s.volume : 100};
+    if (sndLocal && Date.now() - sndLocal.at < 1500 && (sndLocal.enabled !== st0.enabled || sndLocal.volume !== st0.volume)) return sndLocal;
+    sndLocal = null;
+    return st0;
+  }
+  function setSound(enabled, volume) {
+    var cur = sound();
+    volume = Math.max(0, Math.min(100, Math.round(volume / 5) * 5));
+    if (enabled !== cur.enabled) MC.act("setCardSounds", enabled ? "1" : "0");
+    if (volume !== cur.volume) MC.act("setCardSoundsVolume", String(volume));
+    sndLocal = {enabled: enabled, volume: volume, at: Date.now()};
+  }
+  var SPEAKER = '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z" fill="#EDEEEF"/>';
+  function soundButton() {
+    var s = sound(), open = st.menu && st.menu.id === "sound";
+    return '<div class="hd-snd' + (open ? " open" : "") + (s.enabled ? "" : " off") + '" data-dd="sound" title="Card sounds">' + SPEAKER +
+      (s.enabled ? '<path d="M10.5 5.5c.9.7 1.4 1.6 1.4 2.5s-.5 1.8-1.4 2.5M12.2 3.8c1.4 1.1 2.2 2.6 2.2 4.2s-.8 3.1-2.2 4.2" stroke="#EDEEEF" stroke-width="1.2" fill="none" stroke-linecap="round"/>'
+        : '<path d="M10.5 6l4 4M14.5 6l-4 4" stroke="#9A9DA1" stroke-width="1.2" stroke-linecap="round"/>') + "</svg></div>";
+  }
+  function soundPanel() {
+    var s = sound(), w = 168;
+    var h = '<div class="ddm-h">Card sounds</div>';
+    h += '<div class="snd-row" data-sndtoggle="1"><span>Play card sounds</span><i class="sw' + (s.enabled ? " on" : "") + '"><b></b></i></div>';
+    h += '<div class="snd-k">Volume</div><div class="snd-v">' + s.volume + " %</div>";
+    h += '<div class="snd-track' + (s.enabled ? "" : " off") + '" data-sndvol="1"><i class="fl" style="width:' + Math.round(w * s.volume / 100) + 'px"></i><i class="kn" style="left:' + Math.round(w * s.volume / 100 - 6) + 'px"></i></div>';
+    h += '<div class="snd-n">Draws, burns, the Mythic reveal and slotting. Saved for this game.</div>';
+    return h;
   }
   function countBox() {
     var b = M().cards.binder, w = Math.round(78 * Math.min(1, b.count / Math.max(1, b.max)));
@@ -974,6 +1008,7 @@
       case "d-kw": return {title: "Keyword", opts: kws, cur: d.kw};
       case "d-trait": return {title: "Trait", opts: [["", "Any trait"]].concat(traitsOf(deckCards())), cur: d.trait};
       case "d-sort": return {title: "Sort by", opts: SORTS, cur: d.sort};
+      case "sound": return {custom: soundPanel, w: 220, h: 168, opts: []};
       case "trade-req":
         var rows = [];
         for (i = 0; i < MC.near.length; i++) rows.push([MC.near[i].name, MC.near[i].name, '<span class="ddo-d">' + Math.max(1, Math.round(MC.near[i].d)) + " m</span>"]);
@@ -1002,9 +1037,9 @@
   function menuHeight(count) { return count ? 34 + Math.min(MENU_ROWS, count) * MENU_ROW + 6 : 34 + 44; }
   function openMenu(id, el) {
     var p = MC.abs(el), o = MC.abs(cv), spec = menuSpec(id);
-    var w = spec.wide ? 260 : Math.max(el.offsetWidth, 176);
-    var h = menuHeight(spec.opts.length);
-    var x = Math.max(12, Math.min(987 - w - 12, p.x - o.x)), below = p.y - o.y + el.offsetHeight + 4, above = p.y - o.y - h - 4;
+    var w = spec.w || (spec.wide ? 260 : Math.max(el.offsetWidth, 176));
+    var h = spec.h || menuHeight(spec.opts.length);
+    var x = Math.max(12, Math.min(987 - w - 12, spec.w ? p.x - o.x + el.offsetWidth - w : p.x - o.x)), below = p.y - o.y + el.offsetHeight + 4, above = p.y - o.y - h - 4;
     st.menu = {id: id, x: x, y: below + h <= 618 || above < 30 ? below : above, w: w, scroll: 0, card: el.getAttribute("data-ddcard")};
     if (st.menu.y + h > 622) st.menu.y = Math.max(30, 622 - h);
     ui();
@@ -1016,8 +1051,15 @@
   }
   function menu() {
     var m = st.menu, spec = m ? menuSpec(m.id) : null, opts = spec ? spec.opts : [], n = Math.min(MENU_ROWS, opts.length);
-    var el = part(cv, "c-menu", "ddm", m ? "left:" + m.x + "px;top:" + m.y + "px;width:" + m.w + "px;height:" + menuHeight(opts.length) + "px" : "display:none");
+    var el = part(cv, "c-menu", "ddm", m ? "left:" + m.x + "px;top:" + m.y + "px;width:" + m.w + "px;height:" + (spec.h || menuHeight(opts.length)) + "px" : "display:none");
     if (!m) { patch(el, "", ""); return; }
+    if (spec.custom) {
+      el.setAttribute("data-scroll", "menu");
+      el.setAttribute("data-ddm", "1");
+      var html = spec.custom();
+      patch(el, html, html);
+      return;
+    }
     m.scroll = Math.max(0, Math.min(m.scroll, opts.length - n));
     el.setAttribute("data-scroll", "menu");
     el.setAttribute("data-ddm", "1");
@@ -1073,7 +1115,16 @@
     var handled = true;
     if (st.menu) {
       // An open menu takes the click: a pick, its own opener (toggles it shut), or anywhere else (just closes it).
-      var opt = closest(t, "data-ddv"), opener = closest(t, "data-dd"), id = st.menu.id;
+      var opt = closest(t, "data-ddv"), opener = closest(t, "data-dd"), id = st.menu.id, sv;
+      if (id === "sound" && closest(t, "data-sndtoggle")) { sv = sound(); setSound(!sv.enabled, sv.volume); ev.stopPropagation(); MC.render(); return; }
+      if (id === "sound" && (el = closest(t, "data-sndvol"))) {
+        var r = el.getBoundingClientRect();
+        sv = sound();
+        setSound(true, (ev.clientX - r.left) / Math.max(1, r.width) * 100);
+        ev.stopPropagation();
+        MC.render();
+        return;
+      }
       if (opt) menuPick(id, opt.getAttribute("data-ddv"));
       if (opt || !closest(t, "data-ddm") || opener) closeMenu();
       ev.stopPropagation();
@@ -1273,7 +1324,8 @@
     var el = document.elementFromPoint(m.x, m.y), box = closest(el, "data-scroll");
     if (!box) return;
     var step = m.dy > 0 ? -1 : 1, which = box.getAttribute("data-scroll");
-    if (which === "menu") { if (st.menu) st.menu.scroll = Math.max(0, st.menu.scroll + step); }
+    if (which === "menu" && st.menu && st.menu.id === "sound") { var sw = sound(); setSound(sw.enabled, sw.volume + step * 10); }
+    else if (which === "menu") { if (st.menu) st.menu.scroll = Math.max(0, st.menu.scroll + step); }
     else if (which === "binder") st.binder.scroll = Math.max(0, st.binder.scroll + step);
     else if (which === "deck") st.deck.scroll = Math.max(0, st.deck.scroll + step);
     else if (which === "hall") st.hall.scroll = Math.max(0, st.hall.scroll + step);

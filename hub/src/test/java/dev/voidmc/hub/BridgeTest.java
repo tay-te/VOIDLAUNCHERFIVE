@@ -42,7 +42,8 @@ class BridgeTest {
 			{"unslotCards", "12"}, {"pinSets", ""}, {"pinSets", "mettle:swift,mettle:keen"}, {"closeSitting", ""}, {"tradeRequest", "Bree"},
 			{"tradeOfferCard", "44"}, {"tradeOfferItem", "-1"}, {"tradeTakeBackItem", "0"}, {"tradeCoin", "250"}, {"tradeLock", ""},
 			{"cardSound", "hover#mettle:mining#2"}, {"cardSound", "deal#mettle:mining"}, {"cardSound", "unhover#"}, {"cardSound", "pick#mythic"},
-			{"claimMythic", "mettle:blades"}};
+			{"claimMythic", "mettle:blades"}, {"setCardSounds", "0"}, {"setCardSounds", "1"}, {"setCardSoundsVolume", "0"},
+			{"setCardSoundsVolume", "45"}, {"setCardSoundsVolume", "100"}};
 		for (String[] c : ok) {
 			assertEquals(new Bridge.MettleCall(c[0], c[1]), Bridge.decode(Json.object().put("type", "mettle").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
 		}
@@ -50,7 +51,8 @@ class BridgeTest {
 		String[][] bad = {{"pickCard", "mettle:mining#3"}, {"pickCard", "mettle:mining"}, {"slotCard", "12#x"}, {"rebuildCards", "12;15"},
 			{"rebuildCards", "1,2,3,4,5,6,7,8,9,10,11,12,13"}, {"pinSets", "a:b,c:d,e:f,g:h"}, {"closeSitting", "x"}, {"tradeRequest", "Bree Smith"},
 			{"tradeOfferItem", "-2"}, {"tradeCoin", "-5"}, {"cardSound", "explode#"}, {"cardSound", "hover#<script>"},
-			{"claimMythic", "mettle:blades#1"}, {"claimMythic", ""}};
+			{"claimMythic", "mettle:blades#1"}, {"claimMythic", ""}, {"setCardSounds", "true"}, {"setCardSounds", ""},
+			{"setCardSoundsVolume", "101"}, {"setCardSoundsVolume", "-1"}, {"setCardSoundsVolume", "05"}, {"setCardSoundsVolume", "50.5"}};
 		for (String[] c : bad) {
 			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(Json.object().put("type", "mettle").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
 		}

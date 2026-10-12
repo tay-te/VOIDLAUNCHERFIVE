@@ -211,6 +211,9 @@ public final class MettleLink {
 				case "closeSitting", "tradeAccept", "tradeLock", "tradeConfirm", "tradeCancel" -> invoke(action(op));
 				case "tradeOfferItem", "tradeTakeBackItem" -> invoke(action(op, int.class), Integer.parseInt(arg));
 				case "tradeCoin" -> invoke(action(op, long.class), Long.parseLong(arg));
+				// The client's card sound option (SOUNDS.md §8): on or off, and 0-100 %.
+				case "setCardSounds" -> invoke(action(op, boolean.class), "1".equals(arg));
+				case "setCardSoundsVolume" -> invoke(action(op, int.class), Integer.parseInt(arg));
 				case "cardSound" -> {
 					int hash = arg.indexOf('#');
 					invoke(action("cardSound", String.class, String.class), arg.substring(0, hash), arg.substring(hash + 1));
