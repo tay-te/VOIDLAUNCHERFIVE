@@ -186,11 +186,12 @@ vec3 skyLandSunColour(float h, float morning) {
 	// rose-gold at dawn (more red than yellow, so dawn crowns gild instead of turning lime)
 	vec3 noon = vec3(1.00, 0.955, 0.85);
 	vec3 aft  = mix(vec3(1.00, 0.83, 0.48), vec3(1.00, 0.88, 0.66), morning);
-	vec3 gold = mix(vec3(1.00, 0.70, 0.36), vec3(1.00, 0.70, 0.50), morning);
-	vec3 low  = mix(vec3(1.00, 0.50, 0.20), vec3(1.00, 0.54, 0.36), morning);
+	vec3 gold = mix(vec3(1.00, 0.67, 0.34), vec3(1.00, 0.68, 0.48), morning);
+	vec3 low  = mix(vec3(1.00, 0.46, 0.18), vec3(1.00, 0.50, 0.32), morning);
 	vec3 c = mix(aft, noon, smoothstep(0.52, 0.92, h));
 	c = mix(gold, c, smoothstep(0.08, 0.36, h));
-	c = mix(low, c, smoothstep(-0.01, 0.14, h));
+	// (the last ten degrees are the low sun's: red enough that a green crown turns gold in it, not lime)
+	c = mix(low, c, smoothstep(0.02, 0.18, h));
 	return skyUnitLuma(c);
 }
 

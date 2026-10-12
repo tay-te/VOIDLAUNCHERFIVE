@@ -117,7 +117,16 @@ vec3 skyLowSunBandOver(vec3 col, vec3 d, SkyFrame f) {
 	wAz *= wAz;
 	float wEl = exp(-max(d.y, 0.0) / 0.10) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
 	float w = clamp(b.a * wAz * wEl, 0.0, 1.0);
-	return mix(col, max(col, b.rgb), w);
+	col = mix(col, max(col, b.rgb), w);
+	// round 1: the rose band opposite a low sun (the belt of Venus): low over the horizon, broad in azimuth, a soft
+	// rose-lilac at the sky's own brightness and above it, so the half of a dusk or dawn sky away from the sun is a
+	// gentle gradient too, not a dark slate against the sun's rose half
+	float wAnti = 0.5 - 0.5 * az;
+	wAnti *= wAnti;
+	float wElA = exp(-max(d.y, 0.0) / 0.22) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
+	vec3 rose = vec3(0.86, 0.64, 0.70) * max(dot(b.rgb, vec3(0.2126, 0.7152, 0.0722)) * 0.62, 0.0);
+	float wa = clamp(b.a * wAnti * wElA * 0.55, 0.0, 1.0);
+	return mix(col, max(col, rose), wa);
 }
 
 vec3 skyDomeOnly(vec3 dirW, SkyFrame f) {

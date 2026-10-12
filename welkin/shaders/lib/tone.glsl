@@ -43,7 +43,7 @@
 // exposure (a LAND_EXPOSURE of 1 maps a mid grey face lit by 1.0 to mid grey)
 #define LAND_EXPOSURE 1.0
 // the S round mid grey: 1 is none
-#define LAND_CONTRAST 1.22
+#define LAND_CONTRAST 1.26
 // where the shoulder starts (linear, about sRGB 177) and how much of it keeps the hue
 #define LAND_KNEE 0.45
 #define LAND_HUE_KEEP 0.8

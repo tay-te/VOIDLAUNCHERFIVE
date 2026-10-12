@@ -187,7 +187,7 @@ float welkinGlow(vec3 v, vec3 n, vec3 l, int m, float through) {
 		float low = 1.0 - smoothstep(0.06, 0.3, l.y);
 		lobe = mix(lobe, 0.4 + 0.6 * c2, low);
 		// the faces turned away from the light (half on an edge-on face)
-		return 0.5 * lobe * through * clamp(0.5 - dot(n, l), 0.0, 1.0);
+		return 0.7 * lobe * through * clamp(0.5 - dot(n, l), 0.0, 1.0);
 	}
 	return 0.32 * lobe * through;
 }
@@ -270,7 +270,7 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	// saturation, so a back-lit crown rims warm instead of glowing lime
 	vec3 through = vec3(0.0);
 	if (glow > 0.0) {
-		vec3 aT = mix(vec3(lumaLin(a)), a, 0.5);
+		vec3 aT = mix(vec3(lumaLin(a)), a, 0.65);
 		through = aT * skyLandDirect() * sunShare * glow;
 	}
 #endif
