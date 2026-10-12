@@ -47,7 +47,7 @@ public final class MettleTest {
 		var server = this.world.getServer();
 		// 0. First join: Mettle asks for a background and the hub's picker opens on Classes. Choose the Wanderer,
 		// which has to place 4 points and favour 2 skills, through the page.
-		this.context.waitFor(mc -> mc.gui.screen() instanceof HubInventoryScreen h && "classes".equals(h.page()), 400);
+		this.context.waitFor(mc -> mc.gui.screen() instanceof HubInventoryScreen h && "classes".equals(h.segment()), 400);
 		this.context.waitTicks(20);
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
@@ -506,7 +506,7 @@ public final class MettleTest {
 		this.context.getInput().pressKey(InputConstants.KEY_K);
 		this.context.waitForScreen(HubInventoryScreen.class);
 		this.context.waitTicks(10);
-		this.expect("classes".equals(this.context.computeOnClient(mc -> ((HubInventoryScreen) mc.gui.screen()).page())), "K opened the hub on Classes");
+		this.expect("classes".equals(this.context.computeOnClient(mc -> ((HubInventoryScreen) mc.gui.screen()).segment())), "K opened the hub on Classes");
 		if ("true".equals(this.js("String(MC.ov.active())"))) {
 			this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 			this.context.waitTicks(3);

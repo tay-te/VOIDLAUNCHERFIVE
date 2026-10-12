@@ -181,6 +181,27 @@ body.chest .page-inv { display: none; }
 .scrollbar .thumb { position: absolute; left: 0; width: 4px; border-radius: 2px; background: var(--cell-on); }
 body.scrolls .scrollbar { display: block; }
 
+/* ---- map page (Figma 375:36239) ------------------------------------------------------------
+   The window is Atlas's page window: #0B0B0C, a 7 % hairline, radius 32. Atlas draws
+   everything inside it natively; the page draws only this frame, or the stand-in without Atlas. */
+/* The Map window has no header cut: the drawn frame fills the layout's window edge to edge. */
+body.map #win::before { top: 0; width: 100%; height: 100%; border-color: var(--line-3); }
+/* Over Atlas's still of the world (voidhub.frozenMap) the still carries Atlas's own dim. */
+body.map.frozen #dim { opacity: 0; }
+body.map #win > * { display: none; }
+#win > .page-map { display: none; inset: 0; }
+body.map:not(.atlas) #win > .page-map { display: block; }
+.standin {
+  position: absolute; left: 0; right: 0; top: 50%; margin-top: -78px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.standin-art { position: relative; width: 48px; height: 38px; margin-bottom: 22px; }
+.standin-art i { position: absolute; border-radius: 1.2px; }
+.standin-title { font-size: 16px; color: var(--ink); margin-bottom: 6px; }
+.standin-text { font-size: 13px; color: var(--ink-3); margin-bottom: 14px; }
+.pill-button.off { opacity: 0.45; }
+.pill-button.off:hover { background: var(--raised); }
+
 /* ---- right column cards ------------------------------------------------------------------- */
 .card {
   left: 514px; width: 445px;

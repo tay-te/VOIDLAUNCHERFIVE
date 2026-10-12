@@ -31,6 +31,8 @@ class BridgeTest {
 		assertInstanceOf(Bridge.Invalid.class, Bridge.decode("{\"type\":\"mettle\",\"op\":\"respec\",\"arg\":\"x\"}"));
 		assertInstanceOf(Bridge.Invalid.class, Bridge.decode("{\"type\":\"mettle\",\"op\":\"learnPerk\",\"arg\":\"Mettle:Bad Id\"}"));
 		assertInstanceOf(Bridge.Invalid.class, Bridge.decode("{\"type\":\"mettle\",\"op\":\"learnPerk\"}"));
+		assertEquals(new Bridge.Page("map"), Bridge.decode("{\"type\":\"page\",\"value\":\"map\"}"));
+		assertInstanceOf(Bridge.Waypoint.class, Bridge.decode("{\"type\":\"waypoint\"}"));
 	}
 
 	@Test
@@ -88,7 +90,7 @@ class BridgeTest {
 	void rejectsWithoutThrowing() {
 		for (String bad : List.of("", "not json", "{", "[]", "{}", "{\"type\":1}", "{\"type\":\"explode\"}",
 			"{\"type\":\"filter\",\"value\":\"weapons\"}", "{\"type\":\"filter\"}", "{\"type\":\"sort\",\"region\":\"world\"}",
-			"{\"type\":\"moveAll\",\"to\":7}", "{\"type\":\"turn\",\"deg\":\"left\"}", "{\"type\":\"close\"} trailing")) {
+			"{\"type\":\"moveAll\",\"to\":7}", "{\"type\":\"page\",\"value\":\"settings\"}", "{\"type\":\"page\"}", "{\"type\":\"turn\",\"deg\":\"left\"}", "{\"type\":\"close\"} trailing")) {
 			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(bad), bad);
 		}
 	}

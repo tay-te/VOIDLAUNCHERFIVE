@@ -134,6 +134,18 @@
     }
   })();
 
+  // The Map stand-in: a folded map with a route and a pin, at the cards' quiet ink.
+  var MAPART = [
+    "#########",
+    "#...#...#",
+    "#.+.#...#",
+    "#..+#.o.#",
+    "#...++..#",
+    "#...#...#",
+    "#########"
+  ];
+  sprite($("standin-art"), MAPART, 4.2, 1.2, ["0.22", "0.5", "0.92"], "237,238,239");
+
   var COIN = [".####.", "#++++#", "#+##+#", "#+##+#", "#++++#", ".####."];
   function coins() {
     var defs = [["copper", "217,160,126"], ["iron", "196,201,207"], ["gold", "227,196,126"]];
@@ -172,10 +184,17 @@
     var body = document.body;
     toggle(body, "inventory", l.kind === "inventory");
     toggle(body, "chest", l.kind === "chest");
+    toggle(body, "map", l.kind === "map");
     toggle(body, "scrolls", l.maxScroll > 0);
     var win = $("win");
     win.style.left = l.win.x + "px";
-    win.style.top = (l.win.y - 24) + "px";  // the coordinate box starts HEADER_CUT above the drawn window
+    // The coordinate box starts HEADER_CUT (24) above the drawn window; the Map window is Atlas's
+    // page edge to edge, with no header cut.
+    win.style.top = (l.kind === "map" ? l.win.y : l.win.y - 24) + "px";
+    // The map window's size is the layout's (it fills the space between the islands); the
+    // inventory and chest windows keep the design's fixed size from the stylesheet.
+    win.style.width = l.kind === "map" ? l.win.w + "px" : "";
+    win.style.height = l.kind === "map" ? l.win.h + "px" : "";
 
     var seen = {};
     for (var k = 0; k < l.slots.length; k++) {
@@ -258,6 +277,14 @@
     }
     text($("world-status"), "WORLD  ·  DAY " + s.day);
     text($("world-name"), s.world);
+    if (p.page !== s.page) {
+      var pages = document.querySelectorAll("#pages .page");
+      for (i = 0; i < pages.length; i++) toggle(pages[i], "active", pages[i].getAttribute("data-page") === s.page);
+    }
+    toggle(document.body, "atlas", !!s.atlas);
+    toggle(document.body, "frozen", !!s.frozen);
+    toggle($("pill"), "off", !s.atlas);
+    text($("pill-text"), s.pill || "Waypoint here");
 
     var total = s.purse.copper + s.purse.iron * 10 + s.purse.gold * 100;
     text($("coin-copper"), String(s.purse.copper));
@@ -297,7 +324,7 @@
       toggle(document.body, "carrying", !!s.carrying);
       if (s.carrying) hideTip();
     }
-    prev = {hover: s.hover, heldSlot: heldSlot, drag: drag, dragList: s.drag, filled: filled, filter: s.filter};
+    prev = {hover: s.hover, heldSlot: heldSlot, drag: drag, dragList: s.drag, filled: filled, filter: s.filter, page: s.page};
     if (ext) ext.state(s);
   }
 
@@ -444,6 +471,8 @@
         if (t.getAttribute("data-sort")) { send({type: "sort", region: t.getAttribute("data-sort")}); return; }
         if (t.getAttribute("data-move")) { send({type: "moveAll", to: t.getAttribute("data-move")}); return; }
         if (t.getAttribute("data-act") === "close") { send({type: "close"}); return; }
+        if (t.getAttribute("data-act") === "waypoint") { send({type: "waypoint"}); return; }
+        if (t.getAttribute("data-page")) { send({type: "page", value: t.getAttribute("data-page")}); return; }
         if (t.getAttribute("data-seg")) { send({type: "segment", value: t.getAttribute("data-seg")}); return; }
       }
       t = t.parentNode;

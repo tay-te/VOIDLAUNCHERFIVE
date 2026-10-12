@@ -31,6 +31,109 @@ tasks.register('syncUltralight', Sync) {
 	into 'libs'
 }
 
+// ---------------------------------------------------------------------------------------------
+// VOID Atlas (optional). The hub's Map page hosts Atlas's map widget when Atlas is installed and
+// shows a quiet stand-in when it is not. The hub compiles against Atlas's API (compileOnly: nothing
+// of Atlas ships in the hub) and touches it only from dev.voidmc.hub.map.atlas, behind
+// FabricLoader.isModLoaded("atlas").
+//
+// Where Atlas comes from, first found wins:
+//   1. Maven local, dev.voidmc:void-atlas:<atlas_version>: `./gradlew publishToMavenLocal` in
+//      the atlas project (-PatlasFrom=libs skips it)
+//   2. libs/void-atlas.jar, staged by syncAtlas:
+//   ./gradlew syncAtlas                       build Atlas from the claude/atlas branch (a git
+//                                             snapshot under build/, the atlas worktree is not
+//                                             touched) and stage it as libs/void-atlas.jar
+//   ./gradlew syncAtlas -PatlasJar=<file>     stage a jar you already have instead
+//   ./gradlew syncAtlas -PatlasRef=<ref>      snapshot another branch / commit
+//   ./gradlew runClient -Patlas               dev client with Atlas loaded (likewise hubPerf,
+//                                             hubFunctional, runClientGameTest)
+//
+//   3. neither: the hub still builds, against src/atlasApi, a copy of the API signatures it calls
+//      (never packaged); -Patlas then fails.
+// ---------------------------------------------------------------------------------------------
+def atlasJar = file('libs/void-atlas.jar')
+def atlasVersion = (project.findProperty('atlas_version') ?: '0.1.0').toString()
+def atlasMaven = new File(System.getProperty('user.home'), ".m2/repository/dev/voidmc/void-atlas/${atlasVersion}/void-atlas-${atlasVersion}.jar")
+def atlasFrom = (project.findProperty('atlasFrom') ?: (atlasMaven.isFile() ? 'maven' : atlasJar.isFile() ? 'libs' : 'none')).toString()
+def atlasDep = atlasFrom == 'maven' ? "dev.voidmc:void-atlas:${atlasVersion}" : atlasFrom == 'libs' && atlasJar.isFile() ? files(atlasJar) : null
+def withAtlas = project.hasProperty('atlas') && project.property('atlas').toString() != 'false'
+if (withAtlas && atlasDep == null) {
+	throw new GradleException("-Patlas needs VOID Atlas: publishToMavenLocal in the atlas project, or ./gradlew syncAtlas")
+}
+if (atlasFrom == 'maven') {
+	repositories {
+		mavenLocal {
+			content {
+				includeModule 'dev.voidmc', 'void-atlas'
+			}
+		}
+	}
+}
+logger.lifecycle("VOID Hub: VOID Atlas API from ${atlasDep == null ? 'src/atlasApi (no Atlas found)' : atlasFrom == 'maven' ? "Maven local (dev.voidmc:void-atlas:${atlasVersion})" : 'libs/void-atlas.jar'}${withAtlas ? ', and Atlas in the dev runs' : ''}")
+
+if (atlasDep == null) {
+	// Compiled with the hub, never packaged (see the jar block).
+	sourceSets.main.java.srcDir 'src/atlasApi/java'
+}
+
+tasks.register('syncAtlas') {
+	group = 'voidhub'
+	description = 'Stages VOID Atlas as libs/void-atlas.jar (built from a git snapshot of -PatlasRef, default claude/atlas, or copied from -PatlasJar)'
+	def given = project.findProperty('atlasJar')
+	def ref = (project.findProperty('atlasRef') ?: 'claude/atlas').toString()
+	def snapshot = layout.buildDirectory.dir('atlas-snapshot').get().asFile
+	def libs = file('libs')
+	def repoRoot = rootDir.parentFile
+	def javaHome = System.getenv('JAVA_HOME') ?: System.getProperty('java.home')
+	doLast {
+		libs.mkdirs()
+		String origin
+		File jar
+		if (given) {
+			jar = file(given.toString())
+			if (!jar.isFile()) {
+				throw new GradleException("no jar at ${jar}")
+			}
+			origin = jar.absolutePath
+		} else {
+			def sha = providers.exec { commandLine 'git', 'rev-parse', ref }.standardOutput.asText.get().trim()
+			project.delete(snapshot)
+			snapshot.mkdirs()
+			def tar = new File(snapshot, 'atlas.tar')
+			// From the repository's root: run in a subdirectory, git archive only archives that one.
+			providers.exec { commandLine 'git', '-C', repoRoot.absolutePath, 'archive', '-o', tar.absolutePath, sha, 'atlas' }.result.get()
+			project.copy {
+				from project.tarTree(tar)
+				into snapshot
+			}
+			def dir = new File(snapshot, 'atlas')
+			def isWindows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')
+			def build = providers.exec {
+				workingDir dir
+				environment 'JAVA_HOME', javaHome
+				commandLine isWindows ? ['cmd', '/c', new File(dir, 'gradlew.bat').absolutePath, 'jar', '--no-daemon', '-q'] : ['sh', new File(dir, 'gradlew').absolutePath, 'jar', '--no-daemon', '-q']
+				ignoreExitValue = true
+			}
+			if (build.result.get().exitValue != 0) {
+				throw new GradleException('the Atlas snapshot build failed:\n' + build.standardOutput.asText.get() + build.standardError.asText.get())
+			}
+			jar = new File(dir, 'build/libs').listFiles().find { it.name.endsWith('.jar') && !it.name.contains('-sources') }
+			if (jar == null) {
+				throw new GradleException("the Atlas snapshot built no jar in ${dir}/build/libs")
+			}
+			origin = "${ref} @ ${sha}"
+		}
+		project.copy {
+			from jar
+			into libs
+			rename { 'void-atlas.jar' }
+		}
+		new File(libs, 'void-atlas.txt').text = "VOID Atlas staged from ${origin} (${jar.name}) on ${new Date()}\n"
+		println "VOID Atlas staged: libs/void-atlas.jar from ${origin}"
+	}
+}
+
 loom {
 	mods {
 		"voidhub" {
@@ -50,6 +153,15 @@ dependencies {
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 	implementation files(ulApiJar)
 
+	// Atlas: its API to compile against (else the signature copy in src/atlasApi), and the mod
+	// itself in the dev runs only with -Patlas. Its own dependencies are the hub's already.
+	if (atlasDep != null) {
+		compileOnly(atlasDep) { if (it instanceof ModuleDependency) it.transitive = false }
+	}
+	if (withAtlas) {
+		localRuntime(atlasDep) { if (it instanceof ModuleDependency) it.transitive = false }
+	}
+
 	testImplementation platform("org.junit:junit-bom:${project.junit_version}")
 	testImplementation 'org.junit.jupiter:junit-jupiter'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -68,6 +180,8 @@ jar {
 	// Shade the binding's classes; ship every staged natives/<os>-<arch>/ tree.
 	from(zipTree(ulApiJar)) { exclude 'META-INF/**' }
 	from(ulNatives) { into 'natives' }
+	// The Atlas API signature copy is for compiling only; the real classes come with Atlas.
+	exclude 'dev/voidmc/atlas/**'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -107,6 +221,13 @@ fabricApi {
 	}
 }
 
+// The game test calls Atlas's API too (only when Atlas is installed): the same jar, or the copy.
+dependencies {
+	if (atlasDep != null) {
+		gametestCompileOnly(atlasDep) { if (it instanceof ModuleDependency) it.transitive = false }
+	}
+}
+
 def backend = (project.findProperty('backend') ?: 'opengl').toString().toLowerCase(Locale.ROOT)
 if (!(backend in ['opengl', 'vulkan'])) {
 	throw new GradleException("-Pbackend must be opengl or vulkan, not '${backend}'")
@@ -130,7 +251,8 @@ def hubTestRun = { String name, String mode ->
 		// does not pre-warm at world join; the gate's first-open number excludes that one-off cost.
 		property 'voidhub.prewarm', mode == 'perf' ? 'false' : 'true'
 		programArgs '--username', 'Player0', '--graphicsBackend', backend.toUpperCase(Locale.ROOT)
-		runDir "build/run/${name}-${backend}"
+		// A run with VOID Atlas (-Patlas) gets its own folder: Atlas keeps its maps in the run dir.
+		runDir "build/run/${name}-${backend}${withAtlas ? '-atlas' : ''}"
 		ideConfigGenerated false
 	}
 }
@@ -139,24 +261,24 @@ hubTestRun('hubFunctionalGame', 'functional')
 
 tasks.register('hubPerf') {
 	group = 'voidhub'
-	description = 'Perf regression gate: VOID inventory vs vanilla inventory (-Pbackend=opengl|vulkan)'
+	description = 'Perf regression gate: VOID inventory vs vanilla inventory, and with -Patlas the Map page vs the Atlas map screen (-Pbackend=opengl|vulkan)'
 	dependsOn 'runHubPerfGame'
-	def report = file("build/perf/${backend}.json")
+	def report = file("build/perf/${backend}${withAtlas ? '-atlas' : ''}.json")
 	doLast {
 		if (!report.isFile()) {
 			throw new GradleException("no perf report at ${report}")
 		}
 		def json = new groovy.json.JsonSlurper().parse(report)
-		println "VOID Hub perf (${backend}): ${json.verdict} — written to ${report} and docs/PERF.md"
+		println "VOID Hub perf (${backend}, ${withAtlas ? 'with' : 'without'} VOID Atlas): ${json.verdict} — written to ${report} and docs/PERF.md"
 		if (json.verdict != 'PASS') {
-			throw new GradleException("VOID inventory is over budget on ${backend}: ${json.failures}")
+			throw new GradleException("VOID Hub is over budget on ${backend}${withAtlas ? ' with VOID Atlas' : ''}: ${json.failures}")
 		}
 	}
 }
 
 tasks.register('hubFunctional') {
 	group = 'voidhub'
-	description = 'In-game click assertions (pickup/place, shift-click, 2x2 craft, chest move-all, sort)'
+	description = 'In-game click assertions (pickup/place, shift-click, 2x2 craft, chest move-all, sort) and the Map page (with -Patlas: the Atlas map)'
 	dependsOn 'runHubFunctionalGame'
 }
 

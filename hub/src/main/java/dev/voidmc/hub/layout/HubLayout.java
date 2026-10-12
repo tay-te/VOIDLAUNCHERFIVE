@@ -23,7 +23,7 @@ import java.util.List;
 public final class HubLayout {
 
 	public enum Kind {
-		INVENTORY, CHEST, GEAR, CLASSES
+		INVENTORY, CHEST, GEAR, CLASSES, MAP
 	}
 
 	public enum Role {
@@ -76,6 +76,14 @@ public final class HubLayout {
 	static final double MIN_CELL_PX = 20.0;
 	/** Visible chest rows; longer containers scroll. */
 	public static final int VISIBLE_ROWS = 3;
+	/**
+	 * The Map page's window: Figma 375:36239 ("Hub Map page with the real Atlas"), Atlas's shipped
+	 * page at 1280 x 744, 36 below the page islands and 30 above the world strip.
+	 */
+	public static final int MAP_W = 1280;
+	public static final int MAP_H = 744;
+	static final int MAP_GAP_TOP = 36;
+	static final int MAP_GAP_BOTTOM = 30;
 	/** Mettle's pocket wells in the Gear page's worn card are smaller than the grid's. */
 	public static final int POCKET = 40;
 
@@ -118,7 +126,7 @@ public final class HubLayout {
 	public final GearSlots gear;
 	private final List<Cell> cells;
 
-	private HubLayout(Kind kind, int fbW, int fbH, int guiScale, int containerRows, int scrollRow, GearSlots gear) {
+	private HubLayout(Kind kind, int fbW, int fbH, int guiScale, int containerRows, int scrollRow, GearSlots gear, AtlasScale scale) {
 		this.kind = kind;
 		this.fbW = Math.max(1, fbW);
 		this.fbH = Math.max(1, fbH);
@@ -138,11 +146,15 @@ public final class HubLayout {
 		double stripX = (this.fbW - STRIP_W * u) / 2.0;
 		this.strip = Rect.design(stripX, this.fbH - (MARGIN + STRIP_H) * u, 0, 0, STRIP_W, STRIP_H, u);
 
-		// Window: centred, lifted as in the design, never under the top islands.
-		double winX = Math.round((this.fbW - WIN_W * u) / 2.0);
-		double winY = (this.fbH - WIN_H * u) / 2.0 - WIN_LIFT * u;
-		winY = Math.round(Math.max(winY, (ISLAND_TOP + PAGES_H + 8) * u));
-		this.window = Rect.design(winX, winY, 0, 0, WIN_W, WIN_H, u);
+		if (kind == Kind.MAP) {
+			this.window = mapWindow(this.fbW, this.fbH, this.guiScale, u, scale);
+		} else {
+			// Window: centred, lifted as in the design, never under the top islands.
+			double winX = Math.round((this.fbW - WIN_W * u) / 2.0);
+			double winY = (this.fbH - WIN_H * u) / 2.0 - WIN_LIFT * u;
+			winY = Math.round(Math.max(winY, (ISLAND_TOP + PAGES_H + 8) * u));
+			this.window = Rect.design(winX, winY, 0, 0, WIN_W, WIN_H, u);
+		}
 
 		this.iconPx = iconSize(CELL * u, 0.61);
 		List<Cell> out = new ArrayList<>();
@@ -185,8 +197,8 @@ public final class HubLayout {
 			this.player = null;
 			this.detailIcon = null;  // hovering shows the tooltip; the column holds load, worn gear and the purse
 			this.containerGrid = null;
-		} else if (kind == Kind.CLASSES) {
-			// Mettle's Classes page draws no slots: the menu stays open underneath, untouched.
+		} else if (kind == Kind.CLASSES || kind == Kind.MAP) {
+			// Mettle's Classes page and the Map page draw no slots: the menu stays open underneath, untouched.
 			this.player = null;
 			this.detailIcon = null;
 			this.containerGrid = null;
@@ -227,7 +239,7 @@ public final class HubLayout {
 
 	/** The inventory page; with {@code gear}, Mettle's back, belt and quiver wells too. */
 	public static HubLayout inventory(int fbW, int fbH, int guiScale, GearSlots gear) {
-		return new HubLayout(Kind.INVENTORY, fbW, fbH, guiScale, 0, 0, gear);
+		return new HubLayout(Kind.INVENTORY, fbW, fbH, guiScale, 0, 0, gear, null);
 	}
 
 	/** Mettle's Gear page: pack pockets, the inventory, and the worn card with belt and quiver pockets. */
@@ -235,19 +247,107 @@ public final class HubLayout {
 		if (gear == null) {
 			throw new IllegalArgumentException("the Gear page needs Mettle's gear slots");
 		}
-		return new HubLayout(Kind.GEAR, fbW, fbH, guiScale, 0, 0, gear);
+		return new HubLayout(Kind.GEAR, fbW, fbH, guiScale, 0, 0, gear, null);
 	}
 
 	/** Mettle's Classes page: no slots. */
 	public static HubLayout classes(int fbW, int fbH, int guiScale) {
-		return new HubLayout(Kind.CLASSES, fbW, fbH, guiScale, 0, 0, null);
+		return new HubLayout(Kind.CLASSES, fbW, fbH, guiScale, 0, 0, null, null);
 	}
 
 	public static HubLayout chest(int fbW, int fbH, int guiScale, int rows, int scrollRow) {
 		if (rows < 1 || rows > 6) {
 			throw new IllegalArgumentException("chest rows must be 1-6, not " + rows);
 		}
-		return new HubLayout(Kind.CHEST, fbW, fbH, guiScale, rows, scrollRow, null);
+		return new HubLayout(Kind.CHEST, fbW, fbH, guiScale, rows, scrollRow, null, null);
+	}
+
+	/** The Map page: the shell's islands as on every page, and the window Atlas's map fills. */
+	public static HubLayout map(int fbW, int fbH, int guiScale) {
+		return map(fbW, fbH, guiScale, AtlasScale.MIRROR);
+	}
+
+	/** The Map page, its window sized for the scale Atlas itself says it will draw at. */
+	public static HubLayout map(int fbW, int fbH, int guiScale, AtlasScale scale) {
+		return new HubLayout(Kind.MAP, fbW, fbH, guiScale, 0, 0, null, scale == null ? AtlasScale.MIRROR : scale);
+	}
+
+	/**
+	 * The scale Atlas draws its 1280 x 744 page at in a rectangle of physical px
+	 * ({@code MapWidget.unitFor}). {@link #MIRROR} is a copy of Atlas's rule, for when Atlas is not
+	 * installed (the stand-in's window) and for the unit tests.
+	 */
+	@FunctionalInterface
+	public interface AtlasScale {
+		double unitFor(int width, int height);
+
+		AtlasScale MIRROR = (w, h) -> {
+			double want = Math.min(w / (double) MAP_W, h / (double) MAP_H);
+			double best = ATLAS_UNITS[0];
+			for (double a : ATLAS_UNITS) {
+				if (a <= want + 1e-4) {
+					best = a;
+				}
+			}
+			return best;
+		};
+	}
+
+	/**
+	 * The scales VOID Atlas draws its page at (its {@code Ui.UNITS}: each has its own rasterisation of
+	 * Outfit). Atlas picks the largest that fits the rectangle it is given. Only {@link AtlasScale#MIRROR}
+	 * uses this copy; with Atlas installed the layout asks Atlas.
+	 */
+	public static final double[] ATLAS_UNITS = {0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0};
+
+	/** Top of the Map page's band: the page islands' bottom edge plus the design's gap (design units). */
+	static final int MAP_BAND_TOP = ISLAND_TOP + PAGES_H + MAP_GAP_TOP;
+
+	/**
+	 * The Atlas scale for the Map page: the largest of Atlas's scales at which its 1280 x 744 page
+	 * fits the band between the page islands and the world strip (keeping the design's gaps) and the
+	 * window's width, and is no larger than the shell's own unit (so the map never outgrows the
+	 * islands around it).
+	 */
+	public static double atlasUnit(int fbW, int fbH, double u, AtlasScale scale) {
+		double availW = fbW - 2 * MARGIN * u;
+		double availH = fbH - (MAP_BAND_TOP + MARGIN + STRIP_H + MAP_GAP_BOTTOM) * u;
+		int w = (int) Math.floor(Math.max(1, Math.min(availW, MAP_W * u)) + 1e-6);
+		int h = (int) Math.floor(Math.max(1, Math.min(availH, MAP_H * u)) + 1e-6);
+		return scale.unitFor(w, h);
+	}
+
+	public static double atlasUnit(int fbW, int fbH, double u) {
+		return atlasUnit(fbW, fbH, u, AtlasScale.MIRROR);
+	}
+
+	/**
+	 * The Map page's window, physical px: Atlas's page at exactly 1280 x 744 of its design units
+	 * (Figma 375:36239), at {@link #atlasUnit}, centred in the band between the islands. Every edge
+	 * lies on the GUI-pixel grid (the size rounded up, so Atlas, measuring the rectangle, picks that
+	 * same unit), and the rectangle Atlas is given in GUI coordinates is exactly the window the page
+	 * draws. A window too small for even Atlas's smallest scale gets the band, and Atlas fits into it.
+	 * The Map window has no header cut: it is Atlas's page, drawn edge to edge.
+	 */
+	static Rect mapWindow(int fbW, int fbH, int guiScale, double u, AtlasScale scale) {
+		double top = MAP_BAND_TOP * u;
+		double bottom = fbH - (MARGIN + STRIP_H + MAP_GAP_BOTTOM) * u;
+		double availW = fbW - 2 * MARGIN * u;
+		double a = atlasUnit(fbW, fbH, u, scale);
+		double w = MAP_W * a;
+		double h = MAP_H * a;
+		int gw;
+		int gh;
+		if (w <= availW && h <= bottom - top) {
+			gw = (int) Math.ceil(w / guiScale - 1e-9);
+			gh = (int) Math.ceil(h / guiScale - 1e-9);
+		} else {
+			gw = Math.max(1, (int) Math.floor(Math.min(w, availW) / guiScale));
+			gh = Math.max(1, (int) Math.floor(Math.min(h, bottom - top) / guiScale));
+		}
+		int gx = (int) Math.round((fbW / (double) guiScale - gw) / 2.0);
+		int gy = (int) Math.round(((top + bottom) / 2.0) / guiScale - gh / 2.0);
+		return new Rect(gx * guiScale, gy * guiScale, gw * guiScale, gh * guiScale);
 	}
 
 	/**

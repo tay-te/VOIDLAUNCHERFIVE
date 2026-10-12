@@ -3,6 +3,7 @@ package dev.voidmc.hub.screen;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.hub.layout.HubLayout;
 import dev.voidmc.hub.layout.Rect;
+import dev.voidmc.hub.map.HubMap;
 import dev.voidmc.hub.mettle.MettleLink;
 import dev.voidmc.hub.model.Bridge;
 import dev.voidmc.hub.model.Json;
@@ -27,14 +28,16 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * The VOID inventory over {@code player.inventoryMenu}: armour, offhand, 2x2 crafting with its
- * result, 27 storage and 9 hotbar slots, the live player model (drag to turn), and the
- * hovered-item card.
+ * The hub (R-Shift) and the VOID inventory (E), over {@code player.inventoryMenu}. Its pages are
+ * the hub's: <b>Inventory</b> — armour, offhand, 2x2 crafting with its result, 27 storage and 9
+ * hotbar slots, the live player model (drag to turn) and the hovered-item card — and <b>Map</b>,
+ * VOID Atlas's map in the hub's window (a stand-in without Atlas). Tab, Shift-Tab or the pages
+ * island switch between them; the menu stays open underneath either way.
  *
- * <p>With VOID Mettle installed the window has two more pages over the same menu, switched by the
- * segments: <b>Gear</b> (the worn backpack's pockets, belt and quiver, and the load) and
- * <b>Classes</b> (background, attributes, skills and their perk trees, drawn by the page from
- * Mettle's state message). See {@link MettleLink}.
+ * <p>With VOID Mettle installed the Inventory page has two more segments over the same menu:
+ * <b>Gear</b> (the worn backpack's pockets, belt and quiver, and the load) and <b>Classes</b>
+ * (background, attributes, skills and their cards, drawn by the page from Mettle's state
+ * message). See {@link MettleLink}.
  */
 public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
@@ -44,7 +47,16 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	/** Rebuild Mettle's state at most this often (ticks) while the window is open. */
 	private static final int METTLE_EVERY = 10;
 
+	public static final String MAP = "map";
+	public static final String INVENTORY = "inventory";
+
+	/** The page the hub was last left on (R-Shift opens there); null until the hub first opens. */
+	private static String lastPage;
+
+	/** The hub page: {@link #MAP} or {@link #INVENTORY}. */
 	private String page;
+	/** The Inventory page's segment: "inventory", or with Mettle "gear" / "classes". */
+	private String segment;
 	private String sentMettle;
 	/** The state last sent, without the ages of chips and moments that change every build. */
 	private String sentMettleKey;
@@ -56,19 +68,80 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	private boolean sentIcons;
 	private int mettleAge = Integer.MAX_VALUE;
 
+	/** The inventory page (E). */
 	public HubInventoryScreen(Player player) {
-		this(player, "inventory");
+		this(player, INVENTORY);
 	}
 
-	/** Opens on a page: "inventory", or with Mettle "gear" / "classes". */
+	/** Opens on a page: "map", "inventory", or with Mettle the Inventory page's "gear" / "classes" segment. */
 	public HubInventoryScreen(Player player, String page) {
 		// Vanilla's InventoryScreen panel size: the pointer mapping uses vanilla's own geometry.
 		super(player.inventoryMenu, player.getInventory(), Component.translatable("container.crafting"), 176, 166);
-		this.page = MettleLink.hasGear(player.inventoryMenu) ? page : "inventory";
+		this.page = MAP.equals(page) ? MAP : INVENTORY;
+		boolean seg = "gear".equals(page) || "classes".equals(page);
+		this.segment = seg && MettleLink.hasGear(player.inventoryMenu) ? page : INVENTORY;
+		lastPage = this.page;
 	}
 
+	/**
+	 * The page R-Shift opens the hub on: where it was left, and at first the Map when VOID Atlas is
+	 * installed (the Inventory otherwise, rather than a stand-in).
+	 */
+	public static String rShiftPage() {
+		if (lastPage != null) {
+			return lastPage;
+		}
+		return HubMap.available() ? MAP : INVENTORY;
+	}
+
+	/** Forgets the last page (a new world, or tests). */
+	public static void resetLastPage() {
+		lastPage = null;
+	}
+
+	/** Sets the page the next R-Shift opens on (tests). */
+	public static void rememberPage(String page) {
+		lastPage = MAP.equals(page) ? MAP : INVENTORY;
+	}
+
+	/** The hub page: "map" or "inventory". */
+	@Override
 	public String page() {
 		return this.page;
+	}
+
+	/** The Inventory page's segment: "inventory", "gear" or "classes". */
+	public String segment() {
+		return this.segment;
+	}
+
+	private boolean onClasses() {
+		return INVENTORY.equals(this.page) && "classes".equals(this.segment);
+	}
+
+	@Override
+	protected boolean hasPages() {
+		return true;
+	}
+
+	@Override
+	public void showPage(String page) {
+		if (!MAP.equals(page) && !INVENTORY.equals(page) || page.equals(this.page)) {
+			return;  // Quests, Mods and Friends are not built yet
+		}
+		this.page = page;
+		lastPage = page;
+		this.leaveSegment();
+		this.pageChanged();
+		this.resendLayout();
+	}
+
+	/** The Classes page's moving parts and keyboard claims end with it. */
+	private void leaveSegment() {
+		this.fx.clear();
+		this.pageModal = false;
+		this.pageText = false;
+		this.mettleAge = Integer.MAX_VALUE;
 	}
 
 	static int[] range(int start, int n) {
@@ -81,24 +154,24 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	@Override
 	protected HubLayout makeLayout(int fbW, int fbH, int guiScale) {
+		if (MAP.equals(this.page)) {
+			return HubLayout.map(fbW, fbH, guiScale, HubMap.scale());
+		}
 		HubLayout.GearSlots gear = MettleLink.hasGear(this.menu) ? HubLayout.GearSlots.METTLE : null;
-		return switch (this.page) {
+		return switch (this.segment) {
 			case "gear" -> gear == null ? HubLayout.inventory(fbW, fbH, guiScale) : HubLayout.gear(fbW, fbH, guiScale, gear);
 			case "classes" -> HubLayout.classes(fbW, fbH, guiScale);
 			default -> HubLayout.inventory(fbW, fbH, guiScale, gear);
 		};
 	}
 
-	/** Switches page in place: same menu, same carried stack, a new layout. */
-	public void setPage(String next) {
-		if (next.equals(this.page) || !("inventory".equals(next) || MettleLink.hasGear(this.menu))) {
+	/** Switches the Inventory page's segment in place: same menu, same carried stack, a new layout. */
+	public void setSegment(String next) {
+		if (MAP.equals(this.page) || next.equals(this.segment) || !("inventory".equals(next) || MettleLink.hasGear(this.menu))) {
 			return;
 		}
-		this.page = next;
-		this.fx.clear();
-		this.pageModal = false;
-		this.pageText = false;
-		this.mettleAge = Integer.MAX_VALUE;
+		this.segment = next;
+		this.leaveSegment();
 		this.relayout();
 		this.resendLayout();
 	}
@@ -106,7 +179,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	@Override
 	protected void onMessage(Bridge.Message m) {
 		switch (m) {
-			case Bridge.Segment seg -> this.setPage(seg.value());
+			case Bridge.Segment seg -> this.setSegment(seg.value());
 			case Bridge.MettleChoose choose -> {
 				MettleLink.chooseBackground(choose.json());
 				this.mettleAge = METTLE_EVERY - 2;
@@ -118,7 +191,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 				}
 			}
 			case Bridge.Fx f -> {
-				if ("classes".equals(this.page)) {
+				if (this.onClasses()) {
 					this.fx.set(f.items());
 				}
 			}
@@ -145,7 +218,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	 */
 	@Override
 	protected void pushExtra() {
-		if (!MettleLink.hasGear(this.menu)) {
+		if (!MettleLink.hasGear(this.menu) || MAP.equals(this.page)) {
 			return;
 		}
 		if (this.sentMettle != null && this.mettleAge < METTLE_EVERY) {
@@ -200,7 +273,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	@Override
 	public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-		if ("classes".equals(this.page) && MettleLink.present()) {
+		if (this.onClasses() && MettleLink.present()) {
 			String name = pageKey(event.key());
 			if (this.pageText) {
 				if (name != null && !name.equals("r") && !Character.isDigit(name.charAt(0))) {
@@ -214,13 +287,16 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 					return true;  // Esc closes the draft or the moment, not the window; 1-3 pick
 				}
 			}
+			if (this.pageModal && event.isCycleFocus()) {
+				return true;  // a draft or moment keeps the page: Tab does not switch to the Map under it
+			}
 		}
 		return super.keyPressed(event);
 	}
 
 	@Override
 	public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
-		if ("classes".equals(this.page) && this.pageText && event.isAllowedChatCharacter()) {
+		if (this.onClasses() && this.pageText && event.isAllowedChatCharacter()) {
 			this.hub.send(Json.object().put("type", "key").put("ch", event.codepointAsString()).end());
 			return true;
 		}
@@ -229,7 +305,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	@Override
 	public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
-		if ("classes".equals(this.page) && MettleLink.present()) {
+		if (this.onClasses() && MettleLink.present()) {
 			int gs = this.minecraft.getWindow().getGuiScale();
 			this.hub.send(Json.object().put("type", "wheel").put("x", this.layout.physToCss(x * gs)).put("y", this.layout.physToCss(y * gs))
 				.put("dy", scrollY).end());
@@ -283,7 +359,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 			case "storage" -> STORAGE;
 			case "hotbar" -> HOTBAR;
 			// The Gear page's "container" is the worn pack: its pockets that are switched on.
-			case "container" -> "gear".equals(this.page) && MettleLink.hasGear(this.menu) ? this.activePack() : new int[0];
+			case "container" -> "gear".equals(this.segment) && INVENTORY.equals(this.page) && MettleLink.hasGear(this.menu) ? this.activePack() : new int[0];
 			default -> new int[0];
 		};
 	}
@@ -304,7 +380,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		}
 		w.put("used", used);
 		w.put("total", 36);
-		w.put("page", this.page);
+		w.put("segment", this.segment);
 		w.put("mettle", MettleLink.hasGear(this.menu));
 		if (MettleLink.hasGear(this.menu)) {
 			// Pockets the worn gear does not have are switched off: the page draws them as absent.
@@ -365,7 +441,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	@Override
 	protected void extractExtras(GuiGraphicsExtractor graphics, double guiMouseX, double guiMouseY) {
 		this.extractEffects(graphics);
-		if ("classes".equals(this.page) && this.fx.active() && this.hub.texture() != null) {
+		if (this.onClasses() && this.fx.active() && this.hub.texture() != null) {
 			this.fx.extract(graphics, this.layout.u, this.minecraft.getWindow().getGuiScale(), this.hub.texture().width(), this.hub.texture().height());
 		}
 		Rect box = this.layout.player;

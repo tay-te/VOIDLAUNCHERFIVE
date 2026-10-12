@@ -2,12 +2,14 @@ package dev.voidmc.hub;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.hub.layout.HubLayout;
+import dev.voidmc.hub.map.HubMap;
 import dev.voidmc.hub.mettle.MettleLink;
 import dev.voidmc.hub.screen.HubInventoryScreen;
 import dev.voidmc.hub.ui.HubView;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
@@ -18,7 +20,8 @@ import org.slf4j.LoggerFactory;
  * VOID Hub: the VOID-drawn inventory, rendered with Ultralight over Minecraft's real menus.
  *
  * <ul>
- *   <li>Right Shift opens the hub on its Inventory page.</li>
+ *   <li>Right Shift opens the hub on the page it was left on: at first the Map (VOID Atlas's map,
+ *       when Atlas is installed), else the Inventory. Tab switches pages.</li>
  *   <li>While {@link HubConfig#replaceInventory()} is on (the default for this prototype), E and
  *       opening a chest show the VOID screens instead of vanilla's. Every other container keeps its
  *       vanilla screen.</li>
@@ -58,7 +61,7 @@ public final class VoidHub implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (openHub.consumeClick()) {
 				if (mc.player != null && mc.gui.screen() == null && HubView.available()) {
-					mc.gui.setScreen(new HubInventoryScreen(mc.player));
+					mc.gui.setScreen(new HubInventoryScreen(mc.player, HubInventoryScreen.rShiftPage()));
 				}
 			}
 			// A Card Shrine was used: Mettle opens no screen of its own, the hub opens on Classes, where the page
@@ -75,7 +78,14 @@ public final class VoidHub implements ClientModInitializer {
 				HubView.prewarm(w.getWidth(), w.getHeight(), l.u, l.toJson());
 			}
 		});
-		LOGGER.info("VOID Hub ready: R-Shift opens the hub; VOID inventory replaces vanilla's: {}", HubConfig.replaceInventory());
+		// A new world gets a new map (Atlas's map of it) and opens on the first page again.
+		ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
+			HubMap.reset();
+			HubInventoryScreen.resetLastPage();
+		});
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> HubMap.reset());
+		LOGGER.info("VOID Hub ready: R-Shift opens the hub; VOID inventory replaces vanilla's: {}; Map page: {}", HubConfig.replaceInventory(),
+			HubMap.available() ? "VOID Atlas" : "stand-in (VOID Atlas not installed)");
 	}
 
 	public static Minecraft mc() {

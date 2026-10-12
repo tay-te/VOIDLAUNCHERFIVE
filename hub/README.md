@@ -1,4 +1,4 @@
-# VOID Hub — the VOID-drawn inventory (prototype)
+# VOID Hub — the VOID-drawn inventory and the hub's Map page (prototype)
 
 A client-only Fabric mod for Minecraft 26.3 that draws the inventory and chest screens in the VOID
 design (Figma `3c0Wgc4ZKFSpm98fWJoARS`, frames 272:51688 "Hub · Inventory (VOID-drawn)" and
@@ -10,10 +10,11 @@ the numbers are in [docs/PERF.md](docs/PERF.md).
 
 | key | does |
 |---|---|
-| **Right Shift** | opens the hub on its Inventory page (closes it again) |
+| **Right Shift** | opens the hub on the page it was left on — at first the **Map** when VOID Atlas is installed, the Inventory otherwise (closes it again) |
+| **Tab / Shift-Tab** | next / previous hub page (Map ⇄ Inventory); clicking a page in the pages island does the same |
 | **E** | opens the VOID inventory instead of vanilla's while the swap is on (default on) |
 | open a chest | shows the VOID chest (any `ChestMenu`: chest, barrel, ender chest, 1–6 rows; >3 rows scroll) |
-| **Esc / E / Right Shift** | close |
+| **Esc / E / Right Shift** | close (on the Map page E shows the Inventory, and Esc goes to the map first — see below) |
 
 Everything else is vanilla, because it *is* vanilla: left/right click pick up, place, split; shift-click;
 drag-distribute; double-click collect; number keys and F swap; Q / Ctrl+Q drop; middle-click clone in
@@ -31,6 +32,77 @@ Switches (system properties, e.g. via `JAVA_TOOL_OPTIONS`):
 | `voidhub.hideHud` | `true` | the hub's shell replaces the HUD while it is open |
 | `voidhub.upload` | `dirty` | `full` = whole-surface readback every change (the baseline the native dirty copy is measured against) |
 | `voidhub.sync` | `false` | `true` = the render thread waits for Ultralight every frame (what a single-threaded integration costs; for measurement) |
+
+## The Map page and VOID Atlas (optional)
+
+The hub's Map page (Figma `375:36239`, section 8, "Hub Map page with the real Atlas") hosts **VOID Atlas**'s
+whole map page — segments, search, the map with its readout, layers, zoom and scale, the places list,
+cards and the waypoint editor — inside the hub's window, with the hub's islands around it as on every
+page: the mark top-left, pages top-centre, close top-right, the world strip bottom-centre.
+
+* **Optional.** Atlas is never required. The hub compiles against Atlas's API `compileOnly` (nothing of
+  Atlas ships in the hub jar), and only `map/atlas/AtlasMapHost` names an Atlas type; `map/HubMap`
+  reaches it through one static call, made only once `FabricLoader.isModLoaded("atlas")` said yes, so
+  without Atlas no Atlas class is ever loaded. The rest of the hub talks to the hub-owned
+  `map/MapHost` interface. Without Atlas the Map page shows a quiet stand-in ("Install VOID Atlas for
+  the map") in the same window, the strip's "Waypoint here" is dimmed and inert, and R-Shift opens on
+  the Inventory rather than on a stand-in.
+* **Atlas's page at 1280 × 744.** The window is Atlas's shipped page at exactly its design size, at
+  the largest of Atlas's own scales (0.75 … 3, the ones its fonts are rasterised at) that fits between
+  the islands and is no larger than the islands' unit (asked of Atlas: `MapWidget.unitFor`); at
+  1920×1080 that is Atlas at 1:1 in a 1280×744 window. Atlas measures the rectangle and lays its page
+  out at that same scale, unstretched. (Without Atlas the stand-in's window uses a copy of Atlas's rule.)
+* **One map with M.** The Map page and Atlas's own map screen are two views of Atlas's one map page
+  for the session: the same view, zoom, layer, depth, selection and panel tab. **M** on the Map page
+  closes the hub (`AtlasApi.isMapKey`), as it closes Atlas's own map.
+* **Drawn natively.** Ultralight draws only the hub's chrome: the dim, the islands and the window's
+  frame (Atlas's page window: `#0B0B0C`, 7 % hairline, radius 32). Atlas's
+  `MapWidget.render` draws everything inside it through Minecraft's GUI pipeline, in the same frame,
+  after the chrome quad. Nothing is drawn twice and neither side draws a full-screen layer of its own
+  by default. The window rectangle is on
+  the GUI-pixel grid, so the frame the page draws and the rectangle Atlas lays out in are the same.
+  While the pointer is over the map the page is told once that it left and then not at all, so
+  panning costs Ultralight nothing (no messages, no hit-testing, no repaints).
+* **Still backdrop (default).** Behind the Map page the world is Atlas's still of it
+  (`MapWidget.freezeWorld`, then `drawFrozenWorld(graphics, 0.34)`): drawn once, then not at all, at the
+  hub's own 34 % dim, which saves about 1.1–1.2 ms a frame while panning (docs/PERF.md). The hub draws
+  that dim itself while the Map page shows — over the still, or over the live world in the frames
+  before Atlas has one — and the page's own dim is off meanwhile, so the two are never stacked. An
+  Atlas without `drawFrozenWorld(graphics, dim)` (before 792a7cfc) keeps the live world and the page's
+  dim; `-Dvoidhub.frozenMap=false` does the same by choice. The world moves again as soon as the
+  page stops showing.
+* **Lazy and kept.** The widget is made on the first frame the Map page draws (not at start-up or when
+  the hub opens), then kept: every later open, and every switch back from the Inventory, shows the
+  same map where it was left (`MapWidget.shown()` each time it shows: the map reads the player's
+  dimension and depth, as M does; `closed()` when it stops: the map saves its settings). Joining or
+  leaving a world drops it.
+* **Input.** On the Map page the window is the map's: clicks, drags (captured from the press, wherever
+  the pointer goes), the wheel and keys go to the widget; the islands stay the page's. No click there is
+  a vanilla container click, so a carried stack is never dropped from the map. The hub keeps
+  **R-Shift** (close), **Tab / Shift-Tab** (pages) and **Esc**: Esc goes to the map first, so it closes the
+  map's card, menu or search, and closes the hub only when the map has nothing to close. While the map
+  has a text field (its search, the waypoint editor) keys are text: Tab moves between Atlas's search
+  groups and R-Shift types capitals, and only an Esc the map does not use closes the hub. **E** on the
+  Map page shows the Inventory.
+* **"Waypoint here"** (the world strip) adds an Atlas waypoint where the player stands, named like
+  Atlas's own quick-add ("Waypoint 4"), through `AtlasApi.addWaypoint`; on the Map page it is selected
+  (`MapWidget.selectWaypoint`), so the map centres on it and shows its card. The pill says "Waypoint added" for a moment.
+
+Building with Atlas: the hub compiles against `dev.voidmc:void-atlas:0.1.0` from Maven local
+(`./gradlew publishToMavenLocal` in `atlas/`; Atlas 6c4fb205 or later, 792a7cfc for the still backdrop). Without it, `./gradlew syncAtlas`
+stages `libs/void-atlas.jar` from a `git archive` snapshot of the `claude/atlas` branch under
+`build/atlas-snapshot/` (`-PatlasRef=<ref>`, `-PatlasJar=<file>`; `-PatlasFrom=libs` prefers it over
+Maven local). Then `-Patlas` puts Atlas in the dev runs: `./gradlew runClient -Patlas`,
+`hubFunctional -Patlas`, `hubPerf -Pbackend=vulkan -Patlas`. With neither, the hub compiles against
+`src/atlasApi/`, a copy of the API signatures it calls (excluded from the jar). An Atlas older than
+6c4fb205 is refused at the first Map frame (logged; the stand-in shows).
+
+**Asked of Atlas and landed in 6c4fb205** (2026-10-07): one shared map page per session for M and
+`createMapWidget`; `MapWidget.view()`, `selectWaypoint`, `closed()`, `shown()`, `unitFor(w, h)`,
+`freezeWorld` / `drawFrozenWorld`; `AtlasApi.markerId` and `isMapKey`; a solid Track glyph and solid
+22 % hairline tracking lines; maven-publish. The hub uses all of them and no longer reaches into Atlas.
+Then 792a7cfc: `drawFrozenWorld(graphics, dim)`, so the still keeps the hub's 34 % look (the hub's
+default since).
 
 ## Architecture
 
@@ -102,6 +174,8 @@ Source map:
 | `screen/HubScreen`, `HubInventoryScreen`, `HubChestScreen` | the screens |
 | `ui/HubView`, `HubTexture`, `HubStats` | Ultralight view, renderpearl texture, per-frame timings |
 | `mixin/GuiMixin` | screen swap; HUD hidden under the hub |
+| `map/MapHost`, `map/HubMap`, `map/atlas/AtlasMapHost` | the Map page's map: the hub-side interface, the optional-Atlas gate, the only class naming Atlas types |
+| `src/atlasApi/java` | the Atlas API signatures the hub compiles against when no Atlas jar is staged (not packaged) |
 | `src/main/resources/assets/voidhub/ui/` | the page: `index.html`, `hub.css`, `hub.js`, Outfit fonts |
 
 ## VOID Mettle (optional)
@@ -146,8 +220,8 @@ measured). PERF.md has the in-game difference.
 | command | what | needs the game |
 |---|---|---|
 | `./gradlew test` | JUnit 5: shared layout (page rects ↔ hit-testing at GUI scales 1–4, 8 window sizes, every chest size/scroll), pointer → vanilla slot mapping against vanilla's real slot positions, tooltip model → JSON, JS-bridge decode/encode, Sort / Move-all click plans replayed on a model of vanilla's PICKUP rules | no |
-| `./gradlew hubFunctional` | in-game: real clicks through `MouseHandler` / `KeyboardHandler`, asserting the real menu and that client and server agree — pickup/place, right-click split, shift-click, number-key swap, Q drop, 2×2 craft (log → 4 planks), drag-distribute, double-click collect, armour/offhand, filter chips via the page, E / R-Shift / Esc, chest Move all both ways + Sort, page wells vs layout at GUI scales 1–4. Screenshots in `build/run/hubFunctionalGame-<backend>/screenshots/` | yes |
-| `./gradlew hubPerf -Pbackend=opengl` (or `vulkan`) | the perf regression gate (below) | yes |
+| `./gradlew hubFunctional [-Patlas]` | in-game: real clicks through `MouseHandler` / `KeyboardHandler`, asserting the real menu and that client and server agree — pickup/place, right-click split, shift-click, number-key swap, Q drop, 2×2 craft (log → 4 planks), drag-distribute, double-click collect, armour/offhand, filter chips via the page, E / R-Shift / Esc, chest Move all both ways + Sort, page wells vs layout at GUI scales 1–4; then the Map page (`MapTest`): without Atlas the stand-in, Tab / island page switches, the inert pill, R-Shift re-opening on the last page; with `-Patlas` R-Shift opening on Atlas's map, a drag panning it, the wheel zooming it, "Waypoint here" adding a waypoint, Esc reaching the map first, Tab / Shift-Tab / island / E, the widget kept between opens with its view, typing in Atlas's search keeping Tab and R-Shift, the window matching the layout at GUI scales 1–4. Screenshots in `build/run/hubFunctionalGame-<backend>[-atlas]/screenshots/` | yes |
+| `./gradlew hubPerf -Pbackend=opengl` (or `vulkan`) `[-Patlas]` | the perf regression gate (below) | yes |
 | `./gradlew runClientGameTest` | functional + perf in one run | yes |
 
 Optional: `-Pseconds=20` (time per scenario, default 10, split over 2 interleaved rounds).
@@ -162,7 +236,13 @@ interleaving vanilla and VOID rounds so background load lands on both sides:
   sweeping every slot (~30 slots/s, so vanilla draws its highlight and tooltips and VOID repaints
   wells and the card); vanilla chest; VOID chest idle and hovered;
 * two baselines: Ultralight on the render thread (`sync`), and that plus the binding's original
-  whole-surface `readPixels()` instead of the new dirty-rectangle copy.
+  whole-surface `readPixels()` instead of the new dirty-rectangle copy;
+* without Atlas, the Map page's stand-in (`void_map_standin`); with `-Patlas`, the Map page against
+  Atlas's own map screen (M), each idle (`void_map` / `atlas_map`) and panned by the same drag
+  (`void_map_pan` / `atlas_map_pan`: the left button held while the pointer circles over the map
+  every frame), interleaved round by round, plus the first Map open (the widget is made then), Map
+  re-opens and Atlas's own screen's opens. The with-Atlas run writes `build/perf/<backend>-atlas.json`
+  and its own section of `docs/PERF.md`.
 
 For each: fps, frame time avg/p50/p95/p99/max, CPU time in `renderFrame`, GPU time (renderpearl
 timestamp queries), hitches, and the VOID cost split into render-thread work (post, wait, copy,
@@ -176,7 +256,10 @@ the numbers, and **fails** if the VOID inventory exceeds vanilla's by more than:
 vanilla had hovering the same way, first open (after pre-warm) over 300 ms, any re-open over
 150 ms. The frame-time deltas are the median of the per-round differences (VOID round minus the
 vanilla round next to it), so a load spike from another process lands in one round, not in the
-verdict, while a real regression shows in every round.
+verdict, while a real regression shows in every round. With Atlas it also fails if the Map page
+exceeds Atlas's own map screen by more than avg +1.0 ms (idle and panning) or p99 +2.0 ms (panning),
+has more frames over 33 ms while panning than Atlas's screen had, a first Map open over 300 ms or a
+Map re-open over 150 ms.
 
 The gate's game tasks end the JVM themselves once the results are written
 (`voidhub.test.halt`): closing the test world occasionally deadlocks under the client game test,

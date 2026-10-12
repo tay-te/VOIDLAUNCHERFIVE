@@ -5,6 +5,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import dev.voidmc.hub.HubConfig;
 import dev.voidmc.hub.layout.HubLayout;
 import dev.voidmc.hub.layout.Rect;
+import dev.voidmc.hub.map.HubMap;
 import dev.voidmc.hub.model.Json;
 import dev.voidmc.hub.screen.HubChestScreen;
 import dev.voidmc.hub.screen.HubInventoryScreen;
@@ -42,6 +43,9 @@ public final class PerfTest {
 	static final double BUDGET_HITCH_MS = 33.0;
 	static final double BUDGET_FIRST_OPEN_MS = 300.0;
 	static final double BUDGET_REOPEN_MS = 150.0;
+	// The Map page with VOID Atlas, against Atlas's own map screen panned the same way.
+	static final double BUDGET_MAP_AVG_MS = 1.0;
+	static final double BUDGET_MAP_P99_MS = 2.0;
 
 	private final ClientGameTestContext context;
 	private final TestSingleplayerContext world;
@@ -52,6 +56,8 @@ public final class PerfTest {
 	private final int rounds = Integer.getInteger("voidhub.test.rounds", 4);
 	private final Path out = Path.of(System.getProperty("voidhub.test.out", "perf"));
 	private final Path docs = Path.of(System.getProperty("voidhub.test.docs", "docs"));
+	/** VOID Atlas installed (the run's -Patlas): the Map page hosts its map, and is measured. */
+	private boolean atlas;
 
 	/** Accumulated raw frames per scenario across rounds. */
 	private final Map<String, Samples> samples = new LinkedHashMap<>();
@@ -84,6 +90,8 @@ public final class PerfTest {
 		String api = this.context.computeOnClient(mc -> RenderSystem.getDevice().getClass().getSimpleName());
 		int guiScale = this.context.computeOnClient(mc -> mc.getWindow().getGuiScale());
 		HubConfig.setHideHud(false);  // like-for-like: vanilla's inventory draws the HUD under it
+		this.atlas = this.context.computeOnClient(mc -> HubMap.available());
+		System.out.println("[voidhub-perf] VOID Atlas " + (this.atlas ? "installed: the Map page is measured against Atlas's own map screen" : "not installed"));
 		int loadBefore = Memory.cpuLoadPercent();
 
 		// ---- one-off costs: Ultralight start-up and the first layout, then the first open ---------
@@ -177,6 +185,9 @@ public final class PerfTest {
 				FrameHooks.sweepPath = null;
 				this.closeScreen();
 			});
+			if (!this.atlas) {
+				this.scenario("void_map_standin", per, () -> this.openVoidMap(), this::closeScreen);
+			}
 		}
 		// Baselines: Ultralight's work on the render thread (sync: what a single-threaded
 		// integration pays), and on top of that the binding's original whole-surface readback.
@@ -206,8 +217,13 @@ public final class PerfTest {
 			});
 		});
 
+		// ---- the Map page with VOID Atlas ---------------------------------------------------------
+		MapNumbers map = this.atlas ? this.mapScenarios(per) : null;
+
 		// ---- report ------------------------------------------------------------------------------
 		Report r = new Report();
+		r.atlas = this.atlas;
+		r.map = map;
 		r.cpuLoadBefore = loadBefore;
 		r.cpuLoadAfter = Memory.cpuLoadPercent();
 		r.backend = this.backend;
@@ -246,6 +262,134 @@ public final class PerfTest {
 		if (!r.failures.isEmpty() && !Boolean.getBoolean("voidhub.test.noGate")) {
 			throw new AssertionError("VOID inventory over budget on " + this.backend + ": " + r.failures);
 		}
+	}
+
+	/** What the Map page section measured (with Atlas). */
+	record MapNumbers(double firstOpenMs, double widgetCreateMs, Dist reopen, Dist atlasScreenOpen) {
+	}
+
+	/**
+	 * The Map page against Atlas's own map screen (M), both idle and both panned by the same drag
+	 * (the left button held while the pointer circles over the map, every frame), interleaved round
+	 * by round like the inventory scenarios. Atlas draws the same page in both; what differs is the
+	 * hub around it (Ultralight's islands and window, the hub's input routing).
+	 *
+	 * <p>Like for like twice: the hub's default (the live world behind the page) against Atlas's screen
+	 * with its live backdrop on, and the hub's still backdrop ({@code voidhub.frozenMap}) against
+	 * Atlas's default still backdrop ({@code *_frozen}: the world drawn once, then skipped).
+	 */
+	private MapNumbers mapScenarios(double per) {
+		HubStats st = HubStats.INSTANCE;
+		// First Map page: the widget is made on its first frame (lazily, never at hub open).
+		this.context.runOnClient(mc -> HubInventoryScreen.rememberPage("map"));
+		double first = this.openLatency(() -> this.ui.pressKey(InputConstants.KEY_RSHIFT), HubInventoryScreen.class);
+		double createMs = this.context.computeOnClient(mc -> HubMap.lastCreateNs / 1e6);
+		this.context.waitTicks(10);
+		this.closeMap();
+		List<Double> reopen = new ArrayList<>();
+		List<Double> atlasOpen = new ArrayList<>();
+		Class<? extends Screen> atlasScreen = AtlasHooks.atlasScreenClass();
+		for (int i = 0; i < 10; i++) {
+			this.context.runOnClient(mc -> HubInventoryScreen.rememberPage("map"));
+			reopen.add(this.openLatency(() -> this.ui.pressKey(InputConstants.KEY_RSHIFT), HubInventoryScreen.class));
+			this.closeMap();
+			atlasOpen.add(this.openLatency(() -> this.context.runOnClient(mc -> AtlasHooks.openAtlasMap()), atlasScreen));
+			this.closeMap();
+		}
+		double[][] path = this.panPath();
+		boolean liveWas = this.context.computeOnClient(mc -> AtlasHooks.setLiveBackdrop(true));
+		// The hub's live world for the live pairs; its still (the default) only in *_frozen.
+		this.context.runOnClient(mc -> HubConfig.setFrozenMap(false));
+		for (int round = 0; round < this.rounds; round++) {
+			this.scenario("atlas_map", per, () -> this.openAtlasMap(atlasScreen), this::closeMap);
+			this.scenario("void_map", per, () -> this.openVoidMap(), this::closeMap);
+			this.scenario("atlas_map_pan", per, () -> {
+				this.openAtlasMap(atlasScreen);
+				this.startPan(path);
+			}, this::stopPanAndClose);
+			this.scenario("void_map_pan", per, () -> {
+				this.openVoidMap();
+				this.startPan(path);
+			}, this::stopPanAndClose);
+			this.scenario("atlas_map_pan_frozen", per, () -> {
+				this.context.runOnClient(mc -> AtlasHooks.setLiveBackdrop(false));
+				this.openAtlasMap(atlasScreen);
+				this.startPan(path);
+			}, () -> {
+				this.stopPanAndClose();
+				this.context.runOnClient(mc -> AtlasHooks.setLiveBackdrop(true));
+			});
+			this.scenario("void_map_pan_frozen", per, () -> {
+				this.context.runOnClient(mc -> HubConfig.setFrozenMap(true));
+				this.openVoidMap();
+				this.startPan(path);
+			}, () -> {
+				this.stopPanAndClose();
+				this.context.runOnClient(mc -> HubConfig.setFrozenMap(false));
+			});
+		}
+		this.context.runOnClient(mc -> AtlasHooks.setLiveBackdrop(liveWas));
+		this.context.runOnClient(mc -> HubConfig.setFrozenMap(null));
+		return new MapNumbers(first, createMs, Dist.of(toArray(reopen)), Dist.of(toArray(atlasOpen)));
+	}
+
+	private void openVoidMap() {
+		this.context.runOnClient(mc -> HubInventoryScreen.rememberPage("map"));
+		this.ui.pressKey(InputConstants.KEY_RSHIFT);
+		this.context.waitForScreen(HubInventoryScreen.class);
+		HubLayout l = this.ui.layout();
+		this.ui.moveTo(l.window.x() + 12 * l.u, l.window.y() + 12 * l.u);  // on the window, off the map
+	}
+
+	private void openAtlasMap(Class<? extends Screen> type) {
+		this.context.runOnClient(mc -> AtlasHooks.openAtlasMap());
+		this.context.waitForScreen(type);
+		this.ui.moveTo(HubGameTest.WIDTH / 2.0, 30);
+	}
+
+	/**
+	 * A circle over the map's left half, in window px: inside the map on the hub's Map page and on
+	 * Atlas's own screen alike at this window size, so both are panned by the same pointer path.
+	 */
+	private double[][] panPath() {
+		HubLayout l = this.context.computeOnClient(mc -> HubLayout.map(mc.getWindow().getWidth(), mc.getWindow().getHeight(), mc.getWindow().getGuiScale()));
+		double cx = l.window.x() + l.window.w() * 0.38;
+		double cy = l.window.y() + l.window.h() * 0.5;
+		double r = l.window.h() * 0.15;
+		double[][] path = new double[48][];
+		for (int i = 0; i < path.length; i++) {
+			double a = i * 2 * Math.PI / path.length;
+			path[i] = new double[] {cx + r * Math.cos(a), cy + r * Math.sin(a)};
+		}
+		return path;
+	}
+
+	private void startPan(double[][] path) {
+		this.ui.moveTo(path[0][0], path[0][1]);
+		this.context.waitTicks(1);
+		this.ui.press(Ui.LEFT, 0);
+		FrameHooks.sweepRate = 30.0;
+		FrameHooks.sweepPath = path;
+	}
+
+	private void stopPanAndClose() {
+		FrameHooks.sweepPath = null;
+		this.ui.release(Ui.LEFT, 0);
+		this.context.waitTicks(1);
+		this.closeMap();
+	}
+
+	/** Esc until no screen is open: the map's own first (a card it opened), then the screen. */
+	private void closeMap() {
+		for (int i = 0; i < 4; i++) {
+			if (this.context.computeOnClient(mc -> mc.gui.screen() == null)) {
+				break;
+			}
+			this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+			this.context.waitTicks(2);
+		}
+		this.context.waitForScreen(null);
+		this.context.waitTicks(2);
 	}
 
 	static double[] toArray(List<Double> l) {
@@ -371,7 +515,8 @@ public final class PerfTest {
 
 	record Scenario(String name, int frames, double fps, Dist interval, Dist intervalNoTick, Dist render, Dist gpu, int hitches,
 		int renderHitches, Dist hubRenderThread, double postMs, double waitMs, double copyMs, double uploadMs, double uiUpdateMs,
-		double uiRenderMs, double uiScriptMs, Dist uiPerChange, long uploads, double uploadKbAvg, long busyFrames, List<Double> roundAvg) {
+		double uiRenderMs, double uiScriptMs, Dist uiPerChange, long uploads, double uploadKbAvg, long busyFrames, List<Double> roundAvg,
+		Dist mapDraw) {
 
 		static Scenario of(String name, Samples s) {
 			long[] iv = s.arr(s.interval);
@@ -404,6 +549,7 @@ public final class PerfTest {
 			long busy = 0;
 			double bytes = 0;
 			long[] tot = new long[s.hub.size()];
+			long[] mapNs = new long[s.hub.size()];
 			List<Long> uiChanges = new ArrayList<>();
 			for (int i = 0; i < s.hub.size(); i++) {
 				HubStats.Frame f = s.hub.get(i);
@@ -415,6 +561,7 @@ public final class PerfTest {
 				ur += f.renderNs;
 				us += f.scriptNs;
 				tot[i] = f.totalNs();
+				mapNs[i] = f.mapNs;
 				if (f.bytes > 0) {
 					uploads++;
 					bytes += f.bytes;
@@ -431,7 +578,7 @@ public final class PerfTest {
 				Dist.ofNanos(noTick.stream().mapToLong(Long::longValue).toArray()), Dist.ofNanos(rd), Dist.ofNanos(gp), hitches, renderHitches,
 				s.hub.isEmpty() ? Dist.EMPTY : Dist.ofNanos(tot), post / hn / 1e6, wait / hn / 1e6, copy / hn / 1e6, up / hn / 1e6,
 				uu / hn / 1e6, ur / hn / 1e6, us / hn / 1e6, Dist.ofNanos(uiChanges.stream().mapToLong(Long::longValue).toArray()),
-				uploads, uploads == 0 ? 0 : bytes / uploads / 1024.0, busy, s.roundAvg);
+				uploads, uploads == 0 ? 0 : bytes / uploads / 1024.0, busy, s.roundAvg, s.hub.isEmpty() ? Dist.EMPTY : Dist.ofNanos(mapNs));
 		}
 
 		String json() {
@@ -447,6 +594,7 @@ public final class PerfTest {
 				.put("script", Dist.r(this.uiScriptMs)).end());
 			w.raw("ultralightMsPerPageChange", this.uiPerChange.json());
 			w.put("uploads", this.uploads).put("uploadKbAvg", Dist.r(this.uploadKbAvg)).put("busySkips", this.busyFrames);
+			w.raw("atlasWidgetDrawMs", this.mapDraw.json());
 			w.raw("roundAvgMs", "[" + String.join(",", this.roundAvg.stream().map(d -> Json.number(Dist.r(d))).toList()) + "]");
 			return w.end();
 		}
@@ -484,6 +632,14 @@ public final class PerfTest {
 		double hoverP99Delta;
 		int cpuLoadBefore;
 		int cpuLoadAfter;
+		boolean atlas;
+		MapNumbers map;
+		double mapAvgDelta;
+		double mapP99Delta;
+		double mapPanAvgDelta;
+		double mapPanP99Delta;
+		double mapFrozenAvgDelta;
+		double mapFrozenP99Delta;
 
 		/**
 		 * VOID minus vanilla, round by round (the rounds interleave the two), and the median of
@@ -552,6 +708,57 @@ public final class PerfTest {
 			if (this.voidOpen.max() > BUDGET_REOPEN_MS) {
 				this.failures.add(String.format(Locale.ROOT, "re-open worst %.1f ms > %.0f", this.voidOpen.max(), BUDGET_REOPEN_MS));
 			}
+			if (this.map != null) {
+				this.evaluateMap();
+			}
+		}
+
+		/** The Map page vs Atlas's own map screen, idle and panning; and its opens. */
+		void evaluateMap() {
+			this.paired.put("mapAvg", pairedMedian(this.samples.get("void_map"), this.samples.get("atlas_map"), false));
+			this.paired.put("mapP99", pairedMedian(this.samples.get("void_map"), this.samples.get("atlas_map"), true));
+			this.paired.put("mapPanAvg", pairedMedian(this.samples.get("void_map_pan"), this.samples.get("atlas_map_pan"), false));
+			this.paired.put("mapPanP99", pairedMedian(this.samples.get("void_map_pan"), this.samples.get("atlas_map_pan"), true));
+			this.mapAvgDelta = this.paired.get("mapAvg")[0];
+			this.mapP99Delta = this.paired.get("mapP99")[0];
+			this.mapPanAvgDelta = this.paired.get("mapPanAvg")[0];
+			this.mapPanP99Delta = this.paired.get("mapPanP99")[0];
+			this.paired.put("mapFrozenAvg", pairedMedian(this.samples.get("void_map_pan_frozen"), this.samples.get("atlas_map_pan_frozen"), false));
+			this.paired.put("mapFrozenP99", pairedMedian(this.samples.get("void_map_pan_frozen"), this.samples.get("atlas_map_pan_frozen"), true));
+			this.mapFrozenAvgDelta = this.paired.get("mapFrozenAvg")[0];
+			this.mapFrozenP99Delta = this.paired.get("mapFrozenP99")[0];
+			if (this.mapFrozenAvgDelta > BUDGET_MAP_AVG_MS) {
+				this.failures.add(String.format(Locale.ROOT, "map panning, still backdrop: avg frame +%.3f ms vs Atlas's screen > %.1f", this.mapFrozenAvgDelta, BUDGET_MAP_AVG_MS));
+			}
+			if (this.mapFrozenP99Delta > BUDGET_MAP_P99_MS) {
+				this.failures.add(String.format(Locale.ROOT, "map panning, still backdrop: p99 frame +%.3f ms vs Atlas's screen > %.1f", this.mapFrozenP99Delta, BUDGET_MAP_P99_MS));
+			}
+			if (this.mapPanAvgDelta > BUDGET_MAP_AVG_MS) {
+				this.failures.add(String.format(Locale.ROOT, "map panning: avg frame +%.3f ms vs Atlas's screen > %.1f", this.mapPanAvgDelta, BUDGET_MAP_AVG_MS));
+			}
+			if (this.mapPanP99Delta > BUDGET_MAP_P99_MS) {
+				this.failures.add(String.format(Locale.ROOT, "map panning: p99 frame +%.3f ms vs Atlas's screen > %.1f", this.mapPanP99Delta, BUDGET_MAP_P99_MS));
+			}
+			if (this.mapAvgDelta > BUDGET_MAP_AVG_MS) {
+				this.failures.add(String.format(Locale.ROOT, "map idle: avg frame +%.3f ms vs Atlas's screen > %.1f", this.mapAvgDelta, BUDGET_MAP_AVG_MS));
+			}
+			Scenario pan = this.scenarios.get("void_map_pan");
+			Scenario atlasPan = this.scenarios.get("atlas_map_pan");
+			if (pan.hitches() > atlasPan.hitches()) {
+				this.failures.add(String.format(Locale.ROOT, "map panning hitches: %d frames over 33 ms (Atlas's screen: %d), worst %.1f ms",
+					pan.hitches(), atlasPan.hitches(), pan.interval().max()));
+			}
+			if (this.map.firstOpenMs() > BUDGET_FIRST_OPEN_MS) {
+				this.failures.add(String.format(Locale.ROOT, "first Map page open %.1f ms > %.0f", this.map.firstOpenMs(), BUDGET_FIRST_OPEN_MS));
+			}
+			if (this.map.reopen().max() > BUDGET_REOPEN_MS) {
+				this.failures.add(String.format(Locale.ROOT, "Map page re-open worst %.1f ms > %.0f", this.map.reopen().max(), BUDGET_REOPEN_MS));
+			}
+		}
+
+		/** The report's name: the backend, and "-atlas" for the run with VOID Atlas installed. */
+		String key() {
+			return this.backend + (this.atlas ? "-atlas" : "");
 		}
 
 		String perRoundJson() {
@@ -602,6 +809,15 @@ public final class PerfTest {
 				.raw("vanillaE", this.vanillaOpen.json()).raw("voidE", this.voidOpen.json()).raw("voidRShift", this.voidOpenRShift.json())
 				.raw("voidInitToFirstFrame", this.voidInitToFrame.json())
 				.raw("vanillaChest", this.vanillaChestOpen.json()).raw("voidChest", this.voidChestOpen.json()).end());
+			w.put("atlas", this.atlas);
+			if (this.map != null) {
+				w.raw("map", Json.object().put("firstOpenMs", Dist.r(this.map.firstOpenMs())).put("widgetCreateMs", Dist.r(this.map.widgetCreateMs()))
+					.raw("reopen", this.map.reopen().json()).raw("atlasScreenOpen", this.map.atlasScreenOpen().json())
+					.put("idleAvgDeltaMs", Dist.r(this.mapAvgDelta)).put("idleP99DeltaMs", Dist.r(this.mapP99Delta))
+					.put("panAvgDeltaMs", Dist.r(this.mapPanAvgDelta)).put("panP99DeltaMs", Dist.r(this.mapPanP99Delta))
+					.put("panFrozenAvgDeltaMs", Dist.r(this.mapFrozenAvgDelta)).put("panFrozenP99DeltaMs", Dist.r(this.mapFrozenP99Delta))
+					.put("method", "median over interleaved rounds of (hub Map page round - Atlas map screen round)").end());
+			}
 			w.raw("memory", Json.object().put("privateBytesDeltaMb", Dist.r(this.privateDeltaMb)).put("privateBytesAfterMb", Dist.r(this.privateAfterMb))
 				.put("workingSetDeltaMb", Dist.r(this.workingSetDeltaMb)).put("workingSetAfterMb", Dist.r(this.workingSetAfterMb))
 				.put("heapDeltaMb", Dist.r(this.heapDeltaMb)).end());
@@ -610,14 +826,14 @@ public final class PerfTest {
 				sc.raw(e.getKey(), e.getValue().json());
 			}
 			w.raw("scenarios", sc.end());
-			Files.writeString(outDir.resolve(this.backend + ".json"), w.end(), StandardCharsets.UTF_8);
+			Files.writeString(outDir.resolve(this.key() + ".json"), w.end(), StandardCharsets.UTF_8);
 			this.updateDoc(docsDir.resolve("PERF.md"));
 		}
 
 		/** Rewrites this backend's generated section of docs/PERF.md, leaving the rest alone. */
 		void updateDoc(Path doc) throws IOException {
-			String begin = "<!-- perf:" + this.backend + ":begin -->";
-			String end = "<!-- perf:" + this.backend + ":end -->";
+			String begin = "<!-- perf:" + this.key() + ":begin -->";
+			String end = "<!-- perf:" + this.key() + ":end -->";
 			String section = begin + "\n" + this.markdown() + end;
 			String text = Files.isRegularFile(doc) ? Files.readString(doc, StandardCharsets.UTF_8) : "# VOID Hub — performance\n\n";
 			int a = text.indexOf(begin);
@@ -633,7 +849,8 @@ public final class PerfTest {
 
 		String markdown() {
 			StringBuilder m = new StringBuilder();
-			m.append("### ").append(this.backend.equals("vulkan") ? "Vulkan" : "OpenGL").append(" — ").append(this.verdict())
+			m.append("### ").append(this.backend.equals("vulkan") ? "Vulkan" : "OpenGL").append(this.atlas ? ", with VOID Atlas" : ", without VOID Atlas")
+				.append(" — ").append(this.verdict())
 				.append(" (generated ").append(ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))).append(")\n\n");
 			m.append("Device: ").append(this.gpu).append(" · window ").append(HubGameTest.WIDTH).append("×").append(HubGameTest.HEIGHT)
 				.append(" · GUI scale ").append(this.guiScale).append(" · machine CPU load before/after the run ")
@@ -653,20 +870,34 @@ public final class PerfTest {
 				.append(" · inventory while hovering avg ").append(signed(this.hoverAvgDelta)).append(" ms [").append(this.rounds("hoverAvg"))
 				.append("], p99 ").append(signed(this.hoverP99Delta)).append(" ms [").append(this.rounds("hoverP99")).append("]")
 				.append(" · chest avg ").append(signed(this.chestAvgDelta)).append(" ms, p99 ").append(signed(this.chestP99Delta)).append(" ms\n\n");
-			m.append("| VOID cost (ms / frame) | render thread: avg / p99 / max | post | wait | copy | upload | uploads | avg upload | Ultralight on its thread | per page change: avg / p99 |\n");
-			m.append("|---|---|---:|---:|---:|---:|---:|---:|---:|---|\n");
+			if (this.map != null) {
+				m.append("**Map page vs Atlas's own map screen** (median of the per-round differences), both drawing the live world: idle avg ").append(signed(this.mapAvgDelta))
+					.append(" ms [").append(this.rounds("mapAvg")).append("], p99 ").append(signed(this.mapP99Delta)).append(" ms [").append(this.rounds("mapP99"))
+					.append("] · panning avg ").append(signed(this.mapPanAvgDelta)).append(" ms [").append(this.rounds("mapPanAvg")).append("], p99 ")
+					.append(signed(this.mapPanP99Delta)).append(" ms [").append(this.rounds("mapPanP99")).append("] · both over Atlas's still backdrop, panning avg ")
+					.append(signed(this.mapFrozenAvgDelta)).append(" ms [").append(this.rounds("mapFrozenAvg")).append("], p99 ").append(signed(this.mapFrozenP99Delta))
+					.append(" ms [").append(this.rounds("mapFrozenP99")).append("]\n\n");
+			}
+			m.append("| VOID cost (ms / frame) | render thread: avg / p99 / max | post | wait | copy | upload | uploads | avg upload | Ultralight on its thread | per page change: avg / p99 | Atlas widget draw avg / p99 |\n");
+			m.append("|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|\n");
 			for (Scenario s : this.scenarios.values()) {
 				if (!s.name().startsWith("void")) {
 					continue;
 				}
-				m.append(String.format(Locale.ROOT, "| %s | %.3f / %.3f / %.2f | %.3f | %.3f | %.3f | %.3f | %d | %.0f KB | %.3f | %.2f / %.2f |\n", s.name(),
+				m.append(String.format(Locale.ROOT, "| %s | %.3f / %.3f / %.2f | %.3f | %.3f | %.3f | %.3f | %d | %.0f KB | %.3f | %.2f / %.2f | %s |\n", s.name(),
 					s.hubRenderThread().avg(), s.hubRenderThread().p99(), s.hubRenderThread().max(), s.postMs(), s.waitMs(), s.copyMs(), s.uploadMs(),
-					s.uploads(), s.uploadKbAvg(), s.uiUpdateMs() + s.uiRenderMs() + s.uiScriptMs(), s.uiPerChange().avg(), s.uiPerChange().p99()));
+					s.uploads(), s.uploadKbAvg(), s.uiUpdateMs() + s.uiRenderMs() + s.uiScriptMs(), s.uiPerChange().avg(), s.uiPerChange().p99(),
+					s.mapDraw().max() > 0 ? String.format(Locale.ROOT, "%.3f / %.3f", s.mapDraw().avg(), s.mapDraw().p99()) : "—"));
 			}
 			m.append("\n| open latency (ms, key → first painted frame) | avg | p50 | max |\n|---|---:|---:|---:|\n");
 			m.append(row("vanilla inventory (E)", this.vanillaOpen)).append(row("VOID inventory (E)", this.voidOpen))
 				.append(row("VOID inventory (R-Shift)", this.voidOpenRShift)).append(row("VOID screen init → first frame", this.voidInitToFrame))
 				.append(row("vanilla chest", this.vanillaChestOpen)).append(row("VOID chest", this.voidChestOpen));
+			if (this.map != null) {
+				m.append(row("Map page (R-Shift), re-open", this.map.reopen())).append(row("Atlas's own map screen", this.map.atlasScreenOpen()));
+				m.append(String.format(Locale.ROOT, "\nFirst Map page open: %.1f ms key → first painted frame (gated), of which making Atlas's widget %.2f ms "
+					+ "(lazily, on the first Map frame; kept for every later open).\n", this.map.firstOpenMs(), this.map.widgetCreateMs()));
+			}
 			m.append(String.format(Locale.ROOT, "\n"
 				+ "First open after pre-warm: %.1f ms (gated). Pre-warm, on Ultralight's own thread while the world loads: %.1f ms "
 				+ "(start-up %.1f ms — %s — then the first layout and full paint at the window size). Without pre-warm the "

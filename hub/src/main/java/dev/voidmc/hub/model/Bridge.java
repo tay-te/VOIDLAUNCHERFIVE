@@ -21,7 +21,8 @@ public final class Bridge {
 	private Bridge() {
 	}
 
-	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Tip, MettleCall, MettleChoose, MettleUi, Fx, Invalid {
+	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Page, Waypoint, Tip, MettleCall, MettleChoose, MettleUi, Fx,
+		Invalid {
 	}
 
 	/** The page finished loading and installed {@code hub.apply}. */
@@ -86,6 +87,14 @@ public final class Bridge {
 			}
 			return Json.object().put("background", this.background).raw("spent", sp.end()).raw("favoured", fav.append(']').toString()).end();
 		}
+	}
+
+	/** A page of the hub's pages island: "map", "inventory", "quests", "mods" or "friends". */
+	public record Page(String value) implements Message {
+	}
+
+	/** The world strip's "Waypoint here" pill. */
+	public record Waypoint() implements Message {
 	}
 
 	public record Invalid(String reason) implements Message {
@@ -213,6 +222,7 @@ public final class Bridge {
 	}
 	static final Set<String> MOVE_TARGETS = Set.of("inventory", "container");
 	static final Set<String> SEGMENTS = Set.of("inventory", "chest", "gear", "classes");
+	static final Set<String> PAGES = Set.of("map", "inventory", "quests", "mods", "friends");
 
 	private static Message tip(Map<String, Object> m) {
 		double[] v = new double[4];
@@ -245,6 +255,8 @@ public final class Bridge {
 			case "moveAll" -> oneOf(m, "to", MOVE_TARGETS) instanceof String v ? new MoveAll(v) : new Invalid("moveAll target");
 			case "segment" -> oneOf(m, "value", SEGMENTS) instanceof String v ? new Segment(v) : new Invalid("segment value");
 			case "tip" -> tip(m);
+			case "page" -> oneOf(m, "value", PAGES) instanceof String v ? new Page(v) : new Invalid("page value");
+			case "waypoint" -> new Waypoint();
 			case "turn" -> m.get("deg") instanceof Double d && Double.isFinite(d) ? new Turn(d) : new Invalid("turn deg");
 			case "mettleChoose" -> choose(m);
 			case "mettle" -> mettle(m);

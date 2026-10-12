@@ -32,6 +32,8 @@ public final class HubStats {
 		public long bytes;
 		public int rects;
 		public long endNs;
+		/** The Atlas map widget's draw on the Map page (render thread; Atlas's cost, not the hub's). */
+		public long mapNs;
 
 		/** Time this frame spent on the game's render thread because of the VOID screen. */
 		public long totalNs() {
@@ -55,6 +57,7 @@ public final class HubStats {
 			this.busy = false;
 			this.bytes = 0;
 			this.rects = 0;
+			this.mapNs = 0;
 		}
 
 		Frame copy() {
@@ -71,6 +74,7 @@ public final class HubStats {
 			f.bytes = this.bytes;
 			f.rects = this.rects;
 			f.endNs = this.endNs;
+			f.mapNs = this.mapNs;
 			return f;
 		}
 	}
@@ -113,6 +117,11 @@ public final class HubStats {
 
 	Frame current() {
 		return this.current;
+	}
+
+	/** Adds the map widget's draw time to the frame being recorded. */
+	public void noteMap(long ns) {
+		this.current.mapNs += ns;
 	}
 
 	/** Frames recorded so far (monotonic). */
