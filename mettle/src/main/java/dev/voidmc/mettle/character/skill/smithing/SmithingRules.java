@@ -46,10 +46,10 @@ public final class SmithingRules {
 		}
 		// Cursed cards take some away.
 		if (forged.has(Mark.BRITTLE_EDGE)) {
-			bonus += dev.voidmc.mettle.character.draft.Cursed.BRITTLE_EDGE_DURABILITY;
+			bonus += dev.voidmc.mettle.character.draft.Cursed.brittleEdgeDurability((int) forged.trait("hex"));
 		}
 		if (forged.has(Mark.SLAPDASH)) {
-			bonus += dev.voidmc.mettle.character.draft.Cursed.SLAPDASH_DURABILITY;
+			bonus += dev.voidmc.mettle.character.draft.Cursed.slapdashDurability((int) forged.trait("hex"));
 		}
 		return bonus;
 	}

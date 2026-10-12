@@ -107,7 +107,7 @@ public final class Foraging {
 			SurvivalSkill.award(player, "plant", SurvivalRules.XP_PLANT);
 			int gatherer = Perks.rank(player, SurvivalSkill.GATHERER);
 			if (gatherer > 0 && level.getRandom().nextDouble() < SurvivalRules.GATHERER_PER_RANK * gatherer) {
-				drops.add(drops.getFirst().copyWithCount(1));
+				drops.stream().filter(dev.voidmc.mettle.character.cards.CardHooks::plain).findFirst().ifPresent(d -> drops.add(d.copyWithCount(1)));
 				SurvivalSkill.chipThrottled(player, SurvivalSkill.GATHERER, 100, "gatherer");
 			}
 		} else if (isCover(state) && !planted(level, pos, state) && Perks.has(player, SurvivalSkill.LIVING_OFF_THE_LAND)

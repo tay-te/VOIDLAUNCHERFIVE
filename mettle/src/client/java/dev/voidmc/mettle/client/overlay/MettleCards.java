@@ -12,6 +12,7 @@ import dev.voidmc.mettle.api.Trait;
 import dev.voidmc.mettle.character.PerkText;
 import dev.voidmc.mettle.character.cards.CardConfig;
 import dev.voidmc.mettle.character.cards.CardRules;
+import dev.voidmc.mettle.character.cards.Ceilings;
 import dev.voidmc.mettle.character.cards.CardText;
 import dev.voidmc.mettle.character.cards.Cards;
 import dev.voidmc.mettle.core.CardData;
@@ -111,6 +112,7 @@ public final class MettleCards {
 
 		root.add("sets", sets(registries, cards));
 		root.add("traits", traits(registries, cards));
+		root.add("ceilings", ceilings(registries, cards));
 
 		JsonObject costs = new JsonObject();
 		JsonArray fees = new JsonArray();
@@ -577,9 +579,30 @@ public final class MettleCards {
 		return out;
 	}
 
+	/**
+	 * The whole-character ceilings (docs/CARDS.md §14) for this deck: each capped stat with what the cards would add
+	 * without it, the ceiling, whether it bites, and a line to show ("Movement from cards: up to +47 %, capped at +35 %").
+	 */
+	private static JsonArray ceilings(RegistryAccess registries, CardsState cards) {
+		JsonArray out = new JsonArray();
+		Registry<Perk> perks = registries.lookupOrThrow(MettleRegistries.PERK);
+		Ceilings.potential(Ceilings.Build.of(cards, perks::getOptional)).forEach((stat, potential) -> {
+			JsonObject o = new JsonObject();
+			o.addProperty("stat", stat.key);
+			o.addProperty("potential", potential);
+			o.addProperty("ceiling", stat.ceiling);
+			boolean capped = potential > stat.ceiling + 1e-9;
+			o.addProperty("capped", capped);
+			o.addProperty("text", capped ? Ceilings.line(stat, potential).getString() : "");
+			out.add(o);
+		});
+		return out;
+	}
+
 	private static JsonArray traits(RegistryAccess registries, CardsState cards) {
 		JsonArray out = new JsonArray();
 		Registry<Trait> registry = registries.lookupOrThrow(MettleRegistries.TRAIT);
+		Map<Ceilings.Stat, Double> capped = Ceilings.capped(Ceilings.Build.of(cards, registries.lookupOrThrow(MettleRegistries.PERK)::getOptional));
 		cards.traits().forEach((id, total) -> registry.getOptional(id).ifPresent(def -> {
 			JsonObject o = new JsonObject();
 			o.addProperty("id", id.toString());
@@ -587,7 +610,10 @@ public final class MettleCards {
 			o.addProperty("skill", def.skill().identifier().toString());
 			o.addProperty("value", total);
 			o.addProperty("cap", CardRules.totalCap(def));
-			o.addProperty("text", Component.translatable("mettle.cards.trait_total", def.name(), def.format(total), def.format(CardRules.totalCap(def))).getString());
+			Component text = Component.translatable("mettle.cards.trait_total", def.name(), def.format(total), def.format(CardRules.totalCap(def)));
+			Optional<Ceilings.Stat> stat = Ceilings.statOf(id.getPath()).filter(capped::containsKey);
+			o.addProperty("capped", stat.isPresent());
+			o.addProperty("text", stat.map(st -> Ceilings.traitNote(text, st)).orElse(text).getString());
 			o.addProperty("description", CardText.sentence(def, total).getString());
 			out.add(o);
 		}));

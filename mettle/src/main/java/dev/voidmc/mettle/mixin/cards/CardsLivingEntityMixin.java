@@ -23,6 +23,32 @@ abstract class CardsLivingEntityMixin {
 		return CardHooks.hurt((LivingEntity) (Object) this, source, damage);
 	}
 
+	/** The hit got past invulnerability, fire resistance and the hurt frames: what it does besides damage happens now. */
+	@org.spongepowered.asm.mixin.injection.Inject(method = "hurtServer", at = @At(value = "INVOKE",
+		target = "Lnet/minecraft/world/entity/LivingEntity;actuallyHurt(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)V"))
+	private void mettle$cardsLanded(ServerLevel level, DamageSource source, float damage,
+		org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean> ci) {
+		CardHooks.landed((LivingEntity) (Object) this);
+	}
+
+	@org.spongepowered.asm.mixin.injection.Inject(method = "hurtServer", at = @At("RETURN"))
+	private void mettle$cardsSettled(ServerLevel level, DamageSource source, float damage,
+		org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean> ci) {
+		CardHooks.settled((LivingEntity) (Object) this);
+	}
+
+	/** Ironskin (Iron 6) works after armour. */
+	@ModifyReturnValue(method = "getDamageAfterMagicAbsorb", at = @At("RETURN"))
+	private float mettle$cardsIronskin(float damage, DamageSource source) {
+		return CardHooks.afterArmour((LivingEntity) (Object) this, source, damage);
+	}
+
+	/** A jump never reaches two blocks from attributes (Springing, Gale 4, Spring): walls stay walls. */
+	@ModifyReturnValue(method = "getJumpPower(F)F", at = @At("RETURN"))
+	private float mettle$cardsJump(float power) {
+		return CardHooks.jumpPower((LivingEntity) (Object) this, power);
+	}
+
 	@ModifyVariable(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z", at = @At("HEAD"),
 		argsOnly = true, ordinal = 0)
 	private MobEffectInstance mettle$cardsEffect(MobEffectInstance effect) {

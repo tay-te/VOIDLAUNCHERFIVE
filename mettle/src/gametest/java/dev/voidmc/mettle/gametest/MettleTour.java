@@ -42,6 +42,7 @@ public class MettleTour implements FabricClientGameTest {
 		// Every card event is watched from the start, so the card journeys check the api's events as they play.
 		CardServiceJourney.listen();
 		size(context, 1920, 1080, 3);
+		net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldSave save;
 		try (TestSingleplayerContext world = context.worldBuilder()
 			.setUseConsistentSettings(false)
 			.adjustSettings(s -> {
@@ -127,6 +128,7 @@ public class MettleTour implements FabricClientGameTest {
 				TradeJourney.run(context, world);
 				MythicJourney.run(context, world);
 				CardServiceJourney.run(world);
+				CardEffectsJourney.run(context, world);
 			}
 			// -Dmettle.tour.hearth_only=true (with -Phearth) plays only the Hearth journey, for a quick check.
 			if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.cards_only")) {
@@ -152,6 +154,7 @@ public class MettleTour implements FabricClientGameTest {
 				MythicJourney.run(context, world);
 				CardServiceJourney.run(world);
 				CardSoundJourney.run(context);
+				CardEffectsJourney.run(context, world);
 			}
 			// With VOID Hearth loaded (-Phearth): its slots filled by Mettle. HearthJourney names Hearth types, so it is
 			// only touched then.
@@ -163,6 +166,13 @@ public class MettleTour implements FabricClientGameTest {
 			context.waitTicks(5);
 			context.takeScreenshot("mettle_character_k_1080p");
 			context.setScreen(() -> null);
+			save = world.getWorldSave();
+		}
+		// Saved, quit and opened again (a restart and a relog): what must last did (CardEffectsJourney's cooldowns).
+		if (!Boolean.getBoolean("mettle.tour.hearth_only")) {
+			try (TestSingleplayerContext again = save.open()) {
+				CardEffectsJourney.afterRestart(context, again);
+			}
 		}
 	}
 

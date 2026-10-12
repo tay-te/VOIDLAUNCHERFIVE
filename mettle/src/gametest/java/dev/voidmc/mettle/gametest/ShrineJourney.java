@@ -224,7 +224,7 @@ final class ShrineJourney {
 			return closed ? null : "the sitting stayed open 20 blocks away";
 		}));
 
-		// Ironskin (Iron 6 from two decks): the first hit every 8 s is 3 lighter.
+		// Ironskin (Iron 6 from two decks): the first hit every 8 s is 3 lighter, after armour.
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
 			Cards.clear(p);
@@ -244,9 +244,10 @@ final class ShrineJourney {
 			}
 			p.setHealth(p.getMaxHealth());
 			float before = p.getHealth();
-			p.hurtServer(s.overworld(), p.damageSources().magic(), 5f);
+			// A 10 hit: 3 off stays within the damage-taken ceiling (−45 %, docs/CARDS.md §14), which a 5 hit would pass.
+			p.hurtServer(s.overworld(), p.damageSources().magic(), 10f);
 			float taken = before - p.getHealth();
-			return Math.abs(taken - 2f) < 0.01f ? null : "Ironskin: a 5 magic hit took " + taken + ", expected 2";
+			return Math.abs(taken - 7f) < 0.01f ? null : "Ironskin: a 10 magic hit took " + taken + ", expected 7";
 		}));
 
 		// Put everything back.

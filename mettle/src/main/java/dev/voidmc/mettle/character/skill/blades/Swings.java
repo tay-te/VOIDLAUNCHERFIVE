@@ -170,6 +170,12 @@ public final class Swings {
 		return s != null && s.player == player ? s.strength : 0f;
 	}
 
+	/** Whether a swing of this player's is being resolved now (Player#attack); a spear's stab or a thrown hit is not one. */
+	public static boolean swinging(ServerPlayer player) {
+		Swing s = current;
+		return s != null && s.player == player;
+	}
+
 	/** Whether this player's swing being resolved now is a critical (cards: Keen, the Keen set). */
 	public static boolean critical(ServerPlayer player) {
 		Swing s = current;

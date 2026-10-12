@@ -57,6 +57,10 @@ public final class Food {
 	/** Cook's (a card trait): food you cook comes out one extra some of the time. */
 	private static void extraCooked(ServerPlayer player, ItemStack stack, int count) {
 		double chance = dev.voidmc.mettle.character.cards.CardHooks.pct(player, "survival/cooks");
+		// Only plain food is copied (nothing with data of its own).
+		if (!dev.voidmc.mettle.character.cards.CardHooks.plain(stack)) {
+			return;
+		}
 		int extra = 0;
 		for (int i = 0; i < count && chance > 0; i++) {
 			if (player.getRandom().nextDouble() < chance) {

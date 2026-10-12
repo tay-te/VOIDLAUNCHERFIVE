@@ -14,6 +14,9 @@ import net.minecraft.world.level.block.state.BlockState;
  * The cursed cards (docs/DRAFT.md §4): two per released skill, each a strong effect with a real downside. Most are plain
  * attribute modifiers in their perk data (both halves); the ones here need code, and their skills' hooks ask these
  * methods. The numbers live here so the set can be tuned together.
+ *
+ * <p>The Hex set reaches these coded halves as it reaches the attribute ones (EffectsApplier.hexed): Hex 2 makes each
+ * downside 25 % smaller, Hex 4 each upside 15 % stronger ({@link #down}, {@link #up}).
  */
 public final class Cursed {
 	public static final Identifier GREEDY_PICK = Mettle.id("mining/greedy_pick");
@@ -32,6 +35,9 @@ public final class Cursed {
 	public static final Identifier WILD_LUCK = Mettle.id("survival/wild_luck");
 	public static final Identifier BRITTLE_EDGE = Mettle.id("smithing/brittle_edge");
 	public static final Identifier SLAPDASH = Mettle.id("smithing/slapdash");
+	/** Every cursed card (docs/DRAFT.md §4). */
+	public static final java.util.List<Identifier> ALL = java.util.List.of(GREEDY_PICK, BLACK_LUNG, RECKLESS_EDGE, GLASS_DANCER, BLOODRAGE, IMMOVABLE,
+		HEAVY_DRAW, SNAP_SHOT, IRON_HIDE, BASTION, FEATHERWEIGHT, BULLS_BACK, WOLFS_HUNGER, WILD_LUCK, BRITTLE_EDGE, SLAPDASH);
 
 	/** Greedy Pick: the chance an ore crumbles to stone instead of dropping. */
 	public static final float GREEDY_PICK_CRUMBLE = 1f / 8f;
@@ -59,38 +65,111 @@ public final class Cursed {
 		return dev.voidmc.mettle.character.Perks.has(player, perk);
 	}
 
+	/** The Hex set's tier for this player (docs/CARDS.md §6.3): 2 softens downsides, 4 strengthens upsides. Both sides. */
+	public static int hex(Player player) {
+		return dev.voidmc.mettle.character.cards.CardHooks.set(player, "hex");
+	}
+
+	/** A multiplier's upside (above 1), 15 % stronger at Hex 4. */
+	public static double up(double factor, int hex) {
+		return hex >= 4 ? 1 + (factor - 1) * HEX_UP : factor;
+	}
+
+	/** A multiplier's downside (its distance from 1, either way), 25 % smaller at Hex 2. */
+	public static double down(double factor, int hex) {
+		return hex >= 2 ? 1 + (factor - 1) * HEX_DOWN : factor;
+	}
+
+	/** Hex 4's upside and Hex 2's downside scales. */
+	public static final double HEX_UP = 1.15;
+	public static final double HEX_DOWN = 0.75;
+
 	/** Bow draw speed multiplier from cursed cards (both sides: the client animates the draw from it). */
 	public static float drawSpeed(Player player) {
-		return drawSpeed(has(player, HEAVY_DRAW), has(player, SNAP_SHOT));
+		return drawSpeed(has(player, HEAVY_DRAW), has(player, SNAP_SHOT), hex(player));
 	}
 
 	public static float drawSpeed(boolean heavyDraw, boolean snapShot) {
-		return (heavyDraw ? HEAVY_DRAW_SPEED : 1f) * (snapShot ? SNAP_SHOT_SPEED : 1f);
+		return drawSpeed(heavyDraw, snapShot, 0);
+	}
+
+	/** Heavy Draw slows the draw (a downside), Snap Shot quickens it (an upside). */
+	public static float drawSpeed(boolean heavyDraw, boolean snapShot, int hex) {
+		return (float) ((heavyDraw ? down(HEAVY_DRAW_SPEED, hex) : 1) * (snapShot ? up(SNAP_SHOT_SPEED, hex) : 1));
 	}
 
 	/** Arrow damage multiplier from cursed cards. */
 	public static float arrowDamage(Player player) {
-		return arrowDamage(has(player, HEAVY_DRAW), has(player, SNAP_SHOT));
+		return arrowDamage(has(player, HEAVY_DRAW), has(player, SNAP_SHOT), hex(player));
 	}
 
 	public static float arrowDamage(boolean heavyDraw, boolean snapShot) {
-		return (heavyDraw ? HEAVY_DRAW_DAMAGE : 1f) * (snapShot ? SNAP_SHOT_DAMAGE : 1f);
+		return arrowDamage(heavyDraw, snapShot, 0);
 	}
 
-	/** Hunger drain multiplier (Wolf's Hunger). */
+	/** Heavy Draw's harder arrows are its upside, Snap Shot's weaker ones its downside. */
+	public static float arrowDamage(boolean heavyDraw, boolean snapShot, int hex) {
+		return (float) ((heavyDraw ? up(HEAVY_DRAW_DAMAGE, hex) : 1) * (snapShot ? down(SNAP_SHOT_DAMAGE, hex) : 1));
+	}
+
+	/** Hunger drain multiplier (Wolf's Hunger: a downside). */
 	public static float hunger(Player player) {
-		return has(player, WOLFS_HUNGER) ? WOLFS_HUNGER_DRAIN : 1f;
+		return has(player, WOLFS_HUNGER) ? wolfsHunger(hex(player)) : 1f;
 	}
 
-	/** XP multiplier from cursed cards (Slapdash: Smithing). */
+	/** Wolf's Hunger's drain for a Hex tier. */
+	public static float wolfsHunger(int hex) {
+		return (float) down(WOLFS_HUNGER_DRAIN, hex);
+	}
+
+	/** Greedy Pick's chance an ore crumbles (a downside: a quarter less likely at Hex 2). */
+	public static float crumbleChance(Player player) {
+		return crumbleChance(hex(player));
+	}
+
+	public static float crumbleChance(int hex) {
+		return hex >= 2 ? (float) (GREEDY_PICK_CRUMBLE * HEX_DOWN) : GREEDY_PICK_CRUMBLE;
+	}
+
+	/** Slapdash's Smithing XP multiplier for a Hex tier (an upside). */
+	public static double slapdashXp(int hex) {
+		return up(SLAPDASH_XP, hex);
+	}
+
+	/** Brittle Edge's damage on a crafted weapon (the upside), for the Hex tier its smith had. */
+	public static double brittleEdgeDamage(int hex) {
+		return hex >= 4 ? BRITTLE_EDGE_DAMAGE * HEX_UP : BRITTLE_EDGE_DAMAGE;
+	}
+
+	/** Brittle Edge's lost durability (the downside), for the Hex tier its smith had. */
+	public static double brittleEdgeDurability(int hex) {
+		return hex >= 2 ? BRITTLE_EDGE_DURABILITY * HEX_DOWN : BRITTLE_EDGE_DURABILITY;
+	}
+
+	/** Slapdash's lost durability (the downside), for the Hex tier its smith had. */
+	public static double slapdashDurability(int hex) {
+		return hex >= 2 ? SLAPDASH_DURABILITY * HEX_DOWN : SLAPDASH_DURABILITY;
+	}
+
+	/** XP multiplier from cursed cards (Slapdash: Smithing), before Hex (Progress has no player here; see {@link #cardXp}). */
 	public static double xp(CharacterState state, ResourceKey<Skill> skill) {
 		return skill.equals(SMITHING) && state.rank(ResourceKey.create(dev.voidmc.mettle.api.MettleRegistries.PERK, SLAPDASH)) > 0 ? SLAPDASH_XP : 1.0;
 	}
 
-	/** Slapdash held only through a slotted card (the record's perks don't show it): its XP multiplier, else 1. */
+	/**
+	 * Slapdash held only through a slotted card (the record's perks don't show it): its XP multiplier, else 1; with Hex
+	 * 4 also what makes the record's Slapdash 15 % stronger.
+	 */
 	public static double cardXp(Player player, CharacterState state, ResourceKey<Skill> skill) {
+		if (!skill.equals(SMITHING)) {
+			return 1.0;
+		}
 		ResourceKey<dev.voidmc.mettle.api.Perk> key = ResourceKey.create(dev.voidmc.mettle.api.MettleRegistries.PERK, SLAPDASH);
-		return skill.equals(SMITHING) && state.rank(key) == 0 && dev.voidmc.mettle.core.CardStore.get(player).activeRank(key) > 0 ? SLAPDASH_XP : 1.0;
+		double hexed = slapdashXp(hex(player));
+		if (state.rank(key) > 0) {
+			return hexed / SLAPDASH_XP;
+		}
+		return dev.voidmc.mettle.core.CardStore.get(player).activeRank(key) > 0 ? hexed : 1.0;
 	}
 
 	/** Greedy Pick: what an ore crumbles to (the stone it sat in). */

@@ -259,7 +259,9 @@ draft still waiting. Overlay: `skills[].mythicOffer`, `claimMythic(skill)` (OVER
 - **The same trait on several slotted cards adds up, to at most twice its card cap**: Deepborn can give at most +30 %
   however many cards carry it. The Deck screen shows "Deepborn 24 % of 30 %".
 - Social traits (they help allies near you) never stack between players: an ally gets the strongest one in range.
-- `pvp_perks` (`full` / `reduced` / `off`, BALANCE.md §6) governs traits, sets and Mythics exactly as it governs perks.
+- `pvp_perks` (`full` / `reduced` / `off`, in `cards.json`) governs what cards add to a hit between players: the damage
+  dealt and taken shares of traits, sets and Mythics, Ironskin and Bodyguard are kept, halved or dropped. Attribute
+  modifiers (armour, health, speed, Brutal 2's +4 %) stay as they are. Perks have no PvP switch yet (BALANCE.md §6).
 
 ### 4.2 Pools (all eight released skills)
 
@@ -276,11 +278,11 @@ endurance, **Pre** fortune and fellowship.
 | **Hauler's** | Stone, ore and raw metal weigh X less for you. | 8–20 % | Str |
 | **Greedy** | Metal ores drop one more raw metal X of the time. | 3–8 % | Pre |
 | **Lucky** | Gem ores (diamond, emerald, lapis, redstone, quartz) drop one more X of the time. | 3–8 % | Pre |
-| **Seamfinder** | The first ore of each vein drops one more X of the time. | 8–20 % | Pre |
+| **Seamfinder** | The first ore of each vein drops one more X of the time (a vein is the ore connected to it; the last eight veins are remembered). | 8–20 % | Pre |
 | **Geodic** | Amethyst buds and clusters drop one more shard X of the time. | 15–25 % | Pre |
 | **Prospecting** | Mining XP from ore +X. | 5–12 % | Pre |
 | **Echoing** | Breaking an ore also breaks one touching ore of the same kind X of the time. | 4–10 % | Agi |
-| **Surefooted** | Digging while climbing, swimming or in the air is X less slow. | 10–25 % | Agi |
+| **Surefooted** | Digging while climbing, swimming or in the air is X less slow (each of vanilla's slownesses, off the ground and in water, is X smaller). | 10–25 % | Agi |
 | **Stonehide** | Falling blocks, dripstone, magma and suffocation hurt X less. | 10–25 % | Vit |
 | **Cavern-wise** | Mobs hurt you X less while you are below y 0. | 4–10 % | Vit |
 | **Tireless** | Digging costs X less hunger. | 10–25 % | Vit |
@@ -322,7 +324,7 @@ endurance, **Pre** fortune and fellowship.
 | **Swinging** | Heavy weapons swing X faster. | 3–8 % | Agi |
 | **Raging** | Each hit you take gives +X damage for 5 s, up to 3 stacks. | 2–4 % a stack | Vit |
 | **Rooted** | X less knockback while you hold a heavy weapon. | 10–25 % | Vit |
-| **Bloodthirsty** | A heavy kill heals X hearts. | 0.5–1.5 | Vit |
+| **Bloodthirsty** | A heavy kill heals X hearts (at most that much a second; a kill by a cleave or an overkill heals half). | 0.5–1.5 | Vit |
 | **Unshaken** | Slowness and Weakness on you last X less while you hold a heavy weapon. | 15–25 % | Vit |
 | **Unworn** | Axes, maces and tridents lose durability X less often. | 6–15 % | Vit |
 | **Splitting** | Logs you chop drop one more X of the time. | 5–12 % | Pre |
@@ -373,15 +375,15 @@ endurance, **Pre** fortune and fellowship.
 | Trait | What it does | Range | Attr |
 |---|---|---|---|
 | **Strapped** | +X kg carry capacity. | 3–8 kg | Str |
-| **Burden-wise** | You become Burdened X points later (75 % → 75 + X). | 2–5 | Str |
+| **Burden-wise** | You become Burdened later: at 75 % of your capacity plus X points. | 2–5 | Str |
 | **Bracing** | X less knockback while you sprint. | 10–25 % | Str |
 | **Fleet** | You sprint X faster. | 2–6 % | Agi |
-| **Springing** | Sprint-jumps go X higher. | 4–10 % | Agi |
+| **Springing** | Sprint-jumps go X higher (the height, not the push: a jump's height grows with the square of its strength, so the strength is worked out from X). | 4–10 % | Agi |
 | **Featherfall** | You fall X more blocks before taking damage. | 0.5–1.5 | Agi |
 | **Climbing** | You climb X faster. | 10–25 % | Agi |
 | **Surefoot** | Soul sand, honey, powder snow and cobwebs slow you X less. | 15–25 % | Agi |
 | **Windless** | Sprinting costs X less hunger. | 8–15 % | Vit |
-| **Waterborn** | You swim X faster. | 6–15 % | Vit |
+| **Waterborn** | You swim X faster (top swimming speed; the water efficiency that gives it is worked out from X). | 6–15 % | Vit |
 | **Deep-lunged** | You hold your breath X longer. | 3–8 s | Vit |
 | **Long-winded** | After 10 s of sprinting, +X speed until you stop. | 3–8 % | Vit |
 | **Rolling** | Falls hurt X less. | 6–15 % | Vit |
@@ -523,16 +525,16 @@ and Hearth folk where a line says so. No ally bonus ever applies to someone atta
 |---|---|---|---|---|
 | **Ember** | fire, forge, the cookfire | Fire and lava hurt you 15 % less. | Melee hits set the target alight one time in eight (3 s); campfire food heals 1 heart when eaten. | **Kindled**: taking fire damage makes you Kindled for 8 s: +15 % damage, your hits ignite, and you burn for at most 2 s (30 s cooldown). |
 | **Deep** | the underground, the dark | Below y 0: dig 5 % faster, take 5 % less damage. | Below y 0, hostiles notice you 25 % closer. | **Underdark**: in light 4 or less you regenerate half a heart every 5 s, and your first hit from the dark on a mob is a critical (10 s cooldown). |
-| **Swift** | speed | +3 % movement speed. | +5 % attack speed and bow draw speed. | **Slipstream**: after 3 s of sprinting, your next hit or shot within 2 s deals +30 % and doesn't break your sprint. |
+| **Swift** | speed | +3 % movement speed. | +5 % attack speed and bow draw speed. | **Slipstream**: after 3 s of sprinting, your next hit or shot within 2 s deals +30 %. |
 | **Brutal** | heavy blows | +4 % melee damage. | Critical hits knock back half again as far and daze for 0.5 s. | **Overkill**: damage beyond what kills a mob spills onto the nearest enemy within 4 blocks (up to 10). |
 | **Echo** | things that happen again | Perk cooldowns 10 % shorter. | Perk cooldowns 20 % shorter (in all). | **Reverberate**: when a perk with a cooldown fires, one time in four it is ready again at once. |
 | **Warden** | guarding others | +1 armour. | Allies within 6 blocks take 8 % less damage (the best Warden in range counts). | **Bodyguard**: when an ally within 6 blocks would take more than 4 damage, you take a third of it instead (4 s cooldown). |
 | **Keen** | precision | Critical hits (melee and arrows) deal +8 %. | Your first hit on a target at full health is a critical, once per target. | **Weak Point**: three hits on one target within 4 s expose it: it takes +20 % from everyone for 4 s (10 s per target). |
-| **Wild** | beasts and plants | Animals you kill and wild plants you pick give 10 % more. | Your tamed animals near you take 25 % less damage and deal 15 % more. | **Feral**: on natural ground (outside settlements) you regenerate as if well fed and move 8 % faster. |
+| **Wild** | beasts and plants | Animals you kill and wild plants you pick give 10 % more (each item of a plain drop, one time in ten). | Your tamed animals near you take 25 % less damage and deal 15 % more. | **Feral**: on natural ground (soil, sand, snow, gravel or stone under open sky) you regenerate as if well fed and move 8 % faster. |
 | **Iron** | armour and wear | Armour and shields wear 10 % slower. | +1 armour toughness. | **Ironskin**: the first hit you take every 8 s is 3 damage lighter (after armour). |
 | **Tide** | water | Swim 10 % faster, +5 s of breath. | Mine at full speed under water; thrown tridents +10 %. | **Undertow**: in water or rain you deal +15 %, every hit slows the target for 1 s, and you see clearly under water. |
-| **Gale** | air, falls, flight | Fall 1.5 blocks more before taking damage. | Arrows and thrown things fly 10 % faster; sprint-jumps +10 %. | **Updraft**: jump once more in mid-air before you land (8 s cooldown). |
-| **Hoard** | plenty | Everything you carry weighs 5 % less. | Blocks and mobs drop one more of something one time in 25. | **Magpie**: loot chests you open first roll one extra time one time in four; Hearth markets give you 5 % more edge. |
+| **Gale** | air, falls, flight | Fall 1.5 blocks more before taking damage. | Arrows and thrown things (tridents, snowballs, potions, axes) fly 10 % faster; sprint-jumps go 10 % higher. | **Updraft**: jump once more in mid-air before you land (8 s cooldown). |
+| **Hoard** | plenty | Everything you carry weighs 5 % less. | Blocks and mobs drop one more of something one time in 25 (natural drops only: ore, ripe crops, wild plants, amethyst and mob loot; never a block's own item, never anything with contents or data of its own). | **Magpie**: loot chests you open first roll their table once more one time in four (never a trial vault); Hearth markets give you 5 % more edge. |
 | **Hex** | cursed cards | Your cursed cards' downsides are 25 % smaller. | Their upsides are 15 % stronger. | **Pact**: once every 5 minutes a killing blow leaves you on 4 hearts with Strength I and Speed I for 8 s, and takes 3 max hearts until you next sleep. |
 | **Kin** | fellowship | Allies within 8 blocks gain 5 % more skill XP. | You and allies within 8 blocks regenerate 10 % faster. | **Rally Cry**: sneak and swing an empty hand: allies within 16 blocks get Speed I and Strength I for 8 s (90 s cooldown). |
 
@@ -695,9 +697,9 @@ NPCs never sell cards of their own; the broker only lists players' cards.
 | **Dragonfall** | First to fell the Ender Dragon | Sneak-use any banner to raise the Dragon Standard for 60 s (10 min cooldown): allies within 24 blocks gain **your best active set bonus** as if it were theirs (it doesn't stack with their own of the same keyword). |
 | **The Warden's Hush** | First to kill a Warden | You make no vibrations: sculk sensors, shriekers and wardens never hear you. Allies sneaking within 6 blocks of you are hushed too. |
 | **Witherbane** | First to kill the Wither | Wither and poison never touch you; allies within 12 blocks take them at half strength for half as long. |
-| **The Far Horizon** | First to stand 10,000 blocks from world spawn (Overworld) | **Homeward**: hold a compass and sneak for 5 s to return to your bed or respawn point (once per in-game day). Nothing else in Mettle moves you like this. |
+| **The Far Horizon** | First to stand 10,000 blocks from world spawn (Overworld) | **Homeward**: hold a compass and sneak for 5 s to return to your bed or respawn point (once per in-game day), where a respawn would put you: a free spot beside the bed or charged anchor (its charge not spent), else the world spawn. Nothing else in Mettle moves you like this. |
 | **The Elder's Eye** | First to kill an Elder Guardian | You and allies within 12 blocks breathe under water, see clearly in it, and mine there at full speed. |
-| **The Open Hand** | First to be Honoured in a Hearth city (without Hearth: first Hero of the Village) | Your Hearth market edge (BALANCE.md §9.2) also applies to allies within 8 blocks of you at a counter, and Hearth folk know your name. |
+| **The Open Hand** | First to be Honoured in a Hearth city (without Hearth: first Hero of the Village) | Your Hearth market edge (BALANCE.md §9.2) also applies to allies within 8 blocks of you at a counter. |
 | **First of Masters** | First to bring any skill to 20 | **Mentor**: allies within 16 blocks gain skill XP 20 % faster in every skill where yours is higher than theirs. |
 
 **Legendary deeds** (anyone, once each; each copy is numbered: "the 3rd in this world"):
@@ -714,7 +716,7 @@ NPCs never sell cards of their own; the broker only lists players' cards.
 
 | Mythic | Skill | Effect |
 |---|---|---|
-| **Heart of the Mountain** | Mining | Sneak-use a pickaxe on stone to bore a 1 × 2 tunnel 8 blocks deep at once; each block costs durability and drops as normal (30 s cooldown). |
+| **Heart of the Mountain** | Mining | Sneak-use a pickaxe on stone to bore a 1 × 2 tunnel 8 blocks deep at once; each block costs durability and drops as normal (30 s cooldown). It takes only stone-like blocks the pickaxe can harvest, no harder than deepslate ores, and stops at the first it can't (obsidian, ancient debris, reinforced deepslate, bedrock, a block entity, spawn protection or a claim). |
 | **The Twin Edge** | Blades | Every fourth blade hit on the same target is struck again by a spectral twin, for full damage. |
 | **Worldsplitter** | Heavy Weapons | A fully charged sneak-attack sends a shockwave 8 blocks along the ground: every mob in its line takes half the hit and is thrown up (10 s cooldown; no blocks broken). |
 | **The Seeking Fletch** | Marksmanship | Fully drawn arrows bend towards the last mob you hit, within 20°. |
@@ -779,7 +781,10 @@ plus the binder, decks, hands and any card by id; the designed `MYTHIC_EARNED` s
 | Set stacking | Three active sets; six needs two skills; a pinned choice changes once a day. |
 | Stacking a trait | One trait's total from all cards is capped at twice its card cap (§4.1). |
 | Slot dodging with Wits | Slots lost to Unbinding go dormant (no bonus, no count) until Wits returns. |
-| PvP | `pvp_perks` covers traits, sets and Mythics; ally bonuses never help someone attacking you. |
+| PvP | `pvp_perks` covers what traits, sets and Mythics add to hits; ally bonuses never help someone in a fight with you (either struck the other in the last 5 s: `CardHooks.helps`). |
+| Duplicating items with extra drops | Every "one more" effect copies a plain stack only (no contents, enchantments, name or other data), never a block's own item for Hoard 4, never from a block a player placed; Magpie rolls the chest's table again rather than copying it, and never a vault. |
+| Cooldowns reset by a relog | Set and Mythic cooldowns are saved with the player in game time (`mettle:character/card_cooldowns`, kept through death, synced to the owner). |
+| Spam clicks and hurt frames | What a hit does besides damage (Weak Point, Keen 4, Charging, Slipstream, Underdark, Kindled, Bodyguard, Overkill) happens only when vanilla lets the hit land; Weak Point counts full swings only. |
 
 ---
 
@@ -845,7 +850,19 @@ cursed 2 or 3. A trait is worth its value ÷ its card cap (a capped trait = 1 po
 | … with Wits 14 (+2 slots) | ≤ 1.3 × v1 | `CardReportTest` |
 | Sets, whole character | 3 active × 5 points = 15 points at most (about 7 % on top of eight skills at 20) | rule |
 | Mythics | 2 slotted, each sized to an Epic Mastery with traits (about 6 points) | review |
-| Whole-character ceilings from Mettle (perks + traits + sets + Mythics) | movement +35 %, melee damage +60 %, damage taken −45 %, dig speed +120 %, extra-drop chance +50 % per drop | `CardReportTest`, worst-case deck search |
+| Whole-character ceilings from cards (traits + sets + Mythics + cursed cards' upsides) | movement +35 %, melee damage +60 %, damage taken −45 %, dig speed +120 %, extra-drop chance +50 % per drop; a jump peaks under 2 blocks | enforced in game (`Ceilings`); `CardReportTest` worst-case deck search |
+
+**Enforced (2026-10-12).** The ceilings are applied where the numbers meet the game (`character.cards.Ceilings`), so no
+deck passes them in any state. Movement: one correcting modifier `mettle:ceiling/movement_speed` holds the sum of every
+card modifier on movement speed (traits, sets, timed ones like Flourishing and Feral, the Unclad, the Trailmaker, cursed
+cards) to +35 %. Melee: the damage hook's multiplier times the cards' share of attack damage (Brutal 2, cursed cards) at
+most ×1.6 a hit, ×1.28 with the Twin Edge (which strikes a quarter of hits again). Damage taken: what cards leave of a
+hit never under 55 % (Ironskin, after armour, only up to that). Dig: the hook's multiplier times the cursed cards' break
+speed at most ×2.2 (Surefooted only takes back vanilla's slowness and is not counted). Extra drops: the chances on one
+drop are scaled to 50 % in sum. Jumps: a player's jump strength counts at most 0.53 (a 1.9-block peak; vanilla 1.25),
+so walls stay walls. The deck (overlay `cards.ceilings`, trait totals, `/mettle cards`) says when a stat is capped:
+"Movement from cards: up to +47 %, capped at +35 %". Perks are not in these ceilings (their trees have their own
+budgets). The average power targets don't move: the simulator's points count values, not the clamp.
 
 Estimated (to be confirmed by the simulator): at skill 20 the best eight of thirteen cards hold about 24 points of
 perks plus about 7 of traits, 31 against v1's 28 (1.1×); with Wits 14 about 36 (1.3×).
@@ -892,6 +909,7 @@ world's game time, which `/time set` and a stopped daylight cycle don't touch.
 | `binder_max` / `release_per_reroll` | 300 (at most 1,500; Mythics don't count) / 3 |
 | `mythic_draw_chance` / `mythic_draw_from` / `mythic_slots` | 0.005 / 15 / 2 |
 | `far_horizon_blocks` | 10,000 |
+| `pvp_perks` | `full` (`reduced` halves, `off` drops what cards add to hits between players, §4.1) |
 
 ---
 
@@ -1196,3 +1214,33 @@ present) and `CardServiceJourney` in the client tour: it listens to every card e
 event's arguments as the draft, card, shrine, trade and Mythic journeys play (every one of the eight must fire, a paid
 and a free unslot among them), then reads a fresh Athletics deck back through the service and watches the Swift set
 come and go.
+
+## 26. Fixed (production audit of card effects and balance, 2026-10-12)
+
+The gameplay audit (branch audit-gameplay, `CardAuditTest`) found these; each is fixed on mettle-fix-effects and the
+audit's checks now assert the correct behaviour.
+
+- **Item dupe (Hoard 4 and every extra drop).** Extras copy plain stacks only (`CardHooks.plain`: no contents,
+  enchantments, name or other data), from natural drops only (not a placed block; Hoard 4 never a block's own item), so
+  a shulker box with contents, a silk-touched ore or a named sword is never copied. Mining's Prospector, Gem Cutter,
+  Diamond Hands and Strike the Seam, Foraging's Gatherer and Cook's follow the same rule. Magpie rolls the chest's table
+  again (no copies) and never a trial vault. Seamfinder remembers whole veins.
+- **Cooldowns** of sets and Mythics (Pardon, Pact, Homeward, the Dragon Standard, Rally Cry, Updraft, Kindled, the
+  Stride, Aegis, Worldsplitter, Heart of the Mountain) are saved with the player in game time (`CardCooldowns`), survive
+  relogs, restarts and death, and sync to their owner (the client's Updraft and Stride wait on them).
+- **§14 ceilings** enforced (above), with the worst-case search in `CardReportTest` (every trait at its total cap, every
+  cursed card, all 364 choices of three sets at 6 and 190 pairs of Mythics, every condition at once).
+- **Hex 2 / 4** reach the coded cursed halves: Heavy Draw, Snap Shot, Brittle Edge, Slapdash (stamped on the piece with
+  the smith's Hex tier), Greedy Pick's crumble and Wolf's Hunger's drain.
+- **Text**: Finishing and Burden-wise print their numbers (`LangFormatTest` formats every shipped line); Springing,
+  Gale 4, Waterborn and Tide 2 now give what they say ("X higher" and "X faster" as heights and swim speeds,
+  `CardPhysics`); Slipstream, Feral and the Open Hand say only what they do.
+- **Hits**: what a hit does besides damage runs only when it lands (after vanilla's invulnerability and hurt frames);
+  Weak Point counts full swings on the foe aimed at; Ironskin works after armour; Bodyguard, Shielding, Warden 4 and the
+  other ally bonuses never help someone in a fight with you; Bloodthirsty heals at most its value a second, half for a
+  cleave or overkill kill; Recovering and Kin 4 add to vanilla's own regeneration only while it heals, and cost hunger as
+  it does.
+- **Mythics**: Heart of the Mountain respects hardness, tool tier, block entities, spawn protection and claims; Homeward
+  lands where a respawn would; Gale 4 throws things faster; `pvp_perks` is a cards.json switch.
+- Trait totals are twice the unrounded card cap (3.75, not 3.76); per-player maps (trait chips, last hits, boss fights)
+  are cleared on logout and when an entity goes.

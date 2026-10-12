@@ -72,18 +72,14 @@ public final class MythicEffects {
 	private static final Identifier UNCLAD = Mettle.id("mythic_timed/unclad");
 	private static final Identifier TRAILMAKER = Mettle.id("mythic_timed/trailmaker");
 
-	/** Per-holder memory: cooldowns and counters, in game ticks. Server only, never saved. */
+	/**
+	 * Per-holder memory: counters, in game ticks. Server only, never saved; the cooldowns are saved with the player
+	 * ({@link CardCooldowns}), so a relog or a restart never resets one.
+	 */
 	private static final class Memory {
-		long standardReady;
-		long homewardReady;
 		int homeward;
-		long boreReady;
-		long splitReady;
-		long aegisReady;
 		long blockingSince = -1;
-		long dashReady;
 		boolean dashFalling;
-		long pardonReady;
 		Map<Integer, int[]> twin = new HashMap<>();
 	}
 
@@ -101,6 +97,10 @@ public final class MythicEffects {
 	private static final Map<UUID, Dome> DOMES = new HashMap<>();
 	private static final Map<AbstractArrow, UUID> SEEKING = new WeakHashMap<>();
 	private static final Map<UUID, LivingEntity> LAST_HIT = new HashMap<>();
+	/** Pardon's cooldown: once every 7 in-game days. */
+	static final long PARDON_TICKS = 7 * 24000L;
+	/** The Stride's cooldown: 8 s. */
+	public static final int DASH_TICKS = 160;
 	private static final Map<UUID, List<Wolf>> PACKS = new HashMap<>();
 	private static final Set<UUID> PARDONED = new HashSet<>();
 	private static boolean inner;
@@ -121,12 +121,16 @@ public final class MythicEffects {
 			BORROWED.remove(p.getUUID());
 			DOMES.remove(p.getUUID());
 			PACKS.remove(p.getUUID());
+			LAST_HIT.remove(p.getUUID());
+			SEEKING.values().removeIf(p.getUUID()::equals);
 		});
 		ServerLivingEntityEvents.AFTER_DAMAGE.register(MythicEffects::afterDamage);
 		// Hundredth Dawn's Pardon: the death goes ahead, but nothing is dropped, and the respawn gets it all back.
 		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
-			if (entity instanceof ServerPlayer p && has(p, "hundredth_dawn") && now(p) >= memory(p).pardonReady) {
+			if (entity instanceof ServerPlayer p && has(p, "hundredth_dawn") && CardCooldowns.ready(p, CardCooldowns.PARDON)) {
 				PARDONED.add(p.getUUID());
+				// The cooldown is saved now and kept through the death (CardCooldowns copies on death).
+				CardCooldowns.start(p, CardCooldowns.PARDON, PARDON_TICKS);
 			}
 			return true;
 		});
@@ -136,13 +140,15 @@ public final class MythicEffects {
 				newPlayer.experienceLevel = oldPlayer.experienceLevel;
 				newPlayer.totalExperience = oldPlayer.totalExperience;
 				newPlayer.experienceProgress = oldPlayer.experienceProgress;
-				memory(newPlayer).pardonReady = now(newPlayer) + 7 * 24000L;
+				if (CardCooldowns.ready(newPlayer, CardCooldowns.PARDON)) {
+					CardCooldowns.start(newPlayer, CardCooldowns.PARDON, PARDON_TICKS);
+				}
 				SignaturePerks.feedback(newPlayer, Mettle.id("mythic/hundredth_dawn"), Component.translatable("mettle.mythic.fired.hundredth_dawn"));
 			}
 		});
 		UseItemCallback.EVENT.register((player, level, hand) -> {
 			if (player instanceof ServerPlayer p && hand == InteractionHand.MAIN_HAND && p.isShiftKeyDown()
-				&& p.getMainHandItem().is(ItemTags.BANNERS) && has(p, "dragonfall") && now(p) >= memory(p).standardReady) {
+				&& p.getMainHandItem().is(ItemTags.BANNERS) && has(p, "dragonfall") && CardCooldowns.ready(p, CardCooldowns.STANDARD)) {
 				raiseStandard(p);
 				return InteractionResult.SUCCESS;
 			}
@@ -150,7 +156,7 @@ public final class MythicEffects {
 		});
 		UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
 			if (player instanceof ServerPlayer p && hand == InteractionHand.MAIN_HAND && p.isShiftKeyDown() && p.getMainHandItem().is(ItemTags.PICKAXES)
-				&& has(p, "heart_of_the_mountain") && now(p) >= memory(p).boreReady && MiningSkill.isStoneLike(level.getBlockState(hit.getBlockPos()))) {
+				&& has(p, "heart_of_the_mountain") && CardCooldowns.ready(p, CardCooldowns.BORE) && boreable(p, (ServerLevel) level, hit.getBlockPos())) {
 				bore(p, hit.getBlockPos());
 				return InteractionResult.SUCCESS;
 			}
@@ -194,8 +200,12 @@ public final class MythicEffects {
 		ServerLevel level = (ServerLevel) target.level();
 		// The Twin Edge: every fourth blade hit on the same target is struck again, for full damage.
 		if (weapon == Combat.Weapon.BLADE && has(player, "twin_edge")) {
-			int[] count = memory(player).twin.computeIfAbsent(target.getId(), k -> new int[] {0, 0});
+			Map<Integer, int[]> twins = memory(player).twin;
 			long now = now(player);
+			if (twins.size() > 64) {
+				twins.values().removeIf(c -> now - c[1] > 100);
+			}
+			int[] count = twins.computeIfAbsent(target.getId(), k -> new int[] {0, 0});
 			if (now - count[1] > 100) {
 				count[0] = 0;
 			}
@@ -207,9 +217,9 @@ public final class MythicEffects {
 			}
 		}
 		// Worldsplitter: a fully charged sneak-attack sends a shockwave 8 blocks along the ground.
-		if (weapon == Combat.Weapon.HEAVY && player.isShiftKeyDown() && has(player, "worldsplitter") && now(player) >= memory(player).splitReady
+		if (weapon == Combat.Weapon.HEAVY && player.isShiftKeyDown() && has(player, "worldsplitter") && CardCooldowns.ready(player, CardCooldowns.SPLIT)
 			&& Swings.strength(player) >= 0.9f) {
-			memory(player).splitReady = now(player) + 200;
+			CardCooldowns.start(player, CardCooldowns.SPLIT, 200);
 			Vec3 dir = Vec3.directionFromRotation(0, player.getYRot()).normalize();
 			for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(9))) {
 				if (e == player || e == target || e instanceof Player p && CardHooks.allies(player, p)) {
@@ -251,7 +261,7 @@ public final class MythicEffects {
 			return effect;
 		}
 		for (ServerPlayer other : player.level().players()) {
-			if (other != player && CardHooks.allies(player, other) && other.distanceToSqr(player) <= 144 && has(other, "witherbane")) {
+			if (CardHooks.helps(other, player) && other.distanceToSqr(player) <= 144 && has(other, "witherbane")) {
 				return new MobEffectInstance(kind, Math.max(1, effect.getDuration() / 2), effect.getAmplifier() / 2, effect.isAmbient(), effect.isVisible(),
 					effect.showIcon());
 			}
@@ -280,7 +290,7 @@ public final class MythicEffects {
 			return false;
 		}
 		for (Player other : player.level().players()) {
-			if (other != player && other.distanceToSqr(player) <= 36 && CardHooks.allies(player, other) && has(other, "wardens_hush")) {
+			if (other.distanceToSqr(player) <= 36 && CardHooks.helps(other, player) && has(other, "wardens_hush")) {
 				return true;
 			}
 		}
@@ -296,7 +306,7 @@ public final class MythicEffects {
 	private static double mentor(ServerPlayer player, ResourceKey<Skill> skill) {
 		int mine = CharacterStore.get(player).level(skill);
 		for (ServerPlayer other : player.level().players()) {
-			if (other != player && CardHooks.allies(player, other) && other.distanceToSqr(player) <= 256 && has(other, "first_of_masters")
+			if (CardHooks.helps(other, player) && other.distanceToSqr(player) <= 256 && has(other, "first_of_masters")
 				&& CharacterStore.get(other).level(skill) > mine) {
 				return 1.2;
 			}
@@ -320,7 +330,7 @@ public final class MythicEffects {
 	public static double openHandEdge(ServerPlayer player, java.util.function.ToDoubleFunction<ServerPlayer> edge) {
 		double best = 0;
 		for (ServerPlayer other : player.level().players()) {
-			if (other != player && CardHooks.allies(player, other) && other.distanceToSqr(player) <= 64 && has(other, "open_hand")) {
+			if (CardHooks.helps(other, player) && other.distanceToSqr(player) <= 64 && has(other, "open_hand")) {
 				best = Math.max(best, edge.applyAsDouble(other));
 			}
 		}
@@ -344,7 +354,7 @@ public final class MythicEffects {
 				tier = e.getValue();
 			}
 		}
-		memory(player).standardReady = now(player) + 12000;
+		CardCooldowns.start(player, CardCooldowns.STANDARD, 12000);
 		if (best == null) {
 			SignaturePerks.feedback(player, Mettle.id("mythic/dragonfall"), Component.translatable("mettle.mythic.fired.dragonfall.none"));
 			return;
@@ -353,15 +363,43 @@ public final class MythicEffects {
 		SignaturePerks.feedback(player, Mettle.id("mythic/dragonfall"), Component.translatable("mettle.mythic.fired.dragonfall", CardText.keyword(player.level().registryAccess(), best), tier));
 	}
 
-	private static void bore(ServerPlayer player, BlockPos start) {
-		memory(player).boreReady = now(player) + 600;
+	/**
+	 * Heart of the Mountain: a block the bore may take. Stone-like, mined with a pickaxe, no harder than deepslate ores
+	 * (so never obsidian, ancient debris, reinforced deepslate or anything unbreakable), harvestable with the pickaxe in
+	 * hand, holding nothing (no block entity), and where this player may build (spawn protection, the world border,
+	 * adventure mode). Claim mods are asked as for any break (ServerPlayerGameMode#destroyBlock fires Fabric's events).
+	 */
+	public static boolean boreable(ServerPlayer player, ServerLevel level, BlockPos pos) {
+		BlockState state = level.getBlockState(pos);
+		float hardness = state.getDestroySpeed(level, pos);
+		return !state.isAir() && hardness >= 0 && hardness <= BORE_HARDNESS && MiningSkill.isStoneLike(state)
+			&& state.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE) && !state.is(net.minecraft.world.level.block.Blocks.OBSIDIAN)
+			&& !state.is(net.minecraft.world.level.block.Blocks.CRYING_OBSIDIAN) && !state.is(net.minecraft.world.level.block.Blocks.ANCIENT_DEBRIS)
+			&& !state.is(net.minecraft.world.level.block.Blocks.REINFORCED_DEEPSLATE) && !state.hasBlockEntity() && player.hasCorrectToolForDrops(state)
+			&& player.mayInteract(level, pos) && !player.blockActionRestricted(level, pos, player.gameMode.getGameModeForPlayer())
+			&& !level.getServer().isUnderSpawnProtection(level, pos, player);
+	}
+
+	/** The hardest block the bore takes (deepslate ores; deepslate itself is 3). */
+	static final float BORE_HARDNESS = 4.5f;
+
+	/** Bores 1 × 2, 8 deep, stopping at the first block it may not take; each block costs durability and drops as normal. */
+	public static void bore(ServerPlayer player, BlockPos start) {
+		CardCooldowns.start(player, CardCooldowns.BORE, 600);
+		ServerLevel level = (ServerLevel) player.level();
 		Direction dir = player.getDirection();
+		dig:
 		for (int d = 0; d < 8; d++) {
 			for (int y = 0; y < 2; y++) {
 				BlockPos pos = start.relative(dir, d).above(y);
-				BlockState state = player.level().getBlockState(pos);
-				if (state.isAir() || state.getDestroySpeed(player.level(), pos) < 0 || player.getMainHandItem().isEmpty()) {
+				if (player.getMainHandItem().isEmpty() || !player.getMainHandItem().is(ItemTags.PICKAXES)) {
+					break dig;
+				}
+				if (level.getBlockState(pos).isAir()) {
 					continue;
+				}
+				if (!boreable(player, level, pos)) {
+					break dig;
 				}
 				player.gameMode.destroyBlock(pos);
 			}
@@ -372,10 +410,10 @@ public final class MythicEffects {
 	/** Seven-League Stride: the client dashed; the server forgives the fall that follows (8 s cooldown). */
 	private static void dashed(ServerPlayer player) {
 		Memory mem = memory(player);
-		if (!has(player, "seven_league_stride") || now(player) < mem.dashReady) {
+		if (!has(player, "seven_league_stride") || CardCooldowns.remaining(player, CardCooldowns.DASH) > 10) {
 			return;
 		}
-		mem.dashReady = now(player) + 150;
+		CardCooldowns.start(player, CardCooldowns.DASH, DASH_TICKS);
 		mem.dashFalling = true;
 		player.resetFallDistance();
 	}
@@ -389,6 +427,10 @@ public final class MythicEffects {
 
 	private static void tick(MinecraftServer server) {
 		long now = server.overworld().getGameTime();
+		if (now % 100 == 0) {
+			// Last hits on mobs that are gone (killed, unloaded) are let go.
+			LAST_HIT.values().removeIf(e -> e.isRemoved() || !e.isAlive());
+		}
 		steer(now);
 		domes(server, now);
 		boolean second = now % 20 == 0;
@@ -414,7 +456,7 @@ public final class MythicEffects {
 			trailmaker(player);
 			if (has(player, "elders_eye")) {
 				for (ServerPlayer p : player.level().players()) {
-					if ((p == player || CardHooks.allies(player, p) && p.distanceToSqr(player) <= 144) && p.isInWater()) {
+					if ((p == player || CardHooks.helps(player, p) && p.distanceToSqr(player) <= 144) && p.isInWater()) {
 						MobEffectInstance e = p.getEffect(MobEffects.CONDUIT_POWER);
 						if (e == null || e.getDuration() < 200) {
 							p.addEffect(new MobEffectInstance(MobEffects.CONDUIT_POWER, 260, 0, true, false, true), player);
@@ -433,7 +475,7 @@ public final class MythicEffects {
 	private static void trailmaker(ServerPlayer player) {
 		double best = 0;
 		for (ServerPlayer leader : player.level().players()) {
-			if (leader != player && CardHooks.allies(player, leader) && leader.distanceToSqr(player) <= 256 && has(leader, "long_walker")) {
+			if (CardHooks.helps(leader, player) && leader.distanceToSqr(player) <= 256 && has(leader, "long_walker")) {
 				Vec3 behind = player.position().subtract(leader.position());
 				if (behind.dot(leader.getLookAngle()) < 0) {
 					best = 0.10;
@@ -454,21 +496,32 @@ public final class MythicEffects {
 			return;
 		}
 		mem.homeward += 10;
-		if (mem.homeward < 100 || now(player) < mem.homewardReady) {
+		if (mem.homeward < 100) {
 			return;
 		}
 		mem.homeward = 0;
-		mem.homewardReady = now(player) + 24000;
-		MinecraftServer server = player.level().getServer();
-		ServerPlayer.RespawnConfig respawn = player.getRespawnConfig();
-		var data = respawn != null ? respawn.respawnData() : server.getRespawnData();
-		ServerLevel level = server.getLevel(data.globalPos().dimension());
-		if (level == null) {
-			level = server.overworld();
+		homeward(player);
+	}
+
+	/**
+	 * Homeward (The Far Horizon) fires: once per in-game day, to where a real respawn would put this player (the bed or
+	 * charged anchor, on a safe standing spot beside it by vanilla's own rules, else the world spawn; an anchor's charge
+	 * is not spent). False when it is cooling down or the Mythic isn't active.
+	 */
+	public static boolean homeward(ServerPlayer player) {
+		if (!has(player, "far_horizon") || !CardCooldowns.ready(player, CardCooldowns.HOMEWARD)) {
+			return false;
 		}
-		BlockPos pos = data.globalPos().pos();
-		player.teleportTo(level, pos.getX() + 0.5, pos.getY() + 0.1, pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot(), true);
+		CardCooldowns.start(player, CardCooldowns.HOMEWARD, 24000);
+		net.minecraft.world.level.portal.TeleportTransition home = player.findRespawnPositionAndUseSpawnBlock(false,
+			net.minecraft.world.level.portal.TeleportTransition.DO_NOTHING);
+		if (home.missingRespawnBlock()) {
+			player.sendSystemMessage(Component.translatable("block.minecraft.spawn.not_valid"));
+		}
+		player.teleport(home);
+		player.resetFallDistance();
 		SignaturePerks.feedback(player, Mettle.id("mythic/far_horizon"), Component.translatable("mettle.mythic.fired.far_horizon"));
+		return true;
 	}
 
 	private static void aegis(ServerPlayer player, long now) {
@@ -483,8 +536,8 @@ public final class MythicEffects {
 		if (mem.blockingSince < 0) {
 			mem.blockingSince = now;
 		}
-		if (now - mem.blockingSince >= 20 && now >= mem.aegisReady) {
-			mem.aegisReady = now + 900;
+		if (now - mem.blockingSince >= 20 && CardCooldowns.ready(player, CardCooldowns.AEGIS)) {
+			CardCooldowns.start(player, CardCooldowns.AEGIS, 900);
 			DOMES.put(player.getUUID(), new Dome((ServerLevel) player.level(), player.position(), now + 80));
 			SignaturePerks.feedback(player, Mettle.id("mythic/aegis"), Component.translatable("mettle.mythic.fired.aegis"));
 		}
@@ -543,7 +596,7 @@ public final class MythicEffects {
 			Standard s = e.getValue();
 			ServerPlayer holder = server.getPlayerList().getPlayer(e.getKey());
 			for (ServerPlayer p : s.level().players()) {
-				if (p.position().distanceTo(s.at()) <= 24 && (holder == null || p == holder || CardHooks.allies(holder, p))) {
+				if (p.position().distanceTo(s.at()) <= 24 && (holder == null || p == holder || CardHooks.helps(holder, p))) {
 					next.computeIfAbsent(p.getUUID(), u -> new HashMap<>()).merge(s.keyword(), s.tier(), Math::max);
 				}
 			}

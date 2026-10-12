@@ -155,7 +155,7 @@ public final class EffectsApplier {
 	 * Hex 2: a cursed card's downside is 25 % smaller; Hex 4: its upside 15 % stronger. A downside is a negative amount,
 	 * except fall damage, where more is worse.
 	 */
-	static double hexed(Identifier attribute, double amount, int hexTier) {
+	public static double hexed(Identifier attribute, double amount, int hexTier) {
 		boolean worse = attribute.getPath().equals("fall_damage_multiplier") ? amount > 0 : amount < 0;
 		if (worse) {
 			return amount * 0.75;

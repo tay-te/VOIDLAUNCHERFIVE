@@ -1,0 +1,9 @@
+{
+	"mettle.cards.ceiling.movement": "Movement",
+	"mettle.cards.ceiling.melee": "Melee damage",
+	"mettle.cards.ceiling.taken": "Damage taken",
+	"mettle.cards.ceiling.dig": "Dig speed",
+	"mettle.cards.ceiling.extra_drop": "Extra-drop chance",
+	"mettle.cards.ceiling.line": "%s from cards: up to %s, capped at %s",
+	"mettle.cards.ceiling.trait": "%s · %s capped at %s"
+}

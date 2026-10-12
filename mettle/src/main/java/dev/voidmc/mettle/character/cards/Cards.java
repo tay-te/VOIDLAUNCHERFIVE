@@ -602,6 +602,12 @@ public final class Cards {
 
 	private static final Map<String, Long> LAST_TRAIT_CHIP = new HashMap<>();
 
+	/** A player left: their chip times go too (the keys start with their UUID). */
+	static void forgetChips(java.util.UUID player) {
+		String prefix = player.toString();
+		LAST_TRAIT_CHIP.keySet().removeIf(k -> k.startsWith(prefix));
+	}
+
 	/** A chip when a 6-card set fires (Kindled, Bodyguard, Pact, Rally Cry), at most every 5 s. */
 	static void setFeedback(ServerPlayer player, String keyword) {
 		long now = player.level().getGameTime();
