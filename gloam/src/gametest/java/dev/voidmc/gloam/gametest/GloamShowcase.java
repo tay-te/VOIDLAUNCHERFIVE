@@ -78,6 +78,12 @@ public class GloamShowcase implements FabricClientGameTest {
 	 * reading far above the view's own is that, not the change.
 	 */
 	private static final String PACK_SWEEP = System.getProperty("gloam.show.packSweep", "");
+	/**
+	 * The shader pack a run uses (-Pgloam.show.pack=ComplementaryReimagined_r5.9.3.zip, a zip or a folder in the run's
+	 * shaderpacks): set in Iris's config and loaded before the world is made, so a bench run names its pack on the command
+	 * line. Logged as {@code [gloam] pack: ...}. Empty: whatever Iris's config already names.
+	 */
+	private static final String PACK = System.getProperty("gloam.show.pack", "");
 
 	private static final CloudStatus CLOUDS = switch (System.getProperty("gloam.show.clouds", "fancy")) {
 		case "off" -> CloudStatus.OFF;
@@ -155,6 +161,9 @@ public class GloamShowcase implements FabricClientGameTest {
 			// Fabric's game tests switch the clouds off; the showcase wants them as a player has them
 			mc.options.cloudStatus().set(CLOUDS);
 		});
+		if (!PACK.isEmpty()) {
+			usePack(context, PACK);
+		}
 		try (TestSingleplayerContext world = context.worldBuilder()
 			.setUseConsistentSettings(false)
 			.adjustSettings(s -> {
@@ -192,7 +201,8 @@ public class GloamShowcase implements FabricClientGameTest {
 				if (view.name().startsWith("storm")) {
 					this.aimAtStorm(context, world, view, places);
 				}
-				if (moved && (view.name().startsWith("wvale") || view.name().startsWith("wlight") || view.name().startsWith("whaze"))) {
+				if (moved && (view.name().startsWith("wvale") || view.name().startsWith("wlight") || view.name().startsWith("whaze")
+					|| view.name().startsWith("bench"))) {
 					// Welkin's comparisons (mist on and off, the uniforms and the header mirror) are only fair with the
 					// same land drawn in each run: wait for the chunks round the camera, then for the LOD's tiles
 					awaitChunks(context, view);
@@ -236,7 +246,7 @@ public class GloamShowcase implements FabricClientGameTest {
 				System.out.printf(Locale.ROOT, "[gloam] %s %s%n", view.name(), bridge);
 				String season = context.computeOnClient(mc -> Seasons.stats());
 				System.out.printf(Locale.ROOT, "[gloam] %s seasons: %s%n", view.name(), season);
-				if (view.name().startsWith("w") && !view.name().startsWith("water") && !view.name().startsWith("winter")) {
+				if (view.name().startsWith("w") && !view.name().startsWith("water") && !view.name().startsWith("winter") || view.name().startsWith("bench")) {
 					logFrameTime(context, view.name() + abSuffix());
 					if (!PACK_SWEEP.isEmpty()) {
 						for (String change : PACK_SWEEP.split(";")) {
@@ -324,7 +334,116 @@ public class GloamShowcase implements FabricClientGameTest {
 		addWelkinViews(views, p);
 		addLightViews(views, p);
 		addSkyViews(views, p);
+		addBenchViews(views);
 		return views;
+	}
+
+	/**
+	 * The lighting bench (-Pgloam.show.bench=full|reduced): one fixed set of views, the same in every run and both test
+	 * worlds, shot with whichever pack the run uses (gloam.show.pack), so shots from different packs line up. Each
+	 * place is shot at each hour of an early-summer day (day 6, so the season's colours match), the night under the full
+	 * moon of day 8: bench_{place}_{hour}. full: plain, forest (under the canopy), village, valley, shore at
+	 * 0530 0800 1200 1630 1830 and night, and the torch-lit village street at night; reduced: plain, forest and village
+	 * at 1200 1630 1830. The places are fixed eyes (x,y,z,yaw,pitch; the y is the feet's, as tp sets it); any can be
+	 * overridden with -Pgloam.show.benchAt=name=x,y,z,yaw,pitch;... where a negative y stands that many blocks over the
+	 * ground of that very column, and find:kind[@x,z] asks LightPlaces to find one (forestfloor, shore, street, village,
+	 * canyon) near (x, z) (default the valley's forest). Each place is logged as {@code [gloam] bench place ...} with
+	 * the eye it was shot from.
+	 */
+	static final java.util.Map<String, String> BENCH_PLACES = new java.util.LinkedHashMap<>();
+	static {
+		BENCH_PLACES.put("plain", "-1009,-3,-1386,180,6");
+		BENCH_PLACES.put("forest", "find:forestfloor@-1009,-1386");
+		BENCH_PLACES.put("village", "2256,148,-480,180,28");
+		BENCH_PLACES.put("valley", "3200,100,488,0,12");
+		BENCH_PLACES.put("shore", "find:shore@3200,488");
+		BENCH_PLACES.put("torch", "find:street@2256,-544");
+		for (String kv : System.getProperty("gloam.show.benchAt", "").split(";")) {
+			String[] a = kv.trim().split("=", 2);
+			if (a.length == 2) {
+				BENCH_PLACES.put(a[0].trim(), a[1].trim());
+			}
+		}
+	}
+	static final String[] BENCH_HOURS = {"0530", "0800", "1200", "1630", "1830", "night"};
+	private static final java.util.Map<String, int[]> benchFound = new java.util.HashMap<>();
+
+	static long benchTime(String hour) {
+		long day = 6 * 24000L;
+		return switch (hour) {
+			case "0530" -> day - 500;
+			case "0800" -> day + 2000;
+			case "1200" -> day + 6000;
+			case "1630" -> day + 10500;
+			case "1830" -> day + 12500;
+			case "night" -> 8 * 24000L + 18000;
+			default -> day + Long.parseLong(hour);
+		};
+	}
+
+	static void addBenchViews(List<View> views) {
+		String set = System.getProperty("gloam.show.bench", "");
+		if (set.isEmpty()) {
+			return;
+		}
+		List<String> places;
+		String[] hours;
+		switch (set) {
+			case "reduced" -> {
+				places = List.of("plain", "forest", "village");
+				hours = new String[]{"1200", "1630", "1830"};
+			}
+			case "survey" -> {
+				places = new ArrayList<>(BENCH_PLACES.keySet());
+				hours = new String[]{"1200", "night"};
+			}
+			default -> {
+				places = List.of("plain", "forest", "village", "valley", "shore", "torch");
+				hours = BENCH_HOURS;
+			}
+		}
+		String only = System.getProperty("gloam.show.benchHours", "");
+		if (!only.isEmpty()) {
+			hours = only.split(",");
+		}
+		for (String place : places) {
+			for (String hour : place.equals("torch") && !set.equals("survey") ? new String[]{"night"} : hours) {
+				views.add(new View("bench_" + place + "_" + hour, 0, 0, 0, 0, 0, 70, benchTime(hour), "clear", 2));
+			}
+		}
+	}
+
+	/** A bench place's eye {x, y, z, yaw, pitch} from its spec (see addBenchViews). */
+	static int[] benchPlace(ServerLevel level, String name) {
+		String spec = BENCH_PLACES.getOrDefault(name, "");
+		int[] eye = null;
+		if (spec.startsWith("find:")) {
+			String kind = spec.substring(5);
+			int nx = motePlaces.forestX(), nz = motePlaces.forestZ();
+			int at = kind.indexOf('@');
+			if (at >= 0) {
+				String[] xz = kind.substring(at + 1).split(",");
+				nx = Integer.parseInt(xz[0].trim());
+				nz = Integer.parseInt(xz[1].trim());
+				kind = kind.substring(0, at);
+			}
+			eye = LightPlaces.find(level, kind, nx, nz);
+		} else {
+			String[] a = spec.split(",");
+			if (a.length == 5) {
+				eye = new int[]{Integer.parseInt(a[0].trim()), Integer.parseInt(a[1].trim()), Integer.parseInt(a[2].trim()),
+					Math.round(Float.parseFloat(a[3].trim())), Math.round(Float.parseFloat(a[4].trim()))};
+				if (eye[1] < 0) {
+					level.getChunk(eye[0] >> 4, eye[2] >> 4);
+					eye[1] = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, eye[0], eye[2]) - eye[1];
+				}
+			}
+		}
+		if (eye == null) {
+			eye = new int[]{motePlaces.forestX(), motePlaces.forestY() + 40, motePlaces.forestZ(), 180, 30};
+		}
+		System.out.printf(Locale.ROOT, "[gloam] bench place %s (%s): %d,%d,%d,%d,%d%n", name, spec, eye[0], eye[1], eye[2], eye[3], eye[4]);
+		return eye;
 	}
 
 	/**
@@ -831,6 +950,11 @@ public class GloamShowcase implements FabricClientGameTest {
 
 	/** Where a view is shot: the overcast and haze views go looking for their place, the rest stay where they are. */
 	private View place(TestSingleplayerContext world, View planned, View last) {
+		if (planned.name().startsWith("bench_")) {
+			String name = planned.name().split("_")[1];
+			int[] c = benchFound.computeIfAbsent(name, k -> world.getServer().computeOnServer(server -> benchPlace(server.overworld(), k)));
+			return new View(planned.name(), c[0], c[1], c[2], c[3], c[4], planned.fov(), planned.time(), planned.weather(), planned.linger());
+		}
 		// a light view at a spot found by name: looked up once (near the forest), then every time of day shot from there
 		if (planned.name().startsWith("wlight") && planned.name().length() > 7) {
 			String prefix = planned.name().substring(0, 7);
@@ -1314,6 +1438,25 @@ public class GloamShowcase implements FabricClientGameTest {
 		System.out.printf(Locale.ROOT, "[gloam] %s: fronts by yaw offset at 4/8/12/16 km:%s%n", view.name(), table);
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", view.x(), view.y(), view.z(), best[0], view.pitch()));
 		context.waitTicks(10);
+	}
+
+	/** Makes {@code name} Iris's pack (shaders on), saves Iris's config and reloads, then logs the pack Iris runs. */
+	private static void usePack(ClientGameTestContext context, String name) {
+		String now = context.computeOnClient(mc -> {
+			try {
+				Class<?> iris = Class.forName("net.irisshaders.iris.Iris");
+				Object config = iris.getMethod("getIrisConfig").invoke(null);
+				config.getClass().getMethod("setShaderPackName", String.class).invoke(config, name);
+				config.getClass().getMethod("setShadersEnabled", boolean.class).invoke(config, true);
+				config.getClass().getMethod("save").invoke(config);
+				iris.getMethod("reload").invoke(null);
+				return iris.getMethod("getCurrentPackName").invoke(null) + (Boolean.TRUE.equals(iris.getMethod("loadedIncompatiblePack").invoke(null))
+					? " (Iris says incompatible)" : "");
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("gloam.show.pack needs Iris (-Piris)", e);
+			}
+		});
+		System.out.printf(Locale.ROOT, "[gloam] pack: %s (asked for %s)%n", now, name);
 	}
 
 	/** "_ab" while the pack runs gloam.show.packAB's ab values, else "". */
