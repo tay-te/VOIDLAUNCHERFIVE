@@ -275,7 +275,14 @@ vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 // the paler horizon, which made far cells brighter than the sky round them, as if seen through), the horizon for a
 // deck seen from above.
 vec3 wcFogTarget(vec3 rd, CloudEnv e) {
-	return rd.y > 0.0 ? skyDomeOnly(rd, skyFrame()) : wcHorizon(rd, e);
+	vec3 hor = wcHorizon(rd, e);
+	if (rd.y <= 0.0) {
+		return hor;
+	}
+	// the dome's plain band at this height (two texels, the dome's own band mapping), with the sun's glow of the
+	// horizon fading out upward
+	float x = clamp(sqrt(rd.y) * 4.6 - 0.5, 0.0, 4.0) / 4.0;
+	return skyRowAt(1.0 + 4.0 * x, SKY_ROW_DOME) + (hor - skyHorizon(false)) * (1.0 - x);
 }
 
 // How far a hit sinks into the horizon colour: a little from a few hundred blocks out, then smoothly more with each

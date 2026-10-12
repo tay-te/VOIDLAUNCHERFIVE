@@ -464,3 +464,79 @@ The user set the new look of section 3.2 over the flat-steps-and-dither rules. W
   mean), a new moon is unchanged. The lake district's glowing patch is a surface lava pool (a real light), its halo
   gone with the torch light's daytime fade. With Iris and no pack, the far air's rain curtains draw without the crash.
   Bench rain1 (no Gloam) runs at 325 fps (the review's 117 was contention).
+
+### The sky review's third pass (2026-10-11)
+
+- **Clouds as voxels with a body** (`lib/clouds/shade.glsl`): every deck cell now carries its thickness, how far the
+  puffs clear the cover's threshold, in four steps (the raw map's B, the finished map's R bits 6..7 and 12..15,
+  `wcMapDensity`): a thick cell's top is a little brighter and its base darker than a thin cell's at a cloud's ragged
+  edge, cell by cell, so a deck reads as crisp voxels with a body instead of one flat sheet. A top takes a crisp
+  bevel a block and a half wide along the cloud's open edges (a gradient across the whole cell read as a blurred,
+  see-through edge), sides darken toward their foot, and a base is one flat shade a cell (a lighter rim drew a
+  bright line round every cloud), seeing less of the dome (0.74) and darker still under a thick cover. A top's rim
+  and thickness shade it after the soft shoulder, which squeezed a noon-lit top's shades into one flat white. The
+  decks lie in each other's shadow by day (`wcSelfShadow`, the cloud-shadow lookup from the face).
+- **Dawn and dusk decks** take the dusk palette at the sky's own brightness: a top about as bright as the horizon
+  behind it (a little brighter toward the sun), a base as the dome over it, all dimmer while the sun is under the
+  horizon (the earth's shadow), when the tops toward the sun turn rose. Before sunrise a deck seen from the summit is
+  dusky (about 60 in 8-bit against a 19,22,41 zenith; it was a beige 119,112,99), not a pale sheet brighter than the
+  sky. Near tops toward a low sun are gold.
+- **Slivers:** a side face is never brighter than the cloud's body seen with it (its base from below, its top from
+  above) unless the direct sun falls on it, and then by a quarter at most; it leans to the body's hue (no olive
+  strips along a rose dusk base); a side under about 9 pixels tall takes the body's colour. After a ring change the ray may stand inside the new, wider cell rather than on its side: a hit
+  there is drawn as the cap, not as a side (it stood as a wall on the ring's edge).
+- **Far fade:** cells sink into the sky from a few hundred blocks out (`wcFog`): over the eye into the dome's own
+  colour at their height (`wcFogTarget`; into the paler horizon they were brighter than the sky round them and read as
+  see-through), seen from above into the horizon. The far band's hand-over is narrow (cells under about 1.2-3 pixels
+  deep), so cells nearer than that are drawn whole and crisp; a cell hit inside the band keeps most of its body.
+- **Inside a cloud:** the march follows the eye's own cloud (a deck cell, a tower, an anvil) through as many cells as
+  the ray crosses before it comes out (`insideRun`), so its inside is one smooth fog of the cloud's colour, never its
+  own neighbours' faces (an eye inside a tower saw two flat colour fields split at the horizon). A deck at eye height
+  is a fog bank with soft edges (20 blocks over and under the slab, `wcSlabCum`), laid over everything else the clouds
+  draw; its cells fade into it out to 3 km and it has no far band, so neither the horizon nor the deck's far edge
+  splits the view when the eye stands in it or just over or under it.
+- **Cloud shadows** are light (the sun's share 0.74 under one deck, 0.63 under two, 0.56 under three: open ground some
+  15-20 % darker) and their edges spread over 5 blocks inside each cell's open sides, so they no longer tile a meadow
+  in hard 16-block squares.
+- **Haze columns:** the middle haze segment reads the ground, lowness and water over the same 128-block lattice as its
+  kinds once it reaches past a few hundred blocks (`hzSmoothKinds` with `ground`): the one point it reads stood for a
+  kilometre of land, and where it fell on a knoll the far land behind it stood up in narrow glowing columns.
+- **Far water seams:** a pixel of the LOD's land with no water on it, water on both sides and itself farther than that
+  water is a crack in dh_water's mesh showing the bed: composite2 draws it as its neighbour (with the sky pinholes).
+- **Stars** lie behind the sky's own light: they fade out over a sky brighter than a lit dusk, whatever the star
+  amount says. (The crosses in the heartland's overcast were Gloam's snow motes, 333 of them in that rain.)
+- **Sky near the horizon:** the lowest bands and the glow rings low in the sky are no longer terraced (`softBands` only
+  from the third band and above about 5 degrees), so a dawn sky has no hard steps over the horizon.
+- **Night:** the moon is the key light (0.34, was 0.22), the night's fill 1.2 + 0.36 x moon of NIGHT_SKYLIGHT (was
+  1 + 0.7 x moon) and a little less blue, and Gloam's dark-nights scale reaches the fill as its 0.25th power (was the
+  square root). Against no pack (mean / 90th percentile): full moon 29.8 / 38 to 27.2 / 42, new moon 12.5 / 16 to
+  12.4 / 20 (they were 17.8 / 24 and 10.5 / 16 measured the same way).
+- **Particles** carry no normal: they are lit as a level surface (it read as NaN light). Gloam draws its soft motes
+  (spray, breath, powder) under Welkin a pale grey with a smooth alpha and less body (`Mote.WELKIN_BODY`), so the
+  waterfall's spray at night is a faint veil, not a bright speckled blob.
+- **Far land block light:** the LOD's land takes a fifth of its block light (was a third). The no-Gloam bench's
+  orange mound (`night1`) already read a dim 41,32,25 after the third; the review's crop was from an older shot.
+  The bench without Gloam (peak1, night1, rain1) loads and runs with no errors.
+- **The straight cut-off** of the alpine view (the eye was 1 block inside the low deck under a 0.95 cover) was not
+  found in the code: the tiles fade out cell by cell (a hashed scatter), the march's reach hands over to sheets, and
+  the map covers every ring past its reach. The new deck views (the eye in the low deck and 15 over it, in rain) show
+  no straight edge; the eye-level fixes above (the fog bank laid last, no band, the cells fading out over 3 km) may
+  have been it. Still to watch for.
+- **Showcase:** `whaze_clear_alpine` is found under a clear sky (the fronts round it under 0.38) with the eye out of
+  the low deck's slab; `wdeck0` and `wdeck1` put the eye in the low deck and just over it, over the valley in rain.
+- **Cost**, re-timed with the machine otherwise idle (RTX 4060, 1600x900, MEDIUM, test world A, one run,
+  `gloam.show.packSweep` with CLOUDS, SHADOWS, HAZE_ENABLED and VALLEY_MIST each switched off in turn; a pass's cost is
+  the view's frame time less its sweep line; CLOUDS off brings vanilla's clouds back, so the clouds' line is theirs
+  over vanilla's):
+
+  | View | Frame | Clouds | Shadows | Haze | Valley mist |
+  |---|---|---|---|---|---|
+  | wsky3_noon (summit, deck below) | 2.22 ms | 0.79 | 0.0 | 0.22 | (stall) |
+  | wsky5_sunset | 2.79 ms | 0.96 | (stall) | 0.25 | (stall) |
+  | whaze_old_forest | 3.61 ms | 0.99 | 0.74 | 0.16 | 0.08 |
+  | wnight0 (gorge, full moon) | 4.36 ms | 0.74 | 1.10 | 0.36 | 0.76 |
+
+  Readings above the view's own (marked stall) are the reload's shadow-chunk rebuild, not the change. Whole frames run
+  2.2-3.6 ms by day and 4.4 ms in the night gorge, inside the 4 ms MEDIUM total by day. The clouds stay at 0.75-1.0 ms,
+  over their 0.6 ms budget (about as before this pass, 0.9-1.1 ms: the march is most of it), and the gorge's shadows
+  at the top of theirs; the gorge's mist line may hold some stall too. The review's 8.6-9.4 ms night frames were contention.
