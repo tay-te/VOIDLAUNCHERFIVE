@@ -55,15 +55,16 @@ final class HearthXp {
 
 	private static void questCompleted(ServerPlayer player, @Nullable Settlement settlement, QuestType type, Identifier template, SettlementTier tier) {
 		HearthRules.QuestXp reward = HearthRules.questXp(type.getSerializedName(), template.getPath());
-		ResourceKey<Skill> skill = HearthRules.COMBAT.equals(reward.skill()) ? foughtWith(player) : MettlePlayerSkills.skillKey(player, reward.skill());
-		if (HearthRules.COMBAT.equals(reward.skill())) {
+		boolean fighting = HearthRules.COMBAT.equals(reward.skill());
+		ResourceKey<Skill> skill = fighting ? foughtWith(player) : MettlePlayerSkills.skillKey(player, reward.skill());
+		if (skill != null) {
+			Mettle.LOGGER.debug("{} completed {} ({}): {} XP in {}", player.getName().getString(), template, type.getSerializedName(), reward.xp(), skill.identifier());
+			Progress.award(player, skill, reward.xp());
+		}
+		if (fighting) {
+			// After the award: the quest's own combat XP isn't fighting done towards the next one.
 			FOUGHT.remove(player.getUUID());
 		}
-		if (skill == null) {
-			return;
-		}
-		Mettle.LOGGER.debug("{} completed {} ({}): {} XP in {}", player.getName().getString(), template, type.getSerializedName(), reward.xp(), skill.identifier());
-		Progress.award(player, skill, reward.xp());
 	}
 
 	/** The combat skill that earned the most XP since the last fighting quest; else the player's best of the three. */

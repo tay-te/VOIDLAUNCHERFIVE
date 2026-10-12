@@ -158,7 +158,10 @@ final class HearthJourney {
 		if (gained != 0) {
 			return "a failed quest gave " + gained + " XP";
 		}
-		// A bounty pays the weapon used on it: some bow work first.
+		// A bounty pays the weapon used on it. The full tour fought with every weapon before this, so a first bounty closes
+		// that tally (its XP goes to whatever was used most); then some bow work, and the bounty that pays it.
+		QuestEvents.COMPLETED.invoker().onEnded(player, town, QuestType.BOUNTY, Identifier.fromNamespaceAndPath("hearth", "bounty/spiders"),
+			SettlementTier.VILLAGE);
 		Progress.award(player, MARKSMANSHIP, 30);
 		gained = gain(player, MARKSMANSHIP, () -> QuestEvents.COMPLETED.invoker().onEnded(player, town, QuestType.BOUNTY,
 			Identifier.fromNamespaceAndPath("hearth", "bounty/spiders"), SettlementTier.VILLAGE));

@@ -653,10 +653,21 @@ final class SurvivalJourney {
 		check(server.computeOnServer(s -> {
 			ServerPlayer p = player(s);
 			ServerLevel level = p.level();
-			HolderSet<Structure> villages = level.registryAccess().lookupOrThrow(Registries.STRUCTURE).getOrThrow(StructureTags.VILLAGE);
+			var structures = level.registryAccess().lookupOrThrow(Registries.STRUCTURE);
+			HolderSet<Structure> villages = structures.getOrThrow(StructureTags.VILLAGE);
 			var found = level.getChunkSource().getGenerator().findNearestMapStructure(level, villages, p.blockPosition(), 100, false);
 			if (found == null) {
-				return "no village to visit in this world";
+				// VOID Hearth replaces villages with its own settlements (-Phearth): another surface landmark stands in.
+				HolderSet<Structure> surface = HolderSet.direct(java.util.stream.Stream.of(
+					net.minecraft.world.level.levelgen.structure.BuiltinStructures.PILLAGER_OUTPOST,
+					net.minecraft.world.level.levelgen.structure.BuiltinStructures.DESERT_PYRAMID,
+					net.minecraft.world.level.levelgen.structure.BuiltinStructures.JUNGLE_TEMPLE,
+					net.minecraft.world.level.levelgen.structure.BuiltinStructures.SWAMP_HUT,
+					net.minecraft.world.level.levelgen.structure.BuiltinStructures.IGLOO).map(structures::getOrThrow).toList());
+				found = level.getChunkSource().getGenerator().findNearestMapStructure(level, surface, p.blockPosition(), 100, false);
+			}
+			if (found == null) {
+				return "no village (or other surface landmark) to visit in this world";
 			}
 			village[0] = found.getFirst();
 			p.getAbilities().mayfly = true;

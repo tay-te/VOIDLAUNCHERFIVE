@@ -48,6 +48,22 @@ final class ShrineJourney {
 	}
 
 	static void run(ClientGameTestContext context, TestSingleplayerContext world) {
+		// The shrine's fees in emeralds, as without Hearth, whatever is loaded: with Hearth (-Phearth) they would be coin,
+		// which HearthJourney's trainer rebuild checks. Put back afterwards.
+		var server = world.getServer();
+		dev.voidmc.mettle.character.cards.CardFees[] fees = new dev.voidmc.mettle.character.cards.CardFees[1];
+		server.runOnServer(s -> {
+			fees[0] = Rebuilds.fees();
+			Rebuilds.setFees(dev.voidmc.mettle.character.cards.CardFees.EMERALDS);
+		});
+		try {
+			play(context, world);
+		} finally {
+			server.runOnServer(s -> Rebuilds.setFees(fees[0]));
+		}
+	}
+
+	private static void play(ClientGameTestContext context, TestSingleplayerContext world) {
 		var server = world.getServer();
 		CharacterState[] saved = new CharacterState[1];
 		BlockPos[] shrine = new BlockPos[1];
