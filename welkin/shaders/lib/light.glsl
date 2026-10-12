@@ -263,6 +263,13 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	vec3 hemi = fill.rgb * (0.5 + 0.5 * n.y) + skyLandBounce() * (0.5 - 0.5 * n.y);
 	hemi = hemi * mix(1.0, faceShade(n), 0.45) + sunSideGlow(n, fill);
 	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - 0.55 * canopyShade(lm.y, sunReach));
+	// the short-range bounce (round 1): a shaded face among sunlit surfaces like itself takes back a share of the sun
+	// in its own colour, more on walls than on tops, so its light follows its albedo: the shade side of pale stone or
+	// sand reads a soft light grey instead of a near-black square beside a sunlit face, while grass and dirt (dark,
+	// so they bounce little) keep their deep shade. It fades with the sun's height (level ground catches less) and
+	// under cover.
+	ambient += a * skyLandDirect() * (LAND_SELF_BOUNCE * max(lightDirWorld().y, 0.0) * (1.0 - 0.5 * max(n.y, 0.0))
+		* rampSkyLin(lm.y) * (1.0 - canopyShade(lm.y, sunReach)));
 	// the sun (or the moon) on faces turned to it, where it reaches; under a canopy a little of it filters through
 	float lit = facing * sunReach;
 	vec3 direct = skyLandDirect() * (lit + canopyLeak(lm.y) * (1.0 - lit)) * sunShare;

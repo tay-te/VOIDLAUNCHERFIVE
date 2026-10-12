@@ -206,7 +206,7 @@ float skyLandSunStrength(float h) {
 // evening and the sun's side carries the mood), holds at about half from the golden hour to sunset (the shade at the
 // golden hour stays readable), then dims fast through the blue hour.
 float skyLandFillLevel(float h) {
-	return h > 0.0 ? 0.47 + 0.53 * pow(smoothstep(0.1, 0.92, h), 1.6) : 0.47 * exp(h * 15.0);
+	return h > 0.0 ? 0.53 + 0.47 * pow(smoothstep(0.1, 0.92, h), 1.6) : 0.53 * exp(h * 15.0);
 }
 
 struct SkyLand {
@@ -230,8 +230,8 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 
 	// the sky's fill: clear blue, cooler as the sun sinks and bluer still in the blue hour; grey under cloud
 	// (round 1: a clearer sky blue, so the shade beside a warm sunlit face reads cool, not grey-green)
-	vec3 clearFill = mix(vec3(0.44, 0.58, 1.00), vec3(0.53, 0.68, 1.00), smoothstep(0.05, 0.45, h));
-	clearFill = mix(vec3(0.40, 0.52, 1.00), clearFill, smoothstep(-0.10, 0.02, h));
+	vec3 clearFill = mix(vec3(0.48, 0.61, 1.00), vec3(0.53, 0.68, 1.00), smoothstep(0.05, 0.45, h));
+	clearFill = mix(vec3(0.43, 0.55, 1.00), clearFill, smoothstep(-0.10, 0.02, h));
 	vec3 greyFill = vec3(0.84, 0.88, 0.95);
 	float grey = max(m.overcast, max(m.cloudStep, m.rainStep));
 	vec3 fillCol = skyUnitLuma(mix(clearFill, greyFill, grey));

@@ -29,6 +29,9 @@
 // the ground's bounce: the share of the sunlit ground's light that reaches a downward face (round 1: less, so a wall's
 // shade side reads the sky's cool blue, warmed a little by the ground, not an olive grey)
 #define LAND_BOUNCE 0.2
+// the light a sunlit surface throws back onto its own shaded faces and its neighbours' (a cheap short-range bounce),
+// as a share of the sun on level ground: pale stone in shade reads a light grey, grass and dirt stay deep
+#define LAND_SELF_BOUNCE 0.13
 // the night (fill and moon) against its old display-space look: the linear sum of fill and moon is darker than the
 // old display sum, so it is lifted to read as before
 #define LAND_NIGHT 1.6
