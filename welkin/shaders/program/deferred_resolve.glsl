@@ -81,6 +81,17 @@ void main() {
 	vec3 vn = mat3(gbufferModelView) * n;
 	vec3 lo, hi;
 	vec4 r = resolveSpatial4x4Range(colortex10, p, 1, vc, vn, n, colortex1, lo, hi);
+	if (r.a < 2.5) {
+		// the plane test left this pixel nearly alone (a leaf's mip edge, a blade seen edge-on): its own noisy value would
+		// show as a speck, so it takes its neighbours at a looser depth test (the grain check's forest specks)
+		vec3 lo2, hi2;
+		vec4 r2 = resolveSpatial4x4Loose(colortex10, p, 1, vc, vn, n, colortex1, 12.0, lo2, hi2);
+		if (r2.a > r.a) {
+			r = r2;
+			lo = lo2;
+			hi = hi2;
+		}
+	}
 	vec2 res = r.a > 1e-3 ? r.rg : raw.rg;
 	float dbg = 0.0;
 #ifdef TEMPORAL_LIGHT

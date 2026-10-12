@@ -26,6 +26,9 @@
 //         against normals (colortex1's octahedral world normal, read at full resolution); n = vec3(0) skips the
 //         normal weight
 //   vec4  resolveSpatial4x4Range(...)          the same, also giving the window's min and max of rgb (for the clamp)
+//   vec4  resolveSpatial4x4Loose(..., float loose, out lo, out hi)   the same with the plane test widened to a depth
+//                                              test `loose` times as wide (for a pixel the plane test left nearly
+//                                              alone: a leaf's mip edge, a blade seen edge-on)
 //   vec2  reproject(vec3 playerPos)            where a camera-relative point (as gbufferModelViewInverse gives it)
 //                                              stood on screen last frame, 0..1 (outside: no history)
 //   vec4  clampHistory(vec4 history, vec4 lo, vec4 hi)
@@ -67,8 +70,16 @@ float dnNormalWeight(vec3 n, vec3 ns) {
 	return c2 * c2 * c2 * c2;
 }
 
+vec4 dnResolveTol(sampler2D raw, ivec2 q, int scale, vec3 vc, vec3 vn, vec3 n, sampler2D normals, float loose,
+		out vec3 lo, out vec3 hi);
+
 vec4 dnResolve(sampler2D raw, ivec2 q, int scale, vec3 vc, vec3 vn, vec3 n, sampler2D normals, out vec3 lo,
 		out vec3 hi) {
+	return dnResolveTol(raw, q, scale, vc, vn, n, normals, 1.0, lo, hi);
+}
+
+vec4 dnResolveTol(sampler2D raw, ivec2 q, int scale, vec3 vc, vec3 vn, vec3 n, sampler2D normals, float loose,
+		out vec3 lo, out vec3 hi) {
 	ivec2 top = textureSize(raw, 0) - 1;
 	ivec2 fullTop = textureSize(normals, 0) - 1;
 	vec2 px = float(scale) / vec2(viewWidth, viewHeight);
@@ -83,7 +94,8 @@ vec4 dnResolve(sampler2D raw, ivec2 q, int scale, vec3 vc, vec3 vn, vec3 n, samp
 			ivec2 t = clamp(q + ivec2(x, y), ivec2(0), top);
 			vec4 s = texelFetch(raw, t, 0);
 			vec3 vs = dnViewPos((vec2(t) + 0.5) * px, s.a);
-			float w = dnPlaneWeight(vc, vn, vs, z);
+			float w = loose > 1.0 ? exp(-pow(abs(z - s.a) / (loose * (0.03 + 0.004 * z)), 2.0))
+				: dnPlaneWeight(vc, vn, vs, z);
 			if (useN) {
 				ivec2 f = clamp(t * scale + scale / 2, ivec2(0), fullTop);
 				w *= dnNormalWeight(n, octDecode(texelFetch(normals, f, 0).xy));
@@ -107,6 +119,14 @@ vec4 resolveSpatial4x4(sampler2D raw, ivec2 q, int scale, vec3 vc, vec3 vn, vec3
 vec4 resolveSpatial4x4Range(sampler2D raw, ivec2 q, int scale, vec3 vc, vec3 vn, vec3 n, sampler2D normals,
 		out vec3 lo, out vec3 hi) {
 	return dnResolve(raw, q, scale, vc, vn, n, normals, lo, hi);
+}
+
+// The same with the plane test loosened to a depth test `loose` times as wide (and the normal test kept): for a pixel
+// the plane test left nearly alone (a leaf's mip edge, a thin blade seen edge-on), whose own noisy value would
+// otherwise reach the screen as a speck.
+vec4 resolveSpatial4x4Loose(sampler2D raw, ivec2 q, int scale, vec3 vc, vec3 vn, vec3 n, sampler2D normals, float loose,
+		out vec3 lo, out vec3 hi) {
+	return dnResolveTol(raw, q, scale, vc, vn, n, normals, loose, lo, hi);
 }
 
 #ifndef WU_cameraPosition

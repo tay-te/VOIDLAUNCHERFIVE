@@ -31,7 +31,7 @@ const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
 // Terrain shadows: Hills and ridges shade the land behind them as far as 2 km off, even from off the screen, and slopes turned from the sun lie in their own shade. Needs VOID Gloam.  [shadows]
 #define TERRAIN_SHADOWS
 // Terrain slopes: How strongly the far land's slopes take the sun by how they face it (a hillside turned to a low sun glows, one turned away dims). 100 % is the land's true slope; more steepens it, as a map's hill shading does.  [shadows]
-#define TERRAIN_SLOPE 250 // [0 100 150 200 250 300 400]
+#define TERRAIN_SLOPE 300 // [0 100 150 200 250 300 400]
 // Sun path tilt: How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.  [skeleton]
 const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
 // Light bands: How many soft bands sky light and torch light fade through. The light stays a smooth gradient; Soft bands sets how much it gathers at each band.  [skeleton]
