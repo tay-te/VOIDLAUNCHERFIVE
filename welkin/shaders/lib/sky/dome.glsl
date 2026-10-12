@@ -97,8 +97,29 @@ vec3 skyDomeColour(vec3 q) {
 	return c;
 }
 
+// The warm, bright band along the horizon toward a low sun (the sky table's low-sun texel): broad in azimuth, hugging
+// the horizon, from the late afternoon until the sun is just under. A gradient of the sky itself, not a bloom: it only
+// ever brightens what is there.
+vec3 skyLowSunBandOver(vec3 col, vec3 d, SkyFrame f) {
+	vec4 b = skyLowSunBand();
+	if (b.a <= 0.0) {
+		return col;
+	}
+	vec2 sz = f.sunW.xz;
+	float az = 0.0;
+	if (dot(d.xz, d.xz) > 1e-8 && dot(sz, sz) > 1e-8) {
+		az = dot(normalize(d.xz), normalize(sz));
+	}
+	float wAz = 0.5 + 0.5 * az;
+	wAz *= wAz * wAz;
+	float wEl = exp(-max(d.y, 0.0) / 0.075) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
+	float w = clamp(b.a * wAz * wEl, 0.0, 1.0);
+	return mix(col, max(col, b.rgb), w);
+}
+
 vec3 skyDomeOnly(vec3 dirW, SkyFrame f) {
-	return skyDomeColour(skyDomePos(normalize(dirW), f));
+	vec3 d = normalize(dirW);
+	return skyLowSunBandOver(skyDomeColour(skyDomePos(d, f)), d, f);
 }
 
 vec3 skyFull(vec3 dirW, SkyFrame f) {
@@ -107,7 +128,7 @@ vec3 skyFull(vec3 dirW, SkyFrame f) {
 #if SKY_DEBUG == 2
 	return vec3(q.x / 5.0, q.y / 4.0, q.z / 3.0);
 #endif
-	vec3 col = skyDomeColour(q);
+	vec3 col = skyLowSunBandOver(skyDomeColour(q), d, f);
 	if (d.y < SKY_BODY_CUTOFF) {
 		return col;
 	}

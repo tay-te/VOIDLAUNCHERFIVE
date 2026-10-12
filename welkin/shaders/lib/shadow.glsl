@@ -103,9 +103,14 @@ float shadowVisibility(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, bool wa
 	float f = shadowDistortFactor(sp.xy);
 	// one map texel in blocks here: the distortion's slope (1 - k) / f^2 at this radius
 	float texelBlocks = (2.0 * shadowDistance / float(shadowMapResolution)) * f * f / (1.0 - SHADOW_DISTORT);
-	// normal offset sized from the local texel (no slope bias needed): off the face for solids, toward the light for
-	// plants; plus a little toward the light against acne on faces turned almost edge-on
-	vec3 offset = thin ? lightDir * (2.0 * texelBlocks + 0.03) : n * (1.6 * texelBlocks + 0.02) + lightDir * (0.4 * texelBlocks);
+	// normal offset sized from the local texel: off the face for solids, toward the light for plants; plus a step toward
+	// the light that grows as the light grazes the face (a texel's depth spread is the texel times the tangent of the
+	// light's angle to the normal), so a low sun on level ground lights it instead of the ground shadowing itself (at
+	// the golden hour the whole near land went dark)
+	float ndl = max(dot(n, lightDir), 0.0);
+	float grazing = min(sqrt(max(1.0 - ndl * ndl, 0.0)) / max(ndl, 0.05), 12.0);
+	vec3 offset = thin ? lightDir * (2.0 * texelBlocks + 0.03)
+		: n * (1.6 * texelBlocks + 0.02) + lightDir * (texelBlocks * (0.4 + 0.9 * grazing));
 	vec3 uvz = shadowDistort((shadowProjection * (shadowModelView * vec4(playerPos + offset, 1.0))).xyz) * 0.5 + 0.5;
 	if (any(lessThanEqual(uvz.xy, vec2(0.0))) || any(greaterThanEqual(uvz.xy, vec2(1.0))) || uvz.z >= 1.0) {
 		return 1.0;

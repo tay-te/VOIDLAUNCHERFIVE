@@ -1,5 +1,5 @@
 // VOID Welkin sky (M2): the sky table's layout and its readers. The prepare pass writes the table into colortex5
-// (64x32 RGBA8, size.buffer in shaders.properties) once a frame; anything after it reads it with texelFetch: the sky
+// (64x32 RGBA16, size.buffer in shaders.properties) once a frame; anything after it reads it with texelFetch: the sky
 // dome (gbuffers_skybasic), the light ramp (lib/light.glsl), the far fade and haze, water reflections, clouds.
 //
 // Its colours are control points: readers blend between neighbouring texels where they need a gradient (the dome),
@@ -19,6 +19,12 @@
 //               x 9  r sun-glow amount / 1.5, g moon-halo amount, b star amount, a glow spread / 2
 //               x 10 r sun visibility, g moon visibility, b moon opacity, a flash step
 //               x 11 r golden hour, g blue hour, b sunset palette position / 4, a moon brightness by phase
+//             the land's light (lib/light.glsl), LINEAR light divided by SKY_LAND_SCALE (the table is RGBA16, so
+//             a moonless night's fill keeps its precision):
+//               x 12 the direct light of the shadow light (sun by day, moon by night) on a face square to it
+//               x 13 the sky's fill on an upward face, in the open (a: the low sun's share of it toward the sun)
+//               x 14 the ground's bounce on a downward face (sunlit ground's colour)
+//               x 15 the warm band along the horizon toward a low sun, display colour (a: its strength)
 //   y 6       horizon colour away from the sun for haze kind x (0..15)
 //   y 7       the same toward the sun
 //   y 8       cloud faces: x 0 top, 1 sun side, 2 shade side, 3 base, 4 storm base, 5 rim
@@ -60,6 +66,13 @@ uniform sampler2D colortex5;
 #define SKY_X_STATE_GLOW  9
 #define SKY_X_STATE_SHOW  10
 #define SKY_X_STATE_TIME  11
+#define SKY_X_LAND_DIRECT 12
+#define SKY_X_LAND_FILL   13
+#define SKY_X_LAND_BOUNCE 14
+#define SKY_X_LOW_SUN     15
+
+// the land's light texels hold linear light / this (a noon sun is about 2.5)
+#define SKY_LAND_SCALE 4.0
 
 #define SKY_CLOUD_TOP     0
 #define SKY_CLOUD_SUNSIDE 1
@@ -90,6 +103,26 @@ vec3 skySunLight() {
 
 vec3 skyMoonLight() {
 	return skyTable(SKY_X_MOON, SKY_ROW_LIGHT).rgb;
+}
+
+// The land's light (lib/light.glsl), linear: the shadow light's direct light on a face square to it, the sky's fill
+// on an upward face in the open, the ground's bounce on a downward face.
+vec3 skyLandDirect() {
+	return skyTable(SKY_X_LAND_DIRECT, SKY_ROW_LIGHT).rgb * SKY_LAND_SCALE;
+}
+
+vec4 skyLandFill() {
+	vec4 f = skyTable(SKY_X_LAND_FILL, SKY_ROW_LIGHT);
+	return vec4(f.rgb * SKY_LAND_SCALE, f.a);
+}
+
+vec3 skyLandBounce() {
+	return skyTable(SKY_X_LAND_BOUNCE, SKY_ROW_LIGHT).rgb * SKY_LAND_SCALE;
+}
+
+// The warm band along the horizon toward a low sun (lib/sky/dome.glsl): display colour, a its strength.
+vec4 skyLowSunBand() {
+	return skyTable(SKY_X_LOW_SUN, SKY_ROW_LIGHT);
 }
 
 // Lightning: the light a flash adds to anything under open sky (zero between flashes).

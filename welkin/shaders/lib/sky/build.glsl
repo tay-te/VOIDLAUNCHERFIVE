@@ -17,6 +17,7 @@
 #include "/lib/sky/inputs.glsl"
 #include "/lib/sky/table.glsl"
 #include "/lib/sky/uniforms.glsl"
+#include "/lib/tone.glsl"
 
 struct SkyMood {
 	vec3 zen;        // zenith colour
@@ -154,6 +155,114 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	return m;
 }
 
+// ---- the land's light (lib/light.glsl), linear --------------------------------------------------------------------
+//
+// The land is lit in linear light and brought to the screen by lib/light.glsl's tone curve, so these are physical-ish
+// irradiances (a noon sun about 2.4, the open sky's fill about 0.45), not display colours. Everything follows the sun's
+// height h smoothly: a clean, nearly neutral warm white high up; a natural warmth through the afternoon; amber at the
+// golden hour that stays on the land until the disc touches the horizon; a rosier, paler dawn. The shade is the sky's:
+// a clear blue that cools as the sun sinks, deep but never black, neutral grey under an overcast. Nights keep the
+// moonlit look they had (the old display-space values taken to linear).
+
+// sRGB-ish display to linear and back (the pack's albedo and the old light values are display values)
+vec3 skyToLinear(vec3 c) {
+	return pow(max(c, 0.0), vec3(2.2));
+}
+
+float skyLumaLin(vec3 c) {
+	return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}
+
+// a colour scaled to luminance 1
+vec3 skyUnitLuma(vec3 c) {
+	return c / max(skyLumaLin(c), 1e-4);
+}
+
+// The sun's colour on the land for its height h, linear, luminance 1. morning: 1 before noon, 0 after.
+vec3 skyLandSunColour(float h, float morning) {
+	// (the warmth comes mostly out of the blue, little out of the green, so sunlit grass stays green, not olive)
+	vec3 noon = vec3(1.00, 0.97, 0.90);
+	vec3 aft  = mix(vec3(1.00, 0.83, 0.48), vec3(1.00, 0.89, 0.64), morning);
+	vec3 gold = mix(vec3(1.00, 0.79, 0.48), vec3(1.00, 0.78, 0.56), morning);
+	vec3 low  = mix(vec3(1.00, 0.60, 0.28), vec3(1.00, 0.60, 0.38), morning);
+	vec3 c = mix(aft, noon, smoothstep(0.52, 0.92, h));
+	c = mix(gold, c, smoothstep(0.08, 0.36, h));
+	c = mix(low, c, smoothstep(-0.01, 0.09, h));
+	return skyUnitLuma(c);
+}
+
+// The sun's strength on the land for its height: full high up, about half at the golden hour (the shade loses more,
+// so the contrast grows), on until the disc touches the horizon and gone a moment after.
+float skyLandSunStrength(float h) {
+	return LAND_SUN * (0.52 + 0.48 * smoothstep(0.0, 0.5, h)) * smoothstep(-0.012, 0.03, h);
+}
+
+// The open sky's fill on an upward face, relative to noon: it dims slowly as the sun sinks, then fast through the
+// blue hour after sunset.
+float skyLandFillLevel(float h) {
+	return h > 0.0 ? 0.36 + 0.64 * smoothstep(0.0, 0.6, h) : 0.36 * exp(h * 15.0);
+}
+
+struct SkyLand {
+	vec3 direct;  // the shadow light (sun by day, moon by night) on a face square to it
+	vec3 fill;    // the sky on an upward face in the open
+	float glow;   // how much of the fill comes from the low sun's side of the sky (lib/light.glsl sunSideGlow)
+	vec3 bounce;  // the ground on a downward face
+	vec4 band;    // the warm horizon band toward a low sun: display colour, strength
+};
+
+SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
+	SkyLand l;
+	float h = sunW.y;
+	// (the two halves of the day meet at noon, where both are the noon colour)
+	float morning = (sunAngle < 0.25 || sunAngle > 0.75) ? 1.0 : 0.0;
+	float lightScale = clamp(s.light.z, 0.0, 1.0);
+	float weatherSun = (1.0 - 0.88 * m.overcast) * (1.0 - 0.5 * m.stormStep);
+
+	// the sun
+	vec3 sunLin = skyLandSunColour(h, morning) * skyLandSunStrength(h) * weatherSun * (1.0 - s.blind);
+
+	// the sky's fill: clear blue, cooler as the sun sinks and bluer still in the blue hour; grey under cloud
+	vec3 clearFill = mix(vec3(0.50, 0.64, 1.00), vec3(0.60, 0.74, 1.00), smoothstep(0.05, 0.45, h));
+	clearFill = mix(vec3(0.42, 0.54, 1.00), clearFill, smoothstep(-0.10, 0.02, h));
+	vec3 greyFill = vec3(0.84, 0.88, 0.95);
+	float grey = max(m.overcast, max(m.cloudStep, m.rainStep));
+	vec3 fillCol = skyUnitLuma(mix(clearFill, greyFill, grey));
+	// a closed sky scatters the sun it hides into the shade: brighter fill under cloud by day, less in rain
+	float fillWeather = (1.0 + 0.55 * m.overcast * (1.0 - m.rainStep)) * (1.0 - 0.35 * m.rainStep) * (1.0 - 0.3 * m.stormStep);
+	vec3 dayFill = fillCol * (LAND_FILL * skyLandFillLevel(h) * fillWeather * lightScale);
+	// the night's fill: the moonlit look as it was (display values to linear), lifted for the linear sum
+	vec3 nightAmb = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
+	nightAmb = mix(nightAmb, vec3(dot(nightAmb, vec3(0.2126, 0.7152, 0.0722))), 0.3);
+	float moonFill = 1.2 + 0.36 * clamp(s.moon, 0.0, 1.0) * m.clear;
+	vec3 nightFill = skyToLinear(nightAmb * (NIGHT_SKYLIGHT * moonFill * pow(lightScale, 0.25) * (1.0 - 0.28 * m.rainStep)))
+		* LAND_NIGHT;
+	float nightW = 1.0 - smoothstep(-0.24, -0.02, h);
+	l.fill = (dayFill + nightFill * nightW) * (1.0 - s.blind) + skyToLinear(SKY_FLASH * 0.45) * s.flash;
+
+	// the moon: its old display strength to linear, lifted like the night's fill
+	vec3 moonCol = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
+	vec3 moonLin = skyToLinear(moonCol * 0.34) * (m.moonStrength * LAND_NIGHT) * (1.0 - s.blind);
+	l.direct = sunAngle < 0.5 ? sunLin : moonLin; // Iris's shadowLightPosition switches at sunset
+
+	// the bright western (or eastern) sky round a low sun: its share of the fill falls on what faces it
+	l.glow = (1.0 - smoothstep(0.08, 0.40, h)) * smoothstep(-0.10, 0.0, h) * (1.0 - m.overcast);
+
+	// the ground's bounce: a warm, earthy average ground in the sun and the sky's fill
+	vec3 ground = vec3(0.20, 0.18, 0.12);
+	l.bounce = ground * (sunLin * max(h, 0.0) + dayFill + nightFill * nightW) * LAND_BOUNCE;
+
+	// the horizon band toward a low sun: warm white while the sun stands a few degrees up, deep gold-orange as it
+	// touches the horizon, fading into the afterglow's rose as it goes under
+	float lowC = skySmooth(0.16, -0.02, h);
+	vec3 bandCol = mix(vec3(1.00, 0.90, 0.70), vec3(1.00, 0.66, 0.36), lowC);
+	bandCol = mix(bandCol, mix(vec3(0.96, 0.56, 0.40), bandCol, 0.5), skySmooth(0.0, -0.08, h));
+	float bandAmt = smoothstep(-0.09, 0.0, h) * (1.0 - smoothstep(0.14, 0.38, h))
+		* (1.0 - 0.85 * m.overcast) * (1.0 - m.rainStep) * min(1.0, s.vivid) * (1.0 - s.blind);
+	l.band = vec4(bandCol, bandAmt * LOW_SUN_BAND);
+	return l;
+}
+
 // One band of the plain dome (no glow).
 vec3 skyBand(SkyMood m, int e) {
 	return e == 0 ? m.below : mix(m.hor, m.zen, SKY_BAND_MIX[e]);
@@ -272,13 +381,25 @@ vec4 skyBuildTexel(ivec2 t) {
 		if (t.x == SKY_X_AMBIENT) return vec4(min(m.ambient + SKY_FLASH * 0.45 * s.flash, 1.0), m.ambientFactor);
 		if (t.x == SKY_X_SHADOW) return day ? vec4(m.sunLight, m.sunStrength) : vec4(m.moonLight, m.moonStrength);
 		if (t.x == SKY_X_HOR_AWAY) return vec4(skyDome(m, s, 0, 1), 1.0);
-		if (t.x == SKY_X_HOR_SUN) return vec4(skyPost(mix(skyBand(m, 1), skyGlowColour(m, s, 1), skyRingMix(m.glow * 2.0)), s), 1.0);
+		if (t.x == SKY_X_HOR_SUN) {
+			// with the warm band toward a low sun, at the share the dome shows it straight at the sun
+			vec3 c = skyPost(mix(skyBand(m, 1), skyGlowColour(m, s, 1), skyRingMix(m.glow * 2.0)), s);
+			vec4 b = skyLand(m, s, sunW, moonW).band;
+			return vec4(mix(c, max(c, b.rgb), clamp(b.a, 0.0, 1.0)), 1.0);
+		}
 		if (t.x == SKY_X_ZENITH) return vec4(skyDome(m, s, 0, 5), 1.0);
 		if (t.x == SKY_X_FLASH) return vec4(SKY_FLASH * 0.45 * s.flash, s.flash);
 		if (t.x == SKY_X_STATE_LIGHT) return vec4(clamp(s.light.z, 0.0, 1.0), m.nightStep, m.darkStep, m.overcast);
 		if (t.x == SKY_X_STATE_GLOW) return vec4(m.glow / 1.5, m.moonGlow, m.stars, m.spread / 2.0);
 		if (t.x == SKY_X_STATE_SHOW) return vec4(m.sunVis, m.moonVis, m.moonAlpha, s.flash);
 		if (t.x == SKY_X_STATE_TIME) return vec4(s.golden, s.blue, s.sunset / 4.0, s.moon);
+		if (t.x >= SKY_X_LAND_DIRECT && t.x <= SKY_X_LOW_SUN) {
+			SkyLand l = skyLand(m, s, sunW, moonW);
+			if (t.x == SKY_X_LAND_DIRECT) return vec4(l.direct / SKY_LAND_SCALE, 1.0);
+			if (t.x == SKY_X_LAND_FILL) return vec4(l.fill / SKY_LAND_SCALE, l.glow);
+			if (t.x == SKY_X_LAND_BOUNCE) return vec4(l.bounce / SKY_LAND_SCALE, 1.0);
+			return l.band;
+		}
 		return vec4(0.0);
 	}
 	if (t.y == SKY_ROW_HAZE_AWAY || t.y == SKY_ROW_HAZE_SUN) {
@@ -288,6 +409,9 @@ vec4 skyBuildTexel(ivec2 t) {
 		vec3 h = skyHazeTint(m.horBase, t.x, s.hazeStrength, m.nightStep);
 		if (t.y == SKY_ROW_HAZE_SUN) {
 			h = mix(h, skyGlowColour(m, s, 1), skyRingMix(m.glow * 2.0));
+			// the far air toward a low sun takes the warm band too, a little less than the sky over it
+			vec4 b = skyLand(m, s, sunW, moonW).band;
+			h = mix(h, max(h, b.rgb), clamp(0.7 * b.a, 0.0, 1.0));
 		}
 		return vec4(skyPost(h, s), 1.0);
 	}

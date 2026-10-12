@@ -2,7 +2,10 @@
 // everything else, so near land, far land and entities share the same light.
 //
 // The light is Minecraft's: sky light, block light and face shading, with the sun (or moon) on top as the strongest,
-// directional term. Sky and block light fall off along vanilla's curve, smoothly, eased into LIGHT_BANDS gentle bands
+// directional term. Since the lighting rebuild (2026-10-12) it is summed in LINEAR light and brought to the screen by
+// one filmic curve (lib/tone.glsl): the sun from the sky table's land texels (its colour and strength follow its
+// height), the sky's fill as a hemisphere (the sky above, the sunlit ground's bounce below), torches, and the result
+// toned per pixel. Sky and block light fall off along vanilla's curve, smoothly, eased into LIGHT_BANDS gentle bands
 // (lib/common.glsl softBands, SOFT_BANDS of the way): no flat steps, no dither. The sun lights a face by how squarely
 // it faces it (Lambert, with a little wrap so a grazing face is not cut off), where the shadow map (lib/shadow.glsl)
 // says it reaches, or past the map's reach where the sky does.
@@ -15,6 +18,7 @@
 #include "/lib/common.glsl"
 // the sky table (prepare, colortex5): ambient and direct light, dark nights and lightning already in
 #include "/lib/sky/table.glsl"
+#include "/lib/tone.glsl"
 
 #ifndef WU_shadowLightPosition
 #define WU_shadowLightPosition
@@ -71,12 +75,27 @@ float rampSky(float level) {
 	return softBands(l, float(LIGHT_BANDS));
 }
 
+// The same ramps as linear light (the display-space ramps taken to linear, so the falloff reads as before). Block
+// light falls off a little more steeply than the sky's, so a torch makes a tighter, warmer pool.
+float rampSkyLin(float level) {
+	return pow(rampSky(level), 2.2);
+}
+
+float rampBlockLin(float level) {
+	return pow(rampLevel(level), 2.3);
+}
+
+// A torch's light, linear: orange at the source, a little paler as it spreads.
+vec3 torchColour(float lv) {
+	return mix(vec3(1.52, 0.96, 0.48), vec3(1.76, 0.95, 0.35), lv * lv);
+}
+
 // Sunlight that filters down through a canopy or bounces in under an overhang: a share of the direct light's colour,
 // with no direction, in the shade of places partly open to the sky (sky light about 6..13: under leaves, beneath a
 // roof's edge). Out in the open shade (sky light 15) it is 0, so a house's or a cliff's shadow keeps its contrast; in a
 // cave it is 0. It only fills the part of the face the sun does not light already.
 float canopyLeak(float skyLevel) {
-	return 0.45 * smoothstep(0.25, 0.55, skyLevel) * (1.0 - smoothstep(0.84, 0.97, skyLevel));
+	return 0.2 * smoothstep(0.25, 0.55, skyLevel) * (1.0 - smoothstep(0.84, 0.97, skyLevel));
 }
 
 // The old name, for callers not yet moved over; the dither threshold is ignored.
@@ -97,20 +116,16 @@ float sunFacing(float ndl) {
 	return clamp((ndl + w) / (1.0 + w), 0.0, 1.0);
 }
 
-// The glow of the sky round a low sun, lighting what faces it, in the light or not: 0 by day and night, up from the
-// late afternoon to just past sunset. Returns the light to add to the ambient (before the sky-light level).
-// At the golden hour (the sky table's golden amount) the glow is stronger and keeps on until the sun is fully down,
-// so the faces turned to the west keep a warm rim in the shade of a valley after the direct sun has left them.
-vec3 sunSideGlow(vec3 n) {
+// The bright sky round a low sun, lighting what faces it, in the sun or not: the share of the fill that comes from the
+// sun's side of the sky (the table's fill.a, from the late afternoon to just past sunset), in the colour of the
+// horizon toward the sun. Linear, added to the fill (before the sky-light level).
+vec3 sunSideGlow(vec3 n, vec4 fill) {
 	vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
-	float hour = (1.0 - smoothstep(0.06, 0.4, sunW.y)) * smoothstep(-0.12, 0.0, sunW.y);
-	float golden = skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r;
 	vec2 toSun = normalize(sunW.xz + vec2(1e-5));
 	float side = clamp((dot(n.xz, toSun) + 0.25) / 1.25, 0.0, 1.0) * (1.0 - 0.5 * abs(n.y));
-	// the low sun itself, warm, on what faces it (tops a little), unshadowed: the light off the bright western sky
-	float rim = golden * smoothstep(-0.06, 0.02, sunW.y) * (1.0 - smoothstep(0.05, 0.3, sunW.y))
-		* clamp(dot(n, normalize(vec3(sunW.x, max(sunW.y, 0.15), sunW.z))), 0.0, 1.0);
-	return skyHorizon(true) * (0.14 * hour * side) + skySunLight() * (0.55 * rim) + skyHorizon(true) * (0.10 * rim);
+	vec3 warm = toLinear(skyHorizon(true));
+	warm /= max(lumaLin(warm), 1e-4);
+	return warm * (lumaLin(fill.rgb) * fill.a * 0.65 * side);
 }
 
 // The same for a material (plumbing's class, M_*): leaves let a little light through to their shaded faces, and a
@@ -151,65 +166,57 @@ float faceShade(vec3 n) {
 	return clamp(0.8 + 0.2 * n.y - 0.2 * abs(n.x), 0.5, 1.0);
 }
 
-// The balance of the overworld's light: the sun (or moon) a little stronger than the sky table's raw value and the
-// sky's ambient a little weaker, so a face in the sun stands clearly out of the shade without the land getting
-// brighter overall (a top face in the noon sun is lit about as before; a shaded one about 0.45 of it).
-const float LIGHT_SUN_GAIN = 1.3;
-const float LIGHT_SKY_GAIN = 0.88;
-// The sky's fill a little stronger while the sun is low (late afternoon to sunset, and the same in the morning): the
-// direct light thins out then and the shade would sink to a dull grey-blue; lifted, the cool shade stays readable and
-// the warm low sun on the faces turned to it stands out against it.
-float lowSunFill() {
-	float h = sunHeight();
-	return 1.0 + 0.2 * (1.0 - smoothstep(0.15, 0.45, h)) * smoothstep(-0.05, 0.08, h);
-}
-
 // How much of Minecraft's corner shading (ambient occlusion, separateAo: colortex2.w) darkens the sky's fill and the
-// torch light. It never darkens the sun: a corner in the sun is in the sun.
-const float LIGHT_AO = 0.75;
+// torch light, as a power of it in linear light (2.2 would be vanilla's own depth; a little less, so corners darken
+// without going grimy). It never darkens the sun: a corner in the sun is in the sun.
+const float LIGHT_AO_POW = 2.3;
 
-// How much of a torch's light still shows, 0.2..1: in the open by day the sun drowns it (a lamp on a village square
-// only reads from the late afternoon on); under a roof, in a cave or at night it is whole.
+// How much of a torch's light still shows, 0.65..1: in the open by day the sun drowns most of it anyway (the light
+// adds), so only a little is taken off; a lamp's pool still reads in the shade at noon. Under a roof, in a cave or at
+// night it is whole.
 float blockLightDaylight(float skyLevel) {
 #ifdef WORLD_OVERWORLD
-	float sun = skyTable(SKY_X_SUN, SKY_ROW_LIGHT).a * smoothstep(0.12, 0.45, sunHeight());
-	return 1.0 - 0.8 * sun * smoothstep(0.6, 1.0, skyLevel);
+	float sun = smoothstep(0.12, 0.45, sunHeight());
+	return 1.0 - 0.35 * sun * smoothstep(0.6, 1.0, skyLevel);
 #else
 	return 1.0;
 #endif
 }
 
 // The lit colour of `albedo` with world normal `n`, light map levels `lm` (x block, y sky, both 0..1) and emission
-// 0..1. sunShare: what of the direct light reaches the face, as a colour (cloud shadow, shadow-map visibility and the
-// tint through glass or water, the season's sun tint); ambientTint: the season's shade tint. sunReach: the sky-light
-// gate (sunOpen, or the shadow map's loose sunLeakGate where it covers). facing: how squarely the face meets the
-// light (sunFacing or sunFacingMat). ao: Minecraft's corner shading, 1 for none. The shadow map, the clouds and the
-// facing only ever scale the direct term; the sky's fill and the torch light are the same in the sun and the shade.
+// 0..1, as a display value. sunShare: what of the direct light reaches the face, as a colour (cloud shadow, shadow-map
+// visibility and the tint through glass or water, the season's sun tint); ambientTint: the season's shade tint.
+// sunReach: the sky-light gate (sunOpen, or the shadow map's loose sunLeakGate where it covers). facing: how squarely
+// the face meets the light (sunFacing or sunFacingMat). ao: Minecraft's corner shading, 1 for none. The shadow map, the
+// clouds and the facing only ever scale the direct term; the sky's fill and the torch light are the same in the sun
+// and the shade.
 vec3 welkinLightFull(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
 		float facing, float ao) {
-	float face = faceShade(n);
-	float aoFill = mix(1.0, ao, LIGHT_AO);
-	float block = rampLevel(lm.x) * blockLightDaylight(lm.y);
-	vec3 blockCol = vec3(1.00, 0.80, 0.56) * 1.15;
+	vec3 a = toLinear(albedo);
+	float aoFill = pow(clamp(ao, 0.0, 1.0), LIGHT_AO_POW);
+	float lv = rampLevel(lm.x);
+	vec3 block = torchColour(lv) * (rampBlockLin(lm.x) * blockLightDaylight(lm.y) * pow(BLOCKLIGHT_STRENGTH, 2.2));
 #if defined WORLD_NETHER
-	vec3 ambient = vec3(0.52, 0.40, 0.34) * face;
+	vec3 ambient = toLinear(vec3(0.52, 0.40, 0.34) * faceShade(n));
 	vec3 direct = vec3(0.0);
 #elif defined WORLD_END
-	vec3 ambient = vec3(0.44, 0.40, 0.52) * face;
+	vec3 ambient = toLinear(vec3(0.44, 0.40, 0.52) * faceShade(n));
 	vec3 direct = vec3(0.0);
 #else
-	float sky = rampSky(lm.y);
-	// the day/night curve x Gloam's gameplay sky light (dark nights) x rain and overcast, plus lightning
-	vec3 ambient = (skyAmbientLight() * (LIGHT_SKY_GAIN * lowSunFill()) * face + sunSideGlow(n)) * sky * ambientTint;
-	// the sun (or the moon) on faces turned to it, where it reaches (sun or moon as shadowLightPosition, its strength
-	// through the cloud cover from the sky table)
+	// the sky's fill as a hemisphere: the sky above, the ground's bounce below, Minecraft's face shading softened on
+	// top (the sun now does the modelling), the bright sky round a low sun on what faces it
+	vec4 fill = skyLandFill();
+	vec3 hemi = fill.rgb * (0.5 + 0.5 * n.y) + skyLandBounce() * (0.5 - 0.5 * n.y);
+	hemi = hemi * mix(1.0, faceShade(n), 0.45) + sunSideGlow(n, fill);
+	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint;
+	// the sun (or the moon) on faces turned to it, where it reaches; under a canopy a little of it filters through
 	float lit = facing * sunReach;
-	vec3 direct = skyDirectLight() * LIGHT_SUN_GAIN * (lit + canopyLeak(lm.y) * (1.0 - lit)) * sunShare;
+	vec3 direct = skyLandDirect() * (lit + canopyLeak(lm.y) * (1.0 - lit)) * sunShare;
 #endif
-	vec3 light = (ambient + blockCol * block * BLOCKLIGHT_STRENGTH) * aoFill + direct;
-	light = max(light, vec3(0.045)); // never quite black: cave walls still read
-	light = mix(light, max(light, vec3(0.55)), nightVision);
-	return albedo * light + albedo * emission;
+	vec3 light = (ambient + block) * aoFill + direct;
+	light = max(light, vec3(LAND_FLOOR)); // never quite black: cave walls still read
+	light = mix(light, max(light, vec3(0.27)), nightVision);
+	return welkinTone(a * light + a * (emission * LAND_EMIT));
 }
 
 vec3 welkinLightCore(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,

@@ -21,7 +21,7 @@ void main() {
 #include "/lib/sky/build.glsl"
 
 /*
-const int colortex5Format = RGBA8;
+const int colortex5Format = RGBA16;
 const bool colortex5Clear = false;
 */
 

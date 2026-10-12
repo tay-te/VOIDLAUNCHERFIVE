@@ -540,3 +540,48 @@ The user set the new look of section 3.2 over the flat-steps-and-dither rules. W
   2.2-3.6 ms by day and 4.4 ms in the night gorge, inside the 4 ms MEDIUM total by day. The clouds stay at 0.75-1.0 ms,
   over their 0.6 ms budget (about as before this pass, 0.9-1.1 ms: the march is most of it), and the gorge's shadows
   at the top of theirs; the gorge's mist line may hold some stall too. The review's 8.6-9.4 ms night frames were contention.
+
+### The lighting rebuild, step 1: exposure, tone and the light's colour (2026-10-12)
+
+The bench against Complementary Reimagined, Unbound + Euphoria and Hysteria (scratchpad `welkin_w2/lighting/GAPS.md`)
+found Welkin's daylight a quarter of their linear brightness, too neutral and grey, its golden hour gone before the sun
+set, and its shade lifted and grey. The user's direction: on par with them or better, strong sun that shapes every
+form, real contrast, a golden hour to the horizon, natural clean warmth (less gold than Complementary), storybook
+shade that is deep, sky-tinted and readable.
+
+- **Linear light and one tone curve** (`lib/tone.glsl`, `lib/light.glsl` `welkinLightFull`): the albedo goes to linear;
+  the sun or moon, the sky's fill, the ground's bounce and the torches add as light does; one filmic curve per pixel
+  brings the sum to the display values the rest of the pack works in (exposure, a gentle S on luminance round mid
+  grey that fades out in the deep dark so nights keep their level, a soft shoulder mostly on luminance so sunlit grass
+  stays green and a pale face in full sun rolls into near white without clipping, saturation 0.97). No neighbourhood,
+  no adaptation, no bloom, no TAA. The sky, the clouds and the haze keep their display values and final's shoulder.
+- **The land's light in the sky table** (`lib/sky/build.glsl` `skyLand`, row 5 x 12..15; the table is now RGBA16 so a
+  moonless night's linear fill keeps its precision): the shadow light's direct light, the sky's fill on an upward face,
+  the ground's bounce on a downward face, and the warm horizon band, all smooth in the sun's height h:
+  - **sun:** 2.4 at noon, about half at the golden hour, on until the disc touches the horizon (out over h 0.03..-0.012);
+    a clean warm white high up (1, 0.97, 0.90), warming through the afternoon (1, 0.83, 0.48), amber at the golden hour
+    and deep amber at the horizon; the warmth comes out of the blue more than the green, so sunlit grass stays green;
+    the morning takes the same path a touch paler and rosier. Overcast and storms cut it as before.
+  - **fill:** 0.245 on an upward face at noon, a clear blue that cools as the sun sinks and bluer still in the blue hour,
+    dimming slowly with the sun and fast after sunset; grey and brighter under a closed sky; the night's fill is the old
+    moonlit look taken to linear (x 1.6 for the linear sum), so nights read as before.
+  - **hemisphere:** a face takes the fill by how much sky it sees ((1 + n.y) / 2) and the ground's bounce (a warm earthy
+    average ground under the sun and the fill, x 0.36) by how much ground; Minecraft's face shading is kept at 45 % on
+    the fill (the sun now models the forms). A low sun's bright side of the sky lights what faces it (the fill's
+    `glow` share, in the colour of the horizon toward the sun), replacing the old sun-side glow and rim.
+  - **torches:** a little more orange at the source (1.76, 0.95, 0.35) and paler as the light spreads, with a steeper
+    falloff (the ramp to the power 2.3); the sun now takes only 35 % of a lamp's light in the open, so a lamp's pool
+    reads in the shade at noon.
+  - **corner shading:** Minecraft's AO to the power 2.3 on the fill and the torches (a little deeper than vanilla), never
+    on the sun. The canopy leak is down to 0.2 (in linear light the old 0.45 lit the trunks orange under the leaves).
+- **The warm horizon band** (`lib/sky/dome.glsl` `skyLowSunBandOver`): toward a low sun the dome brightens along the
+  horizon into a warm white, gold as the sun touches the horizon and rose as it goes under; broad in azimuth, hugging
+  the horizon, only ever brightening. The horizon toward the sun (row 5 x 5) and the far haze toward the sun (row 7)
+  take it too, so the far land near a low sun is warm and bright.
+- **Low-sun shadows** (`lib/shadow.glsl`): the step toward the light grows with how far the light grazes the face (a
+  texel's depth spread is the texel times the tangent of the light's angle), so a low sun on level ground lights it
+  instead of the ground shadowing itself (at 18:30 the whole near land had gone dark).
+- **Kept as they were:** the clouds' own light (they still read the old sky-table texels x 0..3), mist, wet ground and
+  water's glint, caves (the dark end of the curve is untouched), rain and overcast.
+- **Left for step 2:** shadows past the map (at the golden hour the map's edge shows as a lit ring where a hill shades
+  the near land), light through leaves and sun patches under the canopy, contact shadow, water.
