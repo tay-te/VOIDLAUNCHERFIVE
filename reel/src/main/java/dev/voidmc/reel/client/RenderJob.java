@@ -13,7 +13,7 @@ import java.util.Locale;
  * @param width   the size frames are rendered at, whatever the window's
  * @param out     the folder this job writes into: renders/&lt;shot&gt;
  */
-public record RenderJob(Kind kind, Shot shot, int[] frames, int samples, int width, int height, Path out, boolean encode) {
+public record RenderJob(Kind kind, Shot shot, int[] frames, int samples, int width, int height, Path out, boolean encode, boolean jitter, int supersample) {
 	public enum Kind { MOVIE, STILLS }
 
 	public static RenderJob movie(Shot shot, Path renders, Integer samples, Integer width, Integer height, boolean encode) {
@@ -22,7 +22,7 @@ public record RenderJob(Kind kind, Shot shot, int[] frames, int samples, int wid
 			frames[i] = i;
 		}
 		return new RenderJob(Kind.MOVIE, shot, frames, samples != null ? samples : shot.render().samples(), width != null ? width : shot.width(),
-			height != null ? height : shot.height(), renders.resolve(shot.name()), encode);
+			height != null ? height : shot.height(), renders.resolve(shot.name()), encode, Tuning.jitter(shot), Tuning.supersample(shot));
 	}
 
 	/** count stills spread evenly from the first frame to the last, at half the shot's size unless given. */
@@ -34,7 +34,7 @@ public record RenderJob(Kind kind, Shot shot, int[] frames, int samples, int wid
 			frames[i] = count == 1 ? 0 : (int) Math.round((double) i * last / (count - 1));
 		}
 		return new RenderJob(Kind.STILLS, shot, frames, 1, width != null ? width : shot.width() / 2, height != null ? height : shot.height() / 2,
-			renders.resolve(shot.name()), false);
+			renders.resolve(shot.name()), false, false, Tuning.supersample(shot));
 	}
 
 	/** Exactly the given moments (seconds), each as one still. */
@@ -45,7 +45,7 @@ public record RenderJob(Kind kind, Shot shot, int[] frames, int samples, int wid
 		}
 		java.util.Arrays.sort(frames);
 		return new RenderJob(Kind.STILLS, shot, frames, 1, width != null ? width : shot.width() / 2, height != null ? height : shot.height() / 2,
-			renders.resolve(shot.name()), false);
+			renders.resolve(shot.name()), false, false, Tuning.supersample(shot));
 	}
 
 	public boolean movie() {
@@ -58,9 +58,8 @@ public record RenderJob(Kind kind, Shot shot, int[] frames, int samples, int wid
 		if (this.samples <= 1) {
 			return this.shot.timeOf(frame);
 		}
-		Shot.Render r = this.shot.render();
 		Shot blended = new Shot(this.shot.name(), this.shot.fps(), this.shot.duration(), this.width, this.height, this.shot.world(), this.shot.rig(),
-			this.shot.shake(), new Shot.Render(r.shutter(), this.samples, r.preroll()));
+			this.shot.shake(), this.shot.render().withSamples(this.samples));
 		return blended.exposure(frame)[sample];
 	}
 
@@ -73,7 +72,17 @@ public record RenderJob(Kind kind, Shot shot, int[] frames, int samples, int wid
 	}
 
 	public String describe() {
-		return String.format(Locale.ROOT, "%s %s: %d frame%s at %dx%d, %d sample%s", this.kind.name().toLowerCase(Locale.ROOT), this.shot.name(),
-			this.frames.length, this.frames.length == 1 ? "" : "s", this.width, this.height, this.samples, this.samples == 1 ? "" : "s");
+		return String.format(Locale.ROOT, "%s %s: %d frame%s at %dx%d, %d sample%s%s%s", this.kind.name().toLowerCase(Locale.ROOT), this.shot.name(),
+			this.frames.length, this.frames.length == 1 ? "" : "s", this.width, this.height, this.samples, this.samples == 1 ? "" : "s",
+			this.jitter && this.samples > 1 ? ", jittered" : "", this.supersample > 1 ? ", " + this.supersample + "x supersampled" : "");
+	}
+
+	/** The size each sample is rendered at: the frame's, times the supersampling. */
+	public int renderWidth() {
+		return this.width * this.supersample;
+	}
+
+	public int renderHeight() {
+		return this.height * this.supersample;
 	}
 }

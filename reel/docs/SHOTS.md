@@ -118,6 +118,11 @@ running.
   360 smears.
 - `preroll`: seconds the world runs before the first frame (running shots), so water, leaves and mobs are mid-motion
   when the shot opens.
+- `jitter` (default true): each sample sees the scene through its own sub-pixel turn of the camera, so the blend of
+  samples anti-aliases too.
+- `supersample` (1-4, default 1): each sample is rendered that many times larger and scaled down. 2 is the
+  strongest cure for shimmering distant land (and costs about four times the render time). VOID LOD picks its
+  detail by pixels, so it also draws finer far tiles.
 
 ## Checking a shot
 

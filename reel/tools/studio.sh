@@ -19,7 +19,8 @@ while [ -z "$slot" ]; do
   done
   [ -z "$slot" ] && { echo "waiting for a game slot"; sleep 20; }
 done
-trap 'rm -rf "$slot" 2>/dev/null' EXIT INT TERM
+trap 'rm -rf "$slot" 2>/dev/null' EXIT
+trap 'exit 1' INT TERM
 export JAVA_HOME="C:/Users/bitto/VOID/.tools/jdk-25"
 export PATH="$JAVA_HOME/bin:$PATH"
 cd "$R" || exit 1

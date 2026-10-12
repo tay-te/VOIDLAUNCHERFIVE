@@ -66,6 +66,9 @@ public final class Director {
 	private CameraState camera;
 	private double shotTime;
 	private float partial;
+	private volatile long lodNanos;
+	private long lastRealNanos;
+	private volatile boolean midFrame;
 	/** The clock shader packs animate by: continuous from setting up through the last frame, seconds. */
 	private double packClock;
 	private int prerollDone;
@@ -132,11 +135,11 @@ public final class Director {
 
 	/** The size frames are drawn at, in place of the window's, while a job runs. */
 	public int frameWidth(int window) {
-		return this.clockActive() ? this.job.width() : window;
+		return this.clockActive() ? this.job.renderWidth() : window;
 	}
 
 	public int frameHeight(int window) {
-		return this.clockActive() ? this.job.height() : window;
+		return this.clockActive() ? this.job.renderHeight() : window;
 	}
 
 	public void play(Minecraft mc, Shot shot) {
@@ -160,7 +163,7 @@ public final class Director {
 		}
 		this.job = job;
 		this.playing = null;
-		this.sink = new FrameSink(job.samples());
+		this.sink = new FrameSink(job.samples(), job.supersample());
 		this.report.reset(job);
 		this.camera = job.shot().camera(job.time(0, 0));
 		this.shotTime = job.time(0, 0);
@@ -175,6 +178,8 @@ public final class Director {
 		this.captureNow = false;
 		this.prerollDone = 0;
 		this.packClock = PACK_BASE;
+		this.lodNanos = this.lastRealNanos = System.nanoTime();
+		this.midFrame = false;
 		this.jobStart = this.phaseStart = System.nanoTime();
 		this.prefetch = Prefetch.start(mc, job);
 		this.prefetched = false;
@@ -215,6 +220,12 @@ public final class Director {
 			this.shotTime = t;
 			this.camera = this.playing.camera(t);
 		}
+		if (this.camera != null && Tuning.syncBody && mc.player != null && mc.player.isSpectator()) {
+			// the body stands at the camera on this very frame (old position too, so nothing interpolates it elsewhere):
+			// anything drawn relative to the player rather than the camera then lines up with it between ticks
+			mc.player.snapTo(this.camera.pos().x(), this.camera.pos().y() - mc.player.getEyeHeight(), this.camera.pos().z(),
+				(float) this.camera.yaw(), (float) this.camera.pitch());
+		}
 		Shot shot = this.phase == Phase.PLAY ? this.playing : this.job != null && this.clockActive() ? this.job.shot() : null;
 		if (shot != null && mc.level != null) {
 			Double day = shot.world().dayTimeAt(this.shotTime);
@@ -233,13 +244,30 @@ public final class Director {
 	 */
 	public int stepClock(Minecraft mc) {
 		this.captureNow = false;
-		return switch (this.phase) {
+		int ticks = switch (this.phase) {
 			case PREPARE -> this.prepare(mc);
 			case PREROLL -> this.preroll(mc);
 			case RENDER -> this.render(mc);
 			case DRAIN -> this.drain(mc);
 			default -> 0;
 		};
+		// far terrain's clock: exactly one sample's worth of shot time on a filmed pass, the wall's time on any other
+		// (setting up, waiting for land), so fades and rebuild gates advance with the film, and waits still finish
+		long now = System.nanoTime();
+		this.lodNanos += this.captureNow ? Math.round(this.packFrameTime() * 1e9) : now - this.lastRealNanos;
+		this.lastRealNanos = now;
+		this.midFrame = this.captureNow && this.sample > 0;
+		return ticks;
+	}
+
+	/** The clock VOID LOD's frame timers read while filming (see LodClockMixin). */
+	public long lodNanos() {
+		return this.lodNanos;
+	}
+
+	/** Whether this pass renders a later sample of a frame already begun: far tiles must not change now. */
+	public boolean midFrame() {
+		return this.midFrame && this.phase == Phase.RENDER;
 	}
 
 	private int prepare(Minecraft mc) {
@@ -344,7 +372,7 @@ public final class Director {
 			return 0;
 		}
 		double t = this.job.time(this.cursor, this.sample);
-		this.camera = this.job.shot().camera(t);
+		this.camera = this.jittered(this.job.shot().camera(t), this.sample);
 		this.shotTime = t;
 		this.packClock = PACK_BASE + this.prerollDone / 20.0 + t;
 		boolean exact = this.job.movie() && !this.job.shot().world().freeze();
@@ -396,6 +424,34 @@ public final class Director {
 		this.partial = (float) (worldTicks - want);
 		this.arm();
 		return (int) need;
+	}
+
+	/**
+	 * Sample s of a frame seen through a sub-pixel offset of the view (the Halton 2,3 sequence, so any number of samples
+	 * covers the pixel evenly): blending the samples then anti-aliases as well as blurring motion. The offset turns the
+	 * camera rather than shifting the projection, so everything that draws with its own projection (shader packs,
+	 * far terrain) is offset alike.
+	 */
+	private CameraState jittered(CameraState state, int sample) {
+		int n = this.job.samples();
+		if (!this.job.jitter() || n <= 1) {
+			return state;
+		}
+		double dx = halton(sample + 1, 2) - 0.5;
+		double dy = halton(sample + 1, 3) - 0.5;
+		double degreesPerPixel = state.fov() / this.job.renderHeight();
+		double yaw = dx * degreesPerPixel / Math.max(0.2, Math.cos(Math.toRadians(state.pitch())));
+		return state.withAngles(state.yaw() + yaw, state.pitch() + dy * degreesPerPixel, state.roll());
+	}
+
+	private static double halton(int index, int base) {
+		double f = 1;
+		double r = 0;
+		for (int i = index; i > 0; i /= base) {
+			f /= base;
+			r += f * (i % base);
+		}
+		return r;
 	}
 
 	private void arm() {

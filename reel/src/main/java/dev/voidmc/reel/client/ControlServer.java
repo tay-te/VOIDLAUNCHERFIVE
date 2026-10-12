@@ -48,6 +48,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * GET  /height?at=x,z;x,z;...          the ground (top solid or liquid block) at each point, loading land as needed
  * POST /cmd   (body: a server command) run on the integrated server where the player stands; answers its output
  *            ("locate structure #minecraft:village", "time set 23000")
+ * POST /set?syncBody=true&jitter=shot&supersample=2   live filming settings (GET /set shows them)
+ * POST /pack?TAA_DEFINE=0              sets shader pack options and reloads the pack
  * POST /quit                           closes the studio
  * </pre>
  */
@@ -209,6 +211,20 @@ public final class ControlServer {
 				} catch (Exception e) {
 					yield error("command failed: " + e);
 				}
+			}
+			case "/set" -> {
+				if (q.isEmpty()) {
+					yield Tuning.describe();
+				}
+				String out = Tuning.describe();
+				for (var e : q.entrySet()) {
+					out = Tuning.set(e.getKey(), e.getValue());
+				}
+				yield out;
+			}
+			case "/pack" -> {
+				// shader pack options, written to the pack's settings file and reloaded: /pack?TAA_DEFINE=0
+				yield onClient(() -> PackOptions.apply(q));
 			}
 			case "/quit" -> {
 				quit = true;

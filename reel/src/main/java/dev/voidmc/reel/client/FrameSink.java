@@ -29,6 +29,7 @@ final class FrameSink {
 	private static final int USAGE_READBACK = GpuBuffer.USAGE_MAP_READ | GpuBuffer.USAGE_COPY_DST;
 
 	private final int samples;
+	private final int supersample;
 	private final ExecutorService writers = Executors.newFixedThreadPool(3, r -> {
 		Thread t = new Thread(r, "Reel frame writer");
 		t.setDaemon(true);
@@ -40,8 +41,9 @@ final class FrameSink {
 	private final Map<Integer, Blend> blends = new HashMap<>();
 	private volatile String failure;
 
-	FrameSink(int samples) {
+	FrameSink(int samples, int supersample) {
 		this.samples = samples;
+		this.supersample = supersample;
 	}
 
 	/** Frames read back or being written but not on disk yet: the director waits while this is high. */
@@ -75,7 +77,12 @@ final class FrameSink {
 		this.readbacks.incrementAndGet();
 		RenderSystem.getDevice().createCommandEncoder().copyTextureToBuffer(texture, buffer, 0L, () -> {
 			try (GpuBufferSlice.MappedView view = buffer.map(true, false)) {
-				this.deliver(index, file, width, height, read(view.data(), width, height, pixel));
+				byte[] rgb = read(view.data(), width, height, pixel);
+				int s = this.supersample;
+				if (s > 1) {
+					rgb = shrink(rgb, width, height, s);
+				}
+				this.deliver(index, file, width / s, height / s, rgb);
 			} catch (RuntimeException e) {
 				this.failure = "reading a frame back failed: " + e;
 				Reel.LOG.error("[reel] frame read failed", e);
@@ -100,6 +107,35 @@ final class FrameSink {
 			}
 		}
 		return rgb;
+	}
+
+	/** Box-filters an image down by a whole factor: each output pixel the mean of an s x s block. */
+	private static byte[] shrink(byte[] rgb, int width, int height, int s) {
+		int w = width / s;
+		int h = height / s;
+		byte[] out = new byte[w * h * 3];
+		int area = s * s;
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int r = 0;
+				int g = 0;
+				int b = 0;
+				for (int dy = 0; dy < s; dy++) {
+					int row = ((y * s + dy) * width + x * s) * 3;
+					for (int dx = 0; dx < s; dx++) {
+						r += rgb[row] & 0xFF;
+						g += rgb[row + 1] & 0xFF;
+						b += rgb[row + 2] & 0xFF;
+						row += 3;
+					}
+				}
+				int o = (y * w + x) * 3;
+				out[o] = (byte) ((r + area / 2) / area);
+				out[o + 1] = (byte) ((g + area / 2) / area);
+				out[o + 2] = (byte) ((b + area / 2) / area);
+			}
+		}
+		return out;
 	}
 
 	private void deliver(int index, Path file, int width, int height, byte[] rgb) {

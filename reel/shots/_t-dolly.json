@@ -1,0 +1,9 @@
+{
+	"notes": "Stability test: a slow constant sideways dolly at the summit viewpoint, looking at the far plains (no rotation).",
+	"fps": 30,
+	"duration": 6,
+	"world": { "time": 1800, "timeRate": 0 },
+	"camera": { "ease": "linear", "fov": 40,
+		"keys": [ { "pos": [985, 513, 1860], "yaw": 184, "pitch": 8 }, { "pos": [1009, 513, 1860], "yaw": 184, "pitch": 8 } ] },
+	"render": { "samples": 1, "preroll": 1 }
+}

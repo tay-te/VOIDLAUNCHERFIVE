@@ -1,0 +1,8 @@
+{
+	"notes": "Stability test: a locked-off camera at the summit viewpoint (m4 at 6.8 s); nothing far should change between frames.",
+	"fps": 30,
+	"duration": 3,
+	"world": { "time": 1800, "timeRate": 0, "tick": "freeze" },
+	"camera": { "keys": [ { "pos": [985.6, 513, 1860.6], "look": [1000, 453.8, 1650] } ], "fov": 40 },
+	"render": { "samples": 1, "preroll": 1 }
+}

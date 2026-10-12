@@ -77,6 +77,35 @@ top-left crop while filming.
    ticks, so it is waited for only when the world is frozen (frozen shots, stills). A frame waits at most 400 passes.
    Every frame filmed loading is listed in the report with what was missing.
 
+## Stable distance (measured 2026-10-12)
+
+`tools/stability.py SHOT` aligns each frame to the last with a homography fitted to the far band and measures what
+is left: popping, swaps, shimmer. It also reports the share of that variation on the 3-frame game-tick rhythm.
+`tools/experiments/stability.sh` runs the comparison below on a studio.
+
+| test (slow dolly at the summit, far band) | median | jitter rms | tick-rhythm share |
+|---|---|---|---|
+| original | 0.13 | 0.078 | 36% |
+| + body follows camera every frame | 0.13 | 0.074 | 34% |
+| + VOID LOD on the recording clock | 0.14 | 0.089 | 20% |
+| + 6 jittered samples, pack TAA off | 0.30 | 0.081 | 21% |
+| + 2x supersampling | 0.15 | 0.047 | 18% |
+
+The summit shot re-rendered with everything on, through the same encode as the film: jitter rms 0.545 to 0.386, and
+the single-frame tile pops and ghosts are gone. Findings:
+
+- VOID LOD times fades, rebuild and swap gates by the wall clock; offline, tick frames take longer, so far land
+  changed on the tick rhythm. `LodClockMixin` gives it the recording's clock while filming.
+- A LOD swap between two samples of one frame showed as a ghost. `LodFreezeMixin` keeps the drawn tile set fixed
+  across a frame's samples.
+- Shimmer is sub-pixel far detail; supersampling is what cures it. Jitter alone (without the pack's TAA) does not.
+- The body sync made no measurable difference and stays as harmless correctness.
+- Still on LOD's side: no hysteresis on detail levels, no fade on swaps under a shader pack, structure stand-ins
+  drawn as solid shapes on far peaks. All the timer hooks would be cleaner as LodApi calls than as Reel mixins
+  into LOD internals.
+
+Live switches: `reel.sh set syncBody= lodClock= lodFreeze= jitter= supersample=`, `reel.sh pack NAME=value`.
+
 ## The report
 
 `renders/<shot>/render.json` (or `stills.json`): job, rig, wall time, prefetch chunks and seconds, prepare time,

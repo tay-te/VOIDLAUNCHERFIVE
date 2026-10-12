@@ -145,8 +145,19 @@ public final class ShotParser {
 		Shot.Render render = Shot.Render.DEFAULT;
 		if (root.has("render")) {
 			JsonObject r = object(root, "render", "");
-			known(r, "render", Set.of("shutter", "samples", "preroll"));
-			render = new Shot.Render(number(r, "shutter", "render", 180), (int) number(r, "samples", "render", 1), number(r, "preroll", "render", 0));
+			known(r, "render", Set.of("shutter", "samples", "preroll", "jitter", "supersample"));
+			boolean jitter = true;
+			if (r.has("jitter")) {
+				if (!r.get("jitter").isJsonPrimitive() || !r.get("jitter").getAsJsonPrimitive().isBoolean()) {
+					throw new ShotException("render.jitter", "expected true or false");
+				}
+				jitter = r.get("jitter").getAsBoolean();
+			}
+			render = new Shot.Render(number(r, "shutter", "render", 180), (int) number(r, "samples", "render", 1), number(r, "preroll", "render", 0),
+				jitter, (int) number(r, "supersample", "render", 1));
+			if (render.supersample() < 1 || render.supersample() > 4) {
+				throw new ShotException("render.supersample", "must be 1-4");
+			}
 			if (render.samples() < 1 || render.samples() > 64) {
 				throw new ShotException("render.samples", "must be 1-64");
 			}

@@ -25,10 +25,16 @@ public record Shot(String name, int fps, double duration, int width, int height,
 	 * How frames are made. shutter is the shutter angle in degrees (180 exposes each frame for half its time,
 	 * the film look; 360 smears everything), samples how many renders are blended into each frame for motion
 	 * blur (1 for none), preroll how many seconds the world runs before the first frame so water, leaves and
-	 * mobs are already moving.
+	 * mobs are already moving. jitter gives each sample its own sub-pixel offset of the view, so blending the samples
+	 * also anti-aliases (distant detail stops crawling); supersample renders each sample that many times larger in
+	 * each direction and scales it down.
 	 */
-	public record Render(double shutter, int samples, double preroll) {
-		public static final Render DEFAULT = new Render(180, 1, 0);
+	public record Render(double shutter, int samples, double preroll, boolean jitter, int supersample) {
+		public static final Render DEFAULT = new Render(180, 1, 0, true, 1);
+
+		public Render withSamples(int samples) {
+			return new Render(this.shutter, samples, this.preroll, this.jitter, this.supersample);
+		}
 	}
 
 	public int frames() {

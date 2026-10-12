@@ -8,6 +8,8 @@
 #   bash tools/reel.sh snap   x=.. y=.. z=.. yaw=.. pitch=.. [fov=70 name=..]
 #   bash tools/reel.sh height "x,z;x,z"                    ground heights (top = water/leaves, ground = solid floor)
 #   bash tools/reel.sh cmd    "time set 23000"
+#   bash tools/reel.sh set    [syncBody=true jitter=shot supersample=2]   live filming settings
+#   bash tools/reel.sh pack   TAA_DEFINE=0                   shader pack options (pack reloads)
 #   bash tools/reel.sh wait                                  until the director is idle
 # REEL_PORT picks the port (default 7341).
 set -u
@@ -22,6 +24,7 @@ case "$verb" in
   play|render|stills) shot="$1"; shift; curl -s -X POST "$BASE/$verb?$(query "shot=$shot" "$@")"; echo ;;
   snap) curl -s -X POST "$BASE/snap?$(query "$@")"; echo ;;
   cmd) curl -s -X POST --data "$*" "$BASE/cmd"; echo ;;
+  set|pack) curl -s -X POST "$BASE/$verb?$(query "$@")"; echo ;;
   height) curl -s -G --data-urlencode "at=$1" "$BASE/height"; echo ;;
   wait)
     while :; do
@@ -29,5 +32,5 @@ case "$verb" in
       case "$s" in *'"phase":"idle"'*) echo "$s"; break ;; esac
       sleep 3
     done ;;
-  *) sed -n '2,14p' "$0"; exit 1 ;;
+  *) sed -n '2,16p' "$0"; exit 1 ;;
 esac
