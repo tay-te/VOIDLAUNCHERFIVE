@@ -80,6 +80,18 @@ uniform sampler2D colortex1;
 #define WU_gbufferModelView
 uniform mat4 gbufferModelView;
 #endif
+#ifndef WU_gbufferProjection
+#define WU_gbufferProjection
+uniform mat4 gbufferProjection;
+#endif
+#ifndef WU_viewHeight
+#define WU_viewHeight
+uniform float viewHeight;
+#endif
+
+// where a block stands 2.5x this many pixels tall on screen or less (fully at this), the occlusion is taken relative
+// to open level ground (lightAoFetch)
+#define AO_FAR_FACE_PX 3.0
 
 struct AoSample {
 	float vis;   // the visibility, 1 for none (where it covers: lib/light.glsl fades it out by the cover)
@@ -107,6 +119,14 @@ AoSample lightAoFetch(ivec2 p, vec3 v, vec3 n, int m) {
 	vec4 r = resolveSpatial4x4(colortex9, q, 2, v, vn, plant ? vec3(0.0) : n, colortex1);
 	vec3 t = r.a > 0.02 ? r.rgb : texelFetch(colortex9, clamp(q, ivec2(0), textureSize(colortex9, 0) - 1), 0).rgb;
 	a.vis = clamp(t.x, 0.0, 1.0);
+	// Far off, where a block spans only a few pixels, the occlusion is taken relative to open level ground: a face's
+	// visibility over the share an unoccluded face of its facing keeps on flat land (half for a wall, the ground taking
+	// the lower half of its view, which the sky's irradiance leaves out already). So the far land keeps the occlusion
+	// of real hollows, gullies and the floor between crowns, but the risers of every 1-block terrace, two pixels tall,
+	// no longer turn into rows of dark dashes. Near, a block's sides stay graded as they are.
+	float pxBlock = gbufferProjection[1][1] * 0.5 * viewHeight / max(z, 0.05);
+	float farFace = 1.0 - smoothstep(AO_FAR_FACE_PX, 2.5 * AO_FAR_FACE_PX, pxBlock);
+	a.vis = mix(a.vis, min(a.vis / max(0.5 + 0.5 * nA.y, 0.25), 1.0), farFace);
 	vec2 tb = t.yz;
 	float l2 = dot(tb, tb);
 	if (l2 > 1.0) {
