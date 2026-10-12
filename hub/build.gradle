@@ -292,7 +292,7 @@ tasks.register('hubFunctional') {
 //   ./gradlew hubMettle                  in-game test of the Mettle pages (photographs each step)
 // ---------------------------------------------------------------------------------------------
 def mettleJar = file('libs/void-mettle.jar')
-def withMettle = project.hasProperty('mettle') || gradle.startParameter.taskNames.any { it.contains('hubMettle') }
+def withMettle = project.hasProperty('mettle') || gradle.startParameter.taskNames.any { it.contains('hubMettle') || it.contains('hubAudit') }
 if (withMettle) {
 	if (!mettleJar.isFile()) {
 		throw new GradleException("Mettle runs need libs/void-mettle.jar (Mettle's built jar)")
@@ -302,6 +302,13 @@ if (withMettle) {
 	}
 }
 hubTestRun('hubMettleGame', 'mettle')
+hubTestRun('hubAuditGame', 'audit')
+
+tasks.register('hubAudit') {
+	group = 'voidhub'
+	description = 'Production audit of the Mettle card UI (resolutions, extreme state, input, lifecycle); needs libs/void-mettle.jar'
+	dependsOn 'runHubAuditGame'
+}
 
 tasks.register('hubMettle') {
 	group = 'voidhub'

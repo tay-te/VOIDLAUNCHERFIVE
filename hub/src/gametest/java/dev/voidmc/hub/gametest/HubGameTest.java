@@ -63,6 +63,9 @@ public class HubGameTest implements FabricClientGameTest {
 				if (mode.equals("mettle")) {
 					new MettleTest(context, world).run();
 				}
+				if (mode.equals("audit")) {
+					new AuditTest(context, world).run();
+				}
 				if (mode.equals("smoke")) {
 					this.smoke(context, world, spot);
 				}
