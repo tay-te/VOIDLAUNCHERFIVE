@@ -94,6 +94,12 @@ float wcSunward(vec3 rd, CloudEnv e) {
 	return c * c * (3.0 - 2.0 * c);
 }
 
+// How much a low sun lights the decks from below: from just under the horizon (the decks stand high, so they see it a
+// little longer than the land) until it stands about ten degrees up.
+float wcUnderLit(float sunY) {
+	return smoothstep(-0.07, 0.0, sunY) * (1.0 - smoothstep(0.1, 0.22, sunY));
+}
+
 // Gloam's dusk palette for a face (CloudDeck.band). `sunward` 0..1 (wcSunward), `far` the continuous ring (0 near ..
 // 5 and more far), `sun` the sun's direction. A side is its top's colour in less light (warmer turned to the sun, a
 // shade darker turned away), never a hue of its own, so the thin sides under a cloud's outline read as its thickness
@@ -108,7 +114,9 @@ vec3 wcDusk(vec3 n, float far, float sunward, vec3 sun) {
 		return top;
 	}
 	if (n.y < -0.5) {
-		return mix(WC_DUSK, WC_ROSE, sunward);
+		// (round 1: while the sun stands just over the horizon it shines under the decks, so their bases glow peach
+		// toward it and rose away from it, as at a real sunset, instead of a dusk blue)
+		return mix(mix(WC_DUSK, WC_ROSE, sunward), mix(WC_ROSE, WC_ORANGE, 0.6 * sunward), wcUnderLit(sun.y));
 	}
 	float toward = dot(n.xz, normalize(sun.xz + vec2(1e-5)));
 	vec3 lit = mix(top, WC_ORANGE, 0.3 * sunward);
@@ -248,6 +256,12 @@ vec3 wcFaceColour(vec3 n, float up, float interior, float dens, int tone, vec3 r
 		} else {
 			face = mix(WC_SIDE_FOOT, WC_SIDE_BROW, up) * 0.92;
 			ref = wcLuma(wcHorizon(rd, e)) * mix(0.62, 0.95, sw);
+		}
+		// lit from below by the low sun: a base or a side as bright as the horizon toward the sun allows (less away
+		// from it), so the whole deck glows and the sky has no dark half
+		if (n.y < 0.5) {
+			float under = wcUnderLit(e.sun.y) * (1.0 - skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a);
+			ref = mix(ref, max(ref, wcLuma(skyHorizon(true)) * mix(0.55, 0.9, sw)), under);
 		}
 		float earth = mix(0.45, 1.0, smoothstep(-0.10, 0.03, e.sun.y));
 		vec3 d = p * (face * ref * earth / max(wcLuma(p), 1e-3));
