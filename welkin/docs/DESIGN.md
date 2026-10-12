@@ -757,3 +757,39 @@ pass's cost at a low sun and at night, and a salmon dawn deck.
 - **Not done here:** the shore's water (Fresnel sky reflection, a glitter path, the 18:30 murk, the gorge's opaque
   blue) and the hard white mist band on the dawn lake's horizon belong to P7 and the mist; the noon "grey-white wash"
   at the top of the frame is the cloud decks' bases, not the sky's zenith (the dome deepens to 131, 171, 233 there).
+
+### Lighting techniques, workstream B: ambient occlusion and the sky's light (2026-10-12, branch `welkin-ambient`)
+
+TECHNIQUES.md 2.4 and 2.5, and the user's verdict on the 4K vistas ("still looks pretty flat from time to time"):
+the occlusion and the sky's light now reach the middle and far land and the LOD's.
+
+- **Sky irradiance (`lib/sky/irradiance.glsl`):** prepare integrates the dome (128 directions, linear light) into
+  nine spherical-harmonic coefficients in the table's row 13, normalised per channel to an upward face; the light
+  pass takes the table's tuned fill times that irradiance along the bent normal (half the dome's hue by orientation,
+  all its brightness). It replaces `skyW`, `sunSideGlow` and most of the face shading (0.45 of it stays by day, 0.3
+  at night). The low sky's last degrees count at half (`SKY_IRR_HORIZON`: land and trees hide most of them).
+- **Ground-truth ambient occlusion (`program/deferred_ao.glsl`, run as `deferred`):** half resolution, 2 slices x 5
+  steps a side (`AO_QUALITY` 2: 3 x 6), turned by workstream A's 4x4-tiled lighting noise and resolved grain-free in
+  the light pass by `lib/denoise.glsl`'s 4x4 plane- and normal-weighted window (`lib/ao.glsl lightAoFetch`). 1.75
+  blocks (3 in crowns, 1 in tufts, plants taken as facing up), a thickness guess, the multi-bounce fit on the
+  albedo, the bent normal into the sky's irradiance. On the fill and the ground's bounce fully, the torch light by
+  half, never the sun inside the shadow map. Minecraft's corner shading stays as a 0.35 partner. `colortex9` is
+  RGBA16F (visibility, bent normal's tangent parts, view depth).
+- **The middle and far land:** the radius never looks narrower than `AO_WIDE_PX` (40 px at 900 lines) on screen, so
+  past about 28 blocks it grows with the distance, and the pass reads the LOD's depth where the chunks drew nothing:
+  a hillside's terrace steps at a hundred blocks, the floor between a far wood's crowns and a valley's sides take
+  occlusion at their own scale, out to `AO_FAR` 4096 blocks. Where a block is under about 7.5 pixels tall the
+  visibility is taken relative to open level ground (0.5 + 0.5 n.y), so 1-block terrace risers do not turn into
+  rows of dark dashes. `AO_SUN_FAR` (75 %): past the map and on the LOD the sun outside the cone of open sky the
+  visibility and bent normal give is taken off softly (ambient aperture lighting, Oat and Sander 2007).
+- **The rebalance:** `LAND_FILL` 0.16 by day (0.126 while the sun is low), `LAND_SELF_BOUNCE` 0.05, `AO_STRENGTH`
+  1.25, `AO_FLOOR` 0.12.
+- **Debug:** `DEBUG_VIEW` 18 occlusion, 19 bent normal, 20 sky irradiance, 21 the far land's own shade.
+- **Measured (world B, `CLOUD_SHADOWS=0`, pinned front; round 3 -> B):** valley 12:00 calcite lit/shaded wall
+  206/111 -> 196/70 (2.8:1, was 1.9:1), shade bluer (R/B 1.34 -> 1.13); valley 18:30 wall toward the afterglow
+  R/B 2.95 against 0.86 away; plain 12:00 median 139.7 -> 139.8, p95/p5 4.91 -> 5.0; nights and the torch street
+  within 1.5 levels of median. Valley medians fall 15-35 % (the shaded walls are meant to be deeper). The grain
+  check passes on every patch (consecutive on/off runs; the plain and forest geometry differs from run to run).
+- **Cost (contended GPU, frame time with the occlusion on minus off):** about 0.3-0.7 ms at MEDIUM, 1600x900, most of
+  it the full-resolution 4x4 resolve in the light pass; moving the resolve into the shared half-resolution
+  `deferred_resolve` (after A merges) should take most of that off.
