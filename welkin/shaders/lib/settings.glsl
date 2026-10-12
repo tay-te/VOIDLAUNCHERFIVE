@@ -15,11 +15,13 @@ const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
 #define SHADOW_SOFTNESS 1 // [0 1 2]
 // Far shadows: Beyond the shadow distance, houses, trees, hills and the far land still cast long shadows, worked out from what is on screen. Something off the screen casts none there.  [light]
 #define FAR_SHADOWS
-// Contact shade: A soft shade in inside corners and at the feet of plants, fences and walls, on top of the game's own corner shading, so things sit on the ground.  [light]
-#define CONTACT_AO
+// Ambient occlusion: Corners, the feet of walls, eaves, the inside of tree crowns and the roots of grass sink into a soft, graded shade, worked out from the shapes around them, so open shade stays bright and sky-blue while every form reads. Smooth, with no grain.  [light]
+#define AMBIENT_OCCLUSION
 // ---- Light: ambient (B)
 // Occlusion strength: How deep corners, the feet of walls, the inside of crowns and the roots of grass sink into shade. 100 is the natural depth.  [light]
 #define AO_STRENGTH 1.0 // [0.5 0.75 1.0 1.25 1.5]
+// Occlusion quality: How many directions and steps the ambient occlusion looks along. High is a little smoother in deep corners and costs more.  [light]
+#define AO_QUALITY 1 // [1 2]
 // Sun path tilt: How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.  [skeleton]
 const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
 // Light bands: How many soft bands sky light and torch light fade through. The light stays a smooth gradient; Soft bands sets how much it gathers at each band.  [skeleton]
@@ -123,7 +125,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #endif
 #ifdef FAR_SHADOWS
 #endif
-#ifdef CONTACT_AO
+#ifdef AMBIENT_OCCLUSION
 #endif
 #ifdef HANDHELD_LIGHT
 #endif

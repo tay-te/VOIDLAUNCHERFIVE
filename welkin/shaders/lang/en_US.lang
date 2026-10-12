@@ -48,8 +48,8 @@ value.SHADOW_SOFTNESS.2=Soft
 option.FAR_SHADOWS=Far shadows
 option.FAR_SHADOWS.comment=Beyond the shadow distance, houses, trees, hills and the far land still cast long shadows, worked out from what is on screen. Something off the screen casts none there.
 
-option.CONTACT_AO=Contact shade
-option.CONTACT_AO.comment=A soft shade in inside corners and at the feet of plants, fences and walls, on top of the game's own corner shading, so things sit on the ground.
+option.AMBIENT_OCCLUSION=Ambient occlusion
+option.AMBIENT_OCCLUSION.comment=Corners, the feet of walls, eaves, the inside of tree crowns and the roots of grass sink into a soft, graded shade, worked out from the shapes around them, so open shade stays bright and sky-blue while every form reads. Smooth, with no grain.
 
 option.sunPathRotation=Sun path tilt
 option.sunPathRotation.comment=How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.
@@ -199,7 +199,7 @@ value.DEBUG_VIEW.9=Light colours
 value.DEBUG_VIEW.10=Cloud cost
 value.DEBUG_VIEW.11=Cloud rings
 value.DEBUG_VIEW.12=Sun and shadows
-value.DEBUG_VIEW.13=Contact shade
+value.DEBUG_VIEW.13=Ambient occlusion and far shadows
 value.DEBUG_VIEW.14=Light through leaves
 
 option.BRIDGE_MODE=VOID Gloam link
@@ -233,6 +233,10 @@ value.SKY_DEBUG.2=Bands
 # ---- Light: ambient (B)
 option.AO_STRENGTH=Occlusion strength
 option.AO_STRENGTH.comment=How deep corners, the feet of walls, the inside of crowns and the roots of grass sink into shade. 1 is the natural depth; the shade never goes black.
+option.AO_QUALITY=Occlusion quality
+option.AO_QUALITY.comment=How many directions and steps the ambient occlusion looks along. High is a little smoother in deep corners and costs more.
+value.AO_QUALITY.1=Normal
+value.AO_QUALITY.2=High
 value.DEBUG_VIEW.18=Ambient occlusion
 value.DEBUG_VIEW.19=Bent normals
 value.DEBUG_VIEW.20=Sky light by direction

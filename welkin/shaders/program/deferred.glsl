@@ -155,11 +155,15 @@ void main() {
 			reach *= farCanopySun(material);
 			fill = vec3(farCanopyFill(material));
 		}
-		// the contact occlusion round near points (program/deferred_ao.glsl, lib/ao.glsl)
+		// ---- Light: ambient (B): the ambient occlusion round near points and its bent normal (program/deferred_ao.glsl,
+		// lib/ao.glsl); lib/light.glsl lays it on the fill and the torch light
 		float contact = 1.0;
-#ifdef CONTACT_AO
+#ifdef AMBIENT_OCCLUSION
 		if (!s.fromLod) {
-			contact = welkinContactAo(p, -s.view.z);
+			AoSample aoS = lightAoFetch(p, s.view, n, material);
+			contact = aoS.vis;
+			lightAoCover = aoS.cover;
+			lightAoBend = aoS.bend;
 		}
 #endif
 		// plants' crossed quads take the sky's fill as from above, and 1.45x (lib/light.glsl lightFillUp)
@@ -195,11 +199,17 @@ void main() {
 		// the sun's reach x facing, with what glass, water and the clouds let through; the LOD's land tinted blue
 		color.rgb = vec3(reach * facing) * sunShare * (s.fromLod ? vec3(0.55, 0.7, 1.0) : vec3(1.0));
 #elif DEBUG_VIEW == 13
-		// the contact shade (white: none) over the far shadows (blue: in shadow past the map)
+		// the ambient occlusion (white: none) over the far shadows (blue: in shadow past the map)
 		color.rgb = vec3(contact) * mix(vec3(0.3, 0.45, 1.0), vec3(1.0), farVis);
 #elif DEBUG_VIEW == 14
 		// the light through leaves and plants (green), what passes the casters (red)
 		color.rgb = vec3(through, min(glow * 2.0, 1.0), 0.0);
+#elif DEBUG_VIEW == 18
+		// Light: ambient (B): the occlusion of the fill as it is laid on (with the multi-bounce on this albedo)
+		color.rgb = aoMultiBounce(pow(contact, AO_STRENGTH), toLinear(albedo)) * mix(1.0, flags.w, AO_VANILLA * lightAoCover);
+#elif DEBUG_VIEW == 19
+		// the bent normal the sky's light is looked up along (world, 0.5 + 0.5 xyz)
+		color.rgb = normalize(n + lightAoBend) * 0.5 + 0.5;
 #elif DEBUG_VIEW == 20
 		// Light: ambient (B): the sky's irradiance along the (bent) normal, relative to an upward face: 0.4 is 1
 		color.rgb = skyIrradiance(normalize(n + lightAoBend)) * 0.4;
