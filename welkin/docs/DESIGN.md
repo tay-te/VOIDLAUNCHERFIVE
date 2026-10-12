@@ -621,8 +621,9 @@ Closes GAPS.md gaps 5, 6 and 8 (water stays with P7).
 - **Light through leaves (`lib/light.glsl` `welkinGlow`, `welkinLightGlow`):** a leaf's face turned from the sun takes
   the light that comes through the leaves (0.8 x a lobe 0.1 + 1.4 c^3 toward the sun x what passes), in its own colour
   twice over, warmed (a deeper yellow-green); back-lit plants the same at 0.5. What passes is the search's: the gaps
-  whole, the rest exp(-0.8 x the blocks of leaves). Leaves no longer take a flat 30 % of the sun on their shaded faces,
-  and take a penumbra at least 0.22 blocks wide, so a crown's own leaves are dappled softly instead of streaked by a
+  whole, the rest exp(-0.8 x the blocks of leaves). A leaf block counts as a cube of small leaves turned every way: any
+  face takes 0.45 of the sun plus 0.55 of its Lambert share (was a flat 30 % floor), where the map lets the light
+  reach it; leaves take a penumbra at least 0.22 blocks wide, so a crown's own leaves are dappled softly instead of streaked by a
   grazing sun. With the map on, the canopy leak is 0.12 (was 0.2), so the floor's sun patches stand out between deep
   green shade.
 - **Debug:** `DEBUG_VIEW` 13 the contact shade (blue: far shadow), 14 what passes the leaves (red) and the glow

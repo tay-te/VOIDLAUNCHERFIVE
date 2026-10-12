@@ -136,12 +136,16 @@ vec3 sunSideGlow(vec3 n, vec4 fill) {
 }
 
 // The same for a material (plumbing's class, M_*): a plant's crossed quads (double-sided, their normal means little)
-// take the light on both sides, more where a quad faces it; leaves take it on the faces turned to it, and their
-// shaded faces get the light that comes through them instead (welkinGlow). The shadow map decides where the light
-// actually reaches.
+// take the light on both sides, more where a quad faces it. A leaf block is a cube of small leaves turned every way,
+// so every face takes a good share of the sun where the light reaches it (the shadow map, softened, decides that:
+// inner faces of a crown sit in their neighbours' shade), the faces turned to it most; the shaded faces also get
+// the light that comes through the leaves (welkinGlow).
 float sunFacingMat(vec3 n, vec3 l, int m) {
 	float ndl = dot(n, l);
-	if (matHas(m, MATF_SSS) && !matIsLeaves(m)) {
+	if (matHas(m, MATF_SSS)) {
+		if (matIsLeaves(m)) {
+			return 0.45 + 0.55 * sunFacing(ndl);
+		}
 		return 0.62 + 0.38 * abs(ndl);
 	}
 	return sunFacing(ndl);
