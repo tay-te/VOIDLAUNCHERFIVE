@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "mettle-audit-server",
+	"version": "1.0.0",
+	"name": "VOID Mettle server-environment audit",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": ["dev.voidmc.mettle.audit.ServerEnvAudit"]
+	},
+	"depends": {"mettle": "*"}
+}
