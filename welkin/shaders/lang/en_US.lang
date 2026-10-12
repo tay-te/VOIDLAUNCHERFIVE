@@ -40,7 +40,7 @@ option.shadowDistance.comment=How far away blocks cast shadows from the shadow m
 suffix.shadowDistance= blocks
 
 option.SHADOW_SOFTNESS=Shadow edges
-option.SHADOW_SOFTNESS.comment=How a shadow's edge softens. Natural is crisp at the foot of what casts it and widens with the distance from it, as real shadows do; Soft widens it more; Crisp keeps every edge sharp. There is never any noise.
+option.SHADOW_SOFTNESS.comment=How a shadow's edge softens. Natural is crisp at the foot of what casts it and widens with the distance from it, as real shadows do; Soft widens it more; Crisp keeps every edge sharp. Always smooth, with no grain.
 value.SHADOW_SOFTNESS.0=Crisp
 value.SHADOW_SOFTNESS.1=Natural
 value.SHADOW_SOFTNESS.2=Soft
@@ -201,6 +201,9 @@ value.DEBUG_VIEW.11=Cloud rings
 value.DEBUG_VIEW.12=Sun and shadows
 value.DEBUG_VIEW.13=Contact shade
 value.DEBUG_VIEW.14=Light through leaves
+value.DEBUG_VIEW.15=Shadow, raw
+value.DEBUG_VIEW.16=Shadow, smoothed
+value.DEBUG_VIEW.17=Shadow history
 
 option.BRIDGE_MODE=VOID Gloam link
 option.BRIDGE_MODE.comment=Normal reads live data from VOID Gloam. Backup only reads the coarser backup copy, as if the link had failed. Off ignores Gloam. For testing only.
@@ -229,3 +232,19 @@ option.SKY_DEBUG.comment=Sky test views: the sky colour table, or the sky's band
 value.SKY_DEBUG.0=Off
 value.SKY_DEBUG.1=Sky table
 value.SKY_DEBUG.2=Bands
+
+# ---- Light: shadows (A)
+option.SHADOW_FILTER=Soft shadow filter
+option.SHADOW_FILTER.comment=Natural soft shadows, smoothed so no grain shows, or the older fixed filter. For testing only.
+value.SHADOW_FILTER.0=Fixed (old)
+value.SHADOW_FILTER.1=Natural
+option.CONTACT_SHADOWS=Contact shadows
+option.CONTACT_SHADOWS.comment=Small shadows the shadow map is too coarse to see: grass blades shading their own tufts, the lip of a stair, small gaps further off.
+option.SHADOW_LONG_FADE=Long shadows at sunset
+option.SHADOW_LONG_FADE.comment=In the last minutes before sunset, very long shadows from hills and woods far off thin out with their length, so the golden hour lasts until the sun touches the horizon. Off keeps every shadow at full length.
+value.SHADOW_LONG_FADE.0=Full length
+value.SHADOW_LONG_FADE.1=Thin out
+option.TEMPORAL_LIGHT=Steadier light
+option.TEMPORAL_LIGHT.comment=Blends the shadows with the last frames' to smooth them further. The smoothing never touches textures.
+option.SHADOW_REFERENCE=Shadow reference
+option.SHADOW_REFERENCE.comment=Draws the noise-free reference of the soft shadows: every noise value averaged at each pixel. Slow. For the grain check only.

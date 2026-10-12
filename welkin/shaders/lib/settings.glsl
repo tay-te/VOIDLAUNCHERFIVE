@@ -8,15 +8,26 @@
 // Sun and moon shadows: Blocks and creatures near you cast shadows from the sun and the moon, and leaves and grass sway in them. Turning this off saves more time than any other option.  [light]
 #define SHADOWS
 // Shadow detail: How finely shadows are drawn. Higher gives cleaner shadow edges on small things like fences and leaves, and costs more.  [light]
-const int shadowMapResolution = 1536; // [1024 1536 2048 3072 4096]
+const int shadowMapResolution = 2048; // [1024 1536 2048 3072 4096]
 // Shadow distance: How far away blocks cast shadows from the shadow map. Past this, Far shadows take over from what is on screen, and the change is a smooth fade.  [light]
 const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
-// Shadow edges: How a shadow's edge softens. Natural is crisp at the foot of what casts it and widens with the distance from it, as real shadows do; Soft widens it more; Crisp keeps every edge sharp. There is never any noise.  [light]
+// Shadow edges: How a shadow's edge softens. Natural is crisp at the foot of what casts it and widens with the distance from it, as real shadows do; Soft widens it more; Crisp keeps every edge sharp. Always smooth, with no grain.  [light]
 #define SHADOW_SOFTNESS 1 // [0 1 2]
 // Far shadows: Beyond the shadow distance, houses, trees, hills and the far land still cast long shadows, worked out from what is on screen. Something off the screen casts none there.  [light]
 #define FAR_SHADOWS
 // Contact shade: A soft shade in inside corners and at the feet of plants, fences and walls, on top of the game's own corner shading, so things sit on the ground.  [light]
 #define CONTACT_AO
+// ---- Light: shadows (A)
+// Soft shadow filter: Natural soft shadows (Soft shadow edges with a smooth result), or the older fixed filter. For testing only.  [shadows]
+#define SHADOW_FILTER 1 // [0 1]
+// Contact shadows: Small shadows the shadow map is too coarse to see: grass blades shading their own tufts, the lip of a stair, small gaps further off.  [shadows]
+#define CONTACT_SHADOWS
+// Long low-sun shadows thin out: In the last minutes before sunset, very long shadows from hills and woods far off thin out with their length, so the golden hour lasts until the sun touches the horizon. Off keeps every shadow at full length.  [shadows]
+#define SHADOW_LONG_FADE 1 // [0 1]
+// Shadow reference: Draws the noise-free reference of the soft shadows (every noise value averaged at each pixel; slow). For the grain check only.  [shadows]
+#define SHADOW_REFERENCE 0 // [0 1]
+// Steadier light: Blends the shadows with the last frames' to smooth them further. Smoothing never touches textures.  [shadows]
+//#define TEMPORAL_LIGHT
 // Sun path tilt: How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.  [skeleton]
 const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
 // Light bands: How many soft bands sky light and torch light fade through. The light stays a smooth gradient; Soft bands sets how much it gathers at each band.  [skeleton]
@@ -102,7 +113,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define SOFT_BANDS 50 // [0 25 50 75 100]
 // ---- Debug
 // Debug view: Shows one of the shader's inner pictures instead of the world. For testing only.  [skeleton]
-#define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14]
+#define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17]
 // VOID Gloam link: Normal reads live data from VOID Gloam. Backup only reads the coarser backup copy, as if the link had failed. Off ignores Gloam. For testing only.  [plumbing]
 #define BRIDGE_MODE 0 // [0 1 2]
 // Force mist: Forces the mist's time of day to this share, to see the slab at any hour. 0 leaves VOID Gloam's value. For testing only.  [mist]
@@ -121,6 +132,10 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #ifdef FAR_SHADOWS
 #endif
 #ifdef CONTACT_AO
+#endif
+#ifdef CONTACT_SHADOWS
+#endif
+#ifdef TEMPORAL_LIGHT
 #endif
 #ifdef HANDHELD_LIGHT
 #endif

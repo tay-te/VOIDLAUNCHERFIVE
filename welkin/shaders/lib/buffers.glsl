@@ -9,6 +9,11 @@
 // colortex4  RGBA8    water and shadow info (water_shadows); cleared to 0
 // colortex5  RGBA16   the sky table, 64x32 (prepare; lib/sky/table.glsl reads it); never cleared, rewritten each frame
 // colortex9  RG16F    half size: the contact shade's raw term and view distance (deferred_ao, run as deferred; lib/ao.glsl)
+// colortex10 RGBA16F  the shadow's raw terms (deferred_shadow, run as deferred1): r the sun's reach, g what passes the
+//                     leaves, b water travel (>= 0) or -1 - leaf thickness, a view depth (1e4: not lit in deferred)
+// colortex11 RGBA16F  the resolved shadow (deferred_resolve, deferred2): r reach, g what passes, b debug, a view depth;
+//                     never cleared (the next frame's history with TEMPORAL_LIGHT)
+// colortex12-14       reserved: 12 the occlusion's history (workstream B), 13 the sun shafts, 14 the exposure (D)
 //
 // Programs that light themselves (entities, hand, particles, lines) write colortex2.x = 0 (blending off for
 // colortex2 in shaders.properties), so whichever order Iris draws them in, deferred never lights a pixel twice.
@@ -29,4 +34,8 @@ const vec4 colortex4ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 const bool colortex4Clear = true;
 const int colortex5Format = RGBA16;
 const bool colortex5Clear = false;
+const int colortex10Format = RGBA16F;
+const bool colortex10Clear = false;
+const int colortex11Format = RGBA16F;
+const bool colortex11Clear = false;
 */
