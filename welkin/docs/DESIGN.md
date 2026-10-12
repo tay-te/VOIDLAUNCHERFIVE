@@ -668,3 +668,40 @@ Gloam's weather (and with it the cloud shadow over the near land) changes from r
   sky (was a 40 degree step).
 - **Cost:** a few dozen ALU operations per pixel in deferred; the bench's frame times stayed within run-to-run noise
   (3.6..5.6 ms at 1600x900 MEDIUM).
+
+### The lighting review, round 2: grazing shadows, lake beds, sky-tinted shade, amber low sun (2026-10-12)
+
+The round 1 review ranked the low sun first (05:30 and 18:30 grey-olive), then neutral dusk shade, muddy shaded
+stone, black step pockets on lit cliffs, a slightly flat and bright noon, and a shore whose bed vanished at dawn.
+
+- **What the low sun really does:** a debug pass (`DEBUG_VIEW` 12, with `SHADOWS=false` beside it) showed the plain's
+  meadow at 05:30 and 18:30 (sun about 4 degrees up) genuinely in the long shadows of the birch wood and the eastern
+  rise, as Complementary draws it too. So the round lights what the low sun does reach in amber and makes the shade
+  between luminous and sky-coloured, rather than lifting the shadows.
+- **Receiver-plane depth (`lib/shadow.glsl shadowPlaneGrad`):** every tap of the caster search and of the 4x4 edge
+  filter compares against the receiver's own plane where it lands (the plane's map-space depth gradient from two small
+  steps along the face, held to cot 2.5 degrees), so a grazing light never lets level ground shadow itself.
+- **Under water:** the light is bent at the surface (at most 49 degrees off the vertical). A point under water is
+  looked up just under the surface, found up the bent ray (straight along the light line where it leaves through
+  water, else by five probes 1..10 blocks up the bent ray, only where the sky light is under 0.95); the water's tint
+  fades over the bent path; a bed's face takes the bent, steeper light (up to 4x a grazing facing). The dawn lake's
+  bed was black under the whole surface (the straight 4 degree line ran into the bed's own rise toward the shore).
+- **Shade (`lib/light.glsl`):** an upright face takes 0.6 of the sky's fill (was 0.5); the short-range bounce
+  (`LAND_SELF_BOUNCE` 0.3) is near neutral (albedo a quarter, the sun's colour half), a fifth of it on tops, and only on
+  pale surfaces (smoothstep 0.1..0.45 of the linear albedo luminance); the ground bounce less warm; corner shading
+  to the 1.8th power, never under 0.2 of the fill. Shaded pale stone reads a light cool grey, dirt banks stay deep.
+- **Low sun (`lib/sky/build.glsl`):** the fill holds 0.73 of noon over the last degrees (+0.2, fading out by h 0.3)
+  and takes the dome's own colours (zenith to horizon, more horizon at dawn), up to 60 % within h 0.1..0.35; the bright
+  sky round a low sun lights what faces it at 0.85 (was 0.45), a quarter of it on level ground; the last degrees of
+  sun a deep amber (dusk 1, 0.42, 0.11; dawn 1, 0.46, 0.15; over h 0.03..0.22) at 0.4..1 of noon by height.
+- **Tone (`lib/tone.glsl`):** a colour past white comes back three quarters by losing brightness and a quarter by
+  losing saturation (was all saturation), the hue kept 0.92 (was 0.8), saturation 0.95: a white trunk in the low sun
+  reads peach-amber, not cream.
+- **Noon:** the high sun 6.5 % less, the fill 0.155 and bluer, the morning sun warmer, leaves' foliage 14 % less
+  saturated in deferred, the canopy's shade 0.68; one cloud deck's shadow 0.8 of the sun (was 0.74).
+- **Measured (test world A, `CLOUD_SHADOWS=0`, pinned front), round 1 -> round 2, Complementary in brackets:** plain
+  05:30 median 28.6 -> 32.8 (32.9), R/B 1.87 -> 2.19; plain 18:30 29.1 -> 33.0 (32.8); plain 12:00 143.4 -> 136.8
+  (139.7), sun to shade 4.80 -> 4.90; village 12:00 154.1 -> 148.0; valley 12:00 71.8 -> 88.7 (99.6), R/B 0.86 -> 0.97;
+  valley 16:30 74.5 -> 101.2 (77.5), contrast 7.78; village 18:30 30.4 -> 33.9 (37.5); nights unchanged.
+- **Cost (idle machine, MEDIUM, 1600x900, shadows on minus off):** plain 0.44..0.50 ms, village 0.64, shore at dawn
+  1.04 (with the surface probes), valley at dawn 1.26 ms (the only view over the 1.2 ms line).
