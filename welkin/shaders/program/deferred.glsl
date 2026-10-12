@@ -140,12 +140,23 @@ void main() {
 			reach *= farCanopySun(material);
 			fill = vec3(farCanopyFill(material));
 		}
-		// the contact occlusion round near points (program/deferred_ao.glsl, lib/ao.glsl)
+		// ---- Light: ambient (B): the ambient occlusion round near points and its bent normal (program/deferred_ao.glsl,
+		// lib/ao.glsl); lib/light.glsl lays it on the fill and the torch light
+		// (the LOD's land too: the middle and far land take it at their own, wider scale)
 		float contact = 1.0;
-#ifdef CONTACT_AO
-		if (!s.fromLod) {
-			contact = welkinContactAo(p, -s.view.z);
-		}
+#ifdef AMBIENT_OCCLUSION
+		AoSample aoS = lightAoFetch(p, s.view, n, material);
+		contact = aoS.vis;
+		lightAoCover = aoS.cover;
+		lightAoBend = aoS.bend;
+#if AO_SUN_FAR > 0 && defined WORLD_OVERWORLD
+		// past the shadow map and on the LOD's land, the sun outside the occlusion's open cone is taken off (lib/ao.glsl)
+		float aoFar = s.fromLod ? 1.0 : smoothstep(0.8 * shadowDistance, shadowDistance, length(playerPos));
+		// (a plant's quads were taken as facing up by the occlusion: its cone stands round the up direction)
+		vec3 nCone = matThin(material) ? vec3(0.0, 1.0, 0.0) : n;
+		reach *= mix(1.0, aoSunCone(pow(contact, AO_STRENGTH), normalize(nCone + lightAoBend), lightDir),
+			aoFar * aoS.cover * float(AO_SUN_FAR) * 0.01);
+#endif
 #endif
 		// plants' crossed quads take the sky's fill as from above, and 1.45x (lib/light.glsl lightFillUp)
 		// (and leaves, as a cube of small leaves turned every way, a little: a crown's sides are not walls)
@@ -180,7 +191,7 @@ void main() {
 		// the sun's reach x facing, with what glass, water and the clouds let through; the LOD's land tinted blue
 		color.rgb = vec3(reach * facing) * sunShare * (s.fromLod ? vec3(0.55, 0.7, 1.0) : vec3(1.0));
 #elif DEBUG_VIEW == 13
-		// the contact shade (white: none) over the far shadows (blue: in shadow past the map)
+		// the ambient occlusion (white: none) over the far shadows (blue: in shadow past the map)
 		color.rgb = vec3(contact) * mix(vec3(0.3, 0.45, 1.0), vec3(1.0),
 			(s.fromLod || farShadowNeed(playerPos) > 0.0) ? reach : 1.0);
 #elif DEBUG_VIEW == 14
@@ -197,6 +208,19 @@ void main() {
 		vec4 sres = texelFetch(colortex11, p, 0);
 		color.rgb = DEBUG_VIEW == 15 ? vec3(sraw.r) : (DEBUG_VIEW == 16 ? vec3(sres.r)
 			: vec3(max(-sres.b, 0.0), max(sres.b, 0.0), 0.0));
+#elif DEBUG_VIEW == 18
+		// Light: ambient (B): the occlusion of the fill as it is laid on (with the multi-bounce on this albedo)
+		color.rgb = mix(vec3(mix(LIGHT_AO_FLOOR, 1.0, pow(flags.w, LIGHT_AO_POW))), max(aoMultiBounce(pow(contact, AO_STRENGTH),
+			toLinear(albedo)) * mix(1.0, flags.w, AO_VANILLA), vec3(AO_FLOOR)), lightAoCover);
+#elif DEBUG_VIEW == 19
+		// the bent normal the sky's light is looked up along (world, 0.5 + 0.5 xyz)
+		color.rgb = normalize(n + lightAoBend) * 0.5 + 0.5;
+#elif DEBUG_VIEW == 22
+		// Light: ambient (B): the sun's reach x facing after the far land's own shade (AO_SUN_FAR), the occlusion beneath
+		color.rgb = vec3(reach * facing) * 0.75 + 0.25 * vec3(contact);
+#elif DEBUG_VIEW == 20
+		// Light: ambient (B): the sky's irradiance along the (bent) normal, relative to an upward face: 0.4 is 1
+		color.rgb = skyIrradiance(normalize(n + lightAoBend)) * 0.4;
 #endif
 	}
 #endif

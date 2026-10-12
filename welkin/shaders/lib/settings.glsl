@@ -15,8 +15,8 @@ const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
 #define SHADOW_SOFTNESS 1 // [0 1 2]
 // Far shadows: Beyond the shadow distance, houses, trees, hills and the far land still cast long shadows, worked out from what is on screen. Something off the screen casts none there.  [light]
 #define FAR_SHADOWS
-// Contact shade: A soft shade in inside corners and at the feet of plants, fences and walls, on top of the game's own corner shading, so things sit on the ground.  [light]
-#define CONTACT_AO
+// Ambient occlusion: Corners, the feet of walls, eaves, the inside of tree crowns and the roots of grass sink into a soft, graded shade, worked out from the shapes around them, so open shade stays bright and sky-blue while every form reads. Smooth, with no grain.  [light]
+#define AMBIENT_OCCLUSION
 // ---- Light: shadows (A)
 // Soft shadow filter: Natural soft shadows (Soft shadow edges with a smooth result), or the older fixed filter. For testing only.  [shadows]
 #define SHADOW_FILTER 1 // [0 1]
@@ -32,6 +32,13 @@ const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
 #define TERRAIN_SHADOWS
 // Terrain slopes: How strongly the far land's slopes take the sun by how they face it (a hillside turned to a low sun glows, one turned away dims). 100 % is the land's true slope; more steepens it, as a map's hill shading does.  [shadows]
 #define TERRAIN_SLOPE 300 // [0 100 150 200 250 300 400]
+// ---- Light: ambient (B)
+// Occlusion strength: How deep corners, the feet of walls, the inside of crowns and the roots of grass sink into shade. 1.25 is the pack's own depth; the shade never goes black.  [light]
+#define AO_STRENGTH 1.25 // [0.5 0.75 1.0 1.25 1.5 2.0]
+// Occlusion quality: How many directions and steps the ambient occlusion looks along. High is a little smoother in deep corners and costs more.  [light]
+#define AO_QUALITY 1 // [1 2]
+// Far land's own shade: Past the shadow map's reach, and over the far land, the ambient occlusion also tells where the sun cannot get in: the floor between a far wood's crowns, the shaded side of a gully, the far wall of a hollow at a low sun. Soft, worked out from the shapes on screen.  [light]
+#define AO_SUN_FAR 75 // [0 25 50 75 100]
 // Sun path tilt: How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.  [skeleton]
 const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
 // Light bands: How many soft bands sky light and torch light fade through. The light stays a smooth gradient; Soft bands sets how much it gathers at each band.  [skeleton]
@@ -117,7 +124,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define SOFT_BANDS 50 // [0 25 50 75 100]
 // ---- Debug
 // Debug view: Shows one of the shader's inner pictures instead of the world. For testing only.  [skeleton]
-#define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 21]
+#define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
 // VOID Gloam link: Normal reads live data from VOID Gloam. Backup only reads the coarser backup copy, as if the link had failed. Off ignores Gloam. For testing only.  [plumbing]
 #define BRIDGE_MODE 0 // [0 1 2]
 // Force mist: Forces the mist's time of day to this share, to see the slab at any hour. 0 leaves VOID Gloam's value. For testing only.  [mist]
@@ -135,7 +142,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #endif
 #ifdef FAR_SHADOWS
 #endif
-#ifdef CONTACT_AO
+#ifdef AMBIENT_OCCLUSION
 #endif
 #ifdef CONTACT_SHADOWS
 #endif

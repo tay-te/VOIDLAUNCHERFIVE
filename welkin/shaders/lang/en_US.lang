@@ -48,8 +48,8 @@ value.SHADOW_SOFTNESS.2=Soft
 option.FAR_SHADOWS=Far shadows
 option.FAR_SHADOWS.comment=Beyond the shadow distance, houses, trees, hills and the far land still cast long shadows, worked out from what is on screen. Something off the screen casts none there.
 
-option.CONTACT_AO=Contact shade
-option.CONTACT_AO.comment=A soft shade in inside corners and at the feet of plants, fences and walls, on top of the game's own corner shading, so things sit on the ground.
+option.AMBIENT_OCCLUSION=Ambient occlusion
+option.AMBIENT_OCCLUSION.comment=Corners, the feet of walls, eaves, the inside of tree crowns and the roots of grass sink into a soft, graded shade, worked out from the shapes around them, so open shade stays bright and sky-blue while every form reads. Smooth, with no grain.
 
 option.sunPathRotation=Sun path tilt
 option.sunPathRotation.comment=How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.
@@ -199,7 +199,7 @@ value.DEBUG_VIEW.9=Light colours
 value.DEBUG_VIEW.10=Cloud cost
 value.DEBUG_VIEW.11=Cloud rings
 value.DEBUG_VIEW.12=Sun and shadows
-value.DEBUG_VIEW.13=Contact shade
+value.DEBUG_VIEW.13=Ambient occlusion and far shadows
 value.DEBUG_VIEW.14=Light through leaves
 value.DEBUG_VIEW.15=Shadow, raw
 value.DEBUG_VIEW.16=Shadow, smoothed
@@ -263,3 +263,19 @@ value.TERRAIN_SLOPE.200=200 %
 value.TERRAIN_SLOPE.250=250 %
 value.TERRAIN_SLOPE.300=300 %
 value.TERRAIN_SLOPE.400=400 %
+
+# ---- Light: ambient (B)
+option.AO_STRENGTH=Occlusion strength
+option.AO_STRENGTH.comment=How deep corners, the feet of walls, the inside of crowns and the roots of grass sink into shade. 1.25 is the pack's own depth; the shade never goes black.
+option.AO_QUALITY=Occlusion quality
+option.AO_QUALITY.comment=How many directions and steps the ambient occlusion looks along. High is a little smoother in deep corners and costs more.
+value.AO_QUALITY.1=Normal
+value.AO_QUALITY.2=High
+option.AO_SUN_FAR=Far land's own shade
+option.AO_SUN_FAR.comment=Past the shadow map's reach, and over the far land, the ambient occlusion also tells where the sun cannot get in: the floor between a far wood's crowns, the shaded side of a gully, the far wall of a hollow at a low sun. Soft, worked out from the shapes on screen. 0 leaves the far land's sun to the far shadows alone.
+value.AO_SUN_FAR.0=Off
+suffix.AO_SUN_FAR=%
+value.DEBUG_VIEW.18=Ambient occlusion
+value.DEBUG_VIEW.19=Bent normals
+value.DEBUG_VIEW.20=Sky light by direction
+value.DEBUG_VIEW.22=Far land's own shade

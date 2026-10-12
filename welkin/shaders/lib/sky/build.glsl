@@ -268,7 +268,7 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 	vec3 fillCol = skyUnitLuma(mix(clearFill, greyFill, grey));
 	// a closed sky scatters the sun it hides into the shade: brighter fill under cloud by day, less in rain
 	float fillWeather = (1.0 + 0.55 * m.overcast * (1.0 - m.rainStep)) * (1.0 - 0.35 * m.rainStep) * (1.0 - 0.3 * m.stormStep);
-	vec3 dayFill = fillCol * (LAND_FILL * skyLandFillLevel(h) * fillWeather * lightScale);
+	vec3 dayFill = fillCol * (landFillAt(h) * skyLandFillLevel(h) * fillWeather * lightScale); // (ambient (B): landFillAt)
 	// the night's fill: the moonlit look as it was (display values to linear), lifted for the linear sum
 	vec3 nightAmb = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
 	nightAmb = mix(nightAmb, vec3(dot(nightAmb, vec3(0.2126, 0.7152, 0.0722))), 0.3);
@@ -391,6 +391,9 @@ float skyRingMix(float r) {
 	return mix(SKY_RING_MIX[a], SKY_RING_MIX[a + 1], r - i);
 }
 
+// ---- Light: ambient (B): the sky's irradiance from the dome, row 13 (lib/sky/irradiance.glsl)
+#include "/lib/sky/irradiance.glsl"
+
 // The texel at t: what prepare writes.
 vec4 skyBuildTexel(ivec2 t) {
 	if (t.y == SKY_ROW_CHECK) {
@@ -461,6 +464,10 @@ vec4 skyBuildTexel(ivec2 t) {
 	}
 	if (t.y == SKY_ROW_SPRITE) {
 		return vec4(skySprite(m, s, t.x), 1.0);
+	}
+	// ---- Light: ambient (B)
+	if (t.y == SKY_ROW_IRRADIANCE) {
+		return t.x < 9 ? skyIrradianceTexel(m, s, sunW, moonW, t.x) : vec4(0.0);
 	}
 	return vec4(0.0);
 #endif

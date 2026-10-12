@@ -8,7 +8,7 @@
 // colortex3  RGBA8    water in front (gbuffers_water, dh_water): rgb its lit colour, a 1; 0 elsewhere
 // colortex4  RGBA8    water and shadow info (water_shadows); cleared to 0
 // colortex5  RGBA16   the sky table, 64x32 (prepare; lib/sky/table.glsl reads it); never cleared, rewritten each frame
-// colortex9  RG16F    half size: the contact shade's raw term and view distance (deferred_ao, run as deferred; lib/ao.glsl)
+// colortex9  RGBA16F  half size: the ambient occlusion's raw term, bent normal and view depth (deferred_ao; lib/ao.glsl)
 // colortex10 RGBA16F  the shadow's raw terms (deferred_shadow, run as deferred1): r the sun's reach, g what passes the
 //                     leaves, b water travel (>= 0) or -1 - leaf thickness, a view depth (1e4: not lit in deferred)
 // colortex11 RGBA16F  the resolved shadow (deferred_resolve, deferred2): r reach, g what passes, b debug, a view depth;

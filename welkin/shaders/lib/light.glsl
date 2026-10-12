@@ -19,6 +19,8 @@
 // the sky table (prepare, colortex5): ambient and direct light, dark nights and lightning already in
 #include "/lib/sky/table.glsl"
 #include "/lib/tone.glsl"
+// ---- Light: ambient (B): the sky's irradiance from the dome (row 13 of the table)
+#include "/lib/sky/irradiance.glsl"
 
 #ifndef WU_shadowLightPosition
 #define WU_shadowLightPosition
@@ -147,23 +149,6 @@ float sunFacing(float ndl) {
 	return clamp((ndl + w) / (1.0 + w), 0.0, 1.0);
 }
 
-// The bright sky round a low sun, lighting what faces it, in the sun or not: the share of the fill that comes from the
-// sun's side of the sky (the table's fill.a, from the late afternoon to just past sunset), in the colour of the
-// horizon toward the sun. Linear, added to the fill (before the sky-light level).
-vec3 sunSideGlow(vec3 n, vec4 fill) {
-	vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
-	vec2 toSun = normalize(sunW.xz + vec2(1e-5));
-	// (round 2: twice as strong on what faces the low sun, and a quarter of it on level ground, which sees that bright
-	// low sky at a slant: the shade on the sun's side of things takes the sunset's warmth, the rest the sky's blue)
-	// (round 3: two thirds of that, and half as much on level ground: the bright low sky had lifted every shade at the
-	// golden hour until the land read flat; now the shade stays cool and deep and the sun's own amber carries the hour)
-	float side = mix(0.12, clamp((dot(n.xz, toSun) + 0.25) / 1.25, 0.0, 1.0), 1.0 - abs(n.y));
-	side *= 1.0 - max(-n.y, 0.0);
-	vec3 warm = toLinear(skyHorizon(true));
-	warm /= max(lumaLin(warm), 1e-4);
-	return warm * (lumaLin(fill.rgb) * fill.a * 0.6 * side);
-}
-
 // The same for a material (plumbing's class, M_*): a plant's crossed quads (double-sided, their normal means little)
 // take the light on both sides, more where a quad faces it. A leaf block is a cube of small leaves turned every way,
 // so every face takes a good share of the sun where the light reaches it (the shadow map, softened, decides that:
@@ -240,13 +225,48 @@ float faceShade(vec3 n) {
 	return clamp(0.8 + 0.2 * n.y - 0.2 * abs(n.x), 0.5, 1.0);
 }
 
+// ---- Light: ambient (B) -----------------------------------------------------------------------------------------
 // How much of Minecraft's corner shading (ambient occlusion, separateAo: colortex2.w) darkens the sky's fill and the
-// torch light, as a power of it in linear light (2.2 would be vanilla's own depth; a little less, so corners darken
-// without going grimy). It never darkens the sun: a corner in the sun is in the sun.
-// round 2: a little gentler (1.8), and the fill never goes below a fifth of itself in a corner (aoFill's floor), so
-// the shaded treads and risers of a sunlit cliff's steps read as deep, sky-tinted shade, not black notches.
+// torch light where the pack's own occlusion does not reach (past AO_FAR, on the LOD, in forward programs, with
+// AMBIENT_OCCLUSION off), as a power of it in linear light, never below LIGHT_AO_FLOOR of the fill (round 2's values:
+// that light is as it was). It never darkens the sun: a corner in the sun is in the sun.
 const float LIGHT_AO_POW = 1.8;
 const float LIGHT_AO_FLOOR = 0.2;
+// Where the pack's occlusion covers (program/deferred_ao.glsl, lib/ao.glsl: ground-truth ambient occlusion, graded by
+// the real geometry within a block or two), Minecraft's corner shading stays only as a gentle partner: this share of
+// it, linear.
+const float AO_VANILLA = 0.35;
+// The darkest the fill gets in the deepest corner the occlusion finds (after the multi-bounce, which keeps pale stone
+// lighter than dark dirt), so a shaded pocket reads deep, never black.
+const float AO_FLOOR = 0.12;
+// How much of Minecraft's face shading (top 1, sides 0.8 and 0.6, bottom 0.5) stays on the sky's fill, by day and at
+// night: the sky's own irradiance (lib/sky/irradiance.glsl) gives each orientation its light, and this keeps the
+// game's look on top (a block's sides a step below its top), as round 3 had it, so the shade side of things stays
+// darker than open ground in shade and the land keeps its form (a little less at night, so the moonlit land keeps
+// round 3's level under the occlusion)
+const float AMB_FACE_SHADE = 0.45;
+const float AMB_FACE_SHADE_NIGHT = 0.3;
+// How much of the sky's hue by orientation the fill takes (its brightness by orientation is taken whole): at noon a
+// wall facing the pale horizon sees a whiter sky than a top under the deep zenith, at dusk one facing the afterglow a
+// warmer one; half of that keeps the shade on walls a clear, cool sky-blue while dusk's faces still warm and cool.
+const float AMB_SKY_HUE = 0.5;
+
+// Set by deferred for each pixel before it lights it (forward programs leave them): how far the occlusion covers the
+// pixel (0 none .. 1 full; it fades out by AO_FAR), and the bend it gives the normal the sky's light is looked up along
+// (the bent normal, the direction of least occlusion, minus the normal the occlusion pass worked with), world space.
+float lightAoCover = 0.0;
+vec3 lightAoBend = vec3(0.0);
+
+// The occlusion of the fill with its multi-bounce (Jimenez, Wu, Pesce and Jarabo 2016, "Practical Real-Time
+// Strategies for Accurate Indirect Occlusion": a cubic fit in the visibility per albedo): light that bounces inside a
+// pale corner comes back, so pale stone loses less of its fill to a corner than dark dirt, per channel. a: linear
+// albedo.
+vec3 aoMultiBounce(float v, vec3 a) {
+	vec3 ka = 2.0404 * a - 0.3324;
+	vec3 kb = -4.7951 * a + 0.6417;
+	vec3 kc = 2.7552 * a + 0.6903;
+	return max(vec3(v), ((v * ka + kb) * v + kc) * v);
+}
 
 // How much of a torch's light still shows, 0.65..1: in the open by day the sun drowns most of it anyway (the light
 // adds), so only a little is taken off; a lamp's pool still reads in the shade at noon. Under a roof, in a cave or at
@@ -268,13 +288,22 @@ float blockLightDaylight(float skyLevel) {
 // clouds and the facing only ever scale the direct term; the sky's fill and the torch light are the same in the sun
 // and the shade.
 // glow: the light through leaves and plants (welkinGlow), as a share of the direct light: it takes the leaf's own
-// colour twice over (light through a leaf is a deeper, warmer green than light off it). contact: the contact
-// occlusion (lib/ao.glsl, 1 for none): it darkens the fill and the torch light, and the sun a little, so plants and
-// corners sit in their own small shade even in the sun.
+// colour twice over (light through a leaf is a deeper, warmer green than light off it). contact: the ambient
+// occlusion's visibility (lib/ao.glsl lightAoFetch, 1 for none; not faded), with lightAoCover and lightAoBend: it darkens the
+// sky's fill and the ground's bounce fully and the torch light by half, never the sun (the shadows carry that).
 vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
 		float facing, float ao, float glow, float contact) {
 	vec3 a = toLinear(albedo);
-	float aoFill = mix(LIGHT_AO_FLOOR, 1.0, pow(clamp(ao, 0.0, 1.0), LIGHT_AO_POW) * contact);
+	// ---- Light: ambient (B): the occlusion of the fill and the torch light
+	// Minecraft's corner shading: round 2's depth where the pack's occlusion does not reach, a gentle partner where it
+	// does; the pack's occlusion with its multi-bounce on top
+	// (the two blend as wholes over the occlusion's fade, so the corners keep their depth through it)
+	float aoV = clamp(ao, 0.0, 1.0);
+	float aoFar = mix(LIGHT_AO_FLOOR, 1.0, pow(aoV, LIGHT_AO_POW));
+	float aoNear = mix(1.0, aoV, AO_VANILLA);
+	vec3 aoPack = aoMultiBounce(pow(clamp(contact, 0.0, 1.0), AO_STRENGTH), a);
+	vec3 aoFill = mix(vec3(aoFar), max(aoNear * aoPack, vec3(AO_FLOOR)), lightAoCover);
+	vec3 aoBlock = mix(vec3(aoFar), aoNear * mix(vec3(1.0), aoPack, 0.5), lightAoCover);
 	float lv = rampLevel(lm.x);
 	vec3 block = torchColour(lv) * (1.35 * rampBlockLin(lm.x) * blockLightDaylight(lm.y) * pow(BLOCKLIGHT_STRENGTH, 2.2));
 #if defined WORLD_NETHER
@@ -284,21 +313,19 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	vec3 ambient = toLinear(vec3(0.44, 0.40, 0.52) * faceShade(n));
 	vec3 direct = vec3(0.0);
 #else
-	// the sky's fill as a hemisphere: the sky above, the ground's bounce below, Minecraft's face shading softened on
-	// top (the sun now does the modelling), the bright sky round a low sun on what faces it
+	// ---- Light: ambient (B): the sky's fill from the dome (lib/sky/irradiance.glsl), along the bent normal where the
+	// occlusion gives one: each orientation takes the light of the sky it faces (warm toward the bright low sky round
+	// the sun, the zenith's blue overhead, the rose band opposite a low sun), an upward face in the open exactly the
+	// table's tuned fill; the ground's bounce below; a touch of Minecraft's face shading
 	vec4 fill = skyLandFill();
 	vec3 nf = lightFillUp > 0.0 ? normalize(mix(n, vec3(0.0, 1.0, 0.0), lightFillUp)) : n;
-	// (round 2: an upright face sees the bright band of sky along the horizon as well as the zenith, so it takes 0.6 of
-	// an upward face's fill, not half: the shade side of a cliff or a wall reads a clear, cool sky-lit grey)
-	// (round 3: 0.5 by day, and 0.36 while the sun is low: the shade's light comes from above, so in the long shadows
-	// of the golden hour tops and tufts read light against dark sides and the land keeps its form; the sky-lit grey of a
-	// pale wall comes from its own bounce, below)
-	float sideW = mix(0.5, 0.36, lowSunShare());
-	float skyW = nf.y >= 0.0 ? sideW + (1.0 - sideW) * nf.y : sideW * (1.0 + nf.y);
-	vec3 hemi = fill.rgb * skyW + skyLandBounce() * (0.5 - 0.5 * nf.y);
+	vec3 ns = normalize(nf + lightAoBend);
+	vec3 skyE = skyIrradiance(ns);
+	skyE = mix(vec3(lumaLin(skyE)), skyE, AMB_SKY_HUE);
+	vec3 hemi = fill.rgb * skyE + skyLandBounce() * (0.5 - 0.5 * nf.y);
 	// (a plant's thin blades take the sky on both their faces and pass some through: up to 1.45x a top's fill, so in the
 	// shade a meadow's tufts and stalks read light against the ground, as dry grass does at dusk)
-	hemi = (hemi * mix(1.0, faceShade(nf), 0.45) + sunSideGlow(nf, fill)) * (1.0 + 0.64 * lightFillUp);
+	hemi = hemi * mix(1.0, faceShade(nf), mix(AMB_FACE_SHADE, AMB_FACE_SHADE_NIGHT, skyNightStep())) * (1.0 + 0.64 * lightFillUp);
 	// (round 3: the fill under a canopy cut by 0.8, not 0.68: the forest floor between the sun patches sinks deeper)
 	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - 0.8 * canopyShade(lm.y, sunReach));
 	// the short-range bounce (round 1): a shaded face among sunlit surfaces like itself takes back a share of the sun
@@ -327,7 +354,7 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 		through = aT * skyLandDirect() * sunShare * glow;
 	}
 #endif
-	vec3 light = (ambient + block) * aoFill + direct * mix(1.0, contact, 0.3);
+	vec3 light = ambient * aoFill + block * aoBlock + direct;
 	light = max(light, vec3(LAND_FLOOR)); // never quite black: cave walls still read
 	light = mix(light, max(light, vec3(0.27)), nightVision);
 #if defined WORLD_NETHER || defined WORLD_END

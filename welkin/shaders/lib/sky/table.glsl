@@ -31,7 +31,9 @@
 //   y 9       sprite palettes: x 0..3 sun core, middle, rim, halo; x 8..11 moon lit, maria, terminator, dark side;
 //             x 16..18 stars dim, mid, bright
 //   y 10..12  the dome with the moon's halo ring 1..3 (x as rows 0..4)
-//   y 13..30  reserved (written black): rows for other modules' palettes go here
+//   y 13      the sky's irradiance on the land (lib/sky/irradiance.glsl): x 0..8 its spherical-harmonic coefficients
+//             (l <= 2, cosine-convolved, normalised per channel to an upward face), stored v / 8 + 0.5
+//   y 14..30  reserved (written black): rows for other modules' palettes go here
 //   y 31      x 0: 'W' 'K' version 1 255, the check that prepare ran
 
 #ifndef WELKIN_SKY_TABLE
