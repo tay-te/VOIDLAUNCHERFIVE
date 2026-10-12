@@ -24,6 +24,8 @@ export JAVA_HOME="C:/Users/bitto/VOID/.tools/jdk-25"
 export PATH="$JAVA_HOME/bin:$PATH"
 cd "$R" || exit 1
 mkdir -p build
+# each run makes a fresh world from the seed; the last one is only disk space
+rm -rf "$R/build/run/clientGameTest/saves/New World"
 ./gradlew runClientGameTest --console=plain "$@" > build/studio.log 2>&1
 code=$?
 grep "\[reel\]" build/studio.log | grep -v "^\s*at "

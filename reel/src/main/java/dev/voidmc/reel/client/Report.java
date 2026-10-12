@@ -20,6 +20,7 @@ final class Report {
 	private int catchUps;
 	private int backlogWaits;
 	private final List<Integer> unready = new ArrayList<>();
+	private final List<Integer> farBuilding = new ArrayList<>();
 	private final List<String> notes = new ArrayList<>();
 	private long totalNanos;
 	private int written;
@@ -36,6 +37,7 @@ final class Report {
 		this.catchUps = 0;
 		this.backlogWaits = 0;
 		this.unready.clear();
+		this.farBuilding.clear();
 		this.notes.clear();
 		this.totalNanos = 0;
 		this.written = 0;
@@ -77,6 +79,12 @@ final class Report {
 		}
 	}
 
+	void farBuilding(int frame) {
+		if (this.farBuilding.isEmpty() || this.farBuilding.getLast() != frame) {
+			this.farBuilding.add(frame);
+		}
+	}
+
 	void note(String note) {
 		this.notes.add(note);
 	}
@@ -103,6 +111,7 @@ final class Report {
 		b.append("  \"catchUps\": ").append(this.catchUps).append(",\n");
 		b.append("  \"backlogWaits\": ").append(this.backlogWaits).append(",\n");
 		b.append("  \"framesFilmedLoading\": ").append(this.unready).append(",\n");
+		b.append("  \"framesFarStillBuilding\": ").append(this.farBuilding.size()).append(",\n");
 		b.append("  \"notes\": [");
 		for (int i = 0; i < this.notes.size(); i++) {
 			b.append(i == 0 ? "" : ", ").append('"').append(escape(this.notes.get(i))).append('"');

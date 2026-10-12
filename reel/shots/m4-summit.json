@@ -1,0 +1,12 @@
+{
+	"notes": "Morning in the Expanse, shot 4: the closing orbit around the summit (1000, 464, 1650), passing its south face with the sun to the right, closing in and settling.",
+	"fps": 30,
+	"duration": 14,
+	"world": { "time": 1800, "timeRate": 1 },
+	"camera": {
+		"orbit": { "center": [1000, 450, 1650], "radius": [235, 185], "height": [75, 50], "aim": [0, 8], "from": 160, "sweep": 50 },
+		"ease": "inOutSine",
+		"fov": 40
+	},
+	"render": { "samples": 6, "shutter": 180, "preroll": 2 }
+}

@@ -18,6 +18,7 @@ shots/*.json ──ShotParser──▶ Shot (pure: maths, no game)        PathPr
                                ├─ GameRendererMixin: frame size, capture after the world, no bob
                                ├─ MinecraftMixin: time of day each frame, never pause
                                ├─ IntegratedServerMixin: server sends 3 chunks beyond the view
+                               ├─ IrisTimerMixin: shader packs animate by shot time, not the wall clock
                                ├─ Stage: options, HUD, spectator body, world clock, weather, freeze
                                ├─ Prefetch: server loads every chunk the camera will see
                                ├─ Readiness: is the view fully loaded and meshed?
@@ -67,7 +68,12 @@ top-left crop while filming.
    distance, because the server sends chunks in a circle and vanilla only meshes a section once all eight
    neighbouring chunks are present, so the edge never finishes. Unmeshed sections lacking a neighbour count as
    waiting on the server.
-4. **Holds.** Meshing can always be waited for (passes with no ticks change nothing). Waiting on the server needs
+4. **Far terrain.** VOID LOD builds a far tile bare, then again once its background tree placer has stood the
+   world's trees on it; a camera that moves on first sees trees pop in. So a movie's preparation includes a warm-up:
+   the camera visits points along its path (about every 24 blocks or 2 s) and waits at each, the world frozen, until
+   `LodApi.complete()` holds; then it returns to the first frame. During the shot a frame may wait up to 600 passes
+   for far tiles (no ticks needed: LOD builds off-thread), and the report counts frames filmed while they built.
+5. **Holds.** Meshing can always be waited for (passes with no ticks change nothing). Waiting on the server needs
    ticks, so it is waited for only when the world is frozen (frozen shots, stills). A frame waits at most 400 passes.
    Every frame filmed loading is listed in the report with what was missing.
 
@@ -81,15 +87,17 @@ empty `framesFilmedLoading` and no failure is clean.
 
 `ControlServer` (127.0.0.1 only, on with `-Dreel.control=PORT` or the studio's `-Preel.studio=MINUTES`), wrapped by
 `tools/reel.sh`: status, shots, check, play, render, stills, snap (one frame from anywhere, for scouting), where,
-cmd (a server command), stop, quit. In-game: `/reel play|render|stills|stop|key|shots`.
+height (ground heights at points: how shots are placed without guessing), cmd (a server command, answered with its
+output, e.g. `locate structure #minecraft:village`), stop, quit. `tools/cut.py` joins encoded shots into a film
+with dissolves, fades and a title. In-game: `/reel play|render|stills|stop|key|shots`.
 
 ## Known limits (phase 1)
 
 - Single player only: the director drives the integrated server.
-- Without Sodium, readiness reads vanilla's sections; with Sodium it asks Sodium (`isTerrainRenderComplete`). VOID
-  LOD's far terrain has no readiness hook yet.
-- Iris and shader packs are untested with the frame-size override. The main target resizes, and packs should
-  follow it.
+- Without Sodium, readiness reads vanilla's sections; with Sodium it asks Sodium (`isTerrainRenderComplete`) and
+  checks that every chunk in the counted circle has reached the client.
+- Shader packs work (filmed with Complementary Reimagined under Iris 1.11.6 and VOID LOD drawing through the pack's
+  DH programs); their frameTimeCounter is the shot's clock, so water and clouds move with the frames.
 - Client-only effects tied to the wall clock (enchant glint, world border, `LocalTime` items) are not stepped.
 - Without ffmpeg, movies stay as PNG sequences.
 

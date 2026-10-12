@@ -26,6 +26,16 @@ bash tools/reel.sh quit
 
 # tile any render into a contact sheet
 ./gradlew contactSheet -Pshot=example
+
+# with VOID LOD, Expanse and a shader pack (packs in build/run/clientGameTest/shaderpacks, chosen in config/iris.properties)
+bash tools/studio.sh -Preel.studio=120 -Preel.distance=24 -Piris "-Pmods=build/set/void-lod-0.1.0.jar;build/set/void-expanse-0.1.0.jar"
+
+# scouting: ground heights, any command with its output
+bash tools/reel.sh height "1440,-3536;1000,1650"
+bash tools/reel.sh cmd "locate structure #minecraft:village"
+
+# cut shots into a film
+python tools/cut.py morning m1-range-dawn m2-village m3-gorge m4-summit --title "Morning in the Expanse"
 ```
 
 Output goes to `renders/<shot>/`: `frames/` and `<shot>.mp4` for movies, `stills/` and `stills.png` for stills,

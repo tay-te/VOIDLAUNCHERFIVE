@@ -6,6 +6,7 @@
 #   bash tools/reel.sh render <shot> [samples=8 w=1920 h=1080 encode=false]
 #   bash tools/reel.sh stills <shot> [count=8 | at=0,2.5,6] [w=.. h=..]
 #   bash tools/reel.sh snap   x=.. y=.. z=.. yaw=.. pitch=.. [fov=70 name=..]
+#   bash tools/reel.sh height "x,z;x,z"                    ground heights (top = water/leaves, ground = solid floor)
 #   bash tools/reel.sh cmd    "time set 23000"
 #   bash tools/reel.sh wait                                  until the director is idle
 # REEL_PORT picks the port (default 7341).
@@ -21,11 +22,12 @@ case "$verb" in
   play|render|stills) shot="$1"; shift; curl -s -X POST "$BASE/$verb?$(query "shot=$shot" "$@")"; echo ;;
   snap) curl -s -X POST "$BASE/snap?$(query "$@")"; echo ;;
   cmd) curl -s -X POST --data "$*" "$BASE/cmd"; echo ;;
+  height) curl -s -G --data-urlencode "at=$1" "$BASE/height"; echo ;;
   wait)
     while :; do
       s=$(curl -s "$BASE/status")
       case "$s" in *'"phase":"idle"'*) echo "$s"; break ;; esac
       sleep 3
     done ;;
-  *) sed -n '2,13p' "$0"; exit 1 ;;
+  *) sed -n '2,14p' "$0"; exit 1 ;;
 esac

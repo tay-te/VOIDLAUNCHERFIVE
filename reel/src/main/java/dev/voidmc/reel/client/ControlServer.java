@@ -25,6 +25,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
+import net.minecraft.commands.CommandSource;
+import net.minecraft.network.chat.Component;
+import net.minecraft.client.server.IntegratedServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
  * The director's desk: a small HTTP server on 127.0.0.1 only (never the network), on with -Dreel.control=&lt;port&gt;.
@@ -40,7 +45,9 @@ import net.minecraft.client.Minecraft;
  * POST /snap?x=..&amp;y=..&amp;z=..&amp;yaw=..&amp;pitch=..[&amp;fov=70&amp;w=..&amp;h=..&amp;name=..]   one frame from anywhere
  * POST /stop
  * GET  /where                          where the player stands and looks
- * POST /cmd   (body: a server command) run on the integrated server, e.g. "time set 23000"
+ * GET  /height?at=x,z;x,z;...          the ground (top solid or liquid block) at each point, loading land as needed
+ * POST /cmd   (body: a server command) run on the integrated server where the player stands; answers its output
+ *            ("locate structure #minecraft:village", "time set 23000")
  * POST /quit                           closes the studio
  * </pre>
  */
@@ -136,20 +143,78 @@ public final class ControlServer {
 				var eye = player.getEyePosition();
 				return String.format(Locale.ROOT, "{\"eye\":[%.2f,%.2f,%.2f],\"yaw\":%.1f,\"pitch\":%.1f}", eye.x, eye.y, eye.z, player.getYRot(), player.getXRot());
 			});
+			case "/height" -> {
+				IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
+				if (server == null) {
+					throw new IllegalArgumentException("not in single player");
+				}
+				String[] points = need(q, "at").split(";");
+				CompletableFuture<String> heights = server.submit(() -> {
+					ServerLevel level = server.getLevel(Minecraft.getInstance().level.dimension());
+					StringBuilder b = new StringBuilder("{\"heights\":[");
+					for (int i = 0; i < points.length; i++) {
+						String[] xz = points[i].split(",");
+						int x = (int) Math.floor(Double.parseDouble(xz[0].trim()));
+						int z = (int) Math.floor(Double.parseDouble(xz[1].trim()));
+						int y = level.getChunk(x >> 4, z >> 4).getHeight(Heightmap.Types.MOTION_BLOCKING, x & 15, z & 15);
+						int floor = level.getChunk(x >> 4, z >> 4).getHeight(Heightmap.Types.OCEAN_FLOOR, x & 15, z & 15);
+						b.append(i == 0 ? "" : ",").append(String.format(Locale.ROOT, "{\"x\":%d,\"z\":%d,\"top\":%d,\"ground\":%d}", x, z, y + 1, floor + 1));
+					}
+					return b.append("]}").toString();
+				});
+				try {
+					yield heights.get(120, TimeUnit.SECONDS);
+				} catch (Exception e) {
+					yield error("height lookup failed: " + e);
+				}
+			}
 			case "/cmd" -> {
 				if (body.isEmpty()) {
 					throw new IllegalArgumentException("send the command as the request body");
 				}
-				yield onClient(() -> {
-					Stage.server(Minecraft.getInstance(), body.startsWith("/") ? body.substring(1) : body);
-					return "{\"ran\":\"" + Report.escape(body) + "\"}";
+				IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
+				if (server == null) {
+					throw new IllegalArgumentException("not in single player");
+				}
+				String command = body.startsWith("/") ? body.substring(1) : body;
+				var eye = Minecraft.getInstance().player.getEyePosition();
+				CompletableFuture<String> output = server.submit(() -> {
+					List<String> lines = new java.util.ArrayList<>();
+					CommandSource capture = new CommandSource() {
+						@Override
+						public void sendSystemMessage(Component message) {
+							lines.add(message.getString());
+						}
+
+						@Override
+						public boolean acceptsSuccess() {
+							return true;
+						}
+
+						@Override
+						public boolean acceptsFailure() {
+							return true;
+						}
+
+						@Override
+						public boolean shouldInformAdmins() {
+							return false;
+						}
+					};
+					server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSource(capture).withPosition(eye), command);
+					return "{\"ran\":\"" + Report.escape(command) + "\",\"output\":[" + String.join(",", lines.stream().map(l -> "\"" + Report.escape(l) + "\"").toList()) + "]}";
 				});
+				try {
+					yield output.get(120, TimeUnit.SECONDS);
+				} catch (Exception e) {
+					yield error("command failed: " + e);
+				}
 			}
 			case "/quit" -> {
 				quit = true;
 				yield "{\"quit\":true}";
 			}
-			default -> throw new IllegalArgumentException("unknown path " + path + " (status, shots, check, play, render, stills, snap, stop, where, cmd, quit)");
+			default -> throw new IllegalArgumentException("unknown path " + path + " (status, shots, check, play, render, stills, snap, stop, where, height, cmd, quit)");
 		};
 	}
 

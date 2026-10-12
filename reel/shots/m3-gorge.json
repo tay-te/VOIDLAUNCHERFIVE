@@ -1,0 +1,20 @@
+{
+	"notes": "Morning in the Expanse, shot 3: low along the river through the gorge, wheat on the banks, cliffs either side.",
+	"fps": 30,
+	"duration": 12,
+	"world": { "time": 1000, "timeRate": 1 },
+	"camera": {
+		"ease": "inOutSine",
+		"face": "path",
+		"fov": 62,
+		"keys": [
+			{ "pos": [1875, 71.0, -3201.0], "pitch": 6 },
+			{ "pos": [1910, 70.5, -3199.5], "pitch": 5 },
+			{ "pos": [1945, 71.0, -3202.5], "pitch": 5 },
+			{ "pos": [1980, 71.5, -3203.5], "pitch": 4 },
+			{ "pos": [2015, 72.5, -3200.5], "pitch": 3 }
+		]
+	},
+	"shake": { "amount": 0.25, "speed": 0.3, "seed": 33 },
+	"render": { "samples": 6, "shutter": 180, "preroll": 2 }
+}

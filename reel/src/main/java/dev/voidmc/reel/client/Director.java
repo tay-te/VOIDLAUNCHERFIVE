@@ -39,9 +39,13 @@ public final class Director {
 	private static final int READY_STREAK = 20;
 	private static final int PREPARE_MIN_FRAMES = 40;
 	private static final long PREPARE_TIMEOUT_NANOS = 180_000_000_000L;
+	private static final long FAR_PREPARE_NANOS = 60_000_000_000L;
+	private static final long WARM_POINT_NANOS = 20_000_000_000L;
 	/** How long one frame may wait for its view to finish loading before it is filmed anyway. */
 	private static final int HOLD_LIMIT = 400;
+	private static final int FAR_HOLD_LIMIT = 600;
 	private static final int BACKLOG_LIMIT = 24;
+	private static final double PACK_BASE = 100;
 
 	/** Chunks the server sends beyond the render distance while filming (read on the server thread too). */
 	public static final int SEND_AHEAD = 3;
@@ -54,9 +58,17 @@ public final class Director {
 	private FrameSink sink;
 	private Prefetch prefetch;
 	private boolean prefetched;
+	private List<CameraState> warm = List.of();
+	private int warmIndex;
+	private int warmStreak;
+	private long warmStart;
+	private long warmPointStart;
 	private CameraState camera;
 	private double shotTime;
 	private float partial;
+	/** The clock shader packs animate by: continuous from setting up through the last frame, seconds. */
+	private double packClock;
+	private int prerollDone;
 
 	private long ticksDone;
 	private int cursor;
@@ -67,9 +79,11 @@ public final class Director {
 	private int prepareFrames;
 	private int prerollLeft;
 	private int holds;
+	private int farHolds;
 	private long phaseStart;
 	private long jobStart;
 	private final Report report = new Report();
+	private String readiness = "";
 	private final List<Consumer<String>> listeners = new ArrayList<>();
 	private String lastMessage = "";
 
@@ -105,6 +119,15 @@ public final class Director {
 
 	public float partialTick() {
 		return this.partial;
+	}
+
+	/** Iris's frameTimeCounter while filming: the shot's own time (offset so packs never see zero or a jump). */
+	public double packTime() {
+		return this.packClock;
+	}
+
+	public double packFrameTime() {
+		return this.phase == Phase.RENDER && this.job != null ? 1.0 / (this.job.shot().fps() * Math.max(1, this.job.samples())) : 0.05;
 	}
 
 	/** The size frames are drawn at, in place of the window's, while a job runs. */
@@ -148,10 +171,17 @@ public final class Director {
 		this.readyStreak = 0;
 		this.prepareFrames = 0;
 		this.holds = 0;
+		this.farHolds = 0;
 		this.captureNow = false;
+		this.prerollDone = 0;
+		this.packClock = PACK_BASE;
 		this.jobStart = this.phaseStart = System.nanoTime();
 		this.prefetch = Prefetch.start(mc, job);
 		this.prefetched = false;
+		this.warm = job.movie() ? warmPoints(job) : List.of();
+		this.warmIndex = 0;
+		this.warmStreak = 0;
+		this.warmStart = 0;
 		// the world stands still while the first view loads; a movie whose world runs is unfrozen at preroll
 		this.stage.enter(mc, job.shot(), this.camera, true);
 		this.phase = Phase.PREPARE;
@@ -218,12 +248,23 @@ public final class Director {
 			this.prefetched = true;
 			this.report.prefetched(this.prefetch.total(), System.nanoTime() - this.phaseStart);
 		}
-		this.readyStreak = Readiness.ready(mc) ? this.readyStreak + 1 : 0;
-		boolean timedOut = System.nanoTime() - this.phaseStart > PREPARE_TIMEOUT_NANOS + this.prefetch.total() * 50_000_000L;
+		if (this.prefetched && this.warmIndex < this.warm.size()) {
+			this.warmUp();
+			this.partial = 0;
+			return 1;
+		}
+		// the chunks in view must be loaded; far terrain is waited for a minute, then its last details may come in on camera
+		long waited = System.nanoTime() - this.phaseStart;
+		boolean far = Readiness.farComplete() || waited > FAR_PREPARE_NANOS;
+		this.readyStreak = far && Readiness.nearReady(mc) ? this.readyStreak + 1 : 0;
+		this.readiness = Readiness.state(mc);
+		boolean timedOut = waited > PREPARE_TIMEOUT_NANOS + this.prefetch.total() * 50_000_000L;
 		if ((this.prefetched && this.readyStreak >= READY_STREAK && this.prepareFrames >= PREPARE_MIN_FRAMES) || timedOut) {
 			if (timedOut) {
-				this.say("the view never finished loading; filming anyway");
-				this.report.note("prepare timed out after " + this.prepareFrames + " frames");
+				this.say("the view never finished loading; filming anyway (" + this.readiness + ")");
+				this.report.note("prepare timed out after " + this.prepareFrames + " frames: " + this.readiness);
+			} else if (!Readiness.farComplete()) {
+				this.report.note("far terrain still building when filming began: " + this.readiness);
 			}
 			this.report.prepared(System.nanoTime() - this.phaseStart, this.prepareFrames);
 			Shot shot = this.job.shot();
@@ -240,7 +281,56 @@ public final class Director {
 		return 1;   // the world is frozen: a tick only moves chunks along
 	}
 
+	/**
+	 * VOID LOD builds a far tile first bare, then again once the world's trees are placed on it, in the background:
+	 * a camera that moves on before that sees the trees arrive. So before filming, the camera visits points along
+	 * its path and waits at each (a frozen world: only chunks and far tiles move) until the far terrain is complete,
+	 * and is then put back at the first frame. The trees it placed stay placed.
+	 */
+	private void warmUp() {
+		long now = System.nanoTime();
+		if (this.warmIndex == 0 && this.warmStart == 0) {
+			this.warmStart = now;
+			this.warmPointStart = now;
+		}
+		this.camera = this.warm.get(this.warmIndex);
+		this.warmStreak = Readiness.farComplete() ? this.warmStreak + 1 : 0;
+		if (this.warmStreak >= 5 || now - this.warmPointStart > WARM_POINT_NANOS) {
+			this.warmIndex++;
+			this.warmStreak = 0;
+			this.warmPointStart = now;
+			if (this.warmIndex >= this.warm.size()) {
+				this.report.note(String.format(Locale.ROOT, "far terrain warmed at %d points along the path in %.1f s", this.warm.size(), (now - this.warmStart) / 1e9));
+				this.camera = this.job.shot().camera(this.job.time(0, 0));
+				this.phaseStart = now;
+				this.readyStreak = 0;
+			}
+		}
+	}
+
+	/** Points along the job's camera path, about every 24 blocks or 2 seconds, for the far terrain warm-up. */
+	private static List<CameraState> warmPoints(RenderJob job) {
+		List<CameraState> points = new ArrayList<>();
+		if (!Readiness.lodPresent()) {
+			return points;
+		}
+		CameraState last = null;
+		double lastT = -10;
+		for (int i = 0; i < job.frames().length; i++) {
+			double t = job.time(i, 0);
+			CameraState state = job.shot().camera(t);
+			if (last == null || state.pos().distance(last.pos()) > 24 || t - lastT > 2 || i == job.frames().length - 1) {
+				points.add(state);
+				last = state;
+				lastT = t;
+			}
+		}
+		return points;
+	}
+
 	private int preroll(Minecraft mc) {
+		this.prerollDone++;
+		this.packClock = PACK_BASE + this.prerollDone / 20.0;
 		if (--this.prerollLeft <= 0) {
 			this.enter(Phase.RENDER);
 		}
@@ -256,12 +346,23 @@ public final class Director {
 		double t = this.job.time(this.cursor, this.sample);
 		this.camera = this.job.shot().camera(t);
 		this.shotTime = t;
+		this.packClock = PACK_BASE + this.prerollDone / 20.0 + t;
 		boolean exact = this.job.movie() && !this.job.shot().world().freeze();
 
 		// Wait for the view to finish loading where waiting changes nothing on screen: sections still meshing can
 		// always be waited for; chunks still to come from the server only when the world is frozen, since the
 		// server needs ticks to send them.
-		boolean ready = Readiness.ready(mc);
+		// far terrain (VOID LOD) is rebuilt around a moving camera all the time: wait for it briefly, never long
+		boolean far = Readiness.farComplete();
+		if (!far && this.farHolds < FAR_HOLD_LIMIT) {
+			this.farHolds++;
+			this.report.hold();
+			return 0;
+		}
+		if (!far) {
+			this.report.farBuilding(this.job.frames()[this.cursor]);
+		}
+		boolean ready = Readiness.nearReady(mc);
 		if (!ready && this.holds < HOLD_LIMIT) {
 			boolean server = Readiness.waitingOnServer(mc);
 			if (!server || !exact) {
@@ -326,6 +427,7 @@ public final class Director {
 			this.sample = 0;
 			this.cursor++;
 			this.holds = 0;
+			this.farHolds = 0;
 			this.report.frame();
 			if (this.cursor >= this.job.frames().length) {
 				this.enter(Phase.DRAIN);
@@ -374,6 +476,8 @@ public final class Director {
 			b.append(",\"written\":").append(this.sink == null ? 0 : this.sink.written());
 			if (this.phase == Phase.PREPARE && this.prefetch != null) {
 				b.append(",\"prefetchLeft\":").append(this.prefetch.remaining()).append(",\"prefetch\":").append(this.prefetch.total());
+				b.append(",\"warm\":\"").append(Math.min(this.warmIndex, this.warm.size())).append('/').append(this.warm.size()).append('"');
+				b.append(",\"readyStreak\":").append(this.readyStreak).append(",\"loading\":\"").append(Report.escape(this.readiness)).append('"');
 			}
 			b.append(",\"out\":\"").append(Report.escape(this.job.out().toString())).append('"');
 		}

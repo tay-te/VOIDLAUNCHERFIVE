@@ -1,0 +1,17 @@
+{
+	"notes": "Morning in the Expanse, shot 2: among the flowers of a plains village (1440, 73, -3536), rising and pulling back to reveal the village, the forest and the range in the morning haze.",
+	"fps": 30,
+	"duration": 12,
+	"world": { "time": 300, "timeRate": 1 },
+	"camera": {
+		"ease": "inOutSine",
+		"fov": 60,
+		"keys": [
+			{ "pos": [1435, 76.5, -3468], "yaw": 174, "pitch": 1 },
+			{ "pos": [1432, 104, -3450], "yaw": 178, "pitch": 8 },
+			{ "pos": [1425, 150, -3420], "yaw": -170, "pitch": 14 }
+		]
+	},
+	"shake": { "amount": 0.18, "speed": 0.2, "seed": 22 },
+	"render": { "samples": 6, "shutter": 180, "preroll": 2 }
+}
