@@ -10,8 +10,12 @@ import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.tags.BiomeTags;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * The spots VOID Welkin's light views can be asked to find by name (-Pgloam.show.light=village;canyon, see
@@ -32,6 +36,9 @@ final class LightPlaces {
 		return switch (kind) {
 			case "village" -> village(level, nearX, nearZ);
 			case "canyon" -> canyon(level, nearX, nearZ);
+			case "forestfloor" -> forestFloor(level, nearX, nearZ);
+			case "shore" -> shore(level, nearX, nearZ);
+			case "street" -> street(level, nearX, nearZ);
 			default -> null;
 		};
 	}
@@ -149,5 +156,171 @@ final class LightPlaces {
 		System.out.printf(Locale.ROOT, "[gloam] light spot canyon: %s at %d %d (floor %.0f, ground %d, depth %.0f), eye %d %d %d yaw %.1f pitch %.1f%n",
 			s.at(bx, bz).country(), bx, bz, floor, ground, best, ex, y, ez, yaw, pitch);
 		return new int[]{ex, y, ez, (int) yaw, Math.round(pitch)};
+	}
+
+	/** Whether the feet and the eye could stand at (x, y, z): both blocks air or plants. */
+	private static boolean standable(ServerLevel level, int x, int y, int z) {
+		for (int dy = 0; dy < 2; dy++) {
+			BlockState st = level.getBlockState(new BlockPos(x, y + dy, z));
+			if (!st.isAir() && !st.canBeReplaced()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Under a broadleaf canopy (the forest biome nearest (nearX, nearZ), not a fantasy or jungle one): of the columns
+	 * within 40 blocks of it with leaves overhead, the one and the yaw (of eight) that see furthest along the forest floor
+	 * at eye height (up to 28 blocks) under the most canopy, so the frame shows the floor, the trunks and the light coming
+	 * through. The feet on the ground, looking 2 degrees down.
+	 */
+	private static int[] forestFloor(ServerLevel level, int nearX, int nearZ) {
+		var found = level.findClosestBiome3d(b -> b.is(BiomeTags.IS_FOREST) && b.unwrapKey().map(k -> {
+			String name = k.identifier().getPath();
+			return !name.contains("lumen") && !name.contains("wisteria") && !name.contains("cherry") && !name.contains("pale") && !name.contains("jungle");
+		}).orElse(false), new BlockPos(nearX, 100, nearZ), 3000, 32, 64);
+		if (found == null) {
+			return null;
+		}
+		int cx = found.getFirst().getX(), cz = found.getFirst().getZ();
+		float best = -1;
+		int[] eye = null;
+		for (int dx = -40; dx <= 40; dx += 4) {
+			for (int dz = -40; dz <= 40; dz += 4) {
+				int x = cx + dx, z = cz + dz;
+				level.getChunk(x >> 4, z >> 4);
+				int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+				if (level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z) - ground < 3 || !standable(level, x, ground, z)
+					|| level.getBlockState(new BlockPos(x, ground - 1, z)).getFluidState().is(FluidTags.WATER)) {
+					continue;
+				}
+				for (int k = 0; k < 8; k++) {
+					double rad = Math.toRadians(k * 45), sx = -Math.sin(rad), sz = Math.cos(rad);
+					int clear = 0, roof = 0;
+					for (int step = 1; step <= 28; step++) {
+						int px = Mth.floor(x + 0.5 + sx * step), pz = Mth.floor(z + 0.5 + sz * step);
+						level.getChunk(px >> 4, pz >> 4);
+						int g = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, px, pz);
+						if (g > ground + 2 || !standable(level, px, Math.max(g, ground), pz) && !standable(level, px, ground + 1, pz)) {
+							break;
+						}
+						clear = step;
+						if (level.getHeight(Heightmap.Types.MOTION_BLOCKING, px, pz) - g >= 3) {
+							roof++;
+						}
+					}
+					float score = clear * (0.25F + roof / (float) Math.max(1, clear));
+					if (clear >= 8 && score > best) {
+						best = score;
+						eye = new int[]{x, ground, z, k * 45, 2};
+					}
+				}
+			}
+		}
+		System.out.printf(Locale.ROOT, "[gloam] light spot forestfloor: %s at %d %d, eye %s (score %.1f)%n", found.getSecond().getRegisteredName(), cx, cz,
+			eye == null ? "none" : eye[0] + " " + eye[1] + " " + eye[2] + " yaw " + eye[3], best);
+		return eye;
+	}
+
+	/**
+	 * A lake shore: the nearest stretch of the Expanse's lake district (as the haze views find it, looking out over the
+	 * lowest land), walked along that look until the water starts, the feet on the land 5 blocks short of it, looking
+	 * out over the lake 3 degrees down.
+	 */
+	private static int[] shore(ServerLevel level, int nearX, int nearZ) {
+		int[] c = GloamShowcase.findCountry(level, new GloamShowcase.View("shore", nearX, 0, nearZ, 0, 0, 70, 0, "clear", 0), "lake_district");
+		if (c == null) {
+			return null;
+		}
+		double rad = Math.toRadians(c[3]), sx = -Math.sin(rad), sz = Math.cos(rad);
+		for (int d = 0; d <= 400; d++) {
+			int x = Mth.floor(c[0] + 0.5 + sx * d), z = Mth.floor(c[2] + 0.5 + sz * d);
+			level.getChunk(x >> 4, z >> 4);
+			int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1;
+			if (level.getBlockState(new BlockPos(x, top, z)).getFluidState().is(FluidTags.WATER)) {
+				int ex = Mth.floor(c[0] + 0.5 + sx * Math.max(0, d - 5)), ez = Mth.floor(c[2] + 0.5 + sz * Math.max(0, d - 5));
+				level.getChunk(ex >> 4, ez >> 4);
+				int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, ex, ez);
+				System.out.printf(Locale.ROOT, "[gloam] light spot shore: water at %d %d %d, eye %d %d %d yaw %d%n", x, top, z, ex, ground + 1, ez, c[3]);
+				return new int[]{ex, ground + 1, ez, c[3], 3};
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * In a village's street at night: round the nearest village to (nearX, nearZ) (else building), the eye (of sixteen
+	 * yaws by three rings, 14 to 30 blocks out, looking back at the middle) that stands clear, sees furthest toward the
+	 * middle at eye height, and has the most light sources (any block giving light 10 or more) in front of it within 28
+	 * blocks. The feet on the ground, looking 4 degrees down.
+	 */
+	private static int[] street(ServerLevel level, int nearX, int nearZ) {
+		BlockPos from = new BlockPos(nearX, 100, nearZ);
+		BlockPos at = null;
+		for (String[] names : new String[][]{VILLAGES, BUILDINGS}) {
+			HolderSet<Structure> set = structures(level, names);
+			if (set.size() == 0) {
+				continue;
+			}
+			var hit = level.getChunkSource().getGenerator().findNearestMapStructure(level, set, from, 100, false);
+			if (hit != null) {
+				at = hit.getFirst();
+				break;
+			}
+		}
+		if (at == null) {
+			return null;
+		}
+		level.getChunk(at.getX() >> 4, at.getZ() >> 4);
+		int mid = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
+		List<int[]> lights = new ArrayList<>();
+		for (int x = at.getX() - 40; x <= at.getX() + 40; x++) {
+			for (int z = at.getZ() - 40; z <= at.getZ() + 40; z++) {
+				level.getChunk(x >> 4, z >> 4);
+				for (int y = mid - 8; y <= mid + 14; y++) {
+					if (level.getBlockState(new BlockPos(x, y, z)).getLightEmission() >= 10) {
+						lights.add(new int[]{x, y, z});
+					}
+				}
+			}
+		}
+		float best = -1;
+		int[] eye = null;
+		for (int r = 14; r <= 30; r += 8) {
+			for (int k = 0; k < 16; k++) {
+				double rad = Math.toRadians(k * 22.5), sx = -Math.sin(rad), sz = Math.cos(rad);
+				// the eye stands r back from the middle, against the look
+				int x = Mth.floor(at.getX() + 0.5 - sx * r), z = Mth.floor(at.getZ() + 0.5 - sz * r);
+				level.getChunk(x >> 4, z >> 4);
+				int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+				if (!standable(level, x, ground, z) || level.getBlockState(new BlockPos(x, ground - 1, z)).getFluidState().is(FluidTags.WATER)) {
+					continue;
+				}
+				int clear = 0;
+				for (int step = 1; step <= 20; step++) {
+					int px = Mth.floor(x + 0.5 + sx * step), pz = Mth.floor(z + 0.5 + sz * step);
+					if (!standable(level, px, ground, pz) && !standable(level, px, ground + 1, pz)) {
+						break;
+					}
+					clear = step;
+				}
+				int seen = 0;
+				for (int[] l : lights) {
+					double lx = l[0] + 0.5 - x, lz = l[2] + 0.5 - z, d = Math.hypot(lx, lz);
+					if (d > 2 && d < 28 && (lx * sx + lz * sz) / d > Math.cos(Math.toRadians(32))) {
+						seen++;
+					}
+				}
+				float score = Math.min(clear, 16) + 4 * Math.min(seen, 8);
+				if (clear >= 6 && score > best) {
+					best = score;
+					eye = new int[]{x, ground, z, Math.round(k * 22.5F), 4};
+				}
+			}
+		}
+		System.out.printf(Locale.ROOT, "[gloam] light spot street: village at %d %d %d, %d lights, eye %s (score %.1f)%n", at.getX(), mid, at.getZ(),
+			lights.size(), eye == null ? "none" : eye[0] + " " + eye[1] + " " + eye[2] + " yaw " + eye[3], best);
+		return eye;
 	}
 }
