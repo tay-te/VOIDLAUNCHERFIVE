@@ -4,8 +4,8 @@ The perk draft (DRAFT.md, CARDS.md) is a card game: dark obsidian cards whose pi
 These sounds belong to that table: embers that catch when you point at a card, a flare and a thunk when you keep one,
 the other two curling into ash, and a Mythic card that takes the lights down before it turns.
 
-**Status (2026-10-10):** built and playing in game, with previews to listen to. Every choice below is a proposal: sound
-was left open with the user, and §8 lists the taste calls to confirm.
+**Status (2026-10-12):** built and playing in game, with previews to listen to. The taste calls are decided (§8): the
+palette below is the one that ships, with a card sounds switch and volume in the client options.
 
 ## 1. Principles
 
@@ -21,7 +21,8 @@ was left open with the user, and §8 lists the taste calls to confirm.
   sweeping across the hand sounds like a crackle, not a machine gun.
 - **Loudness is anchored.** The level-up chime is the reference (about −32 dB on the meter in §6). A hover sits near
   the vanilla button click (−41 dB), a deal near the level chime, a pick a little above it, and only the Mythic reveal
-  is allowed past the feat fanfare. All sounds are UI sounds: the UI volume slider governs them.
+  is allowed past the feat fanfare. All sounds are UI sounds: the UI volume slider governs them, and the client
+  options' **card sounds** switch and volume (§8) scale every card cue on top.
 - **No vanilla audio ships.** Vanilla layers are named in `assets/mettle/sounds.json` (`"minecraft:fire/ignite"`) and
   loaded from the player's own game assets. Only Mettle's synthesised files are in the jar (38 small Ogg files, 0.5 MB).
 
@@ -34,7 +35,7 @@ Times are from the start of the cue. *Vanilla* layers are Minecraft files by nam
 |---|---|---|---|---|
 | **Draft dealt** (`deal`) | the overlay fans a hand out | 0.55 s | three card **slides** (synth swish, 75 ms apart, each a little higher) each with a **page flip** (vanilla book, ×1.45–1.65); a soft **tap** as they land (item frame); two small **crackles** as the edges catch (synth) | the page flips carry it; the synth swish is under them. Pitches rise card to card so the fan reads left to right |
 | **Rarity stinger** (`stinger.*`) | 380 ms into a deal, if the hand holds Epic, Cursed, Wildcard, Earned or Mastery: **one**, the hand's highest (Cursed › Earned › Mastery › Wildcard › Epic) | 0.4–1.2 s | Epic: enchanting-table sparkle + two chimes (a third and a seventh). Mastery: sparkle + chime fifth + bell. Cursed: ominous-bottle hiss, a **falling tritone** on note-block bass, the cursed drone. Wildcard: a card flick + a two-note pling (fifth, octave). Earned: the gold glint + bell and chime | a Mythic in the hand plays no stinger: the reveal is its stinger |
-| **Card hover** (`hover.<rarity>`) | the pointer reaches a card | 0.15–0.9 s | an ember **crackle** (synth, 6 variants) that grows with rarity: Common one crackle; Rare two; Epic two and an ember **sizzle**; Mastery adds a faint high chime; Wildcard a card **flick**; Earned a small **gold glint**; Mythic a hotter sizzle, the amethyst shimmer and the idle loop | −41 dB (Common) up to −34 dB (Mythic); first pop within 5 ms so it answers the mouse |
+| **Card hover** (`hover.<rarity>`) | the pointer reaches a card | 0.15–0.9 s | an ember **crackle** (synth, 6 variants) that grows with rarity: Common one very quiet crackle; Rare two; Epic two and an ember **sizzle**; Mastery adds a faint high chime; Wildcard a card **flick**; Earned a small **gold glint**; Mythic a hotter sizzle, the amethyst shimmer and the idle loop | −44 dB (Common) up to −34 dB (Mythic); first pop within 5 ms so it answers the mouse |
 | **Cursed hover** (`hover.cursed`) | pointer on a Cursed card | 0.9 s | a darker crackle (×0.75) over **the wrongness** (synth): a 55 Hz tone beating against a slightly sharp copy and a tritone, sinking 5 % as it plays, a breath, and a crackle **played backwards** so it swells into its pops | low enough to feel, harmonics up to 1.3 kHz so laptop speakers still carry it |
 | **Mythic idle shimmer** (`loops.mythic_idle`) | held while a Mythic card is hovered | loop 4 s | a seamless loop (synth): an F♯ chord shimmering on slow tremolos, high pentatonic sparkles and faint embers that wrap round the loop's end | fades in 0.3 s, out 0.45 s; quiet (−37 dB) so it can sit under the cursor for a minute |
 | **Card pick** (`pick` + `pick.<rarity>`) | `MettleActions.pickCard` | 0.5 s | the **flare** (synth ignition fwoomp with a low thump and sparks) + **flint and steel** (vanilla, ×1.3); 70 ms later **the thunk**: the chiseled bookshelf taking a book (×0.85), a book put down (×0.8) and a touch of lodestone for weight | then the rarity's sweetener on note blocks, in the moments' style: Rare a fifth; Epic third + sixth; Mastery adds a bell; Cursed a low tritone and the ominous hiss; Wildcard a pling fifth and octave; Earned bell, chime and gold; Mythic a full strummed chord + amethyst |
@@ -105,7 +106,9 @@ plays the shuffle (or the dull "no"); a new waiting draft plays the nudge when n
 from the Hub as well. The "learned" moment chime is hushed for 2.5 s after a pick from the overlay (the pick said it);
 a pick made from chat (`/mettle draft`) still chimes.
 
-State: `draft.sound` = `{ markers: { mythic_reveal: {...} }, hoverGapMs, stingerAtMs, burnAfterPickMs }`. Suggested
+State: `draft.sound` = `{ markers: { mythic_reveal: {...} }, hoverGapMs, stingerAtMs, burnAfterPickMs, enabled, volume }`
+(`enabled` and `volume` are the client option of §8; a settings panel sets them with `MettleActions.setCardSounds(on)`
+and `setCardSoundsVolume(percent)`). Suggested
 animation timing to match: card fan 75 ms apart; let the kept card flare for ~250 ms before the others start burning
 (`burnAfterPickMs`); the burn takes ~1.1 s; a reroll's new hand can start fanning ~650 ms after the reroll.
 
@@ -116,7 +119,7 @@ Measured on the previews (short-term loudness, 400 ms window, rough K-weighting;
 | | dB | | dB |
 |---|---|---|---|
 | vanilla button click (0.25) | −39 | Mettle level-up chime | −32 |
-| Mettle feat fanfare | −30 | hover Common → Rare → Epic → Mythic | −41 → −39 → −37 → −34 |
+| Mettle feat fanfare | −30 | hover Common → Rare → Epic → Mythic | −44 → −39 → −37 → −34 |
 | hover Cursed | −37 | deal (with or without a stinger) | −29 to −31 |
 | pick (+ sweetener) | −27 to −28 | burn-away | −33 |
 | reroll | −30 to −32 | nudge | −42 to −44 |
@@ -136,17 +139,20 @@ plays it: `deal`, `deal_stinger_{epic,cursed,wildcard,earned,mastery}`, `hover_{
 with a Cursed card dealt, four hovers, the Epic kept and the others burning, a reroll, a hand with a Mythic, the reveal,
 a hover on the Mythic, and the Mythic kept. They are at in-game level, so they play quiet, like Minecraft's own UI.
 
-## 8. Taste calls to confirm
+## 8. Taste calls (decided 2026-10-12)
 
-1. **The thunk:** wooden (bookshelf + book, now) or stonier (more lodestone, closer to obsidian)?
-2. **Heartbeats in the reveal:** two quiet Warden heartbeats under the tremble. They add dread but some players will
-   hear "Warden". Keep, or drop for the rumble alone?
-3. **The burst:** respawn anchor + synth boom (now), or the Totem of Undying (iconic and bigger, but reads as "saved from
-   death")?
-4. **Common hover:** a single soft crackle (now), or silent so only rarer cards crackle?
-5. **Cursed voice:** falling tritone on note-block bass and the ominous-bottle hiss (now): too Trial-Chambers? The
-   alternative is the synth drone alone.
-6. **One stinger per hand** (the rarest, now) or one per special card?
-7. **Picks hush the "learned" chime** (now), or keep the chime after the thunk?
-8. **An option:** card sounds follow only the UI volume slider (now); the nudge follows the `sounds` option. Should
-   `mettle-client.properties` get a `cardSounds` switch?
+Decided for the user ("just get this to where it needs to be"):
+
+| # | Call | Decision | In the cue data |
+|---|---|---|---|
+| 1 | The thunk: wooden or stony | **Wooden**: the chiseled bookshelf taking a book and a book put down, a touch of lodestone for weight. A card kept should feel crafted, like a book shelved, not a stone set down | `pick` as before |
+| 2 | Warden heartbeats under the reveal's tremble | **Kept**: the two quiet heartbeats at 250 and 1050 ms carry the dread the rumble alone doesn't | `mythic_reveal` as before |
+| 3 | The burst: respawn anchor or Totem of Undying | **Respawn anchor** (its set-spawn under the synth boom). The Totem reads as "saved from death", which a card is not | `mythic_reveal` as before |
+| 4 | Common hover: a crackle or silent | **A very quiet crackle**, not silence: every card answers the mouse, Commons barely (volume 0.29 → 0.2, about −44 dB, under the vanilla button click) | `hover.common` |
+| 5 | Cursed voice | **Kept**: the falling tritone on note-block bass and the ominous-bottle hiss over the drone | `stinger.cursed`, `pick.cursed`, `hover.cursed` as before |
+| 6 | One stinger per hand or one per special card | **One per hand**, the rarest (Cursed › Earned › Mastery › Wildcard › Epic) | `rules.stingerOrder` |
+| 7 | Picks hush the "learned" chime | **Yes**, for 2.5 s after an overlay pick (the pick already said it). With card sounds off the chime plays as before | `rules.pickHushesMomentMs` |
+| 8 | An option | **Yes**: `cardSounds` (on/off, default on) and `cardSoundsVolume` (0-100 %, default 100) in `config/mettle-client.properties` (`client.MettleClientOptions`, UI.md §10). The volume multiplies every card cue, the Mythic shimmer included, on top of the UI slider; off silences the draft entirely (nothing is scheduled) and lets the learned chime speak. The nudge also still follows the `sounds` option | `client.draft.CardAudio`, `MythicShimmer` |
+
+Checked in `CardSoundJourney` (the client tour): with card sounds off a deal, a Mythic hover and a pick play nothing and
+don't hush the chime; the volume is held to 0-100 and shows in the state.

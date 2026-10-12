@@ -20,6 +20,12 @@ public final class MythicRules {
 		return ResourceKey.create(MettleRegistries.PERK, Identifier.fromNamespaceAndPath(mythic.getNamespace(), "mythic/" + mythic.getPath()));
 	}
 
+	/** The Mythic a card key names: {@code mettle:mythic/twin_edge} → {@code mettle:twin_edge}. */
+	public static Identifier id(ResourceKey<Perk> key) {
+		String path = key.identifier().getPath();
+		return Identifier.fromNamespaceAndPath(key.identifier().getNamespace(), path.substring(path.indexOf('/') + 1));
+	}
+
 	/** A Mythic offer for a hand. */
 	public static DraftState.Card offer(Identifier id) {
 		return new DraftState.Card(key(id), 1, DraftState.Rarity.MYTHIC, false, List.of(), List.of(), 0);

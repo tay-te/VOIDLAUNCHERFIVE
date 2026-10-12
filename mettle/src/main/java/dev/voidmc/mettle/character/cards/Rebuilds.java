@@ -251,6 +251,7 @@ public final class Rebuilds {
 			line.scar().loses().ifPresent(t -> scars.add(CardText.trait(player.level().registryAccess(), t, Optional.empty())));
 		}
 		Cards.sync(player);
+		CardApi.unslotted(player, preview.lines().stream().map(Line::card).toList(), true);
 		MutableComponent lost = Component.empty();
 		for (int i = 0; i < scars.size(); i++) {
 			lost.append(i == 0 ? Component.empty() : Component.literal(", ")).append(scars.get(i));
@@ -349,6 +350,7 @@ public final class Rebuilds {
 		picked.forEach(c -> ledger.update(c.id(), x -> x.withPlace(CardData.Place.RELEASED)));
 		CardData made = Cards.create(player, ledger, result, CharacterStore.get(player).level(perk.skill()), CardData.How.FUSED, CardData.Place.BINDER);
 		Cards.sync(player);
+		CardApi.fused(player, made.id(), picked);
 		SignaturePerks.feedback(player, Mettle.id("cards/fused"), Component.translatable("mettle.cards.fused", CardText.name(perk, made.rank()),
 			Component.translatable("mettle.draft.rarity." + made.rarity().getSerializedName()), fees.describe(bits, emeralds)));
 		Mettle.LOGGER.info("{} fused cards {} into {} ({})", player.getName().getString(), ids, made.id(), made.rarity().getSerializedName());

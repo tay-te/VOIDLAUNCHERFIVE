@@ -179,6 +179,11 @@ learned perks, unspent attribute and perk points, character level and XP.
 | `BACKGROUND_CHOSEN` | `(player, background)` | kits, Hearth greeting lines |
 | `LOAD_BAND_CHANGED` | `(player, from, to)` | HUD, compat |
 | `DISCOVERED` | `(player, kind, id, pos)` | first visit to a biome, structure or landmark (Hearth, Expanse compat) |
+| `CARD_DRAWN` · `CARD_KEPT` · `CARD_SLOTTED` · `CARD_UNSLOTTED` · `CARD_FUSED` · `CARD_TRADED` · `MYTHIC_CLAIMED` · `SET_TIER_CHANGED` | `CardView`s (CARDS.md §25) | cards v2 for partners: Hearth's broker and greetings, Arsenal's forging |
+
+**Cards** (CARDS.md §25): `MettleServices.cards()` is a `CardService` (binder, decks, hands, any card by id, active
+sets and counts, trait totals, the Echo cooldown scale, Mythics held and active), answering with immutable `CardView`s.
+Read-only; partners never move cards themselves (Hearth's broker asks through its own request, CARDS.md §8.2).
 
 **Attribute**: `mettle:carry_capacity` (base 65, range 0–10 000, syncable, POSITIVE), added to the player through
 `FabricDefaultAttributeRegistry.MODIFY` on both sides. Anything may add modifiers to it (gear does, perks do, a

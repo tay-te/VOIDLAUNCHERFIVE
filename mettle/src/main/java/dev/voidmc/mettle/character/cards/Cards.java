@@ -75,6 +75,7 @@ public final class Cards {
 				Mettle.LOGGER.info("cards: {} cards left in trades went back to their owners", back);
 			}
 		});
+		dev.voidmc.mettle.api.MettleServices.setCards(CardApi.INSTANCE);
 		ServerPlayerEvents.JOIN.register(Cards::join);
 		MettleEvents.CHARACTER_LEVEL_UP.register((player, from, to) -> addFreeSwaps(player, to - from));
 		EffectsApplier.BEFORE.add(Cards::derive);
@@ -199,6 +200,7 @@ public final class Cards {
 		CardsState next = cards.withDerived(d.order(), d.active(), d.dormant(), d.traits(), d.sets(), d.tiers());
 		if (!next.equals(cards)) {
 			CardStore.set(player, next);
+			CardApi.tiers(player, cards.tiers(), next.tiers());
 		}
 	}
 
@@ -301,6 +303,7 @@ public final class Cards {
 			}
 		}
 		MettleEvents.PERK_LEARNED.invoker().learned(player, offer.perk(), offer.rank());
+		CardApi.kept(player, card.id());
 		return ledger(player.level().getServer()).get(card.id()).orElse(card);
 	}
 
@@ -338,6 +341,7 @@ public final class Cards {
 		int at = index < 0 ? CardRules.firstFree(deck, base == 0 ? 0 : base + extra) : index;
 		ledger(player.level().getServer()).update(id, c -> c.withPlace(CardData.Place.slotted(skill, at)));
 		sync(player);
+		CardApi.slotted(player, id);
 		perks.getOptional(card.get().perk()).ifPresent(p -> SignaturePerks.feedback(player, Mettle.id("cards/" + skill.identifier().getPath()),
 			Component.translatable("mettle.cards.slotted", p.name(), skillName(player, skill), at + 1)));
 		card.get().mythicId().flatMap(m -> Mythics.def(registries, m)).ifPresent(m -> SignaturePerks.feedback(player,
@@ -416,6 +420,7 @@ public final class Cards {
 		}
 		CardStore.set(player, next);
 		sync(player);
+		CardApi.unslotted(player, picked, false);
 		if (way != Way.OP) {
 			SignaturePerks.feedback(player, Mettle.id("cards/" + skill.identifier().getPath()),
 				Component.translatable("mettle.cards.unslotted." + way.name().toLowerCase(java.util.Locale.ROOT), picked.size(), skillName(player, skill),
@@ -428,13 +433,13 @@ public final class Cards {
 	public static void unslotAll(ServerPlayer player) {
 		CardsState state = CardStore.get(player);
 		CardLedger ledger = ledger(player.level().getServer());
-		boolean any = false;
-		for (CardData c : state.slotted()) {
+		List<CardData> out = state.slotted();
+		for (CardData c : out) {
 			ledger.update(c.id(), x -> x.withPlace(CardData.Place.BINDER));
-			any = true;
 		}
-		if (any) {
+		if (!out.isEmpty()) {
 			sync(player);
+			CardApi.unslotted(player, out, false);
 		}
 	}
 

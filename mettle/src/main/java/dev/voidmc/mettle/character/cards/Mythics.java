@@ -179,6 +179,7 @@ public final class Mythics {
 		CharacterState state = CharacterStore.get(player);
 		CardData card = Cards.create(player, ledger, offer, state.level(skill), CardData.How.MYTHIC, CardData.Place.BINDER);
 		Cards.sync(player);
+		CardApi.mythicClaimed(player, id, card.id());
 		server.getPlayerList().broadcastSystemMessage(Component.translatable(m.source() == Mythic.Source.DRAWN ? "mettle.mythic.world.drawn"
 			: "mettle.mythic.world.earned", player.getName(), m.name().copy().withStyle(ChatFormatting.GOLD), how), false);
 		SignaturePerks.feedback(player, Mettle.id("mythic/" + id.getPath()), Component.translatable("mettle.mythic.yours", m.name(), how));

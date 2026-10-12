@@ -38,6 +38,8 @@ public class MettleTour implements FabricClientGameTest {
 				throw new AssertionError(e);
 			}
 		}
+		// Every card event is watched from the start, so the card journeys check the api's events as they play.
+		CardServiceJourney.listen();
 		size(context, 1920, 1080, 3);
 		try (TestSingleplayerContext world = context.worldBuilder()
 			.setUseConsistentSettings(false)
@@ -123,6 +125,7 @@ public class MettleTour implements FabricClientGameTest {
 				ShrineJourney.run(context, world);
 				TradeJourney.run(context, world);
 				MythicJourney.run(context, world);
+				CardServiceJourney.run(world);
 			}
 			// -Dmettle.tour.hearth_only=true (with -Phearth) plays only the Hearth journey, for a quick check.
 			if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.cards_only")) {
@@ -146,6 +149,7 @@ public class MettleTour implements FabricClientGameTest {
 				ShrineJourney.run(context, world);
 				TradeJourney.run(context, world);
 				MythicJourney.run(context, world);
+				CardServiceJourney.run(world);
 				CardSoundJourney.run(context);
 			}
 			// With VOID Hearth loaded (-Phearth): its slots filled by Mettle. HearthJourney names Hearth types, so it is

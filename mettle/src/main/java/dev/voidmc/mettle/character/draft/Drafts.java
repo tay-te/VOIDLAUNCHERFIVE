@@ -155,6 +155,7 @@ public final class Drafts {
 			id -> dev.voidmc.mettle.character.cards.Mythics.drawable(player.level().getServer(), id));
 		if (!settled.state().equals(state)) {
 			CharacterStore.set(player, settled.state());
+			dev.voidmc.mettle.character.cards.CardApi.drawn(player, state.drafts(), settled.state().drafts());
 		}
 	}
 
@@ -230,6 +231,7 @@ public final class Drafts {
 			}
 		}
 		CharacterStore.set(player, state.withDraft(d));
+		dev.voidmc.mettle.character.cards.CardApi.drawn(player, state.drafts(), d);
 		refresh(player);
 	}
 
@@ -370,6 +372,7 @@ public final class Drafts {
 		}
 		DraftState next = d.withRerolls(d.rerolls() - 1).nextDeal().withHand(skill, cards);
 		CharacterStore.set(player, state.withDraft(next));
+		dev.voidmc.mettle.character.cards.CardApi.drawn(player, d, next);
 		SignaturePerks.feedback(player, Mettle.id("draft/" + skill.identifier().getPath()),
 			Component.translatable(next.rerolls() == 1 ? "mettle.draft.rerolled.one" : "mettle.draft.rerolled", skillName(player, skill), next.rerolls()));
 		return Optional.empty();

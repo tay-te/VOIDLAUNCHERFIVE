@@ -244,7 +244,9 @@ These are reached from a small settings glyph in the K screen's corner:
 - XP chips on/off
 - hints on/off
 - progress toasts on/off, progress sounds on/off, points nudge on/off (§6b)
+- card sounds on/off and their volume, 0-100 % (SOUNDS.md §8)
 
 Until that glyph exists, the options live in `config/mettle-client.properties` (`toasts`, `sounds`, `pointsNudge`,
-all `true` by default), read and written by `client.MettleClientOptions`; a host can call its setters. Turning toasts
+`cardSounds`, all `true` by default, and `cardSoundsVolume`, 100), read and written by `client.MettleClientOptions`; a
+host can call its setters (the Hub: `MettleActions.setCardSounds` / `setCardSoundsVolume`). Turning toasts
 off brings back the action-bar line for those moments.

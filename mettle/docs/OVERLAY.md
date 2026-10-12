@@ -233,6 +233,8 @@ comma-separated):
 | `tradeOfferItem(slot)` · `tradeTakeBackItem(index)` | the stack in an inventory slot (-1: the main hand) into escrow; back out by its index in `trade.me.items` |
 | `tradeCoin(bits)` · `tradeLock()` · `tradeConfirm()` · `tradeCancel()` | Hearth coin; lock your side; with both locked start the 3 s countdown; call it off (everything goes back) |
 | `closeSitting()` | ends the sitting (walking 8 blocks away does too) |
+| `cardSound(cue, arg)` | the card sounds timed to the overlay's animations (SOUNDS.md §5); timing in `draft.sound` |
+| `setCardSounds(on)` · `setCardSoundsVolume(percent)` | the client option for card sounds (SOUNDS.md §8): on or off, and 0-100 % (default on, 100); saved in `mettle-client.properties` and shown as `draft.sound.enabled` / `draft.sound.volume` |
 
 Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`
 (the text says what happened and names the heaviest stack), so the HUD can show the chip without polling.

@@ -1,7 +1,13 @@
 package dev.voidmc.mettle.api;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemInstance;
 import net.minecraft.world.item.ItemStack;
@@ -64,7 +70,68 @@ public final class MettleServices {
 		}
 	};
 
+	private static CardService cards = new CardService() {
+		@Override
+		public List<CardView> binder(ServerPlayer player) {
+			return List.of();
+		}
+
+		@Override
+		public List<CardView> deck(ServerPlayer player, ResourceKey<Skill> skill) {
+			return List.of();
+		}
+
+		@Override
+		public List<CardView> hand(ServerPlayer player, ResourceKey<Skill> skill) {
+			return List.of();
+		}
+
+		@Override
+		public Optional<CardView> card(MinecraftServer server, long id) {
+			return Optional.empty();
+		}
+
+		@Override
+		public Map<Identifier, Integer> activeSets(ServerPlayer player) {
+			return Map.of();
+		}
+
+		@Override
+		public int setCount(ServerPlayer player, Identifier keyword) {
+			return 0;
+		}
+
+		@Override
+		public double trait(ServerPlayer player, Identifier trait) {
+			return 0;
+		}
+
+		@Override
+		public float cooldownScale(ServerPlayer player) {
+			return 1f;
+		}
+
+		@Override
+		public List<Identifier> mythics(ServerPlayer player) {
+			return List.of();
+		}
+
+		@Override
+		public List<Identifier> activeMythics(ServerPlayer player) {
+			return List.of();
+		}
+	};
+
 	private MettleServices() {
+	}
+
+	/** Reading players' cards (docs/CARDS.md §25); set by the character module's cards. */
+	public static CardService cards() {
+		return cards;
+	}
+
+	public static void setCards(CardService service) {
+		cards = service;
 	}
 
 	public static BurdenService burden() {

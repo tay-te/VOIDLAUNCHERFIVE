@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import dev.voidmc.mettle.api.CharacterAttribute;
 import dev.voidmc.mettle.api.MettleRegistries;
 import dev.voidmc.mettle.api.Skill;
+import dev.voidmc.mettle.client.MettleClientOptions;
 import dev.voidmc.mettle.client.draft.CardAudio;
 import dev.voidmc.mettle.core.net.MettlePayloads;
 import java.util.ArrayList;
@@ -270,6 +271,19 @@ public final class MettleActions {
 		}
 		int hash = cueAndArg.indexOf('#');
 		CardAudio.call(hash < 0 ? cueAndArg : cueAndArg.substring(0, hash), hash < 0 ? "" : cueAndArg.substring(hash + 1));
+	}
+
+	/** The client option for card sounds (docs/SOUNDS.md §8): on or off ({@code draft.sound.enabled} in the state). */
+	public static void setCardSounds(boolean on) {
+		MettleClientOptions.setCardSounds(on);
+		if (!on) {
+			CardAudio.stop();
+		}
+	}
+
+	/** How loud every card sound plays, 0-100 % ({@code draft.sound.volume} in the state). */
+	public static void setCardSoundsVolume(int percent) {
+		MettleClientOptions.setCardSoundsVolume(percent);
 	}
 
 	public static void spendAttribute(String attribute) {

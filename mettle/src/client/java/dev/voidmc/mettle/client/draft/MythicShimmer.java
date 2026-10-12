@@ -1,6 +1,7 @@
 package dev.voidmc.mettle.client.draft;
 
 import dev.voidmc.mettle.character.draft.CardCues;
+import dev.voidmc.mettle.client.MettleClientOptions;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
@@ -29,7 +30,7 @@ final class MythicShimmer extends AbstractTickableSoundInstance {
 		this.attenuation = SoundInstance.Attenuation.NONE;
 		this.relative = true;
 		this.level = paused ? 1f : this.stepIn;
-		this.volume = this.full * this.level;
+		this.volume = this.full * this.level * MettleClientOptions.cardSoundsScale();
 	}
 
 	@Override
@@ -59,6 +60,6 @@ final class MythicShimmer extends AbstractTickableSoundInstance {
 			stop();
 			return;
 		}
-		this.volume = this.full * this.level;
+		this.volume = this.full * this.level * MettleClientOptions.cardSoundsScale();
 	}
 }

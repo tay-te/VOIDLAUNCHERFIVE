@@ -20,6 +20,8 @@ public final class MettleClientOptions {
 	private static boolean toasts = true;
 	private static boolean sounds = true;
 	private static boolean pointsNudge = true;
+	private static boolean cardSounds = true;
+	private static int cardSoundsVolume = 100;
 
 	private MettleClientOptions() {
 	}
@@ -40,6 +42,40 @@ public final class MettleClientOptions {
 	public static boolean pointsNudge() {
 		load();
 		return pointsNudge;
+	}
+
+	/** The card draft's sounds (docs/SOUNDS.md): deal, hovers, picks, the Mythic reveal. Off: the draft is silent. */
+	public static boolean cardSounds() {
+		load();
+		return cardSounds;
+	}
+
+	/** How loud every card sound plays, 0-100 % (on top of the UI volume slider). */
+	public static int cardSoundsVolume() {
+		load();
+		return cardSoundsVolume;
+	}
+
+	/** The factor every card cue's volume is multiplied by: 0 when card sounds are off. */
+	public static float cardSoundsScale() {
+		load();
+		return cardSounds ? cardSoundsVolume / 100f : 0f;
+	}
+
+	public static void setCardSounds(boolean on) {
+		load();
+		cardSounds = on;
+		save();
+	}
+
+	public static void setCardSoundsVolume(int percent) {
+		load();
+		cardSoundsVolume = clampPercent(percent);
+		save();
+	}
+
+	static int clampPercent(int percent) {
+		return Math.max(0, Math.min(100, percent));
 	}
 
 	public static void setToasts(boolean on) {
@@ -84,6 +120,15 @@ public final class MettleClientOptions {
 		toasts = Boolean.parseBoolean(p.getProperty("toasts", "true"));
 		sounds = Boolean.parseBoolean(p.getProperty("sounds", "true"));
 		pointsNudge = Boolean.parseBoolean(p.getProperty("pointsNudge", "true"));
+		cardSounds = Boolean.parseBoolean(p.getProperty("cardSounds", "true"));
+		try {
+			cardSoundsVolume = clampPercent(Integer.parseInt(p.getProperty("cardSoundsVolume", "100").trim()));
+		} catch (NumberFormatException e) {
+			cardSoundsVolume = 100;
+		}
+		if (!p.containsKey("cardSounds") || !p.containsKey("cardSoundsVolume")) {
+			save();
+		}
 	}
 
 	private static synchronized void save() {
@@ -91,6 +136,8 @@ public final class MettleClientOptions {
 		p.setProperty("toasts", Boolean.toString(toasts));
 		p.setProperty("sounds", Boolean.toString(sounds));
 		p.setProperty("pointsNudge", Boolean.toString(pointsNudge));
+		p.setProperty("cardSounds", Boolean.toString(cardSounds));
+		p.setProperty("cardSoundsVolume", Integer.toString(cardSoundsVolume));
 		Path path = path();
 		try {
 			Files.createDirectories(path.getParent());

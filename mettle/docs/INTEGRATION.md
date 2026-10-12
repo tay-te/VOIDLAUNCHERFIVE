@@ -132,11 +132,13 @@ All six done by Hearth on 2026-10-07 (`hearth/docs/requests/mettle.md`, Hearth A
 ### 1.4 Requests for cards v2
 
 Written 2026-10-10 in [hearth/docs/requests/mettle-cards.md](../../hearth/docs/requests/mettle-cards.md) (a new file, so
-it never collides with Hearth's answers in `mettle.md`): 7 virtual goods and the card broker, 8 a player-to-player coin
+it never collides with Hearth's answers in `mettle.md`; still open, the broker is built on the Hearth branch): 7 virtual goods and the card broker, 8 a player-to-player coin
 transfer, 9 a standing event for "Honoured", 10 Mythic titles readable by dialogue, 11 (FYI) the trainer's rebuild
 option in the training band. Mettle's side calls them through `compat.hearth`, like the first six. Built without new requests: the trainer's rebuild
 option and coin fees (`HearthFees`), the Signature trait (forged goods sell for more, in `MettlePrices`) and the Hoard 6
-set's 5 % market edge.
+set's 5 % market edge. For the broker's listing board Hearth can already read cards through `CardService` (the binder,
+`card(server, id)` with its `code`, rarity, keywords, traits and history) and watch `CARD_TRADED` / `MYTHIC_CLAIMED`
+(CARDS.md §25); moving a listed card between owners still needs request 7's hold, release and transfer.
 
 ## 2. Expanse
 
@@ -187,6 +189,21 @@ values), Arsenal owns the items and stations and reports forging XP through `Cha
 trait has a vanilla and an Arsenal meaning, Smithing perks gain forging meanings, The First Hammer Mythic marks parts in
 gold, and Arsenal's technique cooldowns read the Echo set's scale. All in CARDS.md §10, with the `CardService` api
 Arsenal reads. Built in `compat.arsenal` behind `isModLoaded("arsenal")` when Arsenal's wave 1 lands.
+
+**Note for the Arsenal branch (2026-10-12).** Mettle's side of the card tie-in is ready: `CardService` and the card
+events (CARDS.md §25) are in `dev.voidmc.mettle.api`. Arsenal should read them, never reach into `character.cards`:
+
+| Arsenal needs | Read it with |
+|---|---|
+| Smithing level for the strike window, steel (6) and Masterwork (12) gates | Hearth's `PlayerSkills.level` slot works today; a Mettle level read in the api when Arsenal asks |
+| A Smithing trait's value (Steady-handed, the Arsenal column of §4.2) | `MettleServices.cards().trait(player, mettle:smithing/<trait>)` |
+| The Masterwork Mastery slotted | `deck(player, mettle:smithing)`: a card whose `perk` is `mettle:smithing/masterwork`, not `dormant` |
+| Echo shortening technique cooldowns | `cooldownScale(player)` |
+| The First Hammer (one quality higher, the gold mark) | `activeMythics(player)` contains `mettle:first_hammer` |
+| "Forged under Folded Steel" in a weapon's history | `deck(...)` at the moment of forging; `CARD_SLOTTED` / `CARD_UNSLOTTED` / `SET_TIER_CHANGED` to refresh a cache |
+
+Forging XP goes the other way, through `Progress.award` (or Hearth's `PlayerSkills.award` slot), as tools do today.
+Nothing of Arsenal's is compiled into Mettle until Arsenal has an api to copy (as `src/hearthApi` does for Hearth).
 
 ## 6. Launcher
 

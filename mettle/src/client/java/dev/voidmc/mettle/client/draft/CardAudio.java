@@ -29,7 +29,8 @@ import net.minecraft.util.Util;
 
 /**
  * Plays the card draft's sounds (docs/SOUNDS.md) on the client, from the cues in {@link CardCues}. Every layer is a
- * local UI sound (the UI volume slider governs it), scheduled to the millisecond: due layers start on the next client
+ * local UI sound (the UI volume slider governs it, and the client options' card sounds switch and volume scale it,
+ * {@link MettleClientOptions#cardSoundsScale()}), scheduled to the millisecond: due layers start on the next client
  * tick or the next frame of whatever screen is open, so a 75 ms card fan lands as written.
  *
  * <p>Results play by themselves: {@code MettleActions.pickCard} (flare, thunk, the other two burn away) and
@@ -204,7 +205,8 @@ public final class CardAudio {
 
 	/** Whether a pick just played its own sounds, so the "learned" moment chime that follows can stay quiet. */
 	public static boolean hushesMoment() {
-		return Util.getMillis() - lastPickAt < CardCues.get().rules().pickHushesMomentMs();
+		// With card sounds off the pick said nothing, so the chime still speaks.
+		return MettleClientOptions.cardSoundsScale() > 0f && Util.getMillis() - lastPickAt < CardCues.get().rules().pickHushesMomentMs();
 	}
 
 	/** The timing the overlay can sync its animations to: {@code draft.sound} in the state (docs/SOUNDS.md §5). */
@@ -215,6 +217,8 @@ public final class CardAudio {
 		o.addProperty("hoverGapMs", cues.rules().hoverGapMs());
 		o.addProperty("stingerAtMs", cues.rules().stingerAtMs());
 		o.addProperty("burnAfterPickMs", cues.rules().burnAfterPickMs());
+		o.addProperty("enabled", MettleClientOptions.cardSounds());
+		o.addProperty("volume", MettleClientOptions.cardSoundsVolume());
 		return o;
 	}
 
@@ -222,7 +226,7 @@ public final class CardAudio {
 
 	private static void play(String cue, int offsetMs, String arg) {
 		CardCues cues = CardCues.get();
-		if (!cues.has(cue)) {
+		if (!cues.has(cue) || MettleClientOptions.cardSoundsScale() <= 0f) {
 			return;
 		}
 		PLAYED.add(arg == null || arg.isEmpty() ? cue : cue + "@" + arg);
@@ -235,6 +239,9 @@ public final class CardAudio {
 	}
 
 	private static void startShimmer(CardCues cues) {
+		if (MettleClientOptions.cardSoundsScale() <= 0f) {
+			return;
+		}
 		if (shimmer != null && !shimmer.isStopped()) {
 			shimmer.hold();
 			return;
@@ -256,11 +263,15 @@ public final class CardAudio {
 		}
 		Minecraft mc = Minecraft.getInstance();
 		long now = Util.getMillis();
+		float scale = MettleClientOptions.cardSoundsScale();
 		for (Iterator<Note> it = PENDING.iterator(); it.hasNext(); ) {
 			Note n = it.next();
 			if (n.dueMs() <= now) {
 				it.remove();
-				SimpleSoundInstance s = new SimpleSoundInstance(n.sound(), SoundSource.UI, n.volume(), n.pitch(),
+				if (scale <= 0f) {
+					continue;
+				}
+				SimpleSoundInstance s = new SimpleSoundInstance(n.sound(), SoundSource.UI, n.volume() * scale, n.pitch(),
 					SoundInstance.createUnseededRandom(), false, 0, SoundInstance.Attenuation.NONE, 0, 0, 0, true);
 				mc.getSoundManager().play(s);
 				LIVE.add(s);

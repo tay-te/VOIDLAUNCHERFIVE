@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.voidmc.mettle.Mettle;
 import dev.voidmc.mettle.character.draft.CardSounds;
+import dev.voidmc.mettle.client.MettleClientOptions;
 import dev.voidmc.mettle.client.draft.CardAudio;
 import dev.voidmc.mettle.client.overlay.MettleActions;
 import dev.voidmc.mettle.client.overlay.MettleState;
@@ -78,7 +79,54 @@ final class CardSoundJourney {
 			return null;
 		}));
 		context.runOnClient(mc -> CardAudio.stop());
+		options(context);
 		context.setScreen(() -> null);
+	}
+
+	/** The client option (SOUNDS.md §8): off silences every cue and lets the "learned" chime speak; the volume shows in the state. */
+	private static void options(ClientGameTestContext context) {
+		boolean wasOn = context.computeOnClient(mc -> MettleClientOptions.cardSounds());
+		int wasVolume = context.computeOnClient(mc -> MettleClientOptions.cardSoundsVolume());
+		try {
+			check(context.computeOnClient(mc -> {
+				CardAudio.resetForTest();
+				MettleActions.setCardSounds(false);
+				MettleActions.cardSound("deal", "mettle:mining");
+				MettleActions.cardSound("hover", "mythic");
+				MettleActions.cardSound("pick", "epic");
+				if (!CardAudio.played().isEmpty() || CardAudio.pending() != 0 || CardAudio.shimmering()) {
+					return "card sounds switched off still played " + CardAudio.played() + " (" + CardAudio.pending() + " waiting)";
+				}
+				if (CardAudio.hushesMoment()) {
+					return "with card sounds off a pick still hushes the learned chime";
+				}
+				JsonObject sound = MettleState.build(mc).getAsJsonObject("draft").getAsJsonObject("sound");
+				if (sound.get("enabled").getAsBoolean()) {
+					return "draft.sound.enabled is still true with card sounds off";
+				}
+				MettleActions.setCardSounds(true);
+				MettleActions.setCardSoundsVolume(140);
+				if (MettleClientOptions.cardSoundsVolume() != 100 || MettleClientOptions.cardSoundsScale() != 1f) {
+					return "card sound volume 140 was not held to 100 (" + MettleClientOptions.cardSoundsVolume() + ")";
+				}
+				MettleActions.setCardSoundsVolume(40);
+				sound = MettleState.build(mc).getAsJsonObject("draft").getAsJsonObject("sound");
+				if (sound.get("volume").getAsInt() != 40 || Math.abs(MettleClientOptions.cardSoundsScale() - 0.4f) > 1e-6) {
+					return "card sound volume 40 % is not what the state and the scale say";
+				}
+				MettleActions.cardSound("slot", "");
+				if (!CardAudio.played().contains("slot")) {
+					return "a quieter card sound did not play";
+				}
+				return null;
+			}));
+		} finally {
+			context.runOnClient(mc -> {
+				CardAudio.stop();
+				MettleClientOptions.setCardSounds(wasOn);
+				MettleClientOptions.setCardSoundsVolume(wasVolume);
+			});
+		}
 	}
 
 	/** Every card event resolves, and every sound file sounds.json names is in the game's resources. */

@@ -1,6 +1,8 @@
 # VOID Mettle — cards v2: rolled cards, decks, sets, trading, Mythics
 
-**Status: waves A–D and fusion built (2026-10-10, branch `mettle-cards`), see §20–§24; wave E (partners, `CardService`) designed.** Builds on the perk draft
+**Status: waves A–D and fusion built (2026-10-10, branch `mettle-cards`), see §20–§24; wave E's Mettle side, the
+`CardService` api and card events, built 2026-10-12 (§25); the Hearth card broker and Arsenal's tie-ins belong to those
+branches (INTEGRATION.md §1.4, §5).** Builds on the perk draft
 ([DRAFT.md](DRAFT.md)): the draft stays the source of cards. Where this doc and DRAFT.md disagree, this doc wins once
 wave A ships (§16). Screens go to Figma first (§13).
 
@@ -721,19 +723,9 @@ against the other's internals.
 - **History**: a weapon's history (Arsenal §7b) may record the card that shaped it ("forged under Folded Steel"); a
   card's history never records items.
 
-Api additions Mettle makes for this (and for Hearth): `CardService` in `dev.voidmc.mettle.api`:
-
-```java
-public interface CardService {
-	double trait(ServerPlayer player, Identifier trait);          // effective total, capped and boosted; 0 if none
-	int setCount(ServerPlayer player, Identifier keyword);        // slotted cards counting for it
-	boolean setActive(ServerPlayer player, Identifier keyword, int tier);
-	float cooldownScale(ServerPlayer player);                     // Echo
-	List<Identifier> mythics(ServerPlayer player);                // held, for display and world reactions
-}
-```
-
-with events `CARD_KEPT`, `CARD_SLOTTED`, `CARD_UNSLOTTED`, `CARD_TRADED`, `MYTHIC_EARNED` on `MettleEvents`.
+Api additions Mettle makes for this (and for Hearth): `CardService` in `dev.voidmc.mettle.api` and the card events on
+`MettleEvents`, built as §25 describes (`trait`, `setCount`, `setActive`, `cooldownScale`, `mythics` as designed here,
+plus the binder, decks, hands and any card by id; the designed `MYTHIC_EARNED` shipped as `MYTHIC_CLAIMED`).
 
 ---
 
@@ -1116,3 +1108,54 @@ keywords rolled at it, the best trait of the three (the highest share of its cap
 rebuild fee paid (no draught, no scar), the three released, the new card drawn "Fused from three" (`how: fused`).
 Checks: `FusionRulesTest` (3) and a fusion step in `ShrineJourney`.
 
+## 25. Built (the card api, wave E's Mettle side, 2026-10-12)
+
+Other mods read cards through `dev.voidmc.mettle.api`, never `character.cards`: **`CardService`** (from
+`MettleServices.cards()`; a neutral stand-in answers until the card module sets `character.cards.CardApi` at init),
+**`CardView`** (an immutable snapshot of one card or offer) and eight events on **`MettleEvents`**. All server side.
+
+```java
+public interface CardService {
+	List<CardView> binder(ServerPlayer player);                         // every card owned: binder, decks, trades
+	List<CardView> deck(ServerPlayer player, ResourceKey<Skill> skill); // slotted, by slot (Mythics included)
+	List<CardView> hand(ServerPlayer player, ResourceKey<Skill> skill); // the offers waiting (id 0)
+	Optional<CardView> card(MinecraftServer server, long id);           // any card in the ledger, whoever holds it
+	Map<Identifier, Integer> activeSets(ServerPlayer player);           // keyword -> tier 2/4/6, at most three
+	int setCount(ServerPlayer player, Identifier keyword);              // slotted, non-dormant cards for it
+	boolean setActive(ServerPlayer player, Identifier keyword, int tier);
+	double trait(ServerPlayer player, Identifier trait);                // effective total, boosted and capped
+	float cooldownScale(ServerPlayer player);                           // the Echo set (0.9 / 0.8 / 1)
+	List<Identifier> mythics(ServerPlayer player);                      // held
+	List<Identifier> activeMythics(ServerPlayer player);                // slotted and working
+}
+
+record CardView(long id, String code, ResourceKey<Skill> skill, ResourceKey<Perk> perk, Rarity rarity, int rank,
+	boolean wildcard, List<Identifier> keywords, List<TraitValue> traits, int needs, Optional<Identifier> mythic,
+	Optional<UUID> owner, String drawnBy, int owners, int scars, Place place, Optional<ResourceKey<Skill>> deck,
+	int slot, boolean dormant, boolean attuning)
+// Rarity: COMMON RARE EPIC CURSED MYTHIC · Place: HAND (an offer: id 0, no owner) BINDER SLOTTED TRADE LISTED RELEASED
+```
+
+| Event (`MettleEvents`) | Args | Fires |
+|---|---|---|
+| `CARD_DRAWN` | `(player, skill, List<CardView> hand)` | a hand dealt: a level, the next draft after a keep, a reroll, a hand topped up or dealt again (offers, id 0) |
+| `CARD_KEPT` | `(player, card)` | an offer kept from a draft (binder, or a deck with Keep & slot); Mythics fire `MYTHIC_CLAIMED` instead |
+| `CARD_SLOTTED` | `(player, card)` | a card put in a deck slot (deck and slot on the card) |
+| `CARD_UNSLOTTED` | `(player, card, deck, paid)` | a card back to the binder: `paid` for a rebuild with draught and fee (the card as it came out, scarred); false for a free swap, the free ways, ops and respecs |
+| `CARD_FUSED` | `(player, result, consumed)` | three copies fused; the three come as released |
+| `CARD_TRADED` | `(from, to, card)` | once per card after a face-to-face swap; the card as `to` holds it (attuning) |
+| `MYTHIC_CLAIMED` | `(player, mythic, card)` | a world first, a deed, a drawn Mythic claimed from a hand, or an op's grant |
+| `SET_TIER_CHANGED` | `(player, keyword, from, to)` | an active set's tier moved (0 = not active, 2, 4, 6): slots, pins, levels, Wits, a lent Dragon Standard |
+
+Every event fires on the server thread after the change is stored, from one place (`CardApi`), so a listener can call
+`CardService` and see the new state. **Who uses it:** Hearth's card broker (hold, release and transfer stay Hearth's
+request 7: `hearth/docs/requests/mettle-cards.md`), Hearth greetings and titles (`mythics`, `MYTHIC_CLAIMED`), and
+Arsenal's forging (`trait`, `setActive`, `cooldownScale`, `activeMythics`: INTEGRATION.md §5). Neither tie-in is built
+on this branch.
+
+Checks: `CardApiTest` (10: views of slotted, binder, attuning and Mythic cards and of offers, a wildcard keeping its
+own skill, every rarity and place mapped, set tier changes, what counts as a draw, the neutral stand-in, every event
+present) and `CardServiceJourney` in the client tour: it listens to every card event from the tour's start, checks each
+event's arguments as the draft, card, shrine, trade and Mythic journeys play (every one of the eight must fire, a paid
+and a free unslot among them), then reads a fresh Athletics deck back through the service and watches the Swift set
+come and go.

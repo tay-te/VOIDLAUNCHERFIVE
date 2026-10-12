@@ -421,6 +421,8 @@ public final class Trades {
 		end(s);
 		Cards.sync(a);
 		Cards.sync(b);
+		CardApi.traded(a, b, List.copyOf(s.a.cards));
+		CardApi.traded(b, a, List.copyOf(s.b.cards));
 		for (ServerPlayer p : List.of(a, b)) {
 			view(p, null, null);
 			SignaturePerks.feedback(p, Mettle.id("trade"), Component.translatable("mettle.trade.done", (p == a ? b : a).getName()));
