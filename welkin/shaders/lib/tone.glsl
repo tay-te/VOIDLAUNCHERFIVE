@@ -25,13 +25,16 @@
 #define LAND_SUN 2.65
 // the open sky's fill on an upward face at noon (round 1: about a quarter less, so the shade is deeper and the sun's
 // side carries the form; lib/sky/build.glsl skyLandFillLevel takes it down faster as the sun sinks)
-#define LAND_FILL 0.17
+#define LAND_FILL 0.155
 // the ground's bounce: the share of the sunlit ground's light that reaches a downward face (round 1: less, so a wall's
 // shade side reads the sky's cool blue, warmed a little by the ground, not an olive grey)
 #define LAND_BOUNCE 0.2
 // the light a sunlit surface throws back onto its own shaded faces and its neighbours' (a cheap short-range bounce),
 // as a share of the sun on level ground: pale stone in shade reads a light grey, grass and dirt stay deep
-#define LAND_SELF_BOUNCE 0.13
+// (round 2: 0.3 on walls, a fifth of it on tops: a shaded wall of pale stone among sunlit stone reads a light cool
+// grey, as Hysteria's and Complementary's do, not a dark notch; dark grass and dirt bounce little, so their shade stays
+// deep. lib/light.glsl takes the albedo into it twice over, so only pale surfaces take much.)
+#define LAND_SELF_BOUNCE 0.3
 // the night (fill and moon) against its old display-space look: the linear sum of fill and moon is darker than the
 // old display sum, so it is lifted to read as before
 #define LAND_NIGHT 1.6
@@ -49,9 +52,11 @@
 #define LAND_CONTRAST 1.26
 // where the shoulder starts (linear, about sRGB 177) and how much of it keeps the hue
 #define LAND_KNEE 0.45
-#define LAND_HUE_KEEP 0.8
+// (round 2: 0.92, so a face in the amber low sun keeps its amber: the per-channel roll greyed it toward cream)
+#define LAND_HUE_KEEP 0.92
 // saturation of the result, 1 as it comes
-#define LAND_SATURATION 0.97
+// (round 2: 0.95, paying back the highlights' kept saturation, so noon's sunlit grass and sand do not turn louder)
+#define LAND_SATURATION 0.95
 
 vec3 toLinear(vec3 c) {
 	return pow(max(c, 0.0), vec3(2.2));
@@ -91,7 +96,13 @@ vec3 welkinTone(vec3 x) {
 	float y = lumaLin(x);
 	vec3 hueKept = x * (toneShoulder(y) / max(y, 1e-6));
 	float peak = max(hueKept.r, max(hueKept.g, hueKept.b));
-	hueKept = peak > 1.0 ? mix(vec3(toneShoulder(y)), hueKept, (1.0 - toneShoulder(y)) / max(peak - toneShoulder(y), 1e-4)) : hueKept;
+	// a colour past white is brought back under it a quarter by giving up saturation (the luminance kept) and three
+	// quarters by giving up brightness (the hue and saturation kept): round 2, so a white trunk or a pale wall in an amber low sun reads
+	// amber, not a washed-out cream, and a back-lit crown glows gold-green, not white
+	if (peak > 1.0) {
+		vec3 desat = mix(vec3(toneShoulder(y)), hueKept, (1.0 - toneShoulder(y)) / max(peak - toneShoulder(y), 1e-4));
+		hueKept = mix(desat, hueKept / peak, 0.75);
+	}
 	x = mix(perChannel, hueKept, LAND_HUE_KEEP);
 	x = mix(vec3(lumaLin(x)), x, LAND_SATURATION);
 	return toDisplay(clamp(x, 0.0, 1.0));

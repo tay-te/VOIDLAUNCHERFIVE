@@ -22,9 +22,10 @@
 // How far the shadow's edge spreads into a cell from each of its open sides, in blocks.
 #define WC_SHADOW_SOFT 5.0
 // The sun's share under one, two and three decks.
-#define WC_SHADOW_ONE 0.74
-#define WC_SHADOW_TWO 0.63
-#define WC_SHADOW_THREE 0.56
+// (round 2: a little lighter, so one cloud passing over a view dims it, not flattens it)
+#define WC_SHADOW_ONE 0.8
+#define WC_SHADOW_TWO 0.69
+#define WC_SHADOW_THREE 0.6
 
 // How much of deck k's (0 low, 1 main, 2 high) cloud stands over camera-relative point q at altitude `mid`, 0..1: 1
 // inside a cloud, easing to a third at an open side of its cell, 0 in a gap.

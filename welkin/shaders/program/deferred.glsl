@@ -105,6 +105,10 @@ void main() {
 	if (flags.x > 0.5) {
 		vec3 albedo = color.rgb;
 		int material = int(flags.y * 255.0 + 0.5); // plumbing's material class (M_*)
+		if (matIsLeaves(material)) {
+			// round 2: leaves' foliage tint a little less saturated, so a sunlit crown reads a natural green, not lime
+			albedo = mix(vec3(dot(albedo, vec3(0.2126, 0.7152, 0.0722))), albedo, 0.86);
+		}
 		vec3 lightDir = lightDirWorld();
 		float facing = sunFacingMat(n, lightDir, material);
 		vec3 sunShare = vec3(1.0);
