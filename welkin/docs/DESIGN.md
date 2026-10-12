@@ -705,3 +705,55 @@ stone, black step pockets on lit cliffs, a slightly flat and bright noon, and a 
   valley 16:30 74.5 -> 101.2 (77.5), contrast 7.78; village 18:30 30.4 -> 33.9 (37.5); nights unchanged.
 - **Cost (idle machine, MEDIUM, 1600x900, shadows on minus off):** plain 0.44..0.50 ms, village 0.64, shore at dawn
   1.04 (with the surface probes), valley at dawn 1.26 ms (the only view over the 1.2 ms line).
+
+### The lighting review, round 3: the leaf-glow bug, a strong low sun over directional shade, light in the crowns (2026-10-12)
+
+The round 2 review ranked the flat low sun first (plain 18:30 sun-to-shade 1.90 against Complementary's 2.66), then
+lime crowns at the golden hour, pale cyan-white glowing leaves at night, weak village lamps, a dark flat forest, open
+ground's noon contrast under 5:1, cream stone and olive-yellow dry grass, a yellow 08:00, the shore's water, the shadow
+pass's cost at a low sun and at night, and a salmon dawn deck.
+
+- **The leaf-glow bug (`lib/shadow.glsl`):** with the receiver plane's slope in the caster test, a caster's mean depth
+  could land past the point's own, so the "blocks above" went negative and the light through leaves,
+  `exp(-0.8 * depth)`, grew far past 1 (`DEBUG_VIEW` 14 showed it saturated on exactly the glowing faces). Far crowns
+  seen toward a low sun glowed lime; seen toward the summer's low full moon they glowed cyan-white. The depth is held
+  at 0 or more and what passes at 1 or less; under the moon the light through leaves is 0.35 of the sun's share.
+- **Low sun:** the sun keeps 0.6 of noon down to the horizon (was 0.4) and goes out only as the disc meets it; its
+  last degrees are redder (dusk 1, 0.36, 0.07; dawn 1, 0.39, 0.12; the gold 1, 0.63, 0.28 and 1, 0.64, 0.40) so pale
+  stone reads amber, not peach-cream. The sky's fill comes from above while the sun is low: an upright face takes 0.36
+  of a top's (0.5 by day, 0.6 before), the tops keep about round 2's level (+0.31 over the last degrees on a smaller
+  `LAND_FILL`), the sun-side glow is 0.6 (was 0.85) and 0.12 on level ground (was 0.25), and the dusk shade takes less
+  of the dome's colour (0.4) and more of its zenith: cool blue-lavender against the amber.
+- **Plants and leaves (`lightFillUp`, set by deferred):** plants' crossed quads take the fill as from above (0.7 of the
+  way) and 1.45x, two-sided blades: tufts read light in the long shadows, as dry grass does at dusk. Leaves take 0.35
+  of the way. A leaf takes the sun at 0.5 + 0.5 Lambert (was 0.36 + 0.64), and a leaf in the shade of the leaves just
+  before it takes half of what passes them, so a crown's sunward side glows a block or two deep while its heart and
+  the floor stay in deep shade. The canopy's fill cut is 0.8 (was 0.68).
+- **Day:** `LAND_FILL` 0.126 (was 0.155), `LAND_SUN` 2.7 (was 2.65), the sun a tenth stronger from about 15 to 45
+  degrees (08:00 and 16:30 as bright as noon), the afternoon fill falling a little faster (pow 2). The noon sun is a
+  cleaner white (1, 0.965, 0.90), the morning a fresh pale gold (1, 0.89, 0.72), the afternoon (1, 0.84, 0.52).
+- **Tone (`lib/tone.glsl`):** a colour past white comes back nine tenths by brightness, a tenth by saturation (was
+  three quarters / a quarter); highlights give up up to 30 % saturation from luminance 0.45 to 0.9
+  (`LAND_HIGHLIGHT_DESAT`), scaled by the sun's height (none in the low sun), so sunlit pale stone is white at noon
+  and amber at dusk.
+- **Torches:** a third stronger, falloff to the 1.9th power (was 2.05): the lamp glow on walls at dusk and the torch
+  street are back (35.6 against round 2's 33.1 and Complementary's 35.1), still orange and pooled.
+- **Shadow cost:** under the moon the map reaches half as far (`SHADOW_NIGHT_REACH`; the shadow pass drops blocks
+  further than that plus 24 blocks, by the block's centre) and is looked up with one hardware compare, no search or
+  filter. By day a penumbra up to 1.5 texels wide is filtered by a 2x2 grid of hardware taps (`shadowPcf4`), the 4x4
+  only past it.
+- **Clouds:** the low sun's under-light on the decks fades away from the sun (peach over its side, rose overhead,
+  lavender-blue away; the brightest rim toward it), so a dawn deck is graded, not one salmon slab.
+- **Measured (`CLOUD_SHADOWS=0`, pinned front; round 2 re-shot in the same conditions -> round 3, Complementary in
+  brackets; worlds A and B):** plain 18:30 sun-to-shade 1.91 -> 2.42..2.62 (2.66), plain 05:30 2.01 -> 2.54 (2.68);
+  village 18:30 2.91 -> 3.95 (2.99); plain 12:00 4.87 -> 4.93, median 137 -> 139.5 (139.7); plain 16:30 5.99 -> 6.35,
+  village 16:30 6.31 -> 6.90; plain 08:00 median 115.8 -> 123.2, R/B 3.41 -> 3.01; plain 16:30 R/B 4.24 -> 3.91;
+  valley 08:00 R/B 1.34 -> 1.20; torch street 33.1 -> 36.0; nights within 1 of round 2. Valley 18:30 stays about 2.8
+  (its p5 is the falls' water, P7). The forest regrows differently from run to run, so its figures are not comparable.
+- **Cost (world B, one game at a time, MEDIUM, 1600x900, frame time minus a run with `SHADOWS=false`):** valley 05:30
+  1.21 -> 1.07 ms, valley at night 0.56 -> 0.33 ms, shore 05:30 0.89 -> 0.91 ms: all under the 1.2 ms line. Far
+  shadows cost 0.37 ms of the valley's dawn. Round 2's 1.4..2.2 ms readings were taken while another game shared the
+  GPU.
+- **Not done here:** the shore's water (Fresnel sky reflection, a glitter path, the 18:30 murk, the gorge's opaque
+  blue) and the hard white mist band on the dawn lake's horizon belong to P7 and the mist; the noon "grey-white wash"
+  at the top of the frame is the cloud decks' bases, not the sky's zenith (the dome deepens to 131, 171, 233 there).
