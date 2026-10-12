@@ -617,9 +617,12 @@ public final class CardRules {
 		return round(trait.max() * CardConfig.get().card_cap_boost);
 	}
 
-	/** One trait's most from every card together: twice its card cap (§4.1). */
+	/**
+	 * One trait's most from every card together: twice its card cap (§4.1), from the unrounded card cap (a 1.5 max gives
+	 * 1.875 a card, 3.75 in all, not twice the printed 1.88).
+	 */
 	public static double totalCap(Trait trait) {
-		return round(cardCap(trait) * CardConfig.get().trait_total_cap);
+		return round(trait.max() * CardConfig.get().card_cap_boost * CardConfig.get().trait_total_cap);
 	}
 
 	/** One card's effective value for a trait, for this character: boosted, then capped at the card cap. */

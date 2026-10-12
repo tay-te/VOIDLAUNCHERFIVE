@@ -289,7 +289,7 @@ public final class MiningSkill {
 		var random = level.getRandom();
 		// Greedy Pick (cursed): now and then an ore crumbles to the stone it sat in, and nothing else drops.
 		if (isOre(state) && Perks.has(player, dev.voidmc.mettle.character.draft.Cursed.GREEDY_PICK)
-			&& random.nextFloat() < dev.voidmc.mettle.character.draft.Cursed.GREEDY_PICK_CRUMBLE) {
+			&& random.nextFloat() < dev.voidmc.mettle.character.draft.Cursed.crumbleChance(player)) {
 			drops.clear();
 			drops.add(new ItemStack(dev.voidmc.mettle.character.draft.Cursed.crumble(state)));
 			dev.voidmc.mettle.character.signature.SignaturePerks.feedback(player, dev.voidmc.mettle.character.draft.Cursed.GREEDY_PICK,
@@ -297,14 +297,20 @@ public final class MiningSkill {
 			return;
 		}
 		List<ItemStack> extra = new ArrayList<>();
-		ItemStack main = drops.getFirst();
+		// Doubling copies only a natural drop: a plain stack that isn't the block itself (never a silk-touched ore).
+		Item own = state.getBlock().asItem();
+		ItemStack main = drops.stream().filter(d -> dev.voidmc.mettle.character.cards.CardHooks.plain(d) && !d.is(own)).findFirst().orElse(null);
+		if (main == null) {
+			return;
+		}
 
 		// Forgemaster (Mining 10 + Smithing 10): raw metal sometimes comes out already smelted.
 		if (Perks.has(player, FORGEMASTER) && random.nextFloat() < 0.15f) {
 			Item ingot = ingotFor(main);
 			if (ingot != null) {
-				drops.set(0, new ItemStack(ingot, main.getCount()));
-				main = drops.getFirst();
+				ItemStack smelted = new ItemStack(ingot, main.getCount());
+				drops.set(drops.indexOf(main), smelted);
+				main = smelted;
 			}
 		}
 		int prospector = Perks.rank(player, PROSPECTOR);
@@ -326,7 +332,9 @@ public final class MiningSkill {
 				vein(level, pos, state.getBlock(), 64).forEach(p -> next.add(p.asLong()));
 				CURRENT_VEIN.put(player.getUUID(), next);
 				for (ItemStack d : drops) {
-					extra.add(d.copy());
+					if (dev.voidmc.mettle.character.cards.CardHooks.plain(d) && !d.is(own)) {
+						extra.add(d.copy());
+					}
 				}
 			}
 		}

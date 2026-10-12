@@ -36,11 +36,12 @@ final class Stride {
 		boolean down = mc.options.keyUp.isDown();
 		long now = player.level().getGameTime();
 		if (down && !wasDown) {
-			if (now - lastPress <= 7 && player.isSprinting() && now >= readyAt && CardStore.get(player).activeRank(KEY) > 0) {
+			long saved = dev.voidmc.mettle.character.cards.CardCooldowns.readyAt(player, dev.voidmc.mettle.character.cards.CardCooldowns.DASH);
+			if (now - lastPress <= 7 && player.isSprinting() && now >= readyAt && now >= saved && CardStore.get(player).activeRank(KEY) > 0) {
 				Vec3 look = Vec3.directionFromRotation(0, player.getYRot()).normalize();
 				player.setDeltaMovement(look.x * 1.9, Math.max(player.getDeltaMovement().y, 0.15), look.z * 1.9);
 				player.resetFallDistance();
-				readyAt = now + 160;
+				readyAt = now + dev.voidmc.mettle.character.cards.MythicEffects.DASH_TICKS;
 				ClientPlayNetworking.send(new MettlePayloads.Dash());
 			}
 			lastPress = now;

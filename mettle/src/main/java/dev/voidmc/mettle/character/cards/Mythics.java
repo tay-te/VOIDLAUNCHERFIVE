@@ -74,6 +74,12 @@ public final class Mythics {
 			}
 		});
 		ServerLivingEntityEvents.AFTER_DEATH.register(Mythics::bossDied);
+		// A boss that leaves without dying (unloaded, despawned, discarded) takes its fight with it.
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_UNLOAD.register((entity, level) -> {
+			if (entity instanceof LivingEntity living) {
+				FIGHTS.remove(living);
+			}
+		});
 		MettleEvents.SKILL_LEVEL_UP.register((player, skill, from, to) -> {
 			if (to >= 20) {
 				first(player, "first_of_masters");

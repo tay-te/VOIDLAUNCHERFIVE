@@ -200,7 +200,7 @@ follow the sword row +0.3.
 | core | `free_respec_below_level` | 5 |
 | character | `favoured_bonus` | 0.25 |
 | character | `wits_xp_per_point` | 0.02 |
-| character | `pvp_perks` | `full` (`reduced` halves perk damage effects against players, `off` disables them) |
+| character | `pvp_perks` | `full` (`reduced` halves perk damage effects against players, `off` disables them); not built for perks yet. Cards have their own `pvp_perks` in `cards.json` (CARDS.md §4.1), which is built |
 | character | `pvp_xp_scale` | 0.5 |
 | character | `enabled_skills` | all shipped |
 | burden | `enabled` | true |

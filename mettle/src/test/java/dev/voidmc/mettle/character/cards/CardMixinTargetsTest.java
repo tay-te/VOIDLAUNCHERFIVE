@@ -56,6 +56,10 @@ class CardMixinTargetsTest {
 		has(LivingEntity.class, "canBeAffected", MobEffectInstance.class);
 		has(LivingEntity.class, "dropExperience", ServerLevel.class, Entity.class);
 		has(LivingEntity.class, "getVisibilityPercent", ServerLevel.class, Entity.class);
+		has(LivingEntity.class, "actuallyHurt", ServerLevel.class, DamageSource.class, float.class);
+		has(LivingEntity.class, "getDamageAfterMagicAbsorb", DamageSource.class, float.class);
+		has(LivingEntity.class, "getJumpPower", float.class);
+		has(net.minecraft.world.entity.projectile.Projectile.class, "shootFromRotation", Entity.class, float.class, float.class, float.class, float.class, float.class);
 		has(Entity.class, "getBlockSpeedFactor");
 		has(Entity.class, "makeStuckInBlock", BlockState.class, Vec3.class);
 		has(Player.class, "getDestroySpeed", BlockState.class);

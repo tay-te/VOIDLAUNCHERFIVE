@@ -117,7 +117,9 @@ public final class CardEffects {
 			Trait.Effect e = t.effect();
 			if (e.attribute().isPresent() && holds(player, e.when())) {
 				Identifier mid = Mettle.id("trait/" + id.getPath());
-				if (put(player, e.attribute().get(), mid, total * e.scale(), e.operation())) {
+				// A jump or swim promise ("X higher", "X faster") becomes the strength or efficiency that gives it (CardPhysics).
+				double amount = CardPhysics.attributeAmount(e.attribute().get().toString(), e.operation(), total * e.scale());
+				if (put(player, e.attribute().get(), mid, amount, e.operation())) {
 					wanted.add(mid);
 				}
 			}
@@ -138,7 +140,7 @@ public final class CardEffects {
 						continue;
 					}
 					Identifier mid = Mettle.id("set/" + id.getPath() + "/" + tier + (i == 0 ? "" : "_" + i));
-					if (put(player, m.attribute(), mid, m.amount(), m.operation())) {
+					if (put(player, m.attribute(), mid, CardPhysics.attributeAmount(m.attribute().toString(), m.operation(), m.amount()), m.operation())) {
 						wanted.add(mid);
 					}
 				}
@@ -156,6 +158,8 @@ public final class CardEffects {
 				}
 			}
 		}
+		// What cards add to movement stays under its ceiling (docs/CARDS.md §14).
+		Ceilings.movement(player);
 	}
 
 	/** Sets one modifier, touching it only when its amount changed. False when the attribute doesn't exist here. */

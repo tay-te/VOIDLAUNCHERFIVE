@@ -287,6 +287,10 @@ public final class CardCommands {
 			state.tiers().forEach((k, tier) -> sets.append(" ").append(CardText.keyword(registries, k)).append(" " + tier));
 			c.getSource().sendSystemMessage(sets);
 		}
+		// Whole-character ceilings this deck would pass (docs/CARDS.md §14): said plainly, so nobody counts on more.
+		var perks = registries.lookupOrThrow(MettleRegistries.PERK);
+		Ceilings.capped(Ceilings.Build.of(state, perks::getOptional)).forEach((stat, potential) ->
+			c.getSource().sendSystemMessage(Ceilings.line(stat, potential).copy().withStyle(ChatFormatting.GOLD)));
 		return state.cards().size();
 	}
 

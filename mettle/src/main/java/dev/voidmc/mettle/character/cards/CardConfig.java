@@ -63,6 +63,10 @@ public final class CardConfig {
 	public int mythic_slots = 2;
 	public int far_horizon_blocks = 10000;
 
+	// PvP (§4.1): between players, cards' share of a hit (traits, sets, Mythics; Ironskin, Bodyguard) is "full", "reduced"
+	// (halved) or "off". Attribute modifiers (armour, health, speed) stay as they are.
+	public String pvp_perks = "full";
+
 	public static CardConfig get() {
 		return current;
 	}

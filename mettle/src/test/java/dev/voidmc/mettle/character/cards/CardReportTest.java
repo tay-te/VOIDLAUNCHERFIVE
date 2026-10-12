@@ -151,6 +151,7 @@ class CardReportTest {
 		out.append(sets());
 		out.append(mythics());
 		out.append(rebuilds());
+		out.append(ceilings());
 		String text = out.toString();
 		System.out.println(text);
 		Path file = Path.of("build", "reports", "mettle-cards.md");
@@ -161,6 +162,111 @@ class CardReportTest {
 		assertTrue(identical * 10_000 < 8 * RUNS || identical == 0, "identical decks: " + identical);
 		assertTrue(worstRatio <= 1.15 + 1e-9, String.format(Locale.ROOT, "a skill's deck at 20 is %.2f× v1 (limit 1.15×)", worstRatio));
 		assertTrue(worstWits <= 1.3 + 1e-9, String.format(Locale.ROOT, "a skill's Wits 14 deck at 20 is %.2f× v1 (limit 1.3×)", worstWits));
+		assertTrue(ceilingProblems.isEmpty(), String.join(System.lineSeparator(), ceilingProblems));
+	}
+
+	// ---------------------------------------------------------------- whole-character ceilings (§14), worst case
+
+	/**
+	 * The worst-case deck search of docs/CARDS.md §14: every trait at its total cap, every cursed card held, every choice
+	 * of three active sets (at 6) and two Mythics, every condition met at once (sprinting on a road with a blade drawn,
+	 * ten seconds in, after a kill, a critical on a foe below 30 % health, unarmoured, alone or among allies helping). For
+	 * each capped stat: what the cards would add without the ceiling, and what the game applies (the same functions the
+	 * hooks call), which must never pass it. Runs on every build; with -Dmettle.balance=true its table is in the report.
+	 */
+	@Test
+	void ceilingsHoldForEveryDeck() {
+		String table = ceilings();
+		System.out.println(table);
+		assertTrue(ceilingProblems.isEmpty(), String.join("\n", ceilingProblems));
+	}
+
+	private static final List<String> ceilingProblems = new ArrayList<>();
+
+	static String ceilings() {
+		ceilingProblems.clear();
+		Map<String, Double> traits = new HashMap<>();
+		TestCards.TRAITS.forEach((id, t) -> traits.put(id.getPath(), CardRules.totalCap(t)));
+		Map<String, Perk> cursed = new HashMap<>();
+		TestCards.PERKS.forEach((k, p) -> {
+			if (p.kind() == Perk.Kind.CURSED) {
+				cursed.put(k.identifier().getPath(), p);
+			}
+		});
+		List<String> keywords = TestCards.KEYWORDS.keySet().stream().map(Identifier::getPath).sorted().toList();
+		List<String> mythics = TestCardsMythics.load().keySet().stream().map(Identifier::getPath).sorted().toList();
+		Ceilings.Stat[] stats = Ceilings.Stat.values();
+		double[] raw = new double[stats.length];
+		double[] applied = new double[stats.length];
+		String[] worst = new String[stats.length];
+		double jumpRaw = 0;
+		double jumpApplied = 0;
+		int decks = 0;
+		for (int i = 0; i < keywords.size(); i++) {
+			for (int j = i + 1; j < keywords.size(); j++) {
+				for (int k = j + 1; k < keywords.size(); k++) {
+					Map<String, Integer> sets = Map.of(keywords.get(i), 6, keywords.get(j), 6, keywords.get(k), 6);
+					for (int a = 0; a < mythics.size(); a++) {
+						for (int b = a + 1; b < mythics.size(); b++) {
+							Ceilings.Build build = new Ceilings.Build(traits, sets, Set.of(mythics.get(a), mythics.get(b)), cursed);
+							String name = keywords.get(i) + " 6, " + keywords.get(j) + " 6, " + keywords.get(k) + " 6; " + mythics.get(a) + ", " + mythics.get(b);
+							decks++;
+							double[][] got = ceilingValues(build);
+							for (int s = 0; s < stats.length; s++) {
+								if (got[s][0] > raw[s]) {
+									raw[s] = got[s][0];
+									worst[s] = name;
+								}
+								applied[s] = Math.max(applied[s], got[s][1]);
+								if (got[s][1] > stats[s].ceiling + 1e-9) {
+									ceilingProblems.add(String.format(Locale.ROOT, "%s: %s applies %s (ceiling %s)", name, stats[s].key,
+										Ceilings.percent(stats[s], got[s][1]), Ceilings.percent(stats[s], stats[s].ceiling)));
+								}
+							}
+							// Jumps: Springing and Gale 4 (as heights) and the Spring perk's +0.085, held under two blocks.
+							double strength = CardPhysics.JUMP * (1 + CardPhysics.jumpStrengthFor(build.pct("athletics/springing"))
+								+ (build.set("gale") >= 4 ? CardPhysics.jumpStrengthFor(0.10) : 0)) + 0.085;
+							jumpRaw = Math.max(jumpRaw, CardPhysics.apex(strength));
+							double held = CardPhysics.apex(Ceilings.jumpPower((float) strength, strength, 0f));
+							jumpApplied = Math.max(jumpApplied, held);
+							if (held >= 2.0) {
+								ceilingProblems.add(String.format(Locale.ROOT, "%s: a sprint-jump clears %.2f blocks", name, held));
+							}
+						}
+					}
+				}
+			}
+		}
+		StringBuilder out = new StringBuilder(String.format(Locale.ROOT, "%n## Whole-character ceilings (§14): the worst of %,d decks%n%n"
+			+ "Every trait at its total cap, every cursed card, three sets at 6 and two Mythics, every condition at once. \"Uncapped\" is what the "
+			+ "cards would add without the ceilings; \"applied\" is what the game gives (the hooks' own functions).%n%n"
+			+ "| Stat | uncapped (worst deck) | applied | ceiling | worst deck |%n|---|---|---|---|---|%n", decks));
+		for (int s = 0; s < stats.length; s++) {
+			out.append(String.format(Locale.ROOT, "| %s | %s | %s | %s | %s |%n", stats[s].key, Ceilings.percent(stats[s], raw[s]), Ceilings.percent(stats[s], applied[s]),
+				Ceilings.percent(stats[s], stats[s].ceiling), worst[s]));
+		}
+		out.append(String.format(Locale.ROOT, "| jump | %.2f blocks | %.2f blocks | under 2 blocks | Springing, Gale 4 and Spring |%n", jumpRaw, jumpApplied));
+		return out.toString();
+	}
+
+	/** Each stat's {uncapped, applied} share for one build, worst over the states the hooks see. */
+	private static double[][] ceilingValues(Ceilings.Build b) {
+		double[][] out = new double[Ceilings.Stat.values().length][2];
+		double move = Ceilings.movementPotential(b, true);
+		out[0] = new double[] {move, move + Ceilings.movementCorrection(move)};
+		double attribute = Ceilings.meleeAttribute(b);
+		double hit = Ceilings.meleeHit(b);
+		boolean twin = b.mythic("twin_edge");
+		double second = twin ? Ceilings.TWIN_EDGE : 1;
+		out[1] = new double[] {attribute * hit * second - 1, attribute * Ceilings.melee(attribute, hit, twin) * second - 1};
+		double taken = Math.min(Ceilings.takenPotential(b, true), Ceilings.takenPotential(b, false));
+		out[2] = new double[] {1 - taken, 1 - Ceilings.taken(taken)};
+		double digAttribute = Ceilings.digAttribute(b);
+		double digHook = Ceilings.digHook(b);
+		out[3] = new double[] {digAttribute * digHook - 1, digAttribute * Ceilings.dig(digAttribute, digHook) - 1};
+		double drop = Ceilings.dropPotential(b);
+		out[4] = new double[] {drop, drop * Ceilings.dropScale(drop)};
+		return out;
 	}
 
 	private static boolean maxTraitShareOk = true;

@@ -10,6 +10,7 @@ import dev.voidmc.mettle.api.Keyword;
 import dev.voidmc.mettle.api.Mythic;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Trait;
+import dev.voidmc.mettle.character.draft.Cursed;
 import dev.voidmc.mettle.core.CardData;
 import dev.voidmc.mettle.core.CardData.TraitRoll;
 import dev.voidmc.mettle.core.CardsState;
@@ -45,8 +46,8 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * Production audit of the card effects (2026-10-12, branch audit-gameplay): every trait, set tier and Mythic is wired in
  * code, its text renders its number, its numbers match the doc's caps, and the whole-character ceilings of
- * docs/CARDS.md §14 hold for the worst legal build. Tests that fail here are findings, not flakes: each message says
- * what is wrong and where.
+ * docs/CARDS.md §14 hold for the worst legal build. Written as findings (2026-10-12) and flipped once fixed
+ * (branch mettle-fix-effects): each check now asserts the correct behaviour, and its message says what broke.
  */
 class CardAuditTest {
 	private static final Map<Identifier, Mythic> MYTHICS = TestCardsMythics.load();
@@ -153,8 +154,8 @@ class CardAuditTest {
 				checks.add(() -> assertTrue(t.max() <= limit, path + ": max " + t.max() + " over the " + t.scope() + " limit " + limit));
 			}
 			checks.add(() -> assertEquals(CardRules.round(t.max() * 1.25), CardRules.cardCap(t), 1e-9, path + ": card cap"));
-			// Twice the card cap as rounded (a 1.875 card cap prints 1.88 and totals 3.76, not the doc's 3.75).
-			checks.add(() -> assertEquals(CardRules.round(CardRules.cardCap(t) * 2), CardRules.totalCap(t), 1e-9, path + ": total cap"));
+			// Twice the card cap before rounding (a 1.875 card cap prints 1.88, but two of them total 3.75, as the doc says).
+			checks.add(() -> assertEquals(CardRules.round(t.max() * 1.25 * 2), CardRules.totalCap(t), 1e-9, path + ": total cap"));
 			// The value the tooltip prints for a viewer at 20 is the value the server applies (CardRules.effective both sides).
 			CardRules.Attributes twenty = a -> 20;
 			checks.add(() -> assertEquals(Math.min(CardRules.cardCap(t), CardRules.round(t.max() * 1.255)), CardRules.effective(t, t.max(), twenty), 1e-9,
@@ -222,19 +223,42 @@ class CardAuditTest {
 		assertAll(checks);
 	}
 
-	/** Hex 2 / 4 promise to soften every cursed card's downside and strengthen its upside. */
+	/**
+	 * Hex 2 / 4 promise to soften every cursed card's downside and strengthen its upside: the coded halves in Cursed.java
+	 * (Heavy Draw, Snap Shot, Brittle Edge, Slapdash, Greedy Pick's crumble, Wolf's Hunger's drain) as well as the
+	 * attribute ones (EffectsApplier.hexed).
+	 */
 	@Test
-	void hexReachesTheCodedCursedCards() throws IOException {
-		String cursed = Files.readString(Path.of("src/main/java/dev/voidmc/mettle/character/draft/Cursed.java"));
+	void hexReachesTheCodedCursedCards() {
 		List<String> coded = new ArrayList<>();
 		TestCards.PERKS.forEach((k, p) -> {
 			if (p.kind() == Perk.Kind.CURSED && p.effects().isEmpty()) {
 				coded.add(k.identifier().getPath());
 			}
 		});
-		assertTrue(cursed.toLowerCase(Locale.ROOT).contains("hex"),
-			"Hex 2/4 only scale attribute modifiers (EffectsApplier.hexed); Cursed.java's coded halves ignore it: Greedy Pick's crumble, "
-				+ "Wolf's Hunger's drain and these cursed cards with no attribute effect at all: " + coded);
+		assertEquals(Set.of("marksmanship/heavy_draw", "marksmanship/snap_shot", "smithing/brittle_edge", "smithing/slapdash"), Set.copyOf(coded),
+			"the cursed cards with no attribute effect at all");
+		assertAll(
+			// Heavy Draw: slower draw (down), harder arrows (up).
+			() -> assertEquals(1 - 0.25 * 0.75, Cursed.drawSpeed(true, false, 2), 1e-6, "Heavy Draw's slower draw at Hex 2"),
+			() -> assertEquals(1 + 0.35 * 1.15, Cursed.arrowDamage(true, false, 4), 1e-6, "Heavy Draw's harder arrows at Hex 4"),
+			() -> assertEquals(Cursed.HEAVY_DRAW_DAMAGE, Cursed.arrowDamage(true, false, 2), 1e-6, "Hex 2 leaves Heavy Draw's upside"),
+			// Snap Shot: faster draw (up), weaker arrows (down).
+			() -> assertEquals(1 + 1.0 * 1.15, Cursed.drawSpeed(false, true, 4), 1e-6, "Snap Shot's quicker draw at Hex 4"),
+			() -> assertEquals(1 - 0.3 * 0.75, Cursed.arrowDamage(false, true, 2), 1e-6, "Snap Shot's weaker arrows at Hex 2"),
+			// Brittle Edge: +2 damage (up), half the durability (down).
+			() -> assertEquals(2.0 * 1.15, Cursed.brittleEdgeDamage(4), 1e-9, "Brittle Edge's damage at Hex 4"),
+			() -> assertEquals(-0.5 * 0.75, Cursed.brittleEdgeDurability(2), 1e-9, "Brittle Edge's lost durability at Hex 2"),
+			// Slapdash: XP ×1.6 (up), a quarter less durable (down).
+			() -> assertEquals(1 + 0.6 * 1.15, Cursed.slapdashXp(4), 1e-9, "Slapdash's XP at Hex 4"),
+			() -> assertEquals(-0.25 * 0.75, Cursed.slapdashDurability(2), 1e-9, "Slapdash's lost durability at Hex 2"),
+			// Greedy Pick's crumble and Wolf's Hunger's drain are downsides.
+			() -> assertEquals(0.125 * 0.75, Cursed.crumbleChance(2), 1e-6, "Greedy Pick's crumble at Hex 2"),
+			() -> assertEquals(1 + 0.4 * 0.75, Cursed.wolfsHunger(2), 1e-6, "Wolf's Hunger's drain at Hex 2"),
+			// Without Hex nothing changes.
+			() -> assertEquals(Cursed.HEAVY_DRAW_SPEED, Cursed.drawSpeed(true, false, 0), 1e-6),
+			() -> assertEquals(Cursed.GREEDY_PICK_CRUMBLE, Cursed.crumbleChance(0), 1e-6),
+			() -> assertEquals(Cursed.WOLFS_HUNGER_DRAIN, Cursed.wolfsHunger(0), 1e-6));
 	}
 
 	@Test
@@ -303,32 +327,52 @@ class CardAuditTest {
 			+ cursedUpside("blades/glass_dancer", "movement_speed");
 		double moveNoRoad = total("athletics/fleet") + total("athletics/long_winded") + setAmount("swift", 2, "movement_speed")
 			+ cursedUpside("athletics/featherweight", "movement_speed");
-		report.append(String.format(Locale.ROOT, "  movement: +%.0f %% (road, blade, 10 s sprint); +%.0f %% plain sprint; ceiling +35 %%%n", move * 100, moveNoRoad * 100));
-		checks.add(() -> assertTrue(move <= 0.35, String.format(Locale.ROOT, "movement +%.0f %% passes the +35 %% ceiling", move * 100)));
+		// In game the cards' share of movement speed is corrected to the ceiling (Ceilings.movement).
+		double moveApplied = move + Ceilings.movementCorrection(move);
+		double moveNoRoadApplied = moveNoRoad + Ceilings.movementCorrection(moveNoRoad);
+		report.append(String.format(Locale.ROOT, "  movement: +%.0f %% (road, blade, 10 s sprint) → +%.0f %% applied; +%.0f %% plain sprint → +%.0f %%; ceiling +35 %%%n",
+			move * 100, moveApplied * 100, moveNoRoad * 100, moveNoRoadApplied * 100));
+		checks.add(() -> assertTrue(moveApplied <= 0.35 + 1e-9, String.format(Locale.ROOT, "movement +%.0f %% passes the +35 %% ceiling", moveApplied * 100)));
+		checks.add(() -> assertTrue(moveNoRoadApplied <= 0.35 + 1e-9, "plain sprint passes the movement ceiling"));
 
-		// Melee: a blade crit on a boss that targets you (no Ambushing), three sets (Keen 6, Brutal, Ember 6) and no Mythic.
-		double melee = (1 + total("blades/keen")) * 1.08 /* Keen 2, CardHooks:386 */ * (1 + setAmount("brutal", 2, "attack_damage"))
-			* (1 + cursedUpside("blades/reckless_edge", "attack_damage")) * 1.2 /* Weak Point, CardHooks:377 */ * 1.15 /* Kindled, CardHooks:353 */;
-		double meleeMythic = melee * 1.25 /* Twin Edge: every 4th hit again */ * 1.15 /* Lone Banner */;
-		double meleeExecute = meleeMythic * (1 + total("blades/finishing"));
-		report.append(String.format(Locale.ROOT, "  melee: ×%.2f (cards and sets), ×%.2f (+ Twin Edge, Lone Banner), ×%.2f below 30 %% health; ceiling ×1.60%n",
-			melee, meleeMythic, meleeExecute));
-		checks.add(() -> assertTrue(melee <= 1.6, String.format(Locale.ROOT, "melee ×%.2f passes the +60 %% ceiling", melee)));
+		// Melee: a blade crit on a boss that targets you (no Ambushing), three sets (Keen 6, Brutal, Ember 6) and no Mythic. The
+		// attribute share (Brutal 2, Reckless Edge) is already in the hit; the rest is the hook's multiplier.
+		double attribute = (1 + setAmount("brutal", 2, "attack_damage")) * (1 + cursedUpside("blades/reckless_edge", "attack_damage"));
+		double hit = (1 + total("blades/keen")) * 1.08 /* Keen 2 */ * 1.2 /* Weak Point */ * 1.15 /* Kindled */;
+		double melee = attribute * hit;
+		double meleeApplied = attribute * Ceilings.melee(attribute, hit, false);
+		double hitMythic = hit * 1.15 /* Lone Banner */;
+		double meleeMythic = attribute * hitMythic * Ceilings.TWIN_EDGE;
+		// The Twin Edge strikes every fourth hit again for the hit's full damage: a quarter more over a fight.
+		double meleeMythicApplied = attribute * Ceilings.melee(attribute, hitMythic, true) * Ceilings.TWIN_EDGE;
+		double hitExecute = hitMythic * (1 + total("blades/finishing"));
+		double meleeExecute = attribute * hitExecute * Ceilings.TWIN_EDGE;
+		double meleeExecuteApplied = attribute * Ceilings.melee(attribute, hitExecute, true) * Ceilings.TWIN_EDGE;
+		report.append(String.format(Locale.ROOT, "  melee: ×%.2f (cards and sets) → ×%.2f applied, ×%.2f (+ Twin Edge, Lone Banner) → ×%.2f, ×%.2f below 30 %% health → ×%.2f; "
+			+ "ceiling ×1.60%n", melee, meleeApplied, meleeMythic, meleeMythicApplied, meleeExecute, meleeExecuteApplied));
+		for (double applied : new double[] {meleeApplied, meleeMythicApplied, meleeExecuteApplied}) {
+			checks.add(() -> assertTrue(applied <= 1.6 + 1e-9, String.format(Locale.ROOT, "melee ×%.2f passes the +60 %% ceiling", applied)));
+		}
 
-		// Digging stone below y 0.
-		double dig = (1 + total("mining/deepborn")) * (1 + total("mining/rockbreaker")) * 1.05
-			* (1 + cursedUpside("mining/greedy_pick", "block_break_speed") + cursedUpside("mining/black_lung", "block_break_speed"));
-		report.append(String.format(Locale.ROOT, "  dig speed (stone, below y 0): +%.0f %%; ceiling +120 %%%n", (dig - 1) * 100));
-		checks.add(() -> assertTrue(dig <= 2.2, String.format(Locale.ROOT, "dig +%.0f %% passes the +120 %% ceiling", (dig - 1) * 100)));
+		// Digging stone below y 0: the cursed cards' break speed is in the attribute, the rest in the hook.
+		double digAttribute = 1 + cursedUpside("mining/greedy_pick", "block_break_speed") + cursedUpside("mining/black_lung", "block_break_speed");
+		double digHook = (1 + total("mining/deepborn")) * (1 + total("mining/rockbreaker")) * 1.05;
+		double dig = digAttribute * digHook;
+		double digApplied = digAttribute * Ceilings.dig(digAttribute, digHook);
+		report.append(String.format(Locale.ROOT, "  dig speed (stone, below y 0): +%.0f %% → +%.0f %% applied; ceiling +120 %%%n", (dig - 1) * 100, (digApplied - 1) * 100));
+		checks.add(() -> assertTrue(digApplied <= 2.2 + 1e-9, String.format(Locale.ROOT, "dig +%.0f %% passes the +120 %% ceiling", (digApplied - 1) * 100)));
 
-		// Jumps: Springing prints "X higher" but adds X to jump strength; height grows with its square.
+		// Jumps: Springing prints "X higher", and the strength it adds now gives X of height (CardPhysics).
 		double spring = total("athletics/springing");
 		double printed = spring * 100;
-		double real = (apex(0.42 * (1 + spring)) / apex(0.42) - 1) * 100;
-		double withGale = apex(0.42 * (1 + spring + setAmount("gale", 4, "jump_strength")));
-		report.append(String.format(Locale.ROOT, "  Springing at its total cap: prints +%.1f %% higher, jumps +%.1f %% higher; with Gale 4 a sprint-jump clears %.2f blocks "
-			+ "(vanilla %.2f)%n", printed, real, withGale, apex(0.42)));
+		double real = (apex(0.42 * (1 + CardPhysics.jumpStrengthFor(spring))) / apex(0.42) - 1) * 100;
+		// With Gale 4 and the Spring perk (+0.085) on top, a sprint-jump still peaks under two blocks (Ceilings.jumpPower).
+		double strength = 0.42 * (1 + CardPhysics.jumpStrengthFor(spring) + CardPhysics.jumpStrengthFor(setAmount("gale", 4, "jump_strength"))) + 0.085;
+		double withGale = apex(Ceilings.jumpPower((float) strength, strength, 0f));
+		report.append(String.format(Locale.ROOT, "  Springing at its total cap: prints +%.1f %% higher, jumps +%.1f %% higher; with Gale 4 and Spring a sprint-jump "
+			+ "clears %.2f blocks (vanilla %.2f, uncapped %.2f)%n", printed, real, withGale, apex(0.42), apex(strength)));
 		checks.add(() -> assertEquals(printed, real, 2.0, "Springing's printed height is not the height gained"));
+		checks.add(() -> assertTrue(withGale < 2.0, String.format(Locale.ROOT, "a sprint-jump clears %.2f blocks: over a two-block wall", withGale)));
 
 		// Knockback resistance (attribute max 1): Unyielding + Grounded + Bracing while sprinting with a blade.
 		double kb = total("defense/unyielding") + total("blades/grounded") + total("athletics/bracing");

@@ -56,7 +56,7 @@ TRAITS = {
     'blades': [
         ('keen', 'Keen', 'Blade critical hits deal %s more.', 5, 12, 1, P, MIGHT, B, beh('blade_crit_damage'), None),
         ('sweeping', 'Sweeping', 'Your sweeps deal %s more.', 8, 20, 1, P, MIGHT, N, beh('sweep_damage'), None),
-        ('finishing', 'Finishing', 'Blade hits on targets below 30 % health deal %s more.', 5, 12, 1, P, MIGHT, B, beh('blade_finishing'), None),
+        ('finishing', 'Finishing', 'Blade hits on targets below 30 %% health deal %s more.', 5, 12, 1, P, MIGHT, B, beh('blade_finishing'), None),
         ('tempo', 'Tempo', 'Each hit on the same target within 1.5 s of the last swings %s faster, up to 3 stacks.', 3, 6, 1, P, FIN, B, beh('blade_tempo'), None),
         ('bleeding', 'Bleeding', 'Critical blade hits make the target bleed %s damage over 3 s.', 1, 3, 0.5, F, FIN, N, beh('blade_bleed'), None),
         ('parrying', 'Parrying', 'Holding a blade (not blocking), a melee hit is turned aside for half its damage %s of the time.', 3, 8, 1, P, FIN, B, beh('blade_parry'), None),
@@ -83,7 +83,7 @@ TRAITS = {
         ('swinging', 'Swinging', 'Heavy weapons swing %s faster.', 3, 8, 1, P, FIN, B, attr('minecraft:attack_speed', MB, 0.01, 'holding_heavy'), None),
         ('raging', 'Raging', 'Each hit you take gives +%s damage for 5 s, up to 3 stacks.', 2, 4, 1, P, END, B, beh('heavy_rage'), None),
         ('rooted', 'Rooted', '%s less knockback while you hold a heavy weapon.', 10, 25, 1, P, END, N, attr('minecraft:knockback_resistance', 'add_value', 0.01, 'holding_heavy'), None),
-        ('bloodthirsty', 'Bloodthirsty', 'A heavy kill heals %s hearts.', 0.5, 1.5, 0.5, F, END, B, beh('heavy_kill_heal'), None),
+        ('bloodthirsty', 'Bloodthirsty', 'A heavy kill heals %s hearts (at most that much a second; a kill by a cleave or an overkill heals half).', 0.5, 1.5, 0.5, F, END, B, beh('heavy_kill_heal'), None),
         ('unshaken', 'Unshaken', 'Slowness and Weakness on you last %s less while you hold a heavy weapon.', 15, 25, 1, P, END, N, beh('heavy_unshaken'), None),
         ('unworn', 'Unworn', 'Axes, maces and tridents lose durability %s less often.', 6, 15, 1, P, END, N, beh('durability_heavy'), None),
         ('splitting', 'Splitting', 'Logs you chop drop one more %s of the time.', 5, 12, 1, P, FOR, N, beh('extra_logs'), None),
@@ -125,7 +125,7 @@ TRAITS = {
     ],
     'athletics': [
         ('strapped', 'Strapped', '+%s kg carry capacity.', 3, 8, 1, F, MIGHT, B, attr('mettle:carry_capacity'), None),
-        ('burden_wise', 'Burden-wise', 'You become Burdened %s points later (75 % → 75 + X).', 2, 5, 1, F, MIGHT, B, beh('burden_later'), None),
+        ('burden_wise', 'Burden-wise', 'You become Burdened later: at 75 %% of your capacity plus %s points.', 2, 5, 1, F, MIGHT, B, beh('burden_later'), None),
         ('bracing', 'Bracing', '%s less knockback while you sprint.', 10, 25, 1, P, MIGHT, N, attr('minecraft:knockback_resistance', 'add_value', 0.01, 'sprinting'), None),
         ('fleet', 'Fleet', 'You sprint %s faster.', 2, 6, 1, P, FIN, B, attr('minecraft:movement_speed', MB, 0.01, 'sprinting'), None),
         ('springing', 'Springing', 'Sprint-jumps go %s higher.', 4, 10, 1, P, FIN, B, attr('minecraft:jump_strength', MB, 0.01, 'sprinting'), None),
@@ -187,7 +187,7 @@ KEYWORDS = {
     'swift': ('Swift', 'speed', {
         2: ('+3 % movement speed.', [('minecraft:movement_speed', 0.03, MB)], None),
         4: ('+5 % attack speed and bow draw speed.', [('minecraft:attack_speed', 0.05, MB)], 'set_swift_4'),
-        6: ("Slipstream: after 3 s of sprinting, your next hit or shot within 2 s deals +30 % and doesn't break your sprint.", [], 'set_swift_6')}),
+        6: ('Slipstream: after 3 s of sprinting, your next hit or shot within 2 s deals +30 %.', [], 'set_swift_6')}),
     'brutal': ('Brutal', 'heavy blows', {
         2: ('+4 % melee damage.', [('minecraft:attack_damage', 0.04, MB)], None),
         4: ('Critical hits knock back half again as far and daze for 0.5 s.', [], 'set_brutal_4'),
@@ -207,7 +207,7 @@ KEYWORDS = {
     'wild': ('Wild', 'beasts and plants', {
         2: ('Animals you kill and wild plants you pick give 10 % more.', [], 'set_wild_2'),
         4: ('Your tamed animals near you take 25 % less damage and deal 15 % more.', [], 'set_wild_4'),
-        6: ('Feral: on natural ground (outside settlements) you regenerate as if well fed and move 8 % faster.', [], 'set_wild_6')}),
+        6: ('Feral: on natural ground (soil, sand, snow, gravel or stone under open sky) you regenerate as if well fed and move 8 % faster.', [], 'set_wild_6')}),
     'iron': ('Iron', 'armour and wear', {
         2: ('Armour and shields wear 10 % slower.', [], 'set_iron_2'),
         4: ('+1 armour toughness.', [('minecraft:armor_toughness', 1.0, 'add_value')], None),
@@ -218,7 +218,7 @@ KEYWORDS = {
         6: ('Undertow: in water or rain you deal +15 %, every hit slows the target for 1 s, and you see clearly under water.', [], 'set_tide_6')}),
     'gale': ('Gale', 'air, falls, flight', {
         2: ('Fall 1.5 blocks more before taking damage.', [('minecraft:safe_fall_distance', 1.5, 'add_value')], None),
-        4: ('Arrows and thrown things fly 10 % faster; sprint-jumps +10 %.', [('minecraft:jump_strength', 0.1, MB, 'sprinting')], 'set_gale_4'),
+        4: ('Arrows and thrown things fly 10 % faster; sprint-jumps go 10 % higher.', [('minecraft:jump_strength', 0.1, MB, 'sprinting')], 'set_gale_4'),
         6: ('Updraft: jump once more in mid-air before you land (8 s cooldown).', [], 'set_gale_6')}),
     'hoard': ('Hoard', 'plenty', {
         2: ('Everything you carry weighs 5 % less.', [], 'set_hoard_2'),
@@ -253,7 +253,7 @@ MYTHICS = {
                    'You and allies within 12 blocks breathe under water, see clearly in it, and mine there at full speed.',
                    'Its eye still watches the sea, now for you.'),
     'open_hand': ('The Open Hand', 'world_first', 'first_honoured', None, 'First to be Honoured in a Hearth city (without Hearth: first Hero of the Village)',
-                  'Your Hearth market edge also applies to allies within 8 blocks of you at a counter, and Hearth folk know your name.',
+                  'Your Hearth market edge also applies to allies within 8 blocks of you at a counter.',
                   'A town remembers who stood in its gate.'),
     'first_of_masters': ('First of Masters', 'world_first', 'first_master', None, 'First to bring any skill to 20',
                          'Mentor: allies within 16 blocks gain skill XP 20 % faster in every skill where yours is higher than theirs.',

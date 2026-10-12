@@ -40,13 +40,18 @@ final class Updraft {
 			leftGround = true;
 		}
 		long now = player.level().getGameTime();
-		if (down && !wasDown && leftGround && !used && now >= readyAt && !player.getAbilities().flying
+		// The cooldown is the server's, saved with the player (CardCooldowns), so a relog never resets it.
+		long saved = dev.voidmc.mettle.character.cards.CardCooldowns.readyAt(player, dev.voidmc.mettle.character.cards.CardCooldowns.UPDRAFT);
+		if (down && !wasDown && leftGround && !used && now >= readyAt && now >= saved && !player.getAbilities().flying
 			&& CardStore.get(player).tier(GALE) >= 6) {
 			Vec3 v = player.getDeltaMovement();
-			player.setDeltaMovement(v.x, 0.42 * player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.JUMP_STRENGTH) / 0.42, v.z);
+			// As high as a jump, with the jump ceiling (Ceilings.JUMP_STRENGTH) that holds every jump under two blocks.
+			double strength = Math.min(player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.JUMP_STRENGTH),
+				dev.voidmc.mettle.character.cards.Ceilings.JUMP_STRENGTH);
+			player.setDeltaMovement(v.x, strength, v.z);
 			player.resetFallDistance();
 			used = true;
-			readyAt = now + 160;
+			readyAt = now + dev.voidmc.mettle.character.cards.CardHooks.UPDRAFT_TICKS;
 			ClientPlayNetworking.send(new MettlePayloads.Updraft());
 		}
 		wasDown = down;

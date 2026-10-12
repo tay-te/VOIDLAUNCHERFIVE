@@ -180,6 +180,12 @@ public final class Forging {
 			marks.add(Mark.SLAPDASH);
 		}
 		java.util.Map<String, Double> traits = dev.voidmc.mettle.character.cards.CardHooks.forgedTraits(player, armour, weapon, dig);
+		// The Hex set reaches the cursed marks: the smith's tier is stamped with them (Cursed.brittleEdgeDamage and the rest).
+		int hex = dev.voidmc.mettle.character.draft.Cursed.hex(player);
+		if (hex >= 2 && (marks.contains(Mark.BRITTLE_EDGE) || marks.contains(Mark.SLAPDASH))) {
+			traits = new java.util.TreeMap<>(traits);
+			traits.put("hex", (double) hex);
+		}
 		return marks.isEmpty() && traits.isEmpty() ? null : new Forged(player.getName().getString(), marks, Reforge.NONE, traits);
 	}
 
@@ -223,7 +229,7 @@ public final class Forging {
 				damage += 1;
 			}
 			if (forged.has(Mark.BRITTLE_EDGE) && weapon) {
-				damage += dev.voidmc.mettle.character.draft.Cursed.BRITTLE_EDGE_DAMAGE;
+				damage += dev.voidmc.mettle.character.draft.Cursed.brittleEdgeDamage((int) forged.trait("hex"));
 			}
 			if (forged.has(Mark.PROOFED) && armourSlot != null) {
 				armor += 1;
