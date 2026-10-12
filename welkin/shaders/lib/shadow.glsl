@@ -94,8 +94,10 @@ float shadowTaps(vec3 uvz, float spacing) {
 // What of the sun's (or the moon's) direct light reaches a point, 0..1, before the fade: playerPos camera-relative
 // (feet-relative as gbufferModelViewInverse gives it), n the face's world normal, lightDir the world light direction.
 // thin: a plant's quad (double-sided, its normal means little): the lookup steps toward the light instead of off the
-// face. tint: the colour of that light after stained glass or water on the way (1 without).
-float shadowVisibility(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, out vec3 tint) {
+// face. water: the point is on water's surface, which other water in front of it never tints (a slope's or a fall's
+// upper steps would otherwise dim its lower ones in patches). tint: the colour of that light after stained glass or
+// water on the way (1 without).
+float shadowVisibility(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, bool water, out vec3 tint) {
 	tint = vec3(1.0);
 	vec3 sp = (shadowProjection * (shadowModelView * vec4(playerPos, 1.0))).xyz;
 	float f = shadowDistortFactor(sp.xy);
@@ -116,8 +118,8 @@ float shadowVisibility(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, out vec
 		float d0 = texture(shadowtex0, uvz.xy).r;
 		if (d0 < uvz.z - 0.0002) {
 			vec4 c = texture(shadowcolor0, uvz.xy);
-			tint = c.rgb * 2.0; // stored at half
-			if (c.a < 0.5) {
+			tint = (water && c.a < 0.5) ? vec3(1.0) : c.rgb * 2.0; // stored at half
+			if (c.a < 0.5 && !water) {
 				// water: the light fades with the depth it travels under the surface (blocks, from the two depths)
 				float travel = (uvz.z - d0) * 2.0 /(abs(shadowProjection[2][2]) * SHADOW_Z_SCALE);
 				tint *= mix(0.35, 1.0, exp(-travel * 0.12));
@@ -143,7 +145,7 @@ float welkinSunReach(vec3 playerPos, vec3 n, float sky, int m, float facing, ino
 	float fade = shadowFade(playerPos);
 	if (fade < 1.0 && facing > 0.0) {
 		vec3 tint;
-		float vis = shadowVisibility(playerPos, n, lightDirWorld(), matThin(m), tint);
+		float vis = shadowVisibility(playerPos, n, lightDirWorld(), matThin(m), matIsWater(m), tint);
 		reach = mix(vis * sunLeakGate(sky), reach, fade);
 		sunShare *= mix(tint, vec3(1.0), fade);
 	}

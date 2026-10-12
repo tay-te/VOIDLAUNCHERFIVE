@@ -76,7 +76,7 @@ float rampSky(float level) {
 // roof's edge). Out in the open shade (sky light 15) it is 0, so a house's or a cliff's shadow keeps its contrast; in a
 // cave it is 0. It only fills the part of the face the sun does not light already.
 float canopyLeak(float skyLevel) {
-	return 0.35 * smoothstep(0.25, 0.55, skyLevel) * (1.0 - smoothstep(0.84, 0.97, skyLevel));
+	return 0.45 * smoothstep(0.25, 0.55, skyLevel) * (1.0 - smoothstep(0.84, 0.97, skyLevel));
 }
 
 // The old name, for callers not yet moved over; the dither threshold is ignored.
@@ -156,6 +156,14 @@ float faceShade(vec3 n) {
 // brighter overall (a top face in the noon sun is lit about as before; a shaded one about 0.45 of it).
 const float LIGHT_SUN_GAIN = 1.3;
 const float LIGHT_SKY_GAIN = 0.88;
+// The sky's fill a little stronger while the sun is low (late afternoon to sunset, and the same in the morning): the
+// direct light thins out then and the shade would sink to a dull grey-blue; lifted, the cool shade stays readable and
+// the warm low sun on the faces turned to it stands out against it.
+float lowSunFill() {
+	float h = sunHeight();
+	return 1.0 + 0.2 * (1.0 - smoothstep(0.15, 0.45, h)) * smoothstep(-0.05, 0.08, h);
+}
+
 // How much of Minecraft's corner shading (ambient occlusion, separateAo: colortex2.w) darkens the sky's fill and the
 // torch light. It never darkens the sun: a corner in the sun is in the sun.
 const float LIGHT_AO = 0.75;
@@ -192,7 +200,7 @@ vec3 welkinLightFull(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 #else
 	float sky = rampSky(lm.y);
 	// the day/night curve x Gloam's gameplay sky light (dark nights) x rain and overcast, plus lightning
-	vec3 ambient = (skyAmbientLight() * LIGHT_SKY_GAIN * face + sunSideGlow(n)) * sky * ambientTint;
+	vec3 ambient = (skyAmbientLight() * (LIGHT_SKY_GAIN * lowSunFill()) * face + sunSideGlow(n)) * sky * ambientTint;
 	// the sun (or the moon) on faces turned to it, where it reaches (sun or moon as shadowLightPosition, its strength
 	// through the cloud cover from the sky table)
 	float lit = facing * sunReach;
@@ -215,7 +223,7 @@ vec3 welkinLightCore(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 // near forest in front of it. 1 for everything else, and with the shadow map off (then neither has self-shade).
 float farCanopySun(int m) {
 #if defined SHADOWS && defined WORLD_OVERWORLD
-	return matIsLeaves(m) ? 0.62 : 1.0;
+	return matIsLeaves(m) ? 0.56 : 1.0;
 #else
 	return 1.0;
 #endif
@@ -223,7 +231,7 @@ float farCanopySun(int m) {
 
 float farCanopyFill(int m) {
 #if defined SHADOWS && defined WORLD_OVERWORLD
-	return matIsLeaves(m) ? 0.8 : 1.0;
+	return matIsLeaves(m) ? 0.76 : 1.0;
 #else
 	return 1.0;
 #endif

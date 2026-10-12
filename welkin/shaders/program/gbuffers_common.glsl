@@ -173,6 +173,10 @@ uniform int entityId;
 #endif
 #ifdef G_WATERFLAG
 #include "/lib/watersurf.glsl"
+#ifndef WU_isEyeInWater
+#define WU_isEyeInWater
+uniform int isEyeInWater;
+#endif
 #endif
 #endif
 
@@ -208,6 +212,15 @@ void main() {
 	if (albedo.a < alphaTestRef) {
 		discard;
 	}
+#if defined G_WATERFLAG && !defined G_DEFERRED && !defined G_UNLIT
+	// Minecraft draws water's top twice, once turned down for the view from under it. On a slope or a fall the quad's
+	// corners are not in one plane, and the reversed copy splits it along the other diagonal, so seen from above half
+	// of each step's copy stands over the surface and half under: every step showed a darker (double) and a lighter
+	// triangle. From the air, a turned-away water face below the eye is that copy: it is left out.
+	if (matIsWater(material) && !gl_FrontFacing && isEyeInWater != 1 && eyePos.y < 0.0) {
+		discard;
+	}
+#endif
 #ifdef G_ENTITY
 	albedo.rgb = mix(albedo.rgb, entityColor.rgb, entityColor.a);
 #endif
@@ -239,6 +252,15 @@ void main() {
 	lm.x = welkinHandBlockLight(lm.x, length(eyePos));
 #ifdef G_SHADOW
 	vec3 nW = normalize(normalW);
+#ifdef G_WATERFLAG
+	vec3 nFace = nW;
+	if (matIsWater(material)) {
+		// water is lit as level water (lib/watersurf.glsl welkinWaterNormal: a fall's facets and a slope's tilted
+		// quads would each take the sun differently), with no corner shading (Minecraft's own water has none)
+		nW = welkinWaterNormal(nW);
+		ao = 1.0;
+	}
+#endif
 	float facing = sunFacingMat(nW, lightDirWorld(), material);
 	vec3 sunShare = vec3(1.0);
 	float reach = welkinSunReach(eyePos, nW, lm.y, material, facing, sunShare);
@@ -246,7 +268,7 @@ void main() {
 #ifdef G_WATERFLAG
 	vec3 waterDeep = vec3(0.0);
 	if (matIsWater(material)) {
-		WaterSurface ws = welkinWaterSurface(albedo, nW, eyePos, lm, sunShare, reach, facing);
+		WaterSurface ws = welkinWaterSurface(albedo, nFace, eyePos, lm, sunShare, reach, facing);
 		lit = ws.color;
 		albedo.a = ws.alpha;
 		waterDeep = ws.deep;

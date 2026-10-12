@@ -75,10 +75,14 @@ void main() {
 #ifdef WELKIN_SHADOW_SWAY
 	// the same offset gbuffers_terrain adds, from the same camera-relative position, wind and clock
 	vec3 playerPos = (shadowModelViewInverse * view).xyz;
-	vec4 wind = (void_bridge == 1 && BRIDGE_MODE == 0) ? void_wind : welkinWindFallback(rainStrength);
-	vec3 worldPos = vec3(cameraPositionInt & 1023) + cameraPositionFract + playerPos;
-	playerPos += welkinSway(material, worldPos, at_midBlock.xyz, frameTimeCounter, wind);
-	view = shadowModelView * vec4(playerPos, 1.0);
+	// past 48 blocks a sway is far less than a map texel: it fades out from 32 and is not worked out at all past 48
+	float swayKeep = 1.0 - smoothstep(32.0, 48.0, length(playerPos));
+	if (swayKeep > 0.0) {
+		vec4 wind = (void_bridge == 1 && BRIDGE_MODE == 0) ? void_wind : welkinWindFallback(rainStrength);
+		vec3 worldPos = vec3(cameraPositionInt & 1023) + cameraPositionFract + playerPos;
+		playerPos += welkinSway(material, worldPos, at_midBlock.xyz, frameTimeCounter, wind) * swayKeep;
+		view = shadowModelView * vec4(playerPos, 1.0);
+	}
 #endif
 	// Low plants (grass, flowers, crops, ground cover) cast only near the eye, where the map's texels are a small
 	// share of a block; farther out their shadows would be blobs a block wide that dim a whole meadow. They shrink

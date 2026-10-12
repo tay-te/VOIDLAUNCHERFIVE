@@ -10,7 +10,7 @@
 // Shadow detail: How finely shadows are drawn. Higher gives cleaner shadow edges on small things like fences and leaves, and costs more.  [light]
 const int shadowMapResolution = 1536; // [1024 1536 2048 3072]
 // Shadow distance: How far away blocks still cast shadows. Past this the light is worked out from the sky light alone, and the change is a smooth fade. Far land from VOID LOD never casts shadows.  [light]
-const float shadowDistance = 128.0; // [96.0 128.0 160.0]
+const float shadowDistance = 96.0; // [64.0 96.0 128.0 160.0]
 // Shadow edges: How softly a shadow's edge fades. Crisp is a clean edge; soft blurs it a little more, the same everywhere. There is never any noise.  [light]
 #define SHADOW_SOFTNESS 1 // [0 1 2]
 // Sun path tilt: How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.  [skeleton]
