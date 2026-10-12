@@ -84,6 +84,13 @@ public class GloamShowcase implements FabricClientGameTest {
 	 * line. Logged as {@code [gloam] pack: ...}. Empty: whatever Iris's config already names.
 	 */
 	private static final String PACK = System.getProperty("gloam.show.pack", "");
+	/**
+	 * A camera pan for checking a pack's temporal smoothing for ghosting (-Pgloam.show.pan=0.25, degrees of yaw per
+	 * tick): after a bench view's shot, and after each packSweep shot, the camera turns at that rate for 30 ticks, then
+	 * is shot three times 10 ticks apart while it keeps turning ({@code <view>_pan0..2}, {@code <sweep label>_pan0..2}),
+	 * then turns back. 0: no pan.
+	 */
+	private static final float PAN = Float.parseFloat(System.getProperty("gloam.show.pan", "0"));
 
 	private static final CloudStatus CLOUDS = switch (System.getProperty("gloam.show.clouds", "fancy")) {
 		case "off" -> CloudStatus.OFF;
@@ -226,6 +233,9 @@ public class GloamShowcase implements FabricClientGameTest {
 				awaitSeasons(context);
 				awaitBreath(context, view);
 				this.shoot(context, view.name() + "_on" + abSuffix());
+				if (view.name().startsWith("bench")) {
+					this.panShots(context, view.name() + abSuffix());
+				}
 				AirSample air = context.computeOnClient(mc -> Atmosphere.get().here());
 				int fps = context.computeOnClient(mc -> mc.getFps());
 				System.out.printf(Locale.ROOT, "[gloam] %s: %s, hour %.1f, front %.2f, cloud %.2f, rain %.2f, storm %.2f, mist %.2f (top y=%.0f), wind %.1f+%.2f, "
@@ -261,6 +271,7 @@ public class GloamShowcase implements FabricClientGameTest {
 							context.waitTicks(40);
 							String label = view.name() + "_sweep_" + change.trim().replaceAll("[=:,]", "_");
 							this.shoot(context, label);
+							this.panShots(context, label);
 							logFrameTime(context, label);
 							packSet(context, change, false);
 						}
@@ -1518,6 +1529,32 @@ public class GloamShowcase implements FabricClientGameTest {
 		}
 		ms /= samples;
 		System.out.printf(Locale.ROOT, "[gloam] %s frame time: %.3f ms mean over %d s (%.0f fps; %d..%d)%n", label, ms, samples, 1000.0 / ms, min, max);
+	}
+
+	/** The pan shots (gloam.show.pan): turning at PAN degrees a tick, three shots 10 ticks apart after 30, then back. */
+	private void panShots(ClientGameTestContext context, String label) {
+		if (PAN == 0f) {
+			return;
+		}
+		float start = context.computeOnClient(mc -> mc.player.getYRot());
+		int ticks = 0;
+		for (int shot = 0; shot < 3; shot++) {
+			for (int i = 0; i < (shot == 0 ? 30 : 10); i++) {
+				float yaw = start + PAN * (++ticks);
+				context.runOnClient(mc -> {
+					mc.player.setYRot(yaw);
+					mc.player.yRotO = yaw;
+				});
+				context.waitTick();
+			}
+			this.shoot(context, label + "_pan" + shot);
+		}
+		context.runOnClient(mc -> {
+			mc.player.setYRot(start);
+			mc.player.yRotO = start;
+		});
+		context.waitTicks(20);
+		System.out.printf(Locale.ROOT, "[gloam] %s panned %.2f degrees a tick%n", label, PAN);
 	}
 
 	private void shoot(ClientGameTestContext context, String name) {
