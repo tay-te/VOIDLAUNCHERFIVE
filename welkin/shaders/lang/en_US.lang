@@ -232,7 +232,7 @@ value.SKY_DEBUG.2=Bands
 
 # ---- Light: ambient (B)
 option.AO_STRENGTH=Occlusion strength
-option.AO_STRENGTH.comment=How deep corners, the feet of walls, the inside of crowns and the roots of grass sink into shade. 1 is the natural depth; the shade never goes black.
+option.AO_STRENGTH.comment=How deep corners, the feet of walls, the inside of crowns and the roots of grass sink into shade. 1.25 is the pack's own depth; the shade never goes black.
 option.AO_QUALITY=Occlusion quality
 option.AO_QUALITY.comment=How many directions and steps the ambient occlusion looks along. High is a little smoother in deep corners and costs more.
 value.AO_QUALITY.1=Normal

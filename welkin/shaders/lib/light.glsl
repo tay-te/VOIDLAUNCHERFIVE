@@ -239,10 +239,12 @@ const float AO_VANILLA = 0.35;
 // The darkest the fill gets in the deepest corner the occlusion finds (after the multi-bounce, which keeps pale stone
 // lighter than dark dirt), so a shaded pocket reads deep, never black.
 const float AO_FLOOR = 0.12;
-// How much of Minecraft's face shading (top 1, sides 0.8 and 0.6, bottom 0.5) stays on the sky's fill: the sky's own
-// irradiance (lib/sky/irradiance.glsl) now gives each orientation its light, so only a touch of it is kept for the
-// game's look.
-const float AMB_FACE_SHADE = 0.2;
+// How much of Minecraft's face shading (top 1, sides 0.8 and 0.6, bottom 0.5) stays on the sky's fill, by day and at
+// night: the sky's own irradiance (lib/sky/irradiance.glsl) gives each orientation its light, and this keeps the
+// game's look on top (a block's sides a step below its top), as round 3 had it, so the shade side of things stays
+// darker than open ground in shade and the land keeps its form
+const float AMB_FACE_SHADE = 0.45;
+const float AMB_FACE_SHADE_NIGHT = 0.45;
 // How much of the sky's hue by orientation the fill takes (its brightness by orientation is taken whole): at noon a
 // wall facing the pale horizon sees a whiter sky than a top under the deep zenith, at dusk one facing the afterglow a
 // warmer one; half of that keeps the shade on walls a clear, cool sky-blue while dusk's faces still warm and cool.
@@ -320,7 +322,7 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	vec3 hemi = fill.rgb * skyE + skyLandBounce() * (0.5 - 0.5 * nf.y);
 	// (a plant's thin blades take the sky on both their faces and pass some through: up to 1.45x a top's fill, so in the
 	// shade a meadow's tufts and stalks read light against the ground, as dry grass does at dusk)
-	hemi = hemi * mix(1.0, faceShade(nf), AMB_FACE_SHADE) * (1.0 + 0.64 * lightFillUp);
+	hemi = hemi * mix(1.0, faceShade(nf), mix(AMB_FACE_SHADE, AMB_FACE_SHADE_NIGHT, skyNightStep())) * (1.0 + 0.64 * lightFillUp);
 	// (round 3: the fill under a canopy cut by 0.8, not 0.68: the forest floor between the sun patches sinks deeper)
 	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - 0.8 * canopyShade(lm.y, sunReach));
 	// the short-range bounce (round 1): a shaded face among sunlit surfaces like itself takes back a share of the sun

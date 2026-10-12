@@ -27,7 +27,9 @@
 // the open sky's fill on an upward face at noon (round 1: about a quarter less, so the shade is deeper and the sun's
 // side carries the form; lib/sky/build.glsl skyLandFillLevel takes it down faster as the sun sinks)
 // (round 3: 0.126: open ground's shade about a fifth deeper and a clearer blue)
-#define LAND_FILL 0.126
+// (ambient (B): 0.20: the darkness now comes from the occlusion (lib/ao.glsl), so open shade, which sees the whole sky,
+// takes back a brighter, sky-blue fill; lib/light.glsl looks it up along each face's bent normal)
+#define LAND_FILL 0.20
 // the ground's bounce: the share of the sunlit ground's light that reaches a downward face (round 1: less, so a wall's
 // shade side reads the sky's cool blue, warmed a little by the ground, not an olive grey)
 #define LAND_BOUNCE 0.2
@@ -36,7 +38,10 @@
 // (round 2: 0.3 on walls, a fifth of it on tops: a shaded wall of pale stone among sunlit stone reads a light cool
 // grey, as Hysteria's and Complementary's do, not a dark notch; dark grass and dirt bounce little, so their shade stays
 // deep. lib/light.glsl takes the albedo into it twice over, so only pale surfaces take much.)
-#define LAND_SELF_BOUNCE 0.3
+// (ambient (B): 0.05: the occlusion's multi-bounce now keeps pale corners light, so the self-bounce, which lifted pale
+// stone's shade toward its lit side until the steps had no form, keeps only a trace: shaded calcite reads a cool
+// blue-grey well below its sunlit tops, never a black notch)
+#define LAND_SELF_BOUNCE 0.05
 // the night (fill and moon) against its old display-space look: the linear sum of fill and moon is darker than the
 // old display sum, so it is lifted to read as before
 #define LAND_NIGHT 1.6

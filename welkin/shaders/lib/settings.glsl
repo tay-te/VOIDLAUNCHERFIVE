@@ -18,8 +18,8 @@ const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
 // Ambient occlusion: Corners, the feet of walls, eaves, the inside of tree crowns and the roots of grass sink into a soft, graded shade, worked out from the shapes around them, so open shade stays bright and sky-blue while every form reads. Smooth, with no grain.  [light]
 #define AMBIENT_OCCLUSION
 // ---- Light: ambient (B)
-// Occlusion strength: How deep corners, the feet of walls, the inside of crowns and the roots of grass sink into shade. 100 is the natural depth.  [light]
-#define AO_STRENGTH 1.0 // [0.5 0.75 1.0 1.25 1.5]
+// Occlusion strength: How deep corners, the feet of walls, the inside of crowns and the roots of grass sink into shade. 1.25 is the pack's own depth; the shade never goes black.  [light]
+#define AO_STRENGTH 1.25 // [0.5 0.75 1.0 1.25 1.5 2.0]
 // Occlusion quality: How many directions and steps the ambient occlusion looks along. High is a little smoother in deep corners and costs more.  [light]
 #define AO_QUALITY 1 // [1 2]
 // Sun path tilt: How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.  [skeleton]
