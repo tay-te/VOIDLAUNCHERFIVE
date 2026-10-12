@@ -97,6 +97,8 @@ float wcSunward(vec3 rd, CloudEnv e) {
 // and not as a bright lilac sliver.
 vec3 wcDusk(vec3 n, float far, float sunward, vec3 sun) {
 	vec3 sunTop = mix(mix(WC_CREAM, WC_GOLD, 0.4 + 0.6 * smoothstep(1.0, 2.5, far)), WC_ORANGE, smoothstep(3.0, 4.5, far));
+	// before sunrise and after sunset the tops lie in the earth's shadow, lit by the pink sky over the sun: rose
+	sunTop = mix(sunTop, WC_ROSE, 1.0 - smoothstep(-0.08, 0.02, sun.y));
 	vec3 awayTop = mix(WC_LILAC, WC_VIOLET, smoothstep(2.0, 3.5, far));
 	vec3 top = mix(awayTop, sunTop, sunward);
 	if (n.y > 0.5) {
