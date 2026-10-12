@@ -34,6 +34,14 @@ void main() {
 #include "/lib/fade.glsl"
 #include "/lib/shadow.glsl"
 #include "/lib/void.glsl"
+#if defined FAR_SHADOWS && defined WORLD_OVERWORLD
+#include "/lib/farshadow.glsl"
+#define WELKIN_FAR_SHADOWS
+#ifndef WU_gbufferModelView
+#define WU_gbufferModelView
+uniform mat4 gbufferModelView;
+#endif
+#endif
 
 in vec2 texcoord;
 
@@ -107,10 +115,18 @@ void main() {
 #endif
 		// the sun's reach: the near shadow map on the chunks inside its range, the sky-light gate beyond it and on the
 		// LOD's land (which never casts or takes map shadows), fading from one to the other over the map's last 20 %
-		float reach = sunOpen(g.w);
+		// past the map, and on the LOD's land, the far shadows found on screen (lib/farshadow.glsl)
+		vec3 playerPos = (gbufferModelViewInverse * vec4(s.view, 1.0)).xyz;
+		float farVis = 1.0;
+#ifdef WELKIN_FAR_SHADOWS
+		if (facing > 0.0 && g.w > 0.5 && (s.fromLod || farShadowNeed(playerPos) > 0.0)) {
+			farVis = farShadow(s.view, mat3(gbufferModelView) * n, normalize(shadowLightPosition));
+		}
+#endif
+		float reach = sunOpen(g.w) * farVis;
+		float through = 1.0;
 		if (!s.fromLod) {
-			vec3 playerPos = (gbufferModelViewInverse * vec4(s.view, 1.0)).xyz;
-			reach = welkinSunReach(playerPos, n, g.w, material, facing, sunShare);
+			reach = welkinSunReachEx(playerPos, n, g.w, material, facing, farVis, sunShare, through);
 		}
 #ifdef WELKIN_WET
 		// wet ground before the light: darkens open ground, picks the puddles

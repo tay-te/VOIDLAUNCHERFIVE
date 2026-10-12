@@ -8,11 +8,13 @@
 // Sun and moon shadows: Blocks and creatures near you cast shadows from the sun and the moon, and leaves and grass sway in them. Turning this off saves more time than any other option.  [light]
 #define SHADOWS
 // Shadow detail: How finely shadows are drawn. Higher gives cleaner shadow edges on small things like fences and leaves, and costs more.  [light]
-const int shadowMapResolution = 1536; // [1024 1536 2048 3072]
-// Shadow distance: How far away blocks still cast shadows. Past this the light is worked out from the sky light alone, and the change is a smooth fade. Far land from VOID LOD never casts shadows.  [light]
-const float shadowDistance = 96.0; // [64.0 96.0 128.0 160.0]
-// Shadow edges: How softly a shadow's edge fades. Crisp is a clean edge; soft blurs it a little more, the same everywhere. There is never any noise.  [light]
+const int shadowMapResolution = 1536; // [1024 1536 2048 3072 4096]
+// Shadow distance: How far away blocks cast shadows from the shadow map. Past this, Far shadows take over from what is on screen, and the change is a smooth fade.  [light]
+const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
+// Shadow edges: How a shadow's edge softens. Natural is crisp at the foot of what casts it and widens with the distance from it, as real shadows do; Soft widens it more; Crisp keeps every edge sharp. There is never any noise.  [light]
 #define SHADOW_SOFTNESS 1 // [0 1 2]
+// Far shadows: Beyond the shadow distance, houses, trees, hills and the far land still cast long shadows, worked out from what is on screen. Something off the screen casts none there.  [light]
+#define FAR_SHADOWS
 // Sun path tilt: How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.  [skeleton]
 const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0]
 // Light bands: How many soft bands sky light and torch light fade through. The light stays a smooth gradient; Soft bands sets how much it gathers at each band.  [skeleton]
@@ -113,6 +115,8 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 // Iris only lists a #define as an on/off option when some file tests it with #ifdef or #ifndef.
 // These empty tests make every toggle show even before the code that uses it is merged.
 #ifdef SHADOWS
+#endif
+#ifdef FAR_SHADOWS
 #endif
 #ifdef HANDHELD_LIGHT
 #endif

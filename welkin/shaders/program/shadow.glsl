@@ -1,4 +1,4 @@
-// VOID Welkin: shadow. The near shadow map (lib/shadow.glsl): the chunks inside shadowDistance and the entities, seen
+// VOID Welkin: shadow (and shadow_solid, with WELKIN_SHADOW_SOLID). The near shadow map (lib/shadow.glsl): the chunks inside shadowDistance and the entities, seen
 // from the sun (or the moon), through the fisheye distortion. Overworld only, and only with SHADOWS on
 // (shaders.properties); the LOD never draws here (dhShadow.enabled=false).
 //
@@ -71,6 +71,19 @@ void main() {
 	texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
 	glcolor = gl_Color;
 	material = welkinMat(welkinIdFromAttr(mc_Entity.x)); // entities have no mc_Entity: M_GENERIC, no sway
+	// Faces turned away from the light are left out where something closed stands behind them: every solid block
+	// (shadow_solid) and leaves. What the light meets first of a closed shape is always one of its faces turned to it,
+	// so the map is the same, at about half the drawing (most of the pass's time went on leaves' faces). The sun is
+	// at +z in shadow view space.
+#ifdef WELKIN_SHADOW_SOLID
+	bool closed = true;
+#else
+	bool closed = matIsLeaves(material);
+#endif
+	if (closed && (gl_NormalMatrix * gl_Normal).z < -0.02) {
+		gl_Position = vec4(0.0, 0.0, -2.0, 1.0); // outside the clip volume: nothing is drawn
+		return;
+	}
 	vec4 view = gl_ModelViewMatrix * gl_Vertex; // shadow view space
 #ifdef WELKIN_SHADOW_SWAY
 	// the same offset gbuffers_terrain adds, from the same camera-relative position, wind and clock
@@ -118,6 +131,10 @@ uniform sampler2D gtexture;
 layout(location = 0) out vec4 outShadow;
 
 void main() {
+#ifdef WELKIN_SHADOW_SOLID
+	// solid blocks: no texture, no alpha test (and so no discard: the depth test runs early)
+	outShadow = vec4(0.5, 0.5, 0.5, 1.0);
+#else
 	if (matIsWater(material)) {
 		outShadow = vec4(vec3(0.70, 0.86, 0.88) * 0.5, 0.0);
 		return;
@@ -128,6 +145,7 @@ void main() {
 	}
 	// stained glass and other translucents: their colour, as strong as they are opaque; opaque: neutral (decodes to 1)
 	outShadow = c.a < 0.95 ? vec4(mix(vec3(1.0), c.rgb, c.a) * 0.5, 1.0) : vec4(0.5, 0.5, 0.5, 1.0);
+#endif
 }
 
 #endif

@@ -33,16 +33,20 @@ value.shadowMapResolution.1024=Low
 value.shadowMapResolution.1536=Medium
 value.shadowMapResolution.2048=High
 value.shadowMapResolution.3072=Very high
+value.shadowMapResolution.4096=Ultra
 
 option.shadowDistance=Shadow distance
-option.shadowDistance.comment=How far away blocks still cast shadows. Past this the light is worked out from the sky light alone, and the change is a smooth fade. Far land from VOID LOD never casts shadows.
+option.shadowDistance.comment=How far away blocks cast shadows from the shadow map. Past this, Far shadows take over from what is on screen, and the change is a smooth fade.
 suffix.shadowDistance= blocks
 
 option.SHADOW_SOFTNESS=Shadow edges
-option.SHADOW_SOFTNESS.comment=How softly a shadow's edge fades. Crisp is a clean edge; soft blurs it a little more, the same everywhere. There is never any noise.
+option.SHADOW_SOFTNESS.comment=How a shadow's edge softens. Natural is crisp at the foot of what casts it and widens with the distance from it, as real shadows do; Soft widens it more; Crisp keeps every edge sharp. There is never any noise.
 value.SHADOW_SOFTNESS.0=Crisp
-value.SHADOW_SOFTNESS.1=Slightly soft
+value.SHADOW_SOFTNESS.1=Natural
 value.SHADOW_SOFTNESS.2=Soft
+
+option.FAR_SHADOWS=Far shadows
+option.FAR_SHADOWS.comment=Beyond the shadow distance, houses, trees, hills and the far land still cast long shadows, worked out from what is on screen. Something off the screen casts none there.
 
 option.sunPathRotation=Sun path tilt
 option.sunPathRotation.comment=How far the path of the sun and moon leans south, so south-facing walls get the sun as they would in the north of the Earth. Vanilla is 0.
