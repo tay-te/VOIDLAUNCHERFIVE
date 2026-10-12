@@ -454,3 +454,13 @@ The user set the new look of section 3.2 over the flat-steps-and-dither rules. W
   sample is worked out once in the vertex shader; it was 0.7 ms in a misty gorge), wet ground 0.2-0.3 ms. Whole
   frames run 2.1-3.5 ms by day and about 4 ms at night in the gorge. The review's 4-9 ms frames came from another
   session's game test running on the same GPU at the same time. The clouds stay over their 0.6 ms budget.
+- **Second pass** (re-shot in test world A): far **storm towers** sink into their deck between 6 and 14 x `WC_RING0`
+  (2.3-5.4 km at MEDIUM), since a tower cell doubles with the rings and a storm 6 km out stood up as one 1.5 km box
+  on the horizon (the noon and dusty "horizon box"). Cloud **undersides** keep only a gentle interior shade (it tiled
+  a patchy deck), and under a closed overcast a base is the overcast dome's own colour in its direction. The haze's
+  middle segment takes its **kinds** over a 128-block lattice (`hzSmoothKinds`): read at one distance for every far
+  pixel, a border between kinds stood up as a vertical wall of dust. **Full moon**: the moon's light 0.22 (was 0.11)
+  and the night fill up to 1.7 x under a clear full moon; the full-moon valley reads as vanilla's (27.7 against 28.4
+  mean), a new moon is unchanged. The lake district's glowing patch is a surface lava pool (a real light), its halo
+  gone with the torch light's daytime fade. With Iris and no pack, the far air's rain curtains draw without the crash.
+  Bench rain1 (no Gloam) runs at 325 fps (the review's 117 was contention).
