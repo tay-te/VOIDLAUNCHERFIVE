@@ -5,9 +5,10 @@
 // wall's foot behind a fence, under a stair, round a lantern) and gives plants and bushes a small darker pool at
 // their base.
 //
-// Four samples a pixel on a disc in the face's plane, turned and scaled by the pixel's place in a 4x4 tile; deferred1
+// At half the screen's resolution (size.buffer.colortex9 = 0.5 0.5: the pass draws a quarter of the pixels). Four
+// samples a texel on a disc in the face's plane, turned and scaled by the texel's place in a 4x4 tile; deferred1
 // averages each 4x4 tile back (lib/ao.glsl), so the sixteen turns add up to one smooth 64-sample result with no
-// pattern and no noise, the same every frame. Only within about 64 blocks (the term is a fraction of a block wide).
+// pattern and no noise, the same every frame. Only within about 72 blocks (the term is a fraction of a block wide).
 
 #define WELKIN_AO_PASS
 #include "/lib/common.glsl"
@@ -59,22 +60,24 @@ uniform float viewHeight;
 layout(location = 0) out vec2 outAo;
 
 void main() {
-	ivec2 p = ivec2(gl_FragCoord.xy);
-	float d = texelFetch(depthtex0, p, 0).r;
+	ivec2 p = ivec2(gl_FragCoord.xy); // the half-resolution texel
+	vec2 size = vec2(viewWidth, viewHeight);
+	ivec2 full = ivec2(texcoord * size); // the full-resolution pixel under it
+	float d = texelFetch(depthtex0, full, 0).r;
 	vec3 v = viewFromDepth(texcoord, d, gbufferProjectionInverse);
 	float z = -v.z;
 	if (d >= 1.0 || z > AO_FAR) {
 		outAo = vec2(1.0, d >= 1.0 ? 1e4 : z);
 		return;
 	}
-	vec4 flags = texelFetch(colortex2, p, 0);
+	vec4 flags = texelFetch(colortex2, full, 0);
 	int m = int(flags.y * 255.0 + 0.5);
 	if (flags.x < 0.5 || (matHas(m, MATF_SSS) && !matIsLeaves(m))) {
 		// self-lit things and plants' own quads (their normal means little): none on them
 		outAo = vec2(1.0, z);
 		return;
 	}
-	vec3 n = normalize(mat3(gbufferModelView) * octDecode(texelFetch(colortex1, p, 0).xy));
+	vec3 n = normalize(mat3(gbufferModelView) * octDecode(texelFetch(colortex1, full, 0).xy));
 	// a basis on the face
 	vec3 t = normalize(abs(n.y) < 0.9 ? cross(n, vec3(0.0, 1.0, 0.0)) : cross(n, vec3(1.0, 0.0, 0.0)));
 	vec3 b = cross(n, t);
@@ -82,7 +85,6 @@ void main() {
 	int k = (p.x & 3) + 4 * (p.y & 3);
 	float turn = (float(k) + 0.5) * (1.5707963 / 16.0);
 	float scale = fract(float(k) * 0.618034 + 0.31);
-	vec2 size = vec2(viewWidth, viewHeight);
 	vec3 o = v + n * (0.02 + 0.002 * z); // off the face, so the face itself never counts
 	float occ = 0.0;
 	for (int i = 0; i < 4; i++) {

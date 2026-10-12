@@ -8,7 +8,8 @@
 #ifndef WELKIN_AO
 #define WELKIN_AO
 
-// colortex9 (the raw term and the view distance), read by Iris from the light pass, which always runs
+// colortex9 (the raw term and the view distance, at half resolution: size.buffer.colortex9 in shaders.properties),
+// read by Iris from the light pass, which always runs
 /*
 const int colortex9Format = RG16F;
 const bool colortex9Clear = false;
@@ -25,12 +26,13 @@ const bool colortex9Clear = false;
 uniform sampler2D colortex9;
 #endif
 
-// The contact occlusion at texel p (view distance z), 1 for none.
+// The contact occlusion at screen pixel p (view distance z), 1 for none. colortex9 is at half resolution.
 float welkinContactAo(ivec2 p, float z) {
 	if (z > AO_FAR) {
 		return 1.0;
 	}
 	ivec2 hi = textureSize(colortex9, 0) - 1;
+	p = p / 2;
 	float tol = 0.04 + 0.015 * z;
 	float sum = 0.0;
 	float wsum = 0.0;
