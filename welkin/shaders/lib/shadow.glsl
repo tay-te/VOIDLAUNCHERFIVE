@@ -94,17 +94,48 @@ const float SHADOW_SPREAD = 0.02;
 const float SHADOW_MAX_TEXELS = 6.0;
 
 // The 4x4 grid of compare taps over a penumbra of radius r texels (each tap is the hardware's 2x2 blend, so the
-// ramp between taps stays smooth).
-float shadowPcf(vec3 uvz, float r) {
+// ramp between taps stays smooth). grad: the receiver's plane, as map depth per unit of map uv: each tap compares
+// against the plane's own depth where it lands, so a face never shadows itself however low the light grazes it.
+float shadowPcf(vec3 uvz, float r, vec2 grad) {
 	float s = max(r, 0.5) / (1.5 * float(shadowMapResolution));
 	float v = 0.0;
 	for (int y = 0; y < 4; y++) {
 		for (int x = 0; x < 4; x++) {
-			v += texture(shadowtex1, uvz + vec3((vec2(x, y) - 1.5) * s, 0.0));
+			vec2 o = (vec2(x, y) - 1.5) * s;
+			v += texture(shadowtex1, vec3(uvz.xy + o, uvz.z + dot(grad, o)));
 		}
 	}
 	return v * (1.0 / 16.0);
 }
+
+// A camera-relative point to the map's distorted (uv, depth), 0..1.
+vec3 shadowMapPos(vec3 playerPos) {
+	return shadowDistort((shadowProjection * (shadowModelView * vec4(playerPos, 1.0))).xyz) * 0.5 + 0.5;
+}
+
+// The receiver plane's depth gradient in map uv round p (a point on a face with world normal n): two small steps
+// along the face, mapped, solved for d(depth)/d(uv). Held to the slope of a face the light meets at about 2.5
+// degrees (past that the face takes almost no light anyway), so an edge-on face cannot push its taps out of range.
+vec2 shadowPlaneGrad(vec3 p, vec3 uvz, vec3 n, float texelBlocks, float depthBlocks) {
+	vec3 t1 = normalize(cross(n, abs(n.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+	vec3 t2 = cross(n, t1);
+	vec3 d1 = shadowMapPos(p + t1 * 0.25) - uvz;
+	vec3 d2 = shadowMapPos(p + t2 * 0.25) - uvz;
+	float det = d1.x * d2.y - d1.y * d2.x;
+	if (abs(det) < 1e-14) {
+		return vec2(0.0);
+	}
+	vec2 g = vec2(d1.z * d2.y - d2.z * d1.y, d1.x * d2.z - d2.x * d1.z) / det;
+	// the steepest allowed: 23 blocks of depth per block across the map (cot 2.5 degrees)
+	float gMax = 23.0 * texelBlocks * float(shadowMapResolution) / depthBlocks;
+	float gl = length(g);
+	return gl > gMax ? g * (gMax / gl) : g;
+}
+
+// The receiver's sky light, when the caller knows it (welkinSunReachEx sets it): water dims the sky light a level per
+// block, so only a point under less than the open sky's full level can lie under water (the search for the surface
+// above it, below, runs only there).
+float shadowSkyHint = 0.0;
 
 // A point's shadow: vis what of the light gets through (0..1), tint the colour it takes through stained glass or
 // water, depth the blocks of matter the light passed before it (the casters' mean distance above it along the light;
@@ -114,6 +145,7 @@ struct ShadowSample {
 	vec3 tint;
 	float depth;
 	float cover; // the share of the search that found a caster (0 in the open)
+	bool underWater; // the light reached the point through water's surface (it is bent on the way down)
 };
 
 // What of the sun's (or the moon's) direct light reaches a point: playerPos camera-relative (feet-relative as
@@ -129,23 +161,74 @@ ShadowSample shadowSampleW(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, boo
 	r.tint = vec3(1.0);
 	r.depth = 0.0;
 	r.cover = 0.0;
-	vec3 sp = (shadowProjection * (shadowModelView * vec4(playerPos, 1.0))).xyz;
-	float f = shadowDistortFactor(sp.xy);
-	// one map texel in blocks here: the distortion's slope (1 - k) / f^2 at this radius
-	float texelBlocks = (2.0 * shadowDistance / float(shadowMapResolution)) * f * f / (1.0 - SHADOW_DISTORT);
-	// normal offset sized from the local texel: off the face for solids, toward the light for plants; plus a step toward
-	// the light that grows as the light grazes the face (a texel's depth spread is the texel times the tangent of the
-	// light's angle to the normal), so a low sun on level ground lights it instead of the ground shadowing itself
-	float ndl = max(dot(n, lightDir), 0.0);
-	float grazing = min(sqrt(max(1.0 - ndl * ndl, 0.0)) / max(ndl, 0.05), 12.0);
-	vec3 offset = thin ? lightDir * (2.0 * texelBlocks + 0.03)
-		: n * (1.6 * texelBlocks + 0.02) + lightDir * (texelBlocks * (0.4 + 0.9 * grazing));
-	vec3 uvz = shadowDistort((shadowProjection * (shadowModelView * vec4(playerPos + offset, 1.0))).xyz) * 0.5 + 0.5;
-	if (any(lessThanEqual(uvz.xy, vec2(0.0))) || any(greaterThanEqual(uvz.xy, vec2(1.0))) || uvz.z >= 1.0) {
-		return r;
+	r.underWater = false;
+	float depthBlocks = shadowDepthBlocks();
+	float waterTravel = 0.0;
+	vec3 q = playerPos;
+	vec3 uvz;
+	float texelBlocks;
+	vec3 offset;
+	for (int pass = 0; pass < 2; pass++) {
+		vec3 sp = (shadowProjection * (shadowModelView * vec4(q, 1.0))).xyz;
+		float f = shadowDistortFactor(sp.xy);
+		// one map texel in blocks here: the distortion's slope (1 - k) / f^2 at this radius
+		texelBlocks = (2.0 * shadowDistance / float(shadowMapResolution)) * f * f / (1.0 - SHADOW_DISTORT);
+		// normal offset sized from the local texel: off the face for solids, toward the light for plants; plus a step
+		// toward the light that grows as the light grazes the face (a texel's depth spread is the texel times the
+		// tangent of the light's angle to the normal), so a low sun on level ground lights it instead of the ground
+		// shadowing itself
+		float ndl = max(dot(n, lightDir), 0.0);
+		float grazing = min(sqrt(max(1.0 - ndl * ndl, 0.0)) / max(ndl, 0.05), 12.0);
+		offset = thin ? lightDir * (2.0 * texelBlocks + 0.03)
+			: n * (1.6 * texelBlocks + 0.02) + lightDir * (texelBlocks * (0.4 + 0.9 * grazing));
+		uvz = shadowMapPos(q + offset);
+		if (any(lessThanEqual(uvz.xy, vec2(0.0))) || any(greaterThanEqual(uvz.xy, vec2(1.0))) || uvz.z >= 1.0) {
+			return r;
+		}
+		if (pass == 1 || water) {
+			break;
+		}
+		// round 2: under water. The light is bent down where it enters the surface (at most 49 degrees off the vertical),
+		// so it reaches the bed from the surface just above, not along the straight line toward a low sun, which runs
+		// under water into the bed's own rise toward the shore and blacked out a whole lake bed at dawn. The point
+		// is moved up the bent ray to just under the surface, and the shadow is looked up there (the casters above the
+		// water still shade it, bed and surface alike); the water it passed tints it.
+		float ly = max(lightDir.y, 0.02);
+		vec3 lr = vec3(lightDir.xz / 1.33, 0.0).xzy;
+		lr.y = sqrt(max(1.0 - dot(lr.xz, lr.xz), 0.0));
+		float below = -1.0; // the depth under the surface, blocks (-1: not under water)
+		float d0 = texture(shadowtex0, uvz.xy).r;
+		if (d0 < uvz.z - 0.0002 && texture(shadowcolor0, uvz.xy).a < 0.5) {
+			// the straight line toward the light leaves through a water surface first
+			below = (uvz.z - d0) * depthBlocks * ly;
+		} else if (shadowSkyHint < 0.95 && texture(shadowtex1, uvz) < 0.5) {
+			// in shadow: the straight line may run into the bed's rise or the bank before it reaches the surface, so
+			// look for the surface up the bent ray: a probe that finds water as the first thing toward the light, at
+			// most a block and a bit over it, is just under the surface
+			const float rises[5] = float[5](1.0, 2.0, 3.5, 6.0, 10.0);
+			for (int i = 0; i < 5; i++) {
+				vec3 m = shadowMapPos(playerPos + lr * (rises[i] / lr.y));
+				float dw = texture(shadowtex0, m.xy).r;
+				float over = (m.z - dw) * depthBlocks * ly;
+				if (over >= 0.0 && over < 1.3 && texture(shadowcolor0, m.xy).a < 0.5) {
+					below = rises[i] + over;
+					break;
+				}
+			}
+		}
+		if (below < 0.0) {
+			break;
+		}
+		below = min(below, 32.0);
+		waterTravel = below / lr.y;
+		q = playerPos + lr * (max(below - 0.2, 0.0) / lr.y);
+		r.underWater = true;
 	}
 	float px = 1.0 / float(shadowMapResolution);
-	float depthBlocks = shadowDepthBlocks();
+	// round 2: the receiver's own plane (not for a plant's quad, whose normal means little): a grazing light on level
+	// ground no longer finds the ground a few texels toward the light "above" it (the self-shadow that dimmed a
+	// meadow and striped a lake under a low sun)
+	vec2 grad = thin ? vec2(0.0) : shadowPlaneGrad(q + offset, uvz, n, texelBlocks, depthBlocks);
 	// the casters round the point: a 3x3 search over the widest penumbra a caster up to about 24 blocks above could
 	// throw here (at least the hardware tap's own 2x2), in the depths of everything (shadowtex0)
 	float searchTexels = clamp((SHADOW_SPREAD * 24.0 + 0.02) / texelBlocks, 1.0, SHADOW_MAX_TEXELS);
@@ -154,8 +237,9 @@ ShadowSample shadowSampleW(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, boo
 	float count = 0.0;
 	for (int y = -1; y <= 1; y++) {
 		for (int x = -1; x <= 1; x++) {
-			float d = texture(shadowtex0, uvz.xy + vec2(x, y) * (searchTexels * px)).r;
-			if (d < uvz.z - bias) {
+			vec2 o = vec2(x, y) * (searchTexels * px);
+			float d = texture(shadowtex0, uvz.xy + o).r;
+			if (d < uvz.z + dot(grad, o) - bias) {
 				sum += d;
 				count += 1.0;
 			}
@@ -173,24 +257,24 @@ ShadowSample shadowSampleW(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, boo
 			r.vis = 0.0; // deep inside a shadow
 		} else {
 			float width = max(SHADOW_SPREAD * above + 0.015, minWidth); // the penumbra's half width, blocks
-			r.vis = shadowPcf(uvz, min(width / texelBlocks, SHADOW_MAX_TEXELS));
+			r.vis = shadowPcf(uvz, min(width / texelBlocks, SHADOW_MAX_TEXELS), grad);
 		}
 #endif
 	} else {
 		r.vis = centre; // nothing round it: the hardware tap alone (1 in the open)
 	}
 
-	// a translucent block between the light and the point: in shadowtex0, not in shadowtex1
-	if (r.vis > 0.0) {
+	// the water the light passed on the way down to a point under the surface: a pale blue-green, fading with the
+	// path through it (a third left past about ten blocks)
+	if (r.underWater) {
+		r.tint = vec3(0.70, 0.86, 0.88) * mix(0.35, 1.0, exp(-waterTravel * 0.12));
+	} else if (r.vis > 0.0) {
+		// a translucent block between the light and the point: in shadowtex0, not in shadowtex1 (stained glass; water
+		// over water's own surface never tints it, so a slope's or a fall's upper steps do not dim its lower ones)
 		float d0 = texture(shadowtex0, uvz.xy).r;
 		if (d0 < uvz.z - 0.0002) {
 			vec4 c = texture(shadowcolor0, uvz.xy);
-			r.tint = (water && c.a < 0.5) ? vec3(1.0) : c.rgb * 2.0; // stored at half
-			if (c.a < 0.5 && !water) {
-				// water: the light fades with the depth it travels under the surface (blocks, from the two depths)
-				float travel = (uvz.z - d0) * depthBlocks;
-				r.tint *= mix(0.35, 1.0, exp(-travel * 0.12));
-			}
+			r.tint = c.a < 0.5 ? vec3(1.0) : c.rgb * 2.0; // stored at half
 		}
 	}
 	return r;
@@ -228,11 +312,21 @@ float welkinSunReachEx(vec3 playerPos, vec3 n, float sky, int m, float facing, f
 	float fade = shadowFade(playerPos);
 	// leaves and plants look the map up on their shaded faces too, for the light through them
 	if (fade < 1.0 && (facing > 0.0 || matHas(m, MATF_SSS))) {
+		shadowSkyHint = sky;
 		ShadowSample sh = shadowSampleW(playerPos, n, lightDirWorld(), matThin(m), matIsWater(m),
 			matIsLeaves(m) ? 0.22 : 0.0);
 		float gate = sunLeakGate(sky);
 		reach = mix(sh.vis * gate, reach, fade);
-		sunShare *= mix(sh.tint, vec3(1.0), fade);
+		vec3 tint = sh.tint;
+		if (sh.underWater && !matHas(m, MATF_SSS) && facing > 0.0) {
+			// under water the light comes down steeper than it stands in the sky (bent at the surface), so a lake bed
+			// under a low sun takes it far more squarely than the grazing angle above says (round 2)
+			vec3 l = lightDirWorld();
+			vec3 lr = vec3(l.xz / 1.33, 0.0).xzy;
+			lr.y = sqrt(max(1.0 - dot(lr.xz, lr.xz), 0.0));
+			tint *= clamp(sunFacing(dot(n, lr)) / facing, 1.0, 4.0);
+		}
+		sunShare *= mix(tint, vec3(1.0), fade);
 		// what passes the casters round the point: the gaps whole, about a block of leaves 0.45, three a tenth
 		float pass = (1.0 - sh.cover) + sh.cover * exp(-0.8 * sh.depth);
 		through = mix(pass * gate, through, fade);
