@@ -466,6 +466,18 @@ ShadowSample shadowSamplePcss(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, 
 	// the first thing the light meets at the point's own texel, blocks above it (for the light through leaves)
 	float dc = texture(shadowtex0, uvz.xy).r;
 	r.thick = dc < uvz.z - bias ? (uvz.z - dc) * depthBlocks : 0.0;
+	// the casters' distance at the point itself, from the four texels round it (no noise): the long shadows' fade
+	// is keyed on it, so the noisy search never moves it (at a low sun it ran from a tuft's 0.5 blocks to a wall's 60
+	// within one penumbra, and the fade left blotches the resolve could not smooth)
+	ivec2 tq = ivec2(floor(uvz.xy * float(shadowMapResolution) - 0.5));
+	ivec2 tqMax = ivec2(shadowMapResolution - 1);
+	vec4 dq = vec4(texelFetch(shadowtex0, clamp(tq, ivec2(0), tqMax), 0).r,
+		texelFetch(shadowtex0, clamp(tq + ivec2(1, 0), ivec2(0), tqMax), 0).r,
+		texelFetch(shadowtex0, clamp(tq + ivec2(0, 1), ivec2(0), tqMax), 0).r,
+		texelFetch(shadowtex0, clamp(tq + ivec2(1, 1), ivec2(0), tqMax), 0).r);
+	vec4 aq = (uvz.z - dq) * depthBlocks;
+	vec4 inq = step(vec4(bias * depthBlocks), aq);
+	float aboveHere = dot(aq, inq) / max(dot(inq, vec4(1.0)), 1.0);
 	float searchTexels = clamp((PCSS_SPREAD * PCSS_SEARCH_HEIGHT + 0.02) / texelBlocks, PCSS_MIN_TEXELS,
 		PCSS_MAX_TEXELS);
 	float phi = noise.x * 6.2831853;
@@ -479,7 +491,7 @@ ShadowSample shadowSamplePcss(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, 
 		float d = texture(shadowtex0, uvz.xy + o).r;
 		float a = (uvz.z + dot(grad, o) - d) * depthBlocks;
 		if (a > bias * depthBlocks) {
-			float w = 1.0 / (a + 0.25);
+			float w = 1.0 / (a + 1.0);
 			sum += a * w;
 			wsum += w;
 			count += 1.0;
@@ -507,7 +519,7 @@ ShadowSample shadowSamplePcss(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, 
 			r.vis = v * (1.0 / float(PCSS_FILTER_TAPS));
 		}
 #endif
-		r.vis = mix(r.vis, 1.0, shadowLongFade(above, lightDir));
+		r.vis = mix(r.vis, 1.0, shadowLongFade(aboveHere > 0.0 ? aboveHere : above, lightDir));
 	} else {
 		r.vis = centre; // nothing round it: the hardware tap alone (1 in the open)
 	}
