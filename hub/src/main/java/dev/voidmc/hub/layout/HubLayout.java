@@ -131,7 +131,7 @@ public final class HubLayout {
 		this.fbW = Math.max(1, fbW);
 		this.fbH = Math.max(1, fbH);
 		this.guiScale = Math.max(1, guiScale);
-		this.u = unit(this.fbW, this.fbH, this.guiScale);
+		this.u = kind == Kind.CLASSES ? cardUnit(this.fbW, this.fbH, this.guiScale) : unit(this.fbW, this.fbH, this.guiScale);
 		this.containerRows = containerRows;
 		this.gear = gear;
 		this.maxScroll = Math.max(0, containerRows - VISIBLE_ROWS);
@@ -360,6 +360,25 @@ public final class HubLayout {
 		double byWidth = fbW / (double) NEED_W;
 		double byHeight = fbH / (double) NEED_H;
 		return Math.max(0.25, Math.min(byScale, Math.min(byWidth, byHeight)));
+	}
+
+	/**
+	 * Smallest unit the Classes page (Mettle's cards) is drawn at when the framebuffer has room: 11 px rules text is
+	 * then at least 7 device px. GUI scale 1 alone would give 0.43 (rules text under 5 px).
+	 */
+	public static final double CARD_MIN_UNIT = 0.75;
+
+	/**
+	 * The Classes page's unit: the shell's, raised to {@link #CARD_MIN_UNIT} where the framebuffer fits it, then
+	 * snapped down to a quarter so the hand cards' 4 px texel grid (README "Scales and crispness") lands on whole
+	 * device pixels: a texel is {@code 4u} px, the card art, the native burning edges and the page agree on the same
+	 * grid. Below half a unit (a very small window) readability wins and the unit is not snapped.
+	 */
+	public static double cardUnit(int fbW, int fbH, int guiScale) {
+		double fit = Math.min(fbW / (double) NEED_W, fbH / (double) NEED_H);
+		double u = Math.max(unit(fbW, fbH, guiScale), Math.min(CARD_MIN_UNIT, fit));
+		double snapped = Math.floor(u * 4 + 1e-9) / 4.0;
+		return snapped >= 0.5 ? snapped : u;
 	}
 
 	/**

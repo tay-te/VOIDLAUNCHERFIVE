@@ -96,10 +96,21 @@ public final class CardFx {
 		}).orElse(null);
 	}
 
-	/** Resource reloads drop the textures; they load again on first use. */
+	/**
+	 * A resource reload (F3+T, a pack change): the strips are released and load again, from the new resources, on first
+	 * use. Render thread.
+	 */
 	public static void clearTextures() {
+		var manager = Minecraft.getInstance().getTextureManager();
+		for (Optional<Tex> t : TEXTURES.values()) {
+			t.ifPresent(tex -> manager.release(tex.id()));
+		}
 		TEXTURES.clear();
+		reloads++;
 	}
+
+	/** Tests: how many reloads dropped the strips. */
+	public static volatile int reloads;
 
 	private static final class FxTexture extends DynamicTexture {
 		FxTexture(String name, NativeImage image, boolean linear) {

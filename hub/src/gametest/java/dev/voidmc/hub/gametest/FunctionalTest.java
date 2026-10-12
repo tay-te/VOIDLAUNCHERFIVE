@@ -157,6 +157,13 @@ public final class FunctionalTest {
 		this.context.takeScreenshot("voidhub_01_inventory");
 		this.layoutAgrees("inventory @ default scale");
 		this.pass("E opens the VOID inventory; page wells and Java hit-testing agree");
+		if (!dev.voidmc.hub.mettle.MettleLink.present()) {
+			// Without VOID Mettle the Classes and Gear segments are not shown: no dead tab.
+			String segs = this.context.computeOnClient(mc -> dev.voidmc.hub.ui.HubView.get().eval(
+				"(function(){var o=[];var s=document.querySelectorAll('#segments .segment');for(var i=0;i<s.length;i++)if(s[i].offsetWidth>0)o.push(s[i].getAttribute('data-seg'));return o.join(',')})()"));
+			this.expect("inventory".equals(segs), "without Mettle only the Inventory segment shows (no dead Classes tab): " + segs);
+			this.pass("no Classes or Gear segment without Mettle");
+		}
 
 		// 2. Left click picks a whole stack up; a left click on an empty well puts it down.
 		int a = 9;   // storage 1: 64 stone

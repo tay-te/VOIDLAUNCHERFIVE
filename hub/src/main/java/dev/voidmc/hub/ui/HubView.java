@@ -310,10 +310,20 @@ public final class HubView {
 			this.ready = true;
 		} else if (m instanceof Bridge.Invalid invalid) {
 			VoidHub.LOGGER.warn("VOID Hub page sent an invalid message ({}): {}", invalid.reason(), json);
-		} else {
+		} else if (this.attached || !screenOnly(m)) {
 			this.inbox.add(m);
 		}
 		return Bridge.reply(m);
+	}
+
+	/**
+	 * Messages that only mean something to the screen that is open: native layers, page stacks, keyboard claims, the
+	 * tooltip's box and card sounds timed to an animation. With no screen open they are dropped, never queued for the
+	 * next one (a stale deal sound would play when the hub next opens).
+	 */
+	static boolean screenOnly(Bridge.Message m) {
+		return m instanceof Bridge.Fx || m instanceof Bridge.Items || m instanceof Bridge.MettleUi || m instanceof Bridge.Tip
+			|| m instanceof Bridge.MettleCall c && "cardSound".equals(c.op());
 	}
 
 	private void post(Runnable r) {
@@ -328,6 +338,36 @@ public final class HubView {
 	public void setListener(Consumer<Bridge.Message> listener) {
 		this.listener = listener == null ? m -> {
 		} : listener;
+		this.attached = listener != null;
+	}
+
+	/** A screen is open and takes the page's messages (UI thread reads it to drop screen-only ones when none is). */
+	private volatile boolean attached;
+
+	/**
+	 * Hands every queued page message to {@code to} now (render thread), e.g. when a screen closes: the actions a
+	 * player took in its last frame still count, its native layers and sounds do not reach the next screen.
+	 */
+	public void drainInbox(Consumer<Bridge.Message> to) {
+		Bridge.Message m;
+		while ((m = this.inbox.poll()) != null) {
+			if (!screenOnly(m)) {
+				to.accept(m);
+			}
+		}
+	}
+
+	/** Tests: the page messages waiting for the next frame. */
+	public int inboxSize() {
+		return this.inbox.size();
+	}
+
+	/**
+	 * Tells the page whether a screen shows it. Hidden, the page pauses its timers (a draft's next deal, a reveal's
+	 * stages) and sends nothing; shown again, it resumes and re-sends its keyboard claims to the new screen.
+	 */
+	public void setVisible(boolean on) {
+		this.send("{\"type\":\"visible\",\"on\":" + on + "}");
 	}
 
 	public void setUploadMode(UploadMode mode) {

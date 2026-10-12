@@ -50,7 +50,15 @@ public final class MettleLink {
 	private static MethodHandle setPickerOpener;
 	private static MethodHandle chooseBackground;
 	private static MethodHandle parseJson;
-	private static final Map<String, String> ICONS = new HashMap<>();
+	/** Icon data URLs by id; read by the state worker (MettleSync) and the render thread. */
+	private static final Map<String, Optional<String>> ICONS = new java.util.concurrent.ConcurrentHashMap<>();
+	/** Texels (the source width) of each icon read, so the page can draw it on whole device pixels. */
+	private static final Map<String, Integer> TEXELS = new java.util.concurrent.ConcurrentHashMap<>();
+	/** Bumped by every resource reload: icons are read again and the page is sent them again. */
+	private static volatile int iconEpoch;
+	/** Tests: behave as if Mettle were missing or did not link (an older, incompatible jar). */
+	public static volatile boolean forceAbsent;
+	private static boolean stateFailed;
 
 	private MettleLink() {
 	}
@@ -61,6 +69,7 @@ public final class MettleLink {
 		}
 		looked = true;
 		if (!FabricLoader.getInstance().isModLoaded("mettle")) {
+			VoidHub.LOGGER.info("VOID Hub: VOID Mettle is not installed; the Gear and Classes pages stay off");
 			return;
 		}
 		try {
@@ -81,15 +90,20 @@ public final class MettleLink {
 				setPickerOpener = null;  // an older Mettle: its own picker screen stays
 			}
 		} catch (ReflectiveOperationException | LinkageError e) {
-			VoidHub.LOGGER.warn("VOID Hub: Mettle is installed but its overlay API did not match; the Classes and Gear pages stay off", e);
+			// An older or newer Mettle: one line saying what did not match, no stack trace on every open.
+			VoidHub.LOGGER.warn("VOID Hub: VOID Mettle {} is installed but its overlay API did not match ({}: {}); the Gear and Classes pages stay off",
+				FabricLoader.getInstance().getModContainer("mettle").map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("?"),
+				e.getClass().getSimpleName(), e.getMessage());
 			build = null;
+			return;
 		}
+		VoidHub.LOGGER.info("VOID Hub: VOID Mettle linked; the Gear and Classes pages are on");
 	}
 
 	/** Mettle is installed and speaks the overlay API this hub was written against. */
 	public static boolean present() {
 		look();
-		return build != null;
+		return build != null && !forceAbsent;
 	}
 
 	/** Whether this menu carries Mettle's gear slots (the player's inventory menu with Mettle loaded). */
@@ -102,10 +116,27 @@ public final class MettleLink {
 		if (!present()) {
 			return null;
 		}
+		Object tree = stateTree();
+		return tree == null ? null : String.valueOf(tree);
+	}
+
+	/**
+	 * Mettle's state as Mettle built it (a Gson tree), on the render thread: Mettle reads the client's game state. Its
+	 * text ({@code toString}) may be written on another thread, the tree is not touched again. Null without Mettle; a
+	 * Mettle whose state throws is logged once and switched off (the pages hide) instead of failing every open.
+	 */
+	public static Object stateTree() {
+		if (!present()) {
+			return null;
+		}
 		try {
-			return String.valueOf(build.invoke(Minecraft.getInstance()));
+			return build.invoke(Minecraft.getInstance());
 		} catch (Throwable t) {
-			VoidHub.LOGGER.error("VOID Hub: Mettle state failed", t);
+			if (!stateFailed) {
+				stateFailed = true;
+				VoidHub.LOGGER.error("VOID Hub: VOID Mettle's state failed; the Gear and Classes pages are switched off", t);
+			}
+			build = null;
 			return null;
 		}
 	}
@@ -237,6 +268,129 @@ public final class MettleLink {
 		}
 	}
 
+	// ---- change detection (MettleSync) ------------------------------------------------------------------------------
+
+	/** What MettleState.build reads, looked up once: client stores, the card overlay's and the state's own statics. */
+	private static boolean revLooked;
+	private static MethodHandle revCharacter;
+	private static MethodHandle revCards;
+	private static MethodHandle revVersion;
+	private static MethodHandle revCardSounds;
+	private static MethodHandle revCardVolume;
+	private static java.lang.reflect.Field[] revFields = new java.lang.reflect.Field[0];
+	private static Object revCarry;
+
+	private static void lookRevision() {
+		if (revLooked) {
+			return;
+		}
+		revLooked = true;
+		MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+		try {
+			Class<?> player = net.minecraft.world.entity.player.Player.class;
+			revCharacter = lookup.findStatic(Class.forName("dev.voidmc.mettle.core.CharacterStore"), "get", MethodType.methodType(Class.forName("dev.voidmc.mettle.core.CharacterState"), player));
+			revCards = lookup.findStatic(Class.forName("dev.voidmc.mettle.core.CardStore"), "get", MethodType.methodType(Class.forName("dev.voidmc.mettle.core.CardsState"), player));
+			Class<?> options = Class.forName("dev.voidmc.mettle.client.MettleClientOptions");
+			revCardSounds = lookup.findStatic(options, "cardSounds", MethodType.methodType(boolean.class));
+			revCardVolume = lookup.findStatic(options, "cardSoundsVolume", MethodType.methodType(int.class));
+			java.util.List<java.lang.reflect.Field> fields = new java.util.ArrayList<>();
+			for (String[] f : new String[][] {{"MettleCards", "sitting"}, {"MettleCards", "trade"}, {"MettleCards", "hall"}, {"MettleCards", "reveal"},
+				{"MettleState", "RECENT"}, {"MettleState", "MOMENTS"}, {"MettleState", "lastResult"}, {"MettleState", "pickerByOperator"}}) {
+				java.lang.reflect.Field field = Class.forName(OVERLAY + f[0]).getDeclaredField(f[1]);
+				field.setAccessible(true);
+				fields.add(field);
+			}
+			revFields = fields.toArray(new java.lang.reflect.Field[0]);
+			revCarry = Class.forName("dev.voidmc.mettle.core.MettleAttributes").getField("CARRY_CAPACITY").get(null);
+		} catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
+			VoidHub.LOGGER.warn("VOID Hub: could not read VOID Mettle's state inputs ({}); its state is rebuilt every half second instead", e.toString());
+			revCharacter = null;
+		}
+		// A Mettle with its own change counter (MettleState.revision(): it changes whenever build's output would) is trusted
+		// alone; an older one is read through the signature below.
+		for (String name : new String[] {"revision", "version"}) {
+			for (Class<?> type : new Class<?>[] {long.class, int.class}) {
+				try {
+					if (revVersion == null) {
+						revVersion = lookup.findStatic(Class.forName(OVERLAY + "MettleState"), name, MethodType.methodType(type));
+					}
+				} catch (ReflectiveOperationException | LinkageError e) {
+					// not this one
+				}
+			}
+		}
+	}
+
+	/**
+	 * A cheap signature of everything Mettle's state message is built from: it changes whenever the message could. The
+	 * client's character and card records are immutable and replaced on every sync, so their identities say when they
+	 * changed; with them the card overlay's sitting, trade, hall and reveal, the feedback chips and moments, the card
+	 * sound option, the carry capacity and the gear the load is weighed from (the menu's stacks). Time enters as
+	 * buckets: a game minute (cards attune by the minute) and, while a trade is open, the second (its countdown).
+	 * Microseconds, render thread; {@code MettleSync} rebuilds the state only when it changes.
+	 */
+	public static long revision(Minecraft mc) {
+		if (!present() || mc.player == null || mc.level == null) {
+			return 0;
+		}
+		lookRevision();
+		if (revVersion != null) {
+			try {
+				return ((Number) revVersion.invoke()).longValue();
+			} catch (Throwable t) {
+				VoidHub.LOGGER.warn("VOID Hub: VOID Mettle's MettleState.revision() failed ({}); reading its inputs instead", t.toString());
+				revVersion = null;
+			}
+		}
+		long time = mc.level.getGameTime();
+		if (revCharacter == null) {
+			return time / 10;  // the inputs could not be read: as before, a rebuild every 10 ticks
+		}
+		long h = 17;
+		try {
+			var p = mc.player;
+			h = h * 31 + System.identityHashCode(revCharacter.invoke(p));
+			h = h * 31 + System.identityHashCode(revCards.invoke(p));
+			h = h * 31 + ((boolean) revCardSounds.invoke() ? 1 : 0);
+			h = h * 31 + (int) revCardVolume.invoke();
+			boolean trading = false;
+			for (int i = 0; i < revFields.length; i++) {
+				Object v = revFields[i].get(null);
+				if (v instanceof java.util.Deque<?> d) {
+					h = h * 31 + d.size();
+					h = h * 31 + System.identityHashCode(d.peekLast());
+				} else {
+					h = h * 31 + System.identityHashCode(v);
+				}
+				if (i == 1 && v != null) {
+					trading = true;
+				}
+			}
+			@SuppressWarnings("unchecked")
+			var carry = (net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute>) revCarry;
+			h = h * 31 + Double.hashCode(p.getAttributes().hasAttribute(carry) ? p.getAttributeValue(carry) : 0);
+			h = h * 31 + (p.isCreative() ? 1 : 0) + (p.isSpectator() ? 2 : 0);
+			var slots = p.inventoryMenu.slots;
+			for (int i = 0; i < slots.size(); i++) {
+				net.minecraft.world.item.ItemStack st = slots.get(i).getItem();
+				if (!st.isEmpty()) {
+					h = h * 31 + i;
+					h = h * 31 + net.minecraft.world.item.ItemStack.hashItemAndComponents(st);
+					h = h * 31 + st.getCount();
+				}
+			}
+			h = h * 31 + time / 1200;
+			if (trading) {
+				h = h * 31 + time / 20;
+			}
+		} catch (Throwable t) {
+			VoidHub.LOGGER.warn("VOID Hub: reading VOID Mettle's state inputs failed ({}); rebuilding every half second instead", t.toString());
+			revCharacter = null;
+			return time / 10;
+		}
+		return h;
+	}
+
 	private static java.lang.reflect.Field sittingField;
 	private static boolean sittingLooked;
 	private static boolean sittingWas;
@@ -289,24 +443,47 @@ public final class MettleLink {
 	 * art): the page has no access to other mods' assets. Cached; null when missing.
 	 */
 	public static String icon(String id) {
-		String hit = ICONS.get(id);
-		if (hit != null || ICONS.containsKey(id)) {
-			return hit;
+		Optional<String> hit = ICONS.get(id);
+		if (hit != null) {
+			return hit.orElse(null);
 		}
 		String url = null;
 		Identifier key = Identifier.tryParse(id);
 		if (key != null) {
-			Optional<Resource> res = Minecraft.getInstance().getResourceManager().getResource(key);
+			Optional<Resource> res;
+			try {
+				res = Minecraft.getInstance().getResourceManager().getResource(key);
+			} catch (RuntimeException e) {
+				return null;  // the resource manager is being swapped (a reload): try again next time, cache nothing
+			}
 			if (res.isPresent()) {
 				try (InputStream in = res.get().open()) {
-					url = "data:image/png;base64," + Base64.getEncoder().encodeToString(upscale(in.readAllBytes()));
+					byte[] png = in.readAllBytes();
+					TEXELS.put(id, width(png));
+					url = "data:image/png;base64," + Base64.getEncoder().encodeToString(upscale(png));
 				} catch (Exception e) {
 					VoidHub.LOGGER.warn("VOID Hub: could not read {}", id, e);
+					return null;
 				}
 			}
 		}
-		ICONS.put(id, url);
+		ICONS.put(id, Optional.ofNullable(url));
 		return url;
+	}
+
+	/** The source width in texels of an icon read by {@link #icon}, or 0. */
+	public static int texels(String id) {
+		return TEXELS.getOrDefault(id, 0);
+	}
+
+	/** Changes with every resource reload (icons are read again). */
+	public static int iconEpoch() {
+		return iconEpoch;
+	}
+
+	private static int width(byte[] png) {
+		// PNG: the IHDR width, big-endian, at byte 16.
+		return png.length > 24 ? (png[16] & 0xFF) << 24 | (png[17] & 0xFF) << 16 | (png[18] & 0xFF) << 8 | png[19] & 0xFF : 0;
 	}
 
 	/**
@@ -338,8 +515,10 @@ public final class MettleLink {
 		}
 	}
 
-	/** Resource reloads replace textures. */
+	/** Resource reloads replace textures: icons are read again, and sent to the page again. */
 	public static void clearIcons() {
 		ICONS.clear();
+		TEXELS.clear();
+		iconEpoch++;
 	}
 }

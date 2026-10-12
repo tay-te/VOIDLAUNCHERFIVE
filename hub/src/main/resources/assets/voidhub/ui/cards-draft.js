@@ -15,15 +15,55 @@
   var MC = window.MC, esc = MC.esc;
   var ov = MC.ov = {};
   var cur = null;        // the overlay up: {kind, ...}
-  var timers = [];
+  var timers = [];       // {id, fn, due}
+  var paused = null;     // while no screen shows the page: [{fn, left}]
 
-  function later(ms, fn) { var t = setTimeout(fn, ms); timers.push(t); return t; }
-  function clearTimers() { for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]); timers = []; }
+  // Timers pause while the hub is closed (MC.visible): a draft's next deal, a reveal's stages and their sounds wait for
+  // the page to be seen again instead of playing into a closed window.
+  function later(ms, fn) {
+    var t = {fn: fn, due: Date.now() + ms};
+    t.id = setTimeout(function () {
+      var at = timers.indexOf(t);
+      if (at >= 0) timers.splice(at, 1);
+      fn();
+    }, ms);
+    timers.push(t);
+    return t;
+  }
+  function clearTimers() { for (var i = 0; i < timers.length; i++) clearTimeout(timers[i].id); timers = []; paused = null; }
+
+  /** No screen shows the page: every pending step waits, with the time it had left. */
+  ov.hide = function () {
+    if (paused) return;
+    var now = Date.now();
+    paused = [];
+    for (var i = 0; i < timers.length; i++) {
+      clearTimeout(timers[i].id);
+      paused.push({fn: timers[i].fn, left: Math.max(0, timers[i].due - now)});
+    }
+    timers = [];
+  };
+  /**
+   * The page shows again. A pick whose burn was cut off deals the next hand now, a reveal cut off settles (its sound
+   * was stopped with the window), a set moment ends; anything else carries on where it stopped.
+   */
+  ov.show = function () {
+    if (!paused) return;
+    var list = paused;
+    paused = null;
+    if (!cur) return;
+    if (cur.kind === "draft" && cur.picked >= 0 && !cur.claimed) { next(); return; }
+    if (cur.revealing) { skipReveal(true); return; }
+    if (cur.kind === "set") { ov.close(true); return; }
+    for (var i = 0; i < list.length; i++) later(list[i].left, list[i].fn);
+  };
+  ov.paused = function () { return !!paused; };
 
   function host() { return MC.$("c-ov"); }
   function setUi() {
     MC.toggle(MC.$("classes"), "ov-up", !!cur);
-    MC.send({type: "mettleUi", modal: !!cur, text: !!MC.textFocus});
+    if (cur && MC.textFocus) MC.textFocus = false;  // an overlay takes the keyboard from a search or coin field
+    if (MC.ui) MC.ui(); else MC.send({type: "mettleUi", modal: !!cur, text: !!MC.textFocus});
   }
 
   function skill(id) {
@@ -94,8 +134,11 @@
     if (halo) { halo.style.top = (TOP - 50) + "px"; halo.style.height = (bottom - TOP + 60) + "px"; }
     return H;
   }
-  /** Card x for a hand of n (3 fills the window as in D1; fewer centre). */
-  function leftOf(i, n) { return Math.round(493.5 - (n * 248 + (n - 1) * 30) / 2) + i * 278; }
+  /**
+   * Card x for a hand of n (3 fills the window as in D1; fewer centre), on the hand's 4 px texel grid: with the Classes
+   * page's quarter units every card, its art and its native edges land on whole device pixels.
+   */
+  function leftOf(i, n) { return Math.round((493.5 - (n * 248 + (n - 1) * 30) / 2 + i * 278) / 4) * 4; }
   function burnDelay() { return (MC.M.draft && MC.M.draft.sound && MC.M.draft.sound.burnAfterPickMs) || 260; }
   function tintOf(c) { return c.cursed ? MC.CURSED : c.colour || "#9A9DA1"; }
 
@@ -137,6 +180,7 @@
     cur = cur || {kind: "draft", n: 0, total: Math.max(1, s.drafts)};
     cur.skill = skillId;
     cur.hover = -1;
+    cur.kbd = false;
     cur.lock = true;
     cur.picked = -1;
     cur.burnt = null;
@@ -185,7 +229,8 @@
     if (!again) MC.sound("deal", skillId);
     cur.dealing = true;
     draftFx();
-    later(80 * 2 + 260, function () { if (cur && cur.kind === "draft") cur.lock = false; });
+    // The deal's lock ends; a new hand that arrived while it was on (the state answers within a tick) deals now.
+    later(80 * 2 + 260, function () { if (cur && cur.kind === "draft") { cur.lock = false; ov.onState(); } });
   };
 
   function keys() {
@@ -223,14 +268,31 @@
     var hc = target && target.closest ? target.closest(".dr-hand .hc") : null;
     if (hc) i = +hc.getAttribute("data-hand");
     if (isNaN(i) || i === cur.hover) return;
+    if (i < 0 && cur.kbd) return;  // the pointer left the hand: a card chosen with the keys stays chosen
+    setHover(i, false);
+  };
+  function setHover(i, kbd) {
     var was = cur.hover;
     cur.hover = i;
+    cur.kbd = kbd && i >= 0;
     cur.dealing = false;
+    var cards = MC.$("dr-hand") ? MC.$("dr-hand").children : [];
+    for (var k = 0; k < cards.length; k++) MC.toggle(cards[k], "kbd", cur.kbd && +cards[k].getAttribute("data-hand") === i);
     keys();
     draftFx();
     if (i >= 0) MC.sound("hover", cur.skill + "#" + i);
     else if (was >= 0) MC.sound("unhover", "");
-  };
+  }
+  /** Left / Right (and Tab) step the chosen card with the keys: it lifts on its hot frame, with a focus ring. */
+  function step(d) {
+    if (!cur || cur.kind !== "draft" || cur.picked >= 0 || cur.revealing || cur.faded) return;
+    var idx = [];
+    for (var k = 0; k < Math.min(3, cur.hand.length); k++) if (cur.pos[k] != null) idx.push(k);
+    if (!idx.length) return;
+    var at = idx.indexOf(cur.hover);
+    var next = at < 0 ? (d > 0 ? 0 : idx.length - 1) : (at + d + idx.length) % idx.length;
+    setHover(idx[next], true);
+  }
 
   /** Keeps card i: it flares, the other two burn away, and the next draft deals (or the page returns). */
   ov.pick = function (i) {
@@ -368,15 +430,21 @@
     later(m.flip + 1000, function () { revealStage(stageEl, "settled", x, y); if (then) then(); });
   }
 
-  /** Skips to the settled card (Esc or a click). */
-  function skipReveal() {
+  /** Skips to the settled card (Esc or a click; quiet: the window closing already stopped the sound). */
+  function skipReveal(quiet) {
     if (!cur || !cur.revealing) return;
     clearTimers();
-    MC.sound("stop", "");
+    if (!quiet) MC.sound("stop", "");
     var stageEl = MC.$("rv-stage");
     if (stageEl) revealStage(stageEl, "settled", cur.rvX, cur.rvY);
     cur.revealing = false;
     if (cur.afterReveal) cur.afterReveal();
+  }
+
+  /** The revealed Mythic's text fits its face (MC.layoutMythic). */
+  function fitMythic() {
+    var st = MC.$("rv-stage"), my = st && st.querySelector(".hc.my");
+    if (my) MC.layoutMythic(my);
   }
 
   /** The page's part of a reveal: the dark, and the Mythic's face (shown at the flip). The rest is native. */
@@ -418,6 +486,7 @@
     cur.rvX = leftOf(slot, n);
     cur.rvY = TOP;
     MC.$("dr-hand").insertAdjacentHTML("afterend", mythicStage(c, cur.rvX, cur.rvY));
+    fitMythic();
     var claimOnly = s.mythicOffer != null;  // Mettle with claimMythic: claiming keeps the draft open
     MC.text(MC.$("dr-fl"), claimOnly ? "MYTHICS DON'T USE YOUR PICK  ·  " + (n - 1 >= 2 ? "YOU STILL KEEP ONE OF THE OTHERS" : n - 1 === 1 ? "YOU STILL KEEP THE OTHER CARD TOO" : "A NEW HAND DEALS AFTER") : "KEEPING A MYTHIC USES THIS DRAFT'S PICK  ·  " + burnText(n));
     MC.text(MC.$("dr-fr"), "");
@@ -439,6 +508,7 @@
     var c = MC.mythicInfo(cur.hand[i], skill(cur.skill)), s = skill(cur.skill);
     cur.lock = true;
     MC.lastClaimAt = Date.now();
+    MC.lastClaimId = c.id;
     MC.sound("pick", "mythic");
     if (s && s.mythicOffer != null) {
       MC.act("claimMythic", cur.skill);
@@ -462,13 +532,14 @@
   /** A Mythic just earned outside a draft (cards.reveal): the reveal on its own, then Continue. */
   ov.reveal = function (r) {
     if (cur) return false;
-    cur = {kind: "reveal", id: r.id, revealing: true, rvX: 369, rvY: 175};
+    cur = {kind: "reveal", id: r.id, revealing: true, rvX: 368, rvY: 176};  // on the 4 px texel grid
     setUi();
     var el = host();
     el.className = "ov-reveal";
     var all = MC.M.cards.mythics ? MC.M.cards.mythics.all : [];
     for (var i = 0; i < all.length; i++) if (all[i].id === r.id && r.source === "deed" && all[i].copies > 1) r.holderLine = "No. " + all[i].copies + " in this world";
     el.innerHTML = '<div class="ov-dim"></div><div id="dr-title"></div>' + mythicStage(r, cur.rvX, cur.rvY) + '<div id="dr-act"></div><div class="footer ov-fl" id="dr-fl"></div><div class="footer right ov-fr" id="dr-fr"></div>';
+    fitMythic();
     cur.afterReveal = function () {
       MC.$("dr-title").innerHTML = title(r.source === "world_first" ? "A WORLD FIRST" : r.source === "drawn" ? "A MYTHIC WAS DEALT" : "A LEGEND WAS MADE", r.name || "", "#F3D28B", 3);
       MC.$("dr-act").innerHTML = '<div class="claim" data-close-ov="1">Continue</div>';
@@ -540,8 +611,19 @@
     if (cur.kind === "set") { ov.close(true); return true; }
     if (cur.kind === "draft") {
       if (k >= "1" && k <= "3") { ov.pick(+k - 1); return true; }
-      if (k === "Enter" && cur.hover >= 0) { ov.pick(cur.hover); return true; }
+      if (k === "Left" || k === "ShiftTab") { step(-1); return true; }
+      if (k === "Right" || k === "Tab") { step(1); return true; }
+      if (k === "Enter") {
+        if (cur.faded && !cur.revealing && cur.mythicAt != null && MC.$("dr-act") && MC.$("dr-act").querySelector("[data-claim]")) claim(cur.mythicAt);
+        else if (cur.hover >= 0) ov.pick(cur.hover);
+        return true;
+      }
       if (k === "r") { ov.reroll(); return true; }
+      return true;  // the draft owns the keyboard: nothing reaches the page under it
+    }
+    if (cur.kind === "reveal") {
+      if (k === "Enter" && !cur.revealing) { ov.close(true); return true; }
+      return true;
     }
     return false;
   };

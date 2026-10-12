@@ -161,6 +161,7 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		this.layout = this.makeLayout(w.getWidth(), w.getHeight(), w.getGuiScale());
 		this.geometry = geometryOf(this.menu, this.leftPos, this.topPos, this.imageWidth, this.imageHeight);
 		this.hub.setListener(this::onBridge);
+		this.hub.setVisible(true);
 		this.hub.ensureSize(w.getWidth(), w.getHeight(), this.layout.u);
 		this.sentLayout = null;
 		this.sentState = null;
@@ -185,7 +186,14 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 
 	protected void relayout() {
 		Window w = this.minecraft.getWindow();
+		double was = this.layout == null ? -1 : this.layout.u;
 		this.layout = this.makeLayout(w.getWidth(), w.getHeight(), w.getGuiScale());
+		if (this.layout.u != was) {
+			// A page with its own unit (Classes snaps it for the cards' texel grid): the view follows, and the first
+			// frame at the new scale waits for its paint, as on open.
+			this.hub.ensureSize(w.getWidth(), w.getHeight(), this.layout.u);
+			this.firstFrame = true;
+		}
 	}
 
 	// ---- frame -----------------------------------------------------------------------------------
@@ -239,7 +247,10 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 			if (this.layout.detailIcon != null) {
 				this.pushHeld();
 			}
+			long p0 = HubStats.INSTANCE.currentPostNs();
+			long e0 = System.nanoTime();
 			this.pushExtra();
+			HubStats.INSTANCE.noteExtra(System.nanoTime() - e0 - (HubStats.INSTANCE.currentPostNs() - p0));
 		}
 		if (this.firstFrame) {
 			// The view still holds whatever the last VOID screen showed: let the UI thread paint
@@ -853,6 +864,7 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		this.mapHidden();
 		super.removed();
 		this.hub.setListener(null);
+		this.hub.setVisible(false);
 		this.pending.clear();
 	}
 

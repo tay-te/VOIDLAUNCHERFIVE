@@ -37,6 +37,7 @@
     if (!el || el.__k === key) return false;
     el.__k = key;
     el.innerHTML = typeof html === "function" ? html() : html;
+    if (MC.attached && el.firstChild) MC.fitIn(el);  // one-line texts (row names, subtitles) fit their boxes
     return true;
   };
   /** A child div made once (by id), so later updates patch it instead of rebuilding its parent. */
@@ -82,15 +83,25 @@
     for (var g in fxGroups) fxGroups[g] = [];
     MC.fxSet("draft", []);
   };
-  /** The window's top-left in page px (the page's own coordinates for #win children are relative to it). */
+  /**
+   * The window's top-left in page px (the page's own coordinates for #win children are relative to it). Fractional:
+   * Java places the window on whole device px, which is a fraction of a CSS px at most scales, and the native layers
+   * are drawn at round(x * u) -- an integer offsetLeft was up to half a CSS px (1.2 device px at 4K) off.
+   */
   MC.win = function () {
     var w = document.getElementById("win");
-    return w ? {x: w.offsetLeft, y: w.offsetTop} : {x: 0, y: 0};
+    if (!w) return {x: 0, y: 0};
+    var r = w.getBoundingClientRect();
+    return {x: r.left, y: r.top};
   };
-  /** An element's untransformed top-left in page px (offset chain: a running transform does not move it). */
+  /**
+   * An element's untransformed top-left in page px: the offset chain up to the window (a running transform does not
+   * move it; positions inside the window are the design's whole numbers), plus the window's fractional origin.
+   */
   MC.abs = function (el) {
-    var x = 0, y = 0;
-    while (el && el !== document.body) { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; }
+    var x = 0, y = 0, win = document.getElementById("win");
+    while (el && el !== document.body && el !== win) { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; }
+    if (el === win && win) { var w = MC.win(); x += w.x; y += w.y; }
     return {x: x, y: y};
   };
 
@@ -113,10 +124,61 @@
   MC.shade = function (hue) { return MC.mix("#141416", hue || "#9A9DA1", 0.17); };
 
   // ---- icons -------------------------------------------------------------------------------------------------
-  /** A Mettle texture (perk, skill, Mythic icon) at w CSS px, from the data URLs Java sends once. */
-  MC.img = function (id, w, cls) {
+  // Each icon is one stylesheet rule (its data URL as a background), made the first time the icon is drawn: tiles,
+  // rows and cards name a class instead of carrying the image. Rebuilding twelve binder tiles on a scroll, or the page
+  // on a reopen, parses no data URLs and decodes no images (each one was decoded again before: slow scrolls, and memory
+  // that grew with every open).
+  MC.texels = {};       // icon id -> source width in texels (Java's "texels"), for whole-device-pixel sizes
+  MC.u = 1;             // device px per CSS px (the layout's u)
+  var iconCls = {}, iconUrl = {}, iconN = 0, iconSheet = null;
+  function iconClass(id) {
     var url = MC.icons[id];
-    return url ? '<img class="' + (cls || "mc-img") + '" src="' + url + '" style="width:' + w + "px;height:" + w + 'px">' : "";
+    if (!url) return "";
+    if (iconCls[id] && iconUrl[id] === url) return iconCls[id];
+    if (!iconSheet) {
+      var st = document.createElement("style");
+      st.id = "mc-icons";
+      document.head.appendChild(st);
+      iconSheet = st.sheet;
+    }
+    var c = "ic" + (++iconN);
+    iconSheet.insertRule("." + c + "{background-image:url(" + url + ")}", iconSheet.cssRules.length);
+    iconCls[id] = c;
+    iconUrl[id] = url;
+    return c;
+  }
+  /**
+   * The CSS size of pixel art of `texels` texels drawn at about `w` CSS px: a whole number of device px per texel, so
+   * every texel is the same size on screen (never larger than w). Without a known texel count, w.
+   */
+  MC.artSize = function (w, texels) {
+    if (!texels || !MC.u) return w;
+    var per = Math.floor(w * MC.u / texels + 1e-6);
+    if (per < 1) return w;
+    return per * texels / MC.u;
+  };
+  /**
+   * A Mettle texture (perk, skill, Mythic icon) at about w CSS px (h for non-square art): snapped to whole device px
+   * per texel and centred in the w x h box by a whole number of device px.
+   */
+  MC.img = function (id, w, cls, h) {
+    var c = iconClass(id);
+    if (!c) return "";
+    h = h || w;
+    var W = w, H = h, t = MC.texels[id], st = "";
+    if (t && w === h) {
+      W = H = MC.artSize(w, t);
+      var d = Math.round((w - W) / 2 * MC.u) / MC.u;
+      if (d) st = "margin-left:" + d + "px;margin-top:" + d + "px;";
+    }
+    return '<span class="' + (cls || "mc-img") + " ic " + c + '" data-tx="' + (t || 0) + '" style="' + st + "width:" + W + "px;height:" + H + 'px"></span>';
+  };
+  /** New icons from Java (and their texel widths); a reload's new URLs replace the old rules. */
+  MC.setIcons = function (map, texels) {
+    var changed = false;
+    for (var k in map) { if (MC.icons[k] && MC.icons[k] !== map[k]) changed = true; MC.icons[k] = map[k]; }
+    for (var t in texels || {}) MC.texels[t] = texels[t];
+    return changed;
   };
   var GLYPHS = ["brutal", "deep", "echo", "ember", "gale", "hex", "hoard", "iron", "keen", "kin", "swift", "tide", "warden", "wild"];
   MC.glyphIndex = function (kw) {
@@ -334,17 +396,135 @@
    * with no traits gets the tallest art; one with a lot of text keeps the 64 px art. Measures, so call it once the
    * card is in the page.
    */
+  /**
+   * The smallest text a card may use, in CSS px: 7 device px (the card text stays readable at GUI scale 1 and in small
+   * windows), never under 8.5 CSS px.
+   */
+  MC.minText = function () { return Math.max(8.5, 7 / (MC.u || 1)); };
+
+  /** Cuts el's text with an ellipsis until fits() holds (the full text stays in its title). */
+  MC.clampText = function (el, fits) {
+    if (fits()) return;
+    var full = el.getAttribute("data-full") || el.textContent;
+    el.setAttribute("data-full", full);
+    el.title = full;
+    var cut = function (n) { return n > 0 ? full.slice(0, n).replace(/[\s,.;:\u00b7-]+$/, "") + "\u2026" : "\u2026"; };
+    var lo = 0, hi = full.length;
+    while (lo < hi) {
+      var mid = (lo + hi + 1) >> 1;
+      el.textContent = cut(mid);
+      if (fits()) lo = mid; else hi = mid - 1;
+    }
+    el.textContent = cut(lo);
+  };
+  /** One line of text that must fit its box: smaller (down to the readable minimum), then cut with an ellipsis. */
+  MC.fitLine = function (el, from) {
+    if (!el || el.scrollWidth <= el.clientWidth + 1) return;
+    var min = MC.minText(), f = from || parseFloat(getComputedStyle(el).fontSize) || 11;
+    while (el.scrollWidth > el.clientWidth + 1 && f - 0.5 >= min) { f -= 0.5; el.style.fontSize = f + "px"; }
+    MC.clampText(el, function () { return el.scrollWidth <= el.clientWidth + 1; });
+  };
+  /** Every one-line text in a patched part that must fit (row names and subtitles, collection names, detail values). */
+  MC.fitIn = function (root) {
+    if (!root || !root.querySelectorAll) return;
+    var els = root.querySelectorAll(".rw-n, .rw-s, .cc:not(.long) .cc-n, .bd-v");
+    for (var i = 0; i < els.length; i++) MC.fitLine(els[i]);
+  };
+
+  /**
+   * Lays a hand card out inside its fixed 248 x 328 face (the design's 3:4, never resized), and makes its text fit the
+   * safe area: the art panel at 56 grows (64 to 140 tall) into whatever room the text leaves, the name block sits 8
+   * under it and the traits block (price or divider plus traits) is anchored to the bottom safe area, above the "Slots
+   * at" line. Text that does not fit steps down (to MC.minText, readable at any scale), then the art shrinks to 40,
+   * keyword chips drop their names, the price and the rules are cut with an ellipsis: nothing overlaps or leaves the
+   * card. Measures, so call it once the card is in the page.
+   */
   MC.layoutCard = function (el) {
+    if (el.classList.contains("my")) { MC.layoutMythic(el); return; }
     var art = el.querySelector(".hc-art"), top = el.querySelector(".hc-flow"), bot = el.querySelector(".hc-bot");
     if (!art || !top || !bot) return;
     var need = el.querySelector(".hc-need"), limit = need ? 328 - 22 - 16 - 8 : 328 - 28;
-    var botH = bot.offsetHeight, topH = top.scrollHeight, gap = botH ? 10 : 0;
-    var a = Math.max(64, Math.min(140, limit - botH - gap - topH - 8 - 56));
+    var desc = el.querySelector(".hc-desc"), price = el.querySelector(".hc-pt"), trs = el.querySelectorAll(".hc-tr"), kws = el.querySelector(".hc-kws");
+    var min = MC.minText(), f = Math.max(11, min), ART_MIN = 40;
+    function apply(size) {
+      var lh = Math.round(size * 1.36 * 2) / 2;
+      if (desc) { desc.style.fontSize = size + "px"; desc.style.lineHeight = lh + "px"; }
+      if (price) { price.style.fontSize = size + "px"; price.style.lineHeight = (lh - 1) + "px"; }
+      for (var i = 0; i < trs.length; i++) { trs[i].style.fontSize = size + "px"; trs[i].style.height = lh + "px"; }
+      if (need) need.style.fontSize = Math.max(min, Math.min(10.5, size)) + "px";
+      if (kws) for (var k = 0; k < kws.children.length; k++) kws.children[k].style.fontSize = Math.max(min, size - 0.5) + "px";
+    }
+    function room() { return limit - bot.offsetHeight - (bot.offsetHeight ? 10 : 0) - 56 - 8; }
+    apply(f);
+    while (top.scrollHeight + 64 > room() && f - 0.5 >= min) { f -= 0.5; apply(f); }
+    for (var t = 0; t < trs.length; t++) fitTrait(trs[t], min);
+    if (kws && kws.scrollWidth > kws.clientWidth + 1) MC.toggle(kws, "bare", true);
+    var a = Math.max(64, Math.min(140, room() - top.scrollHeight));
+    if (top.scrollHeight + a > room()) {
+      // Still too much: the art gives way first, then the keywords' names, then the price, then the rules.
+      a = Math.max(ART_MIN, room() - top.scrollHeight);
+      if (kws && top.scrollHeight + a > room()) { MC.toggle(kws, "bare", true); a = Math.max(ART_MIN, room() - top.scrollHeight); }
+      if (price && top.scrollHeight + ART_MIN > room()) {
+        var cap = Math.max(price.offsetHeight - (top.scrollHeight + ART_MIN - room()), parseFloat(price.style.lineHeight) || 14);
+        MC.clampText(price, function () { return price.offsetHeight <= cap + 0.5; });
+      }
+      if (desc && top.scrollHeight + ART_MIN > room()) {
+        var over = top.scrollHeight + ART_MIN - room(), keep = Math.max(parseFloat(desc.style.lineHeight) || 15, desc.offsetHeight - over);
+        MC.clampText(desc, function () { return desc.offsetHeight <= keep + 0.5; });
+      }
+      a = Math.max(ART_MIN, Math.min(140, room() - top.scrollHeight));
+    }
+    a = Math.floor(a / 4) * 4;  // whole texels (4 px) of the hand grid
     art.style.height = a + "px";
     var img = art.querySelector(".mc-img");
-    if (img) img.style.top = Math.round((a - 64) / 2) + "px";
+    if (img) {
+      var tx = +img.getAttribute("data-tx") || 0, w = MC.artSize(Math.min(64, a), tx);
+      img.style.width = img.style.height = w + "px";
+      img.style.margin = "0";
+      img.style.left = Math.round((192 - w) / 2 * MC.u) / MC.u + "px";
+      img.style.top = Math.round((a - w) / 2 * MC.u) / MC.u + "px";
+    }
     top.style.top = (56 + a + 8) + "px";
-    bot.style.top = (limit - botH) + "px";
+    bot.style.top = (limit - bot.offsetHeight) + "px";
+  };
+
+  /** A trait line that must fit: smaller, then the boosted value replaces the rolled one, then the name is cut. */
+  function fitTrait(tr, min) {
+    var n = tr.querySelector(".n"), b = tr.querySelector(".b"), v = tr.querySelector(".v");
+    if (!n) return;
+    var fits = function () { return n.scrollWidth <= n.clientWidth + 1 && (!v || v.scrollWidth <= v.clientWidth + 1) && (!b || b.scrollWidth <= b.clientWidth + 1); };
+    if (fits()) return;
+    var f = parseFloat(tr.style.fontSize) || 11;
+    while (!fits() && f - 0.5 >= min) { f -= 0.5; tr.style.fontSize = f + "px"; if (b) b.style.fontSize = f + "px"; }
+    if (!fits() && b && b.textContent && v) {
+      v.textContent = b.textContent.replace(/^\u2192\s*/, "");
+      v.className = "v boosted";
+      b.textContent = "";
+      b.style.display = "none";
+    }
+    if (v && v.scrollWidth > v.clientWidth + 1) v.style.minWidth = v.scrollWidth + "px";
+    MC.clampText(n, function () { return n.scrollWidth <= n.clientWidth + 1; });
+  }
+
+  /** The Mythic in hand mode: its effect and lore fit the face's text block (smaller, the lore goes first, then cut). */
+  MC.layoutMythic = function (el) {
+    var flow = el.querySelector(".my-flow"), eff = el.querySelector(".my-eff"), lore = el.querySelector(".my-lore");
+    if (!flow || !eff) return;
+    var min = MC.minText(), f = Math.max(11.5, min);
+    var fits = function () { return flow.scrollHeight <= flow.clientHeight + 1; };
+    var apply = function () {
+      eff.style.fontSize = f + "px";
+      eff.style.lineHeight = Math.round(f * 1.3 * 2) / 2 + "px";
+      if (lore) {
+        var lf = Math.max(min, f - 1);
+        lore.style.fontSize = lf + "px";
+        lore.style.lineHeight = Math.round(lf * 1.33 * 2) / 2 + "px";
+      }
+    };
+    apply();
+    while (!fits() && f - 0.5 >= min) { f -= 0.5; apply(); }
+    if (!fits() && lore) lore.style.display = "none";
+    if (!fits()) MC.clampText(eff, fits);
   };
 
   /**

@@ -31,8 +31,8 @@ import net.minecraft.world.item.Items;
 
 /**
  * Production-readiness audit of the Mettle card UI in the hub ({@code -Dvoidhub.test=audit}, {@code ./gradlew hubAudit}).
- * Soft checks: every finding is logged as {@code AUDIT PASS|FAIL|NOTE|PERF ...} and the run goes on, so one game run
- * covers resolutions and GUI scales, extreme state, input edge cases and lifecycle.
+ * Every finding is logged as {@code AUDIT PASS|FAIL|NOTE|PERF ...} and the run goes on, so one game run covers resolutions
+ * and GUI scales, extreme state, input edge cases and lifecycle; at the end any FAIL fails the run (the task exits 1).
  */
 public final class AuditTest {
 
@@ -228,8 +228,12 @@ public final class AuditTest {
 		return n;
 	}
 
-	/** Makes sure a plain (no Mythic) draft hand is up and dealt. */
+	/** Makes sure a plain (no Mythic) draft hand is up and dealt; deals fresh Mining drafts when none wait. */
 	private boolean ensureDraft() {
+		if (this.waiting() == 0) {
+			this.world.getServer().runOnServer(s -> MettleServer.freshDrafts(s.getPlayerList().getPlayers().getFirst(), "mining", 3));
+			this.context.waitTicks(10);
+		}
 		if (!"draft".equals(this.js("String(MC.ov.kind())"))) {
 			this.js("(function(){var l=MC.M.skills;for(var i=0;i<l.length;i++){var s=l[i];if(s.released&&s.drafts>0&&s.hand&&s.hand.length&&!(s.mythicOffer>=0)){MC.ov.draft(s.id);return 'ok'}}return 'none'})()");
 		}
@@ -238,7 +242,23 @@ public final class AuditTest {
 		return ok;
 	}
 
-	private void perf(String what, Runnable actions) {
+	/** Empties every skill's draft queue (a reopen of Classes deals what waits). */
+	private void clearDrafts() {
+		this.world.getServer().runOnServer(s -> {
+			var p = s.getPlayerList().getPlayers().getFirst();
+			for (String sk : List.of("mining", "marksmanship", "survival", "blades", "heavy_weapons", "defense", "athletics", "smithing")) {
+				MettleServer.freshDrafts(p, sk, 0);
+			}
+		});
+		this.context.waitTicks(10);
+		this.dismiss();
+	}
+
+	/** A PERF line's numbers (ms): frames, painted frames, UI-thread p95 and max, render-thread p95 and max. */
+	record Perf(int frames, int painted, double uiP95, double uiMax, double renderP95, double renderMax) {
+	}
+
+	private Perf perf(String what, Runnable actions) {
 		long from = this.context.computeOnClient(mc -> HubStats.INSTANCE.frameCount());
 		actions.run();
 		HubStats.Frame[] frames = this.context.computeOnClient(mc -> HubStats.INSTANCE.since(from));
@@ -259,6 +279,7 @@ public final class AuditTest {
 		log(String.format(java.util.Locale.ROOT,
 			"PERF %-26s frames %5d painted %4d  ui p50 %6.2f p95 %6.2f max %6.2f ms  render p50 %5.2f p95 %5.2f max %6.2f ms  upload %6.1f KB/frame",
 			what, frames.length, painted, pct(ui, 50), pct(ui, 95), pct(ui, 100), pct(rt, 50), pct(rt, 95), pct(rt, 100), bytes / 1024.0 / Math.max(1, frames.length)));
+		return new Perf(frames.length, painted, pct(ui, 95), pct(ui, 100), pct(rt, 95), pct(rt, 100));
 	}
 
 	private static double pct(long[] sorted, int p) {
@@ -274,6 +295,8 @@ public final class AuditTest {
 	private static final String ALIGN_JS = "(function(){var o={cards:[],fx:[]};var cs=document.querySelectorAll('.dr-hand .hc');"
 		+ "for(var i=0;i<cs.length;i++){var r=cs[i].getBoundingClientRect();o.cards.push({k:+cs[i].getAttribute('data-hand'),x:r.left,y:r.top,w:r.width,h:r.height});}"
 		+ "var f=MC.fxDebug();o.fx=f?JSON.parse(f):[];var w=document.getElementById('win').getBoundingClientRect();o.win=[w.left,w.top,w.width,w.height];"
+		+ "o.art=[];var as=document.querySelectorAll('.dr-hand .hc .hc-art .mc-img');for(var j=0;j<as.length;j++){var a=as[j].getBoundingClientRect();o.art.push([a.left,a.top,a.width,+as[j].getAttribute('data-tx')||0]);}"
+		+ "o.font=99;var ds=document.querySelectorAll('.dr-hand .hc .hc-desc');for(var k=0;k<ds.length;k++)o.font=Math.min(o.font,parseFloat(getComputedStyle(ds[k]).fontSize));"
 		+ "o.vw=window.innerWidth;o.vh=window.innerHeight;o.dpr=window.devicePixelRatio;return JSON.stringify(o);})()";
 
 	private static final Pattern CARD_ID = Pattern.compile("^g\\d+c(\\d)");
@@ -326,8 +349,31 @@ public final class AuditTest {
 		}
 		log(String.format(java.util.Locale.ROOT, "ALIGN %s u=%.4f texel=%.3fpx dpr=%s win=%s cards=%d layers=%d maxCss=%.3f maxDev=%.3f", tag, u, 4 * u, o.get("dpr"),
 			o.get("win"), cards.size(), matched, maxCss, maxDev));
-		this.check(matched > 0 && maxDev <= 1.0, tag + ": CardFx layers sit on the page's cards within 1 device px (max " + String.format("%.2f", maxDev) + " px, "
+		this.check(matched > 0 && maxDev <= 0.6, tag + ": CardFx layers sit on the page's cards within rounding, 0.6 device px (max " + String.format("%.2f", maxDev) + " px, "
 			+ String.format("%.2f", maxCss) + " CSS px, " + matched + " layers)");
+		// H9: the hand's 4 px texel grid lands on whole device px (u snapped to a quarter), so do the art's texels.
+		boolean grid = u < 0.5 || Math.abs(4 * u - Math.rint(4 * u)) < 1e-6;
+		double artPos = 0;
+		double artTexel = 0;
+		int arts = 0;
+		for (Object a : (List<Object>) o.get("art")) {
+			List<Object> v = (List<Object>) a;
+			double ax = ((Number) v.get(0)).doubleValue() * u;
+			double ay = ((Number) v.get(1)).doubleValue() * u;
+			double aw = ((Number) v.get(2)).doubleValue() * u;
+			double tx = ((Number) v.get(3)).doubleValue();
+			artPos = Math.max(artPos, Math.max(Math.abs(ax - Math.rint(ax)), Math.abs(ay - Math.rint(ay))));
+			if (tx > 0) {
+				artTexel = Math.max(artTexel, Math.abs(aw / tx - Math.rint(aw / tx)));
+				arts++;
+			}
+		}
+		this.check(grid && arts > 0 && artPos < 0.05 && artTexel < 0.02, tag + ": card texels are whole device px (4u " + String.format("%.3f", 4 * u) + ", art origin off by "
+			+ String.format("%.3f", artPos) + " px, texel off by " + String.format("%.3f", artTexel) + " px over " + arts + " arts)");
+		// H12: the rules text is readable at any scale: at least 7 device px.
+		double font = ((Number) o.get("font")).doubleValue();
+		this.check(font * u >= 6.95, tag + ": rules text is at least 7 device px (" + String.format("%.2f", font) + " CSS px x u " + String.format("%.3f", u) + " = "
+			+ String.format("%.2f", font * u) + ")");
 		this.check(javaIds.equals(pageIds), tag + ": Java's CardFx holds the page's layer set (java " + javaIds.size() + ", page " + pageIds.size()
 			+ (javaIds.equals(pageIds) ? "" : ", java-only " + diff(javaIds, pageIds) + ", page-only " + diff(pageIds, javaIds)) + ")");
 	}
@@ -417,15 +463,18 @@ public final class AuditTest {
 		this.section("close mid-burn, reopen with K", this::closeMidBurn);
 		this.section("segment switch mid-burn", this::segmentMidBurn);
 		this.section("Mythics and close mid-reveal", this::mythics);
-		this.section("300-card binder", this::bigBinder);
-		this.section("longest names", this::longNames);
 		this.section("search and number keys", this::searchKeys);
 		this.section("Esc in nested popovers", this::escNested);
+		this.section("keyboard: draft", this::keyboard);
+		this.section("400-card binder", this::bigBinder);
+		this.section("keyboard: binder and deck", this::keyboardBinder);
+		this.section("longest names", this::longNames);
 		this.section("other player starts a trade while a menu is open", this::incomingTrade);
 		this.section("trade 9 cards + 9 stacks", this::bigTrade);
 		this.section("players in reach", this::nearby);
 		this.section("toasts held", this::toasts);
 		this.section("resource reload", this::reload);
+		this.section("without Mettle (or an incompatible one)", this::withoutMettle);
 		this.section("rapid open/close", this::rapid);
 		this.section("dimension change with the hub open", this::dimension);
 		this.section("death with the hub open", this::death);
@@ -433,6 +482,9 @@ public final class AuditTest {
 		log("SUMMARY " + this.fails.size() + " failing checks");
 		for (String f : this.fails) {
 			log("SUMMARY FAIL " + f);
+		}
+		if (!this.fails.isEmpty()) {
+			throw new AssertionError("VOID Hub audit: " + this.fails.size() + " failing checks, first: " + this.fails.getFirst());
 		}
 	}
 
@@ -562,7 +614,9 @@ public final class AuditTest {
 		this.context.waitTicks(80);
 		this.check(this.rerolls() == r0 - 1 && this.waiting() == w0, "a double click on Redeal all spends one reroll: " + r0 + "->" + this.rerolls() + ", waiting " + w0 + "->" + this.waiting());
 
-		// A double click on Claim Mythic.
+		// A double click on Claim Mythic (Blades high enough to be dealt one).
+		this.world.getServer().runCommand("mettle xp mettle:blades 20000 Player0");
+		this.context.waitTicks(5);
 		this.dismiss();
 		this.world.getServer().runOnServer(s -> {
 			var p = s.getPlayerList().getPlayers().getFirst();
@@ -574,7 +628,7 @@ public final class AuditTest {
 			}
 		});
 		this.context.waitTicks(15);
-		this.js("(function(){if(!MC.ov.active())MC.ov.draft('mettle:blades');return ''})()");
+		this.js("(function(){MC.ov.draft('mettle:blades');return ''})()");
 		if (this.waitPage("!!document.querySelector('[data-claim]')", 200)) {
 			int m0 = this.mythicsOwned();
 			w0 = this.waiting();
@@ -602,10 +656,11 @@ public final class AuditTest {
 		this.closeHub();
 		boolean fxOff = !this.context.computeOnClient(mc -> ((dev.voidmc.hub.screen.CardFx) field(first, "fx")).active());
 		this.check(fxOff, "closing mid-burn drops the native layers");
-		this.context.waitTicks(50);  // the page's own timers run on (next deal at 1.25 s)
+		this.context.waitTicks(50);  // the next deal was due at 1.25 s: the page holds it while hidden
 		String queued = this.inbox();
 		log("NOTE page messages queued while the hub was closed: " + queued);
-		this.check(!queued.contains("cardSound"), "no card sound is queued to play when the hub next opens: " + queued);
+		this.check(queued.startsWith("0 "), "nothing (no card sound, no layers) is queued for the next screen while the hub is closed: " + queued);
+		this.check("true".equals(this.js("String(MC.ov.paused())")), "the page's timers are paused while the hub is closed");
 		this.check(this.waiting() == w0 - 1, "the pick made before closing counted once: " + w0 + "->" + this.waiting());
 		String pageOv = this.js("String(MC.ov.kind())");
 		log("NOTE after close, the page's overlay is still: " + pageOv);
@@ -621,6 +676,7 @@ public final class AuditTest {
 		this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 		this.context.waitTicks(4);
 		boolean open = this.hub() != null;
+		this.check(pageActive, "the draft is back up after the reopen (the burn's next deal resumed)");
 		this.check(!pageActive || open, "Esc on the reopened draft closes the draft, not the hub (hub open after Esc: " + open + ")");
 		if (!open) {
 			this.openClasses();
@@ -658,9 +714,14 @@ public final class AuditTest {
 		this.context.waitTicks(22);
 		this.closeHub();
 		this.context.waitTicks(80);
+		this.check("true".equals(this.js("String(MC.ov.paused())")), "the reveal's stages are paused while the hub is closed");
 		this.openClasses();
 		log("NOTE after closing mid-reveal and reopening: overlay " + this.js("String(MC.ov.kind())") + ", Java modal " + this.javaModal());
 		this.check("true".equals(this.js("String(MC.ov.active())")) == this.javaModal(), "after a close mid-reveal, Java's modal flag matches the page");
+		this.check(this.waitPage("!!document.querySelector('[data-close-ov]')", 20), "the reveal cut off by the close settles on reopen (Continue)");
+		this.context.getInput().pressKey(InputConstants.KEY_TAB);
+		this.context.waitTicks(3);
+		this.check(this.hub() != null && "inventory".equals(this.hub().page()), "Tab with the reveal up does not switch to the Map under it");
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
 		this.shot("audit_09_reopen_after_close_mid_reveal");
@@ -735,21 +796,27 @@ public final class AuditTest {
 			long t2 = System.nanoTime();
 			return String.format(java.util.Locale.ROOT, "MettleState.build %.2f ms, %d KB, Json.parse %.2f ms", (t1 - t0) / 10e6, js.length() / 1024, (t2 - t1) / 10e6);
 		});
-		log("PERF 300 cards, render thread: " + build);
+		log("PERF 400 cards, render thread: " + build);
 		long heap0 = this.heapMb();
 		long proc0 = processMb();
-		this.js("MC.nav.view='home';MC.nav.tab='cards';MC.render();''");
+		this.js("MC.nav.view='home';MC.nav.tab='cards';var b=MC.st.binder;b.q='';b.skill='';b.rarity='';b.kw='';b.trait='';b.slot=false;b.att=false;b.scroll=0;b.sel=null;MC.render();''");
 		this.context.waitTicks(10);
 		String apply = this.js("(function(){var s=JSON.stringify(MC.M);var t0=performance.now();var o=JSON.parse(s);var t1=performance.now();hub.apply({type:'mettle',state:o});"
 			+ "var t2=performance.now();MC.nav.tab='skills';MC.render();MC.nav.tab='cards';var t3=performance.now();MC.render();var t4=performance.now();"
 			+ "return 'parse '+(t1-t0).toFixed(1)+' ms, apply '+(t2-t1).toFixed(1)+' ms, binder build '+(t4-t3).toFixed(1)+' ms, '+document.getElementsByTagName('*').length+' elements, '+(s.length>>10)+' KB'})()");
-		log("PERF 300 cards, page (UI thread): " + apply);
+		log("PERF 400 cards, page (UI thread): " + apply);
 		this.ui.parkMouse();
 		this.context.waitTicks(5);
-		this.overflow("binder 300");
-		this.shot("audit_11_binder_300");
-		this.perf("binder300 idle (state ticks)", () -> this.context.waitTicks(80));
-		this.perf("binder300 wheel scroll", () -> {
+		this.overflow("binder 400");
+		this.shot("audit_11_binder_400");
+		int builds0 = dev.voidmc.hub.mettle.MettleSync.builds;
+		Perf idle = this.perf("binder400 idle", () -> this.context.waitTicks(80));
+		int idleBuilds = dev.voidmc.hub.mettle.MettleSync.builds - builds0;
+		log("PERF binder400 idle: Mettle state built " + idleBuilds + " times in 80 ticks");
+		this.check(idle.painted() == 0, "PERF binder400 idle paints nothing: " + idle);
+		this.check(idleBuilds <= 1, "PERF binder400 idle: Mettle's state is not rebuilt while nothing changes (" + idleBuilds + " builds in 80 ticks)");
+		this.check(idle.renderP95() < 0.5, "PERF binder400 idle: render thread p95 under 0.5 ms, pushExtra counted (" + idle + ")");
+		Perf scroll = this.perf("binder400 wheel scroll", () -> {
 			this.hoverPage("#bg-5");
 			for (int k = 0; k < 20; k++) {
 				this.context.getInput().scroll(-1);
@@ -760,7 +827,8 @@ public final class AuditTest {
 				this.context.waitTicks(2);
 			}
 		});
-		this.perf("binder300 hover sweep", () -> {
+		this.check(scroll.painted() >= 20 && scroll.uiP95() < 10 && scroll.uiMax() < 60, "PERF binder400 wheel scroll (the grid moved: 20+ paints): UI p95 under 10 ms and no paint over 60 ms: " + scroll);
+		Perf hover = this.perf("binder400 hover sweep", () -> {
 			for (int k = 0; k < 3; k++) {
 				for (int t = 0; t < 12; t++) {
 					if ("true".equals(this.js("String(!!document.getElementById('bg-" + t + "'))"))) {
@@ -770,7 +838,8 @@ public final class AuditTest {
 				}
 			}
 		});
-		this.perf("binder300 filter+search", () -> {
+		this.check(hover.painted() >= 20 && hover.uiP95() < 10 && hover.uiMax() < 30, "PERF binder400 hover sweep (cards lifted: 20+ paints): UI p95 under 10 ms and no paint over 30 ms: " + hover);
+		this.perf("binder400 filter+search", () -> {
 			this.ui.clickPage("[data-bf=\"slot\"]");
 			this.ui.clickPage("[data-bf=\"slot\"]");
 			this.ui.clickPage("[data-search]");
@@ -784,38 +853,70 @@ public final class AuditTest {
 			this.context.waitTicks(3);
 		});
 		this.check(this.hub() != null, "Esc after searching left the hub open");
+		// Reopening Classes with the full binder: nothing changed, so nothing is rebuilt, re-sent or re-drawn. (No drafts
+		// wait: an open deals what waits, by design, and that deal is not what this measures.)
+		this.clearDrafts();
+		this.js("MC.nav.view='home';MC.nav.tab='cards';MC.render();''");
+		this.context.waitTicks(4);
+		List<Double> reopen = new ArrayList<>();
+		int builds1 = dev.voidmc.hub.mettle.MettleSync.builds;
+		for (int i = 0; i < 10; i++) {
+			this.closeHub();
+			this.openClasses();
+			reopen.add(this.context.computeOnClient(mc -> (HubStats.INSTANCE.lastScreenFirstFrameNs - HubStats.INSTANCE.lastScreenInitNs) / 1e6));
+		}
+		reopen.sort(null);
+		int reopenBuilds = dev.voidmc.hub.mettle.MettleSync.builds - builds1;
+		log(String.format(java.util.Locale.ROOT, "PERF binder400 reopen Classes x10: first frame p50 %.1f ms max %.1f ms, Mettle state built %d times", reopen.get(5), reopen.get(9), reopenBuilds));
+		this.check(reopen.get(9) < 50, "PERF binder400 reopen: first frame under 50 ms (max " + reopen.get(9) + " ms)");
+		this.check(reopenBuilds <= 1, "PERF binder400 reopen: Mettle's state is not rebuilt for an unchanged reopen (" + reopenBuilds + ")");
 		long heap1 = this.heapMb();
-		log("PERF 300 cards memory: heap " + heap0 + " -> " + heap1 + " MB, process committed " + proc0 + " -> " + processMb() + " MB");
+		log("PERF 400 cards memory: heap " + heap0 + " -> " + heap1 + " MB (committed " + this.context.computeOnClient(mc -> Runtime.getRuntime().totalMemory() >> 20) + " MB), process committed " + proc0 + " -> " + processMb() + " MB");
 		String missing = this.js("(function(){var need={},miss=[];JSON.stringify(MC.M,function(k,v){if((k==='icon'||k==='art')&&typeof v==='string'&&/\\.png$/.test(v))need[v]=1;return v});"
 			+ "for(var k in need)if(!MC.icons[k])miss.push(k);return miss.length+' '+miss.slice(0,5).join(',')})()");
 		this.check(missing.startsWith("0"), "every icon the state names reached the page: missing " + missing);
 	}
 
 	private void longNames() {
-		String r = this.js("(function(){var b=MC.M.cards.binder.cards.filter(function(c){return !MC.isMythic(c)})[0];var c=JSON.parse(JSON.stringify(b));"
+		this.dismiss();
+		this.js("MC.nav.view='home';MC.nav.tab='cards';MC.render();''");
+		this.context.waitTicks(3);
+		// Real cards: Ox (the longest rules text Mettle has, 187 chars) as the binder holds it, given three traits and the
+		// cursed price for the worst case; the Mythic with the longest effect and lore, as the Hall lists it.
+		String real = this.js("(function(){var b=MC.M.cards.binder.cards,ox=null,longest=null;for(var i=0;i<b.length;i++){if(String(b[i].perk||b[i].id).indexOf('ox')>=0&&String(b[i].name).indexOf('Ox')===0)ox=b[i];"
+			+ "if(!MC.isMythic(b[i])&&(!longest||String(b[i].description).length>String(longest.description).length))longest=b[i];}"
+			+ "var all=MC.M.cards.mythics.all,my=null;for(var j=0;j<all.length;j++){var m=all[j],l=String(m.effect||'').length+String(m.lore||'').length;if(!my||l>String(my.effect||'').length+String(my.lore||'').length)my=m;}"
+			+ "window.__auditCards={ox:ox||longest,longest:longest,mythic:my};return (ox?ox.name:'no Ox')+' '+String((ox||longest).description).length+' chars; longest '+longest.name+' '+String(longest.description).length+'; mythic '+(my?my.name+' '+(String(my.effect).length+String(my.lore||'').length):'none')})()");
+		log("NOTE longest real cards: " + real);
+		String r = this.js("(function(){var A=window.__auditCards,base=A.ox;var c=JSON.parse(JSON.stringify(base));"
 			+ "c.name='Living off the Land III';c.baseName='Living off the Land';c.cursed=true;c.rarity='cursed';"
 			+ "c.description='You can carry 38 kg more and your load slows you only half as much. Sneak and use an empty hand on a chest or barrel to pick it up whole, with everything inside (it weighs what it holds).';"
 			+ "c.downside='Every swing costs a little hunger, and in the rain your tools wear twice as fast.';c.slotsAt='Slots at Survival 20';"
 			+ "c.keywords=[{id:'mettle:hoard',name:'Hoard'},{id:'mettle:deep',name:'Deep'},{id:'mettle:echo',name:'Echo'}];"
 			+ "c.traits=[{id:'a',name:'Swift-flighted',valueText:'+12.5 %',boostedText:'+18.75 %'},{id:'b',name:'Steady-handed',valueText:'+0.25 blocks',boostedText:'+0.4 blocks'},{id:'c',name:\"Game-hunter's\",valueText:'15 %',boostedText:'22 %'}];"
+			+ "var ox=JSON.parse(JSON.stringify(A.ox));ox.traits=c.traits;"
 			+ "var h=document.createElement('div');h.id='audit-host';h.style.cssText='position:absolute;left:0;top:24px;width:987px;height:606px;background:#0B0B0C;z-index:60';"
 			+ "document.getElementById('classes').appendChild(h);"
-			+ "h.innerHTML='<div style=\"position:absolute;left:20px;top:60px;width:248px;height:328px\">'+MC.hcard(c,0,null,{})+'</div>'"
-			+ "+'<div style=\"position:absolute;left:290px;top:60px;width:248px;height:328px\">'+MC.mythicCard({name:'Heart of the Mountain',effect:'Mining a block of stone has a one in a thousand chance to open a hidden vein of every ore at once, and the vein refills each dawn.',lore:'The mountain remembers the first hand that found its heart.',how:'Dealt at Mining 30'},1,'1 of 1 in this world')+'</div>'"
-			+ "+'<div style=\"position:absolute;left:560px;top:60px;width:96px;height:128px\">'+MC.ccard(c,{})+'</div>'"
-			+ "+'<div style=\"position:absolute;left:560px;top:220px;width:420px;height:52px\">'+MC.row(c,{})+'</div>';"
-			+ "var cards=h.querySelectorAll('.hc');for(var i=0;i<cards.length;i++)MC.layoutCard(cards[i]);"
-			+ "var out=[];var hc=cards[0],fl=hc.querySelector('.hc-flow'),bt=hc.querySelector('.hc-bot');"
-			+ "if(fl&&bt&&fl.offsetTop+fl.scrollHeight>bt.offsetTop+1)out.push('hand: rules run into the traits ('+(fl.offsetTop+fl.scrollHeight)+'>'+bt.offsetTop+')');"
-			+ "if(bt&&bt.offsetTop+bt.offsetHeight>hc.offsetHeight-6)out.push('hand: traits past the bottom ('+(bt.offsetTop+bt.offsetHeight)+'/'+hc.offsetHeight+')');"
+			+ "var mi=MC.mythicInfo({perk:'mythic/'+A.mythic.id},null);mi.how='Dealt at Mining 30';"
+			+ "h.innerHTML='<div style=\"position:absolute;left:12px;top:40px;width:248px;height:328px\">'+MC.hcard(c,0,null,{})+'</div>'"
+			+ "+'<div style=\"position:absolute;left:268px;top:40px;width:248px;height:328px\">'+MC.hcard(ox,1,null,{})+'</div>'"
+			+ "+'<div style=\"position:absolute;left:524px;top:40px;width:248px;height:328px\">'+MC.mythicCard(mi,2,'1 of 1 in this world')+'</div>'"
+			+ "+'<div style=\"position:absolute;left:800px;top:40px;width:96px;height:128px\">'+MC.ccard(c,{})+'</div>'"
+			+ "+'<div style=\"position:absolute;left:12px;top:400px;width:456px;height:52px\">'+MC.row(c,{style:'width:456px',glyphX:176,traitX:218,traitW:140,maxTraits:1})+'</div>';"
+			+ "var cards=h.querySelectorAll('.hc');for(var i=0;i<cards.length;i++)MC.layoutCard(cards[i]);MC.fitIn(h);"
+			+ "var out=[];for(var q=0;q<cards.length;q++){var hc=cards[q],fl=hc.querySelector('.hc-flow'),bt=hc.querySelector('.hc-bot');"
+			+ "if(fl&&bt&&fl.offsetTop+fl.scrollHeight>bt.offsetTop+1)out.push('hand '+q+': rules run into the traits ('+(fl.offsetTop+fl.scrollHeight)+'>'+bt.offsetTop+')');"
+			+ "if(bt&&bt.offsetTop+bt.offsetHeight>hc.offsetHeight-6)out.push('hand '+q+': traits past the bottom ('+(bt.offsetTop+bt.offsetHeight)+'/'+hc.offsetHeight+')');"
+			+ "var mf=hc.querySelector('.my-flow');if(mf&&mf.scrollHeight>mf.clientHeight+1)out.push('mythic: text cut by its box ('+mf.scrollHeight+'/'+mf.clientHeight+')');"
+			+ "var d=hc.querySelector('.hc-desc,.my-eff');if(d&&parseFloat(getComputedStyle(d).fontSize)*MC.u<6.95)out.push('card '+q+': rules text under 7 device px');}"
 			+ "var all=h.querySelectorAll('*');for(var j=0;j<all.length;j++){var e=all[j];if(e.tagName==='svg'||e.tagName==='path'||e.children.length)continue;if(e.textContent&&(e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+2)&&getComputedStyle(e).overflow!=='visible')out.push((e.className||e.tagName)+' clips \"'+e.textContent.slice(0,24)+'\" '+e.scrollWidth+'/'+e.clientWidth+'x'+e.scrollHeight+'/'+e.clientHeight);}"
-			+ "var cr=h.querySelectorAll('.hc');for(var q=0;q<cr.length;q++){var R=cr[q].getBoundingClientRect(),kids=cr[q].querySelectorAll('*');for(var z=0;z<kids.length;z++){var K=kids[z].getBoundingClientRect();if(K.width&&K.height&&(K.right>R.right+1||K.bottom>R.bottom+1||K.left<R.left-1))out.push('card '+q+': '+(kids[z].className&&kids[z].className.baseVal!==undefined?'svg':kids[z].className)+' leaves the card');}}"
+			+ "for(var z=0;z<cards.length;z++){var R=cards[z].getBoundingClientRect(),kids=cards[z].querySelectorAll('*');for(var y=0;y<kids.length;y++){var K=kids[y].getBoundingClientRect();if(K.width&&K.height&&(K.right>R.right+1||K.bottom>R.bottom+1||K.left<R.left-1))out.push('card '+z+': '+(kids[y].className&&kids[y].className.baseVal!==undefined?'svg':kids[y].className)+' leaves the card');}}"
 			+ "return out.join(' | ');})()");
 		this.ui.parkMouse();
 		this.context.waitTicks(4);
 		this.shot("audit_12_longest_names");
 		log("NOTE longest-text cards: " + (r.isEmpty() ? "all fit" : r));
-		this.check(r.isEmpty(), "the longest name, rules, price and traits fit the hand, Mythic, collection and row cards: " + r);
+		this.check(r.isEmpty(), "the longest real cards (Ox with three traits, the longest Mythic) and the worst case fit their hand, Mythic, collection and row faces: " + r);
 		this.js("(function(){var h=document.getElementById('audit-host');if(h)h.parentNode.removeChild(h);return ''})()");
 	}
 
@@ -873,13 +974,19 @@ public final class AuditTest {
 		this.ui.clickPage("[data-dd=\"sound\"]");
 		this.context.waitTicks(3);
 		this.check(!"".equals(this.js("MC.st.menu?MC.st.menu.id:''")), "the sound menu opened");
+		this.check(this.javaModal(), "Java treats the open menu as modal (Esc is the page's)");
 		this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 		this.context.waitTicks(3);
 		this.check(this.hub() != null && "".equals(this.js("MC.st.menu?'open':''")), "Esc closes the menu and keeps the hub");
 		if (this.hub() == null) {
 			this.openClasses();
 		}
-		// The deck's take-out popover over a slotted card.
+		// The deck's take-out popover over a slotted card (a Mining card to slot, given if the binder has none).
+		String find = "(function(){var l=MC.M.cards.binder.cards;for(var i=0;i<l.length;i++){var c=l[i];if(c.skill==='mettle:mining'&&c.canSlot&&!MC.isMythic(c)&&c.attuned!==false&&c.place==='binder')return c.id}return ''})()";
+		if (this.js(find).isEmpty()) {
+			this.world.getServer().runOnServer(s -> MettleServer.giveExact(s.getPlayerList().getPlayers().getFirst(), "mining/prospector", "COMMON", List.of("deep"), List.of(), 1));
+			this.waitPage("(" + find + ")!==''", 40);
+		}
 		String id = this.js("(function(){var l=MC.M.cards.binder.cards;for(var i=0;i<l.length;i++){var c=l[i];if(c.skill==='mettle:mining'&&c.canSlot&&!MC.isMythic(c)&&c.attuned!==false)return c.id}return ''})()");
 		if (id.isEmpty()) {
 			this.check(false, "a slottable Mining card for the popover test");
@@ -893,6 +1000,7 @@ public final class AuditTest {
 		this.ui.clickPage("[data-scard]");
 		this.context.waitTicks(3);
 		this.check(!"null".equals(this.js("String(MC.st.deck.pop)")), "clicking a slotted card opened its popover");
+		this.check(this.javaModal(), "Java treats the take-out popover as modal (Esc is the page's)");
 		this.ui.parkMouse();
 		this.context.waitTicks(2);
 		this.shot("audit_14_deck_popover");
@@ -900,10 +1008,128 @@ public final class AuditTest {
 		this.context.waitTicks(4);
 		boolean open = this.hub() != null;
 		this.check(open, "Esc with the deck's take-out popover open closes the popover, not the hub (hub open: " + open + ")");
+		this.check("null".equals(this.js("String(MC.st.deck.pop)")) && !this.javaModal(), "the popover is closed and Java's modal flag dropped with it");
+		// A filter dropdown on the deck, too.
+		if (open) {
+			this.ui.clickPage("[data-dd=\"d-rarity\"]");
+			this.context.waitTicks(3);
+			this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+			this.context.waitTicks(3);
+			this.check(this.hub() != null && "".equals(this.js("MC.st.menu?'open':''")), "Esc closes the deck's rarity dropdown and keeps the hub");
+		}
 		if (!open) {
 			this.openClasses();
 		}
 		this.dismiss();
+	}
+
+	// ---- 5b. keyboard (H11) ---------------------------------------------------------------------------------------
+
+	private String focusKey() {
+		return this.js("String(MC.focusKey())");
+	}
+
+	private void key(int k) {
+		this.context.getInput().pressKey(k);
+		this.context.waitTicks(2);
+	}
+
+	private void keyboard() {
+		if (this.hub() == null) {
+			this.openClasses();
+		}
+		this.ui.parkMouse();
+		// A draft: Right twice chooses the middle card (focus ring and hot frame), Enter keeps it.
+		this.check(this.ensureDraft(), "a draft is up for the keyboard");
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		long w0 = this.waiting();
+		int b0 = this.binder().size();
+		this.key(InputConstants.KEY_RIGHT);
+		this.key(InputConstants.KEY_RIGHT);
+		this.check("1".equals(this.js("String(MC.ov.hovered())")) && "true".equals(this.js("String(!!document.querySelector('.dr-hand .hc.kbd[data-hand=\"1\"]'))")),
+			"Right, Right chooses the middle card with a focus ring (hovered " + this.js("String(MC.ov.hovered())") + ")");
+		this.key(InputConstants.KEY_LEFT);
+		this.check("0".equals(this.js("String(MC.ov.hovered())")), "Left steps back to the first card");
+		this.key(InputConstants.KEY_RIGHT);
+		this.shot("audit_14b_draft_keyboard");
+		this.key(InputConstants.KEY_RETURN);
+		this.context.waitTicks(40);
+		this.check(this.waiting() == w0 - 1 && this.binder().size() == b0 + 1, "Enter keeps the chosen card: waiting " + w0 + "->" + this.waiting() + ", binder " + b0 + "->" + this.binder().size());
+		// The numpad picks too.
+		if (this.ensureDraft()) {
+			long w1 = this.waiting();
+			this.key(InputConstants.KEY_NUMPAD1);
+			this.context.waitTicks(40);
+			this.check(this.waiting() == w1 - 1, "numpad 1 keeps the first card: waiting " + w1 + "->" + this.waiting());
+		}
+		this.dismiss();
+	}
+
+	private void keyboardBinder() {
+		this.dismiss();
+		this.ui.parkMouse();
+		// The binder: arrows bring up a focus ring on the first card, Down moves a row, Enter selects, Esc lets go.
+		this.js("MC.nav.view='home';MC.nav.tab='cards';MC.st.binder.sel=null;MC.st.binder.scroll=0;MC.st.binder.q='';MC.st.binder.skill='';MC.render();''");
+		this.context.waitTicks(3);
+		this.key(InputConstants.KEY_RIGHT);
+		String k0 = this.focusKey();
+		this.check(k0.startsWith("[data-bcard=") && "block".equals(this.js("MC.$('c-focus').style.display")), "an arrow brings the focus ring up on the binder's first card: " + k0);
+		this.check(this.javaModal(), "with the focus ring up, Java leaves Esc to the page");
+		this.key(InputConstants.KEY_DOWN);
+		String k1 = this.focusKey();
+		this.check(k1.startsWith("[data-bcard=") && !k1.equals(k0), "Down moves the ring a row down: " + k0 + " -> " + k1);
+		for (int i = 0; i < 3; i++) {
+			this.key(InputConstants.KEY_DOWN);
+		}
+		this.check(!"0".equals(this.js("String(MC.st.binder.scroll)")), "Down past the last row scrolls the binder (scroll " + this.js("String(MC.st.binder.scroll)") + ")");
+		this.key(InputConstants.KEY_RETURN);
+		this.context.waitTicks(2);
+		String sel = this.js("String(MC.st.binder.sel)");
+		this.check(!"null".equals(sel) && this.focusKey().contains(sel), "Enter selects the focused card: " + sel + " (focus " + this.focusKey() + ")");
+		this.shot("audit_14c_binder_keyboard");
+		this.key(InputConstants.KEY_ESCAPE);
+		this.check(this.hub() != null && "null".equals(this.focusKey()) && !this.javaModal(), "Esc lets go of the focus ring, the hub stays open");
+		// The deck: select a binder card and slot it into an open slot, keys only.
+		String skill = this.js("(function(){var d=MC.M.cards.decks;for(var i=0;i<d.length;i++){var open=0;for(var j=0;j<d[i].row.length;j++)if(d[i].row[j].open&&!d[i].row[j].card)open++;"
+			+ "if(!open)continue;var l=MC.M.cards.binder.cards;for(var k=0;k<l.length;k++)if(l[k].skill===d[i].skill&&l[k].place==='binder'&&l[k].canSlot&&l[k].attuned!==false&&!MC.isMythic(l[k]))return d[i].skill;}return ''})()");
+		if (skill.isEmpty()) {
+			this.check(false, "a deck with an open slot and a slottable card for the keyboard");
+			return;
+		}
+		this.js("MC.nav.view='skill';MC.nav.skill=" + Json.quote(skill) + ";MC.nav.stab='deck';MC.st.deck.sel=null;MC.st.deck.pop=null;MC.st.deck.slot=true;MC.render();''");
+		this.context.waitTicks(4);
+		this.key(InputConstants.KEY_DOWN);
+		for (int i = 0; i < 8 && !this.focusKey().startsWith("[data-dcard="); i++) {
+			this.key(InputConstants.KEY_DOWN);
+		}
+		String card = this.focusKey().replaceAll("[^0-9]", "");
+		this.check(!card.isEmpty(), "the ring reaches the deck's binder: " + this.focusKey());
+		int slotted0 = this.slottedCount();
+		this.key(InputConstants.KEY_RETURN);
+		this.check(card.equals(this.js("String(MC.st.deck.sel)")), "Enter selects the binder card for slotting (" + this.js("String(MC.st.deck.sel)") + ")");
+		for (int i = 0; i < 12; i++) {
+			String where = this.js("(function(){var e=MC.focusKey()&&document.querySelector('#cv '+MC.focusKey());return !e?'none':e.classList.contains('drop')?'drop':e.closest('#dk-row')?'row':'other'})()");
+			if ("drop".equals(where)) {
+				break;
+			}
+			this.key("row".equals(where) ? InputConstants.KEY_RIGHT : InputConstants.KEY_UP);
+		}
+		this.key(InputConstants.KEY_RETURN);
+		this.context.waitTicks(15);
+		this.check(this.slottedCount() == slotted0 + 1, "Enter on an open slot slots the card, keys only: slotted " + slotted0 + " -> " + this.slottedCount());
+		this.key(InputConstants.KEY_ESCAPE);
+		this.dismiss();
+	}
+
+	private int slottedCount() {
+		int n = 0;
+		for (Map<String, Object> c : this.binder()) {
+			if ("slotted".equals(c.get("place"))) {
+				n++;
+			}
+		}
+		return n;
 	}
 
 	// ---- 6. trade -----------------------------------------------------------------------------------------------
@@ -915,23 +1141,37 @@ public final class AuditTest {
 	private static final java.util.UUID BREE = java.util.UUID.randomUUID();
 
 	private void incomingTrade() {
-		this.dismiss();
-		this.js("MC.nav.view='home';MC.nav.tab='cards';MC.render();''");
+		this.clearDrafts();
+		this.js("MC.nav.view='home';MC.nav.tab='cards';MC.st.binder.q='';MC.render();''");
 		this.context.waitTicks(3);
 		this.ui.clickPage("[data-search]");
 		this.context.getInput().typeChars("mi");
 		this.context.waitTicks(3);
-		this.check(this.javaText(), "search has the keyboard before the trade arrives");
-		this.world.getServer().runOnServer(s -> {
+		this.check(this.javaText(), "search has the keyboard before the trade is asked for");
+		// Bree (a second player) asks to trade while the hub is open on Classes.
+		Object asked = this.world.getServer().computeOnServer(s -> {
 			var a = s.getPlayerList().getPlayers().getFirst();
 			var b = standIn(s);
 			b.snapTo(a.getX() + 2, a.getY(), a.getZ(), 0, 0);
+			b.setHealth(b.getMaxHealth());
 			MettleServer.trade("standIn", b);
-			Object asked = MettleServer.trade("request", b, a);
-			Object accepted = MettleServer.trade("accept", a);
-			log("NOTE Bree asks: " + asked + " / accepted: " + accepted);
+			return MettleServer.trade("request", b, a);
 		});
-		boolean shown = this.waitPage("document.getElementById('cv').className.indexOf('scr-trade')>=0", 60);
+		log("NOTE Bree asks to trade: " + asked);
+		boolean toast = this.waitPage("!!document.querySelector('#c-toast.ask [data-taccept]') && document.getElementById('c-toast').style.display!=='none'", 60);
+		this.check(toast, "another player's trade request shows on the open Classes page with Accept: " + this.js("String((document.getElementById('c-toast')||{}).textContent)"));
+		this.check("undefined".equals(this.js("String(window.__hubError)")) && this.hub() != null && "home-cards".equals(this.js("JSON.parse(MC.debug()).screen")),
+			"the request did not break the open page (no error, still the binder)");
+		this.check(this.javaText() && "mi".equals(this.js("MC.st.binder.q")), "the search keeps the keyboard and its text while the request waits");
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.shot("audit_15a_trade_request");
+		// Bree's side opens the trade (as accepting would): the trade takes the page.
+		this.world.getServer().runOnServer(s -> {
+			var a = s.getPlayerList().getPlayers().getFirst();
+			log("NOTE the trade opens: " + MettleServer.trade("open", standIn(s), a));
+		});
+		boolean shown = this.waitPage("document.getElementById('cv').className.indexOf('scr-trade')>=0 && !document.getElementById('tr-ask')", 60);
 		this.check(shown, "a trade another player opened shows on the open Classes page");
 		this.context.waitTicks(4);
 		this.check(!this.javaText() && "false".equals(this.js("String(MC.textFocus)")), "the search field let go of the keyboard when the trade took the page (Java pageText " + this.javaText() + ")");
@@ -945,6 +1185,17 @@ public final class AuditTest {
 		this.context.waitTicks(3);
 		this.shot("audit_15_incoming_trade");
 		this.js("MC.act('tradeCancel','');''");
+		this.context.waitTicks(10);
+		// Accept on the request toast asks Mettle to accept (a stand-in cannot be accepted for real: Mettle looks the asker
+		// up among the server's players).
+		this.world.getServer().runOnServer(s -> MettleServer.trade("request", standIn(s), s.getPlayerList().getPlayers().getFirst()));
+		if (this.waitPage("!!document.querySelector('#c-toast.ask [data-taccept]') && document.getElementById('c-toast').style.display!=='none'", 60)) {
+			this.ui.clickPage("#c-toast [data-taccept]");
+			this.context.waitTicks(3);
+			this.check("tradeAccept ".equals(this.js("MC.lastAct")), "Accept on the request asks Mettle to accept the trade: " + this.js("MC.lastAct"));
+		} else {
+			this.check(false, "a second trade request shows Accept");
+		}
 		this.context.waitTicks(10);
 	}
 
@@ -1013,12 +1264,62 @@ public final class AuditTest {
 		log("NOTE trade sides: me " + meCards + " cards, them " + themCards + " cards, stacks drawn natively " + its.size());
 		this.check(its.size() == 18, "18 stacks are drawn natively in the trade's wells: " + its.size());
 		this.check(overlaps == 0, "no two trade stacks overlap: " + overlaps);
-		String rows = this.js("(function(){var w=document.getElementById('win').getBoundingClientRect(),o=[];['tr-me','tr-them'].forEach(function(id){var col=document.getElementById(id);if(!col)return;"
-			+ "var C=col.getBoundingClientRect(),rs=col.querySelectorAll('.rw');var hidden=0;for(var i=0;i<rs.length;i++){var r=rs[i].getBoundingClientRect();if(r.bottom>C.bottom+1||r.bottom>w.bottom)hidden++;}"
-			+ "o.push(id+' rows '+rs.length+' cut '+hidden+' scrolls '+(col.querySelector('[data-scroll]')?1:0));});return o.join(', ')})()");
-		log("NOTE trade columns: " + rows);
-		this.check(!rows.matches(".*cut [1-9].*"), "every offered card row is visible or scrollable: " + rows);
+		// Each side: rows that show sit fully inside the list and above ITEMS, nothing overlaps (rows, the add pill, the
+		// labels, the wells, the coin), and scrolling the list shows all nine cards.
+		String probe = "(function(){var o=[];['me','them'].forEach(function(side){var col=document.getElementById('tr-'+side),list=document.getElementById('tr-'+side+'-list');if(!col||!list){o.push(side+' missing');return;}"
+			+ "var L=list.getBoundingClientRect(),items=document.getElementById('tr-'+side+'-items').getBoundingClientRect(),boxes=[];var rs=list.querySelectorAll('.rw');"
+			+ "for(var i=0;i<rs.length;i++){var r=rs[i].getBoundingClientRect();if(r.top<L.top-1||r.bottom>L.bottom+1)o.push(side+' row '+i+' cut by the list');boxes.push(['row'+i,r]);}"
+			+ "var x=col.querySelectorAll('.tr-add,.tr-more,.it-slot,.coinf,.eb9,.lockp');for(var j=0;j<x.length;j++)boxes.push([x[j].className.split(' ')[0]+j,x[j].getBoundingClientRect()]);"
+			+ "if(L.bottom>items.top)o.push(side+' list runs into ITEMS');"
+			+ "var ad=col.querySelectorAll('.tr-add,.tr-more');for(var z=0;z<ad.length;z++)if(ad[z].scrollHeight>ad[z].clientHeight+1||ad[z].scrollWidth>ad[z].clientWidth+1)o.push(side+' '+ad[z].className+' text spills out of its box');"
+			+ "for(var a=0;a<boxes.length;a++)for(var b=a+1;b<boxes.length;b++){var p=boxes[a][1],q=boxes[b][1];if(p.width&&q.width&&p.left<q.right-1&&q.left<p.right-1&&p.top<q.bottom-1&&q.top<p.bottom-1)o.push(side+' '+boxes[a][0]+' overlaps '+boxes[b][0]);}"
+			+ "});return o.join(' | ')})()";
+		String rowOverlaps = this.js(probe);
+		log("NOTE trade columns: " + (rowOverlaps.isEmpty() ? "clean" : rowOverlaps));
+		this.check(rowOverlaps.isEmpty(), "the 9 x 9 trade: card rows, the add pill, labels, wells and coin never overlap: " + rowOverlaps);
+		for (String side : List.of("me", "them")) {
+			Set<String> seen = new TreeSet<>();
+			this.hoverPage("#tr-" + side + "-list");
+			for (int k = 0; k < 12; k++) {
+				for (String id : this.js("(function(){var o=[],r=document.querySelectorAll('#tr-" + side + "-list [data-tcard]');for(var i=0;i<r.length;i++)o.push(r[i].getAttribute('data-tcard'));return o.join(',')})()").split(",")) {
+					if (!id.isEmpty()) {
+						seen.add(id);
+					}
+				}
+				this.context.getInput().scroll(-1);
+				this.context.waitTicks(2);
+			}
+			String clean = this.js(probe);
+			this.check(seen.size() == 9 && clean.isEmpty(), "scrolling " + side + " offer shows all 9 cards (" + seen.size() + "), still without overlaps: " + clean);
+		}
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.shot("audit_16b_trade_9x9_scrolled");
 		this.overflow("trade 9x9");
+		String clipped = this.js("(function(){var o=[],e=document.querySelectorAll('#cv .rw-n,#cv .rw-s');for(var i=0;i<e.length;i++)if(e[i].scrollWidth>e[i].clientWidth+1)o.push(e[i].textContent);return o.join(' | ')})()");
+		this.check(clipped.isEmpty(), "no card row's name or line is clipped in the trade: " + clipped);
+		// Take one card back (nine is the most a side offers, so the add pill is gone), then: the card picker (+ Add a
+		// card) holds Esc; the keyboard reaches it: Tab to the pill, Enter opens, Esc closes.
+		this.ui.clickPage("#tr-me-list [data-ttake]");
+		this.waitPage("!!document.querySelector('[data-tadd=\"1\"]')", 40);
+		this.ui.clickPage("[data-tadd=\"1\"]");
+		this.context.waitTicks(3);
+		this.check("true".equals(this.js("String(MC.st.trade.adding)")) && this.javaModal(), "the trade's card picker opened and holds Esc");
+		this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+		this.context.waitTicks(3);
+		this.check(this.hub() != null && "false".equals(this.js("String(MC.st.trade.adding)")), "Esc closes the trade's card picker, not the hub");
+		this.ui.parkMouse();
+		this.key(InputConstants.KEY_RIGHT);
+		for (int i = 0; i < 30 && !this.focusKey().startsWith("[data-tadd="); i++) {
+			this.context.getInput().pressKey(InputConstants.KEY_TAB);
+			this.context.waitTicks(2);
+		}
+		this.check(this.focusKey().startsWith("[data-tadd="), "Tab moves the focus ring through the trade to + Add a card: " + this.focusKey());
+		this.key(InputConstants.KEY_RETURN);
+		this.check("true".equals(this.js("String(MC.st.trade.adding)")), "Enter on + Add a card opens the picker");
+		this.key(InputConstants.KEY_ESCAPE);
+		this.key(InputConstants.KEY_ESCAPE);
+		this.check(this.hub() != null && "false".equals(this.js("String(MC.st.trade.adding)")), "Esc closes the picker, then the focus ring; the hub stays");
 		this.ui.parkMouse();
 		this.context.waitTicks(3);
 		this.shot("audit_16_trade_9x9");
@@ -1104,6 +1405,9 @@ public final class AuditTest {
 		Identifier edge = Identifier.fromNamespaceAndPath("voidhub", "cardfx/hand/edge_common_fill_px");
 		Object hubTex0 = this.context.computeOnClient(mc -> mc.getTextureManager().getTexture(HubView.TEXTURE_ID));
 		Object fx0 = this.context.computeOnClient(mc -> mc.getTextureManager().getTexture(edge));
+		String iconId = this.js("(function(){for(var k in MC.icons)return k;return ''})()");
+		Object icon0 = this.context.computeOnClient(mc -> MettleLink.icon(iconId));
+		int reloads0 = dev.voidmc.hub.screen.CardFx.reloads;
 		int tex0 = this.textures();
 		CompletableFuture<Void> f = this.context.computeOnClient(mc -> mc.reloadResourcePacks());
 		for (int i = 0; i < 600 && !f.isDone(); i += 5) {
@@ -1116,6 +1420,9 @@ public final class AuditTest {
 		log("NOTE reload: hub texture kept " + (hubTex0 == hubTex1) + ", card strip texture kept " + (fx0 == fx1) + " (" + fx1.getClass().getSimpleName() + "), textures " + tex0 + " -> "
 			+ this.textures() + ", hub still open " + (this.hub() != null));
 		this.check(this.hub() != null && hubTex0 == hubTex1, "F3+T keeps the hub open and its texture");
+		this.check(dev.voidmc.hub.screen.CardFx.reloads == reloads0 + 1 && fx1 != fx0, "F3+T reloads the card strips (a new texture, read from the new resources)");
+		Object icon1 = this.context.computeOnClient(mc -> MettleLink.icon(iconId));
+		this.check(!iconId.isEmpty() && icon1 != null && icon1 != icon0, "F3+T reads Mettle's icons again (" + iconId + ")");
 		this.align("after F3+T");
 		this.ui.parkMouse();
 		this.hoverPage(".dr-hand .hc[data-hand=\"1\"] .hc-art");
@@ -1123,8 +1430,34 @@ public final class AuditTest {
 		this.shot("audit_19_after_reload");
 	}
 
+	private void withoutMettle() {
+		this.closeHub();
+		this.context.runOnClient(mc -> MettleLink.forceAbsent = true);
+		try {
+			this.context.runOnClient(mc -> mc.gui.setScreen(new HubInventoryScreen(mc.player, "classes")));
+			this.context.waitTicks(10);
+			String segs = this.js("(function(){var o=[];var s=document.querySelectorAll('#segments .segment');for(var i=0;i<s.length;i++)if(s[i].offsetWidth>0)o.push(s[i].getAttribute('data-seg'));return o.join(',')})()");
+			this.check("inventory".equals(segs) && this.hub() != null && "inventory".equals(this.hub().segment()),
+				"without a linked Mettle the hub opens on the Inventory with no Classes or Gear tab: " + segs);
+			this.shot("audit_20b_without_mettle");
+		} finally {
+			this.context.runOnClient(mc -> MettleLink.forceAbsent = false);
+			this.closeHub();
+		}
+	}
+
 	private void rapid() {
 		this.closeHub();
+		this.clearDrafts();
+		this.closeHub();
+		// One warm cycle first: a page's first open loads its strips and fonts once; what is measured is the growth after.
+		for (String page : List.of("classes", "inventory", "gear", "classes", "map")) {
+			this.context.runOnClient(mc -> mc.gui.setScreen(new HubInventoryScreen(mc.player, page)));
+			this.context.waitTicks(3);
+			this.context.runOnClient(mc -> mc.gui.setScreen(null));
+			this.context.waitTicks(1);
+		}
+		this.context.waitTicks(10);
 		long heap0 = this.heapMb();
 		long proc0 = processMb();
 		int tex0 = this.textures();
@@ -1152,6 +1485,9 @@ public final class AuditTest {
 		log(String.format(java.util.Locale.ROOT, "PERF 40 rapid opens: first frame p50 %.1f ms max %.1f ms; heap %d -> %d MB, process %d -> %d MB, textures %d -> %d, page elements %s -> %s, inbox %s, error %s",
 			opens.get(opens.size() / 2), opens.get(opens.size() - 1), heap0, heap1, proc0, processMb(), tex0, tex1, dom0, dom1, this.inbox(), this.js("String(window.__hubError)")));
 		this.check(tex1 == tex0, "no textures leak over 40 opens: " + tex0 + " -> " + tex1);
+		long grew = processMb() - proc0;
+		this.check(grew < 64, "process memory over 40 opens grows under 64 MB (was +174 MB): +" + grew + " MB");
+		this.check(opens.get(opens.size() - 1) < 150, "every open's first frame is under 150 ms (max " + opens.get(opens.size() - 1) + " ms)");
 		this.check("undefined".equals(this.js("String(window.__hubError)")), "no page error after rapid opens");
 		this.check(this.context.computeOnClient(mc -> mc.gui.screen() == null), "the hub is closed at the end");
 	}

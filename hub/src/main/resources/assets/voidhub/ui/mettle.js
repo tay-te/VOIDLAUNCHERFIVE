@@ -33,8 +33,7 @@
 
   // A pixel-art texture from Mettle at w x h CSS px (nearest-neighbour), or nothing until icons arrive.
   function img(id, w, h) {
-    var url = ICONS[id];
-    return url ? '<img class="m-img" src="' + url + '" style="width:' + w + "px;height:" + (h || w) + 'px">' : "";
+    return window.MC ? window.MC.img(id, w, "m-img", h) : "";
   }
 
   // A row of n cells, the first `lit` on and the last of those live (violet).
@@ -62,6 +61,8 @@
     gear.innerHTML = 'Gear <span class="count" id="seg-gear-count">0</span>';
     segs.insertBefore(gear, classes);
     toggle(classes, "idle", false);
+    // Classes is Mettle's page: without Mettle (or with a Mettle whose API did not link) it is not shown, like Gear.
+    toggle(classes, "seg-mettle", true);
     var dot = document.createElement("span");
     dot.className = "pts m-only";
     dot.id = "seg-classes-pts";
@@ -728,11 +729,31 @@
     }
   });
 
-  document.addEventListener("keydown", function (ev) {
-    if (kind !== "classes" || !view.skill || ev.keyCode !== 13 || !view.perk) return;
-    var p = findPerk(view.perk);
-    if (p && buyable(p)) send({type: "mettle", op: "learnPerk", arg: p.id});
-  });
+  // Keys reach the page from Java as {type: "key"} messages, never as DOM key events: a skill tree (Mettle without the
+  // card system) moves its selection with the arrows and learns the selected perk with Enter.
+  function treeKey(k) {
+    if (kind !== "classes" || !view.skill || !M) return;
+    var s = skillById(view.skill);
+    if (!s) return;
+    var L = layoutTree(s), ids = Object.keys(L.pos).concat(L.g.earned.map(function (p) { return p.id; }));
+    if (k === "Enter") {
+      var p = findPerk(view.perk);
+      if (p && buyable(p)) send({type: "mettle", op: "learnPerk", arg: p.id});
+      return;
+    }
+    if (!ids.length) return;
+    var at = drawn && drawn.at[view.perk], best = null, score = 1e9;
+    if (!at) { select(ids[0]); return; }
+    for (var i = 0; i < ids.length; i++) {
+      var q = drawn.at[ids[i]];
+      if (!q || ids[i] === view.perk) continue;
+      var dx = q.x - at.x, dy = q.y - at.y;
+      var along = k === "Right" ? dx : k === "Left" ? -dx : k === "Down" ? dy : -dy, across = k === "Right" || k === "Left" ? Math.abs(dy) : Math.abs(dx);
+      if (along <= 0) continue;
+      if (along + across * 2 < score) { score = along + across * 2; best = ids[i]; }
+    }
+    if (best) select(best);
+  }
 
   window.hubMettle = {
     /** The skill tree (Tree tab of a skill in cards v2), drawn by this file. */
@@ -778,12 +799,15 @@
     },
     apply: function (m) {
       if (m.type === "icons") {
-        for (var k in m.map) ICONS[k] = m.map[k];
+        var replaced = window.MC ? window.MC.setIcons(m.map, m.texels) : false;
         built = "";
-        if (window.MC) window.MC.iconsChanged();
+        if (window.MC) window.MC.iconsChanged(replaced);
         classes();
+      } else if (m.type === "visible") {
+        if (window.MC) window.MC.visible(!!m.on);
       } else if (m.type === "key") {
-        if (window.MC && kind === "classes") window.MC.key(m);
+        if (window.MC && window.MC.attached && kind === "classes") window.MC.key(m);
+        else if (m.key) treeKey(m.key);
       } else if (m.type === "nearby") {
         if (window.MC && window.MC.nearby) window.MC.nearby(m.players);
       } else if (m.type === "wheel") {

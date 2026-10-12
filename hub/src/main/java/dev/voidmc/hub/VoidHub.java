@@ -84,6 +84,13 @@ public final class VoidHub implements ClientModInitializer {
 			HubInventoryScreen.resetLastPage();
 		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> HubMap.reset());
+		// F3+T and pack changes: the card strips and Mettle's icons are read again from the new resources.
+		net.fabricmc.fabric.api.resource.v1.ResourceLoader.get(net.minecraft.server.packs.PackType.CLIENT_RESOURCES).registerReloadListener(
+			Identifier.fromNamespaceAndPath(MOD_ID, "card_art"),
+			(net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager -> {
+				dev.voidmc.hub.screen.CardFx.clearTextures();
+				MettleLink.clearIcons();
+			});
 		LOGGER.info("VOID Hub ready: R-Shift opens the hub; VOID inventory replaces vanilla's: {}; Map page: {}", HubConfig.replaceInventory(),
 			HubMap.available() ? "VOID Atlas" : "stand-in (VOID Atlas not installed)");
 	}

@@ -519,3 +519,22 @@
 .coinf .caret { position: static; display: inline-block; width: 1px; height: 13px; border-radius: 0; background: #EDEEEF; vertical-align: -2px; margin-left: 1px; }
 .coin-hint { left: 276px; width: 200px; font-size: 10px; line-height: 13px; color: #626569; }
 .coinf.off + .coin-hint { left: 200px; width: 280px; }
+
+/* ---- audit fixes ------------------------------------------------------------------------------------------------ */
+/* Trade: each side's offered cards scroll in a three-row list; the add pill and the count sit under it, above ITEMS. */
+.tr-list { width: 456px; height: 168px; overflow: hidden; }
+.tr-add.small { width: auto; height: 22px; border-radius: 11px; padding: 3px 12px; font-size: 10.5px; white-space: nowrap; }
+.tr-more { width: 200px; text-align: right; font-size: 10px; color: #626569; white-space: nowrap; padding-top: 4px; }
+/* A trade another player asked for: the chip waits with Accept. */
+.c-toast.ask { height: 26px; padding: 4px 4px 0 11px; display: flex; align-items: center; gap: 10px; border-color: rgba(142, 197, 255, 0.5); }
+.c-toast.ask .acc { height: 18px; border-radius: 9px; padding: 1px 10px 0; background: #26272B; border: 1px solid rgba(255, 255, 255, 0.2); font-size: 10.5px; }
+.c-toast.ask .acc:hover { background: #303136; }
+/* The keyboard focus ring (arrows, Tab once a focus is up, Enter clicks). */
+.c-focus { position: absolute; box-sizing: border-box; border: 2px solid rgba(237, 238, 239, 0.9); border-radius: 12px; pointer-events: none; z-index: 6; }
+/* A hand card chosen with the keys: a ring inside the card's own box (the native lift copies it with the card). */
+.hc.kbd .hc-face { box-shadow: inset 0 0 0 2px rgba(237, 238, 239, 0.9); }
+/* Fitting a hand card's text (MC.layoutCard): keyword chips without their names, a boosted value in place of the rolled one. */
+.hc-kws.bare .hc-kw { font-size: 0 !important; padding: 0 2px; gap: 0; }
+.hc-tr .v.boosted { color: #8EC5FF; }
+/* Icons are stylesheet backgrounds (MC.img): one decode each, crisp at the snapped size. */
+.ic { background-size: 100% 100%; background-repeat: no-repeat; }

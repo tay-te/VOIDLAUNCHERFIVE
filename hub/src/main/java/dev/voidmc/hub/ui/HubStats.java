@@ -34,10 +34,12 @@ public final class HubStats {
 		public long endNs;
 		/** The Atlas map widget's draw on the Map page (render thread; Atlas's cost, not the hub's). */
 		public long mapNs;
+		/** A screen's own per-frame page sync beyond layout and state (Mettle's state on the Classes page), render thread. */
+		public long extraNs;
 
 		/** Time this frame spent on the game's render thread because of the VOID screen. */
 		public long totalNs() {
-			return this.postNs + this.waitNs + this.copyNs + this.uploadNs;
+			return this.postNs + this.waitNs + this.copyNs + this.uploadNs + this.extraNs;
 		}
 
 		/** Ultralight's own work (UI thread) attributed to this frame. */
@@ -58,6 +60,7 @@ public final class HubStats {
 			this.bytes = 0;
 			this.rects = 0;
 			this.mapNs = 0;
+			this.extraNs = 0;
 		}
 
 		Frame copy() {
@@ -75,6 +78,7 @@ public final class HubStats {
 			f.rects = this.rects;
 			f.endNs = this.endNs;
 			f.mapNs = this.mapNs;
+			f.extraNs = this.extraNs;
 			return f;
 		}
 	}
@@ -122,6 +126,16 @@ public final class HubStats {
 	/** Adds the map widget's draw time to the frame being recorded. */
 	public void noteMap(long ns) {
 		this.current.mapNs += ns;
+	}
+
+	/** The frame being recorded's post time so far (to keep a measured section's posts out of extraNs). */
+	public long currentPostNs() {
+		return this.current.postNs;
+	}
+
+	/** Adds a screen's own page-sync time (HubScreen.pushExtra) to the frame being recorded. */
+	public void noteExtra(long ns) {
+		this.current.extraNs += ns;
 	}
 
 	/** Frames recorded so far (monotonic). */

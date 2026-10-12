@@ -44,8 +44,8 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	private static final int[] STORAGE = range(9, 27);
 	private static final int[] HOTBAR = range(36, 9);
 
-	/** Rebuild Mettle's state at most this often (ticks) while the window is open. */
-	private static final int METTLE_EVERY = 10;
+	/** Look for players in trade reach this often (ticks) while the window is open. */
+	private static final int NEARBY_EVERY = 10;
 
 	public static final String MAP = "map";
 	public static final String INVENTORY = "inventory";
@@ -57,16 +57,14 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	private String page;
 	/** The Inventory page's segment: "inventory", or with Mettle "gear" / "classes". */
 	private String segment;
-	private String sentMettle;
-	/** The state last sent, without the ages of chips and moments that change every build. */
-	private String sentMettleKey;
-	/** The Classes page has a draft, reveal or moment up (Esc and 1-3 are its), or a search field has the keyboard. */
+	/** A tick passed: Mettle's state signature is read again (MettleSync). */
+	private boolean mettleCheck = true;
+	/** The Classes page has a draft, reveal, moment, menu, popover or keyboard focus up (Esc, arrows and 1-3 are its), or a search field has the keyboard. */
 	private boolean pageModal;
 	private boolean pageText;
 	/** The Classes page's moving parts, drawn natively over the still page. */
 	private final CardFx fx = new CardFx();
-	private boolean sentIcons;
-	private int mettleAge = Integer.MAX_VALUE;
+	private int nearbyAge = Integer.MAX_VALUE;
 	/** Stacks the Classes page shows in its own wells (the trade's items), drawn natively at its rects. */
 	private List<Bridge.ItemIcon> pageItems = List.of();
 	/** The players within trade reach last told to the page (the trade request list), and when to look again. */
@@ -152,7 +150,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		this.sentNearby = null;
 		this.pageModal = false;
 		this.pageText = false;
-		this.mettleAge = Integer.MAX_VALUE;
+		this.nearbyAge = Integer.MAX_VALUE;
 	}
 
 	static int[] range(int start, int n) {
@@ -191,16 +189,9 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	protected void onMessage(Bridge.Message m) {
 		switch (m) {
 			case Bridge.Segment seg -> this.setSegment(seg.value());
-			case Bridge.MettleChoose choose -> {
-				MettleLink.chooseBackground(choose.json());
-				this.mettleAge = METTLE_EVERY - 2;
-			}
-			case Bridge.MettleCall call -> {
-				MettleLink.act(call.op(), call.arg());
-				if (!"cardSound".equals(call.op())) {
-					this.mettleAge = METTLE_EVERY - 2;  // the server's answer lands in a tick or two
-				}
-			}
+			// The server's answer changes Mettle's client state: MettleSync sees it within a tick.
+			case Bridge.MettleChoose choose -> MettleLink.chooseBackground(choose.json());
+			case Bridge.MettleCall call -> MettleLink.act(call.op(), call.arg());
 			case Bridge.Fx f -> {
 				if (this.onClasses()) {
 					this.fx.set(f.items());
@@ -223,42 +214,28 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	@Override
 	protected void containerTick() {
 		super.containerTick();
-		if (this.mettleAge < Integer.MAX_VALUE) {
-			this.mettleAge++;
+		this.mettleCheck = true;
+		if (this.nearbyAge < Integer.MAX_VALUE) {
+			this.nearbyAge++;
 		}
 	}
 
 	/**
-	 * Mettle's state, rebuilt every {@link #METTLE_EVERY} ticks and sent only when it changed; the
-	 * icons it names go once, as data URLs (the page cannot read another mod's assets).
+	 * Mettle's state, rebuilt only when what it is built from changed ({@link dev.voidmc.hub.mettle.MettleSync}: a
+	 * signature once a tick, the text written off the render thread, sent only when it differs from the page's copy);
+	 * the icons it names go once each, as data URLs (the page cannot read another mod's assets).
 	 */
 	@Override
 	protected void pushExtra() {
 		if (!MettleLink.hasGear(this.menu) || MAP.equals(this.page)) {
 			return;
 		}
-		if (this.sentMettle != null && this.mettleAge < METTLE_EVERY) {
-			return;
+		dev.voidmc.hub.mettle.MettleSync.frame(this.hub, this.mettleCheck);
+		this.mettleCheck = false;
+		if (this.nearbyAge >= NEARBY_EVERY) {
+			this.nearbyAge = 0;
+			this.pushNearby();
 		}
-		this.mettleAge = 0;
-		this.pushNearby();
-		String json = MettleLink.state();
-		if (json == null || json.equals(this.sentMettle)) {
-			return;
-		}
-		// Chips and moments carry their age in ms, so the state differs on every build while one shows: send it when
-		// something else changed (the page diffs what it draws; a message it would ignore still costs a parse).
-		String key = AGES.matcher(json).replaceAll("");
-		if (key.equals(this.sentMettleKey)) {
-			return;
-		}
-		this.sentMettleKey = key;
-		if (!this.sentIcons) {
-			this.sentIcons = true;
-			this.hub.send(icons(json));
-		}
-		this.hub.sendLatest("mettle", "{\"type\":\"mettle\",\"state\":" + json + "}");
-		this.sentMettle = json;
 	}
 
 	/**
@@ -303,7 +280,6 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		return out.size() > 8 ? out.subList(0, 8) : out;
 	}
 
-	private static final java.util.regex.Pattern AGES = java.util.regex.Pattern.compile("\"ageMs\":-?\\d+");
 
 	// ---- the Classes page's keys and wheel ---------------------------------------------------------------------
 
@@ -324,8 +300,17 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		if (key == InputConstants.KEY_RIGHT) {
 			return "Right";
 		}
+		if (key == InputConstants.KEY_UP) {
+			return "Up";
+		}
+		if (key == InputConstants.KEY_DOWN) {
+			return "Down";
+		}
 		if (key == InputConstants.KEY_R) {
 			return "r";
+		}
+		if (key >= InputConstants.KEY_NUMPAD1 && key <= InputConstants.KEY_NUMPAD9) {
+			return String.valueOf((char) ('1' + key - InputConstants.KEY_NUMPAD1));
 		}
 		return key >= InputConstants.KEY_1 && key <= InputConstants.KEY_9 ? String.valueOf((char) ('1' + key - InputConstants.KEY_1)) : null;
 	}
@@ -342,12 +327,14 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 			}
 			if (name != null && (this.pageModal || !name.equals("Escape"))) {
 				this.hub.send(Json.object().put("type", "key").put("key", name).end());
-				if (this.pageModal) {
-					return true;  // Esc closes the draft or the moment, not the window; 1-3 pick
+				if (this.pageModal || name.equals("Up") || name.equals("Down") || name.equals("Left") || name.equals("Right")) {
+					return true;  // Esc closes the draft, moment, menu or focus, not the window; 1-3 pick; arrows move the page's focus
 				}
 			}
 			if (this.pageModal && event.isCycleFocus()) {
-				return true;  // a draft or moment keeps the page: Tab does not switch to the Map under it
+				// A draft, moment or keyboard focus keeps the page: Tab moves its focus, it does not switch to the Map under it.
+				this.hub.send(Json.object().put("type", "key").put("key", event.hasShiftDown() ? "ShiftTab" : "Tab").end());
+				return true;
 			}
 		}
 		return super.keyPressed(event);
@@ -376,39 +363,18 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	@Override
 	public void removed() {
 		super.removed();
+		// What the page sent in this screen's last frame: a pick or a click still counts; native layers, keyboard
+		// claims and animation sounds were this screen's and are dropped (the next screen gets the page's own resend).
+		this.hub.drainInbox(m -> {
+			if (m instanceof Bridge.MettleCall call) {
+				MettleLink.act(call.op(), call.arg());
+			} else if (m instanceof Bridge.MettleChoose choose) {
+				MettleLink.chooseBackground(choose.json());
+			}
+		});
 		this.fx.clear();
 		if (MettleLink.present()) {
 			MettleLink.act("cardSound", "stop#");  // a draft or reveal left half-played goes quiet with the window
-		}
-	}
-
-	/** Every {@code "icon"} / {@code "art"} texture the state names, as one icons message. */
-	static String icons(String stateJson) {
-		java.util.Set<String> ids = new java.util.TreeSet<>();
-		collect(Json.parseObject(stateJson), ids);
-		Json.Writer map = Json.object();
-		for (String id : ids) {
-			String url = MettleLink.icon(id);
-			if (url != null) {
-				map.put(id, url);
-			}
-		}
-		return Json.object().put("type", "icons").raw("map", map.end()).end();
-	}
-
-	private static void collect(Object node, java.util.Set<String> out) {
-		if (node instanceof java.util.Map<?, ?> m) {
-			for (java.util.Map.Entry<?, ?> e : m.entrySet()) {
-				if (("icon".equals(e.getKey()) || "art".equals(e.getKey())) && e.getValue() instanceof String s && s.endsWith(".png")) {
-					out.add(s);
-				} else {
-					collect(e.getValue(), out);
-				}
-			}
-		} else if (node instanceof java.util.List<?> l) {
-			for (Object o : l) {
-				collect(o, out);
-			}
 		}
 	}
 

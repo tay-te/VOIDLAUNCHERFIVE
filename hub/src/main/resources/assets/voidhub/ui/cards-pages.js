@@ -16,7 +16,7 @@
     binder: {skill: "", rarity: "", kw: "", trait: "", slot: false, att: false, sort: "newest", q: "", scroll: 0, sel: null},
     deck: {rarity: "", kw: "", trait: "", slot: false, sort: "rarity", scroll: 0, sel: null, pop: null, totals: false},
     rebuild: {skill: null, pick: {}}, fuse: {pick: []}, release: {pick: []}, hall: {scroll: 0},
-    trade: {adding: false, scroll: 0, coinDraft: null, req: null},
+    trade: {adding: false, scroll: 0, coinDraft: null, req: null, meScroll: 0, themScroll: 0},
     menu: null,           // the open dropdown: {id, x, y, w, scroll, card}
     textTarget: "search"  // what typing goes to while MC.textFocus: the binder search or the trade's coin field
   };
@@ -98,7 +98,9 @@
       cv.className = "scr scr-" + id;
       st.deck.pop = null;
       st.menu = null;
-      if (MC.textFocus) { MC.textFocus = false; ui(); }
+      st.trade.adding = false;
+      focus.key = null;
+      if (MC.textFocus) MC.textFocus = false;
     }
     var f = SCREENS[id] || SCREENS["home-skills"];
     f();
@@ -107,6 +109,8 @@
     toast();
     moments();
     pageFx();
+    ring();
+    ui();
   };
 
   // ---- native layers of the page itself (CardFx): the collection hover flicker and the drop-slot pulse --------------
@@ -146,16 +150,38 @@
     if (key === toastShown) return;
     toastShown = key;
     var el = part(root, "c-toast", "c-toast");
-    if (!f || (f.ageMs || 0) > 3500) { el.style.display = "none"; MC.toggle(root, "has-toast", false); return; }
+    // Another player asked to trade (Mettle's "<name> wants to trade" chip): it waits half a minute, with Accept.
+    var asked = !!f && /trade$/.test(String(f.perk || "")) && /wants to trade/i.test(String(f.text || "")) && !M().cards.trade;
+    var life = asked ? 30000 : 3500;
+    if (!f || (f.ageMs || 0) > life) { el.style.display = "none"; MC.toggle(root, "has-toast", false); return; }
     el.style.display = "";
     MC.toggle(root, "has-toast", true);
-    MC.text(el, f.text);
+    MC.toggle(el, "ask", asked);
+    if (asked) el.innerHTML = '<span class="tx">' + esc(f.text) + '</span><span class="acc" data-taccept="1">Accept</span>';
+    else MC.text(el, f.text);
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.style.display = "none"; MC.toggle(root, "has-toast", false); }, 3500 - (f.ageMs || 0));
+    toastTimer = setTimeout(function () { el.style.display = "none"; MC.toggle(root, "has-toast", false); }, life - (f.ageMs || 0));
+  }
+  function hideToast() {
+    var el = MC.$("c-toast");
+    if (el) el.style.display = "none";
+    if (root) MC.toggle(root, "has-toast", false);
   }
 
-  // A menu is modal too: Esc closes it (not the window) and the hotbar keys stay quiet.
-  function ui() { MC.send({type: "mettleUi", modal: MC.ov.active() || !!st.menu, text: MC.textFocus}); }
+  // What owns Esc and the keys, told to Java whenever it changes: an overlay (draft, reveal, set moment), a dropdown or
+  // the sound panel, the deck's take-out popover, the trade's card picker, or the keyboard focus ring. Esc closes the
+  // top one, not the window; the hotbar keys stay quiet. force: a new screen (Java starts from "nothing").
+  var uiSent = "";
+  function modal() { return MC.ov.active() || !!st.menu || !!st.deck.pop || !!st.trade.adding || !!focus.key; }
+  function ui(force) {
+    var m = modal(), k = (m ? "m" : "") + (MC.textFocus ? "t" : "");
+    if (k === uiSent && !force) return;
+    uiSent = k;
+    MC.send({type: "mettleUi", modal: m, text: !!MC.textFocus});
+  }
+  MC.ui = ui;
+  /** Tests: whether the page holds Esc (what it last told Java). */
+  MC.modal = modal;
 
   /** Opens a draft, a reveal or a set moment when one is due and nothing else is up. */
   function moments() {
@@ -163,7 +189,8 @@
     var c = M().cards, r = c.reveal;
     if (r && !seenReveal[r.id]) {
       seenReveal[r.id] = true;
-      if (Date.now() - (MC.lastClaimAt || 0) < 30000 && r.source === "drawn") return;  // just claimed in the draft: seen
+      // The Mythic just claimed in the draft was seen there; another one (granted, earned) is revealed.
+      if (r.source === "drawn" && r.id === MC.lastClaimId && Date.now() - (MC.lastClaimAt || 0) < 30000) return;
       if ((r.ageMs || 0) < 30000 && MC.ov.reveal(r)) return;
     }
     if (pendingSet && MC.ov.setDone(pendingSet.set, pendingSet.cards, pendingSet.slotted)) { pendingSet = null; return; }
@@ -846,13 +873,27 @@
   };
 
   // ---- trade (CARDS.md §8.1, Figma 2h-4) --------------------------------------------------------------------------
+  // Each side's offered cards sit in a list of three rows (103 to 271) that scrolls: up to nine a side, and the ITEMS
+  // label (301), the wells (319) and the coin (381) below it never move or get covered. With three or more offered,
+  // "+ Add a card" is a small pill under the list, beside the "4-6 of 9 · scroll" note.
+  var TR_ROWS = 3, TR_PITCH = 58, TR_TOP = 103;
+  function tradeScroll(side, mine) {
+    var n = (side.cards || []).length, max = Math.max(0, n - TR_ROWS), k = mine ? "meScroll" : "themScroll";
+    st.trade[k] = Math.max(0, Math.min(st.trade[k] || 0, max));
+    return st.trade[k];
+  }
   function tradeRows(side, mine, x) {
-    var h = "", list = side.cards || [];
-    for (var i = 0; i < list.length && i < 5; i++) {
-      var c = list[i], need = c.needs ? (c.skillName || "") + " " + c.needs : "";
+    var list = side.cards || [], n = list.length, sc = tradeScroll(side, mine);
+    var h = '<div class="tr-list" id="' + (mine ? "tr-me-list" : "tr-them-list") + '" data-scroll="' + (mine ? "tme" : "tthem") + '" style="left:' + x + "px;top:" + Y(TR_TOP) + 'px">';
+    for (var i = 0; i < TR_ROWS && i + sc < n; i++) {
+      var c = list[i + sc], need = c.needs ? (c.skillName || "") + " " + c.needs : "";
       var lvl = skill(c.skill) ? skill(c.skill).level : 0;
       var right = MC.cols([{r: 16, text: need, sub: mine ? "" : "you have " + lvl, colour: mine ? "#9A9DA1" : c.meetsRequirement === false ? MC.AMBER : "#9A9DA1"}]);
-      h += MC.row(c, {style: "left:" + x + "px;top:" + Y(103 + i * 60) + "px;width:456px", attrs: mine ? ' data-ttake="' + c.id + '"' : (c.warning ? ' title="' + esc(c.warning) + '"' : ""), glyphX: 176, traitX: 218, traitW: 140, maxTraits: 1, right: right});
+      h += MC.row(c, {style: "left:0;top:" + i * TR_PITCH + "px;width:456px", attrs: (mine ? ' data-ttake="' + c.id + '"' : (c.warning ? ' title="' + esc(c.warning) + '"' : "")) + ' data-tcard="' + c.id + '"', glyphX: 176, traitX: 218, traitW: 140, maxTraits: 1, right: right});
+    }
+    h += "</div>";
+    if (n > TR_ROWS) {
+      h += '<div class="tr-more" style="left:' + (x + 256) + "px;top:" + Y(279) + 'px">' + (sc + 1) + "\u2013" + Math.min(n, sc + TR_ROWS) + " of " + n + "  \u00b7  scroll</div>";
     }
     return h;
   }
@@ -911,6 +952,8 @@
     if (rq && (Date.now() - rq.at > 120000 || t.open && t.partner !== rq.name)) st.trade.req = rq = null;
     if (rq && t.open && rq.card && byId[rq.card] && byId[rq.card].place === "binder") { MC.act("tradeOfferCard", rq.card); st.trade.req = null; }
     head('<div class="hd-chip trade"><span class="nm">Trade · ' + esc(t.partner) + '</span><i class="dot"></i><span class="sub">max 8 blocks</span></div>', "");
+    tradeScroll(t.me || {}, true);
+    tradeScroll(t.them || {}, false);
     if (!t.open) {
       patch(part(cv, "tr-ask", "tr-ask"), t.partner, '<div class="t">Waiting for ' + esc(t.partner) + ' to accept…</div><div class="s">They see an Accept chip. Walking 8 blocks apart calls it off.</div><div class="tb-go" data-tcancel="1">Cancel</div>');
       MC.itemsSet([]);
@@ -924,16 +967,19 @@
       return '<div class="lockp' + (locked ? " on" : "") + '"' + (mine && !locked ? ' data-tlock="1"' : "") + ' style="left:' + x + "px;top:" + Y(67) + 'px">' + (locked ? '<i class="tick"></i>Locked' : mine ? "Lock my side" : "Not locked") + "</div>";
     };
     var coinKey = [MC.textFocus && st.textTarget === "coin", st.trade.coinDraft];
-    patch(part(cv, "tr-me", "tr-col"), JSON.stringify([me, iconsKey, st.trade.adding, t.coin, coinKey]), function () {
-      var h = '<div class="eb9" style="left:28px;top:' + Y(75) + 'px">YOU OFFER</div>' + lockPill(me.locked, true, 392) + tradeRows(me, true, 28);
+    patch(part(cv, "tr-me", "tr-col"), JSON.stringify([me, iconsKey, st.trade.adding, t.coin, coinKey, st.trade.meScroll]), function () {
+      var h = '<div class="eb9" style="left:28px;top:' + Y(75) + 'px">YOU OFFER' + (me.cards.length ? "  \u00b7  " + me.cards.length + (me.cards.length === 1 ? " CARD" : " CARDS") : "") + "</div>" + lockPill(me.locked, true, 392) + tradeRows(me, true, 28);
       var n = me.cards.length;
-      if (n < (t.maxCards || 9)) h += '<div class="tr-add" data-tadd="1" style="top:' + Y(103 + Math.min(n, 5) * 60) + 'px">+ Add a card from your binder (up to ' + (t.maxCards || 9) + ")</div>";
+      if (n < (t.maxCards || 9)) {
+        h += n < TR_ROWS ? '<div class="tr-add" data-tadd="1" style="top:' + Y(TR_TOP + n * TR_PITCH) + 'px">+ Add a card from your binder (up to ' + (t.maxCards || 9) + ")</div>"
+          : '<div class="tr-add small" data-tadd="1" style="top:' + Y(275) + 'px">+ Add a card</div>';
+      }
       h += '<div class="eb9" id="tr-me-items" style="left:28px;top:' + Y(301) + 'px">ITEMS</div>' + itemSlots(me, true, 28);
       h += coinRow(t, me);
       return h;
     });
-    patch(part(cv, "tr-them", "tr-col"), JSON.stringify([them, iconsKey, t.partner]), function () {
-      var h = '<div class="eb9" style="left:500px;top:' + Y(75) + 'px">' + esc(upper(t.partner)) + " OFFERS</div>" + lockPill(them.locked, false, 864) + tradeRows(them, false, 500);
+    patch(part(cv, "tr-them", "tr-col"), JSON.stringify([them, iconsKey, t.partner, st.trade.themScroll]), function () {
+      var h = '<div class="eb9" style="left:500px;top:' + Y(75) + 'px">' + esc(upper(t.partner)) + " OFFERS" + (them.cards.length ? "  \u00b7  " + them.cards.length + (them.cards.length === 1 ? " CARD" : " CARDS") : "") + "</div>" + lockPill(them.locked, false, 864) + tradeRows(them, false, 500);
       h += '<div class="eb9" id="tr-them-items" style="left:500px;top:' + Y(301) + 'px">ITEMS</div>' + itemSlots(them, false, 500);
       h += '<div class="eb9" style="left:500px;top:' + Y(381) + 'px">COIN</div><div class="coinf" style="left:500px;top:' + Y(399) + 'px"><i></i>' + (t.coin ? them.coin + " bits" : "Emeralds as items") + "</div>";
       return h;
@@ -1112,6 +1158,7 @@
       return;
     }
     if (dragJustEnded) { dragJustEnded = false; ev.stopPropagation(); return; }
+    if (!kbdClick && focus.key) focus.key = null;  // the mouse took over: the focus ring goes
     var handled = true;
     if (st.menu) {
       // An open menu takes the click: a pick, its own opener (toggles it shut), or anywhere else (just closes it).
@@ -1136,7 +1183,8 @@
       MC.textFocus = false;
       ui();
     }
-    if ((el = closest(t, "data-dd"))) { openMenu(el.getAttribute("data-dd"), el); }
+    if ((el = closest(t, "data-taccept"))) { MC.act("tradeAccept", ""); hideToast(); }
+    else if ((el = closest(t, "data-dd"))) { openMenu(el.getAttribute("data-dd"), el); }
     else if ((el = closest(t, "data-tcstep"))) { var tt = M().cards.trade; if (tt && tt.coin) setCoin(tt.me.coin + (+el.getAttribute("data-tcstep"))); }
     else if ((el = closest(t, "data-tcoinf"))) { if (!MC.textFocus) { MC.textFocus = true; st.textTarget = "coin"; st.trade.coinDraft = ""; ui(); } }
     else if ((el = closest(t, "data-tab"))) { nav.view = "home"; nav.tab = el.getAttribute("data-tab"); }
@@ -1294,7 +1342,8 @@
   MC.key = function (m) {
     if (MC.ov.key(m.key)) return;
     if (st.menu) {
-      if (m.key === "Escape") { closeMenu(); MC.render(); }
+      if (m.key === "Escape") { closeMenu(); focus.key = null; MC.render(); }
+      else if (NAV[m.key]) navigate(m.key);
       return;
     }
     if (MC.textFocus && st.textTarget === "coin") {
@@ -1316,14 +1365,128 @@
       MC.render();
       return;
     }
-    if (m.key === "Escape" && st.deck.pop) { st.deck.pop = null; MC.render(); }
+    if (m.key === "Escape") {
+      // The top popover first, then the keyboard focus; with none of them up Java closes the window (not modal).
+      if (st.trade.adding) st.trade.adding = false;
+      else if (st.deck.pop) st.deck.pop = null;
+      else if (focus.key) focus.key = null;
+      MC.render();
+      return;
+    }
+    if (NAV[m.key]) navigate(m.key);
   };
+
+  // ---- keyboard focus: arrows (and Tab once a focus is up) move a ring over the screen's controls; Enter clicks ------
+  var NAV = {Up: 1, Down: 1, Left: 1, Right: 1, Tab: 1, ShiftTab: 1, Enter: 1};
+  var FOCUS_ATTRS = ["data-ddv", "data-bcard", "data-dcard", "data-scard", "data-slot", "data-skill", "data-deal", "data-perk", "data-slotbest", "data-takeout", "data-toffer",
+    "data-ttake", "data-tlock", "data-tconfirm", "data-tcancel", "data-tadd", "data-titem", "data-toffitem", "data-tcstep", "data-taccept", "data-unslot", "data-popclose",
+    "data-goshrine", "data-rbskill", "data-rbpick", "data-rebuild", "data-fupick", "data-fuse", "data-rlpick", "data-release", "data-closesit", "data-shtab",
+    "data-tab", "data-stab", "data-bskill", "data-bf", "data-df", "data-dd", "data-search", "data-pin", "data-totals"];
+  var FOCUS_SEL = FOCUS_ATTRS.map(function (a) { return "[" + a + "]"; }).join(",");
+  // Where a screen's focus starts: its cards, then its main action.
+  var PRIMARY = "[data-bcard],[data-dcard],[data-scard],[data-skill],[data-rbpick],[data-fupick],[data-rlpick],[data-ttake],[data-tlock],[data-toffer],[data-perk]";
+  var focus = {key: null}, kbdClick = false;
+  function focusKey(el) {
+    for (var i = 0; i < FOCUS_ATTRS.length; i++) if (el.hasAttribute(FOCUS_ATTRS[i])) return "[" + FOCUS_ATTRS[i] + '="' + el.getAttribute(FOCUS_ATTRS[i]) + '"]';
+    return null;
+  }
+  function shown(el) {
+    if (!el.offsetWidth || !el.offsetHeight || el.classList.contains("off")) return false;
+    for (var p = el; p && p !== cv; p = p.parentNode) if (p.style && p.style.display === "none") return false;
+    return true;
+  }
+  function focusables() {
+    var scope = st.trade.adding && MC.$("tr-pick") ? MC.$("tr-pick") : st.deck.pop && MC.$("dk-pop") && MC.$("dk-pop").firstChild ? MC.$("dk-pop") : st.menu ? MC.$("c-menu") : cv;
+    var all = scope ? scope.querySelectorAll(st.menu ? "[data-ddv]" : FOCUS_SEL) : [], out = [];
+    for (var i = 0; i < all.length; i++) if (shown(all[i]) && (st.menu || !closest(all[i].parentNode, "data-scard") || all[i].hasAttribute("data-scard"))) out.push(all[i]);
+    return out;
+  }
+  function focused() {
+    if (!focus.key || !cv) return null;
+    var el = cv.querySelector(focus.key) || (root && root.querySelector(focus.key));
+    return el && shown(el) ? el : null;
+  }
+  MC.focusKey = function () { return focus.key; };
+  function centre(el) { var r = el.getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2, r: r}; }
+  function towards(from, list, dir) {
+    var a = centre(from), best = null, score = 1e9;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] === from) continue;
+      var b = centre(list[i]), dx = b.x - a.x, dy = b.y - a.y;
+      var along = dir === "Right" ? dx : dir === "Left" ? -dx : dir === "Down" ? dy : -dy;
+      var across = dir === "Right" || dir === "Left" ? Math.abs(dy) : Math.abs(dx);
+      if (along <= 4) continue;
+      var sc = along + across * 2;
+      if (sc < score) { score = sc; best = list[i]; }
+    }
+    return best;
+  }
+  function nearestTo(rect, list) {
+    var best = null, d = 1e9;
+    for (var i = 0; i < list.length; i++) {
+      var c = centre(list[i]), dd = Math.abs(c.x - (rect.left + rect.width / 2)) + Math.abs(c.y - (rect.top + rect.height / 2));
+      if (dd < d) { d = dd; best = list[i]; }
+    }
+    return best;
+  }
+  function navigate(k) {
+    var list = focusables(), cur = focused();
+    if (!list.length) return;
+    if (k === "Enter") {
+      if (!cur) return;
+      var at0 = centre(cur).r;
+      kbdClick = true;
+      try { cur.click(); } finally { kbdClick = false; }
+      if (!focused()) { var near = nearestTo(at0, focusables()); focus.key = near ? focusKey(near) : null; }
+      MC.render();
+      return;
+    }
+    var next = null;
+    if (!cur) {
+      for (var i = 0; i < list.length && !next; i++) if (list[i].matches && list[i].matches(PRIMARY)) next = list[i];
+      next = next || list[0];
+    } else if (k === "Tab" || k === "ShiftTab") {
+      var order = list.slice().sort(function (a, b) { var A = centre(a), B = centre(b); return Math.abs(A.y - B.y) > 8 ? A.y - B.y : A.x - B.x; });
+      var at = order.indexOf(cur);
+      next = order[(at + (k === "Tab" ? 1 : order.length - 1)) % order.length];
+    } else {
+      // Inside a scrolling list the ring stays in the list: at its edge the list moves a row and the ring stays put.
+      var box = closest(cur, "data-scroll");
+      if (box) {
+        next = towards(cur, list.filter(function (e) { return box.contains(e); }), k);
+        if (!next && (k === "Up" || k === "Down")) {
+          var before = centre(cur).r, which = box.getAttribute("data-scroll"), was = JSON.stringify(st);
+          scrollBox(which, k === "Down" ? 1 : -1);
+          MC.render();
+          if (JSON.stringify(st) !== was) next = nearestTo(before, focusables().filter(function (e) { var b2 = closest(e, "data-scroll"); return b2 && b2.getAttribute("data-scroll") === which; }));
+        }
+      }
+      if (!next) next = towards(cur, list, k);
+    }
+    if (next) focus.key = focusKey(next);
+    MC.render();
+  }
+  /** The ring around the focused control (drawn by the page, over the screen). */
+  function ring() {
+    var el = part(cv, "c-focus", "c-focus"), f = focused();
+    if (focus.key && !f) focus.key = null;
+    if (!f) { if (el.style.display !== "none") { el.style.display = "none"; el.__s = null; } return; }
+    var r = f.getBoundingClientRect(), o = cv.getBoundingClientRect();
+    var st2 = "display:block;left:" + (r.left - o.left - 3) + "px;top:" + (r.top - o.top - 3) + "px;width:" + (r.width + 6) + "px;height:" + (r.height + 6) + "px";
+    if (el.__s !== st2) { el.__s = st2; el.setAttribute("style", st2); }
+    if (el.parentNode !== cv || el !== cv.lastChild) cv.appendChild(el);
+  }
 
   MC.wheel = function (m) {
     if (MC.ov.active()) return;
     var el = document.elementFromPoint(m.x, m.y), box = closest(el, "data-scroll");
     if (!box) return;
     var step = m.dy > 0 ? -1 : 1, which = box.getAttribute("data-scroll");
+    if (which === "coin") { var t = M().cards.trade; if (t && t.coin && !MC.textFocus) setCoin(t.me.coin + (step > 0 ? -10 : 10)); return; }
+    scrollBox(which, step);
+    MC.render();
+  };
+  function scrollBox(which, step) {
     if (which === "menu" && st.menu && st.menu.id === "sound") { var sw = sound(); setSound(sw.enabled, sw.volume + step * 10); }
     else if (which === "menu") { if (st.menu) st.menu.scroll = Math.max(0, st.menu.scroll + step); }
     else if (which === "binder") st.binder.scroll = Math.max(0, st.binder.scroll + step);
@@ -1333,13 +1496,13 @@
     else if (which === "fuse") st.fuse.scroll = Math.max(0, (st.fuse.scroll || 0) + step);
     else if (which === "release") st.release.scroll = Math.max(0, (st.release.scroll || 0) + step);
     else if (which === "tpick") st.trade.scroll = Math.max(0, st.trade.scroll + step);
-    else if (which === "coin") { var t = M().cards.trade; if (t && t.coin && !MC.textFocus) setCoin(t.me.coin + (step > 0 ? -10 : 10)); return; }
-    MC.render();
-  };
+    else if (which === "tme") st.trade.meScroll = Math.max(0, (st.trade.meScroll || 0) + step);
+    else if (which === "tthem") st.trade.themScroll = Math.max(0, (st.trade.themScroll || 0) + step);
+  }
 
   // ---- hooks mettle.js calls -----------------------------------------------------------------------------------
   var iconsKey = 0;
-  MC.iconsChanged = function () { iconsKey++; MC.render(); };
+  MC.iconsChanged = function (replaced) { iconsKey++; if (replaced) screen = ""; MC.render(); };
 
   /** Takes over #classes (cards mode). */
   MC.attach = function (el) {
@@ -1416,7 +1579,9 @@
   /** The window switched page (inventory, gear, classes). Leaving Classes ends any moment quietly. */
   MC.layout = function (l) {
     kind = l.kind;
-    MC.css(l.u || 1);
+    var u = l.u || 1, scaled = u !== MC.u;
+    MC.u = u;
+    MC.css(u);
     if (kind !== "classes") {
       if (MC.ov.active()) MC.ov.close(false);
       if (MC.textFocus) MC.textFocus = false;
@@ -1427,9 +1592,18 @@
       st.deck.drag = null;
       hoverEl = null;
       MC.fxClear();
+      focus.key = null;
+      st.trade.adding = false;
+      st.deck.pop = null;
       ui();
     } else {
-      screen = "";
+      // The screen's DOM is kept across opens (the page outlives the hub's screens): a reopen patches what changed.
+      // A new scale rebuilds it (icon and text sizes are per scale).
+      if (scaled) {
+        screen = "";
+        var hand = document.querySelectorAll("#dr-hand .hc");
+        for (var i = 0; i < hand.length; i++) MC.layoutCard(hand[i]);
+      }
       // Java drops the native layers when the window changes page or size: send them again (positions may move).
       hoverEl = null;
       MC.fxSet("hover", []);
@@ -1437,7 +1611,18 @@
       if (MC.ov.active()) MC.ov.refx();
       // Opening Classes (K after "a draft to pick", or the segment) deals what waits; Esc keeps it for this visit.
       dismissedWaiting = 0;
+      ui(true);
     }
+  };
+
+  /**
+   * Whether a screen shows the page (Java: the hub opened or closed). Hidden, the overlays' timers pause and nothing is
+   * sent; shown, they carry on and Java hears the keyboard claims again (its new screen starts from none).
+   */
+  MC.visible = function (on) {
+    if (!on) { MC.ov.hide(); return; }
+    MC.ov.show();
+    ui(true);
   };
 
   /** What the tests print when a step fails. */

@@ -170,11 +170,12 @@ public final class MettleTest {
 			this.expect("8".equals(v[0]) && Integer.parseInt(v[1]) <= 300 && "true".equals(v[2]), "a card's name sits under its art and its traits on the bottom safe area: " + lay);
 		}
 		this.expect(fp[1].isEmpty(), "every trait value shows a unit: " + fp[1]);
-		this.perf("draft hand idle", () -> this.context.waitTicks(60));
+		Perf idle = this.perf("draft hand idle", () -> this.context.waitTicks(60));
+		this.expect(idle.painted() == 0, "PERF draft hand idle paints nothing: " + idle);
 
 		// 5. Hover: the card lifts onto its hot frame, the others cool down (D3).
 		int hand = Integer.parseInt(this.js("String(document.querySelectorAll('.dr-hand .hc').length)"));
-		this.perf("draft hover sweep", () -> {
+		Perf hover = this.perf("draft hover sweep", () -> {
 			for (int k = 0; k < 3; k++) {
 				for (int c = 0; c < hand; c++) {
 					this.hoverPage(".dr-hand .hc[data-hand=\"" + c + "\"] .hc-art");
@@ -182,6 +183,7 @@ public final class MettleTest {
 				}
 			}
 		});
+		this.expect(hover.uiP95() < 10, "PERF draft hover sweep: UI p95 under 10 ms: " + hover);
 		this.hoverPage(".dr-hand .hc[data-hand=\"1\"] .hc-art");
 		this.context.waitTicks(8);
 		this.expect("1".equals(this.js("String(MC.ov.hovered())")), "hovering the middle card made it the hovered one");
@@ -193,7 +195,7 @@ public final class MettleTest {
 		String skillId = this.js("String(MC.ov && document.querySelector('#dr-chip .nm') ? document.querySelector('#dr-chip .nm').textContent : '')");
 		int binderBefore = this.binderCount();
 		long waitingBefore = this.waiting();
-		this.perf("draft pick", () -> {
+		Perf pick = this.perf("draft pick", () -> {
 			this.context.getInput().pressKey(InputConstants.KEY_2);
 			this.context.waitTicks(3);
 			this.shot("voidhub_mettle_06a_draft_pick_flare");
@@ -203,6 +205,7 @@ public final class MettleTest {
 			this.shot("voidhub_mettle_06c_draft_pick_ash");
 			this.context.waitTicks(26);
 		});
+		this.expect(pick.uiP95() < 50, "PERF draft pick: UI p95 under 50 ms: " + pick);
 		this.expect(this.binderCount() == binderBefore + 1, "the pick kept one card (" + skillId + "): binder " + binderBefore + " -> " + this.binderCount());
 		this.expect(this.waiting() == waitingBefore - 1, "the pick used one draft: " + waitingBefore + " -> " + this.waiting());
 		this.waitPage("MC.ov.kind()==='draft' && !document.querySelector('.dr-hand .hc.kept') && !!document.querySelector('.dr-hand .hc')", 80, "the next draft dealt after the pick");
@@ -284,7 +287,8 @@ public final class MettleTest {
 		});
 		this.waitPage("!!document.querySelector('[data-claim]')", 60, "the Mythic settled with Claim");
 		this.shot("voidhub_mettle_12_mythic_settled");
-		this.perf("mythic settled idle", () -> this.context.waitTicks(40));
+		Perf settled = this.perf("mythic settled idle", () -> this.context.waitTicks(40));
+		this.expect(settled.painted() == 0, "PERF mythic settled idle paints nothing: " + settled);
 		// Claim Mythic: Mettle's claimMythic keeps it without using the draft, so the hand stays open for a keep.
 		int mythicsBefore = this.mythicsOwned();
 		long draftsBeforeClaim = this.waiting();
@@ -842,7 +846,11 @@ public final class MettleTest {
 	}
 
 	/** Runs {@code actions} and logs the frames' UI-thread paint and render-thread cost (p50 / p95 / max, ms). */
-	private void perf(String what, Runnable actions) {
+	/** A PERF line's numbers: frames, painted frames, UI-thread p95 and max, render-thread p95 (ms). */
+	record Perf(int frames, int painted, double uiP95, double uiMax, double renderP95) {
+	}
+
+	private Perf perf(String what, Runnable actions) {
 		long from = this.context.computeOnClient(mc -> dev.voidmc.hub.ui.HubStats.INSTANCE.frameCount());
 		actions.run();
 		dev.voidmc.hub.ui.HubStats.Frame[] frames = this.context.computeOnClient(mc -> dev.voidmc.hub.ui.HubStats.INSTANCE.since(from));
@@ -870,6 +878,7 @@ public final class MettleTest {
 		dev.voidmc.hub.VoidHub.LOGGER.info(String.format(java.util.Locale.ROOT,
 			"PERF %-20s frames %4d painted %4d  ui p50 %6.2f p95 %6.2f max %6.2f ms  render p50 %5.2f p95 %5.2f max %5.2f ms  upload %6.1f KB/frame",
 			what, frames.length, painted, pct(ui, 50), pct(ui, 95), pct(ui, 100), pct(rt, 50), pct(rt, 95), pct(rt, 100), bytes / 1024.0 / Math.max(1, frames.length)));
+		return new Perf(frames.length, painted, pct(ui, 95), pct(ui, 100), pct(rt, 95));
 	}
 
 	private static double pct(long[] sorted, int p) {

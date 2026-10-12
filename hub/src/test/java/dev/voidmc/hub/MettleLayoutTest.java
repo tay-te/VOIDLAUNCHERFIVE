@@ -53,4 +53,26 @@ class MettleLayoutTest {
 		assertNull(l.detailIcon);
 		assertTrue(l.toJson().contains("\"kind\":\"classes\""));
 	}
+
+	/**
+	 * The Classes page's unit lands the hand cards' 4 px texel grid on whole device px (a quarter unit), is readable (at
+	 * least 0.75 where the framebuffer has room, so GUI scale 1 is not 4 px text) and keeps the shell inside the window.
+	 */
+	@Test
+	void classesUnitIsOnTheTexelGridAndReadable() {
+		int[][] sizes = {{854, 480, 1}, {854, 480, 2}, {1280, 720, 3}, {1920, 1080, 1}, {1920, 1080, 2}, {1920, 1080, 4}, {2560, 1440, 6}, {3440, 1440, 6}, {3840, 2160, 9}};
+		for (int[] z : sizes) {
+			HubLayout l = HubLayout.classes(z[0], z[1], z[2]);
+			String at = z[0] + "x" + z[1] + " gs" + z[2] + ": u " + l.u;
+			assertEquals(Math.rint(l.u * 4), l.u * 4, 1e-9, at + " is a quarter");
+			assertTrue(l.u >= HubLayout.unit(z[0], z[1], z[2]) - 0.25, at + " is about the shell's or larger");
+			assertTrue(l.window.right() <= z[0] && l.window.bottom() <= z[1] && l.strip.bottom() <= z[1], at + " fits");
+			if (z[0] >= 1280) {
+				assertTrue(l.u >= 0.75, at + " is readable");
+			}
+		}
+		assertEquals(1.25, HubLayout.classes(1920, 1080, 4).u, 1e-9);
+		assertEquals(0.75, HubLayout.classes(1920, 1080, 1).u, 1e-9);
+		assertEquals(2.5, HubLayout.classes(3840, 2160, 9).u, 1e-9);
+	}
 }
