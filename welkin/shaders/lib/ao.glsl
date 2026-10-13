@@ -66,6 +66,13 @@ float aoSunCone(float vis, vec3 bentN, vec3 l) {
 	return 1.0 - smoothstep(th + AO_SUN_MARGIN, th + AO_SUN_MARGIN + AO_SUN_SOFT, a);
 }
 
+// With the shadow map on, the shared resolve pass (program/deferred_resolve.glsl, deferred2) resolves the occlusion
+// once into colortex12 next to the shadow's, and the light pass reads that; without the map (LOW, a custom mix, the
+// other dimensions) deferred2 does not run and the light pass resolves it itself, the same way.
+#if defined AMBIENT_OCCLUSION && defined SHADOWS && defined WORLD_OVERWORLD
+#define WELKIN_AO_IN_RESOLVE
+#endif
+
 #if defined AMBIENT_OCCLUSION && !defined WELKIN_AO_PASS
 #include "/lib/denoise.glsl"
 #ifndef WU_colortex9
@@ -99,25 +106,55 @@ struct AoSample {
 	float cover; // how far the occlusion covers here: 1 near, fading out by AO_FAR
 };
 
-// The resolved occlusion at full-resolution pixel p (view position v, world normal n, material m).
+// How far the occlusion covers at view depth z: 1 near, fading out by AO_FAR.
+float aoCover(float z) {
+	return 1.0 - smoothstep(0.5 * AO_FAR, AO_FAR, z);
+}
+
+// Plants were worked out as facing up (program/deferred_ao.glsl): the normal the occlusion stands on for material m.
+bool aoPlant(int m) {
+	return matHas(m, MATF_SSS) && !matIsLeaves(m);
+}
+
+// The occlusion's raw term resolved at full-resolution pixel p (view position v, world normal n, material m): x the
+// visibility, yz the bent normal's tangent parts in the face's frame. lib/denoise.glsl's 4x4 window over the half-
+// resolution colortex9 (it always holds the noise tile's sixteen turns once each, weighted to the pixel's own plane and
+// normal); the centre's own raw value where nothing matched.
+vec3 aoResolveAt(ivec2 p, vec3 v, vec3 n, int m) {
+	bool plant = aoPlant(m);
+	// a plant's own quads' normals mean little, so the resolve matches it on the level plane through the point,
+	// without the normal test
+	vec3 nA = plant ? vec3(0.0, 1.0, 0.0) : n;
+	vec3 vn = normalize(mat3(gbufferModelView) * nA);
+	ivec2 q = p / 2;
+	vec4 r = resolveSpatial4x4(colortex9, q, 2, v, vn, plant ? vec3(0.0) : n, colortex1);
+	return r.a > 0.02 ? r.rgb : texelFetch(colortex9, clamp(q, ivec2(0), textureSize(colortex9, 0) - 1), 0).rgb;
+}
+
+#if defined WELKIN_AO_IN_RESOLVE && !defined WELKIN_RESOLVE_PASS
+#ifndef WU_colortex12
+#define WU_colortex12
+uniform sampler2D colortex12;
+#endif
+#endif
+
+// The resolved occlusion at full-resolution pixel p (view position v, world normal n, material m), for the light pass.
 AoSample lightAoFetch(ivec2 p, vec3 v, vec3 n, int m) {
 	AoSample a;
 	a.vis = 1.0;
 	a.bend = vec3(0.0);
 	float z = -v.z;
-	a.cover = 1.0 - smoothstep(0.5 * AO_FAR, AO_FAR, z);
+	a.cover = aoCover(z);
 	if (a.cover <= 0.0) {
 		a.cover = 0.0;
 		return a;
 	}
-	bool plant = matHas(m, MATF_SSS) && !matIsLeaves(m);
-	// plants were worked out as facing up (program/deferred_ao.glsl); their own quads' normals mean little, so the
-	// resolve matches them on the level plane through the point, without the normal test
-	vec3 nA = plant ? vec3(0.0, 1.0, 0.0) : n;
-	vec3 vn = normalize(mat3(gbufferModelView) * nA);
-	ivec2 q = p / 2;
-	vec4 r = resolveSpatial4x4(colortex9, q, 2, v, vn, plant ? vec3(0.0) : n, colortex1);
-	vec3 t = r.a > 0.02 ? r.rgb : texelFetch(colortex9, clamp(q, ivec2(0), textureSize(colortex9, 0) - 1), 0).rgb;
+	vec3 nA = aoPlant(m) ? vec3(0.0, 1.0, 0.0) : n;
+#if defined WELKIN_AO_IN_RESOLVE && !defined WELKIN_RESOLVE_PASS
+	vec3 t = texelFetch(colortex12, p, 0).rgb;
+#else
+	vec3 t = aoResolveAt(p, v, n, m);
+#endif
 	a.vis = clamp(t.x, 0.0, 1.0);
 	// Far off, where a block spans only a few pixels, the occlusion is taken relative to open level ground: a face's
 	// visibility over the share an unoccluded face of its facing keeps on flat land (half for a wall, the ground taking

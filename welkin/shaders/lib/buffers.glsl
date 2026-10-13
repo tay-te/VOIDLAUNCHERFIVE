@@ -13,7 +13,9 @@
 //                     leaves, b water travel (>= 0) or -1 - leaf thickness, a view depth (1e4: not lit in deferred)
 // colortex11 RGBA16F  the resolved shadow (deferred_resolve, deferred2): r reach, g what passes, b debug, a view depth;
 //                     never cleared (the next frame's history with TEMPORAL_LIGHT)
-// colortex12-14       reserved: 12 the occlusion's history (workstream B), 13 the sun shafts, 14 the exposure (D)
+// colortex12 RGBA16F  the resolved occlusion (deferred_resolve, deferred2, with the shadow map and AMBIENT_OCCLUSION):
+//                     x visibility, yz the bent normal's tangent parts in the face's frame (lib/ao.glsl); a free (history)
+// colortex13-14       reserved: 13 the sun shafts, 14 the exposure (workstream D)
 //
 // Programs that light themselves (entities, hand, particles, lines) write colortex2.x = 0 (blending off for
 // colortex2 in shaders.properties), so whichever order Iris draws them in, deferred never lights a pixel twice.
@@ -38,4 +40,6 @@ const int colortex10Format = RGBA16F;
 const bool colortex10Clear = false;
 const int colortex11Format = RGBA16F;
 const bool colortex11Clear = false;
+const int colortex12Format = RGBA16F;
+const bool colortex12Clear = false;
 */

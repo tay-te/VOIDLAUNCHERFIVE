@@ -150,12 +150,19 @@ void main() {
 		lightAoCover = aoS.cover;
 		lightAoBend = aoS.bend;
 #if AO_SUN_FAR > 0 && defined WORLD_OVERWORLD
-		// past the shadow map and on the LOD's land, the sun outside the occlusion's open cone is taken off (lib/ao.glsl)
+		// past the shadow map and on the LOD's land, the sun outside the occlusion's open cone is taken off (lib/ao.glsl),
+		// over the same fade as the far shadows (lib/shadow.glsl farShadowNeed: the map's own reach, half under the moon)
+#ifdef WELKIN_SHADOWS_LIVE
+		float aoFar = s.fromLod ? 1.0 : farShadowNeed(playerPos);
+#else
 		float aoFar = s.fromLod ? 1.0 : smoothstep(0.8 * shadowDistance, shadowDistance, length(playerPos));
+#endif
 		// (a plant's quads were taken as facing up by the occlusion: its cone stands round the up direction)
 		vec3 nCone = matThin(material) ? vec3(0.0, 1.0, 0.0) : n;
-		reach *= mix(1.0, aoSunCone(pow(contact, AO_STRENGTH), normalize(nCone + lightAoBend), lightDir),
-			aoFar * aoS.cover * float(AO_SUN_FAR) * 0.01);
+		// the far rays and the terrain's shadow see the same hills and crowns the cone does: the darker of the two, not
+		// their product, so a far penumbra is not darkened twice
+		reach = min(reach, mix(1.0, aoSunCone(pow(contact, AO_STRENGTH), normalize(nCone + lightAoBend), lightDir),
+			aoFar * aoS.cover * float(AO_SUN_FAR) * 0.01));
 #endif
 #endif
 		// plants' crossed quads take the sky's fill as from above, and 1.45x (lib/light.glsl lightFillUp)

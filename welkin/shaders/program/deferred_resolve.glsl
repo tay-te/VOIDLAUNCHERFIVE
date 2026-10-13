@@ -7,7 +7,9 @@
 // the last frame's result, reprojected, clamped to the current window's range and blended by historyWeight (less on
 // what sways and where the clamp acted), reset where the depth does not match (disocclusion).
 // Only the lighting terms come through here; colour and texture never do.
-// (Workstream B adds its occlusion block here after A merges: colortex9 to colortex12.)
+// The occlusion (workstream B, with AMBIENT_OCCLUSION): deferred_ao's raw half-resolution term (colortex9) resolved
+// the same way (lib/ao.glsl aoResolveAt) into colortex12 (x the visibility, yz the bent normal's tangent parts), so
+// the light pass reads it with one fetch. (Its history, for a later temporal blend, would go in colortex12.a.)
 
 #include "/lib/common.glsl"
 #include "/lib/buffers.glsl"
@@ -26,6 +28,8 @@ void main() {
 #ifdef FRAGMENT_SHADER
 
 #include "/lib/denoise.glsl"
+#define WELKIN_RESOLVE_PASS
+#include "/lib/ao.glsl"
 
 in vec2 texcoord;
 
@@ -41,11 +45,13 @@ uniform sampler2D colortex10;
 #define WU_gbufferModelView
 uniform mat4 gbufferModelView;
 #endif
-#ifdef TEMPORAL_LIGHT
+#if defined TEMPORAL_LIGHT || defined WELKIN_AO_IN_RESOLVE
 #ifndef WU_colortex2
 #define WU_colortex2
 uniform sampler2D colortex2;
 #endif
+#endif
+#ifdef TEMPORAL_LIGHT
 #ifndef WU_colortex11
 #define WU_colortex11
 uniform sampler2D colortex11;
@@ -60,24 +66,40 @@ uniform mat4 gbufferModelViewInverse;
 #define RESOLVE_DEBUG
 #endif
 
+#ifdef WELKIN_AO_IN_RESOLVE
+/* RENDERTARGETS: 11,12 */
+layout(location = 0) out vec4 outRes;
+layout(location = 1) out vec4 outAo;
+#else
 /* RENDERTARGETS: 11 */
 layout(location = 0) out vec4 outRes;
+#endif
 
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec4 raw = texelFetch(colortex10, p, 0);
+#ifdef WELKIN_AO_IN_RESOLVE
+	outAo = vec4(1.0, 0.0, 0.0, 0.0);
+#endif
 	if (raw.a > 5e3) {
 		outRes = vec4(raw.rg, 0.0, 1e4);
 		return;
 	}
+	vec2 size = vec2(viewWidth, viewHeight);
+	vec3 vc = dnViewPos((vec2(p) + 0.5) / size, raw.a);
+	vec3 n = octDecode(texelFetch(colortex1, p, 0).xy);
+#ifdef WELKIN_AO_IN_RESOLVE
+	// the occlusion (lib/ao.glsl): resolved here once, read by the light pass
+	if (aoCover(raw.a) > 0.0) {
+		int aoMat = int(texelFetch(colortex2, p, 0).y * 255.0 + 0.5);
+		outAo = vec4(aoResolveAt(p, vc, n, aoMat), 0.0);
+	}
+#endif
 #if SHADOW_FILTER == 0
 	// the fixed grid is noise-free: nothing to resolve
 	outRes = vec4(raw.rg, 0.0, raw.a);
 	return;
 #endif
-	vec2 size = vec2(viewWidth, viewHeight);
-	vec3 vc = dnViewPos((vec2(p) + 0.5) / size, raw.a);
-	vec3 n = octDecode(texelFetch(colortex1, p, 0).xy);
 	vec3 vn = mat3(gbufferModelView) * n;
 	vec3 lo, hi;
 	vec4 r = resolveSpatial4x4Range(colortex10, p, 1, vc, vn, n, colortex1, lo, hi);
