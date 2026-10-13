@@ -10,6 +10,9 @@
 //      fades into the sky table's horizon for its kind, and draws the world's far edge (deferred's FAR_FADE is off
 //      while it is on). Cloud pixels (colortex6 < 999, M3) get no haze and no water fog: the clouds fogged themselves
 //      by ring; the mist only lies in front of a cloud against the sky.
+//      Workstream D (air and tone, 2026-10-13): the haze's colour takes the sun's forward scatter (lib/air.glsl
+//      airMie); the sun shafts (lib/shafts.glsl, resolved from colortex13) go on before the haze in front; the land
+//      then takes its aerial perspective (airPerspective)
 //   3. debug views
 // Still to come here: the underground air (M5) and the near-water reflections (M6, HIGH).
 

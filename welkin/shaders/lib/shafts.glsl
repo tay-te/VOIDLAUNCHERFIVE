@@ -31,11 +31,11 @@
 uniform vec3 sunPosition;
 #endif
 
-// How open the gate is for the sun at world direction sunW: a trace at noon, fully from about 9 degrees down to the
-// horizon, shut at night (about half at 16:30). Uniform over the frame.
+// How open the gate is for the sun at world direction sunW: fully from about 9 degrees down to the horizon, about half
+// at 16:30, shut from about 37 degrees up (the pass then costs nothing) and at night. Uniform over the frame.
 float shaftGate(vec3 sunW) {
 	float h = sunW.y;
-	return smoothstep(0.0, 0.05, h) * mix(0.06, 1.0, 1.0 - smoothstep(0.15, 0.6, h));
+	return smoothstep(0.0, 0.05, h) * (1.0 - smoothstep(0.15, 0.6, h));
 }
 
 // ---- the resolve and the light, for composite2 (define WELKIN_SHAFTS_READ and include lib/air.glsl first)
