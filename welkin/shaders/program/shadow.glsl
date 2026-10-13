@@ -141,8 +141,9 @@ layout(location = 0) out vec4 outShadow;
 
 void main() {
 #ifdef WELKIN_SHADOW_SOLID
-	// solid blocks: no texture, no alpha test (and so no discard: the depth test runs early)
-	outShadow = vec4(0.5, 0.5, 0.5, 1.0);
+	// solid blocks: no texture, no alpha test (and so no discard: the depth test runs early); leaves drawn as solid
+	// (fast leaves) mark their texels as the cutout ones do (workstream C)
+	outShadow = matIsLeaves(material) ? vec4(0.5, 0.5, 0.0, 1.0) : vec4(0.5, 0.5, 0.5, 1.0);
 #else
 	if (matIsWater(material)) {
 		outShadow = vec4(vec3(0.70, 0.86, 0.88) * 0.5, 0.0);
@@ -151,6 +152,12 @@ void main() {
 	vec4 c = texture(gtexture, texcoord) * glcolor;
 	if (c.a < 0.1) {
 		discard;
+	}
+	// workstream C: leaves mark their texels (blue 0; lib/shadow.glsl shadowLeafTexel), so the lookup can tell a
+	// canopy from a wall or a hill. Leaves stand in the opaque map too, so the glass tint never reads the mark.
+	if (matIsLeaves(material)) {
+		outShadow = vec4(0.5, 0.5, 0.0, 1.0);
+		return;
 	}
 	// stained glass and other translucents: their colour, as strong as they are opaque; opaque: neutral (decodes to 1)
 	outShadow = c.a < 0.95 ? vec4(mix(vec3(1.0), c.rgb, c.a) * 0.5, 1.0) : vec4(0.5, 0.5, 0.5, 1.0);

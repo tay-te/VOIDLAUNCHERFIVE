@@ -93,6 +93,7 @@ float lightShadowFetch(ivec2 p, Surface s, vec3 playerPos, vec3 n, float sky, in
 	if (facing > 0.0 && sky > 0.5 && (s.fromLod || farShadowNeed(playerPos) > 0.0)) {
 		farVis = farShadowRay(s.view, mat3(gbufferModelView) * n, normalize(shadowLightPosition), 1.0,
 			shadowLongFadeStrength(lightDirWorld()));
+		farVis = shadowLeafFarRay(m, n, farVis); // workstream C: far crowns
 	}
 #endif
 #ifdef WELKIN_TERRAIN_LIVE

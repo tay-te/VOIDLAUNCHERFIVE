@@ -39,8 +39,8 @@ const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
 #define AO_QUALITY 1 // [1 2]
 // Far land's own shade: Past the shadow map's reach, and over the far land, the ambient occlusion also tells where the sun cannot get in: the floor between a far wood's crowns, the shaded side of a gully, the far wall of a hollow at a low sun. Soft, worked out from the shapes on screen.  [light]
 #define AO_SUN_FAR 75 // [0 25 50 75 100]
-// Far woods' form: Past the shadow map, where nothing shades a crown's far side, how much the far woods' leaves take the sun by how they face it, so far forests keep a lit side and a shaded side. 0 lights every face of a far crown alike.  [light]
-#define FAR_LEAF_FORM 75 // [0 25 50 75 100]
+// Far woods' form: Past the shadow map, how much more the far woods' leaves take the sun by how squarely they face it (on top of the leaves' own form). 0: the leaves' own form alone.  [light]
+#define FAR_LEAF_FORM 0 // [0 25 50 75 100]
 // Occlusion reference: Draws the noise-free reference of the ambient occlusion (every noise value averaged at each pixel; slow). For the grain check only.  [light]
 #define AO_REFERENCE 0 // [0 1]
 // Occlusion resolve (timing only): 0 reads the raw half-resolution term without the 4x4 resolve (grainy), to time the resolve's own share. Not on any screen.  [light]
@@ -55,6 +55,11 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define HANDHELD_LIGHT
 // Glowing pixels: The bright pixels of torches, lanterns, lava, glowing ores and cave growths glow in their own colour, even in the dark.  [plumbing]
 #define EMISSIVE_BLOCKS
+// ---- Light: foliage (C)
+// Light through leaves: How strongly sunlit leaves glow when you look toward the sun through a crown. The thin edges of a crown glow; its heart stays dark.  [light]
+#define LEAF_TRANSLUCENCY 100 // [0 50 75 100 125 150]
+// Plant roots: How much grass, flowers and crops darken toward their roots, so a meadow keeps its depth. 0 lights a tuft evenly.  [light]
+#define PLANT_ROOT_SHADE 45 // [0 25 45 60]
 // ---- Sky
 // Pixel sun and moon: Draws the sun and the moon, with all eight moon phases, as crisp pixel art in the sky instead of the vanilla pictures.  [sky]
 #define SKY_PIXEL_SUN

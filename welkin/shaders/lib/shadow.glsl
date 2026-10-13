@@ -74,6 +74,16 @@ float shadowLongFadeStrength(vec3 lightDir) {
 #endif
 }
 
+// ---- Leaves (workstream C), with or without the map
+// The far shadows found on screen (lib/farshadow.glsl), on a far crown's leaves: the ray's thickness test cannot tell
+// the crowns in front of a far crown's top (seen past it on screen) from the ones between it and the light, so in a
+// wood seen from afar it shaded nearly every crown's top, and the woods read as a flat, dark carpet. A far crown's
+// top sees the sun over its neighbours (the terrain's shadow still darkens a wood under a ridge, taken after this),
+// its sides take half the ray's shade: the crown's own form comes from its faces (leafFacing).
+float shadowLeafFarRay(int m, vec3 n, float farVis) {
+	return matIsLeaves(m) ? mix(farVis, 1.0, mix(0.5, 0.85, smoothstep(0.3, 0.9, n.y))) : farVis;
+}
+
 #if defined SHADOWS && defined WORLD_OVERWORLD && !defined WELKIN_SHADOW_PASS
 #define WELKIN_SHADOWS_LIVE
 #include "/lib/noise.glsl"
@@ -195,6 +205,8 @@ struct ShadowSample {
 	bool underWater; // the light reached the point through water's surface (it is bent on the way down)
 	float thick; // blocks from the point up to the first thing the light meets at its own map texel (0 in the open)
 	float travel; // blocks of water the light passed on the way down (under water)
+	float fade; // workstream C: how much of the low sun's long fade (shadowLongFade) is in vis (0: none)
+	float leafOver; // workstream C: 1 where the first thing the light meets at the point's texel is a leaf, apart from it
 };
 
 // Where a point looks the map up: its distorted map (uv, depth) after the normal offset and, under water, after the
@@ -313,6 +325,26 @@ vec3 shadowGlassTint(vec3 uvz) {
 	return vec3(1.0);
 }
 
+// Workstream C: blocks from a located point up to the first thing the light meets at its own map texel (0 in the
+// open): the thickness of the leaves before a leaf, for the light through them.
+float shadowThickAt(vec3 uvz, float depthBlocks) {
+	float dc = texture(shadowtex0, uvz.xy).r;
+	return max((uvz.z - dc) * depthBlocks - 0.04, 0.0);
+}
+
+// Whether the first thing the light meets at map position uv is a leaf (the shadow pass's mark).
+bool shadowLeafTexel(vec2 uv) {
+	vec4 c = texture(shadowcolor0, uv);
+	return c.a > 0.5 && c.b < 0.06 && c.r > 0.3;
+}
+
+// Workstream C: 1 where the first thing the light meets at a located point's texel is a leaf, more than half a block
+// before the point (so a sunlit leaf, its own first caster, does not count): the point lies under or inside foliage
+// along the light.
+float shadowLeafOver(vec3 uvz, float thick) {
+	return thick > 0.5 && shadowLeafTexel(uvz.xy) ? 1.0 : 0.0;
+}
+
 // What of the sun's (or the moon's) direct light reaches a point, with the fixed-grid filter (the forward programs
 // read it: entities, block entities, glass and water; deferred reads the PCSS buffers, shadowSamplePcss below).
 // minWidth: the narrowest penumbra (half width, blocks): leaves take a wide one, so the light through a crown falls on
@@ -326,6 +358,8 @@ ShadowSample shadowSampleW(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, boo
 	r.underWater = false;
 	r.thick = 0.0;
 	r.travel = 0.0;
+	r.fade = 0.0;
+	r.leafOver = 0.0;
 	float depthBlocks = shadowDepthBlocks();
 	ShadowSpot sp = shadowLocate(playerPos, n, lightDir, thin, water);
 	if (sp.outside) {
@@ -340,6 +374,8 @@ ShadowSample shadowSampleW(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, boo
 		// round 3: under the moon one compare (its hardware 2x2 blend), no search and no filter: a night's shadows are
 		// faint, and their soft edges were most of what the pass cost at night
 		r.vis = texture(shadowtex1, uvz);
+		r.thick = shadowThickAt(uvz, depthBlocks); // workstream C: the leaves' thickness under the moon too
+		r.leafOver = shadowLeafOver(uvz, r.thick);
 		return r;
 	}
 	// round 2: the receiver's own plane (not for a plant's quad, whose normal means little): a grazing light on level
@@ -363,6 +399,8 @@ ShadowSample shadowSampleW(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, boo
 		}
 	}
 	float centre = texture(shadowtex1, uvz);
+	r.thick = shadowThickAt(uvz, depthBlocks); // workstream C: the leaves' thickness at the point's own texel
+	r.leafOver = shadowLeafOver(uvz, r.thick);
 	if (count > 0.0) {
 		// blocks from the casters down to the point (round 3: never under 0: with the receiver plane's slope in the test
 		// a caster's mean depth can land past the point's own, and the light through leaves, exp(-0.8 * depth), then
@@ -424,15 +462,54 @@ float shadowLongFade(float above, vec3 lightDir) {
 }
 
 // ---- Leaves (marked for workstream C: the leaf rules of the lookup live here, nowhere else)
+// Foliage rework (workstream C, 2026-10-13). The shadow pass marks the map's texels where a leaf is the first thing the
+// light meets (program/shadow.glsl: shadowcolor0's blue 0), so the lookup can tell a canopy from a wall or a hill.
+
+// How thick a leaf mass lets light through, per block of leaves along the light (transmission exp(-LEAF_SIGMA * t)):
+// one block passes about half, three blocks a tenth.
+const float LEAF_SIGMA = 0.75;
+// What a leaf face turned to the sun but in its neighbours' shade still takes of the sun through the leaves before it
+// (times their transmission at this very pixel): a crown's outer shell glows a block deep, its heart stays dark.
+const float LEAF_INNER_SUN = 0.3;
+
 // The narrowest penumbra a leaf takes (half width, blocks): the light through a crown falls on its own leaves as soft
 // dapples instead of the long streaks a grazing sun draws from each leaf pixel.
 float shadowLeafMinWidth(int m) {
 	return matIsLeaves(m) ? 0.22 : 0.0;
 }
-// What a leaf takes of the sun: (round 3) a leaf in the shade of the leaves just above or before it still takes half
-// of what passes them, so a crown's sunward side glows green a block or two deep. pass: what passes the casters.
-float shadowLeafAdjust(int m, float vis, float pass) {
-	return matIsLeaves(m) ? max(vis, 0.5 * pass) : vis;
+
+// How far a point stands under a canopy, 0..1: leaves are the first thing the light meets before it (the map's mark,
+// shadowLeafOver) and the sky light is cut (an open meadow keeps the full sky's 15, even in a wood's long shadow at
+// a low sun; under a crown or inside one it is 14 or less). The map alone cannot say it at a low sun: it keeps only
+// what is nearest the light, the wood's sunward edge, however deep the point lies; the sky light alone cannot either
+// (a roof's or a cliff's shade has it too).
+float shadowCanopy(ShadowSample sh, float sky) {
+	return sh.leafOver * (1.0 - smoothstep(0.9, 0.975, sky));
+}
+
+// What a point takes of the sun after the leaf rules: sh the lookup, canopy shadowCanopy (only needed where sh.fade >
+// 0). Under a canopy the low sun's long fade (a stylization for the open land, so a meadow keeps its golden hour) is
+// taken back out: the light that crosses a wood at a grazing angle meets leaf after leaf, so the floor of a forest at
+// 18:30 is in deep shade but for its flecks. A leaf face in its neighbours' shade still takes LEAF_INNER_SUN of the sun
+// times what the leaves before it at its own texel let through (round 3's max(vis, 0.5 * pass) lifted every leaf
+// near a gap to half the sun and erased the crown's outer and inner split).
+float shadowLeafAdjust(int m, ShadowSample sh, float canopy) {
+	float vis = sh.vis;
+	if (sh.fade > 0.0 && canopy > 0.0) {
+		float v0 = clamp((vis - sh.fade) / max(1.0 - sh.fade, 0.05), 0.0, 1.0);
+		vis = mix(vis, v0, canopy);
+	}
+	if (matIsLeaves(m)) {
+		vis = max(vis, LEAF_INNER_SUN * exp(-LEAF_SIGMA * sh.thick));
+	}
+	return vis;
+}
+
+// What passes the leaves between the light and the point (the glow through leaves and plants): for a leaf, the leaves
+// before it at its own texel (per pixel: the thin edge of a crown glows, its heart does not); for a plant, the casters
+// round it (pass, from the search).
+float shadowLeafThrough(int m, ShadowSample sh, float pass) {
+	return matIsLeaves(m) ? exp(-LEAF_SIGMA * sh.thick) : pass;
 }
 // ---- (end of the leaf rules)
 
@@ -447,6 +524,8 @@ ShadowSample shadowSamplePcss(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, 
 	r.underWater = false;
 	r.thick = 0.0;
 	r.travel = 0.0;
+	r.fade = 0.0;
+	r.leafOver = 0.0;
 	float depthBlocks = shadowDepthBlocks();
 	ShadowSpot sp = shadowLocate(playerPos, n, lightDir, thin, water);
 	if (sp.outside) {
@@ -459,6 +538,8 @@ ShadowSample shadowSamplePcss(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, 
 	if (sunAngle >= 0.5) {
 		// under the moon one compare, as round 3 (no search, no filter, no noise)
 		r.vis = texture(shadowtex1, uvz);
+		r.thick = shadowThickAt(uvz, depthBlocks); // workstream C: the leaves' thickness under the moon too
+		r.leafOver = shadowLeafOver(uvz, r.thick);
 		return r;
 	}
 	float px = 1.0 / float(shadowMapResolution);
@@ -467,6 +548,7 @@ ShadowSample shadowSamplePcss(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, 
 	// the first thing the light meets at the point's own texel, blocks above it (for the light through leaves)
 	float dc = texture(shadowtex0, uvz.xy).r;
 	r.thick = dc < uvz.z - bias ? (uvz.z - dc) * depthBlocks : 0.0;
+	r.leafOver = shadowLeafOver(uvz, r.thick);
 	// the casters' distance at the point itself, from the four texels round it (no noise): the long shadows' fade
 	// is keyed on it, so the noisy search never moves it (at a low sun it ran from a tuft's 0.5 blocks to a wall's 60
 	// within one penumbra, and the fade left blotches the resolve could not smooth)
@@ -520,7 +602,8 @@ ShadowSample shadowSamplePcss(vec3 playerPos, vec3 n, vec3 lightDir, bool thin, 
 			r.vis = v * (1.0 / float(PCSS_FILTER_TAPS));
 		}
 #endif
-		r.vis = mix(r.vis, 1.0, shadowLongFade(aboveHere > 0.0 ? aboveHere : above, lightDir));
+		r.fade = shadowLongFade(aboveHere > 0.0 ? aboveHere : above, lightDir);
+		r.vis = mix(r.vis, 1.0, r.fade);
 	} else {
 		r.vis = centre; // nothing round it: the hardware tap alone (1 in the open)
 	}
@@ -573,7 +656,8 @@ float welkinSunReachEx(vec3 playerPos, vec3 n, float sky, int m, float facing, f
 		// round 3: a leaf in the shade of the leaves just above or before it still takes some of the sun through them
 		// (half of what passes): a crown's sunward side glows green a block or two deep instead of going dark behind
 		// its outermost leaves, while its heart and the floor under it stay in deep shade
-		float vis = matIsLeaves(m) ? max(sh.vis, 0.5 * pass) : sh.vis;
+		float vis = shadowLeafAdjust(m, sh, 0.0); // workstream C: the leaf rules
+		pass = shadowLeafThrough(m, sh, pass);
 		reach = mix(vis * gate, reach, fade);
 		vec3 tint = sh.tint;
 		if (sh.underWater && !matHas(m, MATF_SSS) && facing > 0.0) {
@@ -596,8 +680,8 @@ float welkinSunReachEx(vec3 playerPos, vec3 n, float sky, int m, float facing, f
 // far shadows in farVis, the leaf rules), with the PCSS lookup (SHADOW_FILTER 1, noise from lib/noise.glsl) or the
 // fixed grid (0). The tint is not here (it is not noisy: the light pass looks it up). through: as welkinSunReachEx.
 // nearVis: what the casters the map cannot see let through, inside its reach (lib/terrain.glsl; 1 for none).
-// travelThick: the blocks of water the light passed (0 or more: the point is under water), else -1 - the blocks from
-// the point up to the first thing the light meets at its own texel (-1: open, or no lookup).
+// travelThick: the blocks of water the light passed (0 or more: the point is under water), else -1 - the canopy over
+// the point (workstream C: shadowCanopy, faded with the map; -1: open, or no lookup).
 float welkinSunReachRaw(vec3 playerPos, vec3 n, float sky, int m, float facing, float farVis, float nearVis,
 		vec2 noise, out float through, out float travelThick) {
 	float reach = sunOpen(sky) * farVis;
@@ -617,10 +701,12 @@ float welkinSunReachRaw(vec3 playerPos, vec3 n, float sky, int m, float facing, 
 		float gate = sunLeakGate(sky);
 		// what passes the casters round the point: the gaps whole, about a block of leaves 0.45, three a tenth
 		float pass = clamp((1.0 - sh.cover) + sh.cover * exp(-0.8 * sh.depth), 0.0, 1.0);
-		float vis = shadowLeafAdjust(m, sh.vis, pass);
+		// workstream C: the leaf rules; the canopy over the point (under some cover, by day), handed to the light pass
+		float canopy = shadowCanopy(sh, sky);
+		float vis = shadowLeafAdjust(m, sh, canopy);
 		reach = mix(vis * gate * nearVis, reach, fade);
-		through = mix(pass * gate * nearVis, through, fade);
-		travelThick = sh.underWater ? sh.travel : -1.0 - sh.thick;
+		through = mix(shadowLeafThrough(m, sh, pass) * gate * nearVis, through, fade);
+		travelThick = sh.underWater ? sh.travel : -1.0 - canopy * (1.0 - fade);
 	}
 #endif
 	return reach;

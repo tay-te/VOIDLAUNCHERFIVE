@@ -243,8 +243,9 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	// (a plant's thin blades take the sky on both their faces and pass some through: up to 1.45x a top's fill, so in the
 	// shade a meadow's tufts and stalks read light against the ground, as dry grass does at dusk)
 	hemi = hemi * mix(1.0, faceShade(nf), mix(AMB_FACE_SHADE, AMB_FACE_SHADE_NIGHT, skyNightStep())) * (1.0 + 0.64 * lightFillUp);
-	// (round 3: the fill under a canopy cut by 0.8, not 0.68: the forest floor between the sun patches sinks deeper)
-	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - 0.8 * canopyShade(lm.y, sunReach));
+	// (round 3: the fill under a canopy cut by 0.8, not 0.68; workstream C: lib/foliage.glsl's CANOPY_FILL_CUT, keyed on
+	// the map's leaves above the point)
+	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - CANOPY_FILL_CUT * canopyShade(lm.y, sunReach));
 	// the short-range bounce (round 1): a shaded face among sunlit surfaces like itself takes back a share of the sun
 	// in its own colour, more on walls than on tops, so its light follows its albedo: the shade side of pale stone or
 	// sand reads a soft light grey (its colour half desaturated, so the bounce does not saturate the shade) instead of a near-black square beside a sunlit face, while grass and dirt (dark,

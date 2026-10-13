@@ -118,8 +118,14 @@ void main() {
 		vec3 playerPos = (gbufferModelViewInverse * vec4(s.view, 1.0)).xyz;
 		float through;
 		float reach = lightShadowFetch(p, s, playerPos, n, g.w, material, facing, sunShare, through);
+#ifdef WELKIN_SHADOW_BUFFERS
+		// workstream C: how far the point stands under a canopy (deferred_shadow found it from the map's leaves above it)
+		if (!s.fromLod && shadowFade(playerPos) < 1.0) {
+			foliageCanopy = clamp(-1.0 - texelFetch(colortex10, p, 0).b, 0.0, 1.0);
+		}
+#endif
 		// the light through leaves and plants (lib/light.glsl welkinGlow)
-		float glow = welkinGlow(normalize(eyePos), n, lightDir, material, through);
+		float glow = welkinGlow(normalize(eyePos), n, lightDir, material, through) * (0.01 * float(LEAF_TRANSLUCENCY));
 		if (matThin(material)) {
 			// far grass and flowers: their sunlit quads (often pale petals) would read as bright specks over a field, so
 			// past about 24 blocks their glow fades and they take the sun a little less squarely
@@ -144,9 +150,13 @@ void main() {
 		lm.x = welkinHandBlockLight(lm.x, dist); // a torch in hand lights the ground on the same ramp
 		// the LOD's leaves: the crown's average self-shade the near shadow map gives near crowns (lib/light.glsl)
 		vec3 fill = vec3(1.0);
+		if (matIsLeaves(material)) {
+			// workstream C: a leaf block keeps more of Minecraft's face shading on its fill, so a crown reads block by block
+			fill *= mix(1.0, faceShade(n), LEAF_FACE_SHADE);
+		}
 		if (s.fromLod) {
 			reach *= farCanopySun(material);
-			fill = vec3(farCanopyFill(material));
+			fill *= farCanopyFill(material);
 		}
 		// ---- Light: ambient (B): the ambient occlusion round near points and its bent normal (program/deferred_ao.glsl,
 		// lib/ao.glsl); lib/light.glsl lays it on the fill and the torch light
@@ -170,13 +180,23 @@ void main() {
 		// the far rays and the terrain's shadow see the same hills and crowns the cone does: the darker of the two, not
 		// their product, so a far penumbra is not darkened twice
 		reach = min(reach, mix(1.0, aoSunCone(pow(contact, AO_STRENGTH), normalize(nCone + lightAoBend), lightDir),
-			aoFar * aoS.cover * float(AO_SUN_FAR) * 0.01));
+			aoFar * aoS.cover * float(AO_SUN_FAR) * 0.01 * (matIsLeaves(material) ? 0.35 : 1.0)));
+		// (workstream C: on a far crown a third of it: its occlusion sees the crowns round it, which stand beside it, not
+		// between it and the sun; the crown's own form comes from its faces, lib/foliage.glsl leafFacing)
 #endif
 #endif
 		// plants' crossed quads take the sky's fill as from above, and 1.45x (lib/light.glsl lightFillUp)
 		// (and leaves, as a cube of small leaves turned every way, a little: a crown's sides are not walls)
-		lightFillUp = matThin(material) ? 0.7 : (matIsLeaves(material) ? 0.35 : 0.0);
-		color.rgb = welkinLightGlow(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, flags.w, glow,
+		// (workstream C: leaves 0.15, not 0.35: a crown's heart is not lit from the open sky above it)
+		lightFillUp = matThin(material) ? 0.7 : (matIsLeaves(material) ? 0.15 : 0.0);
+		// (workstream C: a plant's corner shading carries its root shade, gbuffers_common: laid on whole, with the
+		// occlusion)
+		float aoMc = flags.w;
+		if (matThin(material) && lightAoCover > 0.0) {
+			contact *= aoMc;
+			aoMc = 1.0;
+		}
+		color.rgb = welkinLightGlow(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, aoMc, glow,
 			contact);
 #ifdef WELKIN_WET
 		// puddles mirror the sky (the sky table's horizon), glint toward the light where it reaches, flick with drops
@@ -210,8 +230,9 @@ void main() {
 		color.rgb = vec3(contact) * mix(vec3(0.3, 0.45, 1.0), vec3(1.0),
 			(s.fromLod || farShadowNeed(playerPos) > 0.0) ? reach : 1.0);
 #elif DEBUG_VIEW == 14
-		// the light through leaves and plants (green), what passes the casters (red)
-		color.rgb = vec3(through, min(glow * 2.0, 1.0), 0.0);
+		// the light through leaves and plants (green), what passes the casters (red), the canopy over the point (blue,
+		// workstream C)
+		color.rgb = vec3(through, min(glow * 2.0, 1.0), max(foliageCanopy, 0.0));
 #elif DEBUG_VIEW == 21
 		// the terrain's light (workstream A, lib/terrain.glsl): red the sun's reach, green the slope's factor / 2,
 		// blue where the terrain's data is
