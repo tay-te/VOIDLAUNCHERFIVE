@@ -335,8 +335,12 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	/** One frame, aware of the view: see {@link LodSelector#select(LodSelector.Store, double, double, double, double, double, double, double, double, LodSelector.Visibility, double)}. */
 	public LongList update(Gpu gpu, double cx, double cy, double cz, double radius, double clip, double scale, double pixelsPerCell,
 		double farPixelsPerCell, LodSelector.Visibility visibility, double outOfView) {
+		// a recorder blending one frame from several renders: the later ones draw what the first chose
+		if (this.lastDraw != null && Recording.held()) {
+			return this.lastDraw;
+		}
 		++this.frame;
-		long nanos = this.frameNanos = System.nanoTime();
+		long nanos = this.frameNanos = Recording.nanos();
 		this.viewX = cx;
 		this.viewZ = cz;
 		this.clip = clip;
@@ -371,8 +375,12 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			this.evictedNanos = nanos;
 			this.evict(gpu);
 		}
+		this.lastDraw = draw;
 		return draw;
 	}
+
+	/** The tiles the last {@link #update} chose, for a recorder's held frames. */
+	private LongList lastDraw;
 
 	/** What newly drawn tiles show from above, for {@link #drainTerrain}. Render thread. */
 	private final java.util.ArrayList<TileTerrain> terrainOut = new java.util.ArrayList<>();

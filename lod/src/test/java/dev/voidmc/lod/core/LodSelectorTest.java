@@ -137,4 +137,73 @@ class LodSelectorTest {
 		assertTrue(aware < all * 0.7, "out of view stays coarse: " + aware + " of " + all);
 		assertTrue(aware > normal, "in view refines: " + aware + " vs " + normal + " unzoomed");
 	}
+
+	@Test
+	void smallMovesDoNotFlipLevels() {
+		// a camera drifting back and forth by 20 blocks: without hysteresis tiles at their thresholds flip every frame.
+		// Measured as the level drawn at points between the clip ring and the edge (tiles entering and leaving at the
+		// edges are another matter)
+		FakeStore store = new FakeStore();
+		store.allReady = true;
+		LodSelector selector = new LodSelector();
+		int[] last = null;
+		int flips = 0;
+		for (int frame = 0; frame < 40; frame++) {
+			double x = 1000 + (frame % 2 == 0 ? 0 : 20.0);
+			int[] levels = levelsAt(selector.select(store, x, 120, -300, 6000, 200, SCALE, 5), 1000, -300, 500, 5000);
+			if (last != null && frame >= 2) {
+				for (int i = 0; i < levels.length; i++) {
+					if (levels[i] != last[i]) {
+						flips++;
+					}
+				}
+			}
+			last = levels;
+		}
+		assertEquals(0, flips, "no level flips while the camera wobbles by 20 blocks");
+	}
+
+	/** The level of the tile covering each point of a grid around (cx, cz), between two distances (-1: none). */
+	private static int[] levelsAt(LongList draw, double cx, double cz, double near, double far) {
+		java.util.List<Integer> out = new java.util.ArrayList<>();
+		for (int x = (int) (cx - far); x <= cx + far; x += 37) {
+			for (int z = (int) (cz - far); z <= cz + far; z += 41) {
+				double d = Math.hypot(x - cx, z - cz);
+				if (d < near || d > far) {
+					continue;
+				}
+				int level = -1;
+				for (int i = 0; i < draw.size(); i++) {
+					long k = draw.get(i);
+					int x0 = TileKey.minX(k), z0 = TileKey.minZ(k), span = TileKey.span(TileKey.level(k));
+					if (x >= x0 && x < x0 + span && z >= z0 && z < z0 + span) {
+						level = TileKey.level(k);
+					}
+				}
+				out.add(level);
+			}
+		}
+		return out.stream().mapToInt(Integer::intValue).toArray();
+	}
+
+	@Test
+	void hysteresisStillFollowsRealMoves() {
+		// moving on for good, tiles do split and merge: hysteresis only delays a change by a few percent of the distance
+		FakeStore store = new FakeStore();
+		store.allReady = true;
+		LodSelector selector = new LodSelector();
+		int start = selector.select(store, 0, 120, 0, 6000, 200, SCALE, 5).size();
+		java.util.Set<Long> first = new java.util.HashSet<>();
+		LongList a = selector.select(store, 0, 120, 0, 6000, 200, SCALE, 5);
+		for (int i = 0; i < a.size(); i++) {
+			first.add(a.get(i));
+		}
+		LongList b = selector.select(store, 1500, 120, 0, 6000, 200, SCALE, 5);
+		java.util.Set<Long> moved = new java.util.HashSet<>();
+		for (int i = 0; i < b.size(); i++) {
+			moved.add(b.get(i));
+		}
+		assertTrue(start > 0);
+		assertTrue(!first.equals(moved), "1.5 km on, the selection has changed");
+	}
 }

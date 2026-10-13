@@ -457,10 +457,13 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		// zoomed in past a 70 degree field of view, the land out of view keeps the detail 70 degrees would give it
 		double normal = 0.5 * height / Math.tan(Math.toRadians(35));
 		double outOfView = Math.min(1, normal / scale);
-		LongList draw = this.engine.update(this, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell, this.visibility, outOfView);
+		// a recorder rendering k times larger to scale down asks for k times the pixels per cell: the same tiles as at its final size
+		double detailScale = dev.voidmc.lod.core.Recording.detailScale();
+		LongList draw = this.engine.update(this, cx, cy, cz, radius, clip, scale, pixelsPerCell * detailScale, farPixelsPerCell * detailScale,
+			this.visibility, outOfView);
 		long t1 = System.nanoTime();
 		this.lastEngineNanos = t1 - t0;
-		this.fades.update(draw, t1, this.ready);
+		this.fades.update(draw, dev.voidmc.lod.core.Recording.nanos(), this.ready);
 
 		CommandEncoder encoder = this.device.createCommandEncoder();
 		long t2 = System.nanoTime();

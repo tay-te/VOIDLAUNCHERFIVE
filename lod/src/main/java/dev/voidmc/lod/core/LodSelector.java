@@ -39,8 +39,17 @@ public final class LodSelector {
 
 	/** Levels from the top that are always fetched first, for quick coverage of the whole view. */
 	private static final int COVER_LEVELS = 2;
+	/**
+	 * How far past its threshold a tile must be to change level: one split last frame stays split until it is this
+	 * much farther than where it would split, and one that was not splits only this much nearer. Without it a tile
+	 * at the threshold flips with every small move of the camera, and each flip shows.
+	 */
+	static final double HYSTERESIS = 0.08;
 
 	private final LongList draw = new LongList();
+	/** The tiles split by the last selection and by this one, for {@link #HYSTERESIS}. */
+	private it.unimi.dsi.fastutil.longs.LongOpenHashSet wasSplit = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+	private it.unimi.dsi.fastutil.longs.LongOpenHashSet isSplit = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 	private final int[] range = new int[2];
 	/** How far above and below the camera vanilla draws its chunks' sections, in blocks (0: as far as it likes). */
 	double verticalReach;
@@ -101,6 +110,7 @@ public final class LodSelector {
 		this.clip = clip;
 		this.splitScale = scale / pixelsPerCell;
 		this.draw.clear();
+		this.isSplit.clear();
 		int topLevel = 0;
 		// through a shader pack a vertex's x and z are unsigned shorts from the tile's corner: no wider tiles than that holds
 		int maxLevel = TileBuilder.packFormat ? TileBuilder.PACK_MAX_LEVEL : TileKey.MAX_LEVEL;
@@ -122,6 +132,9 @@ public final class LodSelector {
 			}
 		}
 		this.uncovered = holes;
+		var last = this.wasSplit;
+		this.wasSplit = this.isSplit;
+		this.isSplit = last;
 		this.store = null;
 		this.visibility = null;
 		return this.draw;
@@ -167,7 +180,10 @@ public final class LodSelector {
 		if (this.outOfView < 1 && !inView) {
 			splitScale *= this.outOfView;
 		}
-		boolean split = level > 0 && distance < cell * splitScale;
+		boolean split = level > 0 && distance < cell * splitScale * (this.wasSplit.contains(key) ? 1 + HYSTERESIS : 1 - HYSTERESIS);
+		if (split) {
+			this.isSplit.add(key);
+		}
 		boolean ready = this.store.ready(key);
 		// what the camera sees first: a tile out of view waits as if it were farther, so after a teleport the view
 		// fills in before what is behind the player

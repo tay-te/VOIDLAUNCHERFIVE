@@ -358,6 +358,33 @@ public final class LodApi {
 	}
 
 	/** How far VOID LOD draws the far land, in blocks from the camera (0 while it is not drawing). */
+	// ---- recording -----------------------------------------------------------------------------------------
+
+	/**
+	 * For an offline recorder (VOID Reel): the clock the far view's frame timers read (cross-fades, the rebuild and
+	 * swap gates), in nanoseconds, in place of the wall's; null gives them the wall clock back. A recorder whose frames
+	 * take uneven real time to render would otherwise see far land change to that rhythm.
+	 */
+	public static void setRecordingClock(java.util.function.LongSupplier nanos) {
+		dev.voidmc.lod.core.Recording.setClock(nanos);
+	}
+
+	/**
+	 * For an offline recorder: while {@code held} answers true, each frame draws exactly the tiles the last one chose
+	 * (no new selection, swap or eviction), so the renders blended into one frame show one far view. Null releases.
+	 */
+	public static void setTileHold(java.util.function.BooleanSupplier held) {
+		dev.voidmc.lod.core.Recording.setHold(held);
+	}
+
+	/**
+	 * For an offline recorder rendering {@code scale} times larger than its output to scale it down: the detail budgets
+	 * are multiplied by it, so the far view chooses the tiles it would at the output's size. 1 is normal.
+	 */
+	public static void setDetailScale(double scale) {
+		dev.voidmc.lod.core.Recording.setDetailScale(scale);
+	}
+
 	public static double radius() {
 		VoidLod lod = VoidLod.get();
 		return lod != null && active() ? lod.radius : 0;
