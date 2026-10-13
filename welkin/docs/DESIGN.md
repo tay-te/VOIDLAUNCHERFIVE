@@ -969,7 +969,8 @@ out of `lib/light.glsl` first, as a pure move) and in the marked leaf section of
 - **The lifts are gone.** `max(vis, 0.5 * pass)` became `max(vis, 0.3 * exp(-0.75 t))`, t the blocks of leaves before
   the leaf at its own map texel (`shadowThickAt`, also under the moon); `lightFillUp` on leaves 0.35 to 0.15.
 - **Light through leaves** (`welkinGlow`): a Henyey-Greenstein lobe (g 0.6, 0.35 at a low sun) plus 15 % from every
-  side, times that per-pixel transmission (the resolved `g` of `colortex10` carries it for leaves), in the sun's colour
+  side, times that per-pixel transmission (worked out in the light pass, noise-free, so the resolve keeps its shortcut over
+  uniform windows; `colortex10.g` stays the search's pass, for plants), in the sun's colour
   times the leaf at round 1's desaturation. Thin crown edges glow warm toward the sun; hearts do not. `LEAF_TRANSLUCENCY`
   scales it.
 - **The canopy from the map.** The shadow pass marks leaf texels (`shadowcolor0` blue 0; solid-drawn leaves too). A
@@ -979,7 +980,8 @@ out of `lib/light.glsl` first, as a pure move) and in the marked leaf section of
   the low sun's long fade is taken back out (`shadowLeafAdjust`; the forest floor at 18:30 no longer glows orange), the
   sky's fill is cut by 0.8 and the diffuse leak through the leaves is 0.012 of the sun (`canopyShade`, `canopyLeak`;
   the sky-light key stays past the map). `deferred_shadow` writes it as `colortex10.b = -1 - canopy` in the air (the
-  leaf thickness there moved into `g`); `FOLIAGE_CANOPY` 0 turns it off for timing. `DEBUG_VIEW` 14 shows it in blue.
+  leaf thickness that sat there is read by the light pass itself); the leaf mark is only read where the sky light is
+  cut; `FOLIAGE_CANOPY` 0 turns it off. `DEBUG_VIEW` 14 shows it in blue.
 - **Far woods.** The far shadows' screen ray took nearly every far crown's top for shaded (its thickness test cannot
   tell a crown in front of it on screen from one between it and the sun): on leaves it now acts 15 % on tops and half
   on sides (`shadowLeafFarRay`, before the terrain's shadow, which still darkens a wood under a ridge); the occlusion's
@@ -989,6 +991,11 @@ out of `lib/light.glsl` first, as a pure move) and in the marked leaf section of
 - **Plant roots** (`PLANT_ROOT_SHADE`, 45 %): `gbuffers_terrain` darkens a plant toward its root from `at_midBlock.y`
   (two-block plants as one stalk) on Minecraft's corner shading, which the light pass lays on a plant's fill and torch
   light whole with the occlusion.
+- **Cost** (RTX 4060, 1600x900, MEDIUM, an idle machine; in-run A/B, four alternations each, against the canopy and the
+  shadow-side leaf rules off): within the frame-time noise (under about 0.1 ms) in the grove at 12:00 and 18:30 and
+  over the crowns at 16:30; estimated 0.03-0.05 ms (two extra fetches where the sky light is cut, one on leaf faces
+  turned from the light, a few dozen ALU). A first version that sent the leaves' per-pixel transmission through the
+  resolve cost about 0.15-0.25 ms there (the resolve's shortcut over uniform windows stopped firing on leaves).
 - **Figures and checks** are in the workstream's hand-off (`tech/foliage/`): forest floor p5 27 to 17-19 by day, flecks
   6.5x the floor at noon, grove 18:30 R/B 6.9 to 3.9, crowns 16:30 p90/p10 4.6 to 5.2; the vistas' woods brighter crowns
   over dark gaps (steppe crown p90 112 to 160, countryside 77 to 109). Every `live.sh` variant compiles, no shader errors,
