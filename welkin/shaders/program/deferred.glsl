@@ -118,7 +118,7 @@ void main() {
 		vec3 playerPos = (gbufferModelViewInverse * vec4(s.view, 1.0)).xyz;
 		float through;
 		float reach = lightShadowFetch(p, s, playerPos, n, g.w, material, facing, sunShare, through);
-#ifdef WELKIN_SHADOW_BUFFERS
+#if defined WELKIN_SHADOW_BUFFERS && FOLIAGE_CANOPY > 0
 		// workstream C: how far the point stands under a canopy (deferred_shadow found it from the map's leaves above it)
 		if (!s.fromLod && shadowFade(playerPos) < 1.0) {
 			foliageCanopy = clamp(-1.0 - texelFetch(colortex10, p, 0).b, 0.0, 1.0);

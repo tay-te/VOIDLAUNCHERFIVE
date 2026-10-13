@@ -60,6 +60,8 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define LEAF_TRANSLUCENCY 100 // [0 50 75 100 125 150]
 // Plant roots: How much grass, flowers and crops darken toward their roots, so a meadow keeps its depth. 0 lights a tuft evenly.  [light]
 #define PLANT_ROOT_SHADE 45 // [0 25 45 60]
+// Canopy from the shadow map: 1 finds the forest floor and a crown's heart from the leaves the light meets before them (their fill is cut, and the low sun's long fade does not reach under them); 0 keys the canopy on the sky light alone (timing). Not on any screen.  [light]
+#define FOLIAGE_CANOPY 1 // [0 1]
 // ---- Sky
 // Pixel sun and moon: Draws the sun and the moon, with all eight moon phases, as crisp pixel art in the sky instead of the vanilla pictures.  [sky]
 #define SKY_PIXEL_SUN

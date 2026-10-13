@@ -24,7 +24,7 @@ float canopyFromSky(float skyLevel) {
 // a wood, so the leak is faint (the floor's shade stays deep between the flecks).
 float canopyLeak(float skyLevel) {
 #if defined SHADOWS && defined WORLD_OVERWORLD
-	const float leak = 0.03;
+	const float leak = 0.012;
 #else
 	const float leak = 0.12;
 #endif
@@ -38,7 +38,7 @@ float canopyLeak(float skyLevel) {
 // shade while its outer, sunlit shell stays bright. In caves it is 0 (the ramp is dark already); by night it fades
 // out, so moonlit woods keep their level. sunReach: what the sun reaches; without the map's word, sunlit patches keep
 // their fill (the old rule).
-const float CANOPY_FILL_CUT = 0.72;
+const float CANOPY_FILL_CUT = 0.8;
 float canopyShade(float skyLevel, float sunReach) {
 #ifdef WORLD_OVERWORLD
 	float day = smoothstep(-0.02, 0.12, sunHeight());

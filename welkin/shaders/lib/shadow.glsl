@@ -342,7 +342,11 @@ bool shadowLeafTexel(vec2 uv) {
 // before the point (so a sunlit leaf, its own first caster, does not count): the point lies under or inside foliage
 // along the light.
 float shadowLeafOver(vec3 uvz, float thick) {
+#if FOLIAGE_CANOPY > 0
 	return thick > 0.5 && shadowLeafTexel(uvz.xy) ? 1.0 : 0.0;
+#else
+	return 0.0;
+#endif
 }
 
 // What of the sun's (or the moon's) direct light reaches a point, with the fixed-grid filter (the forward programs
