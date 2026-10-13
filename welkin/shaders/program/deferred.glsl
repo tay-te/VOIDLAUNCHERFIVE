@@ -121,7 +121,19 @@ void main() {
 #if defined WELKIN_SHADOW_BUFFERS && FOLIAGE_CANOPY > 0
 		// workstream C: how far the point stands under a canopy (deferred_shadow found it from the map's leaves above it)
 		if (!s.fromLod && shadowFade(playerPos) < 1.0) {
-			foliageCanopy = clamp(-1.0 - texelFetch(colortex10, p, 0).b, 0.0, 1.0);
+			// (only read where the sky light is cut: in the open it is 0)
+			foliageCanopy = g.w < 0.975 ? clamp(-1.0 - texelFetch(colortex10, p, 0).b, 0.0, 1.0) : 0.0;
+		}
+#endif
+#ifdef WELKIN_SHADOW_BUFFERS
+		if (matIsLeaves(material) && !s.fromLod && dot(n, lightDir) < 0.5) {
+			// workstream C: a leaf's own transmission, per pixel: the leaves before it at its own map texel (only on the
+			// faces the glow reaches, turned from the light)
+			float fl = shadowFade(playerPos);
+			if (fl < 1.0) {
+				float tl = shadowThickAt(shadowSpotDry(playerPos, n, lightDir, false), shadowDepthBlocks());
+				through = mix(exp(-LEAF_SIGMA * tl) * sunLeakGate(g.w), through, fl);
+			}
 		}
 #endif
 		// the light through leaves and plants (lib/light.glsl welkinGlow)

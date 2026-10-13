@@ -10,7 +10,8 @@
 // colortex5  RGBA16   the sky table, 64x32 (prepare; lib/sky/table.glsl reads it); never cleared, rewritten each frame
 // colortex9  RGBA16F  half size: the ambient occlusion's raw term, bent normal and view depth (deferred_ao; lib/ao.glsl)
 // colortex10 RGBA16F  the shadow's raw terms (deferred_shadow, run as deferred2): r the sun's reach, g what passes the
-//                     leaves, b water travel (>= 0) or -1 - leaf thickness, a view depth (1e4: not lit in deferred)
+//                     leaves, b water travel (>= 0) or -1 - the canopy over the point (0..1, workstream C), a view
+//                     depth (1e4: not lit in deferred)
 // colortex11 RGBA16F  the resolved shadow (deferred_resolve, deferred3): r reach, g what passes, b debug, a view depth;
 //                     never cleared (the next frame's history with TEMPORAL_LIGHT)
 // colortex12 RGBA16F  half size: the resolved occlusion (deferred_aoresolve, deferred1, with AMBIENT_OCCLUSION): x

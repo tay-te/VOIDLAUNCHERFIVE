@@ -949,3 +949,49 @@ still reads flat from time to time, most in the middle and far distance; the vis
 - **Not in this step:** the clouds' own look (flat grey undersides; P4's follow-up), water (P7), the forest's numbers
   (the trees regrow), and the options' generator table (`options.py`), which still lacks wave 1's and this step's
   options.
+
+### Lighting techniques, workstream C: foliage and forest light (2026-10-13, branch `welkin-foliage`)
+
+TECHNIQUES 3.3 and 2.6, plus the user's verdict on the vistas (the far woods read as a flat green carpet). Tested in
+world A only; the forest bench is now repeatable (below). The leaf and plant rules live in `lib/foliage.glsl` (moved
+out of `lib/light.glsl` first, as a pure move) and in the marked leaf section of `lib/shadow.glsl`.
+
+- **A repeatable forest.** `-Pgloam.test.bgThreads=1` (gloam's `build.gradle`) runs the game's background executor on
+  one thread, so neighbouring chunks' features land in the same order and the forest grows the same trees every run:
+  two runs shot the same grove, differing only by sway. The bench gains `grove` (deep under the valley forest's
+  canopy, 3192,97,548) and `crowns` (40 over it); both are outside the full set (`-Pgloam.show.bench=survey` with
+  `gloam.show.only`). The old `forest` place is a forest edge in the single-threaded world. Far places (the vistas'
+  LOD land) can still differ run to run: the LOD generates on its own threads.
+- **Leaves take the sun as a cube of small leaves** (`leafFacing`): 0.15 + 0.85 of a Lambert wrapped by 0.6, so a
+  crown's top under a grazing sun still takes about half the sun, its sunward side all of it, and its far side 0.15.
+  Round 3's half on every face is gone; leaves keep half again of Minecraft's face shading on their fill
+  (`LEAF_FACE_SHADE`), so crowns read block by block.
+- **The lifts are gone.** `max(vis, 0.5 * pass)` became `max(vis, 0.3 * exp(-0.75 t))`, t the blocks of leaves before
+  the leaf at its own map texel (`shadowThickAt`, also under the moon); `lightFillUp` on leaves 0.35 to 0.15.
+- **Light through leaves** (`welkinGlow`): a Henyey-Greenstein lobe (g 0.6, 0.35 at a low sun) plus 15 % from every
+  side, times that per-pixel transmission (the resolved `g` of `colortex10` carries it for leaves), in the sun's colour
+  times the leaf at round 1's desaturation. Thin crown edges glow warm toward the sun; hearts do not. `LEAF_TRANSLUCENCY`
+  scales it.
+- **The canopy from the map.** The shadow pass marks leaf texels (`shadowcolor0` blue 0; solid-drawn leaves too). A
+  point lies under a canopy where a leaf is the first thing the light meets before it (more than half a block off) and
+  its sky light is cut (`shadowCanopy`; an open meadow keeps 15 even in a wood's long shadow). The map alone cannot
+  say it at a low sun (it keeps only the wood's sunward edge), nor can the sky light (roofs, cliffs). Under a canopy:
+  the low sun's long fade is taken back out (`shadowLeafAdjust`; the forest floor at 18:30 no longer glows orange), the
+  sky's fill is cut by 0.8 and the diffuse leak through the leaves is 0.012 of the sun (`canopyShade`, `canopyLeak`;
+  the sky-light key stays past the map). `deferred_shadow` writes it as `colortex10.b = -1 - canopy` in the air (the
+  leaf thickness there moved into `g`); `FOLIAGE_CANOPY` 0 turns it off for timing. `DEBUG_VIEW` 14 shows it in blue.
+- **Far woods.** The far shadows' screen ray took nearly every far crown's top for shaded (its thickness test cannot
+  tell a crown in front of it on screen from one between it and the sun): on leaves it now acts 15 % on tops and half
+  on sides (`shadowLeafFarRay`, before the terrain's shadow, which still darkens a wood under a ridge); the occlusion's
+  sun cone acts a third on leaves; far leaves keep 0.85 of the sun (was 0.56) and 0.8 of the fill; `FAR_LEAF_FORM`
+  defaults to 0 (the leaves' own form carries it). The ground in a far wood's gaps keeps the full ray, so far crowns read
+  as sunlit masses over dark gaps.
+- **Plant roots** (`PLANT_ROOT_SHADE`, 45 %): `gbuffers_terrain` darkens a plant toward its root from `at_midBlock.y`
+  (two-block plants as one stalk) on Minecraft's corner shading, which the light pass lays on a plant's fill and torch
+  light whole with the occlusion.
+- **Figures and checks** are in the workstream's hand-off (`tech/foliage/`): forest floor p5 27 to 17-19 by day, flecks
+  6.5x the floor at noon, grove 18:30 R/B 6.9 to 3.9, crowns 16:30 p90/p10 4.6 to 5.2; the vistas' woods brighter crowns
+  over dark gaps (steppe crown p90 112 to 160, countryside 77 to 109). Every `live.sh` variant compiles, no shader errors,
+  the grain check passes on the final image (the grove's shadow term fails its own stricter test before and after
+  this work alike: sway between the shots in a dense canopy).
+
