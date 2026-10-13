@@ -995,3 +995,24 @@ fair-weather front of 0.52).
   curve itself (`lib/tone.glsl`) is unchanged: sunlit grass measured at noon is Complementary's colour a little less
   saturated (no cream), and pale faces sit at p95 197-221, under white. No auto exposure was added (optional in the
   plan, a style call left for the user).
+- **Figures** (land, lower 55 % of the frame, sRGB; before `welkin` f5d6dc76, after this branch; front 0.38, defaults,
+  so cloud shadows are on): village 05:30 median 59.0 to 52.4 and R/B 10.05 to 6.80 (now under the evening's 7.45:
+  dawn rosier and softer than dusk); valley 05:30 74.7 to 65.2, R/B 2.59 to 1.82; plain night p5 15.3 to 14.3, contrast
+  2.17 to 2.31, R/B 1.15 to 1.05 (Complementary 0.99); valley night R/B 0.60 to 0.53; noon, 16:30 and the torch street
+  within a level where no cloud shadow fell (a cloud's shadow lay over the whole near meadow in the plain's 16:30 shot:
+  median 116 to 76, the reason the tone figures are taken with `CLOUD_SHADOWS=0`). Vistas: the steppe's far ridges now
+  sit on their land; a cloud's shadow lies over the near hill (steppe) and the far valley (mesa, fair weather).
+- **Shafts and grain:** the shafts add about a level on average at a low sun (village 18:30 +1, forest 18:30 +0.8; under
+  2 levels at noon, now exactly nothing with the gate shut). The grain check (shafts on against off, same run) passes in
+  valley 05:30, forest 16:30, plain 18:30 and plain 12:00 (lit and shade medians 1.00, p90 at most 1.22); the steppe's
+  failing shade p90 is the cloud shadows drifting between the two shots, not grain. The resolved term itself has a
+  Laplacian of about 2.4 levels of its own 0..255 range against 8-19 raw, under a tenth of a level on screen.
+- **Cost** (RTX 4060, 1600x900, MEDIUM; another session's game ran beside every sweep, so best seconds, about 0.2 ms
+  either way): shafts 0.0-0.34 ms while the gate is open (valley 05:30 the most), nothing above 37 degrees of sun;
+  forward scatter and aerial perspective under the noise (a few dozen operations a pixel); the clouds' new base and
+  night shading under the noise (estimated +0.02-0.05 ms). Inside the 0.3 ms shaft line of section 3.5.
+- **For the merge:** `composite2` (the shaft and air lines), `lib/settings.glsl`, the lang file and
+  `shaders.properties` (screen.AIR, sliders, profiles, the `deferred5` and `colortex13` lines at the end) carry this
+  branch's blocks; `tools/wrappers.sh` maps `deferred_shafts` to `deferred5`. `lib/sky/build.glsl`: the dawn colours and
+  strength in `skyLandSunColour` and `skyLand`, the night's `nightAmb` and the moon's 0.36 (marked "air and tone (D)").
+  The shaft pass needs the shadow map (it returns at once without it). C's foliage edits do not touch these lines.

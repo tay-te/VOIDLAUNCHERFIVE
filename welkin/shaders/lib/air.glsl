@@ -67,7 +67,8 @@ vec3 airPerspective(vec3 c, vec3 air, vec3 mie, float dist, vec3 dir, vec3 sunW)
 	vec3 tinted = air * (lc / la);
 	c = mix(c, tinted, 0.5 * w);
 	// a little of the contrast toward the air, more toward a low sun (its warm veil)
-	return mix(c, air, w * mix(0.14, 0.4, lowSide));
+	// (0.08, 0.3 toward a low sun: more lifted the vistas' far darks and read flatter, not deeper)
+	return mix(c, air, w * mix(0.08, 0.3, lowSide));
 #else
 	return c;
 #endif
