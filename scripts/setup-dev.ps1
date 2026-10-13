@@ -16,6 +16,8 @@ $JdkDir = Join-Path $Tools 'jdk-25'
 function Say($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 
 function Get-JavaMajor($java) {
+	# java -version prints to stderr, which Windows PowerShell 5.1 turns into a terminating error under 'Stop'
+	$ErrorActionPreference = 'Continue'
 	$out = & $java -version 2>&1 | Out-String
 	if ($out -match 'version "(\d+)') { return [int]$Matches[1] }
 	return 0
