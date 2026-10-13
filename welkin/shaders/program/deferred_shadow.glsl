@@ -3,8 +3,8 @@
 //   r  the sun's reach (lib/shadow.glsl welkinSunReachRaw: the near map through the PCSS lookup, fading over its last
 //      20 % into the sky-light gate; the far shadows on screen past it and on the LOD's land; the contact shadows)
 //   g  what passes the leaves between the light and the point (the glow through leaves and plants)
-//   b  the blocks of water the light passed (0 or more: under water), else -1 - the blocks from the point up to the
-//      first thing the light meets at its own map texel (the leaf thickness; -1 in the open)
+//   b  the blocks of water the light passed (0 or more: under water), else -1 - the canopy over the point (workstream
+//      C, lib/shadow.glsl shadowCanopy; -1 in the open)
 //   a  the view depth, blocks (1e4 where nothing is lit in deferred: the sky, self-lit things)
 // The PCSS taps, the far ray's steps and the contact ray's start are moved by the 4x4-tiled lighting noise
 // (lib/noise.glsl); r and g are only ever read through the resolve, so the noise never reaches the screen.
@@ -115,6 +115,7 @@ void shadowTerms(Surface s, vec3 playerPos, vec3 n, float sky, int material, flo
 #else
 		farVis = farShadowRay(s.view, vn, vl, 1.0 - nz.y, shadowLongFadeStrength(lightDir));
 #endif
+		farVis = shadowLeafFarRay(material, n, farVis); // workstream C: far crowns (lib/shadow.glsl leaf rules)
 	}
 #endif
 	// the terrain's own shadow (lib/terrain.glsl): every caster past the map and on the LOD's land, and inside the map

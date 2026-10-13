@@ -78,7 +78,7 @@ welkin/
 | `colortex2` | RGBA8 | x lit in deferred, y material / 255, z emission |
 | `colortex3` | RGBA8 | water in front: its lit colour (rgb) and how much fog to apply (a) |
 | `colortex9` | RGBA16F, half size | the ambient occlusion's raw term: visibility (r), the bent normal's tangent parts in the face's frame (g, b), view depth (a) |
-| `colortex10` | RGBA16F | the shadow's raw terms: r the sun's reach, g what passes the leaves, b water travel or leaf thickness, a view depth |
+| `colortex10` | RGBA16F | the shadow's raw terms: r the sun's reach, g what passes the leaves, b water travel or -1 - the canopy over the point (workstream C), a view depth |
 | `colortex11` | RGBA16F | the resolved reach and what passes, view depth; never cleared (`TEMPORAL_LIGHT`'s history) |
 | `colortex12` | RGBA16F, half size | the resolved ambient occlusion (`deferred1`): visibility (r), the bent normal's tangent parts (g, b), the view depth (a) |
 | `colortex15` | RGBA32F, 256 x 512 | the terrain's light, a texel a cell of Gloam's N0 tile: rows 0..255 the shadow lines, 256..511 slope and ground |

@@ -33,6 +33,9 @@ out vec3 eyePos;
 flat out int material;
 flat out int lightClass;
 flat out float blockEmit;
+#ifdef G_BLOCKID
+out float plantH; // workstream C: how high up its plant a vertex stands, 0 root .. 1 tip
+#endif
 
 #ifndef WU_gbufferModelViewInverse
 #define WU_gbufferModelViewInverse
@@ -123,6 +126,10 @@ void main() {
 	lightClass = welkinLight(id);
 #ifdef G_BLOCKID
 	blockEmit = welkinEmission(at_midBlock.w);
+	// workstream C: the vertex's height in its block (at_midBlock: to the block's centre, 1/64 blocks); a two-block
+	// plant's halves make one stalk
+	plantH = clamp(0.5 - at_midBlock.y / 64.0, 0.0, 1.0);
+	plantH = material == M_PLANT_TALL_LOWER ? 0.5 * plantH : (material == M_PLANT_TALL_UPPER ? 0.5 + 0.5 * plantH : plantH);
 #else
 	blockEmit = lightClass != L_NONE ? 1.0 : 0.0; // no at_midBlock: a light-class item or block entity glows
 #endif
@@ -150,6 +157,9 @@ in vec3 eyePos;
 flat in int material;
 flat in int lightClass;
 flat in float blockEmit;
+#ifdef G_BLOCKID
+in float plantH;
+#endif
 
 #ifndef WU_gtexture
 #define WU_gtexture
@@ -212,6 +222,14 @@ void main() {
 	// separateAo: the corner shading is the vertex alpha, not part of the colour (nor of the alpha test)
 	ao = glcolor.a;
 	albedo.a = 1.0;
+#if PLANT_ROOT_SHADE > 0
+	// workstream C: a tuft or a stalk darkens toward its root (the sky's light is hidden down among the blades), from
+	// PLANT_ROOT_SHADE % darker at the ground to none by 70 % of its height; it rides on Minecraft's corner shading, which
+	// the light pass lays on a plant's fill and torch light whole (program/deferred.glsl)
+	if (matHas(material, MATF_SSS) && !matIsLeaves(material)) {
+		ao *= mix(1.0 - 0.01 * float(PLANT_ROOT_SHADE), 1.0, smoothstep(0.0, 0.7, plantH));
+	}
+#endif
 #endif
 #ifdef G_TEXTURED
 	albedo *= texture(gtexture, texcoord);
