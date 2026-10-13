@@ -286,6 +286,14 @@ WelkinHaze welkinHazeEx(HzState s, vec3 rel, vec3 n, bool isSky, float split, ve
     if (L > 4096.0) hzMurkSegment(m, s, hzSegmentLand(s, isSky, dir, 4096.0, L, true), 4096.0, L, split, dir, camY, murkMul, seenBy);
 #endif
     vec2 tm = m.tm;
+#if HAZE_NEAR_CLEAR > 0
+    // the balance step (2026-10-13): the land's murk sets in over the first HAZE_NEAR_CLEAR blocks or so (its optical
+    // depth times d^2 / (d^2 + D^2) at each end), so the near and middle land keep their sun and shade and only the
+    // distance takes the air's colour: a fifth of the murk at D/2, half at D, four fifths at 2D, all of it from a few D
+    // out. The far land and the sky are as they were; the clear air and the rain are untouched.
+    float nc2 = float(HAZE_NEAR_CLEAR) * float(HAZE_NEAR_CLEAR);
+    tm *= vec2(split * split / (split * split + nc2), L * L / (L * L + nc2));
+#endif
     int k1 = m.k1, k2 = m.k2;
     float w1 = m.w1, w2 = m.w2;
 

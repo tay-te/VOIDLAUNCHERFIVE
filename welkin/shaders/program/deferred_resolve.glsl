@@ -1,5 +1,5 @@
-// VOID Welkin: deferred_resolve, run as Iris's deferred2 (tools/wrappers.sh maps it). Smooths the raw, noise-sampled
-// lighting terms before the light pass (deferred3) reads them (lib/denoise.glsl):
+// VOID Welkin: deferred_resolve, run as Iris's deferred3 (tools/wrappers.sh maps it). Smooths the raw, noise-sampled
+// lighting terms before the light pass (deferred4) reads them (lib/denoise.glsl):
 //   the shadow: colortex10 (deferred_shadow: r the sun's reach, g what passes the leaves, a the view depth) into
 //   colortex11 (r the reach, g what passes, a the view depth, kept for the next frame's reprojection).
 // Spatial, always: a 4x4 gather weighted by each neighbour's distance off the centre's plane and by its normal, which
@@ -7,9 +7,8 @@
 // the last frame's result, reprojected, clamped to the current window's range and blended by historyWeight (less on
 // what sways and where the clamp acted), reset where the depth does not match (disocclusion).
 // Only the lighting terms come through here; colour and texture never do.
-// The occlusion (workstream B, with AMBIENT_OCCLUSION): deferred_ao's raw half-resolution term (colortex9) resolved
-// the same way (lib/ao.glsl aoResolveAt) into colortex12 (x the visibility, yz the bent normal's tangent parts), so
-// the light pass reads it with one fetch. (Its history, for a later temporal blend, would go in colortex12.a.)
+// The occlusion is resolved in its own pass at half resolution (program/deferred_aoresolve.glsl, deferred1; the balance
+// step, 2026-10-13).
 
 #include "/lib/common.glsl"
 #include "/lib/buffers.glsl"
@@ -28,8 +27,6 @@ void main() {
 #ifdef FRAGMENT_SHADER
 
 #include "/lib/denoise.glsl"
-#define WELKIN_RESOLVE_PASS
-#include "/lib/ao.glsl"
 
 in vec2 texcoord;
 
@@ -45,7 +42,7 @@ uniform sampler2D colortex10;
 #define WU_gbufferModelView
 uniform mat4 gbufferModelView;
 #endif
-#if defined TEMPORAL_LIGHT || defined WELKIN_AO_IN_RESOLVE
+#ifdef TEMPORAL_LIGHT
 #ifndef WU_colortex2
 #define WU_colortex2
 uniform sampler2D colortex2;
@@ -66,35 +63,40 @@ uniform mat4 gbufferModelViewInverse;
 #define RESOLVE_DEBUG
 #endif
 
-#ifdef WELKIN_AO_IN_RESOLVE
-/* RENDERTARGETS: 11,12 */
-layout(location = 0) out vec4 outRes;
-layout(location = 1) out vec4 outAo;
-#else
 /* RENDERTARGETS: 11 */
 layout(location = 0) out vec4 outRes;
-#endif
 
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec4 raw = texelFetch(colortex10, p, 0);
-#ifdef WELKIN_AO_IN_RESOLVE
-	outAo = vec4(1.0, 0.0, 0.0, 0.0);
-#endif
 	if (raw.a > 5e3) {
 		outRes = vec4(raw.rg, 0.0, 1e4);
 		return;
 	}
+#if SHADOW_FILTER != 0 && !defined RESOLVE_DEBUG
+	// The balance step (2026-10-13): where the whole 4x4 window holds one value (open sun and deep shadow, the lookup's
+	// noise-free branches: most of the land), the weighted resolve, and the history's clamp with it, would hand that
+	// value back unchanged, so it is skipped: sixteen plain reads instead of the weights, normals and positions.
+	{
+		ivec2 top = textureSize(colortex10, 0) - 1;
+		vec2 mn = raw.rg;
+		vec2 mx = raw.rg;
+		for (int y = -2; y <= 1; y++) {
+			for (int x = -2; x <= 1; x++) {
+				vec2 v = texelFetch(colortex10, clamp(p + ivec2(x, y), ivec2(0), top), 0).rg;
+				mn = min(mn, v);
+				mx = max(mx, v);
+			}
+		}
+		if (all(lessThan(mx - mn, vec2(1e-4)))) {
+			outRes = vec4(raw.rg, 0.0, raw.a);
+			return;
+		}
+	}
+#endif
 	vec2 size = vec2(viewWidth, viewHeight);
 	vec3 vc = dnViewPos((vec2(p) + 0.5) / size, raw.a);
 	vec3 n = octDecode(texelFetch(colortex1, p, 0).xy);
-#ifdef WELKIN_AO_IN_RESOLVE
-	// the occlusion (lib/ao.glsl): resolved here once, read by the light pass
-	if (aoCover(raw.a) > 0.0) {
-		int aoMat = int(texelFetch(colortex2, p, 0).y * 255.0 + 0.5);
-		outAo = vec4(aoResolveAt(p, vc, n, aoMat), 0.0);
-	}
-#endif
 #if SHADOW_FILTER == 0
 	// the fixed grid is noise-free: nothing to resolve
 	outRes = vec4(raw.rg, 0.0, raw.a);

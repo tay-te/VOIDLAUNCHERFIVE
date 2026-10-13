@@ -213,7 +213,7 @@ float skyLandSunStrength(float h) {
 	// (round 3: and a tenth more through the morning and the afternoon, from about 15 to 45 degrees, so 08:00 and 16:30
 	// stand as bright as the hours round noon; noon itself as before)
 	return LAND_SUN * (0.6 + 0.4 * smoothstep(0.0, 0.45, h)) * (1.0 - 0.065 * smoothstep(0.6, 0.92, h))
-		* (1.0 + 0.1 * smoothstep(0.25, 0.5, h) * (1.0 - smoothstep(0.66, 0.9, h)))
+		* (1.0 + LAND_SUN_SHOULDER_HOURS * smoothstep(0.25, 0.5, h) * (1.0 - smoothstep(0.66, 0.9, h)))
 		* smoothstep(-0.01, 0.022, h);
 }
 

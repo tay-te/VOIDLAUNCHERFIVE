@@ -66,12 +66,9 @@ float aoSunCone(float vis, vec3 bentN, vec3 l) {
 	return 1.0 - smoothstep(th + AO_SUN_MARGIN, th + AO_SUN_MARGIN + AO_SUN_SOFT, a);
 }
 
-// With the shadow map on, the shared resolve pass (program/deferred_resolve.glsl, deferred2) resolves the occlusion
-// once into colortex12 next to the shadow's, and the light pass reads that; without the map (LOW, a custom mix, the
-// other dimensions) deferred2 does not run and the light pass resolves it itself, the same way.
-#if defined AMBIENT_OCCLUSION && defined SHADOWS && defined WORLD_OVERWORLD
-#define WELKIN_AO_IN_RESOLVE
-#endif
+// The resolve runs in its own pass at half resolution (program/deferred_aoresolve.glsl, deferred1, wherever the
+// occlusion is on; the balance step, 2026-10-13): once per raw texel into colortex12, which the light pass takes up to
+// full resolution (lightAoFetch).
 
 #if defined AMBIENT_OCCLUSION && !defined WELKIN_AO_PASS
 #include "/lib/denoise.glsl"
@@ -116,31 +113,64 @@ bool aoPlant(int m) {
 	return matHas(m, MATF_SSS) && !matIsLeaves(m);
 }
 
-// The occlusion's raw term resolved at full-resolution pixel p (view position v, world normal n, material m): x the
-// visibility, yz the bent normal's tangent parts in the face's frame. lib/denoise.glsl's 4x4 window over the half-
-// resolution colortex9 (it always holds the noise tile's sixteen turns once each, weighted to the pixel's own plane and
-// normal); the centre's own raw value where nothing matched.
-vec3 aoResolveAt(ivec2 p, vec3 v, vec3 n, int m) {
+// The occlusion's raw term resolved at half-resolution texel q (its raw value raw, the view position vc at the texel's
+// centre, world normal n, material m): x the visibility, yz the bent normal's tangent parts in the face's frame.
+// lib/denoise.glsl's 4x4 window over colortex9 (it always holds the noise tile's sixteen turns once each, weighted to
+// the texel's own plane and normal); the texel's own raw value where nothing matched.
+vec3 aoResolveHalf(ivec2 q, vec4 raw, vec3 vc, vec3 n, int m) {
 #if AO_RESOLVE == 0
-	return texelFetch(colortex9, clamp(p / 2, ivec2(0), textureSize(colortex9, 0) - 1), 0).rgb;
+	return raw.rgb;
 #endif
 	bool plant = aoPlant(m);
 	// a plant's own quads' normals mean little, so the resolve matches it on the level plane through the point,
 	// without the normal test
 	vec3 nA = plant ? vec3(0.0, 1.0, 0.0) : n;
 	vec3 vn = normalize(mat3(gbufferModelView) * nA);
-	ivec2 q = p / 2;
-	vec4 r = resolveSpatial4x4(colortex9, q, 2, v, vn, plant ? vec3(0.0) : n, colortex1);
-	return r.a > 0.02 ? r.rgb : texelFetch(colortex9, clamp(q, ivec2(0), textureSize(colortex9, 0) - 1), 0).rgb;
+	vec4 r = resolveSpatial4x4(colortex9, q, 2, vc, vn, plant ? vec3(0.0) : n, colortex1);
+	return r.a > 0.02 ? r.rgb : raw.rgb;
 }
 
-#if defined WELKIN_AO_IN_RESOLVE && !defined WELKIN_RESOLVE_PASS
+#ifndef WELKIN_AORESOLVE_PASS
 #ifndef WU_colortex12
 #define WU_colortex12
 uniform sampler2D colortex12;
 #endif
+
+// The resolved occlusion (colortex12, half resolution) at full-resolution pixel p with view position v: the four
+// nearest half-resolution texels, bilinear, each weighted by how well it lies on the pixel's own plane (view normal
+// vn), so a corner's shade never bleeds onto the face beside it or the land behind; the texel nearest in depth where
+// none lies on it (a lone pixel on a thin edge).
+vec3 aoUpsample(ivec2 p, vec3 v, vec3 vn) {
+	ivec2 top = textureSize(colortex12, 0) - 1;
+	vec2 hp = (vec2(p) + 0.5) * 0.5 - 0.5;
+	ivec2 b = ivec2(floor(hp));
+	vec2 f = hp - vec2(b);
+	vec2 px = 2.0 / vec2(viewWidth, viewHeight);
+	float z = -v.z;
+	vec3 sum = vec3(0.0);
+	float wsum = 0.0;
+	vec3 best = vec3(1.0, 0.0, 0.0);
+	float bestD = 1e9;
+	for (int k = 0; k < 4; k++) {
+		ivec2 o = ivec2(k & 1, k >> 1);
+		ivec2 t = clamp(b + o, ivec2(0), top);
+		vec4 s = texelFetch(colortex12, t, 0);
+		vec3 vs = dnViewPos((vec2(t) + 0.5) * px, s.a);
+		float bw = (o.x == 1 ? f.x : 1.0 - f.x) * (o.y == 1 ? f.y : 1.0 - f.y);
+		float w = (bw + 1e-3) * dnPlaneWeight(v, vn, vs, z);
+		sum += s.rgb * w;
+		wsum += w;
+		float d = abs(s.a - z);
+		if (d < bestD) {
+			bestD = d;
+			best = s.rgb;
+		}
+	}
+	return wsum > 0.02 ? sum / wsum : best;
+}
 #endif
 
+#ifndef WELKIN_AORESOLVE_PASS
 // The resolved occlusion at full-resolution pixel p (view position v, world normal n, material m), for the light pass.
 AoSample lightAoFetch(ivec2 p, vec3 v, vec3 n, int m) {
 	AoSample a;
@@ -153,11 +183,7 @@ AoSample lightAoFetch(ivec2 p, vec3 v, vec3 n, int m) {
 		return a;
 	}
 	vec3 nA = aoPlant(m) ? vec3(0.0, 1.0, 0.0) : n;
-#if defined WELKIN_AO_IN_RESOLVE && !defined WELKIN_RESOLVE_PASS
-	vec3 t = texelFetch(colortex12, p, 0).rgb;
-#else
-	vec3 t = aoResolveAt(p, v, n, m);
-#endif
+	vec3 t = aoUpsample(p, v, normalize(mat3(gbufferModelView) * nA));
 	a.vis = clamp(t.x, 0.0, 1.0);
 	// Far off, where a block spans only a few pixels, the occlusion is taken relative to open level ground: a face's
 	// visibility over the share an unoccluded face of its facing keeps on flat land (half for a wall, the ground taking
@@ -178,6 +204,7 @@ AoSample lightAoFetch(ivec2 p, vec3 v, vec3 n, int m) {
 	a.bend = (bent - nA) * a.cover;
 	return a;
 }
+#endif
 #endif
 
 #endif

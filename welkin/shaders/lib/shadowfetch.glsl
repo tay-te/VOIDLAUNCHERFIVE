@@ -1,4 +1,4 @@
-// VOID Welkin: the light pass's shadow read (program/deferred.glsl, deferred3). With the shadow map on (overworld,
+// VOID Welkin: the light pass's shadow read (program/deferred.glsl, deferred4). With the shadow map on (overworld,
 // SHADOWS) it reads the resolved reach (colortex11, program/deferred_resolve.glsl) and looks the light's tint up
 // (stained glass, or the water the light passed: neither is noisy, so neither goes through the resolve). Without the
 // map (LOW, the other dimensions) it works the reach out here as before: the sky-light gate, times the far shadows

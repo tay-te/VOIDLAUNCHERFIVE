@@ -291,10 +291,10 @@ total of about 4 to 5 ms; LOW stays cheap (no shadow map, no occlusion, no terra
 | Near gbuffers | about 0.3 ms over vanilla |
 | `dh_terrain` | 1.0 ms or less |
 | `dh_water` | 0.3 ms or less |
-| Shadow chain: the shadow map (`shadow`, `shadow_solid`), the raw terms (`deferred1`) and the resolve (`deferred2`) | 1.2 ms or less (raw 0.45, resolve 0.2); off on LOW |
+| Shadow chain: the shadow map (`shadow`, `shadow_solid`), the raw terms (`deferred2`) and the resolve (`deferred3`) | 1.2 ms or less (raw 0.45, resolve 0.2); off on LOW |
 | The terrain's light (`prepare3`) | 0.15 ms or less; off on LOW |
-| Ambient occlusion: the raw GTAO (`deferred`, half resolution) and its share of the resolve | 0.4 ms or less (raw 0.3); off on LOW |
-| Light pass (`deferred3`) | about 0.4 ms |
+| Ambient occlusion: the raw GTAO (`deferred`) and its resolve (`deferred1`), both at half resolution | 0.4 ms or less (raw 0.3); off on LOW |
+| Light pass (`deferred4`) | about 0.4 ms |
 | Atmosphere composite | about 0.3 ms |
 | Voxel clouds (M3) | 0.6 ms or less |
 | Far weather composite | about 0.2 ms |
@@ -304,7 +304,17 @@ total of about 4 to 5 ms; LOW stays cheap (no shadow map, no occlusion, no terra
 
 **Measured after the A + B merge (2026-10-13, RTX 4060, 1600x900, MEDIUM, idle stretches only):** plain 12:00 frame
 5.1-5.2 ms, shadow chain about 1.3 ms, occlusion about 0.45 ms; valley 05:30 (the worst case) frame 7.2 ms, shadow
-chain about 1.9 ms. Over budget at a low sun; the cuts are ready, in this order:
+chain about 1.9 ms. Over budget at a low sun.
+
+**Measured after the balance step (2026-10-13, the same machine, idle GPU, best and mean seconds of 8-second runs,
+interleaved repeats):** the occlusion's resolve now runs at half resolution and the shadow's resolve skips the windows
+that hold one value; the occlusion is about 0.3-0.4 ms (was 0.64-0.70), inside its line; the shadow chain is about
+1.75 ms at valley 12:00 and 2.1-2.2 ms at valley 05:30 (PCSS and its resolve about 0.55 of it, was about 0.93; the
+rest the map's geometry, the far rays, the contact rays and the terrain's lookup), still over its 1.2 ms line; the
+lighting set together, 2.2-2.6 ms, is about +0.9-1.0 ms over round 3's light, inside the +0.8-1.0 ms the user was given
+and the 2.0-2.6 ms total of TECHNIQUES 2.11. Of the cuts below, the 1536 map saves 0.1-0.15 ms at valley 05:30 (the
+merge's 0.5 was read on a contended GPU) and 8 + 8 taps nothing measurable, so neither was taken; the map's geometry
+(leaves at a low sun) is the cost left, and cut 3 is the one that would move it. The cuts, in this order:
 1. the map at 1536 on MEDIUM (about 0.5 ms at valley 05:30, nothing at noon);
 2. PCSS at 8 + 8 taps (10 filter taps now);
 3. leaves culled from the shadow pass beyond about 64 blocks;
@@ -901,3 +911,41 @@ shared libraries, dbe1cd78, is byte-identical to fa75074e) onto A's pass layout 
   shadow chain is over its 1.2 ms line at a low sun (and about 0.1 over at noon), and the occlusion about 0.05 over
   its 0.4 ms line; the lighting set costs about +1.0-1.5 ms over round 3, against the +0.8-1.0 ms the user was told.
   Nothing was cut in the merge; the cuts, in order (section 3.5), are for the timing step with an idle GPU.
+
+### The balance step after wave 1 (2026-10-13)
+
+The A + B balance (TECHNIQUES 3.2 step 5) re-benched both worlds (`-Pgloam.test.front=0.38`, `CLOUD_SHADOWS=0` for the
+tone figures) and the user's three vistas (steppe 17:00, countryside 06:30, mesa forest 16:48, at 1600x900 with the LOD
+at its default), and took the cost lines to an idle GPU. The user's verdict on round 3's 4K shots was that the light
+still reads flat from time to time, most in the middle and far distance; the vista changes answer that.
+
+- **Fill, occlusion and contrast:** `LAND_FILL` 0.16 to 0.14 (noon's open shade back in the 25..35 band),
+  `LAND_CONTRAST` 1.26 to 1.32, the sun's morning and afternoon shoulder 0.1 to 0.14 (`LAND_SUN_SHOULDER_HOURS`), so
+  16:30 passes 7:1 on the plain and in the village without losing its brightness. `AO_STRENGTH` stays 1.25: in the
+  sweeps it moved the figures by less than a level.
+- **The gorge's pale walls:** `LAND_SELF_BOUNCE` 0.05 to 0.15, in a near-neutral colour (`LAND_SELF_BOUNCE_HUE` 0.25):
+  B's deeper corners had taken the valley's median a fifth to a third under round 3's; shaded calcite now reads a
+  light cool grey again under its sunlit tops, the steps' grading kept (valley 12:00 median 71 to 88, round 3 87).
+- **Clear near air (`HAZE_NEAR_CLEAR`, 160 blocks):** the land's murk (not the clear air or the rain) sets in over the
+  first 160 blocks or so (its optical depth times d^2 / (d^2 + D^2) at both ends of the ray), so a humid forest's near
+  and middle land keep their sun and shade under the haze and only the distance takes the air's colour (mesa forest
+  16:48: land p95/p5 3.4 to 5.6, the darkest 5 % 57 to 34). The far land and the sky are as they were.
+- **Far woods' form (`FAR_LEAF_FORM`, 75 %):** past the shadow map (and on the LOD's land) a leaf face takes the sun
+  three quarters by its own facing instead of the cube-of-leaves half on every face, since no map shades a crown's far
+  side there: the far acacias and oaks keep a lit top and a shaded side.
+- **Cloud shadows deeper** (one deck 0.8 to 0.62, two 0.69 to 0.52, three 0.6 to 0.45): about a third darker on open
+  ground under one deck, so passing clouds lay patches of shade over the middle and far land.
+- **Cost:** the occlusion's resolve moved to its own half-resolution pass (`program/deferred_aoresolve.glsl`, Iris's
+  `deferred1`, into a half-size `colortex12`; the light pass takes it up with a 2x2 upsample weighted to the pixel's
+  own plane), and the shadow's resolve returns at once where its 4x4 window holds one value (exactly what the weighted
+  resolve would give). The pass layout is now `deferred` occlusion raw, `deferred1` its resolve, `deferred2` the
+  shadow's raw terms, `deferred3` their resolve, `deferred4` the light (`tools/wrappers.sh`). Measured in section 3.5:
+  the occlusion is back inside its line; the shadow chain is still over its own at a low sun, the set as a whole
+  inside what the user was told.
+- **Checked:** every `live.sh` variant compiles (the step's runs are in the balance step's `runs_extra.txt`); every
+  game run logged no shader errors; the grain check passes for the shadows (plain 12:00 and 16:30, valley 12:00 and
+  16:30) and for the occlusion's final image everywhere; its term alone passes in the valley (p90 1.06) and sits at the
+  stricter term limit on the plain's grass at noon (1.252 against 1.25; the merge's full-resolution resolve read 1.27).
+- **Not in this step:** the clouds' own look (flat grey undersides; P4's follow-up), water (P7), the forest's numbers
+  (the trees regrow), and the options' generator table (`options.py`), which still lacks wave 1's and this step's
+  options.

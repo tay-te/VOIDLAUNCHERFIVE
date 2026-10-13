@@ -24,12 +24,17 @@
 // the noon sun (round 1 of the lighting review: a tenth stronger, so the sun clearly leads)
 // (round 3: 2.7, paying for the fill's cut: the noon field's median stays, its sun-to-shade grows past 5:1)
 #define LAND_SUN 2.7
+// how much stronger the sun stands through the morning and the afternoon (about 15 to 45 degrees up) than its curve
+// (the balance step: 0.14, was 0.1: 16:30's field back toward the 120..140 band as its shade deepened)
+#define LAND_SUN_SHOULDER_HOURS 0.14
 // the open sky's fill on an upward face at noon (round 1: about a quarter less, so the shade is deeper and the sun's
 // side carries the form; lib/sky/build.glsl skyLandFillLevel takes it down faster as the sun sinks)
 // (round 3: 0.126: open ground's shade about a fifth deeper and a clearer blue)
 // (ambient (B): 0.16: the darkness now comes from the occlusion (lib/ao.glsl), so open shade, which sees the whole sky,
 // takes back a brighter, sky-blue fill; lib/light.glsl looks it up along each face's bent normal)
-#define LAND_FILL 0.16
+// (the balance step, 2026-10-13: 0.14, with the AO and the contrast together: noon's open shade p5 back inside 25..35
+// and 16:30's sun to shade past 7:1, the occlusion keeping the corners)
+#define LAND_FILL 0.14
 // (ambient (B): while the sun is low the fill keeps round 3's level, so the golden hour's long shadows stay deep and cool
 // against the amber, and the fill rises to LAND_FILL as the sun climbs past about 17 degrees)
 #define LAND_FILL_LOW 0.126
@@ -49,7 +54,12 @@ float landFillAt(float h) {
 // (ambient (B): 0.05: the occlusion's multi-bounce now keeps pale corners light, so the self-bounce, which lifted pale
 // stone's shade toward its lit side until the steps had no form, keeps only a trace: shaded calcite reads a cool
 // blue-grey well below its sunlit tops, never a black notch)
-#define LAND_SELF_BOUNCE 0.05
+// (the balance step: 0.15, in a near-neutral colour (LAND_SELF_BOUNCE_HUE): the gorge's shaded pale walls had sunk to
+// a muddy grey, the valley's median a fifth to a third under round 3's; they read a cool light grey again below their
+// sunlit tops, the steps' form kept)
+#define LAND_SELF_BOUNCE 0.15
+// how much of the sun's colour the self-bounce keeps (0 a neutral grey, 1 the sun's own colour)
+#define LAND_SELF_BOUNCE_HUE 0.25
 // the night (fill and moon) against its old display-space look: the linear sum of fill and moon is darker than the
 // old display sum, so it is lifted to read as before
 #define LAND_NIGHT 1.6
@@ -64,7 +74,8 @@ float landFillAt(float h) {
 // exposure (a LAND_EXPOSURE of 1 maps a mid grey face lit by 1.0 to mid grey)
 #define LAND_EXPOSURE 1.0
 // the S round mid grey: 1 is none
-#define LAND_CONTRAST 1.26
+// (the balance step: 1.32, the sunlit half a little brighter and the shade a little deeper round the same mid grey)
+#define LAND_CONTRAST 1.32
 // where the shoulder starts (linear, about sRGB 177) and how much of it keeps the hue
 #define LAND_KNEE 0.45
 // (round 2: 0.92, so a face in the amber low sun keeps its amber: the per-channel roll greyed it toward cream)

@@ -1,5 +1,5 @@
-// VOID Welkin: deferred_shadow, run as Iris's deferred1 (tools/wrappers.sh maps it). The sun's reach for every lit
-// pixel, written raw into colortex10 for deferred_resolve (deferred2) to smooth and the light (deferred3) to read:
+// VOID Welkin: deferred_shadow, run as Iris's deferred2 (tools/wrappers.sh maps it). The sun's reach for every lit
+// pixel, written raw into colortex10 for deferred_resolve (deferred3) to smooth and the light (deferred4) to read:
 //   r  the sun's reach (lib/shadow.glsl welkinSunReachRaw: the near map through the PCSS lookup, fading over its last
 //      20 % into the sky-light gate; the far shadows on screen past it and on the LOD's land; the contact shadows)
 //   g  what passes the leaves between the light and the point (the glow through leaves and plants)

@@ -127,6 +127,14 @@ void main() {
 			glow *= 1.0 - farPlant;
 			facing *= 1.0 - 0.25 * farPlant;
 		}
+#if FAR_LEAF_FORM > 0
+		if (matIsLeaves(material)) {
+			// the balance step: past the shadow map (and on the LOD's land) nothing shades a crown's far side, so a leaf
+			// there takes the sun more by how its face turns to it: the woods far off keep a lit and a shaded side
+			float farLeaf = s.fromLod ? 1.0 : farShadowNeed(playerPos);
+			facing = mix(facing, sunFacing(dot(n, lightDir)), farLeaf * float(FAR_LEAF_FORM) * 0.01);
+		}
+#endif
 #ifdef WELKIN_WET
 		// wet ground before the light: darkens open ground, picks the puddles
 		HzState st = hzState();

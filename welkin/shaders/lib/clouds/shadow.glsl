@@ -4,8 +4,8 @@
 // clouds' own cells. The surface point is first snapped to the world's 16-pixel grid, so a shadow's edge steps with
 // the block texels instead of cutting them.
 //
-// A cloud's shadow is light: about a quarter of the sun's direct light under one deck (on open ground, where the
-// sky's fill stays, the land is some 15-20 % darker than the field beside it), a little more under two or three. Its
+// A cloud's shadow takes about two fifths of the sun's direct light under one deck (on open ground, where the sky's
+// fill stays, the land is about a third darker than the field beside it), a little more under two or three. Its
 // edge spreads over a few blocks inside the cell's open sides (from the finished map's edge bits, no neighbour read),
 // so the shadows lie on the land as soft-edged patches and never tile it in hard squares. They fade in smoothly as
 // the sun climbs past about 5 degrees (no pop, and no long streaks at a low sun). Multiply only the direct sun term
@@ -23,9 +23,11 @@
 #define WC_SHADOW_SOFT 5.0
 // The sun's share under one, two and three decks.
 // (round 2: a little lighter, so one cloud passing over a view dims it, not flattens it)
-#define WC_SHADOW_ONE 0.8
-#define WC_SHADOW_TWO 0.69
-#define WC_SHADOW_THREE 0.6
+// (the balance step, 2026-10-13: deeper again, 0.62 / 0.52 / 0.45, so the clouds' shadows lie on the middle and far land as
+// clear patches of shade that give a vista its depth; on open ground under one deck the land is about a third darker)
+#define WC_SHADOW_ONE 0.62
+#define WC_SHADOW_TWO 0.52
+#define WC_SHADOW_THREE 0.45
 
 // How much of deck k's (0 low, 1 main, 2 high) cloud stands over camera-relative point q at altitude `mid`, 0..1: 1
 // inside a cloud, easing to a third at an open side of its cell, 0 in a gap.

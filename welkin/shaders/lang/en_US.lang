@@ -99,6 +99,10 @@ option.HAZE_ENABLED.comment=Faraway land fades into air coloured by the country 
 
 option.HAZE_STRENGTH=Haze strength
 option.HAZE_STRENGTH.comment=How thick the haze is over hazy lands.
+option.HAZE_NEAR_CLEAR=Clear near air
+option.HAZE_NEAR_CLEAR.comment=Over how many blocks the land's haze sets in, so the near and middle land keep their full light and shade and only the distance takes the air's colour. 0 hazes the near land as much as the far.
+value.HAZE_NEAR_CLEAR.0=Off
+suffix.HAZE_NEAR_CLEAR= blocks
 
 option.HAZE_SAMPLES=Haze detail
 option.HAZE_SAMPLES.comment=How many points along each view the haze looks at to pick a country's colour. More blends borders between lands more smoothly.
@@ -277,6 +281,10 @@ option.AO_SUN_FAR=Far land's own shade
 option.AO_SUN_FAR.comment=Past the shadow map's reach, and over the far land, the ambient occlusion also tells where the sun cannot get in: the floor between a far wood's crowns, the shaded side of a gully, the far wall of a hollow at a low sun. Soft, worked out from the shapes on screen. 0 leaves the far land's sun to the far shadows alone.
 value.AO_SUN_FAR.0=Off
 suffix.AO_SUN_FAR=%
+option.FAR_LEAF_FORM=Far woods' form
+option.FAR_LEAF_FORM.comment=Past the shadow map, where nothing shades a crown's far side, how much the far woods' leaves take the sun by how they face it, so far forests keep a lit side and a shaded side. 0 lights every face of a far crown alike.
+value.FAR_LEAF_FORM.0=Off
+suffix.FAR_LEAF_FORM=%
 value.DEBUG_VIEW.18=Ambient occlusion
 value.DEBUG_VIEW.19=Bent normals
 value.DEBUG_VIEW.20=Sky light by direction
