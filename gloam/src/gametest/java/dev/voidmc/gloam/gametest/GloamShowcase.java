@@ -376,6 +376,11 @@ public class GloamShowcase implements FabricClientGameTest {
 		BENCH_PLACES.put("valley", "3200,100,488,0,12");
 		BENCH_PLACES.put("shore", "14140,66,10239,105,10");
 		BENCH_PLACES.put("torch", "2251,114,-557,338,4");
+		// the foliage bench (2026-10-13, found with -Pgloam.test.bgThreads=1, which grows the same trees every run): deep
+		// under the valley's forest canopy (find:forestfloor@3252,512), and 40 blocks over that forest's crowns looking
+		// north. Not in the full or reduced sets; shoot them with -Pgloam.show.bench=survey and gloam.show.only.
+		BENCH_PLACES.put("grove", "3192,97,548,315,2");
+		BENCH_PLACES.put("crowns", "3252,137,512,180,30");
 		for (String kv : System.getProperty("gloam.show.benchAt", "").split(";")) {
 			String[] a = kv.trim().split("=", 2);
 			if (a.length == 2) {

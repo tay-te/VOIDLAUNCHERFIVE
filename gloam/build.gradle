@@ -105,6 +105,13 @@ loom.runs.configureEach {
 		programArgs '--width', (project.findProperty('gloam.show.width') ?: '1600').toString(),
 			'--height', (project.findProperty('gloam.show.height') ?: '900').toString()
 		property 'void.lod.autoTune', (project.findProperty('void.lod.autoTune') ?: 'false').toString()
+		// -Pgloam.test.bgThreads=1: the game's background executor (world generation) on that many threads, so a
+		// bench run generates the same trees every time (with many threads, neighbouring chunks' features land in a
+		// different order run to run and a forest regrows differently)
+		def bg = project.findProperty('gloam.test.bgThreads')
+		if (bg) {
+			property 'max.bg.threads', bg.toString()
+		}
 	}
 }
 
