@@ -39,6 +39,18 @@
     {
       "data": "expanse:micro/wheel_post",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/thorn_boma",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/ranch_gate_acacia",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/lost_cache_dry",
+      "weight": 1
     }
   ]
 }

@@ -6,7 +6,7 @@ mobs treat them like their vanilla cousins, and the Earth terrain pack.
 
     python3 tools/gen_worldgen.py [--jar path/to/minecraft-client.jar]
 
-Each biome is built on a vanilla "analog" (Wisteria Vale on forest, Opal Dunes on desert, ...): it
+Each biome is built on a vanilla "analog" (Woodland Glades on forest, Red Dunes on desert, ...): it
 starts from that biome's own feature list, drops the analog's trees and flowers, and appends ours.
 Two rules keep the game's feature sorter happy (it refuses any pair of biomes that place the same two
 features in opposite orders):
@@ -40,7 +40,43 @@ WITH_MOBS = True
 
 written = []
 # Subfolders of our worldgen data that other generators own; the clean-up at the start of a run skips them.
-FOREIGN_DIRS = {'micro', 'living'}  # living/: tools/gen_living.py's firefly features
+FOREIGN_DIRS = {'micro', 'living', 'cave'}  # living/: tools/gen_living.py's firefly features; cave/: tools/structures/gen_caves.py's
+
+
+SPRING_LAVA = {
+    'feature': 'minecraft:spring_lava_overworld',
+    'placement': [
+        {'type': 'minecraft:count', 'count': 4},
+        {'type': 'minecraft:in_square'},
+        {'type': 'minecraft:height_range', 'height': {'type': 'minecraft:uniform', 'min_inclusive': {'absolute': -60},
+                                                      'max_inclusive': {'absolute': -24}}},
+        {'type': 'minecraft:biome'},
+    ],
+}
+
+
+# Vanilla's tree placements (its biomes' own trees, which the Expanse biomes' trees replace elsewhere): on the Earth
+# terrain they keep clear of the structures as the Expanse's trees do, so a gallows hill or a hill chapel stands in a
+# clearing rather than under an acacia that grew through it.
+VANILLA_TREES = ['trees_badlands', 'trees_birch', 'trees_birch_and_oak_leaf_litter', 'trees_cherry', 'trees_dappled_forest',
+                 'trees_flower_forest', 'trees_grove', 'trees_jungle', 'trees_mangrove', 'trees_meadow', 'trees_old_growth_pine_taiga',
+                 'trees_old_growth_spruce_taiga', 'trees_plains', 'trees_savanna', 'trees_snowy', 'trees_sparse_jungle', 'trees_swamp',
+                 'trees_taiga', 'trees_water', 'trees_windswept_forest', 'trees_windswept_hills', 'trees_windswept_savanna',
+                 'dark_forest_vegetation', 'birch_tall', 'jungle_bush', 'bamboo_vegetation', 'pale_garden_vegetation', 'mangrove_checked',
+                 'tall_mangrove_checked', 'fallen_birch_tree', 'fallen_jungle_tree', 'fallen_oak_tree', 'fallen_poplar_tree',
+                 'fallen_spruce_tree', 'fallen_super_birch_tree']
+
+
+def clear_vanilla_trees(out, read):
+    """Writes the Earth pack's copies of VANILLA_TREES with the structure clearance added (before the biome filter).
+    `read(name)` gives a placed feature as it stands without the pack (the Expanse's own override, else vanilla's)."""
+    for name in VANILLA_TREES:
+        obj = read(name)
+        steps = [s for s in obj['placement'] if s.get('type') != e('clear_of_structures')]
+        at = next((i for i, s in enumerate(steps) if s.get('type') == 'minecraft:biome'), len(steps))
+        steps.insert(at, clear(TREE_CLEAR))
+        obj['placement'] = steps
+        out(f'minecraft/worldgen/placed_feature/{name}.json', obj)
 
 
 def write(path, obj):
@@ -130,9 +166,14 @@ def scatter(tries, xz=7, y=3):
     return [count(tries), {'type': 'minecraft:offset', 'x': trapezoid(-xz, xz), 'y': trapezoid(-y, y), 'z': trapezoid(-xz, xz)}]
 
 
+# How far a tree's trunk keeps from a structure: far enough that its crown (olives and oaks spread four or five blocks)
+# doesn't hang over the building.
+TREE_CLEAR = 5
+
+
 def tree_placement(per_chunk, sapling):
     return [count(per_chunk), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
-            predicate(survives(sapling if isinstance(sapling, (str, dict)) else sapling)), BIOME, clear(3)]
+            predicate(survives(sapling if isinstance(sapling, (str, dict)) else sapling)), BIOME, clear(TREE_CLEAR)]
 
 
 def patch_placement(frequency, tries, block_for_survival, xz=7, y=3, hm='MOTION_BLOCKING', extra=None):
@@ -157,7 +198,20 @@ def feature(name, obj):
     return e(name)
 
 
+# The Expanse biomes' own woods: like every natural tree, they ask the land where a tree would stand (expanse:land_fit,
+# TerrainModel.woodland), so their woods keep to the rises with open country between. Shrubs, the trees of the water's
+# edge and the lone trees on the hilltops stand where they are put.
+FOREST_TREES = {'alpine_trees', 'aspen_groves', 'bluebell_trees', 'cloud_forest_trees', 'glade_trees', 'heath_trees',
+                'kapok_canopy_trees', 'kapok_emergents', 'larch_trees', 'maple_trees', 'monsoon_trees', 'moor_trees',
+                'muskeg_trees', 'oakwood_trees', 'olive_trees', 'outback_trees', 'palm_trees', 'redwood_forest',
+                'steppe_trees', 'tundra_trees', 'willow_trees'}
+LAND_FIT = {'type': 'expanse:land_fit'}
+
+
 def placed(name, feat, placement, step):
+    if name in FOREST_TREES and LAND_FIT not in placement:
+        at = next((i + 1 for i, m in enumerate(placement) if m.get('type') == 'minecraft:in_square'), 0)
+        placement = placement[:at] + [LAND_FIT] + placement[at:]
     PLACED[name] = ({'feature': feat, 'placement': placement}, step)
     FEATURE_ORDER.append(name)
     return name
@@ -316,6 +370,17 @@ tree('palm', 'palm_log', {'type': e('palm_trunk_placer'), 'base_height': 7, 'hei
 GLOW_LICHEN = state('minecraft:glow_lichen', up=True, down=False, north=False, south=False, east=False, west=False, waterlogged=False)
 tree('lumen', 'lumen_log', {'type': e('spiral_trunk_placer'), 'base_height': 7, 'height_rand_a': 3, 'height_rand_b': 2, 'coil_radius': 1.3},
      'lumen_leaves', CLUMP(2, 2, 0.3), decorators=[hanging(GLOW_LICHEN, 0.08, 1)])
+# The ancient oak: a short massive trunk opening into a ring of long crooked limbs, each under a clump of
+# leaves, bracket fungus on the trunk and moss along the tops of the limbs (the oakwoods of Dartmoor and the
+# Atlantic coast). One in three is ivy-clad.
+MOSS_ON_LIMBS = {'type': 'minecraft:attached_to_logs', 'block_provider': state('minecraft:moss_carpet'), 'directions': ['up'], 'probability': 0.3}
+tree('ancient_oak', 'minecraft:oak_log', crown_trunk(5, 2, 1, uniform(4, 7), uniform(3, 5), 0.45), 'minecraft:oak_leaves', CLUMP(2, 2, 0.3),
+     decorators=[SHELF_MUSHROOMS(0.35), MOSS_ON_LIMBS])
+tree('ancient_oak_ivy', 'minecraft:oak_log', crown_trunk(5, 2, 1, uniform(4, 7), uniform(3, 5), 0.45), 'minecraft:oak_leaves', CLUMP(2, 2, 0.3),
+     decorators=[SHELF_MUSHROOMS(0.35), MOSS_ON_LIMBS, {'type': 'minecraft:trunk_vine'}])
+# A spreading oak of the open glades: the same limbs, without the moss.
+tree('glade_oak', 'minecraft:oak_log', crown_trunk(4, 2, 1, uniform(4, 6), uniform(3, 5), 0.3), 'minecraft:oak_leaves', CLUMP(2, 2, 0.25),
+     decorators=[{'type': 'minecraft:beehive', 'probability': 0.02}])
 tree('baobab', 'baobab_log', {'type': e('baobab_trunk_placer'), 'base_height': 9, 'height_rand_a': 3, 'height_rand_b': 2, 'branch_count': uniform(4, 6)},
      'baobab_leaves', CLUMP(2, 1, 0.35), TWO_LAYERS_MEGA)
 
@@ -369,20 +434,25 @@ def build_features(jar):
     fallen('fallen_willow', 'willow_log', uniform(4, 7))
     fallen('fallen_wisteria', 'wisteria_log', uniform(4, 6))
     fallen('fallen_lumen', 'lumen_log', uniform(4, 7), log_decorators=[LOG_TOPPING, SHELF_MUSHROOMS(0.3)])
+    fallen('fallen_ancient_oak', 'minecraft:oak_log', uniform(6, 10), log_decorators=[LOG_TOPPING, SHELF_MUSHROOMS(0.6)])
     fallen('fallen_palm', 'palm_log', uniform(4, 6), log_decorators=[], stump_decorators=[])  # driftwood: bare
     selector('redwood_forest', e('giant_redwood'), (e('colossal_redwood'), 0.14), (e('redwood'), 0.35), (e('fallen_redwood'), 0.06))
     selector('wisteria_forest', e('wisteria'), (e('azure_wisteria'), 0.25), ('minecraft:fancy_oak_bees_005', 0.08), (e('fallen_wisteria'), 0.03))
+    # (the wisteria and lumen trees stay for their saplings; no biome plants them any more)
+    selector('glade_trees', e('glade_oak'), (e('natural/birch/plain'), 0.3), (e('natural/big_oak/plain'), 0.2), (e('natural/forest_oak/plain'), 0.15),
+             ('minecraft:fallen_oak_tree', 0.03))
     mossy_copy('mega_jungle_tree', 'mossy_mega_jungle_tree', jar)
     mossy_copy('jungle_tree', 'mossy_jungle_tree', jar)
-    selector('cloud_forest_trees', e('mossy_jungle_tree'), (e('mossy_mega_jungle_tree'), 0.35), (e('lumen'), 0.03),
+    selector('cloud_forest_trees', e('natural/jungle_wood/mossy'), (e('natural/jungle_giant/mossy'), 0.35),
              ('minecraft:fallen_jungle_tree', 0.03))
-    selector('steppe_trees', e('baobab'), ('minecraft:acacia', 0.3))
+    selector('steppe_trees', e('baobab'), (e('natural/acacia_wood/plain'), 0.3))
     selector('willow_bayou_trees', e('willow'), (e('fallen_willow'), 0.04))
-    selector('lumen_grove_trees', e('lumen'), (e('fallen_lumen'), 0.04))
+    selector('ancient_oakwood_trees', e('ancient_oak'), (e('ancient_oak_ivy'), 0.3), (e('natural/dark_wood/plain'), 0.25), (e('natural/big_oak/plain'), 0.08),
+             (e('fallen_ancient_oak'), 0.06))
     selector('palm_coast_trees', e('palm'), (e('fallen_palm'), 0.06))
-    selector('tundra_spruce', 'minecraft:spruce', ('minecraft:fallen_spruce_tree', 0.12))
-    selector('alpine_spruce', 'minecraft:spruce', ('minecraft:fallen_spruce_tree', 0.06))
-    selector('moor_birch', 'minecraft:birch', ('minecraft:fallen_birch_tree', 0.15))
+    selector('tundra_spruce', e('natural/spruce_forest/plain'), ('minecraft:fallen_spruce_tree', 0.12))
+    selector('alpine_spruce', e('natural/spruce_forest/plain'), ('minecraft:fallen_spruce_tree', 0.06))
+    selector('moor_birch', e('natural/birch/plain'), ('minecraft:fallen_birch_tree', 0.15))
 
     # ---- ground cover
     simple('heather', state('heather'))
@@ -396,8 +466,8 @@ def build_features(jar):
                                              (state('minecraft:allium'), 1), (state('minecraft:short_grass'), 4)))
     simple('wisteria_floor', weighted_states((state('minecraft:allium'), 2), (state('minecraft:lily_of_the_valley'), 2),
                                              (state('minecraft:short_grass'), 5), (state('minecraft:fern'), 1)))
-    simple('lumen_floor', weighted_states((state('glowcap'), 3), (state('minecraft:fern'), 3), (state('minecraft:short_grass'), 2),
-                                          (state('minecraft:firefly_bush'), 1)))
+    simple('glade_flowers', weighted_states((state('minecraft:short_grass'), 6), (state('minecraft:oxeye_daisy'), 2), (state('minecraft:poppy'), 2),
+                                            (state('minecraft:dandelion'), 2), (state('minecraft:cornflower'), 1), (state('minecraft:azure_bluet'), 1)))
     simple('steppe_grass', weighted_states((state('minecraft:short_dry_grass'), 5), (state('minecraft:tall_dry_grass', ), 3),
                                            (state('minecraft:short_grass'), 2)))
 
@@ -417,6 +487,11 @@ def build_features(jar):
     simple('bayou_undergrowth', weighted_states((FERN, 4), (GRASS, 3), (MOSS, 2), (BUSH, 2)))
     simple('karst_undergrowth', weighted_states((FERN, 4), (LARGE_FERN, 2), (BUSH, 2)))
     simple('cloud_forest_ferns', weighted_states((LARGE_FERN, 4), (FERN, 4), (MOSS, 2)))
+    simple('cloud_forest_floor', weighted_states((FERN, 4), (GRASS, 3), (MOSS, 2), (v('firefly_bush'), 1)))
+    simple('oakwood_floor', weighted_states((FERN, 5), (LARGE_FERN, 2), (MOSS, 3), (GRASS, 2), (BUSH, 1)))
+    # reindeer lichen: grey-green
+    simple('tundra_lichen', weighted_states((v('pale_moss_carpet', bottom='true', north='none', east='none', south='none', west='none'), 5),
+                                            (MOSS, 2), (GRASS, 2)))
     simple('alpine_tufts', weighted_states((GRASS, 5), (FERN, 2), (BUSH, 1), (BERRIES, 1)))
     simple('dune_grass', weighted_states((v('short_dry_grass'), 5), (v('tall_dry_grass'), 4)))
     simple('arid_scrub', weighted_states((v('short_dry_grass'), 5), (v('tall_dry_grass'), 3), (v('dead_bush'), 2)))
@@ -450,6 +525,8 @@ def build_features(jar):
                              'can_place_on': {'type': 'minecraft:matching_block_tag', 'tag': 'minecraft:forest_rock_can_place_on'}})
     feature('limestone_boulder', {'type': 'minecraft:block_blob', 'state': e('mossy_limestone'),
                                   'can_place_on': {'type': 'minecraft:matching_block_tag', 'tag': 'minecraft:forest_rock_can_place_on'}})
+    feature('scree_boulder', {'type': 'minecraft:block_blob', 'state': e('limestone'),
+                              'can_place_on': {'type': 'minecraft:matching_block_tag', 'tag': 'minecraft:forest_rock_can_place_on'}})
     feature('ice_boulder', {'type': 'minecraft:block_blob', 'state': 'minecraft:packed_ice',
                             'can_place_on': {'type': 'minecraft:matching_blocks', 'blocks': ['minecraft:snow_block', 'minecraft:grass_block']}})
     for name, block in [('frost_spire', 'minecraft:packed_ice'), ('blue_frost_spire', 'minecraft:blue_ice')]:
@@ -462,6 +539,18 @@ def build_features(jar):
         'cap': 'minecraft:grass_block', 'soil': 'minecraft:dirt',
         'height': weighted_int((24, 2), (34, 3), (46, 3), (60, 2), (76, 1)), 'radius': uniform(3, 6),
         'top_feature': {'feature': 'minecraft:jungle_bush', 'placement': []}})
+    # Dolomite towers: pale limestone spires standing out of the alpine pasture, turf on their tops, no vines.
+    feature('dolomite_spire', {
+        'type': e('karst_pillar'),
+        'stone': weighted_states((e('limestone'), 7), ('minecraft:calcite', 2), ('minecraft:diorite', 1)),
+        'cap': 'minecraft:grass_block', 'soil': 'minecraft:dirt', 'vines': False,
+        'height': weighted_int((14, 3), (22, 3), (32, 2), (44, 1)), 'radius': uniform(3, 6)})
+    # Red rock arches, banded as the sandstone of the desert southwest is.
+    feature('red_arch', {
+        'type': e('natural_arch'),
+        'layers': ['minecraft:red_sandstone', 'minecraft:smooth_red_sandstone', 'minecraft:orange_terracotta', 'minecraft:red_sandstone',
+                   'minecraft:terracotta', 'minecraft:cut_red_sandstone', 'minecraft:white_terracotta', 'minecraft:red_sandstone'],
+        'band_height': 2, 'span': uniform(12, 24), 'height': uniform(9, 17), 'thickness': uniform(2, 3)})
     feature('opal_arch', {
         'type': e('natural_arch'),
         'layers': [e('opal_sandstone'), e('smooth_opal_sandstone'), 'minecraft:pink_terracotta', e('opal_sandstone'),
@@ -470,7 +559,7 @@ def build_features(jar):
     feature('prismite_outcrop', {'type': e('crystal_outcrop'), 'crystal': e('prismite_block'),
                                  'cluster': e('prismite_cluster'), 'base': 'minecraft:calcite',
                                  'count': uniform(3, 7), 'height': uniform(5, 13)})
-    feature('opal_dunes', {'type': e('dunes'), 'sand': e('opal_sand'), 'biomes': e('opal_dunes'), 'max_height': 9, 'wavelength': 34.0})
+    feature('red_dunes', {'type': e('dunes'), 'sand': 'minecraft:red_sand', 'biomes': e('red_dunes'), 'max_height': 9, 'wavelength': 34.0})
     feature('termite_mound', {'type': 'minecraft:block_column', 'allowed_placement': AIR, 'direction': 'up', 'prioritize_tip': True,
                               'layers': [{'height': uniform(2, 3), 'provider': state('minecraft:brown_terracotta')},
                                          {'height': uniform(1, 2), 'provider': state('minecraft:terracotta')}]})
@@ -484,19 +573,17 @@ def build_features(jar):
 
     # Dunes go down first, before anything is placed on the sand. No placement modifiers: once per
     # chunk, and the feature itself decides column by column whether it is in the dune field.
-    placed('opal_dunes', e('opal_dunes'), [], 0)
+    placed('red_dunes', e('red_dunes'), [], 0)
     placed('karst_pond', e('water_pond'), [rarity(5), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(10)], S['lakes'])
     placed('cloud_forest_pond', e('water_pond'), [rarity(4), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(10)], S['lakes'])
 
     placed('mossy_boulder', e('mossy_boulder'), [count(uniform(0, 2)), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(4)], S['local'])
     placed('moor_boulder', e('moor_boulder'), [count(weighted_int((0, 3), (1, 2), (2, 1))), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(4)], S['local'])
     placed('limestone_boulder', e('limestone_boulder'), [count(uniform(0, 1)), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(4)], S['local'])
-    placed('ice_boulder', e('ice_boulder'), [rarity(3), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(4)], S['local'])
-    placed('frost_spire', e('frost_spire'), [count(uniform(0, 2)), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(6)], S['surface_struct'])
-    placed('blue_frost_spire', e('blue_frost_spire'), [rarity(6), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(6)], S['surface_struct'])
+    placed('scree_boulder', e('scree_boulder'), [count(weighted_int((0, 2), (1, 2), (2, 1))), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(4)], S['local'])
     placed('karst_pillar', e('karst_pillar'), [rarity(2), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(14)], S['surface_struct'])
-    placed('opal_arch', e('opal_arch'), [rarity(9), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(18)], S['surface_struct'])
-    placed('prismite_outcrop', e('prismite_outcrop'), [count(uniform(0, 2)), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(6)], S['surface_struct'])
+    placed('red_arch', e('red_arch'), [rarity(9), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(18)], S['surface_struct'])
+    placed('dolomite_spire', e('dolomite_spire'), [rarity(5), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(14)], S['surface_struct'])
     placed('termite_mound', e('termite_mound'), [rarity(4), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME,
                                                  predicate(survives('minecraft:dead_bush')), clear(3)], S['surface_struct'])
 
@@ -507,8 +594,9 @@ def build_features(jar):
 
     # trees
     placed('redwood_forest', e('redwood_forest'), tree_placement(weighted_int((3, 6), (5, 3), (7, 1)), e('redwood_sapling')), S['veg'])
-    placed('wisteria_forest', e('wisteria_forest'), tree_placement(weighted_int((2, 4), (4, 4), (6, 1)), e('wisteria_sapling')), S['veg'])
-    placed('lumen_trees', e('lumen_grove_trees'), tree_placement(weighted_int((5, 4), (7, 3), (9, 1)), e('lumen_sapling')), S['veg'])
+    placed('oakwood_trees', e('ancient_oakwood_trees'), tree_placement(weighted_int((4, 4), (6, 3), (8, 1)), 'minecraft:oak_sapling'), S['veg'])
+    # Glades: the trees stand thick where the flower noise is low and thin out to open grass where it is high.
+    placed('glade_trees', e('glade_trees'), [drifts(0.0, 6, 1)] + tree_placement(1, 'minecraft:oak_sapling')[1:], S['veg'])
     placed('willow_trees', e('willow_bayou_trees'), [count(weighted_int((2, 4), (3, 3), (5, 1))), IN_SQUARE, water_depth(2),
                                                      heightmap('OCEAN_FLOOR'), BIOME, clear(3)], S['veg'])
     placed('steppe_trees', e('steppe_trees'), tree_placement(weighted_int((0, 6), (1, 3), (2, 1)), e('baobab_sapling')), S['veg'])
@@ -530,13 +618,11 @@ def build_features(jar):
     placed('heather_patch', e('moor_flowers'), patch_placement(4, 48, e('heather')), S['veg'])
     placed('alpine_flowers', e('alpine_flowers'), patch_placement(3, 40, e('edelweiss')), S['veg'])
     placed('edelweiss_patch', e('edelweiss'), patch_placement(rarity(2), 12, e('edelweiss'), 4, 2), S['veg'])
-    placed('frostbloom_patch', e('frostbloom'), patch_placement(2, 20, e('frostbloom'), 5, 2), S['veg'])
-    placed('wisteria_floor', e('wisteria_floor'), patch_placement(3, 32, 'minecraft:short_grass'), S['veg'])
-    placed('wisteria_petals', 'minecraft:flower_cherry', patch_placement(2, 32, 'minecraft:pink_petals'), S['veg'])
-    placed('wisteria_leaf_litter', 'minecraft:leaf_litter', patch_placement(2, 24, 'minecraft:leaf_litter'), S['veg'])
-    placed('lumen_floor', e('lumen_floor'), patch_placement(5, 40, e('glowcap')), S['veg'])
-    placed('lumen_moss', 'minecraft:moss_patch', [count(uniform(1, 2)), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['veg'])
-    placed('glowcap_patch', e('glowcap'), patch_placement(2, 16, e('glowcap'), 4, 2), S['veg'])
+    placed('glade_leaf_litter', 'minecraft:leaf_litter', patch_placement(2, 24, 'minecraft:leaf_litter'), S['veg'])
+    placed('glade_flowers', e('glade_flowers'), cover(drifts(0.0, 1, 4), 40, 7, 3), S['veg'])
+    placed('tundra_lichen', e('tundra_lichen'), cover(3, 32, 6, 2), S['veg'])
+    placed('oakwood_floor', e('oakwood_floor'), patch_placement(4, 32, 'minecraft:fern'), S['veg'])
+    placed('oakwood_moss', 'minecraft:moss_patch', [count(uniform(1, 2)), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['veg'])
     placed('cattails', e('cattail'), [count(6), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, *scatter(24, 6, 1),
                                       predicate(all_of(AIR, survives(e('cattail')),
                                                        {'type': 'minecraft:any_of', 'predicates': [
@@ -548,9 +634,7 @@ def build_features(jar):
                                                       predicate(all_of(AIR, survives('minecraft:lily_pad')))], S['veg'])
     placed('bayou_fireflies', 'minecraft:firefly_bush', patch_placement(2, 12, 'minecraft:firefly_bush'), S['veg'])
     placed('steppe_grass', e('steppe_grass'), patch_placement(6, 32, 'minecraft:short_dry_grass'), S['veg'])
-    placed('prismite_clusters', e('prismite_cluster'), [count(6), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME,
-                                                        predicate(all_of(AIR, survives(e('prismite_cluster'))))], S['veg'])
-    placed('cloud_forest_floor', e('lumen_floor'), patch_placement(1, 16, 'minecraft:fern'), S['veg'])
+    placed('cloud_forest_floor', e('cloud_forest_floor'), patch_placement(1, 16, 'minecraft:fern'), S['veg'])
     placed('cloud_forest_moss', 'minecraft:moss_patch', [count(uniform(1, 3)), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['veg'])
 
     # ======================== undergrowth and the small things (Expanse biomes)
@@ -629,8 +713,14 @@ def biome(name, analog, jar, *, temperature=None, downfall=None, precipitation=N
     attrs = b.setdefault('attributes', {})
     if attributes:
         attrs.update({f'minecraft:{k}': v for k, v in attributes.items()})
+    # The surface keeps its horizon: the far view (VOID LOD) hazes the distance by the fog's reach, so a biome's own
+    # close fog would end the view a couple of hundred blocks out. Mist, low cloud and a damp wood's closeness come
+    # from VOID Gloam instead, by the weather, the hour and the lie of the land (its colours stay ours).
+    for k in ('minecraft:visual/fog_start_distance', 'minecraft:visual/fog_end_distance'):
+        attrs.pop(k, None)
     feats = [list(s) for s in b['features']] + [[] for _ in range(STEPS - len(b['features']))]
     feats = [[f for f in step if f not in drop] for step in feats]
+    add = list(add) + [k for k in FOLIAGE.kit(name) if k not in add]   # the understory (tools/worldgen_foliage.py)
     unknown = [n for n in add if n not in FEATURE_ORDER]
     if unknown:
         raise SystemExit(f'{name}: no such placed feature for an Expanse biome: {unknown}')
@@ -663,14 +753,16 @@ ANALOGS = {}
 
 def build_biomes(jar):
     A = ANALOGS
-    A['frostbloom_tundra'] = biome('frostbloom_tundra', 'snowy_plains', jar,
-        effects={'water_color': '#3d6fd6', 'grass_color': '#9fc7c0', 'foliage_color': '#7fa8a0'},
-        attributes={'visual/sky_color': '#9cc0ff', 'visual/fog_color': '#d9ecff', 'visual/water_fog_color': '#2a4fa8',
-                    'visual/ambient_particles': particles('minecraft:snowflake', 0.006),
+    # The tundra in its short summer: olive sedge and grey reindeer lichen, snow lying late in the hollows,
+    # dwarf spruce and berries, grey erratic boulders the ice left behind.
+    # (warmer than its snowy-plains analog, so the snow lies only in the hollows and up on the hills)
+    A['lichen_tundra'] = biome('lichen_tundra', 'snowy_plains', jar,
+        temperature=0.25, downfall=0.4, precipitation=True,
+        effects={'water_color': '#3d5fc8', 'grass_color': '#8c9a68', 'foliage_color': '#76885a'},
+        attributes={'visual/sky_color': '#9cbcf0', 'visual/fog_color': '#d8e0e8', 'visual/water_fog_color': '#28449a',
                     'audio/background_music': music('minecraft:music.overworld.snowy_slopes')},
         drop=['minecraft:trees_snowy', 'minecraft:flower_default', 'minecraft:patch_pumpkin', 'minecraft:patch_sugar_cane'],
-        add=['ice_boulder', 'frost_spire', 'blue_frost_spire', 'tundra_trees', 'frostbloom_patch',
-             'tundra_shrubs', 'tundra_cover', 'tundra_berries', 'river_clay'],
+        add=['moor_boulder', 'tundra_trees', 'tundra_shrubs', 'tundra_cover', 'tundra_lichen', 'tundra_berries', 'river_clay'],
         spawns={'creature': [(e('mammoth'), 10, 2, 4), ('minecraft:fox', 4, 2, 4)]})
 
     A['heather_moor'] = biome('heather_moor', 'meadow', jar,
@@ -683,13 +775,15 @@ def build_biomes(jar):
              'river_clay', 'river_reeds_temperate', 'river_lily_pads'],
         spawns={'creature': [(e('elk'), 8, 2, 4), ('minecraft:sheep', 6, 2, 4)]})
 
-    A['wisteria_vale'] = biome('wisteria_vale', 'forest', jar,
+    # Broadleaf woods broken by glades: spreading oaks and birches standing thick in places and thinning
+    # out to open grass bright with daisies, poppies and cornflowers.
+    A['woodland_glades'] = biome('woodland_glades', 'forest', jar,
         temperature=0.65, downfall=0.8,
-        effects={'grass_color': '#79c06a', 'foliage_color': '#6fb35f', 'water_color': '#5f8fe6', 'dry_foliage_color': '#a77fc4'},
-        attributes={'visual/sky_color': '#a3b6ff', 'visual/fog_color': '#e4d8f2', 'visual/water_fog_color': '#3f5fb8',
-                    'audio/background_music': music('minecraft:music.overworld.cherry_grove')},
+        effects={'grass_color': '#6f9a4e', 'foliage_color': '#568a3c', 'water_color': '#3f76d8', 'dry_foliage_color': '#a07a3c'},
+        attributes={'visual/sky_color': '#86aef8', 'visual/fog_color': '#d2dde8', 'visual/water_fog_color': '#2f5ab0',
+                    'audio/background_music': music('minecraft:music.overworld.forest')},
         drop=['minecraft:forest_flowers', 'minecraft:trees_birch_and_oak_leaf_litter', 'minecraft:flower_default', 'minecraft:patch_bush'],
-        add=['wisteria_forest', 'wisteria_floor', 'wisteria_petals', 'wisteria_leaf_litter', 'vale_undergrowth', 'vale_wildflowers',
+        add=['glade_trees', 'glade_flowers', 'glade_leaf_litter', 'vale_undergrowth', 'vale_wildflowers',
              'river_clay', 'river_reeds_temperate', 'river_lily_pads', 'river_wet_bank', 'river_seagrass'],
         spawns={'creature': [('minecraft:fox', 4, 2, 3)]})
 
@@ -703,20 +797,21 @@ def build_biomes(jar):
              'river_clay', 'river_reeds_temperate', 'river_lily_pads', 'river_wet_bank', 'river_seagrass'],
         spawns={'creature': [(e('elk'), 12, 2, 5)]})
 
-    A['lumen_grove'] = biome('lumen_grove', 'dark_forest', jar,
+    # An old wet oakwood: crooked mossy oaks and dark oaks under one canopy, ferns and moss over the
+    # ground and the boulders, fallen trunks, bracket fungus, a soft grey mist.
+    A['ancient_oakwood'] = biome('ancient_oakwood', 'dark_forest', jar,
         temperature=0.6, downfall=0.9,
-        effects={'grass_color': '#3f8a7a', 'foliage_color': '#2fa08f', 'water_color': '#2ab5a5', 'dry_foliage_color': '#3a6a68'},
-        attributes={'visual/sky_color': '#5d7fb0', 'visual/fog_color': '#2f5563', 'visual/water_fog_color': '#1a6a66',
-                    'visual/fog_end_distance': 130.0,
-                    'visual/ambient_particles': particles('minecraft:firefly', 0.012),
-                    'audio/background_music': music('minecraft:music.overworld.lush_caves')},
+        effects={'grass_color': '#5d8f43', 'foliage_color': '#4c7f36', 'water_color': '#3d6aa0', 'dry_foliage_color': '#7a6a3c'},
+        attributes={'visual/sky_color': '#8aa8d0', 'visual/fog_color': '#bcc4c4', 'visual/water_fog_color': '#2a4a6a',
+                    'visual/fog_end_distance': 150.0,
+                    'audio/background_music': music('minecraft:music.overworld.forest')},
         drop=['minecraft:dark_forest_vegetation', 'minecraft:forest_flowers', 'minecraft:flower_default', 'minecraft:patch_leaf_litter'],
-        add=['lumen_trees', 'lumen_moss', 'lumen_floor', 'glowcap_patch', 'forest_floor_litter', 'forest_mushrooms',
+        add=['mossy_boulder', 'oakwood_trees', 'oakwood_moss', 'oakwood_floor', 'moor_bracken', 'forest_floor_litter', 'forest_mushrooms',
              'river_clay', 'river_reeds_temperate', 'river_lily_pads', 'river_wet_bank', 'river_seagrass'])
 
     A['willow_bayou'] = biome('willow_bayou', 'swamp', jar,
         effects={'water_color': '#4b8a6b', 'foliage_color': '#7fa64a', 'grass_color': '#6f9a48', 'dry_foliage_color': '#6b5a3a'},
-        attributes={'visual/sky_color': '#8db4a8', 'visual/fog_color': '#a7c2a2', 'visual/water_fog_color': '#3a6650',
+        attributes={'visual/sky_color': '#9cb4c4', 'visual/fog_color': '#a7c2a2', 'visual/water_fog_color': '#3a6650',
                     'visual/fog_end_distance': 120.0,
                     'visual/ambient_particles': particles('minecraft:firefly', 0.004)},
         drop=['minecraft:trees_swamp', 'minecraft:flower_swamp'],
@@ -733,16 +828,17 @@ def build_biomes(jar):
              'river_clay', 'river_reeds_warm', 'river_seagrass'],
         spawns={'creature': [(e('elk'), 4, 2, 4)]})
 
-    A['opal_dunes'] = biome('opal_dunes', 'desert', jar,
-        effects={'water_color': '#6fd2d8', 'grass_color': '#c9b88a', 'foliage_color': '#b4a874'},
-        attributes={'visual/sky_color': '#acb4ff', 'visual/fog_color': '#f4d8e6', 'visual/water_fog_color': '#3aa4b4'},
+    # A sea of red sand: long wind-shaped dunes, arches of banded red rock standing out of them.
+    A['red_dunes'] = biome('red_dunes', 'desert', jar,
+        effects={'water_color': '#3f9ec0', 'grass_color': '#bfa676', 'foliage_color': '#a89a6a'},
+        attributes={'visual/sky_color': '#7fb2f0', 'visual/fog_color': '#ecd8bc', 'visual/water_fog_color': '#2a7f99'},
         drop=['minecraft:flower_default'],
-        add=['opal_dunes', 'opal_arch', 'river_clay', 'river_reeds_arid', 'river_seagrass'])
+        add=['red_dunes', 'red_arch', 'steppe_dead_bushes', 'river_clay', 'river_reeds_arid', 'river_seagrass'])
 
     A['jade_karst'] = biome('jade_karst', 'jungle', jar,
         temperature=0.85, downfall=0.85,
-        effects={'water_color': '#3fc2a2', 'grass_color': '#62b85a', 'foliage_color': '#4fa84a'},
-        attributes={'visual/sky_color': '#9ccac2', 'visual/fog_color': '#c4e0d6', 'visual/water_fog_color': '#1f8a74',
+        effects={'water_color': '#4a9e8c', 'grass_color': '#62b85a', 'foliage_color': '#4fa84a'},
+        attributes={'visual/sky_color': '#9cbcd2', 'visual/fog_color': '#cfdcd6', 'visual/water_fog_color': '#2a6e66',
                     'visual/fog_end_distance': 190.0,
                     'audio/background_music': music('minecraft:music.overworld.bamboo_jungle')},
         drop=['minecraft:trees_jungle', 'minecraft:bamboo_light', 'minecraft:flower_warm'],
@@ -764,24 +860,27 @@ def build_biomes(jar):
 
     A['verdant_peaks'] = biome('verdant_peaks', 'jagged_peaks', jar,
         temperature=0.3, downfall=0.6, precipitation=True,
-        effects={'grass_color': '#7fb85a', 'foliage_color': '#6aa64a', 'water_color': '#3f86e0'},
+        effects={'grass_color': '#79a258', 'foliage_color': '#62914a', 'water_color': '#3f86e0'},
         attributes={'visual/sky_color': '#78a8ff', 'visual/fog_color': '#cfe0f5',
                     'audio/background_music': music('minecraft:music.overworld.meadow')},
         add=['alpine_springs', 'alpine_trees', 'alpine_flowers', 'boulder_rare', 'alpine_shrubs', 'alpine_tufts',
              'river_clay', 'river_reeds_temperate', 'river_seagrass'],
         spawns={'creature': [(e('elk'), 6, 2, 3), ('minecraft:sheep', 4, 2, 3)]})
 
-    A['prismatic_peaks'] = biome('prismatic_peaks', 'stony_peaks', jar,
-        effects={'water_color': '#5fc0ff'},
-        attributes={'visual/sky_color': '#86b0ff', 'visual/fog_color': '#e2e8ff',
-                    'visual/ambient_particles': particles('minecraft:end_rod', 0.0015),
-                    'audio/background_music': music('minecraft:music.overworld.frozen_peaks')},
-        add=['prismite_outcrop', 'prismite_clusters', 'river_clay'])
+    # Pale limestone mountains (the Dolomites): sheer grey-white walls and spires over green alpine pasture,
+    # scree fans below the cliffs, snow on the summits.
+    A['dolomite_peaks'] = biome('dolomite_peaks', 'stony_peaks', jar,
+        effects={'water_color': '#3f86d8', 'grass_color': '#86b060', 'foliage_color': '#6a9a4c'},
+        attributes={'visual/sky_color': '#80aef0', 'visual/fog_color': '#dde4ee',
+                    'audio/background_music': music('minecraft:music.overworld.stony_peaks')},
+        add=['alpine_springs', 'scree_boulder', 'dolomite_spire', 'alpine_trees', 'alpine_flowers', 'edelweiss_patch', 'alpine_shrubs',
+             'alpine_tufts', 'river_clay'],
+        spawns={'creature': [('minecraft:goat', 5, 1, 3), ('minecraft:sheep', 4, 2, 3)]})
 
     A['palm_coast'] = biome('palm_coast', 'beach', jar,
         temperature=0.9, downfall=0.6,
-        effects={'water_color': '#22d0e0', 'grass_color': '#7dcf5a', 'foliage_color': '#5fbf4a'},
-        attributes={'visual/sky_color': '#76c0ff', 'visual/fog_color': '#d6f0ff', 'visual/water_fog_color': '#139ab8'},
+        effects={'water_color': '#3ac4dc', 'grass_color': '#7dcf5a', 'foliage_color': '#5fbf4a'},
+        attributes={'visual/sky_color': '#76c0ff', 'visual/fog_color': '#d6f0ff', 'visual/water_fog_color': '#1f8fae'},
         drop=['minecraft:flower_default'],
         add=['palm_trees', 'coast_dune_grass', 'river_clay', 'river_reeds_arid', 'river_seagrass'],
         spawns={'creature': [(e('crab'), 10, 2, 5)]})
@@ -836,7 +935,7 @@ def build_surface_rules():
         *LANDFORMS.surface_rules(THIS),
         *COLD.surface_rules(THIS),  # cold & temperate biomes (tools/worldgen_cold.py)
         *WARM.surface_rules(THIS),  # warm & dry biomes (tools/worldgen_warm.py)
-        cond(biome_is('opal_dunes'), sand_beach(e('opal_sand'), e('opal_sandstone'))),
+        cond(biome_is('red_dunes'), sand_beach('minecraft:red_sand', 'minecraft:red_sandstone')),
         cond(biome_is('palm_coast'), sand_beach('minecraft:sand', 'minecraft:sandstone')),
         cond(biome_is('verdant_peaks'), seq(
             cond(ON_FLOOR, seq(
@@ -845,20 +944,29 @@ def build_surface_rules():
                 cond(STEEP, block('minecraft:stone')),
                 block('minecraft:grass_block'))),
             cond(UNDER_FLOOR, cond(not_(STEEP), block('minecraft:dirt'))))),
-        cond(biome_is('prismatic_peaks'), seq(
+        # Dolomite: pale rock through and through, pasture on the gentler ground below the scree, snow above.
+        cond(biome_is('dolomite_peaks'), seq(
             cond(ON_FLOOR, seq(
-                cond(noise(0.0, 0.35), block('minecraft:snow_block')),
-                cond(noise(-0.35, -0.15), block('minecraft:packed_ice')),
-                block('minecraft:calcite'))),
-            cond(UNDER_FLOOR, block('minecraft:calcite')))),
-        cond(biome_is('frostbloom_tundra'), cond(ON_FLOOR, cond(noise(0.15, 10.0), block('minecraft:snow_block')))),
+                cond(y_above(260), cond(noise(-0.1, 10.0), block('minecraft:snow_block'))),
+                cond(STEEP, cond(noise(-0.25, 0.1), block('minecraft:calcite'))),
+                cond(STEEP, block(e('limestone'))),
+                cond(y_above(215), cond(noise(-0.3, 0.3), block('minecraft:gravel'))),
+                cond(y_above(235), block(e('limestone'))),
+                block('minecraft:grass_block'))),
+            cond(UNDER_FLOOR, seq(cond(STEEP, block(e('limestone'))), block('minecraft:dirt'))),
+            cond(y_above(16), block(e('limestone'))))),
+        # snow lying late in the hollows, and frost boils of bare earth
+        cond(biome_is('lichen_tundra'), cond(ON_FLOOR, seq(
+            cond(noise(0.4, 10.0), block('minecraft:snow_block')),
+            cond(noise(-0.55, -0.4), block('minecraft:coarse_dirt'))))),
         cond(biome_is('heather_moor'), cond(ON_FLOOR, seq(
             cond(noise(0.35, 0.6), block('minecraft:coarse_dirt')),
             cond(noise(-0.6, -0.4), block('minecraft:podzol'))))),
         cond(biome_is('redwood_giants'), cond(ON_FLOOR, seq(
             cond(noise(0.15, 10.0), block('minecraft:podzol')),
             cond(noise(-0.95, -0.6), block('minecraft:coarse_dirt'))))),
-        cond(biome_is('lumen_grove', 'cloud_forest'), cond(ON_FLOOR, cond(noise(0.3, 10.0), block('minecraft:moss_block')))),
+        cond(biome_is('ancient_oakwood', 'cloud_forest'), cond(ON_FLOOR, cond(noise(0.3, 10.0), block('minecraft:moss_block')))),
+        cond(biome_is('ancient_oakwood'), cond(ON_FLOOR, cond(noise(-0.9, -0.6), block('minecraft:podzol')))),
         cond(biome_is('amber_steppe'), cond(ON_FLOOR, cond(noise(0.45, 10.0), block('minecraft:coarse_dirt')))),
         cond(biome_is('willow_bayou'), cond(ON_FLOOR, seq(
             # Like a swamp: puddles of standing water at sea level, mud at the margins.
@@ -887,7 +995,7 @@ def build_realm_biomes(jar):
 
 def build_biome_tags(jar):
     """Each biome joins every biome tag its analog is in, so villages, temples, mineshafts, mob variants
-    and the rest treat a Wisteria Vale like the forest it grew from."""
+    and the rest treat a Woodland Glades like the forest it grew from."""
     tags = {}
     for path in jar.namelist():
         if not path.startswith('data/minecraft/tags/worldgen/biome/') or not path.endswith('.json'):
@@ -909,7 +1017,7 @@ def build_biome_tags(jar):
     # these have villages of their own (expanse:village_moor, _steppe, _tundra), not their analog's
     drop('has_structure/village_plains', 'heather_moor')
     drop('has_structure/village_savanna', 'amber_steppe')
-    drop('has_structure/village_snowy', 'frostbloom_tundra')
+    drop('has_structure/village_snowy', 'lichen_tundra')
     DEEP.tags(THIS, tags)  # (caverns) the caves between the realms
     for tag, values in sorted(tags.items()):
         data(f'minecraft/tags/worldgen/biome/{tag}.json', {'replace': False, 'values': sorted(set(values))})
@@ -930,8 +1038,11 @@ def build_earth(jar):
       and the climate the biome source reads (continentalness, erosion, ridges) come from the terrain
       model through expanse:terrain density functions; caves, aquifers, ore veins and surface rules
       are vanilla's, pointed at the new terrain where they read it.
-    * The overworld is 448 tall (y -64 to 383), for mountain ranges that need the room.
+    * The overworld is 704 tall (y -64 to 639): the great ranges stand 500 blocks and more over the sea, seen from
+      the far view across the country in front of them.
     """
+    TOP = 640                          # the build limit (exclusive); y -64 to 639
+    HEIGHT = TOP + 64
     out = lambda rel, obj: write(os.path.join(EARTH, 'data', rel), obj)
     vdf = lambda name: json.loads(jar.read(f'data/minecraft/worldgen/density_function/overworld/{name}.json'))
     D = f'{NS}:earth'
@@ -939,7 +1050,7 @@ def build_earth(jar):
     terrain = lambda output: {'type': f'{NS}:terrain', 'output': output}
     df = lambda name, obj: out(f'{NS}/worldgen/density_function/earth/{name}.json', obj)
     gradient_y = lambda at_bottom, at_top: {'type': 'minecraft:gradient', 'axis': 'y', 'from_coordinate': -64, 'from_value': at_bottom,
-                                            'to_coordinate': 384, 'to_value': at_top}
+                                            'to_coordinate': TOP, 'to_value': at_top}
 
     # The model's outputs, each cached per column (they are two-dimensional).
     for name in ['height', 'continents', 'erosion', 'ridges']:
@@ -950,19 +1061,19 @@ def build_earth(jar):
         df(name, {'type': 'minecraft:cache', 'input': terrain(name)})
     # depth = (ground height - y) / 128: zero at the surface, as vanilla's depth is.
     df('depth', {'type': 'minecraft:add', 'left': {'type': 'minecraft:mul', 'left': ref('height'), 'right': 1 / 128},
-                 'right': gradient_y(64 / 128, -384 / 128)})
+                 'right': gradient_y(64 / 128, -TOP / 128)})
     # The terrain density, in place of vanilla's "sloped_cheese": (ground height - y) / 25, so it passes
     # vanilla's cave thresholds at the depths vanilla's does, plus a little 3D noise for texture and the
     # odd overhang on steep ground.
     df('terrain', {'type': 'minecraft:add',
                    'left': {'type': 'minecraft:add', 'left': {'type': 'minecraft:mul', 'left': ref('height'), 'right': 0.04},
-                            'right': gradient_y(64 * 0.04, -384 * 0.04)},
+                            'right': gradient_y(64 * 0.04, -TOP * 0.04)},
                    'right': {'type': 'minecraft:mul', 'left': 'minecraft:overworld/base_3d_noise', 'right': 0.15}})
     # Vanilla's final density (caves, entrances, noodles, pillars) round the new terrain; its top slide,
     # which flattens anything near the old ceiling, moved up to the new one.
     final = json.dumps(vdf('final_density'))
     final = final.replace('"minecraft:overworld/sloped_cheese"', json.dumps(ref('terrain')))
-    final = final.replace('"from_coordinate": 240', '"from_coordinate": 368').replace('"to_coordinate": 256', '"to_coordinate": 384')
+    final = final.replace('"from_coordinate": 240', f'"from_coordinate": {TOP - 16}').replace('"to_coordinate": 256', f'"to_coordinate": {TOP}')
     final = json.loads(final)
 
     # ---- (caverns) The underground is the Expanse's own (world/terrain/CavernModel.java): none of vanilla's
@@ -1009,7 +1120,7 @@ def build_earth(jar):
     df('chunk_surface_level', {'type': 'minecraft:interpolated', 'cell_size_xz': 16, 'cell_size_y': 1, 'input': ref('preliminary_surface_level')})
 
     ns = json.loads(jar.read('data/minecraft/worldgen/noise_settings/overworld.json'))
-    ns['noise']['height'] = 448
+    ns['noise']['height'] = HEIGHT
     ns['noise_router'] = {k: ref(k) for k in ['temperature', 'vegetation', 'continents', 'erosion', 'depth', 'ridges',
                                                'chunk_surface_level', 'final_density']}
     swap = lambda obj: json.loads(json.dumps(obj).replace('"minecraft:overworld/erosion"', json.dumps(ref('erosion')))
@@ -1035,9 +1146,21 @@ def build_earth(jar):
     out('minecraft/worldgen/world_preset/normal.json', preset)
 
     dim = json.loads(jar.read('data/minecraft/dimension_type/overworld.json'))
-    dim['height'] = 448
-    dim['logical_height'] = 448
+    dim['height'] = HEIGHT
+    dim['logical_height'] = HEIGHT
     out('minecraft/dimension_type/overworld.json', dim)
+
+    # Lava springs: vanilla's twenty a chunk, biased low but spread over the whole (here 704-tall) column, would pour
+    # out of every cavern wall and river tunnel. In the Earth's caves lava belongs to the deep: a few springs a chunk,
+    # down where the fire realms and the lava passages are.
+    out('minecraft/worldgen/placed_feature/spring_lava.json', SPRING_LAVA)
+
+    def read_placed(name):
+        own = os.path.join(RES, 'data', 'minecraft', 'worldgen', 'placed_feature', name + '.json')
+        if os.path.exists(own):
+            return json.load(open(own))
+        return json.loads(jar.read(f'data/minecraft/worldgen/placed_feature/{name}.json'))
+    clear_vanilla_trees(out, read_placed)
 
     write(os.path.join(EARTH, 'pack.mcmeta'), {'pack': {
         'description': 'VOID Expanse: Earth — tectonic plates, eroded mountain ranges, rivers that run to the sea',
@@ -1058,7 +1181,7 @@ def build_advancements():
     data(f'{NS}/advancement/expanse/root.json', {
         'criteria': {b: visit(b) for b in every}, 'requirements': [every],
         'display': {'title': {'translate': 'advancements.expanse.root.title'}, 'description': {'translate': 'advancements.expanse.root.description'},
-                    'icon': {'id': e('wisteria_sapling')}, 'background': 'minecraft:gui/advancements/backgrounds/adventure',
+                    'icon': {'id': 'minecraft:oak_sapling'}, 'background': 'minecraft:gui/advancements/backgrounds/adventure',
                     'announce_to_chat': False, 'show_toast': True}})
     data(f'{NS}/advancement/expanse/wanderer.json', {
         'parent': e('expanse/root'),
@@ -1097,6 +1220,8 @@ def main():
     shutil.rmtree(EARTH, ignore_errors=True)
 
     build_features(jar)
+    TREES.features(THIS, jar)  # the natural oaks and birches, in vanilla's tree mixes too (tools/worldgen_trees.py)
+    FOLIAGE.features(THIS)  # the understory: shrubs, ground layers, hedgerows (tools/worldgen_foliage.py)
     LANDFORMS.features(THIS)
     COLD.features(THIS, jar)  # cold & temperate biomes (tools/worldgen_cold.py)
     WARM.features(THIS, jar)  # warm & dry biomes (tools/worldgen_warm.py)
@@ -1122,4 +1247,6 @@ if __name__ == '__main__':
     import worldgen_deep as DEEP  # noqa: E402  (caverns) the biomes of the world underground
     import worldgen_cold as COLD  # noqa: E402  the cold & temperate biomes (maples, aspens, larches, muskeg, ...)
     import worldgen_warm as WARM  # noqa: E402  the warm & dry biomes (olives, teak, ghost gums, saguaros, kapoks, coral)
+    import worldgen_trees as TREES  # noqa: E402  the natural oaks and birches that stand in for vanilla's
+    import worldgen_foliage as FOLIAGE  # noqa: E402  the understory, in every biome
     main()

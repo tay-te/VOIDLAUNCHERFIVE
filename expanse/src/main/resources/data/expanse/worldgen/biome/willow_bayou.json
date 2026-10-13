@@ -130,14 +130,13 @@
       },
       "modifier": "overlay"
     },
-    "minecraft:visual/sky_color": "#8db4a8",
+    "minecraft:visual/sky_color": "#9cb4c4",
     "minecraft:visual/water_fog_color": "#3a6650",
     "minecraft:visual/water_fog_end_distance": {
       "argument": 0.85,
       "modifier": "multiply"
     },
     "minecraft:visual/fog_color": "#a7c2a2",
-    "minecraft:visual/fog_end_distance": 120.0,
     "minecraft:visual/ambient_particles": {
       "argument": [
         {
@@ -234,7 +233,8 @@
       "expanse:bayou_lily_pads",
       "expanse:bayou_fireflies",
       "expanse:bayou_undergrowth",
-      "expanse:river_wet_bank"
+      "expanse:river_wet_bank",
+      "expanse:kcd_woodland_floor"
     ],
     [
       "minecraft:freeze_top_layer"

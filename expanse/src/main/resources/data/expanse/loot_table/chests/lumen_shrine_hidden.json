@@ -138,8 +138,8 @@
               "type": "minecraft:set_written_book_pages",
               "mode": "replace_all",
               "pages": [
-                "The lumen trees drink moonlight and give it back as a glow. The prismite under their roots does the same with heat. I built my still beside the old shrine to study both.",
-                "Glowcap tincture: one cap, one bottle of water, a pinch of prismite. Night-sight for an hour, bad dreams for a week. My best work is kept behind the vines.",
+                "The oaks down here were old when the chapel was built, though how they grew without the sun I cannot say, and the chapel is very old. Their fungus and their moss are my trade. I built my still beside the ruin to be near both.",
+                "Bracket tincture: one shelf of fungus, one bottle of water, a pinch of salt. Night-sight for an hour, bad dreams for a week. My best work is kept behind the vines.",
                 "The shrine was a ruin when I came. Whoever raised the spire wanted to be seen from very far away. I think they were afraid of the dark."
               ]
             },
@@ -147,7 +147,7 @@
               "type": "minecraft:set_book_cover",
               "author": "Alchemist Vey",
               "generation": 2,
-              "title": "Notes on Luminous Wood"
+              "title": "Notes from the Old Wood"
             }
           ],
           "name": "minecraft:written_book",

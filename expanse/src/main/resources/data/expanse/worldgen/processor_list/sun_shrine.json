@@ -5,36 +5,36 @@
       "rules": [
         {
           "input_predicate": {
-            "block": "expanse:smooth_opal_sandstone",
+            "block": "minecraft:smooth_red_sandstone",
             "predicate_type": "minecraft:random_block_match",
             "probability": 0.1
           },
           "location_predicate": {
             "predicate_type": "minecraft:always_true"
           },
-          "output_state": "expanse:opal_sandstone"
+          "output_state": "minecraft:red_sandstone"
         },
         {
           "input_predicate": {
-            "block": "expanse:cut_opal_sandstone",
+            "block": "minecraft:cut_red_sandstone",
             "predicate_type": "minecraft:random_block_match",
             "probability": 0.06
           },
           "location_predicate": {
             "predicate_type": "minecraft:always_true"
           },
-          "output_state": "expanse:opal_sandstone"
+          "output_state": "minecraft:red_sandstone"
         },
         {
           "input_predicate": {
-            "block": "expanse:chiseled_opal_sandstone",
+            "block": "minecraft:chiseled_red_sandstone",
             "predicate_type": "minecraft:random_block_match",
             "probability": 0.05
           },
           "location_predicate": {
             "predicate_type": "minecraft:always_true"
           },
-          "output_state": "expanse:cut_opal_sandstone"
+          "output_state": "minecraft:cut_red_sandstone"
         },
         {
           "input_predicate": {
@@ -45,18 +45,18 @@
           "location_predicate": {
             "predicate_type": "minecraft:always_true"
           },
-          "output_state": "expanse:smooth_opal_sandstone"
+          "output_state": "minecraft:smooth_red_sandstone"
         },
         {
           "input_predicate": {
-            "block": "minecraft:light_blue_terracotta",
+            "block": "minecraft:white_terracotta",
             "predicate_type": "minecraft:random_block_match",
             "probability": 0.08
           },
           "location_predicate": {
             "predicate_type": "minecraft:always_true"
           },
-          "output_state": "expanse:smooth_opal_sandstone"
+          "output_state": "minecraft:smooth_red_sandstone"
         },
         {
           "input_predicate": {

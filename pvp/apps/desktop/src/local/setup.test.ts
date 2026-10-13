@@ -85,7 +85,7 @@ describe('presets', () => {
 
 describe('the mod-setup sub-route', () => {
   it('opens on the Mods screen and closes back to the grid', () => {
-    useUi.setState({ screen: 'play', modSetup: null });
+    useUi.setState({ screen: 'home', modSetup: null });
 
     useUi.getState().openModSetup('cps' as ModId);
     expect(useUi.getState().screen).toBe('mods');
@@ -98,7 +98,7 @@ describe('the mod-setup sub-route', () => {
 
   it('is dropped by any navigation, so coming back to Mods lands on the grid', () => {
     useUi.getState().openModSetup('zoom' as ModId);
-    useUi.getState().go('friends');
+    useUi.getState().go('store');
     expect(useUi.getState().modSetup).toBeNull();
   });
 });

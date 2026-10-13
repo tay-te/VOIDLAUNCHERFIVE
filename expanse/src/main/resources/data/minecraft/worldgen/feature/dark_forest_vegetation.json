@@ -1,0 +1,40 @@
+{
+  "type": "minecraft:random_selector",
+  "default": "expanse:natural/forest_oak/oak_leaf_litter",
+  "features": [
+    {
+      "chance": 0.025,
+      "feature": {
+        "feature": "minecraft:huge_brown_mushroom",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.05,
+      "feature": {
+        "feature": "minecraft:huge_red_mushroom",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.6666667,
+      "feature": "expanse:natural/dark_wood/dark_oak_leaf_litter"
+    },
+    {
+      "chance": 0.0025,
+      "feature": "minecraft:fallen_birch_tree"
+    },
+    {
+      "chance": 0.2,
+      "feature": "expanse:natural/birch/birch_leaf_litter"
+    },
+    {
+      "chance": 0.0125,
+      "feature": "minecraft:fallen_oak_tree"
+    },
+    {
+      "chance": 0.1,
+      "feature": "expanse:natural/big_oak/fancy_oak_leaf_litter"
+    }
+  ]
+}

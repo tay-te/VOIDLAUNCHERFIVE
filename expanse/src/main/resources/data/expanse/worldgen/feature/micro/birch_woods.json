@@ -12,6 +12,14 @@
       "weight": 5
     },
     {
+      "data": "expanse:micro/log_birch",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/snag_birch",
+      "weight": 2
+    },
+    {
       "data": "expanse:micro/mossy_rocks",
       "weight": 2
     },

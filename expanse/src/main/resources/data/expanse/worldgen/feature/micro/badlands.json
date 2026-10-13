@@ -35,6 +35,14 @@
     {
       "data": "expanse:micro/bones",
       "weight": 2
+    },
+    {
+      "data": "expanse:micro/hoodoo",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/rockfall_canyon",
+      "weight": 1
     }
   ]
 }

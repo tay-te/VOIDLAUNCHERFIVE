@@ -31,8 +31,6 @@ import mods from '../../../../design/screens/Launcher-Mods.png?url';
 import play from '../../../../design/screens/Launcher-Play.png?url';
 import servers from '../../../../design/screens/Launcher-Servers.png?url';
 
-import type { Screen } from '../stores/ui';
-
 /**
  * `?no-backdrop` turns them off again, which is how the visual-QA pass scores the
  * launcher as it actually ships — gradient placeholder and all — against the same
@@ -43,7 +41,7 @@ const off =
   typeof location !== 'undefined' && new URLSearchParams(location.search).has('no-backdrop');
 
 /** The frame each screen sits on, or `{}` in a real build. */
-export const BACKDROPS: Partial<Record<Screen, string>> = off
+export const BACKDROPS: Partial<Record<string, string>> = off
   ? {}
   : {
       play,

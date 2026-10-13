@@ -1,4 +1,4 @@
-"""Pilgrim places of the cloud forest.
+"""Pilgrim places of the cloud forest, the tepuis, the jungles and the monsoon and kapok forests.
 
 start pool (3 variants)
   spur  : a mossy rock spur climbed by steps cut into its side, a tiny roofed shrine
@@ -17,11 +17,14 @@ from blocks import AIR, B
 from builder import Build, slab, stairs
 from common import vines_on
 from pieces import Piece
+from regions import mc
 from small_data import BOOKS, data_for
 from smallkit import book, flag_pole, flora, ground_item, pick, ring, trail
 
 NAME = "pilgrim_shrine"
-STRUCTURE = dict(biomes=["cloud_forest"], size=1, max_distance=32, set="biome_sights", max_relief=20)
+STRUCTURE = dict(biomes=["cloud_forest", "tepui", "monsoon_forest", "kapok_rainforest",
+                         *mc("jungle", "sparse_jungle", "bamboo_jungle")],
+                 size=1, max_distance=32, set="biome_sights", max_relief=20)
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"
 ROCK = [("stone", 4), ("mossy_cobblestone", 3), ("andesite", 2), ("cobblestone", 1), ("moss_block", 1)]

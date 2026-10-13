@@ -1,4 +1,5 @@
-"""Summit cairns of the high country (verdant peaks, prismatic peaks, frostbloom tundra).
+"""Summit cairns of the high country (the Expanse and vanilla peaks, snowy slopes, meadows, windswept
+hills, fjordlands, volcanoes and the frostbloom tundra).
 
 start pool (3 variants)
   prayer   : a tall cairn with a flag pole, strings of prayer flags round it on four
@@ -14,11 +15,14 @@ import math
 from blocks import B
 from builder import Build, item, slab, stairs
 from pieces import Piece
+from regions import mc
 from small_data import BOOKS, data_for
 from smallkit import book, clear, flora, ground_item, pick, ring, snow_cap, trail
 
 NAME = "summit_cairn"
-STRUCTURE = dict(biomes=["verdant_peaks", "prismatic_peaks", "frostbloom_tundra"], size=1, max_distance=32,
+STRUCTURE = dict(biomes=["verdant_peaks", "dolomite_peaks", "lichen_tundra", "fjordlands", "volcanic_highlands",
+                         *mc("stony_peaks", "jagged_peaks", "frozen_peaks", "snowy_slopes", "grove", "meadow",
+                             "windswept_hills", "windswept_gravelly_hills")], size=1, max_distance=32,
                  set="wayside", weight=2, max_relief=20)
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"

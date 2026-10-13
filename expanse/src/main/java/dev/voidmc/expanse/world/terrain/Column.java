@@ -26,6 +26,12 @@ public final class Column {
 	/** The surface of the lake or lava lying in a crater over this column (very low if none), and which it is. */
 	public float crater;
 	public boolean craterLava;
+	/**
+	 * A lake over this column or on its shore: the y of its top water block (very low if none), and how far
+	 * inside its shoreline the column is (negative on the shore round it, where the land holds the water in).
+	 */
+	public float lake;
+	public float lakeEdge;
 	/** In a fjord below sea level: the sea fills it, not the river. */
 	public boolean fjord;
 	/** Diagnostics: distance from the coast (positive inland), uplift, height above the nearest river. */
@@ -35,6 +41,25 @@ public final class Column {
 	public int plateX;
 	public int plateZ;
 	public boolean continental;
+	/** The country the column lies in (Countries: 0 none, 1 heartland, 2 rock city, 3 volcanic hills, 4 lake district,
+	 * 5 gorges, 6 old forest), and how strongly (1 well inside, 0 at a border with another kind). */
+	public int country;
+	public float countryStrength;
+	/** The rock under its soil: 0 stone, 1 sandstone, 2 limestone, 3 basalt (laid by the chunk generator). */
+	public int rock;
+	/**
+	 * A place a builder would pick (for VOID Hearth's castles): {@link #SITE_HILLTOP} on the level top of a lone
+	 * volcanic hill, {@link #SITE_RIM} along the top of an escarpment's edge, else {@link #SITE_NONE}.
+	 */
+	public int site;
+	public static final int SITE_NONE = 0;
+	public static final int SITE_HILLTOP = 1;
+	public static final int SITE_RIM = 2;
+
+	/** Whether standing water (a crater's or a lake's) lies over the column, or within {@code margin} blocks of its shore. */
+	public boolean underWater(float margin) {
+		return this.crater > this.height - margin || this.lake > -900 && this.lakeEdge > -margin;
+	}
 
 	public boolean nearRiver() {
 		return !Float.isNaN(this.riverWater);

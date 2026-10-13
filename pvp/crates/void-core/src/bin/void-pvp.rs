@@ -83,6 +83,10 @@ struct LaunchArgs {
     /// Launch from a previous `prepare` without touching the network.
     #[arg(long)]
     skip_prepare: bool,
+    /// Join this server (`host` or `host:port`) once the game is up, instead of stopping
+    /// at the title screen.
+    #[arg(long, value_name = "HOST[:PORT]")]
+    server: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -356,6 +360,7 @@ async fn do_launch(
         bridge_port: server.port(),
         bridge_token: server.token().to_string(),
         mod_jar: args.mod_jar.or_else(|| config.mod_jar.clone()),
+        join_server: args.server.clone(),
     };
 
     let mut game = launch::launch(&profile, paths, &options).await?;

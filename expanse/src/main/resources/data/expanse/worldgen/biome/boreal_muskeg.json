@@ -142,7 +142,6 @@
       "argument": 0.6,
       "modifier": "multiply"
     },
-    "minecraft:visual/fog_end_distance": 150.0,
     "minecraft:audio/background_music": {
       "default": {
         "max_delay": 24000,
@@ -226,6 +225,7 @@
       "expanse:river_reeds_temperate",
       "expanse:river_wet_bank",
       "expanse:river_seagrass",
+      "expanse:kcd_conifer_floor",
       "expanse:muskeg_trees",
       "expanse:muskeg_snags",
       "expanse:muskeg_cotton_grass",

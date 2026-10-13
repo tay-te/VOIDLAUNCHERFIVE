@@ -16,6 +16,46 @@ palette). Renderer limits: `pvp/design/ultralight-notes.md`, enforced by
 
 ---
 
+## The Right-Shift menu — final shell (v1.1)
+
+Figma `3c0Wgc4ZKFSpm98fWJoARS`, page "★ v1.1 · Iterations": the lobby is `261:50520` "In game ·
+Mods · final header (tabs + search icon)" (section "★ In-game · Final shell + original centred mod
+cards"); a match is `229:47020` "Floating · D · In match (quick panel only)". Exports are in
+`design/screens/v1-1-ingame/`. Rule 9 of v1 Ship still holds: **the full menu only in the lobby;
+in a live match, a quick panel only — no dim, closed by the first hit taken.**
+
+| | Lobby (`context: 'lobby'`) | Match (`context: 'match'`) |
+|---|---|---|
+| top-left | VOID mark island | VOID mark island |
+| top-centre | tabs island: **Mods · Friends · Cosmetics**, `Tab` walks them | the quick panel: eight numbered toggles, `1`–`8` flip them |
+| top-right | close island: ✕ + the menu key | same |
+| centre | **the Mods panel** (987 × 630): category tabs with counts, a search button (`/`), and the *original cards* — `ModsScreen`'s own `Tile`, live previews and all — five across at 175 × 223 | — |
+| bottom | lobby strip: where you are · **HUD layout** | — |
+| world | dimmed (`.menu-layer__dim`) | untouched |
+| ⌘K palette | yes | no |
+
+`src/menu/IslandMenu.tsx` is all of it, `src/styles/islands.css` the styles (flexbox and absolute
+positioning only; flat — no gradients or shadows, per the settled UI rules). In the panel the
+arrows walk the tiles, `Space` toggles, `Enter` (or the tile body) opens the mod's page, and the
+tile's switch toggles in place — the tile's own contract. **Friends and Cosmetics** have tabs but
+the bridge carries no friend, presence or cosmetic data, so they say "Not connected yet" rather
+than draw a roster the page cannot know. The quick panel's eight are the frame's own list
+(`QUICK_MODS`), because a loadout has no pins in the schema yet.
+
+**How "in a match" is decided.** The bridge has no lobby/match signal, and a per-network
+scoreboard heuristic would be a guess. What it does carry is `tick.hits` (monotonic dealt/taken
+counters), so a match is *being in a fight*: a hit either way within `COMBAT_WINDOW_MS` (12 s) of
+pressing Right Shift — on a server or in singleplayer (hit a mob, then Right Shift, to see it).
+Decided once, at open, so the layout never changes under the cursor. While the quick panel is up,
+the first hit taken calls `void.closeMenu()` — checked before the HUD hold in `applyTick`, which
+would otherwise swallow that tick.
+
+`store.back` remembers whether a page was opened from the panel or from the old full grid (route
+`{ name: 'grid' }`, still rendered by `ModsScreen` and covered by its tests), and Escape walks back
+to that.
+
+In the harness: `?debug` opens the lobby menu, `?debug&ctx=match` the quick panel.
+
 ## Architecture
 
 ```

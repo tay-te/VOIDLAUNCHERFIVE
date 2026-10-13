@@ -1,4 +1,4 @@
-"""Tea gardens of the wisteria vale.
+"""Tea gardens of the woodland glades, the cherry groves and the bamboo jungle.
 
 start pool (3 variants)
   pavilion : an open tea pavilion on a stone platform, hip roof hung with wisteria,
@@ -21,10 +21,12 @@ from small_data import BOOKS, data_for
 from smallkit import book, clear, flora, ground_item, hip_cap, pick, plant, ring, small_tree, stepping_stones, trail
 
 NAME = "tea_garden"
-STRUCTURE = dict(biomes=["wisteria_vale"], size=1, max_distance=32, set="biome_sights")
+STRUCTURE = dict(biomes=["woodland_glades", "minecraft:cherry_grove", "minecraft:bamboo_jungle"], size=1, max_distance=32,
+                 set="biome_sights")
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"
-W = "expanse:wisteria"
+W = "dark_oak"      # the pavilion's timber
+TREE = "oak"       # the garden trees the wisteria climbs
 GROUND = ["grass_block", "grass_block", "moss_block"]
 STONES = [("stone_bricks", 3), ("mossy_stone_bricks", 2), ("andesite", 1)]
 FLOWERS = ["allium", "pink_tulip", "azure_bluet", "lily_of_the_valley", "white_tulip"]
@@ -73,11 +75,11 @@ def pavilion():
         for y in (2, 3, 4):
             b.set(x, y, z, B(f"{W}_log", axis="y"))
     for x in range(x0 + 1, x1):
-        b.set(x, 5, z0 + 1, B(f"expanse:stripped_wisteria_log", axis="x"))
-        b.set(x, 5, z1 - 1, B(f"expanse:stripped_wisteria_log", axis="x"))
+        b.set(x, 5, z0 + 1, B("stripped_dark_oak_log", axis="x"))
+        b.set(x, 5, z1 - 1, B("stripped_dark_oak_log", axis="x"))
     for z in range(z0 + 2, z1 - 1):
-        b.set(x0 + 1, 5, z, B(f"expanse:stripped_wisteria_log", axis="z"))
-        b.set(x1 - 1, 5, z, B(f"expanse:stripped_wisteria_log", axis="z"))
+        b.set(x0 + 1, 5, z, B("stripped_dark_oak_log", axis="z"))
+        b.set(x1 - 1, 5, z, B("stripped_dark_oak_log", axis="z"))
     hip_cap(b, x0, z0, x1, z1, 6, "dark_oak", cap=B("dark_oak_planks"), upturn=True)
     b.set(6, 10, 6, B("lantern"))                     # finial
     for x in range(x0, x1 + 1):
@@ -89,7 +91,7 @@ def pavilion():
             if rng.random() < 0.45 and b.get(x, 5, z) is None:
                 b.hang_moss(x, 5, z, rng.randint(1, 3), block=BLOSSOM)
     for x in range(x0 + 1, x1):                       # cross-beam carrying the lamp chain
-        b.set(x, 6, 6, B("expanse:stripped_wisteria_log", axis="x"))
+        b.set(x, 6, 6, B("stripped_dark_oak_log", axis="x"))
     b.set(6, 4, 6, B("lantern", hanging=True))
     b.set(6, 5, 6, B("iron_chain", axis="y"))
     # the tea table and its things, cushions round it, the host's cushion over the floor hatch
@@ -111,7 +113,7 @@ def pavilion():
     stone_lantern(b, 9, 13)
     stepping_stones(b, [(6, 11), (6, 12), (7, 13), (7, 14), (8, 15)], rng,
                     [("stone_bricks", 1), ("andesite", 1), ("mossy_stone_bricks", 1)], every=1)
-    small_tree(b, 13, 4, rng, f"{W}_log", f"{W}_leaves", h=4, lean="west", r=2.4, blossoms=BLOSSOM)
+    small_tree(b, 13, 4, rng, f"{TREE}_log", f"{TREE}_leaves", h=4, lean="west", r=2.4, blossoms=BLOSSOM)
     for (x, z) in ((2, 11), (1, 6), (11, 9), (12, 8)):
         plant(b, x, 1, z, rng.choice(FLOWERS), "grass_block")
     flora(b, [(x, z) for x in range(16) for z in range(16) if not (x0 <= x <= x1 and z0 <= z <= z1)], rng, 0.18,
@@ -151,10 +153,10 @@ def moongate():
             side = rng.choice([-1, 1])
             h = 6 if 4 <= x <= 10 else 5                # under the coping stair of this stretch
             if rng.random() < 0.6:
-                b.set(x, h + 2, wz + side, B(f"{W}_leaves", persistent=True, distance=1))
+                b.set(x, h + 2, wz + side, B(f"{TREE}_leaves", persistent=True, distance=1))
             if b.get(x, h, wz + side) is None:
                 b.hang_moss(x, h, wz + side, rng.randint(1, 3), block=BLOSSOM)
-    small_tree(b, 12, 8, rng, f"{W}_log", f"{W}_leaves", h=4, lean="west", r=2.0, blossoms=BLOSSOM)
+    small_tree(b, 12, 8, rng, f"{TREE}_log", f"{TREE}_leaves", h=4, lean="west", r=2.0, blossoms=BLOSSOM)
     # front (south): path through the gate, potted bonsai either side, stone lantern, bench
     trail(b, [(gx, wz + 1), (gx, 8), (gx + 1, 10)], rng, [("gravel", 2), ("stone_bricks", 1), ("andesite", 1)],
           width=2, fade=0.6)
@@ -236,7 +238,7 @@ def bridge():
     b.item_frame(1, 1, 11, "south", item("fishing_rod"))
     ground_item(b, 2, 1, 11, item("cod"), 1)
     ground_item(b, 4, 1, 11, book(BOOKS[f"{NAME}_bridge"]), rotation=2)
-    small_tree(b, 12, 11, rng, f"{W}_log", f"{W}_leaves", h=4, lean="north", r=2.2, blossoms=BLOSSOM)
+    small_tree(b, 12, 11, rng, f"{TREE}_log", f"{TREE}_leaves", h=4, lean="north", r=2.2, blossoms=BLOSSOM)
     for (x, z) in reeds:
         if b.get(x, 1, z) is None and b.get(x, 2, z) is None:
             b.set(x, 0, z, B("mud"))

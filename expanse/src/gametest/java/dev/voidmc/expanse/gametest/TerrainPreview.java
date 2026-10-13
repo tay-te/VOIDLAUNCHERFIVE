@@ -18,6 +18,9 @@ import javax.imageio.ImageIO;
  */
 public final class TerrainPreview {
 	private static final boolean BORDERS = Boolean.getBoolean("expanse.preview.borders");
+	private static final boolean COUNTRIES = Boolean.getBoolean("expanse.preview.countries");
+	private static final boolean WOODS = Boolean.getBoolean("expanse.preview.woods");
+	private static final boolean CLIMATE = Boolean.getBoolean("expanse.preview.climate");
 
 	public static void main(String[] args) throws Exception {
 		long seed = Long.parseLong(args[0]);
@@ -32,7 +35,7 @@ public final class TerrainPreview {
 			// a vertical section along x at z = cz, y -64 to 256 (one pixel a block, scaled by step across):
 			// sky, land, deepslate below y 0, open space dark, lakes blue, lava orange
 			int width = 2 * radius / step;
-			int top = 256;
+			int top = Integer.getInteger("expanse.preview.top", 256);
 			int bottom = -64;
 			BufferedImage img = new BufferedImage(width, top - bottom, BufferedImage.TYPE_INT_RGB);
 			var caverns = model.caverns();
@@ -62,6 +65,531 @@ public final class TerrainPreview {
 			});
 			ImageIO.write(img, "png", out);
 			System.out.printf("side section at z=%d, x %d..%d -> %s%n", cz, cx - radius, cx + radius, out);
+			return;
+		}
+		if (slice.equals("riversights")) {
+			// (-Pslice=riversights) the bridges and landings on the river tunnels in the square
+			var rs = model.caverns().riverSights();
+			int cell = dev.voidmc.expanse.world.terrain.RiverSights.CELL;
+			int bridges = 0;
+			int landings = 0;
+			for (int gx = Math.floorDiv(cx - radius, cell); gx <= Math.floorDiv(cx + radius, cell); gx++) {
+				for (int gz = Math.floorDiv(cz - radius, cell); gz <= Math.floorDiv(cz + radius, cell); gz++) {
+					var s = rs.sight(gx, gz);
+					if (s.exists()) {
+						if (s.bridge()) {
+							bridges++;
+						} else {
+							landings++;
+						}
+						if (bridges + landings <= 12) {
+							System.out.printf("%s at %d,%d water %d half %d across %s side %d%n", s.bridge() ? "bridge" : "landing", s.x(), s.z(), s.water(),
+								s.half(), s.acrossX() ? "x" : "z", s.side());
+						}
+					}
+				}
+			}
+			System.out.printf("%d bridges, %d landings%n", bridges, landings);
+			return;
+		}
+		if (slice.equals("realmviews")) {
+			// (-Pslice=realmviews) for each realm character, the biggest realm in the square and a viewpoint in it: half way
+			// out from the centre, a little under half way up, looking back across it (name:x,y,z,yaw,pitch for the tours)
+			var cav = model.caverns();
+			String[] names = {"wilds", "lush", "dripstone", "crystal", "ember", "mere", "frozen", "roots", "fossil", "tidal", "amber", "brimstone"};
+			var best = new dev.voidmc.expanse.world.terrain.CavernModel.Hall[names.length];
+			int cell = 640;
+			for (int hx = Math.floorDiv(cx - radius, cell); hx <= Math.floorDiv(cx + radius, cell); hx++) {
+				for (int hz = Math.floorDiv(cz - radius, cell); hz <= Math.floorDiv(cz + radius, cell); hz++) {
+					var hall = cav.hall(hx, hz);
+					if (!hall.exists() || cav.info(hall.x(), hall.z()).sea) {
+						continue;
+					}
+					if (best[hall.theme()] == null || hall.radius() > best[hall.theme()].radius()) {
+						best[hall.theme()] = hall;
+					}
+				}
+			}
+			StringBuilder views = new StringBuilder();
+			for (int t = 0; t < names.length; t++) {
+				var hall = best[t];
+				if (hall == null) {
+					continue;
+				}
+				// the viewpoint: try eight bearings for one over open floor with room under the vault
+				for (int k = 0; k < 8; k++) {
+					double a = k * Math.PI / 4;
+					int vx = hall.x() + (int) Math.round(0.5 * hall.radius() * Math.cos(a));
+					int vz = hall.z() + (int) Math.round(0.5 * hall.radius() * Math.sin(a));
+					var c = cav.info(vx, vz);
+					float floor = Math.max(c.floor, c.liquid());
+					if (!c.hall || c.roof - floor < 24) {
+						continue;
+					}
+					int vy = Math.round(floor + 0.3F * (c.roof - floor));
+					float yaw = (float) Math.toDegrees(Math.atan2(-(hall.x() - vx), hall.z() - vz));
+					System.out.printf("%s r %.0f at %d,%d floor %.0f roof %.0f%n", names[t], hall.radius(), hall.x(), hall.z(), c.floor, c.roof);
+					views.append(String.format("deep%s:%d,%d,%d,%.0f,8;", names[t], vx, vy, vz, (yaw + 360) % 360));
+					break;
+				}
+			}
+			System.out.println(views);
+			return;
+		}
+		if (slice.equals("samplebench")) {
+			// (-Pslice=samplebench) the cost of TerrainModel.sample with its plates built: four threads over fresh columns
+			int w = 1536;
+			IntStream.range(0, 4).parallel().forEach(t -> {
+				for (int i = 0; i < w; i += 16) {
+					for (int j = 0; j < w; j += 16) {
+						model.sample(cx + i + t * w, cz + j);
+					}
+				}
+			});
+			for (int round = 0; round < 3; round++) {
+				int off = round + 1;
+				long t0 = System.nanoTime();
+				IntStream.range(0, 4).parallel().forEach(t -> {
+					for (int i = 0; i < w; i += 2) {
+						for (int j = 0; j < w; j += 2) {
+							model.sample(cx + i + off + t * w, cz + j + off);
+						}
+					}
+				});
+				long ns = System.nanoTime() - t0;
+				System.out.printf("round %d: %.2f us a column (4 threads, %d columns)%n", round, ns / 1e3 / (4.0 * (w / 2) * (w / 2)) * 4, 4 * (w / 2) * (w / 2));
+			}
+			return;
+		}
+		if (slice.equals("mines")) {
+			// (-Pslice=mines) the great mines in the square: pithead, depth, levels, the realm they reach
+			var cav = model.caverns();
+			int cell = dev.voidmc.expanse.world.terrain.GreatMines.CELL;
+			int n = 0;
+			int cells = 0;
+			for (int mx = Math.floorDiv(cx - radius, cell); mx <= Math.floorDiv(cx + radius, cell); mx++) {
+				for (int mz = Math.floorDiv(cz - radius, cell); mz <= Math.floorDiv(cz + radius, cell); mz++) {
+					cells++;
+					var m = cav.mine(mx, mz);
+					if (!m.exists()) {
+						continue;
+					}
+					n++;
+					var g = m.great();
+					System.out.printf("mine at %d,%d ground %d bottom %d (%d deep), %d drifts, great drift %s%s %d long to %d,%d; realm %d,%d%n", m.x(), m.z(),
+						m.ground(), m.bottom(), m.ground() - m.bottom(), m.drifts().size(), g.sign() > 0 ? "+" : "-", g.alongX() ? "x" : "z", g.length(),
+						m.mouthX(), m.mouthZ(), m.realmX(), m.realmZ());
+					for (var d : m.drifts()) {
+						System.out.printf("    drift floor %d %s%s %d long%n", d.floor(), d.sign() > 0 ? "+" : "-", d.alongX() ? "x" : "z", d.length());
+					}
+				}
+			}
+			System.out.printf("%d mines in %d cells%n", n, cells);
+			return;
+		}
+		if (slice.equals("deep")) {
+			// (-Pslice=deep) where the buried seas and the great rivers are, with their water and vaults, for views
+			var cav = model.caverns();
+			int seas = 0;
+			int rivers = 0;
+			for (int x = cx - radius; x <= cx + radius && (seas < 4 || rivers < 4); x += step) {
+				for (int z = cz - radius; z <= cz + radius; z += step) {
+					var c = cav.info(x, z);
+					if (c.sea && c.hall && c.hallEdge > 250 && c.roof - c.lake > 40 && seas < 4) {
+						System.out.printf("sea at %d,%d water %.0f floor %.0f roof %.0f (centre %d,%d r %.0f)%n", x, z, c.lake, c.floor, c.roof, c.hallX, c.hallZ, c.hallRadius);
+						seas++;
+						x += 2000;
+						break;
+					}
+					if (c.river && c.riverGreat > 0.85F && c.riverDist < 2 && c.tunnelRoof - c.riverWater > 45 && rivers < 4) {
+						System.out.printf("great river at %d,%d water %.0f roof %.0f half width %.0f%n", x, z, c.riverWater, c.tunnelRoof, c.riverHalfWidth);
+						rivers++;
+						z += 1500;
+					}
+				}
+			}
+			return;
+		}
+		if (slice.equals("farcoast")) {
+			// (-Pslice=farcoast) does the far view call land and sea where the fine model does? Every `step` blocks in the
+			// square: the far view's ocean against the fine ground's, under a few rules, and how far the far land sits
+			// below the fine ground near the coast
+			TerrainModel.FarColumn far = new TerrainModel.FarColumn();
+			int land = 0;
+			int sea = 0;
+			int[] wrongSea = new int[4];
+			int[] wrongLand = new int[4];
+			double[] gap = new double[6];
+			int[] gapN = new int[6];
+			for (int x = cx - radius; x <= cx + radius; x += step) {
+				for (int z = cz - radius; z <= cz + radius; z += step) {
+					var c = model.sample(x, z);
+					boolean fineLand = c.height >= 64 && !c.underWater(0);
+					boolean fineSea = c.height < 62 && c.coast < 0;
+					if (!fineLand && !fineSea) {
+						continue;
+					}
+					model.sampleFar(x, z, far);
+					boolean[] ocean = {far.ocean, far.ocean && far.coast <= 0, far.coast < 0, far.coast < -64};
+					for (int r = 0; r < 4; r++) {
+						if (fineLand && ocean[r]) {
+							wrongSea[r]++;
+						}
+						if (fineSea && !ocean[r]) {
+							wrongLand[r]++;
+						}
+					}
+					if (fineLand) {
+						land++;
+						int bin = c.coast < 250 ? 0 : c.coast < 500 ? 1 : c.coast < 1000 ? 2 : c.coast < 2000 ? 3 : c.coast < 4000 ? 4 : 5;
+						gap[bin] += c.height - far.height;
+						gapN[bin]++;
+					} else {
+						sea++;
+					}
+				}
+			}
+			// candidate coastal lifts: h + a * (1 - smooth(coast / s)) inland, then ocean where the lifted height is under the sea
+			if (Boolean.getBoolean("expanse.preview.stats")) {
+				for (float amp : new float[]{8, 12, 16}) {
+					for (float scale : new float[]{600, 1200, 2000}) {
+						int ws = 0;
+						int wl = 0;
+						double g0 = 0;
+						double g1 = 0;
+						int n0 = 0;
+						int n1 = 0;
+						for (int x = cx - radius; x <= cx + radius; x += step) {
+							for (int z = cz - radius; z <= cz + radius; z += step) {
+								var c = model.sample(x, z);
+								boolean fineLand = c.height >= 64 && !c.underWater(0);
+								boolean fineSea = c.height < 62 && c.coast < 0;
+								if (!fineLand && !fineSea) {
+									continue;
+								}
+								model.sampleFar(x, z, far);
+								float t = Math.max(0, Math.min(1, far.coast / scale));
+								float h = far.coast > 0 ? far.height + amp * (1 - t * t * (3 - 2 * t)) : far.height;
+								boolean ocean = h < 63;
+								ws += fineLand && ocean ? 1 : 0;
+								wl += fineSea && !ocean ? 1 : 0;
+								if (fineLand && c.coast < 500) {
+									g0 += c.height - h;
+									n0++;
+								} else if (fineLand && c.coast < 2000) {
+									g1 += c.height - h;
+									n1++;
+								}
+							}
+						}
+						System.out.printf("  lift %2.0f over %4.0f: land called sea %4.1f%%, sea called land %4.1f%%, gap <500 %+5.1f, 500-2k %+5.1f%n", amp, scale,
+							100.0 * ws / land, 100.0 * wl / sea, g0 / n0, g1 / n1);
+					}
+				}
+			}
+			String[] rules = {"height < sea", "height < sea, coast <= 0", "coast < 0", "coast < -64"};
+			System.out.printf("%d land, %d sea points%n", land, sea);
+			for (int r = 0; r < 4; r++) {
+				System.out.printf("  %-26s land called sea %5.1f%%, sea called land %5.1f%%%n", rules[r], 100.0 * wrongSea[r] / land, 100.0 * wrongLand[r] / sea);
+			}
+			String[] bins = {"<250", "250-500", "500-1k", "1-2k", "2-4k", ">4k"};
+			for (int i = 0; i < 6; i++) {
+				if (gapN[i] > 0) {
+					System.out.printf("  coast %-8s fine - far %+6.1f (%d)%n", bins[i], gap[i] / gapN[i], gapN[i]);
+				}
+			}
+			return;
+		}
+		if (slice.equals("farpeaks")) {
+			// (-Pslice=farpeaks) how far each far cell's height (step = cell) sits under the fine ground's high points
+			// in it (90th percentile and highest of 8 x 8 samples), by the cell's uplift and its height over the sea
+			TerrainModel.FarColumn far = new TerrainModel.FarColumn();
+			int cells = 2 * radius / step;
+			double[][] sums = new double[8][5];
+			for (int j = 0; j < cells; j += 2) {
+				for (int i = 0; i < cells; i += 2) {
+					int x0 = cx - radius + i * step;
+					int z0 = cz - radius + j * step;
+					float[] hs = new float[64];
+					int k = 0;
+					double mean = 0;
+					for (int u = 0; u < 8; u++) {
+						for (int v = 0; v < 8; v++) {
+							hs[k] = Math.max(63, model.sample(x0 + u * step / 8 + step / 16, z0 + v * step / 8 + step / 16).height);
+							mean += hs[k++];
+						}
+					}
+					mean /= 64;
+					java.util.Arrays.sort(hs);
+					model.sampleFar(x0 + step / 2, z0 + step / 2, far);
+					if (far.height < 70) {
+						continue;
+					}
+					int bin = Math.min(7, Math.max(0, (int) ((far.uplift + 0.5F) / 0.5F)));
+					sums[bin][0]++;
+					sums[bin][1] += hs[57] - far.peak;
+					sums[bin][2] += hs[63] - far.height;
+					sums[bin][3] += mean - far.height;
+					sums[bin][4] += far.height - 63;
+				}
+			}
+			for (int bin = 0; bin < 8; bin++) {
+				double c = sums[bin][0];
+				if (c > 0) {
+					System.out.printf("uplift %4.1f-%4.1f: %4.0f cells, far %5.1f over sea, p90 %+6.1f, max %+6.1f, mean %+6.1f%n", bin * 0.5 - 0.5, bin * 0.5, c,
+						sums[bin][4] / c, sums[bin][1] / c, sums[bin][2] / c, sums[bin][3] / c);
+				}
+			}
+			return;
+		}
+		if (slice.equals("far")) {
+			// (-Pslice=far) the far view's coarse columns against the fine ones averaged over each cell (step = cell)
+			int cells = 2 * radius / step;
+			long t0 = System.nanoTime();
+			TerrainModel.FarColumn far = new TerrainModel.FarColumn();
+			for (int j = 0; j < cells; j++) {
+				for (int i = 0; i < cells; i++) {
+					model.sampleFar(cx - radius + i * step + step / 2, cz - radius + j * step + step / 2, far);
+				}
+			}
+			long cold = System.nanoTime() - t0;
+			t0 = System.nanoTime();
+			for (int j = 0; j < cells; j++) {
+				for (int i = 0; i < cells; i++) {
+					model.sampleFar(cx - radius + i * step + step / 2, cz - radius + j * step + step / 2, far);
+				}
+			}
+			long warm = System.nanoTime() - t0;
+			double sumAbs = 0;
+			double sumSigned = 0;
+			int over10 = 0;
+			int n = 0;
+			int biomeKey = 0;
+			for (int j = 0; j < cells; j += 2) {
+				for (int i = 0; i < cells; i += 2) {
+					int x0 = cx - radius + i * step;
+					int z0 = cz - radius + j * step;
+					double mean = 0;
+					int k = 0;
+					for (int u = 0; u < step; u += step / 8) {
+						for (int v = 0; v < step; v += step / 8) {
+							mean += Math.max(63, model.sample(x0 + u, z0 + v).height);
+							k++;
+						}
+					}
+					mean /= k;
+					model.sampleFar(x0 + step / 2, z0 + step / 2, far);
+					double diff = Math.max(63, far.height) - mean;
+					sumAbs += Math.abs(diff);
+					sumSigned += diff;
+					over10 += Math.abs(diff) > 10 ? 1 : 0;
+					n++;
+				}
+			}
+			System.out.printf("far: %d cells of %d: cold %.1f s, warm %.2f us/sample; vs fine mean: |diff| %.1f, bias %+.1f, %.0f%% over 10 blocks%n",
+				cells * cells, step, cold / 1e9, warm / 1e3 / (cells * cells), sumAbs / n, sumSigned / n, 100.0 * over10 / n);
+			return;
+		}
+		if (slice.equals("vistas")) {
+			// (-Pslice=vistas) for each country, an overlook well inside it in temperate country, and the way to look
+			// that shows most of it (the most relief and most of the country along the line of sight), as
+			// -Plod.show.at viewpoints for the VOID LOD showcase
+			String[] names = {"", "heart", "rock", "volc", "lakes", "gorge", "oldf"};
+			StringBuilder at = new StringBuilder();
+			for (int kind = 1; kind <= 6; kind++) {
+				double best = -1e9;
+				int bx = 0;
+				int bz = 0;
+				for (int x = cx - radius; x <= cx + radius; x += step) {
+					for (int z = cz - radius; z <= cz + radius; z += step) {
+						Column c = model.sample(x, z);
+						if (c.country != kind || c.countryStrength < 0.9F || c.height < 66 || c.temperature < (kind == 4 ? -0.9F : -0.35F) || c.temperature > 0.2F
+							|| c.humidity < (kind == 4 ? -0.5F : -0.15F) || c.nearRiver() && c.riverDist < c.riverHalfWidth + 8) {
+							continue;
+						}
+						float h = c.height;
+						float around = 0;
+						for (int k = 0; k < 8; k++) {
+							around += model.sample(x + (int) (300 * Math.cos(k * Math.PI / 4)), z + (int) (300 * Math.sin(k * Math.PI / 4))).height;
+						}
+						// a rise over the country round it, not a peak or the top of a tower
+						double score = Math.min(h - around / 8, 35) - 0.6 * Math.max(0, h - 150) - 0.002 * Math.hypot(x - cx, z - cz);
+						if (score > best) {
+							best = score;
+							bx = x;
+							bz = z;
+						}
+					}
+				}
+				if (best < -1e8) {
+					System.out.println("vista " + names[kind] + ": none found");
+					continue;
+				}
+				float ground = model.sample(bx, bz).height;
+				int yaw = 0;
+				double bestView = -1e9;
+				for (int y = 0; y < 360; y += 30) {
+					double dx = -Math.sin(Math.toRadians(y));
+					double dz = Math.cos(Math.toRadians(y));
+					double inside = 0;
+					float lo = Float.MAX_VALUE;
+					float hi = -Float.MAX_VALUE;
+					for (int d = 200; d <= 2600; d += 100) {
+						Column c = model.sample(bx + (int) (dx * d), bz + (int) (dz * d));
+						inside += c.country == kind ? c.countryStrength : 0;
+						lo = Math.min(lo, c.height);
+						hi = Math.max(hi, c.height);
+					}
+					double view = inside * 4 + Math.min(80, hi - lo);
+					if (view > bestView) {
+						bestView = view;
+						yaw = y;
+					}
+				}
+				int camY = Math.round(ground) + 60;   // over the tallest canopy (the redwoods)
+				System.out.printf("vista %s: %d,%d ground %.0f prominence %.0f yaw %d%n", names[kind], bx, bz, ground, best, yaw);
+				at.append(at.isEmpty() ? "" : ";").append(String.format("%s:%d,%d,%d,%d,7,70", names[kind], bx, camY, bz, yaw));
+				if (kind == 1) {
+					// and from the same rise, the great range: toward the highest ground 8 to 40 km off
+					float top = -1;
+					double tx = 0;
+					double tz = 0;
+					for (int r = 8000; r <= 40000; r += 400) {
+						for (int k = 0; k < 240; k++) {
+							double px = bx + r * Math.cos(k * Math.PI / 120);
+							double pz = bz + r * Math.sin(k * Math.PI / 120);
+							float h = model.sample((int) px, (int) pz).height;
+							// (what looks tallest from here: the angle it stands above the eye, the earth's curve aside)
+							float look = (h - camY) / r;
+							if (h > 300 && look > top) {
+								top = look;
+								tx = px;
+								tz = pz;
+							}
+						}
+					}
+					int toward = (int) Math.round(Math.toDegrees(Math.atan2(-(tx - bx), tz - bz)));
+					System.out.printf("vista range: toward %.0f,%.0f (%.0f high, %.0f km)%n", tx, tz, model.sample((int) tx, (int) tz).height, Math.hypot(tx - bx, tz - bz) / 1000);
+					at.append(String.format(";range:%d,%d,%d,%d,2,60", bx, camY + 20, bz, toward));
+				}
+			}
+			// close views: down a gorge (a river deep in the plateau, looking the way the walls stay highest), among
+			// the volcanic hills (in a vale, looking at the nearest big hill), inside a rock town (a corridor floor)
+			for (String close : new String[]{"gorgein", "volcnear", "rockin"}) {
+				int kind = close.equals("gorgein") ? 5 : close.equals("volcnear") ? 3 : 2;
+				double best = -1e9;
+				int bx = 0;
+				int bz = 0;
+				for (int x = cx - radius; x <= cx + radius; x += step / 2) {
+					for (int z = cz - radius; z <= cz + radius; z += step / 2) {
+						Column c = model.sample(x, z);
+						if (c.country != kind || c.countryStrength < 0.8F || c.temperature < -0.35F || c.temperature > 0.5F || c.humidity < -0.15F) {
+							continue;
+						}
+						double score;
+						if (kind == 5) {
+							if (!c.inChannel() || c.riverHalfWidth < 2.5F) {
+								continue;
+							}
+							score = model.sample(x + 40, z).height + model.sample(x - 40, z).height + model.sample(x, z + 40).height
+								+ model.sample(x, z - 40).height - 4 * c.height;
+						} else if (kind == 3) {
+							float peak = 0;
+							for (int k = 0; k < 8; k++) {
+								peak = Math.max(peak, model.sample(x + (int) (500 * Math.cos(k * Math.PI / 4)), z + (int) (500 * Math.sin(k * Math.PI / 4))).height);
+							}
+							score = peak - c.height - (c.nearRiver() && c.riverDist < c.riverHalfWidth + 6 ? 1000 : 0);
+						} else {
+							float around = 0;
+							for (int k = 0; k < 8; k++) {
+								around += model.sample(x + (int) (10 * Math.cos(k * Math.PI / 4)), z + (int) (10 * Math.sin(k * Math.PI / 4))).height;
+							}
+							score = around / 8 - c.height;
+						}
+						if (score > best) {
+							best = score;
+							bx = x;
+							bz = z;
+						}
+					}
+				}
+				Column c = model.sample(bx, bz);
+				float ground = c.inChannel() ? c.riverWater : c.height;
+				int yaw = 0;
+				double bestView = -1e9;
+				for (int y = 0; y < 360; y += 15) {
+					double dx = -Math.sin(Math.toRadians(y));
+					double dz = Math.cos(Math.toRadians(y));
+					double view = 0;
+					for (int d = 30; d <= (kind == 3 ? 1200 : 300); d += 15) {
+						float h = model.sample(bx + (int) (dx * d), bz + (int) (dz * d)).height;
+						view += kind == 5 ? -Math.abs(h - ground) : h;   // a gorge: along its floor; a hill: at it
+					}
+					if (view > bestView) {
+						bestView = view;
+						yaw = y;
+					}
+				}
+				int camY = Math.round(ground) + (kind == 3 ? 40 : kind == 5 ? 6 : 3);
+				int pitch = kind == 2 ? -12 : kind == 5 ? -2 : 2;
+				System.out.printf("vista %s: %d,%d ground %.0f score %.0f yaw %d%n", close, bx, bz, ground, best, yaw);
+				at.append(";").append(String.format("%s:%d,%d,%d,%d,%d,70", close, bx, camY, bz, yaw, pitch));
+			}
+			// fields: a vale in the heartland, open country all round (the hedged fields and their crops)
+			double bestOpen = 1e9;
+			int fx = 0;
+			int fz = 0;
+			for (int x = cx - radius; x <= cx + radius; x += step) {
+				for (int z = cz - radius; z <= cz + radius; z += step) {
+					Column c = model.sample(x, z);
+					if (c.country != 1 || c.countryStrength < 0.8F || c.humidity < 0.05F || c.nearRiver() && c.riverDist < c.riverHalfWidth + 20) {
+						continue;
+					}
+					double wood = 0;
+					for (int k = 0; k < 12; k++) {
+						wood += model.woodland(x + (int) (90 * Math.cos(k * Math.PI / 6)), z + (int) (90 * Math.sin(k * Math.PI / 6)));
+					}
+					if (wood < bestOpen) {
+						bestOpen = wood;
+						fx = x;
+						fz = z;
+					}
+				}
+			}
+			System.out.printf("vista fields: %d,%d open %.2f%n", fx, fz, bestOpen / 12);
+			at.append(String.format(";fields:%d,%d,%d,45,28,70", fx, Math.round(model.sample(fx, fz).height) + 30, fz));
+			System.out.println("lod.show.at=" + at);
+			return;
+		}
+		if (slice.equals("probe")) {
+			// the columns along x at z = cz, every step blocks: what the model says about each
+			for (int x = cx - radius; x <= cx + radius; x += step) {
+				Column c = model.sample(x, cz);
+				System.out.printf("%d,%d h %.1f landform %d rawT %.3f hum %.3f uplift %.2f coast %.0f plate %d,%d river %.0f%n", x, cz, c.height, c.landform,
+					c.temperature - c.lapse, c.humidity, c.uplift, c.coast, c.plateX, c.plateZ, c.nearRiver() ? c.riverDist : -1);
+			}
+			return;
+		}
+		if (slice.equals("profile")) {
+			// heights along the slope through (cx, cz), every 4 blocks from 64 downhill to 64 uphill; ~ marks a river channel
+			float gx = model.sample(cx + 2, cz).height - model.sample(cx - 2, cz).height;
+			float gz = model.sample(cx, cz + 2).height - model.sample(cx, cz - 2).height;
+			double len = Math.max(1.0E-6, Math.hypot(gx, gz));
+			StringBuilder sb = new StringBuilder();
+			for (int r = -64; r <= 64; r += 4) {
+				Column c = model.sample((int) Math.round(cx + gx / len * r), (int) Math.round(cz + gz / len * r));
+				sb.append(Math.round(c.height)).append(c.inChannel() ? "~" : "").append(c.nearRiver() ? "(" + Math.round(c.riverDist) + ")" : "")
+					.append(r == 0 ? " | " : " ");
+			}
+			System.out.println(cx + "," + cz + ": " + sb);
+			return;
+		}
+		if (slice.equals("fronts")) {
+			fronts(model, radius, step, cx, cz);
+			return;
+		}
+		if (slice.equals("walls")) {
+			walls(model, radius, step, cx, cz, out);
 			return;
 		}
 		if (slice.equals("cavebench")) {
@@ -111,6 +639,11 @@ public final class TerrainPreview {
 			BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
 			var caverns = model.caverns();
 			int[] open = new int[1];
+			int[] systems = new int[5];
+			java.util.List<java.util.List<String>> where = new java.util.ArrayList<>();
+			for (int k = 0; k < 5; k++) {
+				where.add(new java.util.ArrayList<>());
+			}
 			IntStream.range(0, size).parallel().forEach(j -> {
 				for (int i = 0; i < size; i++) {
 					int x = cx0 - radius + i * step;
@@ -170,6 +703,42 @@ public final class TerrainPreview {
 						if (info.river && info.riverDist < info.riverHalfWidth) {
 							rgb = info.riverFalls ? 0xFF3030 : 0x2F7FFF;
 						}
+						// (caverns) the cave systems of their own
+						if (info.maze && (info.mazeDist < info.mazeHalfWidth || info.mazeRoom > 0)) {
+							rgb = 0xB060FF;
+						}
+						if (info.rift && info.riftDist < info.riftHalfWidth) {
+							rgb = 0x40C0FF;
+						}
+						if (info.tube && info.tubeDist < info.tubeHalfWidth) {
+							rgb = info.skylight && info.skylightDist < info.skylightRadius ? 0xFFFF40 : 0xFF5A1E;
+						}
+						if (info.geode && Math.hypot(x - info.geodeX, z - info.geodeZ) < info.geodeA) {
+							rgb = 0xFF40C0;
+						}
+						if (info.abyss && info.abyssDist < info.abyssRadius) {
+							rgb = 0x000000;
+						}
+						if (info.systems) {
+							synchronized (systems) {
+								boolean[] here = {info.tube && info.tubeDist < 1.5F, info.maze && info.mazeDist < info.mazeHalfWidth,
+									info.abyss && info.abyssDist < 4, info.rift && info.riftDist < 1.5F && Math.abs(info.riftAlong) < 20,
+									info.geode && Math.hypot(x - info.geodeX, z - info.geodeZ) < 4};
+								for (int k = 0; k < 5; k++) {
+									if (here[k]) {
+										systems[k]++;
+										boolean far = true;
+										for (String w : where.get(k)) {
+											String[] xz = w.split(",");
+											far &= Math.hypot(Integer.parseInt(xz[0]) - x, Integer.parseInt(xz[1]) - z) > 400;
+										}
+										if (far && where.get(k).size() < 5) {
+											where.get(k).add(x + "," + z);
+										}
+									}
+								}
+							}
+						}
 						img.setRGB(i, j, rgb);
 						continue;
 					}
@@ -190,6 +759,14 @@ public final class TerrainPreview {
 			});
 			ImageIO.write(img, "png", out);
 			System.out.printf("cavern slice at y=%d: %.1f%% open -> %s%n", y, 100.0 * open[0] / (size * size), out);
+			if (plan) {
+				System.out.printf("systems (pixels): lava tubes %d, mazes %d, abysses %d, rifts %d, geodes %d%n", systems[0], systems[1], systems[2],
+					systems[3], systems[4]);
+				String[] names = {"tube", "maze", "abyss", "rift", "geode"};
+				for (int k = 0; k < 5; k++) {
+					System.out.println("  " + names[k] + " at " + where.get(k));
+				}
+			}
 			if (plan) {
 				// (caverns) the realms in view by character, with the climate of the land over each
 				String[] names = {"wilds", "lush", "dripstone", "crystal", "ember", "mere", "frozen", "roots", "fossil", "tidal", "amber", "brimstone"};
@@ -243,14 +820,26 @@ public final class TerrainPreview {
 		byte[] water = new byte[size * size];
 		byte[] landform = new byte[size * size];
 		long[] plate = new long[size * size];
+		byte[] country = new byte[size * size];
+		float[] strength = new float[size * size];
+		float[] woods = new float[size * size];
+		float[] temps = new float[size * size];
+		float[] hums = new float[size * size];
 		long start = System.nanoTime();
 		IntStream.range(0, size).parallel().forEach(j -> {
 			for (int i = 0; i < size; i++) {
 				Column c = model.sample(cx - radius + i * step, cz - radius + j * step);
 				height[i + j * size] = c.height;
-				water[i + j * size] = (byte) (c.inChannel() ? 2 : c.crater > c.height ? (c.craterLava ? 4 : 3) : c.height < 63 ? 1 : 0);
+				water[i + j * size] = (byte) (c.inChannel() ? 2 : c.crater > c.height ? (c.craterLava ? 4 : 3) : c.lake > c.height && c.lakeEdge > 0 ? 3 : c.height < 63 ? 1 : 0);
 				landform[i + j * size] = (byte) c.landform;
 				plate[i + j * size] = (long) c.plateX << 32 ^ c.plateZ & 0xFFFFFFFFL;
+				country[i + j * size] = (byte) c.country;
+				strength[i + j * size] = c.countryStrength;
+				temps[i + j * size] = c.temperature;
+				hums[i + j * size] = c.humidity;
+				if (WOODS) {
+					woods[i + j * size] = model.woodland(cx - radius + i * step, cz - radius + j * step);
+				}
 			}
 		});
 		long ms = (System.nanoTime() - start) / 1_000_000;
@@ -327,6 +916,24 @@ public final class TerrainPreview {
 					} else if (landform[k] == 5) {
 						rgb = mix(rgb, 0x8EA4B8, 0.5F);
 					}
+					// (-Pcountries) the countries tinted: heartland gold, rock city ochre, volcanic hills plum,
+					// lake district teal, gorges pale grey, old forest deep green
+					if (COUNTRIES && country[k] > 0) {
+						int[] tint = {0, 0xE8C860, 0xC07830, 0x7A3A8A, 0x30B0C0, 0xE0E0E0, 0x1A4A20};
+						rgb = mix(rgb, tint[country[k]], 0.5F * strength[k]);
+					}
+					if (CLIMATE) {
+						// (-Pclimate) cold blue, temperate wet green, temperate dry straw, hot dry orange, hot wet deep green
+						float t = temps[k];
+						float hu = hums[k];
+						int tint = t < -0.45F ? 0x6E9FD8 : t > 0.55F ? (hu < -0.1F ? 0xE08A30 : hu > 0.2F ? 0x1E6E2A : 0xB8B040)
+							: hu < -0.25F ? 0xD8C878 : hu > 0.1F ? 0x3C9A3C : 0x9CC060;
+						rgb = mix(rgb, tint, 0.6F);
+					}
+					if (WOODS) {
+						// (-Pwoods) the woods dark green, the open country pale
+						rgb = mix(rgb, woods[k] > 0.5F ? 0x1F4A1C : 0xC8D890, 0.55F);
+					}
 					rgb = scale(rgb, shade);
 				}
 				if (BORDERS && (i + 1 < size && plate[k + 1] != plate[k] || j + 1 < size && plate[k + size] != plate[k])) {
@@ -338,6 +945,219 @@ public final class TerrainPreview {
 		ImageIO.write(img, "png", out);
 		System.out.printf("terrain preview %dx%d (%d blocks/px) in %d ms: height %.0f..%.0f, land %.0f%%, river %.2f%% -> %s%n",
 			size, size, step, ms, min, max, 100.0 * land / (size * size), 100.0 * river / (size * size), out);
+	}
+
+	/**
+	 * Where flat ground meets a steep rise ("walls"): every column whose slope over four blocks passes 1.5 (56
+	 * degrees) and that has a flat foot (slope under 0.12) within 24 blocks below it, sorted by what makes it
+	 * there. Prints the share of each cause and a few places of each; writes a relief map with the walls marked.
+	 */
+	private static void walls(TerrainModel model, int radius, int step, int cx, int cz, File out) throws Exception {
+		int size = 2 * radius / step;
+		float[] h = new float[size * size];
+		byte[] cause = new byte[size * size];
+		long[] plates = new long[size * size];
+		IntStream.range(0, size).parallel().forEach(j -> {
+			for (int i = 0; i < size; i++) {
+				Column c = model.sample(cx - radius + i * step, cz - radius + j * step);
+				h[i + j * size] = c.height;
+				plates[i + j * size] = (long) c.plateX << 32 ^ c.plateZ & 0xFFFFFFFFL;
+				byte k = 0;  // the land's own (eroded node surface)
+				if (c.height < 64) {
+					k = 7;  // sea
+				} else if (c.landform == 2) {
+					k = 1;  // canyon
+				} else if (c.landform == 4) {
+					k = 2;  // tepui
+				} else if (c.landform == 1) {
+					k = 3;  // volcanic
+				} else if (c.landform == 5) {
+					k = 4;  // fjord
+				} else if (c.nearRiver() && c.riverDist < c.riverHalfWidth * 2.2F + 16) {
+					k = 5;  // river valley wall
+				}
+				cause[i + j * size] = k;
+			}
+		});
+		String[] names = {"land surface", "canyon", "tepui", "volcano", "fjord", "river valley wall", "plate seam", "sea"};
+		int[] count = new int[8];
+		int[] big = new int[8];
+		java.util.List<java.util.List<String>> where = new java.util.ArrayList<>();
+		for (int k = 0; k < 8; k++) {
+			where.add(new java.util.ArrayList<>());
+		}
+		boolean[] wall = new boolean[size * size];
+		int land = 0;
+		int reach = Math.max(2, 24 / step);
+		for (int j = 2; j < size - 2; j++) {
+			for (int i = 2; i < size - 2; i++) {
+				int k = i + j * size;
+				if (h[k] < 64) {
+					continue;
+				}
+				land++;
+				float gx = (h[k + 1] - h[k - 1]) / (2f * step);
+				float gz = (h[k + size] - h[k - size]) / (2f * step);
+				float slope = (float) Math.hypot(gx, gz);
+				if (slope < 1.5F) {
+					continue;
+				}
+				// a flat foot downhill within reach
+				double dx = -gx / slope;
+				double dz = -gz / slope;
+				boolean flatFoot = false;
+				float footH = h[k];
+				for (int r = 1; r <= reach && !flatFoot; r++) {
+					int fi = i + (int) Math.round(dx * r);
+					int fj = j + (int) Math.round(dz * r);
+					if (fi < 1 || fj < 1 || fi >= size - 1 || fj >= size - 1) {
+						break;
+					}
+					int f = fi + fj * size;
+					float fs = (float) Math.hypot((h[f + 1] - h[f - 1]) / (2f * step), (h[f + size] - h[f - size]) / (2f * step));
+					flatFoot = fs < 0.12F && h[f] >= 64 && h[k] - h[f] > 8;
+					footH = h[f];
+				}
+				if (!flatFoot) {
+					continue;
+				}
+				wall[k] = true;
+				for (int o = -2; o <= 2; o++) {
+					if (plates[k + o] != plates[k] || plates[k + o * size] != plates[k]) {
+						cause[k] = 6;
+					}
+				}
+				count[cause[k]]++;
+				// how high the rise goes above the foot, within the next 24 blocks uphill
+				float topH = h[k];
+				for (int r = 1; r <= reach; r++) {
+					int ti = i + (int) Math.round(-dx * r);
+					int tj = j + (int) Math.round(-dz * r);
+					if (ti < 0 || tj < 0 || ti >= size || tj >= size) {
+						break;
+					}
+					topH = Math.max(topH, h[ti + tj * size]);
+				}
+				if (topH - footH >= 25) {
+					big[cause[k]]++;
+				}
+				if (where.get(cause[k]).size() < 6 && (i * 7 + j * 13) % 97 == 0) {
+					where.get(cause[k]).add((cx - radius + i * step) + "," + (cz - radius + j * step) + "@" + Math.round(h[k]));
+				}
+			}
+		}
+		int total = 0;
+		for (int c : count) {
+			total += c;
+		}
+		System.out.printf("walls: %d of %d land samples (%.2f%%) are steep rises over a flat foot%n", total, land, 100.0 * total / Math.max(1, land));
+		for (int k = 0; k < 8; k++) {
+			if (count[k] > 0) {
+				System.out.printf("  %-18s %6.1f%%  (%d rising 25+)  e.g. %s%n", names[k], 100.0 * count[k] / total, big[k], where.get(k));
+			}
+		}
+		int[] tint = {0xFF2020, 0xFF9020, 0x20C040, 0x202020, 0x80B0FF, 0xFF20FF, 0xFFFF00, 0};
+		BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
+		for (int j = 0; j < size; j++) {
+			for (int i = 0; i < size; i++) {
+				int k = i + j * size;
+				int rgb;
+				if (h[k] < 63) {
+					rgb = 0x2A5A9A;
+				} else {
+					float dx = h[Math.min(size - 1, i + 1) + j * size] - h[Math.max(0, i - 1) + j * size];
+					float dz = h[i + Math.min(size - 1, j + 1) * size] - h[i + Math.max(0, j - 1) * size];
+					float shade = clamp(1.0F - (dx + dz) / (4.0F * step) * 1.6F, 0.45F, 1.35F);
+					rgb = scale(mix(landColour(h[k]), 0xB0B0B0, 0.5F), shade);
+				}
+				if (wall[k]) {
+					rgb = tint[cause[k]];
+				}
+				img.setRGB(i, j, rgb);
+			}
+		}
+		ImageIO.write(img, "png", out);
+		System.out.println("walls map -> " + out);
+	}
+
+	/**
+	 * Mountain fronts: where a steep flank (rising at least 60 blocks over the next 96 uphill) stands straight
+	 * out of a plain that stays flat (no slope over 0.08) for 160 blocks downhill. Prints how much of the land
+	 * that is and a height profile across a few of them, every 8 blocks from 160 out on the plain to 96 up.
+	 */
+	private static void fronts(TerrainModel model, int radius, int step, int cx, int cz) {
+		int size = 2 * radius / step;
+		float[] h = new float[size * size];
+		IntStream.range(0, size).parallel().forEach(j -> {
+			for (int i = 0; i < size; i++) {
+				h[i + j * size] = model.sample(cx - radius + i * step, cz - radius + j * step).height;
+			}
+		});
+		java.util.List<int[]> found = new java.util.ArrayList<>();
+		int land = 0;
+		for (int j = 1; j < size - 1; j++) {
+			for (int i = 1; i < size - 1; i++) {
+				int k = i + j * size;
+				if (h[k] < 66) {
+					continue;
+				}
+				land++;
+				float gx = (h[k + 1] - h[k - 1]) / (2f * step);
+				float gz = (h[k + size] - h[k - size]) / (2f * step);
+				float slope = (float) Math.hypot(gx, gz);
+				if (slope < 0.35F) {
+					continue;
+				}
+				double ux = gx / slope;
+				double uz = gz / slope;
+				int x = cx - radius + i * step;
+				int z = cz - radius + j * step;
+				float top = model.sample((int) (x + ux * 96), (int) (z + uz * 96)).height;
+				if (top - h[k] < 60) {
+					continue;
+				}
+				// the foot: where it flattens going down, then flat for 160 blocks
+				int foot = -1;
+				float prev = h[k];
+				for (int r = 8; r <= 64; r += 4) {
+					float here = model.sample((int) (x - ux * r), (int) (z - uz * r)).height;
+					if (prev - here < 0.3F) {
+						foot = r;
+						break;
+					}
+					prev = here;
+				}
+				if (foot < 0) {
+					continue;
+				}
+				boolean flat = true;
+				float fh = model.sample((int) (x - ux * foot), (int) (z - uz * foot)).height;
+				float lo = fh;
+				float hi = fh;
+				for (int r = foot; r <= foot + 160; r += 8) {
+					Column c = model.sample((int) (x - ux * r), (int) (z - uz * r));
+					lo = Math.min(lo, c.height);
+					hi = Math.max(hi, c.height);
+				}
+				flat = hi - lo < 160 * 0.08F && fh >= 64;
+				if (flat) {
+					found.add(new int[]{x, z, (int) Math.round(ux * 1000), (int) Math.round(uz * 1000), foot});
+				}
+			}
+		}
+		System.out.printf("fronts: %d of %d land samples (%.2f%%) are steep flanks straight out of a flat plain%n", found.size(), land,
+			100.0 * found.size() / Math.max(1, land));
+		for (int n = 0; n < Math.min(10, found.size()); n++) {
+			int[] f = found.get((int) ((long) n * found.size() / 10));
+			StringBuilder sb = new StringBuilder();
+			Column at = model.sample(f[0], f[1]);
+			sb.append(String.format("  %d,%d (uplift %.2f, landform %d, plate %d,%d): ", f[0], f[1], at.uplift, at.landform, at.plateX, at.plateZ));
+			for (int r = -160; r <= 96; r += 8) {
+				Column c = model.sample((int) (f[0] + f[2] / 1000.0 * r), (int) (f[1] + f[3] / 1000.0 * r));
+				sb.append(Math.round(c.height)).append(c.nearRiver() && c.riverDist < c.riverHalfWidth + 3 ? "~" : "").append(r == 0 ? " | " : " ");
+			}
+			System.out.println(sb);
+		}
 	}
 
 	/** (caverns) A tint for each realm character, by CavernModel theme number. */

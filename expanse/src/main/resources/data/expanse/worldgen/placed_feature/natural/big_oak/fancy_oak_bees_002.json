@@ -1,0 +1,15 @@
+{
+  "feature": "expanse:natural/big_oak/fancy_oak_bees_002",
+  "placement": [
+    {
+      "type": "expanse:land_fit"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:would_survive",
+        "state": "minecraft:oak_sapling"
+      }
+    }
+  ]
+}

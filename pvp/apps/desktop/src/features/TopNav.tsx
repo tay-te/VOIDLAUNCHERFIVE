@@ -1,147 +1,216 @@
 /**
- * The navbar of §7: mark, five nav tabs, search, settings and the profile chip — plus
- * the window controls a frameless window needs. 80px tall, sitting on `--bg-shell`,
- * with the content panel inset below it.
+ * The navbar — Figma v1 Ship `navbar · 72` (`68:1553`), identical on every screen.
  *
- * `TopNav`, `NavItem`, `SearchBar` and `Avatar` are `@void/ui`'s;
- * the only things added here are the two nav marks the shared set has no reason to
- * carry (`local/glyphs`) and the Tauri window buttons, which exist because this bundle
- * runs in a window and the in-game one does not.
+ *   left    the 16-cell ring and the VOID wordmark, then the tabs: PvP and Store live;
+ *           Modpacks, Servers and Quests muted with SOON, each opening its coming-soon
+ *           screen (rule 1)
+ *   right   search (opens ⌘K, rule 10), the friends button — who is online and how many —
+ *           which opens the Friends drawer, and the profile chip, which opens a menu
+ *           (Settings · Sign in / Sign out)
  *
- * The whole bar is the drag region (`data-tauri-drag-region`), with the interactive
- * children opting out. That is the standard Tauri 2 pattern and the reason the window
- * can be `decorations: false` without becoming unmovable.
+ * The whole bar is the window's drag region (`data-tauri-drag-region`), with interactive
+ * children opting out by being buttons. That is the standard Tauri 2 pattern and the
+ * reason the window can be `decorations: false` without becoming unmovable.
  */
 
-import { Avatar, NavItem, SearchBar, TopNav as TopNavBar } from '@void/ui';
+import { useEffect, useRef, useState } from 'react';
 
-import {
-  MarkGlyph,
-  MaximiseGlyph,
-  MinimiseGlyph,
-  TerminalGlyph,
-  WindowCloseGlyph,
-} from '../local/glyphs';
+import searchIcon from '../assets/icons/search.svg';
+import chevronDown from '../assets/icons/nav-chevron.svg';
+import { FaceAvatar, Initial, RingMark } from './art';
+import { MaximiseGlyph, MinimiseGlyph, TerminalGlyph, WindowCloseGlyph } from '../local/glyphs';
 import { invoke, IS_TAURI } from '../local/tauri';
+import { onlineFriends, useFriends } from '../stores/friends';
 import { useLaunch } from '../stores/launch';
 import { useSession } from '../stores/session';
-import { SCREENS, SCREEN_LABELS, useUi, type Screen } from '../stores/ui';
+import { SCREENS, SCREEN_LABELS, isSoon, tabFor, useUi } from '../stores/ui';
+
+function ProfileChip() {
+  const account = useSession((s) => s.account);
+  const logout = useSession((s) => s.logout);
+  const openSettings = useUi((s) => s.openSettings);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="navmenu" ref={ref}>
+      <button
+        type="button"
+        className={`navpill navpill--profile${open ? ' is-open' : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={account ? `Profile — ${account.name}` : 'Profile — not signed in'}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <FaceAvatar size={32} />
+        <span className="navpill__name">{account?.name ?? 'Sign in'}</span>
+        <img src={chevronDown} width={9} height={5} alt="" className="navpill__chev" />
+      </button>
+
+      {open ? (
+        <div className="popmenu popmenu--profile" role="menu">
+          {account ? (
+            <div className="popmenu__head">
+              <span className="popmenu__title">{account.name}</span>
+              <span className="popmenu__sub">
+                {account.kind === 'offline' ? 'Offline account' : 'Microsoft account'}
+              </span>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            className="popmenu__item"
+            onClick={() => {
+              setOpen(false);
+              openSettings();
+            }}
+          >
+            {account ? 'Settings' : 'Sign in'}
+          </button>
+          {account ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="popmenu__item"
+              onClick={() => {
+                setOpen(false);
+                void logout();
+              }}
+            >
+              Sign out
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FriendsButton() {
+  const friends = useFriends((s) => s.friends);
+  const requests = useFriends((s) => s.incoming.length);
+  const open = useUi((s) => s.friendsOpen);
+  const toggle = useUi((s) => s.toggleFriends);
+  const online = onlineFriends(friends);
+  // The frame stacks three faces; with nobody online it shows the first three friends.
+  const stack = (online.length > 0 ? online : friends).slice(0, 3);
+
+  return (
+    <button
+      type="button"
+      className={`navpill navpill--friends${open ? ' is-open' : ''}`}
+      aria-expanded={open}
+      aria-label={`Friends — ${online.length} online${requests ? `, ${requests} request${requests === 1 ? '' : 's'}` : ''}`}
+      onClick={toggle}
+    >
+      {stack.length > 0 ? (
+        <span className="navpill__stack" style={{ width: 28 + (stack.length - 1) * 19 }}>
+          {stack.map((f, i) => (
+            <span key={f.name} style={{ left: i * 19 }}>
+              <Initial name={f.name} size={28} />
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span className="navpill__label">Friends</span>
+      )}
+      <span className={`navpill__dot${online.length > 0 ? ' is-on' : ''}`} aria-hidden="true" />
+      <span className="navpill__count tnum">{online.length}</span>
+    </button>
+  );
+}
 
 export function TopNav() {
   const screen = useUi((s) => s.screen);
   const go = useUi((s) => s.go);
   const openPalette = useUi((s) => s.openPalette);
-  const openSettings = useUi((s) => s.openSettings);
   const toggleLog = useUi((s) => s.toggleLog);
-  const account = useSession((s) => s.account);
   const logLines = useLaunch((s) => s.log.length);
+  const tab = tabFor(screen);
 
   return (
-    <TopNavBar
-      hideMark
-      data-tauri-drag-region
-      right={
-        <>
-          <SearchBar
-            placeholder="Search VOID"
-            value=""
-            hint={<span className="v-kbd v-kbd--nav">⌘K</span>}
-            aria-label="Search VOID"
-            onMouseDown={(event) => {
-              event.preventDefault();
-              openPalette();
-            }}
-            onFocus={(event) => {
-              event.currentTarget.blur();
-              openPalette();
-            }}
-          />
-
-          {/* The log button appears once the JVM has said anything — the frames show
-              one control here, and an empty log is nothing to open. */}
-          {logLines > 0 ? (
-            <button
-              type="button"
-              className="v-icon-btn"
-              aria-label={`Game log — ${logLines} lines`}
-              title={`Game log — ${logLines} lines`}
-              onClick={toggleLog}
-            >
-              <TerminalGlyph size={14} />
-            </button>
-          ) : null}
-
-          {/* The profile chip. §6 settles the word: "Profile" is the player's account
-              and nothing else — a bundle of mods is a Loadout, and the dock band below
-              is where that lives.
-
-              It is also the way into Settings, which is why there is no gear beside it:
-              all three frames put exactly two controls on the right of the bar, the
-              300px search and this chip, and a separate gear pushed the search 30px off
-              the frame's x. ⌘, and the ⌘K palette reach Settings too. */}
-          <button
-            type="button"
-            className="profile-chip"
-            onClick={openSettings}
-            title="Settings"
-            aria-label={account ? `Settings — signed in as ${account.name}` : 'Sign in'}
-          >
-            <Avatar name={account?.name ?? 'VOID'} src={account?.skin_url ?? undefined} size={28} />
-            <span className="profile-chip__text">
-              <span className="profile-chip__name">{account?.name ?? 'Sign in'}</span>
-              <span className="profile-chip__kind">
-                {account ? (account.kind === 'offline' ? 'Offline' : 'Microsoft') : 'Signed out'}
-              </span>
-            </span>
-          </button>
-
-          {IS_TAURI ? (
-            <span className="wincontrols">
-              <button
-                type="button"
-                className="wincontrols__btn"
-                aria-label="Minimise"
-                onClick={() => void invoke('window_minimize')}
-              >
-                <MinimiseGlyph size={13} />
-              </button>
-              <button
-                type="button"
-                className="wincontrols__btn"
-                aria-label="Maximise"
-                onClick={() => void invoke('window_toggle_maximize')}
-              >
-                <MaximiseGlyph size={12} />
-              </button>
-              <button
-                type="button"
-                className="wincontrols__btn wincontrols__btn--close"
-                aria-label="Hide to tray"
-                onClick={() => void invoke('window_close')}
-              >
-                <WindowCloseGlyph size={13} />
-              </button>
-            </span>
-          ) : null}
-        </>
-      }
-    >
-      {/* The lockup. It rides in the tab group rather than the package's own
-          `v-topnav__mark`, which has no room beside it for the wordmark the frames
-          draw — see `.brand` in `local/app.css`. */}
-      <span className="brand" aria-hidden="true">
-        <span className="brand__mark">
-          <MarkGlyph size={16} />
-        </span>
-        <span className="brand__word">VOID</span>
+    <header className="navbar" data-tauri-drag-region>
+      <span className="navbar__brand" data-tauri-drag-region>
+        <RingMark size={28} />
+        <span className="navbar__word">VOID</span>
       </span>
 
-      {/* Text only. The frames carry no glyph on a nav tab. */}
-      {SCREENS.map((id: Screen) => (
-        <NavItem key={id} active={screen === id} onClick={() => go(id)}>
-          {SCREEN_LABELS[id]}
-        </NavItem>
-      ))}
-    </TopNavBar>
+      <nav className="navbar__tabs" aria-label="Sections">
+        {SCREENS.map((id) => {
+          const soon = isSoon(id);
+          return (
+            <button
+              key={id}
+              type="button"
+              className={`navtab${tab === id ? ' is-active' : ''}${soon ? ' is-soon' : ''}`}
+              aria-current={tab === id ? 'page' : undefined}
+              onClick={() => go(id)}
+            >
+              <span className="navtab__label">{SCREEN_LABELS[id]}</span>
+              {soon ? <span className="navtab__soon">Soon</span> : null}
+            </button>
+          );
+        })}
+      </nav>
+
+      <span className="navbar__spacer" data-tauri-drag-region />
+
+      <button type="button" className="navsearch" onClick={openPalette} aria-label="Search VOID">
+        <img src={searchIcon} width={13} height={13} alt="" className="navsearch__icon" />
+        <span className="navsearch__placeholder">Search VOID</span>
+        <span className="keycap">⌘K</span>
+      </button>
+
+      <FriendsButton />
+      <ProfileChip />
+
+      {/* The JVM log, once there is one — the frames draw nothing here, and an empty log
+          is nothing to open. */}
+      {logLines > 0 ? (
+        <button
+          type="button"
+          className="navicon"
+          aria-label={`Game log — ${logLines} lines`}
+          title={`Game log — ${logLines} lines`}
+          onClick={toggleLog}
+        >
+          <TerminalGlyph size={14} />
+        </button>
+      ) : null}
+
+      {IS_TAURI ? (
+        <span className="wincontrols">
+          <button type="button" className="wincontrols__btn" aria-label="Minimise" onClick={() => void invoke('window_minimize')}>
+            <MinimiseGlyph size={13} />
+          </button>
+          <button type="button" className="wincontrols__btn" aria-label="Maximise" onClick={() => void invoke('window_toggle_maximize')}>
+            <MaximiseGlyph size={12} />
+          </button>
+          <button
+            type="button"
+            className="wincontrols__btn wincontrols__btn--close"
+            aria-label="Hide to tray"
+            onClick={() => void invoke('window_close')}
+          >
+            <WindowCloseGlyph size={13} />
+          </button>
+        </span>
+      ) : null}
+    </header>
   );
 }

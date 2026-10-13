@@ -1,4 +1,4 @@
-"""Graveyards of the moors, forests, peaks and tundra.
+"""Graveyards of the moors, forests, taigas, plains, peaks and snowlands.
 
 start pool (3 variants)
   plot     : a walled family plot entered through a little roofed lychgate - headstones,
@@ -16,11 +16,13 @@ from blocks import AIR, B
 from builder import Build, item, slab, stairs
 from common import vines_on
 from pieces import Piece
+from regions import MEADOW_LANDS, SNOW_LANDS, TAIGA_LANDS
 from small_data import BOOKS, data_for
 from smallkit import book, clear, flora, ground_item, pick, plant, rubble, small_tree, trail
 
 NAME = "graveyard"
-STRUCTURE = dict(biomes=["heather_moor", "redwood_giants", "verdant_peaks", "frostbloom_tundra", "cloud_forest"],
+STRUCTURE = dict(biomes=["heather_moor", "redwood_giants", "verdant_peaks", "lichen_tundra", "cloud_forest",
+                         *MEADOW_LANDS, *TAIGA_LANDS, *SNOW_LANDS, "minecraft:pale_garden"],
                  size=1, max_distance=32, set="wayside", weight=2)
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"

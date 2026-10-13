@@ -3,6 +3,16 @@
     "expanse:redwood_giants",
     "expanse:heather_moor",
     "expanse:verdant_peaks",
-    "expanse:lumen_grove"
+    "expanse:ancient_oakwood",
+    "minecraft:taiga",
+    "minecraft:old_growth_pine_taiga",
+    "minecraft:old_growth_spruce_taiga",
+    "minecraft:windswept_hills",
+    "minecraft:windswept_gravelly_hills",
+    "minecraft:windswept_forest",
+    "expanse:pine_heath",
+    "expanse:fjordlands",
+    "expanse:boreal_muskeg",
+    "expanse:volcanic_highlands"
   ]
 }

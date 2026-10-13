@@ -26,6 +26,11 @@ final class PlateMap {
 
 	/** Where a point lies: its plate, and how far it is from the border with each kind of neighbour. */
 	static final class Hit {
+		/** (the plates round the last grid cell asked about, kept with the hit so no thread-local is read per call) */
+		int hoodX = Integer.MIN_VALUE;
+		int hoodZ;
+		final Plate[] hood = new Plate[25];
+		final Plate[] spare = new Plate[25];
 		Plate own;
 		/** Distance (blocks, in warped space) to the nearest border of any kind, and the plate across it. */
 		double border;
@@ -36,6 +41,17 @@ final class PlateMap {
 		/** Unit vector from this plate's centre toward {@link #across}'s, for reflecting across the border. */
 		double normalX;
 		double normalZ;
+		/**
+		 * Every other plate whose border lies within {@link #NEAR_REACH} blocks: the plate, the distance to the
+		 * border and the unit vector toward its centre, nearest or not. Where three plates meet, blending toward
+		 * the nearest one alone would switch from one to the other along a line.
+		 */
+		static final double NEAR_REACH = 400;
+		int nearCount;
+		final Plate[] near = new Plate[24];
+		final double[] nearBorder = new double[24];
+		final double[] nearNormalX = new double[24];
+		final double[] nearNormalZ = new double[24];
 	}
 
 	private final long seed;
@@ -93,31 +109,30 @@ final class PlateMap {
 	}
 
 	/** The plates round the last cell looked up, per thread: neighbouring lookups nearly always share them. */
-	private static final class Neighbourhood {
-		int gx = Integer.MIN_VALUE;
-		int gz;
-		final Plate[] plates = new Plate[25];
-	}
-
-	private final ThreadLocal<Neighbourhood> neighbourhood = ThreadLocal.withInitial(Neighbourhood::new);
-
 	/** The plate at (x, z) and its distances to the borders round it. */
 	void locate(double x, double z, Hit out) {
 		double wx = this.warpedX(x, z);
 		double wz = this.warpedZ(x, z);
 		int gx = Mth.floor(wx / SPACING);
 		int gz = Mth.floor(wz / SPACING);
-		Neighbourhood hood = this.neighbourhood.get();
-		Plate[] near = hood.plates;
-		if (hood.gx != gx || hood.gz != gz) {
+		Plate[] near = out.hood;
+		if (out.hoodX != gx || out.hoodZ != gz) {
+			// moved a cell or two: keep the plates the old neighbourhood shares with the new one
+			Plate[] old = out.spare;
+			System.arraycopy(near, 0, old, 0, 25);
+			int ox = out.hoodX;
+			int oz = out.hoodZ;
+			boolean overlap = ox != Integer.MIN_VALUE && Math.abs(gx - ox) <= 4 && Math.abs(gz - oz) <= 4;
 			int c = 0;
 			for (int dx = -2; dx <= 2; dx++) {
 				for (int dz = -2; dz <= 2; dz++) {
-					near[c++] = this.plate(gx + dx, gz + dz);
+					int ix = gx + dx - ox;
+					int iz = gz + dz - oz;
+					near[c++] = overlap && Math.abs(ix) <= 2 && Math.abs(iz) <= 2 ? old[(ix + 2) * 5 + iz + 2] : this.plate(gx + dx, gz + dz);
 				}
 			}
-			hood.gx = gx;
-			hood.gz = gz;
+			out.hoodX = gx;
+			out.hoodZ = gz;
 		}
 		int n = near.length;
 		Plate best = null;
@@ -134,6 +149,7 @@ final class PlateMap {
 		out.oceanBorder = Double.MAX_VALUE;
 		out.across = null;
 		out.oceanAcross = null;
+		out.nearCount = 0;
 		for (int i = 0; i < n; i++) {
 			Plate p = near[i];
 			if (p == best) {
@@ -148,6 +164,13 @@ final class PlateMap {
 			double mx = (p.cx + best.cx) * 0.5;
 			double mz = (p.cz + best.cz) * 0.5;
 			double d = -((wx - mx) * nx + (wz - mz) * nz);
+			if (d < Hit.NEAR_REACH && out.nearCount < out.near.length) {
+				out.near[out.nearCount] = p;
+				out.nearBorder[out.nearCount] = d;
+				out.nearNormalX[out.nearCount] = nx;
+				out.nearNormalZ[out.nearCount] = nz;
+				out.nearCount++;
+			}
 			if (d < out.border) {
 				out.border = d;
 				out.across = p;
@@ -188,6 +211,11 @@ final class PlateMap {
 	}
 
 	/** The low 21 bits of h as a number in [0, 1). */
+	/** The length of (a, b): Math.hypot without its care over overflow, which costs (and is never needed here). */
+	static double len(double a, double b) {
+		return Math.sqrt(a * a + b * b);
+	}
+
 	static double unit(long h) {
 		return (h & 0x1F_FFFF) / (double) 0x20_0000;
 	}

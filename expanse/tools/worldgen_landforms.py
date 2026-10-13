@@ -81,7 +81,7 @@ def biomes(W, jar):
 
     # A white plain to the horizon, cracked into polygons, its brine pools pink with salt-loving algae.
     W.ANALOGS['salt_flats'] = W.biome('salt_flats', 'desert', jar,
-        effects={'water_color': '#e59ab2', 'grass_color': '#c2b98a', 'foliage_color': '#aea476'},
+        effects={'water_color': '#a8c8d0', 'grass_color': '#c2b98a', 'foliage_color': '#aea476'},
         attributes={'visual/sky_color': '#b9cfee', 'visual/fog_color': '#f3efe6', 'visual/fog_end_distance': 220.0,
                     'audio/background_music': W.music('minecraft:music.overworld.desert')},
         drop=['minecraft:patch_cactus_desert', 'minecraft:patch_dry_grass_desert', 'minecraft:patch_sugar_cane_desert', 'minecraft:lake_lava_surface',

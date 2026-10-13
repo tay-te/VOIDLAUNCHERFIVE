@@ -92,21 +92,3 @@ export function LaunchError() {
     </div>
   );
 }
-
-/** The session summary the window comes back with after `game:closed` (§5). */
-export function SessionSummary() {
-  const session = useLaunch((s) => s.lastSession);
-  const dismiss = useLaunch((s) => s.dismissSession);
-  if (!session || session.code !== 0) return null;
-
-  const minutes = Math.round(session.played_ms / 60_000);
-  return (
-    <div className="banner banner--session" role="status">
-      <span className="banner__text">
-        Session ended · {minutes} min played · {Math.round(session.fps_avg)} fps avg
-        {session.server ? ` · ${session.server}` : ''}
-      </span>
-      <IconButton icon="close" size="close" label="Dismiss" onClick={dismiss} />
-    </div>
-  );
-}

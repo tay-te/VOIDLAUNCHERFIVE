@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Store tests, run against the same mock backend the browser preview uses.
  *
@@ -13,7 +14,11 @@ import { hypixelReady } from '../local/hypixelReady';
 import { effectiveState, enabledCount, isOn, matchesTab } from '../local/registry';
 import { useLaunch, wireLaunchEvents, formatBytes, stepLabel } from './launch';
 import { useLoadouts, wireLoadoutEvents } from './loadouts';
-import { useServers, nameForHost, pingTone } from './servers';
+import { useServers, nameForHost, normaliseHost, pingTone } from './servers';
+import { useFriends, USERNAME_ERROR, friendsOn, lastSeenText } from './friends';
+import { useCosmetics } from './cosmetics';
+import { CATALOG, FREE_ITEMS } from '../local/catalog';
+import { countsFor, TOTAL_MODS } from '../local/categories';
 import { useSession, wireSessionEvents } from './session';
 import { useUi } from './ui';
 
@@ -31,8 +36,11 @@ beforeEach(() => {
   __setSpeed(0); // no artificial delays; every scheduled callback runs inline
   useSession.setState({ account: null, system: null, java: null, deviceCode: null, error: null });
   useLoadouts.setState({ library: [], active: null, settings: null, error: null });
-  useLaunch.setState({ phase: 'idle', progress: null, log: [], error: null, lastSession: null, server: null });
-  useUi.setState({ screen: 'play', paletteOpen: false, settingsOpen: false, logOpen: false });
+  useLaunch.setState({ phase: 'idle', progress: null, log: [], error: null, lastSession: null, crash: null, server: null, launchedServer: null });
+  useUi.setState({ screen: 'home', paletteOpen: false, settingsOpen: false, logOpen: false, friendsOpen: false, storeItem: null });
+  localStorage.clear();
+  useFriends.getState().hydrate();
+  useCosmetics.getState().hydrate();
 });
 
 describe('session store', () => {
@@ -150,14 +158,16 @@ describe('launch store', () => {
       if (seen[seen.length - 1] !== s.phase) seen.push(s.phase);
     });
 
-    await useLaunch.getState().start('sword-pvp');
+    await useLaunch.getState().start('sword-pvp', 'mc.hypixel.net');
     await until(() => useLaunch.getState().lastSession !== null, 'the session to end');
 
     expect(seen).toContain('preparing');
     expect(seen).toContain('launching');
     expect(seen).toContain('running');
     expect(useLaunch.getState().phase).toBe('idle');
-    expect(useLaunch.getState().lastSession?.code).toBe(0);
+    expect(useLaunch.getState().crash).toBeNull();
+    expect(useLaunch.getState().lastSession?.server).toBe('mc.hypixel.net');
+    expect(useLaunch.getState().lastSession?.played_ms).toBeGreaterThan(0);
     expect(useLaunch.getState().log.length).toBeGreaterThan(0);
 
     unsub();
@@ -167,7 +177,7 @@ describe('launch store', () => {
   it('refuses to launch without an account, and says so', async () => {
     const stop = await wireLaunchEvents();
     await useLoadouts.getState().hydrate();
-    await useLaunch.getState().start('sword-pvp');
+    await useLaunch.getState().start('sword-pvp', null);
     expect(useLaunch.getState().phase).toBe('idle');
     expect(useLaunch.getState().error).toMatch(/Not signed in/);
     stop();
@@ -176,7 +186,7 @@ describe('launch store', () => {
   it('a second start while busy is ignored rather than queued', async () => {
     __signIn();
     useLaunch.setState({ phase: 'running' });
-    await useLaunch.getState().start('sword-pvp');
+    await useLaunch.getState().start('sword-pvp', null);
     expect(useLaunch.getState().phase).toBe('running');
   });
 
@@ -191,10 +201,27 @@ describe('launch store', () => {
     stop();
   });
 
-  it('surfaces a non-zero exit as an error the drawer can act on', async () => {
+  it('turns a non-zero exit into a crash card, and Stop into nothing of the kind', async () => {
     const stop = await wireLaunchEvents();
-    emit('game:closed', { code: 1, loadout: 'sword-pvp', played_ms: 10, fps_avg: 0 });
-    expect(useLaunch.getState().error).toMatch(/exited with code 1/);
+    emit('game:closed', { code: 1, loadout: 'sword-pvp', played_ms: 120_000, fps_avg: 90, server: 'mc.hypixel.net', crash_tail: ['boom'] });
+    expect(useLaunch.getState().crash).toEqual({ code: 1, played_ms: 120_000, server: 'mc.hypixel.net', tail: ['boom'] });
+    expect(useLaunch.getState().error).toBeNull();
+    // It still counts as the last session: the player did play.
+    expect(useLaunch.getState().lastSession?.played_ms).toBe(120_000);
+    useLaunch.getState().dismissCrash();
+    emit('game:closed', { code: 143, loadout: 'sword-pvp', played_ms: 5_000, fps_avg: 0 });
+    expect(useLaunch.getState().crash).toBeNull();
+    stop();
+  });
+
+  it('keeps the last session across a restart, and only a real one', async () => {
+    const stop = await wireLaunchEvents();
+    emit('game:closed', { code: 0, loadout: 'sword-pvp', played_ms: 2_880_000, fps_avg: 142, ping_avg: 22, server: 'mc.hypixel.net' });
+    const saved = JSON.parse(localStorage.getItem('void.lastSession.v1') ?? 'null');
+    expect(saved).toMatchObject({ played_ms: 2_880_000, fps_avg: 142, ping_avg: 22, server: 'mc.hypixel.net' });
+    // A game killed before the mod reported anything leaves the previous one in place.
+    emit('game:closed', { code: 143, loadout: 'sword-pvp', played_ms: 0, fps_avg: 0 });
+    expect(useLaunch.getState().lastSession?.played_ms).toBe(2_880_000);
     stop();
   });
 
@@ -216,14 +243,12 @@ describe('launch store', () => {
 });
 
 describe('servers store', () => {
-  it('pings a known host and keeps a bounded history', async () => {
-    for (let i = 0; i < 15; i += 1) {
-      await useServers.getState().ping('mc.hypixel.net');
-    }
+  it('pings a known host with a real-looking SLP answer', async () => {
+    await useServers.getState().ping('mc.hypixel.net');
     const state = useServers.getState().pings['mc.hypixel.net'];
     expect(state?.status).toBe('ok');
-    expect(state?.history.length).toBe(12);
     expect(state?.result?.online).toBeGreaterThan(0);
+    expect(state?.at).toBeGreaterThan(0);
   });
 
   it('records a failed ping without losing the history', async () => {
@@ -237,9 +262,9 @@ describe('servers store', () => {
 
   it('adds and removes favourites, and derives a display name', () => {
     const before = useServers.getState().servers.length;
-    useServers.getState().add('play.example.net');
+    expect(useServers.getState().add('play.example.net')).toBe(true);
     expect(useServers.getState().servers.length).toBe(before + 1);
-    expect(useServers.getState().selected).toBe('play.example.net');
+    expect(useServers.getState().target).toBe('play.example.net');
 
     useServers.getState().remove('play.example.net');
     expect(useServers.getState().servers.length).toBe(before);
@@ -252,13 +277,27 @@ describe('servers store', () => {
     const before = useServers.getState().servers.length;
     useServers.getState().add('mc.hypixel.net');
     expect(useServers.getState().servers.length).toBe(before);
-    expect(useServers.getState().selected).toBe('mc.hypixel.net');
+    expect(useServers.getState().target).toBe('mc.hypixel.net');
   });
 
-  it('classifies latency the way the ping chips colour it', () => {
-    expect(pingTone(42)).toBe('ok');
-    expect(pingTone(112)).toBe('warn');
-    expect(pingTone(400)).toBe('bad');
+  it('accepts what the multiplayer screen accepts, and refuses the rest', () => {
+    expect(normaliseHost(' Play.Example.NET ')).toBe('play.example.net');
+    expect(normaliseHost('localhost:25566')).toBe('localhost:25566');
+    expect(normaliseHost('not a host')).toBeNull();
+    expect(normaliseHost('')).toBeNull();
+    expect(useServers.getState().add('not a host')).toBe(false);
+  });
+
+  it('Title screen is a choice of its own, and survives a restart', () => {
+    useServers.getState().choose(null);
+    expect(useServers.getState().target).toBeNull();
+    expect(JSON.parse(localStorage.getItem('void.servers.v2') ?? '{}').target).toBeNull();
+  });
+
+  it('colours a ping the way the server menu does: green under 60, grey above', () => {
+    expect(pingTone(22)).toBe('ok');
+    expect(pingTone(48)).toBe('ok');
+    expect(pingTone(71)).toBe('muted');
   });
 });
 
@@ -336,5 +375,80 @@ describe('ui store', () => {
     useUi.getState().openSettings();
     expect(useUi.getState().settingsOpen).toBe(true);
     expect(useUi.getState().paletteOpen).toBe(false);
+  });
+});
+
+describe('friends store (rule 7)', () => {
+  it('a real install starts empty', () => {
+    const s = useFriends.getState();
+    expect(s.friends).toEqual([]);
+    expect(s.incoming).toEqual([]);
+    expect(s.outgoing).toEqual([]);
+  });
+
+  it('adds by Minecraft username only: 3–16 letters, digits and underscores', () => {
+    expect(useFriends.getState().request('x!')).toBe(USERNAME_ERROR);
+    expect(useFriends.getState().request('ab')).toBe(USERNAME_ERROR);
+    expect(useFriends.getState().request('a_very_long_name_x')).toBe(USERNAME_ERROR);
+    expect(useFriends.getState().request('nine')).toBeNull();
+    expect(useFriends.getState().outgoing).toEqual(['nine']);
+    expect(useFriends.getState().request('NINE')).toMatch(/already sent/);
+  });
+
+  it('answering a request in either direction makes a friend', () => {
+    useFriends.setState({ incoming: ['marrow'], friends: [], outgoing: [] });
+    useFriends.getState().accept('marrow');
+    expect(useFriends.getState().incoming).toEqual([]);
+    expect(useFriends.getState().friends.map((f) => f.name)).toEqual(['marrow']);
+    expect(useFriends.getState().request('Marrow')).toMatch(/already friends/);
+
+    useFriends.setState({ incoming: ['tavi'] });
+    expect(useFriends.getState().request('tavi')).toBeNull();
+    expect(useFriends.getState().friends.map((f) => f.name)).toContain('tavi');
+  });
+
+  it('knows who is on the server Launch joins', () => {
+    const friends = [
+      { name: 'Moss', presence: { state: 'online' as const, server: 'mc.hypixel.net', game: 'Duels' } },
+      { name: 'Rin_', presence: { state: 'online' as const, lobby: true } },
+      { name: 'Otto', presence: { state: 'offline' as const, server: 'mc.hypixel.net' } },
+    ];
+    expect(friendsOn(friends, 'MC.HYPIXEL.NET').map((f) => f.name)).toEqual(['Moss']);
+    expect(friendsOn(friends, null)).toEqual([]);
+  });
+
+  it('says when an offline friend was last seen', () => {
+    const now = 1_000_000_000_000;
+    expect(lastSeenText(now - 4 * 3_600_000, now)).toBe('Last seen 4 h ago');
+    expect(lastSeenText(now - 26 * 3_600_000, now)).toBe('Last seen yesterday');
+  });
+});
+
+describe('cosmetics store (rules 5, 8)', () => {
+  it('owns the free items and nothing else to begin with', () => {
+    expect(useCosmetics.getState().owned.sort()).toEqual([...FREE_ITEMS].sort());
+    expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
+  });
+
+  it('equips only what is owned, one per kind, and a second press takes it off', () => {
+    useCosmetics.getState().equip('void-cape');
+    expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
+    useCosmetics.getState().equip('plain-nameplate');
+    expect(useCosmetics.getState().equipped.nameplate).toBe('plain-nameplate');
+    useCosmetics.getState().equip('plain-nameplate');
+    expect(useCosmetics.getState().equipped.nameplate).toBeUndefined();
+  });
+
+  it('the catalog matches the frame’s counts: 6 capes, 4 trails, 8 emotes, 5 nameplates', () => {
+    const count = (kind: string) => CATALOG.filter((i) => i.kind === kind).length;
+    expect([count('cape'), count('trail'), count('emote'), count('nameplate')]).toEqual([6, 4, 8, 5]);
+    expect(CATALOG.length).toBe(23);
+  });
+});
+
+describe('category counts (Home strip)', () => {
+  it('splits the registry the way the frame does: 11 · 11 · 4 · 3', () => {
+    expect(TOTAL_MODS).toBe(29);
+    expect(countsFor(null).map((c) => c.total)).toEqual([11, 11, 4, 3]);
   });
 });

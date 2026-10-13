@@ -186,6 +186,8 @@ describe('HUD layer', () => {
 describe('Mods screen — the grid, and the page one click away', () => {
   beforeEach(() => {
     set(() => useVoidStore.getState().applyMenu(true));
+    // v1 Ship: the menu opens on the islands; the grid is All mods, one level down.
+    set(() => useVoidStore.getState().setRoute({ name: 'grid' }));
   });
 
   it('is the full-bleed shell: mark, centred tabs, tools, hint — no title, no search', () => {
@@ -489,7 +491,7 @@ describe('Mods screen — the grid, and the page one click away', () => {
     fireEvent.click(screen.getByLabelText('Fullbright enabled'));
     // Flipped, and still on the grid.
     expect(isModOn(store().loadout, 'fullbright')).toBe(!before);
-    expect(store().route).toEqual({ name: 'mods' });
+    expect(store().route).toEqual({ name: 'grid' });
     expect(container.querySelector('.mods-grid')).not.toBeNull();
 
     // The body navigates, and changes nothing.
@@ -521,12 +523,12 @@ describe('Mods screen — the grid, and the page one click away', () => {
     // Two visible affordances, both of which land back on the grid unchanged. (Escape is
     // deliberately not a third — see `ModPage.tsx`: in game the page never receives it.)
     fireEvent.click(screen.getByRole('button', { name: /Mods/ }));
-    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().route).toEqual({ name: 'grid' });
     expect(container.querySelector('.mods-grid')).not.toBeNull();
 
     set(() => useVoidStore.getState().openMod('keystrokes'));
     fireEvent.click(screen.getByText('Done'));
-    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().route).toEqual({ name: 'grid' });
     expect(container.querySelector('.modpage')).toBeNull();
   });
 
@@ -547,22 +549,22 @@ describe('Mods screen — the grid, and the page one click away', () => {
     // `key` alone was dead in the product while passing every test here. See `menu/keys.ts`.
     const esc = () => fireEvent.keyDown(window, { keyCode: 27 });
 
-    // The grid: the page does not want it, so Java closes the menu. Nothing here to assert on
-    // the page side beyond the answer it gives the host — the close is Java's.
-    expect(keepsEscape()).toBe(false);
+    // The All-mods grid: v1 Ship puts it one level below the islands, so the page wants Escape
+    // here too and takes it back up rather than letting Java close the menu.
+    expect(keepsEscape()).toBe(true);
 
     // A mod's page: the page wants it, and it goes back to the grid rather than closing.
     set(() => useVoidStore.getState().openMod('zoom'));
     expect(keepsEscape()).toBe(true);
     set(() => esc());
-    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().route).toEqual({ name: 'grid' });
     expect(useVoidStore.getState().menuOpen).toBe(true);
 
     // The HUD editor: same rule, same level above.
     set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
     expect(keepsEscape()).toBe(true);
     set(() => esc());
-    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().route).toEqual({ name: 'grid' });
 
     // The palette: it wants Escape too — its query field owns the keyboard, so the answer is
     // already true before the route is consulted — and it closes itself on its own handler,
@@ -572,7 +574,7 @@ describe('Mods screen — the grid, and the page one click away', () => {
     const input = container.querySelector('.v-palette__query input') as HTMLInputElement;
     set(() => fireEvent.keyDown(input, { keyCode: 27 }));
     expect(useVoidStore.getState().paletteOpen).toBe(false);
-    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().route).toEqual({ name: 'grid' });
     expect(useVoidStore.getState().menuOpen).toBe(true);
     expect(layer).not.toBeNull();
   });
@@ -645,7 +647,7 @@ describe('Mods screen — the grid, and the page one click away', () => {
     const gear = () => screen.getByLabelText('Settings');
     expect(gear().className).toContain('obtn--on');
     fireEvent.click(gear());
-    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().route).toEqual({ name: 'grid' });
   });
 
   it('gives Settings the account the chip used to carry, read-only', () => {
@@ -722,6 +724,7 @@ describe('Mods screen — the grid, and the page one click away', () => {
    */
   it('the mods bar carries a way straight into the HUD editor', () => {
     set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'grid' }));
     const { container } = render(<App />);
     const dest = container.querySelector('.obar__dest') as HTMLElement;
     expect(dest).not.toBeNull();
@@ -764,7 +767,7 @@ describe('Mods screen — the grid, and the page one click away', () => {
     // Java asks this a frame ahead to decide whether to forward the key at all.
     expect(keepsEscape()).toBe(true);
     fireEvent.keyDown(window, { key: 'Unidentified', which: 27, keyCode: 27 });
-    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().route).toEqual({ name: 'grid' });
     expect(useVoidStore.getState().menuOpen).toBe(true);
   });
 
@@ -780,6 +783,7 @@ describe('Mods screen — the grid, and the page one click away', () => {
 describe('The mod page — contract §8', () => {
   beforeEach(() => {
     set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'grid' }));
   });
 
   /** Every case here is one click into a mod, which is the only way the properties exist now. */
@@ -1671,6 +1675,7 @@ describe('Quick palette — frame 244:1900', () => {
   /** The magnifier in the bar is the shortcut with a face on it. */
   it('opens from the search button in the top bar', () => {
     set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'grid' }));
     const { container } = render(<App />);
     expect(container.querySelector('.palette-layer')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
@@ -1748,7 +1753,7 @@ describe('the VOID watermark', () => {
 
   it('is a mod in the grid too, with the mark itself as its tile preview', () => {
     const { container } = render(<App />);
-    set(() => useVoidStore.setState({ menuOpen: true, route: { name: 'mods' } }));
+    set(() => useVoidStore.setState({ menuOpen: true, route: { name: 'grid' }, back: 'grid' }));
     const tile = container.querySelector('[data-mod-id="watermark"]') as HTMLElement;
     expect(tile).not.toBeNull();
     // Not an icon: the tile draws what the mod draws, which for this one is the real widget.

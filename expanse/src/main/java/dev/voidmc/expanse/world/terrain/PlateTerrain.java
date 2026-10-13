@@ -41,6 +41,8 @@ final class PlateTerrain {
 	private static final byte OCEAN = 2;
 
 	final PlateMap.Plate plate;
+	/** The node spacing: {@link #G}, or a coarse grid for the far view ({@link TerrainModel#sampleFar}), without rivers. */
+	private final int g;
 	private final int i0;
 	private final int j0;
 	private final int w;
@@ -50,6 +52,8 @@ final class PlateTerrain {
 	private final float[] uplift;
 	private final float[] coast;
 	private final float[] drainBase;
+	/** The drainage base blurred over a few hundred blocks: the lie of the lowland, smooth where drainBase jumps. */
+	private float[] lowland;
 	private final float[] area;
 	private final int[] receiver;
 	/** A gentle noise added to heights for routing only, so water finds its way across flats irregularly. */
@@ -74,6 +78,9 @@ final class PlateTerrain {
 	private int pieceCount;
 	private final int[] pieceFirst;
 	private final byte[] pieceNum;
+	/** For each grid cell, the river pieces whose box reaches into it: cellPieces[cellFirst[k] .. cellFirst[k + 1]). */
+	private int[] cellFirst;
+	private int[] cellPieces;
 
 	/** Raw per-column values, before the model blends plates and adds detail. */
 	static final class Raw {
@@ -81,6 +88,7 @@ final class PlateTerrain {
 		float uplift;
 		float coast;
 		float drainBase;
+		float lowland;
 		// river
 		float riverDist;
 		float riverHalfWidth;
@@ -89,7 +97,16 @@ final class PlateTerrain {
 	}
 
 	PlateTerrain(TerrainModel model, PlateMap.Plate plate) {
+		this(model, plate, G);
+	}
+
+	/**
+	 * The plate on a grid of nodes {@code g} blocks apart. Drainage areas are counted in {@link #G}-grid nodes
+	 * whatever the spacing, so a coarse grid erodes to about the same heights; it has no rivers.
+	 */
+	PlateTerrain(TerrainModel model, PlateMap.Plate plate, int g) {
 		this.plate = plate;
+		this.g = g;
 		PlateMap plates = model.plates();
 		PlateMap.Hit hit = new PlateMap.Hit();
 
@@ -108,10 +125,10 @@ final class PlateTerrain {
 				}
 			}
 		}
-		this.i0 = Mth.floor((minX - 320) / G);
-		this.j0 = Mth.floor((minZ - 320) / G);
-		this.w = Mth.ceil((maxX + 320) / G) - this.i0 + 1;
-		this.d = Mth.ceil((maxZ + 320) / G) - this.j0 + 1;
+		this.i0 = Mth.floor((minX - 320) / this.g);
+		this.j0 = Mth.floor((minZ - 320) / this.g);
+		this.w = Mth.ceil((maxX + 320) / this.g) - this.i0 + 1;
+		this.d = Mth.ceil((maxZ + 320) / this.g) - this.j0 + 1;
 		int n = this.w * this.d;
 		this.kind = new byte[n];
 		this.height = new float[n];
@@ -142,8 +159,8 @@ final class PlateTerrain {
 		for (int j = 0; j < this.d; j++) {
 			for (int i = 0; i < this.w; i++) {
 				int k = i + j * this.w;
-				double x = (this.i0 + i) * (double) G;
-				double z = (this.j0 + j) * (double) G;
+				double x = (this.i0 + i) * (double) this.g;
+				double z = (this.j0 + j) * (double) this.g;
 				plates.locate(x, z, hit);
 				if (hit.own != plate) {
 					this.kind[k] = NONE;
@@ -166,7 +183,7 @@ final class PlateTerrain {
 						// an inland sea: stretched one way, its shore wandering at several scales
 						double ux = (x - seaX) * seaCos + (z - seaZ) * seaSin;
 						double uz = -(x - seaX) * seaSin + (z - seaZ) * seaCos;
-						double r = Math.hypot(ux / 1.5, uz * 1.2);
+						double r = PlateMap.len(ux / 1.5, uz * 1.2);
 						double shore = seaR * (1 + 0.45 * model.noise(TerrainModel.N_COAST, x / 900 + 7, z / 900) + 0.2 * model.noise(TerrainModel.N_COAST_FINE, x / 220, z / 220));
 						land &= r > shore;
 					}
@@ -196,8 +213,8 @@ final class PlateTerrain {
 			if (this.kind[k] != LAND) {
 				continue;
 			}
-			double x = (this.i0 + k % this.w) * (double) G;
-			double z = (this.j0 + k / this.w) * (double) G;
+			double x = (this.i0 + k % this.w) * (double) this.g;
+			double z = (this.j0 + k / this.w) * (double) this.g;
 			// interior: broad lowland basins (barely rising: plains) to upland (rolling hills)
 			double interior = 0.5 + 0.5 * model.noise(TerrainModel.N_UPLIFT, x / 3400, z / 3400);
 			double u = 0.05 + 0.42 * interior * interior;
@@ -205,6 +222,20 @@ final class PlateTerrain {
 			double ridge = 1 - Math.abs(model.noise(TerrainModel.N_RIDGE, x / 2300, z / 2300));
 			double ridgeMask = smooth((model.noise(TerrainModel.N_UPLIFT, x / 6000 + 40, z / 6000) - 0.05) / 0.4);
 			u += 0.75 * ridge * ridge * ridge * ridgeMask;
+			// the great ranges: long belts of high mountains across the continents (the Alps and the Carpathians of this
+			// world), each a few kilometres wide and tens long, so a range stands on most horizons of the far view
+			// (bent by a broad warp so no belt runs in a smooth curve; a core of high peaks in broad foothills, rising
+			// and falling along its length)
+			double wx = x + 2600 * model.noise(TerrainModel.N_ROUGH, x / 9000 + 11, z / 9000);
+			double wz = z + 2600 * model.noise(TerrainModel.N_ROUGH, x / 9000 - 47, z / 9000 + 5);
+			double belt = 1 - Math.abs(model.noise(TerrainModel.N_RIDGE, wx / 9000 + 300, wz / 9000 - 120));
+			double beltMask = smooth((model.noise(TerrainModel.N_UPLIFT, x / 11000 - 80, z / 11000 + 30) + 0.25) / 0.5)
+				* (0.55 + 0.45 * smooth((model.noise(TerrainModel.N_UPLIFT, x / 4200 + 9, z / 4200 - 60) + 0.3) / 0.6));
+			if (plate.continental()) {
+				double core = smooth((belt - 0.76) / 0.17);
+				double foothills = smooth((belt - 0.5) / 0.3);
+				u += (2.1 * core + 0.55 * foothills) * beltMask * smooth((this.coast[k] - 200) / 500.0);
+			}
 			if (plate.continental() && acrossContinent[k]) {
 				// collision range along the border with another continent
 				double push = 0.3 + 0.7 * Math.max(0, convergence[k]);
@@ -225,8 +256,8 @@ final class PlateTerrain {
 		long t5 = System.nanoTime();
 		// 5. Erosion: the drainage tree and the steady state, repeated until they agree.
 		for (int k = 0; k < n; k++) {
-			double x = (this.i0 + k % this.w) * (double) G;
-			double z = (this.j0 + k / this.w) * (double) G;
+			double x = (this.i0 + k % this.w) * (double) this.g;
+			double z = (this.j0 + k / this.w) * (double) this.g;
 			// Routing surface on top of the land's own height: a gentle tilt toward the sea (distance from the
 			// coast never has a pit), steeper than the meander noise riding on it, so water nearly always has
 			// a way down and seldom has to fill a basin, where a grid would route it in straight lines.
@@ -236,8 +267,8 @@ final class PlateTerrain {
 		}
 		for (int k = 0; k < n; k++) {
 			if (this.kind[k] == LAND) {
-				double x = (this.i0 + k % this.w) * (double) G;
-				double z = (this.j0 + k / this.w) * (double) G;
+				double x = (this.i0 + k % this.w) * (double) this.g;
+				double z = (this.j0 + k / this.w) * (double) this.g;
 				float u = this.uplift[k];
 				this.height[k] = (float) (SEA + 1 + u * 95 * (1 - Math.exp(-this.coast[k] / 700.0))
 					+ 26 * (0.3 + u) * model.noise(TerrainModel.N_ROUGH, x / 520, z / 520) + 9 * model.noise(TerrainModel.N_ROUGH, x / 150 + 9, z / 150));
@@ -256,8 +287,8 @@ final class PlateTerrain {
 			// the summit: the highest node near where the cone was pushed up
 			Volcano volcano = this.volcanoes.get(v);
 			float top = SEA;
-			int ci = (int) Math.round(volcano.x() / G) - this.i0;
-			int cj = (int) Math.round(volcano.z() / G) - this.j0;
+			int ci = (int) Math.round(volcano.x() / this.g) - this.i0;
+			int cj = (int) Math.round(volcano.z() / this.g) - this.j0;
 			for (int dj = -2; dj <= 2; dj++) {
 				for (int di = -2; di <= 2; di++) {
 					top = Math.max(top, this.at(this.height, ci + di, cj + dj));
@@ -272,8 +303,8 @@ final class PlateTerrain {
 			if (this.kind[k] != OCEAN) {
 				continue;
 			}
-			double x = (this.i0 + k % this.w) * (double) G;
-			double z = (this.j0 + k / this.w) * (double) G;
+			double x = (this.i0 + k % this.w) * (double) this.g;
+			double z = (this.j0 + k / this.w) * (double) this.g;
 			double out = -this.coast[k];
 			double floor = SEA - 3 - 24 * smooth(out / 520) - 17 * smooth((out - 400) / 1300);
 			floor += 5 * model.noise(TerrainModel.N_ROUGH, x / 400, z / 400);
@@ -298,11 +329,16 @@ final class PlateTerrain {
 
 		long t8 = System.nanoTime();
 		// 8. Rivers.
-		this.buildRivers();
+		if (this.g == G) {
+			this.buildRivers();
+			this.indexRivers();
+		}
 
 		long t9 = System.nanoTime();
 		// 9. Values a little way past the border, so interpolation near it has neighbours to use.
 		this.dilate();
+		int blurNodes = Math.max(1, 128 / this.g);     // about 130 blocks either way, twice over
+		this.lowland = blur(blur(this.drainBase, blurNodes), blurNodes);
 		long tEnd = System.nanoTime();
 		if (PROFILE && tEnd - t1 > 500_000_000L) {
 			System.out.printf("plate %d,%d %s: %dx%d nodes, extent %d, layout %d, coast %d, uplift %d, erosion %d, sea %d, rivers %d (%d pieces), edges %d ms%n",
@@ -321,7 +357,7 @@ final class PlateTerrain {
 		for (int dx = -2; dx <= 2; dx++) {
 			for (int dz = -2; dz <= 2; dz++) {
 				PlateMap.Plate p = plates.plate(this.plate.gx() + dx, this.plate.gz() + dz);
-				if (p != this.plate && !p.continental() && Math.hypot(p.cx() - this.plate.cx(), p.cz() - this.plate.cz()) < 1.7 * PlateMap.SPACING) {
+				if (p != this.plate && !p.continental() && PlateMap.len(p.cx() - this.plate.cx(), p.cz() - this.plate.cz()) < 1.7 * PlateMap.SPACING) {
 					return true;
 				}
 			}
@@ -335,10 +371,10 @@ final class PlateTerrain {
 		if (this.plate.continental()) {
 			// the arc: a lattice of candidates a kilometre apart, kept where the coastal range rises
 			int cell = 1000;
-			int ci0 = Math.floorDiv(this.i0 * G, cell);
-			int ci1 = Math.floorDiv((this.i0 + this.w) * G, cell);
-			int cj0 = Math.floorDiv(this.j0 * G, cell);
-			int cj1 = Math.floorDiv((this.j0 + this.d) * G, cell);
+			int ci0 = Math.floorDiv(this.i0 * this.g, cell);
+			int ci1 = Math.floorDiv((this.i0 + this.w) * this.g, cell);
+			int cj0 = Math.floorDiv(this.j0 * this.g, cell);
+			int cj1 = Math.floorDiv((this.j0 + this.d) * this.g, cell);
 			for (int cj = cj0; cj <= cj1; cj++) {
 				for (int ci = ci0; ci <= ci1; ci++) {
 					long h = PlateMap.mix(seed ^ 0x564F_4C43L, ci, cj);
@@ -381,7 +417,7 @@ final class PlateTerrain {
 	private double volcanicUplift(double x, double z) {
 		double u = 0;
 		for (Volcano v : this.volcanoes) {
-			double d = Math.hypot(x - v.x(), z - v.z());
+			double d = PlateMap.len(x - v.x(), z - v.z());
 			if (d < v.radius()) {
 				u = Math.max(u, v.strength() * Math.pow(1 - d / v.radius(), 1.3));
 			}
@@ -401,8 +437,8 @@ final class PlateTerrain {
 
 	/** The node nearest (x, z), or -1 outside the grid. */
 	private int node(double x, double z) {
-		int i = (int) Math.round(x / G) - this.i0;
-		int j = (int) Math.round(z / G) - this.j0;
+		int i = (int) Math.round(x / this.g) - this.i0;
+		int j = (int) Math.round(z / this.g) - this.j0;
 		return i < 0 || j < 0 || i >= this.w || j >= this.d ? -1 : i + j * this.w;
 	}
 
@@ -430,7 +466,7 @@ final class PlateTerrain {
 			double qx = x + r * 0.7 * model.noise(TerrainModel.N_COAST, x / 260 + 13, z / 260);
 			double qz = z + r * 0.7 * model.noise(TerrainModel.N_COAST, x / 260 - 29, z / 260);
 			double ragged = 0.3 * model.noise(TerrainModel.N_COAST_FINE, x / 90, z / 90);
-			if (Math.hypot(qx - hx, qz - hz) < r * (1 + ragged)) {
+			if (PlateMap.len(qx - hx, qz - hz) < r * (1 + ragged)) {
 				return true;
 			}
 		}
@@ -467,7 +503,7 @@ final class PlateTerrain {
 				if (this.kind[m] != to && this.kind[m] != from) {
 					continue;
 				}
-				float nd = dk + (e < 4 ? G : G * SQRT2);
+				float nd = dk + (e < 4 ? this.g : this.g * SQRT2);
 				if (nd < dist[m]) {
 					dist[m] = nd;
 					heap.push(nd, m);
@@ -557,7 +593,7 @@ final class PlateTerrain {
 	/** Drainage area: each node's own cell plus everything upstream of it, summed down the tree. */
 	private void accumulate(int[] order, int count) {
 		for (int c = 0; c < count; c++) {
-			this.area[order[c]] = 1;
+			this.area[order[c]] = (float) (this.g * this.g) / (G * G);   // in fine-grid nodes, whatever the spacing
 		}
 		for (int c = count - 1; c >= 0; c--) {
 			int k = order[c];
@@ -580,9 +616,9 @@ final class PlateTerrain {
 			float base = this.kind[r] == OCEAN ? SEA : this.height[r];
 			float step = this.dist(k, r);
 			float hk = base + step * slope;
-			// the build height is finite: big ranges flatten off toward the top of the world
-			if (hk > 300) {
-				hk = 300 + 50 * (1 - (float) Math.exp(-(hk - 300) / 50.0));
+			// the build height is finite (y 639): the greatest ranges flatten off toward the top of the world
+			if (hk > 470) {
+				hk = 470 + 110 * (1 - (float) Math.exp(-(hk - 470) / 110.0));
 			}
 			this.height[k] = hk;
 		}
@@ -620,15 +656,23 @@ final class PlateTerrain {
 	private float dist(int a, int b) {
 		int di = Math.abs(a % this.w - b % this.w);
 		int dj = Math.abs(a / this.w - b / this.w);
-		return di + dj == 2 ? G * SQRT2 : G;
+		return di + dj == 2 ? this.g * SQRT2 : this.g;
 	}
 
 	// ---------------------------------------------------------------------------------------------
 	// Rivers
 
+	/** A river's half width from the land it drains: four-block brooks up to great rivers fifty blocks across. */
 	static float halfWidth(float area) {
-		return Math.min(16.0F, 0.6F + 0.9F * (float) Math.sqrt(area / RIVER_AREA));
+		return Math.min(24.0F, 0.8F + 1.3F * (float) Math.sqrt(area / RIVER_AREA));
 	}
+
+	/** How far round its channel a river piece's box reaches: the widest the valley floor and sides get. */
+	static float pad(float hw) {
+		return Math.max(2.7F * hw + 56, 62);
+	}
+
+
 
 	private boolean isRiver(int k) {
 		return k >= 0 && this.kind[k] == LAND && this.area[k] >= RIVER_AREA;
@@ -701,7 +745,7 @@ final class PlateTerrain {
 		p[o + 9] = hw0;
 		p[o + 10] = hw2;
 		// bounding box, padded by the widest the valley round the channel gets (and a fjord's trough)
-		float pad = Math.max(1.8F * Math.max(hw0, hw2) + 16, 62);
+		float pad = pad(Math.max(hw0, hw2));
 		p[o + 11] = Math.min(x0, Math.min(x1, x2)) - pad;
 		p[o + 12] = Math.max(x0, Math.max(x1, x2)) + pad;
 		p[o + 13] = Math.min(z0, Math.min(z1, z2)) - pad;
@@ -710,11 +754,11 @@ final class PlateTerrain {
 	}
 
 	private float x(int k) {
-		return (this.i0 + k % this.w) * (float) G;
+		return (this.i0 + k % this.w) * (float) this.g;
 	}
 
 	private float z(int k) {
-		return (this.j0 + k / this.w) * (float) G;
+		return (this.j0 + k / this.w) * (float) this.g;
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -772,8 +816,8 @@ final class PlateTerrain {
 
 	/** Interpolated plate values at (x, z); with {@code rivers}, also the nearest river. */
 	void sample(double x, double z, double mx, double mz, boolean rivers, Raw out) {
-		double fx = x / G - this.i0;
-		double fz = z / G - this.j0;
+		double fx = x / this.g - this.i0;
+		double fz = z / this.g - this.j0;
 		int i = Mth.floor(fx);
 		int j = Mth.floor(fz);
 		float tx = (float) (fx - i);
@@ -782,11 +826,12 @@ final class PlateTerrain {
 		out.uplift = this.bilinear(this.uplift, i, j, tx, tz);
 		out.coast = this.bilinear(this.coast, i, j, tx, tz);
 		out.drainBase = this.bilinear(this.drainBase, i, j, tx, tz);
+		out.lowland = this.bicubic(this.lowland, i, j, tx, tz);
 		out.riverDist = Float.MAX_VALUE;
 		out.riverHalfWidth = 0;
 		out.riverWater = Float.NaN;
 		out.riverDepth = 0;
-		if (rivers) {
+		if (rivers && this.g == G) {
 			this.nearestRiver((float) mx, (float) mz, i, j, out);
 		}
 	}
@@ -795,6 +840,31 @@ final class PlateTerrain {
 		i = Mth.clamp(i, 0, this.w - 1);
 		j = Mth.clamp(j, 0, this.d - 1);
 		return f[i + j * this.w];
+	}
+
+	/** A box blur of a node field, {@code r} nodes either way, along x and then z (clamped at the edges). */
+	private float[] blur(float[] f, int r) {
+		float[] a = new float[f.length];
+		float[] b = new float[f.length];
+		for (int j = 0; j < this.d; j++) {
+			for (int i = 0; i < this.w; i++) {
+				float sum = 0;
+				for (int o = -r; o <= r; o++) {
+					sum += f[Mth.clamp(i + o, 0, this.w - 1) + j * this.w];
+				}
+				a[i + j * this.w] = sum / (2 * r + 1);
+			}
+		}
+		for (int j = 0; j < this.d; j++) {
+			for (int i = 0; i < this.w; i++) {
+				float sum = 0;
+				for (int o = -r; o <= r; o++) {
+					sum += a[i + Mth.clamp(j + o, 0, this.d - 1) * this.w];
+				}
+				b[i + j * this.w] = sum / (2 * r + 1);
+			}
+		}
+		return b;
 	}
 
 	private float bilinear(float[] f, int i, int j, float tx, float tz) {
@@ -815,21 +885,54 @@ final class PlateTerrain {
 		return 0.5F * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
 	}
 
+	/**
+	 * Files every river piece under each grid cell its box reaches into, so finding the river nearest a point looks
+	 * only at the pieces of the cell the point is in, however wide the valleys (a box reaches well over a hundred
+	 * blocks round a great river's channel).
+	 */
+	private void indexRivers() {
+		int cells = this.w * this.d;
+		int[] first = new int[cells + 1];
+		for (int pass = 0; pass < 2; pass++) {
+			int[] fill = pass == 1 ? first.clone() : null;
+			for (int q = 0; q < this.pieceCount; q++) {
+				int o = q * STRIDE;
+				int ci0 = Math.max(0, Mth.floor(this.pieces[o + 11] / this.g) - this.i0);
+				int ci1 = Math.min(this.w - 1, Mth.floor(this.pieces[o + 12] / this.g) - this.i0);
+				int cj0 = Math.max(0, Mth.floor(this.pieces[o + 13] / this.g) - this.j0);
+				int cj1 = Math.min(this.d - 1, Mth.floor(this.pieces[o + 14] / this.g) - this.j0);
+				for (int cj = cj0; cj <= cj1; cj++) {
+					for (int ci = ci0; ci <= ci1; ci++) {
+						int k = ci + cj * this.w;
+						if (pass == 0) {
+							first[k + 1]++;
+						} else {
+							this.cellPieces[fill[k]++] = q;
+						}
+					}
+				}
+			}
+			if (pass == 0) {
+				for (int k = 0; k < cells; k++) {
+					first[k + 1] += first[k];
+				}
+				this.cellPieces = new int[first[cells]];
+			}
+		}
+		this.cellFirst = first;
+	}
+
 	private void nearestRiver(float px, float pz, int i, int j, Raw out) {
 		float best = Float.MAX_VALUE;
 		float[] p = this.pieces;
-		for (int nj = j - 2; nj <= j + 3; nj++) {
-			if (nj < 0 || nj >= this.d) {
-				continue;
-			}
-			for (int ni = i - 2; ni <= i + 3; ni++) {
-				if (ni < 0 || ni >= this.w) {
-					continue;
-				}
-				int k = ni + nj * this.w;
-				int num = this.pieceNum[k];
-				for (int q = 0; q < num; q++) {
-					int o = (this.pieceFirst[k] + q) * STRIDE;
+		if (i < 0 || i >= this.w || j < 0 || j >= this.d) {
+			return;
+		}
+		int cell = i + j * this.w;
+		{
+			{
+				for (int c = this.cellFirst[cell]; c < this.cellFirst[cell + 1]; c++) {
+					int o = this.cellPieces[c] * STRIDE;
 					if (px < p[o + 11] || px > p[o + 12] || pz < p[o + 13] || pz > p[o + 14]) {
 						continue;
 					}

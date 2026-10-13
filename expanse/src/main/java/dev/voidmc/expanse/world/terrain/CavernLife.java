@@ -130,6 +130,10 @@ final class CavernLife {
 					shapes(caverns, theme, x, z, shapes);
 					// (the shapes read other columns of the model, which may have taken this column's place in its cache)
 					realm(level, caverns.info(x, z), shapes, x, z, h, p);
+					c = caverns.info(x, z);
+					if (c.sea) {
+						sea(level, c, x, z, h, p);
+					}
 				} else if (c.fine || c.tunnel || c.river) {
 					Column land = caverns.terrain().sample(x, z);
 					float temperature = land.temperature;
@@ -137,11 +141,18 @@ final class CavernLife {
 					c = caverns.info(x, z);
 					tunnel(level, c, x, z, h, temperature, humidity, p);
 					small(level, c, x, z, h, temperature, humidity, p);
+					greatRiver(level, c, x, z, h, p);
+				}
+				c = caverns.info(x, z);
+				if (c.systems) {
+					CaveSystemsLife.decorate(level, caverns, c, pos, x, z, h, p);
 				}
 			}
 		}
 		mushrooms(level, pos, caverns, p);
 		spikes(level, pos, caverns, p);
+		MineLife.decorate(level, chunk, caverns);
+		RiverSights.decorate(level, chunk, caverns);
 	}
 
 	// ------------------------------------------------------------------ the caves between the realms
@@ -184,6 +195,91 @@ final class CavernLife {
 		}
 	}
 
+	/**
+	 * The great rivers: their vaults hung with glowworm silk (thickest where the river is greatest, so the water runs
+	 * under a sky of faint green stars), bats roosting up there, and fish in the deep water.
+	 */
+	private static void greatRiver(WorldGenLevel level, CavernModel.Info c, int x, int z, long h, BlockPos.MutableBlockPos p) {
+		if (!c.river || c.riverFalls || c.riverGreat < 0.25F) {
+			return;
+		}
+		int water = c.waterTop();
+		double silk = PlateMap.unit(PlateMap.mix(h, 1, 0x474CL));
+		double bat = PlateMap.unit(PlateMap.mix(h, 2, 0x474CL));
+		// (silk only over the water, under the high vault, a strand here and there: a sky of faint stars, not a curtain)
+		boolean overWater = c.riverDist < c.riverHalfWidth - 1;
+		if (overWater && silk < 0.018 * c.riverGreat || bat < 0.0015 * c.riverGreat) {
+			int ceiling = ceiling(level, x, z, Math.round(c.tunnelRoof) + 6, water + 3, p);
+			if (ceiling != Integer.MIN_VALUE && ceiling - water > 9) {
+				if (overWater && silk < 0.018 * c.riverGreat && ceiling - water > 20) {
+					silk(level, x, ceiling - 1, z, 2 + (int) (PlateMap.unit(PlateMap.mix(h, 3, 0x474CL)) * 5), p);
+				} else {
+					roost(level, x, ceiling - 1, z, h);
+				}
+			}
+		}
+		if (c.riverDist < c.riverHalfWidth - 3 && PlateMap.unit(PlateMap.mix(h, 4, 0x474CL)) < 0.003 * c.riverGreat) {
+			school(level, x, water - 2, z, h, PlateMap.unit(PlateMap.mix(h, 5, 0x474CL)) < 0.6
+				? net.minecraft.world.entity.EntityTypes.SALMON : net.minecraft.world.entity.EntityTypes.COD, 3);
+		}
+	}
+
+	/** The buried seas: glow squid in the dark water, bats under the vault. */
+	private static void sea(WorldGenLevel level, CavernModel.Info c, int x, int z, long h, BlockPos.MutableBlockPos p) {
+		if (!c.hall || c.hallEdge < 20 || c.lake < c.floor + 4) {
+			return;
+		}
+		int water = (int) Math.floor(c.lake);
+		if (PlateMap.unit(PlateMap.mix(h, 6, 0x474CL)) < 0.0012) {
+			school(level, x, Math.max((int) Math.ceil(c.floor) + 1, water - 4), z, h, net.minecraft.world.entity.EntityTypes.GLOW_SQUID, 2);
+		}
+		if (PlateMap.unit(PlateMap.mix(h, 7, 0x474CL)) < 0.0006) {
+			int ceiling = ceiling(level, x, z, Math.round(c.roof) + 8, water + 4, p);
+			if (ceiling != Integer.MIN_VALUE) {
+				roost(level, x, ceiling - 1, z, h);
+			}
+		}
+	}
+
+	/** A few fish (or squid) of one kind in the water round (x, y, z), kept: they are the river's own. */
+	private static void school(WorldGenLevel level, int x, int y, int z, long h, net.minecraft.world.entity.EntityType<? extends net.minecraft.world.entity.Mob> type,
+		int count) {
+		if (level.getLevel() == null) {
+			return;
+		}
+		for (int n = 0; n < count; n++) {
+			long hn = PlateMap.mix(h, n, 0x4649L);
+			int bx = x + (int) ((PlateMap.unit(hn) - 0.5) * 6);
+			int bz = z + (int) ((PlateMap.unit(PlateMap.mix(hn, 1, 1)) - 0.5) * 6);
+			BlockPos at = new BlockPos(bx, y, bz);
+			if (!level.getFluidState(at).is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(at.above()).is(net.minecraft.tags.FluidTags.WATER)) {
+				continue;
+			}
+			var mob = type.create(level.getLevel(), net.minecraft.world.entity.EntitySpawnReason.CHUNK_GENERATION);
+			if (mob == null) {
+				continue;
+			}
+			mob.snapTo(bx + 0.5, y + 0.2, bz + 0.5, (float) (PlateMap.unit(PlateMap.mix(hn, 2, 2)) * 360), 0);
+			mob.setPersistenceRequired();
+			level.addFreshEntityWithPassengers(mob);
+		}
+	}
+
+	/** A bat hanging from the rock over (x, y, z), asleep. */
+	private static void roost(WorldGenLevel level, int x, int y, int z, long h) {
+		if (level.getLevel() == null || !level.getBlockState(new BlockPos(x, y, z)).isAir()) {
+			return;
+		}
+		var bat = net.minecraft.world.entity.EntityTypes.BAT.create(level.getLevel(), net.minecraft.world.entity.EntitySpawnReason.CHUNK_GENERATION);
+		if (bat == null) {
+			return;
+		}
+		bat.snapTo(x + 0.5, y + 0.1, z + 0.5, (float) (PlateMap.unit(PlateMap.mix(h, 8, 8)) * 360), 0);
+		bat.setResting(true);
+		bat.setPersistenceRequired();
+		level.addFreshEntityWithPassengers(bat);
+	}
+
 	/** The passages, chambers and ways in through a column. */
 	private static void small(WorldGenLevel level, CavernModel.Info c, int x, int z, long h, float temperature, float humidity,
 		BlockPos.MutableBlockPos p) {
@@ -204,7 +300,7 @@ final class CavernLife {
 	}
 
 	/** One cave's floor and roof in a column, between about {@code low} and {@code high}. */
-	private static void cave(WorldGenLevel level, int x, int z, float low, float high, long h, float temperature, float humidity,
+	static void cave(WorldGenLevel level, int x, int z, float low, float high, long h, float temperature, float humidity,
 		BlockPos.MutableBlockPos p) {
 		int floor = Integer.MIN_VALUE;
 		for (int y = Math.round(low) + 2; y >= Math.round(low) - 4 && y > LAVA + 1; y--) {
@@ -1458,7 +1554,7 @@ final class CavernLife {
 	// ------------------------------------------------------------------ pieces
 
 	/** A speleothem of {@code block} (pointed dripstone, an icicle...), pointing {@code tip}, {@code length} long from (x, y, z). */
-	private static void speleothem(WorldGenLevel level, int x, int y, int z, Direction tip, int length, Block block, BlockPos.MutableBlockPos p) {
+	static void speleothem(WorldGenLevel level, int x, int y, int z, Direction tip, int length, Block block, BlockPos.MutableBlockPos p) {
 		for (int k = 0; k < length; k++) {
 			if (!level.getBlockState(p.set(x, y + (tip == Direction.UP ? k : -k), z)).isAir()) {
 				length = k;
@@ -1522,7 +1618,7 @@ final class CavernLife {
 	}
 
 	/** Rock and earth as the land (or this decoration) made them, never anything built. */
-	private static boolean natural(BlockState s) {
+	static boolean natural(BlockState s) {
 		return s.is(BlockTags.BASE_STONE_OVERWORLD) || s.is(BlockTags.DIRT) || s.is(BlockTags.SAND) || s.is(Blocks.GRAVEL) || s.is(Blocks.CLAY)
 			|| s.is(Blocks.DRIPSTONE_BLOCK) || s.is(Blocks.CALCITE) || s.is(Blocks.SMOOTH_BASALT) || s.is(Blocks.BASALT) || s.is(Blocks.SANDSTONE)
 			|| s.is(Blocks.RED_SANDSTONE) || s.is(Blocks.SNOW_BLOCK) || s.is(Blocks.PACKED_ICE) || s.is(Blocks.SULFUR) || s.is(Blocks.MAGMA_BLOCK)

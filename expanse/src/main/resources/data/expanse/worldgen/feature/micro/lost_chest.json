@@ -27,7 +27,11 @@
           "minecraft:calcite",
           "minecraft:sandstone",
           "minecraft:red_sandstone",
-          "expanse:opal_sandstone"
+          "expanse:opal_sandstone",
+          "expanse:volcanic_ash",
+          "expanse:salt_block",
+          "minecraft:basalt",
+          "minecraft:blackstone"
         ]
       }
     ]

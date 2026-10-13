@@ -1,5 +1,10 @@
 {
   "values": [
-    "expanse:jade_karst"
+    "expanse:jade_karst",
+    "expanse:monsoon_forest",
+    "minecraft:jungle",
+    "minecraft:sparse_jungle",
+    "minecraft:bamboo_jungle",
+    "minecraft:cherry_grove"
   ]
 }

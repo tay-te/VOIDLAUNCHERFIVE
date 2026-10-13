@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:natural/tree/pine_giant/mega_pine",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.3,
+      "feature": {
+        "feature": "expanse:natural/tree/pine_scots/mega_pine",
+        "placement": []
+      }
+    }
+  ]
+}

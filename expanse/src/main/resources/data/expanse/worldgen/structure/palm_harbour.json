@@ -3,6 +3,7 @@
   "allow_water": true,
   "biomes": "#expanse:has_structure/palm_harbour",
   "max_distance_from_center": 72,
+  "peopled": true,
   "project_start_to_heightmap": "WORLD_SURFACE_WG",
   "size": 4,
   "spawn_overrides": {},

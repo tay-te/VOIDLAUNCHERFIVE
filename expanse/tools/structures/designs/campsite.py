@@ -1,11 +1,18 @@
 """Abandoned campsites: somebody stopped here, and something happened.
 
-One design, four material palettes (separate structures, so tents and food
-suit the biome):
-  campsite         spruce, canvas      - redwood giants, heather moor, verdant peaks, lumen grove
-  campsite_snow    spruce, furs        - frostbloom tundra, prismatic peaks
-  campsite_steppe  acacia, dyed wool   - amber steppe, opal dunes, palm coast
-  campsite_bamboo  bamboo, green cloth - wisteria vale, jade karst, cloud forest, willow bayou
+One design, six palettes (separate structures, so tents and food suit the biome):
+  campsite            spruce, canvas      - redwood giants, heather moor, verdant peaks, ancient oakwood, the
+                                           taigas, windswept hills, pine heath, fjordlands, boreal muskeg,
+                                           volcanic highlands
+  campsite_snow       spruce, furs        - lichen tundra, dolomite peaks
+  campsite_snowfield  spruce, furs        - vanilla's snowlands (as campsite_snow, sparser plants)
+  campsite_steppe     acacia, dyed wool   - amber steppe, red dunes, palm coast, the deserts, savannas and
+                                           badlands, coral coast, outback, saguaro flats, painted canyons,
+                                           salt flats
+  campsite_bamboo     bamboo, green cloth - woodland glades, jade karst, cloud forest, willow bayou, jungles,
+                                           cherry grove, swamps, monsoon and kapok forests, tepui
+  campsite_meadow     oak, blue canvas    - plains, the broadleaf woods, meadow, aspen parkland, bluebell
+                                           woods, maple highlands, olive groves
 
 start pool (3 variants)
   tent : ridge tent with a bedroll, a fire with the meal still on it, log seats,
@@ -20,12 +27,13 @@ start pool (3 variants)
 from blocks import B
 from builder import Build, item, slab, trapdoor
 from pieces import Piece
+from regions import DRY_LANDS, MEADOW_LANDS, SNOW_LANDS, SWAMP_LANDS, TAIGA_LANDS, WARM_WET_LANDS
 from small_data import BOOKS, data_for
 from smallkit import a_tent, book, boulder, cart, clear, flora, ground_item, meal_fire, pick, ring, snow_cap, trail
 
 PALETTES = {
     "forest": dict(
-        name="campsite", biomes=["redwood_giants", "heather_moor", "verdant_peaks", "lumen_grove"],
+        name="campsite", biomes=["redwood_giants", "heather_moor", "verdant_peaks", "ancient_oakwood", *TAIGA_LANDS],
         procs="small_wayside", wood="spruce", log="spruce_log", wools=["white", "brown", "light_gray"],
         bed="straw", rug="brown", foods=["expanse:venison", "potato", "cod", "salmon"], fence="spruce_fence",
         ground=["podzol", "coarse_dirt", "grass_block", "grass_block"], soil="grass_block",
@@ -35,7 +43,7 @@ PALETTES = {
         leaves="spruce_leaves", sign="spruce", town="Moorfold", hides=["leather", "rabbit_hide", "leather"],
         cargo=["pumpkin", "hay_block", "melon"], snow=False),
     "snow": dict(
-        name="campsite_snow", biomes=["frostbloom_tundra", "prismatic_peaks"], procs="small_snow",
+        name="campsite_snow", biomes=["lichen_tundra", "dolomite_peaks"], procs="small_snow",
         wood="spruce", log="spruce_log", wools=["white", "light_gray", "brown"], bed="brown", rug="white",
         foods=["expanse:venison", "cod", "rabbit", "expanse:venison"], fence="spruce_fence",
         ground=["snow_block", "dirt", "snow_block"], soil="dirt",
@@ -44,7 +52,7 @@ PALETTES = {
         leaves="spruce_leaves", sign="spruce", town="the frost camp", hides=["rabbit_hide", "leather", "white_wool"],
         cargo=["hay_block", "packed_ice", "hay_block"], snow=True),
     "steppe": dict(
-        name="campsite_steppe", biomes=["amber_steppe", "opal_dunes", "palm_coast"], procs="small_sand",
+        name="campsite_steppe", biomes=["amber_steppe", "red_dunes", "palm_coast", *DRY_LANDS], procs="small_sand",
         wood="acacia", log="acacia_log", wools=["orange", "red", "yellow"], bed="red", rug="orange",
         foods=["mutton", "potato", "beef", "rabbit"], fence="acacia_fence",
         ground=["coarse_dirt", "coarse_dirt", "sand"], soil="coarse_dirt",
@@ -54,7 +62,8 @@ PALETTES = {
         leaves="acacia_leaves", sign="acacia", town="Amber Well", hides=["leather", "rabbit_hide", "red_wool"],
         cargo=["melon", "hay_block", "terracotta"], snow=False),
     "bamboo": dict(
-        name="campsite_bamboo", biomes=["wisteria_vale", "jade_karst", "cloud_forest", "willow_bayou"],
+        name="campsite_bamboo", biomes=["woodland_glades", "jade_karst", "cloud_forest", "willow_bayou",
+                                        *WARM_WET_LANDS, *SWAMP_LANDS],
         procs="small_karst", wood="bamboo", log="jungle_log", wools=["lime", "green", "cyan"], bed="straw",
         rug="green", foods=["salmon", "cod", "potato", "carrot"], fence="bamboo_fence",
         ground=["grass_block", "moss_block", "grass_block"], soil="grass_block",
@@ -63,6 +72,24 @@ PALETTES = {
         rock=["expanse:limestone", "expanse:mossy_limestone", "expanse:limestone", "stone"],
         leaves="jungle_leaves", sign="bamboo", town="Jade Ferry", hides=["leather", "rabbit_hide", "paper"],
         cargo=["melon", "hay_block", "pumpkin"], snow=False),
+    "meadow": dict(
+        name="campsite_meadow", biomes=MEADOW_LANDS, procs="small_meadow", wood="oak", log="oak_log",
+        wools=["white", "blue", "light_gray"], bed="straw", rug="red", foods=["beef", "potato", "chicken", "carrot"],
+        fence="oak_fence", ground=["grass_block", "grass_block", "coarse_dirt"], soil="grass_block",
+        path=[("dirt_path", 6), ("coarse_dirt", 2), ("gravel", 1)],
+        stones=["cobblestone", "mossy_cobblestone", "stone", "andesite"], rock=["stone", "andesite", "cobblestone",
+                                                                               "mossy_cobblestone"],
+        leaves="oak_leaves", sign="oak", town="Millbrook", hides=["leather", "rabbit_hide", "leather"],
+        cargo=["pumpkin", "hay_block", "melon"], snow=False),
+    "snowfield": dict(
+        name="campsite_snowfield", biomes=SNOW_LANDS, procs="small_snowfield",
+        wood="spruce", log="spruce_log", wools=["white", "light_gray", "brown"], bed="brown", rug="white",
+        foods=["expanse:venison", "cod", "rabbit", "salmon"], fence="spruce_fence",
+        ground=["snow_block", "dirt", "snow_block"], soil="dirt",
+        path=[("packed_ice", 1), ("snow_block", 3), ("gravel", 2), ("coarse_dirt", 2)],
+        stones=["cobblestone", "stone", "andesite", "packed_ice"], rock=["stone", "andesite", "packed_ice", "stone"],
+        leaves="spruce_leaves", sign="spruce", town="the ice road", hides=["rabbit_hide", "leather", "white_wool"],
+        cargo=["hay_block", "packed_ice", "hay_block"], snow=True),
 }
 
 

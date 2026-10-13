@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:random_selector",
+  "default": "expanse:natural/birch/birch_bees_0002",
+  "features": [
+    {
+      "chance": 0.00625,
+      "feature": "minecraft:fallen_super_birch_tree"
+    },
+    {
+      "chance": 0.5,
+      "feature": "expanse:natural/tall_birch/super_birch_bees_0002"
+    },
+    {
+      "chance": 0.0125,
+      "feature": "minecraft:fallen_birch_tree"
+    }
+  ]
+}

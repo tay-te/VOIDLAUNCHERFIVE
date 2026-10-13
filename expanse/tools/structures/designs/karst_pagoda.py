@@ -2,7 +2,7 @@
 
 start  court   : a 47x47 limestone terrace three blocks high. A gate hall with
                  guardian statues crowns the front stair; behind it a pond garden
-                 with a stone causeway and moon bridge, cherry and wisteria trees,
+                 with a stone causeway and moon bridge, cherry trees and oaks hung with wisteria,
                  bamboo, stone lanterns and a pond pavilion; a bell frame and a drum;
                  raked-gravel and stupa gardens; and the five-storey jade-roofed
                  PAGODA (~38 high) on its own podium:
@@ -414,10 +414,10 @@ def court():
         b.set(38, 4, z, B("dark_oak_fence"))
     # garden trees, bamboo, rocks
     tree(b, 9, 4, 13, rng, "cherry_log", "cherry_leaves", height=5, crown=3, lean="east", petals="pink_petals")
-    tree(b, 37, 4, 21, rng, "expanse:wisteria_log", "expanse:wisteria_leaves", height=5, crown=3, lean="west",
+    tree(b, 37, 4, 21, rng, "oak_log", "oak_leaves", height=5, crown=3, lean="west",
          blossoms="expanse:wisteria_blossoms")
-    tree(b, 7, 4, 21, rng, "expanse:wisteria_log", "expanse:azure_wisteria_leaves", height=4, crown=2.5,
-         blossoms="expanse:azure_wisteria_blossoms")
+    tree(b, 7, 4, 21, rng, "oak_log", "oak_leaves", height=4, crown=2.5,
+         blossoms="expanse:wisteria_blossoms")
     bamboo_clump(b, 4, 5, 4, 2, rng)
     bamboo_clump(b, 42, 5, 4, 2, rng)
     bamboo_clump(b, 4, 43, 4, 2, rng, density=0.7)

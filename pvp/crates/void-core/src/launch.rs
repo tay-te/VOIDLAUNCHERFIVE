@@ -63,6 +63,30 @@ pub struct LaunchOptions {
     pub bridge_token: String,
     /// The `void-client` JAR to install into `mods/`, if any.
     pub mod_jar: Option<PathBuf>,
+    /// A server to join as soon as the game is up — `host` or `host:port`. `None` launches
+    /// to the title screen. 1.8.9's own `--server`/`--port` game arguments do the joining,
+    /// so nothing in the mod is involved.
+    pub join_server: Option<String>,
+}
+
+/// The game arguments that make 1.8.9 connect to `target` on start.
+///
+/// `target` is what the player typed into the server list — `mc.hypixel.net` or
+/// `localhost:25566`. A missing or unparsable port is the Minecraft default, 25565, which
+/// is also what the vanilla multiplayer screen assumes. An empty target is no join at all.
+pub fn join_server_args(target: &str) -> Vec<String> {
+    let target = target.trim();
+    if target.is_empty() {
+        return Vec::new();
+    }
+    let (host, port) = match target.rsplit_once(':') {
+        // An IPv6 literal has colons of its own and needs brackets to carry a port.
+        Some((host, port)) if !host.contains(':') || host.ends_with(']') => {
+            (host.trim_matches(|c| c == '[' || c == ']'), port.parse::<u16>().unwrap_or(25565))
+        }
+        _ => (target, 25565),
+    };
+    vec!["--server".into(), host.to_string(), "--port".into(), port.to_string()]
 }
 
 /// The classpath, in order: libraries first, then the client jar.
@@ -455,7 +479,12 @@ pub async fn launch(
         options.max_memory_mb,
         &options.extra_jvm_args,
     )?;
-    let args = substitute(&template.args, &launch_variables(profile, paths, options));
+    let mut args = substitute(&template.args, &launch_variables(profile, paths, options));
+    // After substitution, not in the template: the template is keyed by the profile and
+    // records the last launch, and a server choice is neither.
+    if let Some(target) = &options.join_server {
+        args.extend(join_server_args(target));
+    }
 
     tracing::info!(
         java = %options.java.display(),
@@ -619,6 +648,7 @@ mod tests {
             bridge_port: 51234,
             bridge_token: "cafebabe".repeat(8),
             mod_jar: None,
+            join_server: None,
         };
         let args = substitute(&template.args, &launch_variables(&profile, &paths, &options));
 
@@ -629,6 +659,15 @@ mod tests {
         assert_eq!(args[name + 1], "Tester");
         let uuid = args.iter().position(|a| a == "--uuid").unwrap();
         assert_eq!(args[uuid + 1], crate::auth::offline_uuid("Tester"));
+    }
+
+    #[test]
+    fn joining_a_server_is_two_game_arguments_with_a_default_port() {
+        assert_eq!(join_server_args("mc.hypixel.net"), ["--server", "mc.hypixel.net", "--port", "25565"]);
+        assert_eq!(join_server_args(" localhost:25566 "), ["--server", "localhost", "--port", "25566"]);
+        assert_eq!(join_server_args("play.example:notaport"), ["--server", "play.example", "--port", "25565"]);
+        assert_eq!(join_server_args("[::1]:25570"), ["--server", "::1", "--port", "25570"]);
+        assert!(join_server_args("   ").is_empty());
     }
 
     #[test]

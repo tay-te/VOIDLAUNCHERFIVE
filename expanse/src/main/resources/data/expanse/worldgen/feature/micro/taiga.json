@@ -26,6 +26,18 @@
     {
       "data": "expanse:micro/fox_den",
       "weight": 2
+    },
+    {
+      "data": "expanse:micro/log_spruce",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/ant_mound",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/erratic",
+      "weight": 1
     }
   ]
 }

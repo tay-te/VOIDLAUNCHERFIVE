@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:mammoth_dig_snowfield/mammoth_dig_snowfield_tusks",
+        "processors": "expanse:small_dig_snowfield",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:mammoth_dig_snowfield/mammoth_dig_snowfield_ribs",
+        "processors": "expanse:small_dig_snowfield",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:mammoth_dig_snowfield/mammoth_dig_snowfield_pond",
+        "processors": "expanse:small_snowfield",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

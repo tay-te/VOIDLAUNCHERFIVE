@@ -17,7 +17,7 @@ import net.minecraft.world.level.biome.Biome;
  *
  * <p>Each Expanse biome takes the type of the vanilla biome it grew from (the analog its tags come from),
  * except where that analog says nothing useful: Verdant Peaks is green to the summit, so taiga rather than
- * the snow of jagged peaks; Prismatic Peaks is calcite and snow, so snow rather than stony peaks' plains;
+ * the snow of jagged peaks; Dolomite Peaks is calcite and snow, so snow rather than stony peaks' plains;
  * Palm Coast, a warm beach under palms, gets jungle villagers rather than a beach's plains ones.
  * Fabric API for 26.3 has no VillagerTypeHelper; the map is made accessible by
  * fabric-transitive-access-wideners-v1 and is written once, at start-up, before any world exists.
@@ -28,18 +28,18 @@ public final class ExpanseVillagers {
 
 	public static void init() {
 		Map<ResourceKey<Biome>, ResourceKey<VillagerType>> byBiome = VillagerType.BY_BIOME;
-		byBiome.put(ExpanseBiomes.FROSTBLOOM_TUNDRA, VillagerType.SNOW);    // snowy plains
+		byBiome.put(ExpanseBiomes.LICHEN_TUNDRA, VillagerType.SNOW);    // snowy plains
 		byBiome.put(ExpanseBiomes.HEATHER_MOOR, VillagerType.PLAINS);       // meadow
-		byBiome.put(ExpanseBiomes.WISTERIA_VALE, VillagerType.PLAINS);      // forest
+		byBiome.put(ExpanseBiomes.WOODLAND_GLADES, VillagerType.PLAINS);      // forest
 		byBiome.put(ExpanseBiomes.REDWOOD_GIANTS, VillagerType.TAIGA);      // old growth spruce taiga
-		byBiome.put(ExpanseBiomes.LUMEN_GROVE, VillagerType.PLAINS);        // dark forest
+		byBiome.put(ExpanseBiomes.ANCIENT_OAKWOOD, VillagerType.PLAINS);        // dark forest
 		byBiome.put(ExpanseBiomes.WILLOW_BAYOU, VillagerType.SWAMP);        // swamp
 		byBiome.put(ExpanseBiomes.AMBER_STEPPE, VillagerType.SAVANNA);      // savanna
-		byBiome.put(ExpanseBiomes.OPAL_DUNES, VillagerType.DESERT);         // desert
+		byBiome.put(ExpanseBiomes.RED_DUNES, VillagerType.DESERT);         // desert
 		byBiome.put(ExpanseBiomes.JADE_KARST, VillagerType.JUNGLE);         // jungle
 		byBiome.put(ExpanseBiomes.CLOUD_FOREST, VillagerType.JUNGLE);       // jungle
 		byBiome.put(ExpanseBiomes.VERDANT_PEAKS, VillagerType.TAIGA);       // jagged peaks, but green
-		byBiome.put(ExpanseBiomes.PRISMATIC_PEAKS, VillagerType.SNOW);      // stony peaks under calcite and snow
+		byBiome.put(ExpanseBiomes.DOLOMITE_PEAKS, VillagerType.SNOW);      // stony peaks under calcite and snow
 		byBiome.put(ExpanseBiomes.PALM_COAST, VillagerType.JUNGLE);         // a warm beach under palms
 		// --- cold & temperate biomes ---
 		byBiome.put(ExpanseBiomes.MAPLE_HIGHLANDS, VillagerType.PLAINS);    // dappled forest

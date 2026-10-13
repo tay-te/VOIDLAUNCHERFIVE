@@ -106,9 +106,10 @@ def plist(*parts):
 
 
 HEATHER = flowers(("expanse:heather", 0.35), ("expanse:edelweiss", 0.06), ("fern", 0.12), ("air", 0.12))
-TUNDRA = flowers(("expanse:frostbloom", 0.25), ("air", 0.35), ("fern", 0.1))
+TUNDRA = flowers(("fern", 0.2), ("dead_bush", 0.05), ("air", 0.35))
 STEPPE = flowers(("short_dry_grass", 0.3), ("tall_dry_grass", 0.15), ("dandelion", 0.05), ("air", 0.2))
-LUMEN = flowers(("expanse:glowcap", 0.3), ("fern", 0.2), ("air", 0.2))
+# (the old lumen grove's, now the Ancient Oakwood's: mushrooms and ferns)
+LUMEN = flowers(("brown_mushroom", 0.15), ("red_mushroom", 0.08), ("fern", 0.25), ("air", 0.2))
 COAST = flowers(("short_dry_grass", 0.2), ("fern", 0.1), ("air", 0.3))
 CLOUD = flowers(("fern", 0.3), ("lily_of_the_valley", 0.1), ("azure_bluet", 0.08), ("air", 0.15))
 FOREST = flowers(("fern", 0.3), ("expanse:heather", 0.04), ("poppy", 0.04), ("air", 0.15))
@@ -124,17 +125,17 @@ PROCESSOR_LISTS = {
                         archaeology("gravel", "suspicious_gravel", "expanse:chests/ruined_watchtower_archaeology", 4)),
     "lodge": plist(aged_wood("redwood", "spruce", "dark_oak"), STONE_WEATHER, FOREST,
                    OVERGROWTH),
-    "sun_shrine": plist([rule("expanse:smooth_opal_sandstone", 0.1, "expanse:opal_sandstone"),
-                         rule("expanse:cut_opal_sandstone", 0.06, "expanse:opal_sandstone"),
-                         rule("expanse:chiseled_opal_sandstone", 0.05, "expanse:cut_opal_sandstone"),
-                         rule("orange_terracotta", 0.08, "expanse:smooth_opal_sandstone"),
-                         rule("light_blue_terracotta", 0.08, "expanse:smooth_opal_sandstone")], DUNES,
+    "sun_shrine": plist([rule("smooth_red_sandstone", 0.1, "red_sandstone"),
+                         rule("cut_red_sandstone", 0.06, "red_sandstone"),
+                         rule("chiseled_red_sandstone", 0.05, "cut_red_sandstone"),
+                         rule("orange_terracotta", 0.08, "smooth_red_sandstone"),
+                         rule("white_terracotta", 0.08, "smooth_red_sandstone")], DUNES,
                         # vanilla-sand patches left in the ruins/dunes are the archaeology candidates
                         archaeology("sand", "suspicious_sand", "expanse:chests/sun_shrine_archaeology", 4)),
     "stilt_hamlet": plist(aged_wood("willow", "spruce"), BAYOU, [rule("moss_carpet", 0.3, "air")]),
     "pagoda": plist(STONE_WEATHER, aged_wood("redwood", "dark_oak"), KARST, [rule("moss_carpet", 0.3, "air")]),
     "lighthouse": plist(STONE_WEATHER, aged_wood("palm", "spruce"), COAST),
-    "lumen_shrine": plist(STONE_WEATHER, aged_wood("lumen"), LUMEN, OVERGROWTH, RUIN_ROT,
+    "lumen_shrine": plist(STONE_WEATHER, aged_wood("dark_oak", "oak"), LUMEN, OVERGROWTH, RUIN_ROT,
                           archaeology("gravel", "suspicious_gravel", "expanse:chests/lumen_shrine_archaeology", 2)),
     "frost_outpost": plist(STONE_WEATHER, aged_wood("spruce"), TUNDRA,
                            [rule("deepslate_bricks", 0.1, "cracked_deepslate_bricks"),

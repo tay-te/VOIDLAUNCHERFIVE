@@ -6,6 +6,10 @@
   },
   "structures": [
     {
+      "structure": "expanse:lumen_shrine",
+      "weight": 2
+    },
+    {
       "structure": "expanse:cavern_mine_camp",
       "weight": 3
     },

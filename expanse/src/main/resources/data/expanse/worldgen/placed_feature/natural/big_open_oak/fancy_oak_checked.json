@@ -1,0 +1,15 @@
+{
+  "feature": "expanse:natural/big_open_oak/fancy_oak",
+  "placement": [
+    {
+      "type": "expanse:land_fit"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:would_survive",
+        "state": "minecraft:oak_sapling"
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:random_selector",
+  "default": "expanse:natural/spruce_forest/spruce_checked",
+  "features": [
+    {
+      "chance": 0.025641026,
+      "feature": "expanse:natural/spruce_giant/mega_spruce_checked"
+    },
+    {
+      "chance": 0.30769232,
+      "feature": "expanse:natural/pine_giant/mega_pine_checked"
+    },
+    {
+      "chance": 0.33333334,
+      "feature": "expanse:natural/pine_forest/pine_checked"
+    },
+    {
+      "chance": 0.0125,
+      "feature": "minecraft:fallen_spruce_tree"
+    }
+  ]
+}

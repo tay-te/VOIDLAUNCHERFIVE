@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:shrub_hazel",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.3,
+      "feature": {
+        "feature": "expanse:shrub_elder",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.25,
+      "feature": {
+        "feature": "expanse:shrub_dogwood",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.2,
+      "feature": {
+        "feature": "expanse:shrub_hawthorn",
+        "placement": []
+      }
+    }
+  ]
+}

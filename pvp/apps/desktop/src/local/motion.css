@@ -1,0 +1,165 @@
+/* motion.css — see main.tsx for the import order. Loaded last.
+ *
+ * Two things live here: the button/tab feel (after Shopify's 2026 admin — full pills,
+ * a solid light primary, a quiet filled secondary instead of an outline, tight tracking,
+ * a 300ms ease on colour, and a physical press) and the page transitions.
+ */
+
+:root {
+  --ease-ui: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-ui: 300ms;
+}
+
+/* ------------------------------------------------------------------ buttons */
+
+.btn2,
+.btn,
+.navtab {
+  letter-spacing: -0.01em;
+  transition:
+    color var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui),
+    border-color var(--t-ui) var(--ease-ui),
+    box-shadow var(--t-ui) var(--ease-ui),
+    opacity var(--t-ui) var(--ease-ui),
+    transform 160ms var(--ease-out);
+}
+
+.btn2,
+.btn {
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 999px;
+}
+
+.btn2--sm {
+  height: 30px;
+  border-radius: 999px;
+}
+
+.btn2--block {
+  height: auto;
+  border-radius: 999px;
+}
+
+/* Primary: solid, light, no border. Hover softens rather than brightens. */
+.btn2--primary,
+.btn--primary {
+  background: var(--ink);
+  color: var(--shell);
+}
+
+.btn2--primary:hover:not(:disabled),
+.btn--primary:hover:not(:disabled) {
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
+}
+
+/* Secondary: a quiet fill, not an outline. */
+.btn2--secondary,
+.btn--secondary {
+  border: 0;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+}
+
+.btn2--secondary:hover:not(:disabled),
+.btn--secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.btn2--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* The press: it gives under the finger, and comes back on release. */
+.btn2:active:not(:disabled),
+.btn:active:not(:disabled),
+.navtab:active {
+  transform: scale(0.97);
+  transition-duration: var(--t-ui), var(--t-ui), var(--t-ui), var(--t-ui), var(--t-ui), 80ms;
+}
+
+.btn2:focus-visible,
+.btn:focus-visible,
+.navtab:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.navtab.is-active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ---------------------------------------------------------- page transitions */
+
+/*
+ * `go()` runs the screen change inside `document.startViewTransition`, so the screen
+ * that is leaving fades while the new one rises in. Only the screen swaps: the root
+ * snapshot is switched off, which leaves the navbar and play bar perfectly still.
+ */
+.screen-view {
+  view-transition-name: screen;
+}
+
+::view-transition-group(root),
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(screen) {
+  animation: screen-out 140ms var(--ease-ui) both;
+}
+
+::view-transition-new(screen) {
+  animation: screen-in 360ms var(--ease-out) 60ms both;
+}
+
+@keyframes screen-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.995);
+  }
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.995);
+  }
+}
+
+/* Sub-routes inside a screen (Edit mods → a mod's setup page) use the same rise. */
+.rise {
+  animation: screen-in 360ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(screen),
+  ::view-transition-new(screen),
+  .rise {
+    animation-duration: 1ms;
+    animation-delay: 0s;
+  }
+
+  .btn2,
+  .btn,
+  .navtab {
+    transition-duration: 1ms;
+  }
+
+  .btn2:active:not(:disabled),
+  .btn:active:not(:disabled),
+  .navtab:active {
+    transform: none;
+  }
+}
+
+/* The wrapper takes over `.panel2 > *`: the screen still fills the panel. */
+.screen-view > * {
+  position: absolute;
+  inset: 0;
+}

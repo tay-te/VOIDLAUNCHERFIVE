@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:random_selector",
+  "default": "expanse:natural/open_oak/oak_checked",
+  "features": [
+    {
+      "chance": 0.8,
+      "feature": "expanse:natural/acacia_wood/acacia_checked"
+    },
+    {
+      "chance": 0.0125,
+      "feature": "minecraft:fallen_oak_tree"
+    }
+  ]
+}

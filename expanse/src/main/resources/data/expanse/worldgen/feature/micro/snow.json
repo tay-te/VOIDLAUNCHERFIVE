@@ -42,6 +42,14 @@
     {
       "data": "expanse:micro/fox_den",
       "weight": 1
+    },
+    {
+      "data": "expanse:micro/ice_boulder",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/erratic",
+      "weight": 1
     }
   ]
 }

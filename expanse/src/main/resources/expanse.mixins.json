@@ -4,11 +4,19 @@
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
 		"ChunkMapMixin",
+		"EarthAquiferMixin",
 		"EarthCarversMixin",
+		"EarthSurfaceMixin",
 		"FrogSpawnMixin",
+		"HearthStructureSetMixin",
 		"JigsawStructureAccessor",
+		"MaterialRuleContextMixin",
+		"MaterialSystemMixin",
 		"MineshaftStructureMixin",
+		"NoiseBasedChunkGeneratorAccessor",
 		"OverworldBiomeBuilderMixin",
+		"StructureManagerAccessor",
+		"StructureStartsMixin",
 		"SurfaceWaterSpawnMixin"
 	],
 	"injectors": {

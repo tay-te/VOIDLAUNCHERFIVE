@@ -31,10 +31,10 @@ public final class Atlas {
 
 	static {
 		Object[][] c = {
-			{"expanse:frostbloom_tundra", 0xBFE3F0}, {"expanse:heather_moor", 0x9A6FB0}, {"expanse:wisteria_vale", 0xC596F0},
-			{"expanse:redwood_giants", 0x8E3B2A}, {"expanse:lumen_grove", 0x2FE0C8}, {"expanse:willow_bayou", 0x5E8A3C},
-			{"expanse:amber_steppe", 0xE0B040}, {"expanse:opal_dunes", 0xF2B6D2}, {"expanse:jade_karst", 0x3FBF8F},
-			{"expanse:cloud_forest", 0x9FC9B0}, {"expanse:verdant_peaks", 0x7FD060}, {"expanse:prismatic_peaks", 0x9FB8FF},
+			{"expanse:lichen_tundra", 0xBFE3F0}, {"expanse:heather_moor", 0x9A6FB0}, {"expanse:woodland_glades", 0xC596F0},
+			{"expanse:redwood_giants", 0x8E3B2A}, {"expanse:ancient_oakwood", 0x2FE0C8}, {"expanse:willow_bayou", 0x5E8A3C},
+			{"expanse:amber_steppe", 0xE0B040}, {"expanse:red_dunes", 0xF2B6D2}, {"expanse:jade_karst", 0x3FBF8F},
+			{"expanse:cloud_forest", 0x9FC9B0}, {"expanse:verdant_peaks", 0x7FD060}, {"expanse:dolomite_peaks", 0x9FB8FF},
 			{"expanse:palm_coast", 0xFFE79A},
 			// cold & temperate biomes
 			{"expanse:maple_highlands", 0xC8361E}, {"expanse:aspen_parkland", 0xE8D24A}, {"expanse:larch_taiga", 0xD8A040},

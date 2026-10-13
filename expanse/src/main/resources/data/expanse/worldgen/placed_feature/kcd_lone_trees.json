@@ -1,0 +1,26 @@
+{
+  "feature": "expanse:natural/tree/oak_veteran/plain",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 4
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:heightmap",
+      "heightmap": "WORLD_SURFACE_WG"
+    },
+    {
+      "type": "expanse:hilltop"
+    },
+    {
+      "type": "minecraft:biome"
+    },
+    {
+      "type": "expanse:clear_of_structures",
+      "margin": 10
+    }
+  ]
+}

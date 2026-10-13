@@ -1,0 +1,15 @@
+{
+  "feature": "expanse:natural/spruce_forest/spruce",
+  "placement": [
+    {
+      "type": "expanse:land_fit"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:would_survive",
+        "state": "minecraft:spruce_sapling"
+      }
+    }
+  ]
+}

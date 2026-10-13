@@ -200,7 +200,8 @@
     [],
     [
       "minecraft:spring_water",
-      "minecraft:spring_lava"
+      "minecraft:spring_lava",
+      "expanse:kcd_cliff_falls"
     ],
     [
       "minecraft:glow_lichen",
@@ -216,6 +217,9 @@
       "expanse:river_lily_pads",
       "expanse:river_wet_bank",
       "expanse:river_seagrass",
+      "expanse:kcd_conifer_shrubs",
+      "expanse:kcd_bank_trees",
+      "expanse:kcd_conifer_floor",
       "expanse:heath_trees",
       "expanse:heath_junipers",
       "expanse:heath_lichen",

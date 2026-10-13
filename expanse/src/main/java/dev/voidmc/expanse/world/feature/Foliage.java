@@ -14,7 +14,9 @@ import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 
 /**
- * Richer ground cover for the vanilla overworld biomes where vanilla's is thin, and the plants of the
+ * Richer ground cover for the vanilla overworld biomes where vanilla's is thin (and the understory of
+ * tools/worldgen_foliage.py: shrub thickets, drifts of fern and tall grass, brambles, hedgerows across the
+ * plains, alders and willows along the water), and the plants of the
  * water's edge wherever a river runs (the Earth terrain's rivers cross every biome, not just the river
  * biome): undergrowth and leaf litter in the forests and taigas, wildflower drifts on the plains, dry
  * grass and dead bushes on the savannas and badlands, spruce shrubs in the snow, and reeds, cattails,
@@ -27,7 +29,7 @@ import net.minecraft.world.level.levelgen.placement.PlacedFeature;
  * never finds two biomes that disagree.
  *
  * <p>Biomes are named one by one rather than by tag, since the Expanse biomes join vanilla's tags (a
- * Wisteria Vale is {@code #is_forest}) and have their own ground cover already.
+ * Woodland Glades is {@code #is_forest}) and have their own ground cover already.
  */
 public final class Foliage {
 	private Foliage() {
@@ -74,6 +76,21 @@ public final class Foliage {
 	private static final Set<ResourceKey<Biome>> RIVERBEDS = union(minus(TEMPERATE_BANKS, Set.of(Biomes.RIVER, Biomes.SWAMP)), WARM_BANKS, ARID_BANKS);
 	private static final Set<ResourceKey<Biome>> ALL_BANKS = union(TEMPERATE_BANKS, WARM_BANKS, ARID_BANKS, COLD_BANKS);
 
+	// ------------------------------------------------------------------ the understory (tools/worldgen_foliage.py), by habitat
+
+	private static final Set<ResourceKey<Biome>> WOODLANDS = Set.of(Biomes.FOREST, Biomes.FLOWER_FOREST, Biomes.BIRCH_FOREST,
+		Biomes.OLD_GROWTH_BIRCH_FOREST, Biomes.DARK_FOREST, Biomes.DAPPLED_FOREST, Biomes.WINDSWEPT_FOREST, Biomes.CHERRY_GROVE);
+	private static final Set<ResourceKey<Biome>> CONIFERS = Set.of(Biomes.TAIGA, Biomes.OLD_GROWTH_PINE_TAIGA, Biomes.OLD_GROWTH_SPRUCE_TAIGA,
+		Biomes.SNOWY_TAIGA);
+	private static final Set<ResourceKey<Biome>> MEADOWS = Set.of(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW, Biomes.WINDSWEPT_HILLS,
+		Biomes.WINDSWEPT_GRAVELLY_HILLS);
+	/** Farmed country, hedged into fields. */
+	/** Where hedged fields may lie: the plains, and on the Earth terrain the open country between the woods of the
+	 * temperate forests and meadows too (HedgerowFeature asks the land). */
+	private static final Set<ResourceKey<Biome>> FARMLAND = Set.of(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.FOREST, Biomes.BIRCH_FOREST,
+		Biomes.FLOWER_FOREST, Biomes.MEADOW, Biomes.OLD_GROWTH_BIRCH_FOREST);
+	private static final Set<ResourceKey<Biome>> JUNGLES = Set.of(Biomes.JUNGLE, Biomes.SPARSE_JUNGLE, Biomes.BAMBOO_JUNGLE);
+
 	private static final GenerationStep.Decoration VEGETATION = GenerationStep.Decoration.VEGETAL_DECORATION;
 
 	/** In the order every biome lists them. Append, don't reorder. */
@@ -92,14 +109,34 @@ public final class Foliage {
 		add("river_reeds_arid", VEGETATION, ARID_BANKS),
 		add("river_lily_pads", VEGETATION, CALM_WATERS),
 		add("river_wet_bank", VEGETATION, WOODED_BANKS),
-		add("river_seagrass", VEGETATION, RIVERBEDS));
+		add("river_seagrass", VEGETATION, RIVERBEDS),
+		// the understory
+		add("kcd_hedgerows", GenerationStep.Decoration.SURFACE_STRUCTURES, FARMLAND),
+		add("kcd_woodland_shrubs", VEGETATION, WOODLANDS),
+		add("kcd_conifer_shrubs", VEGETATION, CONIFERS),
+		add("kcd_open_shrubs", VEGETATION, MEADOWS),
+		add("kcd_tropic_bushes", VEGETATION, JUNGLES),
+		add("kcd_bank_trees", VEGETATION, union(WOODLANDS, CONIFERS, MEADOWS)),
+		add("kcd_woodland_floor", VEGETATION, WOODLANDS),
+		add("kcd_conifer_floor", VEGETATION, CONIFERS),
+		add("kcd_brambles", VEGETATION, WOODLANDS),
+		add("kcd_meadow_grass", VEGETATION, MEADOWS),
+		add("kcd_meadow_flowers", VEGETATION, minus(MEADOWS, Set.of(Biomes.WINDSWEPT_HILLS, Biomes.WINDSWEPT_GRAVELLY_HILLS))),
+		add("kcd_tropic_floor", VEGETATION, JUNGLES),
+		add("kcd_dry_grass", VEGETATION, SAVANNAS),
+		add("kcd_fishponds", GenerationStep.Decoration.LAKES, union(WOODLANDS, Set.of(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS))),
+		add("kcd_lone_trees", VEGETATION, union(WOODLANDS, MEADOWS)),
+		add("kcd_cliff_falls", GenerationStep.Decoration.FLUID_SPRINGS, union(WOODLANDS, CONIFERS, MEADOWS)));
 
 	public static void init() {
+		// -Dexpanse.dev.understory=false leaves the understory out of vanilla's biomes (to time what it costs)
+		boolean understory = Boolean.parseBoolean(System.getProperty("expanse.dev.understory", "true"));
+		List<Addition> additions = ADDITIONS.stream().filter(a -> understory || !a.feature().identifier().getPath().startsWith("vanilla/kcd_")).toList();
 		Set<ResourceKey<Biome>> touched = new HashSet<>();
-		ADDITIONS.forEach(a -> touched.addAll(a.biomes()));
+		additions.forEach(a -> touched.addAll(a.biomes()));
 		BiomeModifications.create(Expanse.id("foliage")).add(ModificationPhase.ADDITIONS, selection -> touched.contains(selection.getBiomeKey()),
 			(selection, context) -> {
-				for (Addition a : ADDITIONS) {
+				for (Addition a : additions) {
 					if (a.biomes().contains(selection.getBiomeKey())) {
 						context.getGenerationSettings().addFeature(a.step(), a.feature());
 					}

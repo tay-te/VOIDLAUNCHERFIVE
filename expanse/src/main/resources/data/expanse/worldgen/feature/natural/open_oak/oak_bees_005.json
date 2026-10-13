@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:natural/tree/oak_spreading/oak_bees_005",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.3,
+      "feature": {
+        "feature": "expanse:natural/tree/oak_young/oak_bees_005",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.25,
+      "feature": {
+        "feature": "expanse:natural/tree/oak/oak_bees_005",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.06,
+      "feature": {
+        "feature": "expanse:natural/tree/oak_veteran/oak_bees_005",
+        "placement": []
+      }
+    }
+  ]
+}

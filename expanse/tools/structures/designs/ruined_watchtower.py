@@ -1,4 +1,4 @@
-"""Ruined watchtower of the peaks and moors.
+"""Ruined watchtower of the peaks, moors and windswept hills.
 
 start pool - the keep, an 11x11 limestone tower ~33 high on a battered base
   keep_fallen : the north-east corner has collapsed from the third floor up
@@ -19,11 +19,14 @@ from common import spiral_floor_ok, spiral_stair, vines_on
 from furnish import chain_lamp, chair, rug, table
 from lore import BOOKS
 from pieces import Empty, Piece
+from regions import mc
 from terrain_paths import connector, path_piece, piece_in
 
 NAME = "ruined_watchtower"
-STRUCTURE = dict(biomes=["verdant_peaks", "prismatic_peaks", "heather_moor"], spacing=34, separation=11, size=2,
-                 max_distance=56, max_relief=20)
+STRUCTURE = dict(biomes=["verdant_peaks", "dolomite_peaks", "heather_moor", "pine_heath", "fjordlands",
+                         "maple_highlands", *mc("windswept_hills", "windswept_gravelly_hills", "windswept_forest",
+                                                "meadow", "stony_peaks")],
+                 spacing=34, separation=11, size=2, max_distance=56, max_relief=20, avoid_vanilla=True)
 LOOT = "expanse:chests/ruined_watchtower"
 HIDDEN = "expanse:chests/ruined_watchtower_hidden"
 P_PATHS = f"expanse:{NAME}/paths"

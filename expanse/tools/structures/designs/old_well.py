@@ -1,8 +1,15 @@
-"""Old wells. One design, four material palettes (separate structures):
-  old_well            cobble & spruce     - heather moor, redwood giants, verdant peaks, lumen grove
-  old_well_limestone  limestone & redwood - jade karst, cloud forest, wisteria vale
-  old_well_sandstone  sandstone & acacia  - amber steppe, opal dunes, palm coast
-  old_well_mud        mud brick & willow  - willow bayou
+"""Old wells. One design, five material palettes (separate structures):
+  old_well            cobble & spruce        - heather moor, redwood giants, verdant peaks, ancient oakwood, the
+                                              taigas, windswept hills, pine heath, fjordlands, boreal muskeg,
+                                              volcanic highlands
+  old_well_limestone  limestone & redwood    - jade karst, cloud forest, woodland glades, jungles, cherry grove,
+                                              monsoon and kapok forests, tepui
+  old_well_sandstone  sandstone & acacia     - amber steppe, red dunes, palm coast, the deserts, savannas and
+                                              badlands, coral coast, outback, saguaro flats, painted canyons,
+                                              salt flats
+  old_well_mud        mud brick & willow     - willow bayou, swamps
+  old_well_meadow     stone brick & oak      - plains, the broadleaf woods, meadow, aspen parkland, bluebell
+                                              woods, maple highlands, olive groves
 
 start pool (3 variants)
   covered : a well under a little gabled roof with a windlass and chain, flagstones, a
@@ -17,12 +24,13 @@ cistern pool (under the dry well): a vaulted cistern with a puddle, the bones of
 from blocks import AIR, B
 from builder import Build, item, slab, stairs
 from pieces import Piece
+from regions import DRY_LANDS, MEADOW_LANDS, SWAMP_LANDS, TAIGA_LANDS, WARM_WET_LANDS
 from small_data import BOOKS, data_for
 from smallkit import bones, book, flora, ground_item, pick, plant, ring, trail
 
 PALETTES = {
     "cobble": dict(
-        name="old_well", biomes=["heather_moor", "redwood_giants", "verdant_peaks", "lumen_grove"],
+        name="old_well", biomes=["heather_moor", "redwood_giants", "verdant_peaks", "ancient_oakwood", *TAIGA_LANDS],
         procs="small_wayside", stone=[("cobblestone", 4), ("mossy_cobblestone", 3), ("stone", 2)],
         brick="stone_bricks", bstairs="stone_brick", slab_="cobblestone", wall="cobblestone_wall",
         wood="spruce", log="spruce_log", roof="dark_oak", soil="grass_block",
@@ -30,7 +38,8 @@ PALETTES = {
                                                                               ("gravel", 1)],
         flowers=["poppy", "dandelion", "expanse:heather", "fern"], sign="spruce"),
     "limestone": dict(
-        name="old_well_limestone", biomes=["jade_karst", "cloud_forest", "wisteria_vale"], procs="small_karst",
+        name="old_well_limestone", biomes=["jade_karst", "cloud_forest", "woodland_glades", *WARM_WET_LANDS],
+        procs="small_karst",
         stone=[("expanse:limestone_bricks", 4), ("expanse:mossy_limestone", 3), ("expanse:limestone", 2)],
         brick="expanse:polished_limestone", bstairs="expanse:limestone_brick", slab_="expanse:limestone_brick",
         wall="expanse:limestone_brick_wall", wood="expanse:redwood", log="expanse:redwood_log", roof="dark_oak",
@@ -38,19 +47,27 @@ PALETTES = {
         path=[("gravel", 4), ("expanse:limestone", 2), ("coarse_dirt", 2)],
         flowers=["azure_bluet", "lily_of_the_valley", "fern", "allium"], sign="bamboo"),
     "sandstone": dict(
-        name="old_well_sandstone", biomes=["amber_steppe", "opal_dunes", "palm_coast"], procs="small_sand",
+        name="old_well_sandstone", biomes=["amber_steppe", "red_dunes", "palm_coast", *DRY_LANDS], procs="small_sand",
         stone=[("sandstone", 4), ("cut_sandstone", 2), ("smooth_sandstone", 2)],
         brick="chiseled_sandstone", bstairs="sandstone", slab_="cut_sandstone", wall="sandstone_wall",
         wood="acacia", log="acacia_log", roof="acacia", soil="coarse_dirt",
         ground=["coarse_dirt", "coarse_dirt", "sand"], path=[("coarse_dirt", 4), ("sand", 2), ("gravel", 1)],
         flowers=["dead_bush", "short_dry_grass", "short_dry_grass"], sign="acacia"),
     "mud": dict(
-        name="old_well_mud", biomes=["willow_bayou"], procs="small_bayou",
+        name="old_well_mud", biomes=["willow_bayou", *SWAMP_LANDS], procs="small_bayou",
         stone=[("mud_bricks", 4), ("packed_mud", 2), ("mossy_cobblestone", 1)],
         brick="mud_bricks", bstairs="mud_brick", slab_="mud_brick", wall="mud_brick_wall",
         wood="expanse:willow", log="expanse:willow_log", roof="spruce", soil="grass_block",
         ground=["mud", "grass_block", "grass_block"], path=[("mud", 2), ("coarse_dirt", 3), ("packed_mud", 1)],
         flowers=["blue_orchid", "fern", "fern"], sign="mangrove"),
+    "meadow": dict(
+        name="old_well_meadow", biomes=MEADOW_LANDS, procs="small_meadow",
+        stone=[("stone_bricks", 4), ("mossy_stone_bricks", 2), ("cracked_stone_bricks", 1), ("cobblestone", 1)],
+        brick="polished_andesite", bstairs="stone_brick", slab_="stone_brick", wall="stone_brick_wall",
+        wood="oak", log="oak_log", roof="spruce", soil="grass_block",
+        ground=["grass_block", "grass_block", "coarse_dirt"],
+        path=[("dirt_path", 5), ("gravel", 2), ("coarse_dirt", 2)],
+        flowers=["poppy", "dandelion", "oxeye_daisy", "cornflower"], sign="oak"),
 }
 
 

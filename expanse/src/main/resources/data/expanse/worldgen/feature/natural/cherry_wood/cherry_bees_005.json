@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:natural/tree/cherry_spreading/cherry_bees_005",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.35,
+      "feature": {
+        "feature": "expanse:natural/tree/cherry_young/cherry_bees_005",
+        "placement": []
+      }
+    }
+  ]
+}

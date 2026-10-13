@@ -52,6 +52,24 @@ MODULES += ["cavern_mine_camp", "deepstone_ruins", "cavern_landing"]
 # share the "villages" set below and are #minecraft:village
 MODULES += ["village_wisteria", "village_redwood", "village_coast", "village_steppe", "village_moor", "village_karst",
             "village_tundra"]
+# regional palettes of the small sights for the vanilla biomes and the newer Expanse biomes (shared sets, so their
+# place in this list sets no salt; appended all the same)
+MODULES += ["wayside_shrine_meadow", "campsite_meadow", "campsite_snowfield", "old_well_meadow", "treehouse_oak",
+            "treehouse_spruce", "treehouse_jungle", "miners_camp_mesa", "sand_colossus_desert", "windpump_prairie",
+            "mammoth_dig_snowfield"]
+# places the land gives a reason to be (STRUCTURE["site"], SitedJigsawStructure): a refuge on the pass, a cross on the
+# summit, a chapel, a keep and a gallows on their knolls, a hide at the wood's edge, a stone where two countries meet.
+# Each site kind has a set of its own in SITE_SETS below (appended last so every salt above stays put)
+MODULES += ["pass_refuge", "summit_cross", "hill_chapel", "ruined_keep", "gallows_hill", "hunters_hide",
+            "boundary_stone"]
+# Peopled and working places: VOID Hearth builds living versions of these, so with Hearth installed they stand down
+# (SitedJigsawStructure "peopled"; a shared set then tries its other members). Played alone, the Expanse keeps them.
+# The land between towns (camps, wells, shrines, ruins, treehouses, bothies...) stays either way.
+PEOPLED = {"stilt_hamlet", "palm_harbour", "caravanserai", "logging_camp", "miners_camp", "miners_camp_mesa", "cavern_mine_camp",
+           "terrace_farm", "tea_garden", "wisteria_manor", "cloud_monastery", "karst_pagoda", "lighthouse", "frost_outpost",
+           "nomad_camp", "beach_hut", "bayou_shack",
+           # Hearth keeps a manned hospice on the pass in its place
+           "pass_refuge"}
 # Shared random_spread sets: a design joins one with STRUCTURE["set"] (and optional "weight"). Vanilla tries a
 # set's structures in weighted random order until one suits the biome (cf. minecraft:abandoned_camp), so each
 # grid cell gets at most one of them. The wayside set keeps 2 chunks clear of the biome-sights grid.
@@ -65,10 +83,38 @@ SHARED_SETS = {
 # villages: vanilla's spacing (structure_set/villages: 34/8) with a salt of our own. avoid_radius makes the
 # small sights keep that far from a grid point where a village could stand, as they do from big structures.
 SHARED_SETS["villages"] = dict(spacing=34, separation=8, salt=930417419, avoid_radius=112)
+# Sited places: one set per site kind, which its designs join with set=<kind's set> and site=<kind>. A grid point
+# only builds when SitedJigsawStructure finds that kind of spot within 48 blocks of it, so the grids are close and
+# most points come to nothing. The knoll set is shared by the chapel, the keep and the gallows: one grid, so no two
+# of them land on the same hill. The small sights do not keep clear of these grids (they would lose half their
+# grid points to a site that is seldom there); the sited places keep clear of the small sights instead (SITE_AVOID).
+SITE_SETS = {
+    "passes": dict(spacing=10, separation=4, salt=930417467),
+    "summits": dict(spacing=9, separation=3, salt=930417479),
+    "knolls": dict(spacing=10, separation=4, salt=930417487),
+    "wood_edges": dict(spacing=14, separation=6, salt=930417491),
+    "borders": dict(spacing=12, separation=5, salt=930417503),
+}
+SHARED_SETS.update(SITE_SETS)
+# (set, radius): grids a sited place keeps clear of, besides the big structures, villages and vanilla's - a grid point
+# of the small sights' sets that could take one of theirs (radius about the two places' half-widths), and the
+# abandoned places of a Hearth world (which never stand, so cost nothing, without Hearth)
+SITE_AVOID = [("wayside", 24), ("biome_sights", 24), ("abandoned", 48)]
+# Vanilla's random-spread sets whose structures stand on the surface, and how far (blocks) a small sight keeps from
+# a grid point of theirs where one could stand: the structure's own reach plus a margin. The small sights share
+# vanilla's biomes (and vanilla's structures come into the Expanse biomes through their biome tags), so a well must
+# not land in a village or a campsite on top of an abandoned camp. Buildings that opt in with avoid_vanilla=True keep
+# half their own reach further off.
+VANILLA_AVOID = [("minecraft:villages", 112), ("minecraft:pillager_outposts", 80), ("minecraft:woodland_mansions", 112),
+                 ("minecraft:desert_pyramids", 48), ("minecraft:jungle_temples", 48), ("minecraft:swamp_huts", 40),
+                 ("minecraft:igloos", 32), ("minecraft:trail_ruins", 40), ("minecraft:abandoned_camp", 48),
+                 ("minecraft:ruined_portals", 24), ("minecraft:shipwrecks", 32)]
 
 FILL = {"stone", "dirt", "andesite", "tuff", "granite", "diorite", "gravel", "coarse_dirt", "sand", "sandstone",
         "deepslate", "cobblestone", "snow_block", "packed_ice", "clay", "mud", "rooted_dirt"}
-LEGACY_FILES = ["worldgen/processor_list/mossy_stones.json", "worldgen/processor_list/weathered_sandstone.json"]
+LEGACY_FILES = ["worldgen/processor_list/mossy_stones.json", "worldgen/processor_list/weathered_sandstone.json",
+                # lumen_shrine went underground into the shared cavern_halls set; the fairy ring has no chests now
+                "worldgen/structure_set/lumen_shrine.json"]
 
 STRUCTURE_TAGS = {
     # exploration maps from the lighthouse map drawer point at the nearest of these
@@ -97,9 +143,9 @@ def write_json(rel, obj):
 def structure_json(name, s):
     return {
         # expanse:sited_jigsaw is minecraft:jigsaw that picks its site like a builder: not under water,
-        # not on a cliff edge or in a pit, and (small sights) not where a big structure could stand
-        # (world/SitedJigsawStructure.java). Structures that belong on water opt out of the water check
-        # with sited=False, as does anything placed on the sea floor.
+        # not on a cliff edge or in a pit, and (small sights) not where a big structure, a village or one of
+        # vanilla's surface structures could stand (world/SitedJigsawStructure.java). Structures that belong on
+        # water opt out of the water check with sited=False, as does anything placed on the sea floor.
         "type": "expanse:sited_jigsaw",
         "biomes": f"#expanse:has_structure/{name}",
         "max_distance_from_center": s.get("max_distance", 80),
@@ -114,10 +160,15 @@ def structure_json(name, s):
         **({"max_relief": s["max_relief"]} if "max_relief" in s else {}),
         **({} if sited(s) else {"allow_water": True}),
         **({"avoid": [{"other_set": f"expanse:{n}", "radius": min(256, avoid_radius(S) + s.get("avoid_extra", 0))}
-                      for n, S in big_structures()] + shared_avoid(s)}
-           if "set" in s and not s.get("cavern") else {}),
+                      for n, S in big_structures()] + shared_avoid(s) + vanilla_avoid(s)}
+           if "set" in s and not s.get("cavern") else {"avoid": vanilla_avoid(s)} if s.get("avoid_vanilla") else {}),
         # cavern structures stand on the floor of a deep hall, wherever the hall is (CavernModel)
         **({"in_cavern": True} if s.get("cavern") else {}),
+        # (cavern) only in halls of these realms: the generator paints the realms' biomes in, so the biome test can't
+        **({"realms": list(s["realms"])} if "realms" in s else {}),
+        **({"peopled": True} if name in PEOPLED else {}),
+        # the land's own reason for the place: knoll, summit, pass, wood_edge or border (SitedJigsawStructure)
+        **({"site": s["site"]} if "site" in s else {}),
     }
 
 
@@ -161,9 +212,20 @@ def avoid_radius(S):
 
 
 def shared_avoid(s):
-    """avoid entries for the shared sets with an avoid_radius (the villages), for structures not in them."""
-    return [{"other_set": f"expanse:{n}", "radius": c["avoid_radius"]} for n, c in SHARED_SETS.items()
-            if c.get("avoid_radius") and s.get("set") != n and shared_set_members(n)]
+    """avoid entries for the shared sets with an avoid_radius (the villages), for structures not in them; a sited
+    place also keeps clear of the SITE_AVOID grids."""
+    out = [{"other_set": f"expanse:{n}", "radius": c["avoid_radius"]} for n, c in SHARED_SETS.items()
+           if c.get("avoid_radius") and s.get("set") != n and shared_set_members(n)]
+    if "site" in s:
+        out += [{"other_set": f"expanse:{n}", "radius": r} for n, r in SITE_AVOID
+                if s.get("set") != n and (n == "abandoned" or shared_set_members(n))]
+    return out
+
+
+def vanilla_avoid(s):
+    """avoid entries for vanilla's surface structure sets (VANILLA_AVOID); a building adds half its own reach."""
+    extra = 0 if "set" in s else s.get("max_distance", 80) // 2
+    return [{"other_set": n, "radius": min(256, r + extra)} for n, r in VANILLA_AVOID]
 
 
 def shared_set_members(set_name):
@@ -311,6 +373,9 @@ def main():
                 if getattr(importlib.import_module(f"designs.{n}"), "STRUCTURE", {}).get("village")]
     written.append(write_json(os.path.join("..", "minecraft", "tags", "worldgen", "structure", "village.json"),
                               {"replace": False, "values": villages}))
+    # the places folk left, for VOID Hearth worlds: derived from the peopled structures just written (abandoned.py)
+    import abandoned
+    written += abandoned.write_all()
     print(f"wrote {len(written)} files under {os.path.relpath(DATA, ROOT)}")
 
     if not args.no_validate:

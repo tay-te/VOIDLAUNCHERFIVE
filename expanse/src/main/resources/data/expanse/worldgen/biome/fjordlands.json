@@ -120,7 +120,6 @@
     "minecraft:visual/sky_color": "#93aac6",
     "minecraft:visual/fog_color": "#b8c4cc",
     "minecraft:visual/water_fog_color": "#1d3a52",
-    "minecraft:visual/fog_end_distance": 240.0,
     "minecraft:audio/background_music": {
       "default": {
         "max_delay": 24000,
@@ -191,6 +190,7 @@
     [
       "minecraft:spring_water",
       "minecraft:spring_lava",
+      "expanse:kcd_cliff_falls",
       "expanse:fjord_springs"
     ],
     [
@@ -204,7 +204,10 @@
       "minecraft:patch_pumpkin",
       "minecraft:patch_sugar_cane",
       "minecraft:patch_firefly_bush_near_water",
-      "minecraft:patch_berry_common"
+      "minecraft:patch_berry_common",
+      "expanse:kcd_conifer_shrubs",
+      "expanse:kcd_bank_trees",
+      "expanse:kcd_conifer_floor"
     ],
     [
       "minecraft:freeze_top_layer"

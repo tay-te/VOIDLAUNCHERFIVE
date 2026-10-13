@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:random_selector",
+  "default": "expanse:natural/open_oak/oak_checked",
+  "features": [
+    {
+      "chance": 0.1,
+      "feature": "expanse:natural/big_open_oak/fancy_oak_checked"
+    }
+  ]
+}

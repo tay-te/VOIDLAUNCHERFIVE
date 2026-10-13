@@ -2,6 +2,7 @@ package dev.voidmc.expanse.world.terrain;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.voidmc.expanse.mixin.NoiseBasedChunkGeneratorAccessor;
 import dev.voidmc.expanse.world.biome.EarthBiomeSource;
 import java.util.EnumSet;
 import java.util.List;
@@ -34,6 +35,7 @@ import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.blending.Blender;
 import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@code expanse:earth}: the overworld's chunk generator.
@@ -64,9 +66,13 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 	private static final BlockState LAVA = Blocks.LAVA.defaultBlockState();
 	private static final BlockState[] BED = {Blocks.GRAVEL.defaultBlockState(), Blocks.SAND.defaultBlockState(), Blocks.CLAY.defaultBlockState()};
 	private static final BlockState BANK = Blocks.DIRT.defaultBlockState();
+	/** Base heights by {@link NoiseColumnScan} for the Earth's noise settings; off ({@code -Dexpanse.fast.baseheight2=false}), the noise generator's own. */
+	private static final boolean FAST_BASE_HEIGHT = Boolean.parseBoolean(System.getProperty("expanse.fast.baseheight2", "true"));
 
 	private final Holder<NoiseGeneratorSettings> settings;
 	private final NoiseBasedChunkGenerator noise;
+	/** The noise's base heights from a short stretch of the column, kept by column, for the Earth's own noise settings (null for any other, or when switched off). */
+	private final @Nullable NoiseColumnScan scan;
 	private volatile long modelWorldSeed;
 	private volatile TerrainModel model;
 	private final List<Holder<Biome>> realms;
@@ -79,10 +85,18 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 			.map(n -> biomes.get(ResourceKey.create(Registries.BIOME, dev.voidmc.expanse.Expanse.id(n))).<Holder<Biome>>map(h -> h).orElse(null))
 			.toList();
 		this.noise = new NoiseBasedChunkGenerator(this.biomeSource, settings);
+		this.scan = FAST_BASE_HEIGHT && settings.is(NoiseColumnScan.SETTINGS)
+			? new NoiseColumnScan(settings, ((NoiseBasedChunkGeneratorAccessor) (Object) this.noise).expanse$globalFluidPicker())
+			: null;
 	}
 
 	public Holder<NoiseGeneratorSettings> generatorSettings() {
 		return this.settings;
+	}
+
+	/** The terrain model, once a world has asked for it (null before); for code that has no RandomState at hand. */
+	public TerrainModel cachedModel() {
+		return this.model;
 	}
 
 	public TerrainModel model(RandomState randomState) {
@@ -143,13 +157,70 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 		TerrainModel m = this.model(randomState);
 		return this.noise.buildTerrain(chunk, blender, randomState, structureManager, biomeManager, carverBiomeRegion, possibleBiomes)
 			.thenApply(built -> {
+				this.layRock(built, m);
 				this.pourRivers(built, m);
 				this.pourCraters(built, m);
+				this.pourLakes(built, m);
 				this.pourUndergroundRivers(built, m.caverns());
 				this.pourRealmLakes(built, m.caverns());
+				this.pourAbysses(built, m.caverns());
 				return built;
 			});
 	}
+
+	/**
+	 * The rock of the land. Under the soil the surface rules laid, a column of a sandstone, limestone or basalt
+	 * country is that rock rather than stone, for 60 blocks down, so its cliffs, towers and gorge walls show it;
+	 * sandstone lies in beds, a band of smoother stone every few blocks. And wherever the ground is steeper than
+	 * soil will lie (some 55 degrees), the soil is gone and the rock shows: a cliff is rock, not a staircase of
+	 * dirt with grass on every step.
+	 */
+	private void layRock(ChunkAccess chunk, TerrainModel m) {
+		ChunkPos pos = chunk.getPos();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int minY = chunk.getMinY();
+		for (int lz = 0; lz < 16; lz++) {
+			for (int lx = 0; lx < 16; lx++) {
+				int x = pos.getMinBlockX() + lx;
+				int z = pos.getMinBlockZ() + lz;
+				Column c = m.sample(x, z);
+				int rock = c.rock;
+				boolean wet = c.height < SEA_LEVEL + 1 || c.nearRiver() && c.riverDist < c.riverHalfWidth + 1.5F;
+				// the slope over four blocks, against a threshold that wavers in patches: rock shows in outcrops and
+				// faces, never in a checkerboard where a slope hovers at the limit from column to column
+				float gx = m.sample(x + 2, z).height - m.sample(x - 2, z).height;
+				float gz = m.sample(x, z + 2).height - m.sample(x, z - 2).height;
+				float limit = 5.8F + 1.6F * (float) m.outcrop(x, z);
+				boolean steep = !wet && Math.max(Math.abs(gx), Math.abs(gz)) > limit;
+				if (rock == 0 && !steep) {
+					continue;
+				}
+				int top = chunk.getHeight(Heightmap.Types.WORLD_SURFACE_WG, lx, lz);
+				int bands = Math.floorMod((int) (PlateMap.mix(7, x >> 6, z >> 6) & 7), 6);
+				for (int y = top; y > Math.max(minY, top - 60); y--) {
+					BlockState st = chunk.getBlockState(p.set(x, y, z));
+					boolean soil = steep && y > top - 6 && (st.is(Blocks.GRASS_BLOCK) || st.is(Blocks.DIRT) || st.is(Blocks.COARSE_DIRT)
+						|| st.is(Blocks.PODZOL) || st.is(Blocks.ROOTED_DIRT) || st.is(Blocks.MOSS_BLOCK));
+					boolean stone = st.is(Blocks.STONE) || st.is(Blocks.ANDESITE) || st.is(Blocks.DIORITE) || st.is(Blocks.GRANITE) || st.is(Blocks.TUFF);
+					if (!soil && !(stone && rock != 0)) {
+						continue;
+					}
+					chunk.setBlockState(p, switch (rock) {
+						case 0 -> STONE;
+						case 1 -> Math.floorMod(y + bands, 6) == 0 ? SMOOTH_SANDSTONE : SANDSTONE;
+						case 2 -> dev.voidmc.expanse.registry.ExpanseBlocks.LIMESTONE.defaultBlockState();
+						default -> BASALT;
+					});
+				}
+			}
+		}
+	}
+
+	private static final int SEA_LEVEL = 63;
+	private static final BlockState STONE = Blocks.STONE.defaultBlockState();
+	private static final BlockState SANDSTONE = Blocks.SANDSTONE.defaultBlockState();
+	private static final BlockState SMOOTH_SANDSTONE = Blocks.SMOOTH_SANDSTONE.defaultBlockState();
+	private static final BlockState BASALT = Blocks.BASALT.defaultBlockState();
 
 	private void pourRivers(ChunkAccess chunk, TerrainModel m) {
 		ChunkPos pos = chunk.getPos();
@@ -163,6 +234,9 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 				Column c = m.sample(x, z);
 				if (!c.nearRiver() || c.fjord || c.riverDist >= c.riverHalfWidth + 2) {
 					continue;
+				}
+				if (c.lake > -900 && c.lakeEdge > 0) {
+					continue;  // drowned in a great lake: the lake's water is poured over it
 				}
 				int top = c.waterTop();
 				boolean channel = c.inChannel();
@@ -225,7 +299,19 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 				int x = pos.getMinBlockX() + lx;
 				int z = pos.getMinBlockZ() + lz;
 				CavernModel.Info c = caverns.info(x, z);
-				if (!c.river || c.riverFalls || c.riverDist >= c.riverHalfWidth + 2) {
+				if (!c.river || c.riverFalls || c.riverDist >= c.riverSpan) {
+					continue;
+				}
+				if (c.riverDist >= c.riverHalfWidth + 2) {
+					// the great rivers' banks: shingle and sand on the dry ledge, where the floor is open over it
+					if (c.riverGreat > 0.3F) {
+						int ledge = c.waterTop();
+						BlockState on = chunk.getBlockState(p.set(x, ledge, z));
+						if (!on.isAir() && on.getFluidState().isEmpty() && chunk.getBlockState(p.set(x, ledge + 1, z)).isAir()) {
+							chunk.setBlockState(p.set(x, ledge, z), (x * 31 + z * 17 & 7) < 5 ? Blocks.GRAVEL.defaultBlockState()
+								: Blocks.SAND.defaultBlockState());
+						}
+					}
 					continue;
 				}
 				int top = c.waterTop();
@@ -288,6 +374,42 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 	}
 
 	/**
+	 * Lakes: water from the lake's level down to the bed, and on the shore round it the land made solid up to
+	 * the water's level wherever the ground dips under it, so the lake holds itself in.
+	 */
+	private void pourLakes(ChunkAccess chunk, TerrainModel m) {
+		ChunkPos pos = chunk.getPos();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int minY = chunk.getMinY();
+		for (int lz = 0; lz < 16; lz++) {
+			for (int lx = 0; lx < 16; lx++) {
+				int x = pos.getMinBlockX() + lx;
+				int z = pos.getMinBlockZ() + lz;
+				Column c = m.sample(x, z);
+				if (c.lake < -900 || c.lakeEdge < -3) {
+					continue;
+				}
+				int top = net.minecraft.util.Mth.floor(c.lake);
+				if (c.lakeEdge > 0) {
+					for (int y = top; y > minY; y--) {
+						if (!chunk.getBlockState(p.set(x, y, z)).isAir()) {
+							break;
+						}
+						chunk.setBlockState(p, WATER);
+					}
+				} else {
+					for (int y = top; y >= top - 3 && y > minY; y--) {
+						BlockState s = chunk.getBlockState(p.set(x, y, z));
+						if (s.isAir() || !s.getFluidState().isEmpty()) {
+							chunk.setBlockState(p, BANK);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/**
 	 * The lakes of the realms (lava in the ember realms) and the plunge pools under their waterfalls, filled
 	 * to the level the model gives wherever the realm is open above that level.
 	 */
@@ -313,6 +435,33 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 						break;
 					}
 					chunk.setBlockState(p, fill);
+				}
+			}
+		}
+	}
+
+	/** The pool at the bottom of each abyss, filled wherever the shaft is open at its level. */
+	private void pourAbysses(ChunkAccess chunk, CavernModel caverns) {
+		ChunkPos pos = chunk.getPos();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int minY = chunk.getMinY();
+		for (int lz = 0; lz < 16; lz++) {
+			for (int lx = 0; lx < 16; lx++) {
+				int x = pos.getMinBlockX() + lx;
+				int z = pos.getMinBlockZ() + lz;
+				CavernModel.Info c = caverns.info(x, z);
+				if (!c.abyss || c.abyssDist > c.abyssRadius + 8) {
+					continue;
+				}
+				int top = net.minecraft.util.Mth.floor(CaveSystems.abyssPool(c));
+				if (!chunk.getBlockState(p.set(x, top + 1, z)).isAir()) {
+					continue;
+				}
+				for (int y = top; y > minY; y--) {
+					if (!chunk.getBlockState(p.set(x, y, z)).isAir()) {
+						break;
+					}
+					chunk.setBlockState(p, WATER);
 				}
 			}
 		}
@@ -350,7 +499,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 
 	@Override
 	public int getBaseHeight(int x, int z, Heightmap.Types type, LevelHeightAccessor heightAccessor, RandomState randomState) {
-		int base = this.noise.getBaseHeight(x, z, type, heightAccessor, randomState);
+		int base = this.noiseHeight(x, z, type, heightAccessor, randomState);
 		Column c = this.model(randomState).sample(x, z);
 		if (!c.inChannel()) {
 			return base;
@@ -360,6 +509,26 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 			case OCEAN_FLOOR, OCEAN_FLOOR_WG -> Math.min(base, c.bed());
 			default -> c.waterTop();
 		};
+	}
+
+	/** The noise's own base height, before the rivers: the noise generator's, worked out much faster ({@link NoiseColumnScan}). */
+	public int noiseHeight(int x, int z, Heightmap.Types type, LevelHeightAccessor heightAccessor, RandomState randomState) {
+		if (this.scan == null) {
+			return this.noiseHeightVanilla(x, z, type, heightAccessor, randomState);
+		}
+		return this.scan.height(this.model(randomState), x, z, type, heightAccessor, randomState);
+	}
+
+	/** {@link #noiseHeight} the noise generator's own way, the whole column from the top of the world: slow, kept to check the other against. */
+	public int noiseHeightVanilla(int x, int z, Heightmap.Types type, LevelHeightAccessor heightAccessor, RandomState randomState) {
+		return this.noise.getBaseHeight(x, z, type, heightAccessor, randomState);
+	}
+
+	/** Forgets the base heights {@link #noiseHeight} keeps, so the next are worked out afresh: for timing them. */
+	public void forgetNoiseHeights() {
+		if (this.scan != null) {
+			this.scan.forget();
+		}
 	}
 
 	@Override

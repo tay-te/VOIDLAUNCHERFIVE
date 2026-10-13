@@ -1,0 +1,63 @@
+{
+  "type": "expanse:cave_template",
+  "biomes": [
+    "expanse:realm_tidal"
+  ],
+  "clearance": 4,
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:base_stone_overworld"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:dirt"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:sand"
+      },
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "minecraft:gravel",
+          "minecraft:clay",
+          "minecraft:calcite",
+          "minecraft:dripstone_block",
+          "minecraft:smooth_basalt",
+          "minecraft:basalt",
+          "minecraft:blackstone",
+          "minecraft:sandstone",
+          "minecraft:red_sandstone",
+          "minecraft:snow_block",
+          "minecraft:packed_ice",
+          "minecraft:sulfur",
+          "minecraft:amethyst_block",
+          "expanse:amber",
+          "expanse:limestone",
+          "expanse:salt_block",
+          "expanse:volcanic_ash"
+        ]
+      }
+    ]
+  },
+  "max_relief": 3,
+  "min_depth": 16,
+  "processors": "expanse:cave/tidal",
+  "templates": [
+    {
+      "data": "expanse:cave/shell_shrine",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/beached_boat_tidal",
+      "weight": 2
+    },
+    {
+      "data": "expanse:cave/fisher_camp",
+      "weight": 2
+    }
+  ]
+}

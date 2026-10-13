@@ -135,7 +135,6 @@
     },
     "minecraft:visual/sky_color": "#8aaee0",
     "minecraft:visual/fog_color": "#b9c9c2",
-    "minecraft:visual/fog_end_distance": 220.0,
     "minecraft:visual/ambient_particles": {
       "argument": [
         {
@@ -211,7 +210,8 @@
     [],
     [
       "minecraft:spring_water",
-      "minecraft:spring_lava"
+      "minecraft:spring_lava",
+      "expanse:kcd_cliff_falls"
     ],
     [
       "minecraft:glow_lichen",
@@ -232,7 +232,10 @@
       "expanse:river_reeds_temperate",
       "expanse:river_lily_pads",
       "expanse:river_wet_bank",
-      "expanse:river_seagrass"
+      "expanse:river_seagrass",
+      "expanse:kcd_conifer_shrubs",
+      "expanse:kcd_bank_trees",
+      "expanse:kcd_conifer_floor"
     ],
     [
       "minecraft:freeze_top_layer"

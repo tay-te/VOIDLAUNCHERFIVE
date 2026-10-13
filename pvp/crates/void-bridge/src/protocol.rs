@@ -76,6 +76,10 @@ pub enum JavaToRust {
         fps_avg: f64,
         /// Milliseconds elapsed since the game window opened.
         played_ms: u64,
+        /// Mean ping over the session in milliseconds, once there has been a reading on a
+        /// server. Optional on the wire, so a mod that predates it still parses.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ping_avg: Option<f64>,
         /// Host the player is on, or null in the main menu or singleplayer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         server: Option<String>,

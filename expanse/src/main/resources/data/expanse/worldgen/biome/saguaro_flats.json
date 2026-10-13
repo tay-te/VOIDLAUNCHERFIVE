@@ -116,7 +116,7 @@
     },
     "minecraft:gameplay/snow_golem_melts": true,
     "minecraft:visual/sky_color": "#7cb2ff",
-    "minecraft:visual/fog_color": "#f6d8b4",
+    "minecraft:visual/fog_color": "#eedcc0",
     "minecraft:visual/water_fog_color": "#2a7f99"
   },
   "carvers": [
@@ -199,6 +199,7 @@
       "minecraft:patch_pumpkin",
       "expanse:river_reeds_arid",
       "expanse:river_seagrass",
+      "expanse:kcd_dry_grass",
       "expanse:saguaro_cacti",
       "expanse:saguaro_mesquite",
       "expanse:saguaro_barrel_cacti",

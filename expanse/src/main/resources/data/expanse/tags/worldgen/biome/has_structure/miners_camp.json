@@ -1,5 +1,10 @@
 {
   "values": [
-    "expanse:prismatic_peaks"
+    "expanse:dolomite_peaks",
+    "minecraft:stony_peaks",
+    "minecraft:jagged_peaks",
+    "minecraft:frozen_peaks",
+    "minecraft:snowy_slopes",
+    "minecraft:windswept_gravelly_hills"
   ]
 }

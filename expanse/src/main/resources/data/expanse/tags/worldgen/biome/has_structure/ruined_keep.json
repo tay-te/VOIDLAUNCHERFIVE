@@ -1,0 +1,24 @@
+{
+  "values": [
+    "minecraft:plains",
+    "minecraft:sunflower_plains",
+    "minecraft:forest",
+    "minecraft:flower_forest",
+    "minecraft:birch_forest",
+    "minecraft:old_growth_birch_forest",
+    "minecraft:dark_forest",
+    "minecraft:dappled_forest",
+    "minecraft:meadow",
+    "expanse:aspen_parkland",
+    "expanse:bluebell_woods",
+    "expanse:maple_highlands",
+    "expanse:olive_groves",
+    "expanse:woodland_glades",
+    "expanse:ancient_oakwood",
+    "expanse:heather_moor",
+    "expanse:pine_heath",
+    "minecraft:windswept_hills",
+    "minecraft:windswept_forest",
+    "minecraft:taiga"
+  ]
+}

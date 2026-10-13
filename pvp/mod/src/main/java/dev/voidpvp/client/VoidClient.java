@@ -1337,6 +1337,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             bridge.emit(VoidBridge.EVENT_TICK, payload);
         }
         stats.sample(tickIn.fps);
+        stats.samplePing(tickIn.ping);
     }
 
     private static int latency(MinecraftClient mc, ClientPlayerEntity player) {
@@ -1496,7 +1497,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         }
         long now = System.currentTimeMillis();
         if (stats.shouldReport(now)) {
-            socket.sendSession(stats.fpsAverage(), stats.playedMs(now),
+            socket.sendSession(stats.fpsAverage(), stats.pingAverage(), stats.playedMs(now),
                     server.connected() ? server.host() : null, state.loadoutId());
         }
     }
@@ -1765,7 +1766,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     private void shutdown() {
         if (socket != null) {
             long now = System.currentTimeMillis();
-            socket.sendSession(stats.fpsAverage(), stats.playedMs(now),
+            socket.sendSession(stats.fpsAverage(), stats.pingAverage(), stats.playedMs(now),
                     server.connected() ? server.host() : null, state.loadoutId());
             socket.stop();
         }

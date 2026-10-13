@@ -1,4 +1,4 @@
-"""Willowmere - a stilt hamlet of the willow bayou.
+"""Willowmere - a stilt hamlet of the willow bayou and the swamps.
 
 All decks stand six blocks over the bayou floor on willow stilts; everything below a
 deck is structure void, so the water stays where it is.
@@ -24,8 +24,8 @@ from lore import BOOKS
 from pieces import Empty, Piece
 
 NAME = "stilt_hamlet"
-STRUCTURE = dict(biomes=["willow_bayou"], spacing=30, separation=10, size=4, max_distance=56,
-                 heightmap="OCEAN_FLOOR_WG")
+STRUCTURE = dict(biomes=["willow_bayou", "minecraft:swamp", "minecraft:mangrove_swamp"], spacing=30, separation=10,
+                 size=4, max_distance=56, heightmap="OCEAN_FLOOR_WG", avoid_vanilla=True)
 LOOT = "expanse:chests/stilt_hamlet"
 HIDDEN = "expanse:chests/stilt_hamlet_hidden"
 SUPPLIES = "expanse:chests/stilt_hamlet_supplies"

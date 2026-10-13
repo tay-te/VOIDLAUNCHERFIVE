@@ -27,6 +27,10 @@ import {
   MOCK_SERVERS,
   MOCK_SETTINGS,
   MOCK_SYSTEM,
+  PREVIEW_ACCOUNT,
+  PREVIEW_COSMETICS,
+  PREVIEW_FRIENDS,
+  PREVIEW_LAST_SESSION,
   SWORD_PVP,
 } from './fixtures';
 import { resolveModSettings } from '@void/protocol';
@@ -63,6 +67,7 @@ interface MockState {
   loadouts: Loadout[];
   settings: Settings;
   running: boolean;
+  startedAt: number;
   log: string[];
   timers: ReturnType<typeof setTimeout>[];
 }
@@ -76,9 +81,104 @@ const state: MockState = {
   ],
   settings: structuredClone(MOCK_SETTINGS),
   running: false,
+  startedAt: 0,
   log: [],
   timers: [],
 };
+
+// ------------------------------------------------------------- browser preview
+
+/**
+ * The browser preview's starting state, and its `?preview=` switches.
+ *
+ * The real launcher keeps friends, cosmetics and the last session in `localStorage`
+ * (see `stores/friends`, `stores/cosmetics`, `stores/launch`) and a real install starts
+ * with none of them. The preview starts where the v1 Ship frames do instead — signed in
+ * as Kestrel, the frame's friends, Cell cape on, 48 minutes on Hypixel yesterday — by
+ * writing those keys before the stores hydrate. This module is only ever aliased in when
+ * Tauri is not driving the build (`vite.config.ts`), so none of it can reach an installer.
+ *
+ * One frame per switch, so each can be reviewed on its own URL:
+ *
+ *   ?preview=first        no session yet — "WELCOME TO VOID", *No sessions yet*
+ *   ?preview=title        the play bar's server is Title screen
+ *   ?preview=offline      `navigator.onLine` is false
+ *   ?preview=unreachable  Hypixel's ping fails, so it retries every 10 s
+ *   ?preview=crash        the next launch exits with code 1 after a few seconds
+ *   ?preview=empty        no friends and no requests
+ *   ?preview=signedout    no account
+ *
+ * The storage keys are written out rather than imported: the stores import this module
+ * (through `local/tauri`), so importing them back would be a cycle.
+ */
+const PREVIEW: string | null = (() => {
+  if (import.meta.env.MODE === 'test' || typeof window === 'undefined') return null;
+  try {
+    return new URLSearchParams(window.location.search).get('preview') ?? '';
+  } catch {
+    return '';
+  }
+})();
+
+function seedPreview(): void {
+  if (PREVIEW === null) return;
+  const now = Date.now();
+  const put = (key: string, value: unknown, force: boolean): void => {
+    try {
+      if (force || localStorage.getItem(key) === null) localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      /* a blocked storage just means an empty preview */
+    }
+  };
+  // A switch is a fresh look at one frame, so it overwrites; the plain preview only fills
+  // what is missing, so whatever a reviewer did last time is still there.
+  const force = PREVIEW !== '';
+
+  state.account = PREVIEW === 'signedout' ? null : structuredClone(PREVIEW_ACCOUNT);
+
+  put(
+    'void.friends.v1',
+    PREVIEW === 'empty'
+      ? { friends: [], incoming: [], outgoing: [] }
+      : {
+          ...PREVIEW_FRIENDS,
+          friends: PREVIEW_FRIENDS.friends.map((f) =>
+            'lastSeen' in f.presence && typeof f.presence.lastSeen === 'number'
+              ? { ...f, presence: { ...f.presence, lastSeen: now + f.presence.lastSeen } }
+              : f,
+          ),
+        },
+    force,
+  );
+  put('void.cosmetics.v1', PREVIEW_COSMETICS, force);
+
+  if (PREVIEW === 'first') {
+    try {
+      localStorage.removeItem('void.lastSession.v1');
+    } catch {
+      /* nothing to remove */
+    }
+    state.loadouts.forEach((l) => {
+      l.stats = { played_ms: 0, fps_avg: 0 };
+    });
+  } else {
+    put('void.lastSession.v1', { ...PREVIEW_LAST_SESSION, ended_at: now + PREVIEW_LAST_SESSION.ended_at }, force);
+  }
+
+  const servers = [
+    { host: 'mc.hypixel.net', name: 'Hypixel' },
+    { host: 'na.minemen.club', name: 'Minemen Club NA' },
+    { host: 'play.cubecraft.net', name: 'CubeCraft' },
+    { host: 'pvp.land', name: 'PvP Land' },
+  ];
+  if (force) put('void.servers.v2', { servers, target: PREVIEW === 'title' ? null : 'mc.hypixel.net' }, true);
+
+  if (PREVIEW === 'offline') {
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false });
+  }
+}
+
+seedPreview();
 
 /** Reset between tests. Not used by the browser preview. */
 export function __resetMock(): void {
@@ -264,13 +364,15 @@ const commands: Record<string, (args: Args) => unknown> = {
     });
   },
 
-  launch: ({ loadoutId }) => {
+  launch: ({ loadoutId, server }) => {
     const loadout = find(String(loadoutId));
+    const host = typeof server === 'string' && server.trim() ? server.trim() : null;
     if (!loadout) throw `No loadout called \`${loadoutId}\`.`;
     if (!state.account) throw 'Not signed in. Sign in with your Microsoft account to launch.';
     if (state.running) throw 'Minecraft is already running. Close it or use Force quit first.';
 
     state.running = true;
+    state.startedAt = Date.now();
     state.log = [];
     const port = 51000 + Math.floor(Math.random() * 4000);
 
@@ -284,7 +386,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     });
 
     const after = 400 * (MOCK_LOG_SCRIPT.length + 1);
-    later(() => emit('bridge:server', { t: 'server', host: 'mc.hypixel.net', connected: true }), after);
+    if (host) later(() => emit('bridge:server', { t: 'server', host, connected: true }), after);
     later(
       () =>
         emit('bridge:state', {
@@ -300,21 +402,40 @@ const commands: Record<string, (args: Args) => unknown> = {
           t: 'session',
           fps_avg: 142,
           played_ms: 812_000,
-          server: 'mc.hypixel.net',
+          server: host,
           loadout: loadout.id,
         }),
       after + 200,
     );
-    later(() => {
-      state.running = false;
-      emit('game:closed', {
-        code: 0,
-        loadout: loadout.id,
-        played_ms: 812_000,
-        fps_avg: 142,
-        server: 'mc.hypixel.net',
-      });
-    }, after + 400);
+    // The preview keeps the game "running" until Stop, so the Playing frame can be looked
+    // at; `?preview=crash` exits non-zero a few seconds in instead. Tests (PREVIEW null)
+    // end the session at once, as they always did.
+    const crash = PREVIEW === 'crash';
+    if (PREVIEW === null || crash) {
+      later(
+        () => {
+          if (!state.running) return;
+          state.running = false;
+          emit('game:closed', {
+            code: crash ? 1 : 0,
+            loadout: loadout.id,
+            played_ms: crash ? 132_000 : 812_000,
+            fps_avg: 142,
+            ping_avg: 22,
+            ...(host ? { server: host } : {}),
+            ...(crash
+              ? {
+                  crash_tail: [
+                    '[Client thread/ERROR]: Unreported exception thrown!',
+                    'java.lang.OutOfMemoryError: Java heap space (preview fixture)',
+                  ],
+                }
+              : {}),
+          });
+        },
+        crash ? 6000 : after + 400,
+      );
+    }
 
     return { pid: 4242, bridge_port: port, loadout: loadout.id };
   },
@@ -322,7 +443,13 @@ const commands: Record<string, (args: Args) => unknown> = {
   game_kill: () => {
     if (!state.running) throw 'Minecraft is not running.';
     state.running = false;
-    emit('game:closed', { code: 143, loadout: state.settings.active_loadout, played_ms: 0, fps_avg: 0 });
+    emit('game:closed', {
+      code: 143,
+      loadout: state.settings.active_loadout,
+      played_ms: Math.max(0, Date.now() - state.startedAt),
+      fps_avg: 142,
+      ping_avg: 22,
+    });
   },
 
   game_log_tail: ({ lines }) => state.log.slice(-Number(lines ?? 500)),
@@ -430,6 +557,9 @@ const commands: Record<string, (args: Args) => unknown> = {
   }),
 
   server_ping: ({ host }) => {
+    if (PREVIEW === 'unreachable' && host === 'mc.hypixel.net') {
+      throw `Could not reach ${host}: no response within 5 s.`;
+    }
     const known = MOCK_SERVERS.find((s) => s.host === host);
     if (!known) {
       throw `Could not reach ${host}: the browser preview cannot open a TCP socket.`;

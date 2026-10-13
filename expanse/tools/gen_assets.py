@@ -448,10 +448,10 @@ def write_lang(g):
     for e, n in [('elk', 'Elk'), ('mammoth', 'Woolly Mammoth'), ('capybara', 'Capybara'), ('crab', 'Shore Crab')]:
         lang[f'entity.{NS}.{e}'] = n
         lang[f'item.{NS}.{e}_spawn_egg'] = f'{n} Spawn Egg'
-    for b, n in [('frostbloom_tundra', 'Frostbloom Tundra'), ('heather_moor', 'Heather Moor'), ('wisteria_vale', 'Wisteria Vale'),
-                 ('redwood_giants', 'Redwood Giants'), ('lumen_grove', 'Lumen Grove'), ('willow_bayou', 'Willow Bayou'),
-                 ('amber_steppe', 'Amber Steppe'), ('opal_dunes', 'Opal Dunes'), ('jade_karst', 'Jade Karst'),
-                 ('cloud_forest', 'Cloud Forest'), ('verdant_peaks', 'Verdant Peaks'), ('prismatic_peaks', 'Prismatic Peaks'),
+    for b, n in [('lichen_tundra', 'Lichen Tundra'), ('heather_moor', 'Heather Moor'), ('woodland_glades', 'Woodland Glades'),
+                 ('redwood_giants', 'Redwood Giants'), ('ancient_oakwood', 'Ancient Oakwood'), ('willow_bayou', 'Willow Bayou'),
+                 ('amber_steppe', 'Amber Steppe'), ('red_dunes', 'Red Dunes'), ('jade_karst', 'Jade Karst'),
+                 ('cloud_forest', 'Cloud Forest'), ('verdant_peaks', 'Verdant Peaks'), ('dolomite_peaks', 'Dolomite Peaks'),
                  ('palm_coast', 'Palm Coast')]:
         lang[f'biome.{NS}.{b}'] = n
     # the landform biomes (tools/worldgen_landforms.py)
@@ -461,6 +461,7 @@ def write_lang(g):
     # the world underground: its blocks, and the biomes of the realms and the caves between (tools/assets_deep.py)
     DEEP.lang(lang)
     lang['commands.expanse.atlas.done'] = 'Atlas written to %s'
+    lang['expanse.atlas.layer.mines'] = 'Great mines'      # the VOID Atlas map's layer chip (client/atlas)
     lang.update({
         'advancements.expanse.root.title': 'VOID Expanse',
         'advancements.expanse.root.description': 'Set foot in a land no one has mapped',

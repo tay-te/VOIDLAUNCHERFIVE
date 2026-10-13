@@ -1,4 +1,5 @@
-"""Woodland lodge of the redwood giants and wisteria vale.
+"""Woodland lodge of the redwood giants, the woodland glades and the big woods (the taigas, the
+broadleaf forests, maple highlands, bluebell woods, pine heath, larch taiga, fjordlands).
 
 start pool
   hunters : two-storey redwood log lodge with notched corners, loft (ladder),
@@ -8,7 +9,7 @@ start pool
   Both hide a root cellar under the hearth rug (trapdoor -> down jigsaw).
 cellar pool : root cellar (hidden chest) / smoke cellar (hidden chest)
 paths/yard  : terrain-matching tracks to a vegetable garden with a scarecrow,
-              woodshed, beehive meadow, smokehouse, wisteria arbor, well, fallen giant
+              woodshed, beehive meadow, smokehouse, rose arbor, well, fallen giant
 """
 import random
 
@@ -19,10 +20,15 @@ from furnish import (beehive_patch, chain_lamp, chair, fallen_log, long_table, r
 from kit import chimney, foundation, gable_boards, log_walls, roof_gable, skirt
 from lore import BOOKS
 from pieces import Empty, Piece
+from regions import mc
 from terrain_paths import connector, path_piece, piece_in
 
 NAME = "woodland_lodge"
-STRUCTURE = dict(biomes=["redwood_giants", "wisteria_vale"], spacing=30, separation=10, size=2, max_distance=48)
+STRUCTURE = dict(biomes=["redwood_giants", "woodland_glades", "maple_highlands", "bluebell_woods", "pine_heath",
+                         "larch_taiga", "fjordlands",
+                         *mc("taiga", "old_growth_pine_taiga", "old_growth_spruce_taiga", "snowy_taiga",
+                             "windswept_forest", "forest", "dark_forest", "birch_forest", "old_growth_birch_forest")],
+                 spacing=30, separation=10, size=2, max_distance=48, avoid_vanilla=True)
 LOOT = "expanse:chests/woodland_lodge"
 HIDDEN = "expanse:chests/woodland_lodge_hidden"
 P_CELLAR = f"expanse:{NAME}/cellar"
@@ -260,7 +266,7 @@ def lodge_cutters():
     b.set(x1 - 2, 2, z0 + 1, B("crafting_table"))
     b.shelf(x1 - 1, 4, z0 + 1, "spruce", "west", shelf_items(rng, "kitchen"))
     b.lectern(x1 - 1, 2, z1 - 1, "west", book())
-    b.set(x1 - 2, 2, z1 - 1, B("expanse:potted_wisteria_sapling"))
+    b.set(x1 - 2, 2, z1 - 1, B("potted_azalea_bush"))
     b.painting(x0 + 1, 3, z1 - 1, "east", "kebab")
     chain_lamp(b, 9, 7, 7, 2)
     chain_lamp(b, 13, 6, 6, 1)
@@ -444,23 +450,23 @@ def yard_arbor():
     for z in range(1, 9):
         b.set(3, 0, z, B("dirt_path"))
     for (x, z) in ((1, 2), (5, 2), (1, 7), (5, 7)):
-        b.column(x, z, 1, 3, B(f"expanse:wisteria_log", axis="y"))
+        b.column(x, z, 1, 3, B("oak_log", axis="y"))
     for x in range(0, 7):
         for z in (2, 7):
-            b.set(x, 4, z, B("expanse:wisteria_log", axis="x"))
+            b.set(x, 4, z, B("oak_log", axis="x"))
     for z in range(1, 9):
         for x in (1, 3, 5):
-            b.set(x, 4, z, B("expanse:wisteria_log", axis="z") if b.get(x, 4, z) is None else b.get(x, 4, z))
+            b.set(x, 4, z, B("oak_log", axis="z") if b.get(x, 4, z) is None else b.get(x, 4, z))
     for x in range(0, 7):
         for z in range(1, 9):
             if b.get(x, 4, z) is None and rng.random() < 0.6:
-                b.set(x, 4, z, B("expanse:wisteria_leaves"))
+                b.set(x, 4, z, B("oak_leaves", persistent=True, distance=1))
             if b.get(x, 4, z) is not None and b.get(x, 3, z) is None and rng.random() < 0.55:
-                kind = "expanse:wisteria_blossoms" if rng.random() < 0.75 else "expanse:azure_wisteria_blossoms"
+                kind = "expanse:wisteria_blossoms"
                 b.hang_moss(x, 3, z, rng.randint(1, 2), block=kind)
     chair(b, 1, 1, 4, "spruce", "west")
     chair(b, 1, 1, 5, "spruce", "west")
-    b.set(5, 1, 4, B("expanse:potted_wisteria_sapling"))
+    b.set(5, 1, 4, B("potted_azalea_bush"))
     return b
 
 

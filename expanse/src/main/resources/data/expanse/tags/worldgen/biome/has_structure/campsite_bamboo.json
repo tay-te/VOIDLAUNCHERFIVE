@@ -1,8 +1,17 @@
 {
   "values": [
-    "expanse:wisteria_vale",
+    "expanse:woodland_glades",
     "expanse:jade_karst",
     "expanse:cloud_forest",
-    "expanse:willow_bayou"
+    "expanse:willow_bayou",
+    "minecraft:jungle",
+    "minecraft:sparse_jungle",
+    "minecraft:bamboo_jungle",
+    "minecraft:cherry_grove",
+    "expanse:monsoon_forest",
+    "expanse:kapok_rainforest",
+    "expanse:tepui",
+    "minecraft:swamp",
+    "minecraft:mangrove_swamp"
   ]
 }
