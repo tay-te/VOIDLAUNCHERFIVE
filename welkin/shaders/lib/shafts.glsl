@@ -1,0 +1,82 @@
+#ifndef WELKIN_SHAFTS
+#define WELKIN_SHAFTS
+
+// VOID Welkin, workstream D (air and tone, 2026-10-13): sun shafts from the shadow map, subtle, at a low sun.
+//
+// The raw term (program/deferred_shafts.glsl, run as deferred5, half resolution, colortex13): for each half-resolution
+// texel the view ray is walked from the eye toward the surface (at most SHAFT_REACH blocks, inside the shadow map's
+// reach) in SHAFT_STEPS even steps whose start is offset by the 4x4-tiled lighting noise (lib/noise.glsl); each step is
+// one hardware compare of the shadow map: is the air there in the sun? r: the sunlit length of the ray over
+// SHAFT_REACH (0..1), a: the view distance of the surface, for the resolve.
+//
+// The resolve and the light (composite2, shaftsAt): the raw term is gathered over the 4x4 half-resolution texels round
+// the pixel with depth weights (every noise offset of the tile is in the window, so a single frame is smooth and stable;
+// a texel across a depth edge is left out, so a trunk's outline stays sharp), then turned into light: the sun's
+// colour (the sun-side horizon's hue, as the haze's forward scatter) by a forward lobe toward the sun, by the sunlit
+// length, gated to a low sun and to the near air. Under a canopy at a low sun the map's gaps leave beams of sunlit air
+// between the trunks; in the open the long shadows of hills and woods streak it. Only ever adds light, at most about
+// a dozen 8-bit levels; nearly nothing at noon. Only the lighting term is noisy and resolved; colour and texture never
+// pass through it.
+//
+// Cost: SHAFT_STEPS compares per half-resolution texel; the pass returns at once while the gate is shut (noon, night),
+// and composite2 skips the gather then.
+
+#include "/lib/settings.glsl"
+
+#define SHAFT_STEPS 12
+#define SHAFT_REACH 96.0
+
+#ifndef WU_sunPosition
+#define WU_sunPosition
+uniform vec3 sunPosition;
+#endif
+
+// How open the gate is for the sun at world direction sunW: a trace at noon, fully from about 9 degrees down to the
+// horizon, shut at night (about half at 16:30). Uniform over the frame.
+float shaftGate(vec3 sunW) {
+	float h = sunW.y;
+	return smoothstep(0.0, 0.05, h) * mix(0.06, 1.0, 1.0 - smoothstep(0.15, 0.6, h));
+}
+
+// ---- the resolve and the light, for composite2 (define WELKIN_SHAFTS_READ and include lib/air.glsl first)
+#ifdef WELKIN_SHAFTS_READ
+#ifndef WU_colortex13
+#define WU_colortex13
+uniform sampler2D colortex13;
+#endif
+
+// The raw term gathered over the 4x4 half-resolution texels round full-resolution pixel p (offsets -2..1: each of the
+// noise tile's 16 offsets once), weighted by how near each texel's surface lies to this pixel's (dist, blocks; 1e4 for
+// the sky), so the beams stop at a trunk's or a ridge's outline.
+float shaftResolve(ivec2 p, float dist) {
+	ivec2 qc = p >> 1;
+	ivec2 hi = textureSize(colortex13, 0) - 1;
+	float sum = 0.0, wsum = 0.0;
+	for (int y = -2; y < 2; y++) {
+		for (int x = -2; x < 2; x++) {
+			vec4 r = texelFetch(colortex13, clamp(qc + ivec2(x, y), ivec2(0), hi), 0);
+			float tol = 0.06 * min(dist, r.a) + 0.4;
+			float w = exp(-abs(r.a - dist) / tol);
+			sum += r.r * w;
+			wsum += w;
+		}
+	}
+	return wsum > 1e-3 ? sum / wsum : texelFetch(colortex13, clamp(qc, ivec2(0), hi), 0).r;
+}
+
+// The shafts' light for view direction dirW (world, unit), `lit` the resolved sunlit share, in display values to add.
+// On the sky (`sky`) a fraction: there the sunlit air only brightens the glow round the sun the dome and the forward
+// scatter already draw; the beams show against the land, the trunks and the crowns.
+vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky) {
+	float mu = dot(dirW, sunW);
+	float lobe = 0.55 * airHg(mu, 0.8) + 0.45 * airHg(mu, 0.35);
+	vec3 sunSide = skyHazeHorizon(kind, true);
+	vec3 col = sunSide / max(dot(sunSide, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
+	float x = (float(SHAFT_STRENGTH) * 0.01 * 0.22 * (sky ? 0.3 : 1.0)) * lobe * shaftGate(sunW) * lit
+		* (1.0 - skyNightStep());
+	// a soft cap: never more than about a dozen 8-bit levels (0.05), however long the sunlit air
+	return col * (0.05 * (1.0 - exp(-x / 0.05)));
+}
+#endif
+
+#endif

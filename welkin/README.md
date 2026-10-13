@@ -66,7 +66,9 @@ welkin/
 | `deferred2` (`program/deferred_shadow.glsl`) | The sun's reach, raw, into `colortex10`: the near map through PCSS on a noise-turned Vogel disk, the contact and far rays on screen (jittered), the terrain's shadow past the map and the far casters inside it (with `SHADOWS`) |
 | `deferred3` (`program/deferred_resolve.glsl`) | The plane- and normal-weighted 4x4 resolve of `colortex10` into `colortex11` (and `TEMPORAL_LIGHT`'s history, off by default), skipped where the whole window holds one value (open sun, deep shadow): no grain reaches the light |
 | `deferred4` (`program/deferred.glsl`) | The surface from `depthtex0` where the chunks drew, else `dhDepthTex0`; the light in linear light (sun or moon by the resolved reach, the far land's tops by the terrain's slope; the light through leaves; the sky's fill from the dome's irradiance along the bent normal (`lib/sky/irradiance.glsl`) with the ground's bounce, under the resolved ambient occlusion with its multi-bounce (`lib/ao.glsl`, `lib/denoise.glsl`), and past the map and on the LOD the sun outside the occlusion's open cone taken off (`AO_SUN_FAR`); torches) brought to the screen by the land's filmic tone curve (`lib/tone.glsl`); wet ground; cloud shadows; the far fade into the horizon |
+| `deferred5` (`program/deferred_shafts.glsl`) | The sun shafts' raw term at half resolution into `colortex13`: the sunlit share of the near air (96 blocks) along each view ray, 12 shadow-map compares with a noise-offset start, only while a low sun opens the gate (with `SUN_SHAFTS`; overworld only; workstream D) |
 | `composite` | Water fog, then valley mist from VOID Gloam's near tiles (`lib/mist.glsl`, M1); debug views. **The atmosphere goes here** (haze M2, underground fog M5), then voxel clouds (M3) and `composite1` far weather (M4) |
+| `composite2` (the atmosphere) | Water fog, the haze by country with its forward scatter toward the sun (`lib/air.glsl`, `AIR_MIE`), the valley mist, the sun shafts resolved from `colortex13` (`lib/shafts.glsl`), the haze in front, the land's aerial perspective (`AERIAL_PERSPECTIVE`); debug views |
 | `final` | A soft shoulder past white, then invisible anti-banding (one 8-bit step of fixed triangular noise) |
 
 ### Buffers
@@ -81,6 +83,7 @@ welkin/
 | `colortex10` | RGBA16F | the shadow's raw terms: r the sun's reach, g what passes the leaves, b water travel or leaf thickness, a view depth |
 | `colortex11` | RGBA16F | the resolved reach and what passes, view depth; never cleared (`TEMPORAL_LIGHT`'s history) |
 | `colortex12` | RGBA16F, half size | the resolved ambient occlusion (`deferred1`): visibility (r), the bent normal's tangent parts (g, b), the view depth (a) |
+| `colortex13` | RGBA16F, half size | the sun shafts' raw term (`deferred5`): the sunlit share of the near air (r), view distance (a); `composite2` resolves it depth-aware over 4x4 texels |
 | `colortex15` | RGBA32F, 256 x 512 | the terrain's light, a texel a cell of Gloam's N0 tile: rows 0..255 the shadow lines, 256..511 slope and ground |
 
 Self-lit programs write `colortex2.x = 0` with blending off for that buffer (`shaders.properties`), so deferred never

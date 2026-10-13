@@ -949,3 +949,49 @@ still reads flat from time to time, most in the middle and far distance; the vis
 - **Not in this step:** the clouds' own look (flat grey undersides; P4's follow-up), water (P7), the forest's numbers
   (the trees regrow), and the options' generator table (`options.py`), which still lacks wave 1's and this step's
   options.
+
+### Lighting techniques, workstream D: air, the clouds' light and tone (2026-10-13, branch `welkin-air`)
+
+TECHNIQUES 2.7-2.9 and 3.4, with the user's latest verdict on round 3's 4K vistas (flat from time to time, worst in
+the middle and far distance; the clouds flat grey slabs; a hard haze band where the far land meets the sky, with the
+far mountains floating over it). Benched in test world B only (`-Pgloam.test.front=0.38`, the vistas also at a
+fair-weather front of 0.52).
+
+- **The horizon band was the clouds' far band, not the haze.** Past the decks' cells (`wcBandOf`) a deck is drawn as
+  a band mixed from the horizon colour and the cloud by the deck's share of cloud, laid over whatever lay behind it.
+  Over the far land beyond a deck below the eye that painted the land out in the horizon's colour along the line where
+  the deck plane meets it, with the far ridges, which stand above the plane, floating unhazed over it (with the pack's
+  clouds off the line went). The band now lays the deck's cloud over what lies behind it, by its share (gaps show the
+  land or the sky), and counts as cloud for the haze only where it is mostly cloud, so the far land behind it is hazed
+  as land: the far ridges sit on their land in the air's colour.
+- **The clouds' light** (`lib/clouds/shade.glsl`):
+  - a base by day is a neutral grey body (less of the sky's blue, a little deeper), graded block by block, over a
+    cell's width, into a white lit outline along its open edges (the sun through a cloud's thin parts, its sunlit
+    sides), and brighter seen toward the sun than away from it, with a little warm light from the sunlit ground;
+  - far cells pale into the bright air (half the horizon's colour by day) rather than the deeper blue behind them, and
+    less (0.12 a ring, at most 0.62): sunk into the sky's own colour a far deck had read as a see-through grey slab;
+  - at night a cloud takes the dome's colour behind it at about its brightness (a base a little under, a top a little
+    over, brighter toward the moon), never a black cut-out in the stars.
+- **Cloud shadows** (`lib/clouds/shadow.glsl`): 0.42 / 0.34 / 0.28 of the sun under one, two and three decks (was 0.62
+  / 0.52 / 0.45), their soft edge a third of a cell on the far rings (a far cloud's shadow is a soft patch, not a hard
+  square), from about 3 degrees of sun (was 5). They lie on the near land, the far chunks and the LOD's land as patches
+  of shade between sunlit fields, drift with the cloud frame, and take only the sun: the sky's fill keeps them blue.
+- **Forward scatter** (`lib/air.glsl airMie`, `AIR_MIE`): two Henyey-Greenstein lobes (g 0.8 and 0.45, normalized to 1
+  at the sun), in the sun-side horizon's hue, added to the colour the haze converges to, strongest from about 25
+  degrees down to the horizon, a trace at noon, gone at night. The haze lays it on the far land and the low sky by its
+  own opacity; the middle land toward the sun takes it besides over about 1.4 km (the clear near air's opacity is
+  small), so a low sun's side of the view has a warm, bright band and veil.
+- **Aerial perspective** (`airPerspective`, `AERIAL_PERSPECTIVE` 50 %): past 120 blocks the land leans toward the air's
+  hue at its own brightness and gives up a little contrast toward the air, more toward a low sun, over a few km.
+- **Sun shafts** (`program/deferred_shafts.glsl` as `deferred5`, `lib/shafts.glsl`, `SUN_SHAFTS`, `SHAFT_STRENGTH`):
+  the sunlit share of the near air (96 blocks) along each view ray from 12 shadow-map compares with the 4x4-tiled noise
+  start, at half resolution into `colortex13`; composite2 gathers the 4x4 half-resolution texels round each pixel with
+  depth weights (every noise offset once: grain-free in a single frame, and a trunk's outline kept) and adds the sun's
+  light by a forward lobe, gated to a low sun (a trace at noon), a fraction on the sky, softly capped at about a dozen
+  8-bit levels. `SHAFT_DEBUG` 1 shows the resolved term, 2 the raw one.
+- **Tone and calibration** (`lib/sky/build.glsl`'s land light): dawn rose and softer than dusk (its gold
+  (1.00, 0.67, 0.52), its last degrees (1.00, 0.47, 0.30), and the low dawn sun a quarter weaker); the night's shade a
+  clearer, deeper moon blue (no longer greyed by 0.3, and about a fifth less), the moon a little stronger. The tone
+  curve itself (`lib/tone.glsl`) is unchanged: sunlit grass measured at noon is Complementary's colour a little less
+  saturated (no cream), and pale faces sit at p95 197-221, under white. No auto exposure was added (optional in the
+  plan, a style call left for the user).

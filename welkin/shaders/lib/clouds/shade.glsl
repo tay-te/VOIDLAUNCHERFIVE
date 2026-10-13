@@ -370,17 +370,21 @@ vec3 wcFogTarget(vec3 rd, CloudEnv e) {
 	// the dome's plain band at this height (two texels, the dome's own band mapping), with the sun's glow of the
 	// horizon fading out upward
 	float x = clamp(sqrt(rd.y) * 4.6 - 0.5, 0.0, 4.0) / 4.0;
-	return skyRowAt(1.0 + 4.0 * x, SKY_ROW_DOME) + (hor - skyHorizon(false)) * (1.0 - x);
+	vec3 band = skyRowAt(1.0 + 4.0 * x, SKY_ROW_DOME) + (hor - skyHorizon(false)) * (1.0 - x);
+	// (air and tone (D): by day a far cloud pales into the bright air between it and the eye, half the horizon's colour,
+	// rather than taking the deeper blue of the sky behind it: sunk into that blue a far deck read as a see-through grey
+	// slab; paled, it reads as a far white cloud in the haze)
+	return mix(band, hor, 0.5 * wcBaseDay(e));
 }
 
 // How far a hit sinks into the horizon colour: a little from a few hundred blocks out, then smoothly more with each
 // doubling of the distance, one curve over every ring and the sheets, so far cells melt into the horizon as the far
 // land does (composite2 lays the land's haze over them besides); more in rain.
 float wcFog(CloudHit h) {
-	// (air and tone (D): a little less, 0.12 a ring and at most 0.7, was 0.16 and 0.86: the atmosphere pass hazes a
+	// (air and tone (D): a little less, 0.12 a ring and at most 0.62, was 0.16 and 0.86: the atmosphere pass hazes a
 	// cloud as the land at its distance besides, and with both a far deck sank to the sky's own colour and read as a
 	// see-through grey slab)
-	float f = clamp((wcFar(h.t) - 0.8) * 0.12, 0.0, 0.7);
+	float f = clamp((wcFar(h.t) - 0.8) * 0.12, 0.0, 0.62);
 	f = min(f + 0.08 * smoothstep(0.6 * WC_REACH, WC_REACH, h.t), 0.9);
 	return mix(f, min(1.0, f * 1.4 + 0.08), smoothstep(0.2, 0.8, rainStrength));
 }

@@ -54,6 +54,10 @@ void main() {
 #include "/lib/sky/table.glsl"
 #include "/lib/haze/haze.glsl"
 #include "/lib/air.glsl"
+#if defined SUN_SHAFTS && defined SHADOWS
+#define WELKIN_SHAFTS_READ
+#include "/lib/shafts.glsl"
+#endif
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 #include "/lib/haze/haze_debug.glsl"
 #endif
@@ -248,6 +252,18 @@ void main() {
 			ma.pool = 0.0;
 			ma.rise = 0.0;
 			color.rgb = valleyMistWith(p, uv, color.rgb, mt, ma);
+		}
+#endif
+		// ---- air and tone (D): the sun shafts (lib/shafts.glsl), in the near air, before the haze in front of it
+#ifdef WELKIN_SHAFTS_READ
+		if (shaftGate(sunW) > 0.0 && sunAngle < 0.5) {
+			float lit = shaftResolve(p, s.sky ? 1e4 : length(eyePos));
+			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky) * (cloud ? 0.0 : 1.0);
+#if SHAFT_DEBUG == 1
+			color.rgb = vec3(lit); // the resolved sunlit share of the near air
+#elif SHAFT_DEBUG == 2
+			color.rgb = vec3(texelFetch(colortex13, p >> 1, 0).r); // the raw term
+#endif
 		}
 #endif
 		color.rgb = welkinHazeFront(color.rgb, h);
