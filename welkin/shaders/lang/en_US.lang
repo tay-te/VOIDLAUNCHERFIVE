@@ -298,3 +298,18 @@ option.PLANT_ROOT_SHADE=Plant roots
 option.PLANT_ROOT_SHADE.comment=How much grass, flowers and crops darken toward their roots, so a meadow keeps its depth. 0 lights a tuft evenly.
 value.PLANT_ROOT_SHADE.0=Off
 suffix.PLANT_ROOT_SHADE=%
+
+# ---- Light: air and tone (D)
+option.AIR_MIE=Glow toward the sun
+option.AIR_MIE.comment=The haze scatters the sun's light forward, so the air toward a low sun glows warm and bright over the far land and along the horizon, and stays plain away from it. A smooth gradient of the air itself, no bloom.
+value.AIR_MIE.0=Off
+suffix.AIR_MIE=%
+option.AERIAL_PERSPECTIVE=Aerial perspective
+option.AERIAL_PERSPECTIVE.comment=Past the near land, the land's colours lean toward the air's hue with distance and give up a little contrast (more toward a low sun), so hills and woods stand in layers. Not a veil: the land keeps its brightness.
+value.AERIAL_PERSPECTIVE.0=Off
+suffix.AERIAL_PERSPECTIVE=%
+option.SUN_SHAFTS=Sun shafts
+option.SUN_SHAFTS.comment=At a low sun, beams of sunlit air between trunks and through gaps in the woods, and the long shadows of hills streaking the air. Subtle and smooth, never a fog; nearly nothing at noon. Needs Sun and moon shadows.
+option.SHAFT_STRENGTH=Sun shaft strength
+option.SHAFT_STRENGTH.comment=How bright the sun shafts are.
+suffix.SHAFT_STRENGTH=%

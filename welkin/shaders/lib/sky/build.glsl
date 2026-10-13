@@ -191,10 +191,12 @@ vec3 skyLandSunColour(float h, float morning) {
 	// (round 3: the gold and the last degrees deeper still: in linear light a pale stone face in the low sun needs green at
 	// about a third of red and blue near nothing to read amber on screen and not peach-cream; dawn keeps more blue,
 	// rose-gold)
-	vec3 gold = mix(vec3(1.00, 0.63, 0.28), vec3(1.00, 0.64, 0.40), morning);
+	// (air and tone (D), 2026-10-13: dawn rose and softer than dusk: its gold a paler rose-gold and its last degrees a
+	// rose-red with more blue in them, so the dawn land reads rose, not the orange it read warmer than the evening's)
+	vec3 gold = mix(vec3(1.00, 0.63, 0.28), vec3(1.00, 0.67, 0.52), morning);
 	// (round 2: the last degrees a deep amber, a little rosier at dawn: in linear light the blue must fall to about a
 	// seventh of the red for a white trunk or a crown it meets to read amber on screen rather than a pale cream)
-	vec3 low  = mix(vec3(1.00, 0.36, 0.07), vec3(1.00, 0.39, 0.12), morning);
+	vec3 low  = mix(vec3(1.00, 0.36, 0.07), vec3(1.00, 0.47, 0.30), morning);
 	vec3 c = mix(aft, noon, smoothstep(0.52, 0.92, h));
 	c = mix(gold, c, smoothstep(0.08, 0.36, h));
 	// (the last ten degrees are the low sun's: red enough that a green crown turns gold in it, not lime)
@@ -248,7 +250,9 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 	float weatherSun = (1.0 - 0.88 * m.overcast) * (1.0 - 0.5 * m.stormStep);
 
 	// the sun
-	vec3 sunLin = skyLandSunColour(h, morning) * skyLandSunStrength(h) * weatherSun * (1.0 - s.blind);
+	// (air and tone (D): the dawn sun a quarter softer than the evening's in its low degrees)
+	float dawnSoft = 1.0 - 0.25 * morning * (1.0 - smoothstep(0.04, 0.3, h));
+	vec3 sunLin = skyLandSunColour(h, morning) * skyLandSunStrength(h) * dawnSoft * weatherSun * (1.0 - s.blind);
 
 	// the sky's fill: clear blue, cooler as the sun sinks and bluer still in the blue hour; grey under cloud
 	// (round 1: a clearer sky blue, so the shade beside a warm sunlit face reads cool, not grey-green)
@@ -271,7 +275,9 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 	vec3 dayFill = fillCol * (landFillAt(h) * skyLandFillLevel(h) * fillWeather * lightScale); // (ambient (B): landFillAt)
 	// the night's fill: the moonlit look as it was (display values to linear), lifted for the linear sum
 	vec3 nightAmb = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
-	nightAmb = mix(nightAmb, vec3(dot(nightAmb, vec3(0.2126, 0.7152, 0.0722))), 0.3);
+	// (air and tone (D): the night's shade a deeper, clearer moon blue (was greyed by 0.3, which read grey-green on the
+	// grass), and a fifth less of it, so the moonlit side carries the night's form and the shade sinks blue)
+	nightAmb = mix(nightAmb, vec3(dot(nightAmb, vec3(0.2126, 0.7152, 0.0722))), 0.05) * 0.9;
 	float moonFill = 1.2 + 0.36 * clamp(s.moon, 0.0, 1.0) * m.clear;
 	vec3 nightFill = skyToLinear(nightAmb * (NIGHT_SKYLIGHT * moonFill * pow(lightScale, 0.25) * (1.0 - 0.28 * m.rainStep)))
 		* LAND_NIGHT;
@@ -283,7 +289,8 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 
 	// the moon: its old display strength to linear, lifted like the night's fill
 	vec3 moonCol = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
-	vec3 moonLin = skyToLinear(moonCol * 0.34) * (m.moonStrength * LAND_NIGHT) * (1.0 - s.blind);
+	// (air and tone (D): 0.36, was 0.34: the moonlit side a little brighter as the night's shade deepened)
+	vec3 moonLin = skyToLinear(moonCol * 0.36) * (m.moonStrength * LAND_NIGHT) * (1.0 - s.blind);
 	l.direct = sunAngle < 0.5 ? sunLin : moonLin; // Iris's shadowLightPosition switches at sunset
 
 	// the bright western (or eastern) sky round a low sun: its share of the fill falls on what faces it

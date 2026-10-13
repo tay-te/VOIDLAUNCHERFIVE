@@ -93,8 +93,13 @@ void main() {
 		if (b.z > 0.0 && b.x < tScene && (!h.hit || h.t >= b.x - 1.0)) {
 			// a cell hit inside the band keeps more of its body than a gap: the band only softens it toward the sky
 			bool cell = h.hit && h.t <= b.y + (b.y - b.x) + 1.0;
-			color.rgb = mix(color.rgb, wcBandColour(rd, b.y, cell ? mix(b.w, 1.0, 0.6) : b.w, e), b.z);
-			if (b.z > 0.5) {
+			// (air and tone (D): the band lays the deck's cloud over what lies behind it, by how much of the deck is
+			// cloud; its gaps show that, not the horizon's colour. Over land past a deck below the eye the horizon
+			// colour had painted out the far land along a hard line, with the far ridges standing over it unhazed. A
+			// pixel counts as cloud for the haze only where the band is mostly cloud.)
+			float alpha = b.z * (cell ? mix(b.w, 1.0, 0.6) : b.w);
+			color.rgb = mix(color.rgb, wcBandColour(rd, b.y, 1.0, e), alpha);
+			if (alpha > 0.5) {
 				km = min(km, b.y / 1000.0);
 			}
 		}

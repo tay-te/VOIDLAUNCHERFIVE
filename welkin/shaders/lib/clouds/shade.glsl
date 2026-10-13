@@ -172,6 +172,37 @@ float wcInterior(CloudHit h, ivec4 tx, vec3 p, float y, CloudEnv e) {
 	return f.x * f.y * f.z * f.w;
 }
 
+// ---- Air and tone (D, 2026-10-13): a cloud base's light runs from its open edges into its middle.
+// How near the point `p` (camera-relative) of a base lies to an open edge of its cloud, 1 at the edge .. 0 from a
+// whole cell in (12 blocks at the finest ring, wider with each ring), on the block grid (the cloud's own
+// voxel steps, never a blur): light reaching under a cloud through its thin outer parts lifts the base near its
+// outline, so a base reads as a body graded into a darker middle and its staircase outline sits softly against the
+// sky instead of a flat grey slab cut out of it. 0 for a cell with no open edge and for anything but a deck's base.
+float wcUnderEdge(CloudHit h, ivec4 tx, vec3 p, float y, CloudEnv e) {
+	if (h.n.y > -0.5) {
+		return 0.0;
+	}
+	float inside = y + 0.01;
+	int k = wcDeckAt(inside, e);
+	if (k < 0) {
+		return 0.0; // the flat base under a tower or an anvil: all middle
+	}
+	int edges = (tx.z >> (4 * k)) & 15;
+	if (edges == 0) {
+		return 0.0;
+	}
+	int s = WC_CELL << h.level;
+	float size = float(s);
+	float block = float(1 << h.level);
+	vec2 local = clamp(p.xz - wcCellCorner(h.cell, s, e), vec2(0.0), vec2(size));
+	local = (floor(local / block) + 0.5) * block; // the block grid of this ring
+	vec4 dist = vec4(local.x, size - local.x, local.y, size - local.y);
+	vec4 open = vec4(ivec4(edges, edges >> 1, edges >> 2, edges >> 3) & 1);
+	float d = min(min(mix(1e4, dist.x, open.x), mix(1e4, dist.y, open.y)), min(mix(1e4, dist.z, open.z), mix(1e4, dist.w, open.w)));
+	float f = 1.0 - clamp(d / size, 0.0, 1.0);
+	return f * (2.0 - f) * 0.5 + 0.5 * f * f;
+}
+
 // How thick the hit's cloud is there, 0..1 in four steps (the cell's own, from the finished map; a tower or an anvil
 // is thick).
 float wcDensity(CloudHit h, ivec4 tx, float y, CloudEnv e) {
@@ -232,6 +263,14 @@ vec3 wcLit(vec3 n, float up, float interior, float dens, int tone, vec3 rd, vec3
 	// forward scatter: looking toward the light, the sides and undersides glow at the edges
 	float forward = pow(clamp(dot(rd, l), 0.0, 1.0), 8.0) * (top ? 0.10 : (under ? 0.15 : 0.30));
 	vec3 light = skyAmbientLight() * skyView + skyDirectLight() * (diffuse + forward) * sun;
+	if (under) {
+		// (air and tone (D): a base is lit through the cloud by the light's side of the sky: brighter seen toward the
+		// sun or the moon, a cooler, deeper shade away from it, one broad gradient across the sky; and the sunlit
+		// ground below throws a little warm light up under it)
+		float toward = 0.5 + 0.5 * dot(rd, l);
+		light *= mix(0.86, 1.14, toward * toward);
+		light += skyDirectLight() * 0.06 * max(l.y, 0.0) * vec3(1.0, 0.95, 0.86);
+	}
 	return wcAlbedo(tone) * light * ao;
 }
 
@@ -273,6 +312,19 @@ vec3 wcFaceColour(vec3 n, float up, float interior, float dens, int tone, vec3 r
 		d *= max(1.0, wcLuma(c) / max(wcLuma(d), 1e-3)); // never darker than the plain light
 		c = mix(c, d, dusk);
 	}
+	// (air and tone (D): at night a cloud is lit by the moon and the night sky round it, never a black cut-out in the
+	// stars: its body takes the dome's own colour behind it at about its brightness, a base a little under it, a top a
+	// little over, brighter toward the moon; so a night deck reads as a soft grey-blue body that only hides the stars)
+	float night = skyNightStep() * (1.0 - wcDuskAmount(e.sun.y));
+	if (night > 0.0) {
+		SkyFrame sf = skyFrame();
+		vec3 behind = skyDomeOnly(rd, sf);
+		float moonward = 0.5 + 0.5 * dot(rd, sf.moonW);
+		float k = (n.y > 0.5 ? 1.12 : (n.y < -0.5 ? 0.86 : 0.97)) * mix(0.92, 1.14, moonward * moonward * e.moon);
+		vec3 tint = mix(behind, vec3(wcLuma(behind)), 0.35) * k;
+		tint *= tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0);
+		c = mix(c, max(c, tint + 0.25 * c), night);
+	}
 	// a closed overcast's base is the sky: the overcast dome's own colour in that direction (the horizon's low down, the
 	// zenith's overhead, darker in a thick middle), not a dark slab over a brighter haze, nor a pale sheet brighter than
 	// the grey sky round it
@@ -289,10 +341,22 @@ vec3 wcFaceColour(vec3 n, float up, float interior, float dens, int tone, vec3 r
 	return wcShoulder(c) * (n.y > 0.5 ? mix(0.84, 1.0, interior) * mix(0.86, 1.02, dens) : 1.0);
 }
 
+// (air and tone (D)) How much a base takes the plain day's look below: not in the dusk palette, the night's or a closed
+// overcast's (which already match the sky).
+float wcBaseDay(CloudEnv e) {
+	return (1.0 - max(wcDuskAmount(e.sun.y), skyNightStep())) * (1.0 - skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a);
+}
+
+// A base by day: a neutral grey body (less of the sky's blue), a little deeper.
+vec3 wcBaseNeutral(vec3 c, float day) {
+	return mix(c, mix(vec3(wcLuma(c)), c, 0.55) * 0.86, day);
+}
+
 // The colour of a cloud face at altitude `y`, `interior` as wcInterior (the hit's own face, no shadow from above).
 vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 	float up = abs(h.n.y) > 0.5 ? 0.5 : wcSideHeight(y, e);
-	return wcFaceColour(h.n, up, interior, 0.6, h.tone, rd, h.t, 1.0, e);
+	vec3 c = wcFaceColour(h.n, up, interior, 0.6, h.tone, rd, h.t, 1.0, e);
+	return h.n.y < -0.5 ? wcBaseNeutral(c, wcBaseDay(e)) : c;
 }
 
 // What a far cloud sinks into: the sky behind it (a deck over the eye fades into the sky at its height, not into
@@ -306,14 +370,21 @@ vec3 wcFogTarget(vec3 rd, CloudEnv e) {
 	// the dome's plain band at this height (two texels, the dome's own band mapping), with the sun's glow of the
 	// horizon fading out upward
 	float x = clamp(sqrt(rd.y) * 4.6 - 0.5, 0.0, 4.0) / 4.0;
-	return skyRowAt(1.0 + 4.0 * x, SKY_ROW_DOME) + (hor - skyHorizon(false)) * (1.0 - x);
+	vec3 band = skyRowAt(1.0 + 4.0 * x, SKY_ROW_DOME) + (hor - skyHorizon(false)) * (1.0 - x);
+	// (air and tone (D): by day a far cloud pales into the bright air between it and the eye, half the horizon's colour,
+	// rather than taking the deeper blue of the sky behind it: sunk into that blue a far deck read as a see-through grey
+	// slab; paled, it reads as a far white cloud in the haze)
+	return mix(band, hor, 0.5 * wcBaseDay(e));
 }
 
 // How far a hit sinks into the horizon colour: a little from a few hundred blocks out, then smoothly more with each
 // doubling of the distance, one curve over every ring and the sheets, so far cells melt into the horizon as the far
 // land does (composite2 lays the land's haze over them besides); more in rain.
 float wcFog(CloudHit h) {
-	float f = clamp((wcFar(h.t) - 0.8) * 0.16, 0.0, 0.86);
+	// (air and tone (D): a little less, 0.12 a ring and at most 0.62, was 0.16 and 0.86: the atmosphere pass hazes a
+	// cloud as the land at its distance besides, and with both a far deck sank to the sky's own colour and read as a
+	// see-through grey slab)
+	float f = clamp((wcFar(h.t) - 0.8) * 0.12, 0.0, 0.62);
 	f = min(f + 0.08 * smoothstep(0.6 * WC_REACH, WC_REACH, h.t), 0.9);
 	return mix(f, min(1.0, f * 1.4 + 0.08), smoothstep(0.2, 0.8, rainStrength));
 }
@@ -354,6 +425,19 @@ vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) 
 	ivec4 tx = wcMapCell(h.cell, h.level, e);
 	float dens = wcDensity(h, tx, y, e);
 	vec3 c = wcFaceColour(h.n, up, wcInterior(h, tx, p, y, e), dens, h.tone, rd, h.t, sun, e);
+	// (air and tone (D): a base is a neutral grey body, not a sheet of the sky's own blue, a little deeper in its
+	// middle; toward its open edges it whitens block by block, as the sun shines through a cloud's thin outer parts
+	// and its sunlit sides show, so a cloud seen from below reads as a solid body with a lit outline)
+	if (h.n.y < -0.5) {
+		float day = wcBaseDay(e);
+		c = wcBaseNeutral(c, day);
+		float ue = wcUnderEdge(h, tx, p, y, e);
+		if (ue > 0.0) {
+			vec3 topLit = wcLit(vec3(0.0, 1.0, 0.0), 0.5, 1.0, dens, h.tone, rd, lightDirWorld(), 1.0, wcThick());
+			vec3 rimC = mix(wcShoulder(topLit) * 0.96, c * 1.28, 1.0 - day);
+			c = mix(c, max(c, rimC), 0.7 * ue);
+		}
+	}
 	if (side) {
 		// the cloud's body seen with this side: its base from below, its top from above
 		vec3 capN = vec3(0.0, rd.y > 0.0 ? -1.0 : 1.0, 0.0);

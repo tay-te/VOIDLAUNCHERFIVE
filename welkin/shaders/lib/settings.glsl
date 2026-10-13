@@ -62,6 +62,17 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define PLANT_ROOT_SHADE 45 // [0 25 45 60]
 // Canopy from the shadow map: 1 finds the forest floor and a crown's heart from the leaves the light meets before them (their fill is cut, and the low sun's long fade does not reach under them); 0 keys the canopy on the sky light alone (timing). Not on any screen.  [light]
 #define FOLIAGE_CANOPY 1 // [0 1]
+// ---- Light: air and tone (D)
+// Glow toward the sun: The haze scatters the sun's light forward, so the air toward a low sun glows warm and bright over the far land and along the horizon, and stays plain away from it. A smooth gradient of the air itself, no bloom.  [air]
+#define AIR_MIE 100 // [0 50 75 100 125 150]
+// Aerial perspective: Past the near land, the land's colours lean toward the air's hue with distance and give up a little contrast (more toward a low sun), so hills and woods stand in layers. Not a veil: the land keeps its brightness.  [air]
+#define AERIAL_PERSPECTIVE 50 // [0 25 50 75 100]
+// Sun shafts: At a low sun, beams of sunlit air between trunks and through gaps in the woods, and the long shadows of hills streaking the air. Subtle and smooth, never a fog; nearly nothing at noon. Needs Sun and moon shadows.  [air]
+#define SUN_SHAFTS
+// Sun shaft strength: How bright the sun shafts are.  [air]
+#define SHAFT_STRENGTH 100 // [50 75 100 150 200]
+// Sun shaft debug: 1 the resolved sunlit share of the near air, 2 the raw (noisy) term. For testing only; on no screen.  [air]
+#define SHAFT_DEBUG 0 // [0 1 2]
 // ---- Sky
 // Pixel sun and moon: Draws the sun and the moon, with all eight moon phases, as crisp pixel art in the sky instead of the vanilla pictures.  [sky]
 #define SKY_PIXEL_SUN
@@ -164,6 +175,8 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #ifdef TEMPORAL_LIGHT
 #endif
 #ifdef TERRAIN_SHADOWS
+#endif
+#ifdef SUN_SHAFTS
 #endif
 #ifdef HANDHELD_LIGHT
 #endif
