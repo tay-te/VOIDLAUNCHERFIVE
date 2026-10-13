@@ -16,5 +16,5 @@
 		]
 	},
 	"shake": { "amount": 0.25, "speed": 0.3, "seed": 33 },
-	"render": { "samples": 6, "shutter": 180, "preroll": 2 }
+	"render": { "samples": 6, "shutter": 180, "preroll": 2, "supersample": 2 }
 }

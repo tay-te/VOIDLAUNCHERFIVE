@@ -13,7 +13,8 @@ R="$(cd "$(dirname "$0")/.." && pwd)"
 L=/c/Users/bitto/VOID/.tools/locks
 slot=""
 while [ -z "$slot" ]; do
-  find "$L" -maxdepth 1 -name 'game[0-9]' -type d -mmin +180 -exec rmdir {} \; 2>/dev/null
+  # stale after 3 hours (the machine-wide rule); a slot may hold an owner file, so remove it whole
+  find "$L" -maxdepth 1 -name 'game[0-9]' -type d -mmin +180 -exec rm -rf {} + 2>/dev/null
   for i in 1 2; do
     if mkdir "$L/game$i" 2>/dev/null; then slot="$L/game$i"; echo "reel $(date +%T)" > "$slot/owner"; break; fi
   done

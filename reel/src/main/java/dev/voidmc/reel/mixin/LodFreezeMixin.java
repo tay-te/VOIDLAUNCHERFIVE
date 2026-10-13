@@ -1,6 +1,7 @@
 package dev.voidmc.reel.mixin;
 
 import dev.voidmc.reel.client.Director;
+import dev.voidmc.reel.client.LodHooks;
 import dev.voidmc.reel.client.Tuning;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -22,7 +23,7 @@ public abstract class LodFreezeMixin {
 
 	@Inject(method = "update", at = @At("HEAD"), cancellable = true, require = 0)
 	private void reel$holdTiles(CallbackInfoReturnable<Object> cir) {
-		if (this.reel$lastDraw != null && Tuning.lodFreeze() && Director.get().midFrame()) {
+		if (this.reel$lastDraw != null && !LodHooks.api() && Tuning.lodFreeze() && Director.get().midFrame()) {
 			cir.setReturnValue(this.reel$lastDraw);
 		}
 	}

@@ -18,6 +18,7 @@ final class Report {
 	private int frames;
 	private int holds;
 	private int catchUps;
+	private int redos;
 	private int backlogWaits;
 	private final List<Integer> unready = new ArrayList<>();
 	private final List<Integer> farBuilding = new ArrayList<>();
@@ -35,6 +36,7 @@ final class Report {
 		this.frames = 0;
 		this.holds = 0;
 		this.catchUps = 0;
+		this.redos = 0;
 		this.backlogWaits = 0;
 		this.unready.clear();
 		this.farBuilding.clear();
@@ -60,6 +62,10 @@ final class Report {
 
 	void hold() {
 		this.holds++;
+	}
+
+	void redo() {
+		this.redos++;
 	}
 
 	void catchUp() {
@@ -109,6 +115,7 @@ final class Report {
 		b.append(String.format(Locale.ROOT, "  \"secondsPerFrame\": %.3f,%n", this.frames == 0 ? 0 : (this.totalNanos - this.prepareNanos) / 1e9 / this.frames));
 		b.append("  \"holds\": ").append(this.holds).append(",\n");
 		b.append("  \"catchUps\": ").append(this.catchUps).append(",\n");
+		b.append("  \"redos\": ").append(this.redos).append(",\n");
 		b.append("  \"backlogWaits\": ").append(this.backlogWaits).append(",\n");
 		b.append("  \"framesFilmedLoading\": ").append(this.unready).append(",\n");
 		b.append("  \"framesFarStillBuilding\": ").append(this.farBuilding.size()).append(",\n");

@@ -83,6 +83,8 @@ public final class Director {
 	private int prerollLeft;
 	private int holds;
 	private int farHolds;
+	/** Whether this frame's unfilmed first look has been taken. */
+	private boolean probed;
 	private long phaseStart;
 	private long jobStart;
 	private final Report report = new Report();
@@ -175,12 +177,15 @@ public final class Director {
 		this.prepareFrames = 0;
 		this.holds = 0;
 		this.farHolds = 0;
+		this.probed = false;
 		this.captureNow = false;
 		this.prerollDone = 0;
 		this.packClock = PACK_BASE;
 		this.lodNanos = this.lastRealNanos = System.nanoTime();
 		this.midFrame = false;
 		this.jobStart = this.phaseStart = System.nanoTime();
+		LodHooks.begin(this, job);
+		LodTrace.begin(job);
 		this.prefetch = Prefetch.start(mc, job);
 		this.prefetched = false;
 		this.warm = job.movie() ? warmPoints(job) : List.of();
@@ -202,6 +207,7 @@ public final class Director {
 		this.camera = null;
 		this.playing = null;
 		if (filming) {
+			LodHooks.end();
 			this.stage.leave(mc);
 			this.sink.close();
 			this.say("stopped " + this.job.shot().name() + " at frame " + this.cursor + " of " + this.job.frames().length);
@@ -377,6 +383,14 @@ public final class Director {
 		this.packClock = PACK_BASE + this.prerollDone / 20.0 + t;
 		boolean exact = this.job.movie() && !this.job.shot().world().freeze();
 
+		// A frame's first look from its new position goes unfilmed: far terrain (VOID LOD) asks for the tiles the move
+		// brought into reach there and draws coarser ones in their place until they are built, and the wait below must
+		// see that before a filmed render does
+		if (this.sample == 0 && !this.probed && Tuning.probe && Readiness.lodPresent()) {
+			this.probed = true;
+			return 0;
+		}
+
 		// Wait for the view to finish loading where waiting changes nothing on screen: sections still meshing can
 		// always be waited for; chunks still to come from the server only when the world is frozen, since the
 		// server needs ticks to send them.
@@ -478,12 +492,22 @@ public final class Director {
 			return;
 		}
 		this.captureNow = false;
+		// The far view checked once more, after this render's own update: a frame's first sample is the render where
+		// VOID LOD chooses (later samples hold its choice), and if it fell back to coarser tiles while finer ones are
+		// rebuilt, the same instant is rendered again once they are (the world has not moved on: no ticks are owed)
+		if (this.sample == 0 && Tuning.verify && Readiness.lodPresent() && !Readiness.farComplete() && this.farHolds < FAR_HOLD_LIMIT) {
+			this.farHolds++;
+			this.report.redo();
+			return;
+		}
 		this.sink.capture(target, this.captureIndex, this.job.fileFor(this.captureIndex));
+		LodTrace.sample(this.job.frames()[this.captureIndex], this.sample, this.midFrame, this.lodNanos);
 		if (++this.sample >= this.job.samples()) {
 			this.sample = 0;
 			this.cursor++;
 			this.holds = 0;
 			this.farHolds = 0;
+			this.probed = false;
 			this.report.frame();
 			if (this.cursor >= this.job.frames().length) {
 				this.enter(Phase.DRAIN);
@@ -496,6 +520,8 @@ public final class Director {
 		this.phase = Phase.IDLE;
 		this.camera = null;
 		this.sink.close();
+		LodHooks.end();
+		LodTrace.end();
 		this.stage.leave(mc);
 		this.report.finished(System.nanoTime() - this.jobStart, this.sink.written(), this.sink.failure());
 		try {

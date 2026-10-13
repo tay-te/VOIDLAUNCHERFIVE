@@ -15,6 +15,17 @@ public final class Tuning {
 	static volatile boolean lodClock = true;
 	/** VOID LOD's drawn tiles stay as they are across the samples of one frame, so no frame blends two tile sets. */
 	static volatile boolean lodFreeze = true;
+	/**
+	 * Whether a supersampled render asks VOID LOD for the far tiles of its final size (LodApi.setDetailScale). Off:
+	 * LOD picks finer tiles for the larger render, which measured steadier (and shows small far structures).
+	 */
+	static volatile boolean lodCompensate = false;
+	/** Log VOID LOD's state at every captured sample to renders/<shot>/lod-trace.csv (LodTrace). */
+	static volatile boolean lodTrace = false;
+	/** An unfilmed look from each frame's position first, so far tiles it brings into reach are waited for (VOID LOD). */
+	static volatile boolean probe = true;
+	/** A frame's first sample is rendered again if VOID LOD's far view was incomplete in it. */
+	static volatile boolean verify = true;
 	static volatile Boolean jitter;
 	static volatile Integer supersample;
 
@@ -44,6 +55,10 @@ public final class Tuning {
 			case "syncBody" -> syncBody = Boolean.parseBoolean(value);
 			case "lodClock" -> lodClock = Boolean.parseBoolean(value);
 			case "lodFreeze" -> lodFreeze = Boolean.parseBoolean(value);
+			case "lodCompensate" -> lodCompensate = Boolean.parseBoolean(value);
+			case "lodTrace" -> lodTrace = Boolean.parseBoolean(value);
+			case "probe" -> probe = Boolean.parseBoolean(value);
+			case "verify" -> verify = Boolean.parseBoolean(value);
 			case "jitter" -> jitter = "shot".equals(value) ? null : Boolean.valueOf(value);
 			case "supersample" -> {
 				Integer s = "shot".equals(value) ? null : Integer.valueOf(value);
@@ -52,13 +67,13 @@ public final class Tuning {
 				}
 				supersample = s;
 			}
-			default -> throw new IllegalArgumentException("unknown setting " + key + " (syncBody, lodClock, lodFreeze, jitter, supersample)");
+			default -> throw new IllegalArgumentException("unknown setting " + key + " (syncBody, lodClock, lodFreeze, lodCompensate, lodTrace, probe, verify, jitter, supersample)");
 		}
 		return describe();
 	}
 
 	static String describe() {
-		return String.format(Locale.ROOT, "{\"syncBody\":%s,\"lodClock\":%s,\"lodFreeze\":%s,\"jitter\":\"%s\",\"supersample\":\"%s\"}",
-			syncBody, lodClock, lodFreeze, jitter == null ? "shot" : jitter, supersample == null ? "shot" : supersample);
+		return String.format(Locale.ROOT, "{\"syncBody\":%s,\"lodClock\":%s,\"lodFreeze\":%s,\"lodCompensate\":%s,\"jitter\":\"%s\",\"supersample\":\"%s\"}",
+			syncBody, lodClock, lodFreeze, lodCompensate, jitter == null ? "shot" : jitter, supersample == null ? "shot" : supersample);
 	}
 }

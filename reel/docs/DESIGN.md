@@ -90,6 +90,9 @@ is left: popping, swaps, shimmer. It also reports the share of that variation on
 | + VOID LOD on the recording clock | 0.14 | 0.089 | 20% |
 | + 6 jittered samples, pack TAA off | 0.30 | 0.081 | 21% |
 | + 2x supersampling | 0.15 | 0.047 | 18% |
+| LOD's recording API + hysteresis, tiles compensated for supersampling | 0.24 | 0.104 | 16% |
+| the same, not compensated (LOD draws finer far tiles), pack TAA off | 0.16 | 0.049 | 15% |
+| the same, pack TAA on | 0.14 | 0.047 | 23% |
 
 The summit shot re-rendered with everything on, through the same encode as the film: jitter rms 0.545 to 0.386, and
 the single-frame tile pops and ghosts are gone. Findings:
@@ -98,13 +101,38 @@ the single-frame tile pops and ghosts are gone. Findings:
   changed on the tick rhythm. `LodClockMixin` gives it the recording's clock while filming.
 - A LOD swap between two samples of one frame showed as a ghost. `LodFreezeMixin` keeps the drawn tile set fixed
   across a frame's samples.
-- Shimmer is sub-pixel far detail; supersampling is what cures it. Jitter alone (without the pack's TAA) does not.
+- Shimmer is sub-pixel far detail; supersampling is what cures it, and mostly because VOID LOD then draws finer
+  far tiles: asking it for the tiles of the final size (`lodCompensate`) doubled the jitter, so it is off. Jitter
+  alone (without the pack's TAA) does not help; with supersampling the pack's TAA makes no difference, and films
+  are made with it off (`reel.sh pack TAA_DEFINE=0`) as the deterministic choice.
 - The body sync made no measurable difference and stays as harmless correctness.
-- Still on LOD's side: no hysteresis on detail levels, no fade on swaps under a shader pack, structure stand-ins
-  drawn as solid shapes on far peaks. All the timer hooks would be cleaner as LodApi calls than as Reel mixins
-  into LOD internals.
+- VOID LOD's branch `reel-lod` adds the hooks as API (`LodApi.setRecordingClock`, `setTileHold`,
+  `setDetailScale`, set by `LodHooks` for each job) and 8% hysteresis on detail levels (no flips while a camera
+  wobbles). With that API present, the mixins into LOD's internals stand aside; they remain for older LOD builds.
+  `setDetailScale` makes a supersampled render choose the tiles it would at its final size.
+- Still on LOD's side: no fade on swaps under a shader pack, and far structure stand-ins (the summit crosses) drawn
+  as solid brown shapes once LOD has learned where they are; `-Dvoid.lod.structures=false` hides them.
 
-Live switches: `reel.sh set syncBody= lodClock= lodFreeze= jitter= supersample=`, `reel.sh pack NAME=value`.
+One-frame flashes (`tools/flashes.py`: a frame unlike both neighbours while they agree) came from two LOD causes,
+found with the per-sample LOD trace (`reel.sh set lodTrace=true`, renders/<shot>/lod-trace.csv):
+
+- Over its GPU memory budget, LOD evicts tiles not drawn for two frames every half second, and wanted them back
+  the next frame: a coarse, treeless parent stood in for one frame, every 11 frames. Finer far tiles (supersampled
+  renders) need more memory: the studio's `config/void_lod.json` uses `"preset": "custom"` and `"budget": 2048`.
+  A named preset there overrides the values written under it (budget and detail included).
+- A camera crossing a detail threshold asks for new tiles in the very render that films it. Each frame now first
+  takes an unfilmed look from its position (`probe`), so the far-terrain wait sees the request.
+
+- Whatever else makes LOD fall back to coarser tiles for a moment: after a frame's first sample is rendered (the
+  render where LOD chose its tiles), Reel asks `LodApi.complete()` and, if the far view was incomplete, renders the
+  same instant again once it is (`verify`; counted as `redos` in the report). No ticks are owed, so nothing moves.
+
+The village crane went from 17 flashes to 0 (2 redos, no measurable slowdown).
+
+The tile hold turned each of these one-render transients into a whole frame (without it they were a sixth of a
+frame's blend); with both causes fixed it stays, as it keeps tile swaps from ghosting.
+
+Live switches: `reel.sh set syncBody= lodClock= lodFreeze= lodCompensate= lodTrace= probe= verify= jitter= supersample=`, `reel.sh pack NAME=value`.
 
 ## The report
 
