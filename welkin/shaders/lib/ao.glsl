@@ -121,6 +121,9 @@ bool aoPlant(int m) {
 // resolution colortex9 (it always holds the noise tile's sixteen turns once each, weighted to the pixel's own plane and
 // normal); the centre's own raw value where nothing matched.
 vec3 aoResolveAt(ivec2 p, vec3 v, vec3 n, int m) {
+#if AO_RESOLVE == 0
+	return texelFetch(colortex9, clamp(p / 2, ivec2(0), textureSize(colortex9, 0) - 1), 0).rgb;
+#endif
 	bool plant = aoPlant(m);
 	// a plant's own quads' normals mean little, so the resolve matches it on the level plane through the point,
 	// without the normal test

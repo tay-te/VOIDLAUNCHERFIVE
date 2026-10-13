@@ -218,22 +218,25 @@ These come from the Expanse country `haze` hint, or from Gloam's biome table whe
 
 **Where it lives:** `welkin/` in the repo, on branch `welkin` with its worktree at `.claude/worktrees/welkin`. `welkin/tools/pack.sh` zips it into a game-test run folder's `shaderpacks/` as `Welkin.zip` and selects it.
 
-### 3.2 Look rules (set by the user on 2026-10-11)
+### 3.2 Look rules (set by the user on 2026-10-11, the lighting part updated on 2026-10-12)
 
 These replace the first rules (flat colour steps and a 4×4 Bayer dither everywhere), which the user dropped on
-2026-10-11. Gloam's STYLE.md and the staged wave-2 modules still describe the old rules; they are adapted as they are
-integrated.
+2026-10-11. On 2026-10-12, after three tuning rounds fell short of the reference packs, the user relaxed the
+no-noise, no-TAA and no-volumetrics parts for the lighting alone (the last three rules below). Gloam's STYLE.md and
+the staged wave-2 modules still describe the old rules; they are adapted as they are integrated.
 
 - It must still feel like Minecraft: lightly stylized, not realistic, and of very high quality, on a par with good shader packs.
 - Light, fog, haze, mist and sky are smooth gradients with gentle banding: a ramp may gather softly at a few levels (`softBands`, the `SOFT_BANDS` option), but never in flat steps with edges.
-- No heavy or visible dither or checkerboard anywhere. The only noise is final's anti-banding: one 8-bit step of fixed triangular noise, which cannot be seen.
+- No heavy or visible dither or checkerboard anywhere. The image's only screen noise is final's anti-banding: one 8-bit step of fixed triangular noise, which cannot be seen.
 - Pixel-crisp detail only where it looks good: the sun, the moon, the stars and the voxel clouds. Everything that covers the world (haze, mist, water fog, wet ground) is smooth and is worked out at the pixel's own point, not snapped to a texel grid. Puddle outlines sit on the block textures' own texel grid, like texture.
 - Clouds are voxel cells (12×12×4 near, doubling with distance), opaque, with hard edges and no dithered rims. No ray-marched soft volumes.
-- Directional sunlight and shadows are the foundation of the quality: the sun lights faces by how squarely they face it, smoothly, and the shadow map (M6) carries it.
-- No TAA (it smears pixel art), no bloom haze, no fuzzy volumetrics, no SSAO or SSR on far pixels. Everything renders at full resolution.
+- Directional sunlight and shadows are the foundation of the quality: the sun lights faces by how squarely they face it, smoothly, and the shadow map carries it near, the far shadows and the terrain's light past it.
 - Surface colours stay natural and real-world, with no glowing fantasy tints. Underground may be fantastical (glowworm light, coloured cave water).
 - Each palette is small and lives in a pack file, keyed by haze kind, season and time. Palettes are control points: the colour runs smoothly between them, and every weight on them changes smoothly with the hour and the weather.
-- The budgets of section 3.5 still hold.
+- **Lighting quality, kept subtle (2026-10-12):** soft shadows with natural penumbras (contact-hardening: crisp at a caster's foot, softer with its height), stronger ambient occlusion (corners, wall feet, the inside of crowns, the floor of a wood and the far land's hollows), and, still to come, subtle sun shafts through trees and haze at a low sun. None of it may read as fuzz, smear or a veil.
+- **Noise only inside a lighting term, and never on screen:** a lighting term (the shadow's reach, the occlusion, later the shafts) may be sampled with the 4×4-tiled lighting noise (`lib/noise.glsl`) only if a depth- and normal-aware resolve (`lib/denoise.glsl`; optionally temporal accumulation with reprojection and a neighbourhood clamp, `TEMPORAL_LIGHT`, off by default) smooths it until it is grain-free in a single still. Every such term must pass the grain check (`audit/grain.py`: flat land patches within +10 % of the term off, or of its noise-free reference, `SHADOW_REFERENCE` and `AO_REFERENCE`), in every bench view. Terms may be worked out at half resolution (the occlusion, the shafts) and brought back to full resolution depth-aware.
+- **Textures are never filtered:** colour and texture never pass through a resolve, a blur or a history; they stay pixel-crisp. No TAA over the whole image, no heavy bloom or blur, no fuzzy volumetrics; the pixel-crisp sun, moon, stars and voxel clouds stay.
+- The budgets of section 3.5 hold, with the lighting set's own lines.
 
 ### 3.3 Files and programs
 
@@ -279,18 +282,34 @@ integrated.
 
 ### 3.5 Performance budget (1080p, mid-range GPU, MEDIUM)
 
+The lighting set the user allowed on 2026-10-12 (soft shadows on a resolved buffer, the far and terrain shadows,
+ground-truth ambient occlusion, later the sun shafts) was given to the user as about +0.8 to 1.0 ms at MEDIUM, for a
+total of about 4 to 5 ms; LOW stays cheap (no shadow map, no occlusion, no terrain pass).
+
 | Pass | Budget |
 |---|---|
 | Near gbuffers | about 0.3 ms over vanilla |
 | `dh_terrain` | 1.0 ms or less |
 | `dh_water` | 0.3 ms or less |
-| Shadow map | 0.8–1.2 ms (off on LOW) |
-| Deferred | about 0.4 ms |
+| Shadow chain: the shadow map (`shadow`, `shadow_solid`), the raw terms (`deferred1`) and the resolve (`deferred2`) | 1.2 ms or less (raw 0.45, resolve 0.2); off on LOW |
+| The terrain's light (`prepare3`) | 0.15 ms or less; off on LOW |
+| Ambient occlusion: the raw GTAO (`deferred`, half resolution) and its share of the resolve | 0.4 ms or less (raw 0.3); off on LOW |
+| Light pass (`deferred3`) | about 0.4 ms |
 | Atmosphere composite | about 0.3 ms |
 | Voxel clouds (M3) | 0.6 ms or less |
 | Far weather composite | about 0.2 ms |
+| Sun shafts (to come, half resolution, gated to a low sun and to light through trees) | 0.3 ms or less while active |
 | Sky table and final | about 0.2 ms |
-| **Total** | **about 4 ms MEDIUM, about 2 ms LOW** |
+| **Total** | **about 4-5 ms MEDIUM, about 2 ms LOW** |
+
+**Measured after the A + B merge (2026-10-13, RTX 4060, 1600x900, MEDIUM, idle stretches only):** plain 12:00 frame
+5.1-5.2 ms, shadow chain about 1.3 ms, occlusion about 0.45 ms; valley 05:30 (the worst case) frame 7.2 ms, shadow
+chain about 1.9 ms. Over budget at a low sun; the cuts are ready, in this order:
+1. the map at 1536 on MEDIUM (about 0.5 ms at valley 05:30, nothing at noon);
+2. PCSS at 8 + 8 taps (10 filter taps now);
+3. leaves culled from the shadow pass beyond about 64 blocks;
+4. the occlusion's `AO_SUN_FAR` 0, or `AO_FAR` cut from 4096 toward 1024 blocks;
+5. creatures casting only near (already within half the reach).
 
 Cost must grow with screen resolution, not distance:
 - Exact formulas and a few fetches, not marching.
@@ -835,6 +854,50 @@ the occlusion and the sky's light now reach the middle and far land and the LOD'
   R/B 2.95 against 0.86 away; plain 12:00 median 139.7 -> 139.8, p95/p5 4.91 -> 5.0; nights and the torch street
   within 1.5 levels of median. Valley medians fall 15-35 % (the shaded walls are meant to be deeper). The grain
   check passes on every patch (consecutive on/off runs; the plain and forest geometry differs from run to run).
-- **Cost (contended GPU, frame time with the occlusion on minus off):** about 0.3-0.7 ms at MEDIUM, 1600x900, most of
-  it the full-resolution 4x4 resolve in the light pass; moving the resolve into the shared half-resolution
-  `deferred_resolve` (after A merges) should take most of that off.
+- **Cost (contended GPU, frame time with the occlusion on minus off):** about 0.3-0.7 ms at MEDIUM, 1600x900. B
+  expected most of it to be the full-resolution 4x4 resolve in the light pass; the merge measured the resolve's own
+  share at about 0.1 ms or less (`AO_RESOLVE=0`), so most of it is the raw GTAO pass (see the merge below).
+
+### The lighting merge: workstreams A and B on `welkin` (2026-10-13)
+
+`welkin-shadows` (A, head d08055fb) merged first (27f4a1ee), then `welkin-ambient` (B, head 9fd03855; its copy of A's
+shared libraries, dbe1cd78, is byte-identical to fa75074e) onto A's pass layout (9754ae93).
+
+- **Conflicts resolved (B onto A):** `lib/denoise.glsl` A's copy (B's copy was A's fa75074e; A's later
+  `resolveSpatial4x4Loose` only added); the options in `lib/settings.glsl`, the lang file and `shaders.properties`
+  both blocks, with round 3's `CONTACT_AO` renamed `AMBIENT_OCCLUSION` (B) in A's profiles and screen, A's maps (2048
+  MEDIUM, 3072 HIGH) and terrain options with B's `AO_QUALITY` per profile; `DEBUG_VIEW` A keeps 15-17 and 21 (the
+  terrain's light), B keeps 18-20 and its far land's own shade moves from 21 to 22; `program/deferred.glsl` A's
+  `lightShadowFetch` reach first, then B's occlusion fetch and its `AO_SUN_FAR` cone after it; buffers, README and
+  DESIGN both workstreams' lines and sections.
+- **The sun past the map, counted once:** B's cone now fades in over A's `farShadowNeed` (the map's own fade, half
+  reach under the moon) instead of its own copy, and takes the darker of the cone and A's far rays and terrain shadow
+  (`min`, not the product), so a far penumbra is not darkened twice.
+- **The occlusion's resolve moved into `deferred2`:** with the shadow map on, `deferred_resolve` resolves `colortex9`
+  once into `colortex12` (RGBA16F: visibility, the bent normal's tangent parts) beside the shadow's, and the light pass
+  reads it with one fetch (`lib/ao.glsl aoResolveAt`, `WELKIN_AO_IN_RESOLVE`); without the map (LOW, a custom mix, the
+  other dimensions) `deferred2` does not run and the light pass resolves it itself, the same way. The resolve stays at
+  full resolution (each pixel weighted to its own plane and normal, so occlusion never bleeds across a block's edge);
+  its own share measured at about 0.1 ms or less on an idle GPU (0.1-0.25 contended), not the bulk of B's cost, so
+  the half-resolution resolve with an upsample was not built.
+- **Grain-check references:** `SHADOW_REFERENCE` (A) and the new `AO_REFERENCE` (the GTAO slices in `aoSlices()`,
+  every noise value of the tile averaged per texel). `AO_RESOLVE=0` (timing only, on no screen) skips the occlusion's
+  resolve.
+- **Checked on the merged state:** every `live.sh` variant compiles (A's, B's and the merge's runs are now in
+  `live_runs.txt`); load runs in both test worlds log no shader errors; the bench (world A: plain, village, torch
+  street, valley at their hours; world B: plain, village, valley, shore) matches A's and B's own after-shots within
+  the run-to-run noise, with B's deeper valley walls and A's golden hour at 18:30 both present (the forest views are
+  not comparable: the trees regrow). Grain: the shadows against `SHADOW_REFERENCE` pass (plain 16:30 term p90 1.22,
+  forest 12:00 1.19, which failed at 1.29 on A's branch); the occlusion's final image against `AO_REFERENCE` passes
+  (valley 12:00, plain 12:00 and 18:30: land medians 1.00, p90 at most 1.08), and its term alone (`DEBUG_VIEW` 18)
+  passes in the valley (1.09) but sits just over A's stricter term limit on the plain's grass (p90 1.27 against 1.25:
+  faint blotches in a block's inside corner that the final image does not show).
+- **Cost:** RTX 4060, 1600x900, MEDIUM defaults, 8-second frame-time means, on/off sweeps in the same run; only the
+  stretches with no other game on the GPU are counted (another session's game tests kept starting mid-run).
+  Plain 12:00: the whole frame 5.1-5.2 ms; the shadow chain (map, raw, resolve; `SHADOWS` on minus off) about 1.3 ms;
+  the occlusion (`AMBIENT_OCCLUSION` on minus off) about 0.45 ms, its resolve's share within the noise; the 1536 map
+  saves nothing measurable there. Valley 05:30, the worst case: the whole frame 7.2 ms; the shadow chain about 1.9 ms
+  (round 3's shadow pass: 1.07); the 1536 map saves about 0.5 ms. The terrain pass stays under the noise. So the
+  shadow chain is over its 1.2 ms line at a low sun (and about 0.1 over at noon), and the occlusion about 0.05 over
+  its 0.4 ms line; the lighting set costs about +1.0-1.5 ms over round 3, against the +0.8-1.0 ms the user was told.
+  Nothing was cut in the merge; the cuts, in order (section 3.5), are for the timing step with an idle GPU.
