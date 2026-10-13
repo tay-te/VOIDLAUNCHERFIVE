@@ -93,49 +93,12 @@ vec3 aoViewAt(ivec2 f, vec2 size) {
 	return aoSurfaceAt(f, (vec2(f) + 0.5) / size);
 }
 
-void main() {
-	ivec2 p = ivec2(gl_FragCoord.xy); // the half-resolution texel
-	vec2 size = vec2(viewWidth, viewHeight);
-	ivec2 full = ivec2(texcoord * size); // the full-resolution pixel under it
-	// (the position at the texel's centre, as lib/denoise.glsl's resolve places it; the LOD's land too, so the middle
-	// and far land take the wide occlusion)
-	vec3 P = aoSurfaceAt(full, texcoord);
-	float z = -P.z;
-	if (P.z == 0.0 || z > AO_FAR) {
-		outAo = vec4(1.0, 0.0, 0.0, P.z == 0.0 ? 6e4 : min(z, 6e4));
-		return;
-	}
-	vec4 flags = texelFetch(colortex2, full, 0);
-	int m = int(flags.y * 255.0 + 0.5);
-	if (flags.x < 0.5) {
-		// self-lit things: none
-		outAo = vec4(1.0, 0.0, 0.0, min(z, 6e4));
-		return;
-	}
-	bool plant = matHas(m, MATF_SSS) && !matIsLeaves(m);
-	vec3 nW = plant ? vec3(0.0, 1.0, 0.0) : octDecode(texelFetch(colortex1, full, 0).xy);
-	vec3 N = normalize(mat3(gbufferModelView) * nW);
-	vec3 V = normalize(-P);
-
-	// the radius: wider in a crown, narrower in a tuft; on screen, in full-resolution pixels, capped
-	float radius = matIsLeaves(m) ? AO_RADIUS_LEAVES : (plant ? AO_RADIUS_PLANT : AO_RADIUS);
-	// (and never under AO_WIDE_PX on screen: past a few dozen blocks the radius grows with the distance, so the middle
-	// and far land, the LOD's too, take an occlusion at their own scale: the hollows, terrace steps and gullies of a
-	// hillside at a hundred blocks, the floor between a far wood's crowns, a valley's sides a kilometre off)
-	float pxPerBlock = gbufferProjection[1][1] * 0.5 * size.y / max(z, 0.05);
-	float radiusPx = clamp(radius * pxPerBlock, AO_WIDE_PX * size.y / 900.0, AO_MAX_PX);
-	radius = radiusPx / pxPerBlock;
-	if (radiusPx < 2.0) {
-		outAo = vec4(1.0, 0.0, 0.0, z);
-		return;
-	}
-	float falloffRange = 0.4 * radius;
-	float falloffMul = -1.0 / falloffRange;
-	float falloffAdd = (radius - falloffRange) / falloffRange + 1.0;
-
-	vec2 noise = lightNoise2(p, lightFrame());
-	float vis = 0.0;
-	vec3 bent = vec3(0.0);
+// The slices' summed visibility and bent normal (view space) for one noise value (GTAO, Jimenez et al. 2016): the
+// horizons on both sides of each slice, the cosine-weighted arc between them, and the slice's bent normal.
+void aoSlices(vec2 noise, vec3 P, vec3 N, vec3 V, vec2 size, float radiusPx, float falloffMul, float falloffAdd,
+		out float vis, out vec3 bent) {
+	vis = 0.0;
+	bent = vec3(0.0);
 	for (int s = 0; s < AO_SLICES; s++) {
 		float phi = (float(s) + noise.x) * (3.1415927 / float(AO_SLICES));
 		vec2 omega = vec2(cos(phi), sin(phi));
@@ -194,6 +157,66 @@ void main() {
 		float t1 = (-cos(3.0 * h0 - n) - cos(3.0 * h1 - n) + 8.0 * cosN - 3.0 * (cos(h0 + n) + cos(h1 + n))) / 12.0;
 		bent += (ortho * t0 + V * t1) * projLen;
 	}
+}
+
+void main() {
+	ivec2 p = ivec2(gl_FragCoord.xy); // the half-resolution texel
+	vec2 size = vec2(viewWidth, viewHeight);
+	ivec2 full = ivec2(texcoord * size); // the full-resolution pixel under it
+	// (the position at the texel's centre, as lib/denoise.glsl's resolve places it; the LOD's land too, so the middle
+	// and far land take the wide occlusion)
+	vec3 P = aoSurfaceAt(full, texcoord);
+	float z = -P.z;
+	if (P.z == 0.0 || z > AO_FAR) {
+		outAo = vec4(1.0, 0.0, 0.0, P.z == 0.0 ? 6e4 : min(z, 6e4));
+		return;
+	}
+	vec4 flags = texelFetch(colortex2, full, 0);
+	int m = int(flags.y * 255.0 + 0.5);
+	if (flags.x < 0.5) {
+		// self-lit things: none
+		outAo = vec4(1.0, 0.0, 0.0, min(z, 6e4));
+		return;
+	}
+	bool plant = matHas(m, MATF_SSS) && !matIsLeaves(m);
+	vec3 nW = plant ? vec3(0.0, 1.0, 0.0) : octDecode(texelFetch(colortex1, full, 0).xy);
+	vec3 N = normalize(mat3(gbufferModelView) * nW);
+	vec3 V = normalize(-P);
+
+	// the radius: wider in a crown, narrower in a tuft; on screen, in full-resolution pixels, capped
+	float radius = matIsLeaves(m) ? AO_RADIUS_LEAVES : (plant ? AO_RADIUS_PLANT : AO_RADIUS);
+	// (and never under AO_WIDE_PX on screen: past a few dozen blocks the radius grows with the distance, so the middle
+	// and far land, the LOD's too, take an occlusion at their own scale: the hollows, terrace steps and gullies of a
+	// hillside at a hundred blocks, the floor between a far wood's crowns, a valley's sides a kilometre off)
+	float pxPerBlock = gbufferProjection[1][1] * 0.5 * size.y / max(z, 0.05);
+	float radiusPx = clamp(radius * pxPerBlock, AO_WIDE_PX * size.y / 900.0, AO_MAX_PX);
+	radius = radiusPx / pxPerBlock;
+	if (radiusPx < 2.0) {
+		outAo = vec4(1.0, 0.0, 0.0, z);
+		return;
+	}
+	float falloffRange = 0.4 * radius;
+	float falloffMul = -1.0 / falloffRange;
+	float falloffAdd = (radius - falloffRange) / falloffRange + 1.0;
+
+	float vis;
+	vec3 bent;
+#if AO_REFERENCE > 0
+	// the noise-free reference for the grain check: the average of all sixteen noise values of the tile, per pixel
+	vis = 0.0;
+	bent = vec3(0.0);
+	for (int k = 0; k < 16; k++) {
+		float vk;
+		vec3 bk;
+		aoSlices(r2(float(k)), P, N, V, size, radiusPx, falloffMul, falloffAdd, vk, bk);
+		vis += vk;
+		bent += bk;
+	}
+	vis *= 1.0 / 16.0;
+	bent *= 1.0 / 16.0;
+#else
+	aoSlices(lightNoise2(p, lightFrame()), P, N, V, size, radiusPx, falloffMul, falloffAdd, vis, bent);
+#endif
 	vis = clamp(vis / float(AO_SLICES), 0.0, 1.0);
 	// the bent normal in world space, then in the face's own frame
 	vec3 bW = mat3(gbufferModelViewInverse) * bent;
