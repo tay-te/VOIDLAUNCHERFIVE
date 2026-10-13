@@ -169,6 +169,8 @@ export interface SessionStats {
   loadout: string;
   played_ms: number;
   fps_avg: number;
+  /** Mean of the game's own ping readings over the session, when the mod sent one. */
+  ping_avg?: number;
   server?: string;
   crash_tail?: string[];
 }

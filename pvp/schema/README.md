@@ -152,6 +152,22 @@ one validatable schema, and because it is exactly the recording format the brows
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
 
+### 2026-10-03 — `session.ping_avg`, for Home's *Last session*
+
+`protocol.json` `v` unchanged (additive, optional); `mods.json` registry `version` unchanged.
+
+**`msg_session` gains an optional `ping_avg`** — the mean of the player's own ping readings over
+the session, in milliseconds, counting only readings taken on a server. The Figma v1 Ship Home
+(`52:2`) prints "22 ms · average ping" under *Last session*, and its rule 6 is "only show data we
+actually have": nothing on the wire carried an average ping, so the number had either to be
+invented or to be sent. It is sent.
+
+Followed by: `SessionStats.samplePing` / `pingAverage` and `Protocol.session(fpsAvg, pingAvg, …)`
+in the mod (the old four-argument overload stays and sends no `ping_avg`); `JavaToRust::Session`
+`ping_avg: Option<f64>` with `serde(default)`, so a mod that predates the field still parses;
+`adapters::game::SessionSummary` and `SessionStats.ping_avg` on `game:closed`. The launcher draws
+the stat only when the field is present — singleplayer sessions never have one.
+
 ### 2026-09-09 (later) — `hex_color_rgb`, and narrowing is migration-shaped
 
 `mods.json` registry `version` unchanged; `protocol.json` `v` unchanged.

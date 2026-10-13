@@ -42,6 +42,7 @@ import { useDirectWheel } from '@/menu/wheel';
 import { useVoidStore } from '@/store/store';
 import { hasTextFocus } from '@/bridge/connect';
 import { ModsScreen } from './ModsScreen';
+import { IslandMenu } from './IslandMenu';
 import { LoadoutsScreen } from './LoadoutsScreen';
 import { PartyScreen } from './PartyScreen';
 import { HudEditorScreen } from './HudEditorScreen';
@@ -78,6 +79,7 @@ export function MenuLayer({
   const setPaletteOpen = useVoidStore((s) => s.setPaletteOpen);
   const setRoute = useVoidStore((s) => s.setRoute);
   const closeMenu = useVoidStore((s) => s.closeMenu);
+  const context = useVoidStore((s) => s.context);
 
   useEffect(() => {
     // Not bound during the warm-up. In game this is belt and braces — Ultralight is sent no
@@ -87,6 +89,8 @@ export function MenuLayer({
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
+        // Rule 9: in a match the quick panel is the whole menu — no palette over it.
+        if (useVoidStore.getState().context === 'match') return;
         setPaletteOpen(!useVoidStore.getState().paletteOpen);
         return;
       }
@@ -105,6 +109,11 @@ export function MenuLayer({
       if (route.name === 'hud-editor' || route.name === 'mod' || route.name === 'settings') {
         // Up one level. Both of these are places you went *from* the grid, so the grid is what
         // is above them; neither is a place Escape should close the whole menu out of.
+        setRoute({ name: useVoidStore.getState().back });
+        return;
+      }
+      // The All-mods grid is a level below the islands, not the top.
+      if (route.name === 'grid') {
         setRoute({ name: 'mods' });
         return;
       }
@@ -142,18 +151,21 @@ export function MenuLayer({
         }
       }}
     >
-      {/* The HUD editor supplies its own lighter scrim. */}
-      {!editing && <div className="menu-layer__dim" />}
+      {/* The HUD editor supplies its own lighter scrim, and a match has none at all: rule 9,
+          the world stays as it is while the quick panel is up. */}
+      {!editing && context === 'lobby' && <div className="menu-layer__dim" />}
       {/* One screen, two routes: the mods shell owns the panel box and draws either the items
           or one mod's page inside it (`ModsScreen`). Splitting them here would mean two
           components solving the same geometry, and the box moving when they disagreed. */}
-      {(route.name === 'mods' || route.name === 'mod' || route.name === 'settings') && (
-        <ModsScreen />
-      )}
+      {/* v1 Ship: the islands are the menu. A mod's own page and the Settings page are still
+          the full shell they always were — places you go *from* the Mods island, which Escape
+          brings you back to. */}
+      {route.name === 'mods' && <IslandMenu />}
+      {(route.name === 'grid' || route.name === 'mod' || route.name === 'settings') && <ModsScreen />}
       {route.name === 'loadouts' && <LoadoutsScreen />}
       {route.name === 'party' && <PartyScreen />}
       {editing && <HudEditorScreen />}
-      {paletteOpen && <QuickPalette />}
+      {paletteOpen && context === 'lobby' && <QuickPalette />}
     </div>
   );
 }

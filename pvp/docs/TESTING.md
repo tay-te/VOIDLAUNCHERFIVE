@@ -25,6 +25,13 @@ Paths are relative to `pvp/` unless stated otherwise.
 
 ## 1. Clone + toolchain check
 
+> **Windows shortcut.** `powershell -ExecutionPolicy Bypass -File pvp\scripts\setup-windows.ps1`
+> puts Rust, CMake 4 and Temurin 21 into the repo's `.tools\` (no admin, nothing on the system
+> PATH), builds the Ultralight binding and the mod jar, and points the launcher at it; then
+> `pvp\scripts\launcher.ps1` opens the real launcher (`-Build` rebuilds the client first). It
+> needs Visual Studio 2022+ with the C++ workload already installed. Verified on Windows 11 with
+> VS 2026 (MSVC 14.50): every Rust, JS and Gradle suite passes and the per-OS jar builds.
+
 Install the prerequisites from [`../README.md`](../README.md#prerequisites) first —
 Rust, Node 22, pnpm, a JDK 17+, CMake, and the platform C++ toolchain (VS Build Tools 2022
 with the C++ workload / Xcode Command Line Tools).

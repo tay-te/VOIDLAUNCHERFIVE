@@ -2135,7 +2135,7 @@ export interface GlobalSettingsPatch {
   [k: string]: (boolean | number | string) | undefined;
 }
 /**
- * Telemetry summary the mod sends every 60 seconds and once more on exit (§7). Feeds the played-time and average-fps numbers on the launcher's Loadouts frame. Values are cumulative for the current game session, not deltas.
+ * Telemetry summary the mod sends every 60 seconds and once more on exit (§7). Feeds the played-time, average-fps and average-ping numbers on the launcher's Home (Last session). Values are cumulative for the current game session, not deltas.
  */
 export interface SessionJavaToRust {
   /**
@@ -2150,6 +2150,10 @@ export interface SessionJavaToRust {
    * Milliseconds elapsed since the game window opened.
    */
   played_ms: number;
+  /**
+   * Mean of the player's own ping readings (`NetworkPlayerInfo.responseTime`) over the session so far, in milliseconds. Only readings taken on a server count, so it is absent until there has been one and singleplayer never sends it. Optional and additive: a launcher that predates it ignores it, as it does any unknown field.
+   */
+  ping_avg?: number;
   /**
    * Host of the server the player is on, or null in the main menu or singleplayer.
    */

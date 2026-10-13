@@ -1,66 +1,105 @@
 /**
- * The shell — §7 of `design/quiet-cell-system.md`, and nothing else.
+ * The shell — Figma v1 Ship (`52:2`), and nothing else.
  *
- *   1600 × 980, radius 20. A navbar (Play · Mods · Cosmetics · Servers · Friends) with
- *   search and the profile chip, then **one** content panel inset 32,80 sized
- *   1536 × 768 radius 18, then a dock band below it holding the loadout selector, the
- *   version selector, the enabled readout and Launch. Every launcher screen uses that
- *   identical shell.
+ *   1600 × 980, radius 20, minimum 1280 × 800 (rule 10). A 72px navbar; one content panel
+ *   inset 32 at y 80, 1536 × 768, radius 32; the play bar centred over the panel's bottom
+ *   edge, identical on every screen (rule 2). The Friends drawer and the Store's item sheet
+ *   sit over the panel's right edge.
  *
- * So this file arranges exactly three bands and puts the screen in the middle one. The
- * hero art, the scrim and the recessed-canvas inset the earlier pass carried are gone:
- * the system is flat, and the fill steps (shell → ground → card → raised) carry the
- * depth that the gradient and the shadow used to.
+ * There is no router: a screen is a value in `stores/ui`, and Edit mods' one sub-route —
+ * a mod's setup page — is one more value beside it.
  *
- * Mods has one sub-route — a mod's setup page. There is no router; a screen is a value
- * in `stores/ui`, and the sub-route is one more value beside it, so the swap happens
- * here rather than inside `ModsScreen`.
- *
- * The root would normally carry `v-app`, which is where `@void/ui`'s reset and type
- * ramp live. It does not, for the reason spelled out at the top of `local/app.css`:
- * the `.v-app button` half of that reset outranks the package's own component
- * backgrounds. `local/app.css` carries the same reset at zero specificity until that is
- * fixed upstream.
+ * The root does not carry `v-app`, for the reason spelled out at the top of
+ * `local/app.css`: the `.v-app button` half of `@void/ui`'s reset outranks the package's
+ * own component backgrounds.
  */
 
 import { useEffect } from 'react';
 
-import { Dock } from './features/Dock';
+import chevronRight from './assets/icons/chevron-right.svg';
 import { CommandPalette } from './features/CommandPalette';
-import { LaunchError, LogDrawer, SessionSummary } from './features/LogDrawer';
+import { FriendsDrawer } from './features/FriendsDrawer';
+import { LaunchError, LogDrawer } from './features/LogDrawer';
+import { PlayBar } from './features/PlayBar';
 import { TopNav } from './features/TopNav';
 import { IS_TAURI } from './local/tauri';
-import { CosmeticsScreen } from './screens/Cosmetics';
-import { FriendsScreen } from './screens/Friends';
+import { ComingSoonScreen } from './screens/ComingSoon';
+import { HomeScreen, WHATS_NEW } from './screens/Home';
 import { ModSetupScreen } from './screens/ModSetup';
 import { ModsScreen } from './screens/Mods';
-import { PlayScreen } from './screens/Play';
-import { ServersScreen } from './screens/Servers';
 import { SettingsPanel } from './screens/Settings';
+import { StoreScreen } from './screens/Store';
+import { useCosmetics } from './stores/cosmetics';
+import { useFriends } from './stores/friends';
 import { useLaunch, wireLaunchEvents } from './stores/launch';
 import { useLoadouts, wireLoadoutEvents } from './stores/loadouts';
 import { useSession, wireSessionEvents } from './stores/session';
-import { useUi } from './stores/ui';
+import { isSoon, useUi } from './stores/ui';
 
-const SCREEN_COMPONENTS = {
-  play: PlayScreen,
-  mods: ModsScreen,
-  cosmetics: CosmeticsScreen,
-  servers: ServersScreen,
-  friends: FriendsScreen,
-} as const;
+/** Edit mods is a page of PvP: the grid, with the way back above it. */
+function EditMods() {
+  const go = useUi((s) => s.go);
+  const modSetup = useUi((s) => s.modSetup);
+  if (modSetup) return <ModSetupScreen />;
+  return (
+    <div className="editmods">
+      <header className="editmods__head">
+        <button type="button" className="ghostlink ghostlink--back" onClick={() => go('home')}>
+          <img src={chevronRight} width={5} height={8} alt="" />
+          PvP
+        </button>
+        <h1 className="display2">Edit mods</h1>
+      </header>
+      <ModsScreen />
+    </div>
+  );
+}
+
+function ReleaseNotes() {
+  const open = useUi((s) => s.notesOpen);
+  const setOpen = useUi((s) => s.setNotesOpen);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, setOpen]);
+  if (!open) return null;
+  return (
+    <div className="modalscrim" role="presentation" onMouseDown={() => setOpen(false)}>
+      <div className="notes" role="dialog" aria-labelledby="notes-title" onMouseDown={(e) => e.stopPropagation()}>
+        <p className="eyebrow2">Release notes</p>
+        <h2 id="notes-title" className="notes__title">
+          {WHATS_NEW.title}
+        </h2>
+        <ul className="notes__list">
+          {WHATS_NEW.notes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+        <button type="button" className="btn2 btn2--secondary" onClick={() => setOpen(false)}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function App() {
   const screen = useUi((s) => s.screen);
-  const modSetup = useUi((s) => s.modSetup);
   const hydrateSession = useSession((s) => s.hydrate);
   const hydrateLoadouts = useLoadouts((s) => s.hydrate);
+  const hydrateFriends = useFriends((s) => s.hydrate);
+  const hydrateCosmetics = useCosmetics((s) => s.hydrate);
   const phase = useLaunch((s) => s.phase);
+  const material = useUi((s) => s.material);
 
   useEffect(() => {
     void hydrateSession();
     void hydrateLoadouts();
-  }, [hydrateSession, hydrateLoadouts]);
+    hydrateFriends();
+    hydrateCosmetics();
+  }, [hydrateSession, hydrateLoadouts, hydrateFriends, hydrateCosmetics]);
 
   useEffect(() => {
     // One subscription set for the whole app. Every store's events are wired here so
@@ -71,28 +110,40 @@ export function App() {
     };
   }, []);
 
-  const Screen = screen === 'mods' && modSetup ? ModSetupScreen : SCREEN_COMPONENTS[screen];
+  let content;
+  if (screen === 'home') content = <HomeScreen />;
+  else if (screen === 'store') content = <StoreScreen />;
+  else if (screen === 'mods') content = <EditMods />;
+  else if (isSoon(screen)) content = <ComingSoonScreen which={screen} />;
 
   return (
-    <div className="shell" data-phase={phase} data-screen={screen}>
+    <div className="shell ship" data-phase={phase} data-screen={screen} data-material={material}>
+      {/* The light the glass is made of: still at rest, tinted by the screen. */}
+      <div className="ambient" aria-hidden="true">
+        <i className="ambient__a" />
+        <i className="ambient__b" />
+        <i className="ambient__c" />
+      </div>
+
       <TopNav />
 
-      <main className="panel" data-screen={screen}>
-        <Screen />
+      <main className="panel2" data-screen={screen}>
+        <div className="screen-view">{content}</div>
       </main>
 
-      <div className="dockband">
-        <Dock />
+      <FriendsDrawer />
+
+      <div className="playbar-dock">
+        <PlayBar />
       </div>
 
       <div className="banners">
         <LaunchError />
-        <SessionSummary />
         {!IS_TAURI ? (
           <div className="banner banner--preview" role="status">
             <span className="banner__text">
-              Browser preview — `@tauri-apps/api` is mocked, so pings, launches and sign-in are
-              fixtures. Run `pnpm tauri dev` for the real backend.
+              Browser preview — `@tauri-apps/api` is mocked, so pings, launches, friends and the
+              Store are fixtures. Run `pnpm tauri dev` for the real backend.
             </span>
           </div>
         ) : null}
@@ -101,6 +152,7 @@ export function App() {
       <LogDrawer />
       <CommandPalette />
       <SettingsPanel />
+      <ReleaseNotes />
     </div>
   );
 }

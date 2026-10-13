@@ -11,6 +11,13 @@ import '@void/ui/tokens.css';
 import '@void/ui/fonts.css';
 import '@void/ui/styles.css';
 import './local/app.css';
+import './local/ship.css';
+// The material and motion layers, then the screens being explored. Each overrides what
+// precedes it, so `ship.css` stays the frame's geometry and these say how it feels.
+import './local/glass.css';
+import './local/home.css';
+import './local/soon.css';
+import './local/motion.css';
 
 import { App } from './App';
 

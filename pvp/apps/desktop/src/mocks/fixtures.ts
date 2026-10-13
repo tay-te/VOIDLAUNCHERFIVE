@@ -121,14 +121,58 @@ export const MOCK_SYSTEM: SystemInfo = {
   data_dir: '~/.void-pvp',
 };
 
-/** The Servers screen's favourites, with the pings the Figma shows. */
+/**
+ * The server menu's favourites with the pings the v1 Ship frame shows (`66:391`): Hypixel
+ * 22 ms and 38,412 playing on Home, Minemen 48, CubeCraft 71. PvP Land draws "—" in the
+ * frame, so the preview's ping to it fails — which is also how *Server unreachable* is
+ * reviewed (pick PvP Land).
+ */
 export const MOCK_SERVERS = [
-  { host: 'mc.hypixel.net', name: 'Hypixel', online: 24_118, latency_ms: 42 },
-  { host: 'na.minemen.club', name: 'Minemen Club NA', online: 1_204, latency_ms: 68 },
-  { host: 'play.cubecraft.net', name: 'CubeCraft', online: 8_412, latency_ms: 51 },
+  { host: 'mc.hypixel.net', name: 'Hypixel', online: 38_412, latency_ms: 22 },
+  { host: 'na.minemen.club', name: 'Minemen Club NA', online: 1_204, latency_ms: 48 },
+  { host: 'play.cubecraft.net', name: 'CubeCraft', online: 8_412, latency_ms: 71 },
   { host: 'eu.minemen.club', name: 'Minemen Club EU', online: 987, latency_ms: 112 },
-  { host: 'pvp.land', name: 'PvP Land', online: 612, latency_ms: 74 },
 ] as const;
+
+/** The v1 Ship frames' player — the profile chip says "Kestrel". */
+export const PREVIEW_ACCOUNT: Account = {
+  uuid: '6e1b9f3c2a8d4f0b9c7e5a3d1f2b4c6e',
+  name: 'Kestrel',
+  kind: 'microsoft',
+  skin_url: null,
+};
+
+const HOUR = 3_600_000;
+
+/** The Friends drawer's roster, verbatim (`76:1474`). Ages are relative to page load. */
+export const PREVIEW_FRIENDS = {
+  incoming: ['marrow'],
+  outgoing: [] as string[],
+  friends: [
+    { name: 'Moss', presence: { state: 'online', server: 'mc.hypixel.net', game: 'Duels' } },
+    { name: 'Rin_', presence: { state: 'online', lobby: true } },
+    { name: 'tavi', presence: { state: 'online', server: 'mc.hypixel.net', game: 'Bedwars' } },
+    { name: 'Juno', presence: { state: 'online' } },
+    { name: 'Otto', presence: { state: 'offline', lastSeen: -4 * HOUR } },
+    { name: 'pilot_ash', presence: { state: 'offline', lastSeen: -26 * HOUR } },
+  ],
+};
+
+/** The Store frame's state: Cell cape equipped, Origin cape owned (`73:211`). */
+export const PREVIEW_COSMETICS = {
+  owned: ['cell-cape', 'origin-cape', 'plain-nameplate'],
+  equipped: { cape: 'cell-cape' },
+};
+
+/** Home's *Last session*: 48 min on Hypixel, yesterday, 142 fps, 22 ms (`69:336`…). */
+export const PREVIEW_LAST_SESSION = {
+  played_ms: 48 * 60_000,
+  fps_avg: 142,
+  ping_avg: 22,
+  server: 'mc.hypixel.net',
+  loadout: 'sword-pvp',
+  ended_at: -22 * HOUR,
+};
 
 /** The log lines the drawer shows in the browser preview. */
 export const MOCK_LOG_SCRIPT: readonly string[] = [

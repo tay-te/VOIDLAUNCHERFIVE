@@ -242,8 +242,14 @@ public final class VoidSocket implements LiveState.Sink {
     }
 
     public void sendSession(double fpsAvg, long playedMs, String server, String loadoutId) {
+        sendSession(fpsAvg, -1, playedMs, server, loadoutId);
+    }
+
+    /** As {@link #sendSession(double, long, String, String)}, with the session's mean ping. */
+    public void sendSession(double fpsAvg, double pingAvg, long playedMs, String server,
+                            String loadoutId) {
         if (isUp()) {
-            send(Protocol.session(fpsAvg, playedMs, server, loadoutId));
+            send(Protocol.session(fpsAvg, pingAvg, playedMs, server, loadoutId));
         }
         // Telemetry is a summary of a window that has passed; replaying a
         // stale one after a reconnect would double-count, so it is dropped.

@@ -1,0 +1,699 @@
+/* ==========================================================================
+   The Right-Shift menu — Figma "★ v1.1 · Iterations":
+     lobby  `261:50520`  In game · Mods · final header (tabs + search icon)
+     match  `229:47020`  Floating · D · In match (quick panel only)
+
+   Islands over the world, each a flat card (#191a1c, 1px white .10) anchored to where it sits,
+   so the layout holds at any framebuffer size: the centred panel takes the space between the
+   top islands and the strip and its grid scrolls inside.
+
+   Flat, rounded, no gradients, no shadows (the settled UI rules), and Ultralight's rules
+   (`scripts/check-ultralight.mjs`): flexbox and absolute positioning only, 2D transforms only.
+   ========================================================================== */
+
+.islands {
+  position: absolute;
+  inset: 0;
+  --isl-ink: #edeeef;
+  --isl-ink-2: #9a9da1;
+  --isl-ink-3: #808387;
+  --isl-ink-4: #626569;
+  --isl-card: #191a1c;
+  --isl-ground: #131315;
+  --isl-raised: #212225;
+  --isl-line: rgba(255, 255, 255, 0.1);
+  color: var(--isl-ink);
+  font-family: var(--font-ui);
+}
+
+.island {
+  position: absolute;
+  display: flex;
+  background: var(--isl-card);
+  border: 1px solid var(--isl-line);
+  animation: isl-in 140ms ease-out both;
+}
+
+@keyframes isl-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.isl-key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--isl-ink-2);
+  white-space: nowrap;
+}
+
+.isl-key--sm {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 6px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+}
+
+/* ---------------------------------------------------------------- mark */
+
+.island--mark {
+  left: 24px;
+  top: 24px;
+  height: 48px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 21px 0 13px;
+  border-radius: 24px;
+}
+
+.isl-ring {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.isl-ring i {
+  position: absolute;
+  display: block;
+  border-radius: 30%;
+  background: rgba(237, 238, 239, 0.92);
+}
+
+.isl-word {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 2.4px;
+}
+
+/* --------------------------------------------------------------- close */
+
+.island--close {
+  right: 24px;
+  top: 24px;
+  height: 48px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 16px;
+  border-radius: 24px;
+  cursor: pointer;
+}
+
+.island--close:hover {
+  background: var(--isl-raised);
+}
+
+/* A cross from two 1.6px bars, rotated in 2D. */
+.isl-x {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.isl-x::before,
+.isl-x::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 7px;
+  width: 10px;
+  height: 1.6px;
+  border-radius: 1px;
+  background: var(--isl-ink-2);
+  transform: rotate(45deg);
+}
+
+.isl-x::after {
+  transform: rotate(-45deg);
+}
+
+/* ---------------------------------------------------------------- tabs */
+
+/* `261:50566`: centred at the top, 50 tall, the active tab sunk to the ground step. */
+.island--tabs {
+  left: 50%;
+  top: 24px;
+  height: 50px;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  border-radius: 24px;
+  transform: translateX(-50%);
+}
+
+.isl-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 18px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--isl-ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.isl-tab:hover:not(.is-on) {
+  color: var(--isl-ink);
+}
+
+.isl-tab.is-on {
+  background: var(--isl-ground);
+  color: var(--isl-ink);
+}
+
+.isl-tabs__sep {
+  display: block;
+  width: 1px;
+  height: 20px;
+  margin: 0 0 0 2px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.isl-tabs__hint {
+  display: flex;
+  padding: 0 8px 0 10px;
+}
+
+.isl-tabs__hint .isl-key {
+  height: 25px;
+}
+
+/* --------------------------------------------------------------- panel */
+
+/* `261:50579`: 987 × 630, centred; never under the tabs (top 74) or the strip (bottom 96). */
+.island--panel {
+  left: 50%;
+  top: 50%;
+  width: 987px;
+  max-width: calc(100% - 48px);
+  height: 630px;
+  max-height: calc(100% - 196px);
+  flex-direction: column;
+  border-radius: 32px;
+  /* The frame sits it 11px above true centre (164 rather than 175 in 980). */
+  transform: translate(-50%, calc(-50% - 11px));
+}
+
+.isl-mods__head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 42px;
+  margin: 31px 28px 0;
+}
+
+/* `261:50898`: the category tabs, counts beside the labels. */
+.isl-cats {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 42px;
+  padding: 0 4px;
+  border-radius: 14px;
+  background: var(--isl-ground);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.isl-cats__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--isl-ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.isl-cats__tab:hover:not(.is-on) {
+  color: var(--isl-ink);
+}
+
+.isl-cats__tab.is-on {
+  background: #26272b;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--isl-ink);
+}
+
+.isl-cats__count {
+  font-size: 11px;
+  color: var(--isl-ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.isl-cats__tab.is-on .isl-cats__count {
+  color: var(--isl-ink-2);
+}
+
+/* `261:50921`: the search button, a 42px circle at the head's right. */
+.isl-iconbtn {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 21px;
+  background: var(--isl-ground);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.isl-iconbtn:hover {
+  background: var(--isl-raised);
+}
+
+/* A magnifier: a ring and a short 45° handle. */
+.isl-search__icon {
+  position: relative;
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 6px;
+  border: 1.4px solid var(--isl-ink-2);
+}
+
+.isl-search__icon::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 10px;
+  width: 5px;
+  height: 1.4px;
+  border-radius: 1px;
+  background: var(--isl-ink-2);
+  transform: rotate(45deg);
+}
+
+.isl-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 520px;
+  max-width: 100%;
+  height: 42px;
+  padding: 0 6px 0 15px;
+  border-radius: 14px;
+  background: var(--isl-ground);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.isl-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--isl-ink);
+  outline: none;
+}
+
+.isl-search input::placeholder {
+  color: var(--isl-ink-3);
+}
+
+.isl-search__done {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--isl-raised);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--isl-ink);
+  cursor: pointer;
+}
+
+/* The original tiles, five across at the frame's 175 × 223 (`261:50580`). */
+.isl-mods__grid {
+  --tile-w: 175px;
+  --tile-art: 155px;
+  --tile-h: 223px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 39px 14px 0 28px;
+  padding: 0 11px 14px 0;
+  overflow-y: auto;
+}
+
+/* `261:50891`: a 3px track, a lighter thumb, inside the panel's right padding. */
+.isl-mods__grid {
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) rgba(255, 255, 255, 0.04);
+}
+
+.isl-mods__grid::-webkit-scrollbar {
+  width: 3px;
+}
+
+.isl-mods__grid::-webkit-scrollbar-track {
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.isl-mods__grid::-webkit-scrollbar-thumb {
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.isl-mods__row {
+  display: flex;
+  gap: 14px;
+  flex: 0 0 auto;
+}
+
+.isl-mods__grid .modcell {
+  border-radius: 16px;
+}
+
+.isl-mods__foot {
+  display: flex;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  padding: 10px 28px 24px;
+  font-size: 9px;
+  line-height: 11px;
+  font-weight: 500;
+  letter-spacing: 1.08px;
+  text-transform: uppercase;
+  color: var(--isl-ink-4);
+  white-space: pre;
+}
+
+.isl-empty {
+  margin: 40px 0;
+  font-size: 13px;
+  color: var(--isl-ink-2);
+  text-align: center;
+}
+
+/* Friends / Cosmetics — the same panel, saying what it would hold. */
+.isl-soon {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.isl-soon__eyebrow {
+  margin: 22px 0 0;
+  font-size: 12px;
+  line-height: 15px;
+  font-weight: 500;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--isl-ink-3);
+}
+
+.isl-soon__title {
+  margin: 8px 0 0;
+  font-size: 30px;
+  line-height: 38px;
+  font-weight: 400;
+  letter-spacing: -0.6px;
+  color: var(--isl-ink);
+}
+
+.isl-soon__line {
+  width: 460px;
+  max-width: calc(100% - 48px);
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 300;
+  color: var(--isl-ink-2);
+}
+
+/* ------------------------------------------------------------ the lobby strip */
+
+.island--strip {
+  left: 50%;
+  bottom: 24px;
+  height: 72px;
+  align-items: center;
+  gap: 24px;
+  padding: 0 14px 0 24px;
+  border-radius: 28px;
+  transform: translateX(-50%);
+}
+
+.isl-where {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.isl-where__live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 15px;
+  font-weight: 500;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--isl-ink-2);
+}
+
+.isl-where__live i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--isl-ink-3);
+}
+
+.isl-where__live i.is-on {
+  background: #3dd68c;
+}
+
+.isl-where__name {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.isl-sep {
+  display: block;
+  width: 1px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.isl-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px 0 16px;
+  border-radius: 22px;
+  background: var(--isl-raised);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--isl-ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.isl-pill:hover {
+  background: #2a2b2f;
+}
+
+/* The move mark: a plus of two bars. */
+.isl-move {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.isl-move i {
+  position: absolute;
+  display: block;
+  border-radius: 1px;
+  background: var(--isl-ink);
+}
+
+.isl-move i:first-child {
+  left: 2px;
+  top: 7.3px;
+  width: 12px;
+  height: 1.4px;
+}
+
+.isl-move i:last-child {
+  left: 7.3px;
+  top: 2px;
+  width: 1.4px;
+  height: 12px;
+}
+
+/* ---------------------------------------------------------- in a match */
+
+/* `229:47098`: 380 wide at the top centre, the hint under it. */
+.isl-quickwrap {
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transform: translateX(-50%);
+}
+
+.island--quick {
+  position: relative;
+  width: 380px;
+  flex-direction: column;
+  border-radius: 22px;
+  background: var(--isl-ground);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.isl-quick__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+}
+
+.isl-quick__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.isl-quick__title {
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.isl-quick__sub {
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--isl-ink-3);
+}
+
+.isl-roundbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: #1f2023;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--isl-ink-2);
+  cursor: pointer;
+}
+
+.isl-quick__pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.isl-pin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 172px;
+  height: 44px;
+  padding: 0 8px 0 10px;
+  border-radius: 14px;
+  background: #18191b;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.isl-pin--off {
+  background: #151517;
+}
+
+.isl-pin__num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--isl-ink-2);
+}
+
+.isl-pin__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--isl-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.isl-pin--off .isl-pin__name {
+  color: var(--isl-ink-3);
+}
+
+.isl-quick__hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 15px;
+  background: rgba(19, 19, 21, 0.85);
+  font-size: 12px;
+  color: var(--isl-ink-2);
+}

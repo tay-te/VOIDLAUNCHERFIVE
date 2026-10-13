@@ -88,8 +88,11 @@ pub async fn launch<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AppState>,
     loadout_id: String,
+    server: Option<String>,
 ) -> CmdResult<LaunchReport> {
-    let report = map_err(commands::launch::launch(&state, emitter(&app), &loadout_id).await)?;
+    let report = map_err(
+        commands::launch::launch(&state, emitter(&app), &loadout_id, server.as_deref()).await,
+    )?;
 
     // §5: after a successful spawn the window hides to the tray, and comes back on
     // `game:closed` with the session stats. Configurable, because a second monitor makes

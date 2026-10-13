@@ -1,0 +1,357 @@
+/* ==========================================================================
+   The glass material — the shell as frosted panes over a light.
+
+   Explored in `mockups/void-fused.html` (`.glass1` / `.glass2`, the aurora "room"), and
+   set aside when the quiet cell system went flat. This layer brings it back for the
+   launcher only — the launcher is a Chromium webview, where `backdrop-filter` is real;
+   the in-game overlay (Ultralight) stays flat (`design/ultralight-notes.md` §1).
+
+   Everything here is scoped to `.ship[data-material='glass']`. With `flat`, none of it
+   applies and `ship.css` draws the quiet cells exactly as the Figma frames do, so the two
+   can be compared from Settings or the command palette.
+
+   Three things make glass read as glass, and each is here on purpose:
+
+     1. Something behind it. Frosting over #0b0b0c is just grey, so `.ambient` lays a
+        slow, dim light under the whole shell, tinted by the screen that is up.
+     2. An edge that catches light: a 1px top rim brighter than the sides, and a darker
+        lip along the bottom where the pane is "thickest".
+     3. Blur + saturation on what is behind — only on panes that float over content
+        (the play bar, menus, sheets, the palette). The panel itself sits over the soft
+        ambient light, where a blur changes nothing but costs a full-window pass, so it
+        is tinted, not blurred — and is therefore not a backdrop root, which is what lets
+        a menu inside it frost the content beneath it.
+
+   Backdrop-root trap: an element with `backdrop-filter` limits every descendant's
+   backdrop to itself. The play bar's frost is drawn on its `::before`, not on the bar,
+   so the server and version menus that rise out of it can frost the page above.
+   ========================================================================== */
+
+@property --amb-a {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(159, 139, 255, 0.34);
+}
+
+@property --amb-b {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(122, 223, 255, 0.16);
+}
+
+@property --amb-c {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(255, 158, 122, 0.12);
+}
+
+.ship[data-material='glass'] {
+  --glass-panel: rgba(18, 18, 21, 0.62);
+  --glass-thick: rgba(27, 28, 32, 0.56);
+  --glass-thin: rgba(255, 255, 255, 0.035);
+  --glass-thin-hover: rgba(255, 255, 255, 0.06);
+  --glass-fill: rgba(255, 255, 255, 0.05);
+  --glass-fill-hover: rgba(255, 255, 255, 0.09);
+  --glass-edge: rgba(255, 255, 255, 0.085);
+  --glass-edge-strong: rgba(255, 255, 255, 0.14);
+  --glass-rim: rgba(255, 255, 255, 0.11);
+  --glass-under: rgba(0, 0, 0, 0.32);
+  --glass-spec: rgba(255, 255, 255, 0.07);
+  --glass-frost: blur(28px) saturate(180%) brightness(1.04);
+  --glass-frost-thin: blur(18px) saturate(150%);
+  --glass-shadow: 0 28px 64px -16px rgba(0, 0, 0, 0.6), 0 2px 10px rgba(0, 0, 0, 0.28);
+
+  /* The light, per screen. Registered above so a screen change cross-fades the room. */
+  transition:
+    --amb-a 1.2s ease,
+    --amb-b 1.2s ease,
+    --amb-c 1.2s ease;
+}
+
+.ship[data-material='glass'][data-screen='store'] {
+  --amb-a: rgba(255, 158, 122, 0.3);
+  --amb-b: rgba(159, 139, 255, 0.18);
+  --amb-c: rgba(255, 214, 122, 0.12);
+}
+
+.ship[data-material='glass'][data-screen='modpacks'] {
+  --amb-a: rgba(122, 224, 176, 0.3);
+  --amb-b: rgba(122, 223, 255, 0.16);
+  --amb-c: rgba(159, 139, 255, 0.12);
+}
+
+.ship[data-material='glass'][data-screen='servers'] {
+  --amb-a: rgba(122, 223, 255, 0.3);
+  --amb-b: rgba(122, 224, 176, 0.14);
+  --amb-c: rgba(159, 139, 255, 0.14);
+}
+
+.ship[data-material='glass'][data-screen='quests'] {
+  --amb-a: rgba(255, 158, 122, 0.3);
+  --amb-b: rgba(255, 122, 102, 0.14);
+  --amb-c: rgba(159, 139, 255, 0.14);
+}
+
+.ship[data-material='glass'][data-phase='running'] {
+  --amb-a: rgba(61, 214, 140, 0.24);
+}
+
+/* ---------------------------------------------------------------- the light */
+
+.ambient {
+  display: none;
+}
+
+.ship[data-material='glass'] > .ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.ship[data-material='glass'] .ambient > i {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  filter: blur(40px);
+  will-change: transform;
+}
+
+/* Upper left, behind the hero: the main light. */
+.ship[data-material='glass'] .ambient__a {
+  left: -12%;
+  top: -22%;
+  width: 70%;
+  height: 90%;
+  background: radial-gradient(closest-side, var(--amb-a), transparent);
+  animation: ambient-drift-a 46s ease-in-out infinite alternate;
+}
+
+/* Lower right, under the figure and the play bar. */
+.ship[data-material='glass'] .ambient__b {
+  right: -16%;
+  bottom: -30%;
+  width: 72%;
+  height: 92%;
+  background: radial-gradient(closest-side, var(--amb-b), transparent);
+  animation: ambient-drift-b 58s ease-in-out infinite alternate;
+}
+
+/* A warm counter-light, low on the left. */
+.ship[data-material='glass'] .ambient__c {
+  left: 18%;
+  bottom: -40%;
+  width: 46%;
+  height: 70%;
+  background: radial-gradient(closest-side, var(--amb-c), transparent);
+  animation: ambient-drift-c 64s ease-in-out infinite alternate;
+}
+
+@keyframes ambient-drift-a {
+  to {
+    transform: translate(8%, 6%) scale(1.08);
+  }
+}
+
+@keyframes ambient-drift-b {
+  to {
+    transform: translate(-7%, -5%) scale(1.1);
+  }
+}
+
+@keyframes ambient-drift-c {
+  to {
+    transform: translate(12%, -8%) scale(0.92);
+  }
+}
+
+/* The navbar and panel sit over the light. */
+.ship[data-material='glass'] > .navbar {
+  z-index: 30;
+}
+
+.ship[data-material='glass'] > .panel2 {
+  z-index: 1;
+}
+
+/* ------------------------------------------------------------------ the panel */
+
+.ship[data-material='glass'] .panel2 {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 38%),
+    var(--glass-panel);
+  border-color: var(--glass-edge);
+  box-shadow:
+    inset 0 1px 0 var(--glass-rim),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 30px 80px -30px rgba(0, 0, 0, 0.7);
+}
+
+/* ---------------------------------------------------------------- the play bar */
+
+.ship[data-material='glass'] .playbar {
+  isolation: isolate;
+  background: transparent;
+  border-color: var(--glass-edge-strong);
+  box-shadow:
+    inset 0 1px 0 var(--glass-rim),
+    inset 0 -1px 0 var(--glass-under),
+    var(--glass-shadow);
+}
+
+.ship[data-material='glass'] .playbar::before,
+.ship[data-material='glass'] .playbar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.ship[data-material='glass'] .playbar::before {
+  background: var(--glass-thick);
+  -webkit-backdrop-filter: var(--glass-frost);
+  backdrop-filter: var(--glass-frost);
+}
+
+/* The specular sweep across the corner the light comes from. */
+.ship[data-material='glass'] .playbar::after {
+  background: linear-gradient(150deg, var(--glass-spec), transparent 44%);
+}
+
+.ship[data-material='glass'] .pbfield {
+  background: var(--glass-fill);
+}
+
+.ship[data-material='glass'] button.pbfield:hover,
+.ship[data-material='glass'] .pbfield.is-open {
+  background: var(--glass-fill-hover);
+}
+
+.ship[data-material='glass'] .pblaunch.is-working,
+.ship[data-material='glass'] .pbstop {
+  background: var(--glass-fill);
+  border-color: var(--glass-edge-strong);
+}
+
+.ship[data-material='glass'] .pbstop:hover {
+  background: var(--glass-fill-hover);
+}
+
+/* ------------------------------------------------------------------ the navbar */
+
+.ship[data-material='glass'] .navsearch,
+.ship[data-material='glass'] .navpill,
+.ship[data-material='glass'] .navicon {
+  background: var(--glass-thin);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: var(--glass-frost-thin);
+  backdrop-filter: var(--glass-frost-thin);
+}
+
+.ship[data-material='glass'] .navsearch:hover,
+.ship[data-material='glass'] .navpill:hover,
+.ship[data-material='glass'] .navpill.is-open,
+.ship[data-material='glass'] .navicon:hover {
+  background: var(--glass-thin-hover);
+  border-color: var(--glass-edge-strong);
+}
+
+.ship[data-material='glass'] .navpill .initial {
+  box-shadow: 0 0 0 2px #17171a;
+}
+
+/* -------------------------------------------------------------- menus & sheets */
+
+.ship[data-material='glass'] .popmenu,
+.ship[data-material='glass'] .sheet,
+.ship[data-material='glass'] .notes,
+.ship[data-material='glass'] .crashcard,
+.ship[data-material='glass'] .settings,
+.ship[data-material='glass'] .palette-scrim > .v-palette {
+  background:
+    linear-gradient(150deg, var(--glass-spec), transparent 40%),
+    var(--glass-thick);
+  border-color: var(--glass-edge-strong);
+  box-shadow:
+    inset 0 1px 0 var(--glass-rim),
+    inset 0 -1px 0 var(--glass-under),
+    var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-frost);
+  backdrop-filter: var(--glass-frost);
+}
+
+/* Menus carry text over arbitrary content: a little more body than the bar. */
+.ship[data-material='glass'] .popmenu {
+  background:
+    linear-gradient(150deg, var(--glass-spec), transparent 40%),
+    rgba(24, 25, 28, 0.74);
+}
+
+.ship[data-material='glass'] .popmenu__item:hover,
+.ship[data-material='glass'] .popitem:hover:not(:disabled),
+.ship[data-material='glass'] .popitem.is-selected {
+  background: var(--glass-fill-hover);
+}
+
+.ship[data-material='glass'] .popadd__input,
+.ship[data-material='glass'] .ffield,
+.ship[data-material='glass'] .fsearch {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.ship[data-material='glass'] .modalscrim,
+.ship[data-material='glass'] .palette-scrim,
+.ship[data-material='glass'] .settings-scrim {
+  background: rgba(8, 8, 10, 0.42);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+}
+
+/* ------------------------------------------------------- cards inside the panel */
+
+/* The utility the screens use for a card that belongs to the layout. */
+.ship[data-material='glass'] .glass-thin {
+  background: var(--glass-thin);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.ship[data-material='flat'] .glass-thin {
+  background: var(--card);
+  border: 1px solid var(--line-07);
+}
+
+.ship[data-material='glass'] .sitem,
+.ship[data-material='glass'] .modcard {
+  background: var(--glass-thin);
+  border-color: var(--glass-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.ship[data-material='glass'] .sitem:hover,
+.ship[data-material='glass'] .modcard:hover {
+  background: var(--glass-thin-hover);
+  border-color: var(--glass-edge-strong);
+}
+
+.ship[data-material='glass'] .sitem__art {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.ship[data-material='glass'] .segmented {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* The dev banner rides the panel's foot as a small pane. */
+.ship[data-material='glass'] .banner--preview {
+  background: rgba(20, 20, 23, 0.6);
+  border: 1px solid var(--glass-edge);
+  -webkit-backdrop-filter: var(--glass-frost-thin);
+  backdrop-filter: var(--glass-frost-thin);
+}
