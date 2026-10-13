@@ -25,9 +25,13 @@
 // (round 2: a little lighter, so one cloud passing over a view dims it, not flattens it)
 // (the balance step, 2026-10-13: deeper again, 0.62 / 0.52 / 0.45, so the clouds' shadows lie on the middle and far land as
 // clear patches of shade that give a vista its depth; on open ground under one deck the land is about a third darker)
-#define WC_SHADOW_ONE 0.62
-#define WC_SHADOW_TWO 0.52
-#define WC_SHADOW_THREE 0.45
+// (air and tone (D), 2026-10-13: 0.42 / 0.34 / 0.28: a cumulus takes most of the sun, so each cloud's shadow reads on
+// the vistas as a clear patch of shade between sunlit fields, the strongest cue a wide land has for its depth; the
+// sky's fill is untouched, so the patches stay sky-blue and readable, and a clear sky with a few clouds has a few
+// patches, never a veil)
+#define WC_SHADOW_ONE 0.42
+#define WC_SHADOW_TWO 0.34
+#define WC_SHADOW_THREE 0.28
 
 // How much of deck k's (0 low, 1 main, 2 high) cloud stands over camera-relative point q at altitude `mid`, 0..1: 1
 // inside a cloud, easing to a third at an open side of its cell, 0 in a gap.
@@ -47,7 +51,9 @@ float wcShadowCover(vec2 q, int k, float mid, CloudEnv e) {
 	float size = float(s);
 	vec2 local = clamp(q - wcCellCorner(cell, s, e), vec2(0.0), vec2(size));
 	vec4 dist = vec4(local.x, size - local.x, local.y, size - local.y);
-	vec4 f = mix(vec4(0.33), vec4(1.0), smoothstep(vec4(0.0), vec4(WC_SHADOW_SOFT), dist));
+	// (D: the soft edge grows with the ring's cells, a third of a cell at most, so a far cloud's shadow on the far land
+	// is a soft-edged patch like a near one's, not a hard square)
+	vec4 f = mix(vec4(0.33), vec4(1.0), smoothstep(vec4(0.0), vec4(max(WC_SHADOW_SOFT, 0.3 * size)), dist));
 	f = mix(vec4(1.0), f, vec4(ivec4(edges, edges >> 1, edges >> 2, edges >> 3) & 1));
 	return min(min(f.x, f.y), min(f.z, f.w));
 }
@@ -58,7 +64,8 @@ float welkinCloudShadow(vec3 eyePos, CloudEnv e) {
 	return 1.0;
 #else
 	vec3 l = e.sun;
-	float rise = smoothstep(0.08, 0.16, l.y);
+	// (D: from about 3 degrees, was 5: the morning and evening vistas keep their cloud patches, long but soft)
+	float rise = smoothstep(0.05, 0.13, l.y);
 	if (rise <= 0.0) {
 		return 1.0; // the sun too low: no shadows rather than long streaks
 	}

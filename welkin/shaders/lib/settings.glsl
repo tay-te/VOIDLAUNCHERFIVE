@@ -55,6 +55,11 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define HANDHELD_LIGHT
 // Glowing pixels: The bright pixels of torches, lanterns, lava, glowing ores and cave growths glow in their own colour, even in the dark.  [plumbing]
 #define EMISSIVE_BLOCKS
+// ---- Light: air and tone (D)
+// Glow toward the sun: The haze scatters the sun's light forward, so the air toward a low sun glows warm and bright over the far land and along the horizon, and stays plain away from it. A smooth gradient of the air itself, no bloom.  [air]
+#define AIR_MIE 100 // [0 50 75 100 125 150]
+// Aerial perspective: Past the near land, the land's colours lean toward the air's hue with distance and give up a little contrast (more toward a low sun), so hills and woods stand in layers. Not a veil: the land keeps its brightness.  [air]
+#define AERIAL_PERSPECTIVE 50 // [0 25 50 75 100]
 // ---- Sky
 // Pixel sun and moon: Draws the sun and the moon, with all eight moon phases, as crisp pixel art in the sky instead of the vanilla pictures.  [sky]
 #define SKY_PIXEL_SUN

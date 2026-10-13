@@ -53,6 +53,7 @@ void main() {
 #if defined WORLD_OVERWORLD
 #include "/lib/sky/table.glsl"
 #include "/lib/haze/haze.glsl"
+#include "/lib/air.glsl"
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 #include "/lib/haze/haze_debug.glsl"
 #endif
@@ -215,7 +216,11 @@ void main() {
 		// 2. haze behind the mist, the valley mist, haze in front. The split is 0 until M1 exposes the slab's entry
 		// distance (MistRay.enter): then near mist banks stay crisp and far ones are hazed exactly.
 		HzState st = hzState();
-		vec3 air = skyHazeAir(st.kind, normalize(eyePos), normalize(mat3(gbufferModelViewInverse) * sunPosition));
+		vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
+		vec3 air = skyHazeAir(st.kind, normalize(eyePos), sunW);
+		// ---- air and tone (D): the haze's forward scatter toward the sun (lib/air.glsl)
+		vec3 airPlain = air;
+		air = airMie(air, normalize(eyePos), sunW, st.kind);
 		vec3 n = s.sky ? vec3(0.0, 1.0, 0.0) : hzScreenNormal(eyePos);
 		WelkinHaze h;
 		if (cloud) {
@@ -246,6 +251,10 @@ void main() {
 		}
 #endif
 		color.rgb = welkinHazeFront(color.rgb, h);
+		// ---- air and tone (D): the land's aerial perspective (lib/air.glsl)
+		if (!s.sky && !cloud) {
+			color.rgb = airPerspective(color.rgb, h.air, (air - airPlain) * (1.0 - h.back.a), length(eyePos), normalize(eyePos), sunW);
+		}
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 		welkinHazeDebug(st, h, eyePos, s.sky, color.rgb);
 #endif

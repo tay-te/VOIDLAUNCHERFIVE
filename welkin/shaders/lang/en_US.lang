@@ -289,3 +289,13 @@ value.DEBUG_VIEW.18=Ambient occlusion
 value.DEBUG_VIEW.19=Bent normals
 value.DEBUG_VIEW.20=Sky light by direction
 value.DEBUG_VIEW.22=Far land's own shade
+
+# ---- Light: air and tone (D)
+option.AIR_MIE=Glow toward the sun
+option.AIR_MIE.comment=The haze scatters the sun's light forward, so the air toward a low sun glows warm and bright over the far land and along the horizon, and stays plain away from it. A smooth gradient of the air itself, no bloom.
+value.AIR_MIE.0=Off
+suffix.AIR_MIE=%
+option.AERIAL_PERSPECTIVE=Aerial perspective
+option.AERIAL_PERSPECTIVE.comment=Past the near land, the land's colours lean toward the air's hue with distance and give up a little contrast (more toward a low sun), so hills and woods stand in layers. Not a veil: the land keeps its brightness.
+value.AERIAL_PERSPECTIVE.0=Off
+suffix.AERIAL_PERSPECTIVE=%
