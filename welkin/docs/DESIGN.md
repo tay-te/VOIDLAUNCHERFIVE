@@ -298,7 +298,7 @@ total of about 4 to 5 ms; LOW stays cheap (no shadow map, no occlusion, no terra
 | Atmosphere composite | about 0.3 ms |
 | Voxel clouds (M3) | 0.6 ms or less |
 | Far weather composite | about 0.2 ms |
-| Sun shafts (to come, half resolution, gated to a low sun and to light through trees) | 0.3 ms or less while active |
+| Sun shafts (`deferred5` at half resolution, resolved in composite2; gated to a low sun, nothing from about 37 degrees up) | 0.3 ms or less while active |
 | Sky table and final | about 0.2 ms |
 | **Total** | **about 4-5 ms MEDIUM, about 2 ms LOW** |
 
@@ -314,7 +314,15 @@ rest the map's geometry, the far rays, the contact rays and the terrain's lookup
 lighting set together, 2.2-2.6 ms, is about +0.9-1.0 ms over round 3's light, inside the +0.8-1.0 ms the user was given
 and the 2.0-2.6 ms total of TECHNIQUES 2.11. Of the cuts below, the 1536 map saves 0.1-0.15 ms at valley 05:30 (the
 merge's 0.5 was read on a contended GPU) and 8 + 8 taps nothing measurable, so neither was taken; the map's geometry
-(leaves at a low sun) is the cost left, and cut 3 is the one that would move it. The cuts, in this order:
+(leaves at a low sun) is the cost left, and cut 3 is the one that would move it.
+
+**Measured after the C + D merge (2026-10-13, the same machine, no other game running, 8-second means, on/off sweeps
+in the same run; about 0.2 ms either way):** plain 12:00 frame 5.4 ms, shadow chain about 1.3 ms, occlusion about
+0.4 ms, sun shafts about 0.05 ms (gate shut), foliage (canopy and light through leaves) and air (forward scatter,
+aerial perspective) within the noise; valley 05:30 frame 7.6 ms, shadow chain with the shafts about 2.4 ms (the
+shafts about 0.24 of it, inside their line), occlusion about 0.45 ms, foliage about 0.1 ms. Wave 2 adds about 0.05-0.2
+ms at noon and about 0.35-0.4 ms at a low sun, so the whole lighting set is over the +0.8-1.0 ms the user was given at
+a low sun; the shadow chain is still the part over its line. The cuts, in this order:
 1. the map at 1536 on MEDIUM (about 0.5 ms at valley 05:30, nothing at noon);
 2. PCSS at 8 + 8 taps (10 filter taps now);
 3. leaves culled from the shadow pass beyond about 64 blocks;
@@ -1068,3 +1076,30 @@ fair-weather front of 0.52).
   branch's blocks; `tools/wrappers.sh` maps `deferred_shafts` to `deferred5`. `lib/sky/build.glsl`: the dawn colours and
   strength in `skyLandSunColour` and `skyLand`, the night's `nightAmb` and the moon's 0.36 (marked "air and tone (D)").
   The shaft pass needs the shadow map (it returns at once without it). C's foliage edits do not touch these lines.
+
+### The wave 2 merge: workstreams C and D on `welkin` (2026-10-13)
+
+`welkin-foliage` (C, head b0abbb58) merged first (65bfc8bf; C was built on f5d6dc76, so the merged tree is C's own),
+then `welkin-air` (D, head edd7c83b) on top (aeaa335a). Neither adds a pass that moves the layout: C adds none, D's
+shafts run as `deferred5` after the light (`deferred4`), as D built them.
+
+- **Conflicts (D onto C):** only the per-workstream blocks, all kept: `lib/settings.glsl` and `lang/en_US.lang` (C's
+  foliage block, then D's air block), the `sliders` line in `shaders.properties` (one union), and section 7 here (C's
+  subsection, then D's). README, `lib/buffers.glsl`, `shaders.properties`' screens and profiles merged on their own.
+- **Cross-checks:** D's shafts read `shadowtex1` only, so C's leaf mark in `shadowcolor0`'s blue never reaches them;
+  D's composite2 lines do not read `colortex10`, whose blue changed meaning in C; D's dawn and night colours
+  (`lib/sky/build.glsl`) feed C's light through leaves through the sky table's sun colour, as intended.
+- **Checked on the merged state:** every `live.sh` variant compiles, with C's, D's and 15 merge variants added to
+  `live_runs.txt`; load runs in both test worlds log no shader errors. World A, C's foliage bench (single-threaded
+  generation, `CLOUD_SHADOWS=0`): after C's merge every view matches C's own after-shots within a level except grove
+  05:30 (darker floor: C's shots predate its own ce319d19, the leaf mark read only under cover); after D's merge C's
+  figures hold (grove floor p5 16.7-18.8 by day, crown contrasts within 0.1, fleck 6.5) and D's colour moves show (grove
+  05:30 R/B 2.5 to 2.0, nights bluer: plain night R/B 1.15 to 1.06). World B, D's view set (defaults): D's figures hold
+  (village 05:30 R/B 6.65 against D's 6.80, valley night 0.53, plain night 1.06, the far ridges sit on their land) with
+  C's deeper valley shade (valley 05:30 p5 25 to 16) and lit far crowns (steppe crown p90 110 to 142); views under a
+  drifting cloud shadow (plain and village 16:30) differ by the cloud alone.
+- **Grain** (`audit/grain.py`, same-run sweeps, `CLOUD_SHADOWS=0`): the shadows against `SHADOW_REFERENCE` pass in
+  grove 16:30, plain 18:30 and plain 12:00 (term p90 1.13, 1.16, 1.22); the occlusion against `AO_REFERENCE` passes in
+  valley 05:30, valley 12:00 and plain 12:00 (term p90 1.07, 1.05, 1.16: the plain's grass, at the limit before, now
+  passes); the shafts on against off pass in all six views (medians 1.00, p90 at most 1.16).
+- **Cost:** in section 3.5 (measured after the C + D merge). Nothing was cut in the merge.
