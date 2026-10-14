@@ -16,7 +16,8 @@ import net.minecraft.client.Minecraft;
  * Keeps the page's copy of Mettle's state current without paying for it every half second.
  *
  * <p>Mettle's state message is big (about 720 KB with a full binder of ~400 cards) and building it costs tens of ms. So
- * the render thread only reads {@link MettleLink#revision}, a signature of what the message is built from, once a tick;
+ * the render thread only reads {@link MettleLink#signature}, a signature of what the message is built from, once a tick
+ * (with Mettle 0.2.0's own {@link MettleLink#revision} counter for what only Mettle sees, within ten seconds);
  * when it changed, Mettle builds its state tree there (it reads the client's game state), and a worker thread writes
  * the text, compares it with what the page holds (ignoring the chips' ages), collects the icons the page has not seen
  * yet and hands the messages back. The page outlives the screens (one shared view), so what it holds is remembered here
@@ -42,6 +43,11 @@ public final class MettleSync {
 	private static final ConcurrentLinkedQueue<Out> OUT = new ConcurrentLinkedQueue<>();
 	/** The signature of the state last handed to the worker (render thread). */
 	private static long revision = Long.MIN_VALUE;
+	/** The hub-side signature of the state last handed to the worker, and when (render thread). */
+	private static long signature = Long.MIN_VALUE;
+	private static long builtAt;
+	/** Mettle's counter alone (ages moving) rebuilds at most this often. */
+	private static final long AGE_NS = 10_000_000_000L;
 	private static int epoch = Integer.MIN_VALUE;
 	private static volatile boolean busy;
 	/** Worker only: the state the page holds, without ages, and the icons it has. */
@@ -73,16 +79,25 @@ public final class MettleSync {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
+		long sig = MettleLink.signature(mc);
 		long rev = MettleLink.revision(mc);
 		int ep = MettleLink.iconEpoch();
-		if (rev == revision && ep == epoch) {
+		long now = System.nanoTime();
+		// What the state is built from changed (or icons were reloaded): rebuild now. Mettle's own counter also moves
+		// with the ages it shows (four times a second while a chip shows, every second while a card attunes), which the
+		// page does not redraw for: those alone rebuild at most every AGE_NS, never at 4 Hz on the render thread.
+		boolean changed = sig != signature || ep != epoch;
+		boolean aged = rev != revision && now - builtAt >= AGE_NS;
+		if (!changed && !aged) {
 			return;
 		}
 		Object tree = MettleLink.stateTree();
 		if (tree == null) {
 			return;
 		}
+		signature = sig;
 		revision = rev;
+		builtAt = now;
 		epoch = ep;
 		builds++;
 		busy = true;
@@ -138,6 +153,7 @@ public final class MettleSync {
 	/** Forgets what the page holds (tests; a page that lost its state). */
 	public static void reset() {
 		revision = Long.MIN_VALUE;
+		signature = Long.MIN_VALUE;
 		epoch = Integer.MIN_VALUE;
 		WORKER.execute(() -> {
 			pageKey = null;

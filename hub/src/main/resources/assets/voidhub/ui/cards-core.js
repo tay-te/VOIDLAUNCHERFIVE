@@ -178,6 +178,9 @@
     var changed = false;
     for (var k in map) { if (MC.icons[k] && MC.icons[k] !== map[k]) changed = true; MC.icons[k] = map[k]; }
     for (var t in texels || {}) MC.texels[t] = texels[t];
+    // Every new icon's rule is made now, in one go: inserting a rule restyles the whole page, which must not happen in
+    // the middle of a scroll or a hover (a tile showing an icon for the first time cost a ~100 ms paint).
+    for (var n in map) iconClass(n);
     return changed;
   };
   var GLYPHS = ["brutal", "deep", "echo", "ember", "gale", "hex", "hoard", "iron", "keen", "kin", "swift", "tide", "warden", "wild"];

@@ -327,21 +327,13 @@ public final class MettleLink {
 	 * changed; with them the card overlay's sitting, trade, hall and reveal, the feedback chips and moments, the card
 	 * sound option, the carry capacity and the gear the load is weighed from (the menu's stacks). Time enters as
 	 * buckets: a game minute (cards attune by the minute) and, while a trade is open, the second (its countdown).
-	 * Microseconds, render thread; {@code MettleSync} rebuilds the state only when it changes.
+	 * Microseconds, render thread; {@code MettleSync} rebuilds the state when it changes.
 	 */
-	public static long revision(Minecraft mc) {
+	public static long signature(Minecraft mc) {
 		if (!present() || mc.player == null || mc.level == null) {
 			return 0;
 		}
 		lookRevision();
-		if (revVersion != null) {
-			try {
-				return ((Number) revVersion.invoke()).longValue();
-			} catch (Throwable t) {
-				VoidHub.LOGGER.warn("VOID Hub: VOID Mettle's MettleState.revision() failed ({}); reading its inputs instead", t.toString());
-				revVersion = null;
-			}
-		}
 		long time = mc.level.getGameTime();
 		if (revCharacter == null) {
 			return time / 10;  // the inputs could not be read: as before, a rebuild every 10 ticks
@@ -389,6 +381,28 @@ public final class MettleLink {
 			return time / 10;
 		}
 		return h;
+	}
+
+	/**
+	 * Mettle's own change counter ({@code MettleState.revision()}, Mettle 0.2.0, mettle/docs/OVERLAY.md): it goes up
+	 * whenever {@code build}'s output may have changed, including the ages it shows (four times a second while a chip,
+	 * moment or reveal shows, once a second while a card attunes). Long.MIN_VALUE without it (an older Mettle: the
+	 * {@link #signature} alone decides).
+	 */
+	public static long revision(Minecraft mc) {
+		if (!present() || mc.player == null) {
+			return Long.MIN_VALUE;
+		}
+		lookRevision();
+		if (revVersion != null) {
+			try {
+				return ((Number) revVersion.invoke()).longValue();
+			} catch (Throwable t) {
+				VoidHub.LOGGER.warn("VOID Hub: VOID Mettle's MettleState.revision() failed ({}); reading its inputs instead", t.toString());
+				revVersion = null;
+			}
+		}
+		return Long.MIN_VALUE;
 	}
 
 	private static java.lang.reflect.Field sittingField;

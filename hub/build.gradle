@@ -291,7 +291,8 @@ tasks.register('hubFunctional') {
 //   ./gradlew runClient -Pmettle         dev client with Mettle loaded
 //   ./gradlew hubMettle                  in-game test of the Mettle pages (photographs each step)
 // ---------------------------------------------------------------------------------------------
-def mettleJar = file('libs/void-mettle.jar')
+// -PmettleJar=<file> runs with another Mettle jar (a snapshot, so a jar replaced mid-run cannot break a resource reload).
+def mettleJar = file(project.findProperty('mettleJar') ?: 'libs/void-mettle.jar')
 def withMettle = project.hasProperty('mettle') || gradle.startParameter.taskNames.any { it.contains('hubMettle') || it.contains('hubAudit') }
 if (withMettle) {
 	if (!mettleJar.isFile()) {
