@@ -107,6 +107,11 @@ out of the head into a slow third-person orbit and back, restoring the player's 
   badge gets the plain VOID ring marker.
 - `CosmeticsHub` — per-tick queries (`cosmetics_query`, batched, 10 min TTL, no v2 NPC uuids),
   emote housekeeping, the dev hooks.
+- Cost: the twenty-player showcase scene (every player in a full outfit, all within 14 blocks)
+  measures about 0.32 ms a frame for the whole layer at 120 fps (cloth 0.12, cape meshes 0.10,
+  cape draws 0.02, models 0.05, glow 0.02); `Budget.report()` prints the same split. Capes draw
+  from a per-sheet vertex buffer uploaded once a frame; glow is placed from the camera view matrix
+  the game already holds, never a `glGetFloat`.
 - Respects invisibility (nothing drawn), spectators (no layer), sleeping (head items only),
   riding (no trail), the inventory preview (the cape holds its shape), the `cosmetics` mod
   switches, and LOD by distance scaled by `Budget.quality`, which shrinks the bands when the layer

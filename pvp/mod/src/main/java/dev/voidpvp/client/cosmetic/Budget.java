@@ -14,6 +14,8 @@ public final class Budget {
 
     private static long frameNanos;
     private static long clothNanos;
+    private static final long[] SPLIT = new long[6];
+    private static final double[] SPLIT_AVG = new double[6];
     private static double clothAverage;
     private static double averageNanos;
     private static float quality = 1f;
@@ -26,6 +28,11 @@ public final class Budget {
         frameNanos += nanos;
     }
 
+    /** Diagnostic split of the layer: 0 capes, 1 models, 2 glow. */
+    static void split(int which, long nanos) {
+        SPLIT[which] += nanos;
+    }
+
     /** The part of the frame spent stepping cloth (already inside {@link #add}). */
     static void cloth(long nanos) {
         clothNanos += nanos;
@@ -36,6 +43,10 @@ public final class Budget {
         averageNanos = averageNanos * 0.95 + frameNanos * 0.05;
         clothAverage = clothAverage * 0.95 + clothNanos * 0.05;
         clothNanos = 0;
+        for (int i = 0; i < 6; i++) {
+            SPLIT_AVG[i] = SPLIT_AVG[i] * 0.95 + SPLIT[i] * 0.05;
+            SPLIT[i] = 0;
+        }
         if (averageNanos > TARGET_NANOS) {
             quality = Math.max(0.35f, quality - 0.01f);
         } else if (averageNanos < TARGET_NANOS * 0.6) {
@@ -61,8 +72,9 @@ public final class Budget {
         }
         lastReport = now;
         return String.format(java.util.Locale.ROOT,
-                "cosmetics: %.0f us/frame avg (cloth %.0f), quality %.2f, %d trail particles, %d fps",
-                averageMicros(), clothAverage / 1000.0, quality, Trails.live(),
+                "cosmetics: %.0f us/frame avg (capes %.0f: sim %.0f [cloth %.0f], mesh %.0f, draw %.0f; models %.0f, glow %.0f), quality %.2f, %d trail particles, %d fps",
+                averageMicros(), SPLIT_AVG[0] / 1000.0, SPLIT_AVG[3] / 1000.0, clothAverage / 1000.0,
+                SPLIT_AVG[4] / 1000.0, SPLIT_AVG[5] / 1000.0, SPLIT_AVG[1] / 1000.0, SPLIT_AVG[2] / 1000.0, quality, Trails.live(),
                 net.minecraft.client.MinecraftClient.getCurrentFps());
     }
 }

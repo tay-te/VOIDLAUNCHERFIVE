@@ -1,9 +1,8 @@
 package dev.voidpvp.client.cosmetic;
 
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL15;
 
 /**
  * Hangs a {@link Cloth} from a player's shoulders and draws it as a two-sided, one-pixel-thick
@@ -185,72 +184,142 @@ final class CapeRenderer {
         }
     }
 
-    /**
-     * Emits the sheet. {@code outerOnly} draws only the outer face (the emissive pass: nothing on
-     * the lining glows). Current matrix: model pixels.
-     */
-    void draw(Cloth cloth, boolean outerOnly) {
+    // Packed vertex data, 6 ints per vertex (3 floats position, 2 floats uv, 3 normal bytes and a
+    // pad), built once per frame by mesh() and uploaded once by upload(); the albedo, tint and
+    // emissive passes all draw from the same vertex buffer.
+    private int[] outer;
+    private int[] rest;
+
+    /** Builds this frame's mesh from the prepared model-space sheet. */
+    void mesh(Cloth cloth) {
         int w = cloth.cols + 1;
         double half = 0.5;
-        Tessellator t = Tessellator.getInstance();
-        BufferBuilder buf = t.getBuffer();
-        buf.begin(GL11.GL_QUADS, VertexFormats.POSITION_TEXTURE_NORMAL);
+        int quads = cloth.cols * cloth.rows;
+        // Exactly sized and owned by the cloth, so a frame drawing capes of two resolutions
+        // allocates nothing.
+        if (cloth.meshOuter == null) {
+            cloth.meshOuter = new int[quads * 4 * 6];
+            cloth.meshRest = new int[(quads + 2 * cloth.rows + 2 * cloth.cols) * 4 * 6];
+        }
+        outer = cloth.meshOuter;
+        rest = cloth.meshRest;
         double iu = 1.0 / 64.0, iv = 1.0 / 32.0;
-        for (int r = 0; r < cloth.rows; r++) {
+        int o = 0, r = 0;
+        for (int row = 0; row < cloth.rows; row++) {
             for (int c = 0; c < cloth.cols; c++) {
-                int a = r * w + c, b = a + 1, d = a + w, e = d + 1;
+                int a = row * w + c, b = a + 1, d = a + w, e = d + 1;
                 double u0 = 10.0 * c / cloth.cols, u1 = 10.0 * (c + 1) / cloth.cols;
-                double v0 = 16.0 * r / cloth.rows, v1 = 16.0 * (r + 1) / cloth.rows;
+                double v0 = 16.0 * row / cloth.rows, v1 = 16.0 * (row + 1) / cloth.rows;
                 // Outer face: offset along +n, u = 1 + column.
-                vtx(buf, a, half, (1 + u0) * iu, (1 + v0) * iv, 1);
-                vtx(buf, d, half, (1 + u0) * iu, (1 + v1) * iv, 1);
-                vtx(buf, e, half, (1 + u1) * iu, (1 + v1) * iv, 1);
-                vtx(buf, b, half, (1 + u1) * iu, (1 + v0) * iv, 1);
-                if (outerOnly) {
-                    continue;
-                }
+                o = vtx(outer, o, a, half, (1 + u0) * iu, (1 + v0) * iv, 1);
+                o = vtx(outer, o, d, half, (1 + u0) * iu, (1 + v1) * iv, 1);
+                o = vtx(outer, o, e, half, (1 + u1) * iu, (1 + v1) * iv, 1);
+                o = vtx(outer, o, b, half, (1 + u1) * iu, (1 + v0) * iv, 1);
                 // Lining: offset along -n, u = 22 - column, normal reversed.
-                vtx(buf, a, -half, (22 - u0) * iu, (1 + v0) * iv, -1);
-                vtx(buf, b, -half, (22 - u1) * iu, (1 + v0) * iv, -1);
-                vtx(buf, e, -half, (22 - u1) * iu, (1 + v1) * iv, -1);
-                vtx(buf, d, -half, (22 - u0) * iu, (1 + v1) * iv, -1);
+                r = vtx(rest, r, a, -half, (22 - u0) * iu, (1 + v0) * iv, -1);
+                r = vtx(rest, r, b, -half, (22 - u1) * iu, (1 + v0) * iv, -1);
+                r = vtx(rest, r, e, -half, (22 - u1) * iu, (1 + v1) * iv, -1);
+                r = vtx(rest, r, d, -half, (22 - u0) * iu, (1 + v1) * iv, -1);
             }
         }
-        if (!outerOnly) {
-            // Edge strips: left (column 0) and right (last column) sides, then the hem.
-            for (int r = 0; r < cloth.rows; r++) {
-                double v0 = (1 + 16.0 * r / cloth.rows) * iv, v1 = (1 + 16.0 * (r + 1) / cloth.rows) * iv;
-                edge(buf, r * w, (r + 1) * w, half, 0.5 * iu, v0, v1);
-                edge(buf, r * w + cloth.cols, (r + 1) * w + cloth.cols, half, 11.5 * iu, v0, v1);
+        {
+            // Side strips (column 0 and the last column), then the hem and the top.
+            for (int row = 0; row < cloth.rows; row++) {
+                double v0 = (1 + 16.0 * row / cloth.rows) * iv, v1 = (1 + 16.0 * (row + 1) / cloth.rows) * iv;
+                r = strip(rest, r, row * w, (row + 1) * w, half, 0.5 * iu, v0, 0.5 * iu, v1, 1, 0, 0);
+                r = strip(rest, r, row * w + cloth.cols, (row + 1) * w + cloth.cols, half, 11.5 * iu, v0, 11.5 * iu, v1, 1, 0, 0);
             }
             for (int c = 0; c < cloth.cols; c++) {
                 int a = cloth.rows * w + c;
                 double u0 = (11 + 10.0 * c / cloth.cols) * iu, u1 = (11 + 10.0 * (c + 1) / cloth.cols) * iu;
-                hem(buf, a, a + 1, half, u0, u1, 0.5 * iv);
-                hem(buf, c, c + 1, half, (1 + 10.0 * c / cloth.cols) * iu, (1 + 10.0 * (c + 1) / cloth.cols) * iu, 0.5 * iv);
+                r = strip(rest, r, a, a + 1, half, u0, 0.5 * iv, u1, 0.5 * iv, 0, 1, 0);
+                r = strip(rest, r, c, c + 1, half, (1 + 10.0 * c / cloth.cols) * iu, 0.5 * iv,
+                        (1 + 10.0 * (c + 1) / cloth.cols) * iu, 0.5 * iv, 0, -1, 0);
             }
         }
-        t.draw();
     }
 
-    private void vtx(BufferBuilder buf, int i, double off, double u, double v, float sign) {
-        buf.vertex(mx[i] + nx[i] * off, my[i] + ny[i] * off, mz[i] + nz[i] * off)
-                .texture(u, v).normal((float) nx[i] * sign, (float) ny[i] * sign, (float) nz[i] * sign).next();
+    private int vtx(int[] buf, int o, int i, double off, double u, double v, float sign) {
+        buf[o] = Float.floatToRawIntBits((float) (mx[i] + nx[i] * off));
+        buf[o + 1] = Float.floatToRawIntBits((float) (my[i] + ny[i] * off));
+        buf[o + 2] = Float.floatToRawIntBits((float) (mz[i] + nz[i] * off));
+        buf[o + 3] = Float.floatToRawIntBits((float) u);
+        buf[o + 4] = Float.floatToRawIntBits((float) v);
+        buf[o + 5] = normal(nx[i] * sign, ny[i] * sign, nz[i] * sign);
+        return o + 6;
     }
 
-    /** A side strip between particles i and j (one above the other), texel column at u. */
-    private void edge(BufferBuilder buf, int i, int j, double half, double u, double v0, double v1) {
-        // The side of a one-pixel sheet: lit roughly sideways, which is all the eye can tell.
-        buf.vertex(mx[i] + nx[i] * half, my[i] + ny[i] * half, mz[i] + nz[i] * half).texture(u, v0).normal(1, 0, 0).next();
-        buf.vertex(mx[i] - nx[i] * half, my[i] - ny[i] * half, mz[i] - nz[i] * half).texture(u, v0).normal(1, 0, 0).next();
-        buf.vertex(mx[j] - nx[j] * half, my[j] - ny[j] * half, mz[j] - nz[j] * half).texture(u, v1).normal(1, 0, 0).next();
-        buf.vertex(mx[j] + nx[j] * half, my[j] + ny[j] * half, mz[j] + nz[j] * half).texture(u, v1).normal(1, 0, 0).next();
+    /** A strip across the sheet's thickness between particles i and j (an edge or the hem). */
+    private int strip(int[] buf, int o, int i, int j, double half, double ui, double vi, double uj, double vj,
+                      float fx, float fy, float fz) {
+        int n = normal(fx, fy, fz);
+        o = put(buf, o, mx[i] + nx[i] * half, my[i] + ny[i] * half, mz[i] + nz[i] * half, ui, vi, n);
+        o = put(buf, o, mx[i] - nx[i] * half, my[i] - ny[i] * half, mz[i] - nz[i] * half, ui, vi, n);
+        o = put(buf, o, mx[j] - nx[j] * half, my[j] - ny[j] * half, mz[j] - nz[j] * half, uj, vj, n);
+        return put(buf, o, mx[j] + nx[j] * half, my[j] + ny[j] * half, mz[j] + nz[j] * half, uj, vj, n);
     }
 
-    private void hem(BufferBuilder buf, int i, int j, double half, double u0, double u1, double v) {
-        buf.vertex(mx[i] + nx[i] * half, my[i] + ny[i] * half, mz[i] + nz[i] * half).texture(u0, v).normal(0, 1, 0).next();
-        buf.vertex(mx[j] + nx[j] * half, my[j] + ny[j] * half, mz[j] + nz[j] * half).texture(u1, v).normal(0, 1, 0).next();
-        buf.vertex(mx[j] - nx[j] * half, my[j] - ny[j] * half, mz[j] - nz[j] * half).texture(u1, v).normal(0, 1, 0).next();
-        buf.vertex(mx[i] - nx[i] * half, my[i] - ny[i] * half, mz[i] - nz[i] * half).texture(u0, v).normal(0, 1, 0).next();
+    private static int put(int[] buf, int o, double x, double y, double z, double u, double v, int n) {
+        buf[o] = Float.floatToRawIntBits((float) x);
+        buf[o + 1] = Float.floatToRawIntBits((float) y);
+        buf[o + 2] = Float.floatToRawIntBits((float) z);
+        buf[o + 3] = Float.floatToRawIntBits((float) u);
+        buf[o + 4] = Float.floatToRawIntBits((float) v);
+        buf[o + 5] = n;
+        return o + 6;
+    }
+
+    /** Three signed normal bytes and a padding byte, in the buffer's native (little-endian) order. */
+    private static int normal(double x, double y, double z) {
+        int bx = (int) Math.round(x * 127) & 255, by = (int) Math.round(y * 127) & 255, bz = (int) Math.round(z * 127) & 255;
+        return bx | by << 8 | bz << 16;
+    }
+
+    /**
+     * Draws the mesh built by {@link #mesh}: the whole sheet, or with {@code outerOnly} just the
+     * outer face (the emissive pass: nothing on the lining glows). Current matrix: model pixels.
+     */
+    void draw(Cloth cloth, boolean outerOnly) {
+        int verts = (outerOnly ? cloth.meshOuter.length : cloth.meshOuter.length + cloth.meshRest.length) / 6;
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, cloth.vbo);
+        GL11.glVertexPointer(3, GL11.GL_FLOAT, 24, 0L);
+        GL11.glTexCoordPointer(2, GL11.GL_FLOAT, 24, 12L);
+        GL11.glNormalPointer(GL11.GL_BYTE, 24, 20L);
+        GL11.glEnableClientState(GL11.GL_VERTEX_ARRAY);
+        GL11.glEnableClientState(GL11.GL_TEXTURE_COORD_ARRAY);
+        GL11.glEnableClientState(GL11.GL_NORMAL_ARRAY);
+        GL11.glDrawArrays(GL11.GL_QUADS, 0, verts);
+        GL11.glDisableClientState(GL11.GL_VERTEX_ARRAY);
+        GL11.glDisableClientState(GL11.GL_TEXTURE_COORD_ARRAY);
+        GL11.glDisableClientState(GL11.GL_NORMAL_ARRAY);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+    }
+
+    /**
+     * Uploads this frame's mesh into the cloth's own vertex buffer: one stream upload per frame,
+     * then the albedo, tint and emissive passes draw from it. Drawing straight from client memory
+     * (what the tessellator does) made the driver copy and sync on every pass, which measured at
+     * eight times the cost of simulating the cloth.
+     */
+    void upload(Cloth cloth) {
+        int ints = cloth.meshOuter.length + cloth.meshRest.length;
+        if (cloth.vbo < 0) {
+            cloth.vbo = GL15.glGenBuffers();
+            cloth.upload = BufferUtils.createByteBuffer(ints * 4);
+        }
+        java.nio.IntBuffer view = cloth.upload.asIntBuffer();
+        view.put(cloth.meshOuter).put(cloth.meshRest);
+        cloth.upload.position(0).limit(ints * 4);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, cloth.vbo);
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, cloth.upload, GL15.GL_STREAM_DRAW);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+    }
+
+    /** Frees a cloth's vertex buffer. Render thread. */
+    static void release(Cloth cloth) {
+        if (cloth != null && cloth.vbo >= 0) {
+            GL15.glDeleteBuffers(cloth.vbo);
+            cloth.vbo = -1;
+        }
     }
 }

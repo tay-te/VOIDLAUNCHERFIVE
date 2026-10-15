@@ -47,8 +47,8 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
 
     private static final Map<Integer, PlayerFx> FX = new HashMap<Integer, PlayerFx>();
     private static final long EPOCH = System.nanoTime();
-    private static int hiClothCount;
-    private static long hiClothFrame;
+    /** Entity ids of the other players currently holding a high-resolution cape. */
+    private static final java.util.Set<Integer> HI_HOLDERS = new java.util.HashSet<Integer>();
 
     private final PlayerEntityRenderer owner;
     private final CapeRenderer cape = new CapeRenderer();
@@ -132,10 +132,13 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         // culling on one of the pair vanishes depending on which side it is seen from.
         GlStateManager.disableCull();
 
+        long tc = System.nanoTime();
         String capeId = set.get("cape");
         if (capeId != null && !sleeping) {
             drawCape(p, uuid, fx, capeId, set.tint("cape"), td, dt, dist, q, gui, model, time, glowK, light);
         }
+        long tm = System.nanoTime();
+        Budget.split(0, tm - tc);
         String backId = set.get("back");
         if (backId != null && !sleeping) {
             drawModel(fx, SLOT_BACK, backId, set.tint("back"), model.body, null, model, p, time, dt, glowK, light, false);
@@ -152,7 +155,10 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         if (haloId != null) {
             drawModel(fx, SLOT_HALO, haloId, set.tint("halo"), model.head, "halo", model, p, time, dt, glowK, light, helmet(p));
         }
+        long tg = System.nanoTime();
+        Budget.split(1, tg - tm);
         glow.flush();
+        Budget.split(2, System.nanoTime() - tg);
         Gl.lightmap(light);
         GlStateManager.color(1, 1, 1, 1);
 
@@ -228,14 +234,21 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
     public static void sweep() {
         long now = System.nanoTime();
         for (Iterator<PlayerFx> it = FX.values().iterator(); it.hasNext(); ) {
-            if (now - it.next().seenNanos > FORGET_NANOS) {
+            PlayerFx f = it.next();
+            if (now - f.seenNanos > FORGET_NANOS) {
+                CapeRenderer.release(f.cloth);
+                HI_HOLDERS.remove(Integer.valueOf(f.entityId));
                 it.remove();
             }
         }
     }
 
     public static void clear() {
+        for (PlayerFx f : FX.values()) {
+            CapeRenderer.release(f.cloth);
+        }
         FX.clear();
+        HI_HOLDERS.clear();
     }
 
     private static boolean helmet(AbstractClientPlayerEntity p) {
@@ -286,21 +299,27 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         if (tex == null) {
             return;
         }
-        // Resolution, with hysteresis and a cap on how many hi-res capes a frame simulates.
-        long frameId = System.nanoTime() / 4_000_000L;
-        if (frameId != hiClothFrame) {
-            hiClothFrame = frameId;
-            hiClothCount = 0;
-        }
+        // Resolution, with hysteresis: a cape keeps its grid until it is clearly out of range, and
+        // at most two other players hold a high-resolution sheet at once. Switching rebuilds the
+        // cloth, so it must only happen on a real change, never flicker frame to frame.
         boolean self = p == MinecraftClient.getInstance().player;
-        boolean wantHi = self || (fx.clothHi ? dist < NEAR * 1.4 * q : dist < NEAR * q);
-        if (wantHi && !self && hiClothCount >= 2) {
-            wantHi = false;
-        }
-        if (wantHi) {
-            hiClothCount++;
+        boolean wantHi;
+        Integer key = Integer.valueOf(fx.entityId);
+        if (self) {
+            wantHi = true;
+        } else if (fx.clothHi) {
+            wantHi = dist < NEAR * 1.4 * q;
+            if (!wantHi) {
+                HI_HOLDERS.remove(key);
+            }
+        } else {
+            wantHi = dist < NEAR * q && HI_HOLDERS.size() < 2;
+            if (wantHi) {
+                HI_HOLDERS.add(key);
+            }
         }
         if (fx.cloth == null || fx.clothHi != wantHi || !id.equals(fx.clothFor)) {
+            CapeRenderer.release(fx.cloth);
             fx.cloth = CapeRenderer.newCloth(wantHi, style);
             fx.clothHi = wantHi;
             fx.clothFor = id;
@@ -313,6 +332,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         double z = p.prevZ + (p.z - p.prevZ) * td;
         float bodyYaw = p.prevBodyYaw + wrap(p.bodyYaw - p.prevBodyYaw) * td;
         EmotePose.root(uuid, root);
+        long q0 = System.nanoTime();
         cape.frame.set(x, y, z, bodyYaw, root[0], root[1], root[2]);
         part(cape.body, model.body);
         part(cape.rightLeg, model.rightLeg);
@@ -344,7 +364,13 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 }
             }
         }
+        long q1 = System.nanoTime();
         cape.prepare(cloth);
+        cape.mesh(cloth);
+        cape.upload(cloth);
+        long q2 = System.nanoTime();
+        Budget.split(3, q1 - q0);
+        Budget.split(4, q2 - q1);
 
         GlStateManager.pushMatrix();
         GlStateManager.scale(0.0625f, 0.0625f, 0.0625f);
@@ -391,6 +417,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 glow.add(eye[0], eye[1], eye[2], g[3] * Mat4.scaleOf(scratch), (int) g[2], g[4] * glowK);
             }
         }
+        Budget.split(5, System.nanoTime() - q2);
         GlStateManager.popMatrix();
     }
 

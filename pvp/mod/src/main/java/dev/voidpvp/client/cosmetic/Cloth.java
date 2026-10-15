@@ -56,6 +56,11 @@ public final class Cloth {
     private final double[] stiff;
     private final double spacing;
     private boolean placed;
+    /** The renderer's packed mesh for this sheet (see CapeRenderer.mesh); sized once. */
+    int[] meshOuter, meshRest;
+    /** Its vertex buffer and upload staging, or -1 before the first draw. */
+    int vbo = -1;
+    java.nio.ByteBuffer upload;
     /** Time not yet simulated, seconds; and that as a fraction of a step. */
     private double acc;
     private double alpha;
