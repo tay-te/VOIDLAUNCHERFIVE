@@ -1,0 +1,21 @@
+{
+  "$comment": "Test fixture for scripts/seed-catalog.mjs. NOT the real catalog: pvp/schema/cosmetics.json is the single source and is written by the cosmetics workstream. This mirrors the shape it is expected to take (schema document, registry in examples[0]).",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.void.dev/pvp/cosmetics.json",
+  "title": "fixture",
+  "examples": [
+    {
+      "version": 1,
+      "items": [
+        { "id": "void-cape-origin", "kind": "cape", "name": "Origin cape", "rarity": "common", "price_cents": 0, "tintable": false, "preview": "previews/void-cape-origin.png" },
+        { "id": "void-cape-rift", "kind": "cape", "name": "Rift cape", "rarity": "epic", "price_cents": 499, "tintable": true, "preview": { "front": "rift-front.png", "back": "rift-back.png" } },
+        { "id": "void-wings-ash", "kind": "back", "name": "Ash wings", "rarity": "legendary", "price_cents": 799 },
+        { "id": "void-halo-ring", "kind": "halo", "name": "Ring halo", "rarity": "rare", "price_cents": 299, "tintable": true },
+        { "id": "void-badge-founder", "kind": "badge", "name": "Founder's badge", "rarity": "exclusive", "price_cents": 0, "exclusive": true },
+        { "id": "void-trail-spark", "kind": "trail", "name": "Spark trail", "price_cents": 399, "stripe_price_id": "price_123" },
+        { "id": "emote-wave", "kind": "emote", "name": "Wave", "price_cents": 0 },
+        { "id": "emote-gg", "kind": "emote", "name": "GG — 'good game'", "price_cents": 199 }
+      ]
+    }
+  ]
+}
