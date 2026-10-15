@@ -23,7 +23,9 @@ public final class FogMath {
     /** Linear distance fog start. */
     public static float start(int level, float vanillaStart, float vanillaEnd) {
         if (level == VisualConfig.FOG_OFF) {
-            return FAR;
+            // Half of the end, never equal to it: linear fog divides by (end - start), and a
+            // start equal to the end is a division by zero that fogs out the whole world.
+            return FAR * 0.5f;
         }
         if (level == VisualConfig.FOG_REDUCED) {
             return Math.max(vanillaStart, vanillaEnd - REDUCED_BAND);

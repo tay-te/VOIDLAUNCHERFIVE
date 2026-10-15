@@ -2451,7 +2451,7 @@ export interface NametagsSettings {
    */
   show_own?: boolean;
   /**
-   * Whether other players' and mobs' nametags are hidden. Off by default — a name is how you tell a teammate from an enemy — and on for recording and for crowded lobbies.
+   * Whether other players' and named mobs' nametags are hidden. Armour stands are exempt: lobby holograms are stacks of named stands, and they are world text rather than nametags. Off by default — a name is how you tell a teammate from an enemy — and on for recording and for crowded lobbies.
    */
   hide_others?: boolean;
   /**

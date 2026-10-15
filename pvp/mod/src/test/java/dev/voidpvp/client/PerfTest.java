@@ -305,6 +305,8 @@ class PerfTest {
         assertEquals(96f, FogMath.start(VisualConfig.FOG_VANILLA, 96f, 128f));
         assertEquals(112f, FogMath.start(VisualConfig.FOG_REDUCED, 96f, 128f));
         assertTrue(FogMath.start(VisualConfig.FOG_OFF, 96f, 128f) > 10000f);
+        assertTrue(FogMath.end(VisualConfig.FOG_OFF, 128f) > FogMath.start(VisualConfig.FOG_OFF, 96f, 128f),
+                "off must keep end > start: linear fog divides by their difference");
         assertEquals(128f, FogMath.end(VisualConfig.FOG_REDUCED, 128f));
         assertEquals(0.1f, FogMath.density(VisualConfig.FOG_VANILLA, 0.1f));
         assertEquals(0.025f, FogMath.density(VisualConfig.FOG_REDUCED, 0.1f), 1e-7);

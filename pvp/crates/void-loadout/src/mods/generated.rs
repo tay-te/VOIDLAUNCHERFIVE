@@ -2949,8 +2949,10 @@ pub struct NametagsSettings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_own: Option<bool>,
 
-    /// Whether other players' and mobs' nametags are hidden. Off by default — a name is how you
-    /// tell a teammate from an enemy — and on for recording and for crowded lobbies.
+    /// Whether other players' and named mobs' nametags are hidden. Armour stands are exempt:
+    /// lobby holograms are stacks of named stands, and they are world text rather than
+    /// nametags. Off by default — a name is how you tell a teammate from an enemy — and on for
+    /// recording and for crowded lobbies.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hide_others: Option<bool>,
 

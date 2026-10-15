@@ -571,7 +571,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             bridge.emit(VoidBridge.EVENT_SCOREBOARD, board);
         }
         dev.voidpvp.client.visual.VisualHooks.tick(mc);
-        dev.voidpvp.client.bench.PerfBench.tick(mc);
+        dev.voidpvp.client.bench.PerfBench.tick(mc, bridge);
     }
 
     /**

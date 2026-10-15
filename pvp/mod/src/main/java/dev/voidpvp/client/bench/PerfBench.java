@@ -54,8 +54,8 @@ import java.util.concurrent.Future;
  * <h2>The run ({@code fps})</h2>
  * <p>The camera flies a fixed loop through the streets at eye height, at 5 blocks a second with a
  * slow sideways sweep, positioned from wall-clock time inside each phase — so every phase sees the
- * same path segment. Phases alternate <b>boost off / on / off / on</b>, 15 s each after an 8 s
- * warm-up, so thermal or JIT drift cannot favour one side. Off is
+ * same path segment. After a 30 s warm-up, four rounds of two 15 s phases run in ABBA order —
+ * off/on, on/off, off/on, on/off ({@code -Dvoid.bench.rounds}, {@code -Dvoid.bench.seconds}) — so thermal or JIT drift cannot favour one side. Off is
  * {@code PerfConfig.benchForceOff}, which disables culling, the particle limiter and the frame
  * limiter together; vsync is off and the frame cap is the slider's unlimited end throughout.
  * Every frame's duration is recorded; the result is average FPS and 1% low (the FPS of the
@@ -72,7 +72,14 @@ public final class PerfBench {
     private static final boolean ENABLED = !MODE.isEmpty();
     private static final boolean SHOTS = "shots".equals(MODE);
     private static final int PHASE_SECONDS = Integer.getInteger("void.bench.seconds", 15);
-    private static final int WARMUP_SECONDS = 8;
+    /** Off/on pairs measured after the warm-up. */
+    private static final int ROUNDS = Math.max(1, Integer.getInteger("void.bench.rounds", 4));
+    /**
+     * Long, because the first half-minute of a fresh world is not steady state: chunk meshes are
+     * still being built, the JIT is still compiling the render path, and the first measured runs
+     * swung by a factor of two between identical phases before this was raised from 8 s.
+     */
+    private static final int WARMUP_SECONDS = 30;
 
     private static final int GRID = 4;
     private static final int SPACING = 12;
@@ -103,11 +110,14 @@ public final class PerfBench {
         return ENABLED;
     }
 
+    private static dev.voidpvp.client.bridge.VoidBridge bridge;
+
     /** Once a client tick, from {@code VoidClient.tickWave7}. */
-    public static void tick(MinecraftClient mc) {
+    public static void tick(MinecraftClient mc, dev.voidpvp.client.bridge.VoidBridge voidBridge) {
         if (!ENABLED) {
             return;
         }
+        bridge = voidBridge;
         try {
             step(mc);
         } catch (Throwable t) {
@@ -215,7 +225,7 @@ public final class PerfBench {
             if (phase > 0) {
                 finishPhase();
             }
-            if (phase == 4) {
+            if (phase == ROUNDS * 2) {
                 report(mc);
                 state = 99;
                 mc.scheduleStop();
@@ -227,8 +237,15 @@ public final class PerfBench {
 
     private static void beginPhase(MinecraftClient mc, int next, long now) {
         phase = next;
-        // Phases 1 and 3 run with the boost forced off; 0 (warm-up), 2 and 4 with it on.
-        PerfConfig.benchForceOff = next == 1 || next == 3;
+        // ABBA: round r is (off, on) when r is even and (on, off) when it is odd, so a linear
+        // drift across the run lands equally on both sides. Phase 0 (warm-up) runs with it on.
+        if (next == 0) {
+            PerfConfig.benchForceOff = false;
+        } else {
+            int round = (next - 1) / 2;
+            boolean first = (next - 1) % 2 == 0;
+            PerfConfig.benchForceOff = (round % 2 == 0) == first;
+        }
         phaseStart = now;
         lastFrame = 0;
         frameCount = 0;
@@ -239,7 +256,7 @@ public final class PerfBench {
         float[] copy = java.util.Arrays.copyOf(frames, frameCount);
         double[] stats = FrameStats.summarize(copy);
         results.add(new double[] {phase, PerfConfig.benchForceOff ? 0 : 1, stats[0], stats[1], stats[2], frameCount});
-        hiddenCounts.add(OcclusionCuller.get().lastOccludedCount());
+        hiddenCounts.add(PerfConfig.benchForceOff ? 0 : OcclusionCuller.get().lastOccludedCount());
         VoidLog.info(String.format(Locale.ROOT,
                 "bench: phase %d %s — avg %.1f fps, 1%% low %.1f fps, 0.1%% low %.1f fps over %d frames; culler %s",
                 phase, PerfConfig.benchForceOff ? "OFF" : "ON", stats[0], stats[1], stats[2],
@@ -286,6 +303,16 @@ public final class PerfBench {
         o.addProperty("off_low1_fps", round(offLow / Math.max(1, off)));
         o.addProperty("on_avg_fps", round(onAvg / Math.max(1, on)));
         o.addProperty("on_low1_fps", round(onLow / Math.max(1, on)));
+        // Each round's on/off ratio, paired within the round so slow drift cancels.
+        JsonArray ratios = new JsonArray();
+        for (int i = 0; i + 1 < results.size(); i += 2) {
+            double[] a = results.get(i);
+            double[] b = results.get(i + 1);
+            double onFps = a[1] > 0 ? a[2] : b[2];
+            double offFps = a[1] > 0 ? b[2] : a[2];
+            ratios.add(new JsonPrimitive(Math.round(onFps / Math.max(1e-9, offFps) * 1000) / 1000.0));
+        }
+        o.add("round_speedup", ratios);
         String text = o.toString();
         VoidLog.info("bench: RESULT " + text);
         File out = new File(mc.runDirectory, "void-bench.json");
@@ -454,7 +481,23 @@ public final class PerfBench {
     }
 
     private static void mod(String id, boolean on) {
-        LiveState.get().setGameplay(id, on);
+        if (dev.voidpvp.client.state.ModRegistry.isHud(id)) {
+            LiveState.get().setModSetting(id, "on", new JsonPrimitive(on));
+        } else {
+            LiveState.get().setGameplay(id, on);
+        }
+    }
+
+    /**
+     * Hands the page the loadout the tour just changed. A change made from the page is never
+     * echoed back to it (§6.5), and these are made from Java, so without this the HUD would not
+     * learn that the scoreboard was switched on.
+     */
+    private static void pushLoadout() {
+        if (bridge != null) {
+            bridge.emit(dev.voidpvp.client.bridge.VoidBridge.EVENT_LOADOUT,
+                    LiveState.get().loadoutJson());
+        }
     }
 
     private static void set(String id, String key, Object value) {
@@ -545,11 +588,13 @@ public final class PerfBench {
             void setup(MinecraftClient mc) {
                 reset(mc);
                 mod("scoreboard", true);
+                LiveState.get().setHud("scoreboard", "right", -25, 0, null);
             }
         });
         TOUR.add(new Shot("shiny-pots-off", ax, az, 180f, 0f, 30) {
             void setup(MinecraftClient mc) {
                 reset(mc);
+                clearSidebar(mc);
                 potions(mc);
             }
         });
@@ -659,6 +704,7 @@ public final class PerfBench {
         if (shotWait == 0) {
             VoidLog.info("bench: shot " + s.name);
             s.setup(mc);
+            pushLoadout();
         }
         shotWait++;
     }
@@ -695,6 +741,16 @@ public final class PerfBench {
                 for (int i = 0; i < lines.length; i++) {
                     sb.getPlayerScore(lines[i], o).setScore(lines.length - i);
                 }
+            }
+        });
+    }
+
+    private static void clearSidebar(final MinecraftClient mc) {
+        final IntegratedServer server = mc.getServer();
+        server.submit(new Runnable() {
+            @Override
+            public void run() {
+                server.getWorld(0).getScoreboard().setObjectiveSlot(1, null);
             }
         });
     }

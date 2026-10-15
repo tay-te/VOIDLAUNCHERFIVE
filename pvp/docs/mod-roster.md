@@ -53,6 +53,9 @@ of 98" — most of Lunar's 98 are Skyblock, modern-version, or ornamental. It is
 
 ## 2. Where VOID stands: the thirteen, checked against both rosters
 
+> **Historical snapshot (2026-09-08).** The registry is 41 mods as of Wave 7 (§7); this table
+> is the starting point the waves were planned from, kept as written.
+
 Read from `ModRegistry.java` and `schema/mods.json`, not assumed.
 
 | VOID mod | Category / kind | Lunar equivalent | Badlion equivalent | Depth vs theirs |
@@ -186,17 +189,17 @@ client notices these missing. Ordered by how badly they are noticed on 1.8.9:
 6. **Toggle sneak as its own mod** (S)
 7. **Saturation** (S)
 8. **Hit color** (M)
-9. **Block outline** (M)
-10. **Scoreboard customiser** (M)
+9. ~~**Block outline** (M)~~ — Wave 7
+10. ~~**Scoreboard customiser** (M)~~ — Wave 7
 11. **Item counter** (S)
 12. **Server address** (S)
 13. **Memory** (S)
 14. **Stopwatch** (S)
 15. **Direction HUD split out** (S)
-16. **Menu blur finished** (S)
+16. ~~**Menu blur finished** (S)~~ — Wave 7
 17. **Nick hider** (M)
-18. **Shiny pots** (S)
-19. **Clear glass** (M)
+18. ~~**Shiny pots** (S)~~ — Wave 7
+19. ~~**Clear glass** (M)~~ — Wave 7
 20. **Pack display, Clock, Chat customiser, Time changer, Enchant glint, Boss bar, Particles** — the long tail. Ship for completeness, expect no thanks.
 
 Deliberately excluded from the table-stakes list despite appearing on both: **Minimap,
@@ -412,6 +415,40 @@ connection quality · surface the input-latency number we already compute.
 **Wave 5 — long tail, only if the roster count matters commercially.** Chat, tab, boss bar,
 titles, pack display, glint, clear glass, particles, time changer, nick hider, scrollable
 tooltips, inventory lock, kill sounds.
+
+**Wave 7 — the FPS boost and the §3.3 visual table stakes.**
+
+> **Done, 2026-10-15 — twelve mods, registry 41.** The audit finding was that the client had *no*
+> performance features while Lunar's FPS boost is its headline, so this wave opened with three
+> `utility` gameplay mods that ship **on**, all classed `safe` because every switch only removes
+> drawing:
+>
+> · **`culling`** — async occlusion culling for entities *and* block entities (the EntityCulling
+>   approach: a background thread casts voxel rays from the eye to a 3×3 grid on each box face and
+>   writes the answer onto the object; the render pass reads one volatile field). Never culls
+>   within `always_draw_within` (4 blocks), the camera entity or what it rides, beacons; culled
+>   players keep their nametag through walls (vanilla shows it). Plus distance cut-offs for tile
+>   entities, armour stands, item-frame items and sign text (32 blocks by default; text is
+>   illegible past it and was a font draw per line per sign per frame).
+> · **`particles`** — vanilla's 4000 cap as a setting, frustum-culled particle draws, even (not
+>   random) thinning of block-break and explosion bursts. Crit particles are never touched.
+> · **`frame_limiter`** — unfocused, menu and minimised caps on `getMaxFramerate`; the focused
+>   in-world rate is never changed.
+>
+> The benchmark that measures them is `bench/PerfBench` (`./gradlew runBench`, `mod/README.md`).
+> Not attempted, on purpose: a chunk renderer rewrite (§6.2), and batched/baked chest rendering —
+> not straightforward on 1.8.9 without owning the tile-entity renderer, so chests are culled
+> rather than made cheaper.
+>
+> The visual row: **block outline**, **shiny pots**, **clear glass**, **nametags**,
+> **scoreboard**, **GUI scale**, **fog** (`grey`, as #7 said), **menu blur** (§3.3 #5 finished —
+> `BlurBackdrop` in a forced mode under *vanilla* screens; VOID's own chrome stays unblurred) and
+> **time & weather**. The scoreboard is the first vanilla element the HUD editor owns (§3.1 #7,
+> #16): Java reads the sidebar onto a new `scoreboard` bridge channel and suppresses vanilla's
+> draw, and the page draws it as a chip, so placement, scale and the chrome block come free.
+> Two judgement calls worth knowing: 1.8.9 *already* glints potions whose effect list resolves,
+> so `shiny_pots` is "every potion, stronger, optionally tinted" rather than "add a glint"; and
+> `nametags.hide_others` exempts armour stands, because lobby holograms are world text.
 
 **Never:** §6.
 
