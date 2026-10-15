@@ -1,0 +1,515 @@
+/* ==========================================================================
+   Cartridge HUD widgets — Figma section B, frames B10-B13 (day, night, nether, underwater) and
+   B09 (HUD editor). Components: `hud/cart/`; adapters: `hud/*.tsx`. Tokens: cart/tokens.css.
+
+   A module is a 66% near-black backing at radius 9 with a 1px white-7% edge. That backing is
+   what keeps every reading legible over a day sky, the night, a nether ceiling and water —
+   design/ultralight-notes.md §3 solves HUD legibility structurally, and `text-shadow` stays out.
+   A Geist Mono label tab sits top-left; the reading is a big Geist Mono numeral bottom-left with
+   a small grey unit. Category hue only on live values, LEDs and meters.
+
+   ULTRALIGHT: flex + absolute only, solid fills, box-shadow insets for edges and lips. No
+   `transform: scale()` on text (§10/§10a) — a keycap travels by `translateY`. Motion is stepped
+   (`steps(n)`) and only on a release or a fading mark; nothing animates per frame.
+   ========================================================================== */
+
+/* -- the shared chrome block, mapped onto the module ------------------------------------- */
+/* `hud/chrome.ts` puts `hud-chrome--*` on the slot box. Under v1 those painted a ground *around*
+   a chip that already had one; a Cartridge module carries its own backing, so the slot box goes
+   bare and the three settings step the module itself:
+     background  none → the design's 66% backing · subtle → 78% · solid → the opaque panel
+     border      a brighter 1px edge
+     padding     the module's inset (and the keycap gap), tight / normal / roomy            */
+.cart .hud-chrome[class] {
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+}
+.cart .hud-chrome--pad-tight {
+  --ch-px: 6px;
+  --ch-py: 4px;
+  --ch-gap: 4px;
+}
+.cart .hud-chrome--pad-normal {
+  --ch-px: 8px;
+  --ch-py: 6px;
+  --ch-gap: 6px;
+}
+.cart .hud-chrome--pad-roomy {
+  --ch-px: 12px;
+  --ch-py: 9px;
+  --ch-gap: 8px;
+}
+
+/* -- module ---------------------------------------------------------------------------- */
+.cart .ch-mod {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  min-height: 56px;
+  padding: var(--ch-py, 6px) var(--ch-px, 8px);
+  background: var(--c-hud);
+  border-radius: var(--c-r-hud);
+  box-shadow: inset 0 0 0 1px var(--c-edge-hud);
+  color: var(--c-ink);
+  white-space: nowrap;
+  vertical-align: top;
+}
+.cart .hud-chrome--bg-subtle .ch-mod {
+  background: var(--c-hud-strong);
+}
+.cart .hud-chrome--bg-solid .ch-mod {
+  background: var(--c-panel);
+}
+.cart .hud-chrome--border .ch-mod {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+/* The tab row: label left, an aside / LED / window meter right. */
+.cart .ch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 11px;
+  flex: none;
+}
+.cart .ch-head + * {
+  margin-top: 7px;
+}
+/* No tab (`show_label` off): the module is just its reading. */
+.cart .ch-mod--headless {
+  min-height: 0;
+}
+.cart .ch-head__r {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cart .ch-tab {
+  font: 600 9px/11px var(--c-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-ink-hud-2);
+  white-space: nowrap;
+}
+.cart .ch-tab--live {
+  color: var(--c-ink);
+}
+
+/* The reading row. Baseline-aligned, so a unit sits on the numeral's line and a meter (which has
+   no text, so its bottom edge is its baseline) stands on it too. */
+.cart .ch-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.cart .ch-num {
+  font: 600 22px/26px var(--c-mono);
+  letter-spacing: -0.03em;
+  color: var(--c-ink);
+  white-space: nowrap;
+}
+.cart .ch-num--md {
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.01em;
+}
+.cart .ch-num--sub {
+  font-size: 14px;
+  line-height: 18px;
+  letter-spacing: 0;
+  color: var(--c-ink-hud-2);
+}
+.cart .ch-num--pvp {
+  color: var(--c-hue-pvp);
+}
+.cart .ch-unit,
+.cart .ch-aside {
+  font: 600 10px/14px var(--c-mono);
+  color: var(--c-ink-hud-2);
+  white-space: nowrap;
+}
+/* A unit belongs to its figure: 3px, not the row's 8. */
+.cart .ch-row > .ch-unit,
+.cart .ch-figure > .ch-unit {
+  margin-left: -5px;
+}
+.cart .ch-aside--warn,
+.cart .ch-mod .ch-warn {
+  color: var(--c-warn);
+}
+.cart .ch-figure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* -- stepped meter over the game --------------------------------------------------------- */
+.cart .ch-seg > i {
+  background: var(--c-seg-off-hud);
+}
+.cart .ch-seg > i.on {
+  background: var(--c-ink);
+}
+.cart .ch-mod__meter {
+  margin-top: 6px;
+}
+.cart .ch-window {
+  align-self: center;
+}
+
+/* -- LED ------------------------------------------------------------------------------ */
+.cart .ch-led {
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.cart .ch-led--ok {
+  background: var(--c-hue-utility);
+}
+.cart .ch-led--warn {
+  background: var(--c-warn);
+}
+.cart .ch-led--bad {
+  background: var(--c-bad);
+}
+.cart .ch-led--hue {
+  background: var(--c-hue-hud);
+}
+
+/* -- per-widget sizes (the frame's, so a figure gaining a digit does not move its module) --- */
+.cart .ch-fps {
+  min-width: 96px;
+}
+.cart .ch-cps {
+  min-width: 128px;
+}
+.cart .ch-cps__meter {
+  margin-left: auto;
+}
+.cart .ch-ping {
+  min-width: 84px;
+}
+.cart .ch-reach,
+.cart .ch-dir,
+.cart .ch-speed,
+.cart .ch-mem,
+.cart .ch-sat,
+.cart .ch-timer,
+.cart .ch-items,
+.cart .ch-pots,
+.cart .ch-server {
+  min-width: 84px;
+}
+.cart .ch-combo {
+  min-width: 168px;
+  min-height: 58px;
+}
+.cart .ch-items__icon {
+  align-self: center;
+}
+
+/* The ping preview's three-band strip. */
+.cart .ch-band {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  vertical-align: top;
+}
+
+/* Ping spike: a short warn bar that fades out in four steps — no timer, and keyed per reading so
+   the next spike replays it. The preview holds it. */
+.cart .ch-spike {
+  width: 3px;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--c-warn);
+  align-self: center;
+  flex: none;
+  animation: ch-spike 1600ms steps(4, end) forwards;
+}
+.cart .ch-spike--held {
+  animation: none;
+}
+@keyframes ch-spike {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* -- coordinates ------------------------------------------------------------------------- */
+.cart .ch-coords__axes {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.cart .ch-coords__axes--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.cart .ch-axis {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.cart .ch-coords__axes--stacked .ch-axis {
+  justify-content: space-between;
+  gap: 14px;
+}
+.cart .ch-axis__k {
+  font: 600 9px/11px var(--c-mono);
+  letter-spacing: 0.1em;
+  color: var(--c-ink-hud-2);
+}
+
+/* -- empty bed (a sprite the sheet does not have) ------------------------------------------ */
+.cart .ch-bed {
+  display: block;
+  flex: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* -- armour --------------------------------------------------------------------------- */
+.cart .ch-armor--v {
+  width: 196px;
+}
+.cart .ch-armor__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cart .ch-armor__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+}
+.cart .ch-armor__icon {
+  flex: none;
+}
+.cart .ch-armor__n {
+  margin-left: auto;
+  min-width: 30px;
+  text-align: right;
+  font: 600 12px/14px var(--c-mono);
+  color: var(--c-ink);
+}
+.cart .ch-armor__label {
+  font: 500 12px/14px var(--c-sans);
+  color: var(--c-ink-hud-2);
+}
+/* Side by side: one narrow cell per piece — sprite, figure, a compressed meter. */
+.cart .ch-armor--h .ch-armor__rows {
+  flex-direction: row;
+  gap: 8px;
+}
+.cart .ch-armor--h .ch-armor__row {
+  flex-direction: column;
+  justify-content: flex-start;
+  height: auto;
+  gap: 4px;
+  min-width: 31px;
+}
+.cart .ch-armor--h .ch-armor__n {
+  margin-left: 0;
+  min-width: 0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 12px;
+}
+.cart .ch-armor--h .ch-armor__label {
+  font-size: 11px;
+}
+
+/* -- potion effects ---------------------------------------------------------------------- */
+.cart .ch-fx {
+  width: 220px;
+}
+.cart .ch-fx__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cart .ch-fx__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+}
+.cart .ch-fx__row--bare {
+  height: 28px;
+}
+/* The blink's dim beat (odd seconds inside `blink_below_s`). */
+.cart .ch-fx__row--dim {
+  opacity: 0.6;
+}
+.cart .ch-fx__icon {
+  flex: none;
+}
+.cart .ch-fx__icon.ch-bed {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cart .ch-fx__swatch {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.cart .ch-fx__body {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cart .ch-fx__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cart .ch-fx__name {
+  font: 500 12px/14px var(--c-sans);
+  color: var(--c-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.cart .ch-fx__time {
+  font: 600 12px/14px var(--c-mono);
+  color: var(--c-ink);
+  flex: none;
+}
+
+/* -- keystrokes ------------------------------------------------------------------------ */
+/* Straight on the game: every cap is its own backing. The chrome block's ground, when chosen,
+   goes behind the whole pad. */
+.cart .ch-keys {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--ch-gap, 6px);
+  vertical-align: top;
+  border-radius: 13px;
+}
+.cart .hud-chrome--bg-subtle .ch-keys {
+  background: var(--c-hud);
+  padding: var(--ch-gap, 6px);
+}
+.cart .hud-chrome--bg-solid .ch-keys {
+  background: var(--c-panel);
+  padding: var(--ch-gap, 6px);
+}
+.cart .hud-chrome--border .ch-keys {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  padding: var(--ch-gap, 6px);
+}
+.cart .ch-keys__row {
+  display: flex;
+  gap: var(--ch-gap, 6px);
+}
+.cart .ch-keys__row--w {
+  justify-content: center;
+}
+.cart .ch-key {
+  width: 48px;
+  height: 48px;
+  box-sizing: border-box;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 3px;
+  border-radius: var(--ch-key-r, 9px);
+  background: var(--ch-key-bg, rgba(22, 24, 28, 0.78));
+  color: var(--ch-key-ink, #c4c8cf);
+  box-shadow:
+    inset 0 -3px 0 rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  font: 600 13px/1 var(--c-mono);
+  white-space: nowrap;
+  /* The release, in three steps; the press below is on the frame. */
+  transition:
+    background-color var(--ch-key-fade, 120ms) steps(3, end),
+    color var(--ch-key-fade, 120ms) steps(3, end),
+    transform var(--ch-key-fade, 120ms) steps(2, end);
+}
+.cart .ch-key--wide {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+.cart .ch-key--space {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  height: 22px;
+}
+.cart .ch-key--sneak {
+  height: 22px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+/* Pressed: light fill, dark ink, the lip gone, 2px of travel — translate, never scale (§10). */
+.cart .ch-key--dn {
+  background: var(--ch-key-dn, rgba(236, 238, 241, 0.95));
+  color: var(--ch-key-dn-ink, #0c0d0f);
+  box-shadow: none;
+  padding-bottom: 0;
+  transform: translateY(2px);
+  transition-duration: 0ms;
+}
+.cart .ch-key__sub {
+  font: 500 9px/1 var(--c-mono);
+  opacity: 0.7;
+  margin-top: 3px;
+}
+
+/* -- watermark ------------------------------------------------------------------------- */
+.cart .ch-wm {
+  min-height: 0;
+  flex-direction: row;
+  align-items: center;
+  padding: 8px 10px;
+}
+.cart .ch-wm .wmark__word {
+  font: 600 12px/1 var(--c-mono);
+  letter-spacing: 0.16em;
+  color: var(--c-ink);
+}
+
+/* -- scoreboard: the server's own § colours, on the module backing ------------------------ */
+.cart .hud-board.ch-mod {
+  min-height: 0;
+  justify-content: flex-start;
+  gap: 2px;
+  min-width: 140px;
+  padding: 8px 10px;
+  font: 500 12px/16px var(--c-sans);
+  color: var(--c-ink);
+}
+.cart .hud-board.ch-mod .hud-board__title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.cart .hud-board.ch-mod .hud-board__score {
+  font-family: var(--c-mono);
+  font-weight: 600;
+  color: var(--c-ink-hud-2);
+}

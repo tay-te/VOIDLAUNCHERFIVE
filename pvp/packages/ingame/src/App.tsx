@@ -166,7 +166,7 @@ export function App({ debugFrame, backdrop }: AppProps) {
   const onScreen = phase !== 'shut';
 
   return (
-    <div className={`v-app void-app${debugFrame ? ' void-app--debug' : ''}`}>
+    <div className={`v-app void-app cart${debugFrame ? ' void-app--debug' : ''}`}>
       {debugFrame && backdrop && (
         <div
           className="void-debug-backdrop"

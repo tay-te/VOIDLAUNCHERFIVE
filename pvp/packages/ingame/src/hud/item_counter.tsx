@@ -45,7 +45,8 @@
 
 import { memo } from 'react';
 
-import { ItemCounterChip } from '@/ui';
+import { Sprite, hasSprite } from '@/cart/Sprite';
+import { HudModule } from './cart';
 import { modSettings, useVoidStore, type ItemCounts } from '@/store/store';
 import type { HudWidgetProps } from './widgets';
 
@@ -96,13 +97,39 @@ const SAMPLE_COUNTS: Readonly<Partial<Record<keyof ItemCounts, number>>> = {
 };
 
 /** A stored `track`, as the `counts` key it reads — or null for the held stack. */
+/** The tab per `track` — what the figure is a count of. */
+const TRACK_LABEL: Record<string, string> = {
+  held_stack: 'STACK',
+  held_total: 'HELD',
+  ender_pearl: 'PEARLS',
+  golden_apple: 'GAPPLES',
+  arrow: 'ARROWS',
+  snowball: 'SNOWBALLS',
+  egg: 'EGGS',
+  cobweb: 'COBWEBS',
+  wool: 'WOOL',
+  tnt: 'TNT',
+  fire_charge: 'FIRE',
+  iron_ingot: 'IRON',
+  gold_ingot: 'GOLD',
+  diamond: 'DIAMONDS',
+  emerald: 'EMERALDS',
+};
+
+/** Tracked items the sprite sheet draws. Looked up through `hasSprite`, so a missing cell is no icon. */
+const TRACK_SPRITE: Record<string, string | undefined> = {
+  ender_pearl: 'pearl',
+  golden_apple: 'gapple',
+  wool: 'wool',
+};
+
 function countsKey(track: unknown): Exclude<keyof ItemCounts, 'health_potion' | 'soup'> | null {
   if (typeof track !== 'string' || track === 'held_stack') return null;
   if (track === 'health_potion' || track === 'soup') return null;
   return track as Exclude<keyof ItemCounts, 'health_potion' | 'soup'>;
 }
 
-export const HudItemCounter = memo(function HudItemCounter({ variant, sample }: HudWidgetProps) {
+export const HudItemCounter = memo(function HudItemCounter({ sample }: HudWidgetProps) {
   const key = useVoidStore((s) => countsKey(modSettings(s.loadout, 'item_counter').track));
   // One subscription, and a primitive: the held stack, or the one key of `counts` being tracked,
   // so a pickup of something else does not re-render this chip.
@@ -122,12 +149,15 @@ export const HudItemCounter = memo(function HudItemCounter({ variant, sample }: 
   if (count === null) return null;
   // No `color`: the registry gives this mod `show_label`, `low_threshold` and the shared chrome
   // block. The chip accepts one, and `lowThreshold` would outrank it anyway.
+  const low = lowThreshold > 0 && count <= lowThreshold;
+  const sprite = key === null ? null : TRACK_SPRITE[key];
+  // The tab names what is counted, so the figure needs no `x` in front of it to say "quantity".
   return (
-    <ItemCounterChip
-      variant={variant}
-      count={count}
-      showLabel={showLabel}
-      lowThreshold={lowThreshold}
-    />
+    <HudModule label={showLabel ? TRACK_LABEL[key ?? 'held_stack'] : undefined} className="ch-items">
+      <div className="ch-row">
+        {sprite && hasSprite(sprite) ? <Sprite name={sprite} size={24} className="ch-items__icon" /> : null}
+        <span className={low ? 'ch-num ch-warn' : 'ch-num'}>{count}</span>
+      </div>
+    </HudModule>
   );
 });

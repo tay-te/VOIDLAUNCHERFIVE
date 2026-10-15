@@ -18,7 +18,7 @@ import {
   type GlobalsView,
 } from '@/store/store';
 import { App } from '@/App';
-import { IMPORT_ERRORS, nextLoadoutName } from '@/menu/LoadoutsScreen';
+import { IMPORT_ERRORS, nextLoadoutName } from '@/cart/LoadoutsTab';
 import { keybindOverview } from '@/menu/keybind-overview';
 import type { FakeVoid, Loadout } from '@/bridge/protocol';
 
@@ -56,22 +56,26 @@ const library = () => useVoidStore.getState().library;
 const toLoadouts = () => set(() => useVoidStore.getState().setRoute({ name: 'loadouts' }));
 
 describe('the Loadouts screen manages the library', () => {
-  it('is one click from the islands: the strip has a Loadouts pill naming the active loadout', () => {
+  it('is tab 2 of the menu, and the status strip names the active loadout', () => {
     const { container } = render(<App />);
-    const pill = container.querySelector('.isl-pill--loadout') as HTMLElement;
-    expect(pill.textContent).toContain('Loadouts');
-    expect(pill.textContent).toContain(useVoidStore.getState().loadout!.name);
-    fireEvent.click(pill);
+    expect(container.querySelector('.c-strip__count')?.textContent).toContain(useVoidStore.getState().loadout!.name);
+    fireEvent.click(screen.getByRole('button', { name: /Loadouts/ }));
     expect(useVoidStore.getState().route.name).toBe('loadouts');
-    // Escape is "up one level", and the level above the Loadouts screen is the islands.
+    // Escape is "up one level", and the level above tabs 2–5 is the Mods tab.
     expect(keepsEscape()).toBe(true);
+    // …and the 2 key gets there too.
+    set(() => useVoidStore.getState().setRoute({ name: 'mods' }));
+    set(() => {
+      fireEvent.keyDown(window, { key: '2' });
+    });
+    expect(useVoidStore.getState().route.name).toBe('loadouts');
   });
 
   it('New loadout appends a card at the defaults and opens its name for editing', () => {
     toLoadouts();
     const { container } = render(<App />);
     const before = library().length;
-    fireEvent.click(screen.getByRole('button', { name: /New loadout/ }));
+    fireEvent.click(screen.getAllByRole('button', { name: /New loadout/ })[0]!);
     expect(library()).toHaveLength(before + 1);
     expect(library()[before]!.name).toBe('New loadout');
     const field = screen.getByLabelText('Loadout name') as HTMLInputElement;
@@ -79,7 +83,7 @@ describe('the Loadouts screen manages the library', () => {
     fireEvent.keyDown(field, { key: 'Enter' });
     expect(library()[before]!.name).toBe('Bridge practice');
     expect(fake().getLoadouts()[before]!.name).toBe('Bridge practice');
-    expect(container.querySelectorAll('.v-loadoutcard')).toHaveLength(before + 1);
+    expect(container.querySelectorAll('.c-lcart')).toHaveLength(before + 1);
   });
 
   it('names new loadouts New loadout, New loadout 2, …', () => {
@@ -92,24 +96,37 @@ describe('the Loadouts screen manages the library', () => {
     toLoadouts();
     const { container } = render(<App />);
     const count = library().length;
-    const first = library()[0]!;
-    const card = () => container.querySelectorAll('.v-loadoutcard')[0] as HTMLElement;
-
-    fireEvent.click(card().querySelector('.loadout-actions button:nth-child(2)')!);
+    const first = useVoidStore.getState().loadout!;
+    // The rack's actions act on the focused cartridge — the one in use until another is clicked.
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate' }));
     expect(library()).toHaveLength(count + 1);
     expect(library()[count]!.name).toBe(`${first.name} copy`);
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Copy code' })[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy code' }));
     expect(fake().getClipboard()).toMatch(/^VOID1\./);
     expect(useVoidStore.getState().toasts.at(-1)?.title).toBe('Share code copied');
 
-    const del = () => card().querySelector('.loadout-actions button:nth-child(4)') as HTMLButtonElement;
+    // Focus the copy, then delete it in two presses.
+    const copy = library()[count]!;
+    fireEvent.mouseDown(container.querySelector(`[data-loadout-id="${copy.id}"]`)!);
+    const del = () => screen.getByRole('button', { name: /^Delete\??$/ }) as HTMLButtonElement;
     fireEvent.click(del());
     expect(del().textContent).toBe('Delete?');
     expect(library()).toHaveLength(count + 1);
     fireEvent.click(del());
     expect(library()).toHaveLength(count);
-    expect(library().some((l) => l.id === first.id)).toBe(false);
+    expect(library().some((l) => l.id === copy.id)).toBe(false);
+  });
+
+  it('never deletes the last loadout, and Insert switches to a focused one', () => {
+    toLoadouts();
+    const { container } = render(<App />);
+    const others = library().filter((l) => l.id !== useVoidStore.getState().loadout!.id);
+    expect(others.length).toBeGreaterThan(0);
+    fireEvent.mouseDown(container.querySelector(`[data-loadout-id="${others[0]!.id}"]`)!);
+    fireEvent.click(screen.getByRole('button', { name: /Insert/ }));
+    expect(useVoidStore.getState().loadout!.id).toBe(others[0]!.id);
+    expect(container.querySelector('.c-lcart.is-active')?.getAttribute('data-loadout-id')).toBe(others[0]!.id);
   });
 
   it('imports a pasted code under a fresh id, and says why a bad one is refused', () => {
@@ -173,12 +190,12 @@ describe('quick pins live on the loadout', () => {
   it('the mod page pins and unpins, and the quick panel shows the loadout’s own pins', () => {
     set(() => useVoidStore.getState().openMod('ping'));
     const { container, unmount } = render(<App />);
-    const pin = screen.getByRole('button', { name: /Pin to quick panel|Unpin from quick panel/ });
+    const pin = screen.getByRole('button', { name: /^(Pin|Unpin)/ });
     // The factory eight are full, so a ninth cannot be pinned until one is removed.
     expect((pin as HTMLButtonElement).disabled).toBe(true);
     set(() => useVoidStore.getState().toggleQuickPin('zoom'));
     expect(quickPins(useVoidStore.getState().loadout)).not.toContain('zoom');
-    fireEvent.click(screen.getByRole('button', { name: 'Pin to quick panel' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Pin/ }));
     const pins = quickPins(useVoidStore.getState().loadout);
     expect(pins.at(-1)).toBe('ping');
     expect(fake().getLoadout().quick).toEqual([...pins]);
@@ -189,7 +206,7 @@ describe('quick pins live on the loadout', () => {
       useVoidStore.getState().setContext('match');
     });
     render(<App />);
-    const names = [...document.querySelectorAll('.isl-pin__name')].map((n) => n.textContent);
+    const names = [...document.querySelectorAll('.c-pin__name')].map((n) => n.textContent);
     expect(names).toHaveLength(pins.length);
     expect(names.at(-1)).toBe('Ping display');
     expect(container).toBeTruthy();
@@ -215,13 +232,23 @@ describe('the keybind overview', () => {
     expect(rows.find((r) => r.id === 'zoom.key')).toBeTruthy();
   });
 
-  it('is drawn on the Settings page with the clash count, and the cycle key can be rebound or switched off', () => {
-    set(() => useVoidStore.getState().setRoute({ name: 'settings' }));
+  it('is drawn on the Keybinds tab with the conflict count, and the cycle key can be rebound or switched off', () => {
+    set(() => useVoidStore.getState().setRoute({ name: 'keybinds' }));
     const { container } = render(<App />);
-    expect(container.querySelector('.oset__binds .oset__cap')?.textContent).toMatch(/bound|clash/);
-    expect(container.querySelectorAll('.oset__bind').length).toBeGreaterThan(2);
-    fireEvent.click(screen.getByRole('button', { name: 'Off' }));
+    expect(container.querySelector('.c-kconf')?.textContent).toMatch(/Conflicts\d+/);
+    expect(container.querySelectorAll('.c-kbind').length).toBeGreaterThan(2);
+    expect(container.querySelector('[data-key="RSHIFT"]')?.classList.contains('is-void')).toBe(true);
+    fireEvent.click(container.querySelector('[data-key="L"]')!);
+    expect(container.querySelector('.c-kdetail')?.textContent).toContain('Cycle loadouts');
+    fireEvent.click(screen.getByRole('button', { name: 'Unbind' }));
     expect(useVoidStore.getState().globals.cycleLoadoutKey).toBe('NONE');
-    expect(container.querySelector('#nothing')).toBeNull();
+  });
+
+  it('counts a VOID key on a vanilla default as a conflict', () => {
+    set(() => useVoidStore.getState().setSetting('zoom', 'key', 'Q'));
+    set(() => useVoidStore.getState().setRoute({ name: 'keybinds' }));
+    const { container } = render(<App />);
+    expect(container.querySelector('[data-key="Q"]')?.classList.contains('is-conflict')).toBe(true);
+    expect(Number(container.querySelector('.c-kconf__n')?.textContent)).toBeGreaterThan(0);
   });
 });

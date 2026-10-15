@@ -62,12 +62,14 @@ body {
    `289:1611` / `289:3024` / `289:2445` — so a screenshot can be laid over the Figma
    export 1:1. Not `--frame-w` / `--frame-h`: those are the *launcher* shell's
    1300 x 820, and the in-game menu is full-bleed at whatever the framebuffer is. */
+/* Cartridge: the harness is the window, like the game's view — the menu zooms to it
+   (cart/scale.ts), so a 1920 × 1080 window lays over the B frames 1:1. */
 .void-app--debug {
-  width: 1600px;
-  height: 980px;
-  margin: 0 auto;
-  border-radius: var(--radius-window);
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
   background: var(--bg-base);
+  overflow: hidden;
 }
 
 .void-debug-backdrop {

@@ -42,7 +42,7 @@
 
 import { memo, useEffect, useReducer } from 'react';
 
-import { ComboChip } from '@/ui';
+import { HudModule, Meter, WindowMeter } from './cart';
 import { modSettings, useVoidStore } from '@/store/store';
 import type { HudWidgetProps } from './widgets';
 
@@ -107,7 +107,7 @@ function fadeStep(remaining: number): number {
   return Math.ceil(remaining * FADE_STEPS);
 }
 
-export const HudCombo = memo(function HudCombo({ variant, sample, className }: HudWidgetProps) {
+export const HudCombo = memo(function HudCombo({ sample, className }: HudWidgetProps) {
   const liveCombo = useVoidStore((s) => s.combo);
   const comboAt = useVoidStore((s) => s.comboAt);
   // Selected as primitives, like `HudCps`: `modSettings` builds a fresh object every call and
@@ -160,13 +160,27 @@ export const HudCombo = memo(function HudCombo({ variant, sample, className }: H
   const remaining = combo > 0 ? remainingFraction(age, resetMs) : 0;
   // Zero or lapsed: the chip is not drawn at all. Behaviour, not a setting — combo.json.
   if (remaining <= 0) return null;
+  // Cartridge (Figma B10, centre): the count big in the PvP hue over an 8-step meter of the
+  // chain, and the window as four steps in the tab row — four because this widget repaints at
+  // exactly four band edges (`FADE_STEPS`), so the meter is never drawn finer than it updates.
   return (
-    <ComboChip
-      variant={variant}
-      className={className}
-      combo={combo}
-      showLabel={showLabel}
-      remaining={remaining}
-    />
+    <HudModule
+      label={showLabel ? 'COMBO' : undefined}
+      head={<WindowMeter remaining={remaining} color="var(--c-hue-pvp)" />}
+      className={className ? `ch-combo ${className}` : 'ch-combo'}
+    >
+      <div className="ch-row">
+        <span className="ch-num ch-num--pvp">{combo}</span>
+        <Meter
+          n={8}
+          on={Math.min(combo, 8)}
+          w={5}
+          h={8}
+          gap={2}
+          color="var(--c-hue-pvp)"
+          className="ch-combo__meter"
+        />
+      </div>
+    </HudModule>
   );
 });

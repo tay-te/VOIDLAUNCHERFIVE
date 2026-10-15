@@ -39,7 +39,7 @@
 
 import { memo } from 'react';
 
-import { ServerAddressChip } from '@/ui';
+import { HudModule } from './cart';
 import { modSettings, useVoidStore } from '@/store/store';
 import { shortHost } from './format';
 import type { HudWidgetProps } from './widgets';
@@ -67,7 +67,6 @@ const SAMPLE_HOST = 'mc.hypixel.net';
 type AddressStyle = 'short' | 'full';
 
 export const HudServerAddress = memo(function HudServerAddress({
-  variant,
   sample,
 }: HudWidgetProps) {
   // Two primitive selectors rather than one on `s.server`: the object is replaced whole by
@@ -89,5 +88,11 @@ export const HudServerAddress = memo(function HudServerAddress({
   if (host === '') return null;
   // No `color`: the registry gives this mod `style` and the shared chrome block, and nothing
   // else. The chip accepts one; passing an invented value would be ink no player can choose.
-  return <ServerAddressChip variant={variant} host={style === 'full' ? host : shortHost(host)} />;
+  return (
+    <HudModule label="SERVER" className="ch-server">
+      <div className="ch-row">
+        <span className="ch-num ch-num--md">{style === 'full' ? host : shortHost(host)}</span>
+      </div>
+    </HudModule>
+  );
 });

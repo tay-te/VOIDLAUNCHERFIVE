@@ -17,7 +17,8 @@
 
 import { memo } from 'react';
 
-import { MemoryChip, type MemoryStyle } from '@/ui';
+import { type MemoryStyle } from '@/ui';
+import { HudModule, Meter, litFor } from './cart';
 import { modSettings, useVoidStore } from '@/store/store';
 import type { HudWidgetProps } from './widgets';
 
@@ -53,7 +54,7 @@ function asMemoryStyle(value: unknown): MemoryStyle {
   return value === 'used' || value === 'percent' ? value : 'used_of_max';
 }
 
-export const HudMemory = memo(function HudMemory({ variant, sample }: HudWidgetProps) {
+export const HudMemory = memo(function HudMemory({ sample }: HudWidgetProps) {
   // The object, not two selectors: `applyTick` patches `memory` only when a field actually
   // moved, so this reference is stable across every tick that carried no heap reading — which,
   // given how hard the field is rate-limited, is most of them.
@@ -66,14 +67,22 @@ export const HudMemory = memo(function HudMemory({ variant, sample }: HudWidgetP
   // the mod page, where an empty box is the §15 failure. Live always wins.
   const heap = live ?? (sample ? SAMPLE_MEMORY : null);
   if (heap === null) return null;
+  const fraction = heap.maxMb > 0 ? Math.min(1, Math.max(0, heap.usedMb / heap.maxMb)) : 0;
+  const figure = style === 'percent' ? Math.round(fraction * 100) : Math.round(heap.usedMb);
+  // The ceiling is a second figure, not a unit, so `used_of_max` keeps `/ 4096` beside the unit.
+  const tail =
+    style === 'percent'
+      ? '%'
+      : `${style === 'used_of_max' ? `/ ${Math.round(heap.maxMb)} ` : ''}MB`;
   return (
-    <MemoryChip
-      variant={variant}
-      usedMb={heap.usedMb}
-      maxMb={heap.maxMb}
-      style={style}
-      showBar={showBar}
-      showLabel={showLabel}
-    />
+    <HudModule label={showLabel ? 'MEMORY' : undefined} className="ch-mem">
+      <div className="ch-row">
+        <span className="ch-num">{figure}</span>
+        <span className="ch-unit">{tail}</span>
+      </div>
+      {showBar ? (
+        <Meter n={10} on={litFor(fraction, 10)} w={9} h={4} gap={2} className="ch-mod__meter" />
+      ) : null}
+    </HudModule>
   );
 });

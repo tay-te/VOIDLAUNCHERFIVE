@@ -68,7 +68,8 @@
 
 import { memo, useEffect, useReducer, useSyncExternalStore } from 'react';
 
-import { StopwatchChip, type StopwatchFormat } from '@/ui';
+import { formatElapsed, type StopwatchFormat } from '@/ui';
+import { HudLed, HudModule } from './cart';
 import { getVoid } from '@/bridge/connect';
 import { modSettings, useVoidStore } from '@/store/store';
 import type { HudWidgetProps } from './widgets';
@@ -340,7 +341,6 @@ function asStopwatchFormat(value: unknown): StopwatchFormat {
  * calls the quiet one of the two.
  */
 export const HudStopwatch = memo(function HudStopwatch({
-  variant,
   sample,
   className,
 }: HudWidgetProps) {
@@ -407,14 +407,21 @@ export const HudStopwatch = memo(function HudStopwatch({
     return () => window.clearTimeout(timer);
   }, [sample, menuOpen, showMillis, state.startedAt, state.baseMs]);
 
+  const running = sample ? true : state.startedAt !== null;
   return (
-    <StopwatchChip
-      variant={variant}
-      className={className}
-      elapsedMs={sample ? SAMPLE_ELAPSED_MS : elapsedOf(state, Date.now())}
-      running={sample ? true : state.startedAt !== null}
-      showMillis={showMillis}
-      format={format}
-    />
+    // Running and stopped are told apart by the LED — mint while the clock moves, unlit while it
+    // holds — so the digits never change colour for a state that is not about them. Static: no
+    // blink, no pulse (the engine drops most of that, and a state must survive a screenshot).
+    <HudModule
+      label="TIMER"
+      head={<HudLed tone={running ? 'ok' : 'off'} />}
+      className={className ? `ch-timer ${className}` : 'ch-timer'}
+    >
+      <div className="ch-row">
+        <span className="ch-num">
+          {formatElapsed(sample ? SAMPLE_ELAPSED_MS : elapsedOf(state, Date.now()), format, showMillis)}
+        </span>
+      </div>
+    </HudModule>
   );
 });

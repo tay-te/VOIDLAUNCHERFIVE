@@ -1,0 +1,348 @@
+/* ==========================================================================
+   Cartridge — the in-game design system (Figma 3c0Wgc4ZKFSpm98fWJoARS, page 559:25183
+   "★ v2 · Launch refresh", section B 623:20, tokens frame 593:2).
+
+   Every mod is a collectible cartridge on a category shelf: tactile keycaps with a 2px lip,
+   LEDs, stepped pixel meters, stepped motion. Flat — no gradients, glass or blur in chrome —
+   and every surface rounded. Category hues appear only on live values, LEDs and meters.
+
+   SCOPE. Everything here hangs off `.cart`, which only the in-game bundle's root carries, so
+   the launcher (which shares @void/ui) never sees a value from this file. Nothing in
+   packages/ui is redefined.
+
+   ULTRALIGHT (design/ultralight-notes.md, rendering-invariants.md):
+     · flex + absolute only (no grid), solid fills, box-shadow insets for the lip and edges;
+     · no `transform: scale()` on anything with text (§10/§10a) — size changes use `zoom`;
+     · whole-pixel type at 1×; the menu is laid out at the 1920 × 1080 design size and the
+       whole layer is `zoom`ed by `--cu` (see cart/scale.ts), which is a layout scale, so text
+       is laid out at its final size and stays sharp;
+     · motion is stepped (`steps(n)`) on opacity / translate only — cheaper than eased motion
+       in this engine and it reads like a sprite rather than a web page.
+   ========================================================================== */
+
+.cart {
+  /* ---- fills: state is a fill step + lip ---------------------------------------------- */
+  --c-base: #0c0d0f;
+  --c-panel: #131518;
+  --c-cart: #191c20;
+  --c-hover: #20242a; /* +1 */
+  --c-press: #272c33; /* +2 */
+  --c-bed: #0d0f12; /* art bed, search well */
+  --c-bed-edge: #15181c; /* the bed's 2px inner frame */
+  --c-key: #262a31; /* keycap, switch track */
+  --c-key-hi: #30353d; /* keycap / switch hover */
+  --c-lip: #0b0c0e; /* keycap lip */
+  --c-led-off: #2c3138;
+  --c-seg-off: #262a31; /* an unlit meter segment on a surface */
+  --c-seg-off-hud: rgba(255, 255, 255, 0.1); /* …and over the game */
+  --c-hud: rgba(12, 13, 15, 0.66); /* HUD module backing */
+  --c-hud-strong: rgba(12, 13, 15, 0.78);
+
+  /* ---- edges ---------------------------------------------------------------------------- */
+  --c-edge: rgba(255, 255, 255, 0.06);
+  --c-edge-soft: rgba(255, 255, 255, 0.045);
+  --c-edge-hi: rgba(255, 255, 255, 0.09);
+  --c-edge-hud: rgba(255, 255, 255, 0.07);
+  --c-rule: rgba(255, 255, 255, 0.06);
+  --c-rule-strong: rgba(255, 255, 255, 0.08);
+
+  /* ---- ink ------------------------------------------------------------------------------ */
+  --c-ink: #eceef1;
+  --c-ink-2: #9ba0a8;
+  --c-ink-3: #6b7079;
+  --c-ink-4: #565b63;
+  --c-ink-5: #3c4148;
+  --c-ink-hud-2: #8a8f98; /* secondary ink over the game */
+  --c-on-light: #0c0d0f; /* ink on a light (selected) fill */
+  --c-light: #eceef1; /* the selected / primary fill */
+  --c-light-lip: #9ba0a8;
+  --c-warn: #e8b86a;
+  --c-warn-bg: #1e1b15;
+  --c-warn-edge: rgba(232, 184, 106, 0.3);
+  --c-bad: #ff6b5e;
+
+  /* ---- category hues: LEDs, meters and live values only --------------------------------- */
+  --c-hue-hud: #9f8bff;
+  --c-hue-pvp: #ff9e7a;
+  --c-hue-visual: #7adfff;
+  --c-hue-utility: #7ae0b0;
+  --c-hue: var(--c-ink); /* set per element by a category class */
+
+  /* ---- type ------------------------------------------------------------------------------ */
+  /* Geist + Geist Mono (OFL). In game the native font loader serves the static TTFs by family
+     name (mod/native/src/font_loader.cpp); in the browser harness fonts-dev.css supplies the
+     woff2. Outfit stays as the fallback so a missing face degrades to the old voice, not to
+     Inter. */
+  --c-sans: 'Geist', 'Outfit', system-ui, sans-serif;
+  --c-mono: 'Geist Mono', 'Geist', 'Outfit', monospace;
+
+  /* ---- radii: squarer, still rounded ---------------------------------------------------- */
+  --c-r-panel: 24px;
+  --c-r-island: 16px;
+  --c-r-cart: 16px;
+  --c-r-bed: 10px; /* bed · control */
+  --c-r-hud: 9px; /* HUD module */
+  --c-r-switch: 7px;
+  --c-r-key: 6px; /* keycap */
+  --c-r-seg: 2px; /* LED · segment */
+
+  /* ---- elevation (box-shadow only; Ultralight renders it, and it is the whole bevel) ---- */
+  --c-shadow-panel: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 20px 56px rgba(0, 0, 0, 0.5);
+  --c-shadow-island: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --c-lip-key: inset 0 -2px 0 var(--c-lip), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --c-lip-light: inset 0 -2px 0 var(--c-light-lip);
+
+  /* ---- motion ---------------------------------------------------------------------------- */
+  --c-t-hover: 100ms; /* steps(2) */
+  --c-t-press: 60ms;
+  --c-t-release: 120ms;
+  --c-t-open: 160ms;
+  --c-t-bench: 180ms;
+  --c-t-switch: 120ms; /* steps(3) */
+  --c-t-toast: 200ms;
+}
+
+/* Category hue classes: one place maps a category to its hue, everything else reads --c-hue. */
+.cart .c-cat-hud,
+.cart.c-cat-hud {
+  --c-hue: var(--c-hue-hud);
+}
+.cart .c-cat-pvp,
+.cart.c-cat-pvp {
+  --c-hue: var(--c-hue-pvp);
+}
+.cart .c-cat-visual,
+.cart.c-cat-visual {
+  --c-hue: var(--c-hue-visual);
+}
+.cart .c-cat-utility,
+.cart.c-cat-utility {
+  --c-hue: var(--c-hue-utility);
+}
+
+/* ==========================================================================
+   Primitives shared by the menu and the HUD
+   ========================================================================== */
+
+/* -- type ------------------------------------------------------------------------------- */
+.cart .c-mono {
+  font: 500 10.5px/1 var(--c-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-ink-3);
+  white-space: nowrap;
+}
+.cart .c-h1 {
+  font: 600 22px/1.1 var(--c-sans);
+  color: var(--c-ink);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.cart .c-title {
+  font: 600 19px/1.2 var(--c-sans);
+  color: var(--c-ink);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.cart .c-label {
+  font: 500 13px/1.3 var(--c-sans);
+  color: var(--c-ink);
+  white-space: nowrap;
+}
+.cart .c-num {
+  font: 600 12px/1 var(--c-mono);
+  color: var(--c-ink);
+  white-space: nowrap;
+}
+
+/* -- keycap: Mono 600 + 2px lip ------------------------------------------------------------ */
+.cart .c-kc {
+  font: 600 10.5px/1 var(--c-mono);
+  color: #c4c8cf;
+  height: 22px;
+  min-width: 22px;
+  padding: 0 6px 2px;
+  border-radius: var(--c-r-key);
+  background: var(--c-key);
+  box-shadow: var(--c-lip-key);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex: none;
+  box-sizing: border-box;
+}
+.cart .c-kc--lt {
+  background: var(--c-light);
+  color: var(--c-on-light);
+  box-shadow: var(--c-lip-light);
+}
+/* Pressed: the lip is gone and the cap travels 1px (translate is safe; scale is not, §10). */
+.cart .c-kc--dn {
+  background: var(--c-light);
+  color: var(--c-on-light);
+  box-shadow: none;
+  padding-bottom: 0;
+  transform: translateY(1px);
+}
+.cart .c-kc--listen {
+  background: var(--c-hover);
+  color: var(--c-ink);
+  box-shadow: inset 0 0 0 1.5px var(--c-ink);
+}
+.cart .c-kc--warn {
+  background: var(--c-warn-bg);
+  color: var(--c-warn);
+  box-shadow: inset 0 0 0 1px rgba(232, 184, 106, 0.4);
+}
+.cart .c-kc--lg {
+  height: 34px;
+  min-width: 34px;
+  font-size: 14px;
+  border-radius: 8px;
+}
+
+/* -- LED -------------------------------------------------------------------------------- */
+.cart .c-led {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--c-r-seg);
+  background: var(--c-led-off);
+  flex: none;
+  display: inline-block;
+}
+.cart .c-led--on {
+  background: var(--c-hue);
+}
+
+/* -- stepped meter ---------------------------------------------------------------------- */
+.cart .c-seg {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.cart .c-seg > i {
+  display: block;
+  flex: none;
+  border-radius: var(--c-r-seg);
+  background: var(--c-seg-off);
+}
+.cart .c-seg > i.on {
+  background: var(--c-seg-on, var(--c-ink));
+}
+
+/* -- slide switch: knob jumps in three pixel steps, LED follows on the last ------------- */
+.cart .c-sw {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  border-radius: var(--c-r-switch);
+  background: var(--c-key);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  flex: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: inline-block;
+}
+.cart .c-sw > b {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 16px;
+  border-radius: 5px;
+  background: var(--c-ink-3);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+  transition: left var(--c-t-switch) steps(3, end);
+}
+.cart .c-sw:hover {
+  background: var(--c-key-hi);
+}
+.cart .c-sw.is-on {
+  background: var(--c-light);
+}
+.cart .c-sw.is-on:hover {
+  background: #ffffff;
+}
+.cart .c-sw.is-on > b {
+  left: 21px;
+  background: var(--c-on-light);
+  box-shadow: none;
+}
+.cart .c-sw:disabled,
+.cart .c-sw.is-dis {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* -- buttons ---------------------------------------------------------------------------- */
+.cart .c-btn {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: var(--c-r-bed);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: 500 13px/1 var(--c-sans);
+  white-space: nowrap;
+  border: 0;
+  margin: 0;
+  cursor: pointer;
+  background: transparent;
+  color: var(--c-ink-2);
+  box-sizing: border-box;
+  flex: none;
+}
+.cart .c-btn--p {
+  background: var(--c-light);
+  color: var(--c-on-light);
+  box-shadow: var(--c-lip-light);
+}
+.cart .c-btn--p:hover {
+  background: #ffffff;
+}
+.cart .c-btn--s {
+  background: #22262c;
+  color: var(--c-ink);
+  box-shadow: inset 0 -2px 0 var(--c-lip);
+}
+.cart .c-btn--s:hover {
+  background: var(--c-press);
+}
+.cart .c-btn--g {
+  color: var(--c-ink-2);
+  box-shadow: inset 0 0 0 1px var(--c-edge-hi);
+}
+.cart .c-btn--g:hover {
+  color: var(--c-ink);
+  background: var(--c-cart);
+}
+.cart .c-btn--warn {
+  color: var(--c-warn);
+  box-shadow: inset 0 0 0 1px var(--c-warn-edge);
+}
+.cart .c-btn--sm {
+  height: 32px;
+  padding: 0 10px;
+}
+/* Press: lip collapses, 1px travel — never scale (rendering-invariants §10). */
+.cart .c-btn--p:active,
+.cart .c-btn--s:active {
+  box-shadow: none;
+  transform: translateY(1px);
+}
+
+/* -- sprite: one cell of the generated PNG sheet (cart/sprites.css) ---------------------- */
+/* The sheet is drawn at 8× with nearest-neighbour, so the GL driver's LINEAR sampling only
+   ever softens the outer half-pixel of a cell. `image-rendering` makes Chromium (the harness)
+   crisp as well; Ultralight ignores it harmlessly. */
+.cart .c-sprite {
+  display: block;
+  flex: none;
+  background-image: var(--c-sheet);
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}

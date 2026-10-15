@@ -316,8 +316,8 @@ describe('the live preview', () => {
       useVoidStore.setState({ armor: [] });
     });
     const { container } = render(<ModPreview id="armor_status" />);
-    expect(container.querySelector('.v-armorlist')).not.toBeNull();
-    expect(container.querySelectorAll('.v-armorlist__row').length).toBe(5);
+    expect(container.querySelector('.ch-armor')).not.toBeNull();
+    expect(container.querySelectorAll('.ch-armor__row').length).toBe(5);
   });
 
   it('applies scale and opacity around the widget, as the HUD slot does', () => {

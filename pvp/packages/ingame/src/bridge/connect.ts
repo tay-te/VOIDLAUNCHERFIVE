@@ -53,11 +53,12 @@ export function hasTextFocus(): boolean {
  * ```
  * a focused text field   gives up focus            (MenuLayer)
  * the quick palette      closes, menu stays        (QuickPalette)
- * a mod's page           back to the grid          (MenuLayer)
- * the settings page      back to the grid          (MenuLayer)
- * the HUD editor         back to the grid          (MenuLayer)
- * the Loadouts screen    back to the islands       (MenuLayer)
- * the grid               closes the menu           (Java)
+ * a keybind conflict     dismissed, menu stays     (the settings bench)
+ * a mod's settings bench closes, back to shelves   (MenuLayer)
+ * a search / shelf view  back to all shelves       (MenuLayer)
+ * the HUD editor         back to its tab           (MenuLayer)
+ * tabs 2–5               back to the Mods tab      (MenuLayer)
+ * the Mods tab           closes the menu           (Java)
  * ```
  *
  * A keybind capture is not in the table and must not be: `VoidMenuScreen` consumes Escape for the
@@ -72,13 +73,9 @@ export function keepsEscape(): boolean {
   const state = useVoidStore.getState();
   if (state.paletteOpen) return true;
   const route = state.route.name;
-  return (
-    route === 'mod' ||
-    route === 'settings' ||
-    route === 'hud-editor' ||
-    route === 'grid' ||
-    route === 'loadouts'
-  );
+  if (route !== 'mods') return true;
+  // On the Mods tab Escape first clears a search or a single-shelf view, then closes.
+  return state.modSearch !== '' || state.modFilter !== 'all';
 }
 
 export interface ConnectResult {
