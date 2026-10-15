@@ -426,7 +426,8 @@ webkit          = 615.1.18.100.1
 PASSED
 ```
 
-`test/expected/out.png` is what Ultralight actually drew — check it in, look at it. It is a
+The run writes what Ultralight drew to `build/cpu_render.png`; `test/expected/out.png` is the
+checked-in reference, refreshed by copying a render you have looked at over it. It is a
 transparent-background 800×480 view holding a 520×300 card with `border-radius`, a 3-stop
 `linear-gradient`, a `box-shadow`, a 1px border, flexbox rows, a webfont and a completed CSS
 transition. **The fidelity question in §9 is answered: Ultralight 1.4 holds the card design.**
@@ -732,7 +733,7 @@ src/shaders_glsl120.h            Ultralight's fill / fill_path shaders ported to
 java/dev/voidclient/ultralight/  the Java API (see pvp/CONTRACTS.md)
 test/java/…/CpuRenderTest.java   the CPU-renderer smoke test
 test/resources/assets/void/ui/   the page it renders
-test/expected/out.png            what Ultralight actually drew
+test/expected/out.png            the reference render (a test run writes build/cpu_render.png)
 test/projection_probe.cpp        measures ulApplyProjection's flip_y
 test/run-test.sh                 build + run
 ```

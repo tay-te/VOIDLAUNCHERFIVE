@@ -301,7 +301,8 @@ needed:
 ctest --test-dir build --output-on-failure     # macOS/Linux; add -C Release on Windows
 ```
 
-**Success:** `PASSED`, and `test/expected/out.png` is a transparent-background 800 × 480
+**Success:** `PASSED`, and `build/cpu_render.png` (next to the checked-in reference
+`test/expected/out.png`) is a transparent-background 800 × 480
 view holding a card with `border-radius`, a gradient, a `box-shadow`, a webfont and a
 completed CSS transition. Open it and look at it.
 **Failure:** any check failing here means the engine or the classpath filesystem is wrong

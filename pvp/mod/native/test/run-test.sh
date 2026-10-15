@@ -14,7 +14,7 @@ if [[ ! -f "$build/voidultralight.so" && ! -f "$build/voidultralight.dylib" ]]; 
   "$native/scripts/build.sh"
 fi
 
-out="${1:-$native/test/expected/out.png}"
+out="${1:-$build/cpu_render.png}"
 
 exec java \
   -cp "$build/test-classes:$build/java-classes:$build:$native/test/resources" \

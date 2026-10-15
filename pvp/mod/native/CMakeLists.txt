@@ -206,12 +206,23 @@ if(VOIDUL_BUILD_JAVA)
     # The classpath here is the shipping shape on purpose: ${CMAKE_BINARY_DIR} contributes
     # natives/<key>/… exactly as the mod JAR will, so the run also covers files.txt, the temp-dir
     # extraction and System.load() ordering.
+    #
+    # The JVM's path separator is ';' on Windows and ':' elsewhere. A literal ';' would split the
+    # argument as a CMake list, so Windows gets the $<SEMICOLON> generator expression.
+    if(WIN32)
+      set(VOIDUL_CP_SEP "$<SEMICOLON>")
+    else()
+      set(VOIDUL_CP_SEP ":")
+    endif()
+    set(VOIDUL_TEST_CP "${VOIDUL_TEST_CLASSES}${VOIDUL_CP_SEP}${VOIDUL_JAVA_CLASSES}${VOIDUL_CP_SEP}${CMAKE_BINARY_DIR}${VOIDUL_CP_SEP}${CMAKE_CURRENT_SOURCE_DIR}/test/resources")
     enable_testing()
+    # The render goes to the build directory: a test run must not rewrite the committed reference
+    # (test/expected/out.png), which is updated by copying a checked render over it on purpose.
     add_test(NAME cpu_render
       COMMAND ${Java_JAVA_EXECUTABLE}
-              -cp "${VOIDUL_TEST_CLASSES}:${VOIDUL_JAVA_CLASSES}:${CMAKE_BINARY_DIR}:${CMAKE_CURRENT_SOURCE_DIR}/test/resources"
+              -cp "${VOIDUL_TEST_CP}"
               dev.voidclient.ultralight.test.CpuRenderTest
-              "${CMAKE_CURRENT_SOURCE_DIR}/test/expected/out.png")
+              "${CMAKE_BINARY_DIR}/cpu_render.png")
 
     # The CPU fallback. VOID_UI_GPU_FAIL=init is the only forced-failure mode that can run without a
     # display: it fails before a single GL entry point is resolved, so the probe answers "no" rather
@@ -219,7 +230,7 @@ if(VOIDUL_BUILD_JAVA)
     # compile, link, late — need a real GL context and therefore a real game window.
     add_test(NAME accelerated_fallback
       COMMAND ${Java_JAVA_EXECUTABLE}
-              -cp "${VOIDUL_TEST_CLASSES}:${VOIDUL_JAVA_CLASSES}:${CMAKE_BINARY_DIR}:${CMAKE_CURRENT_SOURCE_DIR}/test/resources"
+              -cp "${VOIDUL_TEST_CP}"
               dev.voidclient.ultralight.test.AcceleratedFallbackTest)
     set_tests_properties(accelerated_fallback PROPERTIES ENVIRONMENT "VOID_UI_GPU_FAIL=init")
 
