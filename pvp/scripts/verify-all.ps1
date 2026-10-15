@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   void-pvp — run every local check, in order, with one pass/fail summary.
 
