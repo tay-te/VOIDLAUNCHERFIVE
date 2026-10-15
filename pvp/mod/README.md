@@ -114,6 +114,7 @@ too.
 ./gradlew runBench -x generateLog4jConfig -PvoidBench=ui -PvoidUltralightDir=<natives dir> \
     [-PvoidBenchOnly=hud-day,menu-mods] [-PvoidWidth=2560 -PvoidHeight=1440]
                                                      # in-game UI tour -> run/screenshots/void-ui-*.png
+./gradlew runBench -PvoidBench=shots -PvoidGlDebug   # log every GL error with the Java stack that raised it
 ```
 
 The `ui` tour (HUD by day/night/"nether"/under water, a toast, and the menu screens) steers the

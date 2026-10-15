@@ -112,9 +112,14 @@ final class BlurBackdrop {
             }
             return;
         }
+        // Same discipline as drawBlur: everything below talks to GL directly, so the attribute
+        // stack hands GlStateManager's cache back the state it believes in.
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
-            ensure(fbWidth, fbHeight);
+            // Before ensure(): creating the targets binds framebuffers, and the one to return to
+            // is Minecraft's, not whatever creation left bound.
             int previousFbo = currentFramebuffer();
+            ensure(fbWidth, fbHeight);
 
             // 1. the main framebuffer, as a texture
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, sceneTexture);
@@ -141,6 +146,8 @@ final class BlurBackdrop {
         } catch (RuntimeException e) {
             VoidLog.warn("menu backdrop blur failed, falling back to a flat tint: " + e);
             disabled = true;
+        } finally {
+            GL11.glPopAttrib();
         }
     }
 
@@ -162,8 +169,14 @@ final class BlurBackdrop {
         // ones it gets back.
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         try {
-            ensure(fbWidth, fbHeight);
+            // The framebuffer to return to is read BEFORE ensure(). On the first frame ensure()
+            // creates the blur targets, and creating them used to leave framebuffer 0 bound, so
+            // this read the window's default framebuffer instead of Minecraft's. The rest of that
+            // frame then drew to the wrong target, and glPopAttrib restored Minecraft's
+            // COLOR_ATTACHMENT0 draw buffer onto the default framebuffer: GL_INVALID_OPERATION
+            // ("invalid draw buffer binding"), which vanilla reported as "GL ERROR 1282 @ Post render".
             int previousFbo = currentFramebuffer();
+            ensure(fbWidth, fbHeight);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, sceneTexture);
             GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, fbWidth, fbHeight);
             blitInto(fboA, sceneTexture, 0f, 0f);
@@ -264,6 +277,7 @@ final class BlurBackdrop {
     }
 
     private static int createTexture(int width, int height) {
+        int previous = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
         int id = GL11.glGenTextures();
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, id);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
@@ -272,11 +286,13 @@ final class BlurBackdrop {
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP);
         GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0,
                 GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, previous);
         return id;
     }
 
+    /** Creates an FBO over {@code texture}, leaving whatever framebuffer was bound still bound. */
     private int createFramebuffer(int texture) {
+        int previous = currentFramebuffer();
         int fbo;
         if (coreFbo) {
             fbo = org.lwjgl.opengl.GL30.glGenFramebuffers();
@@ -285,7 +301,7 @@ final class BlurBackdrop {
                     org.lwjgl.opengl.GL30.GL_FRAMEBUFFER,
                     org.lwjgl.opengl.GL30.GL_COLOR_ATTACHMENT0,
                     GL11.GL_TEXTURE_2D, texture, 0);
-            org.lwjgl.opengl.GL30.glBindFramebuffer(org.lwjgl.opengl.GL30.GL_FRAMEBUFFER, 0);
+            org.lwjgl.opengl.GL30.glBindFramebuffer(org.lwjgl.opengl.GL30.GL_FRAMEBUFFER, previous);
         } else {
             fbo = EXTFramebufferObject.glGenFramebuffersEXT();
             EXTFramebufferObject.glBindFramebufferEXT(
@@ -295,7 +311,7 @@ final class BlurBackdrop {
                     EXTFramebufferObject.GL_COLOR_ATTACHMENT0_EXT,
                     GL11.GL_TEXTURE_2D, texture, 0);
             EXTFramebufferObject.glBindFramebufferEXT(
-                    EXTFramebufferObject.GL_FRAMEBUFFER_EXT, 0);
+                    EXTFramebufferObject.GL_FRAMEBUFFER_EXT, previous);
         }
         return fbo;
     }

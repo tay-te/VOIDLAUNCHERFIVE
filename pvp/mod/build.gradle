@@ -288,6 +288,10 @@ loom {
             if (project.hasProperty('voidHeight')) {
                 programArgs '--height', "${project.property('voidHeight')}"
             }
+            // -PvoidGlDebug: log every GL error with the Java stack that raised it (render/GlDebug).
+            if (project.hasProperty('voidGlDebug')) {
+                vmArg '-Dvoid.dev.gldebug=true'
+            }
         }
     }
 }

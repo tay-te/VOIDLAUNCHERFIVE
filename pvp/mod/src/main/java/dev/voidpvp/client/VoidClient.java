@@ -479,6 +479,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (mc == null) {
             return;
         }
+        dev.voidpvp.client.render.GlDebug.install();
         // Bridge calls that need the game thread run here, first thing. This is the fast drain of
         // the two: a closeMenu the page made lands within a frame rather than within a tick, so
         // the menu still shuts on the click that asked for it and not up to 50 ms later. It runs
