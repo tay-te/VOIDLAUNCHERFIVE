@@ -120,6 +120,7 @@ describe('schema examples', () => {
       'getClipboard',
       'importLoadout',
       'openKeybindCapture',
+      'openStore',
       'playEmote',
       'renameLoadout',
       'setClipboard',

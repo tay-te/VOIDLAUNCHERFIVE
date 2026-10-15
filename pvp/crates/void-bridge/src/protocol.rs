@@ -157,6 +157,13 @@ pub enum JavaToRust {
         id: LoadoutId,
     },
 
+    /// *Get in launcher Store* on a locked item in game. The launcher shows and focuses its
+    /// window and opens the Store on that item's sheet; nothing is bought in game.
+    OpenStore {
+        /// The cosmetic item id to show.
+        item: String,
+    },
+
     /// A `t` this build does not know. Kept rather than rejected, per §7.
     ///
     /// Never construct this to *send*: it would serialize as `{"t":"unknown"}`.
@@ -202,6 +209,7 @@ impl JavaToRust {
             JavaToRust::LoadoutSave { .. } => "loadout_save",
             JavaToRust::LoadoutDelete { .. } => "loadout_delete",
             JavaToRust::LoadoutSelect { .. } => "loadout_select",
+            JavaToRust::OpenStore { .. } => "open_store",
             JavaToRust::Unknown => "unknown",
         }
     }
@@ -366,6 +374,11 @@ mod tests {
         let off: JavaToRust =
             serde_json::from_value(json!({"t": "equip", "slot": "halo", "id": null})).unwrap();
         assert_eq!(off, JavaToRust::Equip { slot: Slot::Halo, id: None });
+
+        let store: JavaToRust =
+            serde_json::from_value(json!({"t": "open_store", "item": "void-cape-rift"})).unwrap();
+        assert_eq!(store, JavaToRust::OpenStore { item: "void-cape-rift".into() });
+        assert_eq!(store.tag(), "open_store");
 
         let m = RustToJava::Cosmetics { self_set: Some(EquippedSet::empty("u")), players: vec![] };
         let v = serde_json::to_value(&m).unwrap();

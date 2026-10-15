@@ -27,6 +27,10 @@ impl<R: Runtime> Emitter for AppEmitter<R> {
             tracing::warn!(%event, %e, "could not emit event");
         }
     }
+
+    fn show_window(&self) {
+        crate::window::show(&self.0);
+    }
 }
 
 fn emitter<R: Runtime>(app: &AppHandle<R>) -> Arc<dyn Emitter> {

@@ -1,7 +1,7 @@
 /**
  * The wardrobe's state: what the local player wears, what the account owns, and the emote
  * playing — fed by the `cosmetics` and `emote` channels (bridge.json), written through
- * `equipCosmetic`, `setCosmeticTint`, `setEmoteWheel` and `playEmote`.
+ * `equipCosmetic`, `setCosmeticTint`, `setEmoteWheel`, `playEmote` and `openStore`.
  *
  * Its own small store rather than more fields on the main one: nothing here is read by the HUD,
  * and the HUD's narrow subscriptions stay exactly as they were.
@@ -9,8 +9,8 @@
  * Every call is synchronous and authoritative, like `setModSetting`: the page binds to what Java
  * returned and patches its copy from it. Java never echoes the page's own change back (§6.5).
  *
- * No purchases happen here. A locked item routes to "Get in launcher Store"; the Store is the
- * launcher's, and the page has no network.
+ * No purchases happen here. A locked item routes to "Get in launcher Store": `openStore` asks the
+ * launcher to come forward on that item's Store sheet, and the purchase happens there.
  */
 
 import { create } from 'zustand';
@@ -55,6 +55,8 @@ export interface CosmeticsState {
   tint(slot: CosmeticSlot, hex: string | null): void;
   setWheel(ids: readonly CosmeticId[]): void;
   play(id: CosmeticId): boolean;
+  /** Get in launcher Store. Whether the launcher was told; false with no launcher link. */
+  openStore(id: CosmeticId): boolean;
   setWheelOpen(open: boolean): void;
   /** The `wheel` channel: the emote key held in the world. */
   applyWheel(payload: WheelPayload): void;
@@ -115,6 +117,11 @@ export const useCosmetics = create<CosmeticsState>((set, get) => ({
     const started = b.playEmote(id);
     if (started) set({ playing: id });
     return started;
+  },
+  openStore(id) {
+    const b = bridge();
+    // An older host without the call is a host with no way to the launcher.
+    return b && typeof b.openStore === 'function' ? b.openStore(id) : false;
   },
   setWheelOpen(wheelOpen) {
     set(wheelOpen ? { wheelOpen } : { wheelOpen, wheelSource: 'menu', wheelAim: null, wheelKey: null });

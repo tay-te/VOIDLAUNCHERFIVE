@@ -1502,6 +1502,10 @@ export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
     "id": "bedwars"
   },
   {
+    "t": "open_store",
+    "item": "void-cape-rift"
+  },
+  {
     "t": "library",
     "loadouts": [
       {
@@ -2204,6 +2208,16 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
   },
   {
     "c": "playEmote",
+    "returns": true
+  },
+  {
+    "c": "openStore",
+    "params": [
+      "void-cape-rift"
+    ]
+  },
+  {
+    "c": "openStore",
     "returns": true
   }
 ];

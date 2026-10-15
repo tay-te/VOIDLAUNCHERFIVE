@@ -228,7 +228,7 @@ export type VoidEventEnvelope = {
 /* Calls                                                                      */
 /* -------------------------------------------------------------------------- */
 
-/** The twenty-one methods JS may call on `window.void`. Closed set. */
+/** The twenty-two methods JS may call on `window.void`. Closed set. */
 export const VOID_CALLS = [
   'setGameplay',
   'setHud',
@@ -251,9 +251,10 @@ export const VOID_CALLS = [
   'setCosmeticTint',
   'setEmoteWheel',
   'playEmote',
+  'openStore',
 ] as const;
 
-/** Name of one of the twenty-one calls. */
+/** Name of one of the twenty-two calls. */
 export type VoidCallName = (typeof VOID_CALLS)[number];
 
 /** Value a mod setting may take. Scalars only; no mod has an object- or array-valued setting. */
@@ -316,6 +317,7 @@ export interface VoidCallParamsMap {
   setCosmeticTint: [slot: CosmeticSlot, hex: string | null];
   setEmoteWheel: [ids: CosmeticId[]];
   playEmote: [id: CosmeticId];
+  openStore: [id: CosmeticId];
 }
 
 /** Return value of each call. `openKeybindCapture` resolves this through a Promise. */
@@ -341,6 +343,7 @@ export interface VoidCallReturnsMap {
   setCosmeticTint: string | null;
   setEmoteWheel: CosmeticId[];
   playEmote: boolean;
+  openStore: boolean;
 }
 
 /** One JS → Java call envelope. */
@@ -510,6 +513,13 @@ export interface VoidBridge {
    * for an id that is not an owned emote. The `emote` event reports its end, not its start.
    */
   playEmote(id: CosmeticId): boolean;
+
+  /**
+   * *Get in launcher Store* on a locked item: asks the launcher to show its window on that
+   * item's Store sheet. Nothing is bought in game. Returns whether the launcher was told;
+   * false when there is no launcher link, and the page then says where to go instead.
+   */
+  openStore(id: CosmeticId): boolean;
 
   /**
    * Whether the page wants to keep the next Escape for itself, rather than let it close
@@ -802,6 +812,11 @@ export function installVoidShim(options: InstallVoidShimOptions = {}): VoidBridg
     playEmote(id) {
       // Nothing played if nobody answered, so the honest fallback is false, as for switchLoadout.
       return call('playEmote', [id]) ?? false;
+    },
+
+    openStore(id) {
+      // No answer means no launcher was reached, so the page must not claim it opened.
+      return call('openStore', [id]) ?? false;
     },
 
     openKeybindCapture(modId) {

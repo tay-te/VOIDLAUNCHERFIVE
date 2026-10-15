@@ -92,9 +92,17 @@ describe('the wardrobe', () => {
     expect(priceLabel(locked)).toMatch(/^\$\d+\.\d\d$/);
     expect(container.textContent).not.toMatch(/\bVC\b/);
     const before = useCosmetics.getState().self!.cape;
+    const open = vi.spyOn(getVoid(), 'openStore');
     fireEvent.click(card.querySelector('.c-cos__hit')!);
+    expect(open).toHaveBeenCalledWith(locked.id);
     expect(useCosmetics.getState().self!.cape).toBe(before);
-    expect(useVoidStore.getState().toasts.at(-1)?.detail).toContain('launcher');
+    expect(useVoidStore.getState().toasts.at(-1)?.detail).toContain('Opened in the VOID launcher');
+
+    // No launcher link: nothing claims it opened; the notice says where to go.
+    open.mockReturnValue(false);
+    fireEvent.click(card.querySelector('.c-cos__hit')!);
+    expect(useVoidStore.getState().toasts.at(-1)?.detail).toContain('Get it in the VOID launcher');
+    open.mockRestore();
   });
 
   it('tints a tintable item and clears it', () => {

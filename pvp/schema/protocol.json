@@ -19,7 +19,7 @@
 
     "java_to_rust": {
       "title": "Java to Rust",
-      "description": "The thirteen messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
+      "description": "The fourteen messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
       "oneOf": [
         { "description": "Handshake sent immediately on connect.", "$ref": "#/definitions/msg_hello" },
         { "description": "Live loadout state delta.", "$ref": "#/definitions/msg_state" },
@@ -33,7 +33,8 @@
         { "description": "The player equipped or took off an item in game.", "$ref": "#/definitions/msg_equip" },
         { "description": "A loadout created, renamed, duplicated, imported or re-pinned in game.", "$ref": "#/definitions/msg_loadout_save" },
         { "description": "A loadout deleted in game.", "$ref": "#/definitions/msg_loadout_delete" },
-        { "description": "A loadout picked from the in-game Loadouts screen.", "$ref": "#/definitions/msg_loadout_select" }
+        { "description": "A loadout picked from the in-game Loadouts screen.", "$ref": "#/definitions/msg_loadout_select" },
+        { "description": "Show the launcher's Store on one item.", "$ref": "#/definitions/msg_open_store" }
       ]
     },
 
@@ -208,6 +209,18 @@
       "properties": {
         "t": { "description": "Message discriminator; always `loadout_select`.", "type": "string", "const": "loadout_select" },
         "id": { "description": "The loadout now active.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id" }
+      }
+    },
+
+    "msg_open_store": {
+      "title": "open_store (Java to Rust)",
+      "description": "The player pressed *Get in launcher Store* on a locked item in game (`window.void.openStore`). Nothing is bought in game: the launcher shows and focuses its window and opens the Store on that item's sheet, where the purchase happens. A launcher that does not know the id opens the Store gallery alone.",
+      "type": "object",
+      "required": ["t", "item"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `open_store`.", "type": "string", "const": "open_store" },
+        "item": { "description": "The item to show.", "$ref": "#/definitions/cosmetic_id" }
       }
     },
 
@@ -518,6 +531,7 @@
     },
     { "t": "loadout_delete", "id": "uhc" },
     { "t": "loadout_select", "id": "bedwars" },
+    { "t": "open_store", "item": "void-cape-rift" },
     {
       "t": "library",
       "loadouts": [

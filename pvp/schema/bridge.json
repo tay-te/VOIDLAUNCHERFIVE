@@ -42,7 +42,7 @@
     },
     "call_name": {
       "title": "Call name",
-      "description": "The twenty-one methods JS may call on `window.void`. Closed set.",
+      "description": "The twenty-two methods JS may call on `window.void`. Closed set.",
       "type": "string",
       "enum": [
         "setGameplay",
@@ -65,7 +65,8 @@
         "equipCosmetic",
         "setCosmeticTint",
         "setEmoteWheel",
-        "playEmote"
+        "playEmote",
+        "openStore"
       ]
     },
     "event": {
@@ -1030,6 +1031,10 @@
         {
           "description": "Play one emote.",
           "$ref": "#/definitions/call_playEmote"
+        },
+        {
+          "description": "Show the launcher's Store on one item.",
+          "$ref": "#/definitions/call_openStore"
         }
       ]
     },
@@ -1119,6 +1124,10 @@
         {
           "description": "Result of playEmote.",
           "$ref": "#/definitions/result_playEmote"
+        },
+        {
+          "description": "Result of openStore.",
+          "$ref": "#/definitions/result_openStore"
         }
       ]
     },
@@ -2876,6 +2885,67 @@
         }
       }
     },
+    "call_openStore": {
+      "title": "openStore call",
+      "description": "`void.openStore(id)`. *Get in launcher Store* on a locked item: Java sends the launcher `open_store` (protocol.json), which shows and focuses the launcher window on that item's Store sheet. Nothing is bought in game and the menu stays open. Returns whether the request reached the launcher; `false` when the launcher link is down (a dev run, or the launcher was closed), and the page then tells the player to open the Store themselves.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `openStore`.",
+          "type": "string",
+          "const": "openStore"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/openStore_params"
+        }
+      }
+    },
+    "openStore_params": {
+      "title": "openStore params",
+      "description": "[id].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The item to show.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+        }
+      ]
+    },
+    "openStore_returns": {
+      "title": "openStore returns",
+      "description": "True when the launcher was told; false when there is no launcher link.",
+      "type": "boolean"
+    },
+    "result_openStore": {
+      "title": "openStore result",
+      "description": "Envelope for an openStore return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `openStore`.",
+          "type": "string",
+          "const": "openStore"
+        },
+        "returns": {
+          "description": "Whether the launcher was told.",
+          "$ref": "#/definitions/openStore_returns"
+        }
+      }
+    },
     "event_wheel": {
       "title": "wheel event",
       "description": "Envelope for the `wheel` event.",
@@ -3609,6 +3679,16 @@
     },
     {
       "c": "playEmote",
+      "returns": true
+    },
+    {
+      "c": "openStore",
+      "params": [
+        "void-cape-rift"
+      ]
+    },
+    {
+      "c": "openStore",
       "returns": true
     }
   ]

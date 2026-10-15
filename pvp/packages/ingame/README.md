@@ -71,8 +71,9 @@ EW-B (588:35340), in Cartridge. The `cosmetics` and `emote` channels feed their 
 `equipCosmetic`, `setCosmeticTint`, `setEmoteWheel` and `playEmote` write through it and bind to
 what Java returned. The doll is pixel sprites (`doll_front` / `doll_back` plus each worn item's
 own sprite where it is worn) — the bridge exposes no GL-rendered preview. Prices are USD from
-`price_cents`; a locked item says "Get in launcher Store" and raises a notice — nothing is bought
-in game. The Emote wheel view edits the wheel (pick a slot, then an emote) and writes the
+`price_cents`; a locked item says "Get in launcher Store", which calls `openStore`: Java sends the
+launcher `open_store` and the launcher comes forward on that item's Store sheet. Nothing is
+bought in game; with no launcher link the call answers false and the notice says where to go. The Emote wheel view edits the wheel (pick a slot, then an emote) and writes the
 `cosmetics` mod's switches; `B` (or "Try it") opens the Crescent wheel over the world from the
 menu: point or press 1–8, click to play.
 
@@ -83,9 +84,7 @@ arrives as `aim`, which picks a card by angle from the crosshair; 1–8 arrive a
 stays put); `release` plays the pick through `playEmote`.
 
 Not drawn:
-* **Outfits** (the frame's "Save look as outfit") — no stored-outfit call exists; not drawn.
-* **Get in launcher Store** — no call asks the launcher to open its Store at an item; the button
-  raises a notice naming the item and its price instead.
+* **Outfits** (the frame's "Save look as outfit") — skipped for launch; no stored-outfit call.
 
 **In a match** (v1 Ship rule 9, unchanged): a hit either way within `COMBAT_WINDOW_MS` of
 pressing Right Shift opens the quick panel only — the loadout's pins as numbered cartridges that

@@ -21,7 +21,7 @@ import { useOnlineStatus, wireOnlineEvents } from './online';
 import { CATALOG, FREE_ITEMS } from '../local/catalog';
 import { countsFor, TOTAL_MODS } from '../local/categories';
 import { useSession, wireSessionEvents } from './session';
-import { useUi } from './ui';
+import { useUi, wireUiEvents } from './ui';
 
 /** Wait until `predicate` holds, or fail the test rather than hang it. */
 async function until(predicate: () => boolean, label: string, ms = 2000): Promise<void> {
@@ -474,6 +474,19 @@ describe('ui store', () => {
     expect(useUi.getState().screen).toBe('home');
     expect(useUi.getState().loadoutMenu).toBe('import');
     expect(useUi.getState().paletteOpen).toBe(false);
+  });
+
+  it('store:open from the game lands on that item’s Store sheet, with nothing over it', async () => {
+    const stop = await wireUiEvents();
+    useUi.getState().go('home');
+    useUi.getState().openSettings();
+    useUi.getState().setFriendsOpen(true);
+    emit('store:open', { item: 'void-cape-rift' });
+    expect(useUi.getState().screen).toBe('store');
+    expect(useUi.getState().storeItem).toBe('void-cape-rift');
+    expect(useUi.getState().settingsOpen).toBe(false);
+    expect(useUi.getState().friendsOpen).toBe(false);
+    stop();
   });
 });
 

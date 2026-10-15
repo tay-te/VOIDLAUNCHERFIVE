@@ -142,6 +142,9 @@ pub async fn pump(server: BridgeServer, store: Store) {
             // online bridge (`void-online`) answers them, and nothing here persists them.
             JavaToRust::CosmeticsQuery { .. } | JavaToRust::Emote { .. } | JavaToRust::Equip { .. } => {}
 
+            // A window request for the launcher UI (the game adapter's forwarder), not state.
+            JavaToRust::OpenStore { .. } => {}
+
             JavaToRust::Unknown => {}
         }
     }

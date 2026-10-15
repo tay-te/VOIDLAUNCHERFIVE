@@ -14,6 +14,7 @@ import { flushSync } from 'react-dom';
 import { create } from 'zustand';
 
 import type { ModId } from '../local/protocol';
+import { listen } from '../local/tauri';
 
 export const SCREENS = ['home', 'store', 'modpacks', 'servers', 'quests'] as const;
 export type Screen = (typeof SCREENS)[number] | 'mods';
@@ -213,3 +214,15 @@ export const useUi = create<UiState>((set, get) => ({
     ),
   closeModSetup: () => withTransition(() => set({ modSetup: null })),
 }));
+
+/**
+ * `store:open` — *Get in launcher Store* pressed on a locked item in game. Rust has already
+ * brought the window back from the tray; this lands on that item's Store sheet, with nothing
+ * over it. An id the catalog does not know opens the gallery alone.
+ */
+export async function wireUiEvents(): Promise<() => void> {
+  return listen('store:open', ({ item }) => {
+    useUi.setState({ settingsOpen: false, paletteOpen: false, modSetup: null });
+    useUi.getState().openStoreItem(item);
+  });
+}

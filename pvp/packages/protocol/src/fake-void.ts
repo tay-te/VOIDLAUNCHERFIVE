@@ -4,7 +4,7 @@
  * There are no devtools in game (§9), so the in-game bundle must also run in a normal
  * browser against a fake bridge. This is that fake: it emits realistic `tick`, `keys`,
  * `server`, `session`, `settings`, `scoreboard`, `loadout`, `cosmetics`, `emote` and `menu`
- * pushes, answers all twenty-one calls with the same clamping and refusals the Java side applies,
+ * pushes, answers all twenty-two calls with the same clamping and refusals the Java side applies,
  * and holds a small loadout library, a set of globals and a cosmetics wardrobe.
  *
  * It is **deterministic**: give it a `seed` and drive it with {@link FakeVoid.advance}
@@ -365,6 +365,11 @@ export interface FakeVoidOptions {
   menuKey?: string;
   /** Where the keyboard listener is attached. Defaults to `globalThis.document`. */
   keyboardTarget?: EventTarget | null;
+  /**
+   * Whether a launcher is on the other end of the mod's socket, which is what `openStore`
+   * answers. Defaults to true; false is a dev run with no launcher.
+   */
+  launcherLinked?: boolean;
 }
 
 /** The fake bridge: a {@link VoidBridge} plus the controls a harness or test needs. */
@@ -1171,6 +1176,11 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       // The start is not pushed for the page's own call — `true` is the notification — but the
       // end will be, from `tickOnce`, exactly as Java's sweep reports it.
       return beginEmote(id);
+    },
+
+    openStore(id) {
+      record({ c: 'openStore', params: [id] });
+      return options.launcherLinked ?? true;
     },
 
     openKeybindCapture(modId) {

@@ -1356,7 +1356,7 @@ export type QuickPins = ModId[];
  */
 export type ProtocolMessage = JavaToRust | RustToJava;
 /**
- * The thirteen messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
+ * The fourteen messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
  */
 export type JavaToRust =
   | HelloJavaToRust
@@ -1371,7 +1371,8 @@ export type JavaToRust =
   | EquipJavaToRust
   | LoadoutSaveJavaToRust
   | LoadoutDeleteJavaToRust
-  | LoadoutSelectJavaToRust;
+  | LoadoutSelectJavaToRust
+  | OpenStoreJavaToRust;
 /**
  * Version of this message set. Bumped on any breaking change. Carried on `hello` and `init` only; both sides compare and refuse to proceed on a mismatch (§7). **2** since `init.loadouts` changed from `loadout_summary` to whole loadouts: a v1 mod would read a v2 `init` without complaint, but a v2 mod against a v1 launcher would receive summaries, materialise every mod at its factory default, and silently apply the wrong loadout on a switch. That is exactly the mixed-halves case `v` exists to refuse.
  */
@@ -1463,7 +1464,8 @@ export type Call =
   | EquipCosmeticCall
   | SetCosmeticTintCall
   | SetEmoteWheelCall
-  | PlayEmoteCall;
+  | PlayEmoteCall
+  | OpenStoreCall;
 /**
  * [id, on].
  *
@@ -1661,6 +1663,13 @@ export type SetEmoteWheelParams = [CosmeticItemId[]];
  */
 export type PlayEmoteParams = [CosmeticItemId];
 /**
+ * [id].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type OpenStoreParams = [CosmeticItemId];
+/**
  * The value one JS to Java call returned, enveloped as {c, returns}. Every call except `openKeybindCapture` returns synchronously, because the bridge is in-process (§6.5).
  */
 export type CallResult =
@@ -1684,7 +1693,8 @@ export type CallResult =
   | EquipCosmeticResult
   | SetCosmeticTintResult
   | SetEmoteWheelResult
-  | PlayEmoteResult;
+  | PlayEmoteResult
+  | OpenStoreResult;
 /**
  * The state actually applied. Normally equals the requested value; differs only if the mod refused the change.
  */
@@ -1784,6 +1794,10 @@ export type SetEmoteWheelReturns = CosmeticItemId[];
  * True when the emote started; false when it was refused.
  */
 export type PlayEmoteReturns = boolean;
+/**
+ * True when the launcher was told; false when there is no launcher link.
+ */
+export type OpenStoreReturns = boolean;
 
 /**
  * The closed registry of every mod VOID ships — the 12 defined in PVP_ARCHITECTURE.md §3, the VOID watermark, and the readouts added since — together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
@@ -3424,6 +3438,17 @@ export interface LoadoutSelectJavaToRust {
   [k: string]: any | undefined;
 }
 /**
+ * The player pressed *Get in launcher Store* on a locked item in game (`window.void.openStore`). Nothing is bought in game: the launcher shows and focuses its window and opens the Store on that item's sheet, where the purchase happens. A launcher that does not know the id opens the Store gallery alone.
+ */
+export interface OpenStoreJavaToRust {
+  /**
+   * Message discriminator; always `open_store`.
+   */
+  t: 'open_store';
+  item: CosmeticItemId;
+  [k: string]: any | undefined;
+}
+/**
  * The launcher's answer to `hello` (§6.9). Delivers the entire world of persisted state in one frame: the active loadout, **every other loadout in full**, and global settings. The mod keeps no config files of its own (§6.1); everything it knows arrives here. `loadouts` carries whole loadouts rather than summaries on purpose: a loadout is roughly 1 KB and a library is capped at 128, so the whole library is a few hundred kilobytes at worst, sent once per launch — and in exchange `void.switchLoadout` and the L-key cycle can apply any loadout in under a frame (§8.2) with no round trip, and the in-game Loadouts screen can list the library without a bridge accessor of its own. There is deliberately no `request_loadout` message: nothing the mod does needs one.
  */
 export interface InitRustToJava {
@@ -4344,6 +4369,16 @@ export interface PlayEmoteCall {
   params: PlayEmoteParams;
 }
 /**
+ * `void.openStore(id)`. *Get in launcher Store* on a locked item: Java sends the launcher `open_store` (protocol.json), which shows and focuses the launcher window on that item's Store sheet. Nothing is bought in game and the menu stays open. Returns whether the request reached the launcher; `false` when the launcher link is down (a dev run, or the launcher was closed), and the page then tells the player to open the Store themselves.
+ */
+export interface OpenStoreCall {
+  /**
+   * Call discriminator; always `openStore`.
+   */
+  c: 'openStore';
+  params: OpenStoreParams;
+}
+/**
  * Envelope for a setGameplay return value.
  */
 export interface SetGameplayResult {
@@ -4552,4 +4587,14 @@ export interface PlayEmoteResult {
    */
   c: 'playEmote';
   returns: PlayEmoteReturns;
+}
+/**
+ * Envelope for an openStore return value.
+ */
+export interface OpenStoreResult {
+  /**
+   * Call discriminator; always `openStore`.
+   */
+  c: 'openStore';
+  returns: OpenStoreReturns;
 }

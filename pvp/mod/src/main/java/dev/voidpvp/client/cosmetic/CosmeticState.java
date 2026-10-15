@@ -41,6 +41,14 @@ public final class CosmeticState {
         void equip(String slot, String id, String tint);
 
         void emotes(List<String> ids);
+
+        /**
+         * Show the launcher's Store on one item ({@code open_store}). Returns whether the launcher
+         * was told. Default false, so a sink without a launcher behind it (tests) says so.
+         */
+        default boolean openStore(String id) {
+            return false;
+        }
     }
 
     /** Told whenever the local set or ownership changed, so the page can be re-pushed. */
@@ -285,6 +293,17 @@ public final class CosmeticState {
         if (s != null && !uuids.isEmpty()) {
             s.query(uuids);
         }
+    }
+
+    /**
+     * Get in launcher Store: asks the launcher to show this item's Store sheet. Neither ownership
+     * nor this jar's catalog is checked: the launcher's catalog may be newer, the Store shows an
+     * owned item as owned, and an id it does not know opens the gallery. Returns whether the
+     * launcher was told.
+     */
+    public boolean openStore(String id) {
+        Sink s = sink;
+        return s != null && id != null && !id.isEmpty() && s.openStore(id);
     }
 
     public boolean hasSink() {

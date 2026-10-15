@@ -12,8 +12,8 @@
  * which is exactly what other VOID players are sent.
  *
  * Prices are US dollars (`price_cents`), never a coin. Nothing is bought in game: a locked item
- * says "Get in launcher Store" and the notice tells the player where — the page has no network
- * and the bridge has no store call (see the README's wiring notes).
+ * says "Get in launcher Store", which brings the launcher forward on that item's Store sheet
+ * (`openStore`). With no launcher behind the game, the notice says where to go instead.
  */
 
 import { useState, type ReactNode } from 'react';
@@ -57,11 +57,21 @@ function rarityLine(item: CosmeticCatalogItem): ReactNode {
   );
 }
 
-/** "Get in launcher Store": a notice, never a purchase. */
+/**
+ * "Get in launcher Store": the launcher comes forward on the item's Store sheet, never a purchase
+ * here. The toast says which happened — opened, or, with no launcher link, where to go.
+ */
 function useStoreNotice() {
   const pushToast = useVoidStore((s) => s.pushToast);
-  return (item: CosmeticCatalogItem) =>
-    pushToast({ kind: 'info', title: `${item.name} · ${priceLabel(item)}`, detail: 'Get it in the VOID launcher’s Store — no purchases in game' });
+  const openStore = useCosmetics((s) => s.openStore);
+  return (item: CosmeticCatalogItem) => {
+    const title = `${item.name} · ${priceLabel(item)}`;
+    if (openStore(item.id)) {
+      pushToast({ kind: 'info', title, detail: 'Opened in the VOID launcher’s Store — no purchases in game' });
+    } else {
+      pushToast({ kind: 'info', title, detail: 'Get it in the VOID launcher’s Store — no purchases in game' });
+    }
+  };
 }
 
 /* -------------------------------------------------------------------------- */

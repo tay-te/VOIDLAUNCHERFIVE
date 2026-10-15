@@ -101,6 +101,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *                       Sink.emote -> VoidSocket                         PAGE    thread-safe
  *                       (the clip) read by the renderer next frame       SHARED  immutable Active, published
  *                       Listener -> emit("emote", id)                    SHARED  suppressed: no echo (§6.5)
+ * openStore           CosmeticState.openStore                            SHARED  inline; volatile sink read
+ *                       Sink.openStore -> VoidSocket                     PAGE    thread-safe; false when down
  * (any)               VoidBridge.errors                                  SHARED  CopyOnWriteArrayList
  * (any)               VoidBridge.pending (the push queue)                SHARED  synchronized(pending)
  * </pre>
@@ -487,7 +489,8 @@ public final class VoidBridge {
             return new JsonPrimitive(Integer.valueOf(surfaces.size()));
         }
         if ("equipCosmetic".equals(call) || "setCosmeticTint".equals(call)
-                || "setEmoteWheel".equals(call) || "playEmote".equals(call)) {
+                || "setEmoteWheel".equals(call) || "playEmote".equals(call)
+                || "openStore".equals(call)) {
             // SHARED, inline — see the classification block. The flag is what keeps the state's
             // own change listeners from pushing this change straight back at the page.
             answeringPage.set(Boolean.TRUE);
@@ -611,8 +614,9 @@ public final class VoidBridge {
     }
 
     /**
-     * The four wardrobe calls. Each answers with what was applied: the id now in the slot, the
-     * tint now on it, the wheel as stored, whether the emote started. A refusal is an answer
+     * The five wardrobe calls. Each answers with what was applied: the id now in the slot, the
+     * tint now on it, the wheel as stored, whether the emote started, whether the launcher was
+     * told to open its Store. A refusal is an answer
      * too (the unchanged value), never an exception.
      */
     private JsonElement invokeCosmetic(String call, JsonArray p) {
@@ -645,6 +649,9 @@ public final class VoidBridge {
                 stored.add(new JsonPrimitive(id));
             }
             return stored;
+        }
+        if ("openStore".equals(call)) {
+            return new JsonPrimitive(Boolean.valueOf(cosmetics.openStore(stringAt(p, 0))));
         }
         // playEmote
         String id = stringAt(p, 0);
