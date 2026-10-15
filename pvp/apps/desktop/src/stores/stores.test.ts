@@ -145,6 +145,54 @@ describe('loadout store', () => {
     await useLoadouts.getState().switchTo('does-not-exist');
     expect(useLoadouts.getState().error).toMatch(/No loadout/);
   });
+
+  it('exports a share code and imports it as a new loadout without switching', async () => {
+    await useLoadouts.getState().hydrate();
+    const source = useLoadouts.getState().active!;
+    const before = useLoadouts.getState().library.length;
+
+    const code = await useLoadouts.getState().exportCode(source.id);
+    expect(code).toMatch(/^VOID1\./);
+
+    const result = await useLoadouts.getState().importCode(code!);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.loadout.id).not.toBe(source.id);
+    expect(result.loadout.id).toBe(`${source.id}-2`);
+    expect(result.loadout.name).toBe(source.name);
+    expect(result.dropped).toBe(0);
+
+    // The library was refreshed, the new loadout is last, and the active one did not move.
+    const s = useLoadouts.getState();
+    expect(s.library).toHaveLength(before + 1);
+    expect(s.library.at(-1)?.id).toBe(result.loadout.id);
+    expect(s.active?.id).toBe(source.id);
+    expect(s.error).toBeNull();
+  });
+
+  it('a refused code answers with the reason and leaves the library alone', async () => {
+    await useLoadouts.getState().hydrate();
+    const before = useLoadouts.getState().library.length;
+
+    const empty = await useLoadouts.getState().importCode('  ');
+    expect(empty).toEqual({ ok: false, error: 'Nothing to import.' });
+
+    const junk = await useLoadouts.getState().importCode('not a code');
+    expect(junk).toEqual({ ok: false, error: 'That is not a VOID loadout code.' });
+
+    const code = (await useLoadouts.getState().exportCode('sword-pvp'))!;
+    const newer = await useLoadouts.getState().importCode(code.replace(/^VOID1/, 'VOID9'));
+    expect(newer).toEqual({ ok: false, error: 'That code was made by a newer VOID.' });
+
+    expect(useLoadouts.getState().library).toHaveLength(before);
+    // A bad paste belongs to the field that took it, not to the store-wide error.
+    expect(useLoadouts.getState().error).toBeNull();
+  });
+
+  it('exporting an unknown loadout reports rather than throws', async () => {
+    await useLoadouts.getState().hydrate();
+    expect(await useLoadouts.getState().exportCode('nope')).toBeNull();
+    expect(useLoadouts.getState().error).toMatch(/no loadout/);
+  });
 });
 
 describe('launch store', () => {
@@ -376,6 +424,16 @@ describe('ui store', () => {
     expect(useUi.getState().settingsOpen).toBe(true);
     expect(useUi.getState().paletteOpen).toBe(false);
   });
+
+  it('the palette’s import lands on Home with the loadout menu’s paste field open', () => {
+    useUi.setState({ loadoutMenu: null });
+    useUi.getState().go('mods');
+    useUi.getState().openPalette();
+    useUi.getState().openLoadoutImport();
+    expect(useUi.getState().screen).toBe('home');
+    expect(useUi.getState().loadoutMenu).toBe('import');
+    expect(useUi.getState().paletteOpen).toBe(false);
+  });
 });
 
 describe('friends store (rule 7)', () => {
@@ -447,8 +505,10 @@ describe('cosmetics store (rules 5, 8)', () => {
 });
 
 describe('category counts (Home strip)', () => {
-  it('splits the registry the way the frame does: 11 · 11 · 4 · 3', () => {
-    expect(TOTAL_MODS).toBe(29);
-    expect(countsFor(null).map((c) => c.total)).toEqual([11, 11, 4, 3]);
+  // The frames drew 11 · 11 · 4 · 3 = 29; Potion counter and Reach display (PvP) and Chat
+  // (Utility) have landed since.
+  it('splits the registry by its own category field: 11 · 13 · 4 · 4', () => {
+    expect(TOTAL_MODS).toBe(32);
+    expect(countsFor(null).map((c) => c.total)).toEqual([11, 13, 4, 4]);
   });
 });

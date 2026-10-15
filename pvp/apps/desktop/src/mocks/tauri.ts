@@ -33,7 +33,7 @@ import {
   PREVIEW_LAST_SESSION,
   SWORD_PVP,
 } from './fixtures';
-import { resolveModSettings } from '@void/protocol';
+import { decodeShareCode, encodeShareCode, resolveModSettings } from '@void/protocol';
 import type {
   Account,
   Loadout,
@@ -233,6 +233,33 @@ const slugify = (name: string): string =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+
+/** `void_loadout::share::unique_id`: the name slugified, then `-2`, `-3`, … */
+const uniqueId = (name: string): string => {
+  const base = slugify(name) || 'loadout';
+  if (!find(base)) return base;
+  for (let n = 2; ; n += 1) {
+    const suffix = `-${n}`;
+    const stem = base.slice(0, 48 - suffix.length).replace(/-+$/, '');
+    if (!find(`${stem}${suffix}`)) return `${stem}${suffix}`;
+  }
+};
+
+/** `void_loadout::store::MAX_LIBRARY`. */
+const MAX_LIBRARY = 128;
+
+/**
+ * The sentence `error.rs` makes of each `ShareError` — its `Display`, capitalised and
+ * stopped — so the import field shows the same words in the preview as in the app.
+ */
+const SHARE_ERRORS: Record<'empty' | 'format' | 'version' | 'checksum' | 'invalid' | 'full', string> = {
+  empty: 'Nothing to import.',
+  format: 'That is not a VOID loadout code.',
+  version: 'That code was made by a newer VOID.',
+  checksum: 'That code is damaged — copy it again.',
+  invalid: 'That code does not contain a loadout.',
+  full: 'The library is full.',
+};
 
 // ----------------------------------------------------------------------- invoke
 
@@ -523,6 +550,27 @@ const commands: Record<string, (args: Args) => unknown> = {
     state.settings.active_loadout = l.id;
     emit('loadout:switched', structuredClone(l));
     return structuredClone(l);
+  },
+
+  // The same codec the mod and Rust use (`@void/protocol`'s share-code, held to Rust's
+  // vectors by its tests), so a code copied from the preview pastes into the real app.
+  loadouts_export: ({ id }) => {
+    const l = find(String(id));
+    if (!l) throw `no loadout \`${id}\` in the library`;
+    return encodeShareCode(l);
+  },
+
+  loadouts_import: ({ code }) => {
+    const decoded = decodeShareCode(String(code ?? ''));
+    if (!decoded.ok) throw SHARE_ERRORS[decoded.error];
+    if (state.loadouts.length >= MAX_LIBRARY) throw SHARE_ERRORS.full;
+    const loadout: Loadout = {
+      ...structuredClone(decoded.loadout),
+      id: uniqueId(decoded.loadout.name),
+      stats: { played_ms: 0, fps_avg: 0 },
+    };
+    state.loadouts.push(loadout);
+    return { loadout: structuredClone(loadout), dropped: decoded.dropped };
   },
 
   // --- settings -----------------------------------------------------------

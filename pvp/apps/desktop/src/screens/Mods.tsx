@@ -245,6 +245,18 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   damage_tint: () => <Numeral value="3" unit="hearts" />,
   old_animations: () => <Numeral value="1.7" unit="block" />,
   old_input: () => <Numeral value="3" unit="gates" />,
+  // The figure over its unit, as the chips draw them with `show_label` on (their default).
+  potion_counter: () => <Numeral value="8" unit="pots" />,
+  reach: () => <Numeral value="2.94" unit="blocks" />,
+  // Two lines of chat with the mod's own additions: the arrival time, and a stacked repeat.
+  chat: () => (
+    <Effects
+      rows={[
+        ['14:03', 'gg'],
+        ['14:04', 'gl ×3'],
+      ]}
+    />
+  ),
   toggle_sprint: () => <CellGlyph rows={SPRINT_GLYPH} caption="sprint" size={10} />,
   fullbright: () => <CellGlyph rows={FULL_GLYPH} size={18} />,
 };

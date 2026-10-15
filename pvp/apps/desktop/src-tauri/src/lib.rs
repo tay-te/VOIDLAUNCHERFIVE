@@ -111,6 +111,8 @@ pub fn run() {
             ipc::loadouts_update,
             ipc::loadouts_delete,
             ipc::loadouts_switch,
+            ipc::loadouts_export,
+            ipc::loadouts_import,
             ipc::settings_get,
             ipc::settings_set,
             ipc::system_info,

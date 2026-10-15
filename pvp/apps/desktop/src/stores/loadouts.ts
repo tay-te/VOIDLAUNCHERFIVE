@@ -19,6 +19,11 @@ import type {
 import { errorText, invoke, listen } from '../local/tauri';
 import { effectiveState } from '../local/registry';
 
+/** What `importCode` answers: the stored loadout, or the sentence saying why not. */
+export type ImportOutcome =
+  | { ok: true; loadout: Loadout; dropped: number }
+  | { ok: false; error: string };
+
 interface LoadoutState {
   library: LoadoutSummary[];
   active: Loadout | null;
@@ -46,6 +51,17 @@ interface LoadoutState {
    * expressed as `null`.
    */
   setHudItem: (id: ModId, item: HUDItem | null) => Promise<void>;
+  /**
+   * A loadout's share code, or `null` when it could not be made (the reason is left in
+   * `error`). Copying it is the caller's job — the store does not touch the clipboard.
+   */
+  exportCode: (id: string) => Promise<string | null>;
+  /**
+   * Import a pasted share code. The loadout is appended to the library under a fresh id
+   * and **not** switched to. A refused code is not a store-wide error: the reason comes
+   * back for the field that took the paste to show under itself.
+   */
+  importCode: (code: string) => Promise<ImportOutcome>;
   saveSettings: (patch: SettingsPatch) => Promise<void>;
   /** Apply a `bridge:state` patch from a running game (§6.1: Java is authoritative). */
   applyStatePatch: (loadoutId: string, patch: Record<string, unknown>) => void;
@@ -133,6 +149,33 @@ export const useLoadouts = create<LoadoutState>((set, get) => ({
     } catch (e) {
       set({ error: errorText(e) });
     }
+  },
+
+  exportCode: async (id) => {
+    try {
+      const code = await invoke('loadouts_export', { id });
+      set({ error: null });
+      return code;
+    } catch (e) {
+      set({ error: errorText(e) });
+      return null;
+    }
+  },
+
+  importCode: async (code) => {
+    let imported;
+    try {
+      imported = await invoke('loadouts_import', { code });
+    } catch (e) {
+      return { ok: false, error: errorText(e) };
+    }
+    try {
+      set({ library: await invoke('loadouts_list'), error: null });
+    } catch (e) {
+      // The import landed; only the refresh failed, so the new row shows on the next one.
+      set({ error: errorText(e) });
+    }
+    return { ok: true, loadout: imported.loadout, dropped: imported.dropped };
   },
 
   saveSettings: async (patch) => {

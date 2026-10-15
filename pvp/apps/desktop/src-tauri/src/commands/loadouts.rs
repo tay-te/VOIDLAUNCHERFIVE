@@ -1,20 +1,35 @@
 //! `loadouts_list` · `loadouts_get` · `loadouts_active` · `loadouts_create` ·
-//! `loadouts_update` · `loadouts_delete` · `loadouts_switch`
+//! `loadouts_update` · `loadouts_delete` · `loadouts_switch` · `loadouts_export` ·
+//! `loadouts_import`
 //!
 //! Thin over `void_loadout::Store`. The one place that is more than a forward is
 //! [`update`], because the Mods screen sends a single mod at a time and the store takes
 //! complete, validated settings objects.
+//!
+//! Every command that changes the library — create, update, delete, import — ends in
+//! [`push_library`], so a running game sees the change without a relaunch. A switch
+//! travels as its own `loadout` message instead, as it always has.
 
 use serde_json::{Map, Value};
 
 use void_loadout::{Loadout, LoadoutId, LoadoutSummary, ModId};
 
 use crate::error::Error;
-use crate::models::LoadoutPatch;
+use crate::models::{ImportedLoadout, LoadoutPatch};
 use crate::state::AppState;
 
 fn parse_id(id: &str) -> Result<LoadoutId, Error> {
     LoadoutId::new(id).ok_or_else(|| Error::BadLoadoutId(id.to_string()))
+}
+
+/// Send the library, as it now stands on disk, to a running game. Called after the
+/// change has been written, so a failure here is logged rather than returned: the
+/// player's edit did land, and the mod gets the library again in its next `init`.
+fn push_library(state: &AppState) {
+    match state.store.list() {
+        Ok(loadouts) => state.game.lock().unwrap().push_library(&loadouts),
+        Err(e) => tracing::warn!(error = %e, "could not read the library to push it"),
+    }
 }
 
 pub fn list(state: &AppState) -> Result<Vec<LoadoutSummary>, Error> {
@@ -40,6 +55,7 @@ pub fn create(state: &AppState, name: &str, icon: &str) -> Result<Loadout, Error
     // Materialising twelve blocks here would freeze it at today's defaults for ever.
     let loadout = Loadout::new(id, name.trim(), icon);
     state.store.create(&loadout)?;
+    push_library(state);
     Ok(loadout)
 }
 
@@ -84,6 +100,7 @@ pub fn update(state: &AppState, id: &str, patch: LoadoutPatch) -> Result<Loadout
     // Catches what the schema cannot: a duplicate HUD entry, an offset off the screen.
     loadout.validate()?;
     state.store.save(&loadout)?;
+    push_library(state);
     Ok(loadout)
 }
 
@@ -93,7 +110,24 @@ pub fn delete(state: &AppState, id: &str) -> Result<Vec<LoadoutSummary>, Error> 
         return Err(Error::LastLoadout);
     }
     state.store.delete(&id)?;
+    push_library(state);
     Ok(state.store.summaries()?)
+}
+
+/// A loadout's share code — the `VOID1.…` string a player pastes to a friend.
+pub fn export(state: &AppState, id: &str) -> Result<String, Error> {
+    state.store.export_share(&parse_id(id)?).map_err(Error::from_loadout)
+}
+
+/// Add the loadout a share code carries to the end of the library, under a fresh id.
+///
+/// Does not switch to it: an import is "keep this", and the player picks it like any
+/// other loadout. A refused code comes back as [`Error::Share`], whose message is the
+/// sentence the import field shows under itself.
+pub fn import(state: &AppState, code: &str) -> Result<ImportedLoadout, Error> {
+    let (loadout, dropped) = state.store.import_share(code).map_err(Error::from_loadout)?;
+    push_library(state);
+    Ok(ImportedLoadout { loadout, dropped })
 }
 
 /// Switch the active loadout, and hot-swap it in a running game (§8.2).
@@ -259,5 +293,72 @@ mod tests {
             assert_eq!(rest.len(), ids.len());
         }
         assert!(matches!(delete(&state, &ids[0]), Err(Error::LastLoadout)));
+    }
+
+    #[test]
+    fn an_exported_code_imports_as_a_new_loadout_with_a_fresh_id() {
+        let state = scratch_state();
+        let source = active(&state).unwrap();
+        let before = list(&state).unwrap().len();
+
+        let code = export(&state, source.id.as_str()).unwrap();
+        assert!(code.starts_with("VOID"), "{code}");
+
+        let imported = import(&state, &code).unwrap();
+        assert_ne!(imported.loadout.id, source.id, "an import never overwrites");
+        assert_eq!(imported.loadout.name, source.name);
+        assert_eq!(imported.loadout.hud, source.hud);
+        assert_eq!(imported.dropped, 0);
+
+        // Appended to the library, stored, and not switched to.
+        let after = list(&state).unwrap();
+        assert_eq!(after.len(), before + 1);
+        assert_eq!(after.last().unwrap().id, imported.loadout.id);
+        assert_eq!(get(&state, imported.loadout.id.as_str()).unwrap(), imported.loadout);
+        assert_eq!(active(&state).unwrap().id, source.id);
+
+        // A second import of the same code gets yet another id.
+        let again = import(&state, &code).unwrap();
+        assert_ne!(again.loadout.id, imported.loadout.id);
+    }
+
+    #[test]
+    fn a_bad_code_is_refused_with_a_sentence_and_nothing_is_stored() {
+        let state = scratch_state();
+        let before = list(&state).unwrap().len();
+
+        let empty = import(&state, "   ").unwrap_err();
+        assert!(matches!(empty, Error::Share(void_loadout::ShareError::Empty)));
+        assert_eq!(empty.to_string(), "Nothing to import.");
+
+        let junk = import(&state, "hello there").unwrap_err();
+        assert!(matches!(junk, Error::Share(void_loadout::ShareError::Format)));
+        assert_eq!(junk.to_string(), "That is not a VOID loadout code.");
+
+        // One character changed in transit: the checksum (or the data) no longer holds.
+        let code = export(&state, active(&state).unwrap().id.as_str()).unwrap();
+        let mut damaged: Vec<char> = code.chars().collect();
+        let mid = damaged.len() / 2;
+        damaged[mid] = if damaged[mid] == 'A' { 'B' } else { 'A' };
+        let damaged: String = damaged.into_iter().collect();
+        assert!(matches!(import(&state, &damaged), Err(Error::Share(_))));
+
+        assert_eq!(list(&state).unwrap().len(), before);
+        assert!(matches!(export(&state, "nope"), Err(Error::Loadout(_))));
+    }
+
+    #[test]
+    fn an_import_into_a_full_library_is_refused() {
+        let state = scratch_state();
+        let code = export(&state, active(&state).unwrap().id.as_str()).unwrap();
+        let mut n = list(&state).unwrap().len();
+        while n < void_loadout::store::MAX_LIBRARY {
+            create(&state, &format!("Filler {n}"), "sword").unwrap();
+            n += 1;
+        }
+        let full = import(&state, &code).unwrap_err();
+        assert!(matches!(full, Error::Share(void_loadout::ShareError::Full)));
+        assert_eq!(full.to_string(), "The library is full.");
+        assert_eq!(list(&state).unwrap().len(), void_loadout::store::MAX_LIBRARY);
     }
 }

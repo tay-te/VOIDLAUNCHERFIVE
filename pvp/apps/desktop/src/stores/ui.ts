@@ -107,6 +107,11 @@ interface UiState {
   storeItem: string | null;
   /** Which play bar menu is open — Home's "Choose another server" opens it from outside. */
   playMenu: 'server' | 'version' | null;
+  /**
+   * Home's loadout menu: closed, open on the library, or open with its import field —
+   * which is how the palette's "Import loadout code" lands the player in a paste field.
+   */
+  loadoutMenu: 'list' | 'import' | null;
   /** The release-notes sheet behind Home's "Release notes". */
   notesOpen: boolean;
   /** Which mod the Mods grid has selected. */
@@ -134,6 +139,9 @@ interface UiState {
   toggleFriends: () => void;
   setFriendsOpen: (open: boolean) => void;
   setPlayMenu: (menu: 'server' | 'version' | null) => void;
+  setLoadoutMenu: (menu: 'list' | 'import' | null) => void;
+  /** Go Home and open the loadout menu on its import field. */
+  openLoadoutImport: () => void;
   setNotesOpen: (open: boolean) => void;
   openStoreItem: (id: string) => void;
   closeStoreItem: () => void;
@@ -153,6 +161,7 @@ export const useUi = create<UiState>((set, get) => ({
   friendsOpen: false,
   storeItem: null,
   playMenu: null,
+  loadoutMenu: null,
   notesOpen: false,
   selectedMod: 'keystrokes',
   modSetup: null,
@@ -189,6 +198,11 @@ export const useUi = create<UiState>((set, get) => ({
   toggleFriends: () => set({ friendsOpen: !get().friendsOpen, storeItem: null }),
   setFriendsOpen: (friendsOpen) => set({ friendsOpen, ...(friendsOpen ? { storeItem: null } : {}) }),
   setPlayMenu: (playMenu) => set({ playMenu }),
+  setLoadoutMenu: (loadoutMenu) => set({ loadoutMenu }),
+  openLoadoutImport: () => {
+    get().go('home');
+    set({ loadoutMenu: 'import', paletteOpen: false });
+  },
   setNotesOpen: (notesOpen) => set({ notesOpen }),
   openStoreItem: (storeItem) => set({ screen: 'store', storeItem, friendsOpen: false }),
   closeStoreItem: () => set({ storeItem: null }),

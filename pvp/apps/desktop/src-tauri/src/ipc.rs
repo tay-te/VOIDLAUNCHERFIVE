@@ -144,12 +144,19 @@ pub fn loadouts_create<R: Runtime>(
 }
 
 #[tauri::command]
-pub fn loadouts_update(
+pub fn loadouts_update<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     id: String,
     patch: LoadoutPatch,
 ) -> CmdResult<Loadout> {
-    map_err(commands::loadouts::update(&state, &id, patch))
+    // The tray's loadout submenu prints names, so only a rename has to rebuild it.
+    let renamed = patch.name.is_some();
+    let loadout = map_err(commands::loadouts::update(&state, &id, patch))?;
+    if renamed {
+        crate::tray::refresh(&app);
+    }
+    Ok(loadout)
 }
 
 #[tauri::command]
@@ -175,6 +182,23 @@ pub fn loadouts_switch<R: Runtime>(
     let _ = app.emit(crate::events::LOADOUT_SWITCHED, &loadout);
     crate::tray::refresh(&app);
     Ok(loadout)
+}
+
+#[tauri::command]
+pub fn loadouts_export(state: State<'_, AppState>, id: String) -> CmdResult<String> {
+    map_err(commands::loadouts::export(&state, &id))
+}
+
+/// Appends the code's loadout to the library without switching to it.
+#[tauri::command]
+pub fn loadouts_import<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    code: String,
+) -> CmdResult<ImportedLoadout> {
+    let imported = map_err(commands::loadouts::import(&state, &code))?;
+    crate::tray::refresh(&app);
+    Ok(imported)
 }
 
 // -------------------------------------------------------------------- settings
