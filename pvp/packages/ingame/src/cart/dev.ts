@@ -68,7 +68,11 @@ export function devGo(step: string): string {
       tab('mods');
       if (name === 'capture') {
         useDev.setState({
-          captureInitial: { phase: 'conflict', key: 'Q', conflict: { kind: 'vanilla', label: 'Drop', does: 'drops your held item' } },
+          captureInitial: {
+            phase: 'conflict',
+            key: 'Q',
+            conflict: { kind: 'vanilla', label: 'Drop', does: 'drops your held item', real: s.vanillaBinds !== null },
+          },
         });
       }
       s.openMod(arg);

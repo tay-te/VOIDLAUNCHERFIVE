@@ -526,6 +526,18 @@ public final class PerfBench {
             this.menu = true;
             return this;
         }
+
+        /**
+         * UI tour only: hold the emote wheel in the world — the {@code wheel} envelopes Java's held
+         * key sends ({@code open}, then a flick up and to the left as {@code aim}), {@link #GO_AT}
+         * ticks in, with no screen open.
+         */
+        boolean wheel;
+
+        Shot wheel() {
+            this.wheel = true;
+            return this;
+        }
     }
 
     /** Ticks into a menu shot at which the menu is opened. */
@@ -808,6 +820,17 @@ public final class PerfBench {
         if (s.go != null && shotWait == GO_AT) {
             devGo(s.name, s.go);
         }
+        if (s.wheel && bridge != null && (shotWait == GO_AT || shotWait == GO_AT + 2)) {
+            com.google.gson.JsonObject w = new com.google.gson.JsonObject();
+            if (shotWait == GO_AT) {
+                w.addProperty("phase", "open");
+            } else {
+                w.addProperty("phase", "aim");
+                w.addProperty("x", -220);
+                w.addProperty("y", -120);
+            }
+            bridge.emit(dev.voidpvp.client.bridge.VoidBridge.EVENT_WHEEL, w);
+        }
         shotWait++;
     }
 
@@ -975,6 +998,13 @@ public final class PerfBench {
                 }
             }.menu().go(m[1]));
         }
+        // Hold B in the world: the Crescent wheel over the HUD, no screen, the player free to move.
+        UI_TOUR.add(new Shot("emotes-world", FIELD_X, 0.5, UI_YAW, UI_PITCH, GO_AT + 30) {
+            void setup(MinecraftClient mc) {
+                hud(mc, 6000, 60, new int[][] {{FX_SPEED, LONG, 1}, {STRENGTH, LONG, 0}});
+                wardrobe();
+            }
+        }.wheel());
     }
 
     /**
