@@ -32,6 +32,7 @@ import type { ModArt } from './types';
 
 import armor_status from './armor_status';
 import combo from './combo';
+import cosmetics from './cosmetics';
 import coordinates from './coordinates';
 import cps from './cps';
 import direction from './direction';
@@ -61,7 +62,7 @@ import watermark from './watermark';
 import zoom from './zoom';
 
 /**
- * The art for all twenty-five mods.
+ * The art for every mod.
  *
  * `satisfies` rather than a type annotation, so each value keeps its narrow `ModArt<'fps'>`
  * type while the whole object is still proved exhaustive over `ModId`.
@@ -103,6 +104,8 @@ const ART = {
   // `safe` and animation only, `old_input` is `grey` and changes what leaves the client.
   old_animations,
   old_input,
+  // The switches over the cosmetics renderer: what this client draws, never what anyone wears.
+  cosmetics,
 } satisfies Record<ModId, ModArt>;
 
 /** Every mod's art, keyed by id. */

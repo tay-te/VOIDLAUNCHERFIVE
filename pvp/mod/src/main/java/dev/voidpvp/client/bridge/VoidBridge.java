@@ -5,6 +5,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import dev.voidpvp.client.cosmetic.CosmeticState;
+import dev.voidpvp.client.cosmetic.Emotes;
 import dev.voidpvp.client.state.HudItem;
 import dev.voidpvp.client.state.Json;
 import dev.voidpvp.client.state.LiveState;
@@ -79,6 +81,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * closeMenu           BridgeHost.closeMenu -> mc.setScreen(null)         GAME    QUEUED via post()
  *                       -> VoidMenuScreen.removed -> GL deletes          GAME      (screen teardown frees textures)
  * openKeybindCapture  BridgeHost.beginKeybindCapture                     SHARED  inline; two volatile flags
+ * equipCosmetic       CosmeticState.equip                                SHARED  inline; volatile set swap
+ *                       CosmeticCatalog.fits / owns                      PAGE    immutable statics, volatile read
+ *                       Sink.equip -> VoidSocket -> Netty/OutboundQueue   PAGE    both thread-safe
+ *                       Listener -> emit("cosmetics")                    SHARED  suppressed: no echo (§6.5)
+ * setCosmeticTint     CosmeticState.tint                                 SHARED  inline; as equipCosmetic
+ * setEmoteWheel       CosmeticState.setEmotes                            SHARED  inline; as equipCosmetic
+ * playEmote           Emotes.playLocal                                   SHARED  inline; ConcurrentHashMap put
+ *                       CosmeticAssets.emote (descriptor JSON, cached)   PAGE    any thread; no GL
+ *                       Sink.emote -> VoidSocket                         PAGE    thread-safe
+ *                       (the clip) read by the renderer next frame       SHARED  immutable Active, published
+ *                       Listener -> emit("emote", id)                    SHARED  suppressed: no echo (§6.5)
  * (any)               VoidBridge.errors                                  SHARED  CopyOnWriteArrayList
  * (any)               VoidBridge.pending (the push queue)                SHARED  synchronized(pending)
  * </pre>
@@ -95,6 +108,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * {@code setting} channel, which §6.5 explicitly does not push for a change the
  * page itself made, because that fights the control the player is holding.</p>
  *
+ * <p>The four cosmetic calls are the same shape: {@link CosmeticState} and {@link Emotes} are
+ * built for three writers (concurrent maps, volatile fields, immutable {@code EquippedSet}s),
+ * so each answer is what the state applied, computed on this thread. {@code playEmote} is the
+ * one that starts game-side work, and it still needs no hop: it publishes an immutable clip into
+ * a concurrent map that the renderer and the camera read on the game thread from the next frame
+ * on. Queueing it would make the answer a guess ("it will probably start") instead of a fact.</p>
+ *
  * <p>{@code closeMenu} is the one call that needs the game thread, and it
  * returns nothing, so queueing costs the page nothing at all. {@code
  * setSurfaces} answers with how many rectangles were accepted, which is a
@@ -105,8 +125,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public final class VoidBridge {
 
     /**
-     * The seven channels of {@code bridge.json#/definitions/event_name}, plus {@code session}
-     * and {@code settings}.
+     * The twelve channels of {@code bridge.json#/definitions/event_name}, in its order.
      */
     public static final String EVENT_KEYS = "keys";
     public static final String EVENT_TICK = "tick";
@@ -173,6 +192,29 @@ public final class VoidBridge {
     public static final String EVENT_MODACTION = "modaction";
 
     /**
+     * What the local player wears and owns — {@link CosmeticState#uiPayload()}, i.e.
+     * {@code bridge.json#/definitions/cosmetics_payload}.
+     *
+     * <p>The eleventh channel. Whole state, so {@link #emit} coalesces it. Pushed from
+     * {@link #pushWholeState()} and whenever {@link CosmeticState} changes for a reason the page
+     * did not cause: the launcher's {@code cosmetics} (an equip from the Store, a purchase
+     * landing), the dev loader. <b>Not</b> pushed as an echo of the page's own
+     * {@code equipCosmetic}, {@code setCosmeticTint} or {@code setEmoteWheel}: the call returned
+     * what was stored, and §6.5 does not push a change back to the page that made it.</p>
+     */
+    public static final String EVENT_COSMETICS = "cosmetics";
+
+    /**
+     * The local player's emote started ({@code {id}}) or ended ({@code {id: null}}).
+     *
+     * <p>The twelfth channel. Never coalesced: a start and an end in one slow frame are two
+     * facts. The start is suppressed when the page's own {@code playEmote} caused it (the call
+     * answered {@code true}); the end is always pushed, because only the game thread's sweep
+     * knows when a clip ran out or movement cancelled it.</p>
+     */
+    public static final String EVENT_EMOTE = "emote";
+
+    /**
      * Most game-thread work to run in one drain.
      *
      * <p>The queue only ever holds {@code closeMenu}, so in practice a drain runs nothing or one
@@ -217,9 +259,39 @@ public final class VoidBridge {
      */
     private volatile boolean menuOpen;
 
+    /**
+     * True on the UI thread while it is inside one of the page's own cosmetic calls.
+     *
+     * <p>{@link CosmeticState} and {@link Emotes} tell their listeners synchronously, on the
+     * thread that made the change, so a change the page itself asked for is recognisable here by
+     * thread and suppressed — the §6.5 no-echo rule, applied without the state classes having to
+     * know who called them. A change from the launcher ({@code void-ws}) or the sweep (game
+     * thread) never sees the flag set.</p>
+     */
+    private final ThreadLocal<Boolean> answeringPage = new ThreadLocal<Boolean>();
+
     public VoidBridge(LiveState state, BridgeHost host) {
         this.state = state;
         this.host = host;
+        // One bridge per process in the game; the singletons outlive it, which is fine because
+        // the bridge lives as long as the client does.
+        CosmeticState.get().addListener(new CosmeticState.Listener() {
+            @Override
+            public void onCosmeticsChanged() {
+                if (!Boolean.TRUE.equals(answeringPage.get())) {
+                    emitCosmetics();
+                }
+            }
+        });
+        Emotes.get().addListener(new Emotes.Listener() {
+            @Override
+            public void onLocalEmote(String idOrNull) {
+                if (idOrNull != null && Boolean.TRUE.equals(answeringPage.get())) {
+                    return;
+                }
+                emitEmote(idOrNull);
+            }
+        });
     }
 
     // -----------------------------------------------------------------
@@ -367,6 +439,17 @@ public final class VoidBridge {
             host.setSurfaces(surfaces);
             return new JsonPrimitive(Integer.valueOf(surfaces.size()));
         }
+        if ("equipCosmetic".equals(call) || "setCosmeticTint".equals(call)
+                || "setEmoteWheel".equals(call) || "playEmote".equals(call)) {
+            // SHARED, inline — see the classification block. The flag is what keeps the state's
+            // own change listeners from pushing this change straight back at the page.
+            answeringPage.set(Boolean.TRUE);
+            try {
+                return invokeCosmetic(call, p);
+            } finally {
+                answeringPage.remove();
+            }
+        }
         if ("openKeybindCapture".equals(call)) {
             // Inline, not queued: arming is two volatile flags on the host and touches no
             // Minecraft object. Queueing it would leave the capture unarmed for up to a frame
@@ -381,6 +464,59 @@ public final class VoidBridge {
             return JsonNull.INSTANCE;
         }
         return JsonNull.INSTANCE;
+    }
+
+    /**
+     * The four wardrobe calls. Each answers with what was applied: the id now in the slot, the
+     * tint now on it, the wheel as stored, whether the emote started. A refusal is an answer
+     * too (the unchanged value), never an exception.
+     */
+    private JsonElement invokeCosmetic(String call, JsonArray p) {
+        CosmeticState cosmetics = CosmeticState.get();
+        if ("equipCosmetic".equals(call)) {
+            String slot = stringAt(p, 0);
+            if (slot == null) {
+                return JsonNull.INSTANCE;
+            }
+            return orNull(cosmetics.equip(slot, stringAt(p, 1)));
+        }
+        if ("setCosmeticTint".equals(call)) {
+            String slot = stringAt(p, 0);
+            if (slot == null) {
+                return JsonNull.INSTANCE;
+            }
+            return orNull(cosmetics.tint(slot, stringAt(p, 1)));
+        }
+        if ("setEmoteWheel".equals(call)) {
+            java.util.List<String> ids = new java.util.ArrayList<String>();
+            if (p.size() > 0 && p.get(0).isJsonArray()) {
+                for (JsonElement e : p.get(0).getAsJsonArray()) {
+                    if (e.isJsonPrimitive()) {
+                        ids.add(e.getAsString());
+                    }
+                }
+            }
+            JsonArray stored = new JsonArray();
+            for (String id : cosmetics.setEmotes(ids)) {
+                stored.add(new JsonPrimitive(id));
+            }
+            return stored;
+        }
+        // playEmote
+        String id = stringAt(p, 0);
+        return new JsonPrimitive(Boolean.valueOf(id != null && Emotes.get().playLocal(id)));
+    }
+
+    /** The string at {@code i}, or null when it is absent, null or not a primitive. */
+    private static String stringAt(JsonArray p, int i) {
+        if (p.size() <= i || !p.get(i).isJsonPrimitive()) {
+            return null;
+        }
+        return p.get(i).getAsString();
+    }
+
+    private static JsonElement orNull(String s) {
+        return s == null ? JsonNull.INSTANCE : new JsonPrimitive(s);
     }
 
     // -----------------------------------------------------------------
@@ -495,7 +631,8 @@ public final class VoidBridge {
             // on the same channel really is dead weight. `loadout` is whole-state too but a
             // switch is rare enough to keep in order.
             if (EVENT_KEYS.equals(event) || EVENT_MENU.equals(event)
-                    || EVENT_LOADOUTS.equals(event) || EVENT_SETTINGS.equals(event)) {
+                    || EVENT_LOADOUTS.equals(event) || EVENT_SETTINGS.equals(event)
+                    || EVENT_COSMETICS.equals(event)) {
                 dropChannel(event);
             }
             // `tick` is the exception, and it used to be in the list above.
@@ -698,8 +835,23 @@ public final class VoidBridge {
         // settles on the live copy rather than the library's.
         emit(EVENT_LOADOUTS, state.libraryJson());
         emit(EVENT_LOADOUT, state.loadoutJson());
+        // The wardrobe. Read live from CosmeticState for the same reason the loadout is: the
+        // page's own equips are not echoed, so a remembered envelope would be missing them.
+        emitCosmetics();
         // Last, so the screen the menu opens onto is drawn against data that is already there.
         emitMenu(menuOpen);
+    }
+
+    /** Queues the {@code cosmetics} event with what {@link CosmeticState} holds now. */
+    public void emitCosmetics() {
+        emit(EVENT_COSMETICS, CosmeticState.get().uiPayload());
+    }
+
+    /** Queues the {@code emote} event: the local emote now playing, or null when it ended. */
+    public void emitEmote(String idOrNull) {
+        JsonObject payload = new JsonObject();
+        payload.add("id", idOrNull == null ? JsonNull.INSTANCE : new JsonPrimitive(idOrNull));
+        emit(EVENT_EMOTE, payload);
     }
 
     /**

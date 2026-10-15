@@ -234,6 +234,17 @@ public final class LiveState {
     public volatile boolean oldAnimationsSwingDuringDelay;
 
     /**
+     * Cosmetics: whether VOID cosmetics draw at all, whether other players' do, your own trail in
+     * first person, the emissive bloom, and the emote orbit camera. Read every frame by
+     * {@code cosmetic/CosmeticRenderer}, {@code Badges}, {@code Trails} and {@code EmoteCamera}.
+     */
+    public volatile boolean cosmeticsOn = true;
+    public volatile boolean cosmeticsOthers = true;
+    public volatile boolean cosmeticsOwnFirstPerson;
+    public volatile boolean cosmeticsGlow = true;
+    public volatile boolean cosmeticsEmoteCamera = true;
+
+    /**
      * Old input: three guards 1.8 added to {@code MinecraftClient} that 1.7.10 did not have.
      *
      * <p>Each is read at exactly one call site and answers one question — <em>does this guard
@@ -555,6 +566,14 @@ public final class LiveState {
 
         keystrokesOn = l.isOn("keystrokes");
         armorShowHeldItem = l.boolSetting("armor_status", "show_held_item", true);
+
+        // Cosmetics: only what this client draws. What the player wears is account data from the
+        // launcher (CosmeticState) and is untouched by any of these.
+        cosmeticsOn = l.isOn("cosmetics");
+        cosmeticsOthers = l.boolSetting("cosmetics", "others", true);
+        cosmeticsOwnFirstPerson = l.boolSetting("cosmetics", "own_first_person", false);
+        cosmeticsGlow = l.boolSetting("cosmetics", "glow", true);
+        cosmeticsEmoteCamera = l.boolSetting("cosmetics", "emote_camera", true);
     }
 
     /** {@code #RRGGBB} / {@code #RRGGBBAA} to packed ARGB. */

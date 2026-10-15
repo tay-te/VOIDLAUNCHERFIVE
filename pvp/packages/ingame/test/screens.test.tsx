@@ -421,7 +421,8 @@ describe('Mods screen — the grid, and the page one click away', () => {
     );
     // The watermark is Visual too — it is a mark drawn over the game, not a readout. `overlay`
     // joined them in Wave 4: it is the mod whose whole subject is what the game draws over you.
-    expect(ids.sort()).toEqual(['crosshair', 'fullbright', 'overlay', 'watermark']);
+    // `cosmetics` in Wave 7: what this client draws on players, which is nothing but a look.
+    expect(ids.sort()).toEqual(['cosmetics', 'crosshair', 'fullbright', 'overlay', 'watermark']);
 
     set(() => useVoidStore.getState().setModFilter('all'));
     set(() => useVoidStore.getState().setLayout('list'));

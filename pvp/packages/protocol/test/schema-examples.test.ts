@@ -71,13 +71,17 @@ describe('schema examples', () => {
     expect(BRIDGE_EXAMPLES.length).toBeGreaterThanOrEqual(28);
   });
 
-  it('covers all ten events and all eight calls in the bridge examples', () => {
+  it('covers all twelve events and all twelve calls in the bridge examples', () => {
     const events = new Set(
       BRIDGE_EXAMPLES.filter((e): e is Extract<typeof e, { e: string }> => 'e' in e).map(
         (e) => e.e,
       ),
     );
     expect([...events].sort()).toEqual([
+      // The wardrobe's two: what the local player wears and owns, and their emote starting or
+      // ending.
+      'cosmetics',
+      'emote',
       'keys',
       'loadout',
       'loadouts',
@@ -100,7 +104,11 @@ describe('schema examples', () => {
     );
     expect([...calls].sort()).toEqual([
       'closeMenu',
+      'equipCosmetic',
       'openKeybindCapture',
+      'playEmote',
+      'setCosmeticTint',
+      'setEmoteWheel',
       'setGameplay',
       'setGlobal',
       'setHud',

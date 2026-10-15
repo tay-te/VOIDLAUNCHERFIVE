@@ -19,7 +19,7 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 29 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 30 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps",
@@ -50,7 +50,8 @@
         "hit_color",
         "damage_tint",
         "old_animations",
-        "old_input"
+        "old_input",
+        "cosmetics"
       ],
       "additionalProperties": false,
       "properties": {
@@ -169,6 +170,10 @@
         "old_input": {
           "description": "Old input registry entry.",
           "$ref": "#/definitions/old_input_entry"
+        },
+        "cosmetics": {
+          "description": "Cosmetics registry entry.",
+          "$ref": "#/definitions/cosmetics_entry"
         }
       }
     }
@@ -176,7 +181,7 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 29 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 30 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps",
@@ -207,7 +212,8 @@
         "hit_color",
         "damage_tint",
         "old_animations",
-        "old_input"
+        "old_input",
+        "cosmetics"
       ]
     },
     "hud_mod_id": {
@@ -250,7 +256,8 @@
         "hit_color",
         "damage_tint",
         "old_animations",
-        "old_input"
+        "old_input",
+        "cosmetics"
       ]
     },
     "kind": {
@@ -2022,6 +2029,41 @@
         }
       }
     },
+    "cosmetics_settings": {
+      "title": "Cosmetics settings",
+      "description": "Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored by the launcher against your account; these four switches are only about what this client draws. Off hides every cosmetic, yours included, and stops answering other players' emotes — but your own set is untouched, and other VOID players still see it.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether cosmetics are shown.",
+          "$ref": "#/definitions/on"
+        },
+        "others": {
+          "description": "Whether other VOID players' cosmetics are drawn. On by default, because seeing who else plays VOID is half the point. Off draws only your own — for a crowded lobby, or for a player who wants the fight in front of them to look like vanilla. Their emotes still animate their model; only what they wear is hidden.",
+          "type": "boolean",
+          "default": true
+        },
+        "own_first_person": {
+          "description": "Whether your own trail is drawn while you are in first person. Off by default: a trail is something other people see you leave, and in first person it is particles at your own feet, on the edge of the frame you aim through. On is for the player who likes to watch it. Your cape, halo and the rest are never drawn in first person — the game does not draw your model there either.",
+          "type": "boolean",
+          "default": false
+        },
+        "glow": {
+          "description": "Whether emissive cosmetics glow — the soft bloom around halos, wing edges and bright trails. On by default, because those items are designed around it. Off draws the same shapes flat, which is cheaper on a weak GPU and easier on the eyes in a dark cave.",
+          "type": "boolean",
+          "default": true
+        },
+        "emote_camera": {
+          "description": "Whether the camera swings to third person and orbits slowly while you emote, so you can see what you are doing. On by default. Off keeps your own view where it is: other players still see the emote, you just do not watch it. The camera never moves while you move — taking a step ends the emote and gives the view straight back.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
     "fps_entry": {
       "title": "FPS display entry",
       "description": "Registry entry for the FPS display, narrowed to its constant classification.",
@@ -3290,11 +3332,54 @@
           }
         }
       ]
+    },
+    "cosmetics_entry": {
+      "title": "Cosmetics entry",
+      "description": "Registry entry for Cosmetics, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `cosmetics`.",
+              "const": "cosmetics"
+            },
+            "icon": {
+              "description": "Always `star`.",
+              "const": "star"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Cosmetics settings.",
+              "$ref": "#/definitions/cosmetics_settings"
+            }
+          },
+          "not": {
+            "$comment": "Cosmetics is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
     }
   },
   "examples": [
     {
-      "version": 10,
+      "version": 11,
       "mods": {
         "fps": {
           "id": "fps",
@@ -3929,6 +4014,23 @@
             "use_while_digging": false,
             "dig_while_using": false,
             "no_miss_delay": false
+          }
+        },
+        "cosmetics": {
+          "id": "cosmetics",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Cosmetics",
+          "icon": "star",
+          "description": "Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.",
+          "source": "the cosmetic renderer's player-model layer (cape, back, head, face, halo, badge), the trail emitter, and the emote animator",
+          "defaults": {
+            "on": true,
+            "others": true,
+            "own_first_person": false,
+            "glow": true,
+            "emote_camera": true
           }
         }
       }

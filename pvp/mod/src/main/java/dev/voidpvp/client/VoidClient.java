@@ -294,6 +294,9 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         } else {
             socket = new VoidSocket(port, token, MC_VERSION, MOD_VERSION, this);
             state.setSink(socket);
+            // Equips, the emote wheel, emotes and cosmetics queries go to the launcher on the
+            // same link; the mod never talks HTTP.
+            dev.voidpvp.client.cosmetic.CosmeticState.get().setSink(socket);
             socket.start();
         }
 
@@ -1745,6 +1748,21 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // The WS thread changed what the page draws, so it owes the render request — the same
         // split onInit makes, and the reason pushWholeState does not make one itself.
         ui.requestRender();
+    }
+
+    @Override
+    public void onCosmetics(dev.voidpvp.client.cosmetic.EquippedSet self,
+                            List<dev.voidpvp.client.cosmetic.EquippedSet> players) {
+        // void-ws. CosmeticState is built for three writers; its listener pushes `cosmetics` to
+        // the page when the local set changed. Ownership is null — the wire does not carry it;
+        // the backend validates equips and reverts a refused one with a fresh `self`.
+        dev.voidpvp.client.cosmetic.CosmeticState.get().applyLauncher(self, players, null);
+    }
+
+    @Override
+    public void onRemoteEmote(String uuid, String id, long atMs) {
+        // void-ws. Emotes publishes an immutable clip the renderer picks up next frame.
+        dev.voidpvp.client.cosmetic.Emotes.get().startRemote(uuid, id, atMs);
     }
 
     @Override

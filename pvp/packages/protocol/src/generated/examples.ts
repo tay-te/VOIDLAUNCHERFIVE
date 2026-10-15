@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 10,
+    "version": 11,
     "mods": {
       "fps": {
         "id": "fps",
@@ -650,6 +650,23 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "dig_while_using": false,
           "no_miss_delay": false
         }
+      },
+      "cosmetics": {
+        "id": "cosmetics",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Cosmetics",
+        "icon": "star",
+        "description": "Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.",
+        "source": "the cosmetic renderer's player-model layer (cape, back, head, face, halo, badge), the trail emitter, and the emote animator",
+        "defaults": {
+          "on": true,
+          "others": true,
+          "own_first_person": false,
+          "glow": true,
+          "emote_camera": true
+        }
       }
     }
   }
@@ -1084,6 +1101,70 @@ export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
       "theme": "void-dark",
       "ui_scale": 1
     }
+  },
+  {
+    "t": "cosmetics_query",
+    "uuids": [
+      "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+      "853c80ef3c3749fdaa49938b674adae6"
+    ]
+  },
+  {
+    "t": "emote",
+    "id": "emote-wave"
+  },
+  {
+    "t": "equip",
+    "slot": "cape",
+    "id": "void-cape-rift"
+  },
+  {
+    "t": "equip",
+    "slot": "halo",
+    "id": null
+  },
+  {
+    "t": "cosmetics",
+    "self": {
+      "uuid": "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+      "cape": "void-cape-rift",
+      "back": null,
+      "head": null,
+      "face": null,
+      "halo": null,
+      "trail": null,
+      "badge": "void-badge-founder",
+      "emotes": [
+        "emote-wave"
+      ],
+      "tints": {
+        "cape": "#9f8bff"
+      }
+    },
+    "players": [
+      {
+        "uuid": "853c80ef-3c37-49fd-aa49-938b674adae6",
+        "cape": null,
+        "back": "void-wings-ash",
+        "head": null,
+        "face": null,
+        "halo": null,
+        "trail": "void-trail-spark",
+        "badge": null,
+        "emotes": []
+      }
+    ]
+  },
+  {
+    "t": "cosmetics",
+    "self": null,
+    "players": []
+  },
+  {
+    "t": "emote",
+    "uuid": "853c80ef-3c37-49fd-aa49-938b674adae6",
+    "id": "emote-wave",
+    "at": 1760527200000
   }
 ];
 
@@ -1441,6 +1522,109 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
       "mod": "stopwatch",
       "action": "reset"
     }
+  },
+  {
+    "e": "cosmetics",
+    "payload": {
+      "self": {
+        "uuid": "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+        "cape": "ring-cape",
+        "back": null,
+        "head": null,
+        "face": null,
+        "halo": "seraph-halo",
+        "trail": "spark-trail",
+        "badge": "void-badge-player",
+        "emotes": [
+          "emote-wave",
+          "emote-clap"
+        ],
+        "tints": {
+          "cape": "#9f8bff"
+        }
+      },
+      "owned": [
+        "ring-cape",
+        "origin-cape",
+        "seraph-halo",
+        "emote-wave",
+        "emote-clap",
+        "spark-trail",
+        "void-badge-player"
+      ],
+      "catalog_version": 1
+    }
+  },
+  {
+    "e": "emote",
+    "payload": {
+      "id": "emote-wave"
+    }
+  },
+  {
+    "e": "emote",
+    "payload": {
+      "id": null
+    }
+  },
+  {
+    "c": "equipCosmetic",
+    "params": [
+      "cape",
+      "ring-cape"
+    ]
+  },
+  {
+    "c": "equipCosmetic",
+    "returns": "ring-cape"
+  },
+  {
+    "c": "equipCosmetic",
+    "params": [
+      "halo",
+      null
+    ]
+  },
+  {
+    "c": "equipCosmetic",
+    "returns": null
+  },
+  {
+    "c": "setCosmeticTint",
+    "params": [
+      "cape",
+      "#9f8bff"
+    ]
+  },
+  {
+    "c": "setCosmeticTint",
+    "returns": "#9f8bff"
+  },
+  {
+    "c": "setEmoteWheel",
+    "params": [
+      [
+        "emote-wave",
+        "emote-clap"
+      ]
+    ]
+  },
+  {
+    "c": "setEmoteWheel",
+    "returns": [
+      "emote-wave",
+      "emote-clap"
+    ]
+  },
+  {
+    "c": "playEmote",
+    "params": [
+      "emote-wave"
+    ]
+  },
+  {
+    "c": "playEmote",
+    "returns": true
   }
 ];
 

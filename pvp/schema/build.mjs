@@ -81,6 +81,10 @@ const ORDER = [
   // `hypixel_safe` is per mod: `old_animations` is `safe`, `old_input` is `grey`. Each file argues
   // its own half. Appended, never inserted.
   'old_animations', 'old_input',
+  // Wave 7 — the switches over the cosmetics renderer. What a player *wears* is account data the
+  // launcher owns (`cosmetics.json`, the `cosmetics` protocol message); this is only what the
+  // client draws. Appended, never inserted.
+  'cosmetics',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

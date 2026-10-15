@@ -55,6 +55,9 @@ export const MOD_ORDER: ModId[] = [
   // you rather than off the HUD.
   'hit_color',
   'damage_tint',
+  // Beside the two that are about reading another player's model: this one is what you see on
+  // it, or do not.
+  'cosmetics',
   'armor_status',
   // The survival block: what you are wearing, what is keeping you alive, what is in your hand.
   // Saturation sits inside it because in 1.8 saturation *is* regen, and vanilla never draws it.

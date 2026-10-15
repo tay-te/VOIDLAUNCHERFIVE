@@ -43,9 +43,10 @@
   // side and not added here fails completely silently — no error, no warning, the page simply
   // never hears it. That is exactly how `session` was lost the first time it was sent.
   var EVENTS = ['keys', 'tick', 'server', 'loadout', 'loadouts', 'setting', 'menu', 'session',
-    'settings', 'modaction'];
+    'settings', 'modaction', 'cosmetics', 'emote'];
   var CALLS = ['setGameplay', 'setHud', 'setModSetting', 'switchLoadout', 'closeMenu',
-    'openKeybindCapture', 'setSurfaces', 'setGlobal'];
+    'openKeybindCapture', 'setSurfaces', 'setGlobal', 'equipCosmetic', 'setCosmeticTint',
+    'setEmoteWheel', 'playEmote'];
   var handlers = {};
   // FIFO, so a second capture opened before the first resolved still lines up with
   // the envelopes Java sends back in the order it armed them.
@@ -84,13 +85,10 @@
   var bridge = {
     __isVoidBridge: true,
 
-    /**
-     * The calls this host answers: bridge.json's seven, plus `setGlobal`. For a host that wants
-     * to enumerate them.
-     */
+    /** The twelve calls this host answers, bridge.json's call_name. For a host that wants to enumerate them. */
     __calls: CALLS,
 
-    /** The push channels: bridge.json's seven, plus `session` and `settings`. */
+    /** The twelve push channels, bridge.json's event_name. */
     __events: EVENTS,
 
     /**
@@ -212,7 +210,7 @@
       resolveCapture(key);
     },
 
-    // -- the calls: bridge.json's seven, plus setGlobal ---------------------
+    // -- the calls: bridge.json's call_name, all twelve ---------------------
 
     /** Toggle a gameplay mod; returns the state actually applied. */
     setGameplay: function (id, on) {
@@ -262,6 +260,40 @@
      */
     setSurfaces: function (surfaces) {
       return call('setSurfaces', [surfaces]) || 0;
+    },
+
+    /**
+     * Wear a cosmetic in a slot, or take the slot off with null. Returns the id now in the
+     * slot: the request on success, what was already there when Java refused it (not owned,
+     * unknown, or for another slot). Bind the wardrobe to the return. No `cosmetics` event
+     * follows a call the page made.
+     */
+    equipCosmetic: function (slot, id) {
+      return call('equipCosmetic', [slot, id === undefined ? null : id]);
+    },
+
+    /**
+     * Recolour the item worn in a slot ('#rrggbb'), or clear its tint with null. Only tintable
+     * items take one. Returns the tint now applied, lower case, or null.
+     */
+    setCosmeticTint: function (slot, hex) {
+      return call('setCosmeticTint', [slot, hex === undefined ? null : hex]);
+    },
+
+    /**
+     * Replace the emote wheel. Unowned, non-emote and repeated ids are dropped and at most
+     * eight kept. Returns the wheel as stored.
+     */
+    setEmoteWheel: function (ids) {
+      return call('setEmoteWheel', [ids || []]) || [];
+    },
+
+    /**
+     * Play an emote for the local player. Returns whether it started. The `emote` channel
+     * reports its end, not its start, for an emote started here.
+     */
+    playEmote: function (id) {
+      return call('playEmote', [id]) === true;
     },
 
     /**

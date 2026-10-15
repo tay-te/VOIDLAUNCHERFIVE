@@ -245,6 +245,7 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   damage_tint: () => <Numeral value="3" unit="hearts" />,
   old_animations: () => <Numeral value="1.7" unit="block" />,
   old_input: () => <Numeral value="3" unit="gates" />,
+  cosmetics: () => <Numeral value="7" unit="slots" />,
   toggle_sprint: () => <CellGlyph rows={SPRINT_GLYPH} caption="sprint" size={10} />,
   fullbright: () => <CellGlyph rows={FULL_GLYPH} size={18} />,
 };

@@ -42,6 +42,7 @@ export const MOD_IDS = [
   'damage_tint',
   'old_animations',
   'old_input',
+  'cosmetics',
 ] as const satisfies readonly ModId[];
 
 /** The mods that own a draggable HUD item, in registry order. */
@@ -79,4 +80,5 @@ export const GAMEPLAY_MOD_IDS = [
   'damage_tint',
   'old_animations',
   'old_input',
+  'cosmetics',
 ] as const satisfies readonly GameplayModId[];

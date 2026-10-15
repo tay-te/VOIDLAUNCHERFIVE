@@ -433,22 +433,24 @@ describe('cosmetics store (rules 5, 8)', () => {
   it('equips only what is owned, one per kind, and a second press takes it off', () => {
     useCosmetics.getState().equip('void-cape');
     expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
-    useCosmetics.getState().equip('plain-nameplate');
-    expect(useCosmetics.getState().equipped.nameplate).toBe('plain-nameplate');
-    useCosmetics.getState().equip('plain-nameplate');
-    expect(useCosmetics.getState().equipped.nameplate).toBeUndefined();
+    useCosmetics.getState().equip('void-badge-player');
+    expect(useCosmetics.getState().equipped.badge).toBe('void-badge-player');
+    useCosmetics.getState().equip('void-badge-player');
+    expect(useCosmetics.getState().equipped.badge).toBeUndefined();
   });
 
-  it('the catalog matches the frame’s counts: 6 capes, 4 trails, 8 emotes, 5 nameplates', () => {
+  it('the catalog is the launch lineup from schema/cosmetics.json, granted items left out', () => {
     const count = (kind: string) => CATALOG.filter((i) => i.kind === kind).length;
-    expect([count('cape'), count('trail'), count('emote'), count('nameplate')]).toEqual([6, 4, 8, 5]);
-    expect(CATALOG.length).toBe(23);
+    expect(['cape', 'back', 'head', 'face', 'halo', 'trail', 'emote', 'badge'].map(count)).toEqual([6, 3, 3, 2, 2, 4, 6, 3]);
+    expect(CATALOG.some((i) => i.availability === 'grant')).toBe(false);
+    expect(FREE_ITEMS).toContain('void-badge-player');
   });
 });
 
 describe('category counts (Home strip)', () => {
-  it('splits the registry the way the frame does: 11 · 11 · 4 · 3', () => {
-    expect(TOTAL_MODS).toBe(29);
-    expect(countsFor(null).map((c) => c.total)).toEqual([11, 11, 4, 3]);
+  it('splits the registry the way the frame does: 11 · 11 · 5 · 3', () => {
+    // `cosmetics` (visual) is the thirtieth.
+    expect(TOTAL_MODS).toBe(30);
+    expect(countsFor(null).map((c) => c.total)).toEqual([11, 11, 5, 3]);
   });
 });

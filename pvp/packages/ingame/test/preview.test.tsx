@@ -80,6 +80,7 @@ const LIVE: readonly ModId[] = [
   'damage_tint',
   'old_animations',
   'old_input',
+  'cosmetics',
 ];
 
 /**
