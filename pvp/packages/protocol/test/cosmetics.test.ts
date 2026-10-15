@@ -212,7 +212,7 @@ describe('createFakeVoid — cosmetics', () => {
     fake.setCosmeticTint('cape', '#9f8bff');
     fake.setEmoteWheel(['emote-wave', 'emote-clap']);
     fake.playEmote('emote-wave');
-    expect(fake.openStore('void-cape-rift')).toBe(true);
+    expect(fake.openStore('ring-cape')).toBe(true);
     const calls = fake.getCalls();
     expect(calls.map((c) => c.c)).toEqual([
       'equipCosmetic',
@@ -272,13 +272,13 @@ describe('installVoidShim — cosmetics', () => {
     expect(bridge.setCosmeticTint('cape', '#123456')).toBeNull();
     expect(bridge.setEmoteWheel(['emote-wave', 'emote-bow'])).toEqual(['emote-wave']);
     expect(bridge.playEmote('emote-wave')).toBe(true);
-    expect(bridge.openStore('void-cape-rift')).toBe(true);
+    expect(bridge.openStore('ring-cape')).toBe(true);
     expect(sent).toEqual([
       { c: 'equipCosmetic', params: ['cape', 'cell-cape'] },
       { c: 'setCosmeticTint', params: ['cape', '#123456'] },
       { c: 'setEmoteWheel', params: [['emote-wave', 'emote-bow']] },
       { c: 'playEmote', params: ['emote-wave'] },
-      { c: 'openStore', params: ['void-cape-rift'] },
+      { c: 'openStore', params: ['ring-cape'] },
     ]);
   });
 
@@ -286,7 +286,7 @@ describe('installVoidShim — cosmetics', () => {
     const bridge = installVoidShim({ native: () => '', target: null });
     expect(bridge.playEmote('emote-wave')).toBe(false);
     // No launcher was reached, so the page must not say the Store opened.
-    expect(bridge.openStore('void-cape-rift')).toBe(false);
+    expect(bridge.openStore('ring-cape')).toBe(false);
     expect(bridge.equipCosmetic('cape', 'origin-cape')).toBe('origin-cape');
   });
 });
