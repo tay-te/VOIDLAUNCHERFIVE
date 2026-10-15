@@ -17,12 +17,17 @@ import { listen as rawListen } from '@tauri-apps/api/event';
 
 import type {
   Account,
+  CheckoutSession,
+  CosmeticsState,
   DeviceCode,
+  EquippedSet,
+  FriendsList,
   JavaStatus,
   LaunchReport,
   Loadout,
   LoadoutPatch,
   LoadoutSummary,
+  OnlineStatus,
   PingResult,
   PrepareReport,
   Settings,
@@ -64,6 +69,21 @@ export interface Cmd {
   window_minimize: [Record<string, never>, void];
   window_toggle_maximize: [Record<string, never>, void];
   window_close: [Record<string, never>, void];
+
+  // online — docs/online-contract.md, "Launcher commands"
+  online_status: [Record<string, never>, OnlineStatus];
+  cosmetics_state: [Record<string, never>, CosmeticsState];
+  /** `id: null` takes the slot's item off. */
+  cosmetics_equip: [{ slot: string; id: string | null }, EquippedSet];
+  cosmetics_set_emotes: [{ ids: string[] }, EquippedSet];
+  /** Opens Stripe Checkout in the system browser and returns the session. */
+  store_checkout: [{ item: string }, CheckoutSession];
+  friends_list: [Record<string, never>, FriendsList];
+  friends_request: [{ name: string }, FriendsList];
+  friends_accept: [{ uuid: string }, FriendsList];
+  friends_decline: [{ uuid: string }, FriendsList];
+  friends_cancel: [{ uuid: string }, FriendsList];
+  friends_remove: [{ uuid: string }, FriendsList];
 }
 
 export type CmdName = keyof Cmd;
@@ -91,6 +111,9 @@ export interface Evt {
   'bridge:server': import('./protocol').BridgeServer;
   'loadout:switched': Loadout;
   'update:available': UpdateInfo;
+  'online:status': OnlineStatus;
+  'online:cosmetics': CosmeticsState;
+  'online:friends': FriendsList;
 }
 
 export type EvtName = keyof Evt;

@@ -31,6 +31,7 @@ import { SettingsPanel } from './screens/Settings';
 import { StoreScreen } from './screens/Store';
 import { useCosmetics } from './stores/cosmetics';
 import { useFriends } from './stores/friends';
+import { useOnlineStatus, wireOnlineEvents } from './stores/online';
 import { useLaunch, wireLaunchEvents } from './stores/launch';
 import { useLoadouts, wireLoadoutEvents } from './stores/loadouts';
 import { useSession, wireSessionEvents } from './stores/session';
@@ -91,20 +92,22 @@ export function App() {
   const hydrateLoadouts = useLoadouts((s) => s.hydrate);
   const hydrateFriends = useFriends((s) => s.hydrate);
   const hydrateCosmetics = useCosmetics((s) => s.hydrate);
+  const hydrateOnline = useOnlineStatus((s) => s.hydrate);
   const phase = useLaunch((s) => s.phase);
   const material = useUi((s) => s.material);
 
   useEffect(() => {
     void hydrateSession();
     void hydrateLoadouts();
+    void hydrateOnline();
     hydrateFriends();
     hydrateCosmetics();
-  }, [hydrateSession, hydrateLoadouts, hydrateFriends, hydrateCosmetics]);
+  }, [hydrateSession, hydrateLoadouts, hydrateOnline, hydrateFriends, hydrateCosmetics]);
 
   useEffect(() => {
     // One subscription set for the whole app. Every store's events are wired here so
     // that a screen mounting or unmounting can never drop a `game:closed`.
-    const pending = Promise.all([wireSessionEvents(), wireLoadoutEvents(), wireLaunchEvents()]);
+    const pending = Promise.all([wireSessionEvents(), wireLoadoutEvents(), wireLaunchEvents(), wireOnlineEvents()]);
     return () => {
       void pending.then((unlisteners) => unlisteners.forEach((u) => u()));
     };

@@ -216,3 +216,62 @@ export interface UpdateInfo {
 export type BridgeState = Extract<JavaToRustMessage, { t: 'state' }>;
 export type BridgeSession = Extract<JavaToRustMessage, { t: 'session' }>;
 export type BridgeServer = Extract<JavaToRustMessage, { t: 'server' }>;
+
+// ------------------------------------------- online (docs/online-contract.md)
+
+/**
+ * Online features: Supabase through Rust's `void-online`. The webview never talks to the
+ * network itself — these are the shapes `src-tauri/src/models.rs` hands across `invoke`.
+ * `EquippedSet` and `CosmeticSlot` are schema types (`protocol.json`), shared with the mod.
+ */
+export type { EquippedSet, CosmeticSlot } from '@void/protocol';
+import type { EquippedSet } from '@void/protocol';
+
+/** `online_status` / `online:status`. `disabled`: this build has no backend configured. */
+export type OnlineStatus =
+  | { state: 'disabled' }
+  | { state: 'signed_out' }
+  | { state: 'connecting' }
+  | { state: 'online'; uuid: string; name: string }
+  | { state: 'error'; message: string };
+
+/** `cosmetics_state` / `online:cosmetics`. `equipped` is null when not online. */
+export interface CosmeticsState {
+  online: boolean;
+  owned: string[];
+  equipped: EquippedSet | null;
+}
+
+export interface FriendPresenceDto {
+  state: 'online' | 'offline';
+  /** Normalised server address, only while online on a server. */
+  server?: string;
+  /** Unix ms. */
+  last_seen?: number;
+}
+
+export interface FriendDto {
+  uuid: string;
+  name: string;
+  presence: FriendPresenceDto;
+}
+
+export interface FriendRequestDto {
+  uuid: string;
+  name: string;
+  /** Unix ms. */
+  at: number;
+}
+
+/** `friends_*` / `online:friends`: always the whole list. */
+export interface FriendsList {
+  friends: FriendDto[];
+  incoming: FriendRequestDto[];
+  outgoing: FriendRequestDto[];
+}
+
+/** `store_checkout`: Rust has already opened `url` in the system browser. */
+export interface CheckoutSession {
+  url: string;
+  session_id: string;
+}

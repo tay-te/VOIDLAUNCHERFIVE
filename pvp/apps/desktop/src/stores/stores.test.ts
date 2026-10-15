@@ -9,14 +9,15 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { __resetMock, __setSpeed, __signIn, emit } from '../mocks/tauri';
+import { __resetMock, __seedOnline, __setSpeed, __signIn, __signInOnline, emit } from '../mocks/tauri';
 import { hypixelReady } from '../local/hypixelReady';
 import { effectiveState, enabledCount, isOn, matchesTab } from '../local/registry';
 import { useLaunch, wireLaunchEvents, formatBytes, stepLabel } from './launch';
 import { useLoadouts, wireLoadoutEvents } from './loadouts';
 import { useServers, nameForHost, normaliseHost, pingTone } from './servers';
-import { useFriends, USERNAME_ERROR, friendsOn, lastSeenText } from './friends';
-import { useCosmetics } from './cosmetics';
+import { useFriends, USERNAME_ERROR, OFFLINE_ERROR, friendsOn, lastSeenText, fromServer as friendsFromServer } from './friends';
+import { isWorn, slotFor, useCosmetics } from './cosmetics';
+import { useOnlineStatus, wireOnlineEvents } from './online';
 import { CATALOG, FREE_ITEMS } from '../local/catalog';
 import { countsFor, TOTAL_MODS } from '../local/categories';
 import { useSession, wireSessionEvents } from './session';
@@ -39,6 +40,9 @@ beforeEach(() => {
   useLaunch.setState({ phase: 'idle', progress: null, log: [], error: null, lastSession: null, crash: null, server: null, launchedServer: null });
   useUi.setState({ screen: 'home', paletteOpen: false, settingsOpen: false, logOpen: false, friendsOpen: false, storeItem: null });
   localStorage.clear();
+  useOnlineStatus.setState({ status: { state: 'signed_out' } });
+  useFriends.setState({ online: false, error: null });
+  useCosmetics.setState({ online: false, error: null, checkout: null });
   useFriends.getState().hydrate();
   useCosmetics.getState().hydrate();
 });
@@ -386,25 +390,58 @@ describe('friends store (rule 7)', () => {
     expect(s.outgoing).toEqual([]);
   });
 
-  it('adds by Minecraft username only: 3–16 letters, digits and underscores', () => {
-    expect(useFriends.getState().request('x!')).toBe(USERNAME_ERROR);
-    expect(useFriends.getState().request('ab')).toBe(USERNAME_ERROR);
-    expect(useFriends.getState().request('a_very_long_name_x')).toBe(USERNAME_ERROR);
-    expect(useFriends.getState().request('nine')).toBeNull();
-    expect(useFriends.getState().outgoing).toEqual(['nine']);
-    expect(useFriends.getState().request('NINE')).toMatch(/already sent/);
+  it('offline, it checks the name and then says why it cannot send', async () => {
+    expect(await useFriends.getState().request('x!')).toBe(USERNAME_ERROR);
+    expect(await useFriends.getState().request('nine')).toBe(OFFLINE_ERROR);
+    expect(useFriends.getState().outgoing).toEqual([]);
   });
 
-  it('answering a request in either direction makes a friend', () => {
-    useFriends.setState({ incoming: ['marrow'], friends: [], outgoing: [] });
-    useFriends.getState().accept('marrow');
-    expect(useFriends.getState().incoming).toEqual([]);
-    expect(useFriends.getState().friends.map((f) => f.name)).toEqual(['marrow']);
-    expect(useFriends.getState().request('Marrow')).toMatch(/already friends/);
+  it('adds by Minecraft username only: 3–16 letters, digits and underscores', async () => {
+    __signInOnline();
+    await useFriends.getState().refresh();
+    expect(useFriends.getState().online).toBe(true);
+    expect(await useFriends.getState().request('ab')).toBe(USERNAME_ERROR);
+    expect(await useFriends.getState().request('a_very_long_name_x')).toBe(USERNAME_ERROR);
+    expect(await useFriends.getState().request('nine')).toBeNull();
+    expect(useFriends.getState().outgoing).toEqual(['nine']);
+    expect(await useFriends.getState().request('NINE')).toMatch(/already sent/);
+    expect(await useFriends.getState().request('Ghost')).toMatch(/Nobody called Ghost/);
+    // The list survives a restart as the offline copy.
+    useFriends.setState({ outgoing: [] });
+    useFriends.getState().hydrate();
+    expect(useFriends.getState().outgoing).toEqual(['nine']);
+  });
 
-    useFriends.setState({ incoming: ['tavi'] });
-    expect(useFriends.getState().request('tavi')).toBeNull();
+  it('answering a request in either direction makes a friend', async () => {
+    __signInOnline();
+    __seedOnline({ owned: [], equipped: {}, friends: [], incoming: ['marrow', 'tavi'] });
+    await useFriends.getState().refresh();
+    expect(useFriends.getState().incoming).toEqual(['marrow', 'tavi']);
+
+    await useFriends.getState().accept('marrow');
+    expect(useFriends.getState().incoming).toEqual(['tavi']);
+    expect(useFriends.getState().friends.map((f) => f.name)).toEqual(['marrow']);
+    expect(await useFriends.getState().request('Marrow')).toMatch(/already friends/);
+
+    // They asked first: sending one back is accepting theirs.
+    expect(await useFriends.getState().request('tavi')).toBeNull();
     expect(useFriends.getState().friends.map((f) => f.name)).toContain('tavi');
+    expect(useFriends.getState().incoming).toEqual([]);
+
+    await useFriends.getState().remove('tavi');
+    expect(useFriends.getState().friends.map((f) => f.name)).toEqual(['marrow']);
+  });
+
+  it('pushes from the backend land without a refetch', async () => {
+    await wireOnlineEvents();
+    emit('online:friends', {
+      friends: [{ uuid: 'u1', name: 'Moss', presence: { state: 'online', server: 'mc.hypixel.net', last_seen: 5 } }],
+      incoming: [],
+      outgoing: [],
+    });
+    const moss = useFriends.getState().friends[0];
+    expect(moss?.presence).toEqual({ state: 'online', server: 'mc.hypixel.net', lastSeen: 5 });
+    expect(useFriends.getState().ids.moss).toBe('u1');
   });
 
   it('knows who is on the server Launch joins', () => {
@@ -412,9 +449,24 @@ describe('friends store (rule 7)', () => {
       { name: 'Moss', presence: { state: 'online' as const, server: 'mc.hypixel.net', game: 'Duels' } },
       { name: 'Rin_', presence: { state: 'online' as const, lobby: true } },
       { name: 'Otto', presence: { state: 'offline' as const, server: 'mc.hypixel.net' } },
+      { name: 'Juno', presence: { state: 'online' as const, server: 'play.example.org:25566' } },
     ];
     expect(friendsOn(friends, 'MC.HYPIXEL.NET').map((f) => f.name)).toEqual(['Moss']);
+    expect(friendsOn(friends, 'mc.hypixel.net:25565').map((f) => f.name)).toEqual(['Moss']);
+    expect(friendsOn(friends, 'play.example.org:25566').map((f) => f.name)).toEqual(['Juno']);
     expect(friendsOn(friends, null)).toEqual([]);
+  });
+
+  it('maps the backend list into the drawer shape', () => {
+    const data = friendsFromServer({
+      friends: [{ uuid: 'a', name: 'Otto', presence: { state: 'offline', last_seen: 1000 } }],
+      incoming: [{ uuid: 'b', name: 'marrow', at: 1 }],
+      outgoing: [{ uuid: 'c', name: 'Tavi', at: 2 }],
+    });
+    expect(data.friends).toEqual([{ uuid: 'a', name: 'Otto', presence: { state: 'offline', lastSeen: 1000 } }]);
+    expect(data.incoming).toEqual(['marrow']);
+    expect(data.outgoing).toEqual(['Tavi']);
+    expect(data.ids).toEqual({ otto: 'a', marrow: 'b', tavi: 'c' });
   });
 
   it('says when an offline friend was last seen', () => {
@@ -428,18 +480,89 @@ describe('cosmetics store (rules 5, 8)', () => {
   it('owns the free items and nothing else to begin with', () => {
     expect(useCosmetics.getState().owned.sort()).toEqual([...FREE_ITEMS].sort());
     expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
+    expect(useCosmetics.getState().online).toBe(false);
   });
 
-  it('equips only what is owned, one per kind, and a second press takes it off', () => {
-    useCosmetics.getState().equip('void-cape');
+  it('offline, equips only what is owned, one per kind, and a second press takes it off', async () => {
+    await useCosmetics.getState().equip('void-cape');
     expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
-    useCosmetics.getState().equip('plain-nameplate');
+    await useCosmetics.getState().equip('plain-nameplate');
     expect(useCosmetics.getState().equipped.nameplate).toBe('plain-nameplate');
-    useCosmetics.getState().equip('plain-nameplate');
+    await useCosmetics.getState().equip('plain-nameplate');
     expect(useCosmetics.getState().equipped.nameplate).toBeUndefined();
   });
 
-  it('the catalog matches the frame’s counts: 6 capes, 4 trails, 8 emotes, 5 nameplates', () => {
+  it('maps the catalog kinds onto the contract slots', () => {
+    expect(slotFor('cape')).toBe('cape');
+    expect(slotFor('trail')).toBe('trail');
+    expect(slotFor('nameplate')).toBe('badge');
+    expect(slotFor('emote')).toBe('emotes');
+    expect(slotFor('halo')).toBe('halo');
+    expect(slotFor('aura')).toBeNull();
+  });
+
+  it('online, the server owns the truth and every equip goes through it', async () => {
+    __signInOnline();
+    await useCosmetics.getState().refresh();
+    const s = useCosmetics.getState();
+    expect(s.online).toBe(true);
+    expect(s.owned.sort()).toEqual([...FREE_ITEMS].sort());
+    expect(s.equipped).toEqual({}); // a new account wears nothing until it chooses
+
+    await useCosmetics.getState().equip('origin-cape');
+    expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
+    await useCosmetics.getState().equip('plain-nameplate');
+    expect(useCosmetics.getState().equipped.nameplate).toBe('plain-nameplate');
+    await useCosmetics.getState().equip('origin-cape');
+    expect(useCosmetics.getState().equipped.cape).toBeUndefined();
+    // Not owned: nothing happens, nothing is sent.
+    await useCosmetics.getState().equip('void-cape');
+    expect(useCosmetics.getState().equipped.cape).toBeUndefined();
+  });
+
+  it('online, emotes go on and off the wheel', async () => {
+    __signInOnline();
+    __seedOnline({ owned: ['wave-emote', 'gg-emote'], equipped: {}, friends: [], incoming: [] });
+    await useCosmetics.getState().refresh();
+    await useCosmetics.getState().equip('wave-emote');
+    await useCosmetics.getState().equip('gg-emote');
+    expect(useCosmetics.getState().emotes).toEqual(['wave-emote', 'gg-emote']);
+    const wave = CATALOG.find((i) => i.id === 'wave-emote')!;
+    expect(isWorn(useCosmetics.getState(), wave)).toBe(true);
+    await useCosmetics.getState().equip('wave-emote');
+    expect(useCosmetics.getState().emotes).toEqual(['gg-emote']);
+  });
+
+  it('buying opens checkout and the item arrives when the backend says it was paid for', async () => {
+    __signInOnline();
+    await wireOnlineEvents();
+    await useCosmetics.getState().refresh();
+    await useCosmetics.getState().buy('void-cape');
+    expect(useCosmetics.getState().owned).toContain('void-cape');
+    expect(useCosmetics.getState().checkout).toEqual({ item: 'void-cape', phase: 'done' });
+
+    await useCosmetics.getState().buy('void-cape');
+    expect(useCosmetics.getState().checkout).toMatchObject({ phase: 'failed', message: expect.stringMatching(/already own/) });
+  });
+
+  it('offline, buying says what is needed instead of pretending', async () => {
+    await useCosmetics.getState().buy('void-cape');
+    expect(useCosmetics.getState().checkout).toMatchObject({ phase: 'failed', message: expect.stringMatching(/Microsoft account/) });
+    expect(useCosmetics.getState().owned).not.toContain('void-cape');
+  });
+
+  it('signing out drops back to the offline copy', async () => {
+    __signInOnline();
+    await wireOnlineEvents();
+    emit('online:status', { state: 'online', uuid: 'u', name: 'Kestrel' });
+    await until(() => useCosmetics.getState().online, 'cosmetics online');
+    emit('online:status', { state: 'signed_out' });
+    expect(useCosmetics.getState().online).toBe(false);
+    expect(useFriends.getState().online).toBe(false);
+    expect(useOnlineStatus.getState().status.state).toBe('signed_out');
+  });
+
+  it('the catalog matches the frame counts: 6 capes, 4 trails, 8 emotes, 5 nameplates', () => {
     const count = (kind: string) => CATALOG.filter((i) => i.kind === kind).length;
     expect([count('cape'), count('trail'), count('emote'), count('nameplate')]).toEqual([6, 4, 8, 5]);
     expect(CATALOG.length).toBe(23);
