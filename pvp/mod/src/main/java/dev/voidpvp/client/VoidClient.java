@@ -97,6 +97,9 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     /** Previous-tick values, so an edge is counted once rather than every tick it persists. */
     private int lastAttackCooldownSeen;
     private final ServerWatcher server = new ServerWatcher();
+    /** The {@code scoreboard} HUD mod's sensor; see {@link #tickWave7}. */
+    private final dev.voidpvp.client.sensor.ScoreboardSensor scoreboard =
+            new dev.voidpvp.client.sensor.ScoreboardSensor();
     /** {@code VOID_UI_TICKLOG}: print every coalesced `tick` payload. See the emit site. */
     private static final boolean TICK_LOG = System.getenv("VOID_UI_TICKLOG") != null;
 
@@ -554,6 +557,21 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         applyActuators(mc);
         pushTick(mc);
         pushSession(mc);
+        tickWave7(mc);
+    }
+
+    /**
+     * The Wave 7 mods' once-a-tick work: the scoreboard sensor (pushed on its own channel, only
+     * when the board changed), the clear-glass chunk rebuild and menu-blur cleanup
+     * ({@code visual/VisualHooks}), and the benchmark's driver when {@code -Dvoid.bench} is set.
+     */
+    private void tickWave7(MinecraftClient mc) {
+        JsonObject board = scoreboard.poll(mc);
+        if (board != null) {
+            bridge.emit(VoidBridge.EVENT_SCOREBOARD, board);
+        }
+        dev.voidpvp.client.visual.VisualHooks.tick(mc);
+        dev.voidpvp.client.bench.PerfBench.tick(mc);
     }
 
     /**
@@ -1624,6 +1642,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     @Override
     public void resendSensors() {
         resendSensors = true;
+        scoreboard.forget();
     }
 
     public boolean captureActive() {

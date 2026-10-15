@@ -44,6 +44,16 @@ final class BlurBackdrop {
     private int uniformTexture;
 
     BlurBackdrop() {
+        this(false);
+    }
+
+    /**
+     * @param forced  {@code true} for the {@code menu_blur} mod's instance ({@link MenuBlur}),
+     *                which blurs the game behind Minecraft's own screens when the player asked for
+     *                it. The menu's own instance stays off unless {@code VOID_UI_BLUR} is set — see
+     *                below; that rule is about VOID's chrome and is unchanged.
+     */
+    BlurBackdrop(boolean forced) {
         // Off by design, not just for profiling.
         //
         // `design/quiet-cell-system.md` §1 is explicit: no blur, no shadow, no gradient, anywhere.
@@ -55,7 +65,7 @@ final class BlurBackdrop {
         //
         // Set VOID_UI_BLUR to put it back; the implementation is kept because §6.4 may want it
         // again if the design ever stops being flat.
-        disabled = System.getenv("VOID_UI_BLUR") == null;
+        disabled = !forced && System.getenv("VOID_UI_BLUR") == null;
         boolean core;
         try {
             core = GLContext.getCapabilities().OpenGL30;
@@ -131,6 +141,54 @@ final class BlurBackdrop {
         } catch (RuntimeException e) {
             VoidLog.warn("menu backdrop blur failed, falling back to a flat tint: " + e);
             disabled = true;
+        }
+    }
+
+    /**
+     * The {@code menu_blur} mod's draw: the same copy and quarter-resolution Gaussian as
+     * {@link #draw}, run {@code passes} times with a widening tap spacing, drawn back at
+     * {@code alpha} with no tint (vanilla's own dark wash goes on top, scaled by
+     * {@code menu_dim}). Best-effort exactly like {@link #draw}: any failure disables the blur and
+     * the screen draws as vanilla.
+     */
+    void drawBlur(int screenWidth, int screenHeight, int fbWidth, int fbHeight, int passes,
+                  float alpha) {
+        if (disabled || fbWidth <= 0 || fbHeight <= 0 || alpha <= 0f) {
+            return;
+        }
+        // Everything below talks to GL directly, under a vanilla screen whose next draws go
+        // through GlStateManager's cache. Saving and restoring the whole attribute stack keeps
+        // that cache honest: the texture bindings, blend and depth state it believes in are the
+        // ones it gets back.
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        try {
+            ensure(fbWidth, fbHeight);
+            int previousFbo = currentFramebuffer();
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, sceneTexture);
+            GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, fbWidth, fbHeight);
+            blitInto(fboA, sceneTexture, 0f, 0f);
+            int n = Math.max(1, Math.min(10, passes));
+            for (int i = 0; i < n; i++) {
+                // Each pass spreads its taps a little wider, so ten passes are a broad blur rather
+                // than ten copies of the same narrow one.
+                float spread = 1f + i * 0.5f;
+                blitInto(fboB, texA, spread / quarterWidth, 0f);
+                blitInto(fboA, texB, 0f, spread / quarterHeight);
+            }
+            bindFramebuffer(previousFbo);
+            GL11.glViewport(0, 0, fbWidth, fbHeight);
+            GL20.glUseProgram(0);
+            GlBlit.begin2d(screenWidth, screenHeight);
+            try {
+                GlBlit.drawTexture(texA, 0, 0, screenWidth, screenHeight, false, true, alpha);
+            } finally {
+                GlBlit.end2d();
+            }
+        } catch (RuntimeException e) {
+            VoidLog.warn("menu blur failed, screens will draw without it: " + e);
+            disabled = true;
+        } finally {
+            GL11.glPopAttrib();
         }
     }
 

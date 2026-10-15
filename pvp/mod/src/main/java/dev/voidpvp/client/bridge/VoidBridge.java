@@ -173,6 +173,14 @@ public final class VoidBridge {
     public static final String EVENT_MODACTION = "modaction";
 
     /**
+     * The sidebar scoreboard, whole state, for the {@code scoreboard} HUD mod
+     * ({@code bridge.json#/definitions/scoreboard_payload}). Pushed by
+     * {@code sensor/ScoreboardSensor} only when the board changed, and resent after a page reload
+     * through {@code resendSensors()}. Whole state, so an older queued envelope is dropped.
+     */
+    public static final String EVENT_SCOREBOARD = "scoreboard";
+
+    /**
      * Most game-thread work to run in one drain.
      *
      * <p>The queue only ever holds {@code closeMenu}, so in practice a drain runs nothing or one
@@ -495,7 +503,8 @@ public final class VoidBridge {
             // on the same channel really is dead weight. `loadout` is whole-state too but a
             // switch is rare enough to keep in order.
             if (EVENT_KEYS.equals(event) || EVENT_MENU.equals(event)
-                    || EVENT_LOADOUTS.equals(event) || EVENT_SETTINGS.equals(event)) {
+                    || EVENT_LOADOUTS.equals(event) || EVENT_SETTINGS.equals(event)
+                    || EVENT_SCOREBOARD.equals(event)) {
                 dropChannel(event);
             }
             // `tick` is the exception, and it used to be in the list above.
