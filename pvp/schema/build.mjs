@@ -472,10 +472,14 @@ const targets = [
   [loadoutPath, JSON.stringify(loadout, null, 2) + '\n'],
 ];
 
+// Line-ending blind: a Windows checkout with core.autocrlf holds CRLF copies of files this
+// script writes with LF, and that is not staleness.
+const sameText = (a, b) => a !== null && a.split('\r\n').join('\n') === b.split('\r\n').join('\n');
+
 if (process.argv.includes('--check')) {
   let stale = 0;
   for (const [path, content] of targets) {
-    if (readFileSync(path, 'utf8') !== content) {
+    if (!sameText(readFileSync(path, 'utf8'), content)) {
       console.error(`stale: ${path} does not match schema/mods/ — run \`node schema/build.mjs\``);
       stale += 1;
     }

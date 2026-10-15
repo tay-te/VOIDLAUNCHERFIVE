@@ -729,6 +729,10 @@ out.pop();
 
 const content = `${out.join('\n')}\n`;
 
+// Line-ending blind: a Windows checkout with core.autocrlf holds CRLF copies of files this
+// script writes with LF, and that is not staleness.
+const sameText = (a, b) => a !== null && a.split('\r\n').join('\n') === b.split('\r\n').join('\n');
+
 if (process.argv.includes('--check')) {
   let current = null;
   try {
@@ -736,7 +740,7 @@ if (process.argv.includes('--check')) {
   } catch {
     /* missing counts as stale */
   }
-  if (current !== content) {
+  if (!sameText(current, content)) {
     console.error(
       `stale: ${OUT_PATH} does not match schema/mods.json — run \`node scripts/gen-rust-mods.mjs\``,
     );

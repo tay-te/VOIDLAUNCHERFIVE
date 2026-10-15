@@ -796,6 +796,10 @@ ${data}
 const content = JAVA(DATA, ids.length);
 const rel = relative(ROOT, TARGET);
 
+// Line-ending blind: a Windows checkout with core.autocrlf holds CRLF copies of files this
+// script writes with LF, and that is not staleness.
+const sameText = (a, b) => a !== null && a.split('\r\n').join('\n') === b.split('\r\n').join('\n');
+
 if (process.argv.includes('--check')) {
   let current = null;
   try {
@@ -804,7 +808,7 @@ if (process.argv.includes('--check')) {
     console.error(`missing: ${rel} — run \`node scripts/gen-java-registry.mjs\``);
     process.exit(1);
   }
-  if (current !== content) {
+  if (!sameText(current, content)) {
     console.error(
       `stale: ${rel} does not match schema/mods.json — run \`node scripts/gen-java-registry.mjs\``,
     );
