@@ -3,7 +3,7 @@
 **Researched 2026-09-08.** Not from memory: both rosters were pulled from primary sources
 this session, because both clients change them and training data on this subject is stale.
 
-> **Status, 2026-10-15: 44 mods** (19 HUD, 25 gameplay, registry_version 12) — read it off `schema/mods.json`, which
+> **Status, 2026-10-15: 45 mods** (19 HUD, 26 gameplay, registry_version 13) — read it off `schema/mods.json`, which
 > is generated from `schema/mods/*.json`, rather than from any count in this file. The numbers in
 > §§1–2 below ("13", "the thirteen") are the 2026-09-08 snapshot this research was done against
 > and are kept as that record. Since then: Wave 1 and 2 shipped (§7), `old_animations` shipped
@@ -11,7 +11,7 @@ this session, because both clients change them and training data on this subject
 > two halves of Wave 7 (below §7) landed together: the FPS boost and visual table stakes (twelve
 > mods), and the depth pass, which added Potion counter, Reach display and Chat, the
 > inventory-wide `counts` sensor, and depth on Zoom, Ping, Keystrokes, CPS, Potion effects and
-> Hitboxes.
+> Hitboxes. The cosmetics workstream added the `cosmetics` settings mod (what this client draws).
 
 ---
 
@@ -63,7 +63,7 @@ of 98" — most of Lunar's 98 are Skyblock, modern-version, or ornamental. It is
 
 ## 2. Where VOID stood: the thirteen, checked against both rosters (2026-09-08 snapshot)
 
-> **Historical snapshot (2026-09-08).** The registry is 44 mods as of Wave 7 (§7); this table
+> **Historical snapshot (2026-09-08).** The registry is 45 mods as of Wave 7 (§7); this table
 > is the starting point the waves were planned from, kept as written.
 
 Read from `ModRegistry.java` and `schema/mods.json`, not assumed.

@@ -57,6 +57,7 @@ export const MOD_IDS = [
   'potion_counter',
   'reach',
   'chat',
+  'cosmetics',
 ] as const satisfies readonly ModId[];
 
 /** The mods that own a draggable HUD item, in registry order. */
@@ -109,4 +110,5 @@ export const GAMEPLAY_MOD_IDS = [
   'menu_blur',
   'time_weather',
   'chat',
+  'cosmetics',
 ] as const satisfies readonly GameplayModId[];

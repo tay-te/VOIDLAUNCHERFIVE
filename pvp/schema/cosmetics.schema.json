@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.void.dev/pvp/cosmetics.schema.json",
+  "title": "VOID PVP — cosmetics catalog",
+  "description": "The shape of `schema/cosmetics.json`, the single source of the cosmetics catalog. Every launch cosmetic's metadata (id, kind, name, rarity, price, tintability, store preview) lives there and nowhere else: `scripts/gen-cosmetics.mjs` generates the Java catalog the mod reads (`mod/.../cosmetic/CosmeticCatalog.java`), the TypeScript module the launcher and the in-game UI import (`packages/protocol/src/generated/cosmetics.ts`), and the backend seeds Supabase from the same file. The *assets* (model, textures, animation) are not catalog data: they are bundled in the mod jar under `assets/void/cosmetics/<id>/`, compiled from `mod/src/main/cosmetics-src/<id>/` by the same script, so rendering never waits on the network. The backend only ever says who owns and wears what.",
+  "type": "object",
+  "required": ["version", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "description": "Editor hint pointing at this schema.", "type": "string" },
+    "version": { "description": "Catalog version. Bumped by hand when an item is added, removed or changes kind; ids never change meaning once shipped, because ownership rows in the backend are keyed by them.", "type": "integer", "minimum": 1 },
+    "items": {
+      "description": "Every cosmetic, in store order within each kind.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/item" }
+    }
+  },
+  "definitions": {
+    "item_id": {
+      "title": "Cosmetic id",
+      "description": "Kebab-case, globally unique, never reused. The backend's ownership rows, the equipped set and the asset folder `assets/void/cosmetics/<id>/` are all keyed by it.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 3,
+      "maxLength": 48
+    },
+    "slot": {
+      "title": "Slot",
+      "description": "Where a worn cosmetic goes; one item per slot. `back` holds wings and other back items, `head` hats, `face` masks, `halo` floats above the head and may coexist with a hat, `trail` is particles while moving, `badge` the icon beside the nametag.",
+      "type": "string",
+      "enum": ["cape", "back", "head", "face", "halo", "trail", "badge"]
+    },
+    "kind": {
+      "title": "Kind",
+      "description": "A slot name, or `emote`. Emotes are not worn: a player keeps up to eight on their wheel.",
+      "type": "string",
+      "enum": ["cape", "back", "head", "face", "halo", "trail", "badge", "emote"]
+    },
+    "rarity": {
+      "title": "Rarity",
+      "description": "Display tier. `exclusive` is for granted items that cannot be bought (the founder badge).",
+      "type": "string",
+      "enum": ["common", "rare", "epic", "legendary", "exclusive"]
+    },
+    "availability": {
+      "title": "Availability",
+      "description": "`paid`: sold for `price_cents` through checkout. `free`: every account owns it (`price_cents` must be 0). `grant`: owned only when granted by the backend (founders, events); never listed for sale.",
+      "type": "string",
+      "enum": ["paid", "free", "grant"]
+    },
+    "hex_color": {
+      "title": "Colour",
+      "description": "`#RRGGBB`, lower case.",
+      "type": "string",
+      "pattern": "^#[0-9a-f]{6}$"
+    },
+    "preview": {
+      "title": "Store preview",
+      "description": "How the launcher's Store draws the item's card art (`apps/desktop/src/features/art.tsx`). Not the in-game look, which is the bundled asset. `style` picks the drawing; `pattern`, `hue` and `rows` parameterise it.",
+      "type": "object",
+      "required": ["style"],
+      "additionalProperties": false,
+      "properties": {
+        "style": { "description": "Which drawing: the item's kind, mostly.", "type": "string", "enum": ["cape", "back", "head", "face", "halo", "trail", "badge", "emote"] },
+        "pattern": { "description": "Variant of the drawing, e.g. a cape pattern or a trail motion.", "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "hue": { "description": "Accent colour of the drawing.", "$ref": "#/definitions/hex_color" },
+        "rows": { "description": "Emotes only: the pose glyph as rows of `#` and `.`.", "type": "array", "items": { "description": "One row of the glyph.", "type": "string", "pattern": "^[#.]+$" }, "maxItems": 12 }
+      }
+    },
+    "item": {
+      "title": "Cosmetic",
+      "description": "One catalog entry.",
+      "type": "object",
+      "required": ["id", "kind", "name", "blurb", "rarity", "availability", "price_cents", "preview"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "description": "Unique id.", "$ref": "#/definitions/item_id" },
+        "kind": { "description": "Slot, or `emote`.", "$ref": "#/definitions/kind" },
+        "name": { "description": "Display name, sentence case.", "type": "string", "minLength": 1, "maxLength": 32 },
+        "blurb": { "description": "One line for the item sheet, lower-case start, ends with a full stop: it follows `<Kind> · `.", "type": "string", "minLength": 1, "maxLength": 96 },
+        "rarity": { "description": "Display tier.", "$ref": "#/definitions/rarity" },
+        "availability": { "description": "How the item is owned.", "$ref": "#/definitions/availability" },
+        "price_cents": { "description": "Price in US cents. 0 for `free` and `grant` items.", "type": "integer", "minimum": 0, "maximum": 99999 },
+        "tintable": { "description": "Whether the equipped set's `tints` may recolour it. The tint multiplies the texture's grey-scale tint mask.", "type": "boolean", "default": false },
+        "default_tint": { "description": "The colour a tintable item wears with no tint set.", "$ref": "#/definitions/hex_color" },
+        "is_new": { "description": "Flags the item as new in the Store.", "type": "boolean", "default": false },
+        "loop": { "description": "Emotes only: holds and repeats until cancelled by moving or attacking (e.g. sit) rather than playing once.", "type": "boolean" },
+        "preview": { "description": "Store card art.", "$ref": "#/definitions/preview" }
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": 1,
+      "items": [
+        { "id": "origin-cape", "kind": "cape", "name": "Origin cape", "blurb": "two halves of grey. Every account has one.", "rarity": "common", "availability": "free", "price_cents": 0, "preview": { "style": "cape", "pattern": "origin" } },
+        { "id": "emote-wave", "kind": "emote", "name": "Wave", "blurb": "a hand, raised and shaken.", "rarity": "common", "availability": "paid", "price_cents": 199, "preview": { "style": "emote", "rows": ["#...#", "#####"] } }
+      ]
+    }
+  ]
+}

@@ -426,10 +426,12 @@ describe('Mods screen — the grid, and the page one click away', () => {
     );
     // The watermark is Visual too — it is a mark drawn over the game, not a readout. `overlay`
     // joined them in Wave 4: it is the mod whose whole subject is what the game draws over you.
-    // Wave 7 added the eight visual table stakes.
+    // Wave 7 added the eight visual table stakes, and `cosmetics`: what this client draws on
+    // players, which is nothing but a look.
     expect(ids.sort()).toEqual([
       'block_outline',
       'clear_glass',
+      'cosmetics',
       'crosshair',
       'fog',
       'fullbright',

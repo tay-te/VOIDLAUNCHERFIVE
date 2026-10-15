@@ -91,6 +91,10 @@ const ORDER = [
   // readouts the inventory and reach sensors opened (`potion_counter`, `reach`) and the chat
   // mod. Appended, never inserted. registry_version 12 counts both halves.
   'potion_counter', 'reach', 'chat',
+  // Wave 7, third part — the switches over the cosmetics renderer. What a player *wears* is
+  // account data the launcher owns (`cosmetics.json`, the `cosmetics` protocol message); this is
+  // only what the client draws. Appended, never inserted. registry_version 13.
+  'cosmetics',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

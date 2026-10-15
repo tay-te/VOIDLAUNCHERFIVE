@@ -43,11 +43,12 @@
   // side and not added here fails completely silently — no error, no warning, the page simply
   // never hears it. That is exactly how `session` was lost the first time it was sent.
   var EVENTS = ['keys', 'tick', 'server', 'loadout', 'loadouts', 'setting', 'menu', 'session',
-    'settings', 'modaction', 'scoreboard', 'toast'];
+    'settings', 'modaction', 'scoreboard', 'toast', 'cosmetics', 'emote'];
   var CALLS = ['setGameplay', 'setHud', 'setModSetting', 'switchLoadout', 'closeMenu',
     'openKeybindCapture', 'setSurfaces', 'setGlobal',
     'createLoadout', 'renameLoadout', 'duplicateLoadout', 'deleteLoadout', 'exportLoadout',
-    'importLoadout', 'setQuickPins', 'setClipboard', 'getClipboard'];
+    'importLoadout', 'setQuickPins', 'setClipboard', 'getClipboard',
+    'equipCosmetic', 'setCosmeticTint', 'setEmoteWheel', 'playEmote'];
   var handlers = {};
   // FIFO, so a second capture opened before the first resolved still lines up with
   // the envelopes Java sends back in the order it armed them.
@@ -313,6 +314,40 @@
      */
     setSurfaces: function (surfaces) {
       return call('setSurfaces', [surfaces]) || 0;
+    },
+
+    /**
+     * Wear a cosmetic in a slot, or take the slot off with null. Returns the id now in the
+     * slot: the request on success, what was already there when Java refused it (not owned,
+     * unknown, or for another slot). Bind the wardrobe to the return. No `cosmetics` event
+     * follows a call the page made.
+     */
+    equipCosmetic: function (slot, id) {
+      return call('equipCosmetic', [slot, id === undefined ? null : id]);
+    },
+
+    /**
+     * Recolour the item worn in a slot ('#rrggbb'), or clear its tint with null. Only tintable
+     * items take one. Returns the tint now applied, lower case, or null.
+     */
+    setCosmeticTint: function (slot, hex) {
+      return call('setCosmeticTint', [slot, hex === undefined ? null : hex]);
+    },
+
+    /**
+     * Replace the emote wheel. Unowned, non-emote and repeated ids are dropped and at most
+     * eight kept. Returns the wheel as stored.
+     */
+    setEmoteWheel: function (ids) {
+      return call('setEmoteWheel', [ids || []]) || [];
+    },
+
+    /**
+     * Play an emote for the local player. Returns whether it started. The `emote` channel
+     * reports its end, not its start, for an emote started here.
+     */
+    playEmote: function (id) {
+      return call('playEmote', [id]) === true;
     },
 
     /**

@@ -96,7 +96,7 @@ whether three columns are showing or six.
 ### The panel is fixed; the grid fills it
 
 `.overlay` used to be `min(1600px, 92%) x min(980px, 92%)` — a fraction of the window, drawn
-for the frames' twenty-four mods. The registry had twelve when this was measured (it has 44
+for the frames' twenty-four mods. The registry had twelve when this was measured (it has 45
 now; the arithmetic below is unchanged), and a grid declared as three rows
 laid them out four across, filling 674 of 1277 with half the panel empty. Both numbers are now
 derived the other way round:

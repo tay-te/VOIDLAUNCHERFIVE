@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 12,
+    "version": 13,
     "mods": {
       "fps": {
         "id": "fps",
@@ -946,6 +946,23 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "click_to_copy": true,
           "background_opacity": 0.5,
           "history_length": 1000
+        }
+      },
+      "cosmetics": {
+        "id": "cosmetics",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Cosmetics",
+        "icon": "star",
+        "description": "Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.",
+        "source": "the cosmetic renderer's player-model layer (cape, back, head, face, halo, badge), the trail emitter, and the emote animator",
+        "defaults": {
+          "on": true,
+          "others": true,
+          "own_first_person": false,
+          "glow": true,
+          "emote_camera": true
         }
       }
     }
@@ -2057,6 +2074,109 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
   {
     "c": "getClipboard",
     "returns": ""
+  },
+  {
+    "e": "cosmetics",
+    "payload": {
+      "self": {
+        "uuid": "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+        "cape": "ring-cape",
+        "back": null,
+        "head": null,
+        "face": null,
+        "halo": "seraph-halo",
+        "trail": "spark-trail",
+        "badge": "void-badge-player",
+        "emotes": [
+          "emote-wave",
+          "emote-clap"
+        ],
+        "tints": {
+          "cape": "#9f8bff"
+        }
+      },
+      "owned": [
+        "ring-cape",
+        "origin-cape",
+        "seraph-halo",
+        "emote-wave",
+        "emote-clap",
+        "spark-trail",
+        "void-badge-player"
+      ],
+      "catalog_version": 1
+    }
+  },
+  {
+    "e": "emote",
+    "payload": {
+      "id": "emote-wave"
+    }
+  },
+  {
+    "e": "emote",
+    "payload": {
+      "id": null
+    }
+  },
+  {
+    "c": "equipCosmetic",
+    "params": [
+      "cape",
+      "ring-cape"
+    ]
+  },
+  {
+    "c": "equipCosmetic",
+    "returns": "ring-cape"
+  },
+  {
+    "c": "equipCosmetic",
+    "params": [
+      "halo",
+      null
+    ]
+  },
+  {
+    "c": "equipCosmetic",
+    "returns": null
+  },
+  {
+    "c": "setCosmeticTint",
+    "params": [
+      "cape",
+      "#9f8bff"
+    ]
+  },
+  {
+    "c": "setCosmeticTint",
+    "returns": "#9f8bff"
+  },
+  {
+    "c": "setEmoteWheel",
+    "params": [
+      [
+        "emote-wave",
+        "emote-clap"
+      ]
+    ]
+  },
+  {
+    "c": "setEmoteWheel",
+    "returns": [
+      "emote-wave",
+      "emote-clap"
+    ]
+  },
+  {
+    "c": "playEmote",
+    "params": [
+      "emote-wave"
+    ]
+  },
+  {
+    "c": "playEmote",
+    "returns": true
   }
 ];
 

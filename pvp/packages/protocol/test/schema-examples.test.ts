@@ -78,6 +78,10 @@ describe('schema examples', () => {
       ),
     );
     expect([...events].sort()).toEqual([
+      // The wardrobe's two: what the local player wears and owns, and their emote starting or
+      // ending.
+      'cosmetics',
+      'emote',
       'keys',
       'loadout',
       'loadouts',
@@ -105,16 +109,20 @@ describe('schema examples', () => {
     );
     expect([...calls].sort()).toEqual([
       'closeMenu',
-      // The library calls of the in-game Loadouts screen.
+      // The library calls of the in-game Loadouts screen, and the wardrobe's four.
       'createLoadout',
       'deleteLoadout',
       'duplicateLoadout',
+      'equipCosmetic',
       'exportLoadout',
       'getClipboard',
       'importLoadout',
       'openKeybindCapture',
+      'playEmote',
       'renameLoadout',
       'setClipboard',
+      'setCosmeticTint',
+      'setEmoteWheel',
       'setGameplay',
       'setGlobal',
       'setHud',

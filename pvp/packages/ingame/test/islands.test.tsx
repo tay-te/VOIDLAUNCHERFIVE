@@ -84,9 +84,9 @@ describe('the lobby menu — the final shell', () => {
     open();
     const { container } = render(<App />);
     const counts = [...container.querySelectorAll('.isl-cats__tab')].map((t) => t.textContent);
-    expect(counts).toEqual(['All44', 'HUD12', 'PvP13', 'Visual12', 'Utility7']);
+    expect(counts).toEqual(['All45', 'HUD12', 'PvP13', 'Visual13', 'Utility7']);
     fireEvent.click(screen.getByRole('tab', { name: /Visual/ }));
-    expect(container.querySelectorAll('.isl-mods__grid .modcell')).toHaveLength(12);
+    expect(container.querySelectorAll('.isl-mods__grid .modcell')).toHaveLength(13);
   });
 
   it('searches from the button and from `/`, across names and descriptions', () => {

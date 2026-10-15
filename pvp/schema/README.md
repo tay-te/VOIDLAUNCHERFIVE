@@ -10,7 +10,8 @@ cross-directory need is expressed by reading a schema here.
 | `mods.json` | **Generated** (`build.mjs`). The closed registry of every mod VOID ships (the 12 of §3, the VOID watermark, and the readouts added since): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
 | `loadout.json` | The loadout model (§8): mod state + anchor-based HUD layout + stats | `core` | everyone |
 | `protocol.json` | Every Rust ⇄ Java WS message (§7), a `oneOf` on `t` — 10 Java→Rust, 5 Rust→Java (`emote` goes both ways) | `core` | `core`, `mod` |
-| `bridge.json` | The `window.void` surface (§6.5): 9 events Java→JS, 8 calls JS→Java | `core` | `mod`, `ingame`, `ui` |
+| `bridge.json` | The `window.void` surface (§6.5): 14 events Java→JS, 21 calls JS→Java | `core` | `mod`, `ingame`, `ui` |
+| `cosmetics.json` | The cosmetics catalog (data, validated against `cosmetics.schema.json`): id, kind, rarity, price, tint. Generated into `CosmeticCatalog.java`, `@void/protocol`'s `generated/cosmetics.ts` by `scripts/gen-cosmetics.mjs`; the backend seed reads the same file | `core` | everyone |
 
 `mods.json` is the root: `loadout.json` `$ref`s its mod ids and settings, and both
 `protocol.json` and `bridge.json` `$ref` `loadout.json`. `bridge.json` also `$ref`s
@@ -151,6 +152,67 @@ one validatable schema, and because it is exactly the recording format the brows
 ## Contract changes
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
+
+### 2026-10-15 (later) — the wardrobe reaches the page, and a switch for what the client draws
+
+`protocol.json` untouched by this entry (its cosmetics messages arrived from `pvp-backend`, in the
+entry below); `mods.json` registry `version` 10 → 11 (a mod added) on the cosmetics branch; merged into
+`pvp-launch` after the FPS boost and depth waves as registry 12 → 13, 44 → 45 mods.
+
+**The cosmetics catalog becomes a contract file.** `cosmetics.json` is the single source of what
+exists — id, kind (`cape back head face halo trail badge` or `emote`), name, rarity,
+`availability` (`paid`/`free`/`grant`), price, `tintable` + `default_tint`, the Store preview —
+and `cosmetics.schema.json` is its shape. `validate.mjs` validates the data and cross-checks what
+a schema cannot say: unique ids, store items cost something and free/grant items cost nothing,
+tint defaults only on tintable items, and that `protocol.json`'s `cosmetic_slot` enum *is* the
+catalog's slot enum, because a slot the wire cannot name is a cosmetic nobody can wear.
+`scripts/gen-cosmetics.mjs` (with `--check`) writes the mod's `CosmeticCatalog.java` and
+`@void/protocol`'s `generated/cosmetics.ts`. Assets ship in the jar under
+`assets/void/cosmetics/<id>/`; an id the jar does not know reads as nothing worn.
+
+**`bridge.json`: two channels and four calls, so the in-game wardrobe can exist.**
+
+- `cosmetics` — `{self, owned, catalog_version}`: the local `equipped_set` (`$ref`'d from
+  `protocol.json`, so the wire and the wardrobe share one shape), every item the account owns in
+  catalog order (free items included; computed by Java's `CosmeticState`), and the catalog
+  version the jar was built with. Whole state, coalesced per frame. Pushed on `pushWholeState()`
+  and when the launcher changes the set under the game; **never** as an echo of the page's own
+  calls (§6.5, as `setting` and `settings`).
+- `emote` — `{id}` when the local player's emote starts, `{id: null}` when it ends. Not
+  coalesced. The start is suppressed when the page's own `playEmote` caused it; the end is always
+  pushed, because only the game thread's sweep knows when a clip ran out.
+- `equipCosmetic(slot, id|null)` → the id now in the slot (a refusal answers what is still
+  worn); `setCosmeticTint(slot, '#rrggbb'|null)` → the tint applied, lower case, or null;
+  `setEmoteWheel(ids)` → the wheel as stored (owned emotes, once each, at most eight);
+  `playEmote(id)` → whether it started. `cosmetic_tint` is a bridge-local definition because
+  `protocol.json` names no tint type of its own.
+- The wire carries `equip {slot, id}` only, so a tint and the wheel chosen in game last the
+  session until the protocol grows fields for them; the call descriptions say so.
+
+Why per thread: `CosmeticState` and `Emotes` notify their listeners synchronously on the thread
+that made the change, so `VoidBridge` marks the UI thread while it answers a wardrobe call and
+suppresses exactly those notifications. A launcher `cosmetics` arriving on `void-ws` at the same
+moment is still pushed.
+
+**`cosmetics`, a `gameplay` / `visual` / `safe` mod**, on by default, with `others` (other VOID
+players' cosmetics, default on), `own_first_person` (your trail in first person, default off),
+`glow` (emissive bloom, default on) and `emote_camera` (the third-person orbit while you emote,
+default on). It is only what this client draws; what a player wears is account data. Its
+`$comment` argues `safe` and names what would make it `grey`.
+
+Followed by: `@void/protocol` regenerated; `VOID_EVENTS`/`VOID_CALLS`, `installVoidShim` and the
+typed `window.void` gained the channels and calls, and `createFakeVoid` an in-memory wardrobe that
+refuses what Java refuses (unowned, unknown, wrong slot) with `applyCosmetics`, `startEmote` and
+`cancelEmote` controls; `@void/protocol` now re-exports the generated catalog. `void-shim.js`'s
+`EVENTS`/`CALLS`. In the mod: `Protocol` (inbound `COSMETICS`/`EMOTE`, builders
+`cosmeticsQuery`/`emote`/`equip`), `VoidSocket` as `CosmeticState.Sink` (`cosmetics_query` and
+`emote` dropped while the link is down, `equip` queued and coalesced per slot in
+`OutboundQueue`), `VoidBridge` (the calls, both channels, `cosmetics` in `pushWholeState`),
+`VoidClient` wiring, and `LiveState.cosmeticsOn/Others/OwnFirstPerson/Glow/EmoteCamera` for the
+renderer. The mod's art (`packages/ingame/src/mods/cosmetics.tsx`, a cell diagram that answers
+all four switches) and `MOD_ORDER`; `ModRegistry.java` and `generated.rs` regenerated; the
+launcher's `SETTING_SPECS`, grid order and card preview; the category counts in the desktop and
+in-game tests (Visual 4 → 5, 29 → 30 mods).
 
 ### 2026-10-15 — cosmetics and emotes cross the bridge
 

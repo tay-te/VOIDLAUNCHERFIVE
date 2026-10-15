@@ -7,6 +7,7 @@ import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LightningBoltEntity;
 import net.minecraft.entity.boss.dragon.EnderDragonEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.world.World;
@@ -52,6 +53,15 @@ public final class OcclusionCuller implements Runnable {
     static final int MAX_AGE_PASSES = 3;
     /** No camera update for this long means no world is being drawn: drop the reference. */
     private static final long CAMERA_TIMEOUT_NANOS = 1_000_000_000L;
+
+    /**
+     * How far a player's drawn shape reaches past their hitbox: VOID cosmetics (wings spread a
+     * block to each side, a cape trails behind, a halo floats above the head) are drawn by the
+     * player's renderer, so a player is tested by this larger box. Otherwise a player stood just
+     * behind a corner would vanish while their wings, which the camera can see, are still in view.
+     */
+    static final double PLAYER_SIDE_MARGIN = 1.25;
+    static final double PLAYER_TOP_MARGIN = 0.75;
 
     private final OpacityCache cache = new OpacityCache();
     private final WorldOpacity worldOpacity = new WorldOpacity();
@@ -195,12 +205,14 @@ public final class OcclusionCuller implements Runnable {
                 if (b == null) {
                     continue;
                 }
+                double side = e instanceof PlayerEntity ? PLAYER_SIDE_MARGIN : 0.0;
+                double top = e instanceof PlayerEntity ? PLAYER_TOP_MARGIN : 0.0;
                 double cx = (b.minX + b.maxX) * 0.5 - ex;
                 double cy = (b.minY + b.maxY) * 0.5 - ey;
                 double cz = (b.minZ + b.maxZ) * 0.5 - ez;
                 boolean occluded = cx * cx + cy * cy + cz * cz > nearSq
                         && !VoxelRaycast.boxVisible(cache, ex, ey, ez,
-                        b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ);
+                        b.minX - side, b.minY, b.minZ - side, b.maxX + side, b.maxY + top, b.maxZ + side);
                 ((Cullable) e).void$setOccluded(occluded, current);
                 tested++;
                 if (occluded) {

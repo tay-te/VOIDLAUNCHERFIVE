@@ -349,6 +349,14 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'dig_while_using', label: 'Mine while using an item', control: 'switch' },
     { key: 'no_miss_delay', label: 'No delay after a miss', control: 'switch' },
   ],
+  // What this client draws, never what anyone wears: the wardrobe is account data the
+  // launcher stores. See schema/mods/cosmetics.json.
+  cosmetics: [
+    { key: 'others', label: "Show other players' cosmetics", control: 'switch' },
+    { key: 'own_first_person', label: 'Own trail in first person', control: 'switch' },
+    { key: 'glow', label: 'Glow', control: 'switch' },
+    { key: 'emote_camera', label: 'Emote camera', control: 'switch' },
+  ],
   hitboxes: [
     { key: 'line_width', label: 'Line width', control: 'slider', min: 0.5, max: 5, step: 0.5, format: 'plain' },
     { key: 'color', label: 'Colour', control: 'color' },
@@ -525,6 +533,7 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'potion_counter',
   'reach',
   'chat',
+  'cosmetics',
 ];
 
 /**

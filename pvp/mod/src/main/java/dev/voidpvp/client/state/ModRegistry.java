@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 44 mods.
+ * The closed registry of the 45 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -182,7 +182,7 @@ public final class ModRegistry {
      * removed or reclassified. Carried in a loadout share code ({@code ShareCode}) so a code
      * made against a newer registry can be recognised as such.
      */
-    public static final int REGISTRY_VERSION = 12;
+    public static final int REGISTRY_VERSION = 13;
 
     static {
         // --- HUD mods (19) — they read game state and draw -------------------------------------
@@ -449,7 +449,7 @@ public final class ModRegistry {
                 // `mark` is the ring alone, `word` is the wordmark alone.
                 "style", enumOf("full", "full", "mark", "word"));
 
-        // --- Gameplay mods (25) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (26) — they mutate a client-side option -----------------------------
 
         // Toggle sprint — kind gameplay, pvp tab, §11 safe.
         // Latches sprint instead of holding the key.
@@ -874,7 +874,7 @@ public final class ModRegistry {
                 // Type: mods.json#/definitions/keybind.
                 "reset_key", keybind("NONE"));
 
-        // --- Gameplay mods (25) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (26) — they mutate a client-side option -----------------------------
 
         // FOV changer — kind gameplay, pvp tab, §11 safe.
         // Holds your field of view still, so sprint and speed stop punching the camera.
@@ -1403,7 +1403,7 @@ public final class ModRegistry {
                 // modes the colour is the information. Off draws every line in the HUD's own ink.
                 "server_colors", bool(true));
 
-        // --- Gameplay mods (25) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (26) — they mutate a client-side option -----------------------------
 
         // GUI scale — kind gameplay, visual tab, §11 safe.
         // Sizes the hotbar and inventories independently of Minecraft's GUI scale.
@@ -1522,7 +1522,7 @@ public final class ModRegistry {
                 // reach figure is only interesting while you are trading hits.
                 "hide_after_ms", integer(0, 30000, 0));
 
-        // --- Gameplay mods (25) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (26) — they mutate a client-side option -----------------------------
 
         // Chat — kind gameplay, utility tab, §11 safe.
         // Timestamps, stacked repeats, click to copy and a longer history.
@@ -1544,6 +1544,36 @@ public final class ModRegistry {
                 "background_opacity", number(0, 1, 0.5),
                 // How many messages the chat keeps for scrolling back. Vanilla keeps 100.
                 "history_length", integer(100, 5000, 1000));
+
+        // Cosmetics — kind gameplay, visual tab, §11 safe.
+        // Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.
+        // Source: the cosmetic renderer's player-model layer (cape, back, head, face, halo,
+        // badge), the trail emitter, and the emote animator.
+        mod("cosmetics", Kind.GAMEPLAY, Category.VISUAL, "Cosmetics",
+                // Whether cosmetics are shown.
+                "on", bool(true),
+                // Whether other VOID players' cosmetics are drawn. On by default, because seeing
+                // who else plays VOID is half the point. Off draws only your own — for a crowded
+                // lobby, or for a player who wants the fight in front of them to look like
+                // vanilla. Their emotes still animate their model; only what they wear is hidden.
+                "others", bool(true),
+                // Whether your own trail is drawn while you are in first person. Off by default:
+                // a trail is something other people see you leave, and in first person it is
+                // particles at your own feet, on the edge of the frame you aim through. On is for
+                // the player who likes to watch it. Your cape, halo and the rest are never drawn
+                // in first person — the game does not draw your model there either.
+                "own_first_person", bool(false),
+                // Whether emissive cosmetics glow — the soft bloom around halos, wing edges and
+                // bright trails. On by default, because those items are designed around it. Off
+                // draws the same shapes flat, which is cheaper on a weak GPU and easier on the
+                // eyes in a dark cave.
+                "glow", bool(true),
+                // Whether the camera swings to third person and orbits slowly while you emote, so
+                // you can see what you are doing. On by default. Off keeps your own view where it
+                // is: other players still see the emote, you just do not watch it. The camera
+                // never moves while you move — taking a step ends the emote and gives the view
+                // straight back.
+                "emote_camera", bool(true));
 
         // --- The factory HUD layout (19) — where each widget starts ----------------------------
 
@@ -1648,7 +1678,7 @@ public final class ModRegistry {
     // END GENERATED DATA
     // =================================================================
 
-    /** The 44 mod ids, in registry order. */
+    /** The 45 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

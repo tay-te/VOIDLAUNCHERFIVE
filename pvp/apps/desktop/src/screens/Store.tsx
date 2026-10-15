@@ -37,7 +37,7 @@ const TAB_ICONS: Partial<Record<CosmeticKind, string>> = {
   cape: capeIcon,
   trail: sparklesIcon,
   emote: smileIcon,
-  nameplate: tagIcon,
+  badge: tagIcon,
 };
 
 function ItemState({ item }: { item: CosmeticItem }) {

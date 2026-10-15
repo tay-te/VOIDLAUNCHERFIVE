@@ -115,7 +115,7 @@ class PageReloadTest {
 
     @Test
     @DisplayName("a reloaded page is sent the session, the globals, the library, the loadout "
-            + "and the menu")
+            + ", the wardrobe and the menu")
     void wholeStateCoversEveryChannelThatCannotResendItself() {
         VoidBridge bridge = new VoidBridge(seededState(), new Host());
 
@@ -128,12 +128,15 @@ class PageReloadTest {
         // the content. Then the library, then the live copy of the active loadout: the order
         // onInit uses, so the page's store settles on the loadout and not on the library's stale
         // copy. The menu last, so the screen it opens onto is drawn against data already there.
-        assertEquals(5, batch.size(), "one envelope per channel that cannot resend itself");
+        assertEquals(6, batch.size(), "one envelope per channel that cannot resend itself");
         assertEquals(VoidBridge.EVENT_SESSION, Json.string(batch.get(0), "e", null));
         assertEquals(VoidBridge.EVENT_SETTINGS, Json.string(batch.get(1), "e", null));
         assertEquals(VoidBridge.EVENT_LOADOUTS, Json.string(batch.get(2), "e", null));
         assertEquals(VoidBridge.EVENT_LOADOUT, Json.string(batch.get(3), "e", null));
-        assertEquals(VoidBridge.EVENT_MENU, Json.string(batch.get(4), "e", null));
+        // The wardrobe, read live: the page's own equips are not echoed, so a reloaded page
+        // would otherwise never learn them.
+        assertEquals(VoidBridge.EVENT_COSMETICS, Json.string(batch.get(4), "e", null));
+        assertEquals(VoidBridge.EVENT_MENU, Json.string(batch.get(5), "e", null));
 
         // …and it is the host's own answer, verbatim: the bridge does not invent an identity.
         JsonObject session = payload(batch, VoidBridge.EVENT_SESSION).getAsJsonObject();

@@ -326,7 +326,13 @@ function TrailArt({ pattern, hue }: { pattern: string; hue: string }) {
   );
 }
 
-function NameplateArt({ pattern, hue }: { pattern: string; hue: string }) {
+/** The founder badge's diamond on a 7 x 7 grid. */
+const FOUNDER: readonly [number, number][] = [
+  [3, 0], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [0, 3], [1, 3], [2, 3], [3, 3], [4, 3],
+  [5, 3], [6, 3], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [2, 5], [3, 5], [4, 5], [3, 6],
+];
+
+function BadgeArt({ pattern, hue }: { pattern: string; hue: string }) {
   const mark: ReactElement[] = [];
   if (pattern === 'cell')
     for (let y = 0; y < 3; y += 1) for (let x = 0; x < 3; x += 1) mark.push(<i key={`${x}${y}`} style={{ left: 17 + x * 8, top: 13 + y * 8, width: 6, height: 6, background: hue }} />);
@@ -334,6 +340,11 @@ function NameplateArt({ pattern, hue }: { pattern: string; hue: string }) {
     RING.forEach(([x, y]) => mark.push(<i key={`${x}${y}`} style={{ left: 16 + x * 3.4, top: 14 + y * 3.4, width: 3, height: 3, background: hue }} />));
   if (pattern === 'dots')
     [0, 1, 2].forEach((i) => mark.push(<i key={i} style={{ left: 18 + i * 9, top: 22, width: 6, height: 6, background: hue }} />));
+  if (pattern === 'founder')
+    // A cut stone: a diamond of cells with a violet heart.
+    FOUNDER.forEach(([x, y]) =>
+      mark.push(<i key={`${x}${y}`} style={{ left: 16 + x * 4, top: 12 + y * 4, width: 3.5, height: 3.5, background: x === 3 && y === 3 ? '#9f8bff' : hue }} />),
+    );
   return (
     <span className="art__plate">
       {mark}
@@ -341,6 +352,28 @@ function NameplateArt({ pattern, hue }: { pattern: string; hue: string }) {
       <span className="art__plate-name" style={pattern === 'plain' || pattern === 'bar' ? { left: 18 } : undefined}>
         Kestrel
       </span>
+    </span>
+  );
+}
+
+/** A back, head, face or halo item as a pixel glyph: `#` the accent, `+` a lit texel. */
+function GlyphArt({ pattern, hue }: { pattern: readonly string[]; hue: string }) {
+  const size = 12;
+  const step = 15;
+  const w = (pattern[0]?.length ?? 0) * step;
+  const h = pattern.length * step;
+  return (
+    <span className="art__emote" style={{ width: w, height: h }}>
+      {pattern.flatMap((row, y) =>
+        [...row].map((c, x) =>
+          c === '#' || c === '+' ? (
+            <i
+              key={`${x}:${y}`}
+              style={{ left: x * step, top: y * step, width: size, height: size, background: c === '+' ? '#edeeef' : hexA(hue, 0.85) }}
+            />
+          ) : null,
+        ),
+      )}
     </span>
   );
 }
@@ -372,8 +405,9 @@ export function CosmeticArt({ item }: { item: CosmeticItem }) {
         </span>
       ) : null}
       {art.kind === 'trail' ? <TrailArt pattern={art.pattern} hue={art.hue} /> : null}
-      {art.kind === 'nameplate' ? <NameplateArt pattern={art.pattern} hue={art.hue} /> : null}
+      {art.kind === 'badge' ? <BadgeArt pattern={art.pattern} hue={art.hue} /> : null}
       {art.kind === 'emote' ? <EmoteArt pattern={art.pattern} /> : null}
+      {art.kind === 'glyph' ? <GlyphArt pattern={art.pattern} hue={art.hue} /> : null}
     </span>
   );
 }

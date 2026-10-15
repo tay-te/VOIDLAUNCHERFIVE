@@ -1,0 +1,13 @@
+{
+ "motion": "settle",
+ "colors": [
+  "#e8fbff",
+  "#bff0ff",
+  "#7adfff"
+ ],
+ "life": 1.6,
+ "rate": 10,
+ "size": 0.15,
+ "cap": 30,
+ "glow": 0.25
+}

@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 44 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 45 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -127,11 +127,13 @@ pub enum ModId {
     Reach,
     /// Timestamps, stacked repeats, click to copy and a longer history.
     Chat,
+    /// Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.
+    Cosmetics,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 44] = [
+    pub const ALL: [ModId; 45] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -176,6 +178,7 @@ impl ModId {
         ModId::PotionCounter,
         ModId::Reach,
         ModId::Chat,
+        ModId::Cosmetics,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -225,6 +228,7 @@ impl ModId {
             ModId::PotionCounter => "potion_counter",
             ModId::Reach => "reach",
             ModId::Chat => "chat",
+            ModId::Cosmetics => "cosmetics",
         }
     }
 }
@@ -335,7 +339,7 @@ impl HudModId {
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `gameplay`: the 25 mods an actuator Mixin reads
+/// The subset of [`ModId`] whose `kind` is `gameplay`: the 26 mods an actuator Mixin reads
 /// every frame.
 ///
 /// These are the only ids accepted by `void.setGameplay`.
@@ -397,11 +401,13 @@ pub enum GameplayModId {
     TimeWeather,
     /// Timestamps, stacked repeats, click to copy and a longer history.
     Chat,
+    /// Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.
+    Cosmetics,
 }
 
 impl GameplayModId {
     /// Every gameplay mod id, in registry order.
-    pub const ALL: [GameplayModId; 25] = [
+    pub const ALL: [GameplayModId; 26] = [
         GameplayModId::ToggleSprint,
         GameplayModId::Fullbright,
         GameplayModId::Hitboxes,
@@ -427,6 +433,7 @@ impl GameplayModId {
         GameplayModId::MenuBlur,
         GameplayModId::TimeWeather,
         GameplayModId::Chat,
+        GameplayModId::Cosmetics,
     ];
 
     /// Widens to the full mod id enum.
@@ -457,6 +464,7 @@ impl GameplayModId {
             GameplayModId::MenuBlur => ModId::MenuBlur,
             GameplayModId::TimeWeather => ModId::TimeWeather,
             GameplayModId::Chat => ModId::Chat,
+            GameplayModId::Cosmetics => ModId::Cosmetics,
         }
     }
 
@@ -3482,11 +3490,52 @@ pub struct ChatSettings {
     pub history_length: Option<i64>,
 }
 
+/// Cosmetics settings.
+///
+/// Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored
+/// by the launcher against your account; these four switches are only about what this client
+/// draws. Off hides every cosmetic, yours included, and stops answering other players' emotes —
+/// but your own set is untouched, and other VOID players still see it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CosmeticsSettings {
+    /// Whether cosmetics are shown.
+    pub on: bool,
+
+    /// Whether other VOID players' cosmetics are drawn. On by default, because seeing who else
+    /// plays VOID is half the point. Off draws only your own — for a crowded lobby, or for a
+    /// player who wants the fight in front of them to look like vanilla. Their emotes still
+    /// animate their model; only what they wear is hidden.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub others: Option<bool>,
+
+    /// Whether your own trail is drawn while you are in first person. Off by default: a trail
+    /// is something other people see you leave, and in first person it is particles at your own
+    /// feet, on the edge of the frame you aim through. On is for the player who likes to watch
+    /// it. Your cape, halo and the rest are never drawn in first person — the game does not
+    /// draw your model there either.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub own_first_person: Option<bool>,
+
+    /// Whether emissive cosmetics glow — the soft bloom around halos, wing edges and bright
+    /// trails. On by default, because those items are designed around it. Off draws the same
+    /// shapes flat, which is cheaper on a weak GPU and easier on the eyes in a dark cave.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glow: Option<bool>,
+
+    /// Whether the camera swings to third person and orbits slowly while you emote, so you can
+    /// see what you are doing. On by default. Off keeps your own view where it is: other
+    /// players still see the emote, you just do not watch it. The camera never moves while you
+    /// move — taking a step ends the emote and gives the view straight back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub emote_camera: Option<bool>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 44.
+/// Every mod VOID ships, keyed by id. Closed set of 45.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -3637,6 +3686,10 @@ pub struct ModRegistryEntries {
 
     /// Chat — Timestamps, stacked repeats, click to copy and a longer history.
     pub chat: ModEntry<ChatSettings>,
+
+    /// Cosmetics — Capes, wings, hats, halos, trails and emotes, on you and on other VOID
+    /// players.
+    pub cosmetics: ModEntry<CosmeticsSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -3736,6 +3789,8 @@ pub struct ModStates {
     pub reach: Option<ReachSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chat: Option<ChatSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cosmetics: Option<CosmeticsSettings>,
 }
 
 impl Registry {
@@ -3786,6 +3841,7 @@ impl Registry {
             ModId::PotionCounter => self.mods.potion_counter.info(),
             ModId::Reach => self.mods.reach.info(),
             ModId::Chat => self.mods.chat.info(),
+            ModId::Cosmetics => self.mods.cosmetics.info(),
         }
     }
 
@@ -3838,6 +3894,7 @@ impl Registry {
             ModId::PotionCounter => self.mods.potion_counter.defaults_object(),
             ModId::Reach => self.mods.reach.defaults_object(),
             ModId::Chat => self.mods.chat.defaults_object(),
+            ModId::Cosmetics => self.mods.cosmetics.defaults_object(),
         }
     }
 }
@@ -3891,6 +3948,7 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::PotionCounter => super::check::<PotionCounterSettings>(id, value),
         ModId::Reach => super::check::<ReachSettings>(id, value),
         ModId::Chat => super::check::<ChatSettings>(id, value),
+        ModId::Cosmetics => super::check::<CosmeticsSettings>(id, value),
     }
 }
 

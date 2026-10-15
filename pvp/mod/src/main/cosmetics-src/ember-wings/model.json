@@ -1,0 +1,203 @@
+{
+ "format": "void-cosmetic/1",
+ "attach": "body",
+ "texture_size": [
+  64,
+  32
+ ],
+ "procedural": "wings",
+ "bones": [
+  {
+   "name": "wing_r",
+   "parent": null,
+   "pivot": [
+    -1,
+    1.5,
+    2.85
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    {
+     "from": [
+      -9,
+      -5,
+      2.6
+     ],
+     "to": [
+      -1,
+      12,
+      3.1
+     ],
+     "faces": {
+      "north": [
+       0,
+       0,
+       8,
+       17
+      ],
+      "south": [
+       8,
+       0,
+       16,
+       17
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "wing_r_tip",
+   "parent": "wing_r",
+   "pivot": [
+    -9,
+    -0.6773242158072694,
+    2.85
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    {
+     "from": [
+      -20,
+      -5,
+      2.6
+     ],
+     "to": [
+      -9,
+      12,
+      3.1
+     ],
+     "faces": {
+      "north": [
+       16,
+       0,
+       27,
+       17
+      ],
+      "south": [
+       27,
+       0,
+       38,
+       17
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "wing_l",
+   "parent": null,
+   "pivot": [
+    1,
+    1.5,
+    2.85
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    {
+     "from": [
+      1,
+      -5,
+      2.6
+     ],
+     "to": [
+      9,
+      12,
+      3.1
+     ],
+     "faces": {
+      "north": [
+       8,
+       0,
+       0,
+       17
+      ],
+      "south": [
+       16,
+       0,
+       8,
+       17
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "wing_l_tip",
+   "parent": "wing_l",
+   "pivot": [
+    9,
+    -0.6773242158072694,
+    2.85
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    {
+     "from": [
+      9,
+      -5,
+      2.6
+     ],
+     "to": [
+      20,
+      12,
+      3.1
+     ],
+     "faces": {
+      "north": [
+       27,
+       0,
+       16,
+       17
+      ],
+      "south": [
+       38,
+       0,
+       27,
+       17
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "glow": [
+  {
+   "bone": "wing_r_tip",
+   "at": [
+    -13,
+    9.5,
+    2.85
+   ],
+   "color": "#ff9e7a",
+   "size": 3.6,
+   "strength": 0.2
+  },
+  {
+   "bone": "wing_l_tip",
+   "at": [
+    13,
+    9.5,
+    2.85
+   ],
+   "color": "#ff9e7a",
+   "size": 3.6,
+   "strength": 0.2
+  }
+ ]
+}
