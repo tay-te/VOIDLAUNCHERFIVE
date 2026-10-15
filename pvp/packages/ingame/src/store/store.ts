@@ -36,6 +36,8 @@ import {
   type SessionInfo,
   type SettingPayload,
   type TickPayload,
+  type ImportResult,
+  type ToastPayload,
 } from '@/bridge/protocol';
 import { getVoid } from '@/bridge/connect';
 // DEV ONLY. `isFakeMod` is a constant `false` in every build that did not ask for the padding
@@ -50,6 +52,8 @@ import {
   trimRing,
 } from './cps';
 import { DEFAULT_HUD, GRID, clampOffset, clampScale } from './hud-geometry';
+import { pushPingReading } from '@/hud/ping-stats';
+import { pushReach, reachAverage, type ReachReading } from '@/hud/reach-stats';
 
 /** A scalar a mod setting may hold. */
 export type SettingValue = boolean | number | string | null;
@@ -128,14 +132,17 @@ export type { SessionInfo };
  * and until now the page could neither read nor write any of it: `menuKey` and `uiScale` were
  * live values on the other side of a wall. The Settings page is what needed them.
  *
- * **Only the ones the page has a use for.** `GlobalSettings` also carries `cycleLoadoutKey`; it
- * is not lifted here because nothing in the overlay reads it, and a field mirrored into the store
- * for completeness is a field that goes stale unnoticed. `hudEditorGrid` used to be in that
- * sentence and has earned its way out — the HUD editor's `Snap` toggle is now a control for it.
+ * **Only the ones the page has a use for.** `cycleLoadoutKey` earned its way in with the
+ * Settings row that rebinds it and the keybind overview that lists it; `hudEditorGrid` did the
+ * same through the HUD editor's `Snap` toggle. `theme` was lifted for completeness, read by
+ * nothing, and has been dropped: the launcher still stores it and Java still round-trips it, but
+ * a field mirrored into the store that nothing draws is a field that goes stale unnoticed.
  */
 export interface GlobalsView {
   /** Key that opens and closes the menu, as a `KeyNames` name — `RSHIFT` by default. */
   menuKey: string;
+  /** Key that cycles to the next loadout with the menu closed — `L` by default, `NONE` for off. */
+  cycleLoadoutKey: string;
   /**
    * Extra multiplier on the whole in-game UI, on top of the fit scale. 0.5 .. 3.
    *
@@ -152,8 +159,6 @@ export interface GlobalsView {
    * over the WS bridge.
    */
   uiScale: number;
-  /** Stored and, as of today, read by nothing. Kept so a push round-trips unchanged. */
-  theme: string;
   /**
    * The HUD editor's snap grid, in unscaled GUI pixels. 0 disables snapping.
    *
@@ -169,13 +174,49 @@ export interface GlobalsView {
 /** What the page believes before the first `settings` push. Matches `GlobalSettings::factory()`. */
 export const FACTORY_GLOBALS: GlobalsView = {
   menuKey: 'RSHIFT',
+  cycleLoadoutKey: 'L',
   uiScale: 1,
-  theme: 'void-dark',
   hudEditorGrid: 4,
 };
 
 /** Which global settings the page may write. The rest of `GlobalSettings` is Rust's business. */
-export type GlobalKey = 'menu_key' | 'ui_scale' | 'hud_editor_grid';
+export type GlobalKey = 'menu_key' | 'cycle_loadout_key' | 'ui_scale' | 'hud_editor_grid';
+
+/**
+ * The quick panel's factory pins (`229:47020`): the mods a fight reaches for. A loadout's own
+ * `quick` list replaces it as soon as the player pins anything (`setQuickPins`); a loadout that
+ * never has keeps these.
+ */
+export const FACTORY_QUICK: readonly ModId[] = (
+  ['toggle_sprint', 'zoom', 'keystrokes', 'crosshair', 'hit_color', 'fov', 'hitboxes', 'fullbright'] as ModId[]
+).filter((id) => Boolean(MOD_REGISTRY[id]));
+
+/** Most mods the quick panel holds — its `1`–`8` keys. */
+export const MAX_QUICK_PINS = 8;
+
+/** The pins the quick panel shows for `loadout`: its own list, or the factory one. */
+export function quickPins(loadout: Pick<Loadout, 'quick'> | null): readonly ModId[] {
+  const own = loadout?.quick;
+  return own ? own.filter((id) => Boolean(MOD_REGISTRY[id])) : FACTORY_QUICK;
+}
+
+/**
+ * One notice on screen. `bridge.json`'s `toast` payload plus a local id and when it arrived;
+ * Java pushes some (the cycle key, a mod's own key, the launcher), the page raises the rest
+ * (an import, a delete, a copied code) through {@link VoidState.pushToast}.
+ */
+export interface Toast extends ToastPayload {
+  id: number;
+  at: number;
+}
+
+/** How long a notice stays up. Long enough to read a loadout name mid-fight, short enough not to sit there. */
+export const TOAST_MS = 2600;
+
+/** Most notices on screen at once; a burst of hotkey presses keeps the newest. */
+const MAX_TOASTS = 3;
+
+let toastSeq = 0;
 
 
 /** Click rings live outside the store: they are scratch, never rendered. */
@@ -206,6 +247,77 @@ let lastHits: { dealt: number; taken: number } | null = null;
 
 /** `Date.now()` of the last hit either way; see {@link MenuContext}. */
 let lastCombatAt = 0;
+
+/* ---------------------------------------------------- the depth-wave tick readings */
+/*
+ * Scratch for `counts`, `reach`, `ping` history and `hits.swings`. Module-level like the click
+ * rings, and for the same reason: each is **ingested on every tick, menu or no menu**, and only
+ * *published* when the HUD is visible. `counts` and `reach` are sent only on the tick they change
+ * (`bridge.json`), so a tick swallowed by the menu hold would otherwise lose them until the next
+ * change — the chip would come back from the menu showing a count from before it opened.
+ * `resetDerivedState()` clears all of it.
+ */
+
+/** Inventory-wide item counts, as `tick.counts` carries them. */
+export type ItemCounts = NonNullable<TickPayload['counts']>;
+
+/**
+ * What the Reach display draws from. `last` and `average` are both kept so `mode` is a choice
+ * the widget makes per render rather than a second history somewhere; `at` is when the latest
+ * hit was ingested, for `hide_after_ms`.
+ */
+export interface ReachView {
+  last: number;
+  average: number;
+  n: number;
+  at: number;
+}
+
+/** The latest `counts` push not yet published. */
+let pendingCounts: ItemCounts | null = null;
+/** The last ten measured hits, keyed by `n` (`hud/reach-stats.ts`). */
+const reachRing: ReachReading[] = [];
+let reachAt = 0;
+let reachDirty = false;
+/** Distinct `tick.ping` readings (`hud/ping-stats.ts`). */
+const pingReadings: number[] = [];
+let pingDirty = false;
+/** The last `hits.swings` seen; null until the sensor first sends one. */
+let lastSwings: number | null = null;
+
+/** More swings than this in one 50 ms tick is a counter that jumped, not a player. */
+const MAX_SWINGS_PER_TICK = 20;
+
+function ignoresCancelled(loadout: Loadout | null): boolean {
+  return loadout?.mods?.cps?.ignore_cancelled === true;
+}
+
+/**
+ * Whether the LEFT click ring is fed from `hits.swings` rather than from `keys.lmb` edges.
+ *
+ * Only once the sensor has actually sent `swings`: the field is optional so an older sensor still
+ * validates, and turning `ignore_cancelled` on against one would otherwise freeze the left figure
+ * at zero. With no swings seen the edges keep counting, which is the setting's off state — the
+ * honest fallback for a sensor that cannot tell the two apart.
+ */
+function swingsFeedLeft(loadout: Loadout | null): boolean {
+  return lastSwings !== null && ignoresCancelled(loadout);
+}
+
+/**
+ * One click per swing increment, timestamped at the tick.
+ *
+ * The first sighting is a baseline and counts nothing — the counter is session-monotonic, so a
+ * page reload mid-fight would otherwise report every swing of the session at once (the combo's
+ * argument, `hits`). A counter that went backwards is a new session and re-baselines.
+ */
+function feedSwings(swings: number, now: number, loadout: Loadout | null): void {
+  const seen = lastSwings;
+  lastSwings = swings;
+  if (seen === null || swings <= seen || !ignoresCancelled(loadout)) return;
+  const delta = Math.min(swings - seen, MAX_SWINGS_PER_TICK);
+  for (let i = 0; i < delta; i += 1) pushClick(rings.left, now);
+}
 
 /**
  * The context an open lands in. `?ctx=lobby|match` pins it in the browser harness, where there
@@ -312,6 +424,13 @@ export function resetDerivedState(): void {
   fpsSamples.length = 0;
   lastHits = null;
   lastCombatAt = 0;
+  pendingCounts = null;
+  reachRing.length = 0;
+  reachAt = 0;
+  reachDirty = false;
+  pingReadings.length = 0;
+  pingDirty = false;
+  lastSwings = null;
 }
 
 export interface VoidState {
@@ -360,6 +479,21 @@ export interface VoidState {
   combo: number;
   /** When the combo last advanced, ms. The widget compares this against its own `reset_ms`. */
   comboAt: number;
+  /**
+   * Inventory-wide item counts — the Item counter's named `track` values and the Potion counter.
+   * Null until the first `counts` push. Replaced whole and only when a push differs by value
+   * (`bridge.json`: sent whole whenever any key changes, absent means unchanged). A key that is
+   * present at 0 is a real reading; `held_total` is absent with an empty hand.
+   */
+  counts: ItemCounts | null;
+  /** The last landed hit's reach and the mean of the last ten. Null before the first hit. */
+  reach: ReachView | null;
+  /**
+   * Distinct `tick.ping` readings, oldest first, at most 60 (`hud/ping-stats.ts`). A fresh array
+   * only when a new reading arrives — every few seconds, not every tick — so the Ping display's
+   * average, jitter and spike re-derive exactly when there is something new to derive from.
+   */
+  pingHistory: readonly number[];
   server: ServerPayload;
   cpsLeft: number;
   cpsRight: number;
@@ -380,6 +514,8 @@ export interface VoidState {
   session: SessionInfo | null;
   /** The client's globals. Factory values until the first `settings` push replaces them. */
   globals: GlobalsView;
+  /** Notices on screen, oldest first. Drawn by `ToastStack` over both layers. */
+  toasts: Toast[];
 
 
   /* -------------------------------------------------------------- UI state */
@@ -422,6 +558,8 @@ export interface VoidState {
   applySession(session: SessionInfo): void;
   applyGlobals(payload: unknown): void;
   applyMenu(open: boolean): void;
+  /** The `toast` channel: a notice Java raised for something that happened with the menu closed. */
+  applyToast(payload: ToastPayload): void;
 
   /* -------------------------------------------------------------- UI actions */
   setRoute(route: Route): void;
@@ -448,7 +586,38 @@ export interface VoidState {
   closeMenu(): void;
   captureKeybind(id: ModId): Promise<Keybind | null>;
   captureMenuKey(): Promise<string | null>;
+  /** Capture a key for a client-level binding — `menu` or `cycle` — rather than a mod's. */
+  captureGlobalKey(label: 'menu' | 'cycle'): Promise<string | null>;
   resetMod(id: ModId): void;
+
+  /* ------------------------------------------------- the library (Loadouts screen) */
+  /*
+   * Each is one synchronous bridge call answered with what Java stored. The returned value is
+   * folded in at once so the screen moves on the frame of the click; the `loadouts` push that
+   * follows a frame later is whole-state and settles anything this guessed differently.
+   */
+  createLoadout(name: string): Loadout | null;
+  renameLoadout(id: LoadoutId, name: string): string | null;
+  duplicateLoadout(id: LoadoutId): Loadout | null;
+  deleteLoadout(id: LoadoutId): boolean;
+  exportLoadout(id: LoadoutId): string | null;
+  importLoadout(code: string): ImportResult;
+  /**
+   * Export a loadout's share code and put it on the clipboard through Java (the page has no
+   * clipboard of its own). Raises a notice either way; returns the code so a caller can show it
+   * when the copy failed, or null for an unknown id.
+   */
+  copyShareCode(id: LoadoutId): { code: string; copied: boolean } | null;
+  /** The clipboard's text, through Java — the Loadouts screen's `Paste`. */
+  readClipboard(): string;
+  /** Replace the active loadout's quick-panel pins; binds to what Java stored. */
+  setQuickPins(ids: readonly ModId[]): void;
+  /** Pin or unpin one mod on the active loadout's quick panel (appended; eight at most). */
+  toggleQuickPin(id: ModId): void;
+
+  /* ---------------------------------------------------------------- notices */
+  pushToast(toast: ToastPayload): void;
+  dismissToast(id: number): void;
 }
 
 export const useVoidStore = create<VoidState>((set, get) => ({
@@ -467,12 +636,16 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   memory: null,
   combo: 0,
   comboAt: 0,
+  counts: null,
+  reach: null,
+  pingHistory: [],
   server: { host: '', connected: false },
   cpsLeft: 0,
   cpsRight: 0,
   cpsPeak: 0,
   session: null,
   globals: FACTORY_GLOBALS,
+  toasts: [],
 
   menuOpen: false,
   back: 'mods',
@@ -548,7 +721,9 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     const previewingKeys = route.name === 'mod' && route.id === 'keystrokes';
     const hidden =
       get().menuOpen && route.name !== 'hud-editor' && !previewingKeys && isUltralight();
-    if (edges.lmb) {
+    // `cps.ignore_cancelled` moves the left count to `hits.swings` (see `feedSwings`), so an edge
+    // the game swallowed is not a click. The right button is always the edge.
+    if (edges.lmb && !swingsFeedLeft(get().loadout)) {
       pushClick(rings.left, now);
       patch.cpsLeft = clicksPerSecond(rings.left, now, windowMs(get().loadout));
     }
@@ -572,6 +747,22 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     if (tick.fps !== undefined) {
       fpsSamples.push(tick.fps);
       if (fpsSamples.length > FPS_WINDOW) fpsSamples.splice(0, fpsSamples.length - FPS_WINDOW);
+    }
+
+    // Ingest — never publish — the depth-wave readings, before anything below can return. The
+    // menu hold and the quick panel's close both end this method early, and `counts` / `reach`
+    // arrive only on the tick they change, so ingesting after them would drop a reading for good.
+    // Swings feed the left click ring here for the same reason the edges do in `applyKeys`: CPS
+    // has to stay right across a spell in the menu.
+    {
+      const at = Date.now();
+      if (tick.counts !== undefined) pendingCounts = tick.counts;
+      if (tick.reach !== undefined && pushReach(reachRing, tick.reach)) {
+        reachAt = at;
+        reachDirty = true;
+      }
+      if (tick.ping !== undefined && pushPingReading(pingReadings, tick.ping)) pingDirty = true;
+      if (tick.hits?.swings !== undefined) feedSwings(tick.hits.swings, at, prev.loadout);
     }
 
     // Hold the live readouts while the menu covers them.
@@ -661,6 +852,26 @@ export const useVoidStore = create<VoidState>((set, get) => ({
       patch.memory = { usedMb: tick.memory.used_mb, maxMb: tick.memory.max_mb };
     }
 
+    // The depth-wave readings, published from what was ingested above — this tick's or one
+    // the menu held. Value-compared like everything else here: `counts` is a fresh object per
+    // push and is only taken when a figure in it actually moved.
+    if (pendingCounts !== null) {
+      if (!sameJson(prev.counts, pendingCounts)) patch.counts = pendingCounts;
+      pendingCounts = null;
+    }
+    if (reachDirty) {
+      reachDirty = false;
+      const latest = reachRing[reachRing.length - 1];
+      const average = reachAverage(reachRing);
+      if (latest !== undefined && average !== null) {
+        patch.reach = { last: latest.blocks, average, n: latest.n, at: reachAt };
+      }
+    }
+    if (pingDirty) {
+      pingDirty = false;
+      patch.pingHistory = pingReadings.slice();
+    }
+
     // The combo, derived from the two monotonic counters.
     //
     // First sight of the pair establishes a baseline and counts nothing: the counters are
@@ -708,8 +919,9 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     const current = get().globals;
     const next: GlobalsView = {
       menuKey: typeof raw.menu_key === 'string' ? raw.menu_key : current.menuKey,
+      cycleLoadoutKey:
+        typeof raw.cycle_loadout_key === 'string' ? raw.cycle_loadout_key : current.cycleLoadoutKey,
       uiScale: typeof raw.ui_scale === 'number' ? raw.ui_scale : current.uiScale,
-      theme: typeof raw.theme === 'string' ? raw.theme : current.theme,
       hudEditorGrid:
         typeof raw.hud_editor_grid === 'number' ? raw.hud_editor_grid : current.hudEditorGrid,
     };
@@ -732,6 +944,10 @@ export const useVoidStore = create<VoidState>((set, get) => ({
         ? { menuOpen: true, back: 'mods', context: contextNow(), route: { name: 'mods' }, paletteOpen: false }
         : { menuOpen: false, paletteOpen: false },
     );
+  },
+
+  applyToast(payload) {
+    get().pushToast(payload);
   },
 
   setRoute(route) {
@@ -875,6 +1091,8 @@ export const useVoidStore = create<VoidState>((set, get) => ({
       set({ globals: { ...current, uiScale: applied } });
     } else if (key === 'menu_key' && typeof applied === 'string') {
       set({ globals: { ...current, menuKey: applied } });
+    } else if (key === 'cycle_loadout_key' && typeof applied === 'string') {
+      set({ globals: { ...current, cycleLoadoutKey: applied } });
     } else if (key === 'hud_editor_grid' && typeof applied === 'number') {
       set({ globals: { ...current, hudEditorGrid: applied }, editorSnap: applied > 0 });
     }
@@ -901,12 +1119,119 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     return capture('menu');
   },
 
+  async captureGlobalKey(label) {
+    // The same non-mod capture as `captureMenuKey`; the label only names the arming in Java.
+    const capture = getVoid().openKeybindCapture as unknown as (
+      id: string,
+    ) => Promise<string | null>;
+    return capture(label);
+  },
+
   resetMod(id) {
     const defaults = MOD_REGISTRY[id].defaults as unknown as Record<string, SettingValue>;
     for (const [key, value] of Object.entries(defaults)) {
       if (key === 'on') continue; // Reset restores settings, not enablement.
       get().setSetting(id, key, value);
     }
+  },
+
+  createLoadout(name) {
+    const created = getVoid().createLoadout(name);
+    if (created) set({ library: [...get().library.filter((l) => l.id !== created.id), created] });
+    return created;
+  },
+
+  renameLoadout(id, name) {
+    const stored = getVoid().renameLoadout(id, name);
+    if (stored === null) return null;
+    const { loadout, library } = get();
+    set({
+      library: library.map((l) => (l.id === id ? { ...l, name: stored } : l)),
+      ...(loadout?.id === id ? { loadout: { ...loadout, name: stored } } : {}),
+    });
+    return stored;
+  },
+
+  duplicateLoadout(id) {
+    const copy = getVoid().duplicateLoadout(id);
+    if (copy) set({ library: [...get().library.filter((l) => l.id !== copy.id), copy] });
+    return copy;
+  },
+
+  deleteLoadout(id) {
+    const name = get().library.find((l) => l.id === id)?.name ?? id;
+    const deleted = getVoid().deleteLoadout(id);
+    if (deleted) {
+      set({ library: get().library.filter((l) => l.id !== id) });
+      get().pushToast({ kind: 'loadout', title: name, detail: 'Loadout deleted' });
+    }
+    return deleted;
+  },
+
+  exportLoadout(id) {
+    return getVoid().exportLoadout(id);
+  },
+
+  copyShareCode(id) {
+    const bridge = getVoid();
+    const code = bridge.exportLoadout(id);
+    if (code === null) return null;
+    const copied = bridge.setClipboard(code);
+    const name = get().library.find((l) => l.id === id)?.name ?? id;
+    get().pushToast(
+      copied
+        ? { kind: 'info', title: 'Share code copied', detail: name }
+        : { kind: 'info', title: 'Could not reach the clipboard', detail: 'The code is shown on the card' },
+    );
+    return { code, copied };
+  },
+
+  readClipboard() {
+    return getVoid().getClipboard();
+  },
+
+  importLoadout(code) {
+    const result = getVoid().importLoadout(code);
+    if (result.ok) {
+      const imported = result.loadout;
+      set({ library: [...get().library.filter((l) => l.id !== imported.id), imported] });
+      get().pushToast({
+        kind: 'loadout',
+        title: imported.name,
+        detail:
+          result.dropped > 0
+            ? `Imported · ${result.dropped} unknown setting${result.dropped === 1 ? '' : 's'} skipped`
+            : 'Loadout imported',
+      });
+    }
+    return result;
+  },
+
+  setQuickPins(ids) {
+    const stored = getVoid().setQuickPins([...ids]);
+    const { loadout, library } = get();
+    if (!loadout) return;
+    const next: Loadout = { ...loadout, quick: stored };
+    set({ loadout: next, library: library.map((l) => (l.id === next.id ? next : l)) });
+  },
+
+  toggleQuickPin(id) {
+    const current = [...quickPins(get().loadout)];
+    const at = current.indexOf(id);
+    if (at >= 0) current.splice(at, 1);
+    else if (current.length < MAX_QUICK_PINS) current.push(id);
+    else return;
+    get().setQuickPins(current);
+  },
+
+  pushToast(toast) {
+    const next: Toast = { ...toast, id: ++toastSeq, at: Date.now() };
+    set({ toasts: [...get().toasts, next].slice(-MAX_TOASTS) });
+  },
+
+  dismissToast(id) {
+    const toasts = get().toasts;
+    if (toasts.some((t) => t.id === id)) set({ toasts: toasts.filter((t) => t.id !== id) });
   },
 }));
 

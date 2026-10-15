@@ -2244,6 +2244,16 @@ body {
   color: var(--text-primary);
 }
 
+/* `Pin to quick panel` sits beside Reset, the auto margin keeping Done at the far end. */
+.modpage__pin {
+  margin-right: auto;
+}
+
+.modpage__reset:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .modpage__done {
   min-width: 104px;
   height: 34px;
@@ -2401,6 +2411,28 @@ body {
    keeps its rows on one line. */
 .mprops[data-structure='grouped'] .mprop {
   flex-wrap: wrap;
+}
+
+/* A bit-mask row (`PropertyKind` `flags` — `potion_effects.hidden_effects`): twenty-three chips do
+   not fit beside a label at any width this page has, so the row always wraps, the chips take the
+   whole line under the label, and they wrap among themselves at a tighter gap than the
+   single-choice row. Same chips, same selected state; only the flow differs. */
+.mprop--flags {
+  flex-wrap: wrap;
+}
+
+.mprop--flags .mprop__control {
+  flex: 1 1 100%;
+  justify-content: flex-start;
+}
+
+.mprop__flags {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mprop__flags .v-chip {
+  padding: 3px 8px;
 }
 
 .mprops__list {
@@ -2814,7 +2846,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 440px;
+  /* Shrinks to the frame rather than holding 440: since Zoom gained `scroll_adjust` and
+     `scale_sensitivity` it is a two-group page, its preview column is narrower than 440, and a
+     fixed width pushed the wheel ladder on the right edge out of sight. */
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
   height: 248px;
   border: 1px solid var(--border-strong);
   border-radius: 10px;
@@ -3022,6 +3059,189 @@ body {
 
 .gprev--tile .gprev__eye {
   width: 22px;
+}
+
+/* ------------------------------------------------------- the depth wave's diagram additions
+
+   Hitboxes' `state_colors`, Zoom's `scroll_adjust` and `scale_sensitivity`, and the Chat mod.
+   Same rules as everything above: flat, monochrome except where the mod owns the ink (the box
+   colours), and nothing animates. */
+
+/* The reticle on the box the crosshair is on — `state_colors`' hittable box. A plain plus in the
+   secondary ink, centred: it names the situation, the box's colour is the reading. */
+.gprev__aim {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+}
+
+.gprev__aim::before,
+.gprev__aim::after {
+  content: '';
+  position: absolute;
+  background: var(--text-secondary);
+}
+
+.gprev__aim::before {
+  left: 6px;
+  top: 0;
+  width: 2px;
+  height: 14px;
+}
+
+.gprev__aim::after {
+  left: 0;
+  top: 6px;
+  width: 14px;
+  height: 2px;
+}
+
+/* Zoom's wheel range — one rung per level the wheel can reach, the current one lit. A column of
+   §3 cells up the frame's top-right corner, clear of the keycap (top-left) and the figure
+   (bottom-right). */
+.gprev__ladder {
+  position: absolute;
+  right: 14px;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gprev__rung {
+  width: 10px;
+  height: 8px;
+  border-radius: 30%;
+  background: rgba(237, 238, 239, 0.12);
+}
+
+.gprev__rung--lit {
+  background: var(--text-secondary);
+}
+
+/* Zoom's `scale_sensitivity` — one flick's travel across the zoomed view, along its bottom edge.
+   Square-ended where it runs off the frame, because that is what happened to the flick. */
+.gprev__flick {
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-muted);
+}
+
+.gprev__flick--over {
+  border-radius: 0;
+}
+
+.gprev__fovinner {
+  overflow: hidden;
+}
+
+/* Chat: the chat box, bottom-left in game, drawn as its lines over their band. */
+.gprev--chat {
+  gap: 18px;
+}
+
+.gprev__chat {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 420px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: rgba(237, 238, 239, 0.03);
+}
+
+.gprev__chatlines {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* One line. The band is inline (it is `background_opacity`'s whole drawing); no radius, because
+   vanilla's band is a run of rectangles stacked edge to edge. */
+.gprev__chatline {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 6px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.gprev__chatline--hover {
+  outline: 1px solid var(--border-raised);
+  outline-offset: -1px;
+}
+
+.gprev__chattime {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.gprev__chattext {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gprev__chatrep {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.gprev__chatcopy {
+  margin-left: auto;
+  height: 16px;
+  min-width: 0;
+  padding: 0 5px;
+  font-size: 10px;
+}
+
+/* `history_length`: the open chat's scrollbar. The thumb is the visible twenty against the
+   messages kept, inline; a floor of 2px so the longest history is still a mark. */
+.gprev__chatscroll {
+  position: relative;
+  flex: 0 0 3px;
+  border-radius: 2px;
+  background: rgba(237, 238, 239, 0.08);
+}
+
+.gprev__chatthumb {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 2px;
+  border-radius: 2px;
+  background: var(--text-secondary);
+}
+
+.gprev--tile .gprev__chat {
+  width: 118px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.gprev--tile .gprev__chatline {
+  min-height: 15px;
+  padding: 0 3px;
+  gap: 3px;
+  font-size: 9px;
 }
 
 /* ------------------------------------------------- the four gameplay diagrams of wave 4
@@ -4138,11 +4358,99 @@ body {
 /* --------------------------------------------------------- Loadouts screen */
 
 /* Three 292 × 428 cards at y 89 in the frame; the Panel's header + subtitle +
-   body padding already put the body at ~87, so no extra offset. */
+   body padding already put the body at ~87, so no extra offset.
+
+   A library the player can now grow wraps onto further rows and scrolls inside the body,
+   rather than running off the panel's right edge: three across is still what the frame draws. */
+.loadouts-panel .v-panel__body {
+  flex-direction: column;
+}
+
 .loadouts {
   display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
   gap: 16px;
+  /* Three 292px cards and two 16px gaps are exactly the body's 908, so the scrollbar a fourth
+     row brings would push the third card onto the next row. The box reaches 18px into the
+     panel's right padding instead, which is where the scrollbar then sits. */
+  width: calc(100% + 18px);
+  margin-right: -18px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 16px;
+}
+
+/* The import field: the panel-header search field, a row under the header. */
+.loadouts-import {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.loadouts-import .v-searchbar {
+  width: 360px;
+}
+
+.loadouts-import__hint,
+.loadouts-import__error {
+  flex: 1 1 100%;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-secondary);
+}
+
+.loadouts-import__error {
+  color: var(--warn-ink);
+}
+
+/* Card actions: the system's ghost buttons, small, in one quiet row inside the card. */
+.loadout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 -6px;
+}
+
+.loadout-actions .v-btn {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+/* Delete's second press. The one destructive control, so the one place a warning hue is used. */
+.loadout-actions .loadout-actions__confirm {
+  color: var(--danger);
+}
+
+/* Rename edits the card's own title in place, at the title's own size. */
+.loadout-rename {
   width: 100%;
+  min-width: 0;
+  padding: 0 6px;
+  margin-left: -6px;
+  border-radius: var(--radius-field);
+  border: 1px solid var(--tint-07);
+  background: var(--tint-04);
+  color: inherit;
+  font: inherit;
+}
+
+/* A code the clipboard refused: readable, selectable, nothing else. */
+.loadout-code {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--radius-field);
+  border: 1px solid var(--tint-07);
+  background: var(--tint-04);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
 /* ------------------------------------------------------------ Party screen */
@@ -4564,6 +4872,87 @@ body {
 
 .oset__link:hover {
   color: var(--text-primary);
+}
+
+/* `Off` beside the cycle key's chip: the same ghost, without the chevron — it acts, it does not go. */
+.oset__link--plain::after {
+  content: none;
+}
+
+.oset__keypair {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ------------------------------------------------------------- keybinds */
+
+/* One row per bound key: label on the left, the key on the right, in the mods list's rhythm. */
+.oset__bind {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 0;
+  border: 0;
+  border-top: 1px solid var(--border-raised);
+  background: transparent;
+  font-family: var(--font-ui);
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.oset__bind:first-child {
+  border-top: 0;
+}
+
+.oset__bind:disabled {
+  cursor: default;
+}
+
+.oset__bindlabels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.oset__bindname {
+  font-size: 13px;
+}
+
+.oset__bindnote {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.oset__bindkey {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: var(--tint-04);
+  border: 1px solid var(--tint-07);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.oset__bind--off .oset__bindname {
+  color: var(--text-secondary);
+}
+
+/* A clash is a live problem, so it is the one row that takes a hue: the warn ink, on the key and
+   on the note that names the other binding. */
+.oset__bind--clash .oset__bindkey,
+.oset__bind--clash .oset__bindnote {
+  color: var(--warn-ink);
+}
+
+.oset__bind--clash .oset__bindkey {
+  border-color: var(--warn);
 }
 
 /* --------------------------------------------------------------- the account */

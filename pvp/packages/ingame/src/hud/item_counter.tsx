@@ -1,18 +1,22 @@
 /**
- * Item counter — how many of the item **in your hand** are left.
+ * Item counter — how many of an item are left: the held stack, every stack of the held item, or a
+ * named item across the whole inventory.
  *
- * ## Say what it counts, because the name is borrowed
+ * ## What it counts is the `track` setting
  *
- * Lunar's and Badlion's item counters track a *chosen* item across the whole inventory: tell it
- * pearls and it counts pearls whether or not you are holding any. This one counts the held
- * stack, because `held_count` on the tick payload is the sensor that exists. It answers "how
- * many blocks are left" while you are bridging with them and "how many gapples" while you are
- * holding one; it does not answer "how many pearls do I have" while you are holding a sword.
- * An inventory-wide counter needs a slot-scanning sensor and a way to pick the watched item,
- * and when those exist they are a superset of this mod rather than a rewrite of it
- * (`schema/mods/item_counter.json` carries the same paragraph, and it is the contract).
+ * - `held_stack` (the default, and what the chip has always shown) reads `held_count`: the stack
+ *   in your hand. "How many blocks are left" while bridging, "how many gapples" while eating.
+ * - `held_total` reads `counts.held_total`: every stack in the inventory matching the held item,
+ *   same item and same variant, so white wool is not red wool.
+ * - Every other value — `ender_pearl`, `golden_apple`, `arrow`, `wool` and the rest — reads that
+ *   key of `counts`, the inventory-wide sensor, **whatever you are holding**. That is the Lunar
+ *   and Badlion meaning of an item counter: tell it pearls and it counts pearls while you hold a
+ *   sword. Healing potions and soup are deliberately not on that list; they are the Potion
+ *   counter's, which knows what it is counting and so can warn at a sensible default.
  *
- * Nothing here — and nothing on the tile — may imply otherwise.
+ * **A named item at 0 draws `0`.** You have run out, and that is the reading the chip exists for.
+ * Only a missing reading — no `counts` push yet, or `held_total` with an empty hand — draws
+ * nothing.
  *
  * ## An empty hand is not a count of zero
  *
@@ -42,7 +46,7 @@
 import { memo } from 'react';
 
 import { ItemCounterChip } from '@/ui';
-import { modSettings, useVoidStore } from '@/store/store';
+import { modSettings, useVoidStore, type ItemCounts } from '@/store/store';
 import type { HudWidgetProps } from './widgets';
 
 /**
@@ -65,17 +69,56 @@ import type { HudWidgetProps } from './widgets';
  */
 const SAMPLE_HELD_COUNT = 12;
 
+/**
+ * The same stand-in for the inventory-wide `track` values, one figure per item.
+ *
+ * Different figures on purpose: `track` is a setting like any other and the preview has to move
+ * when it moves, so a fixture that said `12` for every item would leave the control looking dead.
+ * Each is a believable stash for that item and every one sits strictly inside `low_threshold`'s
+ * 0..64 range for the reason {@link SAMPLE_HELD_COUNT} gives. `held_total` is the held stack's 12
+ * plus two more stacks of it.
+ */
+const SAMPLE_COUNTS: Readonly<Partial<Record<keyof ItemCounts, number>>> = {
+  held_total: 44,
+  ender_pearl: 6,
+  golden_apple: 9,
+  arrow: 58,
+  snowball: 32,
+  egg: 16,
+  cobweb: 4,
+  wool: 56,
+  tnt: 3,
+  fire_charge: 5,
+  iron_ingot: 27,
+  gold_ingot: 11,
+  diamond: 8,
+  emerald: 2,
+};
+
+/** A stored `track`, as the `counts` key it reads — or null for the held stack. */
+function countsKey(track: unknown): Exclude<keyof ItemCounts, 'health_potion' | 'soup'> | null {
+  if (typeof track !== 'string' || track === 'held_stack') return null;
+  if (track === 'health_potion' || track === 'soup') return null;
+  return track as Exclude<keyof ItemCounts, 'health_potion' | 'soup'>;
+}
+
 export const HudItemCounter = memo(function HudItemCounter({ variant, sample }: HudWidgetProps) {
-  const live = useVoidStore((s) => s.heldCount);
+  const key = useVoidStore((s) => countsKey(modSettings(s.loadout, 'item_counter').track));
+  // One subscription, and a primitive: the held stack, or the one key of `counts` being tracked,
+  // so a pickup of something else does not re-render this chip.
+  const live = useVoidStore((s) =>
+    key === null ? s.heldCount : (s.counts?.[key] ?? null),
+  );
   const showLabel = useVoidStore(
     (s) => modSettings(s.loadout, 'item_counter').show_label !== false,
   );
   const lowThreshold = useVoidStore((s) =>
     Number(modSettings(s.loadout, 'item_counter').low_threshold ?? 0),
   );
-  // `??`, never `||`: a held stack of 0 is a reading and must draw as one. Only `null` — the
-  // empty hand — falls through to the fixture, and only on the settings page.
-  const count = live ?? (sample ? SAMPLE_HELD_COUNT : null);
+  // `??`, never `||`: a count of 0 is a reading and must draw as one. Only `null` — the empty
+  // hand, or no `counts` push yet — falls through to the fixture, and only on the settings page.
+  const fixture = key === null ? SAMPLE_HELD_COUNT : (SAMPLE_COUNTS[key] ?? SAMPLE_HELD_COUNT);
+  const count = live ?? (sample ? fixture : null);
   if (count === null) return null;
   // No `color`: the registry gives this mod `show_label`, `low_threshold` and the shared chrome
   // block. The chip accepts one, and `lowThreshold` would outrank it anyway.

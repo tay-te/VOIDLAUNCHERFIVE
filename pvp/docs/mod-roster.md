@@ -3,6 +3,14 @@
 **Researched 2026-09-08.** Not from memory: both rosters were pulled from primary sources
 this session, because both clients change them and training data on this subject is stale.
 
+> **Status, 2026-10-15: 32 mods** (18 HUD, 14 gameplay) — read it off `schema/mods.json`, which
+> is generated from `schema/mods/*.json`, rather than from any count in this file. The numbers in
+> §§1–2 below ("13", "the thirteen") are the 2026-09-08 snapshot this research was done against
+> and are kept as that record. Since then: Wave 1 and 2 shipped (§7), `old_animations` shipped
+> as two mods once a 1.7.10 mapping was read (Wave 6, `old_animations` + `old_input`), and the
+> depth pass (Wave 7, below §7) added Potion counter, Reach display and Chat, the inventory-wide
+> `counts` sensor, and depth on Zoom, Ping, Keystrokes, CPS, Potion effects and Hitboxes.
+
 ---
 
 ## 0. Method and sources
@@ -12,7 +20,7 @@ this session, because both clients change them and training data on this subject
 | `github.com/LunarClient/Apollo`, `api/src/main/java/com/lunarclient/apollo/mods/impl/*.java` | **98 Lunar mods**, each with Lunar's own one-line javadoc and its full server-settable option list | Apollo is Lunar's own server API; the mod classes are generated against the shipping client and the repo was last pushed 2026-08-17. This is the roster, not a blog's guess at it. |
 | `badlion.net/free-minecraft-mods`, Wayback snapshot `20260307033601` | **57 Badlion mods**, each with Badlion's own one-liner, grouped All / PvP / Minigame / PvE / Faction | Badlion's own product page. Fetched via Wayback because badlion.net Cloudflare-403s every non-browser client. |
 | `lunarclient.com/news/*`, Hypixel forums, `support.hypixel.net` | Acquisition, 2025–26 additions, anticheat posture | Hypixel's official Allowed Modifications article is Cloudflare-gated; the policy statements below are from forum/staff sourcing and are flagged where that matters. |
-| This repo — `mod/.../state/ModRegistry.java`, `schema/mods.json` | VOID's thirteen and their settings | Read, not guessed. |
+| This repo — `mod/.../state/ModRegistry.java`, `schema/mods.json` | VOID's mods and their settings (thirteen at the time) | Read, not guessed. |
 
 Cost legend, calibrated against **this** codebase (see §9):
 
@@ -51,7 +59,7 @@ of 98" — most of Lunar's 98 are Skyblock, modern-version, or ornamental. It is
 
 ---
 
-## 2. Where VOID stands: the thirteen, checked against both rosters
+## 2. Where VOID stood: the thirteen, checked against both rosters (2026-09-08 snapshot)
 
 Read from `ModRegistry.java` and `schema/mods.json`, not assumed.
 
@@ -319,6 +327,11 @@ arrows).
 > remapped classes back out of the built JAR — a target the mapping does not know is left as the
 > yarn string, so that is proof the members exist rather than proof the code compiles.
 >
+> **Superseded — `old_animations` shipped in Wave 6**, as `old_animations` (safe) and
+> `old_input` (grey), once the 1.7.10 side was read out of a remapped 1.7.10 jar
+> (`docs/adding-a-mod.md`, "Another version is about five minutes"). The note below is the
+> record of why it was first withdrawn.
+>
 > **Old animations was declared and then withdrawn**, and the reason is worth keeping because it
 > is not "we ran out of time". The 1.8.9 side is establishable; the **1.7** side is not, from
 > this repo — there is no 1.7.10 source or mapping here or in the Gradle cache, and all four
@@ -369,10 +382,11 @@ all S, all the same shape. This is where a generated registry pays for itself.
 >   `modaction` is a request the page in the same JAR fulfils and Rust has no state riding on
 >   it. `stopwatch.start_key` and `reset_key` are its first and only callers.
 >
-> · **Potion counter** needs an inventory sensor. `held_count` sees the hand and nothing else,
->   which is why `item_counter` counts the held stack and says so rather than implying Lunar's
->   inventory-wide mod. A `counts` field keyed by item id would serve both it and a proper item
->   counter, and it is the one sensor addition the rest of §3.1 keeps asking for.
+> · ~~**Potion counter** needs an inventory sensor.~~ **Shipped 2026-10-15 with Wave 7.** The
+>   `counts` tick field is that sensor — the 36 main slots totalled per tracked item, sent whole
+>   when any value changes — and it serves both: `potion_counter` reads `health_potion` and
+>   `soup`, and `item_counter.track` now counts a chosen item across the inventory (Lunar's
+>   meaning) as well as the held stack.
 
 **Wave 3 — the medium PvP set.** Reach display · ~~Freelook (then Snaplook)~~ · ~~Hit color~~ ·
 ~~Damage tint~~ · ~~Hurt cam~~ · Scoreboard.
@@ -401,15 +415,24 @@ all S, all the same shape. This is where a generated registry pays for itself.
 > That is `fov`'s move ("the range is exactly vanilla's own slider") applied to a different
 > number, and it is the shape to reach for when a setting's *range* is what decides its class.
 >
-> **Reach display and Scoreboard are still open**, and Reach is now cheaper than this row
-> assumed: the combo-counter fix built the landed-attack classification it needs
+> **Reach display shipped 2026-10-15 with Wave 7** (classed `grey`: it sends nothing, but a few
+> networks ban the readout itself); Scoreboard is still open. Reach was as cheap as predicted: the combo-counter fix built the landed-attack classification it needs
 > (`sensor/HitTally`, ENTITY ∧ alive ∧ attackable ∧ not spectating), so the honest "compute only
 > from a landed attack, never predict" constraint in §6.1 already has somewhere to live.
+
+**Wave 7 — the depth pass (2026-10-15).** Not new categories but the depth Lunar parity needs
+in what already shipped: Zoom scroll-to-adjust and zoom-scaled sensitivity; Ping average, jitter
+and spike marks; Keystrokes press animation with a release fade; CPS that can ignore cancelled
+clicks (`hits.swings`); Potion effects per-effect hiding and an expiry blink; Hitboxes coloured
+by hittable/damaged state; Item counter tracking a chosen item; plus Potion counter, Reach
+display and Chat (timestamps, stacked repeats, click to copy, background opacity, long history).
+Alongside: loadout management in game (create, rename, duplicate, delete, share codes), quick
+panel pins stored per loadout, a keybind overview with clash marks, and in-game notices.
 
 **Wave 4 — the differentiator.** Fight review · click analytics · W-tap trainer ·
 connection quality · surface the input-latency number we already compute.
 
-**Wave 5 — long tail, only if the roster count matters commercially.** Chat, tab, boss bar,
+**Wave 5 — long tail, only if the roster count matters commercially.** ~~Chat~~ (Wave 7), tab, boss bar,
 titles, pack display, glint, clear glass, particles, time changer, nick hider, scrollable
 tooltips, inventory lock, kill sounds.
 

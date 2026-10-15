@@ -126,6 +126,15 @@ const SETTING_STEPS: Record<string, { step: number; unit?: string }> = {
   thickness: { step: 1, unit: 'px' },
   gap: { step: 1, unit: 'px' },
   corner_radius: { step: 1, unit: 'px' },
+  // The depth wave's. A key with no row here still gets a step of 1 (see below); these are the
+  // ones where 1 is the wrong grain.
+  fade_ms: { step: 10, unit: 'ms' },
+  jitter_warn_ms: { step: 5, unit: 'ms' },
+  spike_ms: { step: 10, unit: 'ms' },
+  hide_after_ms: { step: 500, unit: 'ms' },
+  background_opacity: { step: 0.05, unit: '%' },
+  history_length: { step: 100 },
+  blink_below_s: { step: 1, unit: 's' },
 };
 
 /**

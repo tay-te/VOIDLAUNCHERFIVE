@@ -566,6 +566,45 @@
   height: 12px;
 }
 
+/* The Loadouts pill's mark: three stacked cards, the same two-bar vocabulary as `.isl-move`. */
+.isl-stack {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.isl-stack i {
+  position: absolute;
+  display: block;
+  left: 2px;
+  width: 12px;
+  height: 1.4px;
+  border-radius: 1px;
+  background: var(--isl-ink);
+}
+
+.isl-stack i:nth-child(1) {
+  top: 3.3px;
+}
+
+.isl-stack i:nth-child(2) {
+  top: 7.3px;
+}
+
+.isl-stack i:nth-child(3) {
+  top: 11.3px;
+}
+
+/* The active loadout's name, quiet beside the label: it says where the pill goes, not a value. */
+.isl-pill__aside {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+  color: var(--isl-ink-2);
+}
+
 /* ---------------------------------------------------------- in a match */
 
 /* `229:47098`: 380 wide at the top centre, the hint under it. */
@@ -696,4 +735,12 @@
   background: rgba(19, 19, 21, 0.85);
   font-size: 12px;
   color: var(--isl-ink-2);
+}
+
+/* A loadout with every pin removed: the panel says how to fill it rather than showing nothing. */
+.isl-quick__empty {
+  margin: 0;
+  padding: 10px 4px;
+  font-size: 13px;
+  color: var(--isl-ink-3);
 }

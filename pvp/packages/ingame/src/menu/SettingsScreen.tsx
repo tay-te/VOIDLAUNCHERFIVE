@@ -73,13 +73,14 @@
  * Nothing in game writes it any more, which is the note `store.ts` carries where it is read.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { KeybindChip, Toggle, cx } from '@/ui';
 import { MOD_ORDER, modLabel } from '@/registry';
 import { isModOn, modsOnCount, useVoidStore } from '@/store/store';
 import { Watermark } from '@/hud/watermark';
 import { keybindLabel } from './settings-format';
+import { keybindOverview } from './keybind-overview';
 
 /** Bottom-left hint on the Settings page. */
 export const SETTINGS_HINT =
@@ -117,6 +118,10 @@ export function SettingsScreen(): React.ReactElement {
   const globals = useVoidStore((s) => s.globals);
   const setGlobal = useVoidStore((s) => s.setGlobal);
   const captureMenuKey = useVoidStore((s) => s.captureMenuKey);
+  const captureGlobalKey = useVoidStore((s) => s.captureGlobalKey);
+  const loadout = useVoidStore((s) => s.loadout);
+  const binds = useMemo(() => keybindOverview(loadout, globals), [loadout, globals]);
+  const clashCount = binds.filter((b) => b.clashes.length > 0).length;
   const session = useVoidStore((s) => s.session);
   const setRoute = useVoidStore((s) => s.setRoute);
   const openMod = useVoidStore((s) => s.openMod);
@@ -167,6 +172,29 @@ export function SettingsScreen(): React.ReactElement {
                   onChange={(key) => setGlobal('menu_key', key)}
                 />
               </Row>
+              {/* `cycle_loadout_key` has been a global since the first protocol and Java has always
+                  honoured it (`LiveState.cycleLoadoutKeyCode`); it just had no control in game.
+                  `NONE` is legal here, unlike the menu key — it switches the cycle off, which is
+                  not a way to get stuck — and the chip's own capture cannot produce it, so the
+                  `Off` link beside it is the way there. */}
+              <Row label="Cycle loadouts" sub="Switches to the next loadout with the menu closed.">
+                <span className="oset__keypair">
+                  {globals.cycleLoadoutKey !== 'NONE' ? (
+                    <button
+                      type="button"
+                      className="oset__link oset__link--plain"
+                      onClick={() => setGlobal('cycle_loadout_key', 'NONE')}
+                    >
+                      Off
+                    </button>
+                  ) : null}
+                  <KeybindChip
+                    value={keybindLabel(globals.cycleLoadoutKey)}
+                    onCapture={() => captureGlobalKey('cycle')}
+                    onChange={(key) => setGlobal('cycle_loadout_key', key)}
+                  />
+                </span>
+              </Row>
               {/* The mark is a mod, and this is that mod's switch — not a second flag that could
                   disagree with it. No hue on it: §4's toggle is monochrome in every state, and a
                   mark is not a live value anyway. */}
@@ -202,6 +230,51 @@ export function SettingsScreen(): React.ReactElement {
                   Open the layout editor
                 </button>
               </Row>
+              <Row label="Loadouts" sub="Create, rename, share and import loadouts.">
+                <button
+                  type="button"
+                  className="oset__link"
+                  onClick={() => setRoute({ name: 'loadouts' })}
+                >
+                  Manage loadouts
+                </button>
+              </Row>
+            </div>
+          </div>
+
+          {/* Every key VOID listens for, with clashes marked — Java edges each hotkey row on its
+              own, so two bindings on one key both fire. A row opens the mod that owns the key;
+              the two client keys are rebound in the rows above. */}
+          <div className="oset__group oset__binds">
+            <div className="oset__cap">
+              <span>Keybinds</span>
+              <span>{clashCount > 0 ? `${clashCount} clash${clashCount === 1 ? '' : 'es'}` : `${binds.length} bound`}</span>
+            </div>
+            <div className="oset__rows">
+              {binds.map((bind) => (
+                <button
+                  key={bind.id}
+                  type="button"
+                  className={cx(
+                    'oset__bind',
+                    !bind.live && 'oset__bind--off',
+                    bind.clashes.length > 0 && 'oset__bind--clash',
+                  )}
+                  disabled={bind.mod === null}
+                  onClick={() => (bind.mod ? openMod(bind.mod) : undefined)}
+                  title={bind.clashes.length > 0 ? `Also bound: ${bind.clashes.join(', ')}` : undefined}
+                >
+                  <span className="oset__bindlabels">
+                    <span className="oset__bindname">{bind.label}</span>
+                    {bind.clashes.length > 0 ? (
+                      <span className="oset__bindnote">{`Same key as ${bind.clashes.join(', ')}`}</span>
+                    ) : !bind.live ? (
+                      <span className="oset__bindnote">Mod is off</span>
+                    ) : null}
+                  </span>
+                  <span className="oset__bindkey">{bind.keyLabel}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>

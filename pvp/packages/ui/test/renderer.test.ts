@@ -253,6 +253,9 @@ describe('every custom property the stylesheet reads is declared', () => {
     // `key_color` / `pressed_color`, so there is no stylesheet declaration to find. Both are
     // read with a fallback, which is what makes an unset one correct rather than blank.
     '--key-pressed-bg',
+    // keystrokes: the release fade. Declared on `.v-keystrokes` itself and overridden inline by
+    // `HudKeystrokes` from `animate` / `fade_ms`.
+    '--key-fade',
   ]);
 
   const declared = new Set<string>([
