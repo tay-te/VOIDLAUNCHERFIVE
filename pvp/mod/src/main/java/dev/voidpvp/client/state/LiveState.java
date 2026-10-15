@@ -555,6 +555,11 @@ public final class LiveState {
 
         keystrokesOn = l.isOn("keystrokes");
         armorShowHeldItem = l.boolSetting("armor_status", "show_held_item", true);
+
+        // Wave 7: the FPS boost and the visual table stakes keep their mirrors in their own
+        // classes, so a wave of twelve mods is two lines here rather than another screen.
+        dev.voidpvp.client.perf.PerfConfig.apply(l);
+        dev.voidpvp.client.visual.VisualConfig.apply(l);
     }
 
     /** {@code #RRGGBB} / {@code #RRGGBBAA} to packed ARGB. */

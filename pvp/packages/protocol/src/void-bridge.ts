@@ -51,6 +51,7 @@ import type {
   LoadoutId,
   LoadoutsPayload,
   ModactionPayload,
+  ScoreboardPayload,
   ModId,
   ServerPayload,
   SessionPayload,
@@ -76,7 +77,7 @@ export type { GlobalSettings };
 /* -------------------------------------------------------------------------- */
 
 /**
- * The ten channels Java pushes on.
+ * The eleven channels Java pushes on.
  *
  * **Closed, and that is load-bearing.** Both shims look the name up in a map: `on` returns
  * a no-op subscription for a name it does not know, and `__emit` drops an envelope whose
@@ -96,9 +97,10 @@ export const VOID_EVENTS = [
   'session',
   'settings',
   'modaction',
+  'scoreboard',
 ] as const;
 
-/** Name of one of the ten push channels. */
+/** Name of one of the eleven push channels. */
 export type VoidEventName = (typeof VOID_EVENTS)[number];
 
 /** Payload handed to the handler of each channel. */
@@ -157,6 +159,11 @@ export interface VoidEventPayloadMap {
    * inside that widget rather than a lost channel. Ignore what you do not recognise.
    */
   modaction: ModactionPayload;
+  /**
+   * The sidebar scoreboard, whole state, pushed only when it changed — and re-sent after a page
+   * reload. Text is raw with `§` codes; the `scoreboard` HUD mod owns how they are drawn.
+   */
+  scoreboard: ScoreboardPayload;
 }
 
 /** Handler signature for a given channel. */

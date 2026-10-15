@@ -227,3 +227,30 @@ test {
         exceptionFormat = 'full'
     }
 }
+
+// ---------------------------------------------------------------------------
+// The FPS-boost benchmark and the visual mods' screenshot tour (bench/PerfBench).
+//
+//   ./gradlew runBench                       # boost off/on/off/on, writes run/void-bench.json
+//   ./gradlew runBench -PvoidBench=shots     # screenshots into run/screenshots/void-*.png
+//
+// -PvoidUltralightDir=<natives dir> points the run at a staged Ultralight natives tree
+// (native/build*/natives/<os>-<arch>) so the HUD draws; without it the game runs with the
+// in-game UI disabled, which is fine for the fps run and not for the scoreboard shots.
+// A dev harness only: nothing in a player's launch sets -Dvoid.bench.
+// ---------------------------------------------------------------------------
+loom {
+    runs {
+        bench {
+            inherit client
+            name = 'VOID benchmark'
+            vmArg "-Dvoid.bench=${project.findProperty('voidBench') ?: 'fps'}"
+            if (project.hasProperty('voidBenchSeconds')) {
+                vmArg "-Dvoid.bench.seconds=${project.property('voidBenchSeconds')}"
+            }
+            if (project.hasProperty('voidUltralightDir')) {
+                vmArg "-Dvoid.ultralight.nativeDir=${project.property('voidUltralightDir')}"
+            }
+        }
+    }
+}

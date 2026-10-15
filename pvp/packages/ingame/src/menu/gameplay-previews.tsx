@@ -73,7 +73,7 @@ import { keybindLabel } from './settings-format';
 /* -------------------------------------------------------------------------- */
 
 /** A labelled row of cells — the primitive both the ramp and the timeline are built from. */
-function CellRow({
+export function CellRow({
   label,
   cells,
   joined = false,
@@ -181,17 +181,17 @@ export function rgbOnly(color: string): string {
   return /^#[0-9a-fA-F]{8}$/.test(color) ? color.slice(0, 7) : color;
 }
 
-function steps(dense: boolean): number {
+export function steps(dense: boolean): number {
   return dense ? 7 : 12;
 }
 
 /** The one-line reading under a diagram: what the current value actually means. */
-function Reading({ children }: { children: React.ReactNode }): React.ReactElement {
+export function Reading({ children }: { children: React.ReactNode }): React.ReactElement {
   return <p className="gprev__reading">{children}</p>;
 }
 
 /** The diagram root's classes. `--tile` is the density modifier; the rest is unchanged. */
-function root(dense: boolean, modifier?: string, extra?: string): string {
+export function root(dense: boolean, modifier?: string, extra?: string): string {
   return ['gprev', modifier, dense ? 'gprev--tile' : null, extra].filter(Boolean).join(' ');
 }
 

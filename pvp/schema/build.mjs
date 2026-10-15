@@ -81,6 +81,12 @@ const ORDER = [
   // `hypixel_safe` is per mod: `old_animations` is `safe`, `old_input` is `grey`. Each file argues
   // its own half. Appended, never inserted.
   'old_animations', 'old_input',
+  // Wave 7 — the FPS boost (three `utility` gameplay mods: culling, particles, frame cap) and the
+  // §3.3 visual table stakes, with the scoreboard as the one HUD mod (its `$comment` says why).
+  // Appended, never inserted.
+  'culling', 'particles', 'frame_limiter',
+  'block_outline', 'shiny_pots', 'clear_glass', 'nametags', 'scoreboard', 'gui_scale', 'fog',
+  'menu_blur', 'time_weather',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

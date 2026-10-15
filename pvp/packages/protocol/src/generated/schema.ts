@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 29 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 41 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -76,7 +76,19 @@ export type ModId =
   | 'hit_color'
   | 'damage_tint'
   | 'old_animations'
-  | 'old_input';
+  | 'old_input'
+  | 'culling'
+  | 'particles'
+  | 'frame_limiter'
+  | 'block_outline'
+  | 'shiny_pots'
+  | 'clear_glass'
+  | 'nametags'
+  | 'scoreboard'
+  | 'gui_scale'
+  | 'fog'
+  | 'menu_blur'
+  | 'time_weather';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -865,11 +877,324 @@ export type OldInputEntry = RegistryEntry & {
   defaults?: OldInputSettings;
 };
 /**
+ * Registry entry for Entity culling, narrowed to its constant classification.
+ */
+export type EntityCullingEntry = RegistryEntry & {
+  /**
+   * Always `culling`.
+   */
+  id?: 'culling';
+  /**
+   * Always `eye`.
+   */
+  icon?: 'eye';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: EntityCullingSettings;
+};
+/**
+ * Registry entry for the Particle limiter, narrowed to its constant classification.
+ */
+export type ParticleLimiterEntry = RegistryEntry & {
+  /**
+   * Always `particles`.
+   */
+  id?: 'particles';
+  /**
+   * Always `sparkle`.
+   */
+  icon?: 'sparkle';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ParticleLimiterSettings;
+};
+/**
+ * Registry entry for the Frame limiter, narrowed to its constant classification.
+ */
+export type FrameLimiterEntry = RegistryEntry & {
+  /**
+   * Always `frame_limiter`.
+   */
+  id?: 'frame_limiter';
+  /**
+   * Always `gauge`.
+   */
+  icon?: 'gauge';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: FrameLimiterSettings;
+};
+/**
+ * Registry entry for the Block outline, narrowed to its constant classification.
+ */
+export type BlockOutlineEntry = RegistryEntry & {
+  /**
+   * Always `block_outline`.
+   */
+  id?: 'block_outline';
+  /**
+   * Always `cube`.
+   */
+  icon?: 'cube';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: BlockOutlineSettings;
+};
+/**
+ * Registry entry for Shiny pots, narrowed to its constant classification.
+ */
+export type ShinyPotsEntry = RegistryEntry & {
+  /**
+   * Always `shiny_pots`.
+   */
+  id?: 'shiny_pots';
+  /**
+   * Always `flask`.
+   */
+  icon?: 'flask';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ShinyPotsSettings;
+};
+/**
+ * Registry entry for Clear glass, narrowed to its constant classification.
+ */
+export type ClearGlassEntry = RegistryEntry & {
+  /**
+   * Always `clear_glass`.
+   */
+  id?: 'clear_glass';
+  /**
+   * Always `box`.
+   */
+  icon?: 'box';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ClearGlassSettings;
+};
+/**
+ * Registry entry for Nametags, narrowed to its constant classification.
+ */
+export type NametagsEntry = RegistryEntry & {
+  /**
+   * Always `nametags`.
+   */
+  id?: 'nametags';
+  /**
+   * Always `users`.
+   */
+  icon?: 'users';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: NametagsSettings;
+};
+/**
+ * Registry entry for the Scoreboard, narrowed to its constant classification.
+ */
+export type ScoreboardEntry = RegistryEntry & {
+  /**
+   * Always `scoreboard`.
+   */
+  id?: 'scoreboard';
+  /**
+   * Always `star`.
+   */
+  icon?: 'star';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ScoreboardSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for GUI scale, narrowed to its constant classification.
+ */
+export type GUIScaleEntry = RegistryEntry & {
+  /**
+   * Always `gui_scale`.
+   */
+  id?: 'gui_scale';
+  /**
+   * Always `move`.
+   */
+  icon?: 'move';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: GUIScaleSettings;
+};
+/**
+ * Registry entry for Fog, narrowed to its constant classification.
+ */
+export type FogEntry = RegistryEntry & {
+  /**
+   * Always `fog`.
+   */
+  id?: 'fog';
+  /**
+   * Always `droplet`.
+   */
+  icon?: 'droplet';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `grey` (§11).
+   */
+  hypixel_safe?: 'grey';
+  defaults?: FogSettings;
+};
+/**
+ * Registry entry for Menu blur, narrowed to its constant classification.
+ */
+export type MenuBlurEntry = RegistryEntry & {
+  /**
+   * Always `menu_blur`.
+   */
+  id?: 'menu_blur';
+  /**
+   * Always `layers`.
+   */
+  icon?: 'layers';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: MenuBlurSettings;
+};
+/**
+ * Registry entry for Time & weather, narrowed to its constant classification.
+ */
+export type TimeWeatherEntry = RegistryEntry & {
+  /**
+   * Always `time_weather`.
+   */
+  id?: 'time_weather';
+  /**
+   * Always `clock`.
+   */
+  icon?: 'clock';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: TimeWeatherSettings;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 16 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 17 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -887,7 +1212,8 @@ export type HUDModId =
   | 'memory'
   | 'server_address'
   | 'item_counter'
-  | 'stopwatch';
+  | 'stopwatch'
+  | 'scoreboard';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -902,9 +1228,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 16, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 17, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 16
+ * @maxItems 17
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -971,7 +1297,8 @@ export type Event =
   | MenuEvent
   | SessionEvent
   | SettingsEvent
-  | ModactionEvent;
+  | ModactionEvent
+  | ScoreboardEvent;
 /**
  * 0 released, 1 pressed.
  */
@@ -1021,7 +1348,18 @@ export type GameplayModId =
   | 'hit_color'
   | 'damage_tint'
   | 'old_animations'
-  | 'old_input';
+  | 'old_input'
+  | 'culling'
+  | 'particles'
+  | 'frame_limiter'
+  | 'block_outline'
+  | 'shiny_pots'
+  | 'clear_glass'
+  | 'nametags'
+  | 'gui_scale'
+  | 'fog'
+  | 'menu_blur'
+  | 'time_weather';
 /**
  * [id, { anchor, dx, dy, scale }].
  *
@@ -1136,7 +1474,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 29 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 41 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1168,6 +1506,18 @@ export interface Mods {
   damage_tint: DamageTintEntry;
   old_animations: OldAnimationsEntry;
   old_input: OldInputEntry;
+  culling: EntityCullingEntry;
+  particles: ParticleLimiterEntry;
+  frame_limiter: FrameLimiterEntry;
+  block_outline: BlockOutlineEntry;
+  shiny_pots: ShinyPotsEntry;
+  clear_glass: ClearGlassEntry;
+  nametags: NametagsEntry;
+  scoreboard: ScoreboardEntry;
+  gui_scale: GUIScaleEntry;
+  fog: FogEntry;
+  menu_blur: MenuBlurEntry;
+  time_weather: TimeWeatherEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -1986,6 +2336,262 @@ export interface OldInputSettings {
   no_miss_delay?: boolean;
 }
 /**
+ * Settings for the Entity culling gameplay mod — the FPS boost. A background thread casts rays from the camera through the block grid to each entity and block entity in view, and the render pass skips anything no ray reaches through air. Results trail the camera by one pass (a few milliseconds), so everything within `always_draw_within` is drawn regardless — a player who steps round a corner beside you is never one pass late. The distance cut-offs are plain distance culling on top, for the cheap-but-numerous things a lobby is full of. Turns itself off for occlusion in third person, where the camera is not where the rays start; distance culling still applies.
+ */
+export interface EntityCullingSettings {
+  on: Enabled;
+  /**
+   * Whether mobs, players, items and other entities that no ray from the camera can reach are skipped. The bulk of the win in a crowded lobby. Never culls the entity you are riding or your own player.
+   */
+  occlude_entities?: boolean;
+  /**
+   * Whether chests, signs, banners, skulls and the other tile entities that no ray reaches are skipped. Tile entities are the expensive half of a 1.8.9 frame in a built-up map — every chest is a model drawn every frame — so this is on by default.
+   */
+  occlude_block_entities?: boolean;
+  /**
+   * Radius in blocks inside which nothing is ever occlusion-culled. The ray test runs on its own thread and its answer is one pass old by the time a frame reads it; inside this radius that lag could show as a player appearing a moment after stepping into view, so the test is not consulted at all. 4 covers melee range with a margin.
+   */
+  always_draw_within?: number;
+  /**
+   * Whether a culled entity still draws its nametag. Vanilla draws a player's name through walls (unless they sneak), so culling the body must not take the name with it — on by default, which keeps exactly what vanilla shows. Off also skips the label of anything culled, which is a little faster and shows less than vanilla, never more.
+   */
+  nametags_through_walls?: boolean;
+  /**
+   * Farthest a tile entity is drawn, in blocks. 64 is vanilla's own limit, so the default changes nothing; lower it on a weak machine in chest-heavy maps.
+   */
+  block_entity_distance?: number;
+  /**
+   * Farthest an armour stand is drawn, in blocks. Lobby holograms are stacks of invisible armour stands with a name each, and hundreds of them is common. 64 is vanilla; lowering it hides far hologram text along with the stands.
+   */
+  armor_stand_distance?: number;
+  /**
+   * Farthest the item inside an item frame is drawn, in blocks. The frame itself is unaffected. 64 is vanilla.
+   */
+  item_frame_distance?: number;
+  /**
+   * Farthest a sign's text is drawn, in blocks; the board is drawn to the tile-entity distance either way. Sign text is a font draw per line per sign per frame, and past about 32 blocks a line of it is two or three pixels tall at 1080p — unreadable, but still paid for. 32 by default for that reason; 64 is vanilla.
+   */
+  sign_text_distance?: number;
+}
+/**
+ * Settings for the Particle limiter gameplay mod. Vanilla builds the vertices of every live particle every frame, including the half behind you, and a TNT run or a Bedwars bed break can put thousands on screen at once. `frustum_cull` is free — a particle outside the view cone is never seen — and is the default win. The two fractions thin a burst at the moment it is spawned; they only ever remove particles, never add one, which is the direction Hypixel's allowlist has no objection to. Crit, sharpness and hit particles are untouched by both: they are the cue that a hit landed.
+ */
+export interface ParticleLimiterSettings {
+  on: Enabled;
+  /**
+   * Whether particles outside the camera's view cone skip their draw. Invisible by construction, which is why it is on by default and why it is a switch rather than a number.
+   */
+  frustum_cull?: boolean;
+  /**
+   * Most particles alive per render layer; when full, the oldest goes first, exactly as vanilla does at its own limit. 4000 is vanilla's limit, so the default changes nothing — lower it if explosions stall your frame.
+   */
+  particle_cap?: number;
+  /**
+   * Fraction of block-break and block-hit particles kept. 1 is vanilla's 64-piece burst; 0 breaks blocks with no debris. A bridging or Bedwars player breaks hundreds of blocks a game and every one used to spawn 64 particles.
+   */
+  block_break_particles?: number;
+  /**
+   * Fraction of explosion particles kept — TNT, fireballs and creepers. 1 is vanilla. The blast itself, its sound and its knockback are untouched; only the smoke is thinned.
+   */
+  explosion_particles?: number;
+}
+/**
+ * Settings for the Frame limiter gameplay mod. None of these caps ever applies while you are in the world with the window focused — that frame rate is the one you set in Minecraft's options, untouched. Vanilla 1.8.9 renders a backgrounded or minimised window as fast as it can, so a game left on a second monitor heats the GPU the player is about to need for something else. The menu cap covers the title screen, the server list and the pause menu; it never covers an inventory or a chest, because the fight carries on behind those.
+ */
+export interface FrameLimiterSettings {
+  on: Enabled;
+  /**
+   * Frame cap while the game window does not have focus. 30 keeps a game on a second monitor watchable while giving most of the GPU back.
+   */
+  unfocused_fps?: number;
+  /**
+   * Frame cap on the title screen, the server list and the pause menu. Vanilla already holds the title screen at 30; 60 is smoother than that and still a fraction of an uncapped menu.
+   */
+  menu_fps?: number;
+  /**
+   * Whether a minimised window drops to 5 frames a second. Nothing is visible, so nothing is lost; sound and the connection carry on.
+   */
+  idle_minimized?: boolean;
+}
+/**
+ * Settings for the Block outline gameplay mod. It restyles the box vanilla already draws round the targeted block — same block, same shape, same moment — and nothing else; it never outlines a block the game would not, so it says nothing the vanilla outline did not. `kind: gameplay` for `hitboxes`' reason: it is a world mark, not a placeable HUD item.
+ */
+export interface BlockOutlineSettings {
+  on: Enabled;
+  /**
+   * What is drawn round the targeted block. `outline` is vanilla's box in your colour; `fill` shades the faces and drops the lines; `both` does both; `none` draws nothing, for players who aim off the crosshair alone.
+   */
+  outline_style?: 'outline' | 'fill' | 'both' | 'none';
+  outline_color?: Colour;
+  /**
+   * Line width in screen pixels. Vanilla's is 2.
+   */
+  outline_width?: number;
+  fill_color?: Colour;
+}
+/**
+ * Settings for the Shiny pots gameplay mod. 1.8.9 gives a potion the glint only when its effect list resolves, at vanilla strength, so on a busy hotbar a pot reads no differently from a water bottle. This draws the same glint pass vanilla uses, more times and on every potion, and can tint it with the potion's own colour. Purely the item's look: it changes nothing about which potion is which or what is in your inventory.
+ */
+export interface ShinyPotsSettings {
+  on: Enabled;
+  /**
+   * Whether potions with no listed effect — water bottles, and server pots whose effects live only in their lore — glint too. On by default: on most servers that is exactly the pot you were trying to find.
+   */
+  all_potions?: boolean;
+  /**
+   * How many times the glint is laid over a potion. 1 is vanilla's strength; 2 is the classic 1.7 look; 3 is as shiny as it gets before the item's own colour washes out.
+   */
+  glint_passes?: number;
+  /**
+   * Whether the glint takes the potion's own liquid colour instead of vanilla's purple, so a healing pot shimmers red and a speed pot blue.
+   */
+  tint_glint?: boolean;
+}
+/**
+ * Settings for the Clear glass gameplay mod. Glass in 1.8.9 is a cut-out texture whose frame and streaks cover a quarter of what is behind it; this skips glass when chunks are built, so the block is still there, still solid and still targetable — the block outline still finds it — but nothing is drawn. It is what a clear-glass resource pack does, without the pack. Changing a setting rebuilds the loaded chunks once.
+ */
+export interface ClearGlassSettings {
+  on: Enabled;
+  /**
+   * Whether glass panes are cleared as well as full glass blocks.
+   */
+  clear_panes?: boolean;
+  /**
+   * Whether stained glass is cleared too. Off by default: stained glass carries team colour in Bedwars and bases, and clearing it would throw that away.
+   */
+  clear_stained?: boolean;
+}
+/**
+ * Settings for the Nametags gameplay mod. Restyles the label vanilla already draws over a player or named mob — the same labels, at the same moments, through the same walls — so it never shows a name the game would not. `tag_scale` tops out at 1.5 for that reason: a bigger label is legible farther, but it cannot appear anywhere vanilla's would not.
+ */
+export interface NametagsSettings {
+  on: Enabled;
+  /**
+   * Whether your own nametag is drawn over your head in third person. Vanilla never draws it; on by default because that is the one thing players switch this mod on for.
+   */
+  show_own?: boolean;
+  /**
+   * Whether other players' and named mobs' nametags are hidden. Armour stands are exempt: lobby holograms are stacks of named stands, and they are world text rather than nametags. Off by default — a name is how you tell a teammate from an enemy — and on for recording and for crowded lobbies.
+   */
+  hide_others?: boolean;
+  /**
+   * Alpha of the dark plate behind each name. 0.25 is vanilla's; 0 draws the text alone.
+   */
+  tag_background?: number;
+  /**
+   * Size of every nametag as a multiple of vanilla's.
+   */
+  tag_scale?: number;
+  /**
+   * Whether the name is drawn with Minecraft's text shadow, which keeps it legible against sky and snow. Vanilla draws it without one.
+   */
+  tag_shadow?: boolean;
+}
+/**
+ * Settings for the Scoreboard HUD mod. Reads the sidebar objective the server set — title, lines and scores — exactly as vanilla would draw it, team prefixes and suffixes included, and draws it on the HUD where the editor puts it. It adds nothing the sidebar did not say.
+ */
+export interface ScoreboardSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the scoreboard, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the scoreboard, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the scoreboard — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * Whether the scoreboard is hidden entirely — vanilla's and this one. For recording, and for servers whose sidebar is an advert.
+   */
+  hidden?: boolean;
+  /**
+   * Whether each line's score is drawn at its right edge. Off by default: on nearly every server the score is a sort key the server uses to order the lines, the red numbers carry no meaning, and hiding them is the single most requested scoreboard tweak.
+   */
+  show_numbers?: boolean;
+  /**
+   * Whether the objective's title is drawn above the lines.
+   */
+  show_title?: boolean;
+  /**
+   * Whether the server's own colour codes are honoured. On by default: on team modes the colour is the information. Off draws every line in the HUD's own ink.
+   */
+  server_colors?: boolean;
+}
+/**
+ * Settings for the GUI scale gameplay mod. Minecraft has one GUI scale for everything, so at 1080p the choice is between a hotbar that fills the bottom of the screen and an inventory too small to read. Each value here is a whole GUI-scale step, exactly like Minecraft's own setting, so textures stay pixel-crisp; 0 means "follow Minecraft". Like vanilla, a value larger than the window allows is clamped to the largest that fits.
+ */
+export interface GUIScaleSettings {
+  on: Enabled;
+  /**
+   * GUI scale step for the hotbar and the health, hunger, armour and experience bars above it, which move as one block. 0 follows Minecraft. 2 by default: a compact hotbar at 1080p, where Minecraft's own auto scale is 4.
+   */
+  hotbar_scale?: number;
+  /**
+   * GUI scale step for the inventory, chests, furnaces and every other container screen. 0 follows Minecraft. Other menus — chat, the pause menu, VOID's own — are unaffected.
+   */
+  inventory_scale?: number;
+}
+/**
+ * Settings for the Fog gameplay mod. Each kind of fog has three steps: `vanilla`, `reduced` and `off`. Distance fog hides the edge of the loaded world, so turning it off shows the chunk border instead of a haze — `reduced` pushes the haze out to the edge. Classified `grey`; see the top of this file.
+ */
+export interface FogSettings {
+  on: Enabled;
+  /**
+   * Fog at the edge of your render distance, and the thick fog of the nether. `reduced` starts it at the last chunk rather than three quarters of the way out.
+   */
+  distance_fog?: 'vanilla' | 'reduced' | 'off';
+  /**
+   * Fog while your head is under water. `reduced` is roughly what Respiration III gives.
+   */
+  water_fog?: 'vanilla' | 'reduced' | 'off';
+  /**
+   * Fog while your head is in lava. `vanilla` by default: seeing out of lava is the clearest advantage on this page.
+   */
+  lava_fog?: 'vanilla' | 'reduced' | 'off';
+}
+/**
+ * Settings for the Menu blur gameplay mod. Runs the backdrop blur VOID already carries — a quarter-resolution copy of the frame through a separable Gaussian — under Minecraft's own screens. Chat and VOID's own menu are not blurred. Costs a few frames a second while a screen is open and nothing otherwise.
+ */
+export interface MenuBlurSettings {
+  on: Enabled;
+  /**
+   * How soft the blur is, in passes of the Gaussian. 1 is a light softening; 10 is unrecognisable.
+   */
+  blur_radius?: number;
+  /**
+   * Whether the blur eases in over a fifth of a second as the screen opens, rather than snapping on.
+   */
+  blur_fade?: boolean;
+  /**
+   * How much of vanilla's dark wash is kept over the blur, as a fraction of vanilla's own. 1 is vanilla's darkness on top of the blur; 0 is the blur alone.
+   */
+  menu_dim?: number;
+}
+/**
+ * Settings for the Time & weather gameplay mod. Client-side only: the server's clock and weather are unchanged, mobs still burn when the server says it is day, and nobody else sees a difference. It changes the sky, the light and the rain you see.
+ */
+export interface TimeWeatherSettings {
+  on: Enabled;
+  /**
+   * Whether the time of day is held at `time_ticks` instead of following the server.
+   */
+  lock_time?: boolean;
+  /**
+   * Time of day to hold, in ticks: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight.
+   */
+  time_ticks?: number;
+  /**
+   * Whether rain, snow and thunder are hidden. The rain also stops darkening the sky.
+   */
+  clear_weather?: boolean;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -2011,7 +2617,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 29 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 41 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2043,6 +2649,18 @@ export interface ModStates {
   damage_tint?: DamageTintSettings;
   old_animations?: OldAnimationsSettings;
   old_input?: OldInputSettings;
+  culling?: EntityCullingSettings;
+  particles?: ParticleLimiterSettings;
+  frame_limiter?: FrameLimiterSettings;
+  block_outline?: BlockOutlineSettings;
+  shiny_pots?: ShinyPotsSettings;
+  clear_glass?: ClearGlassSettings;
+  nametags?: NametagsSettings;
+  scoreboard?: ScoreboardSettings;
+  gui_scale?: GUIScaleSettings;
+  fog?: FogSettings;
+  menu_blur?: MenuBlurSettings;
+  time_weather?: TimeWeatherSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.
@@ -2710,6 +3328,44 @@ export interface ModactionPayload {
    * What the key asked for: a short snake_case verb naming the *request*, never the key that made it. `start_stop`, not `bound_key`; `reset`, not `key_r`. Java knows which key is bound and the page must not care — a page that branched on key names would break the moment a player rebound one, and the same action can reach it from a keybind today and from a menu button tomorrow. The vocabulary is per mod and lives in that mod's own settings prose, which is where the Java wave and the page wave both read it: `stopwatch.start_key` names `start_stop` and `stopwatch.reset_key` names `reset`, and those two are the whole set today. An action the page does not recognise is ignored, not an error.
    */
   action: string;
+}
+/**
+ * Envelope for the `scoreboard` event.
+ */
+export interface ScoreboardEvent {
+  /**
+   * Event discriminator; always `scoreboard`.
+   */
+  e: 'scoreboard';
+  payload: ScoreboardPayload;
+}
+/**
+ * The sidebar scoreboard, read the way `InGameHud#renderScoreboardObjective` reads it: the objective in the sidebar display slot, its scores sorted as vanilla sorts them, names starting with `#` dropped, the last fifteen kept, and each name decorated with its team prefix and suffix. `visible: false` when there is no sidebar objective — the page draws nothing then.
+ */
+export interface ScoreboardPayload {
+  /**
+   * Whether a sidebar objective is set.
+   */
+  visible: boolean;
+  /**
+   * The objective's display name, raw, `§` formatting codes included. Empty when `visible` is false.
+   */
+  title: string;
+  /**
+   * The lines top to bottom — highest score first, exactly the order vanilla draws them. At most fifteen.
+   *
+   * @maxItems 15
+   */
+  lines: {
+    /**
+     * The line as vanilla prints it: team prefix + player name + team suffix, raw, `§` codes included.
+     */
+    text: string;
+    /**
+     * The line's score — the red number vanilla draws at the right edge.
+     */
+    score: number;
+  }[];
 }
 /**
  * `void.setGameplay(id, on)`. Writes the boolean field the mod's actuator Mixin reads every frame (§6.7). Synchronous and authoritative: the toggle in the UI shows the returned value, never an optimistic one.

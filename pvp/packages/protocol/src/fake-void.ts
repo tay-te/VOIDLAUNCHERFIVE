@@ -3,7 +3,7 @@
  *
  * There are no devtools in game (§9), so the in-game bundle must also run in a normal
  * browser against a fake bridge. This is that fake: it emits realistic `tick`, `keys`,
- * `server`, `session`, `settings`, `loadout` and `menu` pushes, answers all eight calls
+ * `server`, `session`, `settings`, `scoreboard`, `loadout` and `menu` pushes, answers all eight calls
  * with the same clamping the Java side applies, and holds a small loadout library and a
  * set of globals.
  *
@@ -23,6 +23,7 @@ import type {
   LoadoutId,
   ModId,
   PotionEffect,
+  ScoreboardPayload,
   ServerPayload,
   TickPayload,
 } from './generated/schema.js';
@@ -138,6 +139,26 @@ const SETTING_RANGES: Record<string, readonly [number, number]> = {
   line_width: [0.5, 5],
   corner_radius: [0, 20],
   warn_below: [0, 1],
+  // Wave 7 — FPS boost and the visual table stakes. Each pair is its `schema/mods/<id>.json`.
+  always_draw_within: [1, 16],
+  block_entity_distance: [16, 64],
+  armor_stand_distance: [8, 64],
+  item_frame_distance: [8, 64],
+  sign_text_distance: [4, 64],
+  particle_cap: [100, 4000],
+  block_break_particles: [0, 1],
+  explosion_particles: [0, 1],
+  unfocused_fps: [5, 120],
+  menu_fps: [15, 240],
+  outline_width: [0.5, 6],
+  glint_passes: [1, 3],
+  tag_background: [0, 1],
+  tag_scale: [0.5, 1.5],
+  hotbar_scale: [0, 6],
+  inventory_scale: [0, 6],
+  blur_radius: [1, 10],
+  menu_dim: [0, 1],
+  time_ticks: [0, 23999],
 };
 
 const INTEGER_SETTINGS = new Set([
@@ -149,6 +170,19 @@ const INTEGER_SETTINGS = new Set([
   'bad_ms',
   'decimals',
   'corner_radius',
+  'always_draw_within',
+  'block_entity_distance',
+  'armor_stand_distance',
+  'item_frame_distance',
+  'sign_text_distance',
+  'particle_cap',
+  'unfocused_fps',
+  'menu_fps',
+  'glint_passes',
+  'hotbar_scale',
+  'inventory_scale',
+  'blur_radius',
+  'time_ticks',
 ]);
 
 function clampSetting(key: string, value: ModSettingValue): ModSettingValue {
@@ -169,6 +203,28 @@ export const FAKE_GLOBAL_SETTINGS: GlobalSettings = Object.freeze({
   ui_scale: 1,
   hud_editor_grid: 4,
 });
+
+/**
+ * A sidebar to draw before a real server sends one: `bridge.json`'s own Bed Wars example, line
+ * for line. Raw `§` codes, a blank spacer line and a bold team letter on every row, because those
+ * are the three things the `scoreboard` widget has to get right and a tidier board would hide all
+ * three. The scores are the sort keys a real server sends — 9 down to 1.
+ */
+export const FAKE_SCOREBOARD: ScoreboardPayload = Object.freeze({
+  visible: true,
+  title: '§e§lBED WARS',
+  lines: [
+    { text: '§710/15/26 §8m512A', score: 9 },
+    { text: '', score: 8 },
+    { text: '§fDiamond II in §a0:42', score: 7 },
+    { text: '§c§lR §fRed: §a✔', score: 6 },
+    { text: '§9§lB §fBlue: §a✔ §7YOU', score: 5 },
+    { text: '§a§lG §fGreen: §c✘', score: 4 },
+    { text: '§e§lY §fYellow: §e2', score: 3 },
+    { text: '', score: 2 },
+    { text: '§ewww.hypixel.net', score: 1 },
+  ],
+}) as ScoreboardPayload;
 
 /** `mods.json#/definitions/keybind`, as an anchored regex. `openKeybindCapture` produces these. */
 const KEYBIND_RE =
@@ -217,6 +273,8 @@ export interface FakeVoidOptions {
   server?: ServerPayload;
   /** Who is playing. Defaults to an offline `Player`. */
   session?: SessionInfo;
+  /** The sidebar. Defaults to {@link FAKE_SCOREBOARD}, the Bed Wars board. */
+  scoreboard?: ScoreboardPayload;
   /** Initial globals. Defaults to {@link FAKE_GLOBAL_SETTINGS}. */
   settings?: GlobalSettings;
   /** Whether the menu layer starts open. Defaults to false. */
@@ -253,7 +311,7 @@ export interface FakeVoid extends VoidBridge {
   tickOnce(): void;
   /**
    * Push the opening world of state — `loadouts`, `loadout`, `server`, `session`,
-   * `settings`, then `menu` — the way Java does after `init`. {@link FakeVoid.start} calls this once; call it
+   * `settings`, `scoreboard`, then `menu` — the way Java does after `init`. {@link FakeVoid.start} calls this once; call it
    * yourself when you drive the fake with {@link FakeVoid.advance} instead.
    */
   emitInitialState(): void;
@@ -267,6 +325,8 @@ export interface FakeVoid extends VoidBridge {
   getKeys(): KeysPayload;
   /** Set server presence, emitting `server`. */
   setServer(server: ServerPayload): void;
+  /** Replace the sidebar the way Java does when the server rewrites it, emitting `scoreboard`. */
+  setScoreboard(board: ScoreboardPayload): void;
   /** Who is playing. Immutable, like the real one. */
   getSession(): SessionInfo;
   /** The globals as currently stored (a copy). */
@@ -427,6 +487,7 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     kind: 'offline',
   };
   let settings: GlobalSettings = { ...FAKE_GLOBAL_SETTINGS, ...(options.settings ?? {}) };
+  let scoreboard: ScoreboardPayload = structuredCloneish(options.scoreboard ?? FAKE_SCOREBOARD);
   let timer: ReturnType<typeof setInterval> | null = null;
   let detachKeyboard: (() => void) | null = null;
   let clockMs = 0;
@@ -736,6 +797,8 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       // world state the page cannot ask for, only be told.
       emit({ e: 'session', payload: { ...session } });
       emit({ e: 'settings', payload: { ...settings } });
+      // Whole state, like Java's first push after `init`: the board as it stands.
+      emit({ e: 'scoreboard', payload: structuredCloneish(scoreboard) });
       emit({ e: 'menu', payload: menuOpen });
     },
 
@@ -793,6 +856,11 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     setServer(next) {
       server = { ...next };
       emit({ e: 'server', payload: { ...server } });
+    },
+
+    setScoreboard(next) {
+      scoreboard = structuredCloneish(next);
+      emit({ e: 'scoreboard', payload: structuredCloneish(scoreboard) });
     },
 
     getSession() {

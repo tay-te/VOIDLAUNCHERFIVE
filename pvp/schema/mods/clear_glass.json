@@ -1,0 +1,31 @@
+{
+  "id": "clear_glass",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "Clear glass",
+  "icon": "box",
+  "the": false,
+  "on_description": "glass is drawn clear",
+  "description": "Draws glass as clear air, without a resource pack.",
+  "settings_title": "Clear glass settings",
+  "settings_description": "Settings for the Clear glass gameplay mod. Glass in 1.8.9 is a cut-out texture whose frame and streaks cover a quarter of what is behind it; this skips glass when chunks are built, so the block is still there, still solid and still targetable — the block outline still finds it — but nothing is drawn. It is what a clear-glass resource pack does, without the pack. Changing a setting rebuilds the loaded chunks once.",
+  "source": "`BlockRenderManager#renderBlock` during chunk builds",
+  "enabled": false,
+  "defaults": {
+    "clear_panes": true,
+    "clear_stained": false
+  },
+  "settings": {
+    "clear_panes": {
+      "description": "Whether glass panes are cleared as well as full glass blocks.",
+      "type": "boolean",
+      "default": true
+    },
+    "clear_stained": {
+      "description": "Whether stained glass is cleared too. Off by default: stained glass carries team colour in Bedwars and bases, and clearing it would throw that away.",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

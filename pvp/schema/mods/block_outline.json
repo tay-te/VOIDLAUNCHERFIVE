@@ -1,0 +1,51 @@
+{
+  "id": "block_outline",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "Block outline",
+  "icon": "cube",
+  "the": true,
+  "on_description": "the block outline is restyled",
+  "description": "Recolours, thickens, fills or removes the outline on the block you are looking at.",
+  "settings_title": "Block outline settings",
+  "settings_description": "Settings for the Block outline gameplay mod. It restyles the box vanilla already draws round the targeted block — same block, same shape, same moment — and nothing else; it never outlines a block the game would not, so it says nothing the vanilla outline did not. `kind: gameplay` for `hitboxes`' reason: it is a world mark, not a placeable HUD item.",
+  "source": "`WorldRenderer#drawBlockOutline`",
+  "enabled": false,
+  "defaults": {
+    "outline_style": "outline",
+    "outline_color": "#EDEEEFCC",
+    "outline_width": 2.5,
+    "fill_color": "#EDEEEF26"
+  },
+  "settings": {
+    "outline_style": {
+      "description": "What is drawn round the targeted block. `outline` is vanilla's box in your colour; `fill` shades the faces and drops the lines; `both` does both; `none` draws nothing, for players who aim off the crosshair alone.",
+      "type": "string",
+      "enum": [
+        "outline",
+        "fill",
+        "both",
+        "none"
+      ],
+      "default": "outline"
+    },
+    "outline_color": {
+      "description": "Colour of the outline, alpha included. Vanilla's is black at 40%, which disappears against obsidian, coal and every dark wool — the near-white default reads on all of them.",
+      "$ref": "#/definitions/hex_color",
+      "default": "#EDEEEFCC"
+    },
+    "outline_width": {
+      "description": "Line width in screen pixels. Vanilla's is 2.",
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 6,
+      "default": 2.5
+    },
+    "fill_color": {
+      "description": "Colour of the face shading when `outline_style` is `fill` or `both`, alpha included. Keep the alpha low: a fill is drawn over the block's own texture.",
+      "$ref": "#/definitions/hex_color",
+      "default": "#EDEEEF26"
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "$comment": "**Classified `grey`, as `docs/mod-roster.md` §3.3 #7 said it would be**, for fullbright's reason: it lets you see farther than vanilla lets you see, which is not purely aesthetic on §6.1's own account. Blindness is deliberately out of reach — that fog is a potion effect somebody applied to you, and removing it would be removing a gameplay mechanic rather than a visual one.",
+  "id": "fog",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "grey",
+  "label": "Fog",
+  "icon": "droplet",
+  "the": false,
+  "on_description": "fog is customised",
+  "description": "Reduces or removes distance, water and lava fog. Blindness is never touched.",
+  "settings_title": "Fog settings",
+  "settings_description": "Settings for the Fog gameplay mod. Each kind of fog has three steps: `vanilla`, `reduced` and `off`. Distance fog hides the edge of the loaded world, so turning it off shows the chunk border instead of a haze — `reduced` pushes the haze out to the edge. Classified `grey`; see the top of this file.",
+  "source": "`GameRenderer#renderFog`",
+  "enabled": false,
+  "defaults": {
+    "distance_fog": "reduced",
+    "water_fog": "reduced",
+    "lava_fog": "vanilla"
+  },
+  "settings": {
+    "distance_fog": {
+      "description": "Fog at the edge of your render distance, and the thick fog of the nether. `reduced` starts it at the last chunk rather than three quarters of the way out.",
+      "type": "string",
+      "enum": [
+        "vanilla",
+        "reduced",
+        "off"
+      ],
+      "default": "reduced"
+    },
+    "water_fog": {
+      "description": "Fog while your head is under water. `reduced` is roughly what Respiration III gives.",
+      "type": "string",
+      "enum": [
+        "vanilla",
+        "reduced",
+        "off"
+      ],
+      "default": "reduced"
+    },
+    "lava_fog": {
+      "description": "Fog while your head is in lava. `vanilla` by default: seeing out of lava is the clearest advantage on this page.",
+      "type": "string",
+      "enum": [
+        "vanilla",
+        "reduced",
+        "off"
+      ],
+      "default": "vanilla"
+    }
+  }
+}

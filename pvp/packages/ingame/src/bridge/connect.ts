@@ -157,6 +157,9 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
     // The ninth: the client's own settings, which until now lived only in `LiveState` and could
     // be neither read nor written by the page. The Settings page is what asked for it.
     bridge.on('settings', store.applyGlobals),
+    // The eleventh: the server's sidebar, whole state, for the `scoreboard` HUD mod. Raw `§`
+    // codes; `hud/mc-format.ts` is the one place they are read.
+    bridge.on('scoreboard', store.applyScoreboard),
     bridge.on('menu', store.applyMenu),
   ];
 

@@ -217,13 +217,22 @@ class BridgeExamplesTest {
 
         JsonArray examples = Schemas.examples("bridge.json");
         int events = 0;
+        // Whole-state channels keep only their newest envelope in a frame (VoidBridge.emit), so a
+        // second example on one of them replaces the first rather than adding to the batch.
+        java.util.Set<String> wholeState = new java.util.HashSet<String>(java.util.Arrays.asList(
+                VoidBridge.EVENT_KEYS, VoidBridge.EVENT_MENU, VoidBridge.EVENT_LOADOUTS,
+                VoidBridge.EVENT_SETTINGS, VoidBridge.EVENT_SCOREBOARD));
+        java.util.Set<String> seen = new java.util.HashSet<String>();
         for (int i = 0; i < examples.size(); i++) {
             JsonObject example = examples.get(i).getAsJsonObject();
             if (!example.has("e")) {
                 continue;
             }
-            bridge.emit(example.get("e").getAsString(), example.get("payload"));
-            events++;
+            String channel = example.get("e").getAsString();
+            bridge.emit(channel, example.get("payload"));
+            if (!wholeState.contains(channel) || seen.add(channel)) {
+                events++;
+            }
         }
         assertTrue(events >= 5, "bridge.json lost event examples: " + events);
 
@@ -521,7 +530,7 @@ class BridgeExamplesTest {
                 VoidBridge.EVENT_KEYS, VoidBridge.EVENT_TICK, VoidBridge.EVENT_SERVER,
                 VoidBridge.EVENT_LOADOUT, VoidBridge.EVENT_LOADOUTS, VoidBridge.EVENT_SETTING,
                 VoidBridge.EVENT_MENU, VoidBridge.EVENT_SESSION, VoidBridge.EVENT_SETTINGS,
-                VoidBridge.EVENT_MODACTION));
+                VoidBridge.EVENT_MODACTION, VoidBridge.EVENT_SCOREBOARD));
         java.util.List<String> events = new ArrayList<String>();
         for (JsonElement e : defs.getAsJsonObject("event_name").getAsJsonArray("enum")) {
             events.add(e.getAsString());

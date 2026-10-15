@@ -380,7 +380,8 @@ describe('registry helpers', () => {
     await useLoadouts.getState().hydrate();
     const active = useLoadouts.getState().active!;
     expect(enabledCount(active)).toBeGreaterThan(0);
-    expect(enabledCount(active)).toBeLessThanOrEqual(12);
+    // Ten HUD/gameplay defaults plus the three FPS-boost mods, which ship on.
+    expect(enabledCount(active)).toBeLessThanOrEqual(13);
   });
 
   it('a loadout that omits a mod still reports its registry default', async () => {
@@ -606,8 +607,9 @@ describe('cosmetics store (rules 5, 8)', () => {
 });
 
 describe('category counts (Home strip)', () => {
-  it('splits the registry the way the frame does: 11 · 11 · 4 · 3', () => {
-    expect(TOTAL_MODS).toBe(29);
-    expect(countsFor(null).map((c) => c.total)).toEqual([11, 11, 4, 3]);
+  it('splits the registry by its declared category: 12 · 11 · 12 · 6', () => {
+    // Wave 7 added the scoreboard (HUD), eight visual mods and the three FPS-boost utilities.
+    expect(TOTAL_MODS).toBe(41);
+    expect(countsFor(null).map((c) => c.total)).toEqual([12, 11, 12, 6]);
   });
 });

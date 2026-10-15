@@ -80,6 +80,19 @@ const LIVE: readonly ModId[] = [
   'damage_tint',
   'old_animations',
   'old_input',
+  // Wave 7. Eleven diagrams (`menu/visual-previews.tsx`) and the scoreboard's own widget.
+  'culling',
+  'particles',
+  'frame_limiter',
+  'block_outline',
+  'shiny_pots',
+  'clear_glass',
+  'nametags',
+  'scoreboard',
+  'gui_scale',
+  'fog',
+  'menu_blur',
+  'time_weather',
 ];
 
 /**
@@ -197,6 +210,9 @@ function settingKeys(id: ModId): string[] {
  */
 const REQUIRES: Record<string, Record<string, SettingValue>> = {
   'hitboxes.eye_line_color': { show_eye_line: true },
+  // The face shading only exists while the style draws a fill; at the factory `outline` the
+  // colour belongs to nothing on screen, which is true of the fixture and not of the setting.
+  'block_outline.fill_color': { outline_style: 'both' },
 };
 
 describe('the live preview', () => {

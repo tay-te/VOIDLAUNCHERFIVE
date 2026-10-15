@@ -3977,6 +3977,847 @@ body {
   width: auto;
 }
 
+/* ================================================= wave 7: the visual diagrams (`vprev`)
+
+   `menu/visual-previews.tsx` — culling, particles, the frame limiter, block outline, shiny pots,
+   clear glass, nametags, GUI scale, fog, menu blur, time & weather. Every root is still a
+   `.gprev` (so the spacing, the reading and the tile density above all apply); only the marks
+   inside are new, and they are prefixed `vprev__` so this block and the one above can grow
+   without colliding.
+
+   Same rules as everything above: §3's cell where the subject is a scale, a plain outline where
+   it is a shape, a ghost (outline, faint) for a thing that is there but not drawn. Flat, rounded,
+   no gradients, nothing animates. Colour only where the TSX passes a mod's own ink inline.
+
+   Every page width fits 440; every tile width fits 118 — the narrowest well the grid can
+   produce is 123 (see the tile block above). Positions inside the frames are percentages from
+   the TSX, so the two densities differ here only in sizes. */
+
+/* --- Plan views (culling, particles) and the screen frames (GUI scale, menu blur). 440 x 248 is
+   `.gprev__scene`'s box, and 32 x 18 blocks is the same aspect, so a block is square. */
+.vprev__plan,
+.vprev__screen {
+  position: relative;
+  width: 440px;
+  height: 248px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: rgba(237, 238, 239, 0.03);
+  overflow: hidden;
+}
+
+/* Everything placed by a point is centred on it. */
+.vprev__thing,
+.vprev__eyept,
+.vprev__ring,
+.vprev__dot,
+.vprev__block,
+.vprev__sun,
+.vprev__moon {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.vprev__eyept {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-primary);
+}
+
+/* The radius inside which nothing is culled. A hairline: it is a boundary, not a thing. */
+.vprev__ring {
+  border: 1px solid var(--text-muted);
+  border-radius: 50%;
+  opacity: 0.55;
+}
+
+.vprev__wall {
+  position: absolute;
+  border-radius: 2px;
+  background: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.vprev__thing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.vprev__mob {
+  width: 13px;
+  height: 13px;
+  border-radius: 30%;
+  background: rgba(237, 238, 239, 0.5);
+}
+
+/* A chest reads as a chest by its lid: a wider box with the seam drawn across it. */
+.vprev__chest {
+  width: 17px;
+  height: 13px;
+  border-radius: 3px;
+  background: rgba(237, 238, 239, 0.32);
+  box-shadow: inset 0 4px 0 -3px rgba(10, 11, 12, 0.6);
+}
+
+/* There, but not drawn: the outline of the mark, faint and unfilled. Shared by every diagram in
+   this block — a culled entity, a skipped particle, a sun the time passes through. Scoped to
+   its frames so it outranks the mark's own fill whichever rule comes later. */
+.vprev__plan .vprev__ghost,
+.vprev__sky .vprev__ghost {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--text-muted);
+  opacity: 0.4;
+}
+
+/* The nametag over a player. */
+.vprev__tagmark {
+  width: 20px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(237, 238, 239, 0.55);
+}
+
+/* Particles: the view cone's two edges, from the eye, and the dots inside and out. */
+.vprev__ray {
+  position: absolute;
+  width: 100%;
+  height: 1px;
+  margin-top: -0.5px;
+  transform-origin: 0 50%;
+  background: var(--text-muted);
+  opacity: 0.5;
+}
+
+.vprev__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 30%;
+  background: rgba(237, 238, 239, 0.6);
+}
+
+.vprev__block {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: rgba(237, 238, 239, 0.22);
+}
+
+/* Culling has eight properties, so §8 gives it the grouped structure and a ~364px preview frame
+   rather than the ~670 the smaller mods get. The plan keeps its 32 : 18 aspect at 336 wide, and
+   the four distance rows take a smaller cell so label and row fit beside each other. */
+.gprev--culling:not(.gprev--tile) .vprev__plan {
+  width: 336px;
+  height: 189px;
+}
+
+.gprev--culling:not(.gprev--tile) .gprev__cell {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.gprev--culling:not(.gprev--tile) .gprev__gate {
+  gap: 6px;
+}
+
+/* --- Frame limiter: a row with its figure beside it. */
+.vprev__rate {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.vprev__rate .gprev__row {
+  width: auto;
+}
+
+.vprev__rateval {
+  width: 64px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* --- Block outline: three faces of 4 x 4 texels, edge to edge like a wall. */
+.vprev__blocks {
+  display: flex;
+}
+
+.vprev__face {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  width: 104px;
+  height: 104px;
+}
+
+.vprev__texel {
+  width: 25%;
+  height: 25%;
+}
+
+/* Over the targeted face: the fill, the outline (width, colour and the inset that centres the
+   stroke on the block's edge are inline), and the aim point. */
+.vprev__fill {
+  position: absolute;
+  inset: 0;
+}
+
+.vprev__outline {
+  position: absolute;
+  border-style: solid;
+  border-radius: 2px;
+}
+
+.vprev__aim {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: var(--text-primary);
+}
+
+/* --- Shiny pots: a hotbar of nine slots, 9 x 42 + 8 x 4 = 410. */
+.vprev__hotbar {
+  display: flex;
+  gap: 4px;
+}
+
+.vprev__slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: rgba(237, 238, 239, 0.04);
+}
+
+.vprev__pot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.vprev__potneck {
+  width: 8px;
+  height: 7px;
+  border-radius: 2px 2px 0 0;
+  background: rgba(237, 238, 239, 0.3);
+}
+
+.vprev__potbody {
+  position: relative;
+  width: 24px;
+  height: 22px;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+/* The glint: a wash in the glint's ink and one band per pass across it. */
+.vprev__glint {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.vprev__glintwash {
+  position: absolute;
+  inset: 0;
+}
+
+.vprev__shine {
+  position: absolute;
+  top: -40%;
+  width: 4px;
+  height: 180%;
+  opacity: 0.75;
+  transform: rotate(28deg);
+}
+
+.vprev__item {
+  border-radius: 3px;
+  background: rgba(237, 238, 239, 0.26);
+}
+
+.vprev__item--sword {
+  width: 5px;
+  height: 30px;
+  transform: rotate(45deg);
+}
+
+.vprev__item--block {
+  width: 22px;
+  height: 22px;
+}
+
+.vprev__item--pearl {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+/* --- Clear glass: three windows onto one figure. */
+.vprev__windows {
+  display: flex;
+  gap: 24px;
+}
+
+.vprev__wincol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.vprev__winlabel {
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.vprev__window {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 112px;
+  height: 112px;
+  border-radius: 6px;
+  background: rgba(237, 238, 239, 0.03);
+  overflow: hidden;
+}
+
+/* What is on the other side: a figure, full strength through clear glass. */
+.vprev__seen {
+  width: 34px;
+  height: 78px;
+  border-radius: 8px 8px 0 0;
+  background: rgba(237, 238, 239, 0.42);
+}
+
+.vprev__seen--behind {
+  opacity: 0.45;
+}
+
+.vprev__glass {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.vprev__glass--block {
+  background: rgba(237, 238, 239, 0.1);
+  box-shadow: inset 0 0 0 3px rgba(237, 238, 239, 0.45);
+}
+
+/* A pane is thinner glass, and drawn with a lighter frame. */
+.vprev__glass--pane {
+  background: rgba(237, 238, 239, 0.08);
+  box-shadow: inset 0 0 0 2px rgba(237, 238, 239, 0.32);
+}
+
+.vprev__glass--stained {
+  background: rgba(237, 238, 239, 0.26);
+  box-shadow: inset 0 0 0 3px rgba(237, 238, 239, 0.45);
+}
+
+/* Cleared: only a ghost of the edge, so you can see where the glass was. */
+.vprev__glass--clear {
+  box-shadow: inset 0 0 0 1px var(--text-muted);
+  opacity: 0.3;
+}
+
+.vprev__streak {
+  position: absolute;
+  left: 22%;
+  top: 14%;
+  width: 3px;
+  height: 34%;
+  border-radius: 2px;
+  background: rgba(237, 238, 239, 0.5);
+  transform: rotate(35deg);
+}
+
+.vprev__streak--b {
+  left: 36%;
+  top: 18%;
+  height: 20%;
+}
+
+/* --- Nametags: two players on a grey ground, so a black plate reads at every alpha. */
+.vprev__crowd {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 72px;
+  padding: 18px 40px 14px;
+  border-radius: 10px;
+  background: #3b3d41;
+}
+
+.vprev__who {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A fixed slot over the head, so a missing plate does not move the figure. */
+.vprev__over {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 34px;
+}
+
+.vprev__plate {
+  display: flex;
+  align-items: center;
+  padding: 2px 5px;
+  border-radius: 2px;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  line-height: 1.2;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.vprev__name {
+  position: relative;
+  display: block;
+}
+
+/* The shadow: the same glyphs, a quarter as bright, one pixel down and right — the game's own
+   construction, and the one Ultralight can draw. Drawn first; the text after it is positioned
+   too, so it paints on top. */
+.vprev__name--shadow {
+  position: absolute;
+  left: 1.5px;
+  top: 1.5px;
+  color: #3f3f3f;
+}
+
+.vprev__nametext {
+  position: relative;
+}
+
+/* The tile's name, as a bar: glyphs do not survive 118px. Its shadow is an offset copy behind. */
+.vprev__namebar {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 1px;
+  background: #ffffff;
+}
+
+.vprev__namebar--shadow {
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  background: #3f3f3f;
+}
+
+.vprev__whoname {
+  flex: 0 0 auto;
+  text-align: center;
+  color: rgba(237, 238, 239, 0.7);
+}
+
+/* --- GUI scale: the hotbar on the bottom edge, the inventory centred over the screen. */
+.vprev__hotbox {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  display: flex;
+  transform: translateX(-50%);
+  border-radius: 3px 3px 0 0;
+  background: rgba(237, 238, 239, 0.16);
+}
+
+.vprev__hotcell {
+  flex: 1 1 0;
+  margin: 2px 1px;
+  border-radius: 20%;
+  background: rgba(237, 238, 239, 0.1);
+}
+
+.vprev__invbox {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1.5%;
+  transform: translate(-50%, -50%);
+  border-radius: 4px;
+  background: var(--card-bg, #191a1c);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.vprev__invrow {
+  display: flex;
+  flex: 0 0 9%;
+}
+
+.vprev__invcell {
+  flex: 1 1 0;
+  margin: 0.8%;
+  border-radius: 20%;
+  background: rgba(237, 238, 239, 0.08);
+}
+
+/* Following Minecraft: the outline of the size it would be, at the 1080p auto scale. */
+.vprev__follow {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--text-muted);
+  opacity: 0.6;
+}
+
+.vprev__follow > span {
+  visibility: hidden;
+}
+
+/* --- Menu blur: the world as 16 x 9 cells, the wash over it, and the inventory on top. */
+.vprev__mosaic {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vprev__mrow {
+  display: flex;
+  flex: 1 1 0;
+}
+
+.vprev__mcell {
+  flex: 1 1 0;
+}
+
+.vprev__dim {
+  position: absolute;
+  inset: 0;
+}
+
+.vprev__menupanel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34%;
+  height: 62%;
+  transform: translate(-50%, -50%);
+  border-radius: 6px;
+  background: var(--card-bg, #191a1c);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+/* --- Time & weather: the sky as a half-disc, the arc the sun runs on, the sun or the moon. */
+.vprev__sky {
+  position: relative;
+  width: 400px;
+  height: 200px;
+  border: 1px solid var(--border-strong);
+  border-bottom: none;
+  border-radius: 200px 200px 0 0;
+  overflow: hidden;
+}
+
+.vprev__track {
+  position: absolute;
+  left: 8%;
+  top: 16%;
+  width: 84%;
+  height: 168%;
+  border: 1px solid var(--text-muted);
+  border-radius: 50%;
+  opacity: 0.25;
+}
+
+/* Square, like Minecraft's own sun and moon. */
+.vprev__sun {
+  width: 22px;
+  height: 22px;
+  border-radius: 22%;
+  background: rgba(237, 238, 239, 0.85);
+}
+
+.vprev__moon {
+  width: 18px;
+  height: 18px;
+  border-radius: 22%;
+  background: rgba(237, 238, 239, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(237, 238, 239, 0.6);
+}
+
+.vprev__drop {
+  position: absolute;
+  width: 2px;
+  height: 16px;
+  border-radius: 1px;
+  background: rgba(237, 238, 239, 0.42);
+  transform: rotate(14deg);
+}
+
+/* --- The scoreboard tile: the board's own lines, in sentence case rather than eyebrow caps. */
+.tart--board {
+  gap: 4px;
+}
+
+.tart__boardtitle {
+  text-align: center;
+}
+
+.tart--board .tart__lname {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* --------------------------------------------- wave 7 at tile density (118 wide, all of it) */
+.gprev--tile .vprev__plan,
+.gprev--tile .vprev__screen {
+  width: 118px;
+  height: 66px;
+  border-radius: 6px;
+}
+
+.gprev--tile .vprev__eyept {
+  width: 5px;
+  height: 5px;
+}
+
+.gprev--tile .vprev__mob {
+  width: 6px;
+  height: 6px;
+}
+
+.gprev--tile .vprev__chest {
+  width: 8px;
+  height: 6px;
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+.gprev--tile .vprev__tagmark {
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.gprev--tile .vprev__thing {
+  gap: 1px;
+}
+
+.gprev--tile .vprev__dot {
+  width: 3px;
+  height: 3px;
+}
+
+.gprev--tile .vprev__block {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+}
+
+.gprev--tile .vprev__face {
+  width: 36px;
+  height: 36px;
+}
+
+.gprev--tile .vprev__aim {
+  width: 2px;
+  height: 2px;
+  margin: -1px 0 0 -1px;
+}
+
+.gprev--tile .vprev__hotbar {
+  gap: 3px;
+}
+
+.gprev--tile .vprev__slot {
+  width: 27px;
+  height: 27px;
+  border-radius: 4px;
+}
+
+.gprev--tile .vprev__potneck {
+  width: 5px;
+  height: 4px;
+}
+
+.gprev--tile .vprev__potbody {
+  width: 15px;
+  height: 14px;
+  border-radius: 6px;
+}
+
+.gprev--tile .vprev__shine {
+  width: 2px;
+}
+
+.gprev--tile .vprev__windows {
+  gap: 6px;
+}
+
+.gprev--tile .vprev__window {
+  width: 35px;
+  height: 52px;
+  border-radius: 4px;
+}
+
+.gprev--tile .vprev__seen {
+  width: 12px;
+  height: 32px;
+  border-radius: 4px 4px 0 0;
+}
+
+.gprev--tile .vprev__glass--block,
+.gprev--tile .vprev__glass--stained {
+  box-shadow: inset 0 0 0 2px rgba(237, 238, 239, 0.45);
+}
+
+.gprev--tile .vprev__glass--pane {
+  box-shadow: inset 0 0 0 1px rgba(237, 238, 239, 0.32);
+}
+
+.gprev--tile .vprev__streak {
+  width: 2px;
+}
+
+.gprev--tile .vprev__crowd {
+  gap: 22px;
+  padding: 6px 14px 5px;
+  border-radius: 6px;
+}
+
+.gprev--tile .vprev__who {
+  gap: 3px;
+}
+
+.gprev--tile .vprev__over {
+  min-height: 9px;
+}
+
+.gprev--tile .vprev__plate {
+  padding: 1px 2px;
+}
+
+.gprev--tile .vprev__crowd .gprev__fighead {
+  width: 11px;
+  height: 11px;
+}
+
+.gprev--tile .vprev__crowd .gprev__figbody {
+  width: 15px;
+  height: 32px;
+  border-radius: 3px;
+}
+
+.gprev--tile .vprev__invbox,
+.gprev--tile .vprev__menupanel {
+  border-radius: 2px;
+}
+
+.gprev--tile .vprev__hotbox {
+  border-radius: 1px 1px 0 0;
+}
+
+.gprev--tile .vprev__hotcell {
+  margin: 1px 0.5px;
+}
+
+.gprev--tile .vprev__sky {
+  width: 118px;
+  height: 59px;
+  border-radius: 59px 59px 0 0;
+}
+
+.gprev--tile .vprev__sun {
+  width: 9px;
+  height: 9px;
+}
+
+.gprev--tile .vprev__moon {
+  width: 8px;
+  height: 8px;
+}
+
+.gprev--tile .vprev__drop {
+  width: 1px;
+  height: 7px;
+}
+
+.gprev--tile.gprev--sky {
+  gap: 6px;
+}
+
+.gprev--tile.gprev--culling,
+.gprev--tile.gprev--particles,
+.gprev--tile.gprev--outline,
+.gprev--tile.gprev--pots,
+.gprev--tile.gprev--glass,
+.gprev--tile.gprev--tags,
+.gprev--tile.gprev--gui,
+.gprev--tile.gprev--blur {
+  gap: 0;
+}
+
+/* --- The scoreboard HUD chip (`hud/scoreboard.tsx`). A `.v-hudchip`, so it takes the chip's
+   ground, radius and editor flavour; turned into a column because a board is a panel of lines,
+   not one reading. */
+.hud-board {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  min-width: 120px;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.hud-board__title {
+  margin-bottom: 3px;
+  text-align: center;
+}
+
+.hud-board__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.hud-board__text {
+  flex: 1 1 auto;
+}
+
+.hud-board__score {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+/* Hidden, where it is being configured: the HUD editor and the mod page. In game it is absent. */
+.hud-board--hidden {
+  opacity: 0.32;
+}
+
+/* ================================================= end of wave 7's visual diagrams */
+
 /* The crosshair's plate — which is the screen, and is drawn as one.
 
    Two problems it solves at once. The crosshair's `outline` is black, and black against the
