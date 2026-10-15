@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 44 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 45 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -91,7 +91,8 @@ export type ModId =
   | 'time_weather'
   | 'potion_counter'
   | 'reach'
-  | 'chat';
+  | 'chat'
+  | 'cosmetics';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -1273,6 +1274,32 @@ export type ChatEntry = RegistryEntry & {
   defaults?: ChatSettings;
 };
 /**
+ * Registry entry for Cosmetics, narrowed to its constant classification.
+ */
+export type CosmeticsEntry = RegistryEntry & {
+  /**
+   * Always `cosmetics`.
+   */
+  id?: 'cosmetics';
+  /**
+   * Always `star`.
+   */
+  icon?: 'star';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: CosmeticsSettings;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
@@ -1394,7 +1421,9 @@ export type Event =
   | SettingsEvent
   | ModactionEvent
   | ScoreboardEvent
-  | ToastEvent;
+  | ToastEvent
+  | CosmeticsEvent
+  | EmoteEvent;
 /**
  * 0 released, 1 pressed.
  */
@@ -1429,7 +1458,11 @@ export type Call =
   | ImportLoadoutCall
   | SetQuickPinsCall
   | SetClipboardCall
-  | GetClipboardCall;
+  | GetClipboardCall
+  | EquipCosmeticCall
+  | SetCosmeticTintCall
+  | SetEmoteWheelCall
+  | PlayEmoteCall;
 /**
  * [id, on].
  *
@@ -1465,7 +1498,8 @@ export type GameplayModId =
   | 'fog'
   | 'menu_blur'
   | 'time_weather'
-  | 'chat';
+  | 'chat'
+  | 'cosmetics';
 /**
  * [id, { anchor, dx, dy, scale }].
  *
@@ -1594,6 +1628,38 @@ export type SetClipboardParams = [string];
  */
 export type GetClipboardParams = any[];
 /**
+ * [slot, id].
+ *
+ * @minItems 2
+ * @maxItems 2
+ */
+export type EquipCosmeticParams = [CosmeticSlot, CosmeticItemId | null];
+/**
+ * [slot, hex].
+ *
+ * @minItems 2
+ * @maxItems 2
+ */
+export type SetCosmeticTintParams = [CosmeticSlot, CosmeticTint | null];
+/**
+ * A per-slot recolour, `#rrggbb`. The same pattern `protocol.json`'s `equipped_set.tints` uses; Java accepts either case and answers lower case.
+ */
+export type CosmeticTint = string;
+/**
+ * [ids].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type SetEmoteWheelParams = [CosmeticItemId[]];
+/**
+ * [id].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type PlayEmoteParams = [CosmeticItemId];
+/**
  * The value one JS to Java call returned, enveloped as {c, returns}. Every call except `openKeybindCapture` returns synchronously, because the bridge is in-process (§6.5).
  */
 export type CallResult =
@@ -1613,7 +1679,11 @@ export type CallResult =
   | ImportLoadoutResult
   | SetQuickPinsResult
   | SetClipboardResult
-  | GetClipboardResult;
+  | GetClipboardResult
+  | EquipCosmeticResult
+  | SetCosmeticTintResult
+  | SetEmoteWheelResult
+  | PlayEmoteResult;
 /**
  * The state actually applied. Normally equals the requested value; differs only if the mod refused the change.
  */
@@ -1695,6 +1765,24 @@ export type SetClipboardReturns = boolean;
  * The clipboard's text, cut to 16384 characters; empty when there is none.
  */
 export type GetClipboardReturns = string;
+/**
+ * The id now worn in that slot, or null when it is empty. Equals the request on success; on a refusal it is whatever was already there.
+ */
+export type EquipCosmeticReturns = CosmeticItemId | null;
+/**
+ * The tint now applied, lower case, or null when the slot has none.
+ */
+export type SetCosmeticTintReturns = CosmeticTint | null;
+/**
+ * The wheel as stored, after dropping what could not be kept.
+ *
+ * @maxItems 8
+ */
+export type SetEmoteWheelReturns = CosmeticItemId[];
+/**
+ * True when the emote started; false when it was refused.
+ */
+export type PlayEmoteReturns = boolean;
 
 /**
  * The closed registry of every mod VOID ships — the 12 defined in PVP_ARCHITECTURE.md §3, the VOID watermark, and the readouts added since — together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
@@ -1704,7 +1792,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 44 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 45 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1751,6 +1839,7 @@ export interface Mods {
   potion_counter: PotionCounterEntry;
   reach: ReachDisplayEntry;
   chat: ChatEntry;
+  cosmetics: CosmeticsEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -2990,6 +3079,28 @@ export interface ChatSettings {
   history_length?: number;
 }
 /**
+ * Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored by the launcher against your account; these four switches are only about what this client draws. Off hides every cosmetic, yours included, and stops answering other players' emotes — but your own set is untouched, and other VOID players still see it.
+ */
+export interface CosmeticsSettings {
+  on: Enabled;
+  /**
+   * Whether other VOID players' cosmetics are drawn. On by default, because seeing who else plays VOID is half the point. Off draws only your own — for a crowded lobby, or for a player who wants the fight in front of them to look like vanilla. Their emotes still animate their model; only what they wear is hidden.
+   */
+  others?: boolean;
+  /**
+   * Whether your own trail is drawn while you are in first person. Off by default: a trail is something other people see you leave, and in first person it is particles at your own feet, on the edge of the frame you aim through. On is for the player who likes to watch it. Your cape, halo and the rest are never drawn in first person — the game does not draw your model there either.
+   */
+  own_first_person?: boolean;
+  /**
+   * Whether emissive cosmetics glow — the soft bloom around halos, wing edges and bright trails. On by default, because those items are designed around it. Off draws the same shapes flat, which is cheaper on a weak GPU and easier on the eyes in a dark cave.
+   */
+  glow?: boolean;
+  /**
+   * Whether the camera swings to third person and orbits slowly while you emote, so you can see what you are doing. On by default. Off keeps your own view where it is: other players still see the emote, you just do not watch it. The camera never moves while you move — taking a step ends the emote and gives the view straight back.
+   */
+  emote_camera?: boolean;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -3016,7 +3127,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 44 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 45 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -3063,6 +3174,7 @@ export interface ModStates {
   potion_counter?: PotionCounterSettings;
   reach?: ReachDisplaySettings;
   chat?: ChatSettings;
+  cosmetics?: CosmeticsSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.
@@ -3886,6 +3998,51 @@ export interface ToastPayload {
   mod?: ModId;
 }
 /**
+ * Envelope for the `cosmetics` event.
+ */
+export interface CosmeticsEvent {
+  /**
+   * Event discriminator; always `cosmetics`.
+   */
+  e: 'cosmetics';
+  payload: CosmeticsPayload;
+}
+/**
+ * What the in-game wardrobe needs: the local player's whole equipped set, every item the account owns, and the version of the catalog this jar was built with. Whole state, so a newer one in the same frame replaces an older one. Pushed on `pushWholeState()` (first paint, a launcher `init`, a reloaded document) and whenever the launcher changes either half underneath the game — a `cosmetics` message after an equip from the launcher Store, or a purchase landing. **Not** pushed as an echo of the page's own `equipCosmetic`, `setCosmeticTint` or `setEmoteWheel`: each of those already returned what was stored, and §6.5 does not push a change back to the page that made it.
+ */
+export interface CosmeticsPayload {
+  self: EquippedSet;
+  /**
+   * Every item the account owns, free items included, in catalog order. An item not listed shows as locked; equipping it is refused.
+   *
+   * @maxItems 512
+   */
+  owned: CosmeticItemId[];
+  /**
+   * `cosmetics.json#/version` as compiled into this jar. The page's catalog is generated from the same file, so a mismatch means the bundle and the jar were not built together.
+   */
+  catalog_version: number;
+}
+/**
+ * Envelope for the `emote` event.
+ */
+export interface EmoteEvent {
+  /**
+   * Event discriminator; always `emote`.
+   */
+  e: 'emote';
+  payload: EmotePayload;
+}
+/**
+ * The local player's emote started (`id`) or ended (`null`), so the wheel can light the one playing and the HUD can step aside for the third-person camera. Not coalesced: a start and an end in one slow frame are two facts, and the page should see both in order. The start is **not** pushed when the page's own `playEmote` started it — that call returned `true` and is the notification — but the end always is, because only Java knows when a clip finishes or is cancelled by movement.
+ */
+export interface EmotePayload {
+  /**
+   * The emote now playing, or null when none is.
+   */
+  id: CosmeticItemId | null;
+}
+/**
  * `void.setGameplay(id, on)`. Writes the boolean field the mod's actuator Mixin reads every frame (§6.7). Synchronous and authoritative: the toggle in the UI shows the returned value, never an optimistic one.
  */
 export interface SetGameplayCall {
@@ -4114,6 +4271,46 @@ export interface GetClipboardCall {
   params: GetClipboardParams;
 }
 /**
+ * `void.equipCosmetic(slot, id)`. Wears `id` in `slot`, or takes the slot off when `id` is null. Applied in Java at once — the next frame draws it — and forwarded to the launcher as an `equip` protocol message, which persists it to the backend. Java refuses only what it can see is wrong: an id the catalog does not know, an item for another slot, or one it knows the account does not own. When it does not know what the account owns, the backend validates and the launcher reverts a refused equip with a `cosmetics` message, which reaches the page as a `cosmetics` event. Synchronous and authoritative like every call here: an item the account does not own, an id the catalog does not know, or an item for another slot is **refused**, and the answer is then what the slot still holds. Bind the wardrobe to the return, never to what was sent. No `cosmetics` event follows.
+ */
+export interface EquipCosmeticCall {
+  /**
+   * Call discriminator; always `equipCosmetic`.
+   */
+  c: 'equipCosmetic';
+  params: EquipCosmeticParams;
+}
+/**
+ * `void.setCosmeticTint(slot, hex)`. Recolours the item worn in `slot`, or clears the tint when `hex` is null. Only items flagged `tintable` in `cosmetics.json` take one; for any other slot the call is refused and answers the tint already set. Applied in game only for now: the wire's `equip` carries a slot and an id, not a tint, so a tint chosen here lasts the session until the protocol grows one. No `cosmetics` event follows.
+ */
+export interface SetCosmeticTintCall {
+  /**
+   * Call discriminator; always `setCosmeticTint`.
+   */
+  c: 'setCosmeticTint';
+  params: SetCosmeticTintParams;
+}
+/**
+ * `void.setEmoteWheel(ids)`. Replaces the whole emote wheel. Ids that are not emotes, are not owned, or repeat are dropped, and the wheel keeps at most eight. Applied in game only for now: the wire has no message for the wheel, so it lasts the session until the protocol grows one; the launcher Store edits the stored wheel. No `cosmetics` event follows.
+ */
+export interface SetEmoteWheelCall {
+  /**
+   * Call discriminator; always `setEmoteWheel`.
+   */
+  c: 'setEmoteWheel';
+  params: SetEmoteWheelParams;
+}
+/**
+ * `void.playEmote(id)`. Starts an emote for the local player and tells the launcher, which relays it to the other VOID players on the server as a remote `emote`. Refused — `false`, and nothing plays — for an id that is not an emote, is not owned, or has no bundled animation. The `emote` event's start is not pushed for a call that succeeded, since this answer is the notification; its end is.
+ */
+export interface PlayEmoteCall {
+  /**
+   * Call discriminator; always `playEmote`.
+   */
+  c: 'playEmote';
+  params: PlayEmoteParams;
+}
+/**
  * Envelope for a setGameplay return value.
  */
 export interface SetGameplayResult {
@@ -4282,4 +4479,44 @@ export interface GetClipboardResult {
    */
   c: 'getClipboard';
   returns: GetClipboardReturns;
+}
+/**
+ * Envelope for a equipCosmetic return value.
+ */
+export interface EquipCosmeticResult {
+  /**
+   * Call discriminator; always `equipCosmetic`.
+   */
+  c: 'equipCosmetic';
+  returns: EquipCosmeticReturns;
+}
+/**
+ * Envelope for a setCosmeticTint return value.
+ */
+export interface SetCosmeticTintResult {
+  /**
+   * Call discriminator; always `setCosmeticTint`.
+   */
+  c: 'setCosmeticTint';
+  returns: SetCosmeticTintReturns;
+}
+/**
+ * Envelope for a setEmoteWheel return value.
+ */
+export interface SetEmoteWheelResult {
+  /**
+   * Call discriminator; always `setEmoteWheel`.
+   */
+  c: 'setEmoteWheel';
+  returns: SetEmoteWheelReturns;
+}
+/**
+ * Envelope for a playEmote return value.
+ */
+export interface PlayEmoteResult {
+  /**
+   * Call discriminator; always `playEmote`.
+   */
+  c: 'playEmote';
+  returns: PlayEmoteReturns;
 }

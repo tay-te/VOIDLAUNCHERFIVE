@@ -1,6 +1,6 @@
 /**
  * The fake bridge is what every UI surface develops against, so it has to behave like
- * the real one: emit the nine channels with on-model payloads, answer the eight calls
+ * the real one: emit the twelve channels with on-model payloads, answer the twelve calls
  * with the value actually applied, and be reproducible under a seed.
  */
 

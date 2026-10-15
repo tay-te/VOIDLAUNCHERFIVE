@@ -428,8 +428,8 @@ describe('registry helpers', () => {
     await useLoadouts.getState().hydrate();
     const active = useLoadouts.getState().active!;
     expect(enabledCount(active)).toBeGreaterThan(0);
-    // Ten HUD/gameplay defaults plus the three FPS-boost mods, which ship on.
-    expect(enabledCount(active)).toBeLessThanOrEqual(13);
+    // Ten HUD/gameplay defaults plus the three FPS-boost mods and `cosmetics`, which ship on.
+    expect(enabledCount(active)).toBeLessThanOrEqual(14);
   });
 
   it('a loadout that omits a mod still reports its registry default', async () => {
@@ -581,15 +581,17 @@ describe('cosmetics store (rules 5, 8)', () => {
   it('offline, equips only what is owned, one per kind, and a second press takes it off', async () => {
     await useCosmetics.getState().equip('void-cape');
     expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
-    await useCosmetics.getState().equip('plain-nameplate');
-    expect(useCosmetics.getState().equipped.nameplate).toBe('plain-nameplate');
-    await useCosmetics.getState().equip('plain-nameplate');
-    expect(useCosmetics.getState().equipped.nameplate).toBeUndefined();
+    await useCosmetics.getState().equip('void-badge-player');
+    expect(useCosmetics.getState().equipped.badge).toBe('void-badge-player');
+    await useCosmetics.getState().equip('void-badge-player');
+    expect(useCosmetics.getState().equipped.badge).toBeUndefined();
   });
 
   it('maps the catalog kinds onto the contract slots', () => {
     expect(slotFor('cape')).toBe('cape');
     expect(slotFor('trail')).toBe('trail');
+    expect(slotFor('badge')).toBe('badge');
+    // The launcher catalog's old kind name, kept as a synonym for stored state.
     expect(slotFor('nameplate')).toBe('badge');
     expect(slotFor('emote')).toBe('emotes');
     expect(slotFor('halo')).toBe('halo');
@@ -606,8 +608,8 @@ describe('cosmetics store (rules 5, 8)', () => {
 
     await useCosmetics.getState().equip('origin-cape');
     expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
-    await useCosmetics.getState().equip('plain-nameplate');
-    expect(useCosmetics.getState().equipped.nameplate).toBe('plain-nameplate');
+    await useCosmetics.getState().equip('void-badge-player');
+    expect(useCosmetics.getState().equipped.badge).toBe('void-badge-player');
     await useCosmetics.getState().equip('origin-cape');
     expect(useCosmetics.getState().equipped.cape).toBeUndefined();
     // Not owned: nothing happens, nothing is sent.
@@ -617,15 +619,15 @@ describe('cosmetics store (rules 5, 8)', () => {
 
   it('online, emotes go on and off the wheel', async () => {
     __signInOnline();
-    __seedOnline({ owned: ['wave-emote', 'gg-emote'], equipped: {}, friends: [], incoming: [] });
+    __seedOnline({ owned: ['emote-wave', 'emote-clap'], equipped: {}, friends: [], incoming: [] });
     await useCosmetics.getState().refresh();
-    await useCosmetics.getState().equip('wave-emote');
-    await useCosmetics.getState().equip('gg-emote');
-    expect(useCosmetics.getState().emotes).toEqual(['wave-emote', 'gg-emote']);
-    const wave = CATALOG.find((i) => i.id === 'wave-emote')!;
+    await useCosmetics.getState().equip('emote-wave');
+    await useCosmetics.getState().equip('emote-clap');
+    expect(useCosmetics.getState().emotes).toEqual(['emote-wave', 'emote-clap']);
+    const wave = CATALOG.find((i) => i.id === 'emote-wave')!;
     expect(isWorn(useCosmetics.getState(), wave)).toBe(true);
-    await useCosmetics.getState().equip('wave-emote');
-    expect(useCosmetics.getState().emotes).toEqual(['gg-emote']);
+    await useCosmetics.getState().equip('emote-wave');
+    expect(useCosmetics.getState().emotes).toEqual(['emote-clap']);
   });
 
   it('buying opens checkout and the item arrives when the backend says it was paid for', async () => {
@@ -657,18 +659,20 @@ describe('cosmetics store (rules 5, 8)', () => {
     expect(useOnlineStatus.getState().status.state).toBe('signed_out');
   });
 
-  it('the catalog matches the frame counts: 6 capes, 4 trails, 8 emotes, 5 nameplates', () => {
+  it('the catalog is the launch lineup from schema/cosmetics.json, granted items left out', () => {
     const count = (kind: string) => CATALOG.filter((i) => i.kind === kind).length;
-    expect([count('cape'), count('trail'), count('emote'), count('nameplate')]).toEqual([6, 4, 8, 5]);
-    expect(CATALOG.length).toBe(23);
+    expect(['cape', 'back', 'head', 'face', 'halo', 'trail', 'emote', 'badge'].map(count)).toEqual([6, 3, 3, 2, 2, 4, 6, 3]);
+    expect(CATALOG.some((i) => i.availability === 'grant')).toBe(false);
+    expect(FREE_ITEMS).toContain('void-badge-player');
   });
 });
 
 describe('category counts (Home strip)', () => {
   // Wave 7 added the scoreboard (HUD), eight visual mods and the three FPS-boost utilities;
-  // the depth half added Potion counter and Reach display (PvP) and Chat (Utility).
-  it('splits the registry by its declared category: 12 · 13 · 12 · 7', () => {
-    expect(TOTAL_MODS).toBe(44);
-    expect(countsFor(null).map((c) => c.total)).toEqual([12, 13, 12, 7]);
+  // the depth half added Potion counter and Reach display (PvP) and Chat (Utility); the
+  // cosmetics half added `cosmetics` (Visual).
+  it('splits the registry by its declared category: 12 · 13 · 13 · 7', () => {
+    expect(TOTAL_MODS).toBe(45);
+    expect(countsFor(null).map((c) => c.total)).toEqual([12, 13, 13, 7]);
   });
 });

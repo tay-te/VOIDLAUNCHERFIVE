@@ -3,18 +3,27 @@
  *
  * There are no devtools in game (§9), so the in-game bundle must also run in a normal
  * browser against a fake bridge. This is that fake: it emits realistic `tick`, `keys`,
- * `server`, `session`, `settings`, `scoreboard`, `loadout` and `menu` pushes, answers all eight calls
- * with the same clamping the Java side applies, and holds a small loadout library and a
- * set of globals.
+ * `server`, `session`, `settings`, `scoreboard`, `loadout`, `cosmetics`, `emote` and `menu`
+ * pushes, answers all twenty-one calls with the same clamping and refusals the Java side applies,
+ * and holds a small loadout library, a set of globals and a cosmetics wardrobe.
  *
  * It is **deterministic**: give it a `seed` and drive it with {@link FakeVoid.advance}
  * and every number it produces is reproducible, which is what makes it usable in tests.
  * Call {@link FakeVoid.start} instead and it runs on a real 20 Hz timer.
  */
 
+import {
+  COSMETIC_CATALOG,
+  COSMETIC_CATALOG_VERSION,
+  COSMETIC_SLOTS,
+  EMOTE_WHEEL_SIZE,
+} from './generated/cosmetics.js';
+import type { CosmeticCatalogItem, CosmeticId, CosmeticSlot } from './generated/cosmetics.js';
 import { LOADOUT_EXAMPLES } from './generated/examples.js';
 import type {
   ArmorSlot,
+  CosmeticsPayload,
+  EquippedSet,
   GlobalSettings,
   HUDItem,
   Keybind,
@@ -269,6 +278,50 @@ function clampGlobal(key: string, value: GlobalSettingValue): GlobalSettingValue
 }
 
 /* -------------------------------------------------------------------------- */
+/* Cosmetics                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What the fake account owns beyond the free items: one of each kind worth previewing, a
+ * tintable cape and hat so the tint control has something to do, and three emotes for the
+ * wheel. The rest of the store stays locked, so the refusal paths are as easy to reach as the
+ * happy ones.
+ */
+export const FAKE_OWNED_COSMETICS: readonly CosmeticId[] = Object.freeze([
+  'void-cape',
+  'ring-cape',
+  'void-wings',
+  'dapper-top-hat',
+  'seraph-halo',
+  'spark-trail',
+  'void-badge-founder',
+  'emote-wave',
+  'emote-clap',
+  'emote-sit',
+] as const);
+
+/**
+ * How long a non-looping emote plays in the fake before `emote` reports its end. The real
+ * length is the bundled clip's, which only the jar has; a fixed one keeps `advance` reproducible.
+ */
+export const FAKE_EMOTE_MS = 2400;
+
+const CATALOG_BY_ID = new Map<string, CosmeticCatalogItem>(
+  COSMETIC_CATALOG.map((item) => [item.id, item]),
+);
+const TINT_RE = /^#[0-9a-fA-F]{6}$/;
+
+/** `CosmeticCatalog.fits` — a known item whose kind is this slot. */
+function fitsSlot(slot: string, id: string): boolean {
+  const item = CATALOG_BY_ID.get(id);
+  return item !== undefined && item.kind === slot;
+}
+
+function isCosmeticSlot(slot: string): slot is CosmeticSlot {
+  return (COSMETIC_SLOTS as readonly string[]).includes(slot);
+}
+
+/* -------------------------------------------------------------------------- */
 /* Options and surface                                                        */
 /* -------------------------------------------------------------------------- */
 
@@ -288,6 +341,11 @@ export interface FakeVoidOptions {
   scoreboard?: ScoreboardPayload;
   /** Initial globals. Defaults to {@link FAKE_GLOBAL_SETTINGS}. */
   settings?: GlobalSettings;
+  /**
+   * Store items the account owns, on top of the free ones every account has. Defaults to
+   * {@link FAKE_OWNED_COSMETICS}.
+   */
+  ownedCosmetics?: readonly CosmeticId[];
   /** Whether the menu layer starts open. Defaults to false. */
   menuOpen?: boolean;
   /** Tick rate in Hz. Defaults to 20, the game's tick rate. */
@@ -363,6 +421,24 @@ export interface FakeVoid extends VoidBridge {
   emitModAction(id: ModId, action: string): void;
   /** Push a `toast` the way Java does for something that happened with the menu closed. */
   emitToast(toast: ToastPayload): void;
+  /** The `cosmetics` payload as it stands — what a reloaded wardrobe would be pushed now. */
+  getCosmetics(): CosmeticsPayload;
+  /**
+   * Replace the local set and/or ownership the way the launcher does with a `cosmetics`
+   * message — an equip from the Store, a purchase landing — emitting `cosmetics`. Free items
+   * stay owned whatever `owned` says, and unknown or misplaced ids read as nothing worn, as in
+   * Java.
+   */
+  applyCosmetics(next: { self?: EquippedSet; owned?: readonly string[] }): void;
+  /**
+   * Start an emote the way the in-game wheel key does — Java starting it on its own — which,
+   * unlike {@link VoidBridge.playEmote}, pushes the `emote` start. Returns whether it started.
+   */
+  startEmote(id: CosmeticId): boolean;
+  /** Cancel the running emote (the player moved), pushing `emote` with `id: null`. */
+  cancelEmote(): void;
+  /** The emote playing now, or null. */
+  getEmote(): CosmeticId | null;
   /** The active loadout (a live reference; do not mutate). */
   getLoadout(): Loadout;
   /** The whole library. */
@@ -503,6 +579,84 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   };
   let settings: GlobalSettings = { ...FAKE_GLOBAL_SETTINGS, ...(options.settings ?? {}) };
   let scoreboard: ScoreboardPayload = structuredCloneish(options.scoreboard ?? FAKE_SCOREBOARD);
+
+  // ---- cosmetics: CosmeticState and Emotes, in miniature ---------------------
+  //
+  // The same rules as Java: free items are always owned; an equip of something unowned,
+  // unknown or for another slot is refused and answers what is still worn; a tint sticks only
+  // to a `tintable` item; the wheel keeps owned emotes, once each, at most eight.
+  let owned = new Set<string>(options.ownedCosmetics ?? FAKE_OWNED_COSMETICS);
+  const worn = new Map<CosmeticSlot, CosmeticId>([
+    ['cape', 'void-cape'],
+    ['badge', 'void-badge-player'],
+  ]);
+  const tints = new Map<CosmeticSlot, string>();
+  let wheel: CosmeticId[] = ['emote-wave', 'emote-clap'];
+  let emoteId: CosmeticId | null = null;
+  let emoteEndsAt = Number.POSITIVE_INFINITY;
+
+  function owns(id: string): boolean {
+    const item = CATALOG_BY_ID.get(id);
+    return item !== undefined && (item.availability === 'free' || owned.has(id));
+  }
+
+  /** `EquippedSet.toJson`: every slot present, null when empty; `tints` only when one is set. */
+  function selfSet(): EquippedSet {
+    const set: EquippedSet = {
+      uuid: session.uuid,
+      cape: null,
+      back: null,
+      head: null,
+      face: null,
+      halo: null,
+      trail: null,
+      badge: null,
+      emotes: [...wheel],
+    };
+    for (const slot of COSMETIC_SLOTS) set[slot] = worn.get(slot) ?? null;
+    if (tints.size > 0) set.tints = Object.fromEntries(tints);
+    return set;
+  }
+
+  function cosmeticsPayload(): CosmeticsPayload {
+    return {
+      self: selfSet(),
+      owned: COSMETIC_CATALOG.filter((item) => owns(item.id)).map((item) => item.id),
+      catalog_version: COSMETIC_CATALOG_VERSION,
+    };
+  }
+
+  function cleanWheel(ids: readonly string[]): CosmeticId[] {
+    const out: CosmeticId[] = [];
+    for (const id of ids) {
+      const item = CATALOG_BY_ID.get(id);
+      if (
+        item &&
+        item.kind === 'emote' &&
+        owns(id) &&
+        !out.includes(item.id) &&
+        out.length < EMOTE_WHEEL_SIZE
+      ) {
+        out.push(item.id);
+      }
+    }
+    return out;
+  }
+
+  function beginEmote(id: string): boolean {
+    const item = CATALOG_BY_ID.get(id);
+    if (!item || item.kind !== 'emote' || !owns(id)) return false;
+    emoteId = item.id;
+    emoteEndsAt = item.loop ? Number.POSITIVE_INFINITY : clockMs + FAKE_EMOTE_MS;
+    return true;
+  }
+
+  function endEmote(): void {
+    if (emoteId === null) return;
+    emoteId = null;
+    emoteEndsAt = Number.POSITIVE_INFINITY;
+    emit({ e: 'emote', payload: { id: null } });
+  }
   let timer: ReturnType<typeof setInterval> | null = null;
   let detachKeyboard: (() => void) | null = null;
   let clockMs = 0;
@@ -733,6 +887,8 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     stepWorld();
     stepKeys();
     emit({ e: 'tick', payload: buildTick() });
+    // `Emotes.sweep`: the end of a clip is the one emote fact only the host can know.
+    if (emoteId !== null && clockMs >= emoteEndsAt) endEmote();
   }
 
   // ---- calls ---------------------------------------------------------------
@@ -974,6 +1130,46 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       return surfaces.length;
     },
 
+    equipCosmetic(slot, id) {
+      record({ c: 'equipCosmetic', params: [slot, id] });
+      if (!isCosmeticSlot(slot)) return null;
+      // Refused: the answer is what the slot still holds, never what was asked for.
+      if (id !== null && (!fitsSlot(slot, id) || !owns(id))) return worn.get(slot) ?? null;
+      if (id === null) worn.delete(slot);
+      else worn.set(slot, id);
+      // No `cosmetics` push: the return is the notification (§6.5).
+      return id;
+    },
+
+    setCosmeticTint(slot, hex) {
+      record({ c: 'setCosmeticTint', params: [slot, hex] });
+      if (!isCosmeticSlot(slot)) return null;
+      const current = tints.get(slot) ?? null;
+      const item = CATALOG_BY_ID.get(worn.get(slot) ?? '');
+      if (!item || !item.tintable) return current;
+      if (hex === null) {
+        tints.delete(slot);
+        return null;
+      }
+      if (!TINT_RE.test(hex)) return current;
+      const applied = hex.toLowerCase();
+      tints.set(slot, applied);
+      return applied;
+    },
+
+    setEmoteWheel(ids) {
+      record({ c: 'setEmoteWheel', params: [ids] });
+      wheel = cleanWheel(ids);
+      return [...wheel];
+    },
+
+    playEmote(id) {
+      record({ c: 'playEmote', params: [id] });
+      // The start is not pushed for the page's own call — `true` is the notification — but the
+      // end will be, from `tickOnce`, exactly as Java's sweep reports it.
+      return beginEmote(id);
+    },
+
     openKeybindCapture(modId) {
       record({ c: 'openKeybindCapture', params: [modId] });
       return new Promise<Keybind | null>((resolve) => {
@@ -996,6 +1192,8 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       emit({ e: 'settings', payload: { ...settings } });
       // Whole state, like Java's first push after `init`: the board as it stands.
       emit({ e: 'scoreboard', payload: structuredCloneish(scoreboard) });
+      // After the loadout and before the menu, where Java's pushWholeState puts it.
+      emit({ e: 'cosmetics', payload: cosmeticsPayload() });
       emit({ e: 'menu', payload: menuOpen });
     },
 
@@ -1095,6 +1293,45 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       // and an unknown mod id is the only thing worth refusing.
       if (!isModId(id)) return;
       emit({ e: 'modaction', payload: { mod: id, action } });
+    },
+
+    getCosmetics() {
+      return cosmeticsPayload();
+    },
+
+    applyCosmetics(next) {
+      if (next.owned) owned = new Set(next.owned.filter((id) => CATALOG_BY_ID.has(id)));
+      if (next.self) {
+        const incoming = next.self;
+        worn.clear();
+        tints.clear();
+        for (const slot of COSMETIC_SLOTS) {
+          const id = incoming[slot];
+          // An id this catalog does not know, or one in the wrong slot, reads as nothing worn.
+          if (typeof id === 'string' && fitsSlot(slot, id)) worn.set(slot, id as CosmeticId);
+        }
+        for (const [slot, hex] of Object.entries(incoming.tints ?? {})) {
+          if (isCosmeticSlot(slot) && typeof hex === 'string' && TINT_RE.test(hex)) {
+            tints.set(slot, hex.toLowerCase());
+          }
+        }
+        wheel = cleanWheel(incoming.emotes ?? []);
+      }
+      emit({ e: 'cosmetics', payload: cosmeticsPayload() });
+    },
+
+    startEmote(id) {
+      if (!beginEmote(id)) return false;
+      emit({ e: 'emote', payload: { id } });
+      return true;
+    },
+
+    cancelEmote() {
+      endEmote();
+    },
+
+    getEmote() {
+      return emoteId;
     },
 
     getLoadout() {

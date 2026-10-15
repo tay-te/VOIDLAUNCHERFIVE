@@ -336,6 +336,17 @@ or `returns: null` again when the player pressed Escape. Null therefore arrives 
 channels meaning two different things, so the shim tells them apart by channel and never
 by value. `__emitKeybind(key)` remains as a shorthand for the same envelope.
 
+## Cosmetics
+
+`dev.voidpvp.client.cosmetic` draws VOID cosmetics: cloth capes, wings and other back items,
+hats, masks, halos, trails, nametag badges and full-body emotes, from assets bundled under
+`assets/void/cosmetics/<id>/` (compiled from `src/main/cosmetics-src/` by
+`../scripts/gen-cosmetics.mjs`; the launch art is painted by `cosmetics-art/paint.mjs`). Hooks are
+the cosmetics mixins (`PlayerEntityRendererMixin`, `PlayerEntityModelMixin`,
+`CapeFeatureRendererMixin`, `EntityRendererMixin`, `CosmeticsGameRendererMixin`,
+`CosmeticsHooksMixin`, `SurvivalInventoryScreenMixin`). `./gradlew runShowcase` renders every item
+to `build/showcase/` without a launcher. The whole story is [`../docs/cosmetics.md`](../docs/cosmetics.md).
+
 ## Conventions
 
 - **Java 8, no exceptions.** No `var`, no `List.of`, no diamond-free streams; Gson is

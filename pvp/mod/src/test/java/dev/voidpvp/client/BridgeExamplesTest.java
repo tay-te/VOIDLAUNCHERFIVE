@@ -221,7 +221,7 @@ class BridgeExamplesTest {
         // second example on one of them replaces the first rather than adding to the batch.
         java.util.Set<String> wholeState = new java.util.HashSet<String>(java.util.Arrays.asList(
                 VoidBridge.EVENT_KEYS, VoidBridge.EVENT_MENU, VoidBridge.EVENT_LOADOUTS,
-                VoidBridge.EVENT_SETTINGS, VoidBridge.EVENT_SCOREBOARD));
+                VoidBridge.EVENT_SETTINGS, VoidBridge.EVENT_SCOREBOARD, VoidBridge.EVENT_COSMETICS));
         java.util.Set<String> seen = new java.util.HashSet<String>();
         // Queued ticks merge into one (`mergeOlderTicksInto`), so however many tick examples
         // the schema carries, a frame delivers one.
@@ -537,7 +537,7 @@ class BridgeExamplesTest {
                 VoidBridge.EVENT_LOADOUT, VoidBridge.EVENT_LOADOUTS, VoidBridge.EVENT_SETTING,
                 VoidBridge.EVENT_MENU, VoidBridge.EVENT_SESSION, VoidBridge.EVENT_SETTINGS,
                 VoidBridge.EVENT_MODACTION, VoidBridge.EVENT_SCOREBOARD,
-                VoidBridge.EVENT_TOAST));
+                VoidBridge.EVENT_TOAST, VoidBridge.EVENT_COSMETICS, VoidBridge.EVENT_EMOTE));
         java.util.List<String> events = new ArrayList<String>();
         for (JsonElement e : defs.getAsJsonObject("event_name").getAsJsonArray("enum")) {
             events.add(e.getAsString());

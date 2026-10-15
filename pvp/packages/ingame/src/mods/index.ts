@@ -32,6 +32,7 @@ import type { ModArt } from './types';
 
 import armor_status from './armor_status';
 import combo from './combo';
+import cosmetics from './cosmetics';
 import coordinates from './coordinates';
 import cps from './cps';
 import direction from './direction';
@@ -138,6 +139,8 @@ const ART = {
   potion_counter,
   reach,
   chat,
+  // The switches over the cosmetics renderer: what this client draws, never what anyone wears.
+  cosmetics,
 } satisfies Record<ModId, ModArt>;
 
 /** Every mod's art, keyed by id. */

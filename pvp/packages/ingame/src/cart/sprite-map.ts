@@ -127,6 +127,7 @@ export const SPRITE_INDEX = {
   cos_badge: 118,
   cos_emote: 119,
   lock: 120,
+  cosmetics: 121,
 } as const satisfies Record<string, number>;
 
 export type SpriteName = keyof typeof SPRITE_INDEX;

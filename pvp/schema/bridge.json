@@ -20,7 +20,7 @@
   "definitions": {
     "event_name": {
       "title": "Event name",
-      "description": "The twelve channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
+      "description": "The fourteen channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
       "type": "string",
       "enum": [
         "keys",
@@ -34,12 +34,14 @@
         "settings",
         "modaction",
         "scoreboard",
-        "toast"
+        "toast",
+        "cosmetics",
+        "emote"
       ]
     },
     "call_name": {
       "title": "Call name",
-      "description": "The seventeen methods JS may call on `window.void`. Closed set.",
+      "description": "The twenty-one methods JS may call on `window.void`. Closed set.",
       "type": "string",
       "enum": [
         "setGameplay",
@@ -58,7 +60,11 @@
         "importLoadout",
         "setQuickPins",
         "setClipboard",
-        "getClipboard"
+        "getClipboard",
+        "equipCosmetic",
+        "setCosmeticTint",
+        "setEmoteWheel",
+        "playEmote"
       ]
     },
     "event": {
@@ -112,6 +118,14 @@
         {
           "description": "A short notice for the player.",
           "$ref": "#/definitions/event_toast"
+        },
+        {
+          "description": "What the local player wears and owns.",
+          "$ref": "#/definitions/event_cosmetics"
+        },
+        {
+          "description": "The local player's emote started or ended.",
+          "$ref": "#/definitions/event_emote"
         }
       ]
     },
@@ -995,6 +1009,22 @@
         {
           "description": "Read text from the system clipboard.",
           "$ref": "#/definitions/call_getClipboard"
+        },
+        {
+          "description": "Wear or take off one cosmetic.",
+          "$ref": "#/definitions/call_equipCosmetic"
+        },
+        {
+          "description": "Recolour one worn cosmetic.",
+          "$ref": "#/definitions/call_setCosmeticTint"
+        },
+        {
+          "description": "Replace the emote wheel.",
+          "$ref": "#/definitions/call_setEmoteWheel"
+        },
+        {
+          "description": "Play one emote.",
+          "$ref": "#/definitions/call_playEmote"
         }
       ]
     },
@@ -1068,6 +1098,22 @@
         {
           "description": "Result of getClipboard.",
           "$ref": "#/definitions/result_getClipboard"
+        },
+        {
+          "description": "Result of equipCosmetic.",
+          "$ref": "#/definitions/result_equipCosmetic"
+        },
+        {
+          "description": "Result of setCosmeticTint.",
+          "$ref": "#/definitions/result_setCosmeticTint"
+        },
+        {
+          "description": "Result of setEmoteWheel.",
+          "$ref": "#/definitions/result_setEmoteWheel"
+        },
+        {
+          "description": "Result of playEmote.",
+          "$ref": "#/definitions/result_playEmote"
         }
       ]
     },
@@ -2421,6 +2467,409 @@
           "$ref": "#/definitions/getClipboard_returns"
         }
       }
+    },
+    "event_cosmetics": {
+      "title": "cosmetics event",
+      "description": "Envelope for the `cosmetics` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `cosmetics`.",
+          "type": "string",
+          "const": "cosmetics"
+        },
+        "payload": {
+          "description": "The local player's set, what they own, and the catalog version.",
+          "$ref": "#/definitions/cosmetics_payload"
+        }
+      }
+    },
+    "event_emote": {
+      "title": "emote event",
+      "description": "Envelope for the `emote` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `emote`.",
+          "type": "string",
+          "const": "emote"
+        },
+        "payload": {
+          "description": "The emote now playing, or null when it ended.",
+          "$ref": "#/definitions/emote_payload"
+        }
+      }
+    },
+    "cosmetics_payload": {
+      "title": "cosmetics payload",
+      "description": "What the in-game wardrobe needs: the local player's whole equipped set, every item the account owns, and the version of the catalog this jar was built with. Whole state, so a newer one in the same frame replaces an older one. Pushed on `pushWholeState()` (first paint, a launcher `init`, a reloaded document) and whenever the launcher changes either half underneath the game \u2014 a `cosmetics` message after an equip from the launcher Store, or a purchase landing. **Not** pushed as an echo of the page's own `equipCosmetic`, `setCosmeticTint` or `setEmoteWheel`: each of those already returned what was stored, and \u00a76.5 does not push a change back to the page that made it.",
+      "type": "object",
+      "required": [
+        "self",
+        "owned",
+        "catalog_version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "self": {
+          "description": "What the local player wears \u2014 `protocol.json`'s `equipped_set`, the same object the launcher sends in `cosmetics.self`, so the wardrobe and the wire cannot disagree about its shape.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/equipped_set"
+        },
+        "owned": {
+          "description": "Every item the account owns, free items included, in catalog order. An item not listed shows as locked; equipping it is refused.",
+          "type": "array",
+          "maxItems": 512,
+          "uniqueItems": true,
+          "items": {
+            "description": "One owned item.",
+            "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+          }
+        },
+        "catalog_version": {
+          "description": "`cosmetics.json#/version` as compiled into this jar. The page's catalog is generated from the same file, so a mismatch means the bundle and the jar were not built together.",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "emote_payload": {
+      "title": "emote payload",
+      "description": "The local player's emote started (`id`) or ended (`null`), so the wheel can light the one playing and the HUD can step aside for the third-person camera. Not coalesced: a start and an end in one slow frame are two facts, and the page should see both in order. The start is **not** pushed when the page's own `playEmote` started it \u2014 that call returned `true` and is the notification \u2014 but the end always is, because only Java knows when a clip finishes or is cancelled by movement.",
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "The emote now playing, or null when none is.",
+          "oneOf": [
+            {
+              "description": "The emote.",
+              "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+            },
+            {
+              "description": "No emote is playing.",
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "cosmetic_tint": {
+      "title": "Cosmetic tint",
+      "description": "A per-slot recolour, `#rrggbb`. The same pattern `protocol.json`'s `equipped_set.tints` uses; Java accepts either case and answers lower case.",
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "call_equipCosmetic": {
+      "title": "equipCosmetic call",
+      "description": "`void.equipCosmetic(slot, id)`. Wears `id` in `slot`, or takes the slot off when `id` is null. Applied in Java at once \u2014 the next frame draws it \u2014 and forwarded to the launcher as an `equip` protocol message, which persists it to the backend. Java refuses only what it can see is wrong: an id the catalog does not know, an item for another slot, or one it knows the account does not own. When it does not know what the account owns, the backend validates and the launcher reverts a refused equip with a `cosmetics` message, which reaches the page as a `cosmetics` event. Synchronous and authoritative like every call here: an item the account does not own, an id the catalog does not know, or an item for another slot is **refused**, and the answer is then what the slot still holds. Bind the wardrobe to the return, never to what was sent. No `cosmetics` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `equipCosmetic`.",
+          "type": "string",
+          "const": "equipCosmetic"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/equipCosmetic_params"
+        }
+      }
+    },
+    "equipCosmetic_params": {
+      "title": "equipCosmetic params",
+      "description": "[slot, id].",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Which slot.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_slot"
+        },
+        {
+          "description": "The item to wear, or null to take the slot off.",
+          "oneOf": [
+            {
+              "description": "The item.",
+              "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+            },
+            {
+              "description": "Take the slot off.",
+              "type": "null"
+            }
+          ]
+        }
+      ]
+    },
+    "equipCosmetic_returns": {
+      "title": "equipCosmetic returns",
+      "description": "The id now worn in that slot, or null when it is empty. Equals the request on success; on a refusal it is whatever was already there.",
+      "oneOf": [
+        {
+          "description": "The worn item.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+        },
+        {
+          "description": "The slot is empty.",
+          "type": "null"
+        }
+      ]
+    },
+    "result_equipCosmetic": {
+      "title": "equipCosmetic result",
+      "description": "Envelope for a equipCosmetic return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `equipCosmetic`.",
+          "type": "string",
+          "const": "equipCosmetic"
+        },
+        "returns": {
+          "description": "The id worn in that slot now.",
+          "$ref": "#/definitions/equipCosmetic_returns"
+        }
+      }
+    },
+    "call_setCosmeticTint": {
+      "title": "setCosmeticTint call",
+      "description": "`void.setCosmeticTint(slot, hex)`. Recolours the item worn in `slot`, or clears the tint when `hex` is null. Only items flagged `tintable` in `cosmetics.json` take one; for any other slot the call is refused and answers the tint already set. Applied in game only for now: the wire's `equip` carries a slot and an id, not a tint, so a tint chosen here lasts the session until the protocol grows one. No `cosmetics` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setCosmeticTint`.",
+          "type": "string",
+          "const": "setCosmeticTint"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/setCosmeticTint_params"
+        }
+      }
+    },
+    "setCosmeticTint_params": {
+      "title": "setCosmeticTint params",
+      "description": "[slot, hex].",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Which slot.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_slot"
+        },
+        {
+          "description": "The colour, `#rrggbb`, or null to clear it.",
+          "oneOf": [
+            {
+              "description": "The colour.",
+              "$ref": "#/definitions/cosmetic_tint"
+            },
+            {
+              "description": "Clear the tint.",
+              "type": "null"
+            }
+          ]
+        }
+      ]
+    },
+    "setCosmeticTint_returns": {
+      "title": "setCosmeticTint returns",
+      "description": "The tint now applied, lower case, or null when the slot has none.",
+      "oneOf": [
+        {
+          "description": "The applied colour.",
+          "$ref": "#/definitions/cosmetic_tint"
+        },
+        {
+          "description": "No tint.",
+          "type": "null"
+        }
+      ]
+    },
+    "result_setCosmeticTint": {
+      "title": "setCosmeticTint result",
+      "description": "Envelope for a setCosmeticTint return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setCosmeticTint`.",
+          "type": "string",
+          "const": "setCosmeticTint"
+        },
+        "returns": {
+          "description": "The applied tint.",
+          "$ref": "#/definitions/setCosmeticTint_returns"
+        }
+      }
+    },
+    "call_setEmoteWheel": {
+      "title": "setEmoteWheel call",
+      "description": "`void.setEmoteWheel(ids)`. Replaces the whole emote wheel. Ids that are not emotes, are not owned, or repeat are dropped, and the wheel keeps at most eight. Applied in game only for now: the wire has no message for the wheel, so it lasts the session until the protocol grows one; the launcher Store edits the stored wheel. No `cosmetics` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setEmoteWheel`.",
+          "type": "string",
+          "const": "setEmoteWheel"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/setEmoteWheel_params"
+        }
+      }
+    },
+    "setEmoteWheel_params": {
+      "title": "setEmoteWheel params",
+      "description": "[ids].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The wheel, in wheel order.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "One emote.",
+            "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+          }
+        }
+      ]
+    },
+    "setEmoteWheel_returns": {
+      "title": "setEmoteWheel returns",
+      "description": "The wheel as stored, after dropping what could not be kept.",
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "description": "One emote.",
+        "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+      }
+    },
+    "result_setEmoteWheel": {
+      "title": "setEmoteWheel result",
+      "description": "Envelope for a setEmoteWheel return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setEmoteWheel`.",
+          "type": "string",
+          "const": "setEmoteWheel"
+        },
+        "returns": {
+          "description": "The stored wheel.",
+          "$ref": "#/definitions/setEmoteWheel_returns"
+        }
+      }
+    },
+    "call_playEmote": {
+      "title": "playEmote call",
+      "description": "`void.playEmote(id)`. Starts an emote for the local player and tells the launcher, which relays it to the other VOID players on the server as a remote `emote`. Refused \u2014 `false`, and nothing plays \u2014 for an id that is not an emote, is not owned, or has no bundled animation. The `emote` event's start is not pushed for a call that succeeded, since this answer is the notification; its end is.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `playEmote`.",
+          "type": "string",
+          "const": "playEmote"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/playEmote_params"
+        }
+      }
+    },
+    "playEmote_params": {
+      "title": "playEmote params",
+      "description": "[id].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Which emote.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+        }
+      ]
+    },
+    "playEmote_returns": {
+      "title": "playEmote returns",
+      "description": "True when the emote started; false when it was refused.",
+      "type": "boolean"
+    },
+    "result_playEmote": {
+      "title": "playEmote result",
+      "description": "Envelope for a playEmote return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `playEmote`.",
+          "type": "string",
+          "const": "playEmote"
+        },
+        "returns": {
+          "description": "Whether the emote started.",
+          "$ref": "#/definitions/playEmote_returns"
+        }
+      }
     }
   },
   "examples": [
@@ -2969,6 +3418,109 @@
     {
       "c": "getClipboard",
       "returns": ""
+    },
+    {
+      "e": "cosmetics",
+      "payload": {
+        "self": {
+          "uuid": "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+          "cape": "ring-cape",
+          "back": null,
+          "head": null,
+          "face": null,
+          "halo": "seraph-halo",
+          "trail": "spark-trail",
+          "badge": "void-badge-player",
+          "emotes": [
+            "emote-wave",
+            "emote-clap"
+          ],
+          "tints": {
+            "cape": "#9f8bff"
+          }
+        },
+        "owned": [
+          "ring-cape",
+          "origin-cape",
+          "seraph-halo",
+          "emote-wave",
+          "emote-clap",
+          "spark-trail",
+          "void-badge-player"
+        ],
+        "catalog_version": 1
+      }
+    },
+    {
+      "e": "emote",
+      "payload": {
+        "id": "emote-wave"
+      }
+    },
+    {
+      "e": "emote",
+      "payload": {
+        "id": null
+      }
+    },
+    {
+      "c": "equipCosmetic",
+      "params": [
+        "cape",
+        "ring-cape"
+      ]
+    },
+    {
+      "c": "equipCosmetic",
+      "returns": "ring-cape"
+    },
+    {
+      "c": "equipCosmetic",
+      "params": [
+        "halo",
+        null
+      ]
+    },
+    {
+      "c": "equipCosmetic",
+      "returns": null
+    },
+    {
+      "c": "setCosmeticTint",
+      "params": [
+        "cape",
+        "#9f8bff"
+      ]
+    },
+    {
+      "c": "setCosmeticTint",
+      "returns": "#9f8bff"
+    },
+    {
+      "c": "setEmoteWheel",
+      "params": [
+        [
+          "emote-wave",
+          "emote-clap"
+        ]
+      ]
+    },
+    {
+      "c": "setEmoteWheel",
+      "returns": [
+        "emote-wave",
+        "emote-clap"
+      ]
+    },
+    {
+      "c": "playEmote",
+      "params": [
+        "emote-wave"
+      ]
+    },
+    {
+      "c": "playEmote",
+      "returns": true
     }
   ]
 }

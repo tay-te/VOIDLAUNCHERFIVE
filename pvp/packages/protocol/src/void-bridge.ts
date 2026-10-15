@@ -38,8 +38,11 @@
  * keeps the pending resolvers in FIFO order, and the promise never rejects.
  */
 
+import type { CosmeticId, CosmeticSlot } from './generated/cosmetics.js';
 import type {
+  CosmeticsPayload,
   EffectSurface,
+  EmotePayload,
   GameplayModId,
   GlobalSettings,
   HUDAnchor,
@@ -77,12 +80,15 @@ export type SessionInfo = SessionPayload;
 /** Re-exported so a consumer of the `settings` channel does not reach into `generated/`. */
 export type { GlobalSettings };
 
+/** Re-exported so a consumer of the `cosmetics` and `emote` channels does not reach into `generated/`. */
+export type { CosmeticsPayload, EmotePayload };
+
 /* -------------------------------------------------------------------------- */
 /* Events                                                                     */
 /* -------------------------------------------------------------------------- */
 
 /**
- * The twelve channels Java pushes on.
+ * The fourteen channels Java pushes on.
  *
  * **Closed, and that is load-bearing.** Both shims look the name up in a map: `on` returns
  * a no-op subscription for a name it does not know, and `__emit` drops an envelope whose
@@ -104,9 +110,11 @@ export const VOID_EVENTS = [
   'modaction',
   'scoreboard',
   'toast',
+  'cosmetics',
+  'emote',
 ] as const;
 
-/** Name of one of the twelve push channels. */
+/** Name of one of the fourteen push channels. */
 export type VoidEventName = (typeof VOID_EVENTS)[number];
 
 /** Payload handed to the handler of each channel. */
@@ -177,6 +185,24 @@ export interface VoidEventPayloadMap {
    * itself (an import, a delete). Informational only — nothing waits on it.
    */
   toast: ToastPayload;
+  /**
+   * What the local player wears (`self`, `protocol.json`'s `equipped_set`), every item the
+   * account owns, free ones included, and the catalog version the jar was built with. Whole
+   * state: replace, never merge.
+   *
+   * Pushed on `pushWholeState()` and whenever the launcher changes either half under the game —
+   * an equip from the launcher Store, a purchase landing. **Never** pushed as an echo of this
+   * page's own {@link VoidBridge.equipCosmetic}, {@link VoidBridge.setCosmeticTint} or
+   * {@link VoidBridge.setEmoteWheel}: each returned what was stored, so patch the local copy
+   * from the return (§6.5, the same rule as `setting`).
+   */
+  cosmetics: CosmeticsPayload;
+  /**
+   * The local player's emote started (`id`) or ended (`null`). The start is not pushed for an
+   * emote this page started with {@link VoidBridge.playEmote} — `true` was the notification —
+   * but the end always is: only Java knows when a clip finishes or movement cancels it.
+   */
+  emote: EmotePayload;
 }
 
 /** Handler signature for a given channel. */
@@ -193,7 +219,7 @@ export type VoidEventEnvelope = {
 /* Calls                                                                      */
 /* -------------------------------------------------------------------------- */
 
-/** The seventeen methods JS may call on `window.void`. Closed set. */
+/** The twenty-one methods JS may call on `window.void`. Closed set. */
 export const VOID_CALLS = [
   'setGameplay',
   'setHud',
@@ -212,9 +238,13 @@ export const VOID_CALLS = [
   'setQuickPins',
   'setClipboard',
   'getClipboard',
+  'equipCosmetic',
+  'setCosmeticTint',
+  'setEmoteWheel',
+  'playEmote',
 ] as const;
 
-/** Name of one of the seventeen calls. */
+/** Name of one of the twenty-one calls. */
 export type VoidCallName = (typeof VOID_CALLS)[number];
 
 /** Value a mod setting may take. Scalars only; no mod has an object- or array-valued setting. */
@@ -273,6 +303,10 @@ export interface VoidCallParamsMap {
   setQuickPins: [ids: ModId[]];
   setClipboard: [text: string];
   getClipboard: [];
+  equipCosmetic: [slot: CosmeticSlot, id: CosmeticId | null];
+  setCosmeticTint: [slot: CosmeticSlot, hex: string | null];
+  setEmoteWheel: [ids: CosmeticId[]];
+  playEmote: [id: CosmeticId];
 }
 
 /** Return value of each call. `openKeybindCapture` resolves this through a Promise. */
@@ -294,6 +328,10 @@ export interface VoidCallReturnsMap {
   setQuickPins: ModId[];
   setClipboard: boolean;
   getClipboard: string;
+  equipCosmetic: CosmeticId | null;
+  setCosmeticTint: string | null;
+  setEmoteWheel: CosmeticId[];
+  playEmote: boolean;
 }
 
 /** One JS → Java call envelope. */
@@ -435,6 +473,34 @@ export interface VoidBridge {
    * Call it when layout changes, not per frame. Returns how many surfaces the host kept.
    */
   setSurfaces(surfaces: EffectSurface[]): number;
+
+  /**
+   * Wear `id` in `slot`, or take the slot off with `null`. Java applies it at once and tells
+   * the launcher, which persists it. Returns **the id now in the slot**: the request on
+   * success, and what was already there when Java refused it (not owned, unknown, or for
+   * another slot). Bind the wardrobe to this, never to what you sent. No `cosmetics` event
+   * follows.
+   */
+  equipCosmetic(slot: CosmeticSlot, id: CosmeticId | null): CosmeticId | null;
+
+  /**
+   * Recolour the item worn in `slot` (`#rrggbb`), or clear its tint with `null`. Only
+   * `tintable` items take one; any other slot answers the tint it already has. Returns the
+   * tint now applied, lower case, or null.
+   */
+  setCosmeticTint(slot: CosmeticSlot, hex: string | null): string | null;
+
+  /**
+   * Replace the emote wheel. Ids that are not owned emotes, or repeat, are dropped, and at most
+   * eight are kept. Returns the wheel as stored.
+   */
+  setEmoteWheel(ids: CosmeticId[]): CosmeticId[];
+
+  /**
+   * Play an emote for the local player. Returns whether it started; false (and nothing plays)
+   * for an id that is not an owned emote. The `emote` event reports its end, not its start.
+   */
+  playEmote(id: CosmeticId): boolean;
 
   /**
    * Whether the page wants to keep the next Escape for itself, rather than let it close
@@ -706,6 +772,27 @@ export function installVoidShim(options: InstallVoidShimOptions = {}): VoidBridg
 
     setSurfaces(surfaces) {
       return call('setSurfaces', [surfaces]) ?? 0;
+    },
+
+    // The cosmetic calls follow `setGlobal`'s rule: `null` from Java is a real answer (an empty
+    // slot, no tint), so only `undefined` — no host, or an undecodable reply — falls back.
+    equipCosmetic(slot, id) {
+      const applied = call('equipCosmetic', [slot, id]);
+      return applied === undefined ? id : applied;
+    },
+
+    setCosmeticTint(slot, hex) {
+      const applied = call('setCosmeticTint', [slot, hex]);
+      return applied === undefined ? hex : applied;
+    },
+
+    setEmoteWheel(ids) {
+      return call('setEmoteWheel', [ids]) ?? ids;
+    },
+
+    playEmote(id) {
+      // Nothing played if nobody answered, so the honest fallback is false, as for switchLoadout.
+      return call('playEmote', [id]) ?? false;
     },
 
     openKeybindCapture(modId) {

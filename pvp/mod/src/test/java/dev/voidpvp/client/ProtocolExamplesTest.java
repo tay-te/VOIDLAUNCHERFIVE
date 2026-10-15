@@ -3,6 +3,8 @@ package dev.voidpvp.client;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import dev.voidpvp.client.cosmetic.CosmeticCatalog;
+import dev.voidpvp.client.cosmetic.EquippedSet;
 import dev.voidpvp.client.net.Protocol;
 import dev.voidpvp.client.state.GlobalSettings;
 import dev.voidpvp.client.state.HudItem;
@@ -11,28 +13,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Every example in {@code schema/protocol.json}, round-tripped through {@code net/}. */
 class ProtocolExamplesTest {
-
-    /**
-     * The online messages (docs/online-contract.md). Rust speaks them already
-     * (void-bridge cosmetics.rs); the mod side, codec and renderer, lands with the
-     * cosmetics workstream, which replaces this list with real round-trips. Until then an
-     * inbound one parses as {@code Kind.UNKNOWN} and is ignored, which is safe.
-     */
-    private static final Set<String> MOD_SIDE_PENDING = new HashSet<String>(Arrays.asList(
-            "cosmetics_query", "emote", "equip", "cosmetics"));
 
     @Test
     @DisplayName("every protocol.json example round-trips through the codec")
@@ -46,11 +37,6 @@ class ProtocolExamplesTest {
             JsonObject example = examples.get(i).getAsJsonObject();
             String t = example.get("t").getAsString();
             String where = "protocol.json examples[" + i + "] (" + t + ")";
-            if (MOD_SIDE_PENDING.contains(t)) {
-                assertEquals(Protocol.Inbound.Kind.UNKNOWN,
-                        Protocol.parse(example.toString()).kind, where + " must be ignored");
-                continue;
-            }
 
             if ("hello".equals(t)) {
                 JsonObject rebuilt = Protocol.hello(
@@ -131,6 +117,52 @@ class ProtocolExamplesTest {
                             in.loadouts.get(j).toJson(), where + " loadouts[" + j + "]");
                 }
                 rustToJava++;
+            } else if ("cosmetics_query".equals(t)) {
+                // The schema accepts dashed or undashed; the mod always sends dashed lower case.
+                List<String> uuids = new ArrayList<String>();
+                JsonArray normalised = new JsonArray();
+                for (JsonElement e : example.getAsJsonArray("uuids")) {
+                    uuids.add(e.getAsString());
+                    normalised.add(new com.google.gson.JsonPrimitive(
+                            EquippedSet.normalise(e.getAsString())));
+                }
+                JsonObject rebuilt = Protocol.cosmeticsQuery(uuids);
+                assertEquals("cosmetics_query", rebuilt.get("t").getAsString(), where);
+                assertEquals(normalised, rebuilt.getAsJsonArray("uuids"), where);
+                javaToRust++;
+            } else if ("emote".equals(t) && !example.has("uuid")) {
+                // The outbound emote: no uuid, and the codec must not read it as an inbound one.
+                assertEquals(example, Protocol.emote(example.get("id").getAsString()), where);
+                assertEquals(Protocol.Inbound.Kind.UNKNOWN, Protocol.parse(example.toString()).kind,
+                        where + " is not an inbound emote");
+                javaToRust++;
+            } else if ("emote".equals(t)) {
+                Protocol.Inbound in = Protocol.parse(example.toString());
+                assertEquals(Protocol.Inbound.Kind.EMOTE, in.kind, where);
+                assertEquals(example.get("uuid").getAsString(), in.uuid, where);
+                assertEquals(example.get("id").getAsString(), in.emoteId, where);
+                assertEquals(example.get("at").getAsLong(), in.atMs, where);
+                rustToJava++;
+            } else if ("equip".equals(t)) {
+                JsonObject rebuilt = Protocol.equip(example.get("slot").getAsString(),
+                        example.get("id").isJsonNull() ? null : example.get("id").getAsString());
+                assertEquals(example, rebuilt, where);
+                javaToRust++;
+            } else if ("cosmetics".equals(t)) {
+                Protocol.Inbound in = Protocol.parse(example.toString());
+                assertEquals(Protocol.Inbound.Kind.COSMETICS, in.kind, where);
+                if (example.get("self").isJsonNull()) {
+                    assertNull(in.self, where + " self null means no online session");
+                } else {
+                    assertSetMatches(example.getAsJsonObject("self"), in.self, where + " self");
+                }
+                JsonArray players = example.getAsJsonArray("players");
+                assertEquals(players.size(), in.players.size(), where + " players");
+                for (int j = 0; j < players.size(); j++) {
+                    assertSetMatches(players.get(j).getAsJsonObject(), in.players.get(j),
+                            where + " players[" + j + "]");
+                }
+                rustToJava++;
             } else if ("init".equals(t)) {
                 Protocol.Inbound in = Protocol.parse(example.toString());
                 assertEquals(Protocol.Inbound.Kind.INIT, in.kind, where);
@@ -169,8 +201,24 @@ class ProtocolExamplesTest {
                         + "; teach net/Protocol about it");
             }
         }
-        assertEquals(13, javaToRust, "expected thirteen Java to Rust examples");
-        assertEquals(4, rustToJava, "expected four Rust to Java examples");
+        assertEquals(17, javaToRust, "expected seventeen Java to Rust examples");
+        assertEquals(7, rustToJava, "expected seven Rust to Java examples");
+    }
+
+    /**
+     * An {@code equipped_set} example against what the mod parsed. Ids this jar's catalog has
+     * survive exactly; ids it does not have (the examples name items from a future catalog,
+     * which is the point) read as nothing worn, never as an error.
+     */
+    private static void assertSetMatches(JsonObject example, EquippedSet parsed, String where) {
+        assertNotNull(parsed, where);
+        assertEquals(EquippedSet.normalise(example.get("uuid").getAsString()), parsed.uuid, where);
+        for (String slot : CosmeticCatalog.SLOTS) {
+            JsonElement id = example.get(slot);
+            String expected = id == null || id.isJsonNull() || !CosmeticCatalog.fits(slot, id.getAsString())
+                    ? null : id.getAsString();
+            assertEquals(expected, parsed.get(slot), where + "." + slot);
+        }
     }
 
     @Test

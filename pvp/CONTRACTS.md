@@ -93,8 +93,8 @@ The bridge object is named exactly **`window.void`**. Defined in `schema/bridge.
 §6.5. Implemented by **mod** (`mod/src/main/java/dev/voidpvp/client/bridge/`) and consumed
 by **ingame**.
 
-- Java → JS is push, on **nine** channels:
-  `void.on('keys'|'tick'|'server'|'loadout'|'loadouts'|'setting'|'menu'|'session'|'settings', handler)`.
+- Java → JS is push, on **twelve** channels:
+  `void.on('keys'|'tick'|'server'|'loadout'|'loadouts'|'setting'|'menu'|'session'|'settings'|'modaction'|'cosmetics'|'emote', handler)`.
   - **The channel list in `void-shim.js` is closed, and a channel missing from it fails
     silently** — `on` returns a no-op subscription and `__emit` drops the envelope, with no
     error anywhere. That is how `session` was lost the first time it was sent. Adding a
@@ -112,9 +112,17 @@ by **ingame**.
     hotkey, or a launcher echo. It is *not* pushed for a change the page made through
     `setModSetting`, which already returned the stored value; re-pushing that would fight
     the control the player is holding.
-- JS → Java is a call, and there are now eight: `setGameplay`, `setHud`, `setModSetting`,
-  `switchLoadout`, `closeMenu`, `openKeybindCapture`, `setSurfaces`, `setGlobal`. The shim's
-  `CALLS` list is closed the same way `EVENTS` is.
+  - `cosmetics` is the wardrobe — `{self, owned, catalog_version}`, whole state — and
+    `emote` is the local player's emote starting (`{id}`) or ending (`{id: null}`). Neither
+    echoes a change the page made: the wardrobe calls already returned what was stored, and
+    a `playEmote` that answered `true` is its own start. An emote's end is always pushed,
+    because only the game thread knows when a clip ran out. The no-echo rule is enforced
+    per thread in `VoidBridge` (`answeringPage`), so a launcher change arriving on
+    `void-ws` while the page is mid-call is still pushed.
+- JS → Java is a call, and there are now twelve: `setGameplay`, `setHud`, `setModSetting`,
+  `switchLoadout`, `closeMenu`, `openKeybindCapture`, `setSurfaces`, `setGlobal`,
+  `equipCosmetic`, `setCosmeticTint`, `setEmoteWheel`, `playEmote`. The shim's `CALLS` list is
+  closed the same way `EVENTS` is.
   - `setGlobal(key, value)` mirrors `setModSetting` exactly: synchronous, Java clamps and
     returns **what it stored**, `null` for a key it does not know or a value it cannot use,
     and the page binds to the return rather than to what it sent.

@@ -69,6 +69,9 @@ export const MOD_ORDER: ModId[] = [
   // you rather than off the HUD.
   'hit_color',
   'damage_tint',
+  // Beside the two that are about reading another player's model: this one is what you see on
+  // it, or do not.
+  'cosmetics',
   // Closes the reading-a-player block: the name over their head.
   'nametags',
   'armor_status',

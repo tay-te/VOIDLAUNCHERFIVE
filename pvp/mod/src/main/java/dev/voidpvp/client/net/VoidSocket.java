@@ -3,6 +3,8 @@ package dev.voidpvp.client.net;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import dev.voidpvp.client.VoidLog;
+import dev.voidpvp.client.cosmetic.CosmeticState;
+import dev.voidpvp.client.cosmetic.EquippedSet;
 import dev.voidpvp.client.state.GlobalSettings;
 import dev.voidpvp.client.state.HudItem;
 import dev.voidpvp.client.state.LiveState;
@@ -46,8 +48,11 @@ import java.util.concurrent.TimeUnit;
  * applying anything, because {@code init} is the mod's entire world of state.
  * If the launcher is not there we retry with backoff and the game carries on
  * regardless — everything owed is replayed once it answers.</p>
+ *
+ * <p>It is also {@link CosmeticState}'s sink: the mod never talks HTTP, so who wears what goes
+ * to the launcher here and comes back as {@code cosmetics} and remote {@code emote}.</p>
  */
-public final class VoidSocket implements LiveState.Sink {
+public final class VoidSocket implements LiveState.Sink, CosmeticState.Sink {
 
     /** What the rest of the mod wants to know about the link. */
     public interface Listener {
@@ -66,6 +71,20 @@ public final class VoidSocket implements LiveState.Sink {
         }
 
         void onLinkChanged(boolean up);
+
+        /**
+         * {@code cosmetics}: who wears what. Either argument may be null, meaning unchanged:
+         * {@code self} the local player's whole set (null when there is no online session),
+         * {@code players} other VOID players' sets as a delta. The wire carries no ownership.
+         * Called on {@code void-ws}.
+         */
+        void onCosmetics(EquippedSet self, List<EquippedSet> players);
+
+        /**
+         * Remote {@code emote}: another VOID player on this server started {@code id} at the
+         * sender's wall-clock {@code atMs} (0 when unknown). Called on {@code void-ws}.
+         */
+        void onRemoteEmote(String uuid, String id, long atMs);
 
         /**
          * The launcher speaks another protocol version. Mod and launcher ship
@@ -276,6 +295,75 @@ public final class VoidSocket implements LiveState.Sink {
         }
     }
 
+    // -----------------------------------------------------------------
+    // CosmeticState.Sink
+    // -----------------------------------------------------------------
+
+    /**
+     * {@code cosmetics_query}, chunked to {@link Protocol#MAX_QUERY_UUIDS} per frame.
+     *
+     * <p>Dropped rather than queued when the link is down, like {@code hotkey}: it asks about
+     * the players on screen <em>now</em>, and a list replayed after a reconnect would ask about
+     * players who have long since left. The caller asks again for whoever is still in view.</p>
+     */
+    @Override
+    public void query(List<String> uuids) {
+        if (uuids == null || uuids.isEmpty() || !isUp()) {
+            return;
+        }
+        for (int i = 0; i < uuids.size(); i += Protocol.MAX_QUERY_UUIDS) {
+            List<String> chunk = uuids.subList(i, Math.min(uuids.size(), i + Protocol.MAX_QUERY_UUIDS));
+            JsonObject message = Protocol.cosmeticsQuery(chunk);
+            if (message.getAsJsonArray("uuids").size() > 0) {
+                send(message);
+            }
+        }
+    }
+
+    /**
+     * {@code emote}: the local player started one. Dropped when the link is down: replayed
+     * after a reconnect it would play minutes late on every other screen.
+     */
+    @Override
+    public void emote(String id) {
+        if (id != null && isUp()) {
+            send(Protocol.emote(id));
+        }
+    }
+
+    /**
+     * {@code equip} for one slot, {@code {slot, id}}. Queued like {@code state} when the link is
+     * down, and the queue keeps only the latest per slot, because each message is the whole slot.
+     *
+     * <p>{@code tint} is not sent: {@code protocol.json}'s {@code equip} has no tint field, so a
+     * recolour chosen in game lasts the session until the protocol grows one. A tint change
+     * still arrives here (CosmeticState reports the slot), and re-sending the same id is
+     * harmless — the backend stores what it already had.</p>
+     */
+    @Override
+    public void equip(String slot, String id, String tint) {
+        if (slot == null) {
+            return;
+        }
+        JsonObject message = Protocol.equip(slot, id);
+        if (isUp()) {
+            send(message);
+        } else {
+            queue.addEquip(message);
+        }
+    }
+
+    /**
+     * The emote wheel changed in game. <b>Nothing is sent</b>: {@code protocol.json} has no
+     * message for the wheel, so it lasts the session; the launcher Store edits the stored one,
+     * which comes back in {@code cosmetics.self.emotes}. Kept so the sink stays complete and the
+     * day the wire grows a message this is the one place that changes.
+     */
+    @Override
+    public void emotes(List<String> ids) {
+        // Intentionally a no-op on the wire; see the javadoc.
+    }
+
     public void sendSession(double fpsAvg, long playedMs, String server, String loadoutId) {
         sendSession(fpsAvg, -1, playedMs, server, loadoutId);
     }
@@ -321,6 +409,12 @@ public final class VoidSocket implements LiveState.Sink {
                 break;
             case LIBRARY:
                 listener.onLibrary(in.loadouts);
+                break;
+            case COSMETICS:
+                listener.onCosmetics(in.self, in.players);
+                break;
+            case EMOTE:
+                listener.onRemoteEmote(in.uuid, in.emoteId, in.atMs);
                 break;
             default:
                 // Unknown `t`: ignored, never an error (§7).

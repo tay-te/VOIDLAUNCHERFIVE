@@ -26,6 +26,13 @@ import java.util.Map;
  * {@code settings.json} and then correct it, which is two disk writes and one
  * window in which a crash leaves snapping off. Last write wins collapses it to
  * nothing.</p>
+ *
+ * <p>Cosmetic {@code equip} messages coalesce per slot the same way, last write wins. Each one
+ * carries the whole state of its slot (the id worn, or null), so
+ * the newest is everything the launcher needs: a player who tried on four capes while the link
+ * was down persists the one they kept, not the three they took off.
+ * {@code cosmetics_query} and {@code emote} are never queued; they are notifications about the
+ * moment they were sent.</p>
  */
 public final class OutboundQueue {
 
@@ -42,6 +49,8 @@ public final class OutboundQueue {
     private final Map<String, JsonObject> library = new LinkedHashMap<String, JsonObject>();
     /** The last in-game pick, if any; only the newest matters. */
     private String selected;
+    /** Latest {@code equip} per slot ({@code "emotes"} for the wheel), in first-touched order. */
+    private final Map<String, JsonObject> equips = new LinkedHashMap<String, JsonObject>();
     private JsonObject serverMessage;
 
     public synchronized void addState(String loadoutId, Map<String, JsonElement> patch) {
@@ -75,14 +84,25 @@ public final class OutboundQueue {
         selected = id;
     }
 
+    /**
+     * An {@code equip} message ({@link Protocol#equip}); replaces any queued one for the same
+     * slot.
+     */
+    public synchronized void addEquip(JsonObject message) {
+        if (message == null || !message.has("slot")) {
+            return;
+        }
+        equips.put(message.get("slot").getAsString(), message);
+    }
+
     /** Only the latest presence matters; the launcher wants current state. */
     public synchronized void setServer(JsonObject message) {
         serverMessage = message;
     }
 
     public synchronized boolean isEmpty() {
-        return patches.isEmpty() && huds.isEmpty() && globals.isEmpty() && serverMessage == null
-                && library.isEmpty() && selected == null;
+        return patches.isEmpty() && huds.isEmpty() && globals.isEmpty() && equips.isEmpty()
+                && serverMessage == null && library.isEmpty() && selected == null;
     }
 
     /** Drains everything into the frames to send, in a stable order. */
@@ -102,6 +122,7 @@ public final class OutboundQueue {
         if (!globals.isEmpty()) {
             out.add(Protocol.globals(globals));
         }
+        out.addAll(equips.values());
         if (serverMessage != null) {
             out.add(serverMessage);
         }
@@ -110,6 +131,7 @@ public final class OutboundQueue {
         patches.clear();
         huds.clear();
         globals.clear();
+        equips.clear();
         serverMessage = null;
         return out;
     }

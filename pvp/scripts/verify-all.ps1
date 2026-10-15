@@ -133,6 +133,8 @@ if ($LASTEXITCODE -eq 0) {
 } else {
   Add-Skip 'schema examples + cross-checks' "ajv not resolvable — run 'cd schema; npm i --no-save ajv'"
 }
+# The cosmetics catalog's Java/TS outputs and the bundled assets are generated and committed.
+Invoke-Check -Label 'cosmetics generated (gen-cosmetics --check)' -Command 'node scripts/gen-cosmetics.mjs --check'
 
 # ---------------------------------------------------------------------------
 Write-Section 'rust — crates/ (void-core, void-bridge, void-loadout)'

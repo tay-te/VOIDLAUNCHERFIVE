@@ -71,5 +71,6 @@ export const MOD_ICON_NAMES = {
   "time_weather": "clock",
   "potion_counter": "heart",
   "reach": "sword",
-  "chat": "users"
+  "chat": "users",
+  "cosmetics": "star"
 } as const satisfies Record<ModId, string>;

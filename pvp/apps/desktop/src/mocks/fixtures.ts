@@ -167,7 +167,7 @@ export const PREVIEW_FRIENDS = {
 
 /** The Store frame's state: Cell cape equipped, Origin cape owned (`73:211`). */
 export const PREVIEW_COSMETICS = {
-  owned: ['cell-cape', 'origin-cape', 'plain-nameplate'],
+  owned: ['cell-cape', 'origin-cape', 'void-badge-player'],
   equipped: { cape: 'cell-cape' },
 };
 

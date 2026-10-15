@@ -269,6 +269,7 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
       ]}
     />
   ),
+  cosmetics: () => <Numeral value="7" unit="slots" />,
   toggle_sprint: () => <CellGlyph rows={SPRINT_GLYPH} caption="sprint" size={10} />,
   fullbright: () => <CellGlyph rows={FULL_GLYPH} size={18} />,
 };

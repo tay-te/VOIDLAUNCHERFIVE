@@ -114,6 +114,7 @@ const READERS: Partial<Record<ModId, Reader>> = {
   menu_blur: (_s, o) => ({ v: `${o.blur_radius ?? 0}`, unit: 'blur' }),
   watermark: (_s, o) => ({ v: word(o.style) }),
   zoom: (_s, o) => ({ v: formatSetting('fov_divisor', Number(o.fov_divisor ?? 4)) }),
+  cosmetics: (_s, o) => ({ v: o.others === false ? 'Only you' : 'Everyone', unit: o.glow ? 'glow' : undefined }),
   chat: (_s, o) => ({ v: o.stack_repeats ? 'Stack' : 'Plain', unit: o.timestamps ? 'time' : undefined }),
   culling: (_s, o) => ({ v: o.occlude_entities ? 'Entities' : 'Blocks', unit: `${o.always_draw_within ?? 4}b` }),
   particles: (_s, o) => ({ v: String(o.particle_cap ?? 0), unit: 'cap' }),

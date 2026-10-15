@@ -96,6 +96,7 @@ const LIVE: readonly ModId[] = [
   'potion_counter',
   'reach',
   'chat',
+  'cosmetics',
 ];
 
 /**

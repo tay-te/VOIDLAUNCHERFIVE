@@ -155,5 +155,51 @@ for (const k of ids) {
   else { failures++; console.log(`FAIL  defaults  ${k}  ${ajv.errorsText(v.errors)}`); }
 }
 
+// ---------------------------------------------------------------------------------------------
+// The cosmetics catalog. `cosmetics.schema.json` is a schema like the four above (its own
+// `examples` must validate); `cosmetics.json` is the *data* it describes — the single source the
+// Java catalog, the TS module and the Supabase seed are generated from — so it is validated as a
+// document, then cross-checked for what JSON Schema cannot say.
+{
+  const schema = JSON.parse(readFileSync(join(here, "cosmetics.schema.json"), "utf8"));
+  const catalog = JSON.parse(readFileSync(join(here, "cosmetics.json"), "utf8"));
+  ajv.addSchema(schema, schema.$id);
+  const v = ajv.getSchema(schema.$id);
+  console.log(`ok    cosmetics.schema.json  compiles (${schema.$id})`);
+  (schema.examples ?? []).forEach((ex, i) => {
+    examples++;
+    if (v(ex)) console.log(`ok    cosmetics.schema.json  examples[${i}]`);
+    else { failures++; console.log(`FAIL  cosmetics.schema.json  examples[${i}]  ${ajv.errorsText(v.errors)}`); }
+  });
+  if (v(catalog)) console.log(`ok    cosmetics.json  validates (${catalog.items.length} items)`);
+  else { failures++; console.log(`FAIL  cosmetics.json  ${ajv.errorsText(v.errors)}`); }
+
+  const items = catalog.items ?? [];
+  const ids = items.map((i) => i.id);
+  const slots = schema.definitions.slot.enum;
+  check("cosmetics: ids are unique", new Set(ids).size === ids.length,
+    ids.filter((id, i) => ids.indexOf(id) !== i).join(", "));
+  check("cosmetics: kind enum is the slot enum plus emote",
+    JSON.stringify(schema.definitions.kind.enum) === JSON.stringify([...slots, "emote"]));
+  check("cosmetics: free and grant items cost 0, paid items cost something",
+    items.every((i) => (i.availability === "paid") === (i.price_cents > 0)),
+    items.filter((i) => (i.availability === "paid") !== (i.price_cents > 0)).map((i) => i.id).join(", "));
+  check("cosmetics: every tintable item has a default_tint and only those",
+    items.every((i) => !!i.tintable === ("default_tint" in i)),
+    items.filter((i) => !!i.tintable !== ("default_tint" in i)).map((i) => i.id).join(", "));
+  check("cosmetics: `loop` only on emotes", items.every((i) => !("loop" in i) || i.kind === "emote"));
+  check("cosmetics: preview style is the item's kind", items.every((i) => i.preview.style === i.kind),
+    items.filter((i) => i.preview.style !== i.kind).map((i) => i.id).join(", "));
+  check("cosmetics: emote previews carry rows, nothing else does",
+    items.every((i) => (i.kind === "emote") === Array.isArray(i.preview.rows)));
+  check("cosmetics: the free VOID player marker badge exists",
+    items.some((i) => i.id === "void-badge-player" && i.kind === "badge" && i.availability === "free"));
+  // The wire's slot enum is the catalog's: an equip for a slot the catalog does not have, or a
+  // catalog slot the wire cannot equip, is a cosmetic nobody can wear.
+  const wire = docs.get("protocol.json").definitions.cosmetic_slot?.enum;
+  check("cosmetics: protocol.json cosmetic_slot is the catalog's slot enum",
+    !wire || JSON.stringify(wire) === JSON.stringify(slots), `${wire} vs ${slots}`);
+}
+
 console.log(`\n${FILES.length} schemas, ${examples} examples, ${failures} failure(s)`);
 process.exit(failures ? 1 : 0);

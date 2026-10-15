@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 12,
+  "version": 13,
   "mods": {
     "fps": {
       "id": "fps",
@@ -948,6 +948,23 @@ export const MOD_REGISTRY_DOCUMENT = {
         "click_to_copy": true,
         "background_opacity": 0.5,
         "history_length": 1000
+      }
+    },
+    "cosmetics": {
+      "id": "cosmetics",
+      "kind": "gameplay",
+      "category": "visual",
+      "hypixel_safe": "safe",
+      "label": "Cosmetics",
+      "icon": "star",
+      "description": "Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.",
+      "source": "the cosmetic renderer's player-model layer (cape, back, head, face, halo, badge), the trail emitter, and the emote animator",
+      "defaults": {
+        "on": true,
+        "others": true,
+        "own_first_person": false,
+        "glow": true,
+        "emote_camera": true
       }
     }
   }

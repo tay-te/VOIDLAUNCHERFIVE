@@ -997,4 +997,24 @@ S.lock = () => {
   return g.ol('#2a1c06');
 };
 
+// ---- G. appended after the cosmetics merge (registry 13): the `cosmetics` mod itself — a
+// cape under a halo, the two things the mod draws on players.
+S.cosmetics = () => {
+  const g = new G();
+  g.poly([[4.5, 6], [11.5, 6], [13, 15], [3, 15]], PURPLE.b);
+  g.poly([[4.5, 6], [6.5, 6], [5.5, 15], [3, 15]], PURPLE.a);
+  g.l(8, 7, 8, 14, PURPLE.c).l(10, 7, 11, 14, PURPLE.c);
+  g.r(4, 6, 8, 1, PURPLE.c).p(5, 6, GOLD.b).p(10, 6, GOLD.b);
+  g.clear(5, 15).clear(9, 15);
+  g.ol(PURPLE.k);
+  const halo = new G();
+  for (let y = 0; y < 6; y++) for (let x = 0; x < 16; x++) {
+    const e = ((x + 0.5 - 8) / 5.6) ** 2 + ((y + 0.5 - 2.6) / 2.3) ** 2;
+    if (e > 1 || e < 0.34) continue;
+    halo.p(x, y, y + 0.5 > 2.6 ? (e > 0.7 ? '#f6d33f' : '#fffbc2') : e > 0.7 ? '#c08a10' : '#f6d33f');
+  }
+  halo.ol('#4d3304');
+  return over(g, halo);
+};
+
 export const SPRITES = S;
