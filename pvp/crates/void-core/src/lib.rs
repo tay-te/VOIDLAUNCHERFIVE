@@ -37,6 +37,7 @@
 //!     bridge_port: 51234,
 //!     bridge_token: "…".into(),
 //!     mod_jar: None,
+//!     extra_game_args: vec![],
 //!     join_server: None,
 //! })
 //! .await?;
@@ -57,9 +58,12 @@ pub mod java;
 pub mod launch;
 pub mod manifest;
 mod paths;
+pub mod release;
 pub mod sync;
 
-pub use config::{Config, CLIENT_ID_ENV, DEFAULT_MAX_MEMORY_MB};
+pub use config::{
+    join_args, split_args, Config, BUILT_IN_CLIENT_ID, CLIENT_ID_ENV, DEFAULT_MAX_MEMORY_MB, MOD_JAR_ENV,
+};
 pub use error::{Error, Result};
 pub use manifest::{LaunchProfile, Os, RuleContext};
 pub use paths::Paths;

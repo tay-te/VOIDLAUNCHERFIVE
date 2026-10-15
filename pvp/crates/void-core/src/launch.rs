@@ -61,8 +61,12 @@ pub struct LaunchOptions {
     pub bridge_port: u16,
     /// The bridge session token, for `-Dvoid.token`.
     pub bridge_token: String,
-    /// The `void-client` JAR to install into `mods/`, if any.
+    /// The `void-client` JAR to install into `mods/`, if any — the release channel's
+    /// verified copy ([`crate::release`]) or the developer override.
     pub mod_jar: Option<PathBuf>,
+    /// Extra game arguments appended after the template: the window size and
+    /// `--fullscreen` from Settings ([`crate::Config::window_args`]).
+    pub extra_game_args: Vec<String>,
     /// A server to join as soon as the game is up — `host` or `host:port`. `None` launches
     /// to the title screen. 1.8.9's own `--server`/`--port` game arguments do the joining,
     /// so nothing in the mod is involved.
@@ -131,14 +135,19 @@ pub fn extract_natives(profile: &LaunchProfile, paths: &Paths) -> Result<PathBuf
     Ok(dir)
 }
 
-/// Copies the `void-client` JAR into the game's `mods/` directory.
+/// Installs the `void-client` JAR into the game's `mods/` directory, atomically.
+///
+/// The copy goes to a temporary file in `mods/` and is renamed over the destination, so
+/// Fabric can never see a half-written JAR, and an identical JAR already in place (same
+/// size and SHA-256) is left alone.
 ///
 /// Legacy Fabric loads *every* jar in that directory, and the file name carries both the
 /// version and the platform classifier — so a rebuild under a different classifier lands
 /// beside the old one rather than over it, and Fabric then sees two jars declaring mod id
 /// `void`. Whichever it picks may be the one whose natives do not match this JVM, which
 /// surfaces much later as "Ultralight is unavailable ... built without natives for this
-/// platform". Every other `void-client-*.jar` is therefore removed first.
+/// platform". Every other `void-client-*.jar` is therefore removed — *after* the new one
+/// is in place, so a failed copy never leaves `mods/` empty.
 pub fn install_mod_jar(paths: &Paths, jar: &Path) -> Result<PathBuf> {
     if !jar.exists() {
         return Err(Error::io(jar, std::io::Error::new(std::io::ErrorKind::NotFound, "no such mod jar")));
@@ -147,26 +156,45 @@ pub fn install_mod_jar(paths: &Paths, jar: &Path) -> Result<PathBuf> {
     std::fs::create_dir_all(&mods).map_err(|e| Error::io(&mods, e))?;
     let name = jar
         .file_name()
-        .ok_or_else(|| Error::Manifest(format!("{} has no file name", jar.display())))?;
-    let dest = mods.join(name);
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| Error::Manifest(format!("{} has no file name", jar.display())))?
+        .to_string();
+    let dest = mods.join(&name);
+
+    if dest != jar && !same_contents(jar, &dest) {
+        let tmp = mods.join(format!(".{name}.{}.tmp", std::process::id()));
+        std::fs::copy(jar, &tmp).map_err(|e| Error::io(&tmp, e))?;
+        std::fs::rename(&tmp, &dest).map_err(|e| {
+            let _ = std::fs::remove_file(&tmp);
+            Error::io(&dest, e)
+        })?;
+    }
 
     if let Ok(entries) = std::fs::read_dir(&mods) {
         for stale in entries.flatten().map(|e| e.path()).filter(|p| {
+            let Some(n) = p.file_name().and_then(|n| n.to_str()) else { return false };
             *p != dest
-                && p.extension().is_some_and(|e| e == "jar")
-                && p.file_name()
-                    .and_then(|n| n.to_str())
-                    .is_some_and(|n| n.starts_with("void-client-"))
+                && ((n.starts_with("void-client-") && n.ends_with(".jar"))
+                    // a temporary copy an interrupted install left behind
+                    || (n.starts_with(".void-client-") && n.ends_with(".tmp")))
         }) {
             tracing::info!(path = %stale.display(), "removing a previously installed void-client jar");
             let _ = std::fs::remove_file(&stale);
         }
     }
-
-    if dest != jar {
-        std::fs::copy(jar, &dest).map_err(|e| Error::io(&dest, e))?;
-    }
     Ok(dest)
+}
+
+/// Same size and same SHA-256.
+fn same_contents(a: &Path, b: &Path) -> bool {
+    let (Ok(ma), Ok(mb)) = (std::fs::metadata(a), std::fs::metadata(b)) else { return false };
+    if ma.len() != mb.len() {
+        return false;
+    }
+    matches!(
+        (crate::download::sha256_file(a), crate::download::sha256_file(b)),
+        (Ok(x), Ok(y)) if x == y
+    )
 }
 
 /// A `void-client` JAR sitting in the game's `mods/` directory.
@@ -280,6 +308,10 @@ pub fn build_arg_template(
     // The CONTRACTS.md seam: how the mod finds the bridge.
     args.push("-Dvoid.port=${void_port}".to_string());
     args.push("-Dvoid.token=${void_token}".to_string());
+    // Where the mod's NativeLoader extracts Ultralight: a content-hash-keyed directory
+    // under the launcher's data dir rather than java.io.tmpdir, which the OS cleans and
+    // other users can write to.
+    args.push(format!("-Dvoid.nativesCache={}", paths.ultralight_cache_dir().display()));
 
     if os == Os::Osx {
         // Deliberately NOT -XstartOnFirstThread. That flag is for LWJGL 3 (1.13+), whose GLFW
@@ -461,11 +493,11 @@ pub async fn launch(
             Some(found) => tracing::warn!(
                 path = %found.path.display(),
                 age_secs = found.age().map(|d| d.as_secs()),
-                "config.mod_jar is unset, so nothing was installed; the game will run the \
+                "no mod JAR was resolved, so nothing was installed; the game will run the \
                  void-client jar already in mods/, whatever version that is"
             ),
             None => tracing::warn!(
-                "config.mod_jar is unset and mods/ holds no void-client jar; the game will \
+                "no mod JAR was resolved and mods/ holds no void-client jar; the game will \
                  run vanilla"
             ),
         },
@@ -485,6 +517,7 @@ pub async fn launch(
     if let Some(target) = &options.join_server {
         args.extend(join_server_args(target));
     }
+    args.extend(options.extra_game_args.iter().cloned());
 
     tracing::info!(
         java = %options.java.display(),
@@ -648,6 +681,7 @@ mod tests {
             bridge_port: 51234,
             bridge_token: "cafebabe".repeat(8),
             mod_jar: None,
+            extra_game_args: vec![],
             join_server: None,
         };
         let args = substitute(&template.args, &launch_variables(&profile, &paths, &options));
@@ -659,6 +693,46 @@ mod tests {
         assert_eq!(args[name + 1], "Tester");
         let uuid = args.iter().position(|a| a == "--uuid").unwrap();
         assert_eq!(args[uuid + 1], crate::auth::offline_uuid("Tester"));
+    }
+
+    #[test]
+    fn installing_the_mod_is_atomic_idempotent_and_sweeps_stale_jars() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::at(dir.path().join("root"));
+        let src_dir = dir.path().join("src");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        let jar = src_dir.join("void-client-0.2.0-windows-x64.jar");
+        std::fs::write(&jar, b"new").unwrap();
+
+        let mods = paths.mods_dir();
+        std::fs::create_dir_all(&mods).unwrap();
+        std::fs::write(mods.join("void-client-0.1.0-windows-x64.jar"), b"old").unwrap();
+        std::fs::write(mods.join(".void-client-0.1.0-windows-x64.jar.1.tmp"), b"half").unwrap();
+        std::fs::write(mods.join("someone-elses-mod.jar"), b"keep").unwrap();
+
+        let dest = install_mod_jar(&paths, &jar).unwrap();
+        assert_eq!(std::fs::read(&dest).unwrap(), b"new");
+        let mut names: Vec<_> = std::fs::read_dir(&mods)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["someone-elses-mod.jar", "void-client-0.2.0-windows-x64.jar"]);
+
+        // A second install of the same bytes does not rewrite the file.
+        let before = std::fs::metadata(&dest).unwrap().modified().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        install_mod_jar(&paths, &jar).unwrap();
+        assert_eq!(std::fs::metadata(&dest).unwrap().modified().unwrap(), before);
+    }
+
+    #[test]
+    fn the_natives_cache_property_points_into_the_data_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::at(dir.path());
+        let t = build_arg_template(&profile(), &paths, &paths.natives_dir("x"), Os::Windows, 2048, &[]);
+        let prop = t.args.iter().find(|a| a.starts_with("-Dvoid.nativesCache=")).unwrap();
+        assert!(prop.contains("natives-cache"), "{prop}");
     }
 
     #[test]

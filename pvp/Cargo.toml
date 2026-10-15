@@ -49,3 +49,8 @@ clap = { version = "4", features = ["derive", "env"] }
 rand = "0.9"
 keyring = "3"
 tempfile = "3"
+# Release channel: the signed void-client manifest and the JRE / mod JAR checksums.
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+sha2 = "0.10"
+base64 = "0.22"
+semver = "1"

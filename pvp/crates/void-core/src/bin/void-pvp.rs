@@ -10,9 +10,9 @@ use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 use tokio::sync::mpsc;
 use void_bridge::BridgeServer;
-use void_core::auth::{self, Auth, Session, TokenStore};
+use void_core::auth::{self, Auth, Session};
 use void_core::launch::{LaunchOptions, Stream};
-use void_core::{install, java, launch, Config, Error, Paths, Result, RuleContext};
+use void_core::{install, java, launch, release, Config, Error, Paths, Result, RuleContext};
 use void_loadout::{hypixel_ready, LoadoutId, Store};
 
 /// The VOID PVP launcher CLI.
@@ -56,6 +56,12 @@ struct PrepareArgs {
     /// Skip the Java 8 check and download.
     #[arg(long)]
     no_java: bool,
+    /// Skip fetching the signed void-client JAR from the release channel.
+    #[arg(long)]
+    no_mod: bool,
+    /// Release channel for the void-client JAR: stable or beta.
+    #[arg(long, default_value = "stable")]
+    channel: String,
     /// Prepare for another platform's mod JAR: windows-x64, macos-x64, macos-arm64,
     /// linux-x64. Defaults to this host's. The mod JAR carries the Ultralight natives
     /// and they are 21 MB per platform, so one JAR is published per platform (§13).
@@ -71,9 +77,13 @@ struct LaunchArgs {
     /// Launch without an account, under this player name.
     #[arg(long, value_name = "NAME")]
     offline: Option<String>,
-    /// The void-client mod JAR to install into the mods directory.
+    /// A local void-client mod JAR to install instead of the release channel's
+    /// (also `$VOID_MOD_JAR`, or `mod_jar` in config.json).
     #[arg(long, value_name = "PATH")]
     mod_jar: Option<PathBuf>,
+    /// Release channel for the void-client JAR: stable or beta.
+    #[arg(long, default_value = "stable")]
+    channel: String,
     /// Maximum JVM heap in megabytes.
     #[arg(long)]
     memory: Option<u32>,
@@ -173,18 +183,14 @@ async fn login(http: &reqwest::Client, paths: &Paths, config: &Config) -> Result
     println!("\nWaiting for you to finish in the browser…");
 
     let tokens = auth.poll_for_token(&code).await?;
-    if let Some(refresh) = &tokens.refresh_token {
-        TokenStore::new(paths).save(refresh)?;
-    }
     let session = auth.minecraft_session(&tokens.access_token).await?;
-    auth::save_profile(paths, &session)?;
+    auth::store_login(paths, &session, tokens.refresh_token.as_deref())?;
 
     println!("Signed in as {} ({})", session.username, session.uuid);
     Ok(())
 }
 
 fn logout(paths: &Paths) -> Result<()> {
-    TokenStore::new(paths).clear()?;
     auth::clear_profile(paths)?;
     println!("Signed out.");
     Ok(())
@@ -242,7 +248,7 @@ fn progress_printer() -> mpsc::Sender<void_core::download::Progress> {
                         downloaded_bytes as f64 / 1e6
                     );
                 }
-                Progress::Finished { .. } => {}
+                Progress::Finished { .. } | Progress::Bytes { .. } => {}
             }
         }
     });
@@ -283,6 +289,23 @@ async fn prepare(http: &reqwest::Client, paths: &Paths, args: &PrepareArgs) -> R
         profile.natives.len(),
         profile.main_class
     );
+
+    if !args.no_mod {
+        let resolved = release::ensure_mod_jar(
+            http,
+            paths,
+            platform,
+            release::Channel::parse(&args.channel),
+            env!("CARGO_PKG_VERSION"),
+            void_bridge::PROTOCOL_VERSION,
+            Some(progress_printer()),
+        )
+        .await?;
+        println!("VOID client {} at {}", resolved.version, resolved.jar.display());
+        if let Some(notice) = resolved.notice {
+            println!("note: {notice}");
+        }
+    }
 
     if !args.no_java {
         let java = java::ensure_java8(http, paths, None).await?;
@@ -352,6 +375,37 @@ async fn do_launch(
     println!("Bridge listening on {} (token {}…)", server.url(), &server.token()[..8]);
     tokio::spawn(void_core::sync::pump(server.clone(), store.clone()));
 
+    // The mod: an explicit or configured local JAR, else the release channel's verified
+    // copy — from the cache when `prepare` already fetched it.
+    let platform = install::ModPlatform::for_host(&ctx)?;
+    let channel = release::Channel::parse(&args.channel);
+    let resolved = match args.mod_jar.clone().or_else(|| config.mod_jar_override()) {
+        Some(jar) => release::dev_override(jar)?,
+        None => match release::resolve_cached(
+            paths,
+            platform,
+            channel,
+            env!("CARGO_PKG_VERSION"),
+            void_bridge::PROTOCOL_VERSION,
+        ) {
+            Some(cached) => cached,
+            None => {
+                release::ensure_mod_jar(
+                    http,
+                    paths,
+                    platform,
+                    channel,
+                    env!("CARGO_PKG_VERSION"),
+                    void_bridge::PROTOCOL_VERSION,
+                    Some(progress_printer()),
+                )
+                .await?
+            }
+        },
+    };
+    println!("VOID client {} ({})", resolved.version, resolved.jar.display());
+
+    let game_paths = config.paths_for(paths);
     let options = LaunchOptions {
         session,
         java: java.path,
@@ -359,11 +413,12 @@ async fn do_launch(
         extra_jvm_args: config.jvm_args.clone(),
         bridge_port: server.port(),
         bridge_token: server.token().to_string(),
-        mod_jar: args.mod_jar.or_else(|| config.mod_jar.clone()),
+        mod_jar: Some(resolved.jar),
+        extra_game_args: config.window_args(),
         join_server: args.server.clone(),
     };
 
-    let mut game = launch::launch(&profile, paths, &options).await?;
+    let mut game = launch::launch(&profile, &game_paths, &options).await?;
     println!("Minecraft started (pid {:?})\n", game.pid());
 
     let mut logs = std::mem::replace(&mut game.logs, mpsc::channel(1).1);

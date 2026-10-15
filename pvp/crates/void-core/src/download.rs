@@ -46,6 +46,16 @@ pub enum Progress {
         /// How many files are in the batch.
         total: usize,
     },
+    /// Bytes of a single large file arriving, before its `Finished`.
+    ///
+    /// Only the one-file streaming downloads send this (the JRE archive, the mod JAR):
+    /// without it a 40 MB fetch is a bar that sits still and then jumps. The `Finished`
+    /// that follows carries the file's full size as usual, so a consumer that counts
+    /// these has to subtract them again when it lands.
+    Bytes {
+        /// How many more bytes arrived since the last `Bytes`.
+        delta: u64,
+    },
     /// The batch finished.
     Completed {
         /// How many files were fetched or verified.
@@ -62,6 +72,7 @@ pub struct Downloader {
     root: PathBuf,
     cache: PathBuf,
     concurrency: usize,
+    trust_sizes: bool,
 }
 
 impl Downloader {
@@ -72,7 +83,22 @@ impl Downloader {
             root: paths.root().to_path_buf(),
             cache: paths.cache_objects_dir(),
             concurrency: CONCURRENCY,
+            trust_sizes: false,
         }
+    }
+
+    /// Accept a file that is already in place when its **size** matches, without
+    /// re-hashing it.
+    ///
+    /// For a warm launch only: [`crate::install::prepare`] turns this on when the
+    /// installation carries a stamp saying every file of this exact profile was hashed
+    /// and verified by an earlier run. Hashing ~3,000 asset objects costs seconds on
+    /// every press of Launch, which is most of a warm launch's budget, and buys nothing
+    /// over the stamp. A file that is missing or the wrong size is still fetched and
+    /// verified in full.
+    pub fn trust_existing_sizes(mut self, trust: bool) -> Self {
+        self.trust_sizes = trust;
+        self
     }
 
     /// Overrides the parallelism; the default is [`CONCURRENCY`].
@@ -142,6 +168,11 @@ impl Downloader {
         let dest = self.root.join(&spec.relative_path);
 
         // Already in place and correct?
+        if self.trust_sizes {
+            if let Some(bytes) = size_matches(&dest, spec.size) {
+                return Ok(Outcome { bytes, cached: true });
+            }
+        }
         if let Some(bytes) = verified_len(&dest, spec.sha1.as_deref())? {
             return Ok(Outcome { bytes, cached: true });
         }
@@ -196,6 +227,138 @@ impl Downloader {
 struct Outcome {
     bytes: u64,
     cached: bool,
+}
+
+/// The length of `path` if it exists and is `size` bytes long (any size when the
+/// manifest published none).
+fn size_matches(path: &Path, size: Option<u64>) -> Option<u64> {
+    let len = std::fs::metadata(path).ok().filter(|m| m.is_file())?.len();
+    match size {
+        Some(expected) if expected != len => None,
+        _ => Some(len),
+    }
+}
+
+/// Streams one URL to `dest` through a temporary file, hashing as it goes, and renames
+/// it into place only when the SHA-256 matches.
+///
+/// For the two large single files a launch fetches outside the manifest pipeline — the
+/// Temurin archive and the `void-client` JAR — both of which are published with a
+/// SHA-256 rather than Mojang's SHA-1. Progress goes out as [`Progress::Bytes`] while
+/// the body arrives, then one `Finished`.
+///
+/// A file that fails verification never appears at `dest`: the temporary file is
+/// deleted, so a corrupt download cannot be mistaken for a cached one on the next run.
+pub async fn fetch_sha256(
+    client: &reqwest::Client,
+    url: &str,
+    dest: &Path,
+    sha256: &str,
+    size_hint: Option<u64>,
+    progress: Option<&mpsc::Sender<Progress>>,
+) -> Result<u64> {
+    use sha2::{Digest as _, Sha256};
+    use std::io::Write as _;
+
+    let dir = dest.parent().unwrap_or_else(|| Path::new("."));
+    std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
+
+    let mut resp = client.get(url).send().await?;
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(Error::HttpStatus { url: url.to_string(), status: status.as_u16(), detail: None });
+    }
+    let total = resp.content_length().or(size_hint).unwrap_or(0);
+    if let Some(tx) = progress {
+        let _ = tx.send(Progress::Started { files: 1, bytes: total }).await;
+    }
+
+    let tmp = dir.join(format!(
+        ".{}.{}.part",
+        dest.file_name().and_then(|s| s.to_str()).unwrap_or("download"),
+        std::process::id()
+    ));
+    let result: Result<u64> = async {
+        let mut file = std::fs::File::create(&tmp).map_err(|e| Error::io(&tmp, e))?;
+        let mut hasher = Sha256::new();
+        let mut written = 0u64;
+        let mut pending = 0u64;
+        while let Some(chunk) = resp.chunk().await? {
+            hasher.update(&chunk);
+            file.write_all(&chunk).map_err(|e| Error::io(&tmp, e))?;
+            written += chunk.len() as u64;
+            pending += chunk.len() as u64;
+            // One message per ~256 KB: smooth enough for a bar, cheap enough for a
+            // channel that also carries 3,000 asset completions.
+            if pending >= 256 * 1024 {
+                if let Some(tx) = progress {
+                    let _ = tx.send(Progress::Bytes { delta: pending }).await;
+                }
+                pending = 0;
+            }
+        }
+        file.flush().map_err(|e| Error::io(&tmp, e))?;
+        drop(file);
+        if pending > 0 {
+            if let Some(tx) = progress {
+                let _ = tx.send(Progress::Bytes { delta: pending }).await;
+            }
+        }
+        let actual = hex::encode(hasher.finalize());
+        if !actual.eq_ignore_ascii_case(sha256) {
+            return Err(Error::Sha256Mismatch {
+                path: dest.to_path_buf(),
+                expected: sha256.to_string(),
+                actual,
+            });
+        }
+        Ok(written)
+    }
+    .await;
+
+    let written = match result {
+        Ok(n) => n,
+        Err(e) => {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e);
+        }
+    };
+    if dest.exists() {
+        let _ = std::fs::remove_file(dest);
+    }
+    std::fs::rename(&tmp, dest).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        Error::io(dest, e)
+    })?;
+    if let Some(tx) = progress {
+        let _ = tx
+            .send(Progress::Finished {
+                path: dest.to_path_buf(),
+                bytes: written,
+                cached: false,
+                done: 1,
+                total: 1,
+            })
+            .await;
+    }
+    Ok(written)
+}
+
+/// The SHA-256 of a file on disk, lower-case hex.
+pub fn sha256_file(path: &Path) -> Result<String> {
+    use sha2::{Digest as _, Sha256};
+    use std::io::Read as _;
+    let mut file = std::fs::File::open(path).map_err(|e| Error::io(path, e))?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 256 * 1024];
+    loop {
+        let n = file.read(&mut buf).map_err(|e| Error::io(path, e))?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(hex::encode(hasher.finalize()))
 }
 
 /// The length of `path` if it exists and matches `sha1`, else `None`.
@@ -269,6 +432,28 @@ mod tests {
         assert_eq!(verified_len(&file, Some(&"0".repeat(40))).unwrap(), None);
         assert_eq!(verified_len(&file, None).unwrap(), Some(4));
         assert_eq!(verified_len(&dir.path().join("missing"), None).unwrap(), None);
+    }
+
+    #[test]
+    fn a_trusted_size_check_accepts_the_right_length_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("x");
+        std::fs::write(&file, b"void").unwrap();
+        assert_eq!(size_matches(&file, Some(4)), Some(4));
+        assert_eq!(size_matches(&file, Some(5)), None);
+        assert_eq!(size_matches(&file, None), Some(4));
+        assert_eq!(size_matches(&dir.path().join("missing"), None), None);
+    }
+
+    #[test]
+    fn sha256_of_a_file_is_the_well_known_digest() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("abc");
+        std::fs::write(&file, b"abc").unwrap();
+        assert_eq!(
+            sha256_file(&file).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]

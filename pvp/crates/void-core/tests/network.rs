@@ -109,3 +109,37 @@ async fn adoptium_serves_a_temurin_8_jre_for_this_host() {
     assert!(java.is_java8(), "got Java {}", java.major);
     println!("{} at {}", java.version, java.path.display());
 }
+
+#[tokio::test]
+#[ignore = "needs the network and about 45 MB of disk"]
+async fn temurin_8_downloads_with_a_verified_checksum_and_byte_progress() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = Paths::at(dir.path());
+    paths.ensure().unwrap();
+    let (tx, mut rx) = tokio::sync::mpsc::channel(4096);
+    let java = void_core::java::fetch_temurin8(&client(), &paths, Some(tx)).await.unwrap();
+    assert!(java.is_java8(), "got Java {}", java.major);
+    let mut streamed = 0u64;
+    let mut announced = 0u64;
+    while let Ok(p) = rx.try_recv() {
+        match p {
+            void_core::download::Progress::Bytes { delta } => streamed += delta,
+            void_core::download::Progress::Started { bytes, .. } => announced = bytes,
+            _ => {}
+        }
+    }
+    assert!(announced > 1_000_000, "the archive size is announced up front, not 0");
+    assert_eq!(streamed, announced, "every byte is reported as it arrives");
+    println!("{} at {} ({announced} bytes)", java.version, java.path.display());
+}
+
+#[tokio::test]
+#[ignore = "needs the network"]
+async fn legacy_fabric_libraries_get_their_sha1_from_maven() {
+    let profile = manifest::resolve_1_8_9(&client(), &RuleContext::host().unwrap(), None)
+        .await
+        .unwrap();
+    assert!(profile.profile_id.contains(manifest::LEGACY_FABRIC_LOADER), "{}", profile.profile_id);
+    let unhashed: Vec<_> = profile.libraries.iter().filter(|l| l.file.sha1.is_none()).map(|l| &l.name).collect();
+    assert!(unhashed.is_empty(), "libraries without a sha1: {unhashed:?}");
+}
