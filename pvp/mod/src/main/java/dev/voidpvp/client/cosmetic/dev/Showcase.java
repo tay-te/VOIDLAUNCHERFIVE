@@ -97,6 +97,8 @@ public final class Showcase {
         int frames = 1;
         int fps = 24;
         boolean hud;
+        /** Scene tick at which the local player's emote (if any) starts. */
+        int emoteAt = 8;
 
         Scene(String name) {
             this.name = name;
@@ -397,12 +399,14 @@ public final class Showcase {
                 o[0] = 0.5;
                 o[1] = GROUND;
                 o[2] = 0.5;
-                o[3] = 0;
+                // Look all the way round first, so the chunks the orbit will show are built.
+                o[3] = tick < 60 ? tick * 6 : 0;
                 o[4] = 8;
             }
         };
         s.time = time;
-        s.settle = 12;
+        s.settle = 66;
+        s.emoteAt = 70;
         s.frames = 72;
         s.fps = 20;
         return s;
@@ -553,7 +557,7 @@ public final class Showcase {
                 }
                 sceneTick++;
                 place(mc);
-                if (sceneTick == 8 && selfEmote != null) {
+                if (sceneTick == scene.emoteAt && selfEmote != null) {
                     say("showcase: local emote " + selfEmote + " started=" + Emotes.get().playLocal(selfEmote));
                     selfEmote = null;
                 }

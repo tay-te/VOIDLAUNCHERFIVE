@@ -34,7 +34,7 @@ final class CapeRenderer {
         int cols = hi ? HI_COLS : LO_COLS, rows = hi ? HI_ROWS : LO_ROWS;
         double spacingBlocks = 16.0 / rows / 16.0 * 0.9375;
         Cloth c = new Cloth(cols, rows, spacingBlocks, style == null ? 0.9 : style.stiffness);
-        c.iterations = hi ? 5 : 3;
+        c.iterations = hi ? 4 : 3;
         if (style != null) {
             c.gravity = 16.0 * style.weight;
             c.drag = 7.0 / Math.max(0.5, style.weight);
@@ -76,8 +76,11 @@ final class CapeRenderer {
         public void collide(double[] xs, double[] ys, double[] zs, int i) {
             frame.toModel(xs[i], ys[i], zs[i], m);
             boolean moved = pushOut(body, -4.6 - armour, 4.6 + armour, -1.0, 12.4, -2.6 - armour, 2.6 + armour, m, l, true);
-            moved |= pushOut(rightLeg, -2.5, 2.5, -0.5, 12.5, -2.6, 2.6, m, l, false);
-            moved |= pushOut(leftLeg, -2.5, 2.5, -0.5, 12.5, -2.6, 2.6, m, l, false);
+            // Legs only matter below the hips: most of a cape never gets there.
+            if (m[1] > 8) {
+                moved |= pushOut(rightLeg, -2.5, 2.5, -0.5, 12.5, -2.6, 2.6, m, l, false);
+                moved |= pushOut(leftLeg, -2.5, 2.5, -0.5, 12.5, -2.6, 2.6, m, l, false);
+            }
             if (moved) {
                 frame.toWorld(m[0], m[1], m[2], l);
                 xs[i] = l[0];

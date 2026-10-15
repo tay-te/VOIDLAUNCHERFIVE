@@ -87,7 +87,9 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             return;
         }
         MinecraftClient mc = MinecraftClient.getInstance();
-        String uuid = EquippedSet.normalise(String.valueOf(p.getUuid()));
+        long now = System.nanoTime();
+        PlayerFx fx = fx(p, now);
+        String uuid = fx.uuid;
         CosmeticState state = CosmeticState.get();
         EquippedSet set = state.of(uuid);
         if (set == null || set.isEmpty()) {
@@ -103,8 +105,6 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         if (dist > FAR * q * 1.15 && !self) {
             return;
         }
-        long now = System.nanoTime();
-        PlayerFx fx = fx(p, uuid, now);
         float dt = fx.lastNanos == 0 ? 0 : Math.min(0.1f, (now - fx.lastNanos) / 1e9f);
         boolean gui = inGuiPreview && self;
         if (!gui) {
@@ -123,7 +123,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         motion(fx, p, td, dt, gui);
 
         if (glowOn) {
-            Gl.modelview(modelview);
+            playerModelview(mc, p, fx.uuid, td);
         }
         glow.clear();
         GlStateManager.color(1, 1, 1, 1);
@@ -165,6 +165,32 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         }
     }
 
+    /**
+     * The modelview this player's features are drawn with, rebuilt in Java from the camera's view
+     * matrix and the living-entity renderer's own transform (translate to the entity, turn to its
+     * body yaw, the emote root, flip, the player scale, the model lift), so placing glow costs no
+     * GL read-back. Not exact for a dying player's tilt, which has no glow worth placing.
+     */
+    private void playerModelview(MinecraftClient mc, AbstractClientPlayerEntity p, String uuid, float td) {
+        Gl.view(modelview);
+        Entity cam = mc.getCameraEntity();
+        double cx = cam.prevTickX + (cam.x - cam.prevTickX) * td;
+        double cy = cam.prevTickY + (cam.y - cam.prevTickY) * td;
+        double cz = cam.prevTickZ + (cam.z - cam.prevTickZ) * td;
+        double x = p.prevX + (p.x - p.prevX) * td - cx;
+        double y = p.prevY + (p.y - p.prevY) * td - cy - (p.isSneaking() ? 0.125 : 0);
+        double z = p.prevZ + (p.z - p.prevZ) * td - cz;
+        float bodyYaw = p.prevBodyYaw + wrap(p.bodyYaw - p.prevBodyYaw) * td;
+        Mat4.translate(modelview, (float) x, (float) y, (float) z);
+        Mat4.rotate(modelview, (float) Math.toRadians(180f - bodyYaw), 0, 1, 0);
+        if (EmotePose.root(uuid, root)) {
+            float k = 0.0625f * 0.9375f;
+            Mat4.translate(modelview, -root[0] * k, -root[1] * k, root[2] * k);
+        }
+        Mat4.scale(modelview, -0.9375f, -0.9375f, 0.9375f);
+        Mat4.translate(modelview, 0, -1.5078125f, 0);
+    }
+
     /** Emits the local player's trail when they are not drawn (first person). Render thread. */
     public static void emitUnrendered(MinecraftClient mc, float td) {
         AbstractClientPlayerEntity p = mc.player;
@@ -173,25 +199,25 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 || p.isInvisible() || p.isSpectator() || p.hasVehicle()) {
             return;
         }
-        String uuid = EquippedSet.normalise(String.valueOf(p.getUuid()));
-        EquippedSet set = CosmeticState.get().of(uuid);
+        long now = System.nanoTime();
+        PlayerFx fx = fx(p, now);
+        EquippedSet set = CosmeticState.get().of(fx.uuid);
         String trail = set == null ? null : set.get("trail");
         if (trail == null) {
             return;
         }
-        long now = System.nanoTime();
-        PlayerFx fx = fx(p, uuid, now);
         float dt = fx.lastNanos == 0 ? 0 : Math.min(0.1f, (now - fx.lastNanos) / 1e9f);
         fx.lastNanos = now;
         Trails.emit(fx, trail, p, p.prevX + (p.x - p.prevX) * td, p.prevY + (p.y - p.prevY) * td,
                 p.prevZ + (p.z - p.prevZ) * td, dt, p.onGround);
     }
 
-    private static PlayerFx fx(Entity p, String uuid, long now) {
+    private static PlayerFx fx(Entity p, long now) {
         Integer key = Integer.valueOf(p.getEntityId());
         PlayerFx fx = FX.get(key);
-        if (fx == null) {
-            fx = new PlayerFx(p.getEntityId(), uuid);
+        if (fx == null || !fx.uuidOf.equals(p.getUuid())) {
+            // The uuid string is built once per player, never per frame.
+            fx = new PlayerFx(p.getEntityId(), p.getUuid());
             FX.put(key, fx);
         }
         fx.seenNanos = now;
@@ -216,10 +242,13 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         return p.getArmorSlot(3) != null;
     }
 
-    /** Glow reads strongest in the dark and stays faint by day, the way light does. */
+    /**
+     * Glow reads strongest in the dark and stays faint by day, the way light does: about a third
+     * of its strength in full daylight, up to twice it on a moonless night.
+     */
     private static float glowStrength(Entity p, float td) {
-        float b = p.getBrightnessAtEyes(td);
-        return 1.0f - 0.55f * Math.max(0, Math.min(1, b));
+        float dark = 1 - Math.max(0, Math.min(1, p.getBrightnessAtEyes(td)));
+        return 0.3f + 1.7f * (float) Math.pow(dark, 1.3);
     }
 
     // ------------------------------------------------------------------------- motion
@@ -251,9 +280,9 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
     private void drawCape(AbstractClientPlayerEntity p, String uuid, PlayerFx fx, String id, int tint, float td,
                           float dt, double dist, float q, boolean gui, PlayerEntityModel model,
                           float time, float glowK, int light) {
-        CapeStyle style = CosmeticAssets.cape(id);
-        CosmeticAssets.Tex tex = CosmeticAssets.texture(id, "texture.png",
-                style == null ? 1 : style.frames, style == null ? 0 : style.fps);
+        CosmeticAssets.Bundle bundle = CosmeticAssets.bundle(id);
+        CapeStyle style = bundle.cape;
+        CosmeticAssets.Tex tex = bundle.albedo();
         if (tex == null) {
             return;
         }
@@ -265,7 +294,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         }
         boolean self = p == MinecraftClient.getInstance().player;
         boolean wantHi = self || (fx.clothHi ? dist < NEAR * 1.4 * q : dist < NEAR * q);
-        if (wantHi && !self && hiClothCount >= 6) {
+        if (wantHi && !self && hiClothCount >= 2) {
             wantHi = false;
         }
         if (wantHi) {
@@ -299,12 +328,20 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             cape.back(d3);
             boolean simulate = dist < MID * q || !cloth.placed();
             if (simulate) {
-                cloth.iterations = fx.clothHi ? 5 : (dist < MID * q * 0.5 ? 3 : 2);
+                cloth.iterations = fx.clothHi ? 4 : (dist < MID * q * 0.5 ? 3 : 2);
                 // A breath of wind, so a cape at rest is never perfectly dead.
                 cloth.windX = Math.sin(time * 0.7) * 0.6 + Math.sin(time * 1.9) * 0.25;
                 cloth.windZ = Math.cos(time * 0.5) * 0.5;
                 cloth.windY = 0;
-                cloth.advance(dt, fx.ax, fx.ay, fx.az, cape.collider, d3[0], d3[2]);
+                // Low-resolution capes step every other frame (the time carries over), which
+                // halves their cost and is invisible at the distance they are used.
+                fx.clothCarry += dt;
+                if (fx.clothHi || ((++fx.clothFrame) & 1) == 0) {
+                    long c0 = System.nanoTime();
+                    cloth.advance(fx.clothCarry, fx.ax, fx.ay, fx.az, cape.collider, d3[0], d3[2]);
+                    Budget.cloth(System.nanoTime() - c0);
+                    fx.clothCarry = 0;
+                }
             }
         }
         cape.prepare(cloth);
@@ -318,8 +355,8 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         cape.draw(cloth, false);
         Gl.resetFrame(tex.frames);
         // Tint mask.
-        if (CosmeticAssets.has(id, "tint.png")) {
-            CosmeticAssets.Tex tm = CosmeticAssets.texture(id, "tint.png", 1, 0);
+        {
+            CosmeticAssets.Tex tm = bundle.tint();
             if (tm != null) {
                 int rgb = tint >= 0 ? tint : defaultTint(id);
                 GlStateManager.enableBlend();
@@ -333,8 +370,8 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             }
         }
         // Emissive, full-bright and additive.
-        if (CosmeticAssets.has(id, "emissive.png")) {
-            CosmeticAssets.Tex em = CosmeticAssets.texture(id, "emissive.png", tex.frames, tex.fps);
+        {
+            CosmeticAssets.Tex em = bundle.emissive();
             if (em != null) {
                 emissiveBegin();
                 GlStateManager.bindTexture(em.glId);
@@ -403,11 +440,12 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
     private void drawModel(PlayerFx fx, int slot, String id, int tint, ModelPart attach, String mode,
                            PlayerEntityModel model, AbstractClientPlayerEntity p, float time, float dt,
                            float glowK, int light, boolean helmet) {
-        CosmeticModel m = CosmeticAssets.model(id);
+        CosmeticAssets.Bundle bundle = CosmeticAssets.bundle(id);
+        CosmeticModel m = bundle.model;
         if (m == null) {
             return;
         }
-        CosmeticAssets.Tex tex = CosmeticAssets.texture(id, "texture.png", m.frames, m.fps);
+        CosmeticAssets.Tex tex = bundle.albedo();
         if (tex == null) {
             return;
         }
@@ -415,6 +453,10 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         m.animate("idle", time, pose);
         Procedural.apply(m, pose, fx, p, time, dt);
 
+        boolean wantGlow = glowK > 0 && m.glow.length > 0;
+        if (wantGlow) {
+            Mat4.copy(modelview, itemMv);
+        }
         GlStateManager.pushMatrix();
         if ("halo".equals(mode)) {
             // Follow the head's yaw fully and its pitch only partly: a halo that tipped forward
@@ -422,17 +464,40 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             GlStateManager.translate(attach.pivotX * 0.0625f, attach.pivotY * 0.0625f, attach.pivotZ * 0.0625f);
             GlStateManager.rotate(attach.posY * 57.29578f, 0, 1, 0);
             GlStateManager.rotate(attach.posX * 57.29578f * 0.35f, 1, 0, 0);
+            if (wantGlow) {
+                Mat4.translate(itemMv, attach.pivotX * 0.0625f, attach.pivotY * 0.0625f, attach.pivotZ * 0.0625f);
+                Mat4.rotate(itemMv, attach.posY, 0, 1, 0);
+                Mat4.rotate(itemMv, attach.posX * 0.35f, 1, 0, 0);
+            }
         } else {
             attach.preRender(0.0625f);
+            if (wantGlow) {
+                // ModelPart.preRender's transform, followed in Java: no glGet per item.
+                Mat4.translate(itemMv, attach.pivotX * 0.0625f, attach.pivotY * 0.0625f, attach.pivotZ * 0.0625f);
+                Mat4.rotate(itemMv, attach.posZ, 0, 0, 1);
+                Mat4.rotate(itemMv, attach.posY, 0, 1, 0);
+                Mat4.rotate(itemMv, attach.posX, 1, 0, 0);
+            }
         }
         GlStateManager.scale(0.0625f, 0.0625f, 0.0625f);
+        if (wantGlow) {
+            Mat4.scale(itemMv, 0.0625f, 0.0625f, 0.0625f);
+        }
         if (helmet && m.helmetFit) {
             // Clear a helmet: grow about the head's centre by the armour layer's inflation.
             GlStateManager.translate(0, -4, 0);
             GlStateManager.scale(1.12f, 1.12f, 1.12f);
             GlStateManager.translate(0, 4, 0);
+            if (wantGlow) {
+                Mat4.translate(itemMv, 0, -4, 0);
+                Mat4.scale(itemMv, 1.12f, 1.12f, 1.12f);
+                Mat4.translate(itemMv, 0, 4, 0);
+            }
         } else if (helmet && "halo".equals(mode)) {
             GlStateManager.translate(0, -0.8f, 0);
+            if (wantGlow) {
+                Mat4.translate(itemMv, 0, -0.8f, 0);
+            }
         }
         int frame = tex.frame(time);
         GlStateManager.bindTexture(tex.glId);
@@ -440,8 +505,8 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         ModelDraw.draw(m, pose);
         Gl.resetFrame(tex.frames);
 
-        if (CosmeticAssets.has(id, "tint.png")) {
-            CosmeticAssets.Tex tm = CosmeticAssets.texture(id, "tint.png", m.frames, m.fps);
+        {
+            CosmeticAssets.Tex tm = bundle.tint();
             if (tm != null) {
                 int rgb = tint >= 0 ? tint : defaultTint(id);
                 GlStateManager.enableBlend();
@@ -456,8 +521,8 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 GlStateManager.disableBlend();
             }
         }
-        if (CosmeticAssets.has(id, "emissive.png")) {
-            CosmeticAssets.Tex em = CosmeticAssets.texture(id, "emissive.png", m.frames, m.fps);
+        {
+            CosmeticAssets.Tex em = bundle.emissive();
             if (em != null) {
                 emissiveBegin();
                 GlStateManager.bindTexture(em.glId);
@@ -467,9 +532,8 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 emissiveEnd(light);
             }
         }
-        if (glowK > 0 && m.glow.length > 0) {
-            // The modelview here already carries the attachment; read it once for this item.
-            ModelDraw.glow(m, pose, Gl.modelview(itemMv), glow, glowK, scratch);
+        if (wantGlow) {
+            ModelDraw.glow(m, pose, itemMv, glow, glowK, scratch);
         }
         GlStateManager.popMatrix();
     }

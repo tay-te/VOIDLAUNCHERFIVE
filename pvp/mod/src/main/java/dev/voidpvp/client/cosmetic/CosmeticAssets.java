@@ -210,8 +210,71 @@ public final class CosmeticAssets {
         });
     }
 
+    /**
+     * Everything one item draws with, resolved once: the renderer asks for this per item per
+     * frame, so it must cost a map lookup and nothing else (no key strings, no probes).
+     * Descriptors resolve on creation; textures upload on first use, on the render thread.
+     */
+    public static final class Bundle {
+        public final String id;
+        public final CosmeticModel model;
+        public final CapeStyle cape;
+        private final int frames;
+        private final float fps;
+        private boolean uploaded;
+        private Tex albedo, tint, emissive;
+
+        Bundle(String id) {
+            this.id = id;
+            this.model = has(id, "model.json") ? model(id) : null;
+            this.cape = has(id, "cape.json") ? cape(id) : null;
+            this.frames = model != null ? model.frames : cape != null ? cape.frames : 1;
+            this.fps = model != null ? model.fps : cape != null ? cape.fps : 0;
+        }
+
+        private void upload() {
+            if (uploaded) {
+                return;
+            }
+            uploaded = true;
+            albedo = texture(id, "texture.png", frames, fps);
+            tint = has(id, "tint.png") ? texture(id, "tint.png", frames, fps) : null;
+            emissive = has(id, "emissive.png") ? texture(id, "emissive.png", frames, fps) : null;
+        }
+
+        public Tex albedo() {
+            upload();
+            return albedo;
+        }
+
+        /** The tint mask, or null when the item has none. */
+        public Tex tint() {
+            upload();
+            return tint;
+        }
+
+        /** The emissive layer, or null when nothing on the item glows. */
+        public Tex emissive() {
+            upload();
+            return emissive;
+        }
+    }
+
+    private static final Map<String, Bundle> BUNDLES = new java.util.HashMap<String, Bundle>();
+
+    /** The bundle for an id. Render thread only. */
+    public static Bundle bundle(String id) {
+        Bundle b = BUNDLES.get(id);
+        if (b == null) {
+            b = new Bundle(id);
+            BUNDLES.put(id, b);
+        }
+        return b;
+    }
+
     /** Forgets everything (dev reload). GL textures are leaked deliberately: a dev path only. */
     public static void clear() {
         CACHE.clear();
+        BUNDLES.clear();
     }
 }

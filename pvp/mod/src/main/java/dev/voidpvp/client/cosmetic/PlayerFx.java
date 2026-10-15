@@ -17,6 +17,8 @@ final class PlayerFx {
     Cloth cloth;
     String clothFor;
     boolean clothHi;
+    float clothCarry;
+    int clothFrame;
     double[] ax = new double[CapeRenderer.HI_COLS + 1];
     double[] ay = new double[CapeRenderer.HI_COLS + 1];
     double[] az = new double[CapeRenderer.HI_COLS + 1];
@@ -45,9 +47,15 @@ final class PlayerFx {
     // ---- poses, one per slot model, reused
     CosmeticModel.Pose[] poses = new CosmeticModel.Pose[5];
 
-    PlayerFx(int entityId, String uuid) {
+    /** The player's uuid, as the entity has it and as the cosmetic state keys it. */
+    final java.util.UUID uuidOf;
+    final String uuid;
+
+    PlayerFx(int entityId, java.util.UUID uuid) {
         this.entityId = entityId;
-        this.phase = (uuid == null ? entityId : uuid.hashCode()) % 1000 / 97f;
+        this.uuidOf = uuid;
+        this.uuid = EquippedSet.normalise(String.valueOf(uuid));
+        this.phase = Math.abs(this.uuid.hashCode() % 1000) / 97f;
     }
 
     CosmeticModel.Pose pose(int slot, CosmeticModel m) {

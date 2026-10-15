@@ -227,7 +227,7 @@ public final class Trails {
         if (live == 0) {
             return;
         }
-        Gl.modelview(MV);
+        Gl.view(MV);
         // Camera right and up in world space: the rows of the modelview's rotation.
         float rx = MV[0], ry = MV[4], rz = MV[8];
         float ux = MV[1], uy = MV[5], uz = MV[9];

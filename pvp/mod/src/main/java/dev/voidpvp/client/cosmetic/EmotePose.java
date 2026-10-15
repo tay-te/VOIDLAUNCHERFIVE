@@ -32,6 +32,59 @@ public final class EmotePose {
         return e instanceof PlayerEntity ? EquippedSet.normalise(String.valueOf(e.getUuid())) : null;
     }
 
+    /**
+     * The pose each model had before an emote touched it. The two player models are shared by
+     * every player drawn with them, and vanilla's {@code setAngles} does not reset every field an
+     * emote writes (the head's pivot z and roll, the torso's pivot): without this, one player's
+     * bow would leave the next player drawn that frame with a displaced head, and repeated frames
+     * would walk it away entirely.
+     */
+    private static final java.util.Map<PlayerEntityModel, float[]> SAVED =
+            new java.util.IdentityHashMap<PlayerEntityModel, float[]>();
+
+    /** The head of {@code setAngles}: undoes the previous emote's writes before vanilla poses. */
+    public static void restore(PlayerEntityModel model) {
+        float[] s = SAVED.remove(model);
+        if (s == null) {
+            return;
+        }
+        ModelPart[] parts = parts(model);
+        for (int i = 0; i < parts.length; i++) {
+            ModelPart p = parts[i];
+            int k = i * 6;
+            p.pivotX = s[k];
+            p.pivotY = s[k + 1];
+            p.pivotZ = s[k + 2];
+            p.posX = s[k + 3];
+            p.posY = s[k + 4];
+            p.posZ = s[k + 5];
+        }
+    }
+
+    private static ModelPart[] parts(PlayerEntityModel m) {
+        return new ModelPart[] {m.head, m.hat, m.body, m.jacket, m.rightArm, m.rightSleeve, m.leftArm,
+                m.leftSleeve, m.rightLeg, m.rightPants, m.leftLeg, m.leftPants};
+    }
+
+    private static void save(PlayerEntityModel model) {
+        if (SAVED.containsKey(model)) {
+            return;
+        }
+        ModelPart[] parts = parts(model);
+        float[] s = new float[parts.length * 6];
+        for (int i = 0; i < parts.length; i++) {
+            ModelPart p = parts[i];
+            int k = i * 6;
+            s[k] = p.pivotX;
+            s[k + 1] = p.pivotY;
+            s[k + 2] = p.pivotZ;
+            s[k + 3] = p.posX;
+            s[k + 4] = p.posY;
+            s[k + 5] = p.posZ;
+        }
+        SAVED.put(model, s);
+    }
+
     /** The tail of {@code setAngles}. */
     public static void apply(PlayerEntityModel model, Entity entity) {
         String uuid = uuid(entity);
@@ -48,6 +101,7 @@ public final class EmotePose {
             return;
         }
         float t = a.clip.clipTime(a.time(now));
+        save(model);
         BiPedModel m = model;
         part(a.clip, EmoteClip.HEAD, m.head, t, w);
         part(a.clip, EmoteClip.BODY, m.body, t, w);

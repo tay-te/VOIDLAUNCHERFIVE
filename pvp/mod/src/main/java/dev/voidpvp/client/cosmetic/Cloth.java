@@ -316,7 +316,9 @@ public final class Cloth {
                 y[b] -= dy * diff * wb;
                 z[b] -= dz * diff * wb;
             }
-            if (collider != null) {
+            // The body collider runs on the last pass and the middle one: often enough that a
+            // sheet pulled against the back stays outside it, a fraction of the cost of every pass.
+            if (collider != null && (it == iterations - 1 || it == iterations / 2)) {
                 for (int i = w; i < n; i++) {
                     collider.collide(x, y, z, i);
                 }

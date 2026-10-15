@@ -13,6 +13,8 @@ public final class Budget {
     public static final long TARGET_NANOS = 500_000L;
 
     private static long frameNanos;
+    private static long clothNanos;
+    private static double clothAverage;
     private static double averageNanos;
     private static float quality = 1f;
     private static long lastReport;
@@ -24,9 +26,16 @@ public final class Budget {
         frameNanos += nanos;
     }
 
+    /** The part of the frame spent stepping cloth (already inside {@link #add}). */
+    static void cloth(long nanos) {
+        clothNanos += nanos;
+    }
+
     /** Once per rendered frame. */
     public static void endFrame() {
         averageNanos = averageNanos * 0.95 + frameNanos * 0.05;
+        clothAverage = clothAverage * 0.95 + clothNanos * 0.05;
+        clothNanos = 0;
         if (averageNanos > TARGET_NANOS) {
             quality = Math.max(0.35f, quality - 0.01f);
         } else if (averageNanos < TARGET_NANOS * 0.6) {
@@ -51,7 +60,9 @@ public final class Budget {
             return null;
         }
         lastReport = now;
-        return String.format(java.util.Locale.ROOT, "cosmetics: %.0f us/frame avg, quality %.2f, %d trail particles",
-                averageMicros(), quality, Trails.live());
+        return String.format(java.util.Locale.ROOT,
+                "cosmetics: %.0f us/frame avg (cloth %.0f), quality %.2f, %d trail particles, %d fps",
+                averageMicros(), clothAverage / 1000.0, quality, Trails.live(),
+                net.minecraft.client.MinecraftClient.getCurrentFps());
     }
 }

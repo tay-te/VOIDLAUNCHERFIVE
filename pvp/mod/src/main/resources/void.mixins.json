@@ -24,6 +24,7 @@
     "MinecraftClientMixin",
     "ScreenMixin",
     "StuckArrowsFeatureRendererMixin",
+    "CameraAccessor",
     "CapeFeatureRendererMixin",
     "CosmeticsGameRendererMixin",
     "CosmeticsHooksMixin",

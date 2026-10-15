@@ -3,21 +3,18 @@ package dev.voidpvp.client.cosmetic;
 import com.mojang.blaze3d.platform.GLX;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.client.texture.NativeImageBackedTexture;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.image.BufferedImage;
-import java.nio.FloatBuffer;
 
 /**
  * The few GL operations the cosmetics share: uploading a texture, picking an animation frame
  * through the texture matrix (so a display list compiled once serves every frame), full-bright
- * lightmap for emissive layers, the bloom sprite, and reading the modelview matrix for
+ * lightmap for emissive layers, the bloom sprite, and the camera view matrix for
  * billboards.
  */
 final class Gl {
 
-    private static final FloatBuffer MATRIX = BufferUtils.createFloatBuffer(16);
     private static int bloomTex = -1;
 
     private Gl() {
@@ -89,13 +86,16 @@ final class Gl {
     }
 
     /**
-     * The current modelview matrix, column-major. One {@code glGet} per call: used once per
-     * player that has glow, never per sprite.
+     * The world's view matrix this frame, column-major: {@code Camera.MODEL_MATRIX}, which the game
+     * read back itself when it set the camera up. Free, where a {@code glGetFloat} per player is a
+     * pipeline sync on a threaded driver; valid for the whole world pass, where entities and particles are drawn relative to the camera.
      */
-    static float[] modelview(float[] out) {
-        MATRIX.clear();
-        GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, MATRIX);
-        MATRIX.get(out, 0, 16);
+    static float[] view(float[] out) {
+        java.nio.FloatBuffer b = dev.voidpvp.client.mixin.CameraAccessor.void$modelMatrix();
+        for (int i = 0; i < 16; i++) {
+            out[i] = b.get(i);
+        }
         return out;
     }
+
 }

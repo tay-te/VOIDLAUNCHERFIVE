@@ -190,7 +190,7 @@ export function paintCapes(save) {
     const alb = new Canvas(W, H * F);
     const emi = new Canvas(W, H * F);
     // Dusk to dark: mauve, violet, near-black, with a thin warm line where the sun went down.
-    const STOPS = [[0, '#7a6a84'], [0.3, '#56496a'], [0.55, '#2e2740'], [1, '#14111c']];
+    const STOPS = [[0, '#a08fb0'], [0.3, '#76659a'], [0.58, '#433a62'], [1, '#1f1a2e']];
     const at = (t) => {
       for (let i = 1; i < STOPS.length; i++) {
         if (t <= STOPS[i][0]) {
