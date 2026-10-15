@@ -9,7 +9,7 @@ cross-directory need is expressed by reading a schema here.
 |---|---|---|---|
 | `mods.json` | **Generated** (`build.mjs`). The closed registry of every mod VOID ships (the 12 of §3, the VOID watermark, and the readouts added since): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
 | `loadout.json` | The loadout model (§8): mod state + anchor-based HUD layout + stats | `core` | everyone |
-| `protocol.json` | Every Rust ⇄ Java WS message (§7), a `oneOf` on `t` — 6 Java→Rust, 3 Rust→Java | `core` | `core`, `mod` |
+| `protocol.json` | Every Rust ⇄ Java WS message (§7), a `oneOf` on `t` — 10 Java→Rust, 5 Rust→Java (`emote` goes both ways) | `core` | `core`, `mod` |
 | `bridge.json` | The `window.void` surface (§6.5): 9 events Java→JS, 8 calls JS→Java | `core` | `mod`, `ingame`, `ui` |
 
 `mods.json` is the root: `loadout.json` `$ref`s its mod ids and settings, and both
@@ -151,6 +151,27 @@ one validatable schema, and because it is exactly the recording format the brows
 ## Contract changes
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
+
+### 2026-10-15 — cosmetics and emotes cross the bridge
+
+`protocol.json` `v` unchanged (additive: both sides ignore an unknown `t`).
+
+The launch contract (`docs/online-contract.md`) puts cosmetics and emotes online, and the mod
+never talks HTTP: Rust owns network and auth. So three messages go up and two come down:
+
+- Java → Rust: `cosmetics_query {uuids}` (players the mod sees), `emote {id}` (the local player
+  emoted), `equip {slot, id|null}` (the in-game wardrobe, already applied locally).
+- Rust → Java: `cosmetics {self, players}` (`self` the local set or null; `players` a delta of
+  other VOID players' sets) and `emote {uuid, id, at}` (someone else on this server emoted).
+
+New shared definitions: `equipped_set`, `cosmetic_slot` (`cape back head face halo trail badge`;
+emotes are not a slot), `cosmetic_id` (kebab-case) and `mc_uuid`. `emote` is the one `t` both
+directions use, as the contract names it: the local one has no `uuid` (the schema says so with a
+`not`, so the top-level `oneOf` stays unambiguous) and the relay always has one.
+
+Followed by: `void_bridge::{EquippedSet, Slot}` and the five variants on `JavaToRust` /
+`RustToJava`; `tests/protocol_roundtrip.rs` routes `emote` by the presence of `uuid`;
+`@void/protocol` regenerated. The mod's side is the cosmetics workstream's.
 
 ### 2026-10-03 — `session.ping_avg`, for Home's *Last session*
 
