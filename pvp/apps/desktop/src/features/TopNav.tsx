@@ -27,8 +27,12 @@ import { SCREENS, SCREEN_LABELS, isSoon, tabFor, useUi } from '../stores/ui';
 
 function ProfileChip() {
   const account = useSession((s) => s.account);
+  const accounts = useSession((s) => s.accounts);
   const logout = useSession((s) => s.logout);
+  const switchAccount = useSession((s) => s.switchAccount);
+  const phase = useLaunch((s) => s.phase);
   const openSettings = useUi((s) => s.openSettings);
+  const others = accounts.filter((a) => a.uuid !== account?.uuid);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -71,6 +75,22 @@ function ProfileChip() {
               </span>
             </div>
           ) : null}
+          {/* The other signed-in accounts, one click to switch; adding one is Settings. */}
+          {others.map((other) => (
+            <button
+              key={other.uuid}
+              type="button"
+              role="menuitem"
+              className="popmenu__item"
+              disabled={phase !== 'idle'}
+              onClick={() => {
+                setOpen(false);
+                void switchAccount(other.uuid);
+              }}
+            >
+              Switch to {other.name}
+            </button>
+          ))}
           <button
             type="button"
             role="menuitem"

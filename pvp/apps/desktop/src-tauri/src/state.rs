@@ -11,6 +11,7 @@ use void_loadout::Store;
 
 use crate::adapters::game::GameState;
 use crate::error::Error;
+use crate::presence::Presence;
 
 pub struct AppState {
     /// Where `void-core` keeps the installation: `$VOID_PVP_HOME` or `~/.void-pvp`.
@@ -23,6 +24,9 @@ pub struct AppState {
     /// The signed-in session, with its access token. Never crosses to the webview.
     pub session: Mutex<Option<Session>>,
     pub game: Arc<Mutex<GameState>>,
+    /// Discord Rich Presence. Disabled here; `lib.rs` starts the real one, so tests and
+    /// the CLI-less command layer never open a Discord socket.
+    pub presence: Presence,
 }
 
 impl AppState {
@@ -40,6 +44,7 @@ impl AppState {
                 .unwrap_or_default(),
             session: Mutex::new(None),
             game: Arc::new(Mutex::new(GameState::default())),
+            presence: Presence::disabled(),
         })
     }
 
@@ -51,6 +56,12 @@ impl AppState {
     /// how a launcher ends up spawning with the RAM the player just changed away from.
     pub fn config(&self) -> Result<Config, Error> {
         Config::load(&self.paths).map_err(Error::from)
+    }
+
+    /// The installation's paths with the configured game directory applied — what a
+    /// launch, the mods folder and the game's logs use.
+    pub fn game_paths(&self) -> Result<Paths, Error> {
+        Ok(self.config()?.paths_for(&self.paths))
     }
 }
 

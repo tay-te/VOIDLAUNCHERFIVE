@@ -22,6 +22,7 @@ import { FriendsDrawer } from './features/FriendsDrawer';
 import { LaunchError, LogDrawer } from './features/LogDrawer';
 import { PlayBar } from './features/PlayBar';
 import { TopNav } from './features/TopNav';
+import { UpdatePrompt, wireUpdateEvents } from './features/UpdatePrompt';
 import { IS_TAURI } from './local/tauri';
 import { ComingSoonScreen } from './screens/ComingSoon';
 import { HomeScreen, WHATS_NEW } from './screens/Home';
@@ -104,7 +105,12 @@ export function App() {
   useEffect(() => {
     // One subscription set for the whole app. Every store's events are wired here so
     // that a screen mounting or unmounting can never drop a `game:closed`.
-    const pending = Promise.all([wireSessionEvents(), wireLoadoutEvents(), wireLaunchEvents()]);
+    const pending = Promise.all([
+      wireSessionEvents(),
+      wireLoadoutEvents(),
+      wireLaunchEvents(),
+      wireUpdateEvents(),
+    ]);
     return () => {
       void pending.then((unlisteners) => unlisteners.forEach((u) => u()));
     };
@@ -138,6 +144,7 @@ export function App() {
       </div>
 
       <div className="banners">
+        <UpdatePrompt />
         <LaunchError />
         {!IS_TAURI ? (
           <div className="banner banner--preview" role="status">

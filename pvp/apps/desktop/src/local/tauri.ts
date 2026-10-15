@@ -17,26 +17,33 @@ import { listen as rawListen } from '@tauri-apps/api/event';
 
 import type {
   Account,
+  AccountList,
   DeviceCode,
   JavaStatus,
   LaunchReport,
   Loadout,
   LoadoutPatch,
   LoadoutSummary,
+  OpenTarget,
   PingResult,
   PrepareReport,
   Settings,
   SettingsPatch,
   SystemInfo,
   UpdateInfo,
+  UpdateProgress,
 } from './protocol';
 
 /** Every command, its argument object and its return type. */
 export interface Cmd {
   auth_login: [Record<string, never>, DeviceCode];
-  auth_logout: [Record<string, never>, void];
+  /** Signs the active account out; resolves to the account active afterwards. */
+  auth_logout: [Record<string, never>, Account | null];
   auth_current: [Record<string, never>, Account | null];
   auth_offline: [{ name: string }, Account];
+  auth_accounts: [Record<string, never>, AccountList];
+  auth_switch: [{ uuid: string }, Account];
+  auth_remove: [{ uuid: string }, AccountList];
 
   prepare: [{ loadoutId: string }, PrepareReport];
   /** `server` is the play bar's choice; `null` launches to the title screen. */
@@ -59,7 +66,11 @@ export interface Cmd {
   java_status: [Record<string, never>, JavaStatus];
   server_ping: [{ host: string }, PingResult];
   open_data_dir: [Record<string, never>, string];
+  /** Reveals one of a closed set of places; `path` names a crash report. */
+  open_path: [{ which: OpenTarget; path?: string }, string];
   updater_check: [Record<string, never>, UpdateInfo];
+  /** Downloads, verifies and installs the pending update, then relaunches. */
+  updater_install: [Record<string, never>, void];
 
   window_minimize: [Record<string, never>, void];
   window_toggle_maximize: [Record<string, never>, void];
@@ -91,6 +102,7 @@ export interface Evt {
   'bridge:server': import('./protocol').BridgeServer;
   'loadout:switched': Loadout;
   'update:available': UpdateInfo;
+  'update:progress': UpdateProgress;
 }
 
 export type EvtName = keyof Evt;

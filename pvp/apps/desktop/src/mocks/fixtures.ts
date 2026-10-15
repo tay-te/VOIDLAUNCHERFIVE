@@ -100,10 +100,17 @@ export const MOCK_SETTINGS: Settings = {
   hud_editor_grid: 4,
   hide_to_tray_on_launch: true,
   update_channel: 'stable',
+  discord_rpc: true,
   java_auto: true,
   java_path: null,
   // `void_core::DEFAULT_MAX_MEMORY_MB` — two gigabytes is what every PVP client ships.
   ram_mb: 2048,
+  jvm_args: '',
+  game_width: null,
+  game_height: null,
+  fullscreen: false,
+  game_dir: null,
+  game_dir_effective: '~/.void-pvp/game',
   mod_jar: null,
   active_loadout: 'sword-pvp',
 };
