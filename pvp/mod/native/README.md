@@ -377,13 +377,17 @@ headers we compile. If a future SDK exports the C entry point, delete that file.
 It resolves every family the page names. Ultralight never fetches an `@font-face` itself — the
 declaration only says *which family* to ask for, and the ask arrives here — so the `kFaces` table in
 that file is what decides the typeface on screen. It carries the design's own faces, published from
-`src/main/resources/assets/void/fonts/` by `build.gradle`: **Outfit at 300, 400 and 500, and nothing
-else** (`design/quiet-cell-system.md` §2). Anything not in the table falls back to Inter.
+`src/main/resources/assets/void/fonts/` by `build.gradle`: **Geist at 400/500/600/700 and Geist Mono
+at 400/500/600** (the Cartridge UI; cut by `packages/ingame/scripts/fetch-geist.mjs`), plus **Outfit
+at 300/400/500**, kept as the fallback face (`design/quiet-cell-system.md` §2). The family arrives as
+one CSS font-family entry, quotes stripped, and is compared lower-cased (`'Geist Mono'` → `geist
+mono`). Anything not in the table falls back to Inter, as does any glyph a face lacks (Geist has no
+⌃ ⌘ ⌥ ◆ ★ ♥ ✓ ✕).
 
 **Consequence, deliberate:** system fonts are not reachable from the page — `font-family: Arial`
 gets Inter. That is what we want anyway: one design, identical on every machine. **The trap:** a
 family missing from `kFaces` does not error, it silently comes out as Inter, so each served face is
-logged once (`font_load: 'outfit' weight 400 -> …`) and a missing line is the symptom.
+logged once (`font_load: 'geist' weight 400 -> …`) and a missing line is the symptom.
 
 ---
 

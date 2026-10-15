@@ -65,12 +65,30 @@ import java.util.concurrent.Future;
  * <h2>The tour ({@code shots})</h2>
  * <p>The same scene, then a fixed list of poses and settings, one screenshot each into
  * {@code run/screenshots/}, each visual mod shown off and on.</p>
+ *
+ * <h2>The UI tour ({@code ui})</h2>
+ * <p>A small scene instead of the town — an open field with a helmeted zombie to aim at, a
+ * netherrack/lava/glowstone room and a glass-walled pool — and a survival player in full diamond
+ * with a sword and potion effects, so the HUD has real values to show. Then {@link #UI_TOUR}: the
+ * HUD by day, by night, in the "nether" room and under water, and the menu screens, each saved as
+ * {@code run/screenshots/void-ui-<name>.png}. The menu is opened the way Right Shift opens it
+ * ({@code mc.setScreen(new VoidMenuScreen(..))}, as {@code VoidClient.pollHotkeys} does) and
+ * steered to a state through the page's dev hook {@code window.__voidDev.go(step)}, called by
+ * {@link dev.voidpvp.client.ui.UiHost#devEval}; the hook's answer is logged as
+ * {@code ui dev-eval <shot>: ...}.</p>
+ *
+ * <p>Both tours honour {@code -Dvoid.bench.only=a,b,c} ({@code -PvoidBenchOnly}), which keeps
+ * only the named shots, and the window size comes from {@code -PvoidWidth/-PvoidHeight}.</p>
  */
 public final class PerfBench {
 
     private static final String MODE = System.getProperty("void.bench", "");
     private static final boolean ENABLED = !MODE.isEmpty();
     private static final boolean SHOTS = "shots".equals(MODE);
+    /** The in-game UI tour: HUD and menu screenshots, see {@link #UI_TOUR}. */
+    private static final boolean UI = "ui".equals(MODE);
+    /** {@code -Dvoid.bench.only}: comma list of shot names to keep; empty keeps the whole tour. */
+    private static final String ONLY = System.getProperty("void.bench.only", "").trim();
     private static final int PHASE_SECONDS = Integer.getInteger("void.bench.seconds", 15);
     /** Off/on pairs measured after the warm-up. */
     private static final int ROUNDS = Math.max(1, Integer.getInteger("void.bench.rounds", 4));
@@ -158,7 +176,11 @@ public final class PerfBench {
                 pending = server.submit(new Runnable() {
                     @Override
                     public void run() {
-                        buildTown(server.getWorld(0));
+                        if (UI) {
+                            buildUiScene(server);
+                        } else {
+                            buildTown(server.getWorld(0));
+                        }
                     }
                 });
                 state = 2;
@@ -168,14 +190,22 @@ public final class PerfBench {
                 if (!pending.isDone()) {
                     return;
                 }
-                mc.player.abilities.flying = true;
-                mc.player.noClip = true;
+                if (!UI) {
+                    mc.player.abilities.flying = true;
+                    mc.player.noClip = true;
+                }
                 if (++waitTicks < 200) {
                     return;
                 }
                 VoidLog.info("bench: scene ready (" + mc.world.entities.size() + " entities, "
                         + mc.world.blockEntities.size() + " block entities)");
-                state = SHOTS ? 10 : 3;
+                if (SHOTS || UI) {
+                    tour = filter(UI ? UI_TOUR : TOUR);
+                    VoidLog.info("bench: " + MODE + " tour, " + tour.size() + " shots at "
+                            + mc.width + "x" + mc.height
+                            + (ONLY.isEmpty() ? "" : " (only " + ONLY + ")"));
+                }
+                state = (SHOTS || UI) ? 10 : 3;
                 phase = -1;
                 return;
             case 3: // the fps run is driven per frame; ticks only watch for the end
@@ -467,6 +497,11 @@ public final class PerfBench {
         final float yaw;
         final float pitch;
         final int settle;
+        /**
+         * UI tour only: the {@code window.__voidDev.go(step)} argument, sent {@link #GO_AT} ticks
+         * into the settle (so a menu opened by {@link #setup} has mounted first), or null.
+         */
+        String go;
 
         Shot(String name, double x, double z, float yaw, float pitch, int settle) {
             this.name = name;
@@ -478,7 +513,25 @@ public final class PerfBench {
         }
 
         abstract void setup(MinecraftClient mc);
+
+        /** UI tour only: open the menu (as Right Shift does) {@link #MENU_AT} ticks in. */
+        boolean menu;
+
+        Shot go(String step) {
+            this.go = step;
+            return this;
+        }
+
+        Shot menu() {
+            this.menu = true;
+            return this;
+        }
     }
+
+    /** Ticks into a menu shot at which the menu is opened. */
+    private static final int MENU_AT = 6;
+    /** Ticks into a shot's settle at which its {@code go(step)} is sent (a second after MENU_AT). */
+    private static final int GO_AT = 26;
 
     private static void mod(String id, boolean on) {
         if (dev.voidpvp.client.state.ModRegistry.isHud(id)) {
@@ -692,32 +745,72 @@ public final class PerfBench {
         });
     }
 
+    /** The tour being run, after {@code -Dvoid.bench.only}. Set when the scene is ready. */
+    private static List<Shot> tour = TOUR;
+
+    private static List<Shot> filter(List<Shot> all) {
+        if (ONLY.isEmpty()) {
+            return all;
+        }
+        java.util.Set<String> keep = new java.util.LinkedHashSet<String>();
+        for (String name : ONLY.split(",")) {
+            if (!name.trim().isEmpty()) {
+                keep.add(name.trim());
+            }
+        }
+        List<Shot> out = new ArrayList<Shot>();
+        for (Shot s : all) {
+            if (keep.remove(s.name)) {
+                out.add(s);
+            }
+        }
+        if (!keep.isEmpty()) {
+            VoidLog.warn("bench: -Dvoid.bench.only names no shot called " + keep);
+        }
+        return out;
+    }
+
     private static void shotTick(MinecraftClient mc) {
-        if (shot >= TOUR.size()) {
-            VoidLog.info("bench: tour done, " + TOUR.size() + " screenshots in "
+        if (shot >= tour.size()) {
+            VoidLog.info("bench: tour done, " + tour.size() + " screenshots in "
                     + new File(mc.runDirectory, "screenshots"));
             state = 99;
             mc.scheduleStop();
             return;
         }
-        Shot s = TOUR.get(shot);
+        Shot s = tour.get(shot);
         if (shotWait == 0) {
             VoidLog.info("bench: shot " + s.name);
             s.setup(mc);
             pushLoadout();
         }
+        if (s.menu && shotWait == MENU_AT) {
+            openMenu(mc);
+        }
+        if (s.go != null && shotWait == GO_AT) {
+            devGo(s.name, s.go);
+        }
         shotWait++;
     }
 
     private static void shotFrame(MinecraftClient mc) {
-        if (shot >= TOUR.size()) {
+        if (shot >= tour.size()) {
             return;
         }
-        Shot s = TOUR.get(shot);
+        Shot s = tour.get(shot);
         pose(mc, s.x, FLOOR, s.z, s.yaw, s.pitch);
+        if (UI) {
+            // The vanilla "Press E to open your inventory" tutorial toast would sit over the HUD.
+            mc.notification.reset();
+        }
         if (shotWait > s.settle) {
-            ScreenshotUtils.saveScreenshot(mc.runDirectory, "void-" + s.name + ".png", mc.width,
-                    mc.height, mc.getFramebuffer());
+            if (UI && mc.player != null) {
+                VoidLog.info("bench: " + s.name + " — player has "
+                        + mc.player.getStatusEffectInstances().size() + " status effects, screen "
+                        + (mc.currentScreen == null ? "none" : mc.currentScreen.getClass().getSimpleName()));
+            }
+            ScreenshotUtils.saveScreenshot(mc.runDirectory, (UI ? "void-ui-" : "void-") + s.name
+                    + ".png", mc.width, mc.height, mc.getFramebuffer());
             shot++;
             shotWait = 0;
         }
@@ -779,5 +872,308 @@ public final class PerfBench {
                 w.getLevelProperties().setClearWeatherTime(rainyNight ? 0 : 100000);
             }
         });
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // ui (the in-game UI tour)
+    // ---------------------------------------------------------------------------------------
+
+    /** Where the poses stand: the field, the netherrack room and the pool, all at y = FLOOR. */
+    private static final double FIELD_X = 0.5;
+    private static final double ROOM_X = 30.5;
+    private static final double POOL_X = -30.5;
+    /** Looking north (-z) at the target 4 blocks ahead, pitched down a little: ground and sky. */
+    private static final float UI_YAW = 180f;
+    private static final float UI_PITCH = 8f;
+
+    /** Status effect ids (1.8.9): speed, strength, regeneration, fire resistance, water breathing. */
+    private static final int FX_SPEED = 1;
+    private static final int STRENGTH = 5;
+    private static final int REGENERATION = 10;
+    private static final int FIRE_RESISTANCE = 12;
+    private static final int WATER_BREATHING = 13;
+    /** "Long": 8 minutes, so the chip reads like a real brewed potion. */
+    private static final int LONG = 8 * 60 * 20;
+
+    /** The HUD mods every hud-* shot turns on. */
+    private static final String[] HUD_MODS = {"fps", "cps", "ping", "keystrokes", "armor_status",
+        "potion_effects", "combo", "reach", "scoreboard"};
+
+    private static final List<Shot> UI_TOUR = new ArrayList<Shot>();
+
+    static {
+        // Settle: long enough for the server's inventory/effect sync, the HUD sensors' cadence and
+        // the page's repaint. Menu shots also wait out the open animation and the go() step.
+        UI_TOUR.add(new Shot("hud-day", FIELD_X, 0.5, UI_YAW, UI_PITCH, 80) {
+            void setup(MinecraftClient mc) {
+                hud(mc, 6000, 60, new int[][] {{FX_SPEED, LONG, 1}, {STRENGTH, LONG, 0}});
+            }
+        });
+        UI_TOUR.add(new Shot("hud-night", FIELD_X, 0.5, UI_YAW, UI_PITCH, 80) {
+            void setup(MinecraftClient mc) {
+                // ~7 s of Regeneration II left at the moment of the screenshot.
+                hud(mc, 18000, 405, new int[][] {{FX_SPEED, LONG, 1}, {STRENGTH, LONG, 0},
+                    {REGENERATION, 7 * 20 + 80, 1}});
+            }
+        });
+        UI_TOUR.add(new Shot("hud-nether", ROOM_X, 0.5, UI_YAW, UI_PITCH, 80) {
+            void setup(MinecraftClient mc) {
+                hud(mc, 18000, 60, new int[][] {{FIRE_RESISTANCE, LONG, 0}, {STRENGTH, LONG, 1}});
+            }
+        });
+        UI_TOUR.add(new Shot("hud-water", POOL_X, 0.5, UI_YAW, UI_PITCH, 80) {
+            void setup(MinecraftClient mc) {
+                hud(mc, 6000, 60, new int[][] {{WATER_BREATHING, LONG, 0}, {FX_SPEED, LONG, 0}});
+            }
+        });
+        UI_TOUR.add(new Shot("hud-toast", FIELD_X, 0.5, UI_YAW, UI_PITCH, GO_AT + 30) {
+            void setup(MinecraftClient mc) {
+                hud(mc, 6000, 60, new int[][] {{FX_SPEED, LONG, 1}, {STRENGTH, LONG, 0}});
+            }
+        }.go("toast"));
+        String[][] menu = {
+            {"menu-mods", "mods"},
+            {"menu-hover", "mods:hover=keystrokes"},
+            {"menu-search", "search:co"},
+            {"menu-pinned", "pinned"},
+            {"settings-keystrokes", "settings:keystrokes"},
+            {"settings-capture", "capture:toggle_sprint"},
+            {"keybinds", "keybinds"},
+            {"loadouts", "loadouts"},
+            {"hud-editor", "hud-editor"},
+            {"cosmetics", "cosmetics"},
+            {"emotes", "emotes"},
+        };
+        for (String[] m : menu) {
+            UI_TOUR.add(new Shot(m[0], FIELD_X, 0.5, UI_YAW, UI_PITCH, GO_AT + 50) {
+                void setup(MinecraftClient mc) {
+                    // The menu itself opens MENU_AT ticks later: it pauses the integrated server,
+                    // and the time/gear/effects queued here have to land first.
+                    hud(mc, 6000, 60, new int[][] {{FX_SPEED, LONG, 1}, {STRENGTH, LONG, 0}});
+                }
+            }.menu().go(m[1]));
+        }
+    }
+
+    /**
+     * The HUD state every ui shot starts from: the HUD mods on, the scoreboard right-centre, the
+     * menu closed, and — on the server — the time, clear weather, the gear and the effects.
+     */
+    private static void hud(final MinecraftClient mc, final int time, final int bootsDamage,
+                            final int[][] effects) {
+        dev.voidpvp.client.VoidClient client = dev.voidpvp.client.VoidClient.get();
+        if (client != null && mc.currentScreen != null) {
+            client.closeMenu();
+        }
+        if (mc.currentScreen != null) {
+            mc.closeScreen();
+        }
+        mc.options.perspective = 0;
+        mc.options.debugEnabled = false;
+        mc.options.hudHidden = false;
+        for (String id : HUD_MODS) {
+            mod(id, true);
+        }
+        LiveState.get().setHud("scoreboard", "right", -25, 0, null);
+        if (mc.player != null) {
+            mc.player.inventory.selectedSlot = 0;
+        }
+        sidebar(mc);
+        final IntegratedServer server = mc.getServer();
+        server.submit(new Runnable() {
+            @Override
+            public void run() {
+                ServerWorld w = server.getWorld(0);
+                w.setTimeOfDay(time);
+                w.getLevelProperties().setRaining(false);
+                w.getLevelProperties().setThundering(false);
+                w.getLevelProperties().setRainTime(0);
+                w.getLevelProperties().setClearWeatherTime(1000000);
+                List<?> players = server.getPlayerManager().getPlayers();
+                if (players.isEmpty()) {
+                    return;
+                }
+                net.minecraft.entity.player.ServerPlayerEntity p =
+                        (net.minecraft.entity.player.ServerPlayerEntity) players.get(0);
+                p.setGameMode(LevelInfo.GameMode.SURVIVAL);
+                p.setHealth(p.getMaxHealth());
+                ItemStack boots = new ItemStack(Items.DIAMOND_BOOTS);
+                boots.setDamage(bootsDamage);
+                p.inventory.armor[0] = boots;
+                p.inventory.armor[1] = new ItemStack(Items.DIAMOND_LEGGINGS);
+                p.inventory.armor[2] = new ItemStack(Items.DIAMOND_CHESTPLATE);
+                p.inventory.armor[3] = new ItemStack(Items.DIAMOND_HELMET);
+                // A Bedwars-ish hotbar, sword first and in hand.
+                p.inventory.main[0] = new ItemStack(Items.DIAMOND_SWORD);
+                p.inventory.main[1] = new ItemStack(Items.BOW);
+                p.inventory.main[2] = new ItemStack(Items.GOLDEN_APPLE, 6);
+                p.inventory.main[3] = new ItemStack(Items.ENDER_PEARL, 3);
+                p.inventory.main[4] = new ItemStack(Blocks.WOOL, 48, 11);
+                p.inventory.main[8] = new ItemStack(Items.ARROW, 24);
+                p.inventory.selectedSlot = 0;
+                p.clearStatusEffects();
+                for (int[] e : effects) {
+                    // Particles off: 1.8.9 draws the player's own potion swirl as big grey
+                    // squares right in front of the first-person camera.
+                    p.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(
+                            e[0], e[1], e[2], false, false));
+                }
+            }
+        });
+    }
+
+    /** Opens the menu the way Right Shift does ({@code VoidClient.pollHotkeys}), once. */
+    private static void openMenu(MinecraftClient mc) {
+        if (mc.currentScreen instanceof dev.voidpvp.client.screen.VoidMenuScreen) {
+            return;
+        }
+        mc.setScreen(new dev.voidpvp.client.screen.VoidMenuScreen(
+                dev.voidpvp.client.VoidClient.get()));
+    }
+
+    /**
+     * Steers the page with its dev hook. Until the page ships {@code window.__voidDev} the answer
+     * is the string {@code "__voidDev undefined"}, logged and otherwise ignored.
+     */
+    private static void devGo(String shotName, String step) {
+        dev.voidpvp.client.VoidClient client = dev.voidpvp.client.VoidClient.get();
+        if (client == null) {
+            return;
+        }
+        String arg = step.replace("\\", "\\\\").replace("'", "\\'");
+        client.ui().devEval(shotName, "(function(){try{if(typeof window.__voidDev==='undefined')"
+                + "return '__voidDev undefined';return 'go(" + arg + ") -> '+String("
+                + "window.__voidDev.go('" + arg + "'));}catch(e){return 'go threw '+e;}})()", null);
+    }
+
+    /** The ui tour's scene (server thread): a field, a netherrack room and a pool. */
+    private static void buildUiScene(IntegratedServer server) {
+        ServerWorld w = server.getWorld(0);
+        w.setTimeOfDay(6000);
+        w.getGameRules().setGameRule("doDaylightCycle", "false");
+        w.getGameRules().setGameRule("doMobSpawning", "false");
+        w.getGameRules().setGameRule("doWeatherCycle", "false");
+        // Hostile targets are removed on Peaceful.
+        server.setDifficulty(net.minecraft.world.Difficulty.NORMAL);
+        // The world spawn of a flat world is not at the origin, and spawnEntity silently drops an
+        // entity whose chunk is not loaded. So move the player to the field first (its chunk map
+        // then keeps the whole scene loaded at view distance 8) and load every chunk the scene
+        // touches now, before anything is spawned into it.
+        List<?> players = server.getPlayerManager().getPlayers();
+        if (!players.isEmpty()) {
+            ((net.minecraft.entity.player.ServerPlayerEntity) players.get(0)).networkHandler
+                    .requestTeleport(FIELD_X, FLOOR, 0.5, UI_YAW, UI_PITCH);
+        }
+        for (int cx = -3; cx <= 2; cx++) {
+            for (int cz = -1; cz <= 0; cz++) {
+                w.getChunk(cx, cz);
+            }
+        }
+        // The field: a target 4 blocks ahead of the pose.
+        target(w, FIELD_X, -3.5, false);
+        netherRoom(w, (int) Math.floor(ROOM_X));
+        pool(w, (int) Math.floor(POOL_X));
+        target(w, POOL_X, -3.5, false);
+        target(w, ROOM_X, -3.5, true);
+    }
+
+    /** A helmeted zombie (no burning by day) or a zombie pigman, no AI, facing the pose. */
+    private static void target(ServerWorld w, double x, double z, boolean pigman) {
+        net.minecraft.entity.mob.ZombieEntity e = pigman
+                ? new net.minecraft.entity.mob.ZombiePigmanEntity(w)
+                : new net.minecraft.entity.mob.ZombieEntity(w);
+        e.refreshPositionAndAngles(x, FLOOR, z, 0f, 0f);
+        NbtCompound tag = new NbtCompound();
+        e.saveToNbt(tag);
+        tag.putBoolean("NoAI", true);
+        tag.putBoolean("Silent", true);
+        tag.putBoolean("PersistenceRequired", true);
+        e.fromNbt(tag);
+        e.refreshPositionAndAngles(x, FLOOR, z, 0f, 0f);
+        e.headYaw = 0f;
+        e.bodyYaw = 0f;
+        e.setArmorSlot(0, new ItemStack(pigman ? Items.GOLDEN_SWORD : Items.IRON_SWORD));
+        if (!pigman) {
+            e.setArmorSlot(4, new ItemStack(Items.IRON_HELMET));
+            e.setArmorSlot(3, new ItemStack(Items.IRON_CHESTPLATE));
+        }
+        if (!w.spawnEntity(e)) {
+            VoidLog.warn("bench: could not spawn the target at " + x + ", " + z);
+        }
+    }
+
+    /**
+     * Stands in for the Nether: a netherrack room lit by glowstone with a lava channel and soul
+     * sand, so the HUD is shot against a red, dark background. (A real dimension change would
+     * have the integrated server generate the Nether and build a portal for every run.)
+     */
+    private static void netherRoom(ServerWorld w, int cx) {
+        int x0 = cx - 7;
+        int x1 = cx + 7;
+        int z0 = -11;
+        int z1 = 5;
+        int top = FLOOR + 6;
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                for (int y = FLOOR - 1; y <= top; y++) {
+                    boolean shell = x == x0 || x == x1 || z == z0 || z == z1 || y == FLOOR - 1
+                            || y == top;
+                    BlockPos pos = new BlockPos(x, y, z);
+                    if (!shell) {
+                        w.setBlockState(pos, Blocks.AIR.getDefaultState(), 2);
+                        continue;
+                    }
+                    net.minecraft.block.Block b = Blocks.NETHERRACK;
+                    if (y == top && (x - cx) % 3 == 0 && (z % 3 == 0)) {
+                        b = Blocks.GLOWSTONE;
+                    } else if (y == FLOOR - 1 && z <= -7 && z >= -9 && x > x0 + 1 && x < x1 - 1) {
+                        b = Blocks.LAVA;
+                    } else if (y == FLOOR - 1 && ((x * 7 + z * 13) & 7) == 0) {
+                        b = Blocks.SOULSAND;
+                    } else if (y > FLOOR + 1 && y < top && ((x + z * 3) % 5 == 0)) {
+                        b = Blocks.GLOWSTONE;
+                    }
+                    w.setBlockState(pos, b.getDefaultState(), 2);
+                }
+            }
+        }
+        // A lava fall down the back wall, and a couple of netherrack pillars.
+        for (int y = FLOOR; y < top; y++) {
+            w.setBlockState(new BlockPos(cx + 3, y, z0 + 1), Blocks.LAVA.getDefaultState(), 2);
+            w.setBlockState(new BlockPos(cx - 4, y, -6), Blocks.NETHERRACK.getDefaultState(), 2);
+            w.setBlockState(new BlockPos(cx + 5, y, -4), Blocks.NETHERRACK.getDefaultState(), 2);
+        }
+    }
+
+    /**
+     * A glass-walled pool, sand-floored, just deep enough that the pose's eye (FLOOR + 1.62) is
+     * under water. Shallow on purpose and lit by sea lanterns in the floor: water takes 3 levels of
+     * sky light per block, and the first cut, six deep, shot as a near-black silhouette.
+     */
+    private static void pool(ServerWorld w, int cx) {
+        int x0 = cx - 7;
+        int x1 = cx + 7;
+        int z0 = -10;
+        int z1 = 6;
+        int top = FLOOR + 2;
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                boolean wall = x == x0 || x == x1 || z == z0 || z == z1;
+                boolean lamp = !wall && Math.floorMod(x - cx, 4) == 0 && Math.floorMod(z, 4) == 0;
+                w.setBlockState(new BlockPos(x, FLOOR - 1, z), lamp
+                        ? Blocks.SEA_LANTERN.getDefaultState()
+                        : Blocks.SAND.getDefaultState(), 2);
+                for (int y = FLOOR; y <= top; y++) {
+                    w.setBlockState(new BlockPos(x, y, z), wall
+                            ? Blocks.GLASS.getDefaultState()
+                            : Blocks.WATER.getDefaultState(), 2);
+                }
+            }
+        }
+        // Something on the floor to read depth against.
+        for (int i = 0; i < 6; i++) {
+            w.setBlockState(new BlockPos(cx - 4 + i * 2, FLOOR, -6 - (i % 2)),
+                    (i % 2 == 0 ? Blocks.GRAVEL : Blocks.SANDSTONE).getDefaultState(), 2);
+        }
     }
 }

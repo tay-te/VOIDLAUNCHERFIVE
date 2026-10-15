@@ -818,6 +818,51 @@ public final class UiHost {
     }
 
     /**
+     * <b>Dev harness only</b> ({@code bench/PerfBench}'s {@code ui} tour): runs a script in the
+     * page and logs what it returned as {@code ui dev-eval <label>: <result>}. Nothing in a
+     * player's session calls this.
+     *
+     * <p>Asynchronous on purpose, so it returns nothing. {@code evaluateScript} is a view call and
+     * only the UI thread may make one (see the binding's rules above); the game thread, where the
+     * bench runs, must never wait on that thread either. So the script is queued like any input
+     * and the result is logged when the UI thread gets to it — typically within a frame. A script
+     * that arrives before the page has installed {@code window.void} is still run (the dev hook it
+     * targets may be there or not; {@code typeof} guards are the caller's job) and the view is
+     * kept painting for a short window afterwards, because the change it makes is exactly the kind
+     * the dirty flag would otherwise not see until the next render.</p>
+     *
+     * <p>{@code onResult}, when given, receives the result on the UI thread; it must only hand
+     * the string on (a volatile field, a log line) and never touch the game.</p>
+     */
+    public void devEval(final String label, final String js,
+                        final java.util.function.Consumer<String> onResult) {
+        post(new Runnable() {
+            @Override
+            public void run() {
+                String r;
+                if (!view.isAvailable()) {
+                    r = "<no view>";
+                } else {
+                    try {
+                        r = view.evaluateScript(js);
+                    } catch (Throwable t) {
+                        r = "<threw " + t + ">";
+                    }
+                    view.setNeedsPaint();
+                    long until = System.nanoTime() + CLEAR_WINDOW_NANOS;
+                    if (until > inputUntilNanos) {
+                        inputUntilNanos = until;
+                    }
+                }
+                VoidLog.info("ui dev-eval " + label + ": " + (r == null ? "null" : r.trim()));
+                if (onResult != null) {
+                    onResult.accept(r);
+                }
+            }
+        });
+    }
+
+    /**
      * Hands the view the wheel travel that arrived this frame, whole. UI thread only.
      *
      * <p><b>Do not put an easing curve here.</b> One was tried — the delta went into a budget and
