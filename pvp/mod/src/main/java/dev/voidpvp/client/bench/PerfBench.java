@@ -755,24 +755,6 @@ public final class PerfBench {
                 mc.options.debugEnabled = true;
             }
         });
-        // The VOID menu itself (Right Shift), then its Loadouts screen through the lobby pill.
-        TOUR.add(new Shot("void-menu", ax, az, 180f, 0f, 60) {
-            void setup(MinecraftClient mc) {
-                reset(mc);
-                mc.setScreen(new dev.voidpvp.client.screen.VoidMenuScreen(dev.voidpvp.client.VoidClient.get()));
-            }
-        });
-        TOUR.add(new Shot("void-loadouts", ax, az, 180f, 0f, 80) {
-            void setup(MinecraftClient mc) {
-                reset(mc);
-                mc.setScreen(new dev.voidpvp.client.screen.VoidMenuScreen(dev.voidpvp.client.VoidClient.get()));
-                // Delayed: the page resets its route when the menu (re)opens, which happens a few
-                // frames after this; a click before that would be undone.
-                dev.voidpvp.client.VoidClient.get().ui().devScript(
-                        "setTimeout(function(){var b=document.querySelector('.isl-pill--loadout');"
-                                + "if(b){b.click();}},1500);'loadouts pill click scheduled'");
-            }
-        });
     }
 
     /** The tour being run, after {@code -Dvoid.bench.only}. Set when the scene is ready. */
