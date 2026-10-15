@@ -118,6 +118,10 @@ pub async fn pump(server: BridgeServer, store: Store) {
                 HotkeyId::Overlay => tracing::debug!("the overlay was toggled in game"),
             },
 
+            // Cosmetics and emotes are online state, not loadout state: the launcher's
+            // online bridge (`void-online`) answers them, and nothing here persists them.
+            JavaToRust::CosmeticsQuery { .. } | JavaToRust::Emote { .. } | JavaToRust::Equip { .. } => {}
+
             JavaToRust::Unknown => {}
         }
     }
